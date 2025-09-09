@@ -326,7 +326,6 @@ class AdaptiveSerumEvolver(ISerumEvolver):
             )
             
             # Process results
-            logger.info(f"Processing evolution results: X={result.X}, F={result.F}")
             evolution_results = self._process_results(
                 result, problem, constraint_set, target_features, 
                 feature_weights, start_time
@@ -377,13 +376,18 @@ class AdaptiveSerumEvolver(ISerumEvolver):
         
         # Extract best individual
         best_genome = result.X
-        best_fitness = float(result.F[0])
+        # Handle both scalar and array F values
+        if hasattr(result.F, '__len__') and len(result.F.shape) > 0:
+            best_fitness = float(result.F.flatten()[0])
+        else:
+            best_fitness = float(result.F)
         best_params = problem.genome_to_parameters(best_genome)
         
         # Get final population for diversity analysis
         final_population = result.pop
         population_genomes = np.array([ind.X for ind in final_population])
-        population_fitness = np.array([ind.F[0] for ind in final_population])
+        population_fitness = np.array([float(ind.F.flatten()[0]) if hasattr(ind.F, '__len__') else float(ind.F) 
+                                     for ind in final_population])
         
         # Calculate population diversity (average pairwise distance)
         diversity_scores = []
@@ -400,8 +404,15 @@ class AdaptiveSerumEvolver(ISerumEvolver):
         generation_stats = []
         
         if hasattr(result.algorithm, 'callback') and hasattr(result.algorithm.callback, 'data'):
-            for gen_data in result.algorithm.callback.data['best']:
-                fitness_history.append(float(gen_data.F[0]))
+            try:
+                for gen_data in result.algorithm.callback.data['best']:
+                    if hasattr(gen_data.F, '__len__'):
+                        fitness_history.append(float(gen_data.F.flatten()[0]))
+                    else:
+                        fitness_history.append(float(gen_data.F))
+            except (KeyError, AttributeError):
+                # Fallback if callback structure is different
+                fitness_history = [best_fitness]
         else:
             # Fallback - create basic history
             fitness_history = [best_fitness]
@@ -442,6 +453,7 @@ class AdaptiveSerumEvolver(ISerumEvolver):
         evolution_results = {
             # Core results
             'best_individual': best_params,
+            'best_parameters': best_params,  # Alias for compatibility
             'best_fitness': best_fitness,
             'best_genome': best_genome.tolist(),
             
@@ -449,6 +461,7 @@ class AdaptiveSerumEvolver(ISerumEvolver):
             'fitness_history': fitness_history,
             'generation_stats': generation_stats,
             'population_diversity': avg_diversity,
+            'generations_run': len(fitness_history),
             
             # JSI integration
             'jsi_ranking_candidates': jsi_candidates,

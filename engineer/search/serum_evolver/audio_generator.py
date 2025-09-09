@@ -154,15 +154,22 @@ class ReaperSessionManager:
             
             # Import and use the existing REAPER execution system
             import sys
-            sys.path.append(str(reaper_cwd))
+            reaper_main_dir = Path(__file__).parent.parent / "reaper"
+            sys.path.append(str(reaper_main_dir))
             
             # Change working directory to REAPER directory
             import os
             os.chdir(reaper_cwd)
             
             try:
-                # Import the main REAPER execution function
-                from main import execute_reaper_with_session, monitor_reaper_execution
+                # Import the main REAPER execution function from the correct location
+                import importlib.util
+                spec = importlib.util.spec_from_file_location("reaper_main", reaper_main_dir / "main.py")
+                reaper_main = importlib.util.module_from_spec(spec)
+                spec.loader.exec_module(reaper_main)
+                
+                execute_reaper_with_session = reaper_main.execute_reaper_with_session
+                monitor_reaper_execution = reaper_main.monitor_reaper_execution
                 
                 # Execute REAPER session
                 self.logger.info(f"Executing REAPER session: {session_config_path.name}")
