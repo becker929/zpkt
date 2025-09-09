@@ -6,6 +6,7 @@ import logging
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import time
 from dataclasses import asdict
+import os
 
 # PyMoo imports
 from pymoo.core.problem import Problem
@@ -16,13 +17,100 @@ from pymoo.operators.sampling.rnd import FloatRandomSampling
 from pymoo.operators.selection.rnd import RandomSelection
 from pymoo.optimize import minimize
 from pymoo.termination import get_termination
+from pymoo.core.callback import Callback
 
 from .interfaces import ParameterConstraintSet, ScalarFeatures, FeatureWeights, SerumParameters
 from .parameter_manager import ISerumParameterManager
 from .audio_generator import IAudioGenerator
 from .feature_extractor import IFeatureExtractor
+from .session_manager import ExperimentSessionManager
 
 logger = logging.getLogger(__name__)
+
+
+class GenerationLogger(Callback):
+    """Callback to log generation statistics to a file for tailing."""
+    
+    def __init__(self, session_dir: Path):
+        super().__init__()
+        self.log_file = session_dir / "fitness_log.txt"
+        self.log_file.parent.mkdir(parents=True, exist_ok=True)
+        
+        # Write header
+        with open(self.log_file, 'w') as f:
+            f.write("generation,best_fitness,worst_fitness\n")
+    
+    def notify(self, algorithm):
+        """Called after each generation."""
+        try:
+            gen = algorithm.n_gen
+            pop = algorithm.pop
+            
+            # Extract fitness values from population
+            fitness_values = []
+            for ind in pop:
+                if hasattr(ind.F, '__len__') and len(ind.F.shape) > 0:
+                    fitness_values.append(float(ind.F.flatten()[0]))
+                else:
+                    fitness_values.append(float(ind.F))
+            
+            best_fitness = min(fitness_values)
+            worst_fitness = max(fitness_values)
+            
+            # Log to file
+            with open(self.log_file, 'a') as f:
+                f.write(f"{gen},{best_fitness},{worst_fitness}\n")
+                f.flush()
+            
+            logger.info(f"Generation {gen}: best={best_fitness:.4f}, worst={worst_fitness:.4f}")
+            
+        except Exception as e:
+            logger.error(f"Error logging generation statistics: {e}")
+
+
+class ArtifactManagerCallback(Callback):
+    """Callback to log fitness data to ArtifactManager for organized experiment results."""
+    
+    def __init__(self, artifact_manager):
+        super().__init__()
+        self.artifact_manager = artifact_manager
+    
+    def notify(self, algorithm):
+        """Called after each generation to log fitness data."""
+        try:
+            gen = algorithm.n_gen
+            pop = algorithm.pop
+            
+            if pop is None or len(pop) == 0:
+                logger.warning(f"Generation {gen}: No population data available")
+                return
+            
+            # Collect individual fitness data
+            individual_fitness = []
+            for i, individual in enumerate(pop):
+                if individual.F is not None and len(individual.F) > 0:
+                    fitness = float(individual.F[0])
+                    
+                    # Extract parameters from genome (X)
+                    params = {}
+                    if individual.X is not None:
+                        # Convert genome back to parameter dict using problem's constraint_set
+                        problem = algorithm.problem
+                        if hasattr(problem, 'constraint_set'):
+                            param_keys = list(problem.constraint_set.keys())
+                            for j, param_id in enumerate(param_keys):
+                                if j < len(individual.X):
+                                    params[param_id] = float(individual.X[j])
+                    
+                    individual_fitness.append((i, fitness, params))
+            
+            # Log fitness data to ArtifactManager
+            if individual_fitness:
+                self.artifact_manager.log_generation_fitness(gen, individual_fitness)
+                logger.info(f"Logged fitness data for generation {gen}: {len(individual_fitness)} individuals")
+            
+        except Exception as e:
+            logger.error(f"ArtifactManagerCallback error in generation {gen}: {e}")
 
 
 class ISerumEvolver(ABC):
@@ -38,21 +126,22 @@ class ISerumEvolver(ABC):
         pass
 
 
-class AdaptiveSerumProblem(Problem):
+class SessionBasedSerumProblem(Problem):
     """
-    Adaptive GA problem for Serum parameter optimization.
+    Session-based GA problem for Serum parameter optimization.
     
-    Only evolves parameters specified in constraint_set, creating adaptive genome size.
-    Handles genome-to-parameter mapping and fitness evaluation via audio generation.
+    Evaluates entire populations as batch sessions rather than individual evaluations.
+    Provides proper directory structure and target audio support.
     """
     
     def __init__(self, 
                  constraint_set: ParameterConstraintSet,
                  target_features: ScalarFeatures,
                  feature_weights: FeatureWeights,
-                 audio_generator: IAudioGenerator,
+                 session_manager: ExperimentSessionManager,
                  feature_extractor: IFeatureExtractor,
-                 param_manager: ISerumParameterManager):
+                 param_manager: ISerumParameterManager,
+                 target_audio_path: Optional[Path] = None):
         """
         Initialize adaptive Serum optimization problem.
         
@@ -69,9 +158,12 @@ class AdaptiveSerumProblem(Problem):
         self.constraint_set = constraint_set
         self.target_features = target_features
         self.feature_weights = feature_weights
-        self.audio_generator = audio_generator
+        self.session_manager = session_manager
         self.feature_extractor = feature_extractor
         self.param_manager = param_manager
+        
+        # Track generation for session creation
+        self._current_generation = 1
         
         # Get genome size from constraint set
         n_var = len(self.param_ids)
@@ -135,7 +227,7 @@ class AdaptiveSerumProblem(Problem):
     
     def _evaluate(self, x, out):
         """
-        Evaluate population fitness using audio generation and feature extraction.
+        Evaluate population fitness using session-based batch rendering.
         
         Args:
             x: Population matrix (n_individuals × n_variables)  
@@ -144,36 +236,54 @@ class AdaptiveSerumProblem(Problem):
         n_individuals = x.shape[0]
         objectives = np.zeros(n_individuals)
         
-        logger.debug(f"Evaluating population of {n_individuals} individuals")
+        logger.info(f"Evaluating generation with {n_individuals} individuals using batch session")
         
-        # Sequential evaluation (parallel evaluation handled at evolver level)
-        # This keeps the Problem class simple and thread-safe
+        # Convert genomes to parameter sets
+        population_params = []
         for i in range(n_individuals):
-            objectives[i] = self._evaluate_individual(x[i], i)
+            params = self.genome_to_parameters(x[i])
+            population_params.append(params)
+        
+        try:
+            # Create session for this generation
+            generation = getattr(self, '_current_generation', 1)
+            session_dir = self.session_manager.create_generation_session(
+                generation=generation,
+                population_params=population_params
+            )
+            
+            # Execute batch session
+            success, audio_paths = self.session_manager.execute_session(session_dir)
+            
+            if success and len(audio_paths) == n_individuals:
+                # Evaluate each individual's audio
+                for i, audio_path in enumerate(audio_paths):
+                    objectives[i] = self._evaluate_audio(audio_path, i)
+                    
+                # Update generation counter for next evaluation
+                self._current_generation = generation + 1
+            else:
+                logger.error(f"Session execution failed or incomplete: {len(audio_paths)}/{n_individuals} audio files")
+                objectives.fill(float('inf'))
+                
+        except Exception as e:
+            logger.error(f"Batch evaluation failed: {e}")
+            objectives.fill(float('inf'))
         
         out["F"] = objectives.reshape(-1, 1)  # pymoo expects column vector
     
-    def _evaluate_individual(self, genome: np.ndarray, individual_id: int) -> float:
+    def _evaluate_audio(self, audio_path: Path, individual_id: int) -> float:
         """
-        Evaluate a single individual's fitness.
+        Evaluate fitness for a rendered audio file.
         
         Args:
-            genome: Individual's genome array
+            audio_path: Path to rendered audio file
             individual_id: Unique identifier for this individual
             
         Returns:
             Fitness value (distance to target features)
         """
         try:
-            # Convert genome to parameters
-            params = self.genome_to_parameters(genome)
-            
-            # Generate unique session name for this individual
-            session_name = f"ga_eval_{individual_id}_{int(time.time() * 1000) % 100000}"
-            
-            # Generate audio using parameters
-            audio_path = self.audio_generator.render_patch(params, session_name)
-            
             if audio_path and audio_path.exists():
                 # Extract features from generated audio
                 actual_features = self.feature_extractor.extract_scalar_features(
@@ -189,13 +299,13 @@ class AdaptiveSerumProblem(Problem):
                 return distance
                 
             else:
-                # Penalize failed audio generation
-                logger.warning(f"Audio generation failed for individual {individual_id}")
+                # Penalize missing audio files
+                logger.warning(f"Audio file not found: {audio_path}")
                 return float('inf')
                 
         except Exception as e:
             # Penalize individuals that cause errors
-            logger.error(f"Error evaluating individual {individual_id}: {str(e)}")
+            logger.error(f"Error evaluating audio for individual {individual_id}: {str(e)}")
             return float('inf')
 
 
@@ -212,35 +322,30 @@ class AdaptiveSerumEvolver(ISerumEvolver):
     """
     
     def __init__(self,
-                 audio_generator: IAudioGenerator,
+                 session_manager: ExperimentSessionManager,
                  feature_extractor: IFeatureExtractor, 
-                 param_manager: ISerumParameterManager,
-                 max_workers: int = 4,
-                 use_parallel_evaluation: bool = True):
+                 param_manager: ISerumParameterManager):
         """
-        Initialize adaptive Serum evolver.
+        Initialize session-based Serum evolver.
         
         Args:
-            audio_generator: Audio generation interface
+            session_manager: Experiment session manager
             feature_extractor: Feature extraction interface
             param_manager: Parameter management interface
-            max_workers: Maximum parallel workers for population evaluation
-            use_parallel_evaluation: Whether to use parallel evaluation for better performance
         """
-        self.audio_generator = audio_generator
+        self.session_manager = session_manager
         self.feature_extractor = feature_extractor
         self.param_manager = param_manager
-        self.max_workers = max_workers
-        self.use_parallel_evaluation = use_parallel_evaluation
         
-        logger.info(f"Initialized AdaptiveSerumEvolver (parallel: {use_parallel_evaluation}, workers: {max_workers})")
+        logger.info(f"Initialized SessionBasedSerumEvolver for experiment: {session_manager.experiment_name}")
     
     def evolve(self, 
                constraint_set: ParameterConstraintSet,
                target_features: ScalarFeatures,
                feature_weights: FeatureWeights,
                n_generations: int = 10,
-               population_size: int = 8) -> Dict[str, Any]:
+               population_size: int = 8,
+               session_dir: Optional[Path] = None) -> Dict[str, Any]:
         """
         Run evolutionary optimization to find Serum parameters matching target features.
         
@@ -250,6 +355,7 @@ class AdaptiveSerumEvolver(ISerumEvolver):
             feature_weights: Importance weights for different features
             n_generations: Number of generations to evolve
             population_size: Size of population per generation
+            session_dir: Directory for session files and logging
             
         Returns:
             Dictionary containing evolution results with JSI-compatible format:
@@ -282,26 +388,15 @@ class AdaptiveSerumEvolver(ISerumEvolver):
                    f"{n_generations} generations, {population_size} population")
         
         try:
-            # Create adaptive problem (parallel or sequential)
-            if self.use_parallel_evaluation:
-                problem = ParallelAdaptiveSerumProblem(
-                    constraint_set=constraint_set,
-                    target_features=target_features,
-                    feature_weights=feature_weights,
-                    audio_generator=self.audio_generator,
-                    feature_extractor=self.feature_extractor,
-                    param_manager=self.param_manager,
-                    max_workers=self.max_workers
-                )
-            else:
-                problem = AdaptiveSerumProblem(
-                    constraint_set=constraint_set,
-                    target_features=target_features,
-                    feature_weights=feature_weights,
-                    audio_generator=self.audio_generator,
-                    feature_extractor=self.feature_extractor,
-                    param_manager=self.param_manager
-                )
+            # Create session-based problem
+            problem = SessionBasedSerumProblem(
+                constraint_set=constraint_set,
+                target_features=target_features,
+                feature_weights=feature_weights,
+                session_manager=self.session_manager,
+                feature_extractor=self.feature_extractor,
+                param_manager=self.param_manager
+            )
             
             # Configure GA algorithm
             algorithm = GA(
@@ -315,12 +410,28 @@ class AdaptiveSerumEvolver(ISerumEvolver):
             # Set termination criteria
             termination = get_termination("n_gen", n_generations)
             
+            # Create generation logger callback if session_dir provided
+            callback = None
+            if session_dir:
+                callback = GenerationLogger(session_dir)
+                logger.info(f"Generation logging enabled: {callback.log_file}")
+            
+            # Setup ArtifactManager callback if available
+            artifact_callback = None
+            if hasattr(self.session_manager, 'artifact_manager') and self.session_manager.artifact_manager:
+                artifact_callback = ArtifactManagerCallback(self.session_manager.artifact_manager)
+                logger.info("ArtifactManager fitness logging enabled")
+            
+            # Use single callback - prefer artifact_callback if both exist
+            callback_param = artifact_callback if artifact_callback else callback
+            
             # Run optimization
             logger.info("Starting pymoo optimization")
             result = minimize(
                 problem,
                 algorithm, 
                 termination,
+                callback=callback_param,
                 verbose=True,
                 seed=42
             )
@@ -342,7 +453,7 @@ class AdaptiveSerumEvolver(ISerumEvolver):
     
     def _process_results(self, 
                         result, 
-                        problem: AdaptiveSerumProblem,
+                        problem: SessionBasedSerumProblem,
                         constraint_set: ParameterConstraintSet,
                         target_features: ScalarFeatures,
                         feature_weights: FeatureWeights,
@@ -514,66 +625,3 @@ class AdaptiveSerumEvolver(ISerumEvolver):
         return None
 
 
-class ParallelAdaptiveSerumProblem(AdaptiveSerumProblem):
-    """
-    Parallel version of AdaptiveSerumProblem for improved performance.
-    
-    Uses ThreadPoolExecutor to evaluate multiple individuals concurrently.
-    Useful for larger populations where audio generation is the bottleneck.
-    """
-    
-    def __init__(self, 
-                 constraint_set: ParameterConstraintSet,
-                 target_features: ScalarFeatures,
-                 feature_weights: FeatureWeights,
-                 audio_generator: IAudioGenerator,
-                 feature_extractor: IFeatureExtractor,
-                 param_manager: ISerumParameterManager,
-                 max_workers: int = 4):
-        """
-        Initialize parallel adaptive Serum optimization problem.
-        
-        Args:
-            constraint_set: Parameter constraints defining search space
-            target_features: Target feature values to optimize toward
-            feature_weights: Weights for multi-objective feature optimization
-            audio_generator: Audio generation interface
-            feature_extractor: Feature extraction interface  
-            param_manager: Parameter management interface
-            max_workers: Maximum parallel workers for evaluation
-        """
-        super().__init__(constraint_set, target_features, feature_weights,
-                        audio_generator, feature_extractor, param_manager)
-        self.max_workers = max_workers
-    
-    def _evaluate(self, x, out):
-        """
-        Evaluate population fitness using parallel audio generation and feature extraction.
-        
-        Args:
-            x: Population matrix (n_individuals × n_variables)  
-            out: Output dictionary for objective values
-        """
-        n_individuals = x.shape[0]
-        objectives = np.zeros(n_individuals)
-        
-        logger.debug(f"Evaluating population of {n_individuals} individuals with {self.max_workers} workers")
-        
-        # Use parallel evaluation for better performance
-        with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
-            # Submit all evaluation tasks
-            future_to_index = {
-                executor.submit(self._evaluate_individual, x[i], i): i
-                for i in range(n_individuals)
-            }
-            
-            # Collect results as they complete
-            for future in as_completed(future_to_index):
-                index = future_to_index[future]
-                try:
-                    objectives[index] = future.result()
-                except Exception as e:
-                    logger.error(f"Parallel evaluation failed for individual {index}: {str(e)}")
-                    objectives[index] = float('inf')
-        
-        out["F"] = objectives.reshape(-1, 1)  # pymoo expects column vector
