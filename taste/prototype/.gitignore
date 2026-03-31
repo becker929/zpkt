@@ -1,0 +1,13 @@
+# Large ONNX model files (>100MB, exceeds GitHub limit)
+dclap_models/clap_text_model.onnx
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyc
+.venv/
+dist/
+*.egg-info/
+
+# Data
+*.db
