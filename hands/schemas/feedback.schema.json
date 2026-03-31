@@ -1,0 +1,15 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/scalingtaste/hands/schemas/feedback.schema.json",
+  "title": "Feedback",
+  "description": "Human feedback captured by the hands vibe tool.",
+  "type": "object",
+  "required": ["session_id", "render_path", "text", "timestamp_utc"],
+  "properties": {
+    "session_id":    { "type": "string" },
+    "render_path":   { "type": "string" },
+    "text":          { "type": "string" },
+    "timestamp_utc": { "type": "string", "format": "date-time" },
+    "rating":        { "type": ["integer", "null"], "minimum": 1, "maximum": 5 }
+  }
+}

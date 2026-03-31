@@ -1,0 +1,110 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/scalingtaste/hands/schemas/project-config.schema.json",
+  "title": "ProjectConfig",
+  "description": "Declarative Ableton Live project configuration produced by the hands layer.",
+  "type": "object",
+  "required": ["name", "tempo"],
+  "properties": {
+    "name":   { "type": "string" },
+    "tempo":  { "type": "number", "exclusiveMinimum": 0, "exclusiveMaximum": 300 },
+    "percussion": { "$ref": "#/$defs/PercConfig" },
+    "kick":       { "$ref": "#/$defs/KickConfig" },
+    "rumble":     { "$ref": "#/$defs/RumbleConfig" }
+  },
+  "$defs": {
+    "SamplePad": {
+      "type": "object",
+      "required": ["note", "name"],
+      "properties": {
+        "note":      { "type": "integer", "minimum": 0, "maximum": 127 },
+        "name":      { "type": "string" },
+        "transpose": { "type": "integer", "minimum": -24, "maximum": 24 },
+        "start":     { "type": "integer", "minimum": 0, "maximum": 100 },
+        "end":       { "type": ["integer", "null"], "minimum": 0, "maximum": 100 },
+        "volume":    { "type": "number", "minimum": 0.0, "maximum": 2.0 }
+      }
+    },
+    "MidiNote": {
+      "type": "object",
+      "required": ["pitch", "time", "duration"],
+      "properties": {
+        "pitch":    { "type": "integer", "minimum": 0, "maximum": 127 },
+        "time":     { "type": "number", "minimum": 0 },
+        "duration": { "type": "number", "exclusiveMinimum": 0 },
+        "velocity": { "type": "integer", "minimum": 1, "maximum": 127 }
+      }
+    },
+    "MidiPattern": {
+      "type": "object",
+      "required": ["name"],
+      "properties": {
+        "name":         { "type": "string" },
+        "length_beats": { "type": "number", "exclusiveMinimum": 0 },
+        "notes":        { "type": "array", "items": { "$ref": "#/$defs/MidiNote" } }
+      }
+    },
+    "DeviceSpec": {
+      "type": "object",
+      "required": ["name"],
+      "properties": {
+        "name":   { "type": "string" },
+        "params": { "type": "object", "additionalProperties": { "type": "number" } }
+      }
+    },
+    "EQ8Band": {
+      "type": "object",
+      "required": ["band", "freq_hz"],
+      "properties": {
+        "band":    { "type": "integer", "minimum": 1, "maximum": 8 },
+        "mode":    { "type": "integer", "minimum": 0, "maximum": 7 },
+        "freq_hz": { "type": "number", "exclusiveMinimum": 0 },
+        "gain":    { "type": "number", "minimum": -15, "maximum": 15 },
+        "q_norm":  { "type": "number", "exclusiveMinimum": 0, "maximum": 1 }
+      }
+    },
+    "EQ8Spec": {
+      "type": "object",
+      "properties": {
+        "bands": { "type": "array", "items": { "$ref": "#/$defs/EQ8Band" } }
+      }
+    },
+    "PercGroup": {
+      "type": "object",
+      "required": ["label"],
+      "properties": {
+        "label":        { "type": "string" },
+        "samples":      { "type": "array", "items": { "$ref": "#/$defs/SamplePad" } },
+        "main":         { "oneOf": [{ "$ref": "#/$defs/SamplePad" }, { "type": "null" }] },
+        "main_devices": { "type": "array", "items": { "$ref": "#/$defs/DeviceSpec" } }
+      }
+    },
+    "PercConfig": {
+      "type": "object",
+      "properties": {
+        "groups":          { "type": "array", "items": { "$ref": "#/$defs/PercGroup" } },
+        "bus_distortion":  { "oneOf": [{ "$ref": "#/$defs/DeviceSpec" }, { "type": "null" }] },
+        "bus_eq":          { "oneOf": [{ "$ref": "#/$defs/EQ8Spec" }, { "type": "null" }] },
+        "midi":            { "oneOf": [{ "$ref": "#/$defs/MidiPattern" }, { "type": "null" }] }
+      }
+    },
+    "KickConfig": {
+      "type": "object",
+      "properties": {
+        "samples":          { "type": "array", "items": { "$ref": "#/$defs/SamplePad" } },
+        "main":             { "oneOf": [{ "$ref": "#/$defs/SamplePad" }, { "type": "null" }] },
+        "main_distortion":  { "oneOf": [{ "$ref": "#/$defs/DeviceSpec" }, { "type": "null" }] },
+        "track_eq":         { "oneOf": [{ "$ref": "#/$defs/EQ8Spec" }, { "type": "null" }] },
+        "midi":             { "oneOf": [{ "$ref": "#/$defs/MidiPattern" }, { "type": "null" }] }
+      }
+    },
+    "RumbleConfig": {
+      "type": "object",
+      "properties": {
+        "source_description":   { "type": "string" },
+        "fundamental_target_hz": { "type": "number", "exclusiveMinimum": 0 },
+        "width":                { "type": "number", "minimum": 0, "maximum": 1 }
+      }
+    }
+  }
+}
