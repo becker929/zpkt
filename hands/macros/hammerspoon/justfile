@@ -44,7 +44,9 @@ leak-guard:
       exit 1
     fi
     # Rule B: core/ is pure — no hs.* and no wall-clock read.
-    if rg -n --glob '*.lua' -e 'hs\.' -e 'os\.date' -e 'os\.time' core/ 2>/dev/null; then
+    # Filter out comment lines (rg output: "file:lineno:content" — grep for non-comment content).
+    if rg -n --glob '*.lua' -e 'hs\.' -e 'os\.date' -e 'os\.time' core/ 2>/dev/null \
+         | grep -vE '^[^:]+:[0-9]+:[[:space:]]*-'; then
       echo "LEAK: core/ is not pure (hs.* or wall-clock effect found)" >&2
       exit 1
     fi
