@@ -1,0 +1,95 @@
+#!/usr/bin/env bash
+set -euo pipefail
+HS=/opt/homebrew/bin/hs
+LOGS=~/.hammerspoon/.logs/hs.jsonl
+
+usage() { echo "usage: hsx <reload|eval|contracts|invoke|state|logs|shot|e2e>"; exit 1; }
+
+wrap_eval() {
+  local lua="$1"
+  cat <<LUA
+local ok, res = pcall(function() $lua end)
+print('__HSX__' .. hs.json.encode({ ok=ok, result=ok and res or tostring(res) }))
+LUA
+}
+
+run_hs() {
+  local lua="$1"
+  "$HS" -c "$(wrap_eval "$lua")" 2>&1 \
+    | grep '^__HSX__' | sed 's/^__HSX__//' | tail -1
+}
+
+case "${1:-}" in
+  reload)
+    # hs.reload() is async and invalidates the IPC port — call it bare (no pcall/sentinel).
+    "$HS" -c 'hs.reload()' 2>/dev/null || true
+    sleep 2
+    errors="$(tail -20 "$LOGS" 2>/dev/null | jq -s '[.[] | select(.level == "error")]' 2>/dev/null || echo "[]")"
+    jq -n --argjson errors "$errors" '{ ok: ($errors | length == 0), errors: $errors }'
+    ;;
+
+  eval)
+    [[ -z "${2:-}" ]] && { echo '{"ok":false,"result":"usage: hsx eval <lua>"}'; exit 1; }
+    run_hs "$2"
+    ;;
+
+  contracts)
+    result="$(run_hs "return require('contracts.runner').run()")"
+    echo "$result"
+    failed="$(echo "$result" | jq -r '.result.failed // 1')"
+    [[ "$failed" == "0" ]]
+    ;;
+
+  invoke)
+    [[ -z "${2:-}" || -z "${3:-}" ]] && { echo '{"ok":false,"result":"usage: hsx invoke <mod> <fn> [args-json]"}'; exit 1; }
+    mod="$2" fn="$3" args="${4:-nil}"
+    run_hs "return require('$mod')['$fn']($args)"
+    ;;
+
+  state)
+    run_hs "
+      local wins = {}
+      for _, w in ipairs(hs.window.allWindows()) do
+        local app = w:application()
+        local f = w:frame()
+        wins[#wins+1] = {
+          id=w:id(), title=w:title(),
+          appName=app and app:name() or nil,
+          bundleID=app and app:bundleID() or nil,
+          frame={x=f.x,y=f.y,w=f.w,h=f.h},
+          minimized=w:isMinimized(),
+          focused=(w==hs.window.focusedWindow()),
+        }
+      end
+      local fa = hs.application.frontmostApplication()
+      return { focusedApp=fa and fa:bundleID() or nil, windows=wins }
+    "
+    ;;
+
+  logs)
+    n="${2:-20}"
+    tail -"$n" "$LOGS" 2>/dev/null | jq -s '.' || echo "[]"
+    ;;
+
+  shot)
+    run_hs "
+      local path = os.tmpname() .. '.png'
+      hs.screen.mainScreen():snapshot():saveToFile(path)
+      return path
+    "
+    ;;
+
+  e2e)
+    run_hs "require('modules.tidy-music-workspace').activate(); return 'activating'"
+    sleep 5
+    result="$(harness/hsx state)"
+    focused="$(echo "$result" | jq -r '.result.focusedApp // empty' 2>/dev/null || echo "")"
+    if [[ "$focused" == "com.ableton.live" ]]; then
+      echo '{"ok":true}'
+    else
+      echo '{"ok":false,"detail":"Ableton not frontmost after 5s"}'; exit 1
+    fi
+    ;;
+
+  *) usage ;;
+esac

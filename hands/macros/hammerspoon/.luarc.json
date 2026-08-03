@@ -1,0 +1,24 @@
+{
+  "runtime": {
+    "version": "Lua 5.4"
+  },
+  "workspace": {
+    "library": [
+      "/Applications/Hammerspoon.app/Contents/Resources/extensions"
+    ],
+    "ignoreDir": ["spec", ".logs", "Spoons"]
+  },
+  "diagnostics": {
+    "globals": ["hs", "spoon"],
+    "libraryFiles": "Disable",
+    "severity": {
+      "assign-type-mismatch": "Warning",
+      "param-type-mismatch": "Warning",
+      "return-type-mismatch": "Warning",
+      "undefined-field": "Warning",
+      "need-check-nil": "Warning",
+      "cast-local-type": "Warning",
+      "undefined-doc-name": "Hint"
+    }
+  }
+}
