@@ -47,7 +47,7 @@ function M.run()
   for _, r in ipairs(results) do
     if r.ok then passed = passed + 1 else failed = failed + 1 end
   end
-  return hs.json.encode({ passed=passed, failed=failed, results=results })
+  return { passed=passed, failed=failed, results=results }
 end
 
 return M

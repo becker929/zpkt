@@ -3,7 +3,10 @@ local config    = require("config")
 local workspace = require("modules.tidy-music-workspace")
 local menubar   = require("modules.menubar")
 
-menubar.init(function() workspace.activate() end)
+menubar.init(
+  function() workspace.activate() end,
+  function() workspace.openProjectCopy() end
+)
 
 local hk = config.hotkeys
 if hk.activate then

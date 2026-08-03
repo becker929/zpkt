@@ -13,9 +13,5 @@ return {
 
   hotkeys = {
     activate = { mods = {"ctrl", "alt", "cmd"}, key = "m" },
-    restore  = { mods = {"ctrl", "alt", "cmd"}, key = "r" },
-    -- Set either to nil to disable that hotkey binding.
   },
-
-  snapshotPath = os.getenv("HOME") .. "/.hammerspoon/workspace_snapshot.json",
 }
