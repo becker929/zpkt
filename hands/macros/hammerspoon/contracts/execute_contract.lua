@@ -2,7 +2,7 @@
 -- The original 2026 bug: code compared the 3rd return to 0 (a number).
 -- The 3rd return is actually the string "exit" or "signal".
 return function(t)
-  local out, ok, kind, code = hs.execute("exit 3")
+  local _, ok, kind, code = hs.execute("exit 3")
   t.eq(ok, nil, "non-zero exit -> 2nd return is nil (NOT false — nil is the falsy sentinel)")
   t.isType(kind, "string", "3rd return is a STRING, not a number (docs are wrong)")
   t.eq(kind, "exit", "3rd return is 'exit' for a normal process exit")
