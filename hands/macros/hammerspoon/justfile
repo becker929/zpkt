@@ -1,0 +1,56 @@
+set shell := ["bash", "-uc"]
+
+BUSTED   := "$HOME/.luarocks/bin/busted"
+LUACHECK := "$HOME/.luarocks/bin/luacheck"
+
+# One-time tooling install — idempotent
+setup:
+    brew install lua-language-server lua@5.4 || true
+    luarocks --lua-version 5.4 --lua-dir /opt/homebrew/Cellar/lua@5.4/5.4.8 install busted || true
+    luarocks --lua-version 5.4 --lua-dir /opt/homebrew/Cellar/lua@5.4/5.4.8 install luacheck || true
+
+# Static checks: lint + language server + boundary leak guard
+# core/ is hand-written Lua with LLS annotations — linted and type-checked like everything else.
+check:
+    {{LUACHECK}} core boundary modules init.lua config.lua contracts
+    lua-language-server --check "$PWD" --checklevel=Warning --logpath="$PWD/.logs/lls"
+    just leak-guard
+
+# Unit tests for pure core (busted; runs on plain Lua, no Hammerspoon)
+test:
+    {{BUSTED}} spec/
+
+# Contract tests inside Hammerspoon
+contracts:
+    harness/hsx contracts
+
+# Full gate: static + unit + reload + contracts
+# e2e is deferred: `harness/hsx e2e` launches Ableton — run it manually as a smoke test.
+verify: check test
+    harness/hsx reload
+    just contracts
+
+# Fails if effects leak out of boundary/ (three structural rules, see below)
+leak-guard:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    # Rule A: shell/exec primitives may live only in boundary/.
+    if rg -n --glob '*.lua' \
+          -e 'hs\.execute\s*\(' \
+          -e 'io\.popen\s*\(' \
+          -e 'os\.execute\s*\(' \
+          core/ modules/ init.lua config.lua 2>/dev/null; then
+      echo "LEAK: shell/exec primitive found outside boundary/" >&2
+      exit 1
+    fi
+    # Rule B: core/ is pure — no hs.* and no wall-clock read.
+    if rg -n --glob '*.lua' -e 'hs\.' -e 'os\.date' -e 'os\.time' core/ 2>/dev/null; then
+      echo "LEAK: core/ is not pure (hs.* or wall-clock effect found)" >&2
+      exit 1
+    fi
+    # Rule C: the feature glue orchestrates core/ + boundary/ and touches no hs.* itself.
+    if rg -n -e 'hs\.' modules/tidy-music-workspace.lua 2>/dev/null; then
+      echo "LEAK: glue module reaches hs.* directly — route it through boundary/" >&2
+      exit 1
+    fi
+    echo "leak-guard: clean"
