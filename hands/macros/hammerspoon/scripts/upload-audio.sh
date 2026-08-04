@@ -18,12 +18,11 @@ aws s3 cp "$FILE" "s3://$BUCKET/audio/$NAME" \
   --endpoint-url "$S3_ENDPOINT" \
   --content-type "audio/wav"
 
-# KV update via wrangler (Workers Routes token scoped to anthonybecker.me).
-CLOUDFLARE_API_TOKEN=$(security find-generic-password -a cloudflare -s CLOUDFLARE_API_TOKEN -w)
-CLOUDFLARE_ACCOUNT_ID=$(security find-generic-password -a cloudflare -s CLOUDFLARE_ACCOUNT_ID -w)
-export CLOUDFLARE_API_TOKEN CLOUDFLARE_ACCOUNT_ID
-
-cd "$WORKER_DIR"
-wrangler kv key put "audio:latest" "$NAME" --binding AUDIO_KV --remote
+# KV update via Worker endpoint (avoids account-level API permission requirement).
+AUDIO_SECRET=$(security find-generic-password -a cloudflare -s CLOUDFLARE_AUDIO_SECRET -w)
+curl -sf -X PUT "https://anthonybecker.me/audio/latest" \
+  -H "Authorization: Bearer $AUDIO_SECRET" \
+  -H "Content-Type: text/plain" \
+  --data "$NAME"
 
 echo "https://anthonybecker.me/audio"
