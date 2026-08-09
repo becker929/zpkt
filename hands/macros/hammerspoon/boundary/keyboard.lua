@@ -19,4 +19,14 @@ function M.saveAs(app, fname, continuation)
   end)
 end
 
+--- Sends Cmd+S to save the current project in place.
+--- continuation() is called after the save completes.
+function M.save(app, continuation)
+  app:activate()
+  hs.timer.doAfter(0.4, function()
+    hs.eventtap.keyStroke({"cmd"}, "s")
+    hs.timer.doAfter(2.0, continuation)
+  end)
+end
+
 return M

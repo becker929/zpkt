@@ -1,11 +1,16 @@
 require("hs.ipc")
-local config    = require("config")
-local workspace = require("modules.tidy-music-workspace")
-local menubar   = require("modules.menubar")
+local config      = require("config")
+local workspace   = require("modules.tidy-music-workspace")
+local autoExport  = require("modules.auto-export")
+local autoBackup  = require("modules.auto-backup")
+local menubar     = require("modules.menubar")
+
+autoBackup.start(config.autoBackup)
 
 menubar.init(
   function() workspace.activate() end,
-  function() workspace.openProjectCopy() end
+  function() workspace.openProjectCopy() end,
+  function() autoExport.export() end
 )
 
 local hk = config.hotkeys

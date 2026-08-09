@@ -51,7 +51,7 @@ leak-guard:
       exit 1
     fi
     # Rule C: the feature glue orchestrates core/ + boundary/ and touches no hs.* itself.
-    if rg -n -e 'hs\.' modules/tidy-music-workspace.lua 2>/dev/null; then
+    if rg -n -e 'hs\.' modules/tidy-music-workspace.lua modules/auto-export.lua 2>/dev/null; then
       echo "LEAK: glue module reaches hs.* directly — route it through boundary/" >&2
       exit 1
     fi

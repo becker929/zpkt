@@ -1,13 +1,32 @@
 local applescript = require("boundary.applescript")
+local apps        = require("boundary.apps")
+local autosave    = require("boundary.autosave")
+local keyboard    = require("boundary.keyboard")
 local shell       = require("boundary.shell")
 local notify      = require("boundary.notify")
 local clock       = require("boundary.clock")
 local log         = require("boundary.log")
+local backup      = require("core.backup")
 local config      = require("config")
 
 local M = {}
 
+local _doExport
+
 function M.export()
+  local app = apps.musicApp()
+  if app then
+    autosave.touchRef()
+    keyboard.save(app, function()
+      local projectPath = autosave.findSaved(config.autoBackup.projectsDir)
+      _doExport(projectPath)
+    end)
+  else
+    _doExport(nil)
+  end
+end
+
+_doExport = function(projectPath)
   log.info("auto-export: starting")
   local stamp      = clock.stamp()
   local outputPath = config.rendersDir .. "/" .. stamp .. ".wav"
@@ -22,7 +41,7 @@ function M.export()
   shell.openInFinder(config.rendersDir)
 
   notify.show("Uploading…")
-  local scriptPath = hs.configdir .. "/scripts/upload-audio.sh"
+  local scriptPath = shell.configDir() .. "/scripts/upload-audio.sh"
   local r = shell.run("bash -l " .. string.format("%q", scriptPath) .. " " .. string.format("%q", result))
   if r.ok then
     log.info("auto-export: uploaded", { url = r.out:gsub("%s+$", "") })
@@ -30,6 +49,13 @@ function M.export()
   else
     log.warn("auto-export: upload failed", { out = r.out })
     notify.show("Upload failed — check logs")
+  end
+
+  if projectPath then
+    local projectName = backup.projectNameFromPath(projectPath)
+    autosave.cloneProjects(config.autoBackup.projectsDir, config.autoBackup.cloneDir, function()
+      autosave.cleanupProjectBackups(config.autoBackup.backupsDir, projectName)
+    end)
   end
 end
 
