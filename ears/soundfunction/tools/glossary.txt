@@ -1,0 +1,162 @@
+BPM
+Commons
+Creative
+Creative Commons
+DAW
+Hz
+RMS
+T60
+air
+air band
+attack
+band
+band share
+bar
+beat
+breakdown
+brightness
+buildup
+centroid
+clap
+classifier
+closed
+closed hat
+corpus
+crest
+crest factor
+dB
+decay
+density
+distortion
+downbeat
+downbeat finder
+drive
+drop
+energy
+energy grid
+factor
+feature
+filter
+flatness
+fold
+grid
+hard
+hard techno
+hat
+hi
+hi-hat
+high
+high band
+hit
+impact
+kick
+listening
+listening test
+lock
+low
+low band
+mid
+mid band
+netlabel
+noisiness
+offbeat
+on
+on-beat
+onset
+onset density
+open
+open hat
+outlier
+pad
+parameter
+peak
+perc
+perc hit
+phrase
+pitch
+pump
+reverb
+rise
+rise time
+riser
+role meter
+rumble
+share
+sidechain
+sixteenth
+spectral
+spectral centroid
+spectral flatness
+stab
+stem
+stems
+step
+sub
+sub band
+sustain
+sustain share
+sweep
+syncopation
+synth
+techno
+tempo
+tempo lock
+test
+time
+synthetic
+one-shot
+one-shots
+ducking
+sample pack
+sample packs
+transfer
+median
+browser
+job
+bar one
+breakdowns
+producer
+producers
+random forest
+public domain
+CC0
+CC BY
+Public Domain Mark
+domain
+manifest
+separator
+onsets
+excerpt
+excerpts
+drum stem
+bass stem
+landing pitch
+confidence
+role model
+medians
+hits
+packs
+Demucs
+confident
+hypothesis
+hypotheses
+prediction
+predictions
+predicted
+register
+rank correlation
+integrated loudness
+LUFS
+minus
+groove
+rave
+tag
+tags
+loudness war
+master
+masters
+limiting
+integrated
+genre
+correlation
+folklore

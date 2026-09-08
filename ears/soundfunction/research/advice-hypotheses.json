@@ -1,0 +1,177 @@
+[
+  {
+    "id": "H33",
+    "claim": "Distortion regenerates the low-mid band faster than the standard post-distortion EQ cut removes it, so kicks keep audible low-mid energy despite near-universal advice to cut it there.",
+    "measure": "kick body low-mid band share (~150-400 Hz) in the first 250 ms of drums+bass",
+    "prediction": "median low-mid share across corpus kick bodies is at least 0.15, not suppressed to near-zero",
+    "test": "compute the corpus median of kick-body low-mid share and compare against the near-zero null a successfully-cut kick would show",
+    "sources": [
+      {"title": "Industrial Techno (Beat Dissected), Attack Magazine", "url": "https://www.attackmagazine.com/technique/beat-dissected/industrial-techno/", "tier": 5},
+      {"title": "Anatomy of the Techno Kick, Audiotent", "url": "https://www.audiotent.com/blogs/production-tips/anatomy-of-the-techno-kick", "tier": 5},
+      {"title": "How to Make a Techno Kick, Tracksensei", "url": "https://tracksensei.com/blog/how-to-make-a-techno-kick", "tier": 5}
+    ],
+    "testable_now": "corpus"
+  },
+  {
+    "id": "H34",
+    "claim": "Band-split (\"invisible\") sidechain ducking produces a measurably deeper duck in the sub band than in the low band on the bass stem, because the feature is specifically designed to duck below a cutoff and leave everything above it untouched.",
+    "measure": "pump depth on the bass stem, computed separately in the sub (20-60 Hz) and low (60-150 Hz) bands at kick onsets",
+    "prediction": "median sub-band pump depth exceeds low-band pump depth by at least 3 dB",
+    "test": "rerun the existing bass-stem pump-depth method per band and compare medians with a paired Wilcoxon test",
+    "sources": [
+      {"title": "Nicky Romero Kickstart 2 Manual v2.0.9, Cableguys", "url": "https://downloads.cableguys.com/Nicky-Romero-Kickstart-2-Manual.pdf", "tier": 5},
+      {"title": "4 Tips for Mixing Low End: FabFilter Pro-MB & Sidechain Compression Tutorial, Boombox.io", "url": "https://boombox.io/blog/fabfilter-pro-mb-sidechain-compression-tutorial/", "tier": 5}
+    ],
+    "testable_now": "excerpts"
+  },
+  {
+    "id": "H35",
+    "claim": "Kicks with a strong post-distortion mid-band presence show a falling brightness slope over their first 250 ms, because the corrective EQ stage that follows distortion trims the top while the fundamental settles.",
+    "measure": "kick body mid share (400 Hz-2 kHz) vs kick body brightness slope",
+    "prediction": "negative rank correlation, r <= -0.2",
+    "test": "Spearman correlation across corpus kick bodies",
+    "sources": [
+      {"title": "How to Make a Techno Kick, Tracksensei", "url": "https://tracksensei.com/blog/how-to-make-a-techno-kick", "tier": 5},
+      {"title": "How To Make Techno: Perfecting Your Kick, Toolroom Academy", "url": "https://toolroomacademy.com/features/how-to-make-techno-perfecting-your-kick/", "tier": 5}
+    ],
+    "testable_now": "corpus"
+  },
+  {
+    "id": "H36",
+    "claim": "Real corpus kicks skew toward transient-forward and away from the sub-heavy \"thump\" that mixing consensus says real mixes are missing.",
+    "measure": "kick body sub share (20-60 Hz) in the first 250 ms",
+    "prediction": "median corpus kick-body sub share is below 0.20",
+    "test": "compute the corpus median kick-body sub share and compare to 0.20",
+    "sources": [
+      {"title": "Q. How can I rescue my kick drum sound?, Sound On Sound", "url": "https://www.soundonsound.com/sound-advice/q-how-can-rescue-my-kick-drum-sound", "tier": 5},
+      {"title": "What's wrong with my mix (hard techno), KVR Audio forum", "url": "https://www.kvraudio.com/forum/viewtopic.php?t=498288", "tier": 6}
+    ],
+    "testable_now": "corpus"
+  },
+  {
+    "id": "H37",
+    "claim": "Because published sidechain guidance recommends tracking the kick's actual audio (a true sidechain) specifically so ducking does not continue through kick-free bars, real bass stems show little or no residual periodic ducking during bars with no kick.",
+    "measure": "bass-stem envelope periodicity at the beat rate, restricted to bars flagged kick-free",
+    "prediction": "fewer than 10% of kick-free bars show a detectable periodic amplitude dip at the beat rate on the bass stem",
+    "test": "autocorrelation/periodicity check on the bass-stem envelope within kick-free-bar windows",
+    "sources": [
+      {"title": "Nicky Romero Kickstart 2 Manual v2.0.9, Cableguys", "url": "https://downloads.cableguys.com/Nicky-Romero-Kickstart-2-Manual.pdf", "tier": 5}
+    ],
+    "testable_now": "excerpts"
+  },
+  {
+    "id": "H38",
+    "claim": "Mastering-stage advice to keep the sub band un-dynamic (because club subs run near maximum regardless) sits in tension with arrangement-stage advice to make the pump deep and audible, so louder/more club-ready masters should show shallower pump, not deeper.",
+    "measure": "integrated loudness (LUFS) vs pump depth on the bass stem",
+    "prediction": "negative Spearman correlation, r <= -0.2",
+    "test": "Spearman correlation between integrated loudness and pump depth across the 218-track corpus",
+    "sources": [
+      {"title": "After the Loudness War: Techno Mastering in 2021, Florian Meindl / Riemann Kollektion", "url": "https://riemannkollektion.com/blogs/techno-producer-knowledge-hub/after-the-loudness-war-techno-mastering-2020", "tier": 4},
+      {"title": "Sidechain Compression in Techno: 5 Effective Methods, Gearnews", "url": "https://www.gearnews.com/sidechain-compression-in-techno-workshop/", "tier": 5}
+    ],
+    "testable_now": "corpus"
+  },
+  {
+    "id": "H39",
+    "claim": "\"Musical\" sidechain curves leave a slow, audible fade-back-up on the bass stem after each kick rather than an instant recovery, because manufacturer sub-bass ducking curves are explicitly built with slower fade-ups.",
+    "measure": "rise time (10-90%) of the bass-stem envelope's recovery after each kick-triggered dip",
+    "prediction": "median recovery rise time exceeds 30 ms",
+    "test": "measure the recovery slope of the bass-stem envelope following each detected duck and take the median across corpus/excerpts",
+    "sources": [
+      {"title": "Nicky Romero Kickstart 2 Manual v2.0.9, Cableguys", "url": "https://downloads.cableguys.com/Nicky-Romero-Kickstart-2-Manual.pdf", "tier": 5}
+    ],
+    "testable_now": "excerpts"
+  },
+  {
+    "id": "H40",
+    "claim": "Industrial kicks are described as two glued regimes -- a 5-15 ms click layer and an independently chosen 200-400 ms or 400-600 ms body envelope, given as discrete alternatives rather than a continuum -- so real kick-body fall times should be more spread out (bimodal-leaning) than a single-decay-shape kick would produce.",
+    "measure": "kick body fall-to-20 dB time, corpus-wide distribution",
+    "prediction": "interquartile range of kick-body fall time is at least 150 ms",
+    "test": "compute IQR of kick-body fall time across the corpus; check for bimodality with a two-cluster GMM or dip test as a secondary check",
+    "sources": [
+      {"title": "How to Make a Techno Kick, Tracksensei", "url": "https://tracksensei.com/blog/how-to-make-a-techno-kick", "tier": 5}
+    ],
+    "testable_now": "corpus"
+  },
+  {
+    "id": "H41",
+    "claim": "Kick bodies got more frequency-segregated (fewer simultaneous layers doing several jobs at once) over 2018-2026, following the trend a named practitioner reports in his own layer count.",
+    "measure": "Shannon entropy of the kick-body band-share vector (sub/low/low-mid/mid/high/air) per track, by year",
+    "prediction": "negative Spearman correlation between release year and band-share entropy, r <= -0.15",
+    "test": "Spearman correlation of entropy vs release year across the corpus",
+    "sources": [
+      {"title": "Perc: 5 things I've learned about music production, MusicRadar", "url": "https://www.musicradar.com/news/perc-5-things-ive-learned-in-music-production", "tier": 4}
+    ],
+    "testable_now": "corpus"
+  },
+  {
+    "id": "H42",
+    "claim": "The sidechain network extends past the bassline to the hi-hat/percussion bus, so a true, kick-locked duck should be detectable on the high band of the drum stem, not only on the bass stem.",
+    "measure": "pump depth on the air/high band (6 kHz+) envelope of the drum stem at kick onsets",
+    "prediction": "median high-band pump depth is at least 1 dB",
+    "test": "apply the existing pump-depth method to the drum stem's high band instead of the bass stem",
+    "sources": [
+      {"title": "Dark Techno Rumble (Beat Dissected), Attack Magazine", "url": "https://www.attackmagazine.com/technique/beat-dissected/dark-techno-rumble/", "tier": 5},
+      {"title": "Crispy Techno Hi-Hats, Audiotent", "url": "https://www.audiotent.com/blogs/production-tips/crispy-techno-hi-hats", "tier": 5}
+    ],
+    "testable_now": "excerpts"
+  },
+  {
+    "id": "H43",
+    "claim": "Modern hard-techno claps/snares are placed rhythmically more like a hi-hat (off-sixteenth, avoiding beats 2 and 4) than like a classic backbeat instrument, extending the existing finding that a clear backbeat is already a minority pattern.",
+    "measure": "share of clap/snare attacks landing on off-eighth/off-sixteenth grid positions",
+    "prediction": "median share is at least 0.4, well above the 0.25 chance level and close to the hi-hat's own 0.50 result",
+    "test": "apply the same attack-position methodology used for kick and hi-hat attacks to the clap/snare class",
+    "sources": [
+      {"title": "Thumping Techno (Beat Dissected), Attack Magazine", "url": "https://www.attackmagazine.com/technique/beat-dissected/thumping-techno/", "tier": 5}
+    ],
+    "testable_now": "excerpts"
+  },
+  {
+    "id": "H44",
+    "claim": "Tracks with a strong, clean dedicated sub layer show tighter (less variable) landing pitch than tracks relying on a single kick's pitch envelope, because a dedicated sub layer is tuned to one fixed note rather than emerging from a decaying pitch sweep.",
+    "measure": "standard deviation of landing pitch (Hz) across tracks, split by kick sub-share tertile",
+    "prediction": "the top tertile of kick sub-share shows landing-pitch standard deviation at least 30% lower than the bottom tertile",
+    "test": "compute landing-pitch SD within each sub-share tertile and compare",
+    "sources": [
+      {"title": "Kick It Up, Sound On Sound", "url": "https://www.soundonsound.com/techniques/kick-it", "tier": 5},
+      {"title": "How To Make Techno: Perfecting Your Kick, Toolroom Academy", "url": "https://toolroomacademy.com/features/how-to-make-techno-perfecting-your-kick/", "tier": 5}
+    ],
+    "testable_now": "corpus"
+  },
+  {
+    "id": "H45",
+    "claim": "The 2-3 LU spread between published techno LUFS targets and this project's own measured corpus median is explained by release format: vinyl-oriented releases in the corpus are mastered measurably quieter than digital-only releases.",
+    "measure": "integrated loudness (LUFS), split by release-format metadata (vinyl vs digital)",
+    "prediction": "median LUFS of vinyl-released corpus tracks is at least 2 LU quieter than digital-only releases",
+    "test": "Mann-Whitney comparison of integrated loudness by release format, once format metadata is available",
+    "sources": [
+      {"title": "After the Loudness War: Techno Mastering in 2021, Florian Meindl / Riemann Kollektion", "url": "https://riemannkollektion.com/blogs/techno-producer-knowledge-hub/after-the-loudness-war-techno-mastering-2020", "tier": 4},
+      {"title": "Mastering Techno: Loudness, Dynamics, and Club Readiness, Samplesound", "url": "https://www.samplesoundmusic.com/blogs/news/mastering-techno-loudness-dynamics-and-club-readiness", "tier": 5}
+    ],
+    "testable_now": "no"
+  },
+  {
+    "id": "H46",
+    "claim": "In a blind listening test, listeners cannot reliably tell apart a low-band-only (\"invisible\") sidechain duck from a full-band duck at matched peak gain reduction, even though the two are acoustically very different in band-resolved pump depth.",
+    "measure": "AB/X discrimination accuracy between band-split and full-band ducking at matched dB",
+    "prediction": "discrimination accuracy is at or below 60% correct (chance = 50%) when release is 150 ms or less",
+    "test": "AB/X listening test with matched-depth stimuli built from the excerpt corpus",
+    "sources": [
+      {"title": "Nicky Romero Kickstart 2 Manual v2.0.9, Cableguys", "url": "https://downloads.cableguys.com/Nicky-Romero-Kickstart-2-Manual.pdf", "tier": 5},
+      {"title": "Dynamic Range Processing and Its Influence on Perceived Timing in EDM, Brovig-Hanssen, Sandvik & Aareskjold-Drecker (2020), Music Theory Online 26(2)", "url": "https://www.mtosmt.org/issues/mto.20.26.2/mto.20.26.2.brovighanssen.html", "tier": 2}
+    ],
+    "testable_now": "listeners"
+  },
+  {
+    "id": "H47",
+    "claim": "Anthony's own material, which already shows kick and rumble kept in a single mixed layer unlike his references' two-layer approach, will show an abrupt rather than gradual pump-depth decline before a breakdown, because the gradual ratio-loosening technique depends on a separately addressable rumble/bass bus that a one-layer mix does not offer.",
+    "measure": "pump depth in the 16 bars preceding a labelled breakdown, on the owner's tracks",
+    "prediction": "the drop in pump depth within the final 4 bars before the breakdown accounts for at least 80% of the total pre-breakdown decline",
+    "test": "bar-windowed pump-depth trend on the owner's stems once available, compared against the gradual-decline pattern described in the source",
+    "sources": [
+      {"title": "Perc: 5 things I've learned about music production, MusicRadar", "url": "https://www.musicradar.com/news/perc-5-things-ive-learned-in-music-production", "tier": 4}
+    ],
+    "testable_now": "owner_stems"
+  }
+]
