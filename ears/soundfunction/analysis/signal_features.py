@@ -60,6 +60,42 @@ def _band_shares(S, freqs):
     return {f"band_{name}_share": e / total for name, e in energies.items()}
 
 
+def _env_db(y, sr, win_ms=2.0):
+    """Amplitude envelope in dB relative to its own peak.
+
+    Returns (env_db, peak_index_in_env, win_ms).
+
+    Two traps this avoids. First, a threshold test on the raw waveform answers
+    a question about pitch, not duration: abs(y) passes near zero every half
+    cycle. Second, a short RMS window is itself frequency-dependent: a 2 ms
+    window holds a tenth of a cycle at 50 Hz, so the envelope of a deep kick
+    stays ragged and crosses a threshold early. A 50 Hz and a 2 kHz tone with
+    the same decay read 66 ms and 116 ms that way.
+
+    So the envelope comes from the magnitude of the analytic signal, which is
+    exact for a modulated sinusoid at any frequency, lightly smoothed to remove
+    ripple, then sampled on the same win_ms grid the timings are reported on.
+    """
+    y = np.asarray(y, dtype=np.float64)
+    if len(y) < 4:
+        return np.array([0.0]), 0, win_ms
+    env = np.abs(ss.hilbert(y))
+    w = max(1, int(sr * win_ms / 1000.0))
+    if w > 1:
+        # Normalise by the window's own overlap so the smoother does not
+        # attenuate the first and last samples. Without this the peak of a
+        # sound that starts at its peak reads low, the threshold drops with
+        # it, and every decay comes back ~40% too long.
+        k = np.ones(w)
+        env = np.convolve(env, k, mode="same") / np.convolve(np.ones_like(env), k, mode="same")
+    n_win = len(env) // w
+    if n_win < 2:
+        return np.array([0.0]), 0, win_ms
+    e = env[: n_win * w].reshape(n_win, w).mean(axis=1) + EPS
+    env_db = 20 * np.log10(e / e.max())
+    return env_db, int(env_db.argmax()), win_ms
+
+
 def describe_hit(y: np.ndarray, sr: int) -> dict:
     y = np.asarray(y, dtype=np.float64)
     n = len(y)
@@ -74,11 +110,37 @@ def describe_hit(y: np.ndarray, sr: int) -> dict:
     onset_idx = int(cand[0]) if cand.size else 0
 
     # --- duration to -60 dB, attack, decay ---------------------------------
-    thr60 = peak_amp * 10 ** (-60 / 20)
-    after = abs_y[peak_idx:]
-    below = np.flatnonzero(after < thr60)
-    end_idx = peak_idx + int(below[0]) if below.size else n - 1
-    duration_s = (end_idx - onset_idx) / sr
+    # Both duration and decay are read off a short-window RMS ENVELOPE, never
+    # off the raw samples. An oscillating waveform passes near zero every half
+    # cycle, so scanning abs(y) for the first sub-threshold sample measures the
+    # period of the tone, not how long it lasts: it reported the same 0.11 ms
+    # for a hat with a 15 ms tail and one with a 250 ms tail. Same 2 ms RMS
+    # method as analysis/hits_extra.env_timings, so the two agree.
+    env_db, env_peak_idx, env_win_ms = _env_db(y, sr)
+
+    def _t_to(threshold_db):
+        idx = np.flatnonzero(env_db[env_peak_idx:] <= threshold_db)
+        return float(idx[0] * env_win_ms) if idx.size else float(
+            (len(env_db) - env_peak_idx) * env_win_ms)
+
+    # Duration is the time to fall 60 dB, but 60 dB cannot be read off the
+    # envelope directly: the analytic envelope has a numerical floor around
+    # -50 dB, so a threshold test there returns noise (it read 245 ms for a
+    # tone whose true -60 dB point is at 69 ms). Instead fit the decay slope
+    # over the region that IS reliable, peak down to -30 dB, and extrapolate.
+    # This is the same linear-fit-in-dB idea as the t60 estimate below.
+    _tail = env_db[env_peak_idx:]
+    _rel = np.flatnonzero(_tail <= -30.0)
+    _stop = int(_rel[0]) if _rel.size else len(_tail) - 1
+    if _stop >= 2:
+        _x = np.arange(_stop + 1) * env_win_ms
+        _slope = np.polyfit(_x, _tail[: _stop + 1], 1)[0]  # dB per ms, negative
+        _fall_ms = (-60.0 / _slope) if _slope < -1e-9 else float(len(_tail) * env_win_ms)
+    else:
+        _fall_ms = float(len(_tail) * env_win_ms)
+    _attack_ms_local = (peak_idx - onset_idx) / sr * 1000.0
+    duration_s = min((_attack_ms_local + _fall_ms) / 1000.0, (n - onset_idx) / sr)
+    end_idx = min(n - 1, peak_idx + int(_fall_ms / 1000.0 * sr))
 
     attack_ms = (peak_idx - onset_idx) / sr * 1000.0
     seg = abs_y[onset_idx: peak_idx + 1]
@@ -89,10 +151,7 @@ def describe_hit(y: np.ndarray, sr: int) -> dict:
     else:
         rise_10_90_ms = float("nan")
 
-    thr20 = peak_amp * 10 ** (-20 / 20)
-    after_decay = abs_y[peak_idx:]
-    idec = np.flatnonzero(after_decay <= thr20)
-    decay_ms = (idec[0] / sr * 1000.0) if idec.size else (n - 1 - peak_idx) / sr * 1000.0
+    decay_ms = _t_to(-20.0)
 
     # --- t60 estimate: linear fit of the dB envelope's decay slope ---------
     env = librosa.feature.rms(y=y, frame_length=256, hop_length=64)[0]

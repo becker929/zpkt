@@ -113,3 +113,48 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+
+def test_decay_tracks_decay_not_pitch():
+    """decay_ms must measure how long a sound lasts, not its period.
+
+    Regression test. The first version scanned abs(y) for the first sample
+    below a threshold after the peak. An oscillating waveform passes near zero
+    every half cycle, so it reported the SAME 0.113 ms for a hat with a 15 ms
+    tail and one with a 250 ms tail: it was reading pitch, not decay.
+    """
+    import numpy as np
+    from analysis.signal_features import describe_hit
+
+    sr = 44100
+    t = np.arange(int(sr * 1.0)) / sr
+    tone = np.sin(2 * np.pi * 200.0 * t)
+
+    # Same tone, same pitch, three different decay times.
+    decays = [0.02, 0.10, 0.40]
+    measured = [describe_hit(tone * np.exp(-t / (d / 3.0)), sr)["decay_ms"] for d in decays]
+
+    assert measured[0] < measured[1] < measured[2], (
+        f"decay_ms must rise with decay time, got {measured}")
+    # A 20x longer tail must read as clearly longer, not marginally so.
+    assert measured[2] > 5 * measured[0], f"decay_ms barely moved: {measured}"
+
+    # Same decay, two different pitches: decay_ms must NOT follow pitch.
+    fast = np.sin(2 * np.pi * 2000.0 * t) * np.exp(-t / 0.05)
+    slow = np.sin(2 * np.pi * 50.0 * t) * np.exp(-t / 0.05)
+    a = describe_hit(fast, sr)["decay_ms"]
+    b = describe_hit(slow, sr)["decay_ms"]
+    assert abs(a - b) < 0.25 * max(a, b), (
+        f"decay_ms changed with pitch alone: {a} vs {b}")
+
+
+def test_duration_tracks_length_not_pitch():
+    """duration_s had the same raw-sample defect as decay_ms."""
+    import numpy as np
+    from analysis.signal_features import describe_hit
+
+    sr = 44100
+    t = np.arange(int(sr * 1.0)) / sr
+    short = np.sin(2 * np.pi * 200.0 * t) * np.exp(-t / 0.01)
+    long = np.sin(2 * np.pi * 200.0 * t) * np.exp(-t / 0.20)
+    assert describe_hit(long, sr)["duration_s"] > 5 * describe_hit(short, sr)["duration_s"]
