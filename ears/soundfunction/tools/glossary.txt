@@ -160,3 +160,10 @@ integrated
 genre
 correlation
 folklore
+threshold
+clip
+clipper
+clipping
+clipped
+harmonics
+fader

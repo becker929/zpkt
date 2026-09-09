@@ -1,5 +1,37 @@
 # First experiments once Live can be driven
 
+## Status, 2026-09-09: Live CAN be driven
+
+The rig exists and has produced real rows. Both control paths to Live work
+(OSC for top-level params, LOM over MCP for arbitrary code). One of Anthony's
+own sets, `SNTS Style track`, was opened as a copy-on-write clone, never saved,
+and a knob on its Kick (G) was swept, bounced as an isolated stem per setting,
+and measured. Two rows of the knob -> measure map are done:
+
+- **Decapitator / Drive** (Style 0.5, AutoGain off), 0..1 then 0.4..0.7 fine.
+  crest is NON-monotonic: ~9.8 dB at 0.0, local max ~11.1 dB near 0.6-0.625,
+  8.1 dB at 1.0. sub_share is a smooth U with its minimum 0.558 at Drive 0.6.
+  The crest peak (0.625) and sub trough (0.6) separate only at 0.025 steps;
+  their apparent co-location at 0.6 was a resolution artifact. The energy
+  leaving sub moves UP into low (0.245 -> 0.329) and mid, it is not lost.
+- **StandardCLIP / Clipping threshold** (threshold_dB = 144*value - 120), same
+  kick, 0.6..0.9. crest is a clean monotonic S-curve: floor ~4.3 dB, steep rise,
+  ceiling ~8.7 dB (native). sub_share is near-flat (0.716..0.783), so the knob
+  is nearly orthogonal. It inverts: target crest -> value is tabulated in the
+  map. Clip harmonics land in mid/high/air, not sub.
+
+Measures came from a provisional `measure_local.py` whose band-share maths is
+copied verbatim from canonical `ears/loudness.py`, so shares are
+corpus-comparable now. LUFS and true peak are NOT valid on these taps: the
+stems are gain-scaled, and only ratios (band shares, crest) survive that.
+
+What this changes below: E1-E3 are unblocked (they need exactly this rig).
+E4 needs one of Anthony's demo projects named. E5 still waits on listening-test
+answers. Two lessons from the first rows apply to every experiment here: sweep
+the WHOLE range because real knobs are not monotonic, and pick a range that
+CROSSES the band edge you measure or the share saturates flat.
+
+
 Written for the consolidated Ableton skill (OSC + LOM + hands). Each item is
 a hands ProjectConfig plus a measure from this repo. Ordered by what each one
 unlocks for the register, not by difficulty.
