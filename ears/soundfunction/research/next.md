@@ -34,6 +34,8 @@ Two agents, two machines. The measurements run where the audio already is.
 - Specs and tools go out through the branch: `git pull` on the Mac brings
   whatever the research agent added. Numbers come back through Drive, or
   pasted here when small.
+- The mailbox is pull request #25 on becker929/anthonybecker.me. Set
+  `MAILBOX_PR=25` in `ops/local.env` on the Mac and re-run `ops/mac/install.sh`.
 - Every job has an id like `live_multitrack_bounce_v1`. The zip of results,
   its MANIFEST.md, and the write-up all carry it.
 - When the Live agent hits something the spec did not foresee, it writes it

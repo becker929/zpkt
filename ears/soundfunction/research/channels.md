@@ -41,7 +41,7 @@ already exists. The Mac agent can be started by anything that can run a
 shell command. So:
 
 **The mailbox is one long-lived pull request** on the repository, titled
-"Agent mailbox", never merged. A message is a comment on it. Nothing else
+"Agent mailbox", never merged: https://github.com/becker929/anthonybecker.me/pull/25 A message is a comment on it. Nothing else
 goes in it.
 
 - Research agent -> Mac agent: the research agent comments on the mailbox
@@ -84,5 +84,5 @@ On the Mac, as Anthony:
 
 On the phone: install ntfy, subscribe to the topic.
 
-For the research agent: subscribe the session to the mailbox PR once it
-exists, and create the fallback Routine. Both are one call each.
+For the research agent: done on 11 September. The session is subscribed to
+PR #25 and a Routine checks it every three hours as a fallback.
