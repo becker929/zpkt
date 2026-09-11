@@ -24,8 +24,12 @@ cat > "$LA/me.anthonybecker.mailbox-poll.plist" <<PLIST
   <key>StandardErrorPath</key><string>$HERE/mailbox_poll.log</string>
 </dict></plist>
 PLIST
-for j in me.anthonybecker.ntfy-reminders me.anthonybecker.mailbox-poll; do
+# shellcheck disable=SC1091
+source "$HERE/../local.env"
+JOBS="me.anthonybecker.ntfy-reminders"
+if [ "${MAILBOX_PR:-0}" != "0" ]; then JOBS="$JOBS me.anthonybecker.mailbox-poll"; else echo "MAILBOX_PR is 0: mailbox poll not loaded yet; re-run after the PR exists"; fi
+for j in $JOBS; do
   launchctl bootout "gui/$(id -u)/$j" 2>/dev/null || true
   launchctl bootstrap "gui/$(id -u)" "$LA/$j.plist"
 done
-echo "loaded: ntfy-reminders (always on), mailbox-poll (every 5 min)"
+echo "loaded: $JOBS"

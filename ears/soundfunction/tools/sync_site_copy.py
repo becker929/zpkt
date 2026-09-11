@@ -7,13 +7,14 @@ SRC = Path(__file__).resolve().parent.parent
 DST = Path("/home/user/anthonybecker.me/research/sound-function/repo")
 SKIP_DIRS = {"__pycache__", ".git", "scratch", "_raw", "wav", "audio", "results", "stems_results", "stems", "_sep", "pump_synth", "sweeps", "loops", "roles", "node_modules"}
 SKIP_EXT = {".wav", ".mp3", ".flac", ".npy", ".pyc"}
+SKIP_FILES = {"local.env", ".mailbox_last_id"}   # secrets and per-machine state never reach the site
 if DST.exists(): shutil.rmtree(DST)
 n = 0
 for root, dirs, files in os.walk(SRC):
     dirs[:] = [d for d in dirs if d not in SKIP_DIRS and not d.startswith(".")]
     for f in files:
         p = Path(root) / f
-        if p.suffix in SKIP_EXT or f.startswith("."): continue
+        if p.suffix in SKIP_EXT or f.startswith(".") or f in SKIP_FILES or f.endswith(".log"): continue
         rel = p.relative_to(SRC); (DST / rel).parent.mkdir(parents=True, exist_ok=True)
         if rel.as_posix() == "corpus2/results.json":
             # per-track grids stay in the research repo; the copy keeps the scalar results
