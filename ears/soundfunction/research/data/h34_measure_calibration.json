@@ -1,0 +1,38 @@
+[
+ {
+  "case": "synthetic tone, TRUE broadband duck 6 dB",
+  "sub": 4.48,
+  "low": 4.43,
+  "sub_minus_low": 0.05
+ },
+ {
+  "case": "synthetic tone, TRUE broadband duck 12 dB",
+  "sub": 8.06,
+  "low": 7.9,
+  "sub_minus_low": 0.16
+ },
+ {
+  "case": "synthetic tone, TRUE broadband duck 24 dB",
+  "sub": 12.25,
+  "low": 11.91,
+  "sub_minus_low": 0.34
+ },
+ {
+  "case": "synthetic tone, TRUE broadband duck 40 dB",
+  "sub": 13.92,
+  "low": 13.49,
+  "sub_minus_low": 0.43
+ },
+ {
+  "case": "Anthony's rumble + extra broadband duck 12 dB",
+  "sub": 44.69,
+  "low": 74.44,
+  "sub_minus_low": -29.75
+ },
+ {
+  "case": "Anthony's rumble + extra broadband duck 24 dB",
+  "sub": 45.99,
+  "low": 76.85,
+  "sub_minus_low": -30.86
+ }
+]

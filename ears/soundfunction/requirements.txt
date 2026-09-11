@@ -1,0 +1,13 @@
+# Analysis stack for the sound-function lab. Python 3.11 or 3.12.
+#   python3 -m venv .venv && . .venv/bin/activate && pip install -r requirements.txt
+numpy>=2.0
+scipy>=1.13
+librosa>=0.10
+soundfile>=0.12
+scikit-learn>=1.5
+matplotlib>=3.8
+pyloudnorm>=0.1
+pytest>=8
+# Only needed to separate full mixes into stems. Large (pulls torch). Skip on
+# the Mac unless separation is the job; real multitracks make it unnecessary.
+# demucs>=4.0
