@@ -8,6 +8,9 @@ scikit-learn>=1.5
 matplotlib>=3.8
 pyloudnorm>=0.1
 pytest>=8
+# Hosts VST3/AU plugins outside the DAW: parameter sweeps, offline renders,
+# raw plugin state for round-tripping settings into Live. See research/offline-plugins.md.
+pedalboard>=0.9
 # Only needed to separate full mixes into stems. Large (pulls torch). Skip on
 # the Mac unless separation is the job; real multitracks make it unnecessary.
 # demucs>=4.0
