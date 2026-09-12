@@ -111,7 +111,7 @@ for driving Live.
   at operating point 0.4 (`_v2_thr040`: Ratio inverts above 0.33). Rows 4 to
   16 recorded. Calibration of the remaining measures designed with cases and
   tolerances; the Mac is building it. Roar-on pack started on the rig.
-- 18:20: note 11 (Three days, timed) published, dated and time-stamped, at
+- 18:11: note 11 (Three days, timed) published, dated and time-stamped, at
   Anthony's request. Standing rule from him: publish to the site proactively;
   it is his main window on the project.
 
