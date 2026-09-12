@@ -161,6 +161,35 @@ def report_sample(paths, item, refs, work):
                 raw=dict(role=role, probs=probs, features=f))
 
 
+def pick_pair(live):
+    """Choose the kick-like and bass-like stems of a real multitrack.
+
+    Track names first: a real multitrack carries them, and they are the
+    strongest signal there is. The role model is NOT used for this choice. On
+    HW002 it called the kick's hits "hook" and the rumble's "rumble", the kick
+    count tied at zero, the sub-attack tie-break picked the rumble as the kick,
+    and the headline reported the pair backwards. Physical criteria are the
+    fallback when names say nothing: the kick is the stem with many hits and
+    little sustained low energy between them; the bass is the one with the
+    most sustained low energy among the rest.
+    """
+    if not live:
+        return None, None
+    import re as _re
+    def named(pat):
+        c = [s for s in live if _re.search(pat, s["name"], _re.I) and not _re.search(r"group|bus|ref", s["name"], _re.I)]
+        return c[0] if c else None
+    kick = named(r"\bkick|\bbd\b|\bkik")
+    bass = named(r"rumble|\bbass|\bsub\b|808")
+    if kick is None:
+        pool = [s for s in live if s["n_hits"] >= 32] or live
+        kick = max(pool, key=lambda s: (s["n_hits"] * (1.0 - s["sustained_low"]), s["sub_attacks"]))
+    if bass is None or bass is kick:
+        rest = [s for s in live if s is not kick]
+        bass = max(rest, key=lambda s: (s["shares"][0] + s["shares"][1]) * (0.2 + s["sustained_low"]), default=None)
+    return kick, bass
+
+
 def report_multitrack(paths, item, refs, work):
     from analysis import stems, grid
     import librosa
@@ -181,9 +210,7 @@ def report_multitrack(paths, item, refs, work):
         per.append(dict(name=p.name, duration_s=round(dur, 1), level_db=round(level, 1), shares=shares.tolist(), sub_attacks=sub_attacks, air_attacks=air_attacks,
                         sustained_low=float(np.median(env[1]) / (np.max(env[1]) + 1e-12)), top_role=top, n_hits=len(hits), roles=roles))
     live = [s for s in per if not s.get("silent")]
-    # the kick-like stem: most hits the role model calls kicks, sub attacks as the tie-break
-    kick = max(live, key=lambda s: (s["roles"].get("kick", {}).get("count", 0), s["sub_attacks"])) if live else None
-    bass = max([s for s in live if s is not kick], key=lambda s: s["shares"][0] + s["shares"][1] + s["sustained_low"], default=None)
+    kick, bass = pick_pair(live)
     sc = stems.sidechain_between(str([p for p in paths if p.name == kick["name"]][0]), str([p for p in paths if p.name == bass["name"]][0])) if kick and bass else {}
     sc.pop("curve_db", None)
     rows = [row("stems", len(paths), ""), row("kick-like stem", kick["name"] if kick else None), row("bass-like stem", bass["name"] if bass else None),

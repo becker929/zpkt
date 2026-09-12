@@ -23,6 +23,9 @@ history, no audio. Clone at `~/sandbox/sound-function` on the Mac.
   `next.md`, `specs/`, `data/`.
 - `results/live_rumble_bypass_v1/` — the Mac's bypass pack: two JSON
   results, two sidecars, MANIFEST. No wavs.
+- `results/live_multitrack_trim_v1/` — the 18 stems cut to content length:
+  per-stem lengths, two bench reports (made before the pair-selector fix),
+  MANIFEST.
 - `lab/` — `runner.py` (`--local` mode reads `tracks/`, `refs/`,
   `stems/<song>/`), `duck_calibration.py`, `plugin_sweep.py`,
   `drive_fetch.py`, report renderers, embedding.
@@ -101,6 +104,6 @@ Dies with the container. Nothing here is needed.
 | listening-test pairs live | 31 (set v2-real) |
 | listening-test answers | 3 (set v1-synth) |
 | knob map rows | 2 (SNTS Kick (G): Decapitator Drive, StandardCLIP threshold) |
-| real multitrack stems | 18, from 2 sets, untrimmed (57% trailing silence) |
+| real multitrack stems | 18, from 2 sets; trimmed copies on the Mac (38% of the recorded audio was music) |
 | pump measure ceiling | reads ~12 for a true 24 dB, ~14 for 40 |
 | classifier, synthetic to real | 0.346 (chosen features), unchanged by the decay fix |

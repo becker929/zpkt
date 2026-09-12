@@ -2,10 +2,14 @@
 
 ## Queued for the Mac agent (in order)
 
-1. **Trim and measure `live_multitrack_bounce_v1`.** Trim the 18 stems to
-   their tracks' content length, run `lab/runner.py --local`, commit the
-   report JSON under `results/live_multitrack_trim_v1/`. No Live needed.
-   Gives the bench sheet on true multitracks. Posted to PR #25 on 12 Sep.
+1. ~~Trim and measure `live_multitrack_bounce_v1`~~ **Done 12 Sep**, results
+   under `results/live_multitrack_trim_v1/`: 38% of the recorded audio was
+   music; HW002 kick and rumble cut to 267 and 266 s, agreeing with the Live
+   API's beat 704. It exposed a bug in `lab/runner.py`: the kick/bass pair
+   was chosen through the role model, which called the kick "hook", so the
+   headline paired the stems backwards. Fixed the same day with a name-first,
+   physics-second selector (`pick_pair`). The reports on the branch predate
+   the fix; re-run the bench to refresh them.
 2. **Plugins outside the DAW.** Check `~/sandbox/autodaw` for an existing
    pedalboard or DawDreamer demo first. Then: list LFOTool, Decapitator,
    COLDFIRE and StandardCLIP parameters; load Anthony's LFOTool state from the
