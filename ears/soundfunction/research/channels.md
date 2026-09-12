@@ -75,7 +75,8 @@ polls anyway. Neither side depends on the push working.
 
 ## Setup, once
 
-On the Mac, as Anthony:
+On the Mac, as Anthony, in your own Terminal. The Mac agent's permission
+layer refuses `launchctl`, correctly, so the installer is a human step:
 
     brew install ntfy gh
     gh auth login
