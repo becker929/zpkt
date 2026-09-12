@@ -105,7 +105,7 @@ Dies with the container. Nothing here is needed.
 | real one-shots measured | 318 |
 | listening-test pairs live | 31 (set v2-real) |
 | listening-test answers | 3 (set v1-synth) |
-| knob map rows | 2 (SNTS Kick (G): Decapitator Drive, StandardCLIP threshold) |
+| knob map rows | 3 (SNTS Kick (G): Decapitator Drive, StandardCLIP threshold; HW002 rumble: LFOTool depth, offline) |
 | real multitrack stems | 18, from 2 sets; trimmed copies on the Mac (38% of the recorded audio was music) |
-| pump measure ceiling | reads ~12 for a true 24 dB, ~14 for 40 |
+| pump measure | corpus estimator reads ~12 for a true 24 dB, ~14 for 40; division route within 0.5 dB up to 9 dB on real material |
 | classifier, synthetic to real | 0.346 (chosen features), unchanged by the decay fix |

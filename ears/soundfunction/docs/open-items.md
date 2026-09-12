@@ -14,13 +14,18 @@
    (`results/offline_plugins_v1/`): parameter lists for LFOTool (70),
    COLDFIRE (~270), StandardCLIP (6); Decapitator exposes nothing; Anthony's
    LFOTool state read from the `.als` (9 dB volume pump, broadband); the
-   pedalboard sweep is flat because pedalboard has no transport. **Next: the
-   same sweep in DawDreamer at 160 BPM with the transport running**, then
-   `duck_calibration.py bypass` on each step. Step 5 (round trip into Live)
-   waits for a swept state; the `.adv`/`.als` route is the one that applies
-   to a VST2 instance.
+   pedalboard sweep is flat because pedalboard has no transport. **Done later the same day in DawDreamer**: transport at 160 BPM, state
+   loaded by name, 13 depths, known answer matched within 0.5 dB; first
+   offline knob-map row (`knob-map.md` row 3). Step 5 (round trip into Live)
+   still waits for a swept state worth loading; `.adv`/`.als` is the route
+   for a VST2 instance.
 3. **Knob map, HW002 kick group** (Roar, Dist COLDFIRE, Compressor): native
    devices, so on the rig. One parameter at a time, whole range, 13 steps.
+   The Mac agent started this on 12 Sep.
+3b. **Runner headline on real multitracks.** `report_multitrack` still uses
+   the corpus sidechain estimator, which saturates on solo stems (70 dB on
+   HW002). The row is now labelled as a floor; the proper number needs a
+   bypassed render and the `bypass` route.
 4. **Calibrate the remaining measures** (requirement 2 in the plan note):
    grid lock, kick body, sustain share, band shares under noise, crest under
    limiting. Build a known-answer case for each, record what comes back.

@@ -185,3 +185,8 @@ is pumped about 9 dB, broadband, which is close to the corpus median of 7 dB
 and inside the range the pump measure can still read. "To near silence" is
 withdrawn. The broadband conclusion stands and is now read off the device
 rather than inferred.
+
+The calibration the postscript asked for was then done the same day, offline,
+at known depths: see `research/measurement-fixes.md` (12 September, later
+still) and row 3 of `research/knob-map.md`. The measure is good to about
+0.5 dB up to 9 dB on this material.

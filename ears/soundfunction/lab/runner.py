@@ -216,7 +216,7 @@ def report_multitrack(paths, item, refs, work):
     sc = stems.sidechain_between(str([p for p in paths if p.name == kick["name"]][0]), str([p for p in paths if p.name == bass["name"]][0])) if kick and bass else {}
     sc.pop("curve_db", None)
     rows = [row("stems", len(paths), ""), row("kick-like stem", kick["name"] if kick else None), row("bass-like stem", bass["name"] if bass else None),
-            row("sidechain depth, kick into bass", sc.get("pump_depth_db"), "dB", CORPUS["pump_depth_median"], "corpus pump median for scale; on real stems this is the true ducking"),
+            row("sidechain depth, kick into bass", sc.get("pump_depth_db"), "dB", CORPUS["pump_depth_median"], "corpus estimator: on a solo stem that goes quiet between kicks it saturates and over-reads (70 dB on HW002); read as a floor. The exact number needs a bypassed render and duck_calibration.py bypass"),
             row("sidechain return", sc.get("pump_return_ms"), "ms", CORPUS["pump_return_median"]), row("kick interval", sc.get("kick_interval_ms"), "ms")]
     table = dict(columns=["stem", "length (s)", "level (dB)", "sub", "low", "mid", "high", "air", "reads as", "hits"],
                  rows=[[s["name"], s.get("duration_s"), s.get("level_db"), *(s["shares"][i] for i in (0, 1, 3, 4, 5)), s.get("top_role"), s.get("n_hits")] if not s.get("silent") else [s["name"], 0, None, None, None, None, None, None, "silent", 0] for s in per])

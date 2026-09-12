@@ -66,6 +66,29 @@ By threshold: `value = (threshold_dB + 120) / 144`.
 
 ---
 
+## Target: HW002_14, rumble, track 3 (offline, DawDreamer)
+
+### Row 3. LFOTool (VST2) / lfo_depth   [Anthony's own state loaded by name; 160 BPM transport]
+
+Rendered offline in DawDreamer on the trimmed, un-ducked rumble and divided
+against that same input, so there is no two-take noise. Measured with
+`lab/duck_calibration.py bypass`. Results pack `results/offline_plugins_v1/`,
+12 September.
+
+| depth | sub dip dB | low dip dB | sub minus low |
+|---:|---:|---:|---:|
+| 0.25 | 1.41 | 1.64 | -0.23 |
+| 0.50 | 3.12 | 3.62 | -0.51 |
+| 0.75 | 5.27 | 6.04 | -0.76 |
+| 1.00 | 8.10 | 9.35 | -1.25 |
+
+| aspect | finding |
+|---|---|
+| duck depth vs depth | MONOTONIC and near-linear in dB: about 9 dB at full depth. Known answer from the device's own curve floor (0.358): 8.9 dB at full, 3.4 at half. Measured 8.1 to 9.4 and 3.1 to 3.6. |
+| sub vs low | one curve for both bands; the split stays within 1 dB of zero at every step. |
+| what this calibrates | the duck measure itself: it tracks true depth within about 0.5 dB up to 9 dB on real material. Above ~12 dB the corpus estimator saturates (see measurement-fixes). |
+| usable as a control? | YES, and invertible: pick a pump depth, read off `lfo_depth`. |
+
 ## Earlier synthetic reference (plugin kick, not a real instrument)
 
 Simpler "Kick 49 Hz", swept Transpose 0..+36 st: `sub_share` monotonic
