@@ -60,3 +60,9 @@ flat and reads as "no effect".
 **Tap pre-group for any A/B.** The rumble sits inside a kick group with
 nonlinear devices; soloing the master would push both takes through
 processing that reacts differently to different inputs.
+
+**The site is published to proactively.** Decided 12 Sep at Anthony's
+request: the site is the main place he gets updates as the operator, so
+each result pack, correction or change of plan gets a dated, time-stamped
+note the day it lands, unasked. The mailbox and the branch are the record;
+the site is the report.

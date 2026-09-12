@@ -51,12 +51,12 @@ history, no audio. Clone at `~/sandbox/sound-function` on the Mac.
 Live at https://anthonybecker.me, deployed by Cloudflare on push.
 
 - Research: parts one to four at `/research/sound-function/part-{one..four}/`.
-- Notes 1 to 10 at `/notes/<slug>/`, listed by `notes/manifest.json`:
+- Notes 1 to 11 at `/notes/<slug>/`, listed by `notes/manifest.json`:
   from-a-meter-to-an-engineer, one-producer, where-the-tracks-sit,
   four-horizons, the-session, the-split-that-is-not-there,
   the-knob-that-lied, the-stems-that-broke-the-ruler (with a 12 Sep
   postscript), three-wrong-rulers, the-instrument-problem (titled "The plan,
-  with dates").
+  with dates"), three-days-timed (12 Sep 18:20 UTC, the dated summary).
 - Listening test at `/research/sound-function/listen/`: 31 pairs, set
   `v2-real`, built from CC BY / CC0 / public-domain one-shots with credits
   rendered; answers via `/api/listen` (POST) and `/api/listen/export` (GET,

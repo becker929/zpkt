@@ -106,6 +106,14 @@ for driving Live.
 - pedalboard adopted for plugin sweeps outside the DAW: `lab/plugin_sweep.py`
   tested at over a thousand times real time; `research/offline-plugins.md`.
 - The mandate moved to the Mac. This documentation written.
+- 13:08 to 16:21: the kick-group knob map (`knobmap_hw002_kickgroup_v1`,
+  ten rows: Roar bypassed, compressor idle, Threshold live) and the follow-up
+  at operating point 0.4 (`_v2_thr040`: Ratio inverts above 0.33). Rows 4 to
+  16 recorded. Calibration of the remaining measures designed with cases and
+  tolerances; the Mac is building it. Roar-on pack started on the rig.
+- 18:20: note 11 (Three days, timed) published, dated and time-stamped, at
+  Anthony's request. Standing rule from him: publish to the site proactively;
+  it is his main window on the project.
 
 ## What the record says about pace
 

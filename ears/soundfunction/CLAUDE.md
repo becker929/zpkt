@@ -58,6 +58,15 @@ the thing to be driving toward.
    `ask` is a normal notification, `act` is high priority and means only he
    can unblock the next step. Topic name is in `ops/local.env`, never in git.
    Do not message him for things that are not one of those three.
+9. **The site is Anthony's window; keep it current without being asked.**
+   Anthony reads about this project on anthonybecker.me, not in the mailbox
+   or the branch. Every result pack, every corrected claim and every change
+   of plan gets a dated, time-stamped note there the same day it lands (in
+   UTC and Pacific). A pack that is on the branch but not on the site is not
+   delivered. Sync the research copy with `tools/sync_site_copy.py`, run
+   `npm test` in the site clone, and push `main`; Cloudflare deploys from
+   the push. Do not wait to be asked, and do not batch three packs into one
+   note.
 
 ## How the work moves
 
