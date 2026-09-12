@@ -23,6 +23,8 @@ history, no audio. Clone at `~/sandbox/sound-function` on the Mac.
   `next.md`, `specs/`, `data/`.
 - `results/live_rumble_bypass_v1/` — the Mac's bypass pack: two JSON
   results, two sidecars, MANIFEST. No wavs.
+- `results/offline_plugins_v1/` — plugin parameter lists, Anthony's LFOTool
+  state dump, and the flat pedalboard sweep kept as evidence.
 - `results/live_multitrack_trim_v1/` — the 18 stems cut to content length:
   per-stem lengths, two bench reports (made before the pair-selector fix),
   MANIFEST.

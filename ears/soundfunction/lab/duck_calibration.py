@@ -78,6 +78,20 @@ def broadband_duck(sig, bpm, ph, depth_db, shape_ms=120.0):
     return sig * g
 
 
+def band_rms_env(y, sr, lo, hi, win_ms=2.0):
+    """Power envelope of one band on a plain RMS grid: no attack, no release.
+
+    grid.envelopes is a follower with release dynamics, right for finding
+    beats in a mix and wrong for dividing two takes. Band-pass (zero phase),
+    square, average in frames.
+    """
+    import scipy.signal as ss
+    sos = ss.butter(4, [lo, min(hi, sr * 0.45)], btype="band", fs=sr, output="sos")
+    yb = ss.sosfiltfilt(sos, y)
+    w = max(1, int(sr * win_ms / 1000.0)); n = len(yb) // w
+    return (yb[: n * w].reshape(n, w) ** 2).mean(axis=1) + 1e-20
+
+
 def content_end(y, sr, floor_db=-60.0, hold_s=2.0):
     """Index where the audio stops: last sample above floor_db, plus a short hold.
 
@@ -92,18 +106,18 @@ def content_end(y, sr, floor_db=-60.0, hold_s=2.0):
     return int(min(len(y), idx[-1] + hold_s * sr)) if idx.size else 0
 
 
-def align(ref, other, sr, bpm, max_lag_s=None):
-    """Shift `other` so it lines up with `ref`, by cross-correlation.
+def align(ref, other, sr, bpm, max_lag_s=0.025):
+    """Shift `other` so it lines up with `ref`.
 
     Two real-time takes do not start on the same sample (251 samples apart on
-    the first run). The lag search is constrained to well inside one beat:
-    an unconstrained search locks onto the material's own periodicity and
-    returns one whole beat, which is wrong by construction.
+    the first run). Correlate ENVELOPES, not waveforms, inside a 25 ms window:
+    the onset structure has no periodicity to lock onto, and 25 ms covers any
+    real-time start offset while excluding the material's own period.
     """
-    if max_lag_s is None:
-        max_lag_s = 0.4 * 60.0 / bpm
     n = min(len(ref), len(other), int(20 * sr))
-    a, b = ref[:n].astype(np.float64), other[:n].astype(np.float64)
+    w = max(1, int(sr * 0.002)); k = np.ones(w) / w
+    a = np.convolve(np.abs(ref[:n].astype(np.float64)), k, mode="same"); a -= a.mean()
+    b = np.convolve(np.abs(other[:n].astype(np.float64)), k, mode="same"); b -= b.mean()
     m = int(max_lag_s * sr)
     c = np.correlate(a, b, mode="full")[n - 1 - m: n + m]
     lag = int(np.argmax(c)) - m
@@ -169,37 +183,72 @@ def mode_bypass(a):
         s0, s1 = int(off * SR), int(min(end, (off + 30) * SR))
         yd, yb, y0 = yd_all[s0:s1], yb_all[s0:s1], y0_all[s0:s1]
         bpm, ph = lock_grid(yd)
-        eb, _ = grid.envelopes(yb); e0, _ = grid.envelopes(y0)
+        win_ms = 1000.0 / grid.FR
+        edges = {0: (20.0, 60.0), 1: (60.0, 150.0)}
         row = dict(window=f"30 s at {int(frac * 100)}%", tempo=round(bpm, 2), bands={})
         for i, name in BANDS.items():
-            floor = np.percentile(e0[i], 99) * 1e-3          # ignore frames where the bypassed band is silent
-            ok = e0[i] > floor
-            ratio_db = np.full(len(eb[i]), np.nan)
-            # grid.envelopes returns POWER envelopes (band_pump.curve uses 10*log10 on
-            # them), so the gain in dB is 10*log10 of the ratio, not 20.
-            ratio_db[ok] = 10 * np.log10((eb[i][ok] + 1e-12) / (e0[i][ok] + 1e-12))
-            # fold the gain curve on the beat grid, median across beats
+            lo, hi = edges[i]
+            eb_i = band_rms_env(yb, SR, lo, hi, win_ms); e0_i = band_rms_env(y0, SR, lo, hi, win_ms)
+            n_f = min(len(eb_i), len(e0_i)); eb_i, e0_i = eb_i[:n_f], e0_i[:n_f]
+            ratio_db = 10 * np.log10(eb_i / e0_i)          # power envelopes: 10*log10
+            ref_db = 10 * np.log10(e0_i)
+            valid_db = 20.0
             beat = grid.FR * 60 / bpm; L = int(beat); beats = []
-            for b in range(int((len(ratio_db) - ph) // beat)):
-                s = int(round(ph + b * beat))
-                seg = ratio_db[s:s + L]
-                if s + L <= len(ratio_db) and np.isfinite(seg).mean() > 0.8:
+            for b in range(int((n_f - ph) // beat)):
+                s0 = int(round(ph + b * beat))
+                if s0 + L > n_f:
+                    break
+                # Impulsive reference (a kick-triggered tail): anchor at ITS onset, the
+                # first frame within 3 dB of the beat's peak, because the kick grid's
+                # phase lands early. Sustained reference: keep the grid phase; an
+                # arbitrary peak would smear the duck to nothing.
+                win = ref_db[s0:s0 + L]
+                k = s0 + int(np.argmax(win >= win.max() - 3.0)) if (win.max() - win.min() > 12.0) else s0
+                if k + L > n_f:
+                    break
+                seg = ratio_db[k:k + L - 2].copy(); ref = ref_db[k:k + L - 2]   # drop the next onset's wrap-in
+                seg[ref < ref.max() - valid_db] = np.nan     # only where the reference still has signal
+                if np.isfinite(seg).mean() > 0.3:
                     beats.append(seg)
             if len(beats) < 8:
                 row["bands"][name] = dict(error=f"only {len(beats)} usable beats"); continue
             m = np.nanmedian(np.stack(beats), axis=0)
-            top = np.nanmax(m); depth = float(top - np.nanmin(m))
-            t_min = int(np.nanargmin(m)) * 1000 / grid.FR
+            valid = np.isfinite(m)
+            # The ratio is ducked over bypassed, so 0 dB IS unity by construction.
+            # Measuring against the curve's own maximum understated a rumble's duck:
+            # the reference decays away before the shaper's ramp reaches unity, so
+            # the curve's max was -3 dB, not 0, and a 9 dB duck read as 6.
+            top = 0.0
+            # Search the dip in the first 90% of the beat: the zero-phase band filter
+            # pre-rings the NEXT onset into the last frames, most of all in the sub band.
+            m_search = m[: int(0.9 * len(m))]
+            depth = float(-np.nanmin(m_search))
+            t_min = int(np.nanargmin(m_search)) * 1000 / grid.FR
+            k0 = max(1, int(0.03 * grid.FR))
+            start = float(np.nanmean(m[:k0])) if valid[:k0].any() else None
             row["bands"][name] = dict(gain_dip_db=round(depth, 2), dip_at_ms=round(t_min, 1),
-                                      beats_used=len(beats), curve_db=[round(float(v), 2) for v in m[::max(1, L // 24)]])
-        s = row["bands"].get(BANDS[0], {}).get("gain_dip_db"); l = row["bands"].get(BANDS[1], {}).get("gain_dip_db")
-        row["sub_minus_low_db"] = round(s - l, 2) if s is not None and l is not None else None
+                                      gain_at_beat_start_db=(round(start - top, 2) if start is not None else None),
+                                      valid_share_of_beat=round(float(valid.mean()), 2), beats_used=len(beats),
+                                      curve_db=[(round(float(v), 2) if np.isfinite(v) else None) for v in m[::max(1, L // 24)]])
+        # The H34 question is whether the sub is pulled down deeper than the low band
+        # at the moment of the kick. For a beat-synced shaper that is the onset gain;
+        # fall back to the dip depths when an onset gain is missing.
+        b0, b1 = row["bands"].get(BANDS[0], {}), row["bands"].get(BANDS[1], {})
+        s_on, l_on = b0.get("gain_at_beat_start_db"), b1.get("gain_at_beat_start_db")
+        s_dip, l_dip = b0.get("gain_dip_db"), b1.get("gain_dip_db")
+        if s_on is not None and l_on is not None:
+            row["sub_minus_low_db"] = round((-s_on) - (-l_on), 2); row["split_basis"] = "onset gain"
+        elif s_dip is not None and l_dip is not None:
+            row["sub_minus_low_db"] = round(s_dip - l_dip, 2); row["split_basis"] = "dip depth"
+        else:
+            row["sub_minus_low_db"] = None; row["split_basis"] = None
         results.append(row)
     return dict(mode="bypass", kick=str(a.kick), bass=str(a.bass), bypass=str(a.bypass), **meta, windows=results,
-                reading="gain_dip_db is the device's own curve. Checked on a synthetic 18 dB duck it reads 15.8 "
-                        "in both bands: envelope smoothing under-reads a fast dip by about 2 dB, equally per band. "
-                        "sub_minus_low_db >= 3 means the split duck the tools advertise is present; near 0 means "
-                        "one curve for both bands. The split is exact even where the depth is slightly low.")
+                reading="gain_dip_db is the device's own curve, read only where the reference stem still has "
+                        "signal (within 20 dB of its per-beat peak; valid_share_of_beat says how much of the beat). "
+                        "gain_at_beat_start_db is the gain in the first 30 ms after the reference's onset, where a "
+                        "beat-synced shaper sits at its floor. sub_minus_low_db >= 3 means a split duck; near 0 "
+                        "means one curve for both bands.")
 
 
 def main():

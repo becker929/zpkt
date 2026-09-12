@@ -134,16 +134,20 @@ the branch): the rumble as it is, and the rumble with only LFOTool bypassed,
 from one clone in one sitting, tapped pre-group so the kick group's
 Compressor, Roar and COLDFIRE could not contaminate the division.
 
-**LFOTool applies one broadband duck, to near silence. There is no split.**
+**LFOTool applies one broadband duck. There is no split.** (Its depth is about 9 dB at beat start, see the correction below; "to near silence" was a measurement artefact.)
 
 - Timing: the sub band bottoms out 344 ms into a 375 ms beat, the low band
   16 ms into it. Those are 31 ms apart across the beat boundary, not 328.
   One curve pulls both bands down at the same instant.
-- Depth: reported 37 dB (sub) and 56 dB (low), and neither is a depth. The
-  calibration run on the same kick shows the estimator saturating near 12 to
-  13 dB, and an independent fold returned -120 dB in the 150 to 400 Hz band,
-  which no shaper can do. These are noise floors. The duck goes to silence
-  and the measure runs out of signal.
+- Depth: reported 37 dB (sub) and 56 dB (low), and neither is a depth. They
+  came from dividing two envelope FOLLOWERS, normalising to the curve's own
+  maximum, and reading the minimum where the rumble's tail had already
+  decayed into noise. The device's real setting, read directly from the
+  clone's `.als` on 12 September (`results/offline_plugins_v1/`), is a
+  9 dB pump: curve floor 0.358 of full gain at beat start, unity by beat end,
+  volume only, filter and crossover off. The bypass tool was corrected the
+  same day (plain band RMS envelopes, depth against 0 dB, onset-anchored fold)
+  and now returns 8.7 dB for a synthetic 9 dB duck of that shape.
 - LFOTool exposes only its on/off to the Live API and stores its state as an
   opaque blob, so its settings cannot be read by any route. The measurement
   answers the question the settings would have: it shapes volume, broadband.
@@ -168,3 +172,16 @@ Two corrections to the numbers above, found on the Mac:
    cross-correlation locked onto one whole beat, the material's own period.
    The tool now aligns with the lag search constrained to under half a beat,
    verified on a synthetic pair shifted by 251 samples.
+
+
+### Correction, 12 September, later
+
+The device's own state, pulled from the clone's `.als` and loaded into the
+plugin offline, says: synced, one cycle per beat, `lfo_depth` 100, volume
+modulation full, filter section off, crossover off, cutoff and resonance
+modulation zero. The drawn curve starts each beat at 0.358 of full gain,
+about 9 dB down, and returns to unity by the end of the beat. So the rumble
+is pumped about 9 dB, broadband, which is close to the corpus median of 7 dB
+and inside the range the pump measure can still read. "To near silence" is
+withdrawn. The broadband conclusion stands and is now read off the device
+rather than inferred.

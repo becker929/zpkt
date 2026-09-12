@@ -131,3 +131,32 @@ back with the lag found and a split of 0.1 dB.
 from the Mac, on the real HW002 kick: a true 24 dB duck reads 11.8, a true
 40 dB reads 13.4. Same ceiling as measured here. The correction stands: every
 published pump depth above about 12 dB is a floor.
+
+
+---
+
+## 2026-09-12, later: the bypass division over-read a 9 dB duck as "silence"
+
+Three defects stacked in `duck_calibration.py bypass`, all found once the
+device's true setting (a 9 dB pump) was known from `offline_plugins_v1`:
+
+1. It divided two `grid.envelopes` outputs. That is an envelope FOLLOWER
+   with release dynamics, right for finding beats in a mix, wrong for a
+   ratio: on a decaying tail the release, not the signal, sets the slope.
+   Now: zero-phase band-pass, square, average in 4 ms frames. No dynamics.
+2. It measured depth against the curve's own maximum. A rumble decays away
+   before the shaper's ramp reaches unity, so the curve's max sat near -3 dB
+   and a 9 dB duck read as 6. The ratio is ducked over bypassed, so 0 dB is
+   unity by construction; depth is now measured against 0.
+3. The fold's last frames caught the NEXT onset wrapping in, and the sub
+   band's filter pre-rings it earlier still. The dip is searched in the first
+   90% of the beat, and the fold is anchored at the reference's own onset
+   when the reference is impulsive (the kick grid's phase lands early).
+
+Also: alignment now correlates envelopes inside a 25 ms window instead of
+waveforms. Verified: a synthetic rumble-style pair with a true 9 dB duck at
+onset reads 8.7 dB at 0 ms in both bands, split 0.03; a sustained pair with
+a true 18 dB duck and a 251-sample offset reads 16 dB (frame smoothing) with
+the offset found. The split is now taken from the onset gains, which is the
+H34 question stated exactly: is the sub pulled down deeper than the low band
+at the moment of the kick.

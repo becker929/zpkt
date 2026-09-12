@@ -10,13 +10,15 @@
    headline paired the stems backwards. Fixed the same day with a name-first,
    physics-second selector (`pick_pair`). The reports on the branch predate
    the fix; re-run the bench to refresh them.
-2. **Plugins outside the DAW.** Check `~/sandbox/autodaw` for an existing
-   pedalboard or DawDreamer demo first. Then: list LFOTool, Decapitator,
-   COLDFIRE and StandardCLIP parameters; load Anthony's LFOTool state from the
-   HW002 clone's `.als` buffer and dump it; sweep LFOTool depth on the
-   bypassed rumble and calibrate the duck measure at known depths; round-trip
-   one state back into Live via `.vstpreset` or `.adv`. Plan in
-   `research/offline-plugins.md`. Posted to PR #25 on 12 Sep.
+2. **Plugins outside the DAW.** Steps 0 to 4 done 12 Sep
+   (`results/offline_plugins_v1/`): parameter lists for LFOTool (70),
+   COLDFIRE (~270), StandardCLIP (6); Decapitator exposes nothing; Anthony's
+   LFOTool state read from the `.als` (9 dB volume pump, broadband); the
+   pedalboard sweep is flat because pedalboard has no transport. **Next: the
+   same sweep in DawDreamer at 160 BPM with the transport running**, then
+   `duck_calibration.py bypass` on each step. Step 5 (round trip into Live)
+   waits for a swept state; the `.adv`/`.als` route is the one that applies
+   to a VST2 instance.
 3. **Knob map, HW002 kick group** (Roar, Dist COLDFIRE, Compressor): native
    devices, so on the rig. One parameter at a time, whole range, 13 steps.
 4. **Calibrate the remaining measures** (requirement 2 in the plan note):

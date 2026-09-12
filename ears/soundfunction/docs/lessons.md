@@ -83,8 +83,13 @@ before comparing models.
 - Plugins can hide from the Live API. LFOTool exposes only on/off and stores
   state as an opaque blob. pedalboard sees everything. The measurement
   (identical dip timing across bands) answered what the settings could not.
-- LFOTool ducks to silence. Any estimator that takes a log of the ducked
-  signal runs out of signal. Divide by the bypassed render instead.
+- LFOTool on the rumble pumps about 9 dB, not "to silence". The silence
+  reading was the bypass division's own fault (envelope follower, depth
+  against the curve's max, next-onset wrap-in), fixed 12 Sep. When a number
+  looks impossible for the device, read the device's state before believing
+  the measure.
+- pedalboard has no transport: tempo-synced modulation plugins render as if
+  stopped. Use DawDreamer for those. Audio Units do not load under tmux.
 - A Mac that sleeps freezes Live's transport with `is_playing` still true.
   `caffeinate -dis` around every long run; power, lid, pmset.
 - Hammerspoon can interfere with Live and bake dropouts into takes. Check

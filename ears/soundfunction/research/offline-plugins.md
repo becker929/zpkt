@@ -84,3 +84,27 @@ The bench sheet, the corpus and the listening test are unchanged. This is a
 faster, more complete way to build the knob map for plugin devices, and the
 only way to read settings the Live API hides. Native devices still go
 through the rig.
+
+
+## What the first run found (12 September, `results/offline_plugins_v1/`)
+
+- **Reading state works.** The rumble's LFOTool `Buffer` (hex text in the
+  `.als`, not base64) loaded into the plugin through pedalboard and dumped
+  all 70 parameters. Anthony's setting: synced, 1/4, depth 100, volume only,
+  filter off, crossover off, floor 0.358 of gain at beat start. This is the
+  route for reading any plugin setting the Live API hides.
+- **pedalboard has no transport.** LFOTool's LFO does not advance without a
+  host transport, so 13 depth steps rendered at 985x real time all measured
+  0.00 dB. Tempo-synced modulation plugins need DawDreamer, which drives a
+  transport with a BPM and play state. Static processors (clippers,
+  saturators, EQs) are unaffected.
+- **Live hosts these plugins as VST2; pedalboard loads the AU.** LFOTool's
+  VST2 chunk loaded into the AU cleanly, so the two share a state layout
+  there. Not guaranteed elsewhere. The `.vstpreset` route does not apply to a
+  VST2 instance; the `.adv` or `.als` route does.
+- **Decapitator exposes zero parameters and zero state through its AU.** It
+  cannot be swept or preset-driven offline as things stand.
+- **Audio Units do not load inside tmux.** The tmux server sits outside the
+  GUI bootstrap namespace the AudioComponent registry needs. Run plugin work
+  from a foreground shell or a launchd agent in the `gui` domain.
+- `rate` is an enum of note divisions; no free Hz value can be set.
