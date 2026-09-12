@@ -40,7 +40,8 @@ All of them write JSON. Send the JSON. Keep the audio.
 | `lab/duck_calibration.py bypass` | the ducking device's exact gain curve, per band | `--kick ... --bass ... --bypass <bass with device off>` |
 | `lab/runner.py --local <local_src> --out reports/` | the bench sheet for every track and stem folder | writes one JSON report per item |
 | `listen/realism_check.py --dir <folder of one-shots>` | how real a set of one-shots is against 318 measured real ones | writes `out/listen_realism.json` |
-| `python3 -m analysis.run hits <folder> -o hits.csv` then `python3 analysis/hits_extra.py hits.csv` | per-sound features for a folder of one-shots (both steps, always) | CSV |
+| `python3 -m analysis.run hits <folder> -o hits.csv` then `python3 analysis/hits_extra.py hits.csv` | per-sound features for a folder of ONE-SHOTS (both steps, always) | CSV |
+| `lab/loop_hits.py <wav-or-folder> -o hits.csv` | per-hit features on LOOPS: segments at onsets, then the same measures per hit, plus a per-file summary of medians | CSV + .summary.csv |
 
 ## What to send back
 

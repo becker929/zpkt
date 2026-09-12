@@ -29,7 +29,7 @@ history, no audio. Clone at `~/sandbox/sound-function` on the Mac.
   per-stem lengths, two bench reports (made before the pair-selector fix),
   MANIFEST.
 - `lab/` — `runner.py` (`--local` mode reads `tracks/`, `refs/`,
-  `stems/<song>/`), `duck_calibration.py`, `plugin_sweep.py`,
+  `stems/<song>/`), `duck_calibration.py`, `plugin_sweep.py`, `loop_hits.py`,
   `drive_fetch.py`, report renderers, embedding.
 - `listen/` — `make_pairs.py` (old synthetic), `make_pairs_real.py`,
   `real_sweeps.py`, `realism_check.py`.
@@ -105,7 +105,7 @@ Dies with the container. Nothing here is needed.
 | real one-shots measured | 318 |
 | listening-test pairs live | 31 (set v2-real) |
 | listening-test answers | 3 (set v1-synth) |
-| knob map rows | 3 (SNTS Kick (G): Decapitator Drive, StandardCLIP threshold; HW002 rumble: LFOTool depth, offline) |
+| knob map rows | 13: SNTS Kick (G) Decapitator Drive, StandardCLIP threshold; HW002 rumble LFOTool depth (offline); HW002 kick group bus, ten rows of which five are null (Roar bypassed) and three flat (compressor idle), Threshold live |
 | real multitrack stems | 18, from 2 sets; trimmed copies on the Mac (38% of the recorded audio was music) |
 | pump measure | corpus estimator reads ~12 for a true 24 dB, ~14 for 40; division route within 0.5 dB up to 9 dB on real material |
 | classifier, synthetic to real | 0.346 (chosen features), unchanged by the decay fix |

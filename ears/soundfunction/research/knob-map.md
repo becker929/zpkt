@@ -94,6 +94,50 @@ this row, from the earlier tool, read 8.10 and 9.35 at full depth with a
 | what this calibrates | the duck measure itself: `gain_dip_db` tracks true depth within 0.7 dB up to 9 dB on real material. Its onset-gain column does not (the reference onset is not the shaper's cycle start) and is a diagnostic only. Above ~12 dB the corpus estimator saturates (see measurement-fixes). |
 | usable as a control? | YES, and invertible: pick a pump depth, read off `lfo_depth`. |
 
+## Target: HW002_14, kick group bus (kick + rumble, LFOTool on), on the rig
+
+Ten rows, 130 steps, 12 September, `results/knobmap_hw002_kickgroup_v1/`.
+Bus chain: EQ Eight, Roar, Dist COLDFIRE, EQ Eight, Compressor. Each step
+loop-recorded 8 bars of the real arrangement at 160 BPM, tapped at the bus
+output. **Every row is about kick plus rumble as heard through the bus.**
+
+Two facts about the set came out before any knob did:
+
+- **Roar is bypassed** in this set (Device On = 0, every stage inside it on).
+  Rows 4 to 8 (Drive, Tone Amt, Blend, Shaper 1 Amt, Shaper 1 Bias) swept a
+  device outside the signal path: crest span 0.08 to 0.14 dB. Null by
+  construction; kept with the sidecars that prove it.
+- **The compressor is idle at Anthony's setting.** Threshold -5.47 dB (0.713
+  normalised), RMS model, 3:1, attack 0.08 ms, release 2.9 ms; the bus RMS
+  is -9.3 dB, below the threshold. Rows 10 to 12 (Attack, Release, Ratio)
+  therefore read flat (crest span under 0.1 dB); row 13 (Knee) moves crest
+  0.48 dB.
+
+### Row 9. Compressor / Threshold   [the one live knob on this bus]
+
+| threshold (norm) | peak dBFS | rms dBFS | crest dB | sub share |
+|---:|---:|---:|---:|---:|
+| 0.000 | -32.4 | -50.1 | 17.78 | 0.873 |
+| 0.167 | -14.9 | -29.3 | 14.36 | 0.874 |
+| 0.333 | -6.3 | -18.0 | 11.65 | 0.875 |
+| 0.500 | -5.5 | -12.8 | 7.33 | 0.875 |
+| 0.583 | -4.0 | -10.7 | 6.71 | 0.879 |
+| 0.667 | -2.0 | -9.5 | 7.48 | 0.898 |
+| 0.750 to 1.000 | -1.9 | -9.3 | 7.45 | 0.902 |
+
+| aspect | finding |
+|---|---|
+| crest vs threshold | 11 dB of span, NOT monotonic: crest falls from 17.8 at the floor to 6.7 at 0.583, then settles at 7.45 once the compressor stops working. Under heavy compression the 2.9 ms release lets the transient through and squashes the body, so crest RISES as threshold falls. |
+| peak and RMS vs threshold | monotonic, and the useful inverses on this row. |
+| sub share | 0.873 to 0.902, a small rise as compression stops. |
+| usable as a control? | For level, yes. For crest, only as "which side of 0.6 are you on", and with the release at 2.9 ms the direction is the opposite of the naive one. |
+
+Rows 4 to 8 (Roar) and 10 to 13 (Attack, Release, Ratio, Knee) are recorded
+in the pack and are flat for the reasons above. Two follow-ups are queued:
+Attack, Release and Ratio again with Threshold held at 0.4 so the compressor
+is working (labelled as an operating point that is not Anthony's), and a
+"what Roar would do" pack with Device On forced to 1.
+
 ## Earlier synthetic reference (plugin kick, not a real instrument)
 
 Simpler "Kick 49 Hz", swept Transpose 0..+36 st: `sub_share` monotonic

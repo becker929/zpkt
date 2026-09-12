@@ -19,7 +19,14 @@
    offline knob-map row (`knob-map.md` row 3). Step 5 (round trip into Live)
    still waits for a swept state worth loading; `.adv`/`.als` is the route
    for a VST2 instance.
-3. **Knob map, HW002 kick group**, on the rig. Decided 12 Sep: Compressor
+3. ~~Knob map, HW002 kick group~~ **Done 12 Sep**, ten rows, 130 steps,
+   `results/knobmap_hw002_kickgroup_v1/`. Roar is bypassed in the set (five
+   null rows) and the compressor is idle at Anthony's threshold (three flat
+   rows); Threshold is the one live knob, 11 dB of crest span, not monotonic.
+   Follow-ups the Mac is running: Attack, Release, Ratio at Threshold 0.4
+   (an operating point, labelled as such); then a "what Roar would do" pack
+   with Device On forced to 1, Drive, Tone Amt, Blend only.
+3-old. Decided 12 Sep: Compressor
    Threshold, Attack, Release first, then Roar Drive, Tone Amt, Blend, then
    Ratio, Knee, Shaper 1 Amt, Shaper 1 Bias; whole range, 13 steps; an 8-bar
    loop of the real arrangement from the first kick bar, tapped at the
@@ -28,6 +35,10 @@
    on/off to the Live API: skipped on the rig, to be done offline in
    isolation as its own pack. Measures: crest and five band shares; decay40
    and sustain share if cheap.
+3c. **Per-hit measures on loops.** `analysis.run hits` treats a file as one
+   hit; on a 12 s loop it returns the file length. `lab/loop_hits.py`
+   (12 Sep) segments at onsets first: 20 of 21 hits on a synthetic 160 BPM
+   loop, the hit at t=0 missed. Second pass over the knob-map loops pending.
 3b. **Runner headline on real multitracks.** `report_multitrack` still uses
    the corpus sidechain estimator, which saturates on solo stems (70 dB on
    HW002). The row is now labelled as a floor; the proper number needs a
