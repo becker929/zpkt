@@ -3,7 +3,7 @@ write one CSV per row: value, crest_db, five band shares, peak, rms."""
 import csv, json, subprocess, sys
 from pathlib import Path
 EARS_PY="/Users/anthonybecker/_agent_scratch/ears_lab/.venv/bin/python"; EARS="/Users/anthonybecker/_agent_scratch/ears_lab/ears_shim.py"
-OUT=Path("out/knobmap_hw002_kickgroup_v1")
+OUT=Path(sys.argv[1] if len(sys.argv)>1 else "out/knobmap_hw002_kickgroup_v1")
 COLS=["value_set","value_read","crest_db","sub_share","low_share","mid_share","high_share","air_share","peak_dbfs","rms_dbfs","wav"]
 for rdir in sorted(p for p in OUT.iterdir() if p.is_dir()):
     rows=[]

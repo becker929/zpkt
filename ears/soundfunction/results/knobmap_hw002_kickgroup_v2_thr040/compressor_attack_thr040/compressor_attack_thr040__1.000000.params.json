@@ -1,0 +1,74 @@
+{
+ "row": "compressor_attack_thr040",
+ "device": "Compressor",
+ "device_index": 4,
+ "param": "Attack",
+ "param_index": 4,
+ "value_set": 1.0,
+ "value_read": 1.0,
+ "original_value": 0.1796875,
+ "param_min": 0.0,
+ "param_max": 1.0,
+ "tempo": 160.0,
+ "loop_start_beats": 0.0,
+ "loop_beats": 32.0,
+ "capture_track": 18,
+ "tap": "kick group (bus output)",
+ "bus": {
+  "members": [
+   {
+    "index": 2,
+    "name": "kick",
+    "mute": false
+   },
+   {
+    "index": 3,
+    "name": "rumble",
+    "mute": false
+   }
+  ],
+  "rumble_lfotool_on": 1.0,
+  "group_devices": [
+   {
+    "index": 0,
+    "name": "EQ Eight",
+    "class_name": "Eq8",
+    "on": 1.0
+   },
+   {
+    "index": 1,
+    "name": "Roar",
+    "class_name": "Roar",
+    "on": 0.0
+   },
+   {
+    "index": 2,
+    "name": "Dist COLDFIRE",
+    "class_name": "PluginDevice",
+    "on": 1.0
+   },
+   {
+    "index": 3,
+    "name": "EQ Eight",
+    "class_name": "Eq8",
+    "on": 1.0
+   },
+   {
+    "index": 4,
+    "name": "Compressor",
+    "class_name": "Compressor2",
+    "on": 1.0
+   }
+  ]
+ },
+ "held": {
+  "Threshold": 0.4,
+  "original": 0.713178277015686
+ },
+ "note": "Row is about the kick group bus as heard: kick + rumble, rumble's LFOTool on. Not a solo kick. Threshold HELD at 0.4 for this row so the compressor is working; at the set threshold it is idle.",
+ "source_set": "/Users/anthonybecker/_agent_scratch/HW002_rumble_bypass/HW002_14.als",
+ "wav": "compressor_attack_thr040__1.000000.wav",
+ "peak_dbfs": -2.82,
+ "timestamp_utc": "2026-09-12T13:13:25.807783+00:00",
+ "label": "operating point 0.4, not Anthony's setting"
+}
