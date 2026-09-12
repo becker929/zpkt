@@ -45,42 +45,27 @@ Two agents, two machines. The measurements run where the audio already is.
 - If a tool is missing on the Mac, the Live agent says so in the MANIFEST and
   stops. The research agent adds it to the branch.
 
-## 3. The next Live job, ready to paste
+## 3. The next Live job
 
-This is the one that turns every published pump number from a floor into a
-value, and settles the split-duck question for your track exactly.
+`live_rumble_bypass_v1` is done (12 September): LFOTool is one broadband
+duck to silence, no split. Results are on the branch under
+`results/live_rumble_bypass_v1/`. The next two jobs go through the mailbox
+(PR #25), not through a pasted prompt:
 
-```
-First, set up the lab if it is not there yet: follow
-https://anthonybecker.me/research/sound-function/repo/research/mac-lab.md
-(clone the sound-function-research branch, venv, pip install -r
-requirements.txt, run the six feature tests).
-
-Then bounce HW002_14 track 3 ("rumble") twice from the same clone, same
-arrangement, same length: once exactly as it is, and once with ONLY the
-LFOTool device bypassed (device on = 0). Change nothing else. Name them
-03__rumble.wav and 03__rumble__lfotool-off.wav, each with a sidecar, and this
-time record LFOTool's parameter values in the sidecar, not just its name, so
-we can see whether it shapes volume or a filter. Wrap the run in
-caffeinate -dis.
-
-Then run the analysis locally, on the Mac, and send only the JSON:
-  python3 lab/duck_calibration.py calibrate --kick stems/hw002/02__kick.wav --out duck_calibrate.json
-  python3 lab/duck_calibration.py bypass --kick stems/hw002/02__kick.wav \
-      --bass stems/hw002/03__rumble.wav --bypass stems/hw002/03__rumble__lfotool-off.wav \
-      --out duck_bypass.json
-
-Pack the two JSON files, the two sidecars and a MANIFEST.md (same style as
-last time) as live_rumble_bypass_v1.zip. Do not include the wavs. Leave the
-zip on the Mac for Anthony.
-```
+1. **Trim and measure the multitrack.** The 18 stems from the first bounce
+   are 57% trailing silence. Trim each to its track's own content length,
+   then run `lab/runner.py --local` on the folder and return the report JSON.
+   No Live needed. This gives the bench sheet on true multitracks.
+2. **Knob map, HW002 kick group.** Roar, Dist COLDFIRE and the Compressor on
+   the kick group, one parameter at a time, whole range, 13 steps, same
+   method as the SNTS clipper. About two rows per rig-day.
 
 ## 4. Things only you can do
 
 In order of how much they unblock.
 
-1. Paste the job above into the Live agent. About an hour of rig time, plus a one-time lab setup of ten minutes.
-2. Send me the resulting zip. It is small now, numbers only, so a link or a paste both work.
+1. Run `ops/mac/install.sh` in your own Terminal so `act` messages become Reminders.
+2. If the Live agent still asks for Accessibility, grant it to the terminal it runs from. It should not need it for tap bounces.
 3. Do the listening test once with the new sounds. Thirty-one pairs, about
    fifteen minutes. Your three earlier answers were against the old set.
 4. Make one track with a target in mind, using the clipper table: pick a
