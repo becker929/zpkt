@@ -179,8 +179,10 @@ def pick_pair(live):
     def named(pat):
         c = [s for s in live if _re.search(pat, s["name"], _re.I) and not _re.search(r"group|bus|ref", s["name"], _re.I)]
         return c[0] if c else None
-    kick = named(r"\bkick|\bbd\b|\bkik")
-    bass = named(r"rumble|\bbass|\bsub\b|808")
+    # (?<![a-z]) not \b: underscores are word characters, so \bkick never
+    # matches "02__kick.wav" and the selector silently fell through to physics.
+    kick = named(r"(?<![a-z])kick|(?<![a-z])bd(?![a-z])|(?<![a-z])kik")
+    bass = named(r"rumble|(?<![a-z])bass|(?<![a-z])sub(?![a-z])|808")
     if kick is None:
         pool = [s for s in live if s["n_hits"] >= 32] or live
         kick = max(pool, key=lambda s: (s["n_hits"] * (1.0 - s["sustained_low"]), s["sub_attacks"]))

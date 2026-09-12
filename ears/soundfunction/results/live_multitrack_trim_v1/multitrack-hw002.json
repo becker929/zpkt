@@ -1,5 +1,5 @@
 {
- "headline": "12 stems; sidechain from 03__rumble.wav into 02__kick.wav is 46.94 dB",
+ "headline": "12 stems; sidechain from 02__kick.wav into 03__rumble.wav is 70.09 dB",
  "rows": [
   {
    "label": "stems",
@@ -10,35 +10,35 @@
   },
   {
    "label": "kick-like stem",
-   "value": "03__rumble.wav",
-   "unit": "",
-   "ref": null,
-   "note": ""
-  },
-  {
-   "label": "bass-like stem",
    "value": "02__kick.wav",
    "unit": "",
    "ref": null,
    "note": ""
   },
   {
+   "label": "bass-like stem",
+   "value": "03__rumble.wav",
+   "unit": "",
+   "ref": null,
+   "note": ""
+  },
+  {
    "label": "sidechain depth, kick into bass",
-   "value": 46.94,
+   "value": 70.09,
    "unit": "dB",
    "ref": 6.345,
    "note": "corpus pump median for scale; on real stems this is the true ducking"
   },
   {
    "label": "sidechain return",
-   "value": 268.0,
+   "value": 296.0,
    "unit": "ms",
    "ref": 236.0,
    "note": ""
   },
   {
    "label": "kick interval",
-   "value": 375.9,
+   "value": 375.8,
    "unit": "ms",
    "ref": null,
    "note": ""
@@ -718,16 +718,16 @@
    }
   ],
   "sidechain": {
-   "pump_depth_db": 46.94,
-   "pump_return_ms": 268.0,
-   "n_kicks": 639,
-   "kick_interval_ms": 375.9,
+   "pump_depth_db": 70.09,
+   "pump_return_ms": 296.0,
+   "n_kicks": 248,
+   "kick_interval_ms": 375.8,
    "tempo": 159.64
   }
  },
  "runner": {
-  "seconds": 45.1,
-  "when": "2026-09-12T07:38:18Z"
+  "seconds": 45.3,
+  "when": "2026-09-12T07:40:51Z"
  },
  "item": {
   "kind": "multitrack",
