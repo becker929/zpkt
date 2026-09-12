@@ -5,9 +5,9 @@ import shutil, os
 from pathlib import Path
 SRC = Path(__file__).resolve().parent.parent
 DST = Path("/home/user/anthonybecker.me/research/sound-function/repo")
-SKIP_DIRS = {"__pycache__", ".git", "scratch", "_raw", "wav", "audio", "results", "stems_results", "stems", "_sep", "pump_synth", "sweeps", "loops", "roles", "node_modules"}
+SKIP_DIRS = {"__pycache__", ".git", "scratch", "_raw", "wav", "audio", "results", "stems_results", "stems", "_sep", "pump_synth", "sweeps", "loops", "roles", "node_modules", "docs"}   # docs/ carries machine paths; the branch has it
 SKIP_EXT = {".wav", ".mp3", ".flac", ".npy", ".pyc"}
-SKIP_FILES = {"local.env", ".mailbox_last_id"}   # secrets and per-machine state never reach the site
+SKIP_FILES = {"local.env", ".mailbox_last_id", "CLAUDE.md"}   # secrets and per-machine state never reach the site
 if DST.exists(): shutil.rmtree(DST)
 n = 0
 for root, dirs, files in os.walk(SRC):
