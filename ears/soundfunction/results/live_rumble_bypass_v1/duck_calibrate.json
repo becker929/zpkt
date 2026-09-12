@@ -1,0 +1,50 @@
+{
+ "mode": "calibrate",
+ "kick": "stems/hw002/02__kick.wav",
+ "tempo": 159.47,
+ "rows": [
+  {
+   "true_duck_db": 3,
+   "measured_sub_db": 2.29,
+   "measured_low_db": 2.26,
+   "reported_split_db": 0.03
+  },
+  {
+   "true_duck_db": 6,
+   "measured_sub_db": 4.38,
+   "measured_low_db": 4.32,
+   "reported_split_db": 0.06
+  },
+  {
+   "true_duck_db": 12,
+   "measured_sub_db": 7.84,
+   "measured_low_db": 7.75,
+   "reported_split_db": 0.09
+  },
+  {
+   "true_duck_db": 18,
+   "measured_sub_db": 10.28,
+   "measured_low_db": 10.16,
+   "reported_split_db": 0.12
+  },
+  {
+   "true_duck_db": 24,
+   "measured_sub_db": 11.82,
+   "measured_low_db": 11.67,
+   "reported_split_db": 0.15
+  },
+  {
+   "true_duck_db": 32,
+   "measured_sub_db": 12.9,
+   "measured_low_db": 12.74,
+   "reported_split_db": 0.16
+  },
+  {
+   "true_duck_db": 40,
+   "measured_sub_db": 13.38,
+   "measured_low_db": 13.2,
+   "reported_split_db": 0.18
+  }
+ ],
+ "reading": "If measured stops rising while true keeps rising, the measure saturates there. If reported_split is not near zero, the measure invents a split it should not."
+}
