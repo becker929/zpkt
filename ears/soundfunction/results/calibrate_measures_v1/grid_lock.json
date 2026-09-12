@@ -1,0 +1,148 @@
+{
+ "measure": "grid lock",
+ "definition": {
+  "function": "analysis.grid.analyse",
+  "method": "Hilbert envelopes per band at 250 Hz, attack track = log-envelope rises > 2 dB/frame, coarse tempo then lock(lowatk, bpm0)",
+  "outputs": [
+   "tempo",
+   "phase",
+   "lock"
+  ]
+ },
+ "tolerance": "BPM within 0.5% and phase within 10 ms at jitter <= 10 ms; jitter 20 recorded, not judged",
+ "rows": [
+  {
+   "case": "click",
+   "true_bpm": 150.0,
+   "jitter_ms": 0,
+   "tempo": 149.662,
+   "bpm_error_pct": 0.225,
+   "phase": 75.169,
+   "phase_shift_from_clean": 0.0,
+   "lock": 0.599,
+   "pass_": true
+  },
+  {
+   "case": "click",
+   "true_bpm": 150.0,
+   "jitter_ms": 5,
+   "tempo": 149.7,
+   "bpm_error_pct": 0.2,
+   "phase": 75.952,
+   "phase_shift_from_clean": 0.78,
+   "lock": 0.6,
+   "pass_": true
+  },
+  {
+   "case": "click",
+   "true_bpm": 150.0,
+   "jitter_ms": 10,
+   "tempo": 149.626,
+   "bpm_error_pct": 0.249,
+   "phase": 75.991,
+   "phase_shift_from_clean": 0.82,
+   "lock": 0.583,
+   "pass_": true
+  },
+  {
+   "case": "click",
+   "true_bpm": 150.0,
+   "jitter_ms": 20,
+   "tempo": 149.75,
+   "bpm_error_pct": 0.167,
+   "phase": 79.796,
+   "phase_shift_from_clean": 4.63,
+   "lock": 0.575,
+   "pass_": null
+  },
+  {
+   "case": "burst50",
+   "true_bpm": 140.0,
+   "jitter_ms": 0,
+   "tempo": 139.644,
+   "bpm_error_pct": 0.254,
+   "phase": 81.412,
+   "phase_shift_from_clean": 0.0,
+   "lock": 1.0,
+   "pass_": true
+  },
+  {
+   "case": "burst50",
+   "true_bpm": 140.0,
+   "jitter_ms": 5,
+   "tempo": 139.665,
+   "bpm_error_pct": 0.239,
+   "phase": 81.402,
+   "phase_shift_from_clean": 0.01,
+   "lock": 0.997,
+   "pass_": true
+  },
+  {
+   "case": "burst50",
+   "true_bpm": 140.0,
+   "jitter_ms": 10,
+   "tempo": 139.667,
+   "bpm_error_pct": 0.238,
+   "phase": 82.251,
+   "phase_shift_from_clean": 0.84,
+   "lock": 0.978,
+   "pass_": true
+  },
+  {
+   "case": "burst50",
+   "true_bpm": 140.0,
+   "jitter_ms": 20,
+   "tempo": 139.754,
+   "bpm_error_pct": 0.176,
+   "phase": 84.671,
+   "phase_shift_from_clean": 3.26,
+   "lock": 0.935,
+   "pass_": null
+  },
+  {
+   "case": "burst50",
+   "true_bpm": 160.0,
+   "jitter_ms": 0,
+   "tempo": 159.521,
+   "bpm_error_pct": 0.299,
+   "phase": 70.524,
+   "phase_shift_from_clean": 0.0,
+   "lock": 1.0,
+   "pass_": true
+  },
+  {
+   "case": "burst50",
+   "true_bpm": 160.0,
+   "jitter_ms": 5,
+   "tempo": 159.574,
+   "bpm_error_pct": 0.266,
+   "phase": 71.984,
+   "phase_shift_from_clean": 1.46,
+   "lock": 1.0,
+   "pass_": true
+  },
+  {
+   "case": "burst50",
+   "true_bpm": 160.0,
+   "jitter_ms": 10,
+   "tempo": 159.607,
+   "bpm_error_pct": 0.246,
+   "phase": 71.974,
+   "phase_shift_from_clean": 1.45,
+   "lock": 0.993,
+   "pass_": true
+  },
+  {
+   "case": "burst50",
+   "true_bpm": 160.0,
+   "jitter_ms": 20,
+   "tempo": 159.735,
+   "bpm_error_pct": 0.166,
+   "phase": 74.808,
+   "phase_shift_from_clean": 4.28,
+   "lock": 0.958,
+   "pass_": null
+  }
+ ],
+ "ok": true
+}

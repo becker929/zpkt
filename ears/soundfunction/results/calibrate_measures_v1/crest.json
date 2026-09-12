@@ -1,0 +1,79 @@
+{
+ "measure": "crest",
+ "definition": {
+  "function": "analysis.loudness.measure",
+  "method": "20*log10(peak / RMS) over the WHOLE buffer handed in; no window, no gating. Silence in the buffer lowers RMS and raises crest."
+ },
+ "tolerance": "clipping: within 0.5 dB of peak/RMS computed on the clipped samples with the same whole-buffer window. Padding: drift recorded, becomes the window rule",
+ "rows": [
+  {
+   "case": "clipping",
+   "ceiling_db": 0,
+   "true_crest_same_window_db": 20.36,
+   "reported_crest_db": 20.36,
+   "error_db": -0.0,
+   "pass_": true
+  },
+  {
+   "case": "clipping",
+   "ceiling_db": -3,
+   "true_crest_same_window_db": 17.42,
+   "reported_crest_db": 17.42,
+   "error_db": 0.0,
+   "pass_": true
+  },
+  {
+   "case": "clipping",
+   "ceiling_db": -6,
+   "true_crest_same_window_db": 14.65,
+   "reported_crest_db": 14.65,
+   "error_db": 0.0,
+   "pass_": true
+  },
+  {
+   "case": "clipping",
+   "ceiling_db": -9,
+   "true_crest_same_window_db": 12.62,
+   "reported_crest_db": 12.62,
+   "error_db": -0.0,
+   "pass_": true
+  },
+  {
+   "case": "clipping",
+   "ceiling_db": -12,
+   "true_crest_same_window_db": 11.12,
+   "reported_crest_db": 11.12,
+   "error_db": -0.0,
+   "pass_": true
+  },
+  {
+   "case": "trailing silence",
+   "pad_s": 0,
+   "reported_crest_db": 20.36,
+   "drift_from_unpadded_db": 0.0,
+   "pass_": null
+  },
+  {
+   "case": "trailing silence",
+   "pad_s": 0.5,
+   "reported_crest_db": 20.5,
+   "drift_from_unpadded_db": 0.14,
+   "pass_": null
+  },
+  {
+   "case": "trailing silence",
+   "pad_s": 1.0,
+   "reported_crest_db": 20.64,
+   "drift_from_unpadded_db": 0.28,
+   "pass_": null
+  },
+  {
+   "case": "trailing silence",
+   "pad_s": 2.0,
+   "reported_crest_db": 20.9,
+   "drift_from_unpadded_db": 0.54,
+   "pass_": null
+  }
+ ],
+ "ok": true
+}
