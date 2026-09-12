@@ -169,11 +169,11 @@ at the moment of the kick.
 DawDreamer hosting the VST2 LFOTool with a 160 BPM transport, Anthony's own
 state loaded by name (69 of 70 parameters read back exactly), thirteen depth
 steps on the trimmed un-ducked rumble, each render divided against that same
-input. Known answer from the device's curve floor of 0.358: 8.9 dB at full
-depth, 3.4 dB at half. Measured 8.1 (sub) and 9.4 (low) at full, 3.1 and 3.6
-at half. **The duck measure tracks true depth within about 0.5 dB up to
-9 dB on real material, and reports no split where there is none, within
-1 dB.** That is requirement 2 done for this measure inside the range where
+input. Known answer from the device's curve floor of 0.358: 8.92 dB at full
+depth, 3.36 dB at half. With the corrected tool, measured 8.21 (sub) and 8.73
+(low) at full, 3.25 and 3.34 at half. **`gain_dip_db` tracks true depth
+within 0.7 dB up to 9 dB on real material, and reports no split where there
+is none, within 0.5 dB.** That is requirement 2 done for this measure inside the range where
 the genre actually sits (corpus median 7 dB). Above about 12 dB the corpus
 estimator saturates and stays a floor; the division route does not, and is
 the one to use when a bypassed render exists.
@@ -182,3 +182,14 @@ Two facts about the hosts: pedalboard cannot do this (no transport);
 DawDreamer's `load_state` rejects the raw `.als` buffer, so state goes in by
 parameter name from a pedalboard dump. Both must run from a foreground
 shell.
+
+Two more things the same run settled. `gain_at_beat_start_db` is NOT
+calibrated: on the same renders it read -2.34 (sub) and -0.89 (low) at full
+depth, because the reference's onset and the shaper's cycle start are not
+the same instant. It stays in the output as a diagnostic and the split no
+longer uses it. And the two-take route (a real-time take with the device on
+divided by one with it off) remains noisy on a solo stem that decays inside
+the beat: on the real aligned rumble pair the dips still read 35 to 58 dB
+after the fixes, with alignment at one sample. One render divided against its
+own input, offline, is the route that calibrates; the two-take route is for
+devices that cannot be hosted offline, and its numbers are floors.

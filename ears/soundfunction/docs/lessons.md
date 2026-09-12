@@ -90,6 +90,11 @@ before comparing models.
   the measure.
 - pedalboard has no transport: tempo-synced modulation plugins render as if
   stopped. Use DawDreamer for those. Audio Units do not load under tmux.
+- For a duck measurement, divide ONE render against its own input (offline).
+  Two real-time takes of a solo stem that decays inside the beat stay noisy
+  in the tail whatever the alignment, and read 35 to 58 dB for a 9 dB pump.
+- An "onset gain" read at the reference's onset is not the shaper's floor:
+  the two instants differ. The dip depth is the calibrated number.
 - A Mac that sleeps freezes Live's transport with `is_playing` still true.
   `caffeinate -dis` around every long run; power, lid, pmset.
 - Hammerspoon can interfere with Live and bake dropouts into takes. Check

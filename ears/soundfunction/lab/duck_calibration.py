@@ -230,25 +230,27 @@ def mode_bypass(a):
                                       gain_at_beat_start_db=(round(start - top, 2) if start is not None else None),
                                       valid_share_of_beat=round(float(valid.mean()), 2), beats_used=len(beats),
                                       curve_db=[(round(float(v), 2) if np.isfinite(v) else None) for v in m[::max(1, L // 24)]])
-        # The H34 question is whether the sub is pulled down deeper than the low band
-        # at the moment of the kick. For a beat-synced shaper that is the onset gain;
-        # fall back to the dip depths when an onset gain is missing.
+        # The split rests on the DIP depths. Those are calibrated: on 13 DawDreamer
+        # renders of a real rumble at known depths, gain_dip_db sat within 0.7 dB of
+        # the device's own floor with both bands within 0.5 dB of each other.
+        # gain_at_beat_start_db is NOT: the reference's onset and the shaper's cycle
+        # start are not the same instant, and it read -2.3 and -0.9 dB on the same
+        # renders. It stays in the output as a diagnostic only.
         b0, b1 = row["bands"].get(BANDS[0], {}), row["bands"].get(BANDS[1], {})
-        s_on, l_on = b0.get("gain_at_beat_start_db"), b1.get("gain_at_beat_start_db")
         s_dip, l_dip = b0.get("gain_dip_db"), b1.get("gain_dip_db")
-        if s_on is not None and l_on is not None:
-            row["sub_minus_low_db"] = round((-s_on) - (-l_on), 2); row["split_basis"] = "onset gain"
-        elif s_dip is not None and l_dip is not None:
+        if s_dip is not None and l_dip is not None:
             row["sub_minus_low_db"] = round(s_dip - l_dip, 2); row["split_basis"] = "dip depth"
         else:
             row["sub_minus_low_db"] = None; row["split_basis"] = None
         results.append(row)
     return dict(mode="bypass", kick=str(a.kick), bass=str(a.bass), bypass=str(a.bypass), **meta, windows=results,
-                reading="gain_dip_db is the device's own curve, read only where the reference stem still has "
-                        "signal (within 20 dB of its per-beat peak; valid_share_of_beat says how much of the beat). "
-                        "gain_at_beat_start_db is the gain in the first 30 ms after the reference's onset, where a "
-                        "beat-synced shaper sits at its floor. sub_minus_low_db >= 3 means a split duck; near 0 "
-                        "means one curve for both bands.")
+                reading="gain_dip_db is the calibrated number: on 13 renders of a real rumble at known depths it sat "
+                        "within 0.7 dB of the device's floor, both bands within 0.5 dB. sub_minus_low_db is the "
+                        "difference of the two dips; >= 3 means a split duck, near 0 means one curve for both bands. "
+                        "gain_at_beat_start_db is a diagnostic only: the reference onset is not the shaper's cycle "
+                        "start. Prefer ONE render divided against its own input (offline, DawDreamer) over two "
+                        "real-time takes: on a solo stem that decays inside the beat the two-take tail stays noisy "
+                        "and the dips read 35 to 58 dB no matter the alignment.")
 
 
 def main():

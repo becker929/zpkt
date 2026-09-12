@@ -75,18 +75,23 @@ against that same input, so there is no two-take noise. Measured with
 `lab/duck_calibration.py bypass`. Results pack `results/offline_plugins_v1/`,
 12 September.
 
-| depth | sub dip dB | low dip dB | sub minus low |
-|---:|---:|---:|---:|
-| 0.25 | 1.41 | 1.64 | -0.23 |
-| 0.50 | 3.12 | 3.62 | -0.51 |
-| 0.75 | 5.27 | 6.04 | -0.76 |
-| 1.00 | 8.10 | 9.35 | -1.25 |
+| depth | true floor dB | sub dip dB | low dip dB | sub minus low |
+|---:|---:|---:|---:|---:|
+| 0.25 | 1.52 | 1.50 | 1.52 | -0.02 |
+| 0.50 | 3.36 | 3.25 | 3.34 | -0.09 |
+| 0.75 | 5.71 | 5.41 | 5.66 | -0.25 |
+| 1.00 | 8.92 | 8.21 | 8.73 | -0.52 |
+
+(Measured with the corrected `duck_calibration.py bypass`, mean of four
+windows, `results/offline_plugins_v1/fixedtool/`. The first table posted for
+this row, from the earlier tool, read 8.10 and 9.35 at full depth with a
+-1.25 split; that split was the old tool's normalisation.)
 
 | aspect | finding |
 |---|---|
-| duck depth vs depth | MONOTONIC and near-linear in dB: about 9 dB at full depth. Known answer from the device's own curve floor (0.358): 8.9 dB at full, 3.4 at half. Measured 8.1 to 9.4 and 3.1 to 3.6. |
-| sub vs low | one curve for both bands; the split stays within 1 dB of zero at every step. |
-| what this calibrates | the duck measure itself: it tracks true depth within about 0.5 dB up to 9 dB on real material. Above ~12 dB the corpus estimator saturates (see measurement-fixes). |
+| duck depth vs depth | MONOTONIC and near-linear in dB: about 9 dB at full depth. Known answer from the device's own curve floor (0.358): 8.92 dB at full, 3.36 at half. Measured within 0.7 dB at every step. |
+| sub vs low | one curve for both bands; the split stays within 0.5 dB of zero at every step. |
+| what this calibrates | the duck measure itself: `gain_dip_db` tracks true depth within 0.7 dB up to 9 dB on real material. Its onset-gain column does not (the reference onset is not the shaper's cycle start) and is a diagnostic only. Above ~12 dB the corpus estimator saturates (see measurement-fixes). |
 | usable as a control? | YES, and invertible: pick a pump depth, read off `lfo_depth`. |
 
 ## Earlier synthetic reference (plugin kick, not a real instrument)
