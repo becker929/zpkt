@@ -45,20 +45,36 @@
    the corpus sidechain estimator, which saturates on solo stems (70 dB on
    HW002). The row is now labelled as a floor; the proper number needs a
    bypassed render and the `bypass` route.
-4. **Calibrate the remaining measures** (requirement 2). Design agreed 12 Sep,
-   the Mac is building it (`results/calibrate_measures_v1/`, one JSON per
-   measure with the measure's exact definition recorded): grid lock on clicks
-   and on 50 Hz bursts with tails at 140 and 160 BPM under 0 to 20 ms jitter;
-   kick body at 40, 50, 60 Hz against analytic decay times; sustain share
-   against the true energy ratio of a built burst plus plateau; band shares
-   for BOTH sub definitions (20 to 60 in band_pump, 20 to 150 in
-   signal_features) with tones at 50, 60, 150 and 300 Hz under 40 to 0 dB
-   SNR; crest under clipping and under 0 to 2 s of trailing silence, the
-   padding drift becoming the window rule. Tolerances: BPM 0.5% and phase
-   10 ms; decay40 10%; sustain 0.02; shares 0.02 to 20 dB SNR; crest 0.5 dB.
-5. **Join critic to knob map for the kick** (requirement 5), then the
+4. ~~Calibrate the remaining measures~~ (requirement 2). **Done 12 Sep**,
+   `results/calibrate_measures_v1/`. Four of five pass: grid lock (BPM
+   within 0.3%, phase within 1.5 ms to 10 ms of jitter), sustain share
+   (exact to four decimals; the truth is an energy ratio, not the built
+   plateau fraction), band shares (within 0.001 to 20 dB SNR; three
+   distinct meanings of "sub" now on record with numbers), crest under
+   clipping (exact; trailing silence inflates it, +0.14 dB per half
+   second, giving the window rule). **kick body fails all 12 rows:**
+   `decay40_ms` under-reads the analytic decay by 17 to 37%, worse at
+   lower frequencies, so a deeper kick reads as a shorter kick. Next: fix
+   `decay40_ms`/`decay20_ms` (envelope resolution at slow cycles plus a
+   further library-side bias, both quantified in `kick_body.json`),
+   re-run this case against the fix, before any corpus kick-body number
+   already published is treated as more than a floor.
+5. ~~"What Roar would do"~~ **Done 12 Sep**, `results/knobmap_hw002_kickgroup_v3_roar_on/`.
+   Turning Roar on drops bus sub share 0.90 to about 0.77, the single
+   biggest move in the map, bigger than any of its own three knobs. Drive
+   is the usable knob (2.3 dB crest, 0.05 sub share); Tone Amt is a colour
+   control; Blend reads flat and is recorded as unexplained, worth a check
+   against Roar's documentation before anything is built on it.
+6. **Join critic to knob map for the kick** (requirement 5), then the
    kick-only loop (requirement 6), then the first overnight engineer
    (requirement 11, dated 16 Oct).
+
+## Governance
+
+Closed 12 Sep, 20:10. Anthony granted the Mac agent the register and the
+site directly (see `decisions.md`). The Mac now writes and publishes both
+by default; the web session keeps reviewing on request and keeps acting on
+Anthony's direct instructions in its own conversation.
 
 ## Blocked on Anthony
 

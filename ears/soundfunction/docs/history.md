@@ -114,8 +114,20 @@ for driving Live.
 - 18:11: note 11 (Three days, timed) published, dated and time-stamped, at
   Anthony's request. Standing rule from him: publish to the site proactively;
   it is his main window on the project.
-
-## What the record says about pace
+- 13:07 to 13:09: `knobmap_hw002_kickgroup_v3_roar_on` (Roar's Device On
+  forced to 1: bus sub share 0.90 to about 0.77, the biggest single move in
+  the map; Drive 2.3 dB of crest, Tone Amt a colour control, Blend flat and
+  unexplained) and `calibrate_measures_v1` (requirement 2, five measures
+  against known answers): grid lock, sustain share, band shares off the
+  edges and crest under clipping all pass; `decay40_ms` fails all 12 rows,
+  under-reading by 17 to 37% with a frequency-dependent bias, so a deeper
+  kick reads as a shorter kick, needing a fix in the measure. Three
+  meanings of "sub" now documented with numbers: the library's six-band
+  `sub` (20-60), the knob map's collapsed `sub_share` (20-150, sub plus
+  low), and the ears shim's two-way split.
+- 20:10: Anthony granted the Mac agent the register and the site directly,
+  closing the question it had put to him on the 12th. The web session's
+  docs entry is above; see Decisions for the exact wording.
 
 | kind of work | observed |
 |---|---|

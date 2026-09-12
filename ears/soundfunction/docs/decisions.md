@@ -66,3 +66,16 @@ request: the site is the main place he gets updates as the operator, so
 each result pack, correction or change of plan gets a dated, time-stamped
 note the day it lands, unasked. The mailbox and the branch are the record;
 the site is the report.
+
+**The register and the site are the Mac agent's to write, as of 12 Sep,
+20:10.** The Mac withheld this specifically pending Anthony's word rather
+than reading its general mandate (5644460502) as covering it, and put the
+question to him (5644571879). Anthony granted it directly, in his own
+words, relayed on the mailbox: "I directed that transfer. You now hold the
+mandate for research, experimentation with Live, and publishing to the
+website." The web session's access does not change; it keeps giving a
+second opinion on request and keeps acting on Anthony's direct
+instructions in its own conversation, which continued after the grant (a
+same-day title rewrite across every note and research page). Two agents
+can hold write access to the same branch and site; what changed is who
+writes the register and publishes by default.
