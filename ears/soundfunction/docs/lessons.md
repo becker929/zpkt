@@ -66,6 +66,14 @@ before comparing models.
 
 ## Smaller traps
 
+- "Sub" means two different bands in this code: 20 to 60 Hz in
+  `corpus2/band_pump.py` (with "low" 60 to 150), 20 to 150 Hz in
+  `analysis/signal_features.band_sub_share` and everything built on it. Say
+  which one a number uses, every time.
+- Check `Device On` and the operating point before planning a knob row. Five
+  Roar rows and three compressor rows were flat because the device was
+  bypassed or idle at the set threshold, not because the knobs do nothing.
+
 - `pgrep -f` matches its own wait-loop's command line. Anchor patterns
   (`^python3 corpus2/band_pump`) and never put the pattern in the loop's own
   text.

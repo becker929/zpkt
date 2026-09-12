@@ -43,9 +43,17 @@
    the corpus sidechain estimator, which saturates on solo stems (70 dB on
    HW002). The row is now labelled as a floor; the proper number needs a
    bypassed render and the `bypass` route.
-4. **Calibrate the remaining measures** (requirement 2 in the plan note):
-   grid lock, kick body, sustain share, band shares under noise, crest under
-   limiting. Build a known-answer case for each, record what comes back.
+4. **Calibrate the remaining measures** (requirement 2). Design agreed 12 Sep,
+   the Mac is building it (`results/calibrate_measures_v1/`, one JSON per
+   measure with the measure's exact definition recorded): grid lock on clicks
+   and on 50 Hz bursts with tails at 140 and 160 BPM under 0 to 20 ms jitter;
+   kick body at 40, 50, 60 Hz against analytic decay times; sustain share
+   against the true energy ratio of a built burst plus plateau; band shares
+   for BOTH sub definitions (20 to 60 in band_pump, 20 to 150 in
+   signal_features) with tones at 50, 60, 150 and 300 Hz under 40 to 0 dB
+   SNR; crest under clipping and under 0 to 2 s of trailing silence, the
+   padding drift becoming the window rule. Tolerances: BPM 0.5% and phase
+   10 ms; decay40 10%; sustain 0.02; shares 0.02 to 20 dB SNR; crest 0.5 dB.
 5. **Join critic to knob map for the kick** (requirement 5), then the
    kick-only loop (requirement 6), then the first overnight engineer
    (requirement 11, dated 16 Oct).
