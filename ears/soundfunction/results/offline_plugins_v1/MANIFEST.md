@@ -73,3 +73,44 @@ file, same input, same 13 depths, then `duck_calibration.py bypass` on each.
 That yields the calibration at known depths the spec was after.
 
 No audio in this pack. No audio left the machine.
+
+---
+
+## Addendum, same day: step 4 done under DawDreamer
+
+pedalboard could not run the LFO. DawDreamer can. `lab/dd_sweep.py`:
+
+- Loads the **VST2** build, `/Library/Audio/Plug-Ins/VST/LFOTool.vst`, the
+  same binary Live hosts. 70 parameters.
+- Sets BPM 160 and renders with the transport playing.
+- Applies Anthony's state **by name from the pedalboard dump**, then reads
+  every value back. 69 of 70 match; the one pedalboard calls `warp_10` the
+  VST2 side names `Warp 0:`, a labelling quirk with no bearing on depth.
+  DawDreamer's own `load_state` did not accept the raw `.als` buffer.
+- One caveat worth knowing: a fresh VST2 instance already came up carrying
+  Anthony's settings before any load, so the plugin remembers its last state
+  on this machine. Do not take "fresh instance" to mean "default".
+
+Thirteen depths on the trimmed, un-ducked rumble, each divided against that
+same input. Because both sides of the division are one deterministic render
+there is no two-take alignment noise, and the measure now returns depths,
+not floors. See `dd_sweep/depth_table.json` and `dd_sweep/known_answer.md`.
+
+| depth | sub dip dB | low dip dB | sub minus low |
+|---:|---:|---:|---:|
+| 0.250 | 1.41 | 1.64 | -0.23 |
+| 0.500 | 3.12 | 3.62 | -0.51 |
+| 0.750 | 5.27 | 6.04 | -0.76 |
+| 1.000 | 8.10 | 9.35 | -1.25 |
+
+At full depth, Anthony's setting, the measured dip is 8.1 dB in the sub and
+9.4 dB in the low band, against the 8.9 dB the curve floor predicts. The
+split reads within about 1 dB of zero at every depth, the tool's own stated
+tolerance. **One curve, both bands, about 9 dB.** That is the calibration at
+known depths the spec asked for, and it agrees with the device's own state.
+
+Also in this pack's commit: `lab/runner.py`'s new name-first pair selector
+used `\b`, which never matches after an underscore, so `02__kick.wav` fell
+through to physics and HW002 was paired backwards even after the fix. Now
+`(?<![a-z])`. The refreshed bench pairs kick into rumble; its 70 dB headline
+is still the saturating estimator and should still not be read as a depth.
