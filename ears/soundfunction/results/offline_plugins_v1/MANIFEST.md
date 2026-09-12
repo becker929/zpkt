@@ -114,3 +114,36 @@ used `\b`, which never matches after an underscore, so `02__kick.wav` fell
 through to physics and HW002 was paired backwards even after the fix. Now
 `(?<![a-z])`. The refreshed bench pairs kick into rumble; its 70 dB headline
 is still the saturating estimator and should still not be read as a depth.
+
+---
+
+## Addendum 2: the fixed bypass tool (093df1c) on both pairs
+
+Same 13 DawDreamer renders, re-measured; plus the real aligned two-take pair
+from `live_rumble_bypass_v1`. Files under `fixedtool/`.
+
+**Deterministic pair (one render, on divided by off).** `gain_dip_db` now
+tracks the curve floor: at depth 1.0 it reads 8.21 dB sub and 8.73 dB low
+against a predicted 8.92; at 0.5 it reads 3.25 and 3.34 against 3.36. Both
+bands agree within 0.5 dB at every depth. The split climbs slowly with depth
+to 1.46 dB at full, from the onset gains. This is the calibration the spec
+asked for, and it says one curve, both bands, about 9 dB.
+
+**But `gain_at_beat_start_db` does not read the floor on that same pair.**
+At depth 1.0 it gives -2.34 sub and -0.89 low. The dip is real and correct;
+the value the tool samples at "beat start" is not the dip. The reference
+kick's onset and LFOTool's cycle start are not the same instant, so the
+onset sample lands part-way up the ramp.
+
+**Real two-take pair.** Same tool: sub onset -7.12 dB, low onset -0.02 dB,
+split +7.10, alignment lag -1 sample. Dip values are still floors (35 to 58
+dB). The sub number is close to the device; the low number is zero, which
+the deterministic pair says is wrong. With alignment at one sample this is
+not a lag problem. Two real-time takes differ in the low band at onsets in a
+way one render divided by itself cannot, and I cannot tell from here whether
+that is the recorder, the kick group's compressor upstream of nothing (it is
+not in this path), or the tool. Reported as-is for the tool's author.
+
+**Reading.** Trust the deterministic-pair `gain_dip_db` column. Do not read
+the onset column as a depth on either pair until its anchor is checked
+against LFOTool's cycle start rather than the kick onset.
