@@ -254,3 +254,23 @@ bass-stem proxy, and a real, non-synthetic comparison point for E3's
 "kick body under the rumble" question: a genuine kick track next to a
 genuine rumble track in the same set, at whatever relative level Anthony
 actually mixed them, rather than a level chosen for the synthetic test.
+
+
+## Amendments after the first two runs (2026-09-12)
+
+1. **Size each bounce from the source track's own clips, never from
+   `song.last_event_time`.** The latter is the last event anywhere in the set
+   and produced stems that were 57% silence. Use the end of the track's last
+   `arrangement_clip` plus the settle tail.
+2. **Any two-take comparison must be aligned before use.** Real-time takes
+   start a few hundred samples apart. Align by cross-correlation with the lag
+   search constrained to under half a beat; an unconstrained search returns
+   one whole beat. `lab/duck_calibration.py bypass` does this itself now.
+3. **Some plugins expose no parameters to the Live API.** LFOTool shows only
+   on/off and stores its state as an opaque blob in the .als. When the spec
+   asks for parameter values and they are not readable, say so in the
+   sidecar, as the rumble sidecars do, rather than leaving the field blank.
+4. **Tap pre-group.** When the track sits inside a group with nonlinear
+   devices, route the track's own output to the capture track. Soloing and
+   rendering the master pushes the take through processing that reacts
+   differently to different inputs and contaminates any A/B.

@@ -101,3 +101,33 @@ and re-extracting a library without re-running it silently drops three
 columns, including the two the selector likes best. Always re-run
 `hits_extra.py` after `analysis.run hits`, and diff the column sets before
 comparing two models.
+
+
+---
+
+## 2026-09-12: stems sized from the whole set, and takes that do not line up
+
+Both found by the Mac agent while running the LFOTool bypass job.
+
+**Trailing silence.** `bounce_multitrack.py` sized every stem from
+`song.last_event_time`, the last event anywhere in the set, rather than from
+the source track's own clips. On HW002 that is 1630 beats against a track that
+ends at beat 704: 614 s files, 264 s of music, 57% silence. Every stem in
+`live_multitrack_bounce_v1` has this. Any window cut by fraction of file
+length past 43% measured nothing. Fix: size from the track's `arrangement_clips`;
+and in the lab, `duck_calibration.py` now finds the content end itself and
+reports `trailing_silence_share`.
+
+**Take alignment.** Two separate real-time recordings started 251 samples
+apart (5.7 ms). Dividing them unaligned gave depths that wandered between
+windows and a spurious split. An unconstrained cross-correlation made it worse
+by returning a lag of exactly one beat, which is the material's periodicity,
+not the offset. Fix: align by cross-correlation with the lag search
+constrained to under half a beat. After alignment the four windows agree to
+within 0.5 dB on the Mac, and a synthetic pair shifted by 251 samples comes
+back with the lag found and a split of 0.1 dB.
+
+**Pump saturation, confirmed on a second machine.** `duck_calibrate.json`
+from the Mac, on the real HW002 kick: a true 24 dB duck reads 11.8, a true
+40 dB reads 13.4. Same ceiling as measured here. The correction stands: every
+published pump depth above about 12 dB is a floor.

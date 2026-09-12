@@ -78,8 +78,45 @@ def broadband_duck(sig, bpm, ph, depth_db, shape_ms=120.0):
     return sig * g
 
 
+def content_end(y, sr, floor_db=-60.0, hold_s=2.0):
+    """Index where the audio stops: last sample above floor_db, plus a short hold.
+
+    Stems bounced from song.last_event_time carry the whole set's length, not
+    the track's. HW002's rumble was 614 s of which 264 s was music; any
+    window past that measured silence.
+    """
+    a = np.abs(y); pk = a.max()
+    if pk <= 0:
+        return 0
+    idx = np.flatnonzero(a > pk * 10 ** (floor_db / 20))
+    return int(min(len(y), idx[-1] + hold_s * sr)) if idx.size else 0
+
+
+def align(ref, other, sr, bpm, max_lag_s=None):
+    """Shift `other` so it lines up with `ref`, by cross-correlation.
+
+    Two real-time takes do not start on the same sample (251 samples apart on
+    the first run). The lag search is constrained to well inside one beat:
+    an unconstrained search locks onto the material's own periodicity and
+    returns one whole beat, which is wrong by construction.
+    """
+    if max_lag_s is None:
+        max_lag_s = 0.4 * 60.0 / bpm
+    n = min(len(ref), len(other), int(20 * sr))
+    a, b = ref[:n].astype(np.float64), other[:n].astype(np.float64)
+    m = int(max_lag_s * sr)
+    c = np.correlate(a, b, mode="full")[n - 1 - m: n + m]
+    lag = int(np.argmax(c)) - m
+    if lag > 0:
+        other = np.concatenate([np.zeros(lag), other])[:len(ref)]
+    elif lag < 0:
+        other = np.concatenate([other[-lag:], np.zeros(-lag)])[:len(ref)]
+    return other, lag
+
+
 def mode_corpus(a):
-    dur = librosa.get_duration(path=str(a.kick))
+    yb_all = load(a.bass)
+    dur = (content_end(yb_all, SR) or len(yb_all)) / SR      # music, not file length
     out = []
     for frac in (0.35, 0.5, 0.65, 0.8):
         off = dur * frac
@@ -91,7 +128,7 @@ def mode_corpus(a):
         except Exception as e:
             r = dict(window=f"30 s at {int(frac * 100)}%", error=f"{type(e).__name__}: {e}")
         out.append(r)
-    return dict(mode="corpus", kick=str(a.kick), bass=str(a.bass), windows=out,
+    return dict(mode="corpus", kick=str(a.kick), bass=str(a.bass), content_seconds=round(dur, 1), windows=out,
                 note="Same measure as the corpus. On a solo stem that goes near-silent between kicks "
                      "these numbers can be meaningless; run calibrate and bypass before trusting them.")
 
@@ -114,14 +151,23 @@ def mode_calibrate(a):
 
 def mode_bypass(a):
     """Exact gain curve by division: ducked render over bypassed render, per band."""
-    dur = librosa.get_duration(path=str(a.kick))
+    # Work on the CONTENT of the stems, not the file length, and align the two
+    # takes once, up front, before any window is cut.
+    yd_all, yb_all, y0_all = load(a.kick), load(a.bass), load(a.bypass)
+    n = min(len(yd_all), len(yb_all), len(y0_all)); yd_all, yb_all, y0_all = yd_all[:n], yb_all[:n], y0_all[:n]
+    end = min(content_end(yb_all, SR), content_end(y0_all, SR)) or n
+    bpm0, _ = lock_grid(yd_all[: min(n, 60 * SR)])
+    y0_all, lag = align(yb_all, y0_all, SR, bpm0)
+    dur = end / SR
     results = []
+    meta = dict(content_seconds=round(dur, 1), file_seconds=round(n / SR, 1),
+                trailing_silence_share=round(1 - dur / (n / SR), 3), alignment_lag_samples=lag)
     for frac in (0.35, 0.5, 0.65, 0.8):
         off = dur * frac
         if off + 20 > dur:
             continue
-        yd = load(a.kick, off, 30); yb = load(a.bass, off, 30); y0 = load(a.bypass, off, 30)
-        n = min(len(yb), len(y0)); yb, y0 = yb[:n], y0[:n]
+        s0, s1 = int(off * SR), int(min(end, (off + 30) * SR))
+        yd, yb, y0 = yd_all[s0:s1], yb_all[s0:s1], y0_all[s0:s1]
         bpm, ph = lock_grid(yd)
         eb, _ = grid.envelopes(yb); e0, _ = grid.envelopes(y0)
         row = dict(window=f"30 s at {int(frac * 100)}%", tempo=round(bpm, 2), bands={})
@@ -149,7 +195,7 @@ def mode_bypass(a):
         s = row["bands"].get(BANDS[0], {}).get("gain_dip_db"); l = row["bands"].get(BANDS[1], {}).get("gain_dip_db")
         row["sub_minus_low_db"] = round(s - l, 2) if s is not None and l is not None else None
         results.append(row)
-    return dict(mode="bypass", kick=str(a.kick), bass=str(a.bass), bypass=str(a.bypass), windows=results,
+    return dict(mode="bypass", kick=str(a.kick), bass=str(a.bass), bypass=str(a.bypass), **meta, windows=results,
                 reading="gain_dip_db is the device's own curve. Checked on a synthetic 18 dB duck it reads 15.8 "
                         "in both bands: envelope smoothing under-reads a fast dip by about 2 dB, equally per band. "
                         "sub_minus_low_db >= 3 means the split duck the tools advertise is present; near 0 means "

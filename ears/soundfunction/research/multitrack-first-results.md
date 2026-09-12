@@ -124,3 +124,47 @@ exactly rather than statistically.
 The same trick calibrates the corpus: apply that recovered curve at known
 depths to full mixes and see what `band_pump.py` reports, which converts
 every published pump number from a floor into a value.
+
+---
+
+## Postscript, 2026-09-12: the decisive run happened, and it answered
+
+The Mac agent ran the double bounce (`results/live_rumble_bypass_v1/` on
+the branch): the rumble as it is, and the rumble with only LFOTool bypassed,
+from one clone in one sitting, tapped pre-group so the kick group's
+Compressor, Roar and COLDFIRE could not contaminate the division.
+
+**LFOTool applies one broadband duck, to near silence. There is no split.**
+
+- Timing: the sub band bottoms out 344 ms into a 375 ms beat, the low band
+  16 ms into it. Those are 31 ms apart across the beat boundary, not 328.
+  One curve pulls both bands down at the same instant.
+- Depth: reported 37 dB (sub) and 56 dB (low), and neither is a depth. The
+  calibration run on the same kick shows the estimator saturating near 12 to
+  13 dB, and an independent fold returned -120 dB in the 150 to 400 Hz band,
+  which no shaper can do. These are noise floors. The duck goes to silence
+  and the measure runs out of signal.
+- LFOTool exposes only its on/off to the Live API and stores its state as an
+  opaque blob, so its settings cannot be read by any route. The measurement
+  answers the question the settings would have: it shapes volume, broadband.
+
+So for this producer, on this track, H34's technique is absent because the
+device that does the ducking cannot express it. The corpus verdict on 532
+separated stems stands, and now has one exact real-instrument confirmation
+behind it.
+
+Two corrections to the numbers above, found on the Mac:
+
+1. **The multitrack stems were 57% trailing silence.** The bounce sized each
+   pass from `song.last_event_time` (1630 beats), but the tracks end at beat
+   704. So 614 s files held 264 s of music, and any window past 43% measured
+   silence. That is a plausible contributor to the 40 dB and 70 dB readings
+   reported above; the 35% window used for the controls was inside the
+   music, so the calibration conclusions hold. The bounce spec now sizes from
+   the source track's own clips, and `duck_calibration.py` measures content
+   length rather than file length.
+2. **Two real-time takes are not sample-aligned.** They landed 251 samples
+   apart, and unaligned division returned unstable nonsense. A naive
+   cross-correlation locked onto one whole beat, the material's own period.
+   The tool now aligns with the lag search constrained to under half a beat,
+   verified on a synthetic pair shifted by 251 samples.
