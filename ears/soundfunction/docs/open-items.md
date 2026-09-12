@@ -19,9 +19,15 @@
    offline knob-map row (`knob-map.md` row 3). Step 5 (round trip into Live)
    still waits for a swept state worth loading; `.adv`/`.als` is the route
    for a VST2 instance.
-3. **Knob map, HW002 kick group** (Roar, Dist COLDFIRE, Compressor): native
-   devices, so on the rig. One parameter at a time, whole range, 13 steps.
-   The Mac agent started this on 12 Sep.
+3. **Knob map, HW002 kick group**, on the rig. Decided 12 Sep: Compressor
+   Threshold, Attack, Release first, then Roar Drive, Tone Amt, Blend, then
+   Ratio, Knee, Shaper 1 Amt, Shaper 1 Bias; whole range, 13 steps; an 8-bar
+   loop of the real arrangement from the first kick bar, tapped at the
+   group's output, so each row is about kick plus rumble as heard and the
+   sidecar must list the bus members and their state. COLDFIRE exposes only
+   on/off to the Live API: skipped on the rig, to be done offline in
+   isolation as its own pack. Measures: crest and five band shares; decay40
+   and sustain share if cheap.
 3b. **Runner headline on real multitracks.** `report_multitrack` still uses
    the corpus sidechain estimator, which saturates on solo stems (70 dB on
    HW002). The row is now labelled as a floor; the proper number needs a
