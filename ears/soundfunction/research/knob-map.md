@@ -133,10 +133,60 @@ Two facts about the set came out before any knob did:
 | usable as a control? | For level, yes. For crest, only as "which side of 0.6 are you on", and with the release at 2.9 ms the direction is the opposite of the naive one. |
 
 Rows 4 to 8 (Roar) and 10 to 13 (Attack, Release, Ratio, Knee) are recorded
-in the pack and are flat for the reasons above. Two follow-ups are queued:
-Attack, Release and Ratio again with Threshold held at 0.4 so the compressor
-is working (labelled as an operating point that is not Anthony's), and a
-"what Roar would do" pack with Device On forced to 1.
+in the pack and are flat for the reasons above.
+
+### Rows 14 to 16. Compressor / Attack, Release, Ratio   [OPERATING POINT: Threshold 0.4, not Anthony's setting]
+
+`results/knobmap_hw002_kickgroup_v2_thr040/`, 12 September. Threshold held
+at 0.4 normalised so the compressor is working, restored to 0.7132 after.
+Every sidecar and CSV row carries the label. Same bus, loop and tap as v1.
+
+| row | crest span dB | shape | sub share span |
+|---|---:|---|---:|
+| Attack | 1.19 | not monotonic, weak | 0.025 |
+| Release | 1.67 | not monotonic, weak | 0.024 |
+| Ratio | 5.98 | shallow trough to 0.33, then monotonic rise, about +0.75 dB a step | 0.041 |
+
+Row 16, Ratio, in full:
+
+| ratio (norm) | crest dB | sub share |
+|---:|---:|---:|
+| 0.000 | 7.52 | 0.901 |
+| 0.167 | 7.19 | 0.895 |
+| 0.333 | 6.96 | 0.889 |
+| 0.500 | 8.47 | 0.882 |
+| 0.667 | 9.99 | 0.875 |
+| 0.833 | 11.46 | 0.867 |
+| 1.000 | 12.93 | 0.861 |
+
+Crest RISES with ratio here. With the release at 2.9 ms the compressor
+recovers between transient and body, so a heavier ratio squashes the body
+more than the hit and the peak-to-average grows. That is the same mechanism
+that made the Threshold row run the "wrong" way. Sub share falls gently as
+ratio rises, so the knob is not orthogonal, but 0.04 across the range is
+small next to 6 dB of crest.
+
+#### Inverse lookup (row 16): target crest -> ratio, valid 0.33 to 1.0 only
+
+Below crest 7 dB the knob cannot reach; the trough at 0.33 is the floor.
+Linear interpolation on the measured row, at this operating point.
+
+| target crest (dB) | ratio (norm) |
+|---:|---:|
+| 7.5 | 0.393 |
+| 8.0 | 0.448 |
+| 8.5 | 0.503 |
+| 9.0 | 0.556 |
+| 9.5 | 0.611 |
+| 10.0 | 0.668 |
+| 10.5 | 0.723 |
+| 11.0 | 0.780 |
+| 11.5 | 0.838 |
+| 12.0 | 0.894 |
+| 12.5 | 0.951 |
+
+Queued: a "what Roar would do" pack with Device On forced to 1 (running),
+and the calibration of the remaining measures.
 
 ## Earlier synthetic reference (plugin kick, not a real instrument)
 

@@ -23,9 +23,11 @@
    `results/knobmap_hw002_kickgroup_v1/`. Roar is bypassed in the set (five
    null rows) and the compressor is idle at Anthony's threshold (three flat
    rows); Threshold is the one live knob, 11 dB of crest span, not monotonic.
-   Follow-ups the Mac is running: Attack, Release, Ratio at Threshold 0.4
-   (an operating point, labelled as such); then a "what Roar would do" pack
-   with Device On forced to 1, Drive, Tone Amt, Blend only.
+   Follow-up done 12 Sep (`..._v2_thr040/`): Attack, Release, Ratio at
+   Threshold 0.4, labelled as an operating point. Ratio is the strong knob,
+   6 dB of crest, monotonic above 0.33 and inverted in `knob-map.md`; Attack
+   and Release move 1 to 2 dB and are not monotonic. The "what Roar would
+   do" pack (Device On forced to 1; Drive, Tone Amt, Blend) is on the rig now.
 3-old. Decided 12 Sep: Compressor
    Threshold, Attack, Release first, then Roar Drive, Tone Amt, Blend, then
    Ratio, Knee, Shaper 1 Amt, Shaper 1 Bias; whole range, 13 steps; an 8-bar
