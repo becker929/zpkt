@@ -1,0 +1,331 @@
+{
+ "headline": "6 stems; sidechain from 06__kick-g.wav into 26__27-warn3.wav is None dB",
+ "rows": [
+  {
+   "label": "stems",
+   "value": 6.0,
+   "unit": "",
+   "ref": null,
+   "note": ""
+  },
+  {
+   "label": "kick-like stem",
+   "value": "06__kick-g.wav",
+   "unit": "",
+   "ref": null,
+   "note": ""
+  },
+  {
+   "label": "bass-like stem",
+   "value": "26__27-warn3.wav",
+   "unit": "",
+   "ref": null,
+   "note": ""
+  },
+  {
+   "label": "sidechain depth, kick into bass",
+   "value": null,
+   "unit": "dB",
+   "ref": 6.345,
+   "note": "corpus pump median for scale; on real stems this is the true ducking"
+  },
+  {
+   "label": "sidechain return",
+   "value": null,
+   "unit": "ms",
+   "ref": 236.0,
+   "note": ""
+  },
+  {
+   "label": "kick interval",
+   "value": null,
+   "unit": "ms",
+   "ref": null,
+   "note": ""
+  }
+ ],
+ "sections": [
+  {
+   "title": "Each stem",
+   "text": "Band shares are of that stem's own energy. 'Reads as' is the role model's most common answer for hits in the stem, or its answer for the whole file when it is a single hit.",
+   "table": {
+    "columns": [
+     "stem",
+     "length (s)",
+     "level (dB)",
+     "sub",
+     "low",
+     "mid",
+     "high",
+     "air",
+     "reads as",
+     "hits"
+    ],
+    "rows": [
+     [
+      "06__kick-g.wav",
+      386.1,
+      -24.4,
+      0.527,
+      0.266,
+      0.048,
+      0.026,
+      0.023,
+      "kick",
+      300
+     ],
+     [
+      "11__pad-layer.wav",
+      362.3,
+      -37.9,
+      0.002,
+      0.004,
+      0.333,
+      0.334,
+      0.319,
+      "hook",
+      2
+     ],
+     [
+      "14__main-pad.wav",
+      385.4,
+      -45.0,
+      0.009,
+      0.006,
+      0.299,
+      0.256,
+      0.141,
+      "clap",
+      1
+     ],
+     [
+      "22__pad-wind.wav",
+      2.6,
+      -37.8,
+      0.017,
+      0.007,
+      0.197,
+      0.146,
+      0.436,
+      "clap",
+      0
+     ],
+     [
+      "23__pad-hollow.wav",
+      2.6,
+      -55.3,
+      0.109,
+      0.077,
+      0.083,
+      0.23,
+      0.403,
+      "hook",
+      0
+     ],
+     [
+      "26__27-warn3.wav",
+      2.3,
+      -21.3,
+      0.089,
+      0.18,
+      0.252,
+      0.237,
+      0.158,
+      "clap",
+      0
+     ]
+    ]
+   }
+  }
+ ],
+ "raw": {
+  "stems": [
+   {
+    "name": "06__kick-g.wav",
+    "duration_s": 386.1,
+    "level_db": -24.4,
+    "shares": [
+     0.527,
+     0.266,
+     0.111,
+     0.048,
+     0.026,
+     0.023
+    ],
+    "sub_attacks": 185.48481365452494,
+    "air_attacks": 3875.407956379594,
+    "sustained_low": 0.04767938100291328,
+    "top_role": "kick",
+    "n_hits": 300,
+    "roles": {
+     "kick": {
+      "count": 295,
+      "per_minute": 45.8,
+      "decay40_ms": 372.0,
+      "sustain_share": 0.847,
+      "band_sub_share": 0.417,
+      "band_low_share": 0.444,
+      "band_air_share": 0.001,
+      "spectral_centroid_hz": 729.314,
+      "crest_factor_db": 5.234,
+      "mean_confidence": 0.507
+     },
+     "hook": {
+      "count": 5,
+      "per_minute": 0.8,
+      "decay40_ms": 372.0,
+      "sustain_share": 0.494,
+      "band_sub_share": 0.0,
+      "band_low_share": 0.0,
+      "band_air_share": 0.004,
+      "spectral_centroid_hz": 1105.849,
+      "crest_factor_db": 15.434,
+      "mean_confidence": 0.7
+     }
+    }
+   },
+   {
+    "name": "11__pad-layer.wav",
+    "duration_s": 362.3,
+    "level_db": -37.9,
+    "shares": [
+     0.002,
+     0.004,
+     0.008,
+     0.333,
+     0.334,
+     0.319
+    ],
+    "sub_attacks": 4235.073685384715,
+    "air_attacks": 1211.3243408145083,
+    "sustained_low": 1.7140033258470344e-05,
+    "top_role": "hook",
+    "n_hits": 2,
+    "roles": {
+     "hook": {
+      "count": 2,
+      "per_minute": 0.3,
+      "decay40_ms": 400.0,
+      "sustain_share": 0.917,
+      "band_sub_share": 0.0,
+      "band_low_share": 0.0,
+      "band_air_share": 0.188,
+      "spectral_centroid_hz": 3947.479,
+      "crest_factor_db": 13.414,
+      "mean_confidence": 0.413
+     }
+    }
+   },
+   {
+    "name": "14__main-pad.wav",
+    "duration_s": 385.4,
+    "level_db": -45.0,
+    "shares": [
+     0.009,
+     0.006,
+     0.289,
+     0.299,
+     0.256,
+     0.141
+    ],
+    "sub_attacks": 1804.501229269803,
+    "air_attacks": 1303.135463051632,
+    "sustained_low": 2.873057004855866e-08,
+    "top_role": "clap",
+    "n_hits": 1,
+    "roles": {
+     "clap": {
+      "count": 1,
+      "per_minute": 0.2,
+      "decay40_ms": 400.0,
+      "sustain_share": 0.918,
+      "band_sub_share": 0.0,
+      "band_low_share": 0.0,
+      "band_air_share": 0.013,
+      "spectral_centroid_hz": 3456.795,
+      "crest_factor_db": 12.095,
+      "mean_confidence": 0.488
+     }
+    }
+   },
+   {
+    "name": "22__pad-wind.wav",
+    "duration_s": 2.6,
+    "level_db": -37.8,
+    "shares": [
+     0.017,
+     0.007,
+     0.197,
+     0.197,
+     0.146,
+     0.436
+    ],
+    "sub_attacks": 2.824242335331639,
+    "air_attacks": 16.625889582370462,
+    "sustained_low": 2.933179122215505e-07,
+    "top_role": "clap",
+    "n_hits": 0,
+    "roles": {}
+   },
+   {
+    "name": "23__pad-hollow.wav",
+    "duration_s": 2.6,
+    "level_db": -55.3,
+    "shares": [
+     0.109,
+     0.077,
+     0.098,
+     0.083,
+     0.23,
+     0.403
+    ],
+    "sub_attacks": 13.989422990725625,
+    "air_attacks": 3.7016111661322753,
+    "sustained_low": 4.065126127677852e-06,
+    "top_role": "hook",
+    "n_hits": 0,
+    "roles": {}
+   },
+   {
+    "name": "26__27-warn3.wav",
+    "duration_s": 2.3,
+    "level_db": -21.3,
+    "shares": [
+     0.089,
+     0.18,
+     0.085,
+     0.252,
+     0.237,
+     0.158
+    ],
+    "sub_attacks": 10.684061789946439,
+    "air_attacks": 8.929870506191415,
+    "sustained_low": 1.4093584862460665e-08,
+    "top_role": "clap",
+    "n_hits": 0,
+    "roles": {}
+   }
+  ],
+  "sidechain": {
+   "pump_depth_db": null,
+   "pump_return_ms": null,
+   "n_kicks": 40
+  }
+ },
+ "runner": {
+  "seconds": 28.7,
+  "when": "2026-09-12T07:20:44Z"
+ },
+ "item": {
+  "kind": "multitrack",
+  "title": "snts-style-track",
+  "files": [
+   "06__kick-g.wav",
+   "11__pad-layer.wav",
+   "14__main-pad.wav",
+   "22__pad-wind.wav",
+   "23__pad-hollow.wav",
+   "26__27-warn3.wav"
+  ]
+ }
+}

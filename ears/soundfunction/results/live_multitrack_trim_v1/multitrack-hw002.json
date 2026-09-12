@@ -1,0 +1,750 @@
+{
+ "headline": "12 stems; sidechain from 03__rumble.wav into 02__kick.wav is 46.94 dB",
+ "rows": [
+  {
+   "label": "stems",
+   "value": 12.0,
+   "unit": "",
+   "ref": null,
+   "note": ""
+  },
+  {
+   "label": "kick-like stem",
+   "value": "03__rumble.wav",
+   "unit": "",
+   "ref": null,
+   "note": ""
+  },
+  {
+   "label": "bass-like stem",
+   "value": "02__kick.wav",
+   "unit": "",
+   "ref": null,
+   "note": ""
+  },
+  {
+   "label": "sidechain depth, kick into bass",
+   "value": 46.94,
+   "unit": "dB",
+   "ref": 6.345,
+   "note": "corpus pump median for scale; on real stems this is the true ducking"
+  },
+  {
+   "label": "sidechain return",
+   "value": 268.0,
+   "unit": "ms",
+   "ref": 236.0,
+   "note": ""
+  },
+  {
+   "label": "kick interval",
+   "value": 375.9,
+   "unit": "ms",
+   "ref": null,
+   "note": ""
+  }
+ ],
+ "sections": [
+  {
+   "title": "Each stem",
+   "text": "Band shares are of that stem's own energy. 'Reads as' is the role model's most common answer for hits in the stem, or its answer for the whole file when it is a single hit.",
+   "table": {
+    "columns": [
+     "stem",
+     "length (s)",
+     "level (dB)",
+     "sub",
+     "low",
+     "mid",
+     "high",
+     "air",
+     "reads as",
+     "hits"
+    ],
+    "rows": [
+     [
+      "02__kick.wav",
+      267.0,
+      -18.8,
+      0.328,
+      0.362,
+      0.072,
+      0.045,
+      0.045,
+      "hook",
+      300
+     ],
+     [
+      "03__rumble.wav",
+      266.0,
+      -26.3,
+      0.13,
+      0.219,
+      0.171,
+      0.31,
+      0.1,
+      "rumble",
+      300
+     ],
+     [
+      "05__6-2022-05-30-005.wav",
+      230.8,
+      -41.2,
+      0.14,
+      0.133,
+      0.192,
+      0.192,
+      0.219,
+      "space",
+      4
+     ],
+     [
+      "06__perc-1.wav",
+      266.1,
+      -28.4,
+      0.188,
+      0.133,
+      0.139,
+      0.21,
+      0.242,
+      "hook",
+      300
+     ],
+     [
+      "07__perc-2.wav",
+      231.7,
+      -27.5,
+      0.112,
+      0.108,
+      0.253,
+      0.192,
+      0.192,
+      "space",
+      11
+     ],
+     [
+      "09__10-arc-raiders-bastion-encounter.wav",
+      274.5,
+      -40.9,
+      0.139,
+      0.208,
+      0.171,
+      0.171,
+      0.114,
+      "clap",
+      13
+     ],
+     [
+      "11__12-2022-06-02-001-2026-05-25-092256.wav",
+      266.0,
+      -42.6,
+      0.18,
+      0.197,
+      0.171,
+      0.162,
+      0.133,
+      "clap",
+      233
+     ],
+     [
+      "13__14-arc-raiders-bastion-encounter.wav",
+      139.5,
+      -38.0,
+      0.292,
+      0.192,
+      0.19,
+      0.146,
+      0.057,
+      "clap",
+      3
+     ],
+     [
+      "14__15-2023-11-14-bodhi-anthony-tech-01-9-stems-sound-4-synth.wav",
+      162.8,
+      -32.7,
+      0.108,
+      0.081,
+      0.374,
+      0.25,
+      0.114,
+      "hook",
+      1
+     ],
+     [
+      "15__16-2023-11-14-bodhi-anthony-tech-01-1-stems-sound-1-synth-horn-001.wav",
+      146.0,
+      -26.3,
+      0.169,
+      0.142,
+      0.171,
+      0.223,
+      0.176,
+      "kick",
+      57
+     ],
+     [
+      "16__17-2023-10-07-09-20.wav",
+      155.7,
+      -33.5,
+      0.182,
+      0.152,
+      0.046,
+      0.153,
+      0.135,
+      "rumble",
+      1
+     ],
+     [
+      "17__18-beatbox.wav",
+      152.0,
+      -26.8,
+      0.133,
+      0.174,
+      0.229,
+      0.197,
+      0.116,
+      "space",
+      5
+     ]
+    ]
+   }
+  }
+ ],
+ "raw": {
+  "stems": [
+   {
+    "name": "02__kick.wav",
+    "duration_s": 267.0,
+    "level_db": -18.8,
+    "shares": [
+     0.328,
+     0.362,
+     0.148,
+     0.072,
+     0.045,
+     0.045
+    ],
+    "sub_attacks": 5193.968486063245,
+    "air_attacks": 875.910717128628,
+    "sustained_low": 0.004499050954540664,
+    "top_role": "hook",
+    "n_hits": 300,
+    "roles": {
+     "clap": {
+      "count": 17,
+      "per_minute": 3.8,
+      "decay40_ms": 196.0,
+      "sustain_share": 0.629,
+      "band_sub_share": 0.001,
+      "band_low_share": 0.017,
+      "band_air_share": 0.077,
+      "spectral_centroid_hz": 4013.365,
+      "crest_factor_db": 18.09,
+      "mean_confidence": 0.557
+     },
+     "hook": {
+      "count": 233,
+      "per_minute": 52.4,
+      "decay40_ms": 372.0,
+      "sustain_share": 0.632,
+      "band_sub_share": 0.09,
+      "band_low_share": 0.498,
+      "band_air_share": 0.014,
+      "spectral_centroid_hz": 2072.175,
+      "crest_factor_db": 15.573,
+      "mean_confidence": 0.502
+     },
+     "space": {
+      "count": 50,
+      "per_minute": 11.2,
+      "decay40_ms": 384.0,
+      "sustain_share": 0.695,
+      "band_sub_share": 0.085,
+      "band_low_share": 0.467,
+      "band_air_share": 0.02,
+      "spectral_centroid_hz": 2691.995,
+      "crest_factor_db": 15.227,
+      "mean_confidence": 0.437
+     }
+    }
+   },
+   {
+    "name": "03__rumble.wav",
+    "duration_s": 266.0,
+    "level_db": -26.3,
+    "shares": [
+     0.13,
+     0.219,
+     0.071,
+     0.171,
+     0.31,
+     0.1
+    ],
+    "sub_attacks": 4340.249074586651,
+    "air_attacks": 1211.2990486445644,
+    "sustained_low": 0.004112558605035387,
+    "top_role": "rumble",
+    "n_hits": 300,
+    "roles": {
+     "kick": {
+      "count": 81,
+      "per_minute": 18.3,
+      "decay40_ms": 40.0,
+      "sustain_share": 0.899,
+      "band_sub_share": 0.06,
+      "band_low_share": 0.919,
+      "band_air_share": 0.0,
+      "spectral_centroid_hz": 241.324,
+      "crest_factor_db": 11.973,
+      "mean_confidence": 0.355
+     },
+     "rumble": {
+      "count": 219,
+      "per_minute": 49.4,
+      "decay40_ms": 26.0,
+      "sustain_share": 0.933,
+      "band_sub_share": 0.054,
+      "band_low_share": 0.925,
+      "band_air_share": 0.0,
+      "spectral_centroid_hz": 431.062,
+      "crest_factor_db": 11.416,
+      "mean_confidence": 0.39
+     }
+    }
+   },
+   {
+    "name": "05__6-2022-05-30-005.wav",
+    "duration_s": 230.8,
+    "level_db": -41.2,
+    "shares": [
+     0.14,
+     0.133,
+     0.123,
+     0.192,
+     0.192,
+     0.219
+    ],
+    "sub_attacks": 79.7364634624048,
+    "air_attacks": 15.573734097286966,
+    "sustained_low": 7.057780836532236e-11,
+    "top_role": "space",
+    "n_hits": 4,
+    "roles": {
+     "space": {
+      "count": 4,
+      "per_minute": 1.0,
+      "decay40_ms": 400.0,
+      "sustain_share": 0.862,
+      "band_sub_share": 0.001,
+      "band_low_share": 0.003,
+      "band_air_share": 0.618,
+      "spectral_centroid_hz": 9723.488,
+      "crest_factor_db": 13.217,
+      "mean_confidence": 0.56
+     }
+    }
+   },
+   {
+    "name": "06__perc-1.wav",
+    "duration_s": 266.1,
+    "level_db": -28.4,
+    "shares": [
+     0.188,
+     0.133,
+     0.088,
+     0.139,
+     0.21,
+     0.242
+    ],
+    "sub_attacks": 5190.424513191749,
+    "air_attacks": 993.9666505913219,
+    "sustained_low": 0.0082333971563173,
+    "top_role": "hook",
+    "n_hits": 300,
+    "roles": {
+     "hook": {
+      "count": 299,
+      "per_minute": 67.4,
+      "decay40_ms": 134.0,
+      "sustain_share": 0.103,
+      "band_sub_share": 0.001,
+      "band_low_share": 0.001,
+      "band_air_share": 0.216,
+      "spectral_centroid_hz": 4729.778,
+      "crest_factor_db": 14.884,
+      "mean_confidence": 0.67
+     },
+     "space": {
+      "count": 1,
+      "per_minute": 0.2,
+      "decay40_ms": 400.0,
+      "sustain_share": 0.949,
+      "band_sub_share": 0.001,
+      "band_low_share": 0.001,
+      "band_air_share": 0.328,
+      "spectral_centroid_hz": 5153.029,
+      "crest_factor_db": 15.124,
+      "mean_confidence": 0.542
+     }
+    }
+   },
+   {
+    "name": "07__perc-2.wav",
+    "duration_s": 231.7,
+    "level_db": -27.5,
+    "shares": [
+     0.112,
+     0.108,
+     0.142,
+     0.253,
+     0.192,
+     0.192
+    ],
+    "sub_attacks": 1957.0970074896156,
+    "air_attacks": 268.58190044553845,
+    "sustained_low": 0.011723768301050822,
+    "top_role": "space",
+    "n_hits": 11,
+    "roles": {
+     "space": {
+      "count": 11,
+      "per_minute": 2.8,
+      "decay40_ms": 400.0,
+      "sustain_share": 0.798,
+      "band_sub_share": 0.0,
+      "band_low_share": 0.0,
+      "band_air_share": 0.534,
+      "spectral_centroid_hz": 7687.903,
+      "crest_factor_db": 16.63,
+      "mean_confidence": 0.504
+     }
+    }
+   },
+   {
+    "name": "09__10-arc-raiders-bastion-encounter.wav",
+    "duration_s": 274.5,
+    "level_db": -40.9,
+    "shares": [
+     0.139,
+     0.208,
+     0.197,
+     0.171,
+     0.171,
+     0.114
+    ],
+    "sub_attacks": 984.6602043447913,
+    "air_attacks": 287.515546262485,
+    "sustained_low": 2.833909468947113e-11,
+    "top_role": "clap",
+    "n_hits": 13,
+    "roles": {
+     "clap": {
+      "count": 9,
+      "per_minute": 2.0,
+      "decay40_ms": 400.0,
+      "sustain_share": 0.964,
+      "band_sub_share": 0.0,
+      "band_low_share": 0.005,
+      "band_air_share": 0.035,
+      "spectral_centroid_hz": 3739.386,
+      "crest_factor_db": 12.649,
+      "mean_confidence": 0.62
+     },
+     "hook": {
+      "count": 4,
+      "per_minute": 0.9,
+      "decay40_ms": 74.0,
+      "sustain_share": 0.312,
+      "band_sub_share": 0.0,
+      "band_low_share": 0.007,
+      "band_air_share": 0.033,
+      "spectral_centroid_hz": 3943.364,
+      "crest_factor_db": 11.06,
+      "mean_confidence": 0.71
+     }
+    }
+   },
+   {
+    "name": "11__12-2022-06-02-001-2026-05-25-092256.wav",
+    "duration_s": 266.0,
+    "level_db": -42.6,
+    "shares": [
+     0.18,
+     0.197,
+     0.157,
+     0.171,
+     0.162,
+     0.133
+    ],
+    "sub_attacks": 3163.423597887022,
+    "air_attacks": 538.8481752134628,
+    "sustained_low": 0.04807726588045844,
+    "top_role": "clap",
+    "n_hits": 233,
+    "roles": {
+     "clap": {
+      "count": 217,
+      "per_minute": 48.9,
+      "decay40_ms": 400.0,
+      "sustain_share": 0.943,
+      "band_sub_share": 0.0,
+      "band_low_share": 0.0,
+      "band_air_share": 0.0,
+      "spectral_centroid_hz": 1539.666,
+      "crest_factor_db": 13.355,
+      "mean_confidence": 0.701
+     },
+     "hook": {
+      "count": 16,
+      "per_minute": 3.6,
+      "decay40_ms": 162.0,
+      "sustain_share": 0.432,
+      "band_sub_share": 0.0,
+      "band_low_share": 0.001,
+      "band_air_share": 0.001,
+      "spectral_centroid_hz": 1637.171,
+      "crest_factor_db": 16.798,
+      "mean_confidence": 0.579
+     }
+    }
+   },
+   {
+    "name": "13__14-arc-raiders-bastion-encounter.wav",
+    "duration_s": 139.5,
+    "level_db": -38.0,
+    "shares": [
+     0.292,
+     0.192,
+     0.122,
+     0.19,
+     0.146,
+     0.057
+    ],
+    "sub_attacks": 152.9706998924131,
+    "air_attacks": 18.522909331402793,
+    "sustained_low": 5.867284197923573e-11,
+    "top_role": "clap",
+    "n_hits": 3,
+    "roles": {
+     "clap": {
+      "count": 3,
+      "per_minute": 1.3,
+      "decay40_ms": 232.0,
+      "sustain_share": 0.896,
+      "band_sub_share": 0.0,
+      "band_low_share": 0.002,
+      "band_air_share": 0.013,
+      "spectral_centroid_hz": 3715.175,
+      "crest_factor_db": 10.366,
+      "mean_confidence": 0.703
+     }
+    }
+   },
+   {
+    "name": "14__15-2023-11-14-bodhi-anthony-tech-01-9-stems-sound-4-synth.wav",
+    "duration_s": 162.8,
+    "level_db": -32.7,
+    "shares": [
+     0.108,
+     0.081,
+     0.074,
+     0.374,
+     0.25,
+     0.114
+    ],
+    "sub_attacks": 297.63599733063876,
+    "air_attacks": 144.39523015980677,
+    "sustained_low": 3.992405195190593e-10,
+    "top_role": "hook",
+    "n_hits": 1,
+    "roles": {
+     "hook": {
+      "count": 1,
+      "per_minute": 0.4,
+      "decay40_ms": 400.0,
+      "sustain_share": 0.376,
+      "band_sub_share": 0.001,
+      "band_low_share": 0.002,
+      "band_air_share": 0.0,
+      "spectral_centroid_hz": 879.808,
+      "crest_factor_db": 16.226,
+      "mean_confidence": 0.646
+     }
+    }
+   },
+   {
+    "name": "15__16-2023-11-14-bodhi-anthony-tech-01-1-stems-sound-1-synth-horn-001.wav",
+    "duration_s": 146.0,
+    "level_db": -26.3,
+    "shares": [
+     0.169,
+     0.142,
+     0.119,
+     0.171,
+     0.223,
+     0.176
+    ],
+    "sub_attacks": 283.6103842873311,
+    "air_attacks": 159.42964668712173,
+    "sustained_low": 1.5711250684311143e-13,
+    "top_role": "kick",
+    "n_hits": 57,
+    "roles": {
+     "kick": {
+      "count": 32,
+      "per_minute": 13.2,
+      "decay40_ms": 196.0,
+      "sustain_share": 0.724,
+      "band_sub_share": 0.3,
+      "band_low_share": 0.367,
+      "band_air_share": 0.001,
+      "spectral_centroid_hz": 1504.071,
+      "crest_factor_db": 9.061,
+      "mean_confidence": 0.492
+     },
+     "hook": {
+      "count": 6,
+      "per_minute": 2.5,
+      "decay40_ms": 139.0,
+      "sustain_share": 0.592,
+      "band_sub_share": 0.087,
+      "band_low_share": 0.424,
+      "band_air_share": 0.002,
+      "spectral_centroid_hz": 1817.365,
+      "crest_factor_db": 9.386,
+      "mean_confidence": 0.352
+     },
+     "rumble": {
+      "count": 7,
+      "per_minute": 2.9,
+      "decay40_ms": 384.0,
+      "sustain_share": 0.93,
+      "band_sub_share": 0.477,
+      "band_low_share": 0.339,
+      "band_air_share": 0.0,
+      "spectral_centroid_hz": 1172.626,
+      "crest_factor_db": 10.147,
+      "mean_confidence": 0.451
+     },
+     "space": {
+      "count": 12,
+      "per_minute": 4.9,
+      "decay40_ms": 336.0,
+      "sustain_share": 0.889,
+      "band_sub_share": 0.185,
+      "band_low_share": 0.375,
+      "band_air_share": 0.002,
+      "spectral_centroid_hz": 1698.0,
+      "crest_factor_db": 9.253,
+      "mean_confidence": 0.348
+     }
+    }
+   },
+   {
+    "name": "16__17-2023-10-07-09-20.wav",
+    "duration_s": 155.7,
+    "level_db": -33.5,
+    "shares": [
+     0.182,
+     0.152,
+     0.331,
+     0.046,
+     0.153,
+     0.135
+    ],
+    "sub_attacks": 261.15130732354703,
+    "air_attacks": 94.57329471980658,
+    "sustained_low": 1.1275634832915505e-12,
+    "top_role": "rumble",
+    "n_hits": 1,
+    "roles": {
+     "rumble": {
+      "count": 1,
+      "per_minute": 0.4,
+      "decay40_ms": 400.0,
+      "sustain_share": 0.889,
+      "band_sub_share": 0.367,
+      "band_low_share": 0.166,
+      "band_air_share": 0.0,
+      "spectral_centroid_hz": 1391.51,
+      "crest_factor_db": 17.323,
+      "mean_confidence": 0.416
+     }
+    }
+   },
+   {
+    "name": "17__18-beatbox.wav",
+    "duration_s": 152.0,
+    "level_db": -26.8,
+    "shares": [
+     0.133,
+     0.174,
+     0.152,
+     0.229,
+     0.197,
+     0.116
+    ],
+    "sub_attacks": 417.8273012432935,
+    "air_attacks": 111.47804569377787,
+    "sustained_low": 5.261532822178663e-14,
+    "top_role": "space",
+    "n_hits": 5,
+    "roles": {
+     "clap": {
+      "count": 1,
+      "per_minute": 0.4,
+      "decay40_ms": 400.0,
+      "sustain_share": 0.855,
+      "band_sub_share": 0.001,
+      "band_low_share": 0.01,
+      "band_air_share": 0.014,
+      "spectral_centroid_hz": 3718.821,
+      "crest_factor_db": 7.486,
+      "mean_confidence": 0.593
+     },
+     "space": {
+      "count": 4,
+      "per_minute": 1.6,
+      "decay40_ms": 400.0,
+      "sustain_share": 0.915,
+      "band_sub_share": 0.01,
+      "band_low_share": 0.363,
+      "band_air_share": 0.015,
+      "spectral_centroid_hz": 3633.147,
+      "crest_factor_db": 11.311,
+      "mean_confidence": 0.54
+     }
+    }
+   }
+  ],
+  "sidechain": {
+   "pump_depth_db": 46.94,
+   "pump_return_ms": 268.0,
+   "n_kicks": 639,
+   "kick_interval_ms": 375.9,
+   "tempo": 159.64
+  }
+ },
+ "runner": {
+  "seconds": 50.6,
+  "when": "2026-09-12T07:20:15Z"
+ },
+ "item": {
+  "kind": "multitrack",
+  "title": "hw002",
+  "files": [
+   "02__kick.wav",
+   "03__rumble.wav",
+   "05__6-2022-05-30-005.wav",
+   "06__perc-1.wav",
+   "07__perc-2.wav",
+   "09__10-arc-raiders-bastion-encounter.wav",
+   "11__12-2022-06-02-001-2026-05-25-092256.wav",
+   "13__14-arc-raiders-bastion-encounter.wav",
+   "14__15-2023-11-14-bodhi-anthony-tech-01-9-stems-sound-4-synth.wav",
+   "15__16-2023-11-14-bodhi-anthony-tech-01-1-stems-sound-1-synth-horn-001.wav",
+   "16__17-2023-10-07-09-20.wav",
+   "17__18-beatbox.wav"
+  ]
+ }
+}
