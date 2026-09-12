@@ -1,0 +1,35 @@
+{
+ "plugin": "/Library/Audio/Plug-Ins/Components/StandardCLIP.component",
+ "kind": "external",
+ "name": "StandardCLIP",
+ "parameters": {
+  "ceiling": {
+   "raw": 0.8333333134651184,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Ceiling\" raw_value=0.833333 value=\"0.00dB\" (1001 valid string values)>"
+  },
+  "ceiling_on_off": {
+   "raw": 0.0,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Ceiling On/Off\" raw_value=0 value=Off boolean (\"False\" and \"True\")>"
+  },
+  "clip_type": {
+   "raw": 0.0,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Clip Type\" raw_value=0 value=\"Soft Clip Classic\" (8 valid string values)>"
+  },
+  "clipping": {
+   "raw": 0.8333333134651184,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Clipping\" raw_value=0.833333 value=\"0.00dB\" (1001 valid string values)>"
+  },
+  "input_gain": {
+   "raw": 0.8333333134651184,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Input Gain\" raw_value=0.833333 value=\"0.00dB\" (1001 valid string values)>"
+  },
+  "output_gain": {
+   "raw": 0.8333333134651184,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Output Gain\" raw_value=0.833333 value=\"0.00dB\" (1001 valid string values)>"
+  },
+  "softness": {
+   "raw": 0.0,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Softness\" raw_value=0 value=\"min\" (102 valid string values)>"
+  }
+ }
+}

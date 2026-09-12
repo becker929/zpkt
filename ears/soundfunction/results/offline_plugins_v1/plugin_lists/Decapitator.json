@@ -1,0 +1,6 @@
+{
+ "plugin": "/Library/Audio/Plug-Ins/Components/Decapitator.component",
+ "kind": "external",
+ "name": "Decapitator",
+ "parameters": {}
+}

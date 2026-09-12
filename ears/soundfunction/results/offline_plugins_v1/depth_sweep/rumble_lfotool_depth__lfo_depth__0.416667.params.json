@@ -1,0 +1,295 @@
+{
+ "job": "rumble_lfotool_depth",
+ "plugin": "/Library/Audio/Plug-Ins/Components/LFOTool.component",
+ "kind": "external",
+ "param": "lfo_depth",
+ "requested_value": 0.416667,
+ "true_value": 0.41666701436042786,
+ "parameters": {
+  "bpmsync": {
+   "raw": 1.0,
+   "text": "<pedalboard.AudioProcessorParameter name=\"BPMSync\" raw_value=1 value=\"Beat\" (2 valid string values)>"
+  },
+  "curve_1": {
+   "raw": 0.6458331346511841,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Curve  1\" raw_value=0.645833 value=64.5833 range=(0.0, 100.0, 0.1)>"
+  },
+  "curve_2": {
+   "raw": 0.4208332896232605,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Curve  2\" raw_value=0.420833 value=42.0833 range=(0.0, 100.0, 0.1)>"
+  },
+  "curve_3": {
+   "raw": 0.4999999701976776,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Curve  3\" raw_value=0.5 value=50 range=(0.0, 100.0, 0.1)>"
+  },
+  "curve_4": {
+   "raw": 0.4999999701976776,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Curve  4\" raw_value=0.5 value=50 range=(0.0, 100.0, 0.1)>"
+  },
+  "curve_5": {
+   "raw": 0.4999999701976776,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Curve  5\" raw_value=0.5 value=50 range=(0.0, 100.0, 0.1)>"
+  },
+  "curve_6": {
+   "raw": 0.4999999701976776,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Curve  6\" raw_value=0.5 value=50 range=(0.0, 100.0, 0.1)>"
+  },
+  "curve_7": {
+   "raw": 0.4999999701976776,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Curve  7\" raw_value=0.5 value=50 range=(0.0, 100.0, 0.1)>"
+  },
+  "curve_8": {
+   "raw": 0.4999999701976776,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Curve  8\" raw_value=0.5 value=50 range=(0.0, 100.0, 0.1)>"
+  },
+  "cut": {
+   "raw": 0.5,
+   "text": "<pedalboard.AudioProcessorParameter name=\">cut\" raw_value=0.5 value=0 range=(-100.0, 100.0, ~0.200001125)>"
+  },
+  "dotted": {
+   "raw": 1.0,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Dotted\" raw_value=1 value=\"Yes \" (2 valid string values)>"
+  },
+  "f_cutoff": {
+   "raw": 0.5,
+   "text": "<pedalboard.AudioProcessorParameter name=\"F.Cutoff\" raw_value=0.5 value=562 range=(21.0, 14700.0, ~48.5)>"
+  },
+  "f_drive": {
+   "raw": 0.0,
+   "text": "<pedalboard.AudioProcessorParameter name=\"F.Drive\" raw_value=0 value=0 range=(0.0, 100.0, 0.1)>"
+  },
+  "f_on_off": {
+   "raw": 0.0,
+   "text": "<pedalboard.AudioProcessorParameter name=\"F.On Off\" raw_value=0 value=\"FILT OFF\" (2 valid string values)>"
+  },
+  "f_reso": {
+   "raw": 0.009999999776482582,
+   "text": "<pedalboard.AudioProcessorParameter name=\"F.Reso\" raw_value=0.01 value=1 range=(0.0, 100.0, 0.1)>"
+  },
+  "filtype": {
+   "raw": 0.0,
+   "text": "<pedalboard.AudioProcessorParameter name=\"FilType\" raw_value=0 value=\"SVF LP\" (2 valid string values)>"
+  },
+  "in_gate": {
+   "raw": 0.0,
+   "text": "<pedalboard.AudioProcessorParameter name=\"In>Gate\" raw_value=0 value=\"OFF\" (2 valid string values)>"
+  },
+  "in_rate": {
+   "raw": 0.0,
+   "text": "<pedalboard.AudioProcessorParameter name=\"In>Rate\" raw_value=0 value=\"OFF\" (2 valid string values)>"
+  },
+  "in_rerig": {
+   "raw": 0.0,
+   "text": "<pedalboard.AudioProcessorParameter name=\"In>Rerig\" raw_value=0 value=1 range=(1.0, 12.0, 1.0)>"
+  },
+  "invel_pw": {
+   "raw": 0.0,
+   "text": "<pedalboard.AudioProcessorParameter name=\"InVel>PW\" raw_value=0 value=\"OFF\" (2 valid string values)>"
+  },
+  "lfo_depth": {
+   "raw": 0.41666701436042786,
+   "text": "<pedalboard.AudioProcessorParameter name=\"LFO Depth\" raw_value=0.416667 value=41.6667 range=(0.0, 100.0, 0.1)>"
+  },
+  "lfon_fil": {
+   "raw": 0.0,
+   "text": "<pedalboard.AudioProcessorParameter name=\"LFOn>Fil\" raw_value=0 value=1 range=(1.0, 12.0, 1.0)>"
+  },
+  "lfon_pan": {
+   "raw": 0.0,
+   "text": "<pedalboard.AudioProcessorParameter name=\"LFOn>Pan\" raw_value=0 value=1 range=(1.0, 12.0, 1.0)>"
+  },
+  "lfon_res": {
+   "raw": 0.0,
+   "text": "<pedalboard.AudioProcessorParameter name=\"LFOn>Res\" raw_value=0 value=1 range=(1.0, 12.0, 1.0)>"
+  },
+  "lfon_var": {
+   "raw": 0.0,
+   "text": "<pedalboard.AudioProcessorParameter name=\"LFOn>Var\" raw_value=0 value=1 range=(1.0, 12.0, 1.0)>"
+  },
+  "lfon_vol": {
+   "raw": 0.0,
+   "text": "<pedalboard.AudioProcessorParameter name=\"LFOn>Vol\" raw_value=0 value=1 range=(1.0, 12.0, 1.0)>"
+  },
+  "pan": {
+   "raw": 0.5,
+   "text": "<pedalboard.AudioProcessorParameter name=\">pan\" raw_value=0.5 value=0 range=(-100.0, 100.0, ~0.200001125)>"
+  },
+  "phase": {
+   "raw": 0.0,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Phase\" raw_value=0 value=0 range=(0.0, 360.0, 0.36)>"
+  },
+  "point_x0": {
+   "raw": 0.0,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Point X0\" raw_value=0 value=0 range=(0.0, 100.0, 0.1)>"
+  },
+  "point_x1": {
+   "raw": 0.4999999701976776,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Point X1\" raw_value=0.5 value=50 range=(0.0, 100.0, 0.1)>"
+  },
+  "point_x2": {
+   "raw": 0.9999999403953552,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Point X2\" raw_value=1 value=100 range=(0.0, 100.0, 0.1)>"
+  },
+  "point_x3": {
+   "raw": 0.9999999403953552,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Point X3\" raw_value=1 value=100 range=(0.0, 100.0, 0.1)>"
+  },
+  "point_x4": {
+   "raw": 0.9999999403953552,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Point X4\" raw_value=1 value=100 range=(0.0, 100.0, 0.1)>"
+  },
+  "point_x5": {
+   "raw": 0.9999999403953552,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Point X5\" raw_value=1 value=100 range=(0.0, 100.0, 0.1)>"
+  },
+  "point_x6": {
+   "raw": 0.9999999403953552,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Point X6\" raw_value=1 value=100 range=(0.0, 100.0, 0.1)>"
+  },
+  "point_x7": {
+   "raw": 0.9999999403953552,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Point X7\" raw_value=1 value=100 range=(0.0, 100.0, 0.1)>"
+  },
+  "point_y0": {
+   "raw": 0.3583332896232605,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Point Y0\" raw_value=0.358333 value=35.8333 range=(0.0, 100.0, 0.1)>"
+  },
+  "point_y1": {
+   "raw": 0.8541667461395264,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Point Y1\" raw_value=0.854167 value=85.4167 range=(0.0, 100.0, 0.1)>"
+  },
+  "point_y2": {
+   "raw": 1.0,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Point Y2\" raw_value=1 value=100 range=(0.0, 100.0, 0.1)>"
+  },
+  "point_y3": {
+   "raw": 0.3583332896232605,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Point Y3\" raw_value=0.358333 value=35.8333 range=(0.0, 100.0, 0.1)>"
+  },
+  "point_y4": {
+   "raw": 1.0,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Point Y4\" raw_value=1 value=100 range=(0.0, 100.0, 0.1)>"
+  },
+  "point_y5": {
+   "raw": 1.0,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Point Y5\" raw_value=1 value=100 range=(0.0, 100.0, 0.1)>"
+  },
+  "point_y6": {
+   "raw": 1.0,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Point Y6\" raw_value=1 value=100 range=(0.0, 100.0, 0.1)>"
+  },
+  "point_y7": {
+   "raw": 1.0,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Point Y7\" raw_value=1 value=100 range=(0.0, 100.0, 0.1)>"
+  },
+  "pwm": {
+   "raw": 0.5,
+   "text": "<pedalboard.AudioProcessorParameter name=\"PWM\" raw_value=0.5 value=0 range=(-100.0, 100.0, ~0.200001125)>"
+  },
+  "rate": {
+   "raw": 0.4350000023841858,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Rate\" raw_value=0.435 value=\"1/4\" (40 valid string values)>"
+  },
+  "res": {
+   "raw": 0.5,
+   "text": "<pedalboard.AudioProcessorParameter name=\">res\" raw_value=0.5 value=0 range=(-100.0, 100.0, ~0.200001125)>"
+  },
+  "smooth": {
+   "raw": 0.0,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Smooth\" raw_value=0 value=0 range=(0.0, 100.0, 0.1)>"
+  },
+  "swing": {
+   "raw": 0.5,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Swing\" raw_value=0.5 value=0 range=(-100.0, 100.0, ~0.200001125)>"
+  },
+  "timing": {
+   "raw": 0.5,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Timing\" raw_value=0.5 value=0 range=(-4096.0, 4096.0, ~8.192816153846154)>"
+  },
+  "triplet": {
+   "raw": 1.0,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Triplet\" raw_value=1 value=\"Yes \" (2 valid string values)>"
+  },
+  "var": {
+   "raw": 0.5,
+   "text": "<pedalboard.AudioProcessorParameter name=\">var\" raw_value=0.5 value=0 range=(-100.0, 100.0, ~0.200001125)>"
+  },
+  "vf_mix": {
+   "raw": 1.0,
+   "text": "<pedalboard.AudioProcessorParameter name=\"VF Mix\" raw_value=1 value=100 range=(0.0, 100.0, 0.1)>"
+  },
+  "vf_var": {
+   "raw": 0.5,
+   "text": "<pedalboard.AudioProcessorParameter name=\"VF Var\" raw_value=0.5 value=50 range=(0.0, 100.0, 0.1)>"
+  },
+  "vol": {
+   "raw": 1.0,
+   "text": "<pedalboard.AudioProcessorParameter name=\">vol\" raw_value=1 value=100 range=(-100.0, 100.0, ~0.200001125)>"
+  },
+  "warp_01": {
+   "raw": 0.46666666865348816,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Warp 01\" raw_value=0.466667 value=\"1x \" (18 valid string values)>"
+  },
+  "warp_02": {
+   "raw": 0.46666666865348816,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Warp 02\" raw_value=0.466667 value=\"1x \" (18 valid string values)>"
+  },
+  "warp_03": {
+   "raw": 0.46666666865348816,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Warp 03\" raw_value=0.466667 value=\"1x \" (18 valid string values)>"
+  },
+  "warp_04": {
+   "raw": 0.46666666865348816,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Warp 04\" raw_value=0.466667 value=\"1x \" (18 valid string values)>"
+  },
+  "warp_05": {
+   "raw": 0.46666666865348816,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Warp 05\" raw_value=0.466667 value=\"1x \" (18 valid string values)>"
+  },
+  "warp_06": {
+   "raw": 0.46666666865348816,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Warp 06\" raw_value=0.466667 value=\"1x \" (18 valid string values)>"
+  },
+  "warp_07": {
+   "raw": 0.46666666865348816,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Warp 07\" raw_value=0.466667 value=\"1x \" (18 valid string values)>"
+  },
+  "warp_08": {
+   "raw": 0.46666666865348816,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Warp 08\" raw_value=0.466667 value=\"1x \" (18 valid string values)>"
+  },
+  "warp_09": {
+   "raw": 0.46666666865348816,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Warp 09\" raw_value=0.466667 value=\"1x \" (18 valid string values)>"
+  },
+  "warp_10": {
+   "raw": 0.46666666865348816,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Warp 10\" raw_value=0.466667 value=\"1x \" (18 valid string values)>"
+  },
+  "warp_11": {
+   "raw": 0.46666666865348816,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Warp 11\" raw_value=0.466667 value=\"1x \" (18 valid string values)>"
+  },
+  "warp_12": {
+   "raw": 0.46666666865348816,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Warp 12\" raw_value=0.466667 value=\"1x \" (18 valid string values)>"
+  },
+  "xov_freq": {
+   "raw": 0.5,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Xov Freq\" raw_value=0.5 value=632 range=(20.0, 20000.0, ~67.21374045801527)>"
+  },
+  "xov_inv": {
+   "raw": 0.0,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Xov Inv\" raw_value=0 value=\"OFF\" (2 valid string values)>"
+  },
+  "xov_on": {
+   "raw": 0.0,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Xov On\" raw_value=0 value=\"OFF\" (2 valid string values)>"
+  }
+ },
+ "input": "stems/hw002_bypass/aligned__03__rumble__lfotool-off.wav",
+ "sample_rate": 44100,
+ "render_seconds": 0.27,
+ "realtime_factor": 984.6,
+ "state_file": "rumble_lfotool_depth__lfo_depth__0.416667.state"
+}
