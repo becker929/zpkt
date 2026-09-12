@@ -1,0 +1,112 @@
+[
+ {
+  "row": "compressor_attack",
+  "crest_at_min": 7.46,
+  "crest_at_max": 7.44,
+  "crest_span_db": 0.06,
+  "crest_shape": "non-monotonic",
+  "sub_at_min": 0.901,
+  "sub_at_max": 0.902,
+  "sub_span": 0.001,
+  "sub_shape": "non-monotonic"
+ },
+ {
+  "row": "compressor_knee",
+  "crest_at_min": 7.46,
+  "crest_at_max": 6.98,
+  "crest_span_db": 0.48,
+  "crest_shape": "non-monotonic",
+  "sub_at_min": 0.901,
+  "sub_at_max": 0.891,
+  "sub_span": 0.01,
+  "sub_shape": "non-monotonic"
+ },
+ {
+  "row": "compressor_ratio",
+  "crest_at_min": 7.46,
+  "crest_at_max": 7.46,
+  "crest_span_db": 0.09,
+  "crest_shape": "non-monotonic",
+  "sub_at_min": 0.901,
+  "sub_at_max": 0.901,
+  "sub_span": 0.002,
+  "sub_shape": "non-monotonic"
+ },
+ {
+  "row": "compressor_release",
+  "crest_at_min": 7.4,
+  "crest_at_max": 7.44,
+  "crest_span_db": 0.09,
+  "crest_shape": "non-monotonic",
+  "sub_at_min": 0.902,
+  "sub_at_max": 0.901,
+  "sub_span": 0.001,
+  "sub_shape": "non-monotonic"
+ },
+ {
+  "row": "compressor_threshold",
+  "crest_at_min": 17.78,
+  "crest_at_max": 7.42,
+  "crest_span_db": 11.07,
+  "crest_shape": "non-monotonic",
+  "sub_at_min": 0.873,
+  "sub_at_max": 0.902,
+  "sub_span": 0.029,
+  "sub_shape": "non-monotonic"
+ },
+ {
+  "row": "roar_blend",
+  "crest_at_min": 7.46,
+  "crest_at_max": 7.42,
+  "crest_span_db": 0.11,
+  "crest_shape": "non-monotonic",
+  "sub_at_min": 0.902,
+  "sub_at_max": 0.901,
+  "sub_span": 0.001,
+  "sub_shape": "non-monotonic"
+ },
+ {
+  "row": "roar_drive",
+  "crest_at_min": 7.47,
+  "crest_at_max": 7.48,
+  "crest_span_db": 0.08,
+  "crest_shape": "non-monotonic",
+  "sub_at_min": 0.902,
+  "sub_at_max": 0.902,
+  "sub_span": 0.002,
+  "sub_shape": "non-monotonic"
+ },
+ {
+  "row": "roar_shaper1_amt",
+  "crest_at_min": 7.47,
+  "crest_at_max": 7.48,
+  "crest_span_db": 0.14,
+  "crest_shape": "non-monotonic",
+  "sub_at_min": 0.902,
+  "sub_at_max": 0.902,
+  "sub_span": 0.001,
+  "sub_shape": "non-monotonic"
+ },
+ {
+  "row": "roar_shaper1_bias",
+  "crest_at_min": 7.45,
+  "crest_at_max": 7.44,
+  "crest_span_db": 0.11,
+  "crest_shape": "non-monotonic",
+  "sub_at_min": 0.901,
+  "sub_at_max": 0.902,
+  "sub_span": 0.001,
+  "sub_shape": "non-monotonic"
+ },
+ {
+  "row": "roar_tone_amt",
+  "crest_at_min": 7.4,
+  "crest_at_max": 7.43,
+  "crest_span_db": 0.09,
+  "crest_shape": "non-monotonic",
+  "sub_at_min": 0.901,
+  "sub_at_max": 0.902,
+  "sub_span": 0.001,
+  "sub_shape": "non-monotonic"
+ }
+]
