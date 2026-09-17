@@ -1,5 +1,5 @@
 /**
- * Phone-sized pictures of every triage surface.
+ * Phone-sized pictures of every surface that is left.
  *
  * Skipped unless `SCREENSHOTS=1`, so a normal run does not rewrite the images.
  * Take them with:
@@ -7,7 +7,7 @@
  *     SCREENSHOTS=1 npm run test:e2e:mobile
  *
  * Everything written here is put back at the end: the mock server keeps its
- * triage state in memory and the next run has to start from the same fixture.
+ * state in memory and the next run has to start from the same fixture.
  */
 
 import { expect, test, type Page } from "@playwright/test";
@@ -15,7 +15,9 @@ import { expect, test, type Page } from "@playwright/test";
 import { waitForRows } from "./helpers";
 
 const SHOT_DIR = "screenshots";
-const LIST_NAME = "keepers";
+
+/** A view with rows in it. Nothing lists the undecided collection any more. */
+const ROWS = "/search?q=kick";
 
 test.skip(process.env.SCREENSHOTS !== "1", "set SCREENSHOTS=1 to rewrite the images");
 
@@ -32,76 +34,89 @@ async function shot(page: Page, name: string): Promise<void> {
   await page.screenshot({ path: `${SHOT_DIR}/${name}.png` });
 }
 
-test("triage surfaces at phone size", async ({ page }) => {
-  // A sound playing, so the player bar is in every picture: the bars below it
-  // must never be the reason it cannot be reached.
-  await page.goto("/?sort=name&order=asc");
+/**
+ * Go to a view, and go again if the development server got there first.
+ *
+ * Next's hot-reload client cannot complete its handshake under WebKit, so it
+ * falls back to reloading the page. A reload that lands mid-navigation
+ * cancels it. Nothing about the application is being tested here, so the
+ * answer is to ask again.
+ */
+async function open(page: Page, url: string): Promise<void> {
+  for (let attempt = 0; attempt < 4; attempt += 1) {
+    await page.goto(url).catch(() => undefined);
+    if (new URL(page.url()).pathname + new URL(page.url()).search === url) return;
+    await page.waitForTimeout(500);
+  }
+  throw new Error(`could not settle on ${url}; it is now ${page.url()}`);
+}
+
+test("every surface at phone size", async ({ page }) => {
+  // 1. The swipe view: one sound, the bench above it, two answers under it.
+  await open(page, "/");
+  await expect(page.getByTestId("swipe-card")).toBeVisible();
+  // Wait for the waveform, or the picture is of an empty box.
+  await expect
+    .poll(async () =>
+      Number(await page.getByTestId("swipe-card").getByTestId("waveform").getAttribute("data-buckets")),
+    )
+    .toBeGreaterThan(0);
+  await shot(page, "phone-swipe");
+
+  // 2. The record of what was taken, and which project it went into.
+  await open(page, "/decided");
+  // The taken list opens one request per project, and in development the first
+  // of them compiles the route. Longer than the default, and only here.
+  await expect(page.locator('[data-testid="row"]').first()).toBeVisible({ timeout: 40_000 });
+  await shot(page, "phone-decided-taken");
+
+  // 3. The discard pile, where restore puts things back.
+  const rows = await page.request.get("/api/swipe?limit=3");
+  const hashes = ((await rows.json()) as { items: Array<{ hash: string }> }).items.map((f) => f.hash);
+  await page.request.post("/api/bulk", { data: { hashes, action: "delete" } });
+  await page.reload();
+  await page.getByTestId("filter-discarded").tap();
+  await expect(page.locator('[data-testid="row"]').first()).toBeVisible();
+  await shot(page, "phone-decided-discarded");
+
+  // 4. Search, and a selection made by long press with the bulk bar under it.
+  await open(page, ROWS);
   await waitForRows(page);
   await page.locator('[data-testid="row"][data-hash]:not([data-hash=""])').first().tap();
   await expect(page.getByTestId("player-bar")).toBeVisible();
+  await shot(page, "phone-search");
 
-  // 1. A selection made by long press, with the bulk bar under it.
   await longPress(page, '[data-testid="row"][data-hash]:not([data-hash=""])');
   await page.locator('[data-testid="row"][data-hash]:not([data-hash=""])').nth(2).tap();
-  await page.locator('[data-testid="row"][data-hash]:not([data-hash=""])').nth(3).tap();
   await expect(page.getByTestId("selection-bar")).toBeVisible();
   await shot(page, "phone-selection");
+  await page.getByTestId("selection-clear").tap();
 
-  // 2. The sheet that files a selection into a list.
-  await page.getByTestId("bulk-list").tap();
-  await expect(page.getByTestId("list-sheet")).toBeVisible();
-  // Wait for the lists themselves, or the picture is of the word "loading".
-  await expect(page.getByTestId("sheet-list").first()).toBeVisible();
-  await shot(page, "phone-list-sheet");
-  await page.getByTestId("sheet-close").tap();
-
-  // 3. A discard, with the undo strip that follows it.
-  await page.getByTestId("bulk-discard").tap();
-  await expect(page.getByTestId("undo-bar")).toBeVisible();
-  // The rows settle a moment after the count does. Wait for both, so the
-  // picture shows the list as it is, not mid-refetch.
-  await expect(page.getByTestId("result-count")).toHaveText("3,448 sounds");
-  await expect(page.locator('[data-testid="row"][data-hash]:not([data-hash=""])').first()).toBeVisible();
-  await shot(page, "phone-undo");
-
-  // 4. The discard pile, where restore puts things back.
-  await page.goto("/?deleted=true");
-  await waitForRows(page);
-  await shot(page, "phone-discarded");
-
-  // Put those sounds back before anything else is pictured.
-  const discarded = await page.request.get("/api/files?deleted=true&limit=1000");
-  const hashes = ((await discarded.json()) as { items: Array<{ hash: string }> }).items.map((f) => f.hash);
-  if (hashes.length > 0) await page.request.post("/api/bulk", { data: { hashes, action: "restore" } });
-
-  // 5. The lists view. One list is made here so the picture shows two.
-  const existing = await page.request.get("/api/lists");
-  const lists = ((await existing.json()) as { items: Array<{ id: number; name: string }> }).items;
-  const mine = lists.find((l) => l.name === LIST_NAME);
-  let madeId = mine?.id ?? null;
-  if (madeId === null) {
-    const created = await page.request.post("/api/lists", { data: { name: LIST_NAME } });
-    madeId = ((await created.json()) as { id: number }).id;
-    const rows = await page.request.get("/api/files?limit=3&sort=duration&order=desc");
-    const picked = ((await rows.json()) as { items: Array<{ hash: string }> }).items.map((f) => f.hash);
-    await page.request.post("/api/bulk", { data: { hashes: picked, action: "add_to_list", list_id: madeId } });
+  // 6. The card mid-drag, saying what letting go would do. Last, because a
+  //    half-finished gesture is a state to photograph and not one to navigate
+  //    out of.
+  await open(page, "/");
+  await expect(page.getByTestId("swipe-card")).toBeVisible();
+  const card = page.getByTestId("swipe-card");
+  const box = await card.boundingBox();
+  const y = box!.y + box!.height / 2;
+  const from = box!.x + box!.width * 0.7;
+  await card.dispatchEvent("pointerdown", { pointerType: "touch", clientX: from, clientY: y, bubbles: true });
+  for (const dx of [20, 60, 110]) {
+    await card.dispatchEvent("pointermove", {
+      pointerType: "touch",
+      clientX: from - dx,
+      clientY: y,
+      bubbles: true,
+    });
   }
-
-  // KNOWN FLAKE: this `goto` is sometimes rejected because a `router.replace`
-  // from the discarded filter is still in flight. Ruled out: a redundant
-  // replace to the same URL, and slow first-compile of the route in dev.
-  // Not yet found. It affects this screenshot-only spec, never the suite.
-  await page.goto("/lists");
-  await expect(page.getByTestId("list-card").first()).toBeVisible();
-  await shot(page, "phone-lists");
-
-  // 6. One list, playing as a queue.
-  await page.locator(`[data-testid="list-card"][data-list-id="${madeId}"] [data-testid="list-link"]`).tap();
-  await expect(page.getByTestId("list-row").first()).toBeVisible();
-  await page.getByTestId("list-play-all").tap();
-  await expect(page.getByTestId("player-bar")).toBeVisible();
-  await shot(page, "phone-list-playing-queue");
+  await expect(card).toHaveAttribute("data-intent", "discard");
+  await shot(page, "phone-swipe-dragging");
+  // Back to rest, so nothing is answered by taking a picture of it.
+  await card.dispatchEvent("pointercancel", { pointerType: "touch", clientX: from, clientY: y, bubbles: true });
 
   // Leave the fixture as it was found.
-  await page.request.delete(`/api/lists/${madeId}`);
+  const discarded = await page.request.get("/api/files?deleted=true&limit=1000");
+  const back = ((await discarded.json()) as { items: Array<{ hash: string }> }).items.map((f) => f.hash);
+  if (back.length > 0) await page.request.post("/api/bulk", { data: { hashes: back, action: "restore" } });
 });

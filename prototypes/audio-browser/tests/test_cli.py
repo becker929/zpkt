@@ -442,7 +442,8 @@ def test_projects_prints_the_board_from_the_files(cli_config: Path, capsys) -> N
 
     assert main(["--config", str(cli_config), "projects"]) == 0
     out = capsys.readouterr().out
-    assert "stored   1/3" in out
+    assert "stored   1/1" in out
+    assert "collage  0/1" in out
     assert "1 project file(s)" in out
 
 

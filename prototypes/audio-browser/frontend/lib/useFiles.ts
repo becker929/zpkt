@@ -29,7 +29,7 @@ export interface FilesHandle {
    * Re-fetch the pages currently held, keeping the total and the scroll
    * position.
    *
-   * Used after a favourite or a discard changes what the filter selects.
+   * Used after a discard or a restore changes what the filter selects.
    * Discarding row 1,400 of a set must not throw the view back to the top: the
    * next sound to judge is the one that just moved up into that slot.
    */
@@ -40,7 +40,7 @@ function queryKey(query: Query): string {
   return filesUrl(query, PAGE_SIZE, 0);
 }
 
-export function useFiles(query: Query, favoriteOverrides: Record<string, boolean> = {}): FilesHandle {
+export function useFiles(query: Query): FilesHandle {
   const key = queryKey(query);
   const pagesRef = useRef<Map<number, FileRow[]>>(new Map());
   const inFlightRef = useRef<Set<number>>(new Set());
@@ -100,17 +100,11 @@ export function useFiles(query: Query, favoriteOverrides: Record<string, boolean
     [loadPage],
   );
 
-  const rowAt = useCallback(
-    (index: number): FileRow | null => {
-      const page = pagesRef.current.get(Math.floor(index / PAGE_SIZE));
-      if (!page) return null;
-      const row = page[index % PAGE_SIZE] ?? null;
-      if (!row) return null;
-      const override = favoriteOverrides[row.hash];
-      return override === undefined || override === row.favorite ? row : { ...row, favorite: override };
-    },
-    [favoriteOverrides],
-  );
+  const rowAt = useCallback((index: number): FileRow | null => {
+    const page = pagesRef.current.get(Math.floor(index / PAGE_SIZE));
+    if (!page) return null;
+    return page[index % PAGE_SIZE] ?? null;
+  }, []);
 
   // Re-request exactly the pages already held, and keep showing the old rows
   // until the new ones land. Discarding a sound must not blank the screen or

@@ -81,7 +81,6 @@ async function scrubTo(page: Page, waveform: ReturnType<Page["getByTestId"]>, t:
 /* The measurement itself ---------------------------------------------------- */
 
 test("the route filters to the floor and the two numbers agree", async ({ page }) => {
-  await page.goto("/");
   const { row } = await findRow(page, "ext=.wav&min_dur=40&sort=name", (_r, gaps) => gaps.length > 0);
 
   const atFloor = await silenceOf(page, row.hash, FLOOR);
@@ -97,8 +96,7 @@ test("the route filters to the floor and the two numbers agree", async ({ page }
   expect(atFloor.sounding_s).toBeCloseTo(atFloor.duration_s - silent, 2);
 });
 
-test("a list row carries its sounding length", async ({ page }) => {
-  await page.goto("/");
+test("a row carries its sounding length", async ({ page }) => {
   const { row } = await findRow(page, "ext=.wav&min_dur=40&sort=name", (r, gaps) => gaps.length > 0);
   const measured = await silenceOf(page, row.hash, FLOOR);
   expect(row.sounding_s).toBeCloseTo(measured.sounding_s, 2);
@@ -108,14 +106,14 @@ test("a list row carries its sounding length", async ({ page }) => {
 /* What the interface prints ------------------------------------------------- */
 
 test("the length in a row is the sounding length, and says when it is shorter", async ({ page }) => {
-  const filter = "ext=.wav&min_dur=40&sort=name";
+  const filter = "q=a&ext=.wav&min_dur=40&sort=name";
   const { row, index } = await findRow(
     page,
     filter,
     (r, gaps) => gaps.length > 0 && r.duration_s - (r.sounding_s ?? r.duration_s) > 5,
   );
 
-  await page.goto(`/?${filter.replace("sort=name", "sort=name&order=asc")}`);
+  await page.goto(`/search?${filter.replace("sort=name", "sort=name&order=asc")}`);
   await waitForRows(page);
 
   const length = page.locator(`[data-index="${index}"] [data-testid="length"]`);
@@ -129,7 +127,6 @@ test("the length in a row is the sounding length, and says when it is shorter", 
 });
 
 test("the detail view shows sounding, wall, and how much silence", async ({ page }) => {
-  await page.goto("/");
   const { row } = await findRow(page, "ext=.wav&min_dur=40&sort=name", (r, gaps) => gaps.length > 1);
   await page.goto(`/sounds/${row.hash}`);
 
@@ -157,7 +154,6 @@ test("the header counts sounding hours, not wall hours", async ({ page }) => {
 });
 
 test("the waveform tints the silent stretches", async ({ page }) => {
-  await page.goto("/");
   const { row, intervals } = await findRow(page, "ext=.wav&min_dur=40&sort=name", (_r, gaps) => gaps.length > 1);
   await page.goto(`/sounds/${row.hash}`);
 
@@ -168,7 +164,7 @@ test("the waveform tints the silent stretches", async ({ page }) => {
 /* The player ---------------------------------------------------------------- */
 
 test("leading silence is gone before it is heard", async ({ page }) => {
-  const filter = "ext=.wav&min_dur=40&sort=name";
+  const filter = "q=a&ext=.wav&min_dur=40&sort=name";
   const { row, index, intervals } = await findRow(
     page,
     filter,
@@ -176,7 +172,7 @@ test("leading silence is gone before it is heard", async ({ page }) => {
   );
   const lead = intervals[0].end_s;
 
-  await page.goto(`/?${filter}`);
+  await page.goto(`/search?${filter}`);
   await waitForRows(page);
   await page.locator(`[data-index="${index}"]`).click();
   await expect(page.getByTestId("player-bar")).toHaveAttribute("data-hash", row.hash);
@@ -295,15 +291,15 @@ test("leaving the excused gap puts the skipper back to work", async ({ page }) =
 });
 
 test("trailing silence ends the track instead of playing out", async ({ page }) => {
-  const filter = "ext=.wav&min_dur=40&max_dur=300&sort=name";
+  const filter = "q=a&ext=.wav&min_dur=40&max_dur=300&sort=name";
   const { row, index, intervals } = await findRow(page, filter, (r, gaps) => {
     const last = gaps[gaps.length - 1];
     return Boolean(last) && last.end_s >= r.duration_s - 0.4 && last.end_s - last.start_s >= 5;
   });
   const tail = intervals[intervals.length - 1];
 
-  // From the list, so the player has a queue to advance into.
-  await page.goto(`/?${filter}`);
+  // From a view with rows, so the player has a queue to advance into.
+  await page.goto(`/search?${filter}`);
   await waitForRows(page);
   await page.locator(`[data-index="${index}"]`).click();
   await expect(page.getByTestId("player-bar")).toHaveAttribute("data-hash", row.hash);
@@ -330,7 +326,7 @@ test("trailing silence ends the track instead of playing out", async ({ page }) 
 /* The toggle ---------------------------------------------------------------- */
 
 test("the toggle turns it off, and the choice survives a reload", async ({ page }) => {
-  const filter = "ext=.wav&min_dur=40&sort=name";
+  const filter = "q=a&ext=.wav&min_dur=40&sort=name";
   const { row, index, intervals } = await findRow(
     page,
     filter,
@@ -338,7 +334,7 @@ test("the toggle turns it off, and the choice survives a reload", async ({ page 
   );
   const lead = intervals[0].end_s;
 
-  await page.goto(`/?${filter}`);
+  await page.goto(`/search?${filter}`);
   await waitForRows(page);
   await page.locator(`[data-index="${index}"]`).click();
 
@@ -371,7 +367,6 @@ test("the toggle turns it off, and the choice survives a reload", async ({ page 
 /* Streams that cannot be skipped -------------------------------------------- */
 
 test("an AIF says silence cannot be skipped in it", async ({ page }) => {
-  await page.goto("/");
   const { row } = await findRow(page, "ext=.aif&min_dur=40&sort=name", (_r, gaps) => gaps.length > 0);
   await page.goto(`/sounds/${row.hash}`);
 

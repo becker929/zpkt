@@ -22,8 +22,8 @@ HASH_ROUTES: tuple[tuple[str, str], ...] = (
     ("GET", "/api/files/{h}"),
     ("GET", "/api/files/{h}/peaks"),
     ("GET", "/api/files/{h}/stream"),
-    ("PUT", "/api/files/{h}/favorite"),
-    ("DELETE", "/api/files/{h}/favorite"),
+    ("GET", "/api/files/{h}/spans"),
+    ("GET", "/api/files/{h}/silence"),
     ("PUT", "/api/files/{h}/deleted"),
     ("DELETE", "/api/files/{h}/deleted"),
 )
@@ -108,10 +108,18 @@ def test_list_sorts_by_duration(api: Fixture) -> None:
     assert [i["duration_s"] for i in items] == [30.0, 1.5, 0.25]
 
 
-def test_list_sorts_by_size(api: Fixture) -> None:
-    items = api.client.get("/api/files?sort=size&order=asc").json()["items"]
-    sizes = [i["size_bytes"] for i in items]
-    assert sizes == sorted(sizes)
+def test_the_only_orders_left_are_ones_you_could_choose_a_sound_by(
+    api: Fixture,
+) -> None:
+    """Name, running time, sounding time. Size and alias count are gone.
+
+    Nobody picks a sound because it is large or because four paths reach it.
+    Both were orders you could browse in without deciding anything.
+    """
+    for gone in ("size", "aliases"):
+        assert api.client.get(f"/api/files?sort={gone}").status_code == 422
+    for kept in ("name", "duration", "sounding"):
+        assert api.client.get(f"/api/files?sort={kept}").status_code == 200
 
 
 def test_list_filters_by_filename(api: Fixture) -> None:
@@ -395,49 +403,105 @@ def test_aiff_is_transcoded_to_wav(tmp_path: Path) -> None:
 
 
 # ----------------------------------------------------------------- favorites
+#
+# There is no favourite route. A star meant "keep this, decide later", and the
+# queue has two answers and no later.
 
 
-def test_a_favorite_on_one_hash_shows_on_every_alias(api: Fixture) -> None:
+def test_there_is_no_way_to_star_a_sound(api: Fixture) -> None:
     digest = api.hash_of("kick.wav")
-    put = api.client.put(f"/api/files/{digest}/favorite", json={"note": "punchy"})
-    assert put.status_code == 200
-    assert put.json()["favorite"] is True
-    assert put.json()["alias_count"] == 2
+    for method in ("PUT", "DELETE"):
+        response = api.client.request(method, f"/api/files/{digest}/favorite")
+        assert response.status_code in (404, 405), response.text
+    assert "/api/files/{file_hash}/favorite" not in {
+        route.path
+        for route in api.client.app.routes  # type: ignore[attr-defined]
+    }
+
+
+def test_the_favourite_rows_are_left_exactly_where_they_are(api: Fixture) -> None:
+    """Removing the route was the decision. Dropping the data is not one.
+
+    There is one favourite in the real index. The route it was set through is
+    gone; the row it wrote is not, and nothing here is allowed to remove it.
+    """
+    digest = api.hash_of("kick.wav")
+    conn = sqlite3.connect(api.db_path)
+    conn.execute(
+        "INSERT INTO favorite (hash, created_at, note) VALUES (?, ?, ?)",
+        (digest, "2026-01-01T00:00:00+00:00", "the one"),
+    )
+    conn.commit()
+    conn.close()
+
+    api.client.put(f"/api/files/{digest}/deleted")
+    api.client.post("/api/bulk", json={"hashes": [digest], "action": "restore"})
+    api.client.get("/api/files")
+    api.client.get(f"/api/files/{digest}")
+
+    row = peek(api.db_path, "SELECT note FROM favorite WHERE hash = ?", digest)
+    assert row["note"] == "the one"
+
+
+def test_a_sound_no_longer_reports_a_favourite_state(api: Fixture) -> None:
+    """The field is gone from the list and the detail alike.
+
+    A star drawn in a list is an offer to defer, and there is nothing behind it
+    any more: no route sets it and no count uses it.
+    """
+    digest = api.hash_of("kick.wav")
+    assert "favorite" not in api.client.get("/api/files").json()["items"][0]
+    detail = api.client.get(f"/api/files/{digest}").json()
+    assert "favorite" not in detail
+    assert "favorite_note" not in detail
+    assert "favorited_at" not in detail
+
+
+# --------------------------------------------------------------------- lists
+
+
+def test_there_are_no_list_routes(api: Fixture) -> None:
+    """Project membership replaced them. A list that is not a project is a
+    maybe-pile with no exit."""
+    paths = {
+        route.path
+        for route in api.client.app.routes  # type: ignore[attr-defined]
+    }
+    assert not [path for path in paths if path.startswith("/api/lists")]
+    assert api.client.get("/api/lists").status_code == 404
+    assert api.client.post("/api/lists", json={"name": "x"}).status_code == 404
+
+
+def test_the_list_tables_and_their_rows_survive_the_routes(api: Fixture) -> None:
+    digest = api.hash_of("kick.wav")
+    conn = sqlite3.connect(api.db_path)
+    conn.execute("INSERT INTO list (id, name, created_at) VALUES (1, 'keep', ?)",
+                 ("2026-01-01T00:00:00+00:00",))
+    conn.execute(
+        "INSERT INTO list_member (list_id, hash, position, added_at)"
+        " VALUES (1, ?, 1, ?)",
+        (digest, "2026-01-01T00:00:00+00:00"),
+    )
+    conn.commit()
+    conn.close()
+
+    api.client.put(f"/api/files/{digest}/deleted")
+    api.client.get("/api/triage")
+
+    assert peek(api.db_path, "SELECT COUNT(*) AS n FROM list")["n"] == 1
+    assert peek(api.db_path, "SELECT COUNT(*) AS n FROM list_member")["n"] == 1
+
+
+def test_the_detail_view_names_the_projects_holding_a_sound(api: Fixture) -> None:
+    """What replaced list membership: where a sound was taken to."""
+    digest = api.hash_of("kick.wav")
+    project_id = api.project_id("rust and rebar")
+    api.client.put(f"/api/projects/{project_id}/sounds/{digest}")
 
     detail = api.client.get(f"/api/files/{digest}").json()
-    assert detail["favorite"] is True
-    assert detail["favorite_note"] == "punchy"
-    assert len(detail["aliases"]) == 2
-
-    # One row in the database serves both paths: favoriting is per sound.
-    assert peek(api.db_path, "SELECT COUNT(*) AS n FROM favorite")["n"] == 1
-
-    listed = api.client.get("/api/files?favorite=true").json()
-    assert listed["total"] == 1
-    assert listed["items"][0]["hash"] == digest
-    assert listed["items"][0]["alias_count"] == 2
-    assert api.client.get("/api/files?favorite=false").json()["total"] == 2
-
-
-def test_favorite_is_idempotent_and_reversible(api: Fixture) -> None:
-    digest = api.hash_of("hat.wav")
-    api.client.put(f"/api/files/{digest}/favorite")
-    again = api.client.put(f"/api/files/{digest}/favorite")
-    assert again.json()["favorite"] is True
-    assert peek(api.db_path, "SELECT COUNT(*) AS n FROM favorite")["n"] == 1
-
-    gone = api.client.delete(f"/api/files/{digest}/favorite")
-    assert gone.status_code == 200
-    assert gone.json()["favorite"] is False
-    # Removing a favorite that is not set is not an error.
-    assert api.client.delete(f"/api/files/{digest}/favorite").status_code == 200
-
-
-def test_a_note_survives_a_second_put_without_one(api: Fixture) -> None:
-    digest = api.hash_of("hat.wav")
-    api.client.put(f"/api/files/{digest}/favorite", json={"note": "keep"})
-    api.client.put(f"/api/files/{digest}/favorite")
-    assert api.client.get(f"/api/files/{digest}").json()["favorite_note"] == "keep"
+    assert [p["id"] for p in detail["projects"]] == [project_id]
+    assert detail["projects"][0]["name"] == "rust and rebar"
+    assert "lists" not in detail
 
 
 # --------------------------------------------------------------------- dupes
@@ -583,14 +647,11 @@ def test_a_file_merely_named_like_a_bundle_is_not_protected(tmp_path: Path) -> N
 # will pass, which is the point: adding a DELETE route is a decision, not a
 # detail.
 ALLOWED_DELETES: dict[str, str] = {
-    "/api/files/{file_hash}/favorite": "a row in `favorite`",
     "/api/files/{file_hash}/deleted": "a row in `soft_delete`, which restores a sound",
-    "/api/lists/{list_id}": "a row in `list`, and its memberships",
-    "/api/lists/{list_id}/members/{file_hash}": "a row in `list_member`",
     "/api/projects/{project_id}/sounds/{file_hash}": (
         "one entry from a project document's `sounds` array. The sound stays in "
-        "the library, in every list, and in every other project, and every path "
-        "that held its bytes still holds them."
+        "the library and in every other project, and every path that held its "
+        "bytes still holds them."
     ),
 }
 
@@ -614,51 +675,25 @@ def test_no_route_can_remove_an_audio_file(api: Fixture) -> None:
 # below drives all of them in turn. Soft delete is the one that most looks like
 # it should touch a file, so it is exercised twice: discard, then restore.
 def _mutations(
-    file_hash: str, other_hash: str, list_id: int, project_id: str, second_project: str
+    file_hash: str, other_hash: str, project_id: str, second_project: str
 ) -> list[tuple[str, str, object]]:
     return [
-        ("PUT", f"/api/files/{file_hash}/favorite", None),
-        ("DELETE", f"/api/files/{file_hash}/favorite", None),
         ("PUT", f"/api/files/{file_hash}/deleted", {"note": "not this one"}),
         ("DELETE", f"/api/files/{file_hash}/deleted", None),
-        ("PUT", f"/api/lists/{list_id}/members/{file_hash}", None),
-        ("DELETE", f"/api/lists/{list_id}/members/{file_hash}", None),
         ("POST", "/api/bulk", {"hashes": [file_hash, other_hash], "action": "delete"}),
         ("POST", "/api/bulk", {"hashes": [file_hash, other_hash], "action": "restore"}),
-        (
-            "POST",
-            "/api/bulk",
-            {
-                "hashes": [file_hash, other_hash],
-                "action": "add_to_list",
-                "list_id": list_id,
-            },
-        ),
-        (
-            "POST",
-            "/api/bulk",
-            {
-                "hashes": [file_hash, other_hash],
-                "action": "remove_from_list",
-                "list_id": list_id,
-            },
-        ),
-        ("PATCH", f"/api/lists/{list_id}", {"name": "renamed"}),
-        ("DELETE", f"/api/lists/{list_id}", None),
         # Every project route, in an order that reaches all of them. The first
-        # project is driven the whole way down the board: sounds in and out,
-        # abandoned, revived, then committed out of every column until it is
-        # released. The second is only abandoned, so the abandon route is
-        # exercised against a project that never holds a sound.
+        # project is driven as far down the board as the board goes: sounds in
+        # and out, abandoned, revived, then committed out of `stored`. The
+        # second is only abandoned, so the abandon route is exercised against a
+        # project that never holds a sound.
         ("PATCH", f"/api/projects/{project_id}", {"name": "renamed", "notes": "x"}),
         ("PUT", f"/api/projects/{project_id}/sounds/{file_hash}", None),
         ("PUT", f"/api/projects/{project_id}/sounds/{other_hash}", None),
         ("DELETE", f"/api/projects/{project_id}/sounds/{other_hash}", None),
         ("POST", f"/api/projects/{project_id}/abandon", {"reason": "not yet"}),
-        ("POST", f"/api/projects/{project_id}/revive", None),
+        ("POST", f"/api/projects/{project_id}/revive", {"override": True}),
         ("POST", f"/api/projects/{project_id}/commit", {"expect_column": "stored"}),
-        ("POST", f"/api/projects/{project_id}/commit", {"expect_column": "collage"}),
-        ("POST", f"/api/projects/{project_id}/commit", {"expect_column": "enrich"}),
         ("POST", f"/api/projects/{second_project}/abandon", None),
     ]
 
@@ -674,16 +709,17 @@ def test_every_mutating_route_leaves_every_file_on_disk(api: Fixture) -> None:
     before = {
         root: tree_snapshot(api.tmp_path / root) for root in ("source", "copy")
     }
-    list_id = api.client.post("/api/lists", json={"name": "triage"}).json()["id"]
     made = api.client.post("/api/projects", json={"name": "rust and rebar"})
     assert made.status_code == 201, made.text
-    second = api.client.post("/api/projects", json={"name": "cold open"})
+    # `stored` holds one lane, so the second project is deliberate.
+    second = api.client.post(
+        "/api/projects", json={"name": "cold open", "override": True}
+    )
     assert second.status_code == 201, second.text
 
     for method, path, body in _mutations(
         api.hash_of("kick.wav"),
         api.hash_of("hat.wav"),
-        list_id,
         made.json()["id"],
         second.json()["id"],
     ):
@@ -692,6 +728,25 @@ def test_every_mutating_route_leaves_every_file_on_disk(api: Fixture) -> None:
 
     after = {root: tree_snapshot(api.tmp_path / root) for root in ("source", "copy")}
     assert after == before
+
+
+def test_the_swipe_queue_changes_nothing_at_all(api: Fixture) -> None:
+    """It is a read. Answering happens through discard and project membership."""
+    before = {
+        root: tree_snapshot(api.tmp_path / root) for root in ("source", "copy")
+    }
+    counts = {
+        table: peek(api.db_path, f"SELECT COUNT(*) AS n FROM {table}")["n"]
+        for table in ("blob", "alias", "soft_delete", "favorite", "list_member")
+    }
+    for _ in range(3):
+        assert api.client.get("/api/swipe").status_code == 200
+    after = {root: tree_snapshot(api.tmp_path / root) for root in ("source", "copy")}
+    assert after == before
+    assert counts == {
+        table: peek(api.db_path, f"SELECT COUNT(*) AS n FROM {table}")["n"]
+        for table in ("blob", "alias", "soft_delete", "favorite", "list_member")
+    }
 
 
 # --------------------------------------------------------------------- spans
@@ -822,8 +877,15 @@ def test_stats_counts_the_collection(api: Fixture) -> None:
     assert body["total_duration_s"] == pytest.approx(31.75)
 
 
-def test_stats_follows_a_favorite(api: Fixture) -> None:
-    api.client.put(f"/api/files/{api.hash_of('kick.wav')}/favorite")
+def test_stats_still_counts_the_favourite_rows_that_are_left(api: Fixture) -> None:
+    """The count is how the index says the rows survived the route's removal."""
+    conn = sqlite3.connect(api.db_path)
+    conn.execute(
+        "INSERT INTO favorite (hash, created_at) VALUES (?, ?)",
+        (api.hash_of("kick.wav"), "2026-01-01T00:00:00+00:00"),
+    )
+    conn.commit()
+    conn.close()
     assert api.client.get("/api/stats").json()["favorites"] == 1
 
 
@@ -837,9 +899,9 @@ def test_cors_allows_the_frontend_origin(api: Fixture) -> None:
     assert response.headers["access-control-allow-origin"] == "http://localhost:3100"
 
 
-def test_cors_preflight_allows_a_favorite_put(api: Fixture) -> None:
+def test_cors_preflight_allows_a_discard_put(api: Fixture) -> None:
     response = api.client.options(
-        f"/api/files/{api.hash_of('kick.wav')}/favorite",
+        f"/api/files/{api.hash_of('kick.wav')}/deleted",
         headers={
             "Origin": "http://localhost:3100",
             "Access-Control-Request-Method": "PUT",

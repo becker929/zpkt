@@ -175,7 +175,7 @@ test.describe("an over-limit column without colour", () => {
     await fillColumn(request, 3);
     // The header carries the meter on every view, so check it somewhere that is
     // not the board.
-    await page.goto("/lists");
+    await page.goto("/decided");
 
     const counter = page.getByTestId("board-counter");
     await expect(counter).toHaveAttribute("data-over", "true");

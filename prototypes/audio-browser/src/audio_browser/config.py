@@ -50,22 +50,28 @@ class ServerConfig:
 
 DEFAULT_PROJECTS_DIR = "projects"
 DEFAULT_SCHEMAS_DIR = "schemas"
-DEFAULT_COLUMN_CAP = 3
-BOARD_COLUMNS: tuple[str, ...] = ("stored", "collage", "enrich")
+DEFAULT_COLUMN_CAP = 1
+DEFAULT_ENCUMBRANCE = 16
+BOARD_COLUMNS: tuple[str, ...] = ("stored", "collage")
 
 
 @dataclass(frozen=True, slots=True)
 class ProjectsConfig:
-    """Where projects live, and how many each column holds.
+    """Where projects live, how many each column holds, and when one is heavy.
 
-    ``cap`` is the one line to change. The default is 3 and it is meant to be
-    turned down: 2, or 1, are reasonable settings, and at 1 the board is at its
-    most honest. A per-column ``caps`` table overrides it for one column at a
-    time.
+    ``cap`` is the one line to change. The default is 1: ``stored`` is the swipe
+    lane, and a second uncommitted project there would mean choosing which
+    project a sound goes into. A per-column ``caps`` table overrides it for one
+    column at a time.
 
     A cap of 0 is a legitimate setting and means the column is closed. Nothing
     goes into it without an explicit override, and a column that already holds
     something reads as over its limit the moment the board is drawn.
+
+    ``encumbrance`` is the sound count past which a project is marked as
+    carrying more material than a track needs. It sits here, beside the caps,
+    because it is the same kind of number: friction the server states and the
+    interface draws.
 
     ``schemas_dir`` holds the JSON Schema generated from the Zod declarations in
     ``frontend/lib/project.ts``. Python validates every project file against
@@ -76,7 +82,7 @@ class ProjectsConfig:
     schemas_dir: Path
     stored_cap: int = DEFAULT_COLUMN_CAP
     collage_cap: int = DEFAULT_COLUMN_CAP
-    enrich_cap: int = DEFAULT_COLUMN_CAP
+    encumbrance: int = DEFAULT_ENCUMBRANCE
 
     def cap(self, column: str) -> int:
         return int(getattr(self, f"{column}_cap"))
@@ -210,6 +216,9 @@ def _parse_projects(raw: object, base_dir: Path) -> ProjectsConfig:
         column: _cap(caps_raw.get(column, cap), f"projects.caps.{column}")
         for column in BOARD_COLUMNS
     }
+    encumbrance = _cap(
+        raw.get("encumbrance", DEFAULT_ENCUMBRANCE), "projects.encumbrance", "sounds"
+    )
 
     return ProjectsConfig(
         dir=_absolute(Path(dir_raw).expanduser(), base_dir),
@@ -220,11 +229,11 @@ def _parse_projects(raw: object, base_dir: Path) -> ProjectsConfig:
         ),
         stored_cap=per_column["stored"],
         collage_cap=per_column["collage"],
-        enrich_cap=per_column["enrich"],
+        encumbrance=encumbrance,
     )
 
 
-def _cap(value: object, label: str) -> int:
+def _cap(value: object, label: str, noun: str = "slots") -> int:
     """A cap is a whole number of slots, zero or more.
 
     Zero closes a column, which is a real setting. A fraction, a negative
@@ -233,7 +242,7 @@ def _cap(value: object, label: str) -> int:
     edit must not quietly hand back a looser board than the one they asked for.
     """
     if isinstance(value, bool) or not isinstance(value, int):
-        raise ConfigError(f"{label} must be a whole number of slots")
+        raise ConfigError(f"{label} must be a whole number of {noun}")
     if value < 0:
         raise ConfigError(f"{label} must be zero or more")
     return value

@@ -92,7 +92,7 @@ const written = [
     "board",
     "Board",
     [
-      "GET /api/board: the three columns with their caps and occupancy, plus the counts that sit",
+      "GET /api/board: the columns the server serves, with their caps and occupancy, plus the counts that sit",
       "off the board.",
       "",
       "Generated from frontend/lib/project.ts by frontend/scripts/emit-schema.mjs. Do not edit.",

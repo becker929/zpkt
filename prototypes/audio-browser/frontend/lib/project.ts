@@ -442,7 +442,15 @@ export type BoardColumn = z.infer<typeof boardColumnSchema>;
 
 export const boardSchema = z
   .object({
-    columns: z.array(boardColumnSchema).length(COLUMNS.length),
+    /**
+     * The columns the server is serving, in board order.
+     *
+     * Not fixed at three. A column exists on the board when there is a view
+     * for it: `enrich` has none yet, so a server may serve two. What the board
+     * must never do is draw a column the server did not report — an occupancy
+     * that came from nowhere is worse than a column that is not there.
+     */
+    columns: z.array(boardColumnSchema).min(1).max(COLUMNS.length),
     /** Released projects. Off the board; they occupy no slot and have no cap. */
     released: z.number().int().nonnegative(),
     /** Abandoned projects. Off the board too, and revivable. */

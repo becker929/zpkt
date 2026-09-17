@@ -18,7 +18,7 @@ from typing import cast
 import pytest
 from fastapi.testclient import TestClient
 
-from audio_browser.config import Config, ProjectsConfig, Root
+from audio_browser.config import DEFAULT_ENCUMBRANCE, Config, ProjectsConfig, Root
 from audio_browser.db import open_db
 from audio_browser.scan import scan_roots
 from audio_browser.server.app import create_app
@@ -136,16 +136,16 @@ def _quiet(_: str) -> None:
 
 
 @pytest.fixture
-def capped_api(tmp_path: Path) -> Iterator[Callable[[int], Fixture]]:
-    """The same API, built with a cap of the caller's choosing.
+def capped_api(tmp_path: Path) -> Iterator[Callable[..., Fixture]]:
+    """The same API, built with a cap and a threshold of the caller's choosing.
 
-    The cap is meant to be turned down, so the suite has to be able to turn it
-    down. A board with one slot per column is where every refusal actually
-    fires, and building it needs no fixture of its own.
+    Both are settings, so the suite has to be able to set them. The default
+    board is already one slot per column, which is where every refusal fires; a
+    test that wants three, or an encumbrance of two, asks here.
     """
     clients: list[TestClient] = []
 
-    def build(cap: int) -> Fixture:
+    def build(cap: int, encumbrance: int = DEFAULT_ENCUMBRANCE) -> Fixture:
         fixture = _build_api(
             tmp_path,
             ProjectsConfig(
@@ -153,7 +153,7 @@ def capped_api(tmp_path: Path) -> Iterator[Callable[[int], Fixture]]:
                 schemas_dir=schemas_dir(),
                 stored_cap=cap,
                 collage_cap=cap,
-                enrich_cap=cap,
+                encumbrance=encumbrance,
             ),
         )
         clients.append(fixture.client)

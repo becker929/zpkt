@@ -1,6 +1,6 @@
 "use client";
 
-/** Search, format, favourites, and duration bounds. Writes straight to the URL. */
+/** Search, format, and duration bounds. Writes straight to the URL. */
 
 import { useEffect, useState } from "react";
 
@@ -18,10 +18,8 @@ const EXTENSIONS = [".wav", ".aif", ".aiff", ".mp3", ".m4a", ".flac", ".ogg", ".
 function narrowedBy(query: Query): number {
   let n = 0;
   if (query.ext) n += 1;
-  if (query.favorite) n += 1;
   if (query.min_dur) n += 1;
   if (query.max_dur) n += 1;
-  if (query.deleted !== "false") n += 1;
   return n;
 }
 
@@ -30,12 +28,14 @@ export function QueryControls({
   update,
   total,
   loading,
+  placeholder = "search filenames…",
   extra,
 }: {
   query: Query;
   update: (next: Partial<Query>) => void;
   total: number;
   loading: boolean;
+  placeholder?: string;
   extra?: React.ReactNode;
 }) {
   // The box keeps its own value so typing stays responsive, then settles into
@@ -64,7 +64,7 @@ export function QueryControls({
       <div className="controls-primary">
         <input
           type="search"
-          placeholder="search filenames…"
+          placeholder={placeholder}
           value={text}
           aria-label="search filenames"
           data-testid="search"
@@ -75,8 +75,8 @@ export function QueryControls({
           {loading ? "loading…" : `${formatCount(total)} sounds`}
         </div>
 
-        {/* The view's own headline action, such as "play from the top". It
-            stays in the always-visible row rather than behind the fold. */}
+        {/* The view's own headline action. It stays in the always-visible row
+            rather than behind the fold. */}
         {extra ? <div className="controls-extra">{extra}</div> : null}
 
         <button
@@ -105,28 +105,6 @@ export function QueryControls({
             </option>
           ))}
         </select>
-
-        <button
-          type="button"
-          className={`chip${query.favorite ? " on" : ""}`}
-          data-testid="filter-favorites"
-          aria-pressed={query.favorite}
-          onClick={() => update({ favorite: !query.favorite })}
-        >
-          ★ favorites
-        </button>
-
-        {/* The discard pile. Discarded sounds are hidden everywhere else, so
-            this is the only way back to one. */}
-        <button
-          type="button"
-          className={`chip${query.deleted === "true" ? " on" : ""}`}
-          data-testid="filter-discarded"
-          aria-pressed={query.deleted === "true"}
-          onClick={() => update({ deleted: query.deleted === "true" ? "false" : "true" })}
-        >
-          ✕ discarded
-        </button>
 
         <label>
           min s
@@ -169,8 +147,6 @@ export function QueryControls({
               sorts where it belongs. */}
           <option value="sounding:asc">least sound first</option>
           <option value="sounding:desc">most sound first</option>
-          <option value="size:asc">smallest first</option>
-          <option value="size:desc">largest first</option>
         </select>
       </div>
     </div>

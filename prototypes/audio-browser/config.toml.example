@@ -39,15 +39,23 @@ frontend_port = 3100
 # one, but the index is a cache: if the two disagree, the files win and the
 # index is rebuilt from them.
 #
-# `cap` is how many projects one column may hold, and it is the one line to
-# change. The default is 3 and it is meant to be turned down: 2, or 1, are
-# reasonable, and at 1 the only way to start something new is to finish or
-# abandon the thing in front of you. Going past a cap is possible, needs an
-# explicit override, and leaves the column visibly over its limit until the
-# count comes back down.
+# Two columns exist: `stored`, which is the swipe queue, and `collage`, which
+# has no view yet. `enrich` is in the plan and in the document schema and is not
+# a column, so naming it under `caps` is an error.
 #
-# 0 is a real setting and closes a column: useful for mothballing `enrich`
-# while a batch of material goes through `stored`.
+# `cap` is how many projects one column may hold. The default is 1. A second
+# uncommitted project in `stored` would mean choosing which project a swiped
+# sound goes into, and there is no such choice: one lane, one project, one
+# decision per sound. Going past a cap is possible, needs an explicit override,
+# and leaves the column visibly over its limit until the count comes back down.
+#
+# 0 is a real setting and closes a column.
+#
+# `encumbrance` is the number of sounds past which a project is marked as
+# carrying more material than a track needs. A hard techno track is a kick, a
+# rumble, a few percussive textures, two or three atmospheres and some impacts.
+# The mark is friction, not restriction: adding still works, and the mark clears
+# on its own when the count comes down.
 #
 # `schemas` holds the JSON Schema generated from frontend/lib/project.ts by
 # `npm run schema`. Python validates every project file against it, so neither
@@ -55,6 +63,7 @@ frontend_port = 3100
 
 [projects]
 dir = "projects"
-cap = 3
-# caps = { stored = 3, collage = 2, enrich = 1 }
+cap = 1
+encumbrance = 16
+# caps = { stored = 1, collage = 1 }
 # schemas = "schemas"

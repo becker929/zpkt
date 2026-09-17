@@ -60,7 +60,13 @@ function audioState(page: Page) {
   });
 }
 
-const LEADING = "ext=.wav&min_dur=40&sort=name";
+/**
+ * A filter with rows in it.
+ *
+ * Nothing lists the undecided collection, so these tests reach their rows
+ * through the search view, which shows only what was asked for.
+ */
+const LEADING = "q=a&ext=.wav&min_dur=40&sort=name";
 const hasLead = (_r: Row, gaps: Interval[]) =>
   gaps.length > 0 && gaps[0].start_s === 0 && gaps[0].end_s >= 6;
 
@@ -68,7 +74,7 @@ test("the skip toggle is a thumb-sized target and the bar still fits", async ({ 
   const errors = watchConsole(page);
   const { index } = await findRow(page, LEADING, hasLead);
 
-  await page.goto(`/?${LEADING}`);
+  await page.goto(`/search?${LEADING}`);
   await waitForRows(page);
   await page.locator(`[data-index="${index}"]`).tap();
 
@@ -81,7 +87,8 @@ test("the skip toggle is a thumb-sized target and the bar still fits", async ({ 
   expect(box!.width, "too small for a thumb").toBeGreaterThanOrEqual(32);
   expect(box!.height, "too small for a thumb").toBeGreaterThanOrEqual(32);
 
-  // The bar holds three controls now. It must still sit inside the viewport,
+  // The bar holds the skip toggle beside the discard button. It must still sit
+  // inside the viewport,
   // not under the iOS toolbar.
   const viewport = page.viewportSize();
   const barBox = await bar.boundingBox();
@@ -99,7 +106,7 @@ test("the leading silence is gone by the time a thumb lets go", async ({ page })
   const { row, index, intervals } = await findRow(page, LEADING, hasLead);
   const lead = intervals[0].end_s;
 
-  await page.goto(`/?${LEADING}`);
+  await page.goto(`/search?${LEADING}`);
   await waitForRows(page);
   await page.locator(`[data-index="${index}"]`).tap();
   await expect(page.getByTestId("player-bar")).toHaveAttribute("data-hash", row.hash);
@@ -113,31 +120,28 @@ test("the leading silence is gone by the time a thumb lets go", async ({ page })
 });
 
 test("tapping the toggle does not also judge the sound", async ({ page }) => {
-  // The toggle sits beside the star and the discard button, which are the two
-  // most-used controls in the interface. A thumb that hits the wrong one of
-  // three would be discarding sounds by accident.
+  // The toggle sits beside the discard button, which is the most-used control
+  // in the bar. A thumb that hits the wrong one of the two would be discarding
+  // sounds by accident.
   const { index } = await findRow(page, LEADING, hasLead);
-  await page.goto(`/?${LEADING}`);
+  await page.goto(`/search?${LEADING}`);
   await waitForRows(page);
   await page.locator(`[data-index="${index}"]`).tap();
 
-  const favorite = page.getByTestId("player-favorite");
-  const before = await favorite.innerText();
-
   await page.getByTestId("skip-toggle").tap();
   await expect(page.getByTestId("skip-toggle")).toHaveAttribute("aria-pressed", "false");
-  await expect(favorite).toHaveText(before);
+  // Nothing was decided: no undo strip, because nothing happened to undo.
   await expect(page.getByTestId("undo-bar")).toHaveCount(0);
 });
 
 test("a scrub by touch into silence is honoured", async ({ page }) => {
-  const filter = "ext=.wav&min_dur=60&sort=name";
+  const filter = "q=a&ext=.wav&min_dur=60&sort=name";
   const { row, index, intervals } = await findRow(page, filter, (_r, gaps) =>
     gaps.some((g, i) => i > 0 && g.end_s - g.start_s >= 8),
   );
   const gap = intervals.find((g, i) => i > 0 && g.end_s - g.start_s >= 8)!;
 
-  await page.goto(`/?${filter}`);
+  await page.goto(`/search?${filter}`);
   await waitForRows(page);
   await page.locator(`[data-index="${index}"]`).tap();
   await expect(page.getByTestId("player-bar")).toHaveAttribute("data-hash", row.hash);

@@ -35,12 +35,13 @@ async function withGaps(page: Page, filter: string): Promise<{ hash: string; ind
 }
 
 test("silence surfaces at phone size", async ({ page }) => {
-  const filter = "ext=.wav&min_dur=60&sort=name";
+  // Reached through the search view: nothing lists the undecided collection.
+  const filter = "q=a&ext=.wav&min_dur=60&sort=name";
   const { hash, index } = await withGaps(page, filter);
 
-  await page.goto(`/?${filter}`);
+  await page.goto(`/search?${filter}`);
   await waitForRows(page);
-  await page.screenshot({ path: `${SHOT_DIR}/phone-silence-list.png` });
+  await page.screenshot({ path: `${SHOT_DIR}/phone-silence-search.png` });
 
   await page.locator(`[data-index="${index}"]`).tap();
   await expect(page.getByTestId("player-bar")).toHaveAttribute("data-hash", hash);

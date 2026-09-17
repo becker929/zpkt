@@ -1,66 +1,14 @@
 /**
- * The detail view: waveform, alias list, and what the paths panel concludes
- * about a sound stored more than once.
+ * The detail view: one sound, its waveform, and one classifier's spans.
  *
- * The verdict is the part worth locking down. Three different facts share the
- * same panel, and getting them confused is how a user ends up deleting a safety
- * copy or a Logic project's own media.
+ * There is no list of paths here any more. A path is a name for a hash, and
+ * content addressing made that list correct rather than interesting; what the
+ * page is about is the sound.
  */
 
 import { expect, test } from "@playwright/test";
 
 import { api, paintedPixels } from "./helpers";
-
-interface Alias {
-  path: string;
-  root: string;
-}
-
-/**
- * Find a fixture sound whose paths match a shape the panel has to handle.
- *
- * The list response carries the path count, so only candidates with the right
- * count need a detail fetch. The search is bounded so a fixture change shows up
- * as a clear failure rather than a slow one.
- */
-async function findFile(
-  page: import("@playwright/test").Page,
-  wanted: "mirror" | "bundle" | "single",
-): Promise<{ hash: string; aliases: Alias[] }> {
-  const body = await api(page, "/api/files?limit=400&sort=name");
-  const rows = (body.items as Array<{ hash: string; alias_count: number }>).filter((r) =>
-    wanted === "single" ? r.alias_count === 1 : r.alias_count > 1,
-  );
-
-  for (const row of rows.slice(0, 40)) {
-    if (wanted === "single") return { hash: row.hash, aliases: [] };
-    const detail = await api(page, `/api/files/${row.hash}`);
-    const aliases = detail.aliases as Alias[];
-    const roots = new Set(aliases.map((a) => a.root));
-    const bundles = aliases.filter((a) => a.path.includes(".logicx/")).length;
-    if (wanted === "bundle" && bundles > 1) return { hash: row.hash, aliases };
-    if (wanted === "mirror" && bundles === 0 && aliases.length > 1 && roots.size === aliases.length) {
-      return { hash: row.hash, aliases };
-    }
-  }
-  throw new Error(`no fixture sound within the first 40 candidates is a ${wanted} case`);
-}
-
-test("the detail page lists every alias of the hash", async ({ page }) => {
-  const body = await api(page, "/api/files?limit=200&sort=name");
-  const rows = body.items as Array<{ hash: string; alias_count: number }>;
-  const target = rows.find((r) => r.alias_count >= 3) ?? rows[0];
-
-  await page.goto(`/sounds/${target.hash}`);
-  await expect(page.getByTestId("detail")).toBeVisible();
-
-  // The alias panel is the point of the page: a sound with five paths shows
-  // all five, not a count.
-  await expect(page.getByTestId("alias")).toHaveCount(target.alias_count);
-  const shown = await page.getByTestId("alias").locator(".path").allTextContents();
-  const detail = await api(page, `/api/files/${target.hash}`);
-  expect(shown.sort()).toEqual((detail.aliases as Alias[]).map((a) => a.path).sort());
-});
 
 test("the detail page paints its waveform from the peaks endpoint", async ({ page }) => {
   const body = await api(page, "/api/files?limit=1&min_dur=2");
@@ -80,50 +28,63 @@ test("the detail page paints its waveform from the peaks endpoint", async ({ pag
   expect(peaksRequested).toBe(true);
 });
 
-test("one copy per root is called a working copy, not waste", async ({ page }) => {
-  const { hash } = await findFile(page, "mirror");
-  await page.goto(`/sounds/${hash}`);
-  await expect(page.getByTestId("mirror-note")).toBeVisible();
-  await expect(page.getByTestId("mirror-note")).toContainText("not wasted space");
-  await expect(page.getByTestId("dupe-note")).toHaveCount(0);
+test("it asks one classifier for spans and tints only those", async ({ page }) => {
+  // The bakeoff found YAMNet and an unrelated model agree 82.9% of the time
+  // while CLAP agrees with neither. Three tints over one second is a picture of
+  // that disagreement and says nothing, so one method is asked for by name.
+  const asked: string[] = [];
+  page.on("request", (request) => {
+    const url = new URL(request.url());
+    if (url.pathname.endsWith("/spans")) asked.push(url.search);
+  });
+
+  const body = await api(page, "/api/files?limit=40&min_dur=4&sort=name");
+  const rows = body.items as Array<{ hash: string }>;
+  // Half the fixture carries spans, so find one that does.
+  let withSpans: string | null = null;
+  for (const row of rows) {
+    const spans = await api(page, `/api/files/${row.hash}/spans?method=yamnet`);
+    if ((spans.spans as unknown[]).length > 0) {
+      withSpans = row.hash;
+      break;
+    }
+  }
+  expect(withSpans, "no fixture sound in the first 40 carries spans").toBeTruthy();
+
+  const before = asked.length;
+  await page.goto(`/sounds/${withSpans}`);
+  await expect(page.getByTestId("detail")).toBeVisible();
+  await expect(page.getByTestId("span-method")).toHaveAttribute("data-method", "yamnet");
+
+  expect(asked.length).toBeGreaterThan(before);
+  for (const search of asked.slice(before)) expect(search).toBe("?method=yamnet");
 });
 
-test("copies inside a project bundle are never called reclaimable", async ({ page }) => {
-  const { hash } = await findFile(page, "bundle");
+test("the paths panel is gone, and so is the star", async ({ page }) => {
+  const body = await api(page, "/api/files?limit=1&sort=name");
+  const hash = (body.items as Array<{ hash: string }>)[0].hash;
   await page.goto(`/sounds/${hash}`);
+  await expect(page.getByTestId("detail")).toBeVisible();
 
-  const note = page.getByTestId("dupe-note");
-  await expect(note).toBeVisible();
-  await expect(note).toHaveAttribute("data-reclaimable", "false");
-  await expect(note).toContainText("Nothing here can be reclaimed");
-  // No figure that reads as space to be freed.
-  await expect(note).not.toContainText("frees");
-  // And each such path is marked where it is listed.
-  await expect(page.getByTestId("alias-locked").first()).toBeVisible();
+  await expect(page.getByTestId("alias-list")).toHaveCount(0);
+  await expect(page.getByTestId("alias")).toHaveCount(0);
+  await expect(page.getByTestId("detail-favorite")).toHaveCount(0);
+  // Nothing on the page names a place on disk.
+  expect(await page.getByTestId("detail").textContent()).not.toContain("/Users/");
 });
 
-test("a sound with one path gets no note at all", async ({ page }) => {
-  const { hash } = await findFile(page, "single");
-  await page.goto(`/sounds/${hash}`);
-  await expect(page.getByTestId("alias")).toHaveCount(1);
-  await expect(page.getByTestId("dupe-note")).toHaveCount(0);
-  await expect(page.getByTestId("mirror-note")).toHaveCount(0);
-});
-
-test("the detail page favourite toggle writes through to the server", async ({ page }) => {
+test("discarding from the detail page writes through and can be undone", async ({ page }) => {
   const body = await api(page, "/api/files?limit=1&sort=name");
   const hash = (body.items as Array<{ hash: string }>)[0].hash;
   await page.goto(`/sounds/${hash}`);
 
-  const toggle = page.getByTestId("detail-favorite");
-  const before = (await toggle.getAttribute("aria-pressed")) === "true";
-  await toggle.click();
-  await expect(toggle).toHaveAttribute("aria-pressed", String(!before));
+  const button = page.getByTestId("detail-discard");
+  await expect(button).toHaveAttribute("aria-pressed", "false");
+  await button.click();
+  await expect(button).toHaveAttribute("aria-pressed", "true");
+  expect((await api(page, `/api/files/${hash}`)).deleted).toBe(true);
 
-  await page.reload();
-  await expect(page.getByTestId("detail-favorite")).toHaveAttribute("aria-pressed", String(!before));
-
-  // Leave the fixture as it was found.
-  await page.getByTestId("detail-favorite").click();
-  await expect(page.getByTestId("detail-favorite")).toHaveAttribute("aria-pressed", String(before));
+  await button.click();
+  await expect(button).toHaveAttribute("aria-pressed", "false");
+  await expect.poll(async () => (await api(page, `/api/files/${hash}`)).deleted).toBe(false);
 });

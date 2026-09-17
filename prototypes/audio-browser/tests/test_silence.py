@@ -295,15 +295,16 @@ def test_stats_report_sounding_time_and_how_much_is_measured(api: Fixture) -> No
     assert body["measured_blobs"] == 1
 
 
-def test_a_playlist_reports_its_sounding_time(api: Fixture) -> None:
+def test_a_project_reports_its_sounding_time(api: Fixture) -> None:
+    """A board card shows playing time. The dead air is not work to be done."""
     loop = api.hash_of("loop.mp3")
     conn = sqlite3.connect(api.db_path)
     measure_fixture(conn, loop)
     conn.close()
 
-    list_id = api.client.post("/api/lists", json={"name": "set"}).json()["id"]
-    api.client.put(f"/api/lists/{list_id}/members/{loop}")
-    body = api.client.get(f"/api/lists/{list_id}").json()
+    project_id = api.project_id("a set")
+    api.client.put(f"/api/projects/{project_id}/sounds/{loop}")
+    body = api.client.get(f"/api/projects/{project_id}").json()["summary"]
     assert body["duration_s"] == pytest.approx(30.0)
     assert body["sounding_s"] == pytest.approx(10.0)
 

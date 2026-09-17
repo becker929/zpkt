@@ -35,7 +35,7 @@ function watchConsole(page: Page): string[] {
   return seen;
 }
 
-const VIEWS = ["/", "/board", "/playlist", "/dupes"];
+const VIEWS = ["/", "/decided", "/search", "/board"];
 
 test("every view hydrates without a mismatch", async ({ context }) => {
   // React reports a hydration mismatch as a console error whose first line
@@ -70,7 +70,7 @@ test("the detail view hydrates without a mismatch", async ({ page }) => {
 });
 
 test("the filter bar is one line until it is asked for more", async ({ page }) => {
-  await page.goto("/");
+  await page.goto("/search?q=kick");
   await waitForRows(page);
 
   // Four stacked rows of filters used to take a quarter of the screen. The
@@ -84,18 +84,17 @@ test("the filter bar is one line until it is asked for more", async ({ page }) =
   await page.getByTestId("filters-toggle").click();
   await expect(page.getByTestId("ext")).toBeVisible();
   await expect(page.getByTestId("sort")).toBeVisible();
-  await expect(page.getByTestId("filter-favorites")).toBeVisible();
 
   // And the toggle counts what is set, so a filter cannot hide behind the fold
   // unannounced.
-  await page.getByTestId("filter-favorites").click();
+  await page.getByTestId("ext").selectOption(".wav");
   await expect(page.getByTestId("filters-toggle")).toContainText("(1)");
-  await page.getByTestId("filter-favorites").click();
+  await page.getByTestId("ext").selectOption("");
   await expect(page.getByTestId("filters-toggle")).not.toContainText("(1)");
 });
 
-test("the name column takes about half the screen and shows more than a digit", async ({ page }) => {
-  await page.goto("/?sort=name&order=desc");
+test("the name column takes most of the screen and shows more than a digit", async ({ page }) => {
+  await page.goto(LONG_NAMES_FIRST);
   await waitForRows(page);
 
   const row = page.locator('[data-testid="row"][data-hash]:not([data-hash=""])').first();
@@ -104,15 +103,13 @@ test("the name column takes about half the screen and shows more than a digit", 
   expect(rowBox).not.toBeNull();
   expect(nameBox).not.toBeNull();
 
+  // The columns that were dropped — the index, the path count, the size and
+  // the star — gave their room to the name.
   const share = nameBox!.width / rowBox!.width;
-  expect(share).toBeGreaterThan(0.4);
-  expect(share).toBeLessThan(0.62);
-
-  // "0." was the whole of a name before. The column now holds a readable
-  // number of characters.
+  expect(share).toBeGreaterThan(0.5);
   expect(nameBox!.width).toBeGreaterThan(140);
 
-  // Every row is still one line: the list must stay scannable.
+  // Every row is still one line: a record of decisions must stay scannable.
   expect(rowBox!.height).toBeLessThan(60);
 });
 
@@ -123,7 +120,7 @@ test("the name column takes about half the screen and shows more than a digit", 
  * is the shape of name this column exists for. Sorted A–Z it opens on
  * `808 sub 00.wav`, which fits and therefore proves nothing.
  */
-const LONG_NAMES_FIRST = "/?sort=name&order=desc";
+const LONG_NAMES_FIRST = "/search?q=-&sort=name&order=desc";
 
 test("only the sound being listened to scrolls its name", async ({ page }) => {
   await page.goto(LONG_NAMES_FIRST);
@@ -154,10 +151,10 @@ test("only the sound being listened to scrolls its name", async ({ page }) => {
 });
 
 test("a name that fits never scrolls", async ({ page }) => {
-  // Sorted A–Z the fixture opens on `808 sub 00.wav`, which fits in half a
-  // phone with room to spare. Nothing about it should move, even once it is the
-  // sound being played.
-  await page.goto("/?sort=name&order=asc");
+  // Searched for a short noun, the fixture opens on `808 sub 00.wav`, which
+  // fits on a phone with room to spare. Nothing about it should move, even once
+  // it is the sound being played.
+  await page.goto("/search?q=808&sort=name&order=asc");
   await waitForRows(page);
 
   const fitting = page.locator('[data-testid="row"] [data-testid="marquee"][data-overflow="false"]');
@@ -184,7 +181,7 @@ test("reduced motion stops the scroll", async ({ page }) => {
 });
 
 test("the player bar is on screen on every view and keeps playing across them", async ({ page }) => {
-  await page.goto("/");
+  await page.goto("/search?q=kick");
   await waitForRows(page);
   await page.locator('[data-testid="row"][data-hash]:not([data-hash=""])').first().click();
 
@@ -207,7 +204,9 @@ test("the player bar is on screen on every view and keeps playing across them", 
   const viewport = page.viewportSize();
   expect(viewport).not.toBeNull();
 
-  for (const label of ["playlist", "duplicates", "list"]) {
+  // Not the swipe view: it has no player bar, because the bottom of the screen
+  // there belongs to its two answers.
+  for (const label of ["decided", "board", "search"]) {
     await page.getByRole("link", { name: label, exact: true }).click();
     await expect(page.getByTestId("player-bar")).toBeVisible();
     await expect(page.getByTestId("player-bar")).toHaveAttribute("data-hash", hash ?? "");
@@ -228,12 +227,15 @@ test("the player bar is on screen on every view and keeps playing across them", 
     const now = await state();
     expect(now.src, `the stream reloaded on ${label}`).toBe(before.src);
     expect(now.paused, `playback stopped on ${label}`).toBe(false);
-    expect(now.time, `playback restarted on ${label}`).toBeGreaterThanOrEqual(before.time);
+    // A tolerance, not a gap: WebKit reports `currentTime` at two different
+    // precisions on two reads of the same instant, so an exact comparison
+    // fails on a playhead that never moved backwards.
+    expect(now.time, `playback restarted on ${label}`).toBeGreaterThanOrEqual(before.time - 0.05);
   }
 });
 
 test("the player bar survives opening a sound's detail page", async ({ page }) => {
-  await page.goto("/");
+  await page.goto("/search?q=kick");
   await waitForRows(page);
   await page.locator('[data-testid="row"][data-hash]:not([data-hash=""])').first().click();
   await expect(page.getByTestId("player-bar")).toBeVisible();
@@ -246,7 +248,7 @@ test("the player bar survives opening a sound's detail page", async ({ page }) =
   await page.getByTestId("player-bar").locator("a").first().click();
   await expect(page.getByTestId("detail")).toBeVisible();
   await expect(page.getByTestId("player-bar")).toBeVisible();
-  expect(await timeOf()).toBeGreaterThanOrEqual(before);
+  expect(await timeOf()).toBeGreaterThanOrEqual(before - 0.05);
 });
 
 test("a transcoded stream still refuses to seek on a phone", async ({ page }) => {
@@ -263,19 +265,28 @@ test("a transcoded stream still refuses to seek on a phone", async ({ page }) =>
   );
 });
 
-test("tapping the favourite star does not also load the row", async ({ page }) => {
-  // The star is 32 pixels wide inside a 46 pixel row. A thumb that hits it must
-  // not also start playback.
-  await page.goto("/");
+test("tapping a row's discard button does not also load the row", async ({ page }) => {
+  // The button is 34 pixels wide inside a 46 pixel row. A thumb that hits it
+  // must not also start playback.
+  await page.goto("/search?q=kick");
   await waitForRows(page);
   const row = page.locator('[data-testid="row"][data-hash]:not([data-hash=""])').first();
-  const toggle = row.getByTestId("favorite-toggle");
-  const before = await toggle.getAttribute("aria-pressed");
+  const hash = await row.getAttribute("data-hash");
 
-  await toggle.tap();
-  await expect(toggle).toHaveAttribute("aria-pressed", before === "true" ? "false" : "true");
+  await row.getByTestId("discard-row").tap();
   await expect(page.getByTestId("player-bar")).toHaveCount(0);
+  await expect(row.getByTestId("restore-row")).toBeVisible();
 
-  await toggle.tap();
-  await expect(toggle).toHaveAttribute("aria-pressed", before ?? "false");
+  // Put the fixture back the way it was found.
+  await row.getByTestId("restore-row").tap();
+  await expect(page.locator(`[data-testid="row"][data-hash="${hash}"] [data-testid="discard-row"]`)).toBeVisible();
+});
+
+test("the swipe view has no player bar and its answers own the bottom", async ({ page }) => {
+  await page.goto("/");
+  await expect(page.getByTestId("swipe-card")).toBeVisible();
+  await expect(page.getByTestId("player-bar")).toHaveCount(0);
+  await expect(page.getByTestId("player-idle")).toHaveCount(0);
+  await expect(page.getByTestId("swipe-discard")).toBeVisible();
+  await expect(page.getByTestId("swipe-take")).toBeVisible();
 });

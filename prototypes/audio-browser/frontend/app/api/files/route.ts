@@ -22,7 +22,6 @@ export function GET(request: NextRequest) {
     ...EMPTY_QUERY,
     q: params.get("q") ?? "",
     ext: params.get("ext") ?? "",
-    favorite: params.get("favorite") === "true",
     min_dur: params.get("min_dur") ?? "",
     max_dur: params.get("max_dur") ?? "",
     sort: (params.get("sort") ?? "name") as SortKey,

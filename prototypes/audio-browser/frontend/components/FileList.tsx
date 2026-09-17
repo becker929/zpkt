@@ -1,23 +1,22 @@
 "use client";
 
 /**
- * The list view's table.
+ * A table of sounds, virtualised with `@tanstack/react-virtual`: the scroller
+ * is sized for the whole set but only the visible window plus a small overscan
+ * exists in the DOM.
  *
- * Virtualised with `@tanstack/react-virtual`: the scroller is sized for the
- * whole filtered set but only the visible window plus a small overscan exists
- * in the DOM. Rendering 3,451 rows outright stalls the tab, and the collection
- * is only going to grow.
+ * Two views use it, and neither of them shows the undecided collection. The
+ * decided view lists sounds that have already been answered; the search view
+ * lists matches for a name that was typed. The only way to meet an unheard
+ * sound is to swipe it.
  *
- * Clicking a row loads it into the player without leaving the list. The name is
+ * Clicking a row loads it into the player without leaving the view. The name is
  * a link to the sound's detail page.
  *
- * On a narrow screen the row drops the columns that can be recovered elsewhere
- * (the index number, the path count and the size) and gives the name half the
- * width, so the part of a row that carries the meaning is the part that gets
- * the space. What the size column leaves behind is a discard button, so a
- * thumb can star or discard a sound without opening anything. The name scrolls
- * itself when it still does not fit, but only on the row that is playing or
- * focused. See `Marquee`.
+ * On a narrow screen the row drops the index number and gives the name most of
+ * the width, so the part of a row that carries the meaning is the part that
+ * gets the space. The name scrolls itself when it still does not fit, but only
+ * on the row that is playing or focused. See `Marquee`.
  *
  * Selection works two ways, because the two devices have different hands.
  * A pointer gets a checkbox column and shift-click for a range. A thumb gets a
@@ -32,7 +31,6 @@ import { Length } from "@/components/Length";
 import { Marquee } from "@/components/Marquee";
 import { usePlayer } from "@/components/PlayerProvider";
 import { useTriage } from "@/components/TriageProvider";
-import { formatBytes } from "@/lib/format";
 import { NARROW, useMediaQuery } from "@/lib/useMediaQuery";
 import { useLongPress } from "@/lib/useLongPress";
 import type { FilesHandle } from "@/lib/useFiles";
@@ -49,11 +47,14 @@ export function FileList({
   query,
   update,
   selection,
+  empty,
 }: {
   files: FilesHandle;
   query: Query;
   update: (next: Partial<Query>) => void;
   selection: SelectionHandle;
+  /** What to say when the set is empty. Each view means something different by it. */
+  empty?: string;
 }) {
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const player = usePlayer();
@@ -127,21 +128,14 @@ export function FileList({
           </button>
         </div>
         <div className="col-fmt">format</div>
-        <div className="col-size">
-          <button type="button" className={query.sort === "size" ? "sorted" : ""} onClick={() => sortBy("size")}>
-            size{arrow("size")}
-          </button>
-        </div>
-        <div className="col-alias">paths</div>
         <div className="col-del">{showingDiscarded ? "back" : "drop"}</div>
-        <div className="col-fav">fav</div>
       </div>
 
       <div className="scroller" ref={scrollRef} data-testid="scroller">
         {files.error ? <div className="error">could not load the list: {files.error}</div> : null}
         {!files.error && !files.loading && files.total === 0 ? (
-          <div className="notice">
-            {showingDiscarded ? "nothing has been discarded under this filter." : "nothing matches this filter."}
+          <div className="notice" data-testid="list-empty">
+            {empty ?? "nothing matches this filter."}
           </div>
         ) : null}
 
@@ -233,12 +227,6 @@ export function FileList({
                   {row ? <Length soundingS={row.sounding_s} wallS={row.duration_s} /> : ""}
                 </div>
                 <div className="col-fmt mono">{row ? row.ext.replace(".", "") : ""}</div>
-                <div className="col-size mono">{row ? formatBytes(row.size_bytes) : ""}</div>
-                <div className="col-alias">
-                  {row ? (
-                    <span className={`alias-badge${row.alias_count > 1 ? "" : " single"}`}>{row.alias_count}</span>
-                  ) : null}
-                </div>
                 <div className="col-del">
                   {row ? (
                     <button
@@ -248,7 +236,7 @@ export function FileList({
                       aria-label={row.deleted ? `restore ${row.filename}` : `discard ${row.filename}`}
                       title={
                         row.deleted
-                          ? "put this sound back in the list"
+                          ? "put this sound back in the queue"
                           : "not this one. it stops appearing; nothing is removed from disk."
                       }
                       onClick={(e) => {
@@ -257,23 +245,6 @@ export function FileList({
                       }}
                     >
                       {row.deleted ? "↩" : "✕"}
-                    </button>
-                  ) : null}
-                </div>
-                <div className="col-fav">
-                  {row ? (
-                    <button
-                      type="button"
-                      className={`fav${row.favorite ? " on" : ""}`}
-                      data-testid="favorite-toggle"
-                      aria-pressed={row.favorite}
-                      aria-label={row.favorite ? "remove favorite" : "add favorite"}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        void player.toggleFavorite(row);
-                      }}
-                    >
-                      {row.favorite ? "★" : "☆"}
                     </button>
                   ) : null}
                 </div>

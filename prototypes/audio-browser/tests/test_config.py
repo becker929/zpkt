@@ -132,32 +132,70 @@ def test_bad_server_settings_are_rejected(tmp_path: Path, server: dict) -> None:
 # ----------------------------------------------------------------- projects
 
 
-def test_projects_defaults_to_three_slots_beside_the_config() -> None:
+def test_projects_defaults_to_one_slot_a_column_beside_the_config() -> None:
+    """Two columns, one slot each. `enrich` is in the plan, not on the board."""
     config = parse_config({"roots": [{"name": "a", "path": "a"}]}, Path("/base"))
     assert config.projects is not None
     assert config.projects.dir == Path("/base/projects")
-    assert [config.projects.cap(c) for c in ("stored", "collage", "enrich")] == [3, 3, 3]
+    assert [config.projects.cap(c) for c in ("stored", "collage")] == [1, 1]
+    assert config.projects.encumbrance == 16
 
 
-def test_turning_the_board_down_is_one_line() -> None:
+def test_turning_the_board_up_is_one_line() -> None:
     config = parse_config(
-        {"roots": [{"name": "a", "path": "a"}], "projects": {"cap": 1}},
+        {"roots": [{"name": "a", "path": "a"}], "projects": {"cap": 3}},
         Path("/base"),
     )
     assert config.projects is not None
-    assert [config.projects.cap(c) for c in ("stored", "collage", "enrich")] == [1, 1, 1]
+    assert [config.projects.cap(c) for c in ("stored", "collage")] == [3, 3]
 
 
 def test_one_column_can_be_capped_on_its_own() -> None:
     config = parse_config(
         {
             "roots": [{"name": "a", "path": "a"}],
-            "projects": {"cap": 3, "caps": {"enrich": 1}},
+            "projects": {"cap": 3, "caps": {"collage": 1}},
         },
         Path("/base"),
     )
     assert config.projects is not None
-    assert [config.projects.cap(c) for c in ("stored", "collage", "enrich")] == [3, 3, 1]
+    assert [config.projects.cap(c) for c in ("stored", "collage")] == [3, 1]
+
+
+def test_the_encumbrance_threshold_sits_beside_the_caps() -> None:
+    """It is the same kind of setting: a number the server states."""
+    config = parse_config(
+        {"roots": [{"name": "a", "path": "a"}], "projects": {"encumbrance": 4}},
+        Path("/base"),
+    )
+    assert config.projects is not None
+    assert config.projects.encumbrance == 4
+
+
+def test_an_encumbrance_that_is_not_a_whole_number_is_refused() -> None:
+    for bad in (2.5, -1, "sixteen", True):
+        with pytest.raises(ConfigError):
+            parse_config(
+                {
+                    "roots": [{"name": "a", "path": "a"}],
+                    "projects": {"encumbrance": bad},
+                },
+                Path("/base"),
+            )
+
+
+def test_a_cap_naming_a_column_that_is_not_built_is_refused() -> None:
+    """`enrich` is in the document schema and is not a column. Capping it is a
+    setting with nothing to apply to, so it is refused rather than ignored."""
+    with pytest.raises(ConfigError) as refused:
+        parse_config(
+            {
+                "roots": [{"name": "a", "path": "a"}],
+                "projects": {"caps": {"enrich": 1}},
+            },
+            Path("/base"),
+        )
+    assert "enrich" in str(refused.value)
 
 
 def test_a_cap_of_zero_is_a_setting_and_closes_the_column() -> None:

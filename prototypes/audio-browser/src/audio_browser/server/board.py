@@ -21,7 +21,9 @@ from ..silence import SOUNDING_S_SQL
 from .models import (
     Abandonment,
     Board,
+    BoardColumn,
     BoardColumnState,
+    ColumnBlock,
     CommitEntry,
     ProjectSummary,
     UnreadableProject,
@@ -75,7 +77,12 @@ def verified(document: dict[str, Any]) -> bool | None:
     return artifact.digest == cast(str, commit["digest"])
 
 
-def summary(conn: sqlite3.Connection, item: Loaded) -> ProjectSummary:
+def summary(
+    conn: sqlite3.Connection,
+    item: Loaded,
+    *,
+    encumbrance: int = model.DEFAULT_ENCUMBRANCE,
+) -> ProjectSummary:
     """One board card. The caller has established the file validates."""
     document = cast(dict[str, Any], item.document)
     hashes = [cast(str, sound["hash"]) for sound in document["sounds"]]
@@ -99,6 +106,7 @@ def summary(conn: sqlite3.Connection, item: Loaded) -> ProjectSummary:
             for c in document["commits"]
         ],
         sound_count=len(hashes),
+        encumbered=model.is_encumbered(len(hashes), encumbrance),
         duration_s=duration_s,
         sounding_s=sounding_s,
         size_bytes=size_bytes,
@@ -110,12 +118,98 @@ def unreadable(item: Loaded) -> UnreadableProject:
     return UnreadableProject(id=item.id, problem=item.problem)
 
 
-def board(loaded: Sequence[Loaded], caps: Caps) -> Board:
-    """Columns, caps, occupancy, and what sits off the board.
+def _block(
+    column: BoardColumn, counts: dict[str, int], caps: Caps
+) -> ColumnBlock | None:
+    """Why this column's projects cannot move on, if they cannot.
+
+    ``None`` when a commit out of this column would go through. Two ways it does
+    not: the next column is at its cap, which is the discipline and is
+    overridable; or the next stage was never built, which is the end of the
+    pipeline and is not.
+    """
+    destination = model.next_placement(column)
+    if destination is None:
+        missing = model.next_planned(column)
+        named = f"{missing} does not exist yet" if missing else "nothing follows it"
+        return ColumnBlock(
+            column=column,
+            reason="next_column_missing",
+            next_column=None,
+            missing_column=missing,
+            overridable=False,
+            detail=(
+                f"{column} is the last column: {named}, so a project here has "
+                "nowhere to commit to and keeps its lane. Abandoning it is the "
+                "only way to free that lane."
+            ),
+        )
+    cap = caps.of(destination)
+    if counts[destination] < cap:
+        return None
+    return ColumnBlock(
+        column=column,
+        reason="next_column_full",
+        next_column=destination,
+        missing_column=None,
+        overridable=True,
+        detail=(
+            f"{destination} is at its limit of {cap} and holds "
+            f"{counts[destination]}, so nothing commits out of {column} until "
+            "something there is finished or abandoned."
+        ),
+    )
+
+
+def _blocks(counts: dict[str, int], caps: Caps) -> list[ColumnBlock]:
+    """One entry per occupied column that cannot commit.
+
+    An empty column is not blocked. It holds nothing, so there is nothing there
+    to be stuck.
+    """
+    found: list[ColumnBlock] = []
+    for column in model.COLUMNS:
+        if counts[column] == 0:
+            continue
+        block = _block(column, counts, caps)
+        if block is not None:
+            found.append(block)
+    return found
+
+
+def _stuck(counts: dict[str, int], blocks: Sequence[ColumnBlock]) -> bool:
+    """Whether nothing at all can move.
+
+    True when every column holding a project is blocked. An empty board is not
+    stuck; it is empty, and the answer there is to start something.
+    """
+    occupied = [column for column in model.COLUMNS if counts[column] > 0]
+    if not occupied:
+        return False
+    return {block.column for block in blocks} == set(occupied)
+
+
+def _detail(blocks: Sequence[ColumnBlock], stuck: bool) -> str | None:
+    """One sentence for the interface to print, or ``None`` when work can move."""
+    if not blocks:
+        return None
+    reasons = " ".join(block.detail for block in blocks)
+    if not stuck:
+        return reasons
+    return f"Nothing can move. {reasons}"
+
+
+def board(loaded: Sequence[Loaded], caps: Caps, *, encumbrance: int) -> Board:
+    """Columns, caps, occupancy, what sits off the board, and what is stuck.
 
     A file that does not validate is counted in the column it names, because it
     is still holding that slot. One that names no column is counted only in
     ``unreadable``: there is no column to hold it in.
+
+    The blocked state is reported rather than left for the client to work out.
+    Two columns, both capped at one, and no column after ``collage``: a full
+    board cannot move at all, and somebody looking at it deserves to be told
+    that in words instead of finding out by pressing a button.
     """
     counts: dict[str, int] = {column: 0 for column in model.COLUMNS}
     broken: dict[str, int] = {column: 0 for column in model.COLUMNS}
@@ -140,6 +234,8 @@ def board(loaded: Sequence[Loaded], caps: Caps) -> Board:
         elif document["column"] == "released":
             released += 1
 
+    blocks = _blocks(counts, caps)
+    stuck = _stuck(counts, blocks)
     return Board(
         columns=[
             BoardColumnState(
@@ -151,6 +247,10 @@ def board(loaded: Sequence[Loaded], caps: Caps) -> Board:
             )
             for column in model.COLUMNS
         ],
+        encumbrance=encumbrance,
+        blocked=stuck,
+        blocks=blocks,
+        detail=_detail(blocks, stuck),
         released=released,
         abandoned=abandoned,
         unreadable=unplaceable,

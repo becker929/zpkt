@@ -25,10 +25,6 @@ import {
   scratchName,
   someHashes,
 } from "./board-helpers";
-import { longPress, waitForRows } from "./helpers";
-
-/** The rows the list has actually loaded. */
-const LOADED_ROW = '[data-testid="row"][data-hash]:not([data-hash=""])';
 
 const IGNORED = [/webpack-hmr/, /Failed to load resource/i];
 
@@ -97,7 +93,6 @@ test("an over-limit column reads as wrong on the phone too", async ({ page, requ
 
 test("the header meter is on the phone as well, and marks the over column", async ({ page, request }) => {
   await page.goto("/");
-  await waitForRows(page);
   const counter = page.getByTestId("board-counter");
   await expect(counter).toBeVisible();
 
@@ -110,7 +105,6 @@ test("the header meter is on the phone as well, and marks the over column", asyn
 
   await fillColumn(request, 3);
   await page.reload();
-  await waitForRows(page);
   await expect(page.getByTestId("board-counter")).toHaveAttribute("data-over", "true");
 });
 
@@ -214,51 +208,47 @@ test("the fixture's abandoned project reads as off the board on a phone", async 
   expect(panel!.x + panel!.width).toBeLessThanOrEqual(viewport!.width + 1);
 });
 
-test("a long press picks sounds and the project sheet takes them", async ({ page, request }) => {
+test("a thumb takes a sound into the bench without opening anything", async ({ page, request }) => {
   const id = await makeScratch(request, scratchName(1));
 
   await page.goto("/");
-  await waitForRows(page);
+  await expect(page.getByTestId("bench")).toHaveAttribute("data-project-id", id);
 
-  // A phone has no checkbox column until a long press has started a selection.
-  await longPress(page, LOADED_ROW);
-
-  await expect(page.getByTestId("selection-bar")).toBeVisible();
-  await page.getByTestId("bulk-project").tap();
-
-  const sheet = page.getByTestId("project-sheet");
-  await expect(sheet).toBeVisible();
+  const take = page.getByTestId("swipe-take");
   const viewport = page.viewportSize();
-  const sheetBox = await sheet.boundingBox();
-  expect(sheetBox).not.toBeNull();
-  expect(sheetBox!.x + sheetBox!.width).toBeLessThanOrEqual(viewport!.width + 1);
+  const box = await take.boundingBox();
+  expect(box, "no box on the take button").not.toBeNull();
+  // Inside the screen, and a target a thumb cannot miss.
+  expect(box!.x).toBeGreaterThanOrEqual(0);
+  expect(box!.x + box!.width).toBeLessThanOrEqual(viewport!.width + 1);
+  expect(box!.height).toBeGreaterThanOrEqual(44);
 
-  await sheet.locator(`[data-project-id="${id}"]`).tap();
-  await expect(page.getByTestId("selection-bar")).toHaveCount(0);
+  await take.tap();
+  await expect(page.getByTestId("bench-count")).toHaveText("1");
 
   const after = await request.get(`/api/projects/${id}`);
-  expect(((await after.json()) as { summary: { sound_count: number } }).summary.sound_count).toBeGreaterThan(0);
+  expect(((await after.json()) as { summary: { sound_count: number } }).summary.sound_count).toBe(1);
 });
 
-test("the project sheet says when the routes are not serving, rather than looking empty", async ({
+test("the swipe view says when the project routes are not serving, rather than looking empty", async ({
   page,
 }) => {
   // An absent route and an empty board must not read the same. Stand in front
-  // of the index and answer "not here", which is what the real server does
-  // until these routes are written.
+  // of the index and answer "not here", which is what a server without these
+  // routes does.
   await page.route("**/api/projects", (route) => route.fulfill({ status: 404, body: "{}" }));
   await page.route("**/api/board", (route) => route.fulfill({ status: 404, body: "{}" }));
 
   await page.goto("/");
-  await waitForRows(page);
   // No meter at all, rather than a meter reading zero.
   await expect(page.getByTestId("board-counter")).toHaveCount(0);
 
-  await longPress(page, LOADED_ROW);
-  await expect(page.getByTestId("selection-bar")).toBeVisible();
-  await page.getByTestId("bulk-project").tap();
-  await expect(page.getByTestId("project-sheet-absent")).toBeVisible();
-  await expect(page.getByTestId("project-sheet-empty")).toHaveCount(0);
+  // No bench, and the reason named. Discarding still works; taking does not
+  // pretend to.
+  await expect(page.getByTestId("bench")).toHaveCount(0);
+  await expect(page.getByTestId("swipe-no-project")).toContainText("/api/projects");
+  await expect(page.getByTestId("swipe-take")).toBeDisabled();
+  await expect(page.getByTestId("swipe-discard")).toBeEnabled();
 
   await page.goto("/board");
   await expect(page.getByTestId("board-absent")).toBeVisible();

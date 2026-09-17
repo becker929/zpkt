@@ -72,6 +72,7 @@ class ProjectError(Exception):
         column: str | None = None,
         cap: int | None = None,
         count: int | None = None,
+        missing_column: str | None = None,
     ) -> None:
         super().__init__(detail)
         self.detail = detail
@@ -79,6 +80,13 @@ class ProjectError(Exception):
         self.column = column
         self.cap = cap
         self.count = count
+        self.missing_column = missing_column
+        """The stage that would have received this, if it had been built.
+
+        Set only when the refusal is "there is nowhere to go". No override
+        conjures a column into existence, so this refusal carries no ``cap`` and
+        the interface must not offer a way through it.
+        """
 
     @property
     def capacity(self) -> bool:
@@ -130,7 +138,6 @@ class Caps:
 
     stored: int = model.DEFAULT_CAP
     collage: int = model.DEFAULT_CAP
-    enrich: int = model.DEFAULT_CAP
 
     def of(self, column: Column) -> int:
         return cast(int, getattr(self, column))
@@ -138,7 +145,7 @@ class Caps:
     @classmethod
     def uniform(cls, cap: int) -> Caps:
         """One number for every column. Turning the board down is one line."""
-        return cls(stored=cap, collage=cap, enrich=cap)
+        return cls(stored=cap, collage=cap)
 
 
 class ProjectStore:
@@ -150,10 +157,19 @@ class ProjectStore:
         *,
         validator: Draft7Validator,
         caps: Caps | None = None,
+        encumbrance: int = model.DEFAULT_ENCUMBRANCE,
     ) -> None:
         self.directory = directory
         self.validator = validator
         self.caps = caps or Caps()
+        self.encumbrance = encumbrance
+        """Sounds past which a project is marked encumbered.
+
+        It is carried here, beside the caps, because it is the same kind of
+        setting: a number the board draws from the server so a client can never
+        show a project as fine while the server calls it encumbered.
+        """
+
         self._threads = threading.Lock()
 
     # ------------------------------------------------------------ the lock
@@ -443,6 +459,18 @@ class ProjectStore:
             "way: nothing reopens it."
         )
 
+    @staticmethod
+    def _nowhere_to_go(column: Column) -> str:
+        """Why the last column cannot commit, and what would unblock it."""
+        missing = model.next_planned(column)
+        named = f"{missing} is not built yet" if missing else "there is no next stage"
+        return (
+            f"{column} is the last column that exists: {named}, so there is "
+            "nowhere to commit this to. It stays in "
+            f"{column} and keeps its lane. Abandoning it is the only way to "
+            "free that lane, and that means saying the idea is dead."
+        )
+
     def commit(
         self, project_id: str, *, override: bool = False, expect_column: str | None, at: str
     ) -> tuple[Loaded, dict[str, Any], Artifact]:
@@ -455,10 +483,15 @@ class ProjectStore:
         arrangement instead: a stage nobody worked, with a digest of nothing,
         one way, permanently.
 
-        The downstream cap is the other refusal, and that one *is* a capacity
+        The downstream cap is the second refusal, and that one *is* a capacity
         decision: you cannot keep gathering material when the collage bench is
         full. It is overridable, and the board then shows the receiving column
         as over its limit.
+
+        The third is the end of the pipeline. The last built column has nowhere
+        to commit to, so it is refused and the project stays where it is,
+        holding its lane. No override gets through: an override goes past a
+        limit, and this is not a limit but a column that does not exist.
         """
         with self._exclusive():
             current = self._require(project_id)
@@ -473,7 +506,12 @@ class ProjectStore:
                 )
             if not model.is_column(placement):
                 raise ProjectError(
-                    "this project is released. There is nothing left to freeze.",
+                    "this project is released. There is nothing left to freeze."
+                    if placement == "released"
+                    else (
+                        f"this project sits in {placement}, which is not a "
+                        "column on this board. Nothing there can be frozen."
+                    ),
                     status=409,
                 )
             column = cast(Column, placement)
@@ -496,12 +534,17 @@ class ProjectStore:
                 )
 
             destination = model.next_placement(column)
-            if model.is_column(destination):
-                self._check_cap(
-                    [item for item in self.read_all() if item.id != project_id],
-                    cast(Column, destination),
-                    override,
+            if destination is None:
+                raise ProjectError(
+                    self._nowhere_to_go(column),
+                    status=409,
+                    missing_column=model.next_planned(column),
                 )
+            self._check_cap(
+                [item for item in self.read_all() if item.id != project_id],
+                destination,
+                override,
+            )
 
             artifact = model.commit_artifact(
                 project_id, [s["hash"] for s in document["sounds"]], column

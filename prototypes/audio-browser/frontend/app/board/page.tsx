@@ -43,6 +43,7 @@ import {
   setProjectSound,
   type ProjectDetail,
 } from "@/lib/api";
+import { ENCUMBERED_AT, isEncumbered } from "@/lib/boardConfig";
 import { formatCount } from "@/lib/format";
 import {
   COLUMN_FREEZES,
@@ -265,6 +266,7 @@ function ProjectCard({ project, column }: { project: ProjectSummary; column: Col
       data-column={project.column}
       data-sounds={project.sound_count}
       data-frozen={frozen !== null}
+      data-encumbered={isEncumbered(project.sound_count)}
     >
       <div className="card-head">
         <button
@@ -289,6 +291,18 @@ function ProjectCard({ project, column }: { project: ProjectSummary; column: Col
             <TotalLength soundingS={project.sounding_s} wallS={project.duration_s} />
           </>
         )}
+        {/* Friction, not restriction. Adding still works and the mark stays
+            until the count comes back down, which is why it is beside the
+            count rather than in a tooltip. */}
+        {isEncumbered(project.sound_count) ? (
+          <span
+            className="project-encumbered"
+            data-testid="project-encumbered"
+            title={`more than ${ENCUMBERED_AT} sounds. a track is a kick, a rumble, a few textures and some impacts.`}
+          >
+            encumbered
+          </span>
+        ) : null}
       </div>
 
       {frozen ? (

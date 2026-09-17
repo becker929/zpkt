@@ -30,10 +30,19 @@ async function silenceServed(page: Page): Promise<boolean> {
   return response.status() !== 404;
 }
 
-test("no length in the list reads as zero for a sound that has one", async ({ page }) => {
+/**
+ * A search wide enough to hit most of the collection.
+ *
+ * Nothing lists the undecided collection, so these tests reach their rows
+ * through the search view. A single letter is the widest net a search offers,
+ * and it is still a search: an empty query shows nothing.
+ */
+const WIDE = "/search?q=a";
+
+test("no length in a row reads as zero for a sound that has one", async ({ page }) => {
   // The failure this guards against is a missing `sounding_s` coerced to 0,
   // which would print "0:00" against a five minute stem.
-  await page.goto("/?sort=duration&order=desc");
+  await page.goto(`${WIDE}&sort=duration&order=desc`);
   await waitForRows(page);
 
   const lengths = page.locator('[data-testid="row"] [data-testid="length"]');
@@ -47,7 +56,7 @@ test("no length in the list reads as zero for a sound that has one", async ({ pa
 });
 
 test("an unmeasured row says so rather than guessing", async ({ page }) => {
-  await page.goto("/?sort=name");
+  await page.goto(`${WIDE}&sort=name`);
   await waitForRows(page);
 
   const first = page.locator('[data-testid="row"] [data-testid="length"]').first();
@@ -64,7 +73,7 @@ test("an unmeasured row says so rather than guessing", async ({ page }) => {
 test("sorting by sounding length keeps the list working", async ({ page }) => {
   // The server may not know this sort yet. The list falls back to wall
   // duration rather than showing the user a 422.
-  await page.goto("/?sort=sounding&order=asc");
+  await page.goto(`${WIDE}&sort=sounding&order=asc`);
   await waitForRows(page);
   await expect(page.locator(".error")).toHaveCount(0);
   await expect(page.getByTestId("result-count")).not.toContainText("loading");
@@ -108,7 +117,7 @@ test("the detail view is honest about what has been measured", async ({ page }) 
 });
 
 test("a sound still plays when nothing about its silence is known", async ({ page }) => {
-  await page.goto("/?sort=name");
+  await page.goto(`${WIDE}&sort=name`);
   await waitForRows(page);
   await page.locator('[data-testid="row"][data-hash]:not([data-hash=""])').first().click();
   await expect(page.getByTestId("player-bar")).toBeVisible();

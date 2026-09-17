@@ -19,14 +19,12 @@ async function firstOfExt(page: import("@playwright/test").Page, ext: string): P
 }
 
 test("the stream itself refuses ranges", async ({ page }) => {
-  await page.goto("/");
   const hash = await firstOfExt(page, ".aif");
   const response = await page.request.get(`/api/files/${hash}/stream`);
   expect(response.headers()["accept-ranges"]).toBe("none");
 });
 
 test("the detail view says an AIF cannot be seeked", async ({ page }) => {
-  await page.goto("/");
   const hash = await firstOfExt(page, ".aif");
   await page.goto(`/sounds/${hash}`);
 
@@ -39,7 +37,6 @@ test("the detail view says an AIF cannot be seeked", async ({ page }) => {
 });
 
 test("a WAV says nothing, because it seeks", async ({ page }) => {
-  await page.goto("/");
   const hash = await firstOfExt(page, ".wav");
   await page.goto(`/sounds/${hash}`);
 
@@ -52,7 +49,6 @@ test("a WAV says nothing, because it seeks", async ({ page }) => {
 });
 
 test("clicking the waveform of an AIF explains the refusal", async ({ page }) => {
-  await page.goto("/");
   const hash = await firstOfExt(page, ".aif");
   await page.goto(`/sounds/${hash}`);
 
@@ -68,7 +64,6 @@ test("clicking the waveform of an AIF explains the refusal", async ({ page }) =>
 });
 
 test("the player bar flags the loaded sound as unseekable", async ({ page }) => {
-  await page.goto("/");
   const hash = await firstOfExt(page, ".aif");
   await page.goto(`/sounds/${hash}`);
   await page.getByTestId("detail-play").click();

@@ -34,7 +34,7 @@ test("a cap nobody can read tightens rather than loosens", async ({ request }) =
 });
 
 test("it says so on every view, not only on the board", async ({ page }) => {
-  for (const view of ["/", "/board", "/lists", "/dupes"]) {
+  for (const view of ["/", "/board", "/decided", "/search"]) {
     await page.goto(view);
     const banner = page.getByTestId("cap-problem");
     await expect(banner, `no word of the broken cap on ${view}`).toBeVisible();

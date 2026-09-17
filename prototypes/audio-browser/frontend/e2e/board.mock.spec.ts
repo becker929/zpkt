@@ -26,7 +26,6 @@ import {
   scratchName,
   someHashes,
 } from "./board-helpers";
-import { waitForRows } from "./helpers";
 
 test.afterEach(async ({ request }) => {
   await clearScratchProjects(request);
@@ -191,7 +190,6 @@ test.describe("the cap", () => {
     request,
   }) => {
     await page.goto("/");
-    await waitForRows(page);
     const counter = page.getByTestId("board-counter");
     await expect(counter).toBeVisible();
     await expect(counter).toHaveAttribute("data-over", "false");
@@ -200,7 +198,6 @@ test.describe("the cap", () => {
 
     await fillColumn(request, 3);
     await page.reload();
-    await waitForRows(page);
     await expect(page.getByTestId("board-counter")).toHaveAttribute("data-over", "true");
   });
 });
@@ -332,7 +329,7 @@ test.describe("commit", () => {
 });
 
 test.describe("the browser's end of it", () => {
-  test("the selection bar offers only projects whose sound set is still open", async ({
+  test("the bench is a project whose sound set is still open, and never one that is not", async ({
     page,
     request,
   }) => {
@@ -342,76 +339,59 @@ test.describe("the browser's end of it", () => {
     expect(await addSound(request, closed, hash)).toBe(200);
     expect((await commit(request, closed, true)).status).toBe(200);
 
+    // Committed out of stored, so it cannot take a sound. The swipe view must
+    // not offer it as though it could.
     await page.goto("/");
-    await waitForRows(page);
-    await page
-      .locator('[data-testid="row"][data-hash]:not([data-hash=""])')
-      .first()
-      .getByTestId("row-select")
-      .click();
-    await page.getByTestId("bulk-project").click();
-
-    const sheet = page.getByTestId("project-sheet");
-    await expect(sheet).toBeVisible();
-    await expect(sheet.locator(`[data-project-id="${open}"]`)).toBeVisible();
-    // Committed out of stored, so it cannot take a sound and is not offered as
-    // though it could.
-    await expect(sheet.locator(`[data-project-id="${closed}"]`)).toHaveCount(0);
-    // Nor is the fixture project that sits in collage.
-    await expect(sheet.locator('[data-project-id="2026-09-12-conveyor-belt"]')).toHaveCount(0);
+    const bench = page.getByTestId("bench");
+    await expect(bench).toBeVisible();
+    await expect(bench).not.toHaveAttribute("data-project-id", closed);
+    await expect(bench).toHaveAttribute("data-project-id", open);
   });
 
-  test("a selection goes into a project and the board follows", async ({ page, request }) => {
-    const id = await makeScratch(request, scratchName(1));
-
-    await page.goto("/");
-    await waitForRows(page);
-    const rows = page.locator('[data-testid="row"][data-hash]:not([data-hash=""])');
-    await rows.nth(0).getByTestId("row-select").click();
-    await rows.nth(2).getByTestId("row-select").click({ modifiers: ["Shift"] });
-    await expect(page.getByTestId("selection-count")).toContainText("3 sounds selected");
-
-    await page.getByTestId("bulk-project").click();
-    await page.getByTestId("project-sheet").locator(`[data-project-id="${id}"]`).click();
-
-    await expect(page.getByTestId("selection-bar")).toHaveCount(0);
-    expect((await projects(request)).find((p) => p.id === id)?.sound_count).toBe(3);
-
-    await page.goto("/board");
-    await expect(page.locator(`[data-project-id="${id}"]`)).toHaveAttribute("data-sounds", "3");
-  });
-
-  test("a project committed in another tab reports honestly instead of claiming success", async ({
+  test("a sound taken in the swipe view goes into the bench, and the board follows", async ({
     page,
     request,
   }) => {
     const id = await makeScratch(request, scratchName(1));
 
     await page.goto("/");
-    await waitForRows(page);
-    await page
-      .locator('[data-testid="row"][data-hash]:not([data-hash=""])')
-      .first()
-      .getByTestId("row-select")
-      .click();
-    await page.getByTestId("bulk-project").click();
-    await expect(page.getByTestId("project-sheet").locator(`[data-project-id="${id}"]`)).toBeVisible();
+    await expect(page.getByTestId("bench")).toHaveAttribute("data-project-id", id);
+    await expect(page.getByTestId("bench-count")).toHaveText("0");
+
+    const hash = await page.getByTestId("swipe").getAttribute("data-hash");
+    expect(hash).toBeTruthy();
+    await page.getByTestId("swipe-take").click();
+    await expect(page.getByTestId("bench-count")).toHaveText("1");
+
+    expect((await projects(request)).find((p) => p.id === id)?.sound_count).toBe(1);
+    await page.goto("/board");
+    await expect(page.locator(`[data-project-id="${id}"]`)).toHaveAttribute("data-sounds", "1");
+  });
+
+  test("a project committed in another tab refuses the sound instead of losing it", async ({
+    page,
+    request,
+  }) => {
+    const id = await makeScratch(request, scratchName(1));
+    const [seed] = await someHashes(request, 1, 800);
+    expect(await addSound(request, id, seed)).toBe(200);
+
+    await page.goto("/");
+    await expect(page.getByTestId("bench")).toHaveAttribute("data-project-id", id);
+    const hash = await page.getByTestId("swipe").getAttribute("data-hash");
 
     // The other tab. The page on screen still shows the project as open.
-    const [hash] = await someHashes(request, 1, 800);
-    expect(await addSound(request, id, hash)).toBe(200);
     expect((await commit(request, id, true)).status).toBe(200);
 
-    await page.getByTestId("project-sheet").locator(`[data-project-id="${id}"]`).click();
+    await page.getByTestId("swipe-take").click();
 
-    // It does not say it worked. It says what the server said.
-    const problem = page.getByTestId("sheet-problem");
+    // It does not say it worked. It says what the server said, and the sound
+    // is still on screen waiting to be answered.
+    const problem = page.getByTestId("swipe-problem");
     await expect(problem).toBeVisible();
-    await expect(problem).toContainText("added 0 of 1");
     await expect(problem).toContainText("frozen");
+    await expect(page.getByTestId("swipe")).toHaveAttribute("data-hash", hash ?? "");
     expect((await projects(request)).find((p) => p.id === id)?.sound_count).toBe(1);
-
-    await page.getByTestId("selection-clear").click();
   });
 
   test("two projects with the same name get different ids and both are shown", async ({

@@ -1,5 +1,9 @@
 /**
- * The cap.
+ * The caps.
+ *
+ * How many projects one column may hold, and how many sounds one project holds
+ * before it is marked encumbered. Both are friction rather than restriction:
+ * going past either is possible, visible, and stays visible.
  *
  * How many projects one column may hold. Turning it down is the point: 2, or 1,
  * are reasonable settings and this is the one line to change.
@@ -94,3 +98,33 @@ export const COLUMN_CAP = CAP_CONFIG.cap;
  * them during hydration.
  */
 export const CAP_PROBLEM: string | null = CAP_CONFIG.problem;
+
+/**
+ * How many sounds a project holds before it is marked encumbered.
+ *
+ * A hard techno track is a kick, a rumble, a few percussive textures, two or
+ * three atmospheres and some impacts. Past sixteen you are collecting rather
+ * than building, and the project says so every time it is on screen.
+ *
+ * This is a mark, not a limit. Adding still works; the mark stays until the
+ * count comes back down. `NEXT_PUBLIC_ENCUMBERED_AT` overrides it without an
+ * edit, in the same way `NEXT_PUBLIC_COLUMN_CAP` overrides the cap above.
+ */
+const DEFAULT_ENCUMBERED_AT = 16;
+
+function readEncumberedAt(): number {
+  const raw = process.env.NEXT_PUBLIC_ENCUMBERED_AT;
+  if (raw === undefined || raw.trim() === "") return DEFAULT_ENCUMBERED_AT;
+  const parsed = Number(raw);
+  // A threshold nobody can read falls back to the written default rather than
+  // to zero. Zero would mark every project the moment it held one sound, which
+  // would make the mark mean nothing.
+  return Number.isInteger(parsed) && parsed >= 0 ? parsed : DEFAULT_ENCUMBERED_AT;
+}
+
+export const ENCUMBERED_AT: number = readEncumberedAt();
+
+/** True once a project holds more material than a track needs. */
+export function isEncumbered(soundCount: number): boolean {
+  return soundCount > ENCUMBERED_AT;
+}

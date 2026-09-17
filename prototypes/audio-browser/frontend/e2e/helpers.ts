@@ -5,6 +5,18 @@ import { expect, type Locator, type Page } from "@playwright/test";
 /** A stream URL names a hash and nothing else. */
 export const STREAM_URL = /\/api\/files\/[0-9a-f]{64}\/stream$/;
 
+/**
+ * Wait until React has taken the page over.
+ *
+ * Typing into a field before hydration is a race the test loses: the keystroke
+ * lands on plain HTML, and when React arrives it resets the controlled input to
+ * its own empty state. The header's collection totals are filled in by an
+ * effect, so text there is proof that effects are running.
+ */
+export async function waitForHydration(page: Page): Promise<void> {
+  await expect(page.getByTestId("topbar-stats")).not.toHaveText("…");
+}
+
 /** Wait until the list view has real rows in it, not placeholders. */
 export async function waitForRows(page: Page): Promise<void> {
   await expect(page.getByTestId("scroller")).toBeVisible();

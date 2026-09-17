@@ -13,6 +13,7 @@ import sys
 from collections.abc import Sequence
 from dataclasses import replace
 from pathlib import Path
+from typing import cast
 
 from . import silence
 from .config import Config, ConfigError, default_projects, load_config
@@ -577,8 +578,8 @@ def cmd_projects(args: argparse.Namespace, config: Config, db_path: Path) -> int
         caps=Caps(
             stored=settings.cap("stored"),
             collage=settings.cap("collage"),
-            enrich=settings.cap("enrich"),
         ),
+        encumbrance=settings.encumbrance,
     )
     conn = open_db(db_path)
     try:
@@ -598,6 +599,15 @@ def cmd_projects(args: argparse.Namespace, config: Config, db_path: Path) -> int
         for item in loaded:
             if not item.valid:
                 print(f"  ! {item.id}: {item.problem}", file=sys.stderr)
+                continue
+            document = cast(dict[str, object], item.document)
+            sounds = document.get("sounds")
+            held = len(sounds) if isinstance(sounds, list) else 0
+            if project_model.is_encumbered(held, settings.encumbrance):
+                print(
+                    f"  ~ {item.id}: {held} sounds, past the "
+                    f"{settings.encumbrance} this board calls encumbered"
+                )
         print(f"{len(loaded)} project file(s)")
         return 0
     finally:

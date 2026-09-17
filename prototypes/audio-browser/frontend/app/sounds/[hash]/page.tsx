@@ -3,9 +3,10 @@
 /**
  * Detail view: one sound.
  *
- * The alias panel is the point of this page. A hash is the identity of a sound
- * and a path is only a name for it, so a sound with three paths is listed with
- * all three. Duplication is shown, not hidden.
+ * The waveform, its measured dead air, and the spans one classifier found.
+ * There is no list of paths: a path is a name for a hash, content addressing
+ * made that list correct rather than interesting, and the sound is what this
+ * page is about.
  */
 
 import Link from "next/link";
@@ -18,9 +19,8 @@ import { Transport } from "@/components/Transport";
 import { Waveform } from "@/components/Waveform";
 import { fetchDetail, fetchPeaks, fetchSilence, fetchSpans } from "@/lib/api";
 import { formatBytes, formatCount, formatDuration } from "@/lib/format";
-import { isBundlePath, pathsVerdict } from "@/lib/paths";
 import { MIN_GAP_S, differsMeaningfully, silentSeconds, skippable } from "@/lib/silence";
-import type { FileDetail, Peaks, Silence, Span } from "@/lib/types";
+import { SPAN_METHOD, type FileDetail, type Peaks, type Silence, type Span } from "@/lib/types";
 
 export default function SoundPage() {
   const params = useParams<{ hash: string }>();
@@ -37,16 +37,15 @@ export default function SoundPage() {
    */
   const [discarded, setDiscarded] = useState<boolean | null>(null);
   const [peaks, setPeaks] = useState<Peaks | null>(null);
-  const [spans, setSpans] = useState<Span[]>([]);
   /**
-   * Which classifier's spans the waveform is showing.
+   * The spans one classifier found, asked for by name.
    *
    * Every method writes into the same table, so a sound can carry three
-   * opinions at once. Drawing all of them would tint the same second three
-   * times over and say nothing. Null means "the first method this sound has",
-   * which is what the page falls back to before anything is picked.
+   * opinions at once. Drawing all of them tints the same second three times
+   * over and says nothing about any of them; the bakeoff also found that the
+   * three do not agree, so a blended tint would be a blend of disagreement.
    */
-  const [spanMethod, setSpanMethod] = useState<string | null>(null);
+  const [spans, setSpans] = useState<Span[]>([]);
   /** This sound's dead air, or null when it has never been measured. */
   const [silence, setSilence] = useState<Silence | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -57,7 +56,6 @@ export default function SoundPage() {
     setDetail(null);
     setPeaks(null);
     setSpans([]);
-    setSpanMethod(null);
     setSilence(null);
     setError(null);
     setDiscarded(null);
@@ -74,9 +72,9 @@ export default function SoundPage() {
         if (!controller.signal.aborted) setPeaks({ hash, buckets: 0, pairs: [] });
       });
 
-    // Stage 3 populates this. A missing route yields an empty list, so the
-    // waveform simply draws without tints.
-    fetchSpans(hash, undefined, controller.signal)
+    // A missing route yields an empty list, so the waveform simply draws
+    // without tints.
+    fetchSpans(hash, SPAN_METHOD, controller.signal)
       .then(setSpans)
       .catch(() => setSpans([]));
 
@@ -89,18 +87,7 @@ export default function SoundPage() {
     return () => controller.abort();
   }, [hash]);
 
-  // Every method that wrote a span for this sound, in the order they arrived.
-  const spanMethods = Array.from(
-    new Set(spans.map((span) => span.method).filter((name): name is string => Boolean(name))),
-  );
-  const shownMethod = spanMethod ?? spanMethods[0] ?? null;
-  // A sound classified before `method` was recorded has spans with no method.
-  // Showing them is better than showing nothing, so an empty method list means
-  // "draw everything".
-  const shownSpans = shownMethod ? spans.filter((span) => span.method === shownMethod) : spans;
-
   const isCurrent = player.current?.hash === hash;
-  const favorite = player.favoriteOverrides[hash] ?? detail?.favorite ?? false;
   const isDiscarded = discarded ?? detail?.deleted ?? false;
 
   const onSeek = useCallback(
@@ -122,15 +109,13 @@ export default function SoundPage() {
       <div className="detail">
         <div className="error">could not load this sound: {error}</div>
         <p>
-          <Link href="/">back to the list</Link>
+          <Link href="/">back to the queue</Link>
         </p>
       </div>
     );
   }
 
   if (!detail) return <div className="notice">loading…</div>;
-
-  const verdict = pathsVerdict(detail.aliases, detail.size_bytes);
 
   // Gaps at the two second floor: what is tinted, and what the player jumps.
   const gaps = skippable(silence?.intervals ?? [], MIN_GAP_S, silence?.duration_s ?? detail.duration_s);
@@ -148,7 +133,7 @@ export default function SoundPage() {
           pairs={peaks?.pairs ?? []}
           durationS={(isCurrent ? player.duration : 0) || detail.duration_s}
           progressS={isCurrent ? player.time : 0}
-          spans={shownSpans}
+          spans={spans}
           silence={gaps}
           height={150}
           onSeek={onSeek}
@@ -164,21 +149,12 @@ export default function SoundPage() {
         <div className="transport" style={{ marginTop: 10 }}>
           <button
             type="button"
-            className={`chip${favorite ? " on" : ""}`}
-            data-testid="detail-favorite"
-            aria-pressed={favorite}
-            onClick={() => void player.toggleFavorite({ ...detail, favorite })}
-          >
-            {favorite ? "★ favorite" : "☆ mark favorite"}
-          </button>
-          <button
-            type="button"
             className={`chip ${isDiscarded ? "restore" : "discard"}`}
             data-testid="detail-discard"
             aria-pressed={isDiscarded}
             title={
               isDiscarded
-                ? "put this sound back in the list"
+                ? "put this sound back in the queue"
                 : "not this one. it stops appearing; every copy stays on disk."
             }
             onClick={() => {
@@ -213,23 +189,10 @@ export default function SoundPage() {
             </button>
           ) : null}
           {spans.length > 0 ? (
-            <span className="chip">{formatCount(shownSpans.length)} labelled spans</span>
+            <span className="chip" data-testid="span-method" data-method={SPAN_METHOD}>
+              {formatCount(spans.length)} {SPAN_METHOD} spans
+            </span>
           ) : null}
-          {spanMethods.length > 1
-            ? spanMethods.map((name) => (
-                <button
-                  key={name}
-                  type="button"
-                  className={`chip${name === shownMethod ? " on" : ""}`}
-                  data-testid={`span-method-${name}`}
-                  aria-pressed={name === shownMethod}
-                  title={`show the spans ${name} found`}
-                  onClick={() => setSpanMethod(name)}
-                >
-                  {name}
-                </button>
-              ))
-            : null}
         </div>
       </div>
 
@@ -282,52 +245,10 @@ export default function SoundPage() {
             <dd className="mono">{detail.channels ?? "—"}</dd>
           </div>
           <div>
-            <dt>paths</dt>
-            <dd className="mono">{detail.aliases.length}</dd>
-          </div>
-          <div>
             <dt>tags</dt>
             <dd>{detail.tags.length > 0 ? detail.tags.join(", ") : "—"}</dd>
           </div>
         </dl>
-      </div>
-
-      <div className="panel">
-        <h2>paths ({detail.aliases.length})</h2>
-        {verdict.kind === "reclaimable" ? (
-          <div className="dupe-note" data-testid="dupe-note" data-reclaimable="true">
-            Stored {verdict.copies} times inside one root. Keeping one frees{" "}
-            {formatBytes(verdict.freedBytes)}.
-          </div>
-        ) : null}
-        {verdict.kind === "bundle" ? (
-          <div className="dupe-note" data-testid="dupe-note" data-reclaimable="false">
-            Stored {verdict.copies} times inside one root, and every copy is a Logic
-            project&rsquo;s own media. Each project reads this file from its own bundle, and
-            those projects exist only in the read-only originals. Nothing here can be
-            reclaimed.
-          </div>
-        ) : null}
-        {verdict.kind === "mirror" ? (
-          <div className="mirror-note" data-testid="mirror-note">
-            One copy per root, across {verdict.roots} roots. This is the working copy, not
-            wasted space.
-          </div>
-        ) : null}
-        <ul className="alias-list" data-testid="alias-list">
-          {detail.aliases.map((alias, i) => (
-            <li key={alias.path} data-testid="alias" data-in-bundle={isBundlePath(alias.path)}>
-              <span className="n mono">{i + 1}</span>
-              {alias.root ? <span className="root">{alias.root}</span> : null}
-              <span className="path mono">{alias.path}</span>
-              {isBundlePath(alias.path) ? (
-                <span className="locked" data-testid="alias-locked" title="inside a Logic project bundle">
-                  in a project
-                </span>
-              ) : null}
-            </li>
-          ))}
-        </ul>
       </div>
     </div>
   );

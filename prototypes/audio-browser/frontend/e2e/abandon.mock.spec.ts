@@ -31,7 +31,6 @@ import {
   scratchName,
   someHashes,
 } from "./board-helpers";
-import { waitForRows } from "./helpers";
 
 test.afterEach(async ({ request }) => {
   await clearScratchProjects(request);
@@ -251,24 +250,16 @@ test.describe("what is off the board", () => {
     expect(state2.abandoned).toBeGreaterThan(0);
   });
 
-  test("an abandoned project cannot be offered sounds in the browser", async ({ page, request }) => {
+  test("an abandoned project is never the bench", async ({ page, request }) => {
     const id = await makeScratch(request, scratchName(1));
     expect((await abandon(request, id)).status).toBe(200);
 
     await page.goto("/");
-    await waitForRows(page);
-    await page
-      .locator('[data-testid="row"][data-hash]:not([data-hash=""])')
-      .first()
-      .getByTestId("row-select")
-      .click();
-    await page.getByTestId("bulk-project").click();
-
-    const sheet = page.getByTestId("project-sheet");
-    await expect(sheet).toBeVisible();
     // A project that cannot take a sound must not look as though it could. This
     // one is in `stored` with no commit, so only being off the board keeps it
-    // out of the sheet.
-    await expect(sheet.locator(`[data-project-id="${id}"]`)).toHaveCount(0);
+    // off the bench.
+    const bench = page.getByTestId("bench");
+    await expect(bench).toBeVisible();
+    await expect(bench).not.toHaveAttribute("data-project-id", id);
   });
 });

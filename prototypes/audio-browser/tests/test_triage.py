@@ -19,10 +19,6 @@ def count(db_path: Path, table: str) -> int:
     return int(peek(db_path, f"SELECT COUNT(*) AS n FROM {table}")["n"])
 
 
-def make_list(api: Fixture, name: str) -> int:
-    response = api.client.post("/api/lists", json={"name": name})
-    assert response.status_code == 201, response.text
-    return int(response.json()["id"])
 
 
 # --------------------------------------------------------------- soft delete
@@ -138,167 +134,32 @@ def test_discarding_an_unknown_hash_is_a_404(api: Fixture) -> None:
     assert api.client.put(f"/api/files/{'0' * 64}/deleted").status_code == 404
 
 
-# --------------------------------------------------------------------- lists
-
-
-def test_a_new_list_starts_empty(api: Fixture) -> None:
-    body = api.client.post("/api/lists", json={"name": "Kicks"}).json()
-    assert body["name"] == "Kicks"
-    assert body["member_count"] == 0
-    assert body["duration_s"] == 0
-    assert body["size_bytes"] == 0
-
-
-def test_two_lists_cannot_share_a_name(api: Fixture) -> None:
-    make_list(api, "Kicks")
-    clash = api.client.post("/api/lists", json={"name": "Kicks"})
-    assert clash.status_code == 409
-    assert "already exists" in clash.json()["detail"]
-
-
-def test_a_list_name_is_trimmed_and_cannot_be_blank(api: Fixture) -> None:
-    body = api.client.post("/api/lists", json={"name": "  Hats  "}).json()
-    assert body["name"] == "Hats"
-    assert api.client.post("/api/lists", json={"name": "   "}).status_code == 400
-    assert api.client.post("/api/lists", json={"name": ""}).status_code == 422
-
-
-def test_members_come_back_in_the_order_they_were_added(api: Fixture) -> None:
-    list_id = make_list(api, "Session")
-    for name in ("loop.mp3", "kick.wav", "hat.wav"):
-        response = api.client.put(
-            f"/api/lists/{list_id}/members/{api.hash_of(name)}"
-        )
-        assert response.status_code == 200, response.text
-
-    detail = api.client.get(f"/api/lists/{list_id}").json()
-    assert [item["filename"] for item in detail["items"]] == [
-        "loop.mp3",
-        "kick.wav",
-        "hat.wav",
-    ]
-    assert detail["member_count"] == 3
-    assert detail["duration_s"] == pytest.approx(30.0 + 1.5 + 0.25)
-
-
-def test_adding_a_sound_twice_keeps_its_place(api: Fixture) -> None:
-    """A double-tap must not shuffle the queue someone is listening to."""
-    list_id = make_list(api, "Session")
-    first = api.client.put(
-        f"/api/lists/{list_id}/members/{api.hash_of('kick.wav')}"
-    ).json()
-    api.client.put(f"/api/lists/{list_id}/members/{api.hash_of('hat.wav')}")
-    again = api.client.put(
-        f"/api/lists/{list_id}/members/{api.hash_of('kick.wav')}"
-    ).json()
-    assert again["position"] == first["position"]
-    assert again["member_count"] == 2
-
-
-def test_removing_a_member_leaves_the_sound_alone(api: Fixture) -> None:
-    list_id = make_list(api, "Session")
-    kick = api.hash_of("kick.wav")
-    api.client.put(f"/api/lists/{list_id}/members/{kick}")
-    before = tree_snapshot(api.tmp_path / "source")
-
-    gone = api.client.delete(f"/api/lists/{list_id}/members/{kick}").json()
-    assert gone["member"] is False
-    assert gone["member_count"] == 0
-    assert tree_snapshot(api.tmp_path / "source") == before
-    assert api.client.get(f"/api/files/{kick}").status_code == 200
-
-
-def test_the_detail_view_names_every_list_a_sound_is_in(api: Fixture) -> None:
-    kick = api.hash_of("kick.wav")
-    for name in ("Kicks", "Session"):
-        api.client.put(f"/api/lists/{make_list(api, name)}/members/{kick}")
-    detail = api.client.get(f"/api/files/{kick}").json()
-    assert [entry["name"] for entry in detail["lists"]] == ["Kicks", "Session"]
-
-
-def test_renaming_a_list(api: Fixture) -> None:
-    list_id = make_list(api, "Kicks")
-    renamed = api.client.patch(f"/api/lists/{list_id}", json={"name": "Hard kicks"})
-    assert renamed.status_code == 200
-    assert renamed.json()["name"] == "Hard kicks"
-    assert api.client.get("/api/lists").json()["items"][0]["name"] == "Hard kicks"
-
-
-def test_renaming_onto_a_taken_name_is_a_conflict(api: Fixture) -> None:
-    make_list(api, "Kicks")
-    other = make_list(api, "Hats")
-    clash = api.client.patch(f"/api/lists/{other}", json={"name": "Kicks"})
-    assert clash.status_code == 409
-    assert api.client.get(f"/api/lists/{other}").json()["name"] == "Hats"
-
-
-def test_deleting_a_list_drops_its_members_and_nothing_else(api: Fixture) -> None:
-    list_id = make_list(api, "Session")
-    for name in ("kick.wav", "hat.wav"):
-        api.client.put(f"/api/lists/{list_id}/members/{api.hash_of(name)}")
-    before = tree_snapshot(api.tmp_path / "source")
-
-    removed = api.client.delete(f"/api/lists/{list_id}").json()
-    assert removed == {"id": list_id, "name": "Session", "removed_members": 2}
-    assert count(api.db_path, "list_member") == 0
-    assert count(api.db_path, "blob") == 3
-    assert tree_snapshot(api.tmp_path / "source") == before
-
-
-def test_unknown_lists_are_404s_everywhere(api: Fixture) -> None:
-    kick = api.hash_of("kick.wav")
-    for method, path in (
-        ("GET", "/api/lists/999"),
-        ("PATCH", "/api/lists/999"),
-        ("DELETE", "/api/lists/999"),
-        ("PUT", f"/api/lists/999/members/{kick}"),
-        ("DELETE", f"/api/lists/999/members/{kick}"),
-    ):
-        response = api.client.request(method, path, json={"name": "x"})
-        assert response.status_code == 404, f"{method} {path}"
-        assert response.json()["detail"] == "unknown list"
-
-
-def test_a_list_member_must_be_a_real_sound(api: Fixture) -> None:
-    list_id = make_list(api, "Session")
-    assert (
-        api.client.put(f"/api/lists/{list_id}/members/{'0' * 64}").status_code == 404
-    )
-
-
-def test_a_list_member_hash_is_checked_like_any_other(api: Fixture) -> None:
-    """The gate on the hash is the same one every route uses."""
-    list_id = make_list(api, "Session")
-    response = api.client.put(f"/api/lists/{list_id}/members/../../etc/passwd")
-    assert response.status_code in (400, 404, 405)
-    assert "/etc/passwd" not in response.text
-
-
-def test_a_list_page_can_be_walked(api: Fixture) -> None:
-    list_id = make_list(api, "Session")
-    for name in ("loop.mp3", "kick.wav", "hat.wav"):
-        api.client.put(f"/api/lists/{list_id}/members/{api.hash_of(name)}")
-    page = api.client.get(f"/api/lists/{list_id}?limit=2&offset=1").json()
-    assert page["member_count"] == 3  # the whole list, not the page
-    assert [item["filename"] for item in page["items"]] == ["kick.wav", "hat.wav"]
-
-
 # ---------------------------------------------------------------------- bulk
 
 
-def test_bulk_star_reports_what_it_changed(api: Fixture) -> None:
+def test_bulk_discard_reports_what_it_changed(api: Fixture) -> None:
     hashes = [api.hash_of(n) for n in ("kick.wav", "hat.wav", "loop.mp3")]
-    api.client.put(f"/api/files/{hashes[0]}/favorite")  # already starred
+    api.client.put(f"/api/files/{hashes[0]}/deleted")  # already discarded
 
     body = api.client.post(
-        "/api/bulk", json={"hashes": hashes, "action": "star"}
+        "/api/bulk", json={"hashes": hashes, "action": "delete"}
     ).json()
     assert body["requested"] == 3
     assert body["matched"] == 3
     assert body["changed"] == 2
     assert body["unchanged"] == 1
     assert body["skipped"] == 0
-    assert count(api.db_path, "favorite") == 3
+    assert count(api.db_path, "soft_delete") == 3
+
+
+def test_the_only_bulk_actions_left_are_the_two_answers(api: Fixture) -> None:
+    """Starring and filing in bulk are gone, along with the routes behind them."""
+    for gone in ("star", "unstar", "add_to_list", "remove_from_list"):
+        response = api.client.post(
+            "/api/bulk", json={"hashes": [api.hash_of("kick.wav")], "action": gone}
+        )
+        assert response.status_code == 422, gone
+    assert count(api.db_path, "favorite") == 0
 
 
 def test_bulk_skips_hashes_this_index_does_not_know(api: Fixture) -> None:
@@ -316,7 +177,7 @@ def test_bulk_skips_hashes_this_index_does_not_know(api: Fixture) -> None:
 def test_bulk_ignores_repeated_hashes(api: Fixture) -> None:
     kick = api.hash_of("kick.wav")
     body = api.client.post(
-        "/api/bulk", json={"hashes": [kick, kick, kick], "action": "star"}
+        "/api/bulk", json={"hashes": [kick, kick, kick], "action": "delete"}
     ).json()
     assert body["requested"] == 3
     assert body["unique"] == 1
@@ -337,73 +198,6 @@ def test_bulk_delete_then_restore_round_trips(api: Fixture) -> None:
     assert restored["changed"] == 3
     assert api.client.get("/api/files").json()["total"] == 3
     assert tree_snapshot(api.tmp_path / "source") == before
-
-
-def test_bulk_add_to_list_keeps_the_order_it_was_sent(api: Fixture) -> None:
-    list_id = make_list(api, "Session")
-    order = ["loop.mp3", "hat.wav", "kick.wav"]
-    api.client.post(
-        "/api/bulk",
-        json={
-            "hashes": [api.hash_of(n) for n in order],
-            "action": "add_to_list",
-            "list_id": list_id,
-        },
-    )
-    detail = api.client.get(f"/api/lists/{list_id}").json()
-    assert [item["filename"] for item in detail["items"]] == order
-
-
-def test_bulk_add_to_list_appends_after_what_is_already_there(api: Fixture) -> None:
-    list_id = make_list(api, "Session")
-    api.client.put(f"/api/lists/{list_id}/members/{api.hash_of('kick.wav')}")
-    body = api.client.post(
-        "/api/bulk",
-        json={
-            "hashes": [api.hash_of(n) for n in ("hat.wav", "kick.wav")],
-            "action": "add_to_list",
-            "list_id": list_id,
-        },
-    ).json()
-    assert body["changed"] == 1  # kick was already a member
-    detail = api.client.get(f"/api/lists/{list_id}").json()
-    assert [item["filename"] for item in detail["items"]] == ["kick.wav", "hat.wav"]
-
-
-def test_bulk_remove_from_list(api: Fixture) -> None:
-    list_id = make_list(api, "Session")
-    hashes = [api.hash_of(n) for n in ("kick.wav", "hat.wav")]
-    api.client.post(
-        "/api/bulk",
-        json={"hashes": hashes, "action": "add_to_list", "list_id": list_id},
-    )
-    body = api.client.post(
-        "/api/bulk",
-        json={"hashes": hashes, "action": "remove_from_list", "list_id": list_id},
-    ).json()
-    assert body["changed"] == 2
-    assert api.client.get(f"/api/lists/{list_id}").json()["member_count"] == 0
-
-
-def test_a_list_action_without_a_list_is_refused(api: Fixture) -> None:
-    response = api.client.post(
-        "/api/bulk",
-        json={"hashes": [api.hash_of("kick.wav")], "action": "add_to_list"},
-    )
-    assert response.status_code == 400
-    assert "list_id" in response.json()["detail"]
-
-
-def test_a_list_action_on_an_unknown_list_is_a_404(api: Fixture) -> None:
-    response = api.client.post(
-        "/api/bulk",
-        json={
-            "hashes": [api.hash_of("kick.wav")],
-            "action": "add_to_list",
-            "list_id": 999,
-        },
-    )
-    assert response.status_code == 404
 
 
 def test_an_unknown_action_is_refused(api: Fixture) -> None:
@@ -430,13 +224,13 @@ def test_the_batch_is_capped(api: Fixture) -> None:
     """A thousand is a screenful of work many times over, and bounds the lock."""
     too_many = ["0" * 63 + "a"] * (MAX_BULK_HASHES + 1)
     response = api.client.post(
-        "/api/bulk", json={"hashes": too_many, "action": "star"}
+        "/api/bulk", json={"hashes": too_many, "action": "delete"}
     )
     assert response.status_code == 422
 
 
 def test_an_empty_batch_does_nothing_quietly(api: Fixture) -> None:
-    body = api.client.post("/api/bulk", json={"hashes": [], "action": "star"}).json()
+    body = api.client.post("/api/bulk", json={"hashes": [], "action": "delete"}).json()
     assert body["changed"] == 0
     assert body["matched"] == 0
 
@@ -452,7 +246,7 @@ def test_a_batch_that_fails_partway_leaves_nothing_behind(api: Fixture) -> None:
     hashes = [api.hash_of(n) for n in ("kick.wav", "hat.wav", "loop.mp3")]
     conn = sqlite3.connect(api.db_path)
     conn.execute(
-        "CREATE TRIGGER refuse_one BEFORE INSERT ON favorite "
+        "CREATE TRIGGER refuse_one BEFORE INSERT ON soft_delete "
         f"WHEN new.hash = '{hashes[1]}' "
         "BEGIN SELECT RAISE(ABORT, 'refused'); END"
     )
@@ -461,18 +255,18 @@ def test_a_batch_that_fails_partway_leaves_nothing_behind(api: Fixture) -> None:
 
     try:
         with pytest.raises(sqlite3.IntegrityError):
-            api.client.post("/api/bulk", json={"hashes": hashes, "action": "star"})
+            api.client.post("/api/bulk", json={"hashes": hashes, "action": "delete"})
     finally:
         conn = sqlite3.connect(api.db_path)
         conn.execute("DROP TRIGGER refuse_one")
         conn.commit()
         conn.close()
 
-    assert count(api.db_path, "favorite") == 0
+    assert count(api.db_path, "soft_delete") == 0
 
     # The connection is usable again once the batch has rolled back.
     body = api.client.post(
-        "/api/bulk", json={"hashes": hashes, "action": "star"}
+        "/api/bulk", json={"hashes": hashes, "action": "delete"}
     ).json()
     assert body["changed"] == 3
 
@@ -488,46 +282,52 @@ def test_a_bulk_action_never_touches_the_filesystem(api: Fixture) -> None:
 # -------------------------------------------------------------------- triage
 
 
-def test_nothing_decided_is_nothing_triaged(api: Fixture) -> None:
+def test_nothing_answered_is_nothing_triaged(api: Fixture) -> None:
     body = api.client.get("/api/triage").json()
     assert body == {
         "total": 3,
         "triaged": 0,
         "untriaged": 3,
         "percent": 0.0,
-        "starred": 0,
         "deleted": 0,
-        "listed": 0,
-        "lists": 0,
+        "taken": 0,
+        "projects": 0,
     }
 
 
-def test_each_of_the_three_states_counts_as_triaged(api: Fixture) -> None:
+def test_both_answers_count_as_triaged_and_nothing_else_does(api: Fixture) -> None:
+    """Discarded, or in a project. A favourite is not an answer any more."""
     kick, hat, loop = (api.hash_of(n) for n in ("kick.wav", "hat.wav", "loop.mp3"))
-    api.client.put(f"/api/files/{kick}/favorite")
+    project_id = api.project_id("rust and rebar")
     api.client.put(f"/api/files/{hat}/deleted")
-    api.client.put(f"/api/lists/{make_list(api, 'Session')}/members/{loop}")
+    api.client.put(f"/api/projects/{project_id}/sounds/{loop}")
+
+    conn = sqlite3.connect(api.db_path)
+    conn.execute(
+        "INSERT INTO favorite (hash, created_at) VALUES (?, '2026-01-01T00:00:00+00:00')",
+        (kick,),
+    )
+    conn.commit()
+    conn.close()
 
     body = api.client.get("/api/triage").json()
-    assert body["triaged"] == 3
-    assert body["untriaged"] == 0
-    assert body["percent"] == 100.0
-    assert (body["starred"], body["deleted"], body["listed"]) == (1, 1, 1)
-    assert body["lists"] == 1
+    assert body["triaged"] == 2
+    assert body["untriaged"] == 1  # the starred one is still undecided
+    assert (body["deleted"], body["taken"], body["projects"]) == (1, 1, 1)
 
 
-def test_a_sound_decided_three_ways_is_still_one_sound_done(api: Fixture) -> None:
-    """The split overlaps on purpose. The total must not double-count."""
+def test_a_sound_answered_twice_is_still_one_sound_done(api: Fixture) -> None:
+    """The two counts overlap on purpose. The total must not double-count."""
     kick = api.hash_of("kick.wav")
-    api.client.put(f"/api/files/{kick}/favorite")
+    project_id = api.project_id("rust and rebar")
+    api.client.put(f"/api/projects/{project_id}/sounds/{kick}")
     api.client.put(f"/api/files/{kick}/deleted")
-    api.client.put(f"/api/lists/{make_list(api, 'Session')}/members/{kick}")
 
     body = api.client.get("/api/triage").json()
     assert body["triaged"] == 1
     assert body["untriaged"] == 2
     assert body["percent"] == 33.33
-    assert (body["starred"], body["deleted"], body["listed"]) == (1, 1, 1)
+    assert (body["deleted"], body["taken"]) == (1, 1)
 
 
 def test_undoing_a_decision_takes_it_off_the_counter(api: Fixture) -> None:
@@ -538,14 +338,40 @@ def test_undoing_a_decision_takes_it_off_the_counter(api: Fixture) -> None:
     assert api.client.get("/api/triage").json()["triaged"] == 0
 
 
-def test_deleting_a_list_untriages_what_only_that_list_held(api: Fixture) -> None:
-    list_id = make_list(api, "Session")
-    api.client.put(f"/api/lists/{list_id}/members/{api.hash_of('kick.wav')}")
+def test_taking_a_sound_out_of_a_project_untriages_it(api: Fixture) -> None:
+    """Membership is the decision, so losing it is losing the decision."""
+    kick = api.hash_of("kick.wav")
+    project_id = api.project_id("rust and rebar")
+    api.client.put(f"/api/projects/{project_id}/sounds/{kick}")
     assert api.client.get("/api/triage").json()["triaged"] == 1
-    api.client.delete(f"/api/lists/{list_id}")
+    api.client.delete(f"/api/projects/{project_id}/sounds/{kick}")
     body = api.client.get("/api/triage").json()
     assert body["triaged"] == 0
-    assert body["lists"] == 0
+    assert body["taken"] == 0
+
+
+def test_a_project_written_by_hand_counts_too(api: Fixture) -> None:
+    """The files are the truth, and the counter is read through them."""
+    import json
+
+    from audio_browser.projects import model
+
+    document = model.new_document("by-hand", "by hand", model.utc_now())
+    document["sounds"] = [
+        {
+            "hash": api.hash_of("kick.wav"),
+            "added_at": model.utc_now(),
+            "role": None,
+            "note": "",
+        }
+    ]
+    api.projects_dir.mkdir(parents=True, exist_ok=True)
+    (api.projects_dir / "by-hand.json").write_text(
+        json.dumps(document), encoding="utf-8"
+    )
+
+    body = api.client.get("/api/triage").json()
+    assert body["triaged"] == 1 and body["taken"] == 1
 
 
 def test_a_bulk_pass_moves_the_counter(api: Fixture) -> None:
@@ -554,3 +380,144 @@ def test_a_bulk_pass_moves_the_counter(api: Fixture) -> None:
     body = api.client.get("/api/triage").json()
     assert body["triaged"] == 3
     assert body["percent"] == 100.0
+
+
+# --------------------------------------------------------------------- swipe
+#
+# One sound at a time, two actions, no way to defer. Everything below is about
+# the queue never handing back a sound that has already been answered.
+
+
+def test_the_queue_hands_back_one_sound_and_what_the_view_needs(
+    api: Fixture,
+) -> None:
+    """One request per sound, not three: the waveform and the player are fed."""
+    kick = api.hash_of("kick.wav")
+    conn = sqlite3.connect(api.db_path)
+    conn.execute(
+        "INSERT INTO silence (hash, silent_s, duration_s, silent_frac, measured_at)"
+        " VALUES (?, 0.5, 1.5, 0.33, '2026-09-17T00:00:00Z')",
+        (kick,),
+    )
+    conn.execute(
+        "INSERT INTO silence_interval (hash, start_s, end_s) VALUES (?, 0.0, 0.5)",
+        (kick,),
+    )
+    conn.execute(
+        "INSERT INTO span (hash, method, start_s, end_s, label, confidence, detail)"
+        " VALUES (?, 'yamnet', 0.5, 1.5, 'music', 0.8, 'drum kit')",
+        (kick,),
+    )
+    conn.commit()
+    conn.close()
+
+    body = api.client.get("/api/swipe").json()
+    assert body["total"] == 3
+    assert body["decided"] == 0
+    assert body["remaining"] == 3
+    assert body["sound"]["hash"] is not None
+
+    # Whichever sound comes first, its own measurements come with it.
+    if body["sound"]["hash"] == kick:
+        assert body["silence"]["intervals"] == [{"start_s": 0.0, "end_s": 0.5}]
+        assert [s["detail"] for s in body["spans"]["items"]] == ["drum kit"]
+    assert body["silence"]["hash"] == body["sound"]["hash"]
+    assert body["spans"]["method"] == "yamnet"
+
+
+def test_the_queue_is_the_same_sound_until_that_sound_is_answered(
+    api: Fixture,
+) -> None:
+    """A reload resumes. It does not reshuffle and it does not skip."""
+    first = api.client.get("/api/swipe").json()["sound"]["hash"]
+    assert api.client.get("/api/swipe").json()["sound"]["hash"] == first
+    assert api.client.get("/api/swipe").json()["sound"]["hash"] == first
+
+
+def test_a_discarded_sound_never_comes_round_again(api: Fixture) -> None:
+    seen: list[str] = []
+    for _ in range(3):
+        digest = api.client.get("/api/swipe").json()["sound"]["hash"]
+        seen.append(digest)
+        api.client.put(f"/api/files/{digest}/deleted")
+
+    assert len(set(seen)) == 3
+    empty = api.client.get("/api/swipe").json()
+    assert empty["sound"] is None and empty["remaining"] == 0
+    assert empty["silence"] is None and empty["spans"] is None
+
+
+def test_a_taken_sound_never_comes_round_again(api: Fixture) -> None:
+    project_id = api.project_id("rust and rebar")
+    first = api.client.get("/api/swipe").json()["sound"]["hash"]
+    api.client.put(f"/api/projects/{project_id}/sounds/{first}")
+
+    second = api.client.get("/api/swipe").json()
+    assert second["sound"]["hash"] != first
+    assert second["decided"] == 1 and second["remaining"] == 2
+
+
+def test_the_queue_survives_a_reload_without_repeating_itself(
+    api: Fixture,
+) -> None:
+    """A simulated reload: a fresh client over the same index, mid-pass.
+
+    Nothing about the queue lives in the client, so what it answers after a
+    reload is the queue as the index has it, with everything already answered
+    left out.
+    """
+    from fastapi.testclient import TestClient
+
+    from audio_browser.config import ProjectsConfig
+    from audio_browser.server.app import create_app
+    from conftest import schemas_dir
+
+    project_id = api.project_id("rust and rebar")
+    answered: list[str] = []
+    first = api.client.get("/api/swipe").json()["sound"]["hash"]
+    api.client.put(f"/api/projects/{project_id}/sounds/{first}")
+    answered.append(first)
+    second = api.client.get("/api/swipe").json()["sound"]["hash"]
+    api.client.put(f"/api/files/{second}/deleted")
+    answered.append(second)
+
+    reloaded = create_app(
+        api.db_path,
+        projects=ProjectsConfig(dir=api.projects_dir, schemas_dir=schemas_dir()),
+    )
+    with TestClient(reloaded) as client:
+        body = client.get("/api/swipe").json()
+        assert body["sound"]["hash"] not in answered
+        assert body["decided"] == 2 and body["remaining"] == 1
+        # And the same sound again, because nothing has answered it yet.
+        assert client.get("/api/swipe").json()["sound"]["hash"] == body["sound"]["hash"]
+
+
+def test_the_queue_names_the_project_a_sound_would_go_into(api: Fixture) -> None:
+    """One lane, so there is never a choice of project to make."""
+    assert api.client.get("/api/swipe").json()["project"] is None
+
+    project_id = api.project_id("rust and rebar")
+    body = api.client.get("/api/swipe").json()
+    assert body["project"]["id"] == project_id
+    assert body["project"]["encumbered"] is False
+
+
+def test_a_committed_project_is_not_offered_as_somewhere_to_take_a_sound(
+    api: Fixture,
+) -> None:
+    """Its sound set is frozen, so the swipe view must not imply it can grow."""
+    project_id = api.project_id("rust and rebar")
+    api.client.put(f"/api/projects/{project_id}/sounds/{api.hash_of('kick.wav')}")
+    api.client.post(
+        f"/api/projects/{project_id}/commit", json={"expect_column": "stored"}
+    )
+    assert api.client.get("/api/swipe").json()["project"] is None
+
+
+def test_the_queue_is_a_read_and_answers_nothing_by_itself(api: Fixture) -> None:
+    before = tree_snapshot(api.tmp_path / "source")
+    api.client.get("/api/swipe")
+    assert api.client.get("/api/triage").json()["triaged"] == 0
+    assert count(api.db_path, "soft_delete") == 0
+    assert tree_snapshot(api.tmp_path / "source") == before

@@ -4,11 +4,17 @@ An index of a personal audio collection, keyed by content.
 
 The BLAKE3 digest of a file's bytes is the identity of a sound. A path is only
 an alias that points at a digest. Two files with identical bytes are one sound
-with two names. Favorites and tags attach to the digest, so marking one copy
-marks every copy, and a file that moves keeps its marks.
+with two names. Every decision attaches to the digest, so answering one copy
+answers every copy, and a file that moves keeps its answer.
 
 Stage 1 is the index and its command line. Stage 2 is an HTTP API that serves
-the index: list, detail, waveform peaks, audio streaming, and favorites.
+the index: list, detail, waveform peaks, audio streaming, and the two answers a
+sound can be given.
+
+The collection is not a library to browse. It is a queue to answer. `GET
+/api/swipe` hands back one undecided sound at a time, and there are two things
+to do with it: take it into the project on the bench, or discard it. There is no
+third action and no surface that lets a sound be put back undecided.
 
 ## Install
 
@@ -55,7 +61,7 @@ frontend_port = 3100   # only used to build the default CORS origins
 
 `cors_origins` and `cors_origin_regex` override the defaults, which allow any
 host on the frontend port. There is no authentication. Anyone who can reach the
-port can read the collection and change favorites, so the tailnet is the
+port can read the collection and answer sounds, so the tailnet is the
 security perimeter.
 
 **The roots are read-only to the scan and the server.** The scan opens files for
@@ -193,12 +199,14 @@ is merely offline is worse than keeping stale rows.
 |---|---|
 | `blob` | one row per unique byte-string: hash, size, duration, sample rate, channels, codec, peaks |
 | `alias` | one row per path: which hash it points at, its root, filename, extension, mtime |
-| `favorite` | hashes the user marked |
+| `favorite` | hashes the user starred, before the star was removed; no route reads or writes it |
 | `tag` | hash-to-name pairs |
 | `deletion` | one row per path `dedupe` removed: hash, path, root, time, reason |
 | `soft_delete` | hashes the user discarded; no file is involved |
-| `list` | a named collection of sounds |
+| `list` | a named collection of sounds, from before projects replaced lists; no route reads or writes it |
 | `list_member` | which hashes are in which list, and in what order |
+| `project` | the cache of `projects/*.json`, rebuildable from the directory |
+| `project_sound` | which hashes each project holds, in document order |
 | `span` | labelled regions of a sound, one row per classifier per region |
 | `segment_run` | one row per sound per classifier: status, span count, audio seconds, wall seconds, peak memory |
 | `alias_fts` | FTS5 index over filename and path, kept in sync by triggers |
@@ -237,34 +245,37 @@ documentation is at `/docs`.
 |---|---|
 | `GET /api/health` | liveness, plus the blob and alias counts behind it |
 | `GET /api/files` | one page of the collection, one row per sound |
-| `GET /api/files/{hash}` | one sound, with every alias, every path `dedupe` removed, its tags, and its favorite state |
+| `GET /api/files/{hash}` | one sound, with every alias, every path `dedupe` removed, its tags, and every project holding it |
 | `GET /api/files/{hash}/peaks` | waveform peaks, computed on the first call and cached |
 | `GET /api/files/{hash}/spans` | labelled regions of the sound; empty until stage 3 writes them |
 | `GET /api/files/{hash}/stream` | audio bytes, with HTTP range support |
-| `PUT /api/files/{hash}/favorite` | mark a sound; optional JSON body `{"note": "..."}` |
-| `DELETE /api/files/{hash}/favorite` | unmark it |
+| `GET /api/files/{hash}/silence` | where a sound is silent, so playback can skip it |
 | `PUT /api/files/{hash}/deleted` | discard a sound; optional JSON body `{"note": "..."}` |
 | `DELETE /api/files/{hash}/deleted` | restore it |
-| `GET /api/lists` | every list, with member count, duration, and size |
-| `POST /api/lists` | make a list; body `{"name": "..."}`; 409 if the name is taken |
-| `GET /api/lists/{id}` | one list and a page of its members, in play order |
-| `PATCH /api/lists/{id}` | rename it |
-| `DELETE /api/lists/{id}` | remove it and its memberships |
-| `PUT /api/lists/{id}/members/{hash}` | put one sound at the end of the list |
-| `DELETE /api/lists/{id}/members/{hash}` | take one sound out of it |
-| `POST /api/bulk` | one action over many hashes, in one transaction |
-| `GET /api/triage` | how much of the collection has been decided |
+| `GET /api/swipe` | the next undecided sound, with its silence and its spans |
+| `POST /api/bulk` | discard or restore many hashes, in one transaction |
+| `GET /api/triage` | how much of the collection has been answered |
+| `GET /api/board` | the columns, their caps, and what cannot move |
+| `GET /api/projects` | every project, with its column and its counts |
 | `GET /api/dupes` | redundancy a cleanup could act on, most bytes first |
 | `GET /api/stats` | counts, total size, wasted bytes, format breakdown |
 
-Every DELETE the server accepts removes a row: a favorite, a soft delete, a
-list, or a membership. There is no route that removes an audio file, and there
-is not going to be one. The duplicates view exists to make redundancy visible;
-which copy to keep is decided by ear, by hand.
+The project routes are listed under [Projects and the board](#projects-and-the-board).
+
+Every DELETE the server accepts removes a row: a soft delete, which restores a
+sound, or one entry from a project document. There is no route that removes an
+audio file, and there is not going to be one. The duplicates view exists to make
+redundancy visible; which copy to keep is decided by ear, by hand.
 
 `GET /api/files` takes `q` (a filename substring), `ext` (repeat it or
-comma-separate: `?ext=wav,mp3`), `favorite`, `deleted`, `min_dur`, `max_dur`,
-`sort` (`name`, `duration`, `size`, `aliases`), `order`, `limit`, and `offset`.
+comma-separate: `?ext=wav,mp3`), `deleted`, `min_dur`, `max_dur`,
+`sort` (`name`, `duration`, `sounding`), `order`, `limit`, and `offset`.
+
+There is no favourite route and there are no list routes. A star meant "keep
+this, decide later", and a list that is not a project is a pile with no exit;
+both are ways to spend time without deciding. The `favorite`, `list` and
+`list_member` tables and every row in them are untouched: removing a route was
+the decision, and destroying data would be a second one.
 
 `deleted` is one of `false` (the default), `true`, or `any`. Discarding a sound
 is a request to stop seeing it, so the default view hides it without the client
@@ -302,17 +313,41 @@ the response says `Accept-Ranges: none` and carries `X-Transcoded-From: .aif`.
 `playable` and `transcoded` on the detail route say up front which of the two a
 sound will be.
 
+### Swipe
+
+`GET /api/swipe` is the front door. It answers with one undecided sound — one
+that is in no project and not discarded — and with everything the view needs to
+show it: the sound itself, its silent gaps so playback can skip them, and its
+YAMNet spans so the waveform can be tinted. One request per sound rather than
+three, because the client for this is a phone.
+
+The order is by hash. Arbitrary matters: a content digest has nothing to do with
+the folder a file sits in, so a pass through the queue does not spend an hour
+inside one pack. Fixed matters more: the same call answers the same sound until
+that sound is answered, so a reload resumes instead of reshuffling, and nothing
+already answered can come round again.
+
+The answer is given through the routes that already exist. `PUT
+/api/projects/{id}/sounds/{hash}` takes the sound into the project on the bench;
+`PUT /api/files/{hash}/deleted` discards it. Both take it out of the queue. There
+is no third action: "not for this project but keep it" is deferral, and discard
+is reversible, so the cost of being decisive is low.
+
+`project` in the answer is the project a take would go into, or null when no
+project can still gain a sound. There is never a choice, because `stored` holds
+one lane.
+
 ### Triage
 
 Listening to the whole collection once is the real work, and triage is the
-machinery for getting through it. A sound counts as triaged once a decision
-exists about it: starred, discarded, or filed into at least one list. Nothing
-else counts. `GET /api/triage` reports `triaged` over `total` with a percentage,
-plus the split by state.
+machinery for getting through it. A sound counts as triaged once it has been
+answered: discarded, or taken into a project. Nothing else counts, and a
+favourite has not counted since the star was removed. `GET /api/triage` reports
+`triaged` over `total` with a percentage, plus the split by state.
 
-The three counts in the split overlap on purpose and do not sum to `triaged`. A
-sound that is both starred and in a list is one sound done, counted once by
-`triaged` and once by each of `starred` and `listed`.
+The two counts in the split can overlap and so do not always sum to `triaged`. A
+sound taken into a project and later discarded is one sound done, counted once
+by `triaged` and once by each of `deleted` and `taken`.
 
 Every decision keys on the hash, so it applies to every copy of that sound at
 once. A path is never sent by the client and never accepted by a triage route.
@@ -324,9 +359,8 @@ sound still streams while it is discarded. Sweeping discarded sounds off the
 disk is a later decision and is not built.
 
 **Bulk is all or nothing.** `POST /api/bulk` takes
-`{"hashes": [...], "action": ..., "list_id": ...}` where the action is one of
-`star`, `unstar`, `delete`, `restore`, `add_to_list`, or `remove_from_list`. At
-most 1,000 hashes per request. The batch runs inside one `BEGIN IMMEDIATE`
+`{"hashes": [...], "action": ...}` where the action is `delete` or `restore`.
+Two actions, because there are two answers. At most 1,000 hashes per request. The batch runs inside one `BEGIN IMMEDIATE`
 transaction and commits together or rolls back together: a batch of a thousand
 that half applied could not be told from one that fully applied, and no one
 would repair it by hand.
@@ -337,6 +371,55 @@ request. Hashes the index does not know are skipped rather than refused,
 because a client's selection can be older than the last rescan. The response
 counts what happened — `requested`, `unique`, `matched`, `changed`,
 `unchanged`, `skipped` — instead of a result per hash.
+
+### Projects and the board
+
+A project is a JSON file in `projects/`, one per project, and the file is the
+truth. SQLite indexes those files so the board can be drawn without opening
+every one, but the index is a cache: when the two disagree, the files win and
+the rows are rebuilt from them before anything is answered.
+
+| Route | Purpose |
+|---|---|
+| `GET /api/projects` | every project, with its column and its counts |
+| `POST /api/projects` | start one in `stored`; refused past the cap unless `override` |
+| `GET /api/projects/{id}` | the document, its members as list rows, and what is wrong with it |
+| `PATCH /api/projects/{id}` | rename, or edit notes; sending `column` is a 409 |
+| `POST /api/projects/{id}/commit` | freeze this column's artifact and advance |
+| `POST /api/projects/{id}/abandon` | leave the board and free the slot, keeping the file |
+| `POST /api/projects/{id}/revive` | come back to the column it left |
+| `PUT /api/projects/{id}/sounds/{hash}` | take a sound into it |
+| `DELETE /api/projects/{id}/sounds/{hash}` | take a sound out of it |
+| `GET /api/board` | columns, caps, occupancy, the encumbrance threshold, and what is blocked |
+
+**Two columns.** `stored` is the swipe queue and `collage` has no view yet. Each
+holds one project. `enrich` is in the plan and in the document schema, so a file
+may name it, but it is not a column: nothing commits into it and it holds no
+slot.
+
+**The board deadlocks, on purpose.** `stored` commits, which frees the lane; a
+new project is born there; it cannot commit, because `collage` is full at one;
+and `collage` cannot commit either, because no column follows it. Committing out
+of the last column is refused and the project stays where it is, holding its
+lane — releasing it would free the lane, and a pipeline whose last column empties
+itself is not a constraint at all.
+
+`GET /api/board` reports that rather than leaving it to be discovered by pressing
+a button. `blocked` is true when every occupied column is stuck, `blocks` says
+why for each one, and a block whose `reason` is `next_column_missing` names the
+stage that does not exist in `missing_column`. A `next_column_full` block is
+overridable, because that is the discipline working; a missing column is not,
+because an override goes past a limit and there is no limit here, only a column
+that was never built.
+
+**Abandon is the only way out.** It frees a slot without promoting anything,
+keeps the file, and appends nothing to the commit chain. Using it means saying an
+idea is dead, which is the right price for the one pressure valve there is.
+
+**Encumbrance.** Past `encumbrance` sounds — 16 by default, set beside the caps —
+a project is marked `encumbered` in every view that shows it. Friction, not
+restriction: adding still succeeds, and the mark clears itself when the count
+comes back down.
 
 ### Duplicates, and what may not be removed
 
@@ -391,10 +474,10 @@ file.
 
 Routes are plain functions, so Starlette runs them in its worker pool and each
 worker holds its own SQLite connection. WAL mode lets those readers run while
-another thread writes a favorite or a peaks blob.
+another thread writes a discard or a peaks blob.
 
 A blob with no aliases left is not listed or streamed: there is nothing to play.
-The scan keeps such a blob when it is favorited or tagged, so the mark survives
+The scan keeps such a blob when it is starred or tagged, so the mark survives
 until a later scan finds the file again.
 
 ## Segmentation
@@ -478,9 +561,16 @@ state-changing route in turn and compares both audio roots, file by file and
 size by size, before and after. Reading the source proves nothing if a helper
 three calls down opens a file for writing, so the suite checks the disk itself.
 
-`test_triage.py` covers soft delete, lists, bulk edit, and the counter. Its
-transaction test installs a trigger that refuses one hash out of three, then
-asserts that the other two rows never landed.
+`test_triage.py` covers the swipe queue, soft delete, bulk edit, and the
+counter. It answers sounds one at a time and asserts the queue never hands one
+back, including across a simulated reload: a second application built over the
+same index, mid-pass. Its transaction test installs a trigger that refuses one
+hash out of three, then asserts that the other two rows never landed.
+
+`test_projects.py` walks the deadlock end to end — commit out of `stored`, start
+another, watch it be refused, and read the board's own account of why nothing
+can move — and checks that the favourite and list rows are still there after the
+routes that wrote them are gone.
 
 ### Browser tests
 

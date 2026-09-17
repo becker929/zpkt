@@ -9,9 +9,8 @@ there is nothing for a traversal attempt to escape from.
 from __future__ import annotations
 
 import re
-import sqlite3
 from pathlib import Path
-from typing import Annotated, Literal
+from typing import Annotated, Any, Literal, cast
 
 from fastapi import Depends, FastAPI, HTTPException, Query, Request, Response
 from fastapi import Path as PathParam
@@ -33,17 +32,9 @@ from .models import (
     DeletedState,
     DeleteRequest,
     DupeList,
-    FavoriteRequest,
-    FavoriteState,
     FileDetail,
     FileList,
     Health,
-    ListCollection,
-    ListDeleted,
-    ListDetail,
-    ListMembership,
-    ListSummary,
-    ListWriteRequest,
     PeaksResponse,
     ProjectAbandonRequest,
     ProjectCommitRequest,
@@ -59,9 +50,10 @@ from .models import (
     SilenceReport,
     SpanList,
     StatsResponse,
+    SwipeNext,
     TriageCounts,
 )
-from .queries import MAX_LIMIT, FileFilters, ListNameTaken
+from .queries import MAX_LIMIT, FileFilters
 from .streaming import (
     TRANSCODE_EXTS,
     RangeNotSatisfiable,
@@ -79,7 +71,14 @@ HASH_RE = re.compile(r"[0-9a-f]{64}")
 # A project id is a filename, so this gate is what keeps a path out of one.
 SLUG_RE = re.compile(r"[a-z0-9]+(?:-[a-z0-9]+)*")
 
-Sort = Literal["name", "duration", "sounding", "size", "aliases"]
+SWIPE_SPAN_METHOD = "yamnet"
+"""The classifier whose spans tint the swipe waveform.
+
+One method, not a choice. A picker here would be another thing to fiddle with
+instead of deciding about the sound that is playing.
+"""
+
+Sort = Literal["name", "duration", "sounding"]
 Order = Literal["asc", "desc"]
 Deleted = Literal["false", "true", "any"]
 
@@ -142,8 +141,8 @@ def create_app(
         caps=Caps(
             stored=project_settings.cap("stored"),
             collage=project_settings.cap("collage"),
-            enrich=project_settings.cap("enrich"),
         ),
+        encumbrance=project_settings.encumbrance,
     )
 
     app = FastAPI(
@@ -186,7 +185,6 @@ def create_app(
             list[str] | None,
             Query(description="extension filter; repeat or comma-separate"),
         ] = None,
-        favorite: Annotated[bool | None, Query()] = None,
         deleted: Annotated[
             Deleted,
             Query(
@@ -208,7 +206,6 @@ def create_app(
         filters = FileFilters(
             q=q,
             exts=exts,
-            favorite=favorite,
             min_dur=min_dur,
             max_dur=max_dur,
             deleted=deleted,
@@ -343,29 +340,10 @@ def create_app(
             headers=headers,
         )
 
-    @app.put(
-        "/api/files/{file_hash}/favorite",
-        response_model=FavoriteState,
-        tags=["favorites"],
-    )
-    def add_favorite(
-        file_hash: FileHash, body: FavoriteRequest | None = None
-    ) -> FavoriteState:
-        conn = db.connection()
-        if not queries.blob_exists(conn, file_hash):
-            raise HTTPException(status_code=404, detail="unknown hash")
-        return queries.set_favorite(conn, file_hash, body.note if body else None)
-
-    @app.delete(
-        "/api/files/{file_hash}/favorite",
-        response_model=FavoriteState,
-        tags=["favorites"],
-    )
-    def remove_favorite(file_hash: FileHash) -> FavoriteState:
-        conn = db.connection()
-        if not queries.blob_exists(conn, file_hash):
-            raise HTTPException(status_code=404, detail="unknown hash")
-        return queries.clear_favorite(conn, file_hash)
+    # There is no favourite route. A star meant "keep this, decide later", and
+    # the queue has two answers and no later. The `favorite` table and its rows
+    # are untouched: removing the route was the decision, and dropping the data
+    # would be a second one nobody asked for.
 
     @app.put(
         "/api/files/{file_hash}/deleted",
@@ -398,86 +376,13 @@ def create_app(
             raise HTTPException(status_code=404, detail="unknown hash")
         return queries.clear_deleted(conn, file_hash)
 
-    @app.get("/api/lists", response_model=ListCollection, tags=["lists"])
-    def lists() -> ListCollection:
-        return queries.all_lists(db.connection())
-
-    @app.post(
-        "/api/lists", response_model=ListSummary, status_code=201, tags=["lists"]
-    )
-    def new_list(body: ListWriteRequest) -> ListSummary:
-        try:
-            return queries.create_list(db.connection(), _clean_name(body.name))
-        except ListNameTaken as exc:
-            raise HTTPException(
-                status_code=409, detail=f"a list named {exc.args[0]!r} already exists"
-            ) from exc
-
-    @app.get("/api/lists/{list_id}", response_model=ListDetail, tags=["lists"])
-    def one_list(
-        list_id: int,
-        limit: Annotated[int, Query(ge=1, le=MAX_LIMIT)] = 100,
-        offset: Annotated[int, Query(ge=0)] = 0,
-    ) -> ListDetail:
-        detail = queries.list_detail(
-            db.connection(), list_id, limit=limit, offset=offset
-        )
-        if detail is None:
-            raise HTTPException(status_code=404, detail="unknown list")
-        return detail
-
-    @app.patch("/api/lists/{list_id}", response_model=ListSummary, tags=["lists"])
-    def edit_list(list_id: int, body: ListWriteRequest) -> ListSummary:
-        try:
-            renamed = queries.rename_list(
-                db.connection(), list_id, _clean_name(body.name)
-            )
-        except ListNameTaken as exc:
-            raise HTTPException(
-                status_code=409, detail=f"a list named {exc.args[0]!r} already exists"
-            ) from exc
-        if renamed is None:
-            raise HTTPException(status_code=404, detail="unknown list")
-        return renamed
-
-    @app.delete("/api/lists/{list_id}", response_model=ListDeleted, tags=["lists"])
-    def drop_list(list_id: int) -> ListDeleted:
-        """Remove a list.
-
-        Its members lose the label and nothing else. No sound and no file is
-        affected by this.
-        """
-        removed = queries.delete_list(db.connection(), list_id)
-        if removed is None:
-            raise HTTPException(status_code=404, detail="unknown list")
-        return removed
-
-    @app.put(
-        "/api/lists/{list_id}/members/{file_hash}",
-        response_model=ListMembership,
-        tags=["lists"],
-    )
-    def add_member(list_id: int, file_hash: FileHash) -> ListMembership:
-        conn = db.connection()
-        _require_list(conn, list_id)
-        if not queries.blob_exists(conn, file_hash):
-            raise HTTPException(status_code=404, detail="unknown hash")
-        return queries.add_to_list(conn, list_id, file_hash)
-
-    @app.delete(
-        "/api/lists/{list_id}/members/{file_hash}",
-        response_model=ListMembership,
-        tags=["lists"],
-    )
-    def drop_member(list_id: int, file_hash: FileHash) -> ListMembership:
-        """Take one sound out of one list. The sound itself is untouched."""
-        conn = db.connection()
-        _require_list(conn, list_id)
-        return queries.remove_from_list(conn, list_id, file_hash)
+    # There are no list routes. Project membership replaced them: a list that is
+    # not a project is a maybe-pile with no exit. The `list` and `list_member`
+    # tables and their rows stay exactly as they are.
 
     @app.post("/api/bulk", response_model=BulkResult, tags=["triage"])
     def bulk(body: BulkRequest) -> BulkResult:
-        """One action over many hashes, applied as one transaction.
+        """Discard or restore many hashes, applied as one transaction.
 
         Every hash is checked against the same rule a path parameter is, so a
         batch cannot smuggle in something that is not a digest. Unknown digests
@@ -492,22 +397,63 @@ def create_app(
                     status_code=400,
                     detail="every hash must be 64 lowercase hexadecimal characters",
                 )
-
-        conn = db.connection()
-        needs_list = body.action in ("add_to_list", "remove_from_list")
-        if needs_list:
-            if body.list_id is None:
-                raise HTTPException(
-                    status_code=400, detail=f"{body.action} needs a list_id"
-                )
-            _require_list(conn, body.list_id)
-        list_id = body.list_id if needs_list else None
-        return queries.bulk(conn, body.hashes, body.action, list_id)
+        return queries.bulk(db.connection(), body.hashes, body.action)
 
     @app.get("/api/triage", response_model=TriageCounts, tags=["triage"])
     def triage() -> TriageCounts:
-        """Progress through the collection: decided over total."""
+        """Progress through the collection: answered over total.
+
+        The projects are synced from their files first, because a sound is
+        triaged when it is discarded or in a project, and the files are where
+        project membership actually lives.
+        """
+        _sync()
         return queries.triage(db.connection())
+
+    @app.get("/api/swipe", response_model=SwipeNext, tags=["triage"])
+    def swipe() -> SwipeNext:
+        """The next sound to answer, with what the view needs to show it.
+
+        This is the app's front door. One sound, two actions — take it into the
+        project on the bench, or discard it — and no way to put it back
+        undecided. The sound, its silent gaps and its spans come together so a
+        phone makes one request per sound rather than three.
+
+        Answering a sound is done through the routes that already exist:
+        ``PUT /api/projects/{id}/sounds/{hash}`` takes it,
+        ``PUT /api/files/{hash}/deleted`` discards it. Both drop it out of this
+        queue, so it never comes round again.
+        """
+        loaded = _sync()
+        conn = db.connection()
+        counts = queries.triage(conn)
+        sound = queries.next_undecided(conn)
+        open_project = next(
+            (
+                item
+                for item in loaded
+                if item.valid
+                and project_model.sound_set_open(cast(dict[str, Any], item.document))
+            ),
+            None,
+        )
+        return SwipeNext(
+            total=counts.total,
+            decided=counts.triaged,
+            remaining=counts.untriaged,
+            sound=sound,
+            silence=(
+                None
+                if sound is None
+                else queries.silence_report(conn, sound.hash, min_gap=MIN_GAP_S)
+            ),
+            spans=(
+                None
+                if sound is None
+                else queries.spans(conn, sound.hash, method=SWIPE_SPAN_METHOD)
+            ),
+            project=None if open_project is None else _summary(open_project),
+        )
 
     @app.get("/api/dupes", response_model=DupeList, tags=["reports"])
     def dupes(
@@ -600,10 +546,16 @@ def create_app(
                     "overridable": True,
                 }
             )
+        if exc.missing_column is not None:
+            # The end of the pipeline, not a limit. It names the stage that does
+            # not exist and offers no override, because there is none to offer.
+            body["missing_column"] = exc.missing_column
         return HTTPException(status_code=exc.status, detail=body)
 
     def _summary(item: Loaded) -> ProjectSummary:
-        return board_view.summary(db.connection(), item)
+        return board_view.summary(
+            db.connection(), item, encumbrance=store.encumbrance
+        )
 
     @app.get("/api/projects", response_model=ProjectList, tags=["projects"])
     def projects_index() -> ProjectList:
@@ -833,13 +785,19 @@ def create_app(
 
     @app.get("/api/board", response_model=Board, tags=["projects"])
     def board() -> Board:
-        """Columns, caps, occupancy, and which are over.
+        """Columns, caps, occupancy, which are over, and what cannot move.
 
-        The caps drawn on screen are always the ones in this answer. A client
-        that drew its own idea of the cap could show a column as fine while the
-        server was refusing writes to it.
+        Every number drawn on screen is the one in this answer. A client that
+        drew its own idea of the cap, the encumbrance threshold, or what counts
+        as blocked could show a board as fine while the server was refusing
+        writes to it.
+
+        ``blocked`` with ``blocks`` is how the interface says why nothing is
+        moving, and names the column that does not exist yet.
         """
-        return board_view.board(_sync(), store.caps)
+        return board_view.board(
+            _sync(), store.caps, encumbrance=store.encumbrance
+        )
 
     return app
 
@@ -860,24 +818,6 @@ def _clean_project_name(raw: str) -> str:
             detail=f"a project name is at most {project_model.MAX_NAME_LENGTH} characters",
         )
     return name
-
-
-def _clean_name(raw: str) -> str:
-    """Trim a list name and refuse an empty one.
-
-    ``"  "`` and ``""`` are the same mistake, so both are rejected here rather
-    than stored as a list nobody can point at.
-    """
-    name = raw.strip()
-    if not name:
-        raise HTTPException(status_code=400, detail="a list needs a name")
-    return name
-
-
-def _require_list(conn: sqlite3.Connection, list_id: int) -> None:
-    """404 unless the list exists. Every list route starts here."""
-    if queries.get_list(conn, list_id) is None:
-        raise HTTPException(status_code=404, detail="unknown list")
 
 
 def _split_exts(raw: list[str] | None) -> tuple[str, ...]:

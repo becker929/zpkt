@@ -49,35 +49,96 @@ MAX_NAME_LENGTH = 120
 MAX_NOTES_LENGTH = 10_000
 MAX_REASON_LENGTH = 2000
 
-Column = Literal["stored", "collage", "enrich"]
+Column = Literal["stored", "collage"]
 Placement = Literal["stored", "collage", "enrich", "released"]
 
-COLUMNS: tuple[Column, ...] = ("stored", "collage", "enrich")
-"""The board. Three columns, in order."""
+COLUMNS: tuple[Column, ...] = ("stored", "collage")
+"""The board as it is built. Two columns, in order.
+
+``enrich`` is in the plan and in the document schema, and it is not a column: no
+view exists for it, so nothing can be committed into it. That is what makes the
+pipeline end at ``collage`` and deadlock there, which is the behaviour the
+constraint is for rather than a gap in it.
+"""
+
+PLANNED_COLUMNS: tuple[str, ...] = ("stored", "collage", "enrich")
+"""The pipeline as designed, including the stage that is not built.
+
+The board needs this to name what is missing. "Nothing can move" is not a useful
+thing to be told; "nothing can move because ``enrich`` does not exist yet" is.
+"""
 
 PLACEMENTS: tuple[Placement, ...] = ("stored", "collage", "enrich", "released")
-"""Where a project can sit: the three columns, plus off the board."""
+"""Every value ``column`` may hold in a document.
 
-DEFAULT_CAP = 3
-"""Slots per column. Meant to be turned down; 2, or 1, are reasonable."""
+Wider than :data:`COLUMNS` on purpose. The document schema is generated from the
+Zod declarations in ``frontend/lib/project.ts`` and still knows all four, so a
+file naming ``enrich`` parses. It just holds no slot, because there is no such
+column to hold one in.
+"""
+
+DEFAULT_CAP = 1
+"""Slots per column.
+
+One. A second uncommitted project in ``stored`` would mean choosing which
+project a swiped sound goes into, and there is no such choice: one lane, one
+project, one decision per sound.
+"""
+
+DEFAULT_ENCUMBRANCE = 16
+"""Sounds past which a project is marked encumbered.
+
+A hard techno track is a kick, a rumble, a few percussive textures, two or three
+atmospheres and some impacts. Past sixteen you are collecting, not building.
+"""
 
 SCHEMA_FILE = "project.schema.json"
 
 
-def next_placement(column: Column) -> Placement:
-    """Where a project goes when this column commits. ``enrich`` releases."""
+def next_placement(column: Column) -> Column | None:
+    """The column a commit out of ``column`` moves the project into.
+
+    ``None`` when the next stage is not built. The project then stays where it
+    is, holding its lane: releasing it would free the lane, and a pipeline whose
+    last column empties itself is not a constraint at all. Abandon is the one
+    way out, and that is the price it is meant to be.
+    """
     at = COLUMNS.index(column)
-    return "released" if at == len(COLUMNS) - 1 else COLUMNS[at + 1]
+    if at == len(COLUMNS) - 1:
+        return None
+    return COLUMNS[at + 1]
+
+
+def next_planned(column: Column) -> str | None:
+    """The stage that follows this one in the plan, built or not.
+
+    ``"enrich"`` after ``collage``. This is the name the board reports when it
+    says why nothing can move.
+    """
+    at = PLANNED_COLUMNS.index(column)
+    if at == len(PLANNED_COLUMNS) - 1:
+        return None
+    return PLANNED_COLUMNS[at + 1]
 
 
 def is_column(placement: str) -> bool:
-    """True for the three columns. ``released`` is not one."""
+    """True for the columns that exist. ``enrich`` and ``released`` are not."""
     return placement in COLUMNS
 
 
 def is_over(count: int, cap: int) -> bool:
     """Over its limit. At a cap of 0 anything at all is over it."""
     return count > cap
+
+
+def is_encumbered(sound_count: int, threshold: int = DEFAULT_ENCUMBRANCE) -> bool:
+    """Whether a project is carrying more material than a track needs.
+
+    Friction, not restriction. Nothing refuses an add because of this; the mark
+    is reported every time the project is on screen, and it clears on its own as
+    soon as the count comes back down.
+    """
+    return sound_count > threshold
 
 
 def utc_now() -> str:
@@ -126,11 +187,10 @@ def commit_artifact(
     """What this column freezes.
 
     ``stored`` owns the sound set and its artifact is the one the specification
-    fixes. ``collage`` and ``enrich`` own an arrangement and a treatment, and
-    neither view exists yet, so their artifact is a placeholder: deterministic
-    and different for every project, so two commits never collide, but ``real``
-    is false and the interface says so rather than presenting a digest of
-    nothing as a digest of something.
+    fixes. ``collage`` owns an arrangement and has no view yet, so its artifact
+    is a placeholder: deterministic and different for every project, so two
+    commits never collide, but ``real`` is false and the interface says so
+    rather than presenting a digest of nothing as a digest of something.
     """
     manifest = manifest_input(hashes)
     if column == "stored":
@@ -482,12 +542,23 @@ def committed(
 
     One way. Nothing in this module or above it takes an entry back off the
     chain.
+
+    Only a column with somewhere to go can commit. The last built column has
+    nowhere, and this refuses rather than inventing a destination: a commit that
+    quietly released the project would free the lane, and freeing the lane is
+    what abandon is for.
     """
+    destination = next_placement(column)
+    if destination is None:
+        raise ValueError(
+            f"{column} is the last column that exists, so there is nowhere to "
+            "commit it to"
+        )
     commits = cast(list[dict[str, Any]], document["commits"])
     entry = {"column": column, "at": at, "digest": artifact.digest}
     return {
         **document,
-        "column": next_placement(column),
+        "column": destination,
         "commits": [*commits, entry],
         "updated_at": at,
     }

@@ -12,12 +12,14 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from ..projects.model import MAX_NAME_LENGTH, MAX_NOTES_LENGTH, MAX_REASON_LENGTH
 
-BulkAction = Literal[
-    "star", "unstar", "delete", "restore", "add_to_list", "remove_from_list"
-]
+BulkAction = Literal["delete", "restore"]
 """Every action ``POST /api/bulk`` accepts.
 
-``delete`` and ``restore`` are the soft-delete pair. Neither touches a file.
+Discard and restore, the soft-delete pair. Neither touches a file.
+
+Starring and filing into a list were here and are gone. A star is "decide
+later", and a list that is not a project is a pile with no exit; a queue you
+answer must offer neither, in bulk or one at a time.
 """
 
 MAX_BULK_HASHES = 1000
@@ -26,8 +28,6 @@ MAX_BULK_HASHES = 1000
 A batch this size already covers a whole screen of work several times over, and
 bounding it bounds how long the single write transaction holds the database.
 """
-
-MAX_LIST_NAME = 120
 
 
 class Frozen(BaseModel):
@@ -67,7 +67,6 @@ class FileSummary(Frozen):
     """
 
     alias_count: int
-    favorite: bool
     deleted: bool
     """True when the user discarded this sound.
 
@@ -119,10 +118,10 @@ class DeletedSighting(Frozen):
     reason: str
 
 
-class ListRef(Frozen):
-    """A list this sound belongs to, named just enough to link to it."""
+class ProjectRef(Frozen):
+    """A project this sound was taken into, named just enough to link to it."""
 
-    id: int
+    id: str
     name: str
 
 
@@ -138,11 +137,15 @@ class FileDetail(FileSummary):
     aliases: list[AliasInfo]
     deleted_sightings: list[DeletedSighting] = []
     tags: list[str]
-    favorite_note: str | None
-    favorited_at: str | None
     deleted_at: str | None
     delete_note: str | None
-    lists: list[ListRef] = []
+    projects: list[ProjectRef] = []
+    """Every project holding this sound.
+
+    This is what replaced the list memberships. A project is somewhere a sound
+    was taken *to*; a list was somewhere it waited.
+    """
+
     probed_at: str | None
     playable: bool
 
@@ -158,22 +161,6 @@ class PeaksResponse(Frozen):
     duration_s: float | None
     cached: bool
     peaks: list[tuple[int, int]]
-
-
-class FavoriteState(Frozen):
-    """Favorite state of a hash, and how many paths inherit it."""
-
-    hash: str
-    favorite: bool
-    created_at: str | None
-    note: str | None
-    alias_count: int
-
-
-class FavoriteRequest(BaseModel):
-    """Optional body of ``PUT /api/files/{hash}/favorite``."""
-
-    note: str | None = None
 
 
 class DeletedState(Frozen):
@@ -197,64 +184,6 @@ class DeleteRequest(BaseModel):
     note: str | None = None
 
 
-class ListSummary(Frozen):
-    """One list, with the size of what is in it."""
-
-    id: int
-    name: str
-    created_at: str
-    member_count: int
-    duration_s: float
-    sounding_s: float | None
-    """Playing time with the dead air taken out, or null when nothing is measured."""
-
-    size_bytes: int
-
-
-class ListCollection(Frozen):
-    """Every list, newest name order aside, oldest first."""
-
-    total: int
-    items: list[ListSummary]
-
-
-class ListDetail(ListSummary):
-    """One list and a page of its members, in play order."""
-
-    limit: int
-    offset: int
-    items: list[FileSummary]
-
-
-class ListWriteRequest(BaseModel):
-    """Body of ``POST /api/lists`` and ``PATCH /api/lists/{id}``."""
-
-    name: str = Field(min_length=1, max_length=MAX_LIST_NAME)
-
-
-class ListDeleted(Frozen):
-    """What ``DELETE /api/lists/{id}`` removed.
-
-    ``removed_members`` counts membership rows, not sounds and not files. The
-    sounds themselves are untouched.
-    """
-
-    id: int
-    name: str
-    removed_members: int
-
-
-class ListMembership(Frozen):
-    """Whether a hash is in a list, and where in the running order."""
-
-    list_id: int
-    hash: str
-    member: bool
-    position: int | None
-    added_at: str | None
-    member_count: int
-
-
 class BulkRequest(BaseModel):
     """Body of ``POST /api/bulk``.
 
@@ -265,7 +194,6 @@ class BulkRequest(BaseModel):
 
     hashes: list[str] = Field(max_length=MAX_BULK_HASHES)
     action: BulkAction
-    list_id: int | None = None
 
 
 class BulkResult(Frozen):
@@ -279,7 +207,6 @@ class BulkResult(Frozen):
     """
 
     action: BulkAction
-    list_id: int | None
     requested: int
     unique: int
     matched: int
@@ -291,20 +218,24 @@ class BulkResult(Frozen):
 class TriageCounts(Frozen):
     """How much of the collection has been dealt with.
 
-    A sound is triaged when it is starred, discarded, or in at least one list.
-    The three counts overlap, so they do not sum to ``triaged``: a sound that is
-    both starred and in a list is counted once by ``triaged`` and once by each
-    of ``starred`` and ``listed``.
+    A sound is triaged when it is discarded or taken into a project. There is no
+    third state, because there is no third action: a star meant "decide later",
+    and deferral is the thing this queue exists to remove.
+
+    The two counts can overlap, so they do not always sum to ``triaged``: a
+    sound taken into a project and later discarded is one sound done, counted
+    once by ``triaged`` and once by each of ``deleted`` and ``taken``.
     """
 
     total: int
     triaged: int
     untriaged: int
     percent: float
-    starred: int
     deleted: int
-    listed: int
-    lists: int
+    taken: int
+    """Distinct sounds held by at least one project."""
+
+    projects: int
 
 
 class DupePath(Frozen):
@@ -335,7 +266,6 @@ class DupeGroup(Frozen):
     duration_s: float | None
     copies: int
     wasted_bytes: int
-    favorite: bool
     bundle_copies: int
     paths: list[str]
     entries: list[DupePath]
@@ -488,7 +418,15 @@ class SilenceReport(Frozen):
 
 
 Placement = Literal["stored", "collage", "enrich", "released"]
-BoardColumn = Literal["stored", "collage", "enrich"]
+"""Every value a document's ``column`` may hold.
+
+Wider than :data:`BoardColumn`, because the document schema still knows
+``enrich``. A file naming it parses and is shown; it simply holds no slot, as
+there is no such column to hold one in.
+"""
+
+BoardColumn = Literal["stored", "collage"]
+"""The columns that exist. ``stored`` is swipe; ``collage`` has no view yet."""
 
 
 class Abandonment(Frozen):
@@ -543,6 +481,14 @@ class ProjectSummary(Frozen):
 
     commits: list[CommitEntry]
     sound_count: int
+    encumbered: bool
+    """Carrying more material than a track needs.
+
+    Friction, not restriction: adding still succeeds, this mark is reported, and
+    it clears on its own when the count comes back down. The threshold is on the
+    board, so the interface states the server's number and never its own.
+    """
+
     duration_s: float | None
     sounding_s: float | None
     size_bytes: int | None
@@ -712,10 +658,93 @@ class BoardColumnState(Frozen):
     """
 
 
+class ColumnBlock(Frozen):
+    """Why the projects in one column cannot move on.
+
+    Two reasons, and they are not the same kind:
+
+    * ``next_column_full`` — the receiving column is at its cap. That is the
+      discipline working, so ``overridable`` is true and the interface may offer
+      the way through.
+    * ``next_column_missing`` — the stage that follows was never built.
+      ``missing_column`` names it. No override gets through, because an override
+      goes past a limit and this is not a limit: there is nowhere to go.
+    """
+
+    column: BoardColumn
+    reason: Literal["next_column_full", "next_column_missing"]
+    next_column: BoardColumn | None
+    """The column a commit out of ``column`` would enter. Null when none exists."""
+
+    missing_column: str | None
+    """The planned stage that is not built. Null unless that is the reason."""
+
+    overridable: bool
+    detail: str
+
+
 class Board(Frozen):
-    """The three columns with their caps and occupancy, and what sits off it."""
+    """The columns with their caps and occupancy, and what sits off the board.
+
+    ``blocked`` is the whole point of the shape this board is in. With
+    ``stored`` and ``collage`` both capped at one and no column after
+    ``collage``, a full board cannot move at all, and the interface has to be
+    able to say so in words rather than leave somebody pressing a button that
+    will always be refused.
+    """
 
     columns: list[BoardColumnState]
+    encumbrance: int
+    """Sounds past which a project is marked encumbered."""
+
+    blocked: bool
+    """True when every occupied column is blocked, so nothing can move."""
+
+    blocks: list[ColumnBlock]
+    """One entry per occupied column that cannot commit, and why."""
+
+    detail: str | None
+    """One sentence naming what is in the way. Null when something can move."""
+
     released: int
     abandoned: int
     unreadable: int
+
+
+# ------------------------------------------------------------------------ swipe
+
+
+class SwipeNext(Frozen):
+    """The one sound to answer next, with everything the view needs to show it.
+
+    One request per sound, not three. The waveform tints spans and the player
+    skips silence, so both arrive here with the sound rather than behind two
+    more round trips on a phone.
+
+    ``sound`` is null when the queue is empty: every sound in the index has been
+    discarded or taken. That is the end of the pass, not an error.
+    """
+
+    total: int
+    """Sounds in the index."""
+
+    decided: int
+    """Discarded, or held by at least one project."""
+
+    remaining: int
+    """Undecided sounds left, this one included."""
+
+    sound: FileSummary | None
+    silence: SilenceReport | None
+    """Where this sound is silent, so playback can skip it. Null with no sound."""
+
+    spans: SpanList | None
+    """YAMNet's labelled regions, for tinting the waveform. Null with no sound."""
+
+    project: ProjectSummary | None
+    """The project a "take it" would put this sound into.
+
+    Null when no project on the bench can still gain a sound — nothing in
+    ``stored``, or the one there has committed its sound set. There is never a
+    choice of project, because ``stored`` holds one.
+    """

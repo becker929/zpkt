@@ -14,7 +14,6 @@
 import { createHash } from "node:crypto";
 
 import { COLUMN_CAP } from "./boardConfig";
-import { isBundlePath } from "./paths";
 import {
   COLUMNS,
   MAX_PROJECT_SOUNDS,
@@ -42,7 +41,16 @@ import type {
   ProjectSummary,
 } from "./project";
 import { MIN_GAP_S, silentSeconds, skippable, soundingSeconds } from "./silence";
-import type { Alias, BulkAction, DupeGroup, FileRow, Query, SilenceInterval, SortKey } from "./types";
+import type { BulkAction, FileRow, Query, SilenceInterval, SortKey } from "./types";
+
+/** A path that resolves to a hash. Fixture detail only; no view shows one. */
+interface Alias {
+  path: string;
+  root: string;
+  filename: string;
+  ext: string;
+  mtime: number | null;
+}
 
 export const MOCK_ENABLED = process.env.NEXT_PUBLIC_MOCK === "1";
 
@@ -149,6 +157,7 @@ const EXTS: Array<[string, string, number]> = [
 interface MockFile extends FileRow {
   sample_rate: number;
   channels: number;
+  alias_count: number;
   aliases: Alias[];
   tags: string[];
   seed: number;
@@ -293,7 +302,6 @@ function buildCollection(): MockFile[] {
       silence,
       size_bytes: Math.round(duration * bytesPerSecond) + 44,
       alias_count: aliasCount,
-      favorite: i % 37 === 0,
       deleted: false,
       // AIF goes through ffmpeg on the way out, so its stream cannot be seeked.
       transcoded: ext === ".aif" || ext === ".aiff",
@@ -312,15 +320,12 @@ function buildCollection(): MockFile[] {
  *
  * The development server compiles each route the first time it is asked for,
  * and a route compiled later gets its own instance of this module. State held
- * in a module variable would then be per-route: a list created through
- * `/api/lists` would not exist for `/api/lists/{id}`. One object on the global
- * survives both that and hot reloading.
+ * in a module variable would then be per-route: a project created through
+ * `/api/projects` would not exist for `/api/projects/{id}`. One object on the
+ * global survives both that and hot reloading.
  */
 interface MockState {
   collection: MockFile[] | null;
-  lists: Map<number, MockList>;
-  nextListId: number;
-  seeded: boolean;
   /**
    * The projects directory. Keyed by filename stem, holding documents exactly
    * as they would be on disk: unvalidated, because one of the things the board
@@ -330,23 +335,12 @@ interface MockState {
   projectsSeeded: boolean;
 }
 
-interface MockList {
-  id: number;
-  name: string;
-  created_at: string;
-  /** Hashes in play order. */
-  members: string[];
-}
-
 const globalState = globalThis as typeof globalThis & { __audioBrowserMock?: MockState };
 
 function state(): MockState {
   if (!globalState.__audioBrowserMock) {
     globalState.__audioBrowserMock = {
       collection: null,
-      lists: new Map(),
-      nextListId: 1,
-      seeded: false,
       projects: new Map(),
       projectsSeeded: false,
     };
@@ -364,18 +358,9 @@ export function mockFile(hash: string): MockFile | undefined {
   return mockFiles().find((f) => f.hash === hash);
 }
 
-/** Favourite state lives in module memory. It resets when the dev server restarts. */
-export function setMockFavorite(hash: string, favorite: boolean): boolean {
-  const file = mockFile(hash);
-  if (!file) return false;
-  file.favorite = favorite;
-  return true;
-}
-
 const SORTERS: Record<SortKey, (a: MockFile, b: MockFile) => number> = {
   name: (a, b) => a.filename.localeCompare(b.filename),
   duration: (a, b) => (a.duration_s ?? 0) - (b.duration_s ?? 0),
-  size: (a, b) => a.size_bytes - b.size_bytes,
   // An unmeasured sound sorts by the only length it has. It is not zero.
   sounding: (a, b) =>
     (a.sounding_s ?? a.duration_s ?? 0) - (b.sounding_s ?? b.duration_s ?? 0),
@@ -394,7 +379,6 @@ export function mockQuery(query: Query): MockFile[] {
     if (wantDeleted === "true" && !f.deleted) return false;
     if (needle && !f.filename.toLowerCase().includes(needle)) return false;
     if (query.ext && f.ext !== query.ext) return false;
-    if (query.favorite && !f.favorite) return false;
     const d = f.duration_s ?? 0;
     if (minDur !== null && Number.isFinite(minDur) && d < minDur) return false;
     if (maxDur !== null && Number.isFinite(maxDur) && d > maxDur) return false;
@@ -571,92 +555,21 @@ export function mockSilence(file: MockFile, minGap: number) {
   };
 }
 
-function toDupeGroup(f: MockFile, copies: number): DupeGroup {
-  const entries = f.aliases.map((a) => ({
-    path: a.path,
-    root: a.root,
-    in_bundle: isBundlePath(a.path),
-    deletable: !isBundlePath(a.path),
-  }));
-  return {
-    hash: f.hash,
-    filename: f.filename,
-    alias_count: copies,
-    size_bytes: f.size_bytes,
-    wasted_bytes: f.size_bytes * (copies - 1),
-    bundle_copies: entries.filter((e) => e.in_bundle).length,
-    paths: entries.map((e) => e.path),
-    entries,
-  };
-}
-
-/**
- * Mock `/api/dupes`, scoped the way the real route is.
- *
- * Copies inside a project bundle are left out unless asked for, because they
- * are a project's own media and cannot be removed. The result reports how many
- * groups and bytes that left out.
- */
-export function mockDupes(
-  limit: number,
-  includeBundles: boolean,
-): {
-  items: DupeGroup[];
-  total: number;
-  wasted_bytes: number;
-  excluded_bundle_groups: number;
-  excluded_bundle_bytes: number;
-} {
-  /** Copies that count under the current scoping, per file. */
-  const counted = (f: MockFile) =>
-    includeBundles ? f.alias_count : f.aliases.filter((a) => !isBundlePath(a.path)).length;
-
-  const all = mockFiles().filter((f) => f.alias_count > 1);
-  const kept = all.filter((f) => counted(f) > 1);
-  const items = kept
-    .slice()
-    .sort((a, b) => b.size_bytes * (counted(b) - 1) - a.size_bytes * (counted(a) - 1))
-    .slice(0, limit)
-    .map((f) => toDupeGroup(f, counted(f)));
-
-  const wasted = kept.reduce((sum, f) => sum + f.size_bytes * (counted(f) - 1), 0);
-  const everything = all.reduce((sum, f) => sum + f.size_bytes * (f.alias_count - 1), 0);
-  return {
-    items,
-    total: kept.length,
-    wasted_bytes: wasted,
-    excluded_bundle_groups: includeBundles ? 0 : all.length - kept.length,
-    excluded_bundle_bytes: includeBundles ? 0 : everything - wasted,
-  };
-}
-
 export function mockStats() {
   const files = mockFiles();
-  const formats: Record<string, number> = {};
   let totalBytes = 0;
-  let wasted = 0;
-  let aliases = 0;
   let duration = 0;
   let sounding = 0;
-  let dupes = 0;
   for (const f of files) {
-    formats[f.ext] = (formats[f.ext] ?? 0) + 1;
     totalBytes += f.size_bytes * f.alias_count;
-    wasted += f.size_bytes * (f.alias_count - 1);
-    aliases += f.alias_count;
     duration += f.duration_s ?? 0;
     // An unmeasured sound contributes its wall length, because the alternative
     // is contributing nothing and under-reporting the work left to do.
     sounding += f.sounding_s ?? f.duration_s ?? 0;
-    if (f.alias_count > 1) dupes += 1;
   }
   return {
     files: files.length,
-    aliases,
     total_bytes: totalBytes,
-    wasted_bytes: wasted,
-    duplicate_hashes: dupes,
-    formats,
     total_duration_s: duration,
     total_sounding_s: sounding,
   };
@@ -665,50 +578,28 @@ export function mockStats() {
 /* Triage ------------------------------------------------------------------ */
 
 /**
- * Soft deletes and lists in mock mode.
+ * Soft deletes in mock mode.
  *
- * All of it lives in module memory and resets when the dev server restarts, in
- * the same way favourites already do. Soft delete here does exactly what it
- * does against the real index: it marks a hash and nothing else. No mock route
- * touches a file, because no real route may either.
+ * All of it lives in module memory and resets when the dev server restarts.
+ * Soft delete here does exactly what it does against the real index: it marks
+ * a hash and nothing else. No mock route touches a file, because no real route
+ * may either.
  */
 
 const MOCK_EPOCH = "2026-01-01T00:00:00Z";
 
-function listStore(): Map<number, MockList> {
-  const store = state();
-  if (!store.seeded) {
-    store.seeded = true;
-    // One seeded list, so the lists view has something in it on a cold server
-    // and a screenshot of it is reproducible.
-    const members = mockFiles().slice(5, 9).map((f) => f.hash);
-    store.lists.set(store.nextListId, {
-      id: store.nextListId,
-      name: "warm-up set",
-      created_at: MOCK_EPOCH,
-      members,
-    });
-    store.nextListId += 1;
-  }
-  return store.lists;
-}
-
-/** The row shape `/api/files` and `/api/lists/{id}` both return. */
+/** The row shape every route that returns sounds uses. */
 export function mockSummary(f: MockFile) {
   return {
     hash: f.hash,
     filename: f.filename,
     ext: f.ext,
-    path: f.aliases[0]?.path ?? "",
-    root: f.aliases[0]?.root ?? "",
     codec: f.codec,
     duration_s: f.duration_s,
     sounding_s: f.sounding_s,
     size_bytes: f.size_bytes,
     sample_rate: f.sample_rate,
     channels: f.channels,
-    alias_count: f.alias_count,
-    favorite: f.favorite,
     deleted: f.deleted,
     has_peaks: true,
     transcoded: f.transcoded,
@@ -730,98 +621,6 @@ export function mockDeletedState(hash: string) {
     deleted: file.deleted,
     deleted_at: file.deleted ? MOCK_EPOCH : null,
     note: null,
-    alias_count: file.alias_count,
-  };
-}
-
-function listSummary(list: MockList) {
-  let duration = 0;
-  let sounding = 0;
-  let size = 0;
-  for (const hash of list.members) {
-    const file = mockFile(hash);
-    if (!file) continue;
-    duration += file.duration_s ?? 0;
-    sounding += file.sounding_s ?? file.duration_s ?? 0;
-    size += file.size_bytes;
-  }
-  return {
-    id: list.id,
-    name: list.name,
-    created_at: list.created_at,
-    member_count: list.members.length,
-    duration_s: Number(duration.toFixed(3)),
-    sounding_s: Number(sounding.toFixed(3)),
-    size_bytes: size,
-  };
-}
-
-export function mockLists() {
-  const items = [...listStore().values()].map(listSummary);
-  return { total: items.length, items };
-}
-
-export function mockListDetail(id: number, limit: number, offset: number) {
-  const list = listStore().get(id);
-  if (!list) return null;
-  const rows = list.members
-    .map((hash) => mockFile(hash))
-    .filter((f): f is MockFile => f !== undefined)
-    .slice(offset, offset + limit)
-    .map(mockSummary);
-  return { ...listSummary(list), limit, offset, items: rows };
-}
-
-/** The lists one sound is in, named just enough to link to them. */
-export function mockListsOf(hash: string) {
-  return [...listStore().values()]
-    .filter((list) => list.members.includes(hash))
-    .map((list) => ({ id: list.id, name: list.name }));
-}
-
-export function mockCreateList(name: string) {
-  const trimmed = name.trim();
-  const store = listStore();
-  for (const list of store.values()) {
-    // The name is unique in the schema, so creating a duplicate is a conflict,
-    // not a second list.
-    if (list.name === trimmed) return null;
-  }
-  const id = state().nextListId;
-  const list: MockList = { id, name: trimmed, created_at: MOCK_EPOCH, members: [] };
-  store.set(id, list);
-  state().nextListId += 1;
-  return listSummary(list);
-}
-
-export function mockRenameList(id: number, name: string) {
-  const list = listStore().get(id);
-  if (!list) return null;
-  list.name = name.trim();
-  return listSummary(list);
-}
-
-export function mockDeleteList(id: number) {
-  const list = listStore().get(id);
-  if (!list) return null;
-  listStore().delete(id);
-  return { id, name: list.name, removed_members: list.members.length };
-}
-
-export function mockSetMember(listId: number, hash: string, member: boolean) {
-  const list = listStore().get(listId);
-  if (!list || !mockFile(hash)) return null;
-  const at = list.members.indexOf(hash);
-  if (member && at === -1) list.members.push(hash);
-  if (!member && at !== -1) list.members.splice(at, 1);
-  const now = list.members.indexOf(hash);
-  return {
-    list_id: listId,
-    hash,
-    member: now !== -1,
-    position: now === -1 ? null : now,
-    added_at: now === -1 ? null : MOCK_EPOCH,
-    member_count: list.members.length,
   };
 }
 
@@ -832,11 +631,8 @@ export function mockSetMember(listId: number, hash: string, member: boolean) {
  * asynchronous, so the mock is atomic for free; what it has to match is the
  * counting, because that is what the interface reports back to the user.
  */
-export function mockBulk(hashes: string[], action: BulkAction, listId?: number | null) {
+export function mockBulk(hashes: string[], action: BulkAction) {
   const unique = [...new Set(hashes)];
-  const list = listId === undefined || listId === null ? null : listStore().get(listId) ?? null;
-  if ((action === "add_to_list" || action === "remove_from_list") && list === null) return null;
-
   let matched = 0;
   let changed = 0;
   let unchanged = 0;
@@ -845,46 +641,16 @@ export function mockBulk(hashes: string[], action: BulkAction, listId?: number |
     const file = mockFile(hash);
     if (!file) continue;
     matched += 1;
-
-    if (action === "star" || action === "unstar") {
-      const wanted = action === "star";
-      if (file.favorite === wanted) unchanged += 1;
-      else {
-        file.favorite = wanted;
-        changed += 1;
-      }
-      continue;
-    }
-
-    if (action === "delete" || action === "restore") {
-      const wanted = action === "delete";
-      if (file.deleted === wanted) unchanged += 1;
-      else {
-        file.deleted = wanted;
-        changed += 1;
-      }
-      continue;
-    }
-
-    const at = list!.members.indexOf(hash);
-    if (action === "add_to_list") {
-      if (at !== -1) unchanged += 1;
-      else {
-        list!.members.push(hash);
-        changed += 1;
-      }
-    } else {
-      if (at === -1) unchanged += 1;
-      else {
-        list!.members.splice(at, 1);
-        changed += 1;
-      }
+    const wanted = action === "delete";
+    if (file.deleted === wanted) unchanged += 1;
+    else {
+      file.deleted = wanted;
+      changed += 1;
     }
   }
 
   return {
     action,
-    list_id: listId ?? null,
     requested: hashes.length,
     unique: unique.length,
     matched,
@@ -894,30 +660,62 @@ export function mockBulk(hashes: string[], action: BulkAction, listId?: number |
   };
 }
 
-/** Triaged over total: starred, discarded, or in at least one list. */
-export function mockTriage() {
-  const listed = new Set<string>();
-  for (const list of listStore().values()) for (const hash of list.members) listed.add(hash);
+/**
+ * Every hash that is already in a project, readable or not.
+ *
+ * A sound in a project has been taken, which is one of the two decisions there
+ * are. Unreadable project files are read past: their members cannot be listed,
+ * so their sounds count as undecided and come round again. Showing a sound
+ * twice is a smaller wrong than hiding it because a file somewhere is broken.
+ */
+function takenHashes(): Set<string> {
+  const taken = new Set<string>();
+  for (const raw of projectStore().values()) {
+    const checked = checkProject(raw);
+    if (!checked.ok) continue;
+    for (const sound of checked.project.sounds) taken.add(sound.hash);
+  }
+  return taken;
+}
 
+/** Decided over total: taken into a project, or discarded. */
+export function mockTriage() {
+  const taken = takenHashes();
   const files = mockFiles();
-  let starred = 0;
-  let deleted = 0;
-  let triaged = 0;
+  let discarded = 0;
+  let decided = 0;
+  let inProject = 0;
   for (const f of files) {
-    if (f.favorite) starred += 1;
-    if (f.deleted) deleted += 1;
-    if (f.favorite || f.deleted || listed.has(f.hash)) triaged += 1;
+    const isTaken = taken.has(f.hash);
+    if (f.deleted) discarded += 1;
+    if (isTaken) inProject += 1;
+    if (f.deleted || isTaken) decided += 1;
   }
   const total = files.length;
   return {
     total,
-    triaged,
-    untriaged: total - triaged,
-    percent: total === 0 ? 0 : Number(((triaged / total) * 100).toFixed(2)),
-    starred,
-    deleted,
-    listed: listed.size,
-    lists: listStore().size,
+    decided,
+    undecided: total - decided,
+    percent: total === 0 ? 0 : Number(((decided / total) * 100).toFixed(2)),
+    taken: inProject,
+    discarded,
+  };
+}
+
+/**
+ * Mock `GET /api/swipe`: the next undecided sounds.
+ *
+ * Undecided means neither discarded nor in a project. Order is the index's own
+ * order, so the queue is the same on every reload and a screenshot of it is
+ * reproducible.
+ */
+export function mockSwipeQueue(limit: number) {
+  const taken = takenHashes();
+  const undecided = mockFiles().filter((f) => !f.deleted && !taken.has(f.hash));
+  return {
+    items: undecided.slice(0, limit).map(mockSummary),
+    remaining: undecided.length,
+    limit,
   };
 }
 

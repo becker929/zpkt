@@ -11,27 +11,22 @@
  */
 
 import type {
-  Alias,
   BulkAction,
   BulkResult,
-  DupeGroup,
-  DupePage,
-  DupePath,
   FileDetail,
   FilePage,
   FileRow,
-  ListDetail,
   Peaks,
   Query,
   Silence,
   SilenceInterval,
-  SoundList,
   Span,
   Stats,
+  SwipeQueue,
   TriageCounts,
 } from "./types";
-import { MAX_BULK_HASHES } from "./types";
-import { COLUMNS, PLACEMENTS, isOver } from "./project";
+import { EMPTY_QUERY, MAX_BULK_HASHES, SPAN_METHOD } from "./types";
+import { COLUMNS, PLACEMENTS, isOver, soundSetOpen } from "./project";
 import type {
   Abandonment,
   Board,
@@ -41,7 +36,6 @@ import type {
   Placement,
   ProjectSummary,
 } from "./project";
-import { isBundlePath } from "./paths";
 import { MIN_GAP_S, silentSeconds, skippable, soundingSeconds } from "./silence";
 
 /**
@@ -145,8 +139,6 @@ function normaliseRow(raw: unknown): FileRow {
     // zero here would print "0:00" against a five minute sound.
     sounding_s: numOrNull(pick(row, "sounding_s", "sounding_duration_s")),
     size_bytes: num(pick(row, "size_bytes", "size", "bytes")),
-    alias_count: num(pick(row, "alias_count", "aliases", "n_aliases", "path_count"), 1),
-    favorite: Boolean(pick(row, "favorite", "is_favorite", "favourite")),
     deleted: Boolean(pick(row, "deleted", "soft_deleted", "is_deleted")),
     transcoded:
       row.transcoded === undefined
@@ -155,37 +147,10 @@ function normaliseRow(raw: unknown): FileRow {
   };
 }
 
-function normaliseAlias(raw: unknown): Alias {
-  const row = asRecord(raw);
-  // An alias may arrive as a bare path string.
-  if (typeof raw === "string") {
-    const filename = raw.split("/").pop() ?? raw;
-    const dot = filename.lastIndexOf(".");
-    return {
-      path: raw,
-      root: "",
-      filename,
-      ext: dot > 0 ? filename.slice(dot).toLowerCase() : "",
-      mtime: null,
-    };
-  }
-  const path = str(pick(row, "path", "abspath"));
-  const filename = str(pick(row, "filename", "name")) || (path.split("/").pop() ?? "");
-  const dot = filename.lastIndexOf(".");
-  return {
-    path,
-    root: str(pick(row, "root", "root_name")),
-    filename,
-    ext: str(pick(row, "ext", "extension"), dot > 0 ? filename.slice(dot) : "").toLowerCase(),
-    mtime: numOrNull(row.mtime),
-  };
-}
-
 function queryString(query: Query, limit: number, offset: number): string {
   const params = new URLSearchParams();
   if (query.q.trim()) params.set("q", query.q.trim());
   if (query.ext) params.set("ext", query.ext);
-  if (query.favorite) params.set("favorite", "true");
   if (query.min_dur.trim()) params.set("min_dur", query.min_dur.trim());
   if (query.max_dur.trim()) params.set("max_dur", query.max_dur.trim());
   // `false` is the server's default. Sending it anyway would make every cache
@@ -244,23 +209,23 @@ export async function fetchFiles(url: string, signal?: AbortSignal): Promise<Fil
   };
 }
 
+/**
+ * One sound.
+ *
+ * The aliases the server sends are read past. A path is a name for a hash and
+ * nothing more; content addressing made the list of them correct rather than
+ * interesting, and a detail view full of paths is a detail view that says
+ * nothing about the sound.
+ */
 export async function fetchDetail(hash: string, signal?: AbortSignal): Promise<FileDetail> {
   const body = asRecord(await getJson(`/api/files/${hash}`, signal));
-  const rawAliases = pick(body, "aliases", "paths", "alias");
-  const aliases = Array.isArray(rawAliases) ? rawAliases.map(normaliseAlias) : [];
-  const base = normaliseRow({
-    ...body,
-    filename: pick(body, "filename", "name") ?? aliases[0]?.filename,
-    ext: pick(body, "ext", "extension") ?? aliases[0]?.ext,
-    alias_count: pick(body, "alias_count") ?? aliases.length,
-  });
+  const base = normaliseRow(body);
   const rawTags = pick(body, "tags");
   return {
     ...base,
     hash: base.hash || hash,
     sample_rate: numOrNull(pick(body, "sample_rate", "samplerate")),
     channels: numOrNull(body.channels),
-    aliases,
     tags: Array.isArray(rawTags) ? rawTags.map((t) => str(typeof t === "string" ? t : asRecord(t).name)) : [],
   };
 }
@@ -366,127 +331,35 @@ async function send(url: string, method: string, body?: unknown): Promise<Record
   }
 }
 
-export async function setFavorite(hash: string, favorite: boolean): Promise<void> {
-  const res = await fetch(`/api/files/${hash}/favorite`, {
-    method: favorite ? "PUT" : "DELETE",
-    headers: { accept: "application/json" },
-  });
-  if (!res.ok) {
-    throw new ApiError(`favorite ${favorite ? "PUT" : "DELETE"} failed: ${res.status}`, res.status);
-  }
-}
-
 export async function fetchStats(signal?: AbortSignal): Promise<Stats> {
   const body = asRecord(await getJson("/api/stats", signal));
-
-  // The format breakdown arrives either as a list of {name, count} or as an
-  // object keyed by extension.
-  const formats: Record<string, number> = {};
-  const rawList = pick(body, "extensions", "formats_list");
-  if (Array.isArray(rawList)) {
-    for (const entry of rawList) {
-      const row = asRecord(entry);
-      const name = str(pick(row, "name", "ext"));
-      if (name) formats[name] = num(row.count);
-    }
-  } else {
-    const rawFormats = asRecord(pick(body, "formats", "by_format", "format_breakdown"));
-    for (const [key, value] of Object.entries(rawFormats)) {
-      formats[key] = num(typeof value === "object" ? asRecord(value).count : value);
-    }
-  }
-
   return {
     files: num(pick(body, "files", "blobs", "unique_files", "file_count")),
-    aliases: num(pick(body, "aliases", "paths", "alias_count")),
     // Bytes actually occupied on disk, which counts every copy.
     total_bytes: num(pick(body, "physical_bytes", "total_bytes", "total_size", "logical_bytes", "size_bytes")),
-    wasted_bytes: num(pick(body, "wasted_bytes", "wasted")),
-    duplicate_hashes: num(pick(body, "duplicate_blobs", "duplicate_hashes", "dupes", "duplicates")),
-    formats,
     total_duration_s: numOrNull(pick(body, "total_duration_s", "duration_s")),
     total_sounding_s: numOrNull(pick(body, "total_sounding_s", "sounding_duration_s", "sounding_s")),
   };
 }
 
-function normaliseDupePath(raw: unknown): DupePath {
-  if (typeof raw === "string") {
-    return { path: raw, root: "", in_bundle: isBundlePath(raw), deletable: !isBundlePath(raw) };
-  }
-  const row = asRecord(raw);
-  const path = str(pick(row, "path", "abspath"));
-  // Fall back to reading the path when the server does not say. Treating an
-  // unknown path as deletable is the dangerous direction, so the fallback
-  // errs the other way.
-  const inBundle = row.in_bundle === undefined ? isBundlePath(path) : Boolean(row.in_bundle);
-  return {
-    path,
-    root: str(pick(row, "root", "root_name")),
-    in_bundle: inBundle,
-    deletable: row.deletable === undefined ? !inBundle : Boolean(row.deletable),
-  };
-}
-
-function normaliseDupeGroup(raw: unknown): DupeGroup {
-  const row = asRecord(raw);
-  const rawEntries = pick(row, "entries", "paths", "aliases");
-  const entries = Array.isArray(rawEntries) ? rawEntries.map(normaliseDupePath) : [];
-  const paths = entries.map((e) => e.path);
-  const size = num(pick(row, "size_bytes", "size"));
-  const count = num(pick(row, "copies", "alias_count", "count"), paths.length);
-  return {
-    hash: str(row.hash),
-    filename: str(pick(row, "filename", "name"), paths[0]?.split("/").pop() ?? ""),
-    alias_count: count,
-    size_bytes: size,
-    wasted_bytes: num(pick(row, "wasted_bytes"), size * Math.max(count - 1, 0)),
-    bundle_copies: num(pick(row, "bundle_copies"), entries.filter((e) => e.in_bundle).length),
-    paths,
-    entries,
-  };
-}
-
 /**
- * The cleanup view's data.
+ * The spans one classifier found, tinted over the waveform.
  *
- * `include_bundles` is left off, so the server withholds copies that live
- * inside DAW project bundles. Those bytes cannot be reclaimed at any price, and
- * listing them next to a "wasted" figure invites deleting a project's own
- * media. The counts that come back say how much was withheld.
- */
-export async function fetchDupes(
-  limit = 200,
-  options: { includeBundles?: boolean } = {},
-  signal?: AbortSignal,
-): Promise<DupePage> {
-  const params = new URLSearchParams({ limit: String(limit) });
-  if (options.includeBundles) params.set("include_bundles", "true");
-  const body = await getJson(`/api/dupes?${params.toString()}`, signal);
-  const record = asRecord(body);
-  const raw = Array.isArray(body) ? body : pick(record, "items", "dupes", "groups");
-  const items = Array.isArray(raw) ? raw.map(normaliseDupeGroup) : [];
-  return {
-    items,
-    total: num(pick(record, "total", "count"), items.length),
-    wasted_bytes: num(
-      pick(record, "wasted_bytes"),
-      items.reduce((sum, g) => sum + g.wasted_bytes, 0),
-    ),
-    include_bundles: Boolean(options.includeBundles),
-    excluded_bundle_groups: num(pick(record, "excluded_bundle_groups")),
-    excluded_bundle_bytes: num(pick(record, "excluded_bundle_bytes")),
-  };
-}
-
-/**
- * Stage 3 writes to the `span` table and this route starts returning data.
- * Until then a missing route is not an error: the waveform simply has no tint.
+ * A method is always named. Every classifier writes into the same table, so
+ * asking for all of them at once tints the same second three times over and
+ * says nothing about any of them. The default is `SPAN_METHOD`.
+ *
+ * A missing route is not an error: the waveform simply has no tint.
  */
 let spansRouteMissing = false;
 
-export async function fetchSpans(hash: string, method?: string, signal?: AbortSignal): Promise<Span[]> {
+export async function fetchSpans(
+  hash: string,
+  method: string = SPAN_METHOD,
+  signal?: AbortSignal,
+): Promise<Span[]> {
   if (spansRouteMissing) return [];
-  const suffix = method ? `?method=${encodeURIComponent(method)}` : "";
+  const suffix = `?method=${encodeURIComponent(method)}`;
   try {
     const body = await getJson(`/api/files/${hash}/spans${suffix}`, signal);
     const raw = Array.isArray(body) ? body : pick(asRecord(body), "spans", "items");
@@ -603,76 +476,17 @@ export async function setDeleted(hash: string, deleted: boolean): Promise<void> 
   await send(`/api/files/${hash}/deleted`, deleted ? "PUT" : "DELETE");
 }
 
-function normaliseList(raw: unknown): SoundList {
-  const row = asRecord(raw);
-  return {
-    id: num(row.id),
-    name: str(row.name),
-    created_at: str(row.created_at),
-    member_count: num(pick(row, "member_count", "count", "members", "size"), 0),
-    duration_s: num(pick(row, "duration_s", "total_duration_s"), 0),
-    sounding_s: numOrNull(pick(row, "sounding_s", "total_sounding_s")),
-    size_bytes: num(pick(row, "size_bytes", "bytes"), 0),
-  };
-}
-
-export async function fetchLists(signal?: AbortSignal): Promise<SoundList[]> {
-  const body = await getJson("/api/lists", signal, true);
-  const raw = Array.isArray(body) ? body : pick(asRecord(body), "items", "lists");
-  return Array.isArray(raw) ? raw.map(normaliseList) : [];
-}
-
-export async function createList(name: string): Promise<SoundList> {
-  return normaliseList(await send("/api/lists", "POST", { name }));
-}
-
-export async function renameList(id: number, name: string): Promise<SoundList> {
-  return normaliseList(await send(`/api/lists/${id}`, "PATCH", { name }));
-}
-
-/** Remove the list itself. The sounds in it are untouched. */
-export async function deleteList(id: number): Promise<void> {
-  await send(`/api/lists/${id}`, "DELETE");
-}
-
-/**
- * One list and its members, in play order.
- *
- * A list is a hand-made queue, so the whole thing is fetched at once rather
- * than paged: the list view plays it straight through and needs every row to
- * do that. `limit` is the server's cap on one page.
- */
-export async function fetchList(id: number, limit = 1000, signal?: AbortSignal): Promise<ListDetail> {
-  const body = asRecord(await getJson(`/api/lists/${id}?limit=${limit}`, signal, true));
-  const raw = pick(body, "items", "members", "files", "sounds");
-  const items = Array.isArray(raw) ? raw.map(normaliseRow) : [];
-  return { ...normaliseList({ ...body, member_count: pick(body, "member_count") ?? items.length }), items };
-}
-
-export async function setListMember(listId: number, hash: string, member: boolean): Promise<void> {
-  await send(`/api/lists/${listId}/members/${hash}`, member ? "PUT" : "DELETE");
-}
-
 /**
  * One action over many hashes, applied in a single transaction.
  *
  * The cap is the server's. Sending more would be refused whole, so the batch
  * is cut here instead, where the interface can say what it did.
  */
-export async function bulk(
-  hashes: string[],
-  action: BulkAction,
-  listId?: number,
-): Promise<BulkResult> {
+export async function bulk(hashes: string[], action: BulkAction): Promise<BulkResult> {
   const capped = hashes.slice(0, MAX_BULK_HASHES);
-  const body = await send("/api/bulk", "POST", {
-    hashes: capped,
-    action,
-    ...(listId === undefined ? {} : { list_id: listId }),
-  });
+  const body = await send("/api/bulk", "POST", { hashes: capped, action });
   return {
     action: (str(body.action, action) as BulkAction) || action,
-    list_id: body.list_id === undefined || body.list_id === null ? null : num(body.list_id),
     requested: num(body.requested, capped.length),
     unique: num(body.unique, capped.length),
     matched: num(body.matched, capped.length),
@@ -683,26 +497,29 @@ export async function bulk(
 }
 
 /**
- * The progress counter.
+ * The progress counter: how much of the collection has been answered.
  *
- * Until the triage routes exist this answers 404, which is not an error worth
- * showing: the header simply has no counter. The same shape of fallback as
- * `fetchSpans`.
+ * A missing route answers null, which is not an error worth showing: the
+ * header simply has no counter. The same shape of fallback as `fetchSpans`.
+ *
+ * The split between taken and discarded is null when the server does not
+ * report it. A zero would read as "nothing was taken", which is a claim this
+ * is not entitled to make.
  */
 export async function fetchTriage(signal?: AbortSignal): Promise<TriageCounts | null> {
   try {
     const body = asRecord(await getJson("/api/triage", signal, true));
     const total = num(pick(body, "total", "blobs", "files"));
-    const triaged = num(body.triaged);
+    const decided = num(pick(body, "decided", "triaged"));
+    const taken = pick(body, "taken", "in_projects", "projected");
+    const discarded = pick(body, "discarded", "deleted");
     return {
       total,
-      triaged,
-      untriaged: num(body.untriaged, Math.max(total - triaged, 0)),
-      percent: num(body.percent, total > 0 ? (triaged / total) * 100 : 0),
-      starred: num(pick(body, "starred", "favorites")),
-      deleted: num(pick(body, "deleted", "discarded")),
-      listed: num(body.listed),
-      lists: num(body.lists),
+      decided,
+      undecided: num(pick(body, "undecided", "untriaged"), Math.max(total - decided, 0)),
+      percent: num(body.percent, total > 0 ? (decided / total) * 100 : 0),
+      taken: taken === undefined ? null : num(taken),
+      discarded: discarded === undefined ? null : num(discarded),
     };
   } catch (err) {
     if (err instanceof ApiError && err.status === 404) return null;
@@ -949,7 +766,12 @@ export async function fetchBoard(signal?: AbortSignal): Promise<Board | null> {
         over: typeof row.over === "boolean" ? row.over : isOver(count, cap),
       });
     }
-    if (columns.length !== COLUMNS.length) return null;
+    // A server that serves fewer columns than the model knows about is serving
+    // a real board, not a broken one: `enrich` has no view yet and is not a
+    // column there. Drawing the two it does report is honest; drawing nothing
+    // because a third is missing would hide a board that works. An answer with
+    // no readable column at all is a different thing and is treated as absent.
+    if (columns.length === 0) return null;
 
     return {
       columns,
@@ -1114,4 +936,120 @@ export async function addSoundsToProject(id: string, hashes: string[]): Promise<
   }
 
   return { added, already, stopped };
+}
+
+/* The swipe queue ---------------------------------------------------------- */
+
+/**
+ * Whether `GET /api/swipe` is being served.
+ *
+ * One absence is enough to stop asking. The derived queue below is the same
+ * set worked out from routes that do exist, so nothing is lost by falling back
+ * once and staying there for the life of the tab.
+ */
+let swipeRouteMissing = false;
+
+/** How the queue is read, so a test or a reader can tell the two apart. */
+export function swipeRouteIsMissing(): boolean {
+  return swipeRouteMissing;
+}
+
+/**
+ * The sounds in a queue answer, however the server chose to shape it.
+ *
+ * Two shapes are in use. A batch arrives under `items`; a server that hands
+ * over one sound at a time puts it under `sound`. Both are read, because the
+ * view consumes the queue one sound at a time either way and the difference is
+ * only how often it has to ask.
+ */
+function normaliseQueueItems(body: unknown): FileRow[] {
+  const record = asRecord(body);
+  const raw = Array.isArray(body) ? body : pick(record, "items", "files", "results", "queue");
+  if (Array.isArray(raw)) return raw.map(normaliseRow).filter((row) => row.hash !== "");
+  const single = pick(record, "sound", "item", "next");
+  if (single === undefined || single === null) return [];
+  const row = normaliseRow(single);
+  return row.hash === "" ? [] : [row];
+}
+
+/**
+ * The next undecided sounds, and how many are left.
+ *
+ * Undecided means the sound has neither been taken into a project nor
+ * discarded. There is no third state to be in, because there is no third
+ * action.
+ *
+ * Two ways to get it, and the answer says which was used. `GET /api/swipe` is
+ * the route that answers it directly. When that route is not being served, the
+ * same queue is worked out here: every undiscarded sound, less the hashes that
+ * are already in a project. Both are real. Neither invents a count — when
+ * nothing can be read at all this returns null and the view says so.
+ */
+export async function fetchSwipeQueue(limit = 24, signal?: AbortSignal): Promise<SwipeQueue | null> {
+  if (!swipeRouteMissing) {
+    try {
+      const body = await getJson(`/api/swipe?limit=${limit}`, signal, true);
+      const items = normaliseQueueItems(body);
+      const record = asRecord(body);
+      return {
+        items,
+        remaining: num(pick(record, "remaining", "undecided", "total"), items.length),
+        source: "route",
+      };
+    } catch (err) {
+      if (!absent(err)) throw err;
+      swipeRouteMissing = true;
+    }
+  }
+  return deriveSwipeQueue(limit, signal);
+}
+
+/**
+ * The queue, worked out from `/api/files` and `/api/projects`.
+ *
+ * Always read from offset 0. Every sound this hands over gets answered before
+ * the next one arrives — that is what having no third action means — so a
+ * taken sound leaves this filter by joining a project and a discarded one
+ * leaves it by being discarded. The top of the set is therefore always fresh,
+ * and no offset arithmetic can skip a sound.
+ */
+async function deriveSwipeQueue(limit: number, signal?: AbortSignal): Promise<SwipeQueue | null> {
+  const index = await fetchProjects(signal).catch(() => null);
+  const taken = new Set<string>();
+  if (index) {
+    const details = await Promise.all(
+      index.items.map((project) => fetchProject(project.id, signal).catch(() => null)),
+    );
+    for (const detail of details) {
+      for (const row of detail?.items ?? []) taken.add(row.hash);
+    }
+  }
+
+  // Ask for enough rows that a page made entirely of already-taken sounds
+  // still yields something. A project holds tens of sounds, not hundreds.
+  const page = await fetchFiles(
+    filesUrl({ ...EMPTY_QUERY, deleted: "false" }, Math.max(limit + taken.size, limit), 0),
+    signal,
+  );
+  const items = page.items.filter((row) => !taken.has(row.hash)).slice(0, limit);
+
+  // Every taken sound is undiscarded, so it is inside this total. Subtracting
+  // the ones we resolved is exact, not an estimate.
+  const takenInSet = page.total === 0 ? 0 : taken.size;
+  return { items, remaining: Math.max(page.total - takenInSet, items.length), source: "derived" };
+}
+
+/**
+ * The project on the bench, or null when there is not one.
+ *
+ * `stored` holds one uncommitted project, and there is no picking which
+ * project a sound goes into because there is only ever one there. When a board
+ * running a looser cap holds several, the most recently started one is the
+ * bench: it is the one whose sounds are being chosen right now.
+ */
+export function currentProject(projects: readonly ProjectSummary[] | null): ProjectSummary | null {
+  if (!projects) return null;
+  const open = projects.filter(soundSetOpen);
+  if (open.length === 0) return null;
+  return open.reduce((newest, project) => (project.created_at > newest.created_at ? project : newest));
 }

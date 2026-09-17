@@ -6,8 +6,8 @@
  * This is the root layout's only child, so it is mounted once for the life of
  * the tab. Route changes replace `children` and nothing else. The player and
  * its audio element therefore outlive every navigation: a sound started in the
- * list keeps playing through the detail page, the playlist, and the duplicates
- * view without reloading its stream.
+ * swipe view keeps playing through the detail page and the decided view
+ * without reloading its stream.
  */
 
 import Link from "next/link";
@@ -28,34 +28,38 @@ import type { Stats } from "@/lib/types";
 const MOCK = process.env.NEXT_PUBLIC_MOCK === "1";
 
 /**
- * Triaged over total, on every view.
+ * Decided over total, on every view.
  *
- * This is the progress bar for the whole project: 3,451 sounds have to be
- * listened to once, and a sound counts as dealt with when it is starred,
- * discarded, or in a list. It stays in the header on a phone, where the
- * collection totals are folded away, because the totals do not change and this
- * does.
+ * This is the progress bar for the whole project: every sound has to be
+ * answered once, and a sound is answered when it has been taken into a project
+ * or discarded. It stays in the header on a phone, where the collection totals
+ * are folded away, because the totals do not change and this does.
+ *
+ * The split between the two is printed only when the server reports it. A zero
+ * where the server said nothing would read as "nothing was taken".
  */
 function TriageCounter() {
   const { counts } = useTriage();
   if (!counts || counts.total === 0) return null;
   const percent = Math.round(counts.percent);
+  const split =
+    counts.taken === null || counts.discarded === null
+      ? ""
+      : `: ${formatCount(counts.taken)} taken, ${formatCount(counts.discarded)} discarded`;
   return (
     <div
       className="triage-counter"
       data-testid="triage-counter"
-      data-triaged={counts.triaged}
+      data-decided={counts.decided}
       data-total={counts.total}
-      title={`${formatCount(counts.triaged)} of ${formatCount(counts.total)} sounds triaged: ${formatCount(
-        counts.starred,
-      )} starred, ${formatCount(counts.deleted)} discarded, ${formatCount(counts.listed)} in a list`}
+      title={`${formatCount(counts.decided)} of ${formatCount(counts.total)} sounds decided${split}`}
     >
       <span className="triage-track" aria-hidden="true">
-        <span className="triage-fill" style={{ width: `${Math.min(100, Math.max(percent, counts.triaged > 0 ? 2 : 0))}%` }} />
+        <span className="triage-fill" style={{ width: `${Math.min(100, Math.max(percent, counts.decided > 0 ? 2 : 0))}%` }} />
       </span>
       <span className="mono">
         <span className="triage-long">
-          {formatCount(counts.triaged)}/{formatCount(counts.total)}{" "}
+          {formatCount(counts.decided)}/{formatCount(counts.total)}{" "}
         </span>
         {percent}%
       </span>
@@ -153,14 +157,16 @@ function TopBar() {
         </span>
         {MOCK ? <span className="mock-flag">mock data</span> : null}
       </div>
+      {/* Swipe first, because it is where the work happens. The other three
+          are records of it: what was decided, one sound looked up by name, and
+          the board the decisions feed. */}
       <nav className="nav">
-        {link("/", "list")}
+        {link("/", "swipe")}
+        {link("/decided", "decided")}
+        {link("/search", "search")}
         {link("/board", "board")}
-        {link("/lists", "lists")}
-        {link("/playlist", "playlist")}
-        {link("/dupes", "duplicates")}
       </nav>
-      {/* A forced line break, and only on a phone. The header now carries five
+      {/* A forced line break, and only on a phone. The header carries four
           destinations and two meters, which do not fit on 393 pixels in one
           line. Nothing is dropped and nothing scrolls off: the destinations
           take the first line and the two meters take the second. */}
@@ -181,7 +187,7 @@ function TopBar() {
         }
       >
         {stats
-          ? `${formatCount(stats.files)} sounds · ${formatCount(stats.aliases)} paths · ${formatHours(
+          ? `${formatCount(stats.files)} sounds · ${formatHours(
               stats.total_sounding_s ?? stats.total_duration_s,
             )}${stats.total_sounding_s === null ? "" : " sounding"} · ${formatBytes(stats.total_bytes)}`
           : "…"}
@@ -192,23 +198,42 @@ function TopBar() {
   );
 }
 
+/**
+ * The bottom of the screen.
+ *
+ * Every view but the swipe view gets the player bar. The swipe view has its
+ * own transport under its own card, and the bottom of a phone screen is where
+ * its two actions live: a second bar there would take the thumb's only
+ * comfortable reach and put a "play" button where "discard" should be.
+ *
+ * The audio element itself lives in `PlayerProvider`, not here, so a sound
+ * keeps playing across this boundary.
+ */
+function BottomBar() {
+  const pathname = usePathname();
+  if (pathname === "/") return null;
+  return (
+    <>
+      {/* Above the player, never over it: the transport is how the sound being
+          judged gets played. */}
+      <UndoBar />
+      <PlayerBar />
+    </>
+  );
+}
+
 export function Shell({ children }: { children: ReactNode }) {
   return (
-    // The player is the outer provider: triage watches it, so that starring a
-    // sound from a row moves the counter without a second request.
     <PlayerProvider>
       <TriageProvider>
-        {/* Inside triage, because adding a selection to a project is a triage
-            action that changes the board, and the selection bar reads both. */}
+        {/* Inside triage, because taking a sound into a project is a decision
+            that changes the board, and the swipe view reads both. */}
         <BoardProvider>
           <div className="shell">
             <TopBar />
             <CapProblem />
             <div className="main">{children}</div>
-            {/* Above the player, never over it: the transport is how the sound
-                being judged gets played. */}
-            <UndoBar />
-            <PlayerBar />
+            <BottomBar />
           </div>
         </BoardProvider>
       </TriageProvider>

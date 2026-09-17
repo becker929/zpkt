@@ -8,11 +8,11 @@
  * server sends 1,000 int8 minimum/maximum pairs per sound and this component
  * draws exactly those.
  *
- * `spans` tints labelled regions. Stage 3 fills it from the `span` table; until
- * then callers pass nothing and the waveform draws plain. Boundaries and labels
- * are separate concerns, so a span carries its own start, end, and label and
- * this component makes no assumption that spans tile the whole file or that
- * they are sorted.
+ * `spans` tints labelled regions, and every caller passes the spans of exactly
+ * one classifier: three opinions tinted over each other say nothing about any
+ * of them. Boundaries and labels are separate concerns, so a span carries its
+ * own start, end, and label and this component makes no assumption that spans
+ * tile the whole file or that they are sorted.
  */
 
 import { useCallback, useEffect, useRef } from "react";

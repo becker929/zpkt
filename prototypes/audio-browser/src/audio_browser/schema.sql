@@ -1,7 +1,7 @@
 -- audio-browser schema.
 --
 -- The hash is the identity of a sound. A path is only an alias that points at a
--- hash. Favorites and tags attach to the hash, so marking one copy marks every
+-- hash. Every decision attaches to the hash, so answering one copy answers every
 -- duplicate.
 
 CREATE TABLE IF NOT EXISTS blob (
@@ -29,6 +29,10 @@ CREATE INDEX IF NOT EXISTS idx_alias_hash ON alias(hash);
 CREATE INDEX IF NOT EXISTS idx_alias_filename ON alias(filename);
 CREATE INDEX IF NOT EXISTS idx_alias_root ON alias(root);
 
+-- A star. The routes that wrote and read this are gone: a star meant "keep
+-- this, decide later", and the queue has two answers and no later. The table
+-- and its rows stay because removing a route is one decision and destroying
+-- data is another, and only the first one was made.
 CREATE TABLE IF NOT EXISTS favorite (
   hash       TEXT PRIMARY KEY REFERENCES blob(hash) ON DELETE CASCADE,
   created_at TEXT NOT NULL,
@@ -82,16 +86,17 @@ CREATE TABLE IF NOT EXISTS soft_delete (
   note       TEXT
 );
 
--- A named collection of sounds. Triage files a sound into one of these when it
--- is worth keeping for a reason more specific than "starred".
+-- A named collection of sounds. Project membership replaced this: a list that
+-- is not a project is a maybe-pile with no exit. No route reads or writes these
+-- two tables any more, and their rows are kept exactly as they were.
 CREATE TABLE IF NOT EXISTS list (
   id         INTEGER PRIMARY KEY,
   name       TEXT NOT NULL UNIQUE,
   created_at TEXT NOT NULL
 );
 
--- Membership keys on the hash, like every other decision here, so filing one
--- copy files every copy. `position` is the order the list plays in.
+-- Membership keys on the hash, like every other decision here. `position` is
+-- the order the list played in.
 CREATE TABLE IF NOT EXISTS list_member (
   list_id  INTEGER NOT NULL REFERENCES list(id) ON DELETE CASCADE,
   hash     TEXT NOT NULL REFERENCES blob(hash) ON DELETE CASCADE,
@@ -199,7 +204,10 @@ CREATE TABLE IF NOT EXISTS project (
   size_bytes  INTEGER NOT NULL,
   valid       INTEGER NOT NULL,   -- 1 when the document matches the schema
   problem     TEXT,               -- why it does not, when it does not
-  placement   TEXT,               -- stored | collage | enrich | released, or NULL
+  -- stored | collage | enrich | released, or NULL. The board is `stored` and
+  -- `collage`; `enrich` is in the plan and in the document schema, so a file
+  -- may name it, but there is no such column and it holds no slot.
+  placement   TEXT,
   abandoned   INTEGER NOT NULL DEFAULT 0,
   name        TEXT,
   created_at  TEXT,
@@ -213,6 +221,11 @@ CREATE INDEX IF NOT EXISTS idx_project_placement ON project(placement, abandoned
 -- One row per sound in a project, in document order. Membership keys on the
 -- hash, like every other decision in this index, so a project holds sounds and
 -- not paths.
+--
+-- This is half of the triage counter and half of the swipe queue: a sound is
+-- answered when it is in `soft_delete` or here, and the queue is every sound in
+-- neither. The rows are derived from the project files and are rebuilt from
+-- them whenever one changes.
 CREATE TABLE IF NOT EXISTS project_sound (
   project_id TEXT NOT NULL REFERENCES project(id) ON DELETE CASCADE,
   hash       TEXT NOT NULL,

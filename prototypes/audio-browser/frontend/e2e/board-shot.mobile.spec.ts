@@ -10,7 +10,6 @@
 import { expect, test } from "@playwright/test";
 
 import { abandon, clearScratchProjects, fillColumn, makeScratch, scratchName } from "./board-helpers";
-import { longPress } from "./helpers";
 
 test.afterAll(async ({ request }) => {
   await clearScratchProjects(request);
@@ -64,13 +63,8 @@ test("the abandon confirmation on a phone", async ({ page }) => {
   await card.getByTestId("abandon-cancel").click();
 });
 
-test("the add-to-project sheet on a phone", async ({ page }) => {
+test("the bench, as the swipe view shows it", async ({ page }) => {
   await page.goto("/");
-  await expect(page.getByTestId("scroller")).toBeVisible();
-  await longPress(page, '[data-testid="row"][data-hash]:not([data-hash=""])');
-  await page.getByTestId("bulk-project").tap();
-  await expect(page.getByTestId("project-sheet")).toBeVisible();
-  await page.screenshot({ path: "screenshots/phone-project-sheet.png" });
-  // Nothing is added: this only photographs the sheet.
-  await page.getByTestId("selection-clear").tap();
+  await expect(page.getByTestId("bench")).toBeVisible();
+  await page.screenshot({ path: "screenshots/phone-bench.png" });
 });

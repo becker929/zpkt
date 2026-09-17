@@ -23,7 +23,7 @@ import {
   type ReactNode,
 } from "react";
 
-import { fetchFiles, fetchPeaks, fetchSilence, filesUrl, setFavorite, streamUrl } from "@/lib/api";
+import { fetchFiles, fetchPeaks, fetchSilence, filesUrl, streamUrl } from "@/lib/api";
 import { MIN_GAP_S, decideSkip, intervalAt, silentSeconds, skippable } from "@/lib/silence";
 import type { FileRow, Peaks, Query, Silence, SilenceInterval } from "@/lib/types";
 
@@ -110,11 +110,16 @@ interface PlayerApi extends PlayerState {
   next(): void;
   previous(): void;
   setVolume(v: number): void;
-  /** Flip the favourite flag for a hash, updating the player's copy too. */
-  toggleFavorite(row: FileRow): Promise<boolean>;
-  /** Bumped on every favourite change so lists can revalidate. */
-  favoriteVersion: number;
-  favoriteOverrides: Record<string, boolean>;
+  /**
+   * Play the loaded sound over and over instead of advancing.
+   *
+   * This is what the swipe view runs on. One sound fills the view and repeats
+   * until it is answered, so reaching the end is not a reason to move on —
+   * only a decision is. Trailing silence restarts it rather than advancing the
+   * queue, in exactly the same way.
+   */
+  loop: boolean;
+  setLoop(on: boolean): void;
 }
 
 const PlayerContext = createContext<PlayerApi | null>(null);
@@ -173,8 +178,8 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     error: null,
     notice: null,
   });
-  const [favoriteVersion, setFavoriteVersion] = useState(0);
-  const [favoriteOverrides, setFavoriteOverrides] = useState<Record<string, boolean>>({});
+  const [loop, setLoopState] = useState(false);
+  const loopRef = useRef(false);
   // On by default. The stored answer is read in an effect rather than during
   // render, because the server has no `localStorage` and a value read during
   // render would make the first client render disagree with the HTML.
@@ -235,6 +240,33 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   const stepRef = useRef<(delta: number) => void>(() => {});
 
   /**
+   * Start the loaded sound again from the top.
+   *
+   * The guard that stops trailing silence advancing twice is cleared with it,
+   * or the second lap would play the dead air out in full.
+   */
+  const restart = useCallback(() => {
+    const audio = audioRef.current;
+    if (!audio) return;
+    advancedRef.current = null;
+    excusedRef.current = null;
+    try {
+      audio.currentTime = 0;
+    } catch {
+      return;
+    }
+    setState((s) => ({ ...s, time: 0 }));
+    void audio.play().catch(() => {
+      /* the browser refused to keep going; the transport still says so */
+    });
+  }, []);
+
+  const setLoop = useCallback((on: boolean) => {
+    loopRef.current = on;
+    setLoopState(on);
+  }, []);
+
+  /**
    * Jump over a measured gap, or advance the queue when the gap is the end.
    *
    * Called on every `timeupdate`, on metadata, and as soon as the measurement
@@ -273,6 +305,12 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       // dead air, and only once: `timeupdate` fires four times a second.
       if (advancedRef.current === row.hash) return;
       advancedRef.current = row.hash;
+      // Looping, so the end is the top. The sound repeats until it is
+      // answered, and forty seconds of tail is not part of the answer.
+      if (loopRef.current) {
+        restart();
+        return;
+      }
       audio.pause();
       stepRef.current(1);
       return;
@@ -284,7 +322,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       return;
     }
     setState((s) => (s.current?.hash === row.hash ? { ...s, time: decision.to } : s));
-  }, []);
+  }, [restart]);
 
   /**
    * Fetch the loaded sound's dead air.
@@ -476,23 +514,6 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     setState((s) => ({ ...s, volume: clamped }));
   }, []);
 
-  const toggleFavorite = useCallback<PlayerApi["toggleFavorite"]>(async (row) => {
-    const wanted = !row.favorite;
-    setFavoriteOverrides((prev) => ({ ...prev, [row.hash]: wanted }));
-    setState((s) =>
-      s.current?.hash === row.hash ? { ...s, current: { ...s.current, favorite: wanted } } : s,
-    );
-    try {
-      await setFavorite(row.hash, wanted);
-      setFavoriteVersion((v) => v + 1);
-      return wanted;
-    } catch (err) {
-      setFavoriteOverrides((prev) => ({ ...prev, [row.hash]: !wanted }));
-      setState((s) => ({ ...s, error: String(err) }));
-      return !wanted;
-    }
-  }, []);
-
   // Audio element events drive the transport read-out.
   useEffect(() => {
     const audio = audioRef.current;
@@ -514,6 +535,11 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       maybeSkip(audio.currentTime);
     };
     const onEnded = () => {
+      // Looping means the end is not a reason to move on. Only a decision is.
+      if (loopRef.current) {
+        restart();
+        return;
+      }
       setState((s) => ({ ...s, playing: false }));
       void step(1);
     };
@@ -536,7 +562,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       audio.removeEventListener("ended", onEnded);
       audio.removeEventListener("error", onError);
     };
-  }, [step, maybeSkip]);
+  }, [step, maybeSkip, restart]);
 
   // Turning the skipper on is an instruction to act now, including on the gap
   // the playhead is already sitting in.
@@ -585,25 +611,10 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       next,
       previous,
       setVolume,
-      toggleFavorite,
-      favoriteVersion,
-      favoriteOverrides,
+      loop,
+      setLoop,
     }),
-    [
-      state,
-      autoSkip,
-      setAutoSkip,
-      silentRegions,
-      play,
-      toggle,
-      seek,
-      next,
-      previous,
-      setVolume,
-      toggleFavorite,
-      favoriteVersion,
-      favoriteOverrides,
-    ],
+    [state, autoSkip, setAutoSkip, silentRegions, play, toggle, seek, next, previous, setVolume, loop, setLoop],
   );
 
   return (

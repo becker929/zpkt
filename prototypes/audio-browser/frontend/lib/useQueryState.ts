@@ -3,11 +3,9 @@
 /**
  * The filter lives in the URL.
  *
- * The list view and the playlist view show the same filtered set, and the
- * playlist is defined as "whatever the list is showing". Keeping the filter in
- * the query string means both views read one source, a filtered view can be
- * linked or reloaded, and going back from a sound's detail page returns to the
- * same set.
+ * A search can then be linked, reloaded, and come back to after opening a
+ * sound's detail page, which is what makes it a way of finding one sound
+ * rather than a box that forgets.
  */
 
 import { useCallback, useEffect, useMemo, useRef } from "react";
@@ -15,7 +13,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
 import { EMPTY_QUERY, type DeletedFilter, type Query, type SortKey, type SortOrder } from "./types";
 
-const SORT_KEYS: SortKey[] = ["name", "duration", "size", "sounding"];
+const SORT_KEYS: SortKey[] = ["name", "duration", "sounding"];
 const DELETED_VALUES: DeletedFilter[] = ["false", "true", "any"];
 
 export function queryFromParams(params: URLSearchParams): Query {
@@ -28,7 +26,6 @@ export function queryFromParams(params: URLSearchParams): Query {
     deleted: deleted && DELETED_VALUES.includes(deleted) ? deleted : EMPTY_QUERY.deleted,
     q: params.get("q") ?? "",
     ext: params.get("ext") ?? "",
-    favorite: params.get("favorite") === "1",
     min_dur: params.get("min_dur") ?? "",
     max_dur: params.get("max_dur") ?? "",
     sort: sort && SORT_KEYS.includes(sort) ? sort : EMPTY_QUERY.sort,
@@ -40,7 +37,6 @@ export function paramsFromQuery(query: Query): URLSearchParams {
   const params = new URLSearchParams();
   if (query.q) params.set("q", query.q);
   if (query.ext) params.set("ext", query.ext);
-  if (query.favorite) params.set("favorite", "1");
   if (query.min_dur) params.set("min_dur", query.min_dur);
   if (query.max_dur) params.set("max_dur", query.max_dur);
   if (query.sort !== EMPTY_QUERY.sort) params.set("sort", query.sort);

@@ -25,18 +25,12 @@ from .models import (
     DupeGroup,
     DupeList,
     DupePath,
-    FavoriteState,
     FileDetail,
     FileList,
     FileSummary,
-    ListCollection,
-    ListDeleted,
-    ListDetail,
-    ListMembership,
-    ListRef,
-    ListSummary,
     NameCount,
     PeaksResponse,
+    ProjectRef,
     RootCount,
     SilenceInterval,
     SilenceReport,
@@ -57,9 +51,13 @@ SORT_COLUMNS: dict[str, str] = {
     # A five minute stem holding forty seconds of audio belongs next to the
     # forty second sounds, not next to the five minute ones.
     "sounding": "sounding_s",
-    "size": "b.size_bytes",
-    "aliases": "alias_count",
 }
+"""Every order the list accepts.
+
+Size and alias count were here and are gone. Nobody picks a sound because it is
+large or because four paths reach it; both were orders you could browse in
+without deciding anything.
+"""
 
 # Sorts whose column is null for some rows. Null goes last whichever way the
 # sort runs, so an unmeasured or unprobed sound never displaces a measured one
@@ -88,8 +86,18 @@ _SUMMARY_COLUMNS = f"""
     pa.path           AS path,
     pa.root           AS root,
     (SELECT COUNT(*) FROM alias x WHERE x.hash = b.hash) AS alias_count,
-    EXISTS (SELECT 1 FROM favorite f WHERE f.hash = b.hash) AS favorite,
     EXISTS (SELECT 1 FROM soft_delete d WHERE d.hash = b.hash) AS deleted
+"""
+
+UNDECIDED_SQL = """
+NOT EXISTS (SELECT 1 FROM soft_delete d WHERE d.hash = b.hash)
+AND NOT EXISTS (SELECT 1 FROM project_sound ps WHERE ps.hash = b.hash)
+"""
+"""A sound nobody has answered yet: not discarded, and in no project.
+
+Those are the only two answers there are, so this is the whole of the queue. It
+reads ``project_sound``, which :meth:`ProjectStore.sync` rebuilds from the files
+before every request, so a project edited by hand still counts.
 """
 
 
@@ -104,7 +112,6 @@ class FileFilters:
 
     q: str | None = None
     exts: tuple[str, ...] = ()
-    favorite: bool | None = None
     min_dur: float | None = None
     max_dur: float | None = None
     deleted: str = "false"
@@ -153,10 +160,6 @@ def _where(filters: FileFilters) -> tuple[str, list[object]]:
         )
         params.extend(filters.exts)
 
-    if filters.favorite is not None:
-        keyword = "EXISTS" if filters.favorite else "NOT EXISTS"
-        clauses.append(f"{keyword} (SELECT 1 FROM favorite ff WHERE ff.hash = b.hash)")
-
     if filters.min_dur is not None:
         clauses.append("b.duration_s IS NOT NULL AND b.duration_s >= ?")
         params.append(filters.min_dur)
@@ -199,7 +202,6 @@ def _summary(row: sqlite3.Row) -> FileSummary:
         channels=row["channels"],
         codec=row["codec"],
         alias_count=row["alias_count"],
-        favorite=bool(row["favorite"]),
         deleted=bool(row["deleted"]),
         has_peaks=bool(row["has_peaks"]),
         # Taken from the primary alias. Every alias of a hash holds the same
@@ -273,7 +275,7 @@ def blob_exists(conn: sqlite3.Connection, file_hash: str) -> bool:
 def get_detail(
     conn: sqlite3.Connection, file_hash: str, *, transcoded_exts: frozenset[str]
 ) -> FileDetail | None:
-    """One sound with every alias, its tags, and its favorite state."""
+    """One sound with every alias, its tags, and every project holding it."""
     row = conn.execute(
         f"SELECT {_SUMMARY_COLUMNS} FROM blob b {_PRIMARY_JOIN} WHERE b.hash = ?",
         (file_hash,),
@@ -305,21 +307,10 @@ def get_detail(
             "SELECT name FROM tag WHERE hash = ? ORDER BY name", (file_hash,)
         )
     ]
-    fav = conn.execute(
-        "SELECT created_at, note FROM favorite WHERE hash = ?", (file_hash,)
-    ).fetchone()
     discarded = conn.execute(
         "SELECT deleted_at, note FROM soft_delete WHERE hash = ?", (file_hash,)
     ).fetchone()
-    memberships = [
-        ListRef(id=int(row["id"]), name=str(row["name"]))
-        for row in conn.execute(
-            "SELECT l.id AS id, l.name AS name FROM list l "
-            "JOIN list_member m ON m.list_id = l.id WHERE m.hash = ? "
-            "ORDER BY l.name COLLATE NOCASE, l.id",
-            (file_hash,),
-        )
-    ]
+    memberships = projects_holding(conn, file_hash)
 
     playable = next((a for a in aliases if a.exists), None)
     fields = _summary(row).model_dump()
@@ -341,11 +332,9 @@ def get_detail(
         aliases=aliases,
         deleted_sightings=removed,
         tags=tags,
-        favorite_note=fav["note"] if fav else None,
-        favorited_at=fav["created_at"] if fav else None,
         deleted_at=discarded["deleted_at"] if discarded else None,
         delete_note=discarded["note"] if discarded else None,
-        lists=memberships,
+        projects=memberships,
         probed_at=row["probed_at"],
         playable=playable is not None,
     )
@@ -371,41 +360,22 @@ def playable_alias(
     return None
 
 
-def favorite_state(conn: sqlite3.Connection, file_hash: str) -> FavoriteState:
-    """Current favorite state, and the number of paths that inherit it."""
-    fav = conn.execute(
-        "SELECT created_at, note FROM favorite WHERE hash = ?", (file_hash,)
-    ).fetchone()
-    count = conn.execute(
-        "SELECT COUNT(*) AS n FROM alias WHERE hash = ?", (file_hash,)
-    ).fetchone()["n"]
-    return FavoriteState(
-        hash=file_hash,
-        favorite=fav is not None,
-        created_at=fav["created_at"] if fav else None,
-        note=fav["note"] if fav else None,
-        alias_count=int(count),
-    )
+def projects_holding(conn: sqlite3.Connection, file_hash: str) -> list[ProjectRef]:
+    """Every project this sound was taken into, by name.
 
-
-def set_favorite(
-    conn: sqlite3.Connection, file_hash: str, note: str | None = None
-) -> FavoriteState:
-    """Mark the hash. Every alias of it is favorited by the same row."""
-    conn.execute(
-        "INSERT INTO favorite (hash, created_at, note) VALUES (?, ?, ?) "
-        "ON CONFLICT(hash) DO UPDATE SET note = COALESCE(excluded.note, favorite.note)",
-        (file_hash, now_iso(), note),
-    )
-    conn.commit()
-    return favorite_state(conn, file_hash)
-
-
-def clear_favorite(conn: sqlite3.Connection, file_hash: str) -> FavoriteState:
-    """Unmark the hash. Removing a favorite that is not set is not an error."""
-    conn.execute("DELETE FROM favorite WHERE hash = ?", (file_hash,))
-    conn.commit()
-    return favorite_state(conn, file_hash)
+    Read from the index, which :meth:`ProjectStore.sync` brings into line with
+    the files before any route answers, so a project written by hand is here
+    too.
+    """
+    return [
+        ProjectRef(id=str(row["id"]), name=str(row["name"] or row["id"]))
+        for row in conn.execute(
+            "SELECT p.id AS id, p.name AS name FROM project p "
+            "JOIN project_sound ps ON ps.project_id = p.id WHERE ps.hash = ? "
+            "ORDER BY p.name COLLATE NOCASE, p.id",
+            (file_hash,),
+        )
+    ]
 
 
 # ------------------------------------------------------------------ soft delete
@@ -457,179 +427,6 @@ def clear_deleted(conn: sqlite3.Connection, file_hash: str) -> DeletedState:
     return deleted_state(conn, file_hash)
 
 
-# ------------------------------------------------------------------------ lists
-
-
-class ListNameTaken(Exception):
-    """Another list already has this name."""
-
-
-_LIST_COLUMNS = f"""
-    l.id         AS id,
-    l.name       AS name,
-    l.created_at AS created_at,
-    (SELECT COUNT(*) FROM list_member m WHERE m.list_id = l.id) AS member_count,
-    (SELECT COALESCE(SUM(b.duration_s), 0) FROM list_member m
-       JOIN blob b ON b.hash = m.hash WHERE m.list_id = l.id) AS duration_s,
-    (SELECT SUM({SOUNDING_S_SQL}) FROM list_member m
-       JOIN blob b ON b.hash = m.hash WHERE m.list_id = l.id) AS sounding_s,
-    (SELECT COALESCE(SUM(b.size_bytes), 0) FROM list_member m
-       JOIN blob b ON b.hash = m.hash WHERE m.list_id = l.id) AS size_bytes
-"""
-
-
-def _list_summary(row: sqlite3.Row) -> ListSummary:
-    return ListSummary(
-        id=int(row["id"]),
-        name=str(row["name"]),
-        created_at=str(row["created_at"]),
-        member_count=int(row["member_count"]),
-        duration_s=float(row["duration_s"]),
-        # SUM over a column that is null for every row is null, which is the
-        # right answer: a playlist of unmeasured sounds has no known playing
-        # time. SQLite skips nulls in a mixed list, so a partly measured list
-        # reports the part it knows.
-        sounding_s=row["sounding_s"],
-        size_bytes=int(row["size_bytes"]),
-    )
-
-
-def all_lists(conn: sqlite3.Connection) -> ListCollection:
-    """Every list, by name. There are never enough of these to need paging."""
-    rows = conn.execute(
-        f"SELECT {_LIST_COLUMNS} FROM list l ORDER BY l.name COLLATE NOCASE, l.id"
-    ).fetchall()
-    return ListCollection(total=len(rows), items=[_list_summary(r) for r in rows])
-
-
-def get_list(conn: sqlite3.Connection, list_id: int) -> ListSummary | None:
-    row = conn.execute(
-        f"SELECT {_LIST_COLUMNS} FROM list l WHERE l.id = ?", (list_id,)
-    ).fetchone()
-    return _list_summary(row) if row else None
-
-
-def create_list(conn: sqlite3.Connection, name: str) -> ListSummary:
-    """Make a list. The name is unique, so a repeat is a conflict, not a copy."""
-    try:
-        cur = conn.execute(
-            "INSERT INTO list (name, created_at) VALUES (?, ?)", (name, now_iso())
-        )
-    except sqlite3.IntegrityError as exc:
-        conn.rollback()
-        raise ListNameTaken(name) from exc
-    conn.commit()
-    made = get_list(conn, int(cur.lastrowid or 0))
-    assert made is not None
-    return made
-
-
-def rename_list(
-    conn: sqlite3.Connection, list_id: int, name: str
-) -> ListSummary | None:
-    """Rename a list. Returns None when there is no such list."""
-    if get_list(conn, list_id) is None:
-        return None
-    try:
-        conn.execute("UPDATE list SET name = ? WHERE id = ?", (name, list_id))
-    except sqlite3.IntegrityError as exc:
-        conn.rollback()
-        raise ListNameTaken(name) from exc
-    conn.commit()
-    return get_list(conn, list_id)
-
-
-def delete_list(conn: sqlite3.Connection, list_id: int) -> ListDeleted | None:
-    """Remove a list and its membership rows.
-
-    The sounds are untouched. Membership is a label on a hash; dropping the
-    label leaves the sound, its aliases, and its bytes exactly as they were.
-    """
-    summary = get_list(conn, list_id)
-    if summary is None:
-        return None
-    conn.execute("DELETE FROM list WHERE id = ?", (list_id,))
-    conn.commit()
-    return ListDeleted(
-        id=summary.id, name=summary.name, removed_members=summary.member_count
-    )
-
-
-def _membership(conn: sqlite3.Connection, list_id: int, file_hash: str) -> ListMembership:
-    row = conn.execute(
-        "SELECT position, added_at FROM list_member WHERE list_id = ? AND hash = ?",
-        (list_id, file_hash),
-    ).fetchone()
-    count = conn.execute(
-        "SELECT COUNT(*) AS n FROM list_member WHERE list_id = ?", (list_id,)
-    ).fetchone()["n"]
-    return ListMembership(
-        list_id=list_id,
-        hash=file_hash,
-        member=row is not None,
-        position=int(row["position"]) if row else None,
-        added_at=str(row["added_at"]) if row else None,
-        member_count=int(count),
-    )
-
-
-def add_to_list(
-    conn: sqlite3.Connection, list_id: int, file_hash: str
-) -> ListMembership:
-    """Put a sound at the end of a list. Adding it twice keeps the first place."""
-    conn.execute(
-        "INSERT INTO list_member (list_id, hash, position, added_at) "
-        "VALUES (?, ?, "
-        "  (SELECT COALESCE(MAX(position), 0) + 1 FROM list_member WHERE list_id = ?),"
-        "  ?) "
-        "ON CONFLICT(list_id, hash) DO NOTHING",
-        (list_id, file_hash, list_id, now_iso()),
-    )
-    conn.commit()
-    return _membership(conn, list_id, file_hash)
-
-
-def remove_from_list(
-    conn: sqlite3.Connection, list_id: int, file_hash: str
-) -> ListMembership:
-    """Take a sound out of a list. Removing a non-member is not an error."""
-    conn.execute(
-        "DELETE FROM list_member WHERE list_id = ? AND hash = ?", (list_id, file_hash)
-    )
-    conn.commit()
-    return _membership(conn, list_id, file_hash)
-
-
-def list_detail(
-    conn: sqlite3.Connection,
-    list_id: int,
-    *,
-    limit: int = DEFAULT_LIMIT,
-    offset: int = 0,
-) -> ListDetail | None:
-    """A list and a page of its members, in the order they will play.
-
-    Soft-deleted members are still shown. Putting a sound in a list and then
-    discarding it is a contradiction the user made; hiding half of it would
-    make the list's own count wrong.
-    """
-    summary = get_list(conn, list_id)
-    if summary is None:
-        return None
-    rows = conn.execute(
-        f"SELECT {_SUMMARY_COLUMNS} FROM blob b {_PRIMARY_JOIN} "
-        "JOIN list_member m ON m.hash = b.hash WHERE m.list_id = ? "
-        "ORDER BY m.position, b.hash LIMIT ? OFFSET ?",
-        (list_id, limit, offset),
-    ).fetchall()
-    return ListDetail(
-        **summary.model_dump(),
-        limit=limit,
-        offset=offset,
-        items=[_summary(row) for row in rows],
-    )
-
-
 # ------------------------------------------------------------------------- bulk
 
 
@@ -640,7 +437,7 @@ def _load_batch(conn: sqlite3.Connection, hashes: list[str]) -> int:
     statement one fixed string, sidesteps SQLite's parameter ceiling, and lets
     each action run as a single set operation instead of a loop.
 
-    ``ord`` preserves the order the client sent, which becomes list position.
+    ``ord`` preserves the order the client sent.
     """
     conn.execute(
         "CREATE TEMP TABLE IF NOT EXISTS bulk_hash ("
@@ -658,26 +455,15 @@ def _load_batch(conn: sqlite3.Connection, hashes: list[str]) -> int:
     )
 
 
-def _apply_action(
-    conn: sqlite3.Connection, action: str, list_id: int | None, when: str
-) -> int:
+def _apply_action(conn: sqlite3.Connection, action: str, when: str) -> int:
     """Run one action over the staged batch. Returns the number of rows changed.
 
     Every statement joins ``blob``, so a hash the index does not know writes
     nothing. That is what makes an unknown hash a skip rather than a failure.
+
+    Two actions, because there are two answers. Neither names a file.
     """
-    if action == "star":
-        cur = conn.execute(
-            "INSERT INTO favorite (hash, created_at) "
-            "SELECT t.hash, ? FROM bulk_hash t JOIN blob b ON b.hash = t.hash "
-            "WHERE NOT EXISTS (SELECT 1 FROM favorite f WHERE f.hash = t.hash)",
-            (when,),
-        )
-    elif action == "unstar":
-        cur = conn.execute(
-            "DELETE FROM favorite WHERE hash IN (SELECT hash FROM bulk_hash)"
-        )
-    elif action == "delete":
+    if action == "delete":
         cur = conn.execute(
             "INSERT INTO soft_delete (hash, deleted_at) "
             "SELECT t.hash, ? FROM bulk_hash t JOIN blob b ON b.hash = t.hash "
@@ -688,23 +474,6 @@ def _apply_action(
         cur = conn.execute(
             "DELETE FROM soft_delete WHERE hash IN (SELECT hash FROM bulk_hash)"
         )
-    elif action == "add_to_list":
-        cur = conn.execute(
-            "INSERT INTO list_member (list_id, hash, position, added_at) "
-            "SELECT ?, t.hash, "
-            "  (SELECT COALESCE(MAX(position), 0) FROM list_member WHERE list_id = ?) "
-            "  + ROW_NUMBER() OVER (ORDER BY t.ord), ? "
-            "FROM bulk_hash t JOIN blob b ON b.hash = t.hash "
-            "WHERE NOT EXISTS (SELECT 1 FROM list_member m "
-            "                  WHERE m.list_id = ? AND m.hash = t.hash)",
-            (list_id, list_id, when, list_id),
-        )
-    elif action == "remove_from_list":
-        cur = conn.execute(
-            "DELETE FROM list_member WHERE list_id = ? "
-            "AND hash IN (SELECT hash FROM bulk_hash)",
-            (list_id,),
-        )
     else:  # pragma: no cover - the action is a Literal, so this cannot happen
         raise ValueError(f"unknown bulk action: {action}")
     return max(cur.rowcount, 0)
@@ -714,7 +483,6 @@ def bulk(
     conn: sqlite3.Connection,
     hashes: list[str],
     action: str,
-    list_id: int | None = None,
 ) -> BulkResult:
     """Apply one action to many sounds, in one transaction.
 
@@ -731,14 +499,13 @@ def bulk(
     conn.execute("BEGIN IMMEDIATE")
     try:
         matched = _load_batch(conn, unique)
-        changed = _apply_action(conn, action, list_id, now_iso())
+        changed = _apply_action(conn, action, now_iso())
         conn.commit()
     except Exception:
         conn.rollback()
         raise
     return BulkResult(
         action=action,  # type: ignore[arg-type]
-        list_id=list_id,
         requested=len(hashes),
         unique=len(unique),
         matched=matched,
@@ -751,24 +518,37 @@ def bulk(
 # ------------------------------------------------------------------------ triage
 
 
+# Every count here is of sounds this index holds. A project may name a hash the
+# working copy no longer has — that is what content addressing is for — but such
+# a hash is not one of the 3,451 sounds being triaged, and counting it would push
+# the ratio past what has actually been listened to.
+_TRIAGE_SQL = """
+SELECT (SELECT COUNT(*) FROM blob) AS total,
+       (SELECT COUNT(*) FROM soft_delete d JOIN blob b ON b.hash = d.hash)
+         AS deleted,
+       (SELECT COUNT(DISTINCT ps.hash) FROM project_sound ps
+          JOIN blob b ON b.hash = ps.hash) AS taken,
+       (SELECT COUNT(*) FROM project) AS projects,
+       (SELECT COUNT(*) FROM (
+          SELECT hash FROM soft_delete
+          UNION SELECT hash FROM project_sound) answered
+          JOIN blob b ON b.hash = answered.hash) AS triaged
+"""
+
+
 def triage(conn: sqlite3.Connection) -> TriageCounts:
     """How far the listening has got.
 
-    A sound counts as triaged once a decision exists about it: starred,
-    discarded, or filed into a list. The union is taken over hashes, so a sound
-    decided three ways is still one sound done.
+    A sound counts as triaged once it has been answered: discarded, or taken
+    into a project. Those are the two answers the queue offers. A favourite used
+    to count as a third and no longer does — it meant "decide later", which is
+    the opposite of a decision. The rows are still there; they just do not make
+    a sound triaged.
+
+    The union is taken over hashes, so a sound answered twice is still one sound
+    done.
     """
-    row = conn.execute(
-        "SELECT (SELECT COUNT(*) FROM blob) AS total, "
-        "       (SELECT COUNT(*) FROM favorite) AS starred, "
-        "       (SELECT COUNT(*) FROM soft_delete) AS deleted, "
-        "       (SELECT COUNT(DISTINCT hash) FROM list_member) AS listed, "
-        "       (SELECT COUNT(*) FROM list) AS lists, "
-        "       (SELECT COUNT(*) FROM ("
-        "          SELECT hash FROM favorite "
-        "          UNION SELECT hash FROM soft_delete "
-        "          UNION SELECT hash FROM list_member)) AS triaged"
-    ).fetchone()
+    row = conn.execute(_TRIAGE_SQL).fetchone()
     total = int(row["total"])
     triaged = int(row["triaged"])
     return TriageCounts(
@@ -776,11 +556,32 @@ def triage(conn: sqlite3.Connection) -> TriageCounts:
         triaged=triaged,
         untriaged=max(total - triaged, 0),
         percent=round(100.0 * triaged / total, 2) if total else 0.0,
-        starred=int(row["starred"]),
         deleted=int(row["deleted"]),
-        listed=int(row["listed"]),
-        lists=int(row["lists"]),
+        taken=int(row["taken"]),
+        projects=int(row["projects"]),
     )
+
+
+# ------------------------------------------------------------------------- swipe
+
+
+def next_undecided(conn: sqlite3.Connection) -> FileSummary | None:
+    """The next sound to answer, or ``None`` when the queue is empty.
+
+    The order is by hash, which is arbitrary and fixed. Arbitrary matters: a
+    content digest has nothing to do with the folder a file sits in, so a pass
+    through the queue does not spend an hour inside one pack. Fixed matters
+    more: the same call answers the same sound until that sound is answered, so
+    a reload resumes rather than reshuffles.
+
+    A sound leaves this query the moment it is discarded or taken, so nothing
+    already decided can come back round.
+    """
+    row = conn.execute(
+        f"SELECT {_SUMMARY_COLUMNS} FROM blob b {_PRIMARY_JOIN} "
+        f"WHERE {UNDECIDED_SQL} ORDER BY b.hash LIMIT 1"
+    ).fetchone()
+    return _summary(row) if row is not None else None
 
 
 def peaks_response(
@@ -849,8 +650,7 @@ def dupes(
             params.append(BUNDLE_PATH_LIKE)
         sql = (
             "SELECT b.hash AS hash, b.size_bytes AS size_bytes, "
-            "       b.duration_s AS duration_s, MAX(p.c) AS copies, "
-            "       EXISTS (SELECT 1 FROM favorite f WHERE f.hash = b.hash) AS favorite "
+            "       b.duration_s AS duration_s, MAX(p.c) AS copies "
             "FROM blob b JOIN (SELECT hash, root, COUNT(*) AS c "
             f"                  FROM alias {scope} GROUP BY hash, root) p "
             "  ON p.hash = b.hash "
@@ -865,8 +665,7 @@ def dupes(
             params.append(BUNDLE_PATH_LIKE)
         sql = (
             "SELECT b.hash AS hash, b.size_bytes AS size_bytes, "
-            "       b.duration_s AS duration_s, COUNT(a.id) AS copies, "
-            "       EXISTS (SELECT 1 FROM favorite f WHERE f.hash = b.hash) AS favorite "
+            "       b.duration_s AS duration_s, COUNT(a.id) AS copies "
             f"FROM blob b JOIN alias a ON a.hash = b.hash {scope} "
             "GROUP BY b.hash HAVING copies > 1 "
             "ORDER BY (copies - 1) * b.size_bytes DESC, b.hash "
@@ -899,7 +698,6 @@ def dupes(
                 duration_s=row["duration_s"],
                 copies=copies,
                 wasted_bytes=(copies - 1) * int(row["size_bytes"]),
-                favorite=bool(row["favorite"]),
                 bundle_copies=sum(1 for entry in entries if entry.in_bundle),
                 paths=paths,
                 entries=entries,
