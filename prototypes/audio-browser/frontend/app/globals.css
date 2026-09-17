@@ -1,0 +1,2061 @@
+/* Dark, dense, built for scanning thousands of rows. */
+
+:root {
+  --bg: #0e1013;
+  --bg-raised: #161a1f;
+  --bg-hover: #1e242b;
+  --bg-active: #23303c;
+  --border: #272d35;
+  --text: #dfe4ea;
+  --text-dim: #8b95a3;
+  --text-faint: #5d6774;
+  --accent: #56b6ff;
+  --accent-dim: #2b628c;
+  --wave: #6fd3c7;
+  --wave-played: #56b6ff;
+  --favorite: #ffc861;
+  --danger: #ff7b72;
+  --row-height: 34px;
+  --header-height: 52px;
+  --player-height: 84px;
+  /* Padding that keeps the player bar clear of the iPhone home indicator. Zero
+     everywhere else. */
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  font-family: ui-sans-serif, -apple-system, "SF Pro Text", "Helvetica Neue", Arial, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 13px;
+  /* iOS inflates text in narrow blocks unless this is pinned, which is one of
+     the things that made the columns collapse on the phone. */
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+body {
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
+a {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+input,
+select {
+  font: inherit;
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  padding: 5px 8px;
+}
+
+input:focus,
+select:focus {
+  outline: none;
+  border-color: var(--accent-dim);
+}
+
+.mono {
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+}
+
+/* Shell ------------------------------------------------------------------ */
+
+/* `100vh` on iOS Safari means the viewport with the browser chrome hidden, so a
+   bottom-anchored bar sits under the toolbar and cannot be seen or tapped.
+   That is why the player bar looked missing on the phone. `100dvh` tracks the
+   height that is actually on screen. The `vh` line stays as the fallback for
+   browsers without `dvh`. */
+.shell {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  height: 100dvh;
+}
+
+.topbar {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  height: var(--header-height);
+  flex: 0 0 var(--header-height);
+  padding: 0 16px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-raised);
+}
+
+.brand {
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--text);
+}
+
+.brand .mock-flag {
+  font-weight: 400;
+  margin-left: 8px;
+}
+
+/* The short form only appears once the bar has no room for the long one. */
+.brand-short {
+  display: none;
+}
+
+.nav {
+  display: flex;
+  gap: 4px;
+}
+
+.nav a {
+  padding: 5px 11px;
+  border-radius: 5px;
+  color: var(--text-dim);
+}
+
+.nav a:hover {
+  background: var(--bg-hover);
+  text-decoration: none;
+}
+
+.nav a.active {
+  background: var(--bg-active);
+  color: var(--text);
+}
+
+.topbar-stats {
+  margin-left: auto;
+  color: var(--text-faint);
+  font-size: 12px;
+}
+
+.main {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Controls --------------------------------------------------------------- */
+
+.controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--border);
+  flex-wrap: wrap;
+}
+
+/* On a wide screen the two groups are only markup: `display: contents` drops
+   their boxes so every control is a direct flex item of `.controls`, exactly as
+   it was before the groups existed. `order` keeps the reading order. The narrow
+   layout below turns the groups back into real boxes and folds the second one
+   away. */
+.controls-primary,
+.controls-rest,
+.controls-extra {
+  display: contents;
+}
+
+.controls-primary > input[type="search"] {
+  order: 1;
+}
+
+.controls-rest > * {
+  order: 2;
+}
+
+.controls-extra > * {
+  order: 3;
+}
+
+.controls .result-count {
+  order: 4;
+}
+
+.filters-toggle {
+  display: none;
+}
+
+.controls input[type="search"] {
+  width: 280px;
+}
+
+.controls label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-dim);
+  font-size: 12px;
+}
+
+.controls .dur-input {
+  width: 72px;
+}
+
+.result-count {
+  margin-left: auto;
+  color: var(--text-faint);
+  font-size: 12px;
+}
+
+.chip {
+  padding: 4px 10px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--text-dim);
+  font-size: 12px;
+}
+
+.chip.on {
+  border-color: var(--accent-dim);
+  background: var(--bg-active);
+  color: var(--text);
+}
+
+/* Table ------------------------------------------------------------------ */
+
+.table-head {
+  display: flex;
+  align-items: center;
+  height: 30px;
+  padding: 0 16px;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-faint);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  background: var(--bg-raised);
+}
+
+.table-head button {
+  color: inherit;
+  font: inherit;
+  text-transform: inherit;
+  letter-spacing: inherit;
+  padding: 0;
+  text-align: left;
+}
+
+.table-head button:hover {
+  color: var(--text);
+}
+
+.table-head .sorted {
+  color: var(--accent);
+}
+
+.scroller {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  contain: strict;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  padding: 0 16px;
+  border-bottom: 1px solid rgba(39, 45, 53, 0.55);
+  cursor: pointer;
+  user-select: none;
+  /* A long press on a row is how selection starts on a phone. Without this iOS
+     answers it with its own share-and-copy callout instead. */
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.row:hover {
+  background: var(--bg-hover);
+}
+
+.row.playing {
+  background: var(--bg-active);
+}
+
+.row.pending {
+  color: var(--text-faint);
+}
+
+.col-idx {
+  flex: 0 0 56px;
+  color: var(--text-faint);
+  font-size: 11px;
+}
+
+.col-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding-right: 12px;
+}
+
+/* The link is the box the marquee measures itself against, so it needs a width.
+   `inline-block` with `max-width: 100%` gives it the column's width when the
+   name is too long and the name's own width when it fits, which is what the
+   measurement needs. It also keeps the link off the empty part of the column:
+   clicking there loads the row into the player, as it always has, and only the
+   name itself opens the detail page. */
+.col-name a {
+  display: inline-block;
+  max-width: 100%;
+  min-width: 0;
+  vertical-align: bottom;
+}
+
+.playlist-row .col-name a {
+  flex: 0 1 auto;
+}
+
+.col-dur {
+  flex: 0 0 72px;
+  text-align: right;
+  color: var(--text-dim);
+}
+
+.col-fmt {
+  flex: 0 0 72px;
+  text-align: right;
+  color: var(--text-dim);
+}
+
+.col-size {
+  flex: 0 0 86px;
+  text-align: right;
+  color: var(--text-dim);
+}
+
+.col-alias {
+  flex: 0 0 76px;
+  text-align: right;
+  color: var(--text-dim);
+}
+
+.col-fav {
+  flex: 0 0 44px;
+  text-align: right;
+}
+
+.alias-badge {
+  display: inline-block;
+  min-width: 22px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  font-size: 11px;
+  background: rgba(86, 182, 255, 0.14);
+  color: var(--accent);
+}
+
+.alias-badge.single {
+  background: transparent;
+  color: var(--text-faint);
+}
+
+.fav {
+  font-size: 14px;
+  line-height: 1;
+  color: var(--text-faint);
+  padding: 4px;
+}
+
+.fav:hover {
+  color: var(--favorite);
+}
+
+.fav.on {
+  color: var(--favorite);
+}
+
+/* Triage: selection, discard, lists ---------------------------------------- */
+
+/* The checkbox column. A pointer gets it everywhere; a thumb only sees it once
+   a long press has started a selection, because 34 pixels of a 393 pixel row
+   is too much to spend on a target a finger would miss. */
+.col-select {
+  flex: 0 0 34px;
+  display: flex;
+  align-items: center;
+}
+
+.col-select input {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  padding: 0;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+.col-del {
+  flex: 0 0 44px;
+  text-align: right;
+}
+
+/* Discard sits beside the star and reads as its opposite: one says keep, the
+   other says not this one. Neither removes anything from disk. */
+.drop {
+  font-size: 14px;
+  line-height: 1;
+  color: var(--text-faint);
+  padding: 4px 6px;
+  border-radius: 4px;
+}
+
+.drop:hover {
+  color: var(--danger);
+  background: rgba(255, 123, 114, 0.12);
+}
+
+.drop.on {
+  color: var(--accent);
+}
+
+.row.picked {
+  background: rgba(86, 182, 255, 0.13);
+}
+
+.row.picked:hover {
+  background: rgba(86, 182, 255, 0.2);
+}
+
+.chip.discard {
+  border-color: rgba(255, 123, 114, 0.5);
+  color: var(--danger);
+}
+
+.chip.restore {
+  border-color: var(--accent-dim);
+  color: var(--accent);
+}
+
+.chip.dim {
+  color: var(--text-faint);
+}
+
+.dim {
+  color: var(--text-faint);
+}
+
+/* The selection bar and the undo strip are both in the column flow, between
+   the scroller and the player bar. Nothing is floated over the player: the
+   transport is how the sound being judged gets played, so it stays reachable
+   while the decision is being made. */
+.selection {
+  flex: 0 0 auto;
+  border-top: 1px solid var(--accent-dim);
+  background: var(--bg-active);
+}
+
+.selection-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 16px;
+  flex-wrap: wrap;
+}
+
+.selection .count {
+  font-size: 12px;
+  color: var(--text);
+}
+
+.selection-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+  flex-wrap: wrap;
+}
+
+.selection-actions .chip {
+  background: var(--bg-raised);
+  min-height: 30px;
+  display: inline-flex;
+  align-items: center;
+}
+
+.selection-actions .chip:disabled {
+  opacity: 0.5;
+}
+
+.list-sheet {
+  border-bottom: 1px solid var(--border);
+  padding: 10px 16px;
+  max-height: 38vh;
+  overflow-y: auto;
+  background: var(--bg-raised);
+}
+
+.list-sheet .sheet-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  color: var(--text-dim);
+  font-size: 12px;
+  margin-bottom: 8px;
+}
+
+.sheet-lists {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  font-size: 12px;
+}
+
+.sheet-new {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+  align-items: center;
+}
+
+.sheet-new input {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.sheet-problem {
+  margin-top: 8px;
+  color: var(--danger);
+  font-size: 12px;
+}
+
+.undobar {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 16px;
+  border-top: 1px solid var(--border);
+  background: var(--bg-raised);
+  color: var(--text-dim);
+  font-size: 12px;
+}
+
+.undobar.failed {
+  color: var(--danger);
+}
+
+.undobar [data-testid="undo"] {
+  border-color: var(--accent-dim);
+  color: var(--accent);
+}
+
+/* Lists ------------------------------------------------------------------- */
+
+.new-list {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-top: 14px;
+}
+
+.new-list input {
+  flex: 0 1 280px;
+  min-width: 0;
+}
+
+.cards {
+  list-style: none;
+  margin: 16px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.card {
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px 14px;
+}
+
+.card-head {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.card-name {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.card-head .mono {
+  font-size: 11px;
+}
+
+.card-actions {
+  display: flex;
+  gap: 6px;
+  margin-top: 10px;
+  flex-wrap: wrap;
+}
+
+.card-actions .chip {
+  min-height: 30px;
+  display: inline-flex;
+  align-items: center;
+}
+
+.list-title {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+/* The progress counter in the header ------------------------------------- */
+
+.triage-counter {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: 14px;
+  color: var(--text-dim);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.triage-track {
+  display: inline-block;
+  width: 64px;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--bg-hover);
+  overflow: hidden;
+}
+
+.triage-fill {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+}
+
+/* Detail ----------------------------------------------------------------- */
+
+.detail {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 20px 24px 40px;
+}
+
+.detail h1 {
+  font-size: 19px;
+  margin: 0 0 4px;
+  font-weight: 600;
+  word-break: break-all;
+}
+
+.detail .hash {
+  color: var(--text-faint);
+  font-size: 11px;
+  word-break: break-all;
+}
+
+/* Prose, not a hash. A hash has no word boundaries and must break anywhere; a
+   sentence has them and must not, or a narrow column splits words mid-letter. */
+.detail .lede {
+  color: var(--text-faint);
+  font-size: 12px;
+  line-height: 1.6;
+  max-width: 62ch;
+}
+
+.panel {
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 14px 16px;
+  margin-top: 16px;
+}
+
+.panel h2 {
+  margin: 0 0 10px;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-faint);
+  font-weight: 600;
+}
+
+.meta-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 10px 20px;
+}
+
+.meta-grid dt {
+  color: var(--text-faint);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.meta-grid dd {
+  margin: 2px 0 0;
+}
+
+.alias-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.alias-list li {
+  display: flex;
+  gap: 10px;
+  align-items: baseline;
+  padding: 7px 0;
+  border-bottom: 1px solid rgba(39, 45, 53, 0.6);
+  font-size: 12px;
+}
+
+.alias-list li:last-child {
+  border-bottom: none;
+}
+
+.alias-list .n {
+  flex: 0 0 22px;
+  color: var(--text-faint);
+}
+
+.alias-list .root {
+  flex: 0 0 auto;
+  padding: 1px 7px;
+  border-radius: 4px;
+  background: var(--bg-active);
+  color: var(--text-dim);
+  font-size: 11px;
+}
+
+.alias-list .path {
+  flex: 1 1 auto;
+  word-break: break-all;
+  color: var(--text-dim);
+}
+
+.dupe-note {
+  color: var(--favorite);
+  font-size: 12px;
+  margin-bottom: 8px;
+}
+
+/* A mirrored copy is the intended state, so it is stated plainly rather than
+   warned about. */
+.mirror-note {
+  color: var(--text-dim);
+  font-size: 12px;
+  margin-bottom: 8px;
+}
+
+/* Audio inside a DAW project bundle. The project reads it from that exact
+   path, so it can never be removed. Marked in red everywhere it appears. */
+.locked {
+  flex: 0 0 auto;
+  margin-left: 8px;
+  padding: 1px 7px;
+  border: 1px solid var(--danger);
+  border-radius: 4px;
+  color: var(--danger);
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.bundle-guard p {
+  margin: 0 0 10px;
+  color: var(--text-dim);
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+/* Waveform and transport -------------------------------------------------- */
+
+.waveform {
+  position: relative;
+  width: 100%;
+  background: #0a0c0f;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow: hidden;
+  cursor: pointer;
+  /* A sideways drag scrubs; an up or down drag still scrolls the page. Without
+     this the browser claims the gesture and scrubbing does not work by touch. */
+  touch-action: pan-y;
+}
+
+/* A transcoded stream has no byte offsets, so a drag cannot move the playhead.
+   The cursor says so before the click does nothing. */
+.waveform.no-seek {
+  cursor: not-allowed;
+}
+
+.no-seek-note {
+  margin-top: 6px;
+  color: var(--favorite);
+  font-size: 12px;
+}
+
+.waveform canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.waveform .empty {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-faint);
+  font-size: 12px;
+  pointer-events: none;
+}
+
+.transport {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.transport .btn {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-dim);
+}
+
+.transport .btn:hover {
+  border-color: var(--accent-dim);
+  color: var(--text);
+}
+
+.transport .btn.primary {
+  width: 40px;
+  height: 40px;
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #07121b;
+}
+
+.transport .time {
+  color: var(--text-dim);
+  font-size: 12px;
+  min-width: 108px;
+}
+
+.transport .vol {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-faint);
+  font-size: 11px;
+}
+
+/* Player bar -------------------------------------------------------------- */
+
+.playerbar {
+  flex: 0 0 auto;
+  min-height: var(--player-height);
+  border-top: 1px solid var(--border);
+  background: var(--bg-raised);
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 0 16px var(--safe-bottom);
+}
+
+.playerbar .idle {
+  color: var(--text-faint);
+  font-size: 12px;
+}
+
+.playerbar .who {
+  flex: 0 0 270px;
+  min-width: 0;
+}
+
+.playerbar .who .sub {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.playerbar .who .name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.playerbar .who .name a {
+  display: block;
+  min-width: 0;
+}
+
+/* The transport in the bar gets the same round buttons as the one on the
+   detail page. They were inheriting nothing before, which left three bare
+   glyphs with no touch target. */
+.playerbar .btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-dim);
+}
+
+.playerbar .btn:hover {
+  border-color: var(--accent-dim);
+  color: var(--text);
+}
+
+.playerbar .btn.primary {
+  width: 38px;
+  height: 38px;
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #07121b;
+}
+
+.playerbar .btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.playerbar .who .sub {
+  color: var(--text-faint);
+  font-size: 11px;
+}
+
+.playerbar .wave-slot {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.playerbar .buttons {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Star and discard, the two judgements, side by side in the bar that is
+   playing the sound. */
+.playerbar .acts {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex: 0 0 auto;
+}
+
+/* The two judgements are the most-used controls in the whole interface, so
+   they get a real target rather than the size of their glyph. */
+.playerbar .acts button {
+  min-width: 34px;
+  min-height: 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Silence ----------------------------------------------------------------- */
+
+/* A length in a row is the sounding length. The mark says the file is longer
+   than the number beside it, which on a stem is most of what there is to know
+   about it. The title carries both numbers. */
+.len {
+  white-space: nowrap;
+}
+
+.len-mark {
+  color: var(--accent);
+  font-size: 10px;
+  vertical-align: super;
+  margin-left: 1px;
+}
+
+.len-wall {
+  color: var(--text-faint);
+}
+
+/* Skipping is a playback setting, so it gets the same target as the two
+   judgements beside it but not their colour.
+
+   It is a word, not a glyph. The fast-forward character renders as a colour
+   emoji on iOS, and a colour emoji cannot be tinted, so the one thing the
+   control has to say — whether it is on — would be lost. */
+.skip {
+  font-size: 11px;
+  line-height: 1;
+  color: var(--text-faint);
+  padding: 4px 2px;
+}
+
+.skip.on {
+  color: var(--accent);
+}
+
+/* Struck through: this is the setting, and it is not running. */
+.skip.off {
+  text-decoration: line-through;
+}
+
+.skip.blocked {
+  opacity: 0.45;
+}
+
+/* Misc -------------------------------------------------------------------- */
+
+.notice {
+  padding: 14px 16px;
+  color: var(--text-dim);
+}
+
+.error {
+  padding: 14px 16px;
+  color: var(--danger);
+}
+
+.mock-flag {
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(255, 200, 97, 0.16);
+  color: var(--favorite);
+  font-size: 11px;
+}
+
+.stat-row {
+  display: flex;
+  gap: 26px;
+  flex-wrap: wrap;
+}
+
+.stat-row .stat .k {
+  color: var(--text-faint);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.stat-row .stat .v {
+  font-size: 17px;
+}
+
+.playlist-row .col-name {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.now-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+  flex: 0 0 auto;
+}
+
+/* Marquee ----------------------------------------------------------------- */
+
+/* A name that fits is plain truncated text. A name that does not fit and is on
+   the row being listened to slides far enough to read the end, waits, and
+   slides back. The slide is a transform on the inner track, so it costs no
+   layout and no repaint of the row. */
+.marquee {
+  display: block;
+  overflow: hidden;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.marquee-track {
+  display: inline-block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: bottom;
+}
+
+.marquee[data-running="true"] .marquee-track {
+  max-width: none;
+  overflow: visible;
+  text-overflow: clip;
+  animation: marquee-slide var(--marquee-duration, 8s) ease-in-out infinite;
+  will-change: transform;
+}
+
+@keyframes marquee-slide {
+  0%,
+  12% {
+    transform: translateX(0);
+  }
+  50%,
+  62% {
+    transform: translateX(var(--marquee-shift, 0));
+  }
+  100% {
+    transform: translateX(0);
+  }
+}
+
+/* Motion off means motion off. The whole name is still in the title attribute
+   and on the detail page. */
+@media (prefers-reduced-motion: reduce) {
+  .marquee[data-running="true"] .marquee-track {
+    animation: none;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}
+
+/* The board ---------------------------------------------------------------- */
+
+/* Written the other way round from the rest of this file: the stacked layout is
+   the base and the columns are the enhancement. A board is the one view where
+   the phone is not a reduction of the desktop but the plainer of the two, and
+   four columns side by side on a 393 pixel screen is not a board, it is four
+   slivers. */
+.board-view h1 {
+  text-transform: lowercase;
+}
+
+.board {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-top: 16px;
+}
+
+.board-column {
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px 14px;
+  min-width: 0;
+}
+
+/* Over its limit, and it stays this way until the count comes back down. The
+   colour carries it at a glance and the stripe carries it without colour, so a
+   greyscale screenshot and a colour-blind reader both get the same message. */
+.board-column[data-over="true"] {
+  border-color: var(--danger);
+  box-shadow: inset 0 0 0 1px var(--danger);
+  background-image: repeating-linear-gradient(
+    135deg,
+    rgba(255, 123, 114, 0.09) 0 10px,
+    transparent 10px 20px
+  );
+}
+
+.column-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.column-head h2 {
+  margin: 0;
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--text);
+  font-weight: 600;
+}
+
+.column-work {
+  margin: 2px 0 0;
+  color: var(--text-faint);
+  font-size: 12px;
+}
+
+.column-over {
+  margin: 8px 0 0;
+  color: var(--danger);
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+/* The cap, drawn as the slots themselves rather than written in a tooltip. */
+.meter {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.pips {
+  display: inline-flex;
+  gap: 3px;
+}
+
+.pip {
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+  border: 1px solid var(--text-faint);
+  background: transparent;
+}
+
+.pip.filled {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+/* A slot that should not exist. Outside the cap, and drawn as a fault.
+ *
+ * Not the same shape as a slot inside the cap. Accent and danger sit within
+ * 1.2:1 of each other in lightness, so a box that differs only in hue is a
+ * fourth full slot in greyscale, in sunlight, and to anyone who cannot separate
+ * red from blue. Round rather than square, with the page colour cut through the
+ * middle of it, so the fault has a form and not only a colour. */
+.pip.beyond {
+  border-color: var(--danger);
+  background: var(--danger);
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 2px var(--bg);
+}
+
+.meter-figure {
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+.meter-more {
+  font-size: 11px;
+  color: var(--danger);
+}
+
+.meter[data-over="true"] .meter-figure {
+  color: var(--danger);
+  font-weight: 600;
+}
+
+.meter.compact .pip {
+  width: 7px;
+  height: 7px;
+  border-radius: 2px;
+}
+
+/* The header's copy keeps the shape difference. It is the only reading of the
+ * cap on every other view, and it has no figure beside it. */
+.meter.compact .pip.beyond {
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 1.5px var(--bg);
+}
+
+.board-alarm {
+  margin-top: 14px;
+  padding: 10px 12px;
+  border: 1px solid var(--danger);
+  border-left-width: 4px;
+  border-radius: 6px;
+  background: rgba(255, 123, 114, 0.1);
+  color: var(--text);
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.board-alarm strong {
+  color: var(--danger);
+}
+
+.project-card {
+  background: var(--bg);
+}
+
+.project-name {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--accent);
+  text-align: left;
+  padding: 0;
+}
+
+.project-id,
+.project-measures {
+  font-size: 11px;
+}
+
+.project-measures {
+  margin-top: 4px;
+}
+
+.project-chain {
+  margin-top: 6px;
+  font-size: 11px;
+  color: var(--text-faint);
+}
+
+/* The digest said one thing and the file now says another. */
+.project-tamper {
+  margin-top: 8px;
+  padding: 8px 10px;
+  border-left: 3px solid var(--danger);
+  background: rgba(255, 123, 114, 0.08);
+  color: var(--danger);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.project-receipt {
+  margin-top: 8px;
+  color: var(--wave);
+  font-size: 12px;
+}
+
+.nothing-to-freeze {
+  margin: 8px 0 0;
+  font-size: 12px;
+}
+
+/* A chip that cannot be pressed has to look like one. The commit button on an
+   empty project is the case: it is refused at the API too, and an ordinary
+   looking button would send someone to find out why by pressing it. */
+.card-actions .chip:disabled,
+.new-list .chip:disabled,
+.sheet-new .chip:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+/* Two lines for "start it" is one line too many. */
+.card-actions .chip,
+.new-list .chip,
+.sheet-new .chip {
+  white-space: nowrap;
+}
+
+/* Commit asks in full: what it freezes, and that nothing reopens it. */
+.confirm {
+  margin-top: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--accent-dim);
+  border-radius: 6px;
+  background: var(--bg-active);
+}
+
+.confirm-head {
+  margin: 0 0 6px;
+  font-weight: 600;
+  font-size: 13px;
+}
+
+.confirm-body {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--text-dim);
+  max-width: 62ch;
+}
+
+.chip.freeze {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.chip.commit {
+  border-color: var(--accent-dim);
+}
+
+/* A refusal is not an error. It is the cap doing its job, and the way through
+   is offered rather than hidden. */
+.refusal {
+  margin-top: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--danger);
+  border-radius: 6px;
+  background: rgba(255, 123, 114, 0.08);
+}
+
+.refusal-detail {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--text);
+  max-width: 62ch;
+}
+
+.refusal-note {
+  margin: 6px 0 0;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--text-dim);
+  max-width: 62ch;
+}
+
+.chip.override {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+.project-sounds {
+  margin-top: 10px;
+  border-top: 1px solid var(--border);
+  padding-top: 10px;
+}
+
+.project-sound-list {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.project-sound-list li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 32px;
+  font-size: 12px;
+}
+
+.project-sound-list a {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.new-project {
+  margin-top: 12px;
+  border-top: 1px solid var(--border);
+  padding-top: 10px;
+}
+
+.new-project-note {
+  margin-top: 6px;
+  font-size: 12px;
+}
+
+.released-list {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 12px;
+}
+
+/* Abandon and revive ------------------------------------------------------- */
+
+/* The other exit. Marked apart from commit, which is the accent colour, because
+   the two do opposite things: one freezes and promotes, the other freezes
+   nothing and gives the slot back. Neither is an error, so neither is red. */
+.chip.abandon {
+  border-color: var(--border);
+  color: var(--text-dim);
+}
+
+.chip.revive {
+  border-color: var(--accent-dim);
+  color: var(--accent);
+}
+
+.abandon-reason {
+  margin-top: 8px;
+  width: 100%;
+  max-width: 42ch;
+}
+
+/* Below the columns, and drawn as plainly not in play: no accent, muted text,
+   and a dashed edge so an abandoned card cannot be mistaken for one holding a
+   slot in a column. */
+.off-board {
+  margin-top: 18px;
+}
+
+.off-board h3 {
+  margin: 14px 0 0;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-dim);
+  font-weight: 600;
+}
+
+.abandoned-card {
+  border-style: dashed;
+  background: transparent;
+}
+
+.abandoned-card .card-name {
+  color: var(--text-dim);
+}
+
+.abandoned-reason {
+  margin: 6px 0 0;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--text-dim);
+  max-width: 62ch;
+  font-style: italic;
+}
+
+/* A file nobody can read is still holding a slot in this column. */
+.column-unreadable {
+  margin: 8px 0 0;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--danger);
+  max-width: 62ch;
+}
+
+/* A cap that could not be read. On every view, because the board is running
+   tighter than the configuration asks for until somebody fixes the setting. */
+.cap-problem {
+  margin: 0;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--danger);
+  background: rgba(255, 123, 114, 0.1);
+  font-size: 12px;
+  line-height: 1.6;
+  max-width: 100%;
+}
+
+/* The header's copy of the occupancy, beside the triage ratio. */
+.board-counter {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: 12px;
+  color: var(--text-dim);
+}
+
+.board-counter:hover {
+  text-decoration: none;
+}
+
+.board-counter-column {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.board-counter-label {
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-size: 10px;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+
+.board-counter-column[data-over="true"] .board-counter-label {
+  color: var(--danger);
+  font-weight: 700;
+}
+
+/* On a wide header everything sits on one line, so the break does nothing. */
+.topbar-break {
+  display: none;
+}
+
+/* Three columns once there is room for three columns. */
+@media (min-width: 721px) {
+  .board {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    align-items: start;
+  }
+}
+
+/* Narrow screens ---------------------------------------------------------- */
+
+/* The phone is the main way this collection gets browsed away from the desk.
+   Below this width the table drops the columns that can be recovered from the
+   detail page, the filter bar folds down to one line, and the name takes half
+   the screen. Keep the value equal to `NARROW` in lib/useMediaQuery.ts. */
+@media (max-width: 720px) {
+  :root {
+    --row-height: 46px;
+    --header-height: 44px;
+    --player-height: 104px;
+  }
+
+  /* 16px is the threshold below which iOS zooms the page when a field takes
+     focus. That zoom is what made the viewport unusable after one tap. */
+  input,
+  select {
+    font-size: 16px;
+    padding: 6px 8px;
+  }
+
+  /* Two lines on a phone. Five destinations and two meters do not fit across
+     393 pixels, and the answers that would fit are all worse: a nav that
+     scrolls hides a destination, and a meter dropped for want of room is a
+     meter that stops being felt. Twenty-odd pixels of height buys all of it. */
+  .topbar {
+    gap: 6px 10px;
+    padding: 4px 10px;
+    height: auto;
+    flex: 0 0 auto;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+
+  .topbar-break {
+    display: block;
+    flex-basis: 100%;
+    height: 0;
+    margin: 0;
+  }
+
+  /* Second line: the two meters, side by side, with room to spare. */
+  .topbar .triage-counter {
+    margin-left: 0;
+  }
+
+  .topbar .board-counter {
+    margin-left: auto;
+  }
+
+  .nav {
+    flex-wrap: wrap;
+  }
+
+  .brand-full {
+    display: none;
+  }
+
+  .brand-short {
+    display: inline;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+
+  /* The header now carries a fourth destination and the progress counter, so
+     the fixture-data flag has to stop wrapping the brand onto two lines. It
+     stays visible: a picture of generated data must never be mistaken for the
+     real collection. */
+  .brand {
+    display: flex;
+    align-items: center;
+    flex: 0 0 auto;
+  }
+
+  .brand .mock-flag {
+    margin-left: 5px;
+    padding: 1px 5px;
+    font-size: 10px;
+    white-space: nowrap;
+  }
+
+  .nav a {
+    padding: 6px 9px;
+  }
+
+  /* The same figures are one tap away on the duplicates view, and the filter
+     bar already reports how many sounds the current filter selects. */
+  .topbar-stats {
+    display: none;
+  }
+
+  .controls {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+    padding: 8px 10px;
+  }
+
+  .controls-primary {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .controls-extra {
+    display: flex;
+    flex: 0 0 auto;
+    order: 3;
+  }
+
+  /* Search first, then what the filter currently selects, then the view's own
+     action, then the fold-out. `.controls-rest` is its own row, so its children
+     need no order of their own. */
+  .controls-rest > * {
+    order: 0;
+  }
+
+  .controls-primary > input[type="search"] {
+    order: 1;
+    width: auto;
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  .controls .result-count {
+    order: 2;
+    margin-left: 0;
+    flex: 0 0 auto;
+    white-space: nowrap;
+    font-size: 11px;
+  }
+
+  .controls-extra > * {
+    order: 3;
+  }
+
+  .filters-toggle {
+    order: 4;
+  }
+
+  /* Four filters that are rarely changed used to occupy three rows of a small
+     screen. They are one tap away instead, and the toggle counts what is set. */
+  .controls-rest {
+    display: none;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .controls.open .controls-rest {
+    display: flex;
+  }
+
+  .filters-toggle {
+    display: inline-flex;
+    align-items: center;
+    flex: 0 0 auto;
+    min-height: 32px;
+  }
+
+  .controls-rest > select,
+  .controls-rest > .chip {
+    flex: 0 0 auto;
+  }
+
+  .controls .dur-input {
+    width: 84px;
+  }
+
+  .table-head,
+  .row {
+    padding: 0 10px;
+  }
+
+  /* The headings are the widest text in their columns. Shrink them and let each
+     cell clip rather than letting one heading shove the next one sideways. */
+  .table-head {
+    height: 26px;
+    font-size: 9px;
+    letter-spacing: 0.02em;
+  }
+
+  .table-head > div {
+    overflow: hidden;
+    white-space: nowrap;
+  }
+
+  /* "format" is wider than its own column here and the values under it read as
+     formats on sight. The column keeps its width so everything stays aligned;
+     only the word goes. */
+  .table-head .col-fmt {
+    visibility: hidden;
+  }
+
+  /* The index number and the path count are both recoverable from the detail
+     page; the name is not recoverable from anywhere. */
+  .col-idx,
+  .col-alias {
+    display: none;
+  }
+
+  /* Half the screen, as asked for. What is left holds length, format, size and
+     the favourite star, and the four of them together stay inside a 390 pixel
+     viewport with the 20 pixels of row padding. */
+  .col-name {
+    flex: 0 0 48%;
+    padding-right: 8px;
+  }
+
+  .col-dur {
+    flex: 0 0 48px;
+    font-size: 11px;
+  }
+
+  .col-fmt {
+    flex: 0 0 32px;
+    font-size: 11px;
+  }
+
+  .col-size {
+    flex: 0 0 58px;
+    font-size: 11px;
+  }
+
+  .col-fav {
+    flex: 0 0 32px;
+  }
+
+  /* The playlist has no format, path-count or favourite column, so its name
+     takes everything the other two columns leave. */
+  .playlist-head .col-name,
+  .playlist-row .col-name {
+    flex: 1 1 auto;
+  }
+
+  .fav {
+    font-size: 18px;
+    padding: 8px 4px;
+  }
+
+  .scroller {
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .row {
+    align-items: center;
+  }
+
+  /* Two lines instead of one long one: name and star on top, read-out under
+     it, then the waveform beside the transport. */
+  .playerbar {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      "who  fav"
+      "wave buttons";
+    align-items: center;
+    gap: 6px 10px;
+    padding: 8px 10px calc(8px + var(--safe-bottom));
+  }
+
+  .playerbar .who {
+    grid-area: who;
+    flex: 1 1 auto;
+  }
+
+  .playerbar > .fav {
+    grid-area: fav;
+  }
+
+  .playerbar .wave-slot {
+    grid-area: wave;
+  }
+
+  .playerbar .buttons {
+    grid-area: buttons;
+    gap: 6px;
+  }
+
+  .playerbar.empty {
+    display: block;
+    min-height: 0;
+    padding: 10px 10px calc(10px + var(--safe-bottom));
+  }
+
+  .playerbar .btn {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    border: 1px solid var(--border);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-dim);
+  }
+
+  .playerbar .btn.primary {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #07121b;
+  }
+
+  .detail {
+    padding: 14px 12px 28px;
+  }
+
+  .detail h1 {
+    font-size: 16px;
+  }
+
+  .meta-grid {
+    grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+  }
+
+  .alias-list li {
+    flex-wrap: wrap;
+  }
+
+  .transport .time {
+    min-width: 0;
+  }
+
+  .transport .vol {
+    margin-left: 0;
+  }
+
+  /* Triage on a phone ----------------------------------------------------- */
+
+  /* Four destinations, a brand and a counter in 393 pixels. The labels stay
+     the words they are; the padding is what gives way. */
+  .nav a {
+    padding: 6px 7px;
+    font-size: 12px;
+  }
+
+  /* The collection totals are hidden here, so the counter takes the space they
+     would have had. It is the one number in the header that moves. */
+  .triage-counter {
+    margin-left: auto;
+    gap: 6px;
+    font-size: 11px;
+  }
+
+  .triage-track {
+    width: 34px;
+  }
+
+  /* "412/3,451 12%" does not fit beside four nav links. The percentage is the
+     part that says how the work is going; the exact counts are in the title
+     and on the lists view. */
+  .triage-long {
+    display: none;
+  }
+
+  /* No checkbox column until a long press has started a selection. */
+  .col-select {
+    display: none;
+    flex: 0 0 30px;
+  }
+
+  .row.selecting .col-select,
+  .table-head.selecting .col-select {
+    display: flex;
+  }
+
+  /* The size of a file is recoverable from its detail page. Whether the sound
+     is worth keeping is not, and that decision needs a target a thumb can hit
+     without opening anything. */
+  .col-size {
+    display: none;
+  }
+
+  .col-del {
+    flex: 0 0 34px;
+  }
+
+  .drop {
+    font-size: 17px;
+    padding: 8px 4px;
+  }
+
+  /* While rows are being picked, the per-row star and discard would be two
+     more ways to hit the wrong thing. The selection bar holds those actions
+     for the whole selection instead. */
+  .row.selecting .col-del,
+  .row.selecting .col-fav,
+  .table-head.selecting .col-del,
+  .table-head.selecting .col-fav {
+    display: none;
+  }
+
+  .selection-row {
+    padding: 8px 10px;
+    gap: 8px;
+  }
+
+  .selection-actions {
+    margin-left: 0;
+    width: 100%;
+    gap: 6px;
+  }
+
+  /* A thumb-sized target, and wide enough that the row of them fills the bar
+     rather than crowding into a corner. */
+  .selection-actions .chip {
+    flex: 1 1 auto;
+    justify-content: center;
+    min-height: 38px;
+  }
+
+  .list-sheet {
+    padding: 10px;
+    max-height: 30vh;
+  }
+
+  .undobar {
+    padding: 8px 10px;
+  }
+
+  .undobar .chip {
+    min-height: 32px;
+    display: inline-flex;
+    align-items: center;
+  }
+
+  /* Star and discard share the slot the star had, so the player bar keeps its
+     two-line shape. */
+  .playerbar .acts {
+    grid-area: fav;
+    display: flex;
+    align-items: center;
+    gap: 2px;
+  }
+
+  /* Three targets where there were two. Star and discard keep their size; the
+     skip toggle is a setting rather than a judgement, so it is the one that
+     gives way. All three still clear the 42 pixel target with the name and the
+     read-out beside them. */
+  .playerbar .acts button {
+    min-width: 42px;
+    min-height: 42px;
+    font-size: 19px;
+  }
+
+  .playerbar .acts .skip {
+    min-width: 36px;
+    font-size: 11px;
+  }
+
+  .detail {
+    padding-bottom: 32px;
+  }
+}

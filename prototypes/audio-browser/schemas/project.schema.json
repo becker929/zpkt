@@ -1,0 +1,440 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://audio-browser.local/schemas/project.schema.json",
+  "title": "Project document",
+  "description": "One project, as it is stored in audio-browser/projects/<id>.json. The file is the truth;\nthe SQLite index is a cache that can be rebuilt from the directory.\n\nGenerated from frontend/lib/project.ts by frontend/scripts/emit-schema.mjs. Do not edit.\n\nThe four branches below tie `column` to `commits`: the chain is exactly the stages already\npassed, in board order, so a project in `collage` always carries a `stored` commit and its\nsound set is frozen as a property of the format.\n\nTwo rules cannot be written in draft 7 and must be checked separately after validation, by\n`checkProject` in TypeScript and by its mirror in Python: (1) `sounds` is a set, so no hash\nmay appear twice; (2) `updated_at` is not before `created_at`, and each commit instant is\nnot before the one above it.",
+  "anyOf": [
+    {
+      "type": "object",
+      "properties": {
+        "schema_version": {
+          "type": "number",
+          "const": 1
+        },
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100,
+          "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*(?![\\s\\S])"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120,
+          "pattern": "^\\S(?:.*\\S)?(?![\\s\\S])"
+        },
+        "created_at": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "^\\d{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12]\\d|3[01])T(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?Z(?![\\s\\S])"
+        },
+        "updated_at": {
+          "$ref": "#/anyOf/0/properties/created_at"
+        },
+        "notes": {
+          "type": "string",
+          "maxLength": 10000
+        },
+        "abandoned": {
+          "anyOf": [
+            {
+              "type": "object",
+              "properties": {
+                "at": {
+                  "$ref": "#/anyOf/0/properties/created_at"
+                },
+                "from": {
+                  "type": "string",
+                  "enum": [
+                    "stored",
+                    "collage",
+                    "enrich"
+                  ]
+                },
+                "reason": {
+                  "type": "string",
+                  "maxLength": 2000
+                }
+              },
+              "required": [
+                "at",
+                "from",
+                "reason"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "sounds": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "hash": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}(?![\\s\\S])"
+              },
+              "added_at": {
+                "$ref": "#/anyOf/0/properties/created_at"
+              },
+              "role": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 40
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "note": {
+                "type": "string",
+                "maxLength": 2000
+              }
+            },
+            "required": [
+              "hash",
+              "added_at",
+              "role",
+              "note"
+            ],
+            "additionalProperties": false
+          },
+          "maxItems": 512
+        },
+        "column": {
+          "type": "string",
+          "const": "stored"
+        },
+        "commits": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "column": {
+                "$ref": "#/anyOf/0/properties/abandoned/anyOf/0/properties/from"
+              },
+              "at": {
+                "$ref": "#/anyOf/0/properties/created_at"
+              },
+              "digest": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}(?![\\s\\S])"
+              }
+            },
+            "required": [
+              "column",
+              "at",
+              "digest"
+            ],
+            "additionalProperties": false
+          },
+          "maxItems": 0
+        }
+      },
+      "required": [
+        "schema_version",
+        "id",
+        "name",
+        "created_at",
+        "updated_at",
+        "notes",
+        "abandoned",
+        "sounds",
+        "column",
+        "commits"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "schema_version": {
+          "$ref": "#/anyOf/0/properties/schema_version"
+        },
+        "id": {
+          "$ref": "#/anyOf/0/properties/id"
+        },
+        "name": {
+          "$ref": "#/anyOf/0/properties/name"
+        },
+        "created_at": {
+          "$ref": "#/anyOf/0/properties/created_at"
+        },
+        "updated_at": {
+          "$ref": "#/anyOf/0/properties/created_at"
+        },
+        "notes": {
+          "$ref": "#/anyOf/0/properties/notes"
+        },
+        "abandoned": {
+          "$ref": "#/anyOf/0/properties/abandoned"
+        },
+        "sounds": {
+          "$ref": "#/anyOf/0/properties/sounds"
+        },
+        "column": {
+          "type": "string",
+          "const": "collage"
+        },
+        "commits": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 1,
+          "items": [
+            {
+              "type": "object",
+              "properties": {
+                "column": {
+                  "type": "string",
+                  "const": "stored"
+                },
+                "at": {
+                  "$ref": "#/anyOf/0/properties/created_at"
+                },
+                "digest": {
+                  "$ref": "#/anyOf/0/properties/commits/items/properties/digest"
+                }
+              },
+              "required": [
+                "column",
+                "at",
+                "digest"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        }
+      },
+      "required": [
+        "schema_version",
+        "id",
+        "name",
+        "created_at",
+        "updated_at",
+        "notes",
+        "abandoned",
+        "sounds",
+        "column",
+        "commits"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "schema_version": {
+          "$ref": "#/anyOf/0/properties/schema_version"
+        },
+        "id": {
+          "$ref": "#/anyOf/0/properties/id"
+        },
+        "name": {
+          "$ref": "#/anyOf/0/properties/name"
+        },
+        "created_at": {
+          "$ref": "#/anyOf/0/properties/created_at"
+        },
+        "updated_at": {
+          "$ref": "#/anyOf/0/properties/created_at"
+        },
+        "notes": {
+          "$ref": "#/anyOf/0/properties/notes"
+        },
+        "abandoned": {
+          "$ref": "#/anyOf/0/properties/abandoned"
+        },
+        "sounds": {
+          "$ref": "#/anyOf/0/properties/sounds"
+        },
+        "column": {
+          "type": "string",
+          "const": "enrich"
+        },
+        "commits": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "items": [
+            {
+              "type": "object",
+              "properties": {
+                "column": {
+                  "type": "string",
+                  "const": "stored"
+                },
+                "at": {
+                  "$ref": "#/anyOf/0/properties/created_at"
+                },
+                "digest": {
+                  "$ref": "#/anyOf/0/properties/commits/items/properties/digest"
+                }
+              },
+              "required": [
+                "column",
+                "at",
+                "digest"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "column": {
+                  "type": "string",
+                  "const": "collage"
+                },
+                "at": {
+                  "$ref": "#/anyOf/0/properties/created_at"
+                },
+                "digest": {
+                  "$ref": "#/anyOf/0/properties/commits/items/properties/digest"
+                }
+              },
+              "required": [
+                "column",
+                "at",
+                "digest"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        }
+      },
+      "required": [
+        "schema_version",
+        "id",
+        "name",
+        "created_at",
+        "updated_at",
+        "notes",
+        "abandoned",
+        "sounds",
+        "column",
+        "commits"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "schema_version": {
+          "$ref": "#/anyOf/0/properties/schema_version"
+        },
+        "id": {
+          "$ref": "#/anyOf/0/properties/id"
+        },
+        "name": {
+          "$ref": "#/anyOf/0/properties/name"
+        },
+        "created_at": {
+          "$ref": "#/anyOf/0/properties/created_at"
+        },
+        "updated_at": {
+          "$ref": "#/anyOf/0/properties/created_at"
+        },
+        "notes": {
+          "$ref": "#/anyOf/0/properties/notes"
+        },
+        "abandoned": {
+          "type": "null"
+        },
+        "sounds": {
+          "$ref": "#/anyOf/0/properties/sounds"
+        },
+        "column": {
+          "type": "string",
+          "const": "released"
+        },
+        "commits": {
+          "type": "array",
+          "minItems": 3,
+          "maxItems": 3,
+          "items": [
+            {
+              "type": "object",
+              "properties": {
+                "column": {
+                  "type": "string",
+                  "const": "stored"
+                },
+                "at": {
+                  "$ref": "#/anyOf/0/properties/created_at"
+                },
+                "digest": {
+                  "$ref": "#/anyOf/0/properties/commits/items/properties/digest"
+                }
+              },
+              "required": [
+                "column",
+                "at",
+                "digest"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "column": {
+                  "type": "string",
+                  "const": "collage"
+                },
+                "at": {
+                  "$ref": "#/anyOf/0/properties/created_at"
+                },
+                "digest": {
+                  "$ref": "#/anyOf/0/properties/commits/items/properties/digest"
+                }
+              },
+              "required": [
+                "column",
+                "at",
+                "digest"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "column": {
+                  "type": "string",
+                  "const": "enrich"
+                },
+                "at": {
+                  "$ref": "#/anyOf/0/properties/created_at"
+                },
+                "digest": {
+                  "$ref": "#/anyOf/0/properties/commits/items/properties/digest"
+                }
+              },
+              "required": [
+                "column",
+                "at",
+                "digest"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        }
+      },
+      "required": [
+        "schema_version",
+        "id",
+        "name",
+        "created_at",
+        "updated_at",
+        "notes",
+        "abandoned",
+        "sounds",
+        "column",
+        "commits"
+      ],
+      "additionalProperties": false
+    }
+  ]
+}

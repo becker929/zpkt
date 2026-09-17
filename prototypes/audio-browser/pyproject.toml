@@ -1,0 +1,75 @@
+[project]
+name = "audio-browser"
+version = "0.1.0"
+description = "Content-addressed index for a personal audio collection"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "blake3>=0.4.1",
+    "fastapi>=0.115",
+    # Project files are validated against schemas/project.schema.json, which is
+    # generated from the Zod declarations in frontend/lib/project.ts. Zod is the
+    # source of truth and neither language keeps a second copy of the shape.
+    "jsonschema>=4.20",
+    "uvicorn[standard]>=0.30",
+]
+
+[project.optional-dependencies]
+# Stage 3's classifiers. Kept out of the base install because they are close to
+# 3 GB of wheels and nothing else in the project needs them: scanning, hashing,
+# peaks and the HTTP API all run without a single one of these.
+#
+# Install with `uv sync --extra segment`.
+#
+# `setuptools` is here because tensorflow_hub still imports `pkg_resources`,
+# which setuptools 81 removed.
+segment = [
+    "numpy>=1.26",
+    "tensorflow>=2.16",
+    "tensorflow-hub>=0.16",
+    "setuptools<81",
+    "torch>=2.2",
+    "transformers>=4.40",
+    "silero-vad>=5.1",
+]
+
+[project.scripts]
+audio-browser = "audio_browser.cli:main"
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0",
+    "mypy>=1.10",
+    "httpx>=0.27",
+    "types-jsonschema>=4.20",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/audio_browser"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+
+[tool.mypy]
+python_version = "3.12"
+packages = ["audio_browser"]
+mypy_path = "src"
+strict = true
+
+# None of the stage 3 model libraries ship type information. They are reached
+# only through the thin wrappers in `audio_browser.segment`, each of which has
+# an annotated signature, so the untyped surface stops at the module boundary.
+[[tool.mypy.overrides]]
+module = [
+    "tensorflow.*",
+    "tensorflow_hub.*",
+    "transformers.*",
+    "silero_vad.*",
+    "torch.*",
+]
+ignore_missing_imports = true

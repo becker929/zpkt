@@ -1,0 +1,33 @@
+# Copy to config.toml and edit. config.toml is git-ignored.
+#
+# db: where the SQLite index lives. Relative paths resolve against this file's
+# directory.
+db = "audio-browser.db"
+
+# Each [[roots]] entry is one tree to index. The name appears in reports. The
+# path is resolved through symlinks before it is walked, so an entry recorded
+# under "compost" stores its real location.
+#
+# Both roots are read-only. The scan never writes into them.
+
+[[roots]]
+name = "compost"
+path = "../compost"
+
+[[roots]]
+name = "audio-library"
+path = "../audio-library"
+
+# The HTTP API. Every key here has a default, so the whole table is optional.
+#
+# host binds broadly on purpose: 0.0.0.0 is what makes the Tailscale address
+# reach the server. There is no authentication, so the tailnet is the security
+# perimeter.
+#
+# frontend_port is only used to build the default CORS entries below. Set
+# cors_origins or cors_origin_regex to override them.
+
+[server]
+host = "0.0.0.0"
+port = 8090
+frontend_port = 3100
