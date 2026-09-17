@@ -248,31 +248,58 @@ def load_validator(schema_dir: Path) -> Draft7Validator:
 
 
 def _schema_issues(validator: Draft7Validator, raw: object) -> list[Issue]:
-    """Schema failures, worst first, as one issue each.
+    """Schema failures, as one issue each.
 
-    The document is a four-branch ``anyOf`` keyed on ``column``, so a single
-    wrong field produces one failure per branch. Reporting all of them buries
-    the real problem under three irrelevant ones, so only the branch that got
-    furthest is described when the top-level failure is the union itself.
+    The document is a four-branch ``anyOf`` keyed on ``column``, so one wrong
+    field fails all four branches. Reporting every failure buries the real
+    problem under three about columns the file never claimed to be in, so the
+    branch the document was trying to be is picked out and only that branch is
+    described.
     """
-    errors = sorted(validator.iter_errors(raw), key=lambda e: list(e.absolute_path))
+    branch = _branch_of(raw)
     issues: list[Issue] = []
-    for error in errors:
-        best = min(error.context, key=_branch_distance) if error.context else error
+    for error in validator.iter_errors(raw):
+        best = _best_branch(error, branch)
         issues.append(
             Issue(
                 path=".".join(str(part) for part in best.absolute_path) or "(root)",
                 message=best.message,
             )
         )
-    return issues
+    return sorted(issues, key=lambda issue: issue.path)
+
+
+def _branch_of(raw: object) -> int | None:
+    """Which of the four branches this document is claiming to be.
+
+    ``None`` when ``column`` is missing or is not a placement, in which case
+    there is no branch to prefer and the deepest failure is reported instead.
+    """
+    if not isinstance(raw, dict):
+        return None
+    placement = raw.get("column")
+    if not isinstance(placement, str) or placement not in PLACEMENTS:
+        return None
+    return PLACEMENTS.index(placement)
+
+
+def _best_branch(error: Any, branch: int | None) -> Any:
+    """The sub-error worth showing, out of one per ``anyOf`` branch."""
+    if not error.context:
+        return error
+    candidates = [
+        sub
+        for sub in error.context
+        if branch is not None and list(sub.schema_path)[:1] == [branch]
+    ]
+    return min(candidates or list(error.context), key=_branch_distance)
 
 
 def _branch_distance(error: Any) -> tuple[int, int]:
     """How far into the document a branch got before it failed.
 
     The branch that complains about the deepest field is the one the document
-    was trying to be, so it is the one worth reporting.
+    was closest to satisfying, so it is the one worth reporting.
     """
     return (-len(list(error.absolute_path)), len(error.message))
 

@@ -33,11 +33,12 @@
     "**/*.tsx",
     ".next-dbg/types/**/*.ts",
     ".next-mock-cap1/types/**/*.ts",
+    ".next-mock-capbad/types/**/*.ts",
     ".next-mock-e2e/types/**/*.ts",
     ".next-mock/types/**/*.ts",
     ".next/types/**/*.ts",
     "next-env.d.ts",
-    ".next-mock-capbad/types/**/*.ts"
+    ".next-mock-cap0/types/**/*.ts"
   ],
   "exclude": [
     "node_modules"

@@ -9,7 +9,7 @@
 
 import { expect, test } from "@playwright/test";
 
-import { clearScratchProjects, fillColumn } from "./board-helpers";
+import { abandon, clearScratchProjects, fillColumn, makeScratch, scratchName } from "./board-helpers";
 import { longPress } from "./helpers";
 
 test.afterAll(async ({ request }) => {
@@ -38,6 +38,30 @@ test("the commit confirmation on a phone", async ({ page }) => {
   await card.getByTestId("project-commit").click();
   await expect(page.getByTestId("commit-confirm")).toBeVisible();
   await page.screenshot({ path: "screenshots/phone-board-commit.png", fullPage: true });
+});
+
+test("what is off the board, on a phone", async ({ page, request }) => {
+  // One more abandoned beside the fixture's, so the picture shows the section
+  // as it reads in use: a project let go a moment ago, and one let go weeks ago.
+  const id = await makeScratch(request, scratchName(1));
+  expect((await abandon(request, id, "the kick never sat right")).status).toBe(200);
+
+  await page.goto("/board");
+  const off = page.getByTestId("off-board");
+  await expect(off).toBeVisible();
+  await off.scrollIntoViewIfNeeded();
+  await page.screenshot({ path: "screenshots/phone-board-off.png", fullPage: true });
+});
+
+test("the abandon confirmation on a phone", async ({ page }) => {
+  await page.goto("/board");
+  const card = page.locator('[data-testid="project-card"][data-project-id="2026-09-16-rust-and-rebar"]');
+  await expect(card).toBeVisible();
+  await card.getByTestId("project-abandon").click();
+  await expect(card.getByTestId("abandon-confirm")).toBeVisible();
+  await page.screenshot({ path: "screenshots/phone-board-abandon.png", fullPage: true });
+  // Nothing is abandoned: this only photographs the question.
+  await card.getByTestId("abandon-cancel").click();
 });
 
 test("the add-to-project sheet on a phone", async ({ page }) => {

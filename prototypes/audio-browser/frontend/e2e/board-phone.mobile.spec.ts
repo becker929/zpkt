@@ -142,6 +142,78 @@ test("commit can be driven with a thumb, and says what it freezes", async ({ pag
   ).toBeVisible();
 });
 
+test("abandon can be driven with a thumb, and the reason box fits the screen", async ({
+  page,
+  request,
+}) => {
+  const id = await makeScratch(request, scratchName(1));
+  const before = (await columnState(request, "stored")).count;
+  const errors = watchConsole(page);
+
+  await page.goto("/board");
+  const card = page.locator(`[data-project-id="${id}"]`);
+  await card.getByTestId("project-abandon").tap();
+
+  const confirm = card.getByTestId("abandon-confirm");
+  await expect(confirm).toBeVisible();
+  await expect(card.getByTestId("abandon-consequence")).toContainText("slot back");
+
+  // Everything in the panel is thumb sized and on screen, including the box
+  // for the reason, which is the part a phone keyboard has to reach.
+  const viewport = page.viewportSize();
+  for (const testId of ["abandon-reason", "abandon-do", "abandon-cancel"]) {
+    const box = await card.getByTestId(testId).boundingBox();
+    expect(box, `no box on ${testId}`).not.toBeNull();
+    expect(box!.height, `${testId} is too small for a thumb`).toBeGreaterThanOrEqual(28);
+    expect(box!.x).toBeGreaterThanOrEqual(0);
+    expect(box!.x + box!.width, `${testId} runs off the side of the phone`).toBeLessThanOrEqual(
+      viewport!.width + 1,
+    );
+  }
+
+  await card.getByTestId("abandon-reason").fill("not this one");
+  await card.getByTestId("abandon-do").tap();
+
+  // The slot is back and the project is below the columns, where it can be
+  // brought back from.
+  const stored = page.locator('[data-testid="board-column"][data-column="stored"]');
+  await expect(stored).toHaveAttribute("data-count", String(before - 1));
+  const off = page.getByTestId("off-board").locator(`[data-project-id="${id}"]`);
+  await expect(off).toBeVisible();
+
+  const revive = off.getByTestId("project-revive");
+  const box = await revive.boundingBox();
+  expect(box, "no box on the revive button").not.toBeNull();
+  expect(box!.height).toBeGreaterThanOrEqual(28);
+  expect(box!.x + box!.width).toBeLessThanOrEqual(viewport!.width + 1);
+
+  await revive.tap();
+  await expect(
+    page.locator(`[data-testid="board-column"][data-column="stored"] [data-project-id="${id}"]`),
+  ).toBeVisible();
+  expect((await projects(request)).find((p) => p.id === id)?.abandoned).toBe(null);
+
+  await page.waitForTimeout(400);
+  expect(errors, "abandoning logged console errors").toEqual([]);
+});
+
+test("the fixture's abandoned project reads as off the board on a phone", async ({ page, request }) => {
+  const id = await makeScratch(request, scratchName(1));
+  expect((await abandon(request, id, "")).status).toBe(200);
+
+  await page.goto("/board");
+  const off = page.getByTestId("off-board");
+  await expect(off).toBeVisible();
+
+  // Below the columns, not beside them, and inside the screen.
+  const columns = await page.getByTestId("board-column").last().boundingBox();
+  const panel = await off.boundingBox();
+  expect(panel!.y).toBeGreaterThan(columns!.y);
+  const viewport = page.viewportSize();
+  expect(panel!.x).toBeGreaterThanOrEqual(0);
+  expect(panel!.x + panel!.width).toBeLessThanOrEqual(viewport!.width + 1);
+});
+
 test("a long press picks sounds and the project sheet takes them", async ({ page, request }) => {
   const id = await makeScratch(request, scratchName(1));
 

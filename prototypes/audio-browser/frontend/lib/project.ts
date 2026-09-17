@@ -514,10 +514,18 @@ const TRANSLITERATED: Readonly<Record<string, string>> = {
   ß: "ss", æ: "ae", œ: "oe", ø: "o", å: "aa", đ: "d", ð: "d", þ: "th", ł: "l",
 };
 
-/** The name with every script this knows read into Latin letters. */
+/**
+ * The name with every script this knows read into Latin letters.
+ *
+ * The combining marks `NFKD` leaves behind are removed rather than replaced.
+ * `slugify` turns any run of characters it cannot use into a hyphen, so a mark
+ * left in place would cut the word it belongs to in two: `béton` decomposes to
+ * `b`, `e`, an acute accent, `t`, `o`, `n`, and the accent would make that
+ * `be-ton`. Dropping the mark is what makes the id read as the word does.
+ */
 function transliterate(name: string): string {
   let out = "";
-  for (const character of name.normalize("NFKD").toLowerCase()) {
+  for (const character of name.normalize("NFKD").toLowerCase().replace(/\p{M}/gu, "")) {
     out += TRANSLITERATED[character] ?? character;
   }
   return out;
@@ -540,6 +548,10 @@ function codePointSlug(name: string): string {
     const code = character.codePointAt(0);
     // Spaces and control characters name nothing.
     if (code === undefined || code <= 0x20) continue;
+    // Nor do the invisible characters that only change how the one before them
+    // is drawn: a variation selector after an emoji would put `ufe0f` in the id
+    // and say nothing about the project.
+    if (/[\p{M}\p{Cf}]/u.test(character)) continue;
     const token = `u${code.toString(16)}`;
     if (!tokens.includes(token)) tokens.push(token);
     if (tokens.length === 4) break;

@@ -31,3 +31,30 @@ path = "../audio-library"
 host = "0.0.0.0"
 port = 8090
 frontend_port = 3100
+
+# Projects and the board.
+#
+# Projects are JSON files in `dir`, one per project, and those files are the
+# truth. SQLite indexes them so the board can be drawn without opening every
+# one, but the index is a cache: if the two disagree, the files win and the
+# index is rebuilt from them.
+#
+# `cap` is how many projects one column may hold, and it is the one line to
+# change. The default is 3 and it is meant to be turned down: 2, or 1, are
+# reasonable, and at 1 the only way to start something new is to finish or
+# abandon the thing in front of you. Going past a cap is possible, needs an
+# explicit override, and leaves the column visibly over its limit until the
+# count comes back down.
+#
+# 0 is a real setting and closes a column: useful for mothballing `enrich`
+# while a batch of material goes through `stored`.
+#
+# `schemas` holds the JSON Schema generated from frontend/lib/project.ts by
+# `npm run schema`. Python validates every project file against it, so neither
+# language keeps a second copy of the shape.
+
+[projects]
+dir = "projects"
+cap = 3
+# caps = { stored = 3, collage = 2, enrich = 1 }
+# schemas = "schemas"
