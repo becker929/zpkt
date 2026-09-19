@@ -1776,6 +1776,11 @@ select:focus {
   overflow: visible;
   box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.25);
   -webkit-tap-highlight-color: transparent;
+  /* A thumb holds still on a region to take the whole of it out. iOS must
+     not answer that hold with a callout or a selection. */
+  -webkit-touch-callout: none;
+  user-select: none;
+  -webkit-user-select: none;
   animation: region-in 180ms ease-out;
 }
 
@@ -1852,6 +1857,76 @@ select:focus {
   border: 1px dashed hsl(var(--hue) 55% 62% / 0.9);
   background: hsl(var(--hue) 45% 30% / 0.25);
   pointer-events: none;
+}
+
+/* What a snip is about to take out: the same stripes as a trim's cut, with a
+   line at each end where the two regions will part. Over the label and the
+   playhead, because it is the thing being decided; it takes no touch. */
+.region-snip {
+  position: absolute;
+  left: 0;
+  right: 0;
+  z-index: 1;
+  background: repeating-linear-gradient(
+    -45deg,
+    rgba(0, 0, 0, 0.55) 0 6px,
+    rgba(0, 0, 0, 0.35) 6px 12px
+  );
+  border-top: 2px solid rgba(255, 255, 255, 0.85);
+  border-bottom: 2px solid rgba(255, 255, 255, 0.85);
+  box-sizing: border-box;
+  pointer-events: none;
+}
+
+/* The whole region is going. The lines at the ends would sit on the box's
+   own edges, so the band says it with its edge instead. Nothing goes on a
+   lift yet: the thumb has to hold still on it first, and while it does the
+   band fills from the top over the length of the hold, so a thumb that has
+   stopped can watch it fill and a thumb that sweeps through never sees it
+   full. `--hold-ms` is set by the view, so the fill and the timer agree. */
+.region-snip.whole {
+  border-top-color: var(--favorite);
+  border-bottom-color: var(--favorite);
+  box-shadow: inset 0 0 0 2px var(--favorite);
+  overflow: hidden;
+}
+
+.region-snip.whole::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 0;
+  background: rgba(255, 200, 97, 0.55);
+  animation: snip-hold var(--hold-ms, 600ms) linear forwards;
+}
+
+@keyframes snip-hold {
+  from {
+    height: 0;
+  }
+  to {
+    height: 100%;
+  }
+}
+
+/* Held: a lift now removes the region. Solid, no stripes to read through. */
+.region-snip.whole.armed {
+  background: rgba(255, 200, 97, 0.7);
+}
+
+.region-snip.whole.armed::after {
+  animation: none;
+  height: 100%;
+}
+
+/* Motion off: the band is either not yet held or held, with nothing in
+   between; the bar says which in words either way. */
+@media (prefers-reduced-motion: reduce) {
+  .region-snip.whole::after {
+    animation: none;
+  }
 }
 
 /* The name sticks to the top of the block as the block scrolls, so a region
@@ -2031,6 +2106,86 @@ select:focus {
   font-size: 10px;
   color: var(--text-faint);
   white-space: nowrap;
+}
+
+/* The snip button: the way into the one other mode, and the way out. Pressed
+   while snip is on. Disabled with nothing to snip. */
+.collage-snip {
+  flex: 0 0 auto;
+  min-width: 72px;
+  min-height: 60px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  color: var(--text-dim);
+  font-size: 14px;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.collage-snip:disabled {
+  opacity: 0.4;
+}
+
+.collage-snip.on {
+  border-color: var(--favorite);
+  background: rgba(255, 200, 97, 0.14);
+  color: var(--text);
+}
+
+.collage-snip-sub {
+  font-size: 10px;
+  color: var(--text-faint);
+  white-space: nowrap;
+}
+
+.collage-snip.on .collage-snip-sub {
+  color: var(--favorite);
+}
+
+/* Where the choose button was: which mode is on, in words, and the way out
+   of it. The same size as the button it stands in for, so the thumb finds
+   it in the same place. */
+.collage-mode {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 60px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 2px;
+  padding: 8px 14px;
+  border: 1px solid var(--favorite);
+  border-radius: 12px;
+  background: rgba(255, 200, 97, 0.1);
+  color: var(--text);
+  text-align: left;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.collage-mode .collage-choose-sub {
+  white-space: normal;
+  line-height: 1.3;
+}
+
+/* The statement changes with the band, and when the whole region would go
+   it says so in the band's own amber: the thumb is on the band, and this is
+   the one place the eye can read what a lift will do. */
+.collage-mode.whole {
+  background: rgba(255, 200, 97, 0.28);
+}
+
+.collage-mode.whole.armed {
+  background: var(--favorite);
+  color: #1b1607;
+}
+
+.collage-mode.whole.armed .collage-choose-sub {
+  color: rgba(27, 22, 7, 0.75);
 }
 
 /* The picker: a sheet over the bottom of the view, with the set to hear and

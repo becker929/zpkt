@@ -6,8 +6,42 @@ sentences. Read top to bottom.
 ## Status right now
 
 Bullet one — choose a sound and stamp it — is reviewed and committed as
-`aa6807a` on `feature/audio-browser`. Bullet two — trim — is built and
-reviewed, and is not committed. Bullets three to five have not started.
+`aa6807a` on `feature/audio-browser`. Bullet two — trim — is reviewed and
+committed as `3a1ae38`. Bullet three — snip — is built and verified, and its
+critic is running; it is not committed. Bullets four and five have not started.
+
+## Bullet three — snip — built, verified, under review
+
+The builder delivered: snip as a mode entered by a chunky button; handles
+hidden while it is on and the bar saying so; drag down a region to paint the
+span that goes, in trim's striped language; release makes two regions, the
+first keeping `id` and `at_s`, the second placed where its material already
+sounded so a snipped gap stays a gap; a half that would fall under 0.25 s
+extends the removal to that edge; one `PUT`, one undo; the first half taken up
+afterwards with live handles, which is the close-handles rule doing its job.
+
+Verified by me, not the builder: **219 passed, 2 skipped, 0 failed** in the
+foreground, HW011 unchanged, typecheck clean, no server or runner left behind.
+
+**The thing the critic must attack first.** When a snip would leave nothing,
+the band turns amber and release **removes the region**. The builder named it
+plainly: this is the only delete gesture on the surface, and its only
+confirmation is that band. A region is a cut made by ear. If the undo stack
+does not survive a reload, a mis-drag in snip mode destroys work with an amber
+flash. The critic is measuring that and proposing the smallest thing that makes
+it deliberate without becoming an "are you sure".
+
+**Design questions the builder raised, for you:** the two halves share a name
+and a hue and only position and waveform tell them apart; on a 10 px region
+every snip is a whole snip; snipping the start keeps the material's moment
+while trimming the start keeps `at_s`, so the two gestures disagree about
+whether material moves — the builder chose what-you-see for snip and flagged
+it rather than deciding.
+
+Before committing bullet two I re-ran everything myself: 205 passed, 2
+skipped, 0 failed in the foreground; HW011 unchanged; and a bare listener I
+put on 3101 made a one-test run exit in one second naming its PID. Those
+three facts are mine, not the critic's.
 
 ## The critic's findings on bullet one
 

@@ -97,6 +97,27 @@ Stretch is a playback rate for now — varispeed, which shifts pitch. For noise
 and texture that is usually the wanted sound. Pitch-preserving stretch is a
 later decision, not a default.
 
+### What stretch changes, and what it does not
+
+Stretch changes `rate` and nothing else. The cut into the source — `start_s`
+to `end_s` — is untouched, so the material is the same; it plays slower or
+faster. A region's footprint in the collage's time is therefore
+`(end_s − start_s) / rate`, and that is the height it draws at. Halving the
+rate doubles the box; the cut inside it is unchanged.
+
+The gesture, in the order the user gave it: tap a handle to select it, enter
+stretch mode by button, then drag that handle. The other end stays anchored
+and the box grows or shrinks from the dragged end, with the rate following.
+In trim mode the same drag would move the cut; in stretch mode it moves the
+rate. That is the whole difference, and it is why only one mode may be active.
+
+Bounds: **0.25× to 4×** — two octaves each way. Past that varispeed stops being
+a stretch and becomes a different instrument. Configurable beside the caps,
+and the drag simply stops at the bound; nothing prints the number.
+
+Playback uses Web Audio's `playbackRate` on the sliced buffer. The slice route
+is unchanged: it still serves the source cut at 1×.
+
 Regions reference sounds by hash, so a collage still resolves after files move.
 A region may only reference a hash already in the project's frozen sound set;
 collage cannot introduce new material, because `stored` was committed.

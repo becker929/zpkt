@@ -2,9 +2,9 @@
  * The collage's geometry, as pure functions.
  *
  * Time runs down the screen and tracks run across it. Everything here turns a
- * tap into a region, a region into a box, or a drag into a trim, and nothing
- * here touches the DOM, the network, or a clock. The view is the effectful
- * shell around this.
+ * tap into a region, a region into a box, or a drag into a trim or a snip, and
+ * nothing here touches the DOM, the network, or a clock. The view is the
+ * effectful shell around this.
  *
  * No grid. A tap lands where it lands, to the millisecond, and the only thing
  * that moves it is another region already sitting there. No number of seconds
@@ -402,6 +402,68 @@ export function draggedTo(region: Region, end: End, dy: number): number {
   const rate = region.rate > 0 ? region.rate : 1;
   const from = end === "start" ? region.start_s : region.end_s;
   return from + (dy / PX_PER_S) * rate;
+}
+
+/* Snip ---------------------------------------------------------------------- */
+
+/** The source time at `offsetPx` down from the top of a region's box. */
+export function sourceAt(region: Region, offsetPx: number): number {
+  const rate = region.rate > 0 ? region.rate : 1;
+  return region.start_s + (offsetPx / PX_PER_S) * rate;
+}
+
+/** How far down a region's box the source time `t` is drawn, in pixels. */
+export function offsetOf(region: Region, t: number): number {
+  const rate = region.rate > 0 ? region.rate : 1;
+  return ((t - region.start_s) / rate) * PX_PER_S;
+}
+
+/** What a snip does: the regions that replace the one snipped, and the span it took out. */
+export interface Snip {
+  /** Two regions, one, or none, in the order they sound. */
+  result: Region[];
+  /** The span removed, in source seconds, after any extension to an edge. */
+  from_s: number;
+  to_s: number;
+}
+
+/**
+ * A span cut out of the middle of a region.
+ *
+ * What is left is two regions: the material before the span and the material
+ * after it. Both keep the source, the track, the rate, the gain and the fades
+ * of the region they came from, and both keep their place in time. The first
+ * keeps the region's id and its `at_s`. The second gets the next free id, and
+ * its `at_s` is where its material was already sounding: snipping a gap out
+ * leaves that gap in time, not a splice. Nothing is deleted from the source;
+ * both halves still reference it.
+ *
+ * Neither half may be shorter than `MIN_REGION_S`. A span that would leave a
+ * half shorter than that takes the half with it: the removal runs on to that
+ * edge of the region. At the end that is a trim of the end. At the start the
+ * surviving material still stays where it sounded, so the box's top moves
+ * down to it, which is what the drawn span said would happen. A span that
+ * leaves nothing on either side removes the region from the collage. The
+ * source is untouched either way, and undo brings the region back.
+ *
+ * `from_s` and `to_s` are clamped to the region's own cut. Null when the span
+ * is empty, so a tap is never a snip.
+ */
+export function snip(region: Region, regions: readonly Region[], fromS: number, toS: number): Snip | null {
+  if (!Number.isFinite(fromS) || !Number.isFinite(toS)) return null;
+  let a = round3(clamp(Math.min(fromS, toS), region.start_s, region.end_s));
+  let b = round3(clamp(Math.max(fromS, toS), region.start_s, region.end_s));
+  if (!(b > a)) return null;
+  if (a - region.start_s < MIN_REGION_S) a = region.start_s;
+  if (region.end_s - b < MIN_REGION_S) b = region.end_s;
+  const rate = region.rate > 0 ? region.rate : 1;
+  const before = a > region.start_s ? { ...region, end_s: a } : null;
+  const afterAt = round3(region.at_s + (b - region.start_s) / rate);
+  const after = b < region.end_s ? { ...region, start_s: b, at_s: afterAt } : null;
+  const result: Region[] = [];
+  if (before) result.push(before);
+  if (after) result.push(before ? { ...after, id: nextRegionId(regions) } : after);
+  return { result, from_s: a, to_s: b };
 }
 
 /**

@@ -734,3 +734,309 @@ test("with nothing in collage the view says so plainly", async ({ page }) => {
   await expect(page.getByTestId("collage-none")).toContainText("nothing is in collage");
   await expect(page.getByTestId("collage-space")).toHaveCount(0);
 });
+
+/* Snip ----------------------------------------------------------------------- */
+
+/**
+ * A snip drag on a phone is a thumb on a region's grab: the same touch
+ * pointer events as a trim drag, dispatched at the grab, which is where a
+ * snip begins. As with trim, this exercises the view's handling of the
+ * touch and not WebKit's decision to hand it to the page, which
+ * `touch-action: none` on the grab in snip mode asks for.
+ */
+
+/** A region's grab, the centre strip of its box, where a thumb takes it. */
+function grabOf(page: Page, regionId: string): Locator {
+  return region(page, regionId).getByTestId("region-grab");
+}
+
+/** A thumb down on a region's grab at `fromY` below the box's top, moved to `toY`, and lifted unless told not to. */
+async function thumbSnip(page: Page, regionId: string, fromY: number, toY: number, lift = true) {
+  const target = grabOf(page, regionId);
+  const box = (await region(page, regionId).boundingBox())!;
+  const x = box.x + box.width / 2;
+  await touch(target, "pointerdown", x, box.y + fromY);
+  const steps = 6;
+  for (let i = 1; i <= steps; i += 1) {
+    await touch(target, "pointermove", x, box.y + fromY + ((toY - fromY) * i) / steps);
+    await page.waitForTimeout(16);
+  }
+  if (lift) await touch(target, "pointerup", x, box.y + toY);
+  return { x, y: box.y + toY, box };
+}
+
+test("snip on a phone: a thumb-sized button in the bar, the handles go while it is on, and the grab stops scrolling", async ({
+  page,
+  request,
+}) => {
+  const sound = await firstSound(request);
+  const put = await request.put(`/api/projects/${PROJECT}/collage`, {
+    data: { regions: [regionRow("r1", sound.hash, 0, 0, sound.duration_s, 0.05)] },
+  });
+  expect(put.ok()).toBe(true);
+  await page.goto("/collage");
+  const viewport = page.viewportSize()!;
+  const button = page.getByTestId("collage-snip");
+  const bb = (await button.boundingBox())!;
+  expect(bb.height).toBeGreaterThanOrEqual(44);
+  expect(bb.width).toBeGreaterThanOrEqual(44);
+  expect(bb.y + bb.height).toBeLessThanOrEqual(viewport.height + 1);
+
+  await takeUp(page, "r1");
+  await expect(page.getByTestId("handle")).toHaveCount(2);
+  const grab = grabOf(page, "r1");
+  expect(await grab.evaluate((node) => getComputedStyle(node).touchAction)).not.toBe("none");
+
+  await button.tap();
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-mode", "snip");
+  await expect(page.getByTestId("handle")).toHaveCount(0);
+  const modeBox = (await page.getByTestId("collage-mode").boundingBox())!;
+  expect(modeBox.height).toBeGreaterThanOrEqual(44);
+  expect(modeBox.y + modeBox.height).toBeLessThanOrEqual(viewport.height + 1);
+  await expect(page.getByTestId("collage-mode")).toContainText("snip is on");
+  expect(await grab.evaluate((node) => getComputedStyle(node).touchAction)).toBe("none");
+  const text = (await page.getByTestId("collage").innerText()).toLowerCase();
+  expect(text).not.toMatch(/\d+:\d\d/);
+  expect(text).not.toMatch(/\b\d+(\.\d+)?\s?s\b/);
+  await page.screenshot({ path: "screenshots/collage-phone-snip-on.png" });
+
+  // The statement in the bar puts trim back, and the grab scrolls again.
+  await page.getByTestId("collage-mode").tap();
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-mode", "trim");
+  await expect(page.getByTestId("handle")).toHaveCount(2);
+  expect(await grab.evaluate((node) => getComputedStyle(node).touchAction)).not.toBe("none");
+});
+
+test("a thumb snip on a phone: the stripes paint as it goes, one write, two regions, and both trim at the seam", async ({
+  page,
+  request,
+}) => {
+  const { hash } = await firstSound(request);
+  // Three seconds of source at a tenth speed: three hundred pixels.
+  const put = await request.put(`/api/projects/${PROJECT}/collage`, {
+    data: { regions: [{ ...regionRow("r1", hash, 0, 0, 3, 0.1) }] },
+  });
+  expect(put.ok()).toBe(true);
+  await page.goto("/collage");
+  const before = (await region(page, "r1").boundingBox())!;
+  await page.getByTestId("collage-snip").tap();
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-mode", "snip");
+
+  let writes = 0;
+  page.on("request", (r) => {
+    if (r.method() === "PUT" && r.url().includes("/collage")) writes += 1;
+  });
+  // Sixty to a hundred pixels down: six tenths of a second to one second
+  // of source. The first half stays inside the fixture's sound, so it can
+  // be trimmed afterwards without meeting the sound's end.
+  const { x, y } = await thumbSnip(page, "r1", 60, 100, false);
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-snipping", "true");
+  const band = (await page.getByTestId("region-snip").boundingBox())!;
+  expect(Math.abs(band.y - (before.y + 60))).toBeLessThanOrEqual(2);
+  expect(band.height).toBeCloseTo(40, 0);
+  expect(band.width).toBeGreaterThanOrEqual(100);
+  expect(writes).toBe(0);
+  await page.screenshot({ path: "screenshots/collage-phone-snipping.png" });
+  await touch(grabOf(page, "r1"), "pointerup", x, y);
+
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-snipping", "false");
+  await expect(page.getByTestId("collage-save")).toHaveAttribute("data-state", "saved");
+  expect(writes).toBe(1);
+  await expect(page.getByTestId("region")).toHaveCount(2);
+  let stored = await regionsOnServer(request);
+  expect(stored[0]).toMatchObject({ id: "r1", at_s: 0, start_s: 0 });
+  expect(stored[0].end_s).toBeCloseTo(0.6, 2);
+  expect(stored[1].id).toBe("r2");
+  expect(stored[1].start_s).toBeCloseTo(1.0, 2);
+  expect(stored[1].at_s).toBeCloseTo(10, 2);
+
+  // Trim is back, the first half is up with its handles, and the seam is
+  // clean: two grabs that do not overlap, a full handle between them.
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-mode", "trim");
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-selected", "r1");
+  await expect(page.getByTestId("handle")).toHaveCount(2);
+  const ga = (await grabOf(page, "r1").boundingBox())!;
+  const gb = (await grabOf(page, "r2").boundingBox())!;
+  expect(ga.y + ga.height).toBeLessThanOrEqual(gb.y + 0.5);
+  const he = (await handle(page, "r1", "end").boundingBox())!;
+  expect(he.height).toBeGreaterThanOrEqual(44);
+  await page.screenshot({ path: "screenshots/collage-phone-snipped.png" });
+
+  // The first half's inner edge, dragged down: a trim, stopping short of
+  // the second half.
+  await thumbDrag(page, handle(page, "r1", "end"), 10);
+  await expect(page.getByTestId("collage-save")).toHaveAttribute("data-state", "saved");
+  stored = await regionsOnServer(request);
+  expect(stored[0].end_s).toBeCloseTo(0.7, 2);
+  expect(stored[1].start_s).toBeCloseTo(1.0, 2);
+
+  // The second half, taken up by a real touch on its box, and its inner
+  // edge dragged down. It keeps its place.
+  const b = (await region(page, "r2").boundingBox())!;
+  await page.touchscreen.tap(b.x + b.width / 2, b.y + 40);
+  await expect(region(page, "r2")).toHaveAttribute("data-selected", "true");
+  await expect(handle(page, "r1", "end")).toHaveCount(0);
+  await thumbDrag(page, handle(page, "r2", "start"), 20);
+  await expect(page.getByTestId("collage-save")).toHaveAttribute("data-state", "saved");
+  stored = await regionsOnServer(request);
+  expect(stored[1].start_s).toBeCloseTo(1.2, 2);
+  expect(stored[1].at_s).toBeCloseTo(10, 2);
+  expect(writes).toBe(3);
+});
+
+test("in snip mode a thumb that barely moves is a tap: it plays, and nothing is cut", async ({ page, request }) => {
+  const sound = await firstSound(request);
+  const put = await request.put(`/api/projects/${PROJECT}/collage`, {
+    data: { regions: [regionRow("r1", sound.hash, 0, 0, sound.duration_s, 0.1)] },
+  });
+  expect(put.ok()).toBe(true);
+  await page.goto("/collage");
+  await page.getByTestId("collage-snip").tap();
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-mode", "snip");
+  let writes = 0;
+  page.on("request", (r) => {
+    if (r.method() === "PUT" && r.url().includes("/collage")) writes += 1;
+  });
+  await thumbSnip(page, "r1", 30, 34);
+  await expect(region(page, "r1")).toHaveAttribute("data-playing", "true");
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-mode", "snip");
+  await page.waitForTimeout(200);
+  expect(writes).toBe(0);
+  await expect(page.getByTestId("region")).toHaveCount(1);
+  await expect(page.getByTestId("region-snip")).toHaveCount(0);
+});
+
+test("turning the phone mid-snip, or a second finger on the button, lets go without writing", async ({ page, request }) => {
+  const { hash } = await firstSound(request);
+  const put = await request.put(`/api/projects/${PROJECT}/collage`, {
+    data: { regions: [regionRow("r1", hash, 0, 0, 3, 0.1)] },
+  });
+  expect(put.ok()).toBe(true);
+  await page.goto("/collage");
+  await page.getByTestId("collage-snip").tap();
+  let writes = 0;
+  page.on("request", (r) => {
+    if (r.method() === "PUT" && r.url().includes("/collage")) writes += 1;
+  });
+
+  // Mid-snip, the other finger presses the button: the mode changes, the
+  // stripes go, and the first finger lifting afterwards cuts nothing.
+  let held = await thumbSnip(page, "r1", 100, 150, false);
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-snipping", "true");
+  await page.getByTestId("collage-snip").tap();
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-mode", "trim");
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-snipping", "false");
+  await touch(grabOf(page, "r1"), "pointerup", held.x, held.y);
+  await page.waitForTimeout(200);
+  expect(writes).toBe(0);
+  await expect(page.getByTestId("region")).toHaveCount(1);
+
+  // Mid-snip, the phone turns.
+  await page.getByTestId("collage-snip").tap();
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-mode", "snip");
+  held = await thumbSnip(page, "r1", 100, 150, false);
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-snipping", "true");
+  await page.setViewportSize({ width: 852, height: 393 });
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-snipping", "false");
+  await touch(grabOf(page, "r1"), "pointerup", held.x, held.y);
+  await page.waitForTimeout(300);
+  expect(writes).toBe(0);
+  await expect(page.getByTestId("region")).toHaveCount(1);
+  await expect(page.getByTestId("collage-undo")).toHaveCount(0);
+  const [stored] = await regionsOnServer(request);
+  expect(stored).toMatchObject({ start_s: 0, end_s: 3 });
+});
+
+test("a thumb across a one-second cut takes the whole of it, the stripes having covered it; its neighbour is untouched; undo brings it back", async ({
+  page,
+  request,
+}) => {
+  // The seam bullet two fixed, in snip mode: two one-second cuts, ten
+  // pixels each. Any thumb's travel across the first leaves less than a
+  // quarter of a second on each side, so the whole of it goes.
+  const { hash } = await firstSound(request);
+  const put = await request.put(`/api/projects/${PROJECT}/collage`, {
+    data: { regions: [regionRow("r1", hash, 0, 0, 1), regionRow("r2", hash, 0, 1.5, 1)] },
+  });
+  expect(put.ok()).toBe(true);
+  await page.goto("/collage");
+  await page.getByTestId("collage-snip").tap();
+  const box = (await region(page, "r1").boundingBox())!;
+  await thumbSnip(page, "r1", 0.5, 9.5, false);
+  const band = (await page.getByTestId("region-snip").boundingBox())!;
+  expect(Math.abs(band.y - box.y)).toBeLessThanOrEqual(2);
+  expect(band.height).toBeCloseTo(box.height, 0);
+  await expect(page.getByTestId("region-snip")).toHaveAttribute("data-whole", "true");
+  await expect(page.getByTestId("collage-mode")).toContainText("hold still to take the whole region out");
+  await page.screenshot({ path: "screenshots/collage-phone-snip-whole.png" });
+  // Held still: the band fills and arms, the bar turns amber and says a lift
+  // takes it. Then the lift.
+  await expect(page.getByTestId("region-snip")).toHaveAttribute("data-armed", "true");
+  await expect(page.getByTestId("collage-mode")).toContainText("let go to take the whole region out");
+  await page.screenshot({ path: "screenshots/collage-phone-snip-armed.png" });
+  await touch(grabOf(page, "r1"), "pointerup", box.x + box.width / 2, box.y + 9.5);
+  await expect(page.getByTestId("collage-save")).toHaveAttribute("data-state", "saved");
+  await expect(page.getByTestId("region")).toHaveCount(1);
+  let stored = await regionsOnServer(request);
+  expect(stored).toHaveLength(1);
+  expect(stored[0]).toMatchObject({ id: "r2", at_s: 1.5, start_s: 0, end_s: 1 });
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-mode", "trim");
+
+  await page.getByTestId("collage-undo").tap();
+  await expect(page.getByTestId("region")).toHaveCount(2);
+  await expect(page.getByTestId("collage-save")).toHaveAttribute("data-state", "saved");
+  stored = await regionsOnServer(request);
+  expect(stored[0]).toMatchObject({ id: "r1", at_s: 0, start_s: 0, end_s: 1 });
+});
+
+test("a thumb that sweeps through a short region in snip mode takes nothing; the hint says what would; undo never had to", async ({
+  page,
+  request,
+}) => {
+  // The grab of a one-second region is a thumb tall around a ten-pixel box,
+  // and in snip mode it does not scroll. A thumb that lands on it meaning
+  // to scroll paints the whole box amber under itself and sweeps on. Before
+  // the hold, that lift removed the region, with nothing seen; the only way
+  // back was undo, which a reload empties.
+  const { hash } = await firstSound(request);
+  const put = await request.put(`/api/projects/${PROJECT}/collage`, {
+    data: { regions: [regionRow("r1", hash, 0, 0, 1), regionRow("r2", hash, 0, 1.5, 1)] },
+  });
+  expect(put.ok()).toBe(true);
+  await page.goto("/collage");
+  await page.getByTestId("collage-snip").tap();
+  let writes = 0;
+  page.on("request", (r) => {
+    if (r.method() === "PUT" && r.url().includes("/collage")) writes += 1;
+  });
+
+  // Down from the grab's reach above the box, through it and on down the
+  // track, lifting as it goes. The band was whole the whole way.
+  const grab = (await grabOf(page, "r1").boundingBox())!;
+  const box = (await region(page, "r1").boundingBox())!;
+  expect(grab.y).toBeLessThan(box.y - 10);
+  await thumbSnip(page, "r1", grab.y - box.y + 4, 140, false);
+  await expect(page.getByTestId("region-snip")).toHaveAttribute("data-whole", "true");
+  await expect(page.getByTestId("region-snip")).toHaveAttribute("data-armed", "false");
+  await touch(grabOf(page, "r1"), "pointerup", box.x + box.width / 2, box.y + 140);
+  await page.waitForTimeout(300);
+  expect(writes).toBe(0);
+  await expect(page.getByTestId("region")).toHaveCount(2);
+  await expect(page.getByTestId("collage-undo")).toHaveCount(0);
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-mode", "snip");
+  const hint = page.getByTestId("collage-hint");
+  await expect(hint).toContainText("hold still");
+  const hb = (await hint.boundingBox())!;
+  const viewport = page.viewportSize()!;
+  expect(hb.y + hb.height).toBeLessThanOrEqual(viewport.height + 1);
+  const text = (await page.getByTestId("collage").innerText()).toLowerCase();
+  expect(text).not.toMatch(/\d+:\d\d/);
+  expect(text).not.toMatch(/\b\d+(\.\d+)?\s?(s|ms|db)\b/);
+  await page.screenshot({ path: "screenshots/collage-phone-snip-swept.png" });
+
+  // Reload: both cuts are still there. Nothing needed undoing.
+  await page.reload();
+  await expect(page.getByTestId("region")).toHaveCount(2);
+  const stored = await regionsOnServer(request);
+  expect(stored.map((r) => r.id)).toEqual(["r1", "r2"]);
+});

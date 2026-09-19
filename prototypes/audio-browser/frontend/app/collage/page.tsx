@@ -8,13 +8,15 @@
  * because a sound was stamped into it, and a track exists because something
  * was stamped there.
  *
- * Two gestures so far. Choose a sound from the project's frozen set, tap the
- * blank to stamp it, hear it back. Then trim: every region shows the sound
- * inside it; a tap on a region plays it and takes it up, and the region
- * taken up carries a thumb-sized handle at each end that drags. Every
- * change is written whole to `PUT /api/projects/{id}/collage`, so a reload
- * shows what was on screen. A region plays through Web Audio from a bounded
- * slice the server cuts; nothing decodes a whole file.
+ * Three gestures so far. Choose a sound from the project's frozen set, tap
+ * the blank to stamp it, hear it back. Then trim: every region shows the
+ * sound inside it; a tap on a region plays it and takes it up, and the region
+ * taken up carries a thumb-sized handle at each end that drags. Then snip: a
+ * mode, entered by a button, in which a drag across a region cuts that part
+ * out and leaves two regions. Only one mode is ever on, and the default is
+ * trim. Every change is written whole to `PUT /api/projects/{id}/collage`, so
+ * a reload shows what was on screen. A region plays through Web Audio from a
+ * bounded slice the server cuts; nothing decodes a whole file.
  *
  * The geometry is in `lib/collage.ts` and is pure. This file is the shell
  * around it: fetches, the audio context, the pointer, and the DOM.
@@ -46,7 +48,10 @@ import {
   grabZone,
   handleZones,
   hueFor,
+  offsetOf,
   regionBox,
+  snip,
+  sourceAt,
   stamp,
   trackCount,
   trim,
@@ -82,6 +87,20 @@ const LABEL_MIN_H = 26;
 /** How far a pointer may travel between down and up and still be a tap. */
 const TAP_SLOP = 8;
 
+/**
+ * How long a thumb must rest on a striped-whole region before a lift removes it.
+ *
+ * A whole-region snip is the only delete on the surface, and on the short
+ * cuts snipping makes it is the likeliest outcome of any drag: measured on a
+ * one-second region, a forty-pixel thumb drag on its grab takes the whole of
+ * it four times in ten, and the band saying so is under the thumb where it
+ * cannot be seen. So the band alone does not remove a region. The thumb has
+ * to stop on it and stay, about as long as a long press, and only then does
+ * letting go remove it. A thumb that sweeps through and lifts removes nothing.
+ * Friction, not a question: nothing opens, and undo still stands behind it.
+ */
+const WHOLE_HOLD_MS = 600;
+
 /** What is known about one source, for drawing the regions cut from it. */
 interface SourceData {
   pairs: Array<[number, number]>;
@@ -107,6 +126,27 @@ interface Drag {
   id: string;
   end: End;
   preview: Region;
+}
+
+/**
+ * Which gesture a drag on a region is.
+ *
+ * Only one is ever on. Trim is the default: a tap takes a region up and its
+ * handles drag. Snip is entered by a button and left by the same button or
+ * by finishing a snip; while it is on there are no handles, and a drag down
+ * a region paints the part being cut out.
+ */
+type Mode = "trim" | "snip";
+
+/** A snip in progress: the span being cut out, in pixels down the region's box. */
+interface SnipBand {
+  id: string;
+  top: number;
+  height: number;
+  /** True when the span has run on to cover the whole region. */
+  whole: boolean;
+  /** True once a whole band has been held still long enough that a lift removes the region. */
+  armed: boolean;
 }
 
 /* The picker ----------------------------------------------------------------- */
@@ -271,6 +311,8 @@ export default function CollagePage() {
   const [sources, setSources] = useState<Map<string, SourceData>>(() => new Map());
   const [selected, setSelected] = useState<Selection | null>(null);
   const [drag, setDrag] = useState<Drag | null>(null);
+  const [mode, setMode] = useState<Mode>("trim");
+  const [band, setBand] = useState<SnipBand | null>(null);
 
   const spaceRef = useRef<HTMLDivElement | null>(null);
   const canvasRef = useRef<HTMLDivElement | null>(null);
@@ -514,6 +556,10 @@ export default function CollagePage() {
       // listen a dead tap. Undo takes back a stamp that was not meant.
       const wasUp = selected !== null && regions.some((r) => r.id === selected.id);
       if (wasUp) setSelected(null);
+      // In snip mode the blank only lets go. Stamping belongs to the default
+      // mode, where the bar says what a tap on the blank does; here the bar
+      // says snip is on, and a stray tap must not stamp a whole source.
+      if (mode === "snip") return;
       if (!chosen) {
         if (wasUp) return;
         setHint("choose a sound first, then tap the blank to stamp it");
@@ -546,7 +592,7 @@ export default function CollagePage() {
         if (left !== canvas.scrollLeft || top !== canvas.scrollTop) canvas.scrollTo({ left, top });
       }
     },
-    [detail, chosen, regions, selected, change],
+    [detail, chosen, regions, selected, mode, change],
   );
 
   const undo = useCallback(() => {
@@ -594,35 +640,101 @@ export default function CollagePage() {
   }, []);
 
   /**
+   * The snip, as the pointer handlers see it.
+   *
+   * The same shape as a trim drag, with the thumb's place measured down the
+   * region's box rather than from a handle: `originOffset` is where the thumb
+   * landed inside the box, and the span runs from there to where it is now.
+   * `result` is what would replace the region if the thumb lifted now.
+   */
+  const snipRef = useRef<{
+    region: Region;
+    pointerId: number;
+    originY: number;
+    originScroll: number;
+    originOffset: number;
+    lastY: number;
+    result: ReturnType<typeof snip>;
+    /** Where the thumb was when the band last became whole, or null while it is not. */
+    holdY: number | null;
+    /** The timer that arms a whole band, or 0. */
+    holdTimer: number;
+    /** True once the thumb has rested on a whole band for `WHOLE_HOLD_MS`. */
+    armed: boolean;
+  } | null>(null);
+
+  const bandFromPointer = useCallback(() => {
+    const s = snipRef.current;
+    const canvas = canvasRef.current;
+    if (!s) return;
+    const offset = s.originOffset + (s.lastY - s.originY) + ((canvas?.scrollTop ?? 0) - s.originScroll);
+    s.result = snip(s.region, regionsRef.current, sourceAt(s.region, s.originOffset), sourceAt(s.region, offset));
+    const whole = s.result !== null && s.result.result.length === 0;
+    // The hold. It begins when the band becomes whole and the thumb stops,
+    // and begins again if the thumb moves a tap's worth; a band that stops
+    // being whole disarms at once. The canvas scrolling under a still thumb
+    // does not move the thumb, so a hold at the screen's edge still counts.
+    if (!whole) {
+      if (s.holdTimer) window.clearTimeout(s.holdTimer);
+      s.holdTimer = 0;
+      s.holdY = null;
+      s.armed = false;
+    } else if (s.holdY === null || Math.abs(s.lastY - s.holdY) >= TAP_SLOP) {
+      if (s.holdTimer) window.clearTimeout(s.holdTimer);
+      s.holdY = s.lastY;
+      s.armed = false;
+      s.holdTimer = window.setTimeout(() => {
+        if (snipRef.current !== s) return;
+        s.holdTimer = 0;
+        s.armed = true;
+        setBand((was) => (was && was.id === s.region.id && was.whole ? { ...was, armed: true } : was));
+      }, WHOLE_HOLD_MS);
+    }
+    if (!s.result) {
+      setBand(null);
+      return;
+    }
+    // The band is the span that will go, after any run to an edge: what is
+    // striped is exactly what a lift would remove, never less.
+    const top = offsetOf(s.region, s.result.from_s);
+    const bottom = offsetOf(s.region, s.result.to_s);
+    setBand({ id: s.region.id, top, height: bottom - top, whole, armed: s.armed });
+  }, []);
+
+  /**
    * Scroll the canvas while the thumb sits at its edge.
    *
    * A source stamped whole is several screens tall, and the sound in it can
    * be anywhere. Holding the handle at the bottom of the screen carries on
-   * down through the region, so one drag can reach it.
+   * down through the region, so one drag can reach it. A snip's thumb scrolls
+   * the same way.
    */
   const scrollAtEdge = useCallback(() => {
     const step = () => {
-      const d = dragRef.current;
+      const y = dragRef.current?.lastY ?? snipRef.current?.lastY;
       const canvas = canvasRef.current;
-      if (!d || !canvas) {
+      if (y === undefined || !canvas) {
         scrollFrameRef.current = 0;
         return;
       }
       const rect = canvas.getBoundingClientRect();
       let by = 0;
-      if (d.lastY < rect.top + SCROLL_EDGE) by = -SCROLL_STEP;
-      else if (d.lastY > rect.bottom - SCROLL_EDGE) by = SCROLL_STEP;
+      if (y < rect.top + SCROLL_EDGE) by = -SCROLL_STEP;
+      else if (y > rect.bottom - SCROLL_EDGE) by = SCROLL_STEP;
       if (by === 0) {
         scrollFrameRef.current = 0;
         return;
       }
       const before = canvas.scrollTop;
       canvas.scrollTop = Math.max(0, Math.min(canvas.scrollHeight - canvas.clientHeight, before + by));
-      if (canvas.scrollTop !== before) previewFromPointer();
+      if (canvas.scrollTop !== before) {
+        previewFromPointer();
+        bandFromPointer();
+      }
       scrollFrameRef.current = requestAnimationFrame(step);
     };
     if (!scrollFrameRef.current) scrollFrameRef.current = requestAnimationFrame(step);
-  }, [previewFromPointer]);
+  }, [previewFromPointer, bandFromPointer]);
 
   const endDrag = useCallback(
     (apply: boolean) => {
@@ -690,16 +802,134 @@ export default function CollagePage() {
     [previewFromPointer, scrollAtEdge],
   );
 
+  /* Snipping ---------------------------------------------------------------- */
+
+  /**
+   * Let go of a snip. Applied, it is one change: the region is replaced by
+   * what the snip left, the mode goes back to trim, and the first thing left
+   * is taken up so its handles are live at once. Not applied, nothing moves.
+   *
+   * A drag that would cut nothing, or that would take the whole region
+   * without the thumb having held on it, changes nothing and leaves snip on:
+   * the button said one snip, and none was made yet. The second case says
+   * so under the canvas, because the band that would have said it was under
+   * the thumb.
+   */
+  const endSnip = useCallback(
+    (apply: boolean) => {
+      const s = snipRef.current;
+      snipRef.current = null;
+      if (s?.holdTimer) window.clearTimeout(s.holdTimer);
+      if (scrollFrameRef.current) cancelAnimationFrame(scrollFrameRef.current);
+      scrollFrameRef.current = 0;
+      setBand(null);
+      if (!apply || !s) return;
+      const result = s.result;
+      if (!result) return;
+      if (result.result.length === 0 && !s.armed) {
+        setHint("to take the whole region out, drag across it, then hold still on it before letting go");
+        return;
+      }
+      const was = regionsRef.current;
+      const index = was.findIndex((r) => r.id === s.region.id);
+      if (index < 0) return;
+      // A snip is a change, and a finished snip is the end of snip mode.
+      setMode("trim");
+      setHint(null);
+      // The slice being played is the cut being changed. It stops.
+      if (playingId === s.region.id) stopRegion();
+      const next = [...was.slice(0, index), ...result.result, ...was.slice(index + 1)];
+      change(next);
+      const first = result.result[0];
+      setSelected(first ? { id: first.id, end: null } : null);
+    },
+    [change, playingId, stopRegion],
+  );
+
+  const startSnip = useCallback(
+    (event: React.PointerEvent<HTMLDivElement>, region: Region) => {
+      // One snip at a time. A second finger down while one is snipping is
+      // not a second snip.
+      if (snipRef.current || dragRef.current) return;
+      const canvas = canvasRef.current;
+      event.preventDefault();
+      event.stopPropagation();
+      try {
+        event.currentTarget.setPointerCapture(event.pointerId);
+      } catch {
+        /* a pointer that has already gone */
+      }
+      const rect = event.currentTarget.getBoundingClientRect();
+      snipRef.current = {
+        region,
+        pointerId: event.pointerId,
+        originY: event.clientY,
+        originScroll: canvas?.scrollTop ?? 0,
+        originOffset: event.clientY - rect.top,
+        lastY: event.clientY,
+        result: null,
+        holdY: null,
+        holdTimer: 0,
+        armed: false,
+      };
+    },
+    [],
+  );
+
+  const moveSnip = useCallback(
+    (event: React.PointerEvent<HTMLDivElement>) => {
+      const s = snipRef.current;
+      if (!s || s.pointerId !== event.pointerId) return;
+      event.preventDefault();
+      s.lastY = event.clientY;
+      bandFromPointer();
+      scrollAtEdge();
+    },
+    [bandFromPointer, scrollAtEdge],
+  );
+
+  /**
+   * Change mode. Never two at once: a drag in flight under the other mode is
+   * let go without being applied, because the thumb that started it is not
+   * the one that pressed the button.
+   */
+  const switchMode = useCallback(
+    (next: Mode) => {
+      if (dragRef.current) endDrag(false);
+      if (snipRef.current) endSnip(false);
+      setMode(next);
+      // Whatever snip had to say is over with it.
+      if (next === "trim") setHint((was) => (was?.startsWith("to take the whole region out") ? null : was));
+    },
+    [endDrag, endSnip],
+  );
+
+  // Snip is a gesture on a region. With none left, there is nothing for it
+  // to be on: the mode ends, and the bar offers a sound to stamp again.
+  const noRegions = regions.length === 0;
+  useEffect(() => {
+    if (noRegions && mode === "snip") setMode("trim");
+  }, [noRegions, mode]);
+
+  // A hold timer never outlives the view.
+  useEffect(() => {
+    return () => {
+      if (snipRef.current?.holdTimer) window.clearTimeout(snipRef.current.holdTimer);
+    };
+  }, []);
+
   // Turning the phone, or the browser taking the pointer for itself, ends the
   // drag without applying it: the thumb is no longer where the handle is.
   // Escape lets go of the handle on a keyboard.
   useEffect(() => {
     const onResize = () => {
       if (dragRef.current) endDrag(false);
+      if (snipRef.current) endSnip(false);
     };
     const onKey = (event: KeyboardEvent) => {
       if (event.key !== "Escape") return;
       if (dragRef.current) endDrag(false);
+      if (snipRef.current) endSnip(false);
       setSelected(null);
     };
     window.addEventListener("resize", onResize);
@@ -708,7 +938,7 @@ export default function CollagePage() {
       window.removeEventListener("resize", onResize);
       window.removeEventListener("keydown", onKey);
     };
-  }, [endDrag]);
+  }, [endDrag, endSnip]);
 
   /** A keyboard nudge: a tenth of a second, or a whole one with shift. */
   const nudge = useCallback(
@@ -799,6 +1029,8 @@ export default function CollagePage() {
       data-tracks={tracks}
       data-selected={selection ? (selection.end ? `${selection.id}:${selection.end}` : selection.id) : ""}
       data-dragging={drag !== null}
+      data-mode={mode}
+      data-snipping={band !== null}
     >
       <div className="collage-head">
         <span className="collage-name" data-testid="collage-project">
@@ -819,7 +1051,7 @@ export default function CollagePage() {
       {unresolved > 0 ? (
         <div className="collage-note" data-testid="collage-unresolved">
           {formatCount(unresolved)} {unresolved === 1 ? "region cuts" : "regions cut"} from a sound the index no
-          longer resolves. {unresolved === 1 ? "It is" : "They are"} drawn, and cannot be played or trimmed.
+          longer resolves. {unresolved === 1 ? "It is" : "They are"} drawn, and cannot be played, trimmed or snipped.
         </div>
       ) : null}
 
@@ -853,6 +1085,11 @@ export default function CollagePage() {
             const zones = handleZones(region);
             const dragging = drag && drag.id === region.id ? drag : null;
             const offset = dragging ? dragOffsetPx(region, dragging.preview, dragging.end) : 0;
+            const snipBand = band && band.id === region.id ? band : null;
+            // In snip mode a region's grab is where a snip begins, and only
+            // there: the flanks and the blank still scroll, as they do under
+            // a raised handle in trim mode.
+            const snippable = mode === "snip" && row !== undefined;
             const name = row ? row.filename : "a sound the index does not resolve";
             // As many lines of the name as the block has room for. A block
             // too short for one line has no label; the name is still spoken.
@@ -884,9 +1121,26 @@ export default function CollagePage() {
                 onPointerDown={(event) => {
                   event.stopPropagation();
                   beginTap(event);
+                  if (snippable && (event.target as HTMLElement).dataset.testid === "region-grab") {
+                    startSnip(event, region);
+                  }
                 }}
+                onPointerMove={moveSnip}
                 onPointerUp={(event) => {
                   event.stopPropagation();
+                  const s = snipRef.current;
+                  if (s && s.pointerId === event.pointerId) {
+                    // A thumb that did not travel is a tap, whatever mode is
+                    // on: it plays, and nothing is cut. Travel counts the
+                    // canvas scrolling under a thumb held at its edge.
+                    const scrolled = (canvasRef.current?.scrollTop ?? 0) - s.originScroll;
+                    const travelled = Math.abs(event.clientY - s.originY + scrolled) >= TAP_SLOP;
+                    endSnip(travelled);
+                    if (travelled) {
+                      dropTap();
+                      return;
+                    }
+                  }
                   if (!endTap(event)) return;
                   // A tap takes the region up and plays it. Taking it up
                   // again keeps whichever handle was already selected.
@@ -895,6 +1149,7 @@ export default function CollagePage() {
                 }}
                 onPointerCancel={(event) => {
                   event.stopPropagation();
+                  if (snipRef.current?.pointerId === event.pointerId) endSnip(false);
                   dropTap();
                 }}
                 onKeyDown={(event) => {
@@ -911,7 +1166,13 @@ export default function CollagePage() {
                 <span
                   className="region-grab"
                   data-testid="region-grab"
-                  style={{ top: grab.top, height: grab.height }}
+                  style={{
+                    top: grab.top,
+                    height: grab.height,
+                    // In snip mode a thumb on the grab is snipping, never
+                    // scrolling. In trim mode it scrolls, and a tap plays.
+                    touchAction: snippable ? "none" : undefined,
+                  }}
                   aria-hidden="true"
                 />
                 {source ? (
@@ -955,12 +1216,29 @@ export default function CollagePage() {
                   )
                 ) : null}
 
-                {/* The handles. Only on the region taken up: outside its box,
-                    a thumb tall, one at each end, raised over the neighbours.
-                    A thumb on one drags it straight away, and a tap on one
-                    selects it. A region cut from a sound the index cannot
-                    resolve has nothing to trim against, and gets none. */}
-                {row && isSelectedRegion
+                {/* What the snip would take out, drawn before it does: the
+                    same stripes a trim uses for the part being cut away,
+                    with a line at each end of the span. The band is the
+                    whole of what a lift would remove, including any run to
+                    an edge, so a region about to vanish is striped whole. */}
+                {snipBand ? (
+                  <span
+                    className={`region-snip${snipBand.whole ? " whole" : ""}${snipBand.armed ? " armed" : ""}`}
+                    data-testid="region-snip"
+                    data-whole={snipBand.whole}
+                    data-armed={snipBand.armed}
+                    style={{ top: snipBand.top, height: snipBand.height, ["--hold-ms" as string]: `${WHOLE_HOLD_MS}ms` }}
+                    aria-hidden="true"
+                  />
+                ) : null}
+
+                {/* The handles. Only on the region taken up, and only in trim
+                    mode: outside its box, a thumb tall, one at each end,
+                    raised over the neighbours. A thumb on one drags it
+                    straight away, and a tap on one selects it. A region cut
+                    from a sound the index cannot resolve has nothing to trim
+                    against, and gets none. */}
+                {row && isSelectedRegion && mode === "trim"
                   ? ([zones.start, zones.end] as const).map((zone) => {
                       const isSelected = selection?.end === zone.end;
                       const moving = dragging !== null && dragging.end === zone.end;
@@ -1028,32 +1306,69 @@ export default function CollagePage() {
       ) : null}
 
       {/* The bar the thumb lives on. One big target: what is being stamped, or
-          the way to choose it. Undo appears beside it once there is something
-          to take back, and says how many steps it holds. */}
-      <div className="collage-bar">
+          the way to choose it. In snip mode that target says snip is on
+          instead, and puts it off: while snip is on nothing here invites a
+          stamp. Beside it, the snip button. Undo appears once there is
+          something to take back, and says how many steps it holds. */}
+      <div className="collage-bar" data-mode={mode}>
+        {mode === "snip" ? (
+          <button
+            type="button"
+            className={`collage-mode${band?.whole ? " whole" : ""}${band?.armed ? " armed" : ""}`}
+            data-testid="collage-mode"
+            data-band={band ? (band.armed ? "armed" : band.whole ? "whole" : "part") : ""}
+            onClick={() => switchMode("trim")}
+          >
+            {/* What a lift would do, in words, because the band that shows
+                it is under the thumb: on a short region, entirely so. */}
+            <span className="collage-choose-name">
+              {band?.armed
+                ? "let go to take the whole region out"
+                : band?.whole
+                  ? "hold still to take the whole region out"
+                  : band
+                    ? "let go to cut the striped part out"
+                    : "snip is on"}
+            </span>
+            <span className="collage-choose-sub">drag down a region to cut that part out · tap here to stop</span>
+          </button>
+        ) : (
+          <button
+            type="button"
+            className={`collage-choose${chosen ? " chosen" : ""}`}
+            data-testid="collage-choose"
+            data-hash={chosen?.hash ?? ""}
+            onClick={() => {
+              setHint(null);
+              setPickerOpen(true);
+            }}
+          >
+            {chosen ? (
+              <>
+                <span className="collage-choose-name">{chosen.filename}</span>
+                <span className="collage-choose-sub">tap the blank to stamp it · tap here to change</span>
+              </>
+            ) : (
+              <>
+                <span className="collage-choose-name">choose a sound</span>
+                <span className="collage-choose-sub">
+                  {formatCount(detail.items.length)} in {project.name}
+                </span>
+              </>
+            )}
+          </button>
+        )}
         <button
           type="button"
-          className={`collage-choose${chosen ? " chosen" : ""}`}
-          data-testid="collage-choose"
-          data-hash={chosen?.hash ?? ""}
-          onClick={() => {
-            setHint(null);
-            setPickerOpen(true);
-          }}
+          className={`collage-snip${mode === "snip" ? " on" : ""}`}
+          data-testid="collage-snip"
+          aria-pressed={mode === "snip"}
+          disabled={regions.length === 0}
+          title="snip: drag down a region to cut that part out, leaving two regions"
+          onClick={() => switchMode(mode === "snip" ? "trim" : "snip")}
         >
-          {chosen ? (
-            <>
-              <span className="collage-choose-name">{chosen.filename}</span>
-              <span className="collage-choose-sub">tap the blank to stamp it · tap here to change</span>
-            </>
-          ) : (
-            <>
-              <span className="collage-choose-name">choose a sound</span>
-              <span className="collage-choose-sub">
-                {formatCount(detail.items.length)} in {project.name}
-              </span>
-            </>
-          )}
+          snip
+          <span className="collage-snip-sub">{mode === "snip" ? "on" : "off"}</span>
         </button>
         {history.length > 0 ? (
           <button
@@ -1078,6 +1393,9 @@ export default function CollagePage() {
           onChoose={(row) => {
             setChosen(row);
             setHint("now tap the blank where it should go");
+            // Choosing a sound is choosing to stamp, which is the default
+            // mode's gesture.
+            switchMode("trim");
           }}
           onClose={() => setPickerOpen(false)}
         />

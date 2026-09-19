@@ -877,3 +877,662 @@ test("the slice route is bounded and answers 48 kHz stereo WAV", async ({ page, 
   const backwards = await request.get(`/api/files/${hash}/slice?start=2&end=1`);
   expect(backwards.status()).toBe(422);
 });
+
+/* Snip ----------------------------------------------------------------------- */
+
+/**
+ * The snip tests write cuts three seconds long at a tenth speed: thirty
+ * canvas seconds, three hundred pixels, and one pixel is a hundredth of a
+ * second of source. The cut may run past the end of the fixture's one-second
+ * sound; a snip never consults the source's length, and only the tests that
+ * play a region keep the cut inside the sound.
+ */
+
+/** Turn snip on from the bar, and wait for the view to say so. */
+async function enterSnip(page: Page): Promise<void> {
+  await page.getByTestId("collage-snip").click();
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-mode", "snip");
+}
+
+/**
+ * Drag down a region's grab with the mouse, from `fromY` to `toY` pixels
+ * below the top of its box, and let go unless told not to. Snip mode must
+ * already be on.
+ */
+async function snipDrag(page: Page, regionId: string, fromY: number, toY: number, lift = true) {
+  const target = region(page, regionId);
+  const box = (await target.boundingBox())!;
+  const x = box.x + TRACK_W / 2;
+  await page.mouse.move(x, box.y + fromY);
+  await page.mouse.down();
+  await page.mouse.move(x, box.y + toY, { steps: 8 });
+  if (lift) await page.mouse.up();
+  return { x, box };
+}
+
+test("with nothing stamped there is nothing to snip, and the button says so by refusing", async ({ page }) => {
+  await page.goto("/collage");
+  await expect(page.getByTestId("collage-snip")).toBeDisabled();
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-mode", "trim");
+});
+
+test("snip is a mode entered by a button: while it is on there are no handles and the bar says so; the button again puts trim back", async ({
+  page,
+  request,
+}) => {
+  const set = await sounds(page);
+  await writeRegions(request, [regionRow("r1", set[0].hash, 0, 0, 0, 3, 0.1)]);
+  await page.goto("/collage");
+  const snipButton = page.getByTestId("collage-snip");
+  await expect(snipButton).toBeEnabled();
+  await expect(snipButton).toHaveAttribute("aria-pressed", "false");
+
+  // Trim is the default: the region taken up has its handles.
+  await takeUp(page, "r1");
+  await expect(page.getByTestId("handle")).toHaveCount(2);
+
+  // Snip on: the handles go, the choose button gives way to a plain
+  // statement of which mode is on, and the region stays taken up.
+  await enterSnip(page);
+  await expect(snipButton).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByTestId("handle")).toHaveCount(0);
+  await expect(page.getByTestId("collage-choose")).toHaveCount(0);
+  await expect(page.getByTestId("collage-mode")).toContainText("snip is on");
+  await expect(region(page, "r1")).toHaveAttribute("data-selected", "true");
+
+  // Still no seconds, no grid, no decibels, in the bar or in what it says
+  // on hover.
+  const text = (await page.getByTestId("collage").innerText()).toLowerCase();
+  expect(text).not.toMatch(/\d+:\d\d/);
+  expect(text).not.toMatch(/\b\d+(\.\d+)?\s?s\b/);
+  expect(text).not.toMatch(/\bdb\b/);
+  const spoken = await page.getByTestId("collage").evaluate((node) =>
+    Array.from(node.querySelectorAll("[aria-label], [title]"))
+      .map((el) => `${el.getAttribute("aria-label") ?? ""} ${el.getAttribute("title") ?? ""}`)
+      .join("\n")
+      .toLowerCase(),
+  );
+  expect(spoken).not.toMatch(/\b\d+(\.\d+)?\s?(s|sec|seconds?|ms|db)\b/);
+
+  // A tap on the blank in snip mode stamps nothing and opens nothing: it
+  // only lets go.
+  await stampAt(page, 40, 500);
+  await expect(page.getByTestId("region")).toHaveCount(1);
+  await expect(page.getByTestId("collage-picker")).toHaveCount(0);
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-selected", "");
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-mode", "snip");
+
+  // The button again: trim is back, and so are the handles once the region
+  // is taken up again.
+  await snipButton.click();
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-mode", "trim");
+  await expect(page.getByTestId("collage-choose")).toBeVisible();
+  await takeUp(page, "r1");
+  await expect(page.getByTestId("handle")).toHaveCount(2);
+
+  // The statement in the bar is the other way out.
+  await enterSnip(page);
+  await page.getByTestId("collage-mode").click();
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-mode", "trim");
+
+  // Nothing in any of that was a change.
+  await expect(page.getByTestId("collage-undo")).toHaveCount(0);
+});
+
+test("a snip through the middle leaves two regions that keep their place in time; the first is taken up and both trim at the seam", async ({
+  page,
+  request,
+}) => {
+  // The whole of the sound, so the halves can be trimmed afterwards without
+  // the trim's own rule, that a cut ends where the sound does, getting in
+  // the way. At a twentieth speed a pixel is five thousandths of a second.
+  const set = await sounds(page);
+  const { hash, duration_s: d } = set[0];
+  const rate = 0.05;
+  const px = (s: number) => Math.round((s / rate) * PX_PER_S);
+  await writeRegions(request, [regionRow("r1", hash, 0, 3, 0, d, rate)]);
+  await page.goto("/collage");
+  const before = await regionBox(page, 0);
+  expect(before.height).toBeCloseTo(px(d), 0);
+  await enterSnip(page);
+
+  // The span: from two fifths of the way down to three fifths, in whole
+  // pixels, which is what a thumb can say.
+  const fromPx = px(0.4 * d);
+  const toPx = px(0.6 * d);
+  const fromS = (fromPx / PX_PER_S) * rate;
+  const toS = (toPx / PX_PER_S) * rate;
+
+  // While the thumb is down, the span being cut out is striped, and
+  // nothing is written.
+  const writes = await writesDuring(page, async () => {
+    await snipDrag(page, "r1", fromPx, toPx, false);
+    await expect(page.getByTestId("collage")).toHaveAttribute("data-snipping", "true");
+    const bandBox = (await page.getByTestId("region-snip").boundingBox())!;
+    expect(bandBox.height).toBeCloseTo(toPx - fromPx, 0);
+    // Inside the box's one-pixel border.
+    const spaceY = (await page.getByTestId("collage-space").boundingBox())!.y;
+    expect(Math.abs(bandBox.y - (spaceY + before.top + fromPx))).toBeLessThanOrEqual(2);
+    await expect(page.getByTestId("region-snip")).toHaveAttribute("data-whole", "false");
+    await expect(page.getByTestId("region")).toHaveCount(1);
+    await page.mouse.up();
+  });
+  expect(writes).toBe(1);
+
+  // Two regions. Both keep the source, the track, the rate and the rest.
+  // The first keeps its id and its place; the second's material sounds
+  // exactly when it did before: a real gap, not a splice.
+  await expect(page.getByTestId("region")).toHaveCount(2);
+  const stored = await regionsOnServer(page);
+  expect(stored).toHaveLength(2);
+  expect(stored[0]).toMatchObject({ id: "r1", hash, track: 0, at_s: 3, start_s: 0, rate, gain: 1, fade_in_s: 0, fade_out_s: 0 });
+  expect(stored[0].end_s).toBeCloseTo(fromS, 3);
+  expect(stored[1]).toMatchObject({ id: "r2", hash, track: 0, rate, gain: 1, fade_in_s: 0, fade_out_s: 0 });
+  expect(stored[1].start_s).toBeCloseTo(toS, 3);
+  expect(stored[1].end_s).toBeCloseTo(d, 3);
+  // The second half's material was sounding `toS` of source after the
+  // region began, which at this rate is `toPx / 10` canvas seconds later.
+  const secondAt = 3 + toS / rate;
+  expect(stored[1].at_s).toBeCloseTo(secondAt, 3);
+
+  // Drawn where they sound: the first where it was, the second where its
+  // material was, the striped span now blank between them.
+  const a = await regionBox(page, 0);
+  const b = await regionBox(page, 1);
+  expect(a.top).toBeCloseTo(before.top, 0);
+  expect(Math.abs(a.height - fromPx)).toBeLessThanOrEqual(1);
+  expect(Math.abs(b.top - (before.top + toPx))).toBeLessThanOrEqual(1);
+  expect(Math.abs(b.height - (px(d) - toPx))).toBeLessThanOrEqual(1);
+
+  // A finished snip is the end of snip mode. The first half is taken up,
+  // so its handles are live at once.
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-mode", "trim");
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-selected", "r1");
+  await expect(handle(page, "r1", "end")).toHaveCount(1);
+  await expect(handle(page, "r2", "start")).toHaveCount(0);
+
+  // The seam: the two grabs never overlap.
+  const ga = (await region(page, "r1").getByTestId("region-grab").boundingBox())!;
+  const gb = (await region(page, "r2").getByTestId("region-grab").boundingBox())!;
+  expect(ga.y + ga.height).toBeLessThanOrEqual(gb.y + 0.5);
+
+  // Trim the first half's inner edge down by ten pixels, a twentieth of a
+  // second: it grows into the gap.
+  await drag(page, "r1", "end", 10);
+  await expect(page.getByTestId("collage-save")).toHaveAttribute("data-state", "saved");
+  let now = await regionsOnServer(page);
+  expect(now[0].end_s).toBeCloseTo(fromS + 0.05, 3);
+  expect(now[0].at_s).toBe(3);
+  // And all the way: it stops where the second half begins to sound.
+  await drag(page, "r1", "end", 400);
+  await expect(page.getByTestId("collage-save")).toHaveAttribute("data-state", "saved");
+  now = await regionsOnServer(page);
+  expect(now[0].end_s).toBeCloseTo(toS, 3);
+
+  // Then the second half's inner edge, straight after: taken up by a tap,
+  // its start handle drags. It keeps its place, as a trim does.
+  await drag(page, "r2", "start", 10);
+  await expect(page.getByTestId("collage-save")).toHaveAttribute("data-state", "saved");
+  now = await regionsOnServer(page);
+  expect(now[1].start_s).toBeCloseTo(toS + 0.05, 3);
+  expect(now[1].at_s).toBeCloseTo(secondAt, 3);
+  await expect(page.getByTestId("collage-undo")).toHaveAttribute("data-depth", "4");
+});
+
+test("a snip that would leave a half shorter than a quarter second runs on to that edge; the material that is left stays where it sounded", async ({
+  page,
+  request,
+}) => {
+  const set = await sounds(page);
+  await writeRegions(request, [regionRow("r1", set[0].hash, 0, 3, 0, 3, 0.1)]);
+  await page.goto("/collage");
+  const before = await regionBox(page, 0);
+  await enterSnip(page);
+
+  // Near the end: the last tenth of a second would be left over, so the
+  // removal runs on to the end. One region, its end trimmed. The band said
+  // so before the lift: it reached the bottom of the box.
+  await snipDrag(page, "r1", 270, 290, false);
+  let bandBox = (await page.getByTestId("region-snip").boundingBox())!;
+  expect(bandBox.height).toBeCloseTo(30, 0);
+  await expect(page.getByTestId("region-snip")).toHaveAttribute("data-whole", "false");
+  await page.mouse.up();
+  await expect(page.getByTestId("collage-save")).toHaveAttribute("data-state", "saved");
+  await expect(page.getByTestId("region")).toHaveCount(1);
+  let [stored] = await regionsOnServer(page);
+  expect(stored.id).toBe("r1");
+  expect(stored.end_s).toBeCloseTo(2.7, 2);
+  expect(stored.start_s).toBe(0);
+  expect(stored.at_s).toBe(3);
+  let box = await regionBox(page, 0);
+  expect(box.top).toBeCloseTo(before.top, 0);
+  expect(box.height).toBeCloseTo(270, 0);
+
+  // Near the start: the first tenth would be left over, so the removal
+  // runs back to the start. One region, and unlike a trim of the start its
+  // material stays where it sounded: the box's top moves down by exactly
+  // the span, which is what the stripes said would go.
+  await enterSnip(page);
+  await snipDrag(page, "r1", 10, 40, false);
+  bandBox = (await page.getByTestId("region-snip").boundingBox())!;
+  expect(bandBox.height).toBeCloseTo(40, 0);
+  await page.mouse.up();
+  await expect(page.getByTestId("collage-save")).toHaveAttribute("data-state", "saved");
+  await expect(page.getByTestId("region")).toHaveCount(1);
+  [stored] = await regionsOnServer(page);
+  expect(stored.id).toBe("r1");
+  expect(stored.start_s).toBeCloseTo(0.4, 2);
+  expect(stored.end_s).toBeCloseTo(2.7, 2);
+  expect(stored.at_s).toBeCloseTo(7, 2);
+  box = await regionBox(page, 0);
+  expect(box.top).toBeCloseTo(before.top + 40, 0);
+  expect(box.height).toBeCloseTo(230, 0);
+
+  // Two undos: the one original region, untouched.
+  await page.getByTestId("collage-undo").click();
+  await page.getByTestId("collage-undo").click();
+  await expect(page.getByTestId("collage-undo")).toHaveCount(0);
+  await expect(page.getByTestId("collage-save")).toHaveAttribute("data-state", "saved");
+  [stored] = await regionsOnServer(page);
+  expect(stored).toMatchObject({ id: "r1", start_s: 0, end_s: 3, at_s: 3 });
+});
+
+test("a snip across the whole region removes it, the stripes having said so; one undo brings it back", async ({
+  page,
+  request,
+}) => {
+  const set = await sounds(page);
+  const hash = set[0].hash;
+  // A long cut, and beside it a cut of one and a fifth seconds at full
+  // speed: twelve pixels, in which any thumb's travel leaves less than a
+  // quarter of a second on either side.
+  await writeRegions(request, [regionRow("r1", hash, 0, 0, 0, 3, 0.1), regionRow("r2", hash, 1, 0, 0, 1.2)]);
+  await page.goto("/collage");
+  await expect(page.getByTestId("region")).toHaveCount(2);
+
+  // Top to bottom, within a thumb of each edge: nothing would be left, and
+  // the band covers the whole box and says so. A lift does not take it yet:
+  // the thumb has to hold still on it first, and the bar says so.
+  await enterSnip(page);
+  await snipDrag(page, "r1", 2, 298, false);
+  const bandBox = (await page.getByTestId("region-snip").boundingBox())!;
+  const box = (await region(page, "r1").boundingBox())!;
+  expect(Math.abs(bandBox.y - box.y)).toBeLessThanOrEqual(2);
+  expect(bandBox.height).toBeCloseTo(box.height, 0);
+  await expect(page.getByTestId("region-snip")).toHaveAttribute("data-whole", "true");
+  await expect(page.getByTestId("collage-mode")).toHaveAttribute("data-band", "whole");
+  await expect(page.getByTestId("region-snip")).toHaveAttribute("data-armed", "true");
+  await expect(page.getByTestId("collage-mode")).toHaveAttribute("data-band", "armed");
+  await expect(page.getByTestId("collage-mode")).toContainText("let go to take the whole region out");
+  const writes = await writesDuring(page, () => page.mouse.up());
+  expect(writes).toBe(1);
+  await expect(page.getByTestId("region")).toHaveCount(1);
+  await expect(region(page, "r1")).toHaveCount(0);
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-selected", "");
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-mode", "trim");
+  let stored = await regionsOnServer(page);
+  expect(stored.map((r) => r.id)).toEqual(["r2"]);
+
+  // The short one: eight pixels of travel out of twelve leaves two on each
+  // side, under the minimum both, so the whole of it goes, once held.
+  await enterSnip(page);
+  await snipDrag(page, "r2", 2, 10, false);
+  await expect(page.getByTestId("region-snip")).toHaveAttribute("data-whole", "true");
+  await expect(page.getByTestId("region-snip")).toHaveAttribute("data-armed", "true");
+  await page.mouse.up();
+  await expect(page.getByTestId("collage-save")).toHaveAttribute("data-state", "saved");
+  await expect(page.getByTestId("region")).toHaveCount(0);
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-tracks", "0");
+  // With nothing left to snip, snip is off and the bar offers a sound again.
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-mode", "trim");
+  await expect(page.getByTestId("collage-choose")).toBeVisible();
+
+  // One undo each. The originals come back whole.
+  await page.getByTestId("collage-undo").click();
+  await expect(page.getByTestId("region")).toHaveCount(1);
+  await page.getByTestId("collage-undo").click();
+  await expect(page.getByTestId("region")).toHaveCount(2);
+  await expect(page.getByTestId("collage-save")).toHaveAttribute("data-state", "saved");
+  stored = await regionsOnServer(page);
+  expect(stored[0]).toMatchObject({ id: "r1", start_s: 0, end_s: 3, at_s: 0 });
+  expect(stored[1]).toMatchObject({ id: "r2", start_s: 0, end_s: 1.2, at_s: 0, track: 1 });
+});
+
+test("a whole-region snip is a hold: lifted at once it takes nothing and snip stays on; moved, the hold starts again; held still, a lift takes it", async ({
+  page,
+  request,
+}) => {
+  // The only delete on the surface. On the short cuts snipping makes, a
+  // thumb's drag across the grab takes the whole region more often than
+  // not, and the band saying so is under the thumb. So the band alone must
+  // not remove anything: the thumb has to stop on it and stay.
+  const set = await sounds(page);
+  await writeRegions(request, [regionRow("r1", set[0].hash, 0, 0, 0, 3, 0.1), regionRow("r2", set[0].hash, 1, 0, 0, 3, 0.1)]);
+  await page.goto("/collage");
+  await enterSnip(page);
+  let writes = 0;
+  page.on("request", (r) => {
+    if (r.method() === "PUT" && r.url().includes("/collage")) writes += 1;
+  });
+
+  // Swept through and lifted: the band was whole for a moment, nothing
+  // goes, snip is still on, and the view says what a whole snip takes.
+  await snipDrag(page, "r1", 2, 298, false);
+  await expect(page.getByTestId("region-snip")).toHaveAttribute("data-whole", "true");
+  await expect(page.getByTestId("region-snip")).toHaveAttribute("data-armed", "false");
+  await expect(page.getByTestId("collage-mode")).toContainText("hold still to take the whole region out");
+  await page.mouse.up();
+  await page.waitForTimeout(300);
+  expect(writes).toBe(0);
+  await expect(page.getByTestId("region")).toHaveCount(2);
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-mode", "snip");
+  await expect(page.getByTestId("collage-hint")).toContainText("hold still");
+  await expect(page.getByTestId("collage-undo")).toHaveCount(0);
+
+  // Held, but the thumb moves a tap's worth before the hold is up: the
+  // hold starts again from there, and a lift straight after takes nothing.
+  const { x } = await snipDrag(page, "r1", 2, 298, false);
+  const box = (await region(page, "r1").boundingBox())!;
+  await page.waitForTimeout(400);
+  await expect(page.getByTestId("region-snip")).toHaveAttribute("data-armed", "false");
+  await page.mouse.move(x, box.y + 320, { steps: 2 });
+  await page.waitForTimeout(400);
+  await expect(page.getByTestId("region-snip")).toHaveAttribute("data-whole", "true");
+  await expect(page.getByTestId("region-snip")).toHaveAttribute("data-armed", "false");
+  await page.mouse.up();
+  await page.waitForTimeout(300);
+  expect(writes).toBe(0);
+  await expect(page.getByTestId("region")).toHaveCount(2);
+
+  // Still for the whole hold: the band arms, the bar says a lift takes it,
+  // and the lift does. One write, the hint gone, trim back, undo standing.
+  await snipDrag(page, "r1", 2, 298, false);
+  await expect(page.getByTestId("region-snip")).toHaveAttribute("data-armed", "true");
+  await expect(page.getByTestId("collage-mode")).toHaveAttribute("data-band", "armed");
+  await page.mouse.up();
+  await expect(page.getByTestId("collage-save")).toHaveAttribute("data-state", "saved");
+  expect(writes).toBe(1);
+  await expect(page.getByTestId("region")).toHaveCount(1);
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-mode", "trim");
+  await expect(page.getByTestId("collage-hint")).toHaveCount(0);
+  await expect(page.getByTestId("collage-undo")).toHaveAttribute("data-depth", "1");
+
+  // A band that is whole and then is not, disarms at once: dragged back
+  // inside the region after the hold, the lift is an ordinary snip.
+  await enterSnip(page);
+  await snipDrag(page, "r2", 2, 298, false);
+  await expect(page.getByTestId("region-snip")).toHaveAttribute("data-armed", "true");
+  const b2 = (await region(page, "r2").boundingBox())!;
+  await page.mouse.move(b2.x + TRACK_W / 2, b2.y + 150, { steps: 4 });
+  await expect(page.getByTestId("region-snip")).toHaveAttribute("data-whole", "false");
+  await expect(page.getByTestId("region-snip")).toHaveAttribute("data-armed", "false");
+  await page.mouse.up();
+  await expect(page.getByTestId("collage-save")).toHaveAttribute("data-state", "saved");
+  await expect(page.getByTestId("region")).toHaveCount(1);
+  const [stored] = await regionsOnServer(page);
+  expect(stored.id).toBe("r2");
+  expect(stored.start_s).toBeCloseTo(1.5, 2);
+});
+
+test("a drag that cuts nothing leaves snip on; undoing away the last region turns it off", async ({ page, request }) => {
+  // A one-second cut: ten pixels, with a grab reaching a thumb's worth
+  // above and below it.
+  const set = await sounds(page);
+  await writeRegions(request, [regionRow("r1", set[0].hash, 0, 0, 0, 1)]);
+  await page.goto("/collage");
+  await enterSnip(page);
+  let writes = 0;
+  page.on("request", (r) => {
+    if (r.method() === "PUT" && r.url().includes("/collage")) writes += 1;
+  });
+  // Down from the grab's reach below the box, away from it: the span is
+  // empty, nothing is striped, nothing is written, and snip is still on,
+  // because no snip was made.
+  await snipDrag(page, "r1", 14, 60);
+  await page.waitForTimeout(300);
+  expect(writes).toBe(0);
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-mode", "snip");
+  await expect(page.getByTestId("region-snip")).toHaveCount(0);
+  await expect(page.getByTestId("collage-hint")).toHaveCount(0);
+
+  // Stamp one beside it, undo it away while snip is on: with a region
+  // still there, snip stays on.
+  await page.getByTestId("collage-mode").click();
+  await choose(page, 0);
+  let landed = 0;
+  page.on("response", (r) => {
+    if (r.request().method() === "PUT" && r.url().includes("/collage")) landed += 1;
+  });
+  await stampAt(page, TRACK_W + 40, 500);
+  await expect(page.getByTestId("region")).toHaveCount(2);
+  await enterSnip(page);
+  await page.getByTestId("collage-undo").click();
+  await expect(page.getByTestId("region")).toHaveCount(1);
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-mode", "snip");
+
+  // From nothing: stamp one, turn snip on, undo it away. With nothing to
+  // snip, snip is off, the button refuses, and the way to a sound is back
+  // in the bar rather than a mode label about regions that are not there.
+  // The stamp's write and the undo's are queued one after the other, and
+  // the bar says saved after the first; both have to land before anything
+  // is written over them.
+  await expect.poll(() => landed).toBe(2);
+  await writeRegions(request, []);
+  await page.reload();
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-regions", "0");
+  await choose(page, 0);
+  await stampAt(page, 40, 100);
+  await expect(page.getByTestId("region")).toHaveCount(1);
+  await enterSnip(page);
+  await expect(page.getByTestId("collage-choose")).toHaveCount(0);
+  await page.getByTestId("collage-undo").click();
+  await expect(page.getByTestId("region")).toHaveCount(0);
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-mode", "trim");
+  await expect(page.getByTestId("collage-snip")).toBeDisabled();
+  await expect(page.getByTestId("collage-choose")).toBeVisible();
+});
+
+test("trim and snip disagree at the start: a trim keeps the region's place, a snip keeps the material's moment", async ({
+  page,
+  request,
+}) => {
+  // Two identical regions on two tracks. The same forty pixels of source
+  // are taken off the start of each: one by dragging the start handle, one
+  // by snipping from the top. Both end up holding the same cut. They differ
+  // in when it sounds: the trimmed one still starts where the region did,
+  // so the material heard at its top has changed; the snipped one starts
+  // forty pixels later, so the material still sounds when it did, and the
+  // box's top has moved down to it. This is a record of the difference, not
+  // a ruling on it.
+  const set = await sounds(page);
+  await writeRegions(request, [regionRow("r1", set[0].hash, 0, 5, 0, 3, 0.1), regionRow("r2", set[0].hash, 1, 5, 0, 3, 0.1)]);
+  await page.goto("/collage");
+  const a0 = await regionBox(page, 0);
+  const b0 = await regionBox(page, 1);
+  expect(a0.top).toBeCloseTo(b0.top, 0);
+
+  await drag(page, "r1", "start", 40);
+  await expect(page.getByTestId("collage-save")).toHaveAttribute("data-state", "saved");
+  await enterSnip(page);
+  await snipDrag(page, "r2", 2, 40);
+  await expect(page.getByTestId("collage-save")).toHaveAttribute("data-state", "saved");
+  await expect(page.getByTestId("collage-undo")).toHaveAttribute("data-depth", "2");
+
+  const [trimmed, snipped] = await regionsOnServer(page);
+  expect(trimmed.start_s).toBeCloseTo(0.4, 2);
+  expect(snipped.start_s).toBeCloseTo(0.4, 2);
+  expect(trimmed.end_s).toBe(3);
+  expect(snipped.end_s).toBe(3);
+  expect(trimmed.at_s).toBe(5);
+  expect(snipped.at_s).toBeCloseTo(9, 2);
+  const a1 = await regionBox(page, 0);
+  const b1 = await regionBox(page, 1);
+  expect(a1.top).toBeCloseTo(a0.top, 0);
+  expect(b1.top).toBeCloseTo(b0.top + 40, 0);
+  expect(a1.height).toBeCloseTo(b1.height, 0);
+});
+
+test("in snip mode a tap plays and cuts nothing; a thumb that barely travels is a tap; the source is never touched", async ({
+  page,
+  request,
+}) => {
+  const set = await sounds(page);
+  const sound = set[0];
+  await writeRegions(request, [regionRow("r1", sound.hash, 0, 0, 0, sound.duration_s, 0.1)]);
+  await page.goto("/collage");
+  await enterSnip(page);
+  const target = region(page, "r1");
+  const box = (await target.boundingBox())!;
+  const x = box.x + TRACK_W / 2;
+
+  let writes = 0;
+  page.on("request", (r) => {
+    if (r.method() === "PUT" && r.url().includes("/collage")) writes += 1;
+  });
+  // A tap.
+  await page.mouse.move(x, box.y + 30);
+  await page.mouse.down();
+  await page.mouse.up();
+  await expect(target).toHaveAttribute("data-playing", "true");
+  await expect(target).toHaveAttribute("data-selected", "true");
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-mode", "snip");
+  // A single pixel.
+  await page.mouse.move(x, box.y + 30);
+  await page.mouse.down();
+  await page.mouse.move(x, box.y + 31);
+  await page.mouse.up();
+  await expect(target).toHaveAttribute("data-playing", "false");
+  // Seven pixels: still a tap.
+  await page.mouse.move(x, box.y + 30);
+  await page.mouse.down();
+  await page.mouse.move(x, box.y + 37, { steps: 3 });
+  await page.mouse.up();
+  await expect(target).toHaveAttribute("data-playing", "true");
+  await page.waitForTimeout(200);
+  expect(writes).toBe(0);
+  await expect(page.getByTestId("region")).toHaveCount(1);
+  await expect(page.getByTestId("collage-undo")).toHaveCount(0);
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-mode", "snip");
+
+  // Now a real snip of the region that is playing: it stops, because the
+  // slice being played is the cut being changed. The source is a file the
+  // interface can only read; a snip is one PUT of the arrangement.
+  const seen: string[] = [];
+  page.on("request", (r) => {
+    if (r.method() !== "GET" && r.method() !== "HEAD") seen.push(`${r.method()} ${new URL(r.url()).pathname}`);
+  });
+  await snipDrag(page, "r1", 30, 60);
+  await expect(target).toHaveAttribute("data-playing", "false");
+  await expect(page.getByTestId("collage-save")).toHaveAttribute("data-state", "saved");
+  expect(writes).toBe(1);
+  expect(seen).toEqual([`PUT /api/projects/${PROJECT}/collage`]);
+  await expect(page.getByTestId("region")).toHaveCount(2);
+});
+
+test("the second half can be snipped again at once, and every half is told apart by where it is and what it holds", async ({
+  page,
+  request,
+}) => {
+  const set = await sounds(page);
+  await writeRegions(request, [regionRow("r1", set[0].hash, 0, 0, 0, 3, 0.1)]);
+  await page.goto("/collage");
+  await enterSnip(page);
+  await snipDrag(page, "r1", 100, 150);
+  await expect(page.getByTestId("region")).toHaveCount(2);
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-mode", "trim");
+
+  // Straight into the second half. Fifty to eighty pixels into r2's box is
+  // two seconds to two point three of source.
+  await enterSnip(page);
+  await snipDrag(page, "r2", 50, 80);
+  await expect(page.getByTestId("region")).toHaveCount(3);
+  await expect(page.getByTestId("collage-save")).toHaveAttribute("data-state", "saved");
+  const stored = await regionsOnServer(page);
+  expect(stored.map((r) => r.id)).toEqual(["r1", "r2", "r3"]);
+  expect(stored[0]).toMatchObject({ start_s: 0, at_s: 0 });
+  expect(stored[0].end_s).toBeCloseTo(1.0, 2);
+  expect(stored[1].start_s).toBeCloseTo(1.5, 2);
+  expect(stored[1].end_s).toBeCloseTo(2.0, 2);
+  expect(stored[1].at_s).toBeCloseTo(15, 2);
+  expect(stored[2].start_s).toBeCloseTo(2.3, 2);
+  expect(stored[2].end_s).toBeCloseTo(3, 3);
+  expect(stored[2].at_s).toBeCloseTo(23, 2);
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-selected", "r2");
+  await expect(page.getByTestId("collage-undo")).toHaveAttribute("data-depth", "2");
+
+  // Three boxes, in order down the track, none overlapping, and each one
+  // draws its own stretch of the sound.
+  const boxes = [await regionBox(page, 0), await regionBox(page, 1), await regionBox(page, 2)];
+  expect(boxes[0].top + boxes[0].height).toBeLessThanOrEqual(boxes[1].top + 0.5);
+  expect(boxes[1].top + boxes[1].height).toBeLessThanOrEqual(boxes[2].top + 0.5);
+  expect(boxes.map((b) => Math.round(b.height))).toEqual([100, 50, 70]);
+  await expect(page.getByTestId("region-wave")).toHaveCount(3);
+
+  // Undo, twice: the one original.
+  await page.getByTestId("collage-undo").click();
+  await expect(page.getByTestId("region")).toHaveCount(2);
+  await page.getByTestId("collage-undo").click();
+  await expect(page.getByTestId("region")).toHaveCount(1);
+  await expect(page.getByTestId("collage-save")).toHaveAttribute("data-state", "saved");
+  const [one] = await regionsOnServer(page);
+  expect(one).toMatchObject({ id: "r1", start_s: 0, end_s: 3, at_s: 0 });
+});
+
+test("a snip that runs off the region, or onto the next one, snips only the region it started on", async ({
+  page,
+  request,
+}) => {
+  const set = await sounds(page);
+  const hash = set[0].hash;
+  // r1 is three hundred pixels; r2 starts fifty pixels below its end.
+  await writeRegions(request, [regionRow("r1", hash, 0, 0, 0, 3, 0.1), regionRow("r2", hash, 0, 35, 0, 1, 0.1)]);
+  await page.goto("/collage");
+  await enterSnip(page);
+
+  // Down from inside r1, past its end, and onto r2's box: r1 loses its
+  // last second, r2 is untouched.
+  await snipDrag(page, "r1", 200, 380);
+  await expect(page.getByTestId("collage-save")).toHaveAttribute("data-state", "saved");
+  let stored = await regionsOnServer(page);
+  expect(stored).toHaveLength(2);
+  expect(stored[0].end_s).toBeCloseTo(2.0, 2);
+  expect(stored[1]).toMatchObject({ id: "r2", at_s: 35, start_s: 0, end_s: 1 });
+
+  // Up from inside r1 and off its top, into the blank above time: r1 loses
+  // its first second, and what is left stays where it sounded.
+  await enterSnip(page);
+  await snipDrag(page, "r1", 100, -40);
+  await expect(page.getByTestId("collage-save")).toHaveAttribute("data-state", "saved");
+  stored = await regionsOnServer(page);
+  expect(stored).toHaveLength(2);
+  expect(stored[0].start_s).toBeCloseTo(1.0, 2);
+  expect(stored[0].end_s).toBeCloseTo(2.0, 2);
+  expect(stored[0].at_s).toBeCloseTo(10, 2);
+  expect(stored[1].at_s).toBe(35);
+});
+
+test("Escape mid-snip lets go without writing, and the thumb lifting afterwards writes nothing either", async ({
+  page,
+  request,
+}) => {
+  const set = await sounds(page);
+  await writeRegions(request, [regionRow("r1", set[0].hash, 0, 0, 0, 3, 0.1)]);
+  await page.goto("/collage");
+  await enterSnip(page);
+  let writes = 0;
+  page.on("request", (r) => {
+    if (r.method() === "PUT" && r.url().includes("/collage")) writes += 1;
+  });
+  await snipDrag(page, "r1", 100, 150, false);
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-snipping", "true");
+  await page.keyboard.press("Escape");
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-snipping", "false");
+  await expect(page.getByTestId("region-snip")).toHaveCount(0);
+  await page.mouse.up();
+  await page.waitForTimeout(300);
+  expect(writes).toBe(0);
+  await expect(page.getByTestId("region")).toHaveCount(1);
+  await expect(page.getByTestId("collage-undo")).toHaveCount(0);
+  const [stored] = await regionsOnServer(page);
+  expect(stored).toMatchObject({ start_s: 0, end_s: 3 });
+});
