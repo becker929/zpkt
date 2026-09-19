@@ -40,12 +40,56 @@ def write_file(fixture: Fixture, project_id: str, document: object) -> Path:
 
 
 def commit_stored(fixture: Fixture, project_id: str) -> None:
-    """Freeze the sound set. The only commit the built board accepts."""
+    """Freeze the sound set and move the project to `collage`."""
     response = fixture.client.post(
         f"/api/projects/{project_id}/commit",
         json={"expect_column": "stored", "override": True},
     )
     assert response.status_code == 200, response.text
+
+
+def region(file_hash: str, **fields: object) -> dict[str, Any]:
+    """One region as the client sends it, with the spec's defaults."""
+    return {
+        "id": "r1",
+        "hash": file_hash,
+        "track": 0,
+        "start_s": 0.1,
+        "end_s": 0.4,
+        "at_s": 0.0,
+        "rate": 1.0,
+        "gain": 1.0,
+        "fade_in_s": 0.0,
+        "fade_out_s": 0.0,
+        **fields,
+    }
+
+
+def stamp(fixture: Fixture, project_id: str, file_hash: str) -> dict[str, Any]:
+    """Put a one-region collage on a project and return the response body."""
+    response = fixture.client.put(
+        f"/api/projects/{project_id}/collage", json={"regions": [region(file_hash)]}
+    )
+    assert response.status_code == 200, response.text
+    return dict(response.json())
+
+
+def commit_collage(fixture: Fixture, project_id: str) -> dict[str, Any]:
+    """Freeze the collage and move the project to `enrich`."""
+    response = fixture.client.post(
+        f"/api/projects/{project_id}/commit",
+        json={"expect_column": "collage", "override": True},
+    )
+    assert response.status_code == 200, response.text
+    return dict(response.json())
+
+
+def in_collage(fixture: Fixture, name: str, file_hash: str, **body: object) -> str:
+    """A project holding one sound, committed out of `stored`."""
+    project_id = fixture.project_id(name, **body)
+    fixture.client.put(f"/api/projects/{project_id}/sounds/{file_hash}")
+    commit_stored(fixture, project_id)
+    return project_id
 
 
 # ------------------------------------------------------------ the pure model
@@ -67,19 +111,21 @@ def test_the_stored_digest_survives_reordering_but_not_a_change() -> None:
 
 
 def test_the_later_stage_says_its_artifact_is_not_real_yet() -> None:
-    """collage has no view, so its digest is a placeholder and says so."""
-    artifact = model.commit_artifact("p", ["a" * 64], "collage")
+    """enrich has no view, so its digest is a placeholder and says so."""
+    artifact = model.commit_artifact("p", ["a" * 64], "enrich")
     assert artifact.real is False
-    assert artifact.digest != model.commit_artifact("q", ["a" * 64], "collage").digest
+    assert artifact.digest != model.commit_artifact("q", ["a" * 64], "enrich").digest
 
 
-def test_the_board_ends_at_collage_and_says_what_is_missing() -> None:
-    """`enrich` is in the plan and is not a column. Nothing commits into it."""
-    assert model.COLUMNS == ("stored", "collage")
+def test_the_board_ends_at_enrich_and_says_nothing_follows_it() -> None:
+    """`enrich` is the placeholder column: a cap, no view, nowhere to go."""
+    assert model.COLUMNS == ("stored", "collage", "enrich")
     assert model.next_placement("stored") == "collage"
-    assert model.next_placement("collage") is None
-    assert model.next_planned("collage") == "enrich"
-    assert not model.is_column("enrich")
+    assert model.next_placement("collage") == "enrich"
+    assert model.next_placement("enrich") is None
+    assert model.next_planned("enrich") is None
+    assert model.is_column("enrich")
+    assert not model.is_column("released")
 
 
 def test_a_project_is_encumbered_past_the_threshold_and_not_at_it() -> None:
@@ -126,7 +172,7 @@ def test_a_repeated_hash_is_refused_although_the_schema_allows_it(validator: Any
     entry = {"hash": "a" * 64, "added_at": "2026-09-16T21:04:00Z", "role": None, "note": ""}
     document["sounds"] = [entry, dict(entry)]
 
-    assert validator.is_valid(document), "the schema alone lets this through"
+    assert model.schema_accepts(validator, document), "the schema alone lets this through"
     issues = model.check_project(validator, document)
     assert [i.path for i in issues] == ["sounds"]
     assert "set" in issues[0].message
@@ -135,7 +181,7 @@ def test_a_repeated_hash_is_refused_although_the_schema_allows_it(validator: Any
 def test_updated_before_created_is_refused(validator: Any) -> None:
     document = model.new_document("p", "p", "2026-09-16T21:04:00Z")
     document["updated_at"] = "2026-09-15T21:04:00Z"
-    assert validator.is_valid(document)
+    assert model.schema_accepts(validator, document)
     assert [i.path for i in model.check_project(validator, document)] == ["updated_at"]
 
 
@@ -145,7 +191,7 @@ def test_a_commit_dated_before_the_project_is_refused(validator: Any) -> None:
     document["commits"] = [
         {"column": "stored", "at": "2026-01-01T00:00:00Z", "digest": "a" * 64}
     ]
-    assert validator.is_valid(document)
+    assert model.schema_accepts(validator, document)
     assert [i.path for i in model.check_project(validator, document)] == ["commits.0.at"]
 
 
@@ -155,7 +201,7 @@ def test_an_abandonment_that_disagrees_with_the_column_is_refused(validator: Any
     document["abandoned"] = {
         "at": "2026-09-17T00:00:00Z", "from": "collage", "reason": ""
     }
-    assert validator.is_valid(document)
+    assert model.schema_accepts(validator, document)
     assert [i.path for i in model.check_project(validator, document)] == ["abandoned.from"]
 
 
@@ -167,7 +213,7 @@ def test_the_chain_is_tied_to_the_column_by_the_schema_itself(validator: Any) ->
     """
     document = model.new_document("p", "p", "2026-09-16T21:04:00Z")
     document["column"] = "collage"
-    assert not validator.is_valid(document)
+    assert not model.schema_accepts(validator, document)
     assert model.check_project(validator, document)
 
 
@@ -176,7 +222,7 @@ def test_the_chain_is_tied_to_the_column_by_the_schema_itself(validator: Any) ->
 
 def test_the_board_starts_empty_with_the_configured_cap(api: Fixture) -> None:
     board = api.client.get("/api/board").json()
-    assert [c["column"] for c in board["columns"]] == ["stored", "collage"]
+    assert [c["column"] for c in board["columns"]] == ["stored", "collage", "enrich"]
     assert all(c["cap"] == 1 and c["count"] == 0 and not c["over"] for c in board["columns"])
     assert board["encumbrance"] == 16
     assert board == {**board, "released": 0, "abandoned": 0, "unreadable": 0}
@@ -577,26 +623,26 @@ def test_committing_out_of_the_last_column_leaves_the_project_where_it_is(
     empties itself is not a constraint at all. Abandon is the one way out, and
     that is the price it is meant to be.
     """
-    project_id = api.project_id("rust and rebar")
-    api.client.put(f"/api/projects/{project_id}/sounds/{api.hash_of('kick.wav')}")
-    commit_stored(api, project_id)
+    project_id = in_collage(api, "rust and rebar", api.hash_of("kick.wav"))
+    stamp(api, project_id, api.hash_of("kick.wav"))
+    commit_collage(api, project_id)
 
     refused = api.client.post(
         f"/api/projects/{project_id}/commit",
-        json={"expect_column": "collage", "override": True},
+        json={"expect_column": "enrich", "override": True},
     )
     assert refused.status_code == 409
     detail = refused.json()["detail"]
-    assert detail["missing_column"] == "enrich"
+    assert "missing_column" not in detail, "nothing is planned after enrich"
     assert "overridable" not in detail, "no override conjures a column"
 
     on_disk = read_file(api, project_id)
-    assert on_disk["column"] == "collage"
-    assert [c["column"] for c in on_disk["commits"]] == ["stored"]
+    assert on_disk["column"] == "enrich"
+    assert [c["column"] for c in on_disk["commits"]] == ["stored", "collage"]
 
     board = api.client.get("/api/board").json()
     assert board["released"] == 0
-    assert board["columns"][1]["count"] == 1
+    assert board["columns"][2]["count"] == 1
 
 
 def test_the_board_says_why_nothing_can_move_and_names_what_is_missing(
@@ -604,24 +650,34 @@ def test_the_board_says_why_nothing_can_move_and_names_what_is_missing(
 ) -> None:
     """The deadlock in the specification, walked from an empty board.
 
-    stored commits, a new project is born, it cannot commit because collage is
-    full, and collage cannot commit because enrich does not exist. Nothing can
-    move, and the board says so.
+    A project reaches enrich, which has nowhere to go. A second reaches collage
+    and cannot commit because enrich is full. A third is born in stored and
+    cannot commit because collage is full. Nothing can move, and the board says
+    so.
     """
-    first = api.project_id("first")
-    api.client.put(f"/api/projects/{first}/sounds/{api.hash_of('kick.wav')}")
-    api.client.post(f"/api/projects/{first}/commit", json={"expect_column": "stored"})
+    first = in_collage(api, "first", api.hash_of("kick.wav"))
+    stamp(api, first, api.hash_of("kick.wav"))
+    commit_collage(api, first)
 
     # One column occupied, and it is the last one: already blocked.
     board = api.client.get("/api/board").json()
     assert board["blocked"] is True
     assert [b["reason"] for b in board["blocks"]] == ["next_column_missing"]
-    assert board["blocks"][0]["missing_column"] == "enrich"
+    assert board["blocks"][0]["column"] == "enrich"
+    assert board["blocks"][0]["missing_column"] is None
 
-    second = api.project_id("second")
-    api.client.put(f"/api/projects/{second}/sounds/{api.hash_of('hat.wav')}")
+    second = in_collage(api, "second", api.hash_of("hat.wav"))
+    stamp(api, second, api.hash_of("hat.wav"))
     refused = api.client.post(
-        f"/api/projects/{second}/commit", json={"expect_column": "stored"}
+        f"/api/projects/{second}/commit", json={"expect_column": "collage"}
+    )
+    assert refused.status_code == 409
+    assert refused.json()["detail"]["column"] == "enrich"
+
+    third = api.project_id("third")
+    api.client.put(f"/api/projects/{third}/sounds/{api.hash_of('loop.mp3')}")
+    refused = api.client.post(
+        f"/api/projects/{third}/commit", json={"expect_column": "stored"}
     )
     assert refused.status_code == 409
     assert refused.json()["detail"]["column"] == "collage"
@@ -630,13 +686,22 @@ def test_the_board_says_why_nothing_can_move_and_names_what_is_missing(
     assert board["blocked"] is True
     assert [(b["column"], b["reason"]) for b in board["blocks"]] == [
         ("stored", "next_column_full"),
-        ("collage", "next_column_missing"),
+        ("collage", "next_column_full"),
+        ("enrich", "next_column_missing"),
     ]
-    assert [b["overridable"] for b in board["blocks"]] == [True, False]
-    assert board["blocks"][1]["next_column"] is None
+    assert [b["overridable"] for b in board["blocks"]] == [True, True, False]
+    assert board["blocks"][2]["next_column"] is None
     assert board["detail"] is not None
     assert board["detail"].startswith("Nothing can move.")
     assert "enrich" in board["detail"]
+
+
+def test_a_collage_project_is_not_blocked_while_enrich_has_room(api: Fixture) -> None:
+    """The deadlock the board used to report at collage is gone. It moved."""
+    project_id = in_collage(api, "rust and rebar", api.hash_of("kick.wav"))
+    board = api.client.get("/api/board").json()
+    assert board["blocked"] is False
+    assert board["blocks"] == []
 
 
 def test_abandoning_is_the_one_way_out_of_the_deadlock(api: Fixture) -> None:
@@ -901,3 +966,391 @@ def test_the_store_rebuilds_the_index_from_the_directory(
     assert [row["placement"] for row in rows] == ["stored", "stored"]
     assert all(row["valid"] == 1 for row in rows)
     conn.close()
+
+
+# ------------------------------------------------------------------- collage
+#
+# The first tracer bullet: choose a sound, stamp it as a region, freeze it.
+# Nothing here reads or removes audio. The description is a JSON field.
+
+
+def collage_document(fixture: Fixture, project_id: str) -> dict[str, Any] | None:
+    """The `collage` field straight off disk."""
+    value = read_file(fixture, project_id).get("collage")
+    return dict(value) if isinstance(value, dict) else None
+
+
+def test_a_new_project_carries_a_null_collage(api: Fixture) -> None:
+    project_id = api.project_id("rust and rebar")
+    on_disk = read_file(api, project_id)
+    assert "collage" in on_disk and on_disk["collage"] is None
+
+
+def test_a_stamped_region_lands_in_the_file_and_reads_back(api: Fixture) -> None:
+    kick = api.hash_of("kick.wav")
+    project_id = in_collage(api, "rust and rebar", kick)
+
+    body = stamp(api, project_id, kick)
+    assert body["frozen"] is False
+    assert body["collage"] == {"regions": [region(kick)]}
+    assert collage_document(api, project_id) == {"regions": [region(kick)]}
+
+    detail = api.client.get(f"/api/projects/{project_id}").json()
+    assert detail["document"]["collage"] == {"regions": [region(kick)]}
+
+
+def test_put_replaces_the_whole_description(api: Fixture) -> None:
+    """Whole, not merged. A region left out is gone."""
+    kick = api.hash_of("kick.wav")
+    project_id = in_collage(api, "rust and rebar", kick)
+    api.client.put(
+        f"/api/projects/{project_id}/collage",
+        json={"regions": [region(kick, id="r1"), region(kick, id="r2", track=1)]},
+    )
+    stamp(api, project_id, kick)
+    regions = (collage_document(api, project_id) or {})["regions"]
+    assert [r["id"] for r in regions] == ["r1"]
+
+
+def test_the_defaults_are_filled_in_so_a_stamp_is_three_seconds(api: Fixture) -> None:
+    """The document always carries all ten keys, whatever the client sent."""
+    kick = api.hash_of("kick.wav")
+    project_id = in_collage(api, "rust and rebar", kick)
+    response = api.client.put(
+        f"/api/projects/{project_id}/collage",
+        json={
+            "regions": [
+                {"id": "r1", "hash": kick, "track": 0, "start_s": 0.1, "end_s": 0.4, "at_s": 2.0}
+            ]
+        },
+    )
+    assert response.status_code == 200, response.text
+    written = (collage_document(api, project_id) or {})["regions"][0]
+    assert set(written) == set(model.REGION_FIELDS)
+    assert written["rate"] == 1.0 and written["gain"] == 1.0
+    assert written["fade_in_s"] == 0.0 and written["fade_out_s"] == 0.0
+
+
+@pytest.mark.parametrize(
+    "bad,path",
+    [
+        ({"hash": "b" * 64}, "hash"),  # not in the frozen set
+        ({"start_s": 0.4, "end_s": 0.4}, "end_s"),
+        ({"start_s": 0.5, "end_s": 0.4}, "end_s"),
+        ({"track": -1}, "track"),
+        ({"rate": 0}, "rate"),
+        ({"gain": -0.1}, "gain"),
+        ({"at_s": -1}, "at_s"),
+    ],
+)
+def test_a_region_that_breaks_a_rule_is_refused_and_not_written(
+    api: Fixture, bad: dict[str, Any], path: str
+) -> None:
+    kick = api.hash_of("kick.wav")
+    project_id = in_collage(api, "rust and rebar", kick)
+    response = api.client.put(
+        f"/api/projects/{project_id}/collage", json={"regions": [region(kick, **bad)]}
+    )
+    assert response.status_code == 422, response.text
+    assert path in response.text
+    assert collage_document(api, project_id) is None
+
+
+def test_a_region_may_only_cut_from_the_frozen_set(api: Fixture) -> None:
+    """hat is in the library and is not in this project. Collage cannot add it."""
+    kick, hat = api.hash_of("kick.wav"), api.hash_of("hat.wav")
+    project_id = in_collage(api, "rust and rebar", kick)
+    refused = api.client.put(
+        f"/api/projects/{project_id}/collage", json={"regions": [region(hat)]}
+    )
+    assert refused.status_code == 422
+    assert "frozen set" in refused.json()["detail"]["detail"]
+
+
+def test_region_ids_are_unique(api: Fixture) -> None:
+    kick = api.hash_of("kick.wav")
+    project_id = in_collage(api, "rust and rebar", kick)
+    refused = api.client.put(
+        f"/api/projects/{project_id}/collage",
+        json={"regions": [region(kick, id="r1"), region(kick, id="r1", track=1)]},
+    )
+    assert refused.status_code == 422
+    assert "unique" in refused.json()["detail"]["detail"]
+
+
+def test_a_region_with_an_unknown_key_is_refused(api: Fixture) -> None:
+    kick = api.hash_of("kick.wav")
+    project_id = in_collage(api, "rust and rebar", kick)
+    refused = api.client.put(
+        f"/api/projects/{project_id}/collage",
+        json={"regions": [region(kick, seconds_label="12s")]},
+    )
+    assert refused.status_code == 422
+
+
+def test_a_project_in_stored_cannot_hold_a_collage(api: Fixture) -> None:
+    """No frozen set yet, so nothing settled to cut from. 409, not overridable."""
+    kick = api.hash_of("kick.wav")
+    project_id = api.project_id("rust and rebar")
+    api.client.put(f"/api/projects/{project_id}/sounds/{kick}")
+    refused = api.client.put(
+        f"/api/projects/{project_id}/collage", json={"regions": [region(kick)]}
+    )
+    assert refused.status_code == 409
+    assert "overridable" not in refused.json()["detail"]
+    assert "stored" in refused.json()["detail"]["detail"]
+    assert collage_document(api, project_id) is None
+
+
+def test_an_abandoned_project_cannot_be_cut(api: Fixture) -> None:
+    kick = api.hash_of("kick.wav")
+    project_id = in_collage(api, "rust and rebar", kick)
+    api.client.post(f"/api/projects/{project_id}/abandon", json={})
+    refused = api.client.put(
+        f"/api/projects/{project_id}/collage", json={"regions": [region(kick)]}
+    )
+    assert refused.status_code == 409
+
+
+def test_an_unknown_project_is_a_404(api: Fixture) -> None:
+    response = api.client.put(
+        "/api/projects/no-such-project/collage",
+        json={"regions": [region("a" * 64)]},
+    )
+    assert response.status_code == 404
+
+
+def test_a_file_from_before_the_field_existed_reads_as_null(api: Fixture) -> None:
+    """HW011 was written without the key. Absent means the same as null."""
+    document = model.new_document("older", "older", "2026-09-16T21:04:00Z")
+    del document["collage"]
+    write_file(api, "older", document)
+    detail = api.client.get("/api/projects/older").json()
+    assert detail["valid"] is True
+    assert "collage" not in detail["document"]
+    assert model.collage_of(detail["document"]) is None
+
+
+def test_a_hand_written_collage_in_stored_makes_the_file_unreadable(
+    api: Fixture,
+) -> None:
+    document = model.new_document("edited", "edited", "2026-09-16T21:04:00Z")
+    document["collage"] = {"regions": []}
+    write_file(api, "edited", document)
+    body = api.client.get("/api/projects").json()
+    assert body["unreadable"][0]["id"] == "edited"
+    assert "collage" in body["unreadable"][0]["problem"]
+
+
+# ---------------------------------------------------- committing out of collage
+
+
+def test_committing_out_of_collage_freezes_the_description(api: Fixture) -> None:
+    kick = api.hash_of("kick.wav")
+    project_id = in_collage(api, "rust and rebar", kick)
+    stamp(api, project_id, kick)
+
+    body = commit_collage(api, project_id)
+    assert body["commit"]["column"] == "collage"
+    assert body["artifact_real"] is True
+    assert body["summary"]["column"] == "enrich"
+    expected = model.digest_of(model.collage_input({"regions": [region(kick)]}))
+    assert body["commit"]["digest"] == expected
+
+    on_disk = read_file(api, project_id)
+    assert on_disk["column"] == "enrich"
+    assert [c["column"] for c in on_disk["commits"]] == ["stored", "collage"]
+    assert on_disk["collage"] == {"regions": [region(kick)]}
+
+
+def test_the_description_is_refused_once_committed(api: Fixture) -> None:
+    """The field is what the commit froze. Freezing is one way."""
+    kick = api.hash_of("kick.wav")
+    project_id = in_collage(api, "rust and rebar", kick)
+    stamp(api, project_id, kick)
+    commit_collage(api, project_id)
+
+    refused = api.client.put(
+        f"/api/projects/{project_id}/collage",
+        json={"regions": [region(kick, id="r9")]},
+    )
+    assert refused.status_code == 409
+    assert "overridable" not in refused.json()["detail"]
+    assert "frozen" in refused.json()["detail"]["detail"]
+    assert collage_document(api, project_id) == {"regions": [region(kick)]}
+
+
+def test_an_empty_collage_cannot_be_frozen(api: Fixture) -> None:
+    """422, and no override, as with an empty sound set."""
+    kick = api.hash_of("kick.wav")
+    project_id = in_collage(api, "rust and rebar", kick)
+    for description in (None, {"regions": []}):
+        if description is not None:
+            put = api.client.put(f"/api/projects/{project_id}/collage", json=description)
+            assert put.status_code == 200, put.text
+        refused = api.client.post(
+            f"/api/projects/{project_id}/commit",
+            json={"expect_column": "collage", "override": True},
+        )
+        assert refused.status_code == 422, refused.text
+        assert read_file(api, project_id)["column"] == "collage"
+
+
+def test_a_full_enrich_gates_promotion_out_of_collage(api: Fixture) -> None:
+    kick, hat = api.hash_of("kick.wav"), api.hash_of("hat.wav")
+    blocker = in_collage(api, "blocker", kick)
+    stamp(api, blocker, kick)
+    commit_collage(api, blocker)
+
+    waiting = in_collage(api, "waiting", hat, override=True)
+    stamp(api, waiting, hat)
+    refused = api.client.post(
+        f"/api/projects/{waiting}/commit", json={"expect_column": "collage"}
+    )
+    assert refused.status_code == 409
+    assert refused.json()["detail"]["column"] == "enrich"
+    assert refused.json()["detail"]["overridable"] is True
+
+    commit_collage(api, waiting)
+    assert api.client.get("/api/board").json()["columns"][2]["over"] is True
+
+
+# ------------------------------------------------- the canonical serialisation
+#
+# Committing out of collage digests one string. Two descriptions that mean the
+# same thing must produce the same string, or a digest would depend on which
+# tab wrote the file.
+
+
+def test_the_canonical_text_is_sorted_fixed_point_and_whitespace_free() -> None:
+    text = model.collage_input(
+        {
+            "regions": [
+                {
+                    "id": "r1",
+                    "hash": "a" * 64,
+                    "track": 0,
+                    "start_s": 41.2,
+                    "end_s": 47.9,
+                    "at_s": 12,
+                    "rate": 1,
+                    "gain": 1.0,
+                    "fade_in_s": 0,
+                    "fade_out_s": 0.0,
+                }
+            ]
+        }
+    )
+    assert text == (
+        '{"regions":[{"at_s":12.000000,"end_s":47.900000,"fade_in_s":0.000000,'
+        '"fade_out_s":0.000000,"gain":1.000000,"hash":"' + "a" * 64 + '",'
+        '"id":"r1","rate":1.000000,"start_s":41.200000,"track":0}]}'
+    )
+
+
+def test_two_equivalent_descriptions_digest_identically() -> None:
+    """Key order, region order, `1` against `1.0`, and float noise all vanish."""
+    one = {
+        "regions": [
+            {
+                "id": "r2", "hash": "b" * 64, "track": 1, "start_s": 0.1 + 0.2,
+                "end_s": 5, "at_s": 0, "rate": 1, "gain": 0.5, "fade_in_s": 0,
+                "fade_out_s": 0,
+            },
+            {
+                "id": "r1", "hash": "a" * 64, "track": 0, "start_s": 41.2,
+                "end_s": 47.9, "at_s": 12.0, "rate": 1.0, "gain": 1.0,
+                "fade_in_s": 0.0, "fade_out_s": 0.0,
+            },
+        ]
+    }
+    two = {
+        "regions": [
+            {
+                "fade_out_s": 0.0, "fade_in_s": 0.0, "gain": 1.0, "rate": 1.0,
+                "at_s": 12, "end_s": 47.9, "start_s": 41.2, "track": 0,
+                "hash": "a" * 64, "id": "r1",
+            },
+            {
+                "gain": 0.5, "fade_in_s": 0.0, "fade_out_s": -0.0, "rate": 1.0,
+                "at_s": 0.0, "end_s": 5.0, "start_s": 0.3, "track": 1,
+                "hash": "b" * 64, "id": "r2",
+            },
+        ]
+    }
+    first = model.commit_artifact("p", ["a" * 64, "b" * 64], "collage", collage=one)
+    second = model.commit_artifact("p", ["a" * 64, "b" * 64], "collage", collage=two)
+    assert first.real is True
+    assert first.input == second.input
+    assert first.digest == second.digest
+
+    moved = {**two, "regions": [{**two["regions"][0], "at_s": 12.5}, two["regions"][1]]}
+    third = model.commit_artifact("p", ["a" * 64, "b" * 64], "collage", collage=moved)
+    assert third.digest != first.digest
+
+
+def test_the_digest_is_stable_across_key_order_through_the_api(api: Fixture) -> None:
+    """The same walk as above, but through PUT and commit on two projects."""
+    kick = api.hash_of("kick.wav")
+    forwards = region(kick)
+    backwards = dict(reversed(list(forwards.items())))
+    assert list(forwards) != list(backwards)
+
+    digests = []
+    for name, description in (("one", forwards), ("two", backwards)):
+        project_id = in_collage(api, name, kick, override=True)
+        put = api.client.put(
+            f"/api/projects/{project_id}/collage", json={"regions": [description]}
+        )
+        assert put.status_code == 200, put.text
+        digests.append(commit_collage(api, project_id)["commit"]["digest"])
+    assert digests[0] == digests[1]
+
+
+# ---------------------------------------------------- the schema and the spec
+#
+# The schema is generated from the Zod declarations on its own schedule. Until
+# it carries `collage`, Python is the authority for that field. Once it does,
+# it has to say what the specification says, or the two languages would accept
+# different files.
+
+
+def test_python_owns_the_field_until_the_schema_learns_it(validator: Any) -> None:
+    document = model.new_document("p", "p", "2026-09-16T21:04:00Z")
+    assert not model.check_project(validator, document)
+    if not model.schema_declares_collage(validator):
+        # The schema alone would refuse the key. The shim takes it out for the
+        # schema's benefit and the Python rules still apply.
+        assert not validator.is_valid(document)
+        document["collage"] = {"regions": []}
+        assert [i.path for i in model.check_project(validator, document)] == ["collage"]
+
+
+def test_a_regenerated_schema_agrees_with_the_specification(validator: Any) -> None:
+    """Fails loudly, naming the disagreement, rather than following either side."""
+    if not model.schema_declares_collage(validator):
+        pytest.skip("schemas/project.schema.json does not declare collage yet")
+    schema = validator.schema
+    for index, branch in enumerate(schema["anyOf"]):
+        declared = branch["properties"]["collage"]
+        column = branch["properties"]["column"].get("const", "?")
+        # Resolve a $ref into the branch it points at, so every branch is read
+        # the same way whether it repeats the shape or refers to it.
+        while "$ref" in declared:
+            target: Any = schema
+            for part in declared["$ref"].lstrip("#/").split("/"):
+                target = target[int(part)] if isinstance(target, list) else target[part]
+            declared = target
+        options = declared.get("anyOf", [declared])
+        nullable = any(o.get("type") == "null" for o in options)
+        objects = [o for o in options if o.get("type") == "object"]
+        assert nullable, f"branch {index} ({column}): collage must be nullable"
+        if column == "stored":
+            continue  # the spec says stored holds none; null alone is fine
+        assert objects, f"branch {index} ({column}): collage must allow an object"
+        regions = objects[0]["properties"]["regions"]["items"]
+        assert set(regions.get("required", [])) == set(model.REGION_FIELDS), (
+            f"branch {index} ({column}): the schema's region keys are "
+            f"{sorted(regions.get('required', []))}; the specification's are "
+            f"{sorted(model.REGION_FIELDS)}"
+        )

@@ -218,6 +218,68 @@ export const anyCommitSchema = z
 
 export type Commit = z.infer<typeof anyCommitSchema>;
 
+/* The collage ---------------------------------------------------------------- */
+
+/**
+ * One region of the collage: a cut from a source, placed on a track at a time.
+ *
+ * Every field that names a second is internal. The interface draws `end_s -
+ * start_s` as a height and `at_s` as a position, and never prints either: this
+ * material is non-metric on purpose, and a number invites arithmetic instead of
+ * listening. The model stores seconds because rendering needs them.
+ *
+ * `hash` may only name a sound in the project's frozen set. Draft 7 cannot say
+ * that, so `checkProject` does, and the Python side must mirror it. `rate`,
+ * `gain` and the fades are present from the first stamp at their untouched
+ * values, so a later stage never has to ask whether an old region has them.
+ */
+export const regionSchema = z
+  .object({
+    id: z.string().min(1).max(40),
+    hash: hashSchema,
+    /** Lane, left to right. Zero is the first track that came into being. */
+    track: z.number().int().nonnegative(),
+    /** Where the cut begins in the source. */
+    start_s: z.number().nonnegative(),
+    /** Where it ends. Later than `start_s`; `checkProject` holds that line. */
+    end_s: z.number().nonnegative(),
+    /** When it sounds, from the start of the collage. */
+    at_s: z.number().nonnegative(),
+    /** Playback rate. 1.0 is untouched; varispeed, so pitch follows. */
+    rate: z.number().positive(),
+    /** Linear gain. 1.0 is untouched. */
+    gain: z.number().nonnegative(),
+    fade_in_s: z.number().nonnegative(),
+    fade_out_s: z.number().nonnegative(),
+  })
+  .strict();
+
+export type Region = z.infer<typeof regionSchema>;
+
+/**
+ * The most regions one collage may hold.
+ *
+ * Fifteen sources cut into phrases is tens of regions, not thousands. The cap
+ * exists so a runaway client cannot write a document the view then has to draw
+ * on every tap.
+ */
+export const MAX_REGIONS = 2000;
+
+/**
+ * What the collage column produces: the arrangement, as regions.
+ *
+ * Null until the view has written it. Absent in a file is read as null, so a
+ * project written before this field existed is still a valid project; the two
+ * are the same claim, that nothing has been stamped yet.
+ */
+export const collageSchema = z
+  .object({
+    regions: z.array(regionSchema).max(MAX_REGIONS),
+  })
+  .strict();
+
+export type Collage = z.infer<typeof collageSchema>;
+
 /** The fields every project has, wherever it sits. */
 const commonFields = {
   schema_version: z.literal(SCHEMA_VERSION),
@@ -234,6 +296,15 @@ const commonFields = {
    */
   abandoned: abandonmentSchema.nullable(),
   sounds: z.array(projectSoundSchema).max(MAX_PROJECT_SOUNDS),
+  /**
+   * The arrangement, owned by the `collage` column.
+   *
+   * `.default(null)` rather than `.nullable()` alone: the emitted JSON Schema
+   * then leaves the key out of `required`, and a file written before collage
+   * existed validates in both languages without anyone rewriting it. After
+   * parsing, the field is always present.
+   */
+  collage: collageSchema.nullable().default(null),
 };
 
 /**
@@ -718,7 +789,55 @@ export function checkProject(raw: unknown): ProjectCheck {
     }
   }
 
+  if (project.collage !== null) {
+    // A project in `stored` has no frozen sound set to cut from, so it holds
+    // no collage. The schema cannot say this — `collage` is a common field and
+    // draft 7 cannot make one branch forbid it without a second copy of the
+    // shape — so it is held here, and mirrored by Python's `collage_issues`.
+    if (project.column === "stored") {
+      issues.push({
+        path: "collage",
+        message: "a project in stored has no frozen sound set to cut from, so it holds no collage",
+      });
+    }
+    issues.push(...collageIssues(project.collage.regions, project.sounds));
+  }
+
   return issues.length === 0 ? { ok: true, project } : { ok: false, issues };
+}
+
+/**
+ * The rules about regions that draft 7 cannot carry.
+ *
+ * Three of them. A region may only cut from a sound in the frozen set, because
+ * collage cannot introduce material once `stored` was committed. A cut ends
+ * after it begins, or there is nothing to hear. And ids are unique, because a
+ * later gesture names the region it acts on. The Python side must mirror every
+ * one of these after `jsonschema` passes.
+ */
+export function collageIssues(
+  regions: readonly Region[],
+  sounds: readonly { hash: string }[],
+): ProjectIssue[] {
+  const issues: ProjectIssue[] = [];
+  const members = new Set(sounds.map((sound) => sound.hash));
+  const seen = new Set<string>();
+  regions.forEach((region, index) => {
+    if (seen.has(region.id)) {
+      issues.push({ path: `collage.regions.${index}.id`, message: `region id "${region.id}" is used twice` });
+    }
+    seen.add(region.id);
+    if (!members.has(region.hash)) {
+      issues.push({
+        path: `collage.regions.${index}.hash`,
+        message: "a region may only cut from a sound in the project's frozen set",
+      });
+    }
+    if (!(region.end_s > region.start_s)) {
+      issues.push({ path: `collage.regions.${index}.end_s`, message: "a cut ends after it begins" });
+    }
+  });
+  return issues;
 }
 
 /** A one-line reading of what is wrong with a file, for the interface. */

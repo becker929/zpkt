@@ -17,6 +17,12 @@ after the schema passes, mirroring ``checkProject`` in TypeScript line for line:
 Plus the one rule that needs two fields compared: ``abandoned.from`` is the
 column ``column`` says the project is in.
 
+The ``collage`` field carries rules of its own that the schema cannot hold
+either: every region cuts from a hash in the frozen sound set, ``start_s`` is
+before ``end_s``, region ids are unique, and a project still in ``stored`` has
+no frozen set to cut from and so holds no collage. Those live in
+:func:`collage_issues`.
+
 Nothing in this module reads a file, takes a clock, or opens a connection. The
 effects live in :mod:`audio_browser.projects.store`.
 """
@@ -24,6 +30,7 @@ effects live in :mod:`audio_browser.projects.store`.
 from __future__ import annotations
 
 import json
+import math
 import unicodedata
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
@@ -49,23 +56,37 @@ MAX_NAME_LENGTH = 120
 MAX_NOTES_LENGTH = 10_000
 MAX_REASON_LENGTH = 2000
 
-Column = Literal["stored", "collage"]
+MAX_COLLAGE_REGIONS = 2000
+"""The most regions one collage may hold.
+
+Fifteen sparse sources cut into phrases is tens of regions, not thousands. The
+cap bounds the document the board reads on every draw, as the sound cap does.
+The number is the one the generated schema carries, so both layers refuse at
+the same point.
+"""
+
+MAX_REGION_ID_LENGTH = 40
+"""As the generated schema has it. An id is a handle, not a name."""
+
+Column = Literal["stored", "collage", "enrich"]
 Placement = Literal["stored", "collage", "enrich", "released"]
 
-COLUMNS: tuple[Column, ...] = ("stored", "collage")
-"""The board as it is built. Two columns, in order.
+COLUMNS: tuple[Column, ...] = ("stored", "collage", "enrich")
+"""The board as it is built. Three columns, in order.
 
-``enrich`` is in the plan and in the document schema, and it is not a column: no
-view exists for it, so nothing can be committed into it. That is what makes the
-pipeline end at ``collage`` and deadlock there, which is the behaviour the
-constraint is for rather than a gap in it.
+``enrich`` is the placeholder: a column with a cap and no view, which is the
+role ``collage`` held until its view was built. It exists so that a project in
+``collage`` has somewhere to commit to. Nothing follows it, so the pipeline
+ends there and deadlocks there, which is the behaviour the constraint is for
+rather than a gap in it. Each new view pushes the placeholder one step along.
 """
 
 PLANNED_COLUMNS: tuple[str, ...] = ("stored", "collage", "enrich")
-"""The pipeline as designed, including the stage that is not built.
+"""The pipeline as designed.
 
-The board needs this to name what is missing. "Nothing can move" is not a useful
-thing to be told; "nothing can move because ``enrich`` does not exist yet" is.
+The board needs this to name what is missing when a column has nowhere to
+commit to. Every planned stage is now a column, so the last one reports that
+nothing follows it rather than naming a stage that does not exist yet.
 """
 
 PLACEMENTS: tuple[Placement, ...] = ("stored", "collage", "enrich", "released")
@@ -122,7 +143,7 @@ def next_planned(column: Column) -> str | None:
 
 
 def is_column(placement: str) -> bool:
-    """True for the columns that exist. ``enrich`` and ``released`` are not."""
+    """True for the columns that exist. ``released`` is not one."""
     return placement in COLUMNS
 
 
@@ -169,6 +190,73 @@ def digest_of(text: str) -> str:
     return blake3(text.encode("utf-8")).hexdigest()
 
 
+REGION_STRING_FIELDS: tuple[str, ...] = ("id", "hash")
+REGION_INT_FIELDS: tuple[str, ...] = ("track",)
+REGION_FLOAT_FIELDS: tuple[str, ...] = (
+    "start_s",
+    "end_s",
+    "at_s",
+    "rate",
+    "gain",
+    "fade_in_s",
+    "fade_out_s",
+)
+REGION_FIELDS: frozenset[str] = frozenset(
+    (*REGION_STRING_FIELDS, *REGION_INT_FIELDS, *REGION_FLOAT_FIELDS)
+)
+"""Exactly the keys a region carries. No more, no fewer."""
+
+
+def _fixed(value: float) -> str:
+    """A number as fixed-point text with six decimals.
+
+    Six decimals is a microsecond, finer than any placement a hand can make
+    and finer than a sample at 48 kHz. Fixed-point rather than shortest
+    round-trip because both languages can print it the same way: ``toFixed(6)``
+    in TypeScript and ``:.6f`` here, so ``0.1 + 0.2`` and ``0.3`` are one
+    string. Negative zero is folded into zero for the same reason.
+    """
+    number = float(value)
+    if number == 0:
+        number = 0.0
+    return f"{number:.6f}"
+
+
+def collage_input(collage: dict[str, Any]) -> str:
+    """Exactly what ``collage`` hashes: the canonical text of a description.
+
+    The rule, in full:
+
+    * regions are sorted by ``id``, so the order they were stamped in is not
+      part of the freeze;
+    * inside a region the keys are sorted;
+    * ``id`` and ``hash`` are JSON strings with non-ASCII escaped;
+    * ``track`` is a plain integer;
+    * every other number is fixed-point with six decimals, so ``1`` and ``1.0``
+      and ``1.0000000001`` are one string;
+    * there is no whitespace anywhere.
+
+    Two descriptions that mean the same thing produce the same bytes here, and
+    so the same digest. TypeScript must produce these bytes too, or the freeze
+    is not checkable from the other side.
+    """
+    regions = cast(list[dict[str, Any]], collage["regions"])
+    rendered: list[str] = []
+    for region in sorted(regions, key=lambda r: cast(str, r["id"])):
+        fields: list[str] = []
+        for key in sorted(REGION_FIELDS):
+            value = region[key]
+            if key in REGION_STRING_FIELDS:
+                text = json.dumps(value, ensure_ascii=True)
+            elif key in REGION_INT_FIELDS:
+                text = str(int(value))
+            else:
+                text = _fixed(value)
+            fields.append(f'"{key}":{text}')
+        rendered.append("{" + ",".join(fields) + "}")
+    return '{"regions":[' + ",".join(rendered) + "]}"
+
+
 @dataclass(frozen=True, slots=True)
 class Artifact:
     """The bytes a stage digests, and whether that artifact is real yet."""
@@ -182,19 +270,28 @@ class Artifact:
 
 
 def commit_artifact(
-    project_id: str, hashes: Sequence[str], column: Column
+    project_id: str,
+    hashes: Sequence[str],
+    column: Column,
+    *,
+    collage: dict[str, Any] | None = None,
 ) -> Artifact:
     """What this column freezes.
 
     ``stored`` owns the sound set and its artifact is the one the specification
-    fixes. ``collage`` owns an arrangement and has no view yet, so its artifact
-    is a placeholder: deterministic and different for every project, so two
-    commits never collide, but ``real`` is false and the interface says so
-    rather than presenting a digest of nothing as a digest of something.
+    fixes. ``collage`` owns the description of what was cut and where it was
+    put, and its artifact is the canonical text of that description; the
+    caller passes it, and passing nothing is a placeholder. ``enrich`` has no
+    view yet, so its artifact is a placeholder: deterministic and different for
+    every project, so two commits never collide, but ``real`` is false and the
+    interface says so rather than presenting a digest of nothing as a digest of
+    something.
     """
     manifest = manifest_input(hashes)
     if column == "stored":
         return Artifact(input=manifest, real=True)
+    if column == "collage" and collage is not None:
+        return Artifact(input=collage_input(collage), real=True)
     return Artifact(input=f"{column} {project_id} {manifest}", real=False)
 
 
@@ -307,6 +404,52 @@ def load_validator(schema_dir: Path) -> Draft7Validator:
     return Draft7Validator(raw)
 
 
+COLLAGE_FIELD = "collage"
+
+
+def schema_declares_collage(validator: Draft7Validator) -> bool:
+    """Whether the generated schema knows the ``collage`` field yet.
+
+    The schema is generated from the Zod declarations and lands on its own
+    schedule. Until every branch declares ``collage``, Python is the authority
+    for that field: the document is checked against the schema without it and
+    the field is checked by :func:`collage_issues`. Once the schema carries it,
+    both layers check it and must agree.
+    """
+    schema = cast(dict[str, Any], validator.schema)
+    branches = cast(list[dict[str, Any]], schema.get("anyOf", [schema]))
+    return all(
+        COLLAGE_FIELD in cast(dict[str, Any], branch.get("properties", {}))
+        for branch in branches
+    )
+
+
+def _for_schema(validator: Draft7Validator, raw: object) -> object:
+    """The document as the schema is able to read it.
+
+    Every branch closes with ``additionalProperties: false``, so a schema that
+    has not learned ``collage`` would refuse every document carrying it. The
+    field is taken out for the schema's benefit in that one case, and only in
+    that one case. It is still checked, by :func:`collage_issues`.
+    """
+    if not isinstance(raw, dict) or COLLAGE_FIELD not in raw:
+        return raw
+    if schema_declares_collage(validator):
+        return raw
+    return {key: value for key, value in raw.items() if key != COLLAGE_FIELD}
+
+
+def schema_accepts(validator: Draft7Validator, raw: object) -> bool:
+    """Whether the generated schema alone accepts a document.
+
+    "Alone" means without the rules only Python can check, and with the
+    ``collage`` field taken out when the schema has not learned it. This is
+    what a test reaches for to say "the schema lets this through, the model
+    does not".
+    """
+    return validator.is_valid(_for_schema(validator, raw))
+
+
 def _schema_issues(validator: Draft7Validator, raw: object) -> list[Issue]:
     """Schema failures, as one issue each.
 
@@ -318,7 +461,7 @@ def _schema_issues(validator: Draft7Validator, raw: object) -> list[Issue]:
     """
     branch = _branch_of(raw)
     issues: list[Issue] = []
-    for error in validator.iter_errors(raw):
+    for error in validator.iter_errors(_for_schema(validator, raw)):
         best = _best_branch(error, branch)
         issues.append(
             Issue(
@@ -366,10 +509,178 @@ def _branch_distance(error: Any) -> tuple[int, int]:
 
 def stored_commit(commits: Sequence[dict[str, Any]]) -> dict[str, Any] | None:
     """The ``stored`` commit, if the sound set has been frozen."""
+    return _commit_of(commits, "stored")
+
+
+def collage_commit(commits: Sequence[dict[str, Any]]) -> dict[str, Any] | None:
+    """The ``collage`` commit, if the description has been frozen."""
+    return _commit_of(commits, "collage")
+
+
+def _commit_of(
+    commits: Sequence[dict[str, Any]], column: str
+) -> dict[str, Any] | None:
     for commit in commits:
-        if commit.get("column") == "stored":
+        if commit.get("column") == column:
             return commit
     return None
+
+
+def collage_of(document: dict[str, Any]) -> dict[str, Any] | None:
+    """The ``collage`` field, with an absent key read as null.
+
+    Files written before the field existed do not carry the key. They mean
+    the same thing as a file that says ``null``: nothing has been cut yet.
+    """
+    value = document.get(COLLAGE_FIELD)
+    return cast(dict[str, Any], value) if isinstance(value, dict) else None
+
+
+def collage_open(document: dict[str, Any]) -> bool:
+    """Whether this project's description can still change.
+
+    Three conditions, all checked, as :func:`sound_set_open` checks its three:
+    it is in ``collage``, it is on the board, and no ``collage`` commit exists.
+    """
+    commits = document.get("commits")
+    return (
+        document.get("column") == "collage"
+        and document.get("abandoned") is None
+        and collage_commit(commits if isinstance(commits, list) else []) is None
+    )
+
+
+def _is_number(value: object) -> bool:
+    """A JSON number. ``True`` is not one, whatever Python says."""
+    return isinstance(value, (int, float)) and not isinstance(value, bool)
+
+
+def _region_issues(
+    index: int, region: object, frozen: frozenset[str]
+) -> list[Issue]:
+    """Everything wrong with one region. The path names the region by index."""
+    at = f"collage.regions.{index}"
+    if not isinstance(region, dict):
+        return [Issue(path=at, message="a region is an object")]
+    keys = set(region)
+    if keys != REGION_FIELDS:
+        missing = sorted(REGION_FIELDS - keys)
+        extra = sorted(keys - REGION_FIELDS)
+        parts: list[str] = []
+        if missing:
+            parts.append(f"missing {', '.join(missing)}")
+        if extra:
+            parts.append(f"unexpected {', '.join(extra)}")
+        return [Issue(path=at, message="; ".join(parts))]
+
+    issues: list[Issue] = []
+    region_id = region["id"]
+    if (
+        not isinstance(region_id, str)
+        or not region_id
+        or len(region_id) > MAX_REGION_ID_LENGTH
+    ):
+        issues.append(
+            Issue(
+                path=f"{at}.id",
+                message=f"an id is 1 to {MAX_REGION_ID_LENGTH} characters",
+            )
+        )
+    source = region["hash"]
+    if not isinstance(source, str) or source not in frozen:
+        issues.append(
+            Issue(
+                path=f"{at}.hash",
+                message=(
+                    "a region cuts from a sound in the frozen set. Collage "
+                    "cannot introduce new material: stored was committed."
+                ),
+            )
+        )
+    track = region["track"]
+    if not _is_number(track) or isinstance(track, float) or track < 0:
+        issues.append(Issue(path=f"{at}.track", message="track is a whole number, 0 or more"))
+
+    numbers: dict[str, float] = {}
+    for key in REGION_FLOAT_FIELDS:
+        value = region[key]
+        if not _is_number(value) or not math.isfinite(value):
+            issues.append(Issue(path=f"{at}.{key}", message=f"{key} is a finite number"))
+            continue
+        numbers[key] = float(value)
+
+    def check(key: str, ok: bool, message: str) -> None:
+        if key in numbers and not ok:
+            issues.append(Issue(path=f"{at}.{key}", message=message))
+
+    check("start_s", numbers.get("start_s", 0.0) >= 0, "start_s is 0 or more")
+    check("at_s", numbers.get("at_s", 0.0) >= 0, "at_s is 0 or more")
+    check("rate", numbers.get("rate", 1.0) > 0, "rate is more than 0")
+    check("gain", numbers.get("gain", 0.0) >= 0, "gain is 0 or more")
+    check("fade_in_s", numbers.get("fade_in_s", 0.0) >= 0, "fade_in_s is 0 or more")
+    check("fade_out_s", numbers.get("fade_out_s", 0.0) >= 0, "fade_out_s is 0 or more")
+    if "start_s" in numbers and "end_s" in numbers and not numbers["start_s"] < numbers["end_s"]:
+        issues.append(Issue(path=f"{at}.end_s", message="end_s is after start_s"))
+    return issues
+
+
+def collage_issues(document: dict[str, Any]) -> list[Issue]:
+    """Everything wrong with a document's ``collage`` field.
+
+    Empty when the field is null, absent, or a description every rule accepts.
+    These are the rules the schema cannot carry, plus the shape itself, because
+    the schema may not have learned the field yet (see
+    :func:`schema_declares_collage`).
+    """
+    raw = document.get(COLLAGE_FIELD)
+    if raw is None:
+        return []
+    if document.get("column") == "stored":
+        return [
+            Issue(
+                path=COLLAGE_FIELD,
+                message=(
+                    "a project in stored has no frozen sound set to cut from, "
+                    "so it holds no collage"
+                ),
+            )
+        ]
+    if not isinstance(raw, dict) or set(raw) != {"regions"}:
+        return [Issue(path=COLLAGE_FIELD, message="a collage is an object holding regions")]
+    regions = raw["regions"]
+    if not isinstance(regions, list):
+        return [Issue(path="collage.regions", message="regions is an array")]
+    if len(regions) > MAX_COLLAGE_REGIONS:
+        return [
+            Issue(
+                path="collage.regions",
+                message=f"a collage holds at most {MAX_COLLAGE_REGIONS} regions",
+            )
+        ]
+
+    sounds = document.get("sounds")
+    frozen = frozenset(
+        cast(str, sound["hash"])
+        for sound in (sounds if isinstance(sounds, list) else [])
+        if isinstance(sound, dict) and isinstance(sound.get("hash"), str)
+    )
+    issues: list[Issue] = []
+    seen: set[str] = set()
+    twice: set[str] = set()
+    for index, region in enumerate(regions):
+        issues.extend(_region_issues(index, region, frozen))
+        if isinstance(region, dict) and isinstance(region.get("id"), str):
+            if region["id"] in seen:
+                twice.add(region["id"])
+            seen.add(region["id"])
+    if twice:
+        issues.append(
+            Issue(
+                path="collage.regions",
+                message=f"region ids are unique: {', '.join(sorted(twice))} repeat",
+            )
+        )
+    return issues
 
 
 def sound_set_open(document: dict[str, Any]) -> bool:
@@ -486,6 +797,7 @@ def check_project(validator: Draft7Validator, raw: object) -> list[Issue]:
                 )
             )
 
+    issues.extend(collage_issues(document))
     return issues
 
 
@@ -510,7 +822,20 @@ def new_document(project_id_: str, name: str, at: str) -> dict[str, Any]:
         "abandoned": None,
         "commits": [],
         "sounds": [],
+        "collage": None,
     }
+
+
+def with_collage(
+    document: dict[str, Any], collage: dict[str, Any], at: str
+) -> dict[str, Any]:
+    """The document with its description replaced whole.
+
+    Replaced, not merged. The client sends the entire description every time,
+    so a region it no longer lists is gone; there is no partial edit to reason
+    about. Nothing here touches ``sounds`` or the audio behind them.
+    """
+    return {**document, COLLAGE_FIELD: collage, "updated_at": at}
 
 
 def with_sound(document: dict[str, Any], file_hash: str, at: str) -> dict[str, Any]:

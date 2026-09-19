@@ -578,6 +578,7 @@ def cmd_projects(args: argparse.Namespace, config: Config, db_path: Path) -> int
         caps=Caps(
             stored=settings.cap("stored"),
             collage=settings.cap("collage"),
+            enrich=settings.cap("enrich"),
         ),
         encumbrance=settings.encumbrance,
     )

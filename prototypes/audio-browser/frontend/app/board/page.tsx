@@ -77,7 +77,7 @@ function commitConsequence(column: Column, soundCount: number): string {
         soundCount === 1 ? "sound" : "sounds"
       } in this project can never change again, here or in any later column, and nothing in this app reopens a frozen stage. The project moves to ${target}.`;
     case "collage":
-      return `This freezes the arrangement and moves the project to ${target}. The collage view is not built yet, so there is no arrangement to freeze: the digest records the boundary, not an artifact.`;
+      return `This freezes the arrangement and moves the project to ${target}. The regions stamped in the collage view never change again after this. The digest still records the boundary rather than the regions until both languages agree on how the arrangement is serialised.`;
     case "enrich":
       return "This freezes the treatment and releases the project. It leaves the board and holds no slot anywhere. The enrich view is not built yet, so the digest records the boundary, not an artifact.";
   }

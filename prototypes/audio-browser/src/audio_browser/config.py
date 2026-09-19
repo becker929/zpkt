@@ -52,7 +52,7 @@ DEFAULT_PROJECTS_DIR = "projects"
 DEFAULT_SCHEMAS_DIR = "schemas"
 DEFAULT_COLUMN_CAP = 1
 DEFAULT_ENCUMBRANCE = 16
-BOARD_COLUMNS: tuple[str, ...] = ("stored", "collage")
+BOARD_COLUMNS: tuple[str, ...] = ("stored", "collage", "enrich")
 
 
 @dataclass(frozen=True, slots=True)
@@ -82,6 +82,7 @@ class ProjectsConfig:
     schemas_dir: Path
     stored_cap: int = DEFAULT_COLUMN_CAP
     collage_cap: int = DEFAULT_COLUMN_CAP
+    enrich_cap: int = DEFAULT_COLUMN_CAP
     encumbrance: int = DEFAULT_ENCUMBRANCE
 
     def cap(self, column: str) -> int:
@@ -229,6 +230,7 @@ def _parse_projects(raw: object, base_dir: Path) -> ProjectsConfig:
         ),
         stored_cap=per_column["stored"],
         collage_cap=per_column["collage"],
+        enrich_cap=per_column["enrich"],
         encumbrance=encumbrance,
     )
 

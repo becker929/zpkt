@@ -134,25 +134,9 @@ test("the swipe view answers a real sound, both ways", async ({ page }) => {
   await page.getByTestId("swipe-undo").click();
   await expect.poll(async () => (await api(page, `/api/files/${first}`)).deleted).toBe(false);
 
-  // Taking, when there is a project to take it into.
-  const benchNode = page.getByTestId("bench");
-  if ((await benchNode.count()) === 0) return;
-  bench = await benchNode.getAttribute("data-project-id");
-  const second = await page.getByTestId("swipe").getAttribute("data-hash");
-  expect(second).toBeTruthy();
-  taken.add(second!);
-
-  await page.getByTestId("swipe-take").click();
-  await expect
-    .poll(async () => {
-      const detail = await api(page, `/api/projects/${bench}`);
-      return (detail.items as Array<{ hash: string }>).map((r) => r.hash).includes(second!);
-    })
-    .toBe(true);
-
-  // And it is taken back out again, so the user's project is as it was.
-  await page.request.delete(`/api/projects/${bench}/sounds/${second}`);
-  taken.delete(second!);
-  const after = await api(page, `/api/projects/${bench}`);
-  expect((after.items as Array<{ hash: string }>).map((r) => r.hash)).not.toContain(second);
+  // Taking is not checked here. The bench is one of the user's real project
+  // files, and taking a sound into it and back out rewrites that file even
+  // when the sound set ends up the same. Live tests read real projects and
+  // never write them (`live-guard.ts` fails the run if one does); taking is
+  // covered against the mock server in `swipe.mock.spec.ts`.
 });

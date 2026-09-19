@@ -28,6 +28,38 @@ because rendering needs them. The interface never says one.
 The same rule applies to balance. Loudness is set by ear against the other
 regions, and no decibel figure appears.
 
+## The surface
+
+Mobile first, and chunky. Time runs **down** the screen; tracks run **across**
+it. Scrolling through time is the gesture a thumb already knows on a phone held
+upright, and moving between tracks is a sideways swipe. A horizontal timeline is
+an artefact of landscape monitors and is not built.
+
+**It starts with nothing.** No time, no tracks, no empty lanes. Time exists
+because a sound was stamped into it, and a track exists because something was
+stamped there. Nothing on screen invites filling.
+
+## The gestures, in the order they are built
+
+Each is a tracer bullet: the thinnest slice that works end to end — interface,
+model, file on disk, and audible playback — followed by an adversarial usability
+review on a phone before the next one starts.
+
+1. **Choose the first sound, then stamp it.** Pick from the project's frozen
+   set. Tap the canvas to stamp the sound there: a region appears, the first
+   track comes into being, time now extends as far as that region does. Stamp
+   again for another region; stamp beside it for another track.
+2. **Trim.** Tap a region's end to select its handle, then drag it.
+3. **Snip.** A mode, entered by a button. Drag across a region to remove that
+   part of it, leaving two regions.
+4. **Stretch.** Tap a handle to select it, then enter stretch mode by button
+   and drag. The region's playback rate follows.
+5. **The rest of the sounds.** Once 1–4 exist, adding the other fourteen is the
+   same gestures again.
+
+Only one mode is ever active. The default is trim, so a tap on a handle always
+does the least surprising thing.
+
 ## The model
 
 ```jsonc
@@ -36,17 +68,34 @@ regions, and no decibel figure appears.
     {
       "id": "r1",
       "hash": "fa30…",      // the source, frozen by the stored commit
+      "track": 0,           // lane, left to right
       "start_s": 41.2,      // where the cut begins in the source
       "end_s": 47.9,        // internal only; never displayed
-      "at_s": 12.0,         // when it sounds, relative to the collage start
-      "gain": 0.8,          // linear, never displayed
-      "fade_in_s": 0.1,
-      "fade_out_s": 0.4,
-      "note": ""
+      "at_s": 12.0,         // when it sounds; internal only
+      "rate": 1.0,          // stretch; 1.0 is untouched
+      "gain": 1.0,          // linear, never displayed
+      "fade_in_s": 0.0,
+      "fade_out_s": 0.0
     }
   ]
 }
 ```
+
+Snipping a region produces two regions and deletes none of the source. Every
+field that names a second is internal; the interface draws it as length or
+position and never prints it.
+
+## Playback
+
+Regions are cut from sources that can be hundreds of megabytes, so the whole
+file is never sent. The server slices the region to a small WAV
+(`GET /api/files/{hash}/slice?start=&end=`), and the client decodes only that.
+This is the one place client-side decoding is allowed, because the slice is
+bounded by the region.
+
+Stretch is a playback rate for now — varispeed, which shifts pitch. For noise
+and texture that is usually the wanted sound. Pitch-preserving stretch is a
+later decision, not a default.
 
 Regions reference sounds by hash, so a collage still resolves after files move.
 A region may only reference a hash already in the project's frozen sound set;
@@ -68,14 +117,19 @@ two analyses already built are exactly that:
 Both already exist and are already drawn on waveforms. This is the first place
 they earn their cost.
 
-## Commit freezes a description
+## Commit freezes what this stage produced, not what comes after
 
-Committing out of collage freezes the regions, their placements and their gains.
-Nothing is rendered. The digest covers the description, canonically serialised.
+Committing out of collage freezes the `collage` field: regions, placements,
+rates and gains, canonically serialised and digested. Nothing is rendered.
 
-`enrich` reads the description and works from the original sources, so the
-arrangement stays editable downstream instead of being baked into a file that
-cannot be taken apart.
+This is a record of this stage's output. It is **not** a lock on the
+arrangement. `enrich` copies the description forward into its own field and may
+move, adjust and re-balance freely there. The `collage` field itself never
+changes again, so its digest keeps meaning what it meant on the day it was
+taken, while the work continues one field along.
+
+Every stage owns its own artefact. Downstream stages read the previous one and
+write only their own.
 
 ## `enrich` becomes the next placeholder
 

@@ -14,6 +14,9 @@ A web application for browsing, playing, and tagging the audio collection in
 | [05-triage.md](05-triage.md) | Stage 4 | Soft delete, restore, lists, bulk edit, triage counter |
 | [06-bakeoff-results.md](06-bakeoff-results.md) | Stage 3 result | What the three classifiers found, what they cost, which to use |
 | [07-silence.md](07-silence.md) | Stage 5 | Silence measurement, auto-skip, sounding duration |
+| [08-projects.md](08-projects.md) | Stage 6 | Projects as JSON files, the constrained board, commit and abandon |
+| [09-swipe.md](09-swipe.md) | Stage 7 | Swipe as the only way to meet a sound; every browsing surface removed |
+| [10-collage.md](10-collage.md) | Stage 8 | Collage: regions cut from sources, time down, tracks across, no grid |
 
 ## Summary
 

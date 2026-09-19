@@ -86,6 +86,22 @@ def released() -> dict[str, Any]:
     return doc
 
 
+def region() -> dict[str, Any]:
+    """One stamped region, exactly as the first tracer bullet writes it."""
+    return {
+        "id": "r1",
+        "hash": HASH_A,
+        "track": 0,
+        "start_s": 0.0,
+        "end_s": 6.4,
+        "at_s": 0.0,
+        "rate": 1.0,
+        "gain": 1.0,
+        "fade_in_s": 0.0,
+        "fade_out_s": 0.0,
+    }
+
+
 def abandoned_out_of(column: str) -> dict[str, Any]:
     doc = {"stored": stored, "collage": collage, "enrich": enrich}[column]()
     doc["abandoned"] = {"at": "2026-09-17T11:00:00Z", "from": column, "reason": "the kick never sat right."}
@@ -182,6 +198,51 @@ CASES: list[tuple[str, Any, bool]] = [
         {"hash": HASH_A, "added_at": "2026-09-16T21:10:00Z", "role": "kick", "note": ""}]), True),
     ("a schema version from the future", edited(stored(), "schema_version", 2), False),
     ("a column nobody has heard of", edited(stored(), "column", "mixdown"), False),
+
+    # The collage. Absent and null are the same claim, that nothing has been
+    # stamped, so a file written before the field existed still validates. A
+    # region carries every field from the first stamp, at its untouched value,
+    # and nothing else. The cross-field rules — the hash is in the sound set,
+    # the cut ends after it begins, ids are unique — live in `checkProject` and
+    # its Python mirror, not here.
+    ("a collage with one region", edited(collage(), "collage", {"regions": [region()]}), True),
+    ("a collage with no regions", edited(collage(), "collage", {"regions": []}), True),
+    ("a collage that is null", edited(collage(), "collage", None), True),
+    # `collage()` above carries no `collage` key: it is a file from before the
+    # field existed, and it validates as it stands.
+    ("a project with no collage key at all", collage(), True),
+    ("a region missing its rate", edited(collage(), "collage", {"regions": [dropped(region(), "rate")]}), False),
+    ("a region with an extra key", edited(collage(), "collage", {"regions": [{**region(), "note": ""}]}), False),
+    ("a region on a negative track", edited(collage(), "collage", {"regions": [{**region(), "track": -1}]}), False),
+    ("a region with a fractional track", edited(collage(), "collage", {"regions": [{**region(), "track": 0.5}]}), False),
+    ("a region with a rate of zero", edited(collage(), "collage", {"regions": [{**region(), "rate": 0}]}), False),
+    ("a region naming a hash in upper case", edited(collage(), "collage", {"regions": [{**region(), "hash": "A" * 64}]}), False),
+    ("a collage with a key beside regions", edited(collage(), "collage", {"regions": [], "bpm": 145}), False),
+    ("a collage that is a bare list", edited(collage(), "collage", [region()]), False),
+]
+
+# The rules the schema cannot carry. Every one of these passes the schema in
+# both languages, and that is not a bug: draft 7 cannot compare two fields or
+# look a hash up in a set. What holds each line is ``checkProject`` in
+# TypeScript and ``collage_issues`` in Python, written by hand on both sides.
+# The Python side is covered in ``tests/test_projects.py``; this list is what
+# says the TypeScript side refuses the same documents. The third column is what
+# ``checkProject`` must answer.
+RULE_CASES: list[tuple[str, Any, bool]] = [
+    ("checkProject: a collage with one region", edited(collage(), "collage", {"regions": [region()]}), True),
+    # A project in stored has no frozen set to cut from, so it holds no
+    # collage. The schema lets the key through on every branch.
+    ("checkProject: a collage on a project still in stored", edited(stored(), "collage", {"regions": []}), False),
+    ("checkProject: a stored project carrying a stamped region",
+     edited(stored(), "collage", {"regions": [region()]}), False),
+    ("checkProject: a region cutting from outside the frozen set",
+     edited(collage(), "collage", {"regions": [{**region(), "hash": "d" * 64}]}), False),
+    ("checkProject: a cut that ends before it begins",
+     edited(collage(), "collage", {"regions": [{**region(), "start_s": 2.0, "end_s": 1.0}]}), False),
+    ("checkProject: a cut of no length",
+     edited(collage(), "collage", {"regions": [{**region(), "start_s": 1.0, "end_s": 1.0}]}), False),
+    ("checkProject: two regions with one id",
+     edited(collage(), "collage", {"regions": [region(), {**region(), "track": 1}]}), False),
 ]
 
 
@@ -194,7 +255,7 @@ def python_verdicts(schema: dict[str, Any]) -> list[bool]:
 
 
 def zod_verdicts() -> list[dict[str, Any]]:
-    documents = json.dumps([document for _, document, _ in CASES])
+    documents = json.dumps([document for _, document, _ in CASES + RULE_CASES])
     result = subprocess.run(
         ["node", "--disable-warning=MODULE_TYPELESS_PACKAGE_JSON", "scripts/zod-verdicts.mjs"],
         input=documents,
@@ -213,7 +274,8 @@ def main() -> int:
 
     schema = json.loads(SCHEMA.read_text())
     python = python_verdicts(schema)
-    zod = zod_verdicts()
+    verdicts = zod_verdicts()
+    zod, rules = verdicts[: len(CASES)], verdicts[len(CASES):]
 
     failures = 0
     for (name, _document, expected), py_ok, zod_result in zip(CASES, python, zod):
@@ -229,7 +291,28 @@ def main() -> int:
             print(f"     zod said {'; '.join(zod_result['issues'])}")
 
     print(f"{len(CASES) - failures} of {len(CASES)} cases agree between Python and Zod")
-    return 1 if failures else 0
+
+    # The hand-written rules. Each of these must pass the schema (or it would
+    # belong in CASES) and get the listed verdict from `checkProject`.
+    rule_failures = 0
+    for (name, _document, expected), result in zip(RULE_CASES, rules):
+        schema_ok = bool(result["ok"])
+        checked_ok = bool(result["checked"])
+        if schema_ok and checked_ok == expected:
+            continue
+        rule_failures += 1
+        print(f"FAIL {name}")
+        if not schema_ok:
+            print("     the schema refused it, so it is not a checkProject rule; move it to CASES")
+            print(f"     zod said {'; '.join(result['issues'])}")
+        else:
+            print(f"     expected checkProject to {'accept' if expected else 'refuse'} it")
+            print(f"     checkProject {'accepted' if checked_ok else 'refused'} it")
+            if result["checkedIssues"]:
+                print(f"     it said {'; '.join(result['checkedIssues'])}")
+
+    print(f"{len(RULE_CASES) - rule_failures} of {len(RULE_CASES)} checkProject rules hold")
+    return 1 if failures or rule_failures else 0
 
 
 if __name__ == "__main__":

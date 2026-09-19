@@ -10,7 +10,13 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from ..projects.model import MAX_NAME_LENGTH, MAX_NOTES_LENGTH, MAX_REASON_LENGTH
+from ..projects.model import (
+    MAX_COLLAGE_REGIONS,
+    MAX_NAME_LENGTH,
+    MAX_NOTES_LENGTH,
+    MAX_REASON_LENGTH,
+    MAX_REGION_ID_LENGTH,
+)
 
 BulkAction = Literal["delete", "restore"]
 """Every action ``POST /api/bulk`` accepts.
@@ -420,13 +426,17 @@ class SilenceReport(Frozen):
 Placement = Literal["stored", "collage", "enrich", "released"]
 """Every value a document's ``column`` may hold.
 
-Wider than :data:`BoardColumn`, because the document schema still knows
-``enrich``. A file naming it parses and is shown; it simply holds no slot, as
-there is no such column to hold one in.
+Wider than :data:`BoardColumn` by ``released``, which is off the board and
+holds no slot.
 """
 
-BoardColumn = Literal["stored", "collage"]
-"""The columns that exist. ``stored`` is swipe; ``collage`` has no view yet."""
+BoardColumn = Literal["stored", "collage", "enrich"]
+"""The columns that exist.
+
+``stored`` is swipe, ``collage`` is the region extractor, and ``enrich`` is
+the placeholder: a cap and no view, so that ``collage`` has somewhere to
+commit to.
+"""
 
 
 class Abandonment(Frozen):
@@ -613,10 +623,10 @@ class ProjectCommitted(Frozen):
     artifact_real: bool
     """False while the committing column has no view yet.
 
-    ``collage`` and ``enrich`` are real applications and are not built. Their
-    digest is deterministic and unique, so two commits never collide, but it is
-    a digest of a placeholder and the interface says so rather than presenting
-    it as a digest of work.
+    ``enrich`` is a real application and is not built. Its digest is
+    deterministic and unique, so two commits never collide, but it is a digest
+    of a placeholder and the interface says so rather than presenting it as a
+    digest of work.
     """
 
 
@@ -632,6 +642,56 @@ class ProjectMembership(Frozen):
     member: bool
     added_at: str | None
     sound_count: int
+    summary: ProjectSummary
+
+
+class RegionRequest(BaseModel):
+    """One region of a collage, as the client sends it.
+
+    Every second here is internal. The interface draws it as a width or a
+    position and never prints it. ``rate``, ``gain`` and the fades default to
+    "untouched" so that stamping a sound is one hash, one track and three
+    seconds; the document on disk always carries all ten keys.
+    """
+
+    id: str = Field(min_length=1, max_length=MAX_REGION_ID_LENGTH)
+    hash: str = Field(pattern=r"^[0-9a-f]{64}$")
+    track: int = Field(ge=0)
+    start_s: float = Field(ge=0)
+    end_s: float = Field(gt=0)
+    at_s: float = Field(ge=0)
+    rate: float = Field(default=1.0, gt=0)
+    gain: float = Field(default=1.0, ge=0)
+    fade_in_s: float = Field(default=0.0, ge=0)
+    fade_out_s: float = Field(default=0.0, ge=0)
+
+    model_config = ConfigDict(extra="forbid")
+
+
+class CollageRequest(BaseModel):
+    """Body of ``PUT /api/projects/{id}/collage``: the whole description.
+
+    Replaced, not merged. A region not in this list is gone after the write.
+    The rules the shape cannot say, such as every hash being in the frozen
+    sound set and ``start_s`` being before ``end_s``, are checked by the
+    model and refused with 422.
+    """
+
+    regions: list[RegionRequest] = Field(max_length=MAX_COLLAGE_REGIONS)
+
+    model_config = ConfigDict(extra="forbid")
+
+
+class ProjectCollage(Frozen):
+    """The description as it now stands on disk, and whether it can change.
+
+    ``frozen`` is true once a ``collage`` commit exists. From then on every
+    ``PUT`` is refused, and this field says so before the client tries.
+    """
+
+    project_id: str
+    collage: dict[str, Any] | None
+    frozen: bool
     summary: ProjectSummary
 
 
@@ -686,11 +746,10 @@ class ColumnBlock(Frozen):
 class Board(Frozen):
     """The columns with their caps and occupancy, and what sits off the board.
 
-    ``blocked`` is the whole point of the shape this board is in. With
-    ``stored`` and ``collage`` both capped at one and no column after
-    ``collage``, a full board cannot move at all, and the interface has to be
-    able to say so in words rather than leave somebody pressing a button that
-    will always be refused.
+    ``blocked`` is the whole point of the shape this board is in. With every
+    column capped at one and no column after ``enrich``, a full board cannot
+    move at all, and the interface has to be able to say so in words rather
+    than leave somebody pressing a button that will always be refused.
     """
 
     columns: list[BoardColumnState]

@@ -1669,6 +1669,388 @@ select:focus {
   color: var(--text-dim);
 }
 
+/* Collage ----------------------------------------------------------------- */
+
+/* Time runs down, tracks run across, and it starts with nothing. No ruler, no
+   lane outlines, no number of seconds: the canvas is a blank that scrolls,
+   and the only things drawn on it are the regions that were stamped there.
+   Everything a thumb presses is at the bottom. */
+.collage {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.collage-empty {
+  padding: 24px 16px 40px;
+  color: var(--text-dim);
+  line-height: 1.6;
+  max-width: 62ch;
+}
+
+.collage-head {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  flex: 0 0 auto;
+  min-width: 0;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+  font-size: 12px;
+}
+
+.collage-name {
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.collage-count {
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.collage-save {
+  margin-left: auto;
+  font-size: 11px;
+  color: var(--text-faint);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+
+.collage-save.failed,
+.collage-save.absent {
+  color: var(--favorite);
+  white-space: normal;
+}
+
+.collage-note {
+  flex: 0 0 auto;
+  padding: 6px 12px;
+  font-size: 12px;
+  color: var(--text-dim);
+  border-bottom: 1px solid var(--border);
+}
+
+.collage-canvas {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  background: var(--bg);
+}
+
+/* The blank itself. Its size is what makes there be room to stamp beside the
+   last track and after the last region; nothing is drawn in that room. */
+.collage-space {
+  position: relative;
+  /* A tap stamps; a drag scrolls. No double-tap zoom, which would eat the
+     second of two quick stamps. */
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* One region: a block whose height is its length, on the track it was stamped
+   in. Every region cut from one source shares a hue, read off the hash. */
+.region {
+  position: absolute;
+  display: block;
+  padding: 0;
+  margin: 0;
+  border: 1px solid hsl(var(--hue) 55% 62% / 0.75);
+  border-radius: 6px;
+  background: hsl(var(--hue) 45% 30% / 0.55);
+  color: var(--text);
+  text-align: left;
+  /* No `overflow: hidden`: the label is sticky inside the block, and a
+     clipped block would become its scroll container. */
+  overflow: visible;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.25);
+  -webkit-tap-highlight-color: transparent;
+  animation: region-in 180ms ease-out;
+}
+
+/* Opacity only. A transform would change the box while it is being measured,
+   by a test or by a thumb aiming at it. */
+@keyframes region-in {
+  from {
+    opacity: 0.3;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.region.playing {
+  border-color: hsl(var(--hue) 70% 72%);
+  box-shadow: 0 0 0 2px hsl(var(--hue) 70% 72% / 0.45);
+}
+
+.region.unresolved {
+  border-style: dashed;
+  color: var(--text-dim);
+}
+
+/* Playback runs down the block, because time runs down the screen. */
+.region-progress {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  border-radius: 5px 5px 0 0;
+  background: hsl(var(--hue) 60% 60% / 0.35);
+  pointer-events: none;
+}
+
+/* The name sticks to the top of the block as the block scrolls, so a region
+   taller than the screen still says what it is. The region is a `div` and not
+   a `button` for exactly this reason: WebKit will not stick anything inside a
+   button. */
+.region-label {
+  position: sticky;
+  top: 0;
+  display: block;
+  padding: 6px 8px;
+  font-size: 11px;
+  line-height: 1.3;
+}
+
+.region-label-text {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  word-break: break-word;
+}
+
+.region:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.collage-hint {
+  flex: 0 0 auto;
+  padding: 6px 12px;
+  font-size: 12px;
+  color: var(--favorite);
+}
+
+/* The bar the thumb lives on. */
+.collage-bar {
+  display: flex;
+  gap: 8px;
+  flex: 0 0 auto;
+  padding: 8px 10px calc(8px + var(--safe-bottom));
+  border-top: 1px solid var(--border);
+  background: var(--bg-raised);
+}
+
+.collage-choose {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 60px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 2px;
+  padding: 8px 14px;
+  border: 1px solid var(--accent-dim);
+  border-radius: 12px;
+  background: rgba(86, 182, 255, 0.1);
+  color: var(--accent);
+  text-align: left;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.collage-choose.chosen {
+  border-color: var(--accent);
+  color: var(--text);
+}
+
+.collage-choose-name {
+  max-width: 100%;
+  font-size: 15px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.collage-choose-sub {
+  max-width: 100%;
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--text-dim);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.collage-undo {
+  flex: 0 0 auto;
+  min-width: 72px;
+  min-height: 60px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  color: var(--text-dim);
+  font-size: 14px;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* The picker: a sheet over the bottom of the view, with the set to hear and
+   one wide button to choose the one being heard. */
+.collage-sheet {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  max-height: 78%;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-raised);
+  border-top: 1px solid var(--border);
+  border-radius: 14px 14px 0 0;
+  box-shadow: 0 -12px 40px rgba(0, 0, 0, 0.5);
+  padding-bottom: calc(8px + var(--safe-bottom));
+  z-index: 3;
+}
+
+.collage-sheet-head {
+  display: flex;
+  align-items: center;
+  flex: 0 0 auto;
+  padding: 8px 8px 8px 14px;
+}
+
+.collage-sheet-title {
+  font-weight: 600;
+}
+
+.collage-sheet-close {
+  margin-left: auto;
+  min-width: 44px;
+  min-height: 44px;
+  font-size: 18px;
+  color: var(--text-dim);
+}
+
+.collage-preview {
+  flex: 0 0 auto;
+  padding: 0 12px 8px;
+}
+
+.collage-pick-list {
+  list-style: none;
+  margin: 0;
+  padding: 0 8px;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+.collage-pick-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 52px;
+  padding: 6px 8px;
+  border-radius: 8px;
+  text-align: left;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.collage-pick-row.highlighted {
+  background: var(--bg-active);
+}
+
+.collage-pick-glyph {
+  flex: 0 0 28px;
+  text-align: center;
+  color: var(--accent);
+  font-size: 14px;
+}
+
+.collage-pick-body {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.collage-pick-name {
+  font-size: 13px;
+  line-height: 1.3;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  word-break: break-word;
+}
+
+/* Length as a length. Against the longest sound in the set. */
+.collage-len {
+  display: block;
+  height: 4px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.collage-len-fill {
+  display: block;
+  height: 100%;
+  border-radius: 2px;
+  background: var(--wave);
+  opacity: 0.7;
+}
+
+.collage-pick-use {
+  flex: 0 0 auto;
+  margin: 8px 10px 0;
+  min-height: 60px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  border: 1px solid var(--accent);
+  border-radius: 12px;
+  background: var(--accent);
+  color: #07121b;
+  font-size: 15px;
+  font-weight: 600;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.collage-pick-use:disabled {
+  background: none;
+  border-color: var(--border);
+  color: var(--text-faint);
+}
+
+.collage-pick-use-sub {
+  max-width: 100%;
+  font-size: 11px;
+  font-weight: 400;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  opacity: 0.8;
+}
+
 /* Decided ----------------------------------------------------------------- */
 
 .decided {

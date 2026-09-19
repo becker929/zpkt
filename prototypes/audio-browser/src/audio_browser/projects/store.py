@@ -138,6 +138,7 @@ class Caps:
 
     stored: int = model.DEFAULT_CAP
     collage: int = model.DEFAULT_CAP
+    enrich: int = model.DEFAULT_CAP
 
     def of(self, column: Column) -> int:
         return cast(int, getattr(self, column))
@@ -145,7 +146,7 @@ class Caps:
     @classmethod
     def uniform(cls, cap: int) -> Caps:
         """One number for every column. Turning the board down is one line."""
-        return cls(stored=cap, collage=cap)
+        return cls(stored=cap, collage=cap, enrich=cap)
 
 
 class ProjectStore:
@@ -270,7 +271,13 @@ class ProjectStore:
         The result is validated before it lands. A refusal here means the
         operation that built this document was wrong, and refusing beats writing
         a file the board cannot read.
+
+        Every document written carries the ``collage`` key, null until a
+        description is put there. A file from before the field existed gains
+        the key the first time anything writes it, and not before: a file
+        nobody has touched is left byte for byte as it was.
         """
+        document = {**document, model.COLLAGE_FIELD: document.get(model.COLLAGE_FIELD)}
         issues = model.check_project(self.validator, document)
         if issues:
             raise ProjectError(
@@ -459,6 +466,57 @@ class ProjectStore:
             "way: nothing reopens it."
         )
 
+    def set_collage(
+        self, project_id: str, collage: dict[str, Any], *, at: str
+    ) -> Loaded:
+        """Replace the whole description, atomically.
+
+        Refused with 409 once a ``collage`` commit exists: the field is what
+        that commit froze, and freezing is one way. Refused with 409 too while
+        the project is still in ``stored``, because there is no frozen sound set
+        to cut from yet, and while it is abandoned, because it is off the
+        board. A description that breaks a rule of the model is 422 and is
+        never written.
+
+        This writes one JSON document. It reads no audio and removes none.
+        """
+        with self._exclusive():
+            current = self._require(project_id)
+            document = current.as_document()
+            if not model.collage_open(document):
+                raise ProjectError(self._why_collage_closed(document), status=409)
+            changed = model.with_collage(document, collage, at)
+            issues = model.collage_issues(changed)
+            if issues:
+                raise ProjectError(
+                    f"the collage is not valid: {model.describe_issues(issues)}",
+                    status=422,
+                )
+            return self._write(project_id, changed)
+
+    @staticmethod
+    def _why_collage_closed(document: dict[str, Any]) -> str:
+        """The reason a collage edit is refused, in the user's terms."""
+        if document["abandoned"] is not None:
+            return (
+                "this project was abandoned and is off the board. Revive it "
+                "before cutting anything."
+            )
+        if document["column"] == "stored":
+            return (
+                "this project is still in stored. Its sound set is not frozen, "
+                "so there is nothing settled to cut from yet. Commit it first."
+            )
+        if document["column"] != "collage":
+            return (
+                f"this project is in {document['column']}. Its collage was "
+                "frozen when it left collage and cannot change."
+            )
+        return (
+            "the collage was frozen by the collage commit. Freezing is one "
+            "way: nothing reopens it."
+        )
+
     @staticmethod
     def _nowhere_to_go(column: Column) -> str:
         """Why the last column cannot commit, and what would unblock it."""
@@ -532,6 +590,14 @@ class ProjectStore:
                     "permanent and would mean nothing.",
                     status=422,
                 )
+            collage = model.collage_of(document)
+            if column == "collage" and not (collage and collage["regions"]):
+                raise ProjectError(
+                    "there is nothing cut to freeze. A project committed out of "
+                    "collage can never cut anything again, so an empty collage "
+                    "would be permanent and would mean nothing.",
+                    status=422,
+                )
 
             destination = model.next_placement(column)
             if destination is None:
@@ -547,7 +613,10 @@ class ProjectStore:
             )
 
             artifact = model.commit_artifact(
-                project_id, [s["hash"] for s in document["sounds"]], column
+                project_id,
+                [s["hash"] for s in document["sounds"]],
+                column,
+                collage=collage,
             )
             written = self._write(
                 project_id, model.committed(document, column, artifact, at)

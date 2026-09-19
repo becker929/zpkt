@@ -444,6 +444,7 @@ def test_projects_prints_the_board_from_the_files(cli_config: Path, capsys) -> N
     out = capsys.readouterr().out
     assert "stored   1/1" in out
     assert "collage  0/1" in out
+    assert "enrich   0/1" in out
     assert "1 project file(s)" in out
 
 

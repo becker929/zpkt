@@ -27,15 +27,17 @@ import type {
   TriageCounts,
 } from "./types";
 import { EMPTY_QUERY, MAX_BULK_HASHES, SPAN_METHOD } from "./types";
-import { COLUMNS, PLACEMENTS, isOver, soundSetOpen } from "./project";
+import { COLUMNS, PLACEMENTS, isOver, regionSchema, soundSetOpen } from "./project";
 import type {
   Abandonment,
   Board,
   BoardColumn,
+  Collage,
   Column,
   Commit,
   Placement,
   ProjectSummary,
+  Region,
 } from "./project";
 import { MIN_GAP_S, silentSeconds, skippable, soundingSeconds } from "./silence";
 
@@ -733,6 +735,34 @@ export interface ProjectDetail {
   summary: ProjectSummary | null;
   items: FileRow[];
   document: unknown;
+  /**
+   * The arrangement, or null when nothing has been stamped.
+   *
+   * Read from the document, or from a `collage` key beside it, and passed
+   * through the model. A region the model rejects is dropped rather than
+   * drawn: a box the interface cannot describe is a box it cannot play.
+   */
+  collage: Collage | null;
+}
+
+/**
+ * The collage out of any answer that carries one.
+ *
+ * Two answers do: `GET /api/projects/{id}`, inside the document, and
+ * `PUT /api/projects/{id}/collage`, which echoes what it wrote. One reader for
+ * both, so what the view draws after a save is what it draws after a reload.
+ */
+export function normaliseCollage(raw: unknown): Collage | null {
+  if (raw === null || raw === undefined) return null;
+  const record = asRecord(raw);
+  const rawRegions = pick(record, "regions", "items");
+  if (!Array.isArray(rawRegions)) return null;
+  const regions: Region[] = [];
+  for (const entry of rawRegions) {
+    const parsed = regionSchema.safeParse(entry);
+    if (parsed.success) regions.push(parsed.data);
+  }
+  return { regions };
 }
 
 export async function fetchProject(id: string, signal?: AbortSignal): Promise<ProjectDetail | null> {
@@ -740,6 +770,7 @@ export async function fetchProject(id: string, signal?: AbortSignal): Promise<Pr
     const body = asRecord(await getJson(`/api/projects/${encodeURIComponent(id)}`, signal, true));
     const rawItems = pick(body, "items", "members", "files");
     const rawIssues = Array.isArray(body.issues) ? body.issues : [];
+    const document = body.document ?? null;
     return {
       id: str(body.id, id) || id,
       valid: body.valid !== false,
@@ -751,12 +782,65 @@ export async function fetchProject(id: string, signal?: AbortSignal): Promise<Pr
       }),
       summary: normaliseProjectSummary(pick(body, "summary") ?? body),
       items: Array.isArray(rawItems) ? rawItems.map(normaliseRow) : [],
-      document: body.document ?? null,
+      document,
+      collage: normaliseCollage(pick(body, "collage") ?? asRecord(document).collage),
     };
   } catch (err) {
     if (absent(err)) return null;
     throw err;
   }
+}
+
+/* The collage --------------------------------------------------------------- */
+
+/**
+ * Whether `PUT /api/projects/{id}/collage` is being served.
+ *
+ * The route is written by a separate effort. Once it has answered "not here"
+ * the view stops sending and says so, rather than logging a 404 per stamp;
+ * what was stamped stays on screen and can still be heard.
+ */
+let collageRouteMissing = false;
+
+export function collageRouteIsMissing(): boolean {
+  return collageRouteMissing;
+}
+
+/**
+ * Write the whole arrangement. Replace, never merge.
+ *
+ * The description is small — tens of regions — and sending all of it every
+ * time means the file on disk is always exactly what is on screen, with no
+ * ordering of partial writes to get wrong. Throws `ApiRefusal` when the server
+ * rejects a region, with its own words for why. Returns null when the route
+ * is not being served.
+ */
+export async function putCollage(id: string, regions: readonly Region[]): Promise<Collage | null> {
+  if (collageRouteMissing) return null;
+  try {
+    const body = await sendProject(`/api/projects/${encodeURIComponent(id)}/collage`, "PUT", {
+      regions,
+    });
+    return normaliseCollage(pick(body, "collage") ?? body) ?? { regions: [...regions] };
+  } catch (err) {
+    if (absent(err)) {
+      collageRouteMissing = true;
+      return null;
+    }
+    throw err;
+  }
+}
+
+/**
+ * A bounded WAV of one stretch of a source, for the collage to play.
+ *
+ * The whole file is never sent: sources run to hundreds of megabytes and a
+ * region is seconds of one. The server slices and resamples; the client
+ * decodes exactly this much and no more.
+ */
+export function sliceUrl(hash: string, startS: number, endS: number): string {
+  const params = new URLSearchParams({ start: String(startS), end: String(endS) });
+  return `/api/files/${hash}/slice?${params.toString()}`;
 }
 
 /**

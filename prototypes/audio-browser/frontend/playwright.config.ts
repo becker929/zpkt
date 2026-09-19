@@ -12,7 +12,10 @@
  * `live` runs against the real stack already listening on port 3100, backed by
  * the real index. It checks the handful of facts that only real data can show,
  * such as a sound stored 30 times inside Logic project bundles. It only reads;
- * no test in it writes to the index.
+ * no test in it writes to the index. It never writes a project file: the real
+ * projects in `audio-browser/projects/` are the user's work, and `live-guard`
+ * fingerprints that directory before the live tests and fails the run if any
+ * file in it moved.
  *
  * `mobile` runs against the same mock server under an iPhone device
  * descriptor, which means WebKit at 393 by 852 with touch and a device pixel
@@ -70,8 +73,23 @@ export default defineConfig({
       },
     },
     {
+      // Fingerprints the real projects directory before the live tests, and
+      // `live-guard-after` checks it again once they are done. `live` depends
+      // on it, so `--project=live` runs the guard too. A live test that writes
+      // to a real project file fails the run even if it "cleaned up" after
+      // itself. See `e2e/live-guard.ts`.
+      name: "live-guard",
+      testMatch: /live-guard\.setup\.ts/,
+      teardown: "live-guard-after",
+    },
+    {
+      name: "live-guard-after",
+      testMatch: /live-guard\.teardown\.ts/,
+    },
+    {
       name: "live",
       testMatch: /.*\.live\.spec\.ts/,
+      dependencies: ["live-guard"],
       use: {
         ...devices["Desktop Chrome"],
         baseURL: LIVE_URL,

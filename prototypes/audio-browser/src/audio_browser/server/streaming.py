@@ -7,13 +7,35 @@ no chance to try.
 
 from __future__ import annotations
 
+import io
 import re
 import subprocess
+import wave
 from collections.abc import Iterator
 from pathlib import Path
 from urllib.parse import quote
 
 CHUNK_SIZE = 1 << 18  # 256 KB
+
+MAX_SLICE_S = 120.0
+"""The longest span one slice request may ask for.
+
+A region is a phrase cut from a source, not the source itself. Two minutes at
+the slice format is 23 MB, which is the most the server will hold in memory for
+one request and the most a phone should be asked to decode.
+"""
+
+SLICE_RATE = 48_000
+SLICE_CHANNELS = 2
+SLICE_SAMPLE_BYTES = 2
+"""The one format every slice comes back in: 48 kHz, stereo, 16-bit PCM.
+
+Sources mix 44.1 kHz and 48 kHz, mono and stereo. Cutting them into one format
+here means the client decodes one kind of WAV and never has to resample or
+match channels itself.
+"""
+
+SLICE_TIMEOUT_S = 60.0
 
 # Browsers play these directly, so the bytes go out untouched with range support.
 MEDIA_TYPES: dict[str, str] = {
@@ -184,6 +206,78 @@ def _fail(proc: subprocess.Popen[bytes]) -> None:
     code = proc.wait()
     message = detail.decode("utf-8", "replace").strip() or f"ffmpeg exited {code}"
     raise TranscodeError(message)
+
+
+def slice_to_wav(path: Path, start_s: float, end_s: float) -> bytes:
+    """Cut ``start_s..end_s`` out of a source as one complete WAV.
+
+    ffmpeg seeks to ``start_s`` on the input side, which decodes from the
+    nearest frame it can and discards up to the instant asked for, so the cut
+    is sample-accurate for PCM and frame-accurate for MP3 and AAC. It writes raw
+    PCM at :data:`SLICE_RATE` and :data:`SLICE_CHANNELS`, and the WAV header is
+    put on here, so the length in the header is the real one. A streaming
+    header with an unknown length is what ``-f wav`` on a pipe would produce,
+    and not every decoder accepts one.
+
+    The whole slice is held in memory, which :data:`MAX_SLICE_S` bounds. The
+    source is only ever read.
+
+    Raises :class:`TranscodeError` when ffmpeg cannot open the file or when the
+    span lies past the end of it, so the route can answer 422 rather than
+    return a WAV with no samples in it.
+    """
+    if end_s <= start_s:
+        raise TranscodeError("the span ends before it starts")
+    cmd = [
+        "ffmpeg",
+        "-v",
+        "error",
+        "-nostdin",
+        "-ss",
+        f"{start_s:.6f}",
+        "-i",
+        str(path),
+        "-t",
+        f"{end_s - start_s:.6f}",
+        "-map",
+        "a:0",
+        "-ar",
+        str(SLICE_RATE),
+        "-ac",
+        str(SLICE_CHANNELS),
+        "-acodec",
+        "pcm_s16le",
+        "-f",
+        "s16le",
+        "-",
+    ]
+    try:
+        done = subprocess.run(
+            cmd,
+            stdin=subprocess.DEVNULL,
+            capture_output=True,
+            timeout=SLICE_TIMEOUT_S,
+            check=False,
+        )
+    except FileNotFoundError as exc:  # pragma: no cover - ffmpeg is a hard dep
+        raise TranscodeError("ffmpeg not found on PATH") from exc
+    except subprocess.TimeoutExpired as exc:
+        raise TranscodeError("ffmpeg took too long to cut the span") from exc
+    if done.returncode != 0:
+        message = done.stderr.decode("utf-8", "replace").strip()
+        raise TranscodeError(message or f"ffmpeg exited {done.returncode}")
+    frame = SLICE_CHANNELS * SLICE_SAMPLE_BYTES
+    pcm = done.stdout[: len(done.stdout) - len(done.stdout) % frame]
+    if not pcm:
+        raise TranscodeError("the span lies past the end of the sound")
+
+    out = io.BytesIO()
+    with wave.open(out, "wb") as writer:
+        writer.setnchannels(SLICE_CHANNELS)
+        writer.setsampwidth(SLICE_SAMPLE_BYTES)
+        writer.setframerate(SLICE_RATE)
+        writer.writeframes(pcm)
+    return out.getvalue()
 
 
 def content_disposition(filename: str) -> str:

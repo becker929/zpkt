@@ -107,6 +107,85 @@
           },
           "maxItems": 512
         },
+        "collage": {
+          "anyOf": [
+            {
+              "type": "object",
+              "properties": {
+                "regions": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 40
+                      },
+                      "hash": {
+                        "$ref": "#/anyOf/0/properties/sounds/items/properties/hash"
+                      },
+                      "track": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "start_s": {
+                        "type": "number",
+                        "minimum": 0
+                      },
+                      "end_s": {
+                        "type": "number",
+                        "minimum": 0
+                      },
+                      "at_s": {
+                        "type": "number",
+                        "minimum": 0
+                      },
+                      "rate": {
+                        "type": "number",
+                        "exclusiveMinimum": 0
+                      },
+                      "gain": {
+                        "type": "number",
+                        "minimum": 0
+                      },
+                      "fade_in_s": {
+                        "type": "number",
+                        "minimum": 0
+                      },
+                      "fade_out_s": {
+                        "type": "number",
+                        "minimum": 0
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "hash",
+                      "track",
+                      "start_s",
+                      "end_s",
+                      "at_s",
+                      "rate",
+                      "gain",
+                      "fade_in_s",
+                      "fade_out_s"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "maxItems": 2000
+                }
+              },
+              "required": [
+                "regions"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
         "column": {
           "type": "string",
           "const": "stored"
@@ -177,6 +256,9 @@
         },
         "sounds": {
           "$ref": "#/anyOf/0/properties/sounds"
+        },
+        "collage": {
+          "$ref": "#/anyOf/0/properties/collage"
         },
         "column": {
           "type": "string",
@@ -251,6 +333,9 @@
         },
         "sounds": {
           "$ref": "#/anyOf/0/properties/sounds"
+        },
+        "collage": {
+          "$ref": "#/anyOf/0/properties/collage"
         },
         "column": {
           "type": "string",
@@ -346,6 +431,9 @@
         },
         "sounds": {
           "$ref": "#/anyOf/0/properties/sounds"
+        },
+        "collage": {
+          "$ref": "#/anyOf/0/properties/collage"
         },
         "column": {
           "type": "string",

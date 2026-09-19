@@ -153,6 +153,7 @@ def capped_api(tmp_path: Path) -> Iterator[Callable[..., Fixture]]:
                 schemas_dir=schemas_dir(),
                 stored_cap=cap,
                 collage_cap=cap,
+                enrich_cap=cap,
                 encumbrance=encumbrance,
             ),
         )

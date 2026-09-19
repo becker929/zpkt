@@ -35,7 +35,7 @@ function watchConsole(page: Page): string[] {
   return seen;
 }
 
-const VIEWS = ["/", "/decided", "/search", "/board"];
+const VIEWS = ["/", "/decided", "/search", "/board", "/collage"];
 
 test("every view hydrates without a mismatch", async ({ context }) => {
   // React reports a hydration mismatch as a console error whose first line

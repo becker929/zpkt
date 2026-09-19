@@ -153,6 +153,7 @@ FastAPI, with interactive documentation at `/docs`.
 | `GET /api/files/{hash}/silence` | where a sound is silent, so playback can skip it |
 | `GET /api/files/{hash}/spans` | labelled regions; `?method=yamnet` narrows to one classifier |
 | `GET /api/files/{hash}/stream` | audio bytes, with HTTP range support |
+| `GET /api/files/{hash}/slice?start=&end=` | one bounded span as 48 kHz stereo WAV, so collage never fetches a whole source; capped at 120 s |
 | `PUT` / `DELETE /api/files/{hash}/deleted` | discard a sound, or restore it |
 | `POST /api/bulk` | discard or restore many hashes in one transaction |
 | `GET /api/triage` | how much of the library has been answered |
@@ -164,6 +165,7 @@ FastAPI, with interactive documentation at `/docs`.
 | `POST /api/projects/{id}/abandon` | leave the board and free the slot, keeping the file |
 | `POST /api/projects/{id}/revive` | come back to the column it left |
 | `PUT` / `DELETE /api/projects/{id}/sounds/{hash}` | take a sound in, or take it out |
+| `PUT /api/projects/{id}/collage` | replace the whole collage description; 409 once the collage stage is committed |
 | `GET /api/dupes` | redundancy a cleanup could act on, most bytes first |
 | `GET /api/stats` | counts, total size, wasted bytes, format breakdown |
 

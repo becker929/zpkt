@@ -29,6 +29,7 @@ from .models import (
     Board,
     BulkRequest,
     BulkResult,
+    CollageRequest,
     DeletedState,
     DeleteRequest,
     DupeList,
@@ -37,6 +38,7 @@ from .models import (
     Health,
     PeaksResponse,
     ProjectAbandonRequest,
+    ProjectCollage,
     ProjectCommitRequest,
     ProjectCommitted,
     ProjectCreateRequest,
@@ -55,6 +57,7 @@ from .models import (
 )
 from .queries import MAX_LIMIT, FileFilters
 from .streaming import (
+    MAX_SLICE_S,
     TRANSCODE_EXTS,
     RangeNotSatisfiable,
     TranscodeError,
@@ -63,6 +66,7 @@ from .streaming import (
     needs_transcode,
     parse_range,
     read_range,
+    slice_to_wav,
     transcode_to_wav,
 )
 
@@ -141,6 +145,7 @@ def create_app(
         caps=Caps(
             stored=project_settings.cap("stored"),
             collage=project_settings.cap("collage"),
+            enrich=project_settings.cap("enrich"),
         ),
         encumbrance=project_settings.encumbrance,
     )
@@ -338,6 +343,59 @@ def create_app(
             status_code=206,
             media_type=media_type,
             headers=headers,
+        )
+
+    @app.get("/api/files/{file_hash}/slice", tags=["files"])
+    def file_slice(
+        file_hash: FileHash,
+        start: Annotated[
+            float, Query(ge=0, description="where the cut begins, in seconds")
+        ],
+        end: Annotated[
+            float, Query(gt=0, description="where the cut ends, in seconds")
+        ],
+    ) -> Response:
+        """One span of a sound as a small, complete WAV.
+
+        A region is cut from a source that can be hundreds of megabytes, so the
+        whole file is never sent. This returns just the span, at 48 kHz, stereo,
+        16-bit PCM whatever the source was, so the client decodes one format
+        and never resamples. The span is capped at ``MAX_SLICE_S`` seconds.
+
+        The sound is named by hash and the path comes out of the index. The
+        source is opened for reading by ffmpeg and nothing else happens to it.
+        """
+        if end <= start:
+            raise HTTPException(
+                status_code=422, detail="end must be after start"
+            )
+        if end - start > MAX_SLICE_S:
+            raise HTTPException(
+                status_code=422,
+                detail=f"a slice is at most {MAX_SLICE_S:g} seconds long",
+            )
+        conn = db.connection()
+        if not queries.blob_exists(conn, file_hash):
+            raise HTTPException(status_code=404, detail="unknown hash")
+        alias = queries.playable_alias(conn, file_hash)
+        if alias is None:
+            raise HTTPException(
+                status_code=404, detail="no alias of this hash exists on disk"
+            )
+        try:
+            body = slice_to_wav(alias.path, start, end)
+        except TranscodeError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+        return Response(
+            content=body,
+            media_type="audio/wav",
+            headers={
+                "Content-Disposition": content_disposition(
+                    f"{Path(alias.filename).stem}.{start:g}-{end:g}.wav"
+                ),
+                "Cache-Control": "private, max-age=3600",
+                "ETag": f'"{file_hash}:{start:.6f}:{end:.6f}"',
+            },
         )
 
     # There is no favourite route. A star meant "keep this, decide later", and
@@ -781,6 +839,45 @@ def create_app(
             added_at=entry["added_at"] if entry else None,
             sound_count=len(document["sounds"]),
             summary=_summary(changed),
+        )
+
+    @app.put(
+        "/api/projects/{project_id}/collage",
+        response_model=ProjectCollage,
+        tags=["projects"],
+    )
+    def put_collage(project_id: ProjectId, body: CollageRequest) -> ProjectCollage:
+        """Replace the whole description of what was cut and where it was put.
+
+        Whole, not merged: the client sends every region every time, and the
+        write is one atomic replacement of the project file under the same lock
+        every other write takes.
+
+        Three refusals. 409 once a ``collage`` commit exists, because that
+        commit froze this field and freezing is one way. 409 while the project
+        is still in ``stored``, because no frozen sound set exists to cut from.
+        422 when a region breaks a rule of the model: a hash not in the frozen
+        set, an end before its start, a repeated id.
+
+        This writes one JSON document. It reads no audio and removes none.
+        """
+        collage = body.model_dump()
+        try:
+            written = store.set_collage(
+                project_id, collage, at=project_model.utc_now()
+            )
+        except ProjectError as exc:
+            raise _refuse(exc) from exc
+        _sync()
+        return _collage_state(written)
+
+    def _collage_state(item: Loaded) -> ProjectCollage:
+        document = item.as_document()
+        return ProjectCollage(
+            project_id=item.id,
+            collage=project_model.collage_of(document),
+            frozen=project_model.collage_commit(document["commits"]) is not None,
+            summary=_summary(item),
         )
 
     @app.get("/api/board", response_model=Board, tags=["projects"])

@@ -207,7 +207,7 @@ def board(loaded: Sequence[Loaded], caps: Caps, *, encumbrance: int) -> Board:
     ``unreadable``: there is no column to hold it in.
 
     The blocked state is reported rather than left for the client to work out.
-    Two columns, both capped at one, and no column after ``collage``: a full
+    Three columns, each capped at one, and no column after ``enrich``: a full
     board cannot move at all, and somebody looking at it deserves to be told
     that in words instead of finding out by pressing a button.
     """

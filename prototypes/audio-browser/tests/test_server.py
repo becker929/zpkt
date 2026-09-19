@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import io
 import shutil
 import sqlite3
 import subprocess
+import wave
 from collections.abc import Iterator
 from pathlib import Path
 
@@ -24,6 +26,7 @@ HASH_ROUTES: tuple[tuple[str, str], ...] = (
     ("GET", "/api/files/{h}/stream"),
     ("GET", "/api/files/{h}/spans"),
     ("GET", "/api/files/{h}/silence"),
+    ("GET", "/api/files/{h}/slice?start=0&end=1"),
     ("PUT", "/api/files/{h}/deleted"),
     ("DELETE", "/api/files/{h}/deleted"),
 )
@@ -684,9 +687,10 @@ def _mutations(
         ("POST", "/api/bulk", {"hashes": [file_hash, other_hash], "action": "restore"}),
         # Every project route, in an order that reaches all of them. The first
         # project is driven as far down the board as the board goes: sounds in
-        # and out, abandoned, revived, then committed out of `stored`. The
-        # second is only abandoned, so the abandon route is exercised against a
-        # project that never holds a sound.
+        # and out, abandoned, revived, committed out of `stored`, cut, then
+        # committed out of `collage` into `enrich`. The second is only
+        # abandoned, so the abandon route is exercised against a project that
+        # never holds a sound.
         ("PATCH", f"/api/projects/{project_id}", {"name": "renamed", "notes": "x"}),
         ("PUT", f"/api/projects/{project_id}/sounds/{file_hash}", None),
         ("PUT", f"/api/projects/{project_id}/sounds/{other_hash}", None),
@@ -694,6 +698,23 @@ def _mutations(
         ("POST", f"/api/projects/{project_id}/abandon", {"reason": "not yet"}),
         ("POST", f"/api/projects/{project_id}/revive", {"override": True}),
         ("POST", f"/api/projects/{project_id}/commit", {"expect_column": "stored"}),
+        (
+            "PUT",
+            f"/api/projects/{project_id}/collage",
+            {
+                "regions": [
+                    {
+                        "id": "r1",
+                        "hash": file_hash,
+                        "track": 0,
+                        "start_s": 0.1,
+                        "end_s": 0.4,
+                        "at_s": 0.0,
+                    }
+                ]
+            },
+        ),
+        ("POST", f"/api/projects/{project_id}/commit", {"expect_column": "collage"}),
         ("POST", f"/api/projects/{second_project}/abandon", None),
     ]
 
@@ -747,6 +768,77 @@ def test_the_swipe_queue_changes_nothing_at_all(api: Fixture) -> None:
         table: peek(api.db_path, f"SELECT COUNT(*) AS n FROM {table}")["n"]
         for table in ("blob", "alias", "soft_delete", "favorite", "list_member")
     }
+
+
+# --------------------------------------------------------------------- slice
+#
+# A region is cut from a source that can be hundreds of megabytes, so the whole
+# file is never sent. The slice comes back in one format whatever the source
+# was, and the source is only ever read.
+
+
+def _slice(api: Fixture, name: str, start: float, end: float):  # type: ignore[no-untyped-def]
+    return api.client.get(
+        f"/api/files/{api.hash_of(name)}/slice", params={"start": start, "end": end}
+    )
+
+
+@needs_ffmpeg
+def test_a_slice_is_48k_stereo_16_bit_whatever_the_source_was(api: Fixture) -> None:
+    """The fixture sound is 8 kHz mono. The slice is not."""
+    response = _slice(api, "kick.wav", 0.1, 0.3)
+    assert response.status_code == 200, response.text
+    assert response.headers["content-type"] == "audio/wav"
+    assert int(response.headers["content-length"]) == len(response.content)
+
+    with wave.open(io.BytesIO(response.content), "rb") as reader:
+        assert reader.getframerate() == 48_000
+        assert reader.getnchannels() == 2
+        assert reader.getsampwidth() == 2
+        # 0.2 s at 48 kHz. The resampler may land a frame either side.
+        assert abs(reader.getnframes() - 9_600) <= 2
+
+
+@needs_ffmpeg
+def test_a_slice_is_the_span_asked_for_and_not_the_whole_sound(api: Fixture) -> None:
+    short = _slice(api, "kick.wav", 0.0, 0.1).content
+    long = _slice(api, "kick.wav", 0.0, 0.4).content
+    with wave.open(io.BytesIO(short), "rb") as a, wave.open(io.BytesIO(long), "rb") as b:
+        assert abs(b.getnframes() - 4 * a.getnframes()) <= 8
+
+
+def test_a_slice_longer_than_the_cap_is_refused(api: Fixture) -> None:
+    response = _slice(api, "kick.wav", 0.0, 120.5)
+    assert response.status_code == 422
+    assert "120" in response.json()["detail"]
+
+
+def test_a_slice_that_ends_before_it_starts_is_refused(api: Fixture) -> None:
+    assert _slice(api, "kick.wav", 0.3, 0.3).status_code == 422
+    assert _slice(api, "kick.wav", 0.3, 0.1).status_code == 422
+    assert _slice(api, "kick.wav", -1.0, 0.1).status_code == 422
+
+
+@needs_ffmpeg
+def test_a_slice_past_the_end_of_the_sound_is_refused(api: Fixture) -> None:
+    """kick.wav is half a second long. No samples is an error, not a WAV."""
+    response = _slice(api, "kick.wav", 5.0, 6.0)
+    assert response.status_code == 422
+
+
+def test_a_slice_of_an_unknown_hash_is_a_404(api: Fixture) -> None:
+    response = api.client.get(f"/api/files/{'c' * 64}/slice?start=0&end=1")
+    assert response.status_code == 404
+
+
+@needs_ffmpeg
+def test_a_slice_leaves_every_file_on_disk_as_it_was(api: Fixture) -> None:
+    """The one route that opens audio for a project view. It only reads."""
+    before = {root: tree_snapshot(api.tmp_path / root) for root in ("source", "copy")}
+    for name in ("kick.wav", "hat.wav", "loop.mp3"):
+        assert _slice(api, name, 0.0, 0.1).status_code == 200
+    after = {root: tree_snapshot(api.tmp_path / root) for root in ("source", "copy")}
+    assert after == before
 
 
 # --------------------------------------------------------------------- spans

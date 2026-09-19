@@ -1133,6 +1133,7 @@ export function mockCreateProject(name: string, override: boolean): MockProjectR
     abandoned: null,
     commits: [],
     sounds: [],
+    collage: null,
   };
   const checked = checkProject(document);
   if (!checked.ok) {
@@ -1374,6 +1375,118 @@ export function mockSetProjectSound(
   if (!checked.ok) return { ok: false, status: 422, detail: describeIssues(checked.issues) };
   projectStore().set(id, checked.project);
   return { ok: true, value: summarise(checked.project) };
+}
+
+/* The collage --------------------------------------------------------------- */
+
+/**
+ * Mock `PUT /api/projects/{id}/collage`: replace the arrangement whole.
+ *
+ * The body is run through the same model the file is read with, so a region
+ * the schema rejects, or one cutting from a sound outside the frozen set, is
+ * refused with 422 and the model's own words. Nothing is merged: what arrives
+ * is what is stored, which is what makes reload agree with the screen.
+ *
+ * Refused for a project that is not in `collage`. `stored` has no arrangement
+ * to write yet, and anything past `collage` has frozen its arrangement:
+ * committing out of collage is what fixed it, and nothing in the app reopens a
+ * frozen stage.
+ */
+export function mockPutCollage(id: string, regions: unknown): MockProjectResult<ProjectDocument> {
+  const project = readProject(id);
+  if (!project) return { ok: false, status: 404, detail: "no such project" };
+  if (project.column !== "collage") {
+    return {
+      ok: false,
+      status: 409,
+      detail:
+        project.column === "stored"
+          ? `"${project.name}" is still in stored. its sound set has to be frozen before anything is cut from it.`
+          : `"${project.name}" has left collage. its arrangement was frozen when it did, and nothing reopens a frozen stage.`,
+    };
+  }
+  if (!Array.isArray(regions)) {
+    return { ok: false, status: 422, detail: "a collage is { regions: [...] }" };
+  }
+
+  const checked = checkProject({
+    ...project,
+    collage: { regions },
+    updated_at: nowInstant(),
+  });
+  if (!checked.ok) return { ok: false, status: 422, detail: describeIssues(checked.issues) };
+  projectStore().set(id, checked.project);
+  return { ok: true, value: checked.project };
+}
+
+/**
+ * Mock `GET /api/files/{hash}/slice`: a bounded stretch of one source, as a
+ * 48 kHz stereo 16-bit WAV, exactly the shape the real route serves.
+ *
+ * The audio is the same synthetic tone the stream route sends, resampled
+ * arithmetically — it is generated from `t`, so there is nothing to resample.
+ * Bounded by the region and bounded again here: a request longer than
+ * `MOCK_MAX_SLICE_S` is refused, because the point of the route is that the
+ * client never decodes a whole file, and a mock that let it would let the
+ * interface pass a test the real server fails.
+ */
+export const MOCK_SLICE_RATE = 48000;
+export const MOCK_MAX_SLICE_S = 60;
+
+export function mockSliceWav(
+  file: MockFile,
+  startS: number,
+  endS: number,
+): { ok: true; wav: Buffer } | { ok: false; status: number; detail: string } {
+  const duration = file.duration_s ?? 0;
+  if (!Number.isFinite(startS) || !Number.isFinite(endS) || startS < 0) {
+    return { ok: false, status: 422, detail: "start and end are seconds into the sound" };
+  }
+  const end = Math.min(endS, duration);
+  if (end <= startS) {
+    return { ok: false, status: 422, detail: "end is after start, and inside the sound" };
+  }
+  if (end - startS > MOCK_MAX_SLICE_S) {
+    return {
+      ok: false,
+      status: 413,
+      detail: `a slice is at most ${MOCK_MAX_SLICE_S} seconds. ask for it in pieces.`,
+    };
+  }
+
+  const frames = Math.round((end - startS) * MOCK_SLICE_RATE);
+  const channels = 2;
+  const dataLength = frames * channels * 2;
+  const wav = Buffer.alloc(MOCK_HEADER_BYTES + dataLength);
+  wav.write("RIFF", 0);
+  wav.writeUInt32LE(36 + dataLength, 4);
+  wav.write("WAVE", 8);
+  wav.write("fmt ", 12);
+  wav.writeUInt32LE(16, 16);
+  wav.writeUInt16LE(1, 20);
+  wav.writeUInt16LE(channels, 22);
+  wav.writeUInt32LE(MOCK_SLICE_RATE, 24);
+  wav.writeUInt32LE(MOCK_SLICE_RATE * channels * 2, 28);
+  wav.writeUInt16LE(channels * 2, 32);
+  wav.writeUInt16LE(16, 34);
+  wav.write("data", 36);
+  wav.writeUInt32LE(dataLength, 40);
+
+  const rand = mulberry32(file.seed);
+  const base = 110 * Math.pow(2, Math.floor(rand() * 12) / 12);
+  const silent = (t: number) => file.silence.some((gap) => t >= gap.start_s && t < gap.end_s);
+  let offset = MOCK_HEADER_BYTES;
+  for (let i = 0; i < frames; i += 1) {
+    const t = startS + i / MOCK_SLICE_RATE;
+    const env = silent(t) ? 0 : Math.exp(-((t % 1.0) * 4));
+    const value =
+      Math.sin(2 * Math.PI * base * t) * env * 0.4 + Math.sin(2 * Math.PI * base * 2.01 * t) * env * 0.15;
+    const sample = Math.max(-32768, Math.min(32767, Math.round(value * 32767)));
+    wav.writeInt16LE(sample, offset);
+    wav.writeInt16LE(sample, offset + 2);
+    offset += 4;
+  }
+  return { ok: true, wav };
 }
 
 /**

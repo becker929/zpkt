@@ -165,6 +165,7 @@ function TopBar() {
         {link("/decided", "decided")}
         {link("/search", "search")}
         {link("/board", "board")}
+        {link("/collage", "collage")}
       </nav>
       {/* A forced line break, and only on a phone. The header carries four
           destinations and two meters, which do not fit on 393 pixels in one
@@ -211,7 +212,10 @@ function TopBar() {
  */
 function BottomBar() {
   const pathname = usePathname();
-  if (pathname === "/") return null;
+  // The collage view has no player bar either. Its bottom edge holds the one
+  // thing being stamped, and a region plays through its own audio context
+  // rather than the shared element.
+  if (pathname === "/" || pathname === "/collage") return null;
   return (
     <>
       {/* Above the player, never over it: the transport is how the sound being
