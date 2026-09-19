@@ -28,6 +28,8 @@
 
 import { defineConfig, devices } from "@playwright/test";
 
+import { assertPortsFree } from "./e2e/free-ports";
+
 const MOCK_PORT = Number(process.env.E2E_MOCK_PORT ?? 3101);
 const LIVE_URL = process.env.E2E_LIVE_URL ?? "http://127.0.0.1:3100";
 
@@ -50,6 +52,19 @@ const CAP1_PORT = Number(process.env.E2E_CAP1_PORT ?? 3102);
  * because the whole point of the decision is what somebody sees.
  */
 const CAPBAD_PORT = Number(process.env.E2E_CAPBAD_PORT ?? 3103);
+
+/**
+ * Fail now if a test port is held.
+ *
+ * This runs as the config loads because nothing else runs earlier: the
+ * `webServer` entries start before `globalSetup` and before any project, and
+ * their first act is an HTTP probe with no timeout. A port held by something
+ * that accepts a connection and never answers — an orphaned `next dev`, a
+ * stray listener — wedges that probe forever, and `reuseExistingServer:
+ * false` never gets a say. See `e2e/free-ports.ts`. The user's server on
+ * 3100 is not in this list and is never touched.
+ */
+assertPortsFree([MOCK_PORT, CAP1_PORT, CAPBAD_PORT]);
 
 export default defineConfig({
   testDir: "./e2e",
@@ -138,7 +153,11 @@ export default defineConfig({
       command: `npx next dev -p ${MOCK_PORT}`,
       env: { NEXT_PUBLIC_MOCK: "1", NEXT_DIST_TAG: "e2e" },
       url: `http://127.0.0.1:${MOCK_PORT}/`,
-      reuseExistingServer: !process.env.CI,
+      // Never reuse: a server this run did not start is not one it can trust.
+      // A held port is refused before this entry is read; see above. The
+      // timeout is the backstop for the other failure, a server that starts
+      // and never answers, which the probe's own loop does bound.
+      reuseExistingServer: false,
       timeout: 120_000,
       stdout: "ignore",
       stderr: "pipe",
@@ -147,7 +166,7 @@ export default defineConfig({
       command: `npx next dev -p ${CAP1_PORT}`,
       env: { NEXT_PUBLIC_MOCK: "1", NEXT_PUBLIC_COLUMN_CAP: "1", NEXT_DIST_TAG: "cap1" },
       url: `http://127.0.0.1:${CAP1_PORT}/`,
-      reuseExistingServer: !process.env.CI,
+      reuseExistingServer: false,
       timeout: 120_000,
       stdout: "ignore",
       stderr: "pipe",
@@ -158,7 +177,7 @@ export default defineConfig({
       command: `npx next dev -p ${CAPBAD_PORT}`,
       env: { NEXT_PUBLIC_MOCK: "1", NEXT_PUBLIC_COLUMN_CAP: "two", NEXT_DIST_TAG: "capbad" },
       url: `http://127.0.0.1:${CAPBAD_PORT}/`,
-      reuseExistingServer: !process.env.CI,
+      reuseExistingServer: false,
       timeout: 120_000,
       stdout: "ignore",
       stderr: "pipe",

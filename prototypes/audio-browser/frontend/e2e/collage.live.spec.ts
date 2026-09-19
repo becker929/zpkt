@@ -119,4 +119,12 @@ test("no seconds, no grid, no decibels on the real material", async ({ page }) =
   expect(all).not.toMatch(/\bdB\b/i);
   // Nothing drawn on the blank but regions.
   expect(await page.getByTestId("collage-space").locator(":scope > :not([data-testid='region'])").count()).toBe(0);
+
+  // The header above the view has dropped its hours of sound. The real
+  // collection's total would otherwise sit over a screen that never says a
+  // number of seconds.
+  const stats = page.getByTestId("topbar-stats");
+  await expect(stats).toHaveAttribute("data-hours", "hidden");
+  await expect(stats).not.toHaveText("…");
+  expect(await stats.innerText()).not.toMatch(/\d(?:[.,]\d+)?\s?h\b/);
 });

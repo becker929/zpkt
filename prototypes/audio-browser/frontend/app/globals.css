@@ -1795,9 +1795,28 @@ select:focus {
   box-shadow: 0 0 0 2px hsl(var(--hue) 70% 72% / 0.45);
 }
 
+/* A selected region sits above its neighbours, so its full-size handles are
+   the ones a thumb lands on for as long as it is selected. */
+.region.selected {
+  z-index: 2;
+  border-color: hsl(var(--hue) 70% 78%);
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.35);
+}
+
 .region.unresolved {
   border-style: dashed;
   color: var(--text-dim);
+}
+
+/* The sound inside the region, drawn down it. Under everything else in the
+   box; it is a picture and not a control. */
+.region-wave {
+  position: absolute;
+  left: 0;
+  top: 0;
+  display: block;
+  border-radius: 5px;
+  pointer-events: none;
 }
 
 /* Playback runs down the block, because time runs down the screen. */
@@ -1811,10 +1830,34 @@ select:focus {
   pointer-events: none;
 }
 
+/* What a drag is about to do. The part being cut away goes dim; the part
+   being taken in is an outline where the sound will be. Neither takes a
+   touch. */
+.region-cut {
+  position: absolute;
+  left: 0;
+  right: 0;
+  background: repeating-linear-gradient(
+    -45deg,
+    rgba(0, 0, 0, 0.55) 0 6px,
+    rgba(0, 0, 0, 0.35) 6px 12px
+  );
+  pointer-events: none;
+}
+
+.region-more {
+  position: absolute;
+  left: 0;
+  right: 0;
+  border: 1px dashed hsl(var(--hue) 55% 62% / 0.9);
+  background: hsl(var(--hue) 45% 30% / 0.25);
+  pointer-events: none;
+}
+
 /* The name sticks to the top of the block as the block scrolls, so a region
    taller than the screen still says what it is. The region is a `div` and not
    a `button` for exactly this reason: WebKit will not stick anything inside a
-   button. */
+   button. It sits over the waveform, so it carries its own dark. */
 .region-label {
   position: sticky;
   top: 0;
@@ -1822,6 +1865,77 @@ select:focus {
   padding: 6px 8px;
   font-size: 11px;
   line-height: 1.3;
+  background: linear-gradient(rgba(10, 14, 20, 0.85), rgba(10, 14, 20, 0.55) 80%, transparent);
+  border-radius: 5px 5px 0 0;
+  pointer-events: none;
+}
+
+/* The grab: the hit area a thumb takes a region by. Nothing is drawn; the
+   box is the truth about the region's length and the grab only reaches out
+   from it until it is a thumb tall. Narrower than the track, so the flanks
+   beside it stay free and a stamp can still land between two regions close
+   together. */
+.region-grab {
+  position: absolute;
+  left: 32px;
+  right: 32px;
+  display: block;
+}
+
+/* A handle: one end of the region taken up, a thumb tall, outside the box.
+   A thumb on it drags. Neutral, not the region's hue: it is a control and
+   not the sound. Narrower than the track, so the flanks of a neighbour under
+   it stay reachable. */
+.handle {
+  position: absolute;
+  left: 32px;
+  right: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  cursor: ns-resize;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+
+.handle.start {
+  border-radius: 8px 8px 3px 3px;
+}
+
+.handle.end {
+  border-radius: 3px 3px 8px 8px;
+}
+
+.handle-grip {
+  display: block;
+  width: 40px;
+  height: 6px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.35);
+}
+
+.handle.selected {
+  background: var(--accent);
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px rgba(86, 182, 255, 0.35);
+}
+
+.handle.selected .handle-grip {
+  background: #07121b;
+}
+
+.handle.moving {
+  box-shadow: 0 0 0 3px rgba(86, 182, 255, 0.5), 0 6px 18px rgba(0, 0, 0, 0.5);
+}
+
+.handle:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
 }
 
 .region-label-text {
@@ -1900,11 +2014,23 @@ select:focus {
   flex: 0 0 auto;
   min-width: 72px;
   min-height: 60px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
   border: 1px solid var(--border);
   border-radius: 12px;
   color: var(--text-dim);
   font-size: 14px;
   -webkit-tap-highlight-color: transparent;
+}
+
+/* How many steps undo holds. A count, not a time. */
+.collage-undo-sub {
+  font-size: 10px;
+  color: var(--text-faint);
+  white-space: nowrap;
 }
 
 /* The picker: a sheet over the bottom of the view, with the set to hear and

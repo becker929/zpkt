@@ -13,30 +13,16 @@
  * of them. Boundaries and labels are separate concerns, so a span carries its
  * own start, end, and label and this component makes no assumption that spans
  * tile the whole file or that they are sorted.
+ *
+ * The drawing itself is `paintWaveform` in `lib/wavePaint.ts`, shared with
+ * the collage, which draws the same thing down a region instead of across a
+ * bar.
  */
 
 import { useCallback, useEffect, useRef } from "react";
 
 import type { SilenceInterval, Span } from "@/lib/types";
-
-/** Tint per label. Unknown labels fall back to a neutral grey. */
-const SPAN_COLORS: Record<string, string> = {
-  speech: "rgba(255, 145, 120, 0.20)",
-  music: "rgba(120, 190, 255, 0.20)",
-  other: "rgba(150, 160, 175, 0.14)",
-};
-
-const FALLBACK_SPAN_COLOR = "rgba(150, 160, 175, 0.14)";
-
-/**
- * Silent stretches, drawn as a flat band with an edge at each end.
- *
- * It has to read as a different kind of thing from a labelled span: a span
- * says what the audio is, a silent band says there is no audio. The edges are
- * what make the band's boundaries visible against a span tint under it.
- */
-const SILENCE_FILL = "rgba(120, 132, 155, 0.26)";
-const SILENCE_EDGE = "rgba(190, 205, 230, 0.45)";
+import { paintWaveform } from "@/lib/wavePaint";
 
 export interface WaveformProps {
   /** [minimum, maximum] pairs, each in -128..127. Empty while loading. */
@@ -99,74 +85,7 @@ export function Waveform({
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    ctx.clearRect(0, 0, cssWidth, cssHeight);
-
-    const mid = cssHeight / 2;
-    const fraction =
-      durationS && durationS > 0 ? Math.min(Math.max(progressS / durationS, 0), 1) : 0;
-    const playedX = fraction * cssWidth;
-
-    // Span tints sit underneath the waveform so the shape stays readable.
-    if (spans && spans.length > 0 && durationS && durationS > 0) {
-      for (const span of spans) {
-        const start = Math.max(0, Math.min(span.start_s, durationS));
-        const end = Math.max(start, Math.min(span.end_s, durationS));
-        if (end <= start) continue;
-        const x0 = (start / durationS) * cssWidth;
-        const x1 = (end / durationS) * cssWidth;
-        ctx.fillStyle = SPAN_COLORS[span.label] ?? FALLBACK_SPAN_COLOR;
-        ctx.fillRect(x0, 0, Math.max(x1 - x0, 1), cssHeight);
-      }
-    }
-
-    // Silent stretches sit over the span tints and under the waveform, so a
-    // region can be both labelled and silent and still be read as both.
-    if (silence && silence.length > 0 && durationS && durationS > 0) {
-      for (const gap of silence) {
-        const start = Math.max(0, Math.min(gap.start_s, durationS));
-        const end = Math.max(start, Math.min(gap.end_s, durationS));
-        if (end <= start) continue;
-        const x0 = (start / durationS) * cssWidth;
-        const x1 = (end / durationS) * cssWidth;
-        ctx.fillStyle = SILENCE_FILL;
-        ctx.fillRect(x0, 0, Math.max(x1 - x0, 1), cssHeight);
-        ctx.fillStyle = SILENCE_EDGE;
-        ctx.fillRect(x0, 0, 1, cssHeight);
-        ctx.fillRect(Math.max(x1 - 1, x0), 0, 1, cssHeight);
-      }
-    }
-
-    // Centre line.
-    ctx.fillStyle = "rgba(255, 255, 255, 0.08)";
-    ctx.fillRect(0, mid, cssWidth, 1);
-
-    if (pairs.length === 0) return;
-
-    // One column of pixels per bucket, or per pixel when there are more
-    // buckets than pixels. int8 peaks map onto -128..127.
-    const columns = Math.min(Math.floor(cssWidth), pairs.length);
-    const colWidth = cssWidth / columns;
-    for (let c = 0; c < columns; c += 1) {
-      const from = Math.floor((c * pairs.length) / columns);
-      const to = Math.max(from + 1, Math.floor(((c + 1) * pairs.length) / columns));
-      let lo = 0;
-      let hi = 0;
-      for (let i = from; i < to; i += 1) {
-        if (pairs[i][0] < lo) lo = pairs[i][0];
-        if (pairs[i][1] > hi) hi = pairs[i][1];
-      }
-      const yTop = mid - (hi / 128) * (mid - 1);
-      const yBottom = mid - (lo / 128) * (mid - 1);
-      const x = c * colWidth;
-      ctx.fillStyle = x + colWidth <= playedX ? "#56b6ff" : "#6fd3c7";
-      ctx.fillRect(x, yTop, Math.max(colWidth - 0.5, 0.6), Math.max(yBottom - yTop, 1));
-    }
-
-    // Playhead.
-    if (durationS && durationS > 0) {
-      ctx.fillStyle = "rgba(255, 255, 255, 0.85)";
-      ctx.fillRect(Math.min(playedX, cssWidth - 1), 0, 1, cssHeight);
-    }
+    paintWaveform(ctx, cssWidth, cssHeight, { pairs, durationS, progressS, spans, silence });
   }, [pairs, durationS, progressS, spans, silence, height]);
 
   useEffect(() => {

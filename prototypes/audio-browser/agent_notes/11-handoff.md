@@ -5,9 +5,130 @@ sentences. Read top to bottom.
 
 ## Status right now
 
-Collage tracer bullet one is built on both sides and the adversarial usability
-critic is running on it. Nothing from bullet one is committed yet. Bullets two
-to five have not started.
+Bullet one — choose a sound and stamp it — is reviewed and committed as
+`aa6807a` on `feature/audio-browser`. Bullet two — trim — is built and
+reviewed, and is not committed. Bullets three to five have not started.
+
+## The critic's findings on bullet one
+
+Fixed before commit:
+
+- A fourth track landed off-screen: three tracks are 384 of 393 px, so a stamp
+  in the 9 px sliver created a track you could not see. It now scrolls into view.
+- Two short cuts drew on top of each other because both were padded to 44 px.
+- TypeScript accepted a `collage` on a `stored` document; Python refused it.
+  They agree now, and the schema check covers it.
+
+Reported, and carried into bullet two: the stamp bar's wording is not true
+(tapping a region plays, it does not stamp); undo is one level and says
+nothing; the header shows library hours on this screen, which the no-seconds
+rule forbids; padding lies about length once trim makes short cuts.
+
+Reported, not fixed: iOS pulls a tap within about 15 px onto a nearby region,
+so a gap narrower than a thumb cannot be stamped into. Real WebKit behaviour.
+Mitigation would be wider gutters or a long-press to force a stamp.
+
+## Bullet two — trim — built, not yet reviewed or committed
+
+The builder delivered: the waveform drawn vertically inside every region with
+silence and span tinting; regions at true length with 64×44 handles outside
+each end; tap a handle, drag to trim; `at_s` holds so a region keeps its place
+while its length changes; 0.25 s minimum length; a 20-deep undo that says how
+many steps it holds; the stamp bar's wording made true; library hours hidden in
+the header on this screen.
+
+One real WebKit finding, worth keeping: Safari synthesises `click` at an
+*adjusted* point, so a tap squarely inside a 12 px region was delivered to the
+44 px handle beside it. Taps are now read from `pointerdown`/`pointerup` pairs,
+which carry the true point.
+
+**What I saw in the screenshots that the critic must attack first.** Two short
+regions on one track collapse into a pile of overlapping handles thinner than a
+thumb, and the regions themselves become slivers you cannot tap to play. Snip
+creates exactly that seam every time. This has to be solved before bullet
+three, not after it.
+
+**Verified.** My own foreground run: **200 passed, 2 skipped, 0 failed**, and
+HW011 held at `f4a857da…` through the live project. Bullet two is green.
+
+**The stall, diagnosed and fixed.** Orphaned `next dev` servers on the
+test-only ports 3101–3103 survived the builder's killed runs, and
+`playwright.config.ts` had `reuseExistingServer: true` outside CI on those
+three entries. So every later run attached to a wedged orphan and waited
+forever with an empty log — that is what stalled three agents in a row and my
+own first run. Killing the orphans made the same suite pass in 3.5 minutes.
+The three test servers are now `reuseExistingServer: false`. **That turned out
+to be necessary but not sufficient**, and I had written here that it fixed
+the hang before it was proven. The first critic proved the opposite: with a
+bare TCP listener holding 3101, a one-test run sat for 2 hours 56 minutes.
+Playwright's readiness check only needs the port to accept a connection, which
+a bare listener does, so it believes the server is up and every test then hangs
+on navigation. The real fix is a preflight that checks each test port is free
+— not merely connectable — and exits naming the holder's PID, plus an explicit
+`timeout` on each `webServer`. The second critic is implementing and timing it.
+The user's server on 3100 is not a `webServer` entry and was never touched.
+
+Lesson for me, recorded so I stop doing it: do not write "fixed" into this
+note until the fix is proven. Twice tonight I wrote the conclusion first.
+
+**Process fix for every later brief.** Three agents in a row ended their turn
+while a backgrounded test suite was still running, and delivered no report.
+Suites run in the foreground with a long timeout, never backgrounded.
+
+## The critic's findings on bullet two
+
+**A held test port now fails in about a second.** `reuseExistingServer:
+false` was not enough: Playwright probes each `webServer` URL with an HTTP
+GET that has no timeout, before the entry's own `timeout` exists and before
+`globalSetup`. A bare TCP listener on 3101 accepts the connection and never
+answers, and the runner sat for three hours with one debug line. The check
+now runs as `playwright.config.ts` loads, the only point earlier than that
+probe: `e2e/free-ports.ts` asks `lsof` who is listening on 3101–3103 and
+fails naming the port, the PID and the command. Measured: 1.1 s to fail with
+the port held; 15 s to start the servers and pass with it free. 3100 is not
+checked.
+
+**The pile is gone.** Measured on the phone descriptor before the fix: two
+one-second cuts half a second apart gave a region's own two handles a 9.5 px
+overlap, and a real touch at a region's centre selected a handle instead of
+playing it. The fix is one rule, not a special case for short regions:
+
+- Only the region taken up has handles: two, a full thumb each, outside its
+  box, raised over its neighbours. There is nothing else to pile.
+- Every region has a grab: an invisible hit area that reaches out from the
+  box until it is a thumb tall, and never past the middle of the gap to a
+  neighbour, so grabs never overlap. `grabZone` in `lib/collage.ts`.
+- A tap on a region plays it and takes it up. A thumb on a handle drags at
+  once; a tap on a handle selects it (for the keyboard now, stretch later).
+- A tap on the blank puts the region down and, with a sound chosen, stamps.
+  Stamp, listen, stamp is the loop a phone lives in, and a tap that only let
+  go made the second stamp a dead tap every time.
+- Letting go of the start handle scrolls the canvas by the drag, so the
+  handle stays under the thumb instead of jumping back to the top of the box.
+- Undo keeps the handle selected if its region is still there.
+
+Tried against it: a neighbour under a raised handle is still reachable at
+its flanks; slow taps, taps that travel, taps across the seam between box
+and handle; a fifteen-minute region at 9000 px draws at both ends under the
+8192 px cap; trim, stamp, trim, then undo three times; every `aria-label`
+and `title` on the view grepped for a time or a level.
+
+**Design questions for Anthony.** Trim is now tap the region, then drag its
+handle; the spec says tap the handle. A tap on the blank beside a raised
+region's handle stamps rather than only letting go; undo takes it back. An
+unselected region shows no hint that it can be trimmed until it is tapped.
+The first region on a canvas still sees its start handle jump back by
+whatever the canvas cannot scroll up.
+
+**Verified.** Foreground run: **205 passed, 2 skipped, 0 failed**, 3.6
+minutes. HW011 held at `f4a857da…` before and after.
+
+## Decision made in bullet two
+
+Regions draw at their **true** length, and the handle is the affordance —
+chunky, outside the region's extent. A 1 s region is 10 px of sound with two
+big handles, not 44 px of fiction. This resolves the padding question the
+critic raised.
 
 ## What shipped and was verified by me, not only reported
 

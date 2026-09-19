@@ -8,14 +8,16 @@
  * because a sound was stamped into it, and a track exists because something
  * was stamped there.
  *
- * This is the first tracer bullet, and only it: choose a sound from the
- * project's frozen set, tap the canvas to stamp it, hear it back. Every change
- * is written whole to `PUT /api/projects/{id}/collage`, so a reload shows what
- * was on screen. A region plays through Web Audio from a bounded slice the
- * server cuts; nothing decodes a whole file.
+ * Two gestures so far. Choose a sound from the project's frozen set, tap the
+ * blank to stamp it, hear it back. Then trim: every region shows the sound
+ * inside it; a tap on a region plays it and takes it up, and the region
+ * taken up carries a thumb-sized handle at each end that drags. Every
+ * change is written whole to `PUT /api/projects/{id}/collage`, so a reload
+ * shows what was on screen. A region plays through Web Audio from a bounded
+ * slice the server cuts; nothing decodes a whole file.
  *
  * The geometry is in `lib/collage.ts` and is pure. This file is the shell
- * around it: fetches, the audio context, and the DOM.
+ * around it: fetches, the audio context, the pointer, and the DOM.
  */
 
 import Link from "next/link";
@@ -23,22 +25,89 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { useBoard } from "@/components/BoardProvider";
 import { usePlayer } from "@/components/PlayerProvider";
+import { RegionWave } from "@/components/RegionWave";
 import { Waveform } from "@/components/Waveform";
 import {
   ApiRefusal,
   collageRouteIsMissing,
+  fetchPeaks,
   fetchProject,
+  fetchSilence,
   fetchSpans,
   putCollage,
   type ProjectDetail,
 } from "@/lib/api";
-import { MIN_REGION_H, canvasSize, collageProject, hueFor, regionBox, stamp, trackCount } from "@/lib/collage";
+import {
+  HANDLE_H,
+  canvasSize,
+  collageProject,
+  dragOffsetPx,
+  draggedTo,
+  grabZone,
+  handleZones,
+  hueFor,
+  regionBox,
+  stamp,
+  trackCount,
+  trim,
+  type End,
+} from "@/lib/collage";
 import { formatCount } from "@/lib/format";
 import type { Region } from "@/lib/project";
+import { MIN_GAP_S, skippable } from "@/lib/silence";
 import { SlicePlayer } from "@/lib/slicePlayer";
-import type { FileRow, Span } from "@/lib/types";
+import type { FileRow, SilenceInterval, Span } from "@/lib/types";
 
 type SaveState = "idle" | "saving" | "saved" | "failed" | "absent";
+
+/**
+ * How many changes undo keeps.
+ *
+ * Every stamp and every trim is one step. Twenty is more than a session of
+ * cutting one source down produces before the result is heard, and small
+ * enough that the button can say how many are left without the number being
+ * a lie about how far back it goes.
+ */
+const UNDO_DEPTH = 20;
+
+/** Pixels from the canvas's edge inside which a drag scrolls it. */
+const SCROLL_EDGE = 48;
+
+/** Pixels the canvas scrolls per frame while a drag is at its edge. */
+const SCROLL_STEP = 8;
+
+/** A box shorter than this has no room for its name. The name is still spoken. */
+const LABEL_MIN_H = 26;
+
+/** How far a pointer may travel between down and up and still be a tap. */
+const TAP_SLOP = 8;
+
+/** What is known about one source, for drawing the regions cut from it. */
+interface SourceData {
+  pairs: Array<[number, number]>;
+  silence: SilenceInterval[];
+  spans: Span[];
+}
+
+/**
+ * What is taken up. One region at a time, and at most one of its handles.
+ *
+ * A tap on a region takes it up: it is raised above its neighbours and grows
+ * its two handles. A handle is selected on its own when it is touched, so
+ * the keyboard and, later, stretch know which end is meant. `end` is null
+ * while the region is up and neither handle has been touched.
+ */
+interface Selection {
+  id: string;
+  end: End | null;
+}
+
+/** A drag in progress: the region as it was, and as it would be if released now. */
+interface Drag {
+  id: string;
+  end: End;
+  preview: Region;
+}
 
 /* The picker ----------------------------------------------------------------- */
 
@@ -189,8 +258,8 @@ export default function CollagePage() {
   const [detail, setDetail] = useState<ProjectDetail | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [regions, setRegions] = useState<Region[]>([]);
-  /** The arrangement before the last stamp, so a mis-stamp can be taken back. */
-  const [before, setBefore] = useState<Region[] | null>(null);
+  /** Earlier arrangements, newest last, so a change can be taken back. */
+  const [history, setHistory] = useState<Region[][]>([]);
   const [chosen, setChosen] = useState<FileRow | null>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [hint, setHint] = useState<string | null>(null);
@@ -199,10 +268,16 @@ export default function CollagePage() {
   const [playingId, setPlayingId] = useState<string | null>(null);
   const [progress, setProgress] = useState(0);
   const [playError, setPlayError] = useState<string | null>(null);
+  const [sources, setSources] = useState<Map<string, SourceData>>(() => new Map());
+  const [selected, setSelected] = useState<Selection | null>(null);
+  const [drag, setDrag] = useState<Drag | null>(null);
 
   const spaceRef = useRef<HTMLDivElement | null>(null);
   const canvasRef = useRef<HTMLDivElement | null>(null);
   const sliceRef = useRef<SlicePlayer | null>(null);
+  /** The arrangement as the pointer handlers see it, without re-binding them. */
+  const regionsRef = useRef<Region[]>([]);
+  regionsRef.current = regions;
 
   /* Loading ----------------------------------------------------------------- */
 
@@ -220,7 +295,8 @@ export default function CollagePage() {
         if (controller.signal.aborted) return;
         setDetail(next);
         setRegions(next?.collage?.regions ?? []);
-        setBefore(null);
+        setHistory([]);
+        setSelected(null);
       })
       .catch((err: unknown) => {
         if (controller.signal.aborted) return;
@@ -235,15 +311,61 @@ export default function CollagePage() {
     return map;
   }, [detail]);
 
+  /**
+   * What each source looks like, fetched once per source however many
+   * regions cut from it.
+   *
+   * Peaks, measured silence and spans, the three things already drawn on
+   * every waveform. A source whose peaks cannot be fetched still gets an
+   * entry, empty, so the region draws its box and nothing asks again.
+   */
+  const wantedRef = useRef<Set<string>>(new Set());
+  const sourceAbortRef = useRef<AbortController | null>(null);
+  useEffect(() => {
+    // One controller for the life of the view. Leaving aborts every fetch in
+    // flight; a stamp part-way through a fetch does not.
+    const controller = new AbortController();
+    sourceAbortRef.current = controller;
+    return () => controller.abort();
+  }, []);
+  useEffect(() => {
+    const controller = sourceAbortRef.current;
+    if (!controller) return;
+    for (const hash of new Set(regions.map((r) => r.hash))) {
+      if (wantedRef.current.has(hash)) continue;
+      wantedRef.current.add(hash);
+      void Promise.all([
+        fetchPeaks(hash, controller.signal).catch(() => ({ pairs: [] as Array<[number, number]> })),
+        fetchSilence(hash, MIN_GAP_S, controller.signal).catch(() => null),
+        fetchSpans(hash, undefined, controller.signal).catch(() => [] as Span[]),
+      ]).then(([peaks, silence, spans]) => {
+        if (controller.signal.aborted) {
+          // Forgotten, so a view mounted again asks again.
+          wantedRef.current.delete(hash);
+          return;
+        }
+        setSources((prev) => {
+          const next = new Map(prev);
+          next.set(hash, {
+            pairs: peaks.pairs,
+            silence: silence ? skippable(silence.intervals, MIN_GAP_S, silence.duration_s) : [],
+            spans,
+          });
+          return next;
+        });
+      });
+    }
+  }, [regions]);
+
   /* Saving ------------------------------------------------------------------ */
 
   /**
    * Write the latest arrangement, one request at a time.
    *
-   * Two stamps in quick succession must not race: each write replaces the
+   * Two changes in quick succession must not race: each write replaces the
    * whole description, so the later of two out-of-order arrivals would store
    * the older state. Writes are queued, and a queued write always sends what
-   * is latest, so a burst of stamps ends in one request carrying all of them.
+   * is latest, so a burst of changes ends in one request carrying all of them.
    */
   const latestRef = useRef<Region[]>([]);
   const sentRef = useRef<Region[] | null>(null);
@@ -279,10 +401,23 @@ export default function CollagePage() {
   const commitRegions = useCallback(
     (next: Region[]) => {
       setRegions(next);
+      regionsRef.current = next;
       latestRef.current = next;
       void flush();
     },
     [flush],
+  );
+
+  /** A change: what was there goes on the undo stack, and the new arrangement is written. */
+  const change = useCallback(
+    (next: Region[]) => {
+      // Read now, not inside the updater: by the time the updater runs the
+      // ref already holds what replaced this.
+      const was = regionsRef.current;
+      setHistory((h) => [...h, was].slice(-UNDO_DEPTH));
+      commitRegions(next);
+    },
+    [commitRegions],
   );
 
   /* Playing a region -------------------------------------------------------- */
@@ -335,25 +470,63 @@ export default function CollagePage() {
     };
   }, []);
 
+  /* Taps -------------------------------------------------------------------- */
+
+  /**
+   * A tap is a pointer going down and coming up on the same thing without
+   * travelling. Read from the pointer events, not from `click`.
+   *
+   * WebKit synthesises a tap's click at a point of its own choosing: it looks
+   * around the finger for the best target and moves the click there. Beside
+   * a thumb-sized handle, a region ten pixels tall never wins, and a tap
+   * squarely inside it selects the handle instead. The pointer events carry
+   * the finger's true position and true target, so taps are read from those.
+   * A pan ends in `pointercancel`, never `pointerup`, so a scroll cannot read
+   * as a tap.
+   */
+  const tapRef = useRef<{ id: number; x: number; y: number; on: EventTarget } | null>(null);
+  const beginTap = useCallback((event: React.PointerEvent) => {
+    tapRef.current = { id: event.pointerId, x: event.clientX, y: event.clientY, on: event.currentTarget };
+  }, []);
+  const endTap = useCallback((event: React.PointerEvent): boolean => {
+    const began = tapRef.current;
+    tapRef.current = null;
+    return (
+      began !== null &&
+      began.id === event.pointerId &&
+      began.on === event.currentTarget &&
+      Math.hypot(event.clientX - began.x, event.clientY - began.y) < TAP_SLOP
+    );
+  }, []);
+  const dropTap = useCallback(() => {
+    tapRef.current = null;
+  }, []);
+
   /* Stamping ---------------------------------------------------------------- */
 
-  const onCanvasClick = useCallback(
-    (event: React.MouseEvent<HTMLDivElement>) => {
+  const onCanvasTap = useCallback(
+    (clientX: number, clientY: number) => {
       const space = spaceRef.current;
       if (!space || !detail) return;
+      // A tap on the blank puts down whatever was taken up. With a sound
+      // chosen it stamps as well: every tap on a region takes that region
+      // up, so a tap that only let go would make the stamp after every
+      // listen a dead tap. Undo takes back a stamp that was not meant.
+      const wasUp = selected !== null && regions.some((r) => r.id === selected.id);
+      if (wasUp) setSelected(null);
       if (!chosen) {
-        setHint("choose a sound first, then tap here to stamp it");
+        if (wasUp) return;
+        setHint("choose a sound first, then tap the blank to stamp it");
         setPickerOpen(true);
         return;
       }
       const rect = space.getBoundingClientRect();
-      const x = event.clientX - rect.left;
-      const y = event.clientY - rect.top;
+      const x = clientX - rect.left;
+      const y = clientY - rect.top;
       const region = stamp(regions, chosen.hash, chosen.duration_s ?? 0, x, y);
       const next = [...regions, region];
-      setBefore(regions);
       setHint(null);
-      commitRegions(next);
+      change(next);
       // The first stamp starts time at zero wherever the thumb was, so the
       // canvas goes to the top to show it.
       const canvas = canvasRef.current;
@@ -365,23 +538,191 @@ export default function CollagePage() {
       // neighbour, or on a new track whose column is mostly past the right
       // edge of a phone. What was just made has to be on screen.
       if (canvas) {
-        const box = regionBox(region, next);
+        const box = regionBox(region);
         const right = box.left + box.width;
-        const bottom = box.top + Math.min(box.height, MIN_REGION_H);
+        const bottom = box.top + Math.min(box.height, HANDLE_H);
         const left = right > canvas.scrollLeft + canvas.clientWidth ? right - canvas.clientWidth : canvas.scrollLeft;
         const top = bottom > canvas.scrollTop + canvas.clientHeight ? bottom - canvas.clientHeight : canvas.scrollTop;
         if (left !== canvas.scrollLeft || top !== canvas.scrollTop) canvas.scrollTo({ left, top });
       }
     },
-    [detail, chosen, regions, commitRegions],
+    [detail, chosen, regions, selected, change],
   );
 
   const undo = useCallback(() => {
-    if (before === null) return;
+    if (history.length === 0) return;
+    const previous = history[history.length - 1];
     stopRegion();
-    commitRegions(before);
-    setBefore(null);
-  }, [before, commitRegions, stopRegion]);
+    // What was taken up stays up if it is still there, so a trim taken back
+    // can be tried again from the same handle. A region undone out of
+    // existence takes its selection with it on the next render.
+    setHistory((h) => h.slice(0, -1));
+    commitRegions(previous);
+  }, [history, commitRegions, stopRegion]);
+
+  /* Trimming ---------------------------------------------------------------- */
+
+  /**
+   * The drag, as the pointer handlers see it.
+   *
+   * Kept in a ref rather than state so a move does not have to wait for a
+   * render to know where it started. `lastY` is where the thumb is now; the
+   * canvas may scroll under it, so the offset is worked out fresh each time
+   * from the thumb and the scroll together.
+   */
+  const dragRef = useRef<{
+    id: string;
+    end: End;
+    pointerId: number;
+    originY: number;
+    originScroll: number;
+    lastY: number;
+    region: Region;
+    durationS: number | null;
+    /** The region as it would be if the thumb lifted now. */
+    preview: Region;
+  } | null>(null);
+  const scrollFrameRef = useRef(0);
+
+  const previewFromPointer = useCallback(() => {
+    const d = dragRef.current;
+    const canvas = canvasRef.current;
+    if (!d) return;
+    const dy = d.lastY - d.originY + ((canvas?.scrollTop ?? 0) - d.originScroll);
+    d.preview = trim(d.region, regionsRef.current, d.durationS, d.end, draggedTo(d.region, d.end, dy));
+    setDrag({ id: d.id, end: d.end, preview: d.preview });
+  }, []);
+
+  /**
+   * Scroll the canvas while the thumb sits at its edge.
+   *
+   * A source stamped whole is several screens tall, and the sound in it can
+   * be anywhere. Holding the handle at the bottom of the screen carries on
+   * down through the region, so one drag can reach it.
+   */
+  const scrollAtEdge = useCallback(() => {
+    const step = () => {
+      const d = dragRef.current;
+      const canvas = canvasRef.current;
+      if (!d || !canvas) {
+        scrollFrameRef.current = 0;
+        return;
+      }
+      const rect = canvas.getBoundingClientRect();
+      let by = 0;
+      if (d.lastY < rect.top + SCROLL_EDGE) by = -SCROLL_STEP;
+      else if (d.lastY > rect.bottom - SCROLL_EDGE) by = SCROLL_STEP;
+      if (by === 0) {
+        scrollFrameRef.current = 0;
+        return;
+      }
+      const before = canvas.scrollTop;
+      canvas.scrollTop = Math.max(0, Math.min(canvas.scrollHeight - canvas.clientHeight, before + by));
+      if (canvas.scrollTop !== before) previewFromPointer();
+      scrollFrameRef.current = requestAnimationFrame(step);
+    };
+    if (!scrollFrameRef.current) scrollFrameRef.current = requestAnimationFrame(step);
+  }, [previewFromPointer]);
+
+  const endDrag = useCallback(
+    (apply: boolean) => {
+      const d = dragRef.current;
+      dragRef.current = null;
+      if (scrollFrameRef.current) cancelAnimationFrame(scrollFrameRef.current);
+      scrollFrameRef.current = 0;
+      setDrag(null);
+      if (!apply || !d) return;
+      const was = regionsRef.current.find((r) => r.id === d.id);
+      if (!was || (was.start_s === d.preview.start_s && was.end_s === d.preview.end_s)) return;
+      // One write per drag, carrying the whole arrangement.
+      change(regionsRef.current.map((r) => (r.id === d.id ? d.preview : r)));
+      // Trimming the start keeps the region where it sounds, so the cut the
+      // thumb just made is about to be drawn at the top of the box, not
+      // where the thumb is. The canvas moves by the same distance, so the
+      // handle stays under the thumb instead of jumping away from it.
+      const canvas = canvasRef.current;
+      if (d.end === "start" && canvas) {
+        const offset = dragOffsetPx(was, d.preview, "start");
+        canvas.scrollTop = Math.max(0, canvas.scrollTop - offset);
+      }
+    },
+    [change],
+  );
+
+  const startDrag = useCallback(
+    (event: React.PointerEvent<HTMLDivElement>, region: Region, end: End) => {
+      const canvas = canvasRef.current;
+      event.preventDefault();
+      event.stopPropagation();
+      try {
+        event.currentTarget.setPointerCapture(event.pointerId);
+      } catch {
+        /* a pointer that has already gone */
+      }
+      // The slice being played is the cut being changed. It stops, so what
+      // is heard next is what the trim made.
+      if (playingId === region.id) stopRegion();
+      dragRef.current = {
+        id: region.id,
+        end,
+        pointerId: event.pointerId,
+        originY: event.clientY,
+        originScroll: canvas?.scrollTop ?? 0,
+        lastY: event.clientY,
+        region,
+        durationS: rowsByHash.get(region.hash)?.duration_s ?? null,
+        preview: region,
+      };
+      setDrag({ id: region.id, end, preview: region });
+    },
+    [playingId, rowsByHash, stopRegion],
+  );
+
+  const moveDrag = useCallback(
+    (event: React.PointerEvent<HTMLDivElement>) => {
+      const d = dragRef.current;
+      if (!d || d.pointerId !== event.pointerId) return;
+      event.preventDefault();
+      d.lastY = event.clientY;
+      previewFromPointer();
+      scrollAtEdge();
+    },
+    [previewFromPointer, scrollAtEdge],
+  );
+
+  // Turning the phone, or the browser taking the pointer for itself, ends the
+  // drag without applying it: the thumb is no longer where the handle is.
+  // Escape lets go of the handle on a keyboard.
+  useEffect(() => {
+    const onResize = () => {
+      if (dragRef.current) endDrag(false);
+    };
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      if (dragRef.current) endDrag(false);
+      setSelected(null);
+    };
+    window.addEventListener("resize", onResize);
+    window.addEventListener("keydown", onKey);
+    return () => {
+      window.removeEventListener("resize", onResize);
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [endDrag]);
+
+  /** A keyboard nudge: a tenth of a second, or a whole one with shift. */
+  const nudge = useCallback(
+    (region: Region, end: End, direction: 1 | -1, big: boolean) => {
+      const rate = region.rate > 0 ? region.rate : 1;
+      const step = (big ? 1 : 0.1) * rate * direction;
+      const t = (end === "start" ? region.start_s : region.end_s) + step;
+      const next = trim(region, regionsRef.current, rowsByHash.get(region.hash)?.duration_s ?? null, end, t);
+      if (next.start_s === region.start_s && next.end_s === region.end_s) return;
+      if (playingId === region.id) stopRegion();
+      change(regionsRef.current.map((r) => (r.id === region.id ? next : r)));
+    },
+    [change, playingId, rowsByHash, stopRegion],
+  );
 
   /* What is on screen ------------------------------------------------------- */
 
@@ -431,6 +772,8 @@ export default function CollagePage() {
   const size = canvasSize(regions);
   const tracks = trackCount(regions);
   const unresolved = regions.filter((r) => !rowsByHash.has(r.hash)).length;
+  // A selection outlives the region it named only until the next render.
+  const selection = selected && regions.some((r) => r.id === selected.id) ? selected : null;
 
   const saveLine = (() => {
     switch (save) {
@@ -448,7 +791,15 @@ export default function CollagePage() {
   })();
 
   return (
-    <div className="collage" data-testid="collage" data-project-id={project.id} data-regions={regions.length} data-tracks={tracks}>
+    <div
+      className="collage"
+      data-testid="collage"
+      data-project-id={project.id}
+      data-regions={regions.length}
+      data-tracks={tracks}
+      data-selected={selection ? (selection.end ? `${selection.id}:${selection.end}` : selection.id) : ""}
+      data-dragging={drag !== null}
+    >
       <div className="collage-head">
         <span className="collage-name" data-testid="collage-project">
           {project.name}
@@ -468,7 +819,7 @@ export default function CollagePage() {
       {unresolved > 0 ? (
         <div className="collage-note" data-testid="collage-unresolved">
           {formatCount(unresolved)} {unresolved === 1 ? "region cuts" : "regions cut"} from a sound the index no
-          longer resolves. {unresolved === 1 ? "It is" : "They are"} drawn, and cannot be played.
+          longer resolves. {unresolved === 1 ? "It is" : "They are"} drawn, and cannot be played or trimmed.
         </div>
       ) : null}
 
@@ -486,15 +837,25 @@ export default function CollagePage() {
           ref={spaceRef}
           data-testid="collage-space"
           style={{ width: size.width, height: size.height, minWidth: "100%", minHeight: "100%" }}
-          onClick={onCanvasClick}
+          onPointerDown={beginTap}
+          onPointerUp={(event) => {
+            if (endTap(event)) onCanvasTap(event.clientX, event.clientY);
+          }}
+          onPointerCancel={dropTap}
         >
           {regions.map((region) => {
-            const box = regionBox(region, regions);
+            const box = regionBox(region);
             const row = rowsByHash.get(region.hash);
+            const source = sources.get(region.hash);
             const playing = playingId === region.id;
-            // As many lines of the name as the block has room for, and never
-            // fewer than one. The block is not clipped, so a label longer than
-            // the block would spill past it.
+            const isSelectedRegion = selection?.id === region.id;
+            const grab = grabZone(region, regions);
+            const zones = handleZones(region);
+            const dragging = drag && drag.id === region.id ? drag : null;
+            const offset = dragging ? dragOffsetPx(region, dragging.preview, dragging.end) : 0;
+            const name = row ? row.filename : "a sound the index does not resolve";
+            // As many lines of the name as the block has room for. A block
+            // too short for one line has no label; the name is still spoken.
             const lines = Math.max(1, Math.floor((box.height - 12) / 14.3));
             // A `div` with the button role, not a `button`: WebKit will not
             // stick a label inside a button, and the label has to stay in view
@@ -504,13 +865,14 @@ export default function CollagePage() {
                 key={region.id}
                 role="button"
                 tabIndex={0}
-                className={`region${playing ? " playing" : ""}${row ? "" : " unresolved"}`}
+                className={`region${playing ? " playing" : ""}${row ? "" : " unresolved"}${isSelectedRegion ? " selected" : ""}`}
                 data-testid="region"
                 data-region-id={region.id}
                 data-track={region.track}
                 data-hash={region.hash}
                 data-playing={playing}
-                aria-label={row ? `${playing ? "stop" : "play"} ${row.filename}` : "a sound the index does not resolve"}
+                data-selected={isSelectedRegion}
+                aria-label={row ? `${playing ? "stop" : "play"} ${row.filename}` : name}
                 aria-pressed={playing}
                 style={{
                   left: box.left,
@@ -519,25 +881,140 @@ export default function CollagePage() {
                   height: box.height,
                   ["--hue" as string]: hueFor(region.hash),
                 }}
-                onClick={(event) => {
+                onPointerDown={(event) => {
                   event.stopPropagation();
+                  beginTap(event);
+                }}
+                onPointerUp={(event) => {
+                  event.stopPropagation();
+                  if (!endTap(event)) return;
+                  // A tap takes the region up and plays it. Taking it up
+                  // again keeps whichever handle was already selected.
+                  setSelected((was) => (was?.id === region.id ? was : { id: region.id, end: null }));
                   if (row) toggleRegion(region);
+                }}
+                onPointerCancel={(event) => {
+                  event.stopPropagation();
+                  dropTap();
                 }}
                 onKeyDown={(event) => {
                   if (event.key !== "Enter" && event.key !== " ") return;
                   event.preventDefault();
                   event.stopPropagation();
+                  setSelected((was) => (was?.id === region.id ? was : { id: region.id, end: null }));
                   if (row) toggleRegion(region);
                 }}
               >
+                {/* The grab: where a thumb can take hold of a region whose
+                    box is thinner than a thumb. A hit area, not a drawing;
+                    it never crosses the middle of the gap to a neighbour. */}
+                <span
+                  className="region-grab"
+                  data-testid="region-grab"
+                  style={{ top: grab.top, height: grab.height }}
+                  aria-hidden="true"
+                />
+                {source ? (
+                  <RegionWave
+                    pairs={source.pairs}
+                    durationS={row?.duration_s ?? null}
+                    startS={region.start_s}
+                    endS={region.end_s}
+                    silence={source.silence}
+                    spans={source.spans}
+                    width={box.width}
+                    height={box.height}
+                  />
+                ) : null}
                 {playing ? (
                   <span className="region-progress" style={{ height: `${progress * 100}%` }} aria-hidden="true" />
                 ) : null}
-                <span className="region-label">
-                  <span className="region-label-text" style={{ WebkitLineClamp: lines }}>
-                    {row ? row.filename : "not in the index"}
+                {box.height >= LABEL_MIN_H ? (
+                  <span className="region-label">
+                    <span className="region-label-text" style={{ WebkitLineClamp: lines }}>
+                      {row ? row.filename : "not in the index"}
+                    </span>
                   </span>
-                </span>
+                ) : null}
+
+                {/* What the drag would do, drawn before it does it: the part
+                    being cut away goes dim, and the part being taken in is
+                    outlined. The box itself keeps its true length until the
+                    thumb lifts, and then there is one write. */}
+                {dragging && offset !== 0 ? (
+                  dragging.end === "start" ? (
+                    offset > 0 ? (
+                      <span className="region-cut" data-testid="region-cut" style={{ top: 0, height: offset }} aria-hidden="true" />
+                    ) : (
+                      <span className="region-more" data-testid="region-more" style={{ top: offset, height: -offset }} aria-hidden="true" />
+                    )
+                  ) : offset > 0 ? (
+                    <span className="region-more" data-testid="region-more" style={{ top: box.height, height: offset }} aria-hidden="true" />
+                  ) : (
+                    <span className="region-cut" data-testid="region-cut" style={{ top: box.height + offset, height: -offset }} aria-hidden="true" />
+                  )
+                ) : null}
+
+                {/* The handles. Only on the region taken up: outside its box,
+                    a thumb tall, one at each end, raised over the neighbours.
+                    A thumb on one drags it straight away, and a tap on one
+                    selects it. A region cut from a sound the index cannot
+                    resolve has nothing to trim against, and gets none. */}
+                {row && isSelectedRegion
+                  ? ([zones.start, zones.end] as const).map((zone) => {
+                      const isSelected = selection?.end === zone.end;
+                      const moving = dragging !== null && dragging.end === zone.end;
+                      return (
+                        <div
+                          key={zone.end}
+                          role="button"
+                          tabIndex={0}
+                          className={`handle ${zone.end}${isSelected ? " selected" : ""}${moving ? " moving" : ""}`}
+                          data-testid="handle"
+                          data-end={zone.end}
+                          data-region-id={region.id}
+                          data-selected={isSelected}
+                          aria-label={`${zone.end === "start" ? "trim the start of" : "trim the end of"} ${row.filename}`}
+                          aria-pressed={isSelected}
+                          style={{
+                            top: zone.top,
+                            height: zone.height,
+                            transform: moving && offset !== 0 ? `translateY(${offset}px)` : undefined,
+                            // The thumb on a handle is trimming, never scrolling.
+                            touchAction: "none",
+                          }}
+                          onPointerDown={(event) => {
+                            event.stopPropagation();
+                            if (!isSelected) setSelected({ id: region.id, end: zone.end });
+                            startDrag(event, region, zone.end);
+                          }}
+                          onPointerMove={moveDrag}
+                          onPointerUp={(event) => {
+                            event.stopPropagation();
+                            if (dragRef.current?.pointerId === event.pointerId) endDrag(true);
+                          }}
+                          onPointerCancel={(event) => {
+                            event.stopPropagation();
+                            if (dragRef.current?.pointerId === event.pointerId) endDrag(false);
+                          }}
+                          onKeyDown={(event) => {
+                            if (event.key === "Enter" || event.key === " ") {
+                              event.preventDefault();
+                              event.stopPropagation();
+                              setSelected({ id: region.id, end: zone.end });
+                              return;
+                            }
+                            if (!isSelected || (event.key !== "ArrowUp" && event.key !== "ArrowDown")) return;
+                            event.preventDefault();
+                            event.stopPropagation();
+                            nudge(region, zone.end, event.key === "ArrowDown" ? 1 : -1, event.shiftKey);
+                          }}
+                        >
+                          <span className="handle-grip" aria-hidden="true" />
+                        </div>
+                      );
+                    })
+                  : null}
               </div>
             );
           })}
@@ -551,7 +1028,8 @@ export default function CollagePage() {
       ) : null}
 
       {/* The bar the thumb lives on. One big target: what is being stamped, or
-          the way to choose it. Undo appears beside it after a stamp. */}
+          the way to choose it. Undo appears beside it once there is something
+          to take back, and says how many steps it holds. */}
       <div className="collage-bar">
         <button
           type="button"
@@ -566,7 +1044,7 @@ export default function CollagePage() {
           {chosen ? (
             <>
               <span className="collage-choose-name">{chosen.filename}</span>
-              <span className="collage-choose-sub">tap the canvas to stamp it · tap here to change</span>
+              <span className="collage-choose-sub">tap the blank to stamp it · tap here to change</span>
             </>
           ) : (
             <>
@@ -577,15 +1055,19 @@ export default function CollagePage() {
             </>
           )}
         </button>
-        {before !== null ? (
+        {history.length > 0 ? (
           <button
             type="button"
             className="collage-undo"
             data-testid="collage-undo"
-            title="take back the last stamp"
+            data-depth={history.length}
+            title={`take back the last change. the last ${UNDO_DEPTH} are kept.`}
             onClick={undo}
           >
             undo
+            <span className="collage-undo-sub">
+              {formatCount(history.length)} {history.length === 1 ? "step" : "steps"}
+            </span>
           </button>
         ) : null}
       </div>
@@ -595,7 +1077,7 @@ export default function CollagePage() {
           rows={detail.items}
           onChoose={(row) => {
             setChosen(row);
-            setHint("now tap the canvas where it should go");
+            setHint("now tap the blank where it should go");
           }}
           onClose={() => setPickerOpen(false)}
         />

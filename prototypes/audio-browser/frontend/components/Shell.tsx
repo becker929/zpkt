@@ -148,6 +148,11 @@ function TopBar() {
     </Link>
   );
 
+  // The collage never shows a number of seconds, and the rule holds for the
+  // header above it: hours of sound are a length in seconds by another name.
+  // The count of sounds and the bytes stay; neither is a time.
+  const hours = pathname !== "/collage";
+
   return (
     <header className="topbar">
       <div className="brand">
@@ -178,9 +183,9 @@ function TopBar() {
       <div
         className="topbar-stats mono"
         data-testid="topbar-stats"
-        data-hours={stats?.total_sounding_s === null ? "wall" : "sounding"}
+        data-hours={!hours ? "hidden" : stats?.total_sounding_s === null ? "wall" : "sounding"}
         title={
-          stats && stats.total_sounding_s !== null
+          hours && stats && stats.total_sounding_s !== null
             ? `${formatHours(stats.total_sounding_s)} of sound in ${formatHours(
                 stats.total_duration_s,
               )} of audio`
@@ -188,9 +193,11 @@ function TopBar() {
         }
       >
         {stats
-          ? `${formatCount(stats.files)} sounds · ${formatHours(
-              stats.total_sounding_s ?? stats.total_duration_s,
-            )}${stats.total_sounding_s === null ? "" : " sounding"} · ${formatBytes(stats.total_bytes)}`
+          ? hours
+            ? `${formatCount(stats.files)} sounds · ${formatHours(
+                stats.total_sounding_s ?? stats.total_duration_s,
+              )}${stats.total_sounding_s === null ? "" : " sounding"} · ${formatBytes(stats.total_bytes)}`
+            : `${formatCount(stats.files)} sounds · ${formatBytes(stats.total_bytes)}`
           : "…"}
       </div>
       <TriageCounter />
