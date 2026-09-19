@@ -451,6 +451,19 @@ export const boardSchema = z
      * that came from nowhere is worse than a column that is not there.
      */
     columns: z.array(boardColumnSchema).min(1).max(COLUMNS.length),
+    /**
+     * Sounds past which a project is marked as carrying more than a track
+     * needs.
+     *
+     * The server owns it, exactly as it owns the caps. A client with its own
+     * copy would mark projects the server does not, and the day the two
+     * disagree the mark would be the client's opinion rather than the rule in
+     * force.
+     *
+     * Null is for a server that does not report it. Nothing is marked in that
+     * case: a threshold nobody stated is not a threshold to draw against.
+     */
+    encumbrance: z.number().int().nonnegative().nullable(),
     /** Released projects. Off the board; they occupy no slot and have no cap. */
     released: z.number().int().nonnegative(),
     /** Abandoned projects. Off the board too, and revivable. */

@@ -22,6 +22,7 @@ import type {
   SilenceInterval,
   Span,
   Stats,
+  SwipeCarried,
   SwipeQueue,
   TriageCounts,
 } from "./types";
@@ -353,6 +354,30 @@ export async function fetchStats(signal?: AbortSignal): Promise<Stats> {
  */
 let spansRouteMissing = false;
 
+/**
+ * Spans out of any answer that carries them.
+ *
+ * Written apart from the route because two answers carry the same list: the
+ * spans route, and `GET /api/swipe`, which sends them with the sound so a
+ * phone does not ask twice. One normaliser means the swipe view and the detail
+ * view read identical spans.
+ */
+export function normaliseSpans(body: unknown): Span[] {
+  const raw = Array.isArray(body) ? body : pick(asRecord(body), "spans", "items");
+  if (!Array.isArray(raw)) return [];
+  return raw.map((entry) => {
+    const row = asRecord(entry);
+    return {
+      start_s: num(pick(row, "start_s", "start")),
+      end_s: num(pick(row, "end_s", "end")),
+      label: str(row.label, "other"),
+      confidence: numOrNull(row.confidence),
+      detail: strOrNull(row.detail),
+      method: strOrNull(row.method),
+    };
+  });
+}
+
 export async function fetchSpans(
   hash: string,
   method: string = SPAN_METHOD,
@@ -361,20 +386,7 @@ export async function fetchSpans(
   if (spansRouteMissing) return [];
   const suffix = `?method=${encodeURIComponent(method)}`;
   try {
-    const body = await getJson(`/api/files/${hash}/spans${suffix}`, signal);
-    const raw = Array.isArray(body) ? body : pick(asRecord(body), "spans", "items");
-    if (!Array.isArray(raw)) return [];
-    return raw.map((entry) => {
-      const row = asRecord(entry);
-      return {
-        start_s: num(pick(row, "start_s", "start")),
-        end_s: num(pick(row, "end_s", "end")),
-        label: str(row.label, "other"),
-        confidence: numOrNull(row.confidence),
-        detail: strOrNull(row.detail),
-        method: strOrNull(row.method),
-      };
-    });
+    return normaliseSpans(await getJson(`/api/files/${hash}/spans${suffix}`, signal));
   } catch (err) {
     // Before stage 3 the route does not exist. Note that once, then stop
     // asking, so every detail view does not log a 404.
@@ -413,6 +425,47 @@ function normaliseInterval(raw: unknown): SilenceInterval | null {
 }
 
 /**
+ * A silence report out of any answer that carries one.
+ *
+ * Written apart from the route because two answers carry the same report: the
+ * silence route, and `GET /api/swipe`, which sends it with the sound. One
+ * normaliser means the swipe view skips exactly what the detail view skips.
+ */
+export function normaliseSilence(
+  hash: string,
+  raw: unknown,
+  minGap: number = MIN_GAP_S,
+): Silence {
+  const body = asRecord(raw);
+  const rawIntervals = pick(body, "intervals", "items", "silence", "regions");
+  const intervals = Array.isArray(rawIntervals)
+    ? rawIntervals
+        .map(normaliseInterval)
+        .filter((interval): interval is SilenceInterval => interval !== null)
+    : [];
+
+  const durationS = numOrNull(pick(body, "duration_s", "duration"));
+  // The server's own floor may differ from the one asked for, so apply the
+  // asked-for floor again here. Filtering an already-filtered list is a
+  // no-op; filtering an unfiltered one is the point.
+  const gaps = skippable(intervals, minGap, durationS);
+  const measured =
+    body.measured === undefined
+      ? pick(body, "sounding_s", "silent_s", "duration_s", "measured_at") !== undefined
+      : Boolean(body.measured);
+
+  return {
+    hash: str(body.hash, hash) || hash,
+    measured,
+    min_gap: num(pick(body, "min_gap", "min_gap_s"), minGap),
+    duration_s: durationS,
+    sounding_s: numOrNull(pick(body, "sounding_s")) ?? soundingSeconds(durationS, gaps, minGap),
+    silent_s: numOrNull(pick(body, "silent_s")) ?? silentSeconds(gaps),
+    intervals,
+  };
+}
+
+/**
  * One sound's dead air, or null when there is nothing measured to say.
  *
  * Null is the honest answer for an unmeasured sound. The caller shows wall
@@ -425,35 +478,9 @@ export async function fetchSilence(
 ): Promise<Silence | null> {
   if (silenceRouteMissing) return null;
   try {
-    const body = asRecord(await getJson(`/api/files/${hash}/silence?min_gap=${minGap}`, signal));
+    const body = await getJson(`/api/files/${hash}/silence?min_gap=${minGap}`, signal);
     silenceRouteAnswered = true;
-
-    const rawIntervals = pick(body, "intervals", "items", "silence", "regions");
-    const intervals = Array.isArray(rawIntervals)
-      ? rawIntervals
-          .map(normaliseInterval)
-          .filter((interval): interval is SilenceInterval => interval !== null)
-      : [];
-
-    const durationS = numOrNull(pick(body, "duration_s", "duration"));
-    // The server's own floor may differ from the one asked for, so apply the
-    // asked-for floor again here. Filtering an already-filtered list is a
-    // no-op; filtering an unfiltered one is the point.
-    const gaps = skippable(intervals, minGap, durationS);
-    const measured =
-      body.measured === undefined
-        ? pick(body, "sounding_s", "silent_s", "duration_s", "measured_at") !== undefined
-        : Boolean(body.measured);
-
-    return {
-      hash: str(body.hash, hash) || hash,
-      measured,
-      min_gap: num(pick(body, "min_gap", "min_gap_s"), minGap),
-      duration_s: durationS,
-      sounding_s: numOrNull(pick(body, "sounding_s")) ?? soundingSeconds(durationS, gaps, minGap),
-      silent_s: numOrNull(pick(body, "silent_s")) ?? silentSeconds(gaps),
-      intervals,
-    };
+    return normaliseSilence(hash, body, minGap);
   } catch (err) {
     if (err instanceof ApiError && (err.status === 404 || err.status === 405 || err.status === 501)) {
       if (!silenceRouteAnswered) silenceRouteMissing = true;
@@ -735,10 +762,12 @@ export async function fetchProject(id: string, signal?: AbortSignal): Promise<Pr
 /**
  * The board, or null when `/api/board` is not being served.
  *
- * The caps drawn on screen are always the ones in this answer. The client has a
- * default in `lib/boardConfig.ts`, but it is the mock server's cap and the value
- * recorded in the generated schemas; drawing it here would let the interface
- * show a column as fine while the server refused writes to it.
+ * The caps drawn on screen, and the encumbrance threshold projects are marked
+ * against, are always the ones in this answer. The client has defaults in
+ * `lib/boardConfig.ts`, but those are the mock server's values and the ones
+ * recorded in the generated schemas; drawing them here would let the interface
+ * show a column as fine while the server refused writes to it, or mark a
+ * project the server does not.
  */
 export async function fetchBoard(signal?: AbortSignal): Promise<Board | null> {
   try {
@@ -775,6 +804,10 @@ export async function fetchBoard(signal?: AbortSignal): Promise<Board | null> {
 
     return {
       columns,
+      // The server's threshold, or null when it does not report one. It is not
+      // defaulted here: the client having its own number is the thing this
+      // field exists to stop.
+      encumbrance: numOrNull(body.encumbrance),
       released: num(body.released),
       abandoned: num(body.abandoned),
       unreadable: num(body.unreadable),
@@ -973,6 +1006,26 @@ function normaliseQueueItems(body: unknown): FileRow[] {
 }
 
 /**
+ * What the answer carried about the sound at the head of it.
+ *
+ * The route sends the sound's silence and its spans alongside the sound, so a
+ * phone spends one round trip on a sound rather than three. A field the answer
+ * did not carry stays null and the view fetches it the long way; nothing here
+ * invents a measurement.
+ */
+function carriedWith(head: FileRow | null, record: Record<string, unknown>): SwipeCarried | null {
+  if (!head) return null;
+  const rawSilence = pick(record, "silence");
+  const rawSpans = pick(record, "spans");
+  if (rawSilence === undefined && rawSpans === undefined) return null;
+  return {
+    hash: head.hash,
+    silence: rawSilence === undefined ? null : normaliseSilence(head.hash, rawSilence, MIN_GAP_S),
+    spans: rawSpans === undefined ? null : normaliseSpans(rawSpans),
+  };
+}
+
+/**
  * The next undecided sounds, and how many are left.
  *
  * Undecided means the sound has neither been taken into a project nor
@@ -995,6 +1048,8 @@ export async function fetchSwipeQueue(limit = 24, signal?: AbortSignal): Promise
         items,
         remaining: num(pick(record, "remaining", "undecided", "total"), items.length),
         source: "route",
+        carried: carriedWith(items[0] ?? null, record),
+        project: normaliseProjectSummary(record.project),
       };
     } catch (err) {
       if (!absent(err)) throw err;
@@ -1036,7 +1091,15 @@ async function deriveSwipeQueue(limit: number, signal?: AbortSignal): Promise<Sw
   // Every taken sound is undiscarded, so it is inside this total. Subtracting
   // the ones we resolved is exact, not an estimate.
   const takenInSet = page.total === 0 ? 0 : taken.size;
-  return { items, remaining: Math.max(page.total - takenInSet, items.length), source: "derived" };
+  return {
+    items,
+    remaining: Math.max(page.total - takenInSet, items.length),
+    source: "derived",
+    // Nothing came with these sounds: they were assembled out of a list. The
+    // view fetches each sound's silence and spans as it always did.
+    carried: null,
+    project: currentProject(index?.items ?? null),
+  };
 }
 
 /**

@@ -12,7 +12,7 @@
 
 import { expect, test, type Page } from "@playwright/test";
 
-import { waitForRows } from "./helpers";
+import { undecided, waitForRows } from "./helpers";
 
 const SHOT_DIR = "screenshots";
 
@@ -71,8 +71,7 @@ test("every surface at phone size", async ({ page }) => {
   await shot(page, "phone-decided-taken");
 
   // 3. The discard pile, where restore puts things back.
-  const rows = await page.request.get("/api/swipe?limit=3");
-  const hashes = ((await rows.json()) as { items: Array<{ hash: string }> }).items.map((f) => f.hash);
+  const hashes = await undecided(page, 3);
   await page.request.post("/api/bulk", { data: { hashes, action: "delete" } });
   await page.reload();
   await page.getByTestId("filter-discarded").tap();

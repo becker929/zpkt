@@ -78,3 +78,50 @@ export async function api(page: Page, path: string): Promise<Record<string, unkn
   expect(response.ok(), `${path} answered ${response.status()}`).toBe(true);
   return (await response.json()) as Record<string, unknown>;
 }
+
+/** Every hash held by a project, which is one of the two ways to be decided. */
+async function takenHashes(page: Page): Promise<Set<string>> {
+  const index = await api(page, "/api/projects");
+  const taken = new Set<string>();
+  for (const project of (index.items as Array<{ id: string }>) ?? []) {
+    const detail = await api(page, `/api/projects/${encodeURIComponent(project.id)}`);
+    for (const row of (detail.items as Array<{ hash: string }>) ?? []) taken.add(row.hash);
+  }
+  return taken;
+}
+
+/**
+ * Whether the queue would still offer this sound.
+ *
+ * The queue's own definition, applied to one hash: undiscarded, and in no
+ * project. `GET /api/swipe` offers one sound at a time and cannot be searched,
+ * so this asks the two routes the definition is made of.
+ */
+export async function isUndecided(page: Page, hash: string): Promise<boolean> {
+  const file = await api(page, `/api/files/${hash}`);
+  if (file.deleted === true) return false;
+  return !(await takenHashes(page)).has(hash);
+}
+
+/**
+ * Several undecided sounds, for a test that needs more than one.
+ *
+ * `GET /api/swipe` hands over one sound at a time — answering it is how the
+ * next one is reached — so a test that wants a handful works the set out the
+ * way the queue itself does: every undiscarded sound, less the ones already in
+ * a project.
+ */
+export async function undecided(page: Page, count: number): Promise<string[]> {
+  const taken = await takenHashes(page);
+
+  // Ask for enough rows that a page made entirely of taken sounds still yields
+  // what was asked for. A project holds tens of sounds, not hundreds.
+  const limit = count + taken.size + 50;
+  const page1 = await api(page, `/api/files?deleted=false&limit=${limit}`);
+  const hashes = ((page1.items as Array<{ hash: string }>) ?? [])
+    .map((row) => row.hash)
+    .filter((hash) => !taken.has(hash));
+  expect(hashes.length, `only ${hashes.length} sounds are undecided, ${count} were asked for`)
+    .toBeGreaterThanOrEqual(count);
+  return hashes.slice(0, count);
+}

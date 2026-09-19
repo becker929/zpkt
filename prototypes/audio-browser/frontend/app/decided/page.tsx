@@ -260,7 +260,7 @@ export default function DecidedPage() {
               {projects.map((project) => (
                 <option key={project.id} value={project.id}>
                   {project.name} ({formatCount(project.sound_count)})
-                  {isEncumbered(project.sound_count) ? " · encumbered" : ""}
+                  {isEncumbered(project.sound_count, board.encumbrance) ? " · encumbered" : ""}
                 </option>
               ))}
             </select>

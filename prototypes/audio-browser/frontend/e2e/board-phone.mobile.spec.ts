@@ -238,6 +238,14 @@ test("the swipe view says when the project routes are not serving, rather than l
   // routes does.
   await page.route("**/api/projects", (route) => route.fulfill({ status: 404, body: "{}" }));
   await page.route("**/api/board", (route) => route.fulfill({ status: 404, body: "{}" }));
+  // A server that is not serving the project routes does not name a project in
+  // its queue answer either, so the stand-in takes it out of there as well.
+  await page.route("**/api/swipe*", async (route) => {
+    const response = await route.fetch();
+    const body = (await response.json()) as Record<string, unknown>;
+    body.project = null;
+    await route.fulfill({ response, json: body });
+  });
 
   await page.goto("/");
   // No meter at all, rather than a meter reading zero.

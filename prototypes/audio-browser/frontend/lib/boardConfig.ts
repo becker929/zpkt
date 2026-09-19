@@ -100,15 +100,20 @@ export const COLUMN_CAP = CAP_CONFIG.cap;
 export const CAP_PROBLEM: string | null = CAP_CONFIG.problem;
 
 /**
- * How many sounds a project holds before it is marked encumbered.
+ * The encumbrance threshold the mock server serves.
  *
  * A hard techno track is a kick, a rumble, a few percussive textures, two or
  * three atmospheres and some impacts. Past sixteen you are collecting rather
  * than building, and the project says so every time it is on screen.
  *
- * This is a mark, not a limit. Adding still works; the mark stays until the
- * count comes back down. `NEXT_PUBLIC_ENCUMBERED_AT` overrides it without an
- * edit, in the same way `NEXT_PUBLIC_COLUMN_CAP` overrides the cap above.
+ * The interface never marks a project against this. It marks against the
+ * threshold `GET /api/board` reports, in the same way it draws the caps the
+ * server reports: the server is the one that owns the rule, and a client with
+ * its own copy would mark projects the server does not the day the two values
+ * part company.
+ *
+ * `NEXT_PUBLIC_ENCUMBERED_AT` overrides what the mock serves without an edit,
+ * in the same way `NEXT_PUBLIC_COLUMN_CAP` overrides the cap above.
  */
 const DEFAULT_ENCUMBERED_AT = 16;
 
@@ -124,7 +129,14 @@ function readEncumberedAt(): number {
 
 export const ENCUMBERED_AT: number = readEncumberedAt();
 
-/** True once a project holds more material than a track needs. */
-export function isEncumbered(soundCount: number): boolean {
-  return soundCount > ENCUMBERED_AT;
+/**
+ * True once a project holds more material than a track needs.
+ *
+ * `at` is the server's threshold, as the board reported it. Null means the
+ * board has not been read yet, or the server does not report one; nothing is
+ * marked in that case, because a mark drawn against a threshold nobody stated
+ * is the client's opinion rather than the rule being enforced.
+ */
+export function isEncumbered(soundCount: number, at: number | null): boolean {
+  return at !== null && soundCount > at;
 }

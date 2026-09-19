@@ -86,6 +86,21 @@ export interface PlayQueue {
   rows?: FileRow[];
 }
 
+/**
+ * What a caller already holds about the sound it is loading.
+ *
+ * `GET /api/swipe` sends a sound's dead air with the sound, so the swipe view
+ * arrives here holding the measurement. Handing it over is how the view avoids
+ * asking the silence route for something it was already given.
+ *
+ * `silence` left out means "I do not have it, go and fetch it". `silence: null`
+ * means "there is none to have" — an unmeasured sound — and is not the same
+ * claim. Nothing is skipped in either case, but only the first costs a request.
+ */
+export interface Carried {
+  silence?: Silence | null;
+}
+
 interface PlayerApi extends PlayerState {
   /** False when the loaded stream is transcoded, so the browser cannot seek. */
   seekable: boolean;
@@ -103,8 +118,13 @@ interface PlayerApi extends PlayerState {
    * unseekable notice needs the number in order to say what is being missed.
    */
   skippableS: number;
-  /** Load a row and start playing. The context defines what plays next. */
-  play(row: FileRow, context?: PlayQueue): void;
+  /**
+   * Load a row and start playing. The context defines what plays next.
+   *
+   * `carried` is what the caller was already handed about this sound, so the
+   * player does not fetch it again. See `Carried`.
+   */
+  play(row: FileRow, context?: PlayQueue, carried?: Carried): void;
   toggle(): void;
   seek(seconds: number): void;
   next(): void;
@@ -325,6 +345,37 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   }, [restart]);
 
   /**
+   * Put a measurement to work, wherever it came from.
+   *
+   * Two things supply one: the silence route, and a caller that was handed the
+   * measurement with the sound. `GET /api/swipe` does the second, so the swipe
+   * view spends no round trip on a report it already holds. Both arrive here,
+   * so what the player skips does not depend on which.
+   */
+  const applySilence = useCallback(
+    (hash: string, silence: Silence | null, durationS: number | null) => {
+      const intervals = skippable(
+        silence?.intervals ?? [],
+        MIN_GAP_S,
+        silence?.duration_s ?? durationS,
+      );
+      gapsRef.current = { hash, intervals };
+      setState((s) => (s.current?.hash === hash ? { ...s, silence } : s));
+
+      // Honour a scrub that happened before the measurement was in hand.
+      if (pendingSeekRef.current !== null) {
+        excusedRef.current = intervalAt(intervals, pendingSeekRef.current);
+        pendingSeekRef.current = null;
+      }
+      // Cut the leading silence now rather than waiting for playback to walk
+      // into it a quarter of a second later.
+      const audio = audioRef.current;
+      if (audio) maybeSkip(audio.currentTime);
+    },
+    [maybeSkip],
+  );
+
+  /**
    * Fetch the loaded sound's dead air.
    *
    * A sound with no measurement, or a server with no silence route, yields
@@ -337,23 +388,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       try {
         const silence = await fetchSilence(hash, MIN_GAP_S);
         if (silenceTokenRef.current !== token || currentRef.current?.hash !== hash) return;
-        const intervals = skippable(
-          silence?.intervals ?? [],
-          MIN_GAP_S,
-          silence?.duration_s ?? durationS,
-        );
-        gapsRef.current = { hash, intervals };
-        setState((s) => (s.current?.hash === hash ? { ...s, silence } : s));
-
-        // Honour a scrub that happened while this was in flight.
-        if (pendingSeekRef.current !== null) {
-          excusedRef.current = intervalAt(intervals, pendingSeekRef.current);
-          pendingSeekRef.current = null;
-        }
-        // Cut the leading silence now rather than waiting for playback to walk
-        // into it a quarter of a second later.
-        const audio = audioRef.current;
-        if (audio) maybeSkip(audio.currentTime);
+        applySilence(hash, silence, durationS);
       } catch {
         if (silenceTokenRef.current !== token) return;
         // A sound whose measurement cannot be read still plays, unskipped.
@@ -362,7 +397,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
         setState((s) => (s.current?.hash === hash ? { ...s, silence: null } : s));
       }
     },
-    [maybeSkip],
+    [applySilence],
   );
 
   /** Warm the peaks cache for the track after this one. */
@@ -383,7 +418,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   }, [rowAt]);
 
   const load = useCallback(
-    (row: FileRow, context: PlayQueue | undefined, autoplay: boolean) => {
+    (row: FileRow, context: PlayQueue | undefined, autoplay: boolean, carried?: Carried) => {
       queueRef.current = context ?? null;
       currentRef.current = row;
       // Nothing about the previous sound's silence applies to this one.
@@ -417,15 +452,23 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       }
 
       void loadPeaks(row.hash);
-      void loadSilence(row.hash, row.duration_s);
+      // A measurement handed over with the sound is used as it stands. Asking
+      // for it again would be a second round trip for an answer already held,
+      // which on a phone over a tailnet is the whole cost of the view.
+      if (carried && carried.silence !== undefined) {
+        silenceTokenRef.current += 1;
+        applySilence(row.hash, carried.silence, row.duration_s);
+      } else {
+        void loadSilence(row.hash, row.duration_s);
+      }
       void prefetchNext();
     },
-    [loadPeaks, loadSilence, prefetchNext],
+    [applySilence, loadPeaks, loadSilence, prefetchNext],
   );
 
   const play = useCallback<PlayerApi["play"]>(
-    (row, context) => {
-      load(row, context, true);
+    (row, context, carried) => {
+      load(row, context, true, carried);
     },
     [load],
   );

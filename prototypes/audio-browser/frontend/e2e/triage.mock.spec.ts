@@ -12,7 +12,7 @@
 
 import { expect, test, type Page } from "@playwright/test";
 
-import { api, waitForRows } from "./helpers";
+import { api, undecided, waitForRows } from "./helpers";
 
 /** A view with rows in it. Nothing lists the undecided collection any more. */
 const ROWS = "/search?q=kick";
@@ -184,8 +184,7 @@ test("a sound in a project counts as decided", async ({ page }) => {
   // Decided means answered, and there are two answers. A taken sound is as
   // decided as a discarded one.
   const before = (await api(page, "/api/triage")) as { decided: number; taken: number };
-  const queue = await api(page, "/api/swipe?limit=1");
-  const hash = (queue.items as Array<{ hash: string }>)[0].hash;
+  const hash = (await undecided(page, 1))[0];
 
   await page.request.put(`/api/projects/2026-09-16-rust-and-rebar/sounds/${hash}`);
   try {

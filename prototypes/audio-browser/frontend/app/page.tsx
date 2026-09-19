@@ -27,7 +27,7 @@ import { usePlayer } from "@/components/PlayerProvider";
 import { useTriage } from "@/components/TriageProvider";
 import { Waveform } from "@/components/Waveform";
 import { ApiRefusal, currentProject, fetchSpans, setProjectSound } from "@/lib/api";
-import { isEncumbered, ENCUMBERED_AT } from "@/lib/boardConfig";
+import { isEncumbered } from "@/lib/boardConfig";
 import { formatCount, formatDuration } from "@/lib/format";
 import { MIN_GAP_S, skippable } from "@/lib/silence";
 import { SWIPE_THRESHOLD_PX, useSwipeGesture } from "@/lib/useSwipeGesture";
@@ -47,9 +47,9 @@ type LastAnswer =
  * until the count comes back down, which is why it is on screen every time the
  * project is.
  */
-function Bench({ project }: { project: ProjectSummary | null }) {
+function Bench({ project, encumbrance }: { project: ProjectSummary | null; encumbrance: number | null }) {
   if (!project) return null;
-  const heavy = isEncumbered(project.sound_count);
+  const heavy = isEncumbered(project.sound_count, encumbrance);
   return (
     <div className="bench" data-testid="bench" data-project-id={project.id} data-encumbered={heavy}>
       <span className="bench-name">{project.name}</span>
@@ -60,7 +60,7 @@ function Bench({ project }: { project: ProjectSummary | null }) {
         <span
           className="bench-encumbered"
           data-testid="bench-encumbered"
-          title={`more than ${ENCUMBERED_AT} sounds. a track is a kick, a rumble, a few textures and some impacts. adding still works.`}
+          title={`more than ${encumbrance} sounds. a track is a kick, a rumble, a few textures and some impacts. adding still works.`}
         >
           encumbered
         </span>
@@ -75,14 +75,25 @@ export default function SwipePage() {
   const triage = useTriage();
   const queue = useSwipeQueue();
 
-  const [spans, setSpans] = useState<Span[]>([]);
+  const [fetchedSpans, setFetchedSpans] = useState<Span[]>([]);
   const [busy, setBusy] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
   const [last, setLast] = useState<LastAnswer | null>(null);
 
   const row = queue.current;
   const hash = row?.hash ?? null;
-  const project = currentProject(board.projects);
+
+  // The queue answer named the project a take would go into. Working it out
+  // from the project index is the same answer by a longer road, and it is what
+  // a server that does not send one leaves behind.
+  const project = queue.project ?? currentProject(board.projects);
+
+  // Everything `GET /api/swipe` already handed over about this sound. Asking
+  // for any of it again is a second round trip for an answer in hand, and this
+  // view is swiped from a phone over a tailnet.
+  const carried = queue.carried;
+  const carriedSpans = carried?.spans ?? null;
+  const spans = carriedSpans ?? fetchedSpans;
 
   // Looping is what this view runs on: reaching the end of a sound is not a
   // reason to move on, only a decision is. It is turned off on the way out so
@@ -96,28 +107,36 @@ export default function SwipePage() {
   // Load each sound as it reaches the front of the queue. The player is the one
   // audio element in the application, so this is a source change rather than a
   // new element, and silence skipping comes with it.
+  // The sound and what came with it are set from the same queue answer, so by
+  // the time a new sound is on screen its measurement is already in hand. The
+  // guard on the hash means a later answer about the same sound does not start
+  // it over.
   const play = player.play;
   const playedRef = useRef<string | null>(null);
   useEffect(() => {
     if (!row || playedRef.current === row.hash) return;
     playedRef.current = row.hash;
-    play(row);
-  }, [row, play]);
+    const held = carried && carried.hash === row.hash ? { silence: carried.silence } : undefined;
+    play(row, undefined, held);
+  }, [row, carried, play]);
 
   // One classifier's spans, asked for by name. Three opinions tinted over each
   // other say nothing about any of them.
+  //
+  // Only when the queue answer did not carry them. The route sends YAMNet's
+  // spans with the sound, and that is the same list this would ask for.
   useEffect(() => {
-    if (!hash) {
-      setSpans([]);
+    if (!hash || carriedSpans !== null) {
+      setFetchedSpans([]);
       return;
     }
     const controller = new AbortController();
-    setSpans([]);
+    setFetchedSpans([]);
     fetchSpans(hash, undefined, controller.signal)
-      .then(setSpans)
-      .catch(() => setSpans([]));
+      .then(setFetchedSpans)
+      .catch(() => setFetchedSpans([]));
     return () => controller.abort();
-  }, [hash]);
+  }, [hash, carriedSpans]);
 
   const isCurrent = player.current?.hash === hash;
   const gaps = skippable(player.silence?.intervals ?? [], MIN_GAP_S, player.silence?.duration_s ?? row?.duration_s);
@@ -227,7 +246,7 @@ export default function SwipePage() {
   return (
     <div className="swipe" data-testid="swipe" data-hash={row.hash} data-source={queue.source ?? ""}>
       <div className="swipe-top">
-        <Bench project={project} />
+        <Bench project={project} encumbrance={board.encumbrance} />
         <span className="swipe-remaining mono" data-testid="swipe-remaining">
           {queue.remaining === null ? "—" : `${formatCount(queue.remaining)} left`}
         </span>

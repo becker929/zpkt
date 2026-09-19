@@ -16,7 +16,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { fetchSwipeQueue } from "./api";
-import type { FileRow, SwipeSource } from "./types";
+import type { FileRow, SwipeCarried, SwipeSource } from "./types";
+import type { ProjectSummary } from "./project";
 
 /** How many sounds are held ahead of the one on screen. */
 const BATCH = 12;
@@ -38,6 +39,17 @@ export interface SwipeQueueHandle {
   current: FileRow | null;
   /** The one after it, so its peaks can be warmed. */
   upcoming: FileRow | null;
+  /**
+   * What the queue answer carried about `current`, or null when it carried
+   * nothing about it.
+   *
+   * It is matched to the sound on screen by hash before it is handed over. A
+   * buffer with an answered sound filtered out of the front has a different
+   * sound there, and the previous sound's measurement is not that sound's.
+   */
+  carried: SwipeCarried | null;
+  /** The project a take would go into, as the server named it. */
+  project: ProjectSummary | null;
   /** Undecided sounds left, this one included. Null when nothing is known. */
   remaining: number | null;
   source: SwipeSource | null;
@@ -57,6 +69,8 @@ export function useSwipeQueue(): SwipeQueueHandle {
   const [filling, setFilling] = useState(true);
   const [status, setStatus] = useState<SwipeStatus>("loading");
   const [remaining, setRemaining] = useState<number | null>(null);
+  const [carried, setCarried] = useState<SwipeCarried | null>(null);
+  const [project, setProject] = useState<ProjectSummary | null>(null);
   const [source, setSource] = useState<SwipeSource | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [version, setVersion] = useState(0);
@@ -79,6 +93,8 @@ export function useSwipeQueue(): SwipeQueueHandle {
         setStatus("absent");
         setSource(null);
         setRemaining(null);
+        setCarried(null);
+        setProject(null);
         return;
       }
       const missed = answeredRef.current.size - before;
@@ -87,6 +103,8 @@ export function useSwipeQueue(): SwipeQueueHandle {
       // screen is rebuilt and nothing restarts.
       setBuffer(queue.items.filter((row) => !answeredRef.current.has(row.hash)));
       setRemaining(Math.max(queue.remaining - missed, 0));
+      setCarried(queue.carried);
+      setProject(queue.project);
       setSource(queue.source);
       setStatus("ready");
       setError(null);
@@ -117,18 +135,21 @@ export function useSwipeQueue(): SwipeQueueHandle {
     [fill],
   );
 
-  return useMemo(
-    () => ({
+  return useMemo(() => {
+    const current = buffer[0] ?? null;
+    return {
       status,
       filling,
-      current: buffer[0] ?? null,
+      current,
       upcoming: buffer[1] ?? null,
+      // Only when it describes the sound actually on screen.
+      carried: current && carried && carried.hash === current.hash ? carried : null,
+      project,
       remaining,
       source,
       error,
       answered,
       refresh,
-    }),
-    [status, filling, buffer, remaining, source, error, answered, refresh],
-  );
+    };
+  }, [status, filling, buffer, carried, project, remaining, source, error, answered, refresh]);
 }

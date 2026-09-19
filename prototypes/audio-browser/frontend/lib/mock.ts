@@ -13,7 +13,7 @@
 
 import { createHash } from "node:crypto";
 
-import { COLUMN_CAP } from "./boardConfig";
+import { COLUMN_CAP, ENCUMBERED_AT } from "./boardConfig";
 import {
   COLUMNS,
   MAX_PROJECT_SOUNDS,
@@ -703,19 +703,38 @@ export function mockTriage() {
 }
 
 /**
- * Mock `GET /api/swipe`: the next undecided sounds.
+ * Mock `GET /api/swipe`: the one sound to answer next.
  *
  * Undecided means neither discarded nor in a project. Order is the index's own
  * order, so the queue is the same on every reload and a screenshot of it is
  * reproducible.
+ *
+ * One sound, not a batch, because that is what the route serves. A mock that
+ * handed over a page of them would let the browser tests pass against a shape
+ * the real server never sends.
  */
-export function mockSwipeQueue(limit: number) {
+export function mockSwipeQueue() {
   const taken = takenHashes();
   const undecided = mockFiles().filter((f) => !f.deleted && !taken.has(f.hash));
+  const files = mockFiles();
+  const decided = files.length - undecided.length;
+  const sound = undecided[0];
+  // One sound, with its dead air and its spans beside it, exactly as the real
+  // route answers. One request per sound rather than three: this view is
+  // swiped from a phone over a tailnet, where three is felt.
+  //
+  // `sound` is null when nothing is undecided. That is the end of the pass and
+  // not an error.
   return {
-    items: undecided.slice(0, limit).map(mockSummary),
+    total: files.length,
+    decided,
     remaining: undecided.length,
-    limit,
+    sound: sound ? mockSummary(sound) : null,
+    silence: sound ? mockSilence(sound, MIN_GAP_S) : null,
+    spans: sound ? mockSpans(sound) : null,
+    // The project a "take it" would put the sound into: the one in `stored`
+    // whose sound set is still open.
+    project: mockProjects().items.find(soundSetOpen) ?? null,
   };
 }
 
@@ -1023,6 +1042,7 @@ export function mockBoard(): Board {
       const count = items.filter((p) => p.column === column && onBoard(p)).length + held;
       return { column, cap: COLUMN_CAP, count, unreadable: held, over: isOver(count, COLUMN_CAP) };
     }),
+    encumbrance: ENCUMBERED_AT,
     released: items.filter((p) => p.column === "released").length,
     abandoned: items.filter((p) => p.abandoned !== null).length,
     unreadable: unreadable.length,

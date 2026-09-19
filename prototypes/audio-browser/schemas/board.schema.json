@@ -46,6 +46,17 @@
       "minItems": 1,
       "maxItems": 3
     },
+    "encumbrance": {
+      "anyOf": [
+        {
+          "type": "integer",
+          "minimum": 0
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
     "released": {
       "type": "integer",
       "minimum": 0
@@ -61,6 +72,7 @@
   },
   "required": [
     "columns",
+    "encumbrance",
     "released",
     "abandoned",
     "unreadable"

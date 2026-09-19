@@ -9,7 +9,7 @@
 
 import { expect, test, type Page } from "@playwright/test";
 
-import { api, waitForHydration } from "./helpers";
+import { api, isUndecided, undecided, waitForHydration } from "./helpers";
 
 /** The project the fixture puts on the bench, and the one behind it. */
 const BENCH = "2026-09-16-rust-and-rebar";
@@ -63,9 +63,8 @@ test("a sound can be taken back out of a project whose set is still open", async
   await row.getByTestId("untake-row").click();
   await expect(row).toHaveCount(0);
 
-  // It is undecided again, so the queue offers it.
-  const queue = await api(page, "/api/swipe?limit=200");
-  expect((queue.items as Array<{ hash: string }>).map((r) => r.hash)).toContain(hash);
+  // It is undecided again, so the queue would offer it.
+  expect(await isUndecided(page, hash)).toBe(true);
 
   // Put it back the way it was found.
   const response = await page.request.put(`/api/projects/${BENCH}/sounds/${hash}`);
@@ -83,8 +82,7 @@ test("the name filter narrows what is shown", async ({ page }) => {
 });
 
 test("the discarded filter shows the discard pile, and restore empties it", async ({ page }) => {
-  const body = await api(page, "/api/swipe?limit=1");
-  const hash = (body.items as Array<{ hash: string }>)[0].hash;
+  const hash = (await undecided(page, 1))[0];
   await page.request.put(`/api/files/${hash}/deleted`);
 
   await page.goto("/decided");
@@ -101,18 +99,17 @@ test("the discarded filter shows the discard pile, and restore empties it", asyn
 });
 
 test("nothing undecided appears under either filter", async ({ page }) => {
-  const queue = await api(page, "/api/swipe?limit=5");
-  const undecided = (queue.items as Array<{ hash: string }>).map((row) => row.hash);
-  expect(undecided.length).toBeGreaterThan(0);
+  const unanswered = await undecided(page, 5);
+  expect(unanswered.length).toBeGreaterThan(0);
 
   await page.goto("/decided");
-  for (const hash of undecided) {
+  for (const hash of unanswered) {
     await expect(page.locator(`[data-testid="row"][data-hash="${hash}"]`)).toHaveCount(0);
   }
 
   await page.getByTestId("filter-discarded").click();
   await expect(page.getByTestId("decided")).toHaveAttribute("data-answer", "discarded");
-  for (const hash of undecided) {
+  for (const hash of unanswered) {
     await expect(page.locator(`[data-testid="row"][data-hash="${hash}"]`)).toHaveCount(0);
   }
 });

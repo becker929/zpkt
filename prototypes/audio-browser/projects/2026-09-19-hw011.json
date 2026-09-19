@@ -1,0 +1,109 @@
+{
+  "schema_version": 1,
+  "id": "2026-09-19-hw011",
+  "name": "HW011",
+  "column": "collage",
+  "created_at": "2026-09-19T05:18:22Z",
+  "updated_at": "2026-09-19T05:31:23Z",
+  "notes": "",
+  "abandoned": null,
+  "commits": [
+    {
+      "column": "stored",
+      "at": "2026-09-19T05:31:23Z",
+      "digest": "dd7468c19d4974c637f009d1ef7c2b9b0893f22eef6dec8ade8762cbe70c7d02"
+    }
+  ],
+  "sounds": [
+    {
+      "hash": "006c97ab27bb9dea1db8cfb301c7f8efcdc5bcfb4c2017e2d498cde9d739dc4b",
+      "added_at": "2026-09-19T05:19:10Z",
+      "role": null,
+      "note": ""
+    },
+    {
+      "hash": "02f13f3f145bcf25c0afe973782d216aaac4fbc65f43db2f00cd99b2d57afd51",
+      "added_at": "2026-09-19T05:21:30Z",
+      "role": null,
+      "note": ""
+    },
+    {
+      "hash": "035c11faa77ee6f802aae791d67131a12148bb94d75d256c4cee6c5715ac33d1",
+      "added_at": "2026-09-19T05:22:35Z",
+      "role": null,
+      "note": ""
+    },
+    {
+      "hash": "038c2235e70bb4b06cd8c114f2c8a3945d7aa1d18819227b87bcd96da382780f",
+      "added_at": "2026-09-19T05:23:23Z",
+      "role": null,
+      "note": ""
+    },
+    {
+      "hash": "039726f017d1f06cb926f8b8e4262e7dafbbd167be87397d4717c34ec1254a61",
+      "added_at": "2026-09-19T05:23:28Z",
+      "role": null,
+      "note": ""
+    },
+    {
+      "hash": "03bd5db73129fa29711848d5ed72035183bb2c08e0083bacd2db51d1f53a0819",
+      "added_at": "2026-09-19T05:23:46Z",
+      "role": null,
+      "note": ""
+    },
+    {
+      "hash": "03f3c906049c270dc7acae5c5eeee5dfdad472b13a08c392b86bc7fc40fca1f2",
+      "added_at": "2026-09-19T05:23:54Z",
+      "role": null,
+      "note": ""
+    },
+    {
+      "hash": "0400e3d6d95c8037ea394fbc0770a3342013dcb2d4dedb76f8d4afd10a64aa4e",
+      "added_at": "2026-09-19T05:24:09Z",
+      "role": null,
+      "note": ""
+    },
+    {
+      "hash": "0595ed2679a9cd10ce90b2bf8ddb63ca47c33545f24220d8f20001e3f638ebb0",
+      "added_at": "2026-09-19T05:26:01Z",
+      "role": null,
+      "note": ""
+    },
+    {
+      "hash": "05fe9fb89442b55dc3df2926aa8d8cae771f1ad740864fb3b73f60f250fc76d4",
+      "added_at": "2026-09-19T05:26:29Z",
+      "role": null,
+      "note": ""
+    },
+    {
+      "hash": "06b0fd6c6dd137ef2c13d623d86cbaa37296d491009df406f92ebfd8aa7dbfc9",
+      "added_at": "2026-09-19T05:27:06Z",
+      "role": null,
+      "note": ""
+    },
+    {
+      "hash": "07f17b5ac5ece6967ab740e7a6847731647d243c8269bab2bc11e0ab5b14bbd3",
+      "added_at": "2026-09-19T05:28:09Z",
+      "role": null,
+      "note": ""
+    },
+    {
+      "hash": "0848a16089d56a375022d30a54a0a900b6d3f44168f1c3b56bd66a41b2a8d9fc",
+      "added_at": "2026-09-19T05:28:59Z",
+      "role": null,
+      "note": ""
+    },
+    {
+      "hash": "08c16f373fa7bfc9aca0d4e7276b44cc0019310e8208ac61abb9663bed6261b9",
+      "added_at": "2026-09-19T05:30:09Z",
+      "role": null,
+      "note": ""
+    },
+    {
+      "hash": "092c5da83fad9daca57e9369ffd2d6cfafd9a14d9516a4490ea47734ecae91a6",
+      "added_at": "2026-09-19T05:30:34Z",
+      "role": null,
+      "note": ""
+    }
+  ]
+}

@@ -40,6 +40,15 @@ export interface BoardApi {
   board: Board | null;
   /** Null unless `status` is `ready` and the index answered. */
   projects: ProjectSummary[] | null;
+  /**
+   * Sounds past which a project is marked encumbered, as the server reports it.
+   *
+   * Null until the board has been read, and null for a server that does not
+   * report a threshold. The mark is not drawn in either case: the server owns
+   * this number the way it owns the caps, and a client marking against its own
+   * copy would disagree with the rule in force the day the two values part.
+   */
+  encumbrance: number | null;
   unreadable: UnreadableProject[];
   error: string | null;
   /** Bumped after every change, so a view can re-read its rows. */
@@ -92,6 +101,7 @@ export function BoardProvider({ children }: { children: ReactNode }) {
       status,
       board,
       projects: index?.items ?? null,
+      encumbrance: board?.encumbrance ?? null,
       unreadable: index?.unreadable ?? [],
       error,
       version,

@@ -11,6 +11,8 @@
  * discarded.
  */
 
+import type { ProjectSummary } from "./project";
+
 /**
  * How a set of sounds is ordered.
  *
@@ -200,12 +202,42 @@ export interface TriageCounts {
  */
 export type SwipeSource = "route" | "derived";
 
+/**
+ * What the queue answer carried about the sound at the head of it.
+ *
+ * `GET /api/swipe` sends the sound, its measured dead air and its spans
+ * together, so a phone spends one request on a sound instead of three. Each
+ * field is null when the answer did not carry it, and the view falls back to
+ * the route that serves it on its own.
+ *
+ * It describes the head sound and no other. `hash` is here so a caller can say
+ * which sound it belongs to: a buffer that has had answered sounds filtered
+ * out of it can have a different sound in front, and that sound's silence is
+ * not this one's.
+ */
+export interface SwipeCarried {
+  hash: string;
+  silence: Silence | null;
+  spans: Span[] | null;
+}
+
 /** A batch of undecided sounds, and how many are left behind them. */
 export interface SwipeQueue {
   items: FileRow[];
   /** Sounds still undecided, this batch included. */
   remaining: number;
   source: SwipeSource;
+  /** What came with the head sound, or null when nothing did. */
+  carried: SwipeCarried | null;
+  /**
+   * The project a "take it" would put the sound into, as the server named it.
+   *
+   * Null when the answer did not carry one, which is either a server that does
+   * not send it or a bench with nothing on it. The view falls back to working
+   * the bench out from the project index, which is the same answer by a longer
+   * road.
+   */
+  project: ProjectSummary | null;
 }
 
 /** Every action `POST /api/bulk` accepts. */

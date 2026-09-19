@@ -9,7 +9,7 @@
 
 import { expect, test, type Page } from "@playwright/test";
 
-import { STREAM_URL, api, paintedPixels } from "./helpers";
+import { STREAM_URL, api, paintedPixels, undecided } from "./helpers";
 
 /** The project the fixture puts on the bench. */
 const BENCH = "2026-09-16-rust-and-rebar";
@@ -131,9 +131,10 @@ test("taking a sound puts it into the project on the bench", async ({ page }) =>
   const after = await api(page, `/api/projects/${BENCH}`);
   expect((after.items as Array<{ hash: string }>).map((row) => row.hash)).toContain(hash);
 
-  // A taken sound is answered, so the queue does not offer it again.
-  const queue = await api(page, "/api/swipe?limit=50");
-  expect((queue.items as Array<{ hash: string }>).map((row) => row.hash)).not.toContain(hash);
+  // A taken sound is answered, so the queue does not offer it again. The route
+  // hands over one sound at a time, so what it offers now is a different one.
+  const queue = await api(page, "/api/swipe");
+  expect((queue.sound as { hash: string } | null)?.hash).not.toBe(hash);
 
   await untake(page, hash!);
 });
@@ -141,9 +142,7 @@ test("taking a sound puts it into the project on the bench", async ({ page }) =>
 test("the bench is marked encumbered once it holds more than the threshold", async ({ page }) => {
   // Sixteen sounds is a track. Seventeen is collecting. The mark is friction
   // and not a limit, so adding has to keep working while it is on.
-  const pool = await api(page, "/api/swipe?limit=40");
-  const hashes = (pool.items as Array<{ hash: string }>).map((row) => row.hash).slice(0, 17);
-  expect(hashes.length).toBe(17);
+  const hashes = await undecided(page, 17);
   for (const hash of hashes) {
     const response = await page.request.put(`/api/projects/${BENCH}/sounds/${hash}`);
     expect(response.ok(), `adding ${hash} answered ${response.status()}`).toBe(true);
@@ -170,9 +169,31 @@ test("the bench is marked encumbered once it holds more than the threshold", asy
   await expect(page.getByTestId("bench")).toHaveAttribute("data-encumbered", "false");
 });
 
-test("the waveform asks one classifier for its spans", async ({ page }) => {
+test("the waveform tints one classifier's spans, and does not ask twice for them", async ({ page }) => {
   // The bakeoff found the three methods do not agree. Tinting all of them over
-  // each other says nothing, so exactly one is asked for by name.
+  // each other says nothing, so exactly one is named.
+  const queue = await api(page, "/api/swipe");
+  const spans = queue.spans as Array<{ method: string }>;
+  expect(Array.isArray(spans), "the queue answer carried no spans").toBe(true);
+  for (const span of spans) expect(span.method).toBe("yamnet");
+
+  // The answer carried them, so the view has no reason to ask the spans route.
+  const asked: string[] = [];
+  page.on("request", (request) => {
+    const url = new URL(request.url());
+    if (url.pathname.endsWith("/spans")) asked.push(url.pathname + url.search);
+  });
+
+  await page.goto("/");
+  await expect(page.getByTestId("swipe-card")).toBeVisible();
+  const waveform = page.getByTestId("swipe-card").getByTestId("waveform");
+  await expect.poll(async () => Number(await waveform.getAttribute("data-buckets"))).toBeGreaterThan(0);
+  expect(asked, `the swipe view asked for spans it was already given: ${asked.join(", ")}`).toEqual([]);
+});
+
+test("the detail view still asks the spans route, and names the classifier", async ({ page }) => {
+  // The queue answer is the swipe view's alone. Every other view asks for
+  // spans on its own, and it has to keep naming one method when it does.
   const asked: string[] = [];
   page.on("request", (request) => {
     const url = new URL(request.url());
@@ -181,6 +202,8 @@ test("the waveform asks one classifier for its spans", async ({ page }) => {
 
   await page.goto("/");
   await expect(page.getByTestId("swipe-card")).toBeVisible();
+  await page.getByTestId("swipe-detail-link").click();
+
   await expect.poll(async () => asked.length).toBeGreaterThan(0);
   for (const search of asked) expect(search).toBe("?method=yamnet");
 });
