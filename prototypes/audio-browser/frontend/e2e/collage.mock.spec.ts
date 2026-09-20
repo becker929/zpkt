@@ -38,6 +38,8 @@ interface RegionRow {
   at_s: number;
   rate: number;
   gain: number;
+  /** How many times the material sounds, back to back. One is once. */
+  loops: number;
   fade_in_s: number;
   fade_out_s: number;
 }
@@ -70,7 +72,7 @@ async function sounds(page: Page): Promise<Array<{ hash: string; duration_s: num
 
 /** A region row, exactly as the file holds it. */
 function regionRow(id: string, hash: string, track: number, atS: number, startS: number, endS: number, rate = 1): RegionRow {
-  return { id, hash, track, start_s: startS, end_s: endS, at_s: atS, rate, gain: 1, fade_in_s: 0, fade_out_s: 0 };
+  return { id, hash, track, start_s: startS, end_s: endS, at_s: atS, rate, gain: 1, loops: 1, fade_in_s: 0, fade_out_s: 0 };
 }
 
 /** Open the picker, hear the `index`th sound, and choose it. */
@@ -820,6 +822,7 @@ test("the write refuses a region from outside the frozen set, and a cut that end
     at_s: 0,
     rate: 1,
     gain: 1,
+    loops: 1,
     fade_in_s: 0,
     fade_out_s: 0,
   };
@@ -1808,11 +1811,23 @@ test("a stretch stops at a quarter speed and at four times; past them the handle
   // going past the edge of the canvas scrolls it, so the screen is not the
   // place to measure either; the box is the reference and it does not move
   // during a drag, because the drag only draws a preview.
-  const handleAgainstBox = async () => {
-    const hb = (await handle(page, "r1", "end").boundingBox())!;
-    const rb = (await region(page, "r1").boundingBox())!;
-    return hb.y + hb.height / 2 - (rb.y + rb.height);
-  };
+  //
+  // Both rectangles are read in one go, in the page, at one instant. Read as
+  // two round trips they are two instants, and the thumb held past the edge
+  // of the canvas is scrolling it between them: the canvas moves eight
+  // pixels a frame, so the difference came back eight pixels wrong whenever
+  // the scroll was still running. That is the measurement racing the view,
+  // not the handle leaving the wall, and the wall itself is still pinned
+  // independently below by the stored rate and by the box's own height.
+  const handleAgainstBox = async () =>
+    page.evaluate(() => {
+      const h = document.querySelector('[data-testid="handle"][data-region-id="r1"][data-end="end"]');
+      const r = document.querySelector('[data-testid="region"][data-region-id="r1"]');
+      if (!h || !r) throw new Error("no handle or no region to measure");
+      const hb = h.getBoundingClientRect();
+      const rb = r.getBoundingClientRect();
+      return hb.y + hb.height / 2 - (rb.y + rb.height);
+    });
   const handleMovedBy = async (from: number) => (await handleAgainstBox()) - from;
 
   // The handle only exists once stretch mode is on, so rest is measured
@@ -4429,7 +4444,7 @@ test("a drag that is really a tap plays the region and moves nothing, in hand or
   await expect(page.getByTestId("collage-undo")).toHaveCount(0);
 });
 
-test("a move that empties a track leaves the column blank and moves nothing else", async ({
+test("a move that empties a track closes it, and the column beyond comes down with it", async ({
   page,
   request,
 }) => {
@@ -4449,12 +4464,25 @@ test("a move that empties a track leaves the column blank and moves nothing else
   const rows = await regionsOnServer(page);
   expect(stored(rows, "r2").track).toBe(0);
   expect(stored(rows, "r2").at_s).toBeCloseTo(20, 3);
-  // The track it left is blank and stays where it was. Nothing is drawn per
-  // track, so an emptied one is canvas and not an empty lane, and the region
-  // beyond it is not dragged sideways by a gesture that was not about it.
-  expect(rows.filter((r) => r.track === 1)).toHaveLength(0);
-  expect(stored(rows, "r3").track).toBe(2);
+  // The track it left had nothing else on it, so it is not a track any more
+  // and the one beyond it comes down into its place. Only the column moves:
+  // the moment that region sounds at, its cut and its level are untouched,
+  // because a track is a lane on the screen and not a bus.
+  expect(rows.filter((r) => r.track === 1)).toHaveLength(1);
+  expect(stored(rows, "r3").track).toBe(1);
   expect(stored(rows, "r3").at_s).toBeCloseTo(0, 3);
+  expect(stored(rows, "r3").rate).toBe(0.05);
+  expect(stored(rows, "r3").gain).toBe(1);
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-tracks", "2");
+
+  // One change and one step back, and the step back puts the regions and the
+  // numbering where they were together.
+  await expect(page.getByTestId("collage-undo")).toHaveAttribute("data-depth", "1");
+  await page.getByTestId("collage-undo").click();
+  await expect(page.getByTestId("collage-save")).toHaveAttribute("data-state", "saved");
+  const back = await regionsOnServer(page);
+  expect(stored(back, "r2").track).toBe(1);
+  expect(stored(back, "r3").track).toBe(2);
   await expect(page.getByTestId("collage")).toHaveAttribute("data-tracks", "3");
 });
 
@@ -4855,7 +4883,7 @@ test("a move that goes out and comes back writes nothing, and a region cannot se
   await expect(page.getByTestId("collage-undo")).toHaveCount(0);
 });
 
-test("an emptied column in the middle stays, and the track button cannot close it", async ({
+test("no column can be stranded in the middle: the track the last region leaves closes with it", async ({
   page,
   request,
 }) => {
@@ -4871,28 +4899,29 @@ test("an emptied column in the middle stays, and the track button cannot close i
   await carry(page, "r2", -TRACK_W, 0);
   await expect(page.getByTestId("collage-save")).toHaveAttribute("data-state", "saved");
   expect(stored(await regionsOnServer(page), "r2").track).toBe(0);
-  expect(stored(await regionsOnServer(page), "r3").track).toBe(2);
 
-  // The column it left is blank canvas and stays in the count, because a
-  // track is a lane and the lane beyond it has not moved. There is nothing
-  // on the empty column to take up, so the track button can only ever be
-  // aimed at a column that has something on it: the gap is closed by
-  // carrying what is beyond it across, one region at a time, and not by the
-  // gesture whose name says it removes a track.
-  await expect(page.getByTestId("collage")).toHaveAttribute("data-tracks", "3");
-  await expect(page.getByTestId("collage-count")).toContainText("3 tracks");
+  // It closed with the region that left it. That is the whole point: a blank
+  // interior column is a place no gesture could ever be aimed at, because
+  // removing a track needs a region on it to take up first, and there is
+  // nothing on a blank one to tap. There is no gap to close by hand.
+  expect(stored(await regionsOnServer(page), "r3").track).toBe(1);
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-tracks", "2");
+  await expect(page.getByTestId("collage-count")).toContainText("2 tracks");
+
+  // The track button still does what it always did: it takes the track the
+  // region in hand is on, and everything on it.
   await takeUp(page, "r3");
   await holdTrack(page, 800);
   await expect(page.getByTestId("collage-save")).toHaveAttribute("data-state", "saved");
-  // Holding it with the region beyond the gap in hand takes that region, not
-  // the gap: the empty column is still there and the piece is one region
-  // shorter.
   const rows = await regionsOnServer(page);
   expect(rows.map((r) => r.id).sort()).toEqual(["r1", "r2"]);
   await expect(page.getByTestId("collage")).toHaveAttribute("data-tracks", "1");
   await page.getByTestId("collage-undo").click();
   await expect(page.getByTestId("collage-save")).toHaveAttribute("data-state", "saved");
-  expect((await regionsOnServer(page)).map((r) => r.id).sort()).toEqual(["r1", "r2", "r3"]);
+  const back = await regionsOnServer(page);
+  expect(back.map((r) => r.id).sort()).toEqual(["r1", "r2", "r3"]);
+  expect(stored(back, "r3").track).toBe(1);
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-tracks", "2");
 });
 
 test("nothing anywhere on the page reads as a time, a level, a rate or a percentage, in any state the bar can be in", async ({
@@ -4958,4 +4987,612 @@ test("nothing anywhere on the page reads as a time, a level, a rate or a percent
   await nothingReadsAsAFigure("a track held towards removal");
   await page.keyboard.press("Escape");
   await page.mouse.up();
+});
+
+/* Repeats, and looping the transport --------------------------------------- */
+
+/**
+ * Loops — the eighth gesture set.
+ *
+ * Two things that share a word and are not the same kind of thing. A region
+ * repeats: `loops` is in the model, in the file and in the commit's digest,
+ * and the box grows to hold the repeats with a divider where each one begins.
+ * The transport loops: it is how the piece is listened to, so it is in none of
+ * those places and is remembered on the machine instead.
+ */
+
+/** A region row that repeats. */
+function looped(row: RegionRow, loops: number): RegionRow {
+  return { ...row, loops };
+}
+
+/** Enter repeat mode with a region in hand. */
+async function enterRepeat(page: Page, regionId: string) {
+  await takeUp(page, regionId);
+  await page.getByTestId("collage-repeat").click();
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-mode", "repeat");
+}
+
+/** Drag `dy` down a region's grab in repeat mode, and let go unless told not to. */
+async function repeatDrag(page: Page, regionId: string, dy: number, lift = true) {
+  const grab = region(page, regionId).getByTestId("region-grab");
+  await grab.scrollIntoViewIfNeeded();
+  const box = (await grab.boundingBox())!;
+  const x = box.x + box.width / 2;
+  const y = box.y + Math.min(box.height / 2, 20);
+  await page.mouse.move(x, y);
+  await page.mouse.down();
+  await page.mouse.move(x, y + dy, { steps: 8 });
+  if (lift) await page.mouse.up();
+}
+
+/** How many times the file says this region sounds. Absent is once. */
+function loopsOf(row: Partial<Pick<RegionRow, "loops">>): number {
+  return row.loops ?? 1;
+}
+
+test("a region repeats: the box grows by one length a thumb, with a divider at each repeat, and one write", async ({
+  page,
+  request,
+}) => {
+  const set = await sounds(page);
+  // A second of source at a twentieth speed: twenty canvas seconds, so one
+  // repeat is two hundred pixels and there is room to see the second one.
+  await writeRegions(request, [regionRow("r1", set[0].hash, 0, 0, 0, 1, 0.05)]);
+  await page.goto("/collage");
+  await expect(page.getByTestId("region")).toHaveCount(1);
+
+  const once = (await regionBox(page, 0)).height;
+  expect(await page.getByTestId("region-repeat").count()).toBe(0);
+
+  await enterRepeat(page, "r1");
+  // A thumb's height of travel is one more repeat. `HANDLE_H` is that thumb.
+  const writes = await writesDuring(page, () => repeatDrag(page, "r1", HANDLE_H * 2));
+  expect(writes).toBe(1);
+
+  const rows = await regionsOnServer(page);
+  expect(loopsOf(stored(rows, "r1"))).toBe(3);
+  // The material is untouched. A repeat is the same cut again, not more of it.
+  expect(stored(rows, "r1").start_s).toBe(0);
+  expect(stored(rows, "r1").end_s).toBe(1);
+  expect(stored(rows, "r1").rate).toBe(0.05);
+  expect(stored(rows, "r1").at_s).toBe(0);
+
+  // Three times as tall, and two dividers: one at the top of each repeat
+  // after the first. Nothing anywhere prints the count.
+  const thrice = (await regionBox(page, 0)).height;
+  expect(Math.abs(thrice - once * 3)).toBeLessThan(2);
+  await expect(page.getByTestId("region-repeat")).toHaveCount(2);
+  const tops = await page.getByTestId("region-repeat").evaluateAll((nodes) =>
+    nodes.map((node) => Math.round(Number.parseFloat((node as HTMLElement).style.top))),
+  );
+  expect(tops).toEqual([Math.round(once), Math.round(once * 2)]);
+});
+
+test("a repeat is one undo step, and dragging back up takes repeats away", async ({ page, request }) => {
+  const set = await sounds(page);
+  await writeRegions(request, [looped(regionRow("r1", set[0].hash, 0, 0, 0, 1, 0.05), 4)]);
+  await page.goto("/collage");
+  await expect(region(page, "r1")).toHaveAttribute("data-loops", "4");
+
+  await enterRepeat(page, "r1");
+  await repeatDrag(page, "r1", -HANDLE_H * 2);
+  await expect(page.getByTestId("collage-save")).toHaveAttribute("data-state", "saved");
+  expect(loopsOf(stored(await regionsOnServer(page), "r1"))).toBe(2);
+
+  // One change, one step back, and the count is where it was.
+  await expect(page.getByTestId("collage-undo")).toHaveAttribute("data-depth", "1");
+  await page.getByTestId("collage-undo").click();
+  await expect(page.getByTestId("collage-save")).toHaveAttribute("data-state", "saved");
+  expect(loopsOf(stored(await regionsOnServer(page), "r1"))).toBe(4);
+});
+
+test("a loop of one is the floor: dragging up past it writes nothing and says so", async ({ page, request }) => {
+  const set = await sounds(page);
+  await writeRegions(request, [regionRow("r1", set[0].hash, 0, 0, 0, 1, 0.05)]);
+  await page.goto("/collage");
+
+  await enterRepeat(page, "r1");
+  // Held, not lifted: the bar has to say which wall this is while the thumb
+  // is still on it, because the block that would say it is under the thumb.
+  await repeatDrag(page, "r1", -HANDLE_H * 5, false);
+  await expect(page.getByTestId("collage-mode")).toHaveAttribute("data-bound", "once");
+  await expect(region(page, "r1")).toHaveAttribute("data-loops", "1");
+  // Nothing is written, so there is no save bar to wait for: the writes are
+  // counted off the wire instead.
+  let writes = 0;
+  page.on("request", (r) => {
+    if (r.method() === "PUT" && r.url().includes("/collage")) writes += 1;
+  });
+  await page.mouse.up();
+  await page.waitForTimeout(400);
+  expect(writes).toBe(0);
+  expect(loopsOf(stored(await regionsOnServer(page), "r1"))).toBe(1);
+  // The mode stays on, as balance does: a count is found by going past it.
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-mode", "repeat");
+});
+
+test("a fifteen-minute region cannot be repeated: a repeat is a phrase, not a recording", async ({
+  page,
+  request,
+}) => {
+  const set = await sounds(page);
+  // A second of source at a thousandth speed: about seventeen minutes of
+  // footprint from one repeat, which is past the length anything repeats at.
+  await writeRegions(request, [regionRow("r1", set[0].hash, 0, 0, 0, 1, 0.001)]);
+  await page.goto("/collage");
+  await expect(page.getByTestId("region")).toHaveCount(1);
+
+  await enterRepeat(page, "r1");
+  await repeatDrag(page, "r1", HANDLE_H * 3, false);
+  await expect(page.getByTestId("collage-mode")).toHaveAttribute("data-bound", "most");
+  await expect(region(page, "r1")).toHaveAttribute("data-loops", "1");
+  await page.mouse.up();
+  expect(loopsOf(stored(await regionsOnServer(page), "r1"))).toBe(1);
+});
+
+test("repeats stop where the next region on the track begins", async ({ page, request }) => {
+  const set = await sounds(page);
+  // Twenty canvas seconds each. The second begins at fifty, so two repeats
+  // of the first fit under it and a third does not.
+  await writeRegions(request, [
+    regionRow("r1", set[0].hash, 0, 0, 0, 1, 0.05),
+    regionRow("r2", set[0].hash, 0, 50, 0, 1, 0.05),
+  ]);
+  await page.goto("/collage");
+  await expect(page.getByTestId("region")).toHaveCount(2);
+
+  await enterRepeat(page, "r1");
+  await repeatDrag(page, "r1", HANDLE_H * 6, false);
+  await expect(page.getByTestId("collage-mode")).toHaveAttribute("data-bound", "room");
+  await expect(region(page, "r1")).toHaveAttribute("data-loops", "2");
+  await page.mouse.up();
+  const rows = await regionsOnServer(page);
+  expect(loopsOf(stored(rows, "r1"))).toBe(2);
+  // The neighbour did not move to make room. Repeats fit or they do not.
+  expect(stored(rows, "r2").at_s).toBe(50);
+});
+
+test("a region already at the stretch bound still repeats, and repeating does not touch its rate", async ({
+  page,
+  request,
+}) => {
+  const set = await sounds(page);
+  // At the slow wall: a quarter speed is `RATE_MIN`, and there is nothing
+  // under it on the track, so stretch has nowhere left to go downward.
+  await writeRegions(request, [regionRow("r1", set[0].hash, 0, 0, 0, 1, 0.25)]);
+  await page.goto("/collage");
+
+  await enterRepeat(page, "r1");
+  await repeatDrag(page, "r1", HANDLE_H * 3);
+  await expect(page.getByTestId("collage-save")).toHaveAttribute("data-state", "saved");
+  const row = stored(await regionsOnServer(page), "r1");
+  expect(loopsOf(row)).toBe(4);
+  expect(row.rate).toBe(0.25);
+  expect(row.start_s).toBe(0);
+  expect(row.end_s).toBe(1);
+});
+
+test("trimming a region that repeats keeps the handle under the thumb", async ({ page, request }) => {
+  const set = await sounds(page);
+  // Four repeats of twenty canvas seconds: eighty seconds of box.
+  await writeRegions(request, [looped(regionRow("r1", set[0].hash, 0, 0, 0, 1, 0.05), 4)]);
+  await page.goto("/collage");
+  await expect(region(page, "r1")).toHaveAttribute("data-loops", "4");
+
+  const before = (await regionBox(page, 0)).height;
+  // Forty pixels up on the end handle. The box has to shrink by forty, not
+  // by four times forty: the thumb moved forty and the handle follows it.
+  await drag(page, "r1", "end", -40);
+  await expect(page.getByTestId("collage-save")).toHaveAttribute("data-state", "saved");
+  const after = (await regionBox(page, 0)).height;
+  expect(Math.abs(before - after - 40)).toBeLessThan(3);
+  expect(loopsOf(stored(await regionsOnServer(page), "r1"))).toBe(4);
+});
+
+test("snipping a region that repeats leaves two regions that sound once each", async ({ page, request }) => {
+  const set = await sounds(page);
+  await writeRegions(request, [looped(regionRow("r1", set[0].hash, 0, 0, 0, 1, 0.05), 3)]);
+  await page.goto("/collage");
+  await expect(region(page, "r1")).toHaveAttribute("data-loops", "3");
+
+  await enterSnip(page);
+  const box = (await region(page, "r1").boundingBox())!;
+  // A band in the middle of the first repeat. It is drawn in every repeat,
+  // because every repeat is the same material and the cut takes it from all
+  // of them.
+  await page.mouse.move(box.x + box.width / 2, box.y + 60);
+  await page.mouse.down();
+  await page.mouse.move(box.x + box.width / 2, box.y + 100, { steps: 6 });
+  await expect(page.getByTestId("region-snip")).toHaveCount(3);
+  await page.mouse.up();
+
+  await expect(page.getByTestId("collage-save")).toHaveAttribute("data-state", "saved");
+  const rows = await regionsOnServer(page);
+  expect(rows).toHaveLength(2);
+  // Two runs of repeats cannot both sit on one track without landing on each
+  // other, so neither does: the repeat goes with the cut, and undo brings it
+  // back with the cut.
+  expect(rows.map((r) => loopsOf(r))).toEqual([1, 1]);
+  await page.getByTestId("collage-undo").click();
+  await expect(page.getByTestId("collage-save")).toHaveAttribute("data-state", "saved");
+  const back = await regionsOnServer(page);
+  expect(back).toHaveLength(1);
+  expect(loopsOf(stored(back, "r1"))).toBe(3);
+});
+
+test("a copy of a region that repeats repeats the same number of times", async ({ page, request }) => {
+  const set = await sounds(page);
+  await writeRegions(request, [looped(regionRow("r1", set[0].hash, 0, 0, 0, 1, 0.05), 3)]);
+  await page.goto("/collage");
+
+  await takeUp(page, "r1");
+  await page.getByTestId("collage-copy").click();
+  await stampAt(page, TRACK_W + 20, TOP_PAD + 40);
+  await expect(page.getByTestId("collage-save")).toHaveAttribute("data-state", "saved");
+  const rows = await regionsOnServer(page);
+  expect(rows).toHaveLength(2);
+  expect(loopsOf(stored(rows, "r2"))).toBe(3);
+});
+
+test("a region that repeats sounds its material back to back, with no seam and no double trigger", async ({
+  page,
+  request,
+}) => {
+  await listen(page);
+  await serveSlices(page);
+  const set = await sounds(page);
+  // Three seconds of source, three times over. Three pieces, all under the
+  // fifteen-second chunk, so every repeat is one buffer and a boundary is a
+  // place where one piece hands over to the next.
+  await writeRegions(request, [looped(regionRow("r1", set[0].hash, 0, 0, 0, 3, 1), 3)]);
+  await page.goto("/collage");
+  await expect(page.getByTestId("region")).toHaveCount(1);
+
+  await page.getByTestId("collage-play").click();
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-piece", "playing");
+  await expect.poll(async () => (await heard(page)).pieces.length, { timeout: 8000 }).toBe(3);
+
+  const { pieces } = await heard(page);
+  // Every piece is the same three seconds of material, at one speed.
+  for (const piece of pieces) {
+    expect(Math.abs(piece.duration - 3)).toBeLessThan(0.01);
+    expect(piece.rate).toBe(1);
+  }
+  const order = [...pieces].sort((a, b) => a.when - b.when);
+  for (let n = 1; n < order.length; n += 1) {
+    const previous = order[n - 1];
+    // No gap and no overlap: the repeat begins at the exact moment the one
+    // before it stops. Measured off what the browser was told, not off the
+    // arithmetic that told it.
+    expect(
+      Math.abs(order[n].when - endsAt(previous)),
+      `repeat ${n} was not handed over to at the moment repeat ${n - 1} ends`,
+    ).toBeLessThan(1e-9);
+    // And no double trigger: a moment already gone is sounded at once, so a
+    // repeat scheduled into the past would play on top of the one before it.
+    expect(order[n].when, `repeat ${n} was scheduled into the past`).toBeGreaterThanOrEqual(order[n].now);
+  }
+  // One source, one cut, one set of slices: the repeats are the same pieces
+  // again rather than the same second asked for once a second.
+  const fetches = await page.evaluate(() =>
+    performance.getEntriesByType("resource").filter((entry) => entry.name.includes("/slice?")).length,
+  );
+  expect(fetches).toBeLessThanOrEqual(2);
+});
+
+test("a region that repeats at a rate other than one is still handed over seamlessly", async ({
+  page,
+  request,
+}) => {
+  await listen(page);
+  await serveSlices(page);
+  const set = await sounds(page);
+  // Four seconds of source at half speed: eight seconds of sound, twice.
+  await writeRegions(request, [looped(regionRow("r1", set[0].hash, 0, 0, 0, 4, 0.5), 2)]);
+  await page.goto("/collage");
+
+  await page.getByTestId("collage-play").click();
+  await expect.poll(async () => (await heard(page)).pieces.length, { timeout: 8000 }).toBe(2);
+  const order = [...(await heard(page)).pieces].sort((a, b) => a.when - b.when);
+  expect(order[0].rate).toBe(0.5);
+  // About eight seconds of sound out of about four seconds of buffer at half
+  // speed. "About", because the browser resamples the slice into its own
+  // rate and can land a frame either side of four seconds.
+  expect(Math.abs(order[1].when - order[0].when - 8)).toBeLessThan(0.01);
+  // And the repeat begins at exactly the moment the one before it stops,
+  // whatever that buffer really came out as. That is the seam, and it is
+  // measured against the buffer the browser got rather than against the
+  // length the region was written at.
+  expect(Math.abs(order[1].when - endsAt(order[0]))).toBeLessThan(1e-9);
+  expect(order[1].when).toBeGreaterThanOrEqual(order[1].now);
+});
+
+test("editing a region that repeats mid-play takes it out of the pass, repeats and all", async ({
+  page,
+  request,
+}) => {
+  await listen(page);
+  await serveSlices(page);
+  const set = await sounds(page);
+  await writeRegions(request, [
+    looped(regionRow("r1", set[0].hash, 0, 0, 0, 3, 1), 4),
+    regionRow("r2", set[0].hash, 1, 0, 0, 3, 1),
+  ]);
+  await page.goto("/collage");
+  await expect(page.getByTestId("region")).toHaveCount(2);
+
+  await page.getByTestId("collage-play").click();
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-piece", "playing");
+  const before = (await heard(page)).stops.length;
+
+  // Take a repeat away while it sounds. The material did not move, but how
+  // long the region lasts did, so the voice already scheduled is wrong and
+  // the region goes quiet rather than running on past its new end.
+  await enterRepeat(page, "r1");
+  await repeatDrag(page, "r1", -HANDLE_H);
+  await expect(page.getByTestId("collage-hint")).toContainText("gone quiet");
+  await expect.poll(async () => (await heard(page)).stops.length).toBeGreaterThan(before);
+  // The other track plays on: one voice went, not the piece.
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-piece", "playing");
+  expect(loopsOf(stored(await regionsOnServer(page), "r1"))).toBe(3);
+});
+
+test("the transport loop starts the piece again from the top, and survives a reload as a preference", async ({
+  page,
+  request,
+}) => {
+  await listen(page);
+  await serveSlices(page);
+  const set = await sounds(page);
+  // One short region, so a pass is over quickly and the next one is visible.
+  await writeRegions(request, [regionRow("r1", set[0].hash, 0, 0, 0, 0.6, 1)]);
+  await page.goto("/collage");
+  await expect(page.getByTestId("region")).toHaveCount(1);
+
+  await expect(page.getByTestId("collage-loop")).toHaveAttribute("data-state", "off");
+  let writes = 0;
+  page.on("request", (r) => {
+    if (r.method() === "PUT" && r.url().includes("/collage")) writes += 1;
+  });
+  await page.getByTestId("collage-loop").click();
+  await expect(page.getByTestId("collage-loop")).toHaveAttribute("data-state", "on");
+  await page.waitForTimeout(400);
+  // Looping the transport is not part of the piece, so nothing was written.
+  expect(writes).toBe(0);
+  expect(await regionsOnServer(page)).toHaveLength(1);
+
+  await page.getByTestId("collage-play").click();
+  // The piece plays out and begins again, so more voices are scheduled than
+  // the piece holds regions.
+  await expect.poll(async () => (await heard(page)).pieces.length, { timeout: 15000 }).toBeGreaterThan(1);
+
+  await page.getByTestId("collage-play").click();
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-piece", "idle");
+
+  // The setting is on the machine, not in the file: it comes back on reload
+  // and the arrangement that came back does not mention it.
+  await page.reload();
+  await expect(page.getByTestId("collage-loop")).toHaveAttribute("data-state", "on");
+  // Nothing about the file mentions it: the arrangement carries the region's
+  // own repeat count and no setting about how anybody is listening.
+  const rows = await regionsOnServer(page);
+  expect(Object.keys(rows[0]).sort()).toEqual([
+    "at_s", "end_s", "fade_in_s", "fade_out_s", "gain", "hash", "id", "loops", "rate", "start_s", "track",
+  ]);
+
+  await page.getByTestId("collage-loop").click();
+  await expect(page.getByTestId("collage-loop")).toHaveAttribute("data-state", "off");
+  await page.reload();
+  await expect(page.getByTestId("collage-loop")).toHaveAttribute("data-state", "off");
+});
+
+test("the transport loop can be set with nothing stamped, and loops nothing", async ({ page, request }) => {
+  await listen(page);
+  await resetCollage(request);
+  await page.goto("/collage");
+  await expect(page.getByTestId("region")).toHaveCount(0);
+
+  // Play refuses, because there is no piece. The loop is a preference about
+  // listening and is set before there is anything to listen to.
+  await expect(page.getByTestId("collage-play")).toBeDisabled();
+  await page.getByTestId("collage-loop").click();
+  await expect(page.getByTestId("collage-loop")).toHaveAttribute("data-state", "on");
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-piece", "idle");
+  await page.waitForTimeout(500);
+  expect((await heard(page)).pieces).toHaveLength(0);
+  await page.getByTestId("collage-loop").click();
+});
+
+test("a track the last region leaves closes up, and undo puts the regions and the numbering back together", async ({
+  page,
+  request,
+}) => {
+  const set = await sounds(page);
+  // Three tracks. `r2` is alone on the middle one, which no gesture could
+  // ever aim at once it were blank: removing a track needs a region on it.
+  await writeRegions(request, [
+    regionRow("r1", set[0].hash, 0, 0, 0, 1, 0.05),
+    regionRow("r2", set[0].hash, 1, 0, 0, 1, 0.05),
+    regionRow("r3", set[0].hash, 2, 0, 0, 1, 0.05),
+  ]);
+  await page.goto("/collage");
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-tracks", "3");
+
+  // Carry `r2` off its track and onto the blank column past the last one.
+  const writes = await writesDuring(page, () => carry(page, "r2", TRACK_W * 2, 0));
+  expect(writes).toBe(1);
+
+  const rows = await regionsOnServer(page);
+  expect(stored(rows, "r1").track).toBe(0);
+  // Track one emptied, so track two came down to one and the region that
+  // left landed on two rather than on three: the lanes are a run with no gap.
+  expect(stored(rows, "r3").track).toBe(1);
+  expect(stored(rows, "r2").track).toBe(2);
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-tracks", "3");
+
+  // One change, so one step back, and it puts the regions and the numbering
+  // back at once.
+  await expect(page.getByTestId("collage-undo")).toHaveAttribute("data-depth", "1");
+  await page.getByTestId("collage-undo").click();
+  await expect(page.getByTestId("collage-save")).toHaveAttribute("data-state", "saved");
+  const back = await regionsOnServer(page);
+  expect(stored(back, "r1").track).toBe(0);
+  expect(stored(back, "r2").track).toBe(1);
+  expect(stored(back, "r3").track).toBe(2);
+});
+
+test("a track the last region is snipped off closes up too", async ({ page, request }) => {
+  const set = await sounds(page);
+  await writeRegions(request, [
+    regionRow("r1", set[0].hash, 0, 0, 0, 1, 0.05),
+    regionRow("r2", set[0].hash, 1, 0, 0, 1, 0.05),
+    regionRow("r3", set[0].hash, 2, 0, 0, 1, 0.05),
+  ]);
+  await page.goto("/collage");
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-tracks", "3");
+
+  // A whole-region snip of the only thing on track one. Held, because that
+  // is what arms a gesture that takes material away.
+  await enterSnip(page);
+  const box = (await region(page, "r2").boundingBox())!;
+  await page.mouse.move(box.x + box.width / 2, box.y + 4);
+  await page.mouse.down();
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height + 40, { steps: 8 });
+  await expect(page.locator('[data-testid="region-snip"][data-armed="true"]').first()).toBeVisible({
+    timeout: 4000,
+  });
+  await page.mouse.up();
+
+  await expect(page.getByTestId("collage-save")).toHaveAttribute("data-state", "saved");
+  const rows = await regionsOnServer(page);
+  expect(rows).toHaveLength(2);
+  expect(stored(rows, "r1").track).toBe(0);
+  expect(stored(rows, "r3").track).toBe(1);
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-tracks", "2");
+
+  await page.getByTestId("collage-undo").click();
+  await expect(page.getByTestId("collage-save")).toHaveAttribute("data-state", "saved");
+  const back = await regionsOnServer(page);
+  expect(back).toHaveLength(3);
+  expect(stored(back, "r3").track).toBe(2);
+});
+
+test("two tracks emptied at once close up together, in one step", async ({ page, request }) => {
+  const set = await sounds(page);
+  // Tracks one and two hold nothing but the regions that removing track
+  // three's neighbour will take, so closing has to handle both at once.
+  await writeRegions(request, [
+    regionRow("r1", set[0].hash, 0, 0, 0, 1, 0.05),
+    regionRow("r2", set[0].hash, 1, 0, 0, 1, 0.05),
+    regionRow("r3", set[0].hash, 2, 0, 0, 1, 0.05),
+    regionRow("r4", set[0].hash, 3, 0, 0, 1, 0.05),
+  ]);
+  await page.goto("/collage");
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-tracks", "4");
+
+  // Removing track one takes `r2` and closes that lane. Then carrying `r3`
+  // — now on track one — off it empties another interior lane.
+  await takeUp(page, "r2");
+  await holdTrack(page, 800);
+  await expect(page.getByTestId("collage-save")).toHaveAttribute("data-state", "saved");
+  expect(stored(await regionsOnServer(page), "r3").track).toBe(1);
+
+  await carry(page, "r3", TRACK_W * 2, 0);
+  await expect(page.getByTestId("collage-save")).toHaveAttribute("data-state", "saved");
+  const rows = await regionsOnServer(page);
+  expect(stored(rows, "r1").track).toBe(0);
+  expect(stored(rows, "r4").track).toBe(1);
+  expect(stored(rows, "r3").track).toBe(2);
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-tracks", "3");
+});
+
+test("repeat says nothing that reads as a figure", async ({ page, request }) => {
+  const set = await sounds(page);
+  await writeRegions(request, [looped(regionRow("r1", set[0].hash, 0, 0, 0, 1, 0.05), 5)]);
+  await page.goto("/collage");
+  await expect(region(page, "r1")).toHaveAttribute("data-loops", "5");
+
+  const readable = async () =>
+    page.evaluate(() => {
+      const spoken = Array.from(document.querySelectorAll("[aria-label], [title]"))
+        .map((el) => `${el.getAttribute("aria-label") ?? ""} ${el.getAttribute("title") ?? ""}`)
+        .join("\n");
+      return `${document.body.innerText}\n${spoken}`.toLowerCase();
+    });
+  const noCount = (text: string, where: string) => {
+    expect(text, `${where}: a clock`).not.toMatch(/\d+:\d\d/);
+    expect(text, `${where}: a figure`).not.toMatch(
+      /\b\d+(\.\d+)?\s?(s|sec|secs|second|seconds|ms|db|bpm|%|hz|khz)\b/,
+    );
+    expect(text, `${where}: a count of times`).not.toMatch(/\b\d+\s?(x|×|times|repeats|loops)\b/);
+  };
+
+  noCount(await readable(), "a region that repeats, at rest");
+  await enterRepeat(page, "r1");
+  noCount(await readable(), "repeat on");
+  await repeatDrag(page, "r1", HANDLE_H, false);
+  noCount(await readable(), "a repeat under a thumb");
+  await page.keyboard.press("Escape");
+  await page.mouse.up();
+  await page.getByTestId("collage-loop").click();
+  noCount(await readable(), "the transport looping");
+  await page.getByTestId("collage-loop").click();
+});
+
+test("stretching a region that repeats moves the rate, and the box follows the thumb", async ({
+  page,
+  request,
+}) => {
+  const set = await sounds(page);
+  // Three repeats of four canvas seconds: a hundred and twenty pixels of
+  // box, alone on its track, at the slow bound — so the room this stretch
+  // has is towards fast, which is up.
+  await writeRegions(request, [looped(regionRow("r1", set[0].hash, 0, 0, 0, 1, 0.25), 3)]);
+  await page.goto("/collage");
+  await expect(region(page, "r1")).toHaveAttribute("data-loops", "3");
+
+  const before = (await regionBox(page, 0)).height;
+  await enterStretch(page, "r1", "end");
+  await stretchDrag(page, "r1", "end", -40);
+  await expect(page.getByTestId("collage-save")).toHaveAttribute("data-state", "saved");
+
+  const row = stored(await regionsOnServer(page), "r1");
+  // The cut and the count are untouched; only the rate moved, and it moved
+  // to the rate that makes the *whole* box — all three repeats — the length
+  // the thumb asked for.
+  expect(row.start_s).toBe(0);
+  expect(row.end_s).toBe(1);
+  expect(loopsOf(row)).toBe(3);
+  expect(row.rate).toBeGreaterThan(0.25);
+  const after = (await regionBox(page, 0)).height;
+  expect(Math.abs(before - after - 40)).toBeLessThan(3);
+  // Still three repeats, so still two dividers, now closer together.
+  await expect(page.getByTestId("region-repeat")).toHaveCount(2);
+});
+
+test("moving a region that repeats settles past the whole of it, repeats included", async ({
+  page,
+  request,
+}) => {
+  const set = await sounds(page);
+  // `r1` repeats three times on track one: sixty canvas seconds of it.
+  await writeRegions(request, [
+    looped(regionRow("r1", set[0].hash, 1, 0, 0, 1, 0.05), 3),
+    regionRow("r2", set[0].hash, 0, 0, 0, 1, 0.05),
+  ]);
+  await page.goto("/collage");
+  await expect(page.getByTestId("region")).toHaveCount(2);
+
+  // Carry `r2` onto `r1`'s track, aiming at its middle. A track holds
+  // regions that do not overlap, and what `r1` occupies is all three of its
+  // repeats, so `r2` settles after the last one rather than inside them.
+  await carry(page, "r2", TRACK_W, 100);
+  await expect(page.getByTestId("collage-save")).toHaveAttribute("data-state", "saved");
+  const rows = await regionsOnServer(page);
+  expect(stored(rows, "r2").track).toBe(0);
+  // Track zero emptied when `r2` left it, so `r1`'s track came down to zero
+  // and both regions are on it. `r2` sits after all sixty seconds of `r1`.
+  expect(stored(rows, "r1").track).toBe(0);
+  expect(stored(rows, "r2").at_s).toBeCloseTo(60, 3);
 });

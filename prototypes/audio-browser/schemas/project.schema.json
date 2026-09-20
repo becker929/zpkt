@@ -149,6 +149,11 @@
                         "type": "number",
                         "minimum": 0
                       },
+                      "loops": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "default": 1
+                      },
                       "fade_in_s": {
                         "type": "number",
                         "minimum": 0

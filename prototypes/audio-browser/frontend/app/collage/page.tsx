@@ -23,6 +23,13 @@
  * a reload shows what was on screen. A region plays through Web Audio from a
  * bounded slice the server cuts; nothing decodes a whole file.
  *
+ * Then repeat: a mode entered by a button once a region is taken up, in which
+ * a drag *down* the region's box makes the material sound again, back to
+ * back, and a drag up takes a repeat away. The box grows to hold them and
+ * draws a divider where each one begins, so the repeats are counted by eye.
+ * Its drag runs along the box because that is the way the box grows; balance
+ * runs across it for the same reason turned sideways.
+ *
  * Then three that need no mode at all. Move: a tap takes a region up, and a
  * drag on the body of the region in hand carries it — down or up for when it
  * sounds, across for which track — while a tap on that same body still plays
@@ -32,6 +39,8 @@
  * there, which is the stamp path with a region on it instead of a sound.
  * Remove a track: its button, held, takes the track and everything on it, with
  * the column drawn in amber over the hold, and the tracks beyond it close up.
+ * A track the last region simply *leaves* closes up the same way, in the same
+ * change, so no blank column is ever left that no gesture can aim at.
  *
  * The geometry is in `lib/collage.ts` and is pure. This file is the shell
  * around it: fetches, the audio context, the pointer, and the DOM.
@@ -42,7 +51,10 @@
  * does. Playing is not a mode — every gesture stays where it was while the
  * piece sounds. An edit takes its region out of the pass being heard, with
  * one exception: a level moves under the ear, because balance is set against
- * what is already sounding.
+ * what is already sounding. Beside play is a loop, which starts the piece
+ * again from the top when it reaches the end. That is how the piece is
+ * listened to and not part of it, so it is not in the model, not in the file
+ * and not in the digest; it is remembered on the machine it was set on.
  */
 
 import Link from "next/link";
@@ -70,6 +82,7 @@ import {
   balance,
   balancedTo,
   canvasSize,
+  closeEmptyTracks,
   collageProject,
   dragOffsetPx,
   draggedTo,
@@ -78,6 +91,9 @@ import {
   grabZone,
   handleZones,
   hueFor,
+  loopStop,
+  loopedTo,
+  loopsOf,
   moveStop,
   moveTo,
   offsetOf,
@@ -85,6 +101,9 @@ import {
   regionBox,
   regionLengthS,
   removeTrack,
+  repeat,
+  repeatDividers,
+  repeatLengthS,
   snip,
   sourceAt,
   stamp,
@@ -95,6 +114,7 @@ import {
   trim,
   type End,
   type GainStop,
+  type LoopStop,
   type MoveStop,
   type StretchStop,
 } from "@/lib/collage";
@@ -222,7 +242,18 @@ interface Drag {
  * Taking another region up keeps balance on, aimed at that region, for the
  * same reason: balancing fifteen voices against each other is one job.
  */
-type Mode = "trim" | "snip" | "stretch" | "balance";
+type Mode = "trim" | "snip" | "stretch" | "balance" | "repeat";
+
+/**
+ * Where the preference that the transport loops is remembered.
+ *
+ * Looping the transport is how the piece is listened to and not part of the
+ * piece, so it is not in the model, not in the file and not in the digest. It
+ * still has to survive a reload, because the way somebody is listening does
+ * not change because a page came back: this is a setting on the machine it is
+ * being listened on.
+ */
+const LOOP_PREFERENCE = "collage.transport.loop";
 
 /**
  * What the transport is doing.
@@ -279,6 +310,20 @@ interface Balancing {
   gain: number;
   /** Which wall the thumb has run into, if either. */
   stopped: GainStop;
+}
+
+/**
+ * A repeat in progress: the region, and how many times it would sound if the
+ * thumb lifted now.
+ *
+ * The box is drawn at that count while the thumb holds it, with a divider
+ * where each repeat begins, so what is on screen is what a lift would write.
+ */
+interface Repeating {
+  id: string;
+  loops: number;
+  /** Which wall the thumb has run into, if any. */
+  stopped: LoopStop;
 }
 
 /* The picker ----------------------------------------------------------------- */
@@ -446,6 +491,7 @@ export default function CollagePage() {
   const [mode, setMode] = useState<Mode>("trim");
   const [band, setBand] = useState<SnipBand | null>(null);
   const [balancing, setBalancing] = useState<Balancing | null>(null);
+  const [repeating, setRepeating] = useState<Repeating | null>(null);
   const [moving, setMoving] = useState<Moving | null>(null);
   const [doomed, setDoomed] = useState<Doomed | null>(null);
   /**
@@ -458,6 +504,16 @@ export default function CollagePage() {
    */
   const [clipboard, setClipboard] = useState<Region | null>(null);
   const [piece, setPiece] = useState<Piece>("idle");
+  /**
+   * Whether the transport starts the piece again when it reaches the end.
+   *
+   * False on the first render whatever the machine remembers, because the
+   * server renders this page too and it knows nothing about this machine: a
+   * first render that disagreed with the server's would be a hydration
+   * mismatch, which on this project is a failed test. The preference is read
+   * a moment later, in an effect, which is a render the server never made.
+   */
+  const [loopPiece, setLoopPiece] = useState(false);
   /**
    * Which way the playhead has gone off the window, or null while it is on it.
    *
@@ -670,7 +726,13 @@ export default function CollagePage() {
           now.start_s === before.start_s &&
           now.end_s === before.end_s &&
           now.at_s === before.at_s &&
-          now.rate === before.rate;
+          now.rate === before.rate &&
+          // How many times it comes round is how long it lasts, so a repeat
+          // taken away or added under the ear leaves a voice already
+          // scheduled to sound past the region's new end, or to stop short
+          // of it. That is a change to the material's extent and it goes
+          // quiet like every other one.
+          loopsOf(now) === loopsOf(before);
         if (same && now.gain === before.gain) continue;
         if (same) {
           hearGain(before.id, now.gain);
@@ -700,14 +762,23 @@ export default function CollagePage() {
     [flush, silenceEdited],
   );
 
-  /** A change: what was there goes on the undo stack, and the new arrangement is written. */
+  /**
+   * A change: what was there goes on the undo stack, and the new arrangement
+   * is written.
+   *
+   * A track the change emptied closes up here, in the same step, so no
+   * gesture has to remember to do it and none of them can disagree. It is one
+   * change and one undo step: the stack holds the arrangement as it was,
+   * regions and numbering together, so taking it back puts both back at once.
+   * Undo itself does not come through here, which is what keeps it exact.
+   */
   const change = useCallback(
     (next: Region[]) => {
       // Read now, not inside the updater: by the time the updater runs the
       // ref already holds what replaced this.
       const was = regionsRef.current;
       setHistory((h) => [...h, was].slice(-UNDO_DEPTH));
-      commitRegions(next);
+      commitRegions(closeEmptyTracks(next));
     },
     [commitRegions],
   );
@@ -813,11 +884,20 @@ export default function CollagePage() {
    * One thing sounds at a time: a region being previewed, or a sound left
    * playing in the picker, stops before the piece begins.
    */
-  const togglePiece = useCallback(() => {
-    if (piece !== "idle") {
-      stopPiece();
-      return;
-    }
+  /**
+   * Whether a pass that plays out should be followed by another.
+   *
+   * Read from a ref rather than from the state, because the handler that asks
+   * was made when the pass was scheduled and would otherwise be holding
+   * whatever the preference was then. Turning the loop on part-way through a
+   * pass loops that pass; turning it off part-way lets it be the last one.
+   */
+  const loopPieceRef = useRef(false);
+  loopPieceRef.current = loopPiece;
+  /** Start the piece again from the top, as the loop needs it to be called. */
+  const againRef = useRef<() => void>(() => {});
+
+  const startPiece = useCallback(() => {
     const playable = regionsRef.current.filter((region) => rowsByHash.has(region.hash));
     if (playable.length === 0) {
       setPlayError("nothing here can be played: the index does not resolve these sounds.");
@@ -854,11 +934,21 @@ export default function CollagePage() {
       },
       // The piece has played out. The line goes back to the top by leaving:
       // there is nothing on the canvas again but the regions.
+      //
+      // Unless the transport is looping, in which case it goes back to the
+      // top by starting again. That is a fresh pass and not a continuation:
+      // every region's first piece is fetched again, so there is a breath
+      // between the end and the next beginning and the transport says
+      // `loading…` during it. Looping the transport is how the piece is
+      // listened to, so a breath at the seam is a cost the listening pays;
+      // a region's own repeats have no seam at all, which is the difference
+      // between a thing in the piece and a thing around it.
       onEnd: () => {
         elapsedRef.current = 0;
         followRef.current = null;
         setFollow(null);
         setPiece("idle");
+        if (loopPieceRef.current && regionsRef.current.length > 0) againRef.current();
       },
       onError: (message) => {
         elapsedRef.current = 0;
@@ -881,7 +971,44 @@ export default function CollagePage() {
       return;
     }
     setPiece("loading");
-  }, [piece, player, rowsByHash, sayTrouble, stopPiece, stopRegion]);
+  }, [player, rowsByHash, sayTrouble, stopRegion]);
+  againRef.current = startPiece;
+
+  /** Play the whole collage from the top, or stop it. */
+  const togglePiece = useCallback(() => {
+    if (piece !== "idle") {
+      stopPiece();
+      return;
+    }
+    startPiece();
+  }, [piece, startPiece, stopPiece]);
+
+  /**
+   * Remember the transport's loop, and read it back on the next visit.
+   *
+   * A machine that cannot store it — a private window that refuses, an old
+   * WebView — loses the setting and nothing else: the toggle still works for
+   * as long as the page is open, which is what it is for.
+   */
+  useEffect(() => {
+    try {
+      if (window.localStorage.getItem(LOOP_PREFERENCE) === "on") setLoopPiece(true);
+    } catch {
+      /* no storage on this machine */
+    }
+  }, []);
+
+  const toggleLoopPiece = useCallback(() => {
+    setLoopPiece((was) => {
+      const next = !was;
+      try {
+        window.localStorage.setItem(LOOP_PREFERENCE, next ? "on" : "off");
+      } catch {
+        /* no storage on this machine */
+      }
+      return next;
+    });
+  }, []);
 
   // Leaving the view stops the region and the piece, and releases both audio
   // contexts, so nothing keeps sounding from a view that is gone. The shared
@@ -1397,7 +1524,7 @@ export default function CollagePage() {
    */
   const startMove = useCallback((event: React.PointerEvent<HTMLDivElement>, region: Region) => {
     // One gesture per thumb, and never on top of another thumb's.
-    if (moveRef.current || balanceRef.current || snipRef.current || dragRef.current) return;
+    if (moveRef.current || balanceRef.current || repeatRef.current || snipRef.current || dragRef.current) return;
     const canvas = canvasRef.current;
     try {
       event.currentTarget.setPointerCapture(event.pointerId);
@@ -1513,7 +1640,7 @@ export default function CollagePage() {
 
   const startBalance = useCallback((event: React.PointerEvent<HTMLDivElement>, region: Region) => {
     // One balance at a time, and never on top of another gesture's thumb.
-    if (balanceRef.current || snipRef.current || dragRef.current) return;
+    if (balanceRef.current || repeatRef.current || snipRef.current || dragRef.current) return;
     const canvas = canvasRef.current;
     event.preventDefault();
     event.stopPropagation();
@@ -1541,6 +1668,99 @@ export default function CollagePage() {
       gainFromPointer();
     },
     [gainFromPointer],
+  );
+
+  /* Repeating ---------------------------------------------------------------- */
+
+  /**
+   * The repeat, as the pointer handlers see it.
+   *
+   * Only `y` is read: a repeat is added at the bottom of the box, so the
+   * gesture runs the way the box grows. A thumb's height of travel is one
+   * more repeat, the same movement on a ten-pixel region and on a nine
+   * thousand pixel one. The canvas's own scroll is taken off, so the count
+   * follows the thumb across the box rather than across the glass.
+   */
+  const repeatRef = useRef<{
+    region: Region;
+    pointerId: number;
+    originY: number;
+    originScroll: number;
+    lastY: number;
+    /** How many times the region would sound if the thumb lifted now. */
+    loops: number;
+  } | null>(null);
+
+  const loopsFromPointer = useCallback(() => {
+    const r = repeatRef.current;
+    const canvas = canvasRef.current;
+    if (!r) return;
+    const dy = r.lastY - r.originY + ((canvas?.scrollTop ?? 0) - r.originScroll);
+    const wanted = loopedTo(r.region, dy);
+    r.loops = loopsOf(repeat(r.region, regionsRef.current, wanted));
+    setRepeating({
+      id: r.region.id,
+      loops: r.loops,
+      stopped: loopStop(r.region, regionsRef.current, wanted),
+    });
+  }, []);
+
+  /**
+   * Let go of a repeat. Applied, it is one change and one undo step, exactly
+   * as a stretch or a balance is; the mode stays on, because a count is found
+   * by going past it and coming back, and because the repeats being counted
+   * are only audible on the next play. A drag that left the count where it
+   * was, or one the browser took the pointer away from, writes nothing.
+   */
+  const endRepeat = useCallback(
+    (apply: boolean) => {
+      const r = repeatRef.current;
+      repeatRef.current = null;
+      setRepeating(null);
+      if (!apply || !r) return;
+      const was = regionsRef.current.find((region) => region.id === r.region.id);
+      if (!was || loopsOf(was) === r.loops) return;
+      // One write per drag, carrying the whole arrangement. Only `loops`
+      // moves: the cut, the rate, the level and the moment stay as they are.
+      change(regionsRef.current.map((region) => (region.id === r.region.id ? { ...region, loops: r.loops } : region)));
+    },
+    [change],
+  );
+
+  const startRepeat = useCallback((event: React.PointerEvent<HTMLDivElement>, region: Region) => {
+    // One repeat at a time, and never on top of another gesture's thumb.
+    if (repeatRef.current || moveRef.current || balanceRef.current || snipRef.current || dragRef.current) return;
+    const canvas = canvasRef.current;
+    event.preventDefault();
+    event.stopPropagation();
+    try {
+      event.currentTarget.setPointerCapture(event.pointerId);
+    } catch {
+      /* a pointer that has already gone */
+    }
+    repeatRef.current = {
+      region,
+      pointerId: event.pointerId,
+      originY: event.clientY,
+      originScroll: canvas?.scrollTop ?? 0,
+      lastY: event.clientY,
+      loops: loopsOf(region),
+    };
+  }, []);
+
+  const moveRepeat = useCallback(
+    (event: React.PointerEvent<HTMLDivElement>) => {
+      const r = repeatRef.current;
+      if (!r || r.pointerId !== event.pointerId) return;
+      event.preventDefault();
+      r.lastY = event.clientY;
+      loopsFromPointer();
+      // No edge scroll. The canvas walking under a still thumb would add a
+      // repeat a frame, with nothing moving to say so; a drag reaches the
+      // edge of the screen and stops, and the next drag carries on from the
+      // count the last one left.
+    },
+    [loopsFromPointer],
   );
 
   /* Removing a track --------------------------------------------------------- */
@@ -1610,6 +1830,7 @@ export default function CollagePage() {
       if (dragRef.current) endDrag(false);
       if (snipRef.current) endSnip(false);
       if (balanceRef.current) endBalance(false);
+      if (repeatRef.current) endRepeat(false);
       if (moveRef.current) endMove(false);
       const track = region.track;
       const hold = new Hold(() =>
@@ -1620,7 +1841,7 @@ export default function CollagePage() {
       setDoomed({ track, armed: false });
       setHint(null);
     },
-    [endBalance, endDrag, endMove, endSnip, selected],
+    [endBalance, endDrag, endMove, endRepeat, endSnip, selected],
   );
 
   /** The thumb is still on the button. Moving it a tap's worth starts the wait again. */
@@ -1658,12 +1879,13 @@ export default function CollagePage() {
       if (dragRef.current) endDrag(false);
       if (snipRef.current) endSnip(false);
       if (balanceRef.current) endBalance(false);
+      if (repeatRef.current) endRepeat(false);
       if (moveRef.current) endMove(false);
       setMode(next);
       // Whatever snip had to say is over with it.
       if (next === "trim") setHint((was) => (was === SNIP_HOLD_HINT ? null : was));
     },
-    [endBalance, endDrag, endMove, endSnip],
+    [endBalance, endDrag, endMove, endRepeat, endSnip],
   );
 
   // Snip is a gesture on a region. With none left, there is nothing for it
@@ -1697,6 +1919,14 @@ export default function CollagePage() {
     selected !== null && regions.some((r) => r.id === selected.id && rowsByHash.has(r.hash));
   useEffect(() => {
     if (mode === "balance" && !regionUp) setMode("trim");
+  }, [mode, regionUp]);
+
+  // Repeat is a gesture on a whole region too, and it asks the same thing:
+  // one taken up, nothing more. It leaves the same way balance does, and it
+  // stays on across taking another region up, because setting how many times
+  // each of several regions comes round is one job.
+  useEffect(() => {
+    if (mode === "repeat" && !regionUp) setMode("trim");
   }, [mode, regionUp]);
 
   // Copying a region and removing its track ask nothing of the material: one
@@ -1751,6 +1981,7 @@ export default function CollagePage() {
       if (dragRef.current) endDrag(false);
       if (snipRef.current) endSnip(false);
       if (balanceRef.current) endBalance(false);
+      if (repeatRef.current) endRepeat(false);
       if (moveRef.current) endMove(false);
       if (trackHoldRef.current) endTrackHold(false);
     };
@@ -1759,6 +1990,7 @@ export default function CollagePage() {
       if (dragRef.current) endDrag(false);
       if (snipRef.current) endSnip(false);
       if (balanceRef.current) endBalance(false);
+      if (repeatRef.current) endRepeat(false);
       if (moveRef.current) endMove(false);
       if (trackHoldRef.current) endTrackHold(false);
       setClipboard(null);
@@ -1770,7 +2002,7 @@ export default function CollagePage() {
       window.removeEventListener("resize", onResize);
       window.removeEventListener("keydown", onKey);
     };
-  }, [endBalance, endDrag, endMove, endSnip, endTrackHold]);
+  }, [endBalance, endDrag, endMove, endRepeat, endSnip, endTrackHold]);
 
   /**
    * A keyboard nudge: a tenth of a second, or a whole one with shift. In
@@ -1785,7 +2017,10 @@ export default function CollagePage() {
         const step = (big ? 1 : 0.1) * (end === "end" ? direction : -direction);
         next = stretch(region, regionsRef.current, end, regionLengthS(region) + step);
       } else {
-        const step = (big ? 1 : 0.1) * rate * direction;
+        // A tenth of a second of the *box*, so the nudge is the same distance
+        // on screen whether or not the region repeats: a cut on a region that
+        // sounds four times grows the box four times over.
+        const step = ((big ? 1 : 0.1) * rate * direction) / loopsOf(region);
         const t = (end === "start" ? region.start_s : region.end_s) + step;
         next = trim(region, regionsRef.current, rowsByHash.get(region.hash)?.duration_s ?? null, end, t);
       }
@@ -1852,9 +2087,15 @@ export default function CollagePage() {
   // lift would put it, not the place the file still has it. The canvas is
   // sized from that, so a region carried onto the column beside the last
   // track has somewhere to be drawn while the thumb holds it there.
-  const shownRegions = moving
-    ? regions.map((r) => (r.id === moving.id ? { ...r, track: moving.track, at_s: moving.at_s } : r))
-    : regions;
+  //
+  // The same goes for a region under a repeat: it is drawn at the count a
+  // lift would write, so the box and its dividers grow under the thumb and
+  // the canvas has room for them.
+  const shownRegions = regions.map((r) => {
+    if (moving && r.id === moving.id) return { ...r, track: moving.track, at_s: moving.at_s };
+    if (repeating && r.id === repeating.id) return { ...r, loops: repeating.loops };
+    return r;
+  });
   const size = canvasSize(shownRegions);
   const tracks = trackCount(regions);
   const unresolved = regions.filter((r) => !rowsByHash.has(r.hash)).length;
@@ -1888,6 +2129,8 @@ export default function CollagePage() {
       data-mode={mode}
       data-snipping={band !== null}
       data-balancing={balancing !== null}
+      data-repeating={repeating ? repeating.id : ""}
+      data-piece-loop={loopPiece ? "on" : "off"}
       data-moving={moving ? moving.id : ""}
       data-doomed={doomed ? (doomed.armed ? "armed" : "holding") : ""}
       data-clipboard={clipboard ? clipboard.id : ""}
@@ -1973,7 +2216,24 @@ export default function CollagePage() {
 
             {regions.map((region) => {
               const shifting = moving && moving.id === region.id ? moving : null;
-              const box = regionBox(shifting ? { ...region, track: shifting.track, at_s: shifting.at_s } : region);
+              // How many times this block sounds, as it is drawn: what a lift
+              // would write while a repeat is under way, and what the file
+              // holds otherwise.
+              const looping = repeating && repeating.id === region.id ? repeating : null;
+              const shownLoops = looping ? looping.loops : loopsOf(region);
+              const drawn: Region = {
+                ...region,
+                loops: shownLoops,
+                ...(shifting ? { track: shifting.track, at_s: shifting.at_s } : {}),
+              };
+              const box = regionBox(drawn);
+              // Where each repeat after the first begins, down the box. Empty
+              // for a region that sounds once, which is every region until
+              // this gesture is used on it.
+              const dividers = repeatDividers(drawn);
+              // One repeat's height: what the waveform is drawn at, and what
+              // a snip band is repeated down the box by.
+              const repeatPx = repeatLengthS(region) * PX_PER_S;
               const row = rowsByHash.get(region.hash);
               const source = sources.get(region.hash);
               const playing = playingId === region.id;
@@ -1991,6 +2251,9 @@ export default function CollagePage() {
               // was pressed with that one in hand. Its grab is where the drag
               // across begins.
               const balanceable = mode === "balance" && isSelectedRegion && row !== undefined;
+              // Repeat is on the region taken up, as balance is, and its
+              // drag runs down the grab rather than across it.
+              const repeatable = mode === "repeat" && isSelectedRegion && row !== undefined;
               // Move is not a mode and asks nothing of the material, but it
               // is a gesture on the region *in hand*, as stretch, balance,
               // copy and removing a track all are. A thumb on a region's body
@@ -2041,6 +2304,7 @@ export default function CollagePage() {
                   data-playing={playing}
                   data-selected={isSelectedRegion}
                   data-gain={shownGain}
+                  data-loops={shownLoops}
                   data-shifting={shifting !== null}
                   aria-label={row ? `${playing ? "stop" : "play"} ${row.filename}` : name}
                   aria-pressed={playing}
@@ -2071,6 +2335,7 @@ export default function CollagePage() {
                     if (
                       moveRef.current ||
                       balanceRef.current ||
+                      repeatRef.current ||
                       snipRef.current ||
                       dragRef.current ||
                       trackHoldRef.current
@@ -2082,6 +2347,7 @@ export default function CollagePage() {
                     const onGrab = (event.target as HTMLElement).dataset.testid === "region-grab";
                     if (snippable && onGrab) startSnip(event, region);
                     if (balanceable && onGrab) startBalance(event, region);
+                    if (repeatable && onGrab) startRepeat(event, region);
                     // No mode: the body is free, so a thumb on it is already a
                     // move waiting to see whether it travels. A lift where it
                     // landed is still the tap that plays the region.
@@ -2090,6 +2356,7 @@ export default function CollagePage() {
                   onPointerMove={(event) => {
                     moveSnip(event);
                     moveBalance(event);
+                    moveRepeat(event);
                     whileMoving(event);
                   }}
                   onPointerUp={(event) => {
@@ -2116,6 +2383,20 @@ export default function CollagePage() {
                       const movedAcross = Math.abs(event.clientX - b.originX + scrolledX) >= TAP_SLOP;
                       endBalance(movedAcross);
                       if (movedAcross) {
+                        dropTap();
+                        return;
+                      }
+                    }
+                    const r = repeatRef.current;
+                    if (r && r.pointerId === event.pointerId) {
+                      // Down the box is the count and across it is nothing,
+                      // so only the travel along decides whether this was a
+                      // drag or a tap. A thumb that went nowhere plays the
+                      // region and leaves its count exactly where it was.
+                      const scrolledY = (canvasRef.current?.scrollTop ?? 0) - r.originScroll;
+                      const movedAlong = Math.abs(event.clientY - r.originY + scrolledY) >= TAP_SLOP;
+                      endRepeat(movedAlong);
+                      if (movedAlong) {
                         dropTap();
                         return;
                       }
@@ -2148,6 +2429,7 @@ export default function CollagePage() {
                     event.stopPropagation();
                     if (snipRef.current?.pointerId === event.pointerId) endSnip(false);
                     if (balanceRef.current?.pointerId === event.pointerId) endBalance(false);
+                    if (repeatRef.current?.pointerId === event.pointerId) endRepeat(false);
                     if (moveRef.current?.pointerId === event.pointerId) endMove(false);
                     dropTap();
                   }}
@@ -2186,7 +2468,8 @@ export default function CollagePage() {
                       // never scrolling. The canvas is scrolled from the
                       // blank and from the flanks either side of the grab,
                       // which is where a thumb aiming to scroll a track goes.
-                      touchAction: snippable || balanceable || movable ? "none" : undefined,
+                      touchAction:
+                        snippable || balanceable || repeatable || movable ? "none" : undefined,
                     }}
                     aria-hidden="true"
                   />
@@ -2200,8 +2483,22 @@ export default function CollagePage() {
                       spans={source.spans}
                       width={box.width}
                       height={box.height}
+                      loops={shownLoops}
                     />
                   ) : null}
+
+                  {/* Where each repeat begins. A line, not a count: the eye
+                      reads how many times the material comes round off the
+                      block itself, and nothing anywhere says the number. */}
+                  {dividers.map((at, n) => (
+                    <span
+                      key={n}
+                      className="region-repeat"
+                      data-testid="region-repeat"
+                      style={{ top: at }}
+                      aria-hidden="true"
+                    />
+                  ))}
                   {playing ? (
                     <span className="region-progress" style={{ height: `${progress * 100}%` }} aria-hidden="true" />
                   ) : null}
@@ -2238,16 +2535,27 @@ export default function CollagePage() {
                       with a line at each end of the span. The band is the
                       whole of what a lift would remove, including any run to
                       an edge, so a region about to vanish is striped whole. */}
-                  {snipBand ? (
-                    <span
-                      className={`region-snip${snipBand.whole ? " whole" : ""}${snipBand.armed ? " armed" : ""}`}
-                      data-testid="region-snip"
-                      data-whole={snipBand.whole}
-                      data-armed={snipBand.armed}
-                      style={{ top: snipBand.top, height: snipBand.height, ["--hold-ms" as string]: `${HOLD_MS}ms` }}
-                      aria-hidden="true"
-                    />
-                  ) : null}
+                  {/* A snip is a cut in the material, and every repeat is
+                      that same material, so the band appears in each of them
+                      at the same place: what goes, goes from all of them. */}
+                  {snipBand
+                    ? Array.from({ length: shownLoops }, (_, n) => (
+                        <span
+                          key={n}
+                          className={`region-snip${snipBand.whole ? " whole" : ""}${snipBand.armed ? " armed" : ""}`}
+                          data-testid="region-snip"
+                          data-whole={snipBand.whole}
+                          data-armed={snipBand.armed}
+                          data-repeat={n}
+                          style={{
+                            top: snipBand.top + n * repeatPx,
+                            height: snipBand.height,
+                            ["--hold-ms" as string]: `${HOLD_MS}ms`,
+                          }}
+                          aria-hidden="true"
+                        />
+                      ))
+                    : null}
 
                   {/* What removing the track would take: this region, whole,
                       in the same band a whole-region snip paints. One
@@ -2268,12 +2576,12 @@ export default function CollagePage() {
                       end, raised over the neighbours. A thumb on one drags it
                       straight away, and a tap on one selects it. In stretch
                       mode only the selected one shows: the other end is the
-                      anchor, and a handle on it would say it could move. Snip
-                      and balance are gestures on the box itself, so neither
-                      draws a handle to reach past. A region cut from a sound
+                      anchor, and a handle on it would say it could move. Snip,
+                      balance and repeat are gestures on the box itself, so
+                      none of them draws a handle to reach past. A region cut from a sound
                       the index cannot resolve has nothing to trim against, and
                       gets none. */}
-                  {row && isSelectedRegion && mode !== "snip" && mode !== "balance"
+                  {row && isSelectedRegion && mode !== "snip" && mode !== "balance" && mode !== "repeat"
                     ? ([zones.start, zones.end] as const)
                         .filter((zone) => mode === "trim" || zone.end === selection?.end)
                         .map((zone) => {
@@ -2424,6 +2732,32 @@ export default function CollagePage() {
               along the track is when it sounds · across is which track
             </span>
           </div>
+        ) : mode === "repeat" ? (
+          <button
+            type="button"
+            className={`collage-mode repeat${repeating?.stopped ? " stopped" : ""}`}
+            data-testid="collage-mode"
+            data-bound={repeating?.stopped ?? ""}
+            onClick={() => switchMode("trim")}
+          >
+            {/* How many times it would come round is on the block, as
+                dividers. This says only whether the drag got what it asked
+                for, and never a count. */}
+            <span className="collage-choose-name">
+              {repeating?.stopped === "once"
+                ? "it has to sound at least once"
+                : repeating?.stopped === "room"
+                  ? "no more room on the track"
+                  : repeating?.stopped === "most"
+                    ? "as many times as it goes"
+                    : repeating
+                      ? "let go to keep it"
+                      : "repeat is on"}
+            </span>
+            <span className="collage-choose-sub">
+              drag down the region to add a repeat, up to take one away · tap here to stop
+            </span>
+          </button>
         ) : mode === "balance" ? (
           <button
             type="button"
@@ -2566,6 +2900,30 @@ export default function CollagePage() {
             {piece === "loading" ? "loading…" : piece === "playing" ? "on" : "off"}
           </span>
         </button>
+        {/* Looping the transport, which is how the piece is listened to and
+            not part of it: nothing about the arrangement changes, nothing is
+            written, and the commit freezes exactly what it would have frozen
+            with this off. It sits beside play because that is what it is
+            about, and it is remembered on this machine, so coming back to a
+            piece you were looping loops it again. It is never disabled: the
+            way somebody wants to listen is theirs to set before there is
+            anything to listen to. */}
+        <button
+          type="button"
+          className={`collage-loop${loopPiece ? " on" : ""}`}
+          data-testid="collage-loop"
+          data-state={loopPiece ? "on" : "off"}
+          aria-pressed={loopPiece}
+          title={
+            loopPiece
+              ? "the piece starts again from the top when it reaches the end"
+              : "loop: start the piece again from the top when it reaches the end"
+          }
+          onClick={toggleLoopPiece}
+        >
+          loop
+          <span className="collage-snip-sub">{loopPiece ? "on" : "off"}</span>
+        </button>
         <button
           type="button"
           className={`collage-snip${mode === "snip" ? " on" : ""}`}
@@ -2600,7 +2958,7 @@ export default function CollagePage() {
             them on that one region, and no row of dead buttons when there is
             nothing for them to be about. */}
         {takenUp ? (
-        <div className="collage-bar-row" data-testid="collage-in-hand">
+        <div className="collage-bar-row in-hand" data-testid="collage-in-hand">
         {/* Stretch needs a handle: it is the end the box grows or shrinks
             from. Until one is selected the button refuses, and says what
             to do first. */}
@@ -2638,6 +2996,27 @@ export default function CollagePage() {
         >
           balance
           <span className="collage-snip-sub">{mode === "balance" ? "on" : "off"}</span>
+        </button>
+        {/* Repeat needs a region, as balance does, and its drag runs down the
+            block rather than across it: down the screen is time, and every
+            repeat is added at the bottom, so the box grows the way the thumb
+            goes. A thumb's height is one more time round, the same movement
+            on a ten-pixel block and on a nine-thousand-pixel one. */}
+        <button
+          type="button"
+          className={`collage-repeat${mode === "repeat" ? " on" : ""}`}
+          data-testid="collage-repeat"
+          aria-pressed={mode === "repeat"}
+          disabled={!regionUp}
+          title={
+            regionUp
+              ? "repeat: drag down the region to make it sound again, back to back"
+              : "repeat: tap a region first"
+          }
+          onClick={() => switchMode(mode === "repeat" ? "trim" : "repeat")}
+        >
+          repeat
+          <span className="collage-snip-sub">{mode === "repeat" ? "on" : "off"}</span>
         </button>
         {/* Copy takes the region taken up and holds it, ready for the next tap
             on the blank. Nothing is written by pressing it; what changes is

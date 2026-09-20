@@ -22,6 +22,14 @@
  * and the next is scheduled that far on. The pieces stay gapless because
  * their start times are added up in played time, not read off a clock.
  *
+ * A region that repeats is that same walk, `loops` times over. The moment
+ * each piece begins is carried straight across a repeat boundary, so the
+ * first piece of a repeat starts exactly where the last piece of the one
+ * before it stops — the arithmetic that joins two pieces inside one pass,
+ * unchanged. There is no second scheduler and nothing is restarted, which is
+ * why a repeat boundary cannot gap and cannot fire twice. The pieces of a
+ * short cut are kept between passes, so a loop is not a request a second.
+ *
  * Every piece goes out through a gain of its own, at the region's `gain`. A
  * balance made while the region sounds ramps those gains rather than waiting
  * for the next play, because balance is set by ear against what is already
@@ -72,12 +80,34 @@ const LEAD_MIN_S = 10;
  */
 const LATE_S = 0.1;
 
+/**
+ * Pieces of one pass kept, so a repeat does not fetch what it already has.
+ *
+ * A region that repeats plays the same slices again, and again: without this
+ * a one-second loop asks the server for the same second once a second, for
+ * as long as it goes on. Kept only while the whole cut is small enough that
+ * holding it costs less than a piece of a long region does — four pieces is a
+ * minute of source, which is longer than any phrase worth repeating and far
+ * short of the fifteen-minute sources the chunking exists for. A longer
+ * region fetches each pass as it comes, exactly as it did before there were
+ * repeats.
+ */
+const LOOP_CACHE_PIECES = 4;
+
 export interface SliceRegion {
   hash: string;
   start_s: number;
   end_s: number;
   rate: number;
   gain: number;
+  /**
+   * How many times the material sounds, back to back. Absent is once.
+   *
+   * The repeats are the same pieces scheduled again, joined the way the
+   * pieces inside one pass are joined: each begins exactly where the one
+   * before it ends, in played time, so a repeat boundary is not a seam.
+   */
+  loops?: number;
 }
 
 export interface SliceHandlers {
@@ -271,7 +301,12 @@ export class SlicePlayer {
 
     const rate = region.rate > 0 ? region.rate : 1;
     this.level = region.gain;
-    const lengthS = Math.max(0, region.end_s - region.start_s) / rate;
+    const loops =
+      typeof region.loops === "number" && Number.isInteger(region.loops) && region.loops >= 1
+        ? region.loops
+        : 1;
+    const cut = Math.max(0, region.end_s - region.start_s);
+    const lengthS = (cut / rate) * loops;
     let startedAt: number | null = null;
     let nextAt = 0;
     let finished = false;
@@ -315,66 +350,93 @@ export class SlicePlayer {
     // The first piece, when the caller has already fetched and decoded it.
     let primed = options?.first ?? null;
 
+    // The pieces of one pass, kept for the repeats that follow it. Only for a
+    // cut short enough to be worth holding; a long region re-fetches.
+    const held = new Map<number, AudioBuffer>();
+    const keeping = loops > 1 && cut <= CHUNK_S * LOOP_CACHE_PIECES;
+
     const run = async () => {
-      let cursor = region.start_s;
-      while (cursor < region.end_s) {
-        const to = pieceEnd(region, cursor);
-        let buffer: AudioBuffer;
-        if (primed) {
-          buffer = primed;
-          primed = null;
-        } else {
-          buffer = await fetchPiece(ctx, region.hash, cursor, to, abort.signal);
-        }
-        if (token !== this.token) return;
+      // Every repeat is the same walk through the same pieces. The moment
+      // each piece starts at is `nextAt`, which is carried across the
+      // boundary untouched: the first piece of a repeat begins exactly where
+      // the last piece of the one before it ends, in played time, which is
+      // the same arithmetic that joins two pieces inside one pass. There is
+      // nothing special about a repeat boundary, and that is why there is no
+      // seam at one.
+      for (let pass = 0; pass < loops; pass += 1) {
+        let cursor = region.start_s;
+        while (cursor < region.end_s) {
+          const to = pieceEnd(region, cursor);
+          let buffer: AudioBuffer;
+          const kept = held.get(cursor);
+          if (primed) {
+            buffer = primed;
+            primed = null;
+            if (keeping) held.set(cursor, buffer);
+          } else if (kept) {
+            // A buffer is immutable, so every repeat may sound the same one.
+            buffer = kept;
+          } else {
+            buffer = await fetchPiece(ctx, region.hash, cursor, to, abort.signal);
+            if (keeping) held.set(cursor, buffer);
+          }
+          if (token !== this.token) return;
 
-        const source = ctx.createBufferSource();
-        source.buffer = buffer;
-        source.playbackRate.value = rate;
-        const gain = ctx.createGain();
-        gain.gain.value = this.level;
-        source.connect(gain);
-        gain.connect(out);
+          const source = ctx.createBufferSource();
+          source.buffer = buffer;
+          source.playbackRate.value = rate;
+          const gain = ctx.createGain();
+          gain.gain.value = this.level;
+          source.connect(gain);
+          gain.connect(out);
 
-        if (startedAt === null) {
-          // A short lead so the first piece is not scheduled in the past,
-          // unless the caller named the moment this region begins at.
-          nextAt = options?.startAt ?? ctx.currentTime + 0.05;
-          startedAt = nextAt;
-          if (options?.progress !== false) this.frame = requestAnimationFrame(tick);
-        }
-        // A piece whose moment has already gone is never scheduled into it.
-        // Web Audio answers a start time in the past by sounding the piece at
-        // once, so a fetch that took longer than the lead would put this piece
-        // on top of the one still sounding — and then every piece after it,
-        // each arriving quickly and each also overdue, until the region was
-        // several copies of itself at once. It starts from the clock instead,
-        // and the rest of the region follows it: the region runs behind, and
-        // it stays one sound.
-        const at = Math.max(nextAt, ctx.currentTime);
-        if (at > nextAt + LATE_S && !late) {
-          late = true;
-          handlers.onLate?.();
-        }
-        source.start(at);
-        // The piece lasts its own length divided by the rate, and the next
-        // one begins exactly then.
-        nextAt = at + buffer.duration / rate;
-        this.voices.push({ source, gain });
-        cursor = to;
+          if (startedAt === null) {
+            // A short lead so the first piece is not scheduled in the past,
+            // unless the caller named the moment this region begins at.
+            nextAt = options?.startAt ?? ctx.currentTime + 0.05;
+            startedAt = nextAt;
+            if (options?.progress !== false) this.frame = requestAnimationFrame(tick);
+          }
+          // A piece whose moment has already gone is never scheduled into it.
+          // Web Audio answers a start time in the past by sounding the piece at
+          // once, so a fetch that took longer than the lead would put this piece
+          // on top of the one still sounding — and then every piece after it,
+          // each arriving quickly and each also overdue, until the region was
+          // several copies of itself at once. It starts from the clock instead,
+          // and the rest of the region follows it: the region runs behind, and
+          // it stays one sound.
+          const at = Math.max(nextAt, ctx.currentTime);
+          if (at > nextAt + LATE_S && !late) {
+            late = true;
+            handlers.onLate?.();
+          }
+          source.start(at);
+          // The piece lasts its own length divided by the rate, and the next
+          // one begins exactly then.
+          nextAt = at + buffer.duration / rate;
+          this.voices.push({ source, gain });
+          cursor = to;
 
-        if (cursor >= region.end_s) {
-          source.onended = () => {
-            release(source);
-            finish();
-          };
-          return;
-        }
-        source.onended = () => release(source);
-        // Hold back rather than fetching the whole region up front. Two pieces
-        // ahead is enough to cover a slow tailnet and keeps memory bounded.
-        while (token === this.token && nextAt - ctx.currentTime > lead) {
-          await sleep(200);
+          // The last piece of the last repeat is what ends the region. Every
+          // other last piece is the end of a pass and not of anything, so it is
+          // let go of like any other and the walk begins again from the top of
+          // the cut, at the moment this one stops.
+          if (cursor >= region.end_s && pass === loops - 1) {
+            source.onended = () => {
+              release(source);
+              finish();
+            };
+            return;
+          }
+          source.onended = () => release(source);
+          // Hold back rather than fetching the whole region up front. Two pieces
+          // ahead is enough to cover a slow tailnet and keeps memory bounded.
+          // A repeat waits here too: a short loop would otherwise schedule every
+          // one of its passes at once, because they cost no fetch at all.
+          while (token === this.token && nextAt - ctx.currentTime > lead) {
+            await sleep(200);
+          }
+          if (token !== this.token) return;
         }
       }
     };

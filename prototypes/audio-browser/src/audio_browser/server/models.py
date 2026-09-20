@@ -649,9 +649,12 @@ class RegionRequest(BaseModel):
     """One region of a collage, as the client sends it.
 
     Every second here is internal. The interface draws it as a width or a
-    position and never prints it. ``rate``, ``gain`` and the fades default to
-    "untouched" so that stamping a sound is one hash, one track and three
-    seconds; the document on disk always carries all ten keys.
+    position and never prints it. ``rate``, ``gain``, ``loops`` and the fades
+    default to "untouched" so that stamping a sound is one hash, one track and
+    three seconds; the document on disk always carries all eleven keys.
+
+    ``loops`` arrived after the first collages were written, so a document
+    without it is still valid and means one. See ``REGION_DEFAULTS``.
     """
 
     id: str = Field(min_length=1, max_length=MAX_REGION_ID_LENGTH)
@@ -662,6 +665,7 @@ class RegionRequest(BaseModel):
     at_s: float = Field(ge=0)
     rate: float = Field(default=1.0, gt=0)
     gain: float = Field(default=1.0, ge=0)
+    loops: int = Field(default=1, ge=1)
     fade_in_s: float = Field(default=0.0, ge=0)
     fade_out_s: float = Field(default=0.0, ge=0)
 

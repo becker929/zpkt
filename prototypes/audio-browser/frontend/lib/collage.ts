@@ -98,9 +98,34 @@ export function trackCount(regions: readonly Region[]): number {
   return count;
 }
 
-/** How long a region sounds for, after its rate. */
-export function regionLengthS(region: Pick<Region, "start_s" | "end_s" | "rate">): number {
+/**
+ * How many times a region's material sounds. One for a region written before
+ * loops existed, or by a tool that wrote something that is not a count.
+ */
+export function loopsOf(region: Partial<Pick<Region, "loops">>): number {
+  const loops = region.loops;
+  return typeof loops === "number" && Number.isInteger(loops) && loops >= 1 ? loops : 1;
+}
+
+/**
+ * How long one repeat of a region's material sounds for, after its rate.
+ *
+ * This is the material, once. Trim, snip and the waveform all work in this
+ * length, because a repeat is the same material coming round again and there
+ * is only ever one cut to change.
+ */
+export function repeatLengthS(region: Pick<Region, "start_s" | "end_s" | "rate">): number {
   return Math.max(0, region.end_s - region.start_s) / (region.rate > 0 ? region.rate : 1);
+}
+
+/**
+ * How long a region sounds for altogether: one repeat, `loops` times.
+ *
+ * This is the footprint — what the box is tall, what a neighbour on the track
+ * has to sit clear of, and how far the piece runs on because of this region.
+ */
+export function regionLengthS(region: Pick<Region, "start_s" | "end_s" | "rate"> & Partial<Pick<Region, "loops">>): number {
+  return repeatLengthS(region) * loopsOf(region);
 }
 
 /** When the last region stops sounding. Zero for an empty collage. */
@@ -225,9 +250,9 @@ function place(regions: readonly Region[], material: Material, x: number, y: num
 /**
  * A new region: the whole of one sound, stamped where the tap landed.
  *
- * The cut is the whole source until it is trimmed. Rate, gain and the fades
- * are at their untouched values, present from the first stamp so no later
- * stage has to ask whether an old region carries them.
+ * The cut is the whole source until it is trimmed. Rate, gain, the repeat
+ * count and the fades are at their untouched values, present from the first
+ * stamp so no later stage has to ask whether an old region carries them.
  */
 export function stamp(
   regions: readonly Region[],
@@ -239,7 +264,7 @@ export function stamp(
   const length = Math.max(duration_s, 0.001);
   return place(
     regions,
-    { hash, start_s: 0, end_s: round3(length), rate: 1, gain: 1, fade_in_s: 0, fade_out_s: 0 },
+    { hash, start_s: 0, end_s: round3(length), rate: 1, gain: 1, loops: 1, fade_in_s: 0, fade_out_s: 0 },
     x,
     y,
   );
@@ -304,10 +329,10 @@ function lastTrackFor(region: Region, regions: readonly Region[]): number {
  * overlap, so a move onto a neighbour settles after it, which is the rule
  * stamping has always used.
  *
- * A track the region leaves is not closed up. Nothing is drawn per track, so
- * an emptied one is blank canvas and not an empty lane; closing it would
- * carry every region beyond it sideways, which is a change to regions nobody
- * touched. Removing the track is the gesture that closes it.
+ * Where the region lands is all this decides. A track the region was the last
+ * thing on closes up when the move is written, which is `closeEmptyTracks`
+ * and belongs to the same change; here there is still a region on it, because
+ * the thumb has not let go.
  */
 export function moveTo(region: Region, regions: readonly Region[], dx: number, dy: number): Region {
   if (!Number.isFinite(dx) || !Number.isFinite(dy)) return region;
@@ -345,9 +370,46 @@ export function moveStop(region: Region, regions: readonly Region[], dx: number,
  * with a hold before a lift can ask for it.
  */
 export function removeTrack(regions: readonly Region[], track: number): Region[] {
-  return regions
-    .filter((region) => region.track !== track)
-    .map((region) => (region.track > track ? { ...region, track: region.track - 1 } : region));
+  return closeEmptyTracks(
+    regions
+      .filter((region) => region.track !== track)
+      .map((region) => (region.track > track ? { ...region, track: region.track - 1 } : region)),
+  );
+}
+
+/**
+ * The same regions, with every emptied track closed up.
+ *
+ * A track exists because something is on it. The moment the last region
+ * leaves one — carried to another track, or snipped away whole — the lane it
+ * held is not a lane any more, and everything beyond it comes down one
+ * column so the tracks stay a run with no gap in it.
+ *
+ * Without this a move can strand an interior column that no gesture can ever
+ * aim at: removing a track is a gesture on the region in hand, and an empty
+ * track has no region to take up. The blank would sit there for good.
+ *
+ * Nothing else about any region changes — not its moment, not its cut, not
+ * its level. A track is a lane on the screen and not a bus: the mix is a
+ * plain sum, so a region that comes down one column sounds exactly as it did.
+ * The caller applies this as part of one change, so one undo puts the regions
+ * and the numbering back together.
+ */
+export function closeEmptyTracks(regions: readonly Region[]): Region[] {
+  const used = new Set(regions.map((region) => region.track));
+  const count = trackCount(regions);
+  // How many of the tracks before each one are empty, which is how far that
+  // one comes down.
+  const shift: number[] = [];
+  let empty = 0;
+  for (let track = 0; track < count; track += 1) {
+    shift[track] = empty;
+    if (!used.has(track)) empty += 1;
+  }
+  if (empty === 0) return regions.slice();
+  return regions.map((region) =>
+    shift[region.track] > 0 ? { ...region, track: region.track - shift[region.track] } : region,
+  );
 }
 
 /* Neighbours ---------------------------------------------------------------- */
@@ -465,8 +527,11 @@ export function trimBounds(
   if (sourceDurationS === null || !(sourceDurationS > 0)) return null;
   const rate = region.rate > 0 ? region.rate : 1;
   const next = nextOnTrack(region, regions);
-  // The most source the region may hold, given the room below it on the track.
-  const roomS = next === null ? Infinity : Math.max(0, next.at_s - region.at_s) * rate;
+  // The most source the region may hold, given the room below it on the
+  // track. A region that repeats spends its room `loops` times over, because
+  // every repeat grows by whatever the cut grows by.
+  const roomS =
+    next === null ? Infinity : (Math.max(0, next.at_s - region.at_s) * rate) / loopsOf(region);
   const minStart = Math.max(0, region.end_s - roomS);
   const maxStart = region.end_s - MIN_REGION_S;
   const minEnd = region.start_s + MIN_REGION_S;
@@ -520,11 +585,18 @@ export function dragOffsetPx(region: Region, changed: Region, end: End): number 
   return (end === "end" ? delta : -delta) * PX_PER_S;
 }
 
-/** The source time a handle dragged `dy` canvas pixels is asking for. */
+/**
+ * The source time a handle dragged `dy` canvas pixels is asking for.
+ *
+ * Divided by the repeat count, so the handle keeps up with the thumb: a cut
+ * that grows by a second on a region that repeats four times makes the box
+ * four seconds taller, and a thumb that moved ten pixels must not move the
+ * handle forty.
+ */
 export function draggedTo(region: Region, end: End, dy: number): number {
   const rate = region.rate > 0 ? region.rate : 1;
   const from = end === "start" ? region.start_s : region.end_s;
-  return from + (dy / PX_PER_S) * rate;
+  return from + (dy / PX_PER_S) * (rate / loopsOf(region));
 }
 
 /* Stretch ------------------------------------------------------------------- */
@@ -567,7 +639,9 @@ interface StretchWalls {
 }
 
 function stretchWalls(region: Region, regions: readonly Region[], end: End): StretchWalls | null {
-  const cut = region.end_s - region.start_s;
+  // The material, `loops` times: a stretch changes how fast every repeat
+  // plays, so the room a stretch has to fit into holds all of them.
+  const cut = (region.end_s - region.start_s) * loopsOf(region);
   if (!(cut > 0)) return null;
   const rate = region.rate > 0 ? region.rate : 1;
   const length = cut / rate;
@@ -616,7 +690,7 @@ export function stretchStop(
   if (!Number.isFinite(lengthS)) return null;
   const walls = stretchWalls(region, regions, end);
   if (walls === null) return null;
-  const cut = region.end_s - region.start_s;
+  const cut = (region.end_s - region.start_s) * loopsOf(region);
   const wanted = lengthS > 0 ? cut / lengthS : Infinity;
   // A hair either side of a wall is arithmetic, not a wall.
   const slack = 1e-9;
@@ -661,7 +735,7 @@ export function stretch(region: Region, regions: readonly Region[], end: End, le
   if (!Number.isFinite(lengthS)) return region;
   const walls = stretchWalls(region, regions, end);
   if (walls === null) return region;
-  const cut = region.end_s - region.start_s;
+  const cut = (region.end_s - region.start_s) * loopsOf(region);
   const rate = region.rate > 0 ? region.rate : 1;
   const length = cut / rate;
   const wanted = lengthS > 0 ? cut / lengthS : walls.fastest;
@@ -764,6 +838,138 @@ export function gainWeight(gain: number): number {
   return clamp(gain, GAIN_MIN, GAIN_MAX) / GAIN_MAX;
 }
 
+/* Repeat -------------------------------------------------------------------- */
+
+/**
+ * How far a thumb travels to add one repeat.
+ *
+ * A thumb's height, fixed, and not a share of the region's own box. A repeat
+ * is the box again, and the box is anything from ten pixels to nine thousand:
+ * mapping the drag onto the region's own length would put a fifteen-minute
+ * region's second repeat nine thousand pixels away and a quarter-second
+ * region's fortieth under a thumb's wobble. A constant makes the gesture the
+ * same movement on every region on the canvas, which is what a thumb can
+ * learn.
+ */
+export const LOOP_STEP_PX = HANDLE_H;
+
+/**
+ * The most repeats any region may be given by this gesture.
+ *
+ * Six doublings. Reaching it is `LOOPS_MAX * LOOP_STEP_PX` of dragging —
+ * seven screens of a phone — so nothing arrives here by accident, and past it
+ * the dividers are closer together than the eye can separate, which is the
+ * point at which drawing them stops meaning anything.
+ */
+export const LOOPS_MAX = 64;
+
+/**
+ * The longest a region may sound for once its repeats are counted, in
+ * seconds.
+ *
+ * Ten minutes. A repeat is a phrase coming round again, and a phrase is not
+ * ten minutes long; a region taller than that is taller than most of the
+ * piece it sits in and its dividers are further apart than a screen, so
+ * nothing about it can be read at a glance. It also holds the drawing to a
+ * known size: the waveform is painted once per repeat, and this is what
+ * bounds how much painting a single block can ask for.
+ *
+ * A region whose single repeat is already longer than this cannot be
+ * repeated at all, which is the honest answer for a fifteen-minute source
+ * stamped whole.
+ */
+export const LOOP_MAX_FOOTPRINT_S = 600;
+
+/**
+ * Where a repeat stopped short of what the thumb asked for, if it did.
+ *
+ * `once` is the floor: a region always sounds at least the once, and there is
+ * no such thing as none. `most` is the ceiling — the count's own bound, or
+ * the length past which a region stops being a phrase. `room` is the
+ * neighbour on the track, which repeats run into first whenever there is one.
+ * `null` is a drag that got what it asked for.
+ */
+export type LoopStop = "once" | "most" | "room" | null;
+
+/**
+ * The most repeats this region may be given, here, now.
+ *
+ * Three ceilings and whichever is lowest wins: the count's own bound, the
+ * footprint past which a region is no longer a phrase, and the room left on
+ * the track before the next region begins. Never below what the region
+ * already holds — a region written past a ceiling by some other tool may be
+ * brought back towards it and never pushed further out, the same rule stretch
+ * uses for a rate and balance uses for a level.
+ */
+export function loopCeiling(region: Region, regions: readonly Region[]): number {
+  const once = repeatLengthS(region);
+  const held = loopsOf(region);
+  if (!(once > 0)) return held;
+  const next = nextOnTrack(region, regions);
+  const room = next === null ? Infinity : Math.max(0, next.at_s - region.at_s);
+  const byRoom = room === Infinity ? LOOPS_MAX : Math.floor(room / once);
+  const byLength = Math.floor(LOOP_MAX_FOOTPRINT_S / once);
+  return Math.max(held, 1, Math.min(LOOPS_MAX, byRoom, byLength));
+}
+
+/** Which wall a repeat of this region to `loops` would meet, if any. */
+export function loopStop(region: Region, regions: readonly Region[], loops: number): LoopStop {
+  if (!Number.isFinite(loops)) return null;
+  if (loops < 1) return "once";
+  const ceiling = loopCeiling(region, regions);
+  if (loops <= ceiling) return null;
+  // Which ceiling it was. The track's room binds first whenever there is a
+  // neighbour, because the other two are about the region alone.
+  const once = repeatLengthS(region);
+  const next = nextOnTrack(region, regions);
+  if (next !== null && once > 0 && Math.floor(Math.max(0, next.at_s - region.at_s) / once) === ceiling) {
+    return "room";
+  }
+  return "most";
+}
+
+/**
+ * The repeat count a drag of `dy` pixels along the region's box is asking for.
+ *
+ * Down is more and up is fewer, because time runs down the screen and every
+ * repeat is added at the bottom: the box grows the way the drag goes.
+ */
+export function loopedTo(region: Region, dy: number): number {
+  return loopsOf(region) + Math.round(dy / LOOP_STEP_PX);
+}
+
+/**
+ * A region repeating `loops` times, held inside its ceilings.
+ *
+ * Repeat changes `loops` and nothing else: not the cut, not the rate, not the
+ * level, and not `at_s`. The material is untouched — what changes is how many
+ * times it sounds, back to back, and therefore how far down the track the
+ * region reaches. The region comes back unchanged when the count would not
+ * move.
+ */
+export function repeat(region: Region, regions: readonly Region[], loops: number): Region {
+  if (!Number.isFinite(loops)) return region;
+  const next = clamp(Math.round(loops), 1, loopCeiling(region, regions));
+  return next === loopsOf(region) ? region : { ...region, loops: next };
+}
+
+/**
+ * Where each repeat after the first begins, in pixels down the region's box.
+ *
+ * The view draws a divider at each of these, so the repeats can be counted by
+ * eye. Empty for a region that sounds once, which is every region until this
+ * gesture is used on it, so nothing new is drawn on a canvas nobody has
+ * looped anything on.
+ */
+export function repeatDividers(region: Region): number[] {
+  const once = repeatLengthS(region) * PX_PER_S;
+  const loops = loopsOf(region);
+  if (!(once > 0) || loops < 2) return [];
+  const at: number[] = [];
+  for (let n = 1; n < loops; n += 1) at.push(n * once);
+  return at;
+}
+
 /* Snip ---------------------------------------------------------------------- */
 
 /** The source time at `offsetPx` down from the top of a region's box. */
@@ -806,6 +1012,14 @@ export interface Snip {
  * leaves nothing on either side removes the region from the collage. The
  * source is untouched either way, and undo brings the region back.
  *
+ * A snip that leaves **two** regions ends the repeat: both halves sound once.
+ * A repeat is the same material coming round again, and the two halves of a
+ * cut phrase are no longer that material; worse, each half repeating from
+ * where its own material already sounded would put two runs of repeats on top
+ * of each other on one track, which a track does not allow. A snip that
+ * leaves one region keeps the count, because that region is still the whole
+ * of what repeats. Undo brings the repeat back with the cut, in one step.
+ *
  * `from_s` and `to_s` are clamped to the region's own cut. Null when the span
  * is empty, so a tap is never a snip.
  */
@@ -823,6 +1037,11 @@ export function snip(region: Region, regions: readonly Region[], fromS: number, 
   const result: Region[] = [];
   if (before) result.push(before);
   if (after) result.push(before ? { ...after, id: nextRegionId(regions) } : after);
+  // Two halves cannot both go on repeating on one track, so neither does.
+  if (result.length === 2) {
+    result[0] = { ...result[0], loops: 1 };
+    result[1] = { ...result[1], loops: 1 };
+  }
   return { result, from_s: a, to_s: b };
 }
 

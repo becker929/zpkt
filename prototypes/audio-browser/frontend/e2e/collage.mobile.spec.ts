@@ -2610,3 +2610,221 @@ test("a second thumb on the track button neither takes the track nor throws away
   await expect(page.getByTestId("collage-save")).toHaveAttribute("data-state", "saved");
   expect((await storedRegions(request)).map((r) => r.id).sort()).toEqual(["r1", "r2"]);
 });
+
+/* Repeats, and looping the transport, on a phone ---------------------------- */
+
+/** A thumb's height: one more repeat per that much travel. `LOOP_STEP_PX`. */
+const LOOP_STEP_PX = 44;
+
+/** A region row that repeats. */
+function loopedRow(row: ReturnType<typeof regionRow>, loops: number) {
+  return { ...row, loops };
+}
+
+test("repeat with one thumb: a thumb-sized button, no handles while it is on, and a drag down the block adds repeats", async ({
+  page,
+  request,
+}) => {
+  const { hash } = await firstSound(request);
+  // Forty canvas seconds of box, so a repeat is well past a thumb and the
+  // second one can be seen arriving.
+  const put = await request.put(`/api/projects/${PROJECT}/collage`, {
+    data: { regions: [regionRow("r1", hash, 0, 4, 1, 0.025)] },
+  });
+  expect(put.ok()).toBe(true);
+  await page.goto("/collage");
+  await expect(region(page, "r1")).toHaveCount(1);
+
+  await takeUp(page, "r1");
+  const button = await page.getByTestId("collage-repeat").boundingBox();
+  expect(button).not.toBeNull();
+  // A thumb, and inside the glass. Five buttons about the region in hand have
+  // to fit across a phone without the row growing or wrapping.
+  expect(button!.height).toBeGreaterThanOrEqual(44);
+  expect(button!.width).toBeGreaterThanOrEqual(44);
+  const viewport = page.viewportSize()!;
+  expect(button!.x).toBeGreaterThanOrEqual(0);
+  expect(button!.x + button!.width).toBeLessThanOrEqual(viewport.width + 1);
+  const row = await page.getByTestId("collage-in-hand").boundingBox();
+  expect(row!.y + row!.height).toBeLessThanOrEqual(viewport.height + 1);
+  // Every one of the five is on the glass and a thumb wide.
+  for (const id of ["collage-stretch", "collage-balance", "collage-repeat", "collage-copy", "collage-track"]) {
+    const each = await page.getByTestId(id).boundingBox();
+    expect(each, id).not.toBeNull();
+    expect(each!.width, id).toBeGreaterThanOrEqual(44);
+    expect(each!.x + each!.width, id).toBeLessThanOrEqual(viewport.width + 1);
+  }
+
+  await page.getByTestId("collage-repeat").tap();
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-mode", "repeat");
+  // Repeat is a gesture on the box, so there is no handle to reach past.
+  await expect(handle(page, "r1", "start")).toHaveCount(0);
+  await expect(handle(page, "r1", "end")).toHaveCount(0);
+
+  const grab = region(page, "r1").getByTestId("region-grab");
+  await centreInCanvas(grab);
+  await thumbDrag(page, grab, LOOP_STEP_PX * 2);
+  await expect(page.getByTestId("collage-save")).toHaveAttribute("data-state", "saved");
+  await expect(region(page, "r1")).toHaveAttribute("data-loops", "3");
+  await expect(page.getByTestId("region-repeat")).toHaveCount(2);
+  const rows = await storedRegions(request);
+  expect((rows[0] as { loops?: number }).loops).toBe(3);
+  await page.screenshot({ path: "screenshots/collage-phone-repeat.png" });
+});
+
+test("turning the phone mid-repeat lets go without writing anything", async ({ page, request }) => {
+  const { hash } = await firstSound(request);
+  const put = await request.put(`/api/projects/${PROJECT}/collage`, {
+    data: { regions: [regionRow("r1", hash, 0, 4, 1, 0.025)] },
+  });
+  expect(put.ok()).toBe(true);
+  await page.goto("/collage");
+  await takeUp(page, "r1");
+  await page.getByTestId("collage-repeat").tap();
+
+  let writes = 0;
+  page.on("request", (r) => {
+    if (r.method() === "PUT" && r.url().includes("/collage")) writes += 1;
+  });
+  const grab = region(page, "r1").getByTestId("region-grab");
+  await centreInCanvas(grab);
+  await thumbDrag(page, grab, LOOP_STEP_PX * 2, false);
+  await expect(region(page, "r1")).toHaveAttribute("data-loops", "3");
+
+  await page.setViewportSize({ width: 852, height: 393 });
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-repeating", "");
+  // The count goes back to what the file holds, and nothing was written.
+  await expect(region(page, "r1")).toHaveAttribute("data-loops", "1");
+  await page.waitForTimeout(300);
+  expect(writes).toBe(0);
+  expect((await storedRegions(request))[0] as { loops?: number }).toMatchObject({ id: "r1" });
+  expect(((await storedRegions(request))[0] as { loops?: number }).loops ?? 1).toBe(1);
+});
+
+test("a second thumb on the block mid-repeat neither finishes nor moves the count", async ({ page, request }) => {
+  const { hash } = await firstSound(request);
+  const put = await request.put(`/api/projects/${PROJECT}/collage`, {
+    data: { regions: [regionRow("r1", hash, 0, 4, 1, 0.025)] },
+  });
+  expect(put.ok()).toBe(true);
+  await page.goto("/collage");
+  await takeUp(page, "r1");
+  await page.getByTestId("collage-repeat").tap();
+
+  const grab = region(page, "r1").getByTestId("region-grab");
+  await centreInCanvas(grab);
+  const box = (await grab.boundingBox())!;
+  const x = box.x + box.width / 2;
+  const y = box.y + 30;
+  await touch(grab, "pointerdown", x, y);
+  for (let i = 1; i <= 4; i += 1) {
+    await touch(grab, "pointermove", x, y + (LOOP_STEP_PX * i) / 4);
+    await page.waitForTimeout(16);
+  }
+  await expect(region(page, "r1")).toHaveAttribute("data-loops", "2");
+
+  // The steadying thumb. It must not take the gesture, and its lift must not
+  // finish the one the first thumb is still making.
+  await touch(grab, "pointerdown", x - 20, y + 8, 9);
+  await touch(grab, "pointerup", x - 20, y + 8, 9);
+  await page.waitForTimeout(200);
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-repeating", "r1");
+  await expect(region(page, "r1")).toHaveAttribute("data-loops", "2");
+
+  // The first thumb still owns it: it finishes, and it writes.
+  await touch(grab, "pointermove", x, y + LOOP_STEP_PX * 2);
+  await touch(grab, "pointerup", x, y + LOOP_STEP_PX * 2);
+  await expect(page.getByTestId("collage-save")).toHaveAttribute("data-state", "saved");
+  expect(((await storedRegions(request))[0] as { loops?: number }).loops).toBe(3);
+});
+
+test("a tap on a block in repeat mode plays it and leaves the count alone", async ({ page, request }) => {
+  const { hash } = await firstSound(request);
+  const put = await request.put(`/api/projects/${PROJECT}/collage`, {
+    data: { regions: [loopedRow(regionRow("r1", hash, 0, 4, 1, 0.025), 2)] },
+  });
+  expect(put.ok()).toBe(true);
+  await page.goto("/collage");
+  await takeUp(page, "r1");
+  await page.getByTestId("collage-repeat").tap();
+
+  let writes = 0;
+  page.on("request", (r) => {
+    if (r.method() === "PUT" && r.url().includes("/collage")) writes += 1;
+  });
+  const grab = region(page, "r1").getByTestId("region-grab");
+  await centreInCanvas(grab);
+  const box = (await grab.boundingBox())!;
+  const x = box.x + box.width / 2;
+  const y = box.y + 30;
+  // A thumb that lands and shifts three pixels is listening, not counting.
+  await touch(grab, "pointerdown", x, y);
+  await touch(grab, "pointermove", x, y + 3);
+  await touch(grab, "pointerup", x, y + 3);
+  await page.waitForTimeout(300);
+  await expect(region(page, "r1")).toHaveAttribute("data-loops", "2");
+  expect(writes).toBe(0);
+});
+
+test("looping the transport is a thumb-sized toggle beside play, and the bar still fits the glass", async ({
+  page,
+  request,
+}) => {
+  const { hash } = await firstSound(request);
+  const put = await request.put(`/api/projects/${PROJECT}/collage`, {
+    data: { regions: [regionRow("r1", hash, 0, 0, 1)] },
+  });
+  expect(put.ok()).toBe(true);
+  await page.goto("/collage");
+  const viewport = page.viewportSize()!;
+
+  const loop = await page.getByTestId("collage-loop").boundingBox();
+  expect(loop).not.toBeNull();
+  expect(loop!.height).toBeGreaterThanOrEqual(44);
+  expect(loop!.width).toBeGreaterThanOrEqual(44);
+  expect(loop!.x + loop!.width).toBeLessThanOrEqual(viewport.width + 1);
+  expect(loop!.y + loop!.height).toBeLessThanOrEqual(viewport.height + 1);
+  // Beside play, on the same row, and after it.
+  const play = (await page.getByTestId("collage-play").boundingBox())!;
+  expect(Math.abs(loop!.y - play.y)).toBeLessThan(2);
+  expect(loop!.x).toBeGreaterThan(play.x);
+
+  // The canvas keeps the room the bar gave it: with a region in hand the bar
+  // is three rows, and the canvas is still most of the glass.
+  await takeUp(page, "r1");
+  const canvas = (await page.getByTestId("collage-canvas").boundingBox())!;
+  expect(canvas.height).toBeGreaterThan(viewport.height * 0.55);
+
+  await page.getByTestId("collage-loop").tap();
+  await expect(page.getByTestId("collage-loop")).toHaveAttribute("data-state", "on");
+  await page.reload();
+  await expect(page.getByTestId("collage-loop")).toHaveAttribute("data-state", "on");
+  await page.getByTestId("collage-loop").tap();
+  await expect(page.getByTestId("collage-loop")).toHaveAttribute("data-state", "off");
+});
+
+test("a remembered transport loop hydrates without a console error", async ({ page, request }) => {
+  const { hash } = await firstSound(request);
+  const put = await request.put(`/api/projects/${PROJECT}/collage`, {
+    data: { regions: [regionRow("r1", hash, 0, 0, 1)] },
+  });
+  expect(put.ok()).toBe(true);
+
+  // The server renders this page and knows nothing about this machine, so a
+  // first render that read the preference would disagree with the server's
+  // and React would report a hydration mismatch. The preference is read in
+  // an effect instead, which is a render the server never made.
+  const errors: string[] = [];
+  page.on("console", (message) => {
+    if (message.type() === "error") errors.push(message.text());
+  });
+  page.on("pageerror", (err) => errors.push(`pageerror: ${err.message}`));
+  await page.addInitScript(() => {
+    window.localStorage.setItem("collage.transport.loop", "on");
+  });
+
+  await page.goto("/collage");
+  await expect(page.getByTestId("collage-loop")).toHaveAttribute("data-state", "on");
+  await page.waitForTimeout(400);
+  expect(errors).toEqual([]);
+});

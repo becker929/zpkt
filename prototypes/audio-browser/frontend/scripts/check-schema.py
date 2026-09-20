@@ -219,6 +219,20 @@ CASES: list[tuple[str, Any, bool]] = [
     ("a region naming a hash in upper case", edited(collage(), "collage", {"regions": [{**region(), "hash": "A" * 64}]}), False),
     ("a collage with a key beside regions", edited(collage(), "collage", {"regions": [], "bpm": 145}), False),
     ("a collage that is a bare list", edited(collage(), "collage", [region()]), False),
+
+    # Repeats. ``loops`` arrived after regions did, so a region written
+    # without it is still a region and reads as sounding once: absent and 1
+    # are the same claim, exactly as absent and null are for the whole
+    # ``collage`` field. ``region()`` above carries no ``loops`` key, so the
+    # first collage case already pins the absent side.
+    ("a region that repeats", edited(collage(), "collage", {"regions": [{**region(), "loops": 4}]}), True),
+    ("a region that sounds once, said so", edited(collage(), "collage", {"regions": [{**region(), "loops": 1}]}), True),
+    ("a region that repeats no times", edited(collage(), "collage", {"regions": [{**region(), "loops": 0}]}), False),
+    ("a region that repeats a negative number of times",
+     edited(collage(), "collage", {"regions": [{**region(), "loops": -1}]}), False),
+    ("a region that repeats half a time", edited(collage(), "collage", {"regions": [{**region(), "loops": 2.5}]}), False),
+    ("a region whose repeat count is text", edited(collage(), "collage", {"regions": [{**region(), "loops": "4"}]}), False),
+    ("a region whose repeat count is nothing", edited(collage(), "collage", {"regions": [{**region(), "loops": None}]}), False),
 ]
 
 # The rules the schema cannot carry. Every one of these passes the schema in

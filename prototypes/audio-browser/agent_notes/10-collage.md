@@ -81,9 +81,22 @@ Fifteen voices at unity gain summed plainly will clip, and there is no master
 fader because there is no number anywhere on this surface.
 
 So the mix bus **soft-clips** rather than tearing: a gentle waveshaper, so
-overload arrives as drive instead of as digital splintering. For this music that
-is not a compromise, it is the sound. There is nothing to configure and nothing
-to read; push more in and it gets harder.
+overload stops cleanly instead of splintering. There is nothing to configure and
+nothing to read.
+
+**It is a ceiling, not a drive, and that is settled.** Measured: the slope at
+1.4 is 0.0099, so once two regions overlap at unity the peaks are already tied
+and pushing further changes nothing at them. Anthony was offered a wider knee
+that would keep rising and build harmonics, and chose the ceiling on
+2026-09-20. Balance is therefore a matter of pulling things down rather than
+pushing them up. Do not re-open this without asking him.
+
+The bus is also **not bit-exact**, though it is inaudibly close. Browsers
+compute a `WaveShaperNode`'s table index in single precision, so adding one
+discards everything below about a ten-millionth: a flat floor near −126 dBFS
+that no choice of table or headroom removes. An earlier test claimed exactness
+because it modelled the node in float64 instead of rendering it. Render the
+node.
 
 Gain runs 0 to 2, so a quiet field recording can be brought up and a loud one
 pushed past the others. No decibels, no fader, no number.
@@ -97,6 +110,19 @@ and the body is free. A tap on the body still plays and takes up; a drag moves.
 A track holds regions that do not overlap, which stamp already maintains. A
 move that would land on top of a neighbour settles after it, exactly as a stamp
 does.
+
+Move acts on the region **in hand**, like every other gesture. It was briefly
+the only one that acted on a region merely under the thumb, and the cost was
+that 43% of the canvas stopped panning — three dead columns sitting exactly
+where the eye was. The tap it now costs is the one already made to hear the
+region.
+
+**A track that empties closes itself**, and the tracks beyond it shift down by
+one. Anthony chose this on 2026-09-20 over leaving the gap or holding the blank
+column to close it. Without it a move can strand an interior column that no
+gesture can ever aim at, because removing a track needs a region to take up
+first. Undo restores the regions and the numbering together, because they are
+one change.
 
 ### Copy is a stamp
 

@@ -59,6 +59,7 @@ def region(file_hash: str, **fields: object) -> dict[str, Any]:
         "at_s": 0.0,
         "rate": 1.0,
         "gain": 1.0,
+        "loops": 1,
         "fade_in_s": 0.0,
         "fade_out_s": 0.0,
         **fields,
@@ -1241,10 +1242,13 @@ def test_the_canonical_text_is_sorted_fixed_point_and_whitespace_free() -> None:
             ]
         }
     )
+    # The region above leaves `loops` out, as every region written before the
+    # field existed does. It canonicalises as 1, which is what keeps a digest
+    # taken before `loops` from moving when the field arrived.
     assert text == (
         '{"regions":[{"at_s":12.000000,"end_s":47.900000,"fade_in_s":0.000000,'
         '"fade_out_s":0.000000,"gain":1.000000,"hash":"' + "a" * 64 + '",'
-        '"id":"r1","rate":1.000000,"start_s":41.200000,"track":0}]}'
+        '"id":"r1","loops":1,"rate":1.000000,"start_s":41.200000,"track":0}]}'
     )
 
 
@@ -1349,8 +1353,17 @@ def test_a_regenerated_schema_agrees_with_the_specification(validator: Any) -> N
             continue  # the spec says stored holds none; null alone is fine
         assert objects, f"branch {index} ({column}): collage must allow an object"
         regions = objects[0]["properties"]["regions"]["items"]
-        assert set(regions.get("required", [])) == set(model.REGION_FIELDS), (
+        # A key with a default is allowed to be absent, so it is a property
+        # without being required. Everything else must be demanded, or the two
+        # languages would disagree about what a region is.
+        demanded = set(model.REGION_FIELDS) - set(model.REGION_DEFAULTS)
+        assert set(regions.get("required", [])) == demanded, (
             f"branch {index} ({column}): the schema's region keys are "
-            f"{sorted(regions.get('required', []))}; the specification's are "
+            f"{sorted(regions.get('required', []))}; the specification demands "
+            f"{sorted(demanded)}"
+        )
+        assert set(regions["properties"]) == set(model.REGION_FIELDS), (
+            f"branch {index} ({column}): the schema knows "
+            f"{sorted(regions['properties'])}; the specification has "
             f"{sorted(model.REGION_FIELDS)}"
         )

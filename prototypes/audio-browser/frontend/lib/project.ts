@@ -249,6 +249,20 @@ export const regionSchema = z
     rate: z.number().positive(),
     /** Linear gain. 1.0 is untouched. */
     gain: z.number().nonnegative(),
+    /**
+     * How many times the material sounds, back to back. One is once.
+     *
+     * A whole number, because half a repeat is not a repeat. The region's
+     * footprint is `(end_s - start_s) / rate * loops`, so a region that
+     * repeats is that many times as tall; the interface draws a divider where
+     * each repeat begins and never prints the count.
+     *
+     * `.default(1)` rather than a plain required field: the emitted JSON
+     * Schema then leaves it out of `required`, so every region written before
+     * this field existed still validates in both languages and reads as
+     * sounding once. After parsing, the field is always present.
+     */
+    loops: z.number().int().min(1).default(1),
     fade_in_s: z.number().nonnegative(),
     fade_out_s: z.number().nonnegative(),
   })

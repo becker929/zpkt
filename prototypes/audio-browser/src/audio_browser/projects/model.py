@@ -191,7 +191,7 @@ def digest_of(text: str) -> str:
 
 
 REGION_STRING_FIELDS: tuple[str, ...] = ("id", "hash")
-REGION_INT_FIELDS: tuple[str, ...] = ("track",)
+REGION_INT_FIELDS: tuple[str, ...] = ("track", "loops")
 REGION_FLOAT_FIELDS: tuple[str, ...] = (
     "start_s",
     "end_s",
@@ -205,6 +205,15 @@ REGION_FIELDS: frozenset[str] = frozenset(
     (*REGION_STRING_FIELDS, *REGION_INT_FIELDS, *REGION_FLOAT_FIELDS)
 )
 """Exactly the keys a region carries. No more, no fewer."""
+
+REGION_DEFAULTS: dict[str, Any] = {"loops": 1}
+"""Keys a document may leave out, and what they mean when it does.
+
+``loops`` was added after the first collages were written, so a region
+without it repeats once and digests as though it had said so. That is what
+keeps the field from moving a digest taken before it existed. Nothing else
+may be left out: a region that has been through this code carries every key.
+"""
 
 
 def _fixed(value: float) -> str:
@@ -245,7 +254,7 @@ def collage_input(collage: dict[str, Any]) -> str:
     for region in sorted(regions, key=lambda r: cast(str, r["id"])):
         fields: list[str] = []
         for key in sorted(REGION_FIELDS):
-            value = region[key]
+            value = region[key] if key in region else REGION_DEFAULTS[key]
             if key in REGION_STRING_FIELDS:
                 text = json.dumps(value, ensure_ascii=True)
             elif key in REGION_INT_FIELDS:
@@ -564,14 +573,19 @@ def _region_issues(
         return [Issue(path=at, message="a region is an object")]
     keys = set(region)
     if keys != REGION_FIELDS:
-        missing = sorted(REGION_FIELDS - keys)
+        # A key with a default may be absent: it was added after some
+        # documents were written and means the same thing either way.
+        missing = sorted(REGION_FIELDS - keys - set(REGION_DEFAULTS))
         extra = sorted(keys - REGION_FIELDS)
         parts: list[str] = []
         if missing:
             parts.append(f"missing {', '.join(missing)}")
         if extra:
             parts.append(f"unexpected {', '.join(extra)}")
-        return [Issue(path=at, message="; ".join(parts))]
+        # An absent defaulted key is the only difference that is not a fault,
+        # and it leaves nothing to say.
+        if parts:
+            return [Issue(path=at, message="; ".join(parts))]
 
     issues: list[Issue] = []
     region_id = region["id"]
@@ -600,6 +614,12 @@ def _region_issues(
     track = region["track"]
     if not _is_number(track) or isinstance(track, float) or track < 0:
         issues.append(Issue(path=f"{at}.track", message="track is a whole number, 0 or more"))
+
+    loops = region.get("loops", REGION_DEFAULTS["loops"])
+    if not _is_number(loops) or isinstance(loops, float) or loops < 1:
+        issues.append(
+            Issue(path=f"{at}.loops", message="loops is a whole number, 1 or more")
+        )
 
     numbers: dict[str, float] = {}
     for key in REGION_FLOAT_FIELDS:

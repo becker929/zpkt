@@ -44,14 +44,34 @@ export interface RegionWaveProps {
   silence?: readonly SilenceInterval[];
   width: number;
   height: number;
+  /**
+   * How many times the cut sounds, back to back. One by default.
+   *
+   * The box holds that many copies of the same material, so the drawing is
+   * the same drawing that many times down it, each at a share of the height.
+   * Drawing the cut once, stretched over the whole box, would say the sound
+   * had been slowed — which is what stretch does and this does not.
+   */
+  loops?: number;
 }
 
-export function RegionWave({ pairs, durationS, startS, endS, spans, silence, width, height }: RegionWaveProps) {
+export function RegionWave({
+  pairs,
+  durationS,
+  startS,
+  endS,
+  spans,
+  silence,
+  width,
+  height,
+  loops = 1,
+}: RegionWaveProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
+    const times = Number.isInteger(loops) && loops >= 1 ? loops : 1;
     const cssWidth = Math.max(1, Math.round(width));
     const cssHeight = Math.max(1, Math.round(height));
     const dpr = Math.min(window.devicePixelRatio || 1, 2, MAX_CANVAS_PX / cssHeight);
@@ -64,15 +84,25 @@ export function RegionWave({ pairs, durationS, startS, endS, spans, silence, wid
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    paintWaveform(ctx, cssWidth, cssHeight, {
-      pairs,
-      durationS,
-      spans,
-      silence,
-      window: [startS, endS],
-      vertical: true,
-    });
-  }, [pairs, durationS, startS, endS, spans, silence, width, height]);
+    ctx.clearRect(0, 0, cssWidth, cssHeight);
+    // One repeat's share of the box. The painter clears what it is about to
+    // draw on, and it is handed a translated origin, so each repeat clears
+    // and paints its own band and leaves the ones before it alone.
+    const band = cssHeight / times;
+    for (let n = 0; n < times; n += 1) {
+      ctx.save();
+      ctx.translate(0, n * band);
+      paintWaveform(ctx, cssWidth, band, {
+        pairs,
+        durationS,
+        spans,
+        silence,
+        window: [startS, endS],
+        vertical: true,
+      });
+      ctx.restore();
+    }
+  }, [pairs, durationS, startS, endS, spans, silence, width, height, loops]);
 
   return (
     <canvas
@@ -81,6 +111,7 @@ export function RegionWave({ pairs, durationS, startS, endS, spans, silence, wid
       data-testid="region-wave"
       data-buckets={pairs.length}
       data-silent-regions={silence?.length ?? 0}
+      data-loops={loops}
       style={{ width, height }}
       aria-hidden="true"
     />

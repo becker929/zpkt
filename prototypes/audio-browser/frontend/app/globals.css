@@ -1987,6 +1987,19 @@ select:focus {
   pointer-events: none;
 }
 
+/* Where a repeat begins. One hairline across the block for each time the
+   material comes round after the first, so the repeats can be counted by eye
+   and no number has to be printed anywhere. It takes no touch: the block
+   underneath is still the thing being dragged. */
+.region-repeat {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 0;
+  border-top: 1px dashed hsl(var(--hue) 60% 78% / 0.75);
+  pointer-events: none;
+}
+
 /* What a snip is about to take out: the same stripes as a trim's cut, with a
    line at each end where the two regions will part. Over the label and the
    playhead, because it is the thing being decided; it takes no touch. */
@@ -2272,9 +2285,11 @@ select:focus {
    again in height. Nothing here is ever the only way to do anything — every
    mode is also left by the wide statement above it, which is a whole row. */
 .collage-play,
+.collage-loop,
 .collage-snip,
 .collage-stretch,
 .collage-balance,
+.collage-repeat,
 .collage-copy,
 .collage-track {
   position: relative;
@@ -2296,12 +2311,24 @@ select:focus {
 }
 
 .collage-play:disabled,
+.collage-loop:disabled,
 .collage-snip:disabled,
 .collage-stretch:disabled,
 .collage-balance:disabled,
+.collage-repeat:disabled,
 .collage-copy:disabled,
 .collage-track:disabled {
   opacity: 0.4;
+}
+
+/* Five buttons about the region in hand have to sit across a phone, and the
+   row they sit in is the one hard-won inch the canvas gave back. So they are
+   narrower than the transport's row rather than taller, or wrapped, or a
+   third row: the floor stays well past a thumb's width and the height does
+   not move. */
+.collage-bar-row.in-hand > button {
+  min-width: 62px;
+  font-size: 12px;
 }
 
 /* A copy waiting for somewhere to go. The same amber as a mode that is on,
@@ -2384,7 +2411,8 @@ select:focus {
 
 .collage-snip.on,
 .collage-stretch.on,
-.collage-balance.on {
+.collage-balance.on,
+.collage-repeat.on {
   border-color: var(--favorite);
   background: rgba(255, 200, 97, 0.14);
   color: var(--text);
@@ -2398,8 +2426,22 @@ select:focus {
 
 .collage-snip.on .collage-snip-sub,
 .collage-stretch.on .collage-snip-sub,
-.collage-balance.on .collage-snip-sub {
+.collage-balance.on .collage-snip-sub,
+.collage-repeat.on .collage-snip-sub {
   color: var(--favorite);
+}
+
+/* Looping the transport is not a mode on the material, so it is not the
+   modes' amber: it is the accent play is in, because it is about the same
+   thing — how the piece is being listened to. */
+.collage-loop.on {
+  border-color: var(--accent);
+  background: rgba(86, 182, 255, 0.14);
+  color: var(--text);
+}
+
+.collage-loop.on .collage-snip-sub {
+  color: var(--accent);
 }
 
 /* The one handle that shows in stretch mode. The mode's amber rather than
