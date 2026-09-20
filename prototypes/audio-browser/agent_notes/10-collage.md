@@ -170,7 +170,54 @@ The gesture: take a region up, enter pitch by button, drag across its box. No
 number, no semitone readout; the region's edge takes on a tint that runs one way
 for up and the other for down.
 
-### Playing the collage
+### Slices ship compressed
+
+The slice route sent 48 kHz stereo PCM: **192 KB per second of audio**. Fifteen
+regions' first pieces came to roughly 43 MB, re-fetched on every pass of the
+transport loop. Anthony identified the cause on 2026-09-20: the browser should
+never have been sent uncompressed audio.
+
+**Slices are Opus at 96 kbps in an Ogg container.** A 15-second slice goes from
+2,880,044 bytes to 191,293 — **15 times smaller** — and those fifteen first
+pieces from 43 MB to under 3 MB.
+
+### Why Opus and not the others
+
+Measured on this collection's own material, not assumed:
+
+| Format | 15 s slice | Smaller by | Round trip |
+|---|---|---|---|
+| WAV (today) | 2,880,044 B | — | exact |
+| FLAC | 1,786,149 B | 1.6× | exact |
+| AAC 128k | 251,108 B | 11.5× | **+896 samples** |
+| **Opus 96k** | **191,293 B** | **15.1×** | **exact** |
+
+FLAC manages only 1.6× because this material is dense and noisy, so lossless is
+not worth the bytes. AAC is small but adds 896 samples of encoder priming —
+18.66 ms that would shift every region and break every seam. **Opus decodes to
+exactly the sample count it was given**, in Chromium and in WebKit, in both Ogg
+and WebM.
+
+Lossy is right here because **the browser is an audition surface, not a
+mastering surface**. What ships to the phone only has to be good enough to judge
+an arrangement by ear. The originals never move, and any final render works from
+them.
+
+### What must be proven, not assumed
+
+- **Sample-exactness in the real browser.** Verified in Chromium and WebKit
+  under Playwright: a 720,000-sample slice decodes to 720,000 samples in both.
+  Playwright's WebKit is not iOS Safari, so if a decode ever comes back the
+  wrong length the player must say so rather than drift.
+- **The seams stay seamless.** Region repeats are proven sample-exact off
+  `AudioBufferSourceNode.start`. Those proofs must still hold with Opus.
+
+### Slices are cached
+
+Encoding costs CPU, and a looping transport asks for the same spans again and
+again. The server keeps encoded slices keyed by hash, start and end — the cut,
+not the rate, since a slice is always served at 1×. The cache is bounded and
+lives beside the index, not in the collection.
 
 A play/stop transport in the bar. Play schedules one buffer source per region
 from its slice, starting at `now + at_s`, with `playbackRate = rate` and gain

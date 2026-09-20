@@ -56,8 +56,13 @@ from .models import (
     TriageCounts,
 )
 from .queries import MAX_LIMIT, FileFilters
+from .slicecache import DIR_NAME as SLICE_CACHE_DIR_NAME
+from .slicecache import SliceCache
 from .streaming import (
     MAX_SLICE_S,
+    SLICE_FILE_EXT,
+    SLICE_MEDIA_TYPE,
+    SLICE_RATE,
     TRANSCODE_EXTS,
     RangeNotSatisfiable,
     TranscodeError,
@@ -66,7 +71,6 @@ from .streaming import (
     needs_transcode,
     parse_range,
     read_range,
-    slice_to_wav,
     transcode_to_wav,
 )
 
@@ -74,6 +78,17 @@ HASH_RE = re.compile(r"[0-9a-f]{64}")
 # The same slug the schema accepts: lower-case words joined by single hyphens.
 # A project id is a filename, so this gate is what keeps a path out of one.
 SLUG_RE = re.compile(r"[a-z0-9]+(?:-[a-z0-9]+)*")
+
+SLICE_FRAMES_HEADER = "X-Slice-Frames"
+"""How many samples per channel a slice holds, measured before encoding.
+
+The player compares its decode against this rather than trusting that the
+browser gave back what it was handed. Opus in Ogg is sample-exact in every
+engine measured, and the point of the header is that a browser where it is not
+says so instead of drifting quietly.
+"""
+
+SLICE_RATE_HEADER = "X-Slice-Rate"
 
 SWIPE_SPAN_METHOD = "yamnet"
 """The classifier whose spans tint the swipe waveform.
@@ -155,9 +170,13 @@ def create_app(
         version="0.2.0",
         summary="Content-addressed browser for an audio collection.",
     )
+    # Encoded slices live beside the index, never inside a collection root.
+    slices = SliceCache(db_path.parent / SLICE_CACHE_DIR_NAME)
+
     app.state.db = db
     app.state.settings = settings
     app.state.projects = store
+    app.state.slices = slices
 
     app.add_middleware(
         CORSMiddleware,
@@ -166,7 +185,16 @@ def create_app(
         allow_credentials=False,
         allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "HEAD"],
         allow_headers=["*"],
-        expose_headers=["Content-Range", "Accept-Ranges", "Content-Length"],
+        expose_headers=[
+            "Content-Range",
+            "Accept-Ranges",
+            "Content-Length",
+            # The slice route's sample count. A browser reached over a tailnet
+            # is a different origin, and a header it cannot read is a check the
+            # player cannot make.
+            SLICE_FRAMES_HEADER,
+            SLICE_RATE_HEADER,
+        ],
     )
 
     @app.get("/api/health", response_model=Health, tags=["meta"])
@@ -355,12 +383,17 @@ def create_app(
             float, Query(gt=0, description="where the cut ends, in seconds")
         ],
     ) -> Response:
-        """One span of a sound as a small, complete WAV.
+        """One span of a sound, encoded small.
 
         A region is cut from a source that can be hundreds of megabytes, so the
-        whole file is never sent. This returns just the span, at 48 kHz, stereo,
-        16-bit PCM whatever the source was, so the client decodes one format
-        and never resamples. The span is capped at ``MAX_SLICE_S`` seconds.
+        whole file is never sent. This returns just the span, at 48 kHz stereo
+        whatever the source was, as Opus in an Ogg container — about fifteen
+        times smaller than the PCM it replaced, and sample-exact, so a region's
+        repeats still meet without a seam. The span is capped at
+        ``MAX_SLICE_S`` seconds.
+
+        Encoded slices are cached beside the index and keyed by hash, start and
+        end; a looping transport asks for the same spans on every pass.
 
         The sound is named by hash and the path comes out of the index. The
         source is opened for reading by ffmpeg and nothing else happens to it.
@@ -383,18 +416,20 @@ def create_app(
                 status_code=404, detail="no alias of this hash exists on disk"
             )
         try:
-            body = slice_to_wav(alias.path, start, end)
+            cut = slices.get(alias.path, file_hash, start, end)
         except TranscodeError as exc:
             raise HTTPException(status_code=422, detail=str(exc)) from exc
         return Response(
-            content=body,
-            media_type="audio/wav",
+            content=cut.body,
+            media_type=SLICE_MEDIA_TYPE,
             headers={
                 "Content-Disposition": content_disposition(
-                    f"{Path(alias.filename).stem}.{start:g}-{end:g}.wav"
+                    f"{Path(alias.filename).stem}.{start:g}-{end:g}{SLICE_FILE_EXT}"
                 ),
                 "Cache-Control": "private, max-age=3600",
                 "ETag": f'"{file_hash}:{start:.6f}:{end:.6f}"',
+                SLICE_FRAMES_HEADER: str(cut.frames),
+                SLICE_RATE_HEADER: str(SLICE_RATE),
             },
         )
 

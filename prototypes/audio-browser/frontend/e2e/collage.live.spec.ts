@@ -16,6 +16,8 @@
 
 import { expect, test, type Page } from "@playwright/test";
 
+import { decodeSlice } from "./opus";
+
 /** Refuse and record any request that is not a read. */
 function readOnly(page: Page): string[] {
   const writes: string[] = [];
@@ -69,7 +71,7 @@ test("opens the real project in collage, and the picker holds its frozen set", a
   expect(writes).toEqual([]);
 });
 
-test("a bounded slice of a real source answers 48 kHz stereo WAV", async ({ page }) => {
+test("a bounded slice of a real source answers Opus, small and sample-exact", async ({ page }) => {
   const index = await page.request.get("/api/projects");
   test.skip(!index.ok(), "projects are not being served");
   const items = ((await index.json()) as { items: Array<{ id: string; column: string; abandoned: unknown }> }).items;
@@ -83,12 +85,24 @@ test("a bounded slice of a real source answers 48 kHz stereo WAV", async ({ page
 
   const slice = await page.request.get(`/api/files/${sound!.hash}/slice?start=0.5&end=1.5`);
   expect(slice.status()).toBe(200);
-  expect(slice.headers()["content-type"]).toContain("audio/wav");
+  expect(slice.headers()["content-type"]).toContain("audio/ogg");
   const bytes = Buffer.from(await slice.body());
-  expect(bytes.subarray(0, 4).toString()).toBe("RIFF");
-  expect(bytes.readUInt16LE(22)).toBe(2);
-  expect(bytes.readUInt32LE(24)).toBe(48000);
-  expect(bytes.length).toBe(44 + 48000 * 4);
+  // An Ogg page, with Opus inside it, at the one rate every slice is cut at.
+  expect(bytes.subarray(0, 4).toString()).toBe("OggS");
+  expect(bytes.subarray(0, 128).toString("latin1")).toContain("OpusHead");
+  expect(slice.headers()["x-slice-rate"]).toBe("48000");
+  expect(slice.headers()["x-slice-frames"]).toBe("48000");
+  // One second of the PCM this replaced is 192,044 bytes. On real material,
+  // which is dense and noisy, this is the whole of the win.
+  expect(bytes.length * 8).toBeLessThan(44 + 48000 * 4);
+
+  // And the browser's own decode of the server's own bytes, on real material:
+  // exactly the samples the server says it encoded, no priming added.
+  await page.goto("/collage");
+  const decoded = await decodeSlice(page, `/api/files/${sound!.hash}/slice?start=0.5&end=1.5`);
+  expect(decoded.rate).toBe(48000);
+  expect(decoded.channels).toBe(2);
+  expect(decoded.length, "a real source's slice did not decode sample for sample").toBe(decoded.stated);
 });
 
 test("no seconds, no grid, no decibels on the real material", async ({ page }) => {

@@ -153,7 +153,7 @@ FastAPI, with interactive documentation at `/docs`.
 | `GET /api/files/{hash}/silence` | where a sound is silent, so playback can skip it |
 | `GET /api/files/{hash}/spans` | labelled regions; `?method=yamnet` narrows to one classifier |
 | `GET /api/files/{hash}/stream` | audio bytes, with HTTP range support |
-| `GET /api/files/{hash}/slice?start=&end=` | one bounded span as 48 kHz stereo WAV, so collage never fetches a whole source; capped at 120 s |
+| `GET /api/files/{hash}/slice?start=&end=` | one bounded span as 48 kHz stereo Opus in Ogg at 96 kbps, so collage never fetches a whole source; capped at 120 s. `X-Slice-Frames` states the sample count the browser's decode must match. Encoded slices are cached beside the index in `slice-cache/`, bounded at 256 MB |
 | `PUT` / `DELETE /api/files/{hash}/deleted` | discard a sound, or restore it |
 | `POST /api/bulk` | discard or restore many hashes in one transaction |
 | `GET /api/triage` | how much of the library has been answered |

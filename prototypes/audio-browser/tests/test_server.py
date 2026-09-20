@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 import io
+import os
 import shutil
 import sqlite3
 import subprocess
 import wave
 from collections.abc import Iterator
 from pathlib import Path
+from unittest import mock
 
 import pytest
 from fastapi.testclient import TestClient
@@ -15,6 +17,7 @@ from audio_browser.config import Root
 from audio_browser.db import open_db
 from audio_browser.dedupe import record_deletion
 from audio_browser.scan import scan_roots
+from audio_browser.server import slicecache, streaming
 from audio_browser.server.app import create_app
 from conftest import Fixture, _quiet, needs_ffmpeg, peek, tree_snapshot, write_wav
 
@@ -773,8 +776,8 @@ def test_the_swipe_queue_changes_nothing_at_all(api: Fixture) -> None:
 # --------------------------------------------------------------------- slice
 #
 # A region is cut from a source that can be hundreds of megabytes, so the whole
-# file is never sent. The slice comes back in one format whatever the source
-# was, and the source is only ever read.
+# file is never sent. The slice comes back in one shape whatever the source
+# was, encoded, and the source is only ever read.
 
 
 def _slice(api: Fixture, name: str, start: float, end: float):  # type: ignore[no-untyped-def]
@@ -783,28 +786,81 @@ def _slice(api: Fixture, name: str, start: float, end: float):  # type: ignore[n
     )
 
 
+def decoded_frames(body: bytes) -> int:
+    """How many samples per channel come back out of an encoded slice.
+
+    Decoded with ffmpeg rather than reasoned about. Opus is chosen because it
+    is sample-exact and this is where that claim is checked on the server's
+    side; the browser's side is checked in the Playwright suite.
+    """
+    done = subprocess.run(
+        [
+            "ffmpeg",
+            "-v",
+            "error",
+            "-nostdin",
+            "-i",
+            "pipe:0",
+            "-f",
+            "s16le",
+            "-ar",
+            "48000",
+            "-ac",
+            "2",
+            "pipe:1",
+        ],
+        input=body,
+        capture_output=True,
+        check=True,
+    )
+    return len(done.stdout) // 4
+
+
 @needs_ffmpeg
-def test_a_slice_is_48k_stereo_16_bit_whatever_the_source_was(api: Fixture) -> None:
-    """The fixture sound is 8 kHz mono. The slice is not."""
+def test_a_slice_is_opus_in_ogg_whatever_the_source_was(api: Fixture) -> None:
+    """The fixture sound is 8 kHz mono PCM. The slice is neither."""
     response = _slice(api, "kick.wav", 0.1, 0.3)
     assert response.status_code == 200, response.text
-    assert response.headers["content-type"] == "audio/wav"
+    assert response.headers["content-type"] == "audio/ogg"
     assert int(response.headers["content-length"]) == len(response.content)
+    # An Ogg page, and the Opus identification header inside its first one.
+    assert response.content[:4] == b"OggS"
+    assert b"OpusHead" in response.content[:128]
+    assert response.headers["x-slice-rate"] == "48000"
 
-    with wave.open(io.BytesIO(response.content), "rb") as reader:
-        assert reader.getframerate() == 48_000
-        assert reader.getnchannels() == 2
-        assert reader.getsampwidth() == 2
-        # 0.2 s at 48 kHz. The resampler may land a frame either side.
-        assert abs(reader.getnframes() - 9_600) <= 2
+
+@needs_ffmpeg
+def test_a_slice_decodes_to_exactly_the_samples_it_says_it_holds(
+    api: Fixture,
+) -> None:
+    """The whole reason the format is Opus and not AAC.
+
+    A codec that adds priming would hand back more samples than it was given,
+    which would shift every region in the collage and put a seam in every
+    repeat. The count is measured on the way out and stated in a header, and
+    what comes back out of a decoder has to match it.
+    """
+    response = _slice(api, "kick.wav", 0.1, 0.3)
+    stated = int(response.headers["x-slice-frames"])
+    # 0.2 s at 48 kHz. The resampler may land a frame either side.
+    assert abs(stated - 9_600) <= 2
+    assert decoded_frames(response.content) == stated
+
+
+@needs_ffmpeg
+def test_a_slice_is_far_smaller_than_the_pcm_it_replaced(api: Fixture) -> None:
+    """192 KB a second was the thing to stop sending. Measured, not assumed."""
+    response = _slice(api, "kick.wav", 0.0, 0.5)
+    frames = int(response.headers["x-slice-frames"])
+    pcm_bytes = frames * 4 + 44
+    assert len(response.content) * 4 < pcm_bytes
 
 
 @needs_ffmpeg
 def test_a_slice_is_the_span_asked_for_and_not_the_whole_sound(api: Fixture) -> None:
-    short = _slice(api, "kick.wav", 0.0, 0.1).content
-    long = _slice(api, "kick.wav", 0.0, 0.4).content
-    with wave.open(io.BytesIO(short), "rb") as a, wave.open(io.BytesIO(long), "rb") as b:
-        assert abs(b.getnframes() - 4 * a.getnframes()) <= 8
+    short = int(_slice(api, "kick.wav", 0.0, 0.1).headers["x-slice-frames"])
+    long = int(_slice(api, "kick.wav", 0.0, 0.4).headers["x-slice-frames"])
+    assert abs(long - 4 * short) <= 8
 
 
 def test_a_slice_longer_than_the_cap_is_refused(api: Fixture) -> None:
@@ -839,6 +895,103 @@ def test_a_slice_leaves_every_file_on_disk_as_it_was(api: Fixture) -> None:
         assert _slice(api, name, 0.0, 0.1).status_code == 200
     after = {root: tree_snapshot(api.tmp_path / root) for root in ("source", "copy")}
     assert after == before
+
+
+# --------------------------------------------------------------- slice cache
+#
+# Encoding costs a decode and an encode, and a looping transport asks for the
+# same spans on every pass. The answers are kept beside the index.
+
+
+@needs_ffmpeg
+def test_the_same_cut_is_encoded_once_and_read_back_after(api: Fixture) -> None:
+    """The second ask for one cut never reaches ffmpeg."""
+    calls: list[tuple[float, float]] = []
+    real = slicecache.slice_to_opus
+
+    def counted(path: Path, start: float, end: float):  # type: ignore[no-untyped-def]
+        calls.append((start, end))
+        return real(path, start, end)
+
+    with mock.patch.object(slicecache, "slice_to_opus", counted):
+        first = _slice(api, "kick.wav", 0.1, 0.3)
+        second = _slice(api, "kick.wav", 0.1, 0.3)
+        # A different cut of the same sound is a different key, so it encodes.
+        other = _slice(api, "kick.wav", 0.1, 0.35)
+
+    assert first.content == second.content
+    assert first.headers["x-slice-frames"] == second.headers["x-slice-frames"]
+    assert other.content != first.content
+    assert calls == [(0.1, 0.3), (0.1, 0.35)]
+
+
+@needs_ffmpeg
+def test_the_cache_sits_beside_the_index_and_not_in_the_collection(
+    api: Fixture,
+) -> None:
+    """The roots are read-only and irreplaceable. Nothing is written into one."""
+    before = {root: tree_snapshot(api.tmp_path / root) for root in ("source", "copy")}
+    assert _slice(api, "kick.wav", 0.0, 0.2).status_code == 200
+    after = {root: tree_snapshot(api.tmp_path / root) for root in ("source", "copy")}
+    assert after == before
+
+    cache_dir = api.db_path.parent / slicecache.DIR_NAME
+    assert cache_dir.is_dir()
+    kept = list(cache_dir.glob(f"*{slicecache.SUFFIX}"))
+    assert len(kept) == 1
+
+
+def test_the_cache_is_bounded_and_drops_the_least_recently_used(
+    tmp_path: Path,
+) -> None:
+    """A bound that is never enforced is not a bound.
+
+    The encoder is stood in for here: what is under test is the eviction, not
+    ffmpeg. Entries are given ages by hand, because a test that wrote three
+    files in a row would be asking the filesystem's clock for a resolution it
+    does not promise.
+    """
+    made: list[str] = []
+
+    def fake(path: Path, start: float, end: float) -> streaming.EncodedSlice:
+        made.append(f"{start}:{end}")
+        return streaming.EncodedSlice(body=b"x" * 1000, frames=int(end - start))
+
+    cache = slicecache.SliceCache(tmp_path / "slice-cache", limit_bytes=2500)
+    with mock.patch.object(slicecache, "slice_to_opus", fake):
+        for n in range(3):
+            cache.get(tmp_path / "sound.wav", "a" * 64, float(n), float(n + 10))
+            # Age each entry as it lands, oldest first.
+            for file in (tmp_path / "slice-cache").glob(f"*{slicecache.SUFFIX}"):
+                if file.stat().st_mtime > 1_000_000 + n:
+                    os.utime(file, (1_000_000 + n, 1_000_000 + n))
+        assert len(made) == 3
+        # Three entries of 1,008 bytes is over 2,500, so the pruning ran and
+        # took the cache under nine tenths of the bound.
+        kept = list((tmp_path / "slice-cache").glob(f"*{slicecache.SUFFIX}"))
+        assert len(kept) == 2
+
+        # The one that went is the one asked for longest ago, so asking for it
+        # again encodes and asking for the newest does not.
+        cache.get(tmp_path / "sound.wav", "a" * 64, 2.0, 12.0)
+        assert len(made) == 3
+        cache.get(tmp_path / "sound.wav", "a" * 64, 0.0, 10.0)
+        assert len(made) == 4
+
+
+def test_a_cache_that_cannot_be_written_still_answers(tmp_path: Path) -> None:
+    """A read-only disk loses the cache and nothing else."""
+
+    def fake(path: Path, start: float, end: float) -> streaming.EncodedSlice:
+        return streaming.EncodedSlice(body=b"sound", frames=5)
+
+    blocked = tmp_path / "nowhere"
+    blocked.write_text("this is a file, so no directory can be made here")
+    cache = slicecache.SliceCache(blocked / "slice-cache")
+    with mock.patch.object(slicecache, "slice_to_opus", fake):
+        got = cache.get(tmp_path / "sound.wav", "a" * 64, 0.0, 1.0)
+    assert got.body == b"sound"
+    assert got.frames == 5
 
 
 # --------------------------------------------------------------------- spans

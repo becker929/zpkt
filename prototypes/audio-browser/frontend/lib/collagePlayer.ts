@@ -69,6 +69,17 @@ export interface CollageHandlers {
    * moment it was due, so that voice is now running late against the rest.
    */
   onRegionLate(id: string): void;
+  /**
+   * Called when one region's sound decoded to a different length than the
+   * server encoded.
+   *
+   * Every region is placed by arithmetic on one clock, so a voice that is a
+   * few samples longer or shorter than it says sits a fraction away from
+   * where the piece puts it, and its own repeats meet with a seam. The piece
+   * plays on and this is said, because a drift nobody is told about is a
+   * piece that sounds subtly wrong with nothing to blame.
+   */
+  onRegionDrift(id: string): void;
 }
 
 /**
@@ -155,9 +166,9 @@ export class CollagePlayer {
     const fetched = await Promise.all(
       regions.map(async (region) => {
         try {
-          return { region, buffer: await firstPieceOf(ctx, region, abort.signal), error: null as string | null };
+          return { region, piece: await firstPieceOf(ctx, region, abort.signal), error: null as string | null };
         } catch (err) {
-          return { region, buffer: null, error: messageOf(err) };
+          return { region, piece: null, error: messageOf(err) };
         }
       }),
     );
@@ -165,7 +176,7 @@ export class CollagePlayer {
 
     // A region edited while its first piece was still coming does not sound
     // this pass. The edit already happened; the material it asked for is gone.
-    const ready = fetched.filter((entry) => entry.buffer !== null && !this.silenced.has(entry.region.id));
+    const ready = fetched.filter((entry) => entry.piece !== null && !this.silenced.has(entry.region.id));
     if (ready.length === 0) {
       this.stop();
       handlers.onError(fetched[0]?.error ?? "there is nothing here to play");
@@ -181,9 +192,12 @@ export class CollagePlayer {
     const t0 = ctx.currentTime + START_LEAD_S;
     const out = this.bus?.input ?? ctx.destination;
     let extentS = 0;
-    for (const { region, buffer } of ready) {
+    for (const { region, piece } of ready) {
       const player = new SlicePlayer(ctx);
       this.players.set(region.id, player);
+      // The first piece was fetched before any player existed, so its length
+      // is checked here rather than inside the one that is about to play it.
+      if (piece !== null && !piece.exact) handlers.onRegionDrift(region.id);
       // A level set while the first pieces were still coming is the level
       // this pass sounds at.
       const level = this.levels.get(region.id);
@@ -199,8 +213,9 @@ export class CollagePlayer {
             handlers.onRegionError(region.id, message);
           },
           onLate: () => handlers.onRegionLate(region.id),
+          onDrift: () => handlers.onRegionDrift(region.id),
         },
-        { startAt: t0 + Math.max(0, region.at_s), first: buffer ?? undefined, progress: false, out },
+        { startAt: t0 + Math.max(0, region.at_s), first: piece ?? undefined, progress: false, out },
       );
       extentS = Math.max(extentS, Math.max(0, region.at_s) + regionLengthS(region));
     }

@@ -18,6 +18,7 @@
 import { expect, test, type APIRequestContext, type Locator, type Page } from "@playwright/test";
 
 import { STREAM_URL, api } from "./helpers";
+import { SLICE_RATE, decodeSlice, sliceBody } from "./opus";
 
 /** The fixture project in `collage`. */
 const PROJECT = "2026-09-12-conveyor-belt";
@@ -855,19 +856,21 @@ test("the write refuses a region from outside the frozen set, and a cut that end
   expect(await regionsOnServer(page)).toHaveLength(1);
 });
 
-test("the slice route is bounded and answers 48 kHz stereo WAV", async ({ page, request }) => {
+test("the slice route is bounded and answers Opus in an Ogg container", async ({ page, request }) => {
   const set = await sounds(page);
   const hash = set[0].hash;
 
   const ok = await request.get(`/api/files/${hash}/slice?start=0&end=1`);
   expect(ok.status()).toBe(200);
-  expect(ok.headers()["content-type"]).toContain("audio/wav");
+  expect(ok.headers()["content-type"]).toContain("audio/ogg");
   const bytes = Buffer.from(await ok.body());
-  expect(bytes.subarray(0, 4).toString()).toBe("RIFF");
-  expect(bytes.readUInt16LE(22)).toBe(2);
-  expect(bytes.readUInt32LE(24)).toBe(48000);
-  // One second: 48,000 frames of two 16-bit samples, plus the header.
-  expect(bytes.length).toBe(44 + 48000 * 4);
+  // An Ogg page, with the Opus identification header in the first one.
+  expect(bytes.subarray(0, 4).toString()).toBe("OggS");
+  expect(bytes.subarray(0, 128).toString("latin1")).toContain("OpusHead");
+  // One second of PCM at this shape is 192,044 bytes. This is the whole
+  // point of the change, so it is measured rather than assumed.
+  expect(ok.headers()["x-slice-frames"]).toBe("48000");
+  expect(bytes.length * 8).toBeLessThan(44 + 48000 * 4);
 
   // Bounded: a whole long source is refused, however long the region. The
   // project's own sounds may be short, so the case uses a long one from the
@@ -879,6 +882,48 @@ test("the slice route is bounded and answers 48 kHz stereo WAV", async ({ page, 
 
   const backwards = await request.get(`/api/files/${hash}/slice?start=2&end=1`);
   expect(backwards.status()).toBe(422);
+});
+
+/**
+ * The one claim the whole format decision rests on, checked in the browser.
+ *
+ * AAC would have been nearly as small and adds 896 samples of encoder
+ * priming, which would shift every region and put a seam in every repeat.
+ * Opus adds none. That is a property of a decoder, not of a file, so it is
+ * proven by decoding — the browser's own `fetch` and its own
+ * `decodeAudioData` over the server's own bytes — rather than by modelling it.
+ *
+ * The same test runs under WebKit in `collage.mobile.spec.ts`, because the
+ * phone is where this is used.
+ */
+test("a slice decodes to exactly the samples the server says it encoded", async ({ page }) => {
+  const set = await sounds(page);
+  await page.goto("/collage");
+
+  // The server's bytes, end to end: one second, 48,000 samples, stereo.
+  const served = await decodeSlice(page, `/api/files/${set[0].hash}/slice?start=0&end=1`);
+  expect(served.type).toContain("audio/ogg");
+  expect(served.rate).toBe(48000);
+  expect(served.channels).toBe(2);
+  expect(served.stated).toBe(48000);
+  expect(served.length, "the decode was not the length the server encoded").toBe(served.stated);
+
+  // And at the length a piece of a long region really is. Fifteen seconds is
+  // `CHUNK_S`, which is what every region's first piece is cut to.
+  const fifteen = sliceBody(0, 15);
+  expect(fifteen.frames).toBe(720000);
+  await page.route("**/proof.opus", async (route) => {
+    await route.fulfill({
+      status: 200,
+      headers: { "content-type": "audio/ogg", "x-slice-frames": String(fifteen.frames) },
+      body: fifteen.body,
+    });
+  });
+  const piece = await decodeSlice(page, "/proof.opus");
+  expect(piece.length, "a fifteen-second piece did not decode sample for sample").toBe(720000);
+  // And it is the size that made this worth doing: a fifteen-second piece of
+  // PCM is 2,880,044 bytes.
+  expect(piece.bytes * 10).toBeLessThan(720000 * 4 + 44);
 });
 
 /* Snip ----------------------------------------------------------------------- */
@@ -2236,35 +2281,9 @@ test("a stretched region is scheduled in pieces that join without a seam, each p
   const hash = set[0].hash;
 
   // The fixture's sounds are a second long, so a cut that spans more than
-  // one piece has to be served here. The shape is the route's: a 48 kHz
-  // stereo WAV of exactly the stretch asked for, at one speed.
-  await page.route(/\/api\/files\/.*\/slice\?/, async (route) => {
-    const url = new URL(route.request().url());
-    const from = Number(url.searchParams.get("start"));
-    const to = Number(url.searchParams.get("end"));
-    const sampleRate = 48000;
-    const frames = Math.round((to - from) * sampleRate);
-    const body = Buffer.alloc(44 + frames * 4);
-    body.write("RIFF", 0);
-    body.writeUInt32LE(36 + frames * 4, 4);
-    body.write("WAVE", 8);
-    body.write("fmt ", 12);
-    body.writeUInt32LE(16, 16);
-    body.writeUInt16LE(1, 20);
-    body.writeUInt16LE(2, 22);
-    body.writeUInt32LE(sampleRate, 24);
-    body.writeUInt32LE(sampleRate * 4, 28);
-    body.writeUInt16LE(4, 32);
-    body.writeUInt16LE(16, 34);
-    body.write("data", 36);
-    body.writeUInt32LE(frames * 4, 40);
-    for (let i = 0; i < frames; i += 1) {
-      const value = Math.round(Math.sin(2 * Math.PI * 220 * (from + i / sampleRate)) * 12000);
-      body.writeInt16LE(value, 44 + i * 4);
-      body.writeInt16LE(value, 44 + i * 4 + 2);
-    }
-    await route.fulfill({ status: 200, headers: { "content-type": "audio/wav" }, body });
-  });
+  // one piece has to be served here. The shape is the route's: 48 kHz stereo
+  // Opus of exactly the stretch asked for, at one speed.
+  await serveSlices(page);
 
   // Every piece scheduled, with the moment it was told to start, its own
   // length and the speed it was given.
@@ -2504,10 +2523,15 @@ function sounding(piece: Scheduled): { from: number; to: number } {
  * Serve the slice route from here, so a cut can be longer than the second the
  * fixture's sounds hold.
  *
- * The shape is the real route's: a 48 kHz stereo WAV of exactly the span
- * asked for, at one speed. `held` says how many milliseconds a piece
- * beginning at a given moment is kept waiting, which is how a network that
- * stalls part-way through a region is reproduced.
+ * The shape is the real route's: 48 kHz stereo Opus in an Ogg container, of
+ * exactly the span asked for, at one speed, with the sample count stated in
+ * the header the player checks its decode against. Compressed and not PCM
+ * because the seams these tests pin are a property of what the browser
+ * decoded, and the browser now decodes Opus.
+ *
+ * `held` says how many milliseconds a piece beginning at a given moment is
+ * kept waiting, which is how a network that stalls part-way through a region
+ * is reproduced.
  */
 async function serveSlices(page: Page, held: (fromS: number) => number = () => 0): Promise<void> {
   await page.route(/\/api\/files\/.*\/slice\?/, async (route) => {
@@ -2516,23 +2540,16 @@ async function serveSlices(page: Page, held: (fromS: number) => number = () => 0
     const to = Number(url.searchParams.get("end"));
     const wait = held(from);
     if (wait > 0) await new Promise((resolve) => setTimeout(resolve, wait));
-    const sampleRate = 48000;
-    const frames = Math.round((to - from) * sampleRate);
-    const body = Buffer.alloc(44 + frames * 4);
-    body.write("RIFF", 0);
-    body.writeUInt32LE(36 + frames * 4, 4);
-    body.write("WAVE", 8);
-    body.write("fmt ", 12);
-    body.writeUInt32LE(16, 16);
-    body.writeUInt16LE(1, 20);
-    body.writeUInt16LE(2, 22);
-    body.writeUInt32LE(sampleRate, 24);
-    body.writeUInt32LE(sampleRate * 4, 28);
-    body.writeUInt16LE(4, 32);
-    body.writeUInt16LE(16, 34);
-    body.write("data", 36);
-    body.writeUInt32LE(frames * 4, 40);
-    await route.fulfill({ status: 200, headers: { "content-type": "audio/wav" }, body });
+    const slice = sliceBody(from, to);
+    await route.fulfill({
+      status: 200,
+      headers: {
+        "content-type": "audio/ogg",
+        "x-slice-frames": String(slice.frames),
+        "x-slice-rate": String(SLICE_RATE),
+      },
+      body: slice.body,
+    });
   });
 }
 

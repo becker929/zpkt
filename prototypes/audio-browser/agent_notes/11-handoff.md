@@ -18,6 +18,48 @@ started, not during one, so nothing fired and nothing should have.
 The file is committed, so his collage is on the remote as well as on the disk.
 The stakes went up with it: HW011 is no longer a sound set, it is work.
 
+## Slices ship compressed now, and the win is a link, not a CPU
+
+`GET /api/files/{hash}/slice` serves Opus at 96 kbps in an Ogg container.
+HW011's fifteen first pieces went from **39,656,312 bytes to 1,861,122** — 21
+times smaller on this material. Three of the fifteen come back at 3,572 bytes
+because their first fifteen seconds are silent, which is what a sparse
+collection does to an encoder.
+
+**Where the time goes, measured in Chromium against the real stack.** Fetching
+and decoding all fifteen first pieces is what a pass of the transport loop
+pays. On loopback the change *costs* time: 164–196 ms before, 486–492 ms
+after, because PCM needs no decoder and localhost has no bandwidth to save. On
+a throttled link, which is the phone, it is the other way round: at 20 Mbit/s
+16,645 ms before and 2,283 ms after; at 5 Mbit/s 64,754 ms before and 7,458 ms
+after.
+
+**The seam test's number did not move**: 143, 143 ms before and 155, 143 ms
+after. That test answers the slice route from inside the test process, so what
+it measures is the fixed cost of restarting a pass — a fetch, a decode and a
+frame — and never a transfer. It is a good pin on the seam and a bad
+instrument for this.
+
+**The cache is 256 MB, beside the index in `audio-browser/slice-cache/`.** At
+96 kbps that is about six hours of encoded sound: far more than any one
+collage — HW011 is twenty-five minutes of material — and small beside the
+15 MB index it sits next to, let alone the sources it is cut from. It holds
+encoded copies of material that exists elsewhere, so the bound is chosen to be
+generous and forgettable rather than tuned. Least-recently-used, keyed by
+hash, start and end. The encode is 3.8 s for HW011's fifteen first pieces cold
+and 0.09 s warm.
+
+**The context is now asked for 48 kHz.** This machine's default
+`AudioContext` runs at 44.1 kHz, and `decodeAudioData` was resampling every
+slice into it: a 720,000-sample piece came back as 661,499 where the ratio
+asks for 661,500. That is a sample of slop at every piece boundary and every
+repeat, and it predates Opus. Asked for at 48 kHz, all fifteen decode exactly.
+
+**Sample-exactness is checked on every decode, not only in a test.** The
+server states the count in `X-Slice-Frames`; a decode that disagrees is said
+in the bar rather than played. A browser that does not take the 48 kHz option
+gets the ratio's rounding allowed, so the check cannot cry wolf.
+
 ## Read this first
 
 The five gestures you sketched — stamp, trim, snip, stretch, hear it — are

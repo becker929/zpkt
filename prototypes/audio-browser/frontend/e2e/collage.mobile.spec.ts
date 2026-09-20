@@ -25,6 +25,8 @@
 
 import { expect, test, type APIRequestContext, type Locator, type Page } from "@playwright/test";
 
+import { decodeSlice, sliceBody } from "./opus";
+
 const PROJECT = "2026-09-12-conveyor-belt";
 const TRACK_W = 128;
 const PX_PER_S = 10;
@@ -2827,4 +2829,45 @@ test("a remembered transport loop hydrates without a console error", async ({ pa
   await expect(page.getByTestId("collage-loop")).toHaveAttribute("data-state", "on");
   await page.waitForTimeout(400);
   expect(errors).toEqual([]);
+});
+
+/**
+ * The format decision, proven on the engine the phone actually runs.
+ *
+ * Opus was chosen over AAC because it decodes to exactly the sample count it
+ * was given, and a codec that added priming would shift every region and put
+ * a seam in every repeat. Chromium is checked in `collage.mock.spec.ts`;
+ * this is WebKit, which is the family Safari is in.
+ *
+ * Playwright's WebKit is not iOS Safari, so this is evidence and not a
+ * guarantee — which is exactly why the player checks every decode against
+ * the count the server states and says so when they disagree, rather than
+ * trusting this test to have covered every engine.
+ */
+test("a slice decodes to exactly the samples the server says it encoded, under WebKit", async ({
+  page,
+  request,
+}) => {
+  const { hash } = await firstSound(request);
+  await page.goto("/collage");
+
+  const served = await decodeSlice(page, `/api/files/${hash}/slice?start=0&end=1`);
+  expect(served.type).toContain("audio/ogg");
+  expect(served.rate).toBe(48000);
+  expect(served.channels).toBe(2);
+  expect(served.stated).toBe(48000);
+  expect(served.length, "WebKit did not hand back what the server encoded").toBe(served.stated);
+
+  // And at the length every region's first piece is cut to.
+  const fifteen = sliceBody(0, 15);
+  expect(fifteen.frames).toBe(720000);
+  await page.route("**/proof.opus", async (route) => {
+    await route.fulfill({
+      status: 200,
+      headers: { "content-type": "audio/ogg", "x-slice-frames": String(fifteen.frames) },
+      body: fifteen.body,
+    });
+  });
+  const piece = await decodeSlice(page, "/proof.opus");
+  expect(piece.length, "a fifteen-second piece did not decode sample for sample under WebKit").toBe(720000);
 });

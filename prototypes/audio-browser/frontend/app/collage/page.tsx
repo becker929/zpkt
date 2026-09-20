@@ -545,14 +545,17 @@ export default function CollagePage() {
    * What went wrong with the mix this pass, by region.
    *
    * `dropped` is a region whose slice the server would not give, with the
-   * reason it gave; `late` is a region whose slice arrived after its moment.
-   * Both are per region and both are counted, because "one region dropped
-   * out" said over a piece that lost nine of fifteen is a lie a phone gives
-   * no other way of catching.
+   * reason it gave; `late` is a region whose slice arrived after its moment;
+   * `drift` is a region whose sound came back a different length than the
+   * server encoded, so it sits a fraction away from where the piece puts it.
+   * All three are per region and all three are counted, because "one region
+   * dropped out" said over a piece that lost nine of fifteen is a lie a phone
+   * gives no other way of catching.
    */
-  const troubleRef = useRef<{ dropped: Map<string, string>; late: Set<string> }>({
+  const troubleRef = useRef<{ dropped: Map<string, string>; late: Set<string>; drift: Set<string> }>({
     dropped: new Map(),
     late: new Set(),
+    drift: new Set(),
   });
   /** The arrangement as the pointer handlers see it, without re-binding them. */
   const regionsRef = useRef<Region[]>([]);
@@ -813,6 +816,14 @@ export default function CollagePage() {
           setProgress(0);
           setPlayError(`could not play that region: ${message}`);
         },
+        // Heard alone a wrong length is only a wrong length; in the piece it
+        // is a region out of place. Either way it is said rather than hidden,
+        // because a browser that does this would do it everywhere.
+        onDrift: () => {
+          setPlayError(
+            "this region came back a different length than it was cut to, so this browser does not place it exactly.",
+          );
+        },
       });
       if (!started) {
         setPlayError("could not play that region: this browser cannot play audio this way");
@@ -860,7 +871,7 @@ export default function CollagePage() {
    * quiet looks exactly like a region that ended — so both are said here.
    */
   const sayTrouble = useCallback(() => {
-    const { dropped, late } = troubleRef.current;
+    const { dropped, late, drift } = troubleRef.current;
     const many = (n: number) => (n === 1 ? "one region" : `${formatCount(n)} regions`);
     const parts: string[] = [];
     if (dropped.size > 0) {
@@ -869,6 +880,11 @@ export default function CollagePage() {
     }
     if (late.size > 0) {
       parts.push(`${many(late.size)} fell behind the piece: the sound arrived after its moment, so it plays late.`);
+    }
+    if (drift.size > 0) {
+      parts.push(
+        `${many(drift.size)} came back a different length than it was cut to, so this browser places it a hair away from where the piece says.`,
+      );
     }
     setPlayError(parts.length > 0 ? parts.join(" · ") : null);
   }, []);
@@ -911,7 +927,7 @@ export default function CollagePage() {
     elapsedRef.current = 0;
     followRef.current = null;
     setFollow(null);
-    troubleRef.current = { dropped: new Map(), late: new Set() };
+    troubleRef.current = { dropped: new Map(), late: new Set(), drift: new Set() };
     const started = pieceRef.current.play(playable, {
       onStart: () => setPiece("playing"),
       onElapsed: (elapsedS) => {
@@ -963,6 +979,10 @@ export default function CollagePage() {
       },
       onRegionLate: (id) => {
         troubleRef.current.late.add(id);
+        sayTrouble();
+      },
+      onRegionDrift: (id) => {
+        troubleRef.current.drift.add(id);
         sayTrouble();
       },
     });

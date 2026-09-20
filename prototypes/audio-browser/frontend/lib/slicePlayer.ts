@@ -9,8 +9,16 @@
  *
  * This is the one place in the application that decodes audio in the browser,
  * and it is allowed because what it decodes is bounded: the server slices the
- * region to a small WAV (`GET /api/files/{hash}/slice?start=&end=`) and only
- * that is fetched. A region can still be fifteen minutes long — a whole sparse
+ * region (`GET /api/files/{hash}/slice?start=&end=`) and only that is fetched.
+ * What comes back is Opus in an Ogg container at 96 kbps, about fifteen times
+ * smaller than the PCM it replaced — a phone on a tailnet was being sent 192
+ * KB for every second of sound. Opus is the format because it decodes to
+ * exactly the sample count it was given, where AAC and MP3 add priming that
+ * would shift every region and put a seam in every repeat. The server says how
+ * many samples it encoded and the decode is checked against that number rather
+ * than trusted; see `SliceHandlers.onDrift`.
+ *
+ * A region can still be fifteen minutes long — a whole sparse
  * source stamped untrimmed — so the region is fetched in pieces of
  * `CHUNK_S` seconds, each scheduled to start the instant the one before it
  * ends, and a piece that has finished playing is let go of. A fifteen-minute
@@ -48,6 +56,14 @@ import { mixBus, type MixBus } from "./softClip";
 
 /** Seconds of source fetched per request. */
 export const CHUNK_S = 15;
+
+/**
+ * The rate every slice is cut at, server-side.
+ *
+ * The context is asked for it so nothing is resampled on the way in, and the
+ * sample count the server states is read against it.
+ */
+export const SLICE_RATE = 48000;
 
 /**
  * How long a level change takes to arrive, in seconds.
@@ -125,6 +141,31 @@ export interface SliceHandlers {
    * network that keeps up.
    */
   onLate?(): void;
+  /**
+   * Called once when a decoded piece is not the length the server encoded.
+   *
+   * Every slice carries the sample count it was made from. A browser that
+   * hands back a different number has added or dropped samples, which is what
+   * an AAC decoder's priming would do: the region would sit a fraction late
+   * and every repeat inside it would have a seam. It is sample-exact in
+   * Chromium and in WebKit, and Playwright's WebKit is not iOS Safari — so
+   * the player says so rather than drifting quietly on an engine nobody could
+   * test here. Playback carries on; what is wrong is a fraction of a second,
+   * not the sound.
+   */
+  onDrift?(): void;
+}
+
+/**
+ * One piece of a source, fetched and decoded, and whether it is the length it
+ * should be.
+ *
+ * `exact` is false only when the server said how many samples it encoded and
+ * the decode disagreed.
+ */
+export interface Piece {
+  buffer: AudioBuffer;
+  exact: boolean;
 }
 
 /** What a caller may say about how a region is played. */
@@ -143,7 +184,7 @@ export interface SliceOptions {
    * The collage fetches one of these for every region before it starts
    * anything, so the first sound is never waiting on the network.
    */
-  first?: AudioBuffer;
+  first?: Piece;
   /**
    * Whether to watch the clock and report how far through the region is.
    *
@@ -172,10 +213,29 @@ function contextCtor(): ContextCtor | null {
   return w.AudioContext ?? w.webkitAudioContext ?? null;
 }
 
-/** A context, or null where Web Audio is not available. */
+/**
+ * A context at the rate every slice is cut at, or null where Web Audio is not
+ * available.
+ *
+ * Asking for 48 kHz matters. A context left at the machine's own rate makes
+ * `decodeAudioData` resample every slice into it — this machine runs at
+ * 44.1 kHz, where a 720,000-sample piece comes back as 661,499 rather than
+ * the 661,500 the ratio asks for. That is a sample of slop at every piece
+ * boundary and every repeat, which is exactly what the format was chosen to
+ * avoid. At 48 kHz nothing is resampled on the way in, the decode is the
+ * material, and the one resample there is happens once on the way out.
+ *
+ * A browser that will not take the option gets a plain context, and the
+ * length check then allows the ratio's rounding rather than calling it drift.
+ */
 export function newAudioContext(): AudioContext | null {
   const Ctor = contextCtor();
-  return Ctor ? new Ctor() : null;
+  if (!Ctor) return null;
+  try {
+    return new Ctor({ sampleRate: SLICE_RATE });
+  } catch {
+    return new Ctor();
+  }
 }
 
 function decode(ctx: AudioContext, bytes: ArrayBuffer): Promise<AudioBuffer> {
@@ -189,16 +249,44 @@ function pieceEnd(region: SliceRegion, from: number): number {
   return Math.min(from + CHUNK_S, region.end_s);
 }
 
-/** One piece of a source, fetched and decoded. */
+/**
+ * The header the server states a slice's sample count in.
+ *
+ * Absent — an older server, or a test serving its own bytes — means there is
+ * nothing to check against and the decode is taken as it comes.
+ */
+const FRAMES_HEADER = "x-slice-frames";
+
+/** The rate those samples were counted at. Every slice is cut at 48 kHz. */
+const RATE_HEADER = "x-slice-rate";
+
+/**
+ * Whether a decode came back the length the server said it encoded.
+ *
+ * An `AudioContext` runs at the machine's rate, and `decodeAudioData`
+ * resamples to it. A phone at 44.1 kHz therefore hands back fewer samples
+ * than went in, legitimately, so the count is compared at the context's rate
+ * and a single sample of rounding is allowed when the two rates differ. With
+ * the rates equal — a 48 kHz machine, which is the usual case — the check is
+ * exact, which is the property Opus was chosen for.
+ */
+function lengthHolds(buffer: AudioBuffer, stated: number, statedRate: number): boolean {
+  if (!Number.isFinite(stated) || stated <= 0) return true; // nothing was claimed
+  if (buffer.sampleRate === statedRate) return buffer.length === stated;
+  const expected = Math.round((stated * buffer.sampleRate) / statedRate);
+  return Math.abs(buffer.length - expected) <= 1;
+}
+
+/** One piece of a source, fetched and decoded, and checked for its length. */
 async function fetchPiece(
   ctx: AudioContext,
   hash: string,
   from: number,
   to: number,
   signal: AbortSignal,
-): Promise<AudioBuffer> {
+): Promise<Piece> {
   const url = sliceUrl(hash, from, to);
-  const res = await fetch(url, { signal, headers: { accept: "audio/wav" } });
+  const res = await fetch(url, { signal, headers: { accept: "audio/ogg, audio/*" } });
   if (!res.ok) {
     let detail = "";
     try {
@@ -208,7 +296,10 @@ async function fetchPiece(
     }
     throw new ApiError(detail || `${res.status} ${res.statusText} for ${url}`, res.status);
   }
-  return decode(ctx, await res.arrayBuffer());
+  const stated = Number(res.headers.get(FRAMES_HEADER) ?? "");
+  const statedRate = Number(res.headers.get(RATE_HEADER) ?? "") || SLICE_RATE;
+  const buffer = await decode(ctx, await res.arrayBuffer());
+  return { buffer, exact: lengthHolds(buffer, stated, statedRate) };
 }
 
 /**
@@ -220,7 +311,7 @@ async function fetchPiece(
  * has been scheduled, and the caller can say so instead of starting a piece
  * with a silent hole in it.
  */
-export function firstPieceOf(ctx: AudioContext, region: SliceRegion, signal: AbortSignal): Promise<AudioBuffer> {
+export function firstPieceOf(ctx: AudioContext, region: SliceRegion, signal: AbortSignal): Promise<Piece> {
   return fetchPiece(ctx, region.hash, region.start_s, pieceEnd(region, region.start_s), signal);
 }
 
@@ -311,6 +402,14 @@ export class SlicePlayer {
     let nextAt = 0;
     let finished = false;
     let late = false;
+    let drifted = false;
+
+    // Said once for the region, not once for every piece of it.
+    const checkLength = (piece: Piece) => {
+      if (piece.exact || drifted) return;
+      drifted = true;
+      handlers.onDrift?.();
+    };
 
     const finish = () => {
       if (finished || token !== this.token) return;
@@ -370,14 +469,17 @@ export class SlicePlayer {
           let buffer: AudioBuffer;
           const kept = held.get(cursor);
           if (primed) {
-            buffer = primed;
+            checkLength(primed);
+            buffer = primed.buffer;
             primed = null;
             if (keeping) held.set(cursor, buffer);
           } else if (kept) {
             // A buffer is immutable, so every repeat may sound the same one.
             buffer = kept;
           } else {
-            buffer = await fetchPiece(ctx, region.hash, cursor, to, abort.signal);
+            const piece = await fetchPiece(ctx, region.hash, cursor, to, abort.signal);
+            checkLength(piece);
+            buffer = piece.buffer;
             if (keeping) held.set(cursor, buffer);
           }
           if (token !== this.token) return;
