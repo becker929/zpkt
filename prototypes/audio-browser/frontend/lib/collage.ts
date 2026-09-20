@@ -2,9 +2,9 @@
  * The collage's geometry, as pure functions.
  *
  * Time runs down the screen and tracks run across it. Everything here turns a
- * tap into a region, a region into a box, or a drag into a trim, a snip or a
- * stretch, and nothing here touches the DOM, the network, or a clock. The view
- * is the effectful shell around this.
+ * tap into a region, a region into a box, or a drag into a trim, a snip, a
+ * stretch or a move, and nothing here touches the DOM, the network, or a
+ * clock. The view is the effectful shell around this.
  *
  * No grid. A tap lands where it lands, to the millisecond, and the only thing
  * that moves it is another region already sitting there. No number of seconds
@@ -68,9 +68,9 @@ export const TOP_PAD = 56;
 /**
  * Blank below the last region, so there is somewhere to stamp after it.
  *
- * A minute of it. Regions cannot yet be moved, so this is the longest gap a
- * stamp can leave after the last region in one go; a longer one takes a second
- * stamp. This is room, not a ruler: nothing is drawn in it, and it does not
+ * A minute of it: the furthest a stamp or a move can go past the last region
+ * in one gesture, and a longer gap takes a second one. This is room, not a
+ * ruler: nothing is drawn in it, and it does not
  * read as an invitation to fill because there is nothing there to fill. The
  * view also keeps the blank at least as tall as the canvas itself.
  */
@@ -201,6 +201,27 @@ export function nextRegionId(regions: readonly Region[]): string {
   return `r${highest + 1}`;
 }
 
+/** Everything about a region except where it was put down. */
+type Material = Omit<Region, "id" | "track" | "at_s">;
+
+/**
+ * Material put down where the tap landed: the one path from a tap to a region.
+ *
+ * A stamp and a paste differ only in what they carry. Where it goes — the
+ * column under the thumb, the moment at the thumb's height, and the slide down
+ * past anything already sounding there — is one decision, made here, so the
+ * two gestures cannot drift apart.
+ */
+function place(regions: readonly Region[], material: Material, x: number, y: number): Region {
+  const { track, at_s } = placementAt(regions, x, y);
+  return {
+    id: nextRegionId(regions),
+    ...material,
+    track,
+    at_s: settle(regions, track, at_s, regionLengthS(material)),
+  };
+}
+
 /**
  * A new region: the whole of one sound, stamped where the tap landed.
  *
@@ -215,20 +236,118 @@ export function stamp(
   x: number,
   y: number,
 ): Region {
-  const { track, at_s } = placementAt(regions, x, y);
   const length = Math.max(duration_s, 0.001);
-  return {
-    id: nextRegionId(regions),
-    hash,
-    track,
-    start_s: 0,
-    end_s: round3(length),
-    at_s: settle(regions, track, at_s, length),
-    rate: 1,
-    gain: 1,
-    fade_in_s: 0,
-    fade_out_s: 0,
-  };
+  return place(
+    regions,
+    { hash, start_s: 0, end_s: round3(length), rate: 1, gain: 1, fade_in_s: 0, fade_out_s: 0 },
+    x,
+    y,
+  );
+}
+
+/**
+ * A copy of a region, stamped where the tap landed.
+ *
+ * The same gesture as a stamp, with a region on the clipboard instead of a
+ * sound from the picker, so there is nothing new to learn: tap the blank and
+ * it lands there, sliding past a neighbour the same way. What it carries is
+ * everything but the identity and the place — the source, the cut, the rate,
+ * the level and the fades — because a copy of a cut that had been trimmed and
+ * slowed and brought down would otherwise arrive as none of those things.
+ * The `id` is new, so the two are separate regions from the moment there are
+ * two of them.
+ */
+export function paste(regions: readonly Region[], source: Region, x: number, y: number): Region {
+  const { id: _id, track: _track, at_s: _at, ...material } = source;
+  return place(regions, material, x, y);
+}
+
+/* Move ---------------------------------------------------------------------- */
+
+/**
+ * How far sideways a thumb carries a region before it changes track.
+ *
+ * Half a track, which is what rounding the thumb's travel to the nearest
+ * column comes to. Time runs down the screen, so a move is mostly a movement
+ * along a track, and a thumb that wanders a little across one must not tip
+ * the region into the lane beside it. Half a column is further than a thumb
+ * wanders and nearer than the next column's middle.
+ */
+export const TRACK_STEP_PX = TRACK_W / 2;
+
+/**
+ * Where a move stopped short of what the thumb asked for, if it did.
+ *
+ * `top` is the first moment, which is as far up as anything goes. `settled`
+ * is a neighbour on the track the region has come to rest after, the same
+ * slide a stamp makes. `null` is a move that landed where it was asked to.
+ */
+export type MoveStop = "top" | "settled" | null;
+
+/** The furthest right a region may be carried: the column beside the last track. */
+function lastTrackFor(region: Region, regions: readonly Region[]): number {
+  return trackCount(regions.filter((other) => other.id !== region.id));
+}
+
+/**
+ * A region carried `dx` across and `dy` down from where it was.
+ *
+ * The body is what moves; the handles are what trims. Down the screen is
+ * when it sounds, across is which track it is on, and neither changes the
+ * material: the cut, the rate and the level come along untouched, so a move
+ * is the one gesture that cannot alter what a region is, only where it is.
+ *
+ * Three walls. The first moment, because nothing sounds before the collage
+ * begins. The column beside the last track, so a thumb carried off the right
+ * edge makes one new track and never two, exactly as a stamp does. And the
+ * regions already on the track it lands on: a track holds regions that do not
+ * overlap, so a move onto a neighbour settles after it, which is the rule
+ * stamping has always used.
+ *
+ * A track the region leaves is not closed up. Nothing is drawn per track, so
+ * an emptied one is blank canvas and not an empty lane; closing it would
+ * carry every region beyond it sideways, which is a change to regions nobody
+ * touched. Removing the track is the gesture that closes it.
+ */
+export function moveTo(region: Region, regions: readonly Region[], dx: number, dy: number): Region {
+  if (!Number.isFinite(dx) || !Number.isFinite(dy)) return region;
+  const track = clamp(region.track + Math.round(dx / TRACK_W), 0, lastTrackFor(region, regions));
+  const wanted = Math.max(0, region.at_s + dy / PX_PER_S);
+  const others = regions.filter((other) => other.id !== region.id);
+  const at_s = settle(others, track, round3(wanted), regionLengthS(region));
+  return track === region.track && at_s === region.at_s ? region : { ...region, track, at_s };
+}
+
+/** Which wall a move of `dx` across and `dy` down would meet, if any. */
+export function moveStop(region: Region, regions: readonly Region[], dx: number, dy: number): MoveStop {
+  if (!Number.isFinite(dx) || !Number.isFinite(dy)) return null;
+  const moved = moveTo(region, regions, dx, dy);
+  const wanted = region.at_s + dy / PX_PER_S;
+  if (moved.at_s > round3(Math.max(0, wanted)) + 1e-9) return "settled";
+  if (wanted < 0) return "top";
+  return null;
+}
+
+/* Tracks -------------------------------------------------------------------- */
+
+/**
+ * The collage with one track gone, and everything that was on it.
+ *
+ * Every track beyond the one removed closes up, so the lanes stay a run with
+ * no gap in it: a track exists because something is on it, and the one after
+ * a removed track is now the one in its place. Nothing else about any region
+ * changes — not its moment, not its cut, not its level — because a track is a
+ * lane on the screen and not a bus: the mix is a plain sum, and a region that
+ * shifts one column to the left sounds exactly as it did.
+ *
+ * This is the second gesture on the surface that takes material away, and the
+ * only one that takes several regions at once, which is why the view arms it
+ * with a hold before a lift can ask for it.
+ */
+export function removeTrack(regions: readonly Region[], track: number): Region[] {
+  return regions
+    .filter((region) => region.track !== track)
+    .map((region) => (region.track > track ? { ...region, track: region.track - 1 } : region));
 }
 
 /* Neighbours ---------------------------------------------------------------- */

@@ -37,9 +37,18 @@ const MOCK = process.env.NEXT_PUBLIC_MOCK === "1";
  *
  * The split between the two is printed only when the server reports it. A zero
  * where the server said nothing would read as "nothing was taken".
+ *
+ * Not on the collage. A filled horizontal bar a thumb above that canvas reads
+ * as a level meter, on the one surface that has sworn off meters and numbers
+ * alike: loudness there is weight seen on the block, and nothing on the screen
+ * is allowed to look like a reading of it. Hours of sound are already out of
+ * the header on this view for the same reason, and the triage ratio belongs to
+ * a job that view is not doing.
  */
 function TriageCounter() {
   const { counts } = useTriage();
+  const pathname = usePathname();
+  if (pathname === "/collage") return null;
   if (!counts || counts.total === 0) return null;
   const percent = Math.round(counts.percent);
   const split =

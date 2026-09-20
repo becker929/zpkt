@@ -106,6 +106,13 @@ test("no seconds, no grid, no decibels on the real material", async ({ page }) =
   // that is a read, but the level or the cut it would then set would not be.
   await expect(page.getByTestId("collage-balance")).toBeDisabled();
   await expect(page.getByTestId("collage-stretch")).toBeDisabled();
+  // Copying a region and removing its track need one taken up as well, and
+  // removing a track is the one target on this surface that takes several
+  // regions at once: on the real material it refuses until something is in
+  // hand, and nothing here puts anything in hand.
+  await expect(page.getByTestId("collage-copy")).toBeDisabled();
+  await expect(page.getByTestId("collage-track")).toBeDisabled();
+  expect(await page.getByTestId("collage-doomed").count()).toBe(0);
 
   await page.getByTestId("collage-choose").click();
   await expect(page.getByTestId("collage-picker")).toBeVisible();
@@ -134,4 +141,9 @@ test("no seconds, no grid, no decibels on the real material", async ({ page }) =
   await expect(stats).toHaveAttribute("data-hours", "hidden");
   await expect(stats).not.toHaveText("…");
   expect(await stats.innerText()).not.toMatch(/\d(?:[.,]\d+)?\s?h\b/);
+
+  // And its triage bar. A filled horizontal bar a thumb above this canvas
+  // reads as a level meter, on the one surface that has none.
+  await expect(page.getByTestId("triage-counter")).toHaveCount(0);
+  expect(await page.locator("header.topbar").innerText()).not.toMatch(/\d+\s?%/);
 });

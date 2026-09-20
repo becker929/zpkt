@@ -1837,6 +1837,28 @@ select:focus {
   will-change: transform;
 }
 
+/* The column a thumb is holding towards removal. Drawn only while the thumb
+   holds the button, and never otherwise: nothing on this canvas is drawn per
+   track, because a track is not a lane waiting to be filled. It fills from
+   the top over the wait, the same clock the button and the blocks on it run,
+   and it takes no touch. */
+.collage-doomed {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  display: block;
+  background: rgba(255, 200, 97, 0.1);
+  border-left: 2px solid var(--favorite);
+  border-right: 2px solid var(--favorite);
+  box-sizing: border-box;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.collage-doomed.armed {
+  background: rgba(255, 200, 97, 0.22);
+}
+
 /* One region: a block whose height is its length, on the track it was stamped
    in. Every region cut from one source shares a hue, read off the hash.
 
@@ -1904,6 +1926,19 @@ select:focus {
 .region.unresolved {
   border-style: dashed;
   color: var(--text-dim);
+}
+
+/* A region under a thumb that is carrying it. It is drawn where a lift would
+   put it, which is not always where the thumb is: a move onto a neighbour
+   comes to rest after it, and the block going there rather than under the
+   finger is how that is said. Lifted off the canvas, so it passes over the
+   regions it crosses, and the animation that greets a new block is off —
+   this one is not arriving, it is being carried. */
+.region.shifting {
+  z-index: 3;
+  animation: none;
+  border-color: hsl(var(--hue) 70% 78%);
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.45), 0 8px 22px rgba(0, 0, 0, 0.55);
 }
 
 /* The sound inside the region, drawn down it. Under everything else in the
@@ -2206,22 +2241,27 @@ select:focus {
   white-space: nowrap;
 }
 
-/* The transport, and the three mode buttons: the way into a mode and the way
-   out, and beside them the way to hear the whole piece. Pressed while that
-   mode is on, or while the piece sounds. Play is disabled with nothing
-   stamped; snip with nothing to snip; stretch with no handle selected;
-   balance with no region taken up.
+/* The transport, the three mode buttons, and the two that need no mode: the
+   way into a mode and the way out, the way to hear the whole piece, the way
+   to copy a region, and the way to remove a track. Pressed while that mode is
+   on, or while the piece sounds. Play is disabled with nothing stamped; snip
+   with nothing to snip; stretch with no handle selected; balance, copy and
+   track with no region taken up.
 
-   Four of these and undo make five across a phone, so the floor is a little
-   under a thumb in width and a good deal over one in height. Nothing here is
-   ever the only way to do anything — every mode is also left by the wide
-   statement above it, which is a whole row. */
+   Six of these and undo do not fit across a phone in one line, so they wrap
+   into two: four and then three. The floor is twice a thumb in width and
+   half again in height. Nothing here is ever the only way to do anything —
+   every mode is also left by the wide statement above it, which is a whole
+   row. */
 .collage-play,
 .collage-snip,
 .collage-stretch,
-.collage-balance {
+.collage-balance,
+.collage-copy,
+.collage-track {
+  position: relative;
   flex: 1 1 0;
-  min-width: 64px;
+  min-width: 80px;
   max-width: 200px;
   min-height: 60px;
   display: flex;
@@ -2240,8 +2280,74 @@ select:focus {
 .collage-play:disabled,
 .collage-snip:disabled,
 .collage-stretch:disabled,
-.collage-balance:disabled {
+.collage-balance:disabled,
+.collage-copy:disabled,
+.collage-track:disabled {
   opacity: 0.4;
+}
+
+/* A copy waiting for somewhere to go. The same amber as a mode that is on,
+   because it is the same kind of state: the next tap means something else
+   until it is cancelled. */
+.collage-copy.on {
+  border-color: var(--favorite);
+  background: rgba(255, 200, 97, 0.14);
+  color: var(--text);
+}
+
+.collage-copy.on .collage-snip-sub {
+  color: var(--favorite);
+}
+
+/* The track button under a thumb. It fills from the bottom over the wait, the
+   same clock the band on the canvas runs, so the thumb that is pressing it
+   can watch the wait go by without looking anywhere else. Held: solid, and a
+   lift now takes the track. */
+.collage-track {
+  overflow: hidden;
+}
+
+/* The two labels ride over the fill rather than under it. */
+.collage-track > span {
+  position: relative;
+  z-index: 1;
+}
+
+.collage-track.holding {
+  border-color: var(--favorite);
+  color: var(--text);
+}
+
+.collage-track.holding::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 0;
+  background: rgba(255, 200, 97, 0.3);
+  animation: snip-hold var(--hold-ms, 600ms) linear forwards;
+  pointer-events: none;
+}
+
+.collage-track.armed {
+  background: var(--favorite);
+  color: #1b1607;
+}
+
+.collage-track.armed .collage-snip-sub {
+  color: rgba(27, 22, 7, 0.8);
+}
+
+.collage-track.armed::before {
+  animation: none;
+  height: 100%;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .collage-track.holding::before {
+    animation: none;
+  }
 }
 
 /* Playing is not a mode, so it is not the modes' amber. It is the accent the
@@ -2344,8 +2450,36 @@ select:focus {
    has run down to silence or up to the loudest says it the same way, for the
    same reason: the block whose weight said it is under the thumb. */
 .collage-mode.stretch.stopped,
-.collage-mode.balance.stopped {
+.collage-mode.balance.stopped,
+.collage-mode.move.stopped {
   background: rgba(255, 200, 97, 0.28);
+}
+
+/* Both of these appear under a thumb that is already holding something — a
+   region on the canvas, or the track button in this very bar. So they take a
+   whole row, exactly as the button they stand in for does, and the bar does
+   not reflow around them while the gesture is under way. A button that walked
+   sideways out from under a finger mid-hold would cancel the hold it was
+   showing. */
+.collage-mode.move,
+.collage-mode.track,
+.collage-mode.paste {
+  flex: 1 1 100%;
+}
+
+/* A move is not a mode and takes nothing away, so its statement is the
+   accent the rest of the application moves in rather than the amber that
+   means something is about to go. The wall it can meet is still amber. */
+.collage-mode.move {
+  border-color: var(--accent);
+  background: rgba(86, 182, 255, 0.1);
+}
+
+/* A copy waiting for a tap on the blank. It stands where the chosen sound is
+   named and behaves the same way, so it borrows that look and not a mode's. */
+.collage-mode.paste {
+  border-color: var(--favorite);
+  background: rgba(255, 200, 97, 0.12);
 }
 
 /* The picker: a sheet over the bottom of the view, with the set to hear and

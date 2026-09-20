@@ -4241,3 +4241,512 @@ test("a level is reached by the keyboard as well, and the block's weight follows
   // Two steps, two undo steps.
   await expect(page.getByTestId("collage-undo")).toHaveAttribute("data-depth", "2");
 });
+
+/* Move, copy, and removing a track ------------------------------------------ */
+
+/**
+ * Carry a region by its body: a mouse down on its grab, moved `dx` across and
+ * `dy` down, and lifted unless told not to.
+ *
+ * The grab is the body's hit area. There is no mode: what makes this a move
+ * rather than the tap that plays the region is that the pointer travels.
+ */
+async function carry(page: Page, regionId: string, dx: number, dy: number, lift = true) {
+  const grab = region(page, regionId).getByTestId("region-grab");
+  await grab.scrollIntoViewIfNeeded();
+  const box = (await grab.boundingBox())!;
+  const x = box.x + box.width / 2;
+  const y = box.y + Math.min(box.height / 2, 24);
+  await page.mouse.move(x, y);
+  await page.mouse.down();
+  await page.mouse.move(x + dx, y + dy, { steps: 8 });
+  if (lift) await page.mouse.up();
+  return { x: x + dx, y: y + dy };
+}
+
+/** Press the track button, keep it pressed for `ms`, and let go. */
+async function holdTrack(page: Page, ms: number) {
+  const box = (await page.getByTestId("collage-track").boundingBox())!;
+  const x = box.x + box.width / 2;
+  const y = box.y + box.height / 2;
+  await page.mouse.move(x, y);
+  await page.mouse.down();
+  await page.waitForTimeout(ms);
+  await page.mouse.up();
+}
+
+/** The stored region with this id. */
+function stored(rows: RegionRow[], id: string): RegionRow {
+  const found = rows.find((r) => r.id === id);
+  expect(found, `no region ${id} in the file`).toBeTruthy();
+  return found!;
+}
+
+test("dragging a region's body moves it down its track: one write, one undo step, and the material is untouched", async ({
+  page,
+  request,
+}) => {
+  const set = await sounds(page);
+  // A second of source at a twentieth speed: twenty canvas seconds, two
+  // hundred pixels, which is a body to take hold of.
+  await writeRegions(request, [regionRow("r1", set[0].hash, 0, 5, 0.1, 0.9, 0.05)]);
+  await page.goto("/collage");
+  await expect(page.getByTestId("region")).toHaveCount(1);
+
+  // Taken up, which is to say sounding on its own. Moving it changes nothing
+  // about the material, so the slice being heard is still the right one and
+  // it plays on under the thumb.
+  await takeUp(page, "r1");
+  await expect(region(page, "r1")).toHaveAttribute("data-playing", "true");
+
+  const writes = await writesDuring(page, async () => {
+    await carry(page, "r1", 0, 100);
+  });
+  expect(writes).toBe(1);
+  await expect(region(page, "r1")).toHaveAttribute("data-playing", "true");
+
+  const after = stored(await regionsOnServer(page), "r1");
+  // A hundred pixels down is ten collage seconds.
+  expect(after.at_s).toBeCloseTo(15, 3);
+  expect(after.track).toBe(0);
+  // Nothing about the material moved: not the cut, not the rate, not the level.
+  expect(after.start_s).toBeCloseTo(0.1, 6);
+  expect(after.end_s).toBeCloseTo(0.9, 6);
+  expect(after.rate).toBeCloseTo(0.05, 6);
+  expect(after.gain).toBeCloseTo(1, 6);
+  await noFigures(page);
+
+  // One change, one step back.
+  await expect(page.getByTestId("collage-undo")).toHaveAttribute("data-depth", "1");
+  await page.getByTestId("collage-undo").click();
+  await expect(page.getByTestId("collage-save")).toHaveAttribute("data-state", "saved");
+  expect(stored(await regionsOnServer(page), "r1").at_s).toBeCloseTo(5, 3);
+});
+
+test("a body dragged across changes track, and past the last track makes one more and never two", async ({
+  page,
+  request,
+}) => {
+  const set = await sounds(page);
+  await writeRegions(request, [
+    regionRow("r1", set[0].hash, 0, 0, 0, 1, 0.05),
+    regionRow("r2", set[0].hash, 0, 30, 0, 1, 0.05),
+  ]);
+  await page.goto("/collage");
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-tracks", "1");
+
+  // A whole column across, and a new track comes into being beside the last
+  // one, exactly as a stamp beside it would.
+  await carry(page, "r1", TRACK_W, 0);
+  await expect(page.getByTestId("collage-save")).toHaveAttribute("data-state", "saved");
+  expect(stored(await regionsOnServer(page), "r1").track).toBe(1);
+  expect(stored(await regionsOnServer(page), "r1").at_s).toBeCloseTo(0, 3);
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-tracks", "2");
+
+  // Another column across, and there is nowhere further to go: one new track
+  // per gesture, never two, so a thumb carried off the edge cannot open a
+  // run of empty columns.
+  await carry(page, "r1", TRACK_W, 0);
+  await page.waitForTimeout(200);
+  expect(stored(await regionsOnServer(page), "r1").track).toBe(1);
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-tracks", "2");
+});
+
+test("a move onto a neighbour settles after it, and a move above the first moment stops there; the bar says which, without a number", async ({
+  page,
+  request,
+}) => {
+  const set = await sounds(page);
+  // Two twenty-second boxes on one track: the first at the top, the second
+  // from thirty to fifty.
+  await writeRegions(request, [
+    regionRow("r1", set[0].hash, 0, 0, 0, 1, 0.05),
+    regionRow("r2", set[0].hash, 0, 30, 0, 1, 0.05),
+  ]);
+  await page.goto("/collage");
+
+  // Carried down onto its neighbour: it comes to rest after it, which is the
+  // slide a stamp has always made, and the bar says so while the thumb holds.
+  await carry(page, "r1", 0, 350, false);
+  await expect(page.getByTestId("collage-mode")).toHaveAttribute("data-bound", "settled");
+  await expect(page.getByTestId("collage-mode")).toContainText("there is something there");
+  await noFigures(page);
+  await page.mouse.up();
+  await expect(page.getByTestId("collage-save")).toHaveAttribute("data-state", "saved");
+  expect(stored(await regionsOnServer(page), "r1").at_s).toBeCloseTo(50, 3);
+  expect(stored(await regionsOnServer(page), "r2").at_s).toBeCloseTo(30, 3);
+
+  // And carried back up past the first moment: it stops at the top.
+  await carry(page, "r1", 0, -900, false);
+  await expect(page.getByTestId("collage-mode")).toContainText("first moment");
+  await page.mouse.up();
+  await expect(page.getByTestId("collage-save")).toHaveAttribute("data-state", "saved");
+  expect(stored(await regionsOnServer(page), "r1").at_s).toBeCloseTo(0, 3);
+});
+
+test("a drag that is really a tap plays the region and moves nothing", async ({ page, request }) => {
+  const set = await sounds(page);
+  await writeRegions(request, [regionRow("r1", set[0].hash, 0, 5, 0, 1, 0.05)]);
+  await page.goto("/collage");
+
+  let writes = 0;
+  page.on("request", (r) => {
+    if (r.method() === "PUT" && r.url().includes("/collage")) writes += 1;
+  });
+  // Four pixels is inside a tap's slop. The region plays and takes itself up,
+  // and nothing about the arrangement is written.
+  await carry(page, "r1", 2, 4);
+  await expect(region(page, "r1")).toHaveAttribute("data-playing", "true");
+  await expect(region(page, "r1")).toHaveAttribute("data-selected", "true");
+  await page.waitForTimeout(300);
+  expect(writes).toBe(0);
+  expect(stored(await regionsOnServer(page), "r1").at_s).toBeCloseTo(5, 3);
+  await expect(page.getByTestId("collage-undo")).toHaveCount(0);
+});
+
+test("a move that empties a track leaves the column blank and moves nothing else", async ({
+  page,
+  request,
+}) => {
+  const set = await sounds(page);
+  await writeRegions(request, [
+    regionRow("r1", set[0].hash, 0, 0, 0, 1, 0.05),
+    regionRow("r2", set[0].hash, 1, 0, 0, 1, 0.05),
+    regionRow("r3", set[0].hash, 2, 0, 0, 1, 0.05),
+  ]);
+  await page.goto("/collage");
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-tracks", "3");
+
+  // The middle one is carried onto the first track, where it settles after
+  // what is already there.
+  await carry(page, "r2", -TRACK_W, 0);
+  await expect(page.getByTestId("collage-save")).toHaveAttribute("data-state", "saved");
+  const rows = await regionsOnServer(page);
+  expect(stored(rows, "r2").track).toBe(0);
+  expect(stored(rows, "r2").at_s).toBeCloseTo(20, 3);
+  // The track it left is blank and stays where it was. Nothing is drawn per
+  // track, so an emptied one is canvas and not an empty lane, and the region
+  // beyond it is not dragged sideways by a gesture that was not about it.
+  expect(rows.filter((r) => r.track === 1)).toHaveLength(0);
+  expect(stored(rows, "r3").track).toBe(2);
+  expect(stored(rows, "r3").at_s).toBeCloseTo(0, 3);
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-tracks", "3");
+});
+
+test("switching mode under a moving thumb writes nothing, and Escape puts the region back", async ({
+  page,
+  request,
+}) => {
+  const set = await sounds(page);
+  await writeRegions(request, [regionRow("r1", set[0].hash, 0, 5, 0, 1, 0.05)]);
+  await page.goto("/collage");
+
+  let writes = 0;
+  page.on("request", (r) => {
+    if (r.method() === "PUT" && r.url().includes("/collage")) writes += 1;
+  });
+  await carry(page, "r1", 0, 120, false);
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-moving", "r1");
+  // A mouse has no second finger, so the press on the other button is the
+  // button's own click event: the drag's pointer is still captured.
+  await page.getByTestId("collage-snip").dispatchEvent("click");
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-moving", "");
+  await page.mouse.up();
+  await page.waitForTimeout(250);
+  expect(writes).toBe(0);
+  expect(stored(await regionsOnServer(page), "r1").at_s).toBeCloseTo(5, 3);
+
+  await page.getByTestId("collage-snip").click();
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-mode", "trim");
+  await carry(page, "r1", 0, 120, false);
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-moving", "r1");
+  await page.keyboard.press("Escape");
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-moving", "");
+  await page.mouse.up();
+  await page.waitForTimeout(250);
+  expect(writes).toBe(0);
+  expect(stored(await regionsOnServer(page), "r1").at_s).toBeCloseTo(5, 3);
+});
+
+test("copy is a stamp: the copy keeps the cut, the rate, the level and the fades, and gets an id of its own", async ({
+  page,
+  request,
+}) => {
+  const set = await sounds(page);
+  await writeRegions(request, [
+    { ...regionRow("r1", set[0].hash, 0, 0, 0.2, 0.8, 0.05), gain: 0.4, fade_in_s: 0.01, fade_out_s: 0.02 },
+  ]);
+  await page.goto("/collage");
+
+  // With nothing taken up there is nothing to copy, and the button says so
+  // by refusing.
+  await expect(page.getByTestId("collage-copy")).toBeDisabled();
+  await takeUp(page, "r1");
+  await expect(page.getByTestId("collage-copy")).toBeEnabled();
+
+  await page.getByTestId("collage-copy").click();
+  // A paste is armed, and the bar says so where the chosen sound is named.
+  await expect(page.getByTestId("collage-paste")).toBeVisible();
+  await expect(page.getByTestId("collage-choose")).toHaveCount(0);
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-clipboard", "r1");
+  await noFigures(page);
+  // Nothing has been written by copying: what changed is what the next tap does.
+  expect(await regionsOnServer(page)).toHaveLength(1);
+
+  const writes = await writesDuring(page, async () => {
+    await stampAt(page, 40, TOP_PAD + 400);
+  });
+  expect(writes).toBe(1);
+  const rows = await regionsOnServer(page);
+  expect(rows).toHaveLength(2);
+  const copy = stored(rows, "r2");
+  const original = stored(rows, "r1");
+  expect(copy.hash).toBe(original.hash);
+  expect(copy.start_s).toBeCloseTo(original.start_s, 6);
+  expect(copy.end_s).toBeCloseTo(original.end_s, 6);
+  expect(copy.rate).toBeCloseTo(original.rate, 6);
+  expect(copy.gain).toBeCloseTo(original.gain, 6);
+  expect(copy.fade_in_s).toBeCloseTo(0.01, 6);
+  expect(copy.fade_out_s).toBeCloseTo(0.02, 6);
+  expect(copy.at_s).toBeCloseTo(40, 1);
+  expect(copy.id).not.toBe(original.id);
+  // The original did not move.
+  expect(original.at_s).toBeCloseTo(0, 3);
+
+  // One tap is what a copy is for: the clipboard is empty again and the bar
+  // is back to offering a sound.
+  await expect(page.getByTestId("collage-paste")).toHaveCount(0);
+  await expect(page.getByTestId("collage-choose")).toBeVisible();
+
+  // And one undo takes the copy back.
+  await page.getByTestId("collage-undo").click();
+  await expect(page.getByTestId("collage-save")).toHaveAttribute("data-state", "saved");
+  expect(await regionsOnServer(page)).toHaveLength(1);
+});
+
+test("an armed paste can be cancelled, and a copy pasted onto an occupied spot settles after it", async ({
+  page,
+  request,
+}) => {
+  const set = await sounds(page);
+  // Two twenty-second boxes on one track, with ten seconds of room between.
+  await writeRegions(request, [
+    regionRow("r1", set[0].hash, 0, 0, 0, 1, 0.05),
+    regionRow("r2", set[0].hash, 0, 30, 0, 1, 0.05),
+  ]);
+  await page.goto("/collage");
+  await takeUp(page, "r1");
+  await page.getByTestId("collage-copy").click();
+  await expect(page.getByTestId("collage-paste")).toBeVisible();
+
+  // Cancelled: the bar goes back to offering a sound, and the blank is blank
+  // again. The first tap on it puts the region down; the second, with nothing
+  // chosen and nothing copied, offers the picker rather than a region.
+  await page.getByTestId("collage-paste").click();
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-clipboard", "");
+  await expect(page.getByTestId("collage-choose")).toBeVisible();
+  await stampAt(page, 40, TOP_PAD + 600);
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-selected", "");
+  await stampAt(page, 40, TOP_PAD + 600);
+  await expect(page.getByTestId("collage-picker")).toBeVisible();
+  await page.getByTestId("picker-close").click();
+  expect(await regionsOnServer(page)).toHaveLength(2);
+
+  // Armed again, and put down in the gap between the two, where it is too
+  // long to fit: it slides past the one below it, the way a stamp does.
+  await takeUp(page, "r1");
+  await page.getByTestId("collage-copy").click();
+  await stampAt(page, 40, TOP_PAD + 250);
+  await expect(page.getByTestId("collage-save")).toHaveAttribute("data-state", "saved");
+  const rows = await regionsOnServer(page);
+  expect(rows).toHaveLength(3);
+  const copy = stored(rows, "r3");
+  expect(copy.track).toBe(0);
+  expect(copy.at_s).toBeCloseTo(50, 3);
+});
+
+test("a copy outlives the region it came from: the track goes, and the copy still lands", async ({
+  page,
+  request,
+}) => {
+  const set = await sounds(page);
+  await writeRegions(request, [
+    regionRow("r1", set[0].hash, 0, 0, 0.3, 0.7, 0.05),
+    regionRow("r2", set[0].hash, 1, 0, 0, 1, 0.05),
+  ]);
+  await page.goto("/collage");
+  await takeUp(page, "r1");
+  await page.getByTestId("collage-copy").click();
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-clipboard", "r1");
+
+  // The region the copy was taken from goes with its track. The clipboard is
+  // a snapshot, not a pointer at a region, so it is still a copy of what was
+  // taken and the paste still lands.
+  await holdTrack(page, 800);
+  await expect(page.getByTestId("collage-save")).toHaveAttribute("data-state", "saved");
+  let rows = await regionsOnServer(page);
+  expect(rows).toHaveLength(1);
+  expect(stored(rows, "r2").track).toBe(0);
+
+  await expect(page.getByTestId("collage-paste")).toBeVisible();
+  await stampAt(page, TRACK_W + 40, TOP_PAD + 300);
+  await expect(page.getByTestId("collage-save")).toHaveAttribute("data-state", "saved");
+  rows = await regionsOnServer(page);
+  expect(rows).toHaveLength(2);
+  const copy = rows.find((r) => r.id !== "r2")!;
+  expect(copy.start_s).toBeCloseTo(0.3, 6);
+  expect(copy.end_s).toBeCloseTo(0.7, 6);
+  expect(copy.track).toBe(1);
+});
+
+test("removing a track is a hold: let go early and nothing goes; held, the track and everything on it goes and the tracks beyond it close up", async ({
+  page,
+  request,
+}) => {
+  const set = await sounds(page);
+  await writeRegions(request, [
+    regionRow("r1", set[0].hash, 0, 0, 0, 1, 0.05),
+    regionRow("r2", set[0].hash, 1, 0, 0, 1, 0.05),
+    regionRow("r3", set[0].hash, 1, 30, 0, 1, 0.05),
+    regionRow("r4", set[0].hash, 2, 0, 0, 1, 0.05),
+  ]);
+  await page.goto("/collage");
+  await expect(page.getByTestId("collage-track")).toBeDisabled();
+  await takeUp(page, "r2");
+  await expect(page.getByTestId("collage-track")).toBeEnabled();
+
+  // Let go before the wait is over and nothing goes. The bar says what would
+  // have, because the amber that said it is gone with the press.
+  await holdTrack(page, 120);
+  await expect(page.getByTestId("collage-hint")).toContainText("press its button and hold it");
+  await page.waitForTimeout(250);
+  expect(await regionsOnServer(page)).toHaveLength(4);
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-doomed", "");
+
+  // Pressed and kept pressed: the column and both regions on it are drawn in
+  // amber, and the statement says what letting go will do.
+  const button = (await page.getByTestId("collage-track").boundingBox())!;
+  await page.mouse.move(button.x + button.width / 2, button.y + button.height / 2);
+  await page.mouse.down();
+  await expect(page.getByTestId("collage-doomed")).toHaveAttribute("data-track", "1");
+  await expect(page.getByTestId("region-doomed")).toHaveCount(2);
+  await expect(page.getByTestId("collage-mode")).toContainText("keep holding");
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-doomed", "armed", { timeout: 4000 });
+  await expect(page.getByTestId("collage-mode")).toContainText("let go to remove this track");
+  await noFigures(page);
+  await page.mouse.up();
+
+  await expect(page.getByTestId("collage-save")).toHaveAttribute("data-state", "saved");
+  const rows = await regionsOnServer(page);
+  expect(rows.map((r) => r.id).sort()).toEqual(["r1", "r4"]);
+  // The track beyond the one removed closed up, and nothing else about it
+  // changed: a track is a lane on the screen, not a bus.
+  expect(stored(rows, "r4").track).toBe(1);
+  expect(stored(rows, "r4").at_s).toBeCloseTo(0, 3);
+  expect(stored(rows, "r1").track).toBe(0);
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-tracks", "2");
+  await expect(page.getByTestId("collage-doomed")).toHaveCount(0);
+
+  // One undo brings the track and both its regions back where they were.
+  await page.getByTestId("collage-undo").click();
+  await expect(page.getByTestId("collage-save")).toHaveAttribute("data-state", "saved");
+  const back = await regionsOnServer(page);
+  expect(back.map((r) => r.id).sort()).toEqual(["r1", "r2", "r3", "r4"]);
+  expect(stored(back, "r2").track).toBe(1);
+  expect(stored(back, "r3").at_s).toBeCloseTo(30, 3);
+  expect(stored(back, "r4").track).toBe(2);
+});
+
+test("removing the only track leaves the canvas as empty as it began", async ({ page, request }) => {
+  const set = await sounds(page);
+  await writeRegions(request, [regionRow("r1", set[0].hash, 0, 0, 0, 1, 0.05)]);
+  await page.goto("/collage");
+  await takeUp(page, "r1");
+  await holdTrack(page, 800);
+  await expect(page.getByTestId("collage-save")).toHaveAttribute("data-state", "saved");
+
+  expect(await regionsOnServer(page)).toHaveLength(0);
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-regions", "0");
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-tracks", "0");
+  expect(await page.getByTestId("collage-space").locator("*").count()).toBe(0);
+  // Every gesture that needs something to act on refuses again.
+  await expect(page.getByTestId("collage-play")).toBeDisabled();
+  await expect(page.getByTestId("collage-snip")).toBeDisabled();
+  await expect(page.getByTestId("collage-copy")).toBeDisabled();
+  await expect(page.getByTestId("collage-track")).toBeDisabled();
+
+  await page.getByTestId("collage-undo").click();
+  await expect(page.getByTestId("collage-save")).toHaveAttribute("data-state", "saved");
+  expect(await regionsOnServer(page)).toHaveLength(1);
+});
+
+test("a move in time takes a region out of the pass being heard; a move across tracks does not, and nor does removing a track take the rest of the mix", async ({
+  page,
+  request,
+}) => {
+  const set = await sounds(page);
+  const hash = set[0].hash;
+  // Three regions told apart by the length of their cuts, on three tracks.
+  // The third sounds after the second is over, so carrying it onto the
+  // second's track lands it in free room and its moment does not move.
+  await writeRegions(request, [
+    regionRow("r1", hash, 0, 0, 0, 0.35, 0.02),
+    regionRow("r2", hash, 1, 0, 0, 0.6, 0.02),
+    regionRow("r3", hash, 2, 32, 0, 0.8, 0.02),
+  ]);
+  await listen(page);
+  await page.goto("/collage");
+  await page.getByTestId("collage-play").click();
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-piece", "playing");
+  expect((await heard(page)).pieces).toHaveLength(3);
+
+  // Across a track and nothing else: a track is a lane on the screen and the
+  // mix is a plain sum, so nothing about the sound changed and it plays on.
+  let before = (await heard(page)).stops.length;
+  await carry(page, "r3", -TRACK_W, 0);
+  await expect(page.getByTestId("collage-save")).toHaveAttribute("data-state", "saved");
+  expect(stored(await regionsOnServer(page), "r3").track).toBe(1);
+  expect(stored(await regionsOnServer(page), "r3").at_s).toBeCloseTo(32, 3);
+  expect((await heard(page)).stops.slice(before)).toHaveLength(0);
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-piece", "playing");
+
+  // A track removed mid-play takes every region on it out of the mix — both
+  // of them — and leaves the rest of it sounding.
+  before = (await heard(page)).stops.length;
+  await takeUp(page, "r2");
+  await holdTrack(page, 800);
+  await expect(page.getByTestId("collage-save")).toHaveAttribute("data-state", "saved");
+  expect(
+    (await heard(page)).stops
+      .slice(before)
+      .map((s) => Math.round(s.duration * 100))
+      .sort((a, b) => a - b),
+  ).toEqual([60, 80]);
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-piece", "playing");
+  await expect(page.getByTestId("collage-playhead")).toBeVisible();
+
+  // Along the track: when it sounds has moved, and the pass being heard was
+  // scheduled at the tap, so that one region goes quiet and says so.
+  before = (await heard(page)).stops.length;
+  await carry(page, "r1", 0, 200);
+  await expect(page.getByTestId("collage-save")).toHaveAttribute("data-state", "saved");
+  expect((await heard(page)).stops.slice(before).map((s) => Math.round(s.duration * 100))).toEqual([35]);
+  await expect(page.getByTestId("collage-hint")).toContainText("gone quiet");
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-piece", "playing");
+  await page.getByTestId("collage-play").click();
+});
+
+test("the header keeps no triage bar over the collage", async ({ page }) => {
+  await page.goto("/decided");
+  // The counter is on every other view: a filled bar and a percentage.
+  await expect(page.getByTestId("triage-counter")).toBeVisible();
+
+  await page.goto("/collage");
+  await expect(page.getByTestId("collage")).toBeVisible();
+  // Not here. A filled horizontal bar a thumb above a canvas that has sworn
+  // off meters reads as one, and the percentage beside it is a figure about
+  // a job this view is not doing.
+  await expect(page.getByTestId("triage-counter")).toHaveCount(0);
+  const header = await page.locator("header.topbar").innerText();
+  expect(header).not.toMatch(/\d+\s?%/);
+});
