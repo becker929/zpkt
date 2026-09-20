@@ -60,6 +60,90 @@ review on a phone before the next one starts.
    Until this bullet the view has only ever played one region alone. This is
    the first time the user hears the piece rather than a piece of it.
 
+## The second set of gestures
+
+Asked for on 2026-09-20, once the first five were in use. Built the same way:
+one tracer bullet at a time, each adversarially reviewed before the next starts.
+
+6. **Balance.** Take a region up, enter balance by button, drag across its box.
+   The region's fill lightens or darkens, so loudness is weight you see rather
+   than a figure you read. `gain` is already in the model and already applied
+   per voice. Range 0 to 2.
+7. **Move, copy, and removing a track.** Drag a region's *body* to translate it
+   in time and across tracks. Copy a region and paste it by stamping. Remove a
+   whole track and let the ones beyond it close up.
+8. **Loop.** A region can repeat. The transport can loop the piece.
+9. **Pitch.** Shift a region's pitch without changing how long it lasts.
+
+### Balance, and why the master saturates
+
+Fifteen voices at unity gain summed plainly will clip, and there is no master
+fader because there is no number anywhere on this surface.
+
+So the mix bus **soft-clips** rather than tearing: a gentle waveshaper, so
+overload arrives as drive instead of as digital splintering. For this music that
+is not a compromise, it is the sound. There is nothing to configure and nothing
+to read; push more in and it gets harder.
+
+Gain runs 0 to 2, so a quiet field recording can be brought up and a loud one
+pushed past the others. No decibels, no fader, no number.
+
+### Move is the body, trim is the handles
+
+Dragging a region's **body** moves it: down or up to change `at_s`, sideways to
+change `track`. No mode, because none is needed — the handles already mean trim
+and the body is free. A tap on the body still plays and takes up; a drag moves.
+
+A track holds regions that do not overlap, which stamp already maintains. A
+move that would land on top of a neighbour settles after it, exactly as a stamp
+does.
+
+### Copy is a stamp
+
+Take a region up, tap copy, then tap the blank where it should go. That is the
+stamp gesture unchanged, with a region on the clipboard instead of a sound from
+the picker, so there is nothing new to learn. A pasted region is a new `id`
+with the same `hash`, cut, rate, gain, pitch and loops.
+
+### Removing a track destroys its regions
+
+So it is armed the way a whole-region snip is: **hold it for 600 ms**, with the
+track and everything on it drawn in amber over the hold. A lift before then does
+nothing. Tracks beyond the removed one close up, their `track` shifted down by
+one. This is the second destructive gesture on the surface and it uses the same
+language as the first.
+
+### Loops
+
+`loops` is a whole number, 1 by default: how many times the region's material
+repeats, back to back. Its footprint becomes `(end_s − start_s) / rate × loops`
+and its box grows to match, drawn with a divider where each repeat begins so the
+eye can count them without a number.
+
+Looping the **transport** is different in kind: it is how you listen, not part
+of the piece, so it is not in the model and not in the digest. A toggle by the
+transport; when the piece reaches its end it starts again from the top.
+
+### Pitch
+
+`pitch` is a whole number of semitones, 0 by default, and it is **independent of
+`rate`**: the region lasts exactly as long as it did and sounds higher or lower.
+Range ±24.
+
+This is the one gesture with no cheap implementation. Web Audio has no pitch
+shifter, and `playbackRate` is already spoken for by stretch. It needs a
+granular shifter in an `AudioWorklet`: overlap-add short grains, resampled by
+the pitch ratio, written by hand.
+
+Its artefacts — a faint periodicity at the grain rate, smearing on transients —
+are characterful on noise and texture and would be unacceptable on a voice or a
+piano. This collection is noise and texture. If it sounds wrong, the fallback is
+to say so plainly rather than to hide it behind a worse algorithm.
+
+The gesture: take a region up, enter pitch by button, drag across its box. No
+number, no semitone readout; the region's edge takes on a tint that runs one way
+for up and the other for down.
+
 ### Playing the collage
 
 A play/stop transport in the bar. Play schedules one buffer source per region

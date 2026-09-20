@@ -31,8 +31,41 @@ Bullet one — choose a sound and stamp it — is reviewed and committed as
 `aa6807a` on `feature/audio-browser`. Bullet two — trim — is reviewed and
 committed as `3a1ae38`. Bullet three — snip — is reviewed and committed as
 `0db8571`. Bullet four — stretch — is reviewed and committed as `d1e169b`.
-Bullet five — hearing the whole collage — is built and green, and not
-committed. That is the last one in the sequence you gave.
+Bullet five — hearing the whole collage — is reviewed and committed as
+`1763b4c`. **The sequence you gave is complete.** All five are on
+`feature/audio-browser` and pushed. Final state: 262 browser tests, 583 Python
+tests, `mypy --strict` clean, HW011 unchanged.
+
+## The worst bug of the night, and it was inaudible as a gap
+
+The playback critic found it by measurement, not by listening. Pieces of a
+region were scheduled at an accumulated moment and never checked against the
+clock. Hold one chunk back fourteen seconds and a piece was told to start at
+11.46 while the clock read 15.68 — and **Web Audio starts a past moment
+immediately**. So a slow slice did not leave a gap, which is what I had
+predicted in the brief. It made the region sound as two or three copies of
+itself, all at once, and every quick piece after it fired together too.
+
+On a phone over Tailscale, with fifteen regions fetching just in time, that is
+a thing you would have heard as the piece "going wrong" with no way to say
+why. Pieces are now clamped to the clock: a region that falls behind runs late,
+stays one sound, and says `fell behind`.
+
+Two more it broke and fixed: the scheduled-once rule did not hold during
+`loading…`, so a region trimmed between the tap and the first sound played the
+material the trim had removed; and nothing on screen said a region silenced by
+an edit had gone quiet on purpose, which on a phone is hidden under the thumb
+that did it.
+
+## One test defect I found and fixed myself
+
+The full suite failed once on `encumbrance.mock.spec.ts`, a test with nothing
+to do with collage, and passed alone three times. Its `/api/board` route
+handler outlives any one request; a board request still in flight when the page
+moved on had its response disposed underneath the handler, which then threw and
+failed a test that already had its answer. It now lets such a request go rather
+than speaking for it. That flake predates tonight and would have kept surfacing
+at random.
 
 ## Design questions, all of them, in one place
 
@@ -60,6 +93,31 @@ Nothing here blocks use. Each is a choice I made and would rather you made.
    says that was on purpose.
 9. **Varispeed, not pitch-preserving stretch.** I chose it for noise and
    texture and it is a contained swap if you want the other.
+10. **A sound stamped mid-play is drawn and silent**, while a region *edited*
+    mid-play stops. Change goes quiet, addition stays mute — an asymmetry
+    that is defensible and was not chosen deliberately.
+11. **Heavy overlap clips.** Fifteen voices at unity gain summed plainly. There
+    is no way to fix it by ear until a balance gesture exists, which is the
+    obvious next thing collage needs.
+12. **Prefetch holds about 86 MB from the tap** — every region's first piece,
+    including regions half an hour away that had half an hour to fetch.
+13. **Auto-following the playhead.** A "tap to go to it" pill now appears when
+    the line is off screen, which never moves the canvas by itself. Whether it
+    should follow while you are not touching it is still yours.
+
+## What I would build next, if it were mine to choose
+
+**Balance.** It is the third verb in your own sketch — cut, move, balance — and
+it is the only one missing. Fifteen voices at unity gain clip when they overlap,
+so the piece cannot be judged by ear until levels exist, and judging by ear is
+the entire point of the view. Everything else on this list can wait behind it.
+
+The gesture that would fit what is already built: take a region up, enter a
+balance mode by button as with snip and stretch, drag sideways across its box.
+No number, no decibels, no fader — the region's fill gets lighter or darker so
+loudness is something you see as weight rather than read. `gain` already exists
+in the model, the player already applies it per voice, and the commit digest
+already covers it.
 
 ## Bullet five — playing the collage — built, not yet reviewed
 

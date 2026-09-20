@@ -4,7 +4,7 @@
   "name": "HW011",
   "column": "collage",
   "created_at": "2026-09-19T05:18:22Z",
-  "updated_at": "2026-09-19T05:31:23Z",
+  "updated_at": "2026-09-20T07:12:14Z",
   "notes": "",
   "abandoned": null,
   "commits": [
@@ -105,5 +105,45 @@
       "role": null,
       "note": ""
     }
-  ]
+  ],
+  "collage": {
+    "regions": [
+      {
+        "id": "r1",
+        "hash": "006c97ab27bb9dea1db8cfb301c7f8efcdc5bcfb4c2017e2d498cde9d739dc4b",
+        "track": 0,
+        "start_s": 0.0,
+        "end_s": 34.391,
+        "at_s": 0.0,
+        "rate": 1.0,
+        "gain": 1.0,
+        "fade_in_s": 0.0,
+        "fade_out_s": 0.0
+      },
+      {
+        "id": "r2",
+        "hash": "006c97ab27bb9dea1db8cfb301c7f8efcdc5bcfb4c2017e2d498cde9d739dc4b",
+        "track": 1,
+        "start_s": 0.0,
+        "end_s": 16.349,
+        "at_s": 11.333,
+        "rate": 0.33486,
+        "gain": 1.0,
+        "fade_in_s": 0.0,
+        "fade_out_s": 0.0
+      },
+      {
+        "id": "r3",
+        "hash": "038c2235e70bb4b06cd8c114f2c8a3945d7aa1d18819227b87bcd96da382780f",
+        "track": 2,
+        "start_s": 0.0,
+        "end_s": 126.874,
+        "at_s": 49.733,
+        "rate": 1.0,
+        "gain": 1.0,
+        "fade_in_s": 0.0,
+        "fade_out_s": 0.0
+      }
+    ]
+  }
 }

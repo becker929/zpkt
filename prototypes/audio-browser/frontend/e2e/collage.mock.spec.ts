@@ -2309,6 +2309,15 @@ interface Scheduled {
   rate: number;
   gain: number;
   ctx: number;
+  /**
+   * Every node between this source and the end of the graph, in order.
+   *
+   * The mix no longer ends at the destination directly: it goes through a
+   * trim and a shaper that hold the sum inside the rails. So "the voice
+   * reaches the one destination" is read off the whole chain rather than off
+   * one hop, and a test can also say what the chain is made of.
+   */
+  path: string[];
   toDestination: boolean;
   /**
    * The context's clock at the moment the browser was told to start this
@@ -2323,12 +2332,38 @@ interface Heard {
   pieces: Scheduled[];
   stops: Array<{ at: number; duration: number }>;
   closes: number;
+  /**
+   * Every level the browser was told to ramp a gain to.
+   *
+   * A balance made while something sounds does not reschedule anything: it
+   * moves a gain that is already in the mix. So "the level was heard" is read
+   * off the ramps the gain was given, which is a thing the browser was told,
+   * not a thing the view says about itself.
+   */
+  ramps: number[];
+}
+
+/**
+ * The mix bus as the browser was told to build it.
+ *
+ * The table a `WaveShaperNode` was given, the trim in front of it, and
+ * whether it was asked to oversample. Read separately from `heard` because
+ * the table is sixteen thousand numbers and nothing else needs it.
+ */
+interface Bus {
+  points: number[] | null;
+  trim: number | null;
+  oversample: string | null;
+  /** How many shapers were built. Fifteen voices share one bus, or they do not. */
+  built: number;
 }
 
 async function listen(page: Page): Promise<void> {
   await page.addInitScript(() => {
-    const heard: Heard = { pieces: [], stops: [], closes: 0 };
+    const heard: Heard = { pieces: [], stops: [], closes: 0, ramps: [] };
     (window as unknown as { __heard: Heard }).__heard = heard;
+    const bus: Bus = { points: null, trim: null, oversample: null, built: 0 };
+    (window as unknown as { __bus: Bus }).__bus = bus;
     let contexts = 0;
     const idOf = (ctx: BaseAudioContext): number => {
       const tagged = ctx as BaseAudioContext & { __id?: number };
@@ -2343,24 +2378,65 @@ async function listen(page: Page): Promise<void> {
       const original = proto.connect as (this: unknown, dest: unknown, ...rest: unknown[]) => unknown;
       (proto as { connect: unknown }).connect = function (this: Tracked, dest: unknown, ...rest: unknown[]) {
         this.__dest = dest;
+        // The one gain that feeds a shaper is the bus's trim, and its value
+        // is what the table's range has to be read against.
+        if (dest instanceof WaveShaperNode && this instanceof GainNode) bus.trim = this.gain.value;
         return original.call(this, dest, ...rest);
       };
     };
     remember(AudioBufferSourceNode.prototype as unknown as { connect: unknown });
     remember(GainNode.prototype as unknown as { connect: unknown });
+    remember(WaveShaperNode.prototype as unknown as { connect: unknown });
+
+    // The table itself, and whether the shaper was asked to oversample. Both
+    // are taken as they are set, so a test reads what the browser got.
+    const own = (name: "curve" | "oversample") => {
+      const descriptor = Object.getOwnPropertyDescriptor(WaveShaperNode.prototype, name);
+      if (!descriptor?.set) return;
+      const set = descriptor.set;
+      Object.defineProperty(WaveShaperNode.prototype, name, {
+        ...descriptor,
+        set(this: WaveShaperNode, value: unknown) {
+          if (name === "curve") {
+            bus.points = value ? Array.from(value as Float32Array) : null;
+            bus.built += 1;
+          } else {
+            bus.oversample = String(value);
+          }
+          set.call(this, value);
+        },
+      });
+    };
+    own("curve");
+    own("oversample");
+
+    /** Every node from `node` onwards, in order, ending at the destination. */
+    const pathOf = (node: unknown): string[] => {
+      const names: string[] = [];
+      let at = node as (AudioNode & Tracked) | undefined;
+      for (let hop = 0; hop < 8 && at; hop += 1) {
+        at = (at as Tracked).__dest as (AudioNode & Tracked) | undefined;
+        if (!at) break;
+        names.push(at === at.context?.destination ? "destination" : at.constructor.name);
+        if (at === at.context?.destination) break;
+      }
+      return names;
+    };
 
     const proto = AudioBufferSourceNode.prototype;
     const start = proto.start;
     proto.start = function (this: AudioBufferSourceNode & Tracked, when?: number, ...rest: number[]) {
       const through = this.__dest;
       const isGain = through instanceof GainNode;
+      const path = pathOf(this);
       heard.pieces.push({
         when: when ?? 0,
         duration: this.buffer?.duration ?? 0,
         rate: this.playbackRate.value,
         gain: isGain ? through.gain.value : -1,
         ctx: idOf(this.context),
-        toDestination: isGain && (through as unknown as Tracked).__dest === this.context.destination,
+        path,
+        toDestination: path[path.length - 1] === "destination",
         now: this.context.currentTime,
       });
       return (start as (when?: number, ...rest: number[]) => void).call(this, when, ...rest);
@@ -2375,11 +2451,21 @@ async function listen(page: Page): Promise<void> {
       heard.closes += 1;
       return close.call(this);
     };
+    const ramp = AudioParam.prototype.linearRampToValueAtTime;
+    AudioParam.prototype.linearRampToValueAtTime = function (this: AudioParam, value: number, when: number) {
+      heard.ramps.push(value);
+      return ramp.call(this, value, when);
+    };
   });
 }
 
 async function heard(page: Page): Promise<Heard> {
   return page.evaluate(() => (window as unknown as { __heard: Heard }).__heard);
+}
+
+/** The mix bus as it was built. Sixteen thousand numbers; asked for by name. */
+async function bus(page: Page): Promise<Bus> {
+  return page.evaluate(() => (window as unknown as { __bus: Bus }).__bus);
 }
 
 /** When a scheduled piece stops sounding, on the context's own clock. */
@@ -3076,7 +3162,7 @@ test("the line can be got back to once it has gone off the screen", async ({ pag
   });
   const follow = page.getByTestId("collage-follow");
   await expect(follow).toBeVisible();
-  await expect(follow).toContainText("the line is above");
+  await expect(follow).toContainText("the playhead is above");
   const bb = (await follow.boundingBox())!;
   expect(bb.height, "a target under a thumb").toBeGreaterThanOrEqual(44);
 
@@ -3094,7 +3180,7 @@ test("the line can be got back to once it has gone off the screen", async ({ pag
   await canvas.evaluate((node) => {
     node.scrollTop = 0;
   });
-  await expect(follow).toContainText("the line is below", { timeout: 90_000 });
+  await expect(follow).toContainText("the playhead is below", { timeout: 90_000 });
   await follow.click();
   await expect(follow).toHaveCount(0);
   expect(await inView()).toBe(true);
@@ -3103,4 +3189,590 @@ test("the line can be got back to once it has gone off the screen", async ({ pag
   await page.getByTestId("collage-play").click();
   await expect(page.getByTestId("collage")).toHaveAttribute("data-piece", "idle");
   await expect(page.getByTestId("collage-follow")).toHaveCount(0);
+});
+
+/* Balance -------------------------------------------------------------------- */
+
+/**
+ * The sixth gesture: how loud a region is.
+ *
+ * A mode, entered by a button with a region taken up, in which a drag
+ * *across* the block moves its level. Along the block is time and stays free;
+ * across it is the only thing balance can reach, and `at_s` is not in the
+ * gesture's hands at all. The block's fill takes on the weight, so loudness
+ * is something the eye reads off the canvas rather than a figure anywhere.
+ *
+ * And the bus under all of it, which saturates: fifteen voices at unity go
+ * past full scale the moment they overlap, and past full scale a device cuts
+ * the tops off. The tests on the curve read the table the browser was really
+ * given and do the arithmetic on it, because "gentle" and "transparent" are
+ * claims about a function and are checked as such.
+ */
+
+/** The bounds and the travel, mirroring `lib/collage.ts`. */
+const GAIN_MAX = 2;
+const GAIN_SPAN_PX = 96;
+
+/** The canvas's own background, for compositing a region's fill against it. */
+const CANVAS_BG = { r: 0x0e, g: 0x10, b: 0x13 };
+
+/** Take a region up and turn balance on, if it is not on already. */
+async function enterBalance(page: Page, regionId: string) {
+  await takeUp(page, regionId);
+  if ((await page.getByTestId("collage").getAttribute("data-mode")) !== "balance") {
+    await page.getByTestId("collage-balance").click();
+  }
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-mode", "balance");
+  return region(page, regionId);
+}
+
+/** Drag sideways across a region's grab by `dx` pixels, letting go unless told not to. */
+async function balanceDrag(page: Page, regionId: string, dx: number, lift = true) {
+  await enterBalance(page, regionId);
+  const grab = region(page, regionId).getByTestId("region-grab");
+  await grab.scrollIntoViewIfNeeded();
+  const box = (await grab.boundingBox())!;
+  const x = box.x + box.width / 2;
+  const y = box.y + box.height / 2;
+  await page.mouse.move(x, y);
+  await page.mouse.down();
+  await page.mouse.move(x + dx, y, { steps: 8 });
+  if (lift) await page.mouse.up();
+  return { x, y };
+}
+
+/** What the file holds for one region. */
+async function rowOnServer(page: Page, id: string): Promise<RegionRow> {
+  const found = (await regionsOnServer(page)).find((r) => r.id === id);
+  expect(found, `no region ${id} on the server`).toBeTruthy();
+  return found!;
+}
+
+/**
+ * How light a region's block is, on a screen with no colour in it.
+ *
+ * The fill is translucent, so what an eye sees is the fill over the canvas.
+ * This composites the two and returns the luminance of the result, which is
+ * exactly the quantity a greyscale screen keeps and a hue does not.
+ */
+async function blockLuma(page: Page, regionId: string): Promise<number> {
+  const colour = await region(page, regionId).evaluate((node) => getComputedStyle(node).backgroundColor);
+  const parts = colour.match(/[\d.]+/g);
+  expect(parts, `could not read the fill: ${colour}`).toBeTruthy();
+  const [r, g, b] = parts!.slice(0, 3).map(Number);
+  const a = parts!.length > 3 ? Number(parts![3]) : 1;
+  const over = (top: number, under: number) => top * a + under * (1 - a);
+  const lin = (v: number) => {
+    const s = v / 255;
+    return s <= 0.04045 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4;
+  };
+  return (
+    0.2126 * lin(over(r, CANVAS_BG.r)) +
+    0.7152 * lin(over(g, CANVAS_BG.g)) +
+    0.0722 * lin(over(b, CANVAS_BG.b))
+  );
+}
+
+test("balance is a mode entered by a button with a region taken up: the bar says so, the handles go, and every way out returns to trim", async ({
+  page,
+  request,
+}) => {
+  const set = await sounds(page);
+  await writeRegions(request, [regionRow("r1", set[0].hash, 0, 0, 0, 4)]);
+  await page.goto("/collage");
+  const button = page.getByTestId("collage-balance");
+
+  // Nothing taken up: refused. Balance is a gesture on a whole region and
+  // needs one in hand, exactly as stretch needs a handle.
+  await expect(button).toBeDisabled();
+  await takeUp(page, "r1");
+  await expect(button).toBeEnabled();
+  await expect(button).toHaveAttribute("aria-pressed", "false");
+
+  // On: no handles at all, snip and stretch off, and the choose button gives
+  // way to a plain statement of the mode.
+  await button.click();
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-mode", "balance");
+  await expect(button).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByTestId("collage-snip")).toHaveAttribute("aria-pressed", "false");
+  await expect(page.getByTestId("collage-stretch")).toHaveAttribute("aria-pressed", "false");
+  await expect(page.getByTestId("handle")).toHaveCount(0);
+  await expect(page.getByTestId("collage-choose")).toHaveCount(0);
+  await expect(page.getByTestId("collage-mode")).toContainText("balance is on");
+  await noFigures(page);
+
+  // The button again: trim is back, and so are both handles.
+  await button.click();
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-mode", "trim");
+  await expect(page.getByTestId("handle")).toHaveCount(2);
+
+  // The statement in the bar is the other way out.
+  await button.click();
+  await page.getByTestId("collage-mode").click();
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-mode", "trim");
+
+  // Escape puts the region down, and with it balance.
+  await button.click();
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-mode", "balance");
+  await page.keyboard.press("Escape");
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-mode", "trim");
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-selected", "");
+  await expect(button).toBeDisabled();
+
+  // A tap on the blank puts it down too, and stamps nothing even with a sound
+  // chosen: the bar said balance was on, not that a tap would stamp.
+  await choose(page, 0);
+  await enterBalance(page, "r1");
+  await stampAt(page, 40, 500);
+  await expect(page.getByTestId("region")).toHaveCount(1);
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-mode", "trim");
+
+  // Snip pressed while balance is on: snip is on and balance is not. Never two.
+  await enterBalance(page, "r1");
+  await enterSnip(page);
+  await expect(button).toHaveAttribute("aria-pressed", "false");
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-mode", "snip");
+  await page.getByTestId("collage-snip").click();
+
+  // Taking a *different* region up keeps balance on, aimed at that region.
+  // Levels are set against each other, so a button tap between two voices
+  // would sit in the middle of one job. Stretch ends instead; that is the
+  // difference between a gesture on a handle and a gesture on a block.
+  await stampAt(page, TRACK_W + 40, 200);
+  await expect(page.getByTestId("region")).toHaveCount(2);
+  await enterBalance(page, "r1");
+  await takeUp(page, "r2");
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-mode", "balance");
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-selected", "r2");
+
+  // The one change in all of that was the stamp.
+  await expect(page.getByTestId("collage-undo")).toHaveAttribute("data-depth", "1");
+});
+
+test("dragging across a region moves its level and nothing else: one write, one undo step, and it survives a reload", async ({
+  page,
+  request,
+}) => {
+  const set = await sounds(page);
+  await writeRegions(request, [regionRow("r1", set[0].hash, 0, 3, 0, 4)]);
+  await page.goto("/collage");
+  const before = await regionBox(page, 0);
+
+  const writes = await writesDuring(page, async () => {
+    // A quarter of the travel across is a quarter of the range: half a unit.
+    await balanceDrag(page, "r1", GAIN_SPAN_PX / 4, false);
+    await expect(page.getByTestId("collage")).toHaveAttribute("data-balancing", "true");
+    await expect(region(page, "r1")).toHaveAttribute("data-gain", "1.5");
+    await expect(page.getByTestId("collage-mode")).toContainText("let go to keep it");
+    // The block has not moved in time, nor across tracks, nor changed length.
+    const during = await regionBox(page, 0);
+    expect(during).toEqual(before);
+    await page.mouse.up();
+  });
+  expect(writes, "a balance is one write, on the lift").toBe(1);
+
+  const kept = await rowOnServer(page, "r1");
+  expect(kept.gain).toBeCloseTo(1.5, 6);
+  // Everything else is exactly what it was. A sideways drag is not allowed to
+  // touch time, and `at_s` is the field that would show it if it did.
+  expect({ ...kept, gain: 1 }).toEqual(regionRow("r1", set[0].hash, 0, 3, 0, 4));
+  expect(await regionBox(page, 0)).toEqual(before);
+  await noFigures(page);
+
+  // One undo step, and it takes the level back.
+  await expect(page.getByTestId("collage-undo")).toHaveAttribute("data-depth", "1");
+  await page.getByTestId("collage-undo").click();
+  await expect(region(page, "r1")).toHaveAttribute("data-gain", "1");
+  await expect(page.getByTestId("collage-save")).toHaveAttribute("data-state", "saved");
+  expect((await rowOnServer(page, "r1")).gain).toBe(1);
+
+  // Again, and through a reload: the level is in the file, not in the view.
+  await balanceDrag(page, "r1", GAIN_SPAN_PX / 4);
+  await expect(page.getByTestId("collage-save")).toHaveAttribute("data-state", "saved");
+  await page.reload();
+  await expect(region(page, "r1")).toHaveAttribute("data-gain", "1.5");
+});
+
+test("a balance stops at silence and at the loudest, and the bar says which wall without a number", async ({
+  page,
+  request,
+}) => {
+  const set = await sounds(page);
+  await writeRegions(request, [regionRow("r1", set[0].hash, 0, 0, 0, 4)]);
+  await page.goto("/collage");
+
+  // All the way down, and a long way past. The block stops at silence.
+  await balanceDrag(page, "r1", -400, false);
+  await expect(region(page, "r1")).toHaveAttribute("data-gain", "0");
+  await expect(page.getByTestId("collage-mode")).toContainText("as quiet as it goes");
+  await expect(page.getByTestId("collage-mode")).toHaveAttribute("data-bound", "quiet");
+  await noFigures(page);
+  await page.mouse.up();
+  expect((await rowOnServer(page, "r1")).gain).toBe(0);
+
+  // And all the way up from there, twice as far as the range is wide.
+  await balanceDrag(page, "r1", GAIN_SPAN_PX * 2, false);
+  await expect(region(page, "r1")).toHaveAttribute("data-gain", String(GAIN_MAX));
+  await expect(page.getByTestId("collage-mode")).toContainText("as loud as it goes");
+  await expect(page.getByTestId("collage-mode")).toHaveAttribute("data-bound", "loud");
+  await noFigures(page);
+  await page.mouse.up();
+  expect((await rowOnServer(page, "r1")).gain).toBe(GAIN_MAX);
+
+  // A drag that gets what it asks for says nothing about a wall.
+  await balanceDrag(page, "r1", -GAIN_SPAN_PX / 2, false);
+  await expect(page.getByTestId("collage-mode")).toHaveAttribute("data-bound", "");
+  await expect(region(page, "r1")).toHaveAttribute("data-gain", "1");
+  await page.mouse.up();
+});
+
+test("the block's weight follows its level and survives greyscale; what is taken up or sounding says so elsewhere", async ({
+  page,
+  request,
+}) => {
+  const set = await sounds(page);
+  const hash = set[0].hash;
+  await writeRegions(request, [
+    { ...regionRow("r1", hash, 0, 0, 0, 4), gain: 0 },
+    { ...regionRow("r2", hash, 1, 0, 0, 4), gain: 1 },
+    { ...regionRow("r3", hash, 2, 0, 0, 4), gain: GAIN_MAX },
+  ]);
+  await page.goto("/collage");
+  await expect(page.getByTestId("region")).toHaveCount(3);
+
+  // The same sound, the same hue, three levels. Weight is what tells them
+  // apart, and weight is lightness, which is what a screen with no colour in
+  // it keeps.
+  const quiet = await blockLuma(page, "r1");
+  const middle = await blockLuma(page, "r2");
+  const loud = await blockLuma(page, "r3");
+  expect(quiet, "a silent block is not lighter than an untouched one").toBeLessThan(middle);
+  expect(middle, "the loudest block is not lighter than an untouched one").toBeLessThan(loud);
+  // And by enough to see: each step is more than a tenth of the whole span.
+  expect(middle - quiet).toBeGreaterThan((loud - quiet) / 10);
+  expect(loud - middle).toBeGreaterThan((loud - quiet) / 10);
+
+  // The untouched level draws exactly as every block drew before balance
+  // existed: half the weight, which is the fill the view has always used.
+  const unity = await region(page, "r2").evaluate((node) => {
+    const hue = getComputedStyle(node).getPropertyValue("--hue").trim();
+    const probe = document.createElement("div");
+    probe.style.backgroundColor = `hsl(${hue} 45% 30% / 0.55)`;
+    document.body.appendChild(probe);
+    const want = getComputedStyle(probe).backgroundColor;
+    probe.remove();
+    return { got: getComputedStyle(node).backgroundColor, want };
+  });
+  expect(unity.got, "the untouched level no longer draws as it always did").toBe(unity.want);
+
+  // Taken up and sounding are said outside the box. Weight is the fill, so
+  // neither of them can be mistaken for a level, and a level cannot hide one.
+  const before = await region(page, "r2").evaluate((node) => {
+    const style = getComputedStyle(node);
+    return { fill: style.backgroundColor, ring: style.boxShadow, edge: style.borderTopColor };
+  });
+  await takeUp(page, "r2");
+  const after = await region(page, "r2").evaluate((node) => {
+    const style = getComputedStyle(node);
+    return { fill: style.backgroundColor, ring: style.boxShadow, edge: style.borderTopColor };
+  });
+  expect(after.fill, "taking a region up changed its weight").toBe(before.fill);
+  expect(after.ring).not.toBe(before.ring);
+  expect(after.edge).not.toBe(before.edge);
+});
+
+test("a stretched region keeps its rate through a balance, and a balanced region keeps its level through a stretch", async ({
+  page,
+  request,
+}) => {
+  const set = await sounds(page);
+  await writeRegions(request, [regionRow("r1", set[0].hash, 0, 5, 0, 4, 0.5)]);
+  await page.goto("/collage");
+
+  // Balance first. The rate, the cut and the moment all come through it.
+  await balanceDrag(page, "r1", GAIN_SPAN_PX / 2);
+  await expect(page.getByTestId("collage-save")).toHaveAttribute("data-state", "saved");
+  const balanced = await rowOnServer(page, "r1");
+  expect(balanced.gain).toBeCloseTo(2, 6);
+  expect(balanced.rate).toBe(0.5);
+  expect(balanced.at_s).toBe(5);
+  expect(balanced.start_s).toBe(0);
+  expect(balanced.end_s).toBe(4);
+
+  // Then stretch the same region. The level comes through that.
+  await page.getByTestId("collage-mode").click();
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-mode", "trim");
+  await stretchDrag(page, "r1", "end", -20);
+  await expect(page.getByTestId("collage-save")).toHaveAttribute("data-state", "saved");
+  const stretched = await rowOnServer(page, "r1");
+  expect(stretched.rate, "the stretch did nothing").not.toBe(0.5);
+  expect(stretched.gain).toBeCloseTo(2, 6);
+  expect(stretched.at_s).toBe(5);
+});
+
+test("the mix bus saturates: the curve is the signal below its knee, never leaves the rails, and has no corner", async ({
+  page,
+  request,
+}) => {
+  const set = await sounds(page);
+  await writeRegions(request, [regionRow("r1", set[0].hash, 0, 0, 0, 0.5, 0.05)]);
+  await listen(page);
+  await serveSlices(page);
+  await page.goto("/collage");
+  await page.getByTestId("collage-play").click();
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-piece", "playing");
+
+  // Every voice reaches the one destination, and it reaches it through the
+  // shaper. There is exactly one of those: the sum is shaped once.
+  const { pieces } = await heard(page);
+  expect(pieces.length).toBeGreaterThan(0);
+  for (const p of pieces) {
+    expect(p.toDestination).toBe(true);
+    expect(p.path).toEqual(["GainNode", "GainNode", "WaveShaperNode", "destination"]);
+  }
+
+  const { points, trim, oversample, built } = await bus(page);
+  expect(built, "more than one shaper was built").toBe(1);
+  expect(points).toBeTruthy();
+  expect(trim, "the trim in front of the table is not a power of two").toBe(0.125);
+  // Oversampling would run even an untouched signal through a filter pair,
+  // and "the signal below the knee is the signal" would become "almost".
+  expect(oversample).toBe("none");
+
+  const table = points!;
+  const last = table.length - 1;
+  const headroom = 1 / trim!;
+  // The node's own arithmetic: scale in, look up, interpolate. This is what
+  // the browser does to a sample, done here so the claims are about the graph
+  // and not about a function in a file.
+  const through = (x: number): number => {
+    const v = (last / 2) * (x / headroom + 1);
+    if (v <= 0) return table[0];
+    if (v >= last) return table[last];
+    const k = Math.floor(v);
+    const f = v - k;
+    return (1 - f) * table[k] + f * table[k + 1];
+  };
+
+  // 1. Below the knee it does nothing at all. A single region at gain 1 whose
+  //    peaks stay under this is passed through as itself.
+  let knee = 0;
+  for (let i = 0; i <= 4000; i += 1) {
+    const x = i / 4000;
+    if (Math.abs(through(x) - x) > 1e-6) break;
+    knee = x;
+  }
+  expect(knee, "the curve bends before the level a real recording sits at").toBeGreaterThanOrEqual(0.79);
+  let strayed = 0;
+  let strayedAt = 0;
+  for (let i = -4000; i <= 4000; i += 1) {
+    const x = (i / 4000) * knee;
+    const off = Math.abs(through(x) - x);
+    if (off > strayed) {
+      strayed = off;
+      strayedAt = x;
+    }
+  }
+  expect(strayed, `the curve moved ${strayedAt}, which is below its knee`).toBeLessThan(1e-6);
+
+  // 2. It never leaves the rails, so the device never has to cut anything off.
+  let peak = 0;
+  for (let i = 0; i <= 20000; i += 1) {
+    const x = -40 + (80 * i) / 20000;
+    peak = Math.max(peak, Math.abs(through(x)));
+  }
+  expect(peak, "the bus put a sample past full scale").toBeLessThanOrEqual(1 + 1e-6);
+
+  // 3. It is odd, and it only ever goes up: no fold, no direct current.
+  let previous = -Infinity;
+  let backwards: number | null = null;
+  let lopsided = 0;
+  for (let i = 0; i <= 20000; i += 1) {
+    const x = -10 + (20 * i) / 20000;
+    const y = through(x);
+    if (y < previous - 1e-6 && backwards === null) backwards = x;
+    lopsided = Math.max(lopsided, Math.abs(y + through(-x)));
+    previous = y;
+  }
+  expect(backwards, `the curve turned back at ${backwards}`).toBeNull();
+  expect(lopsided, "the curve is not odd").toBeLessThan(1e-5);
+
+  // 4. And it has no corner. The two pieces meet with the same slope, which is
+  //    the whole difference between drive and tearing: a hard clip's corner is
+  //    what makes its harmonics fall away as slowly as they do.
+  const step = 0.002;
+  const slopeBelow = (through(knee) - through(knee - step)) / step;
+  const slopeAbove = (through(knee + step) - through(knee)) / step;
+  expect(slopeBelow).toBeCloseTo(1, 2);
+  expect(slopeAbove).toBeCloseTo(1, 1);
+
+  // 5. What it costs a sound that really does reach full scale: a fraction of
+  //    a decibel on its loudest sample, and nothing anywhere else.
+  expect(through(1)).toBeGreaterThan(0.95);
+  expect(through(1)).toBeLessThan(1);
+  // And where the drive lives: a sum of two is already all but at the rail,
+  // which is what "push more in and it gets harder" means.
+  expect(through(2)).toBeGreaterThan(0.99);
+
+  await page.getByTestId("collage-play").click();
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-piece", "idle");
+
+  // A region heard on its own goes through a bus too. A single region taken
+  // all the way up is past full scale by itself, and a preview that tore
+  // where the piece did not would be the wrong thing to balance by.
+  //
+  // The tap that takes a region up also starts it playing, at the level it
+  // had then, so the drag is heard on that voice as a ramp — which is the
+  // whole point of balancing one region against nothing but itself.
+  const ramped = (await heard(page)).ramps.length;
+  await balanceDrag(page, "r1", GAIN_SPAN_PX);
+  await expect(page.getByTestId("collage-save")).toHaveAttribute("data-state", "saved");
+  expect(
+    (await heard(page)).ramps.slice(ramped).some((to) => Math.abs(to - GAIN_MAX) < 1e-6),
+    "the region being previewed was not taken up to the level the thumb left it at",
+  ).toBe(true);
+
+  // And the next preview starts there rather than ramping to it.
+  await page.getByTestId("collage-mode").click();
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-mode", "trim");
+  if ((await region(page, "r1").getAttribute("data-playing")) === "true") {
+    await region(page, "r1").click({ position: { x: 10, y: 5 } });
+    await expect(region(page, "r1")).toHaveAttribute("data-playing", "false");
+  }
+  const alone = (await heard(page)).pieces.length;
+  await region(page, "r1").click({ position: { x: 10, y: 5 } });
+  await expect.poll(async () => (await heard(page)).pieces.length).toBeGreaterThan(alone);
+  const preview = (await heard(page)).pieces.slice(alone);
+  for (const p of preview) {
+    expect(p.gain, "the preview did not carry the region's level").toBe(GAIN_MAX);
+    expect(p.path).toEqual(["GainNode", "GainNode", "WaveShaperNode", "destination"]);
+  }
+});
+
+test("a level another tool wrote past the ceiling may come down and not go further up", async ({
+  page,
+  request,
+}) => {
+  const set = await sounds(page);
+  // The model allows any level at or above nothing, and nothing in this view
+  // writes one above two. A later stage might, and a gesture must not undo
+  // that decision the moment a thumb lands on the block.
+  await writeRegions(request, [{ ...regionRow("r1", set[0].hash, 0, 0, 0, 4), gain: 5 }]);
+  await page.goto("/collage");
+  await expect(region(page, "r1")).toHaveAttribute("data-gain", "5");
+
+  // Up: it stays where it was, and the bar says it is as loud as it goes.
+  await balanceDrag(page, "r1", GAIN_SPAN_PX, false);
+  await expect(region(page, "r1")).toHaveAttribute("data-gain", "5");
+  await expect(page.getByTestId("collage-mode")).toHaveAttribute("data-bound", "loud");
+  await page.mouse.up();
+  expect((await rowOnServer(page, "r1")).gain).toBe(5);
+
+  // Down: it moves, and the range is the one the drag's travel says.
+  await balanceDrag(page, "r1", -GAIN_SPAN_PX / 2);
+  await expect(page.getByTestId("collage-save")).toHaveAttribute("data-state", "saved");
+  expect((await rowOnServer(page, "r1")).gain).toBe(4);
+  // And the block is drawn at the top of the weight it can show, not past it.
+  await expect(region(page, "r1")).toHaveAttribute("data-gain", "4");
+});
+
+test("balancing a region while the piece plays moves its level under the ear instead of silencing it", async ({
+  page,
+  request,
+}) => {
+  const set = await sounds(page);
+  const hash = set[0].hash;
+  await writeRegions(request, [
+    regionRow("r1", hash, 0, 0, 0, 0.6, 0.05),
+    regionRow("r2", hash, 1, 0, 0, 0.8, 0.05),
+  ]);
+  await listen(page);
+  await serveSlices(page);
+  await page.goto("/collage");
+  await page.getByTestId("collage-play").click();
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-piece", "playing");
+  const scheduled = (await heard(page)).pieces.length;
+  const stopped = (await heard(page)).stops.length;
+
+  // Balance one of them while both sound. Nothing is rescheduled and nothing
+  // is stopped: the gain that voice already runs through is ramped.
+  await balanceDrag(page, "r1", -GAIN_SPAN_PX / 4);
+  await expect(page.getByTestId("collage-save")).toHaveAttribute("data-state", "saved");
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-piece", "playing");
+  const after = await heard(page);
+  expect(after.pieces.length, "a balance rescheduled the piece").toBe(scheduled);
+  expect(after.stops.length, "a balance stopped a voice").toBe(stopped);
+  expect(after.ramps.some((to) => Math.abs(to - 0.5) < 1e-6), "no gain was ramped to the new level").toBe(true);
+  // And nothing says the region went quiet, because it did not.
+  await expect(page.getByTestId("collage-hint")).toHaveCount(0);
+
+  // A change to the *material* still takes its region out of the pass. The
+  // two rules sit side by side, and this is the line between them.
+  await page.getByTestId("collage-mode").click();
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-mode", "trim");
+  await drag(page, "r2", "end", -20);
+  await expect(page.getByTestId("collage-hint")).toContainText("gone quiet");
+  expect((await heard(page)).stops.length).toBeGreaterThan(stopped);
+
+  await page.getByTestId("collage-play").click();
+});
+
+test("fifteen voices at the loudest balance allows still sum through one shaper into one destination", async ({
+  page,
+  request,
+}) => {
+  const set = await sounds(page);
+  const hash = set[0].hash;
+  // Fifteen regions, every one of them at the top of the range, all sounding
+  // over each other from the first moment. This is the case the bus exists
+  // for: summed plainly it is thirty times full scale.
+  const many = Array.from({ length: 15 }, (_, i) => ({
+    ...regionRow(`r${i + 1}`, hash, i, 0, 0, 0.6, 0.05),
+    gain: GAIN_MAX,
+  }));
+  await writeRegions(request, many);
+  await listen(page);
+  await serveSlices(page);
+  await page.goto("/collage");
+  await expect(page.getByTestId("region")).toHaveCount(15);
+
+  await page.getByTestId("collage-play").click();
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-piece", "playing");
+  await expect(page.getByTestId("collage-play-error")).toHaveCount(0);
+
+  const { pieces } = await heard(page);
+  expect(pieces).toHaveLength(15);
+  expect(new Set(pieces.map((p) => p.ctx)).size).toBe(1);
+  for (const p of pieces) {
+    expect(p.gain).toBe(GAIN_MAX);
+    expect(p.toDestination).toBe(true);
+    expect(p.path).toEqual(["GainNode", "GainNode", "WaveShaperNode", "destination"]);
+  }
+  // And they really overlap: all fifteen sounding at once is the sum the bus
+  // has to hold.
+  const spans = pieces.map(sounding);
+  const at = Math.max(...spans.map((s) => s.from)) + 0.01;
+  expect(spans.filter((s) => s.from <= at && s.to > at)).toHaveLength(15);
+  expect((await bus(page)).built, "one shaper for fifteen voices").toBe(1);
+
+  await page.getByTestId("collage-play").click();
+});
+
+test("a level is reached by the keyboard as well, and the block's weight follows", async ({ page, request }) => {
+  const set = await sounds(page);
+  await writeRegions(request, [regionRow("r1", set[0].hash, 0, 0, 0, 4)]);
+  await page.goto("/collage");
+  await enterBalance(page, "r1");
+
+  await region(page, "r1").focus();
+  await page.keyboard.press("ArrowRight");
+  await expect(region(page, "r1")).toHaveAttribute("data-gain", "1.1");
+  await page.keyboard.press("Shift+ArrowLeft");
+  await expect(region(page, "r1")).toHaveAttribute("data-gain", "0.7");
+  await expect(page.getByTestId("collage-save")).toHaveAttribute("data-state", "saved");
+  expect((await rowOnServer(page, "r1")).gain).toBeCloseTo(0.7, 6);
+  await noFigures(page);
+
+  // Two steps, two undo steps.
+  await expect(page.getByTestId("collage-undo")).toHaveAttribute("data-depth", "2");
 });

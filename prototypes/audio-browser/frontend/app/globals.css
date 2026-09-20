@@ -1838,7 +1838,20 @@ select:focus {
 }
 
 /* One region: a block whose height is its length, on the track it was stamped
-   in. Every region cut from one source shares a hue, read off the hash. */
+   in. Every region cut from one source shares a hue, read off the hash.
+
+   Its fill carries how loud it is. `--weight` runs from 0 at silence to 1 at
+   the loudest balance allows, and both the lightness and the solidity of the
+   fill follow it: a quiet block sinks towards the background and a loud one
+   comes forward. Two things moving together, so the difference is still there
+   on a screen with no colour in it — a greyscale eye reads lightness, and
+   lightness is half of what changes. Half weight is the untouched level, and
+   at half this is exactly the fill every block had before balance existed.
+
+   What tells a region apart from the one taken up, or the one sounding, is
+   outside the box: a ring, a border, a band. Nothing about the state touches
+   the fill, so weight and state never have to be told apart from each
+   other. */
 .region {
   position: absolute;
   display: block;
@@ -1846,7 +1859,9 @@ select:focus {
   margin: 0;
   border: 1px solid hsl(var(--hue) 55% 62% / 0.75);
   border-radius: 6px;
-  background: hsl(var(--hue) 45% 30% / 0.55);
+  background: hsl(
+    var(--hue) 45% calc(12% + var(--weight, 0.5) * 36%) / calc(0.3 + var(--weight, 0.5) * 0.5)
+  );
   color: var(--text);
   text-align: left;
   /* No `overflow: hidden`: the label is sticky inside the block, and a
@@ -2117,7 +2132,7 @@ select:focus {
 .collage-bar {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 8px 6px;
   flex: 0 0 auto;
   padding: 8px 10px calc(8px + var(--safe-bottom));
   border-top: 1px solid var(--border);
@@ -2168,7 +2183,7 @@ select:focus {
 
 .collage-undo {
   flex: 1 1 0;
-  min-width: 72px;
+  min-width: 64px;
   max-width: 200px;
   min-height: 60px;
   display: flex;
@@ -2176,10 +2191,11 @@ select:focus {
   align-items: center;
   justify-content: center;
   gap: 2px;
+  padding: 4px 2px;
   border: 1px solid var(--border);
   border-radius: 12px;
   color: var(--text-dim);
-  font-size: 14px;
+  font-size: 13px;
   -webkit-tap-highlight-color: transparent;
 }
 
@@ -2190,15 +2206,22 @@ select:focus {
   white-space: nowrap;
 }
 
-/* The transport, and the snip and stretch buttons: the way into a mode and
-   the way out, and beside them the way to hear the whole piece. Pressed while
-   that mode is on, or while the piece sounds. Play is disabled with nothing
-   stamped; snip with nothing to snip; stretch with no handle selected. */
+/* The transport, and the three mode buttons: the way into a mode and the way
+   out, and beside them the way to hear the whole piece. Pressed while that
+   mode is on, or while the piece sounds. Play is disabled with nothing
+   stamped; snip with nothing to snip; stretch with no handle selected;
+   balance with no region taken up.
+
+   Four of these and undo make five across a phone, so the floor is a little
+   under a thumb in width and a good deal over one in height. Nothing here is
+   ever the only way to do anything — every mode is also left by the wide
+   statement above it, which is a whole row. */
 .collage-play,
 .collage-snip,
-.collage-stretch {
+.collage-stretch,
+.collage-balance {
   flex: 1 1 0;
-  min-width: 72px;
+  min-width: 64px;
   max-width: 200px;
   min-height: 60px;
   display: flex;
@@ -2206,16 +2229,18 @@ select:focus {
   align-items: center;
   justify-content: center;
   gap: 2px;
+  padding: 4px 2px;
   border: 1px solid var(--border);
   border-radius: 12px;
   color: var(--text-dim);
-  font-size: 14px;
+  font-size: 13px;
   -webkit-tap-highlight-color: transparent;
 }
 
 .collage-play:disabled,
 .collage-snip:disabled,
-.collage-stretch:disabled {
+.collage-stretch:disabled,
+.collage-balance:disabled {
   opacity: 0.4;
 }
 
@@ -2234,7 +2259,8 @@ select:focus {
 }
 
 .collage-snip.on,
-.collage-stretch.on {
+.collage-stretch.on,
+.collage-balance.on {
   border-color: var(--favorite);
   background: rgba(255, 200, 97, 0.14);
   color: var(--text);
@@ -2247,7 +2273,8 @@ select:focus {
 }
 
 .collage-snip.on .collage-snip-sub,
-.collage-stretch.on .collage-snip-sub {
+.collage-stretch.on .collage-snip-sub,
+.collage-balance.on .collage-snip-sub {
   color: var(--favorite);
 }
 
@@ -2313,8 +2340,11 @@ select:focus {
 }
 
 /* A stretch that has met a wall says so here, in the same amber the band
-   uses, because the handle that stopped is under the thumb. */
-.collage-mode.stretch.stopped {
+   uses, because the handle that stopped is under the thumb. A balance that
+   has run down to silence or up to the loudest says it the same way, for the
+   same reason: the block whose weight said it is under the thumb. */
+.collage-mode.stretch.stopped,
+.collage-mode.balance.stopped {
   background: rgba(255, 200, 97, 0.28);
 }
 

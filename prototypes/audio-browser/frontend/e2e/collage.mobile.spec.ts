@@ -1443,7 +1443,7 @@ test("a piece taller than the phone offers a way back to the line, and never mov
   });
   const follow = page.getByTestId("collage-follow");
   await expect(follow).toBeVisible();
-  await expect(follow).toContainText("the line is above");
+  await expect(follow).toContainText("the playhead is above");
 
   // A thumb's target, on the screen, and clear of the bar it would otherwise
   // hide under.
@@ -1504,4 +1504,238 @@ test("an edit mid-play says on the phone that the change has gone quiet", async 
   await page.screenshot({ path: "screenshots/collage-phone-quiet.png" });
   await page.getByTestId("collage-play").tap();
   await expect(page.getByTestId("collage-hint")).toHaveCount(0);
+});
+
+/* Balance -------------------------------------------------------------------- */
+
+/** The travel across, mirroring `GAIN_SPAN_PX` in `lib/collage.ts`. */
+const GAIN_SPAN_PX = 96;
+
+/** Everything the file holds for the collage, levels included. */
+async function storedRegions(request: APIRequestContext) {
+  const detail = (await (await request.get(`/api/projects/${PROJECT}`)).json()) as {
+    document: {
+      collage?: {
+        regions?: Array<{ id: string; start_s: number; end_s: number; at_s: number; rate: number; gain: number; track: number }>;
+      } | null;
+    };
+  };
+  return detail.document.collage?.regions ?? [];
+}
+
+/** A thumb on a target, moved `dx` across in steps, then lifted. */
+async function thumbAcross(page: Page, target: Locator, dx: number, lift = true): Promise<{ x: number; y: number }> {
+  const box = (await target.boundingBox())!;
+  const x = box.x + box.width / 2;
+  const y = box.y + box.height / 2;
+  await touch(target, "pointerdown", x, y);
+  const steps = 6;
+  for (let i = 1; i <= steps; i += 1) {
+    await touch(target, "pointermove", x + (dx * i) / steps, y);
+    await page.waitForTimeout(16);
+  }
+  if (lift) await touch(target, "pointerup", x + dx, y);
+  return { x: x + dx, y };
+}
+
+test("balance with one thumb: a thumb-sized button, no handles while it is on, and a drag across the block sets its level", async ({
+  page,
+  request,
+}) => {
+  const { hash } = await firstSound(request);
+  // Four seconds at full speed: forty pixels tall, so the grab reaches out to
+  // a thumb either side of it and is where the drag across begins.
+  const put = await request.put(`/api/projects/${PROJECT}/collage`, {
+    data: { regions: [regionRow("r1", hash, 0, 10, 4)] },
+  });
+  expect(put.ok()).toBe(true);
+  await page.goto("/collage");
+  const viewport = page.viewportSize()!;
+  const button = page.getByTestId("collage-balance");
+
+  // The button is a thumb, and the whole bar is still on the screen with five
+  // targets in its second row.
+  const bb = (await button.boundingBox())!;
+  expect(bb.height).toBeGreaterThanOrEqual(44);
+  expect(bb.width).toBeGreaterThanOrEqual(44);
+  expect(bb.x + bb.width).toBeLessThanOrEqual(viewport.width + 1);
+  expect(bb.y + bb.height).toBeLessThanOrEqual(viewport.height + 1);
+  await expect(button).toBeDisabled();
+
+  // Take the region up, then the button. No handle is needed and none is left.
+  await takeUp(page, "r1");
+  await expect(button).toBeEnabled();
+  await button.tap();
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-mode", "balance");
+  await expect(page.getByTestId("handle")).toHaveCount(0);
+  await expect(page.getByTestId("collage-mode")).toContainText("balance is on");
+  const modeBox = (await page.getByTestId("collage-mode").boundingBox())!;
+  expect(modeBox.height).toBeGreaterThanOrEqual(44);
+  expect(modeBox.y + modeBox.height).toBeLessThanOrEqual(viewport.height + 1);
+
+  // A thumb on the grab is weighing, not scrolling, in either direction.
+  const grab = region(page, "r1").getByTestId("region-grab");
+  expect(await grab.evaluate((node) => getComputedStyle(node).touchAction)).toBe("none");
+  const grabBox = (await grab.boundingBox())!;
+  expect(grabBox.height).toBeGreaterThanOrEqual(44);
+  expect(grabBox.width).toBeGreaterThanOrEqual(44);
+  await page.screenshot({ path: "screenshots/collage-phone-balance-on.png" });
+
+  let writes = 0;
+  page.on("request", (r) => {
+    if (r.method() === "PUT" && r.url().includes("/collage")) writes += 1;
+  });
+
+  // Half the travel to the right is the whole of the top half of the range,
+  // and a little past it, so the drag also meets the wall. The block gets
+  // heavier as the thumb goes, and nothing is written until the lift.
+  const before = (await region(page, "r1").boundingBox())!;
+  const fillBefore = await region(page, "r1").evaluate((node) => getComputedStyle(node).backgroundColor);
+  const held = await thumbAcross(page, grab, GAIN_SPAN_PX / 2 + 12, false);
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-balancing", "true");
+  await expect(region(page, "r1")).toHaveAttribute("data-gain", "2");
+  await expect(page.getByTestId("collage-mode")).toContainText("as loud as it goes");
+  expect(writes).toBe(0);
+  const fillDuring = await region(page, "r1").evaluate((node) => getComputedStyle(node).backgroundColor);
+  expect(fillDuring, "the block did not take on the weight").not.toBe(fillBefore);
+  await page.screenshot({ path: "screenshots/collage-phone-balancing.png" });
+  await touch(grab, "pointerup", held.x, held.y);
+
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-balancing", "false");
+  await expect(page.getByTestId("collage-save")).toHaveAttribute("data-state", "saved");
+  expect(writes).toBe(1);
+
+  // The level is in the file, and nothing about time moved with it: the same
+  // moment, the same cut, the same track, the same box on the screen.
+  const stored = await storedRegions(request);
+  expect(stored[0].gain).toBe(2);
+  expect(stored[0]).toMatchObject({ at_s: 10, start_s: 0, end_s: 4, rate: 1, track: 0 });
+  const after = (await region(page, "r1").boundingBox())!;
+  expect(after.y).toBeCloseTo(before.y, 0);
+  expect(after.x).toBeCloseTo(before.x, 0);
+  expect(after.height).toBeCloseTo(before.height, 0);
+
+  // Balance stays on for the next one: levels are set against each other.
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-mode", "balance");
+
+  // Back down, further than the range is wide: silence, and no further.
+  await thumbAcross(page, grab, -300);
+  await expect(page.getByTestId("collage-save")).toHaveAttribute("data-state", "saved");
+  expect(writes).toBe(2);
+  expect((await storedRegions(request))[0].gain).toBe(0);
+  await expect(page.getByTestId("collage-mode")).toContainText("balance is on");
+  await page.screenshot({ path: "screenshots/collage-phone-balanced-quiet.png" });
+
+  // Five targets in the bar's second row now that undo is there, and they all
+  // sit on one line inside the phone, each still a thumb.
+  const row = await page.evaluate(() => {
+    const names = ["collage-play", "collage-snip", "collage-stretch", "collage-balance", "collage-undo"];
+    return names.map((name) => {
+      const node = document.querySelector(`[data-testid="${name}"]`);
+      const box = node?.getBoundingClientRect();
+      return box ? { name, x: box.x, y: box.y, w: box.width, h: box.height, bottom: box.bottom } : null;
+    });
+  });
+  expect(row.every((b) => b !== null)).toBe(true);
+  for (const button of row) {
+    expect(button!.h, `${button!.name} is not a thumb tall`).toBeGreaterThanOrEqual(44);
+    expect(button!.w, `${button!.name} is not a thumb wide`).toBeGreaterThanOrEqual(44);
+    expect(button!.x + button!.w, `${button!.name} runs off the side`).toBeLessThanOrEqual(viewport.width + 1);
+    expect(button!.bottom, `${button!.name} is under the bottom of the phone`).toBeLessThanOrEqual(
+      viewport.height + 1,
+    );
+    expect(button!.y, `${button!.name} wrapped onto a line of its own`).toBeCloseTo(row[0]!.y, 0);
+  }
+
+  // No figure anywhere: not on the screen, not on a label, not on a title.
+  const text = (await page.getByTestId("collage").innerText()).toLowerCase();
+  expect(text).not.toMatch(/\b\d+(\.\d+)?\s?(s|ms|db|%)\b/);
+  expect(text).not.toMatch(/\d+:\d\d/);
+  const spoken = await page.getByTestId("collage").evaluate((node) =>
+    Array.from(node.querySelectorAll("[aria-label], [title]"))
+      .map((el) => `${el.getAttribute("aria-label") ?? ""} ${el.getAttribute("title") ?? ""}`)
+      .join("\n")
+      .toLowerCase(),
+  );
+  expect(spoken).not.toMatch(/\b\d+(\.\d+)?\s?(s|sec|seconds?|ms|db|%)\b/);
+
+  // The button puts trim back, handles and all.
+  await button.tap();
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-mode", "trim");
+  await expect(page.getByTestId("handle")).toHaveCount(2);
+});
+
+test("a thumb that wanders along the block while it drags across changes the level and never the moment", async ({
+  page,
+  request,
+}) => {
+  const { hash } = await firstSound(request);
+  const put = await request.put(`/api/projects/${PROJECT}/collage`, {
+    data: { regions: [regionRow("r1", hash, 0, 10, 4), regionRow("r2", hash, 1, 10, 4)] },
+  });
+  expect(put.ok()).toBe(true);
+  await page.goto("/collage");
+  await takeUp(page, "r1");
+  await page.getByTestId("collage-balance").tap();
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-mode", "balance");
+
+  // A real thumb does not travel in a straight line. This one goes a quarter
+  // of the way across and sixty pixels down the block at the same time —
+  // enough, in trim mode, to trim six seconds off a cut.
+  const grab = region(page, "r1").getByTestId("region-grab");
+  const box = (await grab.boundingBox())!;
+  const x = box.x + box.width / 2;
+  const y = box.y + box.height / 2;
+  await touch(grab, "pointerdown", x, y);
+  for (let i = 1; i <= 6; i += 1) {
+    await touch(grab, "pointermove", x + (GAIN_SPAN_PX / 4) * (i / 6), y + 10 * i);
+    await page.waitForTimeout(16);
+  }
+  await touch(grab, "pointerup", x + GAIN_SPAN_PX / 4, y + 60);
+  await expect(page.getByTestId("collage-save")).toHaveAttribute("data-state", "saved");
+
+  const stored = await storedRegions(request);
+  const first = stored.find((r) => r.id === "r1")!;
+  expect(first.gain).toBeCloseTo(1.5, 6);
+  // Nothing about where or how long it is has moved a hair.
+  expect(first).toMatchObject({ at_s: 10, start_s: 0, end_s: 4, rate: 1, track: 0 });
+  // And its neighbour on the next track is exactly as it was.
+  expect(stored.find((r) => r.id === "r2")).toMatchObject({ at_s: 10, start_s: 0, end_s: 4, gain: 1, track: 1 });
+
+  // Taking the other region up keeps balance on, aimed at it.
+  await takeUp(page, "r2");
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-mode", "balance");
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-selected", "r2");
+  await thumbAcross(page, region(page, "r2").getByTestId("region-grab"), -GAIN_SPAN_PX / 4);
+  await expect(page.getByTestId("collage-save")).toHaveAttribute("data-state", "saved");
+  const both = await storedRegions(request);
+  expect(both.find((r) => r.id === "r2")!.gain).toBeCloseTo(0.5, 6);
+  expect(both.find((r) => r.id === "r1")!.gain).toBeCloseTo(1.5, 6);
+});
+
+test("turning the phone mid-balance lets go without writing anything", async ({ page, request }) => {
+  const { hash } = await firstSound(request);
+  const put = await request.put(`/api/projects/${PROJECT}/collage`, {
+    data: { regions: [regionRow("r1", hash, 0, 10, 4)] },
+  });
+  expect(put.ok()).toBe(true);
+  await page.goto("/collage");
+  await takeUp(page, "r1");
+  await page.getByTestId("collage-balance").tap();
+
+  let writes = 0;
+  page.on("request", (r) => {
+    if (r.method() === "PUT" && r.url().includes("/collage")) writes += 1;
+  });
+  const grab = region(page, "r1").getByTestId("region-grab");
+  await thumbAcross(page, grab, GAIN_SPAN_PX / 2, false);
+  await expect(region(page, "r1")).toHaveAttribute("data-gain", "2");
+
+  await page.setViewportSize({ width: 852, height: 393 });
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-balancing", "false");
+  // The level goes back to what the file holds, and nothing was written.
+  await expect(region(page, "r1")).toHaveAttribute("data-gain", "1");
+  await page.waitForTimeout(300);
+  expect(writes).toBe(0);
+  expect((await storedRegions(request))[0].gain).toBe(1);
 });

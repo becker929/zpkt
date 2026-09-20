@@ -555,6 +555,96 @@ export function stretch(region: Region, regions: readonly Region[], end: End, le
   return { ...region, rate: next, at_s: round3(at) };
 }
 
+/* Balance ------------------------------------------------------------------- */
+
+/**
+ * The quietest and the loudest a region may be.
+ *
+ * Silent at one end and twice as loud as it was stamped at the other, so a
+ * quiet field recording can be brought up to the rest and a loud one pushed
+ * past them. Linear, because the model stores it linearly; nothing prints it,
+ * in decibels or in anything else.
+ */
+export const GAIN_MIN = 0;
+export const GAIN_MAX = 2;
+
+/**
+ * How far sideways the whole range is.
+ *
+ * A thumb's width either side of where the drag began takes a region all the
+ * way down or all the way up, so both walls are inside one comfortable
+ * movement wherever on the box the thumb lands — including a region on the
+ * first track, whose box begins at the edge of a phone. A drag stops at a
+ * wall; a second drag carries on from where the first left off, so the range
+ * is reachable even from a thumb with no room on one side.
+ */
+export const GAIN_SPAN_PX = 96;
+
+/**
+ * Where a balance stopped short of what the thumb asked for, if it did.
+ *
+ * `quiet` and `loud` are the two walls, and the view says which in words.
+ * `null` is a drag that got what it asked for.
+ */
+export type GainStop = "quiet" | "loud" | null;
+
+/** The gain a drag of `dx` pixels across the region's box is asking for. */
+export function balancedTo(region: Pick<Region, "gain">, dx: number): number {
+  return region.gain + (dx / GAIN_SPAN_PX) * (GAIN_MAX - GAIN_MIN);
+}
+
+/**
+ * The loudest this region may be taken.
+ *
+ * The bound, or the region's own level when something else wrote it louder
+ * than the bound. Nothing here writes one, but the model allows any level at
+ * or above nothing, and a later stage may. A region found above the ceiling
+ * can be brought back down towards it and never pushed further out — the same
+ * rule stretch uses for a rate outside its own bounds, so a gesture never
+ * silently undoes a decision some other tool made.
+ */
+function gainCeiling(region: Pick<Region, "gain">): number {
+  return Math.max(GAIN_MAX, region.gain);
+}
+
+/** Which wall a balance of this region to `gain` would meet, if any. */
+export function gainStop(region: Pick<Region, "gain">, gain: number): GainStop {
+  if (!Number.isFinite(gain)) return null;
+  if (gain > gainCeiling(region)) return "loud";
+  if (gain < GAIN_MIN) return "quiet";
+  return null;
+}
+
+/**
+ * A region at `gain`, held inside the bounds.
+ *
+ * Balance changes `gain` and nothing else: not the cut, not the rate, and
+ * above all not `at_s`. The gesture runs across the box because along it is
+ * time, and a sideways drag must never move a region in time by accident.
+ * Rounded to three places, which is far finer than the ear and keeps the file
+ * tidy. The region comes back unchanged when the gain would not move.
+ */
+export function balance(region: Region, gain: number): Region {
+  if (!Number.isFinite(gain)) return region;
+  const next = round3(clamp(gain, GAIN_MIN, gainCeiling(region)));
+  return next === region.gain ? region : { ...region, gain: next };
+}
+
+/**
+ * How heavy a region draws, from nothing at silence to full at the loudest.
+ *
+ * The view spends this on the block's fill: lighter and more solid as the gain
+ * goes up, darker and thinner as it comes down, so loudness is weight the eye
+ * reads off the block rather than a figure it has to be told. Both of those
+ * move together, so the difference survives a screen with no colour in it.
+ * Half is the untouched gain, and the fill at half is what every region looked
+ * like before there was a balance gesture at all.
+ */
+export function gainWeight(gain: number): number {
+  if (!Number.isFinite(gain)) return 0.5;
+  return clamp(gain, GAIN_MIN, GAIN_MAX) / GAIN_MAX;
+}
+
 /* Snip ---------------------------------------------------------------------- */
 
 /** The source time at `offsetPx` down from the top of a region's box. */

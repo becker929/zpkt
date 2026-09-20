@@ -100,6 +100,13 @@ test("no seconds, no grid, no decibels on the real material", async ({ page }) =
   readOnly(page);
   await page.goto("/collage");
   await expect(page.getByTestId("collage")).toBeVisible();
+
+  // The mode buttons are drawn against the real material and refuse until
+  // there is something for them to act on. Nothing here takes a region up:
+  // that is a read, but the level or the cut it would then set would not be.
+  await expect(page.getByTestId("collage-balance")).toBeDisabled();
+  await expect(page.getByTestId("collage-stretch")).toBeDisabled();
+
   await page.getByTestId("collage-choose").click();
   await expect(page.getByTestId("collage-picker")).toBeVisible();
 

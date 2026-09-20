@@ -15,6 +15,19 @@
  * Every region's start is `t0 + at_s` on that single clock, so two regions
  * written to sound together do.
  *
+ * The one thing between the voices and the destination is the mix bus, which
+ * **saturates**. Fifteen voices at unity go past full scale the moment they
+ * overlap, and past full scale the device cuts the tops off and it tears.
+ * There is no master fader, because there is no number on this surface, so
+ * the sum is shaped instead: push more in and it gets harder. A single region
+ * at gain 1 passes through the bus as itself, sample for sample. The curve and
+ * the arithmetic behind that claim are in `lib/softClip.ts`.
+ *
+ * A region's level may move while the piece plays, and does not stop it. That
+ * is the one edit that is heard at once: balance is set by ear against what is
+ * already sounding, and a gesture that silenced the thing it was balancing
+ * would be useless. Every other edit still takes its region out of the pass.
+ *
  * **Nothing starts until every region's first piece is in memory.** A piece
  * that began on time and went silent while the network caught up would be
  * worse than one that started a moment later, so the transport says it is
@@ -30,6 +43,7 @@
 
 import { regionLengthS } from "./collage";
 import { SlicePlayer, firstPieceOf, newAudioContext, type SliceRegion } from "./slicePlayer";
+import { mixBus, type MixBus } from "./softClip";
 
 /** A region as the piece needs it: what to cut, and when it sounds. */
 export interface CollageRegion extends SliceRegion {
@@ -86,6 +100,19 @@ export class CollagePlayer {
    * Cleared by `stop`, which every `play` begins with.
    */
   private silenced = new Set<string>();
+  /**
+   * Levels set since this pass was decided, by region id.
+   *
+   * A balance made between the tap and the first sound has no player to reach
+   * yet: the pass is scheduled once the first pieces are in, and the gestures
+   * stay live through that breath. A level named here is used when the
+   * scheduling finally happens, so a region balanced under the thumb is heard
+   * at the level the thumb left it at and not the one the file held at the
+   * tap. Cleared by `stop`, which every `play` begins with.
+   */
+  private levels = new Map<string, number>();
+  /** The saturating bus every voice reaches the destination through. */
+  private bus: MixBus | null = null;
 
   /** Whether the browser can do this at all. */
   static supported(): boolean {
@@ -104,6 +131,7 @@ export class CollagePlayer {
     if (!this.ctx) this.ctx = newAudioContext();
     const ctx = this.ctx;
     if (!ctx) return false;
+    if (!this.bus) this.bus = mixBus(ctx);
     // Inside the gesture, before any await: this is what lets iOS play.
     void ctx.resume().catch(() => {});
 
@@ -150,12 +178,16 @@ export class CollagePlayer {
 
     // The piece's first moment, on the one clock every region is read against.
     const t0 = ctx.currentTime + START_LEAD_S;
+    const out = this.bus?.input ?? ctx.destination;
     let extentS = 0;
     for (const { region, buffer } of ready) {
       const player = new SlicePlayer(ctx);
       this.players.set(region.id, player);
+      // A level set while the first pieces were still coming is the level
+      // this pass sounds at.
+      const level = this.levels.get(region.id);
       player.play(
-        region,
+        level === undefined ? region : { ...region, gain: level },
         {
           onProgress: () => {},
           onEnd: () => {
@@ -167,7 +199,7 @@ export class CollagePlayer {
           },
           onLate: () => handlers.onRegionLate(region.id),
         },
-        { startAt: t0 + Math.max(0, region.at_s), first: buffer ?? undefined, progress: false },
+        { startAt: t0 + Math.max(0, region.at_s), first: buffer ?? undefined, progress: false, out },
       );
       extentS = Math.max(extentS, Math.max(0, region.at_s) + regionLengthS(region));
     }
@@ -214,10 +246,31 @@ export class CollagePlayer {
     return true;
   }
 
+  /**
+   * Move one region's level, while the piece plays, without stopping it.
+   *
+   * The one edit that is heard at once. Everything else a gesture can do
+   * changes what material a region holds or when it sounds, and a voice
+   * already scheduled cannot be rewritten mid-sound without a seam — so those
+   * take the region out of the pass. A level is different in kind: it is a
+   * number on a gain that already exists, ramped rather than switched, and
+   * balancing by ear against a mix that is not sounding would not be
+   * balancing at all.
+   *
+   * Returns whether there was a pass for it to be heard in.
+   */
+  setGain(id: string, gain: number): boolean {
+    if (this.abort === null) return false;
+    this.levels.set(id, gain);
+    this.players.get(id)?.setGain(gain);
+    return true;
+  }
+
   /** Stop everything at once. Safe to call when nothing is playing. */
   stop(): void {
     this.token += 1;
     this.silenced.clear();
+    this.levels.clear();
     this.abort?.abort();
     this.abort = null;
     if (this.frame) cancelAnimationFrame(this.frame);
@@ -229,6 +282,8 @@ export class CollagePlayer {
   /** Release the context. Called when the view unmounts. */
   close(): void {
     this.stop();
+    this.bus?.dispose();
+    this.bus = null;
     void this.ctx?.close().catch(() => {});
     this.ctx = null;
   }

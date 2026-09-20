@@ -8,25 +8,31 @@
  * because a sound was stamped into it, and a track exists because something
  * was stamped there.
  *
- * Four gestures so far. Choose a sound from the project's frozen set, tap
+ * Five gestures so far. Choose a sound from the project's frozen set, tap
  * the blank to stamp it, hear it back. Then trim: every region shows the
  * sound inside it; a tap on a region plays it and takes it up, and the region
  * taken up carries a thumb-sized handle at each end that drags. Then snip: a
  * mode, entered by a button, in which a drag across a region cuts that part
  * out and leaves two regions. Then stretch: a mode entered by a button once
  * a handle is selected, in which dragging that handle changes how fast the
- * region plays instead of where its cut is. Only one mode is ever on, and
- * the default is trim. Every change is written whole to `PUT /api/projects/{id}/collage`, so
+ * region plays instead of where its cut is. Then balance: a mode entered by a
+ * button once a region is taken up, in which a drag *across* the region's box
+ * moves how loud it is, and the block's fill takes on that weight so loudness
+ * is seen rather than read. Only one mode is ever on, and the default is
+ * trim. Every change is written whole to `PUT /api/projects/{id}/collage`, so
  * a reload shows what was on screen. A region plays through Web Audio from a
  * bounded slice the server cuts; nothing decodes a whole file.
  *
  * The geometry is in `lib/collage.ts` and is pure. This file is the shell
  * around it: fetches, the audio context, the pointer, and the DOM.
  *
- * And a transport, which is where the four gestures were going: play sounds
- * every region at its own moment, at its own rate, mixed, and a line moves
- * down the canvas while it does. Playing is not a mode — trim, snip and
- * stretch stay where they were while the piece sounds.
+ * And a transport, which is where the cutting gestures were going: play
+ * sounds every region at its own moment, at its own rate, through a bus that
+ * saturates rather than tearing, and a line moves down the canvas while it
+ * does. Playing is not a mode — every gesture stays where it was while the
+ * piece sounds. An edit takes its region out of the pass being heard, with
+ * one exception: a level moves under the ear, because balance is set against
+ * what is already sounding.
  */
 
 import Link from "next/link";
@@ -50,10 +56,14 @@ import {
   HANDLE_H,
   PX_PER_S,
   TOP_PAD,
+  balance,
+  balancedTo,
   canvasSize,
   collageProject,
   dragOffsetPx,
   draggedTo,
+  gainStop,
+  gainWeight,
   grabZone,
   handleZones,
   hueFor,
@@ -69,6 +79,7 @@ import {
   trackCount,
   trim,
   type End,
+  type GainStop,
   type StretchStop,
 } from "@/lib/collage";
 import { CollagePlayer } from "@/lib/collagePlayer";
@@ -170,8 +181,17 @@ interface Drag {
  * once a handle is selected, and left by the same button, by finishing a
  * stretch, or by letting go of the handle; while it is on only the selected
  * handle shows, and dragging it moves the region's rate, not its cut.
+ * Balance is entered by a button once a region is taken up, and left by the
+ * same button or by putting the region down; while it is on there are no
+ * handles either, and a drag *across* the region's box moves its level.
+ *
+ * Balance is the one mode a finished drag does not end. A cut is made once
+ * and heard; a level is found by going past it and coming back, so ending the
+ * mode on every lift would put a button tap in the middle of the gesture.
+ * Taking another region up keeps balance on, aimed at that region, for the
+ * same reason: balancing fifteen voices against each other is one job.
  */
-type Mode = "trim" | "snip" | "stretch";
+type Mode = "trim" | "snip" | "stretch" | "balance";
 
 /**
  * What the transport is doing.
@@ -193,6 +213,15 @@ interface SnipBand {
   whole: boolean;
   /** True once a whole band has been held still long enough that a lift removes the region. */
   armed: boolean;
+}
+
+/** A balance in progress: the region being weighed, and the level it is at now. */
+interface Balancing {
+  id: string;
+  /** The level the region would keep if the thumb lifted now. */
+  gain: number;
+  /** Which wall the thumb has run into, if either. */
+  stopped: GainStop;
 }
 
 /* The picker ----------------------------------------------------------------- */
@@ -359,6 +388,7 @@ export default function CollagePage() {
   const [drag, setDrag] = useState<Drag | null>(null);
   const [mode, setMode] = useState<Mode>("trim");
   const [band, setBand] = useState<SnipBand | null>(null);
+  const [balancing, setBalancing] = useState<Balancing | null>(null);
   const [piece, setPiece] = useState<Piece>("idle");
   /**
    * Which way the playhead has gone off the window, or null while it is on it.
@@ -403,6 +433,9 @@ export default function CollagePage() {
   /** The arrangement as the pointer handlers see it, without re-binding them. */
   const regionsRef = useRef<Region[]>([]);
   regionsRef.current = regions;
+  /** Which region is being previewed on its own, read without re-binding. */
+  const playingIdRef = useRef<string | null>(null);
+  playingIdRef.current = playingId;
 
   /* Loading ----------------------------------------------------------------- */
 
@@ -524,7 +557,21 @@ export default function CollagePage() {
   }, [projectId]);
 
   /**
-   * A region whose material changed goes quiet for the rest of the pass.
+   * Let a level be heard at once, wherever it is sounding.
+   *
+   * The piece ramps the voice it holds for that region; a region being
+   * previewed on its own ramps too. Both are safe to ask when nothing is
+   * sounding. This is what makes balance a gesture done by ear: the level
+   * follows the thumb across the box rather than waiting for the next play.
+   */
+  const hearGain = useCallback((id: string, gain: number) => {
+    pieceRef.current?.setGain(id, gain);
+    if (playingIdRef.current === id) sliceRef.current?.setGain(gain);
+  }, []);
+
+  /**
+   * A region whose material changed goes quiet for the rest of the pass; a
+   * region whose level changed is heard at the new level at once.
    *
    * The piece is scheduled once, when play is tapped, and editing does not
    * reschedule it: a region cut or slowed under the ear would have to be
@@ -533,31 +580,39 @@ export default function CollagePage() {
    * uses — the sound being changed stops — applied to one voice of the mix
    * instead of to all of it. Everything untouched plays on. What was edited
    * is heard on the next play, which is one tap away.
+   *
+   * A level is the one thing that rule does not fit. Nothing about the
+   * material moves, so there is no seam to make: the gain the voice already
+   * runs through is ramped to the new value. And balance is set by ear against
+   * the rest of the mix, so a gesture that silenced the region being balanced
+   * would have taken away the only thing it was for.
    */
-  const silenceEdited = useCallback((was: readonly Region[], next: readonly Region[]) => {
-    const player = pieceRef.current;
-    if (!player) return;
-    let quieted = false;
-    for (const before of was) {
-      const now = next.find((r) => r.id === before.id);
-      if (
-        now &&
-        now.hash === before.hash &&
-        now.start_s === before.start_s &&
-        now.end_s === before.end_s &&
-        now.at_s === before.at_s &&
-        now.rate === before.rate &&
-        now.gain === before.gain
-      ) {
-        continue;
+  const silenceEdited = useCallback(
+    (was: readonly Region[], next: readonly Region[]) => {
+      let quieted = false;
+      for (const before of was) {
+        const now = next.find((r) => r.id === before.id);
+        const same =
+          now !== undefined &&
+          now.hash === before.hash &&
+          now.start_s === before.start_s &&
+          now.end_s === before.end_s &&
+          now.at_s === before.at_s &&
+          now.rate === before.rate;
+        if (same && now.gain === before.gain) continue;
+        if (same) {
+          hearGain(before.id, now.gain);
+          continue;
+        }
+        if (pieceRef.current?.silence(before.id)) quieted = true;
       }
-      if (player.silence(before.id)) quieted = true;
-    }
-    // A region that goes quiet looks exactly like a region that has ended,
-    // and on a phone the block that stopped is usually under the thumb that
-    // stopped it. Saying it is the difference between a rule and a fault.
-    if (quieted) setHint(QUIET_HINT);
-  }, []);
+      // A region that goes quiet looks exactly like a region that has ended,
+      // and on a phone the block that stopped is usually under the thumb that
+      // stopped it. Saying it is the difference between a rule and a fault.
+      if (quieted) setHint(QUIET_HINT);
+    },
+    [hearGain],
+  );
 
   const commitRegions = useCallback(
     (next: Region[]) => {
@@ -1182,6 +1237,98 @@ export default function CollagePage() {
     [bandFromPointer, scrollAtEdge],
   );
 
+  /* Balancing --------------------------------------------------------------- */
+
+  /**
+   * The balance, as the pointer handlers see it.
+   *
+   * Only `x` is read. Along the box is time and stays free; across it is the
+   * level, so a thumb that wanders up and down while it drags sideways moves
+   * nothing but the level, and `at_s` is not in reach of this gesture at all.
+   * The canvas's sideways scroll is taken off the same way a trim takes off
+   * its vertical one, so the drag is measured across the box rather than
+   * across the glass.
+   */
+  const balanceRef = useRef<{
+    region: Region;
+    pointerId: number;
+    originX: number;
+    originScroll: number;
+    lastX: number;
+    /** The level the region would keep if the thumb lifted now. */
+    gain: number;
+  } | null>(null);
+
+  const gainFromPointer = useCallback(() => {
+    const b = balanceRef.current;
+    const canvas = canvasRef.current;
+    if (!b) return;
+    const dx = b.lastX - b.originX + ((canvas?.scrollLeft ?? 0) - b.originScroll);
+    const wanted = balancedTo(b.region, dx);
+    b.gain = balance(b.region, wanted).gain;
+    setBalancing({ id: b.region.id, gain: b.gain, stopped: gainStop(b.region, wanted) });
+    // Heard as it moves, not on the lift. Balance is the one gesture whose
+    // whole answer is what it sounds like against the rest.
+    hearGain(b.region.id, b.gain);
+  }, [hearGain]);
+
+  /**
+   * Let go of a balance. Applied, it is one change and one undo step, exactly
+   * as a trim or a stretch is; the mode stays on, because a level is found by
+   * going past it and coming back. A drag that left the level where it was,
+   * or one the browser took the pointer away from, writes nothing — and what
+   * the ear was given while it moved goes back to what the file holds.
+   */
+  const endBalance = useCallback(
+    (apply: boolean) => {
+      const b = balanceRef.current;
+      balanceRef.current = null;
+      setBalancing(null);
+      if (!b) return;
+      const was = regionsRef.current.find((r) => r.id === b.region.id);
+      if (!apply || !was || was.gain === b.gain) {
+        if (was) hearGain(was.id, was.gain);
+        return;
+      }
+      // One write per drag, carrying the whole arrangement. Only `gain`
+      // moves: whatever else happened to the region stays as it is.
+      change(regionsRef.current.map((r) => (r.id === b.region.id ? { ...r, gain: b.gain } : r)));
+    },
+    [change, hearGain],
+  );
+
+  const startBalance = useCallback((event: React.PointerEvent<HTMLDivElement>, region: Region) => {
+    // One balance at a time, and never on top of another gesture's thumb.
+    if (balanceRef.current || snipRef.current || dragRef.current) return;
+    const canvas = canvasRef.current;
+    event.preventDefault();
+    event.stopPropagation();
+    try {
+      event.currentTarget.setPointerCapture(event.pointerId);
+    } catch {
+      /* a pointer that has already gone */
+    }
+    balanceRef.current = {
+      region,
+      pointerId: event.pointerId,
+      originX: event.clientX,
+      originScroll: canvas?.scrollLeft ?? 0,
+      lastX: event.clientX,
+      gain: region.gain,
+    };
+  }, []);
+
+  const moveBalance = useCallback(
+    (event: React.PointerEvent<HTMLDivElement>) => {
+      const b = balanceRef.current;
+      if (!b || b.pointerId !== event.pointerId) return;
+      event.preventDefault();
+      b.lastX = event.clientX;
+      gainFromPointer();
+    },
+    [gainFromPointer],
+  );
+
   /**
    * Change mode. Never two at once: a drag in flight under the other mode is
    * let go without being applied, because the thumb that started it is not
@@ -1191,11 +1338,12 @@ export default function CollagePage() {
     (next: Mode) => {
       if (dragRef.current) endDrag(false);
       if (snipRef.current) endSnip(false);
+      if (balanceRef.current) endBalance(false);
       setMode(next);
       // Whatever snip had to say is over with it.
       if (next === "trim") setHint((was) => (was?.startsWith("to take the whole region out") ? null : was));
     },
-    [endDrag, endSnip],
+    [endBalance, endDrag, endSnip],
   );
 
   // Snip is a gesture on a region. With none left, there is nothing for it
@@ -1218,6 +1366,19 @@ export default function CollagePage() {
     if (mode === "stretch" && !handleUp) setMode("trim");
   }, [mode, handleUp]);
 
+  // Balance is a gesture on a whole region, so it needs one taken up and
+  // nothing more. Putting the region down — the blank tapped, Escape, the
+  // region undone away — ends the mode; taking a *different* region up does
+  // not, because balancing one voice against another is one job and a button
+  // tap between them would be in the way. A region cut from a sound the index
+  // cannot resolve is not drawn from any material, so it is left alone here
+  // as it is by every other gesture.
+  const regionUp =
+    selected !== null && regions.some((r) => r.id === selected.id && rowsByHash.has(r.hash));
+  useEffect(() => {
+    if (mode === "balance" && !regionUp) setMode("trim");
+  }, [mode, regionUp]);
+
   // A hold timer never outlives the view.
   useEffect(() => {
     return () => {
@@ -1232,11 +1393,13 @@ export default function CollagePage() {
     const onResize = () => {
       if (dragRef.current) endDrag(false);
       if (snipRef.current) endSnip(false);
+      if (balanceRef.current) endBalance(false);
     };
     const onKey = (event: KeyboardEvent) => {
       if (event.key !== "Escape") return;
       if (dragRef.current) endDrag(false);
       if (snipRef.current) endSnip(false);
+      if (balanceRef.current) endBalance(false);
       setSelected(null);
     };
     window.addEventListener("resize", onResize);
@@ -1245,7 +1408,7 @@ export default function CollagePage() {
       window.removeEventListener("resize", onResize);
       window.removeEventListener("keydown", onKey);
     };
-  }, [endDrag, endSnip]);
+  }, [endBalance, endDrag, endSnip]);
 
   /**
    * A keyboard nudge: a tenth of a second, or a whole one with shift. In
@@ -1355,6 +1518,7 @@ export default function CollagePage() {
       data-dragging={drag !== null}
       data-mode={mode}
       data-snipping={band !== null}
+      data-balancing={balancing !== null}
       data-piece={piece}
     >
       <div className="collage-head">
@@ -1376,8 +1540,8 @@ export default function CollagePage() {
       {unresolved > 0 ? (
         <div className="collage-note" data-testid="collage-unresolved">
           {formatCount(unresolved)} {unresolved === 1 ? "region cuts" : "regions cut"} from a sound the index no
-          longer resolves. {unresolved === 1 ? "It is" : "They are"} drawn, and cannot be played, trimmed, snipped or
-          stretched.
+          longer resolves. {unresolved === 1 ? "It is" : "They are"} drawn, and cannot be played, trimmed, snipped,
+          stretched or balanced.
         </div>
       ) : null}
 
@@ -1434,6 +1598,15 @@ export default function CollagePage() {
               // there: the flanks and the blank still scroll, as they do under
               // a raised handle in trim mode.
               const snippable = mode === "snip" && row !== undefined;
+              // Balance is on the region taken up, and on no other: the button
+              // was pressed with that one in hand. Its grab is where the drag
+              // across begins.
+              const balanceable = mode === "balance" && isSelectedRegion && row !== undefined;
+              // The level the block draws at: what a lift would keep while a
+              // balance is under way, and what the file holds otherwise. The
+              // fill carries it as weight, so loudness is seen rather than read.
+              const weighing = balancing && balancing.id === region.id ? balancing : null;
+              const shownGain = weighing ? weighing.gain : region.gain;
               const name = row ? row.filename : "a sound the index does not resolve";
               // As many lines of the name as the block has room for. A block
               // too short for one line has no label; the name is still spoken.
@@ -1453,6 +1626,7 @@ export default function CollagePage() {
                   data-hash={region.hash}
                   data-playing={playing}
                   data-selected={isSelectedRegion}
+                  data-gain={shownGain}
                   aria-label={row ? `${playing ? "stop" : "play"} ${row.filename}` : name}
                   aria-pressed={playing}
                   style={{
@@ -1461,17 +1635,39 @@ export default function CollagePage() {
                     width: box.width,
                     height: box.height,
                     ["--hue" as string]: hueFor(region.hash),
+                    // How heavy the block draws. Lightness and solidity move
+                    // together, so the difference is there on a screen with no
+                    // colour in it; a half is the untouched level, which is
+                    // what every block looked like before balance existed.
+                    ["--weight" as string]: gainWeight(shownGain),
                   }}
                   onPointerDown={(event) => {
                     event.stopPropagation();
                     beginTap(event);
-                    if (snippable && (event.target as HTMLElement).dataset.testid === "region-grab") {
-                      startSnip(event, region);
-                    }
+                    const onGrab = (event.target as HTMLElement).dataset.testid === "region-grab";
+                    if (snippable && onGrab) startSnip(event, region);
+                    if (balanceable && onGrab) startBalance(event, region);
                   }}
-                  onPointerMove={moveSnip}
+                  onPointerMove={(event) => {
+                    moveSnip(event);
+                    moveBalance(event);
+                  }}
                   onPointerUp={(event) => {
                     event.stopPropagation();
+                    const b = balanceRef.current;
+                    if (b && b.pointerId === event.pointerId) {
+                      // Across is the level and along is time, so only the
+                      // sideways travel decides whether this was a drag or a
+                      // tap. A thumb that went nowhere across plays the region
+                      // and leaves its level exactly where it was.
+                      const scrolledX = (canvasRef.current?.scrollLeft ?? 0) - b.originScroll;
+                      const movedAcross = Math.abs(event.clientX - b.originX + scrolledX) >= TAP_SLOP;
+                      endBalance(movedAcross);
+                      if (movedAcross) {
+                        dropTap();
+                        return;
+                      }
+                    }
                     const s = snipRef.current;
                     if (s && s.pointerId === event.pointerId) {
                       // A thumb that did not travel is a tap, whatever mode is
@@ -1499,9 +1695,23 @@ export default function CollagePage() {
                   onPointerCancel={(event) => {
                     event.stopPropagation();
                     if (snipRef.current?.pointerId === event.pointerId) endSnip(false);
+                    if (balanceRef.current?.pointerId === event.pointerId) endBalance(false);
                     dropTap();
                   }}
                   onKeyDown={(event) => {
+                    // In balance mode the arrows across the screen are the
+                    // gesture, on a keyboard as on a phone: a twentieth of the
+                    // range, or a fifth with shift. Nothing is printed.
+                    if (balanceable && (event.key === "ArrowLeft" || event.key === "ArrowRight")) {
+                      event.preventDefault();
+                      event.stopPropagation();
+                      const step = (event.shiftKey ? 0.4 : 0.1) * (event.key === "ArrowRight" ? 1 : -1);
+                      const next = balance(region, region.gain + step);
+                      if (next !== region) {
+                        change(regionsRef.current.map((r) => (r.id === region.id ? next : r)));
+                      }
+                      return;
+                    }
                     if (event.key !== "Enter" && event.key !== " ") return;
                     event.preventDefault();
                     event.stopPropagation();
@@ -1518,9 +1728,11 @@ export default function CollagePage() {
                     style={{
                       top: grab.top,
                       height: grab.height,
-                      // In snip mode a thumb on the grab is snipping, never
-                      // scrolling. In trim mode it scrolls, and a tap plays.
-                      touchAction: snippable ? "none" : undefined,
+                      // In snip mode a thumb on the grab is snipping, and in
+                      // balance mode it is weighing; either way it is not
+                      // scrolling, sideways or down. In trim mode it scrolls,
+                      // and a tap plays.
+                      touchAction: snippable || balanceable ? "none" : undefined,
                     }}
                     aria-hidden="true"
                   />
@@ -1583,15 +1795,17 @@ export default function CollagePage() {
                     />
                   ) : null}
 
-                  {/* The handles. Only on the region taken up, and never in snip
-                      mode: outside its box, a thumb tall, one at each end,
-                      raised over the neighbours. A thumb on one drags it
+                  {/* The handles. Only on the region taken up, and only in trim
+                      and stretch: outside its box, a thumb tall, one at each
+                      end, raised over the neighbours. A thumb on one drags it
                       straight away, and a tap on one selects it. In stretch
                       mode only the selected one shows: the other end is the
-                      anchor, and a handle on it would say it could move. A
-                      region cut from a sound the index cannot resolve has
-                      nothing to trim against, and gets none. */}
-                  {row && isSelectedRegion && mode !== "snip"
+                      anchor, and a handle on it would say it could move. Snip
+                      and balance are gestures on the box itself, so neither
+                      draws a handle to reach past. A region cut from a sound
+                      the index cannot resolve has nothing to trim against, and
+                      gets none. */}
+                  {row && isSelectedRegion && mode !== "snip" && mode !== "balance"
                     ? ([zones.start, zones.end] as const)
                         .filter((zone) => mode === "trim" || zone.end === selection?.end)
                         .map((zone) => {
@@ -1673,7 +1887,7 @@ export default function CollagePage() {
               {follow === "above" ? "↑" : "↓"}
             </span>
             <span className="collage-follow-body">
-              <span className="collage-follow-name">the line is {follow}</span>
+              <span className="collage-follow-name">the playhead is {follow}</span>
               <span className="collage-follow-sub">tap to go to it</span>
             </span>
           </button>
@@ -1694,7 +1908,30 @@ export default function CollagePage() {
           appears once there is something to take back, and says how many
           steps it holds. */}
       <div className="collage-bar" data-mode={mode}>
-        {mode === "stretch" ? (
+        {mode === "balance" ? (
+          <button
+            type="button"
+            className={`collage-mode balance${balancing?.stopped ? " stopped" : ""}`}
+            data-testid="collage-mode"
+            data-bound={balancing?.stopped ?? ""}
+            onClick={() => switchMode("trim")}
+          >
+            {/* Where the drag has got to, in words, because the block whose
+                weight says it is under the thumb. Never a level. */}
+            <span className="collage-choose-name">
+              {balancing?.stopped === "quiet"
+                ? "as quiet as it goes"
+                : balancing?.stopped === "loud"
+                  ? "as loud as it goes"
+                  : balancing
+                    ? "let go to keep it"
+                    : "balance is on"}
+            </span>
+            <span className="collage-choose-sub">
+              drag across the region: right is louder, left is quieter · tap here to stop
+            </span>
+          </button>
+        ) : mode === "stretch" ? (
           <button
             type="button"
             className={`collage-mode stretch${drag?.stopped ? " stopped" : ""}`}
@@ -1817,6 +2054,25 @@ export default function CollagePage() {
         >
           stretch
           <span className="collage-snip-sub">{mode === "stretch" ? "on" : "off"}</span>
+        </button>
+        {/* Balance needs a region, not a handle: the whole block is what the
+            drag runs across. Until one is taken up the button refuses, and
+            says what to do first. */}
+        <button
+          type="button"
+          className={`collage-balance${mode === "balance" ? " on" : ""}`}
+          data-testid="collage-balance"
+          aria-pressed={mode === "balance"}
+          disabled={!regionUp}
+          title={
+            regionUp
+              ? "balance: drag across the region to make it louder or quieter"
+              : "balance: tap a region first"
+          }
+          onClick={() => switchMode(mode === "balance" ? "trim" : "balance")}
+        >
+          balance
+          <span className="collage-snip-sub">{mode === "balance" ? "on" : "off"}</span>
         </button>
         {history.length > 0 ? (
           <button

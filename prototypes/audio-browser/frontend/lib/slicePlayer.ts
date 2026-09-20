@@ -22,15 +22,35 @@
  * and the next is scheduled that far on. The pieces stay gapless because
  * their start times are added up in played time, not read off a clock.
  *
+ * Every piece goes out through a gain of its own, at the region's `gain`. A
+ * balance made while the region sounds ramps those gains rather than waiting
+ * for the next play, because balance is set by ear against what is already
+ * sounding. The gains reach a saturating bus and not the destination
+ * directly: the collage hands its own, so fifteen voices sum through one
+ * shaper, and a player on its own context builds one, because a single region
+ * balanced past unity can go over the rails by itself. See `lib/softClip.ts`.
+ *
  * `play` must be called from inside a user gesture. iOS will not start an
  * `AudioContext` from anywhere else, so the context is made and resumed
  * synchronously before the first `await`.
  */
 
 import { ApiError, sliceUrl } from "./api";
+import { mixBus, type MixBus } from "./softClip";
 
 /** Seconds of source fetched per request. */
 export const CHUNK_S = 15;
+
+/**
+ * How long a level change takes to arrive, in seconds.
+ *
+ * Balance is meant to be heard while the piece plays, so a gain may move
+ * under a sound that is already going. Moving it in one step would put a step
+ * in the waveform, which is a click. Twenty milliseconds is short enough that
+ * a thumb dragging across a box hears the level follow it and long enough
+ * that nothing snaps.
+ */
+const LEVEL_RAMP_S = 0.02;
 
 /**
  * Pieces kept scheduled ahead of the playhead, counted in the time they take
@@ -103,6 +123,15 @@ export interface SliceOptions {
    * ends itself: the last piece says so when it has played out.
    */
   progress?: boolean;
+  /**
+   * Where this voice goes.
+   *
+   * The collage gives its saturating mix bus, so every region reaches the
+   * destination through one shaper and the sum is held inside the rails.
+   * Left out, the player builds a bus of its own, because a single region
+   * balanced past unity can overload on its own.
+   */
+  out?: AudioNode;
 }
 
 type ContextCtor = typeof AudioContext;
@@ -169,14 +198,32 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+/** One piece sounding: the source, and the gain it is heard at. */
+interface Voice {
+  source: AudioBufferSourceNode;
+  gain: GainNode;
+}
+
 export class SlicePlayer {
   private ctx: AudioContext | null = null;
   /** True when the context belongs to somebody else and must not be closed. */
   private readonly shared: boolean;
   private token = 0;
-  private sources: AudioBufferSourceNode[] = [];
+  private voices: Voice[] = [];
   private abort: AbortController | null = null;
   private frame = 0;
+  /**
+   * The level every piece of the region is played at.
+   *
+   * Held here rather than read off the region each time, because balance may
+   * move it while the region is sounding: the pieces already scheduled are
+   * ramped to the new level, and the pieces still to be fetched are made at
+   * it. Otherwise a level changed part-way through a long region would step
+   * back at the next piece's seam.
+   */
+  private level = 1;
+  /** A bus of this player's own, when the context is its own. */
+  private bus: MixBus | null = null;
 
   /**
    * A player of its own, or one voice of a collage.
@@ -213,7 +260,17 @@ export class SlicePlayer {
     const abort = new AbortController();
     this.abort = abort;
 
+    // Somewhere to go. The collage names its own bus; a player on its own
+    // context builds one, so a region balanced past unity saturates rather
+    // than tears when it is heard alone.
+    let out = options?.out ?? null;
+    if (!out) {
+      if (!this.bus) this.bus = mixBus(ctx);
+      out = this.bus.input;
+    }
+
     const rate = region.rate > 0 ? region.rate : 1;
+    this.level = region.gain;
     const lengthS = Math.max(0, region.end_s - region.start_s) / rate;
     let startedAt: number | null = null;
     let nextAt = 0;
@@ -233,7 +290,10 @@ export class SlicePlayer {
       if (token !== this.token) return;
       source.onended = null;
       source.disconnect();
-      this.sources = this.sources.filter((s) => s !== source);
+      for (const voice of this.voices) {
+        if (voice.source === source) voice.gain.disconnect();
+      }
+      this.voices = this.voices.filter((v) => v.source !== source);
     };
 
     // How far ahead, in played seconds, the pieces are fetched.
@@ -272,9 +332,9 @@ export class SlicePlayer {
         source.buffer = buffer;
         source.playbackRate.value = rate;
         const gain = ctx.createGain();
-        gain.gain.value = region.gain;
+        gain.gain.value = this.level;
         source.connect(gain);
-        gain.connect(ctx.destination);
+        gain.connect(out);
 
         if (startedAt === null) {
           // A short lead so the first piece is not scheduled in the past,
@@ -300,7 +360,7 @@ export class SlicePlayer {
         // The piece lasts its own length divided by the rate, and the next
         // one begins exactly then.
         nextAt = at + buffer.duration / rate;
-        this.sources.push(source);
+        this.voices.push({ source, gain });
         cursor = to;
 
         if (cursor >= region.end_s) {
@@ -327,6 +387,28 @@ export class SlicePlayer {
     return true;
   }
 
+  /**
+   * Play the region at a new level, while it is sounding.
+   *
+   * Balance is set by ear against the other regions, so the level has to move
+   * under the sound rather than at the next play. Every piece already
+   * scheduled ramps to it over `LEVEL_RAMP_S`, and every piece fetched after
+   * this is made at it, so a long region has no step at a seam. Safe to call
+   * when nothing is playing: the level is remembered for the next piece.
+   */
+  setGain(gain: number): void {
+    this.level = gain;
+    const ctx = this.ctx;
+    if (!ctx) return;
+    const now = ctx.currentTime;
+    for (const { gain: node } of this.voices) {
+      // From wherever the ramp has got to, not from wherever it was headed.
+      node.gain.cancelScheduledValues(now);
+      node.gain.setValueAtTime(node.gain.value, now);
+      node.gain.linearRampToValueAtTime(gain, now + LEVEL_RAMP_S);
+    }
+  }
+
   /** Stop whatever is playing. Safe to call when nothing is. */
   stop(): void {
     this.token += 1;
@@ -334,7 +416,7 @@ export class SlicePlayer {
     this.abort = null;
     if (this.frame) cancelAnimationFrame(this.frame);
     this.frame = 0;
-    for (const source of this.sources) {
+    for (const { source, gain } of this.voices) {
       try {
         source.onended = null;
         source.stop();
@@ -342,8 +424,9 @@ export class SlicePlayer {
         /* never started, or already stopped */
       }
       source.disconnect();
+      gain.disconnect();
     }
-    this.sources = [];
+    this.voices = [];
   }
 
   /**
@@ -355,6 +438,8 @@ export class SlicePlayer {
   close(): void {
     this.stop();
     if (this.shared) return;
+    this.bus?.dispose();
+    this.bus = null;
     void this.ctx?.close().catch(() => {});
     this.ctx = null;
   }
