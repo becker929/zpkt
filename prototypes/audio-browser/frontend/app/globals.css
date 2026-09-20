@@ -2161,9 +2161,16 @@ select:focus {
   color: var(--favorite);
 }
 
-/* The bar the thumb lives on. Two rows on a phone: the wide target across the
-   top, and the transport beside the mode buttons under it. One row of five
-   would have squeezed the filename down to nothing. */
+/* The bar the thumb lives on. On a phone: the wide target across the top, the
+   transport and snip and undo under it, and — only while a region is in hand
+   — a third row of the four gestures that are about that region. One row of
+   five would have squeezed the filename down to nothing; three rows of
+   everything would have spent a fifth of the phone on buttons that cannot be
+   used yet.
+
+   Every target here is 52 tall rather than the 60 it began at. A thumb is 44,
+   so 52 keeps a margin on every side of it and gives eight pixels a row back
+   to the canvas, which is the only part of this view where anything is made. */
 .collage-bar {
   display: flex;
   flex-wrap: wrap;
@@ -2174,10 +2181,21 @@ select:focus {
   background: var(--bg-raised);
 }
 
+/* One row of the bar's buttons. A row and not a wrap, so the transport, snip
+   and undo keep their places whether or not the row about a region is there:
+   a button that walked from one row to another as regions were picked up and
+   put down would have to be found again every time. */
+.collage-bar-row {
+  display: flex;
+  gap: 6px;
+  flex: 1 1 100%;
+  min-width: 0;
+}
+
 .collage-choose {
   flex: 1 1 100%;
   min-width: 0;
-  min-height: 60px;
+  min-height: 52px;
   display: flex;
   flex-direction: column;
   align-items: flex-start;
@@ -2220,7 +2238,7 @@ select:focus {
   flex: 1 1 0;
   min-width: 64px;
   max-width: 200px;
-  min-height: 60px;
+  min-height: 52px;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -2248,11 +2266,11 @@ select:focus {
    with nothing to snip; stretch with no handle selected; balance, copy and
    track with no region taken up.
 
-   Six of these and undo do not fit across a phone in one line, so they wrap
-   into two: four and then three. The floor is twice a thumb in width and
-   half again in height. Nothing here is ever the only way to do anything —
-   every mode is also left by the wide statement above it, which is a whole
-   row. */
+   Seven of them do not fit across a phone in one line, so they sit in two
+   rows: the transport, snip and undo always, and the four about the region in
+   hand only while there is one. The floor is twice a thumb in width and half
+   again in height. Nothing here is ever the only way to do anything — every
+   mode is also left by the wide statement above it, which is a whole row. */
 .collage-play,
 .collage-snip,
 .collage-stretch,
@@ -2263,7 +2281,7 @@ select:focus {
   flex: 1 1 0;
   min-width: 80px;
   max-width: 200px;
-  min-height: 60px;
+  min-height: 52px;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -2409,7 +2427,7 @@ select:focus {
 .collage-mode {
   flex: 1 1 auto;
   min-width: 0;
-  min-height: 60px;
+  min-height: 52px;
   display: flex;
   flex-direction: column;
   align-items: flex-start;

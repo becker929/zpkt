@@ -843,12 +843,16 @@ test("snip on a phone: a thumb-sized button in the bar, the handles go while it 
   expect(bb.width).toBeGreaterThanOrEqual(44);
   expect(bb.y + bb.height).toBeLessThanOrEqual(viewport.height + 1);
 
+  const grab = grabOf(page, "r1");
+  // With nothing in hand the body is canvas and scrolls, which is what a
+  // thumb on this view does far more often than it rearranges.
+  expect(await grab.evaluate((node) => getComputedStyle(node).touchAction)).not.toBe("none");
+
   await takeUp(page, "r1");
   await expect(page.getByTestId("handle")).toHaveCount(2);
-  const grab = grabOf(page, "r1");
-  // The body is never a scroller now: in trim it is a move, in snip a snip,
-  // in balance a level. The canvas is scrolled from the blank and from the
-  // flanks either side of the grab, which stay free.
+  // In hand, the body is the move and stops scrolling. In snip it is a snip
+  // and in balance a level. The canvas is still scrolled from the blank and
+  // from the flanks either side of the grab, which stay free.
   expect(await grab.evaluate((node) => getComputedStyle(node).touchAction)).toBe("none");
   expect(await region(page, "r1").evaluate((node) => getComputedStyle(node).touchAction)).not.toBe("none");
 
@@ -1136,15 +1140,17 @@ test("stretch with one thumb: take up, tap a handle, tap stretch; one handle; dr
   await page.goto("/collage");
   const viewport = page.viewportSize()!;
   const button = page.getByTestId("collage-stretch");
-  const bb = (await button.boundingBox())!;
-  expect(bb.height).toBeGreaterThanOrEqual(44);
-  expect(bb.width).toBeGreaterThanOrEqual(44);
-  expect(bb.y + bb.height).toBeLessThanOrEqual(viewport.height + 1);
-  await expect(button).toBeDisabled();
+  // Not in the bar at all until a region is in hand: a row of buttons that
+  // can do nothing is a row of canvas spent on nothing.
+  await expect(button).toHaveCount(0);
 
   // The user's own order: tap the region, tap a handle, then the button.
   await takeUp(page, "r1");
   await expect(button).toBeDisabled();
+  const bb = (await button.boundingBox())!;
+  expect(bb.height).toBeGreaterThanOrEqual(44);
+  expect(bb.width).toBeGreaterThanOrEqual(44);
+  expect(bb.y + bb.height).toBeLessThanOrEqual(viewport.height + 1);
   const end = handle(page, "r1", "end");
   await end.tap();
   await expect(end).toHaveAttribute("data-selected", "true");
@@ -1617,18 +1623,19 @@ test("balance with one thumb: a thumb-sized button, no handles while it is on, a
   const viewport = page.viewportSize()!;
   const button = page.getByTestId("collage-balance");
 
-  // The button is a thumb, and the whole bar is still on the screen with five
-  // targets in its second row.
+  // Not in the bar with nothing in hand: balance is a gesture on one region.
+  await expect(button).toHaveCount(0);
+
+  // Take the region up, then the button. No handle is needed and none is left.
+  await takeUp(page, "r1");
+  await expect(button).toBeEnabled();
+
+  // The button is a thumb, and the whole bar is still on the screen.
   const bb = (await button.boundingBox())!;
   expect(bb.height).toBeGreaterThanOrEqual(44);
   expect(bb.width).toBeGreaterThanOrEqual(44);
   expect(bb.x + bb.width).toBeLessThanOrEqual(viewport.width + 1);
   expect(bb.y + bb.height).toBeLessThanOrEqual(viewport.height + 1);
-  await expect(button).toBeDisabled();
-
-  // Take the region up, then the button. No handle is needed and none is left.
-  await takeUp(page, "r1");
-  await expect(button).toBeEnabled();
   await button.tap();
   await expect(page.getByTestId("collage")).toHaveAttribute("data-mode", "balance");
   await expect(page.getByTestId("handle")).toHaveCount(0);
@@ -2081,8 +2088,15 @@ test("every target in the bar is on the screen once balance is in it, undo inclu
 
 const TAP_SLOP = 8;
 
-/** A thumb on a region's body, carried `dx` across and `dy` down, then lifted. */
+/**
+ * A thumb on the body of the region in hand, carried `dx` across and `dy`
+ * down, then lifted.
+ *
+ * The region is taken up first, because the body carries only the region in
+ * hand: every other body is canvas, and canvas scrolls.
+ */
 async function thumbCarry(page: Page, regionId: string, dx: number, dy: number, lift = true) {
+  await takeUp(page, regionId);
   const target = grabOf(page, regionId);
   await target.scrollIntoViewIfNeeded();
   const box = (await target.boundingBox())!;
@@ -2164,10 +2178,19 @@ test("a thumb that lands on the body and lifts plays the region; one that travel
     if (r.method() === "PUT" && r.url().includes("/collage")) writes += 1;
   });
 
-  // Inside a tap's slop: the region plays and stays exactly where it was.
-  await thumbCarry(page, "r1", 2, TAP_SLOP - 4);
+  // A thumb on a region not yet in hand: it plays, takes itself up, and the
+  // body it landed on was canvas, so nothing about the arrangement moved.
+  await takeUp(page, "r1");
   await expect(region(page, "r1")).toHaveAttribute("data-playing", "true");
   await expect(region(page, "r1")).toHaveAttribute("data-selected", "true");
+  await page.waitForTimeout(250);
+  expect(writes).toBe(0);
+  expect((await regionsOnServer(request))[0].at_s).toBeCloseTo(5, 3);
+
+  // And on the region in hand, whose body does carry it: inside a tap's slop
+  // it still stays exactly where it was.
+  await thumbCarry(page, "r1", 2, TAP_SLOP - 4);
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-moving", "");
   await page.waitForTimeout(250);
   expect(writes).toBe(0);
   expect((await regionsOnServer(request))[0].at_s).toBeCloseTo(5, 3);
@@ -2191,7 +2214,7 @@ test("copy and paste with one thumb: the bar says a copy is ready, and the blank
   await page.goto("/collage");
   const viewport = page.viewportSize()!;
 
-  await expect(page.getByTestId("collage-copy")).toBeDisabled();
+  await expect(page.getByTestId("collage-copy")).toHaveCount(0);
   await takeUp(page, "r1");
   const copy = page.getByTestId("collage-copy");
   const cb = (await copy.boundingBox())!;
@@ -2239,7 +2262,7 @@ test("removing a track on a phone: a quick tap takes nothing, a held thumb takes
   await page.goto("/collage");
   const viewport = page.viewportSize()!;
 
-  await expect(page.getByTestId("collage-track")).toBeDisabled();
+  await expect(page.getByTestId("collage-track")).toHaveCount(0);
   await takeUp(page, "r2");
   const button = page.getByTestId("collage-track");
   const bb = (await button.boundingBox())!;
@@ -2320,14 +2343,18 @@ test("turning the phone mid-move writes nothing, and a second thumb on the block
 
   // A second thumb landing on the block mid-move is not a second gesture and
   // is not a tap either: the block keeps going where the first thumb says.
+  // The region is sounding on its own, because taking it up is what put it
+  // in hand, so a stray touch read as a tap would stop the very sound the
+  // move is being judged against. It does not.
   const grab = grabOf(page, "r1");
   await thumbCarry(page, "r1", 0, 100, false);
+  await expect(region(page, "r1")).toHaveAttribute("data-playing", "true");
   await expect(page.getByTestId("collage")).toHaveAttribute("data-moving", "r1");
   const box = (await grab.boundingBox())!;
   await touch(grab, "pointerdown", box.x + 5, box.y + 5, 9);
   await touch(grab, "pointerup", box.x + 5, box.y + 5, 9);
   await expect(page.getByTestId("collage")).toHaveAttribute("data-moving", "r1");
-  await expect(region(page, "r1")).toHaveAttribute("data-playing", "false");
+  await expect(region(page, "r1")).toHaveAttribute("data-playing", "true");
 
   // Turning the phone lets go of the move without applying it.
   await page.setViewportSize({ width: 852, height: 393 });
@@ -2336,4 +2363,250 @@ test("turning the phone mid-move writes nothing, and a second thumb on the block
   await page.waitForTimeout(250);
   expect(writes).toBe(0);
   expect((await regionsOnServer(request))[0].at_s).toBeCloseTo(5, 3);
+});
+
+/* The room the canvas has, and the room a thumb has to scroll it ------------- */
+
+/** The bar's height, the canvas's height, and how many rows of buttons there are. */
+async function room(page: Page) {
+  return page.evaluate(() => {
+    const height = (selector: string) => {
+      const node = document.querySelector(selector);
+      return node ? node.getBoundingClientRect().height : 0;
+    };
+    return {
+      bar: height(".collage-bar"),
+      canvas: height('[data-testid="collage-canvas"]'),
+      rows: document.querySelectorAll(".collage-bar-row").length,
+    };
+  });
+}
+
+test("the bar spends a row on the region in hand only while there is one, and the canvas keeps the rest of the phone", async ({
+  page,
+  request,
+}) => {
+  const sound = await firstSound(request);
+  const put = await request.put(`/api/projects/${PROJECT}/collage`, {
+    data: { regions: [regionRow("r1", sound.hash, 0, 0, sound.duration_s, 0.05)] },
+  });
+  expect(put.ok()).toBe(true);
+  await page.goto("/collage");
+  await expect(page.getByTestId("region")).toHaveCount(1);
+  const viewport = page.viewportSize()!;
+
+  // Nothing in hand. Stretch, balance, copy and track can do nothing, so the
+  // bar does not spend a row of the phone offering them: one statement and
+  // one row of buttons, and the canvas has the rest.
+  await expect(page.getByTestId("collage-in-hand")).toHaveCount(0);
+  for (const name of ["collage-stretch", "collage-balance", "collage-copy", "collage-track"]) {
+    await expect(page.getByTestId(name), `${name} is in the bar with nothing to act on`).toHaveCount(0);
+  }
+  const free = await room(page);
+  expect(free.rows, "the bar has more than one row of buttons with nothing in hand").toBe(1);
+  expect(free.bar, "the bar is taller than two rows with nothing in hand").toBeLessThanOrEqual(140);
+  expect(free.canvas, "the canvas is smaller than it was before this gesture set").toBeGreaterThanOrEqual(430);
+  await page.screenshot({ path: "screenshots/collage-phone-bar-free.png" });
+
+  // A region in hand: the four gestures about it arrive, in one more row, and
+  // the canvas gives up that row and no more.
+  await takeUp(page, "r1");
+  await expect(page.getByTestId("collage-in-hand")).toHaveCount(1);
+  const held = await room(page);
+  expect(held.rows).toBe(2);
+  expect(held.canvas, "taking a region up cost more than one row of canvas").toBeGreaterThanOrEqual(
+    free.canvas - 64,
+  );
+  expect(free.canvas - held.canvas, "the row about a region is not a row").toBeGreaterThan(0);
+
+  // Every target is still a thumb and still on the screen, undo included.
+  await page.getByTestId("collage-copy").tap();
+  await tapSpace(page, 40, TOP_PAD + 400);
+  await expect(page.getByTestId("collage-save")).toHaveAttribute("data-state", "saved");
+  await takeUp(page, "r1");
+  await expect(page.getByTestId("collage-undo")).toBeVisible();
+  for (const name of [
+    "collage-play",
+    "collage-snip",
+    "collage-undo",
+    "collage-stretch",
+    "collage-balance",
+    "collage-copy",
+    "collage-track",
+  ]) {
+    const box = (await page.getByTestId(name).boundingBox())!;
+    expect(box, `${name} is not on the screen at all`).toBeTruthy();
+    expect(box.height, `${name} is not a thumb tall`).toBeGreaterThanOrEqual(44);
+    expect(box.width, `${name} is not a thumb wide`).toBeGreaterThanOrEqual(44);
+    expect(box.y + box.height, `${name} runs off the bottom of the phone`).toBeLessThanOrEqual(viewport.height + 1);
+    expect(box.x + box.width, `${name} runs off the side of the phone`).toBeLessThanOrEqual(viewport.width + 1);
+  }
+  await page.screenshot({ path: "screenshots/collage-phone-bar-in-hand.png" });
+
+  // Putting the region down gives the row back.
+  await page.keyboard.press("Escape");
+  await expect(page.getByTestId("collage-in-hand")).toHaveCount(0);
+  expect((await room(page)).canvas).toBe(free.canvas);
+});
+
+/**
+ * How much of the canvas a thumb cannot scroll from, as a percentage of its
+ * area, and which columns those are.
+ *
+ * A thumb scrolls unless something under it says `touch-action: none`, which
+ * is how a gesture on this surface claims a drag. So the measurement is a grid
+ * of points over the canvas, each asked whether anything between what is under
+ * it and the canvas itself has taken the drag away.
+ */
+async function deadToScrolling(page: Page) {
+  return page.evaluate(() => {
+    const canvas = document.querySelector('[data-testid="collage-canvas"]') as HTMLElement;
+    const rect = canvas.getBoundingClientRect();
+    let blocked = 0;
+    let total = 0;
+    const columns = new Set<number>();
+    for (let x = rect.left + 2; x < rect.right - 2; x += 4) {
+      for (let y = rect.top + 2; y < rect.bottom - 2; y += 8) {
+        total += 1;
+        let node: Element | null = document.elementFromPoint(x, y);
+        while (node && node !== canvas) {
+          if (getComputedStyle(node).touchAction === "none") {
+            blocked += 1;
+            columns.add(Math.round(x - rect.left));
+            break;
+          }
+          node = node.parentElement;
+        }
+      }
+    }
+    return { percent: Math.round((blocked / total) * 100), columns: Array.from(columns).sort((a, b) => a - b) };
+  });
+}
+
+test("three tracks of regions and the whole canvas still scrolls; the one in hand is the only thing a thumb cannot scroll from", async ({
+  page,
+  request,
+}) => {
+  const sound = await firstSound(request);
+  // Three tracks of blocks, each taller than the phone: 384 of the 393 pixels
+  // across are region, so if a region's body took the drag there would be
+  // almost nothing left to scroll a thirty-six-minute piece by.
+  const put = await request.put(`/api/projects/${PROJECT}/collage`, {
+    data: {
+      regions: [
+        regionRow("r1", sound.hash, 0, 0, sound.duration_s, 0.02),
+        regionRow("r2", sound.hash, 1, 0, sound.duration_s, 0.02),
+        regionRow("r3", sound.hash, 2, 0, sound.duration_s, 0.02),
+      ],
+    },
+  });
+  expect(put.ok()).toBe(true);
+  await page.goto("/collage");
+  await expect(page.getByTestId("region")).toHaveCount(3);
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-tracks", "3");
+  // The three columns really do fill the phone.
+  const space = (await page.getByTestId("collage-space").boundingBox())!;
+  expect(space.width).toBeGreaterThanOrEqual(page.viewportSize()!.width - 12);
+
+  // Nothing in hand: every point of the canvas scrolls, region or blank.
+  const free = await deadToScrolling(page);
+  expect(free.percent, `${free.percent}% of the canvas cannot be scrolled from`).toBe(0);
+
+  // One region in hand: its body is the move now, so a thumb on that column
+  // does not scroll. One column of the three, and putting it down frees it.
+  await takeUp(page, "r2");
+  const held = await deadToScrolling(page);
+  expect(held.percent, "more than one region's worth of the canvas stopped scrolling").toBeLessThanOrEqual(20);
+  expect(Math.min(...held.columns)).toBeGreaterThanOrEqual(TRACK_W);
+  expect(Math.max(...held.columns)).toBeLessThan(2 * TRACK_W);
+  await page.keyboard.press("Escape");
+  expect((await deadToScrolling(page)).percent).toBe(0);
+});
+
+test("a region taken up at the bottom of the screen is still on the screen once the bar has grown for it", async ({
+  page,
+  request,
+}) => {
+  const sound = await firstSound(request);
+  const put = await request.put(`/api/projects/${PROJECT}/collage`, {
+    data: { regions: [regionRow("r1", sound.hash, 0, 100, sound.duration_s, 0.05)] },
+  });
+  expect(put.ok()).toBe(true);
+  await page.goto("/collage");
+  const canvas = page.getByTestId("collage-canvas");
+
+  // Put the top of the block a thumb above the bottom of the canvas, which is
+  // where a thumb holding a phone naturally reaches.
+  await canvas.evaluate((node, top) => {
+    node.scrollTop = Math.max(0, top - (node.clientHeight - 30));
+  }, TOP_PAD + 100 * PX_PER_S);
+  const before = (await region(page, "r1").boundingBox())!;
+  const window = (await canvas.boundingBox())!;
+  expect(before.y).toBeLessThan(window.y + window.height);
+  expect(before.y).toBeGreaterThan(window.y + window.height - 44);
+
+  // Taking it up grows the bar by a row, which comes off the bottom of the
+  // canvas. The block does not go with it.
+  await region(page, "r1").tap({ position: { x: TRACK_W / 2, y: 10 } });
+  await expect(region(page, "r1")).toHaveAttribute("data-selected", "true");
+  await expect(page.getByTestId("collage-in-hand")).toHaveCount(1);
+  const after = (await region(page, "r1").boundingBox())!;
+  const shrunk = (await canvas.boundingBox())!;
+  expect(shrunk.height, "the bar did not grow, so this measures nothing").toBeLessThan(window.height);
+  expect(after.y, "the block went behind the bar with the tap that took it up").toBeLessThanOrEqual(
+    shrunk.y + shrunk.height - 30,
+  );
+  expect(after.y, "the canvas moved further than it had to").toBeGreaterThanOrEqual(
+    shrunk.y + shrunk.height - 44 - (window.height - shrunk.height),
+  );
+});
+
+test("a second thumb on the track button neither takes the track nor throws away the hold the first thumb is keeping", async ({
+  page,
+  request,
+}) => {
+  const sound = await firstSound(request);
+  const put = await request.put(`/api/projects/${PROJECT}/collage`, {
+    data: {
+      regions: [
+        regionRow("r1", sound.hash, 0, 0, sound.duration_s, 0.05),
+        regionRow("r2", sound.hash, 1, 0, sound.duration_s, 0.05),
+      ],
+    },
+  });
+  expect(put.ok()).toBe(true);
+  await page.goto("/collage");
+  await takeUp(page, "r2");
+  const button = page.getByTestId("collage-track");
+  const bb = (await button.boundingBox())!;
+  const x = bb.x + bb.width / 2;
+  const y = bb.y + bb.height / 2;
+
+  // One thumb holds, and stays. A second lands on the same button and lifts
+  // before the wait is over: it is not the thumb that is holding, so it
+  // neither removes anything nor cancels the wait underneath it.
+  await touch(button, "pointerdown", x, y, 7);
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-doomed", "holding");
+  await touch(button, "pointerdown", x - 10, y, 9);
+  await touch(button, "pointerup", x - 10, y, 9);
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-doomed", "holding");
+  await expect(page.getByTestId("collage-hint")).toHaveCount(0);
+  expect(await storedRegions(request)).toHaveLength(2);
+
+  // The first thumb's own wait finishes, and a second thumb lifting now
+  // still takes nothing: the track goes when the thumb that armed it lets go.
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-doomed", "armed", { timeout: 4000 });
+  await touch(button, "pointerdown", x - 10, y, 9);
+  await touch(button, "pointerup", x - 10, y, 9);
+  await page.waitForTimeout(250);
+  expect(await storedRegions(request)).toHaveLength(2);
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-doomed", "armed");
+
+  // And the thumb that did the holding takes it.
+  await touch(button, "pointerup", x, y, 7);
+  await expect(page.getByTestId("collage-save")).toHaveAttribute("data-state", "saved");
+  expect((await storedRegions(request)).map((r) => r.id)).toEqual(["r1"]);
+  await page.getByTestId("collage-undo").tap();
+  await expect(page.getByTestId("collage-save")).toHaveAttribute("data-state", "saved");
+  expect((await storedRegions(request)).map((r) => r.id).sort()).toEqual(["r1", "r2"]);
 });

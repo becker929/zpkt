@@ -101,18 +101,40 @@ test("no seconds, no grid, no decibels on the real material", async ({ page }) =
   await page.goto("/collage");
   await expect(page.getByTestId("collage")).toBeVisible();
 
-  // The mode buttons are drawn against the real material and refuse until
-  // there is something for them to act on. Nothing here takes a region up:
-  // that is a read, but the level or the cut it would then set would not be.
-  await expect(page.getByTestId("collage-balance")).toBeDisabled();
-  await expect(page.getByTestId("collage-stretch")).toBeDisabled();
-  // Copying a region and removing its track need one taken up as well, and
-  // removing a track is the one target on this surface that takes several
-  // regions at once: on the real material it refuses until something is in
-  // hand, and nothing here puts anything in hand.
-  await expect(page.getByTestId("collage-copy")).toBeDisabled();
-  await expect(page.getByTestId("collage-track")).toBeDisabled();
+  // The four gestures that act on one region are not in the bar at all until
+  // there is a region in hand — stretching it, balancing it, copying it, and
+  // removing its track. Nothing here takes a region up: that would be a read,
+  // but the level or the cut it would then set would not be. So on the real
+  // material the bar is the statement and one row, and the canvas has the
+  // rest of the screen.
+  await expect(page.getByTestId("collage-in-hand")).toHaveCount(0);
+  await expect(page.getByTestId("collage-balance")).toHaveCount(0);
+  await expect(page.getByTestId("collage-stretch")).toHaveCount(0);
+  await expect(page.getByTestId("collage-copy")).toHaveCount(0);
+  await expect(page.getByTestId("collage-track")).toHaveCount(0);
   expect(await page.getByTestId("collage-doomed").count()).toBe(0);
+  // And with nothing in hand there is nothing on the canvas a thumb cannot
+  // scroll from: the real piece is thirty-six minutes tall.
+  const dead = await page.getByTestId("collage-canvas").evaluate((canvas) => {
+    const rect = canvas.getBoundingClientRect();
+    let blocked = 0;
+    let total = 0;
+    for (let x = rect.left + 2; x < rect.right - 2; x += 8) {
+      for (let y = rect.top + 2; y < rect.bottom - 2; y += 16) {
+        total += 1;
+        let node: Element | null = document.elementFromPoint(x, y);
+        while (node && node !== canvas) {
+          if (getComputedStyle(node).touchAction === "none") {
+            blocked += 1;
+            break;
+          }
+          node = node.parentElement;
+        }
+      }
+    }
+    return Math.round((blocked / total) * 100);
+  });
+  expect(dead, `${dead}% of the real piece's canvas cannot be scrolled from`).toBe(0);
 
   await page.getByTestId("collage-choose").click();
   await expect(page.getByTestId("collage-picker")).toBeVisible();
