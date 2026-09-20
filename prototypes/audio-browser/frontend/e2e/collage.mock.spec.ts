@@ -5087,6 +5087,53 @@ test("a repeat is one undo step, and dragging back up takes repeats away", async
   expect(loopsOf(stored(await regionsOnServer(page), "r1"))).toBe(4);
 });
 
+test("a repeat count is reached by the keyboard as well, and stops at the same walls", async ({
+  page,
+  request,
+}) => {
+  const set = await sounds(page);
+  // Alone on its track, so the only walls are the floor of one and the
+  // ceiling the count itself carries.
+  await writeRegions(request, [regionRow("r1", set[0].hash, 0, 0, 0, 4)]);
+  await page.goto("/collage");
+  await enterRepeat(page, "r1");
+
+  await region(page, "r1").focus();
+  const box = async () => (await region(page, "r1").boundingBox())!.height;
+  const once = await box();
+
+  await page.keyboard.press("ArrowDown");
+  await expect(region(page, "r1")).toHaveAttribute("data-loops", "2");
+  expect(await box()).toBeCloseTo(once * 2, 0);
+  // Shift is four more at a time, because reaching the ceiling one press at
+  // a time would be sixty-three of them.
+  await page.keyboard.press("Shift+ArrowDown");
+  await expect(region(page, "r1")).toHaveAttribute("data-loops", "6");
+  await page.keyboard.press("ArrowUp");
+  await expect(region(page, "r1")).toHaveAttribute("data-loops", "5");
+  await expect(page.getByTestId("region-repeat")).toHaveCount(4);
+  await expect(page.getByTestId("collage-save")).toHaveAttribute("data-state", "saved");
+  expect(loopsOf(await rowOnServer(page, "r1"))).toBe(5);
+
+  // The floor holds on the keyboard as it does under a thumb: a region always
+  // sounds at least the once, and a press that would take it below writes
+  // nothing rather than being refused loudly.
+  for (let n = 0; n < 3; n += 1) await page.keyboard.press("Shift+ArrowUp");
+  await expect(region(page, "r1")).toHaveAttribute("data-loops", "1");
+  const depth = await page.getByTestId("collage-undo").getAttribute("data-depth");
+  await page.keyboard.press("ArrowUp");
+  await expect(region(page, "r1")).toHaveAttribute("data-loops", "1");
+  await expect(page.getByTestId("collage-undo")).toHaveAttribute("data-depth", depth!);
+
+  // And it is a repeat, not a trim: the material is exactly what it was.
+  const row = await rowOnServer(page, "r1");
+  expect(row.start_s).toBe(0);
+  expect(row.end_s).toBe(4);
+  expect(row.rate).toBe(1);
+  expect(row.at_s).toBe(0);
+  await noFigures(page);
+});
+
 test("a loop of one is the floor: dragging up past it writes nothing and says so", async ({ page, request }) => {
   const set = await sounds(page);
   await writeRegions(request, [regionRow("r1", set[0].hash, 0, 0, 0, 1, 0.05)]);
@@ -5308,6 +5355,55 @@ test("a region that repeats at a rate other than one is still handed over seamle
   expect(order[1].when).toBeGreaterThanOrEqual(order[1].now);
 });
 
+test("a repeat of a cut longer than one piece hands every piece over without a seam, and asks for none of them twice", async ({
+  page,
+  request,
+}) => {
+  await listen(page);
+  await serveSlices(page);
+  const set = await sounds(page);
+  // Twenty seconds of source, so a pass is two pieces and not one: fifteen
+  // seconds and then five. Every test before this one repeated a cut that fit
+  // in a single piece, so the walk that joins one piece to the next *inside* a
+  // pass had never been asked to also carry across a repeat boundary, and the
+  // pieces kept for the repeats had never held more than one.
+  //
+  // At four times speed the whole thing is ten seconds of sound, which is
+  // inside the lead the scheduler works to, so every piece is scheduled up
+  // front and the test does not have to sit through the piece.
+  await writeRegions(request, [looped(regionRow("r1", set[0].hash, 0, 0, 0, 20, 4), 2)]);
+  await page.goto("/collage");
+  await expect(page.getByTestId("region")).toHaveCount(1);
+
+  await page.getByTestId("collage-play").click();
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-piece", "playing");
+  await expect.poll(async () => (await heard(page)).pieces.length, { timeout: 8000 }).toBe(4);
+
+  const order = [...(await heard(page)).pieces].sort((a, b) => a.when - b.when);
+  // Fifteen, five, fifteen, five: the same two pieces, twice.
+  expect(order.map((p) => Math.round(p.duration))).toEqual([15, 5, 15, 5]);
+  for (const piece of order) expect(piece.rate).toBe(4);
+  for (let n = 1; n < order.length; n += 1) {
+    // Every join, whether it is inside a pass or across a repeat, is the
+    // same arithmetic and has to come out the same way.
+    expect(
+      Math.abs(order[n].when - endsAt(order[n - 1])),
+      `piece ${n} was not handed over to at the moment piece ${n - 1} ends`,
+    ).toBeLessThan(1e-9);
+    expect(order[n].when, `piece ${n} was scheduled into the past`).toBeGreaterThanOrEqual(order[n].now);
+  }
+  // Two pieces of source, fetched once each. A repeat that asked for them
+  // again would be a request a pass, for as long as the loop went on.
+  const asked = await page.evaluate(() =>
+    performance
+      .getEntriesByType("resource")
+      .filter((entry) => entry.name.includes("/slice?"))
+      .map((entry) => new URL(entry.name).search),
+  );
+  expect(asked).toHaveLength(new Set(asked).size);
+  expect(asked.length).toBeLessThanOrEqual(2);
+});
+
 test("editing a region that repeats mid-play takes it out of the pass, repeats and all", async ({
   page,
   request,
@@ -5385,6 +5481,59 @@ test("the transport loop starts the piece again from the top, and survives a rel
   await expect(page.getByTestId("collage-loop")).toHaveAttribute("data-state", "off");
   await page.reload();
   await expect(page.getByTestId("collage-loop")).toHaveAttribute("data-state", "off");
+});
+
+test("the transport loop's seam is a breath and never a double trigger", async ({
+  page,
+  request,
+}, testInfo) => {
+  await listen(page);
+  await serveSlices(page);
+  const set = await sounds(page);
+  // Two regions, both short, so a pass is over in under a second and the
+  // seam between passes comes round quickly.
+  await writeRegions(request, [
+    regionRow("r1", set[0].hash, 0, 0, 0, 0.6, 1),
+    regionRow("r2", set[0].hash, 1, 0, 0, 0.6, 1),
+  ]);
+  await page.goto("/collage");
+  await expect(page.getByTestId("region")).toHaveCount(2);
+
+  await page.getByTestId("collage-loop").click();
+  await page.getByTestId("collage-play").click();
+  // Three passes of two regions.
+  await expect.poll(async () => (await heard(page)).pieces.length, { timeout: 20000 }).toBeGreaterThanOrEqual(6);
+  await page.getByTestId("collage-play").click();
+  await page.getByTestId("collage-loop").click();
+
+  const order = [...(await heard(page)).pieces].sort((a, b) => a.when - b.when);
+  // A pass is the two regions; the seam is between one pair and the next.
+  const seams: number[] = [];
+  for (let n = 2; n < order.length; n += 2) {
+    const previousEnds = Math.max(endsAt(order[n - 2]), endsAt(order[n - 1]));
+    // The next pass never begins before the one before it has finished. A
+    // moment already gone is sounded at once, so a pass scheduled into the
+    // tail of the one before it would be the whole piece playing over
+    // itself — which is what a loop would sound like going wrong.
+    expect(order[n].when, `pass ${n / 2} began before the one before it ended`).toBeGreaterThanOrEqual(
+      previousEnds - 1e-9,
+    );
+    expect(order[n].when).toBeGreaterThanOrEqual(order[n].now - 1e-9);
+    seams.push(order[n].when - previousEnds);
+  }
+  expect(seams.length).toBeGreaterThan(0);
+
+  // And the size of the breath, recorded rather than argued about. A pass
+  // begins again by fetching every region's first piece over: the loop is not
+  // a continuation and the transport says `loading…` while it happens. On a
+  // server in the same process this is milliseconds; over a network with
+  // fifteen regions of real material it is the thing to measure on the phone.
+  const worst = Math.max(...seams);
+  testInfo.annotations.push({
+    type: "transport loop seam",
+    description: `${seams.map((s) => `${Math.round(s * 1000)}ms`).join(", ")}`,
+  });
+  expect(worst, "the breath between passes has grown").toBeLessThan(3);
 });
 
 test("the transport loop can be set with nothing stamped, and loops nothing", async ({ page, request }) => {

@@ -210,9 +210,12 @@ REGION_DEFAULTS: dict[str, Any] = {"loops": 1}
 """Keys a document may leave out, and what they mean when it does.
 
 ``loops`` was added after the first collages were written, so a region
-without it repeats once and digests as though it had said so. That is what
-keeps the field from moving a digest taken before it existed. Nothing else
+without it repeats once and means the same thing either way. Nothing else
 may be left out: a region that has been through this code carries every key.
+
+These keys are also the ones :func:`collage_input` leaves out of the
+canonical text when they hold their default, which is what lets the format
+grow without moving a digest already taken. See that function.
 """
 
 
@@ -240,14 +243,25 @@ def collage_input(collage: dict[str, Any]) -> str:
       part of the freeze;
     * inside a region the keys are sorted;
     * ``id`` and ``hash`` are JSON strings with non-ASCII escaped;
-    * ``track`` is a plain integer;
+    * ``track`` and ``loops`` are plain integers;
     * every other number is fixed-point with six decimals, so ``1`` and ``1.0``
       and ``1.0000000001`` are one string;
+    * a key in :data:`REGION_DEFAULTS` holding its default is **left out**;
     * there is no whitespace anywhere.
 
     Two descriptions that mean the same thing produce the same bytes here, and
-    so the same digest. TypeScript must produce these bytes too, or the freeze
-    is not checkable from the other side.
+    so the same digest. TypeScript's ``collageInput`` produces these bytes too,
+    or the freeze is not checkable from the other side.
+
+    The last rule is what lets the format grow. ``loops`` arrived after
+    collages already existed, and a region that repeats once means exactly
+    what a region written before the field existed means. Writing ``1`` into
+    the text would have said something the older text did not say, in the
+    middle of it — the keys are sorted, so a new key lands between two old
+    ones — and every digest taken before the field arrived would have moved.
+    Leaving a default out keeps the old bytes exactly, and a region that
+    really does repeat says so and digests differently, which is right,
+    because it is a different piece.
     """
     regions = cast(list[dict[str, Any]], collage["regions"])
     rendered: list[str] = []
@@ -255,6 +269,8 @@ def collage_input(collage: dict[str, Any]) -> str:
         fields: list[str] = []
         for key in sorted(REGION_FIELDS):
             value = region[key] if key in region else REGION_DEFAULTS[key]
+            if key in REGION_DEFAULTS and value == REGION_DEFAULTS[key]:
+                continue
             if key in REGION_STRING_FIELDS:
                 text = json.dumps(value, ensure_ascii=True)
             elif key in REGION_INT_FIELDS:

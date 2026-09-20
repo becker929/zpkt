@@ -402,20 +402,27 @@ export type ProjectDocument = z.infer<typeof projectDocumentSchema>;
  * is not checkable, which is why it is a function and not a sentence in a
  * document.
  *
- * `collage` and `enrich` own an arrangement and a treatment, and neither view
- * exists yet. Their artifact is therefore a placeholder: deterministic and
- * different for every project, so two commits never collide, but `real` is
- * false and the interface says so rather than presenting a digest of nothing as
- * a digest of something. When those views land, this is the one function that
- * changes.
+ * `collage` owns the description of what was cut and where it was put, and its
+ * artifact is the canonical text of that description. `enrich` has no view yet,
+ * so its artifact is a placeholder: deterministic and different for every
+ * project, so two commits never collide, but `real` is false and the interface
+ * says so rather than presenting a digest of nothing as a digest of something.
+ *
+ * The placeholder's bytes are `${column} ${id} ${manifest}`, exactly as
+ * Python's `commit_artifact` writes them. Two languages that disagree about
+ * these bytes disagree about a digest, and a digest is the only thing that
+ * makes a commit checkable later.
  */
 export function commitArtifact(
-  project: Pick<ProjectDocument, "id" | "sounds">,
+  project: Pick<ProjectDocument, "id" | "sounds"> & { collage?: Collage | null },
   column: Column,
 ): { input: string; real: boolean } {
   const manifest = manifestInput(project.sounds.map((sound) => sound.hash));
   if (column === "stored") return { input: manifest, real: true };
-  return { input: `${column} ${project.id} ${manifest}`, real: false };
+  if (column === "collage" && project.collage) {
+    return { input: collageInput(project.collage), real: true };
+  }
+  return { input: `${column} ${project.id} ${manifest}`, real: false };
 }
 
 /**
@@ -424,6 +431,110 @@ export function commitArtifact(
  */
 export function manifestInput(hashes: readonly string[]): string {
   return [...new Set(hashes)].sort().join("\n");
+}
+
+/**
+ * Keys a region may leave out, and what they mean when it does.
+ *
+ * Mirrors `REGION_DEFAULTS` in Python. A key here holding its default is left
+ * out of the canonical text, which is what lets the format grow: `loops`
+ * arrived after collages already existed, and a region that sounds once means
+ * exactly what a region written before the field existed means, so the two
+ * must digest to the same bytes.
+ */
+const REGION_DEFAULTS: { readonly loops: number } = { loops: 1 };
+
+/** The region's keys, in the order Python's `sorted(REGION_FIELDS)` gives. */
+const REGION_KEYS = [
+  "at_s", "end_s", "fade_in_s", "fade_out_s", "gain", "hash", "id", "loops",
+  "rate", "start_s", "track",
+] as const;
+
+const REGION_STRING_KEYS = new Set<string>(["id", "hash"]);
+const REGION_INT_KEYS = new Set<string>(["track", "loops"]);
+
+/**
+ * Compare two strings by Unicode code point, as Python's `sorted` does.
+ *
+ * JavaScript's default comparison is by UTF-16 code unit, which puts a
+ * character above the basic plane before one in `U+E000`..`U+FFFF` and Python
+ * puts it after. Region ids are `r1`, `r2`, … in everything this application
+ * writes, so the two orders agree today; they would stop agreeing the first
+ * time a file was hand-written with an id outside ASCII, and a digest that
+ * depends on which language read the file is not a freeze.
+ */
+function byCodePoint(a: string, b: string): number {
+  const left = [...a];
+  const right = [...b];
+  const shared = Math.min(left.length, right.length);
+  for (let i = 0; i < shared; i += 1) {
+    const difference = (left[i].codePointAt(0) ?? 0) - (right[i].codePointAt(0) ?? 0);
+    if (difference !== 0) return difference;
+  }
+  return left.length - right.length;
+}
+
+/**
+ * A string as Python's `json.dumps(value, ensure_ascii=True)` writes it.
+ *
+ * `JSON.stringify` leaves everything printable above ASCII alone; Python
+ * escapes it. Every code unit past `~` is written as `\uXXXX`, lower case,
+ * surrogates and all, which is what Python emits for a character above the
+ * basic plane.
+ */
+function jsonAscii(value: string): string {
+  let out = "";
+  for (const character of JSON.stringify(value)) {
+    const code = character.charCodeAt(0);
+    out += code > 0x7e ? `\\u${code.toString(16).padStart(4, "0")}` : character;
+  }
+  return out;
+}
+
+/** A number as Python's `f"{value:.6f}"` writes it. Negative zero is zero. */
+function fixed(value: number): string {
+  return (value === 0 ? 0 : value).toFixed(6);
+}
+
+/**
+ * Exactly what `collage` hashes: the canonical text of a description.
+ *
+ * The rule, in full, and it is Python's `collage_input` rule:
+ *
+ * - regions are sorted by `id`, so the order they were stamped in is not part
+ *   of the freeze;
+ * - inside a region the keys are sorted;
+ * - `id` and `hash` are JSON strings with non-ASCII escaped;
+ * - `track` and `loops` are plain integers;
+ * - every other number is fixed-point with six decimals, so `1` and `1.0` and
+ *   `1.0000000001` are one string;
+ * - a key in `REGION_DEFAULTS` holding its default is left out;
+ * - there is no whitespace anywhere.
+ *
+ * Both languages must produce these bytes or the freeze is not checkable from
+ * the other side. `scripts/check-schema.py` is what runs that rather than
+ * believing it.
+ */
+export function collageInput(collage: Collage): string {
+  const rendered = [...collage.regions]
+    .sort((a, b) => byCodePoint(a.id, b.id))
+    .map((region) => {
+      const fields: string[] = [];
+      for (const key of REGION_KEYS) {
+        const held = (region as Record<string, unknown>)[key];
+        const value = held === undefined ? REGION_DEFAULTS[key as "loops"] : held;
+        if (key in REGION_DEFAULTS && value === REGION_DEFAULTS[key as "loops"]) continue;
+        if (REGION_STRING_KEYS.has(key)) {
+          fields.push(`"${key}":${jsonAscii(String(value))}`);
+        } else if (REGION_INT_KEYS.has(key)) {
+          fields.push(`"${key}":${String(Math.trunc(Number(value)))}`);
+        } else {
+          fields.push(`"${key}":${fixed(Number(value))}`);
+        }
+      }
+      return `{${fields.join(",")}}`;
+    });
+  return `{"regions":[${rendered.join(",")}]}`;
 }
 
 /* The index's view of a project ------------------------------------------- */

@@ -260,6 +260,52 @@ RULE_CASES: list[tuple[str, Any, bool]] = [
 ]
 
 
+# The bytes a `collage` commit digests. This is the freeze itself: a digest is
+# the only thing that makes a commit checkable years later, so the two
+# languages must write the same string for the same description or the freeze
+# is one-sided.
+#
+# The cases that matter most are the ones about a field that arrived late.
+# `loops` was added after collages already existed, so a region that leaves it
+# out and a region that writes 1 are the same claim, and both must come out as
+# the text the code that had never heard of the field produced. Nothing else
+# keeps a digest taken before the field arrived from moving.
+def _region(**fields: Any) -> dict[str, Any]:
+    base = region()
+    base.update(fields)
+    return base
+
+
+CANON_CASES: list[tuple[str, dict[str, Any]]] = [
+    ("no regions at all", {"regions": []}),
+    ("a region as the old code wrote it, with no loops key", {"regions": [_region()]}),
+    ("the same region saying it sounds once", {"regions": [_region(loops=1)]}),
+    ("a region that really repeats", {"regions": [_region(loops=7)]}),
+    # Present and absent in one description, which is what a project edited
+    # after the field arrived actually holds.
+    ("one region with loops, one without", {"regions": [
+        _region(loops=3), _region(id="r2", track=1),
+    ]}),
+    ("the same two, the other way round", {"regions": [
+        _region(id="r2", track=1), _region(loops=3),
+    ]}),
+    # The rest of the rule: order, key order, integers against floats, the
+    # float noise a hand-placed region really carries, and negative zero.
+    ("regions out of order", {"regions": [
+        _region(id="r2", track=1, at_s=0.1 + 0.2), _region(id="r1"),
+    ]}),
+    ("a rate and a level that are not round", {"regions": [
+        _region(rate=0.327431, gain=1.75, at_s=49.612, end_s=131.0, start_s=4.0),
+    ]}),
+    ("negative zero", {"regions": [_region(at_s=-0.0, fade_out_s=-0.0)]}),
+    ("integers written as integers", {"regions": [
+        {**_region(), "at_s": 12, "rate": 1, "gain": 1, "track": 2},
+    ]}),
+    ("an id outside ASCII, which both languages must escape and sort alike",
+     {"regions": [_region(id="ré"), _region(id="rz", track=1)]}),
+]
+
+
 def python_verdicts(schema: dict[str, Any]) -> list[bool]:
     from jsonschema import Draft7Validator
 
@@ -268,11 +314,16 @@ def python_verdicts(schema: dict[str, Any]) -> list[bool]:
     return [validator.is_valid(document) for _, document, _ in CASES]
 
 
-def zod_verdicts() -> list[dict[str, Any]]:
-    documents = json.dumps([document for _, document, _ in CASES + RULE_CASES])
+def zod_verdicts() -> dict[str, Any]:
+    payload = json.dumps(
+        {
+            "documents": [document for _, document, _ in CASES + RULE_CASES],
+            "collages": [collage for _, collage in CANON_CASES],
+        }
+    )
     result = subprocess.run(
         ["node", "--disable-warning=MODULE_TYPELESS_PACKAGE_JSON", "scripts/zod-verdicts.mjs"],
-        input=documents,
+        input=payload,
         capture_output=True,
         text=True,
         cwd=FRONTEND,
@@ -288,7 +339,8 @@ def main() -> int:
 
     schema = json.loads(SCHEMA.read_text())
     python = python_verdicts(schema)
-    verdicts = zod_verdicts()
+    answers = zod_verdicts()
+    verdicts = answers["verdicts"]
     zod, rules = verdicts[: len(CASES)], verdicts[len(CASES):]
 
     failures = 0
@@ -326,7 +378,40 @@ def main() -> int:
                 print(f"     it said {'; '.join(result['checkedIssues'])}")
 
     print(f"{len(RULE_CASES) - rule_failures} of {len(RULE_CASES)} checkProject rules hold")
-    return 1 if failures or rule_failures else 0
+
+    # The freeze. Python's `collage_input` and TypeScript's `collageInput` must
+    # write the same string, and the string must not depend on whether the
+    # description has been through a parser that fills defaults in.
+    sys.path.insert(0, str(FRONTEND.parent / "src"))
+    from audio_browser.projects.model import collage_input  # noqa: PLC0415
+
+    canon_failures = 0
+    for (name, collage), answer in zip(CANON_CASES, answers["canonical"]):
+        mine = collage_input(collage)
+        theirs = answer["raw"]
+        after_parsing = answer["parsed"]
+        if mine == theirs and after_parsing == mine:
+            continue
+        canon_failures += 1
+        print(f"FAIL canonical text: {name}")
+        print(f"     python {mine}")
+        print(f"     zod    {theirs}")
+        if after_parsing != mine:
+            print(f"     after parsing {after_parsing}")
+            print("     a default written in by the parser changed the bytes")
+
+    # And the one claim the whole freeze rests on: a description that leaves a
+    # defaulted key out writes exactly what the code that had never heard of
+    # that key wrote. Checked here against the other language as well, so it
+    # cannot hold on one side alone.
+    absent = {"regions": [region()]}
+    if "loops" in collage_input(absent) or "loops" in answers["canonical"][1]["raw"]:
+        canon_failures += 1
+        print("FAIL canonical text: a defaulted key was written into the freeze")
+        print("     every digest taken before that key existed has moved")
+
+    print(f"{len(CANON_CASES) - canon_failures} of {len(CANON_CASES)} canonical texts agree")
+    return 1 if failures or rule_failures or canon_failures else 0
 
 
 if __name__ == "__main__":

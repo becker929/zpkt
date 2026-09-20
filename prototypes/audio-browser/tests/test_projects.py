@@ -1243,13 +1243,93 @@ def test_the_canonical_text_is_sorted_fixed_point_and_whitespace_free() -> None:
         }
     )
     # The region above leaves `loops` out, as every region written before the
-    # field existed does. It canonicalises as 1, which is what keeps a digest
-    # taken before `loops` from moving when the field arrived.
+    # field existed does. A default is not written, so the text is exactly the
+    # ten-key text that code produced, and the digest it took still means what
+    # it meant. See `test_adding_a_defaulted_field_moves_no_digest`.
     assert text == (
         '{"regions":[{"at_s":12.000000,"end_s":47.900000,"fade_in_s":0.000000,'
         '"fade_out_s":0.000000,"gain":1.000000,"hash":"' + "a" * 64 + '",'
-        '"id":"r1","loops":1,"rate":1.000000,"start_s":41.200000,"track":0}]}'
+        '"id":"r1","rate":1.000000,"start_s":41.200000,"track":0}]}'
     )
+
+
+# Exactly the canonicaliser as it stood at 2a05bf4, the last commit before
+# `loops` existed: ten keys, no defaults, every key written. A digest taken by
+# that code is a digest in a file somewhere, and it has to keep meaning what it
+# meant. Frozen here as text rather than imported, because the point is that it
+# cannot change when the live one does.
+_TEN_KEYS = ("at_s", "end_s", "fade_in_s", "fade_out_s", "gain", "hash", "id",
+             "rate", "start_s", "track")
+
+
+def _collage_input_before_loops(collage: dict[str, Any]) -> str:
+    rendered: list[str] = []
+    for region in sorted(collage["regions"], key=lambda r: str(r["id"])):
+        fields: list[str] = []
+        for key in _TEN_KEYS:
+            value = region[key]
+            if key in ("id", "hash"):
+                text = json.dumps(value, ensure_ascii=True)
+            elif key == "track":
+                text = str(int(value))
+            else:
+                number = float(value)
+                text = f"{0.0 if number == 0 else number:.6f}"
+            fields.append(f'"{key}":{text}')
+        rendered.append("{" + ",".join(fields) + "}")
+    return '{"regions":[' + ",".join(rendered) + "]}"
+
+
+def test_adding_a_defaulted_field_moves_no_digest() -> None:
+    """The freeze is what makes a commit checkable years later.
+
+    A field added after collages already existed must leave every digest
+    already taken exactly where it was, or the freeze is worth nothing. It is
+    not enough that an absent ``loops`` reads as 1: the *text* has to come out
+    the same as the text the older code produced, and the keys are sorted, so
+    writing a new key would push it into the middle of every region.
+    """
+    old = {
+        "id": "r1", "hash": "a" * 64, "track": 2, "start_s": 41.2,
+        "end_s": 47.9, "at_s": 12.0, "rate": 0.331, "gain": 0.75,
+        "fade_in_s": 0.0, "fade_out_s": 0.25,
+    }
+    # Every shape at once: a region the old code wrote, the same region with
+    # the field written at its default, and a region beside them that never
+    # had the field either.
+    absent = {"regions": [old, {**old, "id": "r2", "track": 0}]}
+    said_once = {"regions": [{**old, "loops": 1}, {**old, "id": "r2", "track": 0, "loops": 1}]}
+    mixed = {"regions": [{**old, "loops": 1}, {**old, "id": "r2", "track": 0}]}
+
+    was = _collage_input_before_loops(absent)
+    for description in (absent, said_once, mixed):
+        assert model.collage_input(description) == was
+        assert model.digest_of(model.collage_input(description)) == model.digest_of(was)
+
+    # A region that really repeats says so, and digests differently, because
+    # it is a different piece.
+    repeats = {"regions": [{**old, "loops": 4}, {**old, "id": "r2", "track": 0}]}
+    assert model.collage_input(repeats) != was
+    assert '"loops":4' in model.collage_input(repeats)
+
+
+def test_hw011s_own_regions_digest_as_they_did_before_loops() -> None:
+    """The shape Anthony's project actually holds, not a shape invented here.
+
+    Three regions across three tracks, none of them carrying ``loops``,
+    because they were stamped before the field existed.
+    """
+    regions = [
+        {"id": "r1", "hash": "a" * 64, "track": 0, "start_s": 0.0, "end_s": 34.0,
+         "at_s": 0.0, "rate": 1.0, "gain": 1.0, "fade_in_s": 0.0, "fade_out_s": 0.0},
+        {"id": "r2", "hash": "b" * 64, "track": 1, "start_s": 10.0, "end_s": 26.0,
+         "at_s": 0.0, "rate": 0.327, "gain": 1.0, "fade_in_s": 0.0, "fade_out_s": 0.0},
+        {"id": "r3", "hash": "c" * 64, "track": 2, "start_s": 4.0, "end_s": 131.0,
+         "at_s": 49.6, "rate": 1.0, "gain": 1.0, "fade_in_s": 0.0, "fade_out_s": 0.0},
+    ]
+    collage = {"regions": regions}
+    assert model.collage_input(collage) == _collage_input_before_loops(collage)
+    assert "loops" not in model.collage_input(collage)
 
 
 def test_two_equivalent_descriptions_digest_identically() -> None:
@@ -1291,6 +1371,107 @@ def test_two_equivalent_descriptions_digest_identically() -> None:
     moved = {**two, "regions": [{**two["regions"][0], "at_s": 12.5}, two["regions"][1]]}
     third = model.commit_artifact("p", ["a" * 64, "b" * 64], "collage", collage=moved)
     assert third.digest != first.digest
+
+
+def test_a_file_written_before_loops_commits_to_the_digest_it_always_had(
+    api: Fixture,
+) -> None:
+    """The whole claim, end to end, on a file this code did not write.
+
+    A project is put into collage, its description is replaced on disk by one
+    with no ``loops`` key — which is what every file written before the field
+    existed looks like, HW011 among them — and then it is read back and
+    committed. The digest must be the one the code that had never heard of the
+    field would have taken.
+    """
+    kick = api.hash_of("kick.wav")
+    project_id = in_collage(api, "before loops", kick, override=True)
+    stamp(api, project_id, kick)
+
+    document = read_file(api, project_id)
+    old_shape = [
+        {key: value for key, value in r.items() if key != "loops"}
+        for r in document["collage"]["regions"]
+    ]
+    assert all("loops" not in r for r in old_shape)
+    document["collage"] = {"regions": old_shape}
+    write_file(api, project_id, document)
+
+    # The server reads it without complaint: a key with a default may be
+    # missing, and that is what lets a frozen format grow.
+    read_back = api.client.get(f"/api/projects/{project_id}")
+    assert read_back.status_code == 200, read_back.text
+    assert read_back.json()["valid"] is True, read_back.json()["issues"]
+    assert read_back.json()["document"]["collage"] == {"regions": old_shape}
+
+    digest = commit_collage(api, project_id)["commit"]["digest"]
+    assert digest == model.digest_of(_collage_input_before_loops({"regions": old_shape}))
+
+
+def test_nothing_the_model_accepts_is_refused_by_the_schema(validator: Any) -> None:
+    """The dangerous direction, checked rather than assumed.
+
+    Python writes the files. If ``collage_issues`` accepted something the
+    generated schema refused, Python would write a file TypeScript could not
+    read, and the two languages would have drifted apart silently. The other
+    direction — the schema letting something through that the model refuses —
+    is the model being stricter, which is what ``collage_issues`` is for.
+    """
+    source = "a" * 64
+    document = {
+        "schema_version": 1,
+        "id": "2026-09-16-rust-and-rebar",
+        "name": "rust and rebar",
+        "column": "collage",
+        "created_at": "2026-09-16T21:04:00Z",
+        "updated_at": "2026-09-16T21:40:00Z",
+        "notes": "",
+        "abandoned": None,
+        "commits": [
+            {"column": "stored", "at": "2026-09-16T22:00:00Z", "digest": "c" * 64}
+        ],
+        "sounds": [
+            {"hash": source, "added_at": "2026-09-16T21:10:00Z", "role": None, "note": ""}
+        ],
+    }
+    whole = {
+        "id": "r1", "hash": source, "track": 0, "start_s": 0.0, "end_s": 6.4,
+        "at_s": 0.0, "rate": 1.0, "gain": 1.0, "fade_in_s": 0.0, "fade_out_s": 0.0,
+    }
+    without = {key: value for key, value in whole.items()}
+    shapes: list[dict[str, Any]] = [
+        without,
+        {**whole, "loops": 1},
+        {**whole, "loops": 4},
+        {**whole, "loops": 64},
+        {**whole, "loops": 0},
+        {**whole, "loops": -1},
+        {**whole, "loops": 2.5},
+        {**whole, "loops": 1.0},
+        {**whole, "loops": True},
+        {**whole, "loops": None},
+        {**whole, "loops": "4"},
+        {**whole, "track": 1.0},
+        {key: value for key, value in whole.items() if key != "rate"},
+        {**whole, "note": ""},
+        {**whole, "end_s": 0.0},
+    ]
+    stricter: list[str] = []
+    for shape in shapes:
+        candidate = {**document, "collage": {"regions": [shape]}}
+        by_schema = model.schema_accepts(validator, candidate)
+        by_model = not model.collage_issues(candidate)
+        assert not (by_model and not by_schema), (
+            f"the model accepts a region the schema refuses: {sorted(shape)} "
+            f"{shape.get('loops', '(no loops)')}"
+        )
+        if by_schema and not by_model:
+            stricter.append(str(shape.get("loops", shape.get("track"))))
+    # Three places where the model is stricter, and they are deliberate. Draft
+    # 7 reads `1.0` as an integer and cannot compare two fields, so a whole
+    # number written with a decimal point and a cut that ends before it begins
+    # both get through the schema and are refused here.
+    assert stricter, "the schema and the model agreeing everywhere would be new"
 
 
 def test_the_digest_is_stable_across_key_order_through_the_api(api: Fixture) -> None:

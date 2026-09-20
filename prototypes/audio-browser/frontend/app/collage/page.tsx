@@ -2447,6 +2447,23 @@ export default function CollagePage() {
                       }
                       return;
                     }
+                    // In repeat mode the arrows down the screen are the
+                    // gesture, on a keyboard as on a phone: one more time
+                    // round, or four with shift, because reaching the ceiling
+                    // by thumb is seven screens of dragging and by arrow it
+                    // would otherwise be sixty-three presses. Down is more,
+                    // as it is under a thumb, because every repeat is added
+                    // at the bottom. Nothing is printed; the dividers say it.
+                    if (repeatable && (event.key === "ArrowUp" || event.key === "ArrowDown")) {
+                      event.preventDefault();
+                      event.stopPropagation();
+                      const step = (event.shiftKey ? 4 : 1) * (event.key === "ArrowDown" ? 1 : -1);
+                      const next = repeat(region, regionsRef.current, loopsOf(region) + step);
+                      if (next !== region) {
+                        change(regionsRef.current.map((r) => (r.id === region.id ? next : r)));
+                      }
+                      return;
+                    }
                     if (event.key !== "Enter" && event.key !== " ") return;
                     event.preventDefault();
                     event.stopPropagation();
