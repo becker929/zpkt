@@ -2108,9 +2108,11 @@ select:focus {
   white-space: nowrap;
 }
 
-/* The snip button: the way into the one other mode, and the way out. Pressed
-   while snip is on. Disabled with nothing to snip. */
-.collage-snip {
+/* The snip and stretch buttons: the way into a mode, and the way out.
+   Pressed while that mode is on. Snip is disabled with nothing to snip;
+   stretch with no handle selected. */
+.collage-snip,
+.collage-stretch {
   flex: 0 0 auto;
   min-width: 72px;
   min-height: 60px;
@@ -2126,11 +2128,13 @@ select:focus {
   -webkit-tap-highlight-color: transparent;
 }
 
-.collage-snip:disabled {
+.collage-snip:disabled,
+.collage-stretch:disabled {
   opacity: 0.4;
 }
 
-.collage-snip.on {
+.collage-snip.on,
+.collage-stretch.on {
   border-color: var(--favorite);
   background: rgba(255, 200, 97, 0.14);
   color: var(--text);
@@ -2142,8 +2146,28 @@ select:focus {
   white-space: nowrap;
 }
 
-.collage-snip.on .collage-snip-sub {
+.collage-snip.on .collage-snip-sub,
+.collage-stretch.on .collage-snip-sub {
   color: var(--favorite);
+}
+
+/* The one handle that shows in stretch mode. The mode's amber rather than
+   trim's blue, so a thumb on it knows before it moves that the drag will
+   move the rate and not the cut; a doubled grip, for the same reason. */
+.handle.stretch.selected {
+  background: var(--favorite);
+  border-color: var(--favorite);
+  box-shadow: 0 0 0 2px rgba(255, 200, 97, 0.35);
+}
+
+.handle.stretch .handle-grip {
+  height: 4px;
+  box-shadow: 0 -7px 0 0 #1b1607, 0 7px 0 0 #1b1607;
+  background: #1b1607;
+}
+
+.handle.stretch.moving {
+  box-shadow: 0 0 0 3px rgba(255, 200, 97, 0.5), 0 6px 18px rgba(0, 0, 0, 0.5);
 }
 
 /* Where the choose button was: which mode is on, in words, and the way out
@@ -2186,6 +2210,12 @@ select:focus {
 
 .collage-mode.whole.armed .collage-choose-sub {
   color: rgba(27, 22, 7, 0.75);
+}
+
+/* A stretch that has met a wall says so here, in the same amber the band
+   uses, because the handle that stopped is under the thumb. */
+.collage-mode.stretch.stopped {
+  background: rgba(255, 200, 97, 0.28);
 }
 
 /* The picker: a sheet over the bottom of the view, with the set to hear and

@@ -7,8 +7,32 @@ sentences. Read top to bottom.
 
 Bullet one — choose a sound and stamp it — is reviewed and committed as
 `aa6807a` on `feature/audio-browser`. Bullet two — trim — is reviewed and
-committed as `3a1ae38`. Bullet three — snip — is built and verified, and its
-critic is running; it is not committed. Bullets four and five have not started.
+committed as `3a1ae38`. Bullet three — snip — is reviewed and committed as
+`0db8571`. Bullet four — stretch — is built and green, and its critic is
+running; it is not committed. Bullet five has not started.
+
+## Bullet four — stretch — built, finished by hand, under review
+
+The builder died on a session limit partway through its own fixes. Of the four
+it had found, three were already made; one test was still failing. I finished
+it myself rather than resume a rate-limited agent.
+
+**The failing test, and why its diagnosis was wrong.** It asserted the stretch
+handle's absolute offset from the bottom of its box: expected 120, got 121. The
+builder had called it "the box's 1-px border under the stripes" and was about
+to chase the striped preview element. But the preview measured exactly 120 —
+the extra pixel was in the *handle's resting position*, which sits one pixel
+below the box because the box has a 1 px border. The behaviour was right all
+along: `translateY` was exactly the clamped 120 the bound demands.
+
+So the test was measuring a place when its claim was a distance. "The handle
+stops at the wall" is a displacement, and measuring it absolutely dragged in a
+border that has nothing to do with the bound. It now measures movement from
+rest. I have told the critic to check specifically whether I weakened it,
+because a friendlier measurement is exactly how a real defect would hide.
+
+Verified by me after the change: **235 passed, 2 skipped, 0 failed** in the
+foreground, HW011 unchanged, typecheck clean, ports clear, nothing left behind.
 
 ## Bullet three — snip — built, verified, under review
 
@@ -23,13 +47,37 @@ afterwards with live handles, which is the close-handles rule doing its job.
 Verified by me, not the builder: **219 passed, 2 skipped, 0 failed** in the
 foreground, HW011 unchanged, typecheck clean, no server or runner left behind.
 
-**The thing the critic must attack first.** When a snip would leave nothing,
-the band turns amber and release **removes the region**. The builder named it
-plainly: this is the only delete gesture on the surface, and its only
-confirmation is that band. A region is a cut made by ear. If the undo stack
-does not survive a reload, a mis-drag in snip mode destroys work with an amber
-flash. The critic is measuring that and proposing the smallest thing that makes
-it deliberate without becoming an "are you sure".
+**The critic measured the delete instead of arguing about it.** Sweeping thumb
+landings over the grab of a region alone on a track: a 40 px drag was a
+whole-region delete on **44%** of landings for a 1 s cut, 33% at 2 s, 22% at
+3 s — and a two-halves result on **0%** of drags of 20 px or more on anything
+under 3 s. Short cuts are exactly what snip makes, and on them the amber band
+sits under the thumb, so the warning was invisible where it mattered. Undo is
+cleared on load, so a scroll-like sweep in snip mode was an unrecoverable
+delete of a cut made by ear.
+
+**Its fix, which I like:** a whole band must be **held still for 600 ms** to
+arm. Amber fills over the hold; moving a tap's worth restarts it; a lift before
+the hold removes nothing and leaves snip on with a hint to hold. The bar's
+headline says what a lift will do. No modal, no new surface, undo unchanged.
+Friction, not restriction, applied to a delete. Tests fail without it in both
+the desktop and the phone spec, including a real sweep through a 10 px region
+followed by a reload.
+
+Also fixed: a drag that cut nothing silently switched snip off; undoing the
+last region while snip was on left a stale mode label and hid the choose
+button; regions lacked `-webkit-touch-callout: none`, so the 600 ms hold could
+raise an iOS callout.
+
+Verified by me after the review: **223 passed, 2 skipped, 0 failed** in the
+foreground, HW011 unchanged, typecheck clean, ports clear.
+
+**Design questions for you, from the critic:** undo is session-only, so a
+deliberate held delete survives reload as a delete — server-side history is
+the only cure; one snip ends the mode, so each further snip costs a button
+tap; and the start-snip / start-trim disagreement is now pinned by a test
+("trim and snip disagree at the start"): the same 40 px off the start of
+identical regions gives trim `at_s` 5 and snip `at_s` 9.
 
 **Design questions the builder raised, for you:** the two halves share a name
 and a hue and only position and waveform tell them apart; on a 10 px region

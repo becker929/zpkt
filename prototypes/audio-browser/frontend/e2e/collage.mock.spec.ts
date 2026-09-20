@@ -166,7 +166,7 @@ async function drag(page: Page, regionId: string, end: "start" | "end", dy: numb
 }
 
 /** How many times the arrangement was written while `run` ran. */
-async function writesDuring(page: Page, run: () => Promise<void>): Promise<number> {
+async function writesDuring(page: Page, run: () => Promise<unknown>): Promise<number> {
   let writes = 0;
   const listener = (request: { method(): string; url(): string }) => {
     if (request.method() === "PUT" && request.url().includes("/collage")) writes += 1;
@@ -1535,4 +1535,754 @@ test("Escape mid-snip lets go without writing, and the thumb lifting afterwards 
   await expect(page.getByTestId("collage-undo")).toHaveCount(0);
   const [stored] = await regionsOnServer(page);
   expect(stored).toMatchObject({ start_s: 0, end_s: 3 });
+});
+
+/* Stretch -------------------------------------------------------------------- */
+
+/**
+ * The stretch tests write cuts four seconds long at full speed: forty pixels,
+ * one pixel a tenth of a collage second. The cut may run past the end of the
+ * fixture's one-second sound; a stretch never consults the source's length,
+ * and only the tests that play a region keep the cut inside the sound.
+ */
+
+/** A rate written as a figure: "0.5x", "2 ×", "x4". */
+const RATE_FIGURE = /(\d+(\.\d+)?\s?(x(?![a-z])|×))|((^|[^a-z])x\s?\d)|(×\s?\d)/;
+
+/** Nothing on screen, spoken or hovered, may say a rate, a time or a level. */
+async function noFigures(page: Page): Promise<void> {
+  const text = (await page.getByTestId("collage").innerText()).toLowerCase();
+  expect(text).not.toMatch(/\d+:\d\d/);
+  expect(text).not.toMatch(/\b\d+(\.\d+)?\s?(s|sec|seconds?|ms|db|bpm|%)\b/);
+  expect(text).not.toMatch(RATE_FIGURE);
+  const spoken = await page.getByTestId("collage").evaluate((node) =>
+    Array.from(node.querySelectorAll("[aria-label], [title]"))
+      .map((el) => `${el.getAttribute("aria-label") ?? ""} ${el.getAttribute("title") ?? ""}`)
+      .join("\n")
+      .toLowerCase(),
+  );
+  expect(spoken).not.toMatch(/\d+:\d\d/);
+  expect(spoken).not.toMatch(/\b\d+(\.\d+)?\s?(s|sec|seconds?|ms|db|bpm|%)\b/);
+  expect(spoken).not.toMatch(RATE_FIGURE);
+}
+
+/** Select a handle, then turn stretch on from the bar if it is not on already, and wait for the view to say so. */
+async function enterStretch(page: Page, regionId: string, end: "start" | "end") {
+  const h = await select(page, regionId, end);
+  if ((await page.getByTestId("collage").getAttribute("data-mode")) !== "stretch") {
+    await page.getByTestId("collage-stretch").click();
+  }
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-mode", "stretch");
+  await expect(h).toHaveAttribute("data-kind", "stretch");
+  return h;
+}
+
+/** Enter stretch on a handle and drag it by `dy` pixels with the mouse, letting go unless told not to. */
+async function stretchDrag(page: Page, regionId: string, end: "start" | "end", dy: number, lift = true) {
+  const h = await enterStretch(page, regionId, end);
+  const box = (await h.boundingBox())!;
+  const x = box.x + box.width / 2;
+  const y = box.y + box.height / 2;
+  await page.mouse.move(x, y);
+  await page.mouse.down();
+  await page.mouse.move(x, y + dy, { steps: 8 });
+  if (lift) await page.mouse.up();
+  return { x, y };
+}
+
+/** How many times the arrangement was written while `run` ran, for a run that may write nothing. */
+async function countWrites(page: Page, run: () => Promise<void>): Promise<number> {
+  let writes = 0;
+  const listener = (request: { method(): string; url(): string }) => {
+    if (request.method() === "PUT" && request.url().includes("/collage")) writes += 1;
+  };
+  page.on("request", listener);
+  await run();
+  await page.waitForTimeout(300);
+  page.off("request", listener);
+  return writes;
+}
+
+test("stretch is a mode entered by a button with a handle already selected: one handle shows, the bar says so, and every way out returns to trim", async ({
+  page,
+  request,
+}) => {
+  const set = await sounds(page);
+  await writeRegions(request, [regionRow("r1", set[0].hash, 0, 0, 0, 4)]);
+  await page.goto("/collage");
+  const button = page.getByTestId("collage-stretch");
+
+  // Nothing selected: refused. A region taken up with no handle chosen:
+  // still refused. Stretch is a drag on a handle, and needs one.
+  await expect(button).toBeDisabled();
+  await takeUp(page, "r1");
+  await expect(button).toBeDisabled();
+  await select(page, "r1", "end");
+  await expect(button).toBeEnabled();
+  await expect(button).toHaveAttribute("aria-pressed", "false");
+
+  // On: the selected handle stays, the other goes, snip is off, and the
+  // choose button gives way to a plain statement of the mode.
+  await button.click();
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-mode", "stretch");
+  await expect(button).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByTestId("collage-snip")).toHaveAttribute("aria-pressed", "false");
+  await expect(page.getByTestId("handle")).toHaveCount(1);
+  await expect(handle(page, "r1", "end")).toHaveAttribute("data-selected", "true");
+  await expect(handle(page, "r1", "end")).toHaveAttribute("data-kind", "stretch");
+  await expect(handle(page, "r1", "start")).toHaveCount(0);
+  await expect(page.getByTestId("collage-choose")).toHaveCount(0);
+  await expect(page.getByTestId("collage-mode")).toContainText("stretch is on");
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-selected", "r1:end");
+  await noFigures(page);
+
+  // The button again: trim is back, both handles, the handle still selected.
+  await button.click();
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-mode", "trim");
+  await expect(page.getByTestId("handle")).toHaveCount(2);
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-selected", "r1:end");
+  await expect(handle(page, "r1", "end")).toHaveAttribute("data-kind", "trim");
+
+  // The statement in the bar is the other way out.
+  await button.click();
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-mode", "stretch");
+  await page.getByTestId("collage-mode").click();
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-mode", "trim");
+
+  // Escape lets go of the handle, and with it of stretch.
+  await button.click();
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-mode", "stretch");
+  await page.keyboard.press("Escape");
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-mode", "trim");
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-selected", "");
+  await expect(button).toBeDisabled();
+
+  // A tap on the blank lets go too, and stamps nothing, even with a sound
+  // chosen: the bar said stretch was on, not that a tap would stamp.
+  await choose(page, 0);
+  await enterStretch(page, "r1", "start");
+  await stampAt(page, 40, 500);
+  await expect(page.getByTestId("region")).toHaveCount(1);
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-mode", "trim");
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-selected", "");
+
+  // Taking another region up is letting go of this handle.
+  await stampAt(page, TRACK_W + 40, 200);
+  await expect(page.getByTestId("region")).toHaveCount(2);
+  await enterStretch(page, "r1", "end");
+  await takeUp(page, "r2");
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-mode", "trim");
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-selected", "r2");
+  await expect(button).toBeDisabled();
+
+  // Snip pressed while stretch is on: snip is on and stretch is not. Never two.
+  await enterStretch(page, "r1", "end");
+  await enterSnip(page);
+  await expect(button).toHaveAttribute("aria-pressed", "false");
+  await expect(page.getByTestId("handle")).toHaveCount(0);
+
+  // The one change in all of that was the stamp.
+  await expect(page.getByTestId("collage-undo")).toHaveAttribute("data-depth", "1");
+});
+
+test("dragging the end handle in stretch mode moves the rate and nothing else: the box grows from the bottom, one write, undo restores the rate", async ({
+  page,
+  request,
+}) => {
+  const set = await sounds(page);
+  await writeRegions(request, [regionRow("r1", set[0].hash, 0, 3, 0, 4)]);
+  await page.goto("/collage");
+  const before = await regionBox(page, 0);
+  expect(before.height).toBeCloseTo(40, 0);
+
+  const writes = await writesDuring(page, async () => {
+    const { y } = await stretchDrag(page, "r1", "end", 40, false);
+    await expect(page.getByTestId("collage")).toHaveAttribute("data-dragging", "true");
+    // The part being taken in is outlined below the box, the handle is with
+    // the thumb, and the box keeps its length until the lift.
+    const more = (await page.getByTestId("region-more").boundingBox())!;
+    expect(more.height).toBeCloseTo(40, 0);
+    const hb = (await handle(page, "r1", "end").boundingBox())!;
+    expect(hb.y + hb.height / 2).toBeCloseTo(y + 40, 0);
+    expect((await regionBox(page, 0)).height).toBeCloseTo(40, 0);
+    await expect(page.getByTestId("collage-mode")).toContainText("let go to keep it");
+    await noFigures(page);
+    await page.mouse.up();
+  });
+  expect(writes).toBe(1);
+
+  // Twice as long is half the speed. The cut and the place are untouched.
+  const [stored] = await regionsOnServer(page);
+  expect(stored.rate).toBeCloseTo(0.5, 6);
+  expect(stored).toMatchObject({ start_s: 0, end_s: 4, at_s: 3, gain: 1 });
+  const after = await regionBox(page, 0);
+  expect(after.top).toBeCloseTo(before.top, 0);
+  expect(after.height).toBeCloseTo(80, 0);
+  // The sound inside stretched with the box.
+  const wave = region(page, "r1").getByTestId("region-wave");
+  expect((await wave.boundingBox())!.height).toBeCloseTo(80, 0);
+
+  // A finished stretch is the end of stretch mode. The handle stays
+  // selected, so the button is ready for another.
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-mode", "trim");
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-selected", "r1:end");
+  await expect(page.getByTestId("handle")).toHaveCount(2);
+  await expect(page.getByTestId("collage-stretch")).toBeEnabled();
+  await expect(page.getByTestId("collage-stretch")).toHaveAttribute("aria-pressed", "false");
+
+  // Undo: the rate, and only the rate, comes back.
+  await expect(page.getByTestId("collage-undo")).toHaveAttribute("data-depth", "1");
+  await page.getByTestId("collage-undo").click();
+  await expect(page.getByTestId("collage-undo")).toHaveCount(0);
+  await expect(page.getByTestId("collage-save")).toHaveAttribute("data-state", "saved");
+  const [undone] = await regionsOnServer(page);
+  expect(undone).toMatchObject({ rate: 1, start_s: 0, end_s: 4, at_s: 3 });
+  expect((await regionBox(page, 0)).height).toBeCloseTo(40, 0);
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-selected", "r1:end");
+});
+
+test("dragging the start handle in stretch mode keeps the bottom anchored: the region begins earlier or later, and its cut does not move", async ({
+  page,
+  request,
+}) => {
+  const set = await sounds(page);
+  await writeRegions(request, [regionRow("r1", set[0].hash, 0, 10, 0, 4)]);
+  await page.goto("/collage");
+  const before = await regionBox(page, 0);
+  expect(before.top).toBeCloseTo(TOP_PAD + 100, 0);
+  const bottom = before.top + before.height;
+
+  // Up forty: twice as long, half the speed, and it begins forty pixels
+  // earlier so that it still ends where it did. In trim mode the same drag
+  // would have moved the cut and held the top.
+  let writes = await writesDuring(page, () => stretchDrag(page, "r1", "start", -40));
+  expect(writes).toBe(1);
+  let [stored] = await regionsOnServer(page);
+  expect(stored.rate).toBeCloseTo(0.5, 6);
+  expect(stored.at_s).toBeCloseTo(6, 3);
+  expect(stored).toMatchObject({ start_s: 0, end_s: 4 });
+  let box = await regionBox(page, 0);
+  expect(box.top).toBeCloseTo(before.top - 40, 0);
+  expect(box.top + box.height).toBeCloseTo(bottom, 0);
+
+  // Down sixty: shorter than it began, twice the speed, beginning later.
+  // The part being cut away is striped at the top while the thumb is down.
+  writes = await writesDuring(page, async () => {
+    await stretchDrag(page, "r1", "start", 60, false);
+    const cut = (await page.getByTestId("region-cut").boundingBox())!;
+    expect(cut.height).toBeCloseTo(60, 0);
+    // Inside the box's one-pixel border.
+    expect(Math.abs(cut.y - (await region(page, "r1").boundingBox())!.y)).toBeLessThanOrEqual(2);
+    await page.mouse.up();
+  });
+  expect(writes).toBe(1);
+  [stored] = await regionsOnServer(page);
+  expect(stored.rate).toBeCloseTo(2, 6);
+  expect(stored.at_s).toBeCloseTo(12, 3);
+  expect(stored).toMatchObject({ start_s: 0, end_s: 4 });
+  box = await regionBox(page, 0);
+  expect(box.height).toBeCloseTo(20, 0);
+  expect(box.top + box.height).toBeCloseTo(bottom, 0);
+
+  // Two undos: where it was, at the speed it was.
+  await page.getByTestId("collage-undo").click();
+  await page.getByTestId("collage-undo").click();
+  await expect(page.getByTestId("collage-undo")).toHaveCount(0);
+  await expect(page.getByTestId("collage-save")).toHaveAttribute("data-state", "saved");
+  [stored] = await regionsOnServer(page);
+  expect(stored).toMatchObject({ rate: 1, at_s: 10, start_s: 0, end_s: 4 });
+});
+
+test("a stretch stops at a quarter speed and at four times; past them the handle stays on the wall and the bar says so, without a number", async ({
+  page,
+  request,
+}) => {
+  const set = await sounds(page);
+  await writeRegions(request, [regionRow("r1", set[0].hash, 0, 0, 0, 4)]);
+  await page.goto("/collage");
+
+  // How far the handle has travelled from where it was resting. The claim
+  // being tested is that it stops at the wall, which is a distance moved,
+  // not a place. Measuring the place instead would drag in the box's own
+  // one-pixel border, which has nothing to do with the bound. The thumb
+  // going past the edge of the canvas scrolls it, so the screen is not the
+  // place to measure either; the box is the reference and it does not move
+  // during a drag, because the drag only draws a preview.
+  const handleAgainstBox = async () => {
+    const hb = (await handle(page, "r1", "end").boundingBox())!;
+    const rb = (await region(page, "r1").boundingBox())!;
+    return hb.y + hb.height / 2 - (rb.y + rb.height);
+  };
+  const handleMovedBy = async (from: number) => (await handleAgainstBox()) - from;
+
+  // The handle only exists once stretch mode is on, so rest is measured
+  // after entering it. Entering writes nothing, so it can sit outside the
+  // write count; `stretchDrag` enters again and finds it already on.
+  await enterStretch(page, "r1", "end");
+  let rest = await handleAgainstBox();
+
+  // Two thousand pixels down asks for two hundred seconds of a four-second
+  // cut. It gets sixteen: four times as long, and the handle stops there.
+  let writes = await writesDuring(page, async () => {
+    await stretchDrag(page, "r1", "end", 2000, false);
+    await expect(page.getByTestId("collage-mode")).toHaveAttribute("data-bound", "slow");
+    await expect(page.getByTestId("collage-mode")).toContainText("as slow as it goes");
+    expect(await handleMovedBy(rest)).toBeCloseTo(120, 0);
+    expect((await page.getByTestId("region-more").boundingBox())!.height).toBeCloseTo(120, 0);
+    await noFigures(page);
+    await page.mouse.up();
+  });
+  expect(writes).toBe(1);
+  let [stored] = await regionsOnServer(page);
+  expect(stored.rate).toBeCloseTo(0.25, 6);
+  expect((await regionBox(page, 0)).height).toBeCloseTo(160, 0);
+
+  // And two thousand up asks for less than nothing. It gets a second: four
+  // times the speed, ten pixels, and the handle stops there.
+  await enterStretch(page, "r1", "end");
+  rest = await handleAgainstBox();
+  writes = await writesDuring(page, async () => {
+    await stretchDrag(page, "r1", "end", -2000, false);
+    await expect(page.getByTestId("collage-mode")).toHaveAttribute("data-bound", "fast");
+    await expect(page.getByTestId("collage-mode")).toContainText("as fast as it goes");
+    expect(await handleMovedBy(rest)).toBeCloseTo(-150, 0);
+    await noFigures(page);
+    await page.mouse.up();
+  });
+  expect(writes).toBe(1);
+  [stored] = await regionsOnServer(page);
+  expect(stored.rate).toBeCloseTo(4, 6);
+  expect(stored).toMatchObject({ start_s: 0, end_s: 4, at_s: 0 });
+  expect((await regionBox(page, 0)).height).toBeCloseTo(10, 0);
+
+  // A region written slower than the bound, as the trim tests write them,
+  // may be brought back towards the bound and never taken further out.
+  await writeRegions(request, [regionRow("r1", set[0].hash, 0, 0, 0, 1, 0.05)]);
+  await page.reload();
+  expect((await regionBox(page, 0)).height).toBeCloseTo(200, 0);
+  writes = await countWrites(page, async () => {
+    await stretchDrag(page, "r1", "end", 100, false);
+    await expect(page.getByTestId("collage-mode")).toHaveAttribute("data-bound", "slow");
+    await page.mouse.up();
+  });
+  expect(writes).toBe(0);
+  [stored] = await regionsOnServer(page);
+  expect(stored.rate).toBe(0.05);
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-mode", "stretch");
+  writes = await writesDuring(page, () => stretchDrag(page, "r1", "end", -100));
+  expect(writes).toBe(1);
+  [stored] = await regionsOnServer(page);
+  expect(stored.rate).toBeCloseTo(0.1, 6);
+  expect((await regionBox(page, 0)).height).toBeCloseTo(100, 0);
+});
+
+test("a stretch cannot run into the region below on its track, nor the start into the one above or past the first moment", async ({
+  page,
+  request,
+}) => {
+  const set = await sounds(page);
+  const hash = set[0].hash;
+  await writeRegions(request, [
+    regionRow("r1", hash, 0, 0, 0, 4),
+    regionRow("r2", hash, 0, 10, 0, 3),
+    regionRow("r3", hash, 1, 2, 0, 4),
+  ]);
+  await page.goto("/collage");
+  await expect(page.getByTestId("region")).toHaveCount(3);
+
+  // The end of the first stops where the second begins.
+  let writes = await writesDuring(page, async () => {
+    await stretchDrag(page, "r1", "end", 500, false);
+    await expect(page.getByTestId("collage-mode")).toHaveAttribute("data-bound", "room");
+    await expect(page.getByTestId("collage-mode")).toContainText("no more room on the track");
+    await noFigures(page);
+    await page.mouse.up();
+  });
+  expect(writes).toBe(1);
+  let stored = await regionsOnServer(page);
+  expect(stored[0].rate).toBeCloseTo(0.4, 6);
+  expect(stored[0].at_s).toBe(0);
+  expect(stored[1]).toMatchObject({ id: "r2", at_s: 10, start_s: 0, end_s: 3, rate: 1 });
+  let a = (await region(page, "r1").boundingBox())!;
+  let b = (await region(page, "r2").boundingBox())!;
+  expect(a.y + a.height).toBeLessThanOrEqual(b.y + 0.5);
+  expect(a.y + a.height).toBeCloseTo(b.y, 0);
+
+  // Put it back, and the start of the second stops where the first ends.
+  await page.getByTestId("collage-undo").click();
+  await expect(page.getByTestId("collage-save")).toHaveAttribute("data-state", "saved");
+  writes = await writesDuring(page, async () => {
+    await stretchDrag(page, "r2", "start", -500, false);
+    await expect(page.getByTestId("collage-mode")).toHaveAttribute("data-bound", "room");
+    await page.mouse.up();
+  });
+  expect(writes).toBe(1);
+  stored = await regionsOnServer(page);
+  expect(stored[1].rate).toBeCloseTo(1 / 3, 6);
+  expect(stored[1].at_s).toBeCloseTo(4, 3);
+  expect(stored[1]).toMatchObject({ start_s: 0, end_s: 3 });
+  expect(stored[0]).toMatchObject({ id: "r1", rate: 1, at_s: 0 });
+  a = (await region(page, "r1").boundingBox())!;
+  b = (await region(page, "r2").boundingBox())!;
+  expect(a.y + a.height).toBeLessThanOrEqual(b.y + 0.5);
+  expect(b.y + b.height).toBeCloseTo(TOP_PAD + 130 + (await page.getByTestId("collage-space").boundingBox())!.y, 0);
+
+  // A region alone on its track: the start stops at the first moment.
+  writes = await writesDuring(page, () => stretchDrag(page, "r3", "start", -500));
+  expect(writes).toBe(1);
+  stored = await regionsOnServer(page);
+  expect(stored[2].at_s).toBe(0);
+  expect(stored[2].rate).toBeCloseTo(4 / 6, 6);
+  const c = await regionBox(page, 2);
+  expect(c.top).toBeCloseTo(TOP_PAD, 0);
+  expect(c.height).toBeCloseTo(60, 0);
+});
+
+test("stretch, then trim the same handle: the cut moves at the new rate, the box and the sound inside it agree, and the slice is cut at one speed", async ({
+  page,
+  request,
+}) => {
+  const set = await sounds(page);
+  const { hash, duration_s: d } = set[0];
+  await writeRegions(request, [regionRow("r1", hash, 0, 0, 0, d)]);
+  await page.goto("/collage");
+
+  // Twenty pixels longer: two collage seconds on top of the sound's own.
+  let writes = await writesDuring(page, () => stretchDrag(page, "r1", "end", 20));
+  expect(writes).toBe(1);
+  const rate = d / (d + 2);
+  let [stored] = await regionsOnServer(page);
+  expect(stored.rate).toBeCloseTo(rate, 5);
+  expect(stored.end_s).toBeCloseTo(d, 3);
+
+  // Stretch has ended, so the same handle now trims. Ten pixels up is one
+  // collage second, which at this rate is `rate` seconds of source.
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-mode", "trim");
+  writes = await writesDuring(page, () => drag(page, "r1", "end", -10));
+  expect(writes).toBe(1);
+  [stored] = await regionsOnServer(page);
+  expect(stored.rate).toBeCloseTo(rate, 5);
+  expect(stored.end_s).toBeCloseTo(d - rate, 2);
+  expect(stored.start_s).toBe(0);
+
+  // The box is the cut over the rate, and the sound is drawn over exactly
+  // that height.
+  const box = await regionBox(page, 0);
+  expect(box.height).toBeCloseTo(((d - rate) / rate) * PX_PER_S, 0);
+  const wave = region(page, "r1").getByTestId("region-wave");
+  expect((await wave.boundingBox())!.height).toBeCloseTo(box.height, 0);
+
+  // What plays is that cut, sliced at one speed. The rate is applied in the
+  // browser; the route never hears of it.
+  const slice = page.waitForRequest((r) => r.url().includes(`/api/files/${hash}/slice?`));
+  await region(page, "r1").click({ position: { x: 10, y: 5 } });
+  const url = new URL((await slice).url());
+  expect(Number(url.searchParams.get("start"))).toBe(0);
+  expect(Number(url.searchParams.get("end"))).toBeCloseTo(d - rate, 2);
+  expect(url.searchParams.has("rate")).toBe(false);
+  await expect(region(page, "r1")).toHaveAttribute("data-playing", "true");
+});
+
+test("stretch, snip, then stretch a half: both halves keep the rate, the second keeps its moment, and each half stretches on its own", async ({
+  page,
+  request,
+}) => {
+  const set = await sounds(page);
+  await writeRegions(request, [regionRow("r1", set[0].hash, 0, 0, 0, 4)]);
+  await page.goto("/collage");
+  await stretchDrag(page, "r1", "end", 40);
+  await expect(page.getByTestId("collage-save")).toHaveAttribute("data-state", "saved");
+  expect((await regionBox(page, 0)).height).toBeCloseTo(80, 0);
+
+  // Twenty to forty pixels down a half-speed region is one to two seconds
+  // of source. Both halves are half speed; the second sounds where its
+  // material did, four collage seconds in.
+  await enterSnip(page);
+  await snipDrag(page, "r1", 20, 40);
+  await expect(page.getByTestId("collage-save")).toHaveAttribute("data-state", "saved");
+  await expect(page.getByTestId("region")).toHaveCount(2);
+  let stored = await regionsOnServer(page);
+  expect(stored[0]).toMatchObject({ id: "r1", at_s: 0, start_s: 0 });
+  expect(stored[0].end_s).toBeCloseTo(1, 2);
+  expect(stored[0].rate).toBeCloseTo(0.5, 6);
+  expect(stored[1].id).toBe("r2");
+  expect(stored[1].start_s).toBeCloseTo(2, 2);
+  expect(stored[1].end_s).toBe(4);
+  expect(stored[1].at_s).toBeCloseTo(4, 2);
+  expect(stored[1].rate).toBeCloseTo(0.5, 6);
+  expect(Math.round((await regionBox(page, 0)).height)).toBe(20);
+  expect(Math.round((await regionBox(page, 1)).height)).toBe(40);
+
+  // The second half, twice as long again: a quarter speed, same moment.
+  const writes = await writesDuring(page, () => stretchDrag(page, "r2", "end", 40));
+  expect(writes).toBe(1);
+  stored = await regionsOnServer(page);
+  expect(stored[1].rate).toBeCloseTo(0.25, 6);
+  expect(stored[1].at_s).toBeCloseTo(4, 2);
+  expect(stored[0].rate).toBeCloseTo(0.5, 6);
+  expect(Math.round((await regionBox(page, 1)).height)).toBe(80);
+
+  // The first half, as long as it can be: it stops at the second, which is
+  // also where a quarter speed would stop it.
+  await writesDuring(page, () => stretchDrag(page, "r1", "end", 100));
+  stored = await regionsOnServer(page);
+  expect(stored[0].rate).toBeCloseTo(0.25, 6);
+  const a = (await region(page, "r1").boundingBox())!;
+  const b = (await region(page, "r2").boundingBox())!;
+  expect(a.y + a.height).toBeLessThanOrEqual(b.y + 0.5);
+  expect(a.y + a.height).toBeCloseTo(b.y, 0);
+});
+
+test("a stretched region plays for its stretched length from a slice cut at one speed; stretching a playing region stops it", async ({
+  page,
+  request,
+}) => {
+  const set = await sounds(page);
+  const { hash, duration_s: d } = set[0];
+  // The whole sound at a quarter speed: four times as long to play.
+  await writeRegions(request, [regionRow("r1", hash, 0, 0, 0, d, 0.25)]);
+  await page.goto("/collage");
+  const target = region(page, "r1");
+  expect((await target.boundingBox())!.height).toBeCloseTo(d * 4 * PX_PER_S, 0);
+
+  const slice = page.waitForRequest((r) => r.url().includes(`/api/files/${hash}/slice?`));
+  const started = Date.now();
+  await target.click({ position: { x: 10, y: 10 } });
+  const url = new URL((await slice).url());
+  expect(Number(url.searchParams.get("start"))).toBe(0);
+  expect(Number(url.searchParams.get("end"))).toBeCloseTo(d, 3);
+  expect(url.searchParams.has("rate")).toBe(false);
+  await expect(target).toHaveAttribute("data-playing", "true");
+
+  // Still going well after the sound's own length has passed: at one speed
+  // it would have ended by now.
+  await page.waitForTimeout(Math.round((d + 0.6) * 1000));
+  await expect(target).toHaveAttribute("data-playing", "true");
+  // And over by the time four times the length has, and not much later.
+  await expect(target).toHaveAttribute("data-playing", "false", { timeout: Math.round(d * 4 * 1000) + 3000 });
+  const took = (Date.now() - started) / 1000;
+  expect(took).toBeGreaterThan(d * 3);
+  expect(took).toBeLessThan(d * 4 + 3);
+
+  // Playing again, then stretched: the slice being played is the rate
+  // being changed, so it stops, and the next tap plays the new rate.
+  await target.click({ position: { x: 10, y: 10 } });
+  await expect(target).toHaveAttribute("data-playing", "true");
+  await stretchDrag(page, "r1", "end", -20);
+  await expect(target).toHaveAttribute("data-playing", "false");
+  await expect(page.getByTestId("collage-save")).toHaveAttribute("data-state", "saved");
+  const [stored] = await regionsOnServer(page);
+  expect(stored.rate).toBeCloseTo(d / (d * 4 - 2), 5);
+  const again = page.waitForRequest((r) => r.url().includes(`/api/files/${hash}/slice?`));
+  await target.click({ position: { x: 10, y: 5 } });
+  const url2 = new URL((await again).url());
+  expect(Number(url2.searchParams.get("end"))).toBeCloseTo(d, 3);
+  await expect(target).toHaveAttribute("data-playing", "true");
+});
+
+test("switching modes mid-stretch lets go without writing; a selected stretch handle nudges the length by keyboard", async ({
+  page,
+  request,
+}) => {
+  const set = await sounds(page);
+  await writeRegions(request, [regionRow("r1", set[0].hash, 0, 0, 0, 4)]);
+  await page.goto("/collage");
+
+  // Mid-drag, the other finger presses snip: the drag is let go, and the
+  // thumb lifting afterwards writes nothing. A mouse has no other finger,
+  // so the press is the button's own click event.
+  let writes = await countWrites(page, async () => {
+    await stretchDrag(page, "r1", "end", 30, false);
+    await expect(page.getByTestId("collage")).toHaveAttribute("data-dragging", "true");
+    await page.getByTestId("collage-snip").dispatchEvent("click");
+    await expect(page.getByTestId("collage")).toHaveAttribute("data-mode", "snip");
+    await expect(page.getByTestId("collage")).toHaveAttribute("data-dragging", "false");
+    await expect(page.getByTestId("region-more")).toHaveCount(0);
+    await page.mouse.up();
+  });
+  expect(writes).toBe(0);
+  let [stored] = await regionsOnServer(page);
+  expect(stored.rate).toBe(1);
+  await expect(page.getByTestId("collage-undo")).toHaveCount(0);
+  await page.getByTestId("collage-snip").click();
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-mode", "trim");
+
+  // Escape mid-drag: the same, and the handle is let go of.
+  writes = await countWrites(page, async () => {
+    await stretchDrag(page, "r1", "end", 30, false);
+    await page.keyboard.press("Escape");
+    await expect(page.getByTestId("collage")).toHaveAttribute("data-dragging", "false");
+    await expect(page.getByTestId("collage")).toHaveAttribute("data-mode", "trim");
+    await page.mouse.up();
+  });
+  expect(writes).toBe(0);
+
+  // By keyboard: a tenth of a collage second longer, then a whole one.
+  const h = await enterStretch(page, "r1", "end");
+  await h.focus();
+  await page.keyboard.press("ArrowDown");
+  await expect(page.getByTestId("collage-save")).toHaveAttribute("data-state", "saved");
+  [stored] = await regionsOnServer(page);
+  expect(stored.rate).toBeCloseTo(4 / 4.1, 5);
+  await page.keyboard.press("Shift+ArrowDown");
+  await expect(page.getByTestId("collage-undo")).toHaveAttribute("data-depth", "2");
+  [stored] = await regionsOnServer(page);
+  expect(stored.rate).toBeCloseTo(4 / 5.1, 5);
+  expect(stored).toMatchObject({ start_s: 0, end_s: 4, at_s: 0 });
+  expect((await regionBox(page, 0)).height).toBeCloseTo(51, 0);
+});
+
+/* Stretch, adversarial ------------------------------------------------------- */
+
+test("a stretch that has met no wall says so, and says it whatever the length of the cut", async ({
+  page,
+  request,
+}) => {
+  const set = await sounds(page);
+
+  // A rate is rounded before it is stored, so the length that comes back out
+  // of a stored rate is not exactly the length the thumb asked for. Read as a
+  // shortfall in length, that rounding cannot be told apart from a wall, and
+  // the difference grows with the cut. A wall is a fact about the rate, so
+  // these drags land nowhere near one and the bar must stay quiet.
+  await writeRegions(request, [regionRow("r1", set[0].hash, 0, 0, 0, 4)]);
+  await page.goto("/collage");
+  await enterStretch(page, "r1", "end");
+  const h = handle(page, "r1", "end");
+  const first = (await h.boundingBox())!;
+  const x = first.x + first.width / 2;
+  const y = first.y + first.height / 2;
+  await page.mouse.move(x, y);
+  await page.mouse.down();
+  for (const dy of [17, 23, 33, 41, 57, 63, -11, -19]) {
+    await page.mouse.move(x, y + dy);
+    await expect(page.getByTestId("collage-mode"), `four-second cut dragged ${dy}`).toHaveAttribute(
+      "data-bound",
+      "",
+    );
+    await expect(page.getByTestId("collage-mode")).toContainText("let go to keep it");
+  }
+  await page.mouse.up();
+  await expect(page.getByTestId("collage-save")).toHaveAttribute("data-state", "saved");
+
+  // Fifteen minutes of source, which is what the first real project holds.
+  // Alone on its track, at full speed, every one of these drags is inside
+  // both bounds by a wide margin.
+  await writeRegions(request, [regionRow("r1", set[0].hash, 0, 0, 0, 900)]);
+  await page.reload();
+  await enterStretch(page, "r1", "end");
+  // Put the handle in the middle of the canvas, so the thumb is nowhere near
+  // the edge that scrolls and every drag below is exactly the distance given.
+  await page.getByTestId("collage-canvas").evaluate((node) => {
+    node.scrollTop = node.scrollHeight - node.clientHeight - 400;
+  });
+  await page.waitForTimeout(100);
+  const second = (await h.boundingBox())!;
+  const x2 = second.x + second.width / 2;
+  const y2 = second.y + second.height / 2;
+  await page.mouse.move(x2, y2);
+  await page.mouse.down();
+  for (const dy of [-40, -20, -7, 7, 20, 40, 61]) {
+    await page.mouse.move(x2, y2 + dy);
+    await expect(page.getByTestId("collage-mode"), `fifteen-minute cut dragged ${dy}`).toHaveAttribute(
+      "data-bound",
+      "",
+    );
+    await expect(page.getByTestId("collage-mode")).toContainText("let go to keep it");
+  }
+  await page.mouse.up();
+  await expect(page.getByTestId("collage-save")).toHaveAttribute("data-state", "saved");
+});
+
+test("the start handle stopped by the first moment says that, not that the track is crowded", async ({
+  page,
+  request,
+}) => {
+  const set = await sounds(page);
+  // Alone on its track with two seconds above it. Slowing it from the start
+  // runs out of time before it runs out of rate, and there is no neighbour.
+  await writeRegions(request, [regionRow("r1", set[0].hash, 0, 2, 0, 4)]);
+  await page.goto("/collage");
+  await stretchDrag(page, "r1", "start", -500, false);
+  await expect(page.getByTestId("collage-mode")).toHaveAttribute("data-bound", "top");
+  await expect(page.getByTestId("collage-mode")).toContainText("this is the first moment");
+  await noFigures(page);
+  await page.mouse.up();
+  const [stored] = await regionsOnServer(page);
+  expect(stored.at_s).toBe(0);
+  expect(stored.rate).toBeCloseTo(4 / 6, 6);
+});
+
+test("a stretched region is scheduled in pieces that join without a seam, each played at its rate", async ({
+  page,
+  request,
+}) => {
+  const set = await sounds(page);
+  const hash = set[0].hash;
+
+  // The fixture's sounds are a second long, so a cut that spans more than
+  // one piece has to be served here. The shape is the route's: a 48 kHz
+  // stereo WAV of exactly the stretch asked for, at one speed.
+  await page.route(/\/api\/files\/.*\/slice\?/, async (route) => {
+    const url = new URL(route.request().url());
+    const from = Number(url.searchParams.get("start"));
+    const to = Number(url.searchParams.get("end"));
+    const sampleRate = 48000;
+    const frames = Math.round((to - from) * sampleRate);
+    const body = Buffer.alloc(44 + frames * 4);
+    body.write("RIFF", 0);
+    body.writeUInt32LE(36 + frames * 4, 4);
+    body.write("WAVE", 8);
+    body.write("fmt ", 12);
+    body.writeUInt32LE(16, 16);
+    body.writeUInt16LE(1, 20);
+    body.writeUInt16LE(2, 22);
+    body.writeUInt32LE(sampleRate, 24);
+    body.writeUInt32LE(sampleRate * 4, 28);
+    body.writeUInt16LE(4, 32);
+    body.writeUInt16LE(16, 34);
+    body.write("data", 36);
+    body.writeUInt32LE(frames * 4, 40);
+    for (let i = 0; i < frames; i += 1) {
+      const value = Math.round(Math.sin(2 * Math.PI * 220 * (from + i / sampleRate)) * 12000);
+      body.writeInt16LE(value, 44 + i * 4);
+      body.writeInt16LE(value, 44 + i * 4 + 2);
+    }
+    await route.fulfill({ status: 200, headers: { "content-type": "audio/wav" }, body });
+  });
+
+  // Every piece scheduled, with the moment it was told to start, its own
+  // length and the speed it was given.
+  await page.addInitScript(() => {
+    const store: Array<{ when: number; duration: number; rate: number }> = [];
+    (window as unknown as { __pieces: typeof store }).__pieces = store;
+    const proto = AudioBufferSourceNode.prototype;
+    const original = proto.start;
+    proto.start = function (this: AudioBufferSourceNode, when?: number, ...rest: number[]) {
+      store.push({ when: when ?? 0, duration: this.buffer?.duration ?? 0, rate: this.playbackRate.value });
+      return (original as (when?: number, ...rest: number[]) => void).call(this, when, ...rest);
+    };
+  });
+
+  const pieces = async () =>
+    page.evaluate(() => (window as unknown as { __pieces: Array<{ when: number; duration: number; rate: number }> }).__pieces);
+
+  // Forty seconds of source is three pieces. A quarter speed makes each one
+  // last four times as long to play, and the next must begin exactly then.
+  for (const rate of [0.25, 4]) {
+    await writeRegions(request, [regionRow("r1", hash, 0, 0, 0, 40, rate)]);
+    await page.goto("/collage");
+    await region(page, "r1").click({ position: { x: 10, y: 5 } });
+    await expect(region(page, "r1")).toHaveAttribute("data-playing", "true");
+    await expect.poll(async () => (await pieces()).length, { timeout: 20_000 }).toBeGreaterThanOrEqual(3);
+    const scheduled = await pieces();
+    for (const piece of scheduled) expect(piece.rate, `every piece plays at ${rate}`).toBe(rate);
+    for (let i = 1; i < scheduled.length; i += 1) {
+      const gap = scheduled[i].when - (scheduled[i - 1].when + scheduled[i - 1].duration / rate);
+      // A hundredth of a millisecond: a sample at 48 kHz is two hundredths.
+      expect(Math.abs(gap), `piece ${i} at ${rate} joins the one before it`).toBeLessThan(1e-5);
+    }
+    // Leaving the view is what stops it: the next pass navigates again.
+  }
+  await page.goto("/board");
 });

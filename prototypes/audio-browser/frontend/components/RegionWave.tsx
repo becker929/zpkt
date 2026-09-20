@@ -11,8 +11,12 @@
  * seconds out of five minutes gets the sixty-odd buckets that fall inside it.
  *
  * The size is given, not measured: the region's box is the truth about its
- * length, and this fills it. A region can be a fifteen-minute source stamped
- * whole, nine thousand pixels tall, so the backing store is capped in device
+ * length, and this fills it. The box's height already carries the rate — a
+ * region slowed to half is twice as tall — and the window is still the cut
+ * in source seconds, so the same samples are drawn over the new height and
+ * the waveform stretches with the box: what is seen is what plays. A region
+ * can be a fifteen-minute source stamped whole, nine thousand pixels tall,
+ * or that again slowed four times, so the backing store is capped in device
  * pixels rather than letting a phone allocate a bitmap it cannot hold; the
  * drawing goes a little soft on a very tall region and stays sharp on a
  * short one.

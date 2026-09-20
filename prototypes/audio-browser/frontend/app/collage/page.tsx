@@ -8,13 +8,15 @@
  * because a sound was stamped into it, and a track exists because something
  * was stamped there.
  *
- * Three gestures so far. Choose a sound from the project's frozen set, tap
+ * Four gestures so far. Choose a sound from the project's frozen set, tap
  * the blank to stamp it, hear it back. Then trim: every region shows the
  * sound inside it; a tap on a region plays it and takes it up, and the region
  * taken up carries a thumb-sized handle at each end that drags. Then snip: a
  * mode, entered by a button, in which a drag across a region cuts that part
- * out and leaves two regions. Only one mode is ever on, and the default is
- * trim. Every change is written whole to `PUT /api/projects/{id}/collage`, so
+ * out and leaves two regions. Then stretch: a mode entered by a button once
+ * a handle is selected, in which dragging that handle changes how fast the
+ * region plays instead of where its cut is. Only one mode is ever on, and
+ * the default is trim. Every change is written whole to `PUT /api/projects/{id}/collage`, so
  * a reload shows what was on screen. A region plays through Web Audio from a
  * bounded slice the server cuts; nothing decodes a whole file.
  *
@@ -50,12 +52,17 @@ import {
   hueFor,
   offsetOf,
   regionBox,
+  regionLengthS,
   snip,
   sourceAt,
   stamp,
+  stretch,
+  stretchStop,
+  stretchedTo,
   trackCount,
   trim,
   type End,
+  type StretchStop,
 } from "@/lib/collage";
 import { formatCount } from "@/lib/format";
 import type { Region } from "@/lib/project";
@@ -113,19 +120,25 @@ interface SourceData {
  *
  * A tap on a region takes it up: it is raised above its neighbours and grows
  * its two handles. A handle is selected on its own when it is touched, so
- * the keyboard and, later, stretch know which end is meant. `end` is null
- * while the region is up and neither handle has been touched.
+ * the keyboard and stretch know which end is meant. `end` is null while the
+ * region is up and neither handle has been touched.
  */
 interface Selection {
   id: string;
   end: End | null;
 }
 
+/** What a drag on a handle does: move the cut, or move the rate. */
+type DragKind = "trim" | "stretch";
+
 /** A drag in progress: the region as it was, and as it would be if released now. */
 interface Drag {
   id: string;
   end: End;
+  kind: DragKind;
   preview: Region;
+  /** Where the stretch stopped short of the thumb, if it did. Null for a trim. */
+  stopped: StretchStop;
 }
 
 /**
@@ -134,9 +147,12 @@ interface Drag {
  * Only one is ever on. Trim is the default: a tap takes a region up and its
  * handles drag. Snip is entered by a button and left by the same button or
  * by finishing a snip; while it is on there are no handles, and a drag down
- * a region paints the part being cut out.
+ * a region paints the part being cut out. Stretch is entered by a button
+ * once a handle is selected, and left by the same button, by finishing a
+ * stretch, or by letting go of the handle; while it is on only the selected
+ * handle shows, and dragging it moves the region's rate, not its cut.
  */
-type Mode = "trim" | "snip";
+type Mode = "trim" | "snip" | "stretch";
 
 /** A snip in progress: the span being cut out, in pixels down the region's box. */
 interface SnipBand {
@@ -556,10 +572,11 @@ export default function CollagePage() {
       // listen a dead tap. Undo takes back a stamp that was not meant.
       const wasUp = selected !== null && regions.some((r) => r.id === selected.id);
       if (wasUp) setSelected(null);
-      // In snip mode the blank only lets go. Stamping belongs to the default
-      // mode, where the bar says what a tap on the blank does; here the bar
-      // says snip is on, and a stray tap must not stamp a whole source.
-      if (mode === "snip") return;
+      // In snip or stretch mode the blank only lets go. Stamping belongs to
+      // the default mode, where the bar says what a tap on the blank does;
+      // here the bar says which mode is on, and a stray tap must not stamp
+      // a whole source. Letting go of the handle is the end of stretch.
+      if (mode !== "trim") return;
       if (!chosen) {
         if (wasUp) return;
         setHint("choose a sound first, then tap the blank to stamp it");
@@ -619,6 +636,7 @@ export default function CollagePage() {
   const dragRef = useRef<{
     id: string;
     end: End;
+    kind: DragKind;
     pointerId: number;
     originY: number;
     originScroll: number;
@@ -635,8 +653,17 @@ export default function CollagePage() {
     const canvas = canvasRef.current;
     if (!d) return;
     const dy = d.lastY - d.originY + ((canvas?.scrollTop ?? 0) - d.originScroll);
-    d.preview = trim(d.region, regionsRef.current, d.durationS, d.end, draggedTo(d.region, d.end, dy));
-    setDrag({ id: d.id, end: d.end, preview: d.preview });
+    let stopped: StretchStop = null;
+    if (d.kind === "stretch") {
+      // The same drag as a trim, read the other way: the thumb asks for a
+      // length, and the rate follows. The cut does not move.
+      const wanted = stretchedTo(d.region, d.end, dy);
+      d.preview = stretch(d.region, regionsRef.current, d.end, wanted);
+      stopped = stretchStop(d.region, regionsRef.current, d.end, wanted);
+    } else {
+      d.preview = trim(d.region, regionsRef.current, d.durationS, d.end, draggedTo(d.region, d.end, dy));
+    }
+    setDrag({ id: d.id, end: d.end, kind: d.kind, preview: d.preview, stopped });
   }, []);
 
   /**
@@ -745,9 +772,25 @@ export default function CollagePage() {
       setDrag(null);
       if (!apply || !d) return;
       const was = regionsRef.current.find((r) => r.id === d.id);
-      if (!was || (was.start_s === d.preview.start_s && was.end_s === d.preview.end_s)) return;
+      if (
+        !was ||
+        (was.start_s === d.preview.start_s &&
+          was.end_s === d.preview.end_s &&
+          was.rate === d.preview.rate &&
+          was.at_s === d.preview.at_s)
+      ) {
+        return;
+      }
       // One write per drag, carrying the whole arrangement.
       change(regionsRef.current.map((r) => (r.id === d.id ? d.preview : r)));
+      // A finished stretch is the end of stretch mode: the handle is still
+      // selected, so the button brings it back for another. The box's
+      // dragged end is drawn where the thumb is either way — stretching the
+      // start moves `at_s` up to the thumb — so nothing has to scroll.
+      if (d.kind === "stretch") {
+        setMode("trim");
+        return;
+      }
       // Trimming the start keeps the region where it sounds, so the cut the
       // thumb just made is about to be drawn at the top of the box, not
       // where the thumb is. The canvas moves by the same distance, so the
@@ -771,12 +814,14 @@ export default function CollagePage() {
       } catch {
         /* a pointer that has already gone */
       }
-      // The slice being played is the cut being changed. It stops, so what
-      // is heard next is what the trim made.
+      // The slice being played is the cut, or the rate, being changed. It
+      // stops, so what is heard next is what the drag made.
       if (playingId === region.id) stopRegion();
+      const kind: DragKind = mode === "stretch" ? "stretch" : "trim";
       dragRef.current = {
         id: region.id,
         end,
+        kind,
         pointerId: event.pointerId,
         originY: event.clientY,
         originScroll: canvas?.scrollTop ?? 0,
@@ -785,9 +830,9 @@ export default function CollagePage() {
         durationS: rowsByHash.get(region.hash)?.duration_s ?? null,
         preview: region,
       };
-      setDrag({ id: region.id, end, preview: region });
+      setDrag({ id: region.id, end, kind, preview: region, stopped: null });
     },
-    [playingId, rowsByHash, stopRegion],
+    [mode, playingId, rowsByHash, stopRegion],
   );
 
   const moveDrag = useCallback(
@@ -911,6 +956,19 @@ export default function CollagePage() {
     if (noRegions && mode === "snip") setMode("trim");
   }, [noRegions, mode]);
 
+  // Stretch is a gesture on a handle. It can only begin with one selected,
+  // and once that handle is let go of — the blank tapped, another region
+  // taken up, the region undone away — there is nothing for it to be on,
+  // and the mode ends. A region cut from a sound the index cannot resolve
+  // has no handles, so it cannot be stretched either.
+  const handleUp =
+    selected !== null &&
+    selected.end !== null &&
+    regions.some((r) => r.id === selected.id && rowsByHash.has(r.hash));
+  useEffect(() => {
+    if (mode === "stretch" && !handleUp) setMode("trim");
+  }, [mode, handleUp]);
+
   // A hold timer never outlives the view.
   useEffect(() => {
     return () => {
@@ -940,18 +998,35 @@ export default function CollagePage() {
     };
   }, [endDrag, endSnip]);
 
-  /** A keyboard nudge: a tenth of a second, or a whole one with shift. */
+  /**
+   * A keyboard nudge: a tenth of a second, or a whole one with shift. In
+   * trim mode that moves the cut; in stretch mode it moves the box's length
+   * from the selected end, and the rate follows.
+   */
   const nudge = useCallback(
     (region: Region, end: End, direction: 1 | -1, big: boolean) => {
       const rate = region.rate > 0 ? region.rate : 1;
-      const step = (big ? 1 : 0.1) * rate * direction;
-      const t = (end === "start" ? region.start_s : region.end_s) + step;
-      const next = trim(region, regionsRef.current, rowsByHash.get(region.hash)?.duration_s ?? null, end, t);
-      if (next.start_s === region.start_s && next.end_s === region.end_s) return;
+      let next: Region;
+      if (mode === "stretch") {
+        const step = (big ? 1 : 0.1) * (end === "end" ? direction : -direction);
+        next = stretch(region, regionsRef.current, end, regionLengthS(region) + step);
+      } else {
+        const step = (big ? 1 : 0.1) * rate * direction;
+        const t = (end === "start" ? region.start_s : region.end_s) + step;
+        next = trim(region, regionsRef.current, rowsByHash.get(region.hash)?.duration_s ?? null, end, t);
+      }
+      if (
+        next.start_s === region.start_s &&
+        next.end_s === region.end_s &&
+        next.rate === region.rate &&
+        next.at_s === region.at_s
+      ) {
+        return;
+      }
       if (playingId === region.id) stopRegion();
       change(regionsRef.current.map((r) => (r.id === region.id ? next : r)));
     },
-    [change, playingId, rowsByHash, stopRegion],
+    [change, mode, playingId, rowsByHash, stopRegion],
   );
 
   /* What is on screen ------------------------------------------------------- */
@@ -1051,7 +1126,8 @@ export default function CollagePage() {
       {unresolved > 0 ? (
         <div className="collage-note" data-testid="collage-unresolved">
           {formatCount(unresolved)} {unresolved === 1 ? "region cuts" : "regions cut"} from a sound the index no
-          longer resolves. {unresolved === 1 ? "It is" : "They are"} drawn, and cannot be played, trimmed or snipped.
+          longer resolves. {unresolved === 1 ? "It is" : "They are"} drawn, and cannot be played, trimmed, snipped or
+          stretched.
         </div>
       ) : null}
 
@@ -1200,8 +1276,10 @@ export default function CollagePage() {
 
                 {/* What the drag would do, drawn before it does it: the part
                     being cut away goes dim, and the part being taken in is
-                    outlined. The box itself keeps its true length until the
-                    thumb lifts, and then there is one write. */}
+                    outlined. A stretch says it the same way, since what it
+                    changes is also the box's extent. The box itself keeps
+                    its true length until the thumb lifts, and then there is
+                    one write. */}
                 {dragging && offset !== 0 ? (
                   dragging.end === "start" ? (
                     offset > 0 ? (
@@ -1232,27 +1310,33 @@ export default function CollagePage() {
                   />
                 ) : null}
 
-                {/* The handles. Only on the region taken up, and only in trim
+                {/* The handles. Only on the region taken up, and never in snip
                     mode: outside its box, a thumb tall, one at each end,
                     raised over the neighbours. A thumb on one drags it
-                    straight away, and a tap on one selects it. A region cut
-                    from a sound the index cannot resolve has nothing to trim
-                    against, and gets none. */}
-                {row && isSelectedRegion && mode === "trim"
-                  ? ([zones.start, zones.end] as const).map((zone) => {
+                    straight away, and a tap on one selects it. In stretch
+                    mode only the selected one shows: the other end is the
+                    anchor, and a handle on it would say it could move. A
+                    region cut from a sound the index cannot resolve has
+                    nothing to trim against, and gets none. */}
+                {row && isSelectedRegion && mode !== "snip"
+                  ? ([zones.start, zones.end] as const)
+                      .filter((zone) => mode === "trim" || zone.end === selection?.end)
+                      .map((zone) => {
                       const isSelected = selection?.end === zone.end;
                       const moving = dragging !== null && dragging.end === zone.end;
+                      const stretching = mode === "stretch";
                       return (
                         <div
                           key={zone.end}
                           role="button"
                           tabIndex={0}
-                          className={`handle ${zone.end}${isSelected ? " selected" : ""}${moving ? " moving" : ""}`}
+                          className={`handle ${zone.end}${stretching ? " stretch" : ""}${isSelected ? " selected" : ""}${moving ? " moving" : ""}`}
                           data-testid="handle"
                           data-end={zone.end}
                           data-region-id={region.id}
                           data-selected={isSelected}
-                          aria-label={`${zone.end === "start" ? "trim the start of" : "trim the end of"} ${row.filename}`}
+                          data-kind={stretching ? "stretch" : "trim"}
+                          aria-label={`${stretching ? "stretch" : "trim"} the ${zone.end} of ${row.filename}`}
                           aria-pressed={isSelected}
                           style={{
                             top: zone.top,
@@ -1306,12 +1390,40 @@ export default function CollagePage() {
       ) : null}
 
       {/* The bar the thumb lives on. One big target: what is being stamped, or
-          the way to choose it. In snip mode that target says snip is on
-          instead, and puts it off: while snip is on nothing here invites a
-          stamp. Beside it, the snip button. Undo appears once there is
-          something to take back, and says how many steps it holds. */}
+          the way to choose it. In snip or stretch mode that target says which
+          mode is on instead, and puts it off: while a mode is on nothing here
+          invites a stamp. Beside it, the snip and stretch buttons. Undo
+          appears once there is something to take back, and says how many
+          steps it holds. */}
       <div className="collage-bar" data-mode={mode}>
-        {mode === "snip" ? (
+        {mode === "stretch" ? (
+          <button
+            type="button"
+            className={`collage-mode stretch${drag?.stopped ? " stopped" : ""}`}
+            data-testid="collage-mode"
+            data-bound={drag?.stopped ?? ""}
+            onClick={() => switchMode("trim")}
+          >
+            {/* Where the drag has stopped, in words, because the handle that
+                stopped is under the thumb. Never a number. */}
+            <span className="collage-choose-name">
+              {drag?.stopped === "slow"
+                ? "as slow as it goes"
+                : drag?.stopped === "fast"
+                  ? "as fast as it goes"
+                  : drag?.stopped === "room"
+                    ? "no more room on the track"
+                    : drag?.stopped === "top"
+                      ? "this is the first moment"
+                      : drag
+                        ? "let go to keep it"
+                        : "stretch is on"}
+            </span>
+            <span className="collage-choose-sub">
+              drag the handle: longer plays slower, shorter plays faster · tap here to stop
+            </span>
+          </button>
+        ) : mode === "snip" ? (
           <button
             type="button"
             className={`collage-mode${band?.whole ? " whole" : ""}${band?.armed ? " armed" : ""}`}
@@ -1369,6 +1481,25 @@ export default function CollagePage() {
         >
           snip
           <span className="collage-snip-sub">{mode === "snip" ? "on" : "off"}</span>
+        </button>
+        {/* Stretch needs a handle: it is the end the box grows or shrinks
+            from. Until one is selected the button refuses, and says what
+            to do first. */}
+        <button
+          type="button"
+          className={`collage-stretch${mode === "stretch" ? " on" : ""}`}
+          data-testid="collage-stretch"
+          aria-pressed={mode === "stretch"}
+          disabled={!handleUp}
+          title={
+            handleUp
+              ? "stretch: drag the selected handle to make the region play slower or faster"
+              : "stretch: tap a region, then one of its handles, first"
+          }
+          onClick={() => switchMode(mode === "stretch" ? "trim" : "stretch")}
+        >
+          stretch
+          <span className="collage-snip-sub">{mode === "stretch" ? "on" : "off"}</span>
         </button>
         {history.length > 0 ? (
           <button

@@ -2,9 +2,9 @@
  * The collage's geometry, as pure functions.
  *
  * Time runs down the screen and tracks run across it. Everything here turns a
- * tap into a region, a region into a box, or a drag into a trim or a snip, and
- * nothing here touches the DOM, the network, or a clock. The view is the
- * effectful shell around this.
+ * tap into a region, a region into a box, or a drag into a trim, a snip or a
+ * stretch, and nothing here touches the DOM, the network, or a clock. The view
+ * is the effectful shell around this.
  *
  * No grid. A tap lands where it lands, to the millisecond, and the only thing
  * that moves it is another region already sitting there. No number of seconds
@@ -386,15 +386,19 @@ export function trim(
 /**
  * Where a handle sits during a drag, in canvas pixels from where it started.
  *
- * The handle follows the thumb until the trim hits a wall, and then it stays
+ * The handle follows the thumb until the drag hits a wall, and then it stays
  * on the wall while the thumb carries on. That is how the source's end, the
- * other handle and the neighbour below are all shown: as somewhere the handle
- * will not go.
+ * other handle, the rate's bounds and the neighbour on the track are all
+ * shown: as somewhere the handle will not go.
+ *
+ * Measured as the change in the box's length, so it serves a trim and a
+ * stretch alike: a trim changes the length by moving the cut, a stretch by
+ * moving the rate, and either way the dragged end is where the box now
+ * stops. The other end is the one that held still.
  */
-export function dragOffsetPx(region: Region, trimmed: Region, end: End): number {
-  const rate = region.rate > 0 ? region.rate : 1;
-  const delta = end === "start" ? trimmed.start_s - region.start_s : trimmed.end_s - region.end_s;
-  return (delta / rate) * PX_PER_S;
+export function dragOffsetPx(region: Region, changed: Region, end: End): number {
+  const delta = regionLengthS(changed) - regionLengthS(region);
+  return (end === "end" ? delta : -delta) * PX_PER_S;
 }
 
 /** The source time a handle dragged `dy` canvas pixels is asking for. */
@@ -402,6 +406,153 @@ export function draggedTo(region: Region, end: End, dy: number): number {
   const rate = region.rate > 0 ? region.rate : 1;
   const from = end === "start" ? region.start_s : region.end_s;
   return from + (dy / PX_PER_S) * rate;
+}
+
+/* Stretch ------------------------------------------------------------------- */
+
+/**
+ * The slowest and the fastest a region may play.
+ *
+ * Two octaves each way. Past that varispeed stops being a stretch and becomes
+ * a different instrument. A stretch stops here; nothing prints the number.
+ * A region written outside these — by hand, or by an earlier tool — may be
+ * brought back towards them and never taken further out.
+ */
+export const RATE_MIN = 0.25;
+export const RATE_MAX = 4;
+
+/**
+ * Where a stretch stopped short of what the thumb asked for, if it did.
+ *
+ * Four walls, and the view says which one in words: `slow` and `fast` are
+ * the rate's own bounds, `room` is the neighbour on the track, and `top` is
+ * the first moment, which is what a start handle meets when nothing sounds
+ * above it. `null` is a drag that got what it asked for.
+ */
+export type StretchStop = "slow" | "fast" | "room" | "top" | null;
+
+/**
+ * The walls a stretch of one end meets: the slowest and the fastest that end
+ * may take the region, and which wall holds the slow side.
+ *
+ * Null when the region cannot be stretched at all — an empty cut, or an end
+ * with no room on its side.
+ */
+interface StretchWalls {
+  slowest: number;
+  fastest: number;
+  /** The first moment the region may begin at, for a start handle. */
+  floor: number;
+  /** What holds the slow side: the rate's own bound, a neighbour, or time. */
+  slowWall: "slow" | "room" | "top";
+}
+
+function stretchWalls(region: Region, regions: readonly Region[], end: End): StretchWalls | null {
+  const cut = region.end_s - region.start_s;
+  if (!(cut > 0)) return null;
+  const rate = region.rate > 0 ? region.rate : 1;
+  const length = cut / rate;
+  let room: number;
+  let floor = 0;
+  let crowded: "room" | "top";
+  if (end === "end") {
+    const next = nextOnTrack(region, regions);
+    room = next === null ? Infinity : next.at_s - region.at_s;
+    crowded = "room";
+  } else {
+    const prev = prevOnTrack(region, regions);
+    floor = prev === null ? 0 : Math.max(0, prev.at_s + regionLengthS(prev));
+    room = region.at_s + length - floor;
+    crowded = prev === null ? "top" : "room";
+  }
+  if (!(room > 0)) return null;
+  // The slowest the rate may go is whichever binds first: the bound itself
+  // (or the region's own rate, when it was written slower than the bound),
+  // or the rate at which the box exactly fills the room it has.
+  const byBound = Math.min(RATE_MIN, rate);
+  const bySpace = cut / room;
+  const slowest = Math.max(byBound, bySpace);
+  const fastest = Math.max(RATE_MAX, rate);
+  if (slowest > fastest) return null;
+  return { slowest, fastest, floor, slowWall: bySpace > byBound ? crowded : "slow" };
+}
+
+/**
+ * Which wall a stretch to `lengthS` collage seconds would meet, if any.
+ *
+ * Asked and answered in rates, not in lengths. A rate is rounded to six
+ * places before it is stored, and the length that comes back out of a
+ * rounded rate differs from the length asked for by an amount that grows
+ * with the cut: a quarter of a millisecond on a fifteen-minute source. Read
+ * as a shortfall in length, that rounding is indistinguishable from a wall,
+ * and the bar would announce one on nearly every drag of real material. The
+ * rate the thumb is asking for is either outside the bounds or it is not.
+ */
+export function stretchStop(
+  region: Region,
+  regions: readonly Region[],
+  end: End,
+  lengthS: number,
+): StretchStop {
+  if (!Number.isFinite(lengthS)) return null;
+  const walls = stretchWalls(region, regions, end);
+  if (walls === null) return null;
+  const cut = region.end_s - region.start_s;
+  const wanted = lengthS > 0 ? cut / lengthS : Infinity;
+  // A hair either side of a wall is arithmetic, not a wall.
+  const slack = 1e-9;
+  if (wanted > walls.fastest * (1 + slack)) return "fast";
+  if (wanted < walls.slowest * (1 - slack)) return walls.slowWall;
+  return null;
+}
+
+/**
+ * The length, in collage seconds, a handle dragged `dy` canvas pixels in
+ * stretch mode is asking for. The box grows from the end being dragged, so
+ * the bottom handle lengthens it going down and the top handle going up.
+ */
+export function stretchedTo(region: Region, end: End, dy: number): number {
+  const length = regionLengthS(region);
+  return end === "end" ? length + dy / PX_PER_S : length - dy / PX_PER_S;
+}
+
+/**
+ * A region made `lengthS` collage seconds long by changing its rate.
+ *
+ * Stretch changes `rate` and nothing else about the material: the cut into
+ * the source, `start_s` to `end_s`, is untouched, so the same sound plays
+ * slower or faster. The box's height is `(end_s − start_s) / rate`, so
+ * asking for a length is asking for a rate.
+ *
+ * The end that is not dragged stays where it is in time. Dragging the end
+ * handle keeps `at_s`: the region begins when it did and runs on longer or
+ * stops sooner. Dragging the start handle keeps the region's *last* moment
+ * instead, so `at_s` moves: the cut cannot change, the bottom is anchored,
+ * and the only thing left that can move is when the region begins. In trim
+ * mode the same drag would move the cut and hold `at_s`; that is the whole
+ * difference between the two modes.
+ *
+ * Bounds: the rate stays inside `RATE_MIN`..`RATE_MAX` (or, for a region
+ * already outside them, on the far side of its own rate), and the box stays
+ * off its neighbours on the track: the end handle stops where the next
+ * region begins, the start handle where the previous one ends, or at the
+ * first moment. The region comes back unchanged when nothing may move.
+ */
+export function stretch(region: Region, regions: readonly Region[], end: End, lengthS: number): Region {
+  if (!Number.isFinite(lengthS)) return region;
+  const walls = stretchWalls(region, regions, end);
+  if (walls === null) return region;
+  const cut = region.end_s - region.start_s;
+  const rate = region.rate > 0 ? region.rate : 1;
+  const length = cut / rate;
+  const wanted = lengthS > 0 ? cut / lengthS : walls.fastest;
+  // Six places, so a file stays tidy; then the bounds again, exactly, so a
+  // rounded rate never puts the box a hair over a neighbour.
+  const next = clamp(round6(wanted), walls.slowest, walls.fastest);
+  if (next === rate) return region;
+  if (end === "end") return { ...region, rate: next };
+  const at = Math.max(walls.floor, region.at_s + length - cut / next);
+  return { ...region, rate: next, at_s: round3(at) };
 }
 
 /* Snip ---------------------------------------------------------------------- */
@@ -483,4 +634,8 @@ function clamp(n: number, lo: number, hi: number): number {
 
 function round3(n: number): number {
   return Math.round(n * 1000) / 1000;
+}
+
+function round6(n: number): number {
+  return Math.round(n * 1e6) / 1e6;
 }

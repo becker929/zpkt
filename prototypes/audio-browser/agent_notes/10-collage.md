@@ -54,8 +54,27 @@ review on a phone before the next one starts.
    part of it, leaving two regions.
 4. **Stretch.** Tap a handle to select it, then enter stretch mode by button
    and drag. The region's playback rate follows.
-5. **The rest of the sounds.** Once 1–4 exist, adding the other fourteen is the
-   same gestures again.
+5. **The rest of the sounds, and hearing them together.** Adding the other
+   fourteen is the same gestures again. What is new is playing the collage:
+   every region on every track scheduled at its `at_s`, at its `rate`, mixed.
+   Until this bullet the view has only ever played one region alone. This is
+   the first time the user hears the piece rather than a piece of it.
+
+### Playing the collage
+
+A play/stop transport in the bar. Play schedules one buffer source per region
+from its slice, starting at `now + at_s`, with `playbackRate = rate` and gain
+at the region's `gain` (1.0 until a gain gesture exists). Stop silences
+everything at once. A playhead line moves down the canvas as it plays — a
+line, not a number. Regions may overlap in time across tracks; that is the
+point of tracks, and the mix is a plain sum.
+
+Slices are fetched for every region before play starts, so playback does not
+stall on the network mid-piece. Fifteen regions is small; a collage with many
+more should still start within a breath, and if it cannot, the transport says
+it is still loading rather than starting late.
+
+Play from a tapped point is not built here. Play starts at the top.
 
 Only one mode is ever active. The default is trim, so a tap on a handle always
 does the least surprising thing.

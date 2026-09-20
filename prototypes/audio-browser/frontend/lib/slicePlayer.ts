@@ -7,9 +7,14 @@
  * that is fetched. A region can still be fifteen minutes long — a whole sparse
  * source stamped untrimmed — so the region is fetched in pieces of
  * `CHUNK_S` seconds, each scheduled to start the instant the one before it
- * ends, and never more than two pieces are held decoded at once. A
- * fifteen-minute region therefore costs a few megabytes at a time and not the
- * whole file.
+ * ends, and a piece that has finished playing is let go of. A fifteen-minute
+ * region therefore costs a few megabytes at a time and not the whole file.
+ *
+ * A stretched region is the same pieces played through `playbackRate`. The
+ * server cuts the source at one speed, whatever the rate; the rate is applied
+ * here, to every piece alike, so each piece lasts `duration / rate` seconds
+ * and the next is scheduled that far on. The pieces stay gapless because
+ * their start times are added up in played time, not read off a clock.
  *
  * `play` must be called from inside a user gesture. iOS will not start an
  * `AudioContext` from anywhere else, so the context is made and resumed
@@ -21,8 +26,15 @@ import { ApiError, sliceUrl } from "./api";
 /** Seconds of source fetched per request. */
 export const CHUNK_S = 15;
 
-/** Decoded pieces kept scheduled ahead of the playhead. */
+/**
+ * Pieces kept scheduled ahead of the playhead, counted in the time they take
+ * to play. Two pieces at one speed is thirty seconds; at four times it is
+ * seven and a half, so the lead is never less than `LEAD_MIN_S` either. Held
+ * in played time rather than source time so a fast region does not decode
+ * eight pieces up front to get thirty seconds ahead.
+ */
 const AHEAD = 2;
+const LEAD_MIN_S = 10;
 
 export interface SliceRegion {
   hash: string;
@@ -103,6 +115,18 @@ export class SlicePlayer {
       handlers.onEnd();
     };
 
+    // A piece that has played out is let go of, buffer and all, so a long
+    // or a slowed region never holds every piece it has played.
+    const release = (source: AudioBufferSourceNode) => {
+      if (token !== this.token) return;
+      source.onended = null;
+      source.disconnect();
+      this.sources = this.sources.filter((s) => s !== source);
+    };
+
+    // How far ahead, in played seconds, the pieces are fetched.
+    const lead = Math.max((CHUNK_S / rate) * AHEAD, LEAD_MIN_S);
+
     const tick = () => {
       if (token !== this.token) return;
       if (startedAt !== null && lengthS > 0) {
@@ -151,17 +175,23 @@ export class SlicePlayer {
           this.frame = requestAnimationFrame(tick);
         }
         source.start(nextAt);
+        // The piece lasts its own length divided by the rate, and the next
+        // one begins exactly then.
         nextAt += buffer.duration / rate;
         this.sources.push(source);
         cursor = to;
 
         if (cursor >= region.end_s) {
-          source.onended = finish;
+          source.onended = () => {
+            release(source);
+            finish();
+          };
           return;
         }
+        source.onended = () => release(source);
         // Hold back rather than fetching the whole region up front. Two pieces
         // ahead is enough to cover a slow tailnet and keeps memory bounded.
-        while (token === this.token && nextAt - ctx.currentTime > CHUNK_S * AHEAD) {
+        while (token === this.token && nextAt - ctx.currentTime > lead) {
           await sleep(200);
         }
       }

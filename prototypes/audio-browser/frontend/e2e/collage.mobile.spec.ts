@@ -1040,3 +1040,275 @@ test("a thumb that sweeps through a short region in snip mode takes nothing; the
   const stored = await regionsOnServer(request);
   expect(stored.map((r) => r.id)).toEqual(["r1", "r2"]);
 });
+
+/* Stretch -------------------------------------------------------------------- */
+
+/**
+ * A stretch drag on a phone is a thumb on the one handle that shows in
+ * stretch mode: the same touch pointer events as a trim drag, dispatched at
+ * the handle. As with trim, this exercises the view's handling of the touch
+ * and not WebKit's decision to hand it to the page, which `touch-action:
+ * none` on the handle asks for.
+ */
+
+async function storedRates(request: APIRequestContext) {
+  const detail = (await (await request.get(`/api/projects/${PROJECT}`)).json()) as {
+    document: { collage?: { regions?: Array<{ id: string; start_s: number; end_s: number; at_s: number; rate: number }> } | null };
+  };
+  return detail.document.collage?.regions ?? [];
+}
+
+test("stretch with one thumb: take up, tap a handle, tap stretch; one handle; drag; one write; the bar says so and shows no number", async ({
+  page,
+  request,
+}) => {
+  const { hash } = await firstSound(request);
+  // Four seconds of source at full speed, ten collage seconds in: forty
+  // pixels, with room above it for the start to move up into.
+  const put = await request.put(`/api/projects/${PROJECT}/collage`, {
+    data: { regions: [regionRow("r1", hash, 0, 10, 4)] },
+  });
+  expect(put.ok()).toBe(true);
+  await page.goto("/collage");
+  const viewport = page.viewportSize()!;
+  const button = page.getByTestId("collage-stretch");
+  const bb = (await button.boundingBox())!;
+  expect(bb.height).toBeGreaterThanOrEqual(44);
+  expect(bb.width).toBeGreaterThanOrEqual(44);
+  expect(bb.y + bb.height).toBeLessThanOrEqual(viewport.height + 1);
+  await expect(button).toBeDisabled();
+
+  // The user's own order: tap the region, tap a handle, then the button.
+  await takeUp(page, "r1");
+  await expect(button).toBeDisabled();
+  const end = handle(page, "r1", "end");
+  await end.tap();
+  await expect(end).toHaveAttribute("data-selected", "true");
+  await expect(button).toBeEnabled();
+  await button.tap();
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-mode", "stretch");
+  await expect(page.getByTestId("handle")).toHaveCount(1);
+  await expect(end).toHaveAttribute("data-kind", "stretch");
+  expect((await end.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+  expect(await end.evaluate((node) => getComputedStyle(node).touchAction)).toBe("none");
+  const modeBox = (await page.getByTestId("collage-mode").boundingBox())!;
+  expect(modeBox.height).toBeGreaterThanOrEqual(44);
+  expect(modeBox.y + modeBox.height).toBeLessThanOrEqual(viewport.height + 1);
+  await expect(page.getByTestId("collage-mode")).toContainText("stretch is on");
+  await page.screenshot({ path: "screenshots/collage-phone-stretch-on.png" });
+
+  // Down forty: the outline says the box is about to be twice as long, and
+  // nothing is written until the lift.
+  let writes = 0;
+  page.on("request", (r) => {
+    if (r.method() === "PUT" && r.url().includes("/collage")) writes += 1;
+  });
+  const before = (await region(page, "r1").boundingBox())!;
+  const held = await thumbDrag(page, end, 40, false);
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-dragging", "true");
+  const more = (await page.getByTestId("region-more").boundingBox())!;
+  expect(more.height).toBeCloseTo(40, 0);
+  expect(Math.abs(more.y - (before.y + before.height))).toBeLessThanOrEqual(2);
+  expect(writes).toBe(0);
+  let text = (await page.getByTestId("collage").innerText()).toLowerCase();
+  expect(text).not.toMatch(/\d+(\.\d+)?\s?(x|×)\b/);
+  expect(text).not.toMatch(/\b\d+(\.\d+)?\s?(s|ms|db|%)\b/);
+  await page.screenshot({ path: "screenshots/collage-phone-stretching.png" });
+  await touch(end, "pointerup", held.x, held.y);
+
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-dragging", "false");
+  await expect(page.getByTestId("collage-save")).toHaveAttribute("data-state", "saved");
+  expect(writes).toBe(1);
+  let stored = await storedRates(request);
+  expect(stored[0].rate).toBeCloseTo(0.5, 6);
+  expect(stored[0]).toMatchObject({ start_s: 0, end_s: 4, at_s: 10 });
+  const after = (await region(page, "r1").boundingBox())!;
+  expect(after.y).toBeCloseTo(before.y, 0);
+  expect(after.height).toBeCloseTo(80, 0);
+  // The stretch is over: trim is back with both handles, the handle still
+  // selected, and nothing anywhere says the rate.
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-mode", "trim");
+  await expect(page.getByTestId("handle")).toHaveCount(2);
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-selected", "r1:end");
+  text = (await page.getByTestId("collage").innerText()).toLowerCase();
+  expect(text).not.toMatch(/\d+(\.\d+)?\s?(x|×)\b/);
+  const spoken = await page.getByTestId("collage").evaluate((node) =>
+    Array.from(node.querySelectorAll("[aria-label], [title]"))
+      .map((el) => `${el.getAttribute("aria-label") ?? ""} ${el.getAttribute("title") ?? ""}`)
+      .join("\n")
+      .toLowerCase(),
+  );
+  expect(spoken).not.toMatch(/\d+(\.\d+)?\s?(x|×)\b/);
+  expect(spoken).not.toMatch(/\b\d+(\.\d+)?\s?(s|sec|seconds?|ms|db)\b/);
+  await page.screenshot({ path: "screenshots/collage-phone-stretched.png" });
+
+  // The start handle, the same way: up forty, the bottom stays put, and the
+  // region begins earlier.
+  const start = handle(page, "r1", "start");
+  await start.tap();
+  await expect(start).toHaveAttribute("data-selected", "true");
+  await button.tap();
+  await expect(page.getByTestId("handle")).toHaveCount(1);
+  await expect(handle(page, "r1", "end")).toHaveCount(0);
+  const bottom = after.y + after.height;
+  await thumbDrag(page, start, -40);
+  await expect(page.getByTestId("collage-save")).toHaveAttribute("data-state", "saved");
+  expect(writes).toBe(2);
+  stored = await storedRates(request);
+  expect(stored[0].rate).toBeCloseTo(1 / 3, 6);
+  expect(stored[0].at_s).toBeCloseTo(6, 3);
+  expect(stored[0]).toMatchObject({ start_s: 0, end_s: 4 });
+  const last = (await region(page, "r1").boundingBox())!;
+  expect(last.y + last.height).toBeCloseTo(bottom, 0);
+  expect(last.y).toBeCloseTo(after.y - 40, 0);
+});
+
+test("a fifteen-minute source at a quarter speed is an hour tall: it draws under the backing-store cap at both ends, and its end is reachable", async ({
+  page,
+  request,
+}) => {
+  // The longest sound in HW011 stamped whole and slowed to the bound is
+  // nine hundred seconds of source over thirty-six thousand pixels. The
+  // fixture's sound is a second long, so the same height is reached with a
+  // rate far below the bound; the view draws the cut it is given over the
+  // height the rate gives it either way, and what is checked is that a
+  // canvas this tall still draws at both ends rather than coming up blank.
+  const sound = await firstSound(request);
+  const rate = sound.duration_s / 3600;
+  const put = await request.put(`/api/projects/${PROJECT}/collage`, {
+    data: { regions: [regionRow("r1", sound.hash, 0, 0, sound.duration_s, rate)] },
+  });
+  expect(put.ok()).toBe(true);
+  await page.goto("/collage");
+  const target = region(page, "r1");
+  await expect(target).toBeVisible();
+  expect((await target.boundingBox())!.height).toBeCloseTo(36000, -1);
+  const wave = target.getByTestId("region-wave");
+  await expect.poll(async () => Number(await wave.getAttribute("data-buckets"))).toBe(1000);
+  const backing = await wave.evaluate((node) => {
+    const c = node as HTMLCanvasElement;
+    return { width: c.width, height: c.height };
+  });
+  expect(backing.height).toBeLessThanOrEqual(8192);
+  expect(backing.height).toBeGreaterThan(8000);
+  expect(backing.width).toBeGreaterThanOrEqual(16);
+  const painted = await wave.evaluate((node) => {
+    const c = node as HTMLCanvasElement;
+    const ctx = c.getContext("2d")!;
+    const count = (y0: number, h: number) => {
+      const { data } = ctx.getImageData(0, y0, c.width, h);
+      let n = 0;
+      for (let i = 3; i < data.length; i += 4) if (data[i] !== 0) n += 1;
+      return n;
+    };
+    return { top: count(0, 200), bottom: count(c.height - 200, 200) };
+  });
+  expect(painted.top).toBeGreaterThan(200);
+  expect(painted.bottom).toBeGreaterThan(200);
+
+  // Taken up, the end handle is an hour down. Scrolled there, it is on
+  // screen and a thumb tall, and the label still says what the region is.
+  await takeUp(page, "r1");
+  const end = handle(page, "r1", "end");
+  await end.scrollIntoViewIfNeeded();
+  await page.waitForTimeout(150);
+  const canvas = (await page.getByTestId("collage-canvas").boundingBox())!;
+  const he = (await end.boundingBox())!;
+  expect(he.y).toBeGreaterThanOrEqual(canvas.y - 1);
+  expect(he.y + he.height).toBeLessThanOrEqual(canvas.y + canvas.height + 1);
+  expect(he.height).toBeGreaterThanOrEqual(44);
+  expect(await page.getByTestId("collage-canvas").evaluate((node) => node.scrollTop)).toBeGreaterThan(35000);
+  const label = await target.locator(".region-label").boundingBox();
+  expect(label!.y).toBeGreaterThanOrEqual(canvas.y - 1);
+
+  // Already past the slow bound, a stretch down changes nothing and writes
+  // nothing; the bar says it is as slow as it goes.
+  await end.tap();
+  await page.getByTestId("collage-stretch").tap();
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-mode", "stretch");
+  let writes = 0;
+  page.on("request", (r) => {
+    if (r.method() === "PUT" && r.url().includes("/collage")) writes += 1;
+  });
+  const held = await thumbDrag(page, end, 60, false);
+  await expect(page.getByTestId("collage-mode")).toHaveAttribute("data-bound", "slow");
+  await touch(end, "pointerup", held.x, held.y);
+  await page.waitForTimeout(300);
+  expect(writes).toBe(0);
+  expect((await storedRates(request))[0].rate).toBe(rate);
+});
+
+test("turning the phone mid-stretch lets go without writing anything", async ({ page, request }) => {
+  const { hash } = await firstSound(request);
+  const put = await request.put(`/api/projects/${PROJECT}/collage`, {
+    data: { regions: [regionRow("r1", hash, 0, 0, 4)] },
+  });
+  expect(put.ok()).toBe(true);
+  await page.goto("/collage");
+  await takeUp(page, "r1");
+  const end = handle(page, "r1", "end");
+  await end.tap();
+  await page.getByTestId("collage-stretch").tap();
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-mode", "stretch");
+
+  let writes = 0;
+  page.on("request", (r) => {
+    if (r.method() === "PUT" && r.url().includes("/collage")) writes += 1;
+  });
+  await thumbDrag(page, end, 60, false);
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-dragging", "true");
+  await page.setViewportSize({ width: 852, height: 393 });
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-dragging", "false");
+  await page.waitForTimeout(300);
+  expect(writes).toBe(0);
+  expect((await storedRates(request))[0].rate).toBe(1);
+  await expect(page.getByTestId("collage-undo")).toHaveCount(0);
+  // The handle was not let go of, so stretch is still on, and the button
+  // is still on screen to turn it off.
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-mode", "stretch");
+  const bb = (await page.getByTestId("collage-stretch").boundingBox())!;
+  expect(bb.y + bb.height).toBeLessThanOrEqual(393 + 1);
+});
+
+test("choosing an end costs material: a tap on a handle that slides five pixels trims the cut", async ({
+  page,
+  request,
+}) => {
+  // Pinned, not endorsed. Choosing an end is the first step of every stretch
+  // — tap the region, tap a handle, tap stretch — and a handle drags from
+  // its first pixel by design ("two short cuts half a second apart" turns a
+  // four-pixel drag into a trim on purpose, on a ten-pixel region). So the
+  // thumb travel of an ordinary tap is a trim: five pixels here takes half a
+  // second of source off the cut and pushes a step onto undo, before the
+  // stretch it was setting up has begun. A tap slop on handles would end
+  // this and would take the deliberate four-pixel trim with it. That is a
+  // decision for Anthony; this test says what it costs today.
+  const { hash, duration_s } = await firstSound(request);
+  const put = await request.put(`/api/projects/${PROJECT}/collage`, {
+    data: { regions: [regionRow("r1", hash, 0, 0, duration_s)] },
+  });
+  expect(put.ok()).toBe(true);
+  await page.goto("/collage");
+  await takeUp(page, "r1");
+
+  const end = handle(page, "r1", "end");
+  const box = (await end.boundingBox())!;
+  const x = box.x + box.width / 2;
+  const y = box.y + box.height / 2;
+  await touch(end, "pointerdown", x, y);
+  for (const step of [1, 2, 4, 5]) {
+    await touch(end, "pointermove", x + 1, y - step);
+    await page.waitForTimeout(16);
+  }
+  await touch(end, "pointerup", x + 1, y - 5);
+
+  await expect(page.getByTestId("collage-save")).toHaveAttribute("data-state", "saved");
+  await expect(end).toHaveAttribute("data-selected", "true");
+  await expect(page.getByTestId("collage-undo")).toHaveAttribute("data-depth", "1");
+  const [stored] = await regionsOnServer(request);
+  expect(stored.end_s).toBeCloseTo(duration_s - 0.5, 2);
+  // Undo is the whole of the remedy, and it is one tap away.
+  await page.getByTestId("collage-undo").tap();
+  await expect(page.getByTestId("collage-undo")).toHaveCount(0);
+  expect((await regionsOnServer(request))[0].end_s).toBeCloseTo(duration_s, 3);
+});
