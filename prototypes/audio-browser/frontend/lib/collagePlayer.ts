@@ -19,9 +19,10 @@
  * **saturates**. Fifteen voices at unity go past full scale the moment they
  * overlap, and past full scale the device cuts the tops off and it tears.
  * There is no master fader, because there is no number on this surface, so
- * the sum is shaped instead: push more in and it gets harder. A single region
- * at gain 1 passes through the bus as itself, sample for sample. The curve and
- * the arithmetic behind that claim are in `lib/softClip.ts`.
+ * the sum is shaped instead: push more in and it gets harder. Below the knee
+ * the curve asks for the signal back unchanged, and the node returns it to
+ * within about 126 dB down — a browser's rounding, not a colour, and not
+ * nothing either. The curve and that number are in `lib/softClip.ts`.
  *
  * A region's level may move while the piece plays, and does not stop it. That
  * is the one edit that is heard at once: balance is set by ear against what is

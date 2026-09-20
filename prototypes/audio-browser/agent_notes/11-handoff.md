@@ -3,6 +3,21 @@
 Written while Anthony slept, 2026-09-19. Updated as each step lands. Short
 sentences. Read top to bottom.
 
+## HW011 has a collage in it now, and a new baseline hash
+
+On the morning of 2026-09-20 Anthony used the view for real. HW011 holds three
+regions across three tracks: a 34 s cut at the top of track 0, a 16 s cut on
+track 1 stretched to about a third speed so it sounds for 49 s, and a 127 s cut
+on track 2 starting near the fiftieth second.
+
+Its hash is therefore **`5008266305d1d2ceb228b9b31eecf308e94dd24e02bc914713b569625047eee6`**,
+not the `f4a857da…` that every brief written before this used. Use the new one.
+The live guard behaved correctly throughout: the file moved before any run
+started, not during one, so nothing fired and nothing should have.
+
+The file is committed, so his collage is on the remote as well as on the disk.
+The stakes went up with it: HW011 is no longer a sound set, it is work.
+
 ## Read this first
 
 The five gestures you sketched — stamp, trim, snip, stretch, hear it — are

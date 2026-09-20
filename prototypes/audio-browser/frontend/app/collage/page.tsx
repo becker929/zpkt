@@ -1643,6 +1643,18 @@ export default function CollagePage() {
                   }}
                   onPointerDown={(event) => {
                     event.stopPropagation();
+                    // A second thumb landing while another is mid-gesture is
+                    // not a tap and must not be treated as one. It happens: a
+                    // phone held in one hand is balanced with the other, and a
+                    // palm or a resting finger finds the block being dragged.
+                    // A tap on a block plays it, so without this the stray
+                    // touch stops the very sound the balance is being judged
+                    // against — or starts one over a piece already sounding.
+                    // Whichever gesture is under way keeps the pointer it has.
+                    if (balanceRef.current || snipRef.current || dragRef.current) {
+                      dropTap();
+                      return;
+                    }
                     beginTap(event);
                     const onGrab = (event.target as HTMLElement).dataset.testid === "region-grab";
                     if (snippable && onGrab) startSnip(event, region);

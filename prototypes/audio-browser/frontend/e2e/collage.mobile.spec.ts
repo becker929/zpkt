@@ -94,12 +94,23 @@ async function takeUp(page: Page, regionId: string): Promise<void> {
   await expect(target).toHaveAttribute("data-selected", "true");
 }
 
-/** One touch pointer event at a point, dispatched on the handle. */
-async function touch(target: Locator, type: string, clientX: number, clientY: number): Promise<void> {
+/**
+ * One touch pointer event at a point, dispatched on the handle.
+ *
+ * `pointerId` is the thumb it belongs to. A phone has more than one, and the
+ * second is how a gesture gets interfered with, so tests that need two say so.
+ */
+async function touch(
+  target: Locator,
+  type: string,
+  clientX: number,
+  clientY: number,
+  pointerId = 7,
+): Promise<void> {
   await target.dispatchEvent(type, {
     pointerType: "touch",
-    pointerId: 7,
-    isPrimary: true,
+    pointerId,
+    isPrimary: pointerId === 7,
     clientX,
     clientY,
     bubbles: true,
@@ -1738,4 +1749,259 @@ test("turning the phone mid-balance lets go without writing anything", async ({ 
   await page.waitForTimeout(300);
   expect(writes).toBe(0);
   expect((await storedRegions(request))[0].gain).toBe(1);
+});
+
+test("a second thumb on the block mid-balance stops nothing and starts nothing: the sound being judged keeps sounding", async ({
+  page,
+  request,
+}) => {
+  const { hash } = await firstSound(request);
+  const put = await request.put(`/api/projects/${PROJECT}/collage`, {
+    data: { regions: [regionRow("r1", hash, 0, 10, 4)] },
+  });
+  expect(put.ok()).toBe(true);
+  await page.goto("/collage");
+  await takeUp(page, "r1");
+  await page.getByTestId("collage-balance").tap();
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-mode", "balance");
+  // Taking the region up played it, which is what a balance is judged
+  // against: the level moves under the ear rather than on the next tap.
+  await expect(region(page, "r1")).toHaveAttribute("data-playing", "true");
+
+  const grab = region(page, "r1").getByTestId("region-grab");
+  const box = (await grab.boundingBox())!;
+  const x = box.x + box.width / 2;
+  const y = box.y + box.height / 2;
+  await touch(grab, "pointerdown", x, y);
+  for (let i = 1; i <= 4; i += 1) {
+    await touch(grab, "pointermove", x + 6 * i, y);
+    await page.waitForTimeout(16);
+  }
+  await expect(region(page, "r1")).toHaveAttribute("data-gain", "1.5");
+
+  // A phone held in one hand and balanced with the other finds a second
+  // thumb on the block sooner or later. A tap on a block plays it, so this
+  // is the touch that would stop the sound the ear is judging against.
+  await touch(grab, "pointerdown", x - 20, y + 4, 9);
+  await touch(grab, "pointerup", x - 20, y + 4, 9);
+  await page.waitForTimeout(200);
+  await expect(region(page, "r1")).toHaveAttribute("data-playing", "true");
+  await expect(region(page, "r1")).toHaveAttribute("data-gain", "1.5");
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-balancing", "true");
+
+  // And the first thumb still owns the gesture: it finishes and it writes.
+  await touch(grab, "pointermove", x + 24, y);
+  await touch(grab, "pointerup", x + 24, y);
+  await expect(page.getByTestId("collage-save")).toHaveAttribute("data-state", "saved");
+  expect((await storedRegions(request)).find((r) => r.id === "r1")!.gain).toBeCloseTo(1.5, 6);
+});
+
+test("a thumb that lands where a track-0 block meets the edge of the glass runs out of room, and the next drag carries on", async ({
+  page,
+  request,
+}) => {
+  const { hash } = await firstSound(request);
+  // Three tracks, as the real project has: four columns of a hundred and
+  // twenty-eight are wider than a phone, so the canvas scrolls and track zero
+  // really does begin at the edge of the glass.
+  const put = await request.put(`/api/projects/${PROJECT}/collage`, {
+    data: {
+      regions: [regionRow("r1", hash, 0, 10, 4), regionRow("r2", hash, 1, 10, 4), regionRow("r3", hash, 2, 10, 4)],
+    },
+  });
+  expect(put.ok()).toBe(true);
+  await page.goto("/collage");
+  await takeUp(page, "r1");
+  await page.getByTestId("collage-balance").tap();
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-mode", "balance");
+
+  // A thumb that lands on the first pixels of that block has less glass to
+  // its left than the range needs, and a real thumb cannot leave the screen.
+  // This is the worst landing there is: the block's own left edge.
+  const grab = region(page, "r1").getByTestId("region-grab");
+  const box = (await grab.boundingBox())!;
+  const room = box.x;
+  expect(room, "a track-0 block now has a whole range of glass to its left").toBeLessThan(GAIN_SPAN_PX / 2);
+  const y = box.y + box.height / 2;
+  await touch(grab, "pointerdown", room, y);
+  for (let i = 1; i <= 4; i += 1) {
+    await touch(grab, "pointermove", Math.max(0, room - (room * i) / 4), y);
+    await page.waitForTimeout(16);
+  }
+  await touch(grab, "pointerup", 0, y);
+  await expect(page.getByTestId("collage-save")).toHaveAttribute("data-state", "saved");
+  // The glass ran out before the range did: the level came down by the
+  // travel the screen allowed and stopped there, short of silence.
+  const once = (await storedRegions(request)).find((r) => r.id === "r1")!.gain;
+  expect(once, "one drag from the worst landing reached silence after all").toBeGreaterThan(0);
+  expect(once).toBeCloseTo(1 - (2 * room) / GAIN_SPAN_PX, 2);
+  // And the bar does not claim a wall, because there was none: the glass ran
+  // out, not the range.
+  await expect(page.getByTestId("collage-mode")).toHaveAttribute("data-bound", "");
+
+  // The second drag carries on from where the first stopped, which is what
+  // makes the whole range reachable from anywhere on the block.
+  for (let round = 0; round < 3; round += 1) {
+    const again = region(page, "r1").getByTestId("region-grab");
+    const at = (await again.boundingBox())!;
+    const from = at.x + at.width - 4;
+    await touch(again, "pointerdown", from, y);
+    for (let i = 1; i <= 6; i += 1) {
+      await touch(again, "pointermove", Math.max(0, from - (from * i) / 6), y);
+      await page.waitForTimeout(16);
+    }
+    await touch(again, "pointerup", 0, y);
+    await page.waitForTimeout(150);
+  }
+  await expect(region(page, "r1")).toHaveAttribute("data-gain", "0");
+  expect((await storedRegions(request)).find((r) => r.id === "r1")!.gain).toBe(0);
+});
+
+/**
+ * The mean lightness of a block as the screen really draws it, waveform and
+ * all, on a scale of nought to 255.
+ *
+ * `blockLuma` in the desktop spec reads the fill's declared colour. This reads
+ * the pixels, because the fill is not the only ink in the box: the waveform is
+ * drawn over it and does not follow the level, so what the eye actually gets
+ * is the two together.
+ */
+async function blockInk(page: Page, regionId: string): Promise<number> {
+  const shot = await region(page, regionId).screenshot();
+  return page.evaluate(async (b64) => {
+    const img = new Image();
+    img.src = `data:image/png;base64,${b64}`;
+    await img.decode();
+    const canvas = document.createElement("canvas");
+    canvas.width = img.width;
+    canvas.height = img.height;
+    const ctx = canvas.getContext("2d")!;
+    ctx.drawImage(img, 0, 0);
+    const data = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+    let sum = 0;
+    for (let i = 0; i < data.length; i += 4) {
+      sum += 0.2126 * data[i] + 0.7152 * data[i + 1] + 0.0722 * data[i + 2];
+    }
+    return (sum * 4) / data.length;
+  }, shot.toString("base64"));
+}
+
+test("weight is read off the block as it is really drawn, not off the fill alone: silence, unity and the loudest are three different amounts of ink", async ({
+  page,
+  request,
+}) => {
+  const { hash } = await firstSound(request);
+  // The same sound at three levels, side by side, each long enough that the
+  // waveform inside it is most of what the eye gets.
+  const put = await request.put(`/api/projects/${PROJECT}/collage`, {
+    data: {
+      regions: [
+        { ...regionRow("r1", hash, 0, 2, 6), gain: 0 },
+        { ...regionRow("r2", hash, 1, 2, 6), gain: 1 },
+        { ...regionRow("r3", hash, 2, 2, 6), gain: 2 },
+      ],
+    },
+  });
+  expect(put.ok()).toBe(true);
+  await page.goto("/collage");
+  await expect(page.getByTestId("region")).toHaveCount(3);
+
+  const quiet = await blockInk(page, "r1");
+  const unity = await blockInk(page, "r2");
+  const loud = await blockInk(page, "r3");
+  expect(quiet, "a silent block is not darker than an untouched one, as it is drawn").toBeLessThan(unity);
+  expect(unity, "the loudest block is not lighter than an untouched one, as it is drawn").toBeLessThan(loud);
+  // Each level is a plainly different amount of ink on the glass, not a
+  // difference that only a colour picker can find. A twelfth of the span is
+  // about the smallest step a phone held at arm's length will show.
+  expect(unity - quiet).toBeGreaterThan((loud - quiet) / 12);
+  expect(loud - unity).toBeGreaterThan((loud - quiet) / 12);
+
+  // The canvas behind them, for scale: whatever the level, a block is a block
+  // and can still be found and taken up.
+  const ground = await page.evaluate(() => {
+    const canvas = document.querySelector('[data-testid="collage-canvas"]') ?? document.body;
+    const parts = getComputedStyle(canvas as HTMLElement).backgroundColor.match(/[\d.]+/g)!.map(Number);
+    return 0.2126 * parts[0] + 0.7152 * parts[1] + 0.0722 * parts[2];
+  });
+  expect(quiet, "a silent block disappeared into the canvas").toBeGreaterThan(ground);
+});
+
+test("switching mode under a balancing thumb writes nothing and leaves the level where the file has it", async ({
+  page,
+  request,
+}) => {
+  const { hash } = await firstSound(request);
+  const put = await request.put(`/api/projects/${PROJECT}/collage`, {
+    data: { regions: [regionRow("r1", hash, 0, 10, 4)] },
+  });
+  expect(put.ok()).toBe(true);
+  await page.goto("/collage");
+  await takeUp(page, "r1");
+  await page.getByTestId("collage-balance").tap();
+
+  let writes = 0;
+  page.on("request", (r) => {
+    if (r.method() === "PUT" && r.url().includes("/collage")) writes += 1;
+  });
+  const grab = region(page, "r1").getByTestId("region-grab");
+  await thumbAcross(page, grab, GAIN_SPAN_PX / 2, false);
+  await expect(region(page, "r1")).toHaveAttribute("data-gain", "2");
+
+  // A second thumb on the snip button while the first is still on the block.
+  // The thumb that started the drag is not the one that pressed the button,
+  // so the drag is let go of rather than applied.
+  await page.getByTestId("collage-snip").tap();
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-mode", "snip");
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-balancing", "false");
+  await expect(region(page, "r1")).toHaveAttribute("data-gain", "1");
+  await page.waitForTimeout(300);
+  expect(writes).toBe(0);
+  expect((await storedRegions(request)).find((r) => r.id === "r1")!.gain).toBe(1);
+});
+
+test("every target in the bar is on the screen once balance is in it, undo included", async ({
+  page,
+  request,
+}) => {
+  const { hash } = await firstSound(request);
+  const put = await request.put(`/api/projects/${PROJECT}/collage`, {
+    data: { regions: [regionRow("r1", hash, 0, 10, 4)] },
+  });
+  expect(put.ok()).toBe(true);
+  await page.goto("/collage");
+  await takeUp(page, "r1");
+  await page.getByTestId("collage-balance").tap();
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-mode", "balance");
+
+  // Undo only exists once there is something to take back, so make one
+  // balance first. That is also when the row goes from four targets to five.
+  await thumbAcross(page, region(page, "r1").getByTestId("region-grab"), GAIN_SPAN_PX / 4);
+  await expect(page.getByTestId("collage-save")).toHaveAttribute("data-state", "saved");
+  await expect(page.getByTestId("collage-undo")).toHaveAttribute("data-depth", "1");
+
+  // Balance is the fifth target in a row that held four. Undo is the last of
+  // them and the one that matters most: it is the way back from a held
+  // whole-region snip, and a thumb cannot reach what is under the fold.
+  const viewport = page.viewportSize()!;
+  for (const name of ["collage-play", "collage-snip", "collage-stretch", "collage-balance", "collage-undo"]) {
+    const box = (await page.getByTestId(name).boundingBox())!;
+    expect(box, `${name} is not on the screen at all`).toBeTruthy();
+    expect(box.height, `${name} is not a thumb tall`).toBeGreaterThanOrEqual(44);
+    expect(box.width, `${name} is not a thumb wide`).toBeGreaterThanOrEqual(44);
+    expect(box.y + box.height, `${name} runs off the bottom of the phone`).toBeLessThanOrEqual(viewport.height + 1);
+    expect(box.x + box.width, `${name} runs off the side of the phone`).toBeLessThanOrEqual(viewport.width + 1);
+    expect(box.x, `${name} starts off the side of the phone`).toBeGreaterThanOrEqual(-1);
+  }
+
+  // And the same with the bar at its tallest: a wall message is two lines.
+  const grab = region(page, "r1").getByTestId("region-grab");
+  await thumbAcross(page, grab, -400, false);
+  await expect(page.getByTestId("collage-mode")).toHaveAttribute("data-bound", "quiet");
+  const undo = (await page.getByTestId("collage-undo").boundingBox())!;
+  expect(undo.y + undo.height, "undo went under the fold once the bar said a wall").toBeLessThanOrEqual(
+    viewport.height + 1,
+  );
+  const held = (await grab.boundingBox())!;
+  await touch(grab, "pointerup", held.x, held.y + held.height / 2);
 });

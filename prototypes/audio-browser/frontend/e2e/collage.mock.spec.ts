@@ -3649,6 +3649,424 @@ test("the mix bus saturates: the curve is the signal below its knee, never leave
   }
 });
 
+/**
+ * Every sample worth asking the browser about below the knee.
+ *
+ * The table's own points, where the answer is a lookup and no interpolation;
+ * the middle of every cell, where the interpolation is worked hardest; a dense
+ * sweep that lands wherever it lands; and the handful of exact values the
+ * arithmetic turns on — the knee itself, the last table point under it, and the
+ * cell those two share, which is the only cell below the knee that is not a
+ * straight line.
+ */
+function belowTheKnee(): number[] {
+  const xs: number[] = [0, 0.8, -0.8, 0.5, -0.5, 1e-4, -1e-4, 1e-7, -1e-7];
+  // Every table point below the knee, and the middle of every cell. The table
+  // steps by 1/1024 of an input, because its range is ±8 over 2^14 cells.
+  for (let k = -819; k <= 819; k += 1) {
+    xs.push(k / 1024, k / 1024 + 1 / 2048);
+  }
+  // The cell the knee falls inside: 819/1024 is the last point that is still
+  // the identity, and 820/1024 is already bent.
+  for (let i = 0; i <= 64; i += 1) xs.push(819 / 1024 + (i / 64) * (0.8 - 819 / 1024));
+  // A sweep with no respect for the table's grid.
+  for (let i = 0; i <= 40000; i += 1) xs.push((i / 20000 - 1) * 0.8);
+  // And arbitrary levels, so nothing here is a grid in disguise.
+  let seed = 12345;
+  for (let i = 0; i < 4000; i += 1) {
+    seed = (seed * 1103515245 + 12345) % 2147483648;
+    xs.push((seed / 2147483648) * 1.6 - 0.8);
+  }
+  return xs.filter((x) => Math.abs(x) <= 0.8);
+}
+
+/**
+ * Push samples through a graph the browser really builds and renders.
+ *
+ * Returns what came out of the bus and what came out of the same source with
+ * nothing between it and the destination, so the difference is the bus's and
+ * only the bus's. The voice's own gain is in the chain at unity, because the
+ * claim is about a region at unity and that node is part of its path.
+ */
+async function throughTheBus(
+  page: Page,
+  table: number[],
+  trim: number,
+  oversample: string,
+  xs: number[],
+): Promise<{ input: number[]; plain: number[]; shaped: number[] }> {
+  return page.evaluate(
+    async ({ table, trim, oversample, xs }) => {
+      const rate = 48000;
+      // A whole number of render quanta, so nothing is decided by the tail.
+      const n = Math.ceil(xs.length / 128) * 128;
+      const samples = new Float32Array(n);
+      samples.set(Float32Array.from(xs));
+      const render = async (shaped: boolean): Promise<number[]> => {
+        const ctx = new OfflineAudioContext(1, n, rate);
+        const buffer = ctx.createBuffer(1, n, rate);
+        buffer.copyToChannel(samples, 0);
+        const source = ctx.createBufferSource();
+        source.buffer = buffer;
+        let out: AudioNode = source;
+        if (shaped) {
+          const voice = ctx.createGain();
+          voice.gain.value = 1;
+          const cut = ctx.createGain();
+          cut.gain.value = trim;
+          const shaper = ctx.createWaveShaper();
+          shaper.curve = Float32Array.from(table);
+          shaper.oversample = oversample as OverSampleType;
+          source.connect(voice);
+          voice.connect(cut);
+          cut.connect(shaper);
+          out = shaper;
+        }
+        out.connect(ctx.destination);
+        source.start(0);
+        const rendered = await ctx.startRendering();
+        return Array.from(rendered.getChannelData(0).subarray(0, xs.length));
+      };
+      // The samples as the buffer really holds them: a level named in this
+      // test is a double, and what a browser plays is always a float.
+      const input = Array.from(samples.subarray(0, xs.length));
+      return { input, plain: await render(false), shaped: await render(true) };
+    },
+    { table, trim, oversample, xs },
+  );
+}
+
+/**
+ * How far a sample may move below the knee, and why it moves at all.
+ *
+ * The curve is the identity there and the table's points are exact, so the
+ * arithmetic on paper gives the sample back untouched. The browser's does not
+ * quite: a `WaveShaperNode` finds its place in the table by working out
+ * `(x + 1)` in **single** precision, and adding one to a small number in single
+ * precision throws away everything below one part in 2^24 of that one. The
+ * trim in front of the table is 1/8, so in the signal's own terms every sample
+ * lands on a grid whose step is `8 · 2^-23` above nothing and `8 · 2^-24`
+ * below it — the two sides of one, where a float's step changes — and no
+ * sample moves by more than half the wider of those, which is this number.
+ *
+ * Chromium and WebKit both do it, and the Web Audio specification does not say
+ * they may not: it writes the lookup down as arithmetic and names no precision.
+ * So this is a property of every table-based bus in a browser, not of this one,
+ * and it cannot be tuned away — a smaller table range would make the grid
+ * finer and the clamp past the range harder, and no range makes it vanish,
+ * because a float's precision is relative and the table's range is absolute.
+ *
+ * What it means in the ear: a distortion floor about 126 dB below full scale,
+ * flat, whatever the signal is doing. Two bits coarser than a 24-bit
+ * destination and thirty decibels under the noise floor of any real field
+ * recording. Inaudible — but not nothing, which is what "bit-exact" would
+ * mean, and the difference matters because it is the kind of claim that gets
+ * repeated.
+ */
+const BUS_BOUND = 8 * 2 ** -24;
+
+test("below the knee the bus is transparent to one part in two million of full scale, and no further", async ({
+  page,
+  request,
+}) => {
+  const set = await sounds(page);
+  await writeRegions(request, [regionRow("r1", set[0].hash, 0, 0, 0, 0.5, 0.05)]);
+  await listen(page);
+  await serveSlices(page);
+  await page.goto("/collage");
+  await page.getByTestId("collage-play").click();
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-piece", "playing");
+  const { points, trim, oversample } = await bus(page);
+  await page.getByTestId("collage-play").click();
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-piece", "idle");
+  expect(points).toBeTruthy();
+  expect(trim).toBe(0.125);
+  expect(oversample).toBe("none");
+
+  // The table the view really handed the node, the trim really in front of it,
+  // and a graph the browser really renders. Nothing here models the node,
+  // which is the whole point: the arithmetic inside it is not the arithmetic
+  // this file would do, and that is exactly what the old claim missed.
+  const xs = belowTheKnee();
+  const { input, plain, shaped } = await throughTheBus(page, points!, trim!, oversample!, xs);
+
+  // The source on its own is the signal, so anything the comparison finds
+  // belongs to the bus rather than to the way the samples got in.
+  let sourceMoved = 0;
+  for (let i = 0; i < input.length; i += 1) sourceMoved = Math.max(sourceMoved, Math.abs(plain[i] - input[i]));
+  expect(sourceMoved, "the source did not deliver the samples it was given").toBe(0);
+
+  let worst = 0;
+  let worstAt = 0;
+  for (let i = 0; i < input.length; i += 1) {
+    const off = Math.abs(shaped[i] - plain[i]);
+    if (off > worst) {
+      worst = off;
+      worstAt = input[i];
+    }
+  }
+  expect(
+    worst,
+    `a sample moved by ${worst} at ${worstAt}, which is further than the node's own rounding can account for`,
+  ).toBeLessThanOrEqual(BUS_BOUND);
+
+  // It is a grid, not a drift: whatever the level, a sample lands on the
+  // nearest point of the same grid and never on the far side of nothing. A
+  // sample quieter than half a step does land on nothing — the grid is
+  // absolute, so it has a bottom — and that bottom is 132 dB down.
+  let flipped: number | null = null;
+  for (let i = 0; i < input.length; i += 1) {
+    if (shaped[i] * input[i] < 0) flipped = input[i];
+  }
+  expect(flipped, `the bus flipped the sign of ${flipped}`).toBeNull();
+
+  // Digital silence stays digital silence. A region taken all the way down
+  // must leave nothing behind on the bus at all.
+  const quiet = shaped[input.indexOf(0)];
+  expect(Object.is(quiet, 0) || Object.is(quiet, -0), "the bus put something under silence").toBe(true);
+
+  // And where the bus really is exact: every point the table names. Those are
+  // this file's own arithmetic — powers of two all the way down — and they do
+  // come back untouched, which is what makes the rest of it a browser's
+  // rounding rather than a mistake in the curve.
+  const grid = Array.from({ length: 1639 }, (_, i) => (i - 819) / 1024);
+  const onGrid = await throughTheBus(page, points!, trim!, oversample!, grid);
+  let moved = 0;
+  let movedAt = 0;
+  for (let i = 0; i < grid.length; i += 1) {
+    if (Object.is(onGrid.shaped[i], onGrid.plain[i])) continue;
+    moved += 1;
+    movedAt = grid[i];
+  }
+  expect(moved, `${moved} of the table's own points came back changed, the last at ${movedAt}`).toBe(0);
+});
+
+test("oversampling would end the identity, which is why the bus does not ask for it", async ({
+  page,
+  request,
+}) => {
+  const set = await sounds(page);
+  await writeRegions(request, [regionRow("r1", set[0].hash, 0, 0, 0, 0.5, 0.05)]);
+  await listen(page);
+  await serveSlices(page);
+  await page.goto("/collage");
+  await page.getByTestId("collage-play").click();
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-piece", "playing");
+  const { points, trim } = await bus(page);
+  await page.getByTestId("collage-play").click();
+
+  // The same table, the same trim, the same samples: the only change is the
+  // filter pair oversampling puts around the lookup. If this passed unchanged
+  // too, `oversample: "none"` would be a preference rather than a reason.
+  const xs = belowTheKnee();
+  const { plain, shaped } = await throughTheBus(page, points!, trim!, "2x", xs);
+  let differing = 0;
+  for (let i = 0; i < plain.length; i += 1) if (!Object.is(shaped[i], plain[i])) differing += 1;
+  expect(differing, "oversampling left a quiet signal alone, so the reason given for not using it is not the reason").toBeGreaterThan(0);
+});
+
+test("the knee has no corner in the table itself: the step never jumps where the two pieces meet", async ({
+  page,
+  request,
+}) => {
+  const set = await sounds(page);
+  await writeRegions(request, [regionRow("r1", set[0].hash, 0, 0, 0, 0.5, 0.05)]);
+  await listen(page);
+  await serveSlices(page);
+  await page.goto("/collage");
+  await page.getByTestId("collage-play").click();
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-piece", "playing");
+  const { points } = await bus(page);
+  await page.getByTestId("collage-play").click();
+  const table = points!;
+
+  // The node draws straight lines between the points, so the slope of the
+  // curve it really makes is the difference between neighbours. A corner is a
+  // jump in that difference from one cell to the next. Over the whole table
+  // the largest jump must be a rounding error, not a step: a hard clip at the
+  // same place would jump by a whole cell's worth in one go.
+  const steps: number[] = [];
+  for (let i = 0; i < table.length - 1; i += 1) steps.push(table[i + 1] - table[i]);
+  const cell = 1 / 1024;
+  let jump = 0;
+  let jumpAt = 0;
+  for (let i = 0; i < steps.length - 1; i += 1) {
+    const change = Math.abs(steps[i + 1] - steps[i]);
+    if (change > jump) {
+      jump = change;
+      jumpAt = (i + 1) / 1024 - 8;
+    }
+  }
+  expect(jump / cell, `the slope jumped by ${jump / cell} of a cell at ${jumpAt}`).toBeLessThan(0.01);
+
+  // And the slope really is one on the way in to the knee and one on the way
+  // out of it, read off the table rather than off a model of it.
+  const at = (x: number) => table[Math.round((x + 8) * 1024)];
+  const below = (at(0.8) - at(0.8 - cell)) / cell;
+  const above = (at(0.8 + cell) - at(0.8)) / cell;
+  expect(below).toBeCloseTo(1, 6);
+  expect(above).toBeCloseTo(1, 3);
+});
+
+test("fifteen voices at the loudest balance allows, all on top of each other, reach the destination hard and not torn", async ({
+  page,
+  request,
+}) => {
+  const set = await sounds(page);
+  await writeRegions(request, [regionRow("r1", set[0].hash, 0, 0, 0, 0.5, 0.05)]);
+  await listen(page);
+  await serveSlices(page);
+  await page.goto("/collage");
+  await page.getByTestId("collage-play").click();
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-piece", "playing");
+  const { points, trim } = await bus(page);
+  await page.getByTestId("collage-play").click();
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-piece", "idle");
+
+  // The worst mix this view can be made to produce: every region cut from the
+  // same source, stamped at the same moment, every one of them taken all the
+  // way up. Fifteen voices at two, perfectly correlated, is a sum of thirty.
+  const result = await page.evaluate(
+    async ({ table, trim }) => {
+      const rate = 48000;
+      const n = 4096;
+      const tone = new Float32Array(n);
+      // Full scale, and a shape with both a smooth part and a hard edge, so
+      // the bus is asked about a peak and about a jump.
+      for (let i = 0; i < n; i += 1) {
+        tone[i] = i < n / 2 ? Math.sin((2 * Math.PI * 220 * i) / rate) : i % 2 ? 1 : -1;
+      }
+      const build = async (shaped: boolean, voices: number, level: number): Promise<Float32Array> => {
+        const ctx = new OfflineAudioContext(1, n, rate);
+        const buffer = ctx.createBuffer(1, n, rate);
+        buffer.copyToChannel(tone, 0);
+        let out: AudioNode;
+        if (shaped) {
+          const cut = ctx.createGain();
+          cut.gain.value = trim;
+          const shaper = ctx.createWaveShaper();
+          shaper.curve = Float32Array.from(table);
+          shaper.oversample = "none";
+          cut.connect(shaper);
+          shaper.connect(ctx.destination);
+          out = cut;
+        } else {
+          out = ctx.destination;
+        }
+        for (let voice = 0; voice < voices; voice += 1) {
+          const source = ctx.createBufferSource();
+          source.buffer = buffer;
+          const gain = ctx.createGain();
+          gain.gain.value = level;
+          source.connect(gain);
+          gain.connect(out);
+          source.start(0);
+        }
+        return (await ctx.startRendering()).getChannelData(0);
+      };
+      // The longest stretch a signal holds one value near its own top. A
+      // sine has one there already, at its turning point, so what matters is
+      // how much longer the bus makes it.
+      const flatnessOf = (wave: Float32Array): number => {
+        let top = 0;
+        for (let i = 0; i < n; i += 1) top = Math.max(top, Math.abs(wave[i]));
+        let longest = 0;
+        let run = 0;
+        for (let i = 1; i < n; i += 1) {
+          if (wave[i] === wave[i - 1] && Math.abs(wave[i]) > 0.9 * top) {
+            run += 1;
+            longest = Math.max(longest, run);
+          } else {
+            run = 0;
+          }
+        }
+        return longest;
+      };
+      const measure = (plain: Float32Array, shaped: Float32Array) => {
+        let plainPeak = 0;
+        let peak = 0;
+        let overOne = 0;
+        let sharpened = 0;
+        const flat = flatnessOf(shaped);
+        const wasFlat = flatnessOf(plain);
+        for (let i = 0; i < n; i += 1) {
+          plainPeak = Math.max(plainPeak, Math.abs(plain[i]));
+          peak = Math.max(peak, Math.abs(shaped[i]));
+          if (Math.abs(shaped[i]) > 1) overOne += 1;
+          // The bus never makes an edge that was not already in the sum. The
+          // curve's steepest slope is one, so no step out may be bigger than
+          // the step in — tearing is a jump the bus *added*, and there is none.
+          if (i > 0) {
+            const stepIn = Math.abs(plain[i] - plain[i - 1]);
+            const stepOut = Math.abs(shaped[i] - shaped[i - 1]);
+            if (stepOut > stepIn + 1e-6) sharpened += 1;
+          }
+        }
+        return { plainPeak, peak, overOne, flat, wasFlat, sharpened };
+      };
+
+      const twoPlain = await build(false, 2, 1);
+      const two = measure(twoPlain, await build(true, 2, 1));
+      const hardPlain = await build(false, 15, 2);
+      const hard = measure(hardPlain, await build(true, 15, 2));
+
+      // Where the curve stops telling one level from another: the first input
+      // above the knee whose neighbours in the table come back as the same
+      // float. Past it the bus is a ceiling rather than a drive, and how far
+      // past the knee that is is the whole of what "gentle" means here.
+      let ceiling = Infinity;
+      for (let j = 8192; j < table.length - 1; j += 1) {
+        if (table[j + 1] === table[j]) {
+          ceiling = j / 1024 - 8;
+          break;
+        }
+      }
+      return { two, hard, ceiling };
+    },
+    { table: points!, trim: trim! },
+  );
+
+  // Two regions at unity, on top of each other: a sum of two, which is the
+  // everyday overlap this view makes and the case the bus exists for. Past
+  // full scale, and it comes back inside without flattening a single sample.
+  expect(result.two.plainPeak).toBeGreaterThan(1.9);
+  expect(result.two.overOne, "an ordinary overlap left the rails").toBe(0);
+  // At the very top of that sum the curve's slope is about one in forty
+  // thousand, so the two samples either side of the peak come back as one
+  // float. That is a tie at a turning point, not a plateau, and it is the
+  // only one: everything else in the wave still moves.
+  expect(
+    result.two.flat,
+    `an ordinary overlap came out with a plateau ${result.two.flat} samples long, against ${result.two.wasFlat} going in`,
+  ).toBeLessThanOrEqual(1);
+  expect(result.two.sharpened, "the bus made an edge sharper than the one it was given").toBe(0);
+
+  // And this is why: the curve runs out of room fast. Above this input two
+  // neighbouring points of the table are the same float, so the bus cannot
+  // tell those levels apart at all. It is a knee at 0.8 and a ceiling not far
+  // above — a limiter more than a drive — which is worth knowing when the
+  // range a thumb can ask for goes to two.
+  expect(result.ceiling, "the curve is a ceiling well below the loudest a region may be").toBeLessThan(2);
+  expect(result.ceiling, "the curve stopped moving before the knee did").toBeGreaterThan(0.8);
+
+  // And the worst mix the gesture allows: every region cut from one source,
+  // stamped at one moment, every one of them taken all the way up. Thirty
+  // times over the rail, which a device would cut off square.
+  expect(result.hard.plainPeak, "the worst mix is no longer past full scale, so this proves nothing").toBeGreaterThan(20);
+  expect(result.hard.overOne, `${result.hard.overOne} samples left the rails`).toBe(0);
+  expect(result.hard.peak).toBeLessThanOrEqual(1);
+  expect(result.hard.sharpened, "the bus made an edge sharper than the one it was given").toBe(0);
+  // It does sit at the rail there, and for a long time: thirty into a curve
+  // that is within a millionth of one by eight is a square wave, and that is
+  // what "push more in and it gets harder" means at the end of the range.
+  // Nothing on the surface says so — there is no meter, by design — so the
+  // only way to know is that it sounds like that.
+  expect(
+    result.hard.flat,
+    "the worst mix the gesture allows no longer sits at the rail",
+  ).toBeGreaterThan(result.hard.wasFlat);
+});
+
 test("a level another tool wrote past the ceiling may come down and not go further up", async ({
   page,
   request,
@@ -3715,6 +4133,53 @@ test("balancing a region while the piece plays moves its level under the ear ins
   expect((await heard(page)).stops.length).toBeGreaterThan(stopped);
 
   await page.getByTestId("collage-play").click();
+});
+
+test("undoing a balance while the piece plays takes the level back under the ear, and undoing a cut still goes quiet", async ({
+  page,
+  request,
+}) => {
+  const set = await sounds(page);
+  const hash = set[0].hash;
+  await writeRegions(request, [
+    regionRow("r1", hash, 0, 0, 0, 0.6, 0.05),
+    regionRow("r2", hash, 1, 0, 0, 0.8, 0.05),
+  ]);
+  await listen(page);
+  await serveSlices(page);
+  await page.goto("/collage");
+
+  // Balance one region, then play, then undo the balance under the ear. Undo
+  // is a change like any other, so it must follow the same line: a level goes
+  // back by ramping, and the piece carries on.
+  await balanceDrag(page, "r1", -GAIN_SPAN_PX / 4);
+  await expect(page.getByTestId("collage-save")).toHaveAttribute("data-state", "saved");
+  await page.getByTestId("collage-play").click();
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-piece", "playing");
+  const scheduled = (await heard(page)).pieces.length;
+  const stopped = (await heard(page)).stops.length;
+
+  await page.getByTestId("collage-undo").click();
+  await expect(region(page, "r1")).toHaveAttribute("data-gain", "1");
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-piece", "playing");
+  const back = await heard(page);
+  expect(back.pieces.length, "an undone balance rescheduled the piece").toBe(scheduled);
+  expect(back.stops.length, "an undone balance stopped a voice").toBe(stopped);
+  expect(back.ramps.some((to) => Math.abs(to - 1) < 1e-6), "the level was not taken back under the ear").toBe(true);
+  await expect(page.getByTestId("collage-hint")).toHaveCount(0);
+
+  // And an undo that puts material back is still a change to the material:
+  // that region leaves the pass and the bar says so, exactly as the edit did.
+  await page.getByTestId("collage-mode").click();
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-mode", "trim");
+  await drag(page, "r2", "end", -20);
+  await expect(page.getByTestId("collage-hint")).toContainText("gone quiet");
+  const cut = (await heard(page)).stops.length;
+  await page.getByTestId("collage-undo").click();
+  await expect(page.getByTestId("collage-hint")).toContainText("gone quiet");
+  expect((await heard(page)).stops.length).toBeGreaterThanOrEqual(cut);
+  await page.getByTestId("collage-play").click();
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-piece", "idle");
 });
 
 test("fifteen voices at the loudest balance allows still sum through one shaper into one destination", async ({
