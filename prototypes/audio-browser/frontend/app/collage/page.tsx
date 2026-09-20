@@ -22,6 +22,11 @@
  *
  * The geometry is in `lib/collage.ts` and is pure. This file is the shell
  * around it: fetches, the audio context, the pointer, and the DOM.
+ *
+ * And a transport, which is where the four gestures were going: play sounds
+ * every region at its own moment, at its own rate, mixed, and a line moves
+ * down the canvas while it does. Playing is not a mode — trim, snip and
+ * stretch stay where they were while the piece sounds.
  */
 
 import Link from "next/link";
@@ -43,6 +48,8 @@ import {
 } from "@/lib/api";
 import {
   HANDLE_H,
+  PX_PER_S,
+  TOP_PAD,
   canvasSize,
   collageProject,
   dragOffsetPx,
@@ -64,6 +71,7 @@ import {
   type End,
   type StretchStop,
 } from "@/lib/collage";
+import { CollagePlayer } from "@/lib/collagePlayer";
 import { formatCount } from "@/lib/format";
 import type { Region } from "@/lib/project";
 import { MIN_GAP_S, skippable } from "@/lib/silence";
@@ -107,6 +115,17 @@ const TAP_SLOP = 8;
  * Friction, not a question: nothing opens, and undo still stands behind it.
  */
 const WHOLE_HOLD_MS = 600;
+
+/**
+ * What the bar says when an edit takes a region out of the pass being heard.
+ *
+ * The piece is scheduled once, at the tap, so a region cut, snipped,
+ * stretched or undone while it sounds stops instead of carrying on as
+ * material that no longer exists. On the canvas that is invisible: a block
+ * that went quiet looks the same as a block that finished. Without this line
+ * the rule reads as a fault, and the fix — play again — is not obvious.
+ */
+const QUIET_HINT = "that change has gone quiet: it is heard the next time you play";
 
 /** What is known about one source, for drawing the regions cut from it. */
 interface SourceData {
@@ -153,6 +172,17 @@ interface Drag {
  * handle shows, and dragging it moves the region's rate, not its cut.
  */
 type Mode = "trim" | "snip" | "stretch";
+
+/**
+ * What the transport is doing.
+ *
+ * `loading` is the gap between the tap and the first sound, while every
+ * region's first piece is fetched. It is a state and not a silence: a piece
+ * that cannot start within a breath says so rather than starting late.
+ * Playing is not one of the modes above — the gestures stay available while
+ * the piece sounds.
+ */
+type Piece = "idle" | "loading" | "playing";
 
 /** A snip in progress: the span being cut out, in pixels down the region's box. */
 interface SnipBand {
@@ -329,10 +359,47 @@ export default function CollagePage() {
   const [drag, setDrag] = useState<Drag | null>(null);
   const [mode, setMode] = useState<Mode>("trim");
   const [band, setBand] = useState<SnipBand | null>(null);
+  const [piece, setPiece] = useState<Piece>("idle");
+  /**
+   * Which way the playhead has gone off the window, or null while it is on it.
+   *
+   * HW011 is thirty-six minutes, which is twenty-one thousand pixels; the line
+   * leaves the bottom of a phone in under a minute. The canvas is never moved
+   * for it — a canvas that scrolled itself would take the region out from
+   * under a thumb in the middle of a trim — so instead there is a way back to
+   * it, offered only while it is gone and taken only when it is tapped.
+   */
+  const [follow, setFollow] = useState<"above" | "below" | null>(null);
 
   const spaceRef = useRef<HTMLDivElement | null>(null);
   const canvasRef = useRef<HTMLDivElement | null>(null);
   const sliceRef = useRef<SlicePlayer | null>(null);
+  const pieceRef = useRef<CollagePlayer | null>(null);
+  const playheadRef = useRef<HTMLSpanElement | null>(null);
+  /**
+   * Where the playhead is, in seconds from the top of the piece.
+   *
+   * Kept in a ref and written straight to the element's transform, because
+   * the line moves every frame and the canvas it moves over holds every
+   * region's waveform. A render that happened mid-play — a trim, a stamp —
+   * reads it back, so the line is drawn where it already was.
+   */
+  const elapsedRef = useRef(0);
+  /** What `follow` holds, read from the frame loop without waiting for a render. */
+  const followRef = useRef<"above" | "below" | null>(null);
+  /**
+   * What went wrong with the mix this pass, by region.
+   *
+   * `dropped` is a region whose slice the server would not give, with the
+   * reason it gave; `late` is a region whose slice arrived after its moment.
+   * Both are per region and both are counted, because "one region dropped
+   * out" said over a piece that lost nine of fifteen is a lie a phone gives
+   * no other way of catching.
+   */
+  const troubleRef = useRef<{ dropped: Map<string, string>; late: Set<string> }>({
+    dropped: new Map(),
+    late: new Set(),
+  });
   /** The arrangement as the pointer handlers see it, without re-binding them. */
   const regionsRef = useRef<Region[]>([]);
   regionsRef.current = regions;
@@ -456,14 +523,51 @@ export default function CollagePage() {
     }
   }, [projectId]);
 
+  /**
+   * A region whose material changed goes quiet for the rest of the pass.
+   *
+   * The piece is scheduled once, when play is tapped, and editing does not
+   * reschedule it: a region cut or slowed under the ear would have to be
+   * stopped and restarted mid-sound, and the rest of the mix would carry on
+   * around the seam. So the rule is the one the single-region gesture already
+   * uses — the sound being changed stops — applied to one voice of the mix
+   * instead of to all of it. Everything untouched plays on. What was edited
+   * is heard on the next play, which is one tap away.
+   */
+  const silenceEdited = useCallback((was: readonly Region[], next: readonly Region[]) => {
+    const player = pieceRef.current;
+    if (!player) return;
+    let quieted = false;
+    for (const before of was) {
+      const now = next.find((r) => r.id === before.id);
+      if (
+        now &&
+        now.hash === before.hash &&
+        now.start_s === before.start_s &&
+        now.end_s === before.end_s &&
+        now.at_s === before.at_s &&
+        now.rate === before.rate &&
+        now.gain === before.gain
+      ) {
+        continue;
+      }
+      if (player.silence(before.id)) quieted = true;
+    }
+    // A region that goes quiet looks exactly like a region that has ended,
+    // and on a phone the block that stopped is usually under the thumb that
+    // stopped it. Saying it is the difference between a rule and a fault.
+    if (quieted) setHint(QUIET_HINT);
+  }, []);
+
   const commitRegions = useCallback(
     (next: Region[]) => {
+      silenceEdited(regionsRef.current, next);
       setRegions(next);
       regionsRef.current = next;
       latestRef.current = next;
       void flush();
     },
-    [flush],
+    [flush, silenceEdited],
   );
 
   /** A change: what was there goes on the undo stack, and the new arrangement is written. */
@@ -506,11 +610,11 @@ export default function CollagePage() {
         onError: (message) => {
           setPlayingId(null);
           setProgress(0);
-          setPlayError(message);
+          setPlayError(`could not play that region: ${message}`);
         },
       });
       if (!started) {
-        setPlayError("this browser cannot play audio this way");
+        setPlayError("could not play that region: this browser cannot play audio this way");
         return;
       }
       setPlayingId(region.id);
@@ -519,12 +623,145 @@ export default function CollagePage() {
     [playingId, player, stopRegion],
   );
 
-  // Leaving the view stops the region and releases the audio context. The
-  // shared player is left alone; it belongs to every view.
+  /* Playing the piece ------------------------------------------------------- */
+
+  const stopPiece = useCallback(() => {
+    pieceRef.current?.stop();
+    elapsedRef.current = 0;
+    followRef.current = null;
+    setFollow(null);
+    setPiece("idle");
+    // Whatever the last pass went quiet about is over with the pass.
+    setHint((was) => (was === QUIET_HINT ? null : was));
+  }, []);
+
+  /**
+   * Bring the canvas to the line, once and only when asked.
+   *
+   * The line is put in the middle of the window rather than at its edge, so
+   * what is about to sound is in view as well as what just did.
+   */
+  const goToLine = useCallback(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const y = TOP_PAD + elapsedRef.current * PX_PER_S;
+    const furthest = Math.max(0, canvas.scrollHeight - canvas.clientHeight);
+    canvas.scrollTo({ top: Math.max(0, Math.min(furthest, y - canvas.clientHeight / 2)) });
+    followRef.current = null;
+    setFollow(null);
+  }, []);
+
+  /**
+   * What the mix lost this pass, said in one line and counted.
+   *
+   * A region that dropped out is silent for good; a region that fell behind
+   * is sounding, late. Neither is visible on the canvas — a region that goes
+   * quiet looks exactly like a region that ended — so both are said here.
+   */
+  const sayTrouble = useCallback(() => {
+    const { dropped, late } = troubleRef.current;
+    const many = (n: number) => (n === 1 ? "one region" : `${formatCount(n)} regions`);
+    const parts: string[] = [];
+    if (dropped.size > 0) {
+      const reason = Array.from(dropped.values()).pop();
+      parts.push(`${many(dropped.size)} dropped out of the mix: ${reason}`);
+    }
+    if (late.size > 0) {
+      parts.push(`${many(late.size)} fell behind the piece: the sound arrived after its moment, so it plays late.`);
+    }
+    setPlayError(parts.length > 0 ? parts.join(" · ") : null);
+  }, []);
+
+  /**
+   * Play the whole collage from the top, or stop it.
+   *
+   * Every region is scheduled at its own moment, at its own rate, through one
+   * destination that sums them. Play starts at the top; there is no play from
+   * a tapped point. The tap itself is the user gesture iOS requires, and the
+   * context is resumed inside it.
+   *
+   * One thing sounds at a time: a region being previewed, or a sound left
+   * playing in the picker, stops before the piece begins.
+   */
+  const togglePiece = useCallback(() => {
+    if (piece !== "idle") {
+      stopPiece();
+      return;
+    }
+    const playable = regionsRef.current.filter((region) => rowsByHash.has(region.hash));
+    if (playable.length === 0) {
+      setPlayError("nothing here can be played: the index does not resolve these sounds.");
+      return;
+    }
+    if (player.playing) player.toggle();
+    stopRegion();
+    setPlayError(null);
+    setHint((was) => (was === QUIET_HINT ? null : was));
+    if (!pieceRef.current) pieceRef.current = new CollagePlayer();
+    elapsedRef.current = 0;
+    followRef.current = null;
+    setFollow(null);
+    troubleRef.current = { dropped: new Map(), late: new Set() };
+    const started = pieceRef.current.play(playable, {
+      onStart: () => setPiece("playing"),
+      onElapsed: (elapsedS) => {
+        elapsedRef.current = elapsedS;
+        const line = playheadRef.current;
+        if (line) line.style.transform = `translateY(${TOP_PAD + elapsedS * PX_PER_S}px)`;
+        // Whether the line is still on the window. Read every frame and
+        // written only when the answer changes, so a scroll under a thumb is
+        // noticed at once and nothing re-renders while it is not.
+        const canvas = canvasRef.current;
+        if (canvas) {
+          const y = TOP_PAD + elapsedS * PX_PER_S;
+          const where =
+            y < canvas.scrollTop ? "above" : y > canvas.scrollTop + canvas.clientHeight ? "below" : null;
+          if (where !== followRef.current) {
+            followRef.current = where;
+            setFollow(where);
+          }
+        }
+      },
+      // The piece has played out. The line goes back to the top by leaving:
+      // there is nothing on the canvas again but the regions.
+      onEnd: () => {
+        elapsedRef.current = 0;
+        followRef.current = null;
+        setFollow(null);
+        setPiece("idle");
+      },
+      onError: (message) => {
+        elapsedRef.current = 0;
+        followRef.current = null;
+        setFollow(null);
+        setPiece("idle");
+        setPlayError(`could not play the collage: ${message}`);
+      },
+      onRegionError: (id, message) => {
+        troubleRef.current.dropped.set(id, message);
+        sayTrouble();
+      },
+      onRegionLate: (id) => {
+        troubleRef.current.late.add(id);
+        sayTrouble();
+      },
+    });
+    if (!started) {
+      setPlayError("this browser cannot play audio this way");
+      return;
+    }
+    setPiece("loading");
+  }, [piece, player, rowsByHash, sayTrouble, stopPiece, stopRegion]);
+
+  // Leaving the view stops the region and the piece, and releases both audio
+  // contexts, so nothing keeps sounding from a view that is gone. The shared
+  // player is left alone; it belongs to every view.
   useEffect(() => {
     return () => {
       sliceRef.current?.close();
       sliceRef.current = null;
+      pieceRef.current?.close();
+      pieceRef.current = null;
     };
   }, []);
 
@@ -560,6 +797,18 @@ export default function CollagePage() {
     tapRef.current = null;
   }, []);
 
+  /**
+   * Open the picker, and stop the piece first.
+   *
+   * The picker is a sheet over the whole screen, and tapping a row in it
+   * plays that sound. One thing sounds at a time, and auditioning a source
+   * against a piece still sounding under the sheet is two.
+   */
+  const openPicker = useCallback(() => {
+    stopPiece();
+    setPickerOpen(true);
+  }, [stopPiece]);
+
   /* Stamping ---------------------------------------------------------------- */
 
   const onCanvasTap = useCallback(
@@ -580,7 +829,7 @@ export default function CollagePage() {
       if (!chosen) {
         if (wasUp) return;
         setHint("choose a sound first, then tap the blank to stamp it");
-        setPickerOpen(true);
+        openPicker();
         return;
       }
       const rect = space.getBoundingClientRect();
@@ -609,7 +858,7 @@ export default function CollagePage() {
         if (left !== canvas.scrollLeft || top !== canvas.scrollTop) canvas.scrollTo({ left, top });
       }
     },
-    [detail, chosen, regions, selected, mode, change],
+    [detail, chosen, regions, selected, mode, change, openPicker],
   );
 
   const undo = useCallback(() => {
@@ -1106,6 +1355,7 @@ export default function CollagePage() {
       data-dragging={drag !== null}
       data-mode={mode}
       data-snipping={band !== null}
+      data-piece={piece}
     >
       <div className="collage-head">
         <span className="collage-name" data-testid="collage-project">
@@ -1133,254 +1383,301 @@ export default function CollagePage() {
 
       {playError ? (
         <div className="error collage-note" data-testid="collage-play-error">
-          could not play that region: {playError}
+          {playError}
         </div>
       ) : null}
 
       {/* The canvas. Genuinely empty until something is stamped: no lanes, no
-          ticks. It scrolls down through time and across through tracks. */}
-      <div className="collage-canvas" ref={canvasRef} data-testid="collage-canvas">
-        <div
-          className="collage-space"
-          ref={spaceRef}
-          data-testid="collage-space"
-          style={{ width: size.width, height: size.height, minWidth: "100%", minHeight: "100%" }}
-          onPointerDown={beginTap}
-          onPointerUp={(event) => {
-            if (endTap(event)) onCanvasTap(event.clientX, event.clientY);
-          }}
-          onPointerCancel={dropTap}
-        >
-          {regions.map((region) => {
-            const box = regionBox(region);
-            const row = rowsByHash.get(region.hash);
-            const source = sources.get(region.hash);
-            const playing = playingId === region.id;
-            const isSelectedRegion = selection?.id === region.id;
-            const grab = grabZone(region, regions);
-            const zones = handleZones(region);
-            const dragging = drag && drag.id === region.id ? drag : null;
-            const offset = dragging ? dragOffsetPx(region, dragging.preview, dragging.end) : 0;
-            const snipBand = band && band.id === region.id ? band : null;
-            // In snip mode a region's grab is where a snip begins, and only
-            // there: the flanks and the blank still scroll, as they do under
-            // a raised handle in trim mode.
-            const snippable = mode === "snip" && row !== undefined;
-            const name = row ? row.filename : "a sound the index does not resolve";
-            // As many lines of the name as the block has room for. A block
-            // too short for one line has no label; the name is still spoken.
-            const lines = Math.max(1, Math.floor((box.height - 12) / 14.3));
-            // A `div` with the button role, not a `button`: WebKit will not
-            // stick a label inside a button, and the label has to stay in view
-            // on a region taller than the screen.
-            return (
-              <div
-                key={region.id}
-                role="button"
-                tabIndex={0}
-                className={`region${playing ? " playing" : ""}${row ? "" : " unresolved"}${isSelectedRegion ? " selected" : ""}`}
-                data-testid="region"
-                data-region-id={region.id}
-                data-track={region.track}
-                data-hash={region.hash}
-                data-playing={playing}
-                data-selected={isSelectedRegion}
-                aria-label={row ? `${playing ? "stop" : "play"} ${row.filename}` : name}
-                aria-pressed={playing}
-                style={{
-                  left: box.left,
-                  top: box.top,
-                  width: box.width,
-                  height: box.height,
-                  ["--hue" as string]: hueFor(region.hash),
-                }}
-                onPointerDown={(event) => {
-                  event.stopPropagation();
-                  beginTap(event);
-                  if (snippable && (event.target as HTMLElement).dataset.testid === "region-grab") {
-                    startSnip(event, region);
-                  }
-                }}
-                onPointerMove={moveSnip}
-                onPointerUp={(event) => {
-                  event.stopPropagation();
-                  const s = snipRef.current;
-                  if (s && s.pointerId === event.pointerId) {
-                    // A thumb that did not travel is a tap, whatever mode is
-                    // on: it plays, and nothing is cut. Travel counts the
-                    // canvas scrolling under a thumb held at its edge.
-                    const scrolled = (canvasRef.current?.scrollTop ?? 0) - s.originScroll;
-                    const travelled = Math.abs(event.clientY - s.originY + scrolled) >= TAP_SLOP;
-                    endSnip(travelled);
-                    if (travelled) {
-                      dropTap();
-                      return;
-                    }
-                  }
-                  if (!endTap(event)) return;
-                  // A tap takes the region up and plays it. Taking it up
-                  // again keeps whichever handle was already selected.
-                  setSelected((was) => (was?.id === region.id ? was : { id: region.id, end: null }));
-                  if (row) toggleRegion(region);
-                }}
-                onPointerCancel={(event) => {
-                  event.stopPropagation();
-                  if (snipRef.current?.pointerId === event.pointerId) endSnip(false);
-                  dropTap();
-                }}
-                onKeyDown={(event) => {
-                  if (event.key !== "Enter" && event.key !== " ") return;
-                  event.preventDefault();
-                  event.stopPropagation();
-                  setSelected((was) => (was?.id === region.id ? was : { id: region.id, end: null }));
-                  if (row) toggleRegion(region);
-                }}
-              >
-                {/* The grab: where a thumb can take hold of a region whose
-                    box is thinner than a thumb. A hit area, not a drawing;
-                    it never crosses the middle of the gap to a neighbour. */}
-                <span
-                  className="region-grab"
-                  data-testid="region-grab"
+          ticks. It scrolls down through time and across through tracks. The
+          stage around it exists only so the way back to the line can sit over
+          it without scrolling away with it. */}
+      <div className="collage-stage">
+        <div className="collage-canvas" ref={canvasRef} data-testid="collage-canvas">
+          <div
+            className="collage-space"
+            ref={spaceRef}
+            data-testid="collage-space"
+            style={{ width: size.width, height: size.height, minWidth: "100%", minHeight: "100%" }}
+            onPointerDown={beginTap}
+            onPointerUp={(event) => {
+              if (endTap(event)) onCanvasTap(event.clientX, event.clientY);
+            }}
+            onPointerCancel={dropTap}
+          >
+            {/* Where the piece has got to. A line, not a number, and only while
+                something is sounding: with the piece stopped the canvas holds
+                nothing but its regions again. It moves down at the piece's own
+                rate, so a region slowed to a quarter — four times as tall for
+                the same material — takes four times as long to cross. */}
+            {piece === "playing" ? (
+              <span
+                className="collage-playhead"
+                data-testid="collage-playhead"
+                ref={playheadRef}
+                style={{ transform: `translateY(${TOP_PAD + elapsedRef.current * PX_PER_S}px)` }}
+                aria-hidden="true"
+              />
+            ) : null}
+
+            {regions.map((region) => {
+              const box = regionBox(region);
+              const row = rowsByHash.get(region.hash);
+              const source = sources.get(region.hash);
+              const playing = playingId === region.id;
+              const isSelectedRegion = selection?.id === region.id;
+              const grab = grabZone(region, regions);
+              const zones = handleZones(region);
+              const dragging = drag && drag.id === region.id ? drag : null;
+              const offset = dragging ? dragOffsetPx(region, dragging.preview, dragging.end) : 0;
+              const snipBand = band && band.id === region.id ? band : null;
+              // In snip mode a region's grab is where a snip begins, and only
+              // there: the flanks and the blank still scroll, as they do under
+              // a raised handle in trim mode.
+              const snippable = mode === "snip" && row !== undefined;
+              const name = row ? row.filename : "a sound the index does not resolve";
+              // As many lines of the name as the block has room for. A block
+              // too short for one line has no label; the name is still spoken.
+              const lines = Math.max(1, Math.floor((box.height - 12) / 14.3));
+              // A `div` with the button role, not a `button`: WebKit will not
+              // stick a label inside a button, and the label has to stay in view
+              // on a region taller than the screen.
+              return (
+                <div
+                  key={region.id}
+                  role="button"
+                  tabIndex={0}
+                  className={`region${playing ? " playing" : ""}${row ? "" : " unresolved"}${isSelectedRegion ? " selected" : ""}`}
+                  data-testid="region"
+                  data-region-id={region.id}
+                  data-track={region.track}
+                  data-hash={region.hash}
+                  data-playing={playing}
+                  data-selected={isSelectedRegion}
+                  aria-label={row ? `${playing ? "stop" : "play"} ${row.filename}` : name}
+                  aria-pressed={playing}
                   style={{
-                    top: grab.top,
-                    height: grab.height,
-                    // In snip mode a thumb on the grab is snipping, never
-                    // scrolling. In trim mode it scrolls, and a tap plays.
-                    touchAction: snippable ? "none" : undefined,
+                    left: box.left,
+                    top: box.top,
+                    width: box.width,
+                    height: box.height,
+                    ["--hue" as string]: hueFor(region.hash),
                   }}
-                  aria-hidden="true"
-                />
-                {source ? (
-                  <RegionWave
-                    pairs={source.pairs}
-                    durationS={row?.duration_s ?? null}
-                    startS={region.start_s}
-                    endS={region.end_s}
-                    silence={source.silence}
-                    spans={source.spans}
-                    width={box.width}
-                    height={box.height}
-                  />
-                ) : null}
-                {playing ? (
-                  <span className="region-progress" style={{ height: `${progress * 100}%` }} aria-hidden="true" />
-                ) : null}
-                {box.height >= LABEL_MIN_H ? (
-                  <span className="region-label">
-                    <span className="region-label-text" style={{ WebkitLineClamp: lines }}>
-                      {row ? row.filename : "not in the index"}
-                    </span>
-                  </span>
-                ) : null}
-
-                {/* What the drag would do, drawn before it does it: the part
-                    being cut away goes dim, and the part being taken in is
-                    outlined. A stretch says it the same way, since what it
-                    changes is also the box's extent. The box itself keeps
-                    its true length until the thumb lifts, and then there is
-                    one write. */}
-                {dragging && offset !== 0 ? (
-                  dragging.end === "start" ? (
-                    offset > 0 ? (
-                      <span className="region-cut" data-testid="region-cut" style={{ top: 0, height: offset }} aria-hidden="true" />
-                    ) : (
-                      <span className="region-more" data-testid="region-more" style={{ top: offset, height: -offset }} aria-hidden="true" />
-                    )
-                  ) : offset > 0 ? (
-                    <span className="region-more" data-testid="region-more" style={{ top: box.height, height: offset }} aria-hidden="true" />
-                  ) : (
-                    <span className="region-cut" data-testid="region-cut" style={{ top: box.height + offset, height: -offset }} aria-hidden="true" />
-                  )
-                ) : null}
-
-                {/* What the snip would take out, drawn before it does: the
-                    same stripes a trim uses for the part being cut away,
-                    with a line at each end of the span. The band is the
-                    whole of what a lift would remove, including any run to
-                    an edge, so a region about to vanish is striped whole. */}
-                {snipBand ? (
+                  onPointerDown={(event) => {
+                    event.stopPropagation();
+                    beginTap(event);
+                    if (snippable && (event.target as HTMLElement).dataset.testid === "region-grab") {
+                      startSnip(event, region);
+                    }
+                  }}
+                  onPointerMove={moveSnip}
+                  onPointerUp={(event) => {
+                    event.stopPropagation();
+                    const s = snipRef.current;
+                    if (s && s.pointerId === event.pointerId) {
+                      // A thumb that did not travel is a tap, whatever mode is
+                      // on: it plays, and nothing is cut. Travel counts the
+                      // canvas scrolling under a thumb held at its edge.
+                      const scrolled = (canvasRef.current?.scrollTop ?? 0) - s.originScroll;
+                      const travelled = Math.abs(event.clientY - s.originY + scrolled) >= TAP_SLOP;
+                      endSnip(travelled);
+                      if (travelled) {
+                        dropTap();
+                        return;
+                      }
+                    }
+                    if (!endTap(event)) return;
+                    // A tap takes the region up and plays it. Taking it up
+                    // again keeps whichever handle was already selected.
+                    // While the piece is playing a tap only takes the region
+                    // up: the piece is what is being listened to, and one
+                    // region on top of it would be two things at once. That is
+                    // also what keeps trim, snip and stretch reachable mid-play,
+                    // since each of them begins with taking a region up.
+                    setSelected((was) => (was?.id === region.id ? was : { id: region.id, end: null }));
+                    if (row && piece === "idle") toggleRegion(region);
+                  }}
+                  onPointerCancel={(event) => {
+                    event.stopPropagation();
+                    if (snipRef.current?.pointerId === event.pointerId) endSnip(false);
+                    dropTap();
+                  }}
+                  onKeyDown={(event) => {
+                    if (event.key !== "Enter" && event.key !== " ") return;
+                    event.preventDefault();
+                    event.stopPropagation();
+                    setSelected((was) => (was?.id === region.id ? was : { id: region.id, end: null }));
+                    if (row && piece === "idle") toggleRegion(region);
+                  }}
+                >
+                  {/* The grab: where a thumb can take hold of a region whose
+                      box is thinner than a thumb. A hit area, not a drawing;
+                      it never crosses the middle of the gap to a neighbour. */}
                   <span
-                    className={`region-snip${snipBand.whole ? " whole" : ""}${snipBand.armed ? " armed" : ""}`}
-                    data-testid="region-snip"
-                    data-whole={snipBand.whole}
-                    data-armed={snipBand.armed}
-                    style={{ top: snipBand.top, height: snipBand.height, ["--hold-ms" as string]: `${WHOLE_HOLD_MS}ms` }}
+                    className="region-grab"
+                    data-testid="region-grab"
+                    style={{
+                      top: grab.top,
+                      height: grab.height,
+                      // In snip mode a thumb on the grab is snipping, never
+                      // scrolling. In trim mode it scrolls, and a tap plays.
+                      touchAction: snippable ? "none" : undefined,
+                    }}
                     aria-hidden="true"
                   />
-                ) : null}
+                  {source ? (
+                    <RegionWave
+                      pairs={source.pairs}
+                      durationS={row?.duration_s ?? null}
+                      startS={region.start_s}
+                      endS={region.end_s}
+                      silence={source.silence}
+                      spans={source.spans}
+                      width={box.width}
+                      height={box.height}
+                    />
+                  ) : null}
+                  {playing ? (
+                    <span className="region-progress" style={{ height: `${progress * 100}%` }} aria-hidden="true" />
+                  ) : null}
+                  {box.height >= LABEL_MIN_H ? (
+                    <span className="region-label">
+                      <span className="region-label-text" style={{ WebkitLineClamp: lines }}>
+                        {row ? row.filename : "not in the index"}
+                      </span>
+                    </span>
+                  ) : null}
 
-                {/* The handles. Only on the region taken up, and never in snip
-                    mode: outside its box, a thumb tall, one at each end,
-                    raised over the neighbours. A thumb on one drags it
-                    straight away, and a tap on one selects it. In stretch
-                    mode only the selected one shows: the other end is the
-                    anchor, and a handle on it would say it could move. A
-                    region cut from a sound the index cannot resolve has
-                    nothing to trim against, and gets none. */}
-                {row && isSelectedRegion && mode !== "snip"
-                  ? ([zones.start, zones.end] as const)
-                      .filter((zone) => mode === "trim" || zone.end === selection?.end)
-                      .map((zone) => {
-                      const isSelected = selection?.end === zone.end;
-                      const moving = dragging !== null && dragging.end === zone.end;
-                      const stretching = mode === "stretch";
-                      return (
-                        <div
-                          key={zone.end}
-                          role="button"
-                          tabIndex={0}
-                          className={`handle ${zone.end}${stretching ? " stretch" : ""}${isSelected ? " selected" : ""}${moving ? " moving" : ""}`}
-                          data-testid="handle"
-                          data-end={zone.end}
-                          data-region-id={region.id}
-                          data-selected={isSelected}
-                          data-kind={stretching ? "stretch" : "trim"}
-                          aria-label={`${stretching ? "stretch" : "trim"} the ${zone.end} of ${row.filename}`}
-                          aria-pressed={isSelected}
-                          style={{
-                            top: zone.top,
-                            height: zone.height,
-                            transform: moving && offset !== 0 ? `translateY(${offset}px)` : undefined,
-                            // The thumb on a handle is trimming, never scrolling.
-                            touchAction: "none",
-                          }}
-                          onPointerDown={(event) => {
-                            event.stopPropagation();
-                            if (!isSelected) setSelected({ id: region.id, end: zone.end });
-                            startDrag(event, region, zone.end);
-                          }}
-                          onPointerMove={moveDrag}
-                          onPointerUp={(event) => {
-                            event.stopPropagation();
-                            if (dragRef.current?.pointerId === event.pointerId) endDrag(true);
-                          }}
-                          onPointerCancel={(event) => {
-                            event.stopPropagation();
-                            if (dragRef.current?.pointerId === event.pointerId) endDrag(false);
-                          }}
-                          onKeyDown={(event) => {
-                            if (event.key === "Enter" || event.key === " ") {
+                  {/* What the drag would do, drawn before it does it: the part
+                      being cut away goes dim, and the part being taken in is
+                      outlined. A stretch says it the same way, since what it
+                      changes is also the box's extent. The box itself keeps
+                      its true length until the thumb lifts, and then there is
+                      one write. */}
+                  {dragging && offset !== 0 ? (
+                    dragging.end === "start" ? (
+                      offset > 0 ? (
+                        <span className="region-cut" data-testid="region-cut" style={{ top: 0, height: offset }} aria-hidden="true" />
+                      ) : (
+                        <span className="region-more" data-testid="region-more" style={{ top: offset, height: -offset }} aria-hidden="true" />
+                      )
+                    ) : offset > 0 ? (
+                      <span className="region-more" data-testid="region-more" style={{ top: box.height, height: offset }} aria-hidden="true" />
+                    ) : (
+                      <span className="region-cut" data-testid="region-cut" style={{ top: box.height + offset, height: -offset }} aria-hidden="true" />
+                    )
+                  ) : null}
+
+                  {/* What the snip would take out, drawn before it does: the
+                      same stripes a trim uses for the part being cut away,
+                      with a line at each end of the span. The band is the
+                      whole of what a lift would remove, including any run to
+                      an edge, so a region about to vanish is striped whole. */}
+                  {snipBand ? (
+                    <span
+                      className={`region-snip${snipBand.whole ? " whole" : ""}${snipBand.armed ? " armed" : ""}`}
+                      data-testid="region-snip"
+                      data-whole={snipBand.whole}
+                      data-armed={snipBand.armed}
+                      style={{ top: snipBand.top, height: snipBand.height, ["--hold-ms" as string]: `${WHOLE_HOLD_MS}ms` }}
+                      aria-hidden="true"
+                    />
+                  ) : null}
+
+                  {/* The handles. Only on the region taken up, and never in snip
+                      mode: outside its box, a thumb tall, one at each end,
+                      raised over the neighbours. A thumb on one drags it
+                      straight away, and a tap on one selects it. In stretch
+                      mode only the selected one shows: the other end is the
+                      anchor, and a handle on it would say it could move. A
+                      region cut from a sound the index cannot resolve has
+                      nothing to trim against, and gets none. */}
+                  {row && isSelectedRegion && mode !== "snip"
+                    ? ([zones.start, zones.end] as const)
+                        .filter((zone) => mode === "trim" || zone.end === selection?.end)
+                        .map((zone) => {
+                        const isSelected = selection?.end === zone.end;
+                        const moving = dragging !== null && dragging.end === zone.end;
+                        const stretching = mode === "stretch";
+                        return (
+                          <div
+                            key={zone.end}
+                            role="button"
+                            tabIndex={0}
+                            className={`handle ${zone.end}${stretching ? " stretch" : ""}${isSelected ? " selected" : ""}${moving ? " moving" : ""}`}
+                            data-testid="handle"
+                            data-end={zone.end}
+                            data-region-id={region.id}
+                            data-selected={isSelected}
+                            data-kind={stretching ? "stretch" : "trim"}
+                            aria-label={`${stretching ? "stretch" : "trim"} the ${zone.end} of ${row.filename}`}
+                            aria-pressed={isSelected}
+                            style={{
+                              top: zone.top,
+                              height: zone.height,
+                              transform: moving && offset !== 0 ? `translateY(${offset}px)` : undefined,
+                              // The thumb on a handle is trimming, never scrolling.
+                              touchAction: "none",
+                            }}
+                            onPointerDown={(event) => {
+                              event.stopPropagation();
+                              if (!isSelected) setSelected({ id: region.id, end: zone.end });
+                              startDrag(event, region, zone.end);
+                            }}
+                            onPointerMove={moveDrag}
+                            onPointerUp={(event) => {
+                              event.stopPropagation();
+                              if (dragRef.current?.pointerId === event.pointerId) endDrag(true);
+                            }}
+                            onPointerCancel={(event) => {
+                              event.stopPropagation();
+                              if (dragRef.current?.pointerId === event.pointerId) endDrag(false);
+                            }}
+                            onKeyDown={(event) => {
+                              if (event.key === "Enter" || event.key === " ") {
+                                event.preventDefault();
+                                event.stopPropagation();
+                                setSelected({ id: region.id, end: zone.end });
+                                return;
+                              }
+                              if (!isSelected || (event.key !== "ArrowUp" && event.key !== "ArrowDown")) return;
                               event.preventDefault();
                               event.stopPropagation();
-                              setSelected({ id: region.id, end: zone.end });
-                              return;
-                            }
-                            if (!isSelected || (event.key !== "ArrowUp" && event.key !== "ArrowDown")) return;
-                            event.preventDefault();
-                            event.stopPropagation();
-                            nudge(region, zone.end, event.key === "ArrowDown" ? 1 : -1, event.shiftKey);
-                          }}
-                        >
-                          <span className="handle-grip" aria-hidden="true" />
-                        </div>
-                      );
-                    })
-                  : null}
-              </div>
-            );
-          })}
+                              nudge(region, zone.end, event.key === "ArrowDown" ? 1 : -1, event.shiftKey);
+                            }}
+                          >
+                            <span className="handle-grip" aria-hidden="true" />
+                          </div>
+                        );
+                      })
+                    : null}
+                </div>
+              );
+            })}
+          </div>
         </div>
+
+        {/* The way back to the line, offered only while the piece plays and the
+            line is off the window. It moves the canvas when it is tapped and
+            never otherwise, so a thumb in the middle of a trim is never
+            interrupted by the canvas walking out from under it. It says which
+            way the line went, and nothing else: no position, no time. */}
+        {piece === "playing" && follow !== null ? (
+          <button
+            type="button"
+            className={`collage-follow ${follow}`}
+            data-testid="collage-follow"
+            data-where={follow}
+            onClick={goToLine}
+          >
+            <span className="collage-follow-glyph" aria-hidden="true">
+              {follow === "above" ? "↑" : "↓"}
+            </span>
+            <span className="collage-follow-body">
+              <span className="collage-follow-name">the line is {follow}</span>
+              <span className="collage-follow-sub">tap to go to it</span>
+            </span>
+          </button>
+        ) : null}
       </div>
 
       {hint ? (
@@ -1389,10 +1686,11 @@ export default function CollagePage() {
         </div>
       ) : null}
 
-      {/* The bar the thumb lives on. One big target: what is being stamped, or
-          the way to choose it. In snip or stretch mode that target says which
-          mode is on instead, and puts it off: while a mode is on nothing here
-          invites a stamp. Beside it, the snip and stretch buttons. Undo
+      {/* The bar the thumb lives on. Two rows. Across the top, one big target:
+          what is being stamped, or the way to choose it. In snip or stretch
+          mode that target says which mode is on instead, and puts it off:
+          while a mode is on nothing here invites a stamp. Under it, the
+          transport and the two mode buttons, each a share of the width. Undo
           appears once there is something to take back, and says how many
           steps it holds. */}
       <div className="collage-bar" data-mode={mode}>
@@ -1452,7 +1750,7 @@ export default function CollagePage() {
             data-hash={chosen?.hash ?? ""}
             onClick={() => {
               setHint(null);
-              setPickerOpen(true);
+              openPicker();
             }}
           >
             {chosen ? (
@@ -1470,6 +1768,25 @@ export default function CollagePage() {
             )}
           </button>
         )}
+        {/* The transport. Two words and nothing else: no position, no
+            length, no speed, no level. It refuses with nothing stamped,
+            because there is no piece yet. While the first pieces are being
+            fetched it says so, and tapping it again gives up on them. */}
+        <button
+          type="button"
+          className={`collage-play${piece === "playing" ? " on" : ""}${piece === "loading" ? " loading" : ""}`}
+          data-testid="collage-play"
+          data-state={piece}
+          aria-pressed={piece !== "idle"}
+          disabled={regions.length === 0}
+          title={piece === "idle" ? "play the whole collage from the top" : "stop"}
+          onClick={togglePiece}
+        >
+          {piece === "idle" ? "play" : "stop"}
+          <span className="collage-snip-sub">
+            {piece === "loading" ? "loading…" : piece === "playing" ? "on" : "off"}
+          </span>
+        </button>
         <button
           type="button"
           className={`collage-snip${mode === "snip" ? " on" : ""}`}

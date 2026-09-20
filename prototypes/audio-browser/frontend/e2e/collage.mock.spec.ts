@@ -2286,3 +2286,821 @@ test("a stretched region is scheduled in pieces that join without a seam, each p
   }
   await page.goto("/board");
 });
+
+/* Playing the piece ---------------------------------------------------------- */
+
+/**
+ * What Web Audio was actually told to do.
+ *
+ * The view's own state says a piece is playing; that is the view agreeing
+ * with itself. These tests listen one level down, at the calls the browser
+ * received: every buffer source started, the moment it was given, its speed,
+ * the gain it went through, the context it belongs to, and whether that gain
+ * reached that context's destination. A mix is a sum at one destination, so
+ * that is what is checked, rather than the view's word for it.
+ *
+ * Stops are recorded with the clock, so "everything at once" can be measured
+ * instead of asserted, and each one carries its buffer's length, which is how
+ * a stopped source is traced back to the region that owns it.
+ */
+interface Scheduled {
+  when: number;
+  duration: number;
+  rate: number;
+  gain: number;
+  ctx: number;
+  toDestination: boolean;
+  /**
+   * The context's clock at the moment the browser was told to start this
+   * piece. A `when` earlier than this is a moment that has already gone, and
+   * Web Audio answers it by sounding the piece at once — on top of whatever
+   * is still sounding from the piece before it.
+   */
+  now: number;
+}
+
+interface Heard {
+  pieces: Scheduled[];
+  stops: Array<{ at: number; duration: number }>;
+  closes: number;
+}
+
+async function listen(page: Page): Promise<void> {
+  await page.addInitScript(() => {
+    const heard: Heard = { pieces: [], stops: [], closes: 0 };
+    (window as unknown as { __heard: Heard }).__heard = heard;
+    let contexts = 0;
+    const idOf = (ctx: BaseAudioContext): number => {
+      const tagged = ctx as BaseAudioContext & { __id?: number };
+      if (tagged.__id === undefined) tagged.__id = (contexts += 1);
+      // Kept so a test can read the same clock the voices were scheduled
+      // against, and put the playhead against it rather than against itself.
+      (window as unknown as { __ctx: BaseAudioContext }).__ctx = ctx;
+      return tagged.__id;
+    };
+    type Tracked = { __dest?: unknown };
+    const remember = (proto: { connect: unknown }) => {
+      const original = proto.connect as (this: unknown, dest: unknown, ...rest: unknown[]) => unknown;
+      (proto as { connect: unknown }).connect = function (this: Tracked, dest: unknown, ...rest: unknown[]) {
+        this.__dest = dest;
+        return original.call(this, dest, ...rest);
+      };
+    };
+    remember(AudioBufferSourceNode.prototype as unknown as { connect: unknown });
+    remember(GainNode.prototype as unknown as { connect: unknown });
+
+    const proto = AudioBufferSourceNode.prototype;
+    const start = proto.start;
+    proto.start = function (this: AudioBufferSourceNode & Tracked, when?: number, ...rest: number[]) {
+      const through = this.__dest;
+      const isGain = through instanceof GainNode;
+      heard.pieces.push({
+        when: when ?? 0,
+        duration: this.buffer?.duration ?? 0,
+        rate: this.playbackRate.value,
+        gain: isGain ? through.gain.value : -1,
+        ctx: idOf(this.context),
+        toDestination: isGain && (through as unknown as Tracked).__dest === this.context.destination,
+        now: this.context.currentTime,
+      });
+      return (start as (when?: number, ...rest: number[]) => void).call(this, when, ...rest);
+    };
+    const stop = proto.stop;
+    proto.stop = function (this: AudioBufferSourceNode, ...args: number[]) {
+      heard.stops.push({ at: performance.now(), duration: this.buffer?.duration ?? 0 });
+      return (stop as (...args: number[]) => void).apply(this, args);
+    };
+    const close = AudioContext.prototype.close;
+    AudioContext.prototype.close = function (this: AudioContext) {
+      heard.closes += 1;
+      return close.call(this);
+    };
+  });
+}
+
+async function heard(page: Page): Promise<Heard> {
+  return page.evaluate(() => (window as unknown as { __heard: Heard }).__heard);
+}
+
+/** When a scheduled piece stops sounding, on the context's own clock. */
+function endsAt(piece: Scheduled): number {
+  return piece.when + piece.duration / piece.rate;
+}
+
+/**
+ * When a scheduled piece really sounds, and until when.
+ *
+ * Web Audio does not wait for a moment that has gone: a source told to start
+ * in the past starts at once. So what a listener hears is the later of the
+ * moment asked for and the clock as it was when the browser was told.
+ */
+function sounding(piece: Scheduled): { from: number; to: number } {
+  const from = Math.max(piece.when, piece.now);
+  return { from, to: from + piece.duration / piece.rate };
+}
+
+/**
+ * Serve the slice route from here, so a cut can be longer than the second the
+ * fixture's sounds hold.
+ *
+ * The shape is the real route's: a 48 kHz stereo WAV of exactly the span
+ * asked for, at one speed. `held` says how many milliseconds a piece
+ * beginning at a given moment is kept waiting, which is how a network that
+ * stalls part-way through a region is reproduced.
+ */
+async function serveSlices(page: Page, held: (fromS: number) => number = () => 0): Promise<void> {
+  await page.route(/\/api\/files\/.*\/slice\?/, async (route) => {
+    const url = new URL(route.request().url());
+    const from = Number(url.searchParams.get("start"));
+    const to = Number(url.searchParams.get("end"));
+    const wait = held(from);
+    if (wait > 0) await new Promise((resolve) => setTimeout(resolve, wait));
+    const sampleRate = 48000;
+    const frames = Math.round((to - from) * sampleRate);
+    const body = Buffer.alloc(44 + frames * 4);
+    body.write("RIFF", 0);
+    body.writeUInt32LE(36 + frames * 4, 4);
+    body.write("WAVE", 8);
+    body.write("fmt ", 12);
+    body.writeUInt32LE(16, 16);
+    body.writeUInt16LE(1, 20);
+    body.writeUInt16LE(2, 22);
+    body.writeUInt32LE(sampleRate, 24);
+    body.writeUInt32LE(sampleRate * 4, 28);
+    body.writeUInt16LE(4, 32);
+    body.writeUInt16LE(16, 34);
+    body.write("data", 36);
+    body.writeUInt32LE(frames * 4, 40);
+    await route.fulfill({ status: 200, headers: { "content-type": "audio/wav" }, body });
+  });
+}
+
+/** The scheduled piece whose buffer is `lengthS` of source, to a hundredth. */
+function cut(pieces: Scheduled[], lengthS: number): Scheduled {
+  const found = pieces.find((p) => Math.abs(p.duration - lengthS) < 0.005);
+  expect(found, `no piece was scheduled from a ${Math.round(lengthS * 1000)}-millisecond cut`).toBeTruthy();
+  return found!;
+}
+
+test("with nothing stamped the transport refuses, and there is no playhead", async ({ page }) => {
+  await page.goto("/collage");
+  await expect(page.getByTestId("collage-play")).toBeDisabled();
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-piece", "idle");
+  await expect(page.getByTestId("collage-playhead")).toHaveCount(0);
+  // The canvas is still genuinely empty: the playhead is not a lane waiting
+  // to be filled, it is a thing that exists only while something sounds.
+  expect(await page.getByTestId("collage-space").locator("*").count()).toBe(0);
+  await noFigures(page);
+});
+
+test("play sounds every region at its own moment and its own rate, summed through one destination", async ({
+  page,
+  request,
+}) => {
+  const set = await sounds(page);
+  const hash = set[0].hash;
+  // Three cuts of three different lengths, so every scheduled piece can be
+  // traced back to the region that asked for it. On three tracks, slowed so
+  // they are seconds long on the canvas, and overlapping: the second begins
+  // while the first and third are still sounding.
+  await writeRegions(request, [
+    regionRow("r1", hash, 0, 0, 0, 0.3, 0.05),
+    regionRow("r2", hash, 1, 2, 0, 0.5, 0.05),
+    regionRow("r3", hash, 2, 0, 0.2, 0.9, 0.1),
+  ]);
+  await listen(page);
+  await page.goto("/collage");
+  await expect(page.getByTestId("region")).toHaveCount(3);
+  await expect(page.getByTestId("collage-play")).toBeEnabled();
+
+  await page.getByTestId("collage-play").click();
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-piece", "playing");
+  await expect(page.getByTestId("collage-play-error")).toHaveCount(0);
+
+  const { pieces } = await heard(page);
+  expect(pieces).toHaveLength(3);
+  // One context, one destination, and every voice a plain unity gain into it.
+  expect(new Set(pieces.map((p) => p.ctx)).size).toBe(1);
+  for (const p of pieces) {
+    expect(p.toDestination, "a voice that did not reach the destination").toBe(true);
+    expect(p.gain).toBe(1);
+  }
+
+  const a = cut(pieces, 0.3);
+  const b = cut(pieces, 0.5);
+  const c = cut(pieces, 0.7);
+  expect(a.rate).toBeCloseTo(0.05, 6);
+  expect(b.rate).toBeCloseTo(0.05, 6);
+  expect(c.rate).toBeCloseTo(0.1, 6);
+
+  // The moments are `at_s` on one clock: the second begins two seconds after
+  // the other two, which begin together.
+  expect(b.when - a.when).toBeCloseTo(2, 2);
+  expect(c.when - a.when).toBeCloseTo(0, 2);
+
+  // And they really overlap. When the second begins, the other two are still
+  // sounding, so what leaves the destination at that moment is three voices
+  // added together and not one played after another.
+  expect(endsAt(a)).toBeGreaterThan(b.when + 1);
+  expect(endsAt(c)).toBeGreaterThan(b.when + 1);
+  await noFigures(page);
+
+  // Stop: everything goes at once, inside a frame of everything else.
+  const before = (await heard(page)).stops.length;
+  await page.getByTestId("collage-play").click();
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-piece", "idle");
+  await expect(page.getByTestId("collage-playhead")).toHaveCount(0);
+  const taken = (await heard(page)).stops.slice(before);
+  expect(taken.length).toBeGreaterThanOrEqual(3);
+  const spread = Math.max(...taken.map((s) => s.at)) - Math.min(...taken.map((s) => s.at));
+  expect(spread, "the voices were not silenced together").toBeLessThan(50);
+});
+
+test("the playhead is a line following the piece's time, and it crawls across a slowed region", async ({
+  page,
+  request,
+}) => {
+  const set = await sounds(page);
+  // Eight tenths of a second of source at a twentieth speed: sixteen seconds
+  // on the canvas, a hundred and sixty pixels tall.
+  await writeRegions(request, [regionRow("r1", set[0].hash, 0, 0, 0, 0.8, 0.05)]);
+  await page.goto("/collage");
+  const box = await regionBox(page, 0);
+  expect(box.height).toBeCloseTo(160, 0);
+
+  await page.getByTestId("collage-play").click();
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-piece", "playing");
+  const line = page.getByTestId("collage-playhead");
+  await expect(line).toBeVisible();
+
+  // A line: thin, across every track, and carrying no text at all.
+  const lb = (await line.boundingBox())!;
+  expect(lb.height).toBeLessThanOrEqual(4);
+  expect(lb.width).toBeGreaterThanOrEqual(TRACK_W);
+  expect(await line.innerText()).toBe("");
+
+  const spaceY = (await page.getByTestId("collage-space").boundingBox())!.y;
+  const at = async () => (await line.boundingBox())!.y - spaceY;
+  const first = await at();
+  await page.waitForTimeout(2000);
+  const second = await at();
+
+  // Ten pixels a second: the piece's own time, the same scale every region is
+  // drawn at, so the line and the boxes always agree.
+  expect(second - first).toBeGreaterThan(14);
+  expect(second - first).toBeLessThan(26);
+  // Two seconds in, eight tenths of a second of material is long gone at one
+  // speed. Slowed, the line is barely into the box.
+  expect(second).toBeLessThan(TOP_PAD + box.height / 2);
+  expect(second).toBeGreaterThan(TOP_PAD);
+  await noFigures(page);
+
+  await page.getByTestId("collage-play").click();
+  await expect(page.getByTestId("collage-playhead")).toHaveCount(0);
+});
+
+test("the piece stops itself at the end, the line goes with it, and playing again starts at the top", async ({
+  page,
+  request,
+}) => {
+  const set = await sounds(page);
+  // Half a second of source at half speed: one second of piece.
+  await writeRegions(request, [regionRow("r1", set[0].hash, 0, 0, 0, 0.5, 0.5)]);
+  await listen(page);
+  await page.goto("/collage");
+
+  await page.getByTestId("collage-play").click();
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-piece", "playing");
+  // It ends on its own, without a second tap.
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-piece", "idle", { timeout: 15_000 });
+  await expect(page.getByTestId("collage-playhead")).toHaveCount(0);
+  await expect(page.getByTestId("collage-play-error")).toHaveCount(0);
+  expect((await heard(page)).pieces).toHaveLength(1);
+
+  // Again, from the top: a longer arrangement this time, so where the line
+  // starts can be seen rather than inferred.
+  await writeRegions(request, [regionRow("r1", set[0].hash, 0, 0, 0, 0.5, 0.05)]);
+  await page.reload();
+  await page.getByTestId("collage-play").click();
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-piece", "playing");
+  const spaceY = (await page.getByTestId("collage-space").boundingBox())!.y;
+  const line = (await page.getByTestId("collage-playhead").boundingBox())!;
+  expect(line.y - spaceY).toBeGreaterThanOrEqual(TOP_PAD - 2);
+  expect(line.y - spaceY).toBeLessThan(TOP_PAD + 30);
+  await page.getByTestId("collage-play").click();
+});
+
+test("both ends of the stretch range play together, heavily overlapped, in one mix", async ({ page, request }) => {
+  const set = await sounds(page);
+  const hash = set[0].hash;
+  // Four regions, four tracks, all beginning at the first moment: two at the
+  // slowest a stretch goes and two at the fastest. Different cuts, so each is
+  // told apart by its buffer.
+  await writeRegions(request, [
+    regionRow("r1", hash, 0, 0, 0, 0.3, 0.25),
+    regionRow("r2", hash, 1, 0, 0, 0.4, 0.25),
+    regionRow("r3", hash, 2, 0, 0, 0.5, 4),
+    regionRow("r4", hash, 3, 0, 0, 0.6, 4),
+  ]);
+  await listen(page);
+  await page.goto("/collage");
+  await expect(page.getByTestId("region")).toHaveCount(4);
+  await page.getByTestId("collage-play").click();
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-piece", "playing");
+
+  const { pieces } = await heard(page);
+  expect(pieces).toHaveLength(4);
+  expect(new Set(pieces.map((p) => p.ctx)).size).toBe(1);
+  expect(cut(pieces, 0.3).rate).toBe(0.25);
+  expect(cut(pieces, 0.4).rate).toBe(0.25);
+  expect(cut(pieces, 0.5).rate).toBe(4);
+  expect(cut(pieces, 0.6).rate).toBe(4);
+  // All four begin at the same moment, and all four are sounding then.
+  const first = Math.min(...pieces.map((p) => p.when));
+  for (const p of pieces) {
+    expect(p.when - first).toBeCloseTo(0, 3);
+    expect(p.toDestination).toBe(true);
+    expect(endsAt(p)).toBeGreaterThan(p.when);
+  }
+  await page.getByTestId("collage-play").click();
+});
+
+test("a region whose slice the server refuses drops out; the rest of the piece plays; all refused, nothing starts", async ({
+  page,
+  request,
+}) => {
+  const set = await sounds(page);
+  const [one, two] = set;
+  await writeRegions(request, [
+    regionRow("r1", one.hash, 0, 0, 0, 0.4, 0.05),
+    regionRow("r2", two.hash, 1, 0, 0, 0.6, 0.05),
+  ]);
+  await listen(page);
+  await page.route(new RegExp(`/api/files/${one.hash}/slice\\?`), (route) =>
+    route.fulfill({ status: 404, contentType: "application/json", body: JSON.stringify({ detail: "no such sound" }) }),
+  );
+  await page.goto("/collage");
+  await page.getByTestId("collage-play").click();
+
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-piece", "playing");
+  await expect(page.getByTestId("collage-play-error")).toContainText("dropped out of the mix");
+  const { pieces } = await heard(page);
+  expect(pieces).toHaveLength(1);
+  expect(pieces[0].duration).toBeCloseTo(0.6, 2);
+  await noFigures(page);
+  await page.getByTestId("collage-play").click();
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-piece", "idle");
+
+  // Every region refused: nothing is scheduled, nothing sounds, and the view
+  // says so rather than showing a line moving over silence.
+  await page.route(new RegExp(`/api/files/${two.hash}/slice\\?`), (route) =>
+    route.fulfill({ status: 404, contentType: "application/json", body: JSON.stringify({ detail: "no such sound" }) }),
+  );
+  const before = (await heard(page)).pieces.length;
+  await page.getByTestId("collage-play").click();
+  await expect(page.getByTestId("collage-play-error")).toContainText("could not play the collage");
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-piece", "idle");
+  await expect(page.getByTestId("collage-playhead")).toHaveCount(0);
+  expect((await heard(page)).pieces.length).toBe(before);
+});
+
+test("editing a region while the piece plays silences that region and leaves the rest sounding", async ({
+  page,
+  request,
+}) => {
+  const set = await sounds(page);
+  const hash = set[0].hash;
+  // Two long regions on two tracks, told apart by the length of their cuts.
+  await writeRegions(request, [
+    regionRow("r1", hash, 0, 0, 0, 0.35, 0.02),
+    regionRow("r2", hash, 1, 0, 0, 0.6, 0.02),
+  ]);
+  await listen(page);
+  await page.goto("/collage");
+  await page.getByTestId("collage-play").click();
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-piece", "playing");
+  expect((await heard(page)).pieces).toHaveLength(2);
+  const before = (await heard(page)).stops.length;
+
+  // A tap on a region while the piece plays takes it up and does not play it
+  // on its own. That is what keeps trim, snip and stretch reachable mid-play.
+  await takeUp(page, "r1");
+  await expect(region(page, "r1")).toHaveAttribute("data-playing", "false");
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-piece", "playing");
+
+  await drag(page, "r1", "end", -40);
+  await expect(page.getByTestId("collage-save")).toHaveAttribute("data-state", "saved");
+
+  // The region that was cut went quiet. The other is still sounding, and the
+  // piece is still playing.
+  const taken = (await heard(page)).stops.slice(before);
+  expect(taken.map((s) => Math.round(s.duration * 100))).toEqual([35]);
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-piece", "playing");
+  await expect(page.getByTestId("collage-playhead")).toBeVisible();
+  const [stored] = await regionsOnServer(page);
+  // Forty pixels up is four canvas seconds, which at this rate is eight
+  // hundredths of a second of source.
+  expect(stored.end_s).toBeCloseTo(0.27, 2);
+
+  // Undo is an edit too, and takes the same rule: the region it puts back is
+  // not rescheduled into a piece already sounding.
+  await page.getByTestId("collage-undo").click();
+  await expect(page.getByTestId("collage-save")).toHaveAttribute("data-state", "saved");
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-piece", "playing");
+  expect((await heard(page)).pieces).toHaveLength(2);
+  await page.getByTestId("collage-play").click();
+});
+
+test("leaving the view stops the piece and lets the context go", async ({ page, request }) => {
+  const set = await sounds(page);
+  const hash = set[0].hash;
+  await writeRegions(request, [
+    regionRow("r1", hash, 0, 0, 0, 0.3, 0.02),
+    regionRow("r2", hash, 1, 0, 0, 0.6, 0.02),
+  ]);
+  await listen(page);
+  await page.goto("/collage");
+  await page.getByTestId("collage-play").click();
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-piece", "playing");
+  expect((await heard(page)).pieces).toHaveLength(2);
+  const before = await heard(page);
+
+  // A link, not a reload: the document survives, so a piece left running
+  // would carry on sounding over another view.
+  await page.getByRole("link", { name: "board", exact: true }).click();
+  await expect(page.getByTestId("collage")).toHaveCount(0);
+  const after = await heard(page);
+  expect(after.stops.length - before.stops.length).toBeGreaterThanOrEqual(2);
+  expect(after.closes).toBeGreaterThan(before.closes);
+});
+
+test("snip and stretch are still reachable while the piece plays", async ({ page, request }) => {
+  const set = await sounds(page);
+  const hash = set[0].hash;
+  await writeRegions(request, [
+    regionRow("r1", hash, 0, 0, 0, 0.6, 0.02),
+    regionRow("r2", hash, 1, 0, 0, 0.3, 0.02),
+  ]);
+  await page.goto("/collage");
+  await page.getByTestId("collage-play").click();
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-piece", "playing");
+
+  // Playing is not a mode. Snip goes on and off underneath it. The span is
+  // taken out of the middle, leaving a quarter of a second of source on each
+  // side, which at this rate is a hundred and twenty-five pixels.
+  await enterSnip(page);
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-piece", "playing");
+  await snipDrag(page, "r1", 130, 170);
+  await expect(page.getByTestId("collage-save")).toHaveAttribute("data-state", "saved");
+  await expect(page.getByTestId("region")).toHaveCount(3);
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-piece", "playing");
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-mode", "trim");
+
+  // And stretch, which needs a handle, which needs a region taken up. Up the
+  // way, so the region plays faster: written slower than the bound, it may
+  // come back towards it and never go further out.
+  await stretchDrag(page, "r2", "end", -60);
+  await expect(page.getByTestId("collage-save")).toHaveAttribute("data-state", "saved");
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-piece", "playing");
+  const stored = await regionsOnServer(page);
+  expect(stored.find((r) => r.id === "r2")!.rate).toBeGreaterThan(0.02);
+  await noFigures(page);
+  await page.getByTestId("collage-play").click();
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-piece", "idle");
+});
+
+test("one thing sounds at a time: play stops a region, and opening the picker stops the piece", async ({
+  page,
+  request,
+}) => {
+  const set = await sounds(page);
+  const hash = set[0].hash;
+  await writeRegions(request, [
+    regionRow("r1", hash, 0, 0, 0, 0.6, 0.02),
+    regionRow("r2", hash, 1, 0, 0, 0.3, 0.02),
+  ]);
+  await listen(page);
+  await page.goto("/collage");
+
+  // A region playing on its own, then the whole piece: the region stops.
+  await region(page, "r1").click({ position: { x: 10, y: 10 } });
+  await expect(region(page, "r1")).toHaveAttribute("data-playing", "true");
+  await page.getByTestId("collage-play").click();
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-piece", "playing");
+  await expect(region(page, "r1")).toHaveAttribute("data-playing", "false");
+
+  // The picker is a sheet over the whole screen and its rows play. The piece
+  // steps aside rather than sounding under it.
+  await page.getByTestId("collage-choose").click();
+  await expect(page.getByTestId("collage-picker")).toBeVisible();
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-piece", "idle");
+  await expect(page.getByTestId("collage-playhead")).toHaveCount(0);
+  await page.getByTestId("picker-close").click();
+});
+
+test("a region that goes quiet under an edit says so, and stops saying it on the next play", async ({
+  page,
+  request,
+}) => {
+  const set = await sounds(page);
+  const hash = set[0].hash;
+  await writeRegions(request, [
+    regionRow("r1", hash, 0, 0, 0, 0.35, 0.02),
+    regionRow("r2", hash, 1, 0, 0, 0.6, 0.02),
+  ]);
+  await page.goto("/collage");
+  // Edited with nothing playing, nothing has gone quiet and nothing is said.
+  await drag(page, "r1", "end", -20);
+  await expect(page.getByTestId("collage-save")).toHaveAttribute("data-state", "saved");
+  await expect(page.getByTestId("collage-hint")).toHaveCount(0);
+
+  await page.getByTestId("collage-play").click();
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-piece", "playing");
+  await drag(page, "r1", "end", -20);
+  await expect(page.getByTestId("collage-save")).toHaveAttribute("data-state", "saved");
+  // A block that went quiet looks exactly like a block that ended, and on a
+  // phone it is under the thumb that stopped it. The bar says which it was.
+  await expect(page.getByTestId("collage-hint")).toContainText("gone quiet");
+  await expect(page.getByTestId("collage-hint")).toContainText("next time you play");
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-piece", "playing");
+  await noFigures(page);
+
+  // It is about this pass, so it goes when the pass does.
+  await page.getByTestId("collage-play").click();
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-piece", "idle");
+  await expect(page.getByTestId("collage-hint")).toHaveCount(0);
+});
+
+test("snipping a sounding region takes both halves out of the pass, and says so", async ({ page, request }) => {
+  const set = await sounds(page);
+  const hash = set[0].hash;
+  await writeRegions(request, [
+    regionRow("r1", hash, 0, 0, 0, 0.6, 0.02),
+    regionRow("r2", hash, 1, 0, 0, 0.35, 0.02),
+  ]);
+  await listen(page);
+  await page.goto("/collage");
+  await page.getByTestId("collage-play").click();
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-piece", "playing");
+  expect((await heard(page)).pieces).toHaveLength(2);
+  const before = (await heard(page)).stops.length;
+
+  await enterSnip(page);
+  await snipDrag(page, "r1", 130, 170);
+  await expect(page.getByTestId("collage-save")).toHaveAttribute("data-state", "saved");
+  await expect(page.getByTestId("region")).toHaveCount(3);
+
+  // The region that was cut in two stops, and neither half is put back into
+  // the pass: what sounds from here is only what was not touched.
+  const taken = (await heard(page)).stops.slice(before);
+  expect(taken.map((s) => Math.round(s.duration * 100))).toEqual([60]);
+  expect((await heard(page)).pieces, "a half was scheduled into a pass already running").toHaveLength(2);
+  await expect(page.getByTestId("collage-hint")).toContainText("gone quiet");
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-piece", "playing");
+  await page.getByTestId("collage-play").click();
+});
+
+test("a sound stamped while the piece plays is not folded into the pass it was stamped in", async ({
+  page,
+  request,
+}) => {
+  const set = await sounds(page);
+  await writeRegions(request, [regionRow("r1", set[0].hash, 0, 0, 0, 0.6, 0.02)]);
+  await listen(page);
+  await page.goto("/collage");
+  await choose(page, 1);
+  await page.getByTestId("collage-play").click();
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-piece", "playing");
+  expect((await heard(page)).pieces).toHaveLength(1);
+
+  // Stamped on a second track while the line is running. The piece is
+  // scheduled once, at the tap, so this block is drawn and the line crosses
+  // it in silence. It is heard on the next play.
+  await stampAt(page, TRACK_W + 40, 200);
+  await expect(page.getByTestId("region")).toHaveCount(2);
+  await expect(page.getByTestId("collage-save")).toHaveAttribute("data-state", "saved");
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-piece", "playing");
+  expect((await heard(page)).pieces).toHaveLength(1);
+
+  await page.getByTestId("collage-play").click();
+  await page.getByTestId("collage-play").click();
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-piece", "playing");
+  expect((await heard(page)).pieces).toHaveLength(3);
+  await page.getByTestId("collage-play").click();
+});
+
+test("an edit made while the first pieces load stays out of the pass it was made in", async ({ page, request }) => {
+  const set = await sounds(page);
+  const hash = set[0].hash;
+  await writeRegions(request, [
+    regionRow("r1", hash, 0, 0, 0, 0.35, 0.02),
+    regionRow("r2", hash, 1, 0, 0, 0.6, 0.02),
+  ]);
+  await listen(page);
+  // The gap the transport calls `loading…`. The tap has already decided what
+  // this pass holds, so an edit made in that gap is an edit mid-play and
+  // takes the same rule: the region that changed does not sound this time.
+  // Without that, a region cut in the gap sounds with the material the cut
+  // removed, and nothing stops it.
+  await serveSlices(page, () => 6000);
+  await page.goto("/collage");
+  await page.getByTestId("collage-play").click();
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-piece", "loading");
+
+  await drag(page, "r1", "end", -40);
+  await expect(page.getByTestId("collage-save")).toHaveAttribute("data-state", "saved");
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-piece", "playing", { timeout: 30_000 });
+
+  const { pieces } = await heard(page);
+  expect(
+    pieces.map((p) => Math.round(p.duration * 100)).sort((a, b) => a - b),
+    "the region cut while the piece loaded was sounded anyway",
+  ).toEqual([60]);
+  await page.getByTestId("collage-play").click();
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-piece", "idle");
+});
+
+test("stopping before the first sound leaves nothing scheduled, and the next play is clean", async ({
+  page,
+  request,
+}) => {
+  const set = await sounds(page);
+  const hash = set[0].hash;
+  await writeRegions(request, [
+    regionRow("r1", hash, 0, 0, 0, 0.35, 0.02),
+    regionRow("r2", hash, 1, 0, 0, 0.6, 0.02),
+  ]);
+  await listen(page);
+  await serveSlices(page, () => 3000);
+  await page.goto("/collage");
+
+  const play = page.getByTestId("collage-play");
+  await play.click();
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-piece", "loading");
+  await expect(play).toContainText("stop");
+  // A second tap gives up on the pieces still coming. Nothing may sound once
+  // they land: the piece was stopped before it ever began.
+  await play.click();
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-piece", "idle");
+  await page.waitForTimeout(5000);
+  expect((await heard(page)).pieces, "a piece sounded after the transport was stopped").toHaveLength(0);
+  await expect(page.getByTestId("collage-playhead")).toHaveCount(0);
+
+  // And the pass after it is whole: both regions, once each.
+  await play.click();
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-piece", "playing", { timeout: 30_000 });
+  const { pieces } = await heard(page);
+  expect(pieces.map((p) => Math.round(p.duration * 100)).sort((a, b) => a - b)).toEqual([35, 60]);
+  await play.click();
+});
+
+test("a piece that arrives late never sounds on top of the piece before it", async ({ page, request }) => {
+  test.setTimeout(150_000);
+  const set = await sounds(page);
+  // Two and a half minutes of source at four times speed: ten pieces, each
+  // lasting under four seconds, so the region is fetched as it plays rather
+  // than up front. One piece in the middle is held back longer than the lead
+  // the player keeps, which is what a phone on a bad connection does.
+  await serveSlices(page, (from) => (from === 45 ? 14_000 : 0));
+  await writeRegions(request, [regionRow("r1", set[0].hash, 0, 0, 0, 150, 4)]);
+  await listen(page);
+  await page.goto("/collage");
+
+  await page.getByTestId("collage-play").click();
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-piece", "playing", { timeout: 30_000 });
+  await expect
+    .poll(async () => (await heard(page)).pieces.length, { timeout: 90_000 })
+    .toBeGreaterThanOrEqual(6);
+
+  const { pieces } = await heard(page);
+  for (const p of pieces) {
+    expect(
+      p.when,
+      "a piece was told to start at a moment that had already gone, so it sounded at once",
+    ).toBeGreaterThan(p.now - 0.05);
+  }
+  // And therefore nothing doubles: the region is one sound, not two copies of
+  // itself a few seconds apart.
+  const heardAt = pieces.map(sounding).sort((a, b) => a.from - b.from);
+  for (let i = 1; i < heardAt.length; i += 1) {
+    expect(heardAt[i].from, `piece ${i} began while piece ${i - 1} was still sounding`).toBeGreaterThan(
+      heardAt[i - 1].to - 0.05,
+    );
+  }
+  // A region that fell behind says so. A silent gap with nothing on screen is
+  // indistinguishable from a region that simply ended.
+  await expect(page.getByTestId("collage-play-error")).toContainText("fell behind");
+  await noFigures(page);
+  await page.getByTestId("collage-play").click();
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-piece", "idle");
+});
+
+test("when several regions drop out the view says how many, not “one”", async ({ page, request }) => {
+  const set = await sounds(page);
+  const [one, two] = set;
+  await writeRegions(request, [
+    regionRow("r1", one.hash, 0, 0, 0, 0.4, 0.05),
+    regionRow("r2", one.hash, 1, 0, 0, 0.5, 0.05),
+    regionRow("r3", two.hash, 2, 0, 0, 0.6, 0.05),
+  ]);
+  await listen(page);
+  await page.route(new RegExp(`/api/files/${one.hash}/slice\\?`), (route) =>
+    route.fulfill({ status: 404, contentType: "application/json", body: JSON.stringify({ detail: "no such sound" }) }),
+  );
+  await page.goto("/collage");
+  await page.getByTestId("collage-play").click();
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-piece", "playing");
+  await expect(page.getByTestId("collage-play-error")).toContainText("2 regions dropped out of the mix");
+  await noFigures(page);
+  await page.getByTestId("collage-play").click();
+});
+
+test("a later voice lands where the line says it will, not where the line says it is", async ({ page, request }) => {
+  test.setTimeout(90_000);
+  const set = await sounds(page);
+  const hash = set[0].hash;
+  // Two voices a minute apart: the first at the top, the second six hundred
+  // pixels down. A minute is not thirty-six, but the check is linear — an
+  // offset or a wrong scale shows at ten seconds as surely as at ten minutes,
+  // and one pixel is a tenth of a second.
+  await writeRegions(request, [
+    regionRow("r1", hash, 0, 0, 0, 0.3, 0.005),
+    regionRow("r2", hash, 1, 60, 0, 0.5, 0.005),
+  ]);
+  await listen(page);
+  await page.goto("/collage");
+  await page.getByTestId("collage-play").click();
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-piece", "playing");
+
+  const { pieces } = await heard(page);
+  const later = cut(pieces, 0.5);
+  // Let the line run, then read where it is and what the clock says in one
+  // go, off the same context the voices were handed to.
+  await page.waitForTimeout(8000);
+  const seen = await page.evaluate(() => {
+    const space = document.querySelector('[data-testid="collage-space"]')!.getBoundingClientRect();
+    const line = document.querySelector('[data-testid="collage-playhead"]')!.getBoundingClientRect();
+    return { y: line.y - space.y, clock: (window as unknown as { __ctx: AudioContext }).__ctx.currentTime };
+  });
+  expect(seen.y, "the line did not move").toBeGreaterThan(TOP_PAD + 60);
+
+  // Where the line says the second region begins, said in the clock's own
+  // terms: the pixels still to travel, at ten a second, from the clock now.
+  const lineSays = seen.clock + (TOP_PAD + 60 * PX_PER_S - seen.y) / PX_PER_S;
+  // A tenth of a second is one pixel, and a frame of the line's own lag.
+  expect(Math.abs(lineSays - later.when), "the line and the voice disagree about when it sounds").toBeLessThan(0.2);
+  await page.getByTestId("collage-play").click();
+});
+
+test("the line can be got back to once it has gone off the screen", async ({ page, request }) => {
+  test.setTimeout(120_000);
+  const set = await sounds(page);
+  // A piece far taller than the screen: a second of source at a hundredth
+  // speed is a hundred seconds, a thousand pixels. A short window, so the
+  // line leaves the bottom of it in a reasonable time.
+  await page.setViewportSize({ width: 1000, height: 420 });
+  await writeRegions(request, [regionRow("r1", set[0].hash, 0, 0, 0, 1, 0.01)]);
+  await page.goto("/collage");
+  await expect(page.getByTestId("collage-follow")).toHaveCount(0);
+
+  await page.getByTestId("collage-play").click();
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-piece", "playing", { timeout: 30_000 });
+  // The line is at the top and in view, so nothing offers to find it.
+  await expect(page.getByTestId("collage-follow")).toHaveCount(0);
+
+  // Scrolled past, the line is above the window. The offer appears; it never
+  // moves the canvas by itself, so it cannot fight a thumb.
+  const canvas = page.getByTestId("collage-canvas");
+  await canvas.evaluate((node) => {
+    node.scrollTop = 700;
+  });
+  const follow = page.getByTestId("collage-follow");
+  await expect(follow).toBeVisible();
+  await expect(follow).toContainText("the line is above");
+  const bb = (await follow.boundingBox())!;
+  expect(bb.height, "a target under a thumb").toBeGreaterThanOrEqual(44);
+
+  await follow.click();
+  await expect(follow).toHaveCount(0);
+  const inView = async () => {
+    const c = (await canvas.boundingBox())!;
+    const line = await page.getByTestId("collage-playhead").boundingBox();
+    return line !== null && line.y >= c.y - 1 && line.y <= c.y + c.height + 1;
+  };
+  expect(await inView(), "the line was not brought back into the window").toBe(true);
+
+  // And the other way: left alone, the line runs off the bottom and the same
+  // offer brings it back.
+  await canvas.evaluate((node) => {
+    node.scrollTop = 0;
+  });
+  await expect(follow).toContainText("the line is below", { timeout: 90_000 });
+  await follow.click();
+  await expect(follow).toHaveCount(0);
+  expect(await inView()).toBe(true);
+  await noFigures(page);
+
+  await page.getByTestId("collage-play").click();
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-piece", "idle");
+  await expect(page.getByTestId("collage-follow")).toHaveCount(0);
+});

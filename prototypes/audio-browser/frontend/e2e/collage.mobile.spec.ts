@@ -1312,3 +1312,196 @@ test("choosing an end costs material: a tap on a handle that slides five pixels 
   await expect(page.getByTestId("collage-undo")).toHaveCount(0);
   expect((await regionsOnServer(request))[0].end_s).toBeCloseTo(duration_s, 3);
 });
+
+/* Playing the piece ---------------------------------------------------------- */
+
+/** How far down the blank the playhead is, in canvas pixels. */
+async function playheadAt(page: Page): Promise<number> {
+  const space = (await page.getByTestId("collage-space").boundingBox())!;
+  const line = (await page.getByTestId("collage-playhead").boundingBox())!;
+  return line.y - space.y;
+}
+
+test("play the whole piece with one thumb: the transport is a thumb, the line moves down, stop silences it", async ({
+  page,
+  request,
+}) => {
+  const { hash } = await firstSound(request);
+  // Three regions on three tracks, slowed so the piece lasts long enough to
+  // watch. The second begins while the first is still sounding.
+  const put = await request.put(`/api/projects/${PROJECT}/collage`, {
+    data: {
+      regions: [
+        regionRow("r1", hash, 0, 0, 0.4, 0.02),
+        regionRow("r2", hash, 1, 3, 0.5, 0.02),
+        regionRow("r3", hash, 2, 0, 0.3, 0.02),
+      ],
+    },
+  });
+  expect(put.ok()).toBe(true);
+
+  await page.goto("/collage");
+  const viewport = page.viewportSize()!;
+  const play = page.getByTestId("collage-play");
+  const bb = (await play.boundingBox())!;
+  expect(bb.height).toBeGreaterThanOrEqual(44);
+  expect(bb.width).toBeGreaterThanOrEqual(44);
+  expect(bb.y + bb.height).toBeLessThanOrEqual(viewport.height + 1);
+  await expect(page.getByTestId("collage-playhead")).toHaveCount(0);
+
+  // The tap is the user gesture iOS insists on before any audio starts.
+  await play.tap();
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-piece", "playing", { timeout: 20_000 });
+  await expect(page.getByTestId("collage-play-error")).toHaveCount(0);
+  await expect(play).toContainText("stop");
+  const line = page.getByTestId("collage-playhead");
+  await expect(line).toBeVisible();
+  const lb = (await line.boundingBox())!;
+  expect(lb.height).toBeLessThanOrEqual(4);
+  expect(lb.width).toBeGreaterThanOrEqual(TRACK_W);
+  await page.screenshot({ path: "screenshots/collage-phone-playing-piece.png" });
+
+  // It moves down at the piece's own rate: ten pixels a second.
+  const first = await playheadAt(page);
+  await page.waitForTimeout(2000);
+  const second = await playheadAt(page);
+  expect(second - first).toBeGreaterThan(14);
+  expect(second - first).toBeLessThan(26);
+  expect(first).toBeGreaterThanOrEqual(TOP_PAD - 2);
+
+  // Nothing on the screen reads as a time, a rate or a level.
+  const text = (await page.getByTestId("collage").innerText()).toLowerCase();
+  expect(text).not.toMatch(/\d+:\d\d/);
+  expect(text).not.toMatch(/\b\d+(\.\d+)?\s?(s|sec|seconds?|ms|db|bpm|%)\b/);
+
+  // A tap on a region while the piece plays takes it up and does not start a
+  // second thing sounding under it.
+  await takeUp(page, "r1");
+  await expect(region(page, "r1")).toHaveAttribute("data-playing", "false");
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-piece", "playing");
+
+  await play.tap();
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-piece", "idle");
+  await expect(page.getByTestId("collage-playhead")).toHaveCount(0);
+  await expect(play).toContainText("play");
+});
+
+test("turning the phone mid-play keeps the piece sounding, and the line keeps its place", async ({ page, request }) => {
+  const { hash } = await firstSound(request);
+  const put = await request.put(`/api/projects/${PROJECT}/collage`, {
+    data: { regions: [regionRow("r1", hash, 0, 0, 0.5, 0.02)] },
+  });
+  expect(put.ok()).toBe(true);
+  await page.goto("/collage");
+  await page.getByTestId("collage-play").tap();
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-piece", "playing", { timeout: 20_000 });
+  await page.waitForTimeout(1000);
+  const before = await playheadAt(page);
+
+  // Rotating ends a drag, because the thumb is no longer where the handle
+  // was. It does not end the piece: nothing about the music depends on which
+  // way the phone is held.
+  await page.setViewportSize({ width: 852, height: 393 });
+  await page.waitForTimeout(500);
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-piece", "playing");
+  const after = await playheadAt(page);
+  expect(after).toBeGreaterThanOrEqual(before);
+  expect(after - before).toBeLessThan(30);
+  const bar = (await page.getByTestId("collage-play").boundingBox())!;
+  expect(bar.y + bar.height).toBeLessThanOrEqual(393 + 1);
+  expect(bar.height).toBeGreaterThanOrEqual(44);
+  await page.screenshot({ path: "screenshots/collage-phone-playing-landscape.png" });
+  await page.getByTestId("collage-play").tap();
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-piece", "idle");
+});
+
+test("a piece taller than the phone offers a way back to the line, and never moves the canvas itself", async ({
+  page,
+  request,
+}) => {
+  test.setTimeout(120_000);
+  const { hash } = await firstSound(request);
+  // Eight tenths of a second at a hundredth speed: eighty seconds of piece,
+  // eight hundred pixels, more than twice the height of the canvas. HW011 is
+  // twenty-one thousand pixels, where the line is gone inside a minute.
+  const put = await request.put(`/api/projects/${PROJECT}/collage`, {
+    data: { regions: [regionRow("r1", hash, 0, 0, 0.8, 0.01)] },
+  });
+  expect(put.ok()).toBe(true);
+  await page.goto("/collage");
+  await expect(page.getByTestId("collage-follow")).toHaveCount(0);
+
+  await page.getByTestId("collage-play").tap();
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-piece", "playing", { timeout: 20_000 });
+  await expect(page.getByTestId("collage-follow")).toHaveCount(0);
+
+  // A thumb scrolls down through the piece to work on something later. The
+  // line is left behind, and the offer to go back to it appears.
+  const canvas = page.getByTestId("collage-canvas");
+  await canvas.evaluate((node) => {
+    node.scrollTop = 500;
+  });
+  const follow = page.getByTestId("collage-follow");
+  await expect(follow).toBeVisible();
+  await expect(follow).toContainText("the line is above");
+
+  // A thumb's target, on the screen, and clear of the bar it would otherwise
+  // hide under.
+  const viewport = page.viewportSize()!;
+  const bb = (await follow.boundingBox())!;
+  const bar = (await page.getByTestId("collage-play").boundingBox())!;
+  expect(bb.height).toBeGreaterThanOrEqual(44);
+  expect(bb.width).toBeGreaterThanOrEqual(44);
+  expect(bb.y + bb.height).toBeLessThanOrEqual(viewport.height + 1);
+  expect(bb.y + bb.height, "the way back sits over the bar").toBeLessThanOrEqual(bar.y + 1);
+  await page.screenshot({ path: "screenshots/collage-phone-follow.png" });
+
+  // The canvas did not move on its own while the offer stood: a canvas that
+  // chased the line would take a region out from under a trimming thumb.
+  await page.waitForTimeout(1500);
+  expect(await canvas.evaluate((node) => node.scrollTop)).toBe(500);
+  await expect(follow).toBeVisible();
+
+  // Tapped, it goes to the line, and then there is nothing to offer.
+  await follow.tap();
+  await expect(follow).toHaveCount(0);
+  const c = (await canvas.boundingBox())!;
+  const line = (await page.getByTestId("collage-playhead").boundingBox())!;
+  expect(line.y).toBeGreaterThanOrEqual(c.y - 1);
+  expect(line.y).toBeLessThanOrEqual(c.y + c.height + 1);
+
+  const text = (await page.getByTestId("collage").innerText()).toLowerCase();
+  expect(text).not.toMatch(/\d+:\d\d/);
+  expect(text).not.toMatch(/\b\d+(\.\d+)?\s?(s|sec|seconds?|ms|db|bpm|%)\b/);
+
+  await page.getByTestId("collage-play").tap();
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-piece", "idle");
+  await expect(page.getByTestId("collage-follow")).toHaveCount(0);
+});
+
+test("an edit mid-play says on the phone that the change has gone quiet", async ({ page, request }) => {
+  const { hash } = await firstSound(request);
+  const put = await request.put(`/api/projects/${PROJECT}/collage`, {
+    data: { regions: [regionRow("r1", hash, 0, 0, 0.5, 0.02), regionRow("r2", hash, 1, 0, 0.3, 0.02)] },
+  });
+  expect(put.ok()).toBe(true);
+  await page.goto("/collage");
+  await page.getByTestId("collage-play").tap();
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-piece", "playing", { timeout: 20_000 });
+
+  await takeUp(page, "r1");
+  const end = handle(page, "r1", "end");
+  await end.scrollIntoViewIfNeeded();
+  await thumbDrag(page, end, -40);
+  await expect(page.getByTestId("collage-save")).toHaveAttribute("data-state", "saved");
+  // The block that stopped is under the thumb that stopped it, so the bar is
+  // the only place this can be said.
+  const hint = page.getByTestId("collage-hint");
+  await expect(hint).toContainText("gone quiet");
+  const bb = (await hint.boundingBox())!;
+  expect(bb.y + bb.height).toBeLessThanOrEqual(page.viewportSize()!.height + 1);
+  await expect(page.getByTestId("collage")).toHaveAttribute("data-piece", "playing");
+  await page.screenshot({ path: "screenshots/collage-phone-quiet.png" });
+  await page.getByTestId("collage-play").tap();
+  await expect(page.getByTestId("collage-hint")).toHaveCount(0);
+});

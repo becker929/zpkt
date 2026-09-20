@@ -1738,6 +1738,65 @@ select:focus {
   border-bottom: 1px solid var(--border);
 }
 
+/* The stage: the canvas, and the one thing that may sit over it. It is not
+   the scroller, so what is placed on it stays put while time scrolls past
+   underneath. */
+.collage-stage {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* The way back to the playhead. It appears only while the piece is sounding
+   and the line has gone off the window, sits clear of the bar, and does
+   nothing at all until it is tapped: the canvas is never moved under an
+   editing thumb. */
+.collage-follow {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  z-index: 4;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 48px;
+  padding: 6px 16px 6px 12px;
+  border-radius: 24px;
+  border: 1px solid var(--accent);
+  background: var(--bg-raised);
+  color: var(--text);
+  box-shadow: 0 3px 14px rgba(0, 0, 0, 0.55);
+  text-align: left;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.collage-follow-glyph {
+  font-size: 18px;
+  line-height: 1;
+  color: var(--accent);
+}
+
+.collage-follow-body {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.collage-follow-name {
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.collage-follow-sub {
+  font-size: 11px;
+  color: var(--text-dim);
+  white-space: nowrap;
+}
+
 .collage-canvas {
   flex: 1 1 auto;
   min-height: 0;
@@ -1757,6 +1816,25 @@ select:focus {
   -webkit-tap-highlight-color: transparent;
   user-select: none;
   -webkit-user-select: none;
+}
+
+/* Where the piece has got to: one line across every track, moving down as it
+   plays. A line and never a number, and it exists only while something is
+   sounding. Above the regions, including the one taken up, so it is never
+   lost behind a block; it takes no touch, so nothing it crosses becomes
+   harder to reach. */
+.collage-playhead {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 2px;
+  margin-top: -1px;
+  z-index: 3;
+  background: var(--accent);
+  box-shadow: 0 0 8px rgba(86, 182, 255, 0.75);
+  pointer-events: none;
+  will-change: transform;
 }
 
 /* One region: a block whose height is its length, on the track it was stamped
@@ -2033,9 +2111,12 @@ select:focus {
   color: var(--favorite);
 }
 
-/* The bar the thumb lives on. */
+/* The bar the thumb lives on. Two rows on a phone: the wide target across the
+   top, and the transport beside the mode buttons under it. One row of five
+   would have squeezed the filename down to nothing. */
 .collage-bar {
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
   flex: 0 0 auto;
   padding: 8px 10px calc(8px + var(--safe-bottom));
@@ -2044,7 +2125,7 @@ select:focus {
 }
 
 .collage-choose {
-  flex: 1 1 auto;
+  flex: 1 1 100%;
   min-width: 0;
   min-height: 60px;
   display: flex;
@@ -2086,8 +2167,9 @@ select:focus {
 }
 
 .collage-undo {
-  flex: 0 0 auto;
+  flex: 1 1 0;
   min-width: 72px;
+  max-width: 200px;
   min-height: 60px;
   display: flex;
   flex-direction: column;
@@ -2108,13 +2190,16 @@ select:focus {
   white-space: nowrap;
 }
 
-/* The snip and stretch buttons: the way into a mode, and the way out.
-   Pressed while that mode is on. Snip is disabled with nothing to snip;
-   stretch with no handle selected. */
+/* The transport, and the snip and stretch buttons: the way into a mode and
+   the way out, and beside them the way to hear the whole piece. Pressed while
+   that mode is on, or while the piece sounds. Play is disabled with nothing
+   stamped; snip with nothing to snip; stretch with no handle selected. */
+.collage-play,
 .collage-snip,
 .collage-stretch {
-  flex: 0 0 auto;
+  flex: 1 1 0;
   min-width: 72px;
+  max-width: 200px;
   min-height: 60px;
   display: flex;
   flex-direction: column;
@@ -2128,9 +2213,24 @@ select:focus {
   -webkit-tap-highlight-color: transparent;
 }
 
+.collage-play:disabled,
 .collage-snip:disabled,
 .collage-stretch:disabled {
   opacity: 0.4;
+}
+
+/* Playing is not a mode, so it is not the modes' amber. It is the accent the
+   rest of the application plays in. */
+.collage-play.on,
+.collage-play.loading {
+  border-color: var(--accent);
+  background: rgba(86, 182, 255, 0.14);
+  color: var(--text);
+}
+
+.collage-play.on .collage-snip-sub,
+.collage-play.loading .collage-snip-sub {
+  color: var(--accent);
 }
 
 .collage-snip.on,

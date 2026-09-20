@@ -18,11 +18,22 @@ const BENCH = "2026-09-16-rust-and-rebar";
 /** Serve the mock board with its threshold replaced. */
 async function boardWithEncumbrance(page: Page, encumbrance: number | null): Promise<void> {
   await page.route("**/api/board", async (route) => {
-    const response = await route.fetch();
-    const body = (await response.json()) as Record<string, unknown>;
+    // The handler outlives any one request. A board request still in flight
+    // when the page moves on has its response disposed underneath us, and
+    // reading it then throws inside the handler and fails a test that already
+    // had its answer. Let such a request go rather than speaking for it.
+    let body: Record<string, unknown>;
+    try {
+      body = (await (await route.fetch()).json()) as Record<string, unknown>;
+    } catch {
+      await route.continue().catch(() => undefined);
+      return;
+    }
     if (encumbrance === null) delete body.encumbrance;
     else body.encumbrance = encumbrance;
-    await route.fulfill({ response, json: body });
+    await route
+      .fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(body) })
+      .catch(() => undefined);
   });
 }
 

@@ -3,13 +3,157 @@
 Written while Anthony slept, 2026-09-19. Updated as each step lands. Short
 sentences. Read top to bottom.
 
+## Read this first
+
+The five gestures you sketched — stamp, trim, snip, stretch, hear it — are
+built. Four are committed and reviewed; the fifth is green and under review as
+this is written. Every bullet was built, verified by me in a foreground run,
+attacked by an adversarial critic, fixed, and only then committed.
+
+HW011 is untouched. Its hash is the same as when you went to sleep, and the
+live tests now fingerprint every project file before and after they run and
+fail the run if one moved. That guard exists because a throwaway probe wrote
+an empty collage into your project early on; I restored it from git within
+minutes, and then made it impossible rather than merely unlikely.
+
+**Nine decisions are waiting for you**, listed under "Design questions" below.
+None of them blocks using the view. They are places where I chose something
+defensible and would rather you chose.
+
+**What I would look at first, with your ears rather than my tests:** open
+HW011 on the phone, stamp a few of its fifteen sounds, and play it. Everything
+before this bullet was preparation for that moment, and no test I can write
+tells you whether it sounds like anything.
+
 ## Status right now
 
 Bullet one — choose a sound and stamp it — is reviewed and committed as
 `aa6807a` on `feature/audio-browser`. Bullet two — trim — is reviewed and
 committed as `3a1ae38`. Bullet three — snip — is reviewed and committed as
-`0db8571`. Bullet four — stretch — is built and green, and its critic is
-running; it is not committed. Bullet five has not started.
+`0db8571`. Bullet four — stretch — is reviewed and committed as `d1e169b`.
+Bullet five — hearing the whole collage — is built and green, and not
+committed. That is the last one in the sequence you gave.
+
+## Design questions, all of them, in one place
+
+Nothing here blocks use. Each is a choice I made and would rather you made.
+
+1. **Undo is session-only.** A reload clears it, so a deliberate held delete
+   survives as a delete. Server-side history is the only real cure.
+2. **A handle drags from its first pixel.** A five-pixel thumb slide while
+   choosing an end trims half a second and costs an undo step. A tap slop
+   would fix it and would break a deliberate four-pixel trim on a ten-pixel
+   region, which another test pins.
+3. **Trim and snip disagree at the start of a region.** The same forty pixels
+   off the start gives trim `at_s` 5 and snip `at_s` 9: trim holds the box and
+   changes what is heard at the top, snip holds the material's moment and
+   moves the box down. Pinned by a test rather than argued about.
+4. **One snip ends snip mode**, so each further snip costs a button tap.
+5. **A stretch that shortens draws trim's strike-out stripes** over material
+   nothing removes. Honest about extent, wrong about meaning.
+6. **The two halves of a snip share a name and a hue.** Only position and
+   waveform tell them apart.
+7. **The playhead does not scroll after itself.** On a thirty-six-minute piece
+   the line is gone in about forty seconds. Following it would fight a thumb
+   editing mid-play.
+8. **An edit mid-play silences only the edited region**, and nothing on screen
+   says that was on purpose.
+9. **Varispeed, not pitch-preserving stretch.** I chose it for noise and
+   texture and it is a contained swap if you want the other.
+
+## Bullet five — playing the collage — built, not yet reviewed
+
+A transport in the bar, which is now two rows: the wide choose-or-mode target
+across the top, and play, snip, stretch and undo sharing the width under it.
+One row of five would have squeezed the filename to nothing on a phone.
+
+`lib/collagePlayer.ts` is a conductor, not a second scheduler. It owns one
+`AudioContext` and hands it to one `SlicePlayer` per region, so every voice
+reaches one destination and Web Audio does the summing. Separate contexts
+would mean separate clocks, which a collage cannot have, and iOS allows only
+a handful of them anyway. `SlicePlayer` gained three things and lost nothing:
+a shared context it will not close, a `startAt` moment, and a first piece it
+can be handed instead of fetching.
+
+**Only the first piece of each region is fetched before play starts.** The
+spec says slices are fetched before play so nothing stalls mid-piece.
+Fetching *every* second of HW011 would be about four hundred megabytes of WAV
+before a note sounded, which no phone will hold. The first piece of fifteen
+regions is bounded, and the rest arrive just in time the way a single region
+already works. While the first pieces load the transport says `loading…`, and
+a second tap gives up on them.
+
+**Decisions I made, for you to overrule:**
+
+- **An edit mid-play silences the region it edited, and only that one.** The
+  piece is scheduled once, at the tap. Trim, snip, stretch or undo a sounding
+  region and that region stops; everything else plays on; the change is heard
+  on the next play. Rescheduling one voice into a mix already running would
+  need a seam mid-sound, and stopping the whole piece would make the modes
+  unusable while it plays, which the spec forbids.
+- **A tap on a region while the piece plays only takes it up.** It does not
+  play that region on its own. That is what keeps trim, snip and stretch
+  reachable mid-play, since each of them begins by taking a region up.
+- **Opening the picker stops the piece.** The picker is a sheet over the whole
+  screen and its rows play. One thing sounds at a time.
+- **The playhead exists only while something sounds.** It is not a lane
+  waiting to be filled. At the end the piece stops itself and the line goes
+  with it, so the canvas holds nothing but its regions again, and the next
+  play starts at the top.
+
+**What the tests measure rather than assert.** `listen()` in
+`collage.mock.spec.ts` patches `AudioBufferSourceNode.start`, `.stop` and
+`.connect` and records what the browser was actually told: the moment, the
+buffer's length, the speed, the gain, the context's identity, and whether that
+gain reached that context's destination. So "the mix sums" is checked as four
+voices on one context all reaching one destination with overlapping sounding
+intervals, not as the view agreeing with itself. Stop is measured too: every
+voice silenced inside fifty milliseconds of the others.
+
+**Not verified in Playwright.** WebKit under the iPhone descriptor did start
+the context from a tap and the line moved at the right rate, so the gesture
+path works. Real iOS Safari has rules a headless WebKit does not — the silent
+switch, Low Power Mode, a backgrounded tab — and none of those can be
+exercised here.
+
+**What I did not fix.** The playhead does not scroll the canvas after itself.
+On HW011, thirty-six minutes tall, the line leaves the screen in about forty
+seconds and is not seen again. Following it would fight a thumb editing
+mid-play, which is the thing this bullet had to keep working, so I left it and
+am flagging it rather than deciding it.
+
+**Verified by me.** Foreground run: **251 passed, 2 skipped, 0 failed**, 4.9
+minutes; typecheck clean; HW011 held at `f4a857da…` before and after, with the
+live guard reporting no real project file rewritten; ports 3101–3103 free
+afterwards and nothing left running. One earlier full run had a single
+`ECONNRESET` from the mock dev server in a bullet-four test; it passed on its
+own and in the two runs either side of it.
+
+## Bullet four's review found a bug that would have bitten your material
+
+The bar announced a wall on nearly every stretch drag. The cause: whether a
+drag had hit a bound was decided by comparing the *length* asked for against
+the length that came back, but `rate` is rounded to six places before it is
+stored, so those two differ by a fraction of the cut. Above about a two-second
+cut that difference exceeds the threshold, and **on a cut of fifteen minutes —
+HW011 has one — every probed position lied.** A drag alone on an empty track
+was told there was no room on the track.
+
+It now compares the rate asked for against the real walls, with a slack of
+1e-9: a hair either side of a wall is arithmetic, not a wall. Also fixed: the
+first moment of the canvas was reported as a crowded track.
+
+The critic also checked my own test change with arithmetic rather than
+opinion — the constant offset cancels exactly, so the measurement equals
+`translateY`, and the clamp stays independently pinned by the stored rate and
+the box height. It did not hide anything.
+
+**Two more design questions for you.** A handle drags from the first pixel, so
+a five-pixel thumb slide while choosing an end trims half a second and costs an
+undo step; a tap slop would fix it but would break the deliberate four-pixel
+trim that another test pins on a ten-pixel region. And a stretch that shortens
+a region draws trim's strike-out stripes over material that nothing removes —
+honest about extent, wrong about meaning.
 
 ## Bullet four — stretch — built, finished by hand, under review
 
