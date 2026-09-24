@@ -14,7 +14,7 @@ Protocols:
   global   every estimate moved earlier by one lag, the median measured on the
            TRAIN sample, so nothing is fitted to the split being scored
   oracle   each recording moved by the lag that maximises its own COnP F1,
-           searched over 0-500 ms; an upper bound, not a result
+           searched over 0-1.5 s; an upper bound, not a result
 """
 import argparse
 import json
@@ -26,7 +26,7 @@ import mir_eval
 from .common import CACHE, OUT, load_notes, ref_notes, split
 
 HOP_S = 0.01
-LAG_GRID = np.arange(-0.1, 0.61, 0.01)
+LAG_GRID = np.arange(-0.1, 1.61, 0.01)
 
 
 def f0_lag(key, part=None):
@@ -129,7 +129,7 @@ def cmd_score(a):
                 eiv, ep, _ = load_notes(path)
                 rows["raw"].append(score_one(iv, p, eiv, ep, 0.0))
                 rows["global"].append(score_one(iv, p, eiv, ep, global_lag))
-                best = max((score_one(iv, p, eiv, ep, lag) for lag in np.arange(0, 0.51, 0.01)),
+                best = max((score_one(iv, p, eiv, ep, lag) for lag in np.arange(0, 1.51, 0.01)),
                            key=lambda s: s["COnP"][2])
                 rows["oracle"].append(best)
             table[m] = rows
