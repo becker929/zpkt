@@ -138,9 +138,14 @@ estimators; they do not predict accuracy on Anthony's "dum" takes.
 
 ### 3.2 Note count and segmentation
 - **Evidence**: the new-consonant rule; rhythm syllables; the pitch track.
-- **Candidates**: ROSVOT (ACL 2024, PR; MIT; 12 M parameters; COnPOff 77.4
-  in domain, 30-47 out of domain) as a note-level vote, run on HT now
-  (**pending**); GAME (OpenVPI 2026, MIT; successor to SOME) whose diffusion
+- **Candidates**, HT note F1 (paper's metric, 140 test recordings, each
+  recording's delay removed as the click would remove it): MIR-ST500 model
+  64, JDC-STP 54, VOCANO 53, ROSVOT 50, pYIN segmentation 45, Sheet Sage 12
+  (`humtrans/notebench.py`). ROSVOT (ACL 2024, PR; MIT; 12 M parameters;
+  COnPOff 77.4 in domain, 30-47 out of domain) is the strongest released
+  robust model on lyric singing and does not beat the older MIR-ST500 model
+  on humming. For scale, Dynamic HumTrans, trained on humming, reports 67
+  with any octave on its cleaned half of the data. GAME (OpenVPI 2026, MIT; successor to SOME) whose diffusion
   boundary sampler gives several segmentations, a direct source of doubt, and
   which re-estimates pitch for user-moved boundaries. GAME's weights are on
   GitHub releases, reachable from M, not from S.
@@ -250,8 +255,8 @@ estimators; they do not predict accuracy on Anthony's "dum" takes.
 ## Open, and what settles it
 
 1. Pitch tracker ranking on HT: `pitchbench.py` (running).
-2. ROSVOT on HT with per-singer delay: does a modern robust note model beat
-   MIR-ST500's 47? (running).
+2. Done: ROSVOT does not beat MIR-ST500 on humming (50 against 64, same
+   recordings, same delay correction).
 3. Beat This! tempo octave and meter on HT (running).
 4. GAME on the Mac, same protocol.
 5. Anthony's three songs through `pilot.py`: take-to-take agreement, the
