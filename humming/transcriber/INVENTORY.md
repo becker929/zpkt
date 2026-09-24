@@ -173,19 +173,25 @@ estimators; they do not predict accuracy on Anthony's "dum" takes.
 - **Candidates**, HT (1,534 takes, truth = label tempo):
   audio tempogram right 23%, double 35%, half 13%, other 23%; its confidence
   does track being right (AUROC 0.79). From note starts alone: right 18%.
-  Beat This! (Foscarin et al. 2024, PR; MIT): **pending**
-  (`humtrans/beats.py`). Symbolic: Cemgil and Kappen 2003 (PR) and metrical
-  HMMs give a posterior over tempo octaves from the starts.
-- **Reading**: the metrical level (which pulse is "the beat") is a notation
-  choice, not in the audio. Asking half or double is the right design, not a
-  fallback.
+  Beat This! small model (Foscarin et al. 2024, PR; MIT; `humtrans/beats.py`):
+  right 66%, double 9%, half 4%, other 18%, no beats 2%. Symbolic: Cemgil
+  and Kappen 2003 (PR) and metrical HMMs give a posterior over tempo octaves
+  from the starts.
+- **Reading**: a strong general beat tracker carries over to humming far
+  better than a tempogram (66% against 23%). Which pulse is "the beat" is
+  still partly a notation choice, so the half-or-double question stays, but
+  it is needed on about a third of free takes, not most. Provisional: Beat
+  This! as the first source, the metronome check as the second.
 - **Where**: all on S and M.
 
 ### 4.2 Meter and downbeat
 - **Evidence**: note starts and accents; the user's answer.
-- **Candidates**: Beat This! downbeats (**pending** on HT); BeatNet's particle
-  filter (PR, CC BY 4.0) for a posterior over meter; a metrical HMM on the
-  starts.
+- **Candidates**: Beat This! downbeats, HT: beats per bar match the label's
+  time signature on only 22%; the commonest miss reads a 4/4 bar as 2 beats
+  (37%), then as 1 (16%). BeatNet's particle filter (PR, CC BY 4.0) for a
+  posterior over meter; a metrical HMM on the starts.
+- **Reading**: bar length is mostly a notation choice (4/4 and 2/4 sound
+  alike), so meter is asked, with the tracker's guess as the default.
 - **Doubt**: posterior over 2, 3, 4 beats per bar.
 - **Decides it**: HT meter accuracy (labels: mostly 4/4 and 2/4), then asking.
 
@@ -257,7 +263,7 @@ estimators; they do not predict accuracy on Anthony's "dum" takes.
 1. Pitch tracker ranking on HT: `pitchbench.py` (running).
 2. Done: ROSVOT does not beat MIR-ST500 on humming (50 against 64, same
    recordings, same delay correction).
-3. Beat This! tempo octave and meter on HT (running).
+3. Done: Beat This! gets tempo right on 66% of free takes and meter on 22%.
 4. GAME on the Mac, same protocol.
 5. Anthony's three songs through `pilot.py`: take-to-take agreement, the
    asynchrony distribution, the consonant lead, tuning, and which rows above
