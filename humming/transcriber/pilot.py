@@ -2,9 +2,11 @@
 
     python3 -m transcriber.pilot <folder of wavs> [-o out/pilot.json]
 
-File names: <song>_free.wav, <song>_click_<n>.wav, where <song> is a
-reference in transcriber/refs/ or transcriber/refs_private/ (happy_birthday,
-jingle_bells_chorus, mario_overworld). Anything else in the folder is skipped.
+File names: <tune>_free.wav, <tune>_click_<n>.wav, where <tune> is a
+reference in transcriber/refs/ (tune_a, tune_b) or transcriber/refs_private/
+(tune_c, which is copyrighted and kept out of git; a copy sits in the owner's
+Drive folder). Anything else in the folder is skipped. The takes themselves
+come from the owner's Google Drive (lab/drive_fetch.py), never from the site.
 
 Per take:
   click    (click takes) the metronome as the microphone heard it: tempo,
@@ -185,6 +187,23 @@ def notes_of(path, clicks=None):
     return out, tuning
 
 
+AUDIO_EXT = {".wav", ".m4a", ".mp3", ".aif", ".aiff", ".flac", ".caf", ".ogg"}
+
+
+def as_wav(path):
+    """Phone recordings arrive as M4A and the like; decode them once to WAV
+    beside the original (with the ffmpeg that imageio-ffmpeg bundles)."""
+    if path.suffix.lower() == ".wav":
+        return path
+    out = path.with_suffix(".wav")
+    if not out.exists():
+        import subprocess
+        import imageio_ffmpeg
+        subprocess.run([imageio_ffmpeg.get_ffmpeg_exe(), "-loglevel", "error", "-i", str(path),
+                        "-ac", "1", "-ar", "44100", str(out)], check=True)
+    return out
+
+
 # ---- alignment ------------------------------------------------------------
 
 def align(sung, ref):
@@ -295,7 +314,8 @@ def main():
     ap.add_argument("-o", "--out", default=str(HERE.parent / "out" / "pilot.json"))
     a = ap.parse_args()
     takes = defaultdict(list)
-    for p in sorted(Path(a.folder).glob("*.wav")):
+    audio = sorted(p for p in Path(a.folder).iterdir() if p.suffix.lower() in AUDIO_EXT)
+    for p in sorted({as_wav(p) for p in audio}):
         parts = p.stem.split("_")
         kind_at = next((i for i, x in enumerate(parts) if x in ("free", "click")), None)
         if kind_at is None:

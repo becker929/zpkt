@@ -1,6 +1,6 @@
 """Synthetic "dum" takes of a reference song, to check pilot.py against a known answer.
 
-    python3 -m transcriber.synth_takes jingle_bells_chorus /tmp/synth
+    python3 -m transcriber.synth_takes tune_a /tmp/synth
     python3 -m transcriber.pilot /tmp/synth
 
 Writes one free take (no click, 92 BPM) and three click takes (100 BPM, click
