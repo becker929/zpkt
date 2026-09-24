@@ -90,6 +90,18 @@ def track(name, y):
         from swift_f0 import SwiftF0
         r = SwiftF0().detect(y, SR)
         return to_grid(r.timestamps, np.where(r.confidence > 0.9, r.pitch_hz, np.nan), r.confidence, n)
+    if name == "rmvpe":
+        # RVC's RMVPE loader and checkpoint (lj1995/VoiceConversionWebUI rmvpe.pt),
+        # from a directory given in RMVPE_DIR; its CUDA-graph hook is stubbed for CPU.
+        import os
+        sys.path.insert(0, os.environ["RMVPE_DIR"])
+        from rvc_rmvpe import RMVPE
+        global _rmvpe
+        if "_rmvpe" not in globals():
+            _rmvpe = RMVPE(os.path.join(os.environ["RMVPE_DIR"], "rmvpe.pt"), False, "cpu")
+        hidden = _rmvpe.mel2hidden(_rmvpe.extract_mel(y)).squeeze(0).numpy()
+        f = _rmvpe.decode(hidden, thred=0.03)[:n]
+        return np.where(f > 0, f, np.nan), hidden.max(1)[:n]
     raise ValueError(name)
 
 
