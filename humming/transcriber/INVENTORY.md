@@ -68,17 +68,34 @@ estimators; they do not predict accuracy on Anthony's "dum" takes.
   SwiftF0's author; overall F1 over 10 corpora and 8 degradations):
   SwiftF0 0.778, RMVPE 0.768 (best on solo singing, Vocadito 0.862),
   FCPE 0.728, CREPE 0.69, PESTO 0.68, pYIN 0.51. pYIN has the fewest false
-  voicings, useful in an ensemble. HT benchmark on 150 test recordings:
-  **pending** (`humtrans/pitchbench.py`: note accuracy, voicing, jumps,
-  confidence AUROC, speed).
+  voicings, useful in an ensemble. HT (`humtrans/pitchbench.py`, 3,814 notes
+  in 150 test recordings; note accuracy = the note's median pitch, tuning and
+  octave removed, lands on the label's semitone):
+
+  | Tracker | Note accuracy | Voiced in notes | Jumps | Confidence AUROC | Compute per audio second (sandbox) |
+  |---|---|---|---|---|---|
+  | pYIN | 81.6% | 96.5% | 1.6% | 0.73 | 0.28 s |
+  | FCPE | 81.5% | 95.8% | 2.0% | (binary voicing only) | 0.015 s |
+  | RMVPE | 81.1% | 95.8% | 2.1% | 0.71 | 3.0 s (CPU, shared machine) |
+  | CREPE tiny | 79.8% | 94.8% | 1.8% | 0.71 | 0.32 s |
+  | PESTO | 79.8% | 89.2% | 1.9% | 0.67 | 0.075 s |
+  | SwiftF0 | 77.1% | 78.4% | 0.6% | 0.75 | 0.009 s |
+
+  All six sit within five points. The cap is the hummers' own pitch errors,
+  which every tracker shares, so on humming the choice turns on voicing,
+  confidence and speed, not raw accuracy. SwiftF0 loses notes to its default
+  voicing threshold (0.9) but has the fewest glitches and the most useful
+  confidence; a lower threshold is the obvious next test.
 - **Doubt**: every tracker gives a per-frame confidence; none is calibrated.
   Trackers also carry fixed cent biases of 10-40 cents (Koguchi and Koriyama
   2026, PP), the same size as the tuning we want to measure.
 - **Where**: all run on S and M. SwiftF0 is ONNX on CPU (~400x real time);
   RMVPE and FCPE run on MPS, with community MLX ports of RMVPE.
-- **Decides it**: HT ranking, then bias against the drone in Anthony's takes.
-  Provisional: SwiftF0 + RMVPE, with pYIN for voicing, each bias-corrected on
-  the drone.
+- **Decides it**: bias against the drone in Anthony's takes, and which
+  tracker's confidence best predicts his confirmed pitch errors.
+  Provisional: SwiftF0 (confidence, speed, live use on the Mac) with pYIN or
+  FCPE for voicing, each bias-corrected on the drone. RMVPE is not worth its
+  cost on solo voice here.
 
 ### 2.2 Tuning offset and drift
 - **Evidence**: circular mean of note deviations from the semitone grid;
@@ -260,7 +277,7 @@ estimators; they do not predict accuracy on Anthony's "dum" takes.
 
 ## Open, and what settles it
 
-1. Pitch tracker ranking on HT: `pitchbench.py` (running).
+1. Done: pitch trackers are within five points of each other on humming.
 2. Done: ROSVOT does not beat MIR-ST500 on humming (50 against 64, same
    recordings, same delay correction).
 3. Done: Beat This! gets tempo right on 66% of free takes and meter on 22%.
