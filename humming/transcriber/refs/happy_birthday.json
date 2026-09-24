@@ -1,0 +1,109 @@
+{
+ "title": "Happy Birthday to You",
+ "key": "C major",
+ "meter": "3/4",
+ "pickup_beats": 1,
+ "notes_on": "MIDI pitch in C major (the tune is often sung in other keys; comparisons are key- and tempo-free). The name bar varies with the name's syllables; this is the two-syllable form. Public domain.",
+ "notes": [
+  {
+   "pitch": 67,
+   "beats": 0.75
+  },
+  {
+   "pitch": 67,
+   "beats": 0.25
+  },
+  {
+   "pitch": 69,
+   "beats": 1
+  },
+  {
+   "pitch": 67,
+   "beats": 1
+  },
+  {
+   "pitch": 72,
+   "beats": 1
+  },
+  {
+   "pitch": 71,
+   "beats": 2
+  },
+  {
+   "pitch": 67,
+   "beats": 0.75
+  },
+  {
+   "pitch": 67,
+   "beats": 0.25
+  },
+  {
+   "pitch": 69,
+   "beats": 1
+  },
+  {
+   "pitch": 67,
+   "beats": 1
+  },
+  {
+   "pitch": 74,
+   "beats": 1
+  },
+  {
+   "pitch": 72,
+   "beats": 2
+  },
+  {
+   "pitch": 67,
+   "beats": 0.75
+  },
+  {
+   "pitch": 67,
+   "beats": 0.25
+  },
+  {
+   "pitch": 79,
+   "beats": 1
+  },
+  {
+   "pitch": 76,
+   "beats": 1
+  },
+  {
+   "pitch": 72,
+   "beats": 1
+  },
+  {
+   "pitch": 71,
+   "beats": 1
+  },
+  {
+   "pitch": 69,
+   "beats": 2
+  },
+  {
+   "pitch": 77,
+   "beats": 0.75
+  },
+  {
+   "pitch": 77,
+   "beats": 0.25
+  },
+  {
+   "pitch": 76,
+   "beats": 1
+  },
+  {
+   "pitch": 72,
+   "beats": 1
+  },
+  {
+   "pitch": 74,
+   "beats": 1
+  },
+  {
+   "pitch": 72,
+   "beats": 3
+  }
+ ]
+}
