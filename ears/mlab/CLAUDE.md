@@ -63,6 +63,10 @@ ffmpeg is needed for mp3/m4a input, codec simulation and the cross-check.
 - Driving Live (OSC + LOM) needs a native session on the Mac. The earlier
   rig's skill is at `~/.agents/skills/ableton-live-control/` on the Mac that
   holds `~/_tmsmsm/`. See `guides/ableton-live-12.md` for the hand-off.
+- Cowork shell limits (learned 2026-09-25): each call ends after 180 s and kills any
+  background process it started; run one hypothesis per call (all six run in 12-40 s each).
+  Deletes are not permitted by default, so update files with `tar --overwrite -xzf ...`
+  and run pytest with `-p no:cacheprovider`.
 - Anthony's Drive holds `HW002_1min-2026-08-13T2107.mp3`, `HW002_9.mp3`
   and `HW002.zip`. The Drive connector downloads files ≤10 MB only.
 

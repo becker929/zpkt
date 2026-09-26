@@ -113,3 +113,10 @@ Change: repeat with renders from Live (Glue Compressor, attack 0.3 / 3 / 30 ms) 
 3. Silent files gave nonsense (+399 dB platform gain, premaster PASS). Now undefined values and a premaster FAIL.
 4. The hypothesis `platform` op and `mlab deliver` used different normalisation rules. Now one model.
 Also: predictions within rounding (0.015) of a strict threshold now read INCONCLUSIVE, not PASS/FAIL.
+
+**L-017 · 2026-09-26 · Codec overs depend on the encoder, not just the codec.**
+H006 on the container's ffmpeg 6.1.1 (native AAC encoder): true peak +0.51 dB after AAC 128 k.
+H006 on the Mac mini's ffmpeg 4.4.2 (same settings): true peak -0.22 dB after AAC.
+Same file, same bitrate, opposite sign. The -1.5 dBTP master stayed under 0 dBTP on both.
+YouTube's own encoder is unknown to us.
+Change: keep the -1.5 dBTP ceiling as a margin. Settle it by measuring a real upload.

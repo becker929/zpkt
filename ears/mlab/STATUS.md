@@ -20,7 +20,7 @@
 | H003 | Premaster | 15 Hz high-pass removes DC and frees ≥0.2 dB headroom | NOT SUPPORTED (DC gone, peak +0.1 dB) | L-011 |
 | H004 | EQ | Low-mid hole; +3 dB at 350 Hz fills it | SUPPORTED (ABX pending) | L-012 |
 | H005 | Dynamics | Slow attack keeps more punch at matched loudness | NOT SUPPORTED with the Python compressor (+0.16 dB, needed +0.5) | L-015 |
-| H006 | Loudness / monitoring | AAC adds overs; -1.5 dBTP survives | SUPPORTED (ABX pending) | L-013 |
+| H006 | Loudness / monitoring | AAC adds overs; -1.5 dBTP survives | SUPPORTED on the container's ffmpeg, NOT SUPPORTED on the Mac's ffmpeg 4.4 (overs are encoder-specific); the -1.5 dBTP part held on both | L-013, L-017 |
 
 ABX kits are waiting in `hypotheses/results/H00*/abx/`.
 
