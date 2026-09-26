@@ -1,0 +1,29 @@
+id: H003
+title: A 15 Hz high-pass removes HW002's DC offset and frees peak headroom without changing loudness
+chapter: "14"
+source: "signal flow and premaster chapter; findings L-007 and L-011 in LEARNINGS.md"
+claim: >
+  The demo carries a steady offset near -35 dBFS while the kick section plays
+  (asymmetric distortion). Removing it with a 15 Hz high-pass should lower the
+  sample peak by at least 0.2 dB and leave integrated loudness within 0.1 LU.
+inputs:
+  demo: audio/hw002/HW002_1min-2026-08-13T2107.mp3
+variants:
+  - name: as_is
+    from: demo
+  - name: hp15
+    from: demo
+    chain: [{op: eq, bands: [{type: highpass, f: 15, q: 0.707}]}]
+  - name: hp30
+    from: demo
+    chain: [{op: eq, bands: [{type: highpass, f: 30, q: 0.707}]}]
+metrics: [word_length.dc_max_dbfs, loudness.sample_peak, loudness.true_peak, loudness.integrated,
+          loudness.plr, tonal.group.sub, tonal.group.bass]
+predictions:
+  - {metric: word_length.dc_max_dbfs, left: hp15, op: "<", value: -60, why: "offset gone"}
+  - {metric: loudness.sample_peak, left: hp15, right: as_is, op: "<", value: -0.2, why: "headroom freed"}
+  - {metric: loudness.integrated, left: hp15, right: as_is, op: "abs<", value: 0.1, why: "loudness unchanged"}
+  - {metric: tonal.group.sub, left: hp15, right: as_is, op: "abs<", value: 0.2, why: "15 Hz leaves the kick's sub alone"}
+interpretation_hint: >
+  If supported, put a DC/infrasonic high-pass first in the mastering chain (EQ Eight
+  low cut, 48 dB/oct, at ~10-15 Hz), and look for the device that makes the offset.

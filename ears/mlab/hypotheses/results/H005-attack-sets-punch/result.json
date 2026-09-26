@@ -1,0 +1,65 @@
+{
+  "id": "H005",
+  "verdict": "NOT SUPPORTED",
+  "predictions": [
+    {
+      "metric": "dynamics.transient_contrast_median_db",
+      "left": "slowA",
+      "right": "fastA",
+      "op": ">",
+      "value": 0.5,
+      "why": "slow attack preserves the hit",
+      "status": "FAIL",
+      "observed": 0.16
+    },
+    {
+      "metric": "dynamics.block_crest_median_db",
+      "left": "slowA",
+      "right": "fastA",
+      "op": ">",
+      "value": 0.5,
+      "why": "microdynamics survive slow attack",
+      "status": "INCONCLUSIVE",
+      "observed": 0.5,
+      "note": "within rounding of the threshold"
+    }
+  ],
+  "rows": {
+    "as_is": {
+      "loudness.integrated": -13.84,
+      "loudness.true_peak": -0.48,
+      "loudness.plr": 13.36,
+      "dynamics.crest_db": 14.82,
+      "dynamics.block_crest_median_db": 8.6,
+      "dynamics.transient_contrast_median_db": 8.12,
+      "loudness.lra": 2.08
+    },
+    "fastA": {
+      "loudness.integrated": -13.84,
+      "loudness.true_peak": -4.32,
+      "loudness.plr": 9.52,
+      "dynamics.crest_db": 10.88,
+      "dynamics.block_crest_median_db": 8.13,
+      "dynamics.transient_contrast_median_db": 7.67,
+      "loudness.lra": 1.26
+    },
+    "midA": {
+      "loudness.integrated": -13.84,
+      "loudness.true_peak": -1.94,
+      "loudness.plr": 11.9,
+      "dynamics.crest_db": 13.18,
+      "dynamics.block_crest_median_db": 8.46,
+      "dynamics.transient_contrast_median_db": 7.74,
+      "loudness.lra": 1.23
+    },
+    "slowA": {
+      "loudness.integrated": -13.84,
+      "loudness.true_peak": -1.49,
+      "loudness.plr": 12.35,
+      "dynamics.crest_db": 13.11,
+      "dynamics.block_crest_median_db": 8.63,
+      "dynamics.transient_contrast_median_db": 7.83,
+      "loudness.lra": 1.13
+    }
+  }
+}

@@ -1,0 +1,51 @@
+{
+  "id": "H006",
+  "verdict": "SUPPORTED",
+  "predictions": [
+    {
+      "metric": "loudness.true_peak",
+      "left": "as_is_aac",
+      "right": "as_is",
+      "op": ">",
+      "value": 0.2,
+      "why": "codec adds peak",
+      "status": "PASS",
+      "observed": 0.51
+    },
+    {
+      "metric": "loudness.true_peak",
+      "left": "ceil_-1.5_aac",
+      "op": "<",
+      "value": 0.0,
+      "why": "-1.5 dBTP ceiling survives AAC",
+      "status": "PASS",
+      "observed": -1.43
+    }
+  ],
+  "rows": {
+    "as_is": {
+      "loudness.true_peak": -0.48,
+      "loudness.sample_peak": -0.48,
+      "loudness.integrated": -13.84,
+      "tonal.group.air": -20.0
+    },
+    "as_is_aac": {
+      "loudness.true_peak": 0.03,
+      "loudness.sample_peak": -0.04,
+      "loudness.integrated": -13.93,
+      "tonal.group.air": -20.15
+    },
+    "ceil_-1.5": {
+      "loudness.true_peak": -1.5,
+      "loudness.sample_peak": -1.5,
+      "loudness.integrated": -13.85,
+      "tonal.group.air": -20.0
+    },
+    "ceil_-1.5_aac": {
+      "loudness.true_peak": -1.43,
+      "loudness.sample_peak": -1.44,
+      "loudness.integrated": -13.94,
+      "tonal.group.air": -20.14
+    }
+  }
+}

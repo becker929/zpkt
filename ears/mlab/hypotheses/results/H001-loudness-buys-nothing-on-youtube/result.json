@@ -1,0 +1,79 @@
+{
+  "id": "H001",
+  "verdict": "INCONCLUSIVE",
+  "predictions": [
+    {
+      "metric": "loudness.integrated",
+      "left": "loud_-9@youtube",
+      "right": "as_is@youtube",
+      "op": "abs<",
+      "value": 0.3,
+      "why": "after normalisation both play at about -14 LUFS",
+      "status": "PASS",
+      "observed": 0.0
+    },
+    {
+      "metric": "loudness.plr",
+      "left": "loud_-9",
+      "right": "as_is",
+      "op": "<",
+      "value": -3,
+      "why": "the extra loudness is paid for with at least 3 dB of PLR",
+      "status": "PASS",
+      "observed": -5.36
+    },
+    {
+      "metric": "dynamics.transient_contrast_median_db",
+      "left": "loud_-9",
+      "right": "as_is",
+      "op": "<",
+      "value": 0,
+      "why": "hits stand less far above the body",
+      "status": "INCONCLUSIVE",
+      "observed": 0.0,
+      "note": "within rounding of the threshold"
+    }
+  ],
+  "rows": {
+    "as_is": {
+      "loudness.integrated": -13.84,
+      "loudness.true_peak": -0.48,
+      "loudness.plr": 13.36,
+      "loudness.psr_min": 7.13,
+      "loudness.lra": 2.08,
+      "dynamics.crest_db": 14.82,
+      "dynamics.block_crest_median_db": 8.6,
+      "dynamics.transient_contrast_median_db": 8.12
+    },
+    "loud_-9": {
+      "loudness.integrated": -9.0,
+      "loudness.true_peak": -1.0,
+      "loudness.plr": 8.0,
+      "loudness.psr_min": 7.13,
+      "loudness.lra": 1.24,
+      "dynamics.crest_db": 9.35,
+      "dynamics.block_crest_median_db": 8.57,
+      "dynamics.transient_contrast_median_db": 8.12
+    },
+    "as_is@youtube": {
+      "loudness.integrated": -14.0,
+      "loudness.true_peak": -0.64,
+      "loudness.plr": 13.36,
+      "loudness.psr_min": 7.13,
+      "loudness.lra": 2.08,
+      "dynamics.crest_db": 14.82,
+      "dynamics.block_crest_median_db": 8.6,
+      "dynamics.transient_contrast_median_db": 8.12
+    },
+    "loud_-9@youtube": {
+      "loudness.integrated": -14.0,
+      "loudness.true_peak": -6.0,
+      "loudness.plr": 8.0,
+      "loudness.psr_min": 7.13,
+      "loudness.lra": 1.24,
+      "dynamics.crest_db": 9.35,
+      "dynamics.block_crest_median_db": 8.57,
+      "dynamics.transient_contrast_median_db": 8.12
+    }
+  }
+}

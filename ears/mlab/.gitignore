@@ -1,0 +1,5 @@
+__pycache__/
+*.pyc
+audio/renders/
+hypotheses/results/*/audio/
+hypotheses/results/*/abx/

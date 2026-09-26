@@ -1,0 +1,222 @@
+"""Command line: python3 -m mlab <command> ...   (run from the lab root)."""
+from __future__ import annotations
+
+import argparse
+import glob
+import json
+import os
+import sys
+
+from . import io as aio
+from .util import r
+
+LAB = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+
+def _out(obj, as_json):
+    if as_json:
+        print(json.dumps(obj, indent=2, default=aio._json_default))
+    return obj
+
+
+def _stem(p):
+    return os.path.splitext(os.path.basename(p))[0]
+
+
+def cmd_measure(a):
+    from . import measure
+    au = aio.load(a.file)
+    sh = measure.sheet(au, codecs=a.codecs)
+    md = measure.markdown(sh, os.path.basename(a.file))
+    base = os.path.join(LAB, "reports", _stem(a.file))
+    aio.dump_json(sh, base + ".json")
+    with open(base + ".md", "w") as f:
+        f.write(md)
+    if a.json:
+        _out(sh, True)
+    else:
+        print(md)
+        print(f"(saved {os.path.relpath(base, LAB)}.md / .json)")
+
+
+def cmd_premaster(a):
+    from . import premaster
+    res = premaster.run(aio.load(a.file))
+    if a.json:
+        return _out(res, True)
+    print(f"Premaster check: {os.path.basename(a.file)} -> {res['overall']}\n")
+    for row in res["checks"]:
+        print(f"  [{row['status']:4}] {row['check']:30} {str(row['value']):>10}   {row['why']}")
+
+
+def cmd_deliver(a):
+    from . import delivery, loudness as L
+    au = aio.load(a.file)
+    res = delivery.report(au.x, au.sr, codecs=not a.no_codecs)
+    if a.json:
+        return _out(res, True)
+    print(f"Delivery: {os.path.basename(a.file)}  I={res['integrated']} LUFS  TP={res['true_peak']} dBTP\n")
+    for p, v in res["normalization"].items():
+        print(f"  {p:13} gain {str(v['gain_db']):>6} dB -> {str(v['playback_lufs']):>6} LUFS, {str(v['playback_true_peak']):>6} dBTP   ({v['note']})")
+    for c, v in res.get("codec_roundtrip", {}).items():
+        print(f"  codec {c:8} {v}")
+    for adv in res["advice"]:
+        print("  ! " + adv)
+
+
+def cmd_bitdepth(a):
+    from . import bitdepth
+    _out(bitdepth.analyze(aio.load(a.file)), True)
+
+
+def cmd_spectrum(a):
+    from . import spectrum as S
+    au = aio.load(a.file)
+    tb = S.tonal_balance(au.x, au.sr)
+    out = {"slope_db_per_oct": tb["slope_db_per_oct"], "groups": tb["groups_db_rel_total"],
+           "stereo": S.stereo_by_band(au.x, au.sr)}
+    if a.ref:
+        rf = aio.load(a.ref)
+        out["difference_vs_ref_third_octave"] = S.compare(au.x, rf.x, au.sr, rf.sr)
+    if a.phon is not None:
+        out["perceived_change_vs_%s_phon" % a.ref_phon] = S.perceived_balance(tb["third_octave"], a.phon, a.ref_phon)
+    _out(out, True)
+
+
+def cmd_eqdiff(a):
+    from . import spectrum as S
+    d, w = aio.load(a.dry), aio.load(a.wet)
+    dd, ww, lag = S.align(d.x, w.x, sr=d.sr)
+    res = S.eq_diff(dd, ww, d.sr)
+    summ = S.summarize_eq(res)
+    summ["latency_samples"] = lag
+    if a.json:
+        return _out({"summary": summ, "curve": res}, True)
+    _out(summ, True)
+
+
+def cmd_compprobe(a):
+    from . import dynamics as D, spectrum as S
+    d, w = aio.load(a.dry), aio.load(a.wet)
+    dd, ww, lag = D.probe_align(d.x, w.x)
+    res = D.comp_probe(dd, ww, d.sr)
+    res["latency_samples"] = lag
+    _out(res, True)
+
+
+def cmd_probe(a):
+    from . import siggen
+    out = os.path.join(LAB, "audio", "renders", "probes")
+    x, lay = siggen.comp_probe(a.sr)
+    aio.save(os.path.join(out, "comp_probe.wav"), x, a.sr, "PCM_24")
+    aio.dump_json(lay, os.path.join(out, "comp_probe.layout.json"))
+    aio.save(os.path.join(out, "eq_probe_pink.wav"), siggen.eq_probe(a.sr), a.sr, "PCM_24")
+    print(f"wrote probes to {os.path.relpath(out, LAB)}/ (drag into Live, render through the device, export 32-bit float)")
+
+
+def cmd_match(a):
+    from . import compare
+    auds = [aio.load(p) for p in a.files]
+    res, tgt = compare.match(auds, a.target)
+    out = os.path.join(LAB, "audio", "renders", "matched")
+    for au, (x, g) in zip(auds, res):
+        p = os.path.join(out, f"{_stem(au.path)}_@{r(tgt, 1)}LUFS.wav")
+        aio.save(p, x, au.sr)
+        print(f"{os.path.basename(au.path)}: {r(g):+} dB -> {os.path.relpath(p, LAB)}")
+
+
+def cmd_abx(a):
+    from . import compare
+    out = a.out or os.path.join(LAB, "audio", "renders", "abx", f"{_stem(a.a)}_vs_{_stem(a.b)}")
+    compare.abx_kit(aio.load(a.a), aio.load(a.b), out, a.trials, a.start, a.dur)
+    print(f"ABX kit: {os.path.relpath(out, LAB)}  (see HOW_TO.md; do not open .answer_key.json)")
+
+
+def cmd_abxscore(a):
+    from . import compare
+    _out(compare.abx_score(a.folder, a.answers), True)
+
+
+def cmd_kcal(a):
+    from . import siggen
+    out = os.path.join(LAB, "audio", "renders", "k-system")
+    for name, x in siggen.kcal_files(a.sr).items():
+        aio.save(os.path.join(out, name), x, a.sr, "PCM_24")
+    print(f"wrote K-System calibration noise to {os.path.relpath(out, LAB)}/ — see guides/ch20-21-monitoring.md")
+
+
+def cmd_als(a):
+    from . import als
+    s = als.read(a.file)
+    if a.json:
+        return _out(s, True)
+    print(f"{os.path.basename(a.file)} — {s['creator']} — {s['tempo']} BPM — main fader {s['main_volume_db']} dB")
+    print("Main chain: " + (", ".join(f"{d['device']}{'' if d['on'] else ' (off)'}" for d in s["main_devices"]) or "(empty)"))
+    for t in s["tracks"]:
+        devs = ", ".join(f"{d['device']}{'' if d['on'] else ' (off)'}" for d in t["devices"])
+        print(f"  {t['type'][:5]:5} {t['name'][:40]:40} {str(t['volume_db']):>7} dB {'' if t['active'] else '[deactivated]'}  {devs}")
+    for f in s["findings"]:
+        print("  ! " + f)
+
+
+def cmd_refs(a):
+    from . import compare, measure
+    t = measure.flat(measure.sheet(aio.load(a.file)))
+    refs = {}
+    for p in sorted(glob.glob(os.path.join(a.refs, "*"))):
+        if os.path.splitext(p)[1].lower() in (".wav", ".aif", ".aiff", ".flac", ".mp3", ".m4a"):
+            refs[_stem(p)[:18]] = measure.flat(measure.sheet(aio.load(p)))
+    print(compare.refs_table(t, refs, measure.CORE_KEYS))
+
+
+def cmd_hyp(a):
+    from . import hypothesis
+    outdir, verdict = hypothesis.run(a.file, codecs=a.codecs)
+    print(f"{verdict}: {os.path.relpath(outdir, LAB)}/report.md")
+
+
+def cmd_calibrate(a):
+    sys.path.insert(0, os.path.join(LAB, "calibration"))
+    import checks  # noqa
+    ok = checks.write_report(os.path.join(LAB, "calibration", "CALIBRATION.md"), crosscheck=not a.quick)
+    sys.exit(0 if ok else 1)
+
+
+def main(argv=None):
+    p = argparse.ArgumentParser(prog="mlab", description="Calibrated mastering instruments (HW002 lab)")
+    sp = p.add_subparsers(dest="cmd", required=True)
+
+    def add(name, fn, *args, **kw):
+        s = sp.add_parser(name, help=kw.pop("help", None))
+        for arg in args:
+            s.add_argument(*arg[0], **arg[1])
+        s.set_defaults(fn=fn)
+        return s
+
+    F = (["file"], {})
+    J = (["--json"], {"action": "store_true"})
+    add("measure", cmd_measure, F, J, (["--codecs"], {"action": "store_true"}), help="full measurement sheet")
+    add("premaster", cmd_premaster, F, J, help="Ch.14 premaster checklist")
+    add("deliver", cmd_deliver, F, J, (["--no-codecs"], {"action": "store_true"}), help="platform normalization + codec round-trip")
+    add("bitdepth", cmd_bitdepth, F, help="word length / dither forensics")
+    add("spectrum", cmd_spectrum, F, (["--ref"], {}), (["--phon"], {"type": float}),
+        (["--ref-phon"], {"type": float, "default": 83.0}), help="tonal balance, optional vs reference")
+    add("eq-diff", cmd_eqdiff, (["dry"], {}), (["wet"], {}), J, help="EQ curve a device applied")
+    add("comp-probe", cmd_compprobe, (["dry"], {}), (["wet"], {}), help="estimate compressor settings from a probe render")
+    add("probe", cmd_probe, (["--sr"], {"type": int, "default": 44100}), help="write comp/eq probe signals")
+    add("match", cmd_match, (["files"], {"nargs": "+"}), (["--target"], {"type": float}), help="loudness-match files")
+    add("abx", cmd_abx, (["a"], {}), (["b"], {}), (["--trials"], {"type": int, "default": 12}),
+        (["--start"], {"type": float}), (["--dur"], {"type": float}), (["--out"], {}), help="blind ABX kit")
+    add("abx-score", cmd_abxscore, (["folder"], {}), (["answers"], {}), help="score ABX answers")
+    add("kcal", cmd_kcal, (["--sr"], {"type": int, "default": 44100}), help="K-System calibration noise")
+    add("als", cmd_als, F, J, help="inspect an Ableton set")
+    add("refs", cmd_refs, F, (["refs"], {}), help="compare with a folder of references")
+    h = add("hyp", cmd_hyp, (["action"], {"choices": ["run"]}), F, (["--codecs"], {"action": "store_true", "default": None}),
+            help="run a hypothesis YAML")
+    add("calibrate", cmd_calibrate, (["--quick"], {"action": "store_true"}), help="run known-answer checks")
+    a = p.parse_args(argv)
+    a.fn(a)
+
+
+if __name__ == "__main__":
+    main()

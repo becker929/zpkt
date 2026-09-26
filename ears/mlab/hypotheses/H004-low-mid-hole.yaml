@@ -1,0 +1,29 @@
+id: H004
+title: HW002 has a low-mid hole (250-500 Hz) that a broad 3 dB lift fills without costing loudness headroom
+chapter: "4"
+source: "EQ chapter (tonal balance, midrange); note 2 'a hole in the middle'"
+claim: >
+  The 250-500 Hz region sits at least 5 dB under both the bass and the mid regions.
+  A broad bell (+3 dB, 350 Hz, Q 0.7) narrows that gap by at least 1.5 dB.
+  Level-matched, the lifted version may or may not be preferred; the ABX decides.
+inputs:
+  demo: audio/hw002/HW002_1min-2026-08-13T2107.mp3
+variants:
+  - name: as_is
+    from: demo
+  - name: lowmid_+3
+    from: demo
+    chain:
+      - {op: eq, bands: [{type: peak, f: 350, gain_db: 3, q: 0.7}]}
+      - {op: normalize_lufs, target: -13.84}
+metrics: [tonal.group.sub, tonal.group.bass, tonal.group.low_mid, tonal.group.mid, tonal.group.upper_mid,
+          tonal.slope_db_per_oct, loudness.integrated, loudness.true_peak]
+predictions:
+  - {metric: tonal.group.low_mid, left: as_is, op: "<", value: -12, why: "low-mid share is small in absolute terms"}
+  - {metric: tonal.group.low_mid, left: lowmid_+3, right: as_is, op: ">", value: 1.5, why: "the bell fills it"}
+listening:
+  abx: [as_is, lowmid_+3]
+  excerpt: [50, 15]
+interpretation_hint: >
+  Absolute band shares only mean something against references in the genre.
+  Put 3-5 reference tracks in audio/refs/ and run 'python3 -m mlab refs <file> audio/refs'.
