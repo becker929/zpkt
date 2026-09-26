@@ -15,25 +15,25 @@
     "lra": 2.12,
     "lra_low": -14.62,
     "lra_high": -12.5,
-    "sample_peak": -1.44,
-    "true_peak": -1.43,
-    "plr": 12.51,
-    "psr_min": 7.17
+    "sample_peak": -1.24,
+    "true_peak": -1.22,
+    "plr": 12.73,
+    "psr_min": 7.22
   },
   "dynamics": {
-    "crest_db": 13.94,
-    "plr_db": 12.51,
-    "psr_min_db": 7.17,
+    "crest_db": 14.13,
+    "plr_db": 12.73,
+    "psr_min_db": 7.22,
     "k20_rms_db": 7.64,
     "k14_rms_db": 1.64,
     "lra_lu": 2.12,
     "short_term_p95_minus_p10": 2.12,
     "short_term_max_minus_integrated": 2.93,
-    "block_crest_median_db": 8.64,
+    "block_crest_median_db": 8.66,
     "block_crest_p10_db": 7.83,
     "block_crest_p90_db": 12.23,
     "onsets": 162,
-    "transient_contrast_median_db": 8.15
+    "transient_contrast_median_db": 8.16
   },
   "tonal": {
     "slope_db_per_oct": -4.23,
@@ -53,11 +53,11 @@
     ],
     [
       31.6,
-      -47.71
+      -47.7
     ],
     [
       39.8,
-      -38.05
+      -38.06
     ],
     [
       50.1,
@@ -109,11 +109,11 @@
     ],
     [
       794.3,
-      -28.09
+      -28.1
     ],
     [
       1000.0,
-      -33.3
+      -33.29
     ],
     [
       1258.9,
@@ -121,7 +121,7 @@
     ],
     [
       1584.9,
-      -36.2
+      -36.19
     ],
     [
       1995.3,
@@ -137,7 +137,7 @@
     ],
     [
       3981.1,
-      -37.54
+      -37.53
     ],
     [
       5011.9,
@@ -153,7 +153,7 @@
     ],
     [
       10000.0,
-      -38.88
+      -38.89
     ],
     [
       12589.3,
@@ -171,7 +171,7 @@
         120
       ],
       "correlation": 0.862,
-      "side_minus_mid_db": -11.29
+      "side_minus_mid_db": -11.3
     },
     {
       "band_hz": [
@@ -195,7 +195,7 @@
         8000
       ],
       "correlation": 0.457,
-      "side_minus_mid_db": -4.28
+      "side_minus_mid_db": -4.29
     },
     {
       "band_hz": [
@@ -229,54 +229,54 @@
   },
   "delivery": {
     "integrated": -13.94,
-    "true_peak": -1.43,
+    "true_peak": -1.22,
     "normalization": {
       "youtube": {
         "gain_db": -0.06,
         "playback_lufs": -14.0,
-        "playback_true_peak": -1.49,
+        "playback_true_peak": -1.27,
         "note": "observed; applies to uploads incl. Shorts (assumed)"
       },
       "spotify": {
         "gain_db": -0.06,
         "playback_lufs": -14.0,
-        "playback_true_peak": -1.49,
+        "playback_true_peak": -1.27,
         "note": "documented by Spotify; up-gain limited by peak headroom"
       },
       "apple_music": {
         "gain_db": -2.06,
         "playback_lufs": -16.0,
-        "playback_true_peak": -3.49,
+        "playback_true_peak": -3.27,
         "note": "Sound Check; reported"
       },
       "tidal": {
         "gain_db": -0.06,
         "playback_lufs": -14.0,
-        "playback_true_peak": -1.49,
+        "playback_true_peak": -1.27,
         "note": "reported"
       },
       "amazon_music": {
         "gain_db": -0.06,
         "playback_lufs": -14.0,
-        "playback_true_peak": -1.49,
+        "playback_true_peak": -1.27,
         "note": "reported, varies"
       },
       "soundcloud": {
         "gain_db": 0.0,
         "playback_lufs": -13.94,
-        "playback_true_peak": -1.43,
+        "playback_true_peak": -1.22,
         "note": "no normalisation reported"
       },
       "instagram": {
         "gain_db": 0.0,
         "playback_lufs": -13.94,
-        "playback_true_peak": -1.43,
+        "playback_true_peak": -1.22,
         "note": "undocumented; measure a real upload"
       },
       "tiktok": {
         "gain_db": 0.0,
         "playback_lufs": -13.94,
-        "playback_true_peak": -1.43,
+        "playback_true_peak": -1.22,
         "note": "undocumented; measure a real upload"
       }
     },

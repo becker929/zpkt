@@ -1,6 +1,6 @@
 # Calibration report
 
-Generated 2026-09-25 23:13 by `python3 -m mlab calibrate`.
+Generated 2026-09-26 00:59 by `python3 -m mlab calibrate`.
 **94 / 94 checks pass.**
 
 Basis: EBU-3341/3342 and BS.1770 = published test cases, re-synthesised; analytic = closed-form; self-consistency = recovers a known processor; cross-check = independent implementation; planted fault = a defect inserted on purpose.

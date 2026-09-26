@@ -1,6 +1,6 @@
 # H004 — HW002 has a low-mid hole (250-500 Hz) that a broad 3 dB lift fills without costing loudness headroom
 
-Run 2026-09-25 23:17 · chapter 4 · source: EQ chapter (tonal balance, midrange); note 2 'a hole in the middle'
+Run 2026-09-26 00:57 · chapter 4 · source: EQ chapter (tonal balance, midrange); note 2 'a hole in the middle'
 
 **Claim.** The 250-500 Hz region sits at least 5 dB under both the bass and the mid regions. A broad bell (+3 dB, 350 Hz, Q 0.7) narrows that gap by at least 1.5 dB. Level-matched, the lifted version may or may not be preferred; the ABX decides.
 

@@ -1,6 +1,6 @@
 # H001 — Limiting HW002 louder than -14 LUFS gains nothing on YouTube and costs peak-to-loudness ratio
 
-Run 2026-09-25 23:16 · chapter 17-19 · source: loudness war chapters; platform behaviour is observed, not documented (tier 4-6)
+Run 2026-09-26 00:56 · chapter 17-19 · source: loudness war chapters; platform behaviour is observed, not documented (tier 4-6)
 
 **Claim.** If YouTube turns loud uploads down to about -14 LUFS, a -9 LUFS master of HW002 plays at the same loudness as the current -13.8 LUFS demo, but with less peak-to-loudness ratio (PLR), i.e. flatter hits.
 

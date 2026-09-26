@@ -1,6 +1,6 @@
 # H005 — At matched loudness, a slow-attack bus compressor keeps more punch than a fast one
 
-Run 2026-09-25 23:18 · chapter 5-7 · source: compression chapters (attack/release, punch, microdynamics)
+Run 2026-09-26 00:58 · chapter 5-7 · source: compression chapters (attack/release, punch, microdynamics)
 
 **Claim.** With the same threshold and ratio, 30 ms attack lets each kick's front edge through before gain reduction lands; 0.1 ms attack clamps it. A 3 ms variant is included because the calibration kick loop peaked in punch at 1-5 ms, not 30 ms. So transient contrast and block crest should be higher with slow attack, even after loudness matching.
 

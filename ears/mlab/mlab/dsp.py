@@ -123,41 +123,51 @@ def _ballistics(target, aa, ar):
     return out
 
 
-def limiter(x, sr, ceiling_db=-1.0, lookahead_ms=5.0, release_ms=80.0, true_peak=True):
+def _peak_env(x, sr, true_peak=True):
+    return L.true_peak_envelope(x, sr) if true_peak else np.max(np.abs(x), axis=1)
+
+
+def limiter(x, sr, ceiling_db=-1.0, lookahead_ms=5.0, release_ms=80.0, true_peak=True,
+            drive_db=0.0, peak_env=None, trim=True):
     """Lookahead brickwall limiter. true_peak=True detects on the 8x oversampled signal,
     so the output's TRUE peak stays at or under the ceiling (verified in calibration)."""
     la = max(1, int(sr * lookahead_ms / 1000))
     c = lin(ceiling_db)
-    if true_peak:
-        f = L.oversample_factor(sr)
-        up = L.true_peak_signal(x, sr, f)[: f * len(x)]
-        pk = up.reshape(len(x), f, -1).max(axis=(1, 2))
-    else:
-        pk = np.max(np.abs(x), axis=1)
+    pk = _peak_env(x, sr, true_peak) if peak_env is None else peak_env * lin(drive_db)
+    x = x * lin(drive_db) if drive_db else x
     g = np.minimum(1.0, c / np.maximum(pk, 1e-12))
     g = minimum_filter1d(g, size=2 * la + 1, mode="nearest")
-    # smooth the gain: instant-ish attack across the lookahead, one-pole release
-    ar = np.exp(-1.0 / (sr * release_ms / 1000))
-    gs = _ballistics(-db(g), 0.0, ar)
+    # smooth the gain: instant attack (the lookahead spreads it), one-pole release.
+    # Ballistics run on 16-sample blocks (worst-case GR per block), then interpolate:
+    # 16x fewer Python steps; the lookahead window (>= 5 ms) is far longer than a block.
+    D = 16
+    k = -(-len(g) // D)
+    gr = -db(np.pad(g, (0, k * D - len(g)), mode="edge").reshape(k, D).min(axis=1))
+    ar = np.exp(-D / (sr * release_ms / 1000))
+    gs_b = _ballistics(gr, 0.0, ar)
+    gs = np.interp(np.arange(len(g)), np.arange(k) * D + D / 2, gs_b)
+    gs = np.maximum(gs, -db(g))          # never less reduction than the sample needs
     y = x * lin(-gs)[:, None]
     # safety: a final true-peak trim for residual interpolation overs
-    tp = L.true_peak(y, sr) if true_peak else float(db(np.max(np.abs(y))))
-    if tp > ceiling_db:
-        y = y * lin(ceiling_db - tp)
+    if trim:
+        tp = L.true_peak(y, sr) if true_peak else float(db(np.max(np.abs(y))))
+        if tp > ceiling_db:
+            y = y * lin(ceiling_db - tp)
     return y
 
 
 def master_to(x, sr, target_lufs, ceiling_db=-1.0, **kw):
     """Drive the limiter until integrated loudness hits target. Returns (y, drive_db)."""
     lo, hi = -24.0, 48.0
-    y = x
-    for _ in range(20):
+    env = _peak_env(x, sr, kw.get("true_peak", True))      # peaks scale with drive: detect once
+    for _ in range(13):                                      # 72 dB / 2^13 < 0.01 dB
         g = (lo + hi) / 2
-        y = limiter(x * lin(g), sr, ceiling_db, **kw)
+        y = limiter(x, sr, ceiling_db, drive_db=g, peak_env=env, trim=False, **kw)
         if L.integrated(y, sr) < target_lufs:
             lo = g
         else:
             hi = g
+    y = limiter(x, sr, ceiling_db, drive_db=(lo + hi) / 2, peak_env=env, **kw)
     got = L.integrated(y, sr)
     if abs(got - target_lufs) > 0.3:
         import warnings

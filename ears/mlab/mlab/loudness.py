@@ -142,8 +142,24 @@ def true_peak_signal(x: np.ndarray, sr: int, factor: int | None = None) -> np.nd
     return np.abs(up)
 
 
+def true_peak_envelope(x: np.ndarray, sr: int, factor: int | None = None, chunk: int = 1 << 18) -> np.ndarray:
+    """Per original sample: max over channels and the `factor` interpolated points after it.
+    Chunked with 512-sample overlap so an 84 s file needs ~50 MB, not ~1 GB."""
+    f = factor or oversample_factor(sr)
+    n = len(x)
+    out = np.empty(n)
+    pad = 512
+    for a in range(0, n, chunk):
+        b = min(n, a + chunk)
+        lo, hi = max(0, a - pad), min(n, b + pad)
+        up = np.abs(signal.resample_poly(x[lo:hi], f, 1, axis=0, window=("kaiser", 10.0)))
+        up = up[(a - lo) * f:(a - lo) * f + (b - a) * f]
+        out[a:b] = up.reshape(b - a, f, -1).max(axis=(1, 2))
+    return out
+
+
 def true_peak(x: np.ndarray, sr: int, factor: int | None = None) -> float:
-    return float(db(np.max(true_peak_signal(x, sr, factor)))) if x.size else float("-inf")
+    return float(db(np.max(true_peak_envelope(x, sr, factor)))) if x.size else float("-inf")
 
 
 def true_peak_per_channel(x, sr):
@@ -161,7 +177,7 @@ def analyze(x: np.ndarray, sr: int) -> LoudnessResult:
     m, s = _lk(pm), _lk(ps)
     I = _gate_integrated(pm)
     lra, lo, hi = loudness_range(s)
-    tp_sig = true_peak_signal(x, sr).max(axis=1)
+    tp_sig = true_peak_envelope(x, sr)
     tp = float(db(tp_sig.max()))
     psr_min = _psr_min(tp_sig, s, sr)
     return LoudnessResult(
@@ -177,8 +193,7 @@ def _psr_min(tp_sig, st, sr):
     """Peak-to-short-term-loudness ratio, minimum over gated 3 s windows."""
     if st.size == 0:
         return float("nan")
-    f = len(tp_sig) / max(1, (len(st) - 1) * int(0.1 * sr) + int(3 * sr))
-    win, hop = int(3 * sr * f), int(0.1 * sr * f)
+    win, hop = int(3 * sr), int(0.1 * sr)
     vals = []
     for i, s in enumerate(st):
         if s <= ABS_GATE:

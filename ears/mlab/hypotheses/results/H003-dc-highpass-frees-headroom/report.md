@@ -1,6 +1,6 @@
 # H003 — A 15 Hz high-pass removes HW002's DC offset and frees peak headroom without changing loudness
 
-Run 2026-09-25 23:17 · chapter 14 · source: signal flow and premaster chapter; findings L-007 and L-011 in LEARNINGS.md
+Run 2026-09-26 00:57 · chapter 14 · source: signal flow and premaster chapter; findings L-007 and L-011 in LEARNINGS.md
 
 **Claim.** The demo carries a steady offset near -35 dBFS while the kick section plays (asymmetric distortion). Removing it with a 15 Hz high-pass should lower the sample peak by at least 0.2 dB and leave integrated loudness within 0.1 LU.
 

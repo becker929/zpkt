@@ -1,6 +1,6 @@
 # H002 — 16-bit TPDF dither on HW002 sits far below anything audible in the programme
 
-Run 2026-09-25 23:19 · chapter 15 · source: dither and word length chapter
+Run 2026-09-26 00:57 · chapter 15 · source: dither and word length chapter
 
 **Claim.** Reducing HW002 to 16 bits with TPDF dither adds a noise floor near -96 dBFS. The demo's quietest 100 ms blocks are so much louder that the floor is masked. Truncation instead of dither makes no loudness difference either, at this level.
 
