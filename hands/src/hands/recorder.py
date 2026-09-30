@@ -30,18 +30,39 @@ def record_via_resampling(
     filename: str,
     duration_beats: float,
     output_dir: str | Path = ".",
+    allow_clearing_arrangement: bool = False,
 ) -> str | None:
     """Create a resampling track, record the session, export as MP3 or WAV.
+
+    This bounces *session* slot-0 clips: it copies them into the arrangement,
+    records, then deletes every arrangement clip on the source tracks. On a
+    set that already has an arrangement that deletion wipes it, so the call
+    refuses unless ``allow_clearing_arrangement`` is set. Use
+    ``record_arrangement`` to render an existing arrangement.
 
     Args:
         transport: Live MCP transport to execute LOM code.
         filename: Output filename (with extension). Use .wav to skip ffmpeg.
         duration_beats: How many beats to record.
         output_dir: Directory to write the output file into.
+        allow_clearing_arrangement: Proceed even if source tracks already
+            have arrangement clips (they will be deleted).
 
     Returns:
         Absolute path to the exported file, or None on failure.
     """
+    existing = _run(
+        transport,
+        # Group tracks raise on arrangement_clips; only leaf tracks hold clips.
+        "sum(len(t.arrangement_clips) for t in song.tracks if not t.is_foldable)",
+    ) or 0
+    if existing and not allow_clearing_arrangement:
+        raise RuntimeError(
+            f"The set already has {existing} arrangement clip(s); record_via_resampling "
+            "would delete them. Use record_arrangement to render the arrangement, or "
+            "pass allow_clearing_arrangement=True."
+        )
+
     out_dir = Path(output_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
     out_path = str(out_dir / filename)
@@ -195,6 +216,92 @@ def record_via_resampling(
     return result
 
 
+def record_arrangement(
+    transport: McpTransport,
+    filename: str,
+    duration_beats: float,
+    output_dir: str | Path = ".",
+    tail_beats: float = 4.0,
+) -> str | None:
+    """Render the set's arrangement from beat 0 via a resampling track.
+
+    Leaves the source tracks' arrangement clips alone. Records
+    ``duration_beats + tail_beats`` in arrangement record mode, exports the
+    take untrimmed, then removes the temporary track and restores the source
+    tracks' arm state. The take starts at beat 0 to within ~10-20 ms (two
+    takes of the same set differed by 12 ms), fine for cutting sections but
+    not for sample-accurate nulling between takes.
+    """
+    out_dir = Path(output_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    out_path = str(out_dir / filename)
+    want_wav = filename.lower().endswith(".wav")
+
+    _run(transport, "song.stop_playing()")
+    time.sleep(0.3)
+    _run(transport, "song.loop = False")
+
+    # Same silent-take causes as record_via_resampling: armed sources get
+    # recorded over, and a lit "Back to Arrangement" ignores arrangement clips.
+    armed = _run(
+        transport,
+        "[i for i, t in enumerate(song.tracks) if t.can_be_armed and t.arm]",
+    ) or []
+    for i in armed:
+        _run(transport, f"song.tracks[{i}].arm = 0")
+    _run(transport, "song.back_to_arranger = False")
+
+    idx = _run(transport, "len(song.tracks)")
+    _run(transport, "song.create_audio_track(-1)")
+    time.sleep(0.3)
+    _run(transport, f'song.tracks[{idx}].name = "Render"')
+    _run(
+        transport,
+        f'_rt = next((rt for rt in song.tracks[{idx}].available_input_routing_types'
+        f' if "Resampling" in rt.display_name), None);'
+        f' song.tracks[{idx}].input_routing_type = _rt',
+    )
+    time.sleep(0.2)
+    routing = _run(transport, f"song.tracks[{idx}].input_routing_type.display_name")
+    if "Resampling" not in str(routing):
+        _run(transport, f"song.delete_track({idx})")
+        _restore_arm(transport, armed)
+        raise RuntimeError(f"Failed to set Resampling input — got: {routing}")
+    _run(transport, f"song.tracks[{idx}].arm = 1")
+    time.sleep(0.2)
+
+    _run(transport, "song.current_song_time = 0.0")
+    time.sleep(0.1)
+    _run(transport, "song.record_mode = True")
+    _run(transport, "song.start_playing()")
+    tempo = _run(transport, "song.tempo")
+    wait_secs = (duration_beats + tail_beats) / tempo * 60 + 0.5
+    print(f"  Recording arrangement for {wait_secs:.1f}s ({duration_beats}+{tail_beats} beats at {tempo} BPM)...")
+    time.sleep(wait_secs)
+    _run(transport, "song.stop_playing()")
+    _run(transport, "song.record_mode = False")
+    time.sleep(1.5)
+
+    file_path = _run(
+        transport,
+        f"[c.file_path for c in song.tracks[{idx}].arrangement_clips][:1]",
+    )
+    result = None
+    if file_path:
+        print(f"  Recorded audio file: {file_path[0]}")
+        result = _export(file_path[0], out_path, duration_beats + tail_beats, tempo, want_wav)
+    else:
+        print("  No recorded clip found!")
+    _run(transport, f"song.delete_track({idx})")
+    _restore_arm(transport, armed)
+    return result
+
+
+def _restore_arm(transport: McpTransport, armed: list[int]) -> None:
+    for i in armed:
+        _run(transport, f"song.tracks[{i}].arm = 1")
+
+
 def _cleanup_arrangement_clips(
     transport: McpTransport, num_tracks: int, armed: list[int] = ()
 ) -> None:
@@ -254,6 +361,17 @@ def _log_audio_stats(path: str) -> None:
         print(f"  Audio stats: could not probe {path}: {exc}")
 
 
+def _wav_seconds(path: str) -> float | None:
+    """Duration of a PCM WAV via the stdlib; None for formats wave can't read."""
+    import wave
+
+    try:
+        with wave.open(path, "rb") as w:
+            return w.getnframes() / w.getframerate()
+    except Exception:
+        return None
+
+
 def _export(
     source_path: str,
     out_path: str,
@@ -274,7 +392,11 @@ def _export(
         import shutil
         shutil.copy2(source_path, out_path)
         size_kb = os.path.getsize(out_path) / 1024
-        print(f"  Exported WAV: {out_path} ({size_kb:.0f} KB, {duration_secs:.1f}s)")
+        # The WAV is copied untrimmed, so report its real length, not the
+        # requested one (the take includes pre-roll and tail).
+        actual = _wav_seconds(out_path)
+        length = f"{actual:.1f}s" if actual is not None else "length unknown"
+        print(f"  Exported WAV: {out_path} ({size_kb:.0f} KB, {length}; requested {duration_secs:.1f}s)")
         return out_path
 
     subprocess.run(

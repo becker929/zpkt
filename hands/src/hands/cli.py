@@ -103,23 +103,42 @@ def execute(
 def record(
     beats: int = typer.Option(64, "--beats", help="Number of beats to record."),
     output: str = typer.Option("render.mp3", "--output", help="Output file path (wav or mp3)."),
+    arrangement: bool = typer.Option(
+        False, "--arrangement",
+        help="Render the set's existing arrangement from beat 0 instead of bouncing session slot-0 clips.",
+    ),
+    tail: float = typer.Option(4.0, "--tail", help="Extra beats recorded after --beats (arrangement mode)."),
     host: str = typer.Option("127.0.0.1", "--host", help="Ableton MCP server host."),
     port: int = typer.Option(16619, "--port", help="Ableton MCP server port."),
 ) -> None:
     """Record Ableton output via resampling track and export."""
-    from hands.recorder import record_via_resampling
+    from hands.recorder import record_arrangement, record_via_resampling
     from hands.transport import LiveMcpTransport
 
     output_path = Path(output)
     transport = LiveMcpTransport(host=host, port=port)
 
     console.print(f"[bold]Recording {beats} beats → {output}[/bold]")
-    result = record_via_resampling(
-        transport=transport,
-        filename=output_path.stem,
-        duration_beats=float(beats),
-        output_dir=str(output_path.parent),
-    )
+    # Pass the full name: the recorder picks WAV vs MP3 from the extension.
+    try:
+        if arrangement:
+            result = record_arrangement(
+                transport=transport,
+                filename=output_path.name,
+                duration_beats=float(beats),
+                output_dir=str(output_path.parent),
+                tail_beats=tail,
+            )
+        else:
+            result = record_via_resampling(
+                transport=transport,
+                filename=output_path.name,
+                duration_beats=float(beats),
+                output_dir=str(output_path.parent),
+            )
+    except RuntimeError as exc:
+        console.print(f"[red]{exc}[/red]")
+        raise typer.Exit(1)
 
     if result:
         console.print(f"[green]Exported: {result}[/green]")
