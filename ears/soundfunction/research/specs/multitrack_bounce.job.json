@@ -1,0 +1,40 @@
+{
+  "job_id": "live_multitrack_bounce_v1",
+  "job_type": "multitrack_bounce",
+  "doc": "research/live-multitrack-bounce.md",
+  "instrument": "FILL IN: <set name> (clone) / all surviving tracks",
+  "source_set": "FILL IN: /Users/anthonybecker/_agent_scratch/PROJECT_FOLDER/THE_SET.als",
+  "clone_of": "FILL IN: /Users/anthonybecker/_tmsmsm/.../PROJECT_FOLDER (never opened directly)",
+  "capture_track": "FILL IN: index of the reused capture audio track",
+  "track_selection": {
+    "enumerate": "song.tracks (0-based; song.master_track and song.return_tracks are never enumerated)",
+    "skip": [
+      "track.mute == 1",
+      "no arrangement content and no session-clip content (empty)",
+      "group/folder tracks (bus sum of already-captured children)"
+    ]
+  },
+  "playback_source": "the set's own arrangement, song.current_song_time = 0.0 to song.last_event_time, song.loop = 0 (NOT a synthetic session-clip loop)",
+  "bounce_length": "song.last_event_time converted to seconds at song.tempo, plus settle_seconds tail",
+  "settle_seconds": 0.5,
+  "predicted_measure": null,
+  "purpose": "Give the lab a true multitrack (never separated) instead of the Demucs-guessed drums.wav/bass.wav pairs corpus2/band_pump.py currently reads, so pump-depth and band-share numbers can be checked against ground truth for at least one set.",
+  "hypothesis": "H34 (band-split sidechain duck deeper in sub than low) is currently 'not supported' on Demucs-separated corpus stems (median sub-minus-low pump -0.2 dB). On a real, unseparated kick/bass pair from this set, either the split duck appears clearly (H34's corpus verdict is a separator artifact) or it does not (the technique is genuinely rare/absent in practice, not just hidden by Demucs).",
+  "naming_pattern": "<track-index, zero-padded 2 digits>__<track-name-slug>.wav",
+  "sidecar_fields": [
+    "track_index", "track_name", "device_chain", "tempo", "frozen", "muted",
+    "sample_rate", "wav", "source_set", "capture_track",
+    "arrangement_length_beats", "timestamp_utc"
+  ],
+  "sidecar_note": "sample_rate is read from the bounced wav file after the copy, not queried from Live. No 'measure' field: measurement happens out-of-band in the lab, same as the sweep seam.",
+  "resumable": true,
+  "restore": {
+    "capture_track_arm": "0 (disarm at end, same as run_sweep_stem.py's finally block)",
+    "capture_track_input_routing": "left as last set; harmless on a disposable clone"
+  },
+  "output_dir": "out/live_multitrack_bounce_v1/<song-slug>/",
+  "lab_ingest_layout": "lab/runner.py --local expects this folder to land at <local_src>/stems/<song-slug>/*.wav (see lab/runner.py run_local docstring)",
+  "reuses_mechanism": "code/run_sweep_stem.py (ensure_capture_track / bounce_stem), adapted to play the real arrangement once per surviving track instead of a synthetic session-clip loop",
+  "crash_rules_ref": "HANDOFF.md section 7 (quoted in the doc)",
+  "safety_rules_ref": "HANDOFF.md section 15; PLAYBOOK_skill.md section 9"
+}

@@ -1,0 +1,336 @@
+{
+ "measure": "band shares",
+ "definition": {
+  "library": "analysis.signal_features._band_shares: power sum per band on an STFT magnitude, bands {\"sub\": [20, 60], \"low\": [60, 150], \"lowmid\": [150, 400], \"mid\": [400, 2000], \"high\": [2000, 6000], \"air\": [6000, 16000]}",
+  "knob_map_notation": "sub_share = 20-150 Hz (library sub+low)",
+  "ears_shim": "edges not published; inferred from the edge-tone rows"
+ },
+ "tolerance": "library sub within 0.02 of the built ratio down to 20 dB SNR; 10 and 0 dB recorded",
+ "rows": [
+  {
+   "case": "50+300",
+   "snr_db": null,
+   "built_sub_20_60": 0.8,
+   "built_sub_20_150": 0.8,
+   "reported": {
+    "library_six_band": {
+     "band_sub_share": 0.7995190400745573,
+     "band_low_share": 0.0004555148613307433,
+     "band_lowmid_share": 0.20001118379587346,
+     "band_mid_share": 1.4204389592254846e-05,
+     "band_high_share": 5.443216371083269e-08,
+     "band_air_share": 2.446482510995758e-09
+    },
+    "library_sub_plus_low_20_150": 0.8,
+    "ears_shim": {
+     "sub_share": 0.8117236283784292,
+     "low_share": 0.18641129733058792,
+     "mid_share": 0.0018619999783145757,
+     "high_share": 2.9773757608782904e-06,
+     "air_share": 9.693690749040092e-08
+    }
+   },
+   "library_sub_error": -0.0005,
+   "pass_": true,
+   "note": null
+  },
+  {
+   "case": "50+300",
+   "snr_db": 40,
+   "built_sub_20_60": 0.8,
+   "built_sub_20_150": 0.8,
+   "reported": {
+    "library_six_band": {
+     "band_sub_share": 0.7994662281333444,
+     "band_low_share": 0.00045539456030667364,
+     "band_lowmid_share": 0.19999339639399258,
+     "band_mid_share": 2.151177889108364e-05,
+     "band_high_share": 1.8149326535649718e-05,
+     "band_air_share": 4.5319806929558956e-05
+    },
+    "library_sub_plus_low_20_150": 0.7999,
+    "ears_shim": {
+     "sub_share": 0.8116590529768974,
+     "low_share": 0.18639716405961226,
+     "mid_share": 0.0018740350883725207,
+     "high_share": 3.598954184358821e-05,
+     "air_share": 3.375833327419431e-05
+    }
+   },
+   "library_sub_error": -0.0005,
+   "pass_": true,
+   "note": null
+  },
+  {
+   "case": "50+300",
+   "snr_db": 30,
+   "built_sub_20_60": 0.8,
+   "built_sub_20_150": 0.8,
+   "reported": {
+    "library_six_band": {
+     "band_sub_share": 0.7989157210450641,
+     "band_low_share": 0.0004582124218795138,
+     "band_lowmid_share": 0.19990531721895774,
+     "band_mid_share": 8.754928363273993e-05,
+     "band_high_share": 0.0001806023197562143,
+     "band_air_share": 0.0004525977107096395
+    },
+    "library_sub_plus_low_20_150": 0.7994,
+    "ears_shim": {
+     "sub_share": 0.8111035659292193,
+     "low_share": 0.18626600024367165,
+     "mid_share": 0.001961152947543543,
+     "high_share": 0.0003340574059178692,
+     "air_share": 0.00033522347364766146
+    }
+   },
+   "library_sub_error": -0.0011,
+   "pass_": true,
+   "note": null
+  },
+  {
+   "case": "50+300",
+   "snr_db": 20,
+   "built_sub_20_60": 0.8,
+   "built_sub_20_150": 0.8,
+   "reported": {
+    "library_six_band": {
+     "band_sub_share": 0.7937240230308644,
+     "band_low_share": 0.0004885993995839329,
+     "band_lowmid_share": 0.19874598755545042,
+     "band_mid_share": 0.0007369658937240157,
+     "band_high_share": 0.0017998298968604151,
+     "band_air_share": 0.004504594223516757
+    },
+    "library_sub_plus_low_20_150": 0.7942,
+    "ears_shim": {
+     "sub_share": 0.8058573540802919,
+     "low_share": 0.18447638854452017,
+     "mid_share": 0.003074164471273642,
+     "high_share": 0.003287517619380817,
+     "air_share": 0.003304575284533445
+    }
+   },
+   "library_sub_error": -0.0063,
+   "pass_": true,
+   "note": null
+  },
+  {
+   "case": "50+300",
+   "snr_db": 10,
+   "built_sub_20_60": 0.8,
+   "built_sub_20_150": 0.8,
+   "reported": {
+    "library_six_band": {
+     "band_sub_share": 0.7465338094682322,
+     "band_low_share": 0.000737847904584856,
+     "band_lowmid_share": 0.18667766814287712,
+     "band_mid_share": 0.006685597730891788,
+     "band_high_share": 0.01707072249646148,
+     "band_air_share": 0.042294354256952583
+    },
+    "library_sub_plus_low_20_150": 0.7473,
+    "ears_shim": {
+     "sub_share": 0.7546070748043322,
+     "low_share": 0.16903830432382358,
+     "mid_share": 0.014065821358551665,
+     "high_share": 0.03133977105613805,
+     "air_share": 0.03094902845715446
+    }
+   },
+   "library_sub_error": -0.0535,
+   "pass_": null,
+   "note": null
+  },
+  {
+   "case": "50+300",
+   "snr_db": 0,
+   "built_sub_20_60": 0.8,
+   "built_sub_20_150": 0.8,
+   "reported": {
+    "library_six_band": {
+     "band_sub_share": 0.46419550242858243,
+     "band_low_share": 0.0026376994918492214,
+     "band_lowmid_share": 0.12215765712455176,
+     "band_mid_share": 0.04196726215146728,
+     "band_high_share": 0.1052727977657246,
+     "band_air_share": 0.2637690810378247
+    },
+    "library_sub_plus_low_20_150": 0.4668,
+    "ears_shim": {
+     "sub_share": 0.4284148862785962,
+     "low_share": 0.1043988358732138,
+     "mid_share": 0.0811332608721812,
+     "high_share": 0.1933818380740424,
+     "air_share": 0.19267117890196636
+    }
+   },
+   "library_sub_error": -0.3358,
+   "pass_": null,
+   "note": null
+  },
+  {
+   "case": "edges 60+150",
+   "snr_db": null,
+   "built_sub_20_60": 0,
+   "built_sub_20_150": 0.5,
+   "reported": {
+    "library_six_band": {
+     "band_sub_share": 0.37565733789476047,
+     "band_low_share": 0.24659330184918707,
+     "band_lowmid_share": 0.37774407769345086,
+     "band_mid_share": 5.243962838458117e-06,
+     "band_high_share": 3.6916689537025674e-08,
+     "band_air_share": 1.6830735882299395e-09
+    },
+    "library_sub_plus_low_20_150": 0.6223,
+    "ears_shim": {
+     "sub_share": 0.4965391085217537,
+     "low_share": 0.5030782633132936,
+     "mid_share": 0.00038134302809761665,
+     "high_share": 1.242097207864445e-06,
+     "air_share": 4.303964721536401e-08
+    }
+   },
+   "library_sub_error": 0.3757,
+   "pass_": null,
+   "note": "edge tone: energy splits across the boundary by spectral leakage; the row shows how each vocabulary splits it"
+  },
+  {
+   "case": "edges 60+150",
+   "snr_db": 40,
+   "built_sub_20_60": 0,
+   "built_sub_20_150": 0.5,
+   "reported": {
+    "library_six_band": {
+     "band_sub_share": 0.37566590607952,
+     "band_low_share": 0.2465763626197649,
+     "band_lowmid_share": 0.3776815563090731,
+     "band_mid_share": 1.2426891913247083e-05,
+     "band_high_share": 1.8081702728108236e-05,
+     "band_air_share": 4.566639700069001e-05
+    },
+    "library_sub_plus_low_20_150": 0.6222,
+    "ears_shim": {
+     "sub_share": 0.4965476418931987,
+     "low_share": 0.5029867607921216,
+     "mid_share": 0.00039434390273865994,
+     "high_share": 3.641308060314741e-05,
+     "air_share": 3.484033133795076e-05
+    }
+   },
+   "library_sub_error": 0.3757,
+   "pass_": null,
+   "note": "edge tone: energy splits across the boundary by spectral leakage; the row shows how each vocabulary splits it"
+  },
+  {
+   "case": "edges 60+150",
+   "snr_db": 30,
+   "built_sub_20_60": 0,
+   "built_sub_20_150": 0.5,
+   "reported": {
+    "library_six_band": {
+     "band_sub_share": 0.37543432193965254,
+     "band_low_share": 0.24641115178039022,
+     "band_lowmid_share": 0.37744364729828705,
+     "band_mid_share": 7.778048937044696e-05,
+     "band_high_share": 0.0001825422140873831,
+     "band_air_share": 0.00045055627821237736
+    },
+    "library_sub_plus_low_20_150": 0.6218,
+    "ears_shim": {
+     "sub_share": 0.49617032727248955,
+     "low_share": 0.5026211573014996,
+     "mid_share": 0.000507110785044168,
+     "high_share": 0.00034996531484855775,
+     "air_share": 0.00035143932611808864
+    }
+   },
+   "library_sub_error": 0.3754,
+   "pass_": null,
+   "note": "edge tone: energy splits across the boundary by spectral leakage; the row shows how each vocabulary splits it"
+  },
+  {
+   "case": "edges 60+150",
+   "snr_db": 20,
+   "built_sub_20_60": 0,
+   "built_sub_20_150": 0.5,
+   "reported": {
+    "library_six_band": {
+     "band_sub_share": 0.3728425093647933,
+     "band_low_share": 0.24484546086989462,
+     "band_lowmid_share": 0.37529410525323337,
+     "band_mid_share": 0.000720058521805937,
+     "band_high_share": 0.0018077347529395094,
+     "band_air_share": 0.0044901312373332915
+    },
+    "library_sub_plus_low_20_150": 0.6177,
+    "ears_shim": {
+     "sub_share": 0.4920955152686725,
+     "low_share": 0.49926967642143305,
+     "mid_share": 0.0017181743029028925,
+     "high_share": 0.0034437743567165605,
+     "air_share": 0.0034728596502749906
+    }
+   },
+   "library_sub_error": 0.3728,
+   "pass_": null,
+   "note": "edge tone: energy splits across the boundary by spectral leakage; the row shows how each vocabulary splits it"
+  },
+  {
+   "case": "edges 60+150",
+   "snr_db": 10,
+   "built_sub_20_60": 0,
+   "built_sub_20_150": 0.5,
+   "reported": {
+    "library_six_band": {
+     "band_sub_share": 0.3504440739553466,
+     "band_low_share": 0.23033765089746844,
+     "band_lowmid_share": 0.35335767651453964,
+     "band_mid_share": 0.006806412335558756,
+     "band_high_share": 0.016917322328892124,
+     "band_air_share": 0.04213686396819441
+    },
+    "library_sub_plus_low_20_150": 0.5808,
+    "ears_shim": {
+     "sub_share": 0.4569275810658368,
+     "low_share": 0.46451884192580234,
+     "mid_share": 0.013891334147752852,
+     "high_share": 0.032215148988492086,
+     "air_share": 0.032447093872115945
+    }
+   },
+   "library_sub_error": 0.3504,
+   "pass_": null,
+   "note": "edge tone: energy splits across the boundary by spectral leakage; the row shows how each vocabulary splits it"
+  },
+  {
+   "case": "edges 60+150",
+   "snr_db": 0,
+   "built_sub_20_60": 0,
+   "built_sub_20_150": 0.5,
+   "reported": {
+    "library_six_band": {
+     "band_sub_share": 0.21872773490157618,
+     "band_low_share": 0.1452640607574085,
+     "band_lowmid_share": 0.22601556143400098,
+     "band_mid_share": 0.04214128099078323,
+     "band_high_share": 0.10629711454581356,
+     "band_air_share": 0.26155424737041755
+    },
+    "library_sub_plus_low_20_150": 0.364,
+    "ears_shim": {
+     "sub_share": 0.2545943432007679,
+     "low_share": 0.26648523388045625,
+     "mid_share": 0.08441193887397293,
+     "high_share": 0.19699548601459532,
+     "air_share": 0.19751299803020755
+    }
+   },
+   "library_sub_error": 0.2187,
+   "pass_": null,
+   "note": "edge tone: energy splits across the boundary by spectral leakage; the row shows how each vocabulary splits it"
+  }
+ ],
+ "ok": true
+}

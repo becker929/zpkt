@@ -1,0 +1,1115 @@
+{
+ "plugin": "/Library/Audio/Plug-Ins/VST3/Dist COLDFIRE.vst3",
+ "kind": "external",
+ "name": "Dist COLDFIRE",
+ "parameters": {
+  "active_filter_category": {
+   "raw": 0.5,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Active Filter Category\" discrete raw_value=0.5 value=0.500 range=(0.0, 1.0, 0.001)>"
+  },
+  "active_filter_preset": {
+   "raw": 0.5,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Active Filter Preset\" discrete raw_value=0.5 value=0.500 range=(0.0, 1.0, 0.001)>"
+  },
+  "add_remove_selected_filter": {
+   "raw": 0.5,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Add/Remove selected filter\" discrete raw_value=0.5 value=0.500 range=(0.0, 1.0, 0.001)>"
+  },
+  "browse_back": {
+   "raw": 0.5,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Browse Back\" discrete raw_value=0.5 value=0.500 range=(0.0, 1.0, 0.001)>"
+  },
+  "clear_filters": {
+   "raw": 0.5,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Clear Filters\" discrete raw_value=0.5 value=0.500 range=(0.0, 1.0, 0.001)>"
+  },
+  "color_db": {
+   "raw": 0.5,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Color\" label=\"dB\" discrete raw_value=0.5 value=0.000 range=(-12.0, 12.0, ~0.04)>"
+  },
+  "compressor_makeup_gain_db": {
+   "raw": 0.0,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Compressor Makeup Gain\" label=\"dB\" discrete raw_value=0 value=0.000 range=(0.0, 30.0, ~0.058750000000000004)>"
+  },
+  "compressor_ratio": {
+   "raw": 0.3995000123977661,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Compressor Ratio\" discrete raw_value=0.3995 value=4.00 range=(0.0, 10.0, 0.01)>"
+  },
+  "compressor_threshold_db": {
+   "raw": 1.0,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Compressor Threshold\" label=\"dB\" discrete raw_value=1 value=0.000 range=(-50.0, 0.0, ~0.05000000000000001)>"
+  },
+  "compressor_time": {
+   "raw": 0.32875001430511475,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Compressor Time\" label=\"%\" discrete raw_value=0.32875 value=32.9 range=(0.0, 100.0, 0.1)>"
+  },
+  "distortion_a_bit_inverter_bit_1_state": {
+   "raw": 0.0,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Distortion A Bit Inverter Bit 1 State\" discrete raw_value=0 value=\"Normal\" (3 valid string values)>"
+  },
+  "distortion_a_bit_inverter_bit_2_state": {
+   "raw": 0.0,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Distortion A Bit Inverter Bit 2 State\" discrete raw_value=0 value=\"Normal\" (3 valid string values)>"
+  },
+  "distortion_a_bit_inverter_bit_3_state": {
+   "raw": 0.0,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Distortion A Bit Inverter Bit 3 State\" discrete raw_value=0 value=\"Normal\" (3 valid string values)>"
+  },
+  "distortion_a_bit_inverter_bit_4_state": {
+   "raw": 0.0,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Distortion A Bit Inverter Bit 4 State\" discrete raw_value=0 value=\"Normal\" (3 valid string values)>"
+  },
+  "distortion_a_bit_inverter_bit_5_state": {
+   "raw": 0.0,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Distortion A Bit Inverter Bit 5 State\" discrete raw_value=0 value=\"Normal\" (3 valid string values)>"
+  },
+  "distortion_a_bit_inverter_bit_6_state": {
+   "raw": 0.0,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Distortion A Bit Inverter Bit 6 State\" discrete raw_value=0 value=\"Normal\" (3 valid string values)>"
+  },
+  "distortion_a_bit_inverter_bit_7_state": {
+   "raw": 0.0,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Distortion A Bit Inverter Bit 7 State\" discrete raw_value=0 value=\"Normal\" (3 valid string values)>"
+  },
+  "distortion_a_bit_inverter_bit_8_state": {
+   "raw": 0.0,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Distortion A Bit Inverter Bit 8 State\" discrete raw_value=0 value=\"Normal\" (3 valid string values)>"
+  },
+  "distortion_a_bitcrusher_aliasing": {
+   "raw": 1.0,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Distortion A Bitcrusher Aliasing\" label=\"%\" discrete raw_value=1 value=100 range=(0.0, 100.0, 0.1)>"
+  },
+  "distortion_a_bitcrusher_frequency_hz": {
+   "raw": 1.0,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Distortion A Bitcrusher Frequency\" label=\"Hz\" discrete raw_value=1 value=44100 range=(200.0, 44100.0, ~110.91509433962264)>"
+  },
+  "distortion_a_bitcrusher_jitter": {
+   "raw": 0.0,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Distortion A Bitcrusher Jitter\" label=\"%\" discrete raw_value=0 value=0.000 range=(0.0, 100.0, 0.1)>"
+  },
+  "distortion_a_comb_filter_freq_hz": {
+   "raw": 1.0,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Distortion A Comb Filter Freq\" label=\"Hz\" discrete raw_value=1 value=2000 range=(20.0, 2000.0, ~4.676470588235294)>"
+  },
+  "distortion_a_distortion_bypass": {
+   "raw": 1.0,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Distortion A Distortion Bypass\" discrete raw_value=1 value=On boolean (\"False\" and \"True\")>"
+  },
+  "distortion_a_drive": {
+   "raw": 0.5000002980232239,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Distortion A Drive\" label=\"%\" discrete raw_value=0.5 value=50.0 range=(0.0, 100.0, 0.1)>"
+  },
+  "distortion_a_dry_wet": {
+   "raw": 1.0,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Distortion A Dry/Wet\" label=\"%\" discrete raw_value=1 value=100 range=(0.0, 100.0, 0.1)>"
+  },
+  "distortion_a_module_type": {
+   "raw": 0.699999988079071,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Distortion A Module Type\" discrete raw_value=0.7 value=\"Tube\" (11 valid string values)>"
+  },
+  "distortion_a_output_level_db": {
+   "raw": 0.5,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Distortion A Output Level\" label=\"dB\" discrete raw_value=0.5 value=0.000 range=(-24.0, 24.0, ~0.0516)>"
+  },
+  "distortion_a_post_filter_bypass": {
+   "raw": 0.0,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Distortion A Post Filter Bypass \" discrete raw_value=0 value=Off boolean (\"False\" and \"True\")>"
+  },
+  "distortion_a_post_filter_hp_freq_hz": {
+   "raw": 0.0,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Distortion A Post Filter HP Freq\" label=\"Hz\" discrete raw_value=0 value=20.0 range=(20.0, 20000.0, ~57.6452380952381)>"
+  },
+  "distortion_a_post_filter_lp_freq_hz": {
+   "raw": 1.0,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Distortion A Post Filter LP Freq\" label=\"Hz\" discrete raw_value=1 value=20000 range=(20.0, 20000.0, ~57.6452380952381)>"
+  },
+  "distortion_a_pre_filter_bypass": {
+   "raw": 0.0,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Distortion A Pre Filter Bypass\" discrete raw_value=0 value=Off boolean (\"False\" and \"True\")>"
+  },
+  "distortion_a_pre_filter_freq_hz": {
+   "raw": 1.0,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Distortion A Pre Filter Freq\" label=\"Hz\" discrete raw_value=1 value=20000 range=(20.0, 20000.0, ~57.6452380952381)>"
+  },
+  "distortion_a_pre_filter_q": {
+   "raw": 0.0,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Distortion A Pre Filter Q\" label=\"%\" discrete raw_value=0 value=0.000 range=(0.0, 100.0, 0.1)>"
+  },
+  "distortion_a_rectifier_center": {
+   "raw": 0.0,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Distortion A Rectifier Center\" discrete raw_value=0 value=0.000 range=(0.0, 0.75, ~0.002)>"
+  },
+  "distortion_a_slot_bypass": {
+   "raw": 1.0,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Distortion A Slot Bypass\" discrete raw_value=1 value=On boolean (\"False\" and \"True\")>"
+  },
+  "distortion_a_tube_profile": {
+   "raw": 1.0,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Distortion A Tube Profile\" label=\"%\" discrete raw_value=1 value=100 range=(0.0, 100.0, 0.1)>"
+  },
+  "distortion_b_bit_inverter_bit_1_state": {
+   "raw": 0.0,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Distortion B Bit Inverter Bit 1 State\" discrete raw_value=0 value=\"Normal\" (3 valid string values)>"
+  },
+  "distortion_b_bit_inverter_bit_2_state": {
+   "raw": 0.0,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Distortion B Bit Inverter Bit 2 State\" discrete raw_value=0 value=\"Normal\" (3 valid string values)>"
+  },
+  "distortion_b_bit_inverter_bit_3_state": {
+   "raw": 0.0,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Distortion B Bit Inverter Bit 3 State\" discrete raw_value=0 value=\"Normal\" (3 valid string values)>"
+  },
+  "distortion_b_bit_inverter_bit_4_state": {
+   "raw": 0.0,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Distortion B Bit Inverter Bit 4 State\" discrete raw_value=0 value=\"Normal\" (3 valid string values)>"
+  },
+  "distortion_b_bit_inverter_bit_5_state": {
+   "raw": 0.0,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Distortion B Bit Inverter Bit 5 State\" discrete raw_value=0 value=\"Normal\" (3 valid string values)>"
+  },
+  "distortion_b_bit_inverter_bit_6_state": {
+   "raw": 0.0,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Distortion B Bit Inverter Bit 6 State\" discrete raw_value=0 value=\"Normal\" (3 valid string values)>"
+  },
+  "distortion_b_bit_inverter_bit_7_state": {
+   "raw": 0.0,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Distortion B Bit Inverter Bit 7 State\" discrete raw_value=0 value=\"Normal\" (3 valid string values)>"
+  },
+  "distortion_b_bit_inverter_bit_8_state": {
+   "raw": 0.0,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Distortion B Bit Inverter Bit 8 State\" discrete raw_value=0 value=\"Normal\" (3 valid string values)>"
+  },
+  "distortion_b_bitcrusher_aliasing": {
+   "raw": 1.0,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Distortion B Bitcrusher Aliasing\" label=\"%\" discrete raw_value=1 value=100 range=(0.0, 100.0, 0.1)>"
+  },
+  "distortion_b_bitcrusher_frequency_hz": {
+   "raw": 1.0,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Distortion B Bitcrusher Frequency\" label=\"Hz\" discrete raw_value=1 value=44100 range=(200.0, 44100.0, ~110.91509433962264)>"
+  },
+  "distortion_b_bitcrusher_jitter": {
+   "raw": 0.0,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Distortion B Bitcrusher Jitter\" label=\"%\" discrete raw_value=0 value=0.000 range=(0.0, 100.0, 0.1)>"
+  },
+  "distortion_b_comb_filter_freq_hz": {
+   "raw": 1.0,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Distortion B Comb Filter Freq\" label=\"Hz\" discrete raw_value=1 value=2000 range=(20.0, 2000.0, ~4.676470588235294)>"
+  },
+  "distortion_b_distortion_bypass": {
+   "raw": 1.0,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Distortion B Distortion Bypass\" discrete raw_value=1 value=On boolean (\"False\" and \"True\")>"
+  },
+  "distortion_b_drive": {
+   "raw": 0.0,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Distortion B Drive\" label=\"%\" discrete raw_value=0 value=0.000 range=(0.0, 100.0, 0.1)>"
+  },
+  "distortion_b_dry_wet": {
+   "raw": 1.0,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Distortion B Dry/Wet\" label=\"%\" discrete raw_value=1 value=100 range=(0.0, 100.0, 0.1)>"
+  },
+  "distortion_b_module_type": {
+   "raw": 0.0,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Distortion B Module Type\" discrete raw_value=0 value=\"Bit Crusher\" (11 valid string values)>"
+  },
+  "distortion_b_output_level_db": {
+   "raw": 0.5,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Distortion B Output Level\" label=\"dB\" discrete raw_value=0.5 value=0.000 range=(-24.0, 24.0, ~0.0516)>"
+  },
+  "distortion_b_post_filter_bypass": {
+   "raw": 0.0,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Distortion B Post Filter Bypass \" discrete raw_value=0 value=Off boolean (\"False\" and \"True\")>"
+  },
+  "distortion_b_post_filter_hp_freq_hz": {
+   "raw": 0.0,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Distortion B Post Filter HP Freq\" label=\"Hz\" discrete raw_value=0 value=20.0 range=(20.0, 20000.0, ~57.6452380952381)>"
+  },
+  "distortion_b_post_filter_lp_freq_hz": {
+   "raw": 1.0,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Distortion B Post Filter LP Freq\" label=\"Hz\" discrete raw_value=1 value=20000 range=(20.0, 20000.0, ~57.6452380952381)>"
+  },
+  "distortion_b_pre_filter_bypass": {
+   "raw": 0.0,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Distortion B Pre Filter Bypass\" discrete raw_value=0 value=Off boolean (\"False\" and \"True\")>"
+  },
+  "distortion_b_pre_filter_freq_hz": {
+   "raw": 1.0,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Distortion B Pre Filter Freq\" label=\"Hz\" discrete raw_value=1 value=20000 range=(20.0, 20000.0, ~57.6452380952381)>"
+  },
+  "distortion_b_pre_filter_q": {
+   "raw": 0.0,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Distortion B Pre Filter Q\" label=\"%\" discrete raw_value=0 value=0.000 range=(0.0, 100.0, 0.1)>"
+  },
+  "distortion_b_rectifier_center": {
+   "raw": 0.0,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Distortion B Rectifier Center\" discrete raw_value=0 value=0.000 range=(0.0, 0.75, ~0.002)>"
+  },
+  "distortion_b_slot_bypass": {
+   "raw": 1.0,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Distortion B Slot Bypass\" discrete raw_value=1 value=On boolean (\"False\" and \"True\")>"
+  },
+  "distortion_b_tube_profile": {
+   "raw": 1.0,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Distortion B Tube Profile\" label=\"%\" discrete raw_value=1 value=100 range=(0.0, 100.0, 0.1)>"
+  },
+  "feedback_filter_color": {
+   "raw": 0.5,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Feedback Filter Color\" label=\"%\" discrete raw_value=0.5 value=0.000 range=(-100.0, 100.0, 0.2)>"
+  },
+  "feedback_filter_notch_hz": {
+   "raw": 1.0,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Feedback Filter Notch\" label=\"Hz\" discrete raw_value=1 value=20000 range=(20.0, 20000.0, ~57.6452380952381)>"
+  },
+  "feedback_level_db": {
+   "raw": 0.0,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Feedback Level\" label=\"dB\" discrete raw_value=0 value=-70.0 range=(-70.0, 0.0, ~0.061625)>"
+  },
+  "feedback_time_ms": {
+   "raw": 0.17200002074241638,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Feedback Time\" label=\"ms\" discrete raw_value=0.172 value=36.4 range=(1.1, 1000.0, ~0.8821428571428571)>"
+  },
+  "feedback_time_pitch": {
+   "raw": 0.46987950801849365,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Feedback Time Pitch\" discrete raw_value=0.46988 value=\"D#2\" (84 valid string values)>"
+  },
+  "feedback_time_synced": {
+   "raw": 1.0,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Feedback Time Synced\" discrete raw_value=1 value=\"1/128\" (9 valid string values)>"
+  },
+  "hardwarebackcontrol": {
+   "raw": 0.0,
+   "text": "<pedalboard.AudioProcessorParameter name=\"HardwareBackControl\" discrete raw_value=0 value=0.000 range=(0.0, 1.0, 0.001)>"
+  },
+  "hardwaredisplaycontrol1": {
+   "raw": 0.0,
+   "text": "<pedalboard.AudioProcessorParameter name=\"HardwareDisplayControl1\" discrete raw_value=0 value=0.000 range=(0.0, 1.0, 0.001)>"
+  },
+  "hardwaredisplaycontrol2": {
+   "raw": 0.0,
+   "text": "<pedalboard.AudioProcessorParameter name=\"HardwareDisplayControl2\" discrete raw_value=0 value=0.000 range=(0.0, 1.0, 0.001)>"
+  },
+  "hardwaredisplaycontrol3": {
+   "raw": 0.0,
+   "text": "<pedalboard.AudioProcessorParameter name=\"HardwareDisplayControl3\" discrete raw_value=0 value=0.000 range=(0.0, 1.0, 0.001)>"
+  },
+  "hardwaredisplaycontrol4": {
+   "raw": 0.0,
+   "text": "<pedalboard.AudioProcessorParameter name=\"HardwareDisplayControl4\" discrete raw_value=0 value=0.000 range=(0.0, 1.0, 0.001)>"
+  },
+  "hardwaredisplaycontrol5": {
+   "raw": 0.0,
+   "text": "<pedalboard.AudioProcessorParameter name=\"HardwareDisplayControl5\" discrete raw_value=0 value=0.000 range=(0.0, 1.0, 0.001)>"
+  },
+  "hardwaredisplaycontrol6": {
+   "raw": 0.0,
+   "text": "<pedalboard.AudioProcessorParameter name=\"HardwareDisplayControl6\" discrete raw_value=0 value=0.000 range=(0.0, 1.0, 0.001)>"
+  },
+  "hardwaredisplaycontrol7": {
+   "raw": 0.0,
+   "text": "<pedalboard.AudioProcessorParameter name=\"HardwareDisplayControl7\" discrete raw_value=0 value=0.000 range=(0.0, 1.0, 0.001)>"
+  },
+  "hardwaredisplaycontrol8": {
+   "raw": 0.0,
+   "text": "<pedalboard.AudioProcessorParameter name=\"HardwareDisplayControl8\" discrete raw_value=0 value=0.000 range=(0.0, 1.0, 0.001)>"
+  },
+  "hw_controller_shift": {
+   "raw": 0.0,
+   "text": "<pedalboard.AudioProcessorParameter name=\"HW Controller Shift\" discrete raw_value=0 value=0.000 range=(0.0, 1.0, 0.001)>"
+  },
+  "input_volume_db": {
+   "raw": 0.5,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Input Volume\" label=\"dB\" discrete raw_value=0.5 value=0.000 range=(-24.0, 24.0, ~0.0516)>"
+  },
+  "limiter_output_gain_db": {
+   "raw": 0.0,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Limiter Output Gain\" label=\"dB\" discrete raw_value=0 value=0.000 range=(0.0, 30.0, ~0.04666666666666667)>"
+  },
+  "limiter_release_ms": {
+   "raw": 0.2780310809612274,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Limiter Release\" label=\"ms\" discrete raw_value=0.278031 value=20.0 range=(1.0, 500.0, ~0.35285714285714287)>"
+  },
+  "limiter_threshold_db": {
+   "raw": 1.0,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Limiter Threshold\" label=\"dB\" discrete raw_value=1 value=0.000 range=(-30.0, 0.0, ~0.04666666666666667)>"
+  },
+  "mix": {
+   "raw": 1.0,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Mix\" label=\"%\" discrete raw_value=1 value=100 range=(0.0, 100.0, 0.1)>"
+  },
+  "modulator_1_bipolar": {
+   "raw": 1.0,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Modulator 1 Bipolar\" discrete raw_value=1 value=On boolean (\"False\" and \"True\")>"
+  },
+  "modulator_1_env_follow_fall_ms": {
+   "raw": 0.019999999552965164,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Modulator 1 Env. Follow. Fall\" label=\"ms\" discrete raw_value=0.02 value=100 range=(0.0, 5000.0, 5.0)>"
+  },
+  "modulator_1_env_follow_rise_ms": {
+   "raw": 0.0,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Modulator 1 Env. Follow. Rise\" label=\"ms\" discrete raw_value=0 value=0.000 range=(0.0, 1000.0, 1.0)>"
+  },
+  "modulator_1_env_follow_sensitivity_db": {
+   "raw": 0.5,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Modulator 1 Env. Follow. Sensitivity\" label=\"dB\" discrete raw_value=0.5 value=0.000 range=(-24.0, 24.0, ~0.0516)>"
+  },
+  "modulator_1_env_follow_synced": {
+   "raw": 0.6666666865348816,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Modulator 1 Env. Follow. Synced\" discrete raw_value=0.666667 value=\"1/16\" (10 valid string values)>"
+  },
+  "modulator_1_env_follow_time_mode": {
+   "raw": 0.0,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Modulator 1 Env. Follow. Time Mode\" discrete raw_value=0 value=\"Unsynced\" (4 valid string values)>"
+  },
+  "modulator_1_env_follow_unsynced_ms": {
+   "raw": 0.0,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Modulator 1 Env. Follow. Unsynced\" label=\"ms\" discrete raw_value=0 value=0.000 range=(0.0, 2000.0, ~1.585904761904762)>"
+  },
+  "modulator_1_function_scale": {
+   "raw": 1.0,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Modulator 1 Function Scale\" discrete raw_value=1 value=1.00 range=(-1.0, 1.0, 0.002)>"
+  },
+  "modulator_1_lfo_initial_phase": {
+   "raw": 0.0,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Modulator 1 LFO Initial Phase\" label=\"\u00ac\u221e\" discrete raw_value=0 value=0.000 range=(0.0, 360.0, ~0.488)>"
+  },
+  "modulator_1_lfo_smooth_s": {
+   "raw": 0.0,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Modulator 1 LFO Smooth\" label=\"s\" discrete raw_value=0 value=0.000 range=(0.0, 4.0, ~0.004)>"
+  },
+  "modulator_1_lfo_symmetry": {
+   "raw": 0.5,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Modulator 1 LFO Symmetry\" discrete raw_value=0.5 value=0.500 range=(0.0, 1.0, 0.001)>"
+  },
+  "modulator_1_lfo_waveform": {
+   "raw": 0.0,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Modulator 1 LFO Waveform\" discrete raw_value=0 value=0.000 range=(0.0, 3.0, ~0.004666666666666667)>"
+  },
+  "modulator_1_rate_hz": {
+   "raw": 0.5,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Modulator 1 Rate\" label=\"Hz\" discrete raw_value=0.5 value=0.635 range=(0.01, 20.0, ~0.021588235294117648)>"
+  },
+  "modulator_1_step_sequencer_random": {
+   "raw": 0.0,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Modulator 1 Step Sequencer Random\" label=\"%\" discrete raw_value=0 value=0.000 range=(0.0, 100.0, 0.1)>"
+  },
+  "modulator_1_step_sequencer_scale": {
+   "raw": 1.0,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Modulator 1 Step Sequencer Scale\" label=\"%\" discrete raw_value=1 value=100 range=(0.0, 100.0, 0.1)>"
+  },
+  "modulator_1_step_sequencer_smooth": {
+   "raw": 0.0,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Modulator 1 Step Sequencer Smooth\" label=\"%\" discrete raw_value=0 value=0.000 range=(0.0, 100.0, 0.1)>"
+  },
+  "modulator_1_step_sequencer_swing": {
+   "raw": 0.0,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Modulator 1 Step Sequencer Swing\" label=\"%\" discrete raw_value=0 value=50.0 range=(50.0, 75.0, 0.1)>"
+  },
+  "modulator_1_tempo_div": {
+   "raw": 0.375,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Modulator 1 Tempo Div\" discrete raw_value=0.375 value=\"1/1\" (9 valid string values)>"
+  },
+  "modulator_2_bipolar": {
+   "raw": 1.0,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Modulator 2 Bipolar\" discrete raw_value=1 value=On boolean (\"False\" and \"True\")>"
+  },
+  "modulator_2_env_follow_fall_ms": {
+   "raw": 0.019999999552965164,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Modulator 2 Env. Follow. Fall\" label=\"ms\" discrete raw_value=0.02 value=100 range=(0.0, 5000.0, 5.0)>"
+  },
+  "modulator_2_env_follow_rise_ms": {
+   "raw": 0.0,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Modulator 2 Env. Follow. Rise\" label=\"ms\" discrete raw_value=0 value=0.000 range=(0.0, 1000.0, 1.0)>"
+  },
+  "modulator_2_env_follow_sensitivity_db": {
+   "raw": 0.5,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Modulator 2 Env. Follow. Sensitivity\" label=\"dB\" discrete raw_value=0.5 value=0.000 range=(-24.0, 24.0, ~0.0516)>"
+  },
+  "modulator_2_env_follow_synced": {
+   "raw": 0.5555555820465088,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Modulator 2 Env. Follow. Synced\" discrete raw_value=0.555556 value=\"1/8\" (10 valid string values)>"
+  },
+  "modulator_2_env_follow_time_mode": {
+   "raw": 0.0,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Modulator 2 Env. Follow. Time Mode\" discrete raw_value=0 value=\"Unsynced\" (4 valid string values)>"
+  },
+  "modulator_2_env_follow_unsynced_ms": {
+   "raw": 0.0,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Modulator 2 Env. Follow. Unsynced\" label=\"ms\" discrete raw_value=0 value=0.000 range=(0.0, 2000.0, ~1.585904761904762)>"
+  },
+  "modulator_2_function_scale": {
+   "raw": 1.0,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Modulator 2 Function Scale\" discrete raw_value=1 value=1.00 range=(-1.0, 1.0, 0.002)>"
+  },
+  "modulator_2_lfo_initial_phase": {
+   "raw": 0.0,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Modulator 2 LFO Initial Phase\" label=\"\u00ac\u221e\" discrete raw_value=0 value=0.000 range=(0.0, 360.0, ~0.488)>"
+  },
+  "modulator_2_lfo_smooth_s": {
+   "raw": 0.0,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Modulator 2 LFO Smooth\" label=\"s\" discrete raw_value=0 value=0.000 range=(0.0, 4.0, ~0.004)>"
+  },
+  "modulator_2_lfo_symmetry": {
+   "raw": 0.5,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Modulator 2 LFO Symmetry\" discrete raw_value=0.5 value=0.500 range=(0.0, 1.0, 0.001)>"
+  },
+  "modulator_2_lfo_waveform": {
+   "raw": 0.6666666865348816,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Modulator 2 LFO Waveform\" discrete raw_value=0.666667 value=2.00 range=(0.0, 3.0, ~0.004666666666666667)>"
+  },
+  "modulator_2_rate_hz": {
+   "raw": 0.5,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Modulator 2 Rate\" label=\"Hz\" discrete raw_value=0.5 value=0.635 range=(0.01, 20.0, ~0.021588235294117648)>"
+  },
+  "modulator_2_step_sequencer_random": {
+   "raw": 0.0,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Modulator 2 Step Sequencer Random\" label=\"%\" discrete raw_value=0 value=0.000 range=(0.0, 100.0, 0.1)>"
+  },
+  "modulator_2_step_sequencer_scale": {
+   "raw": 1.0,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Modulator 2 Step Sequencer Scale\" label=\"%\" discrete raw_value=1 value=100 range=(0.0, 100.0, 0.1)>"
+  },
+  "modulator_2_step_sequencer_smooth": {
+   "raw": 0.0,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Modulator 2 Step Sequencer Smooth\" label=\"%\" discrete raw_value=0 value=0.000 range=(0.0, 100.0, 0.1)>"
+  },
+  "modulator_2_step_sequencer_swing": {
+   "raw": 0.0,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Modulator 2 Step Sequencer Swing\" label=\"%\" discrete raw_value=0 value=50.0 range=(50.0, 75.0, 0.1)>"
+  },
+  "modulator_2_tempo_div": {
+   "raw": 0.375,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Modulator 2 Tempo Div\" discrete raw_value=0.375 value=\"1/1\" (9 valid string values)>"
+  },
+  "modulator_3_bipolar": {
+   "raw": 0.0,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Modulator 3 Bipolar\" discrete raw_value=0 value=Off boolean (\"False\" and \"True\")>"
+  },
+  "modulator_3_env_follow_fall_ms": {
+   "raw": 0.019999999552965164,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Modulator 3 Env. Follow. Fall\" label=\"ms\" discrete raw_value=0.02 value=100 range=(0.0, 5000.0, 5.0)>"
+  },
+  "modulator_3_env_follow_rise_ms": {
+   "raw": 0.0,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Modulator 3 Env. Follow. Rise\" label=\"ms\" discrete raw_value=0 value=0.000 range=(0.0, 1000.0, 1.0)>"
+  },
+  "modulator_3_env_follow_sensitivity_db": {
+   "raw": 0.5,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Modulator 3 Env. Follow. Sensitivity\" label=\"dB\" discrete raw_value=0.5 value=0.000 range=(-24.0, 24.0, ~0.0516)>"
+  },
+  "modulator_3_env_follow_synced": {
+   "raw": 0.5555555820465088,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Modulator 3 Env. Follow. Synced\" discrete raw_value=0.555556 value=\"1/8\" (10 valid string values)>"
+  },
+  "modulator_3_env_follow_time_mode": {
+   "raw": 0.0,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Modulator 3 Env. Follow. Time Mode\" discrete raw_value=0 value=\"Unsynced\" (4 valid string values)>"
+  },
+  "modulator_3_env_follow_unsynced_ms": {
+   "raw": 0.0,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Modulator 3 Env. Follow. Unsynced\" label=\"ms\" discrete raw_value=0 value=0.000 range=(0.0, 2000.0, ~1.585904761904762)>"
+  },
+  "modulator_3_function_scale": {
+   "raw": 1.0,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Modulator 3 Function Scale\" discrete raw_value=1 value=1.00 range=(-1.0, 1.0, 0.002)>"
+  },
+  "modulator_3_lfo_initial_phase": {
+   "raw": 0.0,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Modulator 3 LFO Initial Phase\" label=\"\u00ac\u221e\" discrete raw_value=0 value=0.000 range=(0.0, 360.0, ~0.488)>"
+  },
+  "modulator_3_lfo_smooth_s": {
+   "raw": 0.0,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Modulator 3 LFO Smooth\" label=\"s\" discrete raw_value=0 value=0.000 range=(0.0, 4.0, ~0.004)>"
+  },
+  "modulator_3_lfo_symmetry": {
+   "raw": 0.5,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Modulator 3 LFO Symmetry\" discrete raw_value=0.5 value=0.500 range=(0.0, 1.0, 0.001)>"
+  },
+  "modulator_3_lfo_waveform": {
+   "raw": 0.0,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Modulator 3 LFO Waveform\" discrete raw_value=0 value=0.000 range=(0.0, 3.0, ~0.004666666666666667)>"
+  },
+  "modulator_3_rate_hz": {
+   "raw": 0.5,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Modulator 3 Rate\" label=\"Hz\" discrete raw_value=0.5 value=0.635 range=(0.01, 20.0, ~0.021588235294117648)>"
+  },
+  "modulator_3_step_sequencer_random": {
+   "raw": 0.0,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Modulator 3 Step Sequencer Random\" label=\"%\" discrete raw_value=0 value=0.000 range=(0.0, 100.0, 0.1)>"
+  },
+  "modulator_3_step_sequencer_scale": {
+   "raw": 1.0,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Modulator 3 Step Sequencer Scale\" label=\"%\" discrete raw_value=1 value=100 range=(0.0, 100.0, 0.1)>"
+  },
+  "modulator_3_step_sequencer_smooth": {
+   "raw": 0.0,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Modulator 3 Step Sequencer Smooth\" label=\"%\" discrete raw_value=0 value=0.000 range=(0.0, 100.0, 0.1)>"
+  },
+  "modulator_3_step_sequencer_swing": {
+   "raw": 0.0,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Modulator 3 Step Sequencer Swing\" label=\"%\" discrete raw_value=0 value=50.0 range=(50.0, 75.0, 0.1)>"
+  },
+  "modulator_3_tempo_div": {
+   "raw": 0.375,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Modulator 3 Tempo Div\" discrete raw_value=0.375 value=\"1/1\" (9 valid string values)>"
+  },
+  "modulator_4_bipolar": {
+   "raw": 0.0,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Modulator 4 Bipolar\" discrete raw_value=0 value=Off boolean (\"False\" and \"True\")>"
+  },
+  "modulator_4_env_follow_fall_ms": {
+   "raw": 0.019999999552965164,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Modulator 4 Env. Follow. Fall\" label=\"ms\" discrete raw_value=0.02 value=100 range=(0.0, 5000.0, 5.0)>"
+  },
+  "modulator_4_env_follow_rise_ms": {
+   "raw": 0.0,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Modulator 4 Env. Follow. Rise\" label=\"ms\" discrete raw_value=0 value=0.000 range=(0.0, 1000.0, 1.0)>"
+  },
+  "modulator_4_env_follow_sensitivity_db": {
+   "raw": 0.5,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Modulator 4 Env. Follow. Sensitivity\" label=\"dB\" discrete raw_value=0.5 value=0.000 range=(-24.0, 24.0, ~0.0516)>"
+  },
+  "modulator_4_env_follow_synced": {
+   "raw": 0.5555555820465088,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Modulator 4 Env. Follow. Synced\" discrete raw_value=0.555556 value=\"1/8\" (10 valid string values)>"
+  },
+  "modulator_4_env_follow_time_mode": {
+   "raw": 0.0,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Modulator 4 Env. Follow. Time Mode\" discrete raw_value=0 value=\"Unsynced\" (4 valid string values)>"
+  },
+  "modulator_4_env_follow_unsynced_ms": {
+   "raw": 0.0,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Modulator 4 Env. Follow. Unsynced\" label=\"ms\" discrete raw_value=0 value=0.000 range=(0.0, 2000.0, ~1.585904761904762)>"
+  },
+  "modulator_4_function_scale": {
+   "raw": 1.0,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Modulator 4 Function Scale\" discrete raw_value=1 value=1.00 range=(-1.0, 1.0, 0.002)>"
+  },
+  "modulator_4_lfo_initial_phase": {
+   "raw": 0.0,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Modulator 4 LFO Initial Phase\" label=\"\u00ac\u221e\" discrete raw_value=0 value=0.000 range=(0.0, 360.0, ~0.488)>"
+  },
+  "modulator_4_lfo_smooth_s": {
+   "raw": 0.0,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Modulator 4 LFO Smooth\" label=\"s\" discrete raw_value=0 value=0.000 range=(0.0, 4.0, ~0.004)>"
+  },
+  "modulator_4_lfo_symmetry": {
+   "raw": 0.5,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Modulator 4 LFO Symmetry\" discrete raw_value=0.5 value=0.500 range=(0.0, 1.0, 0.001)>"
+  },
+  "modulator_4_lfo_waveform": {
+   "raw": 0.0,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Modulator 4 LFO Waveform\" discrete raw_value=0 value=0.000 range=(0.0, 3.0, ~0.004666666666666667)>"
+  },
+  "modulator_4_rate_hz": {
+   "raw": 0.5,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Modulator 4 Rate\" label=\"Hz\" discrete raw_value=0.5 value=0.635 range=(0.01, 20.0, ~0.021588235294117648)>"
+  },
+  "modulator_4_step_sequencer_random": {
+   "raw": 0.0,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Modulator 4 Step Sequencer Random\" label=\"%\" discrete raw_value=0 value=0.000 range=(0.0, 100.0, 0.1)>"
+  },
+  "modulator_4_step_sequencer_scale": {
+   "raw": 1.0,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Modulator 4 Step Sequencer Scale\" label=\"%\" discrete raw_value=1 value=100 range=(0.0, 100.0, 0.1)>"
+  },
+  "modulator_4_step_sequencer_smooth": {
+   "raw": 0.0,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Modulator 4 Step Sequencer Smooth\" label=\"%\" discrete raw_value=0 value=0.000 range=(0.0, 100.0, 0.1)>"
+  },
+  "modulator_4_step_sequencer_swing": {
+   "raw": 0.0,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Modulator 4 Step Sequencer Swing\" label=\"%\" discrete raw_value=0 value=50.0 range=(50.0, 75.0, 0.1)>"
+  },
+  "modulator_4_tempo_div": {
+   "raw": 0.375,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Modulator 4 Tempo Div\" discrete raw_value=0.375 value=\"1/1\" (9 valid string values)>"
+  },
+  "modulator_5_bipolar": {
+   "raw": 0.0,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Modulator 5 Bipolar\" discrete raw_value=0 value=Off boolean (\"False\" and \"True\")>"
+  },
+  "modulator_5_env_follow_fall_ms": {
+   "raw": 0.014499993994832039,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Modulator 5 Env. Follow. Fall\" label=\"ms\" discrete raw_value=0.0145 value=72.5 range=(0.0, 5000.0, 5.0)>"
+  },
+  "modulator_5_env_follow_rise_ms": {
+   "raw": 0.0,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Modulator 5 Env. Follow. Rise\" label=\"ms\" discrete raw_value=0 value=0.000 range=(0.0, 1000.0, 1.0)>"
+  },
+  "modulator_5_env_follow_sensitivity_db": {
+   "raw": 0.5,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Modulator 5 Env. Follow. Sensitivity\" label=\"dB\" discrete raw_value=0.5 value=0.000 range=(-24.0, 24.0, ~0.0516)>"
+  },
+  "modulator_5_env_follow_synced": {
+   "raw": 0.6666666865348816,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Modulator 5 Env. Follow. Synced\" discrete raw_value=0.666667 value=\"1/16\" (10 valid string values)>"
+  },
+  "modulator_5_env_follow_time_mode": {
+   "raw": 0.0,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Modulator 5 Env. Follow. Time Mode\" discrete raw_value=0 value=\"Unsynced\" (4 valid string values)>"
+  },
+  "modulator_5_env_follow_unsynced_ms": {
+   "raw": 0.0,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Modulator 5 Env. Follow. Unsynced\" label=\"ms\" discrete raw_value=0 value=0.000 range=(0.0, 2000.0, ~1.585904761904762)>"
+  },
+  "modulator_5_function_scale": {
+   "raw": 1.0,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Modulator 5 Function Scale\" discrete raw_value=1 value=1.00 range=(-1.0, 1.0, 0.002)>"
+  },
+  "modulator_5_lfo_initial_phase": {
+   "raw": 0.0,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Modulator 5 LFO Initial Phase\" label=\"\u00ac\u221e\" discrete raw_value=0 value=0.000 range=(0.0, 360.0, ~0.488)>"
+  },
+  "modulator_5_lfo_smooth_s": {
+   "raw": 0.0,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Modulator 5 LFO Smooth\" label=\"s\" discrete raw_value=0 value=0.000 range=(0.0, 4.0, ~0.004)>"
+  },
+  "modulator_5_lfo_symmetry": {
+   "raw": 0.5,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Modulator 5 LFO Symmetry\" discrete raw_value=0.5 value=0.500 range=(0.0, 1.0, 0.001)>"
+  },
+  "modulator_5_lfo_waveform": {
+   "raw": 0.0,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Modulator 5 LFO Waveform\" discrete raw_value=0 value=0.000 range=(0.0, 3.0, ~0.004666666666666667)>"
+  },
+  "modulator_5_rate_hz": {
+   "raw": 0.5,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Modulator 5 Rate\" label=\"Hz\" discrete raw_value=0.5 value=0.635 range=(0.01, 20.0, ~0.021588235294117648)>"
+  },
+  "modulator_5_step_sequencer_random": {
+   "raw": 0.0,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Modulator 5 Step Sequencer Random\" label=\"%\" discrete raw_value=0 value=0.000 range=(0.0, 100.0, 0.1)>"
+  },
+  "modulator_5_step_sequencer_scale": {
+   "raw": 1.0,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Modulator 5 Step Sequencer Scale\" label=\"%\" discrete raw_value=1 value=100 range=(0.0, 100.0, 0.1)>"
+  },
+  "modulator_5_step_sequencer_smooth": {
+   "raw": 0.0,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Modulator 5 Step Sequencer Smooth\" label=\"%\" discrete raw_value=0 value=0.000 range=(0.0, 100.0, 0.1)>"
+  },
+  "modulator_5_step_sequencer_swing": {
+   "raw": 0.0,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Modulator 5 Step Sequencer Swing\" label=\"%\" discrete raw_value=0 value=50.0 range=(50.0, 75.0, 0.1)>"
+  },
+  "modulator_5_tempo_div": {
+   "raw": 0.375,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Modulator 5 Tempo Div\" discrete raw_value=0.375 value=\"1/1\" (9 valid string values)>"
+  },
+  "modulator_6_bipolar": {
+   "raw": 0.0,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Modulator 6 Bipolar\" discrete raw_value=0 value=Off boolean (\"False\" and \"True\")>"
+  },
+  "modulator_6_env_follow_fall_ms": {
+   "raw": 0.019999999552965164,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Modulator 6 Env. Follow. Fall\" label=\"ms\" discrete raw_value=0.02 value=100 range=(0.0, 5000.0, 5.0)>"
+  },
+  "modulator_6_env_follow_rise_ms": {
+   "raw": 0.0,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Modulator 6 Env. Follow. Rise\" label=\"ms\" discrete raw_value=0 value=0.000 range=(0.0, 1000.0, 1.0)>"
+  },
+  "modulator_6_env_follow_sensitivity_db": {
+   "raw": 0.5,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Modulator 6 Env. Follow. Sensitivity\" label=\"dB\" discrete raw_value=0.5 value=0.000 range=(-24.0, 24.0, ~0.0516)>"
+  },
+  "modulator_6_env_follow_synced": {
+   "raw": 0.5555555820465088,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Modulator 6 Env. Follow. Synced\" discrete raw_value=0.555556 value=\"1/8\" (10 valid string values)>"
+  },
+  "modulator_6_env_follow_time_mode": {
+   "raw": 0.0,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Modulator 6 Env. Follow. Time Mode\" discrete raw_value=0 value=\"Unsynced\" (4 valid string values)>"
+  },
+  "modulator_6_env_follow_unsynced_ms": {
+   "raw": 0.0,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Modulator 6 Env. Follow. Unsynced\" label=\"ms\" discrete raw_value=0 value=0.000 range=(0.0, 2000.0, ~1.585904761904762)>"
+  },
+  "modulator_6_function_scale": {
+   "raw": 1.0,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Modulator 6 Function Scale\" discrete raw_value=1 value=1.00 range=(-1.0, 1.0, 0.002)>"
+  },
+  "modulator_6_lfo_initial_phase": {
+   "raw": 0.0,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Modulator 6 LFO Initial Phase\" label=\"\u00ac\u221e\" discrete raw_value=0 value=0.000 range=(0.0, 360.0, ~0.488)>"
+  },
+  "modulator_6_lfo_smooth_s": {
+   "raw": 0.0,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Modulator 6 LFO Smooth\" label=\"s\" discrete raw_value=0 value=0.000 range=(0.0, 4.0, ~0.004)>"
+  },
+  "modulator_6_lfo_symmetry": {
+   "raw": 0.5,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Modulator 6 LFO Symmetry\" discrete raw_value=0.5 value=0.500 range=(0.0, 1.0, 0.001)>"
+  },
+  "modulator_6_lfo_waveform": {
+   "raw": 0.0,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Modulator 6 LFO Waveform\" discrete raw_value=0 value=0.000 range=(0.0, 3.0, ~0.004666666666666667)>"
+  },
+  "modulator_6_rate_hz": {
+   "raw": 0.5,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Modulator 6 Rate\" label=\"Hz\" discrete raw_value=0.5 value=0.635 range=(0.01, 20.0, ~0.021588235294117648)>"
+  },
+  "modulator_6_step_sequencer_random": {
+   "raw": 0.0,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Modulator 6 Step Sequencer Random\" label=\"%\" discrete raw_value=0 value=0.000 range=(0.0, 100.0, 0.1)>"
+  },
+  "modulator_6_step_sequencer_scale": {
+   "raw": 1.0,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Modulator 6 Step Sequencer Scale\" label=\"%\" discrete raw_value=1 value=100 range=(0.0, 100.0, 0.1)>"
+  },
+  "modulator_6_step_sequencer_smooth": {
+   "raw": 0.0,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Modulator 6 Step Sequencer Smooth\" label=\"%\" discrete raw_value=0 value=0.000 range=(0.0, 100.0, 0.1)>"
+  },
+  "modulator_6_step_sequencer_swing": {
+   "raw": 0.0,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Modulator 6 Step Sequencer Swing\" label=\"%\" discrete raw_value=0 value=50.0 range=(50.0, 75.0, 0.1)>"
+  },
+  "modulator_6_tempo_div": {
+   "raw": 0.75,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Modulator 6 Tempo Div\" discrete raw_value=0.75 value=\"1/8\" (9 valid string values)>"
+  },
+  "mpe_aftertouch_0": {
+   "raw": 0.5,
+   "text": "<pedalboard.AudioProcessorParameter name=\"MPE_Aftertouch_0\" discrete raw_value=0.5 value=0.500 range=(0.0, 1.0, 0.001)>"
+  },
+  "mpe_aftertouch_1": {
+   "raw": 0.5,
+   "text": "<pedalboard.AudioProcessorParameter name=\"MPE_Aftertouch_1\" discrete raw_value=0.5 value=0.500 range=(0.0, 1.0, 0.001)>"
+  },
+  "mpe_aftertouch_10": {
+   "raw": 0.5,
+   "text": "<pedalboard.AudioProcessorParameter name=\"MPE_Aftertouch_10\" discrete raw_value=0.5 value=0.500 range=(0.0, 1.0, 0.001)>"
+  },
+  "mpe_aftertouch_11": {
+   "raw": 0.5,
+   "text": "<pedalboard.AudioProcessorParameter name=\"MPE_Aftertouch_11\" discrete raw_value=0.5 value=0.500 range=(0.0, 1.0, 0.001)>"
+  },
+  "mpe_aftertouch_12": {
+   "raw": 0.5,
+   "text": "<pedalboard.AudioProcessorParameter name=\"MPE_Aftertouch_12\" discrete raw_value=0.5 value=0.500 range=(0.0, 1.0, 0.001)>"
+  },
+  "mpe_aftertouch_13": {
+   "raw": 0.5,
+   "text": "<pedalboard.AudioProcessorParameter name=\"MPE_Aftertouch_13\" discrete raw_value=0.5 value=0.500 range=(0.0, 1.0, 0.001)>"
+  },
+  "mpe_aftertouch_14": {
+   "raw": 0.5,
+   "text": "<pedalboard.AudioProcessorParameter name=\"MPE_Aftertouch_14\" discrete raw_value=0.5 value=0.500 range=(0.0, 1.0, 0.001)>"
+  },
+  "mpe_aftertouch_15": {
+   "raw": 0.5,
+   "text": "<pedalboard.AudioProcessorParameter name=\"MPE_Aftertouch_15\" discrete raw_value=0.5 value=0.500 range=(0.0, 1.0, 0.001)>"
+  },
+  "mpe_aftertouch_2": {
+   "raw": 0.5,
+   "text": "<pedalboard.AudioProcessorParameter name=\"MPE_Aftertouch_2\" discrete raw_value=0.5 value=0.500 range=(0.0, 1.0, 0.001)>"
+  },
+  "mpe_aftertouch_3": {
+   "raw": 0.5,
+   "text": "<pedalboard.AudioProcessorParameter name=\"MPE_Aftertouch_3\" discrete raw_value=0.5 value=0.500 range=(0.0, 1.0, 0.001)>"
+  },
+  "mpe_aftertouch_4": {
+   "raw": 0.5,
+   "text": "<pedalboard.AudioProcessorParameter name=\"MPE_Aftertouch_4\" discrete raw_value=0.5 value=0.500 range=(0.0, 1.0, 0.001)>"
+  },
+  "mpe_aftertouch_5": {
+   "raw": 0.5,
+   "text": "<pedalboard.AudioProcessorParameter name=\"MPE_Aftertouch_5\" discrete raw_value=0.5 value=0.500 range=(0.0, 1.0, 0.001)>"
+  },
+  "mpe_aftertouch_6": {
+   "raw": 0.5,
+   "text": "<pedalboard.AudioProcessorParameter name=\"MPE_Aftertouch_6\" discrete raw_value=0.5 value=0.500 range=(0.0, 1.0, 0.001)>"
+  },
+  "mpe_aftertouch_7": {
+   "raw": 0.5,
+   "text": "<pedalboard.AudioProcessorParameter name=\"MPE_Aftertouch_7\" discrete raw_value=0.5 value=0.500 range=(0.0, 1.0, 0.001)>"
+  },
+  "mpe_aftertouch_8": {
+   "raw": 0.5,
+   "text": "<pedalboard.AudioProcessorParameter name=\"MPE_Aftertouch_8\" discrete raw_value=0.5 value=0.500 range=(0.0, 1.0, 0.001)>"
+  },
+  "mpe_aftertouch_9": {
+   "raw": 0.5,
+   "text": "<pedalboard.AudioProcessorParameter name=\"MPE_Aftertouch_9\" discrete raw_value=0.5 value=0.500 range=(0.0, 1.0, 0.001)>"
+  },
+  "mpe_brightness_0": {
+   "raw": 0.5,
+   "text": "<pedalboard.AudioProcessorParameter name=\"MPE_Brightness_0\" discrete raw_value=0.5 value=0.500 range=(0.0, 1.0, 0.001)>"
+  },
+  "mpe_brightness_1": {
+   "raw": 0.5,
+   "text": "<pedalboard.AudioProcessorParameter name=\"MPE_Brightness_1\" discrete raw_value=0.5 value=0.500 range=(0.0, 1.0, 0.001)>"
+  },
+  "mpe_brightness_10": {
+   "raw": 0.5,
+   "text": "<pedalboard.AudioProcessorParameter name=\"MPE_Brightness_10\" discrete raw_value=0.5 value=0.500 range=(0.0, 1.0, 0.001)>"
+  },
+  "mpe_brightness_11": {
+   "raw": 0.5,
+   "text": "<pedalboard.AudioProcessorParameter name=\"MPE_Brightness_11\" discrete raw_value=0.5 value=0.500 range=(0.0, 1.0, 0.001)>"
+  },
+  "mpe_brightness_12": {
+   "raw": 0.5,
+   "text": "<pedalboard.AudioProcessorParameter name=\"MPE_Brightness_12\" discrete raw_value=0.5 value=0.500 range=(0.0, 1.0, 0.001)>"
+  },
+  "mpe_brightness_13": {
+   "raw": 0.5,
+   "text": "<pedalboard.AudioProcessorParameter name=\"MPE_Brightness_13\" discrete raw_value=0.5 value=0.500 range=(0.0, 1.0, 0.001)>"
+  },
+  "mpe_brightness_14": {
+   "raw": 0.5,
+   "text": "<pedalboard.AudioProcessorParameter name=\"MPE_Brightness_14\" discrete raw_value=0.5 value=0.500 range=(0.0, 1.0, 0.001)>"
+  },
+  "mpe_brightness_15": {
+   "raw": 0.5,
+   "text": "<pedalboard.AudioProcessorParameter name=\"MPE_Brightness_15\" discrete raw_value=0.5 value=0.500 range=(0.0, 1.0, 0.001)>"
+  },
+  "mpe_brightness_2": {
+   "raw": 0.5,
+   "text": "<pedalboard.AudioProcessorParameter name=\"MPE_Brightness_2\" discrete raw_value=0.5 value=0.500 range=(0.0, 1.0, 0.001)>"
+  },
+  "mpe_brightness_3": {
+   "raw": 0.5,
+   "text": "<pedalboard.AudioProcessorParameter name=\"MPE_Brightness_3\" discrete raw_value=0.5 value=0.500 range=(0.0, 1.0, 0.001)>"
+  },
+  "mpe_brightness_4": {
+   "raw": 0.5,
+   "text": "<pedalboard.AudioProcessorParameter name=\"MPE_Brightness_4\" discrete raw_value=0.5 value=0.500 range=(0.0, 1.0, 0.001)>"
+  },
+  "mpe_brightness_5": {
+   "raw": 0.5,
+   "text": "<pedalboard.AudioProcessorParameter name=\"MPE_Brightness_5\" discrete raw_value=0.5 value=0.500 range=(0.0, 1.0, 0.001)>"
+  },
+  "mpe_brightness_6": {
+   "raw": 0.5,
+   "text": "<pedalboard.AudioProcessorParameter name=\"MPE_Brightness_6\" discrete raw_value=0.5 value=0.500 range=(0.0, 1.0, 0.001)>"
+  },
+  "mpe_brightness_7": {
+   "raw": 0.5,
+   "text": "<pedalboard.AudioProcessorParameter name=\"MPE_Brightness_7\" discrete raw_value=0.5 value=0.500 range=(0.0, 1.0, 0.001)>"
+  },
+  "mpe_brightness_8": {
+   "raw": 0.5,
+   "text": "<pedalboard.AudioProcessorParameter name=\"MPE_Brightness_8\" discrete raw_value=0.5 value=0.500 range=(0.0, 1.0, 0.001)>"
+  },
+  "mpe_brightness_9": {
+   "raw": 0.5,
+   "text": "<pedalboard.AudioProcessorParameter name=\"MPE_Brightness_9\" discrete raw_value=0.5 value=0.500 range=(0.0, 1.0, 0.001)>"
+  },
+  "mpe_globalbrightness": {
+   "raw": 0.5,
+   "text": "<pedalboard.AudioProcessorParameter name=\"MPE_GlobalBrightness\" discrete raw_value=0.5 value=0.500 range=(0.0, 1.0, 0.001)>"
+  },
+  "mpe_pitchbend_0": {
+   "raw": 0.5,
+   "text": "<pedalboard.AudioProcessorParameter name=\"MPE_PitchBend_0\" discrete raw_value=0.5 value=0.000 range=(-1.0, 1.0, 0.002)>"
+  },
+  "mpe_pitchbend_1": {
+   "raw": 0.5,
+   "text": "<pedalboard.AudioProcessorParameter name=\"MPE_PitchBend_1\" discrete raw_value=0.5 value=0.000 range=(-1.0, 1.0, 0.002)>"
+  },
+  "mpe_pitchbend_10": {
+   "raw": 0.5,
+   "text": "<pedalboard.AudioProcessorParameter name=\"MPE_PitchBend_10\" discrete raw_value=0.5 value=0.000 range=(-1.0, 1.0, 0.002)>"
+  },
+  "mpe_pitchbend_11": {
+   "raw": 0.5,
+   "text": "<pedalboard.AudioProcessorParameter name=\"MPE_PitchBend_11\" discrete raw_value=0.5 value=0.000 range=(-1.0, 1.0, 0.002)>"
+  },
+  "mpe_pitchbend_12": {
+   "raw": 0.5,
+   "text": "<pedalboard.AudioProcessorParameter name=\"MPE_PitchBend_12\" discrete raw_value=0.5 value=0.000 range=(-1.0, 1.0, 0.002)>"
+  },
+  "mpe_pitchbend_13": {
+   "raw": 0.5,
+   "text": "<pedalboard.AudioProcessorParameter name=\"MPE_PitchBend_13\" discrete raw_value=0.5 value=0.000 range=(-1.0, 1.0, 0.002)>"
+  },
+  "mpe_pitchbend_14": {
+   "raw": 0.5,
+   "text": "<pedalboard.AudioProcessorParameter name=\"MPE_PitchBend_14\" discrete raw_value=0.5 value=0.000 range=(-1.0, 1.0, 0.002)>"
+  },
+  "mpe_pitchbend_15": {
+   "raw": 0.5,
+   "text": "<pedalboard.AudioProcessorParameter name=\"MPE_PitchBend_15\" discrete raw_value=0.5 value=0.000 range=(-1.0, 1.0, 0.002)>"
+  },
+  "mpe_pitchbend_2": {
+   "raw": 0.5,
+   "text": "<pedalboard.AudioProcessorParameter name=\"MPE_PitchBend_2\" discrete raw_value=0.5 value=0.000 range=(-1.0, 1.0, 0.002)>"
+  },
+  "mpe_pitchbend_3": {
+   "raw": 0.5,
+   "text": "<pedalboard.AudioProcessorParameter name=\"MPE_PitchBend_3\" discrete raw_value=0.5 value=0.000 range=(-1.0, 1.0, 0.002)>"
+  },
+  "mpe_pitchbend_4": {
+   "raw": 0.5,
+   "text": "<pedalboard.AudioProcessorParameter name=\"MPE_PitchBend_4\" discrete raw_value=0.5 value=0.000 range=(-1.0, 1.0, 0.002)>"
+  },
+  "mpe_pitchbend_5": {
+   "raw": 0.5,
+   "text": "<pedalboard.AudioProcessorParameter name=\"MPE_PitchBend_5\" discrete raw_value=0.5 value=0.000 range=(-1.0, 1.0, 0.002)>"
+  },
+  "mpe_pitchbend_6": {
+   "raw": 0.5,
+   "text": "<pedalboard.AudioProcessorParameter name=\"MPE_PitchBend_6\" discrete raw_value=0.5 value=0.000 range=(-1.0, 1.0, 0.002)>"
+  },
+  "mpe_pitchbend_7": {
+   "raw": 0.5,
+   "text": "<pedalboard.AudioProcessorParameter name=\"MPE_PitchBend_7\" discrete raw_value=0.5 value=0.000 range=(-1.0, 1.0, 0.002)>"
+  },
+  "mpe_pitchbend_8": {
+   "raw": 0.5,
+   "text": "<pedalboard.AudioProcessorParameter name=\"MPE_PitchBend_8\" discrete raw_value=0.5 value=0.000 range=(-1.0, 1.0, 0.002)>"
+  },
+  "mpe_pitchbend_9": {
+   "raw": 0.5,
+   "text": "<pedalboard.AudioProcessorParameter name=\"MPE_PitchBend_9\" discrete raw_value=0.5 value=0.000 range=(-1.0, 1.0, 0.002)>"
+  },
+  "multiband_amount": {
+   "raw": 1.0,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Multiband Amount\" label=\"%\" discrete raw_value=1 value=100 range=(0.0, 100.0, 0.1)>"
+  },
+  "multiband_time": {
+   "raw": 0.49954041838645935,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Multiband Time\" label=\"%\" discrete raw_value=0.49954 value=100.0 range=(10.0, 1000.0, ~1.65)>"
+  },
+  "multiband_tone": {
+   "raw": 0.5,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Multiband Tone\" label=\"%\" discrete raw_value=0.5 value=50.0 range=(0.0, 100.0, 0.1)>"
+  },
+  "navigate_through_filters": {
+   "raw": 0.5,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Navigate through filters\" discrete raw_value=0.5 value=0.500 range=(0.0, 1.0, 0.001)>"
+  },
+  "navigate_through_presets": {
+   "raw": 0.5,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Navigate through presets\" discrete raw_value=0.5 value=0.500 range=(0.0, 1.0, 0.001)>"
+  },
+  "next_preset": {
+   "raw": 0.0,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Next Preset\" discrete raw_value=0 value=0.000 range=(0.0, 1.0, 0.001)>"
+  },
+  "oct_minus": {
+   "raw": 0.0,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Oct Minus\" discrete raw_value=0 value=0.000 range=(0.0, 1.0, 0.001)>"
+  },
+  "oct_plus": {
+   "raw": 0.0,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Oct Plus\" discrete raw_value=0 value=0.000 range=(0.0, 1.0, 0.001)>"
+  },
+  "on_off": {
+   "raw": 0.0,
+   "text": "<pedalboard.AudioProcessorParameter name=\"On/Off\" discrete raw_value=0 value=\"Active\" (2 valid string values)>"
+  },
+  "output_volume_db": {
+   "raw": 0.5,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Output Volume\" label=\"dB\" discrete raw_value=0.5 value=0.000 range=(-24.0, 24.0, ~0.0516)>"
+  },
+  "previous_preset": {
+   "raw": 0.0,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Previous Preset\" discrete raw_value=0 value=0.000 range=(0.0, 1.0, 0.001)>"
+  },
+  "redo_the_last_action": {
+   "raw": 0.0,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Redo the last action\" discrete raw_value=0 value=0.000 range=(0.0, 1.0, 0.001)>"
+  },
+  "routing_balance": {
+   "raw": 0.5,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Routing Balance\" discrete raw_value=0.5 value=0.500 range=(0.0, 1.0, 0.001)>"
+  },
+  "routing_band_split_hz": {
+   "raw": 0.4233654737472534,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Routing Band Split\" label=\"Hz\" discrete raw_value=0.423365 value=600 range=(20.0, 20000.0, ~57.6452380952381)>"
+  },
+  "saves_the_current_preset": {
+   "raw": 0.0,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Saves the current preset\" discrete raw_value=0 value=0.000 range=(0.0, 1.0, 0.001)>"
+  },
+  "select_keylabmk2_filter": {
+   "raw": 0.0,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Select KeylabMk2 Filter\" discrete raw_value=0 value=0.000 range=(0.0, 1.0, 0.001)>"
+  },
+  "select_multi_filter": {
+   "raw": 0.5,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Select Multi Filter\" discrete raw_value=0.5 value=0.500 range=(0.0, 1.0, 0.001)>"
+  },
+  "select_preset": {
+   "raw": 0.5,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Select Preset\" discrete raw_value=0.5 value=0.500 range=(0.0, 1.0, 0.001)>"
+  },
+  "select_preset_timeout": {
+   "raw": 0.5,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Select Preset Timeout\" discrete raw_value=0.5 value=0.500 range=(0.0, 1.0, 0.001)>"
+  },
+  "sendvaluestomidicontroller": {
+   "raw": 0.5,
+   "text": "<pedalboard.AudioProcessorParameter name=\"SendValuesToMIDIController\" discrete raw_value=0.5 value=0.500 range=(0.0, 1.0, 0.001)>"
+  },
+  "undo_the_last_action": {
+   "raw": 0.0,
+   "text": "<pedalboard.AudioProcessorParameter name=\"Undo the last action\" discrete raw_value=0 value=0.000 range=(0.0, 1.0, 0.001)>"
+  },
+  "vst_programchange_0": {
+   "raw": 0.0,
+   "text": "<pedalboard.AudioProcessorParameter name=\"VST_ProgramChange_0\" discrete raw_value=0 value=0 range=(0.0, 127.0, 1.0)>"
+  },
+  "vst_programchange_1": {
+   "raw": 0.0,
+   "text": "<pedalboard.AudioProcessorParameter name=\"VST_ProgramChange_1\" discrete raw_value=0 value=0 range=(0.0, 127.0, 1.0)>"
+  },
+  "vst_programchange_10": {
+   "raw": 0.0,
+   "text": "<pedalboard.AudioProcessorParameter name=\"VST_ProgramChange_10\" discrete raw_value=0 value=0 range=(0.0, 127.0, 1.0)>"
+  },
+  "vst_programchange_11": {
+   "raw": 0.0,
+   "text": "<pedalboard.AudioProcessorParameter name=\"VST_ProgramChange_11\" discrete raw_value=0 value=0 range=(0.0, 127.0, 1.0)>"
+  },
+  "vst_programchange_12": {
+   "raw": 0.0,
+   "text": "<pedalboard.AudioProcessorParameter name=\"VST_ProgramChange_12\" discrete raw_value=0 value=0 range=(0.0, 127.0, 1.0)>"
+  },
+  "vst_programchange_13": {
+   "raw": 0.0,
+   "text": "<pedalboard.AudioProcessorParameter name=\"VST_ProgramChange_13\" discrete raw_value=0 value=0 range=(0.0, 127.0, 1.0)>"
+  },
+  "vst_programchange_14": {
+   "raw": 0.0,
+   "text": "<pedalboard.AudioProcessorParameter name=\"VST_ProgramChange_14\" discrete raw_value=0 value=0 range=(0.0, 127.0, 1.0)>"
+  },
+  "vst_programchange_15": {
+   "raw": 0.0,
+   "text": "<pedalboard.AudioProcessorParameter name=\"VST_ProgramChange_15\" discrete raw_value=0 value=0 range=(0.0, 127.0, 1.0)>"
+  },
+  "vst_programchange_2": {
+   "raw": 0.0,
+   "text": "<pedalboard.AudioProcessorParameter name=\"VST_ProgramChange_2\" discrete raw_value=0 value=0 range=(0.0, 127.0, 1.0)>"
+  },
+  "vst_programchange_3": {
+   "raw": 0.0,
+   "text": "<pedalboard.AudioProcessorParameter name=\"VST_ProgramChange_3\" discrete raw_value=0 value=0 range=(0.0, 127.0, 1.0)>"
+  },
+  "vst_programchange_4": {
+   "raw": 0.0,
+   "text": "<pedalboard.AudioProcessorParameter name=\"VST_ProgramChange_4\" discrete raw_value=0 value=0 range=(0.0, 127.0, 1.0)>"
+  },
+  "vst_programchange_5": {
+   "raw": 0.0,
+   "text": "<pedalboard.AudioProcessorParameter name=\"VST_ProgramChange_5\" discrete raw_value=0 value=0 range=(0.0, 127.0, 1.0)>"
+  },
+  "vst_programchange_6": {
+   "raw": 0.0,
+   "text": "<pedalboard.AudioProcessorParameter name=\"VST_ProgramChange_6\" discrete raw_value=0 value=0 range=(0.0, 127.0, 1.0)>"
+  },
+  "vst_programchange_7": {
+   "raw": 0.0,
+   "text": "<pedalboard.AudioProcessorParameter name=\"VST_ProgramChange_7\" discrete raw_value=0 value=0 range=(0.0, 127.0, 1.0)>"
+  },
+  "vst_programchange_8": {
+   "raw": 0.0,
+   "text": "<pedalboard.AudioProcessorParameter name=\"VST_ProgramChange_8\" discrete raw_value=0 value=0 range=(0.0, 127.0, 1.0)>"
+  },
+  "vst_programchange_9": {
+   "raw": 0.0,
+   "text": "<pedalboard.AudioProcessorParameter name=\"VST_ProgramChange_9\" discrete raw_value=0 value=0 range=(0.0, 127.0, 1.0)>"
+  }
+ }
+}

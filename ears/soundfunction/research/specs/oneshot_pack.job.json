@@ -1,0 +1,43 @@
+{
+  "job_id": "live_oneshot_pack_v1",
+  "job_type": "oneshot_pack",
+  "doc": "research/live-oneshot-pack.md",
+  "instrument": "FILL IN: <set name> (clone) / selected Drum Rack pads and instrument tracks",
+  "source_set": "FILL IN: /Users/anthonybecker/_agent_scratch/PROJECT_FOLDER/THE_SET.als",
+  "clone_of": "FILL IN: /Users/anthonybecker/_tmsmsm/.../PROJECT_FOLDER (never opened directly)",
+  "capture_track": "FILL IN: index of the reused capture audio track",
+  "job_labels": ["kick", "rumble", "hat_closed", "hat_open", "clap", "perc", "stab", "pad", "riser", "impact"],
+  "candidates": "FILL IN: list of {source_track_index, drum_pad_note (or null), job, instrument_slug, midi_note, velocity, note_duration_beats, bounce_beats} chosen by hand per research/live-oneshot-pack.md section 1-2",
+  "default_velocity": 100,
+  "trigger": {
+    "mechanism": "one session-clip note per one-shot, fired once, tapped via the same input-routing capture used by code/run_sweep_stem.py",
+    "note_duration_beats": "short for percussive jobs (kick/rumble/hat_closed/hat_open/clap/perc/stab), long/held for sustained jobs (pad/riser/impact) -- set per instrument, not a single constant",
+    "bounce_beats": "note_duration_beats plus enough tail to capture full decay; err long, trim later"
+  },
+  "predicted_measure": null,
+  "purpose": "Give the listening test a pool of real one-shot stimuli (Anthony's own racks) to sit alongside the synthetic out/sweeps stimuli, and check both against the measured real-one-shot distribution.",
+  "hypothesis": "Renders from Anthony's own instruments should land inside the real p10-p90 bands in out/library_real.csv for their assigned job on attack_ms, decay_ms, crest_factor_db, spectral_centroid_hz, band_sub_share and band_high_share, by construction (they are real drum-rack/instrument renders, not synthetic approximations). A render that falls outside is worth a second listen: mislabelled job, a capture artifact, or a genuine real outlier worth keeping.",
+  "naming_pattern": "<job>__<instrument-slug>__<index, zero-padded, unique within job>.wav",
+  "sidecar_fields": [
+    "job", "instrument_slug", "index", "source_track_index", "source_track_name",
+    "drum_pad_note", "device_chain", "midi_note", "velocity",
+    "note_duration_beats", "bounce_beats", "tempo", "sample_rate",
+    "source_set", "ambiguous_label", "wav", "timestamp_utc"
+  ],
+  "sidecar_note": "sample_rate is read from the bounced wav file after the copy, not queried from Live. ambiguous_label is only present when the job assignment was a judgment call worth flagging.",
+  "resumable": true,
+  "restore": {
+    "capture_track_arm": "0 (disarm at end)",
+    "session_clip": "delete the temporary one-note clip after each capture (optional on a disposable clone)"
+  },
+  "output_dir": "out/live_oneshot_pack_v1/",
+  "post_render_check": {
+    "command": "python3 listen/realism_check.py --json out/listen_realism_livepack.json",
+    "run_from": "sound-function repo root, on the analysis machine, after copying the pack's wavs into out/sweeps/ (realism_check.py hardcodes that input path, no --dir flag)",
+    "reads": "out/library_real.csv (real one-shot distributions, split by job)"
+  },
+  "ownership": "These are Anthony's own renders of his own instruments. He owns them outright and may publish or redistribute them freely, unlike corpus stems from other producers (see research/stems-request.md) or Demucs-separated audio from released tracks, which must never be redistributed.",
+  "reuses_mechanism": "code/run_sweep_stem.py (ensure_capture_track / bounce_stem), adapted to fire one MIDI note per one-shot instead of a repeating pattern",
+  "crash_rules_ref": "HANDOFF.md section 7 (quoted in the doc)",
+  "safety_rules_ref": "HANDOFF.md section 15; PLAYBOOK_skill.md section 9"
+}

@@ -1,0 +1,11 @@
+[
+ {
+  "label": "30 s at 35%",
+  "tempo": 159.55,
+  "sub_pump_db": 40.63,
+  "low_pump_db": 70.54,
+  "sub_minus_low_db": -29.91,
+  "low_return_ms": 292.0,
+  "recovery_rise_ms": 60.0
+ }
+]

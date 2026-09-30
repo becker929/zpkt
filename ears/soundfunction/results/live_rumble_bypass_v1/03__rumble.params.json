@@ -1,0 +1,1015 @@
+{
+  "track_index": 3,
+  "track_name": "rumble",
+  "tempo": 160.0,
+  "frozen": false,
+  "muted": false,
+  "source_set": "/Users/anthonybecker/_agent_scratch/HW002_rumble_bypass/HW002_14.als",
+  "capture_track": 18,
+  "content_end_beats": 704.0,
+  "recorded_beats": 708.0,
+  "timestamp_utc": "2026-09-12T05:22:34.910600+00:00",
+  "lfotool_parameter_note": "LFOTool is a PluginDevice and exposes exactly ONE parameter to the Live Object Model, its Device On/Off. Its shape, depth, rate and mode are NOT readable: not via device.parameters, and not from the .als, where the plugin state is one opaque Buffer inside VstPluginInfo with no PluginFloatParameter entries. The spec asked for the parameter values; this is why they are absent. The bypass measurement answers the volume-or-filter question empirically instead.",
+  "wav": "aligned__03__rumble.wav",
+  "sample_rate": 44100,
+  "duration_s": 268.574,
+  "lfotool_on": 1.0,
+  "device_chain": [
+    {
+      "index": 0,
+      "name": "Utility",
+      "class_name": "StereoGain",
+      "on": 1.0,
+      "exposed_parameters": [
+        {
+          "name": "Device On",
+          "value": 1.0,
+          "min": 0.0,
+          "max": 1.0
+        },
+        {
+          "name": "Left Inv",
+          "value": 0.0,
+          "min": 0.0,
+          "max": 1.0
+        },
+        {
+          "name": "Right Inv",
+          "value": 0.0,
+          "min": 0.0,
+          "max": 1.0
+        },
+        {
+          "name": "Channel Mode",
+          "value": 1.0,
+          "min": 0.0,
+          "max": 3.0
+        },
+        {
+          "name": "Stereo Width",
+          "value": 0.9365079402923584,
+          "min": 0.0,
+          "max": 2.0
+        },
+        {
+          "name": "Mono",
+          "value": 0.0,
+          "min": 0.0,
+          "max": 1.0
+        },
+        {
+          "name": "Bass Mono",
+          "value": 0.0,
+          "min": 0.0,
+          "max": 1.0
+        },
+        {
+          "name": "Bass Freq",
+          "value": 0.3802112340927124,
+          "min": 0.0,
+          "max": 1.0
+        },
+        {
+          "name": "Balance",
+          "value": 0.0,
+          "min": -1.0,
+          "max": 1.0
+        },
+        {
+          "name": "Output",
+          "value": -0.2222222238779068,
+          "min": -1.0,
+          "max": 1.0
+        },
+        {
+          "name": "Mute",
+          "value": 0.0,
+          "min": 0.0,
+          "max": 1.0
+        },
+        {
+          "name": "DC Filter",
+          "value": 0.0,
+          "min": 0.0,
+          "max": 1.0
+        }
+      ]
+    },
+    {
+      "index": 1,
+      "name": "Shifter",
+      "class_name": "Shifter",
+      "on": 1.0,
+      "exposed_parameters": [
+        {
+          "name": "Device On",
+          "value": 1.0,
+          "min": 0.0,
+          "max": 1.0
+        },
+        {
+          "name": "Lfo Amount Hz",
+          "value": 0.0,
+          "min": 0.0,
+          "max": 1.0
+        },
+        {
+          "name": "Lfo Amount St",
+          "value": 0.0,
+          "min": 0.0,
+          "max": 1.0
+        },
+        {
+          "name": "Lfo Waveform",
+          "value": 1.0,
+          "min": 0.0,
+          "max": 9.0
+        },
+        {
+          "name": "Lfo Sync",
+          "value": 0.0,
+          "min": 0.0,
+          "max": 1.0
+        },
+        {
+          "name": "Lfo Rate Hz",
+          "value": 0.4593089520931244,
+          "min": 0.0,
+          "max": 1.0
+        },
+        {
+          "name": "Lfo S. Rate",
+          "value": 12.0,
+          "min": 0.0,
+          "max": 21.0
+        },
+        {
+          "name": "Lfo Spin",
+          "value": 1.0,
+          "min": 0.0,
+          "max": 1.0
+        },
+        {
+          "name": "Lfo Phase",
+          "value": 0.5,
+          "min": 0.0,
+          "max": 1.0
+        },
+        {
+          "name": "Lfo Spin Amount",
+          "value": 0.0,
+          "min": 0.0,
+          "max": 1.0
+        },
+        {
+          "name": "Lfo Offset",
+          "value": 0.0,
+          "min": 0.0,
+          "max": 1.0
+        },
+        {
+          "name": "Lfo Width",
+          "value": 0.0,
+          "min": 0.0,
+          "max": 1.0
+        },
+        {
+          "name": "Lfo Duty Cycle",
+          "value": 0.5,
+          "min": 0.0,
+          "max": 1.0
+        },
+        {
+          "name": "Pitch Coarse",
+          "value": 0.0,
+          "min": -24.0,
+          "max": 24.0
+        },
+        {
+          "name": "Pitch Fine",
+          "value": 0.658730149269104,
+          "min": 0.0,
+          "max": 1.0
+        },
+        {
+          "name": "Pitch Window",
+          "value": 0.5904815793037415,
+          "min": 0.0,
+          "max": 1.0
+        },
+        {
+          "name": "Mod Fine",
+          "value": 0.6904761791229248,
+          "min": 0.0,
+          "max": 1.0
+        },
+        {
+          "name": "FShift Coarse",
+          "value": 0.5,
+          "min": 0.0,
+          "max": 1.0
+        },
+        {
+          "name": "RM Coarse",
+          "value": 0.75,
+          "min": 0.0,
+          "max": 1.0
+        },
+        {
+          "name": "RM Drive",
+          "value": 1.0,
+          "min": 0.0,
+          "max": 1.0
+        },
+        {
+          "name": "RM Drive Gain",
+          "value": 0.3359375,
+          "min": 0.0,
+          "max": 1.0
+        },
+        {
+          "name": "MidiPitch Glide",
+          "value": 0.0,
+          "min": 0.0,
+          "max": 1.0
+        },
+        {
+          "name": "Env On",
+          "value": 0.0,
+          "min": 0.0,
+          "max": 1.0
+        },
+        {
+          "name": "Env Attack",
+          "value": 0.19732442498207092,
+          "min": 0.0,
+          "max": 1.0
+        },
+        {
+          "name": "Env Release",
+          "value": 0.49987494945526123,
+          "min": 0.0,
+          "max": 1.0
+        },
+        {
+          "name": "Env Amount Hz",
+          "value": 0.5,
+          "min": 0.0,
+          "max": 1.0
+        },
+        {
+          "name": "Env Amount St",
+          "value": 0.5,
+          "min": 0.0,
+          "max": 1.0
+        },
+        {
+          "name": "Delay On",
+          "value": 0.0,
+          "min": 0.0,
+          "max": 1.0
+        },
+        {
+          "name": "Delay Sync",
+          "value": 1.0,
+          "min": 0.0,
+          "max": 1.0
+        },
+        {
+          "name": "Delay Time",
+          "value": 0.34901344776153564,
+          "min": 0.0,
+          "max": 1.0
+        },
+        {
+          "name": "Delay Synced",
+          "value": 9.0,
+          "min": 0.0,
+          "max": 17.0
+        },
+        {
+          "name": "Delay Feedback",
+          "value": 0.0,
+          "min": 0.0,
+          "max": 1.0
+        },
+        {
+          "name": "Mode",
+          "value": 0.0,
+          "min": 0.0,
+          "max": 2.0
+        },
+        {
+          "name": "Tone",
+          "value": 1.0,
+          "min": 0.0,
+          "max": 1.0
+        },
+        {
+          "name": "Wide",
+          "value": 0.0,
+          "min": 0.0,
+          "max": 1.0
+        },
+        {
+          "name": "Dry/Wet",
+          "value": 1.0,
+          "min": 0.0,
+          "max": 1.0
+        }
+      ]
+    },
+    {
+      "index": 2,
+      "name": "Decapitator",
+      "class_name": "PluginDevice",
+      "on": 1.0,
+      "exposed_parameters": [
+        {
+          "name": "Device On",
+          "value": 1.0,
+          "min": 0.0,
+          "max": 1.0
+        },
+        {
+          "name": "Bypass",
+          "value": 0.0,
+          "min": 0.0,
+          "max": 1.0
+        },
+        {
+          "name": "Style",
+          "value": 0.0,
+          "min": 0.0,
+          "max": 1.0
+        },
+        {
+          "name": "Drive",
+          "value": 0.27000001072883606,
+          "min": 0.0,
+          "max": 1.0
+        },
+        {
+          "name": "Punish",
+          "value": 0.0,
+          "min": 0.0,
+          "max": 1.0
+        },
+        {
+          "name": "LowCut",
+          "value": 0.190263569355011,
+          "min": 0.0,
+          "max": 1.0
+        },
+        {
+          "name": "Tone",
+          "value": 0.23749999701976776,
+          "min": 0.0,
+          "max": 1.0
+        },
+        {
+          "name": "HighCut",
+          "value": 0.40999525785446167,
+          "min": 0.0,
+          "max": 1.0
+        },
+        {
+          "name": "Mix",
+          "value": 1.0,
+          "min": 0.0,
+          "max": 1.0
+        },
+        {
+          "name": "AutoGain",
+          "value": 0.0,
+          "min": 0.0,
+          "max": 1.0
+        },
+        {
+          "name": "LowThump",
+          "value": 0.0,
+          "min": 0.0,
+          "max": 1.0
+        },
+        {
+          "name": "HighSlope",
+          "value": 0.0,
+          "min": 0.0,
+          "max": 1.0
+        },
+        {
+          "name": "OutputTrim",
+          "value": 0.8583333492279053,
+          "min": 0.0,
+          "max": 1.0
+        }
+      ]
+    },
+    {
+      "index": 3,
+      "name": "EQ Eight",
+      "class_name": "Eq8",
+      "on": 1.0,
+      "exposed_parameters": [
+        {
+          "name": "Device On",
+          "value": 1.0,
+          "min": 0.0,
+          "max": 1.0
+        },
+        {
+          "name": "Output",
+          "value": 0.0,
+          "min": -12.0,
+          "max": 12.0
+        },
+        {
+          "name": "Scale",
+          "value": 1.0,
+          "min": -2.0,
+          "max": 2.0
+        },
+        {
+          "name": "Adaptive Q",
+          "value": 1.0,
+          "min": 0.0,
+          "max": 1.0
+        },
+        {
+          "name": "1 Filter On A",
+          "value": 1.0,
+          "min": 0.0,
+          "max": 1.0
+        },
+        {
+          "name": "1 Filter Type A",
+          "value": 2.0,
+          "min": 0.0,
+          "max": 7.0
+        },
+        {
+          "name": "1 Frequency A",
+          "value": 0.14681440591812134,
+          "min": 0.0,
+          "max": 1.0
+        },
+        {
+          "name": "1 Gain A",
+          "value": -14.256197929382324,
+          "min": -15.0,
+          "max": 15.0
+        },
+        {
+          "name": "1 Q A",
+          "value": 0.60317462682724,
+          "min": 0.0,
+          "max": 1.0
+        },
+        {
+          "name": "1 Filter On B",
+          "value": 0.0,
+          "min": 0.0,
+          "max": 1.0
+        },
+        {
+          "name": "1 Filter Type B",
+          "value": 1.0,
+          "min": 0.0,
+          "max": 7.0
+        },
+        {
+          "name": "1 Frequency B",
+          "value": 0.1801268309354782,
+          "min": 0.0,
+          "max": 1.0
+        },
+        {
+          "name": "1 Gain B",
+          "value": 0.0,
+          "min": -15.0,
+          "max": 15.0
+        },
+        {
+          "name": "1 Q B",
+          "value": 0.37666621804237366,
+          "min": 0.0,
+          "max": 1.0
+        },
+        {
+          "name": "2 Filter On A",
+          "value": 1.0,
+          "min": 0.0,
+          "max": 1.0
+        },
+        {
+          "name": "2 Filter Type A",
+          "value": 3.0,
+          "min": 0.0,
+          "max": 7.0
+        },
+        {
+          "name": "2 Frequency A",
+          "value": 0.23268698155879974,
+          "min": 0.0,
+          "max": 1.0
+        },
+        {
+          "name": "2 Gain A",
+          "value": 4.499999523162842,
+          "min": -15.0,
+          "max": 15.0
+        },
+        {
+          "name": "2 Q A",
+          "value": 0.37666621804237366,
+          "min": 0.0,
+          "max": 1.0
+        },
+        {
+          "name": "2 Filter On B",
+          "value": 0.0,
+          "min": 0.0,
+          "max": 1.0
+        },
+        {
+          "name": "2 Filter Type B",
+          "value": 2.0,
+          "min": 0.0,
+          "max": 7.0
+        },
+        {
+          "name": "2 Frequency B",
+          "value": 0.3892475962638855,
+          "min": 0.0,
+          "max": 1.0
+        },
+        {
+          "name": "2 Gain B",
+          "value": 0.0,
+          "min": -15.0,
+          "max": 15.0
+        },
+        {
+          "name": "2 Q B",
+          "value": 0.37666621804237366,
+          "min": 0.0,
+          "max": 1.0
+        },
+        {
+          "name": "3 Filter On A",
+          "value": 1.0,
+          "min": 0.0,
+          "max": 1.0
+        },
+        {
+          "name": "3 Filter Type A",
+          "value": 3.0,
+          "min": 0.0,
+          "max": 7.0
+        },
+        {
+          "name": "3 Frequency A",
+          "value": 0.4278002977371216,
+          "min": 0.0,
+          "max": 1.0
+        },
+        {
+          "name": "3 Gain A",
+          "value": -11.349592208862305,
+          "min": -15.0,
+          "max": 15.0
+        },
+        {
+          "name": "3 Q A",
+          "value": 0.47851479053497314,
+          "min": 0.0,
+          "max": 1.0
+        },
+        {
+          "name": "3 Filter On B",
+          "value": 1.0,
+          "min": 0.0,
+          "max": 1.0
+        },
+        {
+          "name": "3 Filter Type B",
+          "value": 3.0,
+          "min": 0.0,
+          "max": 7.0
+        },
+        {
+          "name": "3 Frequency B",
+          "value": 0.2991841733455658,
+          "min": 0.0,
+          "max": 1.0
+        },
+        {
+          "name": "3 Gain B",
+          "value": 0.0,
+          "min": -15.0,
+          "max": 15.0
+        },
+        {
+          "name": "3 Q B",
+          "value": 0.37666621804237366,
+          "min": 0.0,
+          "max": 1.0
+        },
+        {
+          "name": "4 Filter On A",
+          "value": 1.0,
+          "min": 0.0,
+          "max": 1.0
+        },
+        {
+          "name": "4 Filter Type A",
+          "value": 5.0,
+          "min": 0.0,
+          "max": 7.0
+        },
+        {
+          "name": "4 Frequency A",
+          "value": 0.8074891567230225,
+          "min": 0.0,
+          "max": 1.0
+        },
+        {
+          "name": "4 Gain A",
+          "value": 0.0,
+          "min": -15.0,
+          "max": 15.0
+        },
+        {
+          "name": "4 Q A",
+          "value": 0.37666621804237366,
+          "min": 0.0,
+          "max": 1.0
+        },
+        {
+          "name": "4 Filter On B",
+          "value": 1.0,
+          "min": 0.0,
+          "max": 1.0
+        },
+        {
+          "name": "4 Filter Type B",
+          "value": 3.0,
+          "min": 0.0,
+          "max": 7.0
+        },
+        {
+          "name": "4 Frequency B",
+          "value": 0.5083049535751343,
+          "min": 0.0,
+          "max": 1.0
+        },
+        {
+          "name": "4 Gain B",
+          "value": 0.0,
+          "min": -15.0,
+          "max": 15.0
+        },
+        {
+          "name": "4 Q B",
+          "value": 0.37666621804237366,
+          "min": 0.0,
+          "max": 1.0
+        },
+        {
+          "name": "5 Filter On A",
+          "value": 0.0,
+          "min": 0.0,
+          "max": 1.0
+        },
+        {
+          "name": "5 Filter Type A",
+          "value": 3.0,
+          "min": 0.0,
+          "max": 7.0
+        },
+        {
+          "name": "5 Frequency A",
+          "value": 0.2991841733455658,
+          "min": 0.0,
+          "max": 1.0
+        },
+        {
+          "name": "5 Gain A",
+          "value": 0.0,
+          "min": -15.0,
+          "max": 15.0
+        },
+        {
+          "name": "5 Q A",
+          "value": 0.37666621804237366,
+          "min": 0.0,
+          "max": 1.0
+        },
+        {
+          "name": "5 Filter On B",
+          "value": 1.0,
+          "min": 0.0,
+          "max": 1.0
+        },
+        {
+          "name": "5 Filter Type B",
+          "value": 3.0,
+          "min": 0.0,
+          "max": 7.0
+        },
+        {
+          "name": "5 Frequency B",
+          "value": 0.6884317994117737,
+          "min": 0.0,
+          "max": 1.0
+        },
+        {
+          "name": "5 Gain B",
+          "value": 0.0,
+          "min": -15.0,
+          "max": 15.0
+        },
+        {
+          "name": "5 Q B",
+          "value": 0.37666621804237366,
+          "min": 0.0,
+          "max": 1.0
+        },
+        {
+          "name": "6 Filter On A",
+          "value": 0.0,
+          "min": 0.0,
+          "max": 1.0
+        },
+        {
+          "name": "6 Filter Type A",
+          "value": 3.0,
+          "min": 0.0,
+          "max": 7.0
+        },
+        {
+          "name": "6 Frequency A",
+          "value": 0.8975525498390198,
+          "min": 0.0,
+          "max": 1.0
+        },
+        {
+          "name": "6 Gain A",
+          "value": 0.0,
+          "min": -15.0,
+          "max": 15.0
+        },
+        {
+          "name": "6 Q A",
+          "value": 0.37666621804237366,
+          "min": 0.0,
+          "max": 1.0
+        },
+        {
+          "name": "6 Filter On B",
+          "value": 1.0,
+          "min": 0.0,
+          "max": 1.0
+        },
+        {
+          "name": "6 Filter Type B",
+          "value": 3.0,
+          "min": 0.0,
+          "max": 7.0
+        },
+        {
+          "name": "6 Frequency B",
+          "value": 0.8975525498390198,
+          "min": 0.0,
+          "max": 1.0
+        },
+        {
+          "name": "6 Gain B",
+          "value": 0.0,
+          "min": -15.0,
+          "max": 15.0
+        },
+        {
+          "name": "6 Q B",
+          "value": 0.37666621804237366,
+          "min": 0.0,
+          "max": 1.0
+        },
+        {
+          "name": "7 Filter On A",
+          "value": 0.0,
+          "min": 0.0,
+          "max": 1.0
+        },
+        {
+          "name": "7 Filter Type A",
+          "value": 3.0,
+          "min": 0.0,
+          "max": 7.0
+        },
+        {
+          "name": "7 Frequency A",
+          "value": 0.8074891567230225,
+          "min": 0.0,
+          "max": 1.0
+        },
+        {
+          "name": "7 Gain A",
+          "value": 0.0,
+          "min": -15.0,
+          "max": 15.0
+        },
+        {
+          "name": "7 Q A",
+          "value": 0.37666621804237366,
+          "min": 0.0,
+          "max": 1.0
+        },
+        {
+          "name": "7 Filter On B",
+          "value": 0.0,
+          "min": 0.0,
+          "max": 1.0
+        },
+        {
+          "name": "7 Filter Type B",
+          "value": 5.0,
+          "min": 0.0,
+          "max": 7.0
+        },
+        {
+          "name": "7 Frequency B",
+          "value": 0.8074891567230225,
+          "min": 0.0,
+          "max": 1.0
+        },
+        {
+          "name": "7 Gain B",
+          "value": 0.0,
+          "min": -15.0,
+          "max": 15.0
+        },
+        {
+          "name": "7 Q B",
+          "value": 0.37666621804237366,
+          "min": 0.0,
+          "max": 1.0
+        },
+        {
+          "name": "8 Filter On A",
+          "value": 0.0,
+          "min": 0.0,
+          "max": 1.0
+        },
+        {
+          "name": "8 Filter Type A",
+          "value": 6.0,
+          "min": 0.0,
+          "max": 7.0
+        },
+        {
+          "name": "8 Frequency A",
+          "value": 0.9739260673522949,
+          "min": 0.0,
+          "max": 1.0
+        },
+        {
+          "name": "8 Gain A",
+          "value": 0.0,
+          "min": -15.0,
+          "max": 15.0
+        },
+        {
+          "name": "8 Q A",
+          "value": 0.37666621804237366,
+          "min": 0.0,
+          "max": 1.0
+        },
+        {
+          "name": "8 Filter On B",
+          "value": 0.0,
+          "min": 0.0,
+          "max": 1.0
+        },
+        {
+          "name": "8 Filter Type B",
+          "value": 6.0,
+          "min": 0.0,
+          "max": 7.0
+        },
+        {
+          "name": "8 Frequency B",
+          "value": 0.9739260673522949,
+          "min": 0.0,
+          "max": 1.0
+        },
+        {
+          "name": "8 Gain B",
+          "value": 0.0,
+          "min": -15.0,
+          "max": 15.0
+        },
+        {
+          "name": "8 Q B",
+          "value": 0.37666621804237366,
+          "min": 0.0,
+          "max": 1.0
+        }
+      ]
+    },
+    {
+      "index": 4,
+      "name": "LFOTool",
+      "class_name": "PluginDevice",
+      "on": 1.0,
+      "exposed_parameters": [
+        {
+          "name": "Device On",
+          "value": 1.0,
+          "min": 0.0,
+          "max": 1.0
+        }
+      ]
+    },
+    {
+      "index": 5,
+      "name": "Utility",
+      "class_name": "StereoGain",
+      "on": 1.0,
+      "exposed_parameters": [
+        {
+          "name": "Device On",
+          "value": 1.0,
+          "min": 0.0,
+          "max": 1.0
+        },
+        {
+          "name": "Left Inv",
+          "value": 0.0,
+          "min": 0.0,
+          "max": 1.0
+        },
+        {
+          "name": "Right Inv",
+          "value": 0.0,
+          "min": 0.0,
+          "max": 1.0
+        },
+        {
+          "name": "Channel Mode",
+          "value": 1.0,
+          "min": 0.0,
+          "max": 3.0
+        },
+        {
+          "name": "Stereo Width",
+          "value": 1.0,
+          "min": 0.0,
+          "max": 2.0
+        },
+        {
+          "name": "Mono",
+          "value": 0.0,
+          "min": 0.0,
+          "max": 1.0
+        },
+        {
+          "name": "Bass Mono",
+          "value": 0.0,
+          "min": 0.0,
+          "max": 1.0
+        },
+        {
+          "name": "Bass Freq",
+          "value": 0.3802112340927124,
+          "min": 0.0,
+          "max": 1.0
+        },
+        {
+          "name": "Balance",
+          "value": 0.0,
+          "min": -1.0,
+          "max": 1.0
+        },
+        {
+          "name": "Output",
+          "value": -0.0657142773270607,
+          "min": -1.0,
+          "max": 1.0
+        },
+        {
+          "name": "Mute",
+          "value": 0.0,
+          "min": 0.0,
+          "max": 1.0
+        },
+        {
+          "name": "DC Filter",
+          "value": 0.0,
+          "min": 0.0,
+          "max": 1.0
+        }
+      ]
+    }
+  ]
+}

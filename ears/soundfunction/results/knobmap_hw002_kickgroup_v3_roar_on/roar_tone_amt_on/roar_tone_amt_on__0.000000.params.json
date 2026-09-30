@@ -1,0 +1,73 @@
+{
+ "row": "roar_tone_amt_on",
+ "device": "Roar",
+ "device_index": 1,
+ "param": "Tone Amt",
+ "param_index": 2,
+ "value_set": 0.0,
+ "value_read": 0.0,
+ "original_value": 0.2578125,
+ "param_min": 0.0,
+ "param_max": 1.0,
+ "tempo": 160.0,
+ "loop_start_beats": 0.0,
+ "loop_beats": 32.0,
+ "capture_track": 18,
+ "tap": "kick group (bus output)",
+ "bus": {
+  "members": [
+   {
+    "index": 2,
+    "name": "kick",
+    "mute": false
+   },
+   {
+    "index": 3,
+    "name": "rumble",
+    "mute": false
+   }
+  ],
+  "rumble_lfotool_on": 1.0,
+  "group_devices": [
+   {
+    "index": 0,
+    "name": "EQ Eight",
+    "class_name": "Eq8",
+    "on": 1.0
+   },
+   {
+    "index": 1,
+    "name": "Roar",
+    "class_name": "Roar",
+    "on": 0.0
+   },
+   {
+    "index": 2,
+    "name": "Dist COLDFIRE",
+    "class_name": "PluginDevice",
+    "on": 1.0
+   },
+   {
+    "index": 3,
+    "name": "EQ Eight",
+    "class_name": "Eq8",
+    "on": 1.0
+   },
+   {
+    "index": 4,
+    "name": "Compressor",
+    "class_name": "Compressor2",
+    "on": 1.0
+   }
+  ]
+ },
+ "held": {
+  "Device On": 1.0,
+  "original": 0.0
+ },
+ "note": "Row is about the kick group bus as heard: kick + rumble, rumble's LFOTool on. Not a solo kick. Roar Device On FORCED to 1 for this row; in Anthony's set it is 0 (bypassed). Not Anthony's setting.",
+ "source_set": "/Users/anthonybecker/_agent_scratch/HW002_rumble_bypass/HW002_14.als",
+ "wav": "roar_tone_amt_on__0.000000.wav",
+ "peak_dbfs": -0.55,
+ "timestamp_utc": "2026-09-12T16:25:38.258726+00:00"
+}

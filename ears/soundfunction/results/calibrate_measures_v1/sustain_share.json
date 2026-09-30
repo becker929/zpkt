@@ -1,0 +1,46 @@
+{
+ "measure": "sustain share",
+ "definition": {
+  "function": "analysis/hits_extra.py sustain_share",
+  "method": "energy after the first 50 ms of the hit over total energy; truth computed with the same formula on the clean constructed samples"
+ },
+ "tolerance": "within 0.02 of the true ratio",
+ "rows": [
+  {
+   "built_plateau_fraction": 0.1,
+   "true_sustain_share": 0.3098017893896667,
+   "reported_sustain_share": 0.3098,
+   "error": -0.0,
+   "pass_": true
+  },
+  {
+   "built_plateau_fraction": 0.3,
+   "true_sustain_share": 0.7404232607314504,
+   "reported_sustain_share": 0.7404,
+   "error": -0.0,
+   "pass_": true
+  },
+  {
+   "built_plateau_fraction": 0.5,
+   "true_sustain_share": 0.839928719748198,
+   "reported_sustain_share": 0.8399,
+   "error": -0.0,
+   "pass_": true
+  },
+  {
+   "built_plateau_fraction": 0.7,
+   "true_sustain_share": 0.8844208296327766,
+   "reported_sustain_share": 0.8844,
+   "error": -0.0,
+   "pass_": true
+  },
+  {
+   "built_plateau_fraction": 0.9,
+   "true_sustain_share": 0.9094808517887868,
+   "reported_sustain_share": 0.9095,
+   "error": 0.0,
+   "pass_": true
+  }
+ ],
+ "ok": true
+}

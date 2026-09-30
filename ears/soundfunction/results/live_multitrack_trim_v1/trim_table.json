@@ -1,0 +1,146 @@
+[
+  {
+    "song": "hw002",
+    "stem": "02__kick.wav",
+    "original_s": 614.2,
+    "content_s": 267.0,
+    "kept_pct": 43.5,
+    "peak_dbfs": -2.2
+  },
+  {
+    "song": "hw002",
+    "stem": "03__rumble.wav",
+    "original_s": 614.1,
+    "content_s": 266.0,
+    "kept_pct": 43.3,
+    "peak_dbfs": -12.2
+  },
+  {
+    "song": "hw002",
+    "stem": "05__6-2022-05-30-005.wav",
+    "original_s": 615.0,
+    "content_s": 230.8,
+    "kept_pct": 37.5,
+    "peak_dbfs": -7.1
+  },
+  {
+    "song": "hw002",
+    "stem": "06__perc-1.wav",
+    "original_s": 615.0,
+    "content_s": 266.1,
+    "kept_pct": 43.3,
+    "peak_dbfs": -13.5
+  },
+  {
+    "song": "hw002",
+    "stem": "07__perc-2.wav",
+    "original_s": 615.0,
+    "content_s": 231.7,
+    "kept_pct": 37.7,
+    "peak_dbfs": -5.7
+  },
+  {
+    "song": "hw002",
+    "stem": "09__10-arc-raiders-bastion-encounter.wav",
+    "original_s": 615.1,
+    "content_s": 274.5,
+    "kept_pct": 44.6,
+    "peak_dbfs": -13.4
+  },
+  {
+    "song": "hw002",
+    "stem": "11__12-2022-06-02-001-2026-05-25-092256.wav",
+    "original_s": 615.0,
+    "content_s": 266.0,
+    "kept_pct": 43.3,
+    "peak_dbfs": -24.7
+  },
+  {
+    "song": "hw002",
+    "stem": "13__14-arc-raiders-bastion-encounter.wav",
+    "original_s": 613.3,
+    "content_s": 139.5,
+    "kept_pct": 22.7,
+    "peak_dbfs": -4.2
+  },
+  {
+    "song": "hw002",
+    "stem": "14__15-2023-11-14-bodhi-anthony-tech-01-9-stems-sound-4-synth.wav",
+    "original_s": 613.1,
+    "content_s": 162.8,
+    "kept_pct": 26.6,
+    "peak_dbfs": -6.9
+  },
+  {
+    "song": "hw002",
+    "stem": "15__16-2023-11-14-bodhi-anthony-tech-01-1-stems-sound-1-synth-horn-001.wav",
+    "original_s": 613.2,
+    "content_s": 146.0,
+    "kept_pct": 23.8,
+    "peak_dbfs": -1.5
+  },
+  {
+    "song": "hw002",
+    "stem": "16__17-2023-10-07-09-20.wav",
+    "original_s": 613.3,
+    "content_s": 155.7,
+    "kept_pct": 25.4,
+    "peak_dbfs": -6.7
+  },
+  {
+    "song": "hw002",
+    "stem": "17__18-beatbox.wav",
+    "original_s": 613.2,
+    "content_s": 152.0,
+    "kept_pct": 24.8,
+    "peak_dbfs": -4.2
+  },
+  {
+    "song": "snts-style-track",
+    "stem": "06__kick-g.wav",
+    "original_s": 408.7,
+    "content_s": 386.1,
+    "kept_pct": 94.5,
+    "peak_dbfs": -12.7
+  },
+  {
+    "song": "snts-style-track",
+    "stem": "11__pad-layer.wav",
+    "original_s": 410.4,
+    "content_s": 362.3,
+    "kept_pct": 88.3,
+    "peak_dbfs": -10.4
+  },
+  {
+    "song": "snts-style-track",
+    "stem": "14__main-pad.wav",
+    "original_s": 410.5,
+    "content_s": 385.4,
+    "kept_pct": 93.9,
+    "peak_dbfs": -23.3
+  },
+  {
+    "song": "snts-style-track",
+    "stem": "22__pad-wind.wav",
+    "original_s": 411.9,
+    "content_s": 2.6,
+    "kept_pct": 0.6,
+    "peak_dbfs": -20.1
+  },
+  {
+    "song": "snts-style-track",
+    "stem": "23__pad-hollow.wav",
+    "original_s": 412.0,
+    "content_s": 2.6,
+    "kept_pct": 0.6,
+    "peak_dbfs": -36.6
+  },
+  {
+    "song": "snts-style-track",
+    "stem": "26__27-warn3.wav",
+    "original_s": 411.9,
+    "content_s": 2.3,
+    "kept_pct": 0.6,
+    "peak_dbfs": -0.4
+  }
+]
