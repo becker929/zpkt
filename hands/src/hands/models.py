@@ -268,7 +268,7 @@ class ArrangementConfig(BaseModel):
 class ProjectConfig(BaseModel):
     """Top-level declarative project configuration.
 
-    Produced by hands and consumed by the taste loop orchestrator.
+    Produced by hands and consumed by the engineer's loop.
     Serialises to JSON for cross-repo communication.
     """
 
@@ -287,7 +287,7 @@ class ProjectConfig(BaseModel):
 class Feedback(BaseModel):
     """Human feedback captured by the vibe tool.
 
-    Produced by hands (vibe server) and consumed by the taste loop.
+    Produced by hands (vibe server) and consumed by taste.
     """
 
     model_config = _FROZEN  # type: ignore[assignment]

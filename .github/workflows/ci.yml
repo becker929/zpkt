@@ -1,0 +1,22 @@
+name: ci
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    name: ${{ matrix.part }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # Each part is its own uv project. Contract tests inside each part
+        # fail if its output drifts from lib/contracts/.
+        part: [hands, ears, ears/mlab, taste, engineer]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - name: Test ${{ matrix.part }}
+        working-directory: ${{ matrix.part }}
+        run: uv run pytest -q -p no:cacheprovider

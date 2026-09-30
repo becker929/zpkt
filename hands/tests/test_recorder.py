@@ -88,3 +88,22 @@ def test_wav_export_reports_real_length(tmp_path, capsys) -> None:
     recorder._export(str(src), str(tmp_path / "out.wav"), beats=8.0, tempo=130.0, want_wav=True)
     printed = capsys.readouterr().out
     assert "6.7s" in printed and "requested 3.7s" in printed
+
+
+def test_waits_for_resampling_input_to_appear(tmp_path) -> None:
+    """A new track reports no Resampling input at first; the recorder retries."""
+    take = tmp_path / "take.wav"
+    _write_wav(take, 1.0)
+    live = FakeLive(take_path=str(take))
+    answers = iter([[], ["No Input"], ["Resampling", "Main"]])
+    real = live.execute
+
+    def execute(code: str) -> McpResult:
+        if "available_input_routing_types]" in code:
+            live.calls.append(code)
+            return McpResult(status="ok", result=next(answers, ["Resampling"]))
+        return real(code)
+
+    live.execute = execute
+    assert recorder.record_arrangement(live, "r.wav", 4.0, tmp_path / "o", tail_beats=0.0)
+    assert sum("available_input_routing_types]" in c for c in live.calls) == 3

@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/becker929/zpkt/lib/contracts/verdict.schema.json",
+  "description": "taste's judgment of one render. Generated from taste/src/taste/models.py \u2014 do not edit by hand.",
+  "properties": {
+    "clip_id": {
+      "title": "Clip Id",
+      "type": "string"
+    },
+    "score": {
+      "maximum": 5,
+      "minimum": 1,
+      "title": "Score",
+      "type": "integer"
+    },
+    "rationale": {
+      "title": "Rationale",
+      "type": "string"
+    },
+    "suggestions": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Suggestions",
+      "type": "array"
+    },
+    "retrieved_ids": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Retrieved Ids",
+      "type": "array"
+    },
+    "model": {
+      "default": "unknown",
+      "title": "Model",
+      "type": "string"
+    }
+  },
+  "required": [
+    "clip_id",
+    "score",
+    "rationale"
+  ],
+  "title": "Verdict",
+  "type": "object"
+}

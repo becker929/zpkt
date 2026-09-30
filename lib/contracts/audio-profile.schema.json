@@ -1,0 +1,288 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/becker929/zpkt/lib/contracts/audio-profile.schema.json",
+  "title": "AudioProfile",
+  "description": "What ears measured about one audio file. Produced by `ears analyze --json`; generated from ears/src/ears/models.py \u2014 do not edit by hand.",
+  "required": [
+    "clip_id",
+    "audio_path"
+  ],
+  "type": "object",
+  "properties": {
+    "clip_id": {
+      "type": "string"
+    },
+    "audio_path": {
+      "type": "string"
+    },
+    "duration_seconds": {
+      "type": "number"
+    },
+    "sample_rate": {
+      "type": "integer"
+    },
+    "spectral": {
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "spectral_centroid_mean": {
+              "type": "number"
+            },
+            "spectral_centroid_std": {
+              "type": "number"
+            },
+            "spectral_rolloff_mean": {
+              "type": "number"
+            },
+            "spectral_bandwidth_mean": {
+              "type": "number"
+            },
+            "spectral_flatness_mean": {
+              "type": "number"
+            },
+            "zero_crossing_rate_mean": {
+              "type": "number"
+            },
+            "harmonic_ratio_mean": {
+              "type": "number"
+            },
+            "onset_strength_mean": {
+              "type": "number"
+            },
+            "onset_strength_std": {
+              "type": "number"
+            },
+            "mfcc_means": {
+              "type": "array",
+              "items": {
+                "type": "number"
+              }
+            },
+            "mfcc_stds": {
+              "type": "array",
+              "items": {
+                "type": "number"
+              }
+            },
+            "chroma_means": {
+              "type": "array",
+              "items": {
+                "type": "number"
+              }
+            },
+            "key": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "key_strength": {
+              "type": "number"
+            },
+            "danceability": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "loudness": {
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "lufs_integrated": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "lufs_short_term_peak": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "lufs_momentary_max": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "true_peak_db": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "band_energy": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "number"
+              }
+            },
+            "camelot_key": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "rhythm": {
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "bpm": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "bpm_confidence": {
+              "type": "number"
+            },
+            "beats": {
+              "type": "array",
+              "items": {
+                "type": "number"
+              }
+            },
+            "downbeats": {
+              "type": "array",
+              "items": {
+                "type": "number"
+              }
+            },
+            "meter_numerator": {
+              "type": "integer"
+            },
+            "swing_ratio": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "beat_regularity": {
+              "type": "number"
+            },
+            "groove_density": {
+              "type": "number"
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "pitch": {
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "predominant_pitch_hz": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "pitch_confidence": {
+              "type": "number"
+            },
+            "note_events": {
+              "type": "array",
+              "items": {}
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "embedding": {
+      "anyOf": [
+        {
+          "type": "array",
+          "items": {
+            "type": "number"
+          }
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "description": {
+      "type": "string"
+    },
+    "extracted_at": {
+      "type": "number"
+    },
+    "errors": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "additionalProperties": false
+}

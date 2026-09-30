@@ -1,0 +1,825 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/becker929/zpkt/lib/contracts/project-config.schema.json",
+  "$defs": {
+    "ArrangementClip": {
+      "description": "One clip placed in the arrangement view.",
+      "properties": {
+        "track_prefix": {
+          "title": "Track Prefix",
+          "type": "string"
+        },
+        "start_beat": {
+          "minimum": 0.0,
+          "title": "Start Beat",
+          "type": "number"
+        },
+        "length_beats": {
+          "exclusiveMinimum": 0.0,
+          "title": "Length Beats",
+          "type": "number"
+        },
+        "source_session_slot": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Source Session Slot",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "track_prefix",
+        "start_beat",
+        "length_beats"
+      ],
+      "title": "ArrangementClip",
+      "type": "object"
+    },
+    "ArrangementConfig": {
+      "description": "Arrangement view layout: which session clips go where.",
+      "properties": {
+        "clips": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/ArrangementClip"
+          },
+          "title": "Clips",
+          "type": "array"
+        },
+        "structure": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SongStructure"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "loop": {
+          "default": false,
+          "title": "Loop",
+          "type": "boolean"
+        },
+        "loop_start": {
+          "default": 0.0,
+          "minimum": 0.0,
+          "title": "Loop Start",
+          "type": "number"
+        },
+        "loop_length": {
+          "default": 32.0,
+          "exclusiveMinimum": 0.0,
+          "title": "Loop Length",
+          "type": "number"
+        },
+        "total_bars": {
+          "default": 32,
+          "exclusiveMinimum": 0,
+          "title": "Total Bars",
+          "type": "integer"
+        }
+      },
+      "title": "ArrangementConfig",
+      "type": "object"
+    },
+    "DeviceSource": {
+      "description": "Browser subtree where Live finds a device.",
+      "enum": [
+        "audio_effects",
+        "plugins",
+        "drums",
+        "instruments",
+        "midi_effects"
+      ],
+      "title": "DeviceSource",
+      "type": "string"
+    },
+    "DeviceSpec": {
+      "description": "A single audio device with optional parameter overrides.",
+      "properties": {
+        "kind": {
+          "const": "device",
+          "default": "device",
+          "title": "Kind",
+          "type": "string"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "source": {
+          "$ref": "#/$defs/DeviceSource",
+          "default": "audio_effects"
+        },
+        "params": {
+          "additionalProperties": {
+            "type": "number"
+          },
+          "title": "Params",
+          "type": "object"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "title": "DeviceSpec",
+      "type": "object"
+    },
+    "EQ8Band": {
+      "description": "One band of an Ableton EQ Eight device.",
+      "properties": {
+        "band": {
+          "maximum": 8,
+          "minimum": 1,
+          "title": "Band",
+          "type": "integer"
+        },
+        "mode": {
+          "default": 3,
+          "maximum": 7,
+          "minimum": 0,
+          "title": "Mode",
+          "type": "integer"
+        },
+        "freq_hz": {
+          "exclusiveMinimum": 0.0,
+          "title": "Freq Hz",
+          "type": "number"
+        },
+        "gain": {
+          "default": 0.0,
+          "maximum": 15.0,
+          "minimum": -15.0,
+          "title": "Gain",
+          "type": "number"
+        },
+        "q_norm": {
+          "default": 0.7071,
+          "exclusiveMinimum": 0.0,
+          "maximum": 1.0,
+          "title": "Q Norm",
+          "type": "number"
+        }
+      },
+      "required": [
+        "band",
+        "freq_hz"
+      ],
+      "title": "EQ8Band",
+      "type": "object"
+    },
+    "EQ8Spec": {
+      "description": "Full EQ Eight configuration.",
+      "properties": {
+        "kind": {
+          "const": "eq8",
+          "default": "eq8",
+          "title": "Kind",
+          "type": "string"
+        },
+        "bands": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/EQ8Band"
+          },
+          "title": "Bands",
+          "type": "array"
+        }
+      },
+      "title": "EQ8Spec",
+      "type": "object"
+    },
+    "KickConfig": {
+      "description": "Kick drum section: samples, distortion, EQ, MIDI pattern.",
+      "properties": {
+        "samples": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/SamplePad"
+          },
+          "title": "Samples",
+          "type": "array"
+        },
+        "main": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SamplePad"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "main_distortion": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/DeviceSpec"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "main_rack": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ParallelRack"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "group_devices": {
+          "default": [],
+          "items": {
+            "discriminator": {
+              "mapping": {
+                "device": "#/$defs/DeviceSpec",
+                "eq8": "#/$defs/EQ8Spec"
+              },
+              "propertyName": "kind"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/$defs/DeviceSpec"
+              },
+              {
+                "$ref": "#/$defs/EQ8Spec"
+              }
+            ]
+          },
+          "title": "Group Devices",
+          "type": "array"
+        },
+        "track_eq": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/EQ8Spec"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "transient_shaper": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/DeviceSpec"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "midi": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/MidiPattern"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "title": "KickConfig",
+      "type": "object"
+    },
+    "MidLayerConfig": {
+      "description": "Mid-layer section: devices and optional MIDI pattern.",
+      "properties": {
+        "devices": {
+          "default": [],
+          "items": {
+            "discriminator": {
+              "mapping": {
+                "device": "#/$defs/DeviceSpec",
+                "eq8": "#/$defs/EQ8Spec"
+              },
+              "propertyName": "kind"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/$defs/DeviceSpec"
+              },
+              {
+                "$ref": "#/$defs/EQ8Spec"
+              }
+            ]
+          },
+          "title": "Devices",
+          "type": "array"
+        },
+        "midi": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/MidiPattern"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "title": "MidLayerConfig",
+      "type": "object"
+    },
+    "MidiNote": {
+      "description": "A single MIDI note event.",
+      "properties": {
+        "pitch": {
+          "maximum": 127,
+          "minimum": 0,
+          "title": "Pitch",
+          "type": "integer"
+        },
+        "time": {
+          "minimum": 0.0,
+          "title": "Time",
+          "type": "number"
+        },
+        "duration": {
+          "exclusiveMinimum": 0.0,
+          "title": "Duration",
+          "type": "number"
+        },
+        "velocity": {
+          "default": 100,
+          "maximum": 127,
+          "minimum": 1,
+          "title": "Velocity",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "pitch",
+        "time",
+        "duration"
+      ],
+      "title": "MidiNote",
+      "type": "object"
+    },
+    "MidiPattern": {
+      "description": "A loopable MIDI clip.",
+      "properties": {
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "length_beats": {
+          "default": 4.0,
+          "exclusiveMinimum": 0.0,
+          "title": "Length Beats",
+          "type": "number"
+        },
+        "notes": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/MidiNote"
+          },
+          "title": "Notes",
+          "type": "array"
+        },
+        "loop": {
+          "default": true,
+          "title": "Loop",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "title": "MidiPattern",
+      "type": "object"
+    },
+    "ParallelRack": {
+      "description": "Audio Effect Rack with named parallel chains.",
+      "properties": {
+        "chains": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/RackChain"
+          },
+          "title": "Chains",
+          "type": "array"
+        }
+      },
+      "title": "ParallelRack",
+      "type": "object"
+    },
+    "PercConfig": {
+      "description": "Full percussion section: groups, bus chain, MIDI pattern.",
+      "properties": {
+        "groups": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/PercGroup"
+          },
+          "title": "Groups",
+          "type": "array"
+        },
+        "bus_rack": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ParallelRack"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "bus_distortion": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/DeviceSpec"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "bus_eq": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/EQ8Spec"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "bus_sidechain": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/DeviceSpec"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "midi": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/MidiPattern"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "starting_pad_volume_db": {
+          "default": -15.0,
+          "title": "Starting Pad Volume Db",
+          "type": "number"
+        }
+      },
+      "title": "PercConfig",
+      "type": "object"
+    },
+    "PercGroup": {
+      "description": "A named group of percussion pads sharing a MIDI note bank.",
+      "properties": {
+        "label": {
+          "title": "Label",
+          "type": "string"
+        },
+        "samples": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/SamplePad"
+          },
+          "title": "Samples",
+          "type": "array"
+        },
+        "main": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SamplePad"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "main_devices": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/DeviceSpec"
+          },
+          "title": "Main Devices",
+          "type": "array"
+        }
+      },
+      "required": [
+        "label"
+      ],
+      "title": "PercGroup",
+      "type": "object"
+    },
+    "RackChain": {
+      "description": "One chain inside an Audio Effect Rack.",
+      "properties": {
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "devices": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/DeviceSpec"
+          },
+          "title": "Devices",
+          "type": "array"
+        },
+        "volume": {
+          "default": 1.0,
+          "title": "Volume",
+          "type": "number"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "title": "RackChain",
+      "type": "object"
+    },
+    "RumbleConfig": {
+      "description": "Sub-bass rumble section: processing chain and metadata.",
+      "properties": {
+        "source_description": {
+          "default": "",
+          "title": "Source Description",
+          "type": "string"
+        },
+        "devices": {
+          "default": [],
+          "items": {
+            "discriminator": {
+              "mapping": {
+                "device": "#/$defs/DeviceSpec",
+                "eq8": "#/$defs/EQ8Spec"
+              },
+              "propertyName": "kind"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/$defs/DeviceSpec"
+              },
+              {
+                "$ref": "#/$defs/EQ8Spec"
+              }
+            ]
+          },
+          "title": "Devices",
+          "type": "array"
+        },
+        "sidechain": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/DeviceSpec"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "lowpass_hz": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Lowpass Hz"
+        },
+        "fundamental_target_hz": {
+          "default": 50.0,
+          "title": "Fundamental Target Hz",
+          "type": "number"
+        },
+        "width": {
+          "default": 1.0,
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Width",
+          "type": "number"
+        }
+      },
+      "title": "RumbleConfig",
+      "type": "object"
+    },
+    "SamplePad": {
+      "description": "A single drum pad: MIDI note, sample name, optional Simpler trim.\n\n`devices` holds per-pad chain devices (loaded after the Simpler).\n`start`/`end` are percentages (0-100) mapped to Simpler S Start / S Length.",
+      "properties": {
+        "note": {
+          "maximum": 127,
+          "minimum": 0,
+          "title": "Note",
+          "type": "integer"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "transpose": {
+          "default": 0,
+          "maximum": 24,
+          "minimum": -24,
+          "title": "Transpose",
+          "type": "integer"
+        },
+        "start": {
+          "default": 0,
+          "maximum": 100,
+          "minimum": 0,
+          "title": "Start",
+          "type": "integer"
+        },
+        "end": {
+          "anyOf": [
+            {
+              "maximum": 100,
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "End"
+        },
+        "volume": {
+          "default": 1.0,
+          "maximum": 2.0,
+          "minimum": 0.0,
+          "title": "Volume",
+          "type": "number"
+        },
+        "devices": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/DeviceSpec"
+          },
+          "title": "Devices",
+          "type": "array"
+        }
+      },
+      "required": [
+        "note",
+        "name"
+      ],
+      "title": "SamplePad",
+      "type": "object"
+    },
+    "Section": {
+      "description": "A named time span in the arrangement (intro, drop, etc.).",
+      "properties": {
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "length_bars": {
+          "exclusiveMinimum": 0,
+          "title": "Length Bars",
+          "type": "integer"
+        },
+        "tracks": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/SectionTrack"
+          },
+          "title": "Tracks",
+          "type": "array"
+        }
+      },
+      "required": [
+        "name",
+        "length_bars"
+      ],
+      "title": "Section",
+      "type": "object"
+    },
+    "SectionTrack": {
+      "description": "One track's behaviour within a song section.",
+      "properties": {
+        "track_prefix": {
+          "title": "Track Prefix",
+          "type": "string"
+        },
+        "session_slot": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Session Slot",
+          "type": "integer"
+        },
+        "enabled": {
+          "default": true,
+          "title": "Enabled",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "track_prefix"
+      ],
+      "title": "SectionTrack",
+      "type": "object"
+    },
+    "SongStructure": {
+      "description": "Section-based song structure flattened into tiled clips.",
+      "properties": {
+        "sections": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/Section"
+          },
+          "title": "Sections",
+          "type": "array"
+        },
+        "beats_per_bar": {
+          "default": 4,
+          "exclusiveMinimum": 0,
+          "title": "Beats Per Bar",
+          "type": "integer"
+        }
+      },
+      "title": "SongStructure",
+      "type": "object"
+    }
+  },
+  "description": "A declarative Live project for hands to build. Generated from hands/src/hands/models.py \u2014 do not edit by hand.",
+  "properties": {
+    "name": {
+      "title": "Name",
+      "type": "string"
+    },
+    "tempo": {
+      "default": 140.0,
+      "exclusiveMaximum": 300.0,
+      "exclusiveMinimum": 0.0,
+      "title": "Tempo",
+      "type": "number"
+    },
+    "sample_base": {
+      "default": "",
+      "title": "Sample Base",
+      "type": "string"
+    },
+    "percussion": {
+      "$ref": "#/$defs/PercConfig"
+    },
+    "kick": {
+      "$ref": "#/$defs/KickConfig"
+    },
+    "rumble": {
+      "$ref": "#/$defs/RumbleConfig"
+    },
+    "mid_layer": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/MidLayerConfig"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "arrangement": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ArrangementConfig"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    }
+  },
+  "required": [
+    "name"
+  ],
+  "title": "ProjectConfig",
+  "type": "object"
+}

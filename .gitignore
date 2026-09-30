@@ -19,3 +19,7 @@ __pycache__/
 node_modules/
 *.env
 !*.env.example
+
+# Tiny synthetic Live sets used as parser fixtures are the one .als exception.
+!ears/mlab/calibration/fixtures/*.als
+.wrangler/

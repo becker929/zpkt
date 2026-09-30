@@ -1,0 +1,32 @@
+[project]
+name = "engineer"
+version = "0.1.0"
+description = "The engineer: runs the hands → ears → taste loop and searches for better settings"
+requires-python = ">=3.12"
+dependencies = [
+    "typer>=0.12.0",
+    "numpy>=1.26.0",
+    "pyyaml>=6.0",
+    "mlab",
+    "taste",
+]
+
+[project.scripts]
+engineer = "engineer.cli:main"
+
+[tool.uv.sources]
+mlab = { path = "../ears/mlab", editable = true }
+taste = { path = "../taste", editable = true }
+
+[dependency-groups]
+dev = ["pytest>=8.0"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/engineer"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

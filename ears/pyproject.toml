@@ -33,4 +33,12 @@ ears = "ears.cli:main"
 packages = ["src/ears"]
 
 [dependency-groups]
-dev = ["pytest>=8.0"]
+dev = [
+    "jsonschema>=4.26.0",
+    "pytest>=8.0",
+]
+
+[tool.pytest.ini_options]
+# mlab/ and soundfunction/ have their own suites; soundfunction's needs the
+# corpus, which stays out of git.
+testpaths = ["tests"]

@@ -1,7 +1,7 @@
 [project]
 name = "taste"
 version = "0.1.0"
-description = "Brain / taste model — RAG judge, corpus, taste loop orchestration"
+description = "Taste: models Anthony's preferences — pick corpus and preference judge"
 requires-python = ">=3.12"
 dependencies = [
     "pydantic>=2.0.0",
@@ -37,5 +37,6 @@ testpaths = ["tests"]
 
 [dependency-groups]
 dev = [
+    "jsonschema>=4.26.0",
     "pytest>=9.0.2",
 ]

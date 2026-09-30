@@ -12,7 +12,7 @@ Started 2026-09-25.
 | If you want to… | Open |
 |---|---|
 | Know what state the lab is in | [STATUS.md](STATUS.md) |
-| Hand Claude a hypothesis | [hypotheses/TEMPLATE.yaml](hypotheses/TEMPLATE.yaml), then `python3 -m mlab hyp run <file>` |
+| Hand Claude a hypothesis | [engineer/hypotheses/TEMPLATE.yaml](../../engineer/hypotheses/TEMPLATE.yaml), then `engineer hyp run <file>` |
 | Measure a bounce | `python3 -m mlab measure <file.wav>` |
 | Review a premaster (checklist + measures + refs + feedback) | `python3 -m mlab review <file.wav>` |
 | Check a premaster before mastering | `python3 -m mlab premaster <file.wav>` |
