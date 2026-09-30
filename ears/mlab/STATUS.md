@@ -22,7 +22,12 @@
 | H005 | Dynamics | Slow attack keeps more punch at matched loudness | NOT SUPPORTED with the Python compressor (+0.16 dB, needed +0.5) | L-015 |
 | H006 | Loudness / monitoring | AAC adds overs; -1.5 dBTP survives | SUPPORTED on the container's ffmpeg, NOT SUPPORTED on the Mac's ffmpeg 4.4 (overs are encoder-specific); the -1.5 dBTP part held on both | L-013, L-017 |
 
-ABX kits are waiting in `hypotheses/results/H00*/abx/`.
+Blind ABX kits (A, B, X01–X12, HOW_TO.md) are waiting for H001, H002, H004, H005 and H006
+in `hypotheses/results/<id>/abx/`. Hypothesis audio is float WAV, about 900 MB in total;
+`hypotheses/results/*/audio/` can be deleted and regenerated at any time.
+
+Also ready on disk: probe signals (`audio/renders/probes/`) and K-System calibration
+noise (`audio/renders/k-system/`). Last full calibration on the Mac: 94/94.
 
 ## What the demo says so far
 
@@ -30,17 +35,18 @@ The demo sits at -13.8 LUFS, -0.48 dBTP. YouTube would barely touch it.
 Its loudest moment is a breakdown event at 33–34.5 s, 4–6 dB above typical kick peaks.
 There is a steady DC offset while the kick plays, a low-mid hole, and a hard cut at the end.
 
-## Blocked on Anthony (in order of value)
+## Plan (agreed 2026-09-26)
 
-1. **A 24-bit or float premaster of the Short section**, main-bus limiter bypassed,
-   into `audio/inbox/`. Replaces the MP3 for every measurement.
-2. **3–5 reference tracks** into `audio/refs/` (e.g. "Lethal Storm", "Eternal Dream").
-   Tonal and dynamics numbers mean little without them.
-3. **Connect `~/_tmsmsm/Active Tracks/HW002`** with "Add folder" in the desktop app,
-   so `mlab als` can read the set (L-001).
-4. **Five ABX sessions** (H001, H004, H005, H006, and a +1 dB bias test). About 25 minutes.
-5. **Probe renders** through Glue Compressor, Limiter and EQ Eight (guides/ableton-live-12.md).
-6. **K-14 monitor calibration** with `mlab kcal` (guides/ch20-21-monitoring.md).
+1. Anthony sets up Ableton Live on this Mac mini.
+2. Anthony cuts the HW002 Short version, compresses the loud breakdown event (33–34.5 s in the demo),
+   and bounces a premaster: Main, 32-bit float, no dither, Normalize off, main-bus limiter off,
+   one bar pre-roll and the full tail. File goes in `audio/inbox/`.
+3. Anthony adds 3–5 references (WAV/FLAC preferred; MP3 320 is fine) to `audio/refs/`.
+4. Claude runs `python3 -m mlab review audio/inbox/<file>.wav` and gives feedback
+   (report in `reports/review-<file>.md`).
+5. Claude drives Live with the Ableton skill Anthony provides and renders a few master versions
+   (hypotheses H010+), each measured and loudness-matched.
+6. Anthony listens (ABX kits) and we decide the next move.
 
 ## Next for Claude
 

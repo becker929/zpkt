@@ -19,6 +19,7 @@ Report numbers first, then what they mean.
 ```
 python3 -m mlab calibrate                 # run all known-answer tests, write calibration/CALIBRATION.md
 python3 -m mlab measure FILE [--json]     # loudness, peaks, dynamics, spectrum summary
+python3 -m mlab review FILE [--refs DIR]  # premaster review: checklist + sheet + refs + feedback
 python3 -m mlab premaster FILE            # Ch.14 checklist: PASS / WARN / FAIL per item
 python3 -m mlab deliver FILE              # YouTube Short: normalization + codec round-trip
 python3 -m mlab bitdepth FILE             # effective bits, dither detection, DC
@@ -66,7 +67,8 @@ ffmpeg is needed for mp3/m4a input, codec simulation and the cross-check.
 - Cowork shell limits (learned 2026-09-25): each call ends after 180 s and kills any
   background process it started; run one hypothesis per call (all six run in 12-40 s each).
   Deletes are not permitted by default, so update files with `tar --overwrite -xzf ...`
-  and run pytest with `-p no:cacheprovider`.
+  and run pytest with `-p no:cacheprovider`. Avoid git from the Cowork shell: it leaves
+  lock files it cannot delete (moved to `_to_delete/`). Commit from macOS Terminal instead.
 - Anthony's Drive holds `HW002_1min-2026-08-13T2107.mp3`, `HW002_9.mp3`
   and `HW002.zip`. The Drive connector downloads files ≤10 MB only.
 

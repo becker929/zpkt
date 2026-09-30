@@ -14,6 +14,7 @@ Started 2026-09-25.
 | Know what state the lab is in | [STATUS.md](STATUS.md) |
 | Hand Claude a hypothesis | [hypotheses/TEMPLATE.yaml](hypotheses/TEMPLATE.yaml), then `python3 -m mlab hyp run <file>` |
 | Measure a bounce | `python3 -m mlab measure <file.wav>` |
+| Review a premaster (checklist + measures + refs + feedback) | `python3 -m mlab review <file.wav>` |
 | Check a premaster before mastering | `python3 -m mlab premaster <file.wav>` |
 | See what YouTube will do to a master | `python3 -m mlab deliver <file.wav>` |
 | Level-matched A/B or blind ABX | `python3 -m mlab abx <a.wav> <b.wav>` |

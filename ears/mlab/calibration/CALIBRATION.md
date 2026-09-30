@@ -1,6 +1,6 @@
 # Calibration report
 
-Generated 2026-09-26 00:59 by `python3 -m mlab calibrate`.
+Generated 2026-09-26 08:01 by `python3 -m mlab calibrate`.
 **94 / 94 checks pass.**
 
 Basis: EBU-3341/3342 and BS.1770 = published test cases, re-synthesised; analytic = closed-form; self-consistency = recovers a known processor; cross-check = independent implementation; planted fault = a defect inserted on purpose.
@@ -84,7 +84,7 @@ Basis: EBU-3341/3342 and BS.1770 = published test cases, re-synthesised; analyti
 | compare | ABX: P(>=9 of 12 by guessing) | 0.073 | 0.073 | 0.0001 | ✅ | analytic |
 | delivery | YouTube gain for a -8 LUFS master | -6.0 | -6.0 | 1e-09 | ✅ | platform model |
 | delivery | YouTube leaves a -20 LUFS master alone | 0.0 | 0.0 | 1e-09 | ✅ | platform model |
-| delivery | AAC round-trip time-aligned (correlation below 4 kHz) | 1.0 | 0.9913 | 0.02 | ✅ | self-consistency |
+| delivery | AAC round-trip time-aligned (correlation below 4 kHz) | 1.0 | 0.9939 | 0.02 | ✅ | self-consistency |
 | als | Live 12 set: tempo read from MainTrack | 120.0 | 120.0 | 0 | ✅ | fixture |
 | als | Live 10 set: tempo read from MasterTrack | 140.0 | 140.0 | 0 | ✅ | fixture |
 | als | planted Limiter on main bus is flagged | True | True | 0 | ✅ | planted fault |

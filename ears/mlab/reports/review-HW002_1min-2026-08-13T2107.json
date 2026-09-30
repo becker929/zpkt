@@ -1,0 +1,418 @@
+{
+  "premaster": {
+    "overall": "FAIL",
+    "checks": [
+      {
+        "check": "format",
+        "status": "FAIL",
+        "value": "lossy:mp3",
+        "why": "lossy file; premaster must be PCM or float"
+      },
+      {
+        "check": "sample_rate",
+        "status": "INFO",
+        "value": 44100,
+        "why": "keep the project rate; convert only at delivery"
+      },
+      {
+        "check": "sample_peak_dbfs",
+        "status": "WARN",
+        "value": -0.48,
+        "why": "leave headroom; -3.0 dBFS or lower is comfortable"
+      },
+      {
+        "check": "true_peak_dbtp",
+        "status": "PASS",
+        "value": -0.48,
+        "why": "above 0 dBTP the premaster already has inter-sample overs"
+      },
+      {
+        "check": "clipped_runs",
+        "status": "PASS",
+        "value": 0,
+        "why": "runs of >= 3 full-scale samples"
+      },
+      {
+        "check": "plr_db",
+        "status": "PASS",
+        "value": 13.36,
+        "why": "low PLR = limiter/clipper already on the main bus; bypass it for the premaster"
+      },
+      {
+        "check": "integrated_lufs",
+        "status": "INFO",
+        "value": -13.84,
+        "why": "premaster loudness is not a target; headroom matters more"
+      },
+      {
+        "check": "dc_offset_dbfs",
+        "status": "WARN",
+        "value": -37.68,
+        "why": "DC wastes headroom and thumps at edits"
+      },
+      {
+        "check": "head_first_10ms_dbfs",
+        "status": "PASS",
+        "value": -400.0,
+        "why": "loud first samples = clipped start / missing pre-roll; also causes inter-sample overs"
+      },
+      {
+        "check": "tail_last_10ms_dbfs",
+        "status": "WARN",
+        "value": -14.96,
+        "why": "loud last samples = reverb/delay tail cut off; extend the export length"
+      },
+      {
+        "check": "correlation",
+        "status": "PASS",
+        "value": 0.761,
+        "why": "negative overall correlation = polarity problem"
+      },
+      {
+        "check": "low_end_correlation_20_120hz",
+        "status": "PASS",
+        "value": 0.86,
+        "why": "club systems and phones sum bass to mono; keep it near 1"
+      },
+      {
+        "check": "mono_sum_loss_lu",
+        "status": "PASS",
+        "value": 0.73,
+        "why": "loudness lost when summed to mono (phone speaker, club)"
+      },
+      {
+        "check": "lr_balance_db",
+        "status": "PASS",
+        "value": -0.03,
+        "why": "L minus R RMS"
+      },
+      {
+        "check": "duration_s",
+        "status": "INFO",
+        "value": 84.0,
+        "why": "YouTube Shorts: up to 180 s"
+      }
+    ]
+  },
+  "sheet": {
+    "file": {
+      "path": "audio/hw002/HW002_1min-2026-08-13T2107.mp3",
+      "sr": 44100,
+      "channels": 2,
+      "duration_s": 84.01,
+      "subtype": "lossy:mp3",
+      "format": "MP3",
+      "lossy": true
+    },
+    "loudness": {
+      "integrated": -13.84,
+      "momentary_max": -8.96,
+      "short_term_max": -10.75,
+      "lra": 2.08,
+      "lra_low": -14.44,
+      "lra_high": -12.36,
+      "sample_peak": -0.48,
+      "true_peak": -0.48,
+      "plr": 13.36,
+      "psr_min": 7.13
+    },
+    "dynamics": {
+      "crest_db": 14.82,
+      "plr_db": 13.36,
+      "psr_min_db": 7.13,
+      "k20_rms_db": 7.71,
+      "k14_rms_db": 1.71,
+      "lra_lu": 2.08,
+      "short_term_p95_minus_p10": 2.08,
+      "short_term_max_minus_integrated": 3.09,
+      "block_crest_median_db": 8.6,
+      "block_crest_p10_db": 7.77,
+      "block_crest_p90_db": 12.34,
+      "onsets": 166,
+      "transient_contrast_median_db": 8.12
+    },
+    "tonal": {
+      "slope_db_per_oct": -4.23,
+      "centroid_hz": 502.0,
+      "group.sub": -7.42,
+      "group.bass": -2.67,
+      "group.low_mid": -15.36,
+      "group.mid": -8.79,
+      "group.upper_mid": -15.19,
+      "group.presence": -16.93,
+      "group.air": -20.0
+    },
+    "third_octave": [
+      [
+        25.1,
+        -47.66
+      ],
+      [
+        31.6,
+        -47.74
+      ],
+      [
+        39.8,
+        -37.96
+      ],
+      [
+        50.1,
+        -27.65
+      ],
+      [
+        63.1,
+        -22.05
+      ],
+      [
+        79.4,
+        -22.33
+      ],
+      [
+        100.0,
+        -26.57
+      ],
+      [
+        125.9,
+        -28.86
+      ],
+      [
+        158.5,
+        -30.53
+      ],
+      [
+        199.5,
+        -31.55
+      ],
+      [
+        251.2,
+        -34.13
+      ],
+      [
+        316.2,
+        -37.15
+      ],
+      [
+        398.1,
+        -35.41
+      ],
+      [
+        501.2,
+        -33.82
+      ],
+      [
+        631.0,
+        -31.44
+      ],
+      [
+        794.3,
+        -27.89
+      ],
+      [
+        1000.0,
+        -33.07
+      ],
+      [
+        1258.9,
+        -34.28
+      ],
+      [
+        1584.9,
+        -35.96
+      ],
+      [
+        1995.3,
+        -35.89
+      ],
+      [
+        2511.9,
+        -33.5
+      ],
+      [
+        3162.3,
+        -36.34
+      ],
+      [
+        3981.1,
+        -37.44
+      ],
+      [
+        5011.9,
+        -36.89
+      ],
+      [
+        6309.6,
+        -36.27
+      ],
+      [
+        7943.3,
+        -37.32
+      ],
+      [
+        10000.0,
+        -38.74
+      ],
+      [
+        12589.3,
+        -43.44
+      ],
+      [
+        15848.9,
+        -48.69
+      ]
+    ],
+    "stereo": [
+      {
+        "band_hz": [
+          20,
+          120
+        ],
+        "correlation": 0.86,
+        "side_minus_mid_db": -11.24
+      },
+      {
+        "band_hz": [
+          120,
+          500
+        ],
+        "correlation": 0.776,
+        "side_minus_mid_db": -8.98
+      },
+      {
+        "band_hz": [
+          500,
+          2000
+        ],
+        "correlation": 0.36,
+        "side_minus_mid_db": -3.27
+      },
+      {
+        "band_hz": [
+          2000,
+          8000
+        ],
+        "correlation": 0.479,
+        "side_minus_mid_db": -4.53
+      },
+      {
+        "band_hz": [
+          8000,
+          20000
+        ],
+        "correlation": 0.781,
+        "side_minus_mid_db": -9.08
+      }
+    ],
+    "word_length": {
+      "container": "lossy:mp3",
+      "sample_rate": 44100,
+      "lossy": true,
+      "verdict": "lossy file: word length and dither are not observable after perceptual coding. Measure the WAV you exported instead.",
+      "dc_offset_dbfs": [
+        -37.83,
+        -37.68
+      ],
+      "dc_max_dbfs": -37.68,
+      "dc_steady": true,
+      "digital_zero_blocks_100ms": 0,
+      "quietest_blocks_dbfs": -21.88
+    },
+    "delivery": {
+      "integrated": -13.84,
+      "true_peak": -0.48,
+      "normalization": {
+        "youtube": {
+          "gain_db": -0.16,
+          "playback_lufs": -14.0,
+          "playback_true_peak": -0.64,
+          "note": "observed; applies to uploads incl. Shorts (assumed)"
+        },
+        "spotify": {
+          "gain_db": -0.16,
+          "playback_lufs": -14.0,
+          "playback_true_peak": -0.64,
+          "note": "documented by Spotify; up-gain limited by peak headroom"
+        },
+        "apple_music": {
+          "gain_db": -2.16,
+          "playback_lufs": -16.0,
+          "playback_true_peak": -2.64,
+          "note": "Sound Check; reported"
+        },
+        "tidal": {
+          "gain_db": -0.16,
+          "playback_lufs": -14.0,
+          "playback_true_peak": -0.64,
+          "note": "reported"
+        },
+        "amazon_music": {
+          "gain_db": -0.16,
+          "playback_lufs": -14.0,
+          "playback_true_peak": -0.64,
+          "note": "reported, varies"
+        },
+        "soundcloud": {
+          "gain_db": 0.0,
+          "playback_lufs": -13.84,
+          "playback_true_peak": -0.48,
+          "note": "no normalisation reported"
+        },
+        "instagram": {
+          "gain_db": 0.0,
+          "playback_lufs": -13.84,
+          "playback_true_peak": -0.48,
+          "note": "undocumented; measure a real upload"
+        },
+        "tiktok": {
+          "gain_db": 0.0,
+          "playback_lufs": -13.84,
+          "playback_true_peak": -0.48,
+          "note": "undocumented; measure a real upload"
+        }
+      },
+      "advice": [
+        "YouTube turns this down 0.16 dB; loudness above -14 LUFS buys nothing there",
+        "true peak above -1 dBTP: expect codec overs; lower the limiter ceiling"
+      ]
+    }
+  },
+  "peaks": {
+    "median_beat_peak_dbfs": -6.35,
+    "p90_beat_peak_dbfs": -4.18,
+    "top": [
+      {
+        "t_s": 33.37,
+        "peak_dbfs": -0.48,
+        "above_median_db": 5.86
+      },
+      {
+        "t_s": 34.12,
+        "peak_dbfs": -0.99,
+        "above_median_db": 5.35
+      },
+      {
+        "t_s": 33.0,
+        "peak_dbfs": -1.02,
+        "above_median_db": 5.33
+      },
+      {
+        "t_s": 33.75,
+        "peak_dbfs": -1.26,
+        "above_median_db": 5.09
+      },
+      {
+        "t_s": 24.0,
+        "peak_dbfs": -1.78,
+        "above_median_db": 4.57
+      }
+    ]
+  },
+  "feedback": [
+    "[FAIL] format = lossy:mp3: lossy file; premaster must be PCM or float",
+    "[WARN] sample_peak_dbfs = -0.48: leave headroom; -3.0 dBFS or lower is comfortable",
+    "[WARN] dc_offset_dbfs = -37.68: DC wastes headroom and thumps at edits",
+    "[WARN] tail_last_10ms_dbfs = -14.96: loud last samples = reverb/delay tail cut off; extend the export length",
+    "[NOTE] loudest beat at 33.37 s is 5.86 dB above the typical beat (-6.35 dBFS): the master limiter will work mostly there (L-010)",
+    "[NOTE] steady DC -37.68 dBFS: high-pass ~15 Hz first in the master chain (L-011)"
+  ],
+  "tonal_diff": null
+}

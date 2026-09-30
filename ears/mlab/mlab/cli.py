@@ -169,6 +169,13 @@ def cmd_refs(a):
     print(compare.refs_table(t, refs, measure.CORE_KEYS))
 
 
+def cmd_review(a):
+    from . import review
+    path, fb = review.run(a.file, a.refs, a.bpm, codecs=not a.no_codecs)
+    print("\n".join("- " + x for x in fb) or "nothing flagged")
+    print(f"(full review: {os.path.relpath(path, LAB)})")
+
+
 def cmd_hyp(a):
     from . import hypothesis
     outdir, verdict = hypothesis.run(a.file, codecs=a.codecs)
@@ -210,6 +217,9 @@ def main(argv=None):
     add("abx-score", cmd_abxscore, (["folder"], {}), (["answers"], {}), help="score ABX answers")
     add("kcal", cmd_kcal, (["--sr"], {"type": int, "default": 44100}), help="K-System calibration noise")
     add("als", cmd_als, F, J, help="inspect an Ableton set")
+    add("review", cmd_review, F, (["--refs"], {"default": os.path.join(LAB, "audio", "refs")}),
+        (["--bpm"], {"type": float, "default": 160.0}), (["--no-codecs"], {"action": "store_true"}),
+        help="one-shot premaster review with feedback")
     add("refs", cmd_refs, F, (["refs"], {}), help="compare with a folder of references")
     h = add("hyp", cmd_hyp, (["action"], {"choices": ["run"]}), F, (["--codecs"], {"action": "store_true", "default": None}),
             help="run a hypothesis YAML")

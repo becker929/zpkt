@@ -7,3 +7,4 @@ hypotheses/results/*/abx/
 .run_all.sh
 .pytest_cache/
 .lab-trash*
+_to_delete/
