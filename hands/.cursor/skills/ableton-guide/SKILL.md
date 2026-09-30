@@ -304,7 +304,17 @@ song.loop = True
 
 **Work on a copy of the whole project, never the original.** Copy the `.als` *plus* `Samples/`, `Ableton Project Info/`, and any audio the set keeps in the project root into one scratch folder. A lone `.als` loses its project-relative sample paths (silent bounce, cause 4 above), and Live refuses to save a set outside a Project folder ("Please choose a Project folder…").
 
-**Do not render with `hands.recorder.record_via_resampling`.** Its cleanup deletes *every* arrangement clip on the source tracks, which wipes an existing arrangement. Record the arrangement instead: disarm sources, `back_to_arranger = False`, add a Resampling track, `current_song_time = 0`, `record_mode = True`, `start_playing()`, wait, stop, then read `arrangement_clips[0].file_path` on the new track.
+**Render an arrangement with `record_arrangement` / `hands record --arrangement`.** `record_via_resampling` bounces *session* slot-0 clips and deletes every arrangement clip on the source tracks when it cleans up, so it now refuses on a set that already has an arrangement. `record_arrangement` records the arrangement from beat 0 through a temporary Resampling track, leaves source clips alone, and deletes its track afterwards:
+
+```bash
+hands record --arrangement --beats 80 --tail 4 --output take.wav
+```
+
+The take is untrimmed (pre-roll to the stop, plus `--tail`) and starts at beat 0 only to within ~10–20 ms, so trim with short fades rather than expecting sample-accurate starts.
+
+**Delete render tracks before saving the set.** A saved set that still holds a take on a "Render" track plays that take back on the next render, doubling the mix (seen as a peak jump from ~0.28 to 1.0). `record_arrangement` removes its own track; hand-rolled scripts must too.
+
+**Expect Live dialogs on open/quit.** Opening a set or quitting prompts "Save changes to …?" and, for a temp project, "delete the temporary files?". Answer with the non-destructive button (Don't Save for scratch sets, **Leave in Place** for recordings); both block MCP-driven work until answered.
 
 **Editing time (shorten, cut sections).** The LOM has no time-editing API — no cut/delete/insert time, no time selection. Use the Edit menu, which moves clips *and* automation together:
 1. Set `song.loop_start` / `song.loop_length` to the range (LOM).
