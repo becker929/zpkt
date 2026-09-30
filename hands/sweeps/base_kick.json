@@ -1,0 +1,82 @@
+{
+  "name": "Kick Pitch Sweep - base",
+  "tempo": 130.0,
+  "sample_base": "",
+  "percussion": {
+    "groups": [],
+    "bus_rack": null,
+    "bus_distortion": null,
+    "bus_eq": null,
+    "bus_sidechain": null,
+    "midi": null,
+    "starting_pad_volume_db": -15.0
+  },
+  "kick": {
+    "samples": [
+      {
+        "note": 36,
+        "name": "Kick 49 Hz.wav",
+        "transpose": 0,
+        "start": 0,
+        "end": null,
+        "volume": 1.0,
+        "devices": []
+      }
+    ],
+    "main": {
+      "note": 36,
+      "name": "Kick 49 Hz.wav",
+      "transpose": 0,
+      "start": 0,
+      "end": null,
+      "volume": 1.0,
+      "devices": []
+    },
+    "main_distortion": null,
+    "main_rack": null,
+    "group_devices": [],
+    "track_eq": null,
+    "transient_shaper": null,
+    "midi": {
+      "name": "kick_4on4",
+      "length_beats": 4.0,
+      "notes": [
+        {
+          "pitch": 36,
+          "time": 0.0,
+          "duration": 0.25,
+          "velocity": 100
+        },
+        {
+          "pitch": 36,
+          "time": 1.0,
+          "duration": 0.25,
+          "velocity": 100
+        },
+        {
+          "pitch": 36,
+          "time": 2.0,
+          "duration": 0.25,
+          "velocity": 100
+        },
+        {
+          "pitch": 36,
+          "time": 3.0,
+          "duration": 0.25,
+          "velocity": 100
+        }
+      ],
+      "loop": true
+    }
+  },
+  "rumble": {
+    "source_description": "",
+    "devices": [],
+    "sidechain": null,
+    "lowpass_hz": null,
+    "fundamental_target_hz": 50.0,
+    "width": 1.0
+  },
+  "mid_layer": null,
+  "arrangement": null
+}

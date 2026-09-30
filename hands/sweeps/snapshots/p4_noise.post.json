@@ -1,0 +1,189 @@
+{
+  "schema": "hands.rig.snapshot/1",
+  "timestamp_utc": "2026-09-09T04:17:01.130730+00:00",
+  "track_index": 6,
+  "track_name": "Kick (G)",
+  "watch": {
+    "1": [
+      "Style",
+      "Drive"
+    ],
+    "3": [
+      "Attack",
+      "Sustain"
+    ],
+    "6": [
+      "Clipping"
+    ]
+  },
+  "devices": [
+    {
+      "index": 0,
+      "name": "Drum Rack",
+      "class_name": "DrumGroupDevice",
+      "type": 1,
+      "is_instrument": true,
+      "n_parameters": 17,
+      "on_param": {
+        "index": 0,
+        "name": "Device On",
+        "value": 1.0
+      },
+      "watched": []
+    },
+    {
+      "index": 1,
+      "name": "Decapitator",
+      "class_name": "PluginDevice",
+      "type": 2,
+      "is_instrument": false,
+      "n_parameters": 12,
+      "on_param": {
+        "index": 0,
+        "name": "Device On",
+        "value": 0.0
+      },
+      "watched": [
+        {
+          "index": 1,
+          "name": "Style",
+          "value": 0.5
+        },
+        {
+          "index": 2,
+          "name": "Drive",
+          "value": 0.41999998688697815
+        }
+      ]
+    },
+    {
+      "index": 2,
+      "name": "Newfangled Punctuate",
+      "class_name": "PluginDevice",
+      "type": 2,
+      "is_instrument": false,
+      "n_parameters": 1,
+      "on_param": {
+        "index": 0,
+        "name": "Device On",
+        "value": 0.0
+      },
+      "watched": []
+    },
+    {
+      "index": 3,
+      "name": "kHs Transient Shaper",
+      "class_name": "PluginDevice",
+      "type": 2,
+      "is_instrument": false,
+      "n_parameters": 6,
+      "on_param": {
+        "index": 0,
+        "name": "Device On",
+        "value": 0.0
+      },
+      "watched": [
+        {
+          "index": 1,
+          "name": "Attack",
+          "value": 0.7796096205711365
+        },
+        {
+          "index": 3,
+          "name": "Sustain",
+          "value": 0.5
+        }
+      ]
+    },
+    {
+      "index": 4,
+      "name": "EQ Eight",
+      "class_name": "Eq8",
+      "type": 2,
+      "is_instrument": false,
+      "n_parameters": 84,
+      "on_param": {
+        "index": 0,
+        "name": "Device On",
+        "value": 0.0
+      },
+      "watched": []
+    },
+    {
+      "index": 5,
+      "name": "HPF",
+      "class_name": "Eq8",
+      "type": 2,
+      "is_instrument": false,
+      "n_parameters": 84,
+      "on_param": {
+        "index": 0,
+        "name": "Device On",
+        "value": 0.0
+      },
+      "watched": []
+    },
+    {
+      "index": 6,
+      "name": "StandardCLIP",
+      "class_name": "PluginDevice",
+      "type": 2,
+      "is_instrument": false,
+      "n_parameters": 8,
+      "on_param": {
+        "index": 0,
+        "name": "Device On",
+        "value": 1.0
+      },
+      "watched": [
+        {
+          "index": 6,
+          "name": "Clipping",
+          "value": 0.7680555582046509
+        }
+      ]
+    },
+    {
+      "index": 7,
+      "name": "Utility",
+      "class_name": "StereoGain",
+      "type": 2,
+      "is_instrument": false,
+      "n_parameters": 12,
+      "on_param": {
+        "index": 0,
+        "name": "Device On",
+        "value": 0.0
+      },
+      "watched": []
+    },
+    {
+      "index": 8,
+      "name": "NTPD Lite",
+      "class_name": "MxDeviceAudioEffect",
+      "type": 2,
+      "is_instrument": false,
+      "n_parameters": 5,
+      "on_param": {
+        "index": 0,
+        "name": "Device On",
+        "value": 0.0
+      },
+      "watched": []
+    },
+    {
+      "index": 9,
+      "name": "SPAN",
+      "class_name": "PluginDevice",
+      "type": 2,
+      "is_instrument": false,
+      "n_parameters": 2,
+      "on_param": {
+        "index": 0,
+        "name": "Device On",
+        "value": 0.0
+      },
+      "watched": []
+    }
+  ]
+}

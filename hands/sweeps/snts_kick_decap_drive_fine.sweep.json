@@ -1,0 +1,18 @@
+{
+  "sweep_id": "snts_kick_decap_drive_fine_v2",
+  "instrument": "SNTS Style track (clone) / Kick (G) / Decapitator / Drive",
+  "device_expr": "song.tracks[6].devices[1]",
+  "param_name": "Drive",
+  "unit": "normalized (0-1)",
+  "start": 0.4,
+  "stop": 0.7,
+  "steps": 13,
+  "integer_values": false,
+  "bounce_beats": 8,
+  "settle_seconds": 0.4,
+  "predicted_measure": "crest",
+  "predicted_direction": "non-monotonic (hump near 0.6)",
+  "hypothesis": "FINER follow-up to snts_kick_decap_drive_v1. The coarse 0..1 sweep (11 steps) showed a shared inflection at Drive 0.6: crest peaks to a local max 11.10 dB and sub_share bottoms to 0.557 at the SAME setting. Resolve that hump with 0.025-step resolution across 0.4..0.7. Everything else identical: Style fixed 0.5, AutoGain OFF, only Decapitator (devices[1]) enabled, post-mixer stereo tap (crest and sub_share are gain-invariant). Question: is the peak exactly at 0.6, or offset? Is the crest peak and the sub_share trough co-located at finer resolution, or do they separate?",
+  "restore": true,
+  "output_dir": "out/snts_kick_decap_drive_fine_v2"
+}

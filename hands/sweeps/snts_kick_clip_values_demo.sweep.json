@@ -1,0 +1,15 @@
+{
+  "sweep_id": "snts_kick_clip_values_demo_v1",
+  "instrument": "SNTS Style track (clone) / Kick (G) / StandardCLIP / Clipping (threshold)",
+  "device_expr": "song.tracks[6].devices[6]",
+  "param_name": "Clipping",
+  "unit": "normalized 0-1; threshold dB = 144*value - 120 (0.750 = -12.00 dB, 0.782 = -7.39 dB)",
+  "values": [0.750, 0.782],
+  "bounce_beats": 8,
+  "settle_seconds": 0.4,
+  "predicted_measure": "crest",
+  "predicted_direction": "increasing",
+  "hypothesis": "Phase 3 item 1 demo: prove the runner honours an explicit 'values' list instead of start/stop/steps. Two settings only, both already known-good on this clipper from snts_kick_clip_validate_v1 (0.750 and 0.782), so any surprise here is a TOOLING bug, not an acoustic finding. Raising the clip threshold from -12.00 dB to -7.39 dB releases more of the kick transient, so crest should be higher at 0.782 than at 0.750. Rig is Row 2: StandardCLIP devices[6] ON, Decapitator devices[1] OFF, set up with 'rig.py solo-device --track 6 --device 6 --keep 7' and torn down with 'rig.py restore'. The 'values' list is used verbatim: no dedupe, no rounding, order preserved -- which is what Phase 4 item 1 needs to bounce ONE setting five times for a crest noise floor.",
+  "restore": true,
+  "output_dir": "out/snts_kick_clip_values_demo_v1"
+}

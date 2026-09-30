@@ -1,0 +1,15 @@
+{
+  "sweep_id": "p4_compose_v1",
+  "instrument": "SNTS Style track (clone) / Kick (G) / kHs Transient Shaper (Attack fixed) + StandardCLIP (Clipping swept) -- TWO-KNOB COMPOSITION",
+  "device_expr": "song.tracks[6].devices[6]",
+  "param_name": "Clipping",
+  "unit": "normalized 0-1; threshold dB = 144*value - 120",
+  "values": [0.766],
+  "bounce_beats": 8,
+  "settle_seconds": 0.4,
+  "predicted_measure": "crest",
+  "predicted_direction": "increasing",
+  "hypothesis": "PLAN.md Phase 4 item 4: test whether Attack and Clipping compose. BEFORE running this spec: (1) 'rig.py solo-device --track 6 --device 3 --name p4_compose_a' (Transient Shaper ON alone), (2) 'rig.py solo-device --track 6 --device 6 --keep 3 --name p4_compose_b' (StandardCLIP ON too, device 3 kept ON from step 1 -- now BOTH are on, everything else off), (3) set Attack to 0.6 directly (predicts crest ~10.18 dB alone, from out/snts_kick_transient_attack_v1/): `python3 ~/.agents/skills/ableton-live-control/scripts/live_mcp.py \"d=song.tracks[6].devices[3]; p=next(p for p in d.parameters if p.name=='Attack'); p.value=0.6; result=p.value\"`. THEN run this spec, which sets Clipping=0.766 (predicts crest 6.0 dB alone, on top of an UNCLIPPED ~8.7 dB baseline -- but here the upstream signal already has Attack-shaped crest ~10.18 dB, not 8.7, so the clipper's floor/ceiling reference point has moved). Measure the resulting crest and compare it against both single-knob predictions (10.18 and 6.0 dB) to see which dominates, or if the outcome is some blend -- this is exploratory, there is no fixed pass/fail, log the actual coupling. After this bounce, run 'rig.py restore --from sweeps/snapshots/snts_kick_devices.json' (this spec's own restore only resets Clipping, not Attack or the On-states) and verify by diff.",
+  "restore": true,
+  "output_dir": "out/p4_compose_v1"
+}

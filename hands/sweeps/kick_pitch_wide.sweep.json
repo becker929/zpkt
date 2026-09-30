@@ -1,0 +1,18 @@
+{
+  "sweep_id": "kick_pitch_wide_v1",
+  "instrument": "3-Kick / Drum Rack / pad 36 / Simpler (Kick 49 Hz)",
+  "device_expr": "song.tracks[1].devices[0].drum_pads[36].chains[0].devices[0]",
+  "param_name": "Transpose",
+  "unit": "semitones",
+  "note": 36,
+  "start": 0.0,
+  "stop": 36.0,
+  "steps": 13,
+  "integer_values": true,
+  "bounce_beats": 8,
+  "settle_seconds": 0.4,
+  "predicted_measure": "sub_share",
+  "predicted_direction": "decreasing",
+  "hypothesis": "Corrected range for kick_pitch_v1. The 49 Hz kick swept +/-10 st stayed ~27-87 Hz, entirely inside the sub band (20-150 Hz), so sub_share saturated ~0.999 and could not move. Here we sweep 0..+36 st: +19 st crosses 150 Hz, so the fundamental leaves the sub band and sub_share must fall. Register predicted pitch->sub_share INCREASING; empirical expectation for a sampled kick is DECREASING. The observed sign settles it.",
+  "output_dir": "out/kick_pitch_wide_v1"
+}

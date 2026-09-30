@@ -1,0 +1,33 @@
+{
+  "track_index": 22,
+  "track_name": "Pad (wind)",
+  "device_chain": [
+    {
+      "index": 0,
+      "name": "SPAN",
+      "class_name": "PluginDevice",
+      "on": 1.0
+    },
+    {
+      "index": 1,
+      "name": "EQ Eight",
+      "class_name": "Eq8",
+      "on": 1.0
+    },
+    {
+      "index": 2,
+      "name": "Utility",
+      "class_name": "StereoGain",
+      "on": 1.0
+    }
+  ],
+  "tempo": 160.0,
+  "frozen": false,
+  "muted": false,
+  "sample_rate": 44100,
+  "wav": "22__pad-wind.wav",
+  "source_set": "/Users/anthonybecker/_agent_scratch/SNTS_4-22/SNTS Style track 2026-04-21.als",
+  "capture_track": 44,
+  "arrangement_length_beats": 1096.5391382055445,
+  "timestamp_utc": "2026-09-09T05:01:53.817224+00:00"
+}

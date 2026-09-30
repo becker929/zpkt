@@ -1,0 +1,12 @@
+index,requested_value,true_value,wav,measure
+0,-10.0,-10.0,bounce_000.wav,
+1,-8.0,-8.0,bounce_001.wav,
+2,-6.0,-6.0,bounce_002.wav,
+3,-4.0,-4.0,bounce_003.wav,
+4,-2.0,-2.0,bounce_004.wav,
+5,0.0,0.0,bounce_005.wav,
+6,2.0,2.0,bounce_006.wav,
+7,4.0,4.0,bounce_007.wav,
+8,6.0,6.0,bounce_008.wav,
+9,8.0,8.0,bounce_009.wav,
+10,10.0,10.0,bounce_010.wav,

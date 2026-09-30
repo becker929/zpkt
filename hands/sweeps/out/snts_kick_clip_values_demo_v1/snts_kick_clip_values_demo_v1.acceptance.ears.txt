@@ -1,0 +1,11 @@
+# sweep: snts_kick_clip_values_demo_v1
+# rows: 2
+# csv: snts_kick_clip_values_demo_v1.acceptance.ears.csv
+# predicted: crest increasing
+# observed: monotonic INCREASING
+# empty cell = '-'  (VST params have no value_string)
+
+index  requested_value  true_value  value_string    crest  sub_share  low_share  mid_share  high_share    air_share
+-----  ---------------  ----------  ------------  -------  ---------  ---------  ---------  ----------  -----------
+    0             0.75        0.75             -  5.04537   0.782329   0.172608  0.0412785  0.00364409  0.000139738
+    1            0.782       0.782             -   7.1214   0.770641   0.188863   0.037319  0.00306272  0.000113732

@@ -1,0 +1,21 @@
+{
+  "track_index": 5,
+  "track_name": "6-2022-05-30-005",
+  "device_chain": [
+    {
+      "index": 0,
+      "name": "Dist COLDFIRE",
+      "class_name": "PluginDevice",
+      "on": 1.0
+    }
+  ],
+  "tempo": 160.0,
+  "frozen": false,
+  "muted": false,
+  "sample_rate": 44100,
+  "wav": "05__6-2022-05-30-005.wav",
+  "source_set": "/Users/anthonybecker/_agent_scratch/HW002/HW002_14.als",
+  "capture_track": 18,
+  "arrangement_length_beats": 1637.749841304529,
+  "timestamp_utc": "2026-09-09T08:16:19.657302+00:00"
+}

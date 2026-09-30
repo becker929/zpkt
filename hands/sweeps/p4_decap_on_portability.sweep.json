@@ -1,0 +1,15 @@
+{
+  "sweep_id": "p4_decap_on_portability_v1",
+  "instrument": "SNTS Style track (clone) / Kick (G) / StandardCLIP / Clipping -- PORTABILITY WITH DECAPITATOR ON",
+  "device_expr": "song.tracks[6].devices[6]",
+  "param_name": "Clipping",
+  "unit": "normalized 0-1; threshold dB = 144*value - 120",
+  "values": [0.750, 0.766, 0.782],
+  "bounce_beats": 8,
+  "settle_seconds": 0.4,
+  "predicted_measure": "crest",
+  "predicted_direction": "increasing",
+  "hypothesis": "PLAN.md Phase 4 item 5: re-run the Row-2 inverse-table validation (targets 5.0/6.0/7.0 dB at Clipping 0.750/0.766/0.782, already VALIDATED with Decapitator OFF in out/snts_kick_clip_validate_v1/, errors <=0.11 dB) with Decapitator LEFT ON at its default Drive 0.42 / Style 0.5 -- a more realistic chain, since Decapitator is ON in the track's original default state. Tests whether the clipper's clean crest table holds or shifts once an upstream saturator sits in the signal path. IMPORTANT rig sequence: first 'rig.py restore --from sweeps/snapshots/snts_kick_devices.json' to guarantee Decapitator is at its default ON/0.42/0.5, THEN 'rig.py solo-device --track 6 --device 6 --keep 1' (targets StandardCLIP ON, leaves Decapitator index 1 UNTOUCHED so it stays ON from the restore, turns everything else off). Restore fully afterward with 'rig.py restore --from sweeps/snapshots/snts_kick_devices.json' and verify by diff. Use --tol 0.05 in summarize_curve.py.",
+  "restore": true,
+  "output_dir": "out/p4_decap_on_portability_v1"
+}

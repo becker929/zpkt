@@ -1,0 +1,15 @@
+# sweep: p4_noise_v1
+# rows: 5
+# csv: p4_noise_v1.acceptance.ears.csv
+# predicted: crest flat
+# observed: non-monotonic (column: crest_db)
+# refine: non-monotonic trough near x=0.766 (y=5.861). Suggested finer sweep: start=0.766 stop=0.766 steps=13 (~0/step) to resolve it.
+# empty cell = '-'  (VST params have no value_string)
+
+index  requested_value  true_value  value_string  crest_db  sub_share  low_share  mid_share  high_share    air_share
+-----  ---------------  ----------  ------------  --------  ---------  ---------  ---------  ----------  -----------
+    0            0.766       0.766             -   25.9551   0.876137   0.104138  0.0182937  0.00137337  5.87602e-05
+    1            0.766       0.766             -   5.97229   0.781467   0.176851  0.0383333  0.00323021  0.000117813
+    2            0.766       0.766             -   5.86148   0.786185   0.173425  0.0371429  0.00313181  0.000114907
+    3            0.766       0.766             -   5.88834   0.788371   0.171939  0.0364978  0.00308105  0.000111643
+    4            0.766       0.766             -   5.88835   0.788371   0.171939  0.0364978  0.00308106  0.000111643

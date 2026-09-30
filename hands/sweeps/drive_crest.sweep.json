@@ -1,0 +1,20 @@
+{
+  "sweep_id": "drive_crest_v1",
+  "instrument": "3-Kick / distortion (Roar) / Drive",
+  "device_expr": "song.tracks[1].devices[1]",
+  "device_expr_note": "devices[0] is the Drum Rack instrument; the loaded distortion should land at devices[1]. CONFIRM the real index after Action A step 1 (re-query [d.name for d in song.tracks[1].devices]) before running.",
+  "param_name": "Drive",
+  "unit": "normalized (0-1)",
+  "note": 36,
+  "start": 0.0,
+  "stop": 1.0,
+  "steps": 11,
+  "integer_values": false,
+  "bounce_beats": 8,
+  "settle_seconds": 0.4,
+  "predicted_measure": "crest",
+  "predicted_direction": "decreasing",
+  "hypothesis": "drive -> crest, the second real map row. More saturation squashes transient peaks toward the body, so crest factor (peak/RMS) is expected to FALL as Drive rises. NOTE: the HANDOFF Action-A text says predicted_direction 'increasing', but its own reasoning ('more drive squashes peaks') and the earlier roar_drive_v1 spec both imply DECREASING; the empirical sign settles it. Distortion is post-instrument on track 1, so the isolated stem tap already captures it. Also exercises Path-B device insertion (de-risks the Engineer rung).",
+  "restore": true,
+  "output_dir": "out/drive_crest_v1"
+}

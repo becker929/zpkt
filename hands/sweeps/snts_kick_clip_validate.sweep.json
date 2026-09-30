@@ -1,0 +1,18 @@
+{
+  "sweep_id": "snts_kick_clip_validate_v1",
+  "instrument": "SNTS Style track (clone) / Kick (G) / StandardCLIP / Clipping (threshold) -- INVERSE-TABLE VALIDATION",
+  "device_expr": "song.tracks[6].devices[6]",
+  "param_name": "Clipping",
+  "unit": "normalized 0-1; threshold dB = 144*value - 120",
+  "start": 0.750,
+  "stop": 0.782,
+  "steps": 3,
+  "integer_values": false,
+  "bounce_beats": 8,
+  "settle_seconds": 0.4,
+  "predicted_measure": "crest",
+  "predicted_direction": "increasing",
+  "hypothesis": "VALIDATION of MAP.md Row-2 inverse table (target-crest -> Clipping value) as a real control, not just a description. The table predicts crest 5.0/6.0/7.0 dB at Clipping 0.750/0.766/0.782 (these are evenly spaced, 0.016 apart, so one 3-step sweep hits all three). 0.766 and 0.782 are OFF the original 0.025-grid (interpolated), so a match tests interpolation + reproducibility together. Same single-variable rig as snts_kick_clip_thresh_v1: Decapitator devices[1] OFF, StandardCLIP devices[6] ON, Input/Output Gain 0.833, Softness 0.383, Clip Type 'Soft Clip Pro'. PASS = each measured crest_db within ~0.3 dB of its target (5.0, 6.0, 7.0).",
+  "restore": true,
+  "output_dir": "out/snts_kick_clip_validate_v1"
+}

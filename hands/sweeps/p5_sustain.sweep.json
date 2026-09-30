@@ -1,0 +1,18 @@
+{
+  "sweep_id": "p5_sustain_v1",
+  "instrument": "SNTS Style track (clone) / Kick (G) / kHs Transient Shaper / Sustain -- MIRROR KNOB",
+  "device_expr": "song.tracks[6].devices[3]",
+  "param_name": "Sustain",
+  "unit": "normalized 0-1",
+  "start": 0.0,
+  "stop": 1.0,
+  "steps": 11,
+  "integer_values": false,
+  "bounce_beats": 8,
+  "settle_seconds": 0.4,
+  "predicted_measure": "crest",
+  "predicted_direction": "decreasing",
+  "hypothesis": "PLAN.md Phase 5 item 1: sweep Sustain (devices[3] param 3), the shaper's other lever, predicted to be the mirror of Attack -- LOWERING crest as it rises (Attack raised it). Attack stays fixed at its default 0.77961 (do not touch it). Rig: solo device 3 alone ('rig.py solo-device --track 6 --device 3'), Decapitator and StandardCLIP OFF. Confirm direction and log whether sub_share also moves (Attack pulled energy OUT of sub as crest rose; check if Sustain pulls it back IN as crest falls). Use --tol 0.05 in summarize_curve.py. Restore with 'rig.py restore'.",
+  "restore": true,
+  "output_dir": "out/p5_sustain_v1"
+}

@@ -1,0 +1,18 @@
+{
+  "sweep_id": "snts_kick_transient_attack_v1",
+  "instrument": "SNTS Style track (clone) / Kick (G) / kHs Transient Shaper / Attack",
+  "device_expr": "song.tracks[6].devices[3]",
+  "param_name": "Attack",
+  "unit": "normalized (0-1)",
+  "start": 0.0,
+  "stop": 1.0,
+  "steps": 11,
+  "integer_values": false,
+  "bounce_beats": 8,
+  "settle_seconds": 0.4,
+  "predicted_measure": "crest",
+  "predicted_direction": "increasing",
+  "hypothesis": "Single-variable rig: on Kick (G) only the kHs Transient Shaper (VST) is enabled; Decapitator is bypassed; Drum Rack (instrument) and Utility (gain-only, gain-invariant) stay as-is. Attack is the transient/attack-gain knob (default 0.7796). Raising Attack should boost the kick's initial transient relative to its body, so crest (peak/RMS) is expected to INCREASE across 0..1. Real knobs are often non-monotonic, so the full min..max range is swept in 11 steps rather than just endpoints. Crest and sub_share are gain-invariant, so the post-mixer stereo tap is valid. The empirical curve settles it.",
+  "restore": true,
+  "output_dir": "out/snts_kick_transient_attack_v1"
+}

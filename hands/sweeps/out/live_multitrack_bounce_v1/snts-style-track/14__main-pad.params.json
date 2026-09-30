@@ -1,0 +1,27 @@
+{
+  "track_index": 14,
+  "track_name": "Main pad",
+  "device_chain": [
+    {
+      "index": 0,
+      "name": "Audio Effect Rack",
+      "class_name": "AudioEffectGroupDevice",
+      "on": 1.0
+    },
+    {
+      "index": 1,
+      "name": "Utility",
+      "class_name": "StereoGain",
+      "on": 1.0
+    }
+  ],
+  "tempo": 160.0,
+  "frozen": false,
+  "muted": false,
+  "sample_rate": 44100,
+  "wav": "14__main-pad.wav",
+  "source_set": "/Users/anthonybecker/_agent_scratch/SNTS_4-22/SNTS Style track 2026-04-21.als",
+  "capture_track": 44,
+  "arrangement_length_beats": 1092.576266181735,
+  "timestamp_utc": "2026-09-09T04:34:15.759729+00:00"
+}

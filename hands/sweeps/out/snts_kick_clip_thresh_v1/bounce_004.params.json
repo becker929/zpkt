@@ -1,0 +1,21 @@
+{
+  "sweep_id": "snts_kick_clip_thresh_v1",
+  "index": 4,
+  "path": "mcp-stem",
+  "wav": "bounce_004.wav",
+  "instrument": "SNTS Style track (clone) / Kick (G) / StandardCLIP / Clipping (threshold)",
+  "device_expr": "song.tracks[6].devices[6]",
+  "param_name": "Clipping",
+  "unit": "normalized 0-1; threshold dB = 144*value - 120 (0.7681 = -9.40 dB)",
+  "requested_value": 0.7,
+  "true_value": 0.699999988079071,
+  "bounce_beats": 8.0,
+  "tempo": 160.0,
+  "capture_track": 44,
+  "source_track": 6,
+  "source_input": "Kick (G)",
+  "predicted_measure": "crest",
+  "predicted_direction": "increasing",
+  "measure": null,
+  "timestamp_utc": "2026-09-09T00:45:10.905106+00:00"
+}

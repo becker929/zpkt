@@ -1,0 +1,27 @@
+{
+  "track_index": 16,
+  "track_name": "17-2023-10-07-09-20",
+  "device_chain": [
+    {
+      "index": 0,
+      "name": "ValhallaSupermassive",
+      "class_name": "PluginDevice",
+      "on": 0.0
+    },
+    {
+      "index": 1,
+      "name": "ValhallaSupermassive",
+      "class_name": "PluginDevice",
+      "on": 1.0
+    }
+  ],
+  "tempo": 160.0,
+  "frozen": false,
+  "muted": false,
+  "sample_rate": 44100,
+  "wav": "16__17-2023-10-07-09-20.wav",
+  "source_set": "/Users/anthonybecker/_agent_scratch/HW002/HW002_14.als",
+  "capture_track": 18,
+  "arrangement_length_beats": 1632.8891307634165,
+  "timestamp_utc": "2026-09-09T07:22:43.057212+00:00"
+}

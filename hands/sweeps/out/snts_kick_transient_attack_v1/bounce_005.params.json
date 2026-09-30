@@ -1,0 +1,21 @@
+{
+  "sweep_id": "snts_kick_transient_attack_v1",
+  "index": 5,
+  "path": "mcp-stem",
+  "wav": "bounce_005.wav",
+  "instrument": "SNTS Style track (clone) / Kick (G) / kHs Transient Shaper / Attack",
+  "device_expr": "song.tracks[6].devices[3]",
+  "param_name": "Attack",
+  "unit": "normalized (0-1)",
+  "requested_value": 0.5,
+  "true_value": 0.5,
+  "bounce_beats": 8.0,
+  "tempo": 160.0,
+  "capture_track": 44,
+  "source_track": 6,
+  "source_input": "Kick (G)",
+  "predicted_measure": "crest",
+  "predicted_direction": "increasing",
+  "measure": null,
+  "timestamp_utc": "2026-09-09T03:28:03.506382+00:00"
+}

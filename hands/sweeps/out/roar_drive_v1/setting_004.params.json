@@ -1,0 +1,19 @@
+{
+  "sweep_id": "roar_drive_v1",
+  "index": 4,
+  "path": "osc",
+  "instrument": "kick group / Roar / Drive",
+  "track": 1,
+  "device": 1,
+  "param": 1,
+  "param_name": "Drive",
+  "unit": "normalized (0-1), value_string in dB",
+  "requested_value": 0.4,
+  "true_value": 0.4000000059604645,
+  "value_string": "-4.8 dB",
+  "predicted_measure": "crest",
+  "predicted_direction": "decreasing",
+  "measure": null,
+  "bounce": null,
+  "timestamp_utc": "2026-09-08T04:26:34.177017+00:00"
+}

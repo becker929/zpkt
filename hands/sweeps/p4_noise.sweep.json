@@ -1,0 +1,15 @@
+{
+  "sweep_id": "p4_noise_v1",
+  "instrument": "SNTS Style track (clone) / Kick (G) / StandardCLIP / Clipping (threshold) -- CREST NOISE FLOOR",
+  "device_expr": "song.tracks[6].devices[6]",
+  "param_name": "Clipping",
+  "unit": "normalized 0-1; threshold dB = 144*value - 120 (0.766 = -10.00 dB)",
+  "values": [0.766, 0.766, 0.766, 0.766, 0.766],
+  "bounce_beats": 8,
+  "settle_seconds": 0.4,
+  "predicted_measure": "crest",
+  "predicted_direction": "flat",
+  "hypothesis": "PLAN.md Phase 4 item 1: bounce ONE fixed clipper setting 5 times to measure the honest run-to-run standard deviation of crest, replacing the PROVISIONAL n=2 cross-session estimate of ~0.02 dB (MAP.md, from the Phase 3 values-list demo). 0.766 chosen because it is the known-good midpoint of snts_kick_clip_validate_v1's inverse-table check (target crest 6.0 dB). Same Row-2 rig: StandardCLIP devices[6] ON, all other track-6 effects OFF, set up with 'rig.py solo-device --track 6 --device 6' and torn down with 'rig.py restore'. Every value in the list is identical, so any spread we see is pure bounce-to-bounce noise, not a knob effect. This stddev becomes the --tol for summarize_curve.py and the error bar on every MAP.md crest prediction.",
+  "restore": true,
+  "output_dir": "out/p4_noise_v1"
+}

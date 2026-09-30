@@ -1,0 +1,18 @@
+{
+  "sweep_id": "p5_decap_style_v1",
+  "instrument": "SNTS Style track (clone) / Kick (G) / Decapitator / Style -- SECOND DECAP AXIS",
+  "device_expr": "song.tracks[6].devices[1]",
+  "param_name": "Style",
+  "unit": "normalized 0-1 (discrete style modes in Decapitator; check value_string for the mode name at each point)",
+  "start": 0.0,
+  "stop": 1.0,
+  "steps": 11,
+  "integer_values": false,
+  "bounce_beats": 8,
+  "settle_seconds": 0.4,
+  "predicted_measure": "crest",
+  "predicted_direction": "non-monotonic",
+  "hypothesis": "PLAN.md Phase 5 item 3: sweep Decapitator Style (devices[1] param 1) with Drive held at its default 0.42 (Row 1 measured Style fixed at 0.5 throughout; this is the orthogonal axis). Style likely selects between distinct saturation voicings, so expect a RESHAPED, possibly discontinuous curve rather than a smooth ramp -- read value_string at each point since this VST param may jump between named modes. Rig: solo device 1 alone ('rig.py solo-device --track 6 --device 1'), Transient Shaper and StandardCLIP OFF. Log which style(s) raise/lower crest and how the spectral shares shift. Use --tol 0.05 in summarize_curve.py. Restore with 'rig.py restore'.",
+  "restore": true,
+  "output_dir": "out/p5_decap_style_v1"
+}

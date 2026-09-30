@@ -1,0 +1,21 @@
+{
+  "sweep_id": "snts_kick_decap_drive_v1",
+  "index": 8,
+  "path": "mcp-stem",
+  "wav": "bounce_008.wav",
+  "instrument": "SNTS Style track (clone) / Kick (G) / Decapitator / Drive",
+  "device_expr": "song.tracks[6].devices[1]",
+  "param_name": "Drive",
+  "unit": "normalized (0-1)",
+  "requested_value": 0.8,
+  "true_value": 0.800000011920929,
+  "bounce_beats": 8.0,
+  "tempo": 160.0,
+  "capture_track": 44,
+  "source_track": 6,
+  "source_input": "Kick (G)",
+  "predicted_measure": "crest",
+  "predicted_direction": "decreasing",
+  "measure": null,
+  "timestamp_utc": "2026-09-08T23:56:08.848816+00:00"
+}

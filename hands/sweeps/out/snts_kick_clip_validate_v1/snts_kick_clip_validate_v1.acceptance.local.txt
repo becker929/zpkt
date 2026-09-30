@@ -1,0 +1,11 @@
+# sweep: snts_kick_clip_validate_v1
+# rows: 3
+# csv: snts_kick_clip_validate_v1.acceptance.local.csv
+# predicted: crest increasing
+# empty cell = '-'  (VST params have no value_string)
+
+index  requested_value  true_value  value_string  crest_db  sub_share  low_share  mid_share  high_share    air_share
+-----  ---------------  ----------  ------------  --------  ---------  ---------  ---------  ----------  -----------
+    0             0.75        0.75             -   5.05941   0.782187   0.172766  0.0412609  0.00364615  0.000139845
+    1            0.766       0.766             -   5.99079    0.78059   0.177407  0.0386239  0.00325915  0.000120194
+    2            0.782       0.782             -   7.10619   0.774231   0.185403   0.037215  0.00303913  0.000111515

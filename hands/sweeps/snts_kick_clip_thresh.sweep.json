@@ -1,0 +1,18 @@
+{
+  "sweep_id": "snts_kick_clip_thresh_v1",
+  "instrument": "SNTS Style track (clone) / Kick (G) / StandardCLIP / Clipping (threshold)",
+  "device_expr": "song.tracks[6].devices[6]",
+  "param_name": "Clipping",
+  "unit": "normalized 0-1; threshold dB = 144*value - 120 (0.7681 = -9.40 dB)",
+  "start": 0.6,
+  "stop": 0.9,
+  "steps": 13,
+  "integer_values": false,
+  "bounce_beats": 8,
+  "settle_seconds": 0.4,
+  "predicted_measure": "crest",
+  "predicted_direction": "increasing",
+  "hypothesis": "SECOND knob on the SAME real kick, chosen as a CLEANER crest control than Decapitator Drive (which humped near 0.6). StandardCLIP is a hard/soft clipper; its 'Clipping' param is the clip threshold in dB (linear: threshold_dB = 144*value - 120). Sweeping value 0.6 (-33.6 dB, heavy clip) -> 0.9 (+9.6 dB, no clip) should raise the threshold past the kick's peak, so clipping releases the transient and crest (peak/RMS) rises MONOTONICALLY. Expect a smooth S-curve: flat-low (fully clipped) -> steep rise as threshold crosses the kick peak -> flat-high (unclipped native crest). Single variable: ONLY StandardCLIP enabled (Decapitator devices[1] turned OFF for this run), Input Gain/Output Gain/Softness/Clip Type all fixed, post-mixer stereo tap (crest and sub_share are gain-invariant). If this is cleanly monotonic it is the better crest lever for the Assistant.",
+  "restore": true,
+  "output_dir": "out/snts_kick_clip_thresh_v1"
+}

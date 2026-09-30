@@ -1,0 +1,19 @@
+{
+  "sweep_id": "roar_drive_v1",
+  "path": "osc",
+  "instrument": "kick group / Roar / Drive",
+  "track": 1,
+  "device": 1,
+  "param": 1,
+  "param_name": "Drive",
+  "unit": "normalized (0-1), value_string in dB",
+  "start": 0.0,
+  "stop": 1.0,
+  "steps": 11,
+  "settle_seconds": 0.25,
+  "predicted_measure": "crest",
+  "predicted_direction": "decreasing",
+  "hypothesis": "drive -> crest (per research register). More saturation squashes peaks toward the body, so crest factor is expected to fall as Drive rises. Bounce + lab measurement is the Path-B/ears step; this OSC sweep establishes and read-back-verifies the parameter axis on the real kick group.",
+  "restore": true,
+  "output_dir": "out/roar_drive_v1"
+}

@@ -1,0 +1,18 @@
+{
+  "sweep_id": "p4_attack_fine_v1",
+  "instrument": "SNTS Style track (clone) / Kick (G) / kHs Transient Shaper / Attack -- FINE-GRID PEAK CHECK",
+  "device_expr": "song.tracks[6].devices[3]",
+  "param_name": "Attack",
+  "unit": "normalized 0-1",
+  "start": 0.5,
+  "stop": 0.9,
+  "steps": 17,
+  "integer_values": false,
+  "bounce_beats": 8,
+  "settle_seconds": 0.4,
+  "predicted_measure": "crest",
+  "predicted_direction": "increasing",
+  "hypothesis": "PLAN.md Phase 4 item 6: the coarse 11-step sweep (out/snts_kick_transient_attack_v1/, 0.1 spacing) put the crest peak at Attack 0.9 (15.48 dB), only 0.05 dB above 0.8 (15.43 dB) -- a gap INSIDE the Phase 4 step 1 noise floor (0.048 dB stdev). The Decap Drive hump already taught us coarse grids can misplace or fabricate a peak. This 17-step, 0.025-spacing re-sweep of 0.5..0.9 resolves whether the true peak sits at 0.9, sits earlier (e.g. ~0.85), or the 0.8-0.9 span is genuinely flat within noise. Treat the 0.9 peak as UNCONFIRMED until this runs (STATUS.md flags this explicitly). Rig: solo device 3 alone. Use --tol 0.05 in summarize_curve.py. Restore with 'rig.py restore'.",
+  "restore": true,
+  "output_dir": "out/p4_attack_fine_v1"
+}

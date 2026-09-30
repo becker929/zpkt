@@ -1,0 +1,75 @@
+{
+  "track_index": 6,
+  "track_name": "Kick (G)",
+  "device_chain": [
+    {
+      "index": 0,
+      "name": "Drum Rack",
+      "class_name": "DrumGroupDevice",
+      "on": 1.0
+    },
+    {
+      "index": 1,
+      "name": "Decapitator",
+      "class_name": "PluginDevice",
+      "on": 1.0
+    },
+    {
+      "index": 2,
+      "name": "Newfangled Punctuate",
+      "class_name": "PluginDevice",
+      "on": 0.0
+    },
+    {
+      "index": 3,
+      "name": "kHs Transient Shaper",
+      "class_name": "PluginDevice",
+      "on": 0.0
+    },
+    {
+      "index": 4,
+      "name": "EQ Eight",
+      "class_name": "Eq8",
+      "on": 0.0
+    },
+    {
+      "index": 5,
+      "name": "HPF",
+      "class_name": "Eq8",
+      "on": 0.0
+    },
+    {
+      "index": 6,
+      "name": "StandardCLIP",
+      "class_name": "PluginDevice",
+      "on": 0.0
+    },
+    {
+      "index": 7,
+      "name": "Utility",
+      "class_name": "StereoGain",
+      "on": 1.0
+    },
+    {
+      "index": 8,
+      "name": "NTPD Lite",
+      "class_name": "MxDeviceAudioEffect",
+      "on": 0.0
+    },
+    {
+      "index": 9,
+      "name": "SPAN",
+      "class_name": "PluginDevice",
+      "on": 0.0
+    }
+  ],
+  "tempo": 160.0,
+  "frozen": false,
+  "muted": false,
+  "sample_rate": 44100,
+  "wav": "06__kick-g.wav",
+  "source_set": "/Users/anthonybecker/_agent_scratch/SNTS_4-22/SNTS Style track 2026-04-21.als",
+  "capture_track": 44,
+  "arrangement_length_beats": 1088.0,
+  "timestamp_utc": "2026-09-09T04:12:07.149693+00:00"
+}

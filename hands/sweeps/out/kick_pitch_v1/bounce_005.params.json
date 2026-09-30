@@ -1,0 +1,21 @@
+{
+  "sweep_id": "kick_pitch_v1",
+  "index": 5,
+  "path": "mcp-stem",
+  "wav": "bounce_005.wav",
+  "instrument": "3-Kick / Drum Rack / pad 36 / Simpler",
+  "device_expr": "song.tracks[1].devices[0].drum_pads[36].chains[0].devices[0]",
+  "param_name": "Transpose",
+  "unit": "semitones",
+  "requested_value": 0.0,
+  "true_value": 0.0,
+  "bounce_beats": 8.0,
+  "tempo": 130.0,
+  "capture_track": 0,
+  "source_track": 1,
+  "source_input": "3-Kick",
+  "predicted_measure": "sub_share",
+  "predicted_direction": "increasing",
+  "measure": null,
+  "timestamp_utc": "2026-09-08T21:57:07.022589+00:00"
+}

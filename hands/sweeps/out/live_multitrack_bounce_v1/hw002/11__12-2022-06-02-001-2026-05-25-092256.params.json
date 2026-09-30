@@ -1,0 +1,51 @@
+{
+  "track_index": 11,
+  "track_name": "12-2022-06-02-001 [2026-05-25 092256]",
+  "device_chain": [
+    {
+      "index": 0,
+      "name": "EQ Eight",
+      "class_name": "Eq8",
+      "on": 1.0
+    },
+    {
+      "index": 1,
+      "name": "LFOTool",
+      "class_name": "PluginDevice",
+      "on": 1.0
+    },
+    {
+      "index": 2,
+      "name": "ValhallaSupermassive",
+      "class_name": "PluginDevice",
+      "on": 0.0
+    },
+    {
+      "index": 3,
+      "name": "Dist COLDFIRE",
+      "class_name": "PluginDevice",
+      "on": 0.0
+    },
+    {
+      "index": 4,
+      "name": "EQ Eight",
+      "class_name": "Eq8",
+      "on": 1.0
+    },
+    {
+      "index": 5,
+      "name": "Utility",
+      "class_name": "StereoGain",
+      "on": 1.0
+    }
+  ],
+  "tempo": 160.0,
+  "frozen": false,
+  "muted": false,
+  "sample_rate": 44100,
+  "wav": "11__12-2022-06-02-001-2026-05-25-092256.wav",
+  "source_set": "/Users/anthonybecker/_agent_scratch/HW002/HW002_14.als",
+  "capture_track": 18,
+  "arrangement_length_beats": 1637.749841304529,
+  "timestamp_utc": "2026-09-09T08:58:51.366846+00:00"
+}

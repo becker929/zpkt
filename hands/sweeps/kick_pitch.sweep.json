@@ -1,0 +1,18 @@
+{
+  "sweep_id": "kick_pitch_v1",
+  "instrument": "3-Kick / Drum Rack / pad 36 / Simpler",
+  "device_expr": "song.tracks[1].devices[0].drum_pads[36].chains[0].devices[0]",
+  "param_name": "Transpose",
+  "unit": "semitones",
+  "note": 36,
+  "start": -10.0,
+  "stop": 10.0,
+  "steps": 11,
+  "integer_values": true,
+  "bounce_beats": 16,
+  "settle_seconds": 0.4,
+  "predicted_measure": "sub_share",
+  "predicted_direction": "increasing",
+  "hypothesis": "Per the research hypothesis register (osc pitch -> sub-share). NOTE: for a *sampled* kick, transposing up shifts spectral energy upward, so the empirically expected sign may be the reverse (pitch up -> sub-share down). This sweep is therefore also a clean test/falsification of that mapping. Let the lab decide the sign; the loop only has to produce a monotonic relationship.",
+  "output_dir": "out/kick_pitch_v1"
+}

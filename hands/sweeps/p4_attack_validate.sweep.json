@@ -1,0 +1,15 @@
+{
+  "sweep_id": "p4_attack_validate_v1",
+  "instrument": "SNTS Style track (clone) / Kick (G) / kHs Transient Shaper / Attack -- INVERSE VALIDATION",
+  "device_expr": "song.tracks[6].devices[3]",
+  "param_name": "Attack",
+  "unit": "normalized 0-1",
+  "values": [0.666],
+  "bounce_beats": 8,
+  "settle_seconds": 0.4,
+  "predicted_measure": "crest",
+  "predicted_direction": "increasing",
+  "hypothesis": "PLAN.md Phase 4 item 3: validate the Transient Attack inverse in its clean monotonic 0.5..0.9 region (out/snts_kick_transient_attack_v1/). Target crest 12.0 dB. Linear interpolation between the two measured bracket points Attack 0.6 (crest 10.179 dB) and Attack 0.7 (crest 12.942 dB) predicts Attack ~0.666. Bounce it, measure crest, record the deviation from 12.0 dB. Phase 4 step 1's crest noise floor (0.05 dB stdev) is for a FIXED setting; interpolation error on a steep curve will likely be larger, so judge against a wider band -- e.g. the ~0.11 dB precedent from the Row 2 inverse-table check -- not the raw noise floor alone. Rig: solo device 3 alone ('rig.py solo-device --track 6 --device 3'), Decapitator and StandardCLIP OFF. Restore with 'rig.py restore'.",
+  "restore": true,
+  "output_dir": "out/p4_attack_validate_v1"
+}

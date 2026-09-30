@@ -1,0 +1,14 @@
+{
+  "track_index": 26,
+  "track_name": "27-warn3",
+  "device_chain": [],
+  "tempo": 160.0,
+  "frozen": false,
+  "muted": false,
+  "sample_rate": 44100,
+  "wav": "26__27-warn3.wav",
+  "source_set": "/Users/anthonybecker/_agent_scratch/SNTS_4-22/SNTS Style track 2026-04-21.als",
+  "capture_track": 44,
+  "arrangement_length_beats": 1096.5391382055445,
+  "timestamp_utc": "2026-09-09T05:16:18.496750+00:00"
+}

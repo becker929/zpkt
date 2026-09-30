@@ -1,0 +1,15 @@
+{
+  "sweep_id": "p4_floor_ceiling_v1",
+  "instrument": "SNTS Style track (clone) / Kick (G) / StandardCLIP / Clipping (threshold) -- FLOOR/CEILING VALIDATION",
+  "device_expr": "song.tracks[6].devices[6]",
+  "param_name": "Clipping",
+  "unit": "normalized 0-1; threshold dB = 144*value - 120",
+  "values": [0.724, 0.800, 0.819],
+  "bounce_beats": 8,
+  "settle_seconds": 0.4,
+  "predicted_measure": "crest",
+  "predicted_direction": "increasing",
+  "hypothesis": "PLAN.md Phase 4 item 2: validate the clipper floor/ceiling rows skipped by the Row-2 mid-region check. MAP.md's inverse table predicts Clipping 0.724/0.800/0.819 for target crest 4.5/8.0/8.5 dB. 4.5 dB sits near the measured floor (~4.3 dB per snts_kick_clip_thresh_v1); 8.0 and 8.5 sit at/above the measured ceiling (~8.7 dB -- values 0.85-0.9 in that same sweep already read 8.69-8.76 dB and flat). Confirm where the curve actually clamps and label saturating rows so the Assistant never asks for an impossible crest. Same Row-2 rig: 'rig.py solo-device --track 6 --device 6', restore with 'rig.py restore'. Use --tol 0.05 (Phase 4 step 1's confirmed crest noise floor) in summarize_curve.py, not the 10%-of-span default.",
+  "restore": true,
+  "output_dir": "out/p4_floor_ceiling_v1"
+}
