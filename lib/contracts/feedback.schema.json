@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/becker929/zpkt/lib/contracts/feedback.schema.json",
+  "description": "A listener's comment on a render, captured by hands' vibe server. Generated from hands/src/hands/models.py \u2014 do not edit by hand.",
+  "properties": {
+    "session_id": {
+      "title": "Session Id",
+      "type": "string"
+    },
+    "render_path": {
+      "title": "Render Path",
+      "type": "string"
+    },
+    "text": {
+      "title": "Text",
+      "type": "string"
+    },
+    "timestamp_utc": {
+      "title": "Timestamp Utc",
+      "type": "string"
+    },
+    "rating": {
+      "anyOf": [
+        {
+          "maximum": 5,
+          "minimum": 1,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Rating"
+    }
+  },
+  "required": [
+    "session_id",
+    "render_path",
+    "text",
+    "timestamp_utc"
+  ],
+  "title": "Feedback",
+  "type": "object"
+}

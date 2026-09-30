@@ -56,21 +56,6 @@ def judge_audio(
     typer.echo(verdict.model_dump_json(indent=2))
 
 
-@app.command()
-def loop(
-    config: str = typer.Option(..., "--config", help="Path to ProjectConfig JSON."),
-    cycles: int = typer.Option(1, "--cycles"),
-    hands_bin: str = typer.Option("hands", "--hands-bin"),
-    ears_bin: str = typer.Option("ears", "--ears-bin"),
-) -> None:
-    """Run N autonomous taste cycles (hands record → ears analyze → taste judge)."""
-    from taste.loop.orchestrator import TasteOrchestrator
-    orch = TasteOrchestrator(hands_bin=hands_bin, ears_bin=ears_bin)
-    for i in range(cycles):
-        typer.echo(f"Cycle {i + 1}/{cycles}…")
-        verdict = orch.run_cycle(config)
-        typer.echo(f"  score={verdict.score}/5  {verdict.rationale[:80]}")
-
 
 @corpus_app.command("stats")
 def corpus_stats(

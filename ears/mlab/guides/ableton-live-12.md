@@ -54,7 +54,7 @@ That session is the "hands". This lab is the "ears". The hand-off:
 - The hands render variants into `~/Music/hw002-mastering-lab/audio/inbox/`,
   named `<set>__<track>__<param>=<value>.wav`, with a `.params.json` sidecar.
 - A hypothesis YAML lists them as `file:` variants.
-- `python3 -m mlab hyp run` measures and judges them.
+- `engineer hyp run` measures and judges them.
 
 This Cowork session cannot do the hands' part (L-001). Its shell is a Linux VM.
 

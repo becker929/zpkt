@@ -11,7 +11,7 @@ The loop is short on purpose. Export, check, measure, test, listen, log.
 3. **Measure** it: `python3 -m mlab measure audio/inbox/<file>.wav`.
    The sheet lands in `reports/`.
 4. **Test** a claim: copy `hypotheses/TEMPLATE.yaml`, fill it in, run
-   `python3 -m mlab hyp run hypotheses/H###-slug.yaml`.
+   `engineer hyp run engineer/hypotheses/H###-slug.yaml`.
 5. **Listen** blind when the claim is about hearing: the run writes an ABX kit.
    Score it with `python3 -m mlab abx-score <folder> ABBA…`.
 6. **Log** the verdict in `LEARNINGS.md` and the table in `STATUS.md`.

@@ -30,7 +30,7 @@ python3 -m mlab match A B [...]           # write loudness-matched copies to aud
 python3 -m mlab abx A B                   # blind ABX session files + answer key
 python3 -m mlab kcal                      # K-System pink-noise calibration files
 python3 -m mlab als FILE.als              # Ableton set: tempo, tracks, main-bus chain
-python3 -m mlab hyp run hypotheses/H###.yaml
+engineer hyp run engineer/hypotheses/H###.yaml
 python3 -m pytest calibration -q          # same checks as `calibrate`, as tests
 ```
 
@@ -77,7 +77,7 @@ ffmpeg is needed for mp3/m4a input, codec simulation and the cross-check.
 1. Anthony states a claim from the book.
 2. Copy `hypotheses/TEMPLATE.yaml` → `hypotheses/H###-slug.yaml`. Fill in
    claim, chapter, variants, the metric that decides it, and the threshold.
-3. `python3 -m mlab hyp run hypotheses/H###-slug.yaml`
+3. `engineer hyp run engineer/hypotheses/H###-slug.yaml`
 4. Read `hypotheses/results/H###-slug/report.md`. Add a listening step
    (ABX) if the claim is about audibility.
 5. Log the verdict in LEARNINGS.md and STATUS.md.

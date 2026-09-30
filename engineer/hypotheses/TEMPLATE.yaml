@@ -1,0 +1,62 @@
+# Hypothesis template. Copy to engineer/hypotheses/H###-short-slug.yaml and fill in.
+# Run:  engineer hyp run engineer/hypotheses/H###-short-slug.yaml   (inputs from $MLAB_DATA or ears/mlab)
+# Output: engineer/hypotheses/results/H###-short-slug/{report.md, result.json, sheets/, audio/, abx/}
+
+id: H000
+title: One line, stated as a testable claim
+chapter: "17-19"                 # 15 | 4 | 5-7 | 14 | 17-19 | 20-21
+source: "book, p. ___"           # where the claim comes from
+claim: >
+  The sentence from the book (or your paraphrase), and what you expect to see.
+
+# Named inputs. Paths are relative to the lab data dir ($MLAB_DATA, default ears/mlab).
+inputs:
+  demo: audio/hw002/HW002_1min-2026-08-13T2107.mp3
+
+# Each variant is a file (e.g. an Ableton render) OR a source plus a chain of ops.
+variants:
+  - name: as_is
+    from: demo
+  - name: treated
+    from: demo
+    chain:
+      - {op: eq, bands: [{type: peak, f: 350, gain_db: 3, q: 0.7}]}
+      - {op: normalize_lufs, target: -14}
+  # - name: glue_render
+  #   file: audio/inbox/HW002_glue_attack3.wav      # render from Live
+
+# Ops (see engineer/src/engineer/hypothesis.py and ears/mlab/mlab/dsp.py):
+#   gain {gain_db}                      eq {bands: [{type: peak|lowshelf|highshelf|highpass|lowpass, f, gain_db, q}]}
+#   compressor {threshold, ratio, attack_ms, release_ms, knee, makeup_db, detector: peak|rms}
+#   limiter {ceiling_db, lookahead_ms, release_ms, true_peak}
+#   master_to {target_lufs, ceiling_db}  clip {ceiling_db, mode: hard|soft}
+#   quantize {bits, dither: none|rpdf|tpdf, shaping}   truncate {bits}
+#   normalize_lufs {target}   mono   ms_width {side_gain_db}   excerpt {start_s, dur_s}
+#   codec {label: aac128|opus160|mp3_320}   platform {name: youtube|spotify|apple_music|...}
+
+# Metrics to tabulate (dotted keys from the measurement sheet). Omit for the core set.
+# Common keys: loudness.integrated loudness.true_peak loudness.sample_peak loudness.plr
+#   loudness.lra loudness.psr_min dynamics.crest_db dynamics.block_crest_median_db
+#   dynamics.transient_contrast_median_db tonal.slope_db_per_oct tonal.group.<sub|bass|low_mid|mid|upper_mid|presence|air>
+#   stereo.corr_20_120 word_length.dc_max_dbfs word_length.quietest_blocks_dbfs word_length.effective_bits
+metrics: []
+
+# Predictions: observed = metric(left) - metric(right)   (right omitted -> metric(left))
+# op: < <= > >= abs< abs>
+predictions:
+  - metric: loudness.integrated
+    left: treated
+    right: as_is
+    op: "abs<"
+    value: 0.1
+    why: both were normalised; this is a sanity check
+
+# Optional blind listening test between two variants (always level-matched).
+listening:
+  abx: [as_is, treated]
+  excerpt: [20, 15]       # start seconds, duration seconds
+  trials: 12
+
+codecs: false             # true = also run AAC/Opus round-trips per variant (slower)
+interpretation_hint: >
+  What result would change a decision, and which decision.

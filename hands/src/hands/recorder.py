@@ -130,10 +130,7 @@ def record_via_resampling(
     time.sleep(0.3)
     _run(transport, f'song.tracks[{resample_idx}].name = "Resample"')
 
-    types = _run(
-        transport,
-        f"[t.display_name for t in song.tracks[{resample_idx}].available_input_routing_types]",
-    )
+    types = _wait_for_resampling(transport, resample_idx)
     print(f"  Available input types: {types}")
     if not types or not any("Resamp" in str(t) for t in types):
         raise RuntimeError(f"Resampling input type not found. Available: {types}")
@@ -255,6 +252,7 @@ def record_arrangement(
     _run(transport, "song.create_audio_track(-1)")
     time.sleep(0.3)
     _run(transport, f'song.tracks[{idx}].name = "Render"')
+    _wait_for_resampling(transport, idx)
     _run(
         transport,
         f'_rt = next((rt for rt in song.tracks[{idx}].available_input_routing_types'
@@ -295,6 +293,25 @@ def record_arrangement(
     _run(transport, f"song.delete_track({idx})")
     _restore_arm(transport, armed)
     return result
+
+
+def _wait_for_resampling(transport: McpTransport, idx: int, attempts: int = 10) -> list:
+    """Return the track's input types once "Resampling" is among them.
+
+    A freshly created track can report empty routing types for a moment, so
+    setting the input straight away sometimes silently fails. Retry with a
+    short settle (from the September 2026 untracked recorder).
+    """
+    types: list = []
+    for _ in range(attempts):
+        types = _run(
+            transport,
+            f"[t.display_name for t in song.tracks[{idx}].available_input_routing_types]",
+        ) or []
+        if any("Resamp" in str(t) for t in types):
+            break
+        time.sleep(0.3)
+    return types
 
 
 def _restore_arm(transport: McpTransport, armed: list[int]) -> None:

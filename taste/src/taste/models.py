@@ -12,7 +12,7 @@ from pydantic import BaseModel, Field
 class Verdict(BaseModel):
     """Taste judge output for a single render.
 
-    Produced by the taste judge and consumed by the taste loop orchestrator
+    Produced by the taste judge and consumed by the engineer's loop
     (and optionally by hands for acting on suggestions).
     """
 
