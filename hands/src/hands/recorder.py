@@ -86,6 +86,22 @@ def record_via_resampling(
     for i in range(num_tracks_now):
         _run(transport, f"song.tracks[{i}].stop_all_clips()")
     time.sleep(0.1)
+    # stop_all_clips leaves each track following the (now stopped) session
+    # and lights "Back to Arrangement"; clear it so arrangement clips play.
+    _run(transport, "song.back_to_arranger = False")
+    time.sleep(0.1)
+
+    # Disarm source tracks. trigger_session_record() records on every armed
+    # track, so an armed source (Live auto-arms the selected MIDI track) gets a
+    # new empty clip that silences it, and the bounce comes out silent.
+    armed = _run(
+        transport,
+        f"[i for i in range({num_tracks_now}) if song.tracks[i].can_be_armed and song.tracks[i].arm]",
+    ) or []
+    for i in armed:
+        _run(transport, f"song.tracks[{i}].arm = 0")
+    if armed:
+        print(f"  Disarmed source tracks {armed} for the bounce")
 
     # Create and configure the resampling track.
     resample_idx = _run(transport, "len(song.tracks)")
@@ -119,7 +135,7 @@ def record_via_resampling(
         raise RuntimeError(f"Failed to set Resampling input — got: {routing_type}")
 
     _run(transport, f"song.tracks[{resample_idx}].arm = 1")
-    _run(transport, f"song.tracks[{resample_idx}].current_monitoring_state = 1")  # In
+    _run(transport, f"song.tracks[{resample_idx}].current_monitoring_state = 1")  # Auto (0=In, 1=Auto, 2=Off)
     time.sleep(0.2)
 
     _run(transport, "song.session_record = 0")
@@ -161,10 +177,10 @@ def record_via_resampling(
                 print(f"  Found recorded clip in slot {slot}: {file_path}")
                 result = _export(file_path, out_path, duration_beats, tempo, want_wav)
                 _run(transport, f"song.delete_track({resample_idx})")
-                _cleanup_arrangement_clips(transport, num_tracks_now)
+                _cleanup_arrangement_clips(transport, num_tracks_now, armed)
                 return result
         print("  No recorded clip found!")
-        _cleanup_arrangement_clips(transport, num_tracks_now)
+        _cleanup_arrangement_clips(transport, num_tracks_now, armed)
         return None
 
     file_path = _run(
@@ -175,17 +191,22 @@ def record_via_resampling(
 
     result = _export(file_path, out_path, duration_beats, tempo, want_wav)
     _run(transport, f"song.delete_track({resample_idx})")
-    _cleanup_arrangement_clips(transport, num_tracks_now)
+    _cleanup_arrangement_clips(transport, num_tracks_now, armed)
     return result
 
 
-def _cleanup_arrangement_clips(transport: McpTransport, num_tracks: int) -> None:
-    """Remove arrangement clips placed by record_via_resampling on source tracks."""
+def _cleanup_arrangement_clips(
+    transport: McpTransport, num_tracks: int, armed: list[int] = ()
+) -> None:
+    """Remove arrangement clips placed by record_via_resampling on source tracks,
+    and re-arm the source tracks that were disarmed for the bounce."""
     for i in range(num_tracks):
         _run(
             transport,
             f"[song.tracks[{i}].delete_clip(c) for c in list(song.tracks[{i}].arrangement_clips)]",
         )
+    for i in armed:
+        _run(transport, f"song.tracks[{i}].arm = 1")
 
 
 def _log_audio_stats(path: str) -> None:

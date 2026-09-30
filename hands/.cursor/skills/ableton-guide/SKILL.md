@@ -29,6 +29,26 @@ sleep 15   # Live takes ~10-20 s to boot; adjust as needed
 
 Then retry the MCP call. If it still fails, the AbletonLiveMCP Remote Script may not be installed — see the MCP server README.
 
+On macOS the app bundle is write-protected (`mkdir` inside `Contents/App-Resources/MIDI Remote Scripts` fails with "Operation not permitted"). Install to the User Library instead, which Live 12 also scans:
+
+```bash
+mkdir -p ~/Music/Ableton/"User Library"/"Remote Scripts"/AbletonLiveMCP
+cp ableton/__init__.py ~/Music/Ableton/"User Library"/"Remote Scripts"/AbletonLiveMCP/
+```
+
+A human must then select it in **Settings → Link, Tempo & MIDI → Control Surface** (Input/Output: None). Confirm with `lsof -iTCP:16619 -sTCP:LISTEN`.
+
+**Connected ≠ audio running.** The TCP socket works even when Live has no audio device, so check the audio engine before any playback or recording work:
+
+```python
+# call 1
+song.start_playing()
+# call 2, ~1 s later
+result = song.current_song_time   # must be > 0
+```
+
+If `is_playing` is `True` but `current_song_time` stays at `0.0`, Live has no audio clock — no clip will launch (slots sit in `is_triggered`) and every bounce is silent. Cause: no output device (Live shows an info-bar message at the bottom of the window; e.g. the USB audio interface is unplugged). This cannot be fixed over the LOM — ask the human to fix **Settings → Audio**.
+
 ---
 
 ## 1. Crash Avoidance (Non-Negotiable)
@@ -155,9 +175,23 @@ clip is already playing. For the resampling bounce workflow, **always fully
 configure the resampling track (create, set routing, arm) before firing any
 clips**. The correct sequence is:
 1. `stop_playing()` → rewind → `stop_all_clips()`
-2. Create + configure resampling track (routing, arm, monitoring)
-3. Fire slot-0 clips on source tracks
-4. `trigger_session_record()` (≤0.1s after fire)
+2. **Disarm every source track** (see "Silent bounces" below)
+3. Create + configure resampling track (routing, arm, monitoring)
+4. Fire slot-0 clips on source tracks
+5. `trigger_session_record()` (≤0.1s after fire)
+
+#### Silent bounces (resampling take has peak 0.0)
+
+Verified on Live 12.4.6 Suite. Each of these alone produces a fully silent take. Check in order, and judge by the **recorded file's peak** (e.g. `soundfile`), not track meters — a tight meter-polling loop once left the MCP socket stuck, and the file is the ground truth anyway.
+
+1. **No audio clock** — see §0. `current_song_time` frozen at 0.0.
+2. **Source track armed.** `trigger_session_record()` records on *every* armed track. Live auto-arms the selected MIDI track, so the source gets a new empty MIDI clip (look for a stray clip in the next slot) that replaces what it was playing. Fix: disarm sources before recording, restore after.
+   ```python
+   armed = [i for i, t in enumerate(song.tracks) if t.can_be_armed and t.arm]
+   ```
+3. **"Back to Arrangement" lit (arrangement bounces only).** `track.stop_all_clips()` (or any session launch) detaches the track from the arrangement: `song.back_to_arranger` reads `True` and the track ignores its arrangement clips. Fix: `song.back_to_arranger = False` after `stop_all_clips()` and before starting playback.
+
+Session-view vs arrangement-view playback both record fine once 1–3 are handled. `Track.current_monitoring_state` values are `0=In, 1=Auto, 2=Off` (not `1=In`).
 
 ---
 
