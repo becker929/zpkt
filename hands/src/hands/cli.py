@@ -174,7 +174,8 @@ def ableton_mcp(
 @app.command()
 def vibe(
     port: int = typer.Option(8080, "--port", help="Local vibe server port."),
-    tunnel: bool = typer.Option(False, "--tunnel/--no-tunnel", help="Open ngrok tunnel."),
+    bind: str = typer.Option("127.0.0.1", "--bind", help="Interface to listen on. Loopback by default."),
+    tunnel: bool = typer.Option(False, "--tunnel/--no-tunnel", help="Open ngrok tunnel (requires VIBE_TOKEN)."),
     mcp_host: str = typer.Option("127.0.0.1", "--mcp-host", help="Ableton MCP server host."),
     mcp_port: int = typer.Option(16619, "--mcp-port", help="Ableton MCP server port."),
 ) -> None:
@@ -188,16 +189,20 @@ def vibe(
     server = VibeServer(transport=transport, output_dir=output_dir)
 
     if tunnel:
+        # A tunnel makes the server public; the code-changing endpoints must be gated.
+        if not _os.environ.get("VIBE_TOKEN"):
+            console.print("[red]--tunnel needs VIBE_TOKEN set (it gates /self-improve and /restart).[/red]")
+            raise typer.Exit(1)
         from hands.vibe.tunnel import open_tunnel
         url = open_tunnel(port)
         console.print(f"[green]Tunnel open: {url}[/green]")
 
-    console.print(f"[bold]Vibe server listening on http://0.0.0.0:{port}[/bold]")
+    console.print(f"[bold]Vibe server listening on http://{bind}:{port}[/bold]")
     console.print(f"[dim]Output dir: {output_dir}[/dim]")
     console.print("POST /bounce — trigger a bounce")
     console.print("POST /feedback — submit feedback")
     console.print("GET  /session — session info")
-    server.serve(port=port)
+    server.serve(port=port, host=bind)
 
 
 @app.command("self-improve")
