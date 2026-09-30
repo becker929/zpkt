@@ -3,7 +3,6 @@ from __future__ import annotations
 
 import dataclasses
 import json
-import sys
 from pathlib import Path
 
 import typer
@@ -12,6 +11,7 @@ from rich.table import Table
 
 app = typer.Typer(name="ears", help="ears — audio perception layer for the agent harness.")
 console = Console()
+err_console = Console(stderr=True)
 
 
 @app.command()
@@ -27,7 +27,7 @@ def analyze(
 
     path = Path(audio_path)
     if not path.exists():
-        console.print(f"[red]File not found: {audio_path}[/red]", file=sys.stderr)
+        err_console.print(f"[red]File not found: {audio_path}[/red]")
         raise typer.Exit(1)
 
     if not json_out:
@@ -52,10 +52,13 @@ def analyze(
     if profile.loudness:
         ld = profile.loudness
         console.print(f"\n[bold]Loudness[/bold]")
-        console.print(f"  LUFS integrated:   {ld.lufs_integrated:.2f}" if ld.lufs_integrated is not None else "  LUFS: n/a")
-        console.print(f"  LUFS short-term:   {ld.lufs_short_term_peak:.2f}" if ld.lufs_short_term_peak is not None else "")
-        console.print(f"  LUFS momentary:    {ld.lufs_momentary_max:.2f}" if ld.lufs_momentary_max is not None else "")
-        console.print(f"  True peak:         {ld.true_peak_db:.3f} dBFS" if ld.true_peak_db is not None else "")
+        def _row(label: str, value: float | None, unit: str) -> None:
+            text = f"{value:.2f} {unit}" if value is not None else "n/a"
+            console.print(f"  {label:<18} {text}")
+        _row("LUFS integrated:", ld.lufs_integrated, "LUFS")
+        _row("LUFS short-term:", ld.lufs_short_term_peak, "LUFS")
+        _row("LUFS momentary:", ld.lufs_momentary_max, "LUFS")
+        _row("True peak:", ld.true_peak_db, "dBTP")
         if ld.camelot_key:
             console.print(f"  Key (Camelot):     {ld.camelot_key}")
         if ld.band_energy:
@@ -102,7 +105,7 @@ def compare(
 ) -> None:
     """Compare two audio files and print a similarity report."""
     from .analyzer import analyze as _analyze
-    import numpy as np
+    from .similarity import compare as _compare
 
     console.print(f"[cyan]Analyzing A:[/cyan] {file_a}")
     a = _analyze(file_a, run_embeddings=not no_embeddings)
@@ -119,11 +122,14 @@ def compare(
         diff = a.spectral.spectral_centroid_mean - b.spectral.spectral_centroid_mean
         console.print(f"  Centroid delta:     {diff:+.1f} Hz")
 
-    if a.embedding and b.embedding:
-        va = np.array(a.embedding)
-        vb = np.array(b.embedding)
-        cos_sim = float(np.dot(va, vb) / (np.linalg.norm(va) * np.linalg.norm(vb) + 1e-8))
-        console.print(f"  DCLAP cosine sim:   {cos_sim:.4f}  (1.0 = identical)")
+    result = _compare(a, b)
+    if result.embedding_cosine is not None:
+        console.print(f"  DCLAP cosine sim:   {result.embedding_cosine:.4f}  (1.0 = identical)")
+    else:
+        console.print("  DCLAP cosine sim:   n/a (no embeddings)")
+    for p in (a, b):
+        if p.errors:
+            console.print(f"  [yellow]{Path(p.audio_path).name}:[/yellow] {', '.join(p.errors)}")
 
 
 def _json_default(obj):

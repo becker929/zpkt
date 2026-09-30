@@ -15,10 +15,7 @@ def compare(a: AudioProfile, b: AudioProfile) -> SimilarityResult:
     embedding_score = cosine(a.embedding, b.embedding)
     spectral_score = _spectral_distance(a, b)
 
-    if embedding_score is not None:
-        overall = embedding_score
-    else:
-        overall = None
+    overall = embedding_score
 
     return SimilarityResult(
         clip_a=a.clip_id,
@@ -46,9 +43,7 @@ def cosine(v1: list[float] | None, v2: list[float] | None) -> float | None:
 def _spectral_distance(a: AudioProfile, b: AudioProfile) -> float | None:
     if a.spectral is None or b.spectral is None:
         return None
-    ca = a.spectral.centroid_hz
-    cb = b.spectral.centroid_hz
-    if ca is None or cb is None:
-        return None
+    ca = a.spectral.spectral_centroid_mean
+    cb = b.spectral.spectral_centroid_mean
     max_hz = 20_000.0
     return abs(ca - cb) / max_hz

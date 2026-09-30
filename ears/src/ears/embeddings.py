@@ -1,13 +1,17 @@
 """DCLAP audio embeddings via ONNX (AudioMuse-AI-DCLAP)."""
 from __future__ import annotations
 
+import os
 from pathlib import Path
 import numpy as np
 
-# Models vendored from taste 2/ — absolute path resolved at import time.
-_TASTE2_DIR = Path(__file__).parents[4] / "taste 2"
-_MODELS_DIR = _TASTE2_DIR / "dclap_models"
-_AUDIO_MODEL = _MODELS_DIR / "model_epoch_36.onnx"
+# Set EARS_DCLAP_MODEL to the .onnx file. The default is the pre-split
+# monorepo location (taste 2/dclap_models), which a standalone clone lacks.
+_DEFAULT_MODEL = Path(__file__).parents[4] / "taste 2" / "dclap_models" / "model_epoch_36.onnx"
+
+
+def model_path() -> Path:
+    return Path(os.environ.get("EARS_DCLAP_MODEL", _DEFAULT_MODEL))
 
 _SR = 48000
 _SEGMENT_LENGTH = 480000
@@ -18,24 +22,19 @@ _HOP_LENGTH_MELS = 480
 
 
 def embed(audio_path: str) -> np.ndarray:
-    """Compute a 512-dim L2-normalized DCLAP embedding. Returns zeros on failure."""
-    try:
-        return _embed_internal(audio_path)
-    except Exception:
-        return np.zeros(512, dtype=np.float32)
+    """Compute a 512-dim L2-normalized DCLAP embedding.
 
-
-def _embed_internal(audio_path: str) -> np.ndarray:
+    Raises on failure (e.g. model missing) so the analyzer records the error;
+    a zero vector would be indistinguishable from a real result downstream.
+    """
     import librosa
     import onnxruntime as ort
 
-    if not _AUDIO_MODEL.exists():
-        raise FileNotFoundError(
-            f"DCLAP model not found at {_AUDIO_MODEL}. "
-            "Expected in taste 2/dclap_models/model_epoch_36.onnx"
-        )
+    model = model_path()
+    if not model.exists():
+        raise FileNotFoundError(f"DCLAP model not found at {model}; set EARS_DCLAP_MODEL")
 
-    session = ort.InferenceSession(str(_AUDIO_MODEL), providers=["CPUExecutionProvider"])
+    session = ort.InferenceSession(str(model), providers=["CPUExecutionProvider"])
     audio, _ = librosa.load(audio_path, sr=_SR, mono=True)
 
     segments = []

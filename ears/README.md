@@ -8,13 +8,16 @@ DCLAP embeddings, and an optional natural-language description.
 
 | Module | Responsibility |
 |--------|---------------|
-| `models.py` | `AudioProfile`, `SimilarityResult` — Pydantic v2 |
+| `models.py` | `AudioProfile`, `SimilarityResult` — dataclasses |
 | `analyzer.py` | Orchestrator: audio path → `AudioProfile` |
 | `similarity.py` | Pairwise profile comparison |
-| `cli.py` | `ears analyze / compare / batch / describe` |
+| `loudness.py` | LUFS on the file's real channels, true peak (dBTP, 4x oversampled), band energy |
+| `embeddings.py` | DCLAP embedding; model path from `EARS_DCLAP_MODEL` |
+| `cli.py` | `ears analyze / compare` |
 
-Audio analysis modules (`features.py`, `loudness.py`, `rhythm.py`, etc.)
-will be migrated from `taste 2/audio/` in Phase 2.
+Embeddings need the DCLAP ONNX model, which is not in this repo. Point
+`EARS_DCLAP_MODEL` at `model_epoch_36.onnx`; without it `embedding` is `null`
+and `errors` says why.
 
 ## Quick Start
 

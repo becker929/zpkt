@@ -1,6 +1,8 @@
 """Loudness and spectral band energy extraction."""
 from __future__ import annotations
 
+from typing import Optional
+
 import numpy as np
 
 from .models import LoudnessFeatures
@@ -39,43 +41,56 @@ def _to_camelot(key: str, scale: str) -> str:
     return _CAMELOT.get((k, scale), f"{key} {scale}")
 
 
-def extract(audio: np.ndarray, sr: int) -> LoudnessFeatures:
-    """Extract LUFS loudness and 5-band spectral energy from mono float32 audio."""
+def true_peak_dbtp(channels: np.ndarray, sr: int) -> Optional[float]:
+    """BS.1770 true peak in dBTP: 4x oversample each channel, take the max.
+
+    ``channels`` is (samples,) or (samples, n_channels). None for silence.
+    """
+    from scipy.signal import resample_poly
+
+    x = channels.reshape(len(channels), -1)
+    factor = 4 if sr < 96000 else 2
+    peak = max(float(np.max(np.abs(resample_poly(x[:, c], factor, 1)))) for c in range(x.shape[1]))
+    peak = max(peak, float(np.max(np.abs(x))))
+    return 20.0 * np.log10(peak) if peak > 0 else None
+
+
+def _windowed_max_lufs(meter, channels: np.ndarray, sr: int, window_s: float) -> Optional[float]:
+    size = int(sr * window_s)
+    vals = []
+    for start in range(0, len(channels) - size, size // 2):
+        try:
+            v = meter.integrated_loudness(channels[start: start + size])
+            if np.isfinite(v):
+                vals.append(v)
+        except Exception:
+            pass
+    return float(max(vals)) if vals else None
+
+
+def extract(audio: np.ndarray, sr: int, channels: Optional[np.ndarray] = None) -> LoudnessFeatures:
+    """Extract loudness and 5-band spectral energy.
+
+    ``audio`` is mono float32 (used for band energy and key). ``channels`` is
+    the original (samples, n_channels) signal for LUFS and true peak; mono
+    ``audio`` is used when it is omitted. Measuring a stereo file on a mono
+    downmix misreads loudness whenever L and R differ.
+    """
     feats = LoudnessFeatures()
+    chans = audio if channels is None else channels
+
+    try:
+        feats.true_peak_db = true_peak_dbtp(chans, sr)
+    except Exception:
+        pass
 
     try:
         import pyloudnorm as pyln
         meter = pyln.Meter(sr)
-        stereo = np.stack([audio, audio], axis=-1) if audio.ndim == 1 else audio
-        val = meter.integrated_loudness(stereo)
+        val = meter.integrated_loudness(chans)
         feats.lufs_integrated = float(val) if np.isfinite(val) else None
-        feats.true_peak_db = float(np.max(np.abs(audio)))
-
-        block_size = int(sr * 3.0)
-        st_vals = []
-        for start in range(0, len(audio) - block_size, block_size // 2):
-            b = audio[start: start + block_size]
-            try:
-                v = meter.integrated_loudness(np.stack([b, b], axis=-1))
-                if np.isfinite(v):
-                    st_vals.append(v)
-            except Exception:
-                pass
-        if st_vals:
-            feats.lufs_short_term_peak = float(max(st_vals))
-
-        mom_size = int(sr * 0.4)
-        mom_vals = []
-        for start in range(0, len(audio) - mom_size, mom_size // 2):
-            b = audio[start: start + mom_size]
-            try:
-                v = meter.integrated_loudness(np.stack([b, b], axis=-1))
-                if np.isfinite(v):
-                    mom_vals.append(v)
-            except Exception:
-                pass
-        if mom_vals:
-            feats.lufs_momentary_max = float(max(mom_vals))
+        feats.lufs_short_term_peak = _windowed_max_lufs(meter, chans, sr, 3.0)
+        feats.lufs_momentary_max = _windowed_max_lufs(meter, chans, sr, 0.4)
     except Exception:
         pass
 
