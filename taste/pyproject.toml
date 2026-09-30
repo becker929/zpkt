@@ -1,0 +1,41 @@
+[project]
+name = "taste"
+version = "0.1.0"
+description = "Brain / taste model — RAG judge, corpus, taste loop orchestration"
+requires-python = ">=3.12"
+dependencies = [
+    "pydantic>=2.0.0",
+    "numpy>=1.26.0",
+    "typer>=0.12.0",
+    "rich>=13.0.0",
+]
+
+[project.optional-dependencies]
+judge = [
+    "anthropic>=0.25.0",
+]
+annotation = [
+    "flask>=3.1.0",
+]
+dev = [
+    "pytest>=8.0",
+    "mypy>=1.10",
+]
+
+[project.scripts]
+taste = "taste.cli:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/taste"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.0.2",
+]
