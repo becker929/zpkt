@@ -35,14 +35,17 @@ def analyze(
     """
     import librosa
 
-    profile = AudioProfile(
-        clip_id=_clip_id(audio_path),
-        audio_path=os.path.abspath(audio_path),
-        extracted_at=time.time(),
-    )
+    profile = AudioProfile(audio_path=os.path.abspath(audio_path), extracted_at=time.time())
+    if not os.path.isfile(audio_path):
+        profile.errors.append(f"file not found: {audio_path}")
+        return profile
+    profile.clip_id = _clip_id(audio_path)
 
     try:
-        audio, sr = librosa.load(audio_path, sr=None, mono=True)
+        raw, sr = librosa.load(audio_path, sr=None, mono=False)
+        audio = librosa.to_mono(raw)
+        # (samples, n_channels) for loudness, which must see the real channels.
+        channels = raw.T if raw.ndim == 2 else raw
         profile.duration_seconds = float(len(audio) / sr)
         profile.sample_rate = int(sr)
     except Exception as exc:
@@ -55,7 +58,7 @@ def analyze(
 
     def run_loudness():
         from .loudness import extract
-        return "loudness", extract(audio, sr)
+        return "loudness", extract(audio, sr, channels)
 
     def run_rhythm_task():
         from .rhythm import extract

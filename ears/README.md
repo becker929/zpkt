@@ -8,13 +8,16 @@ DCLAP embeddings, and an optional natural-language description.
 
 | Module | Responsibility |
 |--------|---------------|
-| `models.py` | `AudioProfile`, `SimilarityResult` — Pydantic v2 |
+| `models.py` | `AudioProfile`, `SimilarityResult` — dataclasses |
 | `analyzer.py` | Orchestrator: audio path → `AudioProfile` |
 | `similarity.py` | Pairwise profile comparison |
-| `cli.py` | `ears analyze / compare / batch / describe` |
+| `loudness.py` | LUFS on the file's real channels, true peak (dBTP, 4x oversampled), band energy |
+| `embeddings.py` | DCLAP embedding; model path from `EARS_DCLAP_MODEL` |
+| `cli.py` | `ears analyze / compare` |
 
-Audio analysis modules (`features.py`, `loudness.py`, `rhythm.py`, etc.)
-will be migrated from `taste 2/audio/` in Phase 2.
+Embeddings need the DCLAP ONNX model, which is not in this repo. Point
+`EARS_DCLAP_MODEL` at `model_epoch_36.onnx`; without it `embedding` is `null`
+and `errors` says why.
 
 ## Quick Start
 
@@ -33,6 +36,21 @@ ears compare render_v1.mp3 render_v2.mp3
 ## JSON Schemas
 
 - `schemas/audio-profile.schema.json`
+
+**Known mismatch:** the schema predates the dataclasses and its field names
+differ from what `ears analyze --json` emits — e.g. `source_path` vs
+`audio_path`, `spectral.centroid_hz` vs `spectral.spectral_centroid_mean`,
+`loudness.true_peak_dbfs` vs `loudness.true_peak_db` (now dBTP). Check what
+`taste` reads before changing either side.
+
+## Gotchas
+
+- **`embedding` is `null` without the DCLAP model** (not a zero vector), and
+  `errors` says why. Set `EARS_DCLAP_MODEL` to `model_epoch_36.onnx`.
+- **Loudness is measured on the file's real channels.** A mono file is one
+  channel; a dual-mono stereo file reads about 3 LU louder than the same
+  signal as mono, per BS.1770.
+- **`true_peak_db` is dBTP** (4x oversampled), not linear sample peak.
 
 ## Testing
 

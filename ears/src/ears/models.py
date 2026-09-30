@@ -31,7 +31,7 @@ class LoudnessFeatures:
     lufs_integrated: Optional[float] = None
     lufs_short_term_peak: Optional[float] = None
     lufs_momentary_max: Optional[float] = None
-    true_peak_db: Optional[float] = None
+    true_peak_db: Optional[float] = None  # dBTP (4x oversampled, BS.1770)
     band_energy: dict[str, float] = field(default_factory=dict)
     camelot_key: Optional[str] = None
 
@@ -65,10 +65,22 @@ class AudioProfile:
     loudness: Optional[LoudnessFeatures] = None
     rhythm: Optional[RhythmFeatures] = None
     pitch: Optional[PitchFeatures] = None
-    embedding: list[float] = field(default_factory=list)
+    embedding: Optional[list[float]] = None
     description: str = ""
     extracted_at: float = field(default_factory=time.time)
     errors: list[str] = field(default_factory=list)
+
+    def to_dict(self) -> dict:
+        return dataclasses.asdict(self)
+
+
+@dataclass
+class SimilarityResult:
+    clip_a: str
+    clip_b: str
+    embedding_cosine: Optional[float] = None
+    spectral_distance: Optional[float] = None
+    overall_score: Optional[float] = None
 
     def to_dict(self) -> dict:
         return dataclasses.asdict(self)
