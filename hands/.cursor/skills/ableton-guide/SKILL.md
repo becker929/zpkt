@@ -190,8 +190,14 @@ Verified on Live 12.4.6 Suite. Each of these alone produces a fully silent take.
    armed = [i for i, t in enumerate(song.tracks) if t.can_be_armed and t.arm]
    ```
 3. **"Back to Arrangement" lit (arrangement bounces only).** `track.stop_all_clips()` (or any session launch) detaches the track from the arrangement: `song.back_to_arranger` reads `True` and the track ignores its arrangement clips. Fix: `song.back_to_arranger = False` after `stop_all_clips()` and before starting playback.
+4. **Samples not resolved (existing sets).** Clips and Simplers whose files Live could not find play silence with no error over MCP. Check before rendering — an empty path means missing:
+   ```python
+   [c.file_path for c in song.tracks[i].arrangement_clips if c.is_audio_clip]   # '' = missing
+   song.tracks[i].devices[0].chains[0].devices[0].sample.file_path             # Simpler in a Drum Rack
+   ```
+   Causes seen: the `.als` was copied out of its project folder (project-relative paths break), its absolute paths point at another Mac's layout, or the files are iCloud placeholders (`stat -f %b` = 0 blocks; `brctl download <path>`). Live resolves paths only at load — after fixing files, reload the set (File → New Live Set, then open it; re-`open`ing the already-open set does nothing).
 
-Session-view vs arrangement-view playback both record fine once 1–3 are handled. `Track.current_monitoring_state` values are `0=In, 1=Auto, 2=Off` (not `1=In`).
+Session-view vs arrangement-view playback both record fine once 1–4 are handled. `Track.current_monitoring_state` values are `0=In, 1=Auto, 2=Off` (not `1=In`).
 
 ---
 
@@ -293,6 +299,20 @@ song.loop = True
 ```
 
 `time.sleep(0.1)` between `duplicate_clip_to_arrangement` calls prevents race conditions.
+
+### Working on an existing set (verified on HW002, Live 12.4.6)
+
+**Work on a copy of the whole project, never the original.** Copy the `.als` *plus* `Samples/`, `Ableton Project Info/`, and any audio the set keeps in the project root into one scratch folder. A lone `.als` loses its project-relative sample paths (silent bounce, cause 4 above), and Live refuses to save a set outside a Project folder ("Please choose a Project folder…").
+
+**Do not render with `hands.recorder.record_via_resampling`.** Its cleanup deletes *every* arrangement clip on the source tracks, which wipes an existing arrangement. Record the arrangement instead: disarm sources, `back_to_arranger = False`, add a Resampling track, `current_song_time = 0`, `record_mode = True`, `start_playing()`, wait, stop, then read `arrangement_clips[0].file_path` on the new track.
+
+**Editing time (shorten, cut sections).** The LOM has no time-editing API — no cut/delete/insert time, no time selection. Use the Edit menu, which moves clips *and* automation together:
+1. Set `song.loop_start` / `song.loop_length` to the range (LOM).
+2. Menu **Edit → Select Loop** (the status bar shows "Time Selection").
+3. Menu **Edit → Delete Time**. Driven from the background, the first attempt right after Select Loop often reports the item disabled; retry once and it works.
+Cut from the end of the song backwards so earlier beat positions stay valid, and verify each cut from `arrangement_clips` start/end times.
+
+**Plugins.** A missing plugin still appears as a `PluginDevice`, and a loaded VST2 with many parameters exposes only "Device On" until configured — so parameter counts do not tell loaded from missing. Check the device in the GUI ("The VST2 plug-in could not be found") or Live's `Log.txt`. VST2 plugins copied into `~/Library/Audio/Plug-Ins/VST` are found by unique ID even when the set recorded a `/Library/...` path. Some vendor plugins (e.g. Arturia via Native Access, Xfer) also need activation data that does not travel with the bundle.
 
 ---
 
