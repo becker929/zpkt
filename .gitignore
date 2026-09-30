@@ -1,0 +1,21 @@
+# Audio, models and data live in R2 or on disk, never in git: every clone
+# (and every CI run) would carry them forever.
+*.wav
+*.mp3
+*.flac
+*.aif
+*.aiff
+*.m4a
+*.onnx
+*.onnx.data
+*.db
+*.sqlite
+*.als
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+.DS_Store
+node_modules/
+*.env
+!*.env.example
