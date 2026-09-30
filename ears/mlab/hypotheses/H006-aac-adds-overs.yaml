@@ -1,0 +1,32 @@
+id: H006
+title: YouTube-style AAC encoding pushes HW002 over 0 dBTP unless the ceiling is lowered
+chapter: "17-19 / 20-21"
+source: "true peak / inter-sample peaks; codec behaviour"
+claim: >
+  The demo's true peak is -0.5 dBTP. A 128 kb/s AAC round trip raises it by about
+  0.5 dB, to or past 0 dBTP. A master limited to -1.5 dBTP stays under 0 after AAC.
+  Level-matched, the AAC version is not reliably distinguishable (ABX).
+inputs:
+  demo: audio/hw002/HW002_1min-2026-08-13T2107.mp3
+variants:
+  - name: as_is
+    from: demo
+  - name: as_is_aac
+    from: demo
+    chain: [{op: codec, label: aac128}]
+  - name: ceil_-1.5
+    from: demo
+    chain: [{op: limiter, ceiling_db: -1.5}]
+  - name: ceil_-1.5_aac
+    from: ceil_-1.5
+    chain: [{op: codec, label: aac128}]
+metrics: [loudness.true_peak, loudness.sample_peak, loudness.integrated, tonal.group.air]
+predictions:
+  - {metric: loudness.true_peak, left: as_is_aac, right: as_is, op: ">", value: 0.2, why: "codec adds peak"}
+  - {metric: loudness.true_peak, left: ceil_-1.5_aac, op: "<", value: 0.0, why: "-1.5 dBTP ceiling survives AAC"}
+listening:
+  abx: [as_is, as_is_aac]
+  excerpt: [50, 15]
+interpretation_hint: >
+  Sets the limiter ceiling for the Short. Re-check with a real YouTube upload:
+  download the served audio and measure it (guides/youtube-short-delivery.md).

@@ -1,0 +1,38 @@
+id: H001
+title: Limiting HW002 louder than -14 LUFS gains nothing on YouTube and costs peak-to-loudness ratio
+chapter: "17-19"
+source: "loudness war chapters; platform behaviour is observed, not documented (tier 4-6)"
+claim: >
+  If YouTube turns loud uploads down to about -14 LUFS, a -9 LUFS master of HW002
+  plays at the same loudness as the current -13.8 LUFS demo, but with less
+  peak-to-loudness ratio (PLR), i.e. flatter hits.
+inputs:
+  demo: audio/hw002/HW002_1min-2026-08-13T2107.mp3
+variants:
+  - name: as_is
+    from: demo
+  - name: loud_-9
+    from: demo
+    chain:
+      - {op: master_to, target_lufs: -9, ceiling_db: -1}
+  - name: as_is@youtube
+    from: as_is
+    chain: [{op: platform, name: youtube}]
+  - name: loud_-9@youtube
+    from: loud_-9
+    chain: [{op: platform, name: youtube}]
+metrics: [loudness.integrated, loudness.true_peak, loudness.plr, loudness.psr_min, loudness.lra,
+          dynamics.crest_db, dynamics.block_crest_median_db, dynamics.transient_contrast_median_db]
+predictions:
+  - {metric: loudness.integrated, left: loud_-9@youtube, right: as_is@youtube, op: "abs<", value: 0.3,
+     why: "after normalisation both play at about -14 LUFS"}
+  - {metric: loudness.plr, left: loud_-9, right: as_is, op: "<", value: -3,
+     why: "the extra loudness is paid for with at least 3 dB of PLR"}
+  - {metric: dynamics.transient_contrast_median_db, left: loud_-9, right: as_is, op: "<", value: 0,
+     why: "hits stand less far above the body"}
+listening:
+  abx: [as_is@youtube, loud_-9@youtube]
+  excerpt: [50, 15]
+interpretation_hint: >
+  If supported, the YouTube master should target about -14 LUFS and spend the
+  rest on punch. If the ABX shows no audible difference, loudness is a free choice.

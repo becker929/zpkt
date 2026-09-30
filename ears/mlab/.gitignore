@@ -1,0 +1,9 @@
+__pycache__/
+*.pyc
+audio/renders/
+hypotheses/results/*/audio/
+hypotheses/results/*/abx/
+.run.log
+.run_all.sh
+.pytest_cache/
+.lab-trash*

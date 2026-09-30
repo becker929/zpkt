@@ -1,0 +1,57 @@
+{
+  "id": "H002",
+  "verdict": "SUPPORTED",
+  "predictions": [
+    {
+      "metric": "word_length.quietest_blocks_dbfs",
+      "left": "as_is",
+      "op": ">",
+      "value": -56,
+      "why": "quietest passages at least 40 dB above the 16-bit TPDF floor (-96.3 dBFS)",
+      "status": "PASS",
+      "observed": -21.88
+    },
+    {
+      "metric": "loudness.integrated",
+      "left": "q16_tpdf",
+      "right": "as_is",
+      "op": "abs<",
+      "value": 0.05,
+      "why": "dither noise does not move loudness",
+      "status": "PASS",
+      "observed": 0.0
+    },
+    {
+      "metric": "word_length.effective_bits",
+      "left": "q16_tpdf",
+      "op": "<=",
+      "value": 16,
+      "why": "sanity: the reduction really happened",
+      "status": "PASS",
+      "observed": 16.0
+    }
+  ],
+  "rows": {
+    "as_is": {
+      "loudness.integrated": -13.84,
+      "loudness.true_peak": -0.48,
+      "word_length.effective_bits": null,
+      "word_length.quietest_blocks_dbfs": -21.88,
+      "tonal.group.air": -20.0
+    },
+    "q16_tpdf": {
+      "loudness.integrated": -13.84,
+      "loudness.true_peak": -0.48,
+      "word_length.effective_bits": 16,
+      "word_length.quietest_blocks_dbfs": -21.88,
+      "tonal.group.air": -20.0
+    },
+    "q16_truncated": {
+      "loudness.integrated": -13.84,
+      "loudness.true_peak": -0.48,
+      "word_length.effective_bits": 16,
+      "word_length.quietest_blocks_dbfs": -21.88,
+      "tonal.group.air": -20.0
+    }
+  }
+}

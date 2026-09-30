@@ -1,0 +1,47 @@
+{
+  "id": "H004",
+  "verdict": "SUPPORTED",
+  "predictions": [
+    {
+      "metric": "tonal.group.low_mid",
+      "left": "as_is",
+      "op": "<",
+      "value": -12,
+      "why": "low-mid share is small in absolute terms",
+      "status": "PASS",
+      "observed": -15.36
+    },
+    {
+      "metric": "tonal.group.low_mid",
+      "left": "lowmid_+3",
+      "right": "as_is",
+      "op": ">",
+      "value": 1.5,
+      "why": "the bell fills it",
+      "status": "PASS",
+      "observed": 2.15
+    }
+  ],
+  "rows": {
+    "as_is": {
+      "tonal.group.sub": -7.42,
+      "tonal.group.bass": -2.67,
+      "tonal.group.low_mid": -15.36,
+      "tonal.group.mid": -8.79,
+      "tonal.group.upper_mid": -15.19,
+      "tonal.slope_db_per_oct": -4.23,
+      "loudness.integrated": -13.84,
+      "loudness.true_peak": -0.48
+    },
+    "lowmid_+3": {
+      "tonal.group.sub": -7.87,
+      "tonal.group.bass": -2.72,
+      "tonal.group.low_mid": -13.21,
+      "tonal.group.mid": -8.26,
+      "tonal.group.upper_mid": -15.68,
+      "tonal.slope_db_per_oct": -4.55,
+      "loudness.integrated": -13.84,
+      "loudness.true_peak": 0.03
+    }
+  }
+}

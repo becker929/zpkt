@@ -1,0 +1,3 @@
+X = B_plus1dB
+Y = A_original
+Same audio. Only difference: 1 dB of gain.

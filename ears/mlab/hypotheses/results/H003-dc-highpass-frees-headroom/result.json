@@ -1,0 +1,74 @@
+{
+  "id": "H003",
+  "verdict": "NOT SUPPORTED",
+  "predictions": [
+    {
+      "metric": "word_length.dc_max_dbfs",
+      "left": "hp15",
+      "op": "<",
+      "value": -60,
+      "why": "offset gone",
+      "status": "PASS",
+      "observed": -107.5
+    },
+    {
+      "metric": "loudness.sample_peak",
+      "left": "hp15",
+      "right": "as_is",
+      "op": "<",
+      "value": -0.2,
+      "why": "headroom freed",
+      "status": "FAIL",
+      "observed": 0.1
+    },
+    {
+      "metric": "loudness.integrated",
+      "left": "hp15",
+      "right": "as_is",
+      "op": "abs<",
+      "value": 0.1,
+      "why": "loudness unchanged",
+      "status": "PASS",
+      "observed": -0.01
+    },
+    {
+      "metric": "tonal.group.sub",
+      "left": "hp15",
+      "right": "as_is",
+      "op": "abs<",
+      "value": 0.2,
+      "why": "15 Hz leaves the kick's sub alone",
+      "status": "PASS",
+      "observed": -0.03
+    }
+  ],
+  "rows": {
+    "as_is": {
+      "word_length.dc_max_dbfs": -37.68,
+      "loudness.sample_peak": -0.48,
+      "loudness.true_peak": -0.48,
+      "loudness.integrated": -13.84,
+      "loudness.plr": 13.36,
+      "tonal.group.sub": -7.42,
+      "tonal.group.bass": -2.67
+    },
+    "hp15": {
+      "word_length.dc_max_dbfs": -107.5,
+      "loudness.sample_peak": -0.38,
+      "loudness.true_peak": -0.37,
+      "loudness.integrated": -13.85,
+      "loudness.plr": 13.47,
+      "tonal.group.sub": -7.45,
+      "tonal.group.bass": -2.67
+    },
+    "hp30": {
+      "word_length.dc_max_dbfs": -104.91,
+      "loudness.sample_peak": -0.45,
+      "loudness.true_peak": -0.45,
+      "loudness.integrated": -13.92,
+      "loudness.plr": 13.47,
+      "tonal.group.sub": -7.75,
+      "tonal.group.bass": -2.61
+    }
+  }
+}

@@ -1,0 +1,288 @@
+{
+  "file": {
+    "path": "as_is_aac",
+    "sr": 44100,
+    "channels": 2,
+    "duration_s": 84.01,
+    "subtype": "FLOAT",
+    "format": "MP3",
+    "lossy": false
+  },
+  "loudness": {
+    "integrated": -13.93,
+    "momentary_max": -9.1,
+    "short_term_max": -10.86,
+    "lra": 2.13,
+    "lra_low": -14.62,
+    "lra_high": -12.49,
+    "sample_peak": -0.04,
+    "true_peak": 0.03,
+    "plr": 13.96,
+    "psr_min": 7.26
+  },
+  "dynamics": {
+    "crest_db": 15.32,
+    "plr_db": 13.96,
+    "psr_min_db": 7.26,
+    "k20_rms_db": 7.64,
+    "k14_rms_db": 1.64,
+    "lra_lu": 2.13,
+    "short_term_p95_minus_p10": 2.13,
+    "short_term_max_minus_integrated": 3.07,
+    "block_crest_median_db": 8.65,
+    "block_crest_p10_db": 7.83,
+    "block_crest_p90_db": 12.27,
+    "onsets": 164,
+    "transient_contrast_median_db": 8.15
+  },
+  "tonal": {
+    "slope_db_per_oct": -4.23,
+    "centroid_hz": 491.0,
+    "group.sub": -7.39,
+    "group.bass": -2.65,
+    "group.low_mid": -15.46,
+    "group.mid": -8.89,
+    "group.upper_mid": -15.32,
+    "group.presence": -16.95,
+    "group.air": -20.15
+  },
+  "third_octave": [
+    [
+      25.1,
+      -47.82
+    ],
+    [
+      31.6,
+      -47.7
+    ],
+    [
+      39.8,
+      -38.04
+    ],
+    [
+      50.1,
+      -27.68
+    ],
+    [
+      63.1,
+      -22.07
+    ],
+    [
+      79.4,
+      -22.37
+    ],
+    [
+      100.0,
+      -26.61
+    ],
+    [
+      125.9,
+      -28.92
+    ],
+    [
+      158.5,
+      -30.6
+    ],
+    [
+      199.5,
+      -31.63
+    ],
+    [
+      251.2,
+      -34.29
+    ],
+    [
+      316.2,
+      -37.25
+    ],
+    [
+      398.1,
+      -35.6
+    ],
+    [
+      501.2,
+      -33.99
+    ],
+    [
+      631.0,
+      -31.63
+    ],
+    [
+      794.3,
+      -28.02
+    ],
+    [
+      1000.0,
+      -33.28
+    ],
+    [
+      1258.9,
+      -34.49
+    ],
+    [
+      1584.9,
+      -36.18
+    ],
+    [
+      1995.3,
+      -36.08
+    ],
+    [
+      2511.9,
+      -33.72
+    ],
+    [
+      3162.3,
+      -36.51
+    ],
+    [
+      3981.1,
+      -37.53
+    ],
+    [
+      5011.9,
+      -36.96
+    ],
+    [
+      6309.6,
+      -36.39
+    ],
+    [
+      7943.3,
+      -37.44
+    ],
+    [
+      10000.0,
+      -38.88
+    ],
+    [
+      12589.3,
+      -43.58
+    ],
+    [
+      15848.9,
+      -48.94
+    ]
+  ],
+  "stereo": [
+    {
+      "band_hz": [
+        20,
+        120
+      ],
+      "correlation": 0.862,
+      "side_minus_mid_db": -11.29
+    },
+    {
+      "band_hz": [
+        120,
+        500
+      ],
+      "correlation": 0.779,
+      "side_minus_mid_db": -9.05
+    },
+    {
+      "band_hz": [
+        500,
+        2000
+      ],
+      "correlation": 0.36,
+      "side_minus_mid_db": -3.26
+    },
+    {
+      "band_hz": [
+        2000,
+        8000
+      ],
+      "correlation": 0.457,
+      "side_minus_mid_db": -4.28
+    },
+    {
+      "band_hz": [
+        8000,
+        20000
+      ],
+      "correlation": 0.755,
+      "side_minus_mid_db": -8.55
+    }
+  ],
+  "word_length": {
+    "container": "FLOAT",
+    "sample_rate": 44100,
+    "lossy": false,
+    "effective_bits": 32,
+    "dc_offset_dbfs": [
+      -37.96,
+      -37.81
+    ],
+    "dc_steady": true,
+    "dc_max_dbfs": -37.81,
+    "digital_zero_blocks_100ms": 0,
+    "quietest_blocks_dbfs": -22.02,
+    "reference_floors_dbfs_at_16_bits": {
+      "none": -101.1,
+      "rpdf": -98.09,
+      "tpdf": -96.33
+    },
+    "quiet_region_tilt_db": -33.88,
+    "verdict": "DC offset -37.81 dBFS: high-pass or DC-block before mastering"
+  },
+  "delivery": {
+    "integrated": -13.93,
+    "true_peak": 0.03,
+    "normalization": {
+      "youtube": {
+        "gain_db": -0.07,
+        "playback_lufs": -14.0,
+        "playback_true_peak": -0.04,
+        "note": "observed; applies to uploads incl. Shorts (assumed)"
+      },
+      "spotify": {
+        "gain_db": -0.07,
+        "playback_lufs": -14.0,
+        "playback_true_peak": -0.04,
+        "note": "documented by Spotify; up-gain limited by peak headroom"
+      },
+      "apple_music": {
+        "gain_db": -2.07,
+        "playback_lufs": -16.0,
+        "playback_true_peak": -2.04,
+        "note": "Sound Check; reported"
+      },
+      "tidal": {
+        "gain_db": -0.07,
+        "playback_lufs": -14.0,
+        "playback_true_peak": -0.04,
+        "note": "reported"
+      },
+      "amazon_music": {
+        "gain_db": -0.07,
+        "playback_lufs": -14.0,
+        "playback_true_peak": -0.04,
+        "note": "reported, varies"
+      },
+      "soundcloud": {
+        "gain_db": 0.0,
+        "playback_lufs": -13.93,
+        "playback_true_peak": 0.03,
+        "note": "no normalisation reported"
+      },
+      "instagram": {
+        "gain_db": 0.0,
+        "playback_lufs": -13.93,
+        "playback_true_peak": 0.03,
+        "note": "undocumented; measure a real upload"
+      },
+      "tiktok": {
+        "gain_db": 0.0,
+        "playback_lufs": -13.93,
+        "playback_true_peak": 0.03,
+        "note": "undocumented; measure a real upload"
+      }
+    },
+    "advice": [
+      "YouTube turns this down 0.07 dB; loudness above -14 LUFS buys nothing there",
+      "true peak above -1 dBTP: expect codec overs; lower the limiter ceiling"
+    ]
+  }
+}

@@ -1,0 +1,35 @@
+id: H002
+title: 16-bit TPDF dither on HW002 sits far below anything audible in the programme
+chapter: "15"
+source: "dither and word length chapter"
+claim: >
+  Reducing HW002 to 16 bits with TPDF dither adds a noise floor near -96 dBFS.
+  The demo's quietest 100 ms blocks are so much louder that the floor is masked.
+  Truncation instead of dither makes no loudness difference either, at this level.
+inputs:
+  demo: audio/hw002/HW002_1min-2026-08-13T2107.mp3
+variants:
+  - name: as_is
+    from: demo
+  - name: q16_tpdf
+    from: demo
+    chain: [{op: quantize, bits: 16, dither: tpdf}]
+  - name: q16_truncated
+    from: demo
+    chain: [{op: truncate, bits: 16}]
+metrics: [loudness.integrated, loudness.true_peak, word_length.effective_bits,
+          word_length.quietest_blocks_dbfs, tonal.group.air]
+predictions:
+  - {metric: word_length.quietest_blocks_dbfs, left: as_is, op: ">", value: -56,
+     why: "quietest passages at least 40 dB above the 16-bit TPDF floor (-96.3 dBFS)"}
+  - {metric: loudness.integrated, left: q16_tpdf, right: as_is, op: "abs<", value: 0.05,
+     why: "dither noise does not move loudness"}
+  - {metric: word_length.effective_bits, left: q16_tpdf, op: "<=", value: 16,
+     why: "sanity: the reduction really happened"}
+listening:
+  abx: [as_is, q16_truncated]
+  excerpt: [24, 10]
+interpretation_hint: >
+  Caveat: the source is a 320 kb/s MP3, whose own coding noise is far above
+  16-bit dither. Re-run on the 24-bit WAV export. Dither matters most in fades
+  and breakdown tails; test the breakdown (24-47 s) specifically.

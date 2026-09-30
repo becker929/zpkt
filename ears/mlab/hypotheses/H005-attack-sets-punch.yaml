@@ -1,0 +1,43 @@
+id: H005
+title: At matched loudness, a slow-attack bus compressor keeps more punch than a fast one
+chapter: "5-7"
+source: "compression chapters (attack/release, punch, microdynamics)"
+claim: >
+  With the same threshold and ratio, 30 ms attack lets each kick's front edge through
+  before gain reduction lands; 0.1 ms attack clamps it. A 3 ms variant is included
+  because the calibration kick loop peaked in punch at 1-5 ms, not 30 ms. So transient contrast and
+  block crest should be higher with slow attack, even after loudness matching.
+inputs:
+  demo: audio/hw002/HW002_1min-2026-08-13T2107.mp3
+variants:
+  - name: as_is
+    from: demo
+  - name: fastA
+    from: demo
+    chain:
+      - {op: compressor, threshold: -18, ratio: 3, attack_ms: 0.1, release_ms: 120, knee: 6}
+      - {op: normalize_lufs, target: -13.84}
+  - name: midA
+    from: demo
+    chain:
+      - {op: compressor, threshold: -18, ratio: 3, attack_ms: 3, release_ms: 120, knee: 6}
+      - {op: normalize_lufs, target: -13.84}
+  - name: slowA
+    from: demo
+    chain:
+      - {op: compressor, threshold: -18, ratio: 3, attack_ms: 30, release_ms: 120, knee: 6}
+      - {op: normalize_lufs, target: -13.84}
+metrics: [loudness.integrated, loudness.true_peak, loudness.plr, dynamics.crest_db,
+          dynamics.block_crest_median_db, dynamics.transient_contrast_median_db, loudness.lra]
+predictions:
+  - {metric: dynamics.transient_contrast_median_db, left: slowA, right: fastA, op: ">", value: 0.5,
+     why: "slow attack preserves the hit"}
+  - {metric: dynamics.block_crest_median_db, left: slowA, right: fastA, op: ">", value: 0.5,
+     why: "microdynamics survive slow attack"}
+listening:
+  abx: [fastA, slowA]
+  excerpt: [50, 15]
+interpretation_hint: >
+  The Python compressor is a reference design, not Glue Compressor. To test Live's
+  device, render both settings in Live, drop them in audio/inbox/, and use 'file:' variants.
+  Measure the device's real attack first with 'mlab probe' + 'mlab comp-probe'.
