@@ -12,10 +12,17 @@ local config      = require("config")
 
 local M = {}
 
-local function _prepareAndLaunch()
+-- Hiding other apps before the music app takes focus lets macOS fall back to
+-- re-activating Finder (something must always hold the menu bar), which
+-- un-hides it again. Hiding only once the music app is confirmed frontmost
+-- avoids that fallback entirely.
+local function _hideOthers()
   local count = apps.prepareWorkspace()
   if count > 0 then notify.show("Hiding " .. count .. " apps…") end
-  window.launchAndResize(screen.underMouse())
+end
+
+local function _prepareAndLaunch()
+  window.launchAndResize(screen.underMouse(), _hideOthers)
 end
 
 function M.activate()
@@ -53,11 +60,9 @@ function M.openProjectCopy()
     return
   end
 
-  local count = apps.prepareWorkspace()
-  if count > 0 then notify.show("Hiding " .. count .. " apps…") end
   notify.show("Opening copy…")
   shell.openWithBundle(config.musicApp.bundleID, dst)
-  window.launchAndResize(screen.underMouse())
+  window.launchAndResize(screen.underMouse(), _hideOthers)
 end
 
 return M

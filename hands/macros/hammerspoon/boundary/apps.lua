@@ -10,7 +10,7 @@ function M.musicApp()
       or hs.application.find(config.musicApp.name)
 end
 
---- Quits blocklisted apps and hides all non-music visible apps.
+--- Quits blocklisted apps and hides all other regular (Dock-visible) apps.
 --- Returns the number of apps hidden.
 function M.prepareWorkspace()
   for _, entry in ipairs(config.blocklist) do
@@ -22,24 +22,18 @@ function M.prepareWorkspace()
     end
   end
 
-  local toHide = {}
-  for _, win in ipairs(hs.window.allWindows()) do
-    local app = win:application()
-    if app then
-      local bid = app:bundleID()
-      if not blocklist.isMusicApp(bid, config.musicApp.bundleID)
-      and not blocklist.isBlocklisted(bid, config.blocklist)
-      and not win:isMinimized() then
-        toHide[bid] = app
-      end
+  local count = 0
+  for _, app in ipairs(hs.application.runningApplications()) do
+    local bid = app:bundleID()
+    if app:kind() == 1
+    and not blocklist.isMusicApp(bid, config.musicApp.bundleID)
+    and not blocklist.isBlocklisted(bid, config.blocklist)
+    and not app:isHidden() then
+      app:hide()
+      count = count + 1
     end
   end
 
-  local count = 0
-  for _, app in pairs(toHide) do
-    app:hide()
-    count = count + 1
-  end
   log.info("prepareWorkspace: hid apps", { count=count })
   return count
 end

@@ -15,6 +15,7 @@ return {
 
   autoBackup = {
     intervalMinutes = 5,
+    idleSeconds     = 120,
     maxVersions     = 5,
     projectsDir     = "/Users/anthonybecker/_music_projects",
     backupsDir      = "/Users/anthonybecker/Library/Mobile Documents/com~apple~CloudDocs/Ableton Backups",
