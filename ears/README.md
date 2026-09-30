@@ -1,0 +1,61 @@
+# ears — Audio Perception Layer
+
+`ears` gives the agent the ability to listen. It takes an audio file and
+produces a structured `AudioProfile`: spectral features, loudness, rhythm,
+DCLAP embeddings, and an optional natural-language description.
+
+## Architecture
+
+| Module | Responsibility |
+|--------|---------------|
+| `models.py` | `AudioProfile`, `SimilarityResult` — dataclasses |
+| `analyzer.py` | Orchestrator: audio path → `AudioProfile` |
+| `similarity.py` | Pairwise profile comparison |
+| `loudness.py` | LUFS on the file's real channels, true peak (dBTP, 4x oversampled), band energy |
+| `embeddings.py` | DCLAP embedding; model path from `EARS_DCLAP_MODEL` |
+| `cli.py` | `ears analyze / compare` |
+
+Embeddings need the DCLAP ONNX model, which is not in this repo. Point
+`EARS_DCLAP_MODEL` at `model_epoch_36.onnx`; without it `embedding` is `null`
+and `errors` says why.
+
+## Quick Start
+
+```bash
+uv pip install -e .
+ears analyze render.mp3 --output profile.json
+ears compare render_v1.mp3 render_v2.mp3
+```
+
+## Cross-Repo Interface
+
+- **Consumes**: audio files (← hands)
+- **Produces**: `AudioProfile` JSON (→ taste)
+- **No Python imports** from `hands` or `taste`
+
+## JSON Schemas
+
+- `schemas/audio-profile.schema.json`
+
+**Known mismatch:** the schema predates the dataclasses and its field names
+differ from what `ears analyze --json` emits — e.g. `source_path` vs
+`audio_path`, `spectral.centroid_hz` vs `spectral.spectral_centroid_mean`,
+`loudness.true_peak_dbfs` vs `loudness.true_peak_db` (now dBTP). Check what
+`taste` reads before changing either side.
+
+## Gotchas
+
+- **`embedding` is `null` without the DCLAP model** (not a zero vector), and
+  `errors` says why. Set `EARS_DCLAP_MODEL` to `model_epoch_36.onnx`.
+- **Loudness is measured on the file's real channels.** A mono file is one
+  channel; a dual-mono stereo file reads about 3 LU louder than the same
+  signal as mono, per BS.1770.
+- **`true_peak_db` is dBTP** (4x oversampled), not linear sample peak.
+
+## Testing
+
+```bash
+uv run pytest
+```
+
+All tests run without audio files, ML models, or network access.
