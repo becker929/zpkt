@@ -1,0 +1,17 @@
+[
+  {
+    "id": "msg-bounce-001",
+    "role": "user",
+    "parts": [{ "type": "text", "text": "Bounce the current session and let me hear it." }],
+    "timestamp": "2026-03-27T10:01:00.000Z"
+  },
+  {
+    "id": "msg-bounce-002",
+    "role": "assistant",
+    "parts": [
+      { "type": "text", "text": "Bounced! Here you go:" },
+      { "type": "audio", "filename": "bounce_001.wav", "url": "/api/audio/bounce_001.wav" }
+    ],
+    "timestamp": "2026-03-27T10:01:05.000Z"
+  }
+]
