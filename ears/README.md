@@ -37,6 +37,21 @@ ears compare render_v1.mp3 render_v2.mp3
 
 - `schemas/audio-profile.schema.json`
 
+**Known mismatch:** the schema predates the dataclasses and its field names
+differ from what `ears analyze --json` emits — e.g. `source_path` vs
+`audio_path`, `spectral.centroid_hz` vs `spectral.spectral_centroid_mean`,
+`loudness.true_peak_dbfs` vs `loudness.true_peak_db` (now dBTP). Check what
+`taste` reads before changing either side.
+
+## Gotchas
+
+- **`embedding` is `null` without the DCLAP model** (not a zero vector), and
+  `errors` says why. Set `EARS_DCLAP_MODEL` to `model_epoch_36.onnx`.
+- **Loudness is measured on the file's real channels.** A mono file is one
+  channel; a dual-mono stereo file reads about 3 LU louder than the same
+  signal as mono, per BS.1770.
+- **`true_peak_db` is dBTP** (4x oversampled), not linear sample peak.
+
 ## Testing
 
 ```bash
