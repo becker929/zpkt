@@ -47,19 +47,29 @@ open -gj -a "$APP"
 
 # Wait (up to ~10s) for a window to exist, all while the app stays hidden.
 for _ in $(seq 1 40); do
-  n=$(osascript -e "tell application \"System Events\" to tell process \"$PROC\" to count windows" 2>/dev/null || echo 0)
+  # Values go in as argv, never spliced into AppleScript source.
+  n=$(osascript - "$PROC" <<'OSA' 2>/dev/null || echo 0
+on run argv
+  tell application "System Events" to tell process (item 1 of argv) to count windows
+end run
+OSA
+)
   [ "${n:-0}" -ge 1 ] && break
   sleep 0.25
 done
 
 # Move the window onto the virtual display while hidden, then reveal it there.
-osascript <<OSA
-tell application "System Events" to tell process "$PROC"
-  if (count of windows) > 0 then
-    set position of window 1 to {$X, $Y}
-  end if
-end tell
-tell application "$APP" to activate
+[[ "$X" =~ ^-?[0-9]+$ && "$Y" =~ ^-?[0-9]+$ ]] || { echo "bad coordinates: $X,$Y" >&2; exit 2; }
+osascript - "$PROC" "$APP" "$X" "$Y" <<'OSA'
+on run argv
+  set {procName, appName, xPos, yPos} to argv
+  tell application "System Events" to tell process procName
+    if (count of windows) > 0 then
+      set position of window 1 to {xPos as integer, yPos as integer}
+    end if
+  end tell
+  tell application appName to activate
+end run
 OSA
 
 echo "Opened '$APP' directly on the virtual display at ($X,$Y) — no flash on the main screen."

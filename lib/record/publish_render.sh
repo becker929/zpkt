@@ -11,7 +11,7 @@ FILE=$1 ID=$2 TITLE=$3
 BUCKET=${ZPKT_BUCKET:-anthonybecker-audio}
 [[ $FILE == *.mp3 ]] || { print -u2 "renders are published as MP3"; exit 2; }
 
-npx -y wrangler@4 r2 object put "$BUCKET/audio/skrng/$ID.mp3" --file "$FILE" \
+npx -y wrangler@4.145.0 r2 object put "$BUCKET/audio/skrng/$ID.mp3" --file "$FILE" \
   --content-type audio/mpeg --remote >/dev/null
 print -u2 "uploaded → https://anthonybecker.me/audio/skrng/$ID.mp3"
 

@@ -1,0 +1,18 @@
+node_modules/
+.next/
+.next-mock/
+# One build directory per mock server. The cap-of-one server runs beside the
+# default one during the tests, and two `next dev` processes cannot share a
+# build directory.
+.next-mock-*/
+out/
+next-env.d.ts
+*.tsbuildinfo
+.env*.local
+screenshots/
+
+# Playwright output. The tests and the config are committed; these are not.
+test-results/
+playwright-report/
+blob-report/
+.playwright/

@@ -1,0 +1,14 @@
+# Security and version updates. Grouped weekly so PRs stay few.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule: { interval: weekly }
+  - package-ecosystem: npm
+    directories: [/hands/frontend, /prototypes/audio-browser/frontend]
+    schedule: { interval: weekly }
+    groups: { npm: { patterns: ["*"] } }
+  - package-ecosystem: uv
+    directories: [/hands, /ears, /ears/mlab, /taste, /engineer, /prototypes/audio-browser]
+    schedule: { interval: weekly }
+    groups: { python: { patterns: ["*"] } }

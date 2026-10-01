@@ -134,13 +134,12 @@ def request_improvement(description: str, prompt: str) -> str:
     """
     vibe_url = os.environ.get("VIBE_SERVER_URL", "http://host.docker.internal:8080")
     endpoint = vibe_url + "/self-improve"
-    auth = {"Authorization": "Bearer " + os.environ["VIBE_TOKEN"]} if os.environ.get("VIBE_TOKEN") else {}
 
     payload = json.dumps({"description": description, "prompt": prompt}).encode()
     req = urllib.request.Request(
         endpoint,
         data=payload,
-        headers={"Content-Type": "application/json", **auth},
+        headers={"Content-Type": "application/json"},
         method="POST",
     )
     try:
@@ -462,12 +461,11 @@ def restart_vibe_server() -> str:
     """
     vibe_url = os.environ.get("VIBE_SERVER_URL", "http://host.docker.internal:8080")
     endpoint = vibe_url + "/restart"
-    auth = {"Authorization": "Bearer " + os.environ["VIBE_TOKEN"]} if os.environ.get("VIBE_TOKEN") else {}
 
     req = urllib.request.Request(
         endpoint,
         data=b"{}",
-        headers={"Content-Type": "application/json", **auth},
+        headers={"Content-Type": "application/json"},
         method="POST",
     )
     try:
@@ -606,12 +604,11 @@ script proceed?" — the human must click "Proceed". Warn them before MIDI write
 
 def _request(method: str, url: str, body: dict | None = None, timeout: int = 30) -> object:
     data = json.dumps(body).encode() if body is not None else None
-    req = urllib.request.Request(
-        url,
-        data=data,
-        headers={"Content-Type": "application/json"} if data else {},
-        method=method,
-    )
+    headers = {"Content-Type": "application/json"} if data else {}
+    # Letta runs with a server password (Makefile: SECURE=true); send it.
+    if os.environ.get("LETTA_API_KEY"):
+        headers["Authorization"] = f"Bearer {os.environ['LETTA_API_KEY']}"
+    req = urllib.request.Request(url, data=data, headers=headers, method=method)
     try:
         with urllib.request.urlopen(req, timeout=timeout) as resp:
             return json.loads(resp.read())
@@ -752,20 +749,26 @@ def upsert_restart_vibe_server(base_url: str) -> str:
 def register_mcp_server(base_url: str, bridge_port: int) -> None:
     """Register (or update) the ableton-live MCP server config."""
     server_url = f"http://host.docker.internal:{bridge_port}/mcp"
+    token = os.environ.get("MCP_BRIDGE_TOKEN", "")
+    if not token:
+        raise SystemExit("MCP_BRIDGE_TOKEN is not set; the bridge refuses unauthenticated requests.")
+    # The bridge runs arbitrary Python in Live, so Letta must present the token.
+    auth = {"auth_header": "Authorization", "auth_token": f"Bearer {token}",
+            "custom_headers": {"Authorization": f"Bearer {token}"}}
     # GET returns a dict keyed by server_name
     existing = _request("GET", f"{base_url}/v1/tools/mcp/servers")
     registered = isinstance(existing, dict) and "ableton-live" in existing
 
     if registered:
         _request("PATCH", f"{base_url}/v1/tools/mcp/servers/ableton-live", {
-            "server_url": server_url,
+            "server_url": server_url, **auth,
         })
         print(f"  ✓  ableton-live MCP server updated → {server_url}")
     else:
         _request("PUT", f"{base_url}/v1/tools/mcp/servers", {
             "server_name": "ableton-live",
             "type": "streamable_http",
-            "server_url": server_url,
+            "server_url": server_url, **auth,
         })
         print(f"  ✓  ableton-live MCP server registered → {server_url}")
 

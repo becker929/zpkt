@@ -30,7 +30,7 @@ IMPROVEMENT_PERSIST = Path("/tmp/vibe-improvement-last.json")
 
 # ── Workspace roots ────────────────────────────────────────────────────────────
 
-WORKSPACE = Path(__file__).parents[3]   # .../agent-sandbox
+WORKSPACE = Path(__file__).parents[2]   # zpkt/hands: the agent may only touch hands/
 HANDS_DIR = WORKSPACE / "hands"
 
 # ── File prefix → services that must restart when those files change ───────────
@@ -225,7 +225,12 @@ async def run_agent_edit(
 
     options = ClaudeAgentOptions(
         cwd=str(WORKSPACE),
-        permission_mode="bypassPermissions",
+        # Not bypassPermissions: prompts can come from logs or an LLM. Edits are
+        # auto-accepted; the only shell commands allowed are reads and tests.
+        permission_mode="acceptEdits",
+        allowed_tools=["Read", "Edit", "Write", "Glob", "Grep",
+                       "Bash(git log:*)", "Bash(git diff:*)", "Bash(uv run pytest:*)"],
+        disallowed_tools=["WebFetch", "WebSearch"],
         max_turns=max_turns,
         system_prompt={
             "type": "preset",

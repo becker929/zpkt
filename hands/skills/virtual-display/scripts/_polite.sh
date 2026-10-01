@@ -27,15 +27,17 @@ user_is_present() {
 # Leaves a macOS Stickies note recording that the agent took control.
 leave_sticky_note() {
   local msg="$1"
-  osascript <<OSA >/dev/null 2>&1
-tell application "Stickies" to activate
-delay 0.3
-tell application "System Events" to tell process "Stickies"
-  keystroke "n" using command down
+  osascript - "$msg" <<'OSA' >/dev/null 2>&1
+on run argv
+  tell application "Stickies" to activate
   delay 0.3
-  keystroke "$msg"
-end tell
-tell application "Stickies" to set visible of every window to true
+  tell application "System Events" to tell process "Stickies"
+    keystroke "n" using command down
+    delay 0.3
+    keystroke (item 1 of argv)
+  end tell
+  tell application "Stickies" to set visible of every window to true
+end run
 OSA
 }
 
@@ -44,7 +46,12 @@ OSA
 request_control() {
   local action="${1:-take control of your screen}"
   if user_is_present; then
-    osascript -e "display dialog \"Agent wants to: $action\\n\\nProceeding automatically in ${COUNTDOWN_SECS}s...\" giving up after ${COUNTDOWN_SECS} buttons {\"OK\"} default button 1 with title \"Agent requesting control\"" >/dev/null 2>&1 || true
+    osascript - "$action" "$COUNTDOWN_SECS" <<'OSA' >/dev/null 2>&1 || true
+on run argv
+  set {theAction, secs} to argv
+  display dialog ("Agent wants to: " & theAction & return & return & "Proceeding automatically in " & secs & "s...") giving up after (secs as integer) buttons {"OK"} default button 1 with title "Agent requesting control"
+end run
+OSA
   else
     leave_sticky_note "Agent took control at $(date '+%H:%M:%S') while you were away, to: $action"
   fi

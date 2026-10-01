@@ -33,6 +33,11 @@ from typing import Any
 
 _os_environ_get = os.environ.get
 _ALLOWED_ORIGIN = os.environ.get("VIBE_ALLOWED_ORIGIN", "http://localhost:3000")
+# Host names a request may address. Anything else is a DNS-rebinding attempt.
+# host.docker.internal is how Letta (in Docker) reaches the server.
+_ALLOWED_HOSTS = {"localhost", "127.0.0.1", "host.docker.internal",
+                  *filter(None, os.environ.get("VIBE_ALLOWED_HOSTS", "").split(","))}
+_MAX_BODY = 1_000_000
 
 
 class VibeServer:
@@ -765,6 +770,30 @@ class VibeServer:
                 self.send_header("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS")
                 self.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization")
 
+            def _guard(self) -> bool:
+                """Reject rebinding, cross-site and (when tunnelled) anonymous requests.
+
+                Returns True when the request may proceed; otherwise it has
+                already been answered.
+                """
+                host = (self.headers.get("Host") or "").rsplit(":", 1)[0].strip("[]").lower()
+                if host not in _ALLOWED_HOSTS:
+                    self._send_json({"error": "forbidden host"}, 403)
+                    return False
+                origin = self.headers.get("Origin")
+                if origin and origin != _ALLOWED_ORIGIN:
+                    self._send_json({"error": "forbidden origin"}, 403)
+                    return False
+                if self.command == "POST" and not (self.headers.get("Content-Type") or "").startswith("application/json"):
+                    # Cross-site "simple" requests (text/plain) skip CORS preflight.
+                    self._send_json({"error": "Content-Type must be application/json"}, 415)
+                    return False
+                if _os_environ_get("VIBE_TUNNEL") and not self._authorized():
+                    # Tunnelled means public: every endpoint needs the token.
+                    self._refuse()
+                    return False
+                return True
+
             def _authorized(self) -> bool:
                 """True only when VIBE_TOKEN is set and the request carries it."""
                 token = _os_environ_get("VIBE_TOKEN")
@@ -785,7 +814,7 @@ class VibeServer:
             # ── Request helpers ─────────────────────────────────────────────
 
             def _read_body(self) -> dict:
-                length = int(self.headers.get("Content-Length", 0))
+                length = min(int(self.headers.get("Content-Length", 0) or 0), _MAX_BODY)
                 raw = self.rfile.read(length) if length else b"{}"
                 try:
                     return json.loads(raw)
@@ -826,6 +855,8 @@ class VibeServer:
             # ── Route handlers ──────────────────────────────────────────────
 
             def do_GET(self) -> None:  # noqa: N802
+                if not self._guard():
+                    return
                 if self.path == "/session":
                     self._send_json(server.get_session())
                     return
@@ -883,6 +914,8 @@ class VibeServer:
                 self._send_json({"error": "not found"}, 404)
 
             def do_DELETE(self) -> None:  # noqa: N802
+                if not self._guard():
+                    return
                 if not self._authorized():
                     self._refuse()
                     return
@@ -896,6 +929,8 @@ class VibeServer:
                 self._send_json({"error": "not found"}, 404)
 
             def do_POST(self) -> None:  # noqa: N802
+                if not self._guard():
+                    return
                 body = self._read_body()
                 if self.path == "/bounce":
                     self._send_json(server.handle_bounce(body))
@@ -935,7 +970,6 @@ class VibeServer:
         print("  [vibe] GET  /self-improve/status   — poll job status")
         print("  [vibe] GET  /self-improve/stream   — SSE live progress stream")
         print("  [vibe] POST /restart               — detached self-restart")
-        print("  [vibe] POST /shell                 — execute a shell command (cwd: hands/)")
         print("  [vibe] POST /analyze               — spectral analysis: LUFS, FFT, energy bands (cached, supports ?fields)")
         print("  [vibe] POST /profile               — full ears AudioProfile: spectral + loudness + DCLAP embedding (subprocess)")
         if self._letta_client is None:

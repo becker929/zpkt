@@ -36,7 +36,10 @@ def stream(name):
             for _ in data:
                 pass
             continue
-        path = DATA / fname
+        path = (DATA / fname).resolve()
+        # Zip entry names come from a third party; refuse any that escape DATA.
+        if not path.is_relative_to(DATA.resolve()):
+            raise ValueError(f"unsafe path in archive: {fname!r}")
         path.parent.mkdir(parents=True, exist_ok=True)
         with open(path, "wb") as f:
             for c in data:

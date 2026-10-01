@@ -4,6 +4,10 @@ on:
     branches: [main]
   pull_request:
 
+# Least privilege: CI only reads the repo.
+permissions:
+  contents: read
+
 jobs:
   test:
     name: ${{ matrix.part }}
@@ -15,8 +19,35 @@ jobs:
         # fail if its output drifts from lib/contracts/.
         part: [hands, ears, ears/mlab, taste, engineer]
     steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v6
+      # Actions are pinned to commit SHAs (tags can be moved).
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6
       - name: Test ${{ matrix.part }}
         working-directory: ${{ matrix.part }}
         run: uv run pytest -q -p no:cacheprovider
+
+  hands-bridge-security:
+    # The MCP bridge tests need the optional mcp stack, which the default
+    # hands environment does not install.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6
+      - name: MCP bridge security tests
+        working-directory: hands
+        run: uv run --with "mcp>=1.26,<2" --with uvicorn --with starlette --with httpx pytest -q -p no:cacheprovider tests/test_mcp_bridge_security.py
+
+  audio-browser:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6
+      - name: Test (without the 3 GB segment extra)
+        working-directory: prototypes/audio-browser
+        run: uv run pytest -q -p no:cacheprovider --ignore tests/test_segment.py

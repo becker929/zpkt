@@ -34,6 +34,10 @@ def main():
     ap.add_argument("--from", dest="sender", default=os.environ.get("AGENT_NAME", "agent"))
     a = ap.parse_args()
     headers = {"Priority": LEVELS[a.level], "Title": a.title or f"[{a.level}] {a.sender}"}
+    # A topic name alone is security by obscurity: anyone who learns it can read
+    # alerts and inject Reminders. With an access-controlled topic, set NTFY_TOKEN.
+    if os.environ.get("NTFY_TOKEN"):
+        headers["Authorization"] = f"Bearer {os.environ['NTFY_TOKEN']}"
     if a.link:
         headers["Click"] = a.link
     req = urllib.request.Request(f"https://ntfy.sh/{topic()}", data=a.message.encode(), headers=headers, method="POST")

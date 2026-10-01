@@ -8,7 +8,9 @@ HERE="$(cd "$(dirname "$0")/.." && pwd)"
 source "$HERE/local.env"
 LIST="${REMINDERS_LIST:-Techno harness}"
 
-ntfy subscribe "$NTFY_TOPIC" | while read -r line; do
+# With an access-controlled topic, NTFY_TOKEN authenticates the subscription
+# (passed via the environment the ntfy CLI reads, not argv).
+NTFY_TOKEN="${NTFY_TOKEN:-}" ntfy subscribe "$NTFY_TOPIC" | while read -r line; do
   prio=$(printf '%s' "$line" | python3 -c 'import sys,json; m=json.load(sys.stdin); print(m.get("priority",3))' 2>/dev/null || echo 3)
   [ "${prio:-3}" -ge 4 ] || continue          # 4 = high, 5 = urgent
   title=$(printf '%s' "$line" | python3 -c 'import sys,json; m=json.load(sys.stdin); print(m.get("title") or "Techno harness")')

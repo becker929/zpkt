@@ -1,0 +1,69 @@
+# Copy to config.toml and edit. config.toml is git-ignored.
+#
+# db: where the SQLite index lives. Relative paths resolve against this file's
+# directory.
+db = "audio-browser.db"
+
+# Each [[roots]] entry is one tree to index. The name appears in reports. The
+# path is resolved through symlinks before it is walked, so an entry recorded
+# under "compost" stores its real location.
+#
+# Both roots are read-only. The scan never writes into them.
+
+[[roots]]
+name = "compost"
+path = "../compost"
+
+[[roots]]
+name = "audio-library"
+path = "../audio-library"
+
+# The HTTP API. Every key here has a default, so the whole table is optional.
+#
+# host binds broadly on purpose: 0.0.0.0 is what makes the Tailscale address
+# reach the server. There is no authentication, so the tailnet is the security
+# perimeter.
+#
+# frontend_port is only used to build the default CORS entries below. Set
+# cors_origins or cors_origin_regex to override them.
+
+[server]
+host = "0.0.0.0"
+port = 8090
+frontend_port = 3100
+
+# Projects and the board.
+#
+# Projects are JSON files in `dir`, one per project, and those files are the
+# truth. SQLite indexes them so the board can be drawn without opening every
+# one, but the index is a cache: if the two disagree, the files win and the
+# index is rebuilt from them.
+#
+# Two columns exist: `stored`, which is the swipe queue, and `collage`, which
+# has no view yet. `enrich` is in the plan and in the document schema and is not
+# a column, so naming it under `caps` is an error.
+#
+# `cap` is how many projects one column may hold. The default is 1. A second
+# uncommitted project in `stored` would mean choosing which project a swiped
+# sound goes into, and there is no such choice: one lane, one project, one
+# decision per sound. Going past a cap is possible, needs an explicit override,
+# and leaves the column visibly over its limit until the count comes back down.
+#
+# 0 is a real setting and closes a column.
+#
+# `encumbrance` is the number of sounds past which a project is marked as
+# carrying more material than a track needs. A hard techno track is a kick, a
+# rumble, a few percussive textures, two or three atmospheres and some impacts.
+# The mark is friction, not restriction: adding still works, and the mark clears
+# on its own when the count comes down.
+#
+# `schemas` holds the JSON Schema generated from frontend/lib/project.ts by
+# `npm run schema`. Python validates every project file against it, so neither
+# language keeps a second copy of the shape.
+
+[projects]
+dir = "projects"
+cap = 1
+encumbrance = 16
+# caps = { stored = 1, collage = 1 }
+# schemas = "schemas"
