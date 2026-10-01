@@ -1,0 +1,292 @@
+{
+  "file": {
+    "path": "/Users/anthonybecker/_agent_scratch/refs/HW002/KSMS - Roses Of Flesh And Blood.wav",
+    "sr": 48000,
+    "channels": 2,
+    "duration_s": 377.103,
+    "subtype": "PCM_24",
+    "format": "WAVEX",
+    "lossy": false
+  },
+  "loudness": {
+    "integrated": -7.23,
+    "momentary_max": -5.44,
+    "short_term_max": -5.7,
+    "lra": 8.24,
+    "lra_low": -14.12,
+    "lra_high": -5.88,
+    "sample_peak": -0.5,
+    "true_peak": -0.36,
+    "plr": 6.87,
+    "psr_min": 5.26
+  },
+  "dynamics": {
+    "crest_db": 7.9,
+    "plr_db": 6.87,
+    "psr_min_db": 5.26,
+    "k20_rms_db": 14.61,
+    "k14_rms_db": 8.61,
+    "lra_lu": 8.24,
+    "short_term_p95_minus_p10": 8.45,
+    "short_term_max_minus_integrated": 1.53,
+    "block_crest_median_db": 6.65,
+    "block_crest_p10_db": 6.51,
+    "block_crest_p90_db": 12.74,
+    "onsets": 596,
+    "transient_contrast_median_db": 3.98
+  },
+  "tonal": {
+    "slope_db_per_oct": -3.81,
+    "centroid_hz": 485.0,
+    "group.sub": -3.46,
+    "group.bass": -5.57,
+    "group.low_mid": -15.03,
+    "group.mid": -9.28,
+    "group.upper_mid": -14.82,
+    "group.presence": -16.57,
+    "group.air": -20.78
+  },
+  "third_octave": [
+    [
+      25.1,
+      -38.88
+    ],
+    [
+      31.6,
+      -30.75
+    ],
+    [
+      39.8,
+      -20.88
+    ],
+    [
+      50.1,
+      -14.47
+    ],
+    [
+      63.1,
+      -16.9
+    ],
+    [
+      79.4,
+      -21.19
+    ],
+    [
+      100.0,
+      -21.15
+    ],
+    [
+      125.9,
+      -24.64
+    ],
+    [
+      158.5,
+      -29.31
+    ],
+    [
+      199.5,
+      -26.84
+    ],
+    [
+      251.2,
+      -28.2
+    ],
+    [
+      316.2,
+      -29.3
+    ],
+    [
+      398.1,
+      -27.74
+    ],
+    [
+      501.2,
+      -26.15
+    ],
+    [
+      631.0,
+      -24.95
+    ],
+    [
+      794.3,
+      -24.23
+    ],
+    [
+      1000.0,
+      -25.97
+    ],
+    [
+      1258.9,
+      -25.83
+    ],
+    [
+      1584.9,
+      -26.5
+    ],
+    [
+      1995.3,
+      -27.3
+    ],
+    [
+      2511.9,
+      -27.68
+    ],
+    [
+      3162.3,
+      -28.36
+    ],
+    [
+      3981.1,
+      -29.74
+    ],
+    [
+      5011.9,
+      -29.8
+    ],
+    [
+      6309.6,
+      -29.23
+    ],
+    [
+      7943.3,
+      -29.91
+    ],
+    [
+      10000.0,
+      -33.68
+    ],
+    [
+      12589.3,
+      -37.69
+    ],
+    [
+      15848.9,
+      -42.68
+    ],
+    [
+      19952.6,
+      -48.75
+    ]
+  ],
+  "stereo": [
+    {
+      "band_hz": [
+        20,
+        120
+      ],
+      "correlation": 0.996,
+      "side_minus_mid_db": -26.88
+    },
+    {
+      "band_hz": [
+        120,
+        500
+      ],
+      "correlation": 0.85,
+      "side_minus_mid_db": -10.92
+    },
+    {
+      "band_hz": [
+        500,
+        2000
+      ],
+      "correlation": 0.203,
+      "side_minus_mid_db": -1.78
+    },
+    {
+      "band_hz": [
+        2000,
+        8000
+      ],
+      "correlation": 0.396,
+      "side_minus_mid_db": -3.64
+    },
+    {
+      "band_hz": [
+        8000,
+        20000
+      ],
+      "correlation": 0.302,
+      "side_minus_mid_db": -2.66
+    }
+  ],
+  "word_length": {
+    "container": "PCM_24",
+    "sample_rate": 48000,
+    "lossy": false,
+    "effective_bits": 24,
+    "dc_offset_dbfs": [
+      -63.56,
+      -63.25
+    ],
+    "dc_steady": true,
+    "dc_max_dbfs": -63.25,
+    "digital_zero_blocks_100ms": 2,
+    "quietest_blocks_dbfs": -93.51,
+    "reference_floors_dbfs_at_24_bits": {
+      "none": -149.27,
+      "rpdf": -146.26,
+      "tpdf": -144.49
+    },
+    "quiet_region_tilt_db": -42.11,
+    "verdict": "digital silence present and no floor elsewhere: undithered, or dither gated in silence"
+  },
+  "delivery": {
+    "integrated": -7.23,
+    "true_peak": -0.36,
+    "normalization": {
+      "youtube": {
+        "gain_db": -6.77,
+        "playback_lufs": -14.0,
+        "playback_true_peak": -7.13,
+        "note": "observed; applies to uploads incl. Shorts (assumed)"
+      },
+      "spotify": {
+        "gain_db": -6.77,
+        "playback_lufs": -14.0,
+        "playback_true_peak": -7.13,
+        "note": "documented by Spotify; up-gain limited by peak headroom"
+      },
+      "apple_music": {
+        "gain_db": -8.77,
+        "playback_lufs": -16.0,
+        "playback_true_peak": -9.13,
+        "note": "Sound Check; reported"
+      },
+      "tidal": {
+        "gain_db": -6.77,
+        "playback_lufs": -14.0,
+        "playback_true_peak": -7.13,
+        "note": "reported"
+      },
+      "amazon_music": {
+        "gain_db": -6.77,
+        "playback_lufs": -14.0,
+        "playback_true_peak": -7.13,
+        "note": "reported, varies"
+      },
+      "soundcloud": {
+        "gain_db": 0.0,
+        "playback_lufs": -7.23,
+        "playback_true_peak": -0.36,
+        "note": "no normalisation reported"
+      },
+      "instagram": {
+        "gain_db": 0.0,
+        "playback_lufs": -7.23,
+        "playback_true_peak": -0.36,
+        "note": "undocumented; measure a real upload"
+      },
+      "tiktok": {
+        "gain_db": 0.0,
+        "playback_lufs": -7.23,
+        "playback_true_peak": -0.36,
+        "note": "undocumented; measure a real upload"
+      }
+    },
+    "advice": [
+      "YouTube turns this down 6.77 dB; loudness above -14 LUFS buys nothing there",
+      "true peak above -1 dBTP: expect codec overs; lower the limiter ceiling"
+    ]
+  }
+}

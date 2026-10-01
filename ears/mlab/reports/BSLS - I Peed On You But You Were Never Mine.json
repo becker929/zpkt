@@ -1,0 +1,288 @@
+{
+  "file": {
+    "path": "/Users/anthonybecker/_agent_scratch/refs/HW002/BSLS - I Peed On You But You Were Never Mine.wav",
+    "sr": 44100,
+    "channels": 2,
+    "duration_s": 321.0,
+    "subtype": "PCM_16",
+    "format": "WAV",
+    "lossy": false
+  },
+  "loudness": {
+    "integrated": -4.34,
+    "momentary_max": -2.27,
+    "short_term_max": -2.94,
+    "lra": 6.06,
+    "lra_low": -9.09,
+    "lra_high": -3.03,
+    "sample_peak": -0.15,
+    "true_peak": -0.03,
+    "plr": 4.31,
+    "psr_min": 2.83
+  },
+  "dynamics": {
+    "crest_db": 5.79,
+    "plr_db": 4.31,
+    "psr_min_db": 2.83,
+    "k20_rms_db": 17.07,
+    "k14_rms_db": 11.07,
+    "lra_lu": 6.06,
+    "short_term_p95_minus_p10": 6.07,
+    "short_term_max_minus_integrated": 1.4,
+    "block_crest_median_db": 4.43,
+    "block_crest_p10_db": 4.25,
+    "block_crest_p90_db": 12.49,
+    "onsets": 194,
+    "transient_contrast_median_db": 4.98
+  },
+  "tonal": {
+    "slope_db_per_oct": -4.47,
+    "centroid_hz": 536.0,
+    "group.sub": -5.66,
+    "group.bass": -3.43,
+    "group.low_mid": -10.95,
+    "group.mid": -10.2,
+    "group.upper_mid": -14.03,
+    "group.presence": -16.3,
+    "group.air": -20.51
+  },
+  "third_octave": [
+    [
+      25.1,
+      -35.88
+    ],
+    [
+      31.6,
+      -31.87
+    ],
+    [
+      39.8,
+      -21.61
+    ],
+    [
+      50.1,
+      -14.79
+    ],
+    [
+      63.1,
+      -15.04
+    ],
+    [
+      79.4,
+      -14.19
+    ],
+    [
+      100.0,
+      -19.69
+    ],
+    [
+      125.9,
+      -18.15
+    ],
+    [
+      158.5,
+      -20.1
+    ],
+    [
+      199.5,
+      -19.34
+    ],
+    [
+      251.2,
+      -21.05
+    ],
+    [
+      316.2,
+      -22.41
+    ],
+    [
+      398.1,
+      -22.09
+    ],
+    [
+      501.2,
+      -23.04
+    ],
+    [
+      631.0,
+      -24.4
+    ],
+    [
+      794.3,
+      -22.83
+    ],
+    [
+      1000.0,
+      -23.62
+    ],
+    [
+      1258.9,
+      -25.39
+    ],
+    [
+      1584.9,
+      -23.86
+    ],
+    [
+      1995.3,
+      -25.02
+    ],
+    [
+      2511.9,
+      -24.19
+    ],
+    [
+      3162.3,
+      -25.14
+    ],
+    [
+      3981.1,
+      -25.61
+    ],
+    [
+      5011.9,
+      -26.11
+    ],
+    [
+      6309.6,
+      -27.83
+    ],
+    [
+      7943.3,
+      -29.35
+    ],
+    [
+      10000.0,
+      -30.38
+    ],
+    [
+      12589.3,
+      -32.72
+    ],
+    [
+      15848.9,
+      -35.91
+    ]
+  ],
+  "stereo": [
+    {
+      "band_hz": [
+        20,
+        120
+      ],
+      "correlation": 0.971,
+      "side_minus_mid_db": -18.32
+    },
+    {
+      "band_hz": [
+        120,
+        500
+      ],
+      "correlation": 0.901,
+      "side_minus_mid_db": -12.83
+    },
+    {
+      "band_hz": [
+        500,
+        2000
+      ],
+      "correlation": 0.695,
+      "side_minus_mid_db": -7.45
+    },
+    {
+      "band_hz": [
+        2000,
+        8000
+      ],
+      "correlation": 0.543,
+      "side_minus_mid_db": -5.27
+    },
+    {
+      "band_hz": [
+        8000,
+        20000
+      ],
+      "correlation": 0.5,
+      "side_minus_mid_db": -4.77
+    }
+  ],
+  "word_length": {
+    "container": "PCM_16",
+    "sample_rate": 44100,
+    "lossy": false,
+    "effective_bits": 16,
+    "dc_offset_dbfs": [
+      -54.03,
+      -48.49
+    ],
+    "dc_steady": true,
+    "dc_max_dbfs": -48.49,
+    "digital_zero_blocks_100ms": 0,
+    "quietest_blocks_dbfs": -66.44,
+    "reference_floors_dbfs_at_16_bits": {
+      "none": -101.1,
+      "rpdf": -98.09,
+      "tpdf": -96.33
+    },
+    "quiet_region_tilt_db": -19.58,
+    "verdict": "programme never gets quiet enough to see the floor: dither not observable (masked); DC offset -48.49 dBFS: high-pass or DC-block before mastering"
+  },
+  "delivery": {
+    "integrated": -4.34,
+    "true_peak": -0.03,
+    "normalization": {
+      "youtube": {
+        "gain_db": -9.66,
+        "playback_lufs": -14.0,
+        "playback_true_peak": -9.69,
+        "note": "observed; applies to uploads incl. Shorts (assumed)"
+      },
+      "spotify": {
+        "gain_db": -9.66,
+        "playback_lufs": -14.0,
+        "playback_true_peak": -9.69,
+        "note": "documented by Spotify; up-gain limited by peak headroom"
+      },
+      "apple_music": {
+        "gain_db": -11.66,
+        "playback_lufs": -16.0,
+        "playback_true_peak": -11.69,
+        "note": "Sound Check; reported"
+      },
+      "tidal": {
+        "gain_db": -9.66,
+        "playback_lufs": -14.0,
+        "playback_true_peak": -9.69,
+        "note": "reported"
+      },
+      "amazon_music": {
+        "gain_db": -9.66,
+        "playback_lufs": -14.0,
+        "playback_true_peak": -9.69,
+        "note": "reported, varies"
+      },
+      "soundcloud": {
+        "gain_db": 0.0,
+        "playback_lufs": -4.34,
+        "playback_true_peak": -0.03,
+        "note": "no normalisation reported"
+      },
+      "instagram": {
+        "gain_db": 0.0,
+        "playback_lufs": -4.34,
+        "playback_true_peak": -0.03,
+        "note": "undocumented; measure a real upload"
+      },
+      "tiktok": {
+        "gain_db": 0.0,
+        "playback_lufs": -4.34,
+        "playback_true_peak": -0.03,
+        "note": "undocumented; measure a real upload"
+      }
+    },
+    "advice": [
+      "YouTube turns this down 9.66 dB; loudness above -14 LUFS buys nothing there",
+      "true peak above -1 dBTP: expect codec overs; lower the limiter ceiling"
+    ]
+  }
+}
