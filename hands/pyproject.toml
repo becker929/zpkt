@@ -11,7 +11,6 @@ dependencies = [
 
 [project.optional-dependencies]
 vibe = [
-    "letta>=0.6.0",
     "librosa>=0.10.0",
     "mcp>=1.26.0,<2",  # 2.x renamed FastMCP
     "pyloudnorm>=0.1.1",
