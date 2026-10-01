@@ -27,7 +27,7 @@ segment = [
     "numpy>=1.26",
     "tensorflow>=2.16",
     "tensorflow-hub>=0.16",
-    "setuptools<81",
+    "setuptools<84",
     "torch>=2.2",
     "transformers>=4.40",
     "silero-vad>=5.1",
