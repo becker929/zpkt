@@ -14,6 +14,9 @@ Beside the spine:
 
 - [`humming/`](humming/) turns a hummed idea into production data (notes,
   tempo, key). It is its own product and feeds `hands`.
+- [`prototypes/`](prototypes/) holds experiments not yet on the release
+  path: the audio browser (listen through a sound library once, decide what
+  each sound is for) and its collage editor.
 - [`lib/`](lib/) is shared infrastructure, first class in the design:
   - [`lib/rig/`](lib/rig/): the Live runtime — headless display, startup,
     preflight.
@@ -57,6 +60,10 @@ Two rules keep the parts honest:
 | `taste/` | github.com/becker929/taste (+ taste2 prototype) | preference judge, pick corpus |
 | `engineer/` | taste's loop, the lab's hypothesis runner, autodaw's GA | `engineer loop`, `engineer hyp run` |
 | `humming/` | anthonybecker.me research copy | transcriber and HumTrans benchmarks |
+| `prototypes/audio-browser/` | autodaw `feature/audio-browser` | sound-library triage and collage |
+
+The source repos (hands, ears, taste, taste2-prototype, autodaw,
+hammerspoon-config) are archived, each with a README pointing here.
 
 Every import kept its git history (`git log -- <path>` goes back to 2025).
 Audio, models and databases were stripped from history and stay out of git.
@@ -81,6 +88,13 @@ cd hands && uv run pytest
 
 CI runs every part's tests on each push, including contract tests that fail
 if a part's output drifts from `lib/contracts/`.
+
+## Security
+
+Every service listens on loopback only and needs a secret; agents acting on
+outside input run with least privilege. See [SECURITY.md](SECURITY.md) for
+the services, their guards and the tokens to set (`MCP_BRIDGE_TOKEN`,
+`LETTA_API_KEY`, `VIBE_TOKEN`).
 
 ## Working rules
 
