@@ -17,6 +17,8 @@ Loose ends as of 30 September 2026. Remove items as they close.
 - [ ] Document the forced rescan in the same skill.
   A plain rescan skips plugins that failed before.
   `touch` the binary in `Contents/MacOS`, then press Rescan.
+- [ ] Install ffmpeg on the Mac mini (`brew install ffmpeg`).
+  Without it, `mlab calibrate` skips 11 of 94 checks (codec round-trips).
 - [ ] Install Hammerspoon and grant it Accessibility access.
   The A/B and spectrum hotkeys depend on it.
 
