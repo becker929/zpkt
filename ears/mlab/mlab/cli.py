@@ -159,14 +159,80 @@ def cmd_als(a):
         print("  ! " + f)
 
 
+def _ref_paths(folder):
+    return [p for p in sorted(glob.glob(os.path.join(folder, "*")))
+            if os.path.splitext(p)[1].lower() in (".wav", ".aif", ".aiff", ".flac", ".mp3", ".m4a")]
+
+
 def cmd_refs(a):
+    if a.peaks:
+        return _refs_peaks(a)
     from . import compare, measure
     t = measure.flat(measure.sheet(aio.load(a.file)))
-    refs = {}
-    for p in sorted(glob.glob(os.path.join(a.refs, "*"))):
-        if os.path.splitext(p)[1].lower() in (".wav", ".aif", ".aiff", ".flac", ".mp3", ".m4a"):
-            refs[_stem(p)[:18]] = measure.flat(measure.sheet(aio.load(p)))
+    refs = {_stem(p)[:18]: measure.flat(measure.sheet(aio.load(p))) for p in _ref_paths(a.refs)}
     print(compare.refs_table(t, refs, measure.CORE_KEYS))
+
+
+def _refs_peaks(a):
+    """Section-aware comparison: structure, then peak window against peak window."""
+    import numpy as np
+    import soundfile as sf
+    from . import loudness as L
+    from . import sections as SE
+
+    def load(p):
+        au = aio.load(p)
+        an = SE.analyze(au.x, au.sr)
+        prof = SE.peak_profile(au.x, au.sr, an["bpm"], an["peak_bars"]) if an["peak_bars"] else None
+        return au, an, prof
+
+    tgt = load(a.file)
+    refs = {_stem(p)[:18]: load(p) for p in _ref_paths(a.refs)}
+    rows = {"TARGET " + _stem(a.file)[:11]: tgt, **refs}
+    out = {"structure": {k: v[1] for k, v in rows.items()}}
+
+    print("Structure (bars, 1-based)\n")
+    print(f"{'track':<19}{'BPM':>7}{'bars':>6}  {'main break':<12}{'peak':<12}{'drop vs peak':>13}  peak after break")
+    for k, (_, an, _) in rows.items():
+        print(f"{k:<19}{an['bpm']:>7.2f}{an['bars']:>6}  {str(an['main_break']):<12}{str(an['peak_bars']):<12}"
+              f"{an['drop_vs_peak_high_db'] if an['drop_vs_peak_high_db'] is not None else '-':>13}  {an['peak_after_main_break']}")
+
+    tp = tgt[2]
+    rp = {k: v[2] for k, v in refs.items() if v[2]}
+    if tp and rp:
+        print("\nPeak window, level-independent\n")
+        print(f"{'track':<19}{'LUFS':>7}{'crest':>7}{'corr<120':>10}{'S-M<120':>9}")
+        for k, (_, _, p) in rows.items():
+            if p:
+                print(f"{k:<19}{p['lufs']:>7.2f}{p['crest_median_db']:>7.2f}{p['low_corr']:>10.3f}{p['low_side_minus_mid_db']:>9.1f}")
+        fc = [c for c, _ in tp["third_octave_rel"]]
+        tv = np.array([v for _, v in tp["third_octave_rel"]])
+        R = np.array([[v for _, v in p["third_octave_rel"][:len(fc)]] for p in rp.values()])
+        d = tv[None, :R.shape[1]] - R
+        print("\nTarget minus each reference, 1/3 octave, equal total energy (dB)\n")
+        print(f"{'Hz':>7}" + "".join(f"{k[:9]:>10}" for k in rp) + f"{'mean':>8}  flag")
+        bands = []
+        for i in range(d.shape[1]):
+            col = d[:, i]
+            flag = "below all" if col.max() < -2 else "above all" if col.min() > 2 else ""
+            bands.append({"hz": fc[i], "diff": [round(float(v), 2) for v in col], "mean": round(float(col.mean()), 2), "flag": flag})
+            print(f"{fc[i]:>7.0f}" + "".join(f"{v:>10.1f}" for v in col) + f"{col.mean():>8.1f}  {flag}")
+        out["peak"] = {k: {kk: vv for kk, vv in p.items() if kk != "third_octave_rel"} for k, (_, _, p) in rows.items() if p}
+        out["third_octave_diff"] = bands
+
+    if a.excerpts:
+        os.makedirs(a.excerpts, exist_ok=True)
+        for k, (au, an, _) in rows.items():
+            if not an["peak_bars"]:
+                continue
+            seg = SE.excerpt(au.x, au.sr, an["bpm"], an["peak_bars"])
+            seg = seg * 10 ** ((a.target - L.integrated(seg, au.sr)) / 20)
+            path = os.path.join(a.excerpts, f"{k.replace('TARGET ', '')} - peak {an['peak_bars'][0]}-{an['peak_bars'][1]} - {a.target:g}LUFS.wav")
+            sf.write(path, seg, au.sr, subtype="PCM_24")
+        print(f"\nlevel-matched peak excerpts -> {a.excerpts}")
+    if a.json:
+        with open(a.json, "w") as f:
+            json.dump(out, f, indent=1)
 
 
 def cmd_review(a):
@@ -216,7 +282,12 @@ def main(argv=None):
     add("review", cmd_review, F, (["--refs"], {"default": os.path.join(LAB, "audio", "refs")}),
         (["--bpm"], {"type": float, "default": 160.0}), (["--no-codecs"], {"action": "store_true"}),
         help="one-shot premaster review with feedback")
-    add("refs", cmd_refs, F, (["refs"], {}), help="compare with a folder of references")
+    add("refs", cmd_refs, F, (["refs"], {}),
+        (["--peaks"], {"action": "store_true", "help": "structure + peak window vs peak window"}),
+        (["--excerpts"], {"help": "with --peaks: write level-matched peak excerpts here"}),
+        (["--target"], {"type": float, "default": -14.0, "help": "excerpt loudness (LUFS)"}),
+        (["--json"], {"help": "with --peaks: write results to this JSON file"}),
+        help="compare with a folder of references")
     add("calibrate", cmd_calibrate, (["--quick"], {"action": "store_true"}), help="run known-answer checks")
     a = p.parse_args(argv)
     a.fn(a)

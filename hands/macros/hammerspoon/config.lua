@@ -25,4 +25,13 @@ return {
   hotkeys = {
     activate = { mods = {"ctrl", "alt", "cmd"}, key = "m" },
   },
+
+  -- A/B against "REF ..." tracks and the master Spectrum (modules/ab-hotkeys.lua).
+  ab = {
+    bin            = os.getenv("HOME") .. "/Desktop/zpkt/hands/.venv/bin/hands",
+    toggle         = { mods = {"ctrl", "alt", "cmd"}, key = "a" },  -- mix <-> reference
+    toggleSpectrum = { mods = {"ctrl", "alt", "cmd"}, key = "d" },  -- A/B and show Spectrum
+    spectrum       = { mods = {"ctrl", "alt", "cmd"}, key = "s" },  -- Spectrum on/off
+    next           = { mods = {"ctrl", "alt", "cmd"}, key = "n" },  -- next reference
+  },
 }

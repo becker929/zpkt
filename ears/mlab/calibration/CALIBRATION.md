@@ -1,7 +1,7 @@
 # Calibration report
 
-Generated 2026-09-26 08:01 by `python3 -m mlab calibrate`.
-**94 / 94 checks pass.**
+Generated 2026-10-01 09:27 by `python3 -m mlab calibrate`.
+**99 / 99 checks pass.**
 
 Basis: EBU-3341/3342 and BS.1770 = published test cases, re-synthesised; analytic = closed-form; self-consistency = recovers a known processor; cross-check = independent implementation; planted fault = a defect inserted on purpose.
 
@@ -84,11 +84,20 @@ Basis: EBU-3341/3342 and BS.1770 = published test cases, re-synthesised; analyti
 | compare | ABX: P(>=9 of 12 by guessing) | 0.073 | 0.073 | 0.0001 | ✅ | analytic |
 | delivery | YouTube gain for a -8 LUFS master | -6.0 | -6.0 | 1e-09 | ✅ | platform model |
 | delivery | YouTube leaves a -20 LUFS master alone | 0.0 | 0.0 | 1e-09 | ✅ | platform model |
-| delivery | AAC round-trip time-aligned (correlation below 4 kHz) | 1.0 | 0.9939 | 0.02 | ✅ | self-consistency |
+| delivery | AAC round-trip time-aligned (correlation below 4 kHz) | 1.0 | 0.9913 | 0.02 | ✅ | self-consistency |
 | als | Live 12 set: tempo read from MainTrack | 120.0 | 120.0 | 0 | ✅ | fixture |
 | als | Live 10 set: tempo read from MasterTrack | 140.0 | 140.0 | 0 | ✅ | fixture |
 | als | planted Limiter on main bus is flagged | True | True | 0 | ✅ | planted fault |
 | als | planted switched-off Decapitator is flagged | True | True | 0 | ✅ | planted fault |
+| sections | tempo of a 157.3 BPM song (BPM) | 157.3 | 157.28 | 0.05 | ✅ | analytic |
+| sections | break found at bars [9, 16] (157.3 BPM) | [9, 16] | [9, 16] | 0 | ✅ | analytic |
+| sections | peak window = densest [25, 44] (157.3 BPM) | [25, 44] | [25, 44] | 0 | ✅ | analytic |
+| sections | drop vs peak highs, hats +6.02 dB in peak (157.3 BPM) | -6.02 | -6.0 | 0.5 | ✅ | analytic |
+| sections | tempo of a 140.0 BPM song (BPM) | 140.0 | 140.03 | 0.05 | ✅ | analytic |
+| sections | break found at bars [9, 16] (140.0 BPM) | [9, 16] | [9, 16] | 0 | ✅ | analytic |
+| sections | peak window = densest [25, 42] (140.0 BPM) | [25, 42] | [25, 42] | 0 | ✅ | analytic |
+| sections | drop vs peak highs, hats +6.02 dB in peak (140.0 BPM) | -6.02 | -6.0 | 0.5 | ✅ | analytic |
+| sections | peak window survives a one-bar kick dropout | [25, 43] | [25, 43] | 0 | ✅ | planted fault |
 | loudness | integrated vs pyloudnorm: pink -20 dBFS | -18.8389 | -18.7973 | 0.1 | ✅ | cross-check |
 | loudness | integrated vs ffmpeg ebur128: pink -20 dBFS | -18.8 | -18.7973 | 0.2 | ✅ | cross-check |
 | loudness | LRA vs ffmpeg ebur128: pink -20 dBFS | 0.0 | 0.056 | 0.5 | ✅ | cross-check |
@@ -97,7 +106,3 @@ Basis: EBU-3341/3342 and BS.1770 = published test cases, re-synthesised; analyti
 | loudness | integrated vs ffmpeg ebur128: EBU 3342 case 4 | -24.5 | -24.4919 | 0.2 | ✅ | cross-check |
 | loudness | LRA vs ffmpeg ebur128: EBU 3342 case 4 | 15.0 | 15.0 | 0.5 | ✅ | cross-check |
 | true peak | TP vs ffmpeg ebur128: EBU 3342 case 4 | -20.0 | -20.0 | 0.3 | ✅ | cross-check |
-| loudness | integrated vs pyloudnorm: HW002_1min-2026-08-13T2107.mp3 | -13.8824 | -13.8408 | 0.1 | ✅ | cross-check |
-| loudness | integrated vs ffmpeg ebur128: HW002_1min-2026-08-13T2107.mp3 | -13.8 | -13.8408 | 0.2 | ✅ | cross-check |
-| loudness | LRA vs ffmpeg ebur128: HW002_1min-2026-08-13T2107.mp3 | 2.1 | 2.0801 | 0.5 | ✅ | cross-check |
-| true peak | TP vs ffmpeg ebur128: HW002_1min-2026-08-13T2107.mp3 | -0.5 | -0.4827 | 0.3 | ✅ | cross-check |

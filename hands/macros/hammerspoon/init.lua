@@ -4,6 +4,9 @@ local workspace   = require("modules.tidy-music-workspace")
 local autoExport  = require("modules.auto-export")
 local autoBackup  = require("modules.auto-backup")
 local menubar     = require("modules.menubar")
+local abHotkeys   = require("modules.ab-hotkeys")
+
+abHotkeys.bind(config.ab)
 
 autoBackup.start(config.autoBackup)
 

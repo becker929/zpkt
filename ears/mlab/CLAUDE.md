@@ -26,6 +26,7 @@ python3 -m mlab bitdepth FILE             # effective bits, dither detection, DC
 python3 -m mlab spectrum FILE [--ref R]   # 1/3-octave tonal balance, optional vs reference
 python3 -m mlab eq-diff DRY WET           # the EQ curve a device actually applied
 python3 -m mlab comp-probe DRY WET        # gain-reduction curve, threshold/ratio/attack/release estimate
+python3 -m mlab refs FILE DIR [--peaks]   # vs a folder of references; --peaks: tempo, breaks, peak window vs peak window
 python3 -m mlab match A B [...]           # write loudness-matched copies to audio/renders/
 python3 -m mlab abx A B                   # blind ABX session files + answer key
 python3 -m mlab kcal                      # K-System pink-noise calibration files

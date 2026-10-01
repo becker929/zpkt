@@ -48,3 +48,7 @@ Terms used in this lab, in plain words. Standards named in brackets.
 | **Transfer function** | What a device does to each frequency; `eq-diff` measures it from dry and wet files. |
 | **Truncation** | Cutting off low bits without dither. Makes distortion on quiet material. |
 | **Word length** | Bit depth: 16, 24 or 32-bit float. |
+
+**Peak window.** The ~30 s stretch, on the bar grid, with the most 2–16 kHz energy while the kick plays. `mlab refs --peaks` compares peak windows so intros and breaks do not dilute the comparison.
+
+**Kickless run.** Two or more bars whose sub-100 Hz energy is at least 8 dB under the track median. The longest one after the intro is the main break.

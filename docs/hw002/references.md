@@ -118,5 +118,8 @@ Items 1–6 come from the old HW002 vs *Lethal Storm* notes.
 
 ## Reproduce
 
-Scratch scripts `refs_analyze.py` and the peak extraction ran with `uv run --with librosa` inside `ears/mlab`.
-They should move into `ears/mlab` as a `mlab refs` command with a known-answer test.
+```
+uv run python -m mlab refs HW002.wav REFS_DIR --peaks --excerpts OUT_DIR
+```
+
+Run it inside `ears/mlab`. Known-answer checks for tempo, breaks and peak windows are in `calibration/checks.py` (`check_sections`).

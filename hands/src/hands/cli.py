@@ -148,6 +148,50 @@ def record(
 
 
 @app.command()
+def ab(
+    action: str = typer.Argument("toggle", help="toggle | next | status"),
+    spectrum: bool = typer.Option(False, "--spectrum", help="Also show the master Spectrum."),
+    host: str = typer.Option("127.0.0.1", "--host", help="Ableton MCP server host."),
+    port: int = typer.Option(16619, "--port", help="Ableton MCP server port."),
+) -> None:
+    """A/B the mix against the current reference track (tracks named "REF ...")."""
+    from hands import ab as ab_mod
+    from hands.transport import LiveMcpTransport
+
+    transport = LiveMcpTransport(host=host, port=port)
+    actions = {
+        "toggle": lambda: ab_mod.toggle(transport, spectrum=spectrum),
+        "next": lambda: ab_mod.next_ref(transport),
+        "status": lambda: ab_mod.status(transport),
+    }
+    if action not in actions:
+        console.print(f"[red]unknown action {action!r}: use toggle, next or status[/red]")
+        raise typer.Exit(2)
+    try:
+        print(json.dumps(actions[action]()))
+    except RuntimeError as exc:
+        console.print(f"[red]{exc}[/red]")
+        raise typer.Exit(1)
+
+
+@app.command("spectrum")
+def spectrum_cmd(
+    show: bool = typer.Option(False, "--show", help="Always show; never hide."),
+    host: str = typer.Option("127.0.0.1", "--host", help="Ableton MCP server host."),
+    port: int = typer.Option(16619, "--port", help="Ableton MCP server port."),
+) -> None:
+    """Toggle the master Spectrum analyzer in Live's detail view."""
+    from hands import ab as ab_mod
+    from hands.transport import LiveMcpTransport
+
+    try:
+        print(json.dumps(ab_mod.spectrum(LiveMcpTransport(host=host, port=port), toggle=not show)))
+    except RuntimeError as exc:
+        console.print(f"[red]{exc}[/red]")
+        raise typer.Exit(1)
+
+
+@app.command()
 def ableton_mcp(
     bridge_port: int = typer.Option(9010, "--bridge-port", help="Port for the MCP bridge HTTP server."),
     mcp_host: str = typer.Option("127.0.0.1", "--mcp-host", help="Ableton TCP host."),
