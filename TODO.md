@@ -32,9 +32,13 @@ Center (COLDFIRE), SSL Download Manager (FlexVerb), Kilohearts Installer.
 - [ ] Open interview items 7, 8, 9 and 11 wait on the references.
   They cover section choice, the bar-81 hit, pending mix changes and the loudness target.
 - [ ] Item 12 is open: who masters.
-- [ ] Replace the pre-plugin 30 s experiment on /skrng, or label it as such.
+- [ ] Remove or relabel the pre-plugin 30 s experiment on /skrng.
+  The 60 s demo with all plugins is published as `2026-09-30-hw002-60s-demo`.
+  Its set is `~/_agent_scratch/HW002/HW002_121_60s.als`.
 
 ## Repo
+
+- [ ] Triage Dependabot alerts on main: 228 open (7 critical, 112 high).
 
 - [ ] Commit Anthony's interview answers next to
   `docs/interviews/2026-09-30-what-next.md`.
