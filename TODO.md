@@ -28,6 +28,8 @@ Center (COLDFIRE), SSL Download Manager (FlexVerb), Kilohearts Installer.
 - [x] References bought, loaded into `HW002_121_refs.als`, level-matched at −14 LUFS.
   Comparison and rubric seed: `docs/hw002/references.md`.
 - [ ] Anthony listens against the rubric seed and corrects it.
+- [ ] Arrangement references: listen to the label previews in `docs/hw002/arrangement-references.md`.
+  Start with KSMS (vs the full *Roses*) and Remon Verhoeve's *Contradiction*.
 - [ ] A/B hotkeys are built (`hands ab`, `hands spectrum`, Hammerspoon ⌃⌥⌘ A/D/S/N).
   Hammerspoon is installed but waits on a first-launch prompt on screen.
 - [ ] Mix fixes the references point to: mono below 120 Hz, restore 25–40 Hz, lift 1–3.2 kHz, tame ~10 kHz, denser drum bus.
