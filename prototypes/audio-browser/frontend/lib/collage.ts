@@ -1,0 +1,1069 @@
+/**
+ * The collage's geometry, as pure functions.
+ *
+ * Time runs down the screen and tracks run across it. Everything here turns a
+ * tap into a region, a region into a box, or a drag into a trim, a snip, a
+ * stretch or a move, and nothing here touches the DOM, the network, or a
+ * clock. The view is the effectful shell around this.
+ *
+ * No grid. A tap lands where it lands, to the millisecond, and the only thing
+ * that moves it is another region already sitting there. No number of seconds
+ * leaves this module as text: the view draws every value as a length or a
+ * position.
+ */
+
+import { onBoard, type ProjectSummary, type Region } from "./project";
+
+/**
+ * The project in `collage`, or null when there is none.
+ *
+ * At a cap of one there is exactly one. On a board running looser, the most
+ * recently started one is the bench, as it is for swipe. An abandoned project
+ * keeps the column it left and is not here: `onBoard` is the test.
+ */
+export function collageProject(projects: readonly ProjectSummary[] | null): ProjectSummary | null {
+  if (!projects) return null;
+  const here = projects.filter((p) => p.column === "collage" && onBoard(p));
+  if (here.length === 0) return null;
+  return here.reduce((newest, p) => (p.created_at > newest.created_at ? p : newest));
+}
+
+/**
+ * How tall one second is.
+ *
+ * Ten pixels a second puts the shortest sound in HW011 (six seconds) at a
+ * thumb's height and the longest (fifteen minutes) at nine thousand pixels,
+ * which is a scroll and not a problem: scrolling through time is the gesture a
+ * thumb already knows on a phone held upright.
+ */
+export const PX_PER_S = 10;
+
+/**
+ * How wide one track is.
+ *
+ * Wide enough for a thumb with room either side of it, and narrow enough that
+ * three sit across a phone. A track is a column; the column beside the last
+ * one is where the next track comes into being.
+ */
+export const TRACK_W = 128;
+
+/**
+ * How tall a handle is: a thumb.
+ *
+ * A region is drawn at its true length, and a one-second region is ten pixels
+ * of sound. Ten pixels cannot be trimmed with a thumb, so each end of a region
+ * carries a handle this tall, drawn outside the region's own extent. The
+ * handle is the affordance; the box is the truth.
+ */
+export const HANDLE_H = 44;
+
+/**
+ * Blank above the first moment.
+ *
+ * A thumb and a little: the first region's top handle sits in it, so trimming
+ * the start of the first sound is as easy as trimming any other end.
+ */
+export const TOP_PAD = 56;
+
+/**
+ * Blank below the last region, so there is somewhere to stamp after it.
+ *
+ * A minute of it: the furthest a stamp or a move can go past the last region
+ * in one gesture, and a longer gap takes a second one. This is room, not a
+ * ruler: nothing is drawn in it, and it does not
+ * read as an invitation to fill because there is nothing there to fill. The
+ * view also keeps the blank at least as tall as the canvas itself.
+ */
+export const BEYOND_PX = 600;
+
+/**
+ * The shortest cut, in source seconds.
+ *
+ * A quarter of a second. Under that a region is a click rather than a sound:
+ * too short to carry any of the noise and texture this material is made of,
+ * and short enough that the slice the server cuts for it is a few thousand
+ * frames of nothing much. A trim stops here rather than letting a drag run a
+ * region down to nothing, and so no drag can ever write a cut the server
+ * refuses (one that ends before it begins).
+ */
+export const MIN_REGION_S = 0.25;
+
+/** Which end of a region a handle belongs to. */
+export type End = "start" | "end";
+
+/** How many tracks exist. A track exists because something was stamped there. */
+export function trackCount(regions: readonly Region[]): number {
+  let count = 0;
+  for (const region of regions) count = Math.max(count, region.track + 1);
+  return count;
+}
+
+/**
+ * How many times a region's material sounds. One for a region written before
+ * loops existed, or by a tool that wrote something that is not a count.
+ */
+export function loopsOf(region: Partial<Pick<Region, "loops">>): number {
+  const loops = region.loops;
+  return typeof loops === "number" && Number.isInteger(loops) && loops >= 1 ? loops : 1;
+}
+
+/**
+ * How long one repeat of a region's material sounds for, after its rate.
+ *
+ * This is the material, once. Trim, snip and the waveform all work in this
+ * length, because a repeat is the same material coming round again and there
+ * is only ever one cut to change.
+ */
+export function repeatLengthS(region: Pick<Region, "start_s" | "end_s" | "rate">): number {
+  return Math.max(0, region.end_s - region.start_s) / (region.rate > 0 ? region.rate : 1);
+}
+
+/**
+ * How long a region sounds for altogether: one repeat, `loops` times.
+ *
+ * This is the footprint — what the box is tall, what a neighbour on the track
+ * has to sit clear of, and how far the piece runs on because of this region.
+ */
+export function regionLengthS(region: Pick<Region, "start_s" | "end_s" | "rate"> & Partial<Pick<Region, "loops">>): number {
+  return repeatLengthS(region) * loopsOf(region);
+}
+
+/** When the last region stops sounding. Zero for an empty collage. */
+export function extentS(regions: readonly Region[]): number {
+  let end = 0;
+  for (const region of regions) end = Math.max(end, region.at_s + regionLengthS(region));
+  return end;
+}
+
+/** The box a region is drawn in, in pixels inside the canvas. */
+export interface RegionBox {
+  left: number;
+  top: number;
+  width: number;
+  height: number;
+}
+
+/**
+ * Where a region is drawn. Height is duration, exactly.
+ *
+ * Nothing pads a short region up to a thumb: two short cuts of different
+ * lengths look different, and once a region can be trimmed its box has to
+ * tell the truth about what the trim did. The handles are what make a short
+ * region reachable, and they sit outside this box.
+ */
+export function regionBox(region: Region): RegionBox {
+  return {
+    left: region.track * TRACK_W,
+    top: TOP_PAD + region.at_s * PX_PER_S,
+    width: TRACK_W,
+    height: regionLengthS(region) * PX_PER_S,
+  };
+}
+
+/**
+ * How big the canvas has to be.
+ *
+ * One column more than there are tracks, so there is always a place to stamp
+ * beside the last one, and one screen more than there is time, so there is
+ * always a place to stamp after the last region. Both are blank.
+ */
+export function canvasSize(regions: readonly Region[]): { width: number; height: number } {
+  return {
+    width: (trackCount(regions) + 1) * TRACK_W,
+    height: TOP_PAD + extentS(regions) * PX_PER_S + BEYOND_PX,
+  };
+}
+
+/**
+ * Which track and which moment a tap means.
+ *
+ * The track is the column under the thumb, capped at the column beside the
+ * last track: on an empty canvas every tap is track zero, and once tracks
+ * exist a tap past all of them makes one more, never two. The moment is the
+ * tap's height in seconds, except that the first stamp always starts time at
+ * zero — time exists because a sound was stamped into it, and the first sound
+ * is where it begins.
+ */
+export function placementAt(
+  regions: readonly Region[],
+  x: number,
+  y: number,
+): { track: number; at_s: number } {
+  const track = Math.max(0, Math.min(Math.floor(x / TRACK_W), trackCount(regions)));
+  const at_s = regions.length === 0 ? 0 : Math.max(0, (y - TOP_PAD) / PX_PER_S);
+  return { track, at_s: round3(at_s) };
+}
+
+/**
+ * The first moment at or after `at_s` where a region this long fits on the
+ * track without overlapping one already there.
+ *
+ * Regions on one track do not overlap. Two blocks in one lane cannot both be
+ * tapped, so a stamp that would land on top of a neighbour slides down to sit
+ * right after it. Simultaneity is what a second track is for. Overlap is
+ * measured in sound: boxes are drawn at true length, so the sound's gap is
+ * the box's gap.
+ */
+export function settle(regions: readonly Region[], track: number, at_s: number, length_s: number): number {
+  const lane = regions
+    .filter((region) => region.track === track)
+    .map((region) => ({ from: region.at_s, to: region.at_s + regionLengthS(region) }))
+    .sort((a, b) => a.from - b.from);
+  let at = at_s;
+  for (const other of lane) {
+    if (at < other.to && at + length_s > other.from) at = other.to;
+  }
+  return round3(at);
+}
+
+/** The next free id in the family `r1`, `r2`, `r3`, … */
+export function nextRegionId(regions: readonly Region[]): string {
+  let highest = 0;
+  for (const region of regions) {
+    const match = /^r(\d+)$/.exec(region.id);
+    if (match) highest = Math.max(highest, Number(match[1]));
+  }
+  return `r${highest + 1}`;
+}
+
+/** Everything about a region except where it was put down. */
+type Material = Omit<Region, "id" | "track" | "at_s">;
+
+/**
+ * Material put down where the tap landed: the one path from a tap to a region.
+ *
+ * A stamp and a paste differ only in what they carry. Where it goes — the
+ * column under the thumb, the moment at the thumb's height, and the slide down
+ * past anything already sounding there — is one decision, made here, so the
+ * two gestures cannot drift apart.
+ */
+function place(regions: readonly Region[], material: Material, x: number, y: number): Region {
+  const { track, at_s } = placementAt(regions, x, y);
+  return {
+    id: nextRegionId(regions),
+    ...material,
+    track,
+    at_s: settle(regions, track, at_s, regionLengthS(material)),
+  };
+}
+
+/**
+ * A new region: the whole of one sound, stamped where the tap landed.
+ *
+ * The cut is the whole source until it is trimmed. Rate, gain, the repeat
+ * count and the fades are at their untouched values, present from the first
+ * stamp so no later stage has to ask whether an old region carries them.
+ */
+export function stamp(
+  regions: readonly Region[],
+  hash: string,
+  duration_s: number,
+  x: number,
+  y: number,
+): Region {
+  const length = Math.max(duration_s, 0.001);
+  return place(
+    regions,
+    { hash, start_s: 0, end_s: round3(length), rate: 1, gain: 1, loops: 1, fade_in_s: 0, fade_out_s: 0 },
+    x,
+    y,
+  );
+}
+
+/**
+ * A copy of a region, stamped where the tap landed.
+ *
+ * The same gesture as a stamp, with a region on the clipboard instead of a
+ * sound from the picker, so there is nothing new to learn: tap the blank and
+ * it lands there, sliding past a neighbour the same way. What it carries is
+ * everything but the identity and the place — the source, the cut, the rate,
+ * the level and the fades — because a copy of a cut that had been trimmed and
+ * slowed and brought down would otherwise arrive as none of those things.
+ * The `id` is new, so the two are separate regions from the moment there are
+ * two of them.
+ */
+export function paste(regions: readonly Region[], source: Region, x: number, y: number): Region {
+  const { id: _id, track: _track, at_s: _at, ...material } = source;
+  return place(regions, material, x, y);
+}
+
+/* Move ---------------------------------------------------------------------- */
+
+/**
+ * How far sideways a thumb carries a region before it changes track.
+ *
+ * Half a track, which is what rounding the thumb's travel to the nearest
+ * column comes to. Time runs down the screen, so a move is mostly a movement
+ * along a track, and a thumb that wanders a little across one must not tip
+ * the region into the lane beside it. Half a column is further than a thumb
+ * wanders and nearer than the next column's middle.
+ */
+export const TRACK_STEP_PX = TRACK_W / 2;
+
+/**
+ * Where a move stopped short of what the thumb asked for, if it did.
+ *
+ * `top` is the first moment, which is as far up as anything goes. `settled`
+ * is a neighbour on the track the region has come to rest after, the same
+ * slide a stamp makes. `null` is a move that landed where it was asked to.
+ */
+export type MoveStop = "top" | "settled" | null;
+
+/** The furthest right a region may be carried: the column beside the last track. */
+function lastTrackFor(region: Region, regions: readonly Region[]): number {
+  return trackCount(regions.filter((other) => other.id !== region.id));
+}
+
+/**
+ * A region carried `dx` across and `dy` down from where it was.
+ *
+ * The body is what moves; the handles are what trims. Down the screen is
+ * when it sounds, across is which track it is on, and neither changes the
+ * material: the cut, the rate and the level come along untouched, so a move
+ * is the one gesture that cannot alter what a region is, only where it is.
+ *
+ * Three walls. The first moment, because nothing sounds before the collage
+ * begins. The column beside the last track, so a thumb carried off the right
+ * edge makes one new track and never two, exactly as a stamp does. And the
+ * regions already on the track it lands on: a track holds regions that do not
+ * overlap, so a move onto a neighbour settles after it, which is the rule
+ * stamping has always used.
+ *
+ * Where the region lands is all this decides. A track the region was the last
+ * thing on closes up when the move is written, which is `closeEmptyTracks`
+ * and belongs to the same change; here there is still a region on it, because
+ * the thumb has not let go.
+ */
+export function moveTo(region: Region, regions: readonly Region[], dx: number, dy: number): Region {
+  if (!Number.isFinite(dx) || !Number.isFinite(dy)) return region;
+  const track = clamp(region.track + Math.round(dx / TRACK_W), 0, lastTrackFor(region, regions));
+  const wanted = Math.max(0, region.at_s + dy / PX_PER_S);
+  const others = regions.filter((other) => other.id !== region.id);
+  const at_s = settle(others, track, round3(wanted), regionLengthS(region));
+  return track === region.track && at_s === region.at_s ? region : { ...region, track, at_s };
+}
+
+/** Which wall a move of `dx` across and `dy` down would meet, if any. */
+export function moveStop(region: Region, regions: readonly Region[], dx: number, dy: number): MoveStop {
+  if (!Number.isFinite(dx) || !Number.isFinite(dy)) return null;
+  const moved = moveTo(region, regions, dx, dy);
+  const wanted = region.at_s + dy / PX_PER_S;
+  if (moved.at_s > round3(Math.max(0, wanted)) + 1e-9) return "settled";
+  if (wanted < 0) return "top";
+  return null;
+}
+
+/* Tracks -------------------------------------------------------------------- */
+
+/**
+ * The collage with one track gone, and everything that was on it.
+ *
+ * Every track beyond the one removed closes up, so the lanes stay a run with
+ * no gap in it: a track exists because something is on it, and the one after
+ * a removed track is now the one in its place. Nothing else about any region
+ * changes — not its moment, not its cut, not its level — because a track is a
+ * lane on the screen and not a bus: the mix is a plain sum, and a region that
+ * shifts one column to the left sounds exactly as it did.
+ *
+ * This is the second gesture on the surface that takes material away, and the
+ * only one that takes several regions at once, which is why the view arms it
+ * with a hold before a lift can ask for it.
+ */
+export function removeTrack(regions: readonly Region[], track: number): Region[] {
+  return closeEmptyTracks(
+    regions
+      .filter((region) => region.track !== track)
+      .map((region) => (region.track > track ? { ...region, track: region.track - 1 } : region)),
+  );
+}
+
+/**
+ * The same regions, with every emptied track closed up.
+ *
+ * A track exists because something is on it. The moment the last region
+ * leaves one — carried to another track, or snipped away whole — the lane it
+ * held is not a lane any more, and everything beyond it comes down one
+ * column so the tracks stay a run with no gap in it.
+ *
+ * Without this a move can strand an interior column that no gesture can ever
+ * aim at: removing a track is a gesture on the region in hand, and an empty
+ * track has no region to take up. The blank would sit there for good.
+ *
+ * Nothing else about any region changes — not its moment, not its cut, not
+ * its level. A track is a lane on the screen and not a bus: the mix is a
+ * plain sum, so a region that comes down one column sounds exactly as it did.
+ * The caller applies this as part of one change, so one undo puts the regions
+ * and the numbering back together.
+ */
+export function closeEmptyTracks(regions: readonly Region[]): Region[] {
+  const used = new Set(regions.map((region) => region.track));
+  const count = trackCount(regions);
+  // How many of the tracks before each one are empty, which is how far that
+  // one comes down.
+  const shift: number[] = [];
+  let empty = 0;
+  for (let track = 0; track < count; track += 1) {
+    shift[track] = empty;
+    if (!used.has(track)) empty += 1;
+  }
+  if (empty === 0) return regions.slice();
+  return regions.map((region) =>
+    shift[region.track] > 0 ? { ...region, track: region.track - shift[region.track] } : region,
+  );
+}
+
+/* Neighbours ---------------------------------------------------------------- */
+
+/** The region that sounds next after this one on its track, or null. */
+export function nextOnTrack(region: Region, regions: readonly Region[]): Region | null {
+  let next: Region | null = null;
+  for (const other of regions) {
+    if (other.id === region.id || other.track !== region.track) continue;
+    if (other.at_s < region.at_s) continue;
+    if (other.at_s === region.at_s && other.id <= region.id) continue;
+    if (next === null || other.at_s < next.at_s) next = other;
+  }
+  return next;
+}
+
+/** The region that sounds last before this one on its track, or null. */
+export function prevOnTrack(region: Region, regions: readonly Region[]): Region | null {
+  let prev: Region | null = null;
+  for (const other of regions) {
+    if (other.id === region.id || other.track !== region.track) continue;
+    if (other.at_s > region.at_s) continue;
+    if (other.at_s === region.at_s && other.id >= region.id) continue;
+    if (prev === null || other.at_s > prev.at_s) prev = other;
+  }
+  return prev;
+}
+
+/* Grabs and handles --------------------------------------------------------- */
+
+/** A stretch of the track, in pixels relative to the top of a region's box. */
+export interface Zone {
+  /** Offset from the top of the region's box. Negative means above it. */
+  top: number;
+  height: number;
+}
+
+/**
+ * Where a region can be taken hold of.
+ *
+ * A box is drawn at its true length, and a one-second region is ten pixels of
+ * sound: nothing a thumb can land on. So every region has a grab, a hit area
+ * and not a drawing, that reaches out from the box until it is a thumb tall.
+ * Two regions close on one track split the gap between them down the middle,
+ * so no two grabs ever overlap and a tap between two regions goes to the
+ * nearer one. What a grab cannot take on one side it takes on the other, up
+ * to that side's share; the first region on a track has the blank above time
+ * to reach into.
+ */
+export function grabZone(region: Region, regions: readonly Region[]): Zone {
+  const box = regionBox(region);
+  const prev = prevOnTrack(region, regions);
+  const next = nextOnTrack(region, regions);
+  const roomAbove = prev === null ? box.top : (region.at_s - (prev.at_s + regionLengthS(prev))) * PX_PER_S;
+  const roomBelow = next === null ? Infinity : (next.at_s - (region.at_s + regionLengthS(region))) * PX_PER_S;
+  const shareAbove = Math.max(0, prev === null ? roomAbove : roomAbove / 2);
+  const shareBelow = Math.max(0, roomBelow / 2);
+  const deficit = Math.max(0, HANDLE_H - box.height);
+  let above = Math.min(deficit / 2, shareAbove);
+  const below = Math.min(deficit - above, shareBelow);
+  above = Math.min(deficit - below, shareAbove);
+  return { top: -above, height: box.height + above + below };
+}
+
+/** Where a handle is drawn, in pixels relative to its region's box. */
+export interface HandleZone extends Zone {
+  end: End;
+}
+
+/**
+ * Where a region's two handles sit, when it is the selected region.
+ *
+ * Only the selected region has handles. They live outside its box, a full
+ * thumb tall whatever sits beside them, and the view raises the selected
+ * region above its neighbours for as long as it is selected: the region
+ * being worked on is on top, and a neighbour's grab is under it until a tap
+ * on the blank puts it down. Nothing is ever squeezed thinner than a thumb,
+ * and no two handles on the canvas overlap, because there are only two.
+ */
+export function handleZones(region: Region): { start: HandleZone; end: HandleZone } {
+  const box = regionBox(region);
+  return {
+    start: { end: "start", top: -HANDLE_H, height: HANDLE_H },
+    end: { end: "end", top: box.height, height: HANDLE_H },
+  };
+}
+
+/* Trim ---------------------------------------------------------------------- */
+
+/**
+ * How far each end of a region may be moved, in source seconds.
+ *
+ * Three walls. The source's own bounds: a cut cannot begin before the sound
+ * does or end after it. The other end: a cut is never shorter than
+ * `MIN_REGION_S`. And the next region on the track: a region keeps its place
+ * in time when it is trimmed, so any growth appears at its bottom, and the
+ * bottom stops where the neighbour begins.
+ *
+ * `sourceDurationS` is null for a sound the index no longer resolves. Such a
+ * region cannot be played, and it cannot be trimmed either: nothing is known
+ * about where its sound ends.
+ */
+export interface TrimBounds {
+  minStart: number;
+  maxStart: number;
+  minEnd: number;
+  maxEnd: number;
+}
+
+export function trimBounds(
+  region: Region,
+  regions: readonly Region[],
+  sourceDurationS: number | null,
+): TrimBounds | null {
+  if (sourceDurationS === null || !(sourceDurationS > 0)) return null;
+  const rate = region.rate > 0 ? region.rate : 1;
+  const next = nextOnTrack(region, regions);
+  // The most source the region may hold, given the room below it on the
+  // track. A region that repeats spends its room `loops` times over, because
+  // every repeat grows by whatever the cut grows by.
+  const roomS =
+    next === null ? Infinity : (Math.max(0, next.at_s - region.at_s) * rate) / loopsOf(region);
+  const minStart = Math.max(0, region.end_s - roomS);
+  const maxStart = region.end_s - MIN_REGION_S;
+  const minEnd = region.start_s + MIN_REGION_S;
+  const maxEnd = Math.min(sourceDurationS, region.start_s + roomS);
+  return {
+    minStart,
+    maxStart: Math.max(maxStart, minStart),
+    minEnd,
+    maxEnd: Math.max(maxEnd, minEnd),
+  };
+}
+
+/**
+ * One end of a region moved to `t` source seconds, held inside its bounds.
+ *
+ * `at_s` is not touched. Trimming changes what is cut from the source, not
+ * when the region sounds: a sparse source stamped at the top of the collage
+ * stays at the top once it has been cut down to the part that sounds. The
+ * region comes back unchanged when nothing about it may move.
+ */
+export function trim(
+  region: Region,
+  regions: readonly Region[],
+  sourceDurationS: number | null,
+  end: End,
+  t: number,
+): Region {
+  const bounds = trimBounds(region, regions, sourceDurationS);
+  if (bounds === null || !Number.isFinite(t)) return region;
+  if (end === "start") {
+    return { ...region, start_s: round3(clamp(t, bounds.minStart, bounds.maxStart)) };
+  }
+  return { ...region, end_s: round3(clamp(t, bounds.minEnd, bounds.maxEnd)) };
+}
+
+/**
+ * Where a handle sits during a drag, in canvas pixels from where it started.
+ *
+ * The handle follows the thumb until the drag hits a wall, and then it stays
+ * on the wall while the thumb carries on. That is how the source's end, the
+ * other handle, the rate's bounds and the neighbour on the track are all
+ * shown: as somewhere the handle will not go.
+ *
+ * Measured as the change in the box's length, so it serves a trim and a
+ * stretch alike: a trim changes the length by moving the cut, a stretch by
+ * moving the rate, and either way the dragged end is where the box now
+ * stops. The other end is the one that held still.
+ */
+export function dragOffsetPx(region: Region, changed: Region, end: End): number {
+  const delta = regionLengthS(changed) - regionLengthS(region);
+  return (end === "end" ? delta : -delta) * PX_PER_S;
+}
+
+/**
+ * The source time a handle dragged `dy` canvas pixels is asking for.
+ *
+ * Divided by the repeat count, so the handle keeps up with the thumb: a cut
+ * that grows by a second on a region that repeats four times makes the box
+ * four seconds taller, and a thumb that moved ten pixels must not move the
+ * handle forty.
+ */
+export function draggedTo(region: Region, end: End, dy: number): number {
+  const rate = region.rate > 0 ? region.rate : 1;
+  const from = end === "start" ? region.start_s : region.end_s;
+  return from + (dy / PX_PER_S) * (rate / loopsOf(region));
+}
+
+/* Stretch ------------------------------------------------------------------- */
+
+/**
+ * The slowest and the fastest a region may play.
+ *
+ * Two octaves each way. Past that varispeed stops being a stretch and becomes
+ * a different instrument. A stretch stops here; nothing prints the number.
+ * A region written outside these — by hand, or by an earlier tool — may be
+ * brought back towards them and never taken further out.
+ */
+export const RATE_MIN = 0.25;
+export const RATE_MAX = 4;
+
+/**
+ * Where a stretch stopped short of what the thumb asked for, if it did.
+ *
+ * Four walls, and the view says which one in words: `slow` and `fast` are
+ * the rate's own bounds, `room` is the neighbour on the track, and `top` is
+ * the first moment, which is what a start handle meets when nothing sounds
+ * above it. `null` is a drag that got what it asked for.
+ */
+export type StretchStop = "slow" | "fast" | "room" | "top" | null;
+
+/**
+ * The walls a stretch of one end meets: the slowest and the fastest that end
+ * may take the region, and which wall holds the slow side.
+ *
+ * Null when the region cannot be stretched at all — an empty cut, or an end
+ * with no room on its side.
+ */
+interface StretchWalls {
+  slowest: number;
+  fastest: number;
+  /** The first moment the region may begin at, for a start handle. */
+  floor: number;
+  /** What holds the slow side: the rate's own bound, a neighbour, or time. */
+  slowWall: "slow" | "room" | "top";
+}
+
+function stretchWalls(region: Region, regions: readonly Region[], end: End): StretchWalls | null {
+  // The material, `loops` times: a stretch changes how fast every repeat
+  // plays, so the room a stretch has to fit into holds all of them.
+  const cut = (region.end_s - region.start_s) * loopsOf(region);
+  if (!(cut > 0)) return null;
+  const rate = region.rate > 0 ? region.rate : 1;
+  const length = cut / rate;
+  let room: number;
+  let floor = 0;
+  let crowded: "room" | "top";
+  if (end === "end") {
+    const next = nextOnTrack(region, regions);
+    room = next === null ? Infinity : next.at_s - region.at_s;
+    crowded = "room";
+  } else {
+    const prev = prevOnTrack(region, regions);
+    floor = prev === null ? 0 : Math.max(0, prev.at_s + regionLengthS(prev));
+    room = region.at_s + length - floor;
+    crowded = prev === null ? "top" : "room";
+  }
+  if (!(room > 0)) return null;
+  // The slowest the rate may go is whichever binds first: the bound itself
+  // (or the region's own rate, when it was written slower than the bound),
+  // or the rate at which the box exactly fills the room it has.
+  const byBound = Math.min(RATE_MIN, rate);
+  const bySpace = cut / room;
+  const slowest = Math.max(byBound, bySpace);
+  const fastest = Math.max(RATE_MAX, rate);
+  if (slowest > fastest) return null;
+  return { slowest, fastest, floor, slowWall: bySpace > byBound ? crowded : "slow" };
+}
+
+/**
+ * Which wall a stretch to `lengthS` collage seconds would meet, if any.
+ *
+ * Asked and answered in rates, not in lengths. A rate is rounded to six
+ * places before it is stored, and the length that comes back out of a
+ * rounded rate differs from the length asked for by an amount that grows
+ * with the cut: a quarter of a millisecond on a fifteen-minute source. Read
+ * as a shortfall in length, that rounding is indistinguishable from a wall,
+ * and the bar would announce one on nearly every drag of real material. The
+ * rate the thumb is asking for is either outside the bounds or it is not.
+ */
+export function stretchStop(
+  region: Region,
+  regions: readonly Region[],
+  end: End,
+  lengthS: number,
+): StretchStop {
+  if (!Number.isFinite(lengthS)) return null;
+  const walls = stretchWalls(region, regions, end);
+  if (walls === null) return null;
+  const cut = (region.end_s - region.start_s) * loopsOf(region);
+  const wanted = lengthS > 0 ? cut / lengthS : Infinity;
+  // A hair either side of a wall is arithmetic, not a wall.
+  const slack = 1e-9;
+  if (wanted > walls.fastest * (1 + slack)) return "fast";
+  if (wanted < walls.slowest * (1 - slack)) return walls.slowWall;
+  return null;
+}
+
+/**
+ * The length, in collage seconds, a handle dragged `dy` canvas pixels in
+ * stretch mode is asking for. The box grows from the end being dragged, so
+ * the bottom handle lengthens it going down and the top handle going up.
+ */
+export function stretchedTo(region: Region, end: End, dy: number): number {
+  const length = regionLengthS(region);
+  return end === "end" ? length + dy / PX_PER_S : length - dy / PX_PER_S;
+}
+
+/**
+ * A region made `lengthS` collage seconds long by changing its rate.
+ *
+ * Stretch changes `rate` and nothing else about the material: the cut into
+ * the source, `start_s` to `end_s`, is untouched, so the same sound plays
+ * slower or faster. The box's height is `(end_s − start_s) / rate`, so
+ * asking for a length is asking for a rate.
+ *
+ * The end that is not dragged stays where it is in time. Dragging the end
+ * handle keeps `at_s`: the region begins when it did and runs on longer or
+ * stops sooner. Dragging the start handle keeps the region's *last* moment
+ * instead, so `at_s` moves: the cut cannot change, the bottom is anchored,
+ * and the only thing left that can move is when the region begins. In trim
+ * mode the same drag would move the cut and hold `at_s`; that is the whole
+ * difference between the two modes.
+ *
+ * Bounds: the rate stays inside `RATE_MIN`..`RATE_MAX` (or, for a region
+ * already outside them, on the far side of its own rate), and the box stays
+ * off its neighbours on the track: the end handle stops where the next
+ * region begins, the start handle where the previous one ends, or at the
+ * first moment. The region comes back unchanged when nothing may move.
+ */
+export function stretch(region: Region, regions: readonly Region[], end: End, lengthS: number): Region {
+  if (!Number.isFinite(lengthS)) return region;
+  const walls = stretchWalls(region, regions, end);
+  if (walls === null) return region;
+  const cut = (region.end_s - region.start_s) * loopsOf(region);
+  const rate = region.rate > 0 ? region.rate : 1;
+  const length = cut / rate;
+  const wanted = lengthS > 0 ? cut / lengthS : walls.fastest;
+  // Six places, so a file stays tidy; then the bounds again, exactly, so a
+  // rounded rate never puts the box a hair over a neighbour.
+  const next = clamp(round6(wanted), walls.slowest, walls.fastest);
+  if (next === rate) return region;
+  if (end === "end") return { ...region, rate: next };
+  const at = Math.max(walls.floor, region.at_s + length - cut / next);
+  return { ...region, rate: next, at_s: round3(at) };
+}
+
+/* Balance ------------------------------------------------------------------- */
+
+/**
+ * The quietest and the loudest a region may be.
+ *
+ * Silent at one end and twice as loud as it was stamped at the other, so a
+ * quiet field recording can be brought up to the rest and a loud one pushed
+ * past them. Linear, because the model stores it linearly; nothing prints it,
+ * in decibels or in anything else.
+ */
+export const GAIN_MIN = 0;
+export const GAIN_MAX = 2;
+
+/**
+ * How far sideways the whole range is.
+ *
+ * A thumb's width either side of where the drag began takes a region all the
+ * way down or all the way up, so both walls are inside one comfortable
+ * movement wherever on the box the thumb lands — including a region on the
+ * first track, whose box begins at the edge of a phone. A drag stops at a
+ * wall; a second drag carries on from where the first left off, so the range
+ * is reachable even from a thumb with no room on one side.
+ */
+export const GAIN_SPAN_PX = 96;
+
+/**
+ * Where a balance stopped short of what the thumb asked for, if it did.
+ *
+ * `quiet` and `loud` are the two walls, and the view says which in words.
+ * `null` is a drag that got what it asked for.
+ */
+export type GainStop = "quiet" | "loud" | null;
+
+/** The gain a drag of `dx` pixels across the region's box is asking for. */
+export function balancedTo(region: Pick<Region, "gain">, dx: number): number {
+  return region.gain + (dx / GAIN_SPAN_PX) * (GAIN_MAX - GAIN_MIN);
+}
+
+/**
+ * The loudest this region may be taken.
+ *
+ * The bound, or the region's own level when something else wrote it louder
+ * than the bound. Nothing here writes one, but the model allows any level at
+ * or above nothing, and a later stage may. A region found above the ceiling
+ * can be brought back down towards it and never pushed further out — the same
+ * rule stretch uses for a rate outside its own bounds, so a gesture never
+ * silently undoes a decision some other tool made.
+ */
+function gainCeiling(region: Pick<Region, "gain">): number {
+  return Math.max(GAIN_MAX, region.gain);
+}
+
+/** Which wall a balance of this region to `gain` would meet, if any. */
+export function gainStop(region: Pick<Region, "gain">, gain: number): GainStop {
+  if (!Number.isFinite(gain)) return null;
+  if (gain > gainCeiling(region)) return "loud";
+  if (gain < GAIN_MIN) return "quiet";
+  return null;
+}
+
+/**
+ * A region at `gain`, held inside the bounds.
+ *
+ * Balance changes `gain` and nothing else: not the cut, not the rate, and
+ * above all not `at_s`. The gesture runs across the box because along it is
+ * time, and a sideways drag must never move a region in time by accident.
+ * Rounded to three places, which is far finer than the ear and keeps the file
+ * tidy. The region comes back unchanged when the gain would not move.
+ */
+export function balance(region: Region, gain: number): Region {
+  if (!Number.isFinite(gain)) return region;
+  const next = round3(clamp(gain, GAIN_MIN, gainCeiling(region)));
+  return next === region.gain ? region : { ...region, gain: next };
+}
+
+/**
+ * How heavy a region draws, from nothing at silence to full at the loudest.
+ *
+ * The view spends this on the block's fill: lighter and more solid as the gain
+ * goes up, darker and thinner as it comes down, so loudness is weight the eye
+ * reads off the block rather than a figure it has to be told. Both of those
+ * move together, so the difference survives a screen with no colour in it.
+ * Half is the untouched gain, and the fill at half is what every region looked
+ * like before there was a balance gesture at all.
+ */
+export function gainWeight(gain: number): number {
+  if (!Number.isFinite(gain)) return 0.5;
+  return clamp(gain, GAIN_MIN, GAIN_MAX) / GAIN_MAX;
+}
+
+/* Repeat -------------------------------------------------------------------- */
+
+/**
+ * How far a thumb travels to add one repeat.
+ *
+ * A thumb's height, fixed, and not a share of the region's own box. A repeat
+ * is the box again, and the box is anything from ten pixels to nine thousand:
+ * mapping the drag onto the region's own length would put a fifteen-minute
+ * region's second repeat nine thousand pixels away and a quarter-second
+ * region's fortieth under a thumb's wobble. A constant makes the gesture the
+ * same movement on every region on the canvas, which is what a thumb can
+ * learn.
+ */
+export const LOOP_STEP_PX = HANDLE_H;
+
+/**
+ * The most repeats any region may be given by this gesture.
+ *
+ * Six doublings. Reaching it is `LOOPS_MAX * LOOP_STEP_PX` of dragging —
+ * seven screens of a phone — so nothing arrives here by accident, and past it
+ * the dividers are closer together than the eye can separate, which is the
+ * point at which drawing them stops meaning anything.
+ */
+export const LOOPS_MAX = 64;
+
+/**
+ * The longest a region may sound for once its repeats are counted, in
+ * seconds.
+ *
+ * Ten minutes. A repeat is a phrase coming round again, and a phrase is not
+ * ten minutes long; a region taller than that is taller than most of the
+ * piece it sits in and its dividers are further apart than a screen, so
+ * nothing about it can be read at a glance. It also holds the drawing to a
+ * known size: the waveform is painted once per repeat, and this is what
+ * bounds how much painting a single block can ask for.
+ *
+ * A region whose single repeat is already longer than this cannot be
+ * repeated at all, which is the honest answer for a fifteen-minute source
+ * stamped whole.
+ */
+export const LOOP_MAX_FOOTPRINT_S = 600;
+
+/**
+ * Where a repeat stopped short of what the thumb asked for, if it did.
+ *
+ * `once` is the floor: a region always sounds at least the once, and there is
+ * no such thing as none. `most` is the ceiling — the count's own bound, or
+ * the length past which a region stops being a phrase. `room` is the
+ * neighbour on the track, which repeats run into first whenever there is one.
+ * `null` is a drag that got what it asked for.
+ */
+export type LoopStop = "once" | "most" | "room" | null;
+
+/**
+ * The most repeats this region may be given, here, now.
+ *
+ * Three ceilings and whichever is lowest wins: the count's own bound, the
+ * footprint past which a region is no longer a phrase, and the room left on
+ * the track before the next region begins. Never below what the region
+ * already holds — a region written past a ceiling by some other tool may be
+ * brought back towards it and never pushed further out, the same rule stretch
+ * uses for a rate and balance uses for a level.
+ */
+export function loopCeiling(region: Region, regions: readonly Region[]): number {
+  const once = repeatLengthS(region);
+  const held = loopsOf(region);
+  if (!(once > 0)) return held;
+  const next = nextOnTrack(region, regions);
+  const room = next === null ? Infinity : Math.max(0, next.at_s - region.at_s);
+  const byRoom = room === Infinity ? LOOPS_MAX : Math.floor(room / once);
+  const byLength = Math.floor(LOOP_MAX_FOOTPRINT_S / once);
+  return Math.max(held, 1, Math.min(LOOPS_MAX, byRoom, byLength));
+}
+
+/** Which wall a repeat of this region to `loops` would meet, if any. */
+export function loopStop(region: Region, regions: readonly Region[], loops: number): LoopStop {
+  if (!Number.isFinite(loops)) return null;
+  if (loops < 1) return "once";
+  const ceiling = loopCeiling(region, regions);
+  if (loops <= ceiling) return null;
+  // Which ceiling it was. The track's room binds first whenever there is a
+  // neighbour, because the other two are about the region alone.
+  const once = repeatLengthS(region);
+  const next = nextOnTrack(region, regions);
+  if (next !== null && once > 0 && Math.floor(Math.max(0, next.at_s - region.at_s) / once) === ceiling) {
+    return "room";
+  }
+  return "most";
+}
+
+/**
+ * The repeat count a drag of `dy` pixels along the region's box is asking for.
+ *
+ * Down is more and up is fewer, because time runs down the screen and every
+ * repeat is added at the bottom: the box grows the way the drag goes.
+ */
+export function loopedTo(region: Region, dy: number): number {
+  return loopsOf(region) + Math.round(dy / LOOP_STEP_PX);
+}
+
+/**
+ * A region repeating `loops` times, held inside its ceilings.
+ *
+ * Repeat changes `loops` and nothing else: not the cut, not the rate, not the
+ * level, and not `at_s`. The material is untouched — what changes is how many
+ * times it sounds, back to back, and therefore how far down the track the
+ * region reaches. The region comes back unchanged when the count would not
+ * move.
+ */
+export function repeat(region: Region, regions: readonly Region[], loops: number): Region {
+  if (!Number.isFinite(loops)) return region;
+  const next = clamp(Math.round(loops), 1, loopCeiling(region, regions));
+  return next === loopsOf(region) ? region : { ...region, loops: next };
+}
+
+/**
+ * Where each repeat after the first begins, in pixels down the region's box.
+ *
+ * The view draws a divider at each of these, so the repeats can be counted by
+ * eye. Empty for a region that sounds once, which is every region until this
+ * gesture is used on it, so nothing new is drawn on a canvas nobody has
+ * looped anything on.
+ */
+export function repeatDividers(region: Region): number[] {
+  const once = repeatLengthS(region) * PX_PER_S;
+  const loops = loopsOf(region);
+  if (!(once > 0) || loops < 2) return [];
+  const at: number[] = [];
+  for (let n = 1; n < loops; n += 1) at.push(n * once);
+  return at;
+}
+
+/* Snip ---------------------------------------------------------------------- */
+
+/** The source time at `offsetPx` down from the top of a region's box. */
+export function sourceAt(region: Region, offsetPx: number): number {
+  const rate = region.rate > 0 ? region.rate : 1;
+  return region.start_s + (offsetPx / PX_PER_S) * rate;
+}
+
+/** How far down a region's box the source time `t` is drawn, in pixels. */
+export function offsetOf(region: Region, t: number): number {
+  const rate = region.rate > 0 ? region.rate : 1;
+  return ((t - region.start_s) / rate) * PX_PER_S;
+}
+
+/** What a snip does: the regions that replace the one snipped, and the span it took out. */
+export interface Snip {
+  /** Two regions, one, or none, in the order they sound. */
+  result: Region[];
+  /** The span removed, in source seconds, after any extension to an edge. */
+  from_s: number;
+  to_s: number;
+}
+
+/**
+ * A span cut out of the middle of a region.
+ *
+ * What is left is two regions: the material before the span and the material
+ * after it. Both keep the source, the track, the rate, the gain and the fades
+ * of the region they came from, and both keep their place in time. The first
+ * keeps the region's id and its `at_s`. The second gets the next free id, and
+ * its `at_s` is where its material was already sounding: snipping a gap out
+ * leaves that gap in time, not a splice. Nothing is deleted from the source;
+ * both halves still reference it.
+ *
+ * Neither half may be shorter than `MIN_REGION_S`. A span that would leave a
+ * half shorter than that takes the half with it: the removal runs on to that
+ * edge of the region. At the end that is a trim of the end. At the start the
+ * surviving material still stays where it sounded, so the box's top moves
+ * down to it, which is what the drawn span said would happen. A span that
+ * leaves nothing on either side removes the region from the collage. The
+ * source is untouched either way, and undo brings the region back.
+ *
+ * A snip that leaves **two** regions ends the repeat: both halves sound once.
+ * A repeat is the same material coming round again, and the two halves of a
+ * cut phrase are no longer that material; worse, each half repeating from
+ * where its own material already sounded would put two runs of repeats on top
+ * of each other on one track, which a track does not allow. A snip that
+ * leaves one region keeps the count, because that region is still the whole
+ * of what repeats. Undo brings the repeat back with the cut, in one step.
+ *
+ * `from_s` and `to_s` are clamped to the region's own cut. Null when the span
+ * is empty, so a tap is never a snip.
+ */
+export function snip(region: Region, regions: readonly Region[], fromS: number, toS: number): Snip | null {
+  if (!Number.isFinite(fromS) || !Number.isFinite(toS)) return null;
+  let a = round3(clamp(Math.min(fromS, toS), region.start_s, region.end_s));
+  let b = round3(clamp(Math.max(fromS, toS), region.start_s, region.end_s));
+  if (!(b > a)) return null;
+  if (a - region.start_s < MIN_REGION_S) a = region.start_s;
+  if (region.end_s - b < MIN_REGION_S) b = region.end_s;
+  const rate = region.rate > 0 ? region.rate : 1;
+  const before = a > region.start_s ? { ...region, end_s: a } : null;
+  const afterAt = round3(region.at_s + (b - region.start_s) / rate);
+  const after = b < region.end_s ? { ...region, start_s: b, at_s: afterAt } : null;
+  const result: Region[] = [];
+  if (before) result.push(before);
+  if (after) result.push(before ? { ...after, id: nextRegionId(regions) } : after);
+  // Two halves cannot both go on repeating on one track, so neither does.
+  if (result.length === 2) {
+    result[0] = { ...result[0], loops: 1 };
+    result[1] = { ...result[1], loops: 1 };
+  }
+  return { result, from_s: a, to_s: b };
+}
+
+/**
+ * A hue for a source, so every region cut from one sound shares a colour.
+ *
+ * Read off the hash, so it is the same on every reload and in every view that
+ * draws the same sound.
+ */
+export function hueFor(hash: string): number {
+  const head = parseInt(hash.slice(0, 3), 16);
+  return Number.isFinite(head) ? Math.round((head / 4096) * 360) : 200;
+}
+
+function clamp(n: number, lo: number, hi: number): number {
+  return Math.min(Math.max(n, lo), Math.max(hi, lo));
+}
+
+function round3(n: number): number {
+  return Math.round(n * 1000) / 1000;
+}
+
+function round6(n: number): number {
+  return Math.round(n * 1e6) / 1e6;
+}

@@ -1,0 +1,153 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://audio-browser.local/schemas/project-summary.schema.json",
+  "title": "Project summary",
+  "description": "One row of GET /api/projects: enough to draw a board card without opening the file.\n\nGenerated from frontend/lib/project.ts by frontend/scripts/emit-schema.mjs. Do not edit.\n\nEvery measure is nullable. Absent is null and never zero: a length of 0:00 against a project\nholding four minutes of audio is a lie, so the interface says nothing instead.",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 100,
+      "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*(?![\\s\\S])"
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 120,
+      "pattern": "^\\S(?:.*\\S)?(?![\\s\\S])"
+    },
+    "column": {
+      "type": "string",
+      "enum": [
+        "stored",
+        "collage",
+        "enrich",
+        "released"
+      ]
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^\\d{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12]\\d|3[01])T(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?Z(?![\\s\\S])"
+    },
+    "updated_at": {
+      "$ref": "#/properties/created_at"
+    },
+    "abandoned": {
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "at": {
+              "$ref": "#/properties/created_at"
+            },
+            "from": {
+              "type": "string",
+              "enum": [
+                "stored",
+                "collage",
+                "enrich"
+              ]
+            },
+            "reason": {
+              "type": "string",
+              "maxLength": 2000
+            }
+          },
+          "required": [
+            "at",
+            "from",
+            "reason"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "commits": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "column": {
+            "$ref": "#/properties/abandoned/anyOf/0/properties/from"
+          },
+          "at": {
+            "$ref": "#/properties/created_at"
+          },
+          "digest": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}(?![\\s\\S])"
+          }
+        },
+        "required": [
+          "column",
+          "at",
+          "digest"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "sound_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "duration_s": {
+      "anyOf": [
+        {
+          "type": "number",
+          "minimum": 0
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "sounding_s": {
+      "anyOf": [
+        {
+          "type": "number",
+          "minimum": 0
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "size_bytes": {
+      "anyOf": [
+        {
+          "type": "number",
+          "minimum": 0
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "sound_set_verified": {
+      "type": [
+        "boolean",
+        "null"
+      ]
+    }
+  },
+  "required": [
+    "id",
+    "name",
+    "column",
+    "created_at",
+    "updated_at",
+    "abandoned",
+    "commits",
+    "sound_count",
+    "duration_s",
+    "sounding_s",
+    "size_bytes",
+    "sound_set_verified"
+  ],
+  "additionalProperties": false
+}
