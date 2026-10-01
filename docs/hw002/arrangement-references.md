@@ -95,3 +95,13 @@ Breakdown bars vary up to ~4 dB above 2 kHz even between two renders of the same
 The 30 Sep 60 s demo was republished as `v00-demo-60s-fixed`.
 Its first render had the kick-scoop EQ stuck on, a Delete Time side effect now documented in the ableton-guide skill.
 Sets: `~/_agent_scratch/HW002/HW002_121_v_*.als`. Renders: `~/_agent_scratch/renders/versions/`.
+
+## Batch 3, 1 October 2026: hat progressions under 40 s
+
+The batch-2 cuts held one energy level. Anthony asked for the hat layers to progress.
+Batch 3 builds each cut from 4-bar steps of the song's own layering, so percussion steps up as it plays.
+Every cut is under 40 s. In kick sections, energy above 2 kHz rises 1.4–7.2 dB from first step to last.
+
+The same round fixed a glitch in every earlier render: the first ~0.9 s of a Live take is off the timeline.
+Renders now carry a two-bar lead-in that is trimmed at a measured offset, and a timeline check rejects jumps.
+Batch 2 was re-rendered. /skrng now shows one batch per page, with a Play batch button that announces each track.

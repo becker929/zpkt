@@ -225,9 +225,15 @@ def record_arrangement(
     Leaves the source tracks' arrangement clips alone. Records
     ``duration_beats + tail_beats`` in arrangement record mode, exports the
     take untrimmed, then removes the temporary track and restores the source
-    tracks' arm state. The take starts at beat 0 to within ~10-20 ms (two
-    takes of the same set differed by 12 ms), fine for cutting sections but
-    not for sample-accurate nulling between takes.
+    tracks' arm state.
+
+    The first ~0.9 s of the take is NOT on the song timeline: Live's recorded
+    clip starts ~2.4 beats into its own file, and the file's head holds
+    misplaced audio (heard as "plays a bar, then restarts"). After that the
+    file time matches song time within a few 512-sample buffers. So render
+    two or more bars of lead-in before the material you need and trim them
+    at an offset measured against reference audio
+    (hands/scripts/arrange_prototype/verify2.py does this).
     """
     out_dir = Path(output_dir)
     out_dir.mkdir(parents=True, exist_ok=True)

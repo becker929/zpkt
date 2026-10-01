@@ -13,7 +13,7 @@ Loose ends, last updated 1 October 2026. Remove items as they close.
   Fail if a module has `scanstate` 3, which means the scan failed.
 - [ ] A/B hotkeys are built (`hands ab`, `hands spectrum`, Hammerspoon ⌃⌥⌘ A/D/S/N).
   Hammerspoon is installed but waits on a first-launch prompt on screen.
-- [ ] Move the arrangement pipeline (cut, restore automation, render, verify) from scratch scripts into `hands`.
+- [ ] Move the arrangement pipeline (lead-in, cut, restore automation, render, measured trim, timeline check) from `hands/scripts/arrange_prototype` into `hands` proper.
   Delete Time drops envelopes whose breakpoints are all cut; see the ableton-guide skill.
 
 Licensing now in place on the Mac mini: iLok (Soundtoys), Arturia Software
@@ -26,7 +26,7 @@ Center (COLDFIRE), SSL Download Manager (FlexVerb), Kilohearts Installer.
 - [ ] Anthony listens against the rubric seed and corrects it.
 - [ ] Arrangement references: listen to the label previews in `docs/hw002/arrangement-references.md`.
   Start with KSMS (vs the full *Roses*) and Remon Verhoeve's *Contradiction*.
-- [ ] Pick from the ten arrangement experiments on /skrng (`docs/hw002/arrangement-references.md`).
+- [ ] Pick from the arrangement experiments on /skrng: batch 2 (shapes after references) and batch 3 (hat progressions, under 40 s).
 - [ ] Mix fixes the references point to: mono below 120 Hz, restore 25–40 Hz, lift 1–3.2 kHz, tame ~10 kHz, denser drum bus.
 - [ ] Open interview items 7, 8, 9 and 11 wait on the references.
   They cover section choice, the bar-81 hit, pending mix changes and the loudness target.

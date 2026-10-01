@@ -310,7 +310,7 @@ song.loop = True
 hands record --arrangement --beats 80 --tail 4 --output take.wav
 ```
 
-The take is untrimmed (pre-roll to the stop, plus `--tail`) and starts at beat 0 only to within ~10–20 ms, so trim with short fades rather than expecting sample-accurate starts.
+The take is untrimmed (pre-roll to the stop, plus `--tail`). **Its first ~0.9 s is not on the timeline:** the recorded clip starts ~2.4 beats into its file, and the head holds misplaced audio that sounds like the render plays a bar and restarts. Every render published before 1 Oct had it. Render two bars of lead-in before the wanted material and trim them at an offset measured by cross-correlation against a reference render; after the head, file time matches song time within a few 512-sample buffers (0–116 ms seen). Check the result with a lag-based timeline test: 250 ms windows searched within ±150 ms, so one-beat loop repeats (375 ms) cannot fake a match. A glitch shows as windows 49–112 ms off the median lag; clean renders stay within ~20 ms. Skip the second after each cut, where tails from the previous bar legitimately differ.
 
 **Delete render tracks before saving the set.** A saved set that still holds a take on a "Render" track plays that take back on the next render, doubling the mix (seen as a peak jump from ~0.28 to 1.0). `record_arrangement` removes its own track; hand-rolled scripts must too.
 

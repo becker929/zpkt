@@ -1,0 +1,27 @@
+{
+ "batch3": [
+  ["b3-01-postdrop-climb-30s", [[97,100],[105,108],[113,116],[125,132]], "Post-drop climb", "Kick and one hat layer, then each 4-bar step adds percussion: drop (97), second perc (105), texture and new perc (113), the peak with its accent (125)."],
+  ["b3-02-intro-climb-30s", [[5,8],[9,12],[25,28],[33,36],[41,44]], "Intro climb", "The opening's own build in 4-bar steps: offbeat hat, texture in (9), perc variation (25), second perc (33), all layers (41)."],
+  ["b3-03-build-into-climb-33s", [[93,96],[97,100],[105,108],[113,116],[125,130]], "Build into the climb", "Breakdown build, then the post-drop layers step in every 4 bars up to the peak."],
+  ["b3-04-continuous-climb-36s", [[97,120]], "Continuous climb", "Bars 97-120 uncut: the song's own post-drop layering, 8 bars per step."],
+  ["b3-05-first-peak-climb-30s", [[17,20],[25,28],[33,36],[41,48]], "Climb to the first peak", "Four steps of the pre-break hat layering, ending on 8 bars of the first peak."],
+  ["b3-06-break-then-climb-30s", [[89,96],[97,100],[105,108],[125,128]], "Breakdown, then climb", "Half the breakdown with its build, then three layer steps to the peak."],
+  ["b3-07-short-climb-24s", [[97,100],[113,116],[125,132]], "Short climb", "Three steps: sparse drop, layered, peak."],
+  ["b3-08-two-step-18s", [[105,108],[125,132]], "Two steps", "One step up into the peak, Short length."],
+  ["b3-09-climb-into-break-36s", [[25,28],[33,36],[41,44],[73,80],[81,84]], "Climb into the breakdown", "Layer steps up to the first peak, then the breakdown hit as the payoff."],
+  ["b3-10-mini-arc-33s", [[41,44],[81,82],[95,96],[97,100],[113,116],[125,130]], "Mini arc", "First peak, the breakdown hit, its build, then the climb to the peak, all under 40 s."]
+ ],
+ "rerender_batch2": [
+  ["v00-demo-60s-fixed", [[73,80],[81,84],[93,96],[125,148]]],
+  ["v01-short-12s", [[125,132]]],
+  ["v02-short-24s", [[95,96],[125,138]]],
+  ["v03-short-30s", [[93,96],[125,140]]],
+  ["v04-ntn-48s-peak", [[121,152]]],
+  ["v05-ntn-48s-break-drop", [[81,84],[89,96],[125,144]]],
+  ["v06-ntn-60s", [[73,80],[93,96],[125,152]]],
+  ["v07-snts-78s", [[65,88],[93,96],[125,148]]],
+  ["v08-snts-90s", [[65,104],[125,144]]],
+  ["v09-ksms-shape-60s", [[81,96],[125,148]]],
+  ["v10-hedon-shape-60s", [[113,152]]]
+ ]
+}
