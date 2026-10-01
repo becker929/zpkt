@@ -193,6 +193,7 @@ def vibe(
         if not _os.environ.get("VIBE_TOKEN"):
             console.print("[red]--tunnel needs VIBE_TOKEN set (it gates /self-improve and /restart).[/red]")
             raise typer.Exit(1)
+        _os.environ["VIBE_TUNNEL"] = "1"  # every endpoint now needs the token
         from hands.vibe.tunnel import open_tunnel
         url = open_tunnel(port)
         console.print(f"[green]Tunnel open: {url}[/green]")

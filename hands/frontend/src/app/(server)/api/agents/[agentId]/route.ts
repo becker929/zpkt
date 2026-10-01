@@ -25,7 +25,14 @@ async function modifyAgentById(
   req: NextRequest,
   context: Context<{ agentId: string }>
 ) {
-  const body = await req.json()
+  // Only fields the UI edits. Passing the raw body let a caller rewrite the
+  // agent's tools, system prompt or model endpoint.
+  const raw = await req.json()
+  const body: { name?: string } = {}
+  if (typeof raw?.name === 'string') body.name = raw.name.slice(0, 200)
+  if (Object.keys(body).length === 0) {
+    return NextResponse.json({ error: 'only "name" can be modified' }, { status: 400 })
+  }
 
   const result = await validateAgentOwner(req, context)
   if (result instanceof NextResponse) {

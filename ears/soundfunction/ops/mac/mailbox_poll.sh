@@ -16,8 +16,12 @@ for bin in claude gh; do
 done
 [ "${MAILBOX_PR:-0}" != "0" ] || { echo "$(date -u +%FT%TZ) MAILBOX_PR is 0; nothing done" >> "$LOG"; exit 0; }
 
+# Only comments from accounts in MAILBOX_ALLOWED_AUTHORS (default: the owner)
+# are acted on. The PR is public: without this, anyone could steer the agent.
+ALLOWED_JSON=$(python3 -c 'import json,sys; print(json.dumps(sys.argv[1].split(",")))' "${MAILBOX_ALLOWED_AUTHORS:-becker929}")
+FILTER='.[] | select(.body | startswith("@mac")) | select(.user.login as $u | ('"$ALLOWED_JSON"' | index($u)) != null) | [.id, .user.login, .body] | @json'
 gh api "repos/$MAILBOX_REPO/issues/$MAILBOX_PR/comments?per_page=50&since=$(date -u -v-1d +%Y-%m-%dT%H:%M:%SZ)" \
-  --jq '.[] | select(.body | startswith("@mac")) | [.id, .user.login, .body] | @json' |
+  --jq "$FILTER" |
 while read -r row; do
   id=$(printf '%s' "$row" | python3 -c 'import sys,json; print(json.load(sys.stdin)[0])')
   [ "$id" -gt "$last" ] || continue
@@ -27,7 +31,10 @@ while read -r row; do
   echo "$(date -u +%FT%TZ) handling comment $id from $who" >> "$LOG"
   # Run the request. The prompt tells the agent how to answer: a comment back on
   # the same PR, addressed to whoever asked, never to itself.
-  (cd "$HERE/.." && claude -p "You are the Live/Mac agent. A message arrived on the agent mailbox PR from $who:
+  # Least privilege: read the repo and post one PR comment. No other shell,
+  # no web, so a crafted message cannot exfiltrate files or reuse the gh token.
+  (cd "$HERE/.." && claude -p --allowedTools "Read,Glob,Grep,Bash(gh pr comment $MAILBOX_PR --repo $MAILBOX_REPO:*)" \
+    --disallowedTools "WebFetch,WebSearch" "You are the Live/Mac agent. A message arrived on the agent mailbox PR from $who:
 
 $body
 

@@ -58,7 +58,12 @@ def main(manifest, dest):
             target = resolve_shortcut(fid)
             if not target: print(f"skip {it['title']}: shortcut target not found", file=sys.stderr); continue
             fid = target
-        out = dest / it.get("path", "") / it["title"]; out.parent.mkdir(parents=True, exist_ok=True)
+        # Drive titles and paths are remote data and may contain "/" or "..";
+        # refuse anything that would land outside dest.
+        out = (dest / it.get("path", "") / it["title"]).resolve()
+        if not out.is_relative_to(dest.resolve()):
+            print(f"skip {it['title']!r}: path escapes {dest}", file=sys.stderr); continue
+        out.parent.mkdir(parents=True, exist_ok=True)
         if out.exists() and out.stat().st_size > 0: print(f"have {out}", file=sys.stderr); ok += 1; continue
         try:
             ctype = download(fid, out); print(f"got  {out} ({out.stat().st_size} bytes, {ctype})", file=sys.stderr); ok += 1

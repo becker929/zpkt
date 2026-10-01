@@ -6,7 +6,17 @@ can connect directly without a stdio shim.
 
 Transport
 ---------
-  Streamable HTTP on 0.0.0.0:<ABLETON_MCP_BRIDGE_PORT> (default 9010).
+  Streamable HTTP on 127.0.0.1:<ABLETON_MCP_BRIDGE_PORT> (default 9010).
+
+Security
+--------
+  `execute` runs arbitrary Python inside Ableton Live, i.e. code execution as
+  the user. The bridge therefore:
+    - binds loopback only (Docker Desktop still reaches it as
+      host.docker.internal); ABLETON_MCP_BRIDGE_BIND widens it explicitly;
+    - refuses to start without MCP_BRIDGE_TOKEN and checks it as a bearer
+      token on every request;
+    - enables DNS-rebinding protection (Host/Origin allow-lists).
 
   Letta registers this as:
     type: streamable_http
@@ -21,7 +31,10 @@ from __future__ import annotations
 
 import os
 
+import hmac
+
 from mcp.server.fastmcp import FastMCP
+from mcp.server.transport_security import TransportSecuritySettings
 
 from hands.transport import LiveMcpTransport
 
@@ -31,10 +44,17 @@ _PORT = int(os.environ.get("ABLETON_MCP_BRIDGE_PORT", "9010"))
 _HOST = os.environ.get("ABLETON_MCP_HOST", "127.0.0.1")
 _ABLETON_PORT = int(os.environ.get("ABLETON_TCP_PORT", "16619"))
 
+_BIND = os.environ.get("ABLETON_MCP_BRIDGE_BIND", "127.0.0.1")
+
 mcp = FastMCP(
     "ableton-live",
-    host="0.0.0.0",
+    host=_BIND,
     port=_PORT,
+    transport_security=TransportSecuritySettings(
+        enable_dns_rebinding_protection=True,
+        allowed_hosts=["127.0.0.1:*", "localhost:*", "host.docker.internal:*"],
+        allowed_origins=["http://127.0.0.1:*", "http://localhost:*"],
+    ),
 )
 
 _transport = LiveMcpTransport(host=_HOST, port=_ABLETON_PORT)
@@ -115,9 +135,38 @@ def search_api(query: str) -> str:
 
 # ── Entry point ────────────────────────────────────────────────────────────────
 
+class _RequireBearer:
+    """ASGI middleware: reject any HTTP request without the bridge token."""
+
+    def __init__(self, app, token: str) -> None:
+        self._app = app
+        self._expected = ("Bearer " + token).encode()
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] == "http":
+            sent = dict(scope.get("headers") or []).get(b"authorization", b"")
+            if not hmac.compare_digest(sent, self._expected):
+                await send({"type": "http.response.start", "status": 401,
+                            "headers": [(b"content-type", b"text/plain")]})
+                await send({"type": "http.response.body", "body": b"unauthorized"})
+                return
+        await self._app(scope, receive, send)
+
+
+def build_app(token: str):
+    """The bridge's ASGI app, wrapped in the bearer-token check."""
+    return _RequireBearer(mcp.streamable_http_app(), token)
+
+
 def serve() -> None:
-    """Start the MCP bridge server (blocks until interrupted)."""
-    print(f"  [ableton-mcp-bridge] Streamable HTTP on http://0.0.0.0:{_PORT}/mcp")
-    print(f"  [ableton-mcp-bridge] Proxying to Ableton at {_HOST}:{_ABLETON_PORT}")
-    print(f"  [ableton-mcp-bridge] Letta server_url: http://host.docker.internal:{_PORT}/mcp")
-    mcp.run(transport="streamable-http")
+    """Run the bridge. Refuses to start without MCP_BRIDGE_TOKEN."""
+    token = os.environ.get("MCP_BRIDGE_TOKEN", "")
+    if not token:
+        raise SystemExit(
+            "MCP_BRIDGE_TOKEN is not set. The bridge runs arbitrary Python in Live, "
+            "so it will not start without a token. Set it here and in Letta's MCP "
+            "server config (scripts/setup_letta_tools.py sends it)."
+        )
+    import uvicorn
+
+    uvicorn.run(build_app(token), host=_BIND, port=_PORT, log_level="info")

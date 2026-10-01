@@ -13,16 +13,23 @@ from pathlib import Path
 DEFAULT_CONFIG_NAME = "config.toml"
 DEFAULT_DB_NAME = "audio-browser.db"
 
-DEFAULT_HOST = "0.0.0.0"
+# Loopback by default: the server streams the whole personal library and edits
+# triage state with no login. To reach it over Tailscale, set [server] host to
+# this machine's tailnet address in config.toml rather than 0.0.0.0.
+DEFAULT_HOST = "127.0.0.1"
 DEFAULT_PORT = 8090
 DEFAULT_FRONTEND_PORT = 3100
 DEFAULT_CORS_ORIGINS: tuple[str, ...] = (
     "http://localhost:3100",
     "http://127.0.0.1:3100",
 )
-# Any host on the frontend port. The frontend is reached over Tailscale as well
-# as over localhost, and each tailnet address is a different browser origin.
-DEFAULT_CORS_ORIGIN_REGEX = r"https?://[^/]+:3100"
+# The frontend's origins on its port: localhost, tailnet addresses (100.x) and
+# MagicDNS names (*.ts.net). The old pattern accepted any host on port 3100,
+# so a page on https://evil.example:3100 could read and edit the library.
+DEFAULT_CORS_ORIGIN_REGEX = (
+    r"^https?://(localhost|127\.0\.0\.1|100\.\d{1,3}\.\d{1,3}\.\d{1,3}"
+    r"|[a-z0-9-]+(\.[a-z0-9-]+)*\.ts\.net):3100$"
+)
 
 
 class ConfigError(Exception):

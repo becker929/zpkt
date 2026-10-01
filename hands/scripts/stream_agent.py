@@ -31,7 +31,10 @@ _RED = "\033[31m"
 
 
 def _get(url: str, timeout: int = 10) -> object:
-    with urllib.request.urlopen(url, timeout=timeout) as resp:
+    req = urllib.request.Request(url)
+    if os.environ.get("LETTA_API_KEY"):  # Letta runs with a server password
+        req.add_header("Authorization", f"Bearer {os.environ['LETTA_API_KEY']}")
+    with urllib.request.urlopen(req, timeout=timeout) as resp:
         return json.loads(resp.read())
 
 

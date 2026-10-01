@@ -6,7 +6,6 @@ set -euo pipefail
 FILE="$1"
 NAME=$(basename "$FILE")
 BUCKET="anthonybecker-audio"
-WORKER_DIR="$HOME/sandbox/anthonybecker.me"
 
 # R2 upload via S3-compatible API (bucket-scoped credentials).
 AWS_ACCESS_KEY_ID=$(security find-generic-password -a cloudflare -s CLOUDFLARE_ACCESS_KEY -w)
@@ -20,9 +19,10 @@ aws s3 cp "$FILE" "s3://$BUCKET/audio/$NAME" \
 
 # KV update via Worker endpoint (avoids account-level API permission requirement).
 AUDIO_SECRET=$(security find-generic-password -a cloudflare -s CLOUDFLARE_AUDIO_SECRET -w)
-curl -sf -X PUT "https://anthonybecker.me/audio/latest" \
-  -H "Authorization: Bearer $AUDIO_SECRET" \
-  -H "Content-Type: text/plain" \
-  --data "$NAME"
+# The token goes to curl on stdin (--config -), not argv, so ps cannot see it.
+printf 'header = "Authorization: Bearer %s"\n' "$AUDIO_SECRET" | \
+  curl -sf --config - -X PUT "https://anthonybecker.me/audio/latest" \
+    -H "Content-Type: text/plain" \
+    --data "$NAME"
 
 echo "https://anthonybecker.me/audio"

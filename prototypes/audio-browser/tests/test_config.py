@@ -71,7 +71,7 @@ def test_load_config_reads_toml(tmp_path: Path) -> None:
 
 def test_server_defaults_bind_broadly(tmp_path: Path) -> None:
     config = parse_config({"roots": [{"name": "a", "path": "."}]}, base_dir=tmp_path)
-    assert config.server.host == DEFAULT_HOST == "0.0.0.0"
+    assert config.server.host == DEFAULT_HOST == "127.0.0.1"
     assert config.server.port == DEFAULT_PORT == 8090
     assert "http://localhost:3100" in config.server.cors_origins
 
@@ -107,7 +107,7 @@ def test_frontend_port_moves_the_default_cors_origins(tmp_path: Path) -> None:
         "http://localhost:4000",
         "http://127.0.0.1:4000",
     )
-    assert config.server.cors_origin_regex.endswith(":4000")
+    assert config.server.cors_origin_regex.endswith(":4000$")  # anchored pattern
 
 
 @pytest.mark.parametrize(
@@ -234,3 +234,16 @@ def test_a_cap_naming_something_that_is_not_a_column_is_refused() -> None:
             },
             Path("/base"),
         )
+
+
+def test_default_cors_regex_only_admits_own_origins() -> None:
+    import re
+
+    from audio_browser.config import DEFAULT_CORS_ORIGIN_REGEX
+
+    ok = ["http://localhost:3100", "http://127.0.0.1:3100", "http://100.120.1.2:3100",
+          "https://mac-mini.tail1234.ts.net:3100"]
+    bad = ["https://evil.example:3100", "http://localhost.evil.example:3100",
+           "http://100.120.1.2.evil.example:3100", "http://localhost:3101", "http://ts.net.evil:3100"]
+    assert all(re.fullmatch(DEFAULT_CORS_ORIGIN_REGEX, o) for o in ok)
+    assert not any(re.fullmatch(DEFAULT_CORS_ORIGIN_REGEX, o) for o in bad)

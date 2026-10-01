@@ -42,7 +42,7 @@ _doExport = function(projectPath)
 
   notify.show("Uploading…")
   local scriptPath = shell.configDir() .. "/scripts/upload-audio.sh"
-  local r = shell.run("bash -l " .. string.format("%q", scriptPath) .. " " .. string.format("%q", result))
+  local r = shell.run("bash -l " .. shell.quote(scriptPath) .. " " .. shell.quote(result))
   if r.ok then
     log.info("auto-export: uploaded", { url = r.out:gsub("%s+$", "") })
     notify.show("Live: anthonybecker.me/audio")

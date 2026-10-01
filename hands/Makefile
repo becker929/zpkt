@@ -45,6 +45,7 @@ endif
 export ANTHROPIC_API_KEY
 export LETTA_API_KEY
 export GEMINI_API_KEY
+export MCP_BRIDGE_TOKEN
 
 # ── Colours (graceful fallback in CI) ─────────────────────────────────────────
 BOLD  := $(shell tput bold   2>/dev/null || printf '')
@@ -226,24 +227,28 @@ start: start-letta start-vibe start-ableton-mcp start-frontend status
 
 start-letta: check-docker
 	$(call section,Letta)
-	@mkdir -p $(VIBE_OUTPUT_DIR)
+	@[ -n "$(LETTA_API_KEY)" ] || { printf "  LETTA_API_KEY is not set (frontend/.env). It is Letta's server password;\n  Letta drives tools that run code on this Mac, so it does not start without one.\n"; exit 1; }
+	@mkdir -p $(VIBE_OUTPUT_DIR) $(PID_DIR)
 	@docker inspect $(LETTA_CONTAINER) > /dev/null 2>&1 && \
 	  docker rm -f $(LETTA_CONTAINER) > /dev/null || true
+	@# Secrets go through a private env file, not docker's argv (visible in ps/inspect history).
+	@umask 077; printf 'ANTHROPIC_API_KEY=%s\nGEMINI_API_KEY=%s\nOLLAMA_BASE_URL=%s\nSECURE=true\nLETTA_SERVER_PASSWORD=%s\n' \
+	  "$(ANTHROPIC_API_KEY)" "$(GEMINI_API_KEY)" "http://$(OLLAMA_DOCKER_HOST):11434/v1" "$(LETTA_API_KEY)" > $(PID_DIR)/letta.env
+	@# Published on loopback only: Letta can call execute (Python in Live).
 	docker run -d \
 	  --name $(LETTA_CONTAINER) \
 	  $(DOCKER_NETWORK_FLAGS) \
 	  -v ~/.letta/.persist/pgdata:/var/lib/postgresql/data \
-	  -p $(LETTA_PORT):8283 \
-	  -e ANTHROPIC_API_KEY="$(ANTHROPIC_API_KEY)" \
-	  -e GEMINI_API_KEY="$(GEMINI_API_KEY)" \
-	  -e OLLAMA_BASE_URL="http://$(OLLAMA_DOCKER_HOST):11434/v1" \
+	  -p 127.0.0.1:$(LETTA_PORT):8283 \
+	  --env-file $(PID_DIR)/letta.env \
 	  $(LETTA_IMAGE) > /dev/null
+	@rm -f $(PID_DIR)/letta.env
 	@printf "  Waiting for Letta on port $(LETTA_PORT) …"
 	@for i in $$(seq 1 30); do \
-	  curl -sf http://localhost:$(LETTA_PORT)/v1/health > /dev/null 2>&1 && break; \
+	  curl -sf -H "Authorization: Bearer $(LETTA_API_KEY)" http://localhost:$(LETTA_PORT)/v1/health > /dev/null 2>&1 && break; \
 	  printf "."; sleep 2; \
 	done; printf "\n"
-	$(call ok,Letta running on port $(LETTA_PORT))
+	$(call ok,Letta running on 127.0.0.1:$(LETTA_PORT) (password required))
 
 start-vibe: check-uv
 	$(call section,Vibe server)
@@ -261,6 +266,7 @@ start-vibe: check-uv
 
 start-ableton-mcp: check-uv
 	$(call section,Ableton MCP bridge)
+	@[ -n "$$MCP_BRIDGE_TOKEN" ] || { printf "  MCP_BRIDGE_TOKEN is not set. The bridge runs Python inside Live;\n  it will not start without a token. Export one and rerun setup_letta_tools.py.\n"; exit 1; }
 	@uv pip install -e ".[vibe]" -q
 	@mkdir -p $(PID_DIR)
 	@if [ -f $(PID_DIR)/ableton-mcp.pid ] && kill -0 "$$(cat $(PID_DIR)/ableton-mcp.pid)" 2>/dev/null; then \
@@ -282,7 +288,7 @@ start-frontend: check-node
 	  printf "  Cleared stale processes on port $(FRONTEND_PORT)\n"; \
 	fi
 	@rm -f $(PID_DIR)/frontend.pid
-	@cd $(FRONTEND_DIR) && npm run dev -- --hostname 0.0.0.0 > /tmp/vibe-frontend.log 2>&1 & \
+	@cd $(FRONTEND_DIR) && npm run dev -- --hostname 127.0.0.1 > /tmp/vibe-frontend.log 2>&1 & \
 	echo $$! > $(CURDIR)/$(PID_DIR)/frontend.pid; \
 	printf "  Waiting for http://localhost:$(FRONTEND_PORT) …"; \
 	for i in $$(seq 1 30); do \

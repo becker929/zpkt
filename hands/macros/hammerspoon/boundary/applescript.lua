@@ -5,7 +5,7 @@ local M = {}
 --- Returns trimmed stdout on success, or nil if cancelled / errored.
 function M.run(name)
   local path = hs.configdir .. "/scripts/" .. name .. ".applescript"
-  local r = shell.run('osascript "' .. path .. '"')
+  local r = shell.run("osascript " .. shell.quote(path))
   if not r.ok then return nil end
   return r.out:gsub("%s+$", "")
 end
@@ -16,8 +16,8 @@ end
 function M.runWithArgs(name, args)
   local path = hs.configdir .. "/scripts/" .. name .. ".applescript"
   local quoted = {}
-  for _, a in ipairs(args) do table.insert(quoted, string.format("%q", a)) end
-  local cmd = 'osascript "' .. path .. '" ' .. table.concat(quoted, " ")
+  for _, a in ipairs(args) do table.insert(quoted, shell.quote(a)) end
+  local cmd = "osascript " .. shell.quote(path) .. " " .. table.concat(quoted, " ")
   local r = shell.run(cmd)
   if not r.ok then return nil end
   return r.out:gsub("%s+$", "")

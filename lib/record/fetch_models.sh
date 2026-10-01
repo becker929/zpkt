@@ -22,7 +22,7 @@ for key sum in ${(kv)SHA256}; do
     print "ok (cached)  $key"; continue
   fi
   mkdir -p ${out:h}
-  npx -y wrangler@4 r2 object get "$BUCKET/models/$key" --file "$out" --remote >/dev/null
+  npx -y wrangler@4.145.0 r2 object get "$BUCKET/models/$key" --file "$out" --remote >/dev/null
   [[ $(shasum -a 256 $out | cut -d' ' -f1) == $sum ]] || { print -u2 "checksum mismatch: $key"; rm -f $out; exit 1; }
   print "fetched      $key"
 done

@@ -39,7 +39,10 @@ const nextConfig = {
   // `/_next/*` carries a tailnet address rather than localhost. Naming those
   // hosts here stops Next warning on every page load and keeps the development
   // asset routes working when a future version starts refusing them.
-  allowedDevOrigins: ["127.0.0.1", "localhost", "100.120.149.46", "*.ts.net", "192.168.0.106"],
+  // Specific tailnet/LAN addresses come from DEV_ORIGINS (comma-separated)
+  // rather than being committed to a public repo.
+  allowedDevOrigins: ["127.0.0.1", "localhost", "*.ts.net",
+    ...(process.env.DEV_ORIGINS ?? "").split(",").filter(Boolean)],
   async rewrites() {
     if (MOCK) return [];
     // `beforeFiles` so the real backend wins over the mock route handlers.

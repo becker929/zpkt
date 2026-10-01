@@ -12,7 +12,7 @@ import json
 import os
 from pathlib import Path
 
-from flask import Flask, abort, jsonify, render_template, request, send_file
+from flask import Flask, abort, jsonify, render_template, request, send_from_directory
 
 AUDIO_EXTS = {".wav", ".mp3", ".flac", ".ogg"}
 
@@ -24,10 +24,11 @@ _clips_dir: Path = Path("./clips")
 
 @app.route("/audio/<path:filename>")
 def serve_audio(filename: str):
-    path = _clips_dir / filename
-    if not path.exists():
+    # send_from_directory refuses paths that escape the clips folder. Joining
+    # the URL path directly let /audio/..%2f..%2fetc%2fhosts read any file.
+    if not (_clips_dir / filename).resolve().is_relative_to(_clips_dir.resolve()):
         abort(404)
-    return send_file(path, mimetype=_mime(path.suffix))
+    return send_from_directory(_clips_dir.resolve(), filename, mimetype=_mime(Path(filename).suffix))
 
 
 # ── Pages ─────────────────────────────────────────────────────────────────────

@@ -1,6 +1,9 @@
 local log = require("boundary.log")
 local M = {}
 
+--- POSIX-quote one shell word. Use for every interpolated value.
+M.quote = require("core.shellquote").quote
+
 --- Runs a shell command. Always captures stderr.
 --- Returns ShResult: { ok, out, rawCode }
 --- NEVER read rawCode to decide success — always use ok.
@@ -14,7 +17,7 @@ end
 
 --- Copies src to dst. Returns (true, nil) or (nil, errMsg).
 function M.copyFile(src, dst)
-  local r = M.run(string.format("cp %q %q", src, dst))
+  local r = M.run("cp " .. M.quote(src) .. " " .. M.quote(dst))
   if not r.ok then
     return nil, "cp failed: " .. r.out
   end
@@ -23,7 +26,7 @@ end
 
 --- Opens a file with the given app bundle ID.
 function M.openWithBundle(bundleID, path)
-  local r = M.run(string.format("open -b %q %q", bundleID, path))
+  local r = M.run("open -b " .. M.quote(bundleID) .. " " .. M.quote(path))
   if not r.ok then
     log.warn("shell.openWithBundle failed", { bundleID=bundleID, path=path, out=r.out })
   end
@@ -49,7 +52,7 @@ end
 
 --- Opens path in Finder.
 function M.openInFinder(path)
-  local r = M.run(string.format("open %q", path))
+  local r = M.run("open " .. M.quote(path))
   if not r.ok then log.warn("shell.openInFinder failed", { path=path, out=r.out }) end
   return r.ok
 end
