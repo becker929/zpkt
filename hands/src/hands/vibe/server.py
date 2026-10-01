@@ -107,6 +107,9 @@ class VibeServer:
     # ------------------------------------------------------------------
 
     def _init_letta(self) -> Any:
+        # letta >= 0.7 removed create_client, so this returns None. The
+        # letta package is no longer a dependency; port to letta-client to
+        # revive feedback storage.
         try:
             from letta import create_client  # type: ignore[import]
             client = create_client()
