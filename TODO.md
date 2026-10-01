@@ -19,10 +19,6 @@ Loose ends as of 30 September 2026. Remove items as they close.
 - [ ] Document the forced rescan in the same skill.
   A plain rescan skips plugins that failed before.
   `touch` the binary in `Contents/MacOS`, then press Rescan.
-- [ ] Install ffmpeg on the Mac mini (`brew install ffmpeg`).
-  Without it, `mlab calibrate` skips 11 of 94 checks (codec round-trips).
-- [ ] Install Hammerspoon and grant it Accessibility access.
-  The A/B and spectrum hotkeys depend on it.
 
 Licensing now in place on the Mac mini: iLok (Soundtoys), Arturia Software
 Center (COLDFIRE), SSL Download Manager (FlexVerb), Kilohearts Installer.
@@ -32,8 +28,8 @@ Center (COLDFIRE), SSL Download Manager (FlexVerb), Kilohearts Installer.
 - [x] References bought, loaded into `HW002_121_refs.als`, level-matched at −14 LUFS.
   Comparison and rubric seed: `docs/hw002/references.md`.
 - [ ] Anthony listens against the rubric seed and corrects it.
-- [ ] A/B hotkeys: toggle reference mute, spectrum analyzer alongside, spectrum alone.
-- [ ] Move the reference analysis into `ears/mlab` as `mlab refs`, with a known-answer test.
+- [ ] A/B hotkeys are built (`hands ab`, `hands spectrum`, Hammerspoon ⌃⌥⌘ A/D/S/N).
+  Hammerspoon is installed but waits on a first-launch prompt on screen.
 - [ ] Mix fixes the references point to: mono below 120 Hz, restore 25–40 Hz, lift 1–3.2 kHz, tame ~10 kHz, denser drum bus.
 - [ ] Open interview items 7, 8, 9 and 11 wait on the references.
   They cover section choice, the bar-81 hit, pending mix changes and the loudness target.

@@ -355,8 +355,27 @@ def check_edge_cases():
     return rows
 
 
+def check_sections():
+    """A synthetic song with known tempo, break, peak and drop (siggen.song_sections)."""
+    from mlab import sections as SE
+    rows = []
+    sr = 44100
+    for bpm in (157.3, 140.0):
+        x, truth = siggen.song_sections(sr, bpm)
+        a = SE.analyze(x, sr)
+        rows.append(row("sections", f"tempo of a {bpm} BPM song (BPM)", bpm, a["bpm"], 0.05, "analytic"))
+        rows.append(row("sections", f"break found at bars {truth['break']} ({bpm} BPM)", truth["break"], a["main_break"], 0, "analytic"))
+        rows.append(row("sections", f"peak window = densest {truth['peak']} ({bpm} BPM)", truth["peak"], a["peak_bars"], 0, "analytic"))
+        rows.append(row("sections", f"drop vs peak highs, hats +6.02 dB in peak ({bpm} BPM)", -6.02, a["drop_vs_peak_high_db"], 0.5, "analytic"))
+    # planted fault: a one-bar kick dropout inside the peak must not move the window
+    x, truth = siggen.song_sections(sr, 150.0, dropout_bar=truth["peak"][0] + 5)
+    a = SE.analyze(x, sr)
+    rows.append(row("sections", "peak window survives a one-bar kick dropout", truth["peak"], a["peak_bars"], 0, "planted fault"))
+    return rows
+
+
 ALL = [check_edge_cases, check_kweighting, check_ebu3341, check_ebu3342, check_truepeak, check_dynamics,
-       check_spectrum, check_bitdepth, check_premaster, check_compare_delivery, check_als]
+       check_spectrum, check_bitdepth, check_premaster, check_compare_delivery, check_als, check_sections]
 
 
 def hw_files():
