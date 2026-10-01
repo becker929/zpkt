@@ -71,3 +71,27 @@ BSLS's own channel posts live hardware jams, 57–1.8k views each.
 1. Listen to the KSMS preview against the full *Roses Of Flesh And Blood*.
 2. Listen to the *Contradiction* previews, the closest match to Short length.
 3. If useful, mark where each excerpt starts and ends in its full track, and add that to the rubric.
+
+## Experiments, 1 October 2026
+
+Ten cuts of `HW002_121`, each shaped after one group of references, are on [/skrng](https://anthonybecker.me/skrng/) with links to their references.
+Each was cut in Live with Delete Time, rendered with all plugins, and checked bar by bar against the full render.
+Kick sections match their source bars within 0.1 dB in both bands.
+Breakdown bars vary up to ~4 dB above 2 kHz even between two renders of the same set, so they were checked on the low band.
+
+| id | Shape after | Length | Source bars |
+|---|---|---|---|
+| v01 | genre Shorts: the impact only | 12 s | 125–132 |
+| v02 | genre Shorts: two-bar pickup | 24 s | 95–96, 125–138 |
+| v03 | genre Shorts: build into impact | 30 s | 93–96, 125–140 |
+| v04 | NineTimesNine previews: peak only | 48 s | 121–152 |
+| v05 | NineTimesNine previews: break into drop | 48 s | 81–84, 89–96, 125–144 |
+| v06 | NineTimesNine previews: peak, build, peak | 60 s | 73–80, 93–96, 125–152 |
+| v07 | SNTS previews | 78 s | 65–88, 93–96, 125–148 |
+| v08 | SNTS previews: whole arc | 90 s | 65–104, 125–144 |
+| v09 | KSMS: long break into the peak | 60 s | 81–96, 125–148 |
+| v10 | Hedon: no break | 60 s | 113–152 |
+
+The 30 Sep 60 s demo was republished as `v00-demo-60s-fixed`.
+Its first render had the kick-scoop EQ stuck on, a Delete Time side effect now documented in the ableton-guide skill.
+Sets: `~/_agent_scratch/HW002/HW002_121_v_*.als`. Renders: `~/_agent_scratch/renders/versions/`.

@@ -1,6 +1,6 @@
 # TODO
 
-Loose ends as of 30 September 2026. Remove items as they close.
+Loose ends, last updated 1 October 2026. Remove items as they close.
 
 ## Rig and plugins
 
@@ -11,14 +11,10 @@ Loose ends as of 30 September 2026. Remove items as they close.
 - [ ] Add a plugin check to `lib/rig/start_headless.sh`.
   Read `~/Library/Application Support/Ableton/Live Database/Live-plugins-1.db`.
   Fail if a module has `scanstate` 3, which means the scan failed.
-- [ ] Add "plugin sources off" to the silent-bounce ladder in
-  `hands/.cursor/skills/ableton-guide/SKILL.md`.
-  Live shipped with every plugin source off, so nothing was scanned.
-- [ ] Document in the same skill: opening a set over unsaved changes raises a hidden
-  "Save changes?" dialog, and LOM keeps editing the old set. Check the window title first.
-- [ ] Document the forced rescan in the same skill.
-  A plain rescan skips plugins that failed before.
-  `touch` the binary in `Contents/MacOS`, then press Rescan.
+- [ ] A/B hotkeys are built (`hands ab`, `hands spectrum`, Hammerspoon ⌃⌥⌘ A/D/S/N).
+  Hammerspoon is installed but waits on a first-launch prompt on screen.
+- [ ] Move the arrangement pipeline (cut, restore automation, render, verify) from scratch scripts into `hands`.
+  Delete Time drops envelopes whose breakpoints are all cut; see the ableton-guide skill.
 
 Licensing now in place on the Mac mini: iLok (Soundtoys), Arturia Software
 Center (COLDFIRE), SSL Download Manager (FlexVerb), Kilohearts Installer.
@@ -30,15 +26,12 @@ Center (COLDFIRE), SSL Download Manager (FlexVerb), Kilohearts Installer.
 - [ ] Anthony listens against the rubric seed and corrects it.
 - [ ] Arrangement references: listen to the label previews in `docs/hw002/arrangement-references.md`.
   Start with KSMS (vs the full *Roses*) and Remon Verhoeve's *Contradiction*.
-- [ ] A/B hotkeys are built (`hands ab`, `hands spectrum`, Hammerspoon ⌃⌥⌘ A/D/S/N).
-  Hammerspoon is installed but waits on a first-launch prompt on screen.
+- [ ] Pick from the ten arrangement experiments on /skrng (`docs/hw002/arrangement-references.md`).
 - [ ] Mix fixes the references point to: mono below 120 Hz, restore 25–40 Hz, lift 1–3.2 kHz, tame ~10 kHz, denser drum bus.
 - [ ] Open interview items 7, 8, 9 and 11 wait on the references.
   They cover section choice, the bar-81 hit, pending mix changes and the loudness target.
 - [ ] Item 12 is open: who masters.
 - [ ] Remove or relabel the pre-plugin 30 s experiment on /skrng.
-  The 60 s demo with all plugins is published as `2026-09-30-hw002-60s-demo`.
-  Its set is `~/_agent_scratch/HW002/HW002_121_60s.als`.
 
 ## Repo
 

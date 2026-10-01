@@ -320,9 +320,17 @@ The take is untrimmed (pre-roll to the stop, plus `--tail`) and starts at beat 0
 1. Set `song.loop_start` / `song.loop_length` to the range (LOM).
 2. Menu **Edit → Select Loop** (the status bar shows "Time Selection").
 3. Menu **Edit → Delete Time**. Driven from the background, the first attempt right after Select Loop often reports the item disabled; retry once and it works.
-Cut from the end of the song backwards so earlier beat positions stay valid, and verify each cut from `arrangement_clips` start/end times.
+Cut from the end of the song backwards so earlier beat positions stay valid, and verify each cut: `song.last_event_time` must drop by exactly the deleted length. The menu is also scriptable without the GUI tools: `osascript -e 'tell application "System Events" to tell process "Live" to click menu item "Delete Time" of menu "Edit" of menu bar 1'` (check `enabled of menu item …` first).
 
-**Plugins.** A missing plugin still appears as a `PluginDevice`, and a loaded VST2 with many parameters exposes only "Device On" until configured — so parameter counts do not tell loaded from missing. Check the device in the GUI ("The VST2 plug-in could not be found") or Live's `Log.txt`. VST2 plugins copied into `~/Library/Audio/Plug-Ins/VST` are found by unique ID even when the set recorded a `/Library/...` path. Some vendor plugins (e.g. Arturia via Native Access, Xfer) also need activation data that does not travel with the bundle.
+**Delete Time can drop automation state.** When every breakpoint of an envelope falls inside the deleted range, Live removes the envelope and the parameter falls back to its *static* value. On HW002 the kick-scoop EQ band (automated on only at bars ~121–124) came back stuck **on** in every cut that removed bar 121, so the kick lost ~5 dB below 100 Hz, including a published demo. After cutting, read each automated parameter during playback at the start of every kept segment, compare with the uncut set at the same source bar, and set static values back where the envelope vanished.
+
+**Renders are not fully deterministic.** Two renders of the same unedited HW002 set differ by up to ~4 dB per bar above 2 kHz in the breakdown (free-running or random modulation); kick sections repeat within 0.1 dB. Judge edits by the low band and by kick sections, and allow for that spread in breakdowns.
+
+**Opening a set over unsaved changes.** `open -a "Ableton Live 12 Suite" X.als` raises a hidden "Save changes?" dialog and the LOM keeps editing the *old* set. Save first, then check the front window title (`osascript … get name of front window of process "Live"`) before editing.
+
+**Plugins.** A missing plugin still appears as a `PluginDevice`, and a loaded VST2 with many parameters exposes only "Device On" until configured — so parameter counts do not tell loaded from missing. Check the device in the GUI ("The VST2 plug-in could not be found") or Live's `Log.txt`. VST2 plugins copied into `~/Library/Audio/Plug-Ins/VST` are found by unique ID even when the set recorded a `/Library/...` path. Some vendor plugins also need activation data that does not travel with the bundle.
+
+**Plugin scan state.** A fresh Live install had *every* plugin source off (Settings → Plug-Ins), so nothing was scanned and every VST "could not be found". Turn on the VST2/VST3 system folders. Scan results live in `~/Library/Application Support/Ableton/Live Database/Live-plugins-1.db` (`plugin_modules.scanstate` 1 = ok, 3 = failed) and the reasons in `Preferences/…/PluginScanner.txt`. A plain Rescan skips modules that failed before; `touch` the binary in `Contents/MacOS` to force a retry. On the Mac mini: Arturia (COLDFIRE) needs Arturia Software Center; Soundtoys needs iLok; SSL FlexVerb needs SSL Download Manager; Kilohearts needs its installer.
 
 ---
 
