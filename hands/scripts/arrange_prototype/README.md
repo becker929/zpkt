@@ -15,3 +15,11 @@ TODO.md tracks moving them into `hands` properly.
 - `verify2.py` trims the lead-in at a measured offset and runs a lag-based timeline check, calibrated to fail on a known-bad render. It also checks bars against the full render.
 - `plan3.json` lists batch 3 and the batch-2 re-renders. `batch3.py` runs it with one retry per version.
 - `build_site.py` builds the /skrng batches. Announcements are made with macOS `say` (Daniel) and padded to 500 ms of silence on each side.
+
+## 1 October, batch 4
+
+- `timeops.py`: Delete, Duplicate, Copy and Paste Time via the Edit menu. Each one is checked by `song.last_event_time`.
+- `arrange4.py`: grid sections with repeats (a longer scoop), drop-out gaps pasted from a silent bar, and a two-bar lead-in.
+- `hats.py`: rewrites perc 1 and perc 2 as stacked pad layers (A–E).
+- `verify4.py`: trims at Live's own beat 0 (`<take>.timing.json` from `record_arrangement`). It checks the low band against `hw002_121_full_aligned.wav`, checks that gaps are silent, and measures the hat steps.
+- `retrim.py`: moved batches 2–3 onto the grid. The old reference render had its beat 0 at 0.917 s, so every earlier trim started that much early.

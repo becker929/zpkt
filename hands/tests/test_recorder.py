@@ -107,3 +107,12 @@ def test_waits_for_resampling_input_to_appear(tmp_path) -> None:
     live.execute = execute
     assert recorder.record_arrangement(live, "r.wav", 4.0, tmp_path / "o", tail_beats=0.0)
     assert sum("available_input_routing_types]" in c for c in live.calls) == 3
+
+
+def test_beat_to_seconds_extrapolates_past_last_marker():
+    from hands.recorder import _beat_to_seconds
+    # Live's recorded clip: two markers 1/32 beat apart at 160 BPM (0.375 s per beat)
+    marks = [[0.0, 0.0], [0.03125, 0.01171875]]
+    assert abs(_beat_to_seconds(marks, 2.3839153) - 0.8939682) < 1e-6
+    assert _beat_to_seconds([[0.0, 0.5]], 3.0) == 0.5
+    assert abs(_beat_to_seconds([[0, 0], [4, 1.5], [8, 3.5]], 6) - 2.5) < 1e-9

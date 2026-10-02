@@ -8,6 +8,7 @@ to MP3 via ffmpeg (skipped when output filename ends with .wav).
 
 from __future__ import annotations
 
+import json
 import os
 import subprocess
 import time
@@ -290,10 +291,23 @@ def record_arrangement(
         transport,
         f"[c.file_path for c in song.tracks[{idx}].arrangement_clips][:1]",
     )
+    # Where song beat 0 sits in the take: the clip starts at its start_marker
+    # (clip beats), which its warp markers map to seconds in the file.
+    timing = _run(
+        transport,
+        f"c = song.tracks[{idx}].arrangement_clips[0]; result = {{'start_marker': c.start_marker, "
+        f"'warp_markers': [[w.beat_time, w.sample_time] for w in c.warp_markers], 'clip_start': c.start_time}}",
+    ) if file_path else None
     result = None
     if file_path:
         print(f"  Recorded audio file: {file_path[0]}")
         result = _export(file_path[0], out_path, duration_beats + tail_beats, tempo, want_wav)
+        if result and timing:
+            timing["song_zero_seconds"] = _beat_to_seconds(timing["warp_markers"], timing["start_marker"])
+            timing["tempo"] = tempo
+            with open(result + ".timing.json", "w") as f:
+                json.dump(timing, f)
+            print(f"  Song beat 0 is at {timing['song_zero_seconds']:.3f} s in the take")
     else:
         print("  No recorded clip found!")
     _run(transport, f"song.delete_track({idx})")
@@ -393,6 +407,20 @@ def _wav_seconds(path: str) -> float | None:
             return w.getnframes() / w.getframerate()
     except Exception:
         return None
+
+
+def _beat_to_seconds(markers: list, beat: float) -> float | None:
+    """Interpolate a clip beat to file seconds through its warp markers."""
+    if not markers:
+        return None
+    pts = sorted((float(b), float(t)) for b, t in markers)
+    if len(pts) == 1:
+        return pts[0][1]
+    pairs = list(zip(pts, pts[1:]))
+    for k, ((b0, s0), (b1, s1)) in enumerate(pairs):
+        if beat <= b1 or k == len(pairs) - 1:  # past the last marker: extrapolate the last segment
+            return s0 + (beat - b0) * (s1 - s0) / (b1 - b0)
+    return None
 
 
 def _export(
