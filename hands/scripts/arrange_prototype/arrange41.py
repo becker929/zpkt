@@ -12,6 +12,7 @@ import sys
 import time
 
 import arrange as A
+import fx
 import hats as H
 import timeops as TO
 
@@ -79,6 +80,19 @@ def build(vid, plan):
     # 5. hats
     lead_beats = (lead[1] - lead[0] + 1) * 4.0
     made = H.rewrite(A.r, [(lead_beats + (bar - 1) * 4.0, n * 4.0, L) for bar, n, L in plan["hats"]], pats)
+    # 6. clip-level fx (batch 4.1): longer splashes, the beatbox phrase once with a stretched wuh
+    fxinfo = {}
+    if plan.get("splash_beats"):
+        found = fx.clips_near(A.r, fx.SPLASH_TRACK, 0, 1e6)
+        for st, _, _ in found:
+            fx.splash(A.r, st, plan["splash_beats"])
+        fxinfo["splashes_at_bar"] = [round(st / 4 + 1, 2) for st, _, _ in found]
+    if plan.get("wuh"):
+        j = plan["wuh"]["segment"]           # the pre-kick segment (index in segs)
+        sec_start, sec_end = starts[j + 1], starts[j + 2] if j + 2 < len(starts) else p
+        gap = dict(plan.get("gaps", [])).get(j + 1, 0)
+        info = fx.beatbox_phrase(A.r, sec_end - gap, plan["wuh"]["stretch"], sec_start, sec_end)
+        fxinfo["phrase"] = [round(info[0], 3), round(info[1], 3)]
     bars = sum(b - a + 1 for a, b in full)
     A.r("song.loop = False")
     A.menu("File", "Save Live Set")
@@ -86,7 +100,7 @@ def build(vid, plan):
     wav = A.record_arrangement(transport=A.T, filename=f"{vid}.wav", duration_beats=bars * 4.0, output_dir=A.OUT, tail_beats=2.0)
     A.menu("File", "Save Live Set")
     time.sleep(1.5)
-    return {"id": vid, "set": path, "plan": plan, "lead_bars": LEAD, "raw": wav, "automation_fixes": fixes, "hat_clips": len(made)}
+    return {"id": vid, "set": path, "plan": plan, "lead_bars": LEAD, "raw": wav, "automation_fixes": fixes, "hat_clips": len(made), "fx": fxinfo}
 
 
 if __name__ == "__main__":

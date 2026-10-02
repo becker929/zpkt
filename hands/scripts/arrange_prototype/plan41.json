@@ -1,0 +1,556 @@
+[
+ [
+  "b41-04-t2-wuh-x2-48s",
+  "Track 2 fixed: one phrase, wuh stretched x2",
+  "Track 2 with the beatbox phrase played once. Its final wuh is stretched to twice its length and ends exactly at the silence. Then one beat of silence, then the kick. Whole-note splash.",
+  {
+   "segs": [
+    [
+     81,
+     88
+    ],
+    [
+     93,
+     96
+    ],
+    [
+     125,
+     144
+    ]
+   ],
+   "gaps": [
+    [
+     2,
+     1
+    ]
+   ],
+   "hats": [
+    [
+     13,
+     4,
+     "A"
+    ],
+    [
+     17,
+     2,
+     "AB"
+    ],
+    [
+     19,
+     2,
+     "ABC"
+    ],
+    [
+     21,
+     4,
+     "ABCD"
+    ],
+    [
+     25,
+     8,
+     "ABCDE"
+    ]
+   ],
+   "splash_beats": 4,
+   "wuh": {
+    "segment": 1,
+    "stretch": 2.0
+   }
+  }
+ ],
+ [
+  "b41-01-t1-scoop4-hats-early-42s",
+  "Track 1 earlier: 4-bar scoop, hats from bar 1",
+  "Track 1 shifted left. The scoop is 4 bars instead of 8, open offbeats start at once, and each later layer arrives 4 bars sooner. Whole-note splash at the drop.",
+  {
+   "segs": [
+    [
+     121,
+     122
+    ],
+    [
+     121,
+     122
+    ],
+    [
+     125,
+     148
+    ]
+   ],
+   "gaps": [],
+   "hats": [
+    [
+     1,
+     4,
+     "A"
+    ],
+    [
+     5,
+     4,
+     "AB"
+    ],
+    [
+     9,
+     4,
+     "ABC"
+    ],
+    [
+     13,
+     8,
+     "ABCD"
+    ],
+    [
+     21,
+     8,
+     "ABCDE"
+    ]
+   ],
+   "splash_beats": 4
+  }
+ ],
+ [
+  "b41-02-t1-scoop8-hats-climb-42s",
+  "Track 1 earlier: hats climb during the scoop",
+  "Track 1 with its 8-bar scoop, but the hats climb in 2-bar steps during it, so the full kick lands on four layers. Whole-note splash at the drop.",
+  {
+   "segs": [
+    [
+     121,
+     122
+    ],
+    [
+     121,
+     122
+    ],
+    [
+     121,
+     122
+    ],
+    [
+     121,
+     122
+    ],
+    [
+     125,
+     144
+    ]
+   ],
+   "gaps": [],
+   "hats": [
+    [
+     1,
+     2,
+     "A"
+    ],
+    [
+     3,
+     2,
+     "AB"
+    ],
+    [
+     5,
+     2,
+     "ABC"
+    ],
+    [
+     7,
+     2,
+     "ABCD"
+    ],
+    [
+     9,
+     8,
+     "ABCD"
+    ],
+    [
+     17,
+     12,
+     "ABCDE"
+    ]
+   ],
+   "splash_beats": 4
+  }
+ ],
+ [
+  "b41-03-t1-scoop4-one-bar-steps-36s",
+  "Track 1 earlier: one-bar hat steps over the scoop",
+  "Four scooped bars with a new hat layer on each bar, then the full kick. Whole-note splash at the drop.",
+  {
+   "segs": [
+    [
+     121,
+     122
+    ],
+    [
+     121,
+     122
+    ],
+    [
+     125,
+     144
+    ]
+   ],
+   "gaps": [],
+   "hats": [
+    [
+     1,
+     1,
+     "A"
+    ],
+    [
+     2,
+     1,
+     "AB"
+    ],
+    [
+     3,
+     1,
+     "ABC"
+    ],
+    [
+     4,
+     1,
+     "ABCD"
+    ],
+    [
+     5,
+     8,
+     "ABCD"
+    ],
+    [
+     13,
+     12,
+     "ABCDE"
+    ]
+   ],
+   "splash_beats": 4
+  }
+ ],
+ [
+  "b41-05-t2-wuh-x1.5-48s",
+  "Track 2 fixed: wuh stretched x1.5",
+  "As above, with the wuh stretched to one and a half times its length.",
+  {
+   "segs": [
+    [
+     81,
+     88
+    ],
+    [
+     93,
+     96
+    ],
+    [
+     125,
+     144
+    ]
+   ],
+   "gaps": [
+    [
+     2,
+     1
+    ]
+   ],
+   "hats": [
+    [
+     13,
+     4,
+     "A"
+    ],
+    [
+     17,
+     2,
+     "AB"
+    ],
+    [
+     19,
+     2,
+     "ABC"
+    ],
+    [
+     21,
+     4,
+     "ABCD"
+    ],
+    [
+     25,
+     8,
+     "ABCDE"
+    ]
+   ],
+   "splash_beats": 4,
+   "wuh": {
+    "segment": 1,
+    "stretch": 1.5
+   }
+  }
+ ],
+ [
+  "b41-06-t2-wuh-natural-48s",
+  "Track 2 fixed: wuh at natural length, not cut",
+  "The phrase once at its natural length, moved one beat earlier so the silence no longer cuts the wuh.",
+  {
+   "segs": [
+    [
+     81,
+     88
+    ],
+    [
+     93,
+     96
+    ],
+    [
+     125,
+     144
+    ]
+   ],
+   "gaps": [
+    [
+     2,
+     1
+    ]
+   ],
+   "hats": [
+    [
+     13,
+     4,
+     "A"
+    ],
+    [
+     17,
+     2,
+     "AB"
+    ],
+    [
+     19,
+     2,
+     "ABC"
+    ],
+    [
+     21,
+     4,
+     "ABCD"
+    ],
+    [
+     25,
+     8,
+     "ABCDE"
+    ]
+   ],
+   "splash_beats": 4,
+   "wuh": {
+    "segment": 1,
+    "stretch": 1.0
+   }
+  }
+ ],
+ [
+  "b41-07-t2-wuh-x3-48s",
+  "Track 2 fixed: wuh stretched x3",
+  "The wuh stretched to three times its length, the longest option.",
+  {
+   "segs": [
+    [
+     81,
+     88
+    ],
+    [
+     93,
+     96
+    ],
+    [
+     125,
+     144
+    ]
+   ],
+   "gaps": [
+    [
+     2,
+     1
+    ]
+   ],
+   "hats": [
+    [
+     13,
+     4,
+     "A"
+    ],
+    [
+     17,
+     2,
+     "AB"
+    ],
+    [
+     19,
+     2,
+     "ABC"
+    ],
+    [
+     21,
+     4,
+     "ABCD"
+    ],
+    [
+     25,
+     8,
+     "ABCDE"
+    ]
+   ],
+   "splash_beats": 4,
+   "wuh": {
+    "segment": 1,
+    "stretch": 3.0
+   }
+  }
+ ],
+ [
+  "b41-08-t1-splash-6-beats-42s",
+  "Splash test: 6 beats",
+  "Same as track 1 of this batch, with the splash at the drop lasting 6 beats.",
+  {
+   "segs": [
+    [
+     121,
+     122
+    ],
+    [
+     121,
+     122
+    ],
+    [
+     125,
+     148
+    ]
+   ],
+   "gaps": [],
+   "hats": [
+    [
+     1,
+     4,
+     "A"
+    ],
+    [
+     5,
+     4,
+     "AB"
+    ],
+    [
+     9,
+     4,
+     "ABC"
+    ],
+    [
+     13,
+     8,
+     "ABCD"
+    ],
+    [
+     21,
+     8,
+     "ABCDE"
+    ]
+   ],
+   "splash_beats": 6
+  }
+ ],
+ [
+  "b41-09-t1-splash-8-beats-42s",
+  "Splash test: 8 beats",
+  "Same as track 1 of this batch, with the splash lasting two whole notes.",
+  {
+   "segs": [
+    [
+     121,
+     122
+    ],
+    [
+     121,
+     122
+    ],
+    [
+     125,
+     148
+    ]
+   ],
+   "gaps": [],
+   "hats": [
+    [
+     1,
+     4,
+     "A"
+    ],
+    [
+     5,
+     4,
+     "AB"
+    ],
+    [
+     9,
+     4,
+     "ABC"
+    ],
+    [
+     13,
+     8,
+     "ABCD"
+    ],
+    [
+     21,
+     8,
+     "ABCDE"
+    ]
+   ],
+   "splash_beats": 8
+  }
+ ],
+ [
+  "b41-10-t1-splash-3-beats-42s",
+  "Splash test: 3 beats",
+  "Same as track 1 of this batch, with the splash lasting 3 beats, a dotted half.",
+  {
+   "segs": [
+    [
+     121,
+     122
+    ],
+    [
+     121,
+     122
+    ],
+    [
+     125,
+     148
+    ]
+   ],
+   "gaps": [],
+   "hats": [
+    [
+     1,
+     4,
+     "A"
+    ],
+    [
+     5,
+     4,
+     "AB"
+    ],
+    [
+     9,
+     4,
+     "ABC"
+    ],
+    [
+     13,
+     8,
+     "ABCD"
+    ],
+    [
+     21,
+     8,
+     "ABCDE"
+    ]
+   ],
+   "splash_beats": 3
+  }
+ ]
+]
