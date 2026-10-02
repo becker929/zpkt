@@ -23,3 +23,12 @@ TODO.md tracks moving them into `hands` properly.
 - `hats.py`: rewrites perc 1 and perc 2 as stacked pad layers (A–E).
 - `verify4.py`: trims at Live's own beat 0 (`<take>.timing.json` from `record_arrangement`). It checks the low band against `hw002_121_full_aligned.wav`, checks that gaps are silent, and measures the hat steps.
 - `retrim.py`: moved batches 2–3 onto the grid. The old reference render had its beat 0 at 0.917 s, so every earlier trim started that much early.
+
+## 2 October, batch 4.1
+
+- `fx.py` makes clip-level edits on the set's own clips, so Anthony's warp settings are kept:
+  - It lengthens the noise splash in place: unloop the clip, then set its end.
+  - It copies the beatbox phrase once and stretches only its final "wuh", using one warp marker at the wuh's start and a later end. New clips made from the file are auto-warped at a guessed tempo, so it copies the original instead.
+- `arrange41.py` and `verify41.py` extend batch 4 with those edits. The checks cover the splash-tail level against a bar without it, and the wuh's length and continuity.
+- Fixed a reopen bug in `arrange.py` and `arrange4.py`: a retry found its version still open. Saving it overwrote the fresh copy, and the cuts ran twice. The code now switches to another set first.
+- Live renames auto-named audio tracks when their clips change, so `fx.py` addresses tracks by index.

@@ -87,6 +87,8 @@ def delete_bars(a, b):
 def make(vid, segs):
     name = f"HW002_121_v_{vid}"
     path = os.path.join(PROJ, name + ".als")
+    if front() == name:  # see arrange4.build: never re-open the same set in place
+        open_set(SRC, "HW002_121_full")
     shutil.copyfile(SRC, path)
     open_set(path, name)
     gaps, prev = [], 0
