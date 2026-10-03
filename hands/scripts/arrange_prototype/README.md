@@ -32,3 +32,24 @@ TODO.md tracks moving them into `hands` properly.
 - `arrange41.py` and `verify41.py` extend batch 4 with those edits. The checks cover the splash-tail level against a bar without it, and the wuh's length and continuity.
 - Fixed a reopen bug in `arrange.py` and `arrange4.py`: a retry found its version still open. Saving it overwrote the fresh copy, and the cuts ran twice. The code now switches to another set first.
 - Live renames auto-named audio tracks when their clips change, so `fx.py` addresses tracks by index.
+
+## 2 October, batch 4.2
+
+- `fx.py` adds:
+  - `phrase_at`, which puts the wuh's start on a grid point and sets its length in beats.
+  - `tail_slices`, which copies the phrase's last 8th or 16th onto later grid points (the "chops").
+  - `splash_copies`, which places the 3-beat splashes.
+  - `break_level`, which sets the Break group fader in dB.
+- `plan42.json` holds the batch:
+  - Tracks 1–6: six grids for the wuh, the silence and the kick.
+  - Track 7: the breakdown at −6 dB instead of −4.
+  - Tracks 8 and 10: hats capped at three layers.
+  - Tracks 9–10: track 1's early scoop.
+- `verify42.py` measures the drop in four ways:
+  - the drop's LUFS against the bar before the kick, and against the loudest breakdown bar;
+  - the splash tail's gain;
+  - the wuh's length and any dropouts;
+  - each chop's onset error against the grid, with a tolerance of 40 ms. The beatbox's soft "w" reads 25–35 ms late.
+- Results:
+  - With the breakdown at −4 dB, the drop is only 0.4–0.9 LU above the loudest breakdown bar. At −6 dB it is 2.4 LU above.
+  - Track 3's 16th chops failed twice: one chop measured 60 ms early. It was published with a note so Anthony can judge it by ear.
