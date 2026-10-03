@@ -15,6 +15,7 @@ that can reach a control surface can run code on the Mac. The rule is simple:
 | hands frontend (Next.js) | 127.0.0.1:3000 | Host allow-list in middleware; agent PATCH limited to `name` | — |
 | audio-browser API | 127.0.0.1:8090 | CORS limited to localhost, tailnet and `*.ts.net` origins | — |
 | taste annotation app | 127.0.0.1 | file serving confined to the clips folder | — |
+| harness (`lib/harness`) | listens on nothing; dials out to anthonybecker.me | the site forwards six RPC methods, and only with the owner's key; ask sessions are read-only | `RIG_TOKEN`, `SKRNG_TOKEN` |
 
 To reach a service from another device, bind it to the machine's Tailscale
 address, not `0.0.0.0`, and add that host to the relevant allow-list

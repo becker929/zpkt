@@ -8,5 +8,7 @@ package.path = dir .. "?.lua;" .. package.path
 
 local config = require("config")
 require("modules.ab-hotkeys").bind(config.ab)
+HARNESS = require("modules.harness")  -- global: hs.task is collected if nothing holds it
+HARNESS.start()
 hs.autoLaunch(true)
 hs.alert.show("zpkt hotkeys ready", 1)
