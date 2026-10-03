@@ -1,0 +1,678 @@
+[
+ [
+  "b42-01-wuh-on-the-bar-48s",
+  "Wuh on the bar, 3 beats, then silence",
+  "The wuh starts on the last bar's downbeat and lasts 3 beats; beat 4 is silence; the kick lands on the next downbeat. Breakdown 4 dB quieter, 8-beat splash at the drop, 3-beat splashes on later section downbeats.",
+  {
+   "segs": [
+    [
+     81,
+     88
+    ],
+    [
+     93,
+     96
+    ],
+    [
+     125,
+     144
+    ]
+   ],
+   "gaps": [
+    [
+     2,
+     1
+    ]
+   ],
+   "hats": [
+    [
+     13,
+     4,
+     "A"
+    ],
+    [
+     17,
+     2,
+     "AB"
+    ],
+    [
+     19,
+     2,
+     "ABC"
+    ],
+    [
+     21,
+     4,
+     "ABCD"
+    ],
+    [
+     25,
+     8,
+     "ABCDE"
+    ]
+   ],
+   "splash": {
+    "drop_segment": 2,
+    "drop_beats": 8,
+    "short_beats": 3,
+    "short_at_bars": [
+     17,
+     21,
+     25
+    ]
+   },
+   "wuh": {
+    "segment": 1,
+    "start": 12,
+    "beats": 3
+   },
+   "break_db": -4
+  }
+ ],
+ [
+  "b42-02-wuh-then-8th-chops-48s",
+  "Wuh, then 8th-note chops of its tail",
+  "Wuh for 2 beats from the last bar's downbeat, then its final half-beat repeated twice on 8th notes, then one beat of silence.",
+  {
+   "segs": [
+    [
+     81,
+     88
+    ],
+    [
+     93,
+     96
+    ],
+    [
+     125,
+     144
+    ]
+   ],
+   "gaps": [
+    [
+     2,
+     1
+    ]
+   ],
+   "hats": [
+    [
+     13,
+     4,
+     "A"
+    ],
+    [
+     17,
+     2,
+     "AB"
+    ],
+    [
+     19,
+     2,
+     "ABC"
+    ],
+    [
+     21,
+     4,
+     "ABCD"
+    ],
+    [
+     25,
+     8,
+     "ABCDE"
+    ]
+   ],
+   "splash": {
+    "drop_segment": 2,
+    "drop_beats": 8,
+    "short_beats": 3,
+    "short_at_bars": [
+     17,
+     21,
+     25
+    ]
+   },
+   "wuh": {
+    "segment": 1,
+    "start": 12,
+    "beats": 2,
+    "slices": {
+     "start": 14,
+     "every": 0.5,
+     "count": 2,
+     "len": 0.5
+    }
+   },
+   "break_db": -4
+  }
+ ],
+ [
+  "b42-03-wuh-then-16th-chops-48s",
+  "Wuh, then 16th-note chops of its tail",
+  "Wuh for 2 beats, then its final quarter-beat repeated four times on 16th notes, then one beat of silence.",
+  {
+   "segs": [
+    [
+     81,
+     88
+    ],
+    [
+     93,
+     96
+    ],
+    [
+     125,
+     144
+    ]
+   ],
+   "gaps": [
+    [
+     2,
+     1
+    ]
+   ],
+   "hats": [
+    [
+     13,
+     4,
+     "A"
+    ],
+    [
+     17,
+     2,
+     "AB"
+    ],
+    [
+     19,
+     2,
+     "ABC"
+    ],
+    [
+     21,
+     4,
+     "ABCD"
+    ],
+    [
+     25,
+     8,
+     "ABCDE"
+    ]
+   ],
+   "splash": {
+    "drop_segment": 2,
+    "drop_beats": 8,
+    "short_beats": 3,
+    "short_at_bars": [
+     17,
+     21,
+     25
+    ]
+   },
+   "wuh": {
+    "segment": 1,
+    "start": 12,
+    "beats": 2,
+    "slices": {
+     "start": 14,
+     "every": 0.25,
+     "count": 4,
+     "len": 0.25
+    }
+   },
+   "break_db": -4
+  }
+ ],
+ [
+  "b42-04-long-wuh-from-bar-11-48s",
+  "Long wuh across the last two bars",
+  "The wuh starts on the downbeat two bars before the drop and is stretched to 7 beats, ending at one beat of silence.",
+  {
+   "segs": [
+    [
+     81,
+     88
+    ],
+    [
+     93,
+     96
+    ],
+    [
+     125,
+     144
+    ]
+   ],
+   "gaps": [
+    [
+     2,
+     1
+    ]
+   ],
+   "hats": [
+    [
+     13,
+     4,
+     "A"
+    ],
+    [
+     17,
+     2,
+     "AB"
+    ],
+    [
+     19,
+     2,
+     "ABC"
+    ],
+    [
+     21,
+     4,
+     "ABCD"
+    ],
+    [
+     25,
+     8,
+     "ABCDE"
+    ]
+   ],
+   "splash": {
+    "drop_segment": 2,
+    "drop_beats": 8,
+    "short_beats": 3,
+    "short_at_bars": [
+     17,
+     21,
+     25
+    ]
+   },
+   "wuh": {
+    "segment": 1,
+    "start": 8,
+    "beats": 7
+   },
+   "break_db": -4
+  }
+ ],
+ [
+  "b42-05-long-wuh-then-chops-48s",
+  "Long wuh, then 8th chops",
+  "Wuh stretched to 6 beats from two bars out, then two 8th-note chops of its tail, then one beat of silence.",
+  {
+   "segs": [
+    [
+     81,
+     88
+    ],
+    [
+     93,
+     96
+    ],
+    [
+     125,
+     144
+    ]
+   ],
+   "gaps": [
+    [
+     2,
+     1
+    ]
+   ],
+   "hats": [
+    [
+     13,
+     4,
+     "A"
+    ],
+    [
+     17,
+     2,
+     "AB"
+    ],
+    [
+     19,
+     2,
+     "ABC"
+    ],
+    [
+     21,
+     4,
+     "ABCD"
+    ],
+    [
+     25,
+     8,
+     "ABCDE"
+    ]
+   ],
+   "splash": {
+    "drop_segment": 2,
+    "drop_beats": 8,
+    "short_beats": 3,
+    "short_at_bars": [
+     17,
+     21,
+     25
+    ]
+   },
+   "wuh": {
+    "segment": 1,
+    "start": 8,
+    "beats": 6,
+    "slices": {
+     "start": 14,
+     "every": 0.5,
+     "count": 2,
+     "len": 0.5
+    }
+   },
+   "break_db": -4
+  }
+ ],
+ [
+  "b42-06-wuh-half-bar-silence-48s",
+  "Wuh for 2 beats, then half a bar of silence",
+  "Wuh from the last bar's downbeat for 2 beats, then 2 beats of silence before the kick.",
+  {
+   "segs": [
+    [
+     81,
+     88
+    ],
+    [
+     93,
+     96
+    ],
+    [
+     125,
+     144
+    ]
+   ],
+   "gaps": [
+    [
+     2,
+     2
+    ]
+   ],
+   "hats": [
+    [
+     13,
+     4,
+     "A"
+    ],
+    [
+     17,
+     2,
+     "AB"
+    ],
+    [
+     19,
+     2,
+     "ABC"
+    ],
+    [
+     21,
+     4,
+     "ABCD"
+    ],
+    [
+     25,
+     8,
+     "ABCDE"
+    ]
+   ],
+   "splash": {
+    "drop_segment": 2,
+    "drop_beats": 8,
+    "short_beats": 3,
+    "short_at_bars": [
+     17,
+     21,
+     25
+    ]
+   },
+   "wuh": {
+    "segment": 1,
+    "start": 12,
+    "beats": 2
+   },
+   "break_db": -4
+  }
+ ],
+ [
+  "b42-07-wuh-on-the-bar-break-6db-48s",
+  "Wuh on the bar, breakdown 6 dB quieter",
+  "As track 1, with the breakdown turned down 6 dB instead of 4, so the drop stands further above it.",
+  {
+   "segs": [
+    [
+     81,
+     88
+    ],
+    [
+     93,
+     96
+    ],
+    [
+     125,
+     144
+    ]
+   ],
+   "gaps": [
+    [
+     2,
+     1
+    ]
+   ],
+   "hats": [
+    [
+     13,
+     4,
+     "A"
+    ],
+    [
+     17,
+     2,
+     "AB"
+    ],
+    [
+     19,
+     2,
+     "ABC"
+    ],
+    [
+     21,
+     4,
+     "ABCD"
+    ],
+    [
+     25,
+     8,
+     "ABCDE"
+    ]
+   ],
+   "splash": {
+    "drop_segment": 2,
+    "drop_beats": 8,
+    "short_beats": 3,
+    "short_at_bars": [
+     17,
+     21,
+     25
+    ]
+   },
+   "wuh": {
+    "segment": 1,
+    "start": 12,
+    "beats": 3
+   },
+   "break_db": -6
+  }
+ ],
+ [
+  "b42-08-wuh-on-the-bar-hats-max-3-48s",
+  "Wuh on the bar, at most three hat layers",
+  "As track 1, but the hats stop at three layers: open offbeats, 16th closed, 8th ride.",
+  {
+   "segs": [
+    [
+     81,
+     88
+    ],
+    [
+     93,
+     96
+    ],
+    [
+     125,
+     144
+    ]
+   ],
+   "gaps": [
+    [
+     2,
+     1
+    ]
+   ],
+   "hats": [
+    [
+     13,
+     4,
+     "A"
+    ],
+    [
+     17,
+     4,
+     "AB"
+    ],
+    [
+     21,
+     12,
+     "ABC"
+    ]
+   ],
+   "splash": {
+    "drop_segment": 2,
+    "drop_beats": 8,
+    "short_beats": 3,
+    "short_at_bars": [
+     17,
+     21,
+     25
+    ]
+   },
+   "wuh": {
+    "segment": 1,
+    "start": 12,
+    "beats": 3
+   },
+   "break_db": -4
+  }
+ ],
+ [
+  "b42-09-t1-splash-8-and-3-42s",
+  "Track 1: 8-beat splash on the release, 3-beat on later downbeats",
+  "The early-scoop version: 4 scooped bars, the 8-beat splash where the full kick returns, 3-beat splashes where hat layers enter.",
+  {
+   "segs": [
+    [
+     121,
+     122
+    ],
+    [
+     121,
+     122
+    ],
+    [
+     125,
+     148
+    ]
+   ],
+   "gaps": [],
+   "hats": [
+    [
+     1,
+     4,
+     "A"
+    ],
+    [
+     5,
+     4,
+     "AB"
+    ],
+    [
+     9,
+     4,
+     "ABC"
+    ],
+    [
+     13,
+     8,
+     "ABCD"
+    ],
+    [
+     21,
+     8,
+     "ABCDE"
+    ]
+   ],
+   "splash": {
+    "drop_segment": 2,
+    "drop_beats": 8,
+    "short_beats": 3,
+    "short_at_bars": [
+     9,
+     13,
+     21
+    ]
+   }
+  }
+ ],
+ [
+  "b42-10-t1-splash-8-and-3-hats-max-3-42s",
+  "Track 1 with at most three hat layers",
+  "As track 9, with the hats stopping at three layers.",
+  {
+   "segs": [
+    [
+     121,
+     122
+    ],
+    [
+     121,
+     122
+    ],
+    [
+     125,
+     148
+    ]
+   ],
+   "gaps": [],
+   "hats": [
+    [
+     1,
+     4,
+     "A"
+    ],
+    [
+     5,
+     4,
+     "AB"
+    ],
+    [
+     9,
+     20,
+     "ABC"
+    ]
+   ],
+   "splash": {
+    "drop_segment": 2,
+    "drop_beats": 8,
+    "short_beats": 3,
+    "short_at_bars": [
+     9,
+     13,
+     21
+    ]
+   }
+  }
+ ]
+]

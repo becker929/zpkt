@@ -55,3 +55,62 @@ if {stretch} != 1.0:
     n.add_warp_marker(Live.Clip.WarpMarker({BB_END * SEC_PER_BEAT_BB}, {end_beat}))
     n.loop_end = {end_beat}
 result = [n.start_time, n.end_time, n.loop_start, n.loop_end, [[w.beat_time, w.sample_time] for w in n.warp_markers]]""")
+
+
+BREAK_GROUP = 12
+
+
+def phrase_at(r, wuh_start, wuh_beats, lo, hi):
+    """Place the phrase so its wuh starts on `wuh_start` (a grid point) and lasts
+    `wuh_beats`; returns (clip start, clip end, end clip-beat)."""
+    stretch = wuh_beats / (BB_END - BB_WUH)
+    end_at = wuh_start + wuh_beats
+    info = beatbox_phrase(r, end_at, stretch, lo, hi)
+    return info[0], info[1], BB_WUH + (BB_END - BB_WUH) * stretch
+
+
+def tail_slices(r, phrase_start, end_beat, times, slice_beats):
+    """Copy the last `slice_beats` of the placed phrase onto each grid time."""
+    out = []
+    for t in times:
+        out.append(r(f"""
+tr = song.tracks[{BEATBOX_TRACK}]
+src = [c for c in tr.arrangement_clips if abs(c.start_time - {phrase_start}) < 1e-6][0]
+tr.duplicate_clip_to_arrangement(src, {float(t)})
+n = [c for c in tr.arrangement_clips if abs(c.start_time - {float(t)}) < 1e-6][0]
+n.loop_start = {end_beat - slice_beats}
+result = [n.start_time, n.end_time]"""))
+    return out
+
+
+def splash_copies(r, src_at, times, beats):
+    """Copy the splash clip at `src_at` to each time, `beats` long."""
+    out = []
+    for t in times:
+        out.append(r(f"""
+tr = song.tracks[{SPLASH_TRACK}]
+src = [c for c in tr.arrangement_clips if abs(c.start_time - {src_at}) < 1e-6][0]
+tr.duplicate_clip_to_arrangement(src, {float(t)})
+n = [c for c in tr.arrangement_clips if abs(c.start_time - {float(t)}) < 1e-6][0]
+n.looping = False
+n.loop_start = 0.0
+n.loop_end = {float(beats)}
+result = [n.start_time, n.end_time]"""))
+    return out
+
+
+def break_level(r, db):
+    """Set the Break group fader (not automated in HW002) to `db` dB."""
+    return r(f"""
+v = song.tracks[{BREAK_GROUP}].mixer_device.volume
+lo, hi = 0.0, 0.85
+for _ in range(40):
+    mid = (lo + hi) / 2
+    s = v.str_for_value(mid).replace(" dB", "")
+    val = -999.0 if "inf" in s else float(s)
+    if val < {float(db)}:
+        lo = mid
+    else:
+        hi = mid
+v.value = hi
+result = v.str_for_value(v.value)""")
