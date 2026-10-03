@@ -23,6 +23,8 @@ Beside the spine:
   - [`lib/record/`](lib/record/): what the system keeps — models, renders,
     publishing to [anthonybecker.me/skrng](https://anthonybecker.me/skrng/).
   - [`lib/contracts/`](lib/contracts/): the JSON that crosses between parts.
+  - [`lib/harness/`](lib/harness/): Claude Code jobs started from the
+    browser (/skrng feedback), over an outbound socket to the site.
 
 ## The spine is perpendicular to the lifecycle
 
