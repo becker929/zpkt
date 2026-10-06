@@ -25,7 +25,7 @@ import numpy as np
 import pp
 import probe_kit as PK
 
-KIT, P, PATIENCE, EPS = "d8x32", 32, 10, 1e-3
+KIT, P, PATIENCE, EPS = "d8x32", 32, 3, 1e-3     # 3 rounds: each one already tests 31 candidates
 MLAB = os.path.expanduser("~/Desktop/zpkt/ears/mlab")
 DONOR = ("HW002_121_pp_v04", "S02 perc group", "Reverb")
 _REV = [("DecayTime", 300.0, 6000.0, "log"), ("RoomSize", 10.0, 300.0, "log"), ("PreDelay", 0.5, 60.0, "log"),
@@ -46,15 +46,80 @@ DESIGNS = {
                    "neutral": [0.0, 0.5, 0.5, 0.5, 0.5, 0.5]},
 }
 
+# Batch 6: the batch 5 aspects, made only with devices already loaded in the set. Neutral = the set's
+# current values (read from the kit template), so pattern 0 of the first batch is the original mix.
+DEC, CF, SM = ("plugin", "Decapitator"), ("plugin", "Dist COLDFIRE"), ("plugin", "ValhallaSupermassive")
+B6 = {
+    "b6_kick_distortion": {"aspect": "kick_distortion", "params": [
+        ("rumble", DEC, "Drive", 0.0, 1.0, "lin"), ("rumble", DEC, "Style", 0.0, 1.0, "lin"),
+        ("rumble", DEC, "Tone", 0.0, 1.0, "lin"), ("rumble", DEC, "Mix", 0.0, 1.0, "lin"),
+        ("S01 kick group", CF, "Distortion A Drive", 0.0, 1.0, "lin")]},
+    "b6_density": {"aspect": "density", "params": [
+        ("S01 kick group", ("Compressor2", 0), "Threshold", 0.03, 1.0, "log"),
+        ("S01 kick group", ("Compressor2", 0), "Ratio", 1.5, 12.0, "log"),
+        ("S01 kick group", ("Compressor2", 0), "Attack", 0.05, 30.0, "log"),
+        ("S01 kick group", ("Compressor2", 0), "Release", 1.0, 300.0, "log"),
+        ("S01 kick group", ("Compressor2", 0), "Gain", 0.0, 12.0, "lin"),
+        ("S01 kick group", ("Compressor2", 0), "DryWet", 0.2, 1.0, "lin")]},
+    "b6_deep_sub": {"aspect": "deep_sub", "params": [
+        ("kick", ("Eq8", 0), "Bands.3/ParameterA/Freq", 20.0, 126.414185, "log"),
+        ("S01 kick group", ("Eq8", 0), "Bands.0/ParameterA/Gain", -15.0, 6.0, "lin"),
+        ("S01 kick group", ("Eq8", 1), "Bands.0/ParameterA/Gain", -15.0, 6.0, "lin"),
+        ("rumble", ("Eq8", 0), "Bands.0/ParameterA/Gain", -15.0, 6.0, "lin")]},
+    "b6_mono_low": {"aspect": "mono_low", "params": [
+        ("Main", ("StereoGain", 0), "BassMono", 0, 1, "bool"),
+        ("Main", ("StereoGain", 0), "BassMonoFrequency", 50.0, 500.0, "log"),
+        ("rumble", ("StereoGain", 0), "BassMono", 0, 1, "bool"),
+        ("rumble", ("StereoGain", 0), "StereoWidth", 0.0, 1.2, "lin")]},
+    "b6_colour": {"aspect": "colour", "params": [
+        ("S01 kick group", ("Eq8", 1), "Bands.2/ParameterA/Freq", 200.0, 4000.0, "log"),
+        ("S01 kick group", ("Eq8", 1), "Bands.2/ParameterA/Gain", -6.0, 12.0, "lin"),
+        ("S01 kick group", ("Eq8", 1), "Bands.3/ParameterA/Gain", -12.0, 6.0, "lin"),
+        ("perc 2", ("Eq8", 0), "Bands.2/ParameterA/Gain", -6.0, 12.0, "lin"),
+        ("perc 2", ("Eq8", 0), "Bands.3/ParameterA/Gain", -12.0, 6.0, "lin"),
+        ("rumble", ("Eq8", 0), "Bands.3/ParameterA/Gain", -12.0, 6.0, "lin")]},
+    "b6_space": {"aspect": "space", "params": [
+        ("perc 2", SM, "Mix", 0.0, 0.9, "lin"), ("perc 2", SM, "Feedback", 0.0, 0.9, "lin"),
+        ("perc 2", SM, "Delay_Ms", 0.0, 1.0, "lin"), ("perc 2", SM, "Width", 0.0, 1.0, "lin"),
+        ("perc 2", SM, "Density", 0.0, 1.0, "lin"), ("perc 2", SM, "HighCut", 0.0, 1.0, "lin")]},
+}
+for _d in B6.values():
+    _d.setdefault("devices", [])
+    _d.setdefault("fixed", [])
+    _d["neutral"] = "from_set"
+DESIGNS.update(B6)
+
 
 def value(u, lo, hi, scale):
+    if scale == "bool":
+        return bool(u >= 0.5)
     return lo + (hi - lo) * u if scale == "lin" else lo * (hi / lo) ** u
+
+
+def inverse(v, lo, hi, scale):
+    if scale == "bool":
+        return 0.75 if v else 0.25
+    u = (v - lo) / (hi - lo) if scale == "lin" else math.log(v / lo) / math.log(hi / lo)
+    if not -1e-6 <= u <= 1 + 1e-6:
+        raise ValueError(f"current value {v} outside [{lo}, {hi}]")
+    return min(1.0, max(0.0, u))
+
+
+def neutral_of(design):
+    """u that reproduces the set: from the kit template's current values (or the design's list)."""
+    if design["neutral"] != "from_set":
+        return design["neutral"]
+    meta = json.load(open(PK.KITS + KIT + ".json"))
+    tree = PK.X.load(os.path.join(pp.PROJ, meta["set"] + ".als"))
+    return [inverse(PK.current_value(tree, tr, dev, name), lo, hi, sc) for tr, dev, name, lo, hi, sc in design["params"]]
 
 
 def steps_for(design, us):
     """[[u per param] per pattern] -> probe_kit steps, fixed settings included."""
     P_ = len(us)
-    out = [(tr, dev, name, [round(value(u[j], lo, hi, sc), 9) for u in us])
+    def fmt(v):
+        return v if isinstance(v, bool) else round(v, 9)
+    out = [(tr, dev, name, [fmt(value(u[j], lo, hi, sc)) for u in us])
            for j, (tr, dev, name, lo, hi, sc) in enumerate(design["params"])]
     out += [(tr, dev, name, [v] * P_) for tr, dev, name, v in design["fixed"]]
     return out
@@ -81,7 +146,7 @@ def main():
     os.makedirs(d, exist_ok=True)
     sp = d + "state.json"
     st = json.load(open(sp)) if os.path.exists(sp) else {
-        "aspect": aspect, "design": dname, "best_u": design["neutral"], "best": None, "sigma": 0.2, "misses": 0, "attempt": 0, "history": []}
+        "aspect": aspect, "design": dname, "best_u": neutral_of(design), "best": None, "sigma": 0.2, "misses": 0, "attempt": 0, "history": []}
     rng = np.random.default_rng(1000 + st["attempt"])
     budget = int(sys.argv[2]) if len(sys.argv) > 2 else 10 ** 6     # max batch-attempts in this run
     while st["misses"] < PATIENCE and budget > 0:
@@ -122,7 +187,8 @@ def main():
                               "top_pattern": top["pattern"], "improved": improved, "best": st["best"],
                               "sigma": round(st["sigma"], 4), "seconds": round(time.time() - t0, 1),
                               "render_s": man["load_s"] + man["export_s"],
-                              "params": {f"{tr}/{name}": round(value(u, lo, hi, sc), 6)
+                              "params": {f"{tr}/{dev[1] if isinstance(dev, tuple) else dev}/{name}":
+                                         (value(u, lo, hi, sc) if sc == "bool" else round(value(u, lo, hi, sc), 6))
                                          for u, (tr, dev, name, lo, hi, sc) in zip(st["best_u"], design["params"])}})
         st["attempt"] = a + 1
         json.dump(st, open(sp, "w"), indent=1)
