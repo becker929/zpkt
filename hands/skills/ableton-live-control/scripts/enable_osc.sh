@@ -61,7 +61,7 @@ echo "Settings window at ($WX,$WY). Row $ROW dropdown -> ($DROP_X,$DROP_Y); Able
 # display on EVERY exit path (success, failure, or signal) -- the agent never
 # has to remember to park it. Armed only now, so the early "already up" /
 # "cliclick missing" exits above do not move the user's pointer needlessly.
-PARK="$DIR/../../virtual-display/scripts/park-cursor.sh"
+PARK="$HOME/.agents/skills/virtual-display/scripts/park-cursor.sh"
 trap 'bash "$PARK" >/dev/null 2>&1 || true' EXIT
 
 osascript -e 'tell application "Live" to activate' >/dev/null 2>&1 || true
