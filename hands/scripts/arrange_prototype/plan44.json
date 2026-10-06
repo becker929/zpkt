@@ -1,0 +1,261 @@
+[
+ [
+  "b44-01-steps-every-4-bars-30s",
+  "Hats in four-bar steps (old no. 7)",
+  "The hat order you liked in batch 4: one hat layer on the scoop, then a layer more every four bars. Kick, rumble and hats only. No splashes.",
+  {
+   "segs": [
+    [
+     121,
+     122
+    ],
+    [
+     121,
+     122
+    ],
+    [
+     125,
+     140
+    ]
+   ],
+   "gaps": [],
+   "keep": [
+    2,
+    3,
+    6,
+    7
+   ],
+   "hats": [
+    [
+     1,
+     4,
+     "A"
+    ],
+    [
+     5,
+     4,
+     "AB"
+    ],
+    [
+     9,
+     4,
+     "ABC"
+    ],
+    [
+     13,
+     8,
+     "ABCD"
+    ]
+   ]
+  }
+ ],
+ [
+  "b44-02-climb-then-scoop-36s",
+  "Hat climb before the scoop (old no. 9)",
+  "The hat climb you liked in batch 4: a layer more every two bars, then the scoop, then the full kick. Kick, rumble and hats only. No splashes.",
+  {
+   "segs": [
+    [
+     97,
+     104
+    ],
+    [
+     121,
+     122
+    ],
+    [
+     121,
+     122
+    ],
+    [
+     125,
+     136
+    ]
+   ],
+   "gaps": [],
+   "keep": [
+    2,
+    3,
+    6,
+    7
+   ],
+   "hats": [
+    [
+     1,
+     2,
+     "A"
+    ],
+    [
+     3,
+     2,
+     "AB"
+    ],
+    [
+     5,
+     2,
+     "ABC"
+    ],
+    [
+     7,
+     2,
+     "ABCD"
+    ],
+    [
+     9,
+     4,
+     "ABCD"
+    ],
+    [
+     13,
+     8,
+     "ABCD"
+    ],
+    [
+     21,
+     4,
+     "ABCDE"
+    ]
+   ]
+  }
+ ],
+ [
+  "b44-03-loud-layers-every-2-bars-30s",
+  "Four hats, a step every two bars",
+  "Four hat layers, and a new one every two bars. The quiet ride is left out.",
+  {
+   "segs": [
+    [
+     121,
+     122
+    ],
+    [
+     121,
+     122
+    ],
+    [
+     125,
+     140
+    ]
+   ],
+   "gaps": [],
+   "keep": [
+    2,
+    3,
+    6,
+    7
+   ],
+   "hats": [
+    [
+     1,
+     4,
+     "A"
+    ],
+    [
+     5,
+     2,
+     "AB"
+    ],
+    [
+     7,
+     2,
+     "ABC"
+    ],
+    [
+     9,
+     12,
+     "ABCD"
+    ]
+   ]
+  }
+ ],
+ [
+  "b44-04-ride-before-sixteenths-30s",
+  "Loud ride comes before the 16ths",
+  "The loud ride comes in earlier than in the old order, before the 16th hats. Same four-bar steps. The quiet ride is left out.",
+  {
+   "segs": [
+    [
+     121,
+     122
+    ],
+    [
+     121,
+     122
+    ],
+    [
+     125,
+     140
+    ]
+   ],
+   "gaps": [],
+   "keep": [
+    2,
+    3,
+    6,
+    7
+   ],
+   "hats": [
+    [
+     1,
+     4,
+     "A"
+    ],
+    [
+     5,
+     4,
+     "AC"
+    ],
+    [
+     9,
+     4,
+     "ABC"
+    ],
+    [
+     13,
+     8,
+     "ABCD"
+    ]
+   ]
+  }
+ ],
+ [
+  "b44-05-all-hats-land-with-the-kick-30s",
+  "All the hats land together with the kick",
+  "No gradual build. Two loud hat layers on the scoop, then every layer arrives with the full kick.",
+  {
+   "segs": [
+    [
+     121,
+     122
+    ],
+    [
+     121,
+     122
+    ],
+    [
+     125,
+     140
+    ]
+   ],
+   "gaps": [],
+   "keep": [
+    2,
+    3,
+    6,
+    7
+   ],
+   "hats": [
+    [
+     1,
+     4,
+     "AB"
+    ],
+    [
+     5,
+     16,
+     "ABCD"
+    ]
+   ]
+  }
+ ]
+]
