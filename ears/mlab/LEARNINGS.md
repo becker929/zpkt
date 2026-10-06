@@ -120,3 +120,11 @@ H006 on the Mac mini's ffmpeg 4.4.2 (same settings): true peak -0.22 dB after AA
 Same file, same bitrate, opposite sign. The -1.5 dBTP master stayed under 0 dBTP on both.
 YouTube's own encoder is unknown to us.
 Change: keep the -1.5 dBTP ceiling as a margin. Settle it by measuring a real upload.
+
+**L-018 · 2026-10-06 · Two renders of the same HW002 bars do not null; compare features instead.**
+Bars 121–144 rendered twice from the same set differ by -1.4 dB sample by sample.
+The kick bus carries modulated plug-ins (Shifter, LFOTool) whose phase is not tied to the take.
+Group stems summed against the mix take gave -4.7 dB residual, aligned to one sample.
+On the measured features they agree: bands within 0.11 dB, correlation 0.003, block crest 0.02 dB.
+That is tighter than two mix takes agree (bands 0.24 dB).
+Change: check stems and re-renders by feature agreement, not by a null test (spike `hw002_mixclimb`).
