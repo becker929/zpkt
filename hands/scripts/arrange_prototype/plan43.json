@@ -1,0 +1,236 @@
+[
+ [
+  "b43-01-splash-every-8-bars-30s",
+  "Splashes every eight bars",
+  "A long splash when the kick comes in, then a short one every eight bars. Half as many as batch 4.2.",
+  {
+   "segs": [
+    [
+     121,
+     122
+    ],
+    [
+     121,
+     122
+    ],
+    [
+     125,
+     140
+    ]
+   ],
+   "gaps": [],
+   "keep": [
+    2,
+    3,
+    5,
+    6,
+    7
+   ],
+   "hats": [
+    [
+     1,
+     4,
+     "A"
+    ],
+    [
+     5,
+     4,
+     "AB"
+    ],
+    [
+     9,
+     4,
+     "ABC"
+    ],
+    [
+     13,
+     8,
+     "ABCD"
+    ]
+   ],
+   "splash": {
+    "drop_segment": 2,
+    "drop_beats": 8,
+    "short_beats": 3,
+    "short_at_bars": [
+     13
+    ]
+   }
+  }
+ ],
+ [
+  "b43-02-splash-every-16-bars-30s",
+  "Splashes every sixteen bars",
+  "A long splash when the kick comes in, and one short one near the end. A quarter as many as batch 4.2.",
+  {
+   "segs": [
+    [
+     121,
+     122
+    ],
+    [
+     121,
+     122
+    ],
+    [
+     125,
+     140
+    ]
+   ],
+   "gaps": [],
+   "keep": [
+    2,
+    3,
+    5,
+    6,
+    7
+   ],
+   "hats": [
+    [
+     1,
+     4,
+     "A"
+    ],
+    [
+     5,
+     4,
+     "AB"
+    ],
+    [
+     9,
+     4,
+     "ABC"
+    ],
+    [
+     13,
+     8,
+     "ABCD"
+    ]
+   ],
+   "splash": {
+    "drop_segment": 2,
+    "drop_beats": 8,
+    "short_beats": 3,
+    "short_at_bars": [
+     17
+    ]
+   }
+  }
+ ],
+ [
+  "b43-03-one-splash-only-30s",
+  "One splash, at the kick",
+  "Only the long splash when the kick comes in. Nothing after it.",
+  {
+   "segs": [
+    [
+     121,
+     122
+    ],
+    [
+     121,
+     122
+    ],
+    [
+     125,
+     140
+    ]
+   ],
+   "gaps": [],
+   "keep": [
+    2,
+    3,
+    5,
+    6,
+    7
+   ],
+   "hats": [
+    [
+     1,
+     4,
+     "A"
+    ],
+    [
+     5,
+     4,
+     "AB"
+    ],
+    [
+     9,
+     4,
+     "ABC"
+    ],
+    [
+     13,
+     8,
+     "ABCD"
+    ]
+   ],
+   "splash": {
+    "drop_segment": 2,
+    "drop_beats": 8,
+    "short_beats": 3,
+    "short_at_bars": []
+   }
+  }
+ ],
+ [
+  "b43-04-short-splash-only-30s",
+  "Short splashes only",
+  "A short splash when the kick comes in, and one more eight bars later. No long splash.",
+  {
+   "segs": [
+    [
+     121,
+     122
+    ],
+    [
+     121,
+     122
+    ],
+    [
+     125,
+     140
+    ]
+   ],
+   "gaps": [],
+   "keep": [
+    2,
+    3,
+    5,
+    6,
+    7
+   ],
+   "hats": [
+    [
+     1,
+     4,
+     "A"
+    ],
+    [
+     5,
+     4,
+     "AB"
+    ],
+    [
+     9,
+     4,
+     "ABC"
+    ],
+    [
+     13,
+     8,
+     "ABCD"
+    ]
+   ],
+   "splash": {
+    "drop_segment": 2,
+    "drop_beats": 3,
+    "short_beats": 3,
+    "short_at_bars": [
+     13
+    ]
+   }
+  }
+ ]
+]
