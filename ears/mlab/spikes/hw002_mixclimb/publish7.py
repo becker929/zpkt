@@ -35,18 +35,20 @@ TITLE = {  # aspect: the two features its titles report
     "deep_sub": ["third_octave_rel.31.6", "third_octave_rel.39.8"],
     "mono_low": ["corr.20-120", "side_mid.20-120"],
     "colour": ["third_octave_rel.1995.3", "ears.centroid_hz"],
-    "space": ["corr.2000-8000", "side_mid.2000-8000"],
+    "space": ["side_mid.500-2000", "side_mid.8000-20000"],   # in the drop, 2-8 kHz is already in range
 }
 SHORT = {"third_octave_rel.1995.3": "2 kHz", "block_crest_median_db": "crest", "transient_contrast_db": "transients",
          "third_octave_rel.31.6": "31.5 Hz", "third_octave_rel.39.8": "40 Hz", "corr.20-120": "low-end correlation",
          "side_mid.20-120": "low-end side", "ears.centroid_hz": "centroid", "third_octave_rel.10000.0": "10 kHz",
-         "corr.2000-8000": "2-8 kHz correlation", "side_mid.2000-8000": "2-8 kHz side"}
+         "corr.2000-8000": "2-8 kHz correlation", "side_mid.2000-8000": "2-8 kHz side",
+         "side_mid.500-2000": "0.5-2 kHz side", "side_mid.8000-20000": "8-20 kHz side"}
 SPOKEN = {"third_octave_rel.1995.3": "two kilohertz", "block_crest_median_db": "crest", "transient_contrast_db": "transients",
           "third_octave_rel.31.6": "thirty one hertz", "third_octave_rel.39.8": "forty hertz", "corr.20-120": "low end correlation",
           "side_mid.20-120": "low end side", "ears.centroid_hz": "centroid", "third_octave_rel.10000.0": "ten kilohertz",
-          "corr.2000-8000": "high correlation", "side_mid.2000-8000": "high side"}
-FMT = {k: fmt for fs in P5.SHOW.values() for k, _, fmt in fs}
-LABEL = {k: lab for fs in P5.SHOW.values() for k, lab, _ in fs}
+          "corr.2000-8000": "high correlation", "side_mid.2000-8000": "high side",
+          "side_mid.500-2000": "mid side", "side_mid.8000-20000": "air side"}
+FMT = {k: fmt for fs in P5.SHOW.values() for k, _, fmt in fs} | {"side_mid.500-2000": "{:.1f} dB", "side_mid.8000-20000": "{:.1f} dB"}
+LABEL = {k: lab for fs in P5.SHOW.values() for k, lab, _ in fs} | {"side_mid.500-2000": "0.5-2 kHz side", "side_mid.8000-20000": "8-20 kHz side"}
 SWEEP = {  # what sweep_live.py turns when the aspect's climb found nothing (its "primary" mode)
     "kick_distortion": "Decapitator drive on rumble and COLDFIRE drive on the kick group, together from 0 to 100%",
     "density": "the kick group Compressor, threshold from 0 to -30 dB while the ratio goes from 1.5:1 to 12:1",
@@ -134,7 +136,7 @@ def main():
             else:
                 what = "Changed: " + "; ".join(P6.changes(a, sw["params"][j])) + "."
             meas = " ".join(f"{LABEL[k][0].upper() + LABEL[k][1:]} {FMT[k].format(f[k])} (references {FMT[k].format(tg[k]['min'])} to {FMT[k].format(tg[k]['max'])})."
-                            for k, _, _ in P5.SHOW[a] if f.get(k) is not None)
+                            for k in TITLE[a] + [k for k, _, _ in P5.SHOW[a] if k not in TITLE[a]] if f.get(k) is not None)
             close = " Closest of the sweep to the references." if j == closest else ""
             e = {"id": eid, "batch": n,
                  "title": f"HW002 — {P6.NAME[a]} {v}{' (original)' if orig else ''}: {rel(k1, f[k1], tg)}, {rel(k2, f[k2], tg, first=False)}",
