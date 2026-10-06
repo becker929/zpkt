@@ -25,9 +25,10 @@ URL=$(gh pr create --title "skrng: HW002 batches 6 and 7, mix versions in Live (
 echo "PR $URL"
 if gh pr checks $URL 2>/dev/null | grep -q -E '\bfail\b'; then echo "CHECK FAILED, not merging"; exit 1; fi
 gh pr merge $URL --squash
-WANT=$(python3 -c "import json; print(' '.join(e['id'] for e in json.load(open('skrng/manifest.json')) if float(e.get('batch') or 0) >= 6))")
+DIGEST="import json,sys,hashlib; print(hashlib.md5(json.dumps([e for e in json.load(sys.stdin) if float(e.get('batch') or 0) >= 6], sort_keys=True).encode()).hexdigest())"
+WANT=$(python3 -c "$DIGEST" < skrng/manifest.json)   # titles and notes too: a retitle keeps the ids
 for i in $(seq 1 30); do
-  LIVE=$(curl -s "https://anthonybecker.me/skrng/manifest.json?r=$RANDOM" | python3 -c "import json,sys; print(' '.join(e['id'] for e in json.load(sys.stdin) if float(e.get('batch') or 0) >= 6))" 2>/dev/null || true)
+  LIVE=$(curl -s "https://anthonybecker.me/skrng/manifest.json?r=$RANDOM" | python3 -c "$DIGEST" 2>/dev/null || true)
   [ "$LIVE" = "$WANT" ] && break
   sleep 20
 done
