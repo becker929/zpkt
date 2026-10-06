@@ -282,7 +282,59 @@ That cut the spread of identical settings to 0.03 for the "space" score. A climb
 6. **"Selected Tracks Only" export** for vertical packing. Does it cut the 5.3 s per submix?
 7. **CPU during export.** Does Live render on one thread? That decides whether anything can run in parallel.
 
-## 9. Where the numbers come from
+## 9. The six mix aspects, climbed in Live (/skrng batches 6 and 7)
+
+Batch 5's six changes, redone with the devices already in the set (`climb_live.py`, designs `b6_*`). Each
+round is one kit batch: pattern 0 re-renders the current best, 31 candidates, ~71 s. Plateau = 3 rounds
+without a new best: each round already tests 31 settings. A win must beat the best by more than the
+aspect's calibrated noise and twice the control's drift.
+
+| Aspect | Devices turned | Rounds | Original | Best | Noise |
+|---|---|---|---|---|---|
+| Kick distortion | Decapitator (rumble), COLDFIRE drive (kick group) | 5 | −2.59 | no win | 0.06 |
+| Drop power | Compressor (kick group) | 3 | −2.43 | no win | 0.21 |
+| Deep sub | 3 EQ Eight low bands, kick EQ band 4 | 4 | −1.88 | −0.42 | 0.10 |
+| Mono low end | Utility Bass Mono (Main, rumble), rumble width | 4 | −2.90 | −0.15 | 0.06 |
+| Colour | EQ Eight mid and high bands (kick group, perc 2, rumble) | 8 | −1.40 | −0.91 | 0.008 |
+| Space | Supermassive on perc 2 | 5 | −1.06 | −0.36 | 0.03 |
+
+- **Deep sub:** open the low cuts (kick group −14.8 → +4.8 dB, rumble −14.3 → +3.0 dB) and move the kick's
+  band 4 from 126 to 57 Hz. Re-rendered best scores drift by up to 0.15 (−0.43 to −0.57), still far above −1.88.
+- **Mono low end:** Bass Mono on, on Main below 169 Hz and on rumble. At 2.5× the change the low-end side
+  falls 2.6 dB under the references: too mono.
+- **Colour:** the climb moved the kick group's 484 Hz boost to 2.2 kHz (+7.6 dB) and cut the high bands. In
+  the drop the gap was the 2 kHz band (6.1 dB under), not the centroid the whole-song numbers suggested.
+- **Space:** Supermassive on perc 2 climbs (mix 28 → 43 %, feedback 0 → 83 %, delay 7 → 37 %); the reverb
+  designs E7/E7b did not. That fits Anthony preferring batch 5's space by ear.
+- **Kick distortion:** more drive on these two devices *lowers* the 2 kHz band relative to the mix
+  (−25.5 → −30.6 dB from 0 to 100 %) while the crest falls toward the references. They add low weight, not
+  upper-mid bite.
+- **Drop power:** a harder kick-group Compressor *raises* the mix crest (7.9 → 13.9 dB). Without makeup it
+  turns the kick down and the peakier percussion dominates. The references' density is not there.
+
+**Sweeps for listening (`sweep_live.py`, batches 7.1–7.6).** One kit batch per aspect, 64 s. If the climb
+won, the sweep runs from the original through the best to 2.5× the change; otherwise it turns the aspect's
+main knobs over their whole range. `publish7.py` picks six (the original, five along the sweep, one of them
+the closest to the references) and titles each by where its two main features sit against the references.
+
+**All changes together (`combine_live.py`): the gains do not stack.** The four bests (20 knobs, none
+shared) in one render, each aspect scored on the 31 combined patterns (mean):
+
+| Aspect | Original | Alone | All four together |
+|---|---|---|---|
+| Deep sub | −1.88 | −0.42 | −1.23 |
+| Mono low end | −2.90 | −0.15 | −1.09 |
+| Colour | −1.40 | −0.91 | −1.43 |
+| Space | −1.06 | −0.36 | −1.37 |
+| Kick distortion | −2.62 | (no win) | −1.72 |
+| Drop power | −2.49 | (no win) | −3.27 |
+
+Deep sub and mono keep part of their gain. Colour loses its gain, and space ends below the original. Every
+band feature is relative to the whole mix, so added sub energy moves all of them. The colour cuts also land in the bands space is
+scored on. This matches Anthony's batch 5 verdict that the combined version was not better. Next: one joint
+climb over all 20 knobs with a summed objective, seeded at the combined bests.
+
+## 10. Where the numbers come from
 
 - **Least-squares fits from log rows:** Export Main a and b; export-all e0 and e1; load l0 and l1; memory m0 and m1.
 - **Medians and means from log rows:** every row of the primitives table. t_guard comes from row timestamps.

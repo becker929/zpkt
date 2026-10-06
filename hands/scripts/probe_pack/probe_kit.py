@@ -93,6 +93,38 @@ def template(kit, src, keep_start, keep_end, P, lead=8.0):
     return meta
 
 
+def resolve(tree, track, dev, param):
+    """(track element, device element, parameter path relative to the device).
+
+    dev: "Mixer" (the track mixer: volume, pan, sends), ("plugin", PlugName) for a VST/AU device,
+    or (device_tag, index) for a Live device (index among devices with that tag; -1 = last).
+    param: an XML path for Live devices ("Bands.3/ParameterA/Gain"); a plugin parameter's
+    display name ("Drive") for plugins, which resolves to its ParameterValue element."""
+    tr = X.find_track(tree, track)
+    if dev == "Mixer":
+        return tr, tr.find("./DeviceChain/Mixer"), param
+    if isinstance(dev, str):                       # older call style: a tag, last such device
+        dev = (dev, -1)
+    if dev[0] == "plugin":
+        plugs = [d for d in X.devices(tr) if d.tag == "PluginDevice"
+                 and any(e.get("Value") == dev[1] for e in d.find("./PluginDesc").iter() if e.tag in ("PlugName", "Name"))]
+        if len(plugs) != 1:
+            raise KeyError(f"{track}: {len(plugs)} plugins named {dev[1]!r}")
+        params = plugs[0].findall("./ParameterList/PluginFloatParameter")
+        idx = [i for i, p in enumerate(params, 1) if p.find("./ParameterName").get("Value") == param]
+        if len(idx) != 1:
+            raise KeyError(f"{track}/{dev[1]}: {len(idx)} parameters named {param!r}")
+        return tr, plugs[0], f"ParameterList/PluginFloatParameter[{idx[0]}]/ParameterValue"
+    return tr, X.find_device(tr, dev[0], dev[1]), param
+
+
+def current_value(tree, track, dev, param):
+    """The parameter's knob value in the set (float, or bool for switches)."""
+    _, d, path = resolve(tree, track, dev, param)
+    v = d.find(path).find("Manual").get("Value")
+    return v == "true" if v in ("true", "false") else float(v)
+
+
 def write_batch(kit, tag, devices, steps):
     """Offline. devices: [(track, donor_set, donor_track, device_tag)] appended to `track`.
     steps: [(track, device_tag or "Mixer", param_xml_path, [value per pattern])]. Returns the batch set name."""
@@ -101,14 +133,12 @@ def write_batch(kit, tag, devices, steps):
     for track, donor_set, donor_track, tag_ in devices:
         donor = X.find_device(X.find_track(X.load(os.path.join(pp.PROJ, donor_set + ".als")), donor_track), tag_)
         X.add_device_from_donor(tree, X.find_track(tree, track), donor)
-    for track, tag_, param, values in steps:
+    for track, dev, param, values in steps:
         if len(values) != meta["P"]:
             raise ValueError(f"{len(values)} values for {meta['P']} patterns")
-        tr = X.find_track(tree, track)
         st = [(0.0 if j == 0 else meta["lead"] + j * meta["pattern_beats"], v) for j, v in enumerate(values)]
-        # "Mixer" addresses the track's mixer (volume, pan, sends: param "Sends/TrackSendHolder/Send")
-        dev = tr.find("./DeviceChain/Mixer") if tag_ == "Mixer" else X.find_device(tr, tag_, -1)
-        X.set_steps(tree, tr, dev, param, st)
+        tr, d, path = resolve(tree, track, dev, param)
+        X.set_steps(tree, tr, d, path, st)
     name = f"HW002_121_pp_x_{kit}_{tag}"
     path = os.path.join(pp.PROJ, name + ".als")
     X.save(tree, path, overwrite=True)
