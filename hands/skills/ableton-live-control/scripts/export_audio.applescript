@@ -256,13 +256,23 @@ on doExport(argv)
 		set cx to (item 1 of pp) + ((item 1 of ps) div 2)
 		set cy to (item 2 of pp) + ((item 2 of ps) div 2)
 	end tell
-	my clickAt(cx, cy)
-	delay 0.3
-	tell application "System Events" to tell process "Live"
-		keystroke "a" using {command down}
-		delay 0.2
-		keystroke theName
-	end tell
+	if cliclickPath is "" then
+		-- no cliclick: focus the field and set its value through accessibility
+		tell application "System Events" to tell process "Live"
+			set nf to (first text field of (splitter group 1 of window "Save") whose description is "text field")
+			set focused of nf to true
+			delay 0.2
+			set value of nf to theName
+		end tell
+	else
+		my clickAt(cx, cy)
+		delay 0.3
+		tell application "System Events" to tell process "Live"
+			keystroke "a" using {command down}
+			delay 0.2
+			keystroke theName
+		end tell
+	end if
 	delay 0.4
 
 	-- commit
@@ -294,10 +304,16 @@ on doExport(argv)
 		-- settle, then hand back the prefix; the caller verifies the actual
 		-- per-track files itself (it already knows the track name list).
 		set elapsed to 0
-		repeat while elapsed < 120
-			tell application "System Events" to tell process "Live"
-				if not (exists window "Save") and not (exists window "Export Audio/Video") then exit repeat
-			end tell
+		repeat while elapsed < 300
+			-- The windows close while the last files are written; an AppleEvent can fail
+			-- in that moment (-10000). Treat a failed check as "still closing".
+			set gone to false
+			try
+				tell application "System Events" to tell process "Live"
+					set gone to (not (exists window "Save")) and (not (exists window "Export Audio/Video"))
+				end tell
+			end try
+			if gone then exit repeat
 			delay 1
 			set elapsed to elapsed + 1
 		end repeat
@@ -478,5 +494,5 @@ on resolveCliclick()
 			return (cand as text)
 		end try
 	end repeat
-	error "cliclick not found on PATH or Homebrew prefixes (brew install cliclick)"
+	return "" -- not installed: the Save panel filename is set through accessibility instead
 end resolveCliclick
