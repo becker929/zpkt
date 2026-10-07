@@ -7,7 +7,8 @@
 SITE is a checkout of the site repo (e.g. ~/_agent_scratch/site). Makes the MP3 with
 `say` (Daniel, as the track announcements), uploads it to R2 at
 audio/skrng/tts/batch-<n>-<hash>.mp3 and sets "announce" and "say" on the batch in
-skrng/batches.json. New words give a new URL, so a cached old intro never plays.
+skrng/batches.json ("say" without the batch id: the voice review says that
+itself). New words give a new URL, so a cached old intro never plays.
 Publishing is public: only run it for batches Anthony has approved. Commit and PR the
 batches.json change in the site repo as usual.
 """
@@ -61,7 +62,8 @@ def publish(site: pathlib.Path, batches: list, n, text: str) -> str:
         tts(text, mp3)
         subprocess.run(["npx", "-y", "wrangler@4.145.0", "r2", "object", "put", f"{BUCKET}/{key}", "--file", str(mp3),
                         "--content-type", "audio/mpeg", "--remote"], check=True, capture_output=True, cwd=site)
-    entry["announce"], entry["say"] = "/" + key, text
+    # The voice review says "Batch N. K tracks." itself, then "say": keep the batch id out of it.
+    entry["announce"], entry["say"] = "/" + key, re.sub(r"^Batch \d+(, part \d+)?\.\s*", "", text)
     return key
 
 
