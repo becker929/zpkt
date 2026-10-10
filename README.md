@@ -62,7 +62,7 @@ Two rules keep the parts honest:
 | Directory | From | Notes |
 |---|---|---|
 | `hands/` | github.com/becker929/hands | Live control: the `hands` library and CLI |
-| `hands/sweeps/` | untracked hands folder, Sep 2026 | knob-to-measure sweep harness and results |
+| `hands/archive/` | hands' batch, bench and sweep scripts, Sep-Oct 2026 | kept for reference, unmaintained |
 | `hands/skills/` | the old Mac's agent skills | driving Live: OSC + LOM, virtual display, export |
 | `hands/macros/hammerspoon/` | github.com/becker929/hammerspoon-config | music-desk macros, render + upload, backups |
 | `ears/` | github.com/becker929/ears | `ears analyze` — the AudioProfile |

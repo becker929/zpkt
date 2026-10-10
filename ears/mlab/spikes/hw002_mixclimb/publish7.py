@@ -2,7 +2,7 @@
 
   uv run --with librosa python spikes/hw002_mixclimb/publish7.py [--upload]
 
-Reads the sweeps rendered by zpkt hands/scripts/probe_pack/sweep_live.py (~/_agent_scratch/probepack/
+Reads the sweeps rendered by zpkt hands/archive/probe_pack/sweep_live.py (~/_agent_scratch/probepack/
 sweep7/<aspect>/): 32 Live renders of the drop, pattern 0 = the set as mixed. Picks six versions: the
 original and five spread along the sweep, one of them the closest to the references. Each track is one
 version, 7 bars (first bar dropped), at -14 LUFS. Each title places the aspect's two main features against

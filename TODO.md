@@ -13,8 +13,6 @@ Loose ends, last updated 1 October 2026. Remove items as they close.
   Fail if a module has `scanstate` 3, which means the scan failed.
 - [ ] A/B hotkeys are built (`hands ab`, `hands spectrum`, Hammerspoon ⌃⌥⌘ A/D/S/N).
   Hammerspoon is installed but waits on a first-launch prompt on screen.
-- [ ] Move the arrangement pipeline (lead-in, cut, restore automation, render, measured trim, timeline check) from `hands/scripts/arrange_prototype` into `hands` proper.
-  Delete Time drops envelopes whose breakpoints are all cut; see the ableton-guide skill.
 
 Licensing now in place on the Mac mini: iLok (Soundtoys), Arturia Software
 Center (COLDFIRE), SSL Download Manager (FlexVerb), Kilohearts Installer.

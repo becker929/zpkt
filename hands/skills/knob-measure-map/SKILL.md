@@ -5,6 +5,10 @@ description: Build a "knob -> measure" map on a real Ableton Live set. Pick one 
 
 # Knob -> measure map (Ableton side)
 
+> **Archived harness.** The sweep scripts and results this skill drives moved to zpkt
+> `hands/archive/sweeps/` in October 2026 and are unmaintained; paths below are relative to
+> `hands/`. To set knobs in a running set, use `hands.live.knobs`.
+
 This skill turns one device knob into a measured curve. You sweep the knob,
 bounce isolated audio at each setting, measure it, and assemble
 `{param -> measure}`. That curve is the "knob to measure" map: it says which
@@ -30,7 +34,7 @@ track`, Kick (G) = track 6):
   sub-coupled (see `MAP.md`).
 
 The assembled results (with an invertible target-crest -> threshold lookup for
-the clipper) live in `~/sandbox/autodaw/hands/sweeps/MAP.md`. Read this skill top
+the clipper) live in `hands/archive/sweeps/MAP.md`. Read this skill top
 to bottom, then execute.
 
 ## When to use
@@ -52,11 +56,11 @@ to bottom, then execute.
   user must click. If it is not set up, launching Live on the main screen is
   fine — OSC/MCP work regardless of window location, and the bounce is headless.
 - **The runners + measurer** live in the `autodaw/hands` project at
-  `~/sandbox/autodaw/hands/sweeps/` (paths below). The `hands` package
+  `hands/archive/sweeps/` (paths below). The `hands` package
   (`~/sandbox/autodaw/hands/`) is the productionized Path-B consumer.
-- **`HANDOFF.md`** (`~/sandbox/autodaw/hands/sweeps/HANDOFF.md`): running log of
+- **`HANDOFF.md`** (`hands/archive/sweeps/HANDOFF.md`): running log of
   results and machine state. Append new findings there.
-- **`MAP.md`** (`~/sandbox/autodaw/hands/sweeps/MAP.md`): the assembled
+- **`MAP.md`** (`hands/archive/sweeps/MAP.md`): the assembled
   knob->measure map itself, with inverse lookups for clean knobs. Append a new
   map row here whenever you characterize a knob (see step 8).
 
@@ -197,8 +201,8 @@ source's slot 0, and creates ONLY the pieces that are missing:
 
 ```bash
 cd ~/sandbox/autodaw/hands
-uv run python sweeps/build_rig.py --source "Kick (G)"          # build/repair
-uv run python sweeps/build_rig.py --source "Kick (G)" --check  # report only, mutate nothing
+uv run python archive/sweeps/build_rig.py --source "Kick (G)"          # build/repair
+uv run python archive/sweeps/build_rig.py --source "Kick (G)" --check  # report only, mutate nothing
 ```
 
 `--source` takes a track name or index; `--check` prints the rig state (source
@@ -293,8 +297,8 @@ and the capture track index you created:
 
 ```bash
 cd ~/sandbox/autodaw/hands
-uv run python sweeps/run_sweep_stem.py \
-  --sweep sweeps/snts_kick_decap_drive.sweep.json \
+uv run python archive/sweeps/run_sweep_stem.py \
+  --sweep archive/sweeps/snts_kick_decap_drive.sweep.json \
   --source-track 6 --source-input "Kick (G)" --capture-track 44
 ```
 
@@ -318,7 +322,7 @@ full canonical band set and prints the aligned view.
 
 ```bash
 cd ~/sandbox/autodaw/hands
-bash sweeps/sweep.sh --sweep sweeps/snts_kick_clip_thresh.sweep.json \
+bash archive/sweeps/sweep.sh --sweep archive/sweeps/snts_kick_clip_thresh.sweep.json \
   --source-track 6 --source-input "Kick (G)" --capture-track 44
 ```
 
@@ -337,9 +341,9 @@ row.
 Use `rig.py` rather than toggling devices by hand:
 
 ```bash
-uv run python sweeps/rig.py snapshot   --track 6 --name snts_kick_devices
-uv run python sweeps/rig.py solo-device --track 6 --device 6 --name my_rig
-uv run python sweeps/rig.py restore    --from sweeps/snapshots/snts_kick_devices.json
+uv run python archive/sweeps/rig.py snapshot   --track 6 --name snts_kick_devices
+uv run python archive/sweeps/rig.py solo-device --track 6 --device 6 --name my_rig
+uv run python archive/sweeps/rig.py restore    --from archive/sweeps/snapshots/snts_kick_devices.json
 ```
 
 `restore` re-reads every value and exits nonzero on mismatch, so "I restored it"
@@ -354,7 +358,7 @@ shim.** Use this:
 
 ```bash
 export EARS_CMD="/Users/anthonybecker/_agent_scratch/ears_lab/.venv/bin/ears"
---ears-cmd "uv run python sweeps/ears_shim.py"
+--ears-cmd "uv run python archive/sweeps/ears_shim.py"
 --measure-keys crest_db sub_share low_share mid_share high_share air_share
 ```
 
@@ -363,7 +367,7 @@ Why a shim, not bare `ears`: real `ears` returns `loudness.band_energy["sub"]`
 `--ears-cmd "ears"` cannot feed this pipeline.
 
 Why the IN-REPO shim specifically: the lab lives in `_agent_scratch`, which is
-DISPOSABLE. `sweeps/ears_shim.py` is in the repo, so it always exists. If
+DISPOSABLE. `archive/sweeps/ears_shim.py` is in the repo, so it always exists. If
 `$EARS_CMD` resolves, it uses real ears' band shares (corpus-exact); if not, it
 falls back to `measure_local`'s band math, which is validated to agree to
 3.2e-08. The pipeline therefore never breaks — it only loses corpus exactness,
@@ -385,7 +389,7 @@ named `crest` rather than `crest_db`. Same numbers, but it dies with
 **Pure-offline fallback: `measure_local.py`** (in-repo, no lab needed):
 
 ```
---ears-cmd "uv run python sweeps/measure_local.py"
+--ears-cmd "uv run python archive/sweeps/measure_local.py"
 --measure-keys crest_db sub_share low_share mid_share high_share air_share
 ```
 
@@ -393,7 +397,7 @@ The two are VALIDATED to agree: every sweep re-measured both ways, worst
 disagreement 3.2e-08 against a 1e-6 budget, and crest identical bit-for-bit.
 The ~1e-8 residual is float32-vs-float64 FFT input rounding, not different math.
 `test_measure_agreement.py` fails the build if they ever drift. Details in
-`sweeps/PHASE1_REPORT.md`.
+`archive/sweeps/PHASE1_REPORT.md`.
 
 NEVER use `lufs_*` or `true_peak` on stem taps. They are gain-dependent and our
 taps are gain-scaled, so those numbers are meaningless; they are real only on
@@ -405,18 +409,18 @@ crest changed:
 
 ```bash
 cd ~/sandbox/autodaw/hands
-uv run python sweeps/assemble_curve.py \
-  --dir sweeps/out/snts_kick_decap_drive_v1 \
+uv run python archive/sweeps/assemble_curve.py \
+  --dir archive/sweeps/out/snts_kick_decap_drive_v1 \
   --ears-cmd "/Users/anthonybecker/_agent_scratch/ears_lab/.venv/bin/python /Users/anthonybecker/_agent_scratch/ears_lab/ears_shim.py" \
   --measure-keys crest sub_share low_share mid_share high_share air_share \
-  --out sweeps/out/snts_kick_decap_drive_v1/snts_kick_decap_drive_v1.acceptance.ears.csv
+  --out archive/sweeps/out/snts_kick_decap_drive_v1/snts_kick_decap_drive_v1.acceptance.ears.csv
 ```
 
 Then let the tool read the curve for you instead of eyeballing it:
 
 ```bash
-uv run python sweeps/summarize_curve.py \
-  --csv sweeps/out/snts_kick_decap_drive_v1/snts_kick_decap_drive_v1.acceptance.ears.csv
+uv run python archive/sweeps/summarize_curve.py \
+  --csv archive/sweeps/out/snts_kick_decap_drive_v1/snts_kick_decap_drive_v1.acceptance.ears.csv
 ```
 
 It reports direction, extrema and where they sit, span, and the largest
@@ -431,7 +435,7 @@ shifts every measure column one to the left. The `.txt` renders blanks as `-` so
 they can't be misread:
 
 ```bash
-cat sweeps/out/snts_kick_decap_drive_v1/snts_kick_decap_drive_v1.acceptance.txt
+cat archive/sweeps/out/snts_kick_decap_drive_v1/snts_kick_decap_drive_v1.acceptance.txt
 ```
 
 `assemble_curve.py` now RESOLVES the loosely-named `predicted_measure` (e.g.
@@ -461,8 +465,8 @@ automated).
   clean monotonic crest control nearly orthogonal to sub_share. When a knob is
   clean and monotonic, record an inverse lookup (target measure -> knob value).
 - Append the result to BOTH logs: the map row (curve shape, range, spectral side
-  effect, and any inverse lookup) to `~/sandbox/autodaw/hands/sweeps/MAP.md`, and
-  the finding + machine state to `~/sandbox/autodaw/hands/sweeps/HANDOFF.md`
+  effect, and any inverse lookup) to `hands/archive/sweeps/MAP.md`, and
+  the finding + machine state to `hands/archive/sweeps/HANDOFF.md`
   section 4.
 
 ---
@@ -489,7 +493,7 @@ automated).
 - Quit Live and delete the clone under `/Users/anthonybecker/_agent_scratch/`
   when done, or leave the rig up for follow-up sweeps (finer range, next knob).
 
-## File map (in `~/sandbox/autodaw/hands/sweeps/`)
+## File map (in `hands/archive/sweeps/`)
 
 - `build_rig.py` — idempotent Path-B rig builder (`--check` reports state); the
   one-command replacement for the manual step-5 LOM sequence.

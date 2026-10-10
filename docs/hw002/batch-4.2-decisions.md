@@ -3,7 +3,7 @@
 From Anthony's review of batch 4.2 on /skrng. Written by Claude Code.
 
 **Status (6 October 2026):** applied in batches 4.3 (splashes) and 4.4 (hats), published on /skrng
-(site PR #46). Scripts: `hands/scripts/arrange_prototype/` `plan43.json`, `plan44.json`,
+(site PR #46). Scripts (archived): `hands/archive/arrange_prototype/` `plan43.json`, `plan44.json`,
 `arrange43.py` (adds `keep`), `run_batch.py`, `build_batch43_44.py`. Anthony confirmed 4.3 and 4.4
 as the next steps; the voice-over rules below were applied as drafted.
 
