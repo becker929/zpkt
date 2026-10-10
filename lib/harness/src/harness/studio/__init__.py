@@ -84,8 +84,10 @@ class Studio:
     def _options(self, resume: str | None) -> ClaudeAgentOptions:
         """The session runs in auto mode: the same safety classifier as Anthony's desktop sessions decides each
         action (nobody is at the keyboard to approve), with the guard's hard rules on top. Only the app's own tools
-        and reading are pre-allowed. The claude.ai connectors and other MCP servers stay out (strict MCP config):
-        they cost context on every request and have no place in a music session."""
+        and reading are pre-allowed. Thinking is adaptive (the model decides how much) and summarized: the CLI's
+        default for current models omits its text, and the chat shows it, folded with the tool calls. The claude.ai
+        connectors and other MCP servers stay out (strict MCP config): they cost context on every request and have
+        no place in a music session."""
         hooks = self.screens.hooks()
         server = tools.server(self.conversation)
         return ClaudeAgentOptions(
@@ -97,6 +99,7 @@ class Studio:
             system_prompt={"type": "preset", "preset": "claude_code", "append": INSTRUCTIONS},
             setting_sources=["user", "project", "local"],
             include_partial_messages=True,
+            thinking={"type": "adaptive", "display": "summarized"},
             max_buffer_size=64 << 20,           # one big message (a screenshot, a long file) must not end the session
             mcp_servers={tools.SERVER: {**server, "alwaysLoad": True}},   # no tool-search round trip on first use
             strict_mcp_config=True,

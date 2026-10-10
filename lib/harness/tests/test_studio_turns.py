@@ -14,7 +14,7 @@ from aiohttp.test_utils import TestClient, TestServer
 
 from harness.config import Config
 from harness.studio import Studio
-from harness.studio.agent import TextDelta, TextDone, ToolDone, ToolStart, TurnDone
+from harness.studio.agent import TextDelta, TextDone, ThinkingDelta, ThinkingDone, ToolDone, ToolStart, TurnDone
 from harness.studio.model import Kind
 from harness.studio.shots import Frame
 from harness.studio.speech import VoiceWorker
@@ -235,6 +235,32 @@ async def test_play_again_is_handled_without_claude(rig):
     await page.ws.send_json({"type": "say", "text": "What did you change?"})
     await page.until(lambda m: m["type"] == "phase" and m["phase"] == "responding", since=now)
     assert "played" in agent.prompts[0] and agent.prompts[0].endswith("What did you change?")
+
+
+async def test_thinking_is_kept_in_the_chat_and_never_spoken(rig):
+    client, studio, agent, _ = rig
+    agent.script = lambda prompt: [
+        ThinkingDelta(0, "He wants the kick "), ThinkingDelta(0, "louder; check its chain first."),
+        ThinkingDone(0, "He wants the kick louder; check its chain first."),
+        ToolStart("t1", "Read", {"file_path": "/x/kick-chain.json"}), ToolDone("t1", "Read", True, "{}"),
+        ThinkingDelta(2, "Three dB is enough."),                 # never finished: the turn ends first
+        TextDelta(3, "Done."), TextDone(3, "Done."),
+        TurnDone("Done.", True, 0.0, "s1"),
+    ]
+    page = await connect(client, {"autoplay": True, "shots": "none"})
+    await page.ws.send_json({"type": "start"})
+    await page.until(lambda m: m["type"] == "listen")
+    await page.ws.send_json({"type": "say", "text": "louder kick"})
+    await page.until(lambda m: m["type"] == "phase" and m["phase"] == "responding")
+    await page.until(lambda m: m["type"] == "speech" and m["state"] == "end")
+    begins = [m for m in page.msgs if m["type"] == "speech" and m["state"] == "begin"]
+    assert len(begins) == 1                                     # only the reply is spoken
+    stored = [(m.kind, m.data) for m in studio.store.page(studio.conversation.conv.id, None, 20)[0]]
+    assert [k for k, _ in stored] == [Kind.USER, Kind.THINKING, Kind.ACTIVITY, Kind.THINKING, Kind.AGENT]
+    assert stored[1][1] == {"text": "He wants the kick louder; check its chain first.", "streaming": False}
+    assert stored[3][1] == {"text": "Three dB is enough.", "streaming": False}
+    final = await page.until(upsert("thinking", streaming=False))
+    assert final["message"]["data"]["text"].startswith("He wants")
 
 
 async def test_interrupt_stops_claude_and_returns_the_mic(rig):

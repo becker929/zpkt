@@ -11,6 +11,7 @@ from typing import Any
 class Kind(StrEnum):
     USER = "user"            # what Anthony said, or typed
     AGENT = "agent"          # what Claude said, or a narration of what it is doing
+    THINKING = "thinking"    # Claude's thinking, summarized; shown folded, never spoken
     MUSIC = "music"          # a render to listen to
     SHOTS = "shots"          # a screenshot pair: the full screen and a zoom
     ACTIVITY = "activity"    # one tool call
