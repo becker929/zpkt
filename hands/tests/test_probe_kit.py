@@ -3,14 +3,12 @@ from __future__ import annotations
 
 import json
 
-import numpy as np
 import pytest
 import soundfile as sf
 from planted import TRACK, planted_set
 
 from hands import als, audio
 from hands import probe_kit as PK
-from hands.live import render as live_render
 from hands.live import session, timeops
 from hands.live.knobs import Knob
 from hands.live.session import Guard
@@ -91,23 +89,6 @@ def test_write_batch_adds_donor_devices(kit, rig):
     name = PK.write_batch(kit, "donor", steps=[], devices=[(TRACK, "test_donor", TRACK, "Eq8")])
     tags = [d.tag for d in als.devices(als.find_track(als.load(rig.set_path(name)), TRACK))]
     assert tags == ["StereoGain", "PluginDevice", "Eq8", "Eq8"]
-
-
-@pytest.fixture
-def fake_live(monkeypatch):
-    """session and export faked: export writes `level` audio of `seconds` length at 160 BPM."""
-    calls = []
-    monkeypatch.setattr(session, "check", lambda client, where, **kw: calls.append(("check", where)) or "test_x")
-    monkeypatch.setattr(session, "open_set", lambda client, name, **kw: calls.append(("open", name)) or 5.0)
-
-    def export(client, out, start, length, mode="Main"):
-        calls.append(("export", start, length, mode))
-        seconds = length * 60 / 160 if export.seconds is None else export.seconds
-        sf.write(out, np.full((int(seconds * 44100), 2), export.level), 44100, subtype="FLOAT")
-        return [out]
-    export.level, export.seconds = 0.1, None
-    monkeypatch.setattr(live_render, "export", export)
-    return calls, export
 
 
 def test_render_exports_once_checks_and_slices(kit, tmp_path, fake_live):

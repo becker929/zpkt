@@ -22,6 +22,7 @@ A **plan** is a small JSON document: which knobs of a probe kit take which value
 ## Commands (run from `hands/`, `uv run --extra plans hands plan ...`)
 
 ```bash
+hands doctor                                          # rig config, kits, sets, Live: run first in a session
 hands plan kit c8x4                                   # version, tempo, bar length, P
 hands plan knob c8x4 'rumble|plugin:Decapitator|Drive'   # its value and range in the kit
 hands plan render PLAN [PLAN ...]                     # renders what is not cached, P plans per Live pass

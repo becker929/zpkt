@@ -10,6 +10,7 @@ Commands:
     als      — check a Live set file, list a device's parameters (offline)
     kit      — build a probe kit in Live, render a batch
     plan     — plans to renders to A/B files, for the voice loop (hands.plans)
+    doctor   — check the rig config, kits, sets and Live before a session
 """
 
 from __future__ import annotations
@@ -278,6 +279,24 @@ def kit_render(
         console.print(f"[red]{exc}[/red]")
         raise typer.Exit(1)
     print(json.dumps(manifest))
+
+
+@app.command()
+def doctor(
+    live: bool = typer.Option(True, "--live/--no-live", help="Also ask Live whether it answers and which set is in front."),
+    host: str = typer.Option("127.0.0.1", "--host"),
+    port: int = typer.Option(16619, "--port"),
+) -> None:
+    """Check, without changing anything, that the rig config, kits, sets and Live are where hands looks."""
+    from hands import doctor as D
+    from hands.live.transport import LiveClient
+
+    checks = D.run(LiveClient(host, port, timeout=5.0, retries=0) if live else None)
+    colour = {D.OK: "green", D.WARN: "yellow", D.FAIL: "red"}
+    for c in checks:
+        console.print(f"[{colour[c.status]}]{c.status:4}[/{colour[c.status]}]  {c.name}: {c.detail}")
+    if any(c.status == D.FAIL for c in checks):
+        raise typer.Exit(1)
 
 
 def main() -> None:

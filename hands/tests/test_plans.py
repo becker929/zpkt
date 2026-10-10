@@ -193,3 +193,36 @@ def test_the_cli_makes_an_ab_and_renders_ahead(kit_dirs, monkeypatch):
 
     res3 = runner.invoke(app, ["plan", "lookup", json.dumps({"kit": "t4", "knobs": {DRIVE: 0.41}})])
     assert json.loads(res3.output)["nearest"]["distance"] == pytest.approx(0.01)
+
+
+# --- the real Live renderer, Live faked ---------------------------------------------------------------------------
+
+def test_the_live_renderer_writes_a_batch_and_renders_it_through_probe_kit(rig, fake_live, monkeypatch, tmp_path):
+    """LiveRenderer and KnobReader as `hands plan render` runs them, with only Live's side faked: the kit and its set
+    come from the rig config, the knob is read from the set, the batch steps it, and the export is sliced and cached."""
+    from planted import TRACK, planted_set
+
+    import hands.live.transport as T
+    from hands import als
+    from hands import probe_kit as PK
+    from hands.live.transport import McpResult, MockTransport
+    from hands.plans.render import LiveRenderer
+
+    monkeypatch.delenv("HANDS_KITS", raising=False)
+    monkeypatch.delenv("HANDS_SETS", raising=False)
+    planted_set(rig.set_path("test_kit_t4"))
+    PK.Kit(kit="t4", set="test_kit_t4", src="test_src", keep=[24.0, 56.0], lead=8.0, pattern_beats=32.0, P=4).save()
+    monkeypatch.setattr(T, "LiveClient", lambda *a, **kw: MockTransport([McpResult("ok", 160.0)]))
+    calls, _ = fake_live
+
+    drive = f"{TRACK}|plugin:Decapitator|Drive"
+    planner = Planner(cache=Cache(tmp_path / "plans"), renderer=LiveRenderer(tmp_path / "work"))
+    assert planner.info(planner.kit("t4"), {drive})[drive].base == pytest.approx(0.27)
+    r = planner.ensure([Plan.from_json({"kit": "t4", "knobs": {drive: 0.5}})])
+
+    batch = r.timings[0]["batch_set"]
+    assert batch.startswith("test_x_t4_") and ("open", batch) in calls
+    envs = als.envelopes(als.load(rig.set_path(batch)))
+    steps = als._steps_of(envs["1-Audio > PluginDevice > ParameterValue"][2])
+    assert [v for t, v in steps if t >= 0] == ["0.5"] * 4
+    assert r.entries[0].audio.is_file() and sf.info(r.entries[0].audio).duration == pytest.approx(12.0)
