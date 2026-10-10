@@ -12,7 +12,7 @@ import logging
 import time
 from collections.abc import Awaitable, Callable
 
-from claude_agent_sdk import AssistantMessage, ClaudeAgentOptions, TextBlock, query
+from claude_agent_sdk import AssistantMessage, ClaudeAgentOptions, ClaudeSDKClient, TextBlock
 
 log = logging.getLogger(__name__)
 
@@ -115,16 +115,46 @@ def clean(line: str, max_words: int) -> str:
     return line
 
 
-def haiku(model: str, cli_path: str | None, env: dict[str, str]) -> Summarize:
-    """One line from a small model through the Mac's own Claude login: no tools, no settings, one turn."""
-    options = ClaudeAgentOptions(model=model, cli_path=cli_path, env=env, tools=[], setting_sources=[],
-                                 system_prompt="You write one short spoken sentence.", max_turns=1)
+class HaikuLines:
+    """Narration lines from a small model through the Mac's own Claude login, in one long-lived CLI with thinking
+    off: about 0.6 s a line, against 1.1 s for a fresh process per line (and 2-4 s with thinking on). Lines are
+    asked one at a time, and the context is cleared after each, so it never grows."""
 
-    async def summarize(prompt: str) -> str:
+    SYSTEM = "You write one short spoken sentence."
+
+    def __init__(self, model: str, cli_path: str | None, env: dict[str, str]):
+        self.options = ClaudeAgentOptions(
+            model=model, cli_path=cli_path, tools=[], setting_sources=[], system_prompt=self.SYSTEM, max_turns=1,
+            thinking={"type": "disabled"}, extra_args={"no-session-persistence": None},
+            env={**env, "ENABLE_CLAUDEAI_MCP_SERVERS": "false"})
+        self._client: ClaudeSDKClient | None = None
+        self._lock = asyncio.Lock()
+
+    async def __call__(self, prompt: str) -> str:
+        async with self._lock:
+            try:
+                if self._client is None:
+                    self._client = ClaudeSDKClient(self.options)
+                    await self._client.connect()
+                line = await self._ask(prompt)
+                await self._ask("/clear")
+                return line
+            except BaseException:
+                await self.close()             # a timeout or a dead CLI: start fresh next time
+                raise
+
+    async def _ask(self, prompt: str) -> str:
         parts: list[str] = []
-        async for msg in query(prompt=prompt, options=options):
+        await self._client.query(prompt)
+        async for msg in self._client.receive_response():
             if isinstance(msg, AssistantMessage):
                 parts += [b.text for b in msg.content if isinstance(b, TextBlock)]
         return " ".join(parts)
 
-    return summarize
+    async def close(self) -> None:
+        client, self._client = self._client, None
+        if client is not None:
+            try:
+                await client.disconnect()
+            except Exception:  # noqa: BLE001
+                log.debug("narrator disconnect failed", exc_info=True)

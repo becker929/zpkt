@@ -20,7 +20,8 @@ from .agent import AgentSession
 from .conversation import Conversation, Settings
 from .hub import Hub
 from .model import ShotLevel
-from .narrator import Summarize, haiku
+from .guard import bash_hook
+from .narrator import HaikuLines, Summarize
 from .screens import Screens
 from .shots import Capture
 from .speech import VoiceWorker
@@ -71,29 +72,40 @@ class Studio:
         self.screens = Screens(self.store, lambda: self.hub.shots_level, capture)
         self.steps_token = secrets.token_urlsafe(24)
         self.agent = agent or AgentSession(self._options)
+        self.narrator_model = None if summarize else HaikuLines(cfg.narrator_model, cfg.cli_path, job_env(cfg))
         settings = Settings(stop_word=cfg.stop_word, voice=cfg.tts_voice, speed=cfg.tts_speed, version=VERSION)
         self.conversation = Conversation(store=self.store, hub=self.hub, agent=self.agent, worker=self.worker,
-                                         summarize=summarize or haiku(cfg.narrator_model, cfg.cli_path, job_env(cfg)),
-                                         screens=self.screens, settings=settings)
+                                         summarize=summarize or self.narrator_model, screens=self.screens,
+                                         settings=settings)
+        self.agent.unprompted = self.conversation.unprompted
         self.screens.emit = self.conversation.add
         self._steps: web.AppRunner | None = None
 
     def _options(self, resume: str | None) -> ClaudeAgentOptions:
+        """The session runs in auto mode: the same safety classifier as Anthony's desktop sessions decides each
+        action (nobody is at the keyboard to approve), with the guard's hard rules on top. Only the app's own tools
+        and reading are pre-allowed. The claude.ai connectors and other MCP servers stay out (strict MCP config):
+        they cost context on every request and have no place in a music session."""
         hooks = self.screens.hooks()
+        server = tools.server(self.conversation)
         return ClaudeAgentOptions(
             cwd=str(self.cfg.studio_workdir),
             cli_path=self.cfg.cli_path,
             model=self.cfg.studio_model,
-            allowed_tools=[*JOB_TOOLS, *tools.NAMES],
-            permission_mode="acceptEdits",
+            permission_mode="auto",
+            allowed_tools=[f"mcp__{tools.SERVER}", "Read", "Glob", "Grep"],
             system_prompt={"type": "preset", "preset": "claude_code", "append": INSTRUCTIONS},
             setting_sources=["user", "project", "local"],
             include_partial_messages=True,
-            mcp_servers={tools.SERVER: tools.server(self.conversation)},
-            hooks={"PreToolUse": [HookMatcher(hooks=[hooks["pre"]])],
+            max_buffer_size=64 << 20,           # one big message (a screenshot, a long file) must not end the session
+            mcp_servers={tools.SERVER: {**server, "alwaysLoad": True}},   # no tool-search round trip on first use
+            strict_mcp_config=True,
+            hooks={"PreToolUse": [HookMatcher(matcher="Bash", hooks=[bash_hook]), HookMatcher(hooks=[hooks["pre"]])],
                    "PostToolUse": [HookMatcher(hooks=[hooks["post"]])],
                    "PostToolUseFailure": [HookMatcher(hooks=[hooks["post"]])]},
-            env={**job_env(self.cfg), "STUDIO_STEP_URL": f"http://127.0.0.1:{self.cfg.steps_port}/step",
+            env={**job_env(self.cfg), "ENABLE_CLAUDEAI_MCP_SERVERS": "false",
+                 "CLAUDE_AGENT_SDK_CLIENT_APP": f"zpkt-studio/{VERSION}",
+                 "STUDIO_STEP_URL": f"http://127.0.0.1:{self.cfg.steps_port}/step",
                  "STUDIO_STEP_TOKEN": self.steps_token},
             resume=resume,
         )
@@ -117,6 +129,8 @@ class Studio:
 
     async def stop(self) -> None:
         await self.conversation.stop()
+        if self.narrator_model is not None:
+            await self.narrator_model.close()
         await self.worker.stop()
         if self._steps is not None:
             await self._steps.cleanup()

@@ -477,6 +477,16 @@ class Conversation:
         else:
             self._set_phase(Phase.IDLE)
 
+    def unprompted(self, event: Any) -> None:
+        """Claude acting without a turn of Anthony's (e.g. a background task it started has finished). It goes in
+        the chat as a written note and activity, not spoken: the mic may be his at that moment."""
+        if isinstance(event, TextDone) and event.text.strip():
+            self.add(Kind.AGENT, {"text": event.text, "role": "note", "audio": None, "duration": None,
+                                  "streaming": False})
+        elif isinstance(event, ToolStart):
+            self.add(Kind.ACTIVITY, {"tool": event.name, "title": describe(event.name, event.input), "status": "ok",
+                                     "detail": detail(event.input)})
+
     # --- music -----------------------------------------------------------------------------------------------------
     async def present_music(self, path: Path, title: str, ab: dict[str, Any] | None, note: str) -> Message:
         data, info = await audio.to_flac(path)

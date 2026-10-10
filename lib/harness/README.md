@@ -34,7 +34,7 @@ Settings (environment):
 | `HARNESS_STUDIO` | `~/_agent_scratch/studio` | chat database and media |
 | `HARNESS_STUDIO_WORKDIR` | the zpkt checkout | the Claude session's working directory |
 | `HARNESS_STUDIO_MODEL` | Claude Code's default | the session's model |
-| `HARNESS_NARRATOR_MODEL` | `haiku` | the model that narrates tool activity |
+| `HARNESS_NARRATOR_MODEL` | `claude-haiku-5-5` | the model that narrates tool activity |
 | `HARNESS_TTS_VOICE`, `HARNESS_TTS_SPEED` | `af_heart`, `1.0` | Kokoro voice |
 | `HARNESS_STOP_WORD` | `tomato` | the word that ends a spoken turn |
 | `HARNESS_VOICE_CMD` | `uv run --project lib/voice --extra engines voice serve` | how to start the speech worker |
