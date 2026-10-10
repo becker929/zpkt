@@ -1,6 +1,6 @@
 """Ableton Live MCP bridge server.
 
-Exposes the full LiveMcpTransport surface (execute, api, search_api) as a
+Exposes the LOM client's surface (execute, api, search_api) as a
 native MCP server over Streamable HTTP, so that Letta (running in Docker)
 can connect directly without a stdio shim.
 
@@ -24,7 +24,7 @@ Security
 
 Architecture
 -----------
-  Letta → MCP (Streamable HTTP :9010) → LiveMcpTransport (TCP :16619) → Ableton
+  Letta → MCP (Streamable HTTP :9010) → LiveClient (TCP :16619) → Ableton
 """
 
 from __future__ import annotations
@@ -36,7 +36,7 @@ import hmac
 from mcp.server.fastmcp import FastMCP
 from mcp.server.transport_security import TransportSecuritySettings
 
-from hands.live.transport import LiveMcpTransport
+from hands.live.transport import LiveClient
 
 # ── Server & transport setup ───────────────────────────────────────────────────
 
@@ -57,7 +57,7 @@ mcp = FastMCP(
     ),
 )
 
-_transport = LiveMcpTransport(host=_HOST, port=_ABLETON_PORT)
+_transport = LiveClient(host=_HOST, port=_ABLETON_PORT)
 
 
 # ── Tools ──────────────────────────────────────────────────────────────────────

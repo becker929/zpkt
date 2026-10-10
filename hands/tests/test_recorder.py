@@ -6,10 +6,10 @@ import wave
 import pytest
 
 import hands.recorder as recorder
-from hands.live.transport import McpResult
+from hands.live.transport import McpResult, Transport
 
 
-class FakeLive:
+class FakeLive(Transport):
     """Answers the recorder's LOM snippets by pattern; records every call."""
 
     def __init__(self, arrangement_clips: int = 0, armed: list[int] | None = None,

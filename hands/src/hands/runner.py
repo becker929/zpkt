@@ -11,6 +11,7 @@ from enum import Enum
 from typing import Any, Literal
 
 from hands.codegen import Step
+from hands.live.transport import UNREACHABLE
 
 
 @dataclass
@@ -31,13 +32,11 @@ class ManualPolicy(Enum):
     FAIL = "fail"
 
 
-_TIMEOUT_SIGNAL = "Cannot reach Ableton"
-
 
 class StepRunner:
     """Executes a list[Step] sequentially against a transport.
 
-    The transport must implement ``execute(code: str) -> dict``.
+    The transport must implement ``execute(code: str) -> McpResult``.
     On error the runner calls ``song.undo()`` via transport, optionally
     retries, then stops the pipeline.
 
@@ -120,7 +119,7 @@ class StepRunner:
 
             error_str = str(mcp.error or mcp.result or "unknown error")
 
-            if _TIMEOUT_SIGNAL in error_str:
+            if UNREACHABLE in error_str:
                 if attempt < self._retry_count:
                     print(f"  timeout — waiting {self._retry_delay}s then retrying...")
                     time.sleep(self._retry_delay)

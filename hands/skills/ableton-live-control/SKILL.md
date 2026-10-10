@@ -46,10 +46,10 @@ See "Setup" below for the full one-time enable walkthrough and safety notes.
 
 | | **Path A — AbletonOSC** (primary, verified) | **Path B — LOM `execute()`** (advanced) |
 |---|---|---|
-| Tool | `scripts/live.py` | `scripts/live_mcp.py` |
+| Tool | `scripts/live.py` | `uv run hands live exec` (zpkt `hands/`) |
 | Transport | OSC, UDP 11000/11001 | JSON-over-TCP, port 16619 |
 | Surface | fixed OSC vocabulary (see `reference/osc-api.md`) | arbitrary Python against the full LiveAPI |
-| Setup | install AbletonOSC (below) | requires the `opendining/ableton-mcp-server` Remote Script + its bridge running (provided by the `~/sandbox/autodaw/hands` project) |
+| Setup | install AbletonOSC (below) | requires the AbletonLiveMCP Remote Script selected as a control surface; the client is the `hands` package |
 | Safety | robust, hard to crash Live | powerful but **crash-prone** — follow `reference/lom-guide.md` |
 
 > **Cursor takeover rule (enforced, not remembered):** any step that moves the
@@ -73,7 +73,7 @@ parameters, scenes, routing, listeners, closed-loop readback). Reach for Path B
 only when you need something outside AbletonOSC's vocabulary (browser navigation,
 device insertion, automation envelopes, drum-rack internals, audio recording via
 a resampling track). Path B is only available when the MCP bridge is up
-(`nc -z 127.0.0.1 16619`); otherwise `live_mcp.py` returns "Cannot reach Ableton".
+(`nc -z 127.0.0.1 16619`); otherwise `hands live exec` exits 1 with "Cannot reach Ableton".
 
 The only thing **neither** path does directly is a post-FX **audio bounce to a
 file** via Live's native dialog — see "Audio export" at the bottom.
@@ -84,7 +84,7 @@ file** via Live's native dialog — see "Audio export" at the bottom.
   routing, listeners** -> **Path A** (`live.py`). Always try this first.
 - **Browser navigation, device insertion, automation envelopes, drum-rack
   internals, arrangement editing, audio recording via a resampling track**
-  -> **Path B** (`live_mcp.py`), but only if the bridge is up
+  -> **Path B** (`hands live exec`), but only if the bridge is up
   (`nc -z 127.0.0.1 16619`). If the port is closed, Path B is unavailable —
   fall back to Path A or the one-time surface enable.
 
@@ -171,14 +171,14 @@ python3 scripts/live.py /live/song/get/tempo        # -> 128.0 confirms it stuck
 The same principle applies on Path B, but there you must read in a *separate*
 call (post-set readback in the same call crashes Live — crash Rule 1).
 
-## Path B: arbitrary LOM Python via `live_mcp.py` (advanced)
+## Path B: arbitrary LOM Python via `hands live exec` (advanced)
 
 When the MCP bridge is running, execute Python directly against Live's object
 model. Inside the executed code these globals exist (provided by the Remote
 Script): `song, app, tracks, returns, master, browser, Live,
 MidiNoteSpecification, find_item, find_items, find_track, load_to, log, json,
-time, api, search_api`. Expressions are eval'd and returned; for statement
-blocks, assign to `result`.
+time`. Expressions are eval'd and returned; for statement blocks, assign to
+`result`.
 
 **Top 3 crash rules (memorize these; full list in `reference/lom-guide.md`):**
 
@@ -190,32 +190,33 @@ blocks, assign to `result`.
 3. **Sleep between browser loads** — put `time.sleep(0.3)` between consecutive
    `load_to()` / `browser.load_item()` calls to avoid silent race conditions.
 
+Run these in zpkt's `hands/` (or add `--project <zpkt>/hands` to `uv run`):
+
 ```sh
-python3 scripts/live_mcp.py "song.tempo"                      # eval expression
-python3 scripts/live_mcp.py "song.tempo = 140"                # exec statement
-python3 scripts/live_mcp.py "result = [t.name for t in song.tracks]"
-python3 scripts/live_mcp.py --json "result = len(song.tracks)"
-python3 scripts/live_mcp.py --retries 2 "song.tempo"          # retry TRANSIENT transport errors
+uv run hands live ping                                       # is the Remote Script listening?
+uv run hands live exec "song.tempo"                          # eval expression
+uv run hands live exec "song.tempo = 140"                    # exec statement
+uv run hands live exec "result = [t.name for t in song.tracks]"
+uv run hands live exec --json "result = len(song.tracks)"
+uv run hands live exec --file snippet.py                     # or --stdin
 ```
 
-`--retries N` retries only **transient transport** failures (with exponential
-backoff); it never retries deterministic LOM code errors, since retrying those
-just repeats the failure and may double a mutation.
+`--retries N` (default 2) retries only while connecting, when the request cannot
+have reached Live. A request that was sent is never resent: it may still run,
+and running it twice could double a mutation.
 
 ```python
-import sys; sys.path.insert(0, "scripts")
-from live_mcp import LiveMcp
-live = LiveMcp()
-print(live.song_state())                 # dict of tempo/sig/tracks/loop/...
-print(live.eval_("song.tracks[0].name"))
+from hands.live.transport import LiveClient, LiveError
+live = LiveClient()
+print(live.run("song.tracks[0].name"))   # raises LiveError on any failure
 ```
 
 **Before writing nontrivial `execute()` code, read `reference/lom-guide.md`** —
 the LiveAPI crashes easily (no post-set readback, no large parameter sweeps,
-sleep between browser loads, etc.). That guide is a verbatim mirror of the
-canonical `ableton-guide` skill in the `autodaw/hands` project. The `hands`
-project itself (`hands build/execute/record`) is the productionized consumer of
-this path and is the best reference for real recipes.
+sleep between browser loads, etc.). That guide mirrors the canonical
+`ableton-guide` skill in `hands/.cursor/skills/`. The `hands` package
+(`hands.live`: sessions, time edits, knobs, export) is the productionized
+consumer of this path and the best reference for real recipes.
 
 ## Setup (only if `osc_up.sh` failed)
 
@@ -393,7 +394,7 @@ back over OSC (notes, parameters, meter levels, playing status) to close the loo
 | `scripts/mcp_up.sh` | Path B health check: round-trips `1+1 -> 2` over TCP 16619 (twin of `osc_up.sh`) |
 | `scripts/install_abletonosc.sh` | Download/install AbletonOSC into the User Library |
 | `scripts/enable_osc.sh` | Select AbletonOSC as a Control Surface (GUI, one-time) |
-| `scripts/live_mcp.py` | Path B client + library: arbitrary LOM Python over the MCP TCP bridge (`--retries N` for transient errors) |
+| `hands live exec` / `hands live ping` | Path B client (zpkt `hands/`): arbitrary LOM Python over TCP 16619 |
 | `scripts/dismiss_modals.sh` | Modal reaper: check for modal dialogs; `--reap` safely dismisses non-destructive ones, aborts (exit 3) on anything unrecognized/destructive |
 | `scripts/reap_modals.applescript` | AppleScript backing `dismiss_modals.sh` (enumerates windows/sheets) |
 | `scripts/snap.sh` | The only sanctioned screenshot path: always crops/downscales and enforces a KB budget |

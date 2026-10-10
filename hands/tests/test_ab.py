@@ -6,7 +6,7 @@ from types import SimpleNamespace
 import pytest
 
 from hands import ab
-from hands.live.transport import McpResult, MockTransport
+from hands.live.transport import McpResult, MockTransport, Transport
 
 
 class FakeTrack(SimpleNamespace):
@@ -25,7 +25,7 @@ class FakeSong:
         self._data[key] = value
 
 
-class LocalTransport:
+class LocalTransport(Transport):
     """Executes the code like the remote script does: exec, then read `result`."""
 
     def __init__(self, song):

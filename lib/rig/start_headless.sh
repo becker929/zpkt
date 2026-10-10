@@ -66,8 +66,8 @@ cd "$REPO"
 export PATH=$HOME/.local/bin:$PATH
 uv run python - <<'EOF' || fail "Live is up but not usable (see above)"
 import sys, time
-from hands.live.transport import LiveMcpTransport
-t = LiveMcpTransport()
+from hands.live.transport import LiveClient
+t = LiveClient()
 res = t.execute('result = {"tempo": song.tempo, "tracks": len(song.tracks)}')
 if res.status != "ok":
     sys.exit(f"    MCP error: {res.error}")

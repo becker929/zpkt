@@ -4,6 +4,7 @@ Commands:
     build    — render a ProjectConfig to Step list (dry-run by default)
     execute  — execute Steps against a running Ableton session
     record   — record and export audio via the resampling track
+    live     — one-shot LOM commands (ping, exec)
     vibe     — start the human feedback server
 """
 
@@ -17,7 +18,10 @@ import typer
 from rich.console import Console
 from rich.table import Table
 
+from hands.live.cli import app as live_app
+
 app = typer.Typer(name="hands", help="DAW control layer for Ableton Live.")
+app.add_typer(live_app, name="live")
 console = Console()
 
 
@@ -45,7 +49,7 @@ def build(
     """Render a ProjectConfig to Step list and print or execute."""
     from hands.builder import ProjectBuilder
     from hands.runner import ManualPolicy, StepRunner
-    from hands.live.transport import DryRunTransport, LiveMcpTransport
+    from hands.live.transport import DryRunTransport
 
     cfg = _load_config(config)
     builder = ProjectBuilder(cfg)
@@ -78,7 +82,7 @@ def execute(
     """Execute Steps against a live Ableton session."""
     from hands.builder import ProjectBuilder
     from hands.runner import ManualPolicy, StepRunner
-    from hands.live.transport import LiveMcpTransport
+    from hands.live.transport import LiveClient
 
     cfg = _load_config(config)
     builder = ProjectBuilder(cfg)
@@ -88,7 +92,7 @@ def execute(
     if resume > 0:
         console.print(f"[yellow]Resuming from step {resume}[/yellow]")
 
-    transport = LiveMcpTransport(host=host, port=port)
+    transport = LiveClient(host=host, port=port)
     runner = StepRunner(transport)
     results = runner.execute(steps, on_manual=ManualPolicy.PROMPT, resume_from=resume)
 
@@ -113,10 +117,10 @@ def record(
 ) -> None:
     """Record Ableton output via resampling track and export."""
     from hands.recorder import record_arrangement, record_via_resampling
-    from hands.live.transport import LiveMcpTransport
+    from hands.live.transport import LiveClient
 
     output_path = Path(output)
-    transport = LiveMcpTransport(host=host, port=port)
+    transport = LiveClient(host=host, port=port)
 
     console.print(f"[bold]Recording {beats} beats → {output}[/bold]")
     # Pass the full name: the recorder picks WAV vs MP3 from the extension.
@@ -156,9 +160,9 @@ def ab(
 ) -> None:
     """A/B the mix against the current reference track (tracks named "REF ...")."""
     from hands import ab as ab_mod
-    from hands.live.transport import LiveMcpTransport
+    from hands.live.transport import LiveClient
 
-    transport = LiveMcpTransport(host=host, port=port)
+    transport = LiveClient(host=host, port=port)
     actions = {
         "toggle": lambda: ab_mod.toggle(transport, spectrum=spectrum),
         "next": lambda: ab_mod.next_ref(transport),
@@ -182,10 +186,10 @@ def spectrum_cmd(
 ) -> None:
     """Toggle the master Spectrum analyzer in Live's detail view."""
     from hands import ab as ab_mod
-    from hands.live.transport import LiveMcpTransport
+    from hands.live.transport import LiveClient
 
     try:
-        print(json.dumps(ab_mod.spectrum(LiveMcpTransport(host=host, port=port), toggle=not show)))
+        print(json.dumps(ab_mod.spectrum(LiveClient(host=host, port=port), toggle=not show)))
     except RuntimeError as exc:
         console.print(f"[red]{exc}[/red]")
         raise typer.Exit(1)
@@ -225,11 +229,11 @@ def vibe(
 ) -> None:
     """Start the Letta-backed human feedback server."""
     import os as _os
-    from hands.live.transport import LiveMcpTransport
+    from hands.live.transport import LiveClient
     from hands.vibe.server import VibeServer
 
     output_dir = _os.environ.get("VIBE_OUTPUT_DIR", "/tmp/vibe")
-    transport = LiveMcpTransport(host=mcp_host, port=mcp_port)
+    transport = LiveClient(host=mcp_host, port=mcp_port)
     server = VibeServer(transport=transport, output_dir=output_dir)
 
     if tunnel:

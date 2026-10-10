@@ -18,14 +18,6 @@ from typing import Any
 from hands.live.transport import McpTransport
 
 
-def _run(transport: McpTransport, code: str) -> Any:
-    """Execute code via transport; return result or raise RuntimeError on error."""
-    resp = transport.execute(code)
-    if resp.status != "ok":
-        raise RuntimeError(f"Ableton error: {resp.error}")
-    return resp.result
-
-
 def record_via_resampling(
     transport: McpTransport,
     filename: str,
@@ -52,8 +44,7 @@ def record_via_resampling(
     Returns:
         Absolute path to the exported file, or None on failure.
     """
-    existing = _run(
-        transport,
+    existing = transport.run(
         # Group tracks raise on arrangement_clips; only leaf tracks hold clips.
         "sum(len(t.arrangement_clips) for t in song.tracks if not t.is_foldable)",
     ) or 0
@@ -69,67 +60,64 @@ def record_via_resampling(
     out_path = str(out_dir / filename)
     want_wav = filename.lower().endswith(".wav")
 
-    _run(transport, "song.stop_playing()")
+    transport.run("song.stop_playing()")
     time.sleep(0.3)
 
-    _run(transport, "song.current_song_time = 0.0")
+    transport.run("song.current_song_time = 0.0")
     time.sleep(0.1)
-    current_pos = _run(transport, "song.current_song_time")
+    current_pos = transport.run("song.current_song_time")
     print(f"  Rewound to beat 0, current_song_time = {current_pos}")
 
     # Copy session slot 0 clips into arrangement at beat 0 on every source
     # track. Arrangement playback is deterministic — no clip-triggering races.
-    num_tracks_now = _run(transport, "len(song.tracks)")
+    num_tracks_now = transport.run("len(song.tracks)")
     for i in range(num_tracks_now):
-        has_clip = _run(transport, f"song.tracks[{i}].clip_slots[0].has_clip")
+        has_clip = transport.run(f"song.tracks[{i}].clip_slots[0].has_clip")
         if not has_clip:
             continue
         print(f"  Copying session clip on track {i} to arrangement at beat 0")
         # Clear any existing arrangement clips on this track first.
-        _run(
-            transport,
+        transport.run(
             f"[song.tracks[{i}].delete_clip(c) for c in list(song.tracks[{i}].arrangement_clips)]",
         )
         time.sleep(0.1)
-        _run(
-            transport,
+        transport.run(
             f"song.tracks[{i}].duplicate_clip_to_arrangement("
             f"song.tracks[{i}].clip_slots[0].clip, 0.0)",
         )
         time.sleep(0.2)
 
     # Set arrangement loop to exactly the requested duration.
-    _run(transport, "song.loop = True")
-    _run(transport, "song.loop_start = 0.0")
-    _run(transport, f"song.loop_length = {duration_beats}")
+    transport.run("song.loop = True")
+    transport.run("song.loop_start = 0.0")
+    transport.run(f"song.loop_length = {duration_beats}")
     time.sleep(0.1)
 
     # Stop session clips so the arrangement (not session) drives playback.
     for i in range(num_tracks_now):
-        _run(transport, f"song.tracks[{i}].stop_all_clips()")
+        transport.run(f"song.tracks[{i}].stop_all_clips()")
     time.sleep(0.1)
     # stop_all_clips leaves each track following the (now stopped) session
     # and lights "Back to Arrangement"; clear it so arrangement clips play.
-    _run(transport, "song.back_to_arranger = False")
+    transport.run("song.back_to_arranger = False")
     time.sleep(0.1)
 
     # Disarm source tracks. trigger_session_record() records on every armed
     # track, so an armed source (Live auto-arms the selected MIDI track) gets a
     # new empty clip that silences it, and the bounce comes out silent.
-    armed = _run(
-        transport,
+    armed = transport.run(
         f"[i for i in range({num_tracks_now}) if song.tracks[i].can_be_armed and song.tracks[i].arm]",
     ) or []
     for i in armed:
-        _run(transport, f"song.tracks[{i}].arm = 0")
+        transport.run(f"song.tracks[{i}].arm = 0")
     if armed:
         print(f"  Disarmed source tracks {armed} for the bounce")
 
     # Create and configure the resampling track.
-    resample_idx = _run(transport, "len(song.tracks)")
-    _run(transport, "song.create_audio_track(-1)")
+    resample_idx = transport.run("len(song.tracks)")
+    transport.run("song.create_audio_track(-1)")
     time.sleep(0.3)
-    _run(transport, f'song.tracks[{resample_idx}].name = "Resample"')
+    transport.run(f'song.tracks[{resample_idx}].name = "Resample"')
 
     types = _wait_for_resampling(transport, resample_idx)
     print(f"  Available input types: {types}")
@@ -137,79 +125,74 @@ def record_via_resampling(
         raise RuntimeError(f"Resampling input type not found. Available: {types}")
 
     # Must find and assign the actual RoutingType object in a single LOM call.
-    _run(
-        transport,
+    transport.run(
         f'_rt = next((rt for rt in song.tracks[{resample_idx}].available_input_routing_types'
         f' if "Resampling" in rt.display_name), None);'
         f' song.tracks[{resample_idx}].input_routing_type = _rt',
     )
     time.sleep(0.2)
 
-    routing_type = _run(
-        transport,
+    routing_type = transport.run(
         f"song.tracks[{resample_idx}].input_routing_type.display_name",
     )
     print(f"  Resampling track input set to: {routing_type}")
     if "Resampling" not in str(routing_type):
         raise RuntimeError(f"Failed to set Resampling input — got: {routing_type}")
 
-    _run(transport, f"song.tracks[{resample_idx}].arm = 1")
-    _run(transport, f"song.tracks[{resample_idx}].current_monitoring_state = 1")  # Auto (0=In, 1=Auto, 2=Off)
+    transport.run(f"song.tracks[{resample_idx}].arm = 1")
+    transport.run(f"song.tracks[{resample_idx}].current_monitoring_state = 1")  # Auto (0=In, 1=Auto, 2=Off)
     time.sleep(0.2)
 
-    _run(transport, "song.session_record = 0")
-    _run(transport, "song.overdub = 0")
+    transport.run("song.session_record = 0")
+    transport.run("song.overdub = 0")
 
     # Rewind once more in case track setup nudged the playhead.
-    _run(transport, "song.current_song_time = 0.0")
+    transport.run("song.current_song_time = 0.0")
     time.sleep(0.1)
 
-    _run(transport, "song.trigger_session_record()")
+    transport.run("song.trigger_session_record()")
     time.sleep(0.3)
 
-    is_playing = _run(transport, "song.is_playing")
+    is_playing = transport.run("song.is_playing")
     if not is_playing:
         print("  Transport not started by trigger_session_record — calling start_playing()")
-        _run(transport, "song.start_playing()")
+        transport.run("song.start_playing()")
         time.sleep(0.2)
 
-    tempo = _run(transport, "song.tempo")
+    tempo = transport.run("song.tempo")
     wait_secs = (duration_beats / tempo) * 60 + 1.0
     print(f"  Recording for {wait_secs:.1f}s ({duration_beats} beats at {tempo} BPM)...")
     time.sleep(wait_secs)
 
-    _run(transport, "song.stop_playing()")
+    transport.run("song.stop_playing()")
     time.sleep(1.0)
 
-    has_clip = _run(transport, f"song.tracks[{resample_idx}].clip_slots[0].has_clip")
+    has_clip = transport.run(f"song.tracks[{resample_idx}].clip_slots[0].has_clip")
     if not has_clip:
         for slot in range(8):
-            has_clip = _run(
-                transport,
+            has_clip = transport.run(
                 f"song.tracks[{resample_idx}].clip_slots[{slot}].has_clip",
             )
             if has_clip:
-                file_path = _run(
-                    transport,
+                file_path = transport.run(
                     f"song.tracks[{resample_idx}].clip_slots[{slot}].clip.file_path",
                 )
                 print(f"  Found recorded clip in slot {slot}: {file_path}")
                 result = _export(file_path, out_path, duration_beats, tempo, want_wav)
-                _run(transport, f"song.delete_track({resample_idx})")
+                transport.run(f"song.delete_track({resample_idx})")
                 _cleanup_arrangement_clips(transport, num_tracks_now, armed)
                 return result
         print("  No recorded clip found!")
         _cleanup_arrangement_clips(transport, num_tracks_now, armed)
         return None
 
-    file_path = _run(
-        transport,
+    file_path = transport.run(
         f"song.tracks[{resample_idx}].clip_slots[0].clip.file_path",
     )
     print(f"  Recorded audio file: {file_path}")
 
     result = _export(file_path, out_path, duration_beats, tempo, want_wav)
-    _run(transport, f"song.delete_track({resample_idx})")
+    transport.run(f"song.delete_track({resample_idx})")
     _cleanup_arrangement_clips(transport, num_tracks_now, armed)
     return result
 
@@ -241,60 +224,56 @@ def record_arrangement(
     out_path = str(out_dir / filename)
     want_wav = filename.lower().endswith(".wav")
 
-    _run(transport, "song.stop_playing()")
+    transport.run("song.stop_playing()")
     time.sleep(0.3)
-    _run(transport, "song.loop = False")
+    transport.run("song.loop = False")
 
     # Same silent-take causes as record_via_resampling: armed sources get
     # recorded over, and a lit "Back to Arrangement" ignores arrangement clips.
-    armed = _run(
-        transport,
+    armed = transport.run(
         "[i for i, t in enumerate(song.tracks) if t.can_be_armed and t.arm]",
     ) or []
     for i in armed:
-        _run(transport, f"song.tracks[{i}].arm = 0")
-    _run(transport, "song.back_to_arranger = False")
+        transport.run(f"song.tracks[{i}].arm = 0")
+    transport.run("song.back_to_arranger = False")
 
-    idx = _run(transport, "len(song.tracks)")
-    _run(transport, "song.create_audio_track(-1)")
+    idx = transport.run("len(song.tracks)")
+    transport.run("song.create_audio_track(-1)")
     time.sleep(0.3)
-    _run(transport, f'song.tracks[{idx}].name = "Render"')
+    transport.run(f'song.tracks[{idx}].name = "Render"')
     _wait_for_resampling(transport, idx)
-    _run(
-        transport,
+    transport.run(
         f'_rt = next((rt for rt in song.tracks[{idx}].available_input_routing_types'
         f' if "Resampling" in rt.display_name), None);'
         f' song.tracks[{idx}].input_routing_type = _rt',
     )
     time.sleep(0.2)
-    routing = _run(transport, f"song.tracks[{idx}].input_routing_type.display_name")
+    routing = transport.run(f"song.tracks[{idx}].input_routing_type.display_name")
     if "Resampling" not in str(routing):
-        _run(transport, f"song.delete_track({idx})")
+        transport.run(f"song.delete_track({idx})")
         _restore_arm(transport, armed)
         raise RuntimeError(f"Failed to set Resampling input — got: {routing}")
-    _run(transport, f"song.tracks[{idx}].arm = 1")
+    transport.run(f"song.tracks[{idx}].arm = 1")
     time.sleep(0.2)
 
-    _run(transport, "song.current_song_time = 0.0")
+    transport.run("song.current_song_time = 0.0")
     time.sleep(0.1)
-    _run(transport, "song.record_mode = True")
-    _run(transport, "song.start_playing()")
-    tempo = _run(transport, "song.tempo")
+    transport.run("song.record_mode = True")
+    transport.run("song.start_playing()")
+    tempo = transport.run("song.tempo")
     wait_secs = (duration_beats + tail_beats) / tempo * 60 + 0.5
     print(f"  Recording arrangement for {wait_secs:.1f}s ({duration_beats}+{tail_beats} beats at {tempo} BPM)...")
     time.sleep(wait_secs)
-    _run(transport, "song.stop_playing()")
-    _run(transport, "song.record_mode = False")
+    transport.run("song.stop_playing()")
+    transport.run("song.record_mode = False")
     time.sleep(1.5)
 
-    file_path = _run(
-        transport,
+    file_path = transport.run(
         f"[c.file_path for c in song.tracks[{idx}].arrangement_clips][:1]",
     )
     # Where song beat 0 sits in the take: the clip starts at its start_marker
     # (clip beats), which its warp markers map to seconds in the file.
-    timing = _run(
-        transport,
+    timing = transport.run(
         f"c = song.tracks[{idx}].arrangement_clips[0]; result = {{'start_marker': c.start_marker, "
         f"'warp_markers': [[w.beat_time, w.sample_time] for w in c.warp_markers], 'clip_start': c.start_time}}",
     ) if file_path else None
@@ -310,7 +289,7 @@ def record_arrangement(
             print(f"  Song beat 0 is at {timing['song_zero_seconds']:.3f} s in the take")
     else:
         print("  No recorded clip found!")
-    _run(transport, f"song.delete_track({idx})")
+    transport.run(f"song.delete_track({idx})")
     _restore_arm(transport, armed)
     return result
 
@@ -324,8 +303,7 @@ def _wait_for_resampling(transport: McpTransport, idx: int, attempts: int = 10) 
     """
     types: list = []
     for _ in range(attempts):
-        types = _run(
-            transport,
+        types = transport.run(
             f"[t.display_name for t in song.tracks[{idx}].available_input_routing_types]",
         ) or []
         if any("Resamp" in str(t) for t in types):
@@ -336,7 +314,7 @@ def _wait_for_resampling(transport: McpTransport, idx: int, attempts: int = 10) 
 
 def _restore_arm(transport: McpTransport, armed: list[int]) -> None:
     for i in armed:
-        _run(transport, f"song.tracks[{i}].arm = 1")
+        transport.run(f"song.tracks[{i}].arm = 1")
 
 
 def _cleanup_arrangement_clips(
@@ -345,12 +323,11 @@ def _cleanup_arrangement_clips(
     """Remove arrangement clips placed by record_via_resampling on source tracks,
     and re-arm the source tracks that were disarmed for the bounce."""
     for i in range(num_tracks):
-        _run(
-            transport,
+        transport.run(
             f"[song.tracks[{i}].delete_clip(c) for c in list(song.tracks[{i}].arrangement_clips)]",
         )
     for i in armed:
-        _run(transport, f"song.tracks[{i}].arm = 1")
+        transport.run(f"song.tracks[{i}].arm = 1")
 
 
 def _log_audio_stats(path: str) -> None:

@@ -57,7 +57,7 @@ Preflight with the companion skill's `doctor.sh` (Live up? OSC up?). Confirm
 AgentMap is loaded:
 
 ```sh
-python3 <ableton-live-control>/scripts/live_mcp.py --json \
+uv run --project <zpkt>/hands hands live exec --json \
   "result = [cs.__class__.__name__ for cs in Live.Application.get_application().control_surfaces]"
 ```
 

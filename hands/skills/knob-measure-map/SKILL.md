@@ -44,7 +44,7 @@ to bottom, then execute.
 
 - **`ableton-live-control`** (`~/.agents/skills/ableton-live-control/`): how to
   drive Live. Path A = OSC (`scripts/live.py`, UDP 11000). Path B = LOM Python
-  over MCP TCP 16619 (`scripts/live_mcp.py`). **This skill runs on Path B** —
+  over MCP TCP 16619 (`hands live exec`). **This skill runs on Path B** —
   the isolated-stem bounce needs arbitrary LOM. Read its `reference/lom-guide.md`
   before writing LOM (the API crashes easily).
 - **`virtual-display`** (`~/.agents/skills/virtual-display/`): optional, to keep
@@ -156,8 +156,8 @@ for i in $(seq 1 30); do nc -z 127.0.0.1 16619 && echo up && break; sleep 5; don
 Then confirm it really responds and the set loaded:
 
 ```bash
-cd ~/.agents/skills/ableton-live-control
-python3 scripts/live_mcp.py --json "result = {'tempo': song.tempo, 'names': [t.name for t in song.tracks]}"
+cd <zpkt>/hands
+uv run hands live exec --json "result = {'tempo': song.tempo, 'names': [t.name for t in song.tracks]}"
 ```
 
 Notes:
@@ -175,11 +175,11 @@ Find the track index from the names list. Then inspect its device chain and the
 target device's parameters. Confirm the offline pick.
 
 ```bash
-cd ~/.agents/skills/ableton-live-control
+cd <zpkt>/hands
 # device chain of the target track (find the distortion + its on-state)
-python3 scripts/live_mcp.py --json "tr=song.tracks[6]; result=[{'i':i,'name':d.name,'class':d.class_name,'on':d.parameters[0].value} for i,d in enumerate(tr.devices)]"
+uv run hands live exec --json "tr=song.tracks[6]; result=[{'i':i,'name':d.name,'class':d.class_name,'on':d.parameters[0].value} for i,d in enumerate(tr.devices)]"
 # parameters of the target device (find the knob, e.g. 'Drive')
-python3 scripts/live_mcp.py --json "d=song.tracks[6].devices[1]; result=[{'i':i,'name':p.name,'val':p.value,'min':p.min,'max':p.max} for i,p in enumerate(d.parameters)]"
+uv run hands live exec --json "d=song.tracks[6].devices[1]; result=[{'i':i,'name':p.name,'val':p.value,'min':p.min,'max':p.max} for i,p in enumerate(d.parameters)]"
 ```
 
 Parameter 0 is always `Device On`. For Decapitator the knob is `Drive`;
