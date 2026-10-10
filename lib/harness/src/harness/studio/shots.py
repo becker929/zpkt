@@ -29,6 +29,8 @@ FULL_W = 1280
 FULL_QUALITY = 72
 ZOOM_QUALITY = 82
 
+Rect = tuple[int, int, int, int]       # x, y, w, h in screen pixels
+
 
 class CaptureError(RuntimeError):
     pass
@@ -38,6 +40,7 @@ class CaptureError(RuntimeError):
 class Frame:
     pixels: np.ndarray       # H x W x 3, uint8, RGB
     t: float                 # time.monotonic() when taken
+    window: Rect | None = None         # the front window then, when the capture knows it
 
 
 class Capture(Protocol):
