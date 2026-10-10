@@ -189,11 +189,12 @@ Phone → Mac:
 | `start` | | this phone takes the mic and speaker; hands-free on |
 | `pause` | | hands-free off: the mic stays closed until `start` |
 | `mic` | `state` (open/closed), `turn`, `open_ms` | the mic opened (and how long that took) or closed |
-| `say` | `text` | a typed turn |
+| `say` | `text` | a typed turn; the page that sends it takes the speaker (unless another one has it mid-turn) |
 | `end_turn` | | end my turn now (same as saying the stop word) |
 | `interrupt` | | stop Claude and everything playing; my turn |
 | `playback` | `state` (busy/idle), `done` | the phone started playing, or has played everything; `done` counts the items it has finished or dropped |
 | `mark` | `turn`, `name`, `ms` | a timing mark measured on the phone |
+| `log` | `text` | something went wrong on the page (audio that didn't play); goes to the harness log |
 | `ping` | `t` | keepalive |
 
 Mac → phone:

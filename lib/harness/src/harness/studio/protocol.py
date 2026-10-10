@@ -27,6 +27,7 @@ CLIENT = {
     "interrupt": {},
     "playback": {"state": str},
     "mark": {"name": str},
+    "log": {"text": str},
     "ping": {},
 }
 MAX_TEXT = 8000

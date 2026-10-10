@@ -183,6 +183,8 @@ class FakeStudio:
                 await self._stop_listening()
                 await self.set_phase("idle")
         elif kind == "say":
+            if self.owner is not ws and (self.owner is None or self.phase != "working"):
+                self.owner = ws                       # a typed turn takes the speaker, as on the Mac
             await self.user_turn(msg["text"], "typed")
         elif kind == "end_turn":
             if ws is self.owner and self._listening:

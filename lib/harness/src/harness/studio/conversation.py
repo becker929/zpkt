@@ -182,7 +182,15 @@ class Conversation:
             self._recording += pcm
 
     def typed(self, client: Client, text: str) -> None:
+        """A typed turn. The page it came from takes the speaker, so the answer plays where Anthony is (a page
+        that only ever typed has no other way to become the owner); mid-turn it stays where it is."""
         text = text.strip()
+        if self.hub.owner is not client and (self.hub.owner is None or self.phase is not Phase.WORKING):
+            previous, self.hub.owner = self.hub.owner, client
+            if previous is not None:
+                previous.send({"type": "stop_audio"})
+                if self.phase is Phase.LISTENING:
+                    previous.send({"type": "unlisten", "turn": self.turn})
         if self.phase is Phase.WORKING:
             self._queued.append(text)
             self.notice("Claude is working; your message goes next.")

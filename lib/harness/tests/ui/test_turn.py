@@ -219,3 +219,44 @@ async def test_tapping_play_while_listening_closes_the_mic_until_it_is_done(phon
     entry = (await page.js("window.studio.engine.log"))[-1]
     assert entry["counted"] is False and entry["loops"] == 2 and entry["outcome"] == "played"
     await fake.expect(is_mic("open", "t1"), since=mark)        # still listening: the mic opens again
+
+
+async def test_typing_without_start_takes_the_speaker(phone, fake):
+    # Typing is the first tap: the page never pressed Start, and the answer still plays here.
+    page = phone
+    await page.page.click("#keyboard")
+    await page.page.fill("#composer-input", "Render the C section as it is")
+    await page.page.press("#composer-input", "Enter")
+    await fake.expect(lambda m: m["type"] == "say")
+    assert not any(m["type"] == "start" for m in fake.inbox)
+    await fake.expect(is_playback("idle", 2), timeout=15)
+    log = await page.js("window.studio.engine.log")
+    assert [(e["kind"], e["outcome"]) for e in log] == [("speech", "played"), ("music", "played")]
+    await fake.expect(is_mic("open", "t2"))                    # then the turn comes round, as after Start
+
+
+BACKGROUND = """() => {
+  window.__before = window.studio.engine.context;
+  for (const state of ['hidden', 'visible']) {
+    Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => state });
+    document.dispatchEvent(new Event('visibilitychange'));
+  }
+}"""
+
+
+async def test_audio_comes_back_after_the_page_was_away(phone, fake):
+    page = phone
+    fake.turn_frames = 10
+    await page.page.click("#turn")
+    await fake.expect(is_mic("open", "t2"), timeout=15)
+    # Another app, then back: the context can't be trusted, and the page says so.
+    await page.js(BACKGROUND)
+    await page.wait("() => [...document.querySelectorAll('.toast')].some((t) => t.textContent.includes('paused'))")
+    # The next tap replaces it, and a tapped bubble plays on the new one.
+    mark = len(fake.inbox)
+    await page.page.click(".msg--agent:not(.msg--narration) .play")
+    await fake.expect(is_playback("idle"), since=mark, timeout=15)
+    assert await page.js("window.studio.engine.context !== window.__before")
+    assert await page.js("window.__before.state") == "closed"
+    assert (await page.js("window.studio.engine.log"))[-1]["outcome"] == "played"
+    await page.wait("() => ![...document.querySelectorAll('.toast')].some((t) => t.textContent.includes('paused'))")
