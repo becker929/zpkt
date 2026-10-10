@@ -1,0 +1,6 @@
+[project]
+name = "demo"
+version = "0.1.0"
+description = "ZPKT + HW002 demo: soundtrack edit, audio analysis, frame render"
+requires-python = ">=3.11"
+dependencies = ["numpy>=2.0", "playwright>=1.48"]

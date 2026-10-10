@@ -1,0 +1,658 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ZPKT HW002 Demo</title>
+<style>
+  @font-face { font-family: 'Px'; src: local('Silom'); }
+  @font-face { font-family: 'Mono'; src: local('Monaco'); }
+  @font-face { font-family: 'Grotesk'; src: local('HelveticaNeue-CondensedBlack'), local('Futura-CondensedExtraBold'); }
+  html, body { margin: 0; height: 100%; background: #000; overflow: hidden; }
+  canvas { position: absolute; inset: 0; margin: auto; width: 100vw; height: 56.25vw; max-height: 100vh; max-width: 177.78vh; }
+  #hint { position: absolute; left: 0; right: 0; bottom: 16px; text-align: center; color: #888;
+          font: 13px Menlo, monospace; letter-spacing: 1px; pointer-events: none; }
+</style>
+<script src="out/demo/analysis.js"></script>
+</head>
+<body>
+<canvas id="c" width="1920" height="1080"></canvas>
+<div id="hint">click or space: play / pause · ← →: 1 bar</div>
+<audio id="a" src="out/demo/soundtrack.wav" preload="auto"></audio>
+<script>
+'use strict';
+// ZPKT HW002, a 33-second demo. Every effect is drawn from the screen recording
+// of Ableton Live playing HW002, showing the bar you hear. Each frame is a pure
+// function of time and the measured soundtrack (out/demo/analysis.js).
+
+const W = 1920, H = 1080, CX = W / 2, CY = H / 2;
+const A = window.ANALYSIS;
+const BEAT = 60 / 160, BAR = BEAT * 4, FPS = A.fps, TAU = Math.PI * 2;
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+
+const C = { cyan: '#72e4ff', gold: '#f3c86b', rose: '#ff7aa8', emerald: '#4ff0a8', red: '#ff2b1c', white: '#f5f2ea' };
+const MEMBERS = [
+  { id: 'ears', does: 'measures every render', color: C.cyan },
+  { id: 'hands', does: "turns live's knobs", color: C.gold },
+  { id: 'taste', does: 'picks a or b', color: C.rose },
+  { id: 'engineer', does: 'cuts the arrangement', color: C.emerald },
+];
+const SCROLL = 'made by becker929 and four ai agents  .  the plan since ai for music, 2020  .  .  .';
+
+// ---------- math ----------
+const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
+const lerp = (a, b, t) => a + (b - a) * t;
+const ease = {
+  out: t => 1 - Math.pow(1 - clamp(t), 3),
+  in: t => Math.pow(clamp(t), 3),
+  inOut: t => { t = clamp(t); return t < .5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2; },
+  expo: t => (t = clamp(t)) >= 1 ? 1 : 1 - Math.pow(2, -10 * t),
+  back: t => { t = clamp(t); const c = 1.7; return 1 + (c + 1) * Math.pow(t - 1, 3) + c * Math.pow(t - 1, 2); },
+};
+const ss = (a, b, x) => { const t = clamp((x - a) / (b - a)); return t * t * (3 - 2 * t); };
+// 0 outside [a, b]; fades in over fi and out over fo
+const env = (t, a, b, fi = .25, fo = .25) =>
+  (t < a || t > b) ? 0 : Math.min(fi > 0 ? clamp((t - a) / fi) : 1, fo > 0 ? clamp((b - t) / fo) : 1);
+const hexRgb = hex => { const n = parseInt(hex.slice(1), 16); return [(n >> 16 & 255) / 255, (n >> 8 & 255) / 255, (n & 255) / 255]; };
+const pad = (n, w) => String(n).padStart(w, '0');
+
+// ---------- audio ----------
+function audio(t) {
+  const i = clamp(Math.floor(t * FPS), 0, A.frames - 1);
+  const held = (arr, decay) => {
+    let v = 0;
+    for (let k = 0; k < 8 && i - k >= 0; k++) v = Math.max(v, arr[i - k] * Math.pow(decay, k));
+    return v;
+  };
+  return { i, low: held(A.low, .8), mid: held(A.mid, .86), high: held(A.high, .74), rms: A.rms[i] };
+}
+function sectionAt(t) {
+  for (const s of A.sections) if (t >= s.start && t < s.end) return s;
+  return A.sections[A.sections.length - 1];
+}
+
+// ---------- the footage ----------
+// out/demo/frames/live/fNNNN.jpg is Live's window (1920x925) for video frame NNNN.
+// knob and cut are the inserts of hands and engineer at work; overview is the whole song.
+const LW = 1920, LH = 925;
+const REG = {
+  all: [0, 0, LW, LH], arrangement: [0, 45, 1600, 590], clips: [0, 60, 1080, 540],
+  ears: [215, 45, 885, 590], hands: [225, 0, 375, 250], half: [470, 0, 435, 580], engineer: [250, 0, 870, 580],
+  top: [300, 45, 590, 590],
+};
+const KNOB_T0 = 19.45, CUT_T0 = 21.85;  // when the inserts start playing (the cut lands 1 s in)
+const imgCache = new Map();
+function loadImg(src) {
+  if (!imgCache.has(src)) {
+    const img = new Image();
+    const p = new Promise(res => { img.onload = () => res(img); img.onerror = () => res(null); });
+    img.src = src;
+    imgCache.set(src, p);
+    if (imgCache.size > 60) imgCache.delete(imgCache.keys().next().value);
+  }
+  return imgCache.get(src);
+}
+let FR = {};
+function framesFor(t) {
+  const f = clamp(Math.floor(t * FPS), 0, A.frames - 1), need = { live: `out/demo/frames/live/f${pad(f, 4)}.jpg` };
+  const clip = (t0, dir, p) => `out/frames/${dir}/${p}${pad(clamp(Math.floor((t - t0) * FPS), 0, 89) + 1, 3)}.jpg`;
+  if (t >= 18 && t < 24) {
+    need.knob = clip(KNOB_T0, 'knob', 'k');
+    need.cut = clip(CUT_T0, 'cut', 'c');
+    need.a = 'out/frames/cut/c001.jpg';
+    need.b = 'out/frames/cut/c090.jpg';
+    need.overview = 'out/frames/overview.jpg';
+  }
+  if (t >= 30) need.overview = 'out/frames/overview.jpg';
+  return need;
+}
+async function prepare(t) {
+  const need = framesFor(t), out = {};
+  await Promise.all(Object.entries(need).map(async ([k, src]) => { out[k] = await loadImg(src); }));
+  FR = out;
+}
+window.prepare = prepare;
+// a destination rect, in screen pixels, that covers the screen with a w x h region
+function coverRect(w, h, scale = 1, fx = CX, fy = CY) {
+  const s = Math.max(W / w, H / h) * scale;
+  return [fx - w * s / 2, fy - h * s / 2, w * s, h * s];
+}
+
+// ---------- WebGL: the effects ----------
+const glc = document.createElement('canvas'); glc.width = W; glc.height = H;
+const gl = glc.getContext('webgl2', { preserveDrawingBuffer: true, antialias: false, premultipliedAlpha: false });
+const VS = `#version 300 es
+in vec2 aPos; out vec2 vUv;
+void main() { vUv = aPos * .5 + .5; gl_Position = vec4(aPos, 0., 1.); }`;
+const COMMON = `#version 300 es
+precision highp float;
+uniform vec2 uRes;
+uniform float uTime, uKick;
+in vec2 vUv;
+out vec4 o;
+#define TAU 6.28318530718
+// pixel coordinates, origin top left
+vec2 P() { return vec2(gl_FragCoord.x, uRes.y - gl_FragCoord.y); }
+float hash12(vec2 p) { vec3 p3 = fract(vec3(p.xyx) * .1031); p3 += dot(p3, p3.yzx + 33.33); return fract((p3.x + p3.y) * p3.z); }
+// q in 0..1 across a pixel rect of a texture -> texture coordinates
+vec2 reg(vec4 rect, vec2 size, vec2 q) { return (rect.xy + q * rect.zw) / size; }
+// Live's interface is dark; open it up a little
+vec3 grade(vec3 c, float gain) { return pow(c, vec3(.85)) * gain; }
+`;
+const FS = {
+  // Live, as it is
+  plain: `
+uniform sampler2D uLive; uniform vec2 uLiveSize; uniform vec4 uRect, uDst; uniform float uBright, uSat;
+void main() {
+  vec2 q = clamp((P() - uDst.xy) / uDst.zw, 0., 1.);
+  vec3 c = texture(uLive, reg(uRect, uLiveSize, q)).rgb;
+  float l = dot(c, vec3(.299, .587, .114));
+  o = vec4(mix(vec3(l), c, uSat) * uBright, 1.);
+}`,
+  // Live as coloured text: each cell becomes a glyph picked by its brightness
+  textmode: `
+uniform sampler2D uLive, uAtlas; uniform vec2 uLiveSize; uniform vec4 uRect, uDst;
+uniform float uCell, uMix, uGlyphs, uGain, uFloor, uFade;
+void main() {
+  vec2 p = P();
+  vec2 cell = vec2(floor(uCell * .6 + .5), uCell);
+  vec2 ci = floor(p / cell), cf = fract(p / cell);
+  vec2 q = clamp(((ci + .5) * cell - uDst.xy) / uDst.zw, 0., 1.);
+  float lod = log2(max(cell.y * uRect.w / uDst.w, 1.));
+  vec3 c = textureLod(uLive, reg(uRect, uLiveSize, q), lod).rgb;
+  float l = dot(c, vec3(.299, .587, .114));
+  float v = clamp((l - uFloor) * uGain, 0., .999);
+  float g = texture(uAtlas, vec2((floor(v * uGlyphs) + cf.x) / uGlyphs, cf.y)).a;
+  vec3 hue = c / max(max(c.r, max(c.g, c.b)), .08);
+  vec3 txt = hue * g * (.5 + .9 * v);
+  vec3 real = texture(uLive, reg(uRect, uLiveSize, clamp((p - uDst.xy) / uDst.zw, 0., 1.))).rgb;
+  o = vec4(mix(txt, real, uMix) * uFade, 1.);
+}`,
+  // a tunnel lined with Live's arrangement
+  tunnel: `
+uniform sampler2D uLive; uniform vec2 uLiveSize; uniform vec4 uRect; uniform float uSpeed, uRot, uRad, uBright;
+void main() {
+  vec2 q = (P() - uRes * .5) / uRes.y;
+  float r = length(q) * uRad;
+  float a = atan(q.y, q.x) + uRot;
+  vec2 t = vec2(a / TAU * 2., .3 / r + uTime * uSpeed);
+  vec2 t2 = vec2(fract(t.x + .5) - .5, t.y);
+  vec2 dx = dFdx(t), dy = dFdy(t), dx2 = dFdx(t2), dy2 = dFdy(t2);
+  if (dot(dx2, dx2) + dot(dy2, dy2) < dot(dx, dx) + dot(dy, dy)) { dx = dx2; dy = dy2; }
+  vec2 s = uRect.zw / uLiveSize;
+  vec3 c = textureGrad(uLive, reg(uRect, uLiveSize, fract(t)), dx * s, dy * s).rgb;
+  float seam = smoothstep(0., .03, min(fract(t.y), 1. - fract(t.y)));
+  o = vec4(grade(c, uBright) * smoothstep(.03, .62, r) * (.6 + .4 * seam), 1.);
+}`,
+  // a rotozoomer: a floor of Live screens, turning and zooming
+  roto: `
+uniform sampler2D uLive; uniform vec2 uLiveSize; uniform vec4 uRect; uniform float uAng, uZoom, uBright; uniform vec2 uPan, uTile;
+void main() {
+  vec2 p = P() - uRes * .5;
+  float c = cos(uAng), s = sin(uAng);
+  vec2 g = (mat2(c, s, -s, c) * p / uZoom + uPan) / uTile;
+  vec2 f = fract(g), id = floor(g);
+  vec2 sc = uRect.zw / uLiveSize;
+  vec3 col = textureGrad(uLive, reg(uRect, uLiveSize, f), dFdx(g) * sc, dFdy(g) * sc).rgb;
+  vec2 e = min(f, 1. - f) * uTile * uZoom;
+  col *= smoothstep(1., 5., min(e.x, e.y)) * (.75 + .4 * hash12(id));
+  o = vec4(grade(col, uBright), 1.);
+}`,
+  // Live mirrored into a kaleidoscope, lit by a plasma
+  kaleido: `
+uniform sampler2D uLive; uniform vec2 uLiveSize; uniform vec4 uRect; uniform vec2 uCenter;
+uniform float uN, uRot, uZoom, uPlasma, uBright;
+vec3 pal(float v) { return .5 + .5 * cos(TAU * (v + vec3(0., .33, .67))); }
+void main() {
+  vec2 p = P(), q = (p - uRes * .5) / uRes.y;
+  float r = length(q), a = atan(q.y, q.x) + uRot, seg = TAU / uN;
+  float am = abs(mod(a, seg) - seg * .5);
+  vec2 k = vec2(cos(am), sin(am)) * r * uZoom + uCenter;
+  vec2 m = abs(fract(k * .5) * 2. - 1.);
+  vec3 c = textureLod(uLive, reg(uRect, uLiveSize, m), log2(max(uZoom * uRect.z / uRes.y, 1.))).rgb;
+  float v = sin(p.x * .006 + uTime * 1.1) + sin(p.y * .008 - uTime * 1.3) + sin((p.x + p.y) * .004 + uTime * .7) + sin(r * 14. - uTime * 2.);
+  float l = dot(c, vec3(.299, .587, .114));
+  c = mix(c, pal(v * .25 + uTime * .1) * (l * 2.4 + .06), uPlasma);
+  o = vec4(grade(c, uBright), 1.);
+}`,
+  // a box with the four members' screens on its sides, over a floor of Live
+  cube: `
+uniform sampler2D uLive, uF0, uF1, uF2a, uF2b, uF3, uTop;
+uniform vec2 uLiveSize, uF0Size, uF1Size, uF2aSize, uF2bSize, uF3Size, uTopSize;
+uniform vec4 uR0, uR1, uR2, uR3, uRTop, uRFloor;
+uniform vec3 uC0, uC1, uC2, uC3, uHalf, uPos;
+uniform mat3 uInv;
+uniform float uFloorY, uScroll, uBright, uTilt;
+void main() {
+  vec2 q = (P() - uRes * .5) / uRes.y; q.y = -q.y;
+  vec3 ro = vec3(0., 1.4, -7.2), rd = normalize(vec3(q, 1.6));
+  float ct = cos(uTilt), st = sin(uTilt);
+  rd = vec3(rd.x, rd.y * ct - rd.z * st, rd.y * st + rd.z * ct);
+  vec3 col = vec3(step(.9975, hash12(floor(P() / 3.))) * .7);
+  if (rd.y < 0.) {
+    float tf = (uFloorY - ro.y) / rd.y;
+    vec3 hp = ro + rd * tf;
+    vec2 g = vec2(hp.x * .2 + .5, hp.z * .2 + uScroll), f = fract(g);
+    vec2 sc = uRFloor.zw / uLiveSize;
+    vec3 fc = textureGrad(uLive, reg(uRFloor, uLiveSize, f), dFdx(g) * sc, dFdy(g) * sc).rgb;
+    vec2 e = min(f, 1. - f);
+    fc *= .35 + .65 * smoothstep(0., .02, min(e.x, e.y));
+    col = grade(fc, .9) * exp(-max(tf - 3., 0.) * .1);
+  }
+  vec3 lro = uInv * (ro - uPos), lrd = uInv * rd;
+  vec3 m = 1. / lrd, n = m * lro, k = abs(m) * uHalf;
+  vec3 t1 = -n - k, t2 = -n + k;
+  float tN = max(max(t1.x, t1.y), t1.z), tF = min(min(t2.x, t2.y), t2.z);
+  if (tN < tF && tF > 0.) {
+    vec3 nor = -sign(lrd) * step(t1.yzx, t1.xyz) * step(t1.zxy, t1.xyz);
+    vec3 h = lro + lrd * tN, fcol, ecol = vec3(1.);
+    vec2 uv;
+    if (abs(nor.y) > .5) {
+      uv = vec2(h.x / uHalf.x * .5 + .5, .5 - h.z / uHalf.z * .5);
+      fcol = texture(uTop, reg(uRTop, uTopSize, uv)).rgb;
+    } else {
+      vec3 right = vec3(-nor.z, 0., nor.x);
+      uv = vec2(dot(h, right) / abs(dot(uHalf, right)) * .5 + .5, .5 - h.y / uHalf.y * .5);
+      if (nor.z < -.5) { fcol = texture(uF0, reg(uR0, uF0Size, uv)).rgb; ecol = uC0; }
+      else if (nor.x > .5) { fcol = texture(uF1, reg(uR1, uF1Size, uv)).rgb; ecol = uC1; }
+      else if (nor.z > .5) {
+        fcol = uv.x < .5 ? texture(uF2a, reg(uR2, uF2aSize, vec2(uv.x * 2., uv.y))).rgb
+                         : texture(uF2b, reg(uR2, uF2bSize, vec2(uv.x * 2. - 1., uv.y))).rgb;
+        fcol *= smoothstep(.0, .008, abs(uv.x - .5));
+        ecol = uC2;
+      } else { fcol = texture(uF3, reg(uR3, uF3Size, uv)).rgb; ecol = uC3; }
+    }
+    vec3 wn = transpose(uInv) * nor;
+    float e = min(min(uv.x, 1. - uv.x), min(uv.y, 1. - uv.y));
+    col = grade(fcol, uBright) * (.3 + .8 * max(dot(wn, -rd), 0.));
+    col += ecol * (smoothstep(.018, .0, e) * 1.1 + .25 * uKick * smoothstep(.08, 0., e));
+  }
+  o = vec4(col, 1.);
+}`,
+  // the screen: overlay over scene, then a CRT's curve, scanlines, colour split and switch-off
+  post: `
+uniform sampler2D uScene, uOver;
+uniform float uBarrel, uSplit, uScan, uFlash, uGlitch, uSeed, uOffY, uOffX, uDim;
+uniform vec3 uFlashCol;
+vec3 comp(vec2 uv) {
+  vec4 ov = texture(uOver, vec2(uv.x, 1. - uv.y));
+  return texture(uScene, uv).rgb * (1. - ov.a) + ov.rgb;
+}
+void main() {
+  vec2 c = vUv - .5;
+  c.y /= max(uOffY, 1e-4); c.x /= max(uOffX, 1e-4);
+  vec2 cc = c * vec2(1.7778, 1.);
+  c *= 1. + uBarrel * dot(cc, cc);
+  vec2 uv = c + .5;
+  if (uv.x < 0. || uv.x > 1. || uv.y < 0. || uv.y > 1.) { o = vec4(0., 0., 0., 1.); return; }
+  float strip = floor(uv.y * 54.);
+  uv.x += (hash12(vec2(strip, uSeed)) - .5) * step(.7, hash12(vec2(strip * 1.7, uSeed + 3.))) * uGlitch;
+  vec3 col = vec3(comp(uv + vec2(uSplit, 0.)).r, comp(uv).g, comp(uv - vec2(uSplit, 0.)).b);
+  col *= 1. - uScan * (.5 - .5 * cos(gl_FragCoord.y * TAU / 3.));
+  col *= 1. - .5 * pow(clamp(length(cc) * .92, 0., 1.), 2.6);
+  col = mix(col * uDim, uFlashCol, clamp(uFlash, 0., 1.));
+  col *= 1. + 2.5 * (1. - min(uOffY, 1.));
+  col += (hash12(gl_FragCoord.xy + uSeed) - .5) / 128.;
+  o = vec4(col, 1.);
+}`,
+};
+function program(src) {
+  const sh = (type, s) => {
+    const x = gl.createShader(type); gl.shaderSource(x, s); gl.compileShader(x);
+    if (!gl.getShaderParameter(x, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(x));
+    return x;
+  };
+  const prog = gl.createProgram();
+  gl.attachShader(prog, sh(gl.VERTEX_SHADER, VS)); gl.attachShader(prog, sh(gl.FRAGMENT_SHADER, COMMON + src));
+  gl.bindAttribLocation(prog, 0, 'aPos'); gl.linkProgram(prog);
+  if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(prog));
+  const locs = new Map();
+  return { prog, loc: n => { if (!locs.has(n)) locs.set(n, gl.getUniformLocation(prog, n)); return locs.get(n); } };
+}
+const PROG = Object.fromEntries(Object.entries(FS).map(([k, s]) => [k, program(s)]));
+gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer());
+gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
+gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
+
+function texture(mip) {
+  const t = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, t);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, mip ? gl.LINEAR_MIPMAP_LINEAR : gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array([0, 0, 0, 255]));
+  return { t, mip, key: null, w: 1, h: 1 };
+}
+function upload(tex, img, premultiply = false) {
+  if (!img || (tex.key === img.src && img.src)) return;
+  gl.bindTexture(gl.TEXTURE_2D, tex.t);
+  gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, premultiply);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, img);
+  if (tex.mip) gl.generateMipmap(gl.TEXTURE_2D);
+  tex.key = img.src || null; tex.w = img.width; tex.h = img.height;
+}
+const TEX = Object.fromEntries(['live', 'overview'].map(k => [k, texture(true)])
+  .concat(['knob', 'cut', 'a', 'b', 'atlas', 'over', 'scene'].map(k => [k, texture(false)])));
+gl.bindTexture(gl.TEXTURE_2D, TEX.scene.t);
+gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, W, H, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+TEX.scene.w = W; TEX.scene.h = H;
+const sceneFbo = gl.createFramebuffer();
+gl.bindFramebuffer(gl.FRAMEBUFFER, sceneFbo);
+gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, TEX.scene.t, 0);
+
+// run one effect into the scene (or, with target null, onto the screen)
+function draw(name, uniforms, textures, o = {}) {
+  const p = PROG[name];
+  gl.bindFramebuffer(gl.FRAMEBUFFER, o.target === undefined ? sceneFbo : o.target);
+  gl.viewport(0, 0, W, H); gl.useProgram(p.prog);
+  if (o.alpha !== undefined) {
+    gl.enable(gl.BLEND); gl.blendColor(0, 0, 0, clamp(o.alpha));
+    gl.blendFunc(gl.CONSTANT_ALPHA, gl.ONE_MINUS_CONSTANT_ALPHA);
+  } else gl.disable(gl.BLEND);
+  let unit = 0;
+  for (const [n, tex] of Object.entries(textures)) {
+    gl.activeTexture(gl.TEXTURE0 + unit); gl.bindTexture(gl.TEXTURE_2D, tex.t);
+    gl.uniform1i(p.loc(n), unit++);
+    const sz = p.loc(n + 'Size'); if (sz) gl.uniform2f(sz, tex.w, tex.h);
+  }
+  gl.uniform2f(p.loc('uRes'), W, H);
+  gl.uniform1f(p.loc('uTime'), STATE.t); gl.uniform1f(p.loc('uKick'), STATE.kick);
+  for (const [n, v] of Object.entries(uniforms)) {
+    const l = p.loc(n);
+    if (!l) continue;
+    if (typeof v === 'number') gl.uniform1f(l, v);
+    else if (v.length === 9) gl.uniformMatrix3fv(l, false, v);
+    else gl[`uniform${v.length}fv`](l, v);
+  }
+  gl.drawArrays(gl.TRIANGLES, 0, 3);
+}
+const STATE = { t: 0, kick: 0 };
+
+// the textmode font: brightness ramp, one glyph per cell of the atlas
+const RAMP = ' .:-=+*o#%@';
+function buildAtlas() {
+  const c = document.createElement('canvas'), cw = 24, ch = 40;
+  c.width = cw * RAMP.length; c.height = ch;
+  const g = c.getContext('2d');
+  g.font = '34px Mono'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillStyle = '#fff';
+  [...RAMP].forEach((s, k) => g.fillText(s, k * cw + cw / 2, ch / 2 + 1));
+  upload(TEX.atlas, c);
+}
+
+// ---------- pixel text, on the overlay ----------
+const over = document.createElement('canvas'); over.width = W; over.height = H;
+const octx = over.getContext('2d');
+const PX = { big: ['Px', 16], mono: ['Mono', 12], logo: ['Grotesk', 44] };
+const masks = new Map(), styles = new Map();
+function canvas2d(w, h) { const c = document.createElement('canvas'); c.width = w; c.height = h; return [c, c.getContext('2d')]; }
+// the string at its native size, every pixel either fully on or off
+function mask(str, font, size) {
+  const key = `${font}|${size}|${str}`;
+  if (masks.has(key)) return masks.get(key);
+  const [m, g] = canvas2d(1, 1);
+  g.font = `${size}px ${font}`;
+  m.width = Math.max(1, Math.ceil(g.measureText(str).width)) + 4; m.height = Math.ceil(size * 1.35) + 4;
+  g.font = `${size}px ${font}`; g.textBaseline = 'middle'; g.fillStyle = '#fff'; g.fillText(str, 2, m.height / 2);
+  const im = g.getImageData(0, 0, m.width, m.height);
+  for (let i = 3; i < im.data.length; i += 4) { im.data[i - 3] = im.data[i - 2] = im.data[i - 1] = 255; im.data[i] = im.data[i] > 110 ? 255 : 0; }
+  g.putImageData(im, 0, 0);
+  masks.set(key, m);
+  return m;
+}
+// fill: '#rrggbb', 'chrome', or 'copper:<hue>'; drawn with a dark outline and a drop shadow
+function styled(str, font, size, fill, outline = '#05060a') {
+  const key = `${font}|${size}|${str}|${fill}|${outline}`;
+  if (styles.has(key)) return styles.get(key);
+  const m = mask(str, font, size), w = m.width + 4, h = m.height + 4;
+  const tint = paint => {
+    const [c, g] = canvas2d(m.width, m.height);
+    g.drawImage(m, 0, 0); g.globalCompositeOperation = 'source-in';
+    if (typeof paint === 'string') g.fillStyle = paint; else g.fillStyle = paint(g, m.height);
+    g.fillRect(0, 0, m.width, m.height);
+    return c;
+  };
+  const [c, g] = canvas2d(w, h);
+  g.globalAlpha = .55; g.drawImage(tint('#000'), 4, 4); g.globalAlpha = 1;
+  if (outline) { const o = tint(outline); for (const [dx, dy] of [[-1, 0], [1, 0], [0, -1], [0, 1], [-1, -1], [1, -1], [-1, 1], [1, 1]]) g.drawImage(o, 2 + dx, 2 + dy); }
+  let paint = fill;
+  if (fill === 'chrome') paint = (gg, mh) => {
+    const top = mh / 2 - size * .38, bot = mh / 2 + size * .38, gr = gg.createLinearGradient(0, top, 0, bot);
+    [[0, '#ffffff'], [.4, '#9cd6ff'], [.5, '#1b2d6e'], [.54, '#ffcd6a'], [1, '#fff2c4']].forEach(([s, col]) => gr.addColorStop(s, col));
+    return gr;
+  };
+  else if (fill.startsWith('copper:')) paint = (gg, mh) => {
+    const hue = Number(fill.slice(7)), gr = gg.createLinearGradient(0, mh / 2 - size * .4, 0, mh / 2 + size * .4);
+    gr.addColorStop(0, `hsl(${hue},95%,82%)`); gr.addColorStop(.5, `hsl(${hue + 25},95%,62%)`); gr.addColorStop(1, `hsl(${hue + 50},90%,42%)`);
+    return gr;
+  };
+  g.drawImage(tint(paint), 2, 2);
+  styles.set(key, c);
+  return c;
+}
+// blow a low-res bitmap up with hard pixels; wave(row) shifts each pixel row sideways
+function blit(c, x, y, scale, o = {}) {
+  const w = c.width * scale, h = c.height * scale;
+  const x0 = Math.round(o.align === 'left' ? x : o.align === 'right' ? x - w : x - w / 2), y0 = Math.round(y - h / 2);
+  octx.save(); octx.imageSmoothingEnabled = false; octx.globalAlpha = clamp(o.alpha === undefined ? 1 : o.alpha);
+  if (o.wave) for (let r = 0; r < c.height; r++) octx.drawImage(c, 0, r, c.width, 1, Math.round(x0 + o.wave(r)), y0 + r * scale, w, scale);
+  else octx.drawImage(c, x0, y0, w, h);
+  octx.restore();
+  return [x0, w];
+}
+// pixel text (logged for tools/words.py)
+function say(str, x, y, o = {}) {
+  const [font, size] = o.font || PX.big;
+  const [x0, w] = blit(styled(str, font, size, o.fill || '#f5f2ea', o.outline), x, y, o.scale || 4, o);
+  if (window.__rec) window.__rec.push({ s: str, a: o.alpha === undefined ? 1 : o.alpha, x0, w });
+  return w;
+}
+function logo(str, x, y, scale, o = {}) { return say(str, x, y, { ...o, font: PX.logo, fill: 'chrome', outline: '#0a0d24', scale }); }
+function band(y, h, a) { octx.save(); octx.fillStyle = `rgba(2,3,8,${a})`; octx.fillRect(0, y - h / 2, W, h); octx.restore(); }
+// horizontal copper bars, swinging on sines
+function copper(t, a, yc, spread, n = 7, hgt = 34) {
+  if (a <= 0) return;
+  const hues = [190, 42, 335, 150];
+  octx.save(); octx.globalCompositeOperation = 'lighter';
+  for (let k = 0; k < n; k++) {
+    const y = yc + Math.sin(t * 2.4 + k * .5) * spread, hue = hues[k % 4];
+    const g = octx.createLinearGradient(0, y - hgt / 2, 0, y + hgt / 2);
+    g.addColorStop(0, `hsla(${hue},90%,40%,0)`); g.addColorStop(.35, `hsla(${hue},95%,55%,${a})`);
+    g.addColorStop(.5, `hsla(${hue},100%,88%,${a})`); g.addColorStop(.65, `hsla(${hue},95%,55%,${a})`); g.addColorStop(1, `hsla(${hue},90%,40%,0)`);
+    octx.fillStyle = g; octx.fillRect(0, y - hgt / 2, W, hgt);
+  }
+  octx.restore();
+}
+// a sine scroller: each letter rides the wave, coloured by where it is
+let scrollAdv = null;
+function scroller(str, t, t0, speed, y, scale) {
+  const [font, size] = PX.big;
+  if (!scrollAdv) {
+    const [, g] = canvas2d(1, 1); g.font = `${size}px ${font}`;
+    scrollAdv = [...str].map((_, i) => g.measureText(str.slice(0, i)).width);
+    scrollAdv.push(g.measureText(str).width);
+  }
+  const x0 = W - (t - t0) * speed;
+  [...str].forEach((ch, i) => {
+    const x = x0 + scrollAdv[i] * scale, w = (scrollAdv[i + 1] - scrollAdv[i]) * scale;
+    if (ch === ' ' || x + w < -40 || x > W + 40) return;
+    const hue = Math.round(((x / W) * 300 + t * 120) / 30) * 30 % 360;
+    blit(styled(ch, font, size, `copper:${hue}`), x + w / 2, y + Math.sin(x * .0055 - t * 5) * 38, scale);
+  });
+  if (window.__rec) window.__rec.push({ s: str, a: 1, x0, w: scrollAdv[str.length] * scale });
+}
+
+// ---------- HUD ----------
+function hud(t, sec, a) {
+  if (a <= 0) return;
+  const bar = sec.src_bars[0] + Math.floor((t - sec.start) / BAR);
+  const w = say('ableton live 12 . screen capture', W - 74, 70, { font: PX.mono, scale: 2, align: 'right', alpha: .9 * a, fill: '#e6edf3' });
+  octx.save(); octx.globalAlpha = a * ((t / BEAT) % 1 < .5 ? 1 : .3); octx.fillStyle = C.red;
+  octx.fillRect(W - 74 - w - 26, 62, 14, 14); octx.restore();
+  say(`hw002 . bar ${pad(bar, 3)}`, 74, H - 70, { font: PX.mono, scale: 2, align: 'left', alpha: .75 * a, fill: '#e6edf3' });
+}
+
+// ===================== PARTS =====================
+
+// bars 93-96: Live as text, getting sharper every bar
+function intro(t, lt, au, post) {
+  const CELLS = [64, 64, 64, 64, 44, 44, 44, 44, 30, 30, 30, 30, 22, 16, 12, 9];
+  draw('textmode', {
+    uRect: REG.all, uDst: coverRect(LW, LH, 1.04), uCell: CELLS[clamp(Math.floor(lt / BEAT), 0, 15)],
+    uMix: .8 * ss(5.3, 5.95, lt), uGlyphs: RAMP.length, uGain: 2.6, uFloor: .1, uFade: ss(0, .5, lt),
+  }, { uLive: TEX.live, uAtlas: TEX.atlas });
+  const typed = 'zpkt presents', n = clamp(Math.floor((lt - .75) / .09), 0, typed.length);
+  const ta = env(lt, .75, 4.4, 0, .12);
+  if (ta > 0) {
+    const full = styled(typed, ...PX.big, C.white).width * 6, x = CX - full / 2;
+    band(CY, 190, .8 * ta);
+    const w = n ? say(typed.slice(0, n), x, CY, { scale: 6, align: 'left', alpha: ta }) : 0;
+    if ((lt / BEAT) % 1 < .5) { octx.save(); octx.globalAlpha = ta; octx.fillStyle = C.white; octx.fillRect(x + w + 6, CY - 42, 34, 84); octx.restore(); }
+  }
+  copper(t, .75 * ss(4.4, 5.4, lt), CY, 380 * (1 - ss(4.4, 6, lt)) + 30);
+  post.flash = ease.in(clamp((lt - 5.65) / .35)) * .9;
+}
+
+// bars 97-104: the drop. A tunnel, then Live plain, then a floor of Live screens
+function drop(t, lt, au, post) {
+  const kick = au.low;
+  if (lt < 3) {
+    draw('tunnel', { uRect: REG.clips, uSpeed: .5, uRot: lt * .3, uRad: 1 - .07 * kick, uBright: 1.3 + .5 * kick }, { uLive: TEX.live });
+    const s = lerp(2.2, 1, ease.expo(lt / .45)) * (1 + .05 * kick);
+    logo('HW002', CX, CY, 7 * s, { wave: r => Math.sin(r * .5 + t * 10) * 14 * kick });
+    post.flash = Math.exp(-lt * 5);
+  } else if (lt < 6) {
+    draw('plain', { uRect: REG.all, uDst: coverRect(LW, LH, 1.02 + .012 * kick), uBright: .62, uSat: 1 }, { uLive: TEX.live });
+    band(CY, 330, .62);
+    say('no generated audio', CX, CY - 64, { scale: 6, alpha: env(lt, 3.05, 6, .04, .15) });
+    say('100% ableton live', CX, CY + 66, { scale: 6, fill: 'copper:40', alpha: env(lt, 3.8, 6, .04, .15) });
+    post.flash = Math.exp(-(lt - 3) * 8) * .45;
+  } else {
+    const z = lt - 6;
+    draw('roto', {
+      uRect: REG.all, uAng: .5 * Math.sin(z * .45) + z * .1, uZoom: 1.25 + .4 * Math.sin(z * .8) + .1 * kick,
+      uPan: [z * 160, z * 70], uTile: [LW * .45, LH * .45], uBright: 1.15 + .35 * kick,
+    }, { uLive: TEX.live });
+    band(810, 230, .7);
+    copper(t, .9, 695, 0, 1, 14); copper(t, .9, 925, 0, 1, 14);
+    scroller(SCROLL, t, 12.1, 820, 810, 5);
+    post.flash = Math.exp(-z * 8) * .45;
+  }
+}
+
+// bars 121-124: the kick scooped out, then back. The members, one face of the box each
+function rotY(a) { const c = Math.cos(a), s = Math.sin(a); return [c, 0, s, 0, 1, 0, -s, 0, c]; }
+function rotX(a) { const c = Math.cos(a), s = Math.sin(a); return [1, 0, 0, 0, c, -s, 0, s, c]; }
+// 3x3 row-major product; returned column-major for GL as the transpose
+function mul(a, b) {
+  const r = [];
+  for (let i = 0; i < 3; i++) for (let j = 0; j < 3; j++) r.push(a[i * 3] * b[j] + a[i * 3 + 1] * b[3 + j] + a[i * 3 + 2] * b[6 + j]);
+  return r;
+}
+const T3 = m => [m[0], m[3], m[6], m[1], m[4], m[7], m[2], m[5], m[8]];
+function scoop(t, lt, au, post) {
+  const kick = au.low, back = ss(2.9, 3.1, lt);
+  let turn = 0;
+  for (let j = 1; j < 4; j++) turn += ease.back((lt - j * BAR) / .42);
+  const phi = Math.PI / 2 * turn - .38 + .06 * Math.sin(lt * 1.4), tilt = -.1 - .04 * Math.sin(lt * .9);
+  // world = Rx(tilt) * Ry(phi) * local, so local = (Rx Ry)^T world; GL wants it column-major
+  const inv = T3(mul(rotX(tilt), rotY(phi)));
+  const half = [1.5, 1, 1.5];
+  draw('cube', {
+    uInv: T3(inv), uHalf: half, uPos: [0, -.25 + .12 * Math.sin(lt * 2.1) * (1 - back) + .1 * kick * back, 0],
+    uR0: REG.ears, uR1: REG.hands, uR2: REG.half, uR3: REG.engineer, uRTop: REG.top, uRFloor: REG.arrangement,
+    uC0: hexRgb(MEMBERS[0].color), uC1: hexRgb(MEMBERS[1].color), uC2: hexRgb(MEMBERS[2].color), uC3: hexRgb(MEMBERS[3].color),
+    uFloorY: -1.55, uScroll: t * .45, uBright: 1.25, uTilt: .13,
+  }, { uLive: TEX.live, uF0: TEX.live, uF1: TEX.knob, uF2a: TEX.a, uF2b: TEX.b, uF3: TEX.cut, uTop: TEX.overview });
+  const k = clamp(Math.floor((lt - .3) / BAR + 1e-6), 0, 3), m = MEMBERS[k], since = lt - k * BAR;
+  const a = env(since, k ? .32 : .1, BAR, .08, .12);
+  if (a > 0) {
+    say(m.id, CX, 150, { scale: 7, fill: m.color, alpha: a });
+    say(m.does, CX, 262, { font: PX.mono, scale: 4, alpha: a * clamp((since - .45) / .15) });
+  }
+  // the floor drops out: the picture comes loose on the beat, until the kick is back
+  const bp = (t / BEAT) % 1;
+  post.glitch = (1 - back) * (.004 + .03 * Math.exp(-bp * 9)) + .06 * Math.exp(-lt * 6);
+  post.split = .001 + .003 * kick + .004 * (1 - back) * Math.exp(-bp * 6);
+  post.flash = Math.exp(-(lt - 3) * 8) * .35 * (lt >= 3 ? 1 : 0);
+}
+
+// bars 125-128: the peak. Live in a kaleidoscope, then unfolded again
+function peak(t, lt, au, post) {
+  const kick = au.low, unfold = ss(4.5, 5.8, lt);
+  draw('kaleido', {
+    uRect: REG.arrangement, uN: 6, uRot: lt * .4, uZoom: 1.1 + .3 * Math.sin(lt * .8) - .12 * kick,
+    uCenter: [.4 + .2 * Math.sin(lt * .5), .3 + lt * .06], uPlasma: .16 + .14 * kick, uBright: 1.25 + .4 * kick,
+  }, { uLive: TEX.live });
+  if (unfold > 0) draw('plain', { uRect: REG.all, uDst: coverRect(LW, LH, lerp(1.6, 1.02, ease.out(unfold))), uBright: .9, uSat: 1 }, { uLive: TEX.live }, { alpha: unfold });
+  const bounce = Math.abs(Math.sin(lt / BEAT * Math.PI));
+  logo('ZPKT', CX, CY + 40 - bounce * 90, 8 * (1 + .05 * kick), { alpha: 1 - ss(4.3, 4.9, lt), wave: r => Math.sin(r * .35 + t * 6) * 10 });
+  post.flash = Math.exp(-lt * 6) * .9;
+  post.split = .001 + .005 * kick;
+}
+
+// bars 177-178: the last hit. The whole song as text, the title, and the set switches off
+function end(t, lt, au, post) {
+  draw('textmode', {
+    uRect: REG.all, uDst: coverRect(LW, LH, 1.04 - .02 * lt), uCell: 10, uMix: .25 + .35 * ss(.3, 1.6, lt),
+    uGlyphs: RAMP.length, uGain: 2.6, uFloor: .1, uFade: 1,
+  }, { uLive: TEX.overview, uAtlas: TEX.atlas });
+  band(CY + 10, 330, .78);
+  logo('HW002', CX, CY - 30, 5, { alpha: ease.out(lt / .3) });
+  say('zpkt . becker929 . 2026', CX, CY + 118, { font: PX.mono, scale: 3, alpha: ss(.35, .7, lt) });
+  post.flash = Math.exp(-lt * 4) * .8;
+  post.offY = Math.max(.004, 1 - ss(2.1, 2.5, lt));
+  post.offX = Math.max(.003, 1 - ss(2.45, 2.8, lt));
+  post.dim = 1 - ss(2.75, 2.95, lt);
+}
+
+const PARTS = { intro, drop, scoop, peak, end };
+
+function renderAt(t) {
+  t = clamp(t, 0, A.duration - 1e-3);
+  const sec = sectionAt(t), au = audio(t), lt = t - sec.start;
+  STATE.t = t; STATE.kick = au.low;
+  for (const k of ['live', 'knob', 'cut', 'a', 'b', 'overview']) upload(TEX[k], FR[k]);
+  octx.clearRect(0, 0, W, H);
+  const post = { uBarrel: .035, split: .001 + .002 * au.low, uScan: .2, flash: 0, flashCol: [1, 1, 1], glitch: 0, offY: 1, offX: 1, dim: 1 };
+  PARTS[sec.id](t, lt, au, post);
+  hud(t, sec, sec.id === 'intro' ? ss(.6, 1.6, t) : sec.id === 'end' ? 1 - ss(30, 30.25, t) : 1);
+  upload(TEX.over, over, true); TEX.over.key = null;
+  draw('post', {
+    uBarrel: post.uBarrel, uSplit: post.split, uScan: post.uScan, uFlash: post.flash, uFlashCol: post.flashCol,
+    uGlitch: post.glitch, uSeed: Math.floor(t * FPS / 2) % 997, uOffY: post.offY, uOffX: post.offX, uDim: post.dim,
+  }, { uScene: TEX.scene, uOver: TEX.over }, { target: null });
+  ctx.drawImage(glc, 0, 0);
+}
+window.renderAt = renderAt;
+
+// ---------- player ----------
+const FONTS = ['16px Px', '12px Mono', '44px Grotesk', '34px Mono'];
+window.READY = Promise.all(FONTS.map(f => document.fonts.load(f))).then(() => document.fonts.ready).then(buildAtlas);
+const params = new URLSearchParams(location.search);
+const audioEl = document.getElementById('a');
+if (params.has('render')) {
+  document.getElementById('hint').remove();
+} else {
+  let still = Number(params.get('t') || 0);
+  window.READY.then(() => {
+    prepare(still).then(() => renderAt(still));
+    let busy = false;
+    const loop = () => {
+      if (!audioEl.paused && !busy) { busy = true; const t = audioEl.currentTime; prepare(t).then(() => { renderAt(t); busy = false; }); }
+      requestAnimationFrame(loop);
+    };
+    loop();
+  });
+  const toggle = () => { if (audioEl.paused) { audioEl.currentTime = still; audioEl.play(); } else { still = audioEl.currentTime; audioEl.pause(); } };
+  const seek = d => { still = clamp((audioEl.paused ? still : audioEl.currentTime) + d, 0, A.duration); audioEl.currentTime = still; prepare(still).then(() => renderAt(still)); };
+  canvas.addEventListener('click', toggle);
+  addEventListener('keydown', e => {
+    if (e.code === 'Space') { e.preventDefault(); toggle(); }
+    if (e.code === 'ArrowRight') seek(BAR);
+    if (e.code === 'ArrowLeft') seek(-BAR);
+  });
+}
+</script>
+</body>
+</html>
