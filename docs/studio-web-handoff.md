@@ -63,10 +63,11 @@ The page's browser tests (`lib/harness/tests/ui`, marked `ui`) inject and captur
     sample (correlation 1.000, repeat boundaries exactly one file length apart, start within a sample of the
     scheduled time); "loop that three times" is exactly three passes then silence; after `stop_audio` the sound
     ends within the render quantum the page stopped it in; a context made after the page was away is recorded too;
-    no sound reaches the speakers while the mic is open. That last one holds because the route settle (100 ms in
-    that test) outlasts the output latency (~35 ms in headless Chromium): the mic opened ~95-105 ms after the last
-    sound was heard. With the tests' usual 30 ms it was 5-25 ms, and a desktop browser without
-    `navigator.audioSession` waits 0 ms, so there the mic can open while the last ~35 ms is still in the output.
+    no sound reaches the speakers while the mic is open, even with no route settle (as on a desktop browser).
+    The capture found the mic opening over the last 50-75 ms of sound there: the page went idle when the audio
+    clock ended, while the sound was still in the output (headless Chromium reports ~35 ms of output latency and
+    has ~100). The page now goes idle only once `getOutputTimestamp` has passed the end and the reported latency
+    plus 80 ms has gone by (`audio.js`, `#idleWhenHeard`).
   - `test_webkit.py`: the same capture in WebKit at iPhone size (a render played twice, to the sample).
   - `test_stack.py -k voice_loop` (STUDIO_STACK=1): a full voice loop. Kokoro's sentence goes in through the mic,
     Parakeet hears it and "tomato" ends the turn; the scripted reply is spoken by Kokoro and played by the page; the

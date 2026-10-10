@@ -22,12 +22,18 @@ def render(fake, ear: Ear) -> np.ndarray:
     return resample(x.mean(axis=1), rate, ear.rate)
 
 
+STARTUP_S = 0.1
+CLOCK_SLACK_MS = 10      # how closely the audio clock maps onto the page's (render blocks, timer granularity)
+
+
 def the_ear(ears: list[Ear]) -> Ear:
     """The context that played: the page makes one (and another only after being away)."""
     playing = [e for e in ears if e.loud()]
     assert len(playing) == 1, f"{len(ears)} contexts, {len(playing)} with sound"
     ear = playing[0]
-    assert all(t < ear.loud()[0][0] for t, _ in ear.gaps), f"the recording has holes: {ear.gaps}"
+    # Chromium skips a block or two while the recorder's worklet thread starts (the first ~0.1 s of a context);
+    # after that, a hole would be a real dropout.
+    assert all(t < max(STARTUP_S, ear.loud()[0][0]) for t, _ in ear.gaps), f"the recording has holes: {ear.gaps}"
     return ear
 
 
@@ -37,14 +43,15 @@ async def nothing_while_listening(page, ear: Ear) -> None:
     spans = await mic_spans(page.page)
     assert spans, "the mic was never open"
     both = overlaps(sound, spans)
-    assert not both, f"heard {sum(b - a for a, b in both) * 1000:.0f} ms of sound with the mic open"
+    ms = sum(b - a for a, b in both) * 1000
+    assert ms <= CLOCK_SLACK_MS, f"heard {ms:.0f} ms of sound with the mic open"
 
 
 @pytest.fixture
 async def listener(chromium, fake):
-    """The phone, with a route settle (100 ms) longer than the browser's output latency (~35 ms here): the mic opens
-    only after the settle, so the last of the sound has left the speakers by then. (The phone waits 1200 ms.)"""
-    page = await open_page(chromium, fake, query="settle=100")
+    """The phone with no route settle at all, as on a desktop browser: the page waits out its output latency
+    (~35 ms here) before it counts as idle, so the mic still never opens over the end of the sound."""
+    page = await open_page(chromium, fake, query="settle=0")
     yield page
     assert page.errors == [], f"console errors: {page.errors}"
     await page.page.context.close()
@@ -103,8 +110,8 @@ async def test_loop_that_three_times_is_heard_three_times_to_the_sample(listener
     assert np.diff(passes.starts).tolist() == [len(ref), len(ref)], "each repeat starts where the last one ended"
     assert abs(ear.time(passes.starts[0]) - entry["t0"]) < 1.5 / ear.rate
     # ...and that is all there is: about three file lengths of sound, then silence.
-    (start, end), = ear.loud()
-    assert abs((end - start) - 3 * len(ref) / ear.rate) < 0.005
+    (_, end), = ear.loud()                                      # one span (its start is where the file gets loud)
+    assert abs((end - ear.time(passes.starts[0])) - 3 * len(ref) / ear.rate) < 1.5 / ear.rate
     assert abs(end - entry["stopAt"]) < 1.5 / ear.rate
 
     await nothing_while_listening(page, ear)
@@ -150,5 +157,5 @@ async def test_a_context_made_after_the_page_was_away_is_heard_too(phone, fake):
     # The tapped reply (a 220 Hz tone) is heard on the new context.
     assert the_ear([new]) is new
     (start, end), = new.loud()
-    assert abs((end - start) - fake.speech_s) < 0.01
+    assert abs((end - start) - fake.speech_s) < 0.03            # a replay is an MP3: its codec pads up to ~25 ms
     assert abs(dominant_hz(new.between(start, end), new.rate) - 220) < 3
