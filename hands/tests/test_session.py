@@ -96,6 +96,37 @@ def test_open_set_waits_for_the_window_then_the_lom(monkeypatch, rig):
     assert lom.calls == ["result = 1"] * 3                             # polled until it answered
 
 
+def test_open_set_does_not_save_live_over_a_set_rewritten_on_disk(monkeypatch, rig):
+    for name in ("test_batch", "test_next"):
+        rig.set_path(name).write_bytes(b"als")
+    gui = FakeGui(monkeypatch, ["test_batch", "test_batch", "test_next"], save_enabled=False)
+    session._remember("test_batch")                                    # Live loaded this version
+    path = rig.set_path("test_batch")
+    path.write_bytes(b"new batch, written offline")
+    os.utime(path, ns=(0, path.stat().st_mtime_ns + 10**9))
+    assert session.rewritten_on_disk("test_batch")
+    session.open_set(MockTransport(), "test_next")
+    assert gui.clicks == [] and path.read_bytes() == b"new batch, written offline"
+    assert not session.rewritten_on_disk("test_next")                  # remembered as loaded
+
+
+def test_open_set_stops_when_both_the_file_and_live_changed(monkeypatch, rig):
+    for name in ("test_batch", "test_next"):
+        rig.set_path(name).write_bytes(b"als")
+    gui = FakeGui(monkeypatch, ["test_batch"], save_enabled=True)
+    session._remember("test_batch")
+    path = rig.set_path("test_batch")
+    os.utime(path, ns=(0, path.stat().st_mtime_ns + 10**9))
+    with pytest.raises(Guard, match="changed on disk since Live loaded it and Live has unsaved changes"):
+        session.open_set(MockTransport(), "test_next")
+    assert gui.clicks == [] and gui.opened == []
+
+
+def test_an_unknown_set_is_saved_as_before(monkeypatch, rig):
+    rig.set_path("test_mine").write_bytes(b"als")
+    assert not session.rewritten_on_disk("test_mine")
+
+
 def test_open_set_refuses_to_reopen_the_front_set(monkeypatch, rig):
     rig.set_path("test_batch").write_bytes(b"als")
     gui = FakeGui(monkeypatch, ["test_batch"])

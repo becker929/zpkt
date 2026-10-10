@@ -11,6 +11,7 @@ Sets live in config.sets_dir and are named without ".als".
 
 from __future__ import annotations
 
+import json
 import os
 import shutil
 import subprocess
@@ -52,6 +53,49 @@ def _answers(client: McpTransport) -> bool:
         return False
 
 
+def _loaded_file() -> Path:
+    return config.rig().data_dir / "live_loaded.json"
+
+
+def _remember(name: str) -> None:
+    """Note the set file's mtime as Live now holds it (just opened, or just saved by Live).
+
+    Kept on disk, not in memory: each `hands` command is its own process, and the next one is the
+    one that saves over the set.
+    """
+    record = _loaded_file()
+    try:
+        seen = json.loads(record.read_text())
+    except (FileNotFoundError, ValueError):
+        seen = {}
+    seen[name] = config.rig().set_path(name).stat().st_mtime_ns
+    record.parent.mkdir(parents=True, exist_ok=True)
+    record.write_text(json.dumps(seen, indent=1))
+
+
+def rewritten_on_disk(name: str) -> bool:
+    """Has sets_dir/<name>.als changed since Live loaded or saved it? False when unknown (a set
+    opened by hand, or before this record existed)."""
+    try:
+        known = json.loads(_loaded_file().read_text()).get(name)
+        return known is not None and config.rig().set_path(name).stat().st_mtime_ns != known
+    except (FileNotFoundError, ValueError):
+        return False
+
+
+def _save_front(front: str, where: str) -> None:
+    """Save the front set before leaving it, unless its file was rewritten on disk after Live
+    loaded it (a batch written offline over it): saving would put Live's stale copy over the new
+    file. Then skip the save if Live has nothing unsaved, and stop if it has (one side must lose)."""
+    if not rewritten_on_disk(front):
+        save(front)
+        return
+    if ui.menu_enabled("File", "Save Live Set"):
+        stop(f"{where}: {front}.als changed on disk since Live loaded it and Live has unsaved changes; "
+             "saving would overwrite the file, not saving would leave Live's prompt open")
+    steps.report(f"{where}: not saving {front}, its file changed on disk since Live loaded it", "minor")
+
+
 def check(client: McpTransport, where: str, *, expect_front: str | None = None, ours: bool = True) -> str:
     """Pre/post-flight for a Live step; returns the front set's name or raises Guard.
 
@@ -80,7 +124,7 @@ def open_set(client: McpTransport, name: str, *, save_current: bool = True, time
     """Open sets_dir/<name>.als and wait until it is in front and the LOM answers; return seconds.
 
     The set in front is saved first (if it is one of the files in sets_dir), so Live never asks
-    about unsaved changes. Live does not reload a set that is already open, so asking for the front
+    about unsaved changes; not if its file was rewritten on disk after Live loaded it (_save_front). Live does not reload a set that is already open, so asking for the front
     set again would keep its old state (for a batch rewritten offline: render the old batch); that
     is a Guard. Raises Guard if the window or the LOM does not come up in time.
     """
@@ -92,7 +136,7 @@ def open_set(client: McpTransport, name: str, *, save_current: bool = True, time
     if front == name:
         stop(f"open: {name} is already open, and Live would not reload it; open another set first")
     if save_current and front and rig.set_path(front).exists():
-        save(front)
+        _save_front(front, "open")
     steps.report(f"opening {name}", "minor")
     t0 = time.monotonic()
     opened = subprocess.run(["open", "-a", rig.live_app, str(path)], capture_output=True, text=True)
@@ -108,6 +152,7 @@ def open_set(client: McpTransport, name: str, *, save_current: bool = True, time
             stop(f"open: {name} is in front but the LOM did not answer in {timeout_s:g} s")
         time.sleep(0.1)
     seconds = time.monotonic() - t0
+    _remember(name)
     steps.report(f"opened {name} in {seconds:.1f} s", "major")
     return seconds
 
@@ -137,6 +182,7 @@ def save(name: str | None = None, *, timeout_s: float = 30.0) -> bool:
     while time.monotonic() < deadline:
         try:
             if path.stat().st_mtime_ns != before:
+                _remember(name)
                 steps.report(f"saved {name}", "minor")
                 return True
         except FileNotFoundError:
@@ -176,7 +222,7 @@ def restart(client: McpTransport, *, timeout_s: float = 240.0) -> float:
     """
     front = _front()
     if front and config.rig().set_path(front).exists():
-        save(front)
+        _save_front(front, "restart")
     if ui.dialogs():
         stop("restart: a dialog is open; quitting would stop at it")
     steps.report("quitting Live", "major")
