@@ -7,6 +7,7 @@ never from files in the repo or from command lines.
 from __future__ import annotations
 
 import getpass
+import json
 import os
 import subprocess
 from dataclasses import dataclass, field
@@ -47,6 +48,23 @@ class Config:
     job_turns: int = int(os.environ.get("HARNESS_JOB_TURNS", "400"))
     ask_turns: int = int(os.environ.get("HARNESS_ASK_TURNS", "12"))
     extra_env: dict[str, str] = field(default_factory=dict)
+    # /skrng from the Mac (web.py): loopback port behind `tailscale serve`, and where it keeps
+    # the password hash, sessions and feedback.
+    web_port: int = int(os.environ.get("HARNESS_WEB_PORT", "8787"))
+    skrng_dir: Path = Path(os.environ.get("HARNESS_SKRNG", Path.home() / "_agent_scratch" / "skrng"))
+    # The old public route (browser -> anthonybecker.me /api/rpc -> socket -> Mac). Off: /skrng's
+    # agent is reached over the tailnet only. HARNESS_PUBLIC_RPC=1 turns the socket back on.
+    public_rpc: bool = os.environ.get("HARNESS_PUBLIC_RPC") == "1"
+
+    @property
+    def app_url(self) -> str:
+        """This Mac's tailnet address (from `tailscale status`), for links in notifications."""
+        try:
+            out = subprocess.run(["tailscale", "status", "--self", "--json"], capture_output=True, text=True, timeout=5)
+            name = json.loads(out.stdout)["Self"]["DNSName"].rstrip(".")
+            return f"https://{name}"
+        except (OSError, ValueError, KeyError, subprocess.TimeoutExpired):
+            return self.site
 
     @property
     def connect_url(self) -> str:

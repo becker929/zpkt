@@ -73,7 +73,7 @@ async def test_feedback_queues_one_job_per_batch(cfg):
     again = await m.call("feedback", {"batch": 4.2, "session": "s2"})
     assert again == {"job_id": first["job_id"], "status": "queued", "deduplicated": True}
     job = store.load(first["job_id"])
-    assert "batch=4.2" in job.prompt and job.title == "Feedback on batch 4.2"
+    assert "\"batch\" is 4.2" in job.prompt and job.title == "Feedback on batch 4.2"
     with pytest.raises(ValueError):
         await m.call("feedback", {"batch": "4.2; rm -rf /"})
     with pytest.raises(ValueError):
