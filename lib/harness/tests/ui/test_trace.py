@@ -3,6 +3,7 @@ breaks the run; folded by default, unfolding to the items in order, and kept in 
 
 import pytest
 
+import studio_media as media
 from conftest import IPHONE_15, open_page
 from test_webkit import AT_TOP
 from test_window import FIRST_VISIBLE, TOP_OF
@@ -206,3 +207,28 @@ async def test_safari_folds_unfolds_and_opens_a_shot_from_a_trace(webkit, fake):
         assert page.errors == [], f"console errors: {page.errors}"
     finally:
         await page.page.context.close()
+
+
+async def test_a_playing_narration_keeps_its_button_and_words_apart(page, fake):
+    """A narration with a replay file shows its button, its words beside it, and nothing drawn over them while it
+    plays (the phone showed the equaliser on top of the first line)."""
+    await a_turn_of_work(fake)
+    said = fake.put(media.mp3(1.0), "mp3", "audio/mpeg")
+    msg = await fake.upsert("agent", text="I'm checking the existing tests and how the live setup gets faked.",
+                            role="narration", audio=said, duration=1.0, streaming=False)
+    row = f'[data-seq="{msg["seq"]}"]'
+    await page.wait(f"() => document.querySelector('{row}[data-audio]')")
+    await page.js(f"document.querySelector('{row}').classList.add('is-playing')")
+    boxes = await page.js(f"""(() => {{
+      const el = document.querySelector('{row}');
+      const box = (n) => {{ const r = n.getBoundingClientRect(); return [r.left, r.top, r.right, r.bottom, r.width]; }};
+      const shown = (n) => n && getComputedStyle(n).display !== 'none' && n.getBoundingClientRect().width > 0;
+      const marks = [el.querySelector('.play'), el.querySelector('.eq')].filter(shown).map(box);
+      const text = el.querySelector('.inline-text');
+      const dot = getComputedStyle(text, '::before').display !== 'none';
+      return {{ marks, text: box(text), dot }};
+    }})()""")
+    left = boxes["text"][0]
+    assert boxes["marks"], "the button shows"
+    assert all(m[2] <= left for m in boxes["marks"]), f"drawn over the words: {boxes}"
+    assert not boxes["dot"], "the button marks the line; no dot beside it"
