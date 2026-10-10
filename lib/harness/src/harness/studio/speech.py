@@ -183,20 +183,30 @@ class Transcription:
             self._worker._send({"op": "stt.end", "id": self.id})
 
     async def events(self) -> AsyncIterator[dict[str, Any]]:
-        """`stt.partial` and `stt.final` headers; ends after the final one (or if the worker dies)."""
+        """`stt.partial` and `stt.final` headers; ends after the final one, or quietly if closed. Raises
+        WorkerGone if the worker dies mid-turn."""
         try:
             while (item := await self._queue.get()) is not None:
                 header, _ = item
                 yield header
                 if header["op"] == "stt.final":
                     return
-            raise WorkerGone("the voice worker stopped while listening")
+            if not self.closed:
+                raise WorkerGone("the voice worker stopped while listening")
         finally:
             self.close()
 
     def close(self) -> None:
+        """Stop listening: the worker drops the turn, and events() ends."""
+        if self.closed:
+            return
         self.closed = True
-        self._worker._waiters.pop(self.id, None)
+        if self._worker._waiters.pop(self.id, None) is not None:
+            try:
+                self._worker._send({"op": "stt.end", "id": self.id})
+            except WorkerGone:
+                pass
+        self._queue.put_nowait(None)
 
 
 # --- Claude's voice ------------------------------------------------------------------------------------------------
