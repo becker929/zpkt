@@ -1,4 +1,4 @@
-"""Recorder tests against a small fake Live — offline, no Ableton required."""
+"""hands.live.record against a small fake Live — offline, no Ableton required."""
 from __future__ import annotations
 
 import wave

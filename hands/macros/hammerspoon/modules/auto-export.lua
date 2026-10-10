@@ -1,4 +1,3 @@
-local applescript = require("boundary.applescript")
 local apps        = require("boundary.apps")
 local autosave    = require("boundary.autosave")
 local keyboard    = require("boundary.keyboard")
@@ -31,12 +30,15 @@ _doExport = function(projectPath)
   local stamp      = clock.stamp()
   local outputPath = config.rendersDir .. "/" .. stamp .. ".wav"
   notify.show("Exporting…")
-  local result = applescript.runWithArgs("export", { outputPath, "WAV", "24", "44100" })
-  if not result then
-    log.warn("auto-export: export script returned nil")
+  -- `hands live export` drives Live's Export dialog (one export path for zpkt) and prints the
+  -- file it wrote. With no range it keeps Live's own: the loop brace, or the whole song.
+  local exported = shell.run(shell.quote(config.handsBin) .. " live export --bits 24 " .. shell.quote(outputPath))
+  if not exported.ok then
+    log.warn("auto-export: export failed", { out = exported.out })
     notify.show("Export failed — check Ableton and try again")
     return
   end
+  local result = exported.out:gsub("%s+$", ""):match("[^\n]+$")
   log.info("auto-export: complete", { path = result })
   shell.openInFinder(config.rendersDir)
 

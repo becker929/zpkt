@@ -47,7 +47,7 @@ ValhallaSupermassive, SSL Native FlexVerb, LFOTool (site records, 2026-09).
 A native Claude session on the Mac drove Live in September 2026 (site notes 7 and 10).
 It used OSC for top-level parameters and the Live Object Model over MCP for everything else.
 Sets were opened as copies under `~/_agent_scratch/`, never saved.
-The skill lives at `~/.agents/skills/ableton-live-control/` on that Mac, with `scripts/export_audio.applescript`.
+The skill lives in zpkt at `hands/skills/ableton-live-control/`; exports go through `hands live export` (zpkt `hands/`), which runs `hands/src/hands/live/export_audio.applescript`.
 
 That session is the "hands". This lab is the "ears". The hand-off:
 

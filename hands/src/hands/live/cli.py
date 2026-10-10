@@ -9,6 +9,7 @@ from typing import NoReturn
 
 import typer
 
+from hands import config
 from hands.live.transport import DEFAULT_HOST, DEFAULT_PORT, LiveClient, LiveError
 
 app = typer.Typer(help="Drive the open Live set through the AbletonLiveMCP Remote Script.", no_args_is_help=True)
@@ -69,6 +70,31 @@ def check(
         print(session.check(LiveClient(host, port), "hands live check", expect_front=expect, ours=not any_set))
     except session.Guard as exc:
         _fail(f"GUARD: {exc}")
+
+
+@app.command()
+def export(
+    out: Path = typer.Argument(..., help="File to write (.wav, .aif, .flac); a bare name goes to the rig's renders folder."),
+    start: float = typer.Option(None, "--start", help="First beat to render; with --length, selected first."),
+    length: float = typer.Option(None, "--length", help="Beats to render. Without a range, Live's own (loop brace or whole song)."),
+    mode: str = typer.Option("Main", "--mode", help='"Main", a track name, "All Individual Tracks" or "Selected Tracks Only".'),
+    bits: int = typer.Option(32, "--bits", help="16, 24 or 32."),
+    sample_rate: int = typer.Option(44100, "--sample-rate"),
+    host: str = HOST, port: int = PORT,
+) -> None:
+    """Render through Live's Export dialog and print the files written. Drives the GUI."""
+    from hands.live import render, ui
+    from hands.live.session import Guard
+
+    if (start is None) != (length is None):
+        _fail("give both --start and --length, or neither", 2)
+    path = out if out.is_absolute() or len(out.parts) > 1 else config.rig().renders_dir / out
+    try:
+        written = render.export(LiveClient(host, port), path, start, length, mode=mode, bits=bits,
+                                sample_rate=sample_rate)
+    except (Guard, ui.UiError, LiveError, ValueError) as exc:
+        _fail(f"export failed: {exc}")
+    print("\n".join(str(f) for f in written))
 
 
 @app.command()

@@ -56,7 +56,7 @@ See "Setup" below for the full one-time enable walkthrough and safety notes.
 > physical pointer is a takeover of the user's cursor, which MUST end back at the
 > center of their primary physical display. This is enforced in the scripts, so
 > you do not rely on remembering it:
-> - `enable_osc.sh` and `export_audio.applescript` self-park on every exit path
+> - `enable_osc.sh` and `hands live export` self-park on every exit path
 >   (success or error) -- no extra step needed.
 > - Any **ad-hoc** pointer command (e.g. the manual dropdown-selection fallback,
 >   a one-off clicking `osascript`) must be run through the wrapper, which parks
@@ -348,17 +348,14 @@ Escape and repeat while extra windows remain:
 The Live Python API has **no** render/bounce function, so getting audio onto disk
 needs one of these:
 
-1. **LOM resampling capture (preferred, no GUI).** Route/arm a resampling track,
-   record the arrangement for N beats over Path B, then use Live's clip export.
-   The `autodaw/hands` project already implements this end-to-end
-   (`hands record --beats 64 --output render.wav`, see its `recorder.py`). This is
-   the robust, headless way and doesn't touch the GUI. Use it when the MCP bridge
-   is available.
-
-2. **Native Export dialog via GUI automation (verified end-to-end, 2026-09-09).**
-   `scripts/export_audio.applescript` drives File -> Export Audio/Video
-   (Cmd+Shift+R) + the native Save panel:
-   `osascript scripts/export_audio.applescript /tmp/out.wav [WAV|AIFF|FLAC] [16|24|32] [sampleRate] [lengthBars] [trackMode] [startBar]`.
+1. **Native Export dialog (the default: offline, about 10x faster than real time).**
+   `hands live export OUT [--start BEAT --length BEATS] [--mode Main] [--bits 32]`
+   in zpkt `hands/` selects the range and runs `export_audio.applescript`
+   (`hands/src/hands/live/`), which drives File -> Export Audio/Video
+   (Cmd+Shift+R) + the native Save panel, then parks the pointer. From Python:
+   `hands.live.render.export(client, out, start_beat, length_beats)`, then
+   `hands.audio.check_audio(out, seconds=...)` to catch a silent render.
+   The script takes `<absOutPath> [WAV|AIFF|FLAC] [16|24|32] [sampleRate] [lengthBars] [trackMode] [startBar]`.
    It contains a ground-truth element map for Live 12.4.5 (every dialog
    control, including the "Rendered Track" chooser, is DIRECTLY AX-addressable
    -- no cliclick pixel-guessing except the Save panel's unnamed filename
@@ -378,8 +375,14 @@ needs one of these:
    **Gotcha:** the dialog's Render Start defaults to wherever the arrangement's
    edit cursor last sat, not bar 0 -- pass `startBar` explicitly (default 0)
    or a bounce can silently render an unintended, possibly-empty region.
-   This path moves the physical pointer, but the script self-parks the cursor on
-   the primary display when it finishes (success or error), so no extra step.
+   This path moves the physical pointer, but `hands live export` parks the cursor
+   on the primary display when it finishes (success or error), so no extra step.
+
+2. **LOM resampling capture (real time, no GUI).** Route/arm a resampling track
+   and record the arrangement for N beats over Path B
+   (`hands record --arrangement --beats 64 --output render.wav`,
+   `hands.live.record`). It runs at 1.56x real time; use it only for what
+   export cannot do.
 
 For agent-verifiable results **without** any file bounce, prefer reading state
 back over OSC (notes, parameters, meter levels, playing status) to close the loop.
@@ -400,4 +403,4 @@ back over OSC (notes, parameters, meter levels, playing status) to close the loo
 | `scripts/snap.sh` | The only sanctioned screenshot path: always crops/downscales and enforces a KB budget |
 | `reference/osc-api.md` | Exhaustive OSC address reference + quirks (Path A) |
 | `reference/lom-guide.md` | LOM crash-avoidance rules + idioms for Path B (mirror of the `autodaw/hands` `ableton-guide` skill) |
-| `scripts/export_audio.applescript` | Native audio-export driver (GUI, verified): Main / isolated-track / all-tracks-at-once modes |
+| `hands live export` | Native audio export (GUI, verified; zpkt `hands/`): Main / isolated-track / all-tracks-at-once modes |

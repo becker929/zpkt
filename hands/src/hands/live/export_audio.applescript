@@ -7,7 +7,7 @@
 -- pixel-guessing needed there. `cliclick` is still used for the native Save
 -- panel's filename field, which has no name/description to target directly.
 --
--- Usage:
+-- Usage (hands.live.render.export runs it; `hands live export` from a shell):
 --   osascript export_audio.applescript <absOutPath> [fileType] [bitDepth] [sampleRate] [lengthBars] [trackMode] [startBar]
 --
 --   item 1  absOutPath   REQUIRED absolute path, e.g. /tmp/render.wav
@@ -82,28 +82,12 @@
 -- Resolved at runtime (Apple Silicon vs Intel Homebrew vs PATH). See resolveCliclick.
 property cliclickPath : "cliclick"
 
--- Deterministic cursor-return: this script drives the physical pointer, so it
--- ALWAYS parks the cursor at the center of the primary physical display when it
--- finishes -- on success and on error alike. The real work lives in doExport;
--- this wrapper guarantees parkCursor runs on every exit path.
+-- This script moves the physical pointer (cliclick on the Save panel). Its caller,
+-- hands.live.render.export, parks the pointer on the main display afterwards, on
+-- success and on error alike.
 on run argv
-	try
-		set res to my doExport(argv)
-		my parkCursor()
-		return res
-	on error errMsg number errNum
-		my parkCursor()
-		error errMsg number errNum
-	end try
+	return my doExport(argv)
 end run
-
--- Return the pointer to the primary physical display's center. Best-effort:
--- never let a parking failure mask the export's own result.
-on parkCursor()
-	try
-		do shell script "bash ~/.agents/skills/virtual-display/scripts/park-cursor.sh"
-	end try
-end parkCursor
 
 on doExport(argv)
 	if (count of argv) < 1 then error "Usage: export_audio.applescript <absOutPath> [WAV|AIFF|FLAC] [16|24|32] [sampleRate] [lengthBars] [trackMode] [startBar]"

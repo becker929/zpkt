@@ -1,9 +1,8 @@
-# Recorder module
-"""Record session clips via Ableton's resampling, then export as MP3 or WAV.
+"""Real-time takes: record Live's output through a resampling track, then copy or encode it.
 
-Uses an audio track set to 'Resampling' input to capture the master output
-directly inside Ableton, then retrieves the audio file and optionally converts
-to MP3 via ffmpeg (skipped when output filename ends with .wav).
+An audio track with the 'Resampling' input captures the main output inside Live; the take is
+copied as WAV, or converted to MP3 with ffmpeg. It runs at 1.56x real time, so offline export
+(hands.live.render) is the default; these remain for what export cannot do, such as session clips.
 """
 
 from __future__ import annotations
@@ -215,9 +214,9 @@ def record_arrangement(
     clip starts ~2.4 beats into its own file, and the file's head holds
     misplaced audio (heard as "plays a bar, then restarts"). After that the
     file time matches song time within a few 512-sample buffers. So render
-    two or more bars of lead-in before the material you need and trim them
-    at an offset measured against reference audio
-    (hands/scripts/arrange_prototype/verify2.py does this).
+    two or more bars of lead-in before the material you need and trim them:
+    the take's ``.timing.json`` says where song beat 0 is in the file, and
+    hands.audio.trim_take cuts there.
     """
     out_dir = Path(output_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
