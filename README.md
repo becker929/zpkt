@@ -1,37 +1,44 @@
 # zpkt
 
-A techno production system built as one body. Four parts form the spine,
-and the spine runs across every stage of making a track.
+A techno production system built as one body. The main path is three
+parts, and it runs across every stage of making a track.
 
 | Part | Job | Question it answers |
 |---|---|---|
 | [`ears/`](ears/) | Measure | What does it sound like, objectively? |
 | [`hands/`](hands/) | Act | How does intent become a change in Live? |
-| [`taste/`](taste/) | Prefer | Which version would Anthony pick? |
-| [`engineer/`](engineer/) | Decide | What should be tried next, unattended? |
+| [`lib/`](lib/) | Support | What do the parts run on, keep and exchange? |
 
-Beside the spine:
+`lib/` is shared infrastructure, first class in the design:
+
+- [`lib/rig/`](lib/rig/): the Live runtime — headless display, startup,
+  preflight.
+- [`lib/record/`](lib/record/): what the system keeps — models, renders,
+  publishing to [anthonybecker.me/skrng](https://anthonybecker.me/skrng/).
+- [`lib/contracts/`](lib/contracts/): the JSON that crosses between parts.
+- [`lib/harness/`](lib/harness/): Claude Code jobs started from the
+  browser (/skrng feedback), over an outbound socket to the site.
+
+Beside the main path:
 
 - [`humming/`](humming/) turns a hummed idea into production data (notes,
   tempo, key). It is its own product and feeds `hands`.
 - [`prototypes/`](prototypes/) holds experiments not yet on the release
-  path: the audio browser (listen through a sound library once, decide what
-  each sound is for) and its collage editor.
-- [`lib/`](lib/) is shared infrastructure, first class in the design:
-  - [`lib/rig/`](lib/rig/): the Live runtime — headless display, startup,
-    preflight.
-  - [`lib/record/`](lib/record/): what the system keeps — models, renders,
-    publishing to [anthonybecker.me/skrng](https://anthonybecker.me/skrng/).
-  - [`lib/contracts/`](lib/contracts/): the JSON that crosses between parts.
-  - [`lib/harness/`](lib/harness/): Claude Code jobs started from the
-    browser (/skrng feedback), over an outbound socket to the site.
+  path:
+  - [`audio-browser/`](prototypes/audio-browser/): listen through a sound
+    library once and decide what each sound is for; a collage editor beside
+    it.
+  - [`taste/`](prototypes/taste/): which version would Anthony pick? Its
+    corpus holds five seed verdicts and no real picks yet.
+  - [`engineer/`](prototypes/engineer/): what should be tried next,
+    unattended? Its loop and genetic algorithm are not wired in.
 
-## The spine is perpendicular to the lifecycle
+## The main path is perpendicular to the lifecycle
 
-Every stage of a track uses all four parts. Mastering is a stage, not a
-component.
+Every stage of a track uses ears and hands. The prototype columns show
+where taste and engineer would join. Mastering is a stage, not a component.
 
-| Stage | ears | hands | taste | engineer |
+| Stage | ears | hands | taste (prototype) | engineer (prototype) |
 |---|---|---|---|---|
 | Sketch | pitch, tempo, key | hum → MIDI, macros | which idea to keep | — |
 | Sound design | knob-sweep measures | set knobs, knob maps | which kick | search over settings |
@@ -59,15 +66,16 @@ Two rules keep the parts honest:
 | `ears/` | github.com/becker929/ears | `ears analyze` — the AudioProfile |
 | `ears/mlab/` | the HW002 mastering lab | calibrated meters, 81 known-answer tests, hypothesis runner (`mlab hyp run`) |
 | `ears/soundfunction/` | anthonybecker.me research branch | sound-function measures, knob-map results, docs |
-| `taste/` | github.com/becker929/taste (+ taste2 prototype) | preference judge, pick corpus |
-| `engineer/` | taste's loop, autodaw's GA | `engineer loop` |
 | `humming/` | anthonybecker.me research copy | transcriber and HumTrans benchmarks |
 | `prototypes/audio-browser/` | autodaw `feature/audio-browser` | sound-library triage and collage |
+| `prototypes/taste/` | github.com/becker929/taste (+ taste2 prototype) | preference judge, pick corpus |
+| `prototypes/engineer/` | taste's loop, autodaw's GA | `engineer loop` |
 
 The source repos (hands, ears, taste, taste2-prototype, autodaw,
 hammerspoon-config) are archived, each with a README pointing here.
 
-Every import kept its git history (`git log -- <path>` goes back to 2025).
+Every import kept its git history (`git log --follow -- <file>` goes back to
+2025, across later moves).
 Audio, models and databases were stripped from history and stay out of git.
 The design and history are written up as notes 15–19 on
 [anthonybecker.me](https://anthonybecker.me/notes/three-eras/).

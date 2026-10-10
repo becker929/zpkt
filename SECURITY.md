@@ -13,8 +13,8 @@ that can reach a control surface can run code on the Mac. The rule is simple:
 | Letta (Docker, `make start-letta`) | 127.0.0.1:8283 | server password; keys passed via a private env file | `LETTA_API_KEY` |
 | vibe server (`hands vibe`) | 127.0.0.1:8080 | Host and Origin allow-lists, JSON-only POSTs, 1 MB body cap; `/self-improve` and `/restart` need the token; with `--tunnel`, every endpoint does | `VIBE_TOKEN` |
 | hands frontend (Next.js) | 127.0.0.1:3000 | Host allow-list in middleware; agent PATCH limited to `name` | — |
-| audio-browser API | 127.0.0.1:8090 | CORS limited to localhost, tailnet and `*.ts.net` origins | — |
-| taste annotation app | 127.0.0.1 | file serving confined to the clips folder | — |
+| audio-browser API (`prototypes/audio-browser`) | 127.0.0.1:8090 | CORS limited to localhost, tailnet and `*.ts.net` origins | — |
+| taste annotation app (`prototypes/taste`) | 127.0.0.1 | file serving confined to the clips folder | — |
 | harness (`lib/harness`) | listens on nothing; dials out to anthonybecker.me | the site forwards six RPC methods, and only with the owner's key; ask sessions are read-only | `RIG_TOKEN`, `SKRNG_TOKEN` |
 
 To reach a service from another device, bind it to the machine's Tailscale
