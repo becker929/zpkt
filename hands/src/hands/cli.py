@@ -120,7 +120,7 @@ def record(
 ) -> None:
     """Record Ableton output via resampling track and export."""
     from hands.live.transport import LiveClient
-    from hands.recorder import record_arrangement, record_via_resampling
+    from hands.live.record import record_arrangement, record_via_resampling
 
     output_path = Path(output)
     transport = LiveClient(host=host, port=port)
