@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import pytest
-from pydantic import ValidationError
 
 from hands.codegen import (
     Step,
@@ -28,11 +27,16 @@ def test_gen_set_tempo_code_sets_song_tempo() -> None:
 
 
 def test_hz_to_eq8_norm_low_bound() -> None:
-    assert hz_to_eq8_norm(20.0) == pytest.approx(0.0)
+    assert hz_to_eq8_norm(10.0) == pytest.approx(0.0)
 
 
 def test_hz_to_eq8_norm_high_bound() -> None:
-    assert hz_to_eq8_norm(20000.0) == pytest.approx(1.0)
+    assert hz_to_eq8_norm(22000.0) == pytest.approx(1.0)
+
+
+def test_hz_to_eq8_norm_matches_live() -> None:
+    """HW002's rumble EQ: band 1 at 30.95 Hz reads 0.1468144 over the LOM."""
+    assert hz_to_eq8_norm(30.9539299) == pytest.approx(0.14681440591812134, abs=1e-7)
 
 
 def test_hz_to_eq8_norm_midpoint_is_between_bounds() -> None:
