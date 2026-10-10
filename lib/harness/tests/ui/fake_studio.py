@@ -377,9 +377,9 @@ class FakeStudio:
         await self.update(msg, audio=self.put(media.mp3(seconds), "mp3", "audio/mpeg"), duration=seconds)
 
     async def present_music(self, title: str = "Kick level: now vs +3 dB") -> dict[str, Any]:
-        flac = media.ab_flac(self.bar_s, self.bars)
+        render = media.ab_mp3(self.bar_s, self.bars)
         return await self.upsert(
-            "music", title=title, audio=self.put(flac, "flac", "audio/flac"), duration=self.bar_s * self.bars,
+            "music", title=title, audio=self.put(render, "mp3", "audio/mpeg"), duration=self.bar_s * self.bars,
             ab={"bar_seconds": self.bar_s, "bars": self.bars, "first": "A", "every": 1,
                 "labels": {"A": "Now", "B": "+3 dB"}},
             plays=0, note="Listen to the low end on the downbeat: B should push without blurring the bass.",
@@ -405,7 +405,7 @@ class FakeStudio:
         """`n` stored messages of every kind, as a long conversation leaves them (sharing a few media files)."""
         voice = self.put(media.mp3(1.5, 300.0, 16_000), "mp3", "audio/mpeg")
         said = self.put(media.mp3(2.5), "mp3", "audio/mpeg")
-        flac = self.put(media.ab_flac(self.bar_s, self.bars), "flac", "audio/flac")
+        render = self.put(media.ab_mp3(self.bar_s, self.bars), "mp3", "audio/mpeg")
         pair = media.shot_pair(1)
         (fw, fh), (zw, zh) = pair["full_size"], pair["zoom_size"]
         full = self.put(pair["full"], "webp", "image/webp", w=fw, h=fh)
@@ -424,7 +424,7 @@ class FakeStudio:
                                      zoom=zoom, rect=pair["rect"], changed=True, screen=pair["screen"])),
             lambda i: ("agent", dict(text=f"Reply {i}: the hats sit better now; listen for the shimmer.",
                                      role="reply", audio=said, duration=2.5, streaming=False)),
-            lambda i: ("music", dict(title=f"Hats A/B {i}", audio=flac, duration=self.bar_s * self.bars,
+            lambda i: ("music", dict(title=f"Hats A/B {i}", audio=render, duration=self.bar_s * self.bars,
                                      ab={"bar_seconds": self.bar_s, "bars": self.bars, "first": "A", "every": 1,
                                          "labels": {"A": "Before", "B": "After"}}, plays=i % 3, note="")),
             lambda i: ("notice", dict(level="info", text=f"Notice {i}")),

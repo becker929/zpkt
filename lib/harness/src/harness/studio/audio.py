@@ -1,9 +1,16 @@
-"""ffmpeg for the chat's audio: MP3 replays of speech, FLAC for music (lossless and gapless, so loops are exact)."""
+"""ffmpeg for the chat's audio: MP3 for everything, replays of speech and music alike.
+
+Music used to be FLAC, which iPhone Safari's Web Audio cannot decode ("EncodingError: Decoding failed"). MP3 at
+LAME's V0 is transparent, a fifth of a WAV's size, and gapless: LAME's header gives the encoder delay and padding,
+and both WebKit and Chromium trim them, so a decoded render has exactly its source's samples and loops are exact
+(AAC in MP4 left 208 extra samples in WebKit).
+"""
 
 from __future__ import annotations
 
 import asyncio
 import json
+import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -54,10 +61,13 @@ async def probe(path: Path) -> AudioInfo:
         raise AudioError(f"{path.name} has no readable audio stream") from exc
 
 
-async def to_flac(path: Path) -> tuple[bytes, AudioInfo]:
-    """Any audio file to 16-bit FLAC at its own sample rate (dithered when it had more bits)."""
+async def to_mp3(path: Path) -> tuple[bytes, AudioInfo]:
+    """A render to a V0 MP3 at its own sample rate, with LAME's gapless header. It is written to a file: on a pipe
+    ffmpeg cannot go back to fill in that header, and without it each loop comes out 1536 samples long."""
     info = await probe(path)
-    data = await _run(FFMPEG, "-hide_banner", "-loglevel", "error", "-i", str(path), "-map", "0:a:0",
-                      "-af", "aresample=dither_method=triangular", "-sample_fmt", "s16", "-c:a", "flac",
-                      "-compression_level", "5", "-f", "flac", "pipe:1")
+    with tempfile.TemporaryDirectory(prefix="studio-mp3-") as tmp:
+        out = Path(tmp) / "render.mp3"
+        await _run(FFMPEG, "-hide_banner", "-loglevel", "error", "-i", str(path), "-map", "0:a:0",
+                   "-map_metadata", "-1", "-c:a", "libmp3lame", "-q:a", "0", str(out))
+        data = out.read_bytes()
     return data, info

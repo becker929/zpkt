@@ -18,7 +18,7 @@ pytestmark = pytest.mark.ui
 
 def render(fake, ear: Ear) -> np.ndarray:
     """The A/B file the fake serves, decoded and downmixed as the ear hears it, at the ear's rate."""
-    x, rate = sf.read(io.BytesIO(media.ab_flac(fake.bar_s, fake.bars)), dtype="float64")
+    x, rate = sf.read(io.BytesIO(media.ab_wav(fake.bar_s, fake.bars)), dtype="float64")
     return resample(x.mean(axis=1), rate, ear.rate)
 
 

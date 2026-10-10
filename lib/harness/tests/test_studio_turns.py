@@ -188,7 +188,7 @@ async def test_a_spoken_turn_end_to_end(rig):
     await page.until(lambda m: m["type"] == "speech" and m["state"] == "end" and m["stream"] == begins[-1]["stream"])
     assert len(begins) == 2 and page.audio > 0
     music = await page.until(upsert("music"))
-    assert music["message"]["data"]["audio"]["type"] == "audio/flac"
+    assert music["message"]["data"]["audio"]["type"] == "audio/mpeg"
     play = await page.until(lambda m: m["type"] == "play")
     assert play == {"type": "play", "seq": music["message"]["seq"], "loops": 1}
     assert (await page.until(upsert("activity", status="ok")))["message"]["data"]["title"] == "Render the A/B"

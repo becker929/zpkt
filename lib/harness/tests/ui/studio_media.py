@@ -4,6 +4,8 @@ in git; every file is made at test time."""
 from __future__ import annotations
 
 import io
+import subprocess
+import tempfile
 import wave
 from functools import lru_cache
 from pathlib import Path
@@ -30,7 +32,7 @@ def speech_pcm(seconds: float, freq: float = 220.0) -> bytes:
 
 
 @lru_cache
-def ab_flac(bar_seconds: float, bars: int, rate: int = 48_000) -> bytes:
+def ab_wav(bar_seconds: float, bars: int, rate: int = 48_000) -> bytes:
     """A render that alternates two versions bar by bar: A is a low tone, B a higher one. A quiet bed of noise
     (seeded, so the file is the same every time) makes each pass unlike any shifted copy of itself, so a recording
     of it can be lined up with the file to the sample."""
@@ -38,8 +40,18 @@ def ab_flac(bar_seconds: float, bars: int, rate: int = 48_000) -> bytes:
     mono = np.concatenate(parts) + 0.03 * np.random.default_rng(7).standard_normal(len(parts) * len(parts[0]))
     stereo = np.stack([mono] * 2, axis=1)
     buf = io.BytesIO()
-    sf.write(buf, stereo, rate, format="FLAC", subtype="PCM_16")
+    sf.write(buf, stereo, rate, format="WAV", subtype="PCM_16")
     return buf.getvalue()
+
+
+@lru_cache
+def ab_mp3(bar_seconds: float, bars: int, rate: int = 48_000) -> bytes:
+    """That render as the Mac sends it: a V0 MP3 with LAME's gapless header (harness.studio.audio.to_mp3)."""
+    with tempfile.TemporaryDirectory() as tmp:          # a file, not a pipe: the gapless header needs a seek
+        out = Path(tmp) / "ab.mp3"
+        subprocess.run(["ffmpeg", "-v", "error", "-f", "wav", "-i", "pipe:0", "-c:a", "libmp3lame", "-q:a", "0",
+                        str(out)], input=ab_wav(bar_seconds, bars, rate), capture_output=True, check=True)
+        return out.read_bytes()
 
 
 @lru_cache
