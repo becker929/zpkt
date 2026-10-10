@@ -1,10 +1,10 @@
-"""Tests for hands.vibe — models and tunnel lazy-import. All offline."""
+"""Tests for letta_vibe.vibe — models and tunnel lazy-import. All offline."""
 from __future__ import annotations
 
 import pytest
 from pydantic import ValidationError
 
-from hands.vibe.models import BounceRequest, FeedbackSubmission, VibeSession
+from letta_vibe.vibe.models import BounceRequest, FeedbackSubmission, VibeSession
 
 
 def test_bounce_request_round_trip() -> None:
@@ -76,11 +76,11 @@ def test_feedback_submission_bounce_path_optional() -> None:
 
 
 def test_tunnel_imports_without_pyngrok() -> None:
-    from hands.vibe.tunnel import close_all_tunnels, open_tunnel
+    from letta_vibe.vibe.tunnel import close_all_tunnels, open_tunnel
     assert callable(open_tunnel)
     assert callable(close_all_tunnels)
 
 
 def test_close_all_tunnels_no_op_without_pyngrok() -> None:
-    from hands.vibe.tunnel import close_all_tunnels
+    from letta_vibe.vibe.tunnel import close_all_tunnels
     close_all_tunnels()

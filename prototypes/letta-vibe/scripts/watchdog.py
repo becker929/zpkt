@@ -10,7 +10,7 @@ interval and escalates through three recovery tiers when liveness is lost:
 
 Stop signals
 ------------
-  - ``touch hands/.watchdog-stop`` (sentinel file, checked each loop)
+  - ``touch prototypes/letta-vibe/.watchdog-stop`` (sentinel file, checked each loop)
   - SIGTERM / SIGINT
 
 Usage
@@ -37,11 +37,9 @@ from typing import Any
 
 # ── Paths & constants ──────────────────────────────────────────────────────────
 
-SCRIPT_DIR = Path(__file__).parent
-HANDS_DIR = SCRIPT_DIR.parent          # hands/
-WORKSPACE = HANDS_DIR.parent           # agent-sandbox/
+PROJECT_DIR = Path(__file__).parents[1]   # prototypes/letta-vibe: its Makefile runs the stack
 
-SENTINEL = HANDS_DIR / ".watchdog-stop"
+SENTINEL = PROJECT_DIR / ".watchdog-stop"
 WATCHDOG_LOG = Path("/tmp/vibe-watchdog.log")
 REPORT_PATH = Path("/tmp/vibe-watchdog-report.txt")
 
@@ -198,8 +196,8 @@ def tail_log(service_name: str, n: int = 40) -> str:
 # ── Make helpers ──────────────────────────────────────────────────────────────
 
 def _make(*targets: str, timeout: int = 120) -> tuple[bool, str]:
-    """Run make targets in hands/. Returns (success, combined output)."""
-    cmd = ["make", "-C", str(HANDS_DIR)] + list(targets)
+    """Run make targets in this prototype. Returns (success, combined output)."""
+    cmd = ["make", "-C", str(PROJECT_DIR)] + list(targets)
     try:
         result = subprocess.run(
             cmd, capture_output=True, text=True, timeout=timeout,
@@ -286,8 +284,7 @@ def escalate_to_sdk(probe: ServiceProbe) -> None:
 
     log(f"  [tier3] spawning Claude Agent SDK diagnostic session for '{probe.name}'")
     try:
-        sys.path.insert(0, str(HANDS_DIR / "src"))
-        from hands.self_modify import run_agent_edit  # type: ignore[import]
+        from letta_vibe.self_modify import run_agent_edit
         import asyncio
 
         def _progress(line: str) -> None:
@@ -296,7 +293,7 @@ def escalate_to_sdk(probe: ServiceProbe) -> None:
         asyncio.run(run_agent_edit(prompt, max_turns=30, progress_callback=_progress))
         log(f"  [tier3] SDK session complete")
     except ImportError:
-        log("  [tier3] hands.self_modify unavailable — skipping SDK escalation")
+        log("  [tier3] letta_vibe.self_modify unavailable — skipping SDK escalation")
     except Exception as exc:
         log(f"  [tier3] SDK session error: {exc}")
 

@@ -1,5 +1,5 @@
 # ═══════════════════════════════════════════════════════════════════════════════
-#  hands/Makefile  —  Vibe stack management
+#  prototypes/letta-vibe/Makefile  —  Vibe stack management
 # ═══════════════════════════════════════════════════════════════════════════════
 #
 #  make setup        Install all deps (npm, uv, docker pull, ollama pull)
@@ -114,7 +114,7 @@ check-deps: check-uv check-node check-docker check-ollama
 
 # ─── Help ─────────────────────────────────────────────────────────────────────
 help:
-	@printf "\n$(BOLD)Vibe — hands package$(RESET)\n\n"
+	@printf "\n$(BOLD)Vibe — the letta-vibe prototype$(RESET)\n\n"
 	@printf "  $(BOLD)%-20s$(RESET) %s\n" "make setup"           "Install all dependencies (npm, uv, Docker, Ollama)"
 	@printf "  $(BOLD)%-20s$(RESET) %s\n" "make setup-tools"     "Register Letta custom tools + MCP server"
 	@printf "  $(BOLD)%-20s$(RESET) %s\n" "make build"      "Production build: Next.js + Python type check"
@@ -180,7 +180,7 @@ build: build-python build-frontend
 
 build-python: check-uv
 	$(call section,Python type check)
-	uv run mypy src/hands --ignore-missing-imports --no-error-summary
+	uv run mypy src/letta_vibe --ignore-missing-imports --no-error-summary
 	$(call ok,Python checks done)
 
 build-frontend: check-node
@@ -257,7 +257,7 @@ start-vibe: check-uv
 	@if [ -f $(PID_DIR)/vibe.pid ] && kill -0 "$$(cat $(PID_DIR)/vibe.pid)" 2>/dev/null; then \
 	  printf "  Vibe server already running (pid %s)\n" "$$(cat $(PID_DIR)/vibe.pid)"; \
 	else \
-	  VIBE_OUTPUT_DIR=$(VIBE_OUTPUT_DIR) uv run hands vibe --port $(VIBE_PORT) \
+	  VIBE_OUTPUT_DIR=$(VIBE_OUTPUT_DIR) uv run letta-vibe vibe --port $(VIBE_PORT) \
 	    > /tmp/vibe-server.log 2>&1 & echo $$! > $(PID_DIR)/vibe.pid; \
 	  sleep 2; \
 	  printf "  Log: /tmp/vibe-server.log\n"; \
@@ -272,7 +272,7 @@ start-ableton-mcp: check-uv
 	@if [ -f $(PID_DIR)/ableton-mcp.pid ] && kill -0 "$$(cat $(PID_DIR)/ableton-mcp.pid)" 2>/dev/null; then \
 	  printf "  Ableton MCP bridge already running (pid %s)\n" "$$(cat $(PID_DIR)/ableton-mcp.pid)"; \
 	else \
-	  uv run hands ableton-mcp --bridge-port $(ABLETON_MCP_BRIDGE_PORT) \
+	  uv run letta-vibe ableton-mcp --bridge-port $(ABLETON_MCP_BRIDGE_PORT) \
 	    > /tmp/ableton-mcp-bridge.log 2>&1 & echo $$! > $(PID_DIR)/ableton-mcp.pid; \
 	  sleep 1; \
 	  printf "  Log: /tmp/ableton-mcp-bridge.log\n"; \
@@ -433,9 +433,9 @@ self-improve: check-uv
 	fi
 	@if [ -n "$(SERVICES)" ]; then \
 	  SERVICE_FLAGS=$$(echo "$(SERVICES)" | tr ' ' '\n' | sed 's/^/--service /'); \
-	  uv run hands self-improve "$(DESCRIPTION)" --prompt "$(PROMPT)" $$SERVICE_FLAGS; \
+	  uv run letta-vibe self-improve "$(DESCRIPTION)" --prompt "$(PROMPT)" $$SERVICE_FLAGS; \
 	else \
-	  uv run hands self-improve "$(DESCRIPTION)" --prompt "$(PROMPT)"; \
+	  uv run letta-vibe self-improve "$(DESCRIPTION)" --prompt "$(PROMPT)"; \
 	fi
 	$(call ok,Improvement applied)
 

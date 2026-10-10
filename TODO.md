@@ -38,7 +38,7 @@ Center (COLDFIRE), SSL Download Manager (FlexVerb), Kilohearts Installer.
 - [ ] One Dependabot alert stays open: setuptools < 83 in `prototypes/audio-browser`.
   It is pinned below 81 because tensorflow_hub still imports `pkg_resources`.
   Drop the pin when the segment extra moves off tensorflow_hub.
-- [ ] Letta feedback in `hands/src/hands/vibe/server.py` has been dead code.
+- [ ] Letta feedback in `prototypes/letta-vibe/src/letta_vibe/vibe/server.py` has been dead code.
   It imports `letta.create_client`, which letta 0.7 removed. Port to `letta-client` if it is wanted.
 - [ ] Commit Anthony's interview answers next to
   `docs/interviews/2026-09-30-what-next.md`.

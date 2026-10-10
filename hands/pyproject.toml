@@ -10,17 +10,6 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-vibe = [
-    "librosa>=0.10.0",
-    "mcp>=1.26.0,<2",  # 2.x renamed FastMCP
-    "pyloudnorm>=0.1.1",
-    "pyngrok>=7.0.0",
-    "starlette>=1.0.0",
-    "uvicorn>=0.42.0",
-]
-self-improve = [
-    "claude-agent-sdk>=0.1.0",
-]
 dev = [
     "pytest>=8.0",
     "mypy>=1.10",

@@ -80,7 +80,7 @@ class VibeServer:
     def _load_persisted_job(self) -> "dict[str, Any] | None":
         """Load the last improvement job result from disk (written before restart)."""
         try:
-            from hands.self_modify import IMPROVEMENT_PERSIST
+            from letta_vibe.self_modify import IMPROVEMENT_PERSIST
             if not IMPROVEMENT_PERSIST.exists():
                 return None
             data = json.loads(IMPROVEMENT_PERSIST.read_text())
@@ -182,7 +182,7 @@ class VibeServer:
 
         try:
             import sys, importlib
-            vm_dir = str(Path(__file__).parents[4] / "ableton-live-vm")
+            vm_dir = str(Path(__file__).parents[5] / "ableton-live-vm")
             if vm_dir not in sys.path:
                 sys.path.insert(0, vm_dir)
             export_offline = importlib.import_module("export_offline")
@@ -229,14 +229,14 @@ class VibeServer:
                     self._improvement_job["log_lines"].append(line)
 
         try:
-            from hands.self_modify import apply_improvement
+            from letta_vibe.self_modify import apply_improvement
         except ImportError as exc:
             with self._job_lock:
                 if self._improvement_job and self._improvement_job["id"] == job_id:
                     self._improvement_job["status"] = "failed"
                     self._improvement_job["error"] = (
                         f"claude-agent-sdk not installed: {exc}. "
-                        "Run: uv pip install 'hands[self-improve]'"
+                        "Run: uv pip install -e '.[self-improve]'"
                     )
             return
 
@@ -461,12 +461,12 @@ class VibeServer:
         """
         import subprocess
 
-        hands_dir = str(Path(__file__).parents[3])
+        project_dir = str(Path(__file__).parents[3])
 
         def _restart() -> None:
             time.sleep(0.5)
             subprocess.Popen(
-                ["make", "-C", hands_dir, "stop-vibe", "start-vibe"],
+                ["make", "-C", project_dir, "stop-vibe", "start-vibe"],
                 start_new_session=True,  # detach from vibe's process group
                 stdout=open("/tmp/vibe-restart.log", "w"),
                 stderr=subprocess.STDOUT,
@@ -495,7 +495,7 @@ class VibeServer:
             import librosa  # type: ignore[import]
             import numpy as np  # type: ignore[import]
         except ImportError as exc:
-            return {"error": f"missing dependency: {exc} — run: uv pip install 'hands[vibe]'"}
+            return {"error": f"missing dependency: {exc} — run: uv pip install -e '.[vibe]'"}
 
         mtime = resolved.stat().st_mtime
         cache_key = (str(resolved), mtime)
@@ -541,7 +541,7 @@ class VibeServer:
         For a complete AudioProfile (MFCCs, chroma, short-term/momentary LUFS,
         Camelot key, 512-dim DCLAP embedding for semantic similarity), use the
         ``/profile`` endpoint instead. It calls the ``ears`` package at
-        agent-sandbox/ears/ via subprocess and returns the full AudioProfile JSON.
+        zpkt/ears/ via subprocess and returns the full AudioProfile JSON.
 
         When to use which:
           /analyze  → fast iteration checks during kick design (LUFS, peak, bands)
@@ -585,7 +585,7 @@ class VibeServer:
             import numpy as np  # type: ignore[import]
             import pyloudnorm as pyln  # type: ignore[import]
         except ImportError as exc:
-            return {"error": f"missing dependency: {exc} — run: uv pip install 'hands[vibe]'"}
+            return {"error": f"missing dependency: {exc} — run: uv pip install -e '.[vibe]'"}
 
         audio = self._load_audio_cached(resolved)
         if isinstance(audio, dict):
@@ -686,7 +686,7 @@ class VibeServer:
         Returns the full AudioProfile as a JSON object, or an error dict.
 
         NOTE: This endpoint uses the `ears` package at
-        /Users/anthonybecker/Desktop/agent-sandbox/ears.
+        zpkt/ears.
         See that directory for the full AudioProfile schema, CLI, and planned
         extensions (similarity scoring, Gemini descriptions, learned fusion model).
         The `ears` project is the long-term home for audio perception —
@@ -711,7 +711,7 @@ class VibeServer:
         if not resolved.exists():
             return {"error": f"file not found: {raw_path}"}
 
-        ears_dir = str(Path(__file__).parents[4] / "ears")
+        ears_dir = str(Path(__file__).parents[5] / "ears")
         cmd = ["uv", "run", "--project", ears_dir, "ears", "analyze", str(resolved), "--json"]
         if body.get("no_embeddings"):
             cmd.append("--no-embeddings")
@@ -887,7 +887,7 @@ class VibeServer:
                     return
 
                 if self.path == "/sdk-log":
-                    from hands.self_modify import SDK_LOG
+                    from letta_vibe.self_modify import SDK_LOG
                     if SDK_LOG.exists():
                         text = SDK_LOG.read_text(errors="replace")
                     else:

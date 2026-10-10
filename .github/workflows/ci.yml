@@ -17,7 +17,7 @@ jobs:
       matrix:
         # Each part is its own uv project. Contract tests inside each part
         # fail if its output drifts from lib/contracts/.
-        part: [hands, ears, ears/mlab, prototypes/taste, prototypes/engineer]
+        part: [hands, ears, ears/mlab, prototypes/taste, prototypes/engineer, prototypes/letta-vibe]
     steps:
       # Actions are pinned to commit SHAs (tags can be moved).
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -28,9 +28,9 @@ jobs:
         working-directory: ${{ matrix.part }}
         run: uv run pytest -q -p no:cacheprovider
 
-  hands-bridge-security:
+  letta-vibe-bridge-security:
     # The MCP bridge tests need the optional mcp stack, which the default
-    # hands environment does not install.
+    # letta-vibe environment does not install.
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -38,7 +38,7 @@ jobs:
           persist-credentials: false
       - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
       - name: MCP bridge security tests
-        working-directory: hands
+        working-directory: prototypes/letta-vibe
         run: uv run --with "mcp>=1.26,<2" --with uvicorn --with starlette --with httpx pytest -q -p no:cacheprovider tests/test_mcp_bridge_security.py
 
   audio-browser:

@@ -15,7 +15,7 @@ from http.server import ThreadingHTTPServer
 
 import pytest
 
-from hands.vibe import server as vibe
+from letta_vibe.vibe import server as vibe
 
 
 @pytest.fixture()

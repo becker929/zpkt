@@ -45,7 +45,7 @@ import urllib.request
 
 # ── Skill file paths (relative to this script's location) ─────────────────────
 _SCRIPT_DIR = pathlib.Path(__file__).parent
-_SKILL_DIR = _SCRIPT_DIR.parent.parent / ".cursor" / "skills" / "ableton-guide"
+_SKILL_DIR = _SCRIPT_DIR.parents[2] / "hands" / ".cursor" / "skills" / "ableton-guide"
 _SKILL_MD = _SKILL_DIR / "SKILL.md"
 _DEVICES_MD = _SKILL_DIR / "references" / "available-devices.md"
 
@@ -84,7 +84,7 @@ def run_bounce(beats: int = 64, output_path: str = "bounce.wav") -> str:
         with urllib.request.urlopen(req, timeout=120) as resp:
             result = json.loads(resp.read())
     except urllib.error.URLError as exc:
-        msg = "Could not reach vibe server at " + endpoint + ": " + str(exc) + ". Start it with: cd /Users/anthonybecker/Desktop/agent-sandbox/hands && make start-vibe"
+        msg = "Could not reach vibe server at " + endpoint + ": " + str(exc) + ". Start it with: make -C prototypes/letta-vibe start-vibe"
         return msg
     except Exception as exc:
         return "Bounce request failed: " + str(exc)
@@ -148,7 +148,7 @@ def request_improvement(description: str, prompt: str) -> str:
     except urllib.error.URLError as exc:
         return (
             "Could not reach vibe server at " + endpoint + ": " + str(exc) +
-            ". Start it with: cd /Users/anthonybecker/Desktop/agent-sandbox/hands && make start-vibe"
+            ". Start it with: make -C prototypes/letta-vibe start-vibe"
         )
     except Exception as exc:
         return "request_improvement failed: " + str(exc)
@@ -204,7 +204,7 @@ def check_improvement() -> str:
     except urllib.error.URLError as exc:
         return (
             "Could not reach vibe server at " + endpoint + ": " + str(exc) +
-            ". Start it with: cd /Users/anthonybecker/Desktop/agent-sandbox/hands && make start-vibe"
+            ". Start it with: make -C prototypes/letta-vibe start-vibe"
         )
     except Exception as exc:
         return "check_improvement failed: " + str(exc)
@@ -446,7 +446,7 @@ import urllib.request
 def restart_vibe_server() -> str:
     """Restart the vibe server to pick up new code.
 
-    Use this after request_improvement lands changes to hands/src/hands/vibe/
+    Use this after request_improvement lands changes to src/letta_vibe/vibe/
     or any other module loaded by the vibe server. The restart is non-blocking:
     the server shuts down and a fresh process starts in ~3-5 seconds.
 
@@ -474,7 +474,7 @@ def restart_vibe_server() -> str:
     except urllib.error.URLError as exc:
         return (
             "Could not reach vibe server at " + endpoint + ": " + str(exc) +
-            ". Is it running? Try: make -C hands start-vibe"
+            ". Is it running? Try: make -C prototypes/letta-vibe start-vibe"
         )
     except Exception as exc:
         return "restart_vibe_server failed: " + str(exc)
@@ -550,7 +550,7 @@ Only escalate if the change is truly architectural (e.g. replacing Letta).
 Describe the **problem** with context. Include:
 1. Exact symptom ("6.7s response time for /analyze")
 2. Expected behaviour ("sub-5s, ideally sub-second for cached files")
-3. Which file is affected ("hands/src/hands/vibe/server.py, handle_analyze()")
+3. Which file is affected ("src/letta_vibe/vibe/server.py, handle_analyze()")
 4. Any relevant observations ("librosa.load is the bottleneck; file is decoded
    twice in the original code")
 
@@ -570,23 +570,22 @@ profile_audio  — comprehensive (~15-30s), full AudioProfile from the ears pack
   profile_audio("bounce.mp3")                         # full profile
   profile_audio("bounce.mp3", no_embeddings=True)     # faster, skip embedding
 
-The ears package lives at agent-sandbox/ears/. It is the long-term audio
+The ears package lives at zpkt/ears/. It is the long-term audio
 perception layer — profile_audio is its current interface from inside Letta.
 
 ### Service restart behaviour
 
 The tool auto-detects which services to restart based on changed files:
-- hands/src/hands/vibe/ changes → restarts vibe server
-- hands/src/hands/ changes → restarts vibe + ableton-mcp
-- hands/frontend/ changes → restarts frontend
-- hands/scripts/setup_letta_tools.py → re-runs make setup-tools
-- .cursor/skills/ changes → no restart needed (read at runtime)
+- src/letta_vibe/vibe/ changes → restarts vibe server
+- src/letta_vibe/ changes → restarts vibe + ableton-mcp
+- frontend/ changes → restarts frontend
+- scripts/setup_letta_tools.py → re-runs make setup-tools
 
 If you need to reload the vibe server without a code change, call
 restart_vibe_server() directly. Wait ~5-10s after calling it.
 
 Letta is NEVER restarted automatically. If a change requires a Letta restart,
-tell the human and ask them to run: make -C hands stop-letta start-letta
+tell the human and ask them to run: make -C prototypes/letta-vibe stop-letta start-letta
 
 ### After check_improvement confirms completion
 
@@ -865,10 +864,10 @@ modification unheard.
 ## Starting the Stack
 
 If run_bounce() or execute() reports a connection error, the relevant server is not
-running. Start them from the hands repo:
+running. Start them from prototypes/letta-vibe in zpkt:
 
   # Full stack (recommended):
-  cd /Users/anthonybecker/Desktop/agent-sandbox/hands && make start
+  make start
 
   # Individual services:
   make start-letta         # Letta server (port 8283)
@@ -885,7 +884,7 @@ Ableton Live itself must also be open with the AbletonLiveMCP Remote Script load
 def _build_rules_block_value() -> str:
     """Extract Sections 0 and 1 from SKILL.md, then append workflow rules."""
     if not _SKILL_MD.exists():
-        return "(ableton-guide SKILL.md not found — run from the hands repo root)" + _WORKFLOW_RULES
+        return "(ableton-guide SKILL.md not found in zpkt/hands/.cursor/skills)" + _WORKFLOW_RULES
     text = _SKILL_MD.read_text()
     # Keep everything from the first heading up to (but not including) Section 2
     start = text.find("## 0. Connection")

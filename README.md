@@ -32,6 +32,8 @@ Beside the main path:
     corpus holds five seed verdicts and no real picks yet.
   - [`engineer/`](prototypes/engineer/): what should be tried next,
     unattended? Its loop and genetic algorithm are not wired in.
+  - [`letta-vibe/`](prototypes/letta-vibe/): a Letta agent that drives
+    Live, a phone page for listening and feedback, and their MCP bridge.
 
 ## The main path is perpendicular to the lifecycle
 
@@ -59,7 +61,7 @@ Two rules keep the parts honest:
 
 | Directory | From | Notes |
 |---|---|---|
-| `hands/` | github.com/becker929/hands | Live control, recorder, vibe server |
+| `hands/` | github.com/becker929/hands | Live control: the `hands` library and CLI |
 | `hands/sweeps/` | untracked hands folder, Sep 2026 | knob-to-measure sweep harness and results |
 | `hands/skills/` | the old Mac's agent skills | driving Live: OSC + LOM, virtual display, export |
 | `hands/macros/hammerspoon/` | github.com/becker929/hammerspoon-config | music-desk macros, render + upload, backups |
@@ -70,6 +72,7 @@ Two rules keep the parts honest:
 | `prototypes/audio-browser/` | autodaw `feature/audio-browser` | sound-library triage and collage |
 | `prototypes/taste/` | github.com/becker929/taste (+ taste2 prototype) | preference judge, pick corpus |
 | `prototypes/engineer/` | taste's loop, autodaw's GA | `engineer loop` |
+| `prototypes/letta-vibe/` | hands' vibe server, frontend and MCP bridge | `letta-vibe vibe` |
 
 The source repos (hands, ears, taste, taste2-prototype, autodaw,
 hammerspoon-config) are archived, each with a README pointing here.

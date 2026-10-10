@@ -12,7 +12,7 @@ pytest.importorskip("mcp.server.fastmcp")
 pytest.importorskip("starlette")
 from starlette.testclient import TestClient  # noqa: E402
 
-from hands import mcp_server  # noqa: E402
+from letta_vibe import mcp_server  # noqa: E402
 
 TOKEN = "t0ken"
 INIT = {"jsonrpc": "2.0", "id": 1, "method": "initialize",

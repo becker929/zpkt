@@ -30,26 +30,25 @@ IMPROVEMENT_PERSIST = Path("/tmp/vibe-improvement-last.json")
 
 # ── Workspace roots ────────────────────────────────────────────────────────────
 
-WORKSPACE = Path(__file__).parents[2]   # zpkt/hands: the agent may only touch hands/
-HANDS_DIR = WORKSPACE / "hands"
+WORKSPACE = Path(__file__).parents[2]   # prototypes/letta-vibe: the agent may only touch this
+REPO = WORKSPACE.parents[1]             # zpkt: git reports paths from here
+_HERE = "prototypes/letta-vibe/"
 
 # ── File prefix → services that must restart when those files change ───────────
 #
-# Keys are path prefixes relative to WORKSPACE.
+# Keys are path prefixes relative to REPO.
 # Values are lists of make target suffixes (make stop-X / make start-X).
 # A path matching multiple prefixes unions all service lists.
 #
 # Special sentinel "__setup_tools__" means run `make setup-tools` instead.
 
 _RESTART_MAP: dict[str, list[str]] = {
-    "hands/src/hands/vibe/": ["vibe"],
-    "hands/src/hands/mcp_server.py": ["ableton-mcp"],
-    "hands/src/hands/": ["vibe", "ableton-mcp"],
-    "hands/frontend/": ["frontend"],
-    "hands/scripts/setup_letta_tools.py": ["__setup_tools__"],
-    ".cursor/skills/": [],
-    ".cursorrules": [],
-    "hands/Makefile": [],
+    _HERE + "src/letta_vibe/vibe/": ["vibe"],
+    _HERE + "src/letta_vibe/mcp_server.py": ["ableton-mcp"],
+    _HERE + "src/letta_vibe/": ["vibe", "ableton-mcp"],
+    _HERE + "frontend/": ["frontend"],
+    _HERE + "scripts/setup_letta_tools.py": ["__setup_tools__"],
+    _HERE + "Makefile": [],
 }
 
 
@@ -57,11 +56,11 @@ def services_for_paths(changed_paths: list[str]) -> tuple[list[str], bool]:
     """Infer which services to restart from a list of changed file paths.
 
     Returns (service_names, needs_setup_tools).
-    Paths should be relative to WORKSPACE (as returned by git diff --name-only).
+    Paths should be relative to REPO (as git diff --name-only prints them).
     Letta is never included — it requires explicit manual restart.
 
     Uses longest-prefix-first matching so that a specific rule (e.g.
-    hands/src/hands/vibe/) wins over a broader one (hands/src/hands/).
+    src/letta_vibe/vibe/) wins over a broader one (src/letta_vibe/).
     """
     sorted_map = sorted(_RESTART_MAP.items(), key=lambda kv: len(kv[0]), reverse=True)
     needed: set[str] = set()
@@ -81,9 +80,9 @@ def services_for_paths(changed_paths: list[str]) -> tuple[list[str], bool]:
 # ── Makefile helpers ───────────────────────────────────────────────────────────
 
 def _make(target: str, timeout: int = 60) -> str:
-    """Run a make target in hands/Makefile. Returns combined stdout+stderr."""
+    """Run a make target in this prototype's Makefile. Returns combined stdout+stderr."""
     result = subprocess.run(
-        ["make", "-C", str(HANDS_DIR), target],
+        ["make", "-C", str(WORKSPACE), target],
         capture_output=True,
         text=True,
         timeout=timeout,
@@ -106,12 +105,12 @@ def run_setup_tools() -> str:
 # ── Git helpers ────────────────────────────────────────────────────────────────
 
 def _git_changed_files() -> list[str]:
-    """Return files changed since last commit (staged + unstaged)."""
+    """Return files changed since last commit (staged + unstaged), relative to REPO."""
     result = subprocess.run(
         ["git", "diff", "--name-only", "HEAD"],
         capture_output=True,
         text=True,
-        cwd=str(WORKSPACE),
+        cwd=str(REPO),
     )
     lines = result.stdout.strip().splitlines()
     # Also include untracked new files
@@ -119,7 +118,7 @@ def _git_changed_files() -> list[str]:
         ["git", "ls-files", "--others", "--exclude-standard"],
         capture_output=True,
         text=True,
-        cwd=str(WORKSPACE),
+        cwd=str(REPO),
     )
     lines += result2.stdout.strip().splitlines()
     return [ln.strip() for ln in lines if ln.strip()]
@@ -213,7 +212,7 @@ async def run_agent_edit(
     session runs, enabling callers to stream progress to external consumers.
 
     Raises ImportError if claude-agent-sdk is not installed.
-    Install with: uv pip install "hands[self-improve]"
+    Install with: uv pip install -e ".[self-improve]"
     """
     from claude_agent_sdk import query, ClaudeAgentOptions  # type: ignore[import]
 

@@ -1,0 +1,46 @@
+[project]
+name = "letta-vibe"
+version = "0.1.0"
+description = "Prototype: a Letta agent, a phone feedback page and an MCP bridge around Ableton Live"
+requires-python = ">=3.12"
+dependencies = [
+    "hands",
+    "pydantic>=2.0.0",
+    "typer>=0.12.0",
+    "rich>=13.0.0",
+]
+
+[project.optional-dependencies]
+vibe = [
+    "librosa>=0.10.0",
+    "mcp>=1.26.0,<2",  # 2.x renamed FastMCP
+    "pyloudnorm>=0.1.1",
+    "pyngrok>=7.0.0",
+    "starlette>=1.0.0",
+    "uvicorn>=0.42.0",
+]
+self-improve = [
+    "claude-agent-sdk>=0.1.0",
+]
+
+[project.scripts]
+letta-vibe = "letta_vibe.cli:main"
+
+[tool.uv.sources]
+hands = { path = "../../hands", editable = true }
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/letta_vibe"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[dependency-groups]
+dev = [
+    "mypy>=1.19.1",
+    "pytest>=9.0.2",
+]
