@@ -12,3 +12,8 @@ updates:
     directories: [/hands, /ears, /ears/mlab, /taste, /engineer, /prototypes/audio-browser]
     schedule: { interval: weekly }
     groups: { python: { patterns: ["*"] } }
+    ignore:
+      # mcp 2 renamed FastMCP (hands/src/hands/mcp_server.py); move to it on purpose.
+      - { dependency-name: mcp, update-types: ["version-update:semver-major"] }
+      # tensorflow_hub still imports pkg_resources, which setuptools 81 removed (prototypes/audio-browser).
+      - { dependency-name: setuptools, versions: [">=81"] }
