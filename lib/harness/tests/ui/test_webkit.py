@@ -4,6 +4,8 @@ comes round. The phone in the car is an iPhone, so this is the browser that matt
 import pytest
 
 from conftest import IPHONE_15, open_page
+from heard import find_passes, heard
+from test_heard import render, the_ear
 from test_turn import is_mic, is_playback
 from test_window import FIRST_VISIBLE, TOP_OF
 
@@ -66,3 +68,22 @@ async def test_safari_a_typed_turn_comes_round(iphone, fake):
     assert said["text"] == "Brighter hats"
     await fake.expect(is_playback("idle", 2), timeout=20)
     await fake.expect(is_mic("open", "t2"))
+
+
+async def test_safari_the_ear_hears_a_render_to_the_sample(iphone, fake):
+    # The capture shim works in WebKit too: a render the Mac plays is recorded, and lines up with the file.
+    page = iphone
+    fake.turn_frames = 0
+    music = await fake.present_music()
+    await page.page.tap("#turn")
+    await fake.expect(is_mic("open"))
+    mark = len(fake.inbox)
+    await fake.play(music["seq"], 2)
+    await fake.expect(is_playback("idle", 1), since=mark, timeout=15)
+    ear = the_ear(await heard(page.page))
+    entry = (await page.js("window.studio.engine.log"))[-1]
+    ref = render(fake, ear)
+    passes = find_passes(ear.samples, ref)
+    assert len(passes.starts) == 2 and min(passes.scores) > 0.99, passes
+    assert passes.starts[1] - passes.starts[0] == len(ref)
+    assert abs(ear.time(passes.starts[0]) - entry["t0"]) < 1.5 / ear.rate

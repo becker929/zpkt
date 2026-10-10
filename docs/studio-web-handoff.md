@@ -44,13 +44,38 @@ follow-up "more" A/B came from the cache in 0.65 s. Files in `~/_agent_scratch/p
 ## Running and testing
 
 ```bash
-uv run --project lib/harness --extra dev pytest                     # 150 passed (UI tests need Playwright browsers)
+uv run --project lib/harness --extra dev pytest                     # 157 passed (UI tests need Playwright browsers)
 uv run --project lib/voice --extra dev pytest                       # add VOICE_ENGINES=1 --extra engines: real models
 uv run --project hands --extra plans --extra dev pytest             # 87 passed
-STUDIO_STACK=1 uv run --project lib/harness --extra dev pytest lib/harness/tests/ui/test_stack.py
+STUDIO_STACK=1 uv run --project lib/harness --extra dev pytest lib/harness/tests/ui/test_stack.py   # real speech models
 STUDIO_CLAUDE=1 ...same... -k real_claude                           # one real Claude turn
 cd hands && uv run --extra plans hands plan ab A.json B.json        # a real render (Live, guarded)
 ```
+
+The page's browser tests (`lib/harness/tests/ui`, marked `ui`) inject and capture audio:
+
+- Injection: the mic is a WAV, through Chromium's fake capture device or a getUserMedia shim (a 1 kHz tone for the
+  fake server; a Kokoro-spoken sentence ending in "tomato" for the real stack).
+- Capture: every page's AudioContext destination is replaced by a tap into an AudioWorklet that records what the
+  page plays, sample by sample, with audio-clock timestamps, and passes on silence (`tests/ui/heard.py`;
+  `await heard(page)` returns the recordings). The tests check what came out, not what the page says:
+  - `test_heard.py` (fake server): the reply's tone is heard, then the A/B, each pass lining up with the file to the
+    sample (correlation 1.000, repeat boundaries exactly one file length apart, start within a sample of the
+    scheduled time); "loop that three times" is exactly three passes then silence; after `stop_audio` the sound
+    ends within the render quantum the page stopped it in; a context made after the page was away is recorded too;
+    no sound reaches the speakers while the mic is open. That last one holds because the route settle (100 ms in
+    that test) outlasts the output latency (~35 ms in headless Chromium): the mic opened ~95-105 ms after the last
+    sound was heard. With the tests' usual 30 ms it was 5-25 ms, and a desktop browser without
+    `navigator.audioSession` waits 0 ms, so there the mic can open while the last ~35 ms is still in the output.
+  - `test_webkit.py`: the same capture in WebKit at iPhone size (a render played twice, to the sample).
+  - `test_stack.py -k voice_loop` (STUDIO_STACK=1): a full voice loop. Kokoro's sentence goes in through the mic,
+    Parakeet hears it and "tomato" ends the turn; the scripted reply is spoken by Kokoro and played by the page; the
+    recording is resampled to 16 kHz and transcribed by the same Parakeet worker; word error rate under 15%
+    (0% when written).
+
+Browser tests cannot reproduce the iOS audio session: app switching, interruptions (calls, Siri), Bluetooth route
+changes and the lock screen are simulated at best (a faked `visibilitychange`), and a desktop browser's output
+latency is not a phone's. Those still need the phone.
 
 Setup: `uv run --project lib/harness --extra dev playwright install chromium webkit`; the speech models download
 on first use (Kokoro and Silero to `~/.cache/zpkt-voice`, Parakeet to the Hugging Face cache). Tests that bind

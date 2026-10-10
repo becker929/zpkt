@@ -31,9 +31,12 @@ def speech_pcm(seconds: float, freq: float = 220.0) -> bytes:
 
 @lru_cache
 def ab_flac(bar_seconds: float, bars: int, rate: int = 48_000) -> bytes:
-    """A render that alternates two versions bar by bar: A is a low tone, B a higher one."""
+    """A render that alternates two versions bar by bar: A is a low tone, B a higher one. A quiet bed of noise
+    (seeded, so the file is the same every time) makes each pass unlike any shifted copy of itself, so a recording
+    of it can be lined up with the file to the sample."""
     parts = [tone(330.0 if i % 2 == 0 else 495.0, bar_seconds, rate, 0.25) for i in range(bars)]
-    stereo = np.stack([np.concatenate(parts)] * 2, axis=1)
+    mono = np.concatenate(parts) + 0.03 * np.random.default_rng(7).standard_normal(len(parts) * len(parts[0]))
+    stereo = np.stack([mono] * 2, axis=1)
     buf = io.BytesIO()
     sf.write(buf, stereo, rate, format="FLAC", subtype="PCM_16")
     return buf.getvalue()

@@ -4,8 +4,25 @@
 
 Without them every test here skips; `pytest -m "not ui"` leaves them out altogether.
 
-Nothing is ever heard: Chromium runs with --mute-audio, and every page gets a shim that routes its Web Audio
-destination through a silent gain (the graph still runs, so playback is checked by instrumentation).
+    uv run --extra dev pytest                                  # everything, from lib/harness (~1.5 min)
+    uv run --extra dev pytest tests/ui/test_heard.py           # what the page played, as recorded
+    STUDIO_STACK=1 uv run --extra dev pytest tests/ui/test_stack.py   # real Kokoro and Parakeet (test_stack.py)
+
+They bind loopback ports and launch browsers, so run them outside the agent sandbox.
+
+Audio goes both ways, and nothing reaches the speakers:
+- In: the page's mic is a WAV. Chromium plays it through its fake capture device (--use-file-for-fake-audio-capture)
+  or, where that device hangs, the getUserMedia shim (`CAPTURE`) plays `window.__syntheticMic` into a MediaStream.
+  `CAPTURE` also keeps every stream it hands out (`window.__captured`) and when each was open
+  (`window.__micSpans`, performance-clock ms, until its first track is stopped).
+- Out: `MUTE` (heard.py) gives every AudioContext a destination that is really a tap into an AudioWorklet "ear":
+  each render quantum the page sends to its speakers is recorded (mono, with the audio-clock time of its first
+  sample), and the ear passes silence on to the real destination. A context gets its ear the first time the page
+  asks for its destination, so the one the page makes after being in the background is recorded too.
+  `await heard(page)` returns one `Ear` per context: the samples, their times, and the map from the audio clock to
+  the page's clock (from getOutputTimestamp, so it includes the output's latency). Chromium also runs with
+  --mute-audio. It works in Chromium and WebKit; the tests that use it are test_heard.py, one in test_webkit.py and
+  the voice loop in test_stack.py.
 """
 
 from __future__ import annotations
@@ -18,6 +35,7 @@ from aiohttp.test_utils import TestServer
 
 import studio_media as media
 from fake_studio import FakeStudio
+from heard import MUTE
 
 try:
     from playwright.async_api import Error as PlaywrightError
@@ -30,31 +48,14 @@ IPHONE_15 = {"viewport": {"width": 393, "height": 659}, "screen": {"width": 393,
              "device_scale_factor": 3, "is_mobile": True, "has_touch": True}
 PHONE = {"viewport": {"width": 393, "height": 760}, "device_scale_factor": 2}
 
-# Web Audio, silenced: everything the page connects to the destination goes through a gain of zero.
-MUTE = """
-(() => {
-  const Real = window.AudioContext;
-  if (!Real) return;
-  window.AudioContext = class extends Real {
-    #silent = null;
-    get destination() {
-      if (!this.#silent) {
-        this.#silent = this.createGain();
-        this.#silent.gain.value = 0;
-        this.#silent.connect(super.destination);
-      }
-      return this.#silent;
-    }
-  };
-})();
-"""
-
-# Keeps every stream getUserMedia hands the page (to check its tracks are stopped). When this Chromium cannot
-# start its fake capture device (it hangs on some macOS versions), the same WAV is played into a MediaStream.
+# Keeps every stream getUserMedia hands the page (to check its tracks are stopped) and when each was open (until its
+# first track stops). When this Chromium cannot start its fake capture device (it hangs on some macOS versions), the
+# same WAV is played into a MediaStream.
 CAPTURE = """
 (() => {
   const real = navigator.mediaDevices.getUserMedia.bind(navigator.mediaDevices);
   window.__captured = [];
+  window.__micSpans = [];
   navigator.mediaDevices.getUserMedia = async (constraints) => {
     let stream;
     if (window.__syntheticMic) {
@@ -71,6 +72,12 @@ CAPTURE = """
       stream = await real(constraints);
     }
     window.__captured.push(stream);
+    const span = { open: performance.now(), close: null };      // when the mic was open, for the ear's tests
+    window.__micSpans.push(span);
+    for (const track of stream.getTracks()) {
+      const stop = track.stop.bind(track);
+      track.stop = () => { span.close ??= performance.now(); stop(); };
+    }
     return stream;
   };
 })();
