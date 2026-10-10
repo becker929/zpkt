@@ -1,8 +1,8 @@
 """Hypothesis runner: YAML claim -> variants -> measurements -> verdict.
 
-See engineer/hypotheses/TEMPLATE.yaml for the schema. Input paths are relative
-to the lab data directory: $MLAB_DATA, or ears/mlab in this repo. Results go
-to engineer/hypotheses/results.
+See hypotheses/TEMPLATE.yaml for the schema. Input paths are relative to the
+lab data directory: $MLAB_DATA, or the lab root (ears/mlab). Results go to
+hypotheses/results in the lab root.
 Variants come from files (Ableton renders) or from Python ops (dsp.py).
 """
 from __future__ import annotations
@@ -14,13 +14,11 @@ import os
 import numpy as np
 import yaml
 
-from mlab import compare, delivery, dsp, io as aio, loudness as L, measure
-from mlab.util import lin, r
+from . import compare, delivery, dsp, io as aio, loudness as L, measure
+from .util import lin, r
 
-_HERE = os.path.dirname(os.path.abspath(__file__))
-ENGINEER = os.path.dirname(os.path.dirname(_HERE))
-REPO = os.path.dirname(ENGINEER)
-LAB = os.environ.get("MLAB_DATA", os.path.join(REPO, "ears", "mlab"))
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+LAB = os.environ.get("MLAB_DATA", ROOT)
 
 
 def _p(path):
@@ -116,7 +114,7 @@ def run(path, outroot=None, codecs=None):
         spec = yaml.safe_load(f)
     hid = spec["id"]
     slug = os.path.splitext(os.path.basename(path))[0]
-    outdir = os.path.join(outroot or os.path.join(ENGINEER, "hypotheses", "results"), slug)
+    outdir = os.path.join(outroot or os.path.join(ROOT, "hypotheses", "results"), slug)
     os.makedirs(outdir, exist_ok=True)
     variants = build_variants(spec)
     want_codecs = spec.get("codecs", False) if codecs is None else codecs

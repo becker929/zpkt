@@ -1,6 +1,6 @@
-# Hypothesis template. Copy to engineer/hypotheses/H###-short-slug.yaml and fill in.
-# Run:  engineer hyp run engineer/hypotheses/H###-short-slug.yaml   (inputs from $MLAB_DATA or ears/mlab)
-# Output: engineer/hypotheses/results/H###-short-slug/{report.md, result.json, sheets/, audio/, abx/}
+# Hypothesis template. Copy to hypotheses/H###-short-slug.yaml and fill in.
+# Run:  python3 -m mlab hyp run hypotheses/H###-short-slug.yaml   (inputs from $MLAB_DATA or ears/mlab)
+# Output: hypotheses/results/H###-short-slug/{report.md, result.json, sheets/, audio/, abx/}
 
 id: H000
 title: One line, stated as a testable claim
@@ -25,7 +25,7 @@ variants:
   # - name: glue_render
   #   file: audio/inbox/HW002_glue_attack3.wav      # render from Live
 
-# Ops (see engineer/src/engineer/hypothesis.py and ears/mlab/mlab/dsp.py):
+# Ops (see mlab/hypothesis.py and mlab/dsp.py):
 #   gain {gain_db}                      eq {bands: [{type: peak|lowshelf|highshelf|highpass|lowpass, f, gain_db, q}]}
 #   compressor {threshold, ratio, attack_ms, release_ms, knee, makeup_db, detector: peak|rms}
 #   limiter {ceiling_db, lookahead_ms, release_ms, true_peak}

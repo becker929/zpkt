@@ -1,11 +1,14 @@
-"""engineer CLI: run the loop, or run a mastering hypothesis."""
+"""engineer CLI: run the loop."""
 from __future__ import annotations
 
 import typer
 
-app = typer.Typer(name="engineer", help="Run the hands → ears → taste loop, or a hypothesis.")
-hyp_app = typer.Typer(help="Claim → variants → measured verdict.")
-app.add_typer(hyp_app, name="hyp")
+app = typer.Typer(name="engineer", help="Run the hands → ears → taste loop.")
+
+
+@app.callback()
+def _engineer() -> None:
+    """Keeps `loop` a subcommand: Typer runs a lone command as the app itself."""
 
 
 @app.command()
@@ -22,17 +25,6 @@ def loop(
         typer.echo(f"Cycle {i + 1}/{cycles}…")
         verdict = orch.run_cycle(config)
         typer.echo(f"  score={verdict.score}/5  {verdict.rationale[:80]}")
-
-
-@hyp_app.command("run")
-def hyp_run(
-    file: str = typer.Argument(..., help="Hypothesis YAML (see engineer/hypotheses/TEMPLATE.yaml)."),
-    codecs: bool = typer.Option(None, "--codecs/--no-codecs", help="Also measure after codec round trips."),
-) -> None:
-    """Build the variants, measure each with ears' meters, and write a verdict."""
-    from engineer import hypothesis
-    outdir, verdict = hypothesis.run(file, codecs=codecs)
-    typer.echo(f"{verdict}  →  {outdir}")
 
 
 def main() -> None:

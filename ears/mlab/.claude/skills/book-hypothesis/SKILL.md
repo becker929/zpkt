@@ -21,7 +21,7 @@ Lab root: `~/Music/hw002-mastering-lab`. Template: `hypotheses/TEMPLATE.yaml`.
 4. **Write predictions with thresholds before running.** Use `abs<` for "no change" claims.
 5. **Add `listening.abx`** when the claim is about audibility or preference.
 6. Save as `hypotheses/H###-slug.yaml` (next free number) and run
-   `engineer hyp run engineer/hypotheses/H###-slug.yaml`.
+   `python3 -m mlab hyp run hypotheses/H###-slug.yaml`.
 7. **Read `hypotheses/results/H###-slug/report.md`.** Check the measurement table for surprises,
    not just the verdict. A surprise may be an instrument fault: rerun calibration.
 8. **Log it**: a new L-### in `LEARNINGS.md` (what, evidence, what it changes) and a row in

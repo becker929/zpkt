@@ -5,9 +5,6 @@ description = "The engineer: runs the hands → ears → taste loop and searches
 requires-python = ">=3.12"
 dependencies = [
     "typer>=0.12.0",
-    "numpy>=1.26.0",
-    "pyyaml>=6.0",
-    "mlab",
     "taste",
 ]
 
@@ -15,7 +12,6 @@ dependencies = [
 engineer = "engineer.cli:main"
 
 [tool.uv.sources]
-mlab = { path = "../ears/mlab", editable = true }
 taste = { path = "../taste", editable = true }
 
 [dependency-groups]

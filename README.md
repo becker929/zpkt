@@ -37,7 +37,7 @@ component.
 | Sound design | knob-sweep measures | set knobs, knob maps | which kick | search over settings |
 | Arrange | section energy | Delete Time, move clips | which cut | cut candidates |
 | Mix | corpus distance, pump | bus settings | which balance | overnight loop |
-| Master | loudness, true peak (`mlab`) | limiter, render | ABX picks | hypothesis runs |
+| Master | loudness, true peak, hypothesis runs (`mlab`) | limiter, render | ABX picks | — |
 | Deliver | codec checks | render, upload | — | — |
 
 Two rules keep the parts honest:
@@ -57,10 +57,10 @@ Two rules keep the parts honest:
 | `hands/skills/` | the old Mac's agent skills | driving Live: OSC + LOM, virtual display, export |
 | `hands/macros/hammerspoon/` | github.com/becker929/hammerspoon-config | music-desk macros, render + upload, backups |
 | `ears/` | github.com/becker929/ears | `ears analyze` — the AudioProfile |
-| `ears/mlab/` | the HW002 mastering lab | calibrated meters, 81 known-answer tests |
+| `ears/mlab/` | the HW002 mastering lab | calibrated meters, 81 known-answer tests, hypothesis runner (`mlab hyp run`) |
 | `ears/soundfunction/` | anthonybecker.me research branch | sound-function measures, knob-map results, docs |
 | `taste/` | github.com/becker929/taste (+ taste2 prototype) | preference judge, pick corpus |
-| `engineer/` | taste's loop, the lab's hypothesis runner, autodaw's GA | `engineer loop`, `engineer hyp run` |
+| `engineer/` | taste's loop, autodaw's GA | `engineer loop` |
 | `humming/` | anthonybecker.me research copy | transcriber and HumTrans benchmarks |
 | `prototypes/audio-browser/` | autodaw `feature/audio-browser` | sound-library triage and collage |
 
@@ -79,7 +79,7 @@ lib/rig/start_headless.sh                 # bring up Live on the virtual display
 eval "$(lib/record/fetch_models.sh | grep ^export)"   # embedding model for ears
 cd ears && uv run ears analyze take.wav    # measure a render
 cd hands && uv run hands record --arrangement --beats 80 --output take.wav
-cd engineer && uv run engineer hyp run hypotheses/H001-loudness-buys-nothing-on-youtube.yaml
+cd ears/mlab && uv run mlab hyp run hypotheses/H001-loudness-buys-nothing-on-youtube.yaml
 ```
 
 Each part is its own uv project. Run a part's tests from its directory:
