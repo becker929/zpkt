@@ -9,6 +9,21 @@ from test_window import FIRST_VISIBLE, TOP_OF
 
 pytestmark = pytest.mark.ui
 
+# Scroll to the very top and stay there for three frames. Blocks near the top draw at their real size as they come
+# into view and the view keeps the reader's place meanwhile, so one `scrollTop = 0` can leave the Load earlier button
+# half hidden; Playwright would then scroll it into view itself, and in WebKit that scroll can land after the view
+# has already compensated for the older page.
+AT_TOP = """() => new Promise((resolve) => {
+  const chat = document.getElementById('chat');
+  let still = 0;
+  const tick = () => {
+    chat.scrollTop = 0;
+    still = chat.scrollTop === 0 ? still + 1 : 0;
+    if (still >= 3) resolve(true); else requestAnimationFrame(tick);
+  };
+  tick();
+})"""
+
 
 @pytest.fixture
 async def iphone(webkit, fake):
@@ -24,9 +39,8 @@ async def test_safari_loads_and_pages_back_in_place(webkit, fake):
     try:
         assert await page.messages_in_dom() == 40
         for _ in range(2):
-            await page.js("document.getElementById('chat').scrollTop = 0")
             await page.wait("() => !document.getElementById('load-earlier').hidden")
-            await page.wait("() => new Promise((resolve) => requestAnimationFrame(() => resolve(true)))")
+            await page.wait(AT_TOP)
             anchor = await page.js(FIRST_VISIBLE)
             before = await page.js(TOP_OF, anchor)
             await page.page.click("#load-earlier")

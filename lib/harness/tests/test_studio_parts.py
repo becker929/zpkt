@@ -139,6 +139,8 @@ def test_browsers_and_routes_are_named_for_the_comparison():
     assert route("iPhone Microphone") == "phone"
     assert route("Anthony's AirPods Pro") == "bluetooth"
     assert route("CarPlay") == "bluetooth"
+    assert route("Default") == "phone"
+    assert route("MediaStreamAudioDestinationNode") == "other"
     assert route("") == ""
 
 

@@ -253,3 +253,7 @@ Tests: `uv run --project lib/harness --extra dev pytest` and `uv run --project l
 (`VOICE_ENGINES=1` and `--extra engines` add the real models). The speech models are fetched on first use: Kokoro
 and Silero into `~/.cache/zpkt-voice` (`VOICE_MODELS`), Parakeet into the Hugging Face cache. Turn timings:
 `harness timings` (docs/voice-benchmark.md).
+
+The whole stack, end to end (page in Chromium, real server, Kokoro and Parakeet, `hands plan ab` with stand-in
+renders): `STUDIO_STACK=1 uv run --project lib/harness --extra dev pytest lib/harness/tests/ui/test_stack.py`; add
+`STUDIO_CLAUDE=1` for one typed turn with the real Claude session.

@@ -62,13 +62,17 @@ def browser(ua: str) -> str:
 
 
 def route(input_label: str) -> str:
-    """'phone' for the device's own mic, 'bluetooth' for a headset or a car, '' when the page did not say."""
+    """'phone' for the device's own mic, 'bluetooth' for a headset or a car, 'other' for anything else (a USB mic, a
+    test's synthetic stream), '' when the page did not say. iOS names a Bluetooth input after the device, so names
+    that are not the phone's own and look like a headset or a car count as Bluetooth."""
     label = input_label.lower()
     if not label:
         return ""
-    if re.search(r"iphone|ipad|built-in|macbook|default|internal|fake", label):
+    if re.search(r"iphone|ipad|built-in|macbook|internal|^default$|^fake", label):
         return "phone"
-    return "bluetooth"
+    if re.search(r"airpods|bluetooth|carplay|hands-?free|headset|hfp|beats|buds|car\b|'s ", label):
+        return "bluetooth"
+    return "other"
 
 
 def _groups(turn: dict[str, Any]) -> dict[str, str]:
