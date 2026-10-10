@@ -5,7 +5,7 @@ export (probe_kit): ~7 s to load and ~13 s plus a tenth of the audio's length to
 more than two. Patterns a pack does not fill repeat its first plan.
 
 The Live renderer goes through probe_kit's guarded steps: no dialog open, one of our sets in front, Live answering.
-If anything is off it stops with pp.Guard and renders nothing.
+If anything is off it stops with hands.live.session.Guard and renders nothing.
 """
 
 from __future__ import annotations
@@ -20,7 +20,7 @@ from pathlib import Path
 from typing import Any, Iterator, Protocol
 
 from .cache import Cache, Entry
-from .kits import Kit, KnobReader, probe_pack
+from .kits import Kit, KnobReader
 from .model import KnobId, KnobInfo, Plan, write_ahead
 
 
@@ -35,16 +35,16 @@ class LiveRenderer:
         self.work = work or Path(os.environ.get("HANDS_PLANS", "~/_agent_scratch/plans")).expanduser() / "work"
 
     def render(self, kit: Kit, patterns: list[dict[str, float]], tag: str) -> tuple[list[Path], dict[str, Any]]:
-        pk = probe_pack()
+        from hands import probe_kit
+        from hands.live.knobs import Knob
+        from hands.live.transport import LiveClient
+
         knobs = sorted({k for p in patterns for k in p})
-        steps = []
-        for k in knobs:
-            track, dev, param = KnobId.parse(k).resolve_args()
-            steps.append((track, dev, param, [p[k] for p in patterns]))
+        steps = [(Knob(*KnobId.parse(k).resolve_args()), [p[k] for p in patterns]) for k in knobs]
         t0 = time.time()
-        batch = pk.write_batch(kit.name, tag, devices=[], steps=steps)
+        batch = probe_kit.write_batch(kit.name, tag, steps=steps)
         out = self.work / f"{tag}-{int(time.time())}"
-        man = pk.render(batch, kit.name, str(out))
+        man = probe_kit.render(LiveClient(), batch, kit.name, out)
         return [Path(f) for f in man["files"]], {"batch_set": batch, "load_s": man["load_s"],
                                                   "export_s": man["export_s"], "total_s": round(time.time() - t0, 2)}
 

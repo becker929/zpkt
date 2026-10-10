@@ -11,8 +11,9 @@ A **plan** is a small JSON document: which knobs of a probe kit take which value
 {"kit": "c8x4", "knobs": {"rumble|plugin:Decapitator|Drive": 0.5}, "label": "rumble drive 50%"}
 ```
 
-- `kit`: a probe kit (`hands/scripts/probe_pack/probe_kit.py`): a copy of the set trimmed to a lead-in plus one
-  section repeated P times. Kits are built once, in the GUI; their metadata is in `~/_agent_scratch/probepack/kits/`.
+- `kit`: a probe kit (`hands.probe_kit`): a copy of the set trimmed to a lead-in plus one
+  section repeated P times. Kits are built once, in the GUI; their metadata is in `<data_dir>/kits/` and their sets in
+  `sets_dir` (the rig config, `hands/src/hands/config.py`).
 - knob ids are `<track>|<device>|<parameter>`: device `Mixer` (`Volume`, `Pan`), `plugin:<name>` (parameter = the
   plugin's display name, value 0-1), or `<DeviceTag>:<index>` for Live devices (`Eq8:0`, parameter = XML path such
   as `Bands.1/ParameterA/Gain`, value in the device's units). Knobs a plan leaves out keep the kit's value.
