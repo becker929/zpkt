@@ -435,9 +435,15 @@ details[open] > summary .chev { transform: rotate(180deg); }
   background: var(--work);
   vertical-align: middle;
 }
-/* A narration shows its voice row only once it can be played (or while it plays); a note never. */
+/* A narration shows its voice row only once it can be played (or while it plays); a note never. Then the button
+   alone marks the line (no dot, no equaliser: the row must not shrink under the words), and the words brighten
+   while it plays. */
 .msg--narration:not([data-audio], .is-playing) .voice, .msg--note .voice { display: none; }
-.msg--narration:is([data-audio], .is-playing) .bubble { display: flex; align-items: center; gap: 8px; }
+.msg--narration:is([data-audio], .is-playing) .bubble { display: flex; align-items: center; gap: 9px; }
+.msg--narration .voice { flex: none; gap: 0; }
+.msg--narration .voice-meta, .msg--narration .eq { display: none; }
+.msg--narration:is([data-audio], .is-playing) .inline-text::before { display: none; }
+.msg--narration.is-playing .inline-text { color: var(--text-2); }
 
 /* --- music: its own card ------------------------------------------------------------------------ */
 
