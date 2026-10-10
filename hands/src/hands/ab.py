@@ -13,7 +13,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from hands.transport import McpTransport
+from hands.live.transport import McpTransport
 
 REF_PREFIX = "REF "
 DATA_KEY = "zpkt.ab.ref"
@@ -64,10 +64,7 @@ for t in refs:
 
 
 def _run(transport: McpTransport, body: str) -> dict[str, Any]:
-    res = transport.execute(body)
-    if res.status != "ok":
-        raise RuntimeError(res.error or "Live did not answer")
-    return dict(res.result or {})
+    return dict(transport.run(body) or {})
 
 
 def _with_spectrum(body: str, spectrum: bool, toggle: bool) -> str:

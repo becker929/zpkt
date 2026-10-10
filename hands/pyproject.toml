@@ -4,23 +4,14 @@ version = "0.1.0"
 description = "DAW control layer — Ableton Live automation via MCP"
 requires-python = ">=3.12"
 dependencies = [
+    "numpy>=2.0",
     "pydantic>=2.0.0",
-    "typer>=0.27.3",
     "rich>=13.0.0",
+    "soundfile>=0.12",
+    "typer>=0.27.3",
 ]
 
 [project.optional-dependencies]
-vibe = [
-    "librosa>=0.10.0",
-    "mcp>=1.26.0,<2",  # 2.x renamed FastMCP
-    "pyloudnorm>=0.1.1",
-    "pyngrok>=7.0.0",
-    "starlette>=1.0.0",
-    "uvicorn>=0.42.0",
-]
-self-improve = [
-    "claude-agent-sdk>=0.2.164",
-]
 # `hands plan` (plans, the render cache, A/B every bar). Live renders also need what probe_pack uses.
 plans = [
     "numpy>=2.0",

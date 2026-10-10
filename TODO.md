@@ -13,8 +13,6 @@ Loose ends, last updated 1 October 2026. Remove items as they close.
   Fail if a module has `scanstate` 3, which means the scan failed.
 - [ ] A/B hotkeys are built (`hands ab`, `hands spectrum`, Hammerspoon ⌃⌥⌘ A/D/S/N).
   Hammerspoon is installed but waits on a first-launch prompt on screen.
-- [ ] Move the arrangement pipeline (lead-in, cut, restore automation, render, measured trim, timeline check) from `hands/scripts/arrange_prototype` into `hands` proper.
-  Delete Time drops envelopes whose breakpoints are all cut; see the ableton-guide skill.
 
 Licensing now in place on the Mac mini: iLok (Soundtoys), Arturia Software
 Center (COLDFIRE), SSL Download Manager (FlexVerb), Kilohearts Installer.
@@ -38,7 +36,7 @@ Center (COLDFIRE), SSL Download Manager (FlexVerb), Kilohearts Installer.
 - [ ] One Dependabot alert stays open: setuptools < 83 in `prototypes/audio-browser`.
   It is pinned below 81 because tensorflow_hub still imports `pkg_resources`.
   Drop the pin when the segment extra moves off tensorflow_hub.
-- [ ] Letta feedback in `hands/src/hands/vibe/server.py` has been dead code.
+- [ ] Letta feedback in `prototypes/letta-vibe/src/letta_vibe/vibe/server.py` has been dead code.
   It imports `letta.create_client`, which letta 0.7 removed. Port to `letta-client` if it is wanted.
 - [ ] Commit Anthony's interview answers next to
   `docs/interviews/2026-09-30-what-next.md`.

@@ -19,7 +19,8 @@ An aspect has plateaued after ten batch-attempts in a row with no new high score
 
 ```
 # 1. stems from a built version set (Live, ~5 min): mix + one stem per group
-cd hands && PYTHONPATH=scripts/arrange_prototype uv run python scripts/arrange_prototype/stems.py \
+#    (hands/archive/arrange_prototype/stems.py: archived, it no longer runs as is)
+cd hands && PYTHONPATH=archive/arrange_prototype uv run python archive/arrange_prototype/stems.py \
   --from-set HW002_121_v_b43-01-splash-every-8-bars-30s 22 \
   '{"start_bar": 1, "proc": [3, 20], "meas": [5, 20], "ab": [5, 12], "ab_label": "..."}'
 # 2. targets, then one climb per aspect (offline, inside ears/mlab)

@@ -4,7 +4,7 @@ Demonstrates ProjectConfig → builder → dry-run output.
 """
 from hands.models import KickConfig, MidiNote, MidiPattern, ProjectConfig, SamplePad
 from hands.builder import ProjectBuilder
-from hands.transport import DryRunTransport
+from hands.live.transport import DryRunTransport
 from hands.runner import StepRunner, ManualPolicy
 
 config = ProjectConfig(

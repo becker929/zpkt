@@ -8,6 +8,7 @@
 # Exit:  0 if at least one control path (OSC or MCP) is usable; 1 otherwise.
 set -uo pipefail
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+HANDS="$(cd "$DIR/../../.." && pwd)"
 OK="  [ok]  "; NO="  [--]  "; WARN="  [??]  "
 
 pass_osc=0; pass_mcp=0
@@ -38,7 +39,7 @@ fi
 
 # 4) MCP reachable (Path B, TCP 16619)
 if nc -z 127.0.0.1 16619 2>/dev/null; then
-  if [ "$(python3 "$DIR/live_mcp.py" --timeout 5 --json 'result = 1 + 1' 2>/dev/null)" = "2" ]; then
+  if [ "$(uv run --quiet --project "$HANDS" hands live exec --timeout 5 --json 'result = 1 + 1' 2>/dev/null)" = "2" ]; then
     echo "${OK}Path B MCP reachable (TCP 16619); LOM round-trip OK"; pass_mcp=1
   else
     echo "${WARN}Path B port open but bridge not answering (surface wedged?)"

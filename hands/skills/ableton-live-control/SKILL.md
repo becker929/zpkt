@@ -46,17 +46,17 @@ See "Setup" below for the full one-time enable walkthrough and safety notes.
 
 | | **Path A — AbletonOSC** (primary, verified) | **Path B — LOM `execute()`** (advanced) |
 |---|---|---|
-| Tool | `scripts/live.py` | `scripts/live_mcp.py` |
+| Tool | `scripts/live.py` | `uv run hands live exec` (zpkt `hands/`) |
 | Transport | OSC, UDP 11000/11001 | JSON-over-TCP, port 16619 |
 | Surface | fixed OSC vocabulary (see `reference/osc-api.md`) | arbitrary Python against the full LiveAPI |
-| Setup | install AbletonOSC (below) | requires the `opendining/ableton-mcp-server` Remote Script + its bridge running (provided by the `~/sandbox/autodaw/hands` project) |
+| Setup | install AbletonOSC (below) | requires the AbletonLiveMCP Remote Script selected as a control surface; the client is the `hands` package |
 | Safety | robust, hard to crash Live | powerful but **crash-prone** — follow `reference/lom-guide.md` |
 
 > **Cursor takeover rule (enforced, not remembered):** any step that moves the
 > physical pointer is a takeover of the user's cursor, which MUST end back at the
 > center of their primary physical display. This is enforced in the scripts, so
 > you do not rely on remembering it:
-> - `enable_osc.sh` and `export_audio.applescript` self-park on every exit path
+> - `enable_osc.sh` and `hands live export` self-park on every exit path
 >   (success or error) -- no extra step needed.
 > - Any **ad-hoc** pointer command (e.g. the manual dropdown-selection fallback,
 >   a one-off clicking `osascript`) must be run through the wrapper, which parks
@@ -73,7 +73,7 @@ parameters, scenes, routing, listeners, closed-loop readback). Reach for Path B
 only when you need something outside AbletonOSC's vocabulary (browser navigation,
 device insertion, automation envelopes, drum-rack internals, audio recording via
 a resampling track). Path B is only available when the MCP bridge is up
-(`nc -z 127.0.0.1 16619`); otherwise `live_mcp.py` returns "Cannot reach Ableton".
+(`nc -z 127.0.0.1 16619`); otherwise `hands live exec` exits 1 with "Cannot reach Ableton".
 
 The only thing **neither** path does directly is a post-FX **audio bounce to a
 file** via Live's native dialog — see "Audio export" at the bottom.
@@ -84,7 +84,7 @@ file** via Live's native dialog — see "Audio export" at the bottom.
   routing, listeners** -> **Path A** (`live.py`). Always try this first.
 - **Browser navigation, device insertion, automation envelopes, drum-rack
   internals, arrangement editing, audio recording via a resampling track**
-  -> **Path B** (`live_mcp.py`), but only if the bridge is up
+  -> **Path B** (`hands live exec`), but only if the bridge is up
   (`nc -z 127.0.0.1 16619`). If the port is closed, Path B is unavailable —
   fall back to Path A or the one-time surface enable.
 
@@ -171,14 +171,14 @@ python3 scripts/live.py /live/song/get/tempo        # -> 128.0 confirms it stuck
 The same principle applies on Path B, but there you must read in a *separate*
 call (post-set readback in the same call crashes Live — crash Rule 1).
 
-## Path B: arbitrary LOM Python via `live_mcp.py` (advanced)
+## Path B: arbitrary LOM Python via `hands live exec` (advanced)
 
 When the MCP bridge is running, execute Python directly against Live's object
 model. Inside the executed code these globals exist (provided by the Remote
 Script): `song, app, tracks, returns, master, browser, Live,
 MidiNoteSpecification, find_item, find_items, find_track, load_to, log, json,
-time, api, search_api`. Expressions are eval'd and returned; for statement
-blocks, assign to `result`.
+time`. Expressions are eval'd and returned; for statement blocks, assign to
+`result`.
 
 **Top 3 crash rules (memorize these; full list in `reference/lom-guide.md`):**
 
@@ -190,32 +190,33 @@ blocks, assign to `result`.
 3. **Sleep between browser loads** — put `time.sleep(0.3)` between consecutive
    `load_to()` / `browser.load_item()` calls to avoid silent race conditions.
 
+Run these in zpkt's `hands/` (or add `--project <zpkt>/hands` to `uv run`):
+
 ```sh
-python3 scripts/live_mcp.py "song.tempo"                      # eval expression
-python3 scripts/live_mcp.py "song.tempo = 140"                # exec statement
-python3 scripts/live_mcp.py "result = [t.name for t in song.tracks]"
-python3 scripts/live_mcp.py --json "result = len(song.tracks)"
-python3 scripts/live_mcp.py --retries 2 "song.tempo"          # retry TRANSIENT transport errors
+uv run hands live ping                                       # is the Remote Script listening?
+uv run hands live exec "song.tempo"                          # eval expression
+uv run hands live exec "song.tempo = 140"                    # exec statement
+uv run hands live exec "result = [t.name for t in song.tracks]"
+uv run hands live exec --json "result = len(song.tracks)"
+uv run hands live exec --file snippet.py                     # or --stdin
 ```
 
-`--retries N` retries only **transient transport** failures (with exponential
-backoff); it never retries deterministic LOM code errors, since retrying those
-just repeats the failure and may double a mutation.
+`--retries N` (default 2) retries only while connecting, when the request cannot
+have reached Live. A request that was sent is never resent: it may still run,
+and running it twice could double a mutation.
 
 ```python
-import sys; sys.path.insert(0, "scripts")
-from live_mcp import LiveMcp
-live = LiveMcp()
-print(live.song_state())                 # dict of tempo/sig/tracks/loop/...
-print(live.eval_("song.tracks[0].name"))
+from hands.live.transport import LiveClient, LiveError
+live = LiveClient()
+print(live.run("song.tracks[0].name"))   # raises LiveError on any failure
 ```
 
 **Before writing nontrivial `execute()` code, read `reference/lom-guide.md`** —
 the LiveAPI crashes easily (no post-set readback, no large parameter sweeps,
-sleep between browser loads, etc.). That guide is a verbatim mirror of the
-canonical `ableton-guide` skill in the `autodaw/hands` project. The `hands`
-project itself (`hands build/execute/record`) is the productionized consumer of
-this path and is the best reference for real recipes.
+sleep between browser loads, etc.). That guide mirrors the canonical
+`ableton-guide` skill in `hands/.cursor/skills/`. The `hands` package
+(`hands.live`: sessions, time edits, knobs, export) is the productionized
+consumer of this path and the best reference for real recipes.
 
 ## Setup (only if `osc_up.sh` failed)
 
@@ -347,17 +348,14 @@ Escape and repeat while extra windows remain:
 The Live Python API has **no** render/bounce function, so getting audio onto disk
 needs one of these:
 
-1. **LOM resampling capture (preferred, no GUI).** Route/arm a resampling track,
-   record the arrangement for N beats over Path B, then use Live's clip export.
-   The `autodaw/hands` project already implements this end-to-end
-   (`hands record --beats 64 --output render.wav`, see its `recorder.py`). This is
-   the robust, headless way and doesn't touch the GUI. Use it when the MCP bridge
-   is available.
-
-2. **Native Export dialog via GUI automation (verified end-to-end, 2026-09-09).**
-   `scripts/export_audio.applescript` drives File -> Export Audio/Video
-   (Cmd+Shift+R) + the native Save panel:
-   `osascript scripts/export_audio.applescript /tmp/out.wav [WAV|AIFF|FLAC] [16|24|32] [sampleRate] [lengthBars] [trackMode] [startBar]`.
+1. **Native Export dialog (the default: offline, about 10x faster than real time).**
+   `hands live export OUT [--start BEAT --length BEATS] [--mode Main] [--bits 32]`
+   in zpkt `hands/` selects the range and runs `export_audio.applescript`
+   (`hands/src/hands/live/`), which drives File -> Export Audio/Video
+   (Cmd+Shift+R) + the native Save panel, then parks the pointer. From Python:
+   `hands.live.render.export(client, out, start_beat, length_beats)`, then
+   `hands.audio.check_audio(out, seconds=...)` to catch a silent render.
+   The script takes `<absOutPath> [WAV|AIFF|FLAC] [16|24|32] [sampleRate] [lengthBars] [trackMode] [startBar]`.
    It contains a ground-truth element map for Live 12.4.5 (every dialog
    control, including the "Rendered Track" chooser, is DIRECTLY AX-addressable
    -- no cliclick pixel-guessing except the Save panel's unnamed filename
@@ -377,8 +375,14 @@ needs one of these:
    **Gotcha:** the dialog's Render Start defaults to wherever the arrangement's
    edit cursor last sat, not bar 0 -- pass `startBar` explicitly (default 0)
    or a bounce can silently render an unintended, possibly-empty region.
-   This path moves the physical pointer, but the script self-parks the cursor on
-   the primary display when it finishes (success or error), so no extra step.
+   This path moves the physical pointer, but `hands live export` parks the cursor
+   on the primary display when it finishes (success or error), so no extra step.
+
+2. **LOM resampling capture (real time, no GUI).** Route/arm a resampling track
+   and record the arrangement for N beats over Path B
+   (`hands record --arrangement --beats 64 --output render.wav`,
+   `hands.live.record`). It runs at 1.56x real time; use it only for what
+   export cannot do.
 
 For agent-verifiable results **without** any file bounce, prefer reading state
 back over OSC (notes, parameters, meter levels, playing status) to close the loop.
@@ -393,10 +397,10 @@ back over OSC (notes, parameters, meter levels, playing status) to close the loo
 | `scripts/mcp_up.sh` | Path B health check: round-trips `1+1 -> 2` over TCP 16619 (twin of `osc_up.sh`) |
 | `scripts/install_abletonosc.sh` | Download/install AbletonOSC into the User Library |
 | `scripts/enable_osc.sh` | Select AbletonOSC as a Control Surface (GUI, one-time) |
-| `scripts/live_mcp.py` | Path B client + library: arbitrary LOM Python over the MCP TCP bridge (`--retries N` for transient errors) |
+| `hands live exec` / `hands live ping` | Path B client (zpkt `hands/`): arbitrary LOM Python over TCP 16619 |
 | `scripts/dismiss_modals.sh` | Modal reaper: check for modal dialogs; `--reap` safely dismisses non-destructive ones, aborts (exit 3) on anything unrecognized/destructive |
-| `scripts/reap_modals.applescript` | AppleScript backing `dismiss_modals.sh` (enumerates windows/sheets) |
+| `hands live modals [--reap]` | what `dismiss_modals.sh` runs (zpkt `hands/`; its AppleScript is `src/hands/live/reap_modals.applescript`) |
 | `scripts/snap.sh` | The only sanctioned screenshot path: always crops/downscales and enforces a KB budget |
 | `reference/osc-api.md` | Exhaustive OSC address reference + quirks (Path A) |
 | `reference/lom-guide.md` | LOM crash-avoidance rules + idioms for Path B (mirror of the `autodaw/hands` `ableton-guide` skill) |
-| `scripts/export_audio.applescript` | Native audio-export driver (GUI, verified): Main / isolated-track / all-tracks-at-once modes |
+| `hands live export` | Native audio export (GUI, verified; zpkt `hands/`): Main / isolated-track / all-tracks-at-once modes |

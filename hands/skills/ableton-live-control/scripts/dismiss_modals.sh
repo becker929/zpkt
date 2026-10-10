@@ -2,7 +2,8 @@
 # dismiss_modals.sh - The "modal reaper". Ableton GUI automation hangs when an
 # UNEXPECTED dialog/menu is on screen (launch nags, "save changes?", overwrite
 # prompts, plugin windows, alerts). This enumerates every window + sheet of the
-# Live process (via reap_modals.applescript) and:
+# Live process (via `hands live modals`, whose AppleScript is
+# hands/src/hands/live/reap_modals.applescript) and:
 #   * CHECK mode (default): reports what modal(s) are present and their buttons,
 #     without touching anything.
 #   * REAP mode (--reap): auto-dismisses ONLY recognized, NON-destructive modals
@@ -26,10 +27,13 @@
 # stalled accessibility tree fails fast. Still: prepend `timeout` at the CLI.
 set -uo pipefail
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+HANDS="$(cd "$DIR/../../.." && pwd)"
 MODE="check"
-[ "${1:-}" = "--reap" ] && MODE="reap"
+FLAG=""   # a string, not an array: macOS bash 3.2 calls an empty array unbound under set -u
+[ "${1:-}" = "--reap" ] && MODE="reap" && FLAG="--reap"
+modals() { uv run --quiet --project "$HANDS" hands live modals "$@" 2>/dev/null; }
 
-REPORT="$(osascript "$DIR/reap_modals.applescript" "$MODE" 2>/dev/null)"
+REPORT="$(modals $FLAG)"
 RC=$?
 if [ $RC -ne 0 ]; then
   echo "reaper: osascript failed or timed out (rc=$RC). Live's UI may be wedged,"
@@ -58,7 +62,7 @@ fi
 
 # REAP mode with no aborts: verify it is now clean.
 sleep 0.3
-RECHK="$(osascript "$DIR/reap_modals.applescript" check 2>/dev/null)"
+RECHK="$(modals)"
 if [ "$RECHK" = "CLEAN" ]; then
   echo "All modals safely dismissed."
   exit 0

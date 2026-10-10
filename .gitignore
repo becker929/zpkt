@@ -22,6 +22,7 @@ node_modules/
 
 # Tiny synthetic Live sets used as parser fixtures are the one .als exception.
 !ears/mlab/calibration/fixtures/*.als
+!hands/tests/fixtures/*.als
 .wrangler/
 
 # Agent worktrees (Claude Code)

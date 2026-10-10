@@ -238,7 +238,7 @@ def schranz_config() -> ProjectConfig:
 
 if __name__ == "__main__":
     from hands.builder import ProjectBuilder
-    from hands.transport import DryRunTransport
+    from hands.live.transport import DryRunTransport
     from hands.runner import StepRunner, ManualPolicy
 
     config = schranz_config()

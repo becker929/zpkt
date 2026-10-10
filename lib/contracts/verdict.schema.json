@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/becker929/zpkt/lib/contracts/verdict.schema.json",
-  "description": "taste's judgment of one render. Generated from taste/src/taste/models.py \u2014 do not edit by hand.",
+  "description": "taste's judgment of one render. Generated from prototypes/taste/src/taste/models.py \u2014 do not edit by hand.",
   "properties": {
     "clip_id": {
       "title": "Clip Id",

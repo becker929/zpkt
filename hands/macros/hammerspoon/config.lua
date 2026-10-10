@@ -1,4 +1,9 @@
+-- The zpkt `hands` CLI: Live control over the AbletonLiveMCP remote script.
+local handsBin = os.getenv("HOME") .. "/Desktop/zpkt/hands/.venv/bin/hands"
+
 return {
+  handsBin = handsBin,
+
   musicApp = {
     name     = "Ableton Live 12 Suite",
     bundleID = "com.ableton.live",
@@ -28,7 +33,7 @@ return {
 
   -- A/B against "REF ..." tracks and the master Spectrum (modules/ab-hotkeys.lua).
   ab = {
-    bin            = os.getenv("HOME") .. "/Desktop/zpkt/hands/.venv/bin/hands",
+    bin            = handsBin,
     toggle         = { mods = {"ctrl", "alt", "cmd"}, key = "a" },  -- mix <-> reference
     toggleSpectrum = { mods = {"ctrl", "alt", "cmd"}, key = "d" },  -- A/B and show Spectrum
     spectrum       = { mods = {"ctrl", "alt", "cmd"}, key = "s" },  -- Spectrum on/off

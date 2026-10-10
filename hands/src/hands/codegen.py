@@ -9,9 +9,9 @@ import math
 
 from pydantic import BaseModel, ConfigDict
 
+from hands.live.knobs import EQ8_FREQ
 from hands.models import (
-    ArrangementClip, ArrangementConfig, DeviceSource, DeviceSpec,
-    EQ8Band, EQ8Spec, MidiNote, MidiPattern, ParallelRack, SamplePad,
+    DeviceSource, DeviceSpec, EQ8Spec, MidiNote, MidiPattern, ParallelRack, SamplePad,
 )
 
 
@@ -25,8 +25,9 @@ class Step(BaseModel):
 
 
 def hz_to_eq8_norm(hz: float) -> float:
-    """Convert Hz to EQ Eight normalised frequency (0-1)."""
-    return math.log10(hz / 20.0) / math.log10(1000.0)
+    """EQ Eight's LOM frequency (0-1): log scale over 10 Hz-22 kHz, as measured in Live 12
+    (hands.live.knobs). The old 20 Hz-20 kHz formula put a 31 Hz band at 0.063 instead of 0.147."""
+    return EQ8_FREQ.to_lom(hz)
 
 
 def _browser_attr(source: DeviceSource) -> str:
@@ -112,7 +113,7 @@ def gen_configure_eq8(track_idx: int, device_idx: int,
             f"    if p.name == '{b} Filter Type A': p.value = {band.mode:.1f}",
             f"    if p.name == '{b} Frequency A': p.value = {freq_n:.6f}",
             f"    if p.name == '{b} Gain A': p.value = {band.gain}",
-            f"    if p.name == '{b} Resonance A': p.value = {band.q_norm}",
+            f"    if p.name == '{b} Q A': p.value = {band.q_norm}",
         ]
     lines.append(f'result = "EQ8 {label} configured"')
     return Step(label=f"Configure EQ8 ({label})", code="\n".join(lines))

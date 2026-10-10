@@ -4,24 +4,33 @@ Commands:
     build    — render a ProjectConfig to Step list (dry-run by default)
     execute  — execute Steps against a running Ableton session
     record   — record and export audio via the resampling track
-    vibe     — start the human feedback server
+    ab       — A/B the mix against reference tracks
+    spectrum — show or hide the master Spectrum
+    live     — one-shot LOM commands (ping, exec)
+    als      — check a Live set file, list a device's parameters (offline)
+    kit      — build a probe kit in Live, render a batch
     plan     — plans to renders to A/B files, for the voice loop (hands.plans)
 """
 
 from __future__ import annotations
 
 import json
-import sys
 from pathlib import Path
 
 import typer
 from rich.console import Console
 from rich.table import Table
 
+from hands.live.cli import app as live_app
 from hands.plans.cli import app as plan_app
 
 app = typer.Typer(name="hands", help="DAW control layer for Ableton Live.")
+app.add_typer(live_app, name="live")
 app.add_typer(plan_app, name="plan")
+als_app = typer.Typer(help="Check Live set files offline.", no_args_is_help=True)
+app.add_typer(als_app, name="als")
+kit_app = typer.Typer(help="Probe kits: P variants of a section in one load and one export.", no_args_is_help=True)
+app.add_typer(kit_app, name="kit")
 console = Console()
 
 
@@ -48,8 +57,8 @@ def build(
 ) -> None:
     """Render a ProjectConfig to Step list and print or execute."""
     from hands.builder import ProjectBuilder
+    from hands.live.transport import DryRunTransport
     from hands.runner import ManualPolicy, StepRunner
-    from hands.transport import DryRunTransport, LiveMcpTransport
 
     cfg = _load_config(config)
     builder = ProjectBuilder(cfg)
@@ -81,8 +90,8 @@ def execute(
 ) -> None:
     """Execute Steps against a live Ableton session."""
     from hands.builder import ProjectBuilder
+    from hands.live.transport import LiveClient
     from hands.runner import ManualPolicy, StepRunner
-    from hands.transport import LiveMcpTransport
 
     cfg = _load_config(config)
     builder = ProjectBuilder(cfg)
@@ -92,7 +101,7 @@ def execute(
     if resume > 0:
         console.print(f"[yellow]Resuming from step {resume}[/yellow]")
 
-    transport = LiveMcpTransport(host=host, port=port)
+    transport = LiveClient(host=host, port=port)
     runner = StepRunner(transport)
     results = runner.execute(steps, on_manual=ManualPolicy.PROMPT, resume_from=resume)
 
@@ -116,11 +125,11 @@ def record(
     port: int = typer.Option(16619, "--port", help="Ableton MCP server port."),
 ) -> None:
     """Record Ableton output via resampling track and export."""
-    from hands.recorder import record_arrangement, record_via_resampling
-    from hands.transport import LiveMcpTransport
+    from hands.live.record import record_arrangement, record_via_resampling
+    from hands.live.transport import LiveClient
 
     output_path = Path(output)
-    transport = LiveMcpTransport(host=host, port=port)
+    transport = LiveClient(host=host, port=port)
 
     console.print(f"[bold]Recording {beats} beats → {output}[/bold]")
     # Pass the full name: the recorder picks WAV vs MP3 from the extension.
@@ -160,9 +169,9 @@ def ab(
 ) -> None:
     """A/B the mix against the current reference track (tracks named "REF ...")."""
     from hands import ab as ab_mod
-    from hands.transport import LiveMcpTransport
+    from hands.live.transport import LiveClient
 
-    transport = LiveMcpTransport(host=host, port=port)
+    transport = LiveClient(host=host, port=port)
     actions = {
         "toggle": lambda: ab_mod.toggle(transport, spectrum=spectrum),
         "next": lambda: ab_mod.next_ref(transport),
@@ -186,135 +195,89 @@ def spectrum_cmd(
 ) -> None:
     """Toggle the master Spectrum analyzer in Live's detail view."""
     from hands import ab as ab_mod
-    from hands.transport import LiveMcpTransport
+    from hands.live.transport import LiveClient
 
     try:
-        print(json.dumps(ab_mod.spectrum(LiveMcpTransport(host=host, port=port), toggle=not show)))
+        print(json.dumps(ab_mod.spectrum(LiveClient(host=host, port=port), toggle=not show)))
     except RuntimeError as exc:
         console.print(f"[red]{exc}[/red]")
         raise typer.Exit(1)
 
 
-@app.command()
-def ableton_mcp(
-    bridge_port: int = typer.Option(9010, "--bridge-port", help="Port for the MCP bridge HTTP server."),
-    mcp_host: str = typer.Option("127.0.0.1", "--mcp-host", help="Ableton TCP host."),
-    mcp_port: int = typer.Option(16619, "--mcp-port", help="Ableton TCP port."),
+@als_app.command("check")
+def als_check(
+    file: Path = typer.Argument(..., help="The .als to check."),
+    against: Path = typer.Option(None, "--against", help="The set it was made from: also show what changed."),
 ) -> None:
-    """Start the Ableton MCP bridge server (Streamable HTTP for Letta).
+    """Run the self-checks a .als must pass before Live loads it. Exit 1 on a problem."""
+    from hands import als
 
-    Exposes execute / api / search_api as a native MCP server so Letta can
-    connect via StreamableHTTPServerConfig at http://host.docker.internal:<port>/mcp.
-    """
-    import os
-
-    os.environ["ABLETON_MCP_BRIDGE_PORT"] = str(bridge_port)
-    os.environ["ABLETON_MCP_HOST"] = mcp_host
-    os.environ["ABLETON_TCP_PORT"] = str(mcp_port)
-
-    from hands.mcp_server import serve
-
-    console.print(f"[bold]Ableton MCP bridge → http://0.0.0.0:{bridge_port}/mcp[/bold]")
-    console.print(f"[dim]Letta server_url: http://host.docker.internal:{bridge_port}/mcp[/dim]")
-    serve()
-
-
-@app.command()
-def vibe(
-    port: int = typer.Option(8080, "--port", help="Local vibe server port."),
-    bind: str = typer.Option("127.0.0.1", "--bind", help="Interface to listen on. Loopback by default."),
-    tunnel: bool = typer.Option(False, "--tunnel/--no-tunnel", help="Open ngrok tunnel (requires VIBE_TOKEN)."),
-    mcp_host: str = typer.Option("127.0.0.1", "--mcp-host", help="Ableton MCP server host."),
-    mcp_port: int = typer.Option(16619, "--mcp-port", help="Ableton MCP server port."),
-) -> None:
-    """Start the Letta-backed human feedback server."""
-    import os as _os
-    from hands.transport import LiveMcpTransport
-    from hands.vibe.server import VibeServer
-
-    output_dir = _os.environ.get("VIBE_OUTPUT_DIR", "/tmp/vibe")
-    transport = LiveMcpTransport(host=mcp_host, port=mcp_port)
-    server = VibeServer(transport=transport, output_dir=output_dir)
-
-    if tunnel:
-        # A tunnel makes the server public; the code-changing endpoints must be gated.
-        if not _os.environ.get("VIBE_TOKEN"):
-            console.print("[red]--tunnel needs VIBE_TOKEN set (it gates /self-improve and /restart).[/red]")
-            raise typer.Exit(1)
-        _os.environ["VIBE_TUNNEL"] = "1"  # every endpoint now needs the token
-        from hands.vibe.tunnel import open_tunnel
-        url = open_tunnel(port)
-        console.print(f"[green]Tunnel open: {url}[/green]")
-
-    console.print(f"[bold]Vibe server listening on http://{bind}:{port}[/bold]")
-    console.print(f"[dim]Output dir: {output_dir}[/dim]")
-    console.print("POST /bounce — trigger a bounce")
-    console.print("POST /feedback — submit feedback")
-    console.print("GET  /session — session info")
-    server.serve(port=port, host=bind)
-
-
-@app.command("self-improve")
-def self_improve(
-    description: str = typer.Argument(..., help="Short label for the improvement."),
-    prompt: str = typer.Option(..., "--prompt", "-p", help="Full instructions for Claude Code."),
-    restart: list[str] = typer.Option([], "--service", "-s", help="Service(s) to restart (repeat for multiple). Omit to auto-detect from changed files."),
-    dry_run: bool = typer.Option(False, "--dry-run", help="Show the prompt without running the agent."),
-) -> None:
-    """Apply a self-improvement to the agent harness using the Claude Agent SDK.
-
-    Claude Code will make the requested code edits, then the affected services
-    are restarted automatically.
-
-    Example:
-        hands self-improve "add /health endpoint" \\
-          --prompt "Add a GET /health endpoint to hands/src/hands/vibe/server.py
-                    that returns {status: ok, session_id: ...}. Follow the
-                    existing _send_json pattern."
-    """
-    import asyncio
-
-    if dry_run:
-        console.print(f"[bold]Description:[/bold] {description}")
-        console.print(f"[bold]Prompt:[/bold]\n{prompt}")
-        if restart:
-            console.print(f"[bold]Restart:[/bold] {', '.join(restart)}")
-        else:
-            console.print("[dim]Restart: auto-detect from changed files[/dim]")
-        return
-
-    try:
-        from hands.self_modify import apply_improvement
-    except ImportError as exc:
-        console.print(f"[red]claude-agent-sdk not installed: {exc}[/red]")
-        console.print("[dim]Install with: uv pip install 'hands[self-improve]'[/dim]")
+    report = als.check(file, against)
+    print(report)
+    if report.problems:
         raise typer.Exit(1)
 
-    console.print(f"[bold cyan]Self-improve:[/bold cyan] {description}")
-    console.print("[dim]Running Claude Agent SDK session…[/dim]")
 
-    result = asyncio.run(
-        apply_improvement(
-            description=description,
-            prompt=prompt,
-            restart=restart if restart else None,
-        )
-    )
+@als_app.command("params")
+def als_params(
+    file: Path = typer.Argument(..., help="The .als to read."),
+    track: str = typer.Argument(..., help="Track name."),
+    device: str = typer.Argument(..., help="Device XML tag, e.g. Reverb or StereoGain."),
+    index: int = typer.Option(0, "--index", help="Which device with that tag (-1: the last)."),
+) -> None:
+    """List a device's automatable parameters: tag, event kind, value and range."""
+    from hands import als
 
-    if result.get("changed_files"):
-        console.print(f"\n[green]Changed files ({len(result['changed_files'])}):[/green]")
-        for f in result["changed_files"]:
-            console.print(f"  {f}")
-    else:
-        console.print("[yellow]No file changes detected.[/yellow]")
+    print("\n".join(als.list_params(file, track, device, index)))
 
-    if result.get("restarted_services"):
-        console.print(f"\n[green]Restarted:[/green] {', '.join(result['restarted_services'])}")
-    if result.get("setup_tools_run"):
-        console.print("[green]Re-registered Letta tools (make setup-tools).[/green]")
 
-    if result.get("agent_result"):
-        console.print(f"\n[dim]Agent summary:[/dim] {result['agent_result'][:300]}")
+@kit_app.command("template")
+def kit_template(
+    kit: str = typer.Argument(..., help="The kit's name, e.g. c8x4."),
+    src: str = typer.Argument(..., help="The set to cut it from (in the rig's sets folder)."),
+    keep_start: float = typer.Argument(..., help="First beat of the section."),
+    keep_end: float = typer.Argument(..., help="Beat after its end."),
+    patterns: int = typer.Argument(..., help="P, a power of two."),
+    lead: float = typer.Option(8.0, "--lead", help="Beats of lead-in kept before the first pattern."),
+    host: str = typer.Option("127.0.0.1", "--host"),
+    port: int = typer.Option(16619, "--port"),
+) -> None:
+    """Build a kit in Live (copy, Delete Time, Duplicate Time, save) and print its description."""
+    from dataclasses import asdict
+
+    from hands import probe_kit
+    from hands.live.session import Guard
+    from hands.live.transport import LiveClient
+
+    try:
+        made = probe_kit.template(LiveClient(host, port), kit, src, keep_start, keep_end, patterns, lead)
+    except Guard as exc:
+        console.print(f"[red]{exc}[/red]")
+        raise typer.Exit(1)
+    print(json.dumps(asdict(made)))
+
+
+@kit_app.command("render")
+def kit_render(
+    batch_set: str = typer.Argument(..., help="The batch set written by probe_kit.write_batch."),
+    kit: str = typer.Argument(..., help="The kit it was made from."),
+    out: Path = typer.Option(None, "--out", help="Folder for all.wav and pattern_XX.wav (default <data_dir>/kit_out/BATCH_SET)."),
+    host: str = typer.Option("127.0.0.1", "--host"),
+    port: int = typer.Option(16619, "--port"),
+) -> None:
+    """Load a batch set, export it once, check it and slice one WAV per pattern; print the manifest."""
+    from hands import config, probe_kit
+    from hands.audio import AudioError
+    from hands.live.session import Guard
+    from hands.live.transport import LiveClient
+
+    try:
+        manifest = probe_kit.render(LiveClient(host, port), batch_set, kit,
+                                    out or config.rig().data_dir / "kit_out" / batch_set)
+    except (Guard, AudioError) as exc:
+        console.print(f"[red]{exc}[/red]")
+        raise typer.Exit(1)
+    print(json.dumps(manifest))
 
 
 def main() -> None:

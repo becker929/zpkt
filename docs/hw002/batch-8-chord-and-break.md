@@ -37,7 +37,7 @@ Written by Claude Code from one session with Anthony. Batches are on /skrng (sit
 ## The pipeline
 
 1. `hands/scripts/probe_pack/ab_live.py source_chord|source_break` writes a source set offline.
-2. `probe_kit.py template KIT SRC START END P` builds a kit in Live.
+2. `hands kit template KIT SRC START END P` (run in `hands/`) builds a kit in Live.
 3. `sweep8.py NAME` renders a sweep or a batch in views: mix, solo (the target), rest.
 4. `ears/mlab/spikes/hw002_mixclimb/measure8.py NAME` reports LUFS, LU under the rest, bands, width.
 5. `publish8.py NAME --upload` cuts the A/B tracks, uploads them and writes the site manifest.

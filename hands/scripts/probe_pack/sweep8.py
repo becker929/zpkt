@@ -1,21 +1,23 @@
 """Batch 8 sweeps: find a target range in Live before an A/B batch is cut.
 
-  cd ~/Desktop/zpkt/hands && uv run python scripts/probe_pack/sweep8.py chord
+  cd hands && uv run python scripts/probe_pack/sweep8.py chord
 
 A sweep is a list of patterns, each the baseline (batch 6 "all") plus a few knob settings, rendered in
 one kit batch per *view*: "mix" (everything), "solo" (only the target sound) and "rest" (everything
 but the target). ears/mlab/spikes/hw002_mixclimb/measure8.py reads the three and reports, per pattern,
 the target's loudness (LUFS), how far it sits under the rest (LU) and per band. Patterns past the
 listed ones repeat the baseline, which gives the render-to-render noise.
-Writes ~/_agent_scratch/probepack/sweep8/<sweep>/<view>/pattern_XX.wav + sweep.json.
+Writes <data_dir>/sweep8/<sweep>/<view>/pattern_XX.wav + sweep.json (data_dir: hands.config).
 """
 import json
-import os
 import sys
 
 import ab_live as AB
-import pp
-import probe_kit as PK
+
+from hands import als, config
+from hands import probe_kit as PK
+from hands.live.knobs import Knob
+from hands.live.transport import LiveClient
 
 CH = AB.CHORD
 CF = ("plugin", "Dist COLDFIRE")
@@ -138,42 +140,35 @@ SWEEPS["b8_7_break_colour"] = {
     "patterns": [("baseline", [])] + [(f"coldfire colour {c}", [(BG, BCF, "Color", c)]) for c in (0.3, 0.5, 1.0)],
 }
 
+def plan(name):
+    """Offline: the sweep's kit, labels, knobs (with the set's values) and the steps of each view."""
+    sw = SWEEPS[name]
+    kit = PK.Kit.load(sw["kit"])
+    tree = als.load(config.rig().set_path(kit.set))
+    base = AB.baseline_steps(kit.P)
+    patterns = [[(Knob(tr, dev, p), v) for tr, dev, p, v in sets] for _, sets in sw["patterns"]]
+    steps = PK.merge_patterns(patterns, kit.P, lambda knob: als.current_value(tree, *knob.spec),
+                              taken=[knob for knob, _ in base])
+    views = {view: base + steps + PK.constant({Knob(tr, dev, p): v for tr, dev, p, v in extra}, kit.P)
+             for view, extra in sw["views"].items()}
+    labels = [label for label, _ in sw["patterns"]] + ["baseline (repeat)"] * (kit.P - len(sw["patterns"]))
+    knobs = [{"knob": knob.id, "baseline": als.current_value(tree, *knob.spec)} for knob, _ in steps]
+    return kit, labels, knobs, views
+
+
 def main():
     name = sys.argv[1]
     sw = SWEEPS[name]
-    meta = json.load(open(PK.KITS + sw["kit"] + ".json"))
-    P = meta["P"]
-    if len(sw["patterns"]) > P:
-        raise ValueError(f"{len(sw['patterns'])} patterns for a {P}-pattern kit")
-    tree = PK.X.load(os.path.join(pp.PROJ, meta["set"] + ".als"))
-    base = AB.baseline_steps(P)
-    taken = {(tr, str(dev), p) for tr, dev, p, _ in base}
-    knobs = {}
-    for _, sets in sw["patterns"]:
-        for tr, dev, p, _ in sets:
-            if (tr, str(dev), p) in taken:
-                raise pp.Guard(f"{tr}/{p} is already set by the baseline")
-            if (tr, str(dev), p) not in knobs:
-                knobs[(tr, str(dev), p)] = (tr, dev, p, PK.current_value(tree, tr, dev, p))
-    steps = []
-    for key, (tr, dev, p, v0) in knobs.items():
-        values = [v0] * P
-        for j, (_, sets) in enumerate(sw["patterns"]):
-            for tr2, dev2, p2, v in sets:
-                if (tr2, str(dev2), p2) == key:
-                    values[j] = v
-        steps.append((tr, dev, p, values))
-    out = pp.DATA + f"sweep8/{name}/"
+    kit, labels, knobs, views = plan(name)
+    out = config.rig().data_dir / "sweep8" / name
+    client = LiveClient()
     renders = {}
-    for view, extra in sw["views"].items():
-        vsteps = base + steps + [(tr, dev, p, [v] * P) for tr, dev, p, v in extra]
-        batch = PK.write_batch(sw["kit"], f"s8_{name}_{view}", devices=[], steps=vsteps)
-        man = PK.render(batch, sw["kit"], out + view + "/")
+    for view, steps in views.items():
+        batch = PK.write_batch(kit, f"s8_{name}_{view}", steps=steps)
+        man = PK.render(client, batch, kit, out / view)
         renders[view] = {k: man[k] for k in ("load_s", "export_s")}
-    labels = [l for l, _ in sw["patterns"]] + ["baseline (repeat)"] * (P - len(sw["patterns"]))
-    json.dump({"sweep": name, "kit": sw["kit"], "target": sw["target"], "labels": labels,
-               "knobs": [{"knob": f"{tr}/{dev}/{p}", "baseline": v0} for tr, dev, p, v0 in knobs.values()],
-               "renders": renders}, open(out + "sweep.json", "w"), indent=1)
+    json.dump({"sweep": name, "kit": sw["kit"], "target": sw["target"], "labels": labels, "knobs": knobs,
+               "renders": renders}, open(out / "sweep.json", "w"), indent=1)
     print(json.dumps({"sweep": name, "renders": renders}))
 
 

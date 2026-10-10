@@ -7,7 +7,7 @@
 > truth — `autodaw/hands/scripts/setup_letta_tools.py` also reads it to seed a
 > Letta agent memory block. If you change crash-avoidance rules, update the
 > canonical copy and re-mirror it here (`cp` the file, restore this header).
-> It applies only to the **LOM/MCP `execute()` path** (`scripts/live_mcp.py`),
+> It applies only to the **LOM/MCP `execute()` path** (`hands live exec`),
 > not the AbletonOSC path (`scripts/live.py`).
 
 Use `api()` and `search_api()` for LOM property/method discovery. This skill covers what those tools can't tell you: crash patterns, gotchas, and non-obvious idioms.

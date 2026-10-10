@@ -12,7 +12,7 @@ Started 2026-09-25.
 | If you want to… | Open |
 |---|---|
 | Know what state the lab is in | [STATUS.md](STATUS.md) |
-| Hand Claude a hypothesis | [engineer/hypotheses/TEMPLATE.yaml](../../engineer/hypotheses/TEMPLATE.yaml), then `engineer hyp run <file>` |
+| Hand Claude a hypothesis | [hypotheses/TEMPLATE.yaml](hypotheses/TEMPLATE.yaml), then `python3 -m mlab hyp run <file>` |
 | Measure a bounce | `python3 -m mlab measure <file.wav>` |
 | Review a premaster (checklist + measures + refs + feedback) | `python3 -m mlab review <file.wav>` |
 | Check a premaster before mastering | `python3 -m mlab premaster <file.wav>` |
@@ -45,7 +45,7 @@ Cross-cutting guides:
 | `mlab/` | The Python instrument package. One module per job. |
 | `calibration/` | Known-answer tests for every instrument, plus the ffmpeg cross-check. |
 | `guides/` | One guide per study subject, plus workflow, Ableton and delivery. |
-| `hypotheses/` | Hypothesis files (`H###-*.yaml`) and their `results/`. |
+| `hypotheses/` | Hypothesis files (`H###-*.yaml`) and their `results/`. Inputs come from `$MLAB_DATA` if set, else this folder. |
 | `audio/inbox/` | Drop new Ableton exports here. |
 | `audio/hw002/` | HW002 source audio (bounces, the 1-minute demo). |
 | `audio/refs/` | Reference tracks for comparison. |

@@ -2,7 +2,7 @@
 
   uv run --with librosa python spikes/hw002_mixclimb/publish7.py [--upload]
 
-Reads the sweeps rendered by zpkt hands/scripts/probe_pack/sweep_live.py (~/_agent_scratch/probepack/
+Reads the sweeps rendered by zpkt hands/archive/probe_pack/sweep_live.py (~/_agent_scratch/probepack/
 sweep7/<aspect>/): 32 Live renders of the drop, pattern 0 = the set as mixed. Picks six versions: the
 original and five spread along the sweep, one of them the closest to the references. Each track is one
 version, 7 bars (first bar dropped), at -14 LUFS. Each title places the aspect's two main features against
@@ -17,11 +17,10 @@ import sys
 import numpy as np
 import soundfile as sf
 
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-import climb as K  # noqa: E402
-import features as F  # noqa: E402
-import publish as P5  # noqa: E402  (at, announce, SHOW)
-import publish6 as P6  # noqa: E402  (human, changes, upload, NAME, SLUG, ORDER)
+import climb as K  # the spike's own modules, beside this script
+import features as F
+import publish as P5  # at, announce, SHOW
+import publish6 as P6  # human, changes, upload, NAME, SLUG, ORDER
 
 DATA = P6.DATA
 SITE = P6.SITE

@@ -30,8 +30,8 @@ def fake_reader(kit, knobs):
 @pytest.fixture
 def kit_dirs(tmp_path, monkeypatch):
     kits, sets = tmp_path / "kits", tmp_path / "sets"
-    kits.mkdir()
-    sets.mkdir()
+    kits.mkdir(exist_ok=True)
+    sets.mkdir(exist_ok=True)  # the rig fixture in conftest makes it too
     (kits / "t4.json").write_text(json.dumps({"kit": "t4", "set": "kit_t4", "lead": 8.0, "pattern_beats": 32.0, "P": 4}))
     xml = b'<?xml version="1.0"?><Ableton><LiveSet><MainTrack><DeviceChain><Mixer><Tempo><Manual Value="160" />' \
           b'</Tempo></Mixer></DeviceChain></MainTrack></LiveSet></Ableton>'

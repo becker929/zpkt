@@ -242,6 +242,10 @@ def cmd_review(a):
     print(f"(full review: {os.path.relpath(path, LAB)})")
 
 
+def cmd_hyp(a):
+    from . import hypothesis
+    outdir, verdict = hypothesis.run(a.file, codecs=a.codecs)
+    print(f"{verdict}  →  {outdir}")
 
 
 def cmd_calibrate(a):
@@ -288,6 +292,10 @@ def main(argv=None):
         (["--target"], {"type": float, "default": -14.0, "help": "excerpt loudness (LUFS)"}),
         (["--json"], {"help": "with --peaks: write results to this JSON file"}),
         help="compare with a folder of references")
+    add("hyp", cmd_hyp, (["action"], {"choices": ["run"]}), F,
+        (["--codecs"], {"action": argparse.BooleanOptionalAction,
+                        "help": "also measure after codec round trips (overrides the YAML's codecs)"}),
+        help="run a hypothesis YAML")
     add("calibrate", cmd_calibrate, (["--quick"], {"action": "store_true"}), help="run known-answer checks")
     a = p.parse_args(argv)
     a.fn(a)

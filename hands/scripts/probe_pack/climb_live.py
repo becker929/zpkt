@@ -1,6 +1,6 @@
 """Hill-climb one mix aspect in Live with probe_kit: 32 candidates per batch-attempt, one render.
 
-  cd ~/Desktop/zpkt/hands && uv run python scripts/probe_pack/climb_live.py DESIGN [MAX_ATTEMPTS_THIS_RUN]   (DESIGN: space | space_send)
+  cd hands && uv run python scripts/probe_pack/climb_live.py DESIGN [MAX_ATTEMPTS_THIS_RUN]   (DESIGN: space | space_send)
 
 Each batch-attempt writes one kit batch: pattern 0 re-renders the current best (a drift
 control), patterns 1..31 are Gaussian steps around it in normalised parameter space (the first
@@ -9,24 +9,28 @@ one Main export renders all 32; score_patterns.py (ears/mlab) scores them agains
 references. A new high score must beat the best by more than the calibrated score noise of identical settings
 across timeline positions (noise_d8x32.json) and by twice the control's drift.
 Plateau = PATIENCE batch-attempts in a row without a new high score. Any guard trip stops the run.
-State: ~/_agent_scratch/probepack/climb_<aspect>/state.json (resumable).
+State: <data_dir>/climb_<design>/state.json (resumable). Knobs are named by their canonical ids
+(hands.live.knobs.Knob); runs before October 2026 used "track/<device name or index>/param".
 """
 import glob
 import json
-import math
 import os
 import shutil
 import subprocess
 import sys
 import time
+from pathlib import Path
 
 import numpy as np
 
-import pp
-import probe_kit as PK
+from hands import als, config
+from hands import probe_kit as PK
+from hands.live.knobs import Knob
+from hands.live.transport import LiveClient
+from hands.steps import timing
 
 KIT, P, PATIENCE, EPS = "d8x32", 32, 3, 1e-3     # 3 rounds: each one already tests 31 candidates
-MLAB = os.path.expanduser("~/Desktop/zpkt/ears/mlab")
+MLAB = Path(__file__).resolve().parents[3] / "ears" / "mlab"
 DONOR = ("HW002_121_pp_v04", "S02 perc group", "Reverb")
 _REV = [("DecayTime", 300.0, 6000.0, "log"), ("RoomSize", 10.0, 300.0, "log"), ("PreDelay", 0.5, 60.0, "log"),
         ("StereoSeparation", 60.0, 120.0, "lin"), ("ShelfHiFreq", 2000.0, 12000.0, "log")]
@@ -90,28 +94,16 @@ for _d in B6.values():
 DESIGNS.update(B6)
 
 
-def value(u, lo, hi, scale):
-    if scale == "bool":
-        return bool(u >= 0.5)
-    return lo + (hi - lo) * u if scale == "lin" else lo * (hi / lo) ** u
-
-
-def inverse(v, lo, hi, scale):
-    if scale == "bool":
-        return 0.75 if v else 0.25
-    u = (v - lo) / (hi - lo) if scale == "lin" else math.log(v / lo) / math.log(hi / lo)
-    if not -1e-6 <= u <= 1 + 1e-6:
-        raise ValueError(f"current value {v} outside [{lo}, {hi}]")
-    return min(1.0, max(0.0, u))
+def data():
+    return config.rig().data_dir
 
 
 def neutral_of(design):
     """u that reproduces the set: from the kit template's current values (or the design's list)."""
     if design["neutral"] != "from_set":
         return design["neutral"]
-    meta = json.load(open(PK.KITS + KIT + ".json"))
-    tree = PK.X.load(os.path.join(pp.PROJ, meta["set"] + ".als"))
-    return [inverse(PK.current_value(tree, tr, dev, name), lo, hi, sc) for tr, dev, name, lo, hi, sc in design["params"]]
+    tree = als.load(config.rig().set_path(PK.Kit.load(KIT).set))
+    return [PK.unscale(als.current_value(tree, tr, dev, name), lo, hi, sc) for tr, dev, name, lo, hi, sc in design["params"]]
 
 
 def steps_for(design, us):
@@ -119,18 +111,19 @@ def steps_for(design, us):
     P_ = len(us)
     def fmt(v):
         return v if isinstance(v, bool) else round(v, 9)
-    out = [(tr, dev, name, [fmt(value(u[j], lo, hi, sc)) for u in us])
+    out = [(Knob(tr, dev, name), [fmt(PK.scale(u[j], lo, hi, sc)) for u in us])
            for j, (tr, dev, name, lo, hi, sc) in enumerate(design["params"])]
-    out += [(tr, dev, name, [v] * P_) for tr, dev, name, v in design["fixed"]]
+    out += [(Knob(tr, dev, name), [v] * P_) for tr, dev, name, v in design["fixed"]]
     return out
 
 
-NOISE = pp.DATA + "noise_d8x32.json"   # calibrated on 16 identical neutral patterns (score_patterns calibrate)
+def noise_file():
+    return data() / "noise_d8x32.json"   # calibrated on 16 identical neutral patterns (score_patterns calibrate)
 
 
 def score(aspect, out_dir):
     r = subprocess.run(["uv", "run", "--with", "librosa", "--with", "pedalboard", "python",
-                        "spikes/hw002_mixclimb/score_patterns.py", aspect, out_dir, NOISE],
+                        "spikes/hw002_mixclimb/score_patterns.py", aspect, str(out_dir), str(noise_file())],
                        cwd=MLAB, capture_output=True, text=True, timeout=900)
     line = [l for l in r.stdout.splitlines() if l.startswith("[")]
     if not line:
@@ -142,9 +135,10 @@ def main():
     dname = sys.argv[1]
     design = DESIGNS[dname]
     aspect = design["aspect"]
-    d = pp.DATA + f"climb_{dname}/"
+    d = data() / f"climb_{dname}"
     os.makedirs(d, exist_ok=True)
-    sp = d + "state.json"
+    sp = d / "state.json"
+    client = LiveClient()
     st = json.load(open(sp)) if os.path.exists(sp) else {
         "aspect": aspect, "design": dname, "best_u": neutral_of(design), "best": None, "sigma": 0.2, "misses": 0, "attempt": 0, "history": []}
     rng = np.random.default_rng(1000 + st["attempt"])
@@ -161,17 +155,17 @@ def main():
         t0 = time.time()
         name = PK.write_batch(KIT, f"{dname}{a:03d}", devices=design["devices"],
                               steps=steps_for(design, [c.tolist() for c in cands]))
-        out = d + f"a{a:03d}/"
+        out = d / f"a{a:03d}"
         if os.path.exists(out):
             shutil.rmtree(out)                     # a re-run of an interrupted attempt (our own files)
-        man = PK.render(name, KIT, out)
+        man = PK.render(client, name, KIT, out)
         res = score(aspect, out)
         ctrl = res[0]["score"]
         if st["best"] is None:
             st["best"] = ctrl                      # attempt 0: pattern 0 is the neutral original
         drift = abs(ctrl - st["best"])
         top = max(res[1:], key=lambda r: r["score"])
-        noise = json.load(open(NOISE))["score_spread"][aspect]
+        noise = json.load(open(noise_file()))["score_spread"][aspect]
         improved = top["score"] > st["best"] + max(EPS, noise, 2 * drift)
         if improved:
             st["best"], st["best_u"] = top["score"], cands[top["pattern"]].tolist()
@@ -179,20 +173,20 @@ def main():
         else:
             st["sigma"], st["misses"] = max(st["sigma"] * 0.8, 0.02), st["misses"] + 1
         keep = {0, top["pattern"]}
-        for f in glob.glob(out + "pattern_*.wav"):
+        for f in glob.glob(str(out / "pattern_*.wav")):
             if int(f[-6:-4]) not in keep:
                 os.remove(f)                       # our own intermediate renders: keep best + control only
-        os.remove(out + "all.wav")
+        os.remove(out / "all.wav")
         st["history"].append({"attempt": a, "control": ctrl, "drift": round(drift, 5), "top": top["score"],
                               "top_pattern": top["pattern"], "improved": improved, "best": st["best"],
                               "sigma": round(st["sigma"], 4), "seconds": round(time.time() - t0, 1),
                               "render_s": man["load_s"] + man["export_s"],
-                              "params": {f"{tr}/{dev[1] if isinstance(dev, tuple) else dev}/{name}":
-                                         (value(u, lo, hi, sc) if sc == "bool" else round(value(u, lo, hi, sc), 6))
+                              "params": {Knob(tr, dev, name).id:
+                                         (PK.scale(u, lo, hi, sc) if sc == "bool" else round(PK.scale(u, lo, hi, sc), 6))
                                          for u, (tr, dev, name, lo, hi, sc) in zip(st["best_u"], design["params"])}})
         st["attempt"] = a + 1
         json.dump(st, open(sp, "w"), indent=1)
-        pp.log("climb_attempt", time.time() - t0, aspect=aspect, attempt=a, best=st["best"], improved=str(improved))
+        timing("climb_attempt", time.time() - t0, aspect=aspect, attempt=a, best=st["best"], improved=str(improved))
         print(json.dumps(st["history"][-1]), flush=True)
     print(json.dumps({"plateaued": st["misses"] >= PATIENCE, "attempts": st["attempt"], "best": st["best"],
                       "best_params": st["history"][-1]["params"] if st["history"] else None}))
