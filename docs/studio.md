@@ -45,7 +45,7 @@ lib/harness/src/harness/studio/
   store.py         SQLite message store (paging), content-addressed media, turn timings
   hub.py           connected phones: one writer task each, fan-out, the one that owns mic and speaker
   protocol.py      the WebSocket's JSON messages and binary frames
-  web.py           routes: page, static files, history, media, WebSocket
+  routes.py        routes: page, static files, history, media, WebSocket
   conversation.py  the turn loop: phases, who has the turn, what plays next
   agent.py         the Claude Code session: streaming text, tool activity, interrupt, resume
   tools.py         the tools Claude gets from the app (present_music, play_music, stop_audio, screenshot)
