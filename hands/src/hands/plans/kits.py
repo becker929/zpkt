@@ -1,6 +1,6 @@
 """Probe kits as plans see them: metadata, version, tempo, and each knob's value and range in the kit.
 
-A kit (hands/scripts/probe_pack/probe_kit.py) is a copy of a set trimmed to a lead-in plus one section repeated P
+A kit (hands.probe_kit) is a copy of a set trimmed to a lead-in plus one section repeated P
 times, built once in the GUI. Its metadata is ``<kits>/<kit>.json``; its set is ``<sets>/<set>.als``. Its version is
 the hash of the set's XML, so a kit rebuilt or edited gets new cache keys.
 
@@ -13,31 +13,21 @@ import gzip
 import hashlib
 import json
 import os
-import sys
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 from xml.etree import ElementTree as ET
 
+from hands import als, config
+
 from .model import KnobId, KnobInfo
 
-PROBE_PACK = Path(__file__).resolve().parents[3] / "scripts" / "probe_pack"
-
-
 def kits_dir() -> Path:
-    return Path(os.environ.get("HANDS_KITS", "~/_agent_scratch/probepack/kits")).expanduser()
+    return Path(os.environ["HANDS_KITS"]).expanduser() if os.environ.get("HANDS_KITS") else config.rig().data_dir / "kits"
 
 
 def sets_dir() -> Path:
-    return Path(os.environ.get("HANDS_SETS", "~/_agent_scratch/HW002")).expanduser()
-
-
-def probe_pack() -> Any:
-    """probe_kit (and with it als_probe and pp), imported from the scripts folder. Importing does not touch Live."""
-    if str(PROBE_PACK) not in sys.path:
-        sys.path.insert(0, str(PROBE_PACK))
-    import probe_kit  # type: ignore[import-not-found]
-    return probe_kit
+    return Path(os.environ["HANDS_SETS"]).expanduser() if os.environ.get("HANDS_SETS") else config.rig().sets_dir
 
 
 @dataclass
@@ -54,7 +44,7 @@ class Kit:
     def load(cls, name: str, kits: Path | None = None, sets: Path | None = None) -> "Kit":
         meta_path = (kits or kits_dir()) / f"{name}.json"
         if not meta_path.is_file():
-            raise FileNotFoundError(f"no kit {name!r} (looked for {meta_path}); build one with probe_kit.py template")
+            raise FileNotFoundError(f"no kit {name!r} (looked for {meta_path}); build one with hands kit template")
         meta = json.loads(meta_path.read_text())
         return cls(name=name, set=meta["set"], lead=float(meta["lead"]), pattern_beats=float(meta["pattern_beats"]),
                    P=int(meta["P"]), path=(sets or sets_dir()) / f"{meta['set']}.als",
@@ -94,10 +84,9 @@ def _number(el: ET.Element | None) -> float | None:
 
 
 def read_knob(tree: Any, knob: KnobId) -> KnobInfo:
-    """The knob's value and range in a parsed set (als_probe tree): its Manual value, and its MidiControllerRange
+    """The knob's value and range in a parsed set (hands.als tree): its Manual value, and its MidiControllerRange
     (or 0-1 for switches and plugin parameters, which Live keeps normalised)."""
-    pk = probe_pack()
-    _, device, path = pk.resolve(tree, *knob.resolve_args())
+    _, device, path = als.resolve(tree, *knob.resolve_args())
     param = device.find(path)
     if param is None:
         raise KeyError(f"{knob}: no parameter at {path!r}")
@@ -118,6 +107,6 @@ class KnobReader:
 
     def __call__(self, kit: Kit, knobs: list[str]) -> dict[str, KnobInfo]:
         if kit.path not in self._trees:
-            self._trees[kit.path] = probe_pack().X.load(str(kit.path))
+            self._trees[kit.path] = als.load(kit.path)
         tree = self._trees[kit.path]
         return {k: read_knob(tree, KnobId.parse(k)) for k in knobs}
