@@ -479,6 +479,11 @@ dev = [
     { name = "mypy" },
     { name = "pytest" },
 ]
+plans = [
+    { name = "numpy" },
+    { name = "pyloudnorm" },
+    { name = "soundfile" },
+]
 self-improve = [
     { name = "claude-agent-sdk" },
 ]
@@ -504,16 +509,19 @@ requires-dist = [
     { name = "librosa", marker = "extra == 'vibe'", specifier = ">=0.10.0" },
     { name = "mcp", marker = "extra == 'vibe'", specifier = ">=1.26.0,<2" },
     { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.10" },
+    { name = "numpy", marker = "extra == 'plans'", specifier = ">=2.0" },
     { name = "pydantic", specifier = ">=2.0.0" },
+    { name = "pyloudnorm", marker = "extra == 'plans'", specifier = ">=0.1.1" },
     { name = "pyloudnorm", marker = "extra == 'vibe'", specifier = ">=0.1.1" },
     { name = "pyngrok", marker = "extra == 'vibe'", specifier = ">=7.0.0" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.0" },
     { name = "rich", specifier = ">=13.0.0" },
+    { name = "soundfile", marker = "extra == 'plans'", specifier = ">=0.12" },
     { name = "starlette", marker = "extra == 'vibe'", specifier = ">=1.0.0" },
     { name = "typer", specifier = ">=0.12.0" },
     { name = "uvicorn", marker = "extra == 'vibe'", specifier = ">=0.42.0" },
 ]
-provides-extras = ["vibe", "self-improve", "dev"]
+provides-extras = ["vibe", "self-improve", "plans", "dev"]
 
 [package.metadata.requires-dev]
 dev = [

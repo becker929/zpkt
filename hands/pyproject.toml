@@ -21,6 +21,12 @@ vibe = [
 self-improve = [
     "claude-agent-sdk>=0.1.0",
 ]
+# `hands plan` (plans, the render cache, A/B every bar). Live renders also need what probe_pack uses.
+plans = [
+    "numpy>=2.0",
+    "soundfile>=0.12",
+    "pyloudnorm>=0.1.1",
+]
 dev = [
     "pytest>=8.0",
     "mypy>=1.10",

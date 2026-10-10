@@ -75,8 +75,9 @@ async def serve(cfg: Config) -> None:
     runner.recover()
     methods = Methods(cfg, runner, store)
     worker = asyncio.create_task(runner.work())
+    from .studio import Studio
     from .web import run as web_run
-    web = asyncio.create_task(web_run(cfg, methods))
+    web = asyncio.create_task(web_run(cfg, methods, Studio(cfg)))
     if not cfg.public_rpc:
         log.info("public RPC socket off (HARNESS_PUBLIC_RPC=1 turns it on)")
         await asyncio.gather(worker, web)

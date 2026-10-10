@@ -1,19 +1,52 @@
 # harness
 
-Claude Code jobs on the Mac, started from the browser.
+The Mac end of everything the phone does: **studio** (the voice production app), the /skrng pages, and Claude Code
+jobs. `harness serve` runs it all.
 
 ```
-phone (/skrng)  --POST /api/rpc, SKRNG_TOKEN-->  anthonybecker.me Worker
-                                                 RigBroker (Durable Object)
-Mac: harness serve  ==WebSocket, RIG_TOKEN==>    holds the socket, forwards calls,
-     Agent SDK -> Claude Code in ~/Desktop       returns the Mac's answer
+phone (Tailscale on) --https--> tailscale serve (tailnet only) --> 127.0.0.1:8787  harness serve
+                                                                    ├─ /studio/   the voice app (docs/studio.md)
+                                                                    ├─ /skrng/    the site's pages, keyless here
+                                                                    ├─ /api/rpc   the methods below, in-process
+                                                                    └─ jobs       Claude Code sessions, one at a time
 ```
 
-The Mac listens on nothing. `harness serve` dials
-`wss://anthonybecker.me/api/rig/connect` and keeps the socket open. A browser
-call is forwarded down it, and the HTTP request stays open until the Mac
-answers, so from the browser it is a plain synchronous call. The Worker side is
-`src/rig.js` in the site repo.
+The server listens on loopback only; `tailscale serve --bg --https=443 http://127.0.0.1:8787` puts it on the tailnet
+with an HTTPS certificate (the mic needs a secure page). Nothing reaches it from the public internet. On top of
+that it asks for a password once per browser: the first visit sets it, later visits sign in with it. Only scrypt
+hashes of the password and of each browser's session are stored (`auth.json`, mode 600), so nobody else, Claude
+included, ever sees it. `/` opens studio.
+
+The older public route (browser → anthonybecker.me Worker → RigBroker socket → Mac) is off unless
+`HARNESS_PUBLIC_RPC=1`; the Worker side is `src/rig.js` in the site repo.
+
+## studio
+
+The voice production app: a chat with one long-lived Claude Code session (cwd: zpkt), spoken both ways, with music
+and screenshots as their own bubbles. Its design, turn model and protocol are in `docs/studio.md`; the code is
+`src/harness/studio/`, and the speech models run in their own process (`lib/voice`), started and restarted by the
+harness. Its data (SQLite chat, media) lives in `~/_agent_scratch/studio/` (`HARNESS_STUDIO`).
+
+Settings (environment):
+
+| Variable | Default | What |
+|---|---|---|
+| `HARNESS_STUDIO` | `~/_agent_scratch/studio` | chat database and media |
+| `HARNESS_STUDIO_WORKDIR` | the zpkt checkout | the Claude session's working directory |
+| `HARNESS_STUDIO_MODEL` | Claude Code's default | the session's model |
+| `HARNESS_NARRATOR_MODEL` | `claude-haiku-5-5` | the model that narrates tool activity |
+| `HARNESS_TTS_VOICE`, `HARNESS_TTS_SPEED` | `af_heart`, `1.0` | Kokoro voice |
+| `HARNESS_STOP_WORD` | `tomato` | the word that ends a spoken turn |
+| `HARNESS_VOICE_CMD` | `uv run --project lib/voice --extra engines voice serve` | how to start the speech worker |
+| `HARNESS_STEPS_PORT` | `8788` | loopback port where scripts report steps (for screenshots) |
+| `VOICE_TTS_MODEL` | `fp32` | Kokoro build: `fp32`, or `int8` for about half the time to the first audio |
+| `VOICE_STT_MODEL` | `mlx-community/parakeet-tdt-0.6b-v3` | the speech-to-text model (docs/voice-benchmark.md) |
+| `VOICE_MODELS` | `~/.cache/zpkt-voice` | where Kokoro and Silero are kept |
+
+`harness timings` prints the median of every stage of the recent turns: first turn after a start against later
+ones, Safari against Chrome, the phone's own mic against Bluetooth.
+
+## RPC methods (`POST /api/rpc`)
 
 | Method | Params | Returns |
 |---|---|---|
@@ -54,13 +87,12 @@ answers, so from the browser it is a plain synchronous call. The Worker side is
 
 | Keychain service | What | Also set as |
 |---|---|---|
-| `zpkt-rig-token` | the Mac's key to the broker | Worker secret `RIG_TOKEN` |
-| `skrng-token` | the owner's key (page, feedback API, RPC) | Worker secret `SKRNG_TOKEN` |
-| `zpkt-claude-oauth` | `claude setup-token` output | passed to jobs as `CLAUDE_CODE_OAUTH_TOKEN` |
+| `zpkt-rig-token` | the Mac's key to the broker (public route only) | Worker secret `RIG_TOKEN` |
+| `skrng-token` | the owner's key on the public site | Worker secret `SKRNG_TOKEN` |
+| `zpkt-claude-oauth` | `claude setup-token` output (optional) | passed to sessions as `CLAUDE_CODE_OAUTH_TOKEN` |
 | `zpkt-ntfy-topic` | ntfy.sh topic | — |
 
-The Claude token has to be made once, by Anthony, because it needs a browser
-sign-in:
+Without `zpkt-claude-oauth`, sessions use the Mac's own `claude` login. To make one (it needs a browser sign-in):
 
 ```bash
 claude setup-token
@@ -71,32 +103,27 @@ The second command asks for the token. Paste it there, never on a command line.
 
 ## Run
 
-Hammerspoon keeps it running (`hands/macros/hammerspoon/modules/harness.lua`,
-started from `rig-init.lua`, restarted 30 s after any exit). It is not a
-launchd agent: the code and the jobs live in `~/Desktop`, which macOS guards
-per app, and a bare launchd job is silently refused there. Hammerspoon already
-has Desktop and Accessibility access and its children inherit them.
-
-By hand (from a shell that can read ~/Desktop):
+Run it in tmux, so it inherits tmux's macOS permissions: Desktop access (the code lives there) and Screen Recording
+(studio's screenshots). A plain launchd job is refused ~/Desktop silently, and a process without Screen Recording
+captures only the wallpaper.
 
 ```bash
-nohup uv run --project ~/Desktop/zpkt/lib/harness harness serve >> ~/_agent_scratch/jobs/harness.log 2>&1 &
+tmux new-session -d -s studio 'cd ~/Desktop/zpkt/lib/harness && while :; do uv run harness serve >> ~/_agent_scratch/jobs/harness.log 2>&1; sleep 5; done'
 uv run --project lib/harness harness jobs
 uv run --project lib/harness harness show <id>
 uv run --project lib/harness harness job "say hello"   # one job in the foreground, no socket
 uv run --project lib/harness pytest
 ```
 
-The log is `~/_agent_scratch/jobs/harness.log`. Check it from anywhere with
-the page's agent panel, or `POST /api/rpc {"method": "ping"}`.
+The log is `~/_agent_scratch/jobs/harness.log`.
 
 ## Security
 
-- The only inputs are calls carrying the owner's key. The Worker forwards only
-  the six methods above, and caps the body at 64 KB.
-- The two keys are separate. The browser's key cannot connect as the rig, and
-  the rig's key is never sent to a browser.
-- `ask` cannot change anything. Jobs can, which is the point. Their prompt is
-  either the fixed feedback template or text the owner typed.
-- A feedback job treats the transcripts as data about the music. It does not
-  take them as commands to the shell.
+- Tailnet only, then the password. Every route except `/login` needs a signed-in session cookie, the studio
+  WebSocket included; API routes answer 401 rather than redirecting.
+- studio's step endpoint (for scripts) listens on loopback only, on a port `tailscale serve` does not forward, and
+  needs a token made fresh at each start and given only to Claude's environment.
+- `ask` cannot change anything. Jobs and the studio session can, which is the point: they act for the owner.
+- A feedback job treats the transcripts as data about the music. It does not take them as commands to the shell.
+- With the public route on, the Worker forwards only the six RPC methods and caps the body at 64 KB; the browser's
+  key cannot connect as the rig, and the rig's key is never sent to a browser.
