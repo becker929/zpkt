@@ -9,14 +9,14 @@ import jsonschema
 
 from taste.models import Verdict
 
-ROOT = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(ROOT / "taste" / "scripts"))
+ROOT = Path(__file__).resolve().parents[3]
+sys.path.insert(0, str(ROOT / "prototypes" / "taste" / "scripts"))
 import gen_schema  # noqa: E402
 
 
 def test_committed_schema_is_current() -> None:
     committed = json.loads((ROOT / "lib" / "contracts" / "verdict.schema.json").read_text())
-    assert committed == gen_schema.build(), "stale contract: run `uv run python scripts/gen_schema.py` in taste/"
+    assert committed == gen_schema.build(), "stale contract: run `uv run python scripts/gen_schema.py` in prototypes/taste/"
 
 
 def test_instance_validates() -> None:

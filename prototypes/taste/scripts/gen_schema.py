@@ -10,7 +10,7 @@ from pathlib import Path
 
 from taste.models import Verdict
 
-OUT = Path(__file__).resolve().parents[2] / "lib" / "contracts" / "verdict.schema.json"
+OUT = Path(__file__).resolve().parents[3] / "lib" / "contracts" / "verdict.schema.json"
 
 
 def build() -> dict:
@@ -18,7 +18,7 @@ def build() -> dict:
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "$id": "https://github.com/becker929/zpkt/lib/contracts/verdict.schema.json",
         **{**Verdict.model_json_schema(mode="serialization"),
-           "description": "taste's judgment of one render. Generated from taste/src/taste/models.py — do not edit by hand."},
+           "description": "taste's judgment of one render. Generated from prototypes/taste/src/taste/models.py — do not edit by hand."},
     }
 
 

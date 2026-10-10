@@ -3,6 +3,9 @@
 Decides what to try next and runs it. It uses the other three parts: it
 asks `hands` to act, `ears` to measure and `taste` to judge.
 
+A prototype: nothing on zpkt's main path (ears, hands, lib) runs the loop
+or the search yet.
+
 | Module | What it does |
 |---|---|
 | `src/engineer/loop.py` | One cycle: `hands execute/record` → `ears analyze --json` → `taste` judge |
@@ -14,4 +17,4 @@ uv run pytest
 ```
 
 The mastering hypothesis runner that used to live here is now `mlab hyp run`
-in [`ears/mlab`](../ears/mlab/), with H001–H006 under `ears/mlab/hypotheses/`.
+in [`ears/mlab`](../../ears/mlab/), with H001–H006 under `ears/mlab/hypotheses/`.
