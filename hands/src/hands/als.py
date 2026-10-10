@@ -1,14 +1,15 @@
-"""als_probe: write per-pattern arrangement automation straight into an Ableton Live set file.
+"""Read and write an Ableton Live set file (.als) offline: knob values and arrangement automation.
 
 Why: the LOM cannot write arrangement automation (Clip.automation_envelope refuses arrangement
 clips, and devices on group tracks have no envelope object). A .als file is gzip-compressed XML,
-so we edit the XML, load the set once and export once to render P parameter variants.
+so we edit the XML, load the set once and export once to render P parameter variants
+(hands.probe_kit). Nothing here opens Live; `save` writes only the file it is given.
 
-    uv run python als_probe.py demo                      # HW002_121_pp_v01 -> HW002_121_pp_x_demo
-    uv run python als_probe.py check FILE [--against SRC]
-    uv run python als_probe.py params FILE TRACK DEVICE  # automatable element names of a device
+    hands als check FILE [--against SRC]     # self-checks, and what changed against the source
+    hands als params FILE TRACK DEVICE       # automatable element names of a device
 
-Never opens Live and never writes anything but the output file you name.
+A knob is (track, device, param), named the way the .als names it (see `resolve`); values are in
+the parameter's Manual units, which are not always the LOM's (hands.live.knobs converts).
 
 What the .als holds (Live 12.4.6, schema "12.0_12402")
 ------------------------------------------------------
@@ -43,24 +44,25 @@ Id rules (checked on every HW002_121_pp_*.als and 80 sets in the Live bundle)
 """
 from __future__ import annotations
 
-import argparse
 import collections
 import copy
 import gzip
+import hashlib
 import itertools
 import os
-import sys
+import warnings
 import xml.etree.ElementTree as ET
+from dataclasses import dataclass, field
 
-PROJ = os.path.expanduser(os.environ.get("HW002_PROJ", "~/_agent_scratch/HW002"))
 XML_DECL = '<?xml version="1.0" encoding="UTF-8"?>\n'  # exactly what Live writes
 DEFAULT_TIME = -63072000  # time of the "default" event that holds the value before the first one
 TRACK_TAGS = ("AudioTrack", "MidiTrack", "GroupTrack", "ReturnTrack", "MainTrack", "PreHearTrack")
+PLUGIN_TAGS = ("PluginDevice", "AuPluginDevice")
 
 
 # --------------------------------------------------------------------------- load / save
 
-def load(path: str) -> ET.ElementTree:
+def load(path: str | os.PathLike) -> ET.ElementTree:
     """Read a .als (gzip XML). Comments/declaration are not kept; save() writes Live's declaration."""
     with gzip.open(path, "rb") as f:
         root = ET.fromstring(f.read())
@@ -69,9 +71,10 @@ def load(path: str) -> ET.ElementTree:
     return ET.ElementTree(root)
 
 
-def save(tree: ET.ElementTree, path: str, overwrite: bool = False) -> str:
+def save(tree: ET.ElementTree, path: str | os.PathLike, overwrite: bool = False) -> str:
     """Write the tree as a .als. The root keeps its Creator/MajorVersion/MinorVersion attributes.
     Refuses to replace an existing file unless overwrite=True; writes via a temp file + rename."""
+    path = os.fspath(path)
     if os.path.exists(path) and not overwrite:
         raise FileExistsError(f"{path} exists (pass overwrite=True)")
     xml = XML_DECL + ET.tostring(tree.getroot(), encoding="unicode") + "\n"
@@ -80,6 +83,16 @@ def save(tree: ET.ElementTree, path: str, overwrite: bool = False) -> str:
         f.write(gzip.compress(xml.encode("utf-8"), mtime=0))
     os.replace(tmp, path)
     return path
+
+
+def xml_hash(path: str | os.PathLike) -> str:
+    """SHA-256 of the set's XML (gunzipped), a cache key for "this version of the set".
+
+    Hashing the XML rather than the file ignores the gzip header, so re-compressing the same
+    set gives the same key; any change Live saves (including view state) gives a new one.
+    """
+    with gzip.open(path, "rb") as f:
+        return hashlib.sha256(f.read()).hexdigest()
 
 
 # --------------------------------------------------------------------------- navigation
@@ -154,6 +167,77 @@ def _append(parent: ET.Element, child: ET.Element, parent_depth: int) -> None:
     parent.append(child)
 
 
+# --------------------------------------------------------------------------- knobs
+
+def resolve(tree: ET.ElementTree, track: str, device, param: str) -> tuple[ET.Element, ET.Element, str]:
+    """(track element, device element, parameter path inside the device) for a knob.
+
+    device: "Mixer" (the track mixer: Volume, Pan, Speaker, Sends/TrackSendHolder/Send),
+    ("plugin", PlugName) for a VST/AU device, or (device_tag, index) for a Live device (index
+    among devices with that tag; -1 = last). A bare tag means the last device with it.
+    param: an XML path for Live devices ("Bands.3/ParameterA/Gain"); a plugin parameter's
+    display name ("Drive") for plugins, which resolves to its ParameterValue element.
+    """
+    tr = find_track(tree, track)
+    if device == "Mixer":
+        return tr, tr.find("./DeviceChain/Mixer"), param
+    if isinstance(device, str):
+        device = (device, -1)
+    if device[0] == "plugin":
+        plugs = [d for d in devices(tr) if d.tag in PLUGIN_TAGS
+                 and any(e.get("Value") == device[1] for e in d.find("./PluginDesc").iter() if e.tag in ("PlugName", "Name"))]
+        if len(plugs) != 1:
+            raise KeyError(f"{track}: {len(plugs)} plugins named {device[1]!r}")
+        params = plugs[0].findall("./ParameterList/PluginFloatParameter")
+        idx = [i for i, p in enumerate(params, 1) if p.find("./ParameterName").get("Value") == param]
+        if len(idx) != 1:
+            raise KeyError(f"{track}/{device[1]}: {len(idx)} parameters named {param!r}")
+        return tr, plugs[0], f"ParameterList/PluginFloatParameter[{idx[0]}]/ParameterValue"
+    return tr, find_device(tr, device[0], device[1]), param
+
+
+def knob_param(tree: ET.ElementTree, track: str, device, param: str) -> ET.Element:
+    """The parameter element of a knob (the one holding Manual and AutomationTarget)."""
+    _, dev, path = resolve(tree, track, device, param)
+    return param_element(dev, path)
+
+
+def current_value(tree: ET.ElementTree, track: str, device, param: str) -> float | bool:
+    """The knob's value as set (Manual: a float, or a bool for switches)."""
+    v = knob_param(tree, track, device, param).find("Manual").get("Value")
+    return v == "true" if v in ("true", "false") else float(v)
+
+
+def param_range(tree: ET.ElementTree, track: str, device, param: str) -> tuple[float, float] | None:
+    """(min, max) of a numeric knob in Manual units; None for switches."""
+    rng = knob_param(tree, track, device, param).find("MidiControllerRange")
+    return None if rng is None else (float(rng.find("Min").get("Value")), float(rng.find("Max").get("Value")))
+
+
+def set_manual(tree: ET.ElementTree, track: str, device, param: str, value) -> None:
+    """Set a knob's static value. Refuses an automated knob: its envelope would override it."""
+    tr, dev, path = resolve(tree, track, device, param)
+    p = param_element(dev, path)
+    if _envelope(tr, p) is not None:
+        raise ValueError(f"{track}/{param} is automated; write steps instead")
+    p.find("Manual").set("Value", _value(event_kind(p), value, p))
+
+
+def set_speaker(tree: ET.ElementTree, track: str, on: bool) -> None:
+    """Switch a track's activator (Mixer Speaker): False mutes the track."""
+    set_manual(tree, track, "Mixer", "Speaker", on)
+
+
+def rename_track(tree: ET.ElementTree, old: str, new: str) -> ET.Element:
+    """Rename a track (EffectiveName and UserName), keeping names unique."""
+    if any(track_name(t) == new for t in all_tracks(tree)):
+        raise ValueError(f"a track is already named {new!r}")
+    tr = find_track(tree, old)
+    for tag in ("EffectiveName", "UserName"):
+        tr.find(f"./Name/{tag}").set("Value", new)
+    return tr
+
+
 # --------------------------------------------------------------------------- devices
 
 def add_device_from_donor(tree: ET.ElementTree, track: ET.Element, donor) -> ET.Element:
@@ -186,8 +270,7 @@ def add_device_from_donor(tree: ET.ElementTree, track: ET.Element, donor) -> ET.
     # Routings (e.g. a compressor sidechain) name tracks of the donor set by Id: not remappable.
     for e in dev.iter("Target"):
         if "Track." in e.get("Value", ""):
-            print(f"warning: donor routing {e.get('Value')!r} refers to a track of the donor set",
-                  file=sys.stderr)
+            warnings.warn(f"donor routing {e.get('Value')!r} refers to a track of the donor set", stacklevel=2)
 
     chain = track.find("DeviceChain/DeviceChain/Devices")
     sib = [int(c.get("Id")) for c in chain if "Id" in c.attrib]
@@ -235,6 +318,13 @@ def _value(kind: str, v, param: ET.Element) -> str:
 
 # --------------------------------------------------------------------------- automation
 
+def _envelope(track: ET.Element, param: ET.Element) -> ET.Element | None:
+    """The track's arrangement envelope that targets `param`, if any."""
+    target = param.find("AutomationTarget").get("Id")
+    envs = track.find("AutomationEnvelopes/Envelopes")
+    return next((e for e in envs if e.find("EnvelopeTarget/PointeeId").get("Value") == target), None)
+
+
 def set_steps(tree: ET.ElementTree, track: ET.Element, device: ET.Element, param_name: str,
               steps, kind: str | None = None) -> ET.Element:
     """Write (or replace) the arrangement envelope of one device parameter as a step function.
@@ -266,7 +356,7 @@ def set_steps(tree: ET.ElementTree, track: ET.Element, device: ET.Element, param
     events = [(_num(t), _value(kind, v, param)) for t, v in events]  # validate before editing
 
     envs = track.find("AutomationEnvelopes/Envelopes")
-    env = next((e for e in envs if e.find("EnvelopeTarget/PointeeId").get("Value") == target), None)
+    env = _envelope(track, param)
     if env is None:
         ids = [int(e.get("Id")) for e in envs]
         env = ET.Element("AutomationEnvelope", Id=str(max(ids) + 1 if ids else 0))
@@ -329,14 +419,25 @@ def envelopes(tree: ET.ElementTree) -> dict:
     return out
 
 
-def check(path: str, against: str | None = None) -> list[str]:
-    """Run the self-checks on `path` and print a report; returns the list of problems."""
-    problems: list[str] = []
+@dataclass
+class Report:
+    """What `check` looked at (and, with a source, what changed), and what is wrong."""
+    lines: list[str] = field(default_factory=list)
+    problems: list[str] = field(default_factory=list)
+
+    def __str__(self) -> str:
+        tail = ["OK"] if not self.problems else ["PROBLEMS:", *("  " + p for p in self.problems)]
+        return "\n".join(self.lines + tail)
+
+
+def check(path: str | os.PathLike, against: str | os.PathLike | None = None) -> Report:
+    """Self-checks on a .als that Live must load cleanly, plus a diff against its source."""
+    rep = Report()
+    say, problem = rep.lines.append, rep.problems.append
     tree = load(path)  # 1. gzip + XML parse
     root = tree.getroot()
     pm = parent_map(root)
-    print(f"{os.path.basename(path)}: parses; Creator={root.get('Creator')!r} "
-          f"MinorVersion={root.get('MinorVersion')!r}")
+    say(f"{os.path.basename(path)}: parses; Creator={root.get('Creator')!r} MinorVersion={root.get('MinorVersion')!r}")
 
     # 2a. pointee ids: unique across all pointee tags, all below NextPointeeId
     npi = int(root.find("LiveSet/NextPointeeId").get("Value"))
@@ -345,11 +446,11 @@ def check(path: str, against: str | None = None) -> list[str]:
     dup = [i for i, n in count.items() if n > 1]
     high = [e.get("Id") for e in pts if int(e.get("Id")) >= npi]
     if dup:
-        problems.append(f"{len(dup)} duplicated pointee ids, e.g. {dup[:5]}")
+        problem(f"{len(dup)} duplicated pointee ids, e.g. {dup[:5]}")
     if high:
-        problems.append(f"{len(high)} pointee ids >= NextPointeeId {npi}, e.g. {high[:5]}")
-    print(f"  pointee ids: {len(pts)} unique={not dup}, max={max(int(i) for i in count)} "
-          f"< NextPointeeId={npi}: {not high}")
+        problem(f"{len(high)} pointee ids >= NextPointeeId {npi}, e.g. {high[:5]}")
+    say(f"  pointee ids: {len(pts)} unique={not dup}, max={max(int(i) for i in count)} "
+        f"< NextPointeeId={npi}: {not high}")
 
     # 2b. list ids: unique among siblings
     bad = [(p.tag, i) for p in root.iter()
@@ -357,16 +458,16 @@ def check(path: str, against: str | None = None) -> list[str]:
                                            if "Id" in c.attrib and not is_pointee_tag(c.tag)).items()
            if n > 1]
     if bad:
-        problems.append(f"{len(bad)} sibling Id clashes, e.g. {bad[:5]}")
-    print(f"  sibling (list) ids unique: {not bad}")
+        problem(f"{len(bad)} sibling Id clashes, e.g. {bad[:5]}")
+    say(f"  sibling (list) ids unique: {not bad}")
 
     # 3. every PointeeId resolves; track envelopes must target an AutomationTarget in that track
     targets = {e.get("Id"): e for e in pts}
     refs = list(root.iter("PointeeId"))
     dangling = [r.get("Value") for r in refs if r.get("Value") not in targets]
     if dangling:
-        problems.append(f"PointeeId without target: {dangling}")
-    print(f"  PointeeId refs: {len(refs)}, all resolve: {not dangling}")
+        problem(f"PointeeId without target: {dangling}")
+    say(f"  PointeeId refs: {len(refs)}, all resolve: {not dangling}")
 
     # 4. track envelopes: target kind/track, events sorted, default first, event type, value range
     envs = envelopes(tree)
@@ -376,44 +477,44 @@ def check(path: str, against: str | None = None) -> list[str]:
         if tgt is None:
             continue
         if tgt.tag != "AutomationTarget":
-            problems.append(f"{desc}: envelope targets a <{tgt.tag}>")
+            problem(f"{desc}: envelope targets a <{tgt.tag}>")
         if _describe(pm, tgt)[0] is not tr:
-            problems.append(f"{desc}: target is not inside track {track_name(tr)!r}")
+            problem(f"{desc}: target is not inside track {track_name(tr)!r}")
         times = [float(e.get("Time")) for e in evs]
         if times != sorted(times):
-            problems.append(f"{desc}: events not sorted by Time")
+            problem(f"{desc}: events not sorted by Time")
         if not times or times[0] != DEFAULT_TIME or times.count(DEFAULT_TIME) != 1:
-            problems.append(f"{desc}: needs exactly one default event first (Time={DEFAULT_TIME})")
+            problem(f"{desc}: needs exactly one default event first (Time={DEFAULT_TIME})")
         if max(collections.Counter(times).values(), default=0) > 2:
-            problems.append(f"{desc}: more than 2 events at one Time")
+            problem(f"{desc}: more than 2 events at one Time")
         kind = event_kind(pm[tgt]) + "Event"
         if any(e.tag != kind for e in evs):
-            problems.append(f"{desc}: expected {kind}, found {sorted({e.tag for e in evs})}")
+            problem(f"{desc}: expected {kind}, found {sorted({e.tag for e in evs})}")
         if kind == "FloatEvent" and pm[tgt].find("MidiControllerRange") is not None:
             r = pm[tgt].find("MidiControllerRange")
             lo, hi = float(r.find("Min").get("Value")), float(r.find("Max").get("Value"))
             if any(not lo - 1e-6 <= float(e.get("Value")) <= hi + 1e-6 for e in evs):
-                problems.append(f"{desc}: value outside [{lo}, {hi}]")
-    print(f"  track envelopes checked: {len(envs)}")
+                problem(f"{desc}: value outside [{lo}, {hi}]")
+    say(f"  track envelopes checked: {len(envs)}")
 
     # 5. what changed compared with the source set
     if against:
         src = load(against)
         sroot = src.getroot()
-        print(f"  diff against {os.path.basename(against)}:")
-        print(f"    NextPointeeId {sroot.find('LiveSet/NextPointeeId').get('Value')} -> {npi}")
+        say(f"  diff against {os.path.basename(against)}:")
+        say(f"    NextPointeeId {sroot.find('LiveSet/NextPointeeId').get('Value')} -> {npi}")
         a = collections.Counter(e.tag for e in sroot.iter())
         b = collections.Counter(e.tag for e in root.iter())
         delta = {t: b[t] - a[t] for t in set(a) | set(b) if b[t] != a[t]}
         keep = [t for t in sorted(delta) if is_pointee_tag(t) or t.endswith("Event")
                 or t in ("AutomationEnvelope", "PointeeId")]
-        print(f"    elements {sum(b.values()) - sum(a.values()):+d} in all; "
-              + ", ".join(f"{t} {delta[t]:+d}" for t in keep))
+        say(f"    elements {sum(b.values()) - sum(a.values()):+d} in all; "
+            + ", ".join(f"{t} {delta[t]:+d}" for t in keep))
         sd = {track_name(t): [d.tag for d in devices(t)] for t in all_tracks(src)}
         for t in all_tracks(tree):
             before, now = sd.get(track_name(t)), [d.tag for d in devices(t)]
             if before != now:
-                print(f"    devices on {track_name(t)!r}: {before} -> {now}")
+                say(f"    devices on {track_name(t)!r}: {before} -> {now}")
         old = envelopes(src)
         for desc, (_, _, evs) in envs.items():
             new_steps = _steps_of(evs)
@@ -421,72 +522,22 @@ def check(path: str, against: str | None = None) -> list[str]:
                               for t, v in new_steps)
             if desc not in old:
                 kind = evs[0].tag if evs else "no event"
-                print(f"    + envelope {desc}: {len(evs)} x {kind}; beat=value from then on: {shown}")
+                say(f"    + envelope {desc}: {len(evs)} x {kind}; beat=value from then on: {shown}")
             elif _steps_of(old[desc][2]) != new_steps:
-                print(f"    ~ envelope {desc}: now {shown}")
+                say(f"    ~ envelope {desc}: now {shown}")
         for desc in old.keys() - envs.keys():
-            print(f"    - envelope {desc}")
-
-    print("  OK" if not problems else "  PROBLEMS:\n    " + "\n    ".join(problems))
-    return problems
+            say(f"    - envelope {desc}")
+    return rep
 
 
-# --------------------------------------------------------------------------- demo / CLI
-
-DEMO_STEPS = [(0, 0.0), (88, 0.2), (168, 0.4), (248, 0.6)]  # 8-beat lead-in, then P=4 x 80 beats
-
-
-def demo(proj: str = PROJ, out_name: str = "HW002_121_pp_x_demo.als") -> list[str]:
-    """v01 + the S02 perc group Reverb from v04 on "S01 perc group", Dry/Wet stepped per pattern."""
-    if not out_name.startswith("HW002_121_pp_x"):
-        raise ValueError("demo only writes HW002_121_pp_x* files")
-    src = os.path.join(proj, "HW002_121_pp_v01.als")
-    donor = find_device(find_track(load(os.path.join(proj, "HW002_121_pp_v04.als")),
-                                   "S02 perc group"), "Reverb")
-    tree = load(src)
-    track = find_track(tree, "S01 perc group")
-    reverb = add_device_from_donor(tree, track, donor)
-    # Reverb "Dry/Wet" is the <MixDirect> element (range 0..1). Evidence: in v04 the LOM set
-    # Dry/Wet to 0.5/0.6/0.7 on the S02-S04 Reverbs, and MixDirect/Manual is the only element that
-    # differs between them. Live's demo set "Chuck Sutton - Patience" also automates MixDirect.
-    # The donor's Manual stays at 0.5: if a render shows 0.5 everywhere, the envelope was ignored.
-    set_steps(tree, track, reverb, "MixDirect", DEMO_STEPS)
-    out = save(tree, os.path.join(proj, out_name), overwrite=True)  # only our own x* file
-    print(f"wrote {out}")
-    return check(out, against=src)
-
-
-def list_params(path: str, track: str, device: str, index: int = 0) -> None:
+def list_params(path: str | os.PathLike, track: str, device: str, index: int = 0) -> list[str]:
+    """One line per automatable parameter of a device: tag, event kind, Manual value, range."""
     dev = find_device(find_track(load(path), track), device, index)
+    lines = []
     for p in dev:
         if p.find("AutomationTarget") is None:
             continue
         rng = p.find("MidiControllerRange")
         r = f"[{rng.find('Min').get('Value')}, {rng.find('Max').get('Value')}]" if rng is not None else ""
-        print(f"{p.tag:32s} {event_kind(p):6s} Manual={p.find('Manual').get('Value'):14s} {r}")
-
-
-def main(argv=None) -> int:
-    ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
-    sub = ap.add_subparsers(dest="cmd", required=True)
-    d = sub.add_parser("demo", help="build HW002_121_pp_x_demo.als from HW002_121_pp_v01.als")
-    d.add_argument("--proj", default=PROJ)
-    c = sub.add_parser("check", help="self-checks on a .als, optional diff against its source")
-    c.add_argument("file")
-    c.add_argument("--against")
-    p = sub.add_parser("params", help="list automatable parameter elements of a device")
-    p.add_argument("file")
-    p.add_argument("track")
-    p.add_argument("device", help="device XML tag, e.g. Reverb")
-    p.add_argument("--index", type=int, default=0)
-    a = ap.parse_args(argv)
-    if a.cmd == "demo":
-        return 1 if demo(a.proj) else 0
-    if a.cmd == "check":
-        return 1 if check(a.file, a.against) else 0
-    list_params(a.file, a.track, a.device, a.index)
-    return 0
-
-
-if __name__ == "__main__":
-    sys.exit(main())
+        lines.append(f"{p.tag:32s} {event_kind(p):6s} Manual={p.find('Manual').get('Value'):14s} {r}")
+    return lines

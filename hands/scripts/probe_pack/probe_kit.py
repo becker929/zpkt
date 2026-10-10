@@ -18,8 +18,8 @@ import time
 
 import soundfile as sf
 
-import als_probe as X
 import pp
+from hands import als as X
 from pp import A, TO, log
 
 KITS = pp.DATA + "kits/"
@@ -142,9 +142,9 @@ def write_batch(kit, tag, devices, steps):
     name = f"HW002_121_pp_x_{kit}_{tag}"
     path = os.path.join(pp.PROJ, name + ".als")
     X.save(tree, path, overwrite=True)
-    problems = X.check(path)
+    problems = X.check(path).problems
     if problems:
-        raise pp.Guard(f"als_probe check failed: {problems}")
+        raise pp.Guard(f"als check failed: {problems}")
     return name
 
 

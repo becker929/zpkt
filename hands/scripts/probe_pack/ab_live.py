@@ -68,9 +68,9 @@ def make_source(src, out, unmute=()):
         PK.X.find_track(tree, name).find("./DeviceChain/Mixer/Speaker/Manual").set("Value", "true")
     path = os.path.join(pp.PROJ, out + ".als")
     PK.X.save(tree, path)
-    problems = PK.X.check(path)
+    problems = PK.X.check(path).problems
     if problems:
-        raise pp.Guard(f"als_probe check failed: {problems}")
+        raise pp.Guard(f"als check failed: {problems}")
     return path
 
 

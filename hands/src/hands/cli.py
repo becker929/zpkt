@@ -7,6 +7,7 @@ Commands:
     ab       — A/B the mix against reference tracks
     spectrum — show or hide the master Spectrum
     live     — one-shot LOM commands (ping, exec)
+    als      — check a Live set file, list a device's parameters (offline)
 """
 
 from __future__ import annotations
@@ -22,6 +23,8 @@ from hands.live.cli import app as live_app
 
 app = typer.Typer(name="hands", help="DAW control layer for Ableton Live.")
 app.add_typer(live_app, name="live")
+als_app = typer.Typer(help="Check Live set files offline.", no_args_is_help=True)
+app.add_typer(als_app, name="als")
 console = Console()
 
 
@@ -48,8 +51,8 @@ def build(
 ) -> None:
     """Render a ProjectConfig to Step list and print or execute."""
     from hands.builder import ProjectBuilder
-    from hands.runner import ManualPolicy, StepRunner
     from hands.live.transport import DryRunTransport
+    from hands.runner import ManualPolicy, StepRunner
 
     cfg = _load_config(config)
     builder = ProjectBuilder(cfg)
@@ -81,8 +84,8 @@ def execute(
 ) -> None:
     """Execute Steps against a live Ableton session."""
     from hands.builder import ProjectBuilder
-    from hands.runner import ManualPolicy, StepRunner
     from hands.live.transport import LiveClient
+    from hands.runner import ManualPolicy, StepRunner
 
     cfg = _load_config(config)
     builder = ProjectBuilder(cfg)
@@ -116,8 +119,8 @@ def record(
     port: int = typer.Option(16619, "--port", help="Ableton MCP server port."),
 ) -> None:
     """Record Ableton output via resampling track and export."""
-    from hands.recorder import record_arrangement, record_via_resampling
     from hands.live.transport import LiveClient
+    from hands.recorder import record_arrangement, record_via_resampling
 
     output_path = Path(output)
     transport = LiveClient(host=host, port=port)
@@ -193,6 +196,33 @@ def spectrum_cmd(
     except RuntimeError as exc:
         console.print(f"[red]{exc}[/red]")
         raise typer.Exit(1)
+
+
+@als_app.command("check")
+def als_check(
+    file: Path = typer.Argument(..., help="The .als to check."),
+    against: Path = typer.Option(None, "--against", help="The set it was made from: also show what changed."),
+) -> None:
+    """Run the self-checks a .als must pass before Live loads it. Exit 1 on a problem."""
+    from hands import als
+
+    report = als.check(file, against)
+    print(report)
+    if report.problems:
+        raise typer.Exit(1)
+
+
+@als_app.command("params")
+def als_params(
+    file: Path = typer.Argument(..., help="The .als to read."),
+    track: str = typer.Argument(..., help="Track name."),
+    device: str = typer.Argument(..., help="Device XML tag, e.g. Reverb or StereoGain."),
+    index: int = typer.Option(0, "--index", help="Which device with that tag (-1: the last)."),
+) -> None:
+    """List a device's automatable parameters: tag, event kind, value and range."""
+    from hands import als
+
+    print("\n".join(als.list_params(file, track, device, index)))
 
 
 def main() -> None:
