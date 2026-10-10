@@ -13,7 +13,8 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["pytest>=8.0", "pytest-asyncio>=0.23"]
+# tests/ui drives the studio page in a browser; it also needs `uv run --extra dev playwright install chromium webkit`.
+dev = ["pytest>=8.0", "pytest-asyncio>=0.23", "playwright>=1.48", "soundfile>=0.12"]
 
 [project.scripts]
 harness = "harness.cli:main"
@@ -30,3 +31,4 @@ packages = ["src/harness"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
+markers = ["ui: browser tests of the studio page (Playwright); skipped when no browser is installed"]
