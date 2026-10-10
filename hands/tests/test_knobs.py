@@ -181,6 +181,7 @@ def test_set_many_writes_every_knob_in_one_call():
     ({DRIVE: 0.5, Knob("rumble", ("plugin", "Echoboy"), "Mix"): 0.5}, "0 plugins named 'Echoboy'"),
     ({DRIVE: 0.5, WIDTH: 9.0}, "outside the LOM range"),
     ({DRIVE: 0.5, Knob("nope", "Mixer", "Pan"): 0.0}, "0 tracks named 'nope'"),
+    ({DRIVE: 0.5, Knob("rumble", ("Eq8", 1), "On"): True}, "no Eq8 #1: the track has 1"),
 ])
 def test_set_many_writes_nothing_when_any_knob_is_refused(values, why):
     s = song()

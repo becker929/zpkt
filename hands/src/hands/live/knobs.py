@@ -247,7 +247,10 @@ def _param(track, s):
             raise LookupError("%d plugins named %r" % (len(devs), key))
         dev = devs[0]
     else:
-        dev = [d for d in track.devices if d.class_name == kind][key]
+        devs = [d for d in track.devices if d.class_name == kind]
+        if not -len(devs) <= key < len(devs):
+            raise LookupError("no %s #%d: the track has %d" % (kind, key, len(devs)))
+        dev = devs[key]
     hits = [p for p in dev.parameters if p.name == s["name"]]
     if len(hits) != 1:
         raise LookupError("%s has %d parameters named %r" % (dev.name, len(hits), s["name"]))
