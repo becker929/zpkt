@@ -3,7 +3,7 @@
 
 The helper (swift/, next to this file) is built on first use into VOICE_MODELS/fluid, in a directory that hashes its
 sources, so no binary is committed and a changed source builds afresh. The build fetches FluidAudio 0.17.7 and the
-text-normalisation library its manifest names (checked against the manifest's checksum), and applies
+text-normalisation library its manifest names (both checked against pinned checksums), and applies
 swift/fluidaudio-0.17.7.patch: masked fixed-length runs of the v3 source generator (exact lengths leak GPU memory,
 GBs over a few hundred sentences), a local path for that library, and FLUIDAUDIO_CACHE, which keeps the models
 under VOICE_MODELS too. The helper runs as a child of the worker; text goes over a piece at a time, so the first
@@ -41,6 +41,7 @@ SWIFT = Path(__file__).with_name("swift")
 VERSION = "0.17.7"
 PATCH = SWIFT / f"fluidaudio-{VERSION}.patch"
 SOURCE = f"https://github.com/FluidInference/FluidAudio/archive/refs/tags/v{VERSION}.tar.gz"
+SOURCE_SHA256 = "e129e4dca8fabfb724b12d07cb2809d5db9698414d00b8d385ac86a6031e5eef"
 NEMO = "https://github.com/FluidInference/text-processing-rs/releases/download/v0.3.1/NemoTextProcessing.xcframework.zip"
 NEMO_SHA256 = "5fa8c10d4ec26c1bb2413125f351a7222a4c68a23b74476680fbada7e26fc6aa"
 PRODUCT = "kokoro-fluid"
@@ -74,7 +75,7 @@ def find_swift() -> str | None:
     if swift is None:
         return None
     try:
-        tools = subprocess.run(["xcode-select", "-p"], capture_output=True, timeout=10)
+        tools = subprocess.run(["xcode-select", "-p"], capture_output=True, timeout=10, check=False)
     except (OSError, subprocess.TimeoutExpired):
         return None
     return swift if tools.returncode == 0 else None
@@ -93,7 +94,10 @@ def fetch_fluidaudio(into: Path) -> Path:
     shutil.rmtree(src, ignore_errors=True)
     into.mkdir(parents=True, exist_ok=True)
     log.info("fetching FluidAudio %s", VERSION)
-    with tarfile.open(fileobj=io.BytesIO(_download(SOURCE)), mode="r:gz") as tar:
+    source = _download(SOURCE)
+    if hashlib.sha256(source).hexdigest() != SOURCE_SHA256:
+        raise FluidUnavailable(f"FluidAudio {VERSION}'s source does not match its checksum")
+    with tarfile.open(fileobj=io.BytesIO(source), mode="r:gz") as tar:
         tar.extractall(into, filter="data")
     (into / f"FluidAudio-{VERSION}").rename(src)
     nemo = _download(NEMO)
@@ -102,7 +106,7 @@ def fetch_fluidaudio(into: Path) -> Path:
     with zipfile.ZipFile(io.BytesIO(nemo)) as z:
         z.extractall(src / "Vendor")
     done = subprocess.run(["patch", "-p1", "--forward", "--batch", "-i", str(PATCH)], cwd=src, capture_output=True,
-                          text=True)
+                          text=True, check=False)
     if done.returncode != 0:
         raise FluidUnavailable(f"the FluidAudio patch does not apply: {(done.stdout + done.stderr).strip()[-400:]}")
     (src / ".patched").touch()
@@ -128,7 +132,7 @@ def build(root: Path | None = None, swift: str | None = None) -> Path:
         done = subprocess.run(
             [swift, "build", "-c", "release", "--disable-keychain", "--package-path", str(SWIFT),
              "--scratch-path", str(where), "--product", PRODUCT],
-            capture_output=True, text=True, timeout=1800, env={**os.environ, "FLUIDAUDIO_SRC": str(src)})
+            capture_output=True, text=True, timeout=1800, check=False, env={**os.environ, "FLUIDAUDIO_SRC": str(src)})
     except (OSError, subprocess.TimeoutExpired) as exc:
         raise FluidUnavailable(f"swift build: {exc}") from None
     if done.returncode != 0 or not binary.is_file():
