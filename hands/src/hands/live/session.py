@@ -1,282 +1,261 @@
-"""Probe-packing helpers: timed Live operations for the render-packing experiment.
+"""Live sessions: the guard every step runs, and opening, saving, restarting Live.
 
-Builds on arrange_prototype (LOM over AbletonLiveMCP + Edit-menu time ops). Every
-timed step appends a JSON line to ~/_agent_scratch/probepack/bench.jsonl.
+Before and after each Live step, `check` makes sure Live is where the step expects it: no dialog
+open, one of our sets in front (config.set_prefixes: anything else means someone else is using
+Live), the expected set if one is named, and the LOM answering. A Guard means stop: never chain the
+next step past a surprise (docs/probe-packing-findings.md, section 7). Each Guard is also reported
+to the studio as a major step, so there is a screenshot of what went wrong.
+
+Sets live in config.sets_dir and are named without ".als".
 """
-import json
-import os
+
+from __future__ import annotations
+
+import re
 import shutil
 import subprocess
-import sys
 import time
+from datetime import datetime
+from pathlib import Path
+from typing import NoReturn
 
-HERE = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, os.path.join(HERE, "..", "arrange_prototype"))
-import arrange as A  # noqa: E402
-import timeops as TO  # noqa: E402
+from hands import config, steps
+from hands.live import ui
+from hands.live.transport import LiveError, McpTransport
 
-PROJ = A.PROJ
-DATA = os.path.expanduser("~/_agent_scratch/probepack/")
-EXPORT = os.path.join(HERE, "..", "..", "skills", "ableton-live-control", "scripts", "export_audio.applescript")
-CANON = "HW002_121_v_b43-01-splash-every-8-bars-30s"
-os.makedirs(DATA, exist_ok=True)
+_LOG_TAIL_BYTES = 4 << 20  # Log.txt grows by megabytes a day; the last connections are at its end
 
 
-def live_rss_gb():
-    pid = subprocess.run(["pgrep", "-x", "Live"], capture_output=True, text=True).stdout.split()[0]
-    kb = int(subprocess.run(["ps", "-o", "rss=", "-p", pid], capture_output=True, text=True).stdout)
-    return round(kb / 1048576, 3)
-
-
-def log(step, seconds, **kw):
-    row = {"t": time.strftime("%FT%T"), "step": step, "s": round(seconds, 3), "rss_gb": live_rss_gb(), **kw}
-    open(DATA + "bench.jsonl", "a").write(json.dumps(row) + "\n")
-    print(json.dumps(row), flush=True)
-    return row
-
-
-def timed(step, fn, *a, meta=None):
-    t = time.time()
-    out = fn(*a)
-    log(step, time.time() - t, **(meta or {}))
-    return out
-
-
-def copy_set(src_name, dst_name):
-    shutil.copyfile(os.path.join(PROJ, src_name + ".als"), os.path.join(PROJ, dst_name + ".als"))
-    return os.path.join(PROJ, dst_name + ".als")
-
-
-def open_set(name):
-    """Open a set and wait until the window title and the LOM both answer (no save first:
-    call prepare_switch() before timing this, or Live may ask about unsaved changes)."""
-    subprocess.run(["open", "-a", "Ableton Live 12 Suite", os.path.join(PROJ, name + ".als")])
-    for _ in range(1200):
-        if A.front() == name:
-            break
-        time.sleep(0.1)
-    else:
-        raise RuntimeError(f"Live did not open {name}; front window is {A.front()!r}")
-    for _ in range(300):
-        try:
-            A.r("song.tempo")
-            return
-        except RuntimeError:
-            time.sleep(0.1)
-
-
-def prepare_switch():
-    """Save the current set (untimed) so the next open never meets an unsaved-changes prompt."""
-    cur = A.front()
-    if cur and os.path.exists(os.path.join(PROJ, cur + ".als")):
-        save(cur)
-
-
-def save(name):
-    """Save and wait until the .als file is rewritten (mtime changes). Returns False if it never was."""
-    path = os.path.join(PROJ, name + ".als")
-    before = os.path.getmtime(path)
-    en = A.osa('tell application "System Events" to tell process "Live" to get enabled of menu item "Save Live Set" of menu "File" of menu bar 1')
-    if en != "true":
-        return "clean"            # nothing changed: Live greys the item out
-    A.menu("File", "Save Live Set")
-    for _ in range(600):
-        try:                      # Live replaces the file, so it is briefly missing
-            if os.path.getmtime(path) != before:
-                return True
-        except FileNotFoundError:
-            pass
-        time.sleep(0.05)
-    return False
-
-
-CLOSE_DIALOGS_OSA = '''tell application "System Events" to tell process "Live"
-  try
-    perform action "AXPress" of (first button of splitter group 1 of window "Save" whose title is "Cancel")
-  end try
-  delay 0.5
-  try
-    perform action "AXPress" of (first button of group 1 of window "Export Audio/Video" whose description is "Cancel")
-  end try
-end tell'''
-
-
-def close_dialogs():
-    """Cancel a leftover Save panel / Export dialog (an interrupted export leaves both open)."""
-    A.osa(CLOSE_DIALOGS_OSA)
-    time.sleep(0.5)
-
-
-def export(out_path, start_beat, length_beats, mode="Main", tries=2):
-    """Offline export via Live's Export dialog. Range = the arrangement selection (no slider typing).
-
-    The target must be empty (no file starting with the out name in its folder): re-exporting over
-    files makes Live trash old files and de-duplicate names. If the script errors but the render
-    wrote its files and no dialog is left, that is a success (the error came from the window-closing
-    race). Retry only when nothing was written. Returns the written .wav names."""
-    folder = os.path.dirname(out_path)
-    os.makedirs(folder, exist_ok=True)
-    prefix = os.path.splitext(os.path.basename(out_path))[0]
-    if any(f.startswith(prefix) for f in os.listdir(folder)):
-        raise Guard(f"export target not empty: {prefix}* already in {folder}")
-    err = ""
-    for attempt in range(tries):
-        t0 = time.time()
-        TO.select(start_beat, length_beats)
-        r = subprocess.run(["osascript", EXPORT, out_path, "WAV", "32", "44100", "0", mode, "-1"],
-                           capture_output=True, text=True, timeout=900)
-        written = sorted(f for f in os.listdir(folder) if f.startswith(prefix) and f.endswith(".wav")
-                         and os.path.getmtime(os.path.join(folder, f)) >= t0 - 1)
-        if r.returncode == 0 and written:
-            for _ in range(120):          # the progress/Export windows close a moment after the file lands
-                if dialogs() == 0:
-                    return written
-                time.sleep(0.5)
-            raise Guard(f"export wrote {len(written)} files but a dialog stayed open for 60 s")
-        err = r.stderr.strip()[-400:]
-        if written:
-            time.sleep(3)
-            if dialogs() != 0:
-                close_dialogs()
-            if dialogs() != 0:
-                raise Guard(f"export wrote {len(written)} files but a dialog stayed open: {err}")
-            log("export_script_error_files_ok", time.time() - t0, files=len(written), err=err[-120:])
-            return written
-        close_dialogs()
-        if dialogs() != 0:
-            raise Guard(f"export failed and a dialog stayed open: {err}")
-    raise RuntimeError(f"export failed, nothing written: {err}")
-
-
-def mem():
-    """Machine memory state: swap used, compressed and free memory (GB)."""
-    sw = subprocess.run(["sysctl", "-n", "vm.swapusage"], capture_output=True, text=True).stdout
-    used = float(sw.split("used = ")[1].split("M")[0]) / 1024
-    vm = subprocess.run(["vm_stat"], capture_output=True, text=True).stdout
-
-    def pages(label):
-        line = next(l for l in vm.splitlines() if l.startswith(label))
-        return int(line.split(":")[1].strip().rstrip(".")) * 16384 / 1073741824
-    return {"swap_used_gb": round(used, 2), "compressed_gb": round(pages("Pages occupied by compressor"), 2),
-            "free_gb": round(pages("Pages free"), 2)}
-
-
-def record(name, length_beats):
-    """Real-time resampling record (the pipeline's current method)."""
-    return A.record_arrangement(transport=A.T, filename=name + ".wav", duration_beats=length_beats,
-                                output_dir=DATA + "takes", tail_beats=2.0)
-
-
-# ---------------------------------------------------------------- guardrails
 class Guard(RuntimeError):
     """Live is not in the state a step expects. Stop; do not continue the run."""
 
 
-DIALOGS_OSA = '''tell application "System Events" to tell process "Live"
-  set n to 0
-  repeat with w in every window
-    try
-      if subrole of w is "AXDialog" then set n to n + 1
-    end try
-  end repeat
-  return n
-end tell'''
+def stop(message: str) -> NoReturn:
+    """Report the surprise to the studio (a screenshot of it), then raise Guard."""
+    steps.report(f"guard: {message}", "major")
+    raise Guard(message)
 
 
-def dialogs():
-    out = A.osa(DIALOGS_OSA)
-    return int(out) if out.strip().isdigit() else -1
-
-
-def check(where, expect_front=None, ours=True):
-    """Pre/post-flight: no dialog, Live answers, the expected (or one of our) sets in front."""
-    n = dialogs()
-    if n != 0:
-        raise Guard(f"{where}: {n} dialog(s) open in Live (or Live not reachable)")
-    front = A.front()
-    if expect_front and front != expect_front:
-        raise Guard(f"{where}: front set is {front!r}, expected {expect_front!r}")
-    if ours and not front.startswith(("HW002_121_pp", "HW002_121_v_")):
-        raise Guard(f"{where}: front set {front!r} is not one of ours; another agent may be using Live")
+def _front() -> str | None:
+    """The front set's name, or None while Live shows no window (launching, loading)."""
     try:
-        A.r("result = 1")
-    except RuntimeError as e:
-        raise Guard(f"{where}: Live does not answer LOM: {e}")
+        return ui.front_title()
+    except ui.UiError:
+        return None
+
+
+def _answers(client: McpTransport) -> bool:
+    try:
+        client.run("result = 1")
+        return True
+    except LiveError:
+        return False
+
+
+def check(client: McpTransport, where: str, *, expect_front: str | None = None, ours: bool = True) -> str:
+    """Pre/post-flight for a Live step; returns the front set's name or raises Guard.
+
+    `where` names the step in the message. With ours=False any set may be in front (a desk
+    session); the other checks still apply.
+    """
+    try:
+        n = ui.dialogs()
+        front = ui.front_title()
+    except ui.UiError as exc:
+        stop(f"{where}: cannot read Live's windows ({exc})")
+    if n:
+        stop(f"{where}: {n} dialog(s) open in Live")
+    if expect_front and front != expect_front:
+        stop(f"{where}: front set is {front!r}, expected {expect_front!r}")
+    if ours and not config.rig().is_ours(front):
+        stop(f"{where}: front set {front!r} is not one of ours; someone else may be using Live")
+    try:
+        client.run("result = 1")
+    except LiveError as exc:
+        stop(f"{where}: Live does not answer LOM: {exc}")
     return front
 
 
-def duplicate_submixes(S):
-    """Make S submixes from the stripped content, one submix per LOM call (each well under 12 s)."""
-    for k in range(S - 1):
-        t = time.time()
-        A.r('''
-def idx(name):
-    return [i for i, t in enumerate(song.tracks) if t.name == name][0]
-song.duplicate_track(idx("perc group"))
-song.duplicate_track(idx("kick group"))
-result = len(song.tracks)''')
-        log("dup_one_submix", time.time() - t, k=k + 2)
-    A.r('''
-count = {"kick group": 0, "perc group": 0}
-for t in song.tracks:
-    for g in count:
-        if t.is_foldable and t.name.startswith(g):
-            count[g] += 1
-            t.name = "S%02d %s" % (count[g], g)
-result = count''')
-    return A.r("result = len(song.tracks)")
+def open_set(client: McpTransport, name: str, *, save_current: bool = True, timeout_s: float = 120.0) -> float:
+    """Open sets_dir/<name>.als and wait until it is in front and the LOM answers; return seconds.
+
+    The set in front is saved first (if it is one of the files in sets_dir), so Live never asks
+    about unsaved changes. Live does not reload a set that is already open, so asking for the front
+    set again would keep its old state (for a batch rewritten offline: render the old batch); that
+    is a Guard. Raises Guard if the window or the LOM does not come up in time.
+    """
+    rig = config.rig()
+    path = rig.set_path(name)
+    if not path.exists():
+        stop(f"open: no set {path}")
+    front = _front()
+    if front == name:
+        stop(f"open: {name} is already open, and Live would not reload it; open another set first")
+    if save_current and front and rig.set_path(front).exists():
+        save(front)
+    steps.report(f"opening {name}", "minor")
+    t0 = time.monotonic()
+    opened = subprocess.run(["open", "-a", rig.live_app, str(path)], capture_output=True, text=True)
+    if opened.returncode:
+        stop(f"open: `open` failed: {opened.stderr.strip()[-200:]}")
+    deadline = t0 + timeout_s
+    while _front() != name:
+        if time.monotonic() > deadline:
+            stop(f"open: Live did not show {name} in {timeout_s:g} s; front window is {_front()!r}")
+        time.sleep(0.1)
+    while not _answers(client):
+        if time.monotonic() > deadline:
+            stop(f"open: {name} is in front but the LOM did not answer in {timeout_s:g} s")
+        time.sleep(0.1)
+    seconds = time.monotonic() - t0
+    steps.report(f"opened {name} in {seconds:.1f} s", "major")
+    return seconds
 
 
-def live_footprint_gb():
-    """Live's memory incl. compressed pages (top's MEM), which RSS undercounts under compression."""
-    pid = subprocess.run(["pgrep", "-x", "Live"], capture_output=True, text=True).stdout.split()[0]
-    out = subprocess.run(["top", "-l", "1", "-pid", pid, "-stats", "mem,cmprs"], capture_output=True, text=True).stdout
-    mem, cmp = out.strip().splitlines()[-1].split()[:2]
+def save(name: str | None = None, *, timeout_s: float = 30.0) -> bool:
+    """File > Save Live Set, then wait until the set's file is rewritten.
 
-    def gb(v):
-        unit = v[-1]
-        num = float(v[:-1].rstrip("+-"))
-        return round(num / 1024 if unit == "M" else num if unit == "G" else num / 1048576, 2)
-    return {"live_mem_gb": gb(mem), "live_compressed_gb": gb(cmp)}
+    `name` defaults to the front set and must be it; its file in sets_dir is watched. Returns
+    False when there was nothing to save (Live greys the item out), True once the file changed;
+    raises Guard if it never does.
+    """
+    front = _front()
+    if front is None:
+        stop("save: Live shows no set")
+    name = name or front
+    if name != front:
+        stop(f"save: {name!r} is not the front set ({front!r})")
+    path = config.rig().set_path(name)
+    if not path.exists():
+        stop(f"save: {name!r} is not a set in {path.parent}")
+    before = path.stat().st_mtime_ns
+    if not ui.menu_enabled("File", "Save Live Set"):
+        return False
+    if not ui.menu("File", "Save Live Set"):
+        stop("save: File > Save Live Set stayed disabled")
+    deadline = time.monotonic() + timeout_s
+    while time.monotonic() < deadline:
+        try:
+            if path.stat().st_mtime_ns != before:
+                steps.report(f"saved {name}", "minor")
+                return True
+        except FileNotFoundError:
+            pass  # Live replaces the file, so it is missing for a moment
+        time.sleep(0.05)
+    stop(f"save: {path.name} was not rewritten in {timeout_s:g} s")
 
 
-def live_running_ls():
-    """LaunchServices' view: right after a quit it can still say running, and `open` then fails (-600)."""
-    out = subprocess.run(["osascript", "-e", 'application "Ableton Live 12 Suite" is running'],
-                         capture_output=True, text=True).stdout.strip()
-    return out == "true"
+def copy_set(src: str, dst: str) -> Path:
+    """Copy sets_dir/<src>.als to sets_dir/<dst>.als (replacing it) and return the new path."""
+    rig = config.rig()
+    return Path(shutil.copyfile(rig.set_path(src), rig.set_path(dst)))
 
 
-def launch_live(tries=5):
-    """`open` Live, checking the result; retry while LaunchServices still holds the old instance."""
+def _running() -> bool:
+    """Live's process exists, or LaunchServices still thinks so (it lags a quit, and `open`
+    then fails with -600)."""
+    if subprocess.run(["pgrep", "-x", "Live"], capture_output=True).returncode == 0:
+        return True
+    return ui.osa(f'application "{config.rig().live_app}" is running') == "true"
+
+
+def launch(tries: int = 5) -> None:
+    """`open -a` Live, retrying while LaunchServices still holds the instance that just quit."""
     for k in range(tries):
-        r = subprocess.run(["open", "-a", "Ableton Live 12 Suite"], capture_output=True, text=True)
-        if r.returncode == 0:
+        opened = subprocess.run(["open", "-a", config.rig().live_app], capture_output=True, text=True)
+        if opened.returncode == 0:
             return
         time.sleep(3 + 2 * k)
-    raise Guard(f"launch: open failed {tries} times: {r.stderr.strip()[-200:]}")
+    stop(f"launch: open failed {tries} times: {opened.stderr.strip()[-200:]}")
 
 
-def restart_live(timeout=240):
-    """Quit and relaunch Live (current set must be saved). Waits for the MCP bridge to answer."""
-    cur = A.front()
-    if cur and os.path.exists(os.path.join(PROJ, cur + ".als")):
-        save(cur)
-    if dialogs() != 0:
-        raise Guard("restart: dialog open before quit")
-    subprocess.run(["osascript", "-e", 'tell application "Ableton Live 12 Suite" to quit'], timeout=60)
+def restart(client: McpTransport, *, timeout_s: float = 240.0) -> float:
+    """Save the front set, quit Live, relaunch it and wait for the LOM; return the seconds it took.
+
+    A fresh Live uses less memory: 1.5 GB against 4.5 GB after many loads (FINDINGS).
+    """
+    front = _front()
+    if front and config.rig().set_path(front).exists():
+        save(front)
+    if ui.dialogs():
+        stop("restart: a dialog is open; quitting would stop at it")
+    steps.report("quitting Live", "major")
+    t0 = time.monotonic()
+    ui.osa(f'tell application "{config.rig().live_app}" to quit', timeout=60)
     for _ in range(120):
-        if subprocess.run(["pgrep", "-x", "Live"], capture_output=True).returncode != 0 and not live_running_ls():
+        if not _running():
             break
         time.sleep(1)
     else:
-        raise Guard("restart: Live did not quit (a prompt may be open)")
-    launch_live()
-    t0 = time.time()
-    while time.time() - t0 < timeout:
-        try:
-            A.r("result = 1")
-            return time.time() - t0
-        except Exception:
-            time.sleep(2)
-    raise Guard("restart: Live did not answer LOM after relaunch")
+        stop("restart: Live did not quit (a prompt may be open)")
+    launch()
+    while time.monotonic() - t0 < timeout_s:
+        if _answers(client):
+            steps.report("Live is back", "major")
+            return time.monotonic() - t0
+        time.sleep(2)
+    stop(f"restart: Live did not answer LOM {timeout_s:g} s after the relaunch")
+
+
+def audio_clock_ok(client: McpTransport, wait_s: float = 1.2) -> bool:
+    """Play for a moment: does the song position move? Live with no audio device keeps its clock
+    frozen, and then every take is silent (the ableton-guide skill, section 0). Plays audio."""
+    before = client.run("result = song.current_song_time\nsong.start_playing()")
+    time.sleep(wait_s)
+    after = client.run("result = song.current_song_time\nsong.stop_playing()")
+    return after > before
+
+
+def memory() -> dict:
+    """The Mac's swap, compressed and free memory, and Live's resident and full footprint, in GB.
+
+    Live's footprint (top's MEM) counts its compressed pages, which RSS misses under pressure.
+    Live's figures are None when it is not running.
+    """
+    swap = subprocess.run(["sysctl", "-n", "vm.swapusage"], capture_output=True, text=True).stdout
+    vm = subprocess.run(["vm_stat"], capture_output=True, text=True).stdout
+    page = int(re.search(r"page size of (\d+) bytes", vm).group(1))
+
+    def pages(label: str) -> float:
+        line = next(line for line in vm.splitlines() if line.startswith(label))
+        return int(line.split(":")[1].strip().rstrip(".")) * page / 2**30
+
+    out = {"swap_used_gb": round(float(swap.split("used = ")[1].split("M")[0]) / 1024, 2),
+           "compressed_gb": round(pages("Pages occupied by compressor"), 2),
+           "free_gb": round(pages("Pages free"), 2),
+           "live_rss_gb": None, "live_mem_gb": None, "live_compressed_gb": None}
+    pid = subprocess.run(["pgrep", "-x", "Live"], capture_output=True, text=True).stdout.split()
+    if pid:
+        rss_kb = int(subprocess.run(["ps", "-o", "rss=", "-p", pid[0]], capture_output=True, text=True).stdout)
+        top = subprocess.run(["top", "-l", "1", "-pid", pid[0], "-stats", "mem,cmprs"],
+                             capture_output=True, text=True).stdout
+        mem, cmprs = top.strip().splitlines()[-1].split()[:2]
+        out.update(live_rss_gb=round(rss_kb / 2**20, 3), live_mem_gb=_gb(mem), live_compressed_gb=_gb(cmprs))
+    return out
+
+
+def _gb(top_value: str) -> float:
+    """top's "1234M", "5G", "512K" or "0B" (a trailing + or - allowed) in GB."""
+    v = top_value.rstrip("+-")
+    return round(float(v[:-1]) / {"B": 2**30, "K": 2**20, "M": 1024, "G": 1}[v[-1]], 2)
+
+
+def last_lom_connection(log: Path | None = None) -> datetime | None:
+    """When something last connected to the AbletonLiveMCP Remote Script, from Live's Log.txt."""
+    log = log or config.rig().live_log
+    if log is None or not log.exists():
+        raise FileNotFoundError(f"no Live log at {log}; set live_prefs_dir in the rig config")
+    with log.open("rb") as f:
+        f.seek(max(0, log.stat().st_size - _LOG_TAIL_BYTES))
+        tail = f.read().decode(errors="ignore")
+    stamps = [line[:26] for line in tail.splitlines() if "AbletonLiveMCP: connected" in line]
+    return datetime.fromisoformat(stamps[-1]) if stamps else None
+
+
+def other_agent_active(quiet_s: float = 300.0, *, now: datetime | None = None, log: Path | None = None) -> bool:
+    """Did anything connect to the Remote Script in the last `quiet_s` seconds?
+
+    Call it before a run starts: our own LOM calls connect too, so during a run it sees us.
+    """
+    last = last_lom_connection(log)
+    return last is not None and ((now or datetime.now()) - last).total_seconds() < quiet_s

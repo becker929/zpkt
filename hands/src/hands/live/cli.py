@@ -53,3 +53,31 @@ def exec_(
     if res.status != "ok":
         _fail(f"ERROR: {res.error}" + (f"\n{res.traceback}" if res.traceback else ""))
     print(json.dumps(res.result) if as_json else res.result)
+
+
+@app.command()
+def check(
+    expect: str = typer.Option(None, "--expect", help="The set that must be in front."),
+    any_set: bool = typer.Option(False, "--any-set", help="Accept a set that is not one of ours (a desk session)."),
+    host: str = HOST, port: int = PORT,
+) -> None:
+    """Run the session guard: no dialog open, one of our sets in front, the LOM answering.
+    Prints the front set; exit 1 with the reason if a check fails."""
+    from hands.live import session
+
+    try:
+        print(session.check(LiveClient(host, port), "hands live check", expect_front=expect, ours=not any_set))
+    except session.Guard as exc:
+        _fail(f"GUARD: {exc}")
+
+
+@app.command()
+def modals(reap: bool = typer.Option(False, "--reap", help="Press each safe button (Cancel, Don't Save, No, Close, OK).")) -> None:
+    """List Live's modal dialogs (CLEAN if none, NO_LIVE if Live is not running); --reap dismisses
+    the ones with a safe button and reports ABORT for any it will not touch."""
+    from hands.live import ui
+
+    try:
+        print(ui.reap_modals(reap))
+    except ui.UiError as exc:
+        _fail(str(exc))

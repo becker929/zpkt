@@ -11,7 +11,13 @@ from typer.testing import CliRunner
 
 from hands.cli import app
 from hands.live import transport as T
-from hands.live.transport import UNREACHABLE, LiveClient, LiveError, McpResult, MockTransport
+from hands.live.transport import (
+    UNREACHABLE,
+    LiveClient,
+    LiveError,
+    McpResult,
+    MockTransport,
+)
 
 HANG = object()  # answer: read the request, never reply
 

@@ -65,20 +65,19 @@ step "Checking MCP control and the audio clock"
 cd "$REPO"
 export PATH=$HOME/.local/bin:$PATH
 uv run python - <<'EOF' || fail "Live is up but not usable (see above)"
-import sys, time
-from hands.live.transport import LiveClient
-t = LiveClient()
-res = t.execute('result = {"tempo": song.tempo, "tracks": len(song.tracks)}')
-if res.status != "ok":
-    sys.exit(f"    MCP error: {res.error}")
-print("    set:", res.result)
-t.execute("song.start_playing()"); time.sleep(1.2)
-pos = t.execute("song.current_song_time").result
-t.execute("song.stop_playing()")
-if not pos:
-    sys.exit("    audio clock frozen (current_song_time = 0): no audio device. "
+import sys
+from hands.live import session
+from hands.live.transport import LiveClient, LiveError
+live = LiveClient()
+try:
+    print("    set:", live.run('result = {"tempo": song.tempo, "tracks": len(song.tracks)}'))
+    clock = session.audio_clock_ok(live)
+except LiveError as exc:
+    sys.exit(f"    MCP error: {exc}")
+if not clock:
+    sys.exit("    audio clock frozen (the song position did not move): no audio device. "
              "Check the USB interface and Live's Settings → Audio.")
-print(f"    audio clock ok ({pos:.2f} beats in 1.2 s)")
+print("    audio clock ok")
 EOF
 
 step "Ready"

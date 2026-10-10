@@ -119,8 +119,8 @@ def record(
     port: int = typer.Option(16619, "--port", help="Ableton MCP server port."),
 ) -> None:
     """Record Ableton output via resampling track and export."""
-    from hands.live.transport import LiveClient
     from hands.live.record import record_arrangement, record_via_resampling
+    from hands.live.transport import LiveClient
 
     output_path = Path(output)
     transport = LiveClient(host=host, port=port)

@@ -396,7 +396,7 @@ back over OSC (notes, parameters, meter levels, playing status) to close the loo
 | `scripts/enable_osc.sh` | Select AbletonOSC as a Control Surface (GUI, one-time) |
 | `hands live exec` / `hands live ping` | Path B client (zpkt `hands/`): arbitrary LOM Python over TCP 16619 |
 | `scripts/dismiss_modals.sh` | Modal reaper: check for modal dialogs; `--reap` safely dismisses non-destructive ones, aborts (exit 3) on anything unrecognized/destructive |
-| `scripts/reap_modals.applescript` | AppleScript backing `dismiss_modals.sh` (enumerates windows/sheets) |
+| `hands live modals [--reap]` | what `dismiss_modals.sh` runs (zpkt `hands/`; its AppleScript is `src/hands/live/reap_modals.applescript`) |
 | `scripts/snap.sh` | The only sanctioned screenshot path: always crops/downscales and enforces a KB budget |
 | `reference/osc-api.md` | Exhaustive OSC address reference + quirks (Path A) |
 | `reference/lom-guide.md` | LOM crash-avoidance rules + idioms for Path B (mirror of the `autodaw/hands` `ableton-guide` skill) |
