@@ -87,6 +87,38 @@ The page keeps at most a window of messages in the DOM and in memory (a cap of a
 new ones arrive; a **Load earlier** button (with a spinner) fetches the previous page from the server. Decoded audio
 is kept in a small LRU.
 
+## Making music: plans, the render cache, A/B every bar
+
+The voice loop changes the music by **plans**. A plan is a small JSON document that says which knobs of a base set
+take which values, for one section:
+
+```json
+{"kit": "c8x4", "knobs": {"<canonical knob id>": 0.5, "<another>": 1.2}, "label": "kick drive 50%"}
+```
+
+- **kit**: a probe kit (`hands.probe_kit`): a copy of the set trimmed to a lead-in plus one section repeated P times.
+  Kits are built once, in the GUI, and reused. A kit is the plan's base; its version is the hash of its XML.
+- **knobs**: canonical ids from `hands.live.knobs`, values in the set's own units. Knobs a plan leaves out keep the
+  kit's value.
+
+**Rendering packs plans.** Plans on the same kit are written into one copy of the kit, one pattern each, and
+rendered with one load and one export (`hands.probe_kit`): about 7 s to load and 13 s plus a tenth of the audio's
+length to export. Four plans cost barely more than two, so every render is a **write-ahead**: with the A/B it renders
+the likely next asks too ("more": B pushed as far again; "the other end": A pushed the other way). When Anthony says
+"more", that A/B is already rendered and plays within a second.
+
+**The cache** keeps every render by its key: the kit's version plus the canonical plan (knobs sorted, values
+rounded). A plan already rendered plays at once. **Nearest neighbour**: knob values are scaled to their ranges, so
+distances compare across knobs; a cached plan within a small distance is offered while the exact one renders.
+
+**A/B every bar.** Two renders of the same section become one file: each is set to the same loudness (mlab's
+meter), the first bar (the previous pattern's tail) is dropped, and bars alternate A, B, A, B with 10 ms crossfades.
+The file goes to the chat with `present_music` and its `ab` metadata (bar length, bars, which side starts, labels),
+and the page lights A or B in time.
+
+These are skills in `.claude/skills/` (render-plan, ab-1bar, plan-cache) over one CLI, `hands plan`, so Claude uses
+them like any other script and they keep growing.
+
 ## Screenshots
 
 Levels: **none**, **major** (default), **minor**, **firehose**. Each shot is a pair: the full screen and a zoom into
