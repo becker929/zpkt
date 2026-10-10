@@ -517,8 +517,8 @@ class Conversation:
 
     # --- music -----------------------------------------------------------------------------------------------------
     async def present_music(self, path: Path, title: str, ab: dict[str, Any] | None, note: str) -> Message:
-        data, info = await audio.to_flac(path)
-        ref = await asyncio.to_thread(self.store.put_media, data, "flac")
+        data, info = await audio.to_mp3(path)
+        ref = await asyncio.to_thread(self.store.put_media, data, "mp3")
         msg = self.add(Kind.MUSIC, {"title": title, "audio": ref.wire(), "duration": round(info.duration, 3),
                                     "rate": info.rate, "channels": info.channels, "ab": ab, "plays": 0,
                                     "note": note, "source": path.name})

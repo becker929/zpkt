@@ -79,7 +79,7 @@ repo) and served in pages. Media (speech replays, music, screenshots) is content
 | `user` | what you said (or typed) | `text`, `source` (voice/typed), `audio` (your recording), `duration`, `intent` |
 | `agent` | what Claude said, or a narration | `text`, `role` (reply/narration/note), `audio` (replay), `duration`, `streaming` |
 | `thinking` | Claude's thinking, summarized; never spoken | `text` (grows while `streaming`), `streaming` |
-| `music` | a render to listen to | `title`, `audio` (FLAC), `duration`, `ab` (bar length, bars, first side, labels), `plays`, `note` |
+| `music` | a render to listen to | `title`, `audio` (gapless V0 MP3: iPhone Safari can't decode FLAC), `duration`, `ab` (bar length, bars, first side, labels), `plays`, `note` |
 | `shots` | a screenshot pair | `level`, `caption`, `full`, `zoom`, `rect`, `screen` |
 | `activity` | a tool call | `tool`, `title`, `detail`, `status` (running/ok/error), `ms` |
 | `notice` | the app itself speaking up | `level` (info/warn/error), `text` |

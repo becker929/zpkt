@@ -158,3 +158,29 @@ def test_the_timings_report_compares_first_and_later_turns_browsers_and_routes(s
     assert "| first_words (mac) | 900 (1) | 350 (2) |" in text            # first vs later
     assert "| first_words (mac) | 300 (1) | 650 (2) |" in text            # chrome vs safari
     assert "| mic_open (phone) | 240 (1) | 240 (2) |" in text            # bluetooth vs phone
+
+
+
+async def test_music_is_a_gapless_mp3_with_every_sample(tmp_path):
+    # iPhone Safari can't decode FLAC in Web Audio, so music is an MP3; LAME's gapless header lets a decoder trim
+    # the encoder's delay and padding, so the decoded render has exactly its source's length (loops stay exact).
+    import shutil
+    import subprocess
+
+    import numpy as np
+    import soundfile as sf
+
+    from harness.studio import audio
+
+    src = tmp_path / "render.wav"
+    x = 0.5 * np.sin(2 * np.pi * 440 * np.arange(44_100) / 44_100)
+    sf.write(src, np.stack([x, x], axis=1), 44_100, subtype="PCM_24")
+    data, info = await audio.to_mp3(src)
+    assert data[:3] == b"ID3" or data[0] == 0xFF
+    assert b"Xing" in data[:2000] or b"Info" in data[:2000], "LAME's gapless header"
+    assert (info.rate, info.channels) == (44_100, 2) and len(data) < 44_100 * 2 * 2 / 4   # under a quarter of the WAV
+    if shutil.which("ffmpeg"):
+        (tmp_path / "r.mp3").write_bytes(data)
+        pcm = subprocess.run(["ffmpeg", "-v", "error", "-i", str(tmp_path / "r.mp3"), "-f", "s16le", "-"],
+                             capture_output=True, check=True).stdout
+        assert len(pcm) // 4 == 44_100                     # ffmpeg trims by the header, as the browsers do
