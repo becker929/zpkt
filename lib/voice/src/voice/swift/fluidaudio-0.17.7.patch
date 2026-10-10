@@ -1,0 +1,133 @@
+diff --git a/Package.swift b/Package.swift
+index 5bae781..8deca2a 100644
+--- a/Package.swift
++++ b/Package.swift
+@@ -41,12 +41,8 @@ let package = Package(
+         // (macOS, iOS, iOS Simulator and Mac Catalyst slices).
+         // Always linked on tools < 6.2; Package@swift-6.2.swift exposes it as
+         // the opt-out `NemoTextProcessing` trait (#880, #888).
+-        .binaryTarget(
+-            name: "NemoTextProcessing",
+-            url:
+-                "https://github.com/FluidInference/text-processing-rs/releases/download/v0.3.1/NemoTextProcessing.xcframework.zip",
+-            checksum: "5fa8c10d4ec26c1bb2413125f351a7222a4c68a23b74476680fbada7e26fc6aa"
+-        ),
++        // zpkt patch: the same zip, fetched and checksummed by voice.fluid (SwiftPM's download stalls here).
++        .binaryTarget(name: "NemoTextProcessing", path: "Vendor/NemoTextProcessing.xcframework"),
+         .target(
+             name: "FastClusterWrapper",
+             path: "Sources/FastClusterWrapper",
+diff --git a/Package@swift-6.2.swift b/Package@swift-6.2.swift
+index 5d04a1f..af3528e 100644
+--- a/Package@swift-6.2.swift
++++ b/Package@swift-6.2.swift
+@@ -61,12 +61,8 @@ let package = Package(
+         // Byte-exact NeMo text normalization (FST engine, all 7 languages).
+         // Prebuilt xcframework from FluidInference/text-processing-rs v0.3.1
+         // (macOS, iOS, iOS Simulator and Mac Catalyst slices).
+-        .binaryTarget(
+-            name: "NemoTextProcessing",
+-            url:
+-                "https://github.com/FluidInference/text-processing-rs/releases/download/v0.3.1/NemoTextProcessing.xcframework.zip",
+-            checksum: "5fa8c10d4ec26c1bb2413125f351a7222a4c68a23b74476680fbada7e26fc6aa"
+-        ),
++        // zpkt patch: the same zip, fetched and checksummed by voice.fluid (SwiftPM's download stalls here).
++        .binaryTarget(name: "NemoTextProcessing", path: "Vendor/NemoTextProcessing.xcframework"),
+         .target(
+             name: "FastClusterWrapper",
+             path: "Sources/FastClusterWrapper",
+diff --git a/Sources/FluidAudio/TTS/KokoroAne/V3/KokoroAneV3Pipeline.swift b/Sources/FluidAudio/TTS/KokoroAne/V3/KokoroAneV3Pipeline.swift
+index d4fb6dc..280c407 100644
+--- a/Sources/FluidAudio/TTS/KokoroAne/V3/KokoroAneV3Pipeline.swift
++++ b/Sources/FluidAudio/TTS/KokoroAne/V3/KokoroAneV3Pipeline.swift
+@@ -159,7 +159,22 @@ final class KokoroAneV3Pipeline {
+         if let bucket {
+             let start = time()
+             let har = try source.build(f0: Arrays.readFloats(f0))
+-            let spectrum = try Arrays.float32Array(shape: [1, 22, frames * 120 + 1], from: har)
++            // zpkt patch: run the GPU SourceGenerator at the decoder bucket length (masked) instead of the
++            // exact frame count. Core ML keeps one GPU plan per input shape (IOAccelerator memory, ~25-130 MB
++            // each, never released), so exact-length calls grow the process by GBs over a few hundred
++            // utterances. Two buckets, two shapes.
++            let padFrames = bucket
++            let tLen = frames * 120 + 1
++            let pLen = padFrames * 120 + 1
++            var harPadded = [Float](repeating: 0, count: 22 * pLen)
++            har.withUnsafeBufferPointer { src in
++                harPadded.withUnsafeMutableBufferPointer { dst in
++                    for c in 0..<22 {
++                        for t in 0..<tLen { dst[c * pLen + t] = src[c * tLen + t] }
++                    }
++                }
++            }
++            let spectrum = try Arrays.float32Array(shape: [1, 22, pLen], from: harPadded)
+             timings["NativeSource"] = time() - start
+             let valid = (0..<bucket).map { Float($0 < frames ? 1 : 0) }
+             let decoded = try predict(
+@@ -169,18 +184,19 @@ final class KokoroAneV3Pipeline {
+                     "N_pred": Self.resizeTime(n16, to: bucket * 2), "style_timbre": timbre,
+                     "mask": Arrays.float16Array(shape: [1, 1, bucket], from: valid),
+                 ])
+-            let features = try Self.resizeTime(Self.array(decoded, "features"), to: frames * 2)
++            let features = try Self.resizeTime(Self.array(decoded, "features"), to: padFrames * 2)
++            func validMask(_ n: Int, _ valid: Int) -> [Float] { (0..<n).map { $0 < valid ? 1 : 0 } }
+             var feed = ["features": features, "har": spectrum, "style_timbre": timbre]
+             if models["SourceGenerator"]?.modelDescription.inputDescriptionsByName["ref_s"] != nil {
+                 feed = [
+                     "x_pre": features, "har": spectrum,
+                     "ref_s": try Arrays.float32Array(shape: [1, 256], from: voice),
+                     "mask": try Arrays.float32Array(
+-                        shape: [1, 1, frames * 2], from: [Float](repeating: 1, count: frames * 2)),
++                        shape: [1, 1, padFrames * 2], from: validMask(padFrames * 2, frames * 2)),
+                     "mask_x10": try Arrays.float32Array(
+-                        shape: [1, 1, frames * 20], from: [Float](repeating: 1, count: frames * 20)),
++                        shape: [1, 1, padFrames * 20], from: validMask(padFrames * 20, frames * 20)),
+                     "mask_x60": try Arrays.float32Array(
+-                        shape: [1, 1, frames * 120 + 1], from: [Float](repeating: 1, count: frames * 120 + 1)),
++                        shape: [1, 1, pLen], from: validMask(pLen, tLen)),
+                 ]
+             }
+             if models["SourceGenerator"]?.modelDescription.inputDescriptionsByName["weights_x10"] != nil {
+@@ -188,11 +204,11 @@ final class KokoroAneV3Pipeline {
+                     models["SourceGenerator"]?.modelDescription.inputDescriptionsByName["weights_x10"]?
+                     .multiArrayConstraint?.shape[1].intValue == 1
+                 feed["weights_x10"] = try Arrays.float16Array(
+-                    shape: rowWeights ? [1, 1, frames * 20] : [1, frames * 20, 1],
+-                    from: [Float](repeating: 1 / 1024, count: frames * 20))
++                    shape: rowWeights ? [1, 1, padFrames * 20] : [1, padFrames * 20, 1],
++                    from: [Float](repeating: 1 / 1024, count: padFrames * 20))
+                 feed["weights_x60"] = try Arrays.float16Array(
+-                    shape: rowWeights ? [1, 1, frames * 120 + 1] : [1, frames * 120 + 1, 1],
+-                    from: [Float](repeating: 1 / 1024, count: frames * 120 + 1))
++                    shape: rowWeights ? [1, 1, pLen] : [1, pLen, 1],
++                    from: [Float](repeating: 1 / 1024, count: pLen))
+             }
+             let generated = try predict("SourceGenerator", feed)
+             if let waveform = generated.featureValue(for: "audio")?.multiArrayValue
+@@ -216,7 +232,8 @@ final class KokoroAneV3Pipeline {
+         }
+         let audio: [Float]
+         if let generatedAudio {
+-            audio = Arrays.readFloats(generatedAudio)
++            // padded generator run: keep the valid frames only
++            audio = Array(Arrays.readFloats(generatedAudio).prefix(frames * 600))
+         } else if let xPre {
+             let tail = try predict("Tail", ["x_pre": Self.single(xPre)])
+             audio = try Arrays.readFloats(Self.array(tail, "audio"))
+diff --git a/Sources/FluidAudio/TTS/Shared/TtsCacheDirectory.swift b/Sources/FluidAudio/TTS/Shared/TtsCacheDirectory.swift
+index d128ac0..e9a6838 100644
+--- a/Sources/FluidAudio/TTS/Shared/TtsCacheDirectory.swift
++++ b/Sources/FluidAudio/TTS/Shared/TtsCacheDirectory.swift
+@@ -20,6 +20,12 @@ public enum TtsCacheDirectory {
+ 
+     /// Ensures the platform-appropriate cache root exists and returns it.
+     public static func ensure() throws -> URL {
++        // zpkt patch: FLUIDAUDIO_CACHE moves the whole cache (models, G2P assets) elsewhere.
++        if let custom = ProcessInfo.processInfo.environment["FLUIDAUDIO_CACHE"], !custom.isEmpty {
++            let cacheDirectory = URL(fileURLWithPath: custom, isDirectory: true)
++            try FileManager.default.createDirectory(at: cacheDirectory, withIntermediateDirectories: true)
++            return cacheDirectory
++        }
+         let base: URL
+         #if os(macOS)
+         base = FileManager.default.homeDirectoryForCurrentUser

@@ -62,7 +62,8 @@ lib/harness/src/harness/studio/
 lib/voice/src/voice/
   protocol.py      the frame codec, shared with the harness (no heavy imports)
   worker.py        `voice serve`: reads requests on stdin, writes replies on stdout
-  tts.py           Kokoro (ONNX): sentences, streaming synthesis; the model is fetched on first use
+  tts.py           Kokoro: sentences, streaming synthesis; the build to use (VOICE_TTS_MODEL), and the ONNX one
+  fluid.py         Kokoro on FluidAudio (Neural Engine): builds the Swift helper (swift/) on first use, talks to it
   stt.py           Silero VAD + Parakeet (MLX) + the stop word, one turn at a time (docs/voice-benchmark.md)
   fake.py          stand-in engines for tests and page work (--tts fake --stt fake)
 ```
@@ -251,7 +252,8 @@ A frame is a 4-byte big-endian header length, a JSON header, a 4-byte big-endian
 `harness serve` starts everything. Data lives in `~/_agent_scratch/studio/` (override with `HARNESS_STUDIO`).
 Tests: `uv run --project lib/harness --extra dev pytest` and `uv run --project lib/voice --extra dev pytest`
 (`VOICE_ENGINES=1` and `--extra engines` add the real models). The speech models are fetched on first use: Kokoro
-and Silero into `~/.cache/zpkt-voice` (`VOICE_MODELS`), Parakeet into the Hugging Face cache. Turn timings:
+and Silero into `~/.cache/zpkt-voice` (`VOICE_MODELS`; FluidAudio's helper is built there too, about a minute and a
+half the first time), Parakeet into the Hugging Face cache. Turn timings:
 `harness timings` (docs/voice-benchmark.md).
 
 The whole stack, end to end (page in Chromium, real server, Kokoro and Parakeet, `hands plan ab` with stand-in

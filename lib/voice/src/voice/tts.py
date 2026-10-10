@@ -1,8 +1,10 @@
-"""Kokoro (82 M parameters) through ONNX Runtime: text to 24 kHz speech, a sentence at a time.
+"""Kokoro (82 M parameters): text to 24 kHz speech, a sentence at a time.
 
-The model and its voices are fetched on first use into VOICE_MODELS (default ~/.cache/zpkt-voice) and kept there.
-VOICE_TTS_MODEL=int8 takes the quantised model: about half the time to the first audio (260 against 520 ms on the
-benchmark, docs/voice-benchmark.md) for a slightly rougher voice; fp32 is the default.
+VOICE_TTS_MODEL picks the build. `fluid` (the default) runs it through FluidAudio on the Neural Engine (voice.fluid),
+about 0.1 s to the first audio; where that cannot be built or started, ONNX Runtime fp32 (~0.5 s) takes over. `fp32`
+and `int8` ask for ONNX directly; int8 is about half the time of fp32 (260 against 520 ms on the benchmark,
+docs/voice-benchmark.md) for a slightly rougher voice. The ONNX model and its voices are fetched on first use into
+VOICE_MODELS (default ~/.cache/zpkt-voice) and kept there.
 Text is cut into sentences (and over-long sentences at clause marks) so the first audio is ready after the first
 sentence rather than after the whole reply; each piece is synthesised and handed on as soon as it is made.
 """
@@ -15,6 +17,7 @@ import re
 import urllib.request
 from collections.abc import Iterator
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 
@@ -79,7 +82,22 @@ def to_int16(audio: np.ndarray) -> np.ndarray:
     return (np.clip(audio, -1.0, 1.0) * 32767).astype(np.int16)
 
 
+def kokoro() -> Any:
+    """Kokoro as VOICE_TTS_MODEL asks; FluidAudio falls back to ONNX fp32, saying why."""
+    variant = os.environ.get("VOICE_TTS_MODEL", "fluid")
+    if variant == "fluid":
+        from .fluid import FluidUnavailable, KokoroFluid
+        try:
+            return KokoroFluid()
+        except FluidUnavailable as exc:
+            log.warning("Kokoro on FluidAudio is unavailable, so ONNX fp32 speaks: %s", exc)
+            variant = "fp32"
+    return Kokoro(variant=variant)
+
+
 class Kokoro:
+    """Kokoro through ONNX Runtime, on the CPU."""
+
     name = "kokoro"
     rate = RATE
 
@@ -88,6 +106,7 @@ class Kokoro:
 
         into = models or models_dir()
         variant = variant or os.environ.get("VOICE_TTS_MODEL", "fp32")
+        variant = variant if variant in MODELS else "fp32"
         self.model = Model(str(fetch(MODELS.get(variant, MODELS["fp32"]), into)), str(fetch(VOICES, into)))
         self.name = f"kokoro ({variant})"
         self.voices = set(self.model.get_voices())
