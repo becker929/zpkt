@@ -19,7 +19,7 @@ from hands.models import (
     ProjectConfig,
     SamplePad,
 )
-from hands.transport import DryRunTransport, MockTransport
+from hands.live.transport import DryRunTransport, MockTransport
 
 
 def test_project_config_round_trip() -> None:
@@ -68,7 +68,7 @@ def test_feedback_round_trip() -> None:
 
 
 def test_mock_transport() -> None:
-    from hands.transport import McpResult
+    from hands.live.transport import McpResult
     transport = MockTransport(responses=[McpResult(status="ok", result="ok")])
     result = transport.execute("song.tempo = 130.0")
     assert result.status == "ok"

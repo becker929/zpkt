@@ -36,7 +36,7 @@ import hmac
 from mcp.server.fastmcp import FastMCP
 from mcp.server.transport_security import TransportSecuritySettings
 
-from hands.transport import LiveMcpTransport
+from hands.live.transport import LiveMcpTransport
 
 # ── Server & transport setup ───────────────────────────────────────────────────
 

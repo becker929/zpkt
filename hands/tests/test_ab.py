@@ -6,7 +6,7 @@ from types import SimpleNamespace
 import pytest
 
 from hands import ab
-from hands.transport import McpResult, MockTransport
+from hands.live.transport import McpResult, MockTransport
 
 
 class FakeTrack(SimpleNamespace):

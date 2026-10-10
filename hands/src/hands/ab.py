@@ -13,7 +13,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from hands.transport import McpTransport
+from hands.live.transport import McpTransport
 
 REF_PREFIX = "REF "
 DATA_KEY = "zpkt.ab.ref"

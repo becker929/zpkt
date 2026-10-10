@@ -15,7 +15,7 @@ import time
 from pathlib import Path
 from typing import Any
 
-from hands.transport import McpTransport
+from hands.live.transport import McpTransport
 
 
 def _run(transport: McpTransport, code: str) -> Any:

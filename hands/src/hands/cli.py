@@ -45,7 +45,7 @@ def build(
     """Render a ProjectConfig to Step list and print or execute."""
     from hands.builder import ProjectBuilder
     from hands.runner import ManualPolicy, StepRunner
-    from hands.transport import DryRunTransport, LiveMcpTransport
+    from hands.live.transport import DryRunTransport, LiveMcpTransport
 
     cfg = _load_config(config)
     builder = ProjectBuilder(cfg)
@@ -78,7 +78,7 @@ def execute(
     """Execute Steps against a live Ableton session."""
     from hands.builder import ProjectBuilder
     from hands.runner import ManualPolicy, StepRunner
-    from hands.transport import LiveMcpTransport
+    from hands.live.transport import LiveMcpTransport
 
     cfg = _load_config(config)
     builder = ProjectBuilder(cfg)
@@ -113,7 +113,7 @@ def record(
 ) -> None:
     """Record Ableton output via resampling track and export."""
     from hands.recorder import record_arrangement, record_via_resampling
-    from hands.transport import LiveMcpTransport
+    from hands.live.transport import LiveMcpTransport
 
     output_path = Path(output)
     transport = LiveMcpTransport(host=host, port=port)
@@ -156,7 +156,7 @@ def ab(
 ) -> None:
     """A/B the mix against the current reference track (tracks named "REF ...")."""
     from hands import ab as ab_mod
-    from hands.transport import LiveMcpTransport
+    from hands.live.transport import LiveMcpTransport
 
     transport = LiveMcpTransport(host=host, port=port)
     actions = {
@@ -182,7 +182,7 @@ def spectrum_cmd(
 ) -> None:
     """Toggle the master Spectrum analyzer in Live's detail view."""
     from hands import ab as ab_mod
-    from hands.transport import LiveMcpTransport
+    from hands.live.transport import LiveMcpTransport
 
     try:
         print(json.dumps(ab_mod.spectrum(LiveMcpTransport(host=host, port=port), toggle=not show)))
@@ -225,7 +225,7 @@ def vibe(
 ) -> None:
     """Start the Letta-backed human feedback server."""
     import os as _os
-    from hands.transport import LiveMcpTransport
+    from hands.live.transport import LiveMcpTransport
     from hands.vibe.server import VibeServer
 
     output_dir = _os.environ.get("VIBE_OUTPUT_DIR", "/tmp/vibe")

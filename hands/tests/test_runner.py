@@ -5,7 +5,7 @@ import pytest
 
 from hands.codegen import Step
 from hands.runner import ManualPolicy, StepResult, StepRunner
-from hands.transport import McpResult, MockTransport
+from hands.live.transport import McpResult, MockTransport
 
 
 def _steps(n: int) -> list[Step]:

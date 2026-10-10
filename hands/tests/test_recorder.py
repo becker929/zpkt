@@ -6,7 +6,7 @@ import wave
 import pytest
 
 import hands.recorder as recorder
-from hands.transport import McpResult
+from hands.live.transport import McpResult
 
 
 class FakeLive:
