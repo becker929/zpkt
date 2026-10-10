@@ -56,11 +56,11 @@ async def test_a_whole_spoken_turn(phone, fake):
     await page.wait("() => window.__captured.length > 0 && window.__captured.every("
                     "(s) => s.getTracks().every((t) => t.readyState === 'ended'))")
 
-    # Claude works: three tool calls fold into one "3 steps" row; the narration and the screenshots arrive.
-    await page.wait("() => document.querySelector('.steps:not(.single) .steps-count')?.textContent === '3 steps'")
-    assert await page.js("document.querySelector('.steps').dataset.status") in ("running", "ok")
+    # Claude works: its thinking, three tool calls and a screenshot fold into one trace; the narration arrives.
+    await page.wait("() => document.querySelector('.trace .trace-meta')?.textContent === '3 steps · 1 shot'")
+    assert await page.js("document.querySelector('.trace').dataset.status") in ("running", "ok")
     await page.wait("() => document.querySelector('.msg--narration .inline-text')?.textContent.includes('two levels')")
-    await page.wait("() => document.querySelector('.msg--shots img')?.getAttribute('src')")
+    await page.wait("() => document.querySelector('.ti--shots img')?.getAttribute('src')")
 
     # Claude answers: the speech stream plays (the reply's bubble animates), then the A/B plays twice.
     busy = await fake.expect(lambda m: m["type"] == "playback" and m["state"] == "busy")

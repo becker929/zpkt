@@ -5,7 +5,8 @@ import asyncio
 from claude_agent_sdk import AssistantMessage, ResultMessage, SystemMessage, ToolResultBlock, ToolUseBlock, UserMessage
 from claude_agent_sdk.types import StreamEvent
 
-from harness.studio.agent import AgentSession, TextDelta, TextDone, ToolDone, ToolStart, TurnDone
+from harness.studio.agent import (AgentSession, TextDelta, TextDone, ThinkingDelta, ThinkingDone, ToolDone, ToolStart,
+                                  TurnDone)
 
 END = object()
 
@@ -17,6 +18,16 @@ def ev(event, parent=None):
 def text_block(index, *parts):
     out = [ev({"type": "content_block_start", "index": index, "content_block": {"type": "text", "text": ""}})]
     out += [ev({"type": "content_block_delta", "index": index, "delta": {"type": "text_delta", "text": p}}) for p in parts]
+    return out + [ev({"type": "content_block_stop", "index": index})]
+
+
+def thinking_block(index, *parts):
+    """A thinking block as the CLI streams it: summarized text in thinking_delta, then the signature."""
+    out = [ev({"type": "content_block_start", "index": index,
+               "content_block": {"type": "thinking", "thinking": "", "signature": ""}})]
+    out += [ev({"type": "content_block_delta", "index": index, "delta": {"type": "thinking_delta", "thinking": p}})
+            for p in parts]
+    out.append(ev({"type": "content_block_delta", "index": index, "delta": {"type": "signature_delta", "signature": "x"}}))
     return out + [ev({"type": "content_block_stop", "index": index})]
 
 
@@ -106,3 +117,27 @@ async def test_events_between_turns_go_to_unprompted_and_a_dead_cli_ends_the_tur
     FakeClient.next_scripts = [[result("back")]]
     assert await collect(session, "again") == [TurnDone("back", True, None, "sess-1")]
     assert FakeClient.instances[0].options == {"resume": "sess-1"}      # the new CLI resumed the session
+
+
+async def test_thinking_streams_as_its_own_events_and_an_omitted_block_yields_nothing():
+    FakeClient.instances.clear()
+    session = AgentSession(lambda resume: {"resume": resume}, FakeClient)
+    await session.connect()
+    client = FakeClient.instances[0]
+    client.scripts.append([
+        ev({"type": "message_start", "message": {}}),
+        *thinking_block(0, "Adding ", "3:47 and 2:38."),
+        *text_block(1, "Six forty-two."),
+        ev({"type": "message_start", "message": {}}),
+        *thinking_block(0, ""),                       # display omitted: an empty block with only a signature
+        *[ev(e.event, parent="t9") for e in thinking_block(0, "a subagent thinks")],
+        *text_block(1, "Done."),
+        result("Six forty-two. Done."),
+    ])
+    events = await collect(session, "when?")
+    assert [type(e).__name__ for e in events] == ["ThinkingDelta", "ThinkingDelta", "ThinkingDone", "TextDelta",
+                                                  "TextDone", "TextDelta", "TextDone", "TurnDone"]
+    assert events[:3] == [ThinkingDelta(0, "Adding "), ThinkingDelta(0, "3:47 and 2:38."),
+                          ThinkingDone(0, "Adding 3:47 and 2:38.")]
+    assert events[4] == TextDone(1, "Six forty-two.") and events[6].block not in (0, 1)   # blocks stay distinct
+    assert events[-1].text == "Six forty-two. Done."            # thinking is never part of what is spoken

@@ -1,8 +1,8 @@
 """The Claude Code session behind the chat: one long-lived Agent SDK client, started in zpkt.
 
 A turn is one user message. Its reply arrives as a stream of events the conversation can act on as they happen:
-text as it is generated (so speech can start before the reply is finished), tool calls as they start and end,
-and the end of the turn. The session id is kept so the conversation survives a restart of the harness.
+text as it is generated (so speech can start before the reply is finished), thinking (summarized, never spoken),
+tool calls as they start and end, and the end of the turn. The session id is kept so the conversation survives a restart of the harness.
 """
 
 from __future__ import annotations
@@ -42,6 +42,18 @@ class TextDone:
 
 
 @dataclass
+class ThinkingDelta:
+    block: int
+    text: str
+
+
+@dataclass
+class ThinkingDone:
+    block: int
+    text: str
+
+
+@dataclass
 class ToolStart:
     id: str
     name: str
@@ -64,7 +76,7 @@ class TurnDone:
     session_id: str | None
 
 
-AgentEvent = TextDelta | TextDone | ToolStart | ToolDone | TurnDone
+AgentEvent = TextDelta | TextDone | ThinkingDelta | ThinkingDone | ToolStart | ToolDone | TurnDone
 
 OptionsFactory = Callable[[str | None], ClaudeAgentOptions]
 
@@ -172,12 +184,15 @@ class AgentSession:
 class _Reader:
     """Turns the SDK's messages into AgentEvents for one turn.
 
-    Text comes from the stream events (partial messages), so it arrives as it is generated. Subagents' messages
-    (parent_tool_use_id set) are left out: what they say is not Claude talking to Anthony.
+    Text and thinking come from the stream events (partial messages), so they arrive as they are generated.
+    Thinking arrives only as a summary, and only when the session asks for it (`display: summarized`); otherwise
+    its blocks are empty and yield nothing. Subagents' messages (parent_tool_use_id set) are left out: what they
+    say is not Claude talking to Anthony.
     """
 
     def __init__(self) -> None:
         self.blocks: dict[int, list[str]] = {}
+        self.thoughts: dict[int, list[str]] = {}
         self.block_base = 0           # stream indexes restart at 0 with each API message
         self.next_block = 0
         self.tools: dict[str, str] = {}
@@ -212,21 +227,29 @@ class _Reader:
             self.block_base = self.next_block
             return []
         index = self.block_base + int(ev.get("index", 0))
-        if kind == "content_block_start" and (ev.get("content_block") or {}).get("type") == "text":
-            self.blocks[index] = []
+        if kind == "content_block_start":
             self.next_block = max(self.next_block, index + 1)
-        elif kind == "content_block_delta" and index in self.blocks:
+            block = (ev.get("content_block") or {}).get("type")
+            if block == "text":
+                self.blocks[index] = []
+            elif block == "thinking":
+                self.thoughts[index] = []
+        elif kind == "content_block_delta":
             delta = ev.get("delta") or {}
-            if delta.get("type") == "text_delta" and delta.get("text"):
+            if index in self.blocks and delta.get("type") == "text_delta" and delta.get("text"):
                 self.blocks[index].append(delta["text"])
                 return [TextDelta(index, delta["text"])]
+            if index in self.thoughts and delta.get("type") == "thinking_delta" and delta.get("thinking"):
+                self.thoughts[index].append(delta["thinking"])
+                return [ThinkingDelta(index, delta["thinking"])]
         elif kind == "content_block_stop" and index in self.blocks:
             text = "".join(self.blocks.pop(index))
             if text.strip():
                 self.spoken.append(text)
             return [TextDone(index, text)]
-        elif kind == "content_block_start":
-            self.next_block = max(self.next_block, index + 1)
+        elif kind == "content_block_stop" and index in self.thoughts:
+            text = "".join(self.thoughts.pop(index)).strip()
+            return [ThinkingDone(index, text)] if text else []
         return []
 
 

@@ -5,8 +5,8 @@ It serves the real page (studio/static) and speaks the protocol deterministicall
 - `start` makes the page the owner and offers it the mic (phase `listening`, then `listen`);
 - mic frames become captions, and after `turn_frames` frames the turn ends as if "tomato" had been heard
   (`end_turn` and `say` end a turn too);
-- Claude's turn is `script`: by default activity rows, a narration, a screenshot pair, a reply spoken as a
-  streamed tone, and an A/B render that is `play`ed;
+- Claude's turn is `script`: by default thinking (streamed), tool calls and a screenshot pair (one trace on the
+  page), a narration, a reply spoken as a streamed tone, and an A/B render that is `play`ed;
 - `responding` lasts until the owner reports (`playback` idle with `done` >= the items it was sent) that it
   has played everything; then the mic is offered again;
 - `interrupt` cancels the turn and sends `stop_audio`.
@@ -37,6 +37,8 @@ LEVELS = {"none": 0, "major": 1, "minor": 2, "firehose": 3}
 CAPTION = "make the kick a little louder and play it against the old one"
 REPLY = ("I rendered the kick at its current level and three dB louder, switching every bar. "
          "A is the current level, B is the louder one.")
+THOUGHT = ("**Planning the kick A/B**\n\nHe wants the kick louder and compared with the current one. "
+           "I'll read the kick's chain, render both levels, and switch every bar so the difference is easy to hear.")
 TOOLS = [("Read", "Read kick-chain.json", 120), ("Bash", "Render the kick A/B in Live", 2300),
          ("mcp__studio__present_music", "Present Kick level: now vs +3 dB", 80)]
 
@@ -310,14 +312,18 @@ class FakeStudio:
     async def claude_turn(self, _text: str) -> None:
         """Claude's turn, the default script."""
         await self.set_phase("working", "Thinking")
-        for tool, title, ms in TOOLS:
+        thought = await self.upsert("thinking", text=THOUGHT[:40], streaming=True)
+        await asyncio.sleep(self.step_s)
+        await self.update(thought, text=THOUGHT, streaming=False)
+        for i, (tool, title, ms) in enumerate(TOOLS):
             act = await self.upsert("activity", tool=tool, title=title, status="running", detail=f"{tool}: {title}")
             await self.set_phase("working", title)
             await asyncio.sleep(self.step_s)
             await self.update(act, status="ok", ms=ms, output="done")
+            if i == 1:
+                await self.shot("major", "The kick’s device chain after the change")
         await self.upsert("agent", text="Rendering the kick at two levels", role="narration", audio=None,
                           duration=None, streaming=False)
-        await self.shot("major", "The kick’s device chain after the change")
         reply = await self.upsert("agent", text="", role="reply", audio=None, duration=None, streaming=True)
         await self.update(reply, text=REPLY, streaming=False)
         await self.speak(reply, self.speech_s)
@@ -409,6 +415,8 @@ class FakeStudio:
                                     duration=1.5)),
             lambda i: ("activity", dict(tool="Bash", title=f"Render step {i}", status="ok", ms=40 + i % 900,
                                         detail="python render.py")),
+            lambda i: ("thinking", dict(text=f"**Checking the hats**\n\nThought {i}: the send level first.",
+                                        streaming=False)),
             lambda i: ("activity", dict(tool="Read", title=f"Read notes {i}.md", status="ok", ms=12)),
             lambda i: ("agent", dict(text="Checking the hats' send level", role="narration", audio=None,
                                      duration=None, streaming=False)),
