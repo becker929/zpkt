@@ -44,6 +44,14 @@ def test_scale_and_unscale_invert(v, lo, hi, kind):
     assert PK.scale(PK.unscale(v, lo, hi, kind), lo, hi, kind) == pytest.approx(v)
 
 
+def test_scale_uses_the_knob_units():
+    from hands.live.knobs import Lin, Log
+    assert PK.scale(0.3, 50.0, 500.0, "log") == Log(50.0, 500.0).from_lom(0.3)
+    assert PK.unscale(0.45, 0.0, 0.6, "lin") == Lin(0.0, 0.6).to_lom(0.45)
+    with pytest.raises(ValueError, match="unknown scale"):
+        PK.scale(0.5, 1.0, 2.0, "exp")
+
+
 def test_unscale_bounds_and_switches():
     assert PK.scale(0.75, 0, 1, "bool") is True and PK.unscale(False, 0, 1, "bool") == 0.25
     with pytest.raises(ValueError, match="outside"):
@@ -136,6 +144,38 @@ def test_template_trims_and_doubles(rig, monkeypatch):
     assert edits == [("delete", 56.0, 144.0), ("delete", 8.0, 16.0),
                      ("duplicate", 8.0, 32.0, 72.0), ("duplicate", 8.0, 64.0, 136.0), ("save", "test_kit_t4")]
     assert made == PK.Kit.load("t4") and made.set == "test_kit_t4" and rig.set_path("test_kit_t4").exists()
+
+
+def _fake_template_live(monkeypatch, ends, saves=(True,)):
+    edits, ends, saves = [], iter(ends), iter(saves)
+    monkeypatch.setattr(session, "check", lambda client, where, **kw: "test_other")
+    monkeypatch.setattr(session, "open_set", lambda client, name, **kw: 6.0)
+    monkeypatch.setattr(session, "save", lambda name=None, **kw: edits.append(("save", name)) or next(saves))
+    monkeypatch.setattr(timeops, "song_end", lambda client: next(ends))
+    monkeypatch.setattr(timeops, "delete", lambda client, start, length, tol: edits.append(("delete", start, length)))
+    monkeypatch.setattr(timeops, "duplicate", lambda client, start, length, end, clips_from:
+                        edits.append(("duplicate", start, length, end)))
+    monkeypatch.setattr(PK.time, "sleep", lambda s: None)
+    return edits
+
+
+def test_template_carries_a_trailing_breakpoint_through_the_doublings(rig, monkeypatch):
+    planted_set(rig.set_path("test_src"))
+    edits = _fake_template_live(monkeypatch, [200.0, 41.5])  # a breakpoint 1.5 beats past the section
+    PK.template(MockTransport(), "t4", "test_src", 24.0, 56.0, 4)
+    assert [e for e in edits if e[0] == "duplicate"] == [("duplicate", 8.0, 32.0, 73.5), ("duplicate", 8.0, 64.0, 137.5)]
+
+
+def test_template_retries_a_greyed_out_save_once_then_stops(rig, monkeypatch):
+    planted_set(rig.set_path("test_src"))
+    edits = _fake_template_live(monkeypatch, [200.0, 40.0], saves=[False, True])
+    PK.template(MockTransport(), "t4", "test_src", 24.0, 56.0, 4)
+    assert [e for e in edits if e[0] == "save"] == [("save", "test_kit_t4")] * 2
+    PK.Kit.path("t4").unlink()
+    edits = _fake_template_live(monkeypatch, [200.0, 40.0], saves=[False, False])
+    with pytest.raises(Guard, match="stayed greyed out"):
+        PK.template(MockTransport(), "t4", "test_src", 24.0, 56.0, 4)
+    assert not PK.Kit.path("t4").exists()  # no kit file for a set that was never saved
 
 
 def test_template_refuses_odd_P_and_an_open_kit(rig, monkeypatch):

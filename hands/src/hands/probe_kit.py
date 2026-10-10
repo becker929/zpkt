@@ -19,7 +19,6 @@ patterns in every batch. Every Live step is guarded (session.check) and stops on
 from __future__ import annotations
 
 import json
-import math
 import time
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import asdict, dataclass
@@ -28,7 +27,7 @@ from pathlib import Path
 from hands import als, audio, config
 from hands.live import render as live_render
 from hands.live import session, timeops
-from hands.live.knobs import Knob
+from hands.live.knobs import Knob, Lin, Log
 from hands.live.session import stop
 from hands.live.transport import McpTransport
 from hands.steps import timing
@@ -98,18 +97,30 @@ def template(client: McpTransport, kit: str, src: str, keep_start: float, keep_e
     end = timeops.song_end(client)
     if not lead + pat <= end <= lead + pat + 2.0:
         stop(f"kit: after trims the set ends at {end}, expected about {lead + pat}")
+    slack = end - (lead + pat)  # a trailing breakpoint the trims kept; each doubling carries it along
     n = 1
     while n < P:
         t = time.monotonic()
-        timeops.duplicate(client, lead, n * pat, end=lead + 2 * n * pat, clips_from=lead)
+        timeops.duplicate(client, lead, n * pat, end=lead + 2 * n * pat + slack, clips_from=lead)
         timing("kit_duplicate", time.monotonic() - t, kit=kit, to_P=2 * n)
         n *= 2
         session.check(client, f"kit:dup{n}", expect_front=name)
-    session.save(name)
+    _save(name)
     session.check(client, "kit:saved", expect_front=name)
     made = Kit(kit=kit, set=name, src=src, keep=[keep_start, keep_end], lead=lead, pattern_beats=pat, P=P)
     made.save()
     return made
+
+
+def _save(name: str, wait_s: float = 2.0) -> None:
+    """Save the kit; stop if Live will not. After the trims and doublings there is always something
+    to save, so a greyed-out Save means Live was busy: try once more, then stop rather than leave
+    a kit pointing at the untrimmed set on disk."""
+    if session.save(name):
+        return
+    time.sleep(wait_s)
+    if not session.save(name):
+        stop(f"kit: File > Save Live Set stayed greyed out for {name}; the set on disk is not the kit")
 
 
 def write_batch(kit: Kit | str, tag: str, steps: Iterable[Step], devices: Iterable[tuple] = ()) -> str:
@@ -189,18 +200,24 @@ def constant(values: Mapping[Knob, object], P: int) -> list[Step]:
     return [(knob, [value] * P) for knob, value in values.items()]
 
 
+def _unit(lo: float, hi: float, kind: str) -> Lin:
+    if kind not in ("lin", "log"):
+        raise ValueError(f"unknown scale {kind!r}: lin, log or bool")
+    return Lin(lo, hi) if kind == "lin" else Log(lo, hi)
+
+
 def scale(u: float, lo: float, hi: float, kind: str) -> float | bool:
     """A knob value from a position u in [0, 1]: "lin" or "log" between lo and hi, or "bool"."""
     if kind == "bool":
         return bool(u >= 0.5)
-    return lo + (hi - lo) * u if kind == "lin" else lo * (hi / lo) ** u
+    return _unit(lo, hi, kind).from_lom(u)
 
 
 def unscale(v: float | bool, lo: float, hi: float, kind: str) -> float:
     """The position in [0, 1] of a knob value; raises if it is outside [lo, hi]."""
     if kind == "bool":
         return 0.75 if v else 0.25
-    u = (v - lo) / (hi - lo) if kind == "lin" else math.log(v / lo) / math.log(hi / lo)
+    u = _unit(lo, hi, kind).to_lom(v)
     if not -1e-6 <= u <= 1 + 1e-6:
         raise ValueError(f"value {v} outside [{lo}, {hi}]")
     return min(1.0, max(0.0, u))
