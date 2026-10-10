@@ -13,7 +13,7 @@ from aiohttp import web
 from claude_agent_sdk import ClaudeAgentOptions, HookMatcher
 
 from ..config import Config
-from ..jobs import JOB_TOOLS, job_env
+from ..jobs import job_env
 from . import tools
 from . import routes
 from .agent import AgentSession
