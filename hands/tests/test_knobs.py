@@ -82,7 +82,7 @@ def test_unmeasured_conversions_are_refused(device, param):
 
 def test_fader_and_switch_values():
     assert knobs.FADER.to_lom(0.5) == pytest.approx(-6.0206, abs=1e-4)
-    assert knobs.FADER.to_lom(0.0) == -1000.0
+    assert knobs.FADER.to_lom(0.0) is None  # silence, not a very low dB
     assert knobs.FADER.from_lom("-6.0 dB") == pytest.approx(0.501187, abs=1e-6)
     assert knobs.FADER.from_lom("-inf dB") == 0.0
     with pytest.raises(TypeError):
@@ -92,9 +92,9 @@ def test_fader_and_switch_values():
 # --------------------------------------------------------------------------- the LOM side
 
 class Param:
-    def __init__(self, name, value, lo=0.0, hi=1.0, automated=0, show=None, sticky=False):
+    def __init__(self, name, value, lo=0.0, hi=1.0, automated=0, show=None, sticky=False, refuse=False):
         self.name, self._value, self.min, self.max = name, value, lo, hi
-        self.automation_state, self.show, self.sticky = automated, show, sticky
+        self.automation_state, self.show, self.sticky, self.refuse = automated, show, sticky, refuse
 
     @property
     def value(self):
@@ -102,6 +102,8 @@ class Param:
 
     @value.setter
     def value(self, v):
+        if self.refuse:
+            raise RuntimeError("Invalid value")
         if not self.sticky:
             self._value = float(v)
 
@@ -125,6 +127,7 @@ class Track:
         self.mixer_device = type("Mixer", (), {})()
         self.mixer_device.volume = Param("Track Volume", 0.85, show=fader_db)
         self.mixer_device.panning = Param("Track Panning", 0.0, -1.0, 1.0)
+        self.mixer_device.track_activator = Param("Track Activator", 1.0)
 
 
 def song():
@@ -204,7 +207,7 @@ def test_apply_reads_back_in_a_second_call_and_checks():
     s = song()
     live = LocalLom(s)
     got = knobs.apply(live, {DRIVE: 0.6, SPEAKER: False})
-    assert len(live.calls) == 2 and "p.value = s[\"value\"]" in live.calls[0] and "p.value =" not in live.calls[1]
+    assert len(live.calls) == 2 and "p.value = value" in live.calls[0] and "p.value =" not in live.calls[1]
     assert got[DRIVE].value == 0.6
     s.tracks[0].devices[1].parameters[1].sticky = True   # Live keeps its old value
     with pytest.raises(KnobError, match="read back differs"):
@@ -219,3 +222,36 @@ def test_type_and_size_limits_hold_before_any_call():
     with pytest.raises(ValueError, match="more than 20 parameters"):
         knobs.set_many(live, many)
     assert live.calls == []
+
+
+def test_a_write_live_refuses_partway_puts_the_earlier_ones_back():
+    s = song()
+    rumble = s.tracks[0]
+    rumble.devices[2].parameters[2].refuse = True     # EQ Eight's "1 Gain A"
+    gain = Knob("rumble", ("Eq8", 0), "Bands.0/ParameterA/Gain")
+    with pytest.raises(KnobError, match=r"write failed, 3 earlier write\(s\) put back: .*ParameterA/Gain: write failed: Invalid value"):
+        knobs.set_many(LocalLom(s), {DRIVE: 0.6, SPEAKER: False, VOLUME: 0.5, gain: -3.0})
+    assert rumble.devices[1].parameters[1].value == 0.27
+    assert rumble.mute is False and rumble.mixer_device.volume.value == 0.85
+
+
+def test_fader_silence_is_the_bottom_and_out_of_range_is_refused():
+    s = song()
+    rumble = s.tracks[0]
+    knobs.set_many(LocalLom(s), {VOLUME: 0.0})
+    assert rumble.mixer_device.volume.value == 0.0 and fader_db(0.0) == "-inf dB"
+    with pytest.raises(KnobError, match="above the fader's top"):
+        knobs.set_many(LocalLom(s), {VOLUME: 2.0, DRIVE: 0.6})          # +6 dB; this fader tops out at +2.8
+    rumble.mixer_device.volume.show = lambda v: "-inf dB" if v < 0.1 else fader_db(v)  # quietest step -36.6 dB
+    with pytest.raises(KnobError, match="below the fader's quietest step"):
+        knobs.set_many(LocalLom(s), {VOLUME: 0.001})                    # -60 dB
+    assert rumble.mixer_device.volume.value == 0.0 and rumble.devices[1].parameters[1].value == 0.27
+
+
+def test_an_automated_mute_is_refused():
+    s = song()
+    s.tracks[0].mixer_device.track_activator.automation_state = 1
+    with pytest.raises(KnobError, match="Speaker: automated"):
+        knobs.set_many(LocalLom(s), {SPEAKER: False, DRIVE: 0.6})
+    assert s.tracks[0].mute is False
+    assert knobs.read_many(LocalLom(s), [SPEAKER])[SPEAKER].automated

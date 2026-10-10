@@ -157,7 +157,8 @@ class Fader(Unit):
     knows (str_for_value), so Live finds the position by bisection on the display."""
 
     def to_lom(self, v):
-        return max(-1000.0, 20 * math.log10(v)) if v > 0 else -1000.0  # dB, the target
+        """The target in dB; None for silence (0 or less), which is the bottom of the fader, -inf."""
+        return 20 * math.log10(v) if v > 0 else None
 
     def from_lom(self, display):
         text = display.replace(" dB", "")
@@ -258,15 +259,32 @@ def _param(track, s):
 '''
 
 _SET = _FIND + '''
+def _gate(t, s):
+    """The DeviceParameter whose automation a write would override (a mute's is the track activator)."""
+    if s["where"] == "mute":
+        return getattr(t.mixer_device, "track_activator", None)
+    return _param(t, s)
+
+def _db(p, v):
+    shown = p.str_for_value(v).replace(" dB", "")
+    return None if "inf" in shown else float(shown)
+
 def _fader(p, db):
+    if db is None:  # silence: the bottom of the fader, which shows -inf
+        return p.min
+    top = _db(p, p.max)
+    if db > top + 0.05:
+        raise ValueError("%.2f dB is above the fader's top, %.2f dB" % (db, top))
     lo, hi = p.min, p.max
     for _ in range(40):
         mid = (lo + hi) / 2
-        shown = p.str_for_value(mid).replace(" dB", "")
-        if "inf" in shown or float(shown) < db:
+        shown = _db(p, mid)
+        if shown is None or shown < db:
             lo = mid
         else:
             hi = mid
+    if _db(p, hi) - db > 0.5:
+        raise ValueError("%.2f dB is below the fader's quietest step, %.2f dB (0 is silence)" % (db, _db(p, hi)))
     return hi
 
 todo, problems = [], []
@@ -274,26 +292,49 @@ for s in SPEC:
     try:
         t = _track(s["track"])
         p = _param(t, s)
+        gate = _gate(t, s)
     except Exception as exc:
         problems.append("%s: %s" % (s["id"], exc))
         continue
-    if p is not None and p.automation_state != 0:
+    value = s["value"]
+    if gate is not None and gate.automation_state != 0:
         problems.append("%s: automated; a manual value would override the arrangement" % s["id"])
-    elif p is not None and s["where"] != "volume" and not p.min - 1e-6 <= s["value"] <= p.max + 1e-6:
-        problems.append("%s: %r is outside the LOM range [%r, %r]" % (s["id"], s["value"], p.min, p.max))
-    else:
-        todo.append((s, t, p))
-written = {}
+        continue
+    if s["where"] == "volume":
+        try:
+            value = _fader(p, value)
+        except ValueError as exc:
+            problems.append("%s: %s" % (s["id"], exc))
+            continue
+    elif p is not None and not p.min - 1e-6 <= value <= p.max + 1e-6:
+        problems.append("%s: %r is outside the LOM range [%r, %r]" % (s["id"], value, p.min, p.max))
+        continue
+    todo.append((s, t, p, value))
+written, done, failed = {}, [], False
 if not problems:
-    for s, t, p in todo:
-        if s["where"] == "mute":
-            t.mute = not s["value"]
-        else:
-            if s["where"] == "volume":
-                s["value"] = _fader(p, s["value"])
-            p.value = s["value"]
-        written[s["id"]] = s["value"]
-result = {"problems": problems, "written": written}
+    try:
+        for s, t, p, value in todo:
+            if p is None:
+                old = t.mute
+                t.mute = not value
+            else:
+                old = p.value
+                p.value = value
+            done.append((s, t, p, old))
+            written[s["id"]] = value
+    except Exception as exc:
+        failed = True
+        problems.append("%s: write failed: %s" % (s["id"], exc))
+        for s, t, p, old in reversed(done):
+            try:
+                if p is None:
+                    t.mute = old
+                else:
+                    p.value = old
+            except Exception as exc:
+                problems.append("%s: could not restore %r: %s" % (s["id"], old, exc))
+        written = {}
+result = {"problems": problems, "written": written, "failed": failed, "restored": len(done) if failed else 0}
 '''
 
 _READ = _FIND + '''
@@ -302,7 +343,8 @@ for s in SPEC:
     t = _track(s["track"])
     p = _param(t, s)
     if p is None:
-        result[s["id"]] = [not t.mute, "on" if not t.mute else "off", 0]
+        gate = getattr(t.mixer_device, "track_activator", None)
+        result[s["id"]] = [not t.mute, "on" if not t.mute else "off", gate.automation_state if gate else 0]
     else:
         result[s["id"]] = [p.value, p.str_for_value(p.value), p.automation_state]
 '''
@@ -335,11 +377,17 @@ class Reading:
 def set_many(client: McpTransport, values: Mapping[Knob, Any]) -> dict[Knob, Any]:
     """Write knob values (.als units) in one LOM call; return what was written, in LOM units.
 
-    Every knob is found and checked first; if any is missing, automated, out of the LOM range or
-    without a known conversion, nothing is written and KnobError (or KeyError) says why.
+    Every knob is found and checked first (a fader's position too); if any is missing, automated
+    (a mute's track activator included), out of the LOM or fader range or without a known
+    conversion, nothing is written and KnobError (or KeyError) says why. If Live refuses a write
+    partway, the values already written in that call are put back before KnobError. The one case
+    this cannot cover is the server's 12 s timeout cutting the call off mid-write; set_many's
+    calls are a few writes, far below that.
     """
     specs = _specs(values, values)
     res = client.run(f"SPEC = {specs!r}\n" + _SET)
+    if res["problems"] and res.get("failed"):
+        raise KnobError(f"write failed, {res['restored']} earlier write(s) put back: " + "; ".join(res["problems"]))
     if res["problems"]:
         raise KnobError("nothing written: " + "; ".join(res["problems"]))
     steps.report(f"set {len(values)} knob(s)", "minor")
