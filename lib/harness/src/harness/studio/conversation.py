@@ -35,6 +35,9 @@ log = logging.getLogger(__name__)
 PAGE = 40                     # messages in the first page a phone gets
 MAX_RECORDING_S = 600         # of one spoken turn kept for replay
 TEXT_PUSH_S = 0.15            # how often a reply's growing text is pushed to the phones
+INTERRUPT_S = 10.0            # how long Claude gets to stop after an interrupt before its session is dropped
+SPEECH_MAX_S = 90.0           # no utterance is longer: the latest a phone can still be playing one
+PLAYBACK_SLACK_S = 15.0       # on top of an item's own length, before giving up on the phone's "done"
 
 
 @dataclass
@@ -69,8 +72,9 @@ class Conversation:
         self._done = 0                        # ... that it reports finished or dropped
         self._owner_idle = asyncio.Event()
         self._owner_idle.set()
+        self._deadline = 0.0                  # when everything sent should have played, even if no "done" arrives
         self._interrupted = False
-        self._push_pending: set[int] = set()
+        self._push_later: dict[int, asyncio.TimerHandle] = {}   # growing replies, pushed at most every TEXT_PUSH_S
 
     # --- lifecycle -----------------------------------------------------------------------------------------------
     def start(self) -> None:
@@ -102,6 +106,9 @@ class Conversation:
         return msg
 
     def save(self, msg: Message) -> None:
+        later = self._push_later.pop(msg.seq, None)
+        if later is not None:
+            later.cancel()                       # this push supersedes it
         self.store.update(msg)
         self.push(msg)
 
@@ -201,6 +208,13 @@ class Conversation:
             self.speaker.cancel()
             self.stop_audio()
             await self.agent.interrupt()     # the turn ends; _agent_turn hands the mic back
+            work = self._work
+            if work is not None and not work.done():
+                done, _ = await asyncio.wait({work}, timeout=INTERRUPT_S)
+                if not done:
+                    log.warning("Claude did not stop within %.0f s; dropping its session", INTERRUPT_S)
+                    work.cancel()
+                    await self.agent.close()      # the next turn resumes the session in a fresh CLI
         elif self.phase is Phase.RESPONDING:
             self.speaker.cancel()
             self.stop_audio()
@@ -388,7 +402,8 @@ class Conversation:
                     if not ev.ok and not self._interrupted:
                         self.notice(f"Claude stopped: {ev.text[:300]}", "error", keep=True)
         except asyncio.CancelledError:
-            raise
+            if not self._interrupted:
+                raise                        # the server is stopping
         except Exception as exc:  # noqa: BLE001 - tell Anthony, keep the app alive
             log.exception("agent turn failed")
             self.notice(f"Claude failed: {type(exc).__name__}: {exc}"[:400], "error", keep=True)
@@ -430,15 +445,12 @@ class Conversation:
 
     def _push_soon(self, msg: Message) -> None:
         """Push a growing reply at most every TEXT_PUSH_S (the store gets it when the block is done)."""
-        if msg.seq in self._push_pending:
-            return
-        self._push_pending.add(msg.seq)
+        if msg.seq not in self._push_later:
+            self._push_later[msg.seq] = asyncio.get_running_loop().call_later(TEXT_PUSH_S, self._push_now, msg)
 
-        def push() -> None:
-            self._push_pending.discard(msg.seq)
-            self.push(msg)
-
-        asyncio.get_running_loop().call_later(TEXT_PUSH_S, push)
+    def _push_now(self, msg: Message) -> None:
+        self._push_later.pop(msg.seq, None)
+        self.push(msg)
 
     async def _respond(self) -> None:
         """Claude is done: wait for the phone to play everything, then hand it the mic."""
@@ -446,7 +458,15 @@ class Conversation:
         await self.speaker.idle()
         while self.hub.owner is not None and self._done < self._sent:
             self._owner_idle.clear()
-            await self._owner_idle.wait()
+            wait = self._deadline - time.monotonic()
+            if wait <= 0:
+                log.warning("the phone never reported playing %d of %d items; going on", self._sent - self._done,
+                            self._sent)
+                break
+            try:
+                await asyncio.wait_for(self._owner_idle.wait(), wait)
+            except asyncio.TimeoutError:
+                pass
         if self.clock:
             self.clock.mark("responded")
         if self.phase is not Phase.RESPONDING:
@@ -456,6 +476,16 @@ class Conversation:
             self._offer_mic()
         else:
             self._set_phase(Phase.IDLE)
+
+    def unprompted(self, event: Any) -> None:
+        """Claude acting without a turn of Anthony's (e.g. a background task it started has finished). It goes in
+        the chat as a written note and activity, not spoken: the mic may be his at that moment."""
+        if isinstance(event, TextDone) and event.text.strip():
+            self.add(Kind.AGENT, {"text": event.text, "role": "note", "audio": None, "duration": None,
+                                  "streaming": False})
+        elif isinstance(event, ToolStart):
+            self.add(Kind.ACTIVITY, {"tool": event.name, "title": describe(event.name, event.input), "status": "ok",
+                                     "detail": detail(event.input)})
 
     # --- music -----------------------------------------------------------------------------------------------------
     async def present_music(self, path: Path, title: str, ab: dict[str, Any] | None, note: str) -> Message:
@@ -477,7 +507,7 @@ class Conversation:
         msg.data["plays"] = int(msg.data.get("plays", 0)) + loops
         self.save(msg)
         if self.hub.to_owner({"type": "play", "seq": seq, "loops": loops}):
-            self._sent_item()
+            self._sent_item(float(msg.data.get("duration") or 0) * loops)
         return msg
 
     def last_music(self) -> Message | None:
@@ -489,9 +519,13 @@ class Conversation:
         self._sent = self._done = 0
         self._owner_idle.set()
 
-    def _sent_item(self) -> None:
+    def _sent_item(self, seconds: float | None = None) -> None:
+        """One more item for the owner to play; it should be done within `seconds` (plus slack) of now. A speech
+        stream's length isn't known when it starts, so it gets the longest an utterance can be."""
         self._sent += 1
         self._owner_idle.clear()
+        length = SPEECH_MAX_S if seconds is None else seconds
+        self._deadline = max(self._deadline, time.monotonic() + length + PLAYBACK_SLACK_S)
 
     # --- the agent's environment -------------------------------------------------------------------------------
     def tool_env(self) -> dict[str, str]:

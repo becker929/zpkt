@@ -82,7 +82,6 @@ async def rig(tmp_path):
                          env={"VOICE_FAKE_TEXT": "make the kick louder tomato", "VOICE_FAKE_AFTER_S": "0.4"})
     agent = FakeAgent()
     studio = Studio(cfg, worker=worker, agent=agent, capture=FakeCapture(), summarize=no_narration)
-    studio.screens.REUSE_S = 0          # the scripted turns are instant: take a fresh capture every time
     app = App(cfg, None, cfg.skrng_dir, secure_cookie=False, studio=studio)
     client = TestClient(TestServer(app.build()))
     await client.start_server()
@@ -163,13 +162,14 @@ async def test_a_spoken_turn_end_to_end(rig):
                                                                   "every": 1, "labels": {"A": "now", "B": "+2 dB"}}, "")
 
     bash = {"command": "echo render", "description": "Render the A/B"}
+    hooks, call = studio.screens.hooks(), {"tool_name": "Bash", "tool_input": bash}
     agent.script = lambda prompt: [
         TextDelta(0, "Sure, a louder kick. "), TextDelta(0, "Rendering it now."),
         TextDone(0, "Sure, a louder kick. Rendering it now."),
         ToolStart("t1", "Bash", bash),
-        functools.partial(studio.screens.before_tool, "t1", "Bash", bash),    # what the SDK's hooks do
+        functools.partial(hooks["pre"], call, "t1", None),        # what the SDK does around the tool
         render,
-        functools.partial(studio.screens.after_tool, "t1", "Bash", bash),
+        functools.partial(hooks["post"], call, "t1", None),
         ToolDone("t1", "Bash", True, "done"),
         TextDelta(1, "Here it is."), TextDone(1, "Here it is."),
         TurnDone("Here it is.", True, 0.01, "sess-1"),
@@ -274,3 +274,42 @@ async def test_history_pages_and_a_new_conversation(rig):
     await page.until(lambda m: m["type"] == "reset")
     fresh = await (await client.get("/studio/api/messages")).json()
     assert fresh == {"items": [], "has_more": False}
+
+
+async def test_a_claude_that_ignores_the_interrupt_is_dropped(rig, monkeypatch):
+    client, studio, agent, _ = rig
+    monkeypatch.setattr("harness.studio.conversation.INTERRUPT_S", 0.3)
+    closed = []
+
+    async def stuck():
+        await asyncio.Event().wait()             # never stops on its own
+
+    async def close():
+        closed.append(True)
+
+    agent.interrupt = lambda: asyncio.sleep(0)   # the interrupt goes nowhere
+    agent.close = close
+    agent.script = lambda prompt: [ToolStart("t1", "Bash", {"command": "hang"}), stuck]
+    page = await connect(client, {"autoplay": True, "shots": "none"})
+    await page.ws.send_json({"type": "start"})
+    await page.until(lambda m: m["type"] == "listen")
+    await page.ws.send_json({"type": "say", "text": "hang please"})
+    await page.until(lambda m: m["type"] == "phase" and m["phase"] == "working" and m["label"] == "hang")
+    now = page.mark()
+    await page.ws.send_json({"type": "interrupt"})
+    await page.until(lambda m: m["type"] == "listen", since=now, timeout=5)
+    assert closed == [True]
+
+
+async def test_the_mic_opens_even_if_the_phone_never_says_it_finished(rig, monkeypatch):
+    client, studio, agent, _ = rig
+    monkeypatch.setattr("harness.studio.conversation.SPEECH_MAX_S", 0.2)
+    monkeypatch.setattr("harness.studio.conversation.PLAYBACK_SLACK_S", 0.2)
+    agent.script = lambda prompt: [TextDelta(0, "Done."), TextDone(0, "Done."), TurnDone("Done.", True, 0, "s")]
+    page = await connect(client)
+    await page.ws.send_json({"type": "start"})
+    await page.until(lambda m: m["type"] == "listen")
+    now = page.mark()
+    await page.ws.send_json({"type": "say", "text": "quick one"})
+    await page.until(lambda m: m["type"] == "speech" and m["state"] == "end", since=now)
+    await page.until(lambda m: m["type"] == "listen", since=now, timeout=5)    # no playback message was sent

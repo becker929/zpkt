@@ -52,7 +52,11 @@ lib/harness/src/harness/studio/
   intents.py       spoken commands handled without Claude (play again, loop N times, stop)
   speech.py        the voice worker's client, and the speaker: text to segments to streamed audio to a replay file
   narrator.py      Haiku narration: rate-limited, stale lines dropped
-  screens.py       screenshot pairs at the chosen level
+  screens.py       screenshot pairs at the chosen level: when to capture, and the chat messages
+  shots.py         saliency (what changed), the 4:3 zoom, WebP presets per level
+  grab.py          the capture: screengrab.swift (ScreenCaptureKit), built on first use; screencapture fallback
+  guard.py         the hard rules on the session's shell commands
+  activity.py      tool calls in a few words
   timing.py        per-turn timing marks (V1 measurement)
   static/          the page: plain ES modules, no build step
 lib/voice/src/voice/
@@ -87,19 +91,77 @@ The page keeps at most a window of messages in the DOM and in memory (a cap of a
 new ones arrive; a **Load earlier** button (with a spinner) fetches the previous page from the server. Decoded audio
 is kept in a small LRU.
 
+## Making music: plans, the render cache, A/B every bar
+
+The voice loop changes the music by **plans**. A plan is a small JSON document that says which knobs of a base set
+take which values, for one section:
+
+```json
+{"kit": "c8x4", "knobs": {"<canonical knob id>": 0.5, "<another>": 1.2}, "label": "kick drive 50%"}
+```
+
+- **kit**: a probe kit (`hands.probe_kit`): a copy of the set trimmed to a lead-in plus one section repeated P times.
+  Kits are built once, in the GUI, and reused. A kit is the plan's base; its version is the hash of its XML.
+- **knobs**: canonical ids from `hands.live.knobs`, values in the set's own units. Knobs a plan leaves out keep the
+  kit's value.
+
+**Rendering packs plans.** Plans on the same kit are written into one copy of the kit, one pattern each, and
+rendered with one load and one export (`hands.probe_kit`): about 7 s to load and 13 s plus a tenth of the audio's
+length to export. Four plans cost barely more than two, so every render is a **write-ahead**: with the A/B it renders
+the likely next asks too ("more": B pushed as far again; "the other end": A pushed the other way). When Anthony says
+"more", that A/B is already rendered and plays within a second.
+
+**The cache** keeps every render by its key: the kit's version plus the canonical plan (knobs sorted, values
+rounded). A plan already rendered plays at once. **Nearest neighbour**: knob values are scaled to their ranges, so
+distances compare across knobs; a cached plan within a small distance is offered while the exact one renders.
+
+**A/B every bar.** Two renders of the same section become one file: each is set to the same loudness (mlab's
+meter), the first bar (the previous pattern's tail) is dropped, and bars alternate A, B, A, B with 10 ms crossfades.
+The file goes to the chat with `present_music` and its `ab` metadata (bar length, bars, which side starts, labels),
+and the page lights A or B in time.
+
+These are skills in `.claude/skills/` (render-plan, ab-1bar, plan-cache) over one CLI, `hands plan`, so Claude uses
+them like any other script and they keep growing.
+
 ## Screenshots
 
 Levels: **none**, **major** (default), **minor**, **firehose**. Each shot is a pair: the full screen and a zoom into
-what changed (the difference from the previous capture, else a hint, else the front window), WebP, sized to keep text
-legible. What counts as what:
+what changed, WebP. What counts as what:
 
 - major: the end of a turn in which the screen changed, an explicit `screenshot` call by Claude, and steps a script
   reports as major;
-- minor: every tool call (before/after difference), and steps scripts report as minor;
-- firehose: a capture every second or so while a tool runs (only when something changed), and every reported step.
+- minor: every tool call (the zoom shows what it changed), and steps scripts report as minor;
+- firehose: a look every second while a tool runs (posted only when something changed), and every reported step.
 
 Nothing is captured below the highest level any connected page asked for. Scripts report steps by posting to a
 loopback-only endpoint whose URL and token are in their environment (`STUDIO_STEP_URL`, `STUDIO_STEP_TOKEN`).
+
+**Never in Claude's way.** The hook before a tool captures nothing, and the hook after it queues the tool's shot and
+returns at once. Captures are taken one at a time, each compared with the one before it: the previous step's, or the
+turn's first, which is taken in the background as the turn starts (the turn's end is compared with it too). Those
+are the only frames kept.
+
+**Capture.** A small ScreenCaptureKit helper (`studio/screengrab.swift`) stays running; a capture costs ~40 ms. At
+firehose level it holds a stream open while a tool runs (2 fps, opened at the first look, so quick tools never open
+it): a look reads the latest frame in a few ms, and a still screen gives the same frame again, so there is nothing to
+compare. The harness compiles the helper on first use (a few seconds) into the data directory, as
+`bin/screengrab-<hash of its source>`, so no binary is committed. Without `swiftc`, or when the helper keeps failing,
+`screencapture` takes over (~130 ms, converted from the display's colour profile to sRGB).
+
+Screen Recording belongs to the process that started the harness: run it in tmux, which holds the permission.
+Without it a capture shows only the wallpaper, so screenshots turn off instead, and the chat says why, once.
+
+**The zoom** goes where the screen changed. Changed pixels are counted in 8 px cells and nearby cells are grouped;
+the group a zoom can show most of wins, weighted by how much of the zoom it fills, so a dialog beats a sprawling
+re-layout, and a caret, a meter or the playhead counts for little. The menu bar (its clock) is ignored. Near a hint
+(where Claude acted) a change counts four times as much, and far from it only a big one wins. While a tool is
+watched, what keeps changing on its own (video, meters, the playhead) is learnt and ignored. With no change: the
+hint, then the front window (a modal alert counts), then the centre. The zoom is 4:3, from 480x360 to 960x720.
+
+**Sizes.** major and minor: the full screen at native 1080p, q75 (73-111 KB), and the zoom at native pixels, q90
+(9-46 KB). Over budget (120 KB, 60 KB) the quality steps down to q50, then the full screen shrinks; the zoom is never
+resized. firehose: the full screen at 720p, q70 (~52 KB), and the zoom at q85. `rect` is the zoom in screen pixels
+and `screen` the capture's size: the page outlines the zoom on the full image, scaled by `full.w / screen[0]`.
 
 ## WebSocket protocol (`/studio/ws`)
 
@@ -119,7 +181,7 @@ Phone → Mac:
 | `say` | `text` | a typed turn |
 | `end_turn` | | end my turn now (same as saying the stop word) |
 | `interrupt` | | stop Claude and everything playing; my turn |
-| `playback` | `state` (busy/idle) | the phone started playing, or has played everything |
+| `playback` | `state` (busy/idle), `done` | the phone started playing, or has played everything; `done` counts the items it has finished or dropped |
 | `mark` | `turn`, `name`, `ms` | a timing mark measured on the phone |
 | `ping` | `t` | keepalive |
 
@@ -127,7 +189,7 @@ Mac → phone:
 
 | type | fields | meaning |
 |---|---|---|
-| `welcome` | `conversation`, `phase`, `page` (`items`, `has_more`), `version` | after `hello` |
+| `welcome` | `conversation`, `phase`, `turn`, `label`, `owner`, `speech_ready`, `page` (`items`, `has_more`), `version` | after `hello` |
 | `phase` | `phase` (idle/listening/working/responding), `turn`, `label` | whose turn it is, and what Claude is doing |
 | `listen` | `turn` | open the mic now (sent to the phone that owns it) |
 | `unlisten` | `turn` | close the mic now |
@@ -135,9 +197,16 @@ Mac → phone:
 | `upsert` | `message` | a message is new or changed |
 | `speech` | `stream`, `seq`, `rate`, `state` (begin/end) | a speech stream starts or ends; its audio comes in `0x02` frames |
 | `play` | `seq`, `loops` | play a music message, after anything already queued |
-| `stop_audio` | | stop and clear everything playing |
+| `stop_audio` | | stop and clear everything playing (and restart the `done` count) |
+| `reset` | `conversation` | a new conversation started: clear the chat |
 | `notice` | `level`, `text` | a passing notice |
 | `pong` | `t` | |
+
+**Counting items.** An item is one `speech` stream (begin to end) or one `play` command. The phone counts every
+item it finishes or drops (stopped, interrupted, replaced by a tap) and reports the count in `playback`; the count
+restarts when the phone sends `start` and when it receives `stop_audio`. The Mac opens the mic only when the count
+has caught up with what it sent, so a lost message can't open the mic over the music. Speech streams are sent only
+to a phone with autoplay on; `play` commands are explicit requests and play either way.
 
 HTTP (all behind the password): `GET /studio/api/messages?before=<seq>&limit=<n>` →
 `{"items": [...oldest first...], "has_more": bool}`; `GET /studio/api/timings?turns=<n>`;

@@ -70,9 +70,21 @@ OptionsFactory = Callable[[str | None], ClaudeAgentOptions]
 
 
 class AgentSession:
-    def __init__(self, options: OptionsFactory, client_factory: Callable[[ClaudeAgentOptions], Any] = ClaudeSDKClient):
+    """One Claude Code CLI, read by one task for its whole life.
+
+    The SDK holds only a small buffer of parsed messages, and hooks and tool calls are answered through the same
+    stream, so it must be drained all the time, not only during a turn. The reader routes each event to the turn
+    in flight; events with no turn in flight (the session can start turns by itself, e.g. when a background task
+    finishes) go to `unprompted`.
+    """
+
+    def __init__(self, options: OptionsFactory, client_factory: Callable[[ClaudeAgentOptions], Any] = ClaudeSDKClient,
+                 unprompted: Callable[[AgentEvent], None] | None = None):
         self._options, self._client_factory = options, client_factory
+        self.unprompted = unprompted
         self._client: Any = None
+        self._reader: asyncio.Task | None = None
+        self._turn: asyncio.Queue[AgentEvent] | None = None
         self._lock = asyncio.Lock()          # one turn at a time
         self.session_id: str | None = None
 
@@ -93,9 +105,13 @@ class AgentSession:
             client = self._client_factory(self._options(None))
             await client.connect()
         self._client, self.session_id = client, resume
+        self._reader = asyncio.create_task(self._read(client), name="claude-session")
 
     async def close(self) -> None:
         client, self._client = self._client, None
+        if self._reader is not None:
+            self._reader.cancel()
+            self._reader = None
         if client is not None:
             try:
                 await client.disconnect()
@@ -113,22 +129,44 @@ class AgentSession:
         """Send one user message; yield what happens until the turn ends."""
         async with self._lock:
             await self.connect(self.session_id)
-            await self._client.query(prompt)
-            reader = _Reader()
+            queue: asyncio.Queue[AgentEvent] = asyncio.Queue()
+            self._turn = queue
             try:
-                async for msg in self._client.receive_response():
-                    for event in reader.read(msg):
-                        if isinstance(event, TurnDone) and event.session_id:
-                            self.session_id = event.session_id
-                        yield event
-                    sid = getattr(msg, "session_id", None) or (msg.data.get("session_id")
-                                                                if isinstance(msg, SystemMessage) else None)
-                    if sid:
-                        self.session_id = sid
-            except Exception:
-                # A dead CLI can't take the next turn: drop it, and the next turn reconnects (resuming).
-                await self.close()
-                raise
+                await self._client.query(prompt)
+                while True:
+                    event = await queue.get()
+                    yield event
+                    if isinstance(event, TurnDone):
+                        return
+            finally:
+                self._turn = None
+
+    async def _read(self, client: Any) -> None:
+        reader = _Reader()
+        try:
+            async for msg in client.receive_messages():
+                sid = getattr(msg, "session_id", None) or (msg.data.get("session_id")
+                                                            if isinstance(msg, SystemMessage) else None)
+                if sid:
+                    self.session_id = sid
+                for event in reader.read(msg):
+                    self._route(event)
+                    if isinstance(event, TurnDone):
+                        reader = _Reader()
+        except asyncio.CancelledError:
+            raise
+        except Exception:  # noqa: BLE001 - the CLI died; the next turn starts a new one
+            log.exception("the Claude session ended")
+        if self._client is client:
+            self._client = None
+        if self._turn is not None:
+            self._turn.put_nowait(TurnDone("The Claude session ended unexpectedly.", False, None, self.session_id))
+
+    def _route(self, event: AgentEvent) -> None:
+        if self._turn is not None:
+            self._turn.put_nowait(event)
+        elif self.unprompted is not None:
+            self.unprompted(event)
 
 
 class _Reader:
