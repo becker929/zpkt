@@ -52,7 +52,11 @@ lib/harness/src/harness/studio/
   intents.py       spoken commands handled without Claude (play again, loop N times, stop)
   speech.py        the voice worker's client, and the speaker: text to segments to streamed audio to a replay file
   narrator.py      Haiku narration: rate-limited, stale lines dropped
-  screens.py       screenshot pairs at the chosen level
+  screens.py       screenshot pairs at the chosen level: when to capture, and the chat messages
+  shots.py         saliency (what changed), the 4:3 zoom, WebP presets per level
+  grab.py          the capture: screengrab.swift (ScreenCaptureKit), built on first use; screencapture fallback
+  guard.py         the hard rules on the session's shell commands
+  activity.py      tool calls in a few words
   timing.py        per-turn timing marks (V1 measurement)
   static/          the page: plain ES modules, no build step
 lib/voice/src/voice/

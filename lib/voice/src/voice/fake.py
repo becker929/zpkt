@@ -37,16 +37,19 @@ class FakeTurn:
         self.partials = 0
 
     def feed(self, pcm: np.ndarray) -> list[dict[str, Any]]:
+        """A caption grows with the audio heard; the final comes once `after_s` of it has arrived. Audio that
+        arrives in one big piece (frames pile up while the model thread is busy) still gets a caption first."""
         self.samples += len(pcm)
         heard = self.samples / self.rate
-        if heard >= self.after_s:
-            return [self._final(stop_word=True)]
         words = self.text.split()
-        n = int(len(words) * heard / self.after_s)
+        n = min(len(words), max(1, int(len(words) * heard / self.after_s)))
+        events: list[dict[str, Any]] = []
         if n > self.partials:
             self.partials = n
-            return [{"op": "stt.partial", "text": " ".join(words[:n])}]
-        return []
+            events.append({"op": "stt.partial", "text": " ".join(words[:n])})
+        if heard >= self.after_s:
+            events.append(self._final(stop_word=True))
+        return events
 
     def finish(self) -> dict[str, Any]:
         return self._final(stop_word=False)
