@@ -1,0 +1,160 @@
+"""Narration: while Claude works in silence, a small model says in a few words what it is doing.
+
+Rules (plan V2): speak only after Claude has been quiet for a while, never more often than a minimum gap, never
+twice about the same activity, and drop a line that went stale while it was being written (Claude spoke, or the
+turn ended). If the model fails or is slow, say nothing rather than something generic.
+"""
+
+from __future__ import annotations
+
+import asyncio
+import logging
+import time
+from collections.abc import Awaitable, Callable
+
+from claude_agent_sdk import AssistantMessage, ClaudeAgentOptions, ClaudeSDKClient, TextBlock
+
+log = logging.getLogger(__name__)
+
+PROMPT = """You narrate, in ONE short spoken sentence (at most 12 words), what an AI music-production assistant is \
+doing right now, for its user, who is listening (maybe driving) and cannot see the screen. First person ("I'm..."). \
+Plain words: no file names, paths, code, tool names or numbers that need reading. Say what it means for the music or \
+the task. Do not repeat what was already said. Reply with the sentence only.
+
+The user asked: {request}
+Already said: {said}
+What the assistant did since then, oldest first:
+{activity}"""
+
+
+Summarize = Callable[[str], Awaitable[str]]
+
+
+class Narrator:
+    QUIET_S = 6.0       # Claude has said nothing for this long while working
+    MIN_GAP_S = 10.0    # between two narrations
+    TIMEOUT_S = 8.0     # a line that takes longer is stale anyway
+    MAX_WORDS = 16
+
+    def __init__(self, summarize: Summarize, speak: Callable[[str], None], clock: Callable[[], float] = time.monotonic):
+        self._summarize, self._speak, self._now = summarize, speak, clock
+        self._task: asyncio.Task | None = None
+        self._turn = 0
+        self.request = ""
+        self.activity: list[str] = []
+        self.said: list[str] = []
+        self.last_voice = 0.0      # when anything was last said (by Claude or by the narrator)
+        self.last_line = 0.0
+        self.narrated_upto = 0     # activity before this index has been narrated
+
+    def turn_started(self, request: str) -> None:
+        self._turn += 1
+        self.request, self.activity, self.said = request[:400], [], []
+        self.last_voice = self._now()
+        self.last_line = 0.0
+        self.narrated_upto = 0
+        if self._task is None or self._task.done():
+            self._task = asyncio.create_task(self._watch(self._turn), name="narrator")
+
+    def note(self, line: str) -> None:
+        """Something Claude did (a tool call, in a few words)."""
+        self.activity.append(line[:200])
+
+    def spoke(self) -> None:
+        """Claude itself said something: that is narration enough for now."""
+        self.last_voice = self._now()
+        self.narrated_upto = len(self.activity)
+
+    def turn_ended(self) -> None:
+        self._turn += 1
+        if self._task:
+            self._task.cancel()
+            self._task = None
+
+    def due(self) -> bool:
+        now = self._now()
+        return (len(self.activity) > self.narrated_upto and now - self.last_voice >= self.QUIET_S
+                and now - self.last_line >= self.MIN_GAP_S)
+
+    async def _watch(self, turn: int) -> None:
+        while turn == self._turn:
+            await asyncio.sleep(0.5)
+            await self.tick(turn)
+
+    async def tick(self, turn: int | None = None) -> str | None:
+        """Narrate now if it is due; returns the line spoken, if any."""
+        turn = self._turn if turn is None else turn
+        if not self.due():
+            return None
+        upto = len(self.activity)
+        prompt = PROMPT.format(request=self.request or "(nothing yet)",
+                               said=" / ".join(self.said[-3:]) or "(nothing yet)",
+                               activity="\n".join(f"- {a}" for a in self.activity[self.narrated_upto:upto][-8:]))
+        asked = self._now()
+        try:
+            line = await asyncio.wait_for(self._summarize(prompt), self.TIMEOUT_S)
+        except Exception as exc:  # noqa: BLE001 - narration is optional
+            log.info("no narration: %s", exc)
+            self.last_line = self._now()
+            return None
+        line = clean(line, self.MAX_WORDS)
+        if turn != self._turn or not line or self.last_voice > asked:
+            return None                  # stale: the turn ended, or Claude spoke meanwhile
+        self.said.append(line)
+        self.narrated_upto = upto
+        self.last_line = self.last_voice = self._now()
+        self._speak(line)
+        return line
+
+
+def clean(line: str, max_words: int) -> str:
+    line = " ".join(line.replace("\n", " ").strip().strip('"').split())
+    words = line.split()
+    if len(words) > max_words:
+        line = " ".join(words[:max_words]).rstrip(",;:") + "."
+    return line
+
+
+class HaikuLines:
+    """Narration lines from a small model through the Mac's own Claude login, in one long-lived CLI with thinking
+    off: about 0.6 s a line, against 1.1 s for a fresh process per line (and 2-4 s with thinking on). Lines are
+    asked one at a time, and the context is cleared after each, so it never grows."""
+
+    SYSTEM = "You write one short spoken sentence."
+
+    def __init__(self, model: str, cli_path: str | None, env: dict[str, str]):
+        self.options = ClaudeAgentOptions(
+            model=model, cli_path=cli_path, tools=[], setting_sources=[], system_prompt=self.SYSTEM, max_turns=1,
+            thinking={"type": "disabled"}, extra_args={"no-session-persistence": None},
+            env={**env, "ENABLE_CLAUDEAI_MCP_SERVERS": "false"})
+        self._client: ClaudeSDKClient | None = None
+        self._lock = asyncio.Lock()
+
+    async def __call__(self, prompt: str) -> str:
+        async with self._lock:
+            try:
+                if self._client is None:
+                    self._client = ClaudeSDKClient(self.options)
+                    await self._client.connect()
+                line = await self._ask(prompt)
+                await self._ask("/clear")
+                return line
+            except BaseException:
+                await self.close()             # a timeout or a dead CLI: start fresh next time
+                raise
+
+    async def _ask(self, prompt: str) -> str:
+        parts: list[str] = []
+        await self._client.query(prompt)
+        async for msg in self._client.receive_response():
+            if isinstance(msg, AssistantMessage):
+                parts += [b.text for b in msg.content if isinstance(b, TextBlock)]
+        return " ".join(parts)
+
+    async def close(self) -> None:
+        client, self._client = self._client, None
+        if client is not None:
+            try:
+                await client.disconnect()
+            except Exception:  # noqa: BLE001
+                log.debug("narrator disconnect failed", exc_info=True)

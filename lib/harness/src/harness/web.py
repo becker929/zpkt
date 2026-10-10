@@ -11,6 +11,7 @@ browser's session are stored (auth.json, mode 600), so nobody else, the
 agent included, ever sees the password.
 
 Routes, all behind the password except /login:
+    /studio/...               the voice production app (studio/, docs/studio.md); / opens it
     /skrng/..., /style.css    the public site's pages, fetched from it (they are public anyway)
     /audio/...                redirect to the public site's audio
     /api/skrng/feedback       the voice review's answers, kept on the Mac (feedback.jsonl)
@@ -29,12 +30,15 @@ import os
 import secrets
 import time
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from aiohttp import ClientSession, ClientTimeout, web
 
 from .config import Config
 from .rpc import Methods
+
+if TYPE_CHECKING:
+    from .studio import Studio
 
 log = logging.getLogger(__name__)
 
@@ -44,6 +48,7 @@ MAX_BODY = 64 * 1024
 RPC_TIMEOUT = {"ask": 125.0}
 DEFAULT_RPC_TIMEOUT = 20.0
 PROXIED = ("/skrng/", "/style.css", "/favicon.ico", "/favicon.svg")
+API = ("/api/", "/studio/api/", "/studio/ws")    # answered with 401 JSON rather than a sign-in redirect
 
 
 def _scrypt(text: str, salt: bytes) -> str:
@@ -127,12 +132,13 @@ def login_page(auth: Auth, next_: str, error: str = "") -> web.Response:
 
 
 def _safe_next(n: str | None) -> str:
-    return n if n and n.startswith("/") and not n.startswith("//") else "/skrng/"
+    return n if n and n.startswith("/") and not n.startswith("//") else "/"
 
 
 class App:
-    def __init__(self, cfg: Config, methods: Methods, data_dir: Path, secure_cookie: bool = True):
-        self.cfg, self.methods, self.secure_cookie = cfg, methods, secure_cookie
+    def __init__(self, cfg: Config, methods: Methods, data_dir: Path, secure_cookie: bool = True,
+                 studio: "Studio | None" = None):
+        self.cfg, self.methods, self.secure_cookie, self.studio = cfg, methods, secure_cookie, studio
         self.auth = Auth(data_dir / "auth.json")
         self.feedback_path = data_dir / "feedback.jsonl"
         self.http: ClientSession | None = None
@@ -146,12 +152,18 @@ class App:
         app.router.add_route("*", "/api/skrng/feedback", self.feedback)
         app.router.add_post("/api/rpc", self.rpc)
         app.router.add_get("/audio/{tail:.*}", self.audio)
+        if self.studio is not None:
+            app.add_subapp("/studio", self.studio.app())
+            app.router.add_get("/studio", self.studio_slash)
         app.router.add_get("/{tail:.*}", self.proxy)
         app.on_cleanup.append(self._close)
         return app
 
     async def home(self, _request: web.Request) -> web.Response:
-        return redirect("/skrng/")
+        return redirect("/studio/" if self.studio is not None else "/skrng/")
+
+    async def studio_slash(self, _request: web.Request) -> web.Response:
+        return redirect("/studio/")
 
     async def audio(self, request: web.Request) -> web.Response:
         return redirect(self.cfg.site + request.path_qs)   # the audio is public; the browser fetches it there
@@ -164,16 +176,16 @@ class App:
     async def gate(self, request: web.Request, handler):
         if request.path == "/login" or self.auth.valid(request.cookies.get(COOKIE)):
             return await handler(request)
-        if request.path.startswith("/api/"):
+        if request.path.startswith(API):
             return web.json_response({"error": "Sign in first."}, status=401)
         return redirect("/login?next=" + request.path_qs)
 
     async def login_get(self, request: web.Request) -> web.Response:
-        return login_page(self.auth, request.query.get("next", "/skrng/"))
+        return login_page(self.auth, request.query.get("next", "/"))
 
     async def login_post(self, request: web.Request) -> web.StreamResponse:
         form = await request.post()
-        pw, next_ = str(form.get("password", "")), str(form.get("next", "/skrng/"))
+        pw, next_ = str(form.get("password", "")), str(form.get("next", "/"))
         if not self.auth.has_password:
             if len(pw) < 8:
                 return login_page(self.auth, next_, "At least 8 characters.")
@@ -261,8 +273,8 @@ def read_feedback(path: Path, batch: float | None = None) -> list[dict[str, Any]
     return rows
 
 
-async def run(cfg: Config, methods: Methods) -> None:
-    app = App(cfg, methods, cfg.skrng_dir).build()
+async def run(cfg: Config, methods: Methods, studio: "Studio | None" = None) -> None:
+    app = App(cfg, methods, cfg.skrng_dir, studio=studio).build()
     runner = web.AppRunner(app, access_log=None)
     await runner.setup()
     await web.TCPSite(runner, "127.0.0.1", cfg.web_port).start()

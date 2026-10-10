@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="color-scheme" content="dark light">
+  <meta name="theme-color" content="#0c0d10" media="(prefers-color-scheme: dark)">
+  <meta name="theme-color" content="#f5f4f0" media="(prefers-color-scheme: light)">
+  <meta name="robots" content="noindex">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="studio">
+  <title>studio</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='11' fill='%23ff6347'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="/studio/static/app.css">
+  <script type="module" src="/studio/static/js/main.js"></script>
+</head>
+<body>
+  <header class="top">
+    <div class="top-row">
+      <div class="brand">
+        <span class="wordmark">studio</span>
+        <span class="conn" id="conn" role="img" aria-label="Connecting" data-state="connecting"></span>
+      </div>
+      <div class="quick">
+        <button class="chip" id="autoplay" type="button" role="switch" aria-checked="true">
+          <span class="switch" aria-hidden="true"></span>
+          <span>Autoplay</span>
+        </button>
+        <label class="chip chip--select">
+          <i data-icon="image"></i>
+          <span class="chip-value" id="shots-value">Major</span>
+          <i data-icon="chevron" class="chev"></i>
+          <select id="shots" aria-label="Screenshots">
+            <option value="none">No screenshots</option>
+            <option value="major">Major steps</option>
+            <option value="minor">Minor steps</option>
+            <option value="firehose">Firehose</option>
+          </select>
+        </label>
+      </div>
+      <button class="icon-btn" id="menu-open" type="button" aria-label="Menu" aria-haspopup="dialog">
+        <i data-icon="more"></i>
+      </button>
+    </div>
+    <div class="phase" id="phase" data-phase="offline" role="status" aria-live="polite">
+      <span class="phase-ind" aria-hidden="true">
+        <span class="bars"><i></i><i></i><i></i><i></i><i></i></span>
+        <span class="spinner"></span>
+        <i data-icon="pause" class="pause-icon"></i>
+      </span>
+      <span class="phase-text" id="phase-text">Connecting</span>
+      <span class="phase-detail" id="phase-detail"></span>
+      <span class="phase-ab" aria-hidden="true"><b data-side="A">A</b><b data-side="B">B</b></span>
+    </div>
+  </header>
+
+  <div class="stage">
+    <main class="chat" id="chat">
+      <div class="chat-inner">
+        <div class="history-edge">
+          <button class="load-earlier" id="load-earlier" type="button" hidden>
+            <span class="spinner" aria-hidden="true"></span>
+            <span class="label">Load earlier</span>
+          </button>
+          <p class="start-of" id="start-of" hidden>The start of this conversation</p>
+        </div>
+        <ol class="messages" id="messages" data-shots="major" aria-label="Conversation"></ol>
+        <div class="empty" id="empty" hidden>
+          <div class="empty-mark" aria-hidden="true"><i data-icon="waves"></i></div>
+          <p class="empty-title">Talk to Claude about the music</p>
+          <p class="empty-text">Tap Start, then talk. Say <q>tomato</q> when you’re done, and Claude takes the turn.</p>
+        </div>
+      </div>
+    </main>
+
+    <button class="jump" id="jump" type="button" hidden>
+      <i data-icon="down"></i>
+      <span>Jump to latest</span>
+      <span class="jump-count" id="jump-count" hidden></span>
+    </button>
+
+    <div class="toasts" id="toasts" aria-live="polite"></div>
+  </div>
+
+  <footer class="dock">
+    <p class="live-caption" id="live-caption" aria-live="polite"></p>
+    <form class="composer" id="composer" hidden>
+      <input id="composer-input" type="text" enterkeyhint="send" autocomplete="off" autocapitalize="sentences"
+             placeholder="Type a turn" aria-label="Type a turn">
+      <button class="icon-btn send" type="submit" aria-label="Send"><i data-icon="send"></i></button>
+    </form>
+    <div class="controls">
+      <button class="side-btn" id="keyboard" type="button" aria-label="Type instead" aria-expanded="false">
+        <i data-icon="keyboard"></i>
+      </button>
+      <div class="turn-wrap">
+        <button class="turn" id="turn" type="button" data-mode="start" aria-label="Start">
+          <span class="turn-level" aria-hidden="true"></span>
+          <span class="turn-ring" aria-hidden="true"></span>
+          <span class="turn-face" id="turn-face"></span>
+        </button>
+        <p class="turn-hint" id="turn-hint" aria-hidden="true">Tap, then talk</p>
+      </div>
+      <span class="side-btn side-btn--spacer" aria-hidden="true"></span>
+    </div>
+  </footer>
+
+  <dialog class="sheet" id="menu" aria-label="Menu">
+    <div class="sheet-grip" aria-hidden="true"></div>
+    <div class="sheet-head">
+      <h2>studio</h2>
+      <button class="icon-btn" type="button" data-close aria-label="Close"><i data-icon="close"></i></button>
+    </div>
+    <div class="sheet-body">
+      <button class="row row--switch" id="handsfree" type="button" role="switch" aria-checked="true">
+        <span class="row-text">
+          <span class="row-title">Hands-free</span>
+          <span class="row-sub">The mic opens again after each answer</span>
+        </span>
+        <span class="switch" aria-hidden="true"></span>
+      </button>
+      <button class="row" id="new-conversation" type="button">
+        <i data-icon="compose"></i>
+        <span class="row-text">
+          <span class="row-title" id="new-conversation-title">New conversation</span>
+          <span class="row-sub">Claude starts afresh; this chat stays on the Mac</span>
+        </span>
+      </button>
+      <details class="row-group" id="timings">
+        <summary class="row">
+          <i data-icon="clock"></i>
+          <span class="row-text">
+            <span class="row-title">Timings</span>
+            <span class="row-sub">How long each stage of the last turns took</span>
+          </span>
+          <i data-icon="chevron" class="chev"></i>
+        </summary>
+        <div class="timings" id="timings-body"></div>
+      </details>
+      <a class="row" href="/skrng/">
+        <i data-icon="external"></i>
+        <span class="row-text">
+          <span class="row-title">skrng</span>
+          <span class="row-sub">The batches and the voice review</span>
+        </span>
+      </a>
+    </div>
+    <p class="sheet-foot" id="sheet-foot"></p>
+  </dialog>
+
+  <dialog class="lightbox" id="lightbox" aria-label="Screenshot">
+    <div class="lightbox-bar">
+      <div class="segmented" role="tablist" aria-label="Which image">
+        <button type="button" role="tab" data-which="full" aria-selected="true">Screen</button>
+        <button type="button" role="tab" data-which="zoom" aria-selected="false">Zoom</button>
+      </div>
+      <button class="icon-btn" type="button" data-close aria-label="Close"><i data-icon="close"></i></button>
+    </div>
+    <div class="lightbox-stage"><img id="lightbox-img" alt="" decoding="async"></div>
+    <p class="lightbox-caption" id="lightbox-caption"></p>
+  </dialog>
+</body>
+</html>

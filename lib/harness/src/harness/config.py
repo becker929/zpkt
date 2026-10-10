@@ -9,9 +9,21 @@ from __future__ import annotations
 import getpass
 import json
 import os
+import shlex
+import shutil
 import subprocess
 from dataclasses import dataclass, field
 from pathlib import Path
+
+ZPKT = Path(__file__).resolve().parents[4]     # lib/harness/src/harness/config.py -> the repo
+
+
+def voice_command() -> list[str]:
+    """How to start the voice worker: HARNESS_VOICE_CMD, else lib/voice through uv."""
+    if os.environ.get("HARNESS_VOICE_CMD"):
+        return shlex.split(os.environ["HARNESS_VOICE_CMD"])
+    uv = shutil.which("uv") or str(Path.home() / ".local" / "bin" / "uv")
+    return [uv, "run", "--project", str(ZPKT / "lib" / "voice"), "--extra", "engines", "voice", "serve"]
 
 KEYCHAIN = {
     "rig_token": "zpkt-rig-token",          # Mac -> Worker socket (RIG_TOKEN on the Worker)
@@ -55,6 +67,17 @@ class Config:
     # The old public route (browser -> anthonybecker.me /api/rpc -> socket -> Mac). Off: /skrng's
     # agent is reached over the tailnet only. HARNESS_PUBLIC_RPC=1 turns the socket back on.
     public_rpc: bool = os.environ.get("HARNESS_PUBLIC_RPC") == "1"
+    # studio, the voice production app (docs/studio.md): where it keeps its chat and media, the Claude session's
+    # working directory, the speech settings, and the loopback port scripts report steps to.
+    studio_dir: Path = Path(os.environ.get("HARNESS_STUDIO", Path.home() / "_agent_scratch" / "studio"))
+    studio_workdir: Path = Path(os.environ.get("HARNESS_STUDIO_WORKDIR", ZPKT))
+    studio_model: str | None = os.environ.get("HARNESS_STUDIO_MODEL")
+    narrator_model: str = os.environ.get("HARNESS_NARRATOR_MODEL", "claude-haiku-5-5")
+    voice_command: list[str] = field(default_factory=voice_command)
+    tts_voice: str = os.environ.get("HARNESS_TTS_VOICE", "af_heart")
+    tts_speed: float = float(os.environ.get("HARNESS_TTS_SPEED", "1.0"))
+    stop_word: str = os.environ.get("HARNESS_STOP_WORD", "tomato")
+    steps_port: int = int(os.environ.get("HARNESS_STEPS_PORT", "8788"))
 
     @property
     def app_url(self) -> str:

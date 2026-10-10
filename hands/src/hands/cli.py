@@ -9,6 +9,7 @@ Commands:
     live     — one-shot LOM commands (ping, exec)
     als      — check a Live set file, list a device's parameters (offline)
     kit      — build a probe kit in Live, render a batch
+    plan     — plans to renders to A/B files, for the voice loop (hands.plans)
 """
 
 from __future__ import annotations
@@ -21,9 +22,11 @@ from rich.console import Console
 from rich.table import Table
 
 from hands.live.cli import app as live_app
+from hands.plans.cli import app as plan_app
 
 app = typer.Typer(name="hands", help="DAW control layer for Ableton Live.")
 app.add_typer(live_app, name="live")
+app.add_typer(plan_app, name="plan")
 als_app = typer.Typer(help="Check Live set files offline.", no_args_is_help=True)
 app.add_typer(als_app, name="als")
 kit_app = typer.Typer(help="Probe kits: P variants of a section in one load and one export.", no_args_is_help=True)

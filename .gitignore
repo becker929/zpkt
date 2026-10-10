@@ -24,3 +24,6 @@ node_modules/
 !ears/mlab/calibration/fixtures/*.als
 !hands/tests/fixtures/*.als
 .wrangler/
+
+# Agent worktrees (Claude Code)
+.claude/worktrees/

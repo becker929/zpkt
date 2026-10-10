@@ -97,7 +97,8 @@ def new_id() -> str:
     return time.strftime("%Y%m%d-%H%M%S") + "-" + secrets.token_hex(2)
 
 
-def _env(cfg: Config) -> dict[str, str]:
+def job_env(cfg: Config) -> dict[str, str]:
+    """The environment every Claude Code session from the harness gets (the Keychain login, if there is one)."""
     env = dict(cfg.extra_env)
     token = secret("oauth")
     if token:
@@ -116,7 +117,7 @@ def options(cfg: Config, *, ask: bool = False) -> ClaudeAgentOptions:
         system_prompt={"type": "preset", "preset": "claude_code", "append": ASK_APPEND if ask else APPEND},
         setting_sources=["user", "project", "local"],
         max_turns=cfg.ask_turns if ask else cfg.job_turns,
-        env=_env(cfg),
+        env=job_env(cfg),
     )
 
 
