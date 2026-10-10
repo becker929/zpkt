@@ -30,8 +30,9 @@ follow-up "more" A/B came from the cache in 0.65 s. Files in `~/_agent_scratch/p
 
 ## Known limits and choices to revisit
 
-- Speech starts ~0.5 s after Claude's first sentence (ONNX on CPU). `VOICE_TTS_MODEL=int8` halves it; the
-  FluidAudio (Swift, ANE) worker from the bench would be ~0.1 s.
+- Speech starts ~0.1 s after Claude's first piece (Kokoro on FluidAudio, the Neural Engine); a long first piece
+  with no clause mark (over ~75 characters) takes up to ~0.5 s. Where the Swift helper cannot be built, ONNX on the
+  CPU speaks instead, ~0.3-0.5 s.
 - Stop-word misses are robotic voices in babble noise; babble raises latency to ~850 ms.
 - A Live render saves the set in front before switching (probe_kit). Its guard refuses unless an
   `HW002_121_pp*` / `HW002_121_v_*` set is in front, no dialog is open and Live answers. On 2026-10-10 the set in
@@ -53,7 +54,7 @@ cd hands && uv run --extra plans hands plan ab A.json B.json        # a real ren
 ```
 
 Setup: `uv run --project lib/harness --extra dev playwright install chromium webkit`; the speech models download
-on first use (Kokoro and Silero to `~/.cache/zpkt-voice`, Parakeet to the Hugging Face cache). Tests that bind
+on first use (Kokoro, its FluidAudio helper and Silero to `~/.cache/zpkt-voice`, Parakeet to the Hugging Face cache). Tests that bind
 loopback or drive Live need to run outside the agent sandbox.
 
 ## Reporting issues

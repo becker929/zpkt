@@ -6,7 +6,8 @@ how its two models were chosen and tuned. The bench scripts and test sets live o
 check on the shipped code.
 
 **Choice:** speech-to-text is **Parakeet TDT 0.6B v3** on MLX (fp32), gated by **Silero VAD v6**; text-to-speech is
-**Kokoro 82M** through ONNX Runtime (`kokoro-onnx`, fp32 by default, int8 one setting away).
+**Kokoro 82M** through FluidAudio (Swift, Core ML on the Neural Engine), with ONNX Runtime (`kokoro-onnx` fp32) where
+the Swift helper cannot be built.
 
 ## Speech to text
 
@@ -79,19 +80,39 @@ Kokoro 82M in every runtime that runs it on a Mac, timed from a warm process (TT
 
 | runtime | load s | TTFA short | TTFA first chunk | RTF | CPU % | peak memory |
 |---|---|---|---|---|---|---|
-| FluidAudio v3 (Swift, ANE) | 0.66 | 94 ms | 97 ms | 0.057 | 103 | 2.7 GB |
+| **FluidAudio v3 (Swift, ANE)** | 0.66 | 94 ms | 97 ms | 0.057 | 103 | 2.7 GB |
 | mlx-audio (MLX) | 1.99 | 127 ms | 132 ms | 0.047 | 40 | 9.5 GB |
 | PyTorch, MPS | 2.81 | 330 ms | 355 ms | 0.067 | 27 | 3.0 GB |
-| **kokoro-onnx fp32, CPU** | 1.48 | 435 ms | 520 ms | 0.225 | 570 | 1.6 GB |
+| kokoro-onnx fp32, CPU | 1.48 | 435 ms | 520 ms | 0.225 | 570 | 1.6 GB |
 | kokoro-onnx int8, CPU | 1.70 | 391 ms | 260 ms | 0.115 | 550 | 1.5 GB |
 | sherpa-onnx fp32, CPU | 0.38 | 584 ms | 509 ms | 0.244 | 395 | 0.8 GB |
 
-The ONNX build is not the fastest: FluidAudio (Swift, on the Neural Engine) gets the first audio out four times
-sooner, and MLX three times. ONNX is shipped because it is a pure Python dependency with no build step and no
-GPU contention with Parakeet (which owns the GPU while you talk); at 0.2 of real time it stays ahead of playback,
-and speech is cut into sentences, so the first sentence is what you wait for. `VOICE_TTS_MODEL=int8` halves that
-wait. If the first-audio time measured on the phone (`harness timings`, `first_audio`) is too long, the next step
-is the FluidAudio worker (built in the bench, not yet in `lib/voice`).
+FluidAudio is shipped (`voice/fluid.py`, `VOICE_TTS_MODEL=fluid`, the default): the first audio three times sooner
+than ONNX fp32, for a tenth of the CPU. Its Swift helper (`voice/swift/`) is built on first use into `VOICE_MODELS/fluid`
+(`swift build --disable-keychain`, about 70 s): FluidAudio 0.17.7 from its release tag, its text-normalisation
+library checked against the checksum in its manifest, and `fluidaudio-0.17.7.patch` applied. The patch does three
+things. Unpatched, v3 runs its GPU source generator at each sentence's exact length, and Core ML keeps a GPU plan for
+every input shape it sees and never frees them: the process grew by GBs over a few hundred sentences. The patch runs it masked at the decoder's two bucket lengths, so there are two shapes. It also points the
+manifest at a local copy of the normalisation library (SwiftPM's own download stalled here), and adds
+FLUIDAUDIO_CACHE so the models (~0.5 GB) live in `VOICE_MODELS/fluidaudio` with the rest. The helper pads every
+piece with ~0.3 s of silence before and ~0.5 s after; the engine cuts that to 40 and 100 ms, about what ONNX leaves,
+or the 0.3 s would come back as waiting. Where swift or the developer tools are missing, or the build or the helper
+fails, the worker logs why and speaks with ONNX fp32. Parakeet and Kokoro still never run at once: the worker runs
+both on one thread.
+
+Through `voice serve`, warm, six studio-like replies (one word to three sentences), five rounds:
+
+| build | TTFA median | TTFA, a 107-character sentence | RTF | CPU while speaking | ready |
+|---|---|---|---|---|---|
+| **FluidAudio (`fluid`)** | 97 ms | 494 ms | 0.071 | 53% of a core | 2.8 s |
+| ONNX fp32 | 302 ms | 904 ms | 0.163 | 583% | 0.8 s |
+| ONNX int8 | 159 ms | 475 ms | 0.085 | 565% | 0.5 s |
+
+A piece's time on FluidAudio steps with its length: ~95 ms up to ~40 characters, ~155 ms to ~60, ~260 ms to ~75,
+then 390-600 ms once it is over ~5 s of audio, which takes the slower path. The harness already ends the first piece
+at its first clause mark, so a long first sentence with no comma is the only slow case. Over 400 pieces of 2-16
+words (two voices) the helper's footprint stayed between 0.5 and 1.1 GB with no upward trend, and the median piece
+held at ~155 ms.
 
 ## Claude and audio
 
