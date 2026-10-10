@@ -28,7 +28,8 @@ from typing import Any, Literal, Protocol, Sequence, runtime_checkable
 
 DEFAULT_HOST = "127.0.0.1"
 DEFAULT_PORT = 16619
-UNREACHABLE = "Cannot reach Ableton"  # starts every transport error; StepRunner keys on it
+UNREACHABLE = "Cannot reach Ableton"   # nothing was sent: StepRunner may try again
+LOST = "Lost the reply from Ableton"    # sent, no reply: it may have run, so never resend it
 
 
 @dataclass
@@ -146,15 +147,15 @@ class LiveClient(Transport):
                 sock.sendall((json.dumps(message) + "\n").encode())
                 line = sock.makefile("rb").readline()
             except TimeoutError as exc:
-                raise _Lost(f"{UNREACHABLE}: no reply in {self.timeout:g} s; the code may still run") from exc
+                raise _Lost(f"{LOST}: no reply in {self.timeout:g} s; the code may still run") from exc
             except OSError as exc:
-                raise _Lost(f"{UNREACHABLE}: connection lost ({exc}); the code may have run") from exc
+                raise _Lost(f"{LOST}: connection lost ({exc}); the code may have run") from exc
         if not line.strip():
-            raise _Lost(f"{UNREACHABLE}: Live closed the connection without a reply")
+            raise _Lost(f"{LOST}: Live closed the connection without a reply")
         try:
             return json.loads(line)
         except ValueError as exc:
-            raise _Lost(f"{UNREACHABLE}: unreadable reply {line[:80]!r}") from exc
+            raise _Lost(f"{LOST}: unreadable reply {line[:80]!r}") from exc
 
 
 class DryRunTransport(Transport):

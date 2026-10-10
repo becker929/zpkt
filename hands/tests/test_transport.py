@@ -12,6 +12,7 @@ from typer.testing import CliRunner
 from hands.cli import app
 from hands.live import transport as T
 from hands.live.transport import (
+    LOST,
     UNREACHABLE,
     LiveClient,
     LiveError,
@@ -134,14 +135,15 @@ def test_a_failed_connect_is_retried_until_it_works(remote, monkeypatch):
 def test_a_sent_request_is_never_resent(remote):
     live = remote(lambda m: None)
     res = live.client(retries=2).execute("song.create_audio_track(-1)")
-    assert res.status == "error" and "without a reply" in res.error
+    assert res.status == "error" and res.error.startswith(f"{LOST}: ") and "without a reply" in res.error
     assert len(live.seen) == 1
 
 
 def test_no_reply_in_time_says_the_code_may_still_run(remote):
     live = remote(lambda m: HANG)
     res = live.client(timeout=0.2, retries=2).execute("song.tempo = 140")
-    assert res.error == f"{UNREACHABLE}: no reply in 0.2 s; the code may still run"
+    assert res.error == f"{LOST}: no reply in 0.2 s; the code may still run"
+    assert UNREACHABLE not in res.error  # StepRunner would resend it
     assert len(live.seen) == 1
 
 

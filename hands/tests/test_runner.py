@@ -4,7 +4,7 @@ from __future__ import annotations
 import pytest
 
 from hands.codegen import Step
-from hands.live.transport import McpResult, MockTransport
+from hands.live.transport import LOST, McpResult, MockTransport
 from hands.runner import ManualPolicy, StepRunner
 
 
@@ -57,6 +57,25 @@ def test_timeout_abort_after_retries_exhausted() -> None:
     results = runner.execute(_steps(1))
     assert results[0].status == "aborted"
     assert "Cannot reach Ableton" in (results[0].error or "")
+
+
+def test_a_lost_reply_is_not_resent() -> None:
+    lost = McpResult(status="error", error=f"{LOST}: connection lost; the code may have run")
+    transport = MockTransport(responses=[lost, McpResult(status="ok", result="again")])
+    runner = StepRunner(transport, retry_count=2, retry_delay=0.0)
+    results = runner.execute([Step(label="Add track", code="song.create_audio_track(-1)")])
+    assert results[0].status == "aborted"
+    assert "not re-sent" in (results[0].error or "")
+    assert transport.calls == ["song.create_audio_track(-1)"]  # once, and no undo either
+
+
+def test_a_live_timeout_still_running_is_not_resent() -> None:
+    timed_out = McpResult(status="error", error="Timed out after 12s",
+                          warning="Code may still be running on the main thread.")
+    transport = MockTransport(responses=[timed_out])
+    results = StepRunner(transport, retry_count=2, retry_delay=0.0).execute(_steps(1))
+    assert results[0].status == "aborted"
+    assert len(transport.calls) == 1
 
 
 def test_manual_policy_skip() -> None:
