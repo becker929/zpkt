@@ -79,26 +79,32 @@ class Narrator:
     async def _watch(self, turn: int) -> None:
         while turn == self._turn:
             await asyncio.sleep(0.5)
-            if not self.due():
-                continue
-            upto = len(self.activity)
-            prompt = PROMPT.format(request=self.request or "(nothing yet)",
-                                   said=" / ".join(self.said[-3:]) or "(nothing yet)",
-                                   activity="\n".join(f"- {a}" for a in self.activity[self.narrated_upto:upto][-8:]))
-            asked = self._now()
-            try:
-                line = await asyncio.wait_for(self._summarize(prompt), self.TIMEOUT_S)
-            except Exception as exc:  # noqa: BLE001 - narration is optional
-                log.info("no narration: %s", exc)
-                self.last_line = self._now()
-                continue
-            line = clean(line, self.MAX_WORDS)
-            if turn != self._turn or not line or self.last_voice > asked:
-                continue   # stale: the turn ended, or Claude spoke meanwhile
-            self.said.append(line)
-            self.narrated_upto = upto
-            self.last_line = self.last_voice = self._now()
-            self._speak(line)
+            await self.tick(turn)
+
+    async def tick(self, turn: int | None = None) -> str | None:
+        """Narrate now if it is due; returns the line spoken, if any."""
+        turn = self._turn if turn is None else turn
+        if not self.due():
+            return None
+        upto = len(self.activity)
+        prompt = PROMPT.format(request=self.request or "(nothing yet)",
+                               said=" / ".join(self.said[-3:]) or "(nothing yet)",
+                               activity="\n".join(f"- {a}" for a in self.activity[self.narrated_upto:upto][-8:]))
+        asked = self._now()
+        try:
+            line = await asyncio.wait_for(self._summarize(prompt), self.TIMEOUT_S)
+        except Exception as exc:  # noqa: BLE001 - narration is optional
+            log.info("no narration: %s", exc)
+            self.last_line = self._now()
+            return None
+        line = clean(line, self.MAX_WORDS)
+        if turn != self._turn or not line or self.last_voice > asked:
+            return None                  # stale: the turn ended, or Claude spoke meanwhile
+        self.said.append(line)
+        self.narrated_upto = upto
+        self.last_line = self.last_voice = self._now()
+        self._speak(line)
+        return line
 
 
 def clean(line: str, max_words: int) -> str:
