@@ -122,3 +122,37 @@ def test_prefs_parse_with_defaults():
     assert Prefs.parse(None).shots is ShotLevel.MAJOR
     assert Prefs.parse({"shots": "bogus"}).shots is ShotLevel.MAJOR
 
+
+
+# --- timings (plan V1) ------------------------------------------------------------------------------------------------
+
+IPHONE = "Mozilla/5.0 (iPhone; CPU iPhone OS 26_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.0 Mobile/15E148 Safari/604.1"
+CHROME_IOS = "Mozilla/5.0 (iPhone; CPU iPhone OS 26_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) CriOS/140.0 Mobile/15E148 Safari/604.1"
+CHROME_MAC = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0 Safari/537.36"
+
+
+def test_browsers_and_routes_are_named_for_the_comparison():
+    from harness.studio.timing import browser, route
+    assert browser(IPHONE) == "safari"
+    assert browser(CHROME_IOS) == "safari"            # WebKit underneath: same audio session as Safari
+    assert browser(CHROME_MAC) == "chrome"
+    assert route("iPhone Microphone") == "phone"
+    assert route("Anthony's AirPods Pro") == "bluetooth"
+    assert route("CarPlay") == "bluetooth"
+    assert route("") == ""
+
+
+def test_the_timings_report_compares_first_and_later_turns_browsers_and_routes(store):
+    from harness.studio.timing import TurnClock, report
+    conv = store.conversation()
+    for n, (ua, label, first_words) in enumerate([(IPHONE, "iPhone Microphone", 900), (IPHONE, "AirPods", 400),
+                                                   (CHROME_MAC, "Default", 300)], start=1):
+        clock = TurnClock(store, conv.id, f"t{n}")
+        store.mark(conv.id, f"t{n}", "listen", 0, "mac", {"n": n, "browser": "safari" if "iPhone" in ua else "chrome"})
+        store.mark(conv.id, f"t{n}", "first_words", first_words, "mac")
+        clock.phone("mic_open", 120 * n, input=label)
+    text = report(store.timings(10))
+    assert "3 turns" in text
+    assert "| first_words (mac) | 900 (1) | 350 (2) |" in text            # first vs later
+    assert "| first_words (mac) | 300 (1) | 650 (2) |" in text            # chrome vs safari
+    assert "| mic_open (phone) | 240 (1) | 240 (2) |" in text            # bluetooth vs phone

@@ -25,6 +25,7 @@ async def test_safari_loads_and_pages_back_in_place(webkit, fake):
         assert await page.messages_in_dom() == 40
         for _ in range(2):
             await page.js("document.getElementById('chat').scrollTop = 0")
+            await page.wait("() => !document.getElementById('load-earlier').hidden")
             await page.wait("() => new Promise((resolve) => requestAnimationFrame(() => resolve(true)))")
             anchor = await page.js(FIRST_VISIBLE)
             before = await page.js(TOP_OF, anchor)

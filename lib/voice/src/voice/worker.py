@@ -30,9 +30,10 @@ END = object()
 
 
 class Worker:
-    def __init__(self, tts: engines.TTS, stt: engines.STT, write: Any, load_s: dict[str, float]):
+    def __init__(self, tts: engines.TTS, stt: engines.STT, write: Any, load_s: dict[str, float],
+                 models: ThreadPoolExecutor | None = None):
         self.tts, self.stt, self._write, self.load_s = tts, stt, write, load_s
-        self.models = ThreadPoolExecutor(1, thread_name_prefix="models")
+        self.models = models or ThreadPoolExecutor(1, thread_name_prefix="models")
         self.speech: asyncio.Queue[dict[str, Any]] = asyncio.Queue()
         self.cancelled: set[str] = set()
         self.turns: dict[str, asyncio.Queue] = {}
@@ -122,20 +123,24 @@ async def serve(tts_name: str, stt_name: str) -> None:
     out = os.fdopen(os.dup(1), "wb", buffering=0)   # frames go to the real stdout...
     os.dup2(2, 1)                                     # ...and anything printed lands on stderr
     load_s: dict[str, float] = {}
-    t0 = time.monotonic()
-    tts = engines.load("tts", tts_name)
-    tts.warmup()
-    load_s["tts"] = round(time.monotonic() - t0, 2)
-    t0 = time.monotonic()
-    stt = engines.load("stt", stt_name)
-    stt.warmup()
-    load_s["stt"] = round(time.monotonic() - t0, 2)
-    log.info("ready: tts %s (%.1f s), stt %s (%.1f s)", tts.name, load_s["tts"], stt.name, load_s["stt"])
 
+    def ready(kind: str, name: str) -> Any:
+        t0 = time.monotonic()
+        engine = engines.load(kind, name)
+        engine.warmup()
+        load_s[kind] = round(time.monotonic() - t0, 2)
+        return engine
+
+    # The models are loaded, warmed and run on one thread: MLX keeps its streams per thread, and arrays made on one
+    # thread cannot be evaluated on another.
+    models = ThreadPoolExecutor(1, thread_name_prefix="models")
     loop = asyncio.get_running_loop()
+    tts = await loop.run_in_executor(models, ready, "tts", tts_name)
+    stt = await loop.run_in_executor(models, ready, "stt", stt_name)
+    log.info("ready: tts %s (%.1f s), stt %s (%.1f s)", tts.name, load_s["tts"], stt.name, load_s["stt"])
     reader = asyncio.StreamReader(limit=protocol.MAX_PAYLOAD)
     await loop.connect_read_pipe(lambda: asyncio.StreamReaderProtocol(reader), sys.stdin.buffer)
-    worker = Worker(tts, stt, out.write, load_s)
+    worker = Worker(tts, stt, out.write, load_s, models)
     speaking = asyncio.create_task(worker.speak())
     try:
         while (frame := await protocol.read(reader)) is not None:

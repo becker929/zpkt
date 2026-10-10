@@ -28,7 +28,7 @@ from .protocol import MIC_RATE
 from .screens import Screens
 from .speech import Speaker, Transcription, Utterance, VoiceWorker, WorkerGone
 from .store import Store, new_id
-from .timing import TurnClock
+from .timing import TurnClock, browser
 
 log = logging.getLogger(__name__)
 
@@ -62,6 +62,7 @@ class Conversation:
         self.label = ""
         self.turn: str | None = None
         self.clock: TurnClock | None = None
+        self._turns_offered = 0                 # since the server started: turn 1 is the cold one
         self._listening: Transcription | None = None
         self._recording = bytearray()
         self._work: asyncio.Task | None = None
@@ -263,7 +264,8 @@ class Conversation:
             self._spawn(self._offer_when_ready(), "offer-when-ready")
             return
         self._begin_turn()
-        self.clock.mark("listen")
+        self._turns_offered += 1
+        self.clock.mark("listen", n=self._turns_offered, browser=browser(owner.ua))
         self._recording = bytearray()
         try:
             self._listening = self.worker.transcription(self.settings.stop_word, MIC_RATE)

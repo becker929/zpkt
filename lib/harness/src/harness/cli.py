@@ -1,4 +1,4 @@
-"""harness serve | job "<prompt>" | jobs | show <id>"""
+"""harness serve | job "<prompt>" | jobs | show <id> | timings [--turns N]"""
 
 from __future__ import annotations
 
@@ -20,6 +20,8 @@ def main() -> None:
     sub.add_parser("jobs", help="list recent jobs")
     s = sub.add_parser("show", help="one job and its last events")
     s.add_argument("id")
+    t = sub.add_parser("timings", help="studio's turn timings: first vs later turns, Safari vs Chrome, Bluetooth")
+    t.add_argument("--turns", type=int, default=100)
     a = ap.parse_args()
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
     cfg = Config()
@@ -35,6 +37,10 @@ def main() -> None:
     elif a.cmd == "jobs":
         for job in store.recent(20):
             print(f"{job.id}  {job.status:8}  {job.title}")
+    elif a.cmd == "timings":
+        from .studio.store import Store
+        from .studio.timing import report
+        print(report(Store(cfg.studio_dir).timings(a.turns)))
     elif a.cmd == "show":
         job = store.load(a.id)
         print(json.dumps({"job": job.public() if job else None, "events": store.events(a.id)}, indent=2))

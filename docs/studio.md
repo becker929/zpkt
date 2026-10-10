@@ -30,7 +30,7 @@ phone (Safari/Chrome)  ──https, tailnet──▶  tailscale serve  ──▶
                                                                    ├─ Haiku narrator (Agent SDK)
                                                                    ├─ screenshots (capture, saliency, WebP pairs)
                                                                    └─ voice worker (child process, lib/voice)
-                                                                        Kokoro TTS, VAD + STT, stop word
+                                                                        Kokoro TTS, Silero VAD + Parakeet STT, stop word
 ```
 
 The speech models run in their own process (`lib/voice`, `voice serve`) so their native runtimes never block the web
@@ -62,8 +62,9 @@ lib/harness/src/harness/studio/
 lib/voice/src/voice/
   protocol.py      the frame codec, shared with the harness (no heavy imports)
   worker.py        `voice serve`: reads requests on stdin, writes replies on stdout
-  tts.py           Kokoro: text normalisation, segmenting, streaming synthesis
-  stt.py           VAD + speech-to-text + the stop word, one turn at a time
+  tts.py           Kokoro (ONNX): sentences, streaming synthesis; the model is fetched on first use
+  stt.py           Silero VAD + Parakeet (MLX) + the stop word, one turn at a time (docs/voice-benchmark.md)
+  fake.py          stand-in engines for tests and page work (--tts fake --stt fake)
 ```
 
 ## The chat
@@ -238,4 +239,7 @@ A frame is a 4-byte big-endian header length, a JSON header, a 4-byte big-endian
 ## Running
 
 `harness serve` starts everything. Data lives in `~/_agent_scratch/studio/` (override with `HARNESS_STUDIO`).
-Tests: `uv run --project lib/harness pytest` and `uv run --project lib/voice pytest`.
+Tests: `uv run --project lib/harness --extra dev pytest` and `uv run --project lib/voice --extra dev pytest`
+(`VOICE_ENGINES=1` and `--extra engines` add the real models). The speech models are fetched on first use: Kokoro
+and Silero into `~/.cache/zpkt-voice` (`VOICE_MODELS`), Parakeet into the Hugging Face cache. Turn timings:
+`harness timings` (docs/voice-benchmark.md).

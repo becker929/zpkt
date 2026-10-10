@@ -39,6 +39,12 @@ Settings (environment):
 | `HARNESS_STOP_WORD` | `tomato` | the word that ends a spoken turn |
 | `HARNESS_VOICE_CMD` | `uv run --project lib/voice --extra engines voice serve` | how to start the speech worker |
 | `HARNESS_STEPS_PORT` | `8788` | loopback port where scripts report steps (for screenshots) |
+| `VOICE_TTS_MODEL` | `fp32` | Kokoro build: `fp32`, or `int8` for about half the time to the first audio |
+| `VOICE_STT_MODEL` | `mlx-community/parakeet-tdt-0.6b-v3` | the speech-to-text model (docs/voice-benchmark.md) |
+| `VOICE_MODELS` | `~/.cache/zpkt-voice` | where Kokoro and Silero are kept |
+
+`harness timings` prints the median of every stage of the recent turns: first turn after a start against later
+ones, Safari against Chrome, the phone's own mic against Bluetooth.
 
 ## RPC methods (`POST /api/rpc`)
 
