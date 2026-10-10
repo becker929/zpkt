@@ -1,5 +1,6 @@
 """Capturing the screen: the helper's client against a stand-in helper (fake_screengrab.py), building the helper on
-first use (with a stand-in swiftc), and falling back to `screencapture`."""
+first use (with a stand-in swiftc), and falling back to `screencapture`. One live test, opt-in: STUDIO_LIVE_SCREEN=1
+builds the real helper and takes a few captures of this Mac's screen."""
 
 import asyncio
 import logging
@@ -13,7 +14,7 @@ import numpy as np
 import pytest
 from PIL import Image, ImageCms
 
-from harness.studio import grab
+from harness.studio import grab, shots
 from harness.studio.shots import Frame
 
 FAKE_HELPER = Path(__file__).with_name("fake_screengrab.py")
@@ -276,3 +277,32 @@ def test_a_png_with_a_colour_profile_is_read_as_srgb(tmp_path):
     Image.fromarray(rgb).save(tmp_path / "s.png", icc_profile=srgb)
     assert np.abs(grab.load_srgb(tmp_path / "s.png").astype(int) - rgb).max() <= 1
 
+
+# --- the real screen (opt-in) --------------------------------------------------------------------------------------
+@pytest.mark.skipif(os.environ.get("STUDIO_LIVE_SCREEN") != "1", reason="STUDIO_LIVE_SCREEN=1 captures the screen")
+async def test_live_screen(tmp_path):
+    cache = Path(os.environ.get("STUDIO_LIVE_BIN", tmp_path / "bin"))
+    capture = grab.ScreenGrab(cache)
+    t0 = time.perf_counter()
+    first = await capture.grab()                                   # builds the helper if it isn't cached
+    t1 = time.perf_counter()
+    second = await capture.grab()
+    t2 = time.perf_counter()
+    await capture.watch(2)
+    t3 = time.perf_counter()
+    streamed = await capture.latest()
+    t4 = time.perf_counter()
+    await capture.unwatch()
+    await capture.close()
+    assert capture.helper is not None and capture.helper.preflight, "no helper, or no Screen Recording permission"
+    assert first.pixels.shape == second.pixels.shape == streamed.pixels.shape
+    pair = shots.make_pair(first.pixels, second.pixels, window=second.window)
+    lite = shots.make_pair(second.pixels, streamed.pixels, preset=shots.PRESETS["firehose"])
+    print(f"\nscreen {pair.screen}, front window {second.window}"
+          f"\nfirst grab (build + start + shot + front) {1000 * (t1 - t0):.0f} ms, grab {1000 * (t2 - t1):.0f} ms, "
+          f"watch {1000 * (t3 - t2):.0f} ms, latest {1000 * (t4 - t3):.0f} ms"
+          f"\nmajor: full {pair.full_size} {len(pair.full) / 1000:.0f} KB, zoom {pair.zoom_size} "
+          f"{len(pair.zoom) / 1000:.0f} KB on {pair.rect}, changed {pair.changed}"
+          f"\nfirehose: full {lite.full_size} {len(lite.full) / 1000:.0f} KB, zoom {len(lite.zoom) / 1000:.0f} KB")
+    assert len(pair.full) <= 120_000 and len(pair.zoom) <= 60_000
+    assert pair.full[:4] == b"RIFF" and pair.zoom[:4] == b"RIFF"

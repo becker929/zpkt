@@ -18,12 +18,12 @@ from . import tools
 from . import routes
 from .agent import AgentSession
 from .conversation import Conversation, Settings
+from .grab import Capture, ScreenGrab
 from .hub import Hub
 from .model import ShotLevel
 from .guard import bash_hook
 from .narrator import HaikuLines, Summarize
 from .screens import Screens
-from .shots import Capture
 from .speech import VoiceWorker
 from .store import Store
 
@@ -69,7 +69,7 @@ class Studio:
         self.store = Store(cfg.studio_dir)
         self.hub = Hub()
         self.worker = worker or VoiceWorker(cfg.voice_command)
-        self.screens = Screens(self.store, lambda: self.hub.shots_level, capture)
+        self.screens = Screens(self.store, lambda: self.hub.shots_level, capture or ScreenGrab(cfg.studio_dir / "bin"))
         self.steps_token = secrets.token_urlsafe(24)
         self.agent = agent or AgentSession(self._options)
         self.narrator_model = None if summarize else HaikuLines(cfg.narrator_model, cfg.cli_path, job_env(cfg))
@@ -131,6 +131,7 @@ class Studio:
         await self.conversation.stop()
         if self.narrator_model is not None:
             await self.narrator_model.close()
+        await self.screens.close()
         await self.worker.stop()
         if self._steps is not None:
             await self._steps.cleanup()

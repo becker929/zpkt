@@ -1,9 +1,9 @@
-"""studio's parts on their own: the store, spoken commands, cutting text for speech, tool descriptions, saliency."""
+"""studio's parts on their own: the store, spoken commands, cutting text for speech, tool descriptions. Screenshots
+have their own: test_studio_shots.py, test_studio_grab.py and test_studio_screens.py."""
 
-import numpy as np
 import pytest
 
-from harness.studio import intents, shots
+from harness.studio import intents
 from harness.studio.activity import describe
 from harness.studio.model import Kind, Message, Prefs, ShotLevel
 from harness.studio.speech import Segmenter
@@ -122,33 +122,3 @@ def test_prefs_parse_with_defaults():
     assert Prefs.parse(None).shots is ShotLevel.MAJOR
     assert Prefs.parse({"shots": "bogus"}).shots is ShotLevel.MAJOR
 
-
-def screen(h=1080, w=1920):
-    rng = np.random.default_rng(0)
-    return (rng.integers(0, 40, (h, w, 3))).astype(np.uint8)
-
-
-def test_salient_rect_frames_the_biggest_change_at_16_by_9():
-    a = screen()
-    b = a.copy()
-    b[600:700, 1000:1300] = 255                                       # a panel lit up
-    b[5:20, 1800:1900] = 255                                          # the menu-bar clock: ignored
-    x, y, w, h = shots.salient_rect(a, b)
-    assert x <= 1000 and x + w >= 1300 and y <= 600 and y + h >= 700
-    assert abs(w / h - 16 / 9) < 0.02 and w >= shots.ZOOM_MIN_W
-    assert shots.salient_rect(a, a.copy()) is None
-    tiny = a.copy()
-    tiny[500:504, 500:504] = 255                                      # a blinking cursor
-    assert shots.salient_rect(a, tiny) is None
-    hx, hy, hw, hh = shots.salient_rect(None, a, hint=(1900, 1070))   # a hint near the corner stays on screen
-    assert hx + hw <= 1920 and hy + hh <= 1080
-
-
-def test_pairs_are_small_webp():
-    a = screen()
-    b = a.copy()
-    b[100:300, 100:600] = 200
-    pair = shots.make_pair(a, b)
-    assert pair.changed and pair.ext == "webp" and pair.full_size == (1280, 720)
-    assert pair.full[:4] == b"RIFF" and pair.zoom[:4] == b"RIFF"
-    assert shots.make_pair(a, a.copy(), require_change=True) is None

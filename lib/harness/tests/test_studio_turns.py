@@ -82,7 +82,6 @@ async def rig(tmp_path):
                          env={"VOICE_FAKE_TEXT": "make the kick louder tomato", "VOICE_FAKE_AFTER_S": "0.4"})
     agent = FakeAgent()
     studio = Studio(cfg, worker=worker, agent=agent, capture=FakeCapture(), summarize=no_narration)
-    studio.screens.REUSE_S = 0          # the scripted turns are instant: take a fresh capture every time
     app = App(cfg, None, cfg.skrng_dir, secure_cookie=False, studio=studio)
     client = TestClient(TestServer(app.build()))
     await client.start_server()
@@ -163,13 +162,14 @@ async def test_a_spoken_turn_end_to_end(rig):
                                                                   "every": 1, "labels": {"A": "now", "B": "+2 dB"}}, "")
 
     bash = {"command": "echo render", "description": "Render the A/B"}
+    hooks, call = studio.screens.hooks(), {"tool_name": "Bash", "tool_input": bash}
     agent.script = lambda prompt: [
         TextDelta(0, "Sure, a louder kick. "), TextDelta(0, "Rendering it now."),
         TextDone(0, "Sure, a louder kick. Rendering it now."),
         ToolStart("t1", "Bash", bash),
-        functools.partial(studio.screens.before_tool, "t1", "Bash", bash),    # what the SDK's hooks do
+        functools.partial(hooks["pre"], call, "t1", None),        # what the SDK does around the tool
         render,
-        functools.partial(studio.screens.after_tool, "t1", "Bash", bash),
+        functools.partial(hooks["post"], call, "t1", None),
         ToolDone("t1", "Bash", True, "done"),
         TextDelta(1, "Here it is."), TextDone(1, "Here it is."),
         TurnDone("Here it is.", True, 0.01, "sess-1"),
