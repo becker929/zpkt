@@ -87,13 +87,24 @@ def test_a_dialog_left_open_stops(monkeypatch, tmp_path):
 def test_refuses_an_existing_target_and_bad_arguments(monkeypatch, tmp_path):
     fake = FakeExportDialog(monkeypatch, [])
     (tmp_path / "all Kick.wav").write_bytes(b"old")
-    with pytest.raises(Guard, match="target not empty"):
-        render.export(MockTransport(), tmp_path / "all.wav")
+    with pytest.raises(Guard, match="target not empty, all Kick.wav"):
+        render.export(MockTransport(), tmp_path / "all.wav", mode="Kick")
+    (tmp_path / "take.wav").write_bytes(b"old")
+    with pytest.raises(Guard, match="target not empty, take.wav"):
+        render.export(MockTransport(), tmp_path / "take.wav")
     with pytest.raises(ValueError, match="writes"):
         render.export(MockTransport(), tmp_path / "x.mp3")
     with pytest.raises(ValueError, match="both"):
         render.export(MockTransport(), tmp_path / "y.wav", 0.0)
     assert fake.calls == []
+
+
+def test_only_the_exact_names_an_export_writes_count(monkeypatch, tmp_path):
+    for name in ("allegro.wav", "all_old.wav", "all.aif", "all Kick.wav", "pattern_00.wav"):
+        (tmp_path / name).write_bytes(b"old")
+    fake = FakeExportDialog(monkeypatch, [(True, False)])
+    assert render.export(MockTransport(), tmp_path / "all.wav", 0.0, 8.0) == [tmp_path / "all.wav"]
+    assert len(fake.calls) == 1
 
 
 def test_cli_export_puts_bare_names_in_the_renders_folder(monkeypatch, rig):

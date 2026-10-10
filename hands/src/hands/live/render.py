@@ -43,8 +43,8 @@ def export(client: McpTransport, out: Path, start_beat: float | None = None, len
     if (start_beat is None) != (length_beats is None):
         raise ValueError("give both start_beat and length_beats, or neither")
     out.parent.mkdir(parents=True, exist_ok=True)
-    if any(f.name.startswith(out.stem) for f in out.parent.iterdir()):
-        stop(f"export: target not empty, {out.stem}* already in {out.parent}")
+    if clash := sorted(f.name for f in out.parent.iterdir() if _ours(f, out, mode)):
+        stop(f"export: target not empty, {', '.join(clash)} already in {out.parent}")
     args = [str(out), FILE_TYPES[out.suffix.lower()], str(bits), str(sample_rate), "0", mode, "-1"]
     error = ""
     try:
@@ -58,7 +58,7 @@ def export(client: McpTransport, out: Path, start_beat: float | None = None, len
                 ok = True
             except ui.UiError as exc:
                 ok, error = False, str(exc)[-400:]
-            written = _written(out, since=t0 - 1)
+            written = _written(out, mode, since=t0 - 1)
             if written and ok:
                 _wait_for_dialogs_to_close(written)
             elif written:  # the script erred, but the render landed
@@ -79,10 +79,17 @@ def export(client: McpTransport, out: Path, start_beat: float | None = None, len
         ui.park_cursor()
 
 
-def _written(out: Path, since: float) -> list[Path]:
-    """Files of this export: named like `out` (Live may add a track name), new since `since`."""
-    return sorted(f for f in out.parent.iterdir()
-                  if f.name.startswith(out.stem) and f.suffix == out.suffix and f.stat().st_mtime >= since)
+def _ours(f: Path, out: Path, mode: str) -> bool:
+    """Is `f` a name this export writes? Main writes `out` itself; the other modes add " <track>"
+    to its stem. Exact names only: "all.wav" must not claim "allegro.wav" or "all_old.wav"."""
+    if f.suffix != out.suffix:
+        return False
+    return f.stem == out.stem or (mode != "Main" and f.stem.startswith(out.stem + " "))
+
+
+def _written(out: Path, mode: str, since: float) -> list[Path]:
+    """Files of this export (see _ours), new since `since`."""
+    return sorted(f for f in out.parent.iterdir() if _ours(f, out, mode) and f.stat().st_mtime >= since)
 
 
 def _wait_for_dialogs_to_close(written: list[Path], timeout_s: float = 60.0) -> None:
