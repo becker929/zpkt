@@ -70,7 +70,7 @@ class Conversation:
         self._owner_idle = asyncio.Event()
         self._owner_idle.set()
         self._interrupted = False
-        self._push_pending: set[int] = set()
+        self._push_later: dict[int, asyncio.TimerHandle] = {}   # growing replies, pushed at most every TEXT_PUSH_S
 
     # --- lifecycle -----------------------------------------------------------------------------------------------
     def start(self) -> None:
@@ -102,6 +102,9 @@ class Conversation:
         return msg
 
     def save(self, msg: Message) -> None:
+        later = self._push_later.pop(msg.seq, None)
+        if later is not None:
+            later.cancel()                       # this push supersedes it
         self.store.update(msg)
         self.push(msg)
 
@@ -430,15 +433,12 @@ class Conversation:
 
     def _push_soon(self, msg: Message) -> None:
         """Push a growing reply at most every TEXT_PUSH_S (the store gets it when the block is done)."""
-        if msg.seq in self._push_pending:
-            return
-        self._push_pending.add(msg.seq)
+        if msg.seq not in self._push_later:
+            self._push_later[msg.seq] = asyncio.get_running_loop().call_later(TEXT_PUSH_S, self._push_now, msg)
 
-        def push() -> None:
-            self._push_pending.discard(msg.seq)
-            self.push(msg)
-
-        asyncio.get_running_loop().call_later(TEXT_PUSH_S, push)
+    def _push_now(self, msg: Message) -> None:
+        self._push_later.pop(msg.seq, None)
+        self.push(msg)
 
     async def _respond(self) -> None:
         """Claude is done: wait for the phone to play everything, then hand it the mic."""

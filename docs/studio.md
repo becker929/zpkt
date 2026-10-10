@@ -119,7 +119,7 @@ Phone → Mac:
 | `say` | `text` | a typed turn |
 | `end_turn` | | end my turn now (same as saying the stop word) |
 | `interrupt` | | stop Claude and everything playing; my turn |
-| `playback` | `state` (busy/idle) | the phone started playing, or has played everything |
+| `playback` | `state` (busy/idle), `done` | the phone started playing, or has played everything; `done` counts the items it has finished or dropped |
 | `mark` | `turn`, `name`, `ms` | a timing mark measured on the phone |
 | `ping` | `t` | keepalive |
 
@@ -127,7 +127,7 @@ Mac → phone:
 
 | type | fields | meaning |
 |---|---|---|
-| `welcome` | `conversation`, `phase`, `page` (`items`, `has_more`), `version` | after `hello` |
+| `welcome` | `conversation`, `phase`, `turn`, `label`, `owner`, `speech_ready`, `page` (`items`, `has_more`), `version` | after `hello` |
 | `phase` | `phase` (idle/listening/working/responding), `turn`, `label` | whose turn it is, and what Claude is doing |
 | `listen` | `turn` | open the mic now (sent to the phone that owns it) |
 | `unlisten` | `turn` | close the mic now |
@@ -135,9 +135,16 @@ Mac → phone:
 | `upsert` | `message` | a message is new or changed |
 | `speech` | `stream`, `seq`, `rate`, `state` (begin/end) | a speech stream starts or ends; its audio comes in `0x02` frames |
 | `play` | `seq`, `loops` | play a music message, after anything already queued |
-| `stop_audio` | | stop and clear everything playing |
+| `stop_audio` | | stop and clear everything playing (and restart the `done` count) |
+| `reset` | `conversation` | a new conversation started: clear the chat |
 | `notice` | `level`, `text` | a passing notice |
 | `pong` | `t` | |
+
+**Counting items.** An item is one `speech` stream (begin to end) or one `play` command. The phone counts every
+item it finishes or drops (stopped, interrupted, replaced by a tap) and reports the count in `playback`; the count
+restarts when the phone sends `start` and when it receives `stop_audio`. The Mac opens the mic only when the count
+has caught up with what it sent, so a lost message can't open the mic over the music. Speech streams are sent only
+to a phone with autoplay on; `play` commands are explicit requests and play either way.
 
 HTTP (all behind the password): `GET /studio/api/messages?before=<seq>&limit=<n>` →
 `{"items": [...oldest first...], "has_more": bool}`; `GET /studio/api/timings?turns=<n>`;
