@@ -35,7 +35,7 @@ class STT(Protocol):
     def turn(self, stop_word: str, rate: int) -> Turn: ...
 
 
-TTS_ENGINES = {"kokoro": "voice.tts:Kokoro", "fake": "voice.fake:FakeTTS"}
+TTS_ENGINES = {"kokoro": "voice.tts:kokoro", "fake": "voice.fake:FakeTTS"}
 STT_ENGINES = {"parakeet": "voice.stt:Parakeet", "fake": "voice.fake:FakeSTT"}
 
 

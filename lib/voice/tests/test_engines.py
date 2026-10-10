@@ -1,7 +1,7 @@
 """The real engines (Kokoro, Parakeet), end to end: Kokoro says a turn, Parakeet hears it and the stop word.
 
-They need the models (`uv sync --extra engines`; the first run downloads ~1 GB), so they run only with
-VOICE_ENGINES=1. The text helpers below them run always."""
+They need the models (`uv sync --extra engines`; the first run downloads ~1.5 GB and builds the FluidAudio helper),
+so they run only with VOICE_ENGINES=1. The text helpers below them run always."""
 
 import os
 import time
@@ -71,14 +71,42 @@ def feed(turn, pcm: np.ndarray, rate: int, frame_s: float = 0.02):
     return events
 
 
+@pytest.fixture(scope="module")
+def fluid():
+    from voice.fluid import KokoroFluid
+    engine = KokoroFluid()
+    engine.warmup()
+    yield engine
+    engine.close()
+
+
 @engines
-def test_kokoro_speaks_in_pieces(kokoro):
+@pytest.mark.parametrize("build", ["kokoro", "fluid"])
+def test_kokoro_speaks_in_pieces(build, request):
+    speaker = request.getfixturevalue(build)
     t0 = time.monotonic()
-    chunks = list(kokoro.stream("First sentence here. And a second one, a little longer.", "af_heart", 1.0))
+    chunks = list(speaker.stream("First sentence here. And a second one, a little longer.", "af_heart", 1.0))
     assert len(chunks) == 2 and all(rate == 24_000 and pcm.dtype == np.int16 for pcm, rate in chunks)
     seconds = sum(len(p) for p, _ in chunks) / 24_000
     assert 2.0 < seconds < 8.0
     assert time.monotonic() - t0 < seconds, "faster than real time"
+
+
+@engines
+def test_fluidaudio_is_quick_and_heard_right(fluid, parakeet):
+    """The first sentence in well under the ONNX build's half second, the voice and speed honoured, and words that
+    Parakeet hears back."""
+    t0 = time.monotonic()
+    stream = fluid.stream("Make the kick drum a little louder. Then brighten the hi hats.", "am_michael", 1.0)
+    first, rate = next(stream)
+    assert time.monotonic() - t0 < 0.3
+    pcm = np.concatenate([first, *(p for p, _ in stream)])
+    fast = np.concatenate([p for p, _ in fluid.stream("Make the kick drum a little louder.", "am_michael", 1.5)])
+    assert len(fast) < 0.85 * len(first)
+    turn = parakeet.turn("tomato", rate)
+    feed(turn, np.concatenate([pcm, np.zeros(rate, np.int16)]), rate)
+    text = turn.finish()["text"].lower()
+    assert all(w in text for w in ("kick", "louder", "hats")), text
 
 
 @engines
