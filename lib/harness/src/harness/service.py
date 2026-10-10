@@ -32,7 +32,7 @@ log = logging.getLogger(__name__)
 
 def _job_start(cfg: Config):
     def hook(job: J.Job) -> None:
-        notify(f"Job started: {job.title}", f"Job {job.id} is running on the Mac.", f"{cfg.site}/skrng/#jobs")
+        notify(f"Job started: {job.title}", f"Job {job.id} is running on the Mac.", f"{cfg.app_url}/skrng/#jobs")
     return hook
 
 
@@ -41,7 +41,7 @@ def _job_finish(cfg: Config):
         mins = ((job.finished or 0) - (job.started or 0)) / 60
         head = "done" if job.status == "done" else "FAILED"
         body = (job.result if job.status == "done" else job.error) or ""
-        notify(f"Job {head}: {job.title}", f"{body[:3000]}\n\n{mins:.0f} min, job {job.id}", f"{cfg.site}/skrng/#jobs")
+        notify(f"Job {head}: {job.title}", f"{body[:3000]}\n\n{mins:.0f} min, job {job.id}", f"{cfg.app_url}/skrng/#jobs")
     return hook
 
 
@@ -67,14 +67,20 @@ async def handle(ws: ClientConnection, methods: Methods, raw: str | bytes) -> No
 
 
 async def serve(cfg: Config) -> None:
-    token = secret("rig_token")
-    if not token:
+    token = secret("rig_token") if cfg.public_rpc else None
+    if cfg.public_rpc and not token:
         raise SystemExit("no rig token: put one in the Keychain as zpkt-rig-token (see lib/harness/README.md)")
     store = J.JobStore(cfg.jobs_dir)
     runner = J.Runner(cfg, store, on_start=_job_start(cfg), on_finish=_job_finish(cfg))
     runner.recover()
     methods = Methods(cfg, runner, store)
     worker = asyncio.create_task(runner.work())
+    from .web import run as web_run
+    web = asyncio.create_task(web_run(cfg, methods))
+    if not cfg.public_rpc:
+        log.info("public RPC socket off (HARNESS_PUBLIC_RPC=1 turns it on)")
+        await asyncio.gather(worker, web)
+        return
     tasks: set[asyncio.Task] = set()
     headers = {"Authorization": f"Bearer {token}"}
     while True:
