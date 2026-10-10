@@ -1,183 +1,206 @@
-"""Horizontal probe kit: one Live load + one Main export renders P variants of a section.
+"""Horizontal probe kit: one Live load and one Main export render P variants of a section.
 
-  template  build once: copy a set, keep [lead] + one section, Duplicate Time to P patterns, save.
-  batch     per batch, offline: add devices from a donor set and step any device parameter per
-            pattern, written straight into a copy of the template (.als XML, see als_probe.py).
-  render    load the batch set, export Main once, slice it into one WAV per pattern.
+  template  once per shape: copy a set, keep [0, lead) plus one section, Duplicate Time to P
+            patterns, save. A kit is "<new_set_prefix>kit_<name>" in sets_dir, described by
+            <data_dir>/kits/<name>.json.
+  batch     per batch, offline: add donor devices and step any knob per pattern, written into a
+            copy of the kit (.als XML, hands.als). Pattern k starts at lead + k * pattern_beats.
+  render    load the batch set, export Main once, check the render, slice one WAV per pattern.
 
-Measured on HW002 (FINDINGS.md): ~4 s per 20-bar probe at P=16, Live memory flat. Every Live
-step is guarded (pp.check) and stops on anything unexpected. Usage from ~/Desktop/zpkt/hands:
+Measured on HW002 (docs/probe-packing-findings.md): about 4 s per 20-bar probe at P = 16 and
+1.8 s per 8-bar probe at P = 32, with Live's memory flat in P. Patterns sit at different song
+positions and tails ring into the next one, so compare features, not samples, and keep control
+patterns in every batch. Every Live step is guarded (session.check) and stops on a surprise.
 
-  uv run python scripts/probe_pack/probe_kit.py template KIT SRC_SET KEEP_START KEEP_END P [LEAD]
-  uv run python scripts/probe_pack/probe_kit.py render  BATCH_SET KIT
+    hands kit template KIT SRC_SET KEEP_START KEEP_END P [--lead 8]
+    hands kit render BATCH_SET KIT [--out DIR]
 """
+
+from __future__ import annotations
+
 import json
-import os
-import sys
+import math
 import time
+from collections.abc import Callable, Iterable, Mapping, Sequence
+from dataclasses import asdict, dataclass
+from pathlib import Path
 
-import soundfile as sf
+from hands import als, audio, config
+from hands.live import render as live_render
+from hands.live import session, timeops
+from hands.live.knobs import Knob
+from hands.live.session import stop
+from hands.live.transport import McpTransport
+from hands.steps import timing
 
-import pp
-from hands import als as X
-from pp import A, TO, log
-
-KITS = pp.DATA + "kits/"
-
-
-def _end():
-    return A.r("result = song.last_event_time")
-
-
-def _clips_after(beat):
-    return A.r(f"result = sum(len([c for c in t.arrangement_clips if c.end_time > {beat}]) "
-               f"for t in song.tracks if not t.is_foldable)")
+Step = tuple[Knob, Sequence]  # one value per pattern, in the knob's .als units
 
 
-def _delete(start, length):
-    """Edit > Delete Time, verified by the song end moving by `length` (within one beat: an
-    automation breakpoint just past the content can be absorbed)."""
-    before = _end()
-    TO.select(start, length)
-    if not A.menu("Edit", "Delete Time", tries=6):
-        raise pp.Guard("Edit > Delete Time stayed disabled")
-    time.sleep(1.0)
-    moved = before - _end()
-    if abs(moved - length) > 1.0 + 1e-6:
-        raise pp.Guard(f"Delete Time {start}+{length}: song end moved {moved}")
+@dataclass
+class Kit:
+    kit: str               # the kit's name, e.g. "c8x4"
+    set: str               # its Live set in sets_dir
+    src: str               # the set it was cut from
+    keep: list[float]      # [start, end) of the section in src, in beats
+    lead: float            # beats before the first pattern
+    pattern_beats: float
+    P: int
+
+    @staticmethod
+    def path(name: str) -> Path:
+        return config.rig().data_dir / "kits" / f"{name}.json"
+
+    @classmethod
+    def load(cls, name: str) -> Kit:
+        return cls(**json.loads(cls.path(name).read_text()))
+
+    def save(self) -> Path:
+        path = self.path(self.kit)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(asdict(self), indent=1))
+        return path
+
+    @property
+    def length_beats(self) -> float:
+        return self.lead + self.P * self.pattern_beats
+
+    def step_times(self) -> list[float]:
+        """Where each pattern's value starts: pattern 0's holds from the start of the song."""
+        return [0.0] + [self.lead + j * self.pattern_beats for j in range(1, self.P)]
 
 
-def _duplicate(start, length):
-    TO.select(start, length)
-    if not A.menu("Edit", "Duplicate Time", tries=6):
-        raise pp.Guard("Edit > Duplicate Time stayed disabled")
-    time.sleep(1.0)
+def _kit(kit: Kit | str) -> Kit:
+    return Kit.load(kit) if isinstance(kit, str) else kit
 
 
-def template(kit, src, keep_start, keep_end, P, lead=8.0):
-    """Kit set = [0, lead) of `src` + [keep_start, keep_end) of `src`, repeated P times (P a power of 2)."""
-    if P & (P - 1):
+def template(client: McpTransport, kit: str, src: str, keep_start: float, keep_end: float, P: int,
+             lead: float = 8.0) -> Kit:
+    """Build a kit set in Live: [0, lead) of `src` + [keep_start, keep_end), repeated P times.
+
+    P must be a power of two: Duplicate Time doubles the region. Takes 14 s + 7 s per doubling.
+    """
+    if P < 1 or P & (P - 1):
         raise ValueError("P must be a power of two (built by doubling)")
-    name = f"HW002_121_pp_kit_{kit}"
+    name = f"{config.rig().new_set_prefix}kit_{kit}"
     pat = keep_end - keep_start
-    pp.check("kit:start")
-    pp.copy_set(src, name)
-    pp.prepare_switch()
-    t = time.time(); pp.open_set(name); log("kit_load", time.time() - t, kit=kit)
-    pp.check("kit:loaded", expect_front=name)
-    end = _end()
+    if session.check(client, "kit:start") == name:
+        stop(f"kit: {name} is open; open another set before rebuilding it")
+    session.copy_set(src, name)
+    timing("kit_load", session.open_set(client, name), kit=kit)
+    session.check(client, "kit:loaded", expect_front=name)
+    end = timeops.song_end(client)
     if end > keep_end + 1.0:
-        _delete(keep_end, end - keep_end)
-        pp.check("kit:trim_tail", expect_front=name)
+        timeops.delete(client, keep_end, end - keep_end, tol=1.0)  # a breakpoint past the content may stay
+        session.check(client, "kit:trim_tail", expect_front=name)
     if keep_start > lead:
-        _delete(lead, keep_start - lead)
-        pp.check("kit:trim_gap", expect_front=name)
-    end = _end()
-    if not (lead + pat <= end <= lead + pat + 2.0):
-        raise pp.Guard(f"kit: after trims the set ends at {end}, expected about {lead + pat}")
+        timeops.delete(client, lead, keep_start - lead, tol=1.0)
+        session.check(client, "kit:trim_gap", expect_front=name)
+    end = timeops.song_end(client)
+    if not lead + pat <= end <= lead + pat + 2.0:
+        stop(f"kit: after trims the set ends at {end}, expected about {lead + pat}")
     n = 1
     while n < P:
-        before = _clips_after(lead)
-        t = time.time(); _duplicate(lead, n * pat); log("kit_duplicate", time.time() - t, kit=kit, to_P=2 * n)
+        t = time.monotonic()
+        timeops.duplicate(client, lead, n * pat, end=lead + 2 * n * pat, clips_from=lead)
+        timing("kit_duplicate", time.monotonic() - t, kit=kit, to_P=2 * n)
         n *= 2
-        pp.check(f"kit:dup{n}", expect_front=name)
-        end, after = _end(), _clips_after(lead)
-        if abs(end - (lead + n * pat)) > 1e-6 or after != 2 * before:
-            raise pp.Guard(f"kit: duplicating to {n}: end {end} (want {lead + n * pat}), clips {after} (want {2 * before})")
-    if not pp.save(name):
-        raise pp.Guard("kit: save did not write the file")
-    pp.check("kit:saved", expect_front=name)
-    os.makedirs(KITS, exist_ok=True)
-    meta = {"kit": kit, "set": name, "src": src, "keep": [keep_start, keep_end], "lead": lead, "pattern_beats": pat, "P": P}
-    json.dump(meta, open(KITS + kit + ".json", "w"), indent=1)
-    return meta
+        session.check(client, f"kit:dup{n}", expect_front=name)
+    session.save(name)
+    session.check(client, "kit:saved", expect_front=name)
+    made = Kit(kit=kit, set=name, src=src, keep=[keep_start, keep_end], lead=lead, pattern_beats=pat, P=P)
+    made.save()
+    return made
 
 
-def resolve(tree, track, dev, param):
-    """(track element, device element, parameter path relative to the device).
+def write_batch(kit: Kit | str, tag: str, steps: Iterable[Step], devices: Iterable[tuple] = ()) -> str:
+    """Offline: a batch set from the kit, with devices added and knobs stepped per pattern.
 
-    dev: "Mixer" (the track mixer: volume, pan, sends), ("plugin", PlugName) for a VST/AU device,
-    or (device_tag, index) for a Live device (index among devices with that tag; -1 = last).
-    param: an XML path for Live devices ("Bands.3/ParameterA/Gain"); a plugin parameter's
-    display name ("Drive") for plugins, which resolves to its ParameterValue element."""
-    tr = X.find_track(tree, track)
-    if dev == "Mixer":
-        return tr, tr.find("./DeviceChain/Mixer"), param
-    if isinstance(dev, str):                       # older call style: a tag, last such device
-        dev = (dev, -1)
-    if dev[0] == "plugin":
-        plugs = [d for d in X.devices(tr) if d.tag == "PluginDevice"
-                 and any(e.get("Value") == dev[1] for e in d.find("./PluginDesc").iter() if e.tag in ("PlugName", "Name"))]
-        if len(plugs) != 1:
-            raise KeyError(f"{track}: {len(plugs)} plugins named {dev[1]!r}")
-        params = plugs[0].findall("./ParameterList/PluginFloatParameter")
-        idx = [i for i, p in enumerate(params, 1) if p.find("./ParameterName").get("Value") == param]
-        if len(idx) != 1:
-            raise KeyError(f"{track}/{dev[1]}: {len(idx)} parameters named {param!r}")
-        return tr, plugs[0], f"ParameterList/PluginFloatParameter[{idx[0]}]/ParameterValue"
-    return tr, X.find_device(tr, dev[0], dev[1]), param
-
-
-def current_value(tree, track, dev, param):
-    """The parameter's knob value in the set (float, or bool for switches)."""
-    _, d, path = resolve(tree, track, dev, param)
-    v = d.find(path).find("Manual").get("Value")
-    return v == "true" if v in ("true", "false") else float(v)
-
-
-def write_batch(kit, tag, devices, steps):
-    """Offline. devices: [(track, donor_set, donor_track, device_tag)] appended to `track`.
-    steps: [(track, device_tag or "Mixer", param_xml_path, [value per pattern])]. Returns the batch set name."""
-    meta = json.load(open(KITS + kit + ".json"))
-    tree = X.load(os.path.join(pp.PROJ, meta["set"] + ".als"))
-    for track, donor_set, donor_track, tag_ in devices:
-        donor = X.find_device(X.find_track(X.load(os.path.join(pp.PROJ, donor_set + ".als")), donor_track), tag_)
-        X.add_device_from_donor(tree, X.find_track(tree, track), donor)
-    for track, dev, param, values in steps:
-        if len(values) != meta["P"]:
-            raise ValueError(f"{len(values)} values for {meta['P']} patterns")
-        st = [(0.0 if j == 0 else meta["lead"] + j * meta["pattern_beats"], v) for j, v in enumerate(values)]
-        tr, d, path = resolve(tree, track, dev, param)
-        X.set_steps(tree, tr, d, path, st)
-    name = f"HW002_121_pp_x_{kit}_{tag}"
-    path = os.path.join(pp.PROJ, name + ".als")
-    X.save(tree, path, overwrite=True)
-    problems = X.check(path).problems
+    devices: (track, donor_set, donor_track, device_tag), each appended to `track`.
+    Returns the batch set's name, "<new_set_prefix>x_<kit>_<tag>", after als.check passes.
+    """
+    kit = _kit(kit)
+    rig = config.rig()
+    tree = als.load(rig.set_path(kit.set))
+    for track, donor_set, donor_track, device_tag in devices:
+        donor = als.find_device(als.find_track(als.load(rig.set_path(donor_set)), donor_track), device_tag)
+        als.add_device_from_donor(tree, als.find_track(tree, track), donor)
+    times = kit.step_times()
+    for knob, values in steps:
+        if len(values) != kit.P:
+            raise ValueError(f"{knob}: {len(values)} values for {kit.P} patterns")
+        track, device, path = als.resolve(tree, *knob.spec)
+        als.set_steps(tree, track, device, path, list(zip(times, values)))
+    name = f"{rig.new_set_prefix}x_{kit.kit}_{tag}"
+    problems = als.check(als.save(tree, rig.set_path(name), overwrite=True)).problems
     if problems:
-        raise pp.Guard(f"als check failed: {problems}")
+        stop(f"batch {name}: als check failed: {problems}")
     return name
 
 
-def render(batch_set, kit, out_dir):
-    """Guarded load + one Main export + slice into pattern_XX.wav. Returns the manifest."""
-    meta = json.load(open(KITS + kit + ".json"))
-    lead, pat, P = meta["lead"], meta["pattern_beats"], meta["P"]
-    pp.check("render:start")
-    pp.prepare_switch()
-    t = time.time(); pp.open_set(batch_set); t_load = time.time() - t
-    pp.check("render:loaded", expect_front=batch_set)
-    os.makedirs(out_dir, exist_ok=True)
-    t = time.time(); pp.export(os.path.join(out_dir, "all.wav"), 0.0, lead + P * pat, "Main"); t_export = time.time() - t
-    pp.check("render:exported", expect_front=batch_set)
-    x, sr = sf.read(os.path.join(out_dir, "all.wav"), always_2d=True, dtype="float32")
-    spb = 60.0 / A.r("result = song.tempo")
-    files = []
-    for k in range(P):
-        a, b = int((lead + k * pat) * spb * sr), int((lead + (k + 1) * pat) * spb * sr)
-        f = os.path.join(out_dir, f"pattern_{k:02d}.wav")
-        sf.write(f, x[a:b], sr, subtype="FLOAT")
-        files.append(f)
-    man = {"batch_set": batch_set, "kit": meta, "load_s": round(t_load, 2), "export_s": round(t_export, 2),
-           "files": files, "seconds_per_probe": round((t_load + t_export) / P, 2)}
-    json.dump(man, open(os.path.join(out_dir, "manifest.json"), "w"), indent=1)
-    log("kit_render", t_load + t_export, kit=kit, P=P, load=round(t_load, 2), export=round(t_export, 2))
-    return man
+def render(client: McpTransport, batch_set: str, kit: Kit | str, out_dir: str | Path) -> dict:
+    """Guarded load, one Main export, a silence and length check, and one WAV per pattern
+    (pattern_XX.wav beside all.wav). Writes and returns manifest.json."""
+    kit = _kit(kit)
+    out_dir = Path(out_dir)
+    session.check(client, "render:start")
+    t_load = session.open_set(client, batch_set)
+    session.check(client, "render:loaded", expect_front=batch_set)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    t = time.monotonic()
+    live_render.export(client, out_dir / "all.wav", 0.0, kit.length_beats, mode="Main")
+    t_export = time.monotonic() - t
+    session.check(client, "render:exported", expect_front=batch_set)
+    spb = 60.0 / client.run("result = song.tempo")
+    audio.check_audio(out_dir / "all.wav", seconds=kit.length_beats * spb)
+    cuts = [(kit.lead + k * kit.pattern_beats) * spb for k in range(kit.P + 1)]
+    files = audio.slice_render(out_dir / "all.wav", cuts, out_dir)
+    manifest = {"batch_set": batch_set, "kit": asdict(kit), "load_s": round(t_load, 2), "export_s": round(t_export, 2),
+                "files": [str(f) for f in files], "seconds_per_probe": round((t_load + t_export) / kit.P, 2)}
+    (out_dir / "manifest.json").write_text(json.dumps(manifest, indent=1))
+    timing("kit_render", t_load + t_export, kit=kit.kit, P=kit.P, load=round(t_load, 2), export=round(t_export, 2))
+    return manifest
 
 
-if __name__ == "__main__":
-    cmd = sys.argv[1]
-    if cmd == "template":
-        kit, src, ks, ke, P = sys.argv[2], sys.argv[3], float(sys.argv[4]), float(sys.argv[5]), int(sys.argv[6])
-        print(json.dumps(template(kit, src, ks, ke, P, float(sys.argv[7]) if len(sys.argv) > 7 else 8.0)))
-    elif cmd == "render":
-        print(json.dumps(render(sys.argv[2], sys.argv[3], pp.DATA + "kit_out/" + sys.argv[2])))
+def merge_patterns(patterns: Sequence[Iterable[tuple[Knob, object]]], P: int,
+                   baseline: Callable[[Knob], object], *, taken: Iterable[Knob] = ()) -> list[Step]:
+    """One step envelope per knob from per-pattern settings.
+
+    patterns[j] lists the (knob, value) pairs pattern j sets (at most P patterns). A pattern that
+    does not set a knob keeps baseline(knob), the set's own value (als.current_value), as do the
+    patterns past the listed ones. Knobs in `taken` (stepped already, e.g. by a baseline mix)
+    are refused: two envelopes on one parameter would fight.
+    """
+    if len(patterns) > P:
+        raise ValueError(f"{len(patterns)} patterns for a {P}-pattern kit")
+    taken = set(taken)
+    rows: dict[Knob, list] = {}
+    for j, sets in enumerate(patterns):
+        for knob, value in sets:
+            if knob in taken:
+                raise ValueError(f"{knob} is already set by the baseline")
+            if knob not in rows:
+                rows[knob] = [baseline(knob)] * P
+            rows[knob][j] = value
+    return list(rows.items())
+
+
+def constant(values: Mapping[Knob, object], P: int) -> list[Step]:
+    """Steps that hold each knob at one value in every pattern (a view's mutes, a fixed setting)."""
+    return [(knob, [value] * P) for knob, value in values.items()]
+
+
+def scale(u: float, lo: float, hi: float, kind: str) -> float | bool:
+    """A knob value from a position u in [0, 1]: "lin" or "log" between lo and hi, or "bool"."""
+    if kind == "bool":
+        return bool(u >= 0.5)
+    return lo + (hi - lo) * u if kind == "lin" else lo * (hi / lo) ** u
+
+
+def unscale(v: float | bool, lo: float, hi: float, kind: str) -> float:
+    """The position in [0, 1] of a knob value; raises if it is outside [lo, hi]."""
+    if kind == "bool":
+        return 0.75 if v else 0.25
+    u = (v - lo) / (hi - lo) if kind == "lin" else math.log(v / lo) / math.log(hi / lo)
+    if not -1e-6 <= u <= 1 + 1e-6:
+        raise ValueError(f"value {v} outside [{lo}, {hi}]")
+    return min(1.0, max(0.0, u))

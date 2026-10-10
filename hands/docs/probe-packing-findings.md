@@ -1,6 +1,7 @@
 # Probe packing: findings
 
-Study date: 2026-10-06. Ableton Live 12.4.6. The scripts are in this folder.
+Study date: 2026-10-06. Ableton Live 12.4.6. The bench scripts are kept, unmaintained, in
+`hands/archive/probe_pack/`; the method they led to is `hands.probe_kit`, the .als editor `hands.als`.
 
 ## 1. Question and setup
 
@@ -22,7 +23,7 @@ A probe is one variant of an HW002 section. The tempo is 160 BPM. One bar lasts 
 - Renders are offline exports through Live's Export dialog, unless noted.
 - The test set has a kick group and a perc group: 7 tracks, one submix.
 - A 2-bar lead-in comes before the 20-bar shape. One export of it is 33 s.
-- Each timed step appends a row to `~/_agent_scratch/probepack/bench.jsonl`.
+- Each timed step appends a row to `bench.jsonl` in the rig's data folder (`hands.steps.timing`).
 - Logged times are wall clock per step. Guard checks between steps are excluded. They add about 3 s per batch.
 
 | Run | What it tests | Script |
@@ -33,9 +34,9 @@ A probe is one variant of an HW002 section. The tempo is 160 BPM. One bar lasts 
 | E2 | reuse the S = 4 set: LOM edit + export, no reload | `bench_phase3.py reuse` |
 | E3 | horizontal: Duplicate Time to P = 1, 2, 4; export Main | `bench_phase3.py horiz` |
 | E4 | Bounce Groups to New Tracks as the renderer | `bench_e4_bounce.py` |
-| E5 | P = 16 × 20 bars; per-pattern automation written into the .als | `bench_e5_als.py`, `als_probe.py` |
-| E6 | P = 32 × 8 bars with the reusable kit | `probe_kit.py` |
-| E7 | a hill climb in Live: 32 candidates per batch | `climb_live.py`, `score_patterns.py` (ears/mlab) |
+| E5 | P = 16 × 20 bars; per-pattern automation written into the .als | `bench_e5_als.py`, `hands.als` |
+| E6 | P = 32 × 8 bars with the reusable kit | `hands.probe_kit` |
+| E7 | a hill climb in Live: 32 candidates per batch | `scripts/probe_pack/climb_live.py`, `score_patterns.py` (ears/mlab) |
 
 ## 2. Measured primitives
 
@@ -162,7 +163,7 @@ Predicted cost per 8-bar probe at P = 32: 1.9 s. Measured: 1.78 s. Render cost d
 Consistency check: at S = 8 the general form gives 11.2 s per probe. E1 measured 10.8 s, plus 0.4 s of guards.
 
 **Predictions for the recommended method.** Seconds per probe, steady state, template excluded.
-The full table, with ranges, is in `~/_agent_scratch/probepack/cost_model.json`.
+The full table, with ranges, is in `cost_model.json` in the rig's data folder.
 
 | P | 20-bar patterns | 8-bar patterns | Template, once |
 |---|---|---|---|
@@ -196,11 +197,11 @@ Measured order, slowest first: rendering, then load, then editing (when batched)
 
 ## 6. Recommended method
 
-Horizontal packing with automation written into the .als (E5, E6). S = 1. The code is `probe_kit.py`.
+Horizontal packing with automation written into the .als (E5, E6). S = 1. The code is `hands.probe_kit`.
 
 1. Build a template once per shape and P (`probe_kit.template`). Trim the set to the shape. Run Duplicate Time log2(P) times. Save. About 40 s at P = 16, 80 s at P = 32.
-2. Per batch, in Python (`probe_kit.write_batch`): copy the template. Add donor devices. Write one step envelope per varied parameter, one level per pattern. Run `als_probe.check`. 0.8 s.
-3. Load the batch set, export Main once, slice it per pattern (`probe_kit.render`).
+2. Per batch, in Python (`probe_kit.write_batch`): copy the template. Add donor devices. Write one step envelope per varied parameter, one level per pattern. Run `hands.als.check`. 0.8 s.
+3. Load the batch set, export Main once, check it for silence and length, slice it per pattern (`probe_kit.render`).
 4. Put control patterns in every batch. Compare features, not samples.
 
 Evidence that it works:
@@ -244,7 +245,7 @@ That cut the spread of identical settings to 0.03 for the "space" score. A climb
 - **Group-device envelopes only through the .als.**
   - LOM cannot write arrangement automation. `Clip.automation_envelope` refuses arrangement clips.
   - Group tracks hold no clips, so their devices have no clip envelope at all.
-  - `als_probe.py` edits the XML directly and renumbers Pointee ids.
+  - `hands.als` edits the XML directly and renumbers Pointee ids.
   - A new device needs a donor copy from another set. Here a Reverb came from the S = 4 set.
   - The .als format is undocumented (schema "12.0_12402"). Recheck it after Live updates.
 - **What still needs the GUI.**
@@ -263,7 +264,7 @@ That cut the spread of identical settings to 0.03 for the "space" score. A climb
 ## 7. Safety lessons from running it
 
 - Keep each LOM call under the bridge's 12 s timeout. Fourteen group duplications in one call ran past it, Live kept working, and the next step met a "Save changes?" prompt.
-- Check for dialogs before and after every Live step (`pp.check`). Stop on anything unexpected; do not chain steps past a surprise.
+- Check for dialogs before and after every Live step (`hands.live.session.check`). Stop on anything unexpected; do not chain steps past a surprise.
 - An export can fail in its last second while the files are complete. Count the files before retrying, and never export over existing files: Live trashes them and renames the new ones.
 - After a quit, macOS can still report Live as running for a moment, and `open` then fails (-600). Wait for LaunchServices before relaunching.
 
@@ -339,5 +340,5 @@ climb over all 20 knobs with a summed objective, seeded at the combined bests.
 - **Least-squares fits from log rows:** Export Main a and b; export-all e0 and e1; load l0 and l1; memory m0 and m1.
 - **Medians and means from log rows:** every row of the primitives table. t_guard comes from row timestamps.
 - **From the experiment reports, not the log:** the null and determinism results (−129 dB, −127.6 dB, the about −6 dB perc-group residual across passes, the deterministic kick group on the first export after a load); the E5 and E6 feature results; E4 behaviour; LOM refusing arrangement automation; the practical cap of S ≈ 8–10.
-- **Background research:** `~/_agent_scratch/probepack/research/R1-rendering-options.md`.
-- **Model file:** `~/_agent_scratch/probepack/cost_model.json`.
+- **Background research:** `research/R1-rendering-options.md` in the rig's data folder.
+- **Model file:** `cost_model.json` in the rig's data folder.
