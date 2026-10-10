@@ -92,3 +92,21 @@ def test_reap_modals_runs_the_packaged_script(fake):
     assert ui.reap_modals() == "CLEAN"
     assert f.calls[0][1] == str(ui.REAP_SCRIPT) and f.calls[0][2] == "check"
     assert ui.REAP_SCRIPT.exists()
+
+
+def test_a_hung_script_is_a_ui_error(monkeypatch):
+    def hang(argv, **kw):
+        raise subprocess.TimeoutExpired(argv, kw["timeout"])
+    monkeypatch.setattr(ui.subprocess, "run", hang)
+    with pytest.raises(ui.UiError, match="did not finish in 30 s"):
+        ui.front_title()
+
+
+def test_a_hung_hammerspoon_rerun_is_a_ui_error(fake, monkeypatch):
+    fake((1, "", "not allowed assistive access. (-1719)"))
+
+    def hang(argv, timeout):
+        raise subprocess.TimeoutExpired(argv, timeout)
+    monkeypatch.setattr(ui, "_via_hammerspoon", hang)
+    with pytest.raises(ui.UiError, match="did not finish"):
+        ui.dialogs()

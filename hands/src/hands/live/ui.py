@@ -44,11 +44,16 @@ def osa_file(path: str | os.PathLike, *args: str, timeout: float = 900) -> str:
 
 def _osascript(argv: list[str], timeout: float) -> str:
     global _direct_works
-    run = subprocess.run(["osascript", *argv], capture_output=True, text=True, timeout=timeout)
-    if run.returncode == 0:
-        _direct_works = True
-    elif not _direct_works and _NO_ACCESS.search(run.stderr) and shutil.which("hs"):
-        run = _via_hammerspoon(argv, timeout)
+    try:
+        run = subprocess.run(["osascript", *argv], capture_output=True, text=True, timeout=timeout)
+        if run.returncode == 0:
+            _direct_works = True
+        elif not _direct_works and _NO_ACCESS.search(run.stderr) and shutil.which("hs"):
+            run = _via_hammerspoon(argv, timeout)
+    except subprocess.TimeoutExpired as exc:
+        # A hung script (a modal Live raised, System Events stuck) is a failure like any other,
+        # so the session guards stop cleanly instead of crashing on the exception.
+        raise UiError(f"osascript did not finish in {timeout:g} s") from exc
     if run.returncode != 0:
         raise UiError((run.stderr or run.stdout).strip()[-400:] or f"osascript exited {run.returncode}")
     return run.stdout.strip()

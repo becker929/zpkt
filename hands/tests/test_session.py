@@ -68,6 +68,14 @@ def test_check_stops_on_surprises(monkeypatch, fronts, dialogs, kw, message):
         session.check(MockTransport(), "step", **kw)
 
 
+def test_check_stops_cleanly_when_osascript_hangs(monkeypatch):
+    def hang(argv, **kw):
+        raise subprocess.TimeoutExpired(argv, kw["timeout"])
+    monkeypatch.setattr(ui.subprocess, "run", hang)
+    with pytest.raises(Guard, match="cannot read Live's windows .*did not finish"):
+        session.check(MockTransport(), "render:start")
+
+
 def test_check_needs_the_lom(monkeypatch):
     FakeGui(monkeypatch, ["Anthony's mix"])
     assert session.check(MockTransport(), "desk", ours=False) == "Anthony's mix"
