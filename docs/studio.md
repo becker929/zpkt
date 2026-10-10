@@ -14,6 +14,7 @@ The mic and the speaker take turns: they are never on together, so a car's Bluet
    by saying **"tomato"**. Pauses don't end it, so you can think mid-sentence. You can also tap to end the turn, or type.
 2. **Claude works.** The transcript goes to one long-lived Claude Code session (cwd: zpkt). While it works, a small
    Haiku model narrates what it is doing in a few words, and screenshots of its actions arrive at the level you chose.
+   Its thinking, tool calls and screenshots fold into one trace bubble in the chat (never spoken).
 3. **Claude answers.** Its words are spoken (Kokoro, on the Mac, streamed as it is generated). Music it renders arrives
    as its own bubble. With autoplay on (the default) both play in order.
 4. **Your turn again.** When the phone has finished playing, the mic opens.
@@ -47,7 +48,7 @@ lib/harness/src/harness/studio/
   protocol.py      the WebSocket's JSON messages and binary frames
   routes.py        routes: page, static files, history, media, WebSocket
   conversation.py  the turn loop: phases, who has the turn, what plays next
-  agent.py         the Claude Code session: streaming text, tool activity, interrupt, resume
+  agent.py         the Claude Code session: streaming text and thinking, tool activity, interrupt, resume
   tools.py         the tools Claude gets from the app (present_music, play_music, stop_audio, screenshot)
   intents.py       spoken commands handled without Claude (play again, loop N times, stop)
   speech.py        the voice worker's client, and the speaker: text to segments to streamed audio to a replay file
@@ -76,7 +77,8 @@ repo) and served in pages. Media (speech replays, music, screenshots) is content
 | kind | what | data |
 |---|---|---|
 | `user` | what you said (or typed) | `text`, `source` (voice/typed), `audio` (your recording), `duration`, `intent` |
-| `agent` | what Claude said, or a narration | `text`, `role` (reply/narration), `audio` (replay), `duration`, `streaming` |
+| `agent` | what Claude said, or a narration | `text`, `role` (reply/narration/note), `audio` (replay), `duration`, `streaming` |
+| `thinking` | Claude's thinking, summarized; never spoken | `text` (grows while `streaming`), `streaming` |
 | `music` | a render to listen to | `title`, `audio` (FLAC), `duration`, `ab` (bar length, bars, first side, labels), `plays`, `note` |
 | `shots` | a screenshot pair | `level`, `caption`, `full`, `zoom`, `rect`, `screen` |
 | `activity` | a tool call | `tool`, `title`, `detail`, `status` (running/ok/error), `ms` |
@@ -89,9 +91,25 @@ A media reference is `{"url": "/studio/media/<sha256>.<ext>", "type": "<mime>", 
 
 Captions of speech (yours and Claude's) are in the message text; the page folds them by default.
 
+**Thinking.** The session runs with adaptive thinking and `display: summarized` (`Studio._options`): for current
+models Claude Code otherwise sends thinking blocks with no text, only a signature. The summary streams as
+`thinking_delta` events; the reader turns each block into a `thinking` message that grows like a reply. It is not
+spoken and not narrated.
+
+**The trace.** Consecutive `thinking`, `activity` and `shots` messages render as one trace bubble; any other kind
+(`user`, `agent` including narrations, `music`, `notice`) ends the run, and the next one starts a new trace. Folded
+(the default) it is one line: the step running now or the last one (a thought by its heading or first sentence), the
+latest zoom as a thumbnail, how many steps and shots, and a spinner while anything runs (a cross if a step failed).
+Unfolded: the items in order, thinking as dimmed text, tool calls as rows that open to their command and output,
+screenshot pairs that open the lightbox. Shots above the page's level are hidden and not counted. The fold is
+remembered by the items' seqs, so a trace that is dropped and paged back in, or split and joined again, comes back
+as the reader left it.
+
 The page keeps at most a window of messages in the DOM and in memory (a cap of about 60). Older ones are dropped as
-new ones arrive; a **Load earlier** button (with a spinner) fetches the previous page from the server. Decoded audio
-is kept in a small LRU.
+new ones arrive; a **Load earlier** button (with a spinner) fetches the previous page from the server. A trace cut by
+a page boundary grows at its front when the older page arrives. The view keeps the reader's place itself: the first
+message in view stays put; inside an unfolded trace that is the item being read, and a folded trace counts as one
+block. Decoded audio is kept in a small LRU.
 
 ## Making music: plans, the render cache, A/B every bar
 
@@ -190,11 +208,12 @@ Phone → Mac:
 | `start` | | this phone takes the mic and speaker; hands-free on |
 | `pause` | | hands-free off: the mic stays closed until `start` |
 | `mic` | `state` (open/closed), `turn`, `open_ms` | the mic opened (and how long that took) or closed |
-| `say` | `text` | a typed turn |
+| `say` | `text` | a typed turn; the page that sends it takes the speaker (unless another one has it mid-turn) |
 | `end_turn` | | end my turn now (same as saying the stop word) |
 | `interrupt` | | stop Claude and everything playing; my turn |
 | `playback` | `state` (busy/idle), `done` | the phone started playing, or has played everything; `done` counts the items it has finished or dropped |
 | `mark` | `turn`, `name`, `ms` | a timing mark measured on the phone |
+| `log` | `text` | something went wrong on the page (audio that didn't play); goes to the harness log |
 | `ping` | `t` | keepalive |
 
 Mac → phone:

@@ -20,7 +20,7 @@ from typing import Any
 
 from . import audio, intents
 from .activity import describe, detail
-from .agent import AgentSession, TextDelta, TextDone, ToolDone, ToolStart, TurnDone
+from .agent import AgentSession, TextDelta, TextDone, ThinkingDelta, ThinkingDone, ToolDone, ToolStart, TurnDone
 from .hub import Client, Hub
 from .model import Kind, Message, Phase, Prefs, ShotLevel
 from .narrator import Narrator, Summarize
@@ -182,7 +182,15 @@ class Conversation:
             self._recording += pcm
 
     def typed(self, client: Client, text: str) -> None:
+        """A typed turn. The page it came from takes the speaker, so the answer plays where Anthony is (a page
+        that only ever typed has no other way to become the owner); mid-turn it stays where it is."""
         text = text.strip()
+        if self.hub.owner is not client and (self.hub.owner is None or self.phase is not Phase.WORKING):
+            previous, self.hub.owner = self.hub.owner, client
+            if previous is not None:
+                previous.send({"type": "stop_audio"})
+                if self.phase is Phase.LISTENING:
+                    previous.send({"type": "unlisten", "turn": self.turn})
         if self.phase is Phase.WORKING:
             self._queued.append(text)
             self.notice("Claude is working; your message goes next.")
@@ -364,6 +372,7 @@ class Conversation:
         self.narrator.turn_started(text)
         self.screens.turn_started()
         replies: dict[int, tuple[Message, Utterance]] = {}
+        thoughts: dict[int, Message] = {}
         tools: dict[str, tuple[Message, float]] = {}
         clock = self.clock
         try:
@@ -382,6 +391,18 @@ class Conversation:
                     msg.data.update(text=ev.text, streaming=False)
                     self.save(msg)
                     utt.close()
+                elif isinstance(ev, ThinkingDelta):
+                    if ev.block not in thoughts:
+                        thoughts[ev.block] = self.add(Kind.THINKING, {"text": "", "streaming": True})
+                    thoughts[ev.block].data["text"] += ev.text
+                    self._push_soon(thoughts[ev.block])
+                elif isinstance(ev, ThinkingDone):
+                    msg = thoughts.pop(ev.block, None)
+                    if msg is None:
+                        self.add(Kind.THINKING, {"text": ev.text, "streaming": False})
+                    else:
+                        msg.data.update(text=ev.text, streaming=False)
+                        self.save(msg)
                 elif isinstance(ev, ToolStart):
                     title = describe(ev.name, ev.input)
                     act = self.add(Kind.ACTIVITY, {"tool": ev.name, "title": title, "status": "running",
@@ -414,6 +435,9 @@ class Conversation:
                 msg.data["streaming"] = False
                 self.save(msg)
                 utt.close()
+            for msg in thoughts.values():
+                msg.data["streaming"] = False
+                self.save(msg)
             for act, _ in tools.values():
                 act.data["status"] = "error" if self._interrupted else "ok"
                 self.save(act)
@@ -446,7 +470,7 @@ class Conversation:
         utt.close()
 
     def _push_soon(self, msg: Message) -> None:
-        """Push a growing reply at most every TEXT_PUSH_S (the store gets it when the block is done)."""
+        """Push a growing reply (or thinking) at most every TEXT_PUSH_S (the store gets it when the block is done)."""
         if msg.seq not in self._push_later:
             self._push_later[msg.seq] = asyncio.get_running_loop().call_later(TEXT_PUSH_S, self._push_now, msg)
 
@@ -481,8 +505,10 @@ class Conversation:
 
     def unprompted(self, event: Any) -> None:
         """Claude acting without a turn of Anthony's (e.g. a background task it started has finished). It goes in
-        the chat as a written note and activity, not spoken: the mic may be his at that moment."""
-        if isinstance(event, TextDone) and event.text.strip():
+        the chat as a written note, thinking and activity, not spoken: the mic may be his at that moment."""
+        if isinstance(event, ThinkingDone):
+            self.add(Kind.THINKING, {"text": event.text, "streaming": False})
+        elif isinstance(event, TextDone) and event.text.strip():
             self.add(Kind.AGENT, {"text": event.text, "role": "note", "audio": None, "duration": None,
                                   "streaming": False})
         elif isinstance(event, ToolStart):

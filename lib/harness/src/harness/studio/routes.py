@@ -166,5 +166,7 @@ async def dispatch(studio: "Studio", client: Client, kind: str, msg: dict) -> No
     elif kind == "mark":
         extra = {k: v for k, v in msg.items() if k not in ("type", "turn", "name", "ms") and isinstance(v, (int, float, str))}
         conv.mark(client, msg.get("turn"), msg["name"], msg.get("ms"), extra)
+    elif kind == "log":
+        log.warning("page %s (%s): %s", client.id, client.ua[:80], msg["text"][:500])
     elif kind == "ping":
         client.send({"type": "pong", "t": msg.get("t")})

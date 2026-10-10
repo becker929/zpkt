@@ -30,6 +30,7 @@ from harness.studio.shots import Frame
 from harness.studio.speech import VoiceWorker
 from harness.studio.timing import report
 from harness.web import App
+from heard import heard, resample, wer
 
 pytestmark = [pytest.mark.ui, pytest.mark.skipif(os.environ.get("STUDIO_STACK") != "1" and
                                                  os.environ.get("STUDIO_CLAUDE") != "1",
@@ -206,3 +207,55 @@ async def test_a_typed_turn_with_real_claude(chromium, stack):
     log = await page.evaluate("window.studio.engine.log")
     assert any(e["kind"] == "speech" and e["outcome"] == "played" for e in log), log
     assert errors == []
+
+
+REPLY = ("The kick has more drive now. I pushed the saturation a little and kept the low end clean, "
+         "so it should punch through the bass without sounding harsh.")
+
+
+@pytest.mark.skipif(os.environ.get("STUDIO_STACK") != "1", reason="STUDIO_STACK=1")
+async def test_a_full_voice_loop_inject_recognise_speak_capture_recognise(chromium, stack):
+    # Kokoro says a sentence into the page's mic; Parakeet hears it and the stop word ends the turn; Claude's reply
+    # is spoken by Kokoro and played by the page; the ear records what the page played, and Parakeet, given that
+    # recording, hears the reply's words.
+    server, studio, claude, tmp = stack
+    conv = studio.conversation
+    claude.script = lambda prompt: [TextDelta(0, REPLY), TextDone(0, REPLY), TurnDone(REPLY, True, 0.0, "sess-1")]
+    mic = kokoro_wav("Make the kick drive a little stronger. Tomato.", tmp / "said.wav")
+    page, errors = await phone(chromium, server, studio, mic)
+
+    # Inject: the spoken turn is recognised, and "tomato" ends it (and is taken off).
+    await page.click("#turn")
+    await until(lambda: claude.prompts, 60)
+    said = claude.prompts[0].lower()
+    assert "kick" in said and "stronger" in said and "tomato" not in said, said
+
+    # Speak: the reply plays to the end, then the mic is offered again (that recording would start a second turn,
+    # so the page is closed as soon as the first one is fetched).
+    first_turn = conv.turn
+    await until(lambda: conv.phase.value == "listening" and conv.turn != first_turn, 120)
+    ears = await heard(page)
+    log = await page.evaluate("window.studio.engine.log")
+    await page.context.close()
+    assert errors == []
+    assert [e["kind"] for e in log if e["counted"]] and all(
+        e["kind"] == "speech" and e["outcome"] == "played" for e in log if e["counted"])
+
+    # Capture: what the speakers got, from the first sound to the last, at 16 kHz.
+    ear = next(e for e in ears if e.loud())
+    spans = ear.loud()
+    played = resample(ear.between(spans[0][0], spans[-1][1]), ear.rate, 16_000)
+    assert len(played) / 16_000 > 3, f"only {len(played) / 16_000:.1f} s of speech was heard"
+
+    # Recognise: the same Parakeet worker transcribes the recording; the words match the reply.
+    stt = studio.worker.transcription("tomato", 16_000)
+    pcm = (np.clip(played, -1, 1) * 32767).astype("<i2").tobytes()
+    for i in range(0, len(pcm), 6400):                         # 200 ms at a time, as the mic would
+        stt.feed(pcm[i:i + 6400])
+    stt.end()
+    heard_text = ""
+    async for event in stt.events():
+        if event["op"] == "stt.final":
+            heard_text = event["text"]
+    error = wer(REPLY, heard_text)
+    assert error < 0.15, f"WER {error:.0%}: {heard_text!r}"

@@ -327,8 +327,8 @@ button:disabled { cursor: default; }
 /* Off-screen bubbles skip rendering; `auto` remembers each one's size once it has been drawn. */
 .messages > li { content-visibility: auto; contain-intrinsic-size: auto 64px; }
 .messages > .msg--music { contain-intrinsic-size: auto 236px; }
-.messages > .msg--shots { contain-intrinsic-size: auto 150px; }
-.messages > .steps, .messages > .msg--notice, .messages > .msg--narration { contain-intrinsic-size: auto 38px; }
+.messages > .msg--notice, .messages > .msg--narration { contain-intrinsic-size: auto 38px; }
+.messages > .trace { contain-intrinsic-size: auto 44px; }     /* folded: its real height, so it can hold the reader's place */
 
 .msg { display: flex; }
 .msg--user { justify-content: flex-end; }
@@ -518,9 +518,73 @@ details[open] > summary .chev { transform: rotate(180deg); }
 .plays { font-size: 12.5px; color: var(--text-3); }
 .note > summary { padding-top: 4px; }
 
-/* --- shots: the screen and the zoom, side by side ------------------------------------------------ */
+/* --- the trace: thinking, tool calls and screenshots in one bubble, folded to a line ---------------- */
 
-.shots { margin: 0; width: min(100%, 540px); }
+.trace-box {
+  width: min(100%, 560px);
+  border-radius: 18px;
+  border-bottom-left-radius: 7px;
+  background: color-mix(in oklab, var(--surface) 72%, transparent);
+  box-shadow: inset 0 0 0 1px var(--line);
+}
+.trace-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  padding: 0 12px;
+  font-size: 14px;
+  cursor: pointer;
+}
+.trace-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-2); }
+.trace[data-status="running"] .trace-title { color: var(--text); }
+.trace[data-current="thinking"] .trace-title { font-style: italic; }
+.trace-thumb {
+  width: 32px;
+  height: 24px;
+  flex: none;
+  object-fit: cover;
+  border-radius: 5px;
+  box-shadow: 0 0 0 1px var(--line-2);
+  background: var(--surface-2);
+}
+.trace-box[open] .trace-thumb { display: none; }
+.trace-meta { flex: none; font-size: 12.5px; color: var(--text-3); font-variant-numeric: tabular-nums; }
+.trace-head .chev { color: var(--text-3); }
+.trace-list { list-style: none; margin: 0; padding: 4px 0 6px; border-top: 1px solid var(--line); }
+/* Folded, the items take no room at all (Chromium would still lay them out), so the view's place keeping skips them. */
+.trace-box:not([open]) > .trace-list { display: none; }
+.trace.is-empty { display: none; }
+
+/* thinking: the summary of what Claude thought, quiet beside the steps */
+.think {
+  margin: 6px 12px 6px 19px;
+  padding: 1px 0 1px 12px;
+  border-left: 2px solid var(--line-2);
+  color: var(--text-3);
+  font-size: 14px;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+.think strong { display: block; margin-bottom: 2px; color: var(--text-2); font-weight: 600; }
+.think p { margin: 0 0 6px; white-space: pre-wrap; }
+.think p:last-child { margin-bottom: 0; }
+.ti--thinking.is-streaming .think { border-left-color: var(--work); }
+.ti--thinking.is-streaming .think > :last-child::after {
+  content: "";
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  margin-left: 6px;
+  border-radius: 50%;
+  background: var(--work);
+  vertical-align: middle;
+  animation: blink 1s ease-in-out infinite;
+}
+
+/* shots: the screen and the zoom, side by side */
+.ti--shots { padding: 6px 12px 8px; }
+.shots { margin: 0; }
 .pair { display: flex; gap: 6px; align-items: flex-start; }
 .shot {
   position: relative;
@@ -556,31 +620,12 @@ details[open] > summary .chev { transform: rotate(180deg); }
 .shot-caption { min-width: 0; }
 
 /* A level shows its own shots and those below it. */
-[data-shots="none"] .msg--shots,
-[data-shots="major"] .msg--shots:is([data-level="minor"], [data-level="firehose"]),
-[data-shots="minor"] .msg--shots[data-level="firehose"] { display: none; }
+[data-shots="none"] .ti--shots,
+[data-shots="major"] .ti--shots:is([data-level="minor"], [data-level="firehose"]),
+[data-shots="minor"] .ti--shots[data-level="firehose"] { display: none; }
 
-/* --- activity: one-line steps, folded into "N steps" ---------------------------------------------- */
-
-.steps-box { border-radius: 16px; background: color-mix(in oklab, var(--surface) 70%, transparent); box-shadow: inset 0 0 0 1px var(--line); }
-.steps.single > .steps-box { background: none; box-shadow: none; }
-.steps-head {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  min-height: 42px;
-  padding: 0 12px;
-  font-size: 14px;
-  cursor: pointer;
-}
-.steps.single > .steps-box > .steps-head { display: none; }
-.steps-count { flex: none; font-weight: 650; }
-.steps-last { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-3); }
-.steps-list { list-style: none; margin: 0; padding: 2px 0 4px; }
-.steps:not(.single) .steps-list { border-top: 1px solid var(--line); }
-
+/* activity: one line per tool call, unfolding to its command and output */
 .act summary { display: flex; align-items: center; gap: 10px; min-height: 36px; padding: 0 12px; font-size: 14px; }
-.steps.single .act summary { padding: 0 6px; }
 .act.has-detail summary { cursor: pointer; }
 .act .tool {
   flex: none;
@@ -615,11 +660,11 @@ details[open] > summary .chev { transform: rotate(180deg); }
 .status .icon { width: 16px; height: 16px; stroke-width: 2.5; }
 .status .spinner { width: 13px; height: 13px; color: var(--work); }
 .act[data-status="running"] .status .spinner,
-.steps[data-status="running"] > .steps-box > .steps-head .spinner { display: block; }
+.trace[data-status="running"] .trace-head .spinner { display: block; }
 .act[data-status="ok"] .st-ok,
-.steps[data-status="ok"] > .steps-box > .steps-head .st-ok { display: block; color: var(--ok); }
+.trace[data-status="ok"] .trace-head .st-ok { display: block; color: var(--ok); }
 .act[data-status="error"] .st-error,
-.steps[data-status="error"] > .steps-box > .steps-head .st-error { display: block; color: var(--err); }
+.trace[data-status="error"] .trace-head .st-error { display: block; color: var(--err); }
 
 /* --- notices and the empty chat ------------------------------------------------------------------- */
 
