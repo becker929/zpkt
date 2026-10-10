@@ -17,11 +17,10 @@ import sys
 import numpy as np
 import soundfile as sf
 
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-import climb as K  # noqa: E402
-import features as F  # noqa: E402
-import publish as P5  # noqa: E402  (at, announce, SHOW)
-import publish6 as P6  # noqa: E402  (human, changes, upload, NAME, SLUG, ORDER)
+import climb as K  # the spike's own modules, beside this script
+import features as F
+import publish as P5  # at, announce, SHOW
+import publish6 as P6  # human, changes, upload, NAME, SLUG, ORDER
 
 DATA = P6.DATA
 SITE = P6.SITE
