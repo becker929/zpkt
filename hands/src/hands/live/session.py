@@ -11,7 +11,7 @@ Sets live in config.sets_dir and are named without ".als".
 
 from __future__ import annotations
 
-import re
+import os
 import shutil
 import subprocess
 import time
@@ -214,7 +214,7 @@ def memory() -> dict:
     """
     swap = subprocess.run(["sysctl", "-n", "vm.swapusage"], capture_output=True, text=True).stdout
     vm = subprocess.run(["vm_stat"], capture_output=True, text=True).stdout
-    page = int(re.search(r"page size of (\d+) bytes", vm).group(1))
+    page = os.sysconf("SC_PAGE_SIZE")  # vm_stat counts kernel pages
 
     def pages(label: str) -> float:
         line = next(line for line in vm.splitlines() if line.startswith(label))

@@ -27,6 +27,7 @@ import tomllib
 from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 CONFIG_FILE = "~/.config/zpkt/rig.toml"
 DEFAULTS = {
@@ -67,7 +68,7 @@ class Rig:
 def load(env: Mapping[str, str] = os.environ, path: str | Path | None = None) -> Rig:
     """Read the settings: environment over the TOML file over the defaults."""
     file = Path(path or env.get("ZPKT_RIG_CONFIG") or CONFIG_FILE).expanduser()
-    values = dict(DEFAULTS)
+    values: dict[str, Any] = dict(DEFAULTS)
     if file.exists():
         loaded = tomllib.loads(file.read_text())
         unknown = loaded.keys() - DEFAULTS.keys()

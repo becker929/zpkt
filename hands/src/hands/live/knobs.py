@@ -28,6 +28,7 @@ import re
 from collections import Counter
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
+from typing import Any
 
 from hands import steps
 from hands.live.transport import McpTransport
@@ -42,7 +43,7 @@ class KnobError(RuntimeError):
 @dataclass(frozen=True)
 class Knob:
     track: str
-    device: object  # "Mixer" | ("plugin", name) | (tag, index); a bare tag means the last one
+    device: Any  # "Mixer" | ("plugin", name) | (tag, index); a bare tag means the last one
     param: str
 
     def __post_init__(self) -> None:
@@ -308,8 +309,8 @@ def _specs(knobs: Iterable[Knob], values: Mapping[Knob, object] | None = None) -
     specs = []
     for k in knobs:
         where, name, unit = lom_target(k)
-        s = {"id": k.id, "track": k.track, "where": where, "name": name,
-             "device": None if k.device == "Mixer" else tuple(k.device)}
+        s: dict[str, Any] = {"id": k.id, "track": k.track, "where": where, "name": name,
+                             "device": None if k.device == "Mixer" else tuple(k.device)}
         if values is not None:
             s["value"] = unit.to_lom(values[k])
         specs.append(s)
@@ -322,13 +323,13 @@ def _specs(knobs: Iterable[Knob], values: Mapping[Knob, object] | None = None) -
 
 @dataclass(frozen=True)
 class Reading:
-    value: object      # in .als units
-    lom: object        # the LOM's own value (bool for a track's activator)
+    value: Any         # in .als units
+    lom: Any           # the LOM's own value (bool for a track's activator)
     display: str       # what Live shows, e.g. "-7.8 dB"
     automated: bool
 
 
-def set_many(client: McpTransport, values: Mapping[Knob, object]) -> dict[Knob, object]:
+def set_many(client: McpTransport, values: Mapping[Knob, Any]) -> dict[Knob, Any]:
     """Write knob values (.als units) in one LOM call; return what was written, in LOM units.
 
     Every knob is found and checked first; if any is missing, automated, out of the LOM range or

@@ -50,7 +50,7 @@ def export(client: McpTransport, out: Path, start_beat: float | None = None, len
     try:
         for _ in range(tries):
             t0 = time.time()
-            if start_beat is not None:
+            if start_beat is not None and length_beats is not None:
                 timeops.select(client, start_beat, length_beats)
             steps.report(f"export {out.name}: the Export dialog", "minor")
             try:

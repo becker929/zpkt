@@ -4,8 +4,8 @@ from __future__ import annotations
 import pytest
 
 from hands.codegen import Step
-from hands.runner import ManualPolicy, StepResult, StepRunner
 from hands.live.transport import McpResult, MockTransport
+from hands.runner import ManualPolicy, StepRunner
 
 
 def _steps(n: int) -> list[Step]:

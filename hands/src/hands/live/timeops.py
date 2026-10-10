@@ -83,10 +83,10 @@ def duplicate(client: McpTransport, start: float, length: float, *, end: float |
     By default the song end must move by `length`. With `end`, check the absolute end instead;
     with `clips_from`, also check that the clips ending after that beat doubled.
     """
-    clips = clips_after(client, clips_from) if clips_from is not None else None
+    clips = clips_after(client, clips_from) if clips_from is not None else 0
     moved = _edit(client, "Duplicate Time", start, length, delta=None if end is not None else length,
                   end=end, tol=tol)
-    if clips is not None and (now := clips_after(client, clips_from)) != 2 * clips:
+    if clips_from is not None and (now := clips_after(client, clips_from)) != 2 * clips:
         stop(f"Duplicate Time at {start:g}+{length:g}: {now} clips after {clips_from:g}, expected {2 * clips}")
     return moved
 

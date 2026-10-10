@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import json
 
+from hands.live.transport import MockTransport
 from hands.models import (
     EQ8Band,
     EQ8Spec,
@@ -19,7 +20,6 @@ from hands.models import (
     ProjectConfig,
     SamplePad,
 )
-from hands.live.transport import DryRunTransport, MockTransport
 
 
 def test_project_config_round_trip() -> None:

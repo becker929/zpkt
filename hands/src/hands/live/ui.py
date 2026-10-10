@@ -111,7 +111,8 @@ end tell"""
 
 def windows() -> list[tuple[str, str]]:
     """(name, subrole) of every Live window; dialogs have the subrole "AXDialog"."""
-    return [tuple(line.rsplit("|", 1)) for line in osa(_WINDOWS).splitlines() if "|" in line]
+    pairs = (line.rsplit("|", 1) for line in osa(_WINDOWS).splitlines() if "|" in line)
+    return [(name, subrole) for name, subrole in pairs]
 
 
 def dialogs() -> int:

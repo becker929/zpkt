@@ -33,7 +33,7 @@ def report(caption: str, level: str = "minor", x: float | None = None, y: float 
     try:
         if urlsplit(url).hostname not in _LOOPBACK:  # the token goes nowhere else
             return False
-        body = {"caption": caption, "level": level}
+        body: dict[str, object] = {"caption": caption, "level": level}
         if x is not None and y is not None:
             body.update(x=x, y=y)
         request = urllib.request.Request(url, data=json.dumps(body).encode(), method="POST", headers={
