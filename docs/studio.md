@@ -122,16 +122,42 @@ them like any other script and they keep growing.
 ## Screenshots
 
 Levels: **none**, **major** (default), **minor**, **firehose**. Each shot is a pair: the full screen and a zoom into
-what changed (the difference from the previous capture, else a hint, else the front window), WebP, sized to keep text
-legible. What counts as what:
+what changed, WebP. What counts as what:
 
 - major: the end of a turn in which the screen changed, an explicit `screenshot` call by Claude, and steps a script
   reports as major;
-- minor: every tool call (before/after difference), and steps scripts report as minor;
-- firehose: a capture every second or so while a tool runs (only when something changed), and every reported step.
+- minor: every tool call (the zoom shows what it changed), and steps scripts report as minor;
+- firehose: a look every second while a tool runs (posted only when something changed), and every reported step.
 
 Nothing is captured below the highest level any connected page asked for. Scripts report steps by posting to a
 loopback-only endpoint whose URL and token are in their environment (`STUDIO_STEP_URL`, `STUDIO_STEP_TOKEN`).
+
+**Never in Claude's way.** The hook before a tool captures nothing, and the hook after it queues the tool's shot and
+returns at once. Captures are taken one at a time, each compared with the one before it: the previous step's, or the
+turn's first, which is taken in the background as the turn starts (the turn's end is compared with it too). Those
+are the only frames kept.
+
+**Capture.** A small ScreenCaptureKit helper (`studio/screengrab.swift`) stays running; a capture costs ~40 ms. At
+firehose level it holds a stream open while a tool runs (2 fps, opened at the first look, so quick tools never open
+it): a look reads the latest frame in a few ms, and a still screen gives the same frame again, so there is nothing to
+compare. The harness compiles the helper on first use (a few seconds) into the data directory, as
+`bin/screengrab-<hash of its source>`, so no binary is committed. Without `swiftc`, or when the helper keeps failing,
+`screencapture` takes over (~130 ms, converted from the display's colour profile to sRGB).
+
+Screen Recording belongs to the process that started the harness: run it in tmux, which holds the permission.
+Without it a capture shows only the wallpaper, so screenshots turn off instead, and the chat says why, once.
+
+**The zoom** goes where the screen changed. Changed pixels are counted in 8 px cells and nearby cells are grouped;
+the group a zoom can show most of wins, weighted by how much of the zoom it fills, so a dialog beats a sprawling
+re-layout, and a caret, a meter or the playhead counts for little. The menu bar (its clock) is ignored. Near a hint
+(where Claude acted) a change counts four times as much, and far from it only a big one wins. While a tool is
+watched, what keeps changing on its own (video, meters, the playhead) is learnt and ignored. With no change: the
+hint, then the front window (a modal alert counts), then the centre. The zoom is 4:3, from 480x360 to 960x720.
+
+**Sizes.** major and minor: the full screen at native 1080p, q75 (73-111 KB), and the zoom at native pixels, q90
+(9-46 KB). Over budget (120 KB, 60 KB) the quality steps down to q50, then the full screen shrinks; the zoom is never
+resized. firehose: the full screen at 720p, q70 (~52 KB), and the zoom at q85. `rect` is the zoom in screen pixels
+and `screen` the capture's size: the page outlines the zoom on the full image, scaled by `full.w / screen[0]`.
 
 ## WebSocket protocol (`/studio/ws`)
 
