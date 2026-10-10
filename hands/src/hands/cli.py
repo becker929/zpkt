@@ -5,6 +5,7 @@ Commands:
     execute  — execute Steps against a running Ableton session
     record   — record and export audio via the resampling track
     vibe     — start the human feedback server
+    plan     — plans to renders to A/B files, for the voice loop (hands.plans)
 """
 
 from __future__ import annotations
@@ -17,7 +18,10 @@ import typer
 from rich.console import Console
 from rich.table import Table
 
+from hands.plans.cli import app as plan_app
+
 app = typer.Typer(name="hands", help="DAW control layer for Ableton Live.")
+app.add_typer(plan_app, name="plan")
 console = Console()
 
 
