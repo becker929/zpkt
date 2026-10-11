@@ -87,3 +87,17 @@ async def test_safari_the_ear_hears_a_render_to_the_sample(iphone, fake):
     assert len(passes.starts) == 2 and min(passes.scores) > 0.99, passes
     assert passes.starts[1] - passes.starts[0] == len(ref)
     assert abs(ear.time(passes.starts[0]) - entry["t0"]) < 1.5 / ear.rate
+
+
+@pytest.mark.parametrize("width", [320, 375, 393, 430])
+async def test_nothing_pushes_the_page_sideways_at_any_iphone_width(webkit, fake, width):
+    """Every iPhone width (320 is a small one with Display Zoom), every screenshot level: the page is as wide as the
+    screen, and the screenshots chip still shows something."""
+    fake.seed_history(30)
+    page = await open_page(webkit, fake, device={**IPHONE_15, "viewport": {"width": width, "height": 700}})
+    for level in ("none", "major", "minor", "firehose"):
+        await page.page.select_option("#shots", level)
+        assert await page.js("document.documentElement.scrollWidth") == width, level
+        assert await page.js("document.querySelector('.chip--select').getBoundingClientRect().width") >= 44, level
+    assert page.errors == []
+    await page.page.context.close()

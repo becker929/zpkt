@@ -76,6 +76,7 @@ body {
   height: 100dvh;
   display: grid;
   grid-template-rows: auto minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr);    /* no row may widen the page */
   padding-bottom: var(--keyboard, 0px);
   overflow: hidden;
   background: var(--bg);
@@ -169,7 +170,21 @@ button:disabled { cursor: default; }
 .conn[data-state="connecting"] { background: var(--work); animation: blink 1.2s ease-in-out infinite; }
 .conn[data-state="closed"] { background: var(--err); }
 
-.quick { display: flex; gap: 6px; }
+.quick { display: flex; gap: 6px; min-width: 0; }
+.chip--select { min-width: 0; }
+.chip-value { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+/* Narrow phones (an iPhone mini or SE, or a 6.1" one showing "Firehose"): the chips tighten and the screenshots chip
+   drops its icon rather than push the page sideways. */
+@media (max-width: 400px) {
+  .top-row { gap: 6px; }
+  .quick { gap: 5px; }
+  .chip { gap: 6px; padding: 0 9px; }
+  .chip--select > .icon:first-child { display: none; }
+}
+@media (max-width: 360px) {                       /* Display Zoom: the icon says it, the picker says which */
+  .chip--select > .icon:first-child { display: block; }
+  .chip--select .chip-value { display: none; }
+}
 
 .chip {
   position: relative;
