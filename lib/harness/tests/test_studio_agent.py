@@ -66,7 +66,9 @@ class FakeClient:
         self.interrupted = True
 
     async def disconnect(self):
-        pass
+        self.disconnected = True
+
+    disconnected = False
 
 
 async def collect(session, prompt):
@@ -141,3 +143,45 @@ async def test_thinking_streams_as_its_own_events_and_an_omitted_block_yields_no
                           ThinkingDone(0, "Adding 3:47 and 2:38.")]
     assert events[4] == TextDone(1, "Six forty-two.") and events[6].block not in (0, 1)   # blocks stay distinct
     assert events[-1].text == "Six forty-two. Done."            # thinking is never part of what is spoken
+
+
+async def test_closing_the_session_mid_turn_ends_the_turn():
+    FakeClient.instances.clear()
+    session = AgentSession(lambda resume: {"resume": resume}, FakeClient)
+    await session.connect()
+    FakeClient.instances[0].scripts.append([*text_block(0, "Working on it")])     # ...and then nothing
+
+    async def close_soon():
+        await asyncio.sleep(0.1)
+        await session.close()                    # an interrupt Claude ignored, or a new conversation
+
+    closing = asyncio.create_task(close_soon())
+    events = await asyncio.wait_for(collect(session, "go"), 2)
+    await closing
+    assert isinstance(events[-1], TurnDone) and not events[-1].ok
+
+
+async def test_a_failing_unprompted_handler_does_not_end_the_session():
+    FakeClient.instances.clear()
+
+    def broken(_event):
+        raise RuntimeError("the chat could not take it")
+
+    session = AgentSession(lambda resume: {"resume": resume}, FakeClient, unprompted=broken)
+    await session.connect()
+    client = FakeClient.instances[0]
+    client.inbox.put_nowait(AssistantMessage([ToolUseBlock("bg", "Bash", {"command": "true"})], model="m"))
+    await asyncio.sleep(0.05)
+    assert session.connected
+    client.scripts.append([result("still here")])
+    assert await collect(session, "hello?") == [TurnDone("still here", True, None, "sess-1")]
+
+
+async def test_a_cli_that_dies_is_disconnected_so_its_process_is_not_left_behind():
+    FakeClient.instances.clear()
+    session = AgentSession(lambda resume: {"resume": resume}, FakeClient)
+    await session.connect()
+    client = FakeClient.instances[0]
+    client.inbox.put_nowait(END)
+    await asyncio.sleep(0.05)
+    assert not session.connected and client.disconnected
