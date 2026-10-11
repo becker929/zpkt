@@ -57,10 +57,23 @@ async def probe(path: Path) -> AudioInfo:
     info = json.loads(out)
     stream = (info.get("streams") or [{}])[0]
     try:
-        return AudioInfo(duration=float(info["format"]["duration"]), rate=int(stream["sample_rate"]),
-                         channels=int(stream["channels"]))
+        rate, channels = int(stream["sample_rate"]), int(stream["channels"])
     except (KeyError, ValueError) as exc:
         raise AudioError(f"{path.name} has no readable audio stream") from exc
+    try:
+        duration = float(info["format"]["duration"])
+    except (KeyError, ValueError):
+        duration = await _decoded_seconds(path, rate, channels)
+    return AudioInfo(duration=duration, rate=rate, channels=channels)
+
+
+async def _decoded_seconds(path: Path, rate: int, channels: int) -> float:
+    """How long a file is, by decoding it: a FLAC written to a pipe has no length in its header (the old music)."""
+    pcm = await _run(FFMPEG, "-hide_banner", "-loglevel", "error", "-i", str(path), "-map", "0:a:0",
+                     "-f", "s16le", "-ac", str(channels), "-ar", str(rate), "pipe:1")
+    if not pcm:
+        raise AudioError(f"{path.name} has no readable audio stream")
+    return len(pcm) / (2 * channels * rate)
 
 
 async def to_mp3(path: Path) -> tuple[bytes, AudioInfo]:

@@ -73,3 +73,24 @@ def test_the_command_converts_the_store_it_is_pointed_at(tmp_path, monkeypatch, 
     reopened = Store(tmp_path / "studio")
     assert reopened.get(seqs["old"]).data["audio"]["type"] == "audio/mpeg"
     reopened.close()
+
+
+async def test_a_flac_written_to_a_pipe_converts_too(tmp_path):
+    """The old music was encoded by ffmpeg into a pipe, so its header says nothing of its length (ffprobe: Duration
+    N/A). The probe measures it by decoding instead of refusing the file."""
+    import subprocess
+
+    from harness.studio import audio
+
+    wav = tmp_path / "x.wav"
+    rate = 44_100
+    x = 0.3 * np.sin(2 * np.pi * 220 * np.arange(rate) / rate)
+    sf.write(wav, np.stack([x, x], axis=1), rate)
+    piped = subprocess.run(["ffmpeg", "-v", "error", "-i", str(wav), "-f", "flac", "pipe:1"], capture_output=True,
+                           check=True).stdout
+    src = tmp_path / "piped.flac"
+    src.write_bytes(piped)
+    info = await audio.probe(src)
+    assert abs(info.duration - 1.0) < 1e-3 and info.rate == rate and info.channels == 2
+    data, _ = await audio.to_mp3(src)
+    assert data[:3] == b"ID3" or data[:2] == b"\xff\xfb"
