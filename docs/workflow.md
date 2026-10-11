@@ -98,6 +98,10 @@ url = "https://youtube.com/shorts/..."
 The step keys are `collage`, `drums`, `arrange`, `kick`, `mix`, `master` and `release`.
 An unknown key is an error, so a typo cannot hide a record.
 
+A track can have a `status`. The only one is `canceled`: the track leaves the inventory and is listed under
+"not scored" with its note (`[HW004]` / `status = "canceled"`; in a project file, `status` at the top level).
+An unknown status is an error too.
+
 ## Running it
 
 ```bash
