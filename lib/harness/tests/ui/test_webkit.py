@@ -5,7 +5,7 @@ import pytest
 
 from conftest import IPHONE_15, open_page
 from heard import find_passes, heard
-from test_heard import render, the_ear
+from test_heard import BRIGHT, no_click_at_any_seam, render, the_ear
 from test_turn import is_mic, is_playback
 from test_window import FIRST_VISIBLE, TOP_OF
 
@@ -87,3 +87,9 @@ async def test_safari_the_ear_hears_a_render_to_the_sample(iphone, fake):
     assert len(passes.starts) == 2 and min(passes.scores) > 0.99, passes
     assert passes.starts[1] - passes.starts[0] == len(ref)
     assert abs(ear.time(passes.starts[0]) - entry["t0"]) < 1.5 / ear.rate
+
+
+async def test_safari_plays_speech_frames_without_a_click(iphone, fake):
+    fake.turn_frames, fake.speech_s, fake.speech_hz = 25, 1.0, BRIGHT
+    await iphone.page.tap("#turn")
+    await no_click_at_any_seam(iphone, fake)

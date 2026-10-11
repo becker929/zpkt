@@ -1,11 +1,17 @@
 """studio's parts on their own: the store, spoken commands, cutting text for speech, tool descriptions. Screenshots
 have their own: test_studio_shots.py, test_studio_grab.py and test_studio_screens.py."""
 
+import gzip
+import json
+import re
+
 import pytest
 
 from harness.studio import intents
 from harness.studio.activity import describe
+from harness.studio.assets import Assets, accepts_gzip
 from harness.studio.model import Kind, Message, Prefs, ShotLevel
+from harness.studio.protocol import SPEECH, speech_frames
 from harness.studio.speech import Segmenter
 from harness.studio.store import Store
 
@@ -184,3 +190,43 @@ async def test_music_is_a_gapless_mp3_with_every_sample(tmp_path):
         pcm = subprocess.run(["ffmpeg", "-v", "error", "-i", str(tmp_path / "r.mp3"), "-f", "s16le", "-"],
                              capture_output=True, check=True).stdout
         assert len(pcm) // 4 == 44_100                     # ffmpeg trims by the header, as the browsers do
+
+
+def test_speech_goes_out_in_short_frames():
+    pcm = bytes(range(256)) * 375                  # 2 s at 24 kHz, s16le
+    frames = list(speech_frames(7, pcm, 24_000))
+    assert len(frames) == 20 and all(len(f) == 5 + 4800 for f in frames)
+    assert all(f[0] == SPEECH and int.from_bytes(f[1:5], "big") == 7 for f in frames)
+    assert b"".join(f[5:] for f in frames) == pcm
+    assert [len(f) - 5 for f in speech_frames(1, pcm[:5000], 24_000)] == [4800, 200]
+
+
+def test_assets_are_versioned_by_their_files_and_gzipped_once(tmp_path):
+    (tmp_path / "js").mkdir()
+    (tmp_path / "index.html").write_text('<head><script type="module" src="/studio/static/js/main.js"></script></head>')
+    (tmp_path / "js" / "main.js").write_text("import './a.js';\n" * 50)
+    (tmp_path / "js" / "a.js").write_text("export const a = 1;")
+    (tmp_path / "js" / "mic-worklet.js").write_text("")
+    assets = Assets(tmp_path)
+    version = assets.version()
+    assert assets.split(f"{version}/js/main.js") == (version, "js/main.js")
+    assert assets.split("js/main.js") == (None, "js/main.js")
+    data, gz, ctype = assets.file("js/main.js")
+    assert gzip.decompress(gz) == data and len(gz) < len(data) and ctype == "text/javascript; charset=utf-8"
+    assert assets.file("../outside.txt") is None and assets.file("js/none.js") is None
+
+    page = assets.page({"items": [{"data": {"text": "</script><b>"}}]})
+    assert f'src="/studio/static/{version}/js/main.js"' in page
+    assert f'<link rel="modulepreload" href="/studio/static/{version}/js/a.js">' in page and "mic-worklet" not in page
+    assert "</script><b>" not in page and json.loads(re.search(r'id="boot">(.*?)</script>', page).group(1)) == {
+        "items": [{"data": {"text": "</script><b>"}}]}
+
+    (tmp_path / "js" / "a.js").write_text("export const a = 2;")      # a deploy: a new version, and the new file
+    assets._checked = -1e9
+    assert assets.version() != version and assets.file("js/a.js")[0] == b"export const a = 2;"
+
+
+@pytest.mark.parametrize("header, ok", [("gzip, deflate, br", True), ("br;q=1.0, gzip;q=0.5", True), ("", False),
+                                        ("gzip;q=0", False), ("deflate", False), ("x-gzip", False)])
+def test_gzip_only_where_the_browser_takes_it(header, ok):
+    assert accepts_gzip(header) is ok

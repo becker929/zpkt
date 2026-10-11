@@ -22,6 +22,14 @@ def render(fake, ear: Ear) -> np.ndarray:
     return resample(x.mean(axis=1), rate, ear.rate)
 
 
+def off_the_tones(x: np.ndarray, freqs: tuple[float, ...], rate: int) -> float:
+    """How far `x` strays from the closest mix of pure tones at `freqs`: its largest sample off it."""
+    t = np.arange(len(x)) / rate
+    basis = np.column_stack([f(2 * np.pi * hz * t) for hz in freqs for f in (np.sin, np.cos)])
+    return float(np.abs(x - basis @ np.linalg.lstsq(basis, x, rcond=None)[0]).max())
+
+
+BRIGHT = (220.0, 5000.0)    # a speech tone with a partial up high, where a click at a seam shows
 STARTUP_S = 0.1
 CLOCK_SLACK_MS = 10      # how closely the audio clock maps onto the page's (render blocks, timer granularity)
 
@@ -85,6 +93,29 @@ async def test_the_answer_is_heard_speech_then_music_and_never_over_the_open_mic
     assert not np.any(np.abs(ear.samples[passes.starts[1] + len(ref):]) > 1e-3), "only silence after the second pass"
 
     await nothing_while_listening(page, ear)
+
+
+async def test_speech_sent_in_frames_plays_without_a_click_at_any_seam(listener, fake):
+    fake.turn_frames, fake.speech_s, fake.speech_hz = 25, 1.0, BRIGHT
+    await listener.page.click("#turn")
+    await no_click_at_any_seam(listener, fake)
+
+
+async def no_click_at_any_seam(page, fake) -> None:
+    """The Mac sends speech in 0.1 s frames, and the browser resamples each buffer on its own: a buffer without its
+    neighbours comes out wrong at its edges. Bright speech shows it (a low tone alone hardly does), so the reply
+    has a 5 kHz partial (BRIGHT), and what is heard must be the two tones and nothing else."""
+    await fake.expect(is_playback("idle", 2), timeout=15)
+    ear = the_ear(await heard(page.page))
+    _speech, music = [e for e in (await page.js("window.studio.engine.log")) if e["counted"]]
+    said = [(a, b) for a, b in ear.loud(hold=0.01) if b <= music["t0"]]
+    assert len(said) == 1, f"the reply was broken up: {said}"
+    start, end = said[0]
+    # The browser's resampler leaves an image of each partial mirrored about 12 kHz (half Kokoro's rate): part
+    # of the sound, not a click.
+    tones = (*fake.speech_hz, *(media.SPEECH_RATE - hz for hz in fake.speech_hz))
+    worst = off_the_tones(ear.between(start + 0.01, end - 0.01), tones, ear.rate)
+    assert worst < 0.003, f"a sample {worst:.4f} off the tones: clicks where frames meet"
 
 
 async def test_loop_that_three_times_is_heard_three_times_to_the_sample(listener, fake):

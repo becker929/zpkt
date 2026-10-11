@@ -17,7 +17,7 @@ from .model import Prefs, ShotLevel
 
 log = logging.getLogger(__name__)
 
-MAX_QUEUE = 4000   # frames; ~40 s of speech audio. A phone this far behind is gone.
+MAX_QUEUE = 4000   # frames; ~400 s of speech audio (protocol.SPEECH_FRAME_S). A phone this far behind is gone.
 
 
 class Client:
@@ -29,7 +29,8 @@ class Client:
         self._queue: asyncio.Queue[str | bytes | None] = asyncio.Queue()
         self._writer = asyncio.create_task(self._write(), name=f"studio-writer-{client_id}")
 
-    def send(self, msg: dict[str, Any] | bytes) -> None:
+    def send(self, msg: dict[str, Any] | bytes | str) -> None:
+        """A message (a str is JSON already), or a binary frame."""
         if self._closing:
             return
         if self._queue.qsize() >= MAX_QUEUE:
@@ -37,7 +38,7 @@ class Client:
             self._closing = True
             self._queue.put_nowait(None)
             return
-        self._queue.put_nowait(msg if isinstance(msg, bytes) else json.dumps(msg, separators=(",", ":")))
+        self._queue.put_nowait(msg if isinstance(msg, (bytes, str)) else _json(msg))
 
     async def _write(self) -> None:
         try:
@@ -62,6 +63,10 @@ class Client:
             self._writer.cancel()
 
 
+def _json(msg: dict[str, Any]) -> str:
+    return json.dumps(msg, separators=(",", ":"))
+
+
 class Hub:
     def __init__(self) -> None:
         self.clients: dict[str, Client] = {}
@@ -82,10 +87,13 @@ class Hub:
             self.owner = None
 
     def broadcast(self, msg: dict[str, Any], level: ShotLevel | None = None) -> None:
-        """To every page; with `level`, only to pages that asked for screenshots at least that detailed."""
+        """To every page; with `level`, only to pages that asked for screenshots at least that detailed. The message
+        is encoded once for all of them."""
+        text = None
         for c in list(self.clients.values()):
             if level is None or c.prefs.shots >= level:
-                c.send(msg)
+                text = text or _json(msg)
+                c.send(text)
 
     def to_owner(self, msg: dict[str, Any] | bytes) -> bool:
         if self.owner is None:

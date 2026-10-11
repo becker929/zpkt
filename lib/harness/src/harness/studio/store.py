@@ -34,6 +34,7 @@ CREATE TABLE IF NOT EXISTS messages (
     seq INTEGER PRIMARY KEY AUTOINCREMENT, conversation TEXT NOT NULL, kind TEXT NOT NULL,
     created REAL NOT NULL, turn TEXT, rev INTEGER NOT NULL DEFAULT 0, data TEXT NOT NULL);
 CREATE INDEX IF NOT EXISTS messages_by_conversation ON messages (conversation, seq);
+CREATE INDEX IF NOT EXISTS messages_by_kind ON messages (conversation, kind, seq);   -- the last render
 CREATE TABLE IF NOT EXISTS timings (
     id INTEGER PRIMARY KEY AUTOINCREMENT, conversation TEXT NOT NULL, turn TEXT NOT NULL, name TEXT NOT NULL,
     ms REAL, source TEXT NOT NULL, at REAL NOT NULL, extra TEXT);
