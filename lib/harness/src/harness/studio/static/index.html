@@ -70,7 +70,7 @@
         <div class="empty" id="empty" hidden>
           <div class="empty-mark" aria-hidden="true"><i data-icon="waves"></i></div>
           <p class="empty-title">Talk to Claude about the music</p>
-          <p class="empty-text">Tap Start, then talk. Say <q>tomato</q> when you’re done, and Claude takes the turn.</p>
+          <p class="empty-text">Tap the mic, then talk. Say <q>tomato</q> when you’re done, and Claude takes the turn. Or type one.</p>
         </div>
       </div>
     </main>
@@ -89,7 +89,7 @@
     <form class="composer" id="composer" hidden>
       <input id="composer-input" type="text" enterkeyhint="send" autocomplete="off" autocapitalize="sentences"
              placeholder="Type a turn" aria-label="Type a turn">
-      <button class="icon-btn send" type="submit" aria-label="Send"><i data-icon="send"></i></button>
+      <button class="icon-btn send" id="send" type="submit" aria-label="Send"><i data-icon="send"></i></button>
     </form>
     <div class="controls">
       <button class="side-btn" id="keyboard" type="button" aria-label="Type instead" aria-expanded="false">
