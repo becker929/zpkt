@@ -9,6 +9,9 @@ It runs on the Mac inside `harness serve` and is reached over the tailnet only, 
 ## A turn
 
 The mic and the speaker take turns: they are never on together, so a car's Bluetooth stays in its media profile.
+Between turns the phone keeps its mic stream with the tracks disabled (menu: Keep the mic ready, on by default),
+so a browser that asks for the mic on every getUserMedia (Chrome on iOS) asks once. With it off, closing stops the
+tracks, which is the surest way back to Bluetooth's media profile.
 
 1. **You talk.** The phone streams the mic to the Mac. Captions follow you live (folded by default). You end the turn
    by saying **"tomato"**. Pauses don't end it, so you can think mid-sentence. You can also tap to end the turn, or type.

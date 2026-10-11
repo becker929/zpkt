@@ -53,10 +53,10 @@ async def test_a_whole_spoken_turn(phone, fake):
     # Live captions follow the voice.
     await page.wait("() => document.getElementById('live-caption').textContent.startsWith('make the kick')")
 
-    # "Tomato": the Mac unlistens; the phone closes the mic and stops every track it opened.
+    # "Tomato": the Mac unlistens; the phone closes the mic, keeping its one stream for the next turn, disabled.
     await fake.expect(lambda m: m["type"] == "mic" and m["state"] == "closed")
-    await page.wait("() => window.__captured.length > 0 && window.__captured.every("
-                    "(s) => s.getTracks().every((t) => t.readyState === 'ended'))")
+    await page.wait("() => window.__captured.length === 1 && window.__captured[0].getTracks().every("
+                    "(t) => t.readyState === 'live' && !t.enabled)")
 
     # Claude works: its thinking, three tool calls and a screenshot fold into one trace; the narration arrives.
     await page.wait("() => document.querySelector('.trace .trace-meta')?.textContent === '3 steps · 1 shot'")
@@ -91,6 +91,10 @@ async def test_a_whole_spoken_turn(phone, fake):
     assert music["endedAt"] - music["t0"] >= 2 * music["duration"] - 0.01
     reopened = await fake.expect(lambda m: m["type"] == "mic" and m["state"] == "open" and m["turn"] == "t2")
     assert reopened
+    # ...on the kept stream: no second getUserMedia, so no second permission prompt.
+    await fake.until(lambda: sum(m["name"] == "mic_open" for m in fake.marks) == 2)
+    assert [m["kept"] for m in fake.marks if m["name"] == "mic_open"] == [False, True]
+    assert await page.js("window.__captured.length") == 1
 
     # The phone timed its part of the turn.
     names = {m["name"] for m in fake.marks}
@@ -237,6 +241,19 @@ async def test_typing_without_start_takes_the_speaker(phone, fake):
     await fake.expect(is_mic("open", "t2"))                    # then the turn comes round, as after Start
 
 
+
+
+async def test_with_keep_the_mic_off_each_turn_stops_its_tracks_and_asks_again(phone, fake):
+    page = phone
+    fake.turn_frames = 25
+    await page.js("window.studio.prefs.set('keepMic', false)")
+    await page.page.click("#turn")
+    await fake.expect(is_mic("closed", "t1"))
+    await page.wait("() => window.__captured.length > 0 && window.__captured.every("
+                    "(s) => s.getTracks().every((t) => t.readyState === 'ended'))")
+    await fake.expect(is_mic("open", "t2"), timeout=15)
+    assert await page.js("window.__captured.length") == 2      # a new getUserMedia: a prompt, where a browser asks
+    assert not await page.js("window.studio.mic.held")
 
 PILL = "[document.getElementById('phase').dataset.phase, document.getElementById('phase-text').textContent, document.getElementById('phase-detail').textContent]"
 
