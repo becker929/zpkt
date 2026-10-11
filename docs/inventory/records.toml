@@ -1,0 +1,37 @@
+# Records: a step's state on Anthony's word ("anthony") or from a decision written down in zpkt
+# docs ("docs"). A record beats `hands library inventory`'s heuristic for that step.
+# Format and rules: docs/workflow.md ("Records"). Agents add records here in a PR, never in the library.
+
+[HW002]
+note = "The release is a YouTube Short cut from the full track. The cuts and mix batches are made on copies in the rig's sets folder, so the library's newest set (HW002_121) shows the full track. Experiments on anthonybecker.me/skrng are not a release."
+
+[HW002.arrange]
+percent = 70
+by = "docs"
+date = "2026-10-09"
+note = "Short shape chosen: batch 4.3 track 1 (scooped kick, hats A to ABCD, splashes every 8 bars). It is 20 bars, 30 s, under the 33-50 s target, and the chord loop was muted in it until 9 Oct."
+source = "docs/hw002/batch-4.3-4.4-decisions.md, docs/hw002/batch-8-chord-and-break.md"
+
+[HW002.kick]
+percent = 70
+by = "docs"
+date = "2026-10-07"
+note = "The scooped kick is decided. Distortion target 37-50 % (batch 7.1); batch 8.1 tests 37, 43.5 and 50 %, waiting for Anthony's listening."
+source = "docs/hw002/batch-4.2-decisions.md, docs/hw002/batch-6-7-decisions.md"
+
+[HW002.mix]
+percent = 40
+by = "docs"
+date = "2026-10-09"
+note = "Batch 6 'all' (deep sub, mono low end, colour, space) is the baseline. Batches 8.2-8.7 (chord level, colour, width, texture; break space and colour) wait for Anthony's listening."
+source = "docs/hw002/batch-6-7-decisions.md, docs/hw002/batch-8-chord-and-break.md"
+
+[HW002.master]
+percent = 10
+by = "docs"
+date = "2026-09-25"
+note = "The mastering lab is ready and has measured the demos (84 s demo: -13.8 LUFS, -0.5 dBTP). No master chain is chosen and the Short's premaster is not bounced. The Glue/EQ rack on the set's Main is not a master."
+source = "ears/mlab/STATUS.md, ears/mlab/reports/HW002_1min-2026-08-13T2107.md"
+
+[HW004]
+note = "HW004.als (27 May) has the same tracks, clips, devices and automation as HW002_11 (26 May) and plays HW002's samples. Its scores are HW002's as of May, not work of its own. Unconfirmed whether it is a new track started from HW002 or a parked copy."

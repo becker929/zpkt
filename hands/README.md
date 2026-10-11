@@ -25,6 +25,7 @@ front and the LOM answers, and stops the run on anything else.
 | `als.py` | the .als editor: `load`/`save`, `resolve`, `current_value`, `param_range`, `set_manual`, `set_speaker`, `rename_track`, `set_steps`, `add_device_from_donor`, `check -> Report`, `xml_hash` (plan-cache key) |
 | `probe_kit.py` | `Kit`, `template`, `write_batch(kit, tag, steps, devices=())`, `render(client, batch_set, kit, out_dir)`, `merge_patterns`, `constant`, `scale`/`unscale` |
 | `arrange/` | `fx` (clip edits, tracks as arguments), `autostate` (automation state, `restore` after Delete Time), `hats` (layered hat sections) |
+| `library/` | the WIP library, read-only: `inventory(roots, exports=, records_file=, measure=) -> Inventory` scores each track's seven steps (`../docs/workflow.md`); `facts.read_set` (what a .als shows), `score` (one scorer per step), `records` (Anthony's word beats the heuristic), `markdown` |
 | `steps.py` | `report(caption, level="minor", x=None, y=None)` to the studio app; `timing(step, seconds, **fields)` to `bench.jsonl` |
 | `config.py` | `rig()`: the private rig settings below |
 | `models.py`, `codegen.py`, `builder.py`, `runner.py` | `ProjectConfig` → LOM steps → `StepRunner` (`hands build / execute`); `models.py` is the source of the `lib/contracts` schemas (`scripts/gen_schemas.py`) |
@@ -64,6 +65,7 @@ Unknown keys are refused.
 | `renders_dir` | `ZPKT_RENDERS_DIR` | `~/Music/zpkt/renders` | where `hands live export NAME` writes a bare file name |
 | `set_prefixes` | `ZPKT_SET_PREFIXES` (comma-separated) | `["zpkt_"]` | sets the guards accept as ours; new kit and batch sets get the first |
 | `live_prefs_dir` | `ZPKT_LIVE_PREFS_DIR` | the newest `~/Library/Preferences/Ableton/Live *` | `Log.txt`, for `other_agent_active` |
+| `library_dir` | `ZPKT_LIBRARY_DIR` | `~/Music/zpkt/library` | Anthony's WIP Live projects, one folder per track, read-only (`hands library inventory`) |
 
 ```toml
 # ~/.config/zpkt/rig.toml (an example; use your own folders and prefixes)
@@ -89,6 +91,7 @@ hands kit template KIT SRC KEEP_START KEEP_END P [--lead 8]
 hands kit render BATCH_SET KIT [--out DIR]
 hands record --arrangement --beats 80 --output take.wav
 hands build --config project.json                # ProjectConfig → steps (dry run)
+hands library inventory [--root DIR] [--exports DIR] [--measure] [--json | --markdown]   # each WIP track's seven steps
 hands ab toggle | next | status;  hands spectrum
 ```
 
@@ -116,5 +119,6 @@ uv run pytest -q -p no:cacheprovider
 ```
 
 Everything runs offline: a fake Remote Script on a free port, fakes for osascript and the GUI, the
-BSD fixture set in `tests/fixtures` with devices planted the way Live writes them, and synthetic
-audio. Nothing in the tests talks to Live.
+BSD fixture set in `tests/fixtures` with devices planted the way Live writes them, small synthetic
+sets written by `tests/synth_set.py` for the library tests, and synthetic audio. Nothing in the
+tests talks to Live or reads a real project.

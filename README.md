@@ -35,19 +35,25 @@ Beside the main path:
   - [`letta-vibe/`](prototypes/letta-vibe/): a Letta agent that drives
     Live, a phone page for listening and feedback, and their MCP bridge.
 
-## The main path is perpendicular to the lifecycle
+## The main path is perpendicular to the workflow
 
-Every stage of a track uses ears and hands. The prototype columns show
-where taste and engineer would join. Mastering is a stage, not a component.
+A track goes through seven steps, in order: audio collage, drums, arrange, kick, mix, master,
+release ([docs/workflow.md](docs/workflow.md)). Every step uses ears and hands. The last column
+shows the prototypes beside the main path. Mastering is a step, not a component.
 
-| Stage | ears | hands | taste (prototype) | engineer (prototype) |
-|---|---|---|---|---|
-| Sketch | pitch, tempo, key | hum → MIDI, macros | which idea to keep | — |
-| Sound design | knob-sweep measures | set knobs, knob maps | which kick | search over settings |
-| Arrange | section energy | Delete Time, move clips | which cut | cut candidates |
-| Mix | corpus distance, pump | bus settings | which balance | overnight loop |
-| Master | loudness, true peak, hypothesis runs (`mlab`) | limiter, render | ABX picks | — |
-| Deliver | codec checks | render, upload | — | — |
+| Step | ears | hands | beside the main path |
+|---|---|---|---|
+| I. audio collage | — | — | audio-browser: triage the library, lay out the collage; humming: a hummed idea as notes |
+| II. drums | — | drum racks, hat layers (`arrange/hats`) | — |
+| III. arrange | section energy | Delete Time, move clips, cut the Short | taste: which cut; engineer: cut candidates |
+| IV. kick | knob-sweep measures | set knobs, knob maps, probe kits | taste: which kick; engineer: search over settings |
+| V. mix | corpus distance, pump, band levels | bus settings, probe kits, A/B | taste: which balance; engineer: overnight loop |
+| VI. master | loudness, true peak, hypothesis runs (`mlab`) | limiter, render | taste: ABX picks |
+| VII. release | codec checks, YouTube gain (`mlab deliver`) | render, upload | — |
+
+Work happens out of order, so a track's headline is its lowest incomplete step.
+`hands library inventory` reads the library of WIP projects and reports each track's seven
+steps with the evidence behind them; dated reports are in [docs/inventory/](docs/inventory/).
 
 Two rules keep the parts honest:
 
@@ -90,6 +96,7 @@ lib/rig/start_headless.sh                 # bring up Live on the virtual display
 eval "$(lib/record/fetch_models.sh | grep ^export)"   # embedding model for ears
 cd ears && uv run ears analyze take.wav    # measure a render
 cd hands && uv run hands record --arrangement --beats 80 --output take.wav
+cd hands && uv run hands library inventory --markdown   # where every WIP track is in the seven steps
 cd ears/mlab && uv run mlab hyp run hypotheses/H001-loudness-buys-nothing-on-youtube.yaml
 ```
 

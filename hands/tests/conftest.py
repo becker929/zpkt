@@ -15,6 +15,7 @@ def rig(tmp_path, monkeypatch):
     monkeypatch.setenv("ZPKT_DATA_DIR", str(tmp_path / "data"))
     monkeypatch.setenv("ZPKT_RENDERS_DIR", str(tmp_path / "renders"))
     monkeypatch.setenv("ZPKT_LIVE_PREFS_DIR", str(tmp_path / "prefs"))
+    monkeypatch.setenv("ZPKT_LIBRARY_DIR", str(tmp_path / "library"))
     monkeypatch.setenv("ZPKT_SET_PREFIXES", "test_")
     for name in ("ZPKT_LIVE_APP", "STUDIO_STEP_URL", "STUDIO_STEP_TOKEN"):
         monkeypatch.delenv(name, raising=False)

@@ -12,12 +12,14 @@ import json
 import sys
 from pathlib import Path
 
+from hands.library.models import Inventory
 from hands.models import Feedback, ProjectConfig
 
 CONTRACTS = Path(__file__).resolve().parents[2] / "lib" / "contracts"
 DESCRIPTIONS = {
     "project-config": "A declarative Live project for hands to build. Generated from hands/src/hands/models.py — do not edit by hand.",
     "feedback": "A listener's comment on a render, captured by hands' vibe server. Generated from hands/src/hands/models.py — do not edit by hand.",
+    "inventory": "Each WIP track's place in the seven workflow steps (docs/workflow.md), from `hands library inventory --json`. Generated from hands/src/hands/library/models.py — do not edit by hand.",
 }
 
 
@@ -29,7 +31,7 @@ def build(name: str, model) -> dict:
     }
 
 
-MODELS = {"project-config": ProjectConfig, "feedback": Feedback}
+MODELS = {"project-config": ProjectConfig, "feedback": Feedback, "inventory": Inventory}
 
 if __name__ == "__main__":
     for name, model in MODELS.items():
