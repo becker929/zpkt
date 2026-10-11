@@ -329,8 +329,8 @@ async def test_a_claude_that_ignores_the_interrupt_is_dropped(rig, monkeypatch):
 
 async def test_the_mic_opens_even_if_the_phone_never_says_it_finished(rig, monkeypatch):
     client, studio, agent, _ = rig
-    monkeypatch.setattr("harness.studio.conversation.SPEECH_MAX_S", 0.2)
-    monkeypatch.setattr("harness.studio.conversation.PLAYBACK_SLACK_S", 0.2)
+    monkeypatch.setattr("harness.studio.playback.SPEECH_MAX_S", 0.2)
+    monkeypatch.setattr("harness.studio.playback.PLAYBACK_SLACK_S", 0.2)
     agent.script = lambda prompt: [TextDelta(0, "Done."), TextDone(0, "Done."), TurnDone("Done.", True, 0, "s")]
     page = await connect(client)
     await page.ws.send_json({"type": "start"})
@@ -339,3 +339,93 @@ async def test_the_mic_opens_even_if_the_phone_never_says_it_finished(rig, monke
     await page.ws.send_json({"type": "say", "text": "quick one"})
     await page.until(lambda m: m["type"] == "speech" and m["state"] == "end", since=now)
     await page.until(lambda m: m["type"] == "listen", since=now, timeout=5)    # no playback message was sent
+
+
+# --- whatever fails, the app gets back to a usable state ---------------------------------------------------------
+
+async def test_a_turn_that_fails_after_claude_is_done_still_gives_the_mic_back(rig):
+    client, studio, agent, _ = rig
+
+    async def broken(*_args, **_kw):
+        raise OSError("disk full")
+
+    studio.screens.turn_ended = broken                # the turn's last screenshot can't be stored
+    page = await connect(client, {"autoplay": True, "shots": "none"})
+    await page.ws.send_json({"type": "start"})
+    await page.until(lambda m: m["type"] == "listen")
+    now = page.mark()
+    await page.ws.send_json({"type": "say", "text": "anything"})
+    await page.until(lambda m: m["type"] == "listen", since=now, timeout=5)
+    assert studio.conversation.phase.value == "listening"
+
+
+async def test_a_typed_turn_while_the_answer_plays_does_not_open_the_mic(rig):
+    client, studio, agent, _ = rig
+    agent.script = lambda prompt: [TextDelta(0, "Done."), TextDone(0, "Done."), TurnDone("Done.", True, 0, "s")]
+    page = await connect(client)
+    await page.ws.send_json({"type": "start"})
+    await page.until(lambda m: m["type"] == "listen")
+    now = page.mark()
+    await page.ws.send_json({"type": "say", "text": "first"})
+    await page.until(lambda m: m["type"] == "speech" and m["state"] == "end", since=now)
+    await page.until(lambda m: m["type"] == "phase" and m["phase"] == "responding", since=now)
+    await asyncio.sleep(0.2)
+    assert studio.conversation.phase.value == "responding"     # the phone hasn't said it played the answer
+    now = page.mark()
+    await page.ws.send_json({"type": "say", "text": "second"})
+    await page.until(lambda m: m["type"] == "phase" and m["phase"] == "responding", since=now)
+    assert [m for m in page.msgs[now:] if m["type"] == "listen"] == []      # Claude has the turn, not the mic
+    assert studio.conversation._listening is None and agent.prompts == ["first", "second"]
+
+
+async def test_an_interrupt_the_session_never_answers_still_returns_the_mic(rig, monkeypatch):
+    client, studio, agent, _ = rig
+    monkeypatch.setattr("harness.studio.conversation.INTERRUPT_S", 0.3)
+    closed = []
+
+    async def hang():
+        await asyncio.Event().wait()             # the CLI never answers the interrupt (the SDK waits 60 s)
+
+    async def close():
+        closed.append(True)
+
+    agent.interrupt, agent.close = hang, close
+    agent.script = lambda prompt: [ToolStart("t1", "Bash", {"command": "hang"}), hang]
+    page = await connect(client, {"autoplay": True, "shots": "none"})
+    await page.ws.send_json({"type": "start"})
+    await page.until(lambda m: m["type"] == "listen")
+    await page.ws.send_json({"type": "say", "text": "hang please"})
+    await page.until(lambda m: m["type"] == "phase" and m["phase"] == "working" and m["label"] == "hang")
+    now = page.mark()
+    await page.ws.send_json({"type": "interrupt"})
+    await page.ws.send_json({"type": "ping", "t": 1})
+    await page.until(lambda m: m["type"] == "pong", since=now, timeout=1)     # the page's socket isn't held up
+    await page.until(lambda m: m["type"] == "listen", since=now, timeout=5)
+    assert closed == [True]
+
+
+async def test_the_mic_is_offered_once_speech_is_ready_however_long_that_takes(rig):
+    client, studio, agent, _ = rig
+    worker, calls = studio.worker, []
+    real = worker.wait_ready
+
+    async def slow_start(timeout):
+        calls.append(timeout)
+        return False if len(calls) == 1 else await real(timeout)    # the first wait runs out (models downloading)
+
+    worker.wait_ready = slow_start
+    worker._ready.clear()
+    page = await connect(client)
+    await page.ws.send_json({"type": "start"})
+    await page.until(lambda m: m["type"] == "phase" and m["label"] == "Speech is starting")
+    await asyncio.sleep(0.1)
+    worker._ready.set()
+    await page.until(lambda m: m["type"] == "listen", timeout=5)
+
+
+async def test_stopping_waits_for_the_conversations_tasks(rig):
+    _, studio, *_ = rig
+    conv = studio.conversation
+    task = conv._spawn(asyncio.sleep(100), "a-wait")
+    await conv.stop()
+    assert task.done()
