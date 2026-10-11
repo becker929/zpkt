@@ -5,6 +5,8 @@ import asyncio
 import numpy as np
 import pytest
 
+from conftest import open_page
+
 pytestmark = pytest.mark.ui
 
 MIC_RATE = 16_000
@@ -234,6 +236,29 @@ async def test_typing_without_start_takes_the_speaker(phone, fake):
     assert [(e["kind"], e["outcome"]) for e in log] == [("speech", "played"), ("music", "played")]
     await fake.expect(is_mic("open", "t2"))                    # then the turn comes round, as after Start
 
+
+
+PILL = "[document.getElementById('phase').dataset.phase, document.getElementById('phase-text').textContent, document.getElementById('phase-detail').textContent]"
+
+
+async def test_a_second_page_says_the_mic_is_on_another_page_and_can_take_it(phone, chromium, fake):
+    fake.turn_frames = 0                                       # listening until a page ends the turn
+    other = await open_page(chromium, fake)
+    await phone.page.click("#turn")
+    await fake.expect(is_mic("open", "t1"))
+    await other.wait("() => document.getElementById('phase-detail').textContent")
+    assert await other.js(PILL) == ["paused", "Listening", "on another page"]
+    assert await phone.js(PILL) == ["listening", "Listening", ""]
+
+    # The other page takes it: the first one closes its mic and says where it went.
+    mark = len(fake.inbox)
+    await other.page.click("#turn")
+    await fake.expect(is_mic("closed", "t1"), since=mark)
+    await phone.wait("() => document.getElementById('phase-detail').textContent")
+    assert await phone.js(PILL) == ["paused", "Listening", "on another page"]
+    assert await phone.js("window.studio.turn.mode") == "start"                    # a tap takes it back
+    assert other.errors == []
+    await other.page.context.close()
 
 BACKGROUND = """() => {
   window.__before = window.studio.engine.context;

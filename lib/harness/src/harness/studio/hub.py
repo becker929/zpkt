@@ -71,8 +71,23 @@ def _json(msg: dict[str, Any]) -> str:
 class Hub:
     def __init__(self) -> None:
         self.clients: dict[str, Client] = {}
-        self.owner: Client | None = None
+        self._owner: Client | None = None
         self._closing: set[asyncio.Task] = set()     # pages replaced by their reconnection, being closed
+
+    @property
+    def owner(self) -> Client | None:
+        return self._owner
+
+    @owner.setter
+    def owner(self, client: Client | None) -> None:
+        """A page that loses the mic and the speaker is told, and so is the one that gains them."""
+        previous, self._owner = self._owner, client
+        if previous is client:
+            return
+        if previous is not None:
+            previous.send({"type": "owner", "owner": False})
+        if client is not None:
+            client.send({"type": "owner", "owner": True})
 
     def add(self, client: Client) -> None:
         old = self.clients.get(client.id)

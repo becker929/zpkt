@@ -231,6 +231,7 @@ Mac → phone:
 | `phase` | `phase` (idle/listening/working/responding), `turn`, `label` | whose turn it is, and what Claude is doing |
 | `listen` | `turn` | open the mic now (sent to the phone that owns it) |
 | `unlisten` | `turn` | close the mic now |
+| `owner` | `owner` | this page has just gained (`true`) or lost (`false`) the mic and the speaker |
 | `caption` | `turn`, `text` | the live transcript of the turn so far |
 | `upsert` | `message` | a message is new or changed |
 | `speech` | `stream`, `seq`, `rate`, `state` (begin/end) | a speech stream starts or ends; its audio comes in `0x02` frames |
