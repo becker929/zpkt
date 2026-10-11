@@ -969,9 +969,10 @@ dialog::backdrop { background: rgb(0 0 0 / 0.5); }
   margin: 0;
   padding: 0;
   border: 0;
-  background: rgb(4 4 6 / 0.96);
+  background: rgb(4 4 6);           /* opaque: the chat's bright text showed through */
   color: #fff;
 }
+.lightbox:focus { outline: none; }
 .lightbox[open] { display: flex; flex-direction: column; animation: fade 0.2s ease-out; }
 .lightbox::backdrop { background: rgb(0 0 0 / 0.9); }
 .lightbox-bar {
