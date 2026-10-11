@@ -5,7 +5,7 @@ import asyncio
 import numpy as np
 import pytest
 
-from conftest import open_page
+from conftest import PHONE, Page, open_page
 
 pytestmark = pytest.mark.ui
 
@@ -302,3 +302,43 @@ async def test_audio_comes_back_after_the_page_was_away(phone, fake):
     assert await page.js("window.__before.state") == "closed"
     assert (await page.js("window.studio.engine.log"))[-1]["outcome"] == "played"
     await page.wait("() => ![...document.querySelectorAll('.toast')].some((t) => t.textContent.includes('paused'))")
+
+
+# A phone with its own mic and a car's: getUserMedia records which device each call asked for.
+TWO_MICS = """(() => {
+  const list = navigator.mediaDevices.enumerateDevices.bind(navigator.mediaDevices);
+  navigator.mediaDevices.enumerateDevices = async () => [
+    ...(await list()),
+    { kind: 'audioinput', label: 'Car Kit Hands-Free', deviceId: 'car', groupId: 'c' },
+    { kind: 'audioinput', label: 'iPhone Microphone', deviceId: 'phone', groupId: 'p' },
+  ];
+  const gum = navigator.mediaDevices.getUserMedia.bind(navigator.mediaDevices);
+  window.__asked = [];
+  navigator.mediaDevices.getUserMedia = async (c) => {
+    const id = c.audio?.deviceId?.exact ?? null;
+    window.__asked.push(id);
+    const stream = await gum({ audio: true });
+    for (const t of stream.getAudioTracks()) {
+      const settings = t.getSettings.bind(t);
+      t.getSettings = () => ({ ...settings(), deviceId: id ?? 'car' });
+    }
+    return stream;
+  };
+})();"""
+
+
+async def test_the_studio_mic_records_from_the_phone_so_bluetooth_only_plays(chromium, fake):
+    fake.turn_frames = 25
+    context = await chromium.new_context(permissions=["microphone"], **PHONE)
+    await context.add_init_script(TWO_MICS)
+    page = Page(await context.new_page(), fake)
+    await page.open()
+    await page.page.click("#turn")
+    await fake.expect(is_mic("open", "t1"))
+    await fake.expect(is_mic("open", "t2"), timeout=15)
+    # The first ask can't name a device (names come with permission); after it, every stream is the phone's own,
+    # and the kept one is reused.
+    asked = await page.js("window.__asked")
+    assert asked[-1] == "phone" and asked.count("phone") == 1, asked
+    assert page.errors == []
+    await context.close()

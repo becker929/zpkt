@@ -12,6 +12,9 @@ The mic and the speaker take turns: they are never on together, so a car's Bluet
 Between turns the phone keeps its mic stream with the tracks disabled (menu: Keep the mic ready, on by default),
 so a browser that asks for the mic on every getUserMedia (Chrome on iOS) asks once. With it off, closing stops the
 tracks, which is the surest way back to Bluetooth's media profile.
+The page records from the phone's own mic when it has one (menu: Studio mic, on), so a car's or headset's
+Bluetooth only ever plays and need not switch to its call profile; the first request can't name a device (names
+come with permission), so the phone's mic is used from the next open on.
 
 1. **You talk.** The phone streams the mic to the Mac. Captions follow you live (folded by default). You end the turn
    by saying **"tomato"**. Pauses don't end it, so you can think mid-sentence. You can also tap to end the turn, or type.
