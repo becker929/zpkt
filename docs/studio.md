@@ -47,6 +47,7 @@ lib/harness/src/harness/studio/
   hub.py           connected phones: one writer task each, fan-out, the one that owns mic and speaker
   protocol.py      the WebSocket's JSON messages and binary frames
   routes.py        routes: page, static files, history, media, WebSocket
+  assets.py        the page's files: versioned URLs cached for good, gzipped once, modulepreloads, first page
   conversation.py  the turn loop: phases, who has the turn, what plays next; a turn that fails hands the mic back
   turn.py          one Claude turn's events as chat messages: replies (spoken), thinking, tool calls
   playback.py      what the owner's phone has still to play, counted back, before the mic opens
@@ -200,7 +201,10 @@ and `screen` the capture's size: the page outlines the zoom on the full image, s
 
 Text frames are JSON objects with a `type`. Binary frames start with one byte naming the channel:
 `0x01` mic audio (phone → Mac: signed 16-bit little-endian PCM, 16 kHz mono), `0x02` speech audio (Mac → phone: then
-a 4-byte big-endian stream id, then signed 16-bit little-endian PCM at the stream's rate).
+a 4-byte big-endian stream id, then signed 16-bit little-endian PCM at the stream's rate). Speech goes out in 0.1 s
+frames, so the phone starts on the first one instead of waiting for a whole sentence (Kokoro makes one at a time,
+~150 KB: most of a second on a slow link). The page plays each frame with one sample of its neighbours on either side
+(`speech-stream.js`): the browser resamples every buffer on its own, and a buffer without them clicks at its edges.
 
 Phone → Mac:
 
@@ -245,6 +249,16 @@ to a phone with autoplay on; `play` commands are explicit requests and play eith
 HTTP (all behind the password): `GET /studio/api/messages?before=<seq>&limit=<n>` →
 `{"items": [...oldest first...], "has_more": bool}`; `GET /studio/api/timings?turns=<n>`;
 `POST /studio/api/conversation` starts a new conversation; `GET /studio/media/<name>`.
+
+Loading over a slow link (`assets.py`). `GET /studio/` is never cached and carries the newest page of history
+(`<script id="boot">`), which the page shows before its socket is up. It links the scripts and styles as
+`/studio/static/<version>/...`, where the version hashes every file in `static/`: those URLs are cached for good
+(`immutable`) and gzipped, and a deploy changes the version, so the next load fetches the new files; the welcome's
+`version` includes it too, so a page left open is offered a reload. Every module is listed as a `modulepreload`, so
+they are fetched in one round trip rather than one per level of imports. The history and timings API answer gzipped.
+Measured through a link like a car's (150 ms round trip, 2 Mbit/s down) with a 40-message chat: the chat showed
+2.3 s after a first load and 1.5 s after a later one, and now 1.35 s and 0.23 s; a later load is one request
+instead of 27 revalidations. Claude's first words reached the speaker 1.1 s after it wrote them, now 0.6 s.
 
 ## Voice worker frames (stdin/stdout)
 

@@ -17,6 +17,7 @@ from ..jobs import job_env
 from . import tools
 from . import routes
 from .agent import AgentSession
+from .assets import Assets
 from .conversation import Conversation, Settings
 from .grab import Capture, ScreenGrab
 from .hub import Hub
@@ -73,7 +74,9 @@ class Studio:
         self.steps_token = secrets.token_urlsafe(24)
         self.agent = agent or AgentSession(self._options)
         self.narrator_model = None if summarize else HaikuLines(cfg.narrator_model, cfg.cli_path, job_env(cfg))
-        settings = Settings(stop_word=cfg.stop_word, voice=cfg.tts_voice, speed=cfg.tts_speed, version=VERSION)
+        # The page's files are part of the version: a page left open across a deploy is offered a reload.
+        settings = Settings(stop_word=cfg.stop_word, voice=cfg.tts_voice, speed=cfg.tts_speed,
+                            version=f"{VERSION}.{Assets().version()}")
         self.conversation = Conversation(store=self.store, hub=self.hub, agent=self.agent, worker=self.worker,
                                          summarize=summarize or self.narrator_model, screens=self.screens,
                                          settings=settings)

@@ -4,6 +4,7 @@ and a page played by the test."""
 import asyncio
 import functools
 import json
+import re
 import shutil
 import sys
 import wave
@@ -300,6 +301,32 @@ async def test_history_pages_and_a_new_conversation(rig):
     await page.until(lambda m: m["type"] == "reset")
     fresh = await (await client.get("/studio/api/messages")).json()
     assert fresh == {"items": [], "has_more": False}
+
+
+async def test_the_page_carries_the_newest_history_and_its_files_are_cached_for_good(rig):
+    client, studio, *_ = rig
+    for i in range(45):
+        studio.conversation.add(Kind.NOTICE, {"level": "info", "text": f"n{i}"})
+    r = await client.get("/studio/")
+    html = await r.text()
+    assert r.headers["Cache-Control"] == "no-cache" and r.headers["Content-Encoding"] == "gzip"
+    boot = json.loads(re.search(r'<script type="application/json" id="boot">(.*?)</script>', html).group(1))
+    assert len(boot["items"]) == 40 and boot["has_more"] and boot["items"][-1]["data"]["text"] == "n44"
+    assert boot["conversation"] == studio.conversation.conv.id
+
+    version = re.search(r'"/studio/static/([0-9a-f]{12})/js/main\.js"', html).group(1)
+    assert f'<link rel="modulepreload" href="/studio/static/{version}/js/view.js">' in html
+    assert f'href="/studio/static/{version}/app.css"' in html
+    js = await client.get(f"/studio/static/{version}/js/main.js")
+    assert js.status == 200 and js.headers["Content-Encoding"] == "gzip" and "immutable" in js.headers["Cache-Control"]
+    assert js.content_type == "text/javascript" and "showBoot" in await js.text()
+    # A page from before a deploy asks under its old version: it gets today's file, revalidated rather than kept.
+    old = await client.get("/studio/static/0123456789ab/js/main.js")
+    assert old.status == 200 and old.headers["Cache-Control"] == "no-cache"
+    assert (await client.get(f"/studio/static/{version}/js/nothing.js")).status == 404
+
+    api = await client.get("/studio/api/messages?limit=40")
+    assert api.headers["Content-Encoding"] == "gzip" and len((await api.json())["items"]) == 40
 
 
 async def test_a_claude_that_ignores_the_interrupt_is_dropped(rig, monkeypatch):

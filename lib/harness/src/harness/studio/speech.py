@@ -23,7 +23,7 @@ from voice import protocol as frames
 from . import audio
 from .hub import Hub
 from .model import Message
-from .protocol import speech_frame
+from .protocol import speech_frames
 from .store import Store
 
 log = logging.getLogger(__name__)
@@ -418,7 +418,8 @@ class Speaker:
                                                "state": "begin"})
                             self.on_output()
                     if play:
-                        self.hub.to_owner(speech_frame(stream, chunk))
+                        for frame in speech_frames(stream, chunk, rate):
+                            self.hub.to_owner(frame)
                     pcm.append(chunk)
         except WorkerGone as exc:
             if not self._warned:
