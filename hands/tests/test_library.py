@@ -190,7 +190,7 @@ def test_records_central_and_project_file(tmp_path):
     central = tmp_path / "records.toml"
     central.write_text('[HW1]\nnote = "the first"\n[HW1.mix]\npercent = 40\nby = "docs"\ndate = 2026-10-09\n'
                        '[HW1.kick]\npercent = 70\n')
-    recs, notes = records.load_central(central)
+    recs, notes, _ = records.load_central(central)
     assert recs["hw1"]["mix"].by == "docs" and recs["hw1"]["mix"].date == "2026-10-09"
     assert recs["hw1"]["kick"].by == "agent" and notes["hw1"] == "the first"
     (tmp_path / "HW1").mkdir()
@@ -200,7 +200,10 @@ def test_records_central_and_project_file(tmp_path):
     central.write_text('[HW1.sound_design]\npercent = 1\n')
     with pytest.raises(ValueError, match="unknown step 'sound_design'"):
         records.load_central(central)
-    assert records.load_central(tmp_path / "missing.toml") == ({}, {})
+    assert records.load_central(tmp_path / "missing.toml") == ({}, {}, {})
+    central.write_text('[HW1]\nstatus = "parked"\n')
+    with pytest.raises(ValueError, match="unknown status 'parked'"):
+        records.load_central(central)
 
 
 def build_library(tmp_path: Path) -> tuple[Path, Path]:
@@ -268,6 +271,18 @@ def test_project_file_beats_the_central_records(tmp_path):
     hw900 = next(t for t in inv.tracks if t.track == "HW900")
     assert hw900.lowest_incomplete == "release" and hw900.steps[-1].record.by == "anthony"
 
+
+def test_a_canceled_track_leaves_the_inventory(tmp_path):
+    root, records_file = build_library(tmp_path)
+    records_file.write_text(records_file.read_text() + '[HW901]\nstatus = "canceled"\nnote = "a copy of HW900"\n')
+    inv = inventory.inventory([root], records_file=records_file, browser=None)
+    assert [t.track for t in inv.tracks] == ["HW900"]
+    assert "HW901: canceled (a copy of HW900)" in inv.skipped
+    # Anthony's own file in the project folder says so too, and wins.
+    records_file.write_text(records_file.read_text().replace('status = "canceled"', ''))
+    (root / "HW901 Project" / records.PROJECT_FILE).write_text('status = "canceled"\n')
+    inv = inventory.inventory([root], records_file=records_file, browser=None)
+    assert [t.track for t in inv.tracks] == ["HW900"]
 
 def test_inventory_is_read_only(tmp_path):
     root, records_file = build_library(tmp_path)

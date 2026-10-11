@@ -181,7 +181,7 @@ def inventory(roots: Iterable[Path], *, exports: Iterable[Path] = (), records_fi
     three master candidates per track."""
     roots = [Path(r).expanduser() for r in roots]
     exports = [Path(e).expanduser() for e in exports]
-    central, notes = records.load_central(records_file)
+    central, notes, statuses = records.load_central(records_file)
     docs = browser_projects(browser)
     skipped: list[str] = []
     projects: list[Project] = []
@@ -196,7 +196,16 @@ def inventory(roots: Iterable[Path], *, exports: Iterable[Path] = (), records_fi
                 skipped.append(f"{root.name}/{d.name}: no Live set")
                 continue
             projects.append(load_project(d, names - {d.name}, skipped))
-    known = {p.name.lower() for p in projects}
+    live = []
+    for p in projects:                      # a canceled track is out of the inventory (the project file wins)
+        status = records.project_status(p.folder) or statuses.get(p.name.lower(), "")
+        if status == "canceled":
+            note = notes.get(p.name.lower(), "")
+            skipped.append(f"{p.name}: canceled" + (f" ({note})" if note else ""))
+        else:
+            live.append(p)
+    projects = live
+    known = {p.name.lower() for p in projects} | set(statuses)
     for p in projects:
         p.browser = docs.get(p.name.lower())
     for name, doc in docs.items():
