@@ -172,7 +172,10 @@ class FakeStudio:
         elif kind == "prefs":
             self.prefs[ws] = dict(msg["prefs"])
         elif kind == "start":
-            self.owner = ws
+            previous = self.owner
+            await self.set_owner(ws)
+            if previous is not None and previous is not ws and self.phase == "listening":
+                await self._send(previous, {"type": "unlisten", "turn": self.turn})   # as the Mac does
             self.sent = self.done = 0
             self._idle.set()
             if self.phase in ("idle", "responding"):
@@ -186,7 +189,7 @@ class FakeStudio:
                 await self.set_phase("idle")
         elif kind == "say":
             if self.owner is not ws and (self.owner is None or self.phase != "working"):
-                self.owner = ws                       # a typed turn takes the speaker, as on the Mac
+                await self.set_owner(ws)              # a typed turn takes the speaker, as on the Mac
             await self.user_turn(msg["text"], "typed")
         elif kind == "end_turn":
             if ws is self.owner and self._listening:
@@ -254,6 +257,12 @@ class FakeStudio:
     async def set_phase(self, phase: str, label: str = "") -> None:
         self.phase, self.label = phase, label
         await self.broadcast({"type": "phase", "phase": phase, "turn": self.turn, "label": label})
+
+    async def set_owner(self, ws: web.WebSocketResponse) -> None:
+        previous, self.owner = self.owner, ws
+        if previous is not ws:
+            await self._send(previous, {"type": "owner", "owner": False})
+            await self._send(ws, {"type": "owner", "owner": True})
 
     async def offer_mic(self) -> None:
         self.turn = f"t{next(self._turns)}"

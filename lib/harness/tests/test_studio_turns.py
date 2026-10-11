@@ -339,3 +339,23 @@ async def test_the_mic_opens_even_if_the_phone_never_says_it_finished(rig, monke
     await page.ws.send_json({"type": "say", "text": "quick one"})
     await page.until(lambda m: m["type"] == "speech" and m["state"] == "end", since=now)
     await page.until(lambda m: m["type"] == "listen", since=now, timeout=5)    # no playback message was sent
+
+
+async def test_a_page_is_told_when_it_gains_or_loses_the_mic(rig):
+    client, *_ = rig
+    pages = []
+    for name in ("phone", "tv"):
+        ws = await client.ws_connect("/studio/ws")
+        pages.append(page := Page(ws))
+        await ws.send_json({"type": "hello", "client": name, "prefs": {"autoplay": True, "shots": "none"}})
+        await page.until(lambda m: m["type"] == "welcome")
+    phone, tv = pages
+    await phone.ws.send_json({"type": "start"})
+    assert (await phone.until(lambda m: m["type"] == "owner"))["owner"] is True
+    await phone.until(lambda m: m["type"] == "listen")
+    mark = phone.mark()
+    await tv.ws.send_json({"type": "start"})
+    assert (await tv.until(lambda m: m["type"] == "owner"))["owner"] is True
+    assert (await phone.until(lambda m: m["type"] == "owner", since=mark))["owner"] is False
+    await phone.until(lambda m: m["type"] == "unlisten", since=mark)
+    assert not tv.of("unlisten") and [m["owner"] for m in tv.of("owner")] == [True]
