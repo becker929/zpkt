@@ -120,15 +120,13 @@ class AgentSession:
         self._reader = asyncio.create_task(self._read(client), name="claude-session")
 
     async def close(self) -> None:
+        """End the CLI. A turn still in flight ends with it (its reader is gone, so nothing else would end it)."""
         client, self._client = self._client, None
         if self._reader is not None:
             self._reader.cancel()
             self._reader = None
-        if client is not None:
-            try:
-                await client.disconnect()
-            except Exception:  # noqa: BLE001 - closing a dead CLI is not an error worth raising
-                log.debug("disconnect failed", exc_info=True)
+            self._end_turn("The Claude session was closed.")
+        await _disconnect(client)
 
     async def interrupt(self) -> None:
         if self._client is not None:
@@ -141,10 +139,11 @@ class AgentSession:
         """Send one user message; yield what happens until the turn ends."""
         async with self._lock:
             await self.connect(self.session_id)
+            client = self._client
             queue: asyncio.Queue[AgentEvent] = asyncio.Queue()
             self._turn = queue
             try:
-                await self._client.query(prompt)
+                await client.query(prompt)
                 while True:
                     event = await queue.get()
                     yield event
@@ -170,15 +169,30 @@ class AgentSession:
         except Exception:  # noqa: BLE001 - the CLI died; the next turn starts a new one
             log.exception("the Claude session ended")
         if self._client is client:
-            self._client = None
-        if self._turn is not None:
-            self._turn.put_nowait(TurnDone("The Claude session ended unexpectedly.", False, None, self.session_id))
+            self._client, self._reader = None, None
+            await _disconnect(client)                 # its process may still be running
+        self._end_turn("The Claude session ended unexpectedly.")
 
     def _route(self, event: AgentEvent) -> None:
         if self._turn is not None:
             self._turn.put_nowait(event)
         elif self.unprompted is not None:
-            self.unprompted(event)
+            try:
+                self.unprompted(event)
+            except Exception:  # noqa: BLE001 - the chat failing to show a note must not end the session
+                log.exception("could not show what Claude did between turns")
+
+    def _end_turn(self, why: str) -> None:
+        if self._turn is not None:
+            self._turn.put_nowait(TurnDone(why, False, None, self.session_id))
+
+
+async def _disconnect(client: Any) -> None:
+    if client is not None:
+        try:
+            await client.disconnect()
+        except Exception:  # noqa: BLE001 - closing a dead CLI is not an error worth raising
+            log.debug("disconnect failed", exc_info=True)
 
 
 class _Reader:

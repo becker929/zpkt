@@ -4,31 +4,34 @@
         ▲                      │ (interrupt)                    │ (interrupt / tap)
         └──────────────────────┴────────────────────────────────┘
 
-The mic and the speaker never overlap: the mic is offered only once the owner's phone reports that it has played
-(or dropped) every item the Mac sent it. Items are speech streams and `play` commands; the phone counts them back
-in `playback` messages, so a message lost in flight can't open the mic early.
+The mic and the speaker never overlap: the mic is offered only once the owner's phone has played everything it was
+sent (playback.py). Each turn has an id, and work left over from a turn that something else replaced (a typed
+message while the answer plays, a phone pressing Start) sees that and stops. A turn whose task fails in the app
+itself hands the mic back, so whatever goes wrong, the app never stays stuck in a phase.
 """
 
 from __future__ import annotations
 
 import asyncio
 import logging
-import time
+from collections.abc import Coroutine
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
 from . import audio, intents
 from .activity import describe, detail
-from .agent import AgentSession, TextDelta, TextDone, ThinkingDelta, ThinkingDone, ToolDone, ToolStart, TurnDone
+from .agent import AgentSession, TextDone, ThinkingDone, ToolStart
 from .hub import Client, Hub
 from .model import Kind, Message, Phase, Prefs, ShotLevel
 from .narrator import Narrator, Summarize
+from .playback import Playback
 from .protocol import MIC_RATE
 from .screens import Screens
 from .speech import Speaker, Transcription, Utterance, VoiceWorker, WorkerGone
 from .store import Store, new_id
 from .timing import TurnClock, browser
+from .turn import TurnMessages
 
 log = logging.getLogger(__name__)
 
@@ -36,8 +39,8 @@ PAGE = 40                     # messages in the first page a phone gets
 MAX_RECORDING_S = 600         # of one spoken turn kept for replay
 TEXT_PUSH_S = 0.15            # how often a reply's growing text is pushed to the phones
 INTERRUPT_S = 10.0            # how long Claude gets to stop after an interrupt before its session is dropped
-SPEECH_MAX_S = 90.0           # no utterance is longer: the latest a phone can still be playing one
-PLAYBACK_SLACK_S = 15.0       # on top of an item's own length, before giving up on the phone's "done"
+SPEECH_WAIT_S = 120.0         # how often a mic waiting for speech to start checks it is still wanted
+STOP_WAIT_S = 5.0             # how long stopping the server waits for the turn's tasks to end
 
 
 @dataclass
@@ -55,26 +58,23 @@ class Conversation:
         self.screens, self.settings = screens, settings
         self.conv = store.conversation()
         self.agent.session_id = self.conv.claude_session
+        self.to_play = Playback()          # what the owner has still to play
         self.speaker = Speaker(worker, hub, store, voice=settings.voice, speed=settings.speed,
-                               on_update=self.push, on_output=self._sent_item)
+                               on_update=self.push, on_output=self.to_play.item)
         self.narrator = Narrator(summarize, self._narrate)
         self.phase = Phase.IDLE
         self.label = ""
         self.turn: str | None = None
         self.clock: TurnClock | None = None
+        self.interrupted = False                # the turn in flight was interrupted
         self._turns_offered = 0                 # since the server started: turn 1 is the cold one
         self._listening: Transcription | None = None
         self._recording = bytearray()
-        self._work: asyncio.Task | None = None
+        self._work: asyncio.Task | None = None  # Claude's turn
+        self._speech_wait: asyncio.Task | None = None   # a mic waiting for speech to start
         self._tasks: set[asyncio.Task] = set()
         self._queued: list[str] = []          # typed turns sent while Claude was working
         self._notes: list[str] = []           # what happened that Claude should hear about next turn
-        self._sent = 0                        # items sent to the owner to play
-        self._done = 0                        # ... that it reports finished or dropped
-        self._owner_idle = asyncio.Event()
-        self._owner_idle.set()
-        self._deadline = 0.0                  # when everything sent should have played, even if no "done" arrives
-        self._interrupted = False
         self._push_later: dict[int, asyncio.TimerHandle] = {}   # growing replies, pushed at most every TEXT_PUSH_S
 
     # --- lifecycle -----------------------------------------------------------------------------------------------
@@ -84,12 +84,16 @@ class Conversation:
     async def stop(self) -> None:
         self.narrator.turn_ended()
         await self.speaker.stop()
-        for t in [self._work, *self._tasks]:
-            if t:
-                t.cancel()
+        tasks = [t for t in self._tasks if not t.done()]
+        for t in tasks:
+            t.cancel()
+        if tasks:
+            await asyncio.wait(tasks, timeout=STOP_WAIT_S)   # so none touches the store after it is closed
+        for later in self._push_later.values():
+            later.cancel()
         await self.agent.close()
 
-    def _spawn(self, coro: Any, name: str) -> asyncio.Task:
+    def _spawn(self, coro: Coroutine[Any, Any, Any], name: str) -> asyncio.Task:
         task = asyncio.create_task(coro, name=name)
         self._tasks.add(task)
         task.add_done_callback(self._reaped)
@@ -99,6 +103,28 @@ class Conversation:
         self._tasks.discard(task)
         if not task.cancelled() and task.exception():
             log.error("studio task %s failed", task.get_name(), exc_info=task.exception())
+
+    def _spawn_turn(self, coro: Coroutine[Any, Any, Any], name: str) -> asyncio.Task:
+        """A task that carries the current turn: if it fails, the mic goes back to Anthony."""
+        return self._spawn(self._guarded(coro, self.turn), name)
+
+    async def _guarded(self, coro: Coroutine[Any, Any, Any], turn: str | None) -> None:
+        try:
+            await coro
+        except Exception as exc:  # noqa: BLE001 - whatever broke, the app must get back to a usable state
+            log.exception("studio turn %s failed", turn)
+            if self.turn == turn:
+                self._recover(exc)
+
+    def _recover(self, exc: Exception) -> None:
+        """A turn failed in the app itself (Claude's own failures end its turn normally): drop what it left
+        playing or listening, and give the mic back."""
+        self.narrator.turn_ended()
+        self.speaker.cancel()
+        self.stop_audio()
+        self._cancel_listening()
+        self._your_turn()
+        self.notice(f"Something went wrong ({type(exc).__name__}: {exc}"[:300] + "). Your turn.", "error", keep=True)
 
     # --- messages ------------------------------------------------------------------------------------------------
     def add(self, kind: Kind, data: dict[str, Any], level: ShotLevel | None = None) -> Message:
@@ -117,15 +143,30 @@ class Conversation:
         level = ShotLevel.parse(msg.data.get("level")) if msg.kind is Kind.SHOTS else None
         self.hub.broadcast({"type": "upsert", "message": msg.wire()}, level)
 
+    def push_soon(self, msg: Message) -> None:
+        """Push a growing reply (or thinking) at most every TEXT_PUSH_S (the store gets it when the block is done)."""
+        if msg.seq not in self._push_later:
+            self._push_later[msg.seq] = asyncio.get_running_loop().call_later(TEXT_PUSH_S, self._push_now, msg)
+
+    def _push_now(self, msg: Message) -> None:
+        self._push_later.pop(msg.seq, None)
+        self.push(msg)
+
     def notice(self, text: str, level: str = "info", keep: bool = False) -> None:
         if keep:
             self.add(Kind.NOTICE, {"level": level, "text": text})
         else:
             self.hub.broadcast({"type": "notice", "level": level, "text": text})
 
-    def _set_phase(self, phase: Phase, label: str = "") -> None:
+    def set_phase(self, phase: Phase, label: str = "") -> None:
         self.phase, self.label = phase, label
         self.hub.broadcast({"type": "phase", "phase": phase.value, "turn": self.turn, "label": label})
+
+    def remember_session(self, session_id: str | None) -> None:
+        """Claude's session id, kept with the conversation so it resumes after a restart."""
+        if session_id and session_id != self.conv.claude_session:
+            self.conv.claude_session = session_id
+            self.store.set_claude_session(self.conv.id, session_id)
 
     # --- from the pages ------------------------------------------------------------------------------------------
     def welcome(self, client: Client) -> None:
@@ -142,14 +183,14 @@ class Conversation:
         client.prefs = prefs
         if client is self.hub.owner and was.handsfree and not prefs.handsfree and self.phase is Phase.LISTENING:
             self._cancel_listening()
-            self._set_phase(Phase.IDLE)
+            self.set_phase(Phase.IDLE)
 
     def start_talking(self, client: Client) -> None:
-        """This phone takes the mic and the speaker."""
+        """This phone takes the mic and the speaker, hands-free."""
         previous = self.hub.owner
         self.hub.owner = client
-        self._sent = self._done = 0
-        self._owner_idle.set()
+        client.prefs.handsfree = True
+        self.to_play.reset()
         if previous is not None and previous is not client and self.phase is Phase.LISTENING:
             previous.send({"type": "unlisten", "turn": self.turn})
             client.send({"type": "listen", "turn": self.turn})
@@ -164,7 +205,7 @@ class Conversation:
         client.prefs.handsfree = False
         if client is self.hub.owner and self.phase is Phase.LISTENING:
             self._cancel_listening()
-            self._set_phase(Phase.IDLE)
+            self.set_phase(Phase.IDLE)
 
     def mic(self, client: Client, state: str, open_ms: Any = None) -> None:
         client.mic_open = state == "open"
@@ -199,8 +240,8 @@ class Conversation:
             self._cancel_listening()
         self.speaker.cancel()
         self.stop_audio()
-        self._begin_turn()
-        self._spawn(self._user_turn(text, "typed", b""), "typed-turn")
+        self._begin_turn()                   # a turn still waiting for the phone to finish playing now stands down
+        self._spawn_turn(self._user_turn(text, "typed", b""), "typed-turn")
 
     def end_turn(self, client: Client) -> None:
         if client is self.hub.owner and self._listening is not None:
@@ -210,30 +251,37 @@ class Conversation:
                 self._cancel_listening()
 
     async def interrupt(self, client: Client) -> None:
-        """Stop Claude and everything playing; the mic is Anthony's again."""
+        """Stop Claude and everything playing; the mic is Anthony's again. Returns at once: the page's socket must
+        not wait on the CLI, whose own interrupt can take a minute to time out."""
         if self.phase is Phase.WORKING:
-            self._interrupted = True
+            self.interrupted = True
             self.narrator.turn_ended()
             self.speaker.cancel()
             self.stop_audio()
-            await self.agent.interrupt()     # the turn ends; _agent_turn hands the mic back
-            work = self._work
+            self._spawn(self._stop_claude(), "interrupt")
+        elif self.phase is Phase.RESPONDING:
+            self.speaker.cancel()
+            self.stop_audio()
+
+    async def _stop_claude(self) -> None:
+        """Ask Claude to stop (its turn ends, and _agent_turn hands the mic back); if it hasn't within INTERRUPT_S,
+        drop its session: the next turn resumes it in a fresh CLI."""
+        work = self._work
+        asking = self._spawn(self.agent.interrupt(), "ask-claude-to-stop")
+        try:
             if work is not None and not work.done():
                 done, _ = await asyncio.wait({work}, timeout=INTERRUPT_S)
                 if not done:
                     log.warning("Claude did not stop within %.0f s; dropping its session", INTERRUPT_S)
                     work.cancel()
-                    await self.agent.close()      # the next turn resumes the session in a fresh CLI
-        elif self.phase is Phase.RESPONDING:
-            self.speaker.cancel()
-            self.stop_audio()
+                    await self.agent.close()
+        finally:
+            asking.cancel()
 
     def playback(self, client: Client, state: str, done: Any) -> None:
         client.playing = state == "busy"
         if client is self.hub.owner and isinstance(done, int):
-            self._done = max(self._done, done)
-            if self._done >= self._sent and state == "idle":
-                self._owner_idle.set()
+            self.to_play.report(done, idle=state == "idle")
 
     def mark(self, client: Client, turn: Any, name: str, ms: Any, extra: dict[str, Any]) -> None:
         if self.clock and turn == self.turn:
@@ -242,9 +290,9 @@ class Conversation:
     def left(self, client: Client) -> None:
         if self.hub.owner is None and self._listening is not None:
             self._cancel_listening()
-            self._set_phase(Phase.IDLE)
+            self.set_phase(Phase.IDLE)
         if self.hub.owner is None:
-            self._owner_idle.set()
+            self.to_play.owner_left()
 
     def new_conversation(self) -> None:
         if self.phase is Phase.WORKING:
@@ -254,7 +302,7 @@ class Conversation:
         self.agent.session_id = None
         self._spawn(self.agent.close(), "close-agent")
         self._notes.clear()
-        self._set_phase(Phase.IDLE)
+        self.set_phase(Phase.IDLE)
         self.hub.broadcast({"type": "reset", "conversation": self.conv.wire()})
 
     # --- the mic -------------------------------------------------------------------------------------------------
@@ -265,11 +313,11 @@ class Conversation:
     def _offer_mic(self) -> None:
         owner = self.hub.owner
         if owner is None:
-            self._set_phase(Phase.IDLE)
+            self.set_phase(Phase.IDLE)
             return
         if not self.worker.ready:
-            self._set_phase(Phase.IDLE, "Speech is starting")
-            self._spawn(self._offer_when_ready(), "offer-when-ready")
+            self.set_phase(Phase.IDLE, "Speech is starting")
+            self._offer_when_ready()
             return
         self._begin_turn()
         self._turns_offered += 1
@@ -278,15 +326,37 @@ class Conversation:
         try:
             self._listening = self.worker.transcription(self.settings.stop_word, MIC_RATE)
         except WorkerGone:
-            self._set_phase(Phase.IDLE, "Speech is restarting")
-            self._spawn(self._offer_when_ready(), "offer-when-ready")
+            self.set_phase(Phase.IDLE, "Speech is restarting")
+            self._offer_when_ready()
             return
-        self._spawn(self._listen(self._listening), "listen")
-        self._set_phase(Phase.LISTENING)
+        self._spawn_turn(self._listen(self._listening), "listen")
+        self.set_phase(Phase.LISTENING)
         owner.send({"type": "listen", "turn": self.turn})
 
-    async def _offer_when_ready(self) -> None:
-        if await self.worker.wait_ready(120) and self.phase is Phase.IDLE and self.hub.owner is not None:
+    def _your_turn(self) -> None:
+        """The mic is Anthony's again: offered, if his phone is hands-free; else the app waits for Start."""
+        owner = self.hub.owner
+        if owner is not None and owner.prefs.handsfree:
+            self._offer_mic()
+        else:
+            self.set_phase(Phase.IDLE)
+
+    def _offer_when_ready(self) -> None:
+        if self._speech_wait is None or self._speech_wait.done():
+            self._speech_wait = self._spawn(self._wait_for_speech(), "offer-when-ready")
+
+    async def _wait_for_speech(self) -> None:
+        """Offer the mic once speech is ready, however long that takes (the first start fetches the models), as
+        long as it is still wanted."""
+        def wanted() -> bool:
+            owner = self.hub.owner
+            return self.phase is Phase.IDLE and owner is not None and owner.prefs.handsfree
+
+        while not await self.worker.wait_ready(SPEECH_WAIT_S):
+            if not wanted():
+                return
+        self._speech_wait = None
+        if wanted():
             self._offer_mic()
 
     def _cancel_listening(self) -> None:
@@ -338,7 +408,7 @@ class Conversation:
             self._run_intent(intent, text)
             await self._respond()
             return
-        self._work = asyncio.create_task(self._agent_turn(text), name="agent-turn")
+        self._work = self._spawn_turn(self._agent_turn(text), "agent-turn")
 
     async def _keep_recording(self, msg: Message, pcm: bytes) -> None:
         try:
@@ -367,82 +437,28 @@ class Conversation:
         return f"{head}{text}"
 
     async def _agent_turn(self, text: str) -> None:
-        self._interrupted = False
-        self._set_phase(Phase.WORKING, "Thinking")
+        self.interrupted = False
+        self.set_phase(Phase.WORKING, "Thinking")
         self.narrator.turn_started(text)
         self.screens.turn_started()
-        replies: dict[int, tuple[Message, Utterance]] = {}
-        thoughts: dict[int, Message] = {}
-        tools: dict[str, tuple[Message, float]] = {}
-        clock = self.clock
+        messages = TurnMessages(self, self.clock)
         try:
             async for ev in self.agent.turn(self._prompt(text)):
-                if isinstance(ev, TextDelta):
-                    if ev.block not in replies:
-                        replies[ev.block] = self._reply(clock)
-                    msg, utt = replies[ev.block]
-                    msg.data["text"] += ev.text
-                    utt.feed(ev.text)
-                    self.narrator.spoke()
-                    clock.mark("first_text", once=True)
-                    self._push_soon(msg)
-                elif isinstance(ev, TextDone) and ev.block in replies:
-                    msg, utt = replies.pop(ev.block)
-                    msg.data.update(text=ev.text, streaming=False)
-                    self.save(msg)
-                    utt.close()
-                elif isinstance(ev, ThinkingDelta):
-                    if ev.block not in thoughts:
-                        thoughts[ev.block] = self.add(Kind.THINKING, {"text": "", "streaming": True})
-                    thoughts[ev.block].data["text"] += ev.text
-                    self._push_soon(thoughts[ev.block])
-                elif isinstance(ev, ThinkingDone):
-                    msg = thoughts.pop(ev.block, None)
-                    if msg is None:
-                        self.add(Kind.THINKING, {"text": ev.text, "streaming": False})
-                    else:
-                        msg.data.update(text=ev.text, streaming=False)
-                        self.save(msg)
-                elif isinstance(ev, ToolStart):
-                    title = describe(ev.name, ev.input)
-                    act = self.add(Kind.ACTIVITY, {"tool": ev.name, "title": title, "status": "running",
-                                                   "detail": detail(ev.input)})
-                    tools[ev.id] = (act, time.monotonic())
-                    self._set_phase(Phase.WORKING, title)
-                    self.narrator.note(title)
-                    clock.mark("tool", tool=ev.name)
-                elif isinstance(ev, ToolDone) and ev.id in tools:
-                    act, t0 = tools.pop(ev.id)
-                    act.data.update(status="ok" if ev.ok else "error", ms=round((time.monotonic() - t0) * 1000),
-                                    output=ev.output[-1500:])
-                    self.save(act)
-                    self._set_phase(Phase.WORKING, "Thinking")
-                elif isinstance(ev, TurnDone):
-                    if ev.session_id and ev.session_id != self.conv.claude_session:
-                        self.conv.claude_session = ev.session_id
-                        self.store.set_claude_session(self.conv.id, ev.session_id)
-                    clock.mark("agent_done", cost_usd=ev.cost_usd)
-                    if not ev.ok and not self._interrupted:
-                        self.notice(f"Claude stopped: {ev.text[:300]}", "error", keep=True)
+                messages.handle(ev)
         except asyncio.CancelledError:
-            if not self._interrupted:
+            if not self.interrupted:
                 raise                        # the server is stopping
+            asyncio.current_task().uncancel()    # Claude was dropped after an interrupt: the turn ends as usual
         except Exception as exc:  # noqa: BLE001 - tell Anthony, keep the app alive
             log.exception("agent turn failed")
             self.notice(f"Claude failed: {type(exc).__name__}: {exc}"[:400], "error", keep=True)
         finally:
-            for msg, utt in replies.values():
-                msg.data["streaming"] = False
-                self.save(msg)
-                utt.close()
-            for msg in thoughts.values():
-                msg.data["streaming"] = False
-                self.save(msg)
-            for act, _ in tools.values():
-                act.data["status"] = "error" if self._interrupted else "ok"
-                self.save(act)
             self.narrator.turn_ended()
-        await self.screens.turn_ended()
+            messages.finish(self.interrupted)
+        try:
+            await self.screens.turn_ended()
+        except Exception:  # noqa: BLE001 - a screenshot is never worth a stuck turn
+            log.exception("the turn's last screenshot failed")
         if self._queued:
             nxt = self._queued.pop(0)
             await self.speaker.idle()
@@ -451,10 +467,18 @@ class Conversation:
             return
         await self._respond()
 
-    def _reply(self, clock: TurnClock) -> tuple[Message, Utterance]:
-        msg = self.add(Kind.AGENT, {"text": "", "role": "reply", "audio": None, "duration": None, "streaming": True})
-        utt = self.speaker.say(Utterance(msg, on_first_audio=lambda: clock.mark("first_audio", once=True)))
-        return msg, utt
+    async def _respond(self) -> None:
+        """Claude is done: wait for the phone to play everything, then hand it the mic, unless another turn has
+        begun meanwhile."""
+        turn, clock = self.turn, self.clock
+        self.set_phase(Phase.RESPONDING)
+        await self.speaker.idle()
+        await self.to_play.played(lambda: self.hub.owner is not None)
+        if clock:
+            clock.mark("responded")
+        if self.turn != turn or self.phase is not Phase.RESPONDING:
+            return                                   # something else took over meanwhile
+        self._your_turn()
 
     def _narrate(self, line: str) -> None:
         clock = self.clock
@@ -468,40 +492,6 @@ class Conversation:
         self.speaker.say(utt)
         utt.feed(line)
         utt.close()
-
-    def _push_soon(self, msg: Message) -> None:
-        """Push a growing reply (or thinking) at most every TEXT_PUSH_S (the store gets it when the block is done)."""
-        if msg.seq not in self._push_later:
-            self._push_later[msg.seq] = asyncio.get_running_loop().call_later(TEXT_PUSH_S, self._push_now, msg)
-
-    def _push_now(self, msg: Message) -> None:
-        self._push_later.pop(msg.seq, None)
-        self.push(msg)
-
-    async def _respond(self) -> None:
-        """Claude is done: wait for the phone to play everything, then hand it the mic."""
-        self._set_phase(Phase.RESPONDING)
-        await self.speaker.idle()
-        while self.hub.owner is not None and self._done < self._sent:
-            self._owner_idle.clear()
-            wait = self._deadline - time.monotonic()
-            if wait <= 0:
-                log.warning("the phone never reported playing %d of %d items; going on", self._sent - self._done,
-                            self._sent)
-                break
-            try:
-                await asyncio.wait_for(self._owner_idle.wait(), wait)
-            except asyncio.TimeoutError:
-                pass
-        if self.clock:
-            self.clock.mark("responded")
-        if self.phase is not Phase.RESPONDING:
-            return                                   # something else took over meanwhile
-        owner = self.hub.owner
-        if owner is not None and owner.prefs.handsfree:
-            self._offer_mic()
-        else:
-            self._set_phase(Phase.IDLE)
 
     def unprompted(self, event: Any) -> None:
         """Claude acting without a turn of Anthony's (e.g. a background task it started has finished). It goes in
@@ -535,7 +525,7 @@ class Conversation:
         msg.data["plays"] = int(msg.data.get("plays", 0)) + loops
         self.save(msg)
         if self.hub.to_owner({"type": "play", "seq": seq, "loops": loops}):
-            self._sent_item(float(msg.data.get("duration") or 0) * loops)
+            self.to_play.item(float(msg.data.get("duration") or 0) * loops)
         return msg
 
     def last_music(self) -> Message | None:
@@ -544,16 +534,7 @@ class Conversation:
     def stop_audio(self) -> None:
         if self.hub.owner is not None:
             self.hub.owner.send({"type": "stop_audio"})
-        self._sent = self._done = 0
-        self._owner_idle.set()
-
-    def _sent_item(self, seconds: float | None = None) -> None:
-        """One more item for the owner to play; it should be done within `seconds` (plus slack) of now. A speech
-        stream's length isn't known when it starts, so it gets the longest an utterance can be."""
-        self._sent += 1
-        self._owner_idle.clear()
-        length = SPEECH_MAX_S if seconds is None else seconds
-        self._deadline = max(self._deadline, time.monotonic() + length + PLAYBACK_SLACK_S)
+        self.to_play.reset()
 
     # --- the agent's environment -------------------------------------------------------------------------------
     def tool_env(self) -> dict[str, str]:

@@ -48,8 +48,7 @@ IPHONE_15 = {"viewport": {"width": 393, "height": 659}, "screen": {"width": 393,
              "device_scale_factor": 3, "is_mobile": True, "has_touch": True}
 PHONE = {"viewport": {"width": 393, "height": 760}, "device_scale_factor": 2}
 
-# Keeps every stream getUserMedia hands the page (to check its tracks are stopped) and when each was open (until its
-# first track stops). When this Chromium cannot start its fake capture device (it hangs on some macOS versions), the
+# Keeps every stream getUserMedia hands the page (to check its tracks are stopped) and when the mic was open. When this Chromium cannot start its fake capture device (it hangs on some macOS versions), the
 # same WAV is played into a MediaStream.
 CAPTURE = """
 (() => {
@@ -72,11 +71,22 @@ CAPTURE = """
       stream = await real(constraints);
     }
     window.__captured.push(stream);
-    const span = { open: performance.now(), close: null };      // when the mic was open, for the ear's tests
+    // When the mic was open, for the ear's tests: from getUserMedia (or re-enabling a kept track) until a track
+    // stops or is disabled.
+    let span = { open: performance.now(), close: null };
     window.__micSpans.push(span);
+    const enabled = Object.getOwnPropertyDescriptor(MediaStreamTrack.prototype, 'enabled');
     for (const track of stream.getTracks()) {
       const stop = track.stop.bind(track);
       track.stop = () => { span.close ??= performance.now(); stop(); };
+      Object.defineProperty(track, 'enabled', {
+        get() { return enabled.get.call(this); },
+        set(on) {
+          if (!on) span.close ??= performance.now();
+          else if (span.close !== null) window.__micSpans.push(span = { open: performance.now(), close: null });
+          enabled.set.call(this, on);
+        },
+      });
     }
     return stream;
   };

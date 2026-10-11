@@ -1,6 +1,7 @@
 """A scripted stand-in for the studio server (docs/studio.md), for the page's browser tests.
 
-It serves the real page (studio/static) and speaks the protocol deterministically, the way the Mac does:
+It serves the real page (studio/static, versioned and with the newest page of history in it, as the Mac does:
+studio/assets.py) and speaks the protocol deterministically, the way the Mac does:
 - `hello` gets a `welcome` with the newest page of history;
 - `start` makes the page the owner and offers it the mic (phase `listening`, then `listen`);
 - mic frames become captions, and after `turn_frames` frames the turn ends as if "tomato" had been heard
@@ -30,6 +31,7 @@ from typing import Any
 from aiohttp import WSMsgType, web
 
 import studio_media as media
+from harness.studio.assets import Assets
 
 STATIC = Path(__file__).resolve().parents[2] / "src" / "harness" / "studio" / "static"
 FIRST_PAGE = 40
@@ -60,9 +62,13 @@ class FakeStudio:
         self.marks: list[dict[str, Any]] = []
         self.phase, self.turn, self.label = "idle", None, ""
         self.page_delay = 0.0          # how long GET /studio/api/messages takes (to see the spinner)
+        self.welcome_gate = asyncio.Event()   # cleared: a hello waits for it to be set before its welcome
+        self.welcome_gate.set()
+        self.assets = Assets(STATIC)
         self.turn_frames = 25          # mic frames that end a spoken turn (0: only end_turn ends it)
         self.step_s = 0.05             # pause between the scripted steps of Claude's turn
         self.speech_s = 0.6            # how long the spoken reply is
+        self.speech_hz = (220.0,)      # ... and the tones it is made of
         self.chunk_gap_s = 0.02        # between 100 ms speech chunks (faster than real time, like Kokoro)
         self.bar_s, self.bars, self.loops = 0.5, 2, 2
         self.script: Script = self.claude_turn
@@ -92,13 +98,16 @@ class FakeStudio:
         return app
 
     async def _index(self, _request: web.Request) -> web.StreamResponse:
-        return web.FileResponse(STATIC / "index.html", headers={"Cache-Control": "no-cache"})
+        page = self.messages[-FIRST_PAGE:]
+        html = self.assets.page({"conversation": self.conversation["id"], "items": page,
+                                 "has_more": len(self.messages) > len(page)})
+        return web.Response(text=html, content_type="text/html", headers={"Cache-Control": "no-cache"})
 
     async def _static(self, request: web.Request) -> web.StreamResponse:
-        path = (STATIC / request.match_info["path"]).resolve()
-        if not path.is_relative_to(STATIC) or not path.is_file():
+        entry = self.assets.file(self.assets.split(request.match_info["path"])[1])
+        if entry is None:
             raise web.HTTPNotFound()
-        return web.FileResponse(path, headers={"Cache-Control": "no-cache"})
+        return web.Response(body=entry[0], headers={"Content-Type": entry[2], "Cache-Control": "no-cache"})
 
     async def _media(self, request: web.Request) -> web.Response:
         if request.match_info["name"] not in self.media:
@@ -162,6 +171,9 @@ class FakeStudio:
     async def _handle(self, ws: web.WebSocketResponse, msg: dict[str, Any]) -> None:
         kind = msg["type"]
         if kind == "hello":
+            if not self.welcome_gate.is_set():
+                await self._notify()          # tests wait for the hello while its welcome is held back
+                await self.welcome_gate.wait()
             self.pages.append(ws)
             self.prefs[ws] = dict(msg.get("prefs") or {})
             page = self.messages[-FIRST_PAGE:]
@@ -172,7 +184,10 @@ class FakeStudio:
         elif kind == "prefs":
             self.prefs[ws] = dict(msg["prefs"])
         elif kind == "start":
-            self.owner = ws
+            previous = self.owner
+            await self.set_owner(ws)
+            if previous is not None and previous is not ws and self.phase == "listening":
+                await self._send(previous, {"type": "unlisten", "turn": self.turn})   # as the Mac does
             self.sent = self.done = 0
             self._idle.set()
             if self.phase in ("idle", "responding"):
@@ -186,7 +201,7 @@ class FakeStudio:
                 await self.set_phase("idle")
         elif kind == "say":
             if self.owner is not ws and (self.owner is None or self.phase != "working"):
-                self.owner = ws                       # a typed turn takes the speaker, as on the Mac
+                await self.set_owner(ws)              # a typed turn takes the speaker, as on the Mac
             await self.user_turn(msg["text"], "typed")
         elif kind == "end_turn":
             if ws is self.owner and self._listening:
@@ -254,6 +269,12 @@ class FakeStudio:
     async def set_phase(self, phase: str, label: str = "") -> None:
         self.phase, self.label = phase, label
         await self.broadcast({"type": "phase", "phase": phase, "turn": self.turn, "label": label})
+
+    async def set_owner(self, ws: web.WebSocketResponse) -> None:
+        previous, self.owner = self.owner, ws
+        if previous is not ws:
+            await self._send(previous, {"type": "owner", "owner": False})
+            await self._send(ws, {"type": "owner", "owner": True})
 
     async def offer_mic(self) -> None:
         self.turn = f"t{next(self._turns)}"
@@ -367,7 +388,7 @@ class FakeStudio:
                                           "rate": media.SPEECH_RATE, "state": "begin"})
             self.sent += 1
             self._idle.clear()
-            pcm = media.speech_pcm(seconds)
+            pcm = media.speech_pcm(seconds, self.speech_hz)
             step = media.SPEECH_RATE * 2 // 10
             for i in range(0, len(pcm), step):
                 if not self.owner.closed:

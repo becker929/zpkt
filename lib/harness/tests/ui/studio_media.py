@@ -27,8 +27,8 @@ def pcm16(samples: np.ndarray) -> bytes:
     return (np.clip(samples, -1, 1) * 32767).astype("<i2").tobytes()
 
 
-def speech_pcm(seconds: float, freq: float = 220.0) -> bytes:
-    return pcm16(tone(freq, seconds, SPEECH_RATE))
+def speech_pcm(seconds: float, freqs: tuple[float, ...] = (220.0,)) -> bytes:
+    return pcm16(sum(tone(f, seconds, SPEECH_RATE, 0.3 / len(freqs)) for f in freqs))
 
 
 @lru_cache

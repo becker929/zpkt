@@ -34,6 +34,7 @@ CREATE TABLE IF NOT EXISTS messages (
     seq INTEGER PRIMARY KEY AUTOINCREMENT, conversation TEXT NOT NULL, kind TEXT NOT NULL,
     created REAL NOT NULL, turn TEXT, rev INTEGER NOT NULL DEFAULT 0, data TEXT NOT NULL);
 CREATE INDEX IF NOT EXISTS messages_by_conversation ON messages (conversation, seq);
+CREATE INDEX IF NOT EXISTS messages_by_kind ON messages (conversation, kind, seq);   -- the last render
 CREATE TABLE IF NOT EXISTS timings (
     id INTEGER PRIMARY KEY AUTOINCREMENT, conversation TEXT NOT NULL, turn TEXT NOT NULL, name TEXT NOT NULL,
     ms REAL, source TEXT NOT NULL, at REAL NOT NULL, extra TEXT);
@@ -112,6 +113,12 @@ class Store:
             (conversation, before if before is not None else 2**62, limit + 1)).fetchall()
         has_more = len(rows) > limit
         return [_message(r) for r in reversed(rows[:limit])], has_more
+
+    def of_kind(self, kind: Kind) -> list[Message]:
+        """Every message of `kind`, in every conversation, oldest first."""
+        rows = self.db.execute("SELECT seq, conversation, kind, created, turn, rev, data FROM messages "
+                               "WHERE kind = ? ORDER BY seq", (kind.value,)).fetchall()
+        return [_message(r) for r in rows]
 
     def last(self, conversation: str, kind: Kind) -> Message | None:
         row = self.db.execute(

@@ -9,11 +9,13 @@ Text frames are JSON objects with a "type". Binary frames start with a channel b
 from __future__ import annotations
 
 import json
+from collections.abc import Iterator
 from typing import Any
 
 MIC = 0x01
 SPEECH = 0x02
 MIC_RATE = 16_000
+SPEECH_FRAME_S = 0.1    # speech goes out in frames this long, so the phone starts on the first one, not a sentence's end
 
 # What a page may send, with the fields each message needs and their types.
 CLIENT = {
@@ -60,3 +62,12 @@ def parse_binary(data: bytes) -> tuple[int, bytes]:
 
 def speech_frame(stream: int, pcm: bytes) -> bytes:
     return bytes([SPEECH]) + stream.to_bytes(4, "big") + pcm
+
+
+def speech_frames(stream: int, pcm: bytes, rate: int) -> Iterator[bytes]:
+    """`pcm` cut into frames of SPEECH_FRAME_S. A WebSocket message arrives whole: one sentence of speech in one
+    frame (Kokoro makes a sentence at a time, ~150 KB) would take most of a second to reach a phone on a slow link
+    before any of it could play."""
+    step = max(2, int(rate * SPEECH_FRAME_S) * 2)
+    for i in range(0, len(pcm), step):
+        yield speech_frame(stream, pcm[i:i + step])

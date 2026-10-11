@@ -5,7 +5,7 @@ import pytest
 
 from conftest import IPHONE_15, open_page
 from heard import find_passes, heard
-from test_heard import render, the_ear
+from test_heard import BRIGHT, no_click_at_any_seam, render, the_ear
 from test_turn import is_mic, is_playback
 from test_window import FIRST_VISIBLE, TOP_OF
 
@@ -87,3 +87,41 @@ async def test_safari_the_ear_hears_a_render_to_the_sample(iphone, fake):
     assert len(passes.starts) == 2 and min(passes.scores) > 0.99, passes
     assert passes.starts[1] - passes.starts[0] == len(ref)
     assert abs(ear.time(passes.starts[0]) - entry["t0"]) < 1.5 / ear.rate
+
+
+async def test_safari_plays_speech_frames_without_a_click(iphone, fake):
+    fake.turn_frames, fake.speech_s, fake.speech_hz = 25, 1.0, BRIGHT
+    await iphone.page.tap("#turn")
+    await no_click_at_any_seam(iphone, fake)
+
+
+@pytest.mark.parametrize("width", [320, 375, 393, 430])
+async def test_nothing_pushes_the_page_sideways_at_any_iphone_width(webkit, fake, width):
+    """Every iPhone width (320 is a small one with Display Zoom), every screenshot level: the page is as wide as the
+    screen, and the screenshots chip still shows something."""
+    fake.seed_history(30)
+    page = await open_page(webkit, fake, device={**IPHONE_15, "viewport": {"width": width, "height": 700}})
+    for level in ("none", "major", "minor", "firehose"):
+        await page.page.select_option("#shots", level)
+        assert await page.js("document.documentElement.scrollWidth") == width, level
+        assert await page.js("document.querySelector('.chip--select').getBoundingClientRect().width") >= 44, level
+    assert page.errors == []
+    await page.page.context.close()
+
+
+async def test_a_folded_caption_shows_its_first_line_and_typing_makes_room(iphone, fake):
+    page = iphone
+    msg = await fake.upsert("agent", text="I rendered the kick at its current level and three dB louder.", role="reply",
+                            audio=None, duration=None, streaming=False)
+    row = f'[data-seq="{msg["seq"]}"]'
+    await page.wait(f"() => document.querySelector('{row} .peek')?.textContent")
+    shown = f"[...document.querySelectorAll('{row} summary > span')].filter((s) => getComputedStyle(s).display !== 'none').map((s) => s.className)"
+    assert await page.js(shown) == ["peek"]
+    await page.page.click(f"{row} summary")
+    assert await page.js(shown) == ["label"]                    # open: the whole text below, "Caption" above it
+
+    before = await page.js("document.querySelector('.dock').getBoundingClientRect().height")
+    await page.page.click("#keyboard")
+    after = await page.js("document.querySelector('.dock').getBoundingClientRect().height")
+    assert after < before, (before, after)
+    assert await page.js("document.getElementById('turn').getBoundingClientRect().width") >= 44   # still a target
