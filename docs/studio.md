@@ -47,7 +47,9 @@ lib/harness/src/harness/studio/
   hub.py           connected phones: one writer task each, fan-out, the one that owns mic and speaker
   protocol.py      the WebSocket's JSON messages and binary frames
   routes.py        routes: page, static files, history, media, WebSocket
-  conversation.py  the turn loop: phases, who has the turn, what plays next
+  conversation.py  the turn loop: phases, who has the turn, what plays next; a turn that fails hands the mic back
+  turn.py          one Claude turn's events as chat messages: replies (spoken), thinking, tool calls
+  playback.py      what the owner's phone has still to play, counted back, before the mic opens
   agent.py         the Claude Code session: streaming text and thinking, tool activity, interrupt, resume
   tools.py         the tools Claude gets from the app (present_music, play_music, stop_audio, screenshot)
   intents.py       spoken commands handled without Claude (play again, loop N times, stop)
@@ -59,6 +61,7 @@ lib/harness/src/harness/studio/
   guard.py         the hard rules on the session's shell commands
   activity.py      tool calls in a few words
   timing.py        per-turn timing marks (V1 measurement)
+  migrate.py       repairs to stored data: old FLAC music to MP3 (`harness studio-music-mp3`)
   static/          the page: plain ES modules, no build step
 lib/voice/src/voice/
   protocol.py      the frame codec, shared with the harness (no heavy imports)
@@ -274,6 +277,10 @@ Tests: `uv run --project lib/harness --extra dev pytest` and `uv run --project l
 and Silero into `~/.cache/zpkt-voice` (`VOICE_MODELS`; FluidAudio's helper is built there too, about a minute and a
 half the first time), Parakeet into the Hugging Face cache. Turn timings:
 `harness timings` (docs/voice-benchmark.md).
+
+Music stored before it was MP3 is FLAC, which iPhone Safari cannot play: `harness studio-music-mp3 --dry-run` lists
+it, and without `--dry-run` each such bubble gets an MP3 (the FLAC file is kept, and the message keeps its
+reference as `original`). Running it again changes nothing; it is safe while the server runs.
 
 The whole stack, end to end (page in Chromium, real server, Kokoro and Parakeet, `hands plan ab` with stand-in
 renders): `STUDIO_STACK=1 uv run --project lib/harness --extra dev pytest lib/harness/tests/ui/test_stack.py`; add

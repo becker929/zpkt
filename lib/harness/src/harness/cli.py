@@ -1,4 +1,4 @@
-"""harness serve | job "<prompt>" | jobs | show <id> | timings [--turns N]"""
+"""harness serve | job "<prompt>" | jobs | show <id> | timings [--turns N] | studio-music-mp3 [--dry-run]"""
 
 from __future__ import annotations
 
@@ -22,6 +22,8 @@ def main() -> None:
     s.add_argument("id")
     t = sub.add_parser("timings", help="studio's turn timings: first vs later turns, Safari vs Chrome, Bluetooth")
     t.add_argument("--turns", type=int, default=100)
+    m = sub.add_parser("studio-music-mp3", help="studio's old FLAC music as MP3, which iPhone Safari can play")
+    m.add_argument("--dry-run", action="store_true", help="only say what would be converted")
     a = ap.parse_args()
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
     cfg = Config()
@@ -41,6 +43,18 @@ def main() -> None:
         from .studio.store import Store
         from .studio.timing import report
         print(report(Store(cfg.studio_dir).timings(a.turns)))
+    elif a.cmd == "studio-music-mp3":
+        from .studio.migrate import music_to_mp3
+        from .studio.store import Store
+        studio = Store(cfg.studio_dir)
+        try:
+            done = asyncio.run(music_to_mp3(studio, dry_run=a.dry_run))
+        finally:
+            studio.close()
+        for c in done:
+            print(f"#{c.seq}  {c.status:13}  {c.source}" + (f" -> {c.mp3}" if c.mp3 else "")
+                  + (f"  ({c.error})" if c.error else ""))
+        print(f"{sum(c.status == 'converted' for c in done)} converted of {len(done)} FLAC music messages")
     elif a.cmd == "show":
         job = store.load(a.id)
         print(json.dumps({"job": job.public() if job else None, "events": store.events(a.id)}, indent=2))

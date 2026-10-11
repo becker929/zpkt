@@ -113,6 +113,12 @@ class Store:
         has_more = len(rows) > limit
         return [_message(r) for r in reversed(rows[:limit])], has_more
 
+    def of_kind(self, kind: Kind) -> list[Message]:
+        """Every message of `kind`, in every conversation, oldest first."""
+        rows = self.db.execute("SELECT seq, conversation, kind, created, turn, rev, data FROM messages "
+                               "WHERE kind = ? ORDER BY seq", (kind.value,)).fetchall()
+        return [_message(r) for r in rows]
+
     def last(self, conversation: str, kind: Kind) -> Message | None:
         row = self.db.execute(
             "SELECT seq, conversation, kind, created, turn, rev, data FROM messages "
