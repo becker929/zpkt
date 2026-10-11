@@ -101,3 +101,21 @@ async def test_nothing_pushes_the_page_sideways_at_any_iphone_width(webkit, fake
         assert await page.js("document.querySelector('.chip--select').getBoundingClientRect().width") >= 44, level
     assert page.errors == []
     await page.page.context.close()
+
+
+async def test_a_folded_caption_shows_its_first_line_and_typing_makes_room(iphone, fake):
+    page = iphone
+    msg = await fake.upsert("agent", text="I rendered the kick at its current level and three dB louder.", role="reply",
+                            audio=None, duration=None, streaming=False)
+    row = f'[data-seq="{msg["seq"]}"]'
+    await page.wait(f"() => document.querySelector('{row} .peek')?.textContent")
+    shown = f"[...document.querySelectorAll('{row} summary > span')].filter((s) => getComputedStyle(s).display !== 'none').map((s) => s.className)"
+    assert await page.js(shown) == ["peek"]
+    await page.page.click(f"{row} summary")
+    assert await page.js(shown) == ["label"]                    # open: the whole text below, "Caption" above it
+
+    before = await page.js("document.querySelector('.dock').getBoundingClientRect().height")
+    await page.page.click("#keyboard")
+    after = await page.js("document.querySelector('.dock').getBoundingClientRect().height")
+    assert after < before, (before, after)
+    assert await page.js("document.getElementById('turn').getBoundingClientRect().width") >= 44   # still a target
