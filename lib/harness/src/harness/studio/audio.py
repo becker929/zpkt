@@ -34,10 +34,12 @@ async def _run(*args: str, stdin: bytes | None = None, timeout: float = 120) -> 
                                                 stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
     try:
         out, err = await asyncio.wait_for(proc.communicate(stdin), timeout)
-    except asyncio.TimeoutError:
+    except BaseException as exc:             # timed out, or the turn was cancelled: never leave it running
         proc.kill()
-        await proc.wait()
-        raise AudioError(f"{args[0]} took more than {timeout:.0f} s") from None
+        await asyncio.shield(proc.wait())
+        if isinstance(exc, TimeoutError):
+            raise AudioError(f"{args[0]} took more than {timeout:.0f} s") from None
+        raise
     if proc.returncode != 0:
         raise AudioError(f"{args[0]} failed: {err.decode(errors='replace')[-500:]}")
     return out

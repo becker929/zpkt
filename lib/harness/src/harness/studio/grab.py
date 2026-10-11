@@ -294,9 +294,12 @@ async def screencapture(timeout: float = 15.0) -> Frame:
             raise CaptureError(f"no screencapture: {exc}") from None
         try:
             _, err = await asyncio.wait_for(proc.communicate(), timeout)
-        except TimeoutError:
+        except BaseException as exc:         # hung, or the shot was cancelled: never leave it running
             proc.kill()
-            raise CaptureError("screencapture hung") from None
+            await asyncio.shield(proc.wait())
+            if isinstance(exc, TimeoutError):
+                raise CaptureError("screencapture hung") from None
+            raise
         if proc.returncode != 0 or path.stat().st_size == 0:
             raise CaptureError(f"screencapture failed: {err.decode(errors='replace').strip()[:200]}")
         t = time.monotonic()

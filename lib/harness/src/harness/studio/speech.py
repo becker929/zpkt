@@ -37,6 +37,7 @@ class WorkerGone(RuntimeError):
 
 class VoiceWorker:
     RESTART_DELAYS = (1, 2, 5, 10, 30)
+    STALL_S = 30.0          # a sentence with no audio for this long is given up (the worker is stuck, not slow)
 
     def __init__(self, command: list[str], env: dict[str, str] | None = None):
         self.command, self.env = command, env
@@ -91,7 +92,7 @@ class VoiceWorker:
     async def _run_once(self) -> None:
         self._proc = proc = await asyncio.create_subprocess_exec(
             *self.command, stdin=asyncio.subprocess.PIPE, stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE, env={**os.environ, **(self.env or {})}, limit=frames.MAX_PAYLOAD)
+            stderr=asyncio.subprocess.PIPE, env=self._child_env(), limit=frames.MAX_PAYLOAD)
         logs = asyncio.create_task(self._log_stderr(proc))
         try:
             self._send({"op": "ping", "id": "hello"})
@@ -112,6 +113,12 @@ class VoiceWorker:
                 proc.kill()
             await proc.wait()
             logs.cancel()
+
+    def _child_env(self) -> dict[str, str]:
+        """The harness's environment, less its virtualenv: `uv run` for lib/voice finds its own (and warns about
+        one that isn't)."""
+        env = {k: v for k, v in os.environ.items() if k not in ("VIRTUAL_ENV", "VIRTUAL_ENV_PROMPT")}
+        return {**env, **(self.env or {})}
 
     @staticmethod
     async def _frames(proc: asyncio.subprocess.Process) -> AsyncIterator[tuple[dict[str, Any], bytes]]:
@@ -143,7 +150,11 @@ class VoiceWorker:
         try:
             self._send({"op": "tts", "id": rid, "text": text, "voice": voice, "speed": speed})
             while True:
-                item = await queue.get()
+                try:
+                    item = await asyncio.wait_for(queue.get(), self.STALL_S)
+                except TimeoutError:
+                    log.warning("no speech from the voice worker in %.0f s; giving up %r", self.STALL_S, text[:60])
+                    raise WorkerGone("the voice worker stopped answering") from None
                 if item is None:
                     raise WorkerGone("the voice worker stopped mid-sentence")
                 header, payload = item
@@ -335,6 +346,7 @@ class Speaker:
         self._pending: list[Utterance] = []
         self._streams = itertools.count(1)
         self._task: asyncio.Task | None = None
+        self._speaking: asyncio.Task | None = None       # the current utterance's synthesis
         self._encoders: set[asyncio.Task] = set()
         self.current: Utterance | None = None
         self._warned = False
@@ -363,6 +375,8 @@ class Speaker:
     def cancel(self) -> None:
         for utt in [*self._pending, *([self.current] if self.current else [])]:
             utt.cancel()
+        if self._speaking is not None:
+            self._speaking.cancel()          # now, not at its next chunk: a stuck worker may never send one
 
     async def idle(self) -> None:
         """Until everything queued has been synthesised (not played: the phone reports that)."""
@@ -377,12 +391,13 @@ class Speaker:
                 utt.done.set()
                 continue
             self.current = utt
+            self._speaking = speaking = asyncio.create_task(self._speak(utt), name="speak")
             try:
-                await self._speak(utt)
-            except Exception:  # noqa: BLE001 - one failed utterance must not silence the rest
-                log.exception("speaking failed")
+                await asyncio.wait({speaking})
+                if not speaking.cancelled() and speaking.exception():   # one failed utterance must not silence the rest
+                    log.error("speaking failed", exc_info=speaking.exception())
             finally:
-                self.current = None
+                self.current = self._speaking = None
                 utt.done.set()
 
     async def _speak(self, utt: Utterance) -> None:

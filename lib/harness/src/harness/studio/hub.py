@@ -49,6 +49,7 @@ class Client:
         except (ConnectionError, RuntimeError, asyncio.CancelledError):
             pass
         finally:
+            self._closing = True                # nothing more is queued for a page nobody writes to
             if not self.ws.closed:
                 await self.ws.close()
 
@@ -66,11 +67,14 @@ class Hub:
     def __init__(self) -> None:
         self.clients: dict[str, Client] = {}
         self.owner: Client | None = None
+        self._closing: set[asyncio.Task] = set()     # pages replaced by their reconnection, being closed
 
     def add(self, client: Client) -> None:
         old = self.clients.get(client.id)
         if old is not None and old is not client:   # the same page reconnected
-            asyncio.create_task(old.close())
+            task = asyncio.create_task(old.close())   # held: the loop keeps only a weak reference to a task
+            self._closing.add(task)
+            task.add_done_callback(self._closing.discard)
             if self.owner is old:
                 self.owner = client
         self.clients[client.id] = client
