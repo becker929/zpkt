@@ -1,0 +1,256 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/becker929/zpkt/lib/contracts/inventory.schema.json",
+  "$defs": {
+    "Record": {
+      "additionalProperties": false,
+      "description": "A step's state on someone's word. It beats the heuristic.",
+      "properties": {
+        "percent": {
+          "maximum": 100,
+          "minimum": 0,
+          "title": "Percent",
+          "type": "integer"
+        },
+        "by": {
+          "default": "anthony",
+          "description": "anthony: his word; docs: a decision recorded in zpkt docs; agent: an agent's judgment",
+          "enum": [
+            "anthony",
+            "docs",
+            "agent"
+          ],
+          "title": "By",
+          "type": "string"
+        },
+        "note": {
+          "default": "",
+          "title": "Note",
+          "type": "string"
+        },
+        "source": {
+          "default": "",
+          "description": "where it is written down, e.g. docs/hw002/batch-6-7-decisions.md",
+          "title": "Source",
+          "type": "string"
+        },
+        "date": {
+          "default": "",
+          "description": "YYYY-MM-DD",
+          "title": "Date",
+          "type": "string"
+        },
+        "url": {
+          "default": "",
+          "description": "release: the published link",
+          "title": "Url",
+          "type": "string"
+        }
+      },
+      "required": [
+        "percent"
+      ],
+      "title": "Record",
+      "type": "object"
+    },
+    "StepScore": {
+      "properties": {
+        "step": {
+          "enum": [
+            "collage",
+            "drums",
+            "arrange",
+            "kick",
+            "mix",
+            "master",
+            "release"
+          ],
+          "title": "Step",
+          "type": "string"
+        },
+        "numeral": {
+          "title": "Numeral",
+          "type": "string"
+        },
+        "percent": {
+          "description": "the record's percent if there is one, else the heuristic's",
+          "maximum": 100,
+          "minimum": 0,
+          "title": "Percent",
+          "type": "integer"
+        },
+        "heuristic": {
+          "maximum": 100,
+          "minimum": 0,
+          "title": "Heuristic",
+          "type": "integer"
+        },
+        "record": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Record"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "evidence": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Evidence",
+          "type": "array"
+        }
+      },
+      "required": [
+        "step",
+        "numeral",
+        "percent",
+        "heuristic"
+      ],
+      "title": "StepScore",
+      "type": "object"
+    },
+    "TrackReport": {
+      "properties": {
+        "track": {
+          "title": "Track",
+          "type": "string"
+        },
+        "folder": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "the project folder, absolute",
+          "title": "Folder"
+        },
+        "set": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "the newest Live set, whose facts score the steps",
+          "title": "Set"
+        },
+        "sets": {
+          "default": 0,
+          "title": "Sets",
+          "type": "integer"
+        },
+        "last_saved": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "the newest set's modification date, YYYY-MM-DD",
+          "title": "Last Saved"
+        },
+        "lowest_incomplete": {
+          "anyOf": [
+            {
+              "enum": [
+                "collage",
+                "drums",
+                "arrange",
+                "kick",
+                "mix",
+                "master",
+                "release"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "the first step, in workflow order, below 100 %",
+          "title": "Lowest Incomplete"
+        },
+        "overall": {
+          "default": 0,
+          "description": "mean of the seven percents",
+          "maximum": 100,
+          "minimum": 0,
+          "title": "Overall",
+          "type": "integer"
+        },
+        "steps": {
+          "items": {
+            "$ref": "#/$defs/StepScore"
+          },
+          "title": "Steps",
+          "type": "array"
+        },
+        "notes": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Notes",
+          "type": "array"
+        }
+      },
+      "required": [
+        "track",
+        "steps"
+      ],
+      "title": "TrackReport",
+      "type": "object"
+    }
+  },
+  "properties": {
+    "generated": {
+      "description": "ISO 8601 time of the scan",
+      "title": "Generated",
+      "type": "string"
+    },
+    "roots": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Roots",
+      "type": "array"
+    },
+    "tracks": {
+      "items": {
+        "$ref": "#/$defs/TrackReport"
+      },
+      "title": "Tracks",
+      "type": "array"
+    },
+    "skipped": {
+      "description": "folders and sets that were not scored, and why",
+      "items": {
+        "type": "string"
+      },
+      "title": "Skipped",
+      "type": "array"
+    }
+  },
+  "required": [
+    "generated",
+    "roots",
+    "tracks"
+  ],
+  "title": "Inventory",
+  "type": "object",
+  "description": "Each WIP track's place in the seven workflow steps (docs/workflow.md), from `hands library inventory --json`. Generated from hands/src/hands/library/models.py \u2014 do not edit by hand."
+}

@@ -10,6 +10,7 @@ Commands:
     als      — check a Live set file, list a device's parameters (offline)
     kit      — build a probe kit in Live, render a batch
     plan     — plans to renders to A/B files, for the voice loop (hands.plans)
+    library  — the WIP library: each track's place in the seven steps (hands.library, read-only)
 """
 
 from __future__ import annotations
@@ -21,12 +22,14 @@ import typer
 from rich.console import Console
 from rich.table import Table
 
+from hands.library.cli import app as library_app
 from hands.live.cli import app as live_app
 from hands.plans.cli import app as plan_app
 
 app = typer.Typer(name="hands", help="DAW control layer for Ableton Live.")
 app.add_typer(live_app, name="live")
 app.add_typer(plan_app, name="plan")
+app.add_typer(library_app, name="library")
 als_app = typer.Typer(help="Check Live set files offline.", no_args_is_help=True)
 app.add_typer(als_app, name="als")
 kit_app = typer.Typer(help="Probe kits: P variants of a section in one load and one export.", no_args_is_help=True)

@@ -7,6 +7,7 @@ from pathlib import Path
 
 import jsonschema
 
+from hands.library.models import Inventory, StepScore, TrackReport
 from hands.models import Feedback, ProjectConfig
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -26,3 +27,6 @@ def test_instances_validate() -> None:
     jsonschema.validate(pc, gen_schemas.build("project-config", ProjectConfig))
     fb = Feedback(session_id="s", render_path="r.wav", text="ok", timestamp_utc="2026-09-30T00:00:00Z", rating=4)
     jsonschema.validate(json.loads(fb.model_dump_json()), gen_schemas.build("feedback", Feedback))
+    inv = Inventory(generated="2026-10-10T00:00:00+00:00", roots=["/lib"], tracks=[TrackReport(
+        track="HW1", steps=[StepScore(step="mix", numeral="V", percent=40, heuristic=40, evidence=["2 groups"])])])
+    jsonschema.validate(json.loads(inv.model_dump_json()), gen_schemas.build("inventory", Inventory))

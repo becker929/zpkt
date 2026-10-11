@@ -13,6 +13,8 @@ default:
                                                                 separated in the environment); new sets
                                                                 are named with the first one
     live_prefs_dir  ZPKT_LIVE_PREFS_DIR  the newest ~/Library/Preferences/Ableton/Live */ (Log.txt)
+    library_dir     ZPKT_LIBRARY_DIR     ~/Music/zpkt/library   Anthony's WIP Live projects, one folder per
+                                                                track; read-only (hands library inventory)
 
 A front set without one of the prefixes means someone else is using Live, so the session guards
 stop rather than act on it.
@@ -37,6 +39,7 @@ DEFAULTS = {
     "renders_dir": "~/Music/zpkt/renders",
     "set_prefixes": ["zpkt_"],
     "live_prefs_dir": "",
+    "library_dir": "~/Music/zpkt/library",
 }
 
 
@@ -48,6 +51,7 @@ class Rig:
     renders_dir: Path
     set_prefixes: tuple[str, ...]
     live_prefs_dir: Path | None
+    library_dir: Path
 
     def set_path(self, name: str) -> Path:
         """The .als of a set named `name` in sets_dir."""
@@ -91,6 +95,7 @@ def load(env: Mapping[str, str] = os.environ, path: str | Path | None = None) ->
         renders_dir=Path(values["renders_dir"]).expanduser(),
         set_prefixes=prefixes,
         live_prefs_dir=Path(values["live_prefs_dir"]).expanduser() if values["live_prefs_dir"] else _newest_live_prefs(),
+        library_dir=Path(values["library_dir"]).expanduser(),
     )
 
 
