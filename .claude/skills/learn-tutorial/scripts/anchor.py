@@ -22,7 +22,7 @@ from pathlib import Path
 import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from common import band, detect_onsets, parse_band, read_audio, write_json  # noqa: E402
+from common import band, detect_onsets, parse_band, read_audio, write_json
 
 
 def align(x: np.ndarray, sr: int, ref_t: float, near_t: float, n: int, search_s: float) -> dict:

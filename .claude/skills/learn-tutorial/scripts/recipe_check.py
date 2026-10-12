@@ -23,7 +23,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from common import note_names, position  # noqa: E402
+from common import note_names, position
 
 SCHEMA = Path(__file__).resolve().parent.parent / "reference" / "recipe.schema.json"
 PRIVATE_KEYS = {"reason", "heard", "quote", "quotes", "evidence"}

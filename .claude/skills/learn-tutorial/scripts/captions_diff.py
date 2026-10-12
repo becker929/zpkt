@@ -21,7 +21,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from common import fmt_time  # noqa: E402
+from common import fmt_time
 
 NUMBER_WORDS = {"zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten", "eleven",
                 "twelve", "fifteen", "sixteen", "twenty", "thirty", "forty", "fifty", "sixty", "hundred",
@@ -39,7 +39,7 @@ DEVICES = {"operator", "simpler", "sampler", "wavetable", "drift", "meld", "anal
            "warp", "transpose", "detune", "glide", "portamento", "attack", "decay", "sustain", "release",
            "threshold", "cutoff", "resonance", "drive", "dry/wet", "dry wet", "quantize", "swing",
            "groove pool", "tempo", "time signature"}
-NOTE_RE = re.compile(r"^[a-g](#|b|sharp|flat)?-?\d$|^[a-g](#|sharp|flat)$", re.I)
+NOTE_RE = re.compile(r"^[a-g](#|b|sharp|flat)?-?\d$|^[a-g](#|sharp|flat)$", re.IGNORECASE)
 
 
 def caption_words(path: Path) -> list[dict]:

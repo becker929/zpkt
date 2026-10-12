@@ -30,7 +30,7 @@ the loop but no longer sounds like it.
 |---|---|---|
 | 1 | Set up the loop | 123 BPM, 4/4, arrangement loop 1.1.1 for 2 bars, fixed 1/16 grid |
 | 2 | Pick a loop of medium density, neither sparse nor busy | track "Perc Loop" at −10.5 dB, warped to the tempo |
-| 3 | Solo it and find its main hits | in the tutor's loop the strongest body hits sit at beats 1.5, 2.75, 3.5, 6.75 and 7.5, then 0.5, 4.5 and 5.5 (beats from 0) |
+| 3 | Solo it and find its main hits | listen for the loudest body hits (congas, rims, toms), not the hats; in the tutor's loop most fall between the beats |
 | 4 | Make a short bass sound | Operator: oscillator A only, sine, coarse 1; attack 0 ms, decay 200 ms, sustain −inf dB, release 50 ms; glide off; Operator volume −12 dB; track "Bass Line" at −6 dB |
 | 5 | Put bass notes under the main hits, none on a beat, and move them until it grooves | the tutor's result is below |
 | 6 | Listen to bass and loop together | judge the rhythm only |
@@ -38,20 +38,10 @@ the loop but no longer sounds like it.
 | 8 | Add the drums | kick on every beat, clap on 2 and 4, closed hats on the off-beat 8ths, a vinyl-crackle layer; drums +1.4 dB, crackle −12 dB |
 | 9 | Keep it as a seed | vary and extend it in the track |
 
-The tutor's bass line, 2 bars:
-
-| Note | Position | Length | Pitch |
-|---|---|---|---|
-| 1 | 1.2.3 | 1/16 | A (MIDI 33: A0 in Live, A1 scientific, 55 Hz) |
-| 2 | 1.3.4 | 1/16 | A |
-| 3 | 2.1.3 | 1/16 | A |
-| 4 | 2.2.3 | 1/8 | E (MIDI 40: E1 in Live, E2 scientific, 82.4 Hz) |
-| 5 | 2.3.3 | 1/16 | E |
-| 6 | 2.3.4 | 1/16 | A |
-| 7 | 2.4.4 | 1/16 | E |
-
-All velocities are 100. Positions and lengths come from the screen. The pitches were measured from the
-audio, because the tutor never names them: the A is clean, the E approximate.
+The tutor's final line has seven short notes over 2 bars: mostly 16ths with one 8th, none on a beat,
+on two pitches a fifth apart (about A and E, measured from the audio because the tutor never names them).
+We transcribed the exact positions for study; they stay in our private run workspace, not in this public
+repo. Watch the original to see them.
 
 The fader values (−10.5 and −6 dB) are seen on screen. The Operator output and the drum level are not shown.
 We fitted them to the tutorial's audio, leaving each about 3 dB off: kits differ, and our perc substitute
@@ -61,7 +51,7 @@ has far less sub than the tutor's loop.
 
 | Tutorial used | Stock substitute |
 |---|---|
-| A percussion loop from a course pack | Core Library "Agogo Atabaques 112 bpm", bars 1–2, warped to 123 BPM (Beats). Or the tutor's loop rebuilt as notes: an 18-hit map on Percussion Core Kit's Conga Low Slap pad (`notes.perc_substitute`) |
+| A percussion loop from a course pack | Core Library "Agogo Atabaques 112 bpm", bars 1–2, warped to 123 BPM (Beats). Or the tutor's loop rebuilt as notes on Percussion Core Kit's Conga Low Slap pad (kept in the private run workspace) |
 | Bass one-shots sliced from an earlier course example | Operator sine as in step 4; or Simpler with a Core Library bass one-shot |
 | Kick, tops loop, vinyl sample | 909 Core Kit (kick 36, clap 39, closed hat 42); Vinyl Distortion's crackle rendered once to an audio clip, because the device crackles with no input |
 
