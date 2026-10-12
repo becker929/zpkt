@@ -1,6 +1,6 @@
 # TODO
 
-Loose ends, last updated 1 October 2026. Remove items as they close.
+Loose ends, last updated 12 October 2026. Remove items as they close.
 
 ## Rig and plugins
 
@@ -30,6 +30,31 @@ Center (COLDFIRE), SSL Download Manager (FlexVerb), Kilohearts Installer.
   They cover section choice, the bar-81 hit, pending mix changes and the loudness target.
 - [ ] Item 12 is open: who masters.
 - [ ] Remove or relabel the pre-plugin 30 s experiment on /skrng.
+
+## Hands gaps from learn-tutorial
+
+The first tutorial practice (run 1, 11 October 2026) found these gaps. The skill works around each one in
+`.claude/skills/learn-tutorial/scripts/`. Move each into `hands` and delete the workaround.
+
+- [ ] `session.is_dirty()`: File > Save Live Set enabled, or `AXEdited` on the close button.
+  `song.can_undo` misses loop-brace changes. Workaround: `live_step.py edited`, `preflight.py`.
+- [ ] An audio-health preflight that does not play: `Audio queue timeout` in Log.txt, plus one timed
+  harmless write. A stalled engine took 6.8 s per write. Workaround: `preflight.py`.
+- [ ] `new_set()` (File > New Live Set) and `save_as(dir, name)`. Live's built-in template is from an
+  older Live and cannot be saved in place. Workaround: `live_step.py new` and `save-as`.
+- [ ] Export by a menu press or AX press instead of Cmd+Shift+R; set the file name through AX. Read the
+  Save panel's folder back through AX before pressing Save, and report where the file really landed.
+  A system prompt swallowed the keys. Workaround: `render.py` patches the two lines at run time.
+- [ ] `knobs.set_display(param, "200 ms")`: bisect `str_for_value` to a display target. Live's display
+  truncates, so aim for the lower edge.
+- [ ] `reap_modals` reports unnamed dialogs (size, element count) and asks for a screenshot instead of
+  skipping them. Live's own alerts expose no text.
+- [ ] `session.check` for practice sets. "Ours" means only the `set_prefixes` in rig.toml; let a run
+  name the set it created. Workaround: `live_step.py --expect`.
+- [ ] `hands plan` renders leave their set dirty: the loop brace is changed and never saved. Restore or
+  save the set when done.
+- [ ] Arrangement automation, or another way to gate devices that make sound on their own (Vinyl
+  Distortion crackles with no input). Workaround: render the device's output once into an audio clip.
 
 ## Repo
 
