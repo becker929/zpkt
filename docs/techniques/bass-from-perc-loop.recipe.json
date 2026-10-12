@@ -124,7 +124,7 @@
    "third_party_item": "a percussion loop from a course pack",
    "substitute": {
     "stock": "a Core Library percussion loop screened with the method's own measure (Agogo Atabaques 112 bpm, bars 1-2, warped to 123 in Beats mode)",
-    "fallback": "notes.perc_substitute on a Drum Rack conga pad",
+    "fallback": "the tutor's loop rebuilt as Drum Rack notes (private run workspace)",
     "tag": "proposed"
    }
   },
@@ -181,9 +181,9 @@
    "id": "R05",
    "source_ts": "0:42-1:09",
    "title": "Put bass notes under the main hits",
-   "action": "Write notes.bass into a 2-bar MIDI clip. To practise the method, start from the main hits of R03 and move notes until it grooves; notes.bass is where the tutor ended.",
+   "action": "Write short bass notes into a 2-bar MIDI clip under the main hits from R03, none on a beat, and move them until it grooves. The tutor's final line is kept in the private run workspace.",
    "params": {
-    "notes_ref": "notes.bass"
+    "notes_ref": "private run workspace"
    },
    "why": "Body hits carry the loop's groove; hats would only add clutter under the bass.",
    "tag": "heard (method) + seen (positions, lengths) + inferred (pitch, velocity)",
@@ -256,269 +256,6 @@
   }
  ],
  "notes": {
-  "bass": [
-   {
-    "pitch": 33,
-    "pitch_live": "A0",
-    "pitch_sci": "A1",
-    "start_beat": 1.5,
-    "length_beats": 0.25,
-    "velocity": 100,
-    "live_position": "1.2.3",
-    "tutorial_position": "15.2.3",
-    "tag": "seen (positions, lengths) + inferred (pitch, velocity)"
-   },
-   {
-    "pitch": 33,
-    "pitch_live": "A0",
-    "pitch_sci": "A1",
-    "start_beat": 2.75,
-    "length_beats": 0.25,
-    "velocity": 100,
-    "live_position": "1.3.4",
-    "tutorial_position": "15.3.4",
-    "tag": "seen (positions, lengths) + inferred (pitch, velocity)"
-   },
-   {
-    "pitch": 33,
-    "pitch_live": "A0",
-    "pitch_sci": "A1",
-    "start_beat": 4.5,
-    "length_beats": 0.25,
-    "velocity": 100,
-    "live_position": "2.1.3",
-    "tutorial_position": "16.1.3",
-    "tag": "seen (positions, lengths) + inferred (pitch, velocity)"
-   },
-   {
-    "pitch": 40,
-    "pitch_live": "E1",
-    "pitch_sci": "E2",
-    "start_beat": 5.5,
-    "length_beats": 0.5,
-    "velocity": 100,
-    "live_position": "2.2.3",
-    "tutorial_position": "16.2.3",
-    "tag": "seen (positions, lengths) + inferred (pitch, velocity)"
-   },
-   {
-    "pitch": 40,
-    "pitch_live": "E1",
-    "pitch_sci": "E2",
-    "start_beat": 6.5,
-    "length_beats": 0.25,
-    "velocity": 100,
-    "live_position": "2.3.3",
-    "tutorial_position": "16.3.3",
-    "tag": "seen (positions, lengths) + inferred (pitch, velocity)"
-   },
-   {
-    "pitch": 33,
-    "pitch_live": "A0",
-    "pitch_sci": "A1",
-    "start_beat": 6.75,
-    "length_beats": 0.25,
-    "velocity": 100,
-    "live_position": "2.3.4",
-    "tutorial_position": "16.3.4",
-    "tag": "seen (positions, lengths) + inferred (pitch, velocity)"
-   },
-   {
-    "pitch": 40,
-    "pitch_live": "E1",
-    "pitch_sci": "E2",
-    "start_beat": 7.75,
-    "length_beats": 0.25,
-    "velocity": 100,
-    "live_position": "2.4.4",
-    "tutorial_position": "16.4.4",
-    "tag": "seen (positions, lengths) + inferred (pitch, velocity)"
-   }
-  ],
-  "bass_note": "Pitches measured from the tutorial's audio: about 54 Hz (A, a quarter tone flat) and about 82 Hz (E, less clean). The tutor did not tune to the loop, so any two notes a fifth apart serve. A silent clip at beat 1.75 is left out.",
-  "perc_substitute": [
-   {
-    "pitch": 38,
-    "pitch_live": "D1",
-    "pitch_sci": "D2",
-    "start_beat": 0.0,
-    "length_beats": 0.25,
-    "velocity": 40,
-    "live_position": "1.1.1",
-    "tag": "inferred"
-   },
-   {
-    "pitch": 38,
-    "pitch_live": "D1",
-    "pitch_sci": "D2",
-    "start_beat": 0.5,
-    "length_beats": 0.25,
-    "velocity": 90,
-    "live_position": "1.1.3",
-    "tag": "inferred"
-   },
-   {
-    "pitch": 38,
-    "pitch_live": "D1",
-    "pitch_sci": "D2",
-    "start_beat": 1.5,
-    "length_beats": 0.25,
-    "velocity": 110,
-    "live_position": "1.2.3",
-    "tag": "inferred"
-   },
-   {
-    "pitch": 38,
-    "pitch_live": "D1",
-    "pitch_sci": "D2",
-    "start_beat": 2.0,
-    "length_beats": 0.25,
-    "velocity": 60,
-    "live_position": "1.3.1",
-    "tag": "inferred"
-   },
-   {
-    "pitch": 38,
-    "pitch_live": "D1",
-    "pitch_sci": "D2",
-    "start_beat": 2.5,
-    "length_beats": 0.25,
-    "velocity": 60,
-    "live_position": "1.3.3",
-    "tag": "inferred"
-   },
-   {
-    "pitch": 38,
-    "pitch_live": "D1",
-    "pitch_sci": "D2",
-    "start_beat": 2.75,
-    "length_beats": 0.25,
-    "velocity": 110,
-    "live_position": "1.3.4",
-    "tag": "inferred"
-   },
-   {
-    "pitch": 38,
-    "pitch_live": "D1",
-    "pitch_sci": "D2",
-    "start_beat": 3.0,
-    "length_beats": 0.25,
-    "velocity": 40,
-    "live_position": "1.4.1",
-    "tag": "inferred"
-   },
-   {
-    "pitch": 38,
-    "pitch_live": "D1",
-    "pitch_sci": "D2",
-    "start_beat": 3.5,
-    "length_beats": 0.25,
-    "velocity": 110,
-    "live_position": "1.4.3",
-    "tag": "inferred"
-   },
-   {
-    "pitch": 38,
-    "pitch_live": "D1",
-    "pitch_sci": "D2",
-    "start_beat": 3.75,
-    "length_beats": 0.25,
-    "velocity": 60,
-    "live_position": "1.4.4",
-    "tag": "inferred"
-   },
-   {
-    "pitch": 38,
-    "pitch_live": "D1",
-    "pitch_sci": "D2",
-    "start_beat": 4.0,
-    "length_beats": 0.25,
-    "velocity": 60,
-    "live_position": "2.1.1",
-    "tag": "inferred"
-   },
-   {
-    "pitch": 38,
-    "pitch_live": "D1",
-    "pitch_sci": "D2",
-    "start_beat": 4.5,
-    "length_beats": 0.25,
-    "velocity": 90,
-    "live_position": "2.1.3",
-    "tag": "inferred"
-   },
-   {
-    "pitch": 38,
-    "pitch_live": "D1",
-    "pitch_sci": "D2",
-    "start_beat": 5.5,
-    "length_beats": 0.25,
-    "velocity": 90,
-    "live_position": "2.2.3",
-    "tag": "inferred"
-   },
-   {
-    "pitch": 38,
-    "pitch_live": "D1",
-    "pitch_sci": "D2",
-    "start_beat": 6.0,
-    "length_beats": 0.25,
-    "velocity": 40,
-    "live_position": "2.3.1",
-    "tag": "inferred"
-   },
-   {
-    "pitch": 38,
-    "pitch_live": "D1",
-    "pitch_sci": "D2",
-    "start_beat": 6.5,
-    "length_beats": 0.25,
-    "velocity": 60,
-    "live_position": "2.3.3",
-    "tag": "inferred"
-   },
-   {
-    "pitch": 38,
-    "pitch_live": "D1",
-    "pitch_sci": "D2",
-    "start_beat": 6.75,
-    "length_beats": 0.25,
-    "velocity": 110,
-    "live_position": "2.3.4",
-    "tag": "inferred"
-   },
-   {
-    "pitch": 38,
-    "pitch_live": "D1",
-    "pitch_sci": "D2",
-    "start_beat": 7.0,
-    "length_beats": 0.25,
-    "velocity": 40,
-    "live_position": "2.4.1",
-    "tag": "inferred"
-   },
-   {
-    "pitch": 38,
-    "pitch_live": "D1",
-    "pitch_sci": "D2",
-    "start_beat": 7.5,
-    "length_beats": 0.25,
-    "velocity": 110,
-    "live_position": "2.4.3",
-    "tag": "inferred"
-   },
-   {
-    "pitch": 38,
-    "pitch_live": "D1",
-    "pitch_sci": "D2",
-    "start_beat": 7.75,
-    "length_beats": 0.25,
-    "velocity": 60,
-    "live_position": "2.4.4",
-    "tag": "inferred"
-   }
-  ],
-  "perc_substitute_note": "The tutorial loop's transient map, read from its waveform; velocities 110/90/60/40 for tall, medium, soft and tiny hits. Pitch 38 is the Conga Low Slap pad of Percussion Core Kit, as practised.",
   "kick_substitute": [
    {
     "pitch": 36,
@@ -786,7 +523,8 @@
     "live_position": "2.4.3",
     "tag": "measured"
    }
-  ]
+  ],
+  "private_note": "The tutor's exact bass line and the loop's transient map were transcribed for study and stay in the run workspace (~/_agent_scratch/tutorials/HztFoqevNMU/recipe.json), not in this public repo. In outline: seven short notes over 2 bars, none on a beat, two pitches a fifth apart (about A and E)."
  },
  "levels": {
   "Perc Loop": {
@@ -819,7 +557,7 @@
   {
    "step": "R02",
    "item": "percussion loop",
-   "stock_substitute": "Agogo Atabaques 112 bpm (Core Library), or notes.perc_substitute on a conga pad"
+   "stock_substitute": "Agogo Atabaques 112 bpm (Core Library), or the tutor's loop rebuilt as notes (private run workspace)"
   },
   {
    "step": "R04",
@@ -836,8 +574,8 @@
   "date": "2026-10-11",
   "render": "16 bars at 123 BPM after a 2-bar lead-in: bars 1-4 loop alone, 5-8 loop and bass, 9-16 bass and drums with the loop deactivated",
   "A_faithful": {
-   "perc": "notes.perc_substitute on Conga Low Slap",
-   "bass": "notes.bass",
+   "perc": "tutor loop rebuilt as notes on Conga Low Slap (private run workspace)",
+   "bass": "the tutor's line (private run workspace)",
    "bass_onsets_within_15ms": "42/42",
    "bass_max_error_ms": 3.72,
    "sections_lufs": [

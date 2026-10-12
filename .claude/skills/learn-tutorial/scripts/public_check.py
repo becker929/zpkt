@@ -28,15 +28,15 @@ QUOTE_RE = re.compile(r'"([^"\n]+)"|“([^”\n]+)”|‘([^’\n]+)’|«([^»\
 
 def quotes(text: str) -> list[str]:
     return [next(g for g in groups if g) for groups in QUOTE_RE.findall(text)]
-MEDIA_RE = re.compile(r"[\w./~-]+\.(png|jpe?g|gif|webp|mp4|mov|webm|wav|aiff?|flac|mp3|m4a|json3|vtt|srt)\b", re.I)
+MEDIA_RE = re.compile(r"[\w./~-]+\.(png|jpe?g|gif|webp|mp4|mov|webm|wav|aiff?|flac|mp3|m4a|json3|vtt|srt)\b", re.IGNORECASE)
 RIG = [
-    (re.compile(r"\b[a-z0-9-]+\.[a-z0-9-]+\.ts\.net\b", re.I), "tailnet host name"),
+    (re.compile(r"\b[a-z0-9-]+\.[a-z0-9-]+\.ts\.net\b", re.IGNORECASE), "tailnet host name"),
     (re.compile(r"\b100\.(6[4-9]|[7-9]\d|1[01]\d|12[0-7])\.\d{1,3}\.\d{1,3}\b"), "Tailscale address"),
-    (re.compile(r"\bfd7a:115c:a1e0:", re.I), "Tailscale IPv6 address"),
+    (re.compile(r"\bfd7a:115c:a1e0:", re.IGNORECASE), "Tailscale IPv6 address"),
     (re.compile(r"/Volumes/"), "mounted volume path"),
     (re.compile(r"find-generic-password|security\s+add-generic"), "Keychain lookup"),
 ]
-ALLOWED_MEDIA = re.compile(r"^/audio/skrng/|^https?://", re.I)
+ALLOWED_MEDIA = re.compile(r"^/audio/skrng/|^https?://", re.IGNORECASE)
 
 
 def words(text: str) -> list[str]:

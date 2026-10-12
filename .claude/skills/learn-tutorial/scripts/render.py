@@ -32,13 +32,15 @@ import tempfile
 import time
 from pathlib import Path
 
-from hands import audio
 from hands.live import render, ui
 from hands.live.transport import LiveClient
 
+from hands import audio
+
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
-import live_step  # noqa: E402
+import live_step
+
 PATCH = [
     ("set cliclickPath to my resolveCliclick()",
      'set cliclickPath to "" -- learn-tutorial: the Save-panel name is set through accessibility'),

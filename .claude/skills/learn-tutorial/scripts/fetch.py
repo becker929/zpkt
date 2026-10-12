@@ -29,7 +29,7 @@ from pathlib import Path
 FORMAT = "bv*[height<=1080][vcodec^=avc1]+ba[ext=m4a]/bv*[height<=1080]+ba/b[height<=1080]"
 BLOCKED = re.compile(r"Sign in to confirm|HTTP Error 4(03|29)|Video unavailable|video is not available|"
                      r"not available in your country|Private video|members-only|age-restricted|confirm your age",
-                     re.I)
+                     re.IGNORECASE)
 
 
 def video_id(url: str) -> str:

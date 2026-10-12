@@ -21,7 +21,7 @@ from pathlib import Path
 import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from common import describe_hz, read_audio, write_json  # noqa: E402
+from common import describe_hz, read_audio, write_json
 
 NFFT = 1 << 16
 

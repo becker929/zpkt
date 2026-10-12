@@ -25,10 +25,10 @@ from pathlib import Path
 import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-import anchor  # noqa: E402
-import onsets  # noqa: E402
-import pitch  # noqa: E402
-from common import band, note_names, position, write_json  # noqa: E402
+import anchor
+import onsets
+import pitch
+from common import band, note_names, position, write_json
 
 KIND_BAND = {"kick": "low", "bass": "low", "clap": "mid", "hat": "high", "click": "full"}
 BIAS_MAX_MS = 5.0

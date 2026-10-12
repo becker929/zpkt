@@ -40,7 +40,7 @@ from pathlib import Path
 import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from common import read_audio, write_json  # noqa: E402
+from common import read_audio, write_json
 
 ROOT = Path(__file__).resolve().parents[4]
 BUCKET = "anthonybecker-audio"

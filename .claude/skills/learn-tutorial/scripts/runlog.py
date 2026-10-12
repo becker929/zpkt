@@ -38,7 +38,7 @@ RUNS = SKILL / "runs.jsonl"
 INDEX = REPO / "docs" / "techniques" / "README.md"
 STAGES = ["intake", "preflight", "scrape", "practice", "deliver", "file", "retro"]
 RECOVERY = SKILL / "reference" / "recovery.md"
-KINDS = [m.group(1) for m in re.finditer(r"^## ([a-z-]+)\s*$", RECOVERY.read_text(), re.M)] + ["other"]
+KINDS = [m.group(1) for m in re.finditer(r"^## ([a-z-]+)\s*$", RECOVERY.read_text(), re.MULTILINE)] + ["other"]
 
 
 def now() -> str:

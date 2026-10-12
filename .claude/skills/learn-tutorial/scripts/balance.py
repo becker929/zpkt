@@ -23,7 +23,7 @@ from pathlib import Path
 import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from common import band, read_audio, write_json  # noqa: E402
+from common import band, read_audio, write_json
 
 BANDS = {"full": (None, None), "sub<120": (None, 120.0), "120-1k": (120.0, 1000.0), "1k-4k": (1000.0, 4000.0),
          "4k+": (4000.0, None)}
