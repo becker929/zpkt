@@ -1,0 +1,149 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "learn-tutorial/recipe.schema.json",
+  "title": "Tutorial recipe",
+  "description": "One technique from one tutorial, as values a practice agent can build in Live 12 with stock devices. The scrape writes the private copy (public false: it may hold short quotes and evidence paths into the run's workspace). The filed copy beside a technique card is public: own words, no quotes over five words, no frames, no transcript. scripts/recipe_check.py validates both and checks the position and note-name conversions.",
+  "type": "object",
+  "required": ["schema", "source", "target", "global", "steps", "notes", "gaps"],
+  "properties": {
+    "schema": {"const": "tutorial-recipe/v1"},
+    "public": {"type": "boolean", "description": "true for the copy in zpkt docs/techniques/"},
+    "technique": {
+      "type": "object",
+      "required": ["slug", "name", "summary", "why"],
+      "properties": {
+        "slug": {"type": "string", "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"},
+        "name": {"type": "string"},
+        "summary": {"type": "string", "description": "what the technique does, in one or two sentences"},
+        "why": {"type": "string", "description": "why it works, in our words"},
+        "generalises": {"type": "boolean", "description": "can the method be applied to new material (Version B)?"},
+        "method_rules": {"type": "array", "items": {"type": "string"}, "description": "the method as explicit rules, for Version B"}
+      }
+    },
+    "source": {
+      "type": "object",
+      "required": ["title", "channel", "url"],
+      "properties": {
+        "title": {"type": "string"},
+        "channel": {"type": "string"},
+        "url": {"type": "string", "pattern": "^https://"},
+        "video_id": {"type": "string"},
+        "duration_s": {"type": "number", "minimum": 0},
+        "upload_date": {"type": "string"},
+        "live_version_shown": {"type": "string"},
+        "tutorial_medium": {"type": "string", "description": "audio clips, MIDI, devices shown...: decide early"}
+      }
+    },
+    "target": {"type": "string"},
+    "conventions": {"type": "object", "additionalProperties": {"type": "string"}},
+    "global": {
+      "type": "object",
+      "required": ["tempo_bpm"],
+      "properties": {
+        "tempo_bpm": {"$ref": "#/$defs/tagged_number"},
+        "time_signature": {"type": "object"},
+        "loop": {
+          "type": "object",
+          "properties": {
+            "start": {"type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+$"},
+            "length": {"type": "string"},
+            "length_bars": {"type": "number"},
+            "tutorial_start": {"type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+$"},
+            "tag": {"$ref": "#/$defs/tag"}
+          }
+        },
+        "grid": {"type": "object"}
+      }
+    },
+    "tracks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name"],
+        "properties": {
+          "name": {"type": "string"},
+          "role": {"type": "string"},
+          "type": {"type": "string"},
+          "volume_db": {"type": ["number", "null"]},
+          "pan": {"type": "string"},
+          "tag": {"$ref": "#/$defs/tag"},
+          "content": {"type": "string"}
+        }
+      }
+    },
+    "steps": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["id", "title", "action", "tag"],
+        "properties": {
+          "id": {"type": "string", "pattern": "^R\\d{2}$"},
+          "source_ts": {"type": "string"},
+          "title": {"type": "string"},
+          "action": {"type": "string"},
+          "params": {"type": "object"},
+          "why": {"type": "string", "description": "the reason in our words (public)"},
+          "reason": {"type": "string", "description": "private copy only: may hold a short quote"},
+          "tag": {"$ref": "#/$defs/tag"},
+          "third_party": {"type": "boolean"},
+          "third_party_item": {"type": "string"},
+          "substitute": {"type": "object"}
+        }
+      }
+    },
+    "notes": {
+      "type": "object",
+      "description": "MIDI note lists by role (bass, perc_substitute, kick_substitute...); <role>_tags and <role>_excluded carry their evidence",
+      "patternProperties": {
+        "_tags$": {"type": "object"},
+        "_tag$": {"type": "string"},
+        "_note$": {"type": "string"},
+        "_excluded$": {"type": "array"}
+      },
+      "additionalProperties": {"type": "array", "items": {"$ref": "#/$defs/note"}}
+    },
+    "levels": {
+      "type": "object",
+      "description": "every level a render needs, not only the faders seen on screen: source levels (synth output, drum bus, clip gain) too, measured from the tutorial's audio when unseen",
+      "additionalProperties": {"type": "object"}
+    },
+    "device_chains": {"type": "object"},
+    "automation": {"type": "object"},
+    "mix": {"type": "object"},
+    "target_sound": {"type": "string"},
+    "gaps": {"type": "array", "items": {"type": "string"}},
+    "third_party_summary": {
+      "type": "array",
+      "items": {"type": "object", "required": ["step", "item", "stock_substitute"]}
+    },
+    "results": {"type": "object", "description": "filed after practice: measured A and B"}
+  },
+  "$defs": {
+    "tag": {
+      "type": "string",
+      "pattern": "^(seen|heard|inferred|proposed|measured)\\b",
+      "description": "seen = read on screen; heard = voice-over; inferred = measured from pixels or audio, or reasoned; proposed = our stock substitute; measured = from our own render; '?' = uncertain"
+    },
+    "tagged_number": {
+      "type": "object",
+      "required": ["value", "tag"],
+      "properties": {"value": {"type": "number"}, "tag": {"$ref": "#/$defs/tag"}}
+    },
+    "note": {
+      "type": "object",
+      "required": ["pitch", "start_beat", "length_beats", "velocity"],
+      "properties": {
+        "pitch": {"type": "integer", "minimum": 0, "maximum": 127},
+        "pitch_live": {"type": "string", "description": "Live's name, C3 = 60"},
+        "pitch_sci": {"type": "string", "description": "scientific name, C4 = 60"},
+        "start_beat": {"type": "number", "minimum": 0},
+        "length_beats": {"type": "number", "exclusiveMinimum": 0},
+        "velocity": {"type": "integer", "minimum": 1, "maximum": 127},
+        "live_position": {"type": "string", "description": "bar.beat.sixteenth with the loop at 1.1.1"},
+        "tutorial_position": {"type": "string"},
+        "tag": {"$ref": "#/$defs/tag"}
+      }
+    }
+  }
+}
