@@ -183,8 +183,14 @@ def every_turn_got_audio(run: Run) -> Result:
                   f"{len(empty)} turns ended with no audio", [f"turn {t['turn']}" for t in empty])
 
 
+# What the page reports to the Mac as `log` includes state notes ("waits for a tap: the page was away"); these are
+# the reports of something going wrong.
+ERROR_LOG = re.compile(r"\b[A-Z]\w*Error\b|didn.t (?:open|play)|failed", re.I)
+
+
 def no_errors(run: Run) -> Result:
-    logs = [e["msg"].get("text", "") for e in run.page["wire"] if e["dir"] == "out" and e["msg"].get("type") == "log"]
+    logs = [e["msg"].get("text", "") for e in run.page["wire"] if e["dir"] == "out" and e["msg"].get("type") == "log"
+            and ERROR_LOG.search(e["msg"].get("text", ""))]
     notices = [m["data"].get("text", "") for m in run.messages().values()
                if m["kind"] == "notice" and m["data"].get("level") == "error"]
     found = run.errors + [f"page log: {t}" for t in logs] + [f"notice: {t}" for t in notices]
