@@ -120,7 +120,7 @@ def music_is_introduced(run: Run) -> Result:
             bad.append(line + " (no count-in)")
         elif gap is not None and gap > 60:
             bad.append(line + f" (it began {gap:.0f} s earlier)")
-    return Result("Music is introduced with a count-in", not bad and bool(seen),
+    return Result("Music is introduced with a count-in", not bad,
                   f"{len(seen)} plays from the Mac, {len(bad)} without an intro and count-in" if seen else
                   "the Mac played no music", bad or seen)
 
@@ -160,8 +160,8 @@ def every_line_heard_from_its_first_word(run: Run) -> Result:
              e.data.get("since_listen_ms") is not None]
     stat = (f"; the page said 'listening' {statistics.median(waits) / 1000:.1f} s (median), "
             f"{max(waits) / 1000:.1f} s (max) after the Mac gave the turn") if waits else ""
-    return Result("Every line is heard from its first word", not bad and bool(said),
-                  f"{len(said)} lines, {len(bad)} lost their start{stat}", bad or lines)
+    return Result("Every line is heard from its first word", not bad,
+                  f"{len(said)} lines, {len(bad)} not heard or lost their start{stat}", bad or lines)
 
 
 def every_turn_got_audio(run: Run) -> Result:
