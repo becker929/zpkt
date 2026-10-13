@@ -62,7 +62,8 @@ def _short(d: dict[str, Any]) -> str:
 def write(folder: Path, results: list[Result], run: Run | None, meta: dict[str, Any]) -> Path:
     passed = sum(r.ok for r in results)
     lines = [f"# studio end-to-end run, {meta['started']}", "",
-             f"**{passed} of {len(results)} checks passed.** Parts: {', '.join(meta['parts'])}. "
+             f"**{passed} of {len(results)} checks passed.** Suite: {meta.get('suite', '?')}, "
+             f"{meta.get('claude', '?')} Claude. Parts: {', '.join(meta['parts'])}. "
              f"Browser: {meta['browser']}. Commit {meta['commit']}. Renders: {meta['renders']}.", "",
              "| | check | result |", "|---|---|---|"]
     for r in results:

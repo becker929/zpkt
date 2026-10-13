@@ -62,6 +62,7 @@ async def slider(u: Phone, expect: Expect, ctx: dict) -> None:
         await asyncio.sleep(opts["bar_seconds"] * 1.3)
     expect("During the sweep the card shows the option that sounds", agree and all(a == b for a, b in agree), agree)
     await u.wait_turn_done(420)
+    await u.drain()                                   # the engine's log, up to now
     swept = [e for e in u.recording.engine if e.get("seq") == card["seq"] and e.get("counted")
              and e.get("kind") == "music"]           # the intro is speech for the same card
     n, bar = len(opts["options"]), opts["bar_seconds"]
@@ -150,10 +151,21 @@ PARTS: dict[str, Callable[[Phone, Expect, dict], Awaitable[None]]] = {
 }
 NEEDS = {"finer": "slider", "keep": "slider"}
 
+# Suites: which parts, whose Claude, and how long getUserMedia takes (an iPhone takes about 3 s).
+SUITES = {
+    "smoke": {"parts": ["slider", "background", "intents"], "scripted": True, "mic_delay_ms": 500,
+              "about": "the core loop with a scripted Claude: a slider with its intro and sweep, an app switch, a "
+                       "replay (about 1 min)"},
+    "quick": {"parts": list(PARTS), "scripted": True, "mic_delay_ms": 500,
+              "about": "every part with a scripted Claude (about 3 min)"},
+    "full": {"parts": list(PARTS), "scripted": False, "mic_delay_ms": 3000,
+             "about": "every part with the real Claude and narrator, as Anthony uses it (about 15 min)"},
+}
 
-def plan(only: str | None) -> list[str]:
+
+def plan(only: str | None, suite: str = "full") -> list[str]:
     if not only:
-        return list(PARTS)
+        return list(SUITES[suite]["parts"])
     want = [p.strip() for p in re.split(r"[,\s]+", only) if p.strip()]
     unknown = [p for p in want if p not in PARTS]
     if unknown:

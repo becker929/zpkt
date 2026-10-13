@@ -129,6 +129,7 @@ def ahead(a: str, b: str) -> None:
 @app.command()
 def ab(a: str, b: str, first: str = typer.Option("A", help="Which side plays first."),
        every: int = typer.Option(1, help="Bars per switch."),
+       bars: int = typer.Option(0, help="At most this many bars in the file (0: all the pattern has)."),
        write_ahead_: bool = typer.Option(True, "--write-ahead/--no-write-ahead",
                                          help="Also render \"more\" and \"the other end\" in the same pass."),
        fake: bool = FAKE) -> None:
@@ -139,8 +140,8 @@ def ab(a: str, b: str, first: str = typer.Option("A", help="Which side plays fir
     ea, eb = r.entries
     kit_ = planner.kit(pa.kit)
     bar_s = getattr(planner.renderer, "bar_seconds", None) or kit_.bar_seconds()
-    out = planner.cache.root / "ab" / f"{ea.key}-{eb.key}-{first}{every}.flac"
-    f = build(ea.audio, eb.audio, out, bar_s, first=first.upper(), every=max(1, every))
+    out = planner.cache.root / "ab" / f"{ea.key}-{eb.key}-{first}{every}{f'-{bars}' if bars else ''}.flac"
+    f = build(ea.audio, eb.audio, out, bar_s, first=first.upper(), every=max(1, every), max_bars=bars or None)
     title = f"{pa.describe()} vs {pb.describe()}"
     _out({"path": str(f.path), "title": title[:120], "ab": f.present(pa.describe(), pb.describe()),
           "loudness_before_match": f.loudness, "keys": {"A": ea.key, "B": eb.key},

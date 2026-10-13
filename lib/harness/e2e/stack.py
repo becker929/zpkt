@@ -63,7 +63,9 @@ def seed_plans(dst: Path) -> int:
     return n
 
 
-async def start(run: Path, *, live: bool = False, real_screen: bool = False) -> Stack:
+async def start(run: Path, *, live: bool = False, real_screen: bool = False, scripted: bool = False) -> Stack:
+    """The studio for a run. `scripted` puts the stand-in for Claude and the narrator's model (scripted.py) in place
+    of the real ones, for the quick suites."""
     env: dict[str, str] = {}
     if not live:
         env["HANDS_PLANS"] = str(run / "plans")
@@ -72,7 +74,14 @@ async def start(run: Path, *, live: bool = False, real_screen: bool = False) -> 
     os.environ.update(env)                 # the Claude session and its Bash commands inherit them
     cfg = Config(jobs_dir=run / "jobs", skrng_dir=run / "skrng", studio_dir=run / "studio", steps_port=0,
                  extra_env=env)
-    studio = Studio(cfg, worker=VoiceWorker(voice_command()), capture=None if real_screen else MovingScreen())
+    agent = None
+    if scripted:
+        from .scripted import ScriptedClaude, narrate
+        agent = ScriptedClaude()
+    studio = Studio(cfg, worker=VoiceWorker(voice_command()), capture=None if real_screen else MovingScreen(),
+                    agent=agent, summarize=narrate if scripted else None)
+    if agent is not None:
+        agent.studio = studio
     server = TestServer(App(cfg, None, cfg.skrng_dir, secure_cookie=False, studio=studio).build(), host="127.0.0.1")
     await server.start_server()
     if not await studio.worker.wait_ready(300):

@@ -284,3 +284,16 @@ def test_kits_lists_each_kit_and_the_knobs_used_on_it(kit_dirs, monkeypatch):
     out = json.loads(runner.invoke(app, ["plan", "kits"]).output)
     assert out["t4"]["tempo"] == 160.0 and out["t4"]["P"] == 4
     assert out["t4"]["knobs_used"] == {DRIVE: {"renders": 2, "from": 0.4, "to": 0.6}}
+
+
+def test_an_ab_can_be_short(kit_dirs, monkeypatch):
+    from typer.testing import CliRunner
+
+    import hands.plans.render as R
+    from hands.cli import app
+
+    monkeypatch.setattr(R, "KnobReader", lambda: fake_reader)
+    a = json.dumps({"kit": "t4", "knobs": {DRIVE: 0.4}})
+    b = json.dumps({"kit": "t4", "knobs": {DRIVE: 0.5}})
+    out = json.loads(CliRunner().invoke(app, ["plan", "ab", a, b, "--bars", "2", "--fake", "--no-write-ahead"]).output)
+    assert out["ab"]["bars"] == 2 and sf.info(out["path"]).duration == pytest.approx(2 * 0.25)

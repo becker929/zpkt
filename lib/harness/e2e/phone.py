@@ -177,8 +177,9 @@ class Event:
 
 
 class Phone:
-    def __init__(self, browser, base: str, run: Path, stack) -> None:
+    def __init__(self, browser, base: str, run: Path, stack, mic_delay_ms: int = 3000) -> None:
         self.browser, self.base, self.run, self.stack = browser, base, run, stack
+        self.mic_delay_ms = mic_delay_ms
         self.page = None
         self.events: list[Event] = []
         self.errors: list[str] = []
@@ -202,6 +203,7 @@ class Phone:
         await page.goto(f"{self.base}/studio/")
         await page.wait_for_function("() => window.studio && window.studio.socket.state === 'open'", timeout=30_000)
         self.page = page
+        await self.js(f"() => {{ window.__voice.delayMs = {int(self.mic_delay_ms)}; }}")
         self._poll = asyncio.create_task(self._keep())
         await self.note("opened")
 
