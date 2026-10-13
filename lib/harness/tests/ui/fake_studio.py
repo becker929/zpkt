@@ -287,6 +287,11 @@ class FakeStudio:
         self._listening = False
         await self._send(self.owner, {"type": "unlisten", "turn": self.turn})
 
+    async def next_turn(self) -> None:
+        """End the turn being listened for and offer the mic again, as the Mac does after "I didn't catch anything"."""
+        await self._stop_listening()
+        await self.offer_mic()
+
     async def user_turn(self, text: str, source: str) -> None:
         if self.phase == "working":
             await self.broadcast({"type": "notice", "level": "info", "text": "Claude is working; your message goes next."})
