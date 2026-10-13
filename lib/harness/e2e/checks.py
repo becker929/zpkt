@@ -12,7 +12,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-COUNT_IN = re.compile(r"\bthree\b[\s,.:;-]*\btwo\b[\s,.:;-]*\bone\b", re.I)
+COUNT_IN = re.compile(r"\b(?:three|3)\b\W*\b(?:two|2)\b\W*\b(?:one|1)\b", re.I)
+INTRO_GAP_S = 0.5       # the most silence between the count-in and the music
 EARCON_S = 0.4          # the ready cue may sound this long after the mic opens
 OVERLAP_SLACK_S = 0.05  # render quanta and clock mapping
 
@@ -34,6 +35,7 @@ class Run:
     events: list[Any]                    # phone.Event: what the user did and saw
     errors: list[str]
     db: Path                             # the run's studio.sqlite3
+    intros: list[dict[str, Any]] = field(default_factory=list)   # listen.intros: what was heard before each render
 
     def messages(self) -> dict[int, dict[str, Any]]:
         import json
@@ -113,29 +115,24 @@ def one_sound_at_a_time(run: Run) -> Result:
 
 
 def music_is_introduced(run: Run) -> Result:
-    """Every render the Mac plays is preceded by speech that names it and counts in."""
+    """Every render the Mac plays comes right after its intro: speech for the same card, heard (Parakeet, from the
+    ear's recording) to end in a count-in, with the music starting within half a second of it."""
     msgs = run.messages()
-    wire = run.page["wire"]
     bad, seen = [], []
-    for i, e in enumerate(wire):
-        m = e["msg"]
-        if e["dir"] != "in" or m.get("type") != "play":
-            continue
-        music = msgs.get(m["seq"], {})
-        before = [w for w in wire[:i] if w["dir"] == "in" and w["msg"].get("type") == "speech"
-                  and w["msg"].get("state") == "begin"]
-        intro = msgs.get(before[-1]["msg"]["seq"], {}).get("data", {}).get("text", "") if before else ""
-        gap = (e["t"] - before[-1]["t"]) / 1000 if before else None
-        title = music.get("data", {}).get("title", "?")
-        line = f"#{m['seq']} {title!r}: last speech before it {intro[-90:]!r}"
+    for it in run.intros:
+        title = msgs.get(it["seq"], {}).get("data", {}).get("title", "?")
+        gap = f"{it['gap_s'] * 1000:.0f} ms" if it["gap_s"] is not None else "?"
+        line = f"#{it['seq']} {title!r}: heard before it {it['text']!r} (gap {gap})"
         seen.append(line)
-        if not COUNT_IN.search(intro or ""):
-            bad.append(line + " (no count-in)")
-        elif gap is not None and gap > 60:
-            bad.append(line + f" (it began {gap:.0f} s earlier)")
+        if it["intro_seq"] != it["seq"]:
+            bad.append(line + " (no intro of its own)")
+        elif not COUNT_IN.search(it["text"]):
+            bad.append(line + " (no count-in heard)")
+        elif it["gap_s"] is None or it["gap_s"] > INTRO_GAP_S:
+            bad.append(line + " (too long a gap)")
     return Result("Music is introduced with a count-in", not bad,
-                  f"{len(seen)} plays from the Mac, {len(bad)} without an intro and count-in" if seen else
-                  "the Mac played no music", bad or seen)
+                  f"{len(seen)} renders played by the Mac, {len(bad)} without an intro and count-in right before"
+                  if seen else "the Mac played no music", bad or seen)
 
 
 def no_narration_after_music(run: Run) -> Result:

@@ -11,7 +11,7 @@ from pathlib import Path
 
 import soundfile as sf
 
-from . import checks, report, scenario, stack
+from . import checks, listen, report, scenario, stack
 from .phone import Phone
 
 
@@ -54,6 +54,9 @@ async def main(args: argparse.Namespace) -> int:
                 await browser.close()
             run = checks.Run(page=page, engine=phone.recording.engine, ears=phone.recording.ears(),
                              events=phone.events, errors=phone.errors, db=folder / "studio" / "studio.sqlite3")
+            print("transcribing the intros the speakers played...", flush=True)
+            run.intros = await listen.intros(run.engine, run.ears, s.studio.worker)
+            (folder / "intros.json").write_text(json.dumps(run.intros, indent=1))
     finally:
         await s.close()
     results = expect.results + (checks.all_checks(run) if run else [])

@@ -25,8 +25,13 @@ def timeline(run: Run) -> list[tuple[float, str, str]]:
                 rows.append((t, "page", f"mic {m.get('state')} ({m.get('open_ms', '')} ms)"))
             continue
         if kind == "speech" and m.get("state") == "begin":
-            d = msgs.get(m.get("seq"), {}).get("data", {})
-            rows.append((t, "speak", f"[{d.get('role', '?')}] {d.get('text', '')[:140]}"))
+            said = msgs.get(m.get("seq"), {})
+            d = said.get("data", {})
+            if said.get("kind") == "music":             # the app's intro to a render carries the card's seq
+                heard = next((i["text"] for i in run.intros if i["seq"] == m["seq"]), "")
+                rows.append((t, "speak", f"[intro] for #{m['seq']} {d.get('title', '')!r}: heard {heard[:110]!r}"))
+            else:
+                rows.append((t, "speak", f"[{d.get('role', '?')}] {d.get('text', '')[:140]}"))
         elif kind == "play":
             d = msgs.get(m["seq"], {}).get("data", {})
             rows.append((t, "play", f"#{m['seq']} {d.get('title', '')!r} x{m.get('loops', 1)}"))
