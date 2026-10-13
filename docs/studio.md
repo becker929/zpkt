@@ -8,7 +8,8 @@ It runs on the Mac inside `harness serve` and is reached over the tailnet only, 
 
 ## A turn
 
-The mic and the speaker take turns: they are never on together, so a car's Bluetooth stays in its media profile.
+The mic and the speaker take turns: they are never on together (but for the ready sound, below), so a car's
+Bluetooth stays in its media profile.
 Between turns the phone keeps its mic stream with the tracks disabled (menu: Keep the mic ready, on by default),
 so a browser that asks for the mic on every getUserMedia (Chrome on iOS) asks once. With it off, closing stops the
 tracks, which is the surest way back to Bluetooth's media profile.
@@ -18,6 +19,9 @@ come with permission), so the phone's mic is used from the next open on.
 
 1. **You talk.** The phone streams the mic to the Mac. Captions follow you live (folded by default). You end the turn
    by saying **"tomato"**. Pauses don't end it, so you can think mid-sentence. You can also tap to end the turn, or type.
+   The mic takes a moment to open, and the turn button says so: muted, with an arc going round and "One moment…",
+   until the mic's first frame is on its way to the Mac; then the accent colour, the level, "Go ahead" and the
+   **ready sound** (two soft notes, 150 ms; menu: Ready sound, on by default).
 2. **Claude works.** The transcript goes to one long-lived Claude Code session (cwd: zpkt). While it works, a small
    Haiku model narrates what it is doing in a few words, and screenshots of its actions arrive at the level you chose.
    Its thinking, tool calls and screenshots fold into one trace bubble in the chat (never spoken).
@@ -27,6 +31,31 @@ come with permission), so the phone's mic is used from the next open on.
 
 "Play again" and "loop that three times" replay the last music at once, without waiting for Claude: a small command
 parser catches them and calls the same `play_music(loops=N)` tool Claude has. Claude is told about it on its next turn.
+
+**The ready sound** is the one sound that plays while the mic is open. It plays in the audio session the mic already
+has, so nothing switches route; it is short and quiet, it comes before you speak, and echo cancellation takes it
+out of what the Mac hears. It is not one of the phone's counted items and never makes the phone busy
+(`static/js/cue.js`).
+
+**When the phone takes the mic away.** In the background (another app, the lock screen) iOS ends or mutes the
+page's tracks and leaves its audio context interrupted, or running but silent. So the mic closes when the page is
+hidden (the Mac hears `mic closed`) and lets its kept stream go. Back on the page, if the Mac still wants the mic,
+the button asks for a tap ("Tap to turn the mic back on", a pulsing ring; the top bar says "Mic off"). That tap
+makes a new audio context and opens the mic on it, in the same turn; it never ends the turn. A context interrupted
+while the page is in view (a call) stops the mic the same way, and if it resumes by itself the mic opens again by
+itself. A track that ends or stays muted for a second mid-turn is let go and the mic opens afresh. An open that
+fails with an error that looks passing (InvalidStateError, AbortError, NotReadableError) is tried again once after
+400 ms; otherwise, or if that fails too, the button asks for a tap. Every failure goes to the harness log as well
+as to the page (`log`: the stage, the error, the page's and the context's state).
+
+**Timing marks for the mic** (phone marks, in the menu's Timings and `harness timings`). Each stage of an open has
+its own duration: `route_settle`, `mic_held` (the kept stream taken back, including the wait for iOS to unmute it;
+`kept`, `muted`), `mic_check` (is it the phone's own mic? `listed`: the devices had to be listed, which a track
+labelled as the phone's mic skips; `wrong`), `mic_gum` (getUserMedia, only when there was no good kept stream;
+`exact`), `mic_worklet` (`loaded`: the context loaded it just now) and `mic_frame` (the graph built until its first
+frame). Three are waits since the Mac's `listen` (or since what made the mic reopen, in `after`): `mic_open` (the
+graph built; `gum_ms` from the route settled, `input`, `kept`), `mic_ready` (the first frame on its way: from here
+the button says "Go ahead") and `ready_cue` (the ready sound reaches the speaker).
 
 ## Processes
 
@@ -246,13 +275,13 @@ Phone → Mac:
 | `prefs` | `prefs` | preferences changed |
 | `start` | | this phone takes the mic and speaker; hands-free on |
 | `pause` | | hands-free off: the mic stays closed until `start` |
-| `mic` | `state` (open/closed), `turn`, `open_ms` | the mic opened (and how long that took) or closed |
+| `mic` | `state` (open/closed), `turn`, `open_ms` | the mic opened: its first frame is on its way (`open_ms` from the route settled to that frame); or it closed |
 | `say` | `text` | a typed turn; the page that sends it takes the speaker (unless another one has it mid-turn) |
 | `end_turn` | | end my turn now (same as saying the stop word) |
 | `interrupt` | | stop Claude and everything playing; my turn |
 | `playback` | `state` (busy/idle), `done` | the phone started playing, or has played everything; `done` counts the items it has finished or dropped |
 | `mark` | `turn`, `name`, `ms` | a timing mark measured on the phone |
-| `log` | `text` | something went wrong on the page (audio that didn't play); goes to the harness log |
+| `log` | `text` | something went wrong on the page (audio that didn't play, a mic that didn't open or stopped hearing); goes to the harness log |
 | `ping` | `t` | keepalive |
 
 Mac → phone:
