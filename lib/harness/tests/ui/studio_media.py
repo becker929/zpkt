@@ -54,6 +54,38 @@ def ab_mp3(bar_seconds: float, bars: int, rate: int = 48_000) -> bytes:
         return out.read_bytes()
 
 
+OPTION_GAP_S = 0.02          # each bar of an option starts with this much silence: the beat, to check the phase
+
+
+@lru_cache
+def options_wav(bar_seconds: float, bars: int, freqs: tuple[float, ...], amps: tuple[float, ...],
+                rate: int = 48_000) -> bytes:
+    """A file of options as `hands plan slider` cuts it: one per tone, `bars` bars each, end to end. Every bar starts
+    with a short silence, so a recording shows where the bar lines fall."""
+    bar = int(round(bar_seconds * rate))
+    gap = int(OPTION_GAP_S * rate)
+    parts = []
+    for f, a in zip(freqs, amps):
+        one = tone(f, bar_seconds, rate, a)
+        one[:gap] = 0.0
+        parts.append(np.tile(one, bars))
+    mono = np.concatenate(parts)
+    buf = io.BytesIO()
+    sf.write(buf, np.stack([mono] * 2, axis=1), rate, format="WAV", subtype="PCM_16")
+    return buf.getvalue()
+
+
+@lru_cache
+def options_mp3(bar_seconds: float, bars: int, freqs: tuple[float, ...], amps: tuple[float, ...],
+                rate: int = 48_000) -> bytes:
+    with tempfile.TemporaryDirectory() as tmp:
+        out = Path(tmp) / "options.mp3"
+        subprocess.run(["ffmpeg", "-v", "error", "-f", "wav", "-i", "pipe:0", "-c:a", "libmp3lame", "-q:a", "0",
+                        str(out)], input=options_wav(bar_seconds, bars, freqs, amps, rate), capture_output=True,
+                       check=True)
+        return out.read_bytes()
+
+
 @lru_cache
 def mp3(seconds: float, freq: float = 220.0, rate: int = SPEECH_RATE) -> bytes:
     buf = io.BytesIO()

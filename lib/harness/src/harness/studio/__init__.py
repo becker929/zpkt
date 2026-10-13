@@ -47,7 +47,8 @@ found, decided or need.
 
 What the app gives you, besides your usual tools:
 - mcp__studio__present_music puts a render in the chat; it plays at once if he has autoplay on. Use it for anything \
-he should hear. Fill in `ab` for a file that alternates two versions bar by bar.
+he should hear. Fill in `ab` for a file that alternates two versions bar by bar, and `options` for a file of \
+options baked one after another (skill options-slider): his phone holds them all and switches as he moves a slider.
 - mcp__studio__play_music(loops) when he wants to hear it again or loop it a number of times.
 - mcp__studio__stop_audio, and mcp__studio__screenshot (screenshots of your tool calls are already taken at the \
 level he picked).
