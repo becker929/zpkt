@@ -10,6 +10,7 @@ import pytest
 from harness.studio import intents
 from harness.studio.activity import describe
 from harness.studio.assets import Assets, accepts_gzip
+from harness.studio.conversation import intro
 from harness.studio.model import Kind, Message, Prefs, ShotLevel
 from harness.studio.protocol import SPEECH, speech_frames
 from harness.studio.speech import Segmenter
@@ -113,6 +114,18 @@ def test_first_piece_is_short_and_long_sentences_are_split():
     long = speak(["word " * 80])
     assert len(long) >= 2 and all(len(p) <= Segmenter.MAX_CHARS for p in long)
     assert speak(["```\nonly code\n```"]) == []
+
+
+def test_a_render_is_introduced_by_its_title_its_note_and_a_count_in():
+    note = "Nine drive settings, clean to crushed.\n Listen for when the kick breaks up"
+    said = intro({"title": "Rumble drive", "note": note})
+    assert said == ("Rumble drive. Nine drive settings, clean to crushed. Listen for when the kick breaks up. "
+                    "Three, two, one.")
+    assert speak([said]) == ["Rumble drive.", "Nine drive settings, clean to crushed.",
+                             "Listen for when the kick breaks up.", "Three, two, one."]
+    assert intro({"title": "Kick drive 43% vs 50%?", "note": ""}) == "Kick drive 43% vs 50%? Three, two, one."
+    # A replay is quick: no note, however many loops.
+    assert intro({"title": "Rumble drive", "note": note}, again=True) == "Again: Rumble drive. Three, two, one."
 
 
 def test_tool_calls_in_a_few_words():

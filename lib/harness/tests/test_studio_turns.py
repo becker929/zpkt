@@ -14,9 +14,10 @@ import pytest
 from aiohttp.test_utils import TestClient, TestServer
 
 from harness.config import Config
-from harness.studio import Studio
+from harness.studio import Studio, tools
 from harness.studio.agent import TextDelta, TextDone, ThinkingDelta, ThinkingDone, ToolDone, ToolStart, TurnDone
 from harness.studio.model import Kind
+from harness.studio.narrator import Narrator
 from harness.studio.shots import Frame
 from harness.studio.speech import VoiceWorker
 from harness.web import App
@@ -145,6 +146,48 @@ async def talk(page, seconds=0.6):
         await page.ws.send_bytes(FRAME)
 
 
+def spoken(worker) -> list[str]:
+    """Every piece of text the speaker has synthesised from now on, in order (the stand-in voice is only a tone)."""
+    said: list[str] = []
+    synthesize = worker.synthesize
+
+    def spy(text, voice, speed):
+        said.append(text)
+        return synthesize(text, voice, speed)
+
+    worker.synthesize = spy
+    return said
+
+
+def items(page, since=0):
+    """What the phone was given to play, in order: ("speech", seq) for a stream, ("play", seq, loops) for a play.
+    Streams never interleave: each ends before the next item begins."""
+    out, open_stream = [], None
+    for m in page.msgs[since:]:
+        if m["type"] == "speech":
+            assert (open_stream is None) == (m["state"] == "begin"), f"streams overlap at {m}"
+            open_stream = m["stream"] if m["state"] == "begin" else None
+            if m["state"] == "begin":
+                out.append(("speech", m["seq"]))
+        elif m["type"] == "play":
+            assert open_stream is None, f"a play inside stream {open_stream}"
+            out.append(("play", m["seq"], m["loops"]))
+    return out
+
+
+def studio_tools(conversation, monkeypatch):
+    """The studio tools' handlers by name, to call them as Claude does."""
+    handlers = {}
+    monkeypatch.setattr(tools, "create_sdk_mcp_server",
+                        lambda name, tools: handlers.update({t.name: t.handler for t in tools}))
+    tools.server(conversation)
+    return handlers
+
+
+def answer(result) -> str:
+    return result["content"][0]["text"]
+
+
 async def test_unauthenticated_socket_is_refused(rig):
     client, *_ = rig
     client.session.cookie_jar.clear()
@@ -185,24 +228,24 @@ async def test_a_spoken_turn_end_to_end(rig):
     assert agent.prompts == ["make the kick louder tomato"]
 
     await page.until(lambda m: m["type"] == "phase" and m["phase"] == "responding")
-    begins = [m for m in page.msgs if m["type"] == "speech" and m["state"] == "begin"]
-    await page.until(lambda m: m["type"] == "speech" and m["state"] == "end" and m["stream"] == begins[-1]["stream"])
-    assert len(begins) == 2 and page.audio > 0
     music = await page.until(upsert("music"))
     assert music["message"]["data"]["audio"]["type"] == "audio/mpeg"
     play = await page.until(lambda m: m["type"] == "play")
     assert play == {"type": "play", "seq": music["message"]["seq"], "loops": 1}
+    # The render waited for the turn's end: Claude's two replies, then its intro (spoken for the card), then it.
+    begins = [m for m in page.msgs if m["type"] == "speech" and m["state"] == "begin"]
+    assert [m["seq"] == music["message"]["seq"] for m in begins] == [False, False, True] and page.audio > 0
     assert (await page.until(upsert("activity", status="ok")))["message"]["data"]["title"] == "Render the A/B"
     shot = (await page.until(upsert("shots", level="minor")))["message"]["data"]
     assert shot["caption"] == "Render the A/B" and shot["full"]["type"] == "image/webp" and shot["changed"]
     assert (await page.until(upsert("shots", level="major")))["message"]["data"]["caption"] == "Where things ended up"
 
-    # The mic waits for the phone: three items were sent (two speech streams and one play)...
-    await page.ws.send_json({"type": "playback", "state": "idle", "done": 2})
+    # The mic waits for the phone: four items were sent (three speech streams and one play)...
+    await page.ws.send_json({"type": "playback", "state": "idle", "done": 3})
     await asyncio.sleep(0.2)
     assert studio.conversation.phase.value == "responding"
-    # ...and opens once all three are played.
-    await page.ws.send_json({"type": "playback", "state": "idle", "done": 3})
+    # ...and opens once all four are played.
+    await page.ws.send_json({"type": "playback", "state": "idle", "done": 4})
     await page.until(lambda m: m["type"] == "listen" and m["turn"] != user["message"]["turn"])
 
     # The speech bubbles get their replay files, and the turn was timed.
@@ -217,18 +260,23 @@ async def test_a_spoken_turn_end_to_end(rig):
 @pytest.mark.skipif(not shutil.which("ffmpeg"), reason="needs ffmpeg")
 async def test_play_again_is_handled_without_claude(rig):
     client, studio, agent, tmp = rig
+    said = spoken(studio.worker)
     page = await connect(client)
     await page.ws.send_json({"type": "start"})
     await page.until(lambda m: m["type"] == "listen")
     music = await studio.conversation.present_music(tone(tmp / "a.wav"), "A", None, "")
     await page.until(lambda m: m["type"] == "play")
-    await page.ws.send_json({"type": "playback", "state": "idle", "done": 1})
+    await page.ws.send_json({"type": "playback", "state": "idle", "done": 2})
 
-    await page.ws.send_json({"type": "say", "text": "Loop that three times"})
-    play = await page.until(lambda m: m["type"] == "play" and m["loops"] == 3)
-    assert play["seq"] == music.seq and agent.prompts == []
     now = page.mark()
-    await page.ws.send_json({"type": "playback", "state": "idle", "done": 1})   # counting restarted at the stop
+    await page.ws.send_json({"type": "say", "text": "Loop that three times"})
+    play = await page.until(lambda m: m["type"] == "play" and m["loops"] == 3, since=now)
+    assert play["seq"] == music.seq and agent.prompts == []
+    # A replay's intro is short: "Again", the title and the count-in, said once for all three loops.
+    assert items(page, now) == [("speech", music.seq), ("play", music.seq, 3)]
+    assert said[-2:] == ["Again: A.", "Three, two, one."]
+    now = page.mark()
+    await page.ws.send_json({"type": "playback", "state": "idle", "done": 2})   # counting restarted at the stop
     await page.until(lambda m: m["type"] == "phase" and m["phase"] == "listening", since=now)
 
     # Claude hears about it on its next turn.
@@ -505,3 +553,231 @@ async def test_options_are_checked_against_the_file_and_the_macs_play_is_a_sweep
     assert play["seq"] == music.seq
     assert play_seconds(music.data) == pytest.approx(1.0), "the Mac's play: one bar of each of the 4 options"
     assert play_seconds({"duration": 3.5}) == 3.5
+
+
+# --- music waits for Claude's words, and never starts unannounced --------------------------------------------------
+
+PRESENT = "mcp__studio__present_music"
+
+
+async def until(cond, timeout=5.0):
+    """For a script step that waits on the app."""
+    t0 = asyncio.get_running_loop().time()
+    while not cond():
+        assert asyncio.get_running_loop().time() - t0 < timeout, "timed out"
+        await asyncio.sleep(0.02)
+
+
+@pytest.mark.skipif(not shutil.which("ffmpeg"), reason="needs ffmpeg")
+async def test_music_presented_in_a_turn_plays_after_the_reply_with_its_intro(rig, monkeypatch):
+    client, studio, agent, tmp = rig
+    said = spoken(studio.worker)
+    present = studio_tools(studio.conversation, monkeypatch)["present_music"]
+    note = "Nine drive settings, clean to crushed. Listen for when the kick breaks up."
+    answers = []
+
+    async def present_it():
+        answers.append(await present({"path": str(tone(tmp / "o.wav")), "title": "Rumble drive", "note": note}))
+
+    agent.script = lambda prompt: [
+        TextDelta(0, "Baking the drive settings."), TextDone(0, "Baking the drive settings."),
+        ToolStart("t1", PRESENT, {"title": "Rumble drive"}), present_it, ToolDone("t1", PRESENT, True, "ok"),
+        TextDelta(1, "Here they are."), TextDone(1, "Here they are."),
+        TurnDone("Here they are.", True, 0.01, "s1"),
+    ]
+    page = await connect(client)
+    await page.ws.send_json({"type": "start"})
+    await page.until(lambda m: m["type"] == "listen")
+    now = page.mark()
+    await page.ws.send_json({"type": "say", "text": "a slider for the rumble drive"})
+    await page.until(lambda m: m["type"] == "play", since=now)
+    card = await page.until(upsert("music"), since=now)
+    seq = card["message"]["seq"]
+    replies = sorted({m["message"]["seq"] for m in page.msgs[now:]
+                      if m["type"] == "upsert" and m["message"]["kind"] == "agent"})
+
+    # The card is in the chat as soon as it is presented, but nothing plays before Claude has spoken: its two
+    # replies, then the intro (a stream of the card's), then the render, with nothing between the two.
+    assert items(page, now) == [("speech", replies[0]), ("speech", replies[1]), ("speech", seq), ("play", seq, 1)]
+    second = next(i for i, m in enumerate(page.msgs) if m["type"] == "speech" and m["seq"] == replies[1])
+    assert page.msgs.index(card) < second
+    # The intro is the title, the note and the count-in; and Claude was told when the render would play.
+    assert " ".join(said).endswith(f"Here they are. Rumble drive. {note} Three, two, one.")
+    assert "when your turn ends, after your reply" in answer(answers[0])
+
+    # Every stream and the play are counted: the mic opens once the phone has played all four.
+    await page.ws.send_json({"type": "playback", "state": "idle", "done": 3})
+    await asyncio.sleep(0.2)
+    assert studio.conversation.phase.value == "responding"
+    await page.ws.send_json({"type": "playback", "state": "idle", "done": 4})
+    await page.until(lambda m: m["type"] == "listen", since=now)
+
+    # The intro kept no replay (the card's audio is still the render) and added no bubble of its own.
+    await page.until(lambda m: m["type"] == "upsert" and m["message"]["seq"] == replies[1]
+                     and m["message"]["data"].get("audio"), since=now)
+    await asyncio.sleep(0.3)
+    stored = studio.store.get(seq).data
+    assert stored["audio"] == card["message"]["data"]["audio"] and stored["duration"] == pytest.approx(1.0, abs=0.01)
+    assert stored["plays"] == 1
+    kinds = [m.kind for m in studio.store.page(studio.conversation.conv.id, None, 20)[0]]
+    assert kinds.count(Kind.AGENT) == 2
+
+
+@pytest.mark.skipif(not shutil.which("ffmpeg"), reason="needs ffmpeg")
+async def test_once_music_is_waiting_the_narrator_says_nothing_more(rig, monkeypatch):
+    client, studio, agent, tmp = rig
+    conv = studio.conversation
+    monkeypatch.setattr(Narrator, "QUIET_S", 0.0)
+    monkeypatch.setattr(Narrator, "MIN_GAP_S", 0.0)
+    asked, release = [], asyncio.Event()
+
+    async def summarize(prompt):
+        asked.append(prompt)
+        if len(asked) > 1:
+            await release.wait()                 # this line is still being written when the render is presented
+        return f"Line {len(asked)}."
+
+    conv.narrator._summarize = summarize
+
+    def narrations():
+        return [m for m in studio.store.page(conv.conv.id, None, 30)[0] if m.data.get("role") == "narration"]
+
+    async def first_line_spoken():
+        await until(lambda: narrations())        # its bubble is made at its first sound
+
+    async def a_line_waits():
+        conv._narrate("A line that waits.")      # behind Claude's reply, which is still open
+
+    async def second_line_asked():
+        await until(lambda: len(asked) == 2)
+
+    async def present_it():
+        waiting = [u for u in conv.speaker._pending if u.droppable]
+        await conv.present_music(tone(tmp / "o.wav"), "Rumble drive", None, "Listen to the kick.")
+        assert waiting and all(u.cancelled for u in waiting), "the narration waiting was dropped"
+        release.set()                            # the line being written comes back, to a hushed narrator
+        await asyncio.sleep(0.3)
+
+    async def a_while():
+        await asyncio.sleep(1.2)                 # long enough for the narrator to have spoken again (it looks every 0.5 s)
+
+    agent.script = lambda prompt: [
+        ToolStart("t1", "Bash", {"description": "Bake the options"}), first_line_spoken,
+        ToolDone("t1", "Bash", True, ""),
+        TextDelta(0, "Baking. "), a_line_waits,
+        ToolStart("t2", "Bash", {"description": "Measure their loudness"}), second_line_asked, present_it,
+        ToolDone("t2", "Bash", True, ""),
+        TextDone(0, "Baking."),
+        ToolStart("t3", "Bash", {"description": "Tidy up"}), a_while, ToolDone("t3", "Bash", True, ""),
+        TextDelta(1, "Here it is."), TextDone(1, "Here it is."),
+        TurnDone("Here it is.", True, 0.01, "s1"),
+    ]
+    page = await connect(client)
+    await page.ws.send_json({"type": "start"})
+    await page.until(lambda m: m["type"] == "listen")
+    now = page.mark()
+    await page.ws.send_json({"type": "say", "text": "a slider for the rumble drive"})
+    play = await page.until(lambda m: m["type"] == "play", since=now, timeout=15)
+
+    # One narration, from before the render; the line in flight and the one waiting were dropped, and nothing more
+    # was asked after it.
+    said = narrations()
+    assert [m.data["text"] for m in said] == ["Line 1."] and len(asked) == 2
+    replies = sorted({m["message"]["seq"] for m in page.msgs[now:] if m["type"] == "upsert"
+                      and m["message"]["kind"] == "agent" and m["message"]["data"].get("role") == "reply"})
+    assert items(page, now) == [("speech", said[0].seq), ("speech", replies[0]), ("speech", replies[1]),
+                                ("speech", play["seq"]), ("play", play["seq"], 1)]
+
+
+@pytest.mark.skipif(not shutil.which("ffmpeg"), reason="needs ffmpeg")
+async def test_music_presented_outside_a_turn_plays_at_once_after_its_intro(rig):
+    client, studio, agent, tmp = rig
+    said = spoken(studio.worker)
+    page = await connect(client)
+    await page.ws.send_json({"type": "start"})
+    await page.until(lambda m: m["type"] == "listen")
+    now = page.mark()
+    music = await studio.conversation.present_music(tone(tmp / "b.wav"), "Bass tail", None, "Listen to the tail.")
+    await page.until(lambda m: m["type"] == "play", since=now)
+    assert items(page, now) == [("speech", music.seq), ("play", music.seq, 1)]
+    assert said == ["Bass tail.", "Listen to the tail.", "Three, two, one."]
+
+
+@pytest.mark.skipif(not shutil.which("ffmpeg"), reason="needs ffmpeg")
+async def test_play_music_in_a_turn_plays_after_the_reply_with_a_short_intro(rig, monkeypatch):
+    client, studio, agent, tmp = rig
+    page = await connect(client)
+    await page.ws.send_json({"type": "start"})
+    await page.until(lambda m: m["type"] == "listen")
+    music = await studio.conversation.present_music(tone(tmp / "a.wav"), "Kick drive", None, "Listen to the kick.")
+    await page.until(lambda m: m["type"] == "play")
+    await page.ws.send_json({"type": "playback", "state": "idle", "done": 2})
+    said = spoken(studio.worker)
+    play_music = studio_tools(studio.conversation, monkeypatch)["play_music"]
+    answers = []
+
+    async def replay():
+        answers.append(await play_music({"loops": 2}))
+
+    agent.script = lambda prompt: [
+        ToolStart("t1", "mcp__studio__play_music", {"loops": 2}), replay,
+        ToolDone("t1", "mcp__studio__play_music", True, "ok"),
+        TextDelta(0, "Listen for the tail this time."), TextDone(0, "Listen for the tail this time."),
+        TurnDone("ok", True, 0.0, "s1"),
+    ]
+    now = page.mark()
+    await page.ws.send_json({"type": "say", "text": "what should I listen for"})
+    await page.until(lambda m: m["type"] == "play", since=now)
+    reply = next(m["message"]["seq"] for m in page.msgs[now:] if m["type"] == "upsert" and m["message"]["kind"] == "agent")
+    assert items(page, now) == [("speech", reply), ("speech", music.seq), ("play", music.seq, 2)]
+    assert said == ["Listen for the tail this time.", "Again: Kick drive.", "Three, two, one."]
+    assert answer(answers[0]) == (f"Music #{music.seq} (Kick drive) plays 2 time(s) on his phone when your turn "
+                                  "ends, after your reply and a short intro.")
+
+
+@pytest.mark.skipif(not shutil.which("ffmpeg"), reason="needs ffmpeg")
+async def test_with_autoplay_off_nothing_plays_by_itself_and_a_replay_plays_without_an_intro(rig):
+    client, studio, agent, tmp = rig
+    said = spoken(studio.worker)
+
+    async def present_it():
+        await studio.conversation.present_music(tone(tmp / "a.wav"), "A", None, "Listen.")
+
+    agent.script = lambda prompt: [ToolStart("t1", PRESENT, {}), present_it, ToolDone("t1", PRESENT, True, "ok"),
+                                   TextDelta(0, "Here it is."), TextDone(0, "Here it is."), TurnDone("ok", True, 0, "s")]
+    page = await connect(client, {"autoplay": False, "shots": "none"})
+    await page.ws.send_json({"type": "start"})
+    await page.until(lambda m: m["type"] == "listen")
+    now = page.mark()
+    await page.ws.send_json({"type": "say", "text": "render it"})
+    await page.until(lambda m: m["type"] == "listen", since=now)      # nothing was sent to play: the mic is back
+    assert items(page, now) == [] and "Three, two, one." not in said
+    now = page.mark()
+    await page.ws.send_json({"type": "say", "text": "play again"})
+    play = await page.until(lambda m: m["type"] == "play", since=now)
+    assert items(page, now) == [("play", play["seq"], 1)] and "Three, two, one." not in said
+
+
+@pytest.mark.skipif(not shutil.which("ffmpeg"), reason="needs ffmpeg")
+async def test_an_interrupted_turn_plays_none_of_its_music(rig):
+    client, studio, agent, tmp = rig
+
+    async def present_it():
+        await studio.conversation.present_music(tone(tmp / "a.wav"), "A", None, "")
+
+    async def until_interrupted():
+        await agent.interrupted.wait()
+
+    agent.script = lambda prompt: [ToolStart("t1", PRESENT, {}), present_it, ToolDone("t1", PRESENT, True, "ok"),
+                                   ToolStart("t2", "Bash", {"command": "sleep 100"}), until_interrupted,
+                                   TurnDone("interrupted", False, 0.0, "s1")]
+    page = await connect(client, {"autoplay": True, "shots": "none"})
+    await page.ws.send_json({"type": "start"})
+    await page.until(lambda m: m["type"] == "listen")
+    now = page.mark()
+    await page.ws.send_json({"type": "say", "text": "render it"})
+    await page.until(lambda m: m["type"] == "phase" and m["label"] == "sleep 100", since=now)
+    await page.ws.send_json({"type": "interrupt"})
+    await page.until(lambda m: m["type"] == "listen", since=now)
+    await asyncio.sleep(0.2)
+    assert items(page, now) == []

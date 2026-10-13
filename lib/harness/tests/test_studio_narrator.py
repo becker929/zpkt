@@ -55,6 +55,27 @@ async def test_a_line_that_went_stale_is_dropped():
     assert await n.tick(3) is None and spoken == []
 
 
+async def test_a_hushed_narrator_drops_the_line_being_written_and_asks_nothing_more():
+    clock, spoken, asked = Clock(), [], []
+    n = Narrator(None, spoken.append, clock)
+
+    async def slow(prompt):
+        asked.append(prompt)
+        n.hush()                                        # music was put in the turn while the line was being written
+        return "I'm offering you a few options."
+
+    n._summarize = slow
+    n.turn_started("x")
+    n.turn_ended()
+    n._turn = 3
+    n.note("Bake the options")
+    clock.t += n.QUIET_S
+    assert await n.tick(3) is None and spoken == []
+    n.note("Tidy up")
+    clock.t += n.MIN_GAP_S
+    assert await n.tick(3) is None and len(asked) == 1
+
+
 async def test_a_failing_model_says_nothing():
     clock = Clock()
 

@@ -19,14 +19,20 @@ if TYPE_CHECKING:
 
 SERVER = "studio"
 NAMES = [f"mcp__{SERVER}__{n}" for n in ("present_music", "play_music", "stop_audio", "screenshot")]
+MUSIC_TOOLS = set(NAMES[:2])        # what they cue plays at the turn's end, after an intro
 MAX_LOOPS = 16
 
 PRESENT = {
     "type": "object",
     "properties": {
         "path": {"type": "string", "description": "An audio file you rendered (WAV, FLAC, AIFF or MP3)."},
-        "title": {"type": "string", "description": "A short title to show and say, e.g. 'Kick drive 43% vs 50%'."},
-        "note": {"type": "string", "description": "Optional: what to listen for, one or two sentences."},
+        "title": {"type": "string", "description": "A short title, shown on the card and said first in its intro, "
+                                                  "e.g. 'Kick drive 43% vs 50%'."},
+        "note": {"type": "string",
+                 "description": "Its description, spoken right before the music (after the title, before the "
+                                "count-in): one or two short spoken sentences, what it is and what to listen for, "
+                                "e.g. 'Nine drive settings, clean to crushed, one bar each. Listen for when the "
+                                "kick starts to break up.' Your reply need not repeat it."},
         "ab": {
             "type": "object",
             "description": "Give this when the file alternates two versions bar by bar.",
@@ -100,6 +106,14 @@ def baked_options(raw: dict[str, Any]) -> dict[str, Any]:
                         for i, o in enumerate(opts)]}
 
 
+def _when(conversation: "Conversation", intro: str) -> str:
+    """When music cued now plays, for the tools' answers: Claude should not say it is playing while it waits."""
+    after = f" and {intro}" if intro else ""
+    if conversation.music_waits:
+        return f"when your turn ends, after your reply{after}"
+    return f"now, after {intro}" if intro else "now"
+
+
 def _ok(text: str) -> dict[str, Any]:
     return {"content": [{"type": "text", "text": text}]}
 
@@ -110,9 +124,11 @@ def _error(text: str) -> dict[str, Any]:
 
 def server(conversation: "Conversation") -> McpSdkServerConfig:
     @tool("present_music",
-          "Put a rendered audio file in Anthony's chat as a music bubble. It plays on his phone at once if he has "
-          "autoplay on. Use it for every render he should hear. For an A/B that switches every bar, fill in `ab`; "
-          "for options baked into one file (a slider, or buttons), fill in `options`.",
+          "Put a rendered audio file in Anthony's chat as a music bubble. With autoplay on (his default) it plays on "
+          "his phone when your turn ends, after your reply: the app says its `title`, then its `note`, then counts "
+          "in (\"Three, two, one.\"), and the music starts. So `note` is its spoken description, and your reply "
+          "need not repeat it. Use it for every render he should hear. For an A/B that switches every bar, fill in "
+          "`ab`; for options baked into one file (a slider, or buttons), fill in `options`.",
           PRESENT)
     async def present_music(args: dict[str, Any]) -> dict[str, Any]:
         path = Path(str(args["path"])).expanduser()
@@ -128,16 +144,18 @@ def server(conversation: "Conversation") -> McpSdkServerConfig:
                                                    options=options)
         except Exception as exc:  # noqa: BLE001 - report to Claude, which can fix the file and retry
             return _error(f"Could not present it: {exc}")
+        autoplay, when = conversation.hub.autoplay, _when(conversation, "its intro (title, note, count-in)")
         if options:
-            n, playing = len(options["options"]), ("It sweeps through them on his phone now, one bar each."
-                                                   if conversation.hub.autoplay else "Autoplay is off: it waits.")
+            n, playing = len(options["options"]), (f"It sweeps through them on his phone {when}, one bar each."
+                                                   if autoplay else "Autoplay is off: it waits.")
             return _ok(f"Options #{msg.seq}: {n} of them, in memory on his phone once it loads. {playing} He moves "
                        "between them himself; when he picks one, his next message says which.")
-        playing = "It is playing on his phone now." if conversation.hub.autoplay else "Autoplay is off: it waits in the chat."
+        playing = f"It plays on his phone {when}." if autoplay else "Autoplay is off: it waits in the chat."
         return _ok(f"Music #{msg.seq}, {msg.data['duration']:.1f} s. {playing}")
 
     @tool("play_music", "Play a music bubble again on Anthony's phone, `loops` times in a row (the last one unless "
-          "you give `seq`). Use it for 'play again' (1) or 'loop that three times' (3).", PLAY)
+          "you give `seq`), when your turn ends, after your reply and a short intro (\"Again: <title>. Three, two, "
+          "one.\"). Use it for 'play again' (1) or 'loop that three times' (3).", PLAY)
     async def play_music(args: dict[str, Any]) -> dict[str, Any]:
         loops = max(1, min(int(args.get("loops", 1)), MAX_LOOPS))
         seq = args.get("seq")
@@ -152,7 +170,8 @@ def server(conversation: "Conversation") -> McpSdkServerConfig:
             return _error(str(exc))
         if conversation.hub.owner is None:
             return _ok(f"No phone is connected, so nothing plays now. Music #{msg.seq} is in the chat.")
-        return _ok(f"Playing music #{msg.seq} ({msg.data.get('title')}) {loops} time(s).")
+        when = _when(conversation, "a short intro" if conversation.hub.autoplay else "")
+        return _ok(f"Music #{msg.seq} ({msg.data.get('title')}) plays {loops} time(s) on his phone {when}.")
 
     @tool("stop_audio", "Stop whatever is playing on Anthony's phone.", {"type": "object", "properties": {}})
     async def stop_audio(_args: dict[str, Any]) -> dict[str, Any]:
