@@ -43,7 +43,11 @@ def _plan(arg: str) -> Plan:
 
 
 def _planner(fake: bool) -> Planner:
+    """HANDS_PLAN_RENDERER=fake makes every command render stand-in tones: the studio's end-to-end test runs Claude
+    with it, so plans already in the cache play Live's renders and nothing new touches Live."""
     cache = Cache()
+    if os.environ.get("HANDS_PLAN_RENDERER") == "fake" and not fake:
+        return Planner(cache=cache, renderer=FakeRenderer(cache.root / "fake", bar_seconds=None))
     renderer = FakeRenderer(cache.root / "fake") if fake else LiveRenderer()
     return Planner(cache=cache, renderer=renderer)
 
@@ -109,7 +113,7 @@ def ab(a: str, b: str, first: str = typer.Option("A", help="Which side plays fir
     r = planner.ensure([pa, pb], ahead_of=(pa, pb) if write_ahead_ else None)
     ea, eb = r.entries
     kit_ = planner.kit(pa.kit)
-    bar_s = planner.renderer.bar_seconds if isinstance(planner.renderer, FakeRenderer) else kit_.bar_seconds()
+    bar_s = getattr(planner.renderer, "bar_seconds", None) or kit_.bar_seconds()
     out = planner.cache.root / "ab" / f"{ea.key}-{eb.key}-{first}{every}.flac"
     f = build(ea.audio, eb.audio, out, bar_s, first=first.upper(), every=max(1, every))
     title = f"{pa.describe()} vs {pb.describe()}"
@@ -132,8 +136,7 @@ def _bake(planner: Planner, plans: list[Plan], labels: list[str], *, layout: str
           bars: int) -> dict[str, Any]:
     """Render what is missing (packed into Live passes), cut the options into one file, and say how to present it."""
     kit_ = planner.kit(plans[0].kit)
-    fake = isinstance(planner.renderer, FakeRenderer)
-    bar_s = planner.renderer.bar_seconds if fake else kit_.bar_seconds()
+    bar_s = getattr(planner.renderer, "bar_seconds", None) or kit_.bar_seconds()
     bars = fit_bars(len(plans), bar_s, bars, kit_.bars_per_pattern())
     r = planner.ensure(plans)
     keys = [e.key for e in r.entries]

@@ -257,3 +257,28 @@ async def test_an_options_card_fits_the_smallest_iphone(webkit, fake, layout):
     assert keep["x"] + keep["width"] <= 320 and keep["height"] >= 40
     assert page.errors == []
     await page.page.context.close()
+
+
+async def test_during_a_sweep_the_card_picks_the_option_that_sounds(listener, fake):
+    # What Keep, Finer here and play mean is what was heard last: the sweep moves the pick, and the pill names it.
+    page = listener
+    fake.turn_frames = 0
+    music = await fake.present_options()
+    seq = music["seq"]
+    await page.page.click("#turn")
+    await fake.expect(is_mic("open", "t1"))
+    await ready(page, seq)
+    await fake.play(seq, 1)
+    seen, pills = [], set()
+    for _ in range(12):
+        pos = await page.js("window.studio.engine.position()")
+        pick = await page.js(f"Number(document.querySelector('{card(seq)}').dataset.pick)")
+        if pos and pos.get("sweeping"):
+            seen.append((pos["option"], pick))
+            pills.add(await page.js("document.getElementById('phase-detail').textContent"))
+        await asyncio.sleep(fake.bar_s / 3)
+    assert {o for o, _ in seen} >= {1, 2, 3}, seen
+    assert sum(o == p for o, p in seen) >= len(seen) - 1, f"the pick lags the sound: {seen}"
+    assert pills == {"Rumble drive"}, pills
+    await fake.expect(is_playback("idle", 1), timeout=15)
+    assert await page.js(f"document.querySelector('{card(seq)}').dataset.pick") == "3", "the last option heard"
