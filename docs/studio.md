@@ -380,3 +380,14 @@ reference as `original`). Running it again changes nothing; it is safe while the
 The whole stack, end to end (page in Chromium, real server, Kokoro and Parakeet, `hands plan ab` with stand-in
 renders): `STUDIO_STACK=1 uv run --project lib/harness --extra dev pytest lib/harness/tests/ui/test_stack.py`; add
 `STUDIO_CLAUDE=1` for one typed turn with the real Claude session.
+
+**As Anthony uses it, end to end** (skill studio-e2e): `cd lib/harness && uv run --extra dev python -m e2e` runs the
+real studio (server, Kokoro and Parakeet, the real Claude session and narrator) with its data in a run folder, and
+drives the page in an iPhone-sized WebKit as a virtual user. The user speaks each line (Kokoro, another voice) into
+a stand-in mic once the dock says "Go ahead", taps the cards, and switches apps the way iOS does it. The run records
+the socket both ways, what the speakers played, when the mic was open, and the chat. Every run is held to the same
+rules: "Go ahead" only while the mic is heard; nothing plays over the open mic; one sound at a time; every render
+introduced and counted in (heard by Parakeet from the recording); no narration once music is ready; every line
+heard from its first word; every turn gets audio; no errors. It writes `report.md` with a timeline. Plans use
+Live's cached renders and stand-ins for new ones, so a run never touches Live. `--only` picks parts of the
+scenario, and `--live` renders in Live (only with Anthony there).
