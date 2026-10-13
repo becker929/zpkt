@@ -23,6 +23,10 @@ Audio goes both ways, and nothing reaches the speakers:
   the page's clock (from getOutputTimestamp, so it includes the output's latency). Chromium also runs with
   --mute-audio. It works in Chromium and WebKit; the tests that use it are test_heard.py, one in test_webkit.py and
   the voice loop in test_stack.py.
+
+The ready cue (cue.js: two soft notes when the mic starts hearing) is off unless a test asks for it (`open_page(...,
+ready_cue=True)`): it is the one sound the page makes while the mic is open, and the ear's tests check that
+nothing else does. test_mic.py hears it.
 """
 
 from __future__ import annotations
@@ -48,14 +52,17 @@ IPHONE_15 = {"viewport": {"width": 393, "height": 659}, "screen": {"width": 393,
              "device_scale_factor": 3, "is_mobile": True, "has_touch": True}
 PHONE = {"viewport": {"width": 393, "height": 760}, "device_scale_factor": 2}
 
-# Keeps every stream getUserMedia hands the page (to check its tracks are stopped) and when the mic was open. When this Chromium cannot start its fake capture device (it hangs on some macOS versions), the
-# same WAV is played into a MediaStream.
+# Keeps every stream getUserMedia hands the page (to check its tracks are stopped) and when the mic was open. When
+# this Chromium cannot start its fake capture device (it hangs on some macOS versions), the same WAV is played into
+# a MediaStream. It patches MediaDevices.prototype, not navigator.mediaDevices: WebKit may drop a property set on a
+# DOM object's wrapper when the wrapper is collected and made again (and the page's calls then miss the shim).
 CAPTURE = """
 (() => {
-  const real = navigator.mediaDevices.getUserMedia.bind(navigator.mediaDevices);
+  const native = MediaDevices.prototype.getUserMedia;
+  const real = (constraints) => native.call(navigator.mediaDevices, constraints);
   window.__captured = [];
   window.__micSpans = [];
-  navigator.mediaDevices.getUserMedia = async (constraints) => {
+  MediaDevices.prototype.getUserMedia = async (constraints) => {
     let stream;
     if (window.__syntheticMic) {
       const ctx = new AudioContext();
@@ -92,6 +99,18 @@ CAPTURE = """
   };
 })();
 """
+
+
+def ready_sound(on: bool) -> str:
+    """An init script that sets the page's Ready sound preference, unless the page has saved one of its own."""
+    return f"""(() => {{
+  try {{
+    const saved = JSON.parse(localStorage.getItem('studio.prefs') || '{{}}');
+    if (!('readySound' in saved)) localStorage.setItem('studio.prefs', JSON.stringify({{ ...saved, readySound: {str(on).lower()} }}));
+  }} catch {{
+    // A page with no storage (about:blank) has no preferences either.
+  }}
+}})();"""
 
 
 @pytest.fixture(scope="session")
@@ -164,6 +183,22 @@ async def webkit(playwright):
     await browser.close()
 
 
+@pytest.fixture(params=["chromium", "webkit"])
+async def either(request, playwright, mic_wav):
+    """Chromium, then WebKit: for what must work in both (the iPhone is WebKit, the desktop mostly Chromium)."""
+    try:
+        if request.param == "chromium":
+            args = chromium_args(mic_wav)
+            await capture_starts(playwright, args)
+            browser = await playwright.chromium.launch(args=args)
+        else:
+            browser = await playwright.webkit.launch()
+    except PlaywrightError as exc:
+        pytest.skip(f"no {request.param} for Playwright ({str(exc).splitlines()[0]})")
+    yield browser
+    await browser.close()
+
+
 @pytest.fixture
 async def fake():
     studio = FakeStudio()
@@ -199,13 +234,14 @@ class Page:
 
 
 async def open_page(browser, fake: FakeStudio, *, synthetic_mic: bool | None = None, color_scheme: str = "dark",
-                    device: dict | None = None, query: str = "settle=30") -> Page:
-    """A new context and page on the fake server, muted, with getUserMedia watched."""
+                    device: dict | None = None, query: str = "settle=30", ready_cue: bool = False) -> Page:
+    """A new context and page on the fake server, muted, with getUserMedia watched (and the ready cue off)."""
     if synthetic_mic is None:
         synthetic_mic = browser.browser_type.name == "chromium" and not _capture_starts
     context = await browser.new_context(permissions=["microphone"], color_scheme=color_scheme, **(device or PHONE))
     await context.add_init_script(MUTE)
     await context.add_init_script(CAPTURE)
+    await context.add_init_script(ready_sound(ready_cue))
     if synthetic_mic:
         ref = fake.put(media.mic_wav_bytes(), "wav", "audio/wav")
         await context.add_init_script(f"window.__syntheticMic = {ref['url']!r};")

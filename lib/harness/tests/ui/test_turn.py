@@ -37,7 +37,7 @@ async def test_a_whole_spoken_turn(phone, fake):
     await fake.expect(lambda m: m["type"] == "start")
     opened = await fake.expect(lambda m: m["type"] == "mic" and m["state"] == "open")
     assert opened["turn"] == "t1" and isinstance(opened["open_ms"], int)
-    assert await page.js("document.getElementById('turn').dataset.mode") == "listen"
+    await page.wait("() => document.getElementById('turn').dataset.mode === 'listen'")      # drawn at the next frame
     assert await page.js("document.getElementById('phase').dataset.phase") == "listening"
 
     # The mic streams 20 ms frames: 0x01, then signed 16-bit little-endian PCM at 16 kHz.
@@ -265,6 +265,7 @@ async def test_a_second_page_says_the_mic_is_on_another_page_and_can_take_it(pho
     await fake.expect(is_mic("open", "t1"))
     await other.wait("() => document.getElementById('phase-detail').textContent")
     assert await other.js(PILL) == ["paused", "Listening", "on another page"]
+    await phone.wait("() => document.getElementById('phase').dataset.phase === 'listening'")     # the next frame
     assert await phone.js(PILL) == ["listening", "Listening", ""]
 
     # The other page takes it: the first one closes its mic and says where it went.

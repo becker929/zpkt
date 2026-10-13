@@ -22,7 +22,7 @@ import numpy as np
 import pytest
 from aiohttp.test_utils import TestServer
 
-from conftest import CAPTURE, MUTE, PHONE
+from conftest import CAPTURE, MUTE, PHONE, ready_sound
 from harness.config import ZPKT, Config, voice_command
 from harness.studio import Studio
 from harness.studio.agent import TextDelta, TextDone, ToolDone, ToolStart, TurnDone
@@ -101,6 +101,7 @@ async def phone(chromium, server, studio, mic: bytes | None = None):
     context = await chromium.new_context(permissions=["microphone"], color_scheme="dark", **PHONE)
     await context.add_init_script(MUTE)
     await context.add_init_script(CAPTURE)
+    await context.add_init_script(ready_sound(False))       # the ear hears only the answer
     if mic is not None:
         ref = studio.store.put_media(mic, "wav")
         await context.add_init_script(f"window.__syntheticMic = {ref.url!r};")

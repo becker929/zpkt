@@ -19,8 +19,10 @@ from .store import Store
 # Mac marks are ms since the mic was offered; these are the stages a turn passes, in order.
 MAC_STAGES = ["first_words", "stop_word", "turn_ended", "first_narration", "first_text", "agent_done", "first_audio",
               "music_ready", "responded"]
-# Phone marks are durations the phone measured.
-PHONE_STAGES = ["mic_open", "route_settle", "first_speech_audio", "music_first_play"]
+# Phone marks are durations the phone measured: the mic's open stage by stage (mic_held to mic_frame), and the waits
+# from the Mac's listen until the mic opened (mic_open), its first frame left (mic_ready) and the ready cue was heard.
+PHONE_STAGES = ["route_settle", "mic_held", "mic_check", "mic_gum", "mic_worklet", "mic_frame", "mic_open", "mic_ready",
+                "ready_cue", "first_speech_audio", "music_first_play"]
 
 
 class TurnClock:
@@ -79,10 +81,12 @@ def _groups(turn: dict[str, Any]) -> dict[str, str]:
     marks = {m["name"]: m for m in turn["marks"]}
     listen = marks.get("listen", {})
     n = listen.get("n")
+    # The phone's own mic_open mark names the input; the one the Mac takes from the `mic` message does not.
+    inputs = [m["input"] for m in turn["marks"] if m["name"] == "mic_open" and m.get("input")]
     return {
         "turn": "" if n is None else ("first" if n == 1 else "later"),
         "browser": listen.get("browser", ""),
-        "route": route(str(marks.get("mic_open", {}).get("input", ""))),
+        "route": route(str(inputs[0]) if inputs else ""),
     }
 
 
