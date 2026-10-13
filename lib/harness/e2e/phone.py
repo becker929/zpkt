@@ -157,11 +157,15 @@ DRAIN = """() => {
 }"""
 
 
-# The page says the mic is listening: it is open and frames have gone to the Mac in the last half second.
+# The page says "Go ahead": the dock is in its listening mode, which it shows only once mic frames flow. The user
+# starts talking then, as Anthony would; the frames check makes a dishonest "Go ahead" a lost first word.
 LISTENING = """() => {
   const s = window.studio;
-  return !!s && s.mic.state === 'open' && performance.now() - window.__wire.lastMicFrame < 500;
+  return !!s && document.getElementById('turn')?.dataset.mode === 'listen'
+    && performance.now() - window.__wire.lastMicFrame < 500;
 }"""
+SAYS_LISTENING = "() => document.getElementById('turn')?.dataset.mode === 'listen'"
+NEEDS_TAP = "() => document.getElementById('turn')?.dataset.mode === 'resume'"
 
 
 @dataclass
@@ -258,7 +262,10 @@ class Phone:
         asked = await self.js("""() => {
           const l = window.__wire.log.filter((e) => e.dir === 'in' && e.msg.type === 'listen');
           return l.length ? l[l.length - 1].t : null; }""")
-        await self.wait(LISTENING, listen_timeout, "the page to listen")
+        await self.wait(SAYS_LISTENING, listen_timeout, "the page to say Go ahead")
+        lost = await self.js(f"({LISTENING})() ? null : performance.now() - window.__wire.lastMicFrame")
+        if lost is not None:
+            await self.note("Go ahead with no mic frames", ms_since_last_frame=round(lost))
         ready = await self.note("listening", since_listen_ms=round(await self.now() - asked) if asked else None)
         await self.js("(url) => window.__voice.say(url)", url)
         await self.note("said", text=text)
@@ -297,10 +304,14 @@ class Phone:
         await self.js("() => window.__voice.setVisible(true)")
         await self.note("came back")
         await asyncio.sleep(0.6)
-        if await self.js("() => window.studio.engine.needsUnlock"):
-            # The page needs a tap to bring its audio back; Anthony taps the big button.
+        mode = await self.js("() => document.getElementById('turn')?.dataset.mode")
+        await self.shot("came-back")
+        if mode == "resume":
+            # The page asks for a tap to bring the mic back; Anthony taps the big button.
             await self.page.tap("#turn")
             await self.note("tap to resume")
+        else:
+            await self.note("no tap asked", mode=mode)
 
     # --- what the user sees ---------------------------------------------------------------------------------------
     async def wait_user_message(self, since: int, timeout: float) -> str:

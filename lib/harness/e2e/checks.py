@@ -53,7 +53,8 @@ class Run:
 
 
 def all_checks(run: Run) -> list[Result]:
-    return [nothing_heard_while_the_mic_is_open(run), one_sound_at_a_time(run), music_is_introduced(run),
+    return [go_ahead_is_honest(run), nothing_heard_while_the_mic_is_open(run), one_sound_at_a_time(run),
+            music_is_introduced(run),
             no_narration_after_music(run), every_line_heard_from_its_first_word(run), every_turn_got_audio(run),
             no_errors(run)]
 
@@ -73,6 +74,18 @@ def mic_spans(run: Run) -> list[tuple[float, float]]:
     if opened is not None:
         spans.append((opened, run.page["now"] / 1000))
     return spans
+
+
+def go_ahead_is_honest(run: Run) -> Result:
+    """The page says "Go ahead" only while the mic's frames reach the Mac."""
+    lies = [e for e in run.events if e.what == "Go ahead with no mic frames"]
+    waits = [e.data.get("since_listen_ms") for e in run.events if e.what == "listening"
+             and e.data.get("since_listen_ms") is not None]
+    stat = (f"; it said so {statistics.median(waits) / 1000:.1f} s (median), {max(waits) / 1000:.1f} s (max) "
+            "after the Mac gave the turn") if waits else ""
+    return Result("'Go ahead' only while the mic is heard", not lies,
+                  f"{len(waits)} times, {len(lies)} with no mic frames{stat}",
+                  [f"at {e.t / 1000:.1f} s: {e.data}" for e in lies])
 
 
 def nothing_heard_while_the_mic_is_open(run: Run) -> Result:
