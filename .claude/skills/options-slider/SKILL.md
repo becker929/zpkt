@@ -39,8 +39,9 @@ Then call `mcp__studio__present_music` with `path`, a short spoken `title`, `opt
 the rumble, clean to crushed, one bar each. Listen for when the kick starts to break up."). With autoplay on it does
 not play at once: after your reply, the app says the title and the note, counts in ("Three, two, one."), and sweeps
 through the options once on his phone, one bar each, low to high. So your reply needs only a few words ("Here's the
-drive slider."); don't describe the slider again. After that he plays and moves the slider himself. `match_db` lets
-him hear them level-matched (a toggle on the card); otherwise they play at Live's levels.
+drive slider."); don't describe the slider again. After that he plays and moves the slider himself. They play
+level-matched by default (`match_db`), so louder never wins by itself; the card's Match loudness toggle turns that
+off to hear Live's own levels. If loudness is the point (a volume or a gain), tell him to turn it off.
 
 ## What he sends back
 

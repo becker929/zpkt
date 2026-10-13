@@ -217,7 +217,7 @@ it as soon as there is an audio context. From then on nothing goes to the Mac un
 - moving the slider or tapping a button switches 15 ms later, at the same place in the bar: every option is read at
   `(t - t0) mod its length`, so the beat goes on. The switch is a 12 ms crossfade, and touching a sweep turns it into
   a hold;
-- **Match loudness** ramps each option to its `match_db`;
+- **Match loudness** (on by default, per card; the Mac's sweep follows the card) plays each option at its `match_db`;
 - a held option gives way to anything the Mac sends (speech, music) at the next bar line;
 - **Keep** and **Finer here** stop the sound and send Anthony's next turn as text ("Keep rumble Drive at 62%: option
   6 of 9 on card 41."), which Claude maps back to the option's plan (skill options-slider).

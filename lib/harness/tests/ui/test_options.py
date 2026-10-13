@@ -126,7 +126,7 @@ async def test_moving_the_slider_switches_at_once_and_keeps_the_beat(phone, fake
     assert not on_the_beat(ear, t0 + 1.5 * fake.bar_s), "and the check can tell"
 
 
-async def test_match_loudness_levels_the_options(phone, fake):
+async def test_match_loudness_is_on_and_levels_the_options(phone, fake):
     page = phone
     music = await fake.present_options()
     seq = music["seq"]
@@ -135,8 +135,10 @@ async def test_match_loudness_levels_the_options(phone, fake):
     await page.wait("() => window.studio.engine.nowPlaying !== null")
     await asyncio.sleep(0.8)
     toggled = await page.js("performance.now() / 1000")
+    assert await page.js(f"document.querySelector('{card(seq)} .opt-match').getAttribute('aria-checked')") == "true", \
+        "Match loudness is on by default"
     await page.page.click(f"{card(seq)} .opt-match")
-    assert await page.js(f"document.querySelector('{card(seq)} .opt-match').getAttribute('aria-checked')") == "true"
+    assert await page.js(f"document.querySelector('{card(seq)} .opt-match').getAttribute('aria-checked')") == "false"
     await asyncio.sleep(0.8)
     await page.page.click(f"{card(seq)} .play")
     ear = the_ear(await heard(page.page))
@@ -145,7 +147,7 @@ async def test_match_loudness_levels_the_options(phone, fake):
     split = next(t for t in np.arange(t0, entry["endedAt"], 0.01) if ear.perf(t) >= toggled)
     before = rms(ear.between(t0 + 0.1, split - 0.05))
     after = rms(ear.between(split + 0.15, entry["endedAt"] - 0.05))
-    assert 20 * np.log10(before / after) == pytest.approx(18.06, abs=0.7), "matched to the quietest option"
+    assert 20 * np.log10(after / before) == pytest.approx(18.06, abs=0.7), "matched to the quietest, then Live's level"
 
 
 async def test_keep_stops_and_says_which_option(phone, fake):
