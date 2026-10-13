@@ -31,7 +31,8 @@ def describe(tool: str, args: dict[str, Any]) -> str:
     if tool == "TodoWrite":
         return "Update the plan"
     if short == "present_music":
-        return f"Present {args.get('title', 'music')}"
+        what = "options" if args.get("options") else ""
+        return f"Present {what} {args.get('title', 'music')}".replace("  ", " ")
     if short == "play_music":
         return f"Play it {args.get('loops', 1)}×"
     if short == "screenshot":

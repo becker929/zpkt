@@ -476,3 +476,32 @@ async def test_a_page_is_told_when_it_gains_or_loses_the_mic(rig):
     assert (await phone.until(lambda m: m["type"] == "owner", since=mark))["owner"] is False
     await phone.until(lambda m: m["type"] == "unlisten", since=mark)
     assert not tv.of("unlisten") and [m["owner"] for m in tv.of("owner")] == [True]
+
+
+@pytest.mark.skipif(not shutil.which("ffmpeg"), reason="needs ffmpeg")
+async def test_options_are_checked_against_the_file_and_the_macs_play_is_a_sweep(rig):
+    from harness.studio.conversation import play_seconds
+    from harness.studio.tools import baked_options
+
+    client, studio, agent, tmp = rig
+    raw = {"layout": "slider", "name": "rumble Drive", "bar_seconds": 0.25, "bars": 1, "now": 7,
+           "options": [{"label": "0%", "match_db": -1.234, "lufs": -12.0}, {"label": "50%"}, {"label": "100%"},
+                       {"label": "x" * 99, "match_db": 2}]}
+    opts = baked_options(raw)
+    assert opts["now"] is None, "a `now` that is not one of the options is dropped"
+    assert opts["options"][0] == {"label": "0%", "match_db": -1.23} and len(opts["options"][3]["label"]) == 40
+    for bad in ({**raw, "options": raw["options"][:1]}, {**raw, "bar_seconds": 0}):
+        with pytest.raises(ValueError):
+            baked_options(bad)
+
+    page = await connect(client)
+    await page.ws.send_json({"type": "start"})
+    await page.until(lambda m: m["type"] == "listen")
+    with pytest.raises(ValueError, match="make 1.00 s"):              # 4 x 1 bar x 0.25 s, but the file is 2 s
+        await studio.conversation.present_music(tone(tmp / "long.wav", seconds=2.0), "Drive", None, "", options=opts)
+    music = await studio.conversation.present_music(tone(tmp / "o.wav", seconds=1.0), "Drive", None, "", options=opts)
+    assert music.data["options"]["layout"] == "slider" and music.data["duration"] == pytest.approx(1.0, abs=0.01)
+    play = await page.until(lambda m: m["type"] == "play")
+    assert play["seq"] == music.seq
+    assert play_seconds(music.data) == pytest.approx(1.0), "the Mac's play: one bar of each of the 4 options"
+    assert play_seconds({"duration": 3.5}) == 3.5

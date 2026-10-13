@@ -43,6 +43,14 @@ SPEECH_WAIT_S = 120.0         # how often a mic waiting for speech to start chec
 STOP_WAIT_S = 5.0             # how long stopping the server waits for the turn's tasks to end
 
 
+def play_seconds(data: dict[str, Any]) -> float:
+    """How long one play of a music message lasts. The Mac's play of options sweeps them, one bar each."""
+    options = data.get("options")
+    if options:
+        return len(options["options"]) * float(options["bar_seconds"])
+    return float(data.get("duration") or 0)
+
+
 @dataclass
 class Settings:
     stop_word: str = "tomato"
@@ -506,12 +514,21 @@ class Conversation:
                                      "detail": detail(event.input)})
 
     # --- music -----------------------------------------------------------------------------------------------------
-    async def present_music(self, path: Path, title: str, ab: dict[str, Any] | None, note: str) -> Message:
+    async def present_music(self, path: Path, title: str, ab: dict[str, Any] | None, note: str,
+                            options: dict[str, Any] | None = None) -> Message:
+        """A render in the chat. With `options` (tools.baked_options) the file is that many options end to end,
+        `bars` bars each, and the phone switches between them itself."""
+        if options:
+            info = await audio.probe(path)
+            want = len(options["options"]) * options["bars"] * options["bar_seconds"]
+            if abs(info.duration - want) > options["bar_seconds"] / 2:
+                raise ValueError(f"the file is {info.duration:.2f} s, but {len(options['options'])} options of "
+                                 f"{options['bars']} bars at {options['bar_seconds']:.3f} s make {want:.2f} s")
         data, info = await audio.to_mp3(path)
         ref = await asyncio.to_thread(self.store.put_media, data, "mp3")
         msg = self.add(Kind.MUSIC, {"title": title, "audio": ref.wire(), "duration": round(info.duration, 3),
                                     "rate": info.rate, "channels": info.channels, "ab": ab, "plays": 0,
-                                    "note": note, "source": path.name})
+                                    "note": note, "source": path.name, "options": options})
         if self.clock:
             self.clock.mark("music_ready", seq=msg.seq)
         if self.hub.autoplay:
@@ -525,7 +542,7 @@ class Conversation:
         msg.data["plays"] = int(msg.data.get("plays", 0)) + loops
         self.save(msg)
         if self.hub.to_owner({"type": "play", "seq": seq, "loops": loops}):
-            self.to_play.item(float(msg.data.get("duration") or 0) * loops)
+            self.to_play.item(play_seconds(msg.data) * loops)
         return msg
 
     def last_music(self) -> Message | None:

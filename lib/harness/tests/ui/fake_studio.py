@@ -23,6 +23,7 @@ import asyncio
 import hashlib
 import itertools
 import json
+import math
 import time
 from collections.abc import Awaitable, Callable
 from pathlib import Path
@@ -405,6 +406,22 @@ class FakeStudio:
                 "labels": {"A": "Now", "B": "+3 dB"}},
             plays=0, note="Listen to the low end on the downbeat: B should push without blurring the bass.",
             source="kick-ab.wav")
+
+    OPTION_FREQS = (300.0, 450.0, 600.0, 750.0)
+    OPTION_AMPS = (0.05, 0.1, 0.2, 0.4)          # louder up the slider, as a drive knob would make it
+
+    async def present_options(self, layout: str = "slider", now: int | None = 1,
+                              title: str = "Rumble drive") -> dict[str, Any]:
+        """Four options as `hands plan slider` makes them: tones, louder up the slider, `match_db` levelling them."""
+        freqs, amps = self.OPTION_FREQS, self.OPTION_AMPS
+        render = media.options_mp3(self.bar_s, self.bars, freqs, amps)
+        labels = ["0%", "33%", "67%", "100%"] if layout == "slider" else ["Plate", "Hall", "Room", "Spring"]
+        options = [{"label": lab, "match_db": round(20 * math.log10(amps[0] / a), 2)} for lab, a in zip(labels, amps)]
+        return await self.upsert(
+            "music", title=title, audio=self.put(render, "mp3", "audio/mpeg"),
+            duration=len(freqs) * self.bars * self.bar_s, plays=0, note="", source="options.wav", ab=None,
+            options={"layout": layout, "name": "rumble Drive" if layout == "slider" else "reverb",
+                     "bar_seconds": self.bar_s, "bars": self.bars, "now": now, "options": options})
 
     async def play(self, seq: int, loops: int) -> None:
         msg = next(m for m in self.messages if m["seq"] == seq)

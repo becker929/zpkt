@@ -89,7 +89,7 @@ repo) and served in pages. Media (speech replays, music, screenshots) is content
 | `user` | what you said (or typed) | `text`, `source` (voice/typed), `audio` (your recording), `duration`, `intent` |
 | `agent` | what Claude said, or a narration | `text`, `role` (reply/narration/note), `audio` (replay), `duration`, `streaming` |
 | `thinking` | Claude's thinking, summarized; never spoken | `text` (grows while `streaming`), `streaming` |
-| `music` | a render to listen to | `title`, `audio` (gapless V0 MP3: iPhone Safari can't decode FLAC), `duration`, `ab` (bar length, bars, first side, labels), `plays`, `note` |
+| `music` | a render to listen to | `title`, `audio` (gapless V0 MP3: iPhone Safari can't decode FLAC), `duration`, `ab` (bar length, bars, first side, labels), `options` (N renders end to end, below), `plays`, `note` |
 | `shots` | a screenshot pair | `level`, `caption`, `full`, `zoom`, `rect`, `screen` |
 | `activity` | a tool call | `tool`, `title`, `detail`, `status` (running/ok/error), `ms` |
 | `notice` | the app itself speaking up | `level` (info/warn/error), `text` |
@@ -153,7 +153,33 @@ integrated, -14 LUFS), the first bar (the previous pattern's tail) is dropped, a
 The file goes to the chat with `present_music` and its `ab` metadata (bar length, bars, which side starts, labels),
 and the page lights A or B in time.
 
-These are skills in `.claude/skills/` (render-plan, ab-1bar, plan-cache) over one CLI, `hands plan` (the package
+**Options, switched on the phone.** An A/B compares two renders; options put N of them in one file
+(`hands/src/hands/plans/options.py`): one knob at N values (`hands plan slider`), N steps from one plan to another
+(`hands plan line`), or any plans (`hands plan options`). They bake through the cache like any plans, P to a Live
+pass. Each option is cut to `bars` bars after its pattern's first bar, made to loop (its first 10 ms crossfade from
+what follows its last bar), and measured: `match_db` brings each to -14 LUFS, less one shared offset so no peak
+passes -1 dBFS. The file stays under 135 s, because the phone keeps it decoded.
+
+`present_music` takes the printed `options` (layout `slider` or `buttons`, name, bar length, bars, which option
+sounds like the set now, each option's label and `match_db`), checks it against the file's length, and the
+music message keeps it. The page fetches the file as soon as the card is in the chat, before any tap, and decodes
+it as soon as there is an audio context. From then on nothing goes to the Mac until a choice is made:
+
+- the Mac's `play` (autoplay) **sweeps**: option k sounds during bar k, one bar of each, in order;
+- a tap on the card, or on the slider, **holds** an option: it loops its bars until stopped (at most ten minutes);
+- moving the slider or tapping a button switches 15 ms later, at the same place in the bar: every option is read at
+  `(t - t0) mod its length`, so the beat goes on. The switch is a 12 ms crossfade, and touching a sweep turns it into
+  a hold;
+- **Match loudness** ramps each option to its `match_db`;
+- a held option gives way to anything the Mac sends (speech, music) at the next bar line;
+- **Keep** and **Finer here** stop the sound and send Anthony's next turn as text ("Keep rumble Drive at 62%: option
+  6 of 9 on card 41."), which Claude maps back to the option's plan (skill options-slider).
+
+On a touch screen the slider picks on a tap, or once a touch moves sideways, so a thumb scrolling the chat past the
+card does not start it. The page side is `static/js/options.js` (the arithmetic), `options-clip.js` (the
+player: a looping source per sounding option, a fade, and a match gain per option) and the card in `bubbles.js`.
+
+These are skills in `.claude/skills/` (render-plan, ab-1bar, plan-cache, options-slider) over one CLI, `hands plan` (the package
 `hands/src/hands/plans/`, extra `plans`), so Claude uses them like any other script and they keep growing:
 
 ```bash

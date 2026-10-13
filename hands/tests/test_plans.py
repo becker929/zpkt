@@ -193,3 +193,79 @@ def test_the_cli_makes_an_ab_and_renders_ahead(kit_dirs, monkeypatch):
 
     res3 = runner.invoke(app, ["plan", "lookup", json.dumps({"kit": "t4", "knobs": {DRIVE: 0.41}})])
     assert json.loads(res3.output)["nearest"]["distance"] == pytest.approx(0.01)
+
+
+# --- options: N plans in one file the phone switches through ------------------------------------------------------
+
+def test_slider_values_and_labels():
+    from hands.plans.options import knob_stops, values
+
+    assert values(0.0, 1.0, 5) == [0.0, 0.25, 0.5, 0.75, 1.0]
+    assert values(100.0, 10_000.0, 3, "log") == pytest.approx([100.0, 1000.0, 10_000.0])
+    with pytest.raises(ValueError):
+        values(0.0, 1.0, 3, "log")
+    base = Plan("t4", {EQ: 2.0})
+    plans, labels, now = knob_stops(base, DRIVE, values(0.0, 0.5, 5), INFO[DRIVE])
+    assert labels == ["0%", "12%", "25%", "38%", "50%"], "as many decimals as tell neighbours apart"
+    assert now == 2, "the kit's drive (0.27) is nearest 25%"
+    assert all(p.knobs[EQ] == 2.0 for p in plans), "the base plan's other knobs hold"
+    _, eq_labels, eq_now = knob_stops(Plan("t4"), EQ, values(-12.0, 12.0, 5), INFO[EQ])
+    assert eq_labels == ["-12", "-6", "0", "6", "12"] and eq_now == 3
+    _, _, outside = knob_stops(Plan("t4"), DRIVE, values(0.5, 1.0, 3), INFO[DRIVE])
+    assert outside is None, "the knob's value now is outside the slider"
+
+
+def test_a_line_moves_every_knob_together():
+    from hands.plans.options import line_stops
+
+    plans, labels = line_stops(Plan("t4", {DRIVE: 0.2}), Plan("t4", {DRIVE: 0.6, EQ: 6.0}), 5, INFO)
+    assert labels == ["A", "25%", "50%", "75%", "B"]
+    assert [round(p.knobs[DRIVE], 3) for p in plans] == [0.2, 0.3, 0.4, 0.5, 0.6]
+    assert [round(p.knobs[EQ], 3) for p in plans] == [3.1, 3.825, 4.55, 5.275, 6.0], "A leaves EQ at the kit's 3.1"
+
+
+def test_the_strip_loops_each_option_and_matches_loudness(tmp_path):
+    from hands.plans.options import build as build_strip
+
+    bar_s, sr = 0.5, 44_100
+    paths = [tone(tmp_path / f"{i}.wav", f, amp, 8, bar_s) for i, (f, amp) in enumerate([(330, 0.05), (547.3, 0.5)])]
+    s = build_strip(paths, tmp_path / "strip.wav", bar_s, 4)
+    y, rate = sf.read(tmp_path / "strip.wav", always_2d=True)
+    bar = int(bar_s * sr)
+    assert len(y) == 2 * 4 * bar and s.bars == 4
+    assert [round(dominant(y[k * 4 * bar:(k + 1) * 4 * bar], rate), -1) for k in (0, 1)] == [330, 550]
+    assert s.lufs[1] - s.lufs[0] == pytest.approx(20, abs=0.5)
+    matched = [s.lufs[i] + s.match_db[i] for i in (0, 1)]
+    assert matched[0] == pytest.approx(matched[1], abs=0.01), "matched, the options are equally loud"
+    assert max(p + m for p, m in zip(s.peak_db, s.match_db)) <= -1.0 + 1e-6, "and no peak passes -1 dBFS"
+    loud = y[4 * bar:8 * bar, 0]          # 547.3 Hz: a plain cut would jump from about +0.5 to -0.4 at the loop
+    assert abs(loud[-1] - loud[0]) < 0.05, "the end of an option flows into its start"
+
+
+def test_the_cli_bakes_a_slider_in_one_pass_and_options_from_the_cache(kit_dirs, monkeypatch):
+    from typer.testing import CliRunner
+
+    import hands.plans.render as R
+    from hands.cli import app
+
+    monkeypatch.setattr(R, "KnobReader", lambda: fake_reader)
+    runner = CliRunner()
+    res = runner.invoke(app, ["plan", "slider", "t4", DRIVE, "--from", "0", "--to", "0.75", "--stops", "4", "--fake"])
+    assert res.exit_code == 0, res.output
+    out = json.loads(res.output)
+    o = out["options"]
+    assert out["rendered"] == 4 and out["seconds"] == 0, "4 stops on a 4-pattern kit: one Live pass"
+    assert o["layout"] == "slider" and o["bars"] == 4 and o["bar_seconds"] == 0.25 and o["now"] == 1
+    assert [x["label"] for x in o["options"]] == ["0%", "25%", "50%", "75%"] and o["name"] == "rumble Drive"
+    info = sf.info(out["path"])
+    assert info.duration == pytest.approx(4 * 4 * 0.25)
+    assert [p["plan"]["knobs"][DRIVE] for p in out["plans"]] == [0.0, 0.25, 0.5, 0.75]
+
+    picks = [json.dumps(p["plan"]) for p in out["plans"][1:3]]
+    res2 = runner.invoke(app, ["plan", "options", *picks, "--name", "drive", "--now", "0", "--fake"])
+    out2 = json.loads(res2.output)
+    assert out2["rendered"] == 0 and out2["cached"] == 2, "both were baked for the slider"
+    assert out2["options"]["layout"] == "buttons" and [x["label"] for x in out2["options"]["options"]] == \
+        ["Drive 25%", "Drive 50%"]
+    res3 = runner.invoke(app, ["plan", "line", picks[0], picks[1], "--stops", "3", "--fake"])
+    assert [x["label"] for x in json.loads(res3.output)["options"]["options"]] == ["A", "50%", "B"]
