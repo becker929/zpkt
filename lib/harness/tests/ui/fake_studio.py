@@ -7,7 +7,8 @@ studio/assets.py) and speaks the protocol deterministically, the way the Mac doe
 - mic frames become captions, and after `turn_frames` frames the turn ends as if "tomato" had been heard
   (`end_turn` and `say` end a turn too);
 - Claude's turn is `script`: by default thinking (streamed), tool calls and a screenshot pair (one trace on the
-  page), a narration, a reply spoken as a streamed tone, and an A/B render that is `play`ed;
+  page), a narration, a reply spoken as a streamed tone, and an A/B render that is `introduce`d: its intro (title,
+  note, count-in) streamed as another tone under the card's seq, then the render `play`ed;
 - `responding` lasts until the owner reports (`playback` idle with `done` >= the items it was sent) that it
   has played everything; then the mic is offered again;
 - `interrupt` cancels the turn and sends `stop_audio`.
@@ -70,6 +71,8 @@ class FakeStudio:
         self.step_s = 0.05             # pause between the scripted steps of Claude's turn
         self.speech_s = 0.6            # how long the spoken reply is
         self.speech_hz = (220.0,)      # ... and the tones it is made of
+        self.intro_s = 0.5             # how long a render's intro is
+        self.intro_hz = (440.0,)       # ... a tone of its own, unlike the reply's and the render's
         self.chunk_gap_s = 0.02        # between 100 ms speech chunks (faster than real time, like Kokoro)
         self.bar_s, self.bars, self.loops = 0.5, 2, 2
         self.script: Script = self.claude_turn
@@ -351,7 +354,7 @@ class FakeStudio:
         await self.speak(reply, self.speech_s)
         music = await self.present_music()
         if self.autoplay:                                  # a presented render plays by itself only with autoplay
-            await self.play(music["seq"], self.loops)
+            await self.introduce(music, self.loops)
 
     # --- making messages ----------------------------------------------------------------------------------
     def put(self, data: bytes, ext: str, mime: str, **extra: Any) -> dict[str, Any]:
@@ -384,19 +387,30 @@ class FakeStudio:
     async def speak(self, msg: dict[str, Any], seconds: float) -> None:
         """Claude's words, streamed to the owner as they are synthesised (only with autoplay on, as the Mac does)."""
         if self.autoplay:
-            stream = next(self._streams)
-            await self._send(self.owner, {"type": "speech", "stream": stream, "seq": msg["seq"],
-                                          "rate": media.SPEECH_RATE, "state": "begin"})
-            self.sent += 1
-            self._idle.clear()
-            pcm = media.speech_pcm(seconds, self.speech_hz)
-            step = media.SPEECH_RATE * 2 // 10
-            for i in range(0, len(pcm), step):
-                if not self.owner.closed:
-                    await self.owner.send_bytes(b"\x02" + stream.to_bytes(4, "big") + pcm[i:i + step])
-                await asyncio.sleep(self.chunk_gap_s)
-            await self._send(self.owner, {"type": "speech", "stream": stream, "seq": msg["seq"], "state": "end"})
+            await self._stream(msg["seq"], seconds, self.speech_hz)
         await self.update(msg, audio=self.put(media.mp3(seconds), "mp3", "audio/mpeg"), duration=seconds)
+
+    async def introduce(self, music: dict[str, Any], loops: int = 1) -> None:
+        """A render played as the Mac plays it: its intro (title, note, "Three, two, one.") streamed under the card's
+        seq, with no bubble or replay of its own, then the `play` the moment the stream ends. With autoplay off
+        nothing is spoken, and the play goes alone."""
+        if self.autoplay:
+            await self._stream(music["seq"], self.intro_s, self.intro_hz)
+        await self.play(music["seq"], loops)
+
+    async def _stream(self, seq: int, seconds: float, freqs: tuple[float, ...]) -> None:
+        stream = next(self._streams)
+        await self._send(self.owner, {"type": "speech", "stream": stream, "seq": seq, "rate": media.SPEECH_RATE,
+                                      "state": "begin"})
+        self.sent += 1
+        self._idle.clear()
+        pcm = media.speech_pcm(seconds, freqs)
+        step = media.SPEECH_RATE * 2 // 10
+        for i in range(0, len(pcm), step):
+            if not self.owner.closed:
+                await self.owner.send_bytes(b"\x02" + stream.to_bytes(4, "big") + pcm[i:i + step])
+            await asyncio.sleep(self.chunk_gap_s)
+        await self._send(self.owner, {"type": "speech", "stream": stream, "seq": seq, "state": "end"})
 
     async def present_music(self, title: str = "Kick level: now vs +3 dB") -> dict[str, Any]:
         render = media.ab_mp3(self.bar_s, self.bars)
