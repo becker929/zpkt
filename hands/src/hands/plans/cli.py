@@ -5,6 +5,7 @@ A PLAN argument is a JSON file or inline JSON: {"kit": "c8x4", "knobs": {"<track
 
     hands plan kit c8x4                          the kit: version, tempo, bar length, patterns
     hands plan knob c8x4 'rumble|plugin:Decapitator|Drive'     a knob's value and range in the kit
+    hands plan kits                              every kit, and the knobs plans have used on it (from the cache)
     hands plan lookup PLAN                       cached? else the nearest cached render, if close
     hands plan render PLAN [PLAN ...]            render what is not cached, in packs of P (one load, one export)
     hands plan ab A B                            A against B every bar, loudness-matched; renders what is missing
@@ -66,6 +67,30 @@ def kit(name: str) -> None:
     k = p.kit(name)
     _out({"kit": k.name, "set": k.set, "version": k.version(), "tempo": k.tempo(), "bar_seconds": k.bar_seconds(),
           "bars_per_pattern": k.bars_per_pattern(), "P": k.P})
+
+
+@app.command()
+def kits() -> None:
+    """Every kit, and the knobs plans have used on it with the values rendered: where to start."""
+    from .kits import kits_dir
+
+    cache = Cache()
+    used: dict[str, dict[str, set[float]]] = {}
+    for e in cache.all():
+        for k, v in e.plan.knobs.items():
+            used.setdefault(e.plan.kit, {}).setdefault(k, set()).add(round(v, 4))
+    out = {}
+    for meta in sorted(kits_dir().glob("*.json")):
+        name = meta.stem
+        try:
+            k = Planner(cache=cache, renderer=LiveRenderer()).kit(name)
+            about = {"tempo": k.tempo(), "bars_per_pattern": k.bars_per_pattern(), "P": k.P}
+        except (OSError, ValueError) as exc:
+            about = {"error": str(exc)[:120]}
+        knobs = {kid: {"renders": len(vals), "from": min(vals), "to": max(vals)}
+                 for kid, vals in sorted(used.get(name, {}).items())}
+        out[name] = {**about, "knobs_used": knobs}
+    _out(out)
 
 
 @app.command()

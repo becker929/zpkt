@@ -269,3 +269,18 @@ def test_the_cli_bakes_a_slider_in_one_pass_and_options_from_the_cache(kit_dirs,
         ["Drive 25%", "Drive 50%"]
     res3 = runner.invoke(app, ["plan", "line", picks[0], picks[1], "--stops", "3", "--fake"])
     assert [x["label"] for x in json.loads(res3.output)["options"]["options"]] == ["A", "50%", "B"]
+
+
+def test_kits_lists_each_kit_and_the_knobs_used_on_it(kit_dirs, monkeypatch):
+    from typer.testing import CliRunner
+
+    import hands.plans.render as R
+    from hands.cli import app
+
+    monkeypatch.setattr(R, "KnobReader", lambda: fake_reader)
+    runner = CliRunner()
+    runner.invoke(app, ["plan", "render", json.dumps({"kit": "t4", "knobs": {DRIVE: 0.4}}),
+                        json.dumps({"kit": "t4", "knobs": {DRIVE: 0.6}}), "--fake"])
+    out = json.loads(runner.invoke(app, ["plan", "kits"]).output)
+    assert out["t4"]["tempo"] == 160.0 and out["t4"]["P"] == 4
+    assert out["t4"]["knobs_used"] == {DRIVE: {"renders": 2, "from": 0.4, "to": 0.6}}
