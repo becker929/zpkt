@@ -180,3 +180,22 @@ async def test_the_worker_serves_both_models_over_its_pipe(kokoro):
         assert final["stop_word"] is True and "three times" in final["text"].lower(), repr(final)
     finally:
         proc.kill()
+
+
+@engines
+@pytest.mark.parametrize("quiet_s", [60, 360])
+def test_a_turn_left_listening_for_minutes_still_hears_the_line(kokoro, parakeet, quiet_s):
+    """The mic was offered and nobody spoke for minutes (driving, thinking, an app switch), then the line came. The
+    long quiet must not cost the words: in the end-to-end test a 357 s turn transcribed in one pass came back empty."""
+    pcm, rate = say(kokoro, "Make an A B of the rumble drive, forty against fifty percent. Tomato.")
+    rng = np.random.default_rng(1)
+    quiet = (rng.standard_normal(int(rate * quiet_s)) * 30).astype(np.int16)        # a room's hiss, about -60 dBFS
+    turn = parakeet.turn("tomato", rate)
+    t0 = time.monotonic()
+    events = feed(turn, np.concatenate([quiet, pcm, np.zeros(rate, np.int16)]), rate)
+    finals = [e for e in events if e["op"] == "stt.final"]
+    assert len(finals) == 1 and finals[0]["stop_word"], finals
+    text = finals[0]["text"].lower()
+    assert "rumble" in text and "fifty" in text.replace("50", "fifty"), text
+    assert finals[0]["ms"] < 3000, f"the final took {finals[0]['ms']} ms after the stop word"
+    assert time.monotonic() - t0 < quiet_s / 4, "the quiet costs little to listen to"

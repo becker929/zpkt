@@ -24,6 +24,12 @@ from harness.web import App
 
 PLANS = Path(os.environ.get("HANDS_PLANS", "~/_agent_scratch/plans")).expanduser()
 
+# The real Claude, told what a test run is: without it, it rightly stops before presenting stand-in tones as music.
+TEST_NOTE = ("This session is an automated end-to-end test of the app, not Anthony. The user is a virtual tester. "
+             "Plans already in the cache play Live's renders; anything new renders as stand-in tones on purpose "
+             "(HANDS_PLAN_RENDERER=fake), because tests never touch Live. Treat stand-ins as renders: bake, present "
+             "and play them as usual, and you may say in a few words that they are stand-ins. Do not stop to ask.")
+
 
 class MovingScreen:
     """A screen where something moves at every capture, so the saliency, the zoom and every shot level have work."""
@@ -73,7 +79,7 @@ async def start(run: Path, *, live: bool = False, real_screen: bool = False, scr
         seed_plans(run / "plans")
     os.environ.update(env)                 # the Claude session and its Bash commands inherit them
     cfg = Config(jobs_dir=run / "jobs", skrng_dir=run / "skrng", studio_dir=run / "studio", steps_port=0,
-                 extra_env=env)
+                 extra_env=env, studio_note=TEST_NOTE if not live else "")
     agent = None
     if scripted:
         from .scripted import ScriptedClaude, narrate

@@ -139,6 +139,18 @@ async def typed(u: Phone, expect: Expect, ctx: dict) -> None:
     expect("A typed turn is answered out loud", replies > 0, f"{replies} speech streams")
 
 
+async def long_wait(u: Phone, expect: Expect, ctx: dict) -> None:
+    """The mic is offered and nobody speaks for longer than the recogniser's 45 s window (driving, thinking); the
+    line that comes then is heard. A 6-minute quiet once cost the whole line."""
+    quiet = ctx.get("quiet_s", 50)
+    await u.wait(LISTENING, 120, "the page to listen")
+    await u.note("quiet", seconds=quiet)
+    await asyncio.sleep(quiet)
+    heard = await u.say("What is the rumble drive set to now?")
+    expect(f"After {quiet} s of quiet the line is heard", "drive" in heard.lower(), heard)
+    await u.wait_turn_done(300)
+
+
 async def screens(u: Phone, expect: Expect, ctx: dict) -> None:
     shots = await u.js("""() => window.__wire.log.filter((e) => e.dir === 'in' && e.msg.type === 'upsert'
         && e.msg.message.kind === 'shots').length""")
@@ -147,18 +159,18 @@ async def screens(u: Phone, expect: Expect, ctx: dict) -> None:
 
 PARTS: dict[str, Callable[[Phone, Expect, dict], Awaitable[None]]] = {
     "slider": slider, "finer": finer, "background": background, "intents": intents, "keep": keep, "typed": typed,
-    "screens": screens,
+    "long_wait": long_wait, "screens": screens,
 }
 NEEDS = {"finer": "slider", "keep": "slider"}
 
 # Suites: which parts, whose Claude, and how long getUserMedia takes (an iPhone takes about 3 s).
 SUITES = {
-    "smoke": {"parts": ["slider", "background", "intents"], "scripted": True, "mic_delay_ms": 500,
+    "smoke": {"parts": ["slider", "background", "intents"], "scripted": True, "mic_delay_ms": 500, "quiet_s": 0,
               "about": "the core loop with a scripted Claude: a slider with its intro and sweep, an app switch, a "
                        "replay (about 1 min)"},
-    "quick": {"parts": list(PARTS), "scripted": True, "mic_delay_ms": 500,
-              "about": "every part with a scripted Claude (about 3 min)"},
-    "full": {"parts": list(PARTS), "scripted": False, "mic_delay_ms": 3000,
+    "quick": {"parts": list(PARTS), "scripted": True, "mic_delay_ms": 500, "quiet_s": 50,
+              "about": "every part with a scripted Claude (about 4 min)"},
+    "full": {"parts": list(PARTS), "scripted": False, "mic_delay_ms": 3000, "quiet_s": 90,
              "about": "every part with the real Claude and narrator, as Anthony uses it (about 15 min)"},
 }
 

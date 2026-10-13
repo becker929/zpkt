@@ -42,7 +42,7 @@ async def main(args: argparse.Namespace) -> int:
             try:
                 await phone.open()
                 await phone.start()
-                ctx: dict = {}
+                ctx: dict = {"quiet_s": suite["quiet_s"]}
                 for part in parts:
                     print(f"== {part}", flush=True)
                     try:
