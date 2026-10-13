@@ -55,7 +55,7 @@ class Run:
 
 
 def all_checks(run: Run) -> list[Result]:
-    return [go_ahead_is_honest(run), nothing_heard_while_the_mic_is_open(run), one_sound_at_a_time(run),
+    return [every_tap_taken(run), go_ahead_is_honest(run), nothing_heard_while_the_mic_is_open(run), one_sound_at_a_time(run),
             music_is_introduced(run),
             no_narration_after_music(run), every_line_heard_from_its_first_word(run), every_turn_got_audio(run),
             no_errors(run)]
@@ -76,6 +76,14 @@ def mic_spans(run: Run) -> list[tuple[float, float]]:
     if opened is not None:
         spans.append((opened, run.page["now"] / 1000))
     return spans
+
+
+def every_tap_taken(run: Run) -> Result:
+    """A tap on an option takes at once: the virtual user retries a missed one (as a person would) and it counts here."""
+    missed = [e for e in run.events if e.what == "tap not taken"]
+    taps = [e for e in run.events if e.what == "tap option"]
+    return Result("Every tap on an option takes the first time", not missed,
+                  f"{len(taps)} taps, {len(missed)} not taken", [f"at {e.t / 1000:.1f} s: {e.data}" for e in missed])
 
 
 def go_ahead_is_honest(run: Run) -> Result:

@@ -27,12 +27,14 @@ async def transcribe(worker, samples: np.ndarray, rate: int) -> str:
     return text
 
 
-def ear_at(ears: list[Any], t: float):
-    """The recording of the audio context whose clock covers `t`."""
-    for ear in ears:
-        if len(ear.samples) and ear.t0 <= t <= ear.time(len(ear.samples)):
-            return ear
-    return None
+def ear_for(ears: list[Any], item: dict[str, Any]):
+    """The recording of the audio context an engine item played in. After an app switch a new context's clock starts
+    again, so several may cover its time: the one that heard its end closest to when the page logged it."""
+    t, end, seen = item["t0"], item.get("endedAt") or item["t0"], item.get("seenAt")
+    covering = [e for e in ears if len(e.samples) and e.t0 <= t <= e.time(len(e.samples))]
+    if not covering or seen is None:
+        return covering[0] if covering else None
+    return min(covering, key=lambda e: abs(e.perf(end) * 1000 - seen))
 
 
 async def intros(engine: list[dict[str, Any]], ears: list[Any], worker) -> list[dict[str, Any]]:
@@ -44,7 +46,7 @@ async def intros(engine: list[dict[str, Any]], ears: list[Any], worker) -> list[
             continue
         prev = engine[i - 1] if i else None
         found: dict[str, Any] = {"seq": item["seq"], "intro_seq": None, "text": "", "gap_s": None}
-        ear = ear_at(ears, item["t0"])
+        ear = ear_for(ears, item)
         if prev and prev.get("kind") == "speech" and prev.get("t0") is not None and ear is not None:
             found["intro_seq"] = prev["seq"]
             said = ear.between(prev["t0"], item["t0"])

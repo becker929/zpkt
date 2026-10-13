@@ -62,7 +62,8 @@ async def slider(u: Phone, expect: Expect, ctx: dict) -> None:
         await asyncio.sleep(opts["bar_seconds"] * 1.3)
     expect("During the sweep the card shows the option that sounds", agree and all(a == b for a, b in agree), agree)
     await u.wait_turn_done(420)
-    swept = [e for e in u.recording.engine if e.get("seq") == card["seq"] and e.get("counted")]
+    swept = [e for e in u.recording.engine if e.get("seq") == card["seq"] and e.get("counted")
+             and e.get("kind") == "music"]           # the intro is speech for the same card
     n, bar = len(opts["options"]), opts["bar_seconds"]
     expect("The Mac's play sweeps a bar of each option",
            swept and abs((swept[0]["stopAt"] - swept[0]["t0"]) - n * bar) < 0.05,

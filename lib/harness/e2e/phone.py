@@ -219,7 +219,8 @@ class Phone:
             await self.js("() => (window.__ears || []).forEach((e) => e.node?.port.postMessage('flush'))")
             await asyncio.sleep(0.3)
         self.recording.add_ears(await self.js(DRAIN))
-        self.recording.add_engine(await self.js("window.studio.engine.log"))
+        got = await self.js("() => ({ log: window.studio.engine.log, now: performance.now() })")
+        self.recording.add_engine(got["log"], got["now"])
 
     async def close(self) -> None:
         if self._poll:
@@ -284,13 +285,25 @@ class Phone:
         await self.note(f"tap {what or selector}")
 
     async def tap_option(self, seq: int, index: int) -> None:
-        """A tap on a slider's tick, or on an option's button."""
+        """A tap on a slider's tick, or on an option's button, once the chat has stopped moving. A tap the card did
+        not take is tried once more, as a person would, and noted (the report counts them)."""
         sel = f'#messages [data-seq="{seq}"]'
         loc = self.page.locator(f"{sel} .opt-tick[data-index='{index}'], {sel} .opt-button[data-index='{index}']").first
-        await loc.scroll_into_view_if_needed()
-        box = await loc.bounding_box()
-        await self.page.touchscreen.tap(box["x"] + box["width"] / 2, box["y"] + box["height"] / 2)
-        await self.note("tap option", seq=seq, index=index)
+        for attempt in (1, 2):
+            await loc.scroll_into_view_if_needed()
+            await self.js("() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))")
+            await asyncio.sleep(0.3)
+            box = await loc.bounding_box()
+            await self.page.touchscreen.tap(box["x"] + box["width"] / 2, box["y"] + box["height"] / 2)
+            await self.note("tap option", seq=seq, index=index, attempt=attempt)
+            try:
+                await self.page.wait_for_function(
+                    f"() => document.querySelector('{sel}')?.dataset.pick === '{index}'", timeout=1500)
+                return
+            except Exception:                  # noqa: BLE001 - not taken: look, then try once more
+                await self.shot(f"tap-missed-{seq}-{index}")
+                await self.note("tap not taken", seq=seq, index=index,
+                                pick=await self.js(f"() => document.querySelector('{sel}')?.dataset.pick"))
 
     async def switch_apps(self, away_s: float) -> None:
         """Leave for another app, as iOS does it: hidden, the capture tracks ended, the audio interrupted."""

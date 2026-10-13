@@ -32,12 +32,14 @@ class Recording:
             e["heardAt"] += r["heardAt"]
             e["now"] += r["now"]
 
-    def add_engine(self, log: list[dict[str, Any]]) -> None:
+    def add_engine(self, log: list[dict[str, Any]], now: float) -> None:
+        """New items of the engine's log, each with `seenAt`: the page's clock (ms) when it was first taken. After an
+        app switch the page has a new audio context whose clock starts again, and seenAt tells the two apart."""
         for item in log:
             key = json.dumps(item, sort_keys=True)
             if key not in self._seen:
                 self._seen.add(key)
-                self.engine.append(item)
+                self.engine.append({**item, "seenAt": now})
 
     def ears(self) -> list[Ear]:
         """One Ear per audio context, each chunk at its own time (as heard.heard builds them)."""
