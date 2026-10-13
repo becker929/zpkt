@@ -179,9 +179,11 @@ async def test_a_spoken_turn_through_the_real_speech_models_to_an_ab(chromium, s
     first_turn = conv.turn
     await until(lambda: conv.phase.value == "listening" and conv.turn != first_turn, 120)
     log = await page.evaluate("window.studio.engine.log")
-    assert [e["kind"] for e in log if e["counted"]][:3] == ["speech", "music", "speech"] or \
-        {e["kind"] for e in log if e["counted"]} == {"speech", "music"}
-    assert all(e["outcome"] == "played" for e in log if e["counted"])
+    # Claude's two replies, then the render's intro (Kokoro saying its title, its note and the count-in), then it.
+    counted = [e for e in log if e["counted"]]
+    assert [e["kind"] for e in counted] == ["speech", "speech", "speech", "music"], counted
+    assert counted[2]["seq"] == counted[3]["seq"]
+    assert all(e["outcome"] == "played" for e in counted)
 
     # The turn was timed end to end.
     text = report(studio.store.timings(5))

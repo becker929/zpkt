@@ -12,6 +12,7 @@ from .agent import AgentEvent, TextDelta, TextDone, ThinkingDelta, ThinkingDone,
 from .model import Kind, Message, Phase
 from .speech import Utterance
 from .timing import TurnClock
+from .tools import MUSIC_TOOLS
 
 if TYPE_CHECKING:
     from .conversation import Conversation
@@ -58,7 +59,8 @@ class TurnMessages:
                                            "detail": detail(ev.input)})
             self.tools[ev.id] = (act, time.monotonic())
             conv.set_phase(Phase.WORKING, title)
-            conv.narrator.note(title)
+            if ev.name not in MUSIC_TOOLS:       # music gets its own intro when it plays: nothing to narrate
+                conv.narrator.note(title)
             clock.mark("tool", tool=ev.name)
         elif isinstance(ev, ToolDone) and ev.id in self.tools:
             act, t0 = self.tools.pop(ev.id)
