@@ -22,11 +22,25 @@ come with permission), so the phone's mic is used from the next open on.
    Haiku model narrates what it is doing in a few words, and screenshots of its actions arrive at the level you chose.
    Its thinking, tool calls and screenshots fold into one trace bubble in the chat (never spoken).
 3. **Claude answers.** Its words are spoken (Kokoro, on the Mac, streamed as it is generated). Music it renders arrives
-   as its own bubble. With autoplay on (the default) both play in order.
+   as its own bubble at once, but plays only after Claude's turn is over, after everything it said: for each render,
+   in order, the app says its title, then its note, then "Three, two, one.", and the music starts as the count-in
+   ends. With autoplay on (the default) all of it plays in order; with it off, nothing is spoken or played by itself.
 4. **Your turn again.** When the phone has finished playing, the mic opens.
 
+Music never starts unannounced, and words about it never come after it: on the phone, in a car, there is nothing to
+look at. So the order is Claude's words, then the intro, then the music. The intro is the app's, not Claude's: the
+render's `title` and its `note` (one or two sentences, what it is and what to listen for), which Claude writes for
+`present_music` knowing they are spoken just before the music, so its reply needs only a few words about it. Once
+Claude has put music in the turn, the narrator says nothing more (a line being written is dropped, and so are lines
+waiting to be spoken): the intro says what the music is. A narration already playing ends first; the phone plays
+everything in order, so nothing is ever heard over anything else. Interrupting drops the music still waiting.
+
 "Play again" and "loop that three times" replay the last music at once, without waiting for Claude: a small command
-parser catches them and calls the same `play_music(loops=N)` tool Claude has. Claude is told about it on its next turn.
+parser catches them and calls the same `play_music(loops=N)` tool Claude has. Their intro is short ("Again: Kick
+drive. Three, two, one."), said once however many loops. Claude is told about it on its next turn. When Claude itself
+calls `play_music`, the replay waits for the end of its turn like a render. Music presented while no turn of Claude's
+is running gets its full intro and plays at once. With autoplay off a replay plays without an intro, and a tap on a
+bubble always plays it at once, with no intro.
 
 ## Processes
 
@@ -54,14 +68,16 @@ lib/harness/src/harness/studio/
   protocol.py      the WebSocket's JSON messages and binary frames
   routes.py        routes: page, static files, history, media, WebSocket
   assets.py        the page's files: versioned URLs cached for good, gzipped once, modulepreloads, first page
-  conversation.py  the turn loop: phases, who has the turn, what plays next; a turn that fails hands the mic back
+  conversation.py  the turn loop: phases, who has the turn, what plays next (music after Claude's words, each with
+                   its intro); a turn that fails hands the mic back
   turn.py          one Claude turn's events as chat messages: replies (spoken), thinking, tool calls
   playback.py      what the owner's phone has still to play, counted back, before the mic opens
   agent.py         the Claude Code session: streaming text and thinking, tool activity, interrupt, resume
-  tools.py         the tools Claude gets from the app (present_music, play_music, stop_audio, screenshot)
+  tools.py         the tools Claude gets from the app (present_music, play_music, stop_audio, screenshot); their
+                   descriptions tell Claude when the music plays, and that present_music's `note` is spoken in its intro
   intents.py       spoken commands handled without Claude (play again, loop N times, stop)
   speech.py        the voice worker's client, and the speaker: text to segments to streamed audio to a replay file
-  narrator.py      Haiku narration: rate-limited, stale lines dropped
+  narrator.py      Haiku narration: rate-limited, stale lines dropped, quiet once music waits for the turn's end
   screens.py       screenshot pairs at the chosen level: when to capture, and the chat messages
   shots.py         saliency (what changed), the 4:3 zoom, WebP presets per level
   grab.py          the capture: screengrab.swift (ScreenCaptureKit), built on first use; screencapture fallback
@@ -151,7 +167,8 @@ distances compare across knobs; a cached plan within a small distance is offered
 **A/B every bar.** Two renders of the same section become one file: each is set to the same loudness (BS.1770
 integrated, -14 LUFS), the first bar (the previous pattern's tail) is dropped, and bars alternate A, B, A, B with 10 ms crossfades.
 The file goes to the chat with `present_music` and its `ab` metadata (bar length, bars, which side starts, labels),
-and the page lights A or B in time.
+and the page lights A or B in time. Its `note` says which side is which and what to listen for: it is spoken
+right before the A/B plays.
 
 **Options, switched on the phone.** An A/B compares two renders; options put N of them in one file
 (`hands/src/hands/plans/options.py`): one knob at N values (`hands plan slider`), N steps from one plan to another
@@ -165,7 +182,8 @@ sounds like the set now, each option's label and `match_db`), checks it against 
 music message keeps it. The page fetches the file as soon as the card is in the chat, before any tap, and decodes
 it as soon as there is an audio context. From then on nothing goes to the Mac until a choice is made:
 
-- the Mac's `play` (autoplay) **sweeps**: option k sounds during bar k, one bar of each, in order;
+- the Mac's `play` (autoplay, after the card's intro) **sweeps**: option k sounds during bar k, one bar of each, in
+  order;
 - a tap on the card, or on the slider, **holds** an option: it loops its bars until stopped (at most ten minutes);
 - moving the slider or tapping a button switches 15 ms later, at the same place in the bar: every option is read at
   `(t - t0) mod its length`, so the beat goes on. The switch is a 12 ms crossfade, and touching a sweep turns it into
@@ -266,8 +284,8 @@ Mac → phone:
 | `owner` | `owner` | this page has just gained (`true`) or lost (`false`) the mic and the speaker |
 | `caption` | `turn`, `text` | the live transcript of the turn so far |
 | `upsert` | `message` | a message is new or changed |
-| `speech` | `stream`, `seq`, `rate`, `state` (begin/end) | a speech stream starts or ends; its audio comes in `0x02` frames |
-| `play` | `seq`, `loops` | play a music message, after anything already queued |
+| `speech` | `stream`, `seq`, `rate`, `state` (begin/end) | a speech stream starts or ends; its audio comes in `0x02` frames. `seq` is the bubble it speaks for: a reply, a narration, or a music bubble (its intro: the card lights while it is said) |
+| `play` | `seq`, `loops` | play a music message, after anything already queued; with autoplay on it comes the moment its intro's stream ends |
 | `stop_audio` | | stop and clear everything playing (and restart the `done` count) |
 | `reset` | `conversation` | a new conversation started: clear the chat |
 | `notice` | `level`, `text` | a passing notice |
@@ -276,8 +294,9 @@ Mac → phone:
 **Counting items.** An item is one `speech` stream (begin to end) or one `play` command. The phone counts every
 item it finishes or drops (stopped, interrupted, replaced by a tap) and reports the count in `playback`; the count
 restarts when the phone sends `start` and when it receives `stop_audio`. The Mac opens the mic only when the count
-has caught up with what it sent, so a lost message can't open the mic over the music. Speech streams are sent only
-to a phone with autoplay on; `play` commands are explicit requests and play either way.
+has caught up with what it sent, so a lost message can't open the mic over the music. A render's intro is a speech
+stream like any other, counted the same way. Speech streams are sent only to a phone with autoplay on; `play`
+commands are explicit requests and play either way.
 
 HTTP (all behind the password): `GET /studio/api/messages?before=<seq>&limit=<n>` →
 `{"items": [...oldest first...], "has_more": bool}`; `GET /studio/api/timings?turns=<n>`;
