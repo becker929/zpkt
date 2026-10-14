@@ -1,5 +1,6 @@
-"""The checklist page (/studio/checklist/): HW002's seven steps, the lowest incomplete one current, holding an item
-clears it (and a cleared step hands over to the next), a tap opens the item's mock-up."""
+"""The checklist page (/studio/checklist/): HW002's seven steps, the lowest incomplete one current, each step a path
+(your move, what the agent has cleared ahead of you, where it is clearing, the fog past it), holding an item clears it
+(and a cleared step hands over to the next), a tap opens the item's mock-up."""
 
 from __future__ import annotations
 
@@ -48,6 +49,8 @@ async def test_it_shows_the_spine_with_the_kick_current(either, checklist):
     states = await page.eval_on_selector_all(".card", "cs => cs.map((c) => c.dataset.state)")
     assert states == ["clear", "clear", "clear", "current", "open", "open", "open"]
     assert await page.locator("#step-kick.open").count() == 1
+    roles = await page.eval_on_selector_all("#step-kick .item", "els => els.map((e) => e.dataset.role)")
+    assert roles[:6] == ["done", "you", "ready", "ready", "clearing", "ahead"]      # the agent clears the way ahead of you
     assert errors == [], errors
     await page.context.close()
 
@@ -59,6 +62,8 @@ async def test_holding_clears_a_tap_peeks_and_the_step_hands_over(webkit, checkl
     assert await page.get_attribute("#step-kick .item[data-id='roar']", "data-state") == "open"
     await page.evaluate(HOLD, ["kick", "roar", 700])                      # a hold clears it
     assert await page.get_attribute("#step-kick .item[data-id='roar']", "data-state") == "done"
+    await page.evaluate(HOLD, ["kick", "drive", 700])                     # your move made: the next ready item is yours
+    assert await page.get_attribute("#step-kick .item[data-id='decapStyle']", "data-role") == "you"
     ids = await page.eval_on_selector_all("#step-kick .item", "els => els.map((e) => e.dataset.id)")
     for i in ids:
         if await page.get_attribute(f"#step-kick .item[data-id='{i}']", "data-state") != "done":

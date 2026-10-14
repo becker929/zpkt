@@ -68,7 +68,10 @@ items are HW002's for real; what is inside an item (sub-steps, the agent's quest
 wireframe, labelled as mocked. It is meant to feel like a precise video game, so moving the track along is its own
 pull: a current-objective HUD, the spine as seven gems, items that clear with a hold (the socket and the row fill;
 on release a click, layered white rings and a diagonal flash across the step), a banner when a step is cleared, and
-the next step taking over. Items waiting on Anthony breathe in amber; items with the agent march in dotted blue.
+the next step taking over. Each step is a path: Anthony's move is its first open item (and any item waiting on his
+listening), in amber; the agent works further down, so the items between are ready (cleared, each waiting on his
+move above) on a dotted blue trail; the agent's own item is being cleared (a marching line and a scan); past it is
+fog.
 Checks are kept in the browser until the agent's store exists.
 
 ## The reference space
