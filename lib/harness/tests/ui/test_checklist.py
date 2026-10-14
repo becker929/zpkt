@@ -1,6 +1,7 @@
 """The checklist page (/studio/checklist/): HW002's seven steps, the lowest incomplete one current, each step a path
 (your move, what the agent has cleared ahead of you, where it is clearing, the fog past it), holding an item clears it
-(and a cleared step hands over to the next), a tap opens the item's mock-up."""
+(and a cleared step hands over to the next), a tap opens the item's sub-list (below it, or on a page of its own), and
+the tweaks panel changes how the page is built."""
 
 from __future__ import annotations
 
@@ -57,8 +58,10 @@ async def test_it_shows_the_spine_with_the_kick_current(either, checklist):
 
 async def test_holding_clears_a_tap_peeks_and_the_step_hands_over(webkit, checklist):
     page, errors = await _open(webkit, checklist)
-    await page.evaluate(HOLD, ["kick", "roar", 100])                      # a tap: the mock-up opens, nothing clears
-    assert await page.locator("#step-kick .item[data-id='roar'].peek").count() == 1
+    await page.evaluate(HOLD, ["kick", "roar", 100])                      # a tap: the sub-list opens, nothing clears
+    assert await page.locator("#step-kick .item[data-id='roar'].peek .sub").count() >= 2
+    href = await page.get_attribute("#step-kick .item[data-id='roar'] .studio-link", "href")
+    assert href == "/studio/?focus=hw002.kick.roar"
     assert await page.get_attribute("#step-kick .item[data-id='roar']", "data-state") == "open"
     await page.evaluate(HOLD, ["kick", "roar", 700])                      # a hold clears it
     assert await page.get_attribute("#step-kick .item[data-id='roar']", "data-state") == "done"
@@ -75,5 +78,28 @@ async def test_holding_clears_a_tap_peeks_and_the_step_hands_over(webkit, checkl
     assert await page.text_content("#hud-name") == "Mix"                  # kept in this browser
     await page.click("#reset")
     assert await page.text_content("#hud-name") == "Kick"
+    assert errors == [], errors
+    await page.context.close()
+
+
+async def test_the_tweaks_panel_changes_how_the_page_is_built(webkit, checklist):
+    page, errors = await _open(webkit, checklist)
+    assert await page.is_hidden("#hud")                                       # the default objective is the strip
+    assert await page.is_visible("#strip")
+    await page.click("#tweaks-tab")
+    await page.wait_for_timeout(400)
+    await page.click(".tw[data-id='objective'] button[data-v='full']")
+    assert await page.is_visible("#hud") and await page.is_hidden("#strip")
+    await page.click(".tw[data-id='details'] button[data-v='drill']")
+    await page.click("#tweaks-tab")
+    await page.wait_for_timeout(400)
+    await page.evaluate(HOLD, ["kick", "comp", 100])                      # a tap now opens the item's own page
+    await page.wait_for_selector("#drill.open .sub")
+    assert "compressor" in await page.text_content("#drill h2")
+    await page.click("#drill-back")
+    await page.wait_for_function("() => !document.getElementById('drill').classList.contains('open')")
+    await page.reload()
+    await page.wait_for_selector(".card")
+    assert await page.evaluate("document.documentElement.dataset.objective") == "full"      # kept
     assert errors == [], errors
     await page.context.close()
