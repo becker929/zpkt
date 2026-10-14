@@ -1,0 +1,79 @@
+/* The tweaks: the side panel with its tab, and what each tweak changes on the page (html[data-<tweak>]). */
+
+/* ---- the panel ---- */
+.tweaks {
+  --w: min(320px, 86vw);
+  position: fixed; top: 0; right: 0; bottom: 0; z-index: 40; width: var(--w);
+  transform: translateX(100%); transition: transform .34s var(--ease); visibility: hidden;
+}
+.tweaks.open { transform: none; visibility: visible; }
+/* the tab is its own fixed element (inside the transformed panel WebKit stops hit-testing it once the page scrolls) */
+.tweaks-tab {
+  position: fixed; z-index: 41; right: 0; top: 70%; width: 26px; height: 92px; opacity: .85;
+  transition: transform .34s var(--ease);
+  display: grid; justify-items: center; align-content: center; gap: 8px;
+  background: var(--steel-2); border: 1px solid var(--steel-4); border-right: 0;
+  border-radius: 10px 0 0 10px; color: var(--text-2);
+  box-shadow: -6px 0 18px rgb(0 0 0 / 0.35);
+}
+.tweaks-tab svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; }
+.tweaks-tab span { writing-mode: vertical-rl; transform: rotate(180deg); font: 600 9.5px var(--mono); letter-spacing: 0.22em; text-transform: uppercase; }
+.tweaks-tab[aria-expanded='true'] { opacity: 1; transform: translateX(calc(-1 * min(320px, 86vw))); color: var(--hazard); border-color: rgb(255 90 31 / 0.5); }
+.tweaks-panel {
+  height: 100%; overflow-y: auto; overscroll-behavior: contain;
+  padding: calc(env(safe-area-inset-top) + 18px) 16px calc(env(safe-area-inset-bottom) + 24px);
+  background: var(--steel-1); border-left: 1px solid var(--steel-4);
+}
+.tw-head { margin-bottom: 18px; }
+.tw-head b { display: block; font: 800 18px var(--mono); letter-spacing: 0.1em; text-transform: uppercase; }
+.tw-head span { font-size: 12px; color: var(--text-3); }
+.tw { margin-bottom: 16px; }
+.tw-label { font: 600 10px var(--mono); letter-spacing: 0.16em; text-transform: uppercase; color: var(--text-3); margin-bottom: 7px; }
+.seg { display: flex; flex-wrap: wrap; gap: 4px; }
+.seg button {
+  flex: 1 1 auto; min-height: 40px; padding: 0 10px; background: var(--steel-0); border: 1px solid var(--steel-3);
+  font: 600 12px var(--sans); color: var(--text-2); transition: background .15s, color .15s, border-color .15s;
+}
+.seg button[aria-checked='true'] { background: var(--hazard-dim); border-color: var(--hazard); color: var(--text); }
+.tw-reset { width: 100%; margin-top: 8px; min-height: 44px; border: 1px solid var(--steel-3); font: 600 11px var(--mono); letter-spacing: 0.12em; text-transform: uppercase; color: var(--text-2); }
+.scrim { position: fixed; inset: 0; z-index: 35; background: rgb(0 0 0 / 0.45); opacity: 0; pointer-events: none; transition: opacity .3s; }
+.scrim.show { opacity: 1; pointer-events: auto; }
+
+/* ---- the current objective, five ways ---- */
+.strip, .hdr-obj { display: none; }
+html:not([data-objective='full']) .hud { display: none; }
+html[data-objective='strip'] .strip {
+  grid-column: 1 / -1; display: grid; grid-template-columns: auto auto 1fr auto; align-items: center; gap: 8px;
+  margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--line);
+}
+.strip-n { font: 800 13px var(--mono); color: var(--hazard); }
+.strip-name { font: 650 13px var(--sans); }
+.strip-bar { display: flex; gap: 2px; height: 4px; }
+.strip-bar i { flex: 1; background: var(--steel-3); }
+.strip-bar i.done { background: var(--acid); }
+.strip-bar i.you { background: var(--lcd); }
+.strip-bar i.ready { background: rgb(89 199 255 / 0.45); }
+.strip-bar i.clearing { background: var(--cold); }
+.strip-meta { font: 500 11px var(--mono); color: var(--lcd); white-space: nowrap; }
+html[data-objective='header'] #about { display: none; }
+html[data-objective='header'] .hdr-obj { display: block; color: var(--hazard); font-family: var(--mono); font-size: 11.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+html[data-objective='hidden'] .card[data-state='current'] { box-shadow: none; border-color: var(--line); --bracket: var(--steel-4); }
+html[data-objective='hidden'] .card[data-state='current'] .num,
+html[data-objective='hidden'] .card[data-state='current'] .state { color: var(--text-3); }
+html[data-objective='hidden'] .node[data-state='current'] .gem { animation: none; border-color: var(--steel-4); background: var(--bg); }
+html[data-objective='hidden'] .node[data-state='current'] .node-n { color: var(--text-3); }
+html[data-objective='spine'] .spine { margin-top: 22px; }
+
+/* ---- the rest ---- */
+html[data-spine='off'] .spine { display: none; }
+html[data-path='off'] .item::before { display: none; }
+html[data-fog='off'] .item[data-role='ahead'] .sock svg,
+html[data-fog='off'] .item[data-role='ahead'] .label { opacity: 1; }
+html[data-brackets='off'] .hud::before, html[data-brackets='off'] .hud::after,
+html[data-brackets='off'] .card::before, html[data-brackets='off'] .card::after { display: none; }
+html[data-density='compact'] .row:not(.sub-row) { min-height: 46px; padding-top: 6px; padding-bottom: 6px; }
+html[data-density='compact'] .ttl { font-size: 14px; }
+html[data-density='compact'] .card-head { min-height: 52px; padding-top: 10px; padding-bottom: 9px; }
+html[data-density='compact'] main { gap: 6px; }
+html[data-effects='off'] .item.stamp .sock, html[data-effects='off'] .item.stamp .ttl,
+html[data-effects='off'] .count.bump { animation: none; }

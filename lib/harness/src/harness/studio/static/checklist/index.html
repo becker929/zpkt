@@ -6,6 +6,7 @@
   <meta name="theme-color" content="#0a0a0b">
   <title>Track Checklist</title>
   <link rel="stylesheet" href="checklist.css">
+  <link rel="stylesheet" href="tweaks.css">
 </head>
 <body>
   <label class="haptic" aria-hidden="true"><input type="checkbox" switch tabindex="-1"></label>
@@ -16,8 +17,10 @@
     <div class="title">
       <h1 id="track">—</h1>
       <p id="about"></p>
+      <p id="hdr-obj" class="hdr-obj"></p>
     </div>
     <div class="total"><b id="total-n">0</b><span>/</span><span id="total-of">0</span></div>
+    <div class="strip" id="strip"><span class="strip-n" id="strip-n"></span><span class="strip-name" id="strip-name"></span><span class="strip-bar" id="strip-bar"></span><span class="strip-meta" id="strip-meta"></span></div>
   </header>
 
   <section class="hud" id="hud" aria-live="polite">
@@ -33,10 +36,29 @@
 
   <footer class="foot">
     <p id="draft"></p>
-    <p>Hold an item to clear it. Hold a cleared one to open it again. Tap to look inside. Your checks stay on this phone
-      for now.</p>
-    <button type="button" id="reset">Reset this draft</button>
+    <p>Hold an item to clear it; hold a cleared one to open it again. Tap an item for its sub-list. The side tab changes
+      how the page is built. Checks and tweaks stay on this phone for now.</p>
+    <button type="button" id="reset">Reset the checks</button>
   </footer>
+
+  <section class="drill" id="drill" aria-hidden="true">
+    <header class="drill-top">
+      <button type="button" class="back" id="drill-back" aria-label="Back to the checklist">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>
+      </button>
+      <div class="drill-crumb" id="drill-crumb"></div>
+    </header>
+    <div class="drill-body" id="drill-body"></div>
+  </section>
+
+  <aside class="tweaks" id="tweaks" aria-label="Tweaks">
+    <div class="tweaks-panel" id="tweaks-panel"></div>
+  </aside>
+  <button type="button" class="tweaks-tab" id="tweaks-tab" aria-expanded="false" aria-controls="tweaks-panel">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg>
+    <span>Tweaks</span>
+  </button>
+  <div class="scrim" id="scrim"></div>
 
   <div class="banner" id="banner" aria-hidden="true"><div class="banner-in"><span id="banner-n"></span><b id="banner-name"></b><i>Cleared</i></div></div>
   <script type="module" src="checklist.js"></script>

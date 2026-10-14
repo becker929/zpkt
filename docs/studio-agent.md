@@ -74,6 +74,18 @@ move above) on a dotted blue trail; the agent's own item is being cleared (a mar
 fog.
 Checks are kept in the browser until the agent's store exists.
 
+Second pass, from Anthony's feedback the same day:
+
+- **No widgets in the checklist.** Tapping an item opens its sub-list (sub-items, mocked, that clear like items), and
+  the work itself happens in studio: each item links to `/studio/?focus=<track>.<step>.<item>` (studio does not open
+  on an item yet).
+- **A tweaks panel** on a tab at the right edge changes how the page is built, live, kept in the browser: the current
+  objective as a panel, a strip in the header (the default), a line in the header, the gems alone, or off; the gems;
+  a tap opening the sub-list below or on a page of its own; a studio button on each row; the path line; the fog;
+  clearing effects (full, subtle, off); the hold time; density; corner brackets.
+- Every control acts on the touch itself (`onTap` in `tweaks.js`): iPhone WebKit can swallow the click after a touch
+  when it thinks the page changed under the finger, and this page always animates.
+
 ## The reference space
 
 The references are the base of every flow. Each reference, measured on a step's dimensions, is a point; together they
