@@ -1,0 +1,76 @@
+/* The shared widgets: knob, fader, toggle. Each takes --c (its stage colour). More widget families add rules here
+   under their own .w-<name> prefix. */
+
+.w-label {
+  font: 600 10px/1.2 var(--mono); letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-2);
+  text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%;
+}
+.lcd-s {
+  font: 600 12px/1 var(--mono); color: var(--lcd); text-align: center; font-variant-numeric: tabular-nums;
+  background: #070707; border: 1px solid #000; border-radius: 5px; padding: 4px 6px;
+  box-shadow: inset 0 1px 3px rgb(0 0 0 / 0.8), 0 1px 0 rgb(255 255 255 / 0.04);
+  text-shadow: 0 0 6px rgb(255 181 71 / 0.35); white-space: nowrap;
+}
+.is-set > .lcd-s, .is-set .lcd-s { color: var(--acid); text-shadow: 0 0 6px rgb(198 255 61 / 0.35); }
+
+/* --- knob --------------------------------------------------------------------------------------------------- */
+.w-knob { display: grid; justify-items: center; gap: 5px; width: calc(var(--size) + 18px); outline: none; }
+.k-dial { width: var(--size); height: var(--size); touch-action: none; cursor: grab; }
+.k-svg { width: 100%; height: 100%; overflow: visible; }
+.k-tick { stroke: var(--steel-4); stroke-width: 1.4; stroke-linecap: round; }
+.k-track { fill: none; stroke: #050505; stroke-width: 5; stroke-linecap: round; }
+.k-tried { fill: none; stroke: var(--tried); stroke-width: 5; stroke-linecap: butt; }
+.k-value { fill: none; stroke: var(--c); stroke-width: 3.4; stroke-linecap: round; filter: drop-shadow(0 0 3px var(--c)); }
+.k-set { fill: var(--acid); stroke: #000; stroke-width: 1; }
+.k-body { fill: url(#none); fill: #22252a; stroke: #000; stroke-width: 1.5; }
+.skin-steel .k-body { fill: #2a2d33; }
+.k-knurl { fill: none; stroke: rgb(255 255 255 / 0.09); stroke-width: 5; stroke-dasharray: 1.2 2.1; }
+.k-face { fill: #1a1c20; stroke: rgb(255 255 255 / 0.06); stroke-width: 1; }
+.k-pointer { stroke: var(--c); stroke-width: 3; stroke-linecap: round; }
+.w-knob.is-touched .k-face { fill: #23262b; }
+.w-knob.is-touched .k-value { stroke-width: 4.4; }
+.skin-cap .k-body { fill: #d9d4c8; } .skin-cap .k-face { fill: #ebe6da; } .skin-cap .k-pointer { stroke: #111; }
+.skin-chicken .k-knurl { display: none; }
+
+/* --- fader -------------------------------------------------------------------------------------------------- */
+.w-fader { display: grid; justify-items: center; gap: 6px; outline: none; }
+.f-groove {
+  position: relative; width: 44px; height: var(--len); touch-action: none; cursor: grab;
+  background: linear-gradient(90deg, transparent 19px, #030303 19px, #030303 25px, transparent 25px);
+}
+.f-mark { position: absolute; left: 6px; right: 6px; bottom: var(--at); height: 1px; background: var(--steel-3); }
+.f-tried { position: absolute; left: 17px; width: 10px; bottom: var(--lo); top: calc(100% - var(--hi)); background: var(--tried); border-radius: 2px; }
+.f-fill { position: absolute; left: 20px; width: 4px; bottom: 0; height: var(--v); background: var(--c); box-shadow: 0 0 8px var(--c); border-radius: 2px; opacity: 0.85; }
+.f-set { position: absolute; left: 2px; width: 8px; bottom: var(--at); height: 3px; margin-bottom: -1.5px; background: var(--acid); border-radius: 2px; }
+.f-cap {
+  position: absolute; left: 4px; right: 4px; height: 30px; bottom: var(--v); margin-bottom: -15px;
+  border-radius: 6px; border: 1px solid #000;
+  background: linear-gradient(#5b616b, #2d3137 45%, #1d2024 55%, #3a3f46);
+  box-shadow: 0 6px 10px rgb(0 0 0 / 0.6), inset 0 1px 0 rgb(255 255 255 / 0.18);
+}
+.f-cap::after { content: ""; position: absolute; left: 4px; right: 4px; top: 14px; height: 2px; background: var(--c); border-radius: 1px; }
+.w-fader.is-touched .f-cap { filter: brightness(1.25); }
+.w-fader.is-h .f-groove { width: var(--len); height: 44px; background: linear-gradient(transparent 19px, #030303 19px, #030303 25px, transparent 25px); }
+.w-fader.is-h .f-mark { top: 6px; bottom: 6px; left: var(--at); width: 1px; height: auto; right: auto; }
+.w-fader.is-h .f-tried { top: 17px; height: 10px; left: var(--lo); right: calc(100% - var(--hi)); width: auto; bottom: auto; }
+.w-fader.is-h .f-fill { top: 20px; height: 4px; left: 0; width: var(--v); bottom: auto; }
+.w-fader.is-h .f-set { top: 2px; height: 8px; width: 3px; left: var(--at); margin-left: -1.5px; bottom: auto; margin-bottom: 0; }
+.w-fader.is-h .f-cap { top: 4px; bottom: 4px; height: auto; width: 30px; left: var(--v); margin-left: -15px; right: auto; margin-bottom: 0; }
+.w-fader.is-h .f-cap::after { left: 14px; right: auto; width: 2px; top: 4px; bottom: 4px; height: auto; }
+.w-fader.is-thin .f-groove { width: 34px; }
+
+/* --- toggle ------------------------------------------------------------------------------------------------- */
+.w-toggle {
+  display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 8px 12px;
+  border-radius: 10px; border: 1px solid #000;
+  background: linear-gradient(#2b2f35, #1b1d21); color: var(--text-2);
+  box-shadow: 0 4px 0 #050505, inset 0 1px 0 rgb(255 255 255 / 0.08);
+  font: 600 11px var(--mono); letter-spacing: 0.08em; text-transform: uppercase;
+  transition: transform 0.05s, box-shadow 0.05s;
+}
+.w-toggle:active { transform: translateY(3px); box-shadow: 0 1px 0 #050505, inset 0 1px 0 rgb(255 255 255 / 0.08); }
+.w-toggle.is-wide { width: 100%; justify-content: center; }
+.t-led { width: 9px; height: 9px; border-radius: 50%; background: #2a1a12; box-shadow: inset 0 1px 2px #000; flex: none; }
+.w-toggle.is-on { color: var(--text); }
+.w-toggle.is-on .t-led { background: var(--c); box-shadow: 0 0 8px var(--c), 0 0 2px var(--c); }
+.t-text { color: var(--lcd); }

@@ -79,6 +79,8 @@ class Config:
     tts_speed: float = float(os.environ.get("HARNESS_TTS_SPEED", "1.0"))
     stop_word: str = os.environ.get("HARNESS_STOP_WORD", "tomato")
     steps_port: int = int(os.environ.get("HARNESS_STEPS_PORT", "8788"))
+    # The lab (/studio/lab/): HW002's stems and clips as the phone plays them, built by `harness lab-audio`.
+    lab_audio: Path = Path(os.environ.get("HARNESS_LAB_AUDIO", Path.home() / "_agent_scratch" / "lab" / "audio"))
 
     @property
     def app_url(self) -> str:

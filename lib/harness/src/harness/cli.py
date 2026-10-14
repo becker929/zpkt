@@ -1,4 +1,4 @@
-"""harness serve | job "<prompt>" | jobs | show <id> | timings [--turns N] | studio-music-mp3 [--dry-run]"""
+"""harness serve | job "<prompt>" | jobs | show <id> | timings [--turns N] | studio-music-mp3 [--dry-run] | lab-audio | lab-params"""
 
 from __future__ import annotations
 
@@ -24,6 +24,11 @@ def main() -> None:
     t.add_argument("--turns", type=int, default=100)
     m = sub.add_parser("studio-music-mp3", help="studio's old FLAC music as MP3, which iPhone Safari can play")
     m.add_argument("--dry-run", action="store_true", help="only say what would be converted")
+    la = sub.add_parser("lab-audio", help="HW002's stems and clips for the lab (/studio/lab/), outside the repo")
+    la.add_argument("--set", help="the Live set whose clips and arrangement to read")
+    la.add_argument("--out", help="where to write (default HARNESS_LAB_AUDIO)")
+    lp = sub.add_parser("lab-params", help="HW002's 100 parameters for the lab, read from the set")
+    lp.add_argument("--set", help="the Live set to read values from")
     a = ap.parse_args()
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
     cfg = Config()
@@ -55,6 +60,23 @@ def main() -> None:
             print(f"#{c.seq}  {c.status:13}  {c.source}" + (f" -> {c.mp3}" if c.mp3 else "")
                   + (f"  ({c.error})" if c.error else ""))
         print(f"{sum(c.status == 'converted' for c in done)} converted of {len(done)} FLAC music messages")
+    elif a.cmd == "lab-audio":
+        from pathlib import Path
+
+        from .studio import lab_audio
+        kw = {"als": Path(a.set).expanduser()} if a.set else {}
+        print(lab_audio.summary(lab_audio.build(Path(a.out).expanduser() if a.out else cfg.lab_audio, **kw)))
+    elif a.cmd == "lab-params":
+        from pathlib import Path
+
+        from .studio import lab_params
+        rows = lab_params.build(Path(a.set).expanduser()) if a.set else lab_params.build()
+        by = {}
+        for r in rows:
+            by.setdefault(r["stage"], []).append(r)
+        for stage, rs in by.items():
+            print(f"{stage}: {len(rs)}")
+        print(f"{len(rows)} parameters -> {lab_params.OUT}")
     elif a.cmd == "show":
         job = store.load(a.id)
         print(json.dumps({"job": job.public() if job else None, "events": store.events(a.id)}, indent=2))

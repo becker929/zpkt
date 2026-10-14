@@ -1,0 +1,210 @@
+/* HW002 lab: the shell. Industrial: black steel, concrete greys, one hazard orange, an acid line for "the set's
+   value", LCD amber for numbers. Surfaces and widgets add their own files (css/*.css) on these tokens. */
+
+:root {
+  --bg: #0a0a0b;
+  --steel-0: #111214;          /* panels */
+  --steel-1: #17191c;          /* raised */
+  --steel-2: #202328;          /* controls */
+  --steel-3: #2c3036;          /* rims, rules */
+  --steel-4: #3b4048;
+  --line: rgb(255 255 255 / 0.07);
+  --text: #e9e7e2;
+  --text-2: #a4a19a;
+  --text-3: #6d6a65;
+  --hazard: #ff5a1f;           /* the accent: what you are touching, play */
+  --hazard-dim: rgb(255 90 31 / 0.18);
+  --acid: #c6ff3d;             /* the set's own value (what Live has now) */
+  --acid-dim: rgb(198 255 61 / 0.16);
+  --lcd: #ffb547;              /* numbers */
+  --cold: #59c7ff;             /* a second voice: modulation, B, sends */
+  --cold-dim: rgb(89 199 255 / 0.16);
+  --alarm: #ff2e4d;            /* clip, too loud */
+  --tried: rgb(198 255 61 / 0.32);  /* the range experiments tried */
+
+  --stage-collage: #e0b7ff;
+  --stage-arrange: #59c7ff;
+  --stage-kick: #ff5a1f;
+  --stage-mix: #c6ff3d;
+  --stage-play: #ff3df2;
+
+  --mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, monospace;
+  --sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter", system-ui, sans-serif;
+  --radius: 14px;
+  --radius-s: 9px;
+  --pad: 16px;
+  --bar-h: 58px;
+  --tabs-h: 62px;
+  --safe-t: env(safe-area-inset-top, 0px);
+  --safe-b: env(safe-area-inset-bottom, 0px);
+  --stage: var(--hazard);
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font: 15px/1.35 var(--sans);
+  -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-user-select: none;
+  user-select: none;
+  overscroll-behavior: none;
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  height: 100dvh;
+  overflow: hidden;
+}
+button { font: inherit; color: inherit; }
+svg { display: block; }
+
+/* --- transport -------------------------------------------------------------------------------------------- */
+.bar {
+  display: flex; align-items: center; gap: 10px;
+  padding: calc(var(--safe-t) + 8px) 12px 8px;
+  min-height: calc(var(--bar-h) + var(--safe-t));
+  background: linear-gradient(#141518, #0d0e10);
+  border-bottom: 1px solid var(--steel-3);
+  position: relative; z-index: 5;
+}
+.tx-play {
+  width: 46px; height: 46px; flex: none;
+  border: 0; border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #ff8a5c, var(--hazard) 55%, #b8360c);
+  box-shadow: 0 0 0 2px #000, 0 0 0 3px var(--steel-3), 0 6px 18px rgb(255 90 31 / 0.35);
+  display: grid; place-items: center;
+}
+.tx-play svg { width: 22px; height: 22px; fill: #120400; }
+.tx-play .i-stop { display: none; }
+.tx-play[aria-pressed="true"] .i-play { display: none; }
+.tx-play[aria-pressed="true"] .i-stop { display: block; }
+.tx-play:active { transform: scale(0.95); }
+.tx-pos { display: grid; line-height: 1.1; min-width: 74px; }
+.lcd {
+  font: 600 21px/1 var(--mono); color: var(--lcd); letter-spacing: 0.04em;
+  text-shadow: 0 0 10px rgb(255 181 71 / 0.45);
+  font-variant-numeric: tabular-nums;
+}
+.tx-sub { font: 10.5px var(--mono); color: var(--text-3); letter-spacing: 0.06em; text-transform: uppercase; }
+.tx-meter { flex: 1; height: 26px; min-width: 40px; }
+.tx-slots { display: flex; gap: 4px; }
+.tx-slot {
+  width: 30px; height: 30px; border-radius: 8px; border: 1px solid var(--steel-3);
+  background: var(--steel-1); color: var(--text-3); font: 600 12px var(--mono);
+}
+.tx-slot.is-full { color: var(--text); border-color: var(--steel-4); }
+.tx-slot.is-on { background: var(--cold-dim); color: var(--cold); border-color: var(--cold); }
+.tx-menu { width: 36px; height: 36px; border: 0; background: none; padding: 6px; }
+.tx-menu svg { fill: var(--text-2); }
+
+/* --- surfaces --------------------------------------------------------------------------------------------- */
+.surface {
+  overflow-y: auto; overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  padding: 12px 12px 28px;
+  outline: none;
+  position: relative;
+}
+.surface[data-stage="collage"] { --stage: var(--stage-collage); }
+.surface[data-stage="arrange"] { --stage: var(--stage-arrange); }
+.surface[data-stage="kick"] { --stage: var(--stage-kick); }
+.surface[data-stage="mix"] { --stage: var(--stage-mix); }
+.surface[data-stage="play"] { --stage: var(--stage-play); }
+.surface.is-full { padding: 0; overflow: hidden; }
+
+/* A rack: a titled panel of controls. Surfaces stack racks; a rack may scroll sideways inside. */
+.rack {
+  background: linear-gradient(180deg, var(--steel-1), var(--steel-0));
+  border: 1px solid var(--steel-3);
+  border-radius: var(--radius);
+  margin: 0 0 12px;
+  padding: 12px;
+  position: relative;
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.04), 0 10px 24px rgb(0 0 0 / 0.35);
+}
+.rack::before, .rack::after {           /* screws */
+  content: ""; position: absolute; top: 8px; width: 6px; height: 6px; border-radius: 50%;
+  background: radial-gradient(circle at 40% 35%, #5a5f68, #1c1e22);
+  box-shadow: 0 0 0 1px #000;
+}
+.rack::before { left: 8px; } .rack::after { right: 8px; }
+.rack-head { display: flex; align-items: baseline; gap: 8px; margin: -2px 10px 10px 12px; }
+.rack-title {
+  font: 700 12px var(--mono); letter-spacing: 0.14em; text-transform: uppercase; color: var(--stage);
+}
+.rack-sub { font: 11px var(--mono); color: var(--text-3); flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rack-body { display: flex; flex-wrap: wrap; gap: 10px; justify-content: space-around; }
+.rack-body.is-row { flex-wrap: nowrap; overflow-x: auto; justify-content: flex-start; scroll-snap-type: x proximity; padding-bottom: 4px; }
+.rack-note { font: 11.5px/1.4 var(--sans); color: var(--text-3); margin: 8px 12px 0; }
+.stage-head { margin: 4px 4px 14px; }
+.stage-head h1 { margin: 0; font: 800 26px/1.05 var(--sans); letter-spacing: -0.02em; }
+.stage-head h1 em { font-style: normal; color: var(--stage); }
+.stage-head p { margin: 6px 0 0; color: var(--text-2); font-size: 13.5px; }
+
+/* --- tabs: the workflow spine, in thumb reach --------------------------------------------------------------- */
+.tabs {
+  display: grid; grid-template-columns: repeat(5, 1fr);
+  padding: 6px 6px calc(var(--safe-b) + 6px);
+  background: linear-gradient(#0d0e10, #08080a);
+  border-top: 1px solid var(--steel-3);
+  position: relative; z-index: 5;
+}
+.tab {
+  display: grid; justify-items: center; gap: 3px; padding: 7px 2px 5px;
+  border: 0; background: none; border-radius: 12px; color: var(--text-3);
+  font: 600 10.5px var(--mono); letter-spacing: 0.08em; text-transform: uppercase;
+}
+.tab svg { width: 24px; height: 24px; stroke: currentColor; fill: none; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.tab[aria-current="page"] { color: var(--c, var(--hazard)); background: rgb(255 255 255 / 0.04); }
+.tab .n { font-size: 9px; opacity: 0.6; }
+
+/* --- inspector: long-press any control --------------------------------------------------------------------- */
+.sheet {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 20;
+  background: linear-gradient(#1a1c20, #111214);
+  border-top: 1px solid var(--steel-4);
+  border-radius: 20px 20px 0 0;
+  padding: 10px 18px calc(var(--safe-b) + 18px);
+  box-shadow: 0 -20px 50px rgb(0 0 0 / 0.6);
+  transform: translateY(0); transition: transform 0.22s ease;
+}
+.sheet[hidden] { display: block; transform: translateY(110%); pointer-events: none; }
+.sheet-grip { width: 40px; height: 5px; border-radius: 3px; background: var(--steel-4); margin: 0 auto 12px; }
+.sheet h2 { margin: 0; font: 700 19px var(--sans); }
+.sheet .live { font: 11.5px var(--mono); color: var(--text-3); word-break: break-all; margin: 4px 0 12px; }
+.sheet .vals { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 0 0 12px; }
+.sheet .val { background: var(--steel-2); border-radius: 10px; padding: 8px 10px; }
+.sheet .val b { display: block; font: 600 18px var(--mono); color: var(--lcd); }
+.sheet .val.is-set b { color: var(--acid); }
+.sheet .val span { font: 10.5px var(--mono); color: var(--text-3); text-transform: uppercase; letter-spacing: 0.08em; }
+.sheet .finding { color: var(--text-2); font-size: 13.5px; margin: 0 0 14px; }
+.sheet .acts { display: flex; gap: 8px; }
+.sheet .acts button { flex: 1; height: 44px; border-radius: 12px; border: 1px solid var(--steel-4); background: var(--steel-2); font-weight: 600; }
+.sheet .acts button.primary { background: var(--acid); color: #101400; border-color: var(--acid); }
+
+.toasts { position: fixed; left: 0; right: 0; top: calc(var(--safe-t) + 66px); display: grid; justify-items: center; gap: 6px; z-index: 30; pointer-events: none; }
+.toast { background: rgb(20 21 24 / 0.95); border: 1px solid var(--steel-4); color: var(--text); padding: 8px 14px; border-radius: 12px; font: 600 13px var(--sans); box-shadow: 0 8px 24px rgb(0 0 0 / 0.5); }
+
+.haptic { position: fixed; width: 1px; height: 1px; overflow: hidden; opacity: 0; pointer-events: none; left: -10px; top: -10px; }
+
+/* a full-screen gate on the first load: audio needs a tap on iPhone */
+.gate {
+  position: fixed; inset: 0; z-index: 40; display: grid; place-items: center; text-align: center;
+  background: radial-gradient(ellipse at 50% 40%, #1b0d06, #000 70%);
+  padding: 32px;
+}
+.gate h1 { font: 900 44px/0.95 var(--sans); letter-spacing: -0.03em; margin: 0 0 10px; }
+.gate h1 span { color: var(--hazard); }
+.gate p { color: var(--text-2); max-width: 30ch; margin: 0 auto 24px; }
+.gate button {
+  height: 56px; padding: 0 28px; border-radius: 28px; border: 0; font: 700 17px var(--sans);
+  background: var(--hazard); color: #120400; box-shadow: 0 10px 30px rgb(255 90 31 / 0.4);
+}
+.gate .load { font: 11px var(--mono); color: var(--text-3); margin-top: 16px; min-height: 1.4em; }
+
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+.tx-canvas { display: block; width: 100%; height: 100%; border-radius: 5px; }
+.rack-body > .w-toggle { align-self: center; }
