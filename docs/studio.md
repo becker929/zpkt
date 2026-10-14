@@ -4,7 +4,8 @@ A chat with Claude Code that works by voice. You talk on your phone, Claude work
 answer comes back as speech and as music in the same chat. The plan is in `docs/plan-2026-10.md` (Phase 2).
 
 It runs on the Mac inside `harness serve` and is reached over the tailnet only, behind the harness password, at `/`
-(which opens `/studio/`). The /skrng pages stay at `/skrng/`.
+(which opens `/studio/`). The /skrng pages stay at `/skrng/`. The HW002 lab, the set's knobs as phone surfaces, is
+at `/studio/lab/` (`docs/lab.md`; the menu has a row for it).
 
 ## A turn
 

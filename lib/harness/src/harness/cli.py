@@ -1,4 +1,5 @@
-"""harness serve | job "<prompt>" | jobs | show <id> | timings [--turns N] | studio-music-mp3 [--dry-run] | lab-audio | lab-params"""
+"""harness serve | job "<prompt>" | jobs | show <id> | timings [--turns N] | studio-music-mp3 [--dry-run] | lab-audio | lab-params
+| lab-bars"""
 
 from __future__ import annotations
 
@@ -29,6 +30,8 @@ def main() -> None:
     la.add_argument("--out", help="where to write (default HARNESS_LAB_AUDIO)")
     lp = sub.add_parser("lab-params", help="HW002's 100 parameters for the lab, read from the set")
     lp.add_argument("--set", help="the Live set to read values from")
+    lb = sub.add_parser("lab-bars", help="the arrange surface's bar library: what each bar of the lab's stems holds")
+    lb.add_argument("--set", help="the Live set whose splash clip to read")
     a = ap.parse_args()
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
     cfg = Config()
@@ -77,6 +80,13 @@ def main() -> None:
         for stage, rs in by.items():
             print(f"{stage}: {len(rs)}")
         print(f"{len(rows)} parameters -> {lab_params.OUT}")
+    elif a.cmd == "lab-bars":
+        from pathlib import Path
+
+        from .studio import lab_bars
+        kw = {"als": Path(a.set).expanduser()} if a.set else {}
+        print(lab_bars.summary(lab_bars.build(**kw)))
+        print(f"-> {lab_bars.OUT}")
     elif a.cmd == "show":
         job = store.load(a.id)
         print(json.dumps({"job": job.public() if job else None, "events": store.events(a.id)}, indent=2))

@@ -212,7 +212,8 @@ def plan() -> list[P]:
     add(P("mix.sfxLowCut", "mix", "SFX bus", "SFX EQ low band", "Hz", "log", 10, 2000,
           at=("SFX group", "Eq8:0", "Bands.0/ParameterA/Freq"), short="SFX low", sketch="ch.sfx.lowCut"))
 
-    # ---- ARRANGE (step III): the Short's shape -----------------------------------------------------------
+    # ---- ARRANGE (step III): the Short's shape. Their "set" is the canonical Short, batch 4.3 track 1
+    # (hands/archive/arrange_prototype/plan43.json b43-01): no gap before the kick, no SFX, no break.
     arr = "docs/hw002/batch-4.3-4.4-decisions.md"
     add(P("arr.length", "arrange", "Shape", "Length", "bars", "lin", 16, 40, set=20, step=4, tried=[22, 33], short="Bars",
           sketch="arr.length", note="Canonical shape: 20 bars, 30 s. The target is 33-50 s: 22-33 bars, on a 4/8-bar grid."))
@@ -220,7 +221,7 @@ def plan() -> list[P]:
           sketch="arr.intro", note="\"Final arrangement starts with the scooped kick.\" Never open on a single bar."))
     add(P("arr.kickIn", "arrange", "Shape", "Full kick enters", "bar", "lin", 3, 17, set=5, step=1, short="Kick in",
           sketch="arr.kickIn", note=f"With a long splash on the same bar ({arr})."))
-    add(P("arr.preKick", "arrange", "Shape", "Before the kick", scale="enum", options=["wuh", "silence", "straight in"], set=0,
+    add(P("arr.preKick", "arrange", "Shape", "Before the kick", scale="enum", options=["wuh", "silence", "straight in"], set=2,
           short="Pre-kick", sketch="arr.preKick", note="Batch 4.2 tried the beatbox \"wuh\", a silence and the drop grid. "
           "The pre-kick sound felt cut short."))
     add(P("arr.preKickBeats", "arrange", "Shape", "Pre-kick length", "beats", "lin", 1, 8, set=4, step=1, short="Pre beats",
@@ -252,7 +253,7 @@ def plan() -> list[P]:
     add(P("arr.chordWidth", "arrange", "Chord loop", "Chord width", "%", "lin", 0, 200, at=(CHORD, "StereoGain:0", "StereoWidth"),
           conv="pct", tried=[50, 150], short="Width", sketch="arr.chordWidth@norm", note="Batch 8.4: 50/100/150% adds 0.9/2.7/4.6 LU."))
     add(P("arr.sfxBuild", "arrange", "Arc", "SFX enters", scale="enum", options=["from the start", "with the kick", "at the drop", "withheld"],
-          set=0, short="SFX in", sketch="arr.sfx", note="Rubric: the references withhold their SFX early, then build."))
+          set=3, short="SFX in", sketch="arr.sfx", note="Rubric: the references withhold their SFX early, then build."))
     add(P("arr.dropBars", "arrange", "Arc", "Drop (ABCD) length", "bars", "lin", 4, 16, set=8, step=4, short="Drop", sketch="arr.hats"))
 
     # ---- COLLAGE (step I): the bed of found and library sounds ---------------------------------------------
@@ -300,7 +301,7 @@ def plan() -> list[P]:
           conv="pct", tried=[70, 90], short="Space", sketch="col.breakSpace@norm",
           note="Batch 8.6. Wetter takes 3-5 dB off the lows and the top."))
     add(P("col.breakDecay", "collage", "Break bus", "Break Hybrid decay", "s", "log", 0.2, 20, at=("Break group", "Hybrid:0", "Algorithm_Decay"),
-          tried=[1.5, 8], short="Decay", sketch="master.reverbSize"))
+          tried=[1.5, 8], short="Decay", sketch="col.breakDecay"))
     add(P("col.breakColour", "collage", "Break bus", "Break COLDFIRE colour", "%", "lin", 0, 100,
           at=("Break group", "plugin:Dist COLDFIRE", "Color"), conv="pct", tried=[30, 100], short="Colour", sketch="col.breakColour@norm",
           src="HW002_121_pp_kit_k8x16.als",
@@ -316,7 +317,8 @@ def plan() -> list[P]:
 def tracks(als: Path) -> dict[str, ET.Element]:
     live = ET.fromstring(gzip.open(als).read()).find("LiveSet")
     out = {}
-    for t in list(live.find("Tracks")) + [live.find("MainTrack") or live.find("MasterTrack")]:
+    main = live.find("MainTrack")
+    for t in list(live.find("Tracks")) + [main if main is not None else live.find("MasterTrack")]:
         name = "Main" if t.tag in ("MainTrack", "MasterTrack") else t.find("Name/EffectiveName").get("Value")
         out[name] = t
     return out

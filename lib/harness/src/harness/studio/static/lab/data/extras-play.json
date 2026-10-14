@@ -1,1 +1,22 @@
-{"params": []}
+{"params": [
+  {"id": "play.cubeDepth", "group": "Cube", "label": "Cube depth", "short": "Depth", "unit": "%", "min": -100, "max": 100, "set": 40,
+   "note": "How far half a turn of the cube moves each of its knobs, as a share of the knob's range. Below zero it pulls them down."},
+  {"id": "play.tiltDepth", "group": "Tilt", "label": "Tilt depth", "short": "Depth", "unit": "%", "min": -100, "max": 100, "set": 35,
+   "note": "How far a 35 degree tilt moves each knob, as a share of its range."},
+  {"id": "play.ballsDepth", "group": "Kick box", "label": "Kick box depth", "short": "Depth", "unit": "%", "min": -100, "max": 100, "set": 45,
+   "note": "How far a ball at the top of the box moves its knob, as a share of the knob's range."},
+  {"id": "play.kickForce", "group": "Kick box", "label": "Kick force", "short": "Kick", "unit": "%", "min": 0, "max": 100, "set": 55,
+   "note": "How hard each kick throws the balls off the floor."},
+  {"id": "play.attDepth", "group": "Lorenz", "label": "Lorenz depth", "short": "Depth", "unit": "%", "min": -100, "max": 100, "set": 30,
+   "note": "How far the attractor's swing moves each knob, as a share of its range."},
+  {"id": "play.chaos", "group": "Lorenz", "label": "Chaos", "short": "Chaos", "unit": "%", "min": 0, "max": 100, "set": 55,
+   "note": "Lorenz's rho, from 12 (it spirals in and the knobs come to rest) past 24.7 (the edge of chaos) to 42 (wild)."},
+  {"id": "play.attSpeed", "group": "Lorenz", "label": "Lorenz speed", "short": "Speed", "unit": "%", "min": 0, "max": 100, "set": 35,
+   "note": "How fast the attractor runs: at 35 % one loop takes about two bars."},
+  {"id": "play.gyroDepth", "group": "Gyro", "label": "Gyro depth", "short": "Depth", "unit": "%", "min": -100, "max": 100, "set": 35,
+   "note": "How far each ring's swing moves its knob, as a share of the knob's range."},
+  {"id": "play.stepsDepth", "group": "Steps", "label": "Steps depth", "short": "Depth", "unit": "%", "min": -100, "max": 100, "set": 45,
+   "note": "How far a full step moves its knob, as a share of the knob's range."},
+  {"id": "play.stepsGlide", "group": "Steps", "label": "Steps glide", "short": "Glide", "unit": "%", "min": 0, "max": 100, "set": 15,
+   "note": "0: each 16th jumps. Higher: the steps slide into each other."}
+]}

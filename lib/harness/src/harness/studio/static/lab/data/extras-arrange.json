@@ -1,1 +1,13 @@
-{"params": []}
+{"params": [
+  {"id": "arr.breakOn", "group": "Break", "label": "A break in the Short", "short": "Break", "unit": "", "scale": "toggle",
+   "min": 0, "max": 1, "set": 0, "sketch": "arr.break",
+   "note": "The canonical shape (batch 4.3 track 1) has none. On: the break sits at Break starts, Break length long."},
+  {"id": "arr.breakStyle", "group": "Break", "label": "What the break plays", "short": "Break is", "unit": "", "scale": "enum",
+   "min": 0, "max": 1, "set": 0, "options": ["the song's break", "thinned stems"], "sketch": "arr.break",
+   "note": "The song's break: its own bars 81-96 (the last bars, so it leads into the kick). Thinned: the stems with no kick and only hat A."},
+  {"id": "arr.break2At", "group": "Break", "label": "Second break starts", "short": "2nd at", "unit": "bar", "scale": "lin",
+   "min": 5, "max": 37, "set": 25, "step": 1, "sketch": "arr.break"},
+  {"id": "arr.break2Bars", "group": "Break", "label": "Second break length", "short": "2nd bars", "unit": "bars", "scale": "lin",
+   "min": 4, "max": 16, "set": 8, "step": 4, "sketch": "arr.break",
+   "note": "Every reference has two breaks of 8 bars or more."}
+]}

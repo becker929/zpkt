@@ -4,8 +4,10 @@ What it gathers, all outside the repo (Anthony's set, his stems and his samples)
 
 - the stems of the canonical shape's 36 s version (kick, perc and SFX groups, and the mix; beat 0 at sample 0;
   a group that is silent in it, like the break, is left out),
+- the canonical Short's own stems (batch 4.3 track 1, 30 s: real A, AB, ABC and ABCD hat bars and its splashes),
 - the whole song's mix (beat 0 at sample 0), for the arrangement map,
-- every audio file the set's clips play, from unmuted tracks (the collage's sources), with where the set uses them,
+- every audio file the set's clips play, from unmuted tracks (the collage's sources), cut to the part the set plays
+  (with a margin), and where the set uses them: `uses` = [start bar, end bar, start s, end s in the file as served],
 - a few kick hits cut from the kick stem, on the beat,
 - the set's arrangement: every clip on every track, in bars.
 
@@ -35,10 +37,12 @@ log = logging.getLogger(__name__)
 SCRATCH = Path.home() / "_agent_scratch"
 SET = SCRATCH / "HW002" / "HW002_121_full.als"
 STEMS = SCRATCH / "mixclimb" / "stems-fullsong"
+SHAPE = SCRATCH / "mixclimb" / "stems"         # the canonical Short (b43-01), 30 s
 FULL = SCRATCH / "renders" / "hw002_121_full_aligned.wav"
 RATE = 44100
 HEAD = 2048                  # samples of each file's start kept for lining it up
-MAX_CLIP_S = 150.0           # a source longer than this is cut (the collage plays loops and grains of it)
+MAX_CLIP_S = 60.0            # at most this much of a source (decoded on the phone: 60 s of stereo is 21 MB)
+MARGIN_S = 10.0              # kept either side of the part of a source the set plays: room to explore
 STEM_TITLES = {"kick": "Kick group", "perc": "Perc group", "sfx": "SFX group", "brk": "Break group", "mix": "Mix"}
 
 
@@ -49,7 +53,7 @@ class Clip:
     start: float            # beats in the arrangement
     end: float
     file: str
-    offset: float           # the clip's loop start: where in the file it starts (beats when warped)
+    file_s: tuple[float, float]   # the part of the file it plays, in seconds (through the warp markers when warped)
 
 
 def arrangement(als: Path) -> tuple[float, list[dict], list[Clip]]:
@@ -75,13 +79,39 @@ def arrangement(als: Path) -> tuple[float, list[dict], list[Clip]]:
             path = v(c, "SampleRef/FileRef/Path")
             start, end = float(v(c, "CurrentStart") or 0), float(v(c, "CurrentEnd") or 0)
             if path:
-                clips.append(Clip(name, group, start, end, path, float(v(c, "Loop/LoopStart") or 0)))
+                clips.append(Clip(name, group, start, end, path, _file_span(c, start, end, v)))
                 row["clips"].append([round(start / 4, 3), round(end / 4, 3), path])
         for c in t.iter("MidiClip"):
             start, end = float(v(c, "CurrentStart") or 0), float(v(c, "CurrentEnd") or 0)
             row["clips"].append([round(start / 4, 3), round(end / 4, 3), None])
     tempo = float(v(live, ".//Tempo/Manual") or 160)
     return tempo, tracks, clips
+
+
+def _file_span(c: ET.Element, start: float, end: float, v) -> tuple[float, float]:
+    """Where in its file a clip plays, in seconds. A warped clip's loop is in its own beats, mapped to the file by its
+    warp markers (piecewise linear, the last segment extended); an unwarped clip's loop is in seconds and it plays at
+    the file's speed (its arrangement length in beats at the set's tempo, 160 BPM)."""
+    loop_start = float(v(c, "Loop/LoopStart") or 0)
+    loop_end = float(v(c, "Loop/LoopEnd") or loop_start)
+    looped = v(c, "Loop/LoopOn") == "true"
+    if v(c, "IsWarped") != "true":
+        a = loop_start
+        b = loop_end if looped else a + (end - start) * 60 / 160
+        return round(a, 3), round(max(b, a), 3)
+    marks = sorted((float(w.get("BeatTime")), float(w.get("SecTime"))) for w in c.findall("WarpMarkers/WarpMarker"))
+    if len(marks) < 2:
+        marks = [(0.0, 0.0), (1.0, 60 / 160)]
+
+    def sec(beat: float) -> float:
+        for (b0, s0), (b1, s1) in zip(marks, marks[1:]):
+            if beat <= b1 or (b1, s1) == marks[-1]:
+                return s0 + (beat - b0) * (s1 - s0) / (b1 - b0 or 1)
+        return marks[-1][1]
+
+    a = sec(loop_start)
+    b = sec(loop_end if looped else loop_start + (end - start))
+    return round(max(0.0, a), 3), round(max(b, a), 3)
 
 
 def decode(path: Path, seconds: float | None = None) -> np.ndarray:
@@ -132,12 +162,12 @@ def kick_hits(kick: np.ndarray, bpm: float, n: int = 6) -> list[tuple[int, np.nd
     return sorted(chosen, key=lambda c: c[0])
 
 
-def build(out: Path, als: Path = SET, stems: Path = STEMS, full: Path = FULL) -> dict:
+def build(out: Path, als: Path = SET, stems: Path = STEMS, full: Path = FULL, shape: Path = SHAPE) -> dict:
     out.mkdir(parents=True, exist_ok=True)
     tempo, tracks, clips = arrangement(als)
     bar_s = 4 * 60 / tempo
     manifest: dict = {"made": time.strftime("%Y-%m-%d %H:%M:%S"), "set": als.name, "bpm": tempo, "rate": RATE,
-                      "bar_seconds": bar_s, "stems": [], "full": None, "clips": [], "kicks": [], "tracks": []}
+                      "bar_seconds": bar_s, "stems": [], "shape": [], "full": None, "clips": [], "kicks": [], "tracks": []}
 
     for key, title in STEM_TITLES.items():
         path = stems / f"{key}.wav"
@@ -156,6 +186,16 @@ def build(out: Path, als: Path = SET, stems: Path = STEMS, full: Path = FULL) ->
                 hname, hs = mp3(hit, out, 256)
                 manifest["kicks"].append({"id": f"kick-{beat_no}", "title": f"Kick, beat {beat_no + 1}",
                                           "file": hname, "seconds": hs})
+    for key, title in STEM_TITLES.items():
+        path = shape / f"{key}.wav"
+        if not path.exists():
+            continue
+        x = decode(path)
+        if float(np.abs(x).max()) < 1e-4:
+            continue
+        name, seconds = mp3(x, out)
+        manifest["shape"].append({"id": f"shape-{key}", "title": f"{title} (the canonical Short)", "file": name,
+                                  "seconds": seconds, "bars": round(seconds / bar_s, 3), "head": head(x)})
     if full.exists():
         x = decode(full)
         name, seconds = mp3(x, out, 160)
@@ -166,18 +206,27 @@ def build(out: Path, als: Path = SET, stems: Path = STEMS, full: Path = FULL) ->
     for c in clips:
         if c.file in ids or not Path(c.file).exists():
             continue
-        x = decode(Path(c.file), MAX_CLIP_S)
+        mine = [o for o in clips if o.file == c.file]
+        x = decode(Path(c.file))
+        whole = len(x) / RATE
+        lo = max(0.0, min(o.file_s[0] for o in mine) - MARGIN_S)
+        hi = min(whole, max(o.file_s[1] for o in mine) + MARGIN_S, lo + MAX_CLIP_S)
+        if hi - lo < 1.0:                              # nothing usable found: keep the start of the file
+            lo, hi = 0.0, min(whole, MAX_CLIP_S)
+        x = x[int(lo * RATE):int(hi * RATE)]
         name, seconds = mp3(x, out)
         sid = f"src-{len(ids) + 1}"
         ids[c.file] = sid
-        uses = [[round(o.start / 4, 2), round(o.end / 4, 2), round(o.offset, 3)] for o in clips if o.file == c.file]
+        uses = [[round(o.start / 4, 2), round(o.end / 4, 2), round(max(0.0, o.file_s[0] - lo), 3),
+                 round(min(hi, o.file_s[1]) - lo, 3)] for o in mine]
         manifest["clips"].append({"id": sid, "title": Path(c.file).stem, "track": c.track, "group": c.group,
-                                  "file": name, "seconds": seconds, "uses": uses, "head": head(x)})
+                                  "file": name, "seconds": seconds, "from_s": round(lo, 3), "file_seconds": round(whole, 3),
+                                  "uses": uses, "head": head(x)})
     for t in tracks:
         t["clips"] = [[a, b, ids.get(f) if f else "midi"] for a, b, f in t["clips"]]
     manifest["tracks"] = tracks
 
-    names = {e["file"] for group in ("stems", "clips", "kicks") for e in manifest[group]}
+    names = {e["file"] for group in ("stems", "shape", "clips", "kicks") for e in manifest[group]}
     if manifest["full"]:
         names.add(manifest["full"]["file"])
     for old in out.glob("*.mp3"):
@@ -190,10 +239,11 @@ def build(out: Path, als: Path = SET, stems: Path = STEMS, full: Path = FULL) ->
 def summary(m: dict) -> str:
     lines = [f"{m['set']}: {m['bpm']:g} BPM"]
     lines += [f"  stem {s['id']:5} {s['seconds']:6.1f} s  {s['file']}" for s in m["stems"]]
+    lines += [f"  {s['id']:10} {s['seconds']:6.1f} s  {s['file']}" for s in m.get("shape", [])]
     if m["full"]:
         lines.append(f"  full       {m['full']['seconds']:6.1f} s  {m['full']['file']}")
-    lines += [f"  clip {c['id']:6} {c['seconds']:6.1f} s  {c['title'][:50]} ({c['track'][:30]}, {len(c['uses'])} uses)"
-              for c in m["clips"]]
+    lines += [f"  clip {c['id']:6} {c['seconds']:6.1f} s of {c['file_seconds']:6.1f} (from {c['from_s']:.1f})  "
+              f"{c['title'][:40]} ({len(c['uses'])} uses)" for c in m["clips"]]
     lines.append(f"  {len(m['kicks'])} kick hits; {sum(len(t['clips']) for t in m['tracks'])} clips on "
                  f"{len(m['tracks'])} tracks")
     return "\n".join(lines)

@@ -1,1 +1,37 @@
-{"params": []}
+{"params": [
+ {"id": "col.rumbleLevel", "group": "Levels", "label": "Rumble bounce level", "short": "Rumble", "unit": "dB", "scale": "lin", "min": -36, "max": 6, "set": -9, "sketch": "col.src-1.gain", "note": "The rumble bounce played fresh by the collage (in the set it lives in the kick group)."},
+ {"id": "col.splashLevel", "group": "Levels", "label": "Noise splash level", "short": "Splash", "unit": "dB", "scale": "lin", "min": -36, "max": 6, "set": -6, "sketch": "col.src-2.gain"},
+ {"id": "col.chordLevel", "group": "Levels", "label": "Chord loop level", "short": "Chord", "unit": "dB", "scale": "lin", "min": -36, "max": 6, "set": -6, "sketch": "col.src-4.gain", "note": "The chord loop is muted in the Short."},
+ {"id": "col.synthLevel", "group": "Levels", "label": "Break synth level", "short": "Synth", "unit": "dB", "scale": "lin", "min": -36, "max": 6, "set": -4, "sketch": "col.src-5.gain"},
+ {"id": "col.hornLevel", "group": "Levels", "label": "Break horn level", "short": "Horn", "unit": "dB", "scale": "lin", "min": -36, "max": 6, "set": -6, "sketch": "col.src-6.gain"},
+ {"id": "col.recLevel", "group": "Levels", "label": "2023-10-07 recording level", "short": "10-07", "unit": "dB", "scale": "lin", "min": -36, "max": 6, "set": -4, "sketch": "col.src-7.gain"},
+ {"id": "col.rsLevel", "group": "Levels", "label": "Resamples level (11-Audio)", "short": "Resample", "unit": "dB", "scale": "lin", "min": -36, "max": 6, "set": -3, "sketch": "col.rs.gain", "note": "Resamples play on 11-Audio, the empty SFX track with its own Supermassive (its wash is the 11 wash knob)."},
+ {"id": "col.out", "group": "Levels", "label": "Collage out", "short": "Out", "unit": "dB", "scale": "lin", "min": -36, "max": 6, "set": -2, "sketch": "col.out", "note": "Everything the collage plays, under the stems."},
+
+ {"id": "col.grain.size", "group": "Grains", "label": "Grain size", "short": "Size", "unit": "ms", "scale": "log", "min": 8, "max": 800, "set": 90, "note": "Short grains fizz, long grains smear."},
+ {"id": "col.grain.density", "group": "Grains", "label": "Grains per second", "short": "Density", "unit": "Hz", "scale": "log", "min": 2, "max": 80, "set": 18},
+ {"id": "col.grain.spray", "group": "Grains", "label": "Spray (each grain lands up to this far from your finger)", "short": "Spray", "unit": "ms", "scale": "log", "min": 1, "max": 2000, "set": 40},
+ {"id": "col.grain.pitch", "group": "Grains", "label": "Grain pitch", "short": "Pitch", "unit": "st", "scale": "lin", "min": -24, "max": 24, "step": 1, "set": 0},
+ {"id": "col.grain.rev", "group": "Grains", "label": "Backwards grains (chance)", "short": "Backwards", "unit": "%", "scale": "lin", "min": 0, "max": 100, "set": 0},
+ {"id": "col.grain.drift", "group": "Grains", "label": "Drift (the position wanders)", "short": "Drift", "unit": "%", "scale": "lin", "min": 0, "max": 100, "set": 0},
+ {"id": "col.grain.pan", "group": "Grains", "label": "Grain stereo spread", "short": "Spread", "unit": "%", "scale": "lin", "min": 0, "max": 100, "set": 35},
+ {"id": "col.grain.y", "group": "Grains", "label": "Finger height plays", "short": "Height", "scale": "enum", "options": ["Size", "Pitch", "Spray"], "min": 0, "max": 2, "set": 0},
+ {"id": "col.grain.sync", "group": "Grains", "label": "Grain clock", "short": "Clock", "scale": "enum", "options": ["Free", "16ths", "32nds", "64ths"], "min": 0, "max": 3, "set": 0, "note": "On a note value, the grains lock to the engine's grid while it plays."},
+ {"id": "col.grain.freeze", "group": "Grains", "label": "Freeze (a lifted finger keeps playing)", "short": "Freeze", "scale": "toggle", "min": 0, "max": 1, "set": 0},
+
+ {"id": "col.slice.bars", "group": "Slicer", "label": "Slice region length", "short": "Region", "scale": "enum", "options": ["1/2 bar", "1 bar", "2 bars", "4 bars", "8 bars"], "min": 0, "max": 4, "set": 1},
+ {"id": "col.slice.mode", "group": "Slicer", "label": "Cut at", "short": "Cut", "scale": "enum", "options": ["Equal", "Onsets"], "min": 0, "max": 1, "set": 1},
+ {"id": "col.slice.decay", "group": "Slicer", "label": "Pad decay (how long a slice rings)", "short": "Decay", "unit": "ms", "scale": "log", "min": 20, "max": 3000, "set": 600},
+ {"id": "col.slice.pitch", "group": "Slicer", "label": "Slice pitch", "short": "Pitch", "unit": "st", "scale": "lin", "min": -24, "max": 24, "step": 1, "set": 0},
+ {"id": "col.slice.swing", "group": "Slicer", "label": "Step swing", "short": "Swing", "unit": "%", "scale": "lin", "min": 0, "max": 75, "set": 0},
+ {"id": "col.slice.choke", "group": "Slicer", "label": "Choke (a new slice cuts the last)", "short": "Choke", "scale": "toggle", "min": 0, "max": 1, "set": 1},
+ {"id": "col.slice.rev", "group": "Slicer", "label": "Slices backwards", "short": "Backwards", "scale": "toggle", "min": 0, "max": 1, "set": 0},
+
+ {"id": "col.tape.speed", "group": "Tape", "label": "Varispeed (tape speed and pitch)", "short": "Speed", "unit": "%", "scale": "log", "min": 50, "max": 200, "set": 100},
+ {"id": "col.tape.wow", "group": "Tape", "label": "Wow (slow pitch wobble)", "short": "Wow", "unit": "%", "scale": "lin", "min": 0, "max": 100, "set": 0},
+ {"id": "col.tape.flutter", "group": "Tape", "label": "Flutter (fast pitch wobble)", "short": "Flutter", "unit": "%", "scale": "lin", "min": 0, "max": 100, "set": 0},
+ {"id": "col.tape.brake", "group": "Tape", "label": "Tape stop time", "short": "Stop time", "unit": "ms", "scale": "log", "min": 120, "max": 4000, "set": 900},
+ {"id": "col.tape.rev", "group": "Tape", "label": "Reverse (new sounds play backwards)", "short": "Reverse", "scale": "toggle", "min": 0, "max": 1, "set": 0},
+ {"id": "col.rs.bars", "group": "Resample", "label": "Resample length", "short": "Length", "scale": "enum", "options": ["1 bar", "2 bars", "4 bars", "8 bars"], "min": 0, "max": 3, "set": 1},
+ {"id": "col.rs.input", "group": "Resample", "label": "Resample input", "short": "Input", "scale": "enum", "options": ["Collage", "Everything"], "min": 0, "max": 1, "set": 0, "note": "Collage: only what the collage plays. Everything: the master, stems and all."}
+]}
