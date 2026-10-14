@@ -7,6 +7,8 @@
     GET  /studio/api/timings      the last turns' timing marks (?turns=<n>)
     POST /studio/api/conversation start a new conversation
     GET  /studio/ws               the WebSocket (docs/studio.md)
+    GET  /studio/lab/<file>       the lab: HW002's controls as phone surfaces (static/lab, docs/lab.md)
+    GET  /studio/lab/audio/<file> its audio, built by `harness lab-audio` outside the repo (cached forever)
 """
 
 from __future__ import annotations
@@ -47,6 +49,9 @@ def app(studio: "Studio") -> web.Application:
     sub.router.add_get("/api/timings", timings)
     sub.router.add_post("/api/conversation", new_conversation)
     sub.router.add_get("/ws", socket)
+    sub.router.add_get("/lab", lab_slash)
+    sub.router.add_get("/lab/audio/{name}", lab_audio)
+    sub.router.add_get("/lab/{path:.*}", lab_file)
     return sub
 
 
@@ -81,6 +86,38 @@ async def static(request: web.Request) -> web.StreamResponse:
     if accepts_gzip(request.headers.get("Accept-Encoding", "")):
         return web.Response(body=gz, headers={**headers, "Content-Encoding": "gzip"})
     return web.Response(body=data, headers=headers)
+
+
+LAB = STATIC / "lab"
+
+
+async def lab_slash(_request: web.Request) -> web.Response:
+    raise web.HTTPFound("/studio/lab/")
+
+
+async def lab_file(request: web.Request) -> web.StreamResponse:
+    """The lab's page and modules, by relative path (so the same files run from any static server in tests),
+    revalidated each load: it is a test bench, changed often."""
+    rel = request.match_info["path"] or "index.html"
+    path = (LAB / rel).resolve()
+    if not path.is_relative_to(LAB.resolve()) or not path.is_file():
+        raise web.HTTPNotFound()
+    resp = web.FileResponse(path, headers={"Cache-Control": "no-cache"})
+    if path.suffix in (".html", ".js", ".css", ".json", ".svg") and accepts_gzip(request.headers.get("Accept-Encoding", "")):
+        resp.enable_compression(web.ContentCoding.gzip)
+    return resp
+
+
+async def lab_audio(request: web.Request) -> web.StreamResponse:
+    """HW002's stems and source clips for the lab, from HARNESS_LAB_AUDIO (built by `harness lab-audio`; the
+    audio and its manifest never go in the repo). The manifest is revalidated; the audio is named by content."""
+    root = _studio(request).cfg.lab_audio.resolve()
+    name = request.match_info["name"]
+    path = (root / name).resolve()
+    if not path.is_relative_to(root) or not path.is_file():
+        raise web.HTTPNotFound()
+    cache = "no-cache" if name.endswith(".json") else FOREVER
+    return web.FileResponse(path, headers={"Cache-Control": cache})
 
 
 async def media(request: web.Request) -> web.StreamResponse:

@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="color-scheme" content="dark">
+  <meta name="theme-color" content="#0a0a0b">
+  <meta name="robots" content="noindex">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="HW002 lab">
+  <title>HW002 lab</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect x='4' y='4' width='24' height='24' rx='4' fill='%23ff5a1f'/%3E%3Ccircle cx='16' cy='16' r='6' fill='%230a0a0b'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="./lab.css">
+  <link rel="stylesheet" href="./css/widgets.css">
+  <link rel="stylesheet" href="./css/collage.css">
+  <link rel="stylesheet" href="./css/arrange.css">
+  <link rel="stylesheet" href="./css/kick.css">
+  <link rel="stylesheet" href="./css/mix.css">
+  <link rel="stylesheet" href="./css/play.css">
+  <script type="module" src="./js/main.js"></script>
+</head>
+<body>
+  <header class="bar" id="transport">
+    <button class="tx-play" id="play" type="button" aria-label="Play" aria-pressed="false">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path class="i-play" d="M8 5v14l11-7z"/><path class="i-stop" d="M7 7h10v10H7z"/></svg>
+    </button>
+    <div class="tx-pos" aria-live="off">
+      <span class="lcd" id="pos">001.1</span>
+      <span class="tx-sub"><span id="bpm">160</span> BPM · HW002</span>
+    </div>
+    <div class="tx-meter" id="master-meter" aria-hidden="true"></div>
+    <div class="tx-slots" id="slots" role="group" aria-label="Snapshots"></div>
+    <button class="tx-menu" id="menu" type="button" aria-label="Lab menu">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg>
+    </button>
+  </header>
+
+  <main class="surface" id="surface" tabindex="-1"></main>
+
+  <nav class="tabs" id="tabs" aria-label="Workflow"></nav>
+
+  <div class="sheet" id="inspector" hidden></div>
+  <div class="toasts" id="toasts" aria-live="polite"></div>
+  <label class="haptic" aria-hidden="true"><input type="checkbox" switch id="haptic" tabindex="-1"></label>
+</body>
+</html>

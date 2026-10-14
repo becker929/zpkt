@@ -1,0 +1,16 @@
+{"params": [
+  {"id": "mix.clipDrive", "group": "Drop power", "label": "Master clipper drive", "short": "Clip", "unit": "dB", "scale": "lin", "min": 0, "max": 18, "set": 0, "sketch": "master.clipDrive@real", "note": "The phone's soft clipper on the master. Offline (batch 5) 8.9 dB of soft clip with 36% parallel compression made the peak denser (the references' block crest is 4.4-6.6 dB, the set's 8.7). Not a knob in the set: the Main has no clipper."},
+  {"id": "mix.ceiling", "group": "Drop power", "label": "Master ceiling", "short": "Ceiling", "unit": "dB", "scale": "lin", "min": -6, "max": 0, "set": -0.3, "sketch": "master.ceiling@real", "note": "The phone's limiter after the clipper. The master target is at most -1.5 dBTP."},
+  {"id": "mix.retA", "group": "Desk", "label": "Return A level (room)", "short": "Ret A", "unit": "dB", "scale": "lin", "min": -36, "max": 6, "set": -0.9, "sketch": "mixx.ret", "note": "The phone's reverb return: the room that FlexVerb, Supermassive and the SFX Hybrid send to here."},
+  {"id": "mix.retB", "group": "Desk", "label": "Return B level (echo)", "short": "Ret B", "unit": "dB", "scale": "lin", "min": -36, "max": 6, "set": 0, "sketch": "mixx.ret", "note": "The phone's tempo delay return (Supermassive's echoes). Works while the mix desk is open; elsewhere it plays at 0 dB."},
+  {"id": "mix.muteKick", "group": "Desk", "label": "Mute kick group", "short": "M", "scale": "toggle", "min": 0, "max": 1, "set": 0, "sketch": "mixx.ms"},
+  {"id": "mix.mutePerc", "group": "Desk", "label": "Mute perc group", "short": "M", "scale": "toggle", "min": 0, "max": 1, "set": 0, "sketch": "mixx.ms"},
+  {"id": "mix.muteSfx", "group": "Desk", "label": "Mute SFX group", "short": "M", "scale": "toggle", "min": 0, "max": 1, "set": 0, "sketch": "mixx.ms"},
+  {"id": "mix.muteRetA", "group": "Desk", "label": "Mute return A", "short": "M", "scale": "toggle", "min": 0, "max": 1, "set": 0, "sketch": "mixx.ms"},
+  {"id": "mix.muteRetB", "group": "Desk", "label": "Mute return B", "short": "M", "scale": "toggle", "min": 0, "max": 1, "set": 0, "sketch": "mixx.ms"},
+  {"id": "mix.soloKick", "group": "Desk", "label": "Solo kick group", "short": "S", "scale": "toggle", "min": 0, "max": 1, "set": 0, "sketch": "mixx.ms"},
+  {"id": "mix.soloPerc", "group": "Desk", "label": "Solo perc group", "short": "S", "scale": "toggle", "min": 0, "max": 1, "set": 0, "sketch": "mixx.ms"},
+  {"id": "mix.soloSfx", "group": "Desk", "label": "Solo SFX group", "short": "S", "scale": "toggle", "min": 0, "max": 1, "set": 0, "sketch": "mixx.ms"},
+  {"id": "mix.soloRetA", "group": "Desk", "label": "Solo return A", "short": "S", "scale": "toggle", "min": 0, "max": 1, "set": 0, "sketch": "mixx.ms"},
+  {"id": "mix.soloRetB", "group": "Desk", "label": "Solo return B", "short": "S", "scale": "toggle", "min": 0, "max": 1, "set": 0, "sketch": "mixx.ms"}
+]}
