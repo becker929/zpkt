@@ -77,3 +77,4 @@ html[data-density='compact'] .card-head { min-height: 52px; padding-top: 10px; p
 html[data-density='compact'] main { gap: 6px; }
 html[data-effects='off'] .item.stamp .sock, html[data-effects='off'] .item.stamp .ttl,
 html[data-effects='off'] .count.bump { animation: none; }
+.tw-simplest { margin: 0 0 18px; border-color: var(--text-2); color: var(--text); }

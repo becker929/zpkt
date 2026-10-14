@@ -103,3 +103,29 @@ async def test_the_tweaks_panel_changes_how_the_page_is_built(webkit, checklist)
     assert await page.evaluate("document.documentElement.dataset.objective") == "full"      # kept
     assert errors == [], errors
     await page.context.close()
+
+
+async def test_the_simplest_switches_make_it_a_plain_open_list(webkit, checklist):
+    page, errors = await _open(webkit, checklist)
+    await page.click("#tweaks-tab")
+    await page.wait_for_timeout(400)
+    await page.click(".tw-simplest")                                      # plain, nothing folded, a tap on a box checks
+    await page.click("#tweaks-tab")
+    await page.wait_for_timeout(400)
+    assert await page.evaluate("document.documentElement.dataset.look") == "plain"
+    assert await page.locator(".card.open").count() == 7                  # every step open
+    assert await page.locator(".item.peek").count() == await page.locator(".item").count()   # every sub-list open
+    bg = await page.evaluate("getComputedStyle(document.body).backgroundColor")
+    assert bg in ("rgb(255, 255, 255)", "rgb(0, 0, 0)")
+    box = await page.locator("#step-kick .item[data-id='drive'] > .row .sock").bounding_box()
+    tap = """([x, y]) => {
+      const row = document.querySelector("#step-kick .item[data-id='drive'] > .row");
+      const o = {pointerId: 3, pointerType: 'touch', bubbles: true, isPrimary: true, clientX: x, clientY: y};
+      row.dispatchEvent(new PointerEvent('pointerdown', o)); row.dispatchEvent(new PointerEvent('pointerup', o));
+    }"""
+    await page.evaluate(tap, [box["x"] + 8, box["y"] + 8])
+    assert await page.get_attribute("#step-kick .item[data-id='drive']", "data-state") == "done"
+    await page.evaluate(tap, [box["x"] + 200, box["y"] + 8])              # a tap on the text does nothing
+    assert await page.get_attribute("#step-kick .item[data-id='drive']", "data-state") == "done"
+    assert errors == [], errors
+    await page.context.close()
