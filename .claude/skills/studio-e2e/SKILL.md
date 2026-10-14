@@ -7,10 +7,17 @@ description: Test studio end to end as Anthony uses it - the real server, Kokoro
 
 ```bash
 cd lib/harness
-uv run --extra dev python -m e2e                         # the whole scenario, ~10 min
+uv run --extra dev python -m e2e smoke                   # ~1 min: slider, app switch, replay; scripted Claude
+uv run --extra dev python -m e2e                         # quick (the default), ~4 min: every part, scripted Claude
+uv run --extra dev python -m e2e full                    # ~15 min: every part, the real Claude and narrator
 uv run --extra dev python -m e2e --only slider,finer     # some parts (a part's prerequisites run first)
 uv run --extra dev python -m e2e --keep-going            # carry on after a part fails
 ```
+
+Run smoke while iterating, quick before a commit, and full before saying a studio feature works. The scripted
+Claude (`e2e/scripted.py`) does what Claude would through the same paths (`hands plan`, present_music, a tool
+call the screens and narrator see), with small renders, so the page, the voice and the checks are tested in
+minutes. Only full tests Claude's own choices and the narrator.
 
 It runs from the checkout it is in. The Claude session works in that checkout and uses its skills, so a branch is
 tested as it is. The studio's data goes in the run's folder (`~/_agent_scratch/e2e/runs/<time>/`). The running
@@ -32,6 +39,8 @@ The parts (`e2e/scenario.py`), in order:
 - **intents**: "Loop that three times" plays without Claude.
 - **keep**: taps a stop, then Keep.
 - **typed**: a typed turn is answered out loud.
+- **long_wait**: the mic is offered and nobody speaks for longer than the recogniser's 45 s window (50 s in quick,
+  90 s in full); the line that comes then must be heard.
 - **screens**: Claude's steps come with screenshots.
 
 The virtual user speaks (Kokoro, voice am_michael, lines cached in `~/_agent_scratch/e2e/voices/`) only once the

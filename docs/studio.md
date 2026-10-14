@@ -391,3 +391,9 @@ introduced and counted in (heard by Parakeet from the recording); no narration o
 heard from its first word; every turn gets audio; no errors. It writes `report.md` with a timeline. Plans use
 Live's cached renders and stand-ins for new ones, so a run never touches Live. `--only` picks parts of the
 scenario, and `--live` renders in Live (only with Anthony there).
+
+Three suites, for iterating: `python -m e2e smoke` (about 1 min: a slider with its intro and sweep, an app switch,
+a replay), `quick` (the default, about 4 min: every part) and `full` (about 15 min). smoke and quick use a scripted
+stand-in for Claude (`e2e/scripted.py`): it does what Claude would through the same paths (`hands plan`, the same
+present calls, a tool call the screens and narrator see) in seconds. full uses the real Claude session and narrator.
+Run smoke while changing the page, quick before a commit, and full before saying a feature works.
