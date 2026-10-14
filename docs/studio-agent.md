@@ -61,7 +61,15 @@ it holds deep sub (25-40 Hz, 7-9 dB under), the low end's mono (correlation 0.88
 A separate admin view from the agent's chat. It shows the track's spine with each step's sub-checklist, every
 item's status, open questions and evidence (playable through the player engine). The chat treats it like an
 artifact: the agent refers to items by name, changes them, and the page shows what changed and who changed it.
-Anthony can edit it directly too. It is the next admin page to build.
+Anthony can edit it directly too.
+
+First draft (14 October 2026): `/studio/checklist/`, from `static/checklist/data/hw002.json`. The steps and their
+items are HW002's for real; what is inside an item (sub-steps, the agent's question, a widget, evidence) is a
+wireframe, labelled as mocked. It is meant to feel like a precise video game, so moving the track along is its own
+pull: a current-objective HUD, the spine as seven gems, items that clear with a hold (the socket and the row fill;
+on release a click, layered white rings and a diagonal flash across the step), a banner when a step is cleared, and
+the next step taking over. Items waiting on Anthony breathe in amber; items with the agent march in dotted blue.
+Checks are kept in the browser until the agent's store exists.
 
 ## The reference space
 
@@ -112,7 +120,6 @@ never goes into this repo, which is public.
 
 ## Open questions
 
-- How the player engine plays files without Web Audio (`docs/sound.md`).
 - Which dimensions each step uses, and how each is measured on a full mix (the kick's first).
 - The checklist's file format and where it lives (the repo for the template, the track's folder or the harness for
   a track's own list).

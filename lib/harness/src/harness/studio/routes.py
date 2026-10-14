@@ -9,6 +9,7 @@
     GET  /studio/ws               the WebSocket (docs/studio.md)
     GET  /studio/lab/<file>       the lab: HW002's controls as phone surfaces (static/lab, docs/lab.md)
     GET  /studio/lab/audio/<file> its audio, built by `harness lab-audio` outside the repo (cached forever)
+    GET  /studio/checklist/<file> the track's checklist across the spine (static/checklist, docs/studio-agent.md)
 """
 
 from __future__ import annotations
@@ -52,6 +53,8 @@ def app(studio: "Studio") -> web.Application:
     sub.router.add_get("/lab", lab_slash)
     sub.router.add_get("/lab/audio/{name}", lab_audio)
     sub.router.add_get("/lab/{path:.*}", lab_file)
+    sub.router.add_get("/checklist", checklist_slash)
+    sub.router.add_get("/checklist/{path:.*}", checklist_file)
     return sub
 
 
@@ -98,9 +101,25 @@ async def lab_slash(_request: web.Request) -> web.Response:
 async def lab_file(request: web.Request) -> web.StreamResponse:
     """The lab's page and modules, by relative path (so the same files run from any static server in tests),
     revalidated each load: it is a test bench, changed often."""
+    return _bench_file(request, LAB)
+
+
+CHECKLIST = STATIC / "checklist"
+
+
+async def checklist_slash(_request: web.Request) -> web.Response:
+    raise web.HTTPFound("/studio/checklist/")
+
+
+async def checklist_file(request: web.Request) -> web.StreamResponse:
+    """The checklist page (a first draft: its items are in its own data file), served like the lab."""
+    return _bench_file(request, CHECKLIST)
+
+
+def _bench_file(request: web.Request, root: Path) -> web.StreamResponse:
     rel = request.match_info["path"] or "index.html"
-    path = (LAB / rel).resolve()
-    if not path.is_relative_to(LAB.resolve()) or not path.is_file():
+    path = (root / rel).resolve()
+    if not path.is_relative_to(root.resolve()) or not path.is_file():
         raise web.HTTPNotFound()
     resp = web.FileResponse(path, headers={"Cache-Control": "no-cache"})
     if path.suffix in (".html", ".js", ".css", ".json", ".svg") and accepts_gzip(request.headers.get("Accept-Encoding", "")):

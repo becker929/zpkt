@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0a0a0b">
+  <title>Track Checklist</title>
+  <link rel="stylesheet" href="checklist.css">
+</head>
+<body>
+  <label class="haptic" aria-hidden="true"><input type="checkbox" switch tabindex="-1"></label>
+  <header class="top">
+    <a class="back" href="/studio/" aria-label="Back to studio">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>
+    </a>
+    <div class="title">
+      <h1 id="track">—</h1>
+      <p id="about"></p>
+    </div>
+    <div class="total"><b id="total-n">0</b><span>/</span><span id="total-of">0</span></div>
+  </header>
+
+  <section class="hud" id="hud" aria-live="polite">
+    <div class="hud-label">Current objective</div>
+    <div class="hud-step"><span id="hud-n"></span><span id="hud-name"></span></div>
+    <div class="hud-bar" id="hud-bar"></div>
+    <div class="hud-meta" id="hud-meta"></div>
+  </section>
+
+  <nav class="spine" id="spine" aria-label="The seven steps"></nav>
+
+  <main id="steps"></main>
+
+  <footer class="foot">
+    <p id="draft"></p>
+    <p>Hold an item to clear it. Hold a cleared one to open it again. Tap to look inside. Your checks stay on this phone
+      for now.</p>
+    <button type="button" id="reset">Reset this draft</button>
+  </footer>
+
+  <div class="banner" id="banner" aria-hidden="true"><div class="banner-in"><span id="banner-n"></span><b id="banner-name"></b><i>Cleared</i></div></div>
+  <script type="module" src="checklist.js"></script>
+</body>
+</html>

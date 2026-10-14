@@ -33,6 +33,8 @@ def app(audio: Path | None = None) -> web.Application:
     sub.router.add_get("/lab", routes.lab_slash)
     sub.router.add_get("/lab/audio/{name}", routes.lab_audio)
     sub.router.add_get("/lab/{path:.*}", routes.lab_file)
+    sub.router.add_get("/checklist", routes.checklist_slash)
+    sub.router.add_get("/checklist/{path:.*}", routes.checklist_file)
     root = web.Application()
     root.add_subapp("/studio", sub)
     return root

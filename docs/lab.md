@@ -1,7 +1,7 @@
 # The HW002 lab: the set's knobs as phone surfaces
 
-> **Its sound is banned (14 October 2026).** Everything the lab plays goes through Web Audio, which zpkt no longer
-> allows (`docs/sound.md`): its sketches of the set were plausible and wrong. Keep its surfaces (the knobs, pads, 3D
+> **Its sound is banned (14 October 2026).** The lab does the DAW's job in the browser, which zpkt no longer allows
+> (`docs/sound.md`): its sketches of the set were plausible and wrong. Keep its surfaces (the knobs, pads, 3D
 > pieces, haptics), not its sound; its sound is replaced by the player engine. The design that follows the lab is
 > `docs/studio-agent.md`. The rest of this page describes the lab as it was built.
 
