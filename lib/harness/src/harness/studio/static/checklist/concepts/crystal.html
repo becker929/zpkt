@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#0b0b0c" media="(prefers-color-scheme: dark)">
+  <title>Track Crystal</title>
+  <link rel="stylesheet" href="crystal.css">
+</head>
+<body>
+  <label class="haptic" aria-hidden="true"><input type="checkbox" switch tabindex="-1"></label>
+  <header class="top">
+    <a class="back" href="/studio/checklist/" aria-label="Back to the checklist">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>
+    </a>
+    <div class="title"><h1 id="track">—</h1><p id="about"></p></div>
+    <div class="total"><b id="total-n">0</b>/<span id="total-of">0</span></div>
+  </header>
+
+  <main>
+    <figure class="stage">
+      <div class="live" id="live"></div>
+      <figcaption>Grown from the checklist today; later it would grow from the renders' measurements in reference space.</figcaption>
+    </figure>
+
+    <nav class="steps" id="steps" aria-label="The seven steps"></nav>
+    <section class="list" id="list" aria-live="polite"></section>
+
+    <section class="release">
+      <button type="button" class="release-btn" id="release">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="2.2"/></svg>
+        <span>Release now</span>
+      </button>
+      <p class="note">Mocked: nothing is uploaded. It freezes the crystal as it is now, as a pressing. You can release at any
+        point; what is still open simply isn't crystallised yet.</p>
+      <h2 class="pressings-h" id="pressings-h" hidden>Pressings</h2>
+      <ol class="pressings" id="pressings"></ol>
+    </section>
+  </main>
+  <script type="module" src="crystal.js"></script>
+</body>
+</html>
