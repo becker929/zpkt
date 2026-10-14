@@ -1,5 +1,8 @@
 # audio-browser
 
+> Its Web Audio playback (`frontend/lib/collagePlayer.ts`, `slicePlayer.ts`, `softClip.ts`) breaks zpkt's sound rule
+> (`docs/sound.md`) and is replaced if the prototype is revived.
+
 A tool for listening through a personal sound library once and deciding what
 each sound is for.
 
