@@ -8,7 +8,8 @@ It runs on the Mac inside `harness serve` and is reached over the tailnet only, 
 
 ## A turn
 
-The mic and the speaker take turns: they are never on together, so a car's Bluetooth stays in its media profile.
+The mic and the speaker take turns: they are never on together (but for the ready sound, below), so a car's
+Bluetooth stays in its media profile.
 Between turns the phone keeps its mic stream with the tracks disabled (menu: Keep the mic ready, on by default),
 so a browser that asks for the mic on every getUserMedia (Chrome on iOS) asks once. With it off, closing stops the
 tracks, which is the surest way back to Bluetooth's media profile.
@@ -18,15 +19,57 @@ come with permission), so the phone's mic is used from the next open on.
 
 1. **You talk.** The phone streams the mic to the Mac. Captions follow you live (folded by default). You end the turn
    by saying **"tomato"**. Pauses don't end it, so you can think mid-sentence. You can also tap to end the turn, or type.
+   The mic takes a moment to open, and the turn button says so: muted, with an arc going round and "One moment…",
+   until the mic's first frame is on its way to the Mac; then the accent colour, the level, "Go ahead" and the
+   **ready sound** (two soft notes, 150 ms; menu: Ready sound, on by default).
 2. **Claude works.** The transcript goes to one long-lived Claude Code session (cwd: zpkt). While it works, a small
    Haiku model narrates what it is doing in a few words, and screenshots of its actions arrive at the level you chose.
    Its thinking, tool calls and screenshots fold into one trace bubble in the chat (never spoken).
 3. **Claude answers.** Its words are spoken (Kokoro, on the Mac, streamed as it is generated). Music it renders arrives
-   as its own bubble. With autoplay on (the default) both play in order.
+   as its own bubble at once, but plays only after Claude's turn is over, after everything it said: for each render,
+   in order, the app says its title, then its note, then "Three, two, one.", and the music starts as the count-in
+   ends. With autoplay on (the default) all of it plays in order; with it off, nothing is spoken or played by itself.
 4. **Your turn again.** When the phone has finished playing, the mic opens.
 
+Music never starts unannounced, and words about it never come after it: on the phone, in a car, there is nothing to
+look at. So the order is Claude's words, then the intro, then the music. The intro is the app's, not Claude's: the
+render's `title` and its `note` (one or two sentences, what it is and what to listen for), which Claude writes for
+`present_music` knowing they are spoken just before the music, so its reply needs only a few words about it. Once
+Claude has put music in the turn, the narrator says nothing more (a line being written is dropped, and so are lines
+waiting to be spoken): the intro says what the music is. A narration already playing ends first; the phone plays
+everything in order, so nothing is ever heard over anything else. Interrupting drops the music still waiting.
+
 "Play again" and "loop that three times" replay the last music at once, without waiting for Claude: a small command
-parser catches them and calls the same `play_music(loops=N)` tool Claude has. Claude is told about it on its next turn.
+parser catches them and calls the same `play_music(loops=N)` tool Claude has. Their intro is short ("Again: Kick
+drive. Three, two, one."), said once however many loops. Claude is told about it on its next turn. When Claude itself
+calls `play_music`, the replay waits for the end of its turn like a render. Music presented while no turn of Claude's
+is running gets its full intro and plays at once. With autoplay off a replay plays without an intro, and a tap on a
+bubble always plays it at once, with no intro.
+
+**The ready sound** is the one sound that plays while the mic is open. It plays in the audio session the mic already
+has, so nothing switches route; it is short and quiet, it comes before you speak, and echo cancellation takes it
+out of what the Mac hears. It is not one of the phone's counted items and never makes the phone busy
+(`static/js/cue.js`).
+
+**When the phone takes the mic away.** In the background (another app, the lock screen) iOS ends or mutes the
+page's tracks and leaves its audio context interrupted, or running but silent. So the mic closes when the page is
+hidden (the Mac hears `mic closed`) and lets its kept stream go. Back on the page, if the Mac still wants the mic,
+the button asks for a tap ("Tap to turn the mic back on", a pulsing ring; the top bar says "Mic off"). That tap
+makes a new audio context and opens the mic on it, in the same turn; it never ends the turn. A context interrupted
+while the page is in view (a call) stops the mic the same way, and if it resumes by itself the mic opens again by
+itself. A track that ends or stays muted for a second mid-turn is let go and the mic opens afresh. An open that
+fails with an error that looks passing (InvalidStateError, AbortError, NotReadableError) is tried again once after
+400 ms; otherwise, or if that fails too, the button asks for a tap. Every failure goes to the harness log as well
+as to the page (`log`: the stage, the error, the page's and the context's state).
+
+**Timing marks for the mic** (phone marks, in the menu's Timings and `harness timings`). Each stage of an open has
+its own duration: `route_settle`, `mic_held` (the kept stream taken back, including the wait for iOS to unmute it;
+`kept`, `muted`), `mic_check` (is it the phone's own mic? `listed`: the devices had to be listed, which a track
+labelled as the phone's mic skips; `wrong`), `mic_gum` (getUserMedia, only when there was no good kept stream;
+`exact`), `mic_worklet` (`loaded`: the context loaded it just now) and `mic_frame` (the graph built until its first
+frame). Three are waits since the Mac's `listen` (or since what made the mic reopen, in `after`): `mic_open` (the
+graph built; `gum_ms` from the route settled, `input`, `kept`), `mic_ready` (the first frame on its way: from here
+the button says "Go ahead") and `ready_cue` (the ready sound reaches the speaker).
 
 ## Processes
 
@@ -54,14 +97,16 @@ lib/harness/src/harness/studio/
   protocol.py      the WebSocket's JSON messages and binary frames
   routes.py        routes: page, static files, history, media, WebSocket
   assets.py        the page's files: versioned URLs cached for good, gzipped once, modulepreloads, first page
-  conversation.py  the turn loop: phases, who has the turn, what plays next; a turn that fails hands the mic back
+  conversation.py  the turn loop: phases, who has the turn, what plays next (music after Claude's words, each with
+                   its intro); a turn that fails hands the mic back
   turn.py          one Claude turn's events as chat messages: replies (spoken), thinking, tool calls
   playback.py      what the owner's phone has still to play, counted back, before the mic opens
   agent.py         the Claude Code session: streaming text and thinking, tool activity, interrupt, resume
-  tools.py         the tools Claude gets from the app (present_music, play_music, stop_audio, screenshot)
+  tools.py         the tools Claude gets from the app (present_music, play_music, stop_audio, screenshot); their
+                   descriptions tell Claude when the music plays, and that present_music's `note` is spoken in its intro
   intents.py       spoken commands handled without Claude (play again, loop N times, stop)
   speech.py        the voice worker's client, and the speaker: text to segments to streamed audio to a replay file
-  narrator.py      Haiku narration: rate-limited, stale lines dropped
+  narrator.py      Haiku narration: rate-limited, stale lines dropped, quiet once music waits for the turn's end
   screens.py       screenshot pairs at the chosen level: when to capture, and the chat messages
   shots.py         saliency (what changed), the 4:3 zoom, WebP presets per level
   grab.py          the capture: screengrab.swift (ScreenCaptureKit), built on first use; screencapture fallback
@@ -151,7 +196,8 @@ distances compare across knobs; a cached plan within a small distance is offered
 **A/B every bar.** Two renders of the same section become one file: each is set to the same loudness (BS.1770
 integrated, -14 LUFS), the first bar (the previous pattern's tail) is dropped, and bars alternate A, B, A, B with 10 ms crossfades.
 The file goes to the chat with `present_music` and its `ab` metadata (bar length, bars, which side starts, labels),
-and the page lights A or B in time.
+and the page lights A or B in time. Its `note` says which side is which and what to listen for: it is spoken
+right before the A/B plays.
 
 **Options, switched on the phone.** An A/B compares two renders; options put N of them in one file
 (`hands/src/hands/plans/options.py`): one knob at N values (`hands plan slider`), N steps from one plan to another
@@ -165,12 +211,13 @@ sounds like the set now, each option's label and `match_db`), checks it against 
 music message keeps it. The page fetches the file as soon as the card is in the chat, before any tap, and decodes
 it as soon as there is an audio context. From then on nothing goes to the Mac until a choice is made:
 
-- the Mac's `play` (autoplay) **sweeps**: option k sounds during bar k, one bar of each, in order;
+- the Mac's `play` (autoplay, after the card's intro) **sweeps**: option k sounds during bar k, one bar of each, in
+  order;
 - a tap on the card, or on the slider, **holds** an option: it loops its bars until stopped (at most ten minutes);
 - moving the slider or tapping a button switches 15 ms later, at the same place in the bar: every option is read at
   `(t - t0) mod its length`, so the beat goes on. The switch is a 12 ms crossfade, and touching a sweep turns it into
   a hold;
-- **Match loudness** ramps each option to its `match_db`;
+- **Match loudness** (on by default, per card; the Mac's sweep follows the card) plays each option at its `match_db`;
 - a held option gives way to anything the Mac sends (speech, music) at the next bar line;
 - **Keep** and **Finer here** stop the sound and send Anthony's next turn as text ("Keep rumble Drive at 62%: option
   6 of 9 on card 41."), which Claude maps back to the option's plan (skill options-slider).
@@ -246,13 +293,13 @@ Phone → Mac:
 | `prefs` | `prefs` | preferences changed |
 | `start` | | this phone takes the mic and speaker; hands-free on |
 | `pause` | | hands-free off: the mic stays closed until `start` |
-| `mic` | `state` (open/closed), `turn`, `open_ms` | the mic opened (and how long that took) or closed |
+| `mic` | `state` (open/closed), `turn`, `open_ms` | the mic opened: its first frame is on its way (`open_ms` from the route settled to that frame); or it closed |
 | `say` | `text` | a typed turn; the page that sends it takes the speaker (unless another one has it mid-turn) |
 | `end_turn` | | end my turn now (same as saying the stop word) |
 | `interrupt` | | stop Claude and everything playing; my turn |
 | `playback` | `state` (busy/idle), `done` | the phone started playing, or has played everything; `done` counts the items it has finished or dropped |
 | `mark` | `turn`, `name`, `ms` | a timing mark measured on the phone |
-| `log` | `text` | something went wrong on the page (audio that didn't play); goes to the harness log |
+| `log` | `text` | something went wrong on the page (audio that didn't play, a mic that didn't open or stopped hearing); goes to the harness log |
 | `ping` | `t` | keepalive |
 
 Mac → phone:
@@ -266,8 +313,8 @@ Mac → phone:
 | `owner` | `owner` | this page has just gained (`true`) or lost (`false`) the mic and the speaker |
 | `caption` | `turn`, `text` | the live transcript of the turn so far |
 | `upsert` | `message` | a message is new or changed |
-| `speech` | `stream`, `seq`, `rate`, `state` (begin/end) | a speech stream starts or ends; its audio comes in `0x02` frames |
-| `play` | `seq`, `loops` | play a music message, after anything already queued |
+| `speech` | `stream`, `seq`, `rate`, `state` (begin/end) | a speech stream starts or ends; its audio comes in `0x02` frames. `seq` is the bubble it speaks for: a reply, a narration, or a music bubble (its intro: the card lights while it is said) |
+| `play` | `seq`, `loops` | play a music message, after anything already queued; with autoplay on it comes the moment its intro's stream ends |
 | `stop_audio` | | stop and clear everything playing (and restart the `done` count) |
 | `reset` | `conversation` | a new conversation started: clear the chat |
 | `notice` | `level`, `text` | a passing notice |
@@ -276,8 +323,9 @@ Mac → phone:
 **Counting items.** An item is one `speech` stream (begin to end) or one `play` command. The phone counts every
 item it finishes or drops (stopped, interrupted, replaced by a tap) and reports the count in `playback`; the count
 restarts when the phone sends `start` and when it receives `stop_audio`. The Mac opens the mic only when the count
-has caught up with what it sent, so a lost message can't open the mic over the music. Speech streams are sent only
-to a phone with autoplay on; `play` commands are explicit requests and play either way.
+has caught up with what it sent, so a lost message can't open the mic over the music. A render's intro is a speech
+stream like any other, counted the same way. Speech streams are sent only to a phone with autoplay on; `play`
+commands are explicit requests and play either way.
 
 HTTP (all behind the password): `GET /studio/api/messages?before=<seq>&limit=<n>` →
 `{"items": [...oldest first...], "has_more": bool}`; `GET /studio/api/timings?turns=<n>`;
@@ -332,3 +380,20 @@ reference as `original`). Running it again changes nothing; it is safe while the
 The whole stack, end to end (page in Chromium, real server, Kokoro and Parakeet, `hands plan ab` with stand-in
 renders): `STUDIO_STACK=1 uv run --project lib/harness --extra dev pytest lib/harness/tests/ui/test_stack.py`; add
 `STUDIO_CLAUDE=1` for one typed turn with the real Claude session.
+
+**As Anthony uses it, end to end** (skill studio-e2e): `cd lib/harness && uv run --extra dev python -m e2e` runs the
+real studio (server, Kokoro and Parakeet, the real Claude session and narrator) with its data in a run folder, and
+drives the page in an iPhone-sized WebKit as a virtual user. The user speaks each line (Kokoro, another voice) into
+a stand-in mic once the dock says "Go ahead", taps the cards, and switches apps the way iOS does it. The run records
+the socket both ways, what the speakers played, when the mic was open, and the chat. Every run is held to the same
+rules: "Go ahead" only while the mic is heard; nothing plays over the open mic; one sound at a time; every render
+introduced and counted in (heard by Parakeet from the recording); no narration once music is ready; every line
+heard from its first word; every turn gets audio; no errors. It writes `report.md` with a timeline. Plans use
+Live's cached renders and stand-ins for new ones, so a run never touches Live. `--only` picks parts of the
+scenario, and `--live` renders in Live (only with Anthony there).
+
+Three suites, for iterating: `python -m e2e smoke` (about 1 min: a slider with its intro and sweep, an app switch,
+a replay), `quick` (the default, about 4 min: every part) and `full` (about 15 min). smoke and quick use a scripted
+stand-in for Claude (`e2e/scripted.py`): it does what Claude would through the same paths (`hands plan`, the same
+present calls, a tool call the screens and narrator see) in seconds. full uses the real Claude session and narrator.
+Run smoke while changing the page, quick before a commit, and full before saying a feature works.

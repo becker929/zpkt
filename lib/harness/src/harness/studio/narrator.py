@@ -2,7 +2,8 @@
 
 Rules (plan V2): speak only after Claude has been quiet for a while, never more often than a minimum gap, never
 twice about the same activity, and drop a line that went stale while it was being written (Claude spoke, or the
-turn ended). If the model fails or is slow, say nothing rather than something generic.
+turn ended). If the model fails or is slow, say nothing rather than something generic. Once Claude has put music
+in the turn, the narrator is hushed: the music plays at the turn's end with its own intro.
 """
 
 from __future__ import annotations
@@ -71,6 +72,13 @@ class Narrator:
             self._task.cancel()
             self._task = None
 
+    def hush(self) -> None:
+        """Say nothing more this turn: music is waiting for its end, and its intro says what it is. A line being
+        written now is dropped when it comes (stale, as after the turn's end); the model's call is left to finish,
+        since cancelling it would drop its warm CLI."""
+        self._turn += 1
+        self._task = None
+
     def due(self) -> bool:
         now = self._now()
         return (len(self.activity) > self.narrated_upto and now - self.last_voice >= self.QUIET_S
@@ -84,8 +92,8 @@ class Narrator:
     async def tick(self, turn: int | None = None) -> str | None:
         """Narrate now if it is due; returns the line spoken, if any."""
         turn = self._turn if turn is None else turn
-        if not self.due():
-            return None
+        if turn != self._turn or not self.due():
+            return None                  # hushed (or the turn ended) since the watcher last looked
         upto = len(self.activity)
         prompt = PROMPT.format(request=self.request or "(nothing yet)",
                                said=" / ".join(self.said[-3:]) or "(nothing yet)",

@@ -8,6 +8,11 @@ The mic and the speaker never overlap: the mic is offered only once the owner's 
 sent (playback.py). Each turn has an id, and work left over from a turn that something else replaced (a typed
 message while the answer plays, a phone pressing Start) sees that and stops. A turn whose task fails in the app
 itself hands the mic back, so whatever goes wrong, the app never stays stuck in a phase.
+
+Music never starts unannounced. What Claude presents or replays during its turn waits for the turn's end: then,
+after everything Claude said, each render gets a short spoken intro (its title, its note, "Three, two, one.") and
+plays the moment the intro ends. Music cued with no turn running (a replay Anthony asked for, a render presented
+outside a turn) gets the same intro at once. Once music is waiting, the narrator says nothing more that turn.
 """
 
 from __future__ import annotations
@@ -51,6 +56,35 @@ def play_seconds(data: dict[str, Any]) -> float:
     return float(data.get("duration") or 0)
 
 
+COUNT_IN = "Three, two, one."
+
+
+def intro(data: dict[str, Any], again: bool = False) -> str:
+    """What the app says right before a render plays: its title, then its note (what it is and what to listen for),
+    then the count-in. A replay is only "Again" and the title, so "play again" stays quick."""
+    title = sentence(str(data.get("title") or "The music"))
+    if again:
+        return f"Again: {title} {COUNT_IN}"
+    return " ".join(part for part in (title, sentence(str(data.get("note") or "")), COUNT_IN) if part)
+
+
+def sentence(text: str) -> str:
+    """`text` on one line, ending as a sentence does, so the voice pauses after it."""
+    text = " ".join(text.split())
+    return text if not text or text[-1] in ".!?…" else f"{text}."
+
+
+@dataclass
+class Cue:
+    """Music to play after its intro: a render Claude presented, or a replay. A replay was asked for (by Anthony or
+    by Claude), so it plays even with autoplay off, without an intro then; a presented render plays only with
+    autoplay on."""
+
+    msg: Message
+    loops: int = 1
+    again: bool = False
+
+
 @dataclass
 class Settings:
     stop_word: str = "tomato"
@@ -83,6 +117,8 @@ class Conversation:
         self._tasks: set[asyncio.Task] = set()
         self._queued: list[str] = []          # typed turns sent while Claude was working
         self._notes: list[str] = []           # what happened that Claude should hear about next turn
+        self._cues: list[Cue] | None = None   # music cued in Claude's turn, played at its end (None: no turn running)
+        self._intros: list[Utterance] = []    # intros queued in the speaker, whose music a stop must keep from playing
         self._push_later: dict[int, asyncio.TimerHandle] = {}   # growing replies, pushed at most every TEXT_PUSH_S
 
     # --- lifecycle -----------------------------------------------------------------------------------------------
@@ -435,7 +471,7 @@ class Conversation:
         if music is None:
             self.notice("There is no music in this conversation yet.")
             return
-        self.play(music.seq, intent.loops)
+        self.play(music.seq, intent.loops)        # no turn of Claude's is running: its intro starts now
         self._notes.append(f'Anthony said "{text}", so the app played "{music.data.get("title")}" '
                            f'(music #{music.seq}) {intent.loops} time(s).')
 
@@ -449,6 +485,7 @@ class Conversation:
         self.set_phase(Phase.WORKING, "Thinking")
         self.narrator.turn_started(text)
         self.screens.turn_started()
+        self._cues = []
         messages = TurnMessages(self, self.clock)
         try:
             async for ev in self.agent.turn(self._prompt(text)):
@@ -463,6 +500,10 @@ class Conversation:
         finally:
             self.narrator.turn_ended()
             messages.finish(self.interrupted)
+            cues, self._cues = self._cues or [], None
+        if not self.interrupted:             # an interrupt wants the mic, not the music
+            for cue in cues:
+                self._introduce(cue)         # after everything Claude said: the speaker keeps the order
         try:
             await self.screens.turn_ended()
         except Exception:  # noqa: BLE001 - a screenshot is never worth a stuck turn
@@ -532,23 +573,66 @@ class Conversation:
         if self.clock:
             self.clock.mark("music_ready", seq=msg.seq)
         if self.hub.autoplay:
-            self.play(msg.seq, 1)
+            self._cue(Cue(msg))
         return msg
 
     def play(self, seq: int, loops: int) -> Message:
+        """Play a music message again, `loops` times, after a short intro: at the end of Claude's turn if one is
+        running, else now."""
         msg = self.store.get(seq)
         if msg is None or msg.kind is not Kind.MUSIC or msg.conversation != self.conv.id:
             raise ValueError(f"no music #{seq} in this conversation")
-        msg.data["plays"] = int(msg.data.get("plays", 0)) + loops
-        self.save(msg)
-        if self.hub.to_owner({"type": "play", "seq": seq, "loops": loops}):
-            self.to_play.item(play_seconds(msg.data) * loops)
+        self._cue(Cue(msg, loops, again=True))
         return msg
+
+    @property
+    def music_waits(self) -> bool:
+        """Music cued now waits for the end of Claude's turn."""
+        return self._cues is not None
+
+    def _cue(self, cue: Cue) -> None:
+        if self._cues is None:
+            self._introduce(cue)
+            return
+        self._cues.append(cue)
+        # The turn ends with music now, and its intro says what it is: narration would only add to the wait.
+        self.narrator.hush()
+        self.speaker.drop_narrations()
+
+    def _introduce(self, cue: Cue) -> None:
+        """Say what is about to play, then play it. The intro is queued behind everything already said, and the
+        `play` goes out the moment the intro's stream ends (Utterance.then), so the phone, which plays its items in
+        order, goes from the count-in straight into the music. The intro's stream carries the music's seq: the card
+        lights while it is said, and no bubble of its own is added."""
+        if not self.hub.autoplay:
+            if cue.again:
+                self._play_now(cue)          # asked for: it plays, but with autoplay off nothing is spoken
+            return
+        utt = Utterance(cue.msg, keep=False, then=lambda: self._play_now(cue))
+        self._intros = [u for u in self._intros if not u.done.is_set()] + [utt]
+        self.speaker.say(utt)
+        utt.feed(intro(cue.msg.data, cue.again))
+        utt.close()
+
+    def _play_now(self, cue: Cue) -> None:
+        msg = self.store.get(cue.msg.seq)         # as stored now: another play may have counted itself meanwhile
+        if msg is None or msg.conversation != self.conv.id:
+            return                                # a new conversation began while it waited
+        if self.hub.to_owner({"type": "play", "seq": msg.seq, "loops": cue.loops}):
+            self.to_play.item(play_seconds(msg.data) * cue.loops)
+        msg.data["plays"] = int(msg.data.get("plays", 0)) + cue.loops
+        self.save(msg)
 
     def last_music(self) -> Message | None:
         return self.store.last(self.conv.id, Kind.MUSIC)
 
     def stop_audio(self) -> None:
+        """Stop what the phone plays, and the music still waiting to: cued in this turn, or behind its intro."""
+        if self._cues:
+            self._cues.clear()
+        for utt in self._intros:
+            utt.cancel()
+        self._intros = []
         if self.hub.owner is not None:
             self.hub.owner.send({"type": "stop_audio"})
         self.to_play.reset()

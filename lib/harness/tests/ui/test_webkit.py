@@ -66,7 +66,7 @@ async def test_safari_a_typed_turn_comes_round(iphone, fake):
     await page.page.press("#composer-input", "Enter")
     said = await fake.expect(lambda m: m["type"] == "say")
     assert said["text"] == "Brighter hats"
-    await fake.expect(is_playback("idle", 2), timeout=20)
+    await fake.expect(is_playback("idle", 3), timeout=20)
     await fake.expect(is_mic("open", "t2"))
 
 

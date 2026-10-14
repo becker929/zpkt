@@ -313,6 +313,10 @@ class Utterance:
     msg: Message | None                       # None for a narration: its bubble is made only if it is spoken
     make: Callable[[], Message] | None = None
     droppable: bool = False                   # a narration: skip it if it is stale by its turn
+    keep: bool = True                         # False: it speaks for another bubble (a render's intro), so no replay
+    # What the phone plays right after it (a render after its intro): sent the moment its stream ends, so nothing
+    # else can come between the two. Not if it is cancelled; still if the voice failed, so the music never waits.
+    then: Callable[[], None] | None = None
     created: float = field(default_factory=time.monotonic)
     on_first_audio: Callable[[], None] | None = None
     pieces: asyncio.Queue = field(default_factory=asyncio.Queue)
@@ -364,13 +368,18 @@ class Speaker:
         return self.current is not None or bool(self._pending)
 
     def say(self, utt: Utterance) -> Utterance:
-        if not utt.droppable:   # Claude speaking makes any narration still waiting stale
-            for waiting in self._pending:
-                if waiting.droppable:
-                    waiting.cancel()
+        if not utt.droppable:   # Claude speaking (or a render's intro) makes any narration still waiting stale
+            self.drop_narrations()
         self._pending.append(utt)
         self._queue.put_nowait(utt)
         return utt
+
+    def drop_narrations(self) -> None:
+        """Narrations still waiting are not spoken. One already streaming ends as it is: the phone plays it whole,
+        before anything queued after it."""
+        for waiting in self._pending:
+            if waiting.droppable:
+                waiting.cancel()
 
     def cancel(self) -> None:
         for utt in [*self._pending, *([self.current] if self.current else [])]:
@@ -428,7 +437,9 @@ class Speaker:
         finally:
             if play:
                 self.hub.to_owner({"type": "speech", "stream": stream, "seq": msg.seq, "state": "end"})
-            if pcm and msg is not None:
+            if utt.then is not None and not utt.cancelled:
+                utt.then()
+            if pcm and msg is not None and utt.keep:
                 task = asyncio.create_task(self._keep(msg, b"".join(pcm), rate))
                 self._encoders.add(task)
                 task.add_done_callback(self._encoders.discard)

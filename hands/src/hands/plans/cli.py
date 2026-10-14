@@ -5,6 +5,7 @@ A PLAN argument is a JSON file or inline JSON: {"kit": "c8x4", "knobs": {"<track
 
     hands plan kit c8x4                          the kit: version, tempo, bar length, patterns
     hands plan knob c8x4 'rumble|plugin:Decapitator|Drive'     a knob's value and range in the kit
+    hands plan kits                              every kit, and the knobs plans have used on it (from the cache)
     hands plan lookup PLAN                       cached? else the nearest cached render, if close
     hands plan render PLAN [PLAN ...]            render what is not cached, in packs of P (one load, one export)
     hands plan ab A B                            A against B every bar, loudness-matched; renders what is missing
@@ -43,7 +44,11 @@ def _plan(arg: str) -> Plan:
 
 
 def _planner(fake: bool) -> Planner:
+    """HANDS_PLAN_RENDERER=fake makes every command render stand-in tones: the studio's end-to-end test runs Claude
+    with it, so plans already in the cache play Live's renders and nothing new touches Live."""
     cache = Cache()
+    if os.environ.get("HANDS_PLAN_RENDERER") == "fake" and not fake:
+        return Planner(cache=cache, renderer=FakeRenderer(cache.root / "fake", bar_seconds=None))
     renderer = FakeRenderer(cache.root / "fake") if fake else LiveRenderer()
     return Planner(cache=cache, renderer=renderer)
 
@@ -62,6 +67,30 @@ def kit(name: str) -> None:
     k = p.kit(name)
     _out({"kit": k.name, "set": k.set, "version": k.version(), "tempo": k.tempo(), "bar_seconds": k.bar_seconds(),
           "bars_per_pattern": k.bars_per_pattern(), "P": k.P})
+
+
+@app.command()
+def kits() -> None:
+    """Every kit, and the knobs plans have used on it with the values rendered: where to start."""
+    from .kits import kits_dir
+
+    cache = Cache()
+    used: dict[str, dict[str, set[float]]] = {}
+    for e in cache.all():
+        for k, v in e.plan.knobs.items():
+            used.setdefault(e.plan.kit, {}).setdefault(k, set()).add(round(v, 4))
+    out = {}
+    for meta in sorted(kits_dir().glob("*.json")):
+        name = meta.stem
+        try:
+            k = Planner(cache=cache, renderer=LiveRenderer()).kit(name)
+            about = {"tempo": k.tempo(), "bars_per_pattern": k.bars_per_pattern(), "P": k.P}
+        except (OSError, ValueError) as exc:
+            about = {"error": str(exc)[:120]}
+        knobs = {kid: {"renders": len(vals), "from": min(vals), "to": max(vals)}
+                 for kid, vals in sorted(used.get(name, {}).items())}
+        out[name] = {**about, "knobs_used": knobs}
+    _out(out)
 
 
 @app.command()
@@ -100,6 +129,7 @@ def ahead(a: str, b: str) -> None:
 @app.command()
 def ab(a: str, b: str, first: str = typer.Option("A", help="Which side plays first."),
        every: int = typer.Option(1, help="Bars per switch."),
+       bars: int = typer.Option(0, help="At most this many bars in the file (0: all the pattern has)."),
        write_ahead_: bool = typer.Option(True, "--write-ahead/--no-write-ahead",
                                          help="Also render \"more\" and \"the other end\" in the same pass."),
        fake: bool = FAKE) -> None:
@@ -109,9 +139,9 @@ def ab(a: str, b: str, first: str = typer.Option("A", help="Which side plays fir
     r = planner.ensure([pa, pb], ahead_of=(pa, pb) if write_ahead_ else None)
     ea, eb = r.entries
     kit_ = planner.kit(pa.kit)
-    bar_s = planner.renderer.bar_seconds if isinstance(planner.renderer, FakeRenderer) else kit_.bar_seconds()
-    out = planner.cache.root / "ab" / f"{ea.key}-{eb.key}-{first}{every}.flac"
-    f = build(ea.audio, eb.audio, out, bar_s, first=first.upper(), every=max(1, every))
+    bar_s = getattr(planner.renderer, "bar_seconds", None) or kit_.bar_seconds()
+    out = planner.cache.root / "ab" / f"{ea.key}-{eb.key}-{first}{every}{f'-{bars}' if bars else ''}.flac"
+    f = build(ea.audio, eb.audio, out, bar_s, first=first.upper(), every=max(1, every), max_bars=bars or None)
     title = f"{pa.describe()} vs {pb.describe()}"
     _out({"path": str(f.path), "title": title[:120], "ab": f.present(pa.describe(), pb.describe()),
           "loudness_before_match": f.loudness, "keys": {"A": ea.key, "B": eb.key},
@@ -132,8 +162,7 @@ def _bake(planner: Planner, plans: list[Plan], labels: list[str], *, layout: str
           bars: int) -> dict[str, Any]:
     """Render what is missing (packed into Live passes), cut the options into one file, and say how to present it."""
     kit_ = planner.kit(plans[0].kit)
-    fake = isinstance(planner.renderer, FakeRenderer)
-    bar_s = planner.renderer.bar_seconds if fake else kit_.bar_seconds()
+    bar_s = getattr(planner.renderer, "bar_seconds", None) or kit_.bar_seconds()
     bars = fit_bars(len(plans), bar_s, bars, kit_.bars_per_pattern())
     r = planner.ensure(plans)
     keys = [e.key for e in r.entries]

@@ -1,5 +1,6 @@
 """What came out of the page's speakers, recorded by the ear (heard.py) and checked against what the Mac sent: the
-speech tone, the A/B file pass by pass, silence after stop_audio, and nothing while the mic is open."""
+speech tone, a render's intro right before it, the A/B file pass by pass, silence after stop_audio, and nothing while
+the mic is open."""
 
 import asyncio
 import io
@@ -65,30 +66,40 @@ async def listener(chromium, fake):
     await page.page.context.close()
 
 
-async def test_the_answer_is_heard_speech_then_music_and_never_over_the_open_mic(listener, fake):
+INTRO_GAP_S = 0.3        # the longest silence between a render's count-in and the render itself
+
+
+async def test_the_answer_then_the_intro_then_the_music_one_at_a_time_and_never_over_the_open_mic(listener, fake):
     page = listener
     fake.turn_frames, fake.speech_s = 25, 1.0
     await page.page.click("#turn")
-    await fake.expect(is_playback("idle", 2), timeout=15)
+    await fake.expect(is_playback("idle", 3), timeout=15)
     await fake.expect(is_mic("open", "t2"))
     await asyncio.sleep(0.3)                                   # the reopened mic, a while, in silence
     ear = the_ear(await heard(page.page))
-    _speech, music = [e for e in (await page.js("window.studio.engine.log")) if e["counted"]]
+    _reply, intro, music = [e for e in (await page.js("window.studio.engine.log")) if e["counted"]]
+    assert intro["kind"] == "speech" and intro["seq"] == music["seq"], "the intro is a stream of the card's"
 
-    # First the reply: a 220 Hz tone, about as long as the Mac said it, all of it before the music.
+    # First the reply (a 220 Hz tone, about as long as the Mac said it), then the render's intro (its own tone):
+    # one after the other, and both over before the music starts.
     spans = ear.loud(hold=0.01)
     said = [(a, b) for a, b in spans if b <= music["t0"]]
-    assert said, f"no speech before the music: {spans}"
-    start, end = said[0][0], said[-1][1]
+    assert len(said) == 2, f"not the reply, then the intro, before the music: {spans}"
+    (start, end), (intro_start, intro_end) = said
     assert abs((end - start) - fake.speech_s) < 0.05, f"heard {end - start:.3f} s of a {fake.speech_s} s reply"
     assert abs(dominant_hz(ear.between(start, end), ear.rate) - 220) < 3
+    assert abs((intro_end - intro_start) - fake.intro_s) < 0.05, f"heard {intro_end - intro_start:.3f} s of the intro"
+    assert abs(dominant_hz(ear.between(intro_start, intro_end), ear.rate) - fake.intro_hz[0]) < 3
 
-    # Then the A/B, twice, each pass the file itself, starting where the page scheduled it.
+    # Then the A/B, twice, each pass the file itself (nothing over it), starting where the page scheduled it: as the
+    # count-in ends.
     ref = render(fake, ear)
     passes = find_passes(ear.samples, ref)
     assert len(passes.starts) == 2, passes
     assert min(passes.scores) > 0.99
     assert abs(ear.time(passes.starts[0]) - music["t0"]) < 1.5 / ear.rate
+    gap = music["t0"] - intro_end
+    assert 0 <= gap < INTRO_GAP_S, f"{1000 * gap:.0f} ms between the count-in and the music"
     assert passes.starts[1] - passes.starts[0] == len(ref)
     assert not np.any(np.abs(ear.samples[passes.starts[1] + len(ref):]) > 1e-3), "only silence after the second pass"
 
@@ -105,11 +116,11 @@ async def no_click_at_any_seam(page, fake) -> None:
     """The Mac sends speech in 0.1 s frames, and the browser resamples each buffer on its own: a buffer without its
     neighbours comes out wrong at its edges. Bright speech shows it (a low tone alone hardly does), so the reply
     has a 5 kHz partial (BRIGHT), and what is heard must be the two tones and nothing else."""
-    await fake.expect(is_playback("idle", 2), timeout=15)
+    await fake.expect(is_playback("idle", 3), timeout=15)
     ear = the_ear(await heard(page.page))
-    _speech, music = [e for e in (await page.js("window.studio.engine.log")) if e["counted"]]
+    _speech, _intro, music = [e for e in (await page.js("window.studio.engine.log")) if e["counted"]]
     said = [(a, b) for a, b in ear.loud(hold=0.01) if b <= music["t0"]]
-    assert len(said) == 1, f"the reply was broken up: {said}"
+    assert len(said) == 2, f"the reply was broken up (or the intro): {said}"
     start, end = said[0]
     # The browser's resampler leaves an image of each partial mirrored about 12 kHz (half Kokoro's rate): part
     # of the sound, not a click.
@@ -125,7 +136,7 @@ async def test_loop_that_three_times_is_heard_three_times_to_the_sample(listener
     await page.page.click("#turn")
     await fake.expect(is_mic("open", "t1"))
     mark = len(fake.inbox)
-    await fake.play(music["seq"], 3)                           # "loop that three times"
+    await fake.play(music["seq"], 3)                           # how "loop that three times" ends, after its intro
     await fake.expect(is_mic("closed", "t1"), since=mark)
     await fake.expect(is_playback("idle", 1), since=mark, timeout=15)
     await fake.expect(is_mic("open", "t1"), since=mark)

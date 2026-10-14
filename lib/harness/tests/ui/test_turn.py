@@ -37,7 +37,7 @@ async def test_a_whole_spoken_turn(phone, fake):
     await fake.expect(lambda m: m["type"] == "start")
     opened = await fake.expect(lambda m: m["type"] == "mic" and m["state"] == "open")
     assert opened["turn"] == "t1" and isinstance(opened["open_ms"], int)
-    assert await page.js("document.getElementById('turn').dataset.mode") == "listen"
+    await page.wait("() => document.getElementById('turn').dataset.mode === 'listen'")      # drawn at the next frame
     assert await page.js("document.getElementById('phase').dataset.phase") == "listening"
 
     # The mic streams 20 ms frames: 0x01, then signed 16-bit little-endian PCM at 16 kHz.
@@ -64,7 +64,7 @@ async def test_a_whole_spoken_turn(phone, fake):
     await page.wait("() => document.querySelector('.msg--narration .inline-text')?.textContent.includes('two levels')")
     await page.wait("() => document.querySelector('.ti--shots img')?.getAttribute('src')")
 
-    # Claude answers: the speech stream plays (the reply's bubble animates), then the A/B plays twice.
+    # Claude answers: the speech stream plays (the reply's bubble animates), then the A/B's intro, then it plays twice.
     busy = await fake.expect(lambda m: m["type"] == "playback" and m["state"] == "busy")
     assert busy["done"] == 0
     await page.wait("() => document.querySelector('.msg--agent:not(.msg--narration).is-playing')")
@@ -80,12 +80,13 @@ async def test_a_whole_spoken_turn(phone, fake):
         await asyncio.sleep(0.04)
     assert sides == {"A", "B"}
 
-    # Everything played: idle, with both items counted, and the mic is offered again.
-    idle = await fake.expect(lambda m: m["type"] == "playback" and m["state"] == "idle" and m["done"] == 2, timeout=15)
+    # Everything played: idle, with all three items counted, and the mic is offered again.
+    idle = await fake.expect(lambda m: m["type"] == "playback" and m["state"] == "idle" and m["done"] == 3, timeout=15)
     assert idle
     log = await page.js("window.studio.engine.log")
-    speech, music = [e for e in log if e["counted"]][:2]
+    speech, intro, music = [e for e in log if e["counted"]][:3]
     assert speech["kind"] == "speech" and speech["outcome"] == "played"
+    assert intro["kind"] == "speech" and intro["seq"] == music["seq"] and intro["outcome"] == "played"
     assert music["kind"] == "music" and music["outcome"] == "played" and music["loops"] == 2
     assert abs(music["stopAt"] - music["t0"] - 2 * music["duration"]) < 1e-6, "exactly two passes, sample-accurate"
     assert music["endedAt"] - music["t0"] >= 2 * music["duration"] - 0.01
@@ -130,7 +131,7 @@ async def test_a_typed_turn(phone, fake):
     assert await page.js("document.querySelector('.msg--user.is-typed .caption').hidden")
     # The Mac took the turn, so the mic closed; Claude's answer plays and the turn comes back.
     await fake.expect(is_mic("closed"))
-    await fake.expect(is_playback("idle", 2), timeout=15)
+    await fake.expect(is_playback("idle", 3), timeout=15)
     await fake.expect(is_mic("open", "t2"))
 
 
@@ -163,12 +164,14 @@ async def test_cutting_into_the_answer(phone, fake):
     await page.wait("() => document.getElementById('turn').dataset.mode === 'answer'")
     mark = len(fake.inbox)
     await page.page.click("#turn")
-    # Silence at once, and both items count as done: the speech that was cut and the music still queued.
+    # Silence at once, and all three items count as done: the speech that was cut, and the render's intro and the
+    # render still queued.
     idle = await fake.expect(is_playback("idle"), since=mark)
-    assert idle["done"] == 2
+    assert idle["done"] == 3
     await fake.expect(lambda m: m["type"] == "interrupt", since=mark)
     log = await page.js("window.studio.engine.log")
-    assert [(e["kind"], e["outcome"]) for e in log] == [("speech", "stopped"), ("music", "stopped")]
+    assert [(e["kind"], e["outcome"]) for e in log] == [("speech", "stopped"), ("speech", "stopped"),
+                                                        ("music", "stopped")]
     await fake.expect(is_mic("open", "t2"))
 
 
@@ -235,9 +238,9 @@ async def test_typing_without_start_takes_the_speaker(phone, fake):
     await page.page.press("#composer-input", "Enter")
     await fake.expect(lambda m: m["type"] == "say")
     assert not any(m["type"] == "start" for m in fake.inbox)
-    await fake.expect(is_playback("idle", 2), timeout=15)
+    await fake.expect(is_playback("idle", 3), timeout=15)
     log = await page.js("window.studio.engine.log")
-    assert [(e["kind"], e["outcome"]) for e in log] == [("speech", "played"), ("music", "played")]
+    assert [(e["kind"], e["outcome"]) for e in log] == [("speech", "played"), ("speech", "played"), ("music", "played")]
     await fake.expect(is_mic("open", "t2"))                    # then the turn comes round, as after Start
 
 
@@ -265,6 +268,7 @@ async def test_a_second_page_says_the_mic_is_on_another_page_and_can_take_it(pho
     await fake.expect(is_mic("open", "t1"))
     await other.wait("() => document.getElementById('phase-detail').textContent")
     assert await other.js(PILL) == ["paused", "Listening", "on another page"]
+    await phone.wait("() => document.getElementById('phase').dataset.phase === 'listening'")     # the next frame
     assert await phone.js(PILL) == ["listening", "Listening", ""]
 
     # The other page takes it: the first one closes its mic and says where it went.

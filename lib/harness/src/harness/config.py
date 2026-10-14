@@ -72,6 +72,7 @@ class Config:
     studio_dir: Path = Path(os.environ.get("HARNESS_STUDIO", Path.home() / "_agent_scratch" / "studio"))
     studio_workdir: Path = Path(os.environ.get("HARNESS_STUDIO_WORKDIR", ZPKT))
     studio_model: str | None = os.environ.get("HARNESS_STUDIO_MODEL")
+    studio_note: str = os.environ.get("HARNESS_STUDIO_NOTE", "")     # appended to the session's instructions
     narrator_model: str = os.environ.get("HARNESS_NARRATOR_MODEL", "claude-haiku-5-5")
     voice_command: list[str] = field(default_factory=voice_command)
     tts_voice: str = os.environ.get("HARNESS_TTS_VOICE", "af_heart")

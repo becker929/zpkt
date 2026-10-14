@@ -232,7 +232,7 @@ button:disabled { cursor: default; }
 .phase[data-phase="listening"] { --tone: var(--tomato); }
 .phase[data-phase="working"] { --tone: var(--work); }
 .phase[data-phase="speaking"] { --tone: var(--speak); }
-.phase[data-phase="playing"] { --tone: var(--play); }
+.phase[data-phase="playing"] { --tone: var(--play); cursor: pointer; }
 
 .phase-text { font-weight: 700; font-size: 15px; letter-spacing: -0.01em; flex: none; }
 .phase-detail {
@@ -1027,7 +1027,9 @@ details[open] > summary .chev { transform: rotate(180deg); }
 .turn[data-mode="answer"] { --face: var(--surface-3); --ink: var(--speak); --halo: var(--speak); }
 .turn[data-mode="playback"] { --face: var(--surface-3); --ink: var(--play); --halo: var(--play); }
 .turn[data-mode="offline"] { --face: var(--surface-3); --ink: var(--text-3); }
-.turn:is([data-mode="work"], [data-mode="answer"], [data-mode="playback"], [data-mode="offline"]) .turn-face { box-shadow: inset 0 0 0 1px var(--line-2); }
+.turn[data-mode="wait"] { --face: var(--surface-3); --ink: var(--text-3); --halo: var(--text-2); }
+.turn[data-mode="resume"] { --face: var(--surface-3); --ink: var(--tomato); --halo: var(--tomato); }
+.turn:is([data-mode="work"], [data-mode="answer"], [data-mode="playback"], [data-mode="offline"], [data-mode="wait"], [data-mode="resume"]) .turn-face { box-shadow: inset 0 0 0 1px var(--line-2); }
 
 /* Listening: a soft disc that swells with the voice, and a ring that breathes. */
 .turn-level, .turn-ring { position: absolute; border-radius: 50%; pointer-events: none; }
@@ -1038,9 +1040,15 @@ details[open] > summary .chev { transform: rotate(180deg); }
 /* Working: an arc going round. Answering and playing: slow ripples. */
 .turn[data-mode="work"] .turn-ring { border-color: color-mix(in oklab, var(--halo) 18%, transparent); border-top-color: var(--halo); animation: spin 1.1s linear infinite; }
 .turn:is([data-mode="answer"], [data-mode="playback"]) .turn-ring { border-color: var(--halo); animation: ripple 1.8s ease-out infinite; }
+/* Waiting for the mic (nothing said yet is heard): muted, with a small arc going round. The phone took the mic
+   away: a tomato ring that pulses until the tap that brings it back. */
+.turn[data-mode="wait"] .turn-ring { inset: -4px; border-width: 2px; border-color: transparent; border-top-color: var(--halo); animation: spin 0.9s linear infinite; }
+.turn[data-mode="resume"] .turn-ring { border-color: var(--halo); animation: breathe 1.2s ease-in-out infinite; }
 
 .turn-hint { min-height: 17px; margin: 0; color: var(--text-2); font-size: 13px; font-weight: 500; text-align: center; white-space: nowrap; }
-.turn[data-mode="listen"] + .turn-hint { color: var(--tomato); }
+.turn[data-mode="listen"] + .turn-hint { color: var(--tomato); font-weight: 650; }
+.turn[data-mode="wait"] + .turn-hint { color: var(--text-3); }
+.turn[data-mode="resume"] + .turn-hint { color: var(--tomato); font-weight: 650; }
 
 /* Typing: the keyboard takes half the screen, so the dock gives the chat what it can (the button stays, smaller). */
 .dock:has(.composer:not([hidden])) { padding-bottom: 10px; }
@@ -1162,6 +1170,6 @@ dialog::backdrop { background: rgb(0 0 0 / 0.5); }
   }
   /* Keep the states readable without movement. */
   .spinner { border-right-color: currentColor; opacity: 0.6; }
-  .turn[data-mode="work"] .turn-ring { border-color: var(--halo); }
+  .turn:is([data-mode="work"], [data-mode="wait"]) .turn-ring { border-color: var(--halo); }
   .turn:is([data-mode="answer"], [data-mode="playback"]) .turn-ring { opacity: 0.6; }
 }

@@ -51,9 +51,10 @@ class LiveRenderer:
 
 class FakeRenderer:
     """For tests and dry runs: a tone per pattern whose pitch and level follow the knob values (so different plans
-    sound different and loudness matching has something to do), at the kit's tempo and pattern length."""
+    sound different and loudness matching has something to do). Bars are `bar_seconds` long, or the kit's own bar
+    with None (so stand-ins can sit beside Live's cached renders of the same kit)."""
 
-    def __init__(self, work: Path, sr: int = 44_100, bar_seconds: float = 0.25):
+    def __init__(self, work: Path, sr: int = 44_100, bar_seconds: float | None = 0.25):
         self.work, self.sr, self.bar_seconds = work, sr, bar_seconds
         self.calls: list[list[dict[str, float]]] = []
 
@@ -64,7 +65,7 @@ class FakeRenderer:
         self.calls.append(patterns)
         out = self.work / tag
         out.mkdir(parents=True, exist_ok=True)
-        n = int(self.bar_seconds * kit.bars_per_pattern() * self.sr)
+        n = int((self.bar_seconds or kit.bar_seconds()) * kit.bars_per_pattern() * self.sr)
         t = np.arange(n) / self.sr
         files = []
         for j, p in enumerate(patterns):

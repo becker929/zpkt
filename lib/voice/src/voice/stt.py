@@ -13,8 +13,8 @@ A turn ends ONLY when the transcript's last word is the stop word ("tomato"); pa
   * stable tail (noise keeps the VAD open): two transcripts >= STABLE_GAP_S apart that both end with the stop word
     and are otherwise the same -> final.
   * recheck: if the close-time check missed, look once more after RECHECK_MS of silence, over the whole turn.
-  * The model's input is gated too: audio that is not the main talker is attenuated 40 dB, and 0.3 s of digital
-    silence is appended (right context for the last word at no waiting cost).
+  * The model's input is gated too: audio that is not the main talker is attenuated 40 dB, silences are cut to
+    MAX_GAP_S, and 0.3 s of digital silence is appended (right context for the last word at no waiting cost).
 """
 
 from __future__ import annotations
@@ -50,6 +50,7 @@ GATE_DB = 12.0
 TAIL_PAD_S = 0.3
 VAD_ON, VAD_OFF = 0.5, 0.35
 WINDOW_S = 45.0                  # captions and stop checks look at the last WINDOW_S of long turns
+MAX_GAP_S = 5.0                  # the most of each silence the model is given: longer than a pause mid-thought
 
 
 # --- the stop word ---------------------------------------------------------------------------------------------------
@@ -313,16 +314,27 @@ class ParakeetTurn:
         return None
 
     def _gated_audio(self, start_frame: int) -> np.ndarray:
+        """The turn from `start_frame`, as the model hears it: the main talker, everything else 40 dB down, and no
+        silence longer than MAX_GAP_S. Silence tells the model nothing, and minutes of it (a turn left listening
+        while Anthony drives or switches apps) made it return no words at all."""
         probs, dbs = np.asarray(self._probs), np.asarray(self._dbs)
         keep = probs >= VAD_ON
         confident = dbs[probs >= 0.8]
         if len(confident) >= 5:
             keep &= dbs >= np.percentile(confident, 90) - GATE_DB
-        near = np.convolve(keep.astype(np.int8), np.ones(11, np.int8), mode="full")[4:4 + len(keep)] > 0
-        gain = np.repeat(np.where(near, 1.0, 0.01), FRAME).astype(np.float32)          # -40 dB elsewhere
+        near = (np.convolve(keep.astype(np.int8), np.ones(11, np.int8), mode="full")[4:4 + len(keep)] > 0)[start_frame:]
+        run, gap, chosen = 0, int(MAX_GAP_S / FD), np.zeros(len(near), bool)
+        for i, n in enumerate(near):
+            run = 0 if n else run + 1
+            chosen[i] = run <= gap
+        pad = np.zeros(int(TAIL_PAD_S * SR), np.float32)
+        if not chosen.any():
+            return pad
+        gain = np.repeat(np.where(near[chosen], 1.0, 0.01), FRAME).astype(np.float32)  # -40 dB elsewhere
         gain = np.convolve(gain, np.ones(128, np.float32) / 128, mode="same")          # 8 ms ramps
-        x = (np.concatenate(self._frames) * gain)[start_frame * FRAME:]
-        return np.concatenate([x, np.zeros(int(TAIL_PAD_S * SR), np.float32)])
+        frames = self._frames[start_frame:]
+        x = np.concatenate([f for f, c in zip(frames, chosen) if c]) * gain
+        return np.concatenate([x, pad])
 
     def _asr(self, full: bool = False) -> tuple[str, float]:
         start = 0 if full else max(0, len(self._frames) - int(WINDOW_S / FD))

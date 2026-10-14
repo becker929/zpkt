@@ -22,7 +22,7 @@ import numpy as np
 import pytest
 from aiohttp.test_utils import TestServer
 
-from conftest import CAPTURE, MUTE, PHONE
+from conftest import CAPTURE, MUTE, PHONE, ready_sound
 from harness.config import ZPKT, Config, voice_command
 from harness.studio import Studio
 from harness.studio.agent import TextDelta, TextDone, ToolDone, ToolStart, TurnDone
@@ -101,6 +101,7 @@ async def phone(chromium, server, studio, mic: bytes | None = None):
     context = await chromium.new_context(permissions=["microphone"], color_scheme="dark", **PHONE)
     await context.add_init_script(MUTE)
     await context.add_init_script(CAPTURE)
+    await context.add_init_script(ready_sound(False))       # the ear hears only the answer
     if mic is not None:
         ref = studio.store.put_media(mic, "wav")
         await context.add_init_script(f"window.__syntheticMic = {ref.url!r};")
@@ -178,9 +179,11 @@ async def test_a_spoken_turn_through_the_real_speech_models_to_an_ab(chromium, s
     first_turn = conv.turn
     await until(lambda: conv.phase.value == "listening" and conv.turn != first_turn, 120)
     log = await page.evaluate("window.studio.engine.log")
-    assert [e["kind"] for e in log if e["counted"]][:3] == ["speech", "music", "speech"] or \
-        {e["kind"] for e in log if e["counted"]} == {"speech", "music"}
-    assert all(e["outcome"] == "played" for e in log if e["counted"])
+    # Claude's two replies, then the render's intro (Kokoro saying its title, its note and the count-in), then it.
+    counted = [e for e in log if e["counted"]]
+    assert [e["kind"] for e in counted] == ["speech", "speech", "speech", "music"], counted
+    assert counted[2]["seq"] == counted[3]["seq"]
+    assert all(e["outcome"] == "played" for e in counted)
 
     # The turn was timed end to end.
     text = report(studio.store.timings(5))
