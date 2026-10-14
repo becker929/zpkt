@@ -7,6 +7,10 @@ It runs on the Mac inside `harness serve` and is reached over the tailnet only, 
 (which opens `/studio/`). The /skrng pages stay at `/skrng/`. The HW002 lab, the set's knobs as phone surfaces, is
 at `/studio/lab/` (`docs/lab.md`; the menu has a row for it).
 
+Sound follows `docs/sound.md`: rendered files only, through the player engine, no Web Audio. The speaker
+(`audio.js`, the options clip) and the ready sound (`cue.js`) predate that rule and are listed there to be retired.
+The agent, the checklist page and The Wasteland that come next are designed in `docs/studio-agent.md`.
+
 ## A turn
 
 The mic and the speaker take turns: they are never on together (but for the ready sound, below), so a car's

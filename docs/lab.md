@@ -1,5 +1,10 @@
 # The HW002 lab: the set's knobs as phone surfaces
 
+> **Its sound is banned (14 October 2026).** Everything the lab plays goes through Web Audio, which zpkt no longer
+> allows (`docs/sound.md`): its sketches of the set were plausible and wrong. Keep its surfaces (the knobs, pads, 3D
+> pieces, haptics), not its sound; its sound is replaced by the player engine. The design that follows the lab is
+> `docs/studio-agent.md`. The rest of this page describes the lab as it was built.
+
 A test bench for playing with HW002 on a phone. It takes the set's 100 most salient parameters and lays them out as
 control surfaces, organised by the steps of the workflow (`docs/workflow.md`) it is about: collage, arrange, kick
 and mix, plus a fifth tab of stranger instruments. HW002's own stems play under every control, so each move is
