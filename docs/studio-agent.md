@@ -79,6 +79,9 @@ Second pass, from Anthony's feedback the same day:
 - **No widgets in the checklist.** Tapping an item opens its sub-list (sub-items, mocked, that clear like items), and
   the work itself happens in studio: each item links to `/studio/?focus=<track>.<step>.<item>` (studio does not open
   on an item yet).
+- **Switches for the plainest page.** Anthony preferred every tweak at its minimum, so three more switches and a
+  "Simplest" button: a plain look (black and white, like a rendered markdown checklist, nothing moving), folding off
+  (every step and sub-list open) and checking by a tap on the box. The game look stays one switch away.
 - **A tweaks panel** on a tab at the right edge changes how the page is built, live, kept in the browser: the current
   objective as a panel, a strip in the header (the default), a line in the header, the gems alone, or off; the gems;
   a tap opening the sub-list below or on a page of its own; a studio button on each row; the path line; the fog;

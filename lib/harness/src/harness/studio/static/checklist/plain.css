@@ -1,0 +1,126 @@
+/* The plain look (html[data-look='plain']): black and white, like a rendered markdown checklist. The step is a
+   heading, an item is a box and a line of text, and nothing moves. The colours collapse into ink, so the rest of the
+   stylesheet keeps working; what follows only strips the frames, the glow and the motion. */
+
+html[data-look='plain'] {
+  --bg: #fff; --steel-0: #fff; --steel-1: #fff; --steel-2: #f1f1f1; --steel-3: #c8c8c8; --steel-4: #8a8a8a;
+  --line: rgb(0 0 0 / 0.12); --text: #000; --text-2: #222; --text-3: #666;
+  --hazard: #000; --hazard-dim: rgb(0 0 0 / 0.07); --acid: #000; --acid-dim: rgb(0 0 0 / 0.07);
+  --lcd: #000; --lcd-dim: rgb(0 0 0 / 0.07); --cold: #000; --cold-dim: rgb(0 0 0 / 0.07);
+  --ink-on: #fff;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  html[data-look='plain'] {
+    --bg: #000; --steel-0: #000; --steel-1: #000; --steel-2: #151515; --steel-3: #444; --steel-4: #888;
+    --line: rgb(255 255 255 / 0.16); --text: #fff; --text-2: #e6e6e6; --text-3: #999;
+    --hazard: #fff; --hazard-dim: rgb(255 255 255 / 0.1); --acid: #fff; --acid-dim: rgb(255 255 255 / 0.1);
+    --lcd: #fff; --lcd-dim: rgb(255 255 255 / 0.1); --cold: #fff; --cold-dim: rgb(255 255 255 / 0.1);
+    --ink-on: #000;
+    color-scheme: dark;
+  }
+}
+
+html[data-look='plain'] *, html[data-look='plain'] *::before, html[data-look='plain'] *::after {
+  animation: none !important; text-shadow: none !important; box-shadow: none !important;
+}
+html[data-look='plain'] body { background: var(--bg); font: 16px/1.5 var(--sans); }
+
+/* the header: a title and a line */
+html[data-look='plain'] .top { -webkit-backdrop-filter: none; backdrop-filter: none; }
+html[data-look='plain'] .title h1 { font: 700 24px/1.2 var(--sans); letter-spacing: 0; }
+html[data-look='plain'] .title p { font-size: 13px; }
+html[data-look='plain'] .hdr-obj { font-family: var(--sans) !important; font-size: 13px !important; }
+html[data-look='plain'] .total { font: 400 13px var(--sans); }
+html[data-look='plain'] .total b { font-size: 13px; font-weight: 600; }
+html[data-look='plain'] .strip-n, html[data-look='plain'] .strip-meta { font-family: var(--sans); }
+html[data-look='plain'] .strip-bar i { background: transparent; box-shadow: inset 0 0 0 1px var(--steel-3) !important; }
+html[data-look='plain'] .strip-bar i.done { background: var(--text); }
+
+/* the objective panel and the gems, if they are on */
+html[data-look='plain'] .hud { background: none; border: 1px solid var(--line); }
+html[data-look='plain'] .hud-label, html[data-look='plain'] .hud-meta { font-family: var(--sans); letter-spacing: 0; text-transform: none; }
+html[data-look='plain'] .hud-step span:first-child { font: 700 24px/1 var(--sans); }
+html[data-look='plain'] .hud-step span:last-child { font: 700 24px/1 var(--sans); }
+html[data-look='plain'] .hud-bar i { transform: none; background: transparent; box-shadow: inset 0 0 0 1px var(--steel-3) !important; }
+html[data-look='plain'] .hud-bar i.done { background: var(--text); }
+html[data-look='plain'] .gem { transform: none; width: 12px; height: 12px; border-width: 1.5px; }
+html[data-look='plain'] .node.open .gem { transform: scale(1.2); }
+html[data-look='plain'] .node-n { font-family: var(--sans); }
+html[data-look='plain'] .spine::before { top: 19px; height: 1px; }
+
+/* a step: a heading with a rule under it */
+html[data-look='plain'] main { gap: 18px; padding-top: 12px; }
+html[data-look='plain'] .card { background: none; border: 0; }
+html[data-look='plain'] .card::before, html[data-look='plain'] .card::after, html[data-look='plain'] .sheen,
+html[data-look='plain'] .ticks, html[data-look='plain'] .hold, html[data-look='plain'] .item::before,
+html[data-look='plain'] .sub::before, html[data-look='plain'] .row::after { display: none; }
+html[data-look='plain'] .card-head {
+  grid-template-columns: auto 1fr auto auto; grid-template-areas: 'num name state count';
+  min-height: 0; padding: 4px 0 6px; gap: 8px; border-bottom: 1px solid var(--line);
+}
+html[data-look='plain'] .num, html[data-look='plain'] .card[data-state] .num { font: 700 20px/1.25 var(--sans); color: var(--text); }
+html[data-look='plain'] .num::after { content: '.'; }
+html[data-look='plain'] .name, html[data-look='plain'] .card[data-state] .name { font: 700 20px/1.25 var(--sans); color: var(--text); }
+html[data-look='plain'] .state, html[data-look='plain'] .card[data-state] .state {
+  font: italic 400 13px var(--sans); letter-spacing: 0; text-transform: none; color: var(--text-3);
+}
+html[data-look='plain'] .count { font: 400 13px var(--sans); color: var(--text-3); }
+html[data-look='plain'] .items { border-top: 0; padding: 4px 0 0; }
+
+/* an item: a box and a line of text */
+html[data-look='plain'] .item, html[data-look='plain'] .item.gate { border: 0; }
+html[data-look='plain'] .row, html[data-look='plain'] .row:not(.sub-row) {
+  grid-template-columns: 20px 1fr; gap: 0 10px; align-items: start; min-height: 0; padding: 5px 0;
+}
+html[data-look='plain'] .row .chip { grid-column: 2; justify-self: start; }
+html[data-look='plain'] .row .go { grid-column: 3; grid-row: 1; }
+html[data-look='plain'][data-go='on'] .row:not(.sub-row) { grid-template-columns: 20px 1fr 32px; }
+html[data-look='plain'] .sock, html[data-look='plain'] .sock svg { width: 18px; height: 18px; margin-top: 2px; }
+html[data-look='plain'] .sock::before { display: none; }
+html[data-look='plain'] .sock-frame, html[data-look='plain'] .item[data-role] .sock-frame {
+  fill: none; stroke: var(--text); stroke-width: 2.5; stroke-dasharray: none;
+}
+html[data-look='plain'] .sock-fill { stroke: var(--text); stroke-width: 4; }
+html[data-look='plain'] .item[data-state='done'] > .row .sock-frame, html[data-look='plain'] .sub[data-state='done'] .sock-frame { fill: var(--text); stroke: var(--text); }
+html[data-look='plain'] .sock-check { stroke: var(--ink-on); transition: none; }
+html[data-look='plain'] .item[data-role='ahead'] .sock svg, html[data-look='plain'] .item[data-role='ahead'] .label { opacity: 1; }
+html[data-look='plain'] .ttl, html[data-look='plain'] .item[data-state='done'] .ttl { font-size: 16px; line-height: 1.4; color: var(--text); }
+html[data-look='plain'] .label { gap: 0; }
+html[data-look='plain'] .why, html[data-look='plain'] .item[data-role] .why { font: italic 400 13px/1.4 var(--sans); color: var(--text-3); }
+html[data-look='plain'] .chip {
+  border: 0; padding: 0; font: italic 400 13px var(--sans); letter-spacing: 0; text-transform: none; color: var(--text-3);
+}
+html[data-look='plain'] .chip-you { color: var(--text); font-weight: 600; }
+
+/* a sub-list: an indented list */
+html[data-look='plain'] .sublist { padding: 0 0 4px; }
+html[data-look='plain'] .sub-row, html[data-look='plain'] .drill .sub-row { padding: 3px 0 3px 30px; grid-template-columns: 16px 1fr; gap: 10px; }
+html[data-look='plain'] .sub-row .sock, html[data-look='plain'] .sub-row .sock svg { width: 15px; height: 15px; margin-top: 3px; }
+html[data-look='plain'] .sub-row .ttl, html[data-look='plain'] .sub[data-state='done'] .ttl { font-size: 15px; color: var(--text-2); }
+html[data-look='plain'] .sub-row .ttl em { font: italic 400 13px var(--sans); color: var(--text-3); }
+html[data-look='plain'] .studio-link {
+  display: inline-flex; gap: 6px; margin: 2px 0 4px 30px; padding: 3px 0; min-height: 0;
+  border: 0; background: none; color: var(--text); text-decoration: underline; text-underline-offset: 3px;
+}
+html[data-look='plain'] .studio-link b { font: 400 15px var(--sans); }
+html[data-look='plain'] .studio-link small { display: none; }
+html[data-look='plain'] .studio-link svg, html[data-look='plain'] .go svg { width: 16px; height: 16px; stroke-width: 1.6; }
+html[data-look='plain'] .drill .studio-link { margin: 12px var(--gutter); }
+html[data-look='plain'] .drill-item h2 { font-size: 22px; }
+html[data-look='plain'] .crumb-n { font: 700 15px var(--sans); }
+
+/* what is left of the effects */
+html[data-look='plain'] .ring { border-color: var(--text); }
+html[data-look='plain'] .banner-in { background: var(--text); color: var(--bg); }
+html[data-look='plain'] .banner-in span, html[data-look='plain'] .banner-in b { font-family: var(--sans); }
+
+/* the foot and the panel */
+html[data-look='plain'] .foot button, html[data-look='plain'] .tw-reset { font: 400 14px var(--sans); letter-spacing: 0; text-transform: none; }
+html[data-look='plain'] .tweaks-tab { box-shadow: none; }
+html[data-look='plain'] .tweaks-tab[aria-expanded='true'] { border-color: var(--steel-4); }
+html[data-look='plain'] .tweaks-tab span, html[data-look='plain'] .tw-label, html[data-look='plain'] .tw-head b {
+  font-family: var(--sans); letter-spacing: 0.04em;
+}
+html[data-look='plain'] .seg button[aria-checked='true'] { background: var(--text); color: var(--bg); border-color: var(--text); }
+html[data-look='plain'] .scrim { background: rgb(0 0 0 / 0.3); }
