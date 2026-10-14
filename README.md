@@ -55,9 +55,10 @@ Work happens out of order, so a track's headline is its lowest incomplete step.
 `hands library inventory` reads the library of WIP projects and reports each track's seven
 steps with the evidence behind them; dated reports are in [docs/inventory/](docs/inventory/).
 
-**Sound in zpkt's pages is rendered files only.** Web Audio is banned everywhere, mock-ups included: every
-page plays rendered audio through one player engine, never a browser sketch of a change
-([docs/sound.md](docs/sound.md)). Only Anthony can make an exception, and it is written into that doc first.
+**Sound in zpkt's pages is rendered files only.** The browser never does the DAW's job, mock-ups included: no
+synthesis, EQ, dynamics, effects or mix moves. Pages play rendered audio through one player engine (Web Audio, used
+only to play files, for the mic and for interface sounds) ([docs/sound.md](docs/sound.md)). Only Anthony can make
+an exception, and it is written into that doc first.
 
 Two rules keep the parts honest:
 

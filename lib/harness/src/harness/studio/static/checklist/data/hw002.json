@@ -1,0 +1,70 @@
+{
+  "track": "HW002",
+  "about": "Industrial hard techno · 160 BPM · a YouTube Short",
+  "draft": "First draft. The steps and their items are HW002's; everything inside an item is a mock-up.",
+  "steps": [
+    { "id": "collage", "n": "I", "name": "Audio collage", "items": [
+      { "id": "game", "title": "Game audio cut and chained (ARC Raiders)", "state": "done" },
+      { "id": "splash", "title": "The splash", "state": "done" },
+      { "id": "chord", "title": "The chord loop, processed", "state": "done" },
+      { "id": "synths", "title": "The break's synths: sound 4 synth, sound 1 synth horn", "state": "done" },
+      { "id": "recordings", "title": "The 2023-10-07 recording and the beatbox", "state": "done" },
+      { "id": "rumbleBounce", "title": "The rumble bounce, resampled", "state": "done" },
+      { "id": "bed", "title": "The bed laid out on the timeline", "state": "done" }
+    ]},
+    { "id": "drums", "n": "II", "name": "Drums", "items": [
+      { "id": "rack", "title": "The kick's drum rack: 052 body, 060 knock, offbeat", "state": "done" },
+      { "id": "rumble", "title": "The rumble", "state": "done" },
+      { "id": "hats", "title": "Hat layers A to D", "state": "done" },
+      { "id": "perc", "title": "Perc 1 and perc 2", "state": "done" },
+      { "id": "splashHits", "title": "Splash hits", "state": "done" },
+      { "id": "across", "title": "Drums across the arrangement", "state": "done" }
+    ]},
+    { "id": "arrange", "n": "III", "name": "Arrange", "items": [
+      { "id": "cut", "title": "The Short's cut: canonical b43-01", "state": "done" },
+      { "id": "opening", "title": "Opens on the scooped kick", "state": "done" },
+      { "id": "staircase", "title": "The hat staircase: A, AB, ABC, ABCD in 4/4/4/8 bars", "state": "done" },
+      { "id": "splashes", "title": "Splashes: long at bar 5, short at bar 13", "state": "done" },
+      { "id": "grid", "title": "Power-of-two grid, 4- and 8-bar sections", "state": "done" },
+      { "id": "approved", "title": "You approved the shape", "state": "done" }
+    ]},
+    { "id": "kick", "n": "IV", "name": "Kick", "items": [
+      { "id": "scoop", "title": "The scoop", "state": "done" },
+      { "id": "drive", "title": "Distortion: COLDFIRE and the Decapitator, 37 to 50 %", "state": "waiting", "why": "Batch 8.1 is waiting for your listening" },
+      { "id": "decapStyle", "title": "The Decapitator's style on the rumble", "state": "open" },
+      { "id": "transient", "title": "The transient shaper: attack and sustain", "state": "open" },
+      { "id": "eq", "title": "The kick bus EQ: sub, body, push, colour", "state": "agent", "why": "An example of the agent's state (mocked)" },
+      { "id": "comp", "title": "The kick group's compressor", "state": "open" },
+      { "id": "roar", "title": "Roar", "state": "open" },
+      { "id": "layers", "title": "The drum rack's layer balance", "state": "open" },
+      { "id": "rumbleFit", "title": "The rumble against the kick", "state": "open" },
+      { "id": "pick", "title": "You pick the kick", "state": "open", "gate": true }
+    ]},
+    { "id": "mix", "n": "V", "name": "Mix", "items": [
+      { "id": "baseline", "title": "Baseline: batch 6 \"all\"", "state": "done" },
+      { "id": "groups", "title": "Group levels: kick, perc, SFX", "state": "open" },
+      { "id": "chordLevel", "title": "The chord loop's level", "state": "waiting", "why": "Batch 8.2 is waiting for your listening" },
+      { "id": "chordColour", "title": "The chord loop's colour, width and space", "state": "waiting", "why": "Batches 8.3 to 8.5" },
+      { "id": "break", "title": "The break", "state": "waiting", "why": "Batches 8.6 and 8.7" },
+      { "id": "layerB", "title": "Hat layer B: drop it, raise it or pair it", "state": "open" },
+      { "id": "space", "title": "Space: Supermassive on perc 2", "state": "open" },
+      { "id": "dropPower", "title": "Drop power: the Main's glue rack", "state": "open" },
+      { "id": "sfx", "title": "The SFX bus", "state": "open" },
+      { "id": "accept", "title": "A mix render you accept", "state": "open", "gate": true }
+    ]},
+    { "id": "master", "n": "VI", "name": "Master", "items": [
+      { "id": "lab", "title": "The mastering lab", "state": "done" },
+      { "id": "chain", "title": "A master chain on Main", "state": "open" },
+      { "id": "premaster", "title": "The Short's premaster, bounced", "state": "open" },
+      { "id": "loudness", "title": "-14 to -11 LUFS, true peak at most -1.5 dBTP", "state": "open" },
+      { "id": "pickMaster", "title": "You pick the master", "state": "open", "gate": true }
+    ]},
+    { "id": "release", "n": "VII", "name": "Release", "items": [
+      { "id": "export", "title": "The final export at Short length", "state": "open" },
+      { "id": "video", "title": "The Short's video", "state": "open" },
+      { "id": "deliver", "title": "Delivery checks: AAC, YouTube's gain", "state": "open" },
+      { "id": "upload", "title": "Uploaded as a Short", "state": "open" },
+      { "id": "link", "title": "Its link recorded", "state": "open", "gate": true }
+    ]}
+  ]
+}

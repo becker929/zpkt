@@ -2,19 +2,30 @@
 
 ## The rule
 
-**Web Audio is banned in zpkt.** No page, demo, prototype, mock-up or test page may make or change sound in the
-browser: no oscillators, filters, EQ, compressors, shapers, convolvers, gain moves standing in for a mix move, or
-any other sketch of what a change "would" sound like. Anthony decided this on 14 October 2026 after the HW002 lab
-(`docs/lab.md`): its Web Audio stand-ins for COLDFIRE, the Decapitator, Supermassive and the rest sounded plausible
-and were wrong, and a sound that is plausible and wrong fools him. That is worse than no sound at all.
+**The browser never does the DAW's job.** No page, demo, prototype, mock-up or test page may synthesize or change
+audio in a way that belongs in the DAW: no synths or drum machines, no EQ or filters, no compression, distortion or
+clipping, no reverb or delay, no panning or width, no gain moves standing in for a mix move, no granular, slicing,
+time-stretch or pitch-shift, no collage or arrangement assembled from pieces. Nothing that sketches what a change
+"would" sound like. Anthony decided this on 14 October 2026 after the HW002 lab (`docs/lab.md`): its stand-ins for
+COLDFIRE, the Decapitator, Supermassive and the rest sounded plausible and were wrong, and a sound that is plausible
+and wrong fools him. That is worse than no sound at all.
 
-**The only sound in zpkt's demos comes from the player engine** (below). It plays files that were rendered, and it
-plays them as they were rendered. Every change you hear is a different file, or a different place in one file.
+**Music in zpkt's demos comes only from the player engine** (below). It plays files that were rendered, as they were
+rendered. Every change you hear is a different file, or a different place in one file.
 
-**No other way of making sound, even if Anthony asks for it.** If he asks or insists, an agent does not just do it.
-It first changes this document and every document that repeats the rule, as narrowly as the request needs: one
-named exception, for one page, with its reason and date. Then it builds what was asked, and nothing beyond that
-exception. A request is never read as lifting the rule in general.
+**What Web Audio is for.** Web Audio is the player engine's way to the speaker (not `<audio>` elements, which cannot
+switch on the bar). These uses are allowed, because none of them does the DAW's job:
+
+- **Playing rendered files**: decoding, starting, stopping and jumping on the audio clock, and the few-millisecond
+  fades a switch needs so it does not click.
+- **A loudness match for comparing** two renders (studio's Match loudness): a listening aid, not a mix move.
+- **The mic**: capture, levels and sending it to the Mac.
+- **Interface sounds** that are not music, such as studio's ready sound.
+
+**No other use, even if Anthony asks for it.** If he asks or insists, an agent does not just do it. It first changes
+this document and every document that repeats the rule, as narrowly as the request needs: one named exception, for
+one page, with its reason and date. Then it builds what was asked, and nothing beyond that exception. A request is
+never read as lifting the rule in general.
 
 Where the files come from: a change to a set is heard only as a render of that set from Live. Other material is
 played as the file it is: library sounds, collages made on the Mac, and the background work in The Wasteland
@@ -27,18 +38,18 @@ What the rule does not cover:
 - **Measuring is not making sound.** Meters, spectra and waveforms drawn from rendered files, or from numbers
   computed on the Mac (`ears`), are fine.
 
-## Uses already in the repo (to retire, not to copy)
+## Uses already in the repo
 
-As of 14 October 2026 these break the rule. None was changed when the rule was written; each is replaced when its
-page next gets work.
+As of 14 October 2026. Nothing was changed when the rule was written; what breaks it is replaced when its page next
+gets work, and never copied.
 
 | Where | What it does | Status |
 |---|---|---|
-| `studio/static/lab/` (the HW002 lab) | All of its sound: stems through Web Audio channel strips, sketches of every kick and mix param, a kick synth, granular and slice players | Banned. The sound is replaced by the player engine; the surfaces stay. |
-| `studio/static/js/cue.js` | The ready sound: two notes made with oscillators | Banned (made in the browser). Replace with a rendered file. |
-| `studio/static/js/audio.js`, `clip.js`, `options-clip.js`, `buffers.js` | Plays speech and renders through an AudioContext; options switch on the audio clock with short crossfades and a match gain | Plays rendered files, but through Web Audio, with gain moves. Moves onto the player engine. |
-| `studio/static/js/mic.js` | Captures the mic through an AudioWorklet | Capture, not playback; still Web Audio. Open: Anthony decides whether capture gets a named exception. |
-| `prototypes/audio-browser/frontend/lib/` (`collagePlayer.ts`, `slicePlayer.ts`, `softClip.ts`) | Collage and slice playback with soft clipping | Banned where it changes sound; to be replaced if the prototype is revived. |
+| `studio/static/lab/` (the HW002 lab) | Stems through channel strips, sketches of every kick and mix param, a kick synth, granular and slice players | Breaks the rule. Its sound is replaced by the player engine; its surfaces stay. |
+| `studio/static/js/audio.js`, `clip.js`, `options-clip.js`, `buffers.js` | Plays speech and renders on the audio clock; options switch with short fades and a loudness match | Allowed: this is the player engine's seed. |
+| `studio/static/js/cue.js` | The ready sound: two notes made with oscillators | Allowed: an interface sound, not music. |
+| `studio/static/js/mic.js` | Captures the mic through an AudioWorklet | Allowed: the mic. |
+| `prototypes/audio-browser/frontend/lib/` (`collagePlayer.ts`, `slicePlayer.ts`, `softClip.ts`) | Assembles a collage from slices and soft-clips it | Breaks the rule (assembly and clipping); to be replaced if the prototype is revived. |
 
 ## The player engine
 
@@ -60,12 +71,9 @@ Two layouts, chosen per surface:
 In both, a state's audio is exactly what Live rendered: level matching, if a comparison needs it, is done at render
 time (a second file at the matched level), not with a gain in the browser.
 
-How the engine gets a rendered file to the speaker without Web Audio is open, and it is the hard part. An `<audio>`
-element plays files as they are, but jumping it on the bar is not sample-accurate (tens of milliseconds of jitter),
-and iOS limits how many can play at once. The candidates (two `<audio>` elements taking turns, a jump on a short
-silence placed at each state's boundary in the render, a native shell) are to be measured before the engine is
-built. If none is good enough, that is a case for a named exception: Web Audio used only to start and stop decoded
-rendered buffers, with no node between the buffer and the speaker. Anthony decides that, under the rule above.
+The engine plays through Web Audio, on the audio clock: buffer sources started and stopped at sample-exact times,
+with only the short fades a switch needs. `options-clip.js` is its seed. Not `<audio>` elements: they cannot jump on
+the bar (tens of milliseconds of jitter), and iOS limits how many play at once.
 
 ### Controls: not yet audible
 
