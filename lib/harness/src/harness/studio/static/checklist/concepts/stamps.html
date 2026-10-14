@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#efebe2" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#121110" media="(prefers-color-scheme: dark)">
+  <title>Stamp Rally</title>
+  <link rel="stylesheet" href="stamps.css">
+</head>
+<body>
+  <label class="haptic" aria-hidden="true"><input type="checkbox" switch tabindex="-1"></label>
+
+  <section class="passport" id="passport">
+    <header class="top">
+      <a class="back" id="to-checklist" href="../" aria-label="Back to the checklist">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>
+      </a>
+      <div class="title">
+        <h1 id="track">—</h1>
+        <p>Stamp rally</p>
+      </div>
+      <div class="total"><b id="total-n">0</b><span>/</span><span id="total-of">0</span></div>
+    </header>
+    <p class="lede" id="lede">Seven cards, one per step. Stamp them in any order; release is open whenever you are.</p>
+    <ol class="cards" id="cards"></ol>
+    <footer class="foot">
+      <p>Hold a slot to stamp it. Hold a stamp to lift it. These are the checklist's own checks.</p>
+    </footer>
+  </section>
+
+  <section class="sheet" id="sheet" aria-hidden="true">
+    <header class="top sheet-top">
+      <button type="button" class="back" id="sheet-back" aria-label="Back to the passport">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>
+      </button>
+      <div class="title">
+        <h1 id="sheet-name">—</h1>
+        <p id="sheet-sub"></p>
+      </div>
+      <div class="total" id="sheet-count"></div>
+    </header>
+    <div class="stock" id="stock">
+      <ol class="slots" id="slots"></ol>
+    </div>
+  </section>
+
+  <script type="module" src="stamps.js"></script>
+</body>
+</html>

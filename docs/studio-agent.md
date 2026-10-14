@@ -82,6 +82,24 @@ Second pass, from Anthony's feedback the same day:
 - **Switches for the plainest page.** Anthony preferred every tweak at its minimum, so three more switches and a
   "Simplest" button: a plain look (black and white, like a rendered markdown checklist, nothing moving), folding off
   (every step and sub-list open) and checking by a tap on the box. The game look stays one switch away.
+
+### Release is never locked (14 October 2026)
+
+Anthony can release at any time; the pre-release items shape and entice, they don't force. Gate items are decision
+points, not doors; the current step is a suggestion; the agent's checklist agenda is to make the next item tempting,
+not to unblock a sequence.
+
+### Three concepts for a 2D, game-like checklist
+
+Kept separate on purpose, each proving two features, each reading and writing the same checks
+(`static/checklist/concepts/`, shared state in `model.js`):
+
+- **Stamp rally** (`stamps.html`): a passport of seven stamp cards. A hold presses a stamp (a print that is the same
+  for an item everywhere, from a hash), and what the agent has made ready shows as the ghost of the exact print.
+- **Repair board** (`repair.html`): all 49 items as tiles on one screen. Scrub a decayed tile clean to restore it;
+  opening an item again cracks the cleared items after it in its step, and a scrubbed crack heals in gold for good.
+- **Crystal** (`crystal.html`): one crystal drawn as a pure function of the cleared items (same set, same SVG,
+  whatever the order). Release now (mocked) freezes it as a pressing; later checks never change a pressing.
 - **A tweaks panel** on a tab at the right edge changes how the page is built, live, kept in the browser: the current
   objective as a panel, a strip in the header (the default), a line in the header, the gems alone, or off; the gems;
   a tap opening the sub-list below or on a page of its own; a studio button on each row; the path line; the fog;

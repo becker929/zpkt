@@ -355,3 +355,8 @@ html[data-go='on'] .row:not(.sub-row) { grid-template-columns: 34px 1fr auto 32p
   *, *::before, *::after { animation: none !important; transition: none !important; }
   .banner.show .banner-in { clip-path: none; }
 }
+
+/* links to the concept pages */
+.concepts { margin: 16px 0 8px; display: flex; flex-wrap: wrap; gap: 8px 16px; }
+.concepts p { flex-basis: 100%; margin: 0; }
+.concepts a { color: var(--text); text-underline-offset: 3px; min-height: 32px; display: inline-flex; align-items: center; }
