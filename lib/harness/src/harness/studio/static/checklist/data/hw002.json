@@ -33,7 +33,7 @@
       { "id": "drive", "title": "Distortion: COLDFIRE and the Decapitator, 37 to 50 %", "state": "waiting", "why": "Batch 8.1 is waiting for your listening" },
       { "id": "decapStyle", "title": "The Decapitator's style on the rumble", "state": "open" },
       { "id": "transient", "title": "The transient shaper: attack and sustain", "state": "open" },
-      { "id": "eq", "title": "The kick bus EQ: sub, body, push, colour", "state": "agent", "why": "An example of the agent's state (mocked)" },
+      { "id": "eq", "title": "The kick bus EQ: sub, body, push, colour", "state": "agent", "why": "The agent is clearing the way here (an example, mocked)" },
       { "id": "comp", "title": "The kick group's compressor", "state": "open" },
       { "id": "roar", "title": "Roar", "state": "open" },
       { "id": "layers", "title": "The drum rack's layer balance", "state": "open" },
