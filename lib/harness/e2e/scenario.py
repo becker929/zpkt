@@ -61,7 +61,7 @@ async def slider(u: Phone, expect: Expect, ctx: dict) -> None:
             agree.append((pos["option"], seen["pick"]))
         await asyncio.sleep(opts["bar_seconds"] * 1.3)
     expect("During the sweep the card shows the option that sounds", agree and all(a == b for a, b in agree), agree)
-    await u.wait_turn_done(420)
+    await u.wait_turn_done(since, 420)
     await u.drain()                                   # the engine's log, up to now
     swept = [e for e in u.recording.engine if e.get("seq") == card["seq"] and e.get("counted")
              and e.get("kind") == "music"]           # the intro is speech for the same card
@@ -91,7 +91,7 @@ async def finer(u: Phone, expect: Expect, ctx: dict) -> None:
     expect("The finer slider spans those neighbours", got and near(got[0], labels[k - 1]) and near(got[-1], labels[k + 1]),
            f"{got[0] if got else '?'} to {got[-1] if got else '?'} (wanted {labels[k - 1]} to {labels[k + 1]})")
     ctx["finer"] = new
-    await u.wait_turn_done(420)
+    await u.wait_turn_done(since, 420)
 
 
 async def background(u: Phone, expect: Expect, ctx: dict) -> None:
@@ -102,7 +102,7 @@ async def background(u: Phone, expect: Expect, ctx: dict) -> None:
     expect("After an app switch the mic hears the next line", "drive" in heard.lower(), heard)
     card = await u.wait_card("!!d.ab", since, 420, "an A/B card")
     ctx["ab"] = card
-    await u.wait_turn_done(420)
+    await u.wait_turn_done(since, 420)
 
 
 async def intents(u: Phone, expect: Expect, ctx: dict) -> None:
@@ -114,7 +114,7 @@ async def intents(u: Phone, expect: Expect, ctx: dict) -> None:
     tools = await u.js(f"""() => window.__wire.log.slice({since}).filter((e) => e.dir === 'in' && e.msg.type === 'upsert'
         && e.msg.message.kind === 'activity').length""")
     expect("... without asking Claude", tools == 0, f"{tools} tool calls")
-    await u.wait_turn_done(300)
+    await u.wait_turn_done(since, 300)
 
 
 async def keep(u: Phone, expect: Expect, ctx: dict) -> None:
@@ -127,13 +127,13 @@ async def keep(u: Phone, expect: Expect, ctx: dict) -> None:
     await u.tap(f"{card_sel(card['seq'])} .opt-act--keep", "Keep")
     text = await u.wait_user_message(since, 30)
     expect("Keep names the option on screen", labels[k] in text, text)
-    await u.wait_turn_done(300)
+    await u.wait_turn_done(since, 300)
 
 
 async def typed(u: Phone, expect: Expect, ctx: dict) -> None:
     since = await u.mark()
     await u.type("Thanks. In five words or fewer, what did I keep?")
-    await u.wait_turn_done(300)
+    await u.wait_turn_done(since, 300)
     replies = await u.js(f"""() => window.__wire.log.slice({since}).filter((e) => e.dir === 'in' && e.msg.type === 'speech'
         && e.msg.state === 'begin').length""")
     expect("A typed turn is answered out loud", replies > 0, f"{replies} speech streams")
@@ -146,9 +146,10 @@ async def long_wait(u: Phone, expect: Expect, ctx: dict) -> None:
     await u.wait(LISTENING, 120, "the page to listen")
     await u.note("quiet", seconds=quiet)
     await asyncio.sleep(quiet)
+    since = await u.mark()
     heard = await u.say("What is the rumble drive set to now?")
     expect(f"After {quiet} s of quiet the line is heard", "drive" in heard.lower(), heard)
-    await u.wait_turn_done(300)
+    await u.wait_turn_done(since, 300)
 
 
 async def screens(u: Phone, expect: Expect, ctx: dict) -> None:

@@ -54,7 +54,9 @@ A turn ends only when the transcript's last word is the stop word; pauses never 
   otherwise equal) also ends a turn, for when noise keeps the VAD open. One more look over the whole turn after
   1 s of silence, if the close-time check missed.
 - The model's input is gated too: audio that is not the main talker is attenuated by 40 dB, and 0.3 s of silence is
-  appended, which gives the last word right context at no cost in waiting.
+  appended, which gives the last word right context at no cost in waiting. Silences longer than 5 s are cut to 5 s:
+  a turn left listening for six minutes otherwise came back with no words. A shorter cap changes pauses the test set
+  has (up to 4 s): at 0.6 s, "comes in tomato" after a 2.5 s pause was heard as "comes into Mato", one stop word fewer.
 - Matching the stop word: exact forms, one edit away, or split across two or three words ("to mato"); a phonetic
   rule accepts "tomedo" and "to motto" and rejects "to make", "to mute", "potato", "tomorrow", "tomatillo".
 

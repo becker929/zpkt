@@ -50,7 +50,7 @@ GATE_DB = 12.0
 TAIL_PAD_S = 0.3
 VAD_ON, VAD_OFF = 0.5, 0.35
 WINDOW_S = 45.0                  # captions and stop checks look at the last WINDOW_S of long turns
-MAX_GAP_S = 0.6                  # the most of each silence the model is given
+MAX_GAP_S = 5.0                  # the most of each silence the model is given: longer than a pause mid-thought
 
 
 # --- the stop word ---------------------------------------------------------------------------------------------------

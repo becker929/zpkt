@@ -12,7 +12,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-COUNT_IN = re.compile(r"\b(?:three|3)\b\W*\b(?:two|2)\b\W*\b(?:one|1)\b", re.I)
+COUNT_IN = re.compile(r"\b(?:three|3)\W*(?:two|2)\W*(?:one|1)\b", re.I)   # "3, 2, 1", "321", "three two one"
 INTRO_GAP_S = 0.5       # the most silence between the count-in and the music
 EARCON_S = 0.4          # the ready cue may sound this long after the mic opens
 OVERLAP_SLACK_S = 0.05  # render quanta and clock mapping

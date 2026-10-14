@@ -282,9 +282,35 @@ class Phone:
         await self.page.press("#composer-input", "Enter")
         await self.note("typed", text=text)
 
+    async def reach(self, loc: Any) -> tuple[float, float]:
+        """Scroll `loc` to the middle of the chat, as a person would, wait for the chat to settle, and return where
+        its centre is. (Playwright's own scrolling leaves the chat's scroll box where it is, in WebKit.)"""
+        await loc.evaluate("(el) => el.scrollIntoView({block: 'center'})")
+        await self.js("() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))")
+        await asyncio.sleep(0.3)
+        box = await loc.bounding_box()
+        return box["x"] + box["width"] / 2, box["y"] + box["height"] / 2
+
     async def tap(self, selector: str, what: str = "") -> None:
-        await self.page.tap(selector)
-        await self.note(f"tap {what or selector}")
+        x, y = await self.reach(self.page.locator(selector).first)
+        under = await self.under(x, y)
+        await self.page.touchscreen.tap(x, y)
+        await self.note(f"tap {what or selector}", under=under)
+
+    async def under(self, x: float, y: float) -> dict[str, Any]:
+        """What a finger at (x, y) lands on, and where the chat is scrolled: the evidence for a tap that missed."""
+        return await self.js(f"""() => {{
+          const el = document.elementFromPoint({x}, {y});
+          const card = el?.closest('[data-seq]');
+          return {{ el: el ? el.tagName.toLowerCase() + (el.className && typeof el.className === 'string'
+                      ? '.' + el.className.trim().split(/\\s+/).join('.') : '') : null,
+                    seq: card ? Number(card.dataset.seq) : null,
+                    scroll: Math.round(document.querySelector('.chat')?.scrollTop ?? -1),
+                    view: [innerWidth, innerHeight, Math.round(visualViewport?.offsetTop ?? 0),
+                           Math.round(visualViewport?.height ?? 0), visualViewport?.scale ?? 1,
+                           Math.round(document.scrollingElement?.scrollTop ?? 0)],
+                    at: [Math.round({x}), Math.round({y})] }};
+        }}""")
 
     async def tap_option(self, seq: int, index: int) -> None:
         """A tap on a slider's tick, or on an option's button, once the chat has stopped moving. A tap the card did
@@ -292,20 +318,21 @@ class Phone:
         sel = f'#messages [data-seq="{seq}"]'
         loc = self.page.locator(f"{sel} .opt-tick[data-index='{index}'], {sel} .opt-button[data-index='{index}']").first
         for attempt in (1, 2):
-            await loc.scroll_into_view_if_needed()
-            await self.js("() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))")
-            await asyncio.sleep(0.3)
-            box = await loc.bounding_box()
-            await self.page.touchscreen.tap(box["x"] + box["width"] / 2, box["y"] + box["height"] / 2)
-            await self.note("tap option", seq=seq, index=index, attempt=attempt)
+            x, y = await self.reach(loc)
+            under = await self.under(x, y)
+            await self.page.touchscreen.tap(x, y)
+            await self.note("tap option", seq=seq, index=index, attempt=attempt, under=under)
             try:
                 await self.page.wait_for_function(
                     f"() => document.querySelector('{sel}')?.dataset.pick === '{index}'", timeout=1500)
                 return
             except Exception:                  # noqa: BLE001 - not taken: look, then try once more
                 await self.shot(f"tap-missed-{seq}-{index}")
+                now = await loc.bounding_box()
                 await self.note("tap not taken", seq=seq, index=index,
-                                pick=await self.js(f"() => document.querySelector('{sel}')?.dataset.pick"))
+                                pick=await self.js(f"() => document.querySelector('{sel}')?.dataset.pick"),
+                                moved=[round(now["x"] + now["width"] / 2 - x), round(now["y"] + now["height"] / 2 - y)]
+                                if now else None, under_now=await self.under(x, y))
 
     async def switch_apps(self, away_s: float) -> None:
         """Leave for another app, as iOS does it: hidden, the capture tracks ended, the audio interrupted."""
@@ -344,10 +371,10 @@ class Phone:
         await self.note("card", seq=msg["seq"], title=msg["data"].get("title"))
         return msg
 
-    async def wait_turn_done(self, timeout: float = 300) -> None:
-        """Until Claude's turn is over, everything has played, and the Mac offers the mic again."""
-        n = await self.js("window.__wire.log.filter((e) => e.dir === 'in' && e.msg.type === 'listen').length")
-        await self.wait(f"""() => window.__wire.log.filter((e) => e.dir === 'in' && e.msg.type === 'listen').length > {n}
+    async def wait_turn_done(self, since: int, timeout: float = 300) -> None:
+        """Until Claude's turn is over, everything has played, and the Mac offers the mic again: a `listen` after the
+        mark taken before the user spoke or tapped (a fast turn can end before this is called)."""
+        await self.wait(f"""() => window.__wire.log.slice({since}).some((e) => e.dir === 'in' && e.msg.type === 'listen')
             && !window.studio.engine.busy""", timeout, "the turn to end")
         await self.note("turn done")
 
