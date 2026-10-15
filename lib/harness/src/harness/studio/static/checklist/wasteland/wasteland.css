@@ -67,6 +67,7 @@ body { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none
 .ch-row.been i { border-style: solid; }
 .ch-row i.camp { border-radius: 0; rotate: 45deg; width: 22px; height: 22px; background: var(--gold); border: 1.6px solid var(--ink); }
 .ch-row i.museum { border-radius: 2px; }
+.ch-row i.tear { border-radius: 0; border: 1.6px solid var(--ink); background: linear-gradient(135deg, #b98a5a 0 30%, #d2553f 30% 55%, #3e8f8a 55% 80%, #efe3c8 80%); clip-path: polygon(50% 0, 70% 30%, 62% 50%, 80% 72%, 50% 100%, 30% 70%, 40% 48%, 22% 26%); }
 .ch-row b { display: block; font: 700 13px/1.2 var(--mono); letter-spacing: 0.08em; text-transform: uppercase; }
 .ch-row span { display: block; font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; opacity: 0.65; margin-top: 2px; }
 .ch-row em { font-style: normal; font-size: 11px; color: var(--ink); opacity: 0.8; }
@@ -107,4 +108,14 @@ body { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none
   font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; pointer-events: none; transition: opacity .8s;
 }
 .hint.gone { opacity: 0; }
+/* stepping into the tear: the screen rips open onto paper */
+body::after {
+  content: ''; position: fixed; inset: 0; z-index: 100; pointer-events: none; opacity: 0;
+  background: linear-gradient(135deg, #b98a5a 0 25%, #efe3c8 25% 45%, #d2553f 45% 62%, #3e8f8a 62% 82%, #efe3c8 82%);
+  clip-path: polygon(50% 47%, 51% 48%, 50.5% 49%, 52% 50%, 50.5% 51%, 51% 53%, 50% 52%, 49.5% 51%, 48% 50%, 49.5% 49%, 49% 48%);
+}
+body.tearing::after { opacity: 1; animation: rip .65s cubic-bezier(.6, 0, .3, 1) forwards; }
+@keyframes rip {
+  to { clip-path: polygon(40% -20%, 70% -10%, 58% 20%, 120% 40%, 64% 58%, 90% 120%, 30% 110%, 44% 70%, -20% 60%, 36% 40%, -10% 0); }
+}
 @media (prefers-reduced-motion: reduce) { .lm, .title, .hint, .chart, .chart.show { transition: none; } }

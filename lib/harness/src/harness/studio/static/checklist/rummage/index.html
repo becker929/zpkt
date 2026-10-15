@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#2a1d14">
+  <title>The Rummage</title>
+  <link rel="stylesheet" href="rummage.css">
+  <link rel="stylesheet" href="machine.css">
+  <link rel="stylesheet" href="../map/feedback.css">
+</head>
+<body>
+  <label class="haptic" aria-hidden="true"><input type="checkbox" switch tabindex="-1"></label>
+  <canvas id="game" aria-label="The Rummage: drag to walk, or tap a spot to walk there"></canvas>
+  <div id="labels" aria-live="polite"></div>
+  <div id="ring" aria-hidden="true"><i></i></div>
+  <header class="top">
+    <a class="back" id="back" href="../wasteland/" aria-label="Back to The Wasteland">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>
+    </a>
+    <div class="where"><b>The Rummage</b><span id="goal">SH001</span></div>
+    <ol class="pips" id="pips" aria-label="The Gramophone's plinths">
+      <li data-part="bed" aria-label="The Wireless: empty"></li>
+      <li data-part="drums" aria-label="The Clatter: empty"></li>
+      <li data-part="bass" aria-label="The Bellows: empty"></li>
+    </ol>
+  </header>
+  <div class="carry" id="carry" aria-live="polite"><figure></figure><span><small>Carrying</small><b></b></span></div>
+  <div id="way" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 12h13M12 6l7 6-7 6"/></svg><span></span></div>
+  <button type="button" class="act" id="act" aria-hidden="true" tabindex="-1"><b></b><span></span><small></small></button>
+  <p class="toast" id="toast" role="status"></p>
+  <section class="gram" id="gram" aria-hidden="true"></section>
+  <div class="confetti" id="confetti" aria-hidden="true"></div>
+  <div class="title" id="title" aria-hidden="true"><b>The Rummage</b><span>SH001 · a short to finish</span></div>
+  <p class="hint" id="hint">Drag anywhere to walk · tap a spot to go there</p>
+  <script type="module" src="main.js"></script>
+</body>
+</html>
