@@ -157,6 +157,121 @@ The music agent's account of SH001 as rendered (15 October 2026). The recipe is 
 - `anchor` is the base point as fractions of the sprite.
 - `foot` is the collision radius as a fraction of the sprite's width.
 
+### Art (as made)
+
+Made on the night of 14 October 2026 in two rounds: 86 images, then 57 more for the sleeves, the title, the walk
+frames and a new `ground-a` (143 in all).
+
+**The style.** Engraving-led cut-out collage, after two style rounds:
+
+- the first round tried seven takes on the brief (photo collage, Gilliam engraving cut-outs, Höch photomontage, a felt
+  and tin diorama, scrapbook ephemera, a Cornell box, bold mixed-material cut-outs);
+- the two that read best as game art were blended in the second round, and the engraving-led blend won:
+  - a drawn ink line holds 46 separately generated sprites together, which photographic cut-outs didn't;
+  - the outline and the white paper edge keep the silhouettes readable at phone size;
+  - the photographed material inlays (brass, enamel, gingham, tin) keep it faux multi-material;
+- the style reference is `20261015-061212-398cc8` (batch `rummage-style-2`). Every asset was made with it as
+  `--input`.
+
+**The style bible** (the prompt prefix for every new asset):
+
+> Collage art for a 2D adventure game: a hand-tinted Victorian engraving cut-out with fine cross-hatched ink
+> linework, as in Terry Gilliam's cut-out animation, with inlays cut from photographs of real materials (polished
+> brass, chipped enamel, gingham and tweed fabric, wood grain, rusty tin, kraft paper) on its knobs, grilles and
+> panels; a big, simple, readable silhouette cut out with scissors, with a crisp thin white paper edge all around.
+> Warm muted palette, soft daylight from the upper left; witty, hand-made, slightly askew, stop-motion feel. Match
+> the style, linework, materials, colours and light of the reference image, but draw only the one thing described.
+
+Sprites add: "The object: ... Seen from a top-down three-quarter view (camera high above, looking down at about 45
+degrees), as in a 2D adventure game. Exactly one object, whole and uncropped, centred, filling about 80% of the
+frame height, on a perfectly flat, uniform pure magenta (#FF00FF) background. Nothing else in the frame: no ground,
+no cast shadow, no floor, no other objects, no text, no letters, no numbers, no border." Never say "phone" or
+"mobile game" in a scene prompt: it comes back as a picture of a phone.
+
+**Colour code.** Each part has an accent, on its machine, its panel, its artifacts and its plinth:
+
+- `bed`: amber and teal;
+- `drums`: tomato red and tin;
+- `bass`: deep blue and brass.
+
+**What is in `art/`:**
+
+- 3 tiling grounds:
+  - `ground-b` (cork and felt patches) is the calmest base;
+  - `ground-a` (small, even scraps of kraft and ledger paper) is a variant;
+  - `ground-c` (faded sheet music and maps) is busy, for small patches only;
+- the torn-paper path strip;
+- 28 props;
+- 3 machines and their 3 panels;
+- the Gramophone;
+- 9 artifacts;
+- 3 hero views from one turnaround sheet (`side` faces right; mirror it for left), each with 2 walk frames
+  (`hero.<view>.walk`): each frame is the standing view edited to a step, and was kept only because it matches it;
+- the portal;
+- the title, THE RUMMAGE in ransom-note letters (`title`, 900×200);
+- 27 record sleeves (`sleeves`, `<bed>-<drums>-<bass>`, 720×720), the art awarded for finishing the short.
+
+**The sleeves** are one series:
+
+- each is made from the style reference and the originals of its three artifacts (`--input`);
+- each is one collage around the SH001 record, with "SH001" in ransom-note letters;
+- each sleeve's look is set by its three choices:
+  - the bed sets the ground: amber kraft and a glow (1), teal gingham and a dial scale (2), sheet music and
+    wallpaper (3);
+  - the drums set what holds it down: striped tin strips (1), crossed ribbon bands (2), masking tape and twine (3);
+  - the bass sets the record's label: blue paper (1), studded leather (2), velvet (3);
+- duds were made again:
+  - artifacts missing or doubled;
+  - "TICKET" in place of a letter;
+  - a photo of a sleeve on white;
+- tiny printed words on some letter tiles ("TICKET", "BUS") were kept as ransom-note texture.
+
+**Conventions:**
+
+- Gramophone `slots`: the centre of each plinth's brass dish, where an artifact's base rests, left to right `bed`,
+  `drums`, `bass` (the plinths' dishes are amber, red and blue).
+- Panels: the lower quarter to third is calm and dark for the selector and lever.
+
+**Batches** (all on the wall, `/studio/images/?batch=<name>`):
+
+- `rummage-style-1`, `rummage-style-2`;
+- `rummage-props-1` (its first three, in the round-1 style, are unused), `rummage-props-2`;
+- `rummage-machines-1` (unused), `rummage-machines-2`;
+- `rummage-panels-1`, `rummage-panels-2`;
+- `rummage-gramophone-1` (unused), `rummage-gramophone-2`;
+- `rummage-artifacts-1`, `rummage-artifacts-2`;
+- `rummage-hero-1` (its front view was the reference for the turnaround), `rummage-hero-2` (the turnaround sheet);
+- `rummage-hero-3` (walk frames);
+- `rummage-portal-1`;
+- `rummage-ground-1`, `rummage-ground-2` (the new `ground-a`);
+- `rummage-sleeves-1`, `rummage-sleeves-2` (remakes);
+- `rummage-title-1`.
+
+The Gemini key allows 20 requests a minute per model. Run big batches at `--parallel 4` or so, or a pause between
+batches.
+
+**To remake or change an asset:**
+
+1. Make the image with `harness images` (the style bible, `--input` the style reference, magenta for sprites).
+2. Put its id in `lib/harness/scripts/rummage-art.json`.
+3. Run it from `lib/harness`:
+
+   ```
+   uv run python scripts/cutout.py scripts/rummage-art.json [--only props/teapot,hero] [--sheet ~/sheet.png]
+   ```
+
+`cutout.py` does the processing:
+
+- keys out the magenta: soft alpha only next to the background, so an object's own colours survive, and magenta in
+  shadow counts as background;
+- unmixes and despills the pink fringe;
+- drops specks, trims, resizes premultiplied, and writes WebP under 300 KB;
+- wraps the grounds along minimum-error cuts, so they tile without ghosting;
+- computes `anchor` and `foot`, maps the Gramophone's slots, and writes `manifest.json`;
+- cover-crops the panels and the sleeves;
+- with `--sheet`, draws every asset at its on-screen size on mid-grey to review;
+- with `--sleeve-sheet`, lays out the 27 sleeves in a grid.
+
 ## Software
 
 - **The page** is `static/checklist/rummage/`:
@@ -171,6 +286,12 @@ The music agent's account of SH001 as rendered (15 October 2026). The recipe is 
   - `region.js`: the layout, deterministic from a seed: the Gramophone, the three machines, a scatter of props,
     torn-paper paths and the portal;
   - `flow.js`: carrying, the plinths, completion, and state through the API;
+  - `art.js`: the art pack read into drawable assets (world sizes, anchors, feet), placeholders until each file is
+    in;
+  - `paper.js`: the materials and the placeholder art, all drawn by code (cut paper with a white edge);
+  - `gram.js`: the Gramophone opened, a sheet with its three plinths and the play control, and the record sleeve
+    revealed when the short is finished;
+  - `stub.js`: a stand-in machine, used when `machine.js` won't load (or with `?stub`);
   - `machine.js`: the full-screen studio machine;
   - `player.js`: the short's renders through Web Audio: decoded, all started on one clock, switched with a short
     equal-power crossfade at the same playhead, `gain_db` applied.
