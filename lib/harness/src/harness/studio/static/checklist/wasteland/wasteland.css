@@ -15,7 +15,64 @@ body { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none
 }
 .top .back { pointer-events: auto; width: 44px; height: 44px; display: grid; place-items: center; color: var(--ink); }
 .top .back svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 2.4; stroke-linecap: square; }
-.where { margin: 0; font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; opacity: 0.7; }
+.where { margin: 0; flex: 1; font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; opacity: 0.7; }
+.mapbtn {
+  pointer-events: auto; width: 44px; height: 44px; display: grid; place-items: center; color: var(--ink); background: #000;
+  border: 2px solid var(--ink); padding: 0; font: inherit; cursor: pointer; touch-action: manipulation;
+}
+.mapbtn svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linejoin: round; }
+.mapbtn:active { background: var(--ink); color: #000; }
+
+/* the waypoint's arrow on the screen's edge, pointing at the place, with its name and distance */
+#way { position: fixed; left: 0; top: 0; z-index: 14; width: 0; height: 0; pointer-events: none; display: none; will-change: transform; }
+#way.on { display: block; }
+#way svg {
+  position: absolute; left: -15px; top: -15px; width: 30px; height: 30px; fill: none; stroke: var(--gold); stroke-width: 3;
+  stroke-linecap: square; rotate: var(--a, 0rad); filter: drop-shadow(0 0 2px #000);
+}
+#way span {
+  position: absolute; top: 17px; left: 0; translate: -50% 0; font-size: 9px; letter-spacing: 0.1em; text-transform: uppercase;
+  color: var(--gold); background: #000; padding: 1px 4px; white-space: nowrap;
+}
+#way.r span { left: auto; right: -14px; translate: none; }
+#way.l span { left: -14px; translate: none; }
+#way.b span { top: -32px; }
+
+/* the map, a screen of its own */
+.chart {
+  position: fixed; inset: 0; z-index: 40; background: #000; overflow-y: auto; overscroll-behavior: contain;
+  padding: calc(env(safe-area-inset-top) + 6px) 0 calc(env(safe-area-inset-bottom) + 24px);
+  visibility: hidden; clip-path: inset(50% 0 50% 0); transition: clip-path .38s cubic-bezier(.3, .7, .1, 1), visibility 0s .38s;
+}
+.chart.show { visibility: visible; clip-path: inset(0 0 0 0); transition: clip-path .38s cubic-bezier(.3, .7, .1, 1); }
+.ch-top { display: flex; align-items: center; gap: 6px; padding: 0 16px 6px 6px; }
+.ch-x { width: 44px; height: 44px; display: grid; place-items: center; background: none; border: 0; color: var(--ink); padding: 0; cursor: pointer; }
+.ch-x svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 2.4; }
+.ch-title { display: grid; gap: 2px; }
+.ch-title b { font: 700 15px/1 var(--mono); letter-spacing: 0.16em; text-transform: uppercase; }
+.ch-title span { font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--gold); }
+.ch-frame { margin: 0 8px; border: 2px solid var(--ink); line-height: 0; }
+.ch-map { width: 100%; display: block; touch-action: manipulation; }
+.ch-help { margin: 10px 16px 6px; font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; opacity: 0.6; }
+.ch-list { list-style: none; margin: 0; padding: 0 8px; display: grid; gap: 0; }
+.ch-row {
+  display: grid; grid-template-columns: 34px 1fr auto; align-items: center; gap: 10px; min-height: 50px; padding: 6px 8px;
+  border-bottom: 1px solid rgb(255 255 255 / 0.16); cursor: pointer; opacity: 0.6;
+}
+.ch-row.been { opacity: 1; }
+.ch-row i {
+  width: 28px; height: 28px; display: grid; place-items: center; font: 700 10px var(--mono); font-style: normal;
+  border: 1.6px dashed var(--ink); border-radius: 50%;
+}
+.ch-row.been i { border-style: solid; }
+.ch-row i.camp { border-radius: 0; rotate: 45deg; width: 22px; height: 22px; background: var(--gold); border: 1.6px solid var(--ink); }
+.ch-row i.museum { border-radius: 2px; }
+.ch-row b { display: block; font: 700 13px/1.2 var(--mono); letter-spacing: 0.08em; text-transform: uppercase; }
+.ch-row span { display: block; font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; opacity: 0.65; margin-top: 2px; }
+.ch-row em { font-style: normal; font-size: 11px; color: var(--ink); opacity: 0.8; }
+.ch-row.way { opacity: 1; }
+.ch-row.way em { color: #000; background: var(--gold); padding: 2px 6px; opacity: 1; letter-spacing: 0.08em; text-transform: uppercase; font-size: 10px; }
+.ch-row:active { background: rgb(255 255 255 / 0.1); }
 
 /* a place's name, over it, when you come near */
 #labels { position: fixed; inset: 0; pointer-events: none; z-index: 10; }
@@ -50,4 +107,4 @@ body { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none
   font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; pointer-events: none; transition: opacity .8s;
 }
 .hint.gone { opacity: 0; }
-@media (prefers-reduced-motion: reduce) { .lm, .title, .hint { transition: none; } }
+@media (prefers-reduced-motion: reduce) { .lm, .title, .hint, .chart, .chart.show { transition: none; } }
