@@ -29,7 +29,7 @@ the track's illuminated manuscript: the text is the work, the illumination grows
 ## The artist agent
 
 An agent whose job is to make the app more rewarding to use, in response to Anthony's actions and feedback. This
-is a learning problem: it learns what delights him and what he tires of, and how that changes over time.
+is a learning problem: it learns what delights Anthony and what they tire of, and how that changes over time.
 
 ### Feedback: thumbs on every view
 
@@ -43,8 +43,8 @@ is a learning problem: it learns what delights him and what he tires of, and how
 - The same pop-over is how the agent asks anything, on any view (the studio agent's ask tool,
   `docs/studio-agent.md`).
 
-The other signals are what he does: commits made after a reward against before it, how long he stays on the
-splash, whether he opens a find, what he skips.
+The other signals are what they do: commits made after a reward against before it, how long they stay on the
+splash, whether they open a find, what they skip.
 
 ### What it makes: works, not code
 
@@ -59,10 +59,10 @@ Sounds are rendered in Live, never made in the browser (`docs/sound.md`). The ch
 
 ### How it learns
 
-- **Like the reference space** (`docs/studio-agent.md`): most of what it offers comes from the region of what he
-  has liked, and about one in ten deliberately goes outside it. A delight is partly surprise, so a known-good
+- **Like the reference space** (`docs/studio-agent.md`): most of what it offers comes from the region of what they
+  have liked, and about one in ten deliberately goes outside it. A delight is partly surprise, so a known-good
   work loses its effect when it repeats.
-- **Novelty wears off.** A work's value falls with how often he has seen it. The agent rotates works and keeps
+- **Novelty wears off.** A work's value falls with how often they have seen it. The agent rotates works and keeps
   rare ones rare.
 - **Rewards follow work only.** A reward comes after a real commit and never interrupts work. No streaks to keep,
   no countdowns, no loss for stopping.
@@ -86,12 +86,12 @@ Renders and plates live in R2 and on disk, never in git, as the check sounds do.
 
 ## Delights to start from
 
-Each is drawn from the work or from his time with it, so it is true, not decoration.
+Each is drawn from the work or from their time with it, so it is true, not decoration.
 
 1. **The room's lamp.** A settled room is lit in the colour of the decision: the warmth dial's position, the
    drive's heat.
 2. **Rooms that play.** Tap a settled room to hear the render that settled it. The map becomes a place to listen.
-3. **Worn paths.** Trails he walks often, to items he went back to, wear deeper.
+3. **Worn paths.** Trails they walk often, to items they went back to, wear deeper.
 4. **Weather from the session.** A late session brings stars over the map; a long one ends at dawn.
 5. **The agents at work.** Small figures walk The Wasteland's trails while background agents run, and come back
    carrying finds.
@@ -142,7 +142,7 @@ Each is drawn from the work or from his time with it, so it is true, not decorat
 - **Renders**: `GET /studio/site-audio/<path>` serves the site's published audio from an allowlist (the /skrng
   batches, the check sounds). The site sends no CORS headers, so the harness copies each file the first time it is
   asked for.
-- **The offline artist** is `harness artist show` (the presses, his words, the plates, the repertoire) and
+- **The offline artist** is `harness artist show` (the presses, their words, the plates, the repertoire) and
   `harness artist propose [--dry-run]`. It gives Claude a brief: each work's plays, and the presses within 20 s of
   them. Claude returns the whole next repertoire with its notes. It may retune or rest works (weight 0), add at
   most three, and use the primitives only. The result is validated, then kept as the next version.

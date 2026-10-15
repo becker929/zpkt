@@ -32,6 +32,7 @@ async def _open(browser, url, fresh=True):
     errors: list[str] = []
     page.on("console", lambda m: errors.append(m.text) if m.type == "error" else None)
     page.on("pageerror", lambda e: errors.append(f"page error: {e}"))
+    page.on("requestfailed", lambda r: errors.append(f"request failed: {r.method} {r.url}: {r.failure}"))
     await page.goto(url)
     if fresh:
         await page.evaluate("localStorage.clear()")
@@ -127,7 +128,7 @@ async def test_the_map_is_its_own_screen_and_a_waypoint_leads_there(webkit, site
     await page.wait_for_selector("#chart.show .ch-row")
     assert await page.evaluate("__wasteland.chartOpen()")
     ids = await page.eval_on_selector_all(".ch-row", "(rows) => rows.map((r) => r.dataset.id)")
-    assert ids == ["machine", "collage", "drums", "arrange", "kick", "mix", "master", "release", "museum"]
+    assert ids == ["machine", "collage", "drums", "arrange", "kick", "mix", "master", "release", "museum", "rummage"]
     assert "been" in await page.get_attribute(".ch-row[data-id=machine]", "class")   # he starts at the camp
     assert "been" not in await page.get_attribute(".ch-row[data-id=kick]", "class")
     await page.evaluate(TAP, ".ch-row[data-id=kick]")
@@ -165,4 +166,22 @@ async def test_the_fog_lifts_where_he_walks_and_stays_lifted(webkit, site):
     await page.reload()
     await page.wait_for_function("() => window.__wasteland && __wasteland.frames() > 3")
     assert await page.evaluate(cell, far)
+    assert not errors, errors
+
+
+async def test_the_tear_leads_to_the_rummage_and_back(webkit, site):
+    page, errors = await _open(webkit, site())
+    await page.click("#mapbtn")
+    await page.wait_for_selector("#chart.show .ch-row[data-id=rummage]")
+    await page.evaluate(TAP, ".ch-x")
+    t = await page.evaluate("[__wasteland.land.tear.x, __wasteland.land.tear.y]")
+    await page.evaluate(PUT, [t[0] - 30, t[1]])
+    await page.keyboard.down("ArrowRight")
+    await page.wait_for_url("**/rummage/?from=wasteland", timeout=5000)
+    await page.keyboard.up("ArrowRight")
+    # back through it: the wanderer steps out beside the tear, not in it
+    await page.goto(site("?from=rummage"))
+    await page.wait_for_function("() => window.__wasteland && __wasteland.frames() > 3")
+    h = await page.evaluate(HERO)
+    assert abs(h["x"] - (t[0] - 26)) < 2 and abs(h["y"] - (t[1] + 6)) < 2
     assert not errors, errors

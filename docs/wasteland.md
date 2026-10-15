@@ -5,7 +5,7 @@ Wasteland (a map). Make one world, walked as a 2D character:
 
 - **The overworld** is walked. **The map** is a separate screen that shows the points of interest.
 - **Points of interest are unlocked by work**, and each unlocks a **machine** that stands for the thing unlocked
-  (from his library and from the agents' work).
+  (from Anthony's library and from the agents' work).
 - **Walk to a machine and operate it**: it opens a full-screen **studio machine**. Play with the thing there, then
   **commit** settings, which are distilled into an **artifact**.
 - **Carry the artifact back** to the machine that stands for the track. The checklist becomes that machine, with
@@ -13,7 +13,7 @@ Wasteland (a map). Make one world, walked as a 2D character:
 - **The artifacts are the works of art** of `docs/artist-agent.md`. **The museum** is a place in the world to walk
   through, where they hang.
 
-Built in small releases, each shown to him before the next.
+Built in small releases, each shown to Anthony before the next.
 
 ## Releases
 
@@ -27,17 +27,17 @@ Built in small releases, each shown to him before the next.
    - between them, sand, dunes, cracked ground, rocks, dead trees, ruins, wrecks and a line of pylons, with the
      storm as the wall round the edge.
 
-   Places name themselves as he comes near. Footprints, dust, the wind's motes, firelight and a scarf that streams
-   behind are the first juice. Where he stood is kept in the browser, and the artist's thumbs are on the edges.
+   Places name themselves as the wanderer comes near. Footprints, dust, the wind's motes, firelight and a scarf that streams
+   behind are the first juice. Where the wanderer stood is kept in the browser, and the artist's thumbs are on the edges.
 2. **The world, iterated.** Anthony's notes on release 1: "It jitters by a drawn pixel width constantly while
-   moving"; he wants a camera with inertia and easing, a new art style made with image generation (keeping the
+   moving"; they want a camera with inertia and easing, a new art style made with image generation (keeping the
    trees), and machines like obelisks: "a VST or eurorack module expanded to the size of Stonehenge".
    - **The camera** is now a critically damped spring (Unity's SmoothDamp, 0.32 s) after a look-ahead that eases
      on its own (0.7 s). The look-ahead also makes up the spring's lag (velocity x smoothing time), so it really
      leads.
    - **The world is drawn straight to the screen**, an art pixel to S device pixels. It is shifted by the camera's
-     remainder in device pixels, and the wanderer is placed to the device pixel. The jitter came from rounding him
-     and the camera to whole art pixels separately. Measured on a steady walk, his screen position now never
+     remainder in device pixels, and the wanderer is placed to the device pixel. The jitter came from rounding the
+     wanderer and the camera to whole art pixels separately. Measured on a steady walk, the wanderer's screen position now never
      reverses.
    - **Styles and machines** are explored with Gemini (`docs/images.md`; the batches `wasteland-styles-1`,
      `wasteland-machines-1` and `wasteland-sprites-1` on the wall).
