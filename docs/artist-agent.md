@@ -125,3 +125,44 @@ Each is drawn from the work or from his time with it, so it is true, not decorat
 - How the artist agent runs: on a schedule, after each session, or in the background with the other agents.
 - How much it may change without asking: new works freely, new primitives only through reviewed PRs.
 - What counts as the render of a task when the task has no audio (a decision, an upload).
+
+## As built: the server (14 October 2026)
+
+- **The store** is `lib/harness/src/harness/studio/artist.py`: its own SQLite file (`<studio_dir>/artist/
+  artist.sqlite3`) with the presses, the questions and answers, the plates and the repertoire's versions.
+- **A press is stored first.** `POST /studio/api/artist/feedback` keeps it and answers at once. The quick question
+  is a second call (`.../feedback/<id>/question`). It comes from the small model (the narrator's long-lived CLI,
+  6 s at most), else from rules built from what was on screen ("What landed?", "What was off?" with choices). The
+  answer is a third call (`.../answer`).
+- **Plates**: `POST /studio/api/artist/plates` keeps one per commit, numbered across the whole gallery, and `GET`
+  lists them by track, oldest first.
+- **The repertoire**: `GET /studio/api/artist/repertoire` serves the newest version. The first time, it is the
+  seed, `static/checklist/map/works.json`. Every version is checked against the page's primitives (`PRIMITIVES`,
+  the same ranges as `map/works.js`), and anything outside them is refused.
+- **Renders**: `GET /studio/site-audio/<path>` serves the site's published audio from an allowlist (the /skrng
+  batches, the check sounds). The site sends no CORS headers, so the harness copies each file the first time it is
+  asked for.
+- **The offline artist** is `harness artist show` (the presses, his words, the plates, the repertoire) and
+  `harness artist propose [--dry-run]`. It gives Claude a brief: each work's plays, and the presses within 20 s of
+  them. Claude returns the whole next repertoire with its notes. It may retune or rest works (weight 0), add at
+  most three, and use the primitives only. The result is validated, then kept as the next version.
+
+## As built: the page (14 October 2026)
+
+- **Works** (`map/works.js`): the vocabulary is the seal (a check, or a wax seal pressed with the date), the
+  particles (power, palette), the shake, the hit stop, the box's size, a lamp (the room lit in the colour of the
+  decision), the sky (stars) and the pace of the map's camera. The seed repertoire (`map/works.json`) is five works:
+  The ledger, Lamplight, The heavy hand, Night watch (night only) and Wax seal (rare).
+- **The pick**, per commit: weighted by what the artist set; each work counts half as much for every time it played
+  in the last eight; a rare work enters the draw only when its rarity roll passes; one commit in ten goes to the
+  least-seen work in the draw. Seeded by the commit, so the same history picks the same work. `?work=<id>` on the
+  map previews one work.
+- **The decision's colour**: a lamp takes the widget's accent at the moment of the commit (it follows what was
+  audible). A box checked without its widget has no decision yet, so its colour comes from the item's key.
+- **Plates** keep the map as it was (the done set, the lamps, the work's sky), the work's values, the sound and the
+  render: for the items with published batches (8.1 to 8.7, `map/renders.json`), the batch's round render.
+- **Thumbs** (`map/feedback.js`) are on the map, the widget, the splash, The Wasteland, a card and the gallery. A
+  press that can't reach the harness waits in the browser and goes with the next one.
+- **The gallery** is `map/gallery.html`: a wing per track under an illuminated initial, a room per step, a plate per
+  commit (the map at that moment, the work, the item, the time, the render to play), and the works not yet seen as
+  silhouettes.

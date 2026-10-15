@@ -1,0 +1,42 @@
+{
+  "version": 1,
+  "parent": null,
+  "notes": "The seed repertoire: the map round's juice as works, plus four to start from (docs/artist-agent.md).",
+  "works": [
+    {
+      "id": "ledger",
+      "title": "The ledger",
+      "about": "The check as it was first made: a white stamp, sparks and gold, a hard shake.",
+      "weight": 4, "rarity": 1,
+      "params": { "seal": "check", "particles": { "power": 1, "palette": "white" }, "shake": 1, "hitstop": 85, "lift": 112, "lamp": false, "sky": "none", "pace": 1 }
+    },
+    {
+      "id": "lamplight",
+      "title": "Lamplight",
+      "about": "The room is lit in the colour of the decision you just made.",
+      "weight": 3, "rarity": 1,
+      "params": { "seal": "check", "particles": { "power": 0.8, "palette": "gold" }, "shake": 0.8, "hitstop": 85, "lift": 112, "lamp": true, "sky": "none", "pace": 1.1 }
+    },
+    {
+      "id": "heavy",
+      "title": "The heavy hand",
+      "about": "Bigger, slower, harder: a longer freeze and a deeper shake.",
+      "weight": 2, "rarity": 0.6,
+      "params": { "seal": "check", "particles": { "power": 1.6, "palette": "white" }, "shake": 1.4, "hitstop": 150, "lift": 132, "lamp": false, "sky": "none", "pace": 1.15 }
+    },
+    {
+      "id": "night",
+      "title": "Night watch",
+      "about": "Late at night, stars come out over the map.",
+      "weight": 3, "rarity": 1, "when": { "night": true },
+      "params": { "seal": "check", "particles": { "power": 0.7, "palette": "white" }, "shake": 0.6, "hitstop": 85, "lift": 112, "lamp": true, "sky": "stars", "pace": 1.2 }
+    },
+    {
+      "id": "wax",
+      "title": "Wax seal",
+      "about": "Rarely, the check is a wax seal pressed with the date.",
+      "weight": 2, "rarity": 0.12,
+      "params": { "seal": "wax", "particles": { "power": 0.9, "palette": "ember" }, "shake": 1.1, "hitstop": 120, "lift": 120, "lamp": false, "sky": "none", "pace": 1 }
+    }
+  ]
+}

@@ -83,6 +83,8 @@ class Config:
     lab_audio: Path = Path(os.environ.get("HARNESS_LAB_AUDIO", Path.home() / "_agent_scratch" / "lab" / "audio"))
     # The map checklist's check sounds: kept in R2 (audio never goes in git), copied here on first use.
     check_sounds: Path = Path(os.environ.get("HARNESS_CHECK_SOUNDS", Path.home() / "_agent_scratch" / "studio" / "check-sounds"))
+    # The site's published audio the checklist plays (the gallery's renders), copied here on first use.
+    site_audio: Path = Path(os.environ.get("HARNESS_SITE_AUDIO", Path.home() / "_agent_scratch" / "studio" / "site-audio"))
 
     @property
     def app_url(self) -> str:
