@@ -80,6 +80,8 @@ async def _open(browser, site, q="", *, music=True, fresh=True, api=True, art=Tr
     if music:
         body = json.dumps(site["manifest"])
         await context.route("**/rummage/audio.json*", lambda r: r.fulfill(status=200, content_type="application/json", body=body))
+    else:                                       # the real audio.json is in the repo: hide it, as before the renders
+        await context.route("**/rummage/audio.json*", lambda r: r.fulfill(status=404, body="no music yet"))
     if not api:
         await context.route("**/api/regions/rummage/state", lambda r: r.fulfill(status=404, body="no region API"))
     if not art:
@@ -143,7 +145,7 @@ async def test_he_arrives_by_the_tear_walks_and_places_name_themselves(webkit, s
     assert "The Wasteland" in await page.text_content("#act")
     async with page.expect_navigation():
         await page.keyboard.press("Enter")
-    assert page.url.endswith("/studio/checklist/wasteland/")
+    assert page.url.endswith("/studio/checklist/wasteland/?from=rummage")
     assert not _real(errors), errors
 
 
