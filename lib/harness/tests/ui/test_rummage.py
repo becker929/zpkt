@@ -320,3 +320,82 @@ async def test_it_draws_in_a_few_milliseconds_a_frame_while_walking(webkit, site
     assert perf["interval"] < 18, perf                                              # about 60 fps, headless
     assert perf["work"] < 8 and perf["p95"] < 16, perf                              # the page's own work a frame
     assert not _real(errors), errors
+
+
+async def test_from_the_wasteland_the_paper_tears_away_and_he_steps_out_of_the_tear(webkit, site):
+    """The Wasteland's tear rips the screen open onto paper and sends ?from=wasteland: here the page starts under that
+    paper, which tears away; he comes out of the region's own tear and lands beside it; then the title. The tear's way
+    back waits until he has stepped away from it."""
+    page, errors = await _open(webkit, site, "?from=wasteland")
+    assert await page.locator("#arrive").count() == 1
+    await page.wait_for_function("() => !__rummage.arriving()", timeout=8000)
+    assert await page.evaluate("__rummage.arrival()") == ["covered", "torn", "out of the tear", "arrived"]
+    assert not await page.evaluate("document.documentElement.classList.contains('arriving')")
+    h = await page.evaluate(HERO)
+    out = await page.evaluate("[__rummage.R.out.x, __rummage.R.out.y]")
+    assert abs(h["x"] - out[0]) < 2 and abs(h["y"] - out[1]) < 2
+    assert await page.evaluate("location.search") == ""                          # a reload keeps where he stands
+    assert "gone" not in await page.get_attribute("#title", "class")              # the title follows the arrival
+    assert await page.evaluate("__rummage.near()") == "portal" and await page.evaluate("__rummage.action()") is None
+    await page.keyboard.down("ArrowUp")                                            # a step away, and back
+    await page.wait_for_function("() => __rummage.near() !== 'portal'", timeout=4000)
+    await page.keyboard.up("ArrowUp")
+    await _go(page, "portal")
+    assert "The Wasteland" in await page.text_content("#act")
+    assert not _real(errors), errors
+
+
+async def test_only_the_renders_about_to_play_are_decoded(webkit, site):
+    """A minute of stereo decodes to ~23 MB, so: a machine's three while it is open and none after; near the
+    finished Gramophone just its one, ahead of Play; none once he walks away."""
+    page, errors = await _open(webkit, site)
+    await page.evaluate("""() => fetch('/studio/api/regions/rummage/state', {method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({committed: {bed: 2, drums: 1, bass: 3}, carrying: null, plinths: {bed: 'bed-2', drums: 'drums-1', bass: 'bass-3'}, completions: [], page: {}})})""")
+    await page.reload()
+    await _ready(page)
+    assert await page.evaluate("__rummage.decoded()") == []
+    await _go(page, "bed")
+    await page.tap("#act")
+    # the machine plays its preview as it opens, with its three options decoded to switch between
+    await page.wait_for_function("() => __rummage.player.playing && __rummage.decoded().length === 3", timeout=10_000)
+    await page.tap(".mc-close")
+    await page.wait_for_function("() => !__rummage.machineOpen() && __rummage.decoded().length === 0", timeout=5000)
+    await _go(page, "gram")
+    await page.wait_for_function("() => __rummage.decoded().join() === '2-1-3'", timeout=5000)   # ahead of Play
+    await page.tap("#act")
+    await page.wait_for_selector("#gram.show .gm-play")
+    await page.tap(".gm-play")
+    await page.wait_for_function("() => __rummage.player.playing === '2-1-3'")
+    assert await page.evaluate("__rummage.decoded()") == ["2-1-3"]
+    await page.tap(".gm-x")
+    await page.wait_for_function("() => !__rummage.gramOpen() && !__rummage.player.playing")
+    await page.evaluate("() => __rummage.teleport(__rummage.R.hub.x, __rummage.R.hub.y + 60)")
+    await page.wait_for_function("() => __rummage.decoded().length === 0", timeout=5000)
+    assert not _real(errors), errors
+
+
+async def test_once_finished_the_sleeve_stands_on_the_easel_and_plays_the_short_again(webkit, site):
+    page, errors = await _open(webkit, site)
+    assert await page.evaluate("__rummage.art.easel.combo") is None                 # not finished: a blank card
+    await page.evaluate("""() => fetch('/studio/api/regions/rummage/state', {method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({committed: {bed: 3, drums: 2, bass: 1}, carrying: null, plinths: {bed: 'bed-3', drums: 'drums-2', bass: 'bass-1'},
+        completions: [{at: 1760500000, combo: '1-1-1'}, {at: 1760503600, combo: '3-2-1', plate: 'pl_x'}], page: {}})})""")
+    await page.reload()
+    await _ready(page)
+    await page.wait_for_function("() => __rummage.art.easel.combo === '3-2-1' && __rummage.art.easel.sleeve")   # the latest
+    e = await page.evaluate("[__rummage.R.easel.x, __rummage.R.easel.y]")
+    await page.evaluate("([x, y]) => __rummage.teleport(x - 40, y + 90)", e)
+    await page.wait_for_timeout(400)
+    tap = await page.evaluate("([x, y]) => __rummage.scene.toScreen(x, y - 60)", e)
+    before = await page.evaluate(HERO)
+    await page.evaluate(POINTER, ["pointerdown", *tap])
+    await page.evaluate(POINTER, ["pointerup", *tap])
+    await page.wait_for_function("() => __rummage.player.playing === '3-2-1'", timeout=8000)
+    await page.wait_for_selector("#np.on")
+    assert "Branches" in await page.text_content("#np") or "3" in await page.text_content("#np")
+    h = await page.evaluate(HERO)
+    assert abs(h["x"] - before["x"]) < 1 and abs(h["y"] - before["y"]) < 1         # a tap on it plays, it doesn't walk
+    await page.evaluate(TAP, "#np button")
+    await page.wait_for_function("() => !__rummage.player.playing")
+    await page.wait_for_function("() => !document.getElementById('np').classList.contains('on')")
+    assert not _real(errors), errors
