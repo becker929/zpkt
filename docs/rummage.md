@@ -108,7 +108,8 @@ Nothing is locked, in the spirit of the spine (`docs/studio-agent.md`): any mach
 
 ### Art (as made)
 
-Made on the night of 14 October 2026, 86 images in all.
+Made on the night of 14 October 2026 in two rounds: 86 images, then 57 more for the sleeves, the title, the walk
+frames and a new `ground-a` (143 in all).
 
 **The style.** Engraving-led cut-out collage, after two style rounds:
 
@@ -146,15 +147,33 @@ no cast shadow, no floor, no other objects, no text, no letters, no numbers, no 
 
 - 3 tiling grounds:
   - `ground-b` (cork and felt patches) is the calmest base;
-  - `ground-a` (kraft and ledger paper) is a variant;
+  - `ground-a` (small, even scraps of kraft and ledger paper) is a variant;
   - `ground-c` (faded sheet music and maps) is busy, for small patches only;
 - the torn-paper path strip;
 - 28 props;
 - 3 machines and their 3 panels;
 - the Gramophone;
 - 9 artifacts;
-- 3 hero views from one turnaround sheet (`side` faces right; mirror it for left);
-- the portal.
+- 3 hero views from one turnaround sheet (`side` faces right; mirror it for left), each with 2 walk frames
+  (`hero.<view>.walk`): each frame is the standing view edited to a step, and was kept only because it matches it;
+- the portal;
+- the title, THE RUMMAGE in ransom-note letters (`title`, 900×200);
+- 27 record sleeves (`sleeves`, `<bed>-<drums>-<bass>`, 720×720), the art awarded for finishing the short.
+
+**The sleeves** are one series:
+
+- each is made from the style reference and the originals of its three artifacts (`--input`);
+- each is one collage around the SH001 record, with "SH001" in ransom-note letters;
+- each sleeve's look is set by its three choices:
+  - the bed sets the ground: amber kraft and a glow (1), teal gingham and a dial scale (2), sheet music and
+    wallpaper (3);
+  - the drums set what holds it down: striped tin strips (1), crossed ribbon bands (2), masking tape and twine (3);
+  - the bass sets the record's label: blue paper (1), studded leather (2), velvet (3);
+- duds were made again:
+  - artifacts missing or doubled;
+  - "TICKET" in place of a letter;
+  - a photo of a sleeve on white;
+- tiny printed words on some letter tiles ("TICKET", "BUS") were kept as ransom-note texture.
 
 **Conventions:**
 
@@ -171,7 +190,14 @@ no cast shadow, no floor, no other objects, no text, no letters, no numbers, no 
 - `rummage-gramophone-1` (unused), `rummage-gramophone-2`;
 - `rummage-artifacts-1`, `rummage-artifacts-2`;
 - `rummage-hero-1` (its front view was the reference for the turnaround), `rummage-hero-2` (the turnaround sheet);
-- `rummage-portal-1`, `rummage-ground-1`.
+- `rummage-hero-3` (walk frames);
+- `rummage-portal-1`;
+- `rummage-ground-1`, `rummage-ground-2` (the new `ground-a`);
+- `rummage-sleeves-1`, `rummage-sleeves-2` (remakes);
+- `rummage-title-1`.
+
+The Gemini key allows 20 requests a minute per model. Run big batches at `--parallel 4` or so, or a pause between
+batches.
 
 **To remake or change an asset:**
 
@@ -191,7 +217,9 @@ no cast shadow, no floor, no other objects, no text, no letters, no numbers, no 
 - drops specks, trims, resizes premultiplied, and writes WebP under 300 KB;
 - wraps the grounds along minimum-error cuts, so they tile without ghosting;
 - computes `anchor` and `foot`, maps the Gramophone's slots, and writes `manifest.json`;
-- with `--sheet`, draws every asset at its on-screen size on mid-grey to review.
+- cover-crops the panels and the sleeves;
+- with `--sheet`, draws every asset at its on-screen size on mid-grey to review;
+- with `--sleeve-sheet`, lays out the 27 sleeves in a grid.
 
 ## Software
 
