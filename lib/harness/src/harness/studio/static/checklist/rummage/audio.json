@@ -1,0 +1,197 @@
+{
+  "track": "sh001",
+  "bpm": 118.0,
+  "bars": 32,
+  "seconds": 65.085,
+  "sample_rate": 44100,
+  "parts": {
+    "bed": [
+      {
+        "id": 1,
+        "name": "Music box & hiss",
+        "about": "A wind-up music box picks out the tune over its own arpeggio, through tape hiss."
+      },
+      {
+        "id": 2,
+        "name": "Parlour upright",
+        "about": "An old upright plays lopsided chords; a detuned toy piano carries the tune."
+      },
+      {
+        "id": 3,
+        "name": "Branches & tin bowl",
+        "about": "A pad of rustling branches holds the chords; a struck tin bowl sings the tune slowly."
+      }
+    ],
+    "drums": [
+      {
+        "id": 1,
+        "name": "Tin-can break",
+        "about": "A broken beat on slaps, a wooden box, buzzing tin and a cracked cowbell."
+      },
+      {
+        "id": 2,
+        "name": "Clockwork four",
+        "about": "A steady four-on-the-floor with a clanking off-beat and a ticking clock."
+      },
+      {
+        "id": 3,
+        "name": "Cutlery shuffle",
+        "about": "Spoons, knives, pans and glass in a lazy triplet shuffle over a wooden kick."
+      }
+    ],
+    "bass": [
+      {
+        "id": 1,
+        "name": "Round sub",
+        "about": "A warm, rounded sub that sits under the kick and holds the roots."
+      },
+      {
+        "id": 2,
+        "name": "Rubber band",
+        "about": "A plucked, bouncy rubber-string bass that skips around the beat."
+      },
+      {
+        "id": 3,
+        "name": "Bowed gut",
+        "about": "A bowed gut-string bass, roughened, gliding through the changes."
+      }
+    ]
+  },
+  "combos": {
+    "1-1-1": {
+      "file": "sh001-1-1-1-d33b7d77.m4a",
+      "lufs": -14.6,
+      "gain_db": 0.6
+    },
+    "1-1-2": {
+      "file": "sh001-1-1-2-8b5cdd80.m4a",
+      "lufs": -14.6,
+      "gain_db": 0.6
+    },
+    "1-1-3": {
+      "file": "sh001-1-1-3-e2a9455a.m4a",
+      "lufs": -14.1,
+      "gain_db": 0.1
+    },
+    "1-2-1": {
+      "file": "sh001-1-2-1-808173f0.m4a",
+      "lufs": -14.7,
+      "gain_db": 0.7
+    },
+    "1-2-2": {
+      "file": "sh001-1-2-2-ed79690e.m4a",
+      "lufs": -14.6,
+      "gain_db": 0.6
+    },
+    "1-2-3": {
+      "file": "sh001-1-2-3-f77bf083.m4a",
+      "lufs": -14.1,
+      "gain_db": 0.1
+    },
+    "1-3-1": {
+      "file": "sh001-1-3-1-e6a2577d.m4a",
+      "lufs": -14.8,
+      "gain_db": 0.8
+    },
+    "1-3-2": {
+      "file": "sh001-1-3-2-5d6ca96a.m4a",
+      "lufs": -14.7,
+      "gain_db": 0.7
+    },
+    "1-3-3": {
+      "file": "sh001-1-3-3-dcd02a90.m4a",
+      "lufs": -14.2,
+      "gain_db": 0.2
+    },
+    "2-1-1": {
+      "file": "sh001-2-1-1-07d351f0.m4a",
+      "lufs": -15.2,
+      "gain_db": 1.2
+    },
+    "2-1-2": {
+      "file": "sh001-2-1-2-4d9d3cd1.m4a",
+      "lufs": -15.1,
+      "gain_db": 1.1
+    },
+    "2-1-3": {
+      "file": "sh001-2-1-3-273401a2.m4a",
+      "lufs": -14.5,
+      "gain_db": 0.5
+    },
+    "2-2-1": {
+      "file": "sh001-2-2-1-f920bdc4.m4a",
+      "lufs": -15.2,
+      "gain_db": 1.2
+    },
+    "2-2-2": {
+      "file": "sh001-2-2-2-3bbd7dbe.m4a",
+      "lufs": -15.1,
+      "gain_db": 1.1
+    },
+    "2-2-3": {
+      "file": "sh001-2-2-3-519930a5.m4a",
+      "lufs": -14.5,
+      "gain_db": 0.5
+    },
+    "2-3-1": {
+      "file": "sh001-2-3-1-52265a0e.m4a",
+      "lufs": -15.1,
+      "gain_db": 1.1
+    },
+    "2-3-2": {
+      "file": "sh001-2-3-2-778c931b.m4a",
+      "lufs": -15.0,
+      "gain_db": 1.0
+    },
+    "2-3-3": {
+      "file": "sh001-2-3-3-1cef0e22.m4a",
+      "lufs": -14.6,
+      "gain_db": 0.6
+    },
+    "3-1-1": {
+      "file": "sh001-3-1-1-41975299.m4a",
+      "lufs": -15.4,
+      "gain_db": 1.4
+    },
+    "3-1-2": {
+      "file": "sh001-3-1-2-cbcedda2.m4a",
+      "lufs": -15.5,
+      "gain_db": 1.5
+    },
+    "3-1-3": {
+      "file": "sh001-3-1-3-be2cba2f.m4a",
+      "lufs": -14.8,
+      "gain_db": 0.8
+    },
+    "3-2-1": {
+      "file": "sh001-3-2-1-a2398851.m4a",
+      "lufs": -15.4,
+      "gain_db": 1.4
+    },
+    "3-2-2": {
+      "file": "sh001-3-2-2-6e2a57fb.m4a",
+      "lufs": -15.4,
+      "gain_db": 1.4
+    },
+    "3-2-3": {
+      "file": "sh001-3-2-3-d897889f.m4a",
+      "lufs": -14.8,
+      "gain_db": 0.8
+    },
+    "3-3-1": {
+      "file": "sh001-3-3-1-96a0de53.m4a",
+      "lufs": -15.3,
+      "gain_db": 1.3
+    },
+    "3-3-2": {
+      "file": "sh001-3-3-2-87f1eea4.m4a",
+      "lufs": -15.3,
+      "gain_db": 1.3
+    },
+    "3-3-3": {
+      "file": "sh001-3-3-3-51c7d5ac.m4a",
+      "lufs": -14.8,
+      "gain_db": 0.8
+    }
+  }
+}

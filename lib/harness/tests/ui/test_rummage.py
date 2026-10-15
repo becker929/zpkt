@@ -80,6 +80,8 @@ async def _open(browser, site, q="", *, music=True, fresh=True, api=True, art=Tr
     if music:
         body = json.dumps(site["manifest"])
         await context.route("**/rummage/audio.json*", lambda r: r.fulfill(status=200, content_type="application/json", body=body))
+    else:                                       # the real audio.json is in the repo: hide it, as before the renders
+        await context.route("**/rummage/audio.json*", lambda r: r.fulfill(status=404, body="no music yet"))
     if not api:
         await context.route("**/api/regions/rummage/state", lambda r: r.fulfill(status=404, body="no region API"))
     if not art:
