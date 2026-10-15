@@ -19,7 +19,7 @@ button { font: inherit; color: inherit; -webkit-tap-highlight-color: transparent
 #game { position: fixed; inset: 0; width: 100vw; height: 100dvh; display: block; touch-action: none; }
 
 /* a paper tag: the look of everything over the world */
-.tagged, .where, .carry, .act, .toast, .lm b, .back, .title b {
+.tagged, .where, .carry, .np, .act, .toast, .lm b, .back, .title b {
   background: var(--paper); border: 2px solid var(--edge); box-shadow: var(--lift);
 }
 
