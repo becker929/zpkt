@@ -211,6 +211,9 @@ button { font: inherit; color: inherit; -webkit-tap-highlight-color: transparent
 .sm-opt img, .sm-opt i { width: 52px; height: 52px; object-fit: contain; flex: none; font: 700 24px/52px var(--book); text-align: center; font-style: normal; }
 .sm-opt b { display: block; font: 700 16px/1.2 var(--book); }
 .sm-opt small { display: block; font-size: 12px; opacity: 0.8; }
+.sm-note { margin: 0 0 10px; font-size: 13px; opacity: 0.85; }
+.sm-note:empty { display: none; }
+.sm-play:disabled { filter: grayscale(1); opacity: 0.6; }
 .sm footer { display: flex; gap: 12px; align-items: center; }
 .sm-play { width: 64px; height: 64px; flex: none; border-radius: 50%; border: 0; display: grid; place-items: center; background: radial-gradient(circle at 35% 30%, #f5d58a, #c99b47 55%, #7d5a22); cursor: pointer; }
 .sm-play svg { width: 28px; height: 28px; fill: var(--ink); }
@@ -218,7 +221,7 @@ button { font: inherit; color: inherit; -webkit-tap-highlight-color: transparent
 
 /* --- arriving --- */
 .title {
-  position: fixed; left: 0; right: 0; top: 26dvh; z-index: 12; display: grid; justify-items: center; gap: 10px; pointer-events: none;
+  position: fixed; left: 0; right: 0; top: 15dvh; z-index: 12; display: grid; justify-items: center; gap: 10px; pointer-events: none;
   transition: opacity 1.2s, transform 1.2s;
 }
 .title b { font: 700 34px/1 var(--book); letter-spacing: 0.06em; padding: 12px 20px 10px; rotate: -2deg; border-radius: 3px; }
@@ -232,5 +235,6 @@ button { font: inherit; color: inherit; -webkit-tap-highlight-color: transparent
 .hint.gone { opacity: 0; }
 @media (prefers-reduced-motion: reduce) {
   .lm, .title, .hint, .gram, .gram.show, .act, .carry, .toast { transition: none; }
-  .confetti, .gm-sleeve.fresh > :first-child, .act.on.again, .carry.swap { animation: none; display: none; }
+  .gm-sleeve.fresh > :first-child, .act.on.again, .carry.swap, .pips li.pop { animation: none; }
+  .confetti { display: none; }
 }
