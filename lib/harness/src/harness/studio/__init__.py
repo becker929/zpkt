@@ -18,7 +18,6 @@ from . import tools
 from . import routes
 from .agent import AgentSession
 from .artist import SEED, Artist, QuestionLines
-from .regions import RegionStore
 from .assets import Assets
 from .conversation import Conversation, Settings
 from .grab import Capture, ScreenGrab
@@ -26,6 +25,7 @@ from .hub import Hub
 from .model import ShotLevel
 from .guard import bash_hook
 from .narrator import HaikuLines, Summarize
+from .regions import RegionStore
 from .screens import Screens
 from .speech import VoiceWorker
 from .store import Store

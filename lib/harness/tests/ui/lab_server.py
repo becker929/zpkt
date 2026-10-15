@@ -17,8 +17,8 @@ from aiohttp import web
 
 from harness.studio import routes
 from harness.studio.artist import SEED, Artist
-from harness.studio.regions import RegionStore
 from harness.studio.lab_audio import default_out
+from harness.studio.regions import RegionStore
 
 
 class _Cfg:

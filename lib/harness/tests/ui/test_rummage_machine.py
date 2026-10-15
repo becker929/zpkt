@@ -128,7 +128,10 @@ async def test_turning_the_knob_and_pulling_the_lever_commits_that_option(webkit
     # turn the knob clockwise, by dragging round its centre, from I to III
     box = await page.locator(".mc-knob").bounding_box()
     cx, cy, r = box["x"] + box["width"] / 2, box["y"] + box["height"] / 2, box["width"] * 0.42
-    at = lambda deg: (cx + r * math.sin(math.radians(deg)), cy - r * math.cos(math.radians(deg)))  # noqa: E731
+
+    def at(deg):
+        return cx + r * math.sin(math.radians(deg)), cy - r * math.cos(math.radians(deg))
+
     await page.mouse.move(*at(-55))
     await page.mouse.down()
     for deg in range(-50, 65, 5):
@@ -172,6 +175,12 @@ async def test_without_renders_the_selector_works_and_holding_the_lever_commits(
     assert await page.text_content(".mc-name") == "Stand-in bass three"
     await page.tap(".mc-knob")                                                                # a tap steps on: III to I
     assert await page.evaluate("__dev.machine.selected") == 1
+    # the artist's thumbs are on the machine, and a press says which view and which option it was about
+    await page.tap(".fb-thumb.up")
+    await page.wait_for_function("async () => (await (await fetch('/studio/api/artist/feedback')).json()).items.length === 1")
+    press = (await page.evaluate("async () => (await (await fetch('/studio/api/artist/feedback')).json()).items[0]"))
+    assert press["view"] == "rummage-machine" and press["context"]["part"] == "bass" and press["context"]["option"] == 1
+    await page.tap(".fb-pop .fb-skip")
     box = await page.locator(".mc-handle").bounding_box()
     await page.mouse.move(box["x"] + box["width"] / 2, box["y"] + box["height"] / 2)
     await page.mouse.down()
