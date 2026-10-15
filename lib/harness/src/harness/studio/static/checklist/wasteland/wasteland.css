@@ -118,4 +118,11 @@ body.tearing::after { opacity: 1; animation: rip .65s cubic-bezier(.6, 0, .3, 1)
 @keyframes rip {
   to { clip-path: polygon(40% -20%, 70% -10%, 58% 20%, 120% 40%, 64% 58%, 90% 120%, 30% 110%, 44% 70%, -20% 60%, 36% 40%, -10% 0); }
 }
+/* through the museum's door: the screen goes to the gallery's paper white from the middle */
+body::before {
+  content: ''; position: fixed; inset: 0; z-index: 100; pointer-events: none; background: #fbf8f1; opacity: 0;
+  clip-path: inset(48% 49% 48% 49%);
+}
+body.entering::before { opacity: 1; animation: door .5s cubic-bezier(.6, 0, .3, 1) forwards; }
+@keyframes door { to { clip-path: inset(0 0 0 0); } }
 @media (prefers-reduced-motion: reduce) { .lm, .title, .hint, .chart, .chart.show { transition: none; } }
