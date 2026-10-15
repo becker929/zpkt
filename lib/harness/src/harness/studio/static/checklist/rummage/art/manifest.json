@@ -365,6 +365,268 @@
    ],
    "foot": 0.395,
    "src": "20261015-061353-5922eb"
+  },
+  {
+   "id": "record-stack",
+   "file": "props/record-stack.webp",
+   "w": 208,
+   "h": 220,
+   "anchor": [
+    0.528,
+    0.96
+   ],
+   "foot": 0.381,
+   "src": "20261015-080701-896ee5"
+  },
+  {
+   "id": "birdbath",
+   "file": "props/birdbath.webp",
+   "w": 175,
+   "h": 280,
+   "anchor": [
+    0.502,
+    0.961
+   ],
+   "foot": 0.28,
+   "src": "20261015-080702-3f92ac"
+  },
+  {
+   "id": "cuckoo-clock",
+   "file": "props/cuckoo-clock.webp",
+   "w": 172,
+   "h": 260,
+   "anchor": [
+    0.499,
+    0.965
+   ],
+   "foot": 0.28,
+   "src": "20261015-080701-8c9fc9"
+  },
+  {
+   "id": "sewing-basket",
+   "file": "props/sewing-basket.webp",
+   "w": 188,
+   "h": 220,
+   "anchor": [
+    0.517,
+    0.96
+   ],
+   "foot": 0.336,
+   "src": "20261015-080701-5ea342"
+  }
+ ],
+ "sets": [
+  {
+   "id": "stall",
+   "file": "sets/stall.webp",
+   "w": 525,
+   "h": 640,
+   "anchor": [
+    0.521,
+    0.967
+   ],
+   "foot": 0.391,
+   "block": [
+    0.683,
+    0.2
+   ],
+   "src": "20261015-080532-c33e12"
+  },
+  {
+   "id": "heap",
+   "file": "sets/heap.webp",
+   "w": 515,
+   "h": 560,
+   "anchor": [
+    0.499,
+    0.966
+   ],
+   "foot": 0.397,
+   "block": [
+    0.886,
+    0.25
+   ],
+   "src": "20261015-080534-f2d50e"
+  },
+  {
+   "id": "case-tower",
+   "file": "sets/case-tower.webp",
+   "w": 411,
+   "h": 780,
+   "anchor": [
+    0.477,
+    0.967
+   ],
+   "foot": 0.397,
+   "src": "20261015-080534-5f9fc3"
+  },
+  {
+   "id": "carousel-horse",
+   "file": "sets/carousel-horse.webp",
+   "w": 431,
+   "h": 720,
+   "anchor": [
+    0.498,
+    0.967
+   ],
+   "foot": 0.397,
+   "src": "20261015-080531-38610d"
+  },
+  {
+   "id": "bookshelf",
+   "file": "sets/bookshelf.webp",
+   "w": 560,
+   "h": 520,
+   "anchor": [
+    0.476,
+    0.966
+   ],
+   "foot": 0.394,
+   "block": [
+    0.849,
+    0.22
+   ],
+   "src": "20261015-080548-b213ff"
+  },
+  {
+   "id": "dresser",
+   "file": "sets/dresser.webp",
+   "w": 461,
+   "h": 700,
+   "anchor": [
+    0.48,
+    0.967
+   ],
+   "foot": 0.388,
+   "src": "20261015-080548-e997a9"
+  },
+  {
+   "id": "can-pyramid",
+   "file": "sets/can-pyramid.webp",
+   "w": 499,
+   "h": 620,
+   "anchor": [
+    0.481,
+    0.968
+   ],
+   "foot": 0.397,
+   "src": "20261015-080550-d7788d"
+  },
+  {
+   "id": "pram",
+   "file": "sets/pram.webp",
+   "w": 498,
+   "h": 520,
+   "anchor": [
+    0.401,
+    0.968
+   ],
+   "foot": 0.328,
+   "src": "20261015-080552-473a06"
+  },
+  {
+   "id": "phone-box",
+   "file": "sets/phone-box.webp",
+   "w": 405,
+   "h": 780,
+   "anchor": [
+    0.5,
+    0.967
+   ],
+   "foot": 0.396,
+   "src": "20261015-080606-43a0aa"
+  }
+ ],
+ "rugs": [
+  {
+   "id": "rug-oriental",
+   "file": "rugs/rug-oriental.webp",
+   "w": 600,
+   "h": 298,
+   "src": "20261015-080623-70b7bc"
+  },
+  {
+   "id": "rug-rag",
+   "file": "rugs/rug-rag.webp",
+   "w": 600,
+   "h": 294,
+   "src": "20261015-080623-83d085"
+  },
+  {
+   "id": "rug-quilt",
+   "file": "rugs/rug-quilt.webp",
+   "w": 600,
+   "h": 290,
+   "src": "20261015-080623-81fb47"
+  },
+  {
+   "id": "rug-doormat",
+   "file": "rugs/rug-doormat.webp",
+   "w": 600,
+   "h": 263,
+   "src": "20261015-080623-ae465c"
+  }
+ ],
+ "edge": [
+  {
+   "id": "edge-crates",
+   "file": "edge/edge-crates.webp",
+   "w": 1200,
+   "h": 435,
+   "anchor": [
+    0.5,
+    0.965
+   ],
+   "block": [
+    0.817,
+    0.35
+   ],
+   "src": "20261015-080642-a2404f"
+  },
+  {
+   "id": "edge-furniture",
+   "file": "edge/edge-furniture.webp",
+   "w": 1200,
+   "h": 437,
+   "anchor": [
+    0.5,
+    0.965
+   ],
+   "block": [
+    0.843,
+    0.35
+   ],
+   "src": "20261015-080643-651e82"
+  },
+  {
+   "id": "edge-bedframes",
+   "file": "edge/edge-bedframes.webp",
+   "w": 1200,
+   "h": 470,
+   "anchor": [
+    0.5,
+    0.966
+   ],
+   "block": [
+    0.834,
+    0.35
+   ],
+   "src": "20261015-080642-a848c7"
+  },
+  {
+   "id": "edge-pipes",
+   "file": "edge/edge-pipes.webp",
+   "w": 1200,
+   "h": 451,
+   "anchor": [
+    0.5,
+    0.966
+   ],
+   "block": [
+    0.866,
+    0.35
+   ],
+   "src": "20261015-080642-e146fc"
   }
  ],
  "machines": {
