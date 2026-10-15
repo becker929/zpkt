@@ -194,6 +194,10 @@ body:not(.acting) .toast { bottom: calc(env(safe-area-inset-bottom) + 24px); }
 @keyframes reveal { 0% { transform: perspective(700px) rotateY(-85deg) scale(0.4); opacity: 0; } 100% { transform: none; opacity: 1; } }
 .gm-reveal b { font: 700 26px/1.1 var(--book); text-shadow: 0 2px 8px #000; }
 .gm-reveal span { font-size: 13px; max-width: 300px; text-shadow: 0 1px 4px #000; }
+.gm-museum {                                    /* to the museum: the gallery's SH001 wing, the new plate lit */
+  display: inline-block; padding: 6px 2px; color: inherit; font-weight: 700; text-decoration: underline;
+  text-decoration-thickness: 1.5px; text-underline-offset: 3px;
+}
 
 /* --- confetti of paper scraps, over everything --- */
 .confetti { position: fixed; inset: 0; z-index: 60; pointer-events: none; overflow: hidden; }

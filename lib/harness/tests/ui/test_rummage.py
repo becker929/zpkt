@@ -208,7 +208,10 @@ async def test_the_short_is_made_by_playing_and_survives_a_reload(webkit, site):
     await page.wait_for_selector(".gm-reveal.show img")                          # the sleeve, the reward
     assert "sleeves/2-1-3" in await page.get_attribute(".gm-reveal img", "src")
     assert "sleeves/2-1-3" in await page.get_attribute(".gm-sleeve.show img", "src")
-    await page.evaluate(TAP, ".gm-reveal")                                       # a tap puts it away, into the sheet
+    museum = page.locator(".gm-reveal .gm-museum")                               # the plate, a tap away in the museum
+    assert await museum.text_content() == "A plate is hung in the museum."
+    assert await museum.get_attribute("href") == "../map/gallery.html?from=rummage#sh001"
+    await page.evaluate(TAP, ".gm-reveal figure")                                # a tap puts it away, into the sheet
     await page.wait_for_function("() => !document.querySelector('.gm-reveal')")
     assert await page.locator("#confetti i").count() > 20
     state = await page.evaluate(STATE)
