@@ -127,6 +127,11 @@ The music agent's account of SH001 as rendered (15 October 2026). The recipe is 
   docstring). Live keeps one note per pitch and start (duplicates are dropped before writing). Selecting Main by LOM
   can silently fail right after a view change, and a device load then lands on another track (the selection is now
   read back). The LOM cannot write automation into arrangement clips, so the beds' swell is in their velocities.
+- **The region's interface sounds** (round 2) are rendered in Live too, from the same found objects, in D where
+  pitched: three steps, pickup, place, a machine's open, tick, lever and stamp, the finish and the tear
+  (`hands/scripts/rummage/sounds.py`, set `SH001_ui`; the table is in its README). `rummage/sounds.js` decodes them
+  once and starts them as rendered; `sounds.json` names the files, which the region's audio route serves as
+  `ui-<name>-<hash8>.m4a`. They replace the map's check sounds in the region.
 
 ## Art
 
