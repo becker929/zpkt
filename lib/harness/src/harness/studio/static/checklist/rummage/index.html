@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#2a1d14">
   <title>The Rummage</title>
+  <script>if (/[?&]from=wasteland\b/.test(location.search)) document.documentElement.classList.add('arriving');</script>
   <link rel="stylesheet" href="rummage.css">
   <link rel="stylesheet" href="machine.css">
   <link rel="stylesheet" href="../map/feedback.css">
@@ -26,6 +27,7 @@
     </ol>
   </header>
   <div class="carry" id="carry" aria-live="polite"><figure></figure><span><small>Carrying</small><b></b></span></div>
+  <div class="np" id="np" aria-live="polite"><figure></figure><span><b>SH001</b><small></small><i></i></span><button type="button" aria-label="Stop the short"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 7h10v10H7z"/></svg></button></div>
   <div id="way" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 12h13M12 6l7 6-7 6"/></svg><span></span></div>
   <button type="button" class="act" id="act" aria-hidden="true" tabindex="-1"><b></b><span></span><small></small></button>
   <p class="toast" id="toast" role="status"></p>
@@ -33,6 +35,7 @@
   <div class="confetti" id="confetti" aria-hidden="true"></div>
   <div class="title" id="title" aria-hidden="true"><b>The Rummage</b><span>SH001 · a short to finish</span></div>
   <p class="hint" id="hint">Drag anywhere to walk · tap a spot to go there</p>
+  <div class="arrive" id="arrive" aria-hidden="true"><b><i></i></b><b><i></i></b></div>
   <script type="module" src="main.js"></script>
 </body>
 </html>
