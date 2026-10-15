@@ -30,6 +30,7 @@ KEYCHAIN = {
     "skrng_token": "skrng-token",           # read the owner's feedback from /api/skrng/feedback
     "oauth": "zpkt-claude-oauth",           # `claude setup-token` output -> CLAUDE_CODE_OAUTH_TOKEN
     "ntfy_topic": "zpkt-ntfy-topic",        # ntfy.sh topic for job start/finish
+    "gemini": "zpkt-gemini-api-key",        # Gemini's image models, only through harness.images (docs/images.md)
 }
 
 
@@ -85,6 +86,8 @@ class Config:
     check_sounds: Path = Path(os.environ.get("HARNESS_CHECK_SOUNDS", Path.home() / "_agent_scratch" / "studio" / "check-sounds"))
     # The site's published audio the checklist plays (the gallery's renders), copied here on first use.
     site_audio: Path = Path(os.environ.get("HARNESS_SITE_AUDIO", Path.home() / "_agent_scratch" / "studio" / "site-audio"))
+    # Every image made with Gemini, with its record (harness.images, docs/images.md); shown at /studio/images/.
+    images_dir: Path = Path(os.environ.get("HARNESS_IMAGES", Path.home() / "_agent_scratch" / "studio" / "images"))
 
     @property
     def app_url(self) -> str:

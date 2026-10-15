@@ -19,6 +19,9 @@
     POST /studio/api/artist/plates              a plate for the gallery: the work as it played, the map, the render
     GET  /studio/api/artist/plates              the gallery's plates, oldest first (?track=)
     GET  /studio/api/artist/repertoire          the works the page chooses from (newest version; the seed at first)
+    GET  /studio/images/          every image made with Gemini, as a wall (static/images, docs/images.md)
+    GET  /studio/images/api/list  their records, newest first (?offset=&limit=&batch=), and the batches
+    GET  /studio/images/files/<name>  an image or its gallery copy (cached forever: names are never reused)
 """
 
 from __future__ import annotations
@@ -46,6 +49,7 @@ log = logging.getLogger(__name__)
 STATIC = Path(__file__).parent / "static"
 STUDIO_KEY = web.AppKey("studio", object)
 ASSETS_KEY = web.AppKey("assets", Assets)
+IMAGES_KEY = web.AppKey("images", object)       # an images Store (the tests' stand-in server sets one)
 FOREVER = "private, max-age=31536000, immutable"
 GZIP_FROM = 1024              # bytes: a page or JSON answer longer than this goes gzipped
 
@@ -69,7 +73,16 @@ def app(studio: "Studio") -> web.Application:
     sub.router.add_get("/checklist/map/sounds/{name}", check_sound)
     sub.router.add_get("/checklist/{path:.*}", checklist_file)
     sub.router.add_get("/site-audio/{path:.+}", site_audio)
+    add_image_routes(sub)
     return sub
+
+
+def add_image_routes(sub: web.Application) -> None:
+    """The images' wall (also mounted by the browser tests' stand-in server)."""
+    sub.router.add_get("/images", images_slash)
+    sub.router.add_get("/images/api/list", images_list)
+    sub.router.add_get("/images/files/{name}", images_file)
+    sub.router.add_get("/images/{path:.*}", images_page)
 
 
 def add_artist_routes(sub: web.Application) -> None:
@@ -154,6 +167,47 @@ def _bench_file(request: web.Request, root: Path) -> web.StreamResponse:
     if path.suffix in (".html", ".js", ".css", ".json", ".svg") and accepts_gzip(request.headers.get("Accept-Encoding", "")):
         resp.enable_compression(web.ContentCoding.gzip)
     return resp
+
+
+IMAGES_PAGE = STATIC / "images"
+
+
+_IMAGE_STORES: dict = {}
+
+
+def _image_store(request: web.Request):
+    from ..images import Store
+    store = request.config_dict.get(IMAGES_KEY)
+    if store is None:
+        root = _studio(request).cfg.images_dir
+        store = _IMAGE_STORES.get(root) or _IMAGE_STORES.setdefault(root, Store(root))
+    return store
+
+
+async def images_slash(_request: web.Request) -> web.Response:
+    raise web.HTTPFound("/studio/images/")
+
+
+async def images_page(request: web.Request) -> web.StreamResponse:
+    return _bench_file(request, IMAGES_PAGE)
+
+
+async def images_list(request: web.Request) -> web.Response:
+    q = request.query
+    try:
+        offset, limit = max(0, int(q.get("offset", 0))), min(200, max(1, int(q.get("limit", 60))))
+    except ValueError:
+        raise web.HTTPBadRequest(text="offset and limit are numbers") from None
+    recs, total, batches = _image_store(request).page(offset, limit, q.get("batch") or None)
+    return _gzipped(request, web.json_response({"items": [r.public() for r in recs], "total": total, "batches": batches},
+                                               headers={"Cache-Control": "no-cache"}))
+
+
+async def images_file(request: web.Request) -> web.StreamResponse:
+    path = _image_store(request).path(request.match_info["name"])
+    if path is None:
+        raise web.HTTPNotFound()
+    return web.FileResponse(path, headers={"Cache-Control": FOREVER})
 
 
 CHECK_SOUND = re.compile(r"[a-z]+-(hit|strong|land)-[0-9a-f]{8}\.m4a")

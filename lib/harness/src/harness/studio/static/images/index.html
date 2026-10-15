@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#000000">
+  <title>Image Wall</title>
+  <link rel="stylesheet" href="images.css">
+</head>
+<body>
+  <label class="haptic" aria-hidden="true"><input type="checkbox" switch tabindex="-1"></label>
+  <header class="iw-top">
+    <a class="iw-back" href="/studio/" aria-label="Back to the studio">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>
+    </a>
+    <div class="iw-title"><h1>Images</h1><p id="count">Opening the wall</p></div>
+  </header>
+  <nav class="iw-batches" id="batches" aria-label="Batches"></nav>
+  <p class="iw-context" id="context"></p>
+  <main class="iw-wall" id="wall" aria-live="polite"></main>
+  <div class="iw-more" id="more" aria-hidden="true"></div>
+  <section class="iw-view" id="view" aria-hidden="true" aria-label="One image">
+    <button type="button" class="iw-x" id="view-x" aria-label="Close">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+    </button>
+    <div class="iw-view-body" id="view-body"></div>
+  </section>
+  <script type="module" src="images.js"></script>
+</body>
+</html>

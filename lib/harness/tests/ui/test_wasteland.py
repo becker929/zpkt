@@ -87,10 +87,10 @@ async def test_a_tap_walks_him_there_and_where_he_stood_is_kept(webkit, site):
     page, errors = await _open(webkit, site())
     start = await page.evaluate(HERO)
     sc = await page.evaluate("__wasteland.scale()")
-    v = await page.evaluate("({ x: __wasteland.view.x, y: __wasteland.view.y })")
+    v = await page.evaluate("({ ...__wasteland.view })")
     # tap 30 art px to the left of him, on open ground
     tx, ty = start["x"] - 30, start["y"] + 6
-    cx, cy = (tx - v["x"]) * sc["S"] / sc["dpr"], (ty - v["y"]) * sc["S"] / sc["dpr"]
+    cx, cy = ((tx - v["x"]) * sc["S"] - v["sx"]) / sc["dpr"], ((ty - v["y"]) * sc["S"] - v["sy"]) / sc["dpr"]
     await page.evaluate(POINTER, ["pointerdown", cx, cy])
     await page.evaluate(POINTER, ["pointerup", cx, cy])
     await page.wait_for_function(f"() => Math.hypot(__wasteland.hero.x - {tx}, __wasteland.hero.y - {ty}) < 3", timeout=4000)
@@ -134,7 +134,9 @@ async def test_the_map_is_its_own_screen_and_a_waypoint_leads_there(webkit, site
     assert "waypoint" in (await page.text_content(".ch-row[data-id=kick] em")).lower()
     # the stick does nothing while the map is open
     before = await page.evaluate(HERO)
-    await page.keyboard.down("ArrowLeft"); await page.wait_for_timeout(300); await page.keyboard.up("ArrowLeft")
+    await page.keyboard.down("ArrowLeft")
+    await page.wait_for_timeout(300)
+    await page.keyboard.up("ArrowLeft")
     assert (await page.evaluate(HERO))["x"] == before["x"]
     await page.evaluate(TAP, ".ch-x")
     await page.wait_for_function("() => !__wasteland.chartOpen()")
@@ -143,7 +145,9 @@ async def test_the_map_is_its_own_screen_and_a_waypoint_leads_there(webkit, site
     # walking up to the place clears the waypoint, and the place is reached
     w = await page.evaluate("__wasteland.waypoint()")
     await page.evaluate(PUT, [w["x"], w["y"] + 70])
-    await page.keyboard.down("ArrowUp"); await page.wait_for_timeout(700); await page.keyboard.up("ArrowUp")
+    await page.keyboard.down("ArrowUp")
+    await page.wait_for_timeout(700)
+    await page.keyboard.up("ArrowUp")
     await page.wait_for_function("() => __wasteland.waypoint() === null", timeout=3000)
     assert await page.evaluate("__wasteland.seen.places.has('kick')")
     await page.wait_for_function("() => !document.getElementById('way').classList.contains('on')")
