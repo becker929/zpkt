@@ -195,8 +195,11 @@ async def test_the_short_is_made_by_playing_and_survives_a_reload(webkit, site):
     assert await page.evaluate("__rummage.gramOpen()")
     await page.tap(".gm-play")
     await page.wait_for_function("() => __rummage.player.playing === '2-1-3'", timeout=10_000)
-    await page.wait_for_selector(".gm-sleeve.show img")                          # the sleeve, the reward
-    assert "sleeves/2-1-3" in await page.get_attribute(".gm-sleeve img", "src")
+    await page.wait_for_selector(".gm-reveal.show img")                          # the sleeve, the reward
+    assert "sleeves/2-1-3" in await page.get_attribute(".gm-reveal img", "src")
+    assert "sleeves/2-1-3" in await page.get_attribute(".gm-sleeve.show img", "src")
+    await page.evaluate(TAP, ".gm-reveal")                                       # a tap puts it away, into the sheet
+    await page.wait_for_function("() => !document.querySelector('.gm-reveal')")
     assert await page.locator("#confetti i").count() > 20
     state = await page.evaluate(STATE)
     assert [c["combo"] for c in state["completions"]] == ["2-1-3"]
