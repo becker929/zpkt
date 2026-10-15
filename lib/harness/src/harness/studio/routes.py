@@ -10,16 +10,18 @@
     GET  /studio/lab/<file>       the lab: HW002's controls as phone surfaces (static/lab, docs/lab.md)
     GET  /studio/lab/audio/<file> its audio, built by `harness lab-audio` outside the repo (cached forever)
     GET  /studio/checklist/<file> the track's checklist across the spine (static/checklist, docs/studio-agent.md)
+    GET  /studio/checklist/map/sounds/<file>  its check sounds, from R2 through a local copy (cached forever)
 """
 
 from __future__ import annotations
 
 import logging
+import re
 import secrets
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from aiohttp import WSMsgType, web
+from aiohttp import ClientError, ClientSession, ClientTimeout, WSMsgType, web
 
 from .assets import Assets, accepts_gzip
 from .conversation import PAGE
@@ -54,6 +56,7 @@ def app(studio: "Studio") -> web.Application:
     sub.router.add_get("/lab/audio/{name}", lab_audio)
     sub.router.add_get("/lab/{path:.*}", lab_file)
     sub.router.add_get("/checklist", checklist_slash)
+    sub.router.add_get("/checklist/map/sounds/{name}", check_sound)
     sub.router.add_get("/checklist/{path:.*}", checklist_file)
     return sub
 
@@ -129,6 +132,35 @@ def _bench_file(request: web.Request, root: Path) -> web.StreamResponse:
     if path.suffix in (".html", ".js", ".css", ".json", ".svg") and accepts_gzip(request.headers.get("Accept-Encoding", "")):
         resp.enable_compression(web.ContentCoding.gzip)
     return resp
+
+
+CHECK_SOUND = re.compile(r"[a-z]+-(hit|strong|land)-[0-9a-f]{8}\.m4a")
+CHECK_SOUNDS_AT = "/audio/zpkt/check-sounds/"         # on the site (R2): public, but sent without CORS headers
+
+
+async def check_sound(request: web.Request) -> web.StreamResponse:
+    """The map checklist's check sounds (rendered in Live by hands/scripts/ui_sounds; map/sounds.json names them).
+    They live in R2, since audio never goes in git; the page can't read the site's audio cross-origin, so the first
+    request copies a file here and every later one is served from that copy. Names carry a hash of the content."""
+    name = request.match_info["name"]
+    if not CHECK_SOUND.fullmatch(name):
+        raise web.HTTPNotFound()
+    cfg = _studio(request).cfg
+    path = cfg.check_sounds / name
+    if not path.is_file():
+        try:
+            async with ClientSession(timeout=ClientTimeout(total=15)) as http, \
+                    http.get(cfg.site + CHECK_SOUNDS_AT + name) as r:
+                if r.status != 200:
+                    raise web.HTTPNotFound()
+                data = await r.read()
+        except (ClientError, TimeoutError):
+            raise web.HTTPBadGateway(text="the check sounds' store did not answer") from None
+        path.parent.mkdir(parents=True, exist_ok=True)
+        part = path.with_suffix(".part")
+        part.write_bytes(data)
+        part.replace(path)
+    return web.FileResponse(path, headers={"Cache-Control": FOREVER, "Content-Type": "audio/mp4"})
 
 
 async def lab_audio(request: web.Request) -> web.StreamResponse:
