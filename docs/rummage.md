@@ -119,7 +119,13 @@ The music agent's account of SH001 as rendered (15 October 2026). The recipe is 
   27 within 0.5 LU before the match); v3 the answering phrase in bars 17-24; v4 bed 1's tape hiss raised 19 dB (at
   -61 dBFS it was inaudible; now about 20 dB under the music box), the nine bed-1 combos re-rendered; v5 the ending
   (the last notes let go in time for their tails to die inside bar 32: bed 3 had ended at -21 dBFS on the last
-  sample, now -67; the hiss and the run-out crackle fade out) and the bowed bass passing Bb-G-A. Probing and
+  sample, now -67; the hiss and the run-out crackle fade out) and the bowed bass passing Bb-G-A; v6 (round 3) the
+  phone: through a phone model (a 180 Hz high-pass) the round sub kept 1 % of its energy above 150 Hz and sat 21 dB
+  under the rest of the mix (0-17 % of what reached the phone heard over the other parts), the bowed bass 11 dB
+  under. Both now send to a return, C-Phone (Saturator, hard curve, into EQ Eight keeping 220 Hz-2.5 kHz): the
+  sub's harmonics are 12 % of its energy (about 9 dB under it on headphones), 8-9 dB under the rest on a phone and
+  81-97 % heard; the bowed bass 6-8 dB under, 83-96 % heard. Beds and drums were not masked anywhere (79-100 %
+  heard), so they are as they were; the 18 combos with bass 1 or 3 were re-rendered. Probing and
   listening stand-ins: spectrograms, band shares and per-bar chroma against the chords (the beds put 83-93 % of their
   pitched energy on chord tones), since the agent cannot hear the renders.
 - **Gotchas:** two macOS permission prompts sat over Live all night and took every keystroke, so hands' export
