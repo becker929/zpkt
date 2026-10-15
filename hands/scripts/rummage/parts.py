@@ -331,11 +331,13 @@ TRACKS = [
     # bass
     {"name": "bass1 sub", "part": "bass", "opt": 1, "src": ("sounds", "Bass", "Sub Mellow.adg"),
      "notes": lambda: humanize(bass(1), 9, vel=4, beats=0.0), "fx": ["Saturator"], "vol": -8.5, "sends": (None, None),
+     "phone": -7.0,
      "set": {1: {"Type": "Bass Shaper", "Drive": "10 dB", "Output": "-7 dB"}}},
     {"name": "bass2 rubber", "part": "bass", "opt": 2, "src": ("sounds", "Bass", "Tension Rubber Bass.adv"),
      "notes": lambda: humanize(bass(2), 10, vel=5, beats=0.004), "fx": [], "vol": 0.6, "sends": (-28, None)},
     {"name": "bass3 bowed", "part": "bass", "opt": 3, "src": ("sounds", "Bass", "Cat Gut Bass.adv"),
      "notes": lambda: humanize(bass(3), 11, vel=4, beats=0.0), "fx": ["Saturator"], "vol": -3.6, "sends": (-26, None),
+     "phone": -4.0,
      "set": {1: {"Type": "Hard Curve", "Drive": "16 dB", "Output": "-10 dB", "Dry/Wet": "75 %"}}},
     # shared: plays in every combo
     {"name": "seams", "part": "shared", "opt": 0, "src": ("instruments", None, "Drum Rack"),
@@ -350,6 +352,15 @@ RETURNS = {
     1: {"Ping Pong": "On", "L 16th": "3", "R 16th": "3", "Feedback": "32 %", "Filter On": "On",
         "Filter Freq": "1500 Hz", "Filter Width": "6"},
 }
+# Return C, "phone": the low basses' harmonics, for a phone speaker (round 3). A phone gives almost nothing below
+# 150-200 Hz, where the round sub has 99 % of its energy and the bowed bass 94 %: on a phone the sub all but vanished
+# (21 dB under the rest of the mix through a 180 Hz high-pass). Bass 1 and 3 send to it; it saturates hard and keeps
+# only 160 Hz-2.5 kHz, so the dry low end is untouched and on headphones the layer sits well under the fundamental.
+PHONE_RETURN = {"name": "C-Phone", "devices": ["Saturator", "EQ Eight"], "set": {
+    0: {"Type": "Hard Curve", "Drive": "24 dB", "Output": "-18 dB", "Dry/Wet": 1.0},
+    1: {"1 Filter Type A": "High Pass 48dB", "1 Frequency A": "220 Hz", "1 Filter On A": "On",
+        "8 Filter Type A": "Low Pass 12dB", "8 Frequency A": "2500 Hz", "8 Filter On A": "On"},
+}}
 MASTER = {
     0: {"1 Filter Type A": "High Pass 48dB", "1 Frequency A": "32 Hz", "1 Filter On A": "On"},
     1: {"Threshold": "-12 dB", "Ratio": 0, "Attack": 5, "Release": 6, "Output": "1.5 dB", "Dry/Wet": 1.0},
