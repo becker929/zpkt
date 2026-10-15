@@ -23,7 +23,7 @@ makes or changes sound.
   Everything is Live's own Core Library (the Lost and Found pack is not installed on this Mac): presets, three of its
   kits and two of its samples. No purchased audio, nothing from Anthony's library.
 - **Main:** EQ Eight (high-pass 32 Hz), Glue Compressor (2:1 at -12 dB, 10 ms, auto release), Limiter (True Peak,
-  ceiling -1.8 dB). The 27 land at -14.6 to -14.2 LUFS; the page's `gain_db` matches them to -14.
+  ceiling -1.8 dB). The 27 land at -14.5 to -14.1 LUFS; the page's `gain_db` matches them to -14.
 
 ```bash
 cd hands

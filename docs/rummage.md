@@ -107,8 +107,8 @@ The music agent's account of SH001 as rendered (15 October 2026). The recipe is 
 
 - **Mix:** each option balanced alone through Main (its own render, measured: options within about 1.5 LU of each
   other), then Main: EQ Eight high-pass at 32 Hz, Glue Compressor (2:1 at -12 dB, 10 ms, auto release), Limiter
-  (True Peak, ceiling -1.8 dB). The 27 renders land at -14.6 to -14.2 LUFS integrated, true peaks -1.4 dBTP or lower;
-  `gain_db` (+0.2 to +0.6) brings each to -14.
+  (True Peak, ceiling -1.8 dB). The 27 renders land at -14.5 to -14.1 LUFS integrated, true peaks -1.4 dBTP or lower;
+  `gain_db` (+0.1 to +0.5) brings each to -14.
 - **Rendering:** every combo is the same set with only the nine option tracks' mutes changed, exported through Live's
   own Export dialog: 32 bars, 24-bit WAV, about 18 s each, the 27 in 8.5 minutes; all 27 are 2,870,238 samples. Each
   WAV is checked (length to 10 ms, not silent), measured with ffmpeg's EBU R128 meter and encoded with Apple's AAC
@@ -117,7 +117,9 @@ The music agent's account of SH001 as rendered (15 October 2026). The recipe is 
   file an audio.json names.
 - **Rounds:** v1 (commit 3207db2) the first 27; v2 the seams track, humanizing, the beds' swell, a rebalance (the
   27 within 0.5 LU before the match); v3 the answering phrase in bars 17-24; v4 bed 1's tape hiss raised 19 dB (at
-  -61 dBFS it was inaudible; now about 20 dB under the music box), the nine bed-1 combos re-rendered. Probing and
+  -61 dBFS it was inaudible; now about 20 dB under the music box), the nine bed-1 combos re-rendered; v5 the ending
+  (the last notes let go in time for their tails to die inside bar 32: bed 3 had ended at -21 dBFS on the last
+  sample, now -67; the hiss and the run-out crackle fade out) and the bowed bass passing Bb-G-A. Probing and
   listening stand-ins: spectrograms, band shares and per-bar chroma against the chords (the beds put 83-93 % of their
   pitched energy on chord tones), since the agent cannot hear the renders.
 - **Gotchas:** two macOS permission prompts sat over Live all night and took every keystroke, so hands' export
