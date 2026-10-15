@@ -143,7 +143,7 @@ async def test_he_arrives_by_the_tear_walks_and_places_name_themselves(webkit, s
     assert "The Wasteland" in await page.text_content("#act")
     async with page.expect_navigation():
         await page.keyboard.press("Enter")
-    assert page.url.endswith("/studio/checklist/wasteland/")
+    assert page.url.endswith("/studio/checklist/wasteland/?from=rummage")
     assert not _real(errors), errors
 
 
