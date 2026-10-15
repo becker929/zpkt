@@ -189,3 +189,18 @@ async def test_the_tear_leads_to_the_rummage_and_back(webkit, site):
     h = await page.evaluate(HERO)
     assert abs(h["x"] - (t[0] - 26)) < 2 and abs(h["y"] - (t[1] + 6)) < 2
     assert not errors, errors
+
+
+async def test_the_museum_door_opens_the_gallery_and_lets_the_wanderer_out_on_the_steps(webkit, site):
+    page, errors = await _open(webkit, site())
+    m = await page.evaluate("[__wasteland.land.museum.x, __wasteland.land.museum.y]")
+    await page.evaluate(PUT, [m[0], m[1] + 30])
+    await page.keyboard.down("ArrowUp")
+    await page.wait_for_url("**/map/gallery.html?from=wasteland", timeout=5000)
+    await page.keyboard.up("ArrowUp")
+    await page.goto(site("?from=museum"))
+    await page.wait_for_function("() => window.__wasteland && __wasteland.frames() > 3")
+    errors.clear()                                                               # the gallery has its own tests
+    h = await page.evaluate(HERO)
+    assert abs(h["x"] - m[0]) < 2 and abs(h["y"] - (m[1] + 14)) < 2 and h["face"] == "down"
+    assert not errors, errors
