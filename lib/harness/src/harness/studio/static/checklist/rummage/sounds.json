@@ -1,0 +1,31 @@
+{
+  "step": [
+    "ui-step-8f3ec48b.m4a",
+    "ui-step-0695c3a4.m4a",
+    "ui-step-42b2883f.m4a"
+  ],
+  "pickup": [
+    "ui-pickup-4816327d.m4a"
+  ],
+  "place": [
+    "ui-place-ab8ea621.m4a"
+  ],
+  "open": [
+    "ui-open-bcbadc81.m4a"
+  ],
+  "lever": [
+    "ui-lever-70c31f55.m4a"
+  ],
+  "finish": [
+    "ui-finish-2befa1cf.m4a"
+  ],
+  "tear": [
+    "ui-tear-241b43e4.m4a"
+  ],
+  "tick": [
+    "ui-tick-859e5214.m4a"
+  ],
+  "stamp": [
+    "ui-stamp-144984f8.m4a"
+  ]
+}
