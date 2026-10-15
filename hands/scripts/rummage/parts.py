@@ -1,7 +1,8 @@
 """SH001, the short The Rummage plays: the composition and the sounds, as data (make.py builds and renders it).
 
 118 BPM, 4/4, 32 bars (about 65 s), D minor (dorian colour). An eight-bar cycle, two bars a chord:
-Dm9 | G9 | Bbmaj7 | A7sus4 -> A7, three times; the last cycle turns home: Dm9 | G9 | Bbmaj7 | D(add9).
+Dm9 | G9 | Bbmaj7 | A7sus4 -> A7, three times; the last cycle turns home: Dm9 | G9 | Bbmaj7 | D(add9). The tune
+runs A, A, an answer (higher, over the full groove), then A turning home.
 
 Arrangement (the brief's): bars 1-8 the bed alone; 9-16 + drums (9-12 kick and hats, 13-16 the full kit, a fill at
 16); 17-28 + bass, the full groove (extra percussion, fills at 24 and 28); 29-32 the outro: one last hit at 29, the
@@ -48,15 +49,27 @@ MELODY = [
     (24.0, 76, 1.0), (25.0, 74, 0.5), (25.5, 69, 0.5), (26.0, 67, 1.5), (27.5, 69, 0.5),  # A7sus4
     (28.0, 73, 1.0), (29.0, 76, 1.0), (30.0, 79, 1.0), (31.0, 76, 1.0),                   # A7
 ]
+# The answer, for the third cycle (bars 17-24, the full groove): the same chords, higher and more arched.
+ANSWER = [
+    (0.0, 81, 1.5), (1.5, 79, 0.5), (2.0, 77, 1.0), (3.0, 76, 0.5), (3.5, 74, 0.5),      # Dm9
+    (4.0, 76, 1.5), (5.5, 72, 0.5), (6.0, 69, 2.0),
+    (8.0, 79, 1.5), (9.5, 77, 0.5), (10.0, 74, 1.0), (11.0, 71, 1.0),                    # G9
+    (12.0, 74, 1.5), (13.5, 76, 0.5), (14.0, 77, 2.0),
+    (16.0, 81, 1.5), (17.5, 82, 0.5), (18.0, 81, 1.0), (19.0, 77, 1.0),                  # Bbmaj7
+    (20.0, 74, 1.5), (21.5, 72, 0.5), (22.0, 74, 2.0),
+    (24.0, 76, 1.0), (25.0, 74, 1.0), (26.0, 69, 1.0), (27.0, 74, 1.0),                  # A7sus4
+    (28.0, 73, 1.5), (29.5, 76, 0.5), (30.0, 79, 1.0), (31.0, 81, 1.0),                  # A7, up into the return
+]
 ENDING = [(24.0, 74, 6.0)]                     # the last cycle's bars 7-8 (bars 31-32): D5, held
 
 
 def melody(*, lift_third_cycle: bool = False) -> list[tuple]:
-    """The tune over 32 bars as (beat, pitch, length, velocity)."""
+    """The tune over 32 bars as (beat, pitch, length, velocity): A, A, the answer, A turning home."""
     out = []
     for c in range(4):
         base = 32.0 * c
-        for b, p, d in MELODY if c < 3 else [n for n in MELODY if n[0] < 24.0] + ENDING:
+        cycle = {2: ANSWER, 3: [n for n in MELODY if n[0] < 24.0] + ENDING}.get(c, MELODY)
+        for b, p, d in cycle:
             v = 96 if b % 2 == 0 else 84
             out.append((base + b, p, d, v))
             if lift_third_cycle and c == 2 and d >= 1.0:          # a chord tone under the long notes: a lift
@@ -120,8 +133,8 @@ def parlour_piano() -> list[tuple]:
 
 
 def toy_piano() -> list[tuple]:
-    """Bed 2's toy piano: the tune, an octave up, slightly detuned by its chorus."""
-    return [(b, p + 12, min(d, 1.0), v - 6) for b, p, d, v in melody()]
+    """Bed 2's toy piano: the tune, slightly detuned by its chorus."""
+    return [(b, p, min(d, 1.0), v - 6) for b, p, d, v in melody()]
 
 
 def branches_pad() -> list[tuple]:
@@ -232,7 +245,6 @@ def bass(n: int) -> list[tuple]:
         ch2 = CHORDS[cell * 2 + 1]
         r, f, s = BASS[ch]
         lo = LOW[ch]
-        nxt = LOW[CHORDS[(cell * 2 + 2) % len(CHORDS)]]
         if n == 1:
             notes += [(base, lo, 1.9, 104), (base + 2.0, lo, 1.4, 96), (base + 3.5, lo, 0.4, 80),
                       (base + 4.0, LOW[ch2], 1.9, 100), (base + 6.0, LOW[ch2] + 12, 0.9, 90),
@@ -256,10 +268,10 @@ def bass(n: int) -> list[tuple]:
 GATE = {"Trigger Mode": "Gate"}
 FX_PADS = {
     36: ("Wood Insert Cassette.wav", {}),                                            # the tape goes in
-    37: ("Radio Station Search.wav", {**GATE, "Ve Attack": "3000 ms", "Ve Release": "250 ms"}),   # tuning in, 7-8
+    37: ("Radio Station Search.wav", {**GATE, "Ve Attack": "3000 ms", "Ve Release": "250 ms", "Volume": "-8 dB"}),
     38: ("Riser White Noise.wav", {}),                                               # into bar 17
     39: ("FX Broken Box.wav", {}),                                                   # bar 17: the bass arrives
-    40: ("Crackle Vinyl Pop.wav", {**GATE, "Ve Attack": "1500 ms", "Ve Release": "2500 ms"}),     # the run-out
+    40: ("Crackle Vinyl Pop.wav", {**GATE, "Ve Attack": "1500 ms", "Ve Release": "2500 ms", "Volume": "6 dB"}),
     41: ("Foley Drop LDre.wav", {}),                                                 # bar 29: the drums stop
 }
 
@@ -294,20 +306,20 @@ def humanize(notes: list[tuple], seed: int, vel: int = 6, beats: float = 0.006) 
 TRACKS = [
     # bed
     {"name": "bed1 music box", "part": "bed", "opt": 1, "src": ("sounds", "Piano & Keys", "Music Box.adg"),
-     "notes": lambda: humanize(arc(music_box()), 1), "fx": ["Chorus-Ensemble", "Utility"], "vol": 0.0, "sends": (-14, -22),
+     "notes": lambda: humanize(arc(music_box()), 1), "fx": ["Chorus-Ensemble", "Utility"], "vol": -1.3, "sends": (-14, -22),
      "set": {2: {"Output": "14 dB"}}},          # the Music Box rack plays about 15 dB under the other beds
     {"name": "bed1 hiss", "part": "bed", "opt": 1, "src": ("samples", None, "Noise Tape Floor.wav"),
-     "notes": hiss, "fx": [], "vol": -12.0, "sends": (None, None), "simpler_loop": True,
+     "notes": hiss, "fx": [], "vol": -5.0, "sends": (None, None), "simpler_loop": True,
      "set": {0: {"Snap": "Off", "S Loop On": "On", "S Loop Fade": "30 %", "Ve Attack": "1500 ms",
-                 "Ve Release": "3000 ms", "Vol < Vel": "0 %"}}},
+                 "Ve Release": "3000 ms", "Vol < Vel": "0 %", "Volume": "0 dB"}}},
     {"name": "bed2 upright", "part": "bed", "opt": 2, "src": ("sounds", "Piano & Keys", "Childhood Home Piano.adg"),
-     "notes": lambda: humanize(arc(parlour_piano()), 2), "fx": [], "vol": -0.5, "sends": (-16, None)},
+     "notes": lambda: humanize(arc(parlour_piano()), 2), "fx": [], "vol": 0.6, "sends": (-16, None)},
     {"name": "bed2 toy", "part": "bed", "opt": 2, "src": ("sounds", "Piano & Keys", "Toy Piano Bells.adv"),
-     "notes": lambda: humanize(arc(toy_piano()), 3), "fx": ["Chorus-Ensemble"], "vol": -1.5, "sends": (-14, -20)},
+     "notes": lambda: humanize(arc(toy_piano()), 3), "fx": ["Chorus-Ensemble"], "vol": -0.4, "sends": (-14, -20)},
     {"name": "bed3 branches", "part": "bed", "opt": 3, "src": ("sounds", "Pad", "Tree Branches.adg"),
-     "notes": lambda: humanize(arc(branches_pad()), 4, beats=0.0), "fx": [], "vol": -5.0, "sends": (-15, None)},
+     "notes": lambda: humanize(arc(branches_pad()), 4, beats=0.0), "fx": [], "vol": -4.6, "sends": (-15, None)},
     {"name": "bed3 tin bowl", "part": "bed", "opt": 3, "src": ("sounds", "Mallets", "Tin Bowl.adv"),
-     "notes": lambda: humanize(arc(tin_bowl()), 5), "fx": [], "vol": -3.0, "sends": (-12, -18)},
+     "notes": lambda: humanize(arc(tin_bowl()), 5), "fx": [], "vol": -2.6, "sends": (-12, -18)},
     # drums
     {"name": "drums1 tin", "part": "drums", "opt": 1, "src": ("drums", None, "Rattle Kit.adg"),
      "notes": lambda: humanize(drums(1), 6, vel=5, beats=0.004), "fx": [], "vol": -1.0, "sends": (-20, None)},
@@ -318,12 +330,12 @@ TRACKS = [
      "rack": "devices[0].chains[0].devices[0]", "pads": {35: ("Kick Wood.wav", {})}},   # the kitchen has no kick
     # bass
     {"name": "bass1 sub", "part": "bass", "opt": 1, "src": ("sounds", "Bass", "Sub Mellow.adg"),
-     "notes": lambda: humanize(bass(1), 9, vel=4, beats=0.0), "fx": ["Saturator"], "vol": -7.5, "sends": (None, None),
+     "notes": lambda: humanize(bass(1), 9, vel=4, beats=0.0), "fx": ["Saturator"], "vol": -8.5, "sends": (None, None),
      "set": {1: {"Type": "Bass Shaper", "Drive": "10 dB", "Output": "-7 dB"}}},
     {"name": "bass2 rubber", "part": "bass", "opt": 2, "src": ("sounds", "Bass", "Tension Rubber Bass.adv"),
      "notes": lambda: humanize(bass(2), 10, vel=5, beats=0.004), "fx": [], "vol": 0.6, "sends": (-28, None)},
     {"name": "bass3 bowed", "part": "bass", "opt": 3, "src": ("sounds", "Bass", "Cat Gut Bass.adv"),
-     "notes": lambda: humanize(bass(3), 11, vel=4, beats=0.0), "fx": ["Saturator"], "vol": 0.2, "sends": (-26, None),
+     "notes": lambda: humanize(bass(3), 11, vel=4, beats=0.0), "fx": ["Saturator"], "vol": -3.6, "sends": (-26, None),
      "set": {1: {"Type": "Hard Curve", "Drive": "16 dB", "Output": "-10 dB", "Dry/Wet": "75 %"}}},
     # shared: plays in every combo
     {"name": "seams", "part": "shared", "opt": 0, "src": ("instruments", None, "Drum Rack"),
@@ -341,7 +353,7 @@ RETURNS = {
 MASTER = {
     0: {"1 Filter Type A": "High Pass 48dB", "1 Frequency A": "32 Hz", "1 Filter On A": "On"},
     1: {"Threshold": "-12 dB", "Ratio": 0, "Attack": 5, "Release": 6, "Output": "1.5 dB", "Dry/Wet": 1.0},
-    2: {"Mode": "True Peak", "Ceiling": "-1.8 dB", "Lookahead": "3 ms", "Auto": "On", "Input Gain": "5 dB"},
+    2: {"Mode": "True Peak", "Ceiling": "-1.8 dB", "Lookahead": "3 ms", "Auto": "On", "Input Gain": "6 dB"},
 }
 
 OPTIONS = {
