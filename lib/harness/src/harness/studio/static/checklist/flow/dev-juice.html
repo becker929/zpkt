@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0b0b0c">
+  <title>Juice Bench</title>
+  <link rel="stylesheet" href="juice/juice.css">
+  <style>
+    :root { --bg: #0b0b0c; --ink: #f2f1ee; --ink-3: #77777a; --line: rgb(255 255 255 / 0.14); color-scheme: dark; }
+    * { box-sizing: border-box; }
+    html { -webkit-text-size-adjust: 100%; overflow-x: hidden; }
+    body { margin: 0; min-height: 100dvh; background: var(--bg); color: var(--ink); font: 15px/1.4 -apple-system, system-ui, sans-serif; }
+    header { display: grid; grid-template-columns: 1fr 44px; align-items: center; gap: 12px; padding: calc(env(safe-area-inset-top) + 12px) 16px 12px; border-bottom: 1px solid var(--line); }
+    h1 { margin: 0; font-size: 17px; }
+    header p { margin: 2px 0 0; font-size: 12px; color: var(--ink-3); }
+    #mini { width: 44px; height: 44px; color: var(--ink); }
+    .controls { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; padding: 14px 16px; }
+    .controls > * { min-width: 0; }
+    select { width: 100%; }
+    .seg button { min-width: 0; }
+    .seg { display: flex; gap: 4px; }
+    .seg button, select, #replay { flex: 1; min-height: 40px; border: 1px solid var(--line); background: none; color: var(--ink); font: inherit; border-radius: 0; }
+    .seg button[aria-pressed='true'] { background: var(--ink); color: var(--bg); }
+    select { padding: 0 8px; -webkit-appearance: none; appearance: none; }
+    label.fill { display: flex; gap: 8px; align-items: center; font-size: 13px; color: var(--ink-3); }
+    #replay { border-color: #f1b64a; color: #f1b64a; font-weight: 600; }
+    .scrim { display: grid; place-items: center; padding: 8px 0 24px; }
+    #stage { width: min(88vw, 60vh); height: min(88vw, 60vh); }
+    #took { text-align: center; font-size: 12px; color: var(--ink-3); font-variant-numeric: tabular-nums; min-height: 1.4em; }
+  </style>
+</head>
+<body>
+  <header>
+    <div><h1>Juice bench</h1><p>Plays a juice object for one commit, as the splash will.</p></div>
+    <div id="mini" aria-label="The header glyph"></div>
+  </header>
+  <div class="controls">
+    <div class="seg" id="kinds"></div>
+    <select id="item" aria-label="The item committed"></select>
+    <label class="fill"><input type="checkbox" id="fill"> Everything else in its step already cleared (the commit clears the step)</label>
+    <button type="button" id="replay">Play the commit</button>
+  </div>
+  <div class="scrim"><div id="stage"></div></div>
+  <p id="took"></p>
+  <script type="module">
+    import * as crystal from './juice/crystal.js';
+    import * as repair from './juice/repair.js';
+    import * as map from './juice/map.js';
+    import { loadTrack, onTap } from '../concepts/model.js';
+
+    const KINDS = { crystal, repair, map };
+    const q = new URLSearchParams(location.search);
+    const $ = (id) => document.getElementById(id);
+    let kind = KINDS[q.get('kind')] ? q.get('kind') : 'crystal';
+    const data = await loadTrack();
+
+    // the states the data gives (not this browser's checks), so the bench always starts from the same place
+    function sets(key, fill) {
+      const [sid] = key.split('.');
+      const base = new Set(data.steps.flatMap((s) => s.items.filter((it) => it.state === 'done').map((it) => `${s.id}.${it.id}`)));
+      if (fill) for (const it of data.steps.find((s) => s.id === sid).items) base.add(`${sid}.${it.id}`);
+      base.delete(key);
+      return { before: base, after: new Set([...base, key]) };
+    }
+    const find = (key) => {
+      const [sid, iid] = key.split('.');
+      const step = data.steps.find((s) => s.id === sid);
+      return { step, item: step.items.find((it) => it.id === iid) };
+    };
+
+    for (const s of data.steps) for (const it of s.items) {
+      const o = document.createElement('option');
+      o.value = `${s.id}.${it.id}`; o.textContent = `${s.n}.${s.items.indexOf(it) + 1} ${it.title}`;
+      $('item').append(o);
+    }
+    $('item').value = q.get('item') || 'kick.drive';
+    $('fill').checked = q.get('fill') === '1';
+    for (const k of Object.keys(KINDS)) {
+      const b = document.createElement('button');
+      b.type = 'button'; b.textContent = KINDS[k].label; b.dataset.kind = k;
+      onTap(b, () => { kind = k; paint(); run(); });
+      $('kinds').append(b);
+    }
+    const paint = () => { for (const b of $('kinds').children) b.setAttribute('aria-pressed', String(b.dataset.kind === kind)); };
+
+    let busy = null;
+    async function run() {
+      if (busy) await busy;
+      const key = $('item').value, { before, after } = sets(key, $('fill').checked), { step, item } = find(key);
+      const mod = KINDS[kind];
+      mod.mini($('mini'), data, before);
+      $('took').textContent = '';
+      const t0 = performance.now();
+      busy = mod.play($('stage'), { data, before, after, step, item, reduced: q.get('reduced') === '1' });
+      await busy;
+      busy = null;
+      const ms = Math.round(performance.now() - t0);
+      mod.mini($('mini'), data, after);
+      $('took').textContent = `${mod.label}: settled in ${ms} ms`;
+      return ms;
+    }
+    onTap($('replay'), () => run());
+    $('item').addEventListener('change', () => run());
+    $('fill').addEventListener('change', () => run());
+
+    // for the tests
+    window.__dev = {
+      data, KINDS, sets, find, run,
+      setKind: (k) => { kind = k; paint(); },
+      // a render's markup as the stage would serialise it once parsed
+      norm: (markup) => { const d = document.createElement('div'); d.innerHTML = markup; return d.innerHTML; },
+      expected: (k, key, fill, which = 'after') => window.__dev.norm(KINDS[k].render(data, sets(key, fill)[which], { step: key.split('.')[0] })),
+    };
+    paint();
+    if (q.get('auto') !== '0') run();
+  </script>
+</body>
+</html>

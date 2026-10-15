@@ -119,6 +119,10 @@ async def checklist_file(request: web.Request) -> web.StreamResponse:
 def _bench_file(request: web.Request, root: Path) -> web.StreamResponse:
     rel = request.match_info["path"] or "index.html"
     path = (root / rel).resolve()
+    if path.is_dir() and path.is_relative_to(root.resolve()):
+        if not request.path.endswith("/"):                  # so the page's relative links resolve inside the folder
+            raise web.HTTPFound(request.path + "/")
+        path = path / "index.html"
     if not path.is_relative_to(root.resolve()) or not path.is_file():
         raise web.HTTPNotFound()
     resp = web.FileResponse(path, headers={"Cache-Control": "no-cache"})
