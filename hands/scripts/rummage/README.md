@@ -6,21 +6,24 @@ makes or changes sound.
 
 - **118 BPM, 4/4, 32 bars, 65.085 s. D minor, dorian colour.** Two bars a chord: Dm9, G9, Bbmaj7, A7sus4 to A7, three
   times; the last time round turns home: Dm9, G9, Bbmaj7, D(add9).
-- **Arrangement:** bars 1-8 the bed alone; 9-16 drums come in (kick and hats, then the whole kit, a fill at 16);
-  17-28 the bass and the full groove (extra percussion, fills at 24 and 28); 29-32 the outro (one last hit, the bass
-  holds Bb then D, the bed rings out).
+- **Arrangement:** bars 1-8 the bed alone, swelling in over four bars (in its velocities: the LOM cannot write
+  automation into arrangement clips); 9-16 drums come in (kick and hats, then the whole kit, a fill at 16); 17-28 the
+  bass and the full groove (extra percussion, fills at 24 and 28); 29-32 the outro (one last hit, the bass holds Bb
+  then D, the bed rings out). A shared track, `seams`, plays in every combo: Core Library found sounds on a Drum Rack
+  (a cassette going in at bar 1, a radio tuning in over bars 7-8, a noise riser and a broken box into bar 17, a drop
+  and vinyl run-out crackle at 29). Every part is humanized a little (seeded, so a rebuild is identical).
 - **The options** (`parts.py`; names and lines for the page are in `OPTIONS`):
 
 | Part | 1 | 2 | 3 |
 |---|---|---|---|
-| bed | Music box & hiss: Music Box (the tune over an eighth-note arpeggio), Chorus-Ensemble; a looping tape-noise sample | Parlour upright: Childhood Home Piano in a lopsided comp; Toy Piano Bells on the tune, an octave up, through a chorus | Branches & tin bowl: Tree Branches pad holding the chords; Tin Bowl on the tune at half speed |
+| bed | Music box & hiss: Music Box (the tune over an eighth-note arpeggio), Chorus-Ensemble; a looping tape-noise sample | Parlour upright: Childhood Home Piano in a lopsided comp; Toy Piano Bells on the tune through a chorus | Branches & tin bowl: Tree Branches pad holding the chords; Tin Bowl on the tune at half speed |
 | drums | Tin-can break: Rattle Kit, a broken beat | Clockwork four: Clockwork Kit, four on the floor, a ticking off-beat | Cutlery shuffle: Perc Kitchen Kit (spoons, knives, pans, glass) in triplets, a Kick Wood sample on pad 35 |
 | bass | Round sub: Sub Mellow through Saturator's Bass Shaper | Rubber band: Tension Rubber Bass, plucked sixteenths | Bowed gut: Cat Gut Bass through a hard-curve Saturator |
 
   Everything is Live's own Core Library (the Lost and Found pack is not installed on this Mac): presets, three of its
   kits and two of its samples. No purchased audio, nothing from Anthony's library.
 - **Main:** EQ Eight (high-pass 32 Hz), Glue Compressor (2:1 at -12 dB, 10 ms, auto release), Limiter (True Peak,
-  ceiling -1.8 dB). Renders land around -14 to -15 LUFS; the page's `gain_db` matches them to -14.
+  ceiling -1.8 dB). The 27 land at -14.6 to -14.2 LUFS; the page's `gain_db` matches them to -14.
 
 ```bash
 cd hands
@@ -28,10 +31,10 @@ cd hands
 uv run python scripts/rummage/make.py save            # Save As SH001_rummage into ~/_agent_scratch/rummage/set/
 uv run python scripts/rummage/make.py build           # tracks, instruments, notes, mix, master (each step checked)
 uv run python scripts/rummage/make.py save
-uv run python scripts/rummage/make.py stems           # each option alone (for the balance), 9 exports
+uv run python scripts/rummage/make.py stems           # each option alone through Main (for the balance), 9 exports
 uv run python scripts/rummage/make.py render all      # the 27 combos, ~18 s each
 uv run python scripts/rummage/make.py measure         # length, peak, true peak, LUFS
-uv run python scripts/rummage/make.py encode          # AAC 192k .m4a named by content + audio.json
+uv run python scripts/rummage/make.py encode          # AAC 192k .m4a, checked, added beside older ones + audio.json
 ```
 
 `build` takes steps too (`build notes`, `build notes:upright` for one track, `build mix master`), and `combo 1-2-3`
