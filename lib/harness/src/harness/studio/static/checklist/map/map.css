@@ -159,7 +159,7 @@ main { padding: 4px var(--gutter) 0; }
 /* ---- the splash: the map over the screen ---- */
 .splash {
   position: fixed; inset: 0; z-index: 30; display: none; grid-template-rows: auto auto auto; place-items: center; align-content: center; gap: 16px;
-  background: rgb(6 6 8 / 0.94); color: #fff; -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px);
+  background: rgb(6 6 8 / 0.94); color: #fff;   /* no backdrop blur: at 94 % it can't be seen, and on iOS it costs every frame */
   padding: env(safe-area-inset-top) var(--gutter) env(safe-area-inset-bottom);
 }
 .splash.show { display: grid; }
