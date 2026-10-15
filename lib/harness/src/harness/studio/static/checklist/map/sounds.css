@@ -1,0 +1,27 @@
+/* The check-sound picker: ink on paper like the flow's shell, a row per sound, the chosen one with a filled square. */
+
+.sp {
+  --sp-bg: #fff; --sp-ink: #000; --sp-ink-3: #6b6b6b; --sp-line: rgb(0 0 0 / 0.12);
+  color: var(--sp-ink);
+}
+@media (prefers-color-scheme: dark) {
+  .sp { --sp-bg: #000; --sp-ink: #fff; --sp-ink-3: #999; --sp-line: rgb(255 255 255 / 0.16); }
+}
+.sp button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; text-align: left; }
+.sp-on {
+  width: 100%; min-height: 52px; display: flex; align-items: center; gap: 12px;
+  border-bottom: 2px solid var(--sp-ink); font-weight: 700;
+}
+.sp-on svg { width: 24px; height: 24px; fill: none; stroke: var(--sp-ink); stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.sp-on .x { display: none; }
+.sp-on[aria-checked='false'] .w { display: none; }
+.sp-on[aria-checked='false'] .x { display: inline; }
+.sp-row {
+  width: 100%; min-height: 56px; display: grid; grid-template-columns: 28px 1fr; grid-template-rows: auto auto;
+  column-gap: 12px; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--sp-line);
+}
+.sp-row i { grid-row: 1 / 3; width: 20px; height: 20px; border: 2px solid var(--sp-ink); }
+.sp-row[aria-checked='true'] i { background: var(--sp-ink); box-shadow: inset 0 0 0 3px var(--sp-bg); }
+.sp-row b { font-size: 17px; line-height: 1.2; }
+.sp-row span { font-size: 13px; color: var(--sp-ink-3); }
+.sp.off .sp-list { opacity: 0.45; }

@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Check Sounds</title>
+  <link rel="stylesheet" href="sounds.css">
+  <style>
+    :root { --bg: #fff; --ink: #000; --ink-3: #6b6b6b; color-scheme: light; }
+    @media (prefers-color-scheme: dark) { :root { --bg: #000; --ink: #fff; --ink-3: #999; color-scheme: dark; } }
+    * { box-sizing: border-box; }
+    html { -webkit-text-size-adjust: 100%; overflow-x: hidden; }
+    body {
+      margin: 0; background: var(--bg); color: var(--ink); font: 16px/1.45 -apple-system, system-ui, 'Helvetica Neue', sans-serif;
+      -webkit-tap-highlight-color: transparent; -webkit-user-select: none; user-select: none;
+      padding: calc(env(safe-area-inset-top) + 16px) 16px calc(env(safe-area-inset-bottom) + 24px);
+    }
+    h1 { margin: 0; font-size: 24px; }
+    p { margin: 4px 0 18px; font-size: 13px; color: var(--ink-3); }
+    .try { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 22px; }
+    .try button {
+      min-height: 64px; font: inherit; font-weight: 700; font-size: 17px; color: var(--bg); background: var(--ink);
+      border: 0; cursor: pointer;
+    }
+    .try button + button { background: none; color: var(--ink); border: 2px solid var(--ink); }
+  </style>
+</head>
+<body>
+  <h1>Check Sounds</h1>
+  <p>The sound a box makes when it's checked. Tap one to hear it and keep it. Interface sounds, made on the page.</p>
+  <div id="picker"></div>
+  <div class="try">
+    <button type="button" id="play">Play</button>
+    <button type="button" id="strong">Play strong</button>
+  </div>
+  <script type="module">
+    import { onTap } from '../concepts/model.js';
+    import { picker, play, wake } from './sounds.js';
+    picker(document.getElementById('picker'));
+    onTap(document.getElementById('play'), () => { wake(); play(); });
+    onTap(document.getElementById('strong'), () => { wake(); play(undefined, { strong: true }); });
+    window.__dev = true;
+  </script>
+</body>
+</html>

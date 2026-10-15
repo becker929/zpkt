@@ -49,6 +49,7 @@ gets work, and never copied.
 | `studio/static/js/audio.js`, `clip.js`, `options-clip.js`, `buffers.js` | Plays speech and renders on the audio clock; options switch with short fades and a loudness match | Allowed: this is the player engine's seed. |
 | `studio/static/js/cue.js` | The ready sound: two notes made with oscillators | Allowed: an interface sound, not music. |
 | `studio/static/checklist/flow/sound.js` | The check's click: a filtered noise tick and a short tone, about 60 ms | Allowed: an interface sound, not music. |
+| `studio/static/checklist/map/sounds.js` | The check's contact sounds: a choice of short low clunks and snaps, made with oscillators and filtered noise, under 0.6 s | Allowed: an interface sound, not music. |
 | `studio/static/js/mic.js` | Captures the mic through an AudioWorklet | Allowed: the mic. |
 | `prototypes/audio-browser/frontend/lib/` (`collagePlayer.ts`, `slicePlayer.ts`, `softClip.ts`) | Assembles a collage from slices and soft-clips it | Breaks the rule (assembly and clipping); to be replaced if the prototype is revived. |
 
