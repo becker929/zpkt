@@ -18,20 +18,20 @@
     "test:e2e:install": "playwright install chromium webkit"
   },
   "dependencies": {
-    "@tanstack/react-virtual": "^3.13.12",
-    "next": "^15.5.4",
+    "@tanstack/react-virtual": "^3.14.15",
+    "next": "^16.4.0",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",
     "swr": "^2.3.6",
-    "zod": "^3.25.76",
+    "zod": "^4.6.6",
     "zod-to-json-schema": "^3.25.2"
   },
   "devDependencies": {
-    "@playwright/test": "^1.63.0",
-    "@types/node": "^24.5.2",
+    "@playwright/test": "^1.64.0",
+    "@types/node": "^26.6.5",
     "@types/react": "^19.1.13",
     "@types/react-dom": "^19.1.9",
-    "typescript": "^5.9.2"
+    "typescript": "^7.0.2"
   },
   "overrides": {
     "postcss": "^8.5.23"
