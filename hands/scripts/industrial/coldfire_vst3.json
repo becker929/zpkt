@@ -1,0 +1,3902 @@
+[
+ {
+  "i": 0,
+  "key": "on_off",
+  "name": "On/Off",
+  "raw": 1.0,
+  "value": "Bypassed",
+  "range": [
+   null,
+   null
+  ],
+  "labels": [
+   "Active",
+   "Bypassed"
+  ],
+  "label": null
+ },
+ {
+  "i": 1,
+  "key": "input_volume_db",
+  "name": "Input Volume",
+  "raw": 0.5,
+  "value": "0.0",
+  "range": [
+   -24.0,
+   24.0
+  ],
+  "labels": null,
+  "label": "dB"
+ },
+ {
+  "i": 2,
+  "key": "output_volume_db",
+  "name": "Output Volume",
+  "raw": 0.5,
+  "value": "0.0",
+  "range": [
+   -24.0,
+   24.0
+  ],
+  "labels": null,
+  "label": "dB"
+ },
+ {
+  "i": 3,
+  "key": "mix",
+  "name": "Mix",
+  "raw": 1.0,
+  "value": "100.0",
+  "range": [
+   0.0,
+   100.0
+  ],
+  "labels": null,
+  "label": "%"
+ },
+ {
+  "i": 4,
+  "key": "color_db",
+  "name": "Color",
+  "raw": 0.5,
+  "value": "0.0",
+  "range": [
+   -12.0,
+   12.0
+  ],
+  "labels": null,
+  "label": "dB"
+ },
+ {
+  "i": 5,
+  "key": "routing_balance",
+  "name": "Routing Balance",
+  "raw": 0.5,
+  "value": "0.5",
+  "range": [
+   0.0,
+   1.0
+  ],
+  "labels": null,
+  "label": null
+ },
+ {
+  "i": 6,
+  "key": "routing_band_split_hz",
+  "name": "Routing Band Split",
+  "raw": 0.4233654737472534,
+  "value": "600.0",
+  "range": [
+   20.0,
+   20000.0
+  ],
+  "labels": null,
+  "label": "Hz"
+ },
+ {
+  "i": 7,
+  "key": "distortion_a_output_level_db",
+  "name": "Distortion A Output Level",
+  "raw": 0.5,
+  "value": "0.0",
+  "range": [
+   -24.0,
+   24.0
+  ],
+  "labels": null,
+  "label": "dB"
+ },
+ {
+  "i": 8,
+  "key": "distortion_a_dry_wet",
+  "name": "Distortion A Dry/Wet",
+  "raw": 1.0,
+  "value": "100.0",
+  "range": [
+   0.0,
+   100.0
+  ],
+  "labels": null,
+  "label": "%"
+ },
+ {
+  "i": 9,
+  "key": "distortion_a_slot_bypass",
+  "name": "Distortion A Slot Bypass",
+  "raw": 1.0,
+  "value": "True",
+  "range": [
+   false,
+   true
+  ],
+  "labels": [
+   "False",
+   "True"
+  ],
+  "label": null
+ },
+ {
+  "i": 10,
+  "key": "distortion_a_distortion_bypass",
+  "name": "Distortion A Distortion Bypass",
+  "raw": 1.0,
+  "value": "True",
+  "range": [
+   false,
+   true
+  ],
+  "labels": [
+   "False",
+   "True"
+  ],
+  "label": null
+ },
+ {
+  "i": 11,
+  "key": "distortion_a_module_type",
+  "name": "Distortion A Module Type",
+  "raw": 1.0,
+  "value": "Transistor",
+  "range": [
+   null,
+   null
+  ],
+  "labels": [
+   "Bit Crusher",
+   "Bit Inverter",
+   "Rectifier",
+   "Wavefolder",
+   "Waveshaper",
+   "Force",
+   "Transformer",
+   "Tube",
+   "Tape",
+   "Germanium",
+   "Transistor"
+  ],
+  "label": null
+ },
+ {
+  "i": 12,
+  "key": "distortion_a_drive",
+  "name": "Distortion A Drive",
+  "raw": 0.5000002980232239,
+  "value": "50.0",
+  "range": [
+   0.0,
+   100.0
+  ],
+  "labels": null,
+  "label": "%"
+ },
+ {
+  "i": 13,
+  "key": "distortion_a_pre_filter_bypass",
+  "name": "Distortion A Pre Filter Bypass",
+  "raw": 1.0,
+  "value": "True",
+  "range": [
+   false,
+   true
+  ],
+  "labels": [
+   "False",
+   "True"
+  ],
+  "label": null
+ },
+ {
+  "i": 14,
+  "key": "distortion_a_pre_filter_freq_hz",
+  "name": "Distortion A Pre Filter Freq",
+  "raw": 1.0,
+  "value": "20000.0",
+  "range": [
+   20.0,
+   20000.0
+  ],
+  "labels": null,
+  "label": "Hz"
+ },
+ {
+  "i": 15,
+  "key": "distortion_a_comb_filter_freq_hz",
+  "name": "Distortion A Comb Filter Freq",
+  "raw": 1.0,
+  "value": "2000.0",
+  "range": [
+   20.0,
+   2000.0
+  ],
+  "labels": null,
+  "label": "Hz"
+ },
+ {
+  "i": 16,
+  "key": "distortion_a_pre_filter_q",
+  "name": "Distortion A Pre Filter Q",
+  "raw": 0.0,
+  "value": "0.0",
+  "range": [
+   0.0,
+   100.0
+  ],
+  "labels": null,
+  "label": "%"
+ },
+ {
+  "i": 17,
+  "key": "distortion_a_post_filter_bypass",
+  "name": "Distortion A Post Filter Bypass ",
+  "raw": 1.0,
+  "value": "True",
+  "range": [
+   false,
+   true
+  ],
+  "labels": [
+   "False",
+   "True"
+  ],
+  "label": null
+ },
+ {
+  "i": 18,
+  "key": "distortion_a_post_filter_hp_freq_hz",
+  "name": "Distortion A Post Filter HP Freq",
+  "raw": 0.0,
+  "value": "20.0",
+  "range": [
+   20.0,
+   20000.0
+  ],
+  "labels": null,
+  "label": "Hz"
+ },
+ {
+  "i": 19,
+  "key": "distortion_a_post_filter_lp_freq_hz",
+  "name": "Distortion A Post Filter LP Freq",
+  "raw": 1.0,
+  "value": "20000.0",
+  "range": [
+   20.0,
+   20000.0
+  ],
+  "labels": null,
+  "label": "Hz"
+ },
+ {
+  "i": 20,
+  "key": "distortion_a_bitcrusher_frequency_hz",
+  "name": "Distortion A Bitcrusher Frequency",
+  "raw": 1.0,
+  "value": "44100.0",
+  "range": [
+   200.0,
+   44100.0
+  ],
+  "labels": null,
+  "label": "Hz"
+ },
+ {
+  "i": 21,
+  "key": "distortion_a_bitcrusher_jitter",
+  "name": "Distortion A Bitcrusher Jitter",
+  "raw": 0.0,
+  "value": "0.0",
+  "range": [
+   0.0,
+   100.0
+  ],
+  "labels": null,
+  "label": "%"
+ },
+ {
+  "i": 22,
+  "key": "distortion_a_bitcrusher_aliasing",
+  "name": "Distortion A Bitcrusher Aliasing",
+  "raw": 1.0,
+  "value": "100.0",
+  "range": [
+   0.0,
+   100.0
+  ],
+  "labels": null,
+  "label": "%"
+ },
+ {
+  "i": 23,
+  "key": "distortion_a_bit_inverter_bit_1_state",
+  "name": "Distortion A Bit Inverter Bit 1 State",
+  "raw": 1.0,
+  "value": "Muted",
+  "range": [
+   null,
+   null
+  ],
+  "labels": [
+   "Normal",
+   "Inverted",
+   "Muted"
+  ],
+  "label": null
+ },
+ {
+  "i": 24,
+  "key": "distortion_a_bit_inverter_bit_2_state",
+  "name": "Distortion A Bit Inverter Bit 2 State",
+  "raw": 1.0,
+  "value": "Muted",
+  "range": [
+   null,
+   null
+  ],
+  "labels": [
+   "Normal",
+   "Inverted",
+   "Muted"
+  ],
+  "label": null
+ },
+ {
+  "i": 25,
+  "key": "distortion_a_bit_inverter_bit_3_state",
+  "name": "Distortion A Bit Inverter Bit 3 State",
+  "raw": 1.0,
+  "value": "Muted",
+  "range": [
+   null,
+   null
+  ],
+  "labels": [
+   "Normal",
+   "Inverted",
+   "Muted"
+  ],
+  "label": null
+ },
+ {
+  "i": 26,
+  "key": "distortion_a_bit_inverter_bit_4_state",
+  "name": "Distortion A Bit Inverter Bit 4 State",
+  "raw": 1.0,
+  "value": "Muted",
+  "range": [
+   null,
+   null
+  ],
+  "labels": [
+   "Normal",
+   "Inverted",
+   "Muted"
+  ],
+  "label": null
+ },
+ {
+  "i": 27,
+  "key": "distortion_a_bit_inverter_bit_5_state",
+  "name": "Distortion A Bit Inverter Bit 5 State",
+  "raw": 1.0,
+  "value": "Muted",
+  "range": [
+   null,
+   null
+  ],
+  "labels": [
+   "Normal",
+   "Inverted",
+   "Muted"
+  ],
+  "label": null
+ },
+ {
+  "i": 28,
+  "key": "distortion_a_bit_inverter_bit_6_state",
+  "name": "Distortion A Bit Inverter Bit 6 State",
+  "raw": 1.0,
+  "value": "Muted",
+  "range": [
+   null,
+   null
+  ],
+  "labels": [
+   "Normal",
+   "Inverted",
+   "Muted"
+  ],
+  "label": null
+ },
+ {
+  "i": 29,
+  "key": "distortion_a_bit_inverter_bit_7_state",
+  "name": "Distortion A Bit Inverter Bit 7 State",
+  "raw": 1.0,
+  "value": "Muted",
+  "range": [
+   null,
+   null
+  ],
+  "labels": [
+   "Normal",
+   "Inverted",
+   "Muted"
+  ],
+  "label": null
+ },
+ {
+  "i": 30,
+  "key": "distortion_a_bit_inverter_bit_8_state",
+  "name": "Distortion A Bit Inverter Bit 8 State",
+  "raw": 1.0,
+  "value": "Muted",
+  "range": [
+   null,
+   null
+  ],
+  "labels": [
+   "Normal",
+   "Inverted",
+   "Muted"
+  ],
+  "label": null
+ },
+ {
+  "i": 31,
+  "key": "distortion_a_rectifier_center",
+  "name": "Distortion A Rectifier Center",
+  "raw": 0.0,
+  "value": "0.0",
+  "range": [
+   0.0,
+   0.75
+  ],
+  "labels": null,
+  "label": null
+ },
+ {
+  "i": 32,
+  "key": "distortion_a_tube_profile",
+  "name": "Distortion A Tube Profile",
+  "raw": 1.0,
+  "value": "100.0",
+  "range": [
+   0.0,
+   100.0
+  ],
+  "labels": null,
+  "label": "%"
+ },
+ {
+  "i": 33,
+  "key": "distortion_b_output_level_db",
+  "name": "Distortion B Output Level",
+  "raw": 0.5,
+  "value": "0.0",
+  "range": [
+   -24.0,
+   24.0
+  ],
+  "labels": null,
+  "label": "dB"
+ },
+ {
+  "i": 34,
+  "key": "distortion_b_dry_wet",
+  "name": "Distortion B Dry/Wet",
+  "raw": 1.0,
+  "value": "100.0",
+  "range": [
+   0.0,
+   100.0
+  ],
+  "labels": null,
+  "label": "%"
+ },
+ {
+  "i": 35,
+  "key": "distortion_b_slot_bypass",
+  "name": "Distortion B Slot Bypass",
+  "raw": 1.0,
+  "value": "True",
+  "range": [
+   false,
+   true
+  ],
+  "labels": [
+   "False",
+   "True"
+  ],
+  "label": null
+ },
+ {
+  "i": 36,
+  "key": "distortion_b_distortion_bypass",
+  "name": "Distortion B Distortion Bypass",
+  "raw": 1.0,
+  "value": "True",
+  "range": [
+   false,
+   true
+  ],
+  "labels": [
+   "False",
+   "True"
+  ],
+  "label": null
+ },
+ {
+  "i": 37,
+  "key": "distortion_b_module_type",
+  "name": "Distortion B Module Type",
+  "raw": 1.0,
+  "value": "Transistor",
+  "range": [
+   null,
+   null
+  ],
+  "labels": [
+   "Bit Crusher",
+   "Bit Inverter",
+   "Rectifier",
+   "Wavefolder",
+   "Waveshaper",
+   "Force",
+   "Transformer",
+   "Tube",
+   "Tape",
+   "Germanium",
+   "Transistor"
+  ],
+  "label": null
+ },
+ {
+  "i": 38,
+  "key": "distortion_b_drive",
+  "name": "Distortion B Drive",
+  "raw": 0.0,
+  "value": "0.0",
+  "range": [
+   0.0,
+   100.0
+  ],
+  "labels": null,
+  "label": "%"
+ },
+ {
+  "i": 39,
+  "key": "distortion_b_pre_filter_bypass",
+  "name": "Distortion B Pre Filter Bypass",
+  "raw": 1.0,
+  "value": "True",
+  "range": [
+   false,
+   true
+  ],
+  "labels": [
+   "False",
+   "True"
+  ],
+  "label": null
+ },
+ {
+  "i": 40,
+  "key": "distortion_b_pre_filter_freq_hz",
+  "name": "Distortion B Pre Filter Freq",
+  "raw": 1.0,
+  "value": "20000.0",
+  "range": [
+   20.0,
+   20000.0
+  ],
+  "labels": null,
+  "label": "Hz"
+ },
+ {
+  "i": 41,
+  "key": "distortion_b_comb_filter_freq_hz",
+  "name": "Distortion B Comb Filter Freq",
+  "raw": 1.0,
+  "value": "2000.0",
+  "range": [
+   20.0,
+   2000.0
+  ],
+  "labels": null,
+  "label": "Hz"
+ },
+ {
+  "i": 42,
+  "key": "distortion_b_pre_filter_q",
+  "name": "Distortion B Pre Filter Q",
+  "raw": 0.0,
+  "value": "0.0",
+  "range": [
+   0.0,
+   100.0
+  ],
+  "labels": null,
+  "label": "%"
+ },
+ {
+  "i": 43,
+  "key": "distortion_b_post_filter_bypass",
+  "name": "Distortion B Post Filter Bypass ",
+  "raw": 1.0,
+  "value": "True",
+  "range": [
+   false,
+   true
+  ],
+  "labels": [
+   "False",
+   "True"
+  ],
+  "label": null
+ },
+ {
+  "i": 44,
+  "key": "distortion_b_post_filter_hp_freq_hz",
+  "name": "Distortion B Post Filter HP Freq",
+  "raw": 0.0,
+  "value": "20.0",
+  "range": [
+   20.0,
+   20000.0
+  ],
+  "labels": null,
+  "label": "Hz"
+ },
+ {
+  "i": 45,
+  "key": "distortion_b_post_filter_lp_freq_hz",
+  "name": "Distortion B Post Filter LP Freq",
+  "raw": 1.0,
+  "value": "20000.0",
+  "range": [
+   20.0,
+   20000.0
+  ],
+  "labels": null,
+  "label": "Hz"
+ },
+ {
+  "i": 46,
+  "key": "distortion_b_bitcrusher_frequency_hz",
+  "name": "Distortion B Bitcrusher Frequency",
+  "raw": 1.0,
+  "value": "44100.0",
+  "range": [
+   200.0,
+   44100.0
+  ],
+  "labels": null,
+  "label": "Hz"
+ },
+ {
+  "i": 47,
+  "key": "distortion_b_bitcrusher_jitter",
+  "name": "Distortion B Bitcrusher Jitter",
+  "raw": 0.0,
+  "value": "0.0",
+  "range": [
+   0.0,
+   100.0
+  ],
+  "labels": null,
+  "label": "%"
+ },
+ {
+  "i": 48,
+  "key": "distortion_b_bitcrusher_aliasing",
+  "name": "Distortion B Bitcrusher Aliasing",
+  "raw": 1.0,
+  "value": "100.0",
+  "range": [
+   0.0,
+   100.0
+  ],
+  "labels": null,
+  "label": "%"
+ },
+ {
+  "i": 49,
+  "key": "distortion_b_bit_inverter_bit_1_state",
+  "name": "Distortion B Bit Inverter Bit 1 State",
+  "raw": 1.0,
+  "value": "Muted",
+  "range": [
+   null,
+   null
+  ],
+  "labels": [
+   "Normal",
+   "Inverted",
+   "Muted"
+  ],
+  "label": null
+ },
+ {
+  "i": 50,
+  "key": "distortion_b_bit_inverter_bit_2_state",
+  "name": "Distortion B Bit Inverter Bit 2 State",
+  "raw": 1.0,
+  "value": "Muted",
+  "range": [
+   null,
+   null
+  ],
+  "labels": [
+   "Normal",
+   "Inverted",
+   "Muted"
+  ],
+  "label": null
+ },
+ {
+  "i": 51,
+  "key": "distortion_b_bit_inverter_bit_3_state",
+  "name": "Distortion B Bit Inverter Bit 3 State",
+  "raw": 1.0,
+  "value": "Muted",
+  "range": [
+   null,
+   null
+  ],
+  "labels": [
+   "Normal",
+   "Inverted",
+   "Muted"
+  ],
+  "label": null
+ },
+ {
+  "i": 52,
+  "key": "distortion_b_bit_inverter_bit_4_state",
+  "name": "Distortion B Bit Inverter Bit 4 State",
+  "raw": 1.0,
+  "value": "Muted",
+  "range": [
+   null,
+   null
+  ],
+  "labels": [
+   "Normal",
+   "Inverted",
+   "Muted"
+  ],
+  "label": null
+ },
+ {
+  "i": 53,
+  "key": "distortion_b_bit_inverter_bit_5_state",
+  "name": "Distortion B Bit Inverter Bit 5 State",
+  "raw": 1.0,
+  "value": "Muted",
+  "range": [
+   null,
+   null
+  ],
+  "labels": [
+   "Normal",
+   "Inverted",
+   "Muted"
+  ],
+  "label": null
+ },
+ {
+  "i": 54,
+  "key": "distortion_b_bit_inverter_bit_6_state",
+  "name": "Distortion B Bit Inverter Bit 6 State",
+  "raw": 1.0,
+  "value": "Muted",
+  "range": [
+   null,
+   null
+  ],
+  "labels": [
+   "Normal",
+   "Inverted",
+   "Muted"
+  ],
+  "label": null
+ },
+ {
+  "i": 55,
+  "key": "distortion_b_bit_inverter_bit_7_state",
+  "name": "Distortion B Bit Inverter Bit 7 State",
+  "raw": 1.0,
+  "value": "Muted",
+  "range": [
+   null,
+   null
+  ],
+  "labels": [
+   "Normal",
+   "Inverted",
+   "Muted"
+  ],
+  "label": null
+ },
+ {
+  "i": 56,
+  "key": "distortion_b_bit_inverter_bit_8_state",
+  "name": "Distortion B Bit Inverter Bit 8 State",
+  "raw": 1.0,
+  "value": "Muted",
+  "range": [
+   null,
+   null
+  ],
+  "labels": [
+   "Normal",
+   "Inverted",
+   "Muted"
+  ],
+  "label": null
+ },
+ {
+  "i": 57,
+  "key": "distortion_b_rectifier_center",
+  "name": "Distortion B Rectifier Center",
+  "raw": 0.0,
+  "value": "0.0",
+  "range": [
+   0.0,
+   0.75
+  ],
+  "labels": null,
+  "label": null
+ },
+ {
+  "i": 58,
+  "key": "distortion_b_tube_profile",
+  "name": "Distortion B Tube Profile",
+  "raw": 1.0,
+  "value": "100.0",
+  "range": [
+   0.0,
+   100.0
+  ],
+  "labels": null,
+  "label": "%"
+ },
+ {
+  "i": 59,
+  "key": "feedback_level_db",
+  "name": "Feedback Level",
+  "raw": 0.0,
+  "value": "-70.0",
+  "range": [
+   -70.0,
+   0.0
+  ],
+  "labels": null,
+  "label": "dB"
+ },
+ {
+  "i": 60,
+  "key": "feedback_filter_notch_hz",
+  "name": "Feedback Filter Notch",
+  "raw": 1.0,
+  "value": "20000.0",
+  "range": [
+   20.0,
+   20000.0
+  ],
+  "labels": null,
+  "label": "Hz"
+ },
+ {
+  "i": 61,
+  "key": "feedback_filter_color",
+  "name": "Feedback Filter Color",
+  "raw": 0.5,
+  "value": "0.0",
+  "range": [
+   -100.0,
+   100.0
+  ],
+  "labels": null,
+  "label": "%"
+ },
+ {
+  "i": 62,
+  "key": "feedback_time_ms",
+  "name": "Feedback Time",
+  "raw": 0.17200002074241638,
+  "value": "36.4",
+  "range": [
+   1.1,
+   1000.0
+  ],
+  "labels": null,
+  "label": "ms"
+ },
+ {
+  "i": 63,
+  "key": "feedback_time_synced",
+  "name": "Feedback Time Synced",
+  "raw": 1.0,
+  "value": "1/128",
+  "range": [
+   null,
+   null
+  ],
+  "labels": [
+   "2/1",
+   "1/1",
+   "1/2",
+   "1/4",
+   "1/8",
+   "1/16",
+   "1/32",
+   "1/64",
+   "1/128"
+  ],
+  "label": null
+ },
+ {
+  "i": 64,
+  "key": "feedback_time_pitch",
+  "name": "Feedback Time Pitch",
+  "raw": 0.46987950801849365,
+  "value": "D#2",
+  "range": [
+   null,
+   null
+  ],
+  "labels": null,
+  "label": null
+ },
+ {
+  "i": 65,
+  "key": "compressor_threshold_db",
+  "name": "Compressor Threshold",
+  "raw": 1.0,
+  "value": "0.0",
+  "range": [
+   -50.0,
+   0.0
+  ],
+  "labels": null,
+  "label": "dB"
+ },
+ {
+  "i": 66,
+  "key": "compressor_ratio",
+  "name": "Compressor Ratio",
+  "raw": 0.3995000123977661,
+  "value": "4.0",
+  "range": [
+   0.0,
+   10.0
+  ],
+  "labels": null,
+  "label": null
+ },
+ {
+  "i": 67,
+  "key": "compressor_time",
+  "name": "Compressor Time",
+  "raw": 0.32875001430511475,
+  "value": "32.9",
+  "range": [
+   0.0,
+   100.0
+  ],
+  "labels": null,
+  "label": "%"
+ },
+ {
+  "i": 68,
+  "key": "compressor_makeup_gain_db",
+  "name": "Compressor Makeup Gain",
+  "raw": 0.0,
+  "value": "0.0",
+  "range": [
+   0.0,
+   30.0
+  ],
+  "labels": null,
+  "label": "dB"
+ },
+ {
+  "i": 69,
+  "key": "multiband_time",
+  "name": "Multiband Time",
+  "raw": 0.49954041838645935,
+  "value": "100.0",
+  "range": [
+   10.0,
+   1000.0
+  ],
+  "labels": null,
+  "label": "%"
+ },
+ {
+  "i": 70,
+  "key": "multiband_tone",
+  "name": "Multiband Tone",
+  "raw": 0.5,
+  "value": "50.0",
+  "range": [
+   0.0,
+   100.0
+  ],
+  "labels": null,
+  "label": "%"
+ },
+ {
+  "i": 71,
+  "key": "multiband_amount",
+  "name": "Multiband Amount",
+  "raw": 1.0,
+  "value": "100.0",
+  "range": [
+   0.0,
+   100.0
+  ],
+  "labels": null,
+  "label": "%"
+ },
+ {
+  "i": 72,
+  "key": "limiter_threshold_db",
+  "name": "Limiter Threshold",
+  "raw": 1.0,
+  "value": "0.0",
+  "range": [
+   -30.0,
+   0.0
+  ],
+  "labels": null,
+  "label": "dB"
+ },
+ {
+  "i": 73,
+  "key": "limiter_release_ms",
+  "name": "Limiter Release",
+  "raw": 0.2780310809612274,
+  "value": "20.0",
+  "range": [
+   1.0,
+   500.0
+  ],
+  "labels": null,
+  "label": "ms"
+ },
+ {
+  "i": 74,
+  "key": "limiter_output_gain_db",
+  "name": "Limiter Output Gain",
+  "raw": 0.0,
+  "value": "0.0",
+  "range": [
+   0.0,
+   30.0
+  ],
+  "labels": null,
+  "label": "dB"
+ },
+ {
+  "i": 75,
+  "key": "modulator_1_rate_hz",
+  "name": "Modulator 1 Rate",
+  "raw": 0.5,
+  "value": "0.635",
+  "range": [
+   0.01,
+   20.0
+  ],
+  "labels": null,
+  "label": "Hz"
+ },
+ {
+  "i": 76,
+  "key": "modulator_1_tempo_div",
+  "name": "Modulator 1 Tempo Div",
+  "raw": 1.0,
+  "value": "1/32",
+  "range": [
+   null,
+   null
+  ],
+  "labels": [
+   "8/1",
+   "4/1",
+   "2/1",
+   "1/1",
+   "1/2",
+   "1/4",
+   "1/8",
+   "1/16",
+   "1/32"
+  ],
+  "label": null
+ },
+ {
+  "i": 77,
+  "key": "modulator_1_bipolar",
+  "name": "Modulator 1 Bipolar",
+  "raw": 1.0,
+  "value": "True",
+  "range": [
+   false,
+   true
+  ],
+  "labels": [
+   "False",
+   "True"
+  ],
+  "label": null
+ },
+ {
+  "i": 78,
+  "key": "modulator_1_lfo_waveform",
+  "name": "Modulator 1 LFO Waveform",
+  "raw": 0.0,
+  "value": "0.0",
+  "range": [
+   0.0,
+   3.0
+  ],
+  "labels": null,
+  "label": null
+ },
+ {
+  "i": 79,
+  "key": "modulator_1_lfo_symmetry",
+  "name": "Modulator 1 LFO Symmetry",
+  "raw": 0.5,
+  "value": "0.5",
+  "range": [
+   0.0,
+   1.0
+  ],
+  "labels": null,
+  "label": null
+ },
+ {
+  "i": 80,
+  "key": "modulator_1_lfo_initial_phase",
+  "name": "Modulator 1 LFO Initial Phase",
+  "raw": 0.0,
+  "value": "0.0",
+  "range": [
+   0.0,
+   360.0
+  ],
+  "labels": null,
+  "label": "\u00ac\u221e"
+ },
+ {
+  "i": 81,
+  "key": "modulator_1_lfo_smooth_s",
+  "name": "Modulator 1 LFO Smooth",
+  "raw": 0.0,
+  "value": "0.0",
+  "range": [
+   0.0,
+   4.0
+  ],
+  "labels": null,
+  "label": "s"
+ },
+ {
+  "i": 82,
+  "key": "modulator_1_function_scale",
+  "name": "Modulator 1 Function Scale",
+  "raw": 1.0,
+  "value": "1.0",
+  "range": [
+   -1.0,
+   1.0
+  ],
+  "labels": null,
+  "label": null
+ },
+ {
+  "i": 83,
+  "key": "modulator_1_step_sequencer_swing",
+  "name": "Modulator 1 Step Sequencer Swing",
+  "raw": 0.0,
+  "value": "50.0",
+  "range": [
+   50.0,
+   75.0
+  ],
+  "labels": null,
+  "label": "%"
+ },
+ {
+  "i": 84,
+  "key": "modulator_1_step_sequencer_smooth",
+  "name": "Modulator 1 Step Sequencer Smooth",
+  "raw": 0.0,
+  "value": "0.0",
+  "range": [
+   0.0,
+   100.0
+  ],
+  "labels": null,
+  "label": "%"
+ },
+ {
+  "i": 85,
+  "key": "modulator_1_step_sequencer_random",
+  "name": "Modulator 1 Step Sequencer Random",
+  "raw": 0.0,
+  "value": "0.0",
+  "range": [
+   0.0,
+   100.0
+  ],
+  "labels": null,
+  "label": "%"
+ },
+ {
+  "i": 86,
+  "key": "modulator_1_step_sequencer_scale",
+  "name": "Modulator 1 Step Sequencer Scale",
+  "raw": 1.0,
+  "value": "100.0",
+  "range": [
+   0.0,
+   100.0
+  ],
+  "labels": null,
+  "label": "%"
+ },
+ {
+  "i": 87,
+  "key": "modulator_1_env_follow_rise_ms",
+  "name": "Modulator 1 Env. Follow. Rise",
+  "raw": 0.0,
+  "value": "0.0",
+  "range": [
+   0.0,
+   1000.0
+  ],
+  "labels": null,
+  "label": "ms"
+ },
+ {
+  "i": 88,
+  "key": "modulator_1_env_follow_fall_ms",
+  "name": "Modulator 1 Env. Follow. Fall",
+  "raw": 0.019999999552965164,
+  "value": "100.0",
+  "range": [
+   0.0,
+   5000.0
+  ],
+  "labels": null,
+  "label": "ms"
+ },
+ {
+  "i": 89,
+  "key": "modulator_1_env_follow_sensitivity_db",
+  "name": "Modulator 1 Env. Follow. Sensitivity",
+  "raw": 0.5,
+  "value": "0.0",
+  "range": [
+   -24.0,
+   24.0
+  ],
+  "labels": null,
+  "label": "dB"
+ },
+ {
+  "i": 90,
+  "key": "modulator_1_env_follow_time_mode",
+  "name": "Modulator 1 Env. Follow. Time Mode",
+  "raw": 1.0,
+  "value": "Synced Dotted",
+  "range": [
+   null,
+   null
+  ],
+  "labels": [
+   "Unsynced",
+   "Synced",
+   "Synced Triplets",
+   "Synced Dotted"
+  ],
+  "label": null
+ },
+ {
+  "i": 91,
+  "key": "modulator_1_env_follow_unsynced_ms",
+  "name": "Modulator 1 Env. Follow. Unsynced",
+  "raw": 0.0,
+  "value": "0.0",
+  "range": [
+   0.0,
+   2000.0
+  ],
+  "labels": null,
+  "label": "ms"
+ },
+ {
+  "i": 92,
+  "key": "modulator_1_env_follow_synced",
+  "name": "Modulator 1 Env. Follow. Synced",
+  "raw": 1.0,
+  "value": "1/128",
+  "range": [
+   null,
+   null
+  ],
+  "labels": [
+   "4/1",
+   "2/1",
+   "1/1",
+   "1/2",
+   "1/4",
+   "1/8",
+   "1/16",
+   "1/32",
+   "1/64",
+   "1/128"
+  ],
+  "label": null
+ },
+ {
+  "i": 93,
+  "key": "modulator_2_rate_hz",
+  "name": "Modulator 2 Rate",
+  "raw": 0.5,
+  "value": "0.635",
+  "range": [
+   0.01,
+   20.0
+  ],
+  "labels": null,
+  "label": "Hz"
+ },
+ {
+  "i": 94,
+  "key": "modulator_2_tempo_div",
+  "name": "Modulator 2 Tempo Div",
+  "raw": 1.0,
+  "value": "1/32",
+  "range": [
+   null,
+   null
+  ],
+  "labels": [
+   "8/1",
+   "4/1",
+   "2/1",
+   "1/1",
+   "1/2",
+   "1/4",
+   "1/8",
+   "1/16",
+   "1/32"
+  ],
+  "label": null
+ },
+ {
+  "i": 95,
+  "key": "modulator_2_bipolar",
+  "name": "Modulator 2 Bipolar",
+  "raw": 1.0,
+  "value": "True",
+  "range": [
+   false,
+   true
+  ],
+  "labels": [
+   "False",
+   "True"
+  ],
+  "label": null
+ },
+ {
+  "i": 96,
+  "key": "modulator_2_lfo_waveform",
+  "name": "Modulator 2 LFO Waveform",
+  "raw": 0.6666666865348816,
+  "value": "2.0",
+  "range": [
+   0.0,
+   3.0
+  ],
+  "labels": null,
+  "label": null
+ },
+ {
+  "i": 97,
+  "key": "modulator_2_lfo_symmetry",
+  "name": "Modulator 2 LFO Symmetry",
+  "raw": 0.5,
+  "value": "0.5",
+  "range": [
+   0.0,
+   1.0
+  ],
+  "labels": null,
+  "label": null
+ },
+ {
+  "i": 98,
+  "key": "modulator_2_lfo_initial_phase",
+  "name": "Modulator 2 LFO Initial Phase",
+  "raw": 0.0,
+  "value": "0.0",
+  "range": [
+   0.0,
+   360.0
+  ],
+  "labels": null,
+  "label": "\u00ac\u221e"
+ },
+ {
+  "i": 99,
+  "key": "modulator_2_lfo_smooth_s",
+  "name": "Modulator 2 LFO Smooth",
+  "raw": 0.0,
+  "value": "0.0",
+  "range": [
+   0.0,
+   4.0
+  ],
+  "labels": null,
+  "label": "s"
+ },
+ {
+  "i": 100,
+  "key": "modulator_2_function_scale",
+  "name": "Modulator 2 Function Scale",
+  "raw": 1.0,
+  "value": "1.0",
+  "range": [
+   -1.0,
+   1.0
+  ],
+  "labels": null,
+  "label": null
+ },
+ {
+  "i": 101,
+  "key": "modulator_2_step_sequencer_swing",
+  "name": "Modulator 2 Step Sequencer Swing",
+  "raw": 0.0,
+  "value": "50.0",
+  "range": [
+   50.0,
+   75.0
+  ],
+  "labels": null,
+  "label": "%"
+ },
+ {
+  "i": 102,
+  "key": "modulator_2_step_sequencer_smooth",
+  "name": "Modulator 2 Step Sequencer Smooth",
+  "raw": 0.0,
+  "value": "0.0",
+  "range": [
+   0.0,
+   100.0
+  ],
+  "labels": null,
+  "label": "%"
+ },
+ {
+  "i": 103,
+  "key": "modulator_2_step_sequencer_random",
+  "name": "Modulator 2 Step Sequencer Random",
+  "raw": 0.0,
+  "value": "0.0",
+  "range": [
+   0.0,
+   100.0
+  ],
+  "labels": null,
+  "label": "%"
+ },
+ {
+  "i": 104,
+  "key": "modulator_2_step_sequencer_scale",
+  "name": "Modulator 2 Step Sequencer Scale",
+  "raw": 1.0,
+  "value": "100.0",
+  "range": [
+   0.0,
+   100.0
+  ],
+  "labels": null,
+  "label": "%"
+ },
+ {
+  "i": 105,
+  "key": "modulator_2_env_follow_rise_ms",
+  "name": "Modulator 2 Env. Follow. Rise",
+  "raw": 0.0,
+  "value": "0.0",
+  "range": [
+   0.0,
+   1000.0
+  ],
+  "labels": null,
+  "label": "ms"
+ },
+ {
+  "i": 106,
+  "key": "modulator_2_env_follow_fall_ms",
+  "name": "Modulator 2 Env. Follow. Fall",
+  "raw": 0.019999999552965164,
+  "value": "100.0",
+  "range": [
+   0.0,
+   5000.0
+  ],
+  "labels": null,
+  "label": "ms"
+ },
+ {
+  "i": 107,
+  "key": "modulator_2_env_follow_sensitivity_db",
+  "name": "Modulator 2 Env. Follow. Sensitivity",
+  "raw": 0.5,
+  "value": "0.0",
+  "range": [
+   -24.0,
+   24.0
+  ],
+  "labels": null,
+  "label": "dB"
+ },
+ {
+  "i": 108,
+  "key": "modulator_2_env_follow_time_mode",
+  "name": "Modulator 2 Env. Follow. Time Mode",
+  "raw": 1.0,
+  "value": "Synced Dotted",
+  "range": [
+   null,
+   null
+  ],
+  "labels": [
+   "Unsynced",
+   "Synced",
+   "Synced Triplets",
+   "Synced Dotted"
+  ],
+  "label": null
+ },
+ {
+  "i": 109,
+  "key": "modulator_2_env_follow_unsynced_ms",
+  "name": "Modulator 2 Env. Follow. Unsynced",
+  "raw": 0.0,
+  "value": "0.0",
+  "range": [
+   0.0,
+   2000.0
+  ],
+  "labels": null,
+  "label": "ms"
+ },
+ {
+  "i": 110,
+  "key": "modulator_2_env_follow_synced",
+  "name": "Modulator 2 Env. Follow. Synced",
+  "raw": 1.0,
+  "value": "1/128",
+  "range": [
+   null,
+   null
+  ],
+  "labels": [
+   "4/1",
+   "2/1",
+   "1/1",
+   "1/2",
+   "1/4",
+   "1/8",
+   "1/16",
+   "1/32",
+   "1/64",
+   "1/128"
+  ],
+  "label": null
+ },
+ {
+  "i": 111,
+  "key": "modulator_3_rate_hz",
+  "name": "Modulator 3 Rate",
+  "raw": 0.5,
+  "value": "0.635",
+  "range": [
+   0.01,
+   20.0
+  ],
+  "labels": null,
+  "label": "Hz"
+ },
+ {
+  "i": 112,
+  "key": "modulator_3_tempo_div",
+  "name": "Modulator 3 Tempo Div",
+  "raw": 1.0,
+  "value": "1/32",
+  "range": [
+   null,
+   null
+  ],
+  "labels": [
+   "8/1",
+   "4/1",
+   "2/1",
+   "1/1",
+   "1/2",
+   "1/4",
+   "1/8",
+   "1/16",
+   "1/32"
+  ],
+  "label": null
+ },
+ {
+  "i": 113,
+  "key": "modulator_3_bipolar",
+  "name": "Modulator 3 Bipolar",
+  "raw": 1.0,
+  "value": "True",
+  "range": [
+   false,
+   true
+  ],
+  "labels": [
+   "False",
+   "True"
+  ],
+  "label": null
+ },
+ {
+  "i": 114,
+  "key": "modulator_3_lfo_waveform",
+  "name": "Modulator 3 LFO Waveform",
+  "raw": 0.0,
+  "value": "0.0",
+  "range": [
+   0.0,
+   3.0
+  ],
+  "labels": null,
+  "label": null
+ },
+ {
+  "i": 115,
+  "key": "modulator_3_lfo_symmetry",
+  "name": "Modulator 3 LFO Symmetry",
+  "raw": 0.5,
+  "value": "0.5",
+  "range": [
+   0.0,
+   1.0
+  ],
+  "labels": null,
+  "label": null
+ },
+ {
+  "i": 116,
+  "key": "modulator_3_lfo_initial_phase",
+  "name": "Modulator 3 LFO Initial Phase",
+  "raw": 0.0,
+  "value": "0.0",
+  "range": [
+   0.0,
+   360.0
+  ],
+  "labels": null,
+  "label": "\u00ac\u221e"
+ },
+ {
+  "i": 117,
+  "key": "modulator_3_lfo_smooth_s",
+  "name": "Modulator 3 LFO Smooth",
+  "raw": 0.0,
+  "value": "0.0",
+  "range": [
+   0.0,
+   4.0
+  ],
+  "labels": null,
+  "label": "s"
+ },
+ {
+  "i": 118,
+  "key": "modulator_3_function_scale",
+  "name": "Modulator 3 Function Scale",
+  "raw": 1.0,
+  "value": "1.0",
+  "range": [
+   -1.0,
+   1.0
+  ],
+  "labels": null,
+  "label": null
+ },
+ {
+  "i": 119,
+  "key": "modulator_3_step_sequencer_swing",
+  "name": "Modulator 3 Step Sequencer Swing",
+  "raw": 0.0,
+  "value": "50.0",
+  "range": [
+   50.0,
+   75.0
+  ],
+  "labels": null,
+  "label": "%"
+ },
+ {
+  "i": 120,
+  "key": "modulator_3_step_sequencer_smooth",
+  "name": "Modulator 3 Step Sequencer Smooth",
+  "raw": 0.0,
+  "value": "0.0",
+  "range": [
+   0.0,
+   100.0
+  ],
+  "labels": null,
+  "label": "%"
+ },
+ {
+  "i": 121,
+  "key": "modulator_3_step_sequencer_random",
+  "name": "Modulator 3 Step Sequencer Random",
+  "raw": 0.0,
+  "value": "0.0",
+  "range": [
+   0.0,
+   100.0
+  ],
+  "labels": null,
+  "label": "%"
+ },
+ {
+  "i": 122,
+  "key": "modulator_3_step_sequencer_scale",
+  "name": "Modulator 3 Step Sequencer Scale",
+  "raw": 1.0,
+  "value": "100.0",
+  "range": [
+   0.0,
+   100.0
+  ],
+  "labels": null,
+  "label": "%"
+ },
+ {
+  "i": 123,
+  "key": "modulator_3_env_follow_rise_ms",
+  "name": "Modulator 3 Env. Follow. Rise",
+  "raw": 0.0,
+  "value": "0.0",
+  "range": [
+   0.0,
+   1000.0
+  ],
+  "labels": null,
+  "label": "ms"
+ },
+ {
+  "i": 124,
+  "key": "modulator_3_env_follow_fall_ms",
+  "name": "Modulator 3 Env. Follow. Fall",
+  "raw": 0.019999999552965164,
+  "value": "100.0",
+  "range": [
+   0.0,
+   5000.0
+  ],
+  "labels": null,
+  "label": "ms"
+ },
+ {
+  "i": 125,
+  "key": "modulator_3_env_follow_sensitivity_db",
+  "name": "Modulator 3 Env. Follow. Sensitivity",
+  "raw": 0.5,
+  "value": "0.0",
+  "range": [
+   -24.0,
+   24.0
+  ],
+  "labels": null,
+  "label": "dB"
+ },
+ {
+  "i": 126,
+  "key": "modulator_3_env_follow_time_mode",
+  "name": "Modulator 3 Env. Follow. Time Mode",
+  "raw": 1.0,
+  "value": "Synced Dotted",
+  "range": [
+   null,
+   null
+  ],
+  "labels": [
+   "Unsynced",
+   "Synced",
+   "Synced Triplets",
+   "Synced Dotted"
+  ],
+  "label": null
+ },
+ {
+  "i": 127,
+  "key": "modulator_3_env_follow_unsynced_ms",
+  "name": "Modulator 3 Env. Follow. Unsynced",
+  "raw": 0.0,
+  "value": "0.0",
+  "range": [
+   0.0,
+   2000.0
+  ],
+  "labels": null,
+  "label": "ms"
+ },
+ {
+  "i": 128,
+  "key": "modulator_3_env_follow_synced",
+  "name": "Modulator 3 Env. Follow. Synced",
+  "raw": 1.0,
+  "value": "1/128",
+  "range": [
+   null,
+   null
+  ],
+  "labels": [
+   "4/1",
+   "2/1",
+   "1/1",
+   "1/2",
+   "1/4",
+   "1/8",
+   "1/16",
+   "1/32",
+   "1/64",
+   "1/128"
+  ],
+  "label": null
+ },
+ {
+  "i": 129,
+  "key": "modulator_4_rate_hz",
+  "name": "Modulator 4 Rate",
+  "raw": 0.5,
+  "value": "0.635",
+  "range": [
+   0.01,
+   20.0
+  ],
+  "labels": null,
+  "label": "Hz"
+ },
+ {
+  "i": 130,
+  "key": "modulator_4_tempo_div",
+  "name": "Modulator 4 Tempo Div",
+  "raw": 1.0,
+  "value": "1/32",
+  "range": [
+   null,
+   null
+  ],
+  "labels": [
+   "8/1",
+   "4/1",
+   "2/1",
+   "1/1",
+   "1/2",
+   "1/4",
+   "1/8",
+   "1/16",
+   "1/32"
+  ],
+  "label": null
+ },
+ {
+  "i": 131,
+  "key": "modulator_4_bipolar",
+  "name": "Modulator 4 Bipolar",
+  "raw": 1.0,
+  "value": "True",
+  "range": [
+   false,
+   true
+  ],
+  "labels": [
+   "False",
+   "True"
+  ],
+  "label": null
+ },
+ {
+  "i": 132,
+  "key": "modulator_4_lfo_waveform",
+  "name": "Modulator 4 LFO Waveform",
+  "raw": 0.0,
+  "value": "0.0",
+  "range": [
+   0.0,
+   3.0
+  ],
+  "labels": null,
+  "label": null
+ },
+ {
+  "i": 133,
+  "key": "modulator_4_lfo_symmetry",
+  "name": "Modulator 4 LFO Symmetry",
+  "raw": 0.5,
+  "value": "0.5",
+  "range": [
+   0.0,
+   1.0
+  ],
+  "labels": null,
+  "label": null
+ },
+ {
+  "i": 134,
+  "key": "modulator_4_lfo_initial_phase",
+  "name": "Modulator 4 LFO Initial Phase",
+  "raw": 0.0,
+  "value": "0.0",
+  "range": [
+   0.0,
+   360.0
+  ],
+  "labels": null,
+  "label": "\u00ac\u221e"
+ },
+ {
+  "i": 135,
+  "key": "modulator_4_lfo_smooth_s",
+  "name": "Modulator 4 LFO Smooth",
+  "raw": 0.0,
+  "value": "0.0",
+  "range": [
+   0.0,
+   4.0
+  ],
+  "labels": null,
+  "label": "s"
+ },
+ {
+  "i": 136,
+  "key": "modulator_4_function_scale",
+  "name": "Modulator 4 Function Scale",
+  "raw": 1.0,
+  "value": "1.0",
+  "range": [
+   -1.0,
+   1.0
+  ],
+  "labels": null,
+  "label": null
+ },
+ {
+  "i": 137,
+  "key": "modulator_4_step_sequencer_swing",
+  "name": "Modulator 4 Step Sequencer Swing",
+  "raw": 0.0,
+  "value": "50.0",
+  "range": [
+   50.0,
+   75.0
+  ],
+  "labels": null,
+  "label": "%"
+ },
+ {
+  "i": 138,
+  "key": "modulator_4_step_sequencer_smooth",
+  "name": "Modulator 4 Step Sequencer Smooth",
+  "raw": 0.0,
+  "value": "0.0",
+  "range": [
+   0.0,
+   100.0
+  ],
+  "labels": null,
+  "label": "%"
+ },
+ {
+  "i": 139,
+  "key": "modulator_4_step_sequencer_random",
+  "name": "Modulator 4 Step Sequencer Random",
+  "raw": 0.0,
+  "value": "0.0",
+  "range": [
+   0.0,
+   100.0
+  ],
+  "labels": null,
+  "label": "%"
+ },
+ {
+  "i": 140,
+  "key": "modulator_4_step_sequencer_scale",
+  "name": "Modulator 4 Step Sequencer Scale",
+  "raw": 1.0,
+  "value": "100.0",
+  "range": [
+   0.0,
+   100.0
+  ],
+  "labels": null,
+  "label": "%"
+ },
+ {
+  "i": 141,
+  "key": "modulator_4_env_follow_rise_ms",
+  "name": "Modulator 4 Env. Follow. Rise",
+  "raw": 0.0,
+  "value": "0.0",
+  "range": [
+   0.0,
+   1000.0
+  ],
+  "labels": null,
+  "label": "ms"
+ },
+ {
+  "i": 142,
+  "key": "modulator_4_env_follow_fall_ms",
+  "name": "Modulator 4 Env. Follow. Fall",
+  "raw": 0.019999999552965164,
+  "value": "100.0",
+  "range": [
+   0.0,
+   5000.0
+  ],
+  "labels": null,
+  "label": "ms"
+ },
+ {
+  "i": 143,
+  "key": "modulator_4_env_follow_sensitivity_db",
+  "name": "Modulator 4 Env. Follow. Sensitivity",
+  "raw": 0.5,
+  "value": "0.0",
+  "range": [
+   -24.0,
+   24.0
+  ],
+  "labels": null,
+  "label": "dB"
+ },
+ {
+  "i": 144,
+  "key": "modulator_4_env_follow_time_mode",
+  "name": "Modulator 4 Env. Follow. Time Mode",
+  "raw": 1.0,
+  "value": "Synced Dotted",
+  "range": [
+   null,
+   null
+  ],
+  "labels": [
+   "Unsynced",
+   "Synced",
+   "Synced Triplets",
+   "Synced Dotted"
+  ],
+  "label": null
+ },
+ {
+  "i": 145,
+  "key": "modulator_4_env_follow_unsynced_ms",
+  "name": "Modulator 4 Env. Follow. Unsynced",
+  "raw": 0.0,
+  "value": "0.0",
+  "range": [
+   0.0,
+   2000.0
+  ],
+  "labels": null,
+  "label": "ms"
+ },
+ {
+  "i": 146,
+  "key": "modulator_4_env_follow_synced",
+  "name": "Modulator 4 Env. Follow. Synced",
+  "raw": 1.0,
+  "value": "1/128",
+  "range": [
+   null,
+   null
+  ],
+  "labels": [
+   "4/1",
+   "2/1",
+   "1/1",
+   "1/2",
+   "1/4",
+   "1/8",
+   "1/16",
+   "1/32",
+   "1/64",
+   "1/128"
+  ],
+  "label": null
+ },
+ {
+  "i": 147,
+  "key": "modulator_5_rate_hz",
+  "name": "Modulator 5 Rate",
+  "raw": 0.5,
+  "value": "0.635",
+  "range": [
+   0.01,
+   20.0
+  ],
+  "labels": null,
+  "label": "Hz"
+ },
+ {
+  "i": 148,
+  "key": "modulator_5_tempo_div",
+  "name": "Modulator 5 Tempo Div",
+  "raw": 1.0,
+  "value": "1/32",
+  "range": [
+   null,
+   null
+  ],
+  "labels": [
+   "8/1",
+   "4/1",
+   "2/1",
+   "1/1",
+   "1/2",
+   "1/4",
+   "1/8",
+   "1/16",
+   "1/32"
+  ],
+  "label": null
+ },
+ {
+  "i": 149,
+  "key": "modulator_5_bipolar",
+  "name": "Modulator 5 Bipolar",
+  "raw": 1.0,
+  "value": "True",
+  "range": [
+   false,
+   true
+  ],
+  "labels": [
+   "False",
+   "True"
+  ],
+  "label": null
+ },
+ {
+  "i": 150,
+  "key": "modulator_5_lfo_waveform",
+  "name": "Modulator 5 LFO Waveform",
+  "raw": 0.0,
+  "value": "0.0",
+  "range": [
+   0.0,
+   3.0
+  ],
+  "labels": null,
+  "label": null
+ },
+ {
+  "i": 151,
+  "key": "modulator_5_lfo_symmetry",
+  "name": "Modulator 5 LFO Symmetry",
+  "raw": 0.5,
+  "value": "0.5",
+  "range": [
+   0.0,
+   1.0
+  ],
+  "labels": null,
+  "label": null
+ },
+ {
+  "i": 152,
+  "key": "modulator_5_lfo_initial_phase",
+  "name": "Modulator 5 LFO Initial Phase",
+  "raw": 0.0,
+  "value": "0.0",
+  "range": [
+   0.0,
+   360.0
+  ],
+  "labels": null,
+  "label": "\u00ac\u221e"
+ },
+ {
+  "i": 153,
+  "key": "modulator_5_lfo_smooth_s",
+  "name": "Modulator 5 LFO Smooth",
+  "raw": 0.0,
+  "value": "0.0",
+  "range": [
+   0.0,
+   4.0
+  ],
+  "labels": null,
+  "label": "s"
+ },
+ {
+  "i": 154,
+  "key": "modulator_5_function_scale",
+  "name": "Modulator 5 Function Scale",
+  "raw": 1.0,
+  "value": "1.0",
+  "range": [
+   -1.0,
+   1.0
+  ],
+  "labels": null,
+  "label": null
+ },
+ {
+  "i": 155,
+  "key": "modulator_5_step_sequencer_swing",
+  "name": "Modulator 5 Step Sequencer Swing",
+  "raw": 0.0,
+  "value": "50.0",
+  "range": [
+   50.0,
+   75.0
+  ],
+  "labels": null,
+  "label": "%"
+ },
+ {
+  "i": 156,
+  "key": "modulator_5_step_sequencer_smooth",
+  "name": "Modulator 5 Step Sequencer Smooth",
+  "raw": 0.0,
+  "value": "0.0",
+  "range": [
+   0.0,
+   100.0
+  ],
+  "labels": null,
+  "label": "%"
+ },
+ {
+  "i": 157,
+  "key": "modulator_5_step_sequencer_random",
+  "name": "Modulator 5 Step Sequencer Random",
+  "raw": 0.0,
+  "value": "0.0",
+  "range": [
+   0.0,
+   100.0
+  ],
+  "labels": null,
+  "label": "%"
+ },
+ {
+  "i": 158,
+  "key": "modulator_5_step_sequencer_scale",
+  "name": "Modulator 5 Step Sequencer Scale",
+  "raw": 1.0,
+  "value": "100.0",
+  "range": [
+   0.0,
+   100.0
+  ],
+  "labels": null,
+  "label": "%"
+ },
+ {
+  "i": 159,
+  "key": "modulator_5_env_follow_rise_ms",
+  "name": "Modulator 5 Env. Follow. Rise",
+  "raw": 0.0,
+  "value": "0.0",
+  "range": [
+   0.0,
+   1000.0
+  ],
+  "labels": null,
+  "label": "ms"
+ },
+ {
+  "i": 160,
+  "key": "modulator_5_env_follow_fall_ms",
+  "name": "Modulator 5 Env. Follow. Fall",
+  "raw": 0.014499993994832039,
+  "value": "72.5",
+  "range": [
+   0.0,
+   5000.0
+  ],
+  "labels": null,
+  "label": "ms"
+ },
+ {
+  "i": 161,
+  "key": "modulator_5_env_follow_sensitivity_db",
+  "name": "Modulator 5 Env. Follow. Sensitivity",
+  "raw": 0.5,
+  "value": "0.0",
+  "range": [
+   -24.0,
+   24.0
+  ],
+  "labels": null,
+  "label": "dB"
+ },
+ {
+  "i": 162,
+  "key": "modulator_5_env_follow_time_mode",
+  "name": "Modulator 5 Env. Follow. Time Mode",
+  "raw": 1.0,
+  "value": "Synced Dotted",
+  "range": [
+   null,
+   null
+  ],
+  "labels": [
+   "Unsynced",
+   "Synced",
+   "Synced Triplets",
+   "Synced Dotted"
+  ],
+  "label": null
+ },
+ {
+  "i": 163,
+  "key": "modulator_5_env_follow_unsynced_ms",
+  "name": "Modulator 5 Env. Follow. Unsynced",
+  "raw": 0.0,
+  "value": "0.0",
+  "range": [
+   0.0,
+   2000.0
+  ],
+  "labels": null,
+  "label": "ms"
+ },
+ {
+  "i": 164,
+  "key": "modulator_5_env_follow_synced",
+  "name": "Modulator 5 Env. Follow. Synced",
+  "raw": 1.0,
+  "value": "1/128",
+  "range": [
+   null,
+   null
+  ],
+  "labels": [
+   "4/1",
+   "2/1",
+   "1/1",
+   "1/2",
+   "1/4",
+   "1/8",
+   "1/16",
+   "1/32",
+   "1/64",
+   "1/128"
+  ],
+  "label": null
+ },
+ {
+  "i": 165,
+  "key": "modulator_6_rate_hz",
+  "name": "Modulator 6 Rate",
+  "raw": 0.5,
+  "value": "0.635",
+  "range": [
+   0.01,
+   20.0
+  ],
+  "labels": null,
+  "label": "Hz"
+ },
+ {
+  "i": 166,
+  "key": "modulator_6_tempo_div",
+  "name": "Modulator 6 Tempo Div",
+  "raw": 1.0,
+  "value": "1/32",
+  "range": [
+   null,
+   null
+  ],
+  "labels": [
+   "8/1",
+   "4/1",
+   "2/1",
+   "1/1",
+   "1/2",
+   "1/4",
+   "1/8",
+   "1/16",
+   "1/32"
+  ],
+  "label": null
+ },
+ {
+  "i": 167,
+  "key": "modulator_6_bipolar",
+  "name": "Modulator 6 Bipolar",
+  "raw": 1.0,
+  "value": "True",
+  "range": [
+   false,
+   true
+  ],
+  "labels": [
+   "False",
+   "True"
+  ],
+  "label": null
+ },
+ {
+  "i": 168,
+  "key": "modulator_6_lfo_waveform",
+  "name": "Modulator 6 LFO Waveform",
+  "raw": 0.0,
+  "value": "0.0",
+  "range": [
+   0.0,
+   3.0
+  ],
+  "labels": null,
+  "label": null
+ },
+ {
+  "i": 169,
+  "key": "modulator_6_lfo_symmetry",
+  "name": "Modulator 6 LFO Symmetry",
+  "raw": 0.5,
+  "value": "0.5",
+  "range": [
+   0.0,
+   1.0
+  ],
+  "labels": null,
+  "label": null
+ },
+ {
+  "i": 170,
+  "key": "modulator_6_lfo_initial_phase",
+  "name": "Modulator 6 LFO Initial Phase",
+  "raw": 0.0,
+  "value": "0.0",
+  "range": [
+   0.0,
+   360.0
+  ],
+  "labels": null,
+  "label": "\u00ac\u221e"
+ },
+ {
+  "i": 171,
+  "key": "modulator_6_lfo_smooth_s",
+  "name": "Modulator 6 LFO Smooth",
+  "raw": 0.0,
+  "value": "0.0",
+  "range": [
+   0.0,
+   4.0
+  ],
+  "labels": null,
+  "label": "s"
+ },
+ {
+  "i": 172,
+  "key": "modulator_6_function_scale",
+  "name": "Modulator 6 Function Scale",
+  "raw": 1.0,
+  "value": "1.0",
+  "range": [
+   -1.0,
+   1.0
+  ],
+  "labels": null,
+  "label": null
+ },
+ {
+  "i": 173,
+  "key": "modulator_6_step_sequencer_swing",
+  "name": "Modulator 6 Step Sequencer Swing",
+  "raw": 0.0,
+  "value": "50.0",
+  "range": [
+   50.0,
+   75.0
+  ],
+  "labels": null,
+  "label": "%"
+ },
+ {
+  "i": 174,
+  "key": "modulator_6_step_sequencer_smooth",
+  "name": "Modulator 6 Step Sequencer Smooth",
+  "raw": 0.0,
+  "value": "0.0",
+  "range": [
+   0.0,
+   100.0
+  ],
+  "labels": null,
+  "label": "%"
+ },
+ {
+  "i": 175,
+  "key": "modulator_6_step_sequencer_random",
+  "name": "Modulator 6 Step Sequencer Random",
+  "raw": 0.0,
+  "value": "0.0",
+  "range": [
+   0.0,
+   100.0
+  ],
+  "labels": null,
+  "label": "%"
+ },
+ {
+  "i": 176,
+  "key": "modulator_6_step_sequencer_scale",
+  "name": "Modulator 6 Step Sequencer Scale",
+  "raw": 1.0,
+  "value": "100.0",
+  "range": [
+   0.0,
+   100.0
+  ],
+  "labels": null,
+  "label": "%"
+ },
+ {
+  "i": 177,
+  "key": "modulator_6_env_follow_rise_ms",
+  "name": "Modulator 6 Env. Follow. Rise",
+  "raw": 0.0,
+  "value": "0.0",
+  "range": [
+   0.0,
+   1000.0
+  ],
+  "labels": null,
+  "label": "ms"
+ },
+ {
+  "i": 178,
+  "key": "modulator_6_env_follow_fall_ms",
+  "name": "Modulator 6 Env. Follow. Fall",
+  "raw": 0.019999999552965164,
+  "value": "100.0",
+  "range": [
+   0.0,
+   5000.0
+  ],
+  "labels": null,
+  "label": "ms"
+ },
+ {
+  "i": 179,
+  "key": "modulator_6_env_follow_sensitivity_db",
+  "name": "Modulator 6 Env. Follow. Sensitivity",
+  "raw": 0.5,
+  "value": "0.0",
+  "range": [
+   -24.0,
+   24.0
+  ],
+  "labels": null,
+  "label": "dB"
+ },
+ {
+  "i": 180,
+  "key": "modulator_6_env_follow_time_mode",
+  "name": "Modulator 6 Env. Follow. Time Mode",
+  "raw": 1.0,
+  "value": "Synced Dotted",
+  "range": [
+   null,
+   null
+  ],
+  "labels": [
+   "Unsynced",
+   "Synced",
+   "Synced Triplets",
+   "Synced Dotted"
+  ],
+  "label": null
+ },
+ {
+  "i": 181,
+  "key": "modulator_6_env_follow_unsynced_ms",
+  "name": "Modulator 6 Env. Follow. Unsynced",
+  "raw": 0.0,
+  "value": "0.0",
+  "range": [
+   0.0,
+   2000.0
+  ],
+  "labels": null,
+  "label": "ms"
+ },
+ {
+  "i": 182,
+  "key": "modulator_6_env_follow_synced",
+  "name": "Modulator 6 Env. Follow. Synced",
+  "raw": 1.0,
+  "value": "1/128",
+  "range": [
+   null,
+   null
+  ],
+  "labels": [
+   "4/1",
+   "2/1",
+   "1/1",
+   "1/2",
+   "1/4",
+   "1/8",
+   "1/16",
+   "1/32",
+   "1/64",
+   "1/128"
+  ],
+  "label": null
+ },
+ {
+  "i": 183,
+  "key": "vst_programchange_0",
+  "name": "VST_ProgramChange_0",
+  "raw": 0.0,
+  "value": "0.0",
+  "range": [
+   0.0,
+   127.0
+  ],
+  "labels": null,
+  "label": null
+ },
+ {
+  "i": 184,
+  "key": "vst_programchange_1",
+  "name": "VST_ProgramChange_1",
+  "raw": 0.0,
+  "value": "0.0",
+  "range": [
+   0.0,
+   127.0
+  ],
+  "labels": null,
+  "label": null
+ },
+ {
+  "i": 185,
+  "key": "vst_programchange_2",
+  "name": "VST_ProgramChange_2",
+  "raw": 0.0,
+  "value": "0.0",
+  "range": [
+   0.0,
+   127.0
+  ],
+  "labels": null,
+  "label": null
+ },
+ {
+  "i": 186,
+  "key": "vst_programchange_3",
+  "name": "VST_ProgramChange_3",
+  "raw": 0.0,
+  "value": "0.0",
+  "range": [
+   0.0,
+   127.0
+  ],
+  "labels": null,
+  "label": null
+ },
+ {
+  "i": 187,
+  "key": "vst_programchange_4",
+  "name": "VST_ProgramChange_4",
+  "raw": 0.0,
+  "value": "0.0",
+  "range": [
+   0.0,
+   127.0
+  ],
+  "labels": null,
+  "label": null
+ },
+ {
+  "i": 188,
+  "key": "vst_programchange_5",
+  "name": "VST_ProgramChange_5",
+  "raw": 0.0,
+  "value": "0.0",
+  "range": [
+   0.0,
+   127.0
+  ],
+  "labels": null,
+  "label": null
+ },
+ {
+  "i": 189,
+  "key": "vst_programchange_6",
+  "name": "VST_ProgramChange_6",
+  "raw": 0.0,
+  "value": "0.0",
+  "range": [
+   0.0,
+   127.0
+  ],
+  "labels": null,
+  "label": null
+ },
+ {
+  "i": 190,
+  "key": "vst_programchange_7",
+  "name": "VST_ProgramChange_7",
+  "raw": 0.0,
+  "value": "0.0",
+  "range": [
+   0.0,
+   127.0
+  ],
+  "labels": null,
+  "label": null
+ },
+ {
+  "i": 191,
+  "key": "vst_programchange_8",
+  "name": "VST_ProgramChange_8",
+  "raw": 0.0,
+  "value": "0.0",
+  "range": [
+   0.0,
+   127.0
+  ],
+  "labels": null,
+  "label": null
+ },
+ {
+  "i": 192,
+  "key": "vst_programchange_9",
+  "name": "VST_ProgramChange_9",
+  "raw": 0.0,
+  "value": "0.0",
+  "range": [
+   0.0,
+   127.0
+  ],
+  "labels": null,
+  "label": null
+ },
+ {
+  "i": 193,
+  "key": "vst_programchange_10",
+  "name": "VST_ProgramChange_10",
+  "raw": 0.0,
+  "value": "0.0",
+  "range": [
+   0.0,
+   127.0
+  ],
+  "labels": null,
+  "label": null
+ },
+ {
+  "i": 194,
+  "key": "vst_programchange_11",
+  "name": "VST_ProgramChange_11",
+  "raw": 0.0,
+  "value": "0.0",
+  "range": [
+   0.0,
+   127.0
+  ],
+  "labels": null,
+  "label": null
+ },
+ {
+  "i": 195,
+  "key": "vst_programchange_12",
+  "name": "VST_ProgramChange_12",
+  "raw": 0.0,
+  "value": "0.0",
+  "range": [
+   0.0,
+   127.0
+  ],
+  "labels": null,
+  "label": null
+ },
+ {
+  "i": 196,
+  "key": "vst_programchange_13",
+  "name": "VST_ProgramChange_13",
+  "raw": 0.0,
+  "value": "0.0",
+  "range": [
+   0.0,
+   127.0
+  ],
+  "labels": null,
+  "label": null
+ },
+ {
+  "i": 197,
+  "key": "vst_programchange_14",
+  "name": "VST_ProgramChange_14",
+  "raw": 0.0,
+  "value": "0.0",
+  "range": [
+   0.0,
+   127.0
+  ],
+  "labels": null,
+  "label": null
+ },
+ {
+  "i": 198,
+  "key": "vst_programchange_15",
+  "name": "VST_ProgramChange_15",
+  "raw": 0.0,
+  "value": "0.0",
+  "range": [
+   0.0,
+   127.0
+  ],
+  "labels": null,
+  "label": null
+ },
+ {
+  "i": 199,
+  "key": "select_preset_timeout",
+  "name": "Select Preset Timeout",
+  "raw": 0.5,
+  "value": "0.5",
+  "range": [
+   0.0,
+   1.0
+  ],
+  "labels": null,
+  "label": null
+ },
+ {
+  "i": 200,
+  "key": "navigate_through_presets",
+  "name": "Navigate through presets",
+  "raw": 0.5,
+  "value": "0.5",
+  "range": [
+   0.0,
+   1.0
+  ],
+  "labels": null,
+  "label": null
+ },
+ {
+  "i": 201,
+  "key": "select_preset",
+  "name": "Select Preset",
+  "raw": 0.5,
+  "value": "0.5",
+  "range": [
+   0.0,
+   1.0
+  ],
+  "labels": null,
+  "label": null
+ },
+ {
+  "i": 202,
+  "key": "navigate_through_filters",
+  "name": "Navigate through filters",
+  "raw": 0.5,
+  "value": "0.5",
+  "range": [
+   0.0,
+   1.0
+  ],
+  "labels": null,
+  "label": null
+ },
+ {
+  "i": 203,
+  "key": "add_remove_selected_filter",
+  "name": "Add/Remove selected filter",
+  "raw": 0.5,
+  "value": "0.5",
+  "range": [
+   0.0,
+   1.0
+  ],
+  "labels": null,
+  "label": null
+ },
+ {
+  "i": 204,
+  "key": "select_multi_filter",
+  "name": "Select Multi Filter",
+  "raw": 0.5,
+  "value": "0.5",
+  "range": [
+   0.0,
+   1.0
+  ],
+  "labels": null,
+  "label": null
+ },
+ {
+  "i": 205,
+  "key": "clear_filters",
+  "name": "Clear Filters",
+  "raw": 0.5,
+  "value": "0.5",
+  "range": [
+   0.0,
+   1.0
+  ],
+  "labels": null,
+  "label": null
+ },
+ {
+  "i": 206,
+  "key": "active_filter_preset",
+  "name": "Active Filter Preset",
+  "raw": 0.5,
+  "value": "0.5",
+  "range": [
+   0.0,
+   1.0
+  ],
+  "labels": null,
+  "label": null
+ },
+ {
+  "i": 207,
+  "key": "active_filter_category",
+  "name": "Active Filter Category",
+  "raw": 0.5,
+  "value": "0.5",
+  "range": [
+   0.0,
+   1.0
+  ],
+  "labels": null,
+  "label": null
+ },
+ {
+  "i": 208,
+  "key": "browse_back",
+  "name": "Browse Back",
+  "raw": 0.5,
+  "value": "0.5",
+  "range": [
+   0.0,
+   1.0
+  ],
+  "labels": null,
+  "label": null
+ },
+ {
+  "i": 209,
+  "key": "sendvaluestomidicontroller",
+  "name": "SendValuesToMIDIController",
+  "raw": 0.5,
+  "value": "0.5",
+  "range": [
+   0.0,
+   1.0
+  ],
+  "labels": null,
+  "label": null
+ },
+ {
+  "i": 210,
+  "key": "previous_preset",
+  "name": "Previous Preset",
+  "raw": 0.0,
+  "value": "0.0",
+  "range": [
+   0.0,
+   1.0
+  ],
+  "labels": null,
+  "label": null
+ },
+ {
+  "i": 211,
+  "key": "next_preset",
+  "name": "Next Preset",
+  "raw": 0.0,
+  "value": "0.0",
+  "range": [
+   0.0,
+   1.0
+  ],
+  "labels": null,
+  "label": null
+ },
+ {
+  "i": 212,
+  "key": "hw_controller_shift",
+  "name": "HW Controller Shift",
+  "raw": 0.0,
+  "value": "0.0",
+  "range": [
+   0.0,
+   1.0
+  ],
+  "labels": null,
+  "label": null
+ },
+ {
+  "i": 213,
+  "key": "select_keylabmk2_filter",
+  "name": "Select KeylabMk2 Filter",
+  "raw": 0.0,
+  "value": "0.0",
+  "range": [
+   0.0,
+   1.0
+  ],
+  "labels": null,
+  "label": null
+ },
+ {
+  "i": 214,
+  "key": "oct_minus",
+  "name": "Oct Minus",
+  "raw": 0.0,
+  "value": "0.0",
+  "range": [
+   0.0,
+   1.0
+  ],
+  "labels": null,
+  "label": null
+ },
+ {
+  "i": 215,
+  "key": "oct_plus",
+  "name": "Oct Plus",
+  "raw": 0.0,
+  "value": "0.0",
+  "range": [
+   0.0,
+   1.0
+  ],
+  "labels": null,
+  "label": null
+ },
+ {
+  "i": 216,
+  "key": "saves_the_current_preset",
+  "name": "Saves the current preset",
+  "raw": 0.0,
+  "value": "0.0",
+  "range": [
+   0.0,
+   1.0
+  ],
+  "labels": null,
+  "label": null
+ },
+ {
+  "i": 217,
+  "key": "undo_the_last_action",
+  "name": "Undo the last action",
+  "raw": 0.0,
+  "value": "0.0",
+  "range": [
+   0.0,
+   1.0
+  ],
+  "labels": null,
+  "label": null
+ },
+ {
+  "i": 218,
+  "key": "redo_the_last_action",
+  "name": "Redo the last action",
+  "raw": 0.0,
+  "value": "0.0",
+  "range": [
+   0.0,
+   1.0
+  ],
+  "labels": null,
+  "label": null
+ },
+ {
+  "i": 219,
+  "key": "hardwaredisplaycontrol1",
+  "name": "HardwareDisplayControl1",
+  "raw": 0.0,
+  "value": "0.0",
+  "range": [
+   0.0,
+   1.0
+  ],
+  "labels": null,
+  "label": null
+ },
+ {
+  "i": 220,
+  "key": "hardwaredisplaycontrol2",
+  "name": "HardwareDisplayControl2",
+  "raw": 0.0,
+  "value": "0.0",
+  "range": [
+   0.0,
+   1.0
+  ],
+  "labels": null,
+  "label": null
+ },
+ {
+  "i": 221,
+  "key": "hardwaredisplaycontrol3",
+  "name": "HardwareDisplayControl3",
+  "raw": 0.0,
+  "value": "0.0",
+  "range": [
+   0.0,
+   1.0
+  ],
+  "labels": null,
+  "label": null
+ },
+ {
+  "i": 222,
+  "key": "hardwaredisplaycontrol4",
+  "name": "HardwareDisplayControl4",
+  "raw": 0.0,
+  "value": "0.0",
+  "range": [
+   0.0,
+   1.0
+  ],
+  "labels": null,
+  "label": null
+ },
+ {
+  "i": 223,
+  "key": "hardwaredisplaycontrol5",
+  "name": "HardwareDisplayControl5",
+  "raw": 0.0,
+  "value": "0.0",
+  "range": [
+   0.0,
+   1.0
+  ],
+  "labels": null,
+  "label": null
+ },
+ {
+  "i": 224,
+  "key": "hardwaredisplaycontrol6",
+  "name": "HardwareDisplayControl6",
+  "raw": 0.0,
+  "value": "0.0",
+  "range": [
+   0.0,
+   1.0
+  ],
+  "labels": null,
+  "label": null
+ },
+ {
+  "i": 225,
+  "key": "hardwaredisplaycontrol7",
+  "name": "HardwareDisplayControl7",
+  "raw": 0.0,
+  "value": "0.0",
+  "range": [
+   0.0,
+   1.0
+  ],
+  "labels": null,
+  "label": null
+ },
+ {
+  "i": 226,
+  "key": "hardwaredisplaycontrol8",
+  "name": "HardwareDisplayControl8",
+  "raw": 0.0,
+  "value": "0.0",
+  "range": [
+   0.0,
+   1.0
+  ],
+  "labels": null,
+  "label": null
+ },
+ {
+  "i": 227,
+  "key": "hardwarebackcontrol",
+  "name": "HardwareBackControl",
+  "raw": 0.0,
+  "value": "0.0",
+  "range": [
+   0.0,
+   1.0
+  ],
+  "labels": null,
+  "label": null
+ },
+ {
+  "i": 228,
+  "key": "mpe_pitchbend_0",
+  "name": "MPE_PitchBend_0",
+  "raw": 0.5,
+  "value": "0.0",
+  "range": [
+   -1.0,
+   1.0
+  ],
+  "labels": null,
+  "label": null
+ },
+ {
+  "i": 229,
+  "key": "mpe_pitchbend_1",
+  "name": "MPE_PitchBend_1",
+  "raw": 0.5,
+  "value": "0.0",
+  "range": [
+   -1.0,
+   1.0
+  ],
+  "labels": null,
+  "label": null
+ },
+ {
+  "i": 230,
+  "key": "mpe_pitchbend_2",
+  "name": "MPE_PitchBend_2",
+  "raw": 0.5,
+  "value": "0.0",
+  "range": [
+   -1.0,
+   1.0
+  ],
+  "labels": null,
+  "label": null
+ },
+ {
+  "i": 231,
+  "key": "mpe_pitchbend_3",
+  "name": "MPE_PitchBend_3",
+  "raw": 0.5,
+  "value": "0.0",
+  "range": [
+   -1.0,
+   1.0
+  ],
+  "labels": null,
+  "label": null
+ },
+ {
+  "i": 232,
+  "key": "mpe_pitchbend_4",
+  "name": "MPE_PitchBend_4",
+  "raw": 0.5,
+  "value": "0.0",
+  "range": [
+   -1.0,
+   1.0
+  ],
+  "labels": null,
+  "label": null
+ },
+ {
+  "i": 233,
+  "key": "mpe_pitchbend_5",
+  "name": "MPE_PitchBend_5",
+  "raw": 0.5,
+  "value": "0.0",
+  "range": [
+   -1.0,
+   1.0
+  ],
+  "labels": null,
+  "label": null
+ },
+ {
+  "i": 234,
+  "key": "mpe_pitchbend_6",
+  "name": "MPE_PitchBend_6",
+  "raw": 0.5,
+  "value": "0.0",
+  "range": [
+   -1.0,
+   1.0
+  ],
+  "labels": null,
+  "label": null
+ },
+ {
+  "i": 235,
+  "key": "mpe_pitchbend_7",
+  "name": "MPE_PitchBend_7",
+  "raw": 0.5,
+  "value": "0.0",
+  "range": [
+   -1.0,
+   1.0
+  ],
+  "labels": null,
+  "label": null
+ },
+ {
+  "i": 236,
+  "key": "mpe_pitchbend_8",
+  "name": "MPE_PitchBend_8",
+  "raw": 0.5,
+  "value": "0.0",
+  "range": [
+   -1.0,
+   1.0
+  ],
+  "labels": null,
+  "label": null
+ },
+ {
+  "i": 237,
+  "key": "mpe_pitchbend_9",
+  "name": "MPE_PitchBend_9",
+  "raw": 0.5,
+  "value": "0.0",
+  "range": [
+   -1.0,
+   1.0
+  ],
+  "labels": null,
+  "label": null
+ },
+ {
+  "i": 238,
+  "key": "mpe_pitchbend_10",
+  "name": "MPE_PitchBend_10",
+  "raw": 0.5,
+  "value": "0.0",
+  "range": [
+   -1.0,
+   1.0
+  ],
+  "labels": null,
+  "label": null
+ },
+ {
+  "i": 239,
+  "key": "mpe_pitchbend_11",
+  "name": "MPE_PitchBend_11",
+  "raw": 0.5,
+  "value": "0.0",
+  "range": [
+   -1.0,
+   1.0
+  ],
+  "labels": null,
+  "label": null
+ },
+ {
+  "i": 240,
+  "key": "mpe_pitchbend_12",
+  "name": "MPE_PitchBend_12",
+  "raw": 0.5,
+  "value": "0.0",
+  "range": [
+   -1.0,
+   1.0
+  ],
+  "labels": null,
+  "label": null
+ },
+ {
+  "i": 241,
+  "key": "mpe_pitchbend_13",
+  "name": "MPE_PitchBend_13",
+  "raw": 0.5,
+  "value": "0.0",
+  "range": [
+   -1.0,
+   1.0
+  ],
+  "labels": null,
+  "label": null
+ },
+ {
+  "i": 242,
+  "key": "mpe_pitchbend_14",
+  "name": "MPE_PitchBend_14",
+  "raw": 0.5,
+  "value": "0.0",
+  "range": [
+   -1.0,
+   1.0
+  ],
+  "labels": null,
+  "label": null
+ },
+ {
+  "i": 243,
+  "key": "mpe_pitchbend_15",
+  "name": "MPE_PitchBend_15",
+  "raw": 0.5,
+  "value": "0.0",
+  "range": [
+   -1.0,
+   1.0
+  ],
+  "labels": null,
+  "label": null
+ },
+ {
+  "i": 244,
+  "key": "mpe_aftertouch_0",
+  "name": "MPE_Aftertouch_0",
+  "raw": 0.5,
+  "value": "0.5",
+  "range": [
+   0.0,
+   1.0
+  ],
+  "labels": null,
+  "label": null
+ },
+ {
+  "i": 245,
+  "key": "mpe_aftertouch_1",
+  "name": "MPE_Aftertouch_1",
+  "raw": 0.5,
+  "value": "0.5",
+  "range": [
+   0.0,
+   1.0
+  ],
+  "labels": null,
+  "label": null
+ },
+ {
+  "i": 246,
+  "key": "mpe_aftertouch_2",
+  "name": "MPE_Aftertouch_2",
+  "raw": 0.5,
+  "value": "0.5",
+  "range": [
+   0.0,
+   1.0
+  ],
+  "labels": null,
+  "label": null
+ },
+ {
+  "i": 247,
+  "key": "mpe_aftertouch_3",
+  "name": "MPE_Aftertouch_3",
+  "raw": 0.5,
+  "value": "0.5",
+  "range": [
+   0.0,
+   1.0
+  ],
+  "labels": null,
+  "label": null
+ },
+ {
+  "i": 248,
+  "key": "mpe_aftertouch_4",
+  "name": "MPE_Aftertouch_4",
+  "raw": 0.5,
+  "value": "0.5",
+  "range": [
+   0.0,
+   1.0
+  ],
+  "labels": null,
+  "label": null
+ },
+ {
+  "i": 249,
+  "key": "mpe_aftertouch_5",
+  "name": "MPE_Aftertouch_5",
+  "raw": 0.5,
+  "value": "0.5",
+  "range": [
+   0.0,
+   1.0
+  ],
+  "labels": null,
+  "label": null
+ },
+ {
+  "i": 250,
+  "key": "mpe_aftertouch_6",
+  "name": "MPE_Aftertouch_6",
+  "raw": 0.5,
+  "value": "0.5",
+  "range": [
+   0.0,
+   1.0
+  ],
+  "labels": null,
+  "label": null
+ },
+ {
+  "i": 251,
+  "key": "mpe_aftertouch_7",
+  "name": "MPE_Aftertouch_7",
+  "raw": 0.5,
+  "value": "0.5",
+  "range": [
+   0.0,
+   1.0
+  ],
+  "labels": null,
+  "label": null
+ },
+ {
+  "i": 252,
+  "key": "mpe_aftertouch_8",
+  "name": "MPE_Aftertouch_8",
+  "raw": 0.5,
+  "value": "0.5",
+  "range": [
+   0.0,
+   1.0
+  ],
+  "labels": null,
+  "label": null
+ },
+ {
+  "i": 253,
+  "key": "mpe_aftertouch_9",
+  "name": "MPE_Aftertouch_9",
+  "raw": 0.5,
+  "value": "0.5",
+  "range": [
+   0.0,
+   1.0
+  ],
+  "labels": null,
+  "label": null
+ },
+ {
+  "i": 254,
+  "key": "mpe_aftertouch_10",
+  "name": "MPE_Aftertouch_10",
+  "raw": 0.5,
+  "value": "0.5",
+  "range": [
+   0.0,
+   1.0
+  ],
+  "labels": null,
+  "label": null
+ },
+ {
+  "i": 255,
+  "key": "mpe_aftertouch_11",
+  "name": "MPE_Aftertouch_11",
+  "raw": 0.5,
+  "value": "0.5",
+  "range": [
+   0.0,
+   1.0
+  ],
+  "labels": null,
+  "label": null
+ },
+ {
+  "i": 256,
+  "key": "mpe_aftertouch_12",
+  "name": "MPE_Aftertouch_12",
+  "raw": 0.5,
+  "value": "0.5",
+  "range": [
+   0.0,
+   1.0
+  ],
+  "labels": null,
+  "label": null
+ },
+ {
+  "i": 257,
+  "key": "mpe_aftertouch_13",
+  "name": "MPE_Aftertouch_13",
+  "raw": 0.5,
+  "value": "0.5",
+  "range": [
+   0.0,
+   1.0
+  ],
+  "labels": null,
+  "label": null
+ },
+ {
+  "i": 258,
+  "key": "mpe_aftertouch_14",
+  "name": "MPE_Aftertouch_14",
+  "raw": 0.5,
+  "value": "0.5",
+  "range": [
+   0.0,
+   1.0
+  ],
+  "labels": null,
+  "label": null
+ },
+ {
+  "i": 259,
+  "key": "mpe_aftertouch_15",
+  "name": "MPE_Aftertouch_15",
+  "raw": 0.5,
+  "value": "0.5",
+  "range": [
+   0.0,
+   1.0
+  ],
+  "labels": null,
+  "label": null
+ },
+ {
+  "i": 260,
+  "key": "mpe_brightness_0",
+  "name": "MPE_Brightness_0",
+  "raw": 0.5,
+  "value": "0.5",
+  "range": [
+   0.0,
+   1.0
+  ],
+  "labels": null,
+  "label": null
+ },
+ {
+  "i": 261,
+  "key": "mpe_brightness_1",
+  "name": "MPE_Brightness_1",
+  "raw": 0.5,
+  "value": "0.5",
+  "range": [
+   0.0,
+   1.0
+  ],
+  "labels": null,
+  "label": null
+ },
+ {
+  "i": 262,
+  "key": "mpe_brightness_2",
+  "name": "MPE_Brightness_2",
+  "raw": 0.5,
+  "value": "0.5",
+  "range": [
+   0.0,
+   1.0
+  ],
+  "labels": null,
+  "label": null
+ },
+ {
+  "i": 263,
+  "key": "mpe_brightness_3",
+  "name": "MPE_Brightness_3",
+  "raw": 0.5,
+  "value": "0.5",
+  "range": [
+   0.0,
+   1.0
+  ],
+  "labels": null,
+  "label": null
+ },
+ {
+  "i": 264,
+  "key": "mpe_brightness_4",
+  "name": "MPE_Brightness_4",
+  "raw": 0.5,
+  "value": "0.5",
+  "range": [
+   0.0,
+   1.0
+  ],
+  "labels": null,
+  "label": null
+ },
+ {
+  "i": 265,
+  "key": "mpe_brightness_5",
+  "name": "MPE_Brightness_5",
+  "raw": 0.5,
+  "value": "0.5",
+  "range": [
+   0.0,
+   1.0
+  ],
+  "labels": null,
+  "label": null
+ },
+ {
+  "i": 266,
+  "key": "mpe_brightness_6",
+  "name": "MPE_Brightness_6",
+  "raw": 0.5,
+  "value": "0.5",
+  "range": [
+   0.0,
+   1.0
+  ],
+  "labels": null,
+  "label": null
+ },
+ {
+  "i": 267,
+  "key": "mpe_brightness_7",
+  "name": "MPE_Brightness_7",
+  "raw": 0.5,
+  "value": "0.5",
+  "range": [
+   0.0,
+   1.0
+  ],
+  "labels": null,
+  "label": null
+ },
+ {
+  "i": 268,
+  "key": "mpe_brightness_8",
+  "name": "MPE_Brightness_8",
+  "raw": 0.5,
+  "value": "0.5",
+  "range": [
+   0.0,
+   1.0
+  ],
+  "labels": null,
+  "label": null
+ },
+ {
+  "i": 269,
+  "key": "mpe_brightness_9",
+  "name": "MPE_Brightness_9",
+  "raw": 0.5,
+  "value": "0.5",
+  "range": [
+   0.0,
+   1.0
+  ],
+  "labels": null,
+  "label": null
+ },
+ {
+  "i": 270,
+  "key": "mpe_brightness_10",
+  "name": "MPE_Brightness_10",
+  "raw": 0.5,
+  "value": "0.5",
+  "range": [
+   0.0,
+   1.0
+  ],
+  "labels": null,
+  "label": null
+ },
+ {
+  "i": 271,
+  "key": "mpe_brightness_11",
+  "name": "MPE_Brightness_11",
+  "raw": 0.5,
+  "value": "0.5",
+  "range": [
+   0.0,
+   1.0
+  ],
+  "labels": null,
+  "label": null
+ },
+ {
+  "i": 272,
+  "key": "mpe_brightness_12",
+  "name": "MPE_Brightness_12",
+  "raw": 0.5,
+  "value": "0.5",
+  "range": [
+   0.0,
+   1.0
+  ],
+  "labels": null,
+  "label": null
+ },
+ {
+  "i": 273,
+  "key": "mpe_brightness_13",
+  "name": "MPE_Brightness_13",
+  "raw": 0.5,
+  "value": "0.5",
+  "range": [
+   0.0,
+   1.0
+  ],
+  "labels": null,
+  "label": null
+ },
+ {
+  "i": 274,
+  "key": "mpe_brightness_14",
+  "name": "MPE_Brightness_14",
+  "raw": 0.5,
+  "value": "0.5",
+  "range": [
+   0.0,
+   1.0
+  ],
+  "labels": null,
+  "label": null
+ },
+ {
+  "i": 275,
+  "key": "mpe_brightness_15",
+  "name": "MPE_Brightness_15",
+  "raw": 0.5,
+  "value": "0.5",
+  "range": [
+   0.0,
+   1.0
+  ],
+  "labels": null,
+  "label": null
+ },
+ {
+  "i": 276,
+  "key": "mpe_globalbrightness",
+  "name": "MPE_GlobalBrightness",
+  "raw": 0.5,
+  "value": "0.5",
+  "range": [
+   0.0,
+   1.0
+  ],
+  "labels": null,
+  "label": null
+ }
+]
