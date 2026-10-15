@@ -235,6 +235,12 @@ batches.
   - `region.js`: the layout, deterministic from a seed: the Gramophone, the three machines, a scatter of props,
     torn-paper paths and the portal;
   - `flow.js`: carrying, the plinths, completion, and state through the API;
+  - `art.js`: the art pack read into drawable assets (world sizes, anchors, feet), placeholders until each file is
+    in;
+  - `paper.js`: the materials and the placeholder art, all drawn by code (cut paper with a white edge);
+  - `gram.js`: the Gramophone opened, a sheet with its three plinths and the play control, and the record sleeve
+    revealed when the short is finished;
+  - `stub.js`: a stand-in machine, used when `machine.js` won't load (or with `?stub`);
   - `machine.js`: the full-screen studio machine;
   - `player.js`: the short's renders through Web Audio: decoded, all started on one clock, switched with a short
     equal-power crossfade at the same playhead, `gain_db` applied.
