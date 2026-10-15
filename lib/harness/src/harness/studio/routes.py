@@ -22,8 +22,9 @@
     GET  /studio/api/regions/<id>/state         a region's permanent state: commits, the artifact carried, the plinths,
                                                 completions (an empty state at first; docs/rummage.md, regions.py)
     POST /studio/api/regions/<id>/state         replace it (validated: 400 if the page could not have made it)
-    GET  /studio/regions/<id>/audio/<file>      the region's renders (a combination per file, named by content: cached
-                                                forever), from HARNESS_REGIONS_AUDIO/<id>/audio, outside the repo
+    GET  /studio/regions/<id>/audio/<file>      the region's renders (a combination per file, and its interface sounds,
+                                                named by content: cached forever), from HARNESS_REGIONS_AUDIO/<id>/audio,
+                                                outside the repo
     GET  /studio/images/          every image made with Gemini, as a wall (static/images, docs/images.md)
     GET  /studio/images/api/list  their records, newest first (?offset=&limit=&batch=), and the batches
     GET  /studio/images/files/<name>  an image or its gallery copy (cached forever: names are never reused)
@@ -371,8 +372,9 @@ async def region_set_state(request: web.Request) -> web.Response:
     return web.json_response(kept, headers=NO_STORE)
 
 
-# A combination's render: <track>-<bed>-<drums>-<bass>-<hash8>.m4a (the browser tests' fixtures are .wav)
-REGION_AUDIO = re.compile(r"[a-z0-9]{2,16}-[1-3]-[1-3]-[1-3]-[0-9a-f]{8}\.(m4a|wav)")
+# A combination's render: <track>-<bed>-<drums>-<bass>-<hash8>.m4a (the browser tests' fixtures are .wav), or one of
+# the region's interface sounds: ui-<name>-<hash8>.m4a
+REGION_AUDIO = re.compile(r"[a-z0-9]{2,16}-[1-3]-[1-3]-[1-3]-[0-9a-f]{8}\.(m4a|wav)|ui-[a-z]+-[0-9a-f]{8}\.m4a")
 
 
 async def region_audio(request: web.Request) -> web.StreamResponse:

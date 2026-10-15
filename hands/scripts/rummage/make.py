@@ -120,7 +120,7 @@ def build_params() -> None:
             print(f"{t['name']:18s} dev {k}:", L.params(f"{T(t['name'])}.devices[{k}]", list(values)))
 
 
-def write_notes(path: str, notes: list[tuple]) -> None:
+def write_notes(path: str, notes: list[tuple], beats: float = P.BEATS) -> None:
     """Replace the track's arrangement with one MIDI clip over the whole short holding `notes`. Two notes on the same
     pitch and start are one note in Live: keep the louder (then longer)."""
     best: dict = {}
@@ -132,7 +132,7 @@ def write_notes(path: str, notes: list[tuple]) -> None:
     L.run(f"""t = {path}
 for c in list(t.arrangement_clips):
     t.delete_clip(c)
-t.create_midi_clip(0.0, {float(P.BEATS)})
+t.create_midi_clip(0.0, {float(beats)})
 result = 'ok'""")
     for k in range(0, len(notes), 150):
         chunk = [(int(p), round(float(b), 4), round(float(d), 4), float(v)) for b, p, d, v in notes[k:k + 150]]
@@ -140,9 +140,9 @@ result = 'ok'""")
 c = {path}.arrangement_clips[0]
 c.add_new_notes(tuple(Live.Clip.MidiNoteSpecification(pitch=p, start_time=s, duration=d, velocity=v) for p, s, d, v in {chunk!r}))
 result = 'ok'""")
-    n = L.run(f"c = {path}.arrangement_clips[0]\nresult = (len(c.get_notes_extended(0, 128, 0.0, {float(P.BEATS)})), c.start_time, c.end_time)")
-    if n[0] != len(notes) or n[1] != 0.0 or n[2] != float(P.BEATS):
-        sys.exit(f"STOP: {path}: clip has {n}, expected {len(notes)} notes over 0-{P.BEATS}")
+    n = L.run(f"c = {path}.arrangement_clips[0]\nresult = (len(c.get_notes_extended(0, 128, 0.0, {float(beats)})), c.start_time, c.end_time)")
+    if n[0] != len(notes) or n[1] != 0.0 or n[2] != float(beats):
+        sys.exit(f"STOP: {path}: clip has {n}, expected {len(notes)} notes over 0-{beats}")
 
 
 def build_notes(only: str | None = None) -> None:

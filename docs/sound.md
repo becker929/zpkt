@@ -50,6 +50,7 @@ gets work, and never copied.
 | `studio/static/js/cue.js` | The ready sound: two notes made with oscillators | Allowed: an interface sound, not music. |
 | `studio/static/checklist/flow/sound.js` | The check's click: a filtered noise tick and a short tone, about 60 ms | Allowed: an interface sound, not music. |
 | `studio/static/checklist/map/sounds.js` | The check's sounds: six layered hits rendered in Live (`hands/scripts/ui_sounds/`), each with a heavier and a soft version, kept in R2 and decoded and started as rendered | Allowed: playing rendered files. |
+| `studio/static/checklist/rummage/sounds.js` | The Rummage's interface sounds (steps, pickup, place, a machine's open, tick, lever and stamp, the finish, the tear), rendered in Live from found objects (`hands/scripts/rummage/sounds.py`), decoded once and started as rendered | Allowed: playing rendered files. |
 | `studio/static/js/mic.js` | Captures the mic through an AudioWorklet | Allowed: the mic. |
 | `prototypes/audio-browser/frontend/lib/` (`collagePlayer.ts`, `slicePlayer.ts`, `softClip.ts`) | Assembles a collage from slices and soft-clips it | Breaks the rule (assembly and clipping); to be replaced if the prototype is revived. |
 

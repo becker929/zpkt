@@ -41,6 +41,37 @@ uv run python scripts/rummage/make.py encode          # AAC 192k .m4a, checked, 
 sets the mutes for one combo. A combo un-mutes exactly its three options' tracks; everything else in the set is the
 same for all 27, so they line up sample for sample.
 
+**The region's interface sounds** (`sounds.py`, its own set `SH001_ui`): paper, tin, wood, brass and found objects,
+in D where pitched, with their energy where a phone speaker has it (150 Hz to 6 kHz: Main high-passes at 130 Hz and
+shelves off above 8 kHz), peaks at -3.5 dBFS or lower. Each sound has a 6-second slot, so one export renders them
+all; `cut` slices, trims (where it stays under -60 dBFS), fades the last 20 ms and checks; `encode` adds
+`ui-<name>-<hash8>.m4a` to the audio folder and writes `static/checklist/rummage/sounds.json` (a list per name: step
+has three). The page plays them through `rummage/sounds.js`, as rendered.
+
+| Sound | What it is | Length, peak |
+|---|---|---|
+| step (3) | a slice of paper rustle, a few semitones down, over a muffled wooden knock (felt) | 0.18-0.24 s, -14 to -16 dBFS |
+| pickup | a paper whoosh rising in pitch; a music box A5-D6 and a soft tin bell land 30 ms in | 1.9 s, -9.4 |
+| place | a resonant wood knock, an Operator thump on D3, a tin bell on D5 and A4 | 2.5 s, -9.8 |
+| open | a door lock's jiggle and latch clunk (at 0.36 s), a heavy door's body, a spring | 1.05 s, -6.6 |
+| lever | six ratchet teeth in 90 ms into the slam at 100 ms (door, metal impact, D2 thump), tin rattle, a bell on D4-A4 | 2.9 s, -3.6 |
+| finish | a needle drop, the groove's crackle, a warm pad swelling on D-A-D-E, a music box sparkle at the top | 2.9 s, -5.3 |
+| tear | paper ripping (a rustle pitched up as it goes, fibres scraping), parting with a snap | 1.1 s, -3.6 |
+| tick | a small wooden detent, for the selector | 0.15 s, -14.4 |
+| stamp | a box slap, a D3 thump and a knock: the artifact's stamp | 0.39 s, -3.6 |
+
+```bash
+uv run python scripts/rummage/sounds.py new       # File > New Live Set, saved as SH001_ui (save the front set first)
+uv run python scripts/rummage/sounds.py build     # 7 tracks: a Drum Rack of samples, two paper Simplers, music box,
+                                                  # tin bell, pad, Operator; the notes; Main
+uv run python scripts/rummage/sounds.py render && uv run python scripts/rummage/sounds.py cut
+uv run python scripts/rummage/sounds.py encode
+```
+
+Notes: a Drum Rack pad's Simpler shows only 33 parameters (no filter, no pitch-envelope amount), so the whoosh and
+the rip are Simplers of their own. Paper LDre is quiet (about -35 dBFS): the rip needs +15 dB (a Utility), the whoosh
++20. Live's 24-bit export dithers, so each render's files get new hashes even when nothing changed.
+
 Where things go: the set and the WAV renders under `~/_agent_scratch/rummage/` (never `~/Music`), the .m4a files in
 `~/_agent_scratch/studio/regions/rummage/audio/` (the harness serves them at `/studio/regions/rummage/audio/<file>`),
 the manifest at `lib/harness/src/harness/studio/static/checklist/rummage/audio.json`. Audio never goes in git.

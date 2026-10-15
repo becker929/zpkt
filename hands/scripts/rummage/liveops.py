@@ -38,7 +38,7 @@ EXPORT_DIR = SCRATCH   # where the Save panel writes; a parent of set/, so reach
 HELPER = r'''
 import re
 def _num(s):
-    m = re.match(r"\s*(-?inf|-?[\d.]+)\s*(k?Hz|ms|s|dB|%|st|ct)?", s)
+    m = re.match(r"\s*(-?inf|[-+]?[\d.]+)\s*(k?Hz|ms|s|dB|%|st|ct)?", s)
     if not m: return None
     v = -1e9 if 'inf' in m.group(1) else float(m.group(1))
     return v * (1000 if (m.group(2) or '') in ('s', 'kHz') else 1)

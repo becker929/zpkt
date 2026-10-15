@@ -140,6 +140,21 @@ async def test_the_renders_are_served_by_name_and_cached_for_good(client, tmp_pa
     assert r.status == 200 and r.headers["Content-Type"] == "audio/wav"
 
 
+async def test_the_interface_sounds_are_served_by_name_too(client, tmp_path):
+    audio = tmp_path / "regions" / "rummage" / "audio"
+    audio.mkdir(parents=True)
+    (audio / "ui-step-0a1b2c3d.m4a").write_bytes(b"\x00\x00\x00 ftypM4A step")
+    r = await client.get("/studio/regions/rummage/audio/ui-step-0a1b2c3d.m4a")
+    assert r.status == 200 and r.headers["Content-Type"] == "audio/mp4" and "immutable" in r.headers["Cache-Control"]
+    assert await r.read() == b"\x00\x00\x00 ftypM4A step"
+    assert (await client.get("/studio/regions/rummage/audio/ui-step-0a1b2c3e.m4a")).status == 404     # not there
+    # there, but not names the route serves: the name is a-z only, the hash 8 lower-case hex, the file .m4a
+    for name in ("ui-Step-0a1b2c3d.m4a", "ui-step2-0a1b2c3d.m4a", "ui-step-0a1b2c3.m4a", "ui-step-0A1B2C3D.m4a",
+                 "ui-step-0a1b2c3d.wav", "ui--0a1b2c3d.m4a", "ux-step-0a1b2c3d.m4a"):
+        (audio / name).write_bytes(b"fake")
+        assert (await client.get(f"/studio/regions/rummage/audio/{name}")).status == 404, name
+
+
 @pytest.mark.parametrize("path", [
     "rummage/audio/sh001-2-3-1-0a1b2c3e.m4a",            # not there
     "rummage/audio/sh001-4-3-1-0a1b2c3d.m4a",            # no option 4
