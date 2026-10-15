@@ -136,6 +136,12 @@ async def test_he_arrives_by_the_tear_walks_and_places_name_themselves(webkit, s
     await page.wait_for_function("() => __rummage.near() === 'drums'", timeout=6000)
     await page.wait_for_function("() => document.getElementById('act').textContent.includes('The Clatter')")
     assert "Operate" in await page.text_content("#act")
+    # the tear leads back to The Wasteland (Enter acts, as a tap on the button does)
+    await _go(page, "portal")
+    assert "The Wasteland" in await page.text_content("#act")
+    async with page.expect_navigation():
+        await page.keyboard.press("Enter")
+    assert page.url.endswith("/studio/checklist/wasteland/")
     assert not _real(errors), errors
 
 
