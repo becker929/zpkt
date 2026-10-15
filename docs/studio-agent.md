@@ -100,6 +100,24 @@ Kept separate on purpose, each proving two features, each reading and writing th
   opening an item again cracks the cleared items after it in its step, and a scrubbed crack heals in gold for good.
 - **Crystal** (`crystal.html`): one crystal drawn as a pure function of the cleared items (same set, same SVG,
   whatever the order). Release now (mocked) freezes it as a pressing; later checks never change a pressing.
+
+### What worked: a checkbox plus a juice object (14 October 2026)
+
+The crystal won, and not for the crystal: the growth answers a checkbox, a real production task done, where the
+stamp and the scrubbing were made-up actions standing in for the work. Any metaphor runs the same loop:
+
+1. **Do** the work in studio's controls.
+2. **Commit**: check it off, encouraged (never forced) by an estimate of how done it is (in the reference zone?
+   converging over batches?).
+3. **Juice**: the object reacts to the commit, and only to it (it grows, is repaired, a space is revealed).
+
+`/studio/checklist/flow/` mocks the loop. An item's production widget takes the whole screen (`flow/widgets.js`:
+batch 8.1's drive pick, a mid-warmth macro over pre-rendered stops, a generic surface; the player shows the
+audibility cues but plays nothing) with the mocked done measures (`flow/measures.js`). Committing folds it back into
+its row, the box checks with its own juice (a ghost check slams down from big to small, a white silhouette from
+under the box, a shake, a click: `flow/sound.js`, an interface sound), and the juice object (crystal, repair or map,
+`flow/juice/`) comes over the screen in a splash, plays the change and settles into the header as the track's
+progress.
 - **A tweaks panel** on a tab at the right edge changes how the page is built, live, kept in the browser: the current
   objective as a panel, a strip in the header (the default), a line in the header, the gems alone, or off; the gems;
   a tap opening the sub-list below or on a page of its own; a studio button on each row; the path line; the fog;

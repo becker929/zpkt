@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Widget bench</title>
+  <link rel="stylesheet" href="widgets.css">
+  <style>html, body { margin: 0; background: #0b0b0c; } #host { position: fixed; inset: 0; }</style>
+</head>
+<body>
+  <!-- A bench for one production widget, full screen: ?item=kick.drive. The callbacks are recorded on window.calls. -->
+  <div id="host"></div>
+  <script type="module">
+    import { openWidget } from './widgets.js';
+    import { loadTrack, haptic } from '../concepts/model.js';
+    const [sid, iid] = (new URLSearchParams(location.search).get('item') || 'kick.drive').split('.');
+    window.calls = [];
+    const data = await loadTrack();
+    const step = data.steps.find((s) => s.id === sid);
+    const item = step.items.find((i) => i.id === iid);
+    window.widget = openWidget(document.getElementById('host'), {
+      data, step, item, haptic,
+      commit: () => window.calls.push('commit'),
+      close: () => window.calls.push('close'),
+    });
+    document.body.dataset.ready = 'true';
+  </script>
+</body>
+</html>
