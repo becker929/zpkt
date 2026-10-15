@@ -278,7 +278,7 @@ async def test_without_the_api_the_art_or_the_music_it_still_plays(webkit, site)
     assert await page.evaluate("__rummage.flow.mode") == "local"
     assert await page.evaluate("__rummage.player") is None                        # no renders: no player
     assert await page.evaluate("Object.keys(__rummage.art.manifest).length") == 0
-    assert await page.evaluate("__rummage.R.things.length") > 60
+    assert await page.evaluate("__rummage.R.things.filter((t) => t.kind === 'prop').length") > 25
     await _go(page, "bed")
     await page.tap("#act")
     await page.wait_for_selector(".sm.show .sm-opt")
@@ -398,4 +398,60 @@ async def test_once_finished_the_sleeve_stands_on_the_easel_and_plays_the_short_
     await page.evaluate(TAP, "#np button")
     await page.wait_for_function("() => !__rummage.player.playing")
     await page.wait_for_function("() => !document.getElementById('np').classList.contains('on')")
+    assert not _real(errors), errors
+
+
+MARKET = """() => {
+  const R = __rummage.R, props = R.things.filter((t) => t.kind === 'prop');
+  const twins = [];
+  for (let i = 0; i < props.length; i++) for (let j = i + 1; j < props.length; j++) {
+    const a = props[i], b = props[j];
+    if (a.id === b.id && Math.abs(a.x - b.x) < 560 && Math.abs(a.y - b.y) < 1040) twins.push([a.id, a.x, a.y, b.x, b.y]);
+  }
+  const approach = (x, y) => Object.values(R.machines).some((m) => Math.hypot(x - m.x, y - m.y) < m.r + 80);
+  const blockedPath = R.paths.flatMap((pts) => pts.filter(([x, y], k) => k > 2 && k < pts.length - 2 && !approach(x, y) && R.blocked(x, y)));
+  const clear = [R.keep[0], ...R.keep.slice(-3)];                     // the plaza and the ground round the machines
+  const inKeep = R.things.filter((t) => (t.kind === 'prop' || t.kind === 'set')
+    && clear.some(([x, y, rx, ry]) => ((t.x - x) / rx) ** 2 + ((t.y - y) / ry) ** 2 < 1)).map((t) => t.id);
+  const len = (pts) => pts.slice(1).reduce((a, p, k) => a + Math.hypot(p[0] - pts[k][0], p[1] - pts[k][1]), 0);
+  const L = R.paths.map(len);
+  const walls = R.solids.filter((s) => s.rect && String(s.of).startsWith('edge'));
+  const P = R.portal;
+  return {
+    twins, blockedPath: blockedPath.length, inKeep,
+    toGram: [1, 2, 3].map((k) => (L[k] + L[4]) / 190), fromTear: [1, 2, 3].map((k) => (L[0] + L[k]) / 190),
+    north: walls.some((s) => s.y1 < 300 && s.x0 < 800 && s.x1 > 800), west: walls.filter((s) => s.x1 < 200).length,
+    east: walls.filter((s) => s.x0 > 1400).length, gap: !walls.some((s) => s.y1 > 2200 && s.x0 < P.x + 40 && s.x1 > P.x - 40),
+    corners: R.corners.map((c) => ({ id: c.id, rug: R.rugs.some((u) => Math.hypot(u.x - c.x, u.y - c.y) < 40), set: c.piece?.kind === 'set',
+      kin: R.things.filter((t) => t.kind === 'prop' && Math.hypot(t.x - c.x, t.y - c.y) < 320).map((t) => t.id) })),
+    landmarks: R.things.filter((t) => t.kind === 'set' && t.asset.h > 340).map((t) => t.id),
+  };
+}"""
+FAMILY = {"reading": {"books", "globe", "typewriter", "oil-lamp"},
+          "parlour": {"chair", "floor-lamp", "mantel-clock", "cuckoo-clock", "rocking-horse", "dolls-house", "birdcage"},
+          "music": {"record-stack", "record-crate", "cassettes", "radio", "television", "trumpet", "accordion", "telephone"},
+          "kitchen": {"teapot", "tin-cans", "watering-can", "buttons", "sewing-basket", "sewing-machine"}}
+
+
+async def test_the_market_has_places(webkit, site):
+    """A junk market with places, not wallpaper: walls of junk round the border with the tear in a gap; four corners,
+    each a rug, a set piece and things of its kind; tall set pieces to see from afar; room round the machines and on
+    the plaza; the paths clear; the same thing never twice on one screen; and 4-8 s at a walk between places."""
+    page, errors = await _open(webkit, site)
+    m = await page.evaluate(MARKET)
+    assert m["north"] and m["west"] >= 8 and m["east"] >= 8 and m["gap"], m
+    assert [c["id"] for c in m["corners"]] == ["reading", "parlour", "music", "kitchen"]
+    for c in m["corners"]:
+        assert c["rug"] and c["set"] and set(c["kin"]) & FAMILY[c["id"]], c
+    assert sum(len(set(c["kin"]) & FAMILY[c["id"]]) for c in m["corners"]) >= 8      # they gather by kind
+    assert {"case-tower", "carousel-horse", "phone-box"} <= set(m["landmarks"])
+    assert m["inKeep"] == [] and m["blockedPath"] == 0 and m["twins"] == [], m
+    assert all(4 <= s <= 8.5 for s in m["toGram"] + m["fromTear"]), m
+    # the north wall stops him
+    await page.evaluate("() => __rummage.teleport(1100, 260)")
+    await page.keyboard.down("ArrowUp")
+    await page.wait_for_timeout(900)
+    await page.keyboard.up("ArrowUp")
+    h = await page.evaluate(HERO)
+    assert h["y"] > 140 and not await page.evaluate("([x, y]) => __rummage.R.blocked(x, y)", [h["x"], h["y"]])
     assert not _real(errors), errors
