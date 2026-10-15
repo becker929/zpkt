@@ -28,8 +28,8 @@ os.environ.setdefault("ZPKT_SET_PREFIXES", "SH001_")
 os.environ.setdefault("ZPKT_DATA_DIR", str(SCRATCH / "data"))
 os.environ.setdefault("ZPKT_RENDERS_DIR", str(SCRATCH / "renders"))
 
-from hands.live import session, timeops, ui
-from hands.live.transport import LiveClient
+from hands.live import session, timeops, ui  # noqa: E402 - after the env defaults above, which hands reads on import
+from hands.live.transport import LiveClient  # noqa: E402
 
 LIVE = LiveClient()
 EXPORT_DIR = SCRATCH   # where the Save panel writes; a parent of set/, so reachable from the Recent Place "set"
