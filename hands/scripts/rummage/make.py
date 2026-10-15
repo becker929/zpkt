@@ -178,6 +178,37 @@ def build_master() -> None:
         print(f"main {k}:", L.params(f"song.master_track.devices[{k}]", list(values)))
 
 
+def build_phone() -> None:
+    """Return C, the phone layer (parts.PHONE_RETURN): created once, its devices loaded and set; then each track's
+    send to it (parts.TRACKS[...]['phone'] in dB; none for the rest)."""
+    spec = P.PHONE_RETURN
+    if len(L.run("result = [r.name for r in song.return_tracks]")) < 3:
+        L.run("song.create_return_track()\nresult = 'ok'")
+    L.run(f"song.return_tracks[2].name = {spec['name']!r}\nresult = 'ok'")
+    ret = "song.return_tracks[2]"
+    for name in spec["devices"]:
+        if name not in L.devices(ret):
+            L.load_item(ret, "audio_effects", None, name)
+    if L.devices(ret) != spec["devices"]:
+        sys.exit(f"STOP: return C has {L.devices(ret)}")
+    for k, values in spec["set"].items():
+        L.setp(f"{ret}.devices[{k}]", values)
+        print(f"return C dev {k}:", L.params(f"{ret}.devices[{k}]", list(values)))
+    for t in P.TRACKS:
+        level = t.get("phone")
+        L.run(HELPER_SEND.format(track=T(t["name"]), level=repr(f"{level} dB") if level is not None else "None"))
+    print(L.run("result = [(t.name, t.mixer_device.sends[2].str_for_value(t.mixer_device.sends[2].value)) for t in song.tracks]"))
+
+
+HELPER_SEND = L.HELPER + """
+s = {track}.mixer_device.sends[2]
+if {level} is None:
+    s.value = 0.0
+else:
+    _setp(s, {level}, 'send C')
+result = 'ok'"""
+
+
 def set_combo(b: int, d: int, s: int) -> None:
     """Un-mute exactly the tracks of bed b, drums d, bass s."""
     on = set(P.tracks_of("bed", b) + P.tracks_of("drums", d) + P.tracks_of("bass", s) + P.tracks_of("shared", 0))
@@ -285,7 +316,7 @@ def save() -> None:
 if __name__ == "__main__":
     cmd, *rest = sys.argv[1:] or ["help"]
     steps = {"tracks": build_tracks, "instruments": build_instruments, "notes": build_notes, "mix": build_mix,
-             "master": build_master}
+             "master": build_master, "phone": build_phone}
     if cmd == "build":
         for name in rest or list(steps):
             if name.startswith("notes:"):

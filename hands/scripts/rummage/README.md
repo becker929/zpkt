@@ -22,6 +22,8 @@ makes or changes sound.
 
   Everything is Live's own Core Library (the Lost and Found pack is not installed on this Mac): presets, three of its
   kits and two of its samples. No purchased audio, nothing from Anthony's library.
+- **For a phone** (round 3): bass 1 and 3 also send to return C, C-Phone (Saturator, hard curve, into EQ Eight
+  keeping 220 Hz-2.5 kHz), their harmonics where a phone speaker has them; `make.py build phone` sets it up.
 - **Main:** EQ Eight (high-pass 32 Hz), Glue Compressor (2:1 at -12 dB, 10 ms, auto release), Limiter (True Peak,
   ceiling -1.8 dB). The 27 land at -14.5 to -14.1 LUFS; the page's `gain_db` matches them to -14.
 
