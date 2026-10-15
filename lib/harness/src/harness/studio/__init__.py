@@ -25,6 +25,7 @@ from .hub import Hub
 from .model import ShotLevel
 from .guard import bash_hook
 from .narrator import HaikuLines, Summarize
+from .regions import RegionStore
 from .screens import Screens
 from .speech import VoiceWorker
 from .store import Store
@@ -84,6 +85,8 @@ class Studio:
         # The artist agent's store and its quick question's model (docs/artist-agent.md)
         self.artist = Artist(cfg.studio_dir / "artist", SEED)
         self.artist_model = None if summarize else QuestionLines(cfg.narrator_model, cfg.cli_path, job_env(cfg))
+        # The regions' permanent state (docs/rummage.md)
+        self.regions = RegionStore(cfg.studio_dir / "regions")
         # The page's files are part of the version: a page left open across a deploy is offered a reload.
         settings = Settings(stop_word=cfg.stop_word, voice=cfg.tts_voice, speed=cfg.tts_speed,
                             version=f"{VERSION}.{Assets().version()}")

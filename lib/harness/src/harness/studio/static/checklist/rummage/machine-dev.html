@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#1a120c">
+  <title>Machine Bench</title>
+  <link rel="stylesheet" href="machine.css">
+  <link rel="stylesheet" href="../map/feedback.css">
+  <style>
+    /* The bench for the studio machine (machine.js): open any of the three machines on its own, with the region's
+       audio.json and art when they are here, else stand-ins. Query: ?audio=<url>|none (default audio.json),
+       ?base=<url prefix of the renders> (default /studio/regions/rummage/audio/), ?art=0 (no art),
+       ?committed=<bed>-<drums>-<bass> (0 for none, e.g. 2-0-1), ?open=bed|drums|bass (opens at once; tap play),
+       ?panel=<image url> (any panel art, to try the controls over it). */
+    :root { color-scheme: dark; --bg: #1a120c; --ink: #f1e8d2; --dim: #b9a98e; }
+    * { box-sizing: border-box; }
+    html { -webkit-text-size-adjust: 100%; }
+    body {
+      margin: 0; min-height: 100dvh; background: var(--bg); color: var(--ink); -webkit-tap-highlight-color: transparent;
+      font: 15px/1.45 'American Typewriter', 'Courier New', monospace; -webkit-user-select: none; user-select: none;
+      padding: calc(env(safe-area-inset-top) + 18px) 16px calc(env(safe-area-inset-bottom) + 24px);
+    }
+    h1 { margin: 0 0 4px; font: 700 24px/1.1 'DIN Condensed', 'Avenir Next Condensed', sans-serif; letter-spacing: .14em; text-transform: uppercase; }
+    p { margin: 0 0 18px; font-size: 13px; color: var(--dim); }
+    .machines { display: grid; gap: 12px; }
+    .machines button {
+      display: grid; grid-template-columns: 1fr auto; align-items: center; min-height: 72px; padding: 0 16px; text-align: left;
+      font: inherit; color: #2a2320; background: #efe4c8; border: 0; border-radius: 3px; cursor: pointer;
+      box-shadow: 0 0 0 2px #fbf6ea, 0 6px 10px rgb(0 0 0 / .5);
+    }
+    .machines button:nth-child(2) { transform: rotate(.6deg); }
+    .machines button:nth-child(3) { transform: rotate(-.5deg); }
+    .machines b { display: block; font-size: 18px; }
+    .machines span { font-size: 12px; color: #6b5c4c; }
+    .machines em { font: 700 13px 'DIN Condensed', sans-serif; letter-spacing: .14em; font-style: normal; color: #b8281c; }
+    .status { margin-top: 18px; font-size: 12px; color: var(--dim); white-space: pre-line; }
+  </style>
+</head>
+<body>
+  <h1>Machine bench</h1>
+  <p>The Rummage's three machines, one at a time. Tap one to operate it: turn the selector, play, and pull the lever to
+    commit. The sound is the region's renders when they are here.</p>
+  <div class="machines" id="machines"></div>
+  <div class="status" id="status"></div>
+  <script type="module">
+    import { onTap } from '../concepts/model.js';
+    import { createPlayer } from './player.js';
+    import { openMachine } from './machine.js';
+
+    const q = new URLSearchParams(location.search);
+    const MACHINES = { bed: 'The Wireless', drums: 'The Clatter', bass: 'The Bellows' };
+    // Stand-ins for the bench only, until audio.json is here: the real names and lines come from the music.
+    const STAND_IN = {
+      bed: [{ id: 1, name: 'Stand-in bed one', about: 'A bench stand-in: the real name comes with the renders' },
+            { id: 2, name: 'Stand-in bed two', about: 'A bench stand-in: the real name comes with the renders' },
+            { id: 3, name: 'Stand-in bed three', about: 'A bench stand-in: the real name comes with the renders' }],
+      drums: [{ id: 1, name: 'Stand-in drums one', about: 'A bench stand-in' }, { id: 2, name: 'Stand-in drums two', about: 'A bench stand-in' },
+              { id: 3, name: 'Stand-in drums three', about: 'A bench stand-in' }],
+      bass: [{ id: 1, name: 'Stand-in bass one', about: 'A bench stand-in' }, { id: 2, name: 'Stand-in bass two', about: 'A bench stand-in' },
+             { id: 3, name: 'Stand-in bass three', about: 'A bench stand-in' }],
+    };
+
+    async function json(url) {
+      try {
+        const r = await fetch(url, { cache: 'no-cache' });
+        return r.ok ? await r.json() : null;
+      } catch { return null; }
+    }
+    const audio = q.get('audio') === 'none' ? null : await json(q.get('audio') || 'audio.json');
+    const art = q.get('art') === '0' ? null : await json('art/manifest.json');
+    const base = q.get('base') || '/studio/regions/rummage/audio/';
+    const player = audio && Object.keys(audio.combos ?? {}).length ? await createPlayer({ audio, base }) : null;
+    const parts = audio?.parts ?? STAND_IN;
+    const [b, d, s] = (q.get('committed') || '0-0-0').split('-').map((x) => Number(x) || null);
+    let committed = { bed: b, drums: d, bass: s };
+
+    const dev = (window.__dev = { player, machine: null, commits: [], closed: [], audio, art, open });
+    const list = document.getElementById('machines');
+    const status = document.getElementById('status');
+    function paint() {
+      list.replaceChildren(...Object.entries(MACHINES).map(([part, name]) => {
+        const btn = document.createElement('button');
+        btn.type = 'button'; btn.id = `open-${part}`;
+        const c = committed[part];
+        btn.innerHTML = `<div><b></b><span></span></div><em></em>`;
+        btn.querySelector('b').textContent = name;
+        btn.querySelector('span').textContent = { bed: 'the bed', drums: 'the drums', bass: 'the low end' }[part];
+        btn.querySelector('em').textContent = c ? `COMMITTED ${['', 'I', 'II', 'III'][c]}` : 'OPEN';
+        onTap(btn, () => open(part));
+        return btn;
+      }));
+      status.textContent = `audio: ${audio ? `${Object.keys(audio.combos ?? {}).length} renders` : 'none (stand-ins)'}`
+        + `\nart: ${art ? 'art/manifest.json' : 'none (cut paper)'}`;
+    }
+
+    function open(part) {
+      if (dev.machine) return;
+      const m = art?.machines?.[part];
+      dev.machine = openMachine(document.body, {
+        part,
+        machine: { name: MACHINES[part], panel: q.get('panel') || (m?.panel ? `art/${m.panel}` : null) },
+        options: (parts[part] ?? STAND_IN[part]).map((o) => {
+          const a = art?.artifacts?.[`${part}-${o.id}`];
+          return { ...o, artifact: a ? `art/${a.file}` : null };
+        }),
+        committed, player,
+        onCommit: (id) => { dev.commits.push({ part, id }); committed = { ...committed, [part]: id }; },
+        onClose: (result) => { dev.closed.push({ part, ...result }); dev.machine = null; paint(); },
+      });
+    }
+
+    paint();
+    if (['bed', 'drums', 'bass'].includes(q.get('open'))) open(q.get('open'));
+    dev.ready = true;
+  </script>
+</body>
+</html>
