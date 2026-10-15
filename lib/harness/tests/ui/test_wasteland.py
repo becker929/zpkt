@@ -32,6 +32,7 @@ async def _open(browser, url, fresh=True):
     errors: list[str] = []
     page.on("console", lambda m: errors.append(m.text) if m.type == "error" else None)
     page.on("pageerror", lambda e: errors.append(f"page error: {e}"))
+    page.on("requestfailed", lambda r: errors.append(f"request failed: {r.method} {r.url}: {r.failure}"))
     await page.goto(url)
     if fresh:
         await page.evaluate("localStorage.clear()")
