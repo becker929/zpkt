@@ -17,6 +17,7 @@ from ..jobs import job_env
 from . import tools
 from . import routes
 from .agent import AgentSession
+from .artist import SEED, Artist, QuestionLines
 from .assets import Assets
 from .conversation import Conversation, Settings
 from .grab import Capture, ScreenGrab
@@ -80,6 +81,9 @@ class Studio:
         self.steps_token = secrets.token_urlsafe(24)
         self.agent = agent or AgentSession(self._options)
         self.narrator_model = None if summarize else HaikuLines(cfg.narrator_model, cfg.cli_path, job_env(cfg))
+        # The artist agent's store and its quick question's model (docs/artist-agent.md)
+        self.artist = Artist(cfg.studio_dir / "artist", SEED)
+        self.artist_model = None if summarize else QuestionLines(cfg.narrator_model, cfg.cli_path, job_env(cfg))
         # The page's files are part of the version: a page left open across a deploy is offered a reload.
         settings = Settings(stop_word=cfg.stop_word, voice=cfg.tts_voice, speed=cfg.tts_speed,
                             version=f"{VERSION}.{Assets().version()}")
@@ -144,6 +148,9 @@ class Studio:
         await self.conversation.stop()
         if self.narrator_model is not None:
             await self.narrator_model.close()
+        if self.artist_model is not None:
+            await self.artist_model.close()
+        self.artist.close()
         await self.screens.close()
         await self.worker.stop()
         if self._steps is not None:

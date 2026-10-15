@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#ffffff">
+  <title>The Gallery</title>
+  <link rel="stylesheet" href="../flow/juice/juice.css">
+  <link rel="stylesheet" href="world.css">
+  <link rel="stylesheet" href="gallery.css">
+  <link rel="stylesheet" href="feedback.css">
+</head>
+<body>
+  <label class="haptic" aria-hidden="true"><input type="checkbox" switch tabindex="-1"></label>
+  <div id="app">
+    <header class="gl-top">
+      <a class="gl-back" href="./" aria-label="Back to the map">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>
+      </a>
+      <div class="gl-title">
+        <h1>The Gallery</h1>
+        <p id="counts">Opening the doors</p>
+      </div>
+    </header>
+    <main id="halls" aria-live="polite"></main>
+    <footer class="gl-foot">
+      <p>Every commit hangs a plate here: the work that played, the map at that moment, the item you settled and,
+        where there is one, the render you approved. The artist keeps making works; the ones you haven't seen yet
+        hang as silhouettes.</p>
+      <a href="./">Back to the map</a>
+    </footer>
+  </div>
+  <section class="gl-open" id="open" aria-hidden="true"></section>
+  <script type="module" src="gallery.js"></script>
+</body>
+</html>

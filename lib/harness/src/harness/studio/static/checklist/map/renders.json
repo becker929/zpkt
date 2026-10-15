@@ -1,0 +1,125 @@
+{
+  "about": "The renders behind each item, for the gallery's plates: batches published on the site (/skrng), played as rendered through the harness's site-audio route. Items not listed have no render yet.",
+  "items": {
+    "hw002.kick.drive": [
+      {
+        "label": "Batch 8.1, drive 37%",
+        "path": "skrng/2026-10-07-hw002-b8-1-kick-distortion-t1.mp3"
+      },
+      {
+        "label": "Batch 8.1, drive 43.5%",
+        "path": "skrng/2026-10-07-hw002-b8-1-kick-distortion-t2.mp3"
+      },
+      {
+        "label": "Batch 8.1, drive 50%",
+        "path": "skrng/2026-10-07-hw002-b8-1-kick-distortion-t3.mp3"
+      },
+      {
+        "label": "Batch 8.1, round: baseline, 37%, 43.5%, 50%",
+        "path": "skrng/2026-10-07-hw002-b8-1-kick-distortion-t4.mp3"
+      }
+    ],
+    "hw002.mix.chordLevel": [
+      {
+        "label": "Batch 8.2, chord up 4 dB",
+        "path": "skrng/2026-10-09-hw002-b8-2-chord-level-t1.mp3"
+      },
+      {
+        "label": "Batch 8.2, chord up 8 dB",
+        "path": "skrng/2026-10-09-hw002-b8-2-chord-level-t2.mp3"
+      },
+      {
+        "label": "Batch 8.2, chord up 12 dB",
+        "path": "skrng/2026-10-09-hw002-b8-2-chord-level-t3.mp3"
+      },
+      {
+        "label": "Batch 8.2, round: baseline, up 4, up 8, up 12",
+        "path": "skrng/2026-10-09-hw002-b8-2-chord-level-t4.mp3"
+      }
+    ],
+    "hw002.mix.chordColour": [
+      {
+        "label": "Batch 8.3, colour 0.5",
+        "path": "skrng/2026-10-09-hw002-b8-3-chord-colour-t1.mp3"
+      },
+      {
+        "label": "Batch 8.3, colour 0.75",
+        "path": "skrng/2026-10-09-hw002-b8-3-chord-colour-t2.mp3"
+      },
+      {
+        "label": "Batch 8.3, colour 1",
+        "path": "skrng/2026-10-09-hw002-b8-3-chord-colour-t3.mp3"
+      },
+      {
+        "label": "Batch 8.3, round: chord up 8 dB, colour 0.5, 0.75, 1",
+        "path": "skrng/2026-10-09-hw002-b8-3-chord-colour-t4.mp3"
+      },
+      {
+        "label": "Batch 8.4, width 50%",
+        "path": "skrng/2026-10-09-hw002-b8-4-chord-width-t1.mp3"
+      },
+      {
+        "label": "Batch 8.4, width 100%",
+        "path": "skrng/2026-10-09-hw002-b8-4-chord-width-t2.mp3"
+      },
+      {
+        "label": "Batch 8.4, width 150%",
+        "path": "skrng/2026-10-09-hw002-b8-4-chord-width-t3.mp3"
+      },
+      {
+        "label": "Batch 8.4, round: chord up 8 dB, width 50, 100, 150%",
+        "path": "skrng/2026-10-09-hw002-b8-4-chord-width-t4.mp3"
+      },
+      {
+        "label": "Batch 8.5, supermassive mix 0.3",
+        "path": "skrng/2026-10-09-hw002-b8-5-chord-texture-t1.mp3"
+      },
+      {
+        "label": "Batch 8.5, supermassive mix 0.55",
+        "path": "skrng/2026-10-09-hw002-b8-5-chord-texture-t2.mp3"
+      },
+      {
+        "label": "Batch 8.5, supermassive mix 0.8",
+        "path": "skrng/2026-10-09-hw002-b8-5-chord-texture-t3.mp3"
+      },
+      {
+        "label": "Batch 8.5, round: chord up 8 dB, mix 0.3, 0.55, 0.8",
+        "path": "skrng/2026-10-09-hw002-b8-5-chord-texture-t4.mp3"
+      }
+    ],
+    "hw002.mix.break": [
+      {
+        "label": "Batch 8.6, reverb 70% wet",
+        "path": "skrng/2026-10-09-hw002-b8-6-break-space-t1.mp3"
+      },
+      {
+        "label": "Batch 8.6, reverb 80% wet",
+        "path": "skrng/2026-10-09-hw002-b8-6-break-space-t2.mp3"
+      },
+      {
+        "label": "Batch 8.6, reverb 90% wet",
+        "path": "skrng/2026-10-09-hw002-b8-6-break-space-t3.mp3"
+      },
+      {
+        "label": "Batch 8.6, round: 50% wet, then 70, 80, 90",
+        "path": "skrng/2026-10-09-hw002-b8-6-break-space-t4.mp3"
+      },
+      {
+        "label": "Batch 8.7, colour 0.3, darker",
+        "path": "skrng/2026-10-09-hw002-b8-7-break-colour-t1.mp3"
+      },
+      {
+        "label": "Batch 8.7, colour 0.5, a little darker",
+        "path": "skrng/2026-10-09-hw002-b8-7-break-colour-t2.mp3"
+      },
+      {
+        "label": "Batch 8.7, colour 1, brighter",
+        "path": "skrng/2026-10-09-hw002-b8-7-break-colour-t3.mp3"
+      },
+      {
+        "label": "Batch 8.7, round: as set, 0.3, 0.5, 1",
+        "path": "skrng/2026-10-09-hw002-b8-7-break-colour-t4.mp3"
+      }
+    ]
+  }
+}

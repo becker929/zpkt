@@ -32,6 +32,9 @@ def main() -> None:
     lp.add_argument("--set", help="the Live set to read values from")
     lb = sub.add_parser("lab-bars", help="the arrange surface's bar library: what each bar of the lab's stems holds")
     lb.add_argument("--set", help="the Live set whose splash clip to read")
+    ar = sub.add_parser("artist", help="the artist agent (docs/artist-agent.md): show its data, or propose works")
+    ar.add_argument("action", choices=["show", "propose"])
+    ar.add_argument("--dry-run", action="store_true", help="propose: print the new repertoire, don't keep it")
     a = ap.parse_args()
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
     cfg = Config()
@@ -63,6 +66,18 @@ def main() -> None:
             print(f"#{c.seq}  {c.status:13}  {c.source}" + (f" -> {c.mp3}" if c.mp3 else "")
                   + (f"  ({c.error})" if c.error else ""))
         print(f"{sum(c.status == 'converted' for c in done)} converted of {len(done)} FLAC music messages")
+    elif a.cmd == "artist":
+        from .studio import artist as A
+        art = A.Artist(cfg.studio_dir / "artist", A.SEED)
+        try:
+            if a.action == "show":
+                print(A.show(art))
+            else:
+                out = asyncio.run(A.propose(art, cfg.studio_model, cfg.cli_path, J.job_env(cfg), dry_run=a.dry_run))
+                print(out["notes"])
+                print(json.dumps(out["works"], indent=2) if a.dry_run else f"kept as repertoire v{out['version']}")
+        finally:
+            art.close()
     elif a.cmd == "lab-audio":
         from pathlib import Path
 

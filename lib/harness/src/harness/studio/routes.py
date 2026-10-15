@@ -11,6 +11,14 @@
     GET  /studio/lab/audio/<file> its audio, built by `harness lab-audio` outside the repo (cached forever)
     GET  /studio/checklist/<file> the track's checklist across the spine (static/checklist, docs/studio-agent.md)
     GET  /studio/checklist/map/sounds/<file>  its check sounds, from R2 through a local copy (cached forever)
+    GET  /studio/site-audio/<path>  the site's published audio (skrng batches, check sounds), through a local copy
+    POST /studio/api/artist/feedback            a thumbs up or down, stored at once (docs/artist-agent.md)
+    POST /studio/api/artist/feedback/<id>/question   the quick question after it (a small model, else rules)
+    POST /studio/api/artist/feedback/<id>/answer     his answer
+    GET  /studio/api/artist/feedback            the newest presses with their questions and answers (?limit=)
+    POST /studio/api/artist/plates              a plate for the gallery: the work as it played, the map, the render
+    GET  /studio/api/artist/plates              the gallery's plates, oldest first (?track=)
+    GET  /studio/api/artist/repertoire          the works the page chooses from (newest version; the seed at first)
 """
 
 from __future__ import annotations
@@ -23,6 +31,7 @@ from typing import TYPE_CHECKING
 
 from aiohttp import ClientError, ClientSession, ClientTimeout, WSMsgType, web
 
+from . import artist as A
 from .assets import Assets, accepts_gzip
 from .conversation import PAGE
 from .hub import Client
@@ -51,6 +60,7 @@ def app(studio: "Studio") -> web.Application:
     sub.router.add_get("/api/messages", messages)
     sub.router.add_get("/api/timings", timings)
     sub.router.add_post("/api/conversation", new_conversation)
+    add_artist_routes(sub)
     sub.router.add_get("/ws", socket)
     sub.router.add_get("/lab", lab_slash)
     sub.router.add_get("/lab/audio/{name}", lab_audio)
@@ -58,7 +68,19 @@ def app(studio: "Studio") -> web.Application:
     sub.router.add_get("/checklist", checklist_slash)
     sub.router.add_get("/checklist/map/sounds/{name}", check_sound)
     sub.router.add_get("/checklist/{path:.*}", checklist_file)
+    sub.router.add_get("/site-audio/{path:.+}", site_audio)
     return sub
+
+
+def add_artist_routes(sub: web.Application) -> None:
+    """The artist agent's API (also mounted by the browser tests' stand-in server)."""
+    sub.router.add_post("/api/artist/feedback", artist_feedback)
+    sub.router.add_get("/api/artist/feedback", artist_feedback_list)
+    sub.router.add_post("/api/artist/feedback/{id}/question", artist_question)
+    sub.router.add_post("/api/artist/feedback/{id}/answer", artist_answer)
+    sub.router.add_post("/api/artist/plates", artist_plate)
+    sub.router.add_get("/api/artist/plates", artist_plates)
+    sub.router.add_get("/api/artist/repertoire", artist_repertoire)
 
 
 def _studio(request: web.Request) -> "Studio":
@@ -135,32 +157,128 @@ def _bench_file(request: web.Request, root: Path) -> web.StreamResponse:
 
 
 CHECK_SOUND = re.compile(r"[a-z]+-(hit|strong|land)-[0-9a-f]{8}\.m4a")
-CHECK_SOUNDS_AT = "/audio/zpkt/check-sounds/"         # on the site (R2): public, but sent without CORS headers
+CHECK_SOUNDS_AT = "zpkt/check-sounds/"           # on the site (R2): public, but sent without CORS headers
+SITE_AUDIO = re.compile(r"(skrng/[A-Za-z0-9._-]+\.mp3|zpkt/check-sounds/[a-z]+-(hit|strong|land)-[0-9a-f]{8}\.m4a)")
+AUDIO_TYPES = {".mp3": "audio/mpeg", ".m4a": "audio/mp4"}
 
 
-async def check_sound(request: web.Request) -> web.StreamResponse:
-    """The map checklist's check sounds (rendered in Live by hands/scripts/ui_sounds; map/sounds.json names them).
-    They live in R2, since audio never goes in git; the page can't read the site's audio cross-origin, so the first
-    request copies a file here and every later one is served from that copy. Names carry a hash of the content."""
-    name = request.match_info["name"]
-    if not CHECK_SOUND.fullmatch(name):
-        raise web.HTTPNotFound()
-    cfg = _studio(request).cfg
-    path = cfg.check_sounds / name
+async def _site_copy(site: str, path: Path, rel: str) -> Path:
+    """The site's published audio at /audio/<rel>, copied to `path` the first time it is asked for. The site sends
+    no CORS headers, so the page can't read it cross-origin; published files never change, so the copy is kept."""
     if not path.is_file():
         try:
             async with ClientSession(timeout=ClientTimeout(total=15)) as http, \
-                    http.get(cfg.site + CHECK_SOUNDS_AT + name) as r:
+                    http.get(f"{site}/audio/{rel}") as r:
                 if r.status != 200:
                     raise web.HTTPNotFound()
                 data = await r.read()
         except (ClientError, TimeoutError):
-            raise web.HTTPBadGateway(text="the check sounds' store did not answer") from None
+            raise web.HTTPBadGateway(text="the site's audio did not answer") from None
         path.parent.mkdir(parents=True, exist_ok=True)
         part = path.with_suffix(".part")
         part.write_bytes(data)
         part.replace(path)
+    return path
+
+
+async def check_sound(request: web.Request) -> web.StreamResponse:
+    """The map checklist's check sounds (rendered in Live by hands/scripts/ui_sounds; map/sounds.json names them).
+    They live in R2, since audio never goes in git, and come through a local copy. Names carry a hash of the
+    content."""
+    name = request.match_info["name"]
+    if not CHECK_SOUND.fullmatch(name):
+        raise web.HTTPNotFound()
+    cfg = _studio(request).cfg
+    path = await _site_copy(cfg.site, cfg.check_sounds / name, CHECK_SOUNDS_AT + name)
     return web.FileResponse(path, headers={"Cache-Control": FOREVER, "Content-Type": "audio/mp4"})
+
+
+async def site_audio(request: web.Request) -> web.StreamResponse:
+    """The site's published audio the checklist plays (the gallery's renders: skrng batches; the check sounds), from
+    an allowlist only, through a local copy kept for good."""
+    rel = request.match_info["path"]
+    if not SITE_AUDIO.fullmatch(rel):
+        raise web.HTTPNotFound()
+    cfg = _studio(request).cfg
+    path = await _site_copy(cfg.site, cfg.site_audio / rel, rel)
+    return web.FileResponse(path, headers={"Cache-Control": FOREVER, "Content-Type": AUDIO_TYPES[path.suffix]})
+
+
+# --- the artist agent: thumbs, questions, plates, the repertoire (docs/artist-agent.md) --------------------------
+def _artist(request: web.Request) -> A.Artist:
+    return _studio(request).artist
+
+
+async def _body(request: web.Request) -> dict:
+    try:
+        body = await request.json()
+    except ValueError:
+        raise web.HTTPBadRequest(text="expected JSON") from None
+    if not isinstance(body, dict):
+        raise web.HTTPBadRequest(text="expected a JSON object")
+    return body
+
+
+NO_STORE = {"Cache-Control": "no-store"}
+
+
+async def artist_feedback(request: web.Request) -> web.Response:
+    """A thumbs up or down: stored before anything else happens, so the press counts even if nothing follows."""
+    body = await _body(request)
+    try:
+        ts = body.get("client_ts")
+        made = _artist(request).add_feedback(body.get("vote"), str(body.get("view") or ""), body.get("context"),
+                                             float(ts) if isinstance(ts, (int, float)) else None)
+    except ValueError as exc:
+        raise web.HTTPBadRequest(text=str(exc)) from None
+    return web.json_response(made, status=201, headers=NO_STORE)
+
+
+async def artist_question(request: web.Request) -> web.Response:
+    store = _artist(request)
+    event = store.event(request.match_info["id"])
+    if event is None:
+        raise web.HTTPNotFound()
+    q = await A.ask(event, getattr(_studio(request), "artist_model", None))
+    store.set_question(event["id"], q["question"], q["choices"], q["by"])
+    return web.json_response(q, headers=NO_STORE)
+
+
+async def artist_answer(request: web.Request) -> web.Response:
+    body = await _body(request)
+    choice = body.get("choice")
+    try:
+        _artist(request).add_answer(request.match_info["id"], str(body.get("text") or ""),
+                                    None if choice is None else str(choice))
+    except KeyError:
+        raise web.HTTPNotFound() from None
+    return web.json_response({"ok": True}, headers=NO_STORE)
+
+
+async def artist_feedback_list(request: web.Request) -> web.Response:
+    try:
+        limit = int(request.query.get("limit", "50"))
+    except ValueError:
+        raise web.HTTPBadRequest(text="limit is a number") from None
+    return _gzipped(request, web.json_response({"items": _artist(request).feedback(limit)}, headers=NO_STORE))
+
+
+async def artist_plate(request: web.Request) -> web.Response:
+    body = await _body(request)
+    try:
+        pid, n, at = _artist(request).add_plate(body)
+    except ValueError as exc:
+        raise web.HTTPBadRequest(text=str(exc)) from None
+    return web.json_response({"id": pid, "n": n, "at": at}, status=201, headers=NO_STORE)
+
+
+async def artist_plates(request: web.Request) -> web.Response:
+    track = request.query.get("track") or None
+    return _gzipped(request, web.json_response({"items": _artist(request).plates(track)}, headers=NO_STORE))
+
+
+async def artist_repertoire(request: web.Request) -> web.Response:
+    return _gzipped(request, web.json_response(_artist(request).repertoire(), headers=NO_STORE))
 
 
 async def lab_audio(request: web.Request) -> web.StreamResponse:
