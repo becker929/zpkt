@@ -15,8 +15,10 @@ cover-cropped. The manifest follows docs/rummage.md: w/h are the file's pixels, 
 fractions, foot the collision radius as a fraction of the width; a plan entry may also give `pick` ([index, count]:
 one figure of a sheet, from the left), `slots_src` (points in the source's pixels, mapped into the sprite), `anchor`,
 `foot`, `flip`, `crop` ([x0, y0, x1, y1] before keying), `scale`, `key` (keying settings), for a hero view `walk`
-(frames, each a sprite spec) and, for grounds, `mute` and `overlap`. `title` is a sprite; `sleeves` are full-bleed
-squares, cover-cropped to 720 px.
+(frames, each a sprite spec), `block_h` (and `block_band`) for a rectangular base, `anchor_x` and, for grounds,
+`mute` and `overlap`. `title` is a sprite; `sets`, `rugs` and `edge` are lists of sprites with ids (rugs are flat:
+no anchor or foot; edge walls get an anchor and a block but no foot); `sleeves` are full-bleed squares,
+cover-cropped to 720 px.
 """
 from __future__ import annotations
 
@@ -209,6 +211,17 @@ def base_of(im: Image.Image, lift: float) -> tuple[list[float], float]:
     return [round(cx / w, 3), round(float(ay), 3)], round(foot, 3)
 
 
+def block_of(im: Image.Image, depth: float, band_frac: float = 0.15) -> list[float]:
+    """A rectangular base for a wide piece: [w_frac, h_frac], centred on the anchor and rising from it. Its width is
+    the solid part of the bottom `band_frac` of the alpha (columns at least a quarter full), its depth is given."""
+    a = np.asarray(im)[..., 3] > 127
+    h, w = a.shape
+    rows = np.nonzero(a.any(axis=1))[0]
+    band = a[max(0, rows.max() - int(band_frac * h)):rows.max() + 1]
+    cols = np.nonzero(band.mean(axis=0) > 0.25)[0]
+    return [round(float((cols.max() - cols.min() + 1) / w * 0.92), 3), round(float(depth), 3)]
+
+
 def plinth_slots(im: Image.Image, count: int = 3, top: float = 0.14) -> list[list[float]] | None:
     """The Gramophone's slots, found as the `count` islands after the machine itself (its plinths, cut out apart from
     it): the centre of each plinth's top face, as fractions of the sprite, left to right."""
@@ -303,7 +316,9 @@ def mute(im: Image.Image, amount: float) -> Image.Image:
 
 # ---- the plan ----------------------------------------------------------------------------------------------
 
-LIFT = {"props": 0.035, "machines": 0.025, "gramophone": 0.03, "hero": 0.02, "portal": 0.03}
+LIFT = {"props": 0.035, "machines": 0.025, "gramophone": 0.03, "hero": 0.02, "portal": 0.03, "sets": 0.03,
+        "edge": 0.03}
+FOOT = {"props", "machines", "gramophone", "portal", "sets"}       # kinds that get a collision radius
 
 
 def sprite(images: Path, spec: dict, kind: str, out: Path, rel: str) -> dict:
@@ -327,9 +342,13 @@ def sprite(images: Path, spec: dict, kind: str, out: Path, rel: str) -> dict:
         rec["slots"] = [[round(float((x - box[0]) / bw), 3), round(float((y - box[1]) / bh), 3)] for x, y in spec["slots_src"]]
     if kind in LIFT:
         anchor, foot = base_of(im, spec.get("lift", LIFT[kind]))
+        if spec.get("anchor_x") is not None:     # e.g. 0.5 for a long wall, whose lowest point is off-centre
+            anchor[0] = spec["anchor_x"]
         rec["anchor"] = spec.get("anchor", anchor)
-        if kind != "hero":
+        if kind in FOOT:
             rec["foot"] = spec.get("foot", foot)
+        if spec.get("block_h"):                  # a rectangular base for a wide piece: [w_frac, h_frac]
+            rec["block"] = spec.get("block") or block_of(im, spec["block_h"], spec.get("block_band", 0.15))
     rec["src"] = spec["src"]
     print(f"  {rel:28} {im.width:4}x{im.height:<4} {n / 1000:6.1f} KB")
     return rec
@@ -389,6 +408,13 @@ def build(plan: dict, out: Path, images: Path, only: set[str] | None) -> dict:
                 rec = sprite(images, p, "props", out, f"props/{p['id']}.webp")
                 props[p["id"]] = {"id": p["id"], **rec}
         mf["props"] = [props[p["id"]] for p in plan["props"] if p["id"] in props]
+    for key, kind in (("sets", "sets"), ("rugs", "rugs"), ("edge", "edge")):   # lists of pieces with ids
+        if key in plan:
+            have = {p["id"]: p for p in mf.get(key, [])}
+            for p in plan[key]:
+                if want(f"{key}/{p['id']}"):
+                    have[p["id"]] = {"id": p["id"], **sprite(images, p, kind, out, f"{key}/{p['id']}.webp")}
+            mf[key] = [have[p["id"]] for p in plan[key] if p["id"] in have]
     if "machines" in plan:
         ms = mf.get("machines", {})
         for k, m in plan["machines"].items():
@@ -435,8 +461,8 @@ def build(plan: dict, out: Path, images: Path, only: set[str] | None) -> dict:
             if want(f"sleeves/{k}"):
                 sl[k] = sleeve(images, v["src"], out, f"sleeves/{k}.webp", v.get("size", 720))
         mf["sleeves"] = {k: sl[k] for k in plan["sleeves"] if k in sl}
-    order = ["version", "ground", "path", "props", "machines", "gramophone", "artifacts", "hero", "portal", "title",
-             "sleeves"]
+    order = ["version", "ground", "path", "props", "sets", "rugs", "edge", "machines", "gramophone", "artifacts", "hero",
+             "portal", "title", "sleeves"]
     mf = {k: mf[k] for k in order if k in mf}
     mf_path.write_text(json.dumps(mf, indent=1) + "\n")
     return mf
@@ -482,8 +508,9 @@ def sheet(mf: dict, out: Path, dest: Path, scale: float = 0.5) -> None:
             add(f"walk {i + 1}", w["file"])
     if "title" in mf:
         add("title", mf["title"]["file"])
-    for p in mf.get("props", []):
-        add(p["id"], p["file"])
+    for key in ("sets", "edge", "rugs", "props"):
+        for p in mf.get(key, []):
+            add(p["id"], p["file"])
     for k, a in mf.get("artifacts", {}).items():
         add(k, a["file"])
     if "path" in mf:
@@ -503,7 +530,8 @@ def sheet(mf: dict, out: Path, dest: Path, scale: float = 0.5) -> None:
     panels = [m for m in mf.get("machines", {}).values() if m.get("panel")]
     ph = 520
     tile = 280
-    H = gap + sum(rh + gap for _, rh in rows) + (ph + gap + lab if panels else 0) + (2 * tile + gap + lab)
+    H = (gap + sum(rh + gap for _, rh in rows) + (ph + gap + lab if panels else 0)
+         + (2 * tile + gap + lab if mf.get("ground") else 0))
     canvas = Image.new("RGB", (W, H), (128, 128, 128))
     d = ImageDraw.Draw(canvas)
     y = gap
