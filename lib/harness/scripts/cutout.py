@@ -14,7 +14,9 @@ over the near one along a minimum-error cut, so the seam follows edges already i
 cover-cropped. The manifest follows docs/rummage.md: w/h are the file's pixels, anchor is the base point as
 fractions, foot the collision radius as a fraction of the width; a plan entry may also give `pick` ([index, count]:
 one figure of a sheet, from the left), `slots_src` (points in the source's pixels, mapped into the sprite), `anchor`,
-`foot`, `flip`, `key` (keying settings) and, for grounds, `mute` and `overlap`.
+`foot`, `flip`, `crop` ([x0, y0, x1, y1] before keying), `scale`, `key` (keying settings), for a hero view `walk`
+(frames, each a sprite spec) and, for grounds, `mute` and `overlap`. `title` is a sprite; `sleeves` are full-bleed
+squares, cover-cropped to 720 px.
 """
 from __future__ import annotations
 
@@ -176,8 +178,11 @@ def resize_rgba(im: Image.Image, w: int, h: int) -> Image.Image:
     return im.convert("RGBa").resize((w, h), Image.LANCZOS).convert("RGBA")
 
 
-def fit(im: Image.Image, *, h: int | None = None, w: int | None = None, side: int | None = None) -> Image.Image:
-    if side:
+def fit(im: Image.Image, *, h: int | None = None, w: int | None = None, side: int | None = None,
+        scale: float | None = None) -> Image.Image:
+    if scale:
+        s = scale
+    elif side:
         s = side / max(im.width, im.height)
     elif h:
         s = h / im.height
@@ -302,7 +307,11 @@ LIFT = {"props": 0.035, "machines": 0.025, "gramophone": 0.03, "hero": 0.02, "po
 
 
 def sprite(images: Path, spec: dict, kind: str, out: Path, rel: str) -> dict:
-    rgba = key_magenta(load_rgb(source(images, spec["src"])), **spec.get("key", {}))
+    rgb = load_rgb(source(images, spec["src"]))
+    if spec.get("crop"):                         # [x0, y0, x1, y1] in the source's pixels, before keying
+        x0, y0, x1, y1 = spec["crop"]
+        rgb = rgb[y0:y1, x0:x1]
+    rgba = key_magenta(rgb, **spec.get("key", {}))
     if spec.get("pick"):                         # [index, count]: one figure of a sheet, counted from the left
         rgba[..., 3] = pick(rgba[..., 3], *spec["pick"])
     im = to_image(rgba)
@@ -310,7 +319,7 @@ def sprite(images: Path, spec: dict, kind: str, out: Path, rel: str) -> dict:
     im = im.crop(box)
     if spec.get("flip"):
         im = im.transpose(Image.FLIP_LEFT_RIGHT)
-    im = fit(im, h=spec.get("h"), w=spec.get("w"), side=spec.get("side"))
+    im = fit(im, h=spec.get("h"), w=spec.get("w"), side=spec.get("side"), scale=spec.get("scale"))
     n = save_webp(im, out / rel)
     rec = {"file": rel, "w": im.width, "h": im.height}
     if spec.get("slots_src"):                    # points given in the source image's pixels -> fractions of the sprite
@@ -348,6 +357,17 @@ def panel(images: Path, src: str, out: Path, rel: str, w: int = 828, h: int = 14
     im = im.crop((x0, y0, x0 + w, y0 + h))
     n = save_webp(im, out / rel)
     print(f"  {rel:28} {w:4}x{h:<4} {n / 1000:6.1f} KB")
+
+
+def sleeve(images: Path, src: str, out: Path, rel: str, size: int = 720) -> dict:
+    """A record sleeve: full-bleed and square, cover-cropped and resized."""
+    im = Image.open(source(images, src)).convert("RGB")
+    side = min(im.width, im.height)
+    x0, y0 = (im.width - side) // 2, (im.height - side) // 2
+    im = im.crop((x0, y0, x0 + side, y0 + side)).resize((size, size), Image.LANCZOS)
+    n = save_webp(im, out / rel, 80)
+    print(f"  {rel:28} {size:4}x{size:<4} {n / 1000:6.1f} KB")
+    return {"file": rel, "w": size, "h": size, "src": src}
 
 
 def build(plan: dict, out: Path, images: Path, only: set[str] | None) -> dict:
@@ -400,16 +420,47 @@ def build(plan: dict, out: Path, images: Path, only: set[str] | None) -> dict:
         for k, v in plan["hero"].items():
             if want(f"hero/{k}"):
                 hero[k] = sprite(images, v, "hero", out, f"hero/{k}.webp")
+                walk = [sprite(images, {"h": v.get("h"), **w}, "hero", out, f"hero/{k}-walk-{i + 1}.webp")
+                        for i, w in enumerate(v.get("walk", []))]
+                if walk:
+                    hero[k]["walk"] = walk
         mf["hero"] = hero
     if want("portal") and plan.get("portal"):
         mf["portal"] = sprite(images, plan["portal"], "portal", out, "portal.webp")
-    order = ["version", "ground", "path", "props", "machines", "gramophone", "artifacts", "hero", "portal"]
+    if want("title") and plan.get("title"):
+        mf["title"] = sprite(images, plan["title"], "title", out, "title.webp")
+    if "sleeves" in plan:
+        sl = mf.get("sleeves", {})
+        for k, v in plan["sleeves"].items():
+            if want(f"sleeves/{k}"):
+                sl[k] = sleeve(images, v["src"], out, f"sleeves/{k}.webp", v.get("size", 720))
+        mf["sleeves"] = {k: sl[k] for k in plan["sleeves"] if k in sl}
+    order = ["version", "ground", "path", "props", "machines", "gramophone", "artifacts", "hero", "portal", "title",
+             "sleeves"]
     mf = {k: mf[k] for k in order if k in mf}
     mf_path.write_text(json.dumps(mf, indent=1) + "\n")
     return mf
 
 
 # ---- contact sheet ------------------------------------------------------------------------------------------
+
+def sleeve_sheet(mf: dict, out: Path, dest: Path, cell: int = 300) -> None:
+    """The sleeves in a 9 x 3 grid, in order of their combination, each labelled."""
+    keys = sorted(mf.get("sleeves", {}))
+    cols, gap, lab = 9, 14, 18
+    rows = (len(keys) + cols - 1) // cols
+    canvas = Image.new("RGB", (cols * (cell + gap) + gap, rows * (cell + gap + lab) + gap), (128, 128, 128))
+    d = ImageDraw.Draw(canvas)
+    font = ImageFont.load_default(size=14)
+    for i, k in enumerate(keys):
+        x, y = gap + (i % cols) * (cell + gap), gap + (i // cols) * (cell + gap + lab)
+        im = Image.open(out / mf["sleeves"][k]["file"]).convert("RGB").resize((cell, cell), Image.LANCZOS)
+        canvas.paste(im, (x, y))
+        d.text((x, y + cell + 2), k, fill=(20, 20, 20), font=font)
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    canvas.save(dest)
+    print(f"sleeve sheet: {dest} ({canvas.width}x{canvas.height})")
+
 
 def sheet(mf: dict, out: Path, dest: Path, scale: float = 0.5) -> None:
     """Every asset at its on-screen size (half its file pixels) on mid-grey, with labels, and the ground tiled 2x2."""
@@ -427,6 +478,10 @@ def sheet(mf: dict, out: Path, dest: Path, scale: float = 0.5) -> None:
         add("portal", mf["portal"]["file"])
     for k, h in mf.get("hero", {}).items():
         add(f"hero {k}", h["file"])
+        for i, w in enumerate(h.get("walk", [])):
+            add(f"walk {i + 1}", w["file"])
+    if "title" in mf:
+        add("title", mf["title"]["file"])
     for p in mf.get("props", []):
         add(p["id"], p["file"])
     for k, a in mf.get("artifacts", {}).items():
@@ -488,7 +543,8 @@ def main() -> None:
     ap.add_argument("--images", type=Path, default=DEFAULT_IMAGES)
     ap.add_argument("--only", default="", help="comma list: ground, path, props, props/<id>, machines/<k>, hero, ...")
     ap.add_argument("--sheet", type=Path, help="also write a contact sheet PNG here")
-    ap.add_argument("--no-build", action="store_true", help="only the sheet, from the manifest as it is")
+    ap.add_argument("--sleeve-sheet", type=Path, help="also write a sheet of the sleeves here")
+    ap.add_argument("--no-build", action="store_true", help="only the sheets, from the manifest as it is")
     a = ap.parse_args()
     plan = json.loads(a.plan.read_text())
     out = (a.plan.parent / plan["out"]).resolve()
@@ -499,6 +555,8 @@ def main() -> None:
         mf = build(plan, out, a.images.expanduser(), only)
     if a.sheet:
         sheet(mf, out, a.sheet.expanduser())
+    if a.sleeve_sheet:
+        sleeve_sheet(mf, out, a.sleeve_sheet.expanduser())
 
 
 if __name__ == "__main__":
