@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0b0b0c">
+  <title>Wasteland Bench</title>
+  <link rel="stylesheet" href="../flow/juice/juice.css">
+  <link rel="stylesheet" href="world.css">
+  <style>
+    :root { --bg: #0b0b0c; --ink: #f2f1ee; --ink-3: #77777a; --line: rgb(255 255 255 / 0.14); color-scheme: dark; }
+    * { box-sizing: border-box; }
+    html { -webkit-text-size-adjust: 100%; overflow-x: hidden; }
+    body { margin: 0; min-height: 100dvh; background: var(--bg); color: var(--ink); font: 15px/1.4 -apple-system, system-ui, sans-serif; }
+    header { display: grid; grid-template-columns: 1fr 44px; align-items: center; gap: 12px; padding: calc(env(safe-area-inset-top) + 12px) 16px 12px; border-bottom: 1px solid var(--line); }
+    h1 { margin: 0; font-size: 17px; }
+    header p { margin: 2px 0 0; font-size: 12px; color: var(--ink-3); }
+    #mini { width: 44px; height: 44px; color: var(--ink); }
+    .controls { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; padding: 14px 16px; }
+    .row { display: flex; gap: 6px; }
+    select, button { min-height: 40px; border: 1px solid var(--line); background: none; color: var(--ink); font: inherit; border-radius: 0; min-width: 0; }
+    select { width: 100%; padding: 0 8px; -webkit-appearance: none; appearance: none; }
+    .row button { flex: 1; }
+    label.fill { display: flex; gap: 8px; align-items: center; font-size: 13px; color: var(--ink-3); }
+    #replay { border-color: #f1b64a; color: #f1b64a; font-weight: 600; }
+    .scrim { display: grid; place-items: center; padding: 8px 0 12px; }
+    #stage { position: relative; width: min(88vw, 60vh); height: min(88vw, 60vh); }
+    #bigbox { position: absolute; left: 50%; top: 50%; width: 96px; height: 96px; margin: -48px; border: 6px solid #f2f1ee; background: #f2f1ee; pointer-events: none; opacity: 0; }
+    #took { text-align: center; font-size: 12px; color: var(--ink-3); font-variant-numeric: tabular-nums; min-height: 1.4em; margin: 0 16px; }
+  </style>
+</head>
+<body>
+  <header>
+    <div><h1>Wasteland bench</h1><p>One commit on the map, as the splash will play it; the explore view; a find's card.</p></div>
+    <div id="mini" aria-label="The header glyph"></div>
+  </header>
+  <div class="controls">
+    <select id="item" aria-label="The item committed"></select>
+    <label class="fill"><input type="checkbox" id="fill"> Everything else in its step already cleared (the commit clears the step)</label>
+    <div class="row">
+      <button type="button" id="replay">Play the commit</button>
+      <button type="button" id="explore">Explore</button>
+      <button type="button" id="card">Its card</button>
+    </div>
+  </div>
+  <div class="scrim"><div id="stage"></div><div id="bigbox"></div></div>
+  <p id="took"></p>
+  <div id="host"></div>
+  <script type="module">
+    import * as W from './world.js';
+    import { FINDS, CACHES, findFor } from './finds.js';
+    import { openCard, openSignal } from './card.js';
+    import { loadTrack, onTap } from '../concepts/model.js';
+
+    const q = new URLSearchParams(location.search);
+    const $ = (id) => document.getElementById(id);
+    const data = await loadTrack();
+    const log = [];
+    const taken = new Set();
+
+    // the states the data gives (not this browser's checks), so the bench always starts from the same place
+    const base = () => new Set(data.steps.flatMap((s) => s.items.filter((it) => it.state === 'done').map((it) => `${s.id}.${it.id}`)));
+    function sets(key, fill) {
+      const [sid] = key.split('.');
+      const b = base();
+      if (fill) for (const it of data.steps.find((s) => s.id === sid).items) b.add(`${sid}.${it.id}`);
+      b.delete(key);
+      return { before: b, after: new Set([...b, key]) };
+    }
+    const find = (key) => {
+      const [sid, iid] = key.split('.');
+      const step = data.steps.find((s) => s.id === sid);
+      return { step, item: step.items.find((it) => it.id === iid) };
+    };
+    for (const s of data.steps) for (const it of s.items) {
+      const o = document.createElement('option');
+      o.value = `${s.id}.${it.id}`; o.textContent = `${s.n}.${s.items.indexOf(it) + 1} ${it.title}`;
+      $('item').append(o);
+    }
+    $('item').value = q.get('item') || 'kick.drive';
+    $('fill').checked = q.get('fill') === '1';
+
+    let busy = null;
+    async function run(key = $('item').value, fill = $('fill').checked) {
+      if (busy) await busy;
+      const { before, after } = sets(key, fill), { step, item } = find(key);
+      W.mini($('mini'), data, before);
+      $('took').textContent = '';
+      // the big checkbox the shell would leave in the middle of the stage: the room takes its place
+      const bb = $('bigbox'), st = $('stage').getBoundingClientRect();
+      bb.style.left = `${st.left + st.width / 2}px`; bb.style.top = `${st.top + st.height / 2 + scrollY}px`; bb.style.position = 'absolute';
+      bb.style.opacity = '1';
+      const from = bb.getBoundingClientRect();
+      const t0 = performance.now();
+      busy = W.play($('stage'), { data, before, after, step, item, reduced: q.get('reduced') === '1', from: q.get('from') === '0' ? null : from, taken });
+      bb.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 380, fill: 'forwards' }).finished.then(() => { bb.style.opacity = '0'; });
+      const res = await busy;
+      busy = null;
+      const ms = Math.round(performance.now() - t0);
+      const fresh = new Set(res.unlocked.map((u) => (u.cache ? u.step : u.key)));
+      W.mini($('mini'), data, after, { fresh });
+      $('took').textContent = `settled in ${ms} ms · unlocked: ${res.unlocked.map((u) => u.title).join(', ') || 'nothing'}`;
+      return { ms, unlocked: res.unlocked.map((u) => (u.cache ? `cache:${u.step}` : u.key)) };
+    }
+
+    let open = null;
+    const close = () => { open?.destroy(); open = null; };
+    function exploreView(done = base()) {
+      close();
+      open = W.explore($('host'), data, done, {
+        taken,
+        onFind: (f) => { log.push(['find', f.cache ? `cache:${f.step}` : f.key]); cardView(f.cache ? `cache:${f.step}` : f.key); },
+        onSignal: (f) => { log.push(['signal', f.key]); signalView(f.key); },
+        onClose: () => { log.push(['close']); close(); },
+      });
+      return open;
+    }
+    function cardView(key) {
+      const f = key.startsWith('cache:') ? CACHES[key.slice(6)] : findFor(key);
+      const prev = open;
+      const host = document.createElement('div'); document.body.append(host);
+      const c = openCard(host, f, {
+        data, taken: taken.has(f.key),
+        onTake: (on) => { log.push(['take', f.key, on]); on ? taken.add(f.key) : taken.delete(f.key); },
+        onWork: (k) => { log.push(['work', k]); },
+        onClose: () => { log.push(['close-card']); c.destroy(); host.remove(); if (prev?.refresh) prev.refresh(base(), { taken }); },
+      });
+      return c;
+    }
+    function signalView(key) {
+      const host = document.createElement('div'); document.body.append(host);
+      const c = openSignal(host, findFor(key), {
+        data,
+        onWork: (k) => { log.push(['work', k]); },
+        onClose: () => { log.push(['close-signal']); c.destroy(); host.remove(); },
+      });
+      return c;
+    }
+
+    onTap($('replay'), () => run());
+    onTap($('explore'), () => exploreView());
+    onTap($('card'), () => cardView($('item').value));
+    $('item').addEventListener('change', () => run());
+    $('fill').addEventListener('change', () => run());
+
+    // for the tests
+    window.__dev = {
+      data, W, FINDS, CACHES, sets, find, run, log, taken, base, exploreView, cardView, signalView,
+      norm: (markup) => { const d = document.createElement('div'); d.innerHTML = markup; return d.innerHTML; },
+      expected: (key, fill, which = 'after', fresh = []) => window.__dev.norm(W.render(data, sets(key, fill)[which], { fresh: new Set(fresh), taken })),
+    };
+    W.mini($('mini'), data, base());
+    $('stage').innerHTML = W.render(data, sets($('item').value, $('fill').checked).before);
+    if (q.get('explore') === '1') exploreView();
+    else if (q.get('card')) cardView(q.get('card'));
+    else if (q.get('auto') !== '0') run();
+  </script>
+</body>
+</html>

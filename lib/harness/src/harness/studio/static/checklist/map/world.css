@@ -1,0 +1,128 @@
+/* The Wasteland: the map's wider world (world.js), the full-screen explore view, and a find's card (card.js).
+   Ink on a dark ground, like the flow's juice objects (../flow/juice/juice.css, whose .jz-map classes it builds on),
+   with gold as the only accent: for what was just unlocked, the trails' breaches and the caches. */
+
+.wl {
+  --wl-ink: #f2f1ee; --wl-ink-2: #b9b8b4; --wl-ink-3: #77777a; --wl-gold: #f1b64a; --wl-ground: #0d0d0f;
+}
+
+/* ---- the drawing ---- */
+.wl .mp-ground { fill: #121214; }
+.wl .mp-fog-ground { fill: #1a1a1d; }
+.wl .wl-contour { fill: none; stroke: var(--wl-ink); stroke-opacity: 0.32; stroke-width: 0.8; stroke-dasharray: 0.6 2.6; stroke-linecap: round; }
+.wl .wl-rock { fill: var(--wl-ink); fill-opacity: 0.28; }
+.wl .wl-ruin { fill: none; stroke: var(--wl-ink); stroke-opacity: 0.5; stroke-width: 1.4; stroke-linecap: square; }
+.wl .wl-trail { fill: none; stroke: var(--wl-ink); stroke-opacity: 0.55; stroke-width: 1.2; stroke-dasharray: 3 3; stroke-linecap: round; }
+.wl .wl-trail.live { stroke: var(--wl-gold); stroke-opacity: 0.95; stroke-width: 1.6; }
+.wl .wl-breach { fill: var(--wl-gold); }
+.wl .mp-wall { stroke-opacity: 0.55; }
+.wl .wl-beyond { font-size: 8px; letter-spacing: 0.5em; fill: var(--wl-ink-3); text-anchor: middle; }
+.wl .mp-waste-label { font-size: 8px; letter-spacing: 0.5em; fill: var(--wl-ink-3); }
+
+.wl .wl-hit { fill: transparent; }
+.wl .wl-poi-bg { fill: #121214; stroke: var(--wl-ink); stroke-width: 1.3; }
+.wl .wl-g-line { fill: none; stroke: var(--wl-ink); stroke-width: 1.3; stroke-linecap: round; stroke-linejoin: round; }
+.wl .wl-g-fill { fill: var(--wl-ink); }
+.wl .wl-poi.fresh .wl-poi-bg { stroke: var(--wl-gold); stroke-width: 1.6; }
+.wl .wl-poi.fresh .wl-g-line { stroke: var(--wl-gold); }
+.wl .wl-poi.fresh .wl-g-fill { fill: var(--wl-gold); }
+.wl .wl-taken { fill: none; stroke: var(--wl-gold); stroke-width: 1.2; stroke-dasharray: 2 2; }
+.wl .wl-poi { cursor: pointer; }
+
+.wl .wl-sig-dot { fill: var(--wl-ink); fill-opacity: 0.45; }
+.wl .wl-sig-ring { fill: none; stroke: var(--wl-ink); stroke-opacity: 0.4; stroke-width: 0.8; transform-box: fill-box; transform-origin: center;
+  animation: wl-sig 2.4s cubic-bezier(.2, .8, .2, 1) infinite; }
+@keyframes wl-sig { 0% { transform: scale(0.3); opacity: 0.9; } 70%, 100% { transform: scale(1.6); opacity: 0; } }
+
+.wl .wl-cache.sealed polygon { fill: none; stroke: var(--wl-ink); stroke-opacity: 0.25; stroke-width: 1; stroke-dasharray: 1.5 2.5; }
+.wl .wl-cache-glow { fill: var(--wl-gold); fill-opacity: 0.12; }
+.wl .wl-cache-hex { fill: #121214; stroke: var(--wl-gold); stroke-width: 1.8; stroke-linejoin: round; }
+.wl .wl-cache-core { fill: var(--wl-gold); }
+
+.wl .wl-tag rect { fill: var(--wl-gold); }
+.wl .wl-tag text { font: 700 6.2px -apple-system, system-ui, sans-serif; letter-spacing: 0.08em; fill: #18120a; text-anchor: middle; }
+
+/* the header glyph */
+.jz-mini.wl .wl-mwall { fill: none; stroke: currentColor; stroke-opacity: 0.35; stroke-width: 6; }
+.jz-mini.wl .wl-mfind { fill: currentColor; }
+.jz-mini.wl .wl-mnew { fill: var(--wl-gold); animation: wl-new 1.6s ease-in-out infinite; }
+@keyframes wl-new { 50% { opacity: 0.35; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .wl .wl-sig-ring, .jz-mini.wl .wl-mnew { animation: none; }
+}
+
+/* ---- the explore view ---- */
+.wl-explore {
+  position: fixed; inset: 0; z-index: 40; display: grid; grid-template-rows: auto 1fr auto;
+  background: #0b0b0c; color: #f2f1ee; font: 15px/1.4 -apple-system, system-ui, 'Helvetica Neue', sans-serif;
+  -webkit-user-select: none; user-select: none;
+}
+.wl-x-top {
+  display: grid; grid-template-columns: 44px 1fr 44px; align-items: center; gap: 8px;
+  padding: calc(env(safe-area-inset-top) + 8px) 16px 8px; border-bottom: 1px solid rgb(255 255 255 / 0.12);
+}
+.wl-x-top button, .wl-c-top button { width: 44px; height: 44px; display: grid; place-items: center; background: none; border: 0; color: inherit; padding: 0; cursor: pointer; }
+.wl-x-back { margin-left: -10px; }
+.wl-x-top svg, .wl-c-top svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.wl-x-zoom { border: 1px solid rgb(255 255 255 / 0.2) !important; }
+.wl-x-zoom[aria-pressed='true'] { background: #f2f1ee !important; color: #0b0b0c !important; }
+.wl-x-title h2 { margin: 0; font-size: 18px; font-weight: 700; letter-spacing: 0.02em; }
+.wl-x-count { margin: 1px 0 0; font-size: 12px; color: #9a9a9d; font-variant-numeric: tabular-nums; }
+.wl-x-view { position: relative; overflow: hidden; touch-action: none; min-height: 0; }
+.wl-x-view > .jz { position: absolute; inset: 0; }
+.wl-x-view svg { width: 100%; height: 100%; }
+.wl-x-hint { margin: 0; padding: 10px 16px calc(env(safe-area-inset-bottom) + 12px); font-size: 12px; color: #77777a; text-align: center; }
+
+/* ---- a find's card ---- */
+.wl-card {
+  position: fixed; inset: 0; z-index: 45; display: grid; grid-template-rows: auto 1fr auto; overflow: hidden;
+  background: #0b0b0c; color: #f2f1ee; font: 16px/1.45 -apple-system, system-ui, 'Helvetica Neue', sans-serif;
+  -webkit-user-select: none; user-select: none;
+}
+.wl-c-top { display: flex; align-items: center; gap: 6px; padding: calc(env(safe-area-inset-top) + 8px) 16px 8px; }
+.wl-c-back { margin-left: -10px; }
+.wl-c-where { font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; color: #9a9a9d; }
+.wl-c-body { overflow-y: auto; padding: 8px 16px 20px; min-height: 0; }
+.wl-c-badge { display: flex; align-items: center; gap: 10px; font-size: 13px; color: #b9b8b4; }
+.wl-c-badge b { color: #f1b64a; font-weight: 700; letter-spacing: 0.04em; }
+.wl-c-glyph { width: 30px; height: 30px; padding: 6px; border: 1.5px solid #f1b64a; border-radius: 50%; box-sizing: content-box; flex: none; }
+.wl-c-glyph .ln { fill: none; stroke: #f1b64a; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.wl-c-glyph .fl { fill: #f1b64a; }
+.wl-c-title { margin: 18px 0 2px; font-size: 28px; line-height: 1.12; font-weight: 800; letter-spacing: -0.01em; }
+.wl-c-size { margin: 0 0 14px; font: 500 13px ui-monospace, 'SF Mono', Menlo, monospace; color: #9a9a9d; }
+.wl-c-what { margin: 0 0 8px; font-size: 17px; color: #e6e5e1; }
+.wl-c-why { margin: 0 0 18px; font-size: 14px; color: #9a9a9d; font-style: italic; }
+.wl-c-why span { font-style: normal; }
+.wl-c-player { display: grid; grid-template-columns: 48px 1fr; grid-template-rows: auto auto; gap: 4px 12px; align-items: center;
+  padding: 12px; border: 1px solid rgb(255 255 255 / 0.14); }
+.wl-c-play { grid-row: 1 / 3; width: 48px; height: 48px; display: grid; place-items: center; border-radius: 50%; border: 0; background: #f2f1ee; color: #0b0b0c; cursor: pointer; }
+.wl-c-play svg { width: 22px; height: 22px; fill: currentColor; }
+.wl-c-wave { width: 100%; height: 44px; display: block; }
+.wl-c-wave rect { fill: #f2f1ee; fill-opacity: 0.55; }
+.wl-c-wave .wl-c-head { fill: #f1b64a; fill-opacity: 1; }
+.wl-c-mock { font: 500 11px ui-monospace, 'SF Mono', Menlo, monospace; color: #77777a; }
+.wl-c-uses h2 { margin: 22px 0 6px; font-size: 12px; letter-spacing: 0.12em; text-transform: uppercase; color: #9a9a9d; font-weight: 700; }
+.wl-c-uses ul { list-style: none; margin: 0; padding: 0; }
+.wl-c-use { width: 100%; display: grid; grid-template-columns: 34px 1fr 18px; gap: 8px; align-items: center; min-height: 48px; padding: 8px 0;
+  border: 0; border-bottom: 1px solid rgb(255 255 255 / 0.12); background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.wl-c-use b { font-weight: 700; color: #b9b8b4; }
+.wl-c-use svg { width: 16px; height: 16px; fill: none; stroke: #77777a; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.wl-c-foot { display: grid; gap: 8px; padding: 12px 16px calc(env(safe-area-inset-bottom) + 14px); border-top: 1px solid rgb(255 255 255 / 0.12); }
+.wl-c-take, .wl-c-work {
+  display: flex; align-items: center; justify-content: center; gap: 10px; min-height: 56px; border: 0; border-radius: 0;
+  background: #f1b64a; color: #18120a; font: 700 17px -apple-system, system-ui, sans-serif; cursor: pointer;
+}
+.wl-c-take svg, .wl-c-work svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
+.wl-c-take[aria-pressed='true'] { background: none; color: #f1b64a; box-shadow: inset 0 0 0 2px #f1b64a; }
+.wl-c-pass { min-height: 44px; border: 0; background: none; color: #9a9a9d; font: 15px -apple-system, system-ui, sans-serif; cursor: pointer; }
+
+/* a signal: something out there, its title hidden */
+.wl-card.signal .wl-c-body { display: grid; align-content: center; justify-items: center; text-align: center; }
+.wl-card.signal .wl-c-title { margin-top: 26px; }
+.wl-c-blip { position: relative; width: 120px; height: 120px; }
+.wl-c-blip b { position: absolute; left: 50%; top: 50%; width: 12px; height: 12px; margin: -6px; border-radius: 50%; background: #f2f1ee; opacity: 0.7; }
+.wl-c-blip i { position: absolute; inset: 0; border-radius: 50%; border: 1.5px solid #f2f1ee; opacity: 0; animation: wl-blip 2.4s cubic-bezier(.2, .8, .2, 1) infinite; }
+.wl-c-blip i + i { animation-delay: 1.2s; }
+@keyframes wl-blip { 0% { transform: scale(0.1); opacity: 0.8; } 80%, 100% { transform: scale(1); opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .wl-c-blip i { animation: none; opacity: 0.3; } }

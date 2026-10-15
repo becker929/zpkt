@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#ffffff">
+  <title>Checklist Map</title>
+  <link rel="stylesheet" href="map.css">
+  <link rel="stylesheet" href="../flow/widgets.css">
+  <link rel="stylesheet" href="../flow/juice/juice.css">
+  <link rel="stylesheet" href="world.css">
+  <link rel="stylesheet" href="sounds.css">
+</head>
+<body>
+  <label class="haptic" aria-hidden="true"><input type="checkbox" switch tabindex="-1"></label>
+  <div id="app">
+    <header class="top">
+      <a class="back" href="../" aria-label="Back to the checklist">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>
+      </a>
+      <div class="title">
+        <h1 id="track">HW002</h1>
+        <p>The ledger · a mock-up</p>
+      </div>
+      <button type="button" class="snd" id="snd" aria-label="Check sound">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9h4l5-4v14l-5-4H4z"/><path class="w" d="M16.5 8.5a5 5 0 0 1 0 7M19 6a8.5 8.5 0 0 1 0 12"/><path class="x" d="M16 9l6 6M22 9l-6 6"/></svg>
+      </button>
+      <button type="button" class="mini" id="mini" aria-label="Open The Wasteland"><span class="fresh" id="fresh"></span></button>
+    </header>
+    <div class="ledger-total"><b id="total-n">0</b><span>of <span id="total-of">0</span> settled</span><span class="found" id="found"></span></div>
+    <main id="steps"></main>
+    <footer class="foot">
+      <p>Tap an item to work on it (a mocked studio surface). Commit there, or tap its box. A check is written into
+        the ledger: hold a checked box to reopen it. Every check reveals a find in The Wasteland; tap the map to go
+        out there. Nothing is locked: you can release whenever you like.</p>
+      <button type="button" id="reset">Reset the checks</button>
+    </footer>
+  </div>
+  <section class="widget-host" id="widget" aria-hidden="true"></section>
+  <section class="layer" id="explore" aria-hidden="true"></section>
+  <section class="layer" id="card" aria-hidden="true"></section>
+  <section class="splash" id="splash" aria-hidden="true">
+    <div class="stage" id="stage"></div>
+    <div class="caption" id="caption">
+      <b id="cap-step"></b><span id="cap-item"></span><span id="cap-n"></span>
+      <p class="unlock" id="unlock"></p>
+    </div>
+    <div class="cont" id="cont">
+      <button type="button" class="see" id="see">See the find</button>
+      <button type="button" class="go-on" id="go-on">Continue</button>
+    </div>
+  </section>
+  <div class="fx" id="fx" aria-hidden="true"><canvas id="particles"></canvas></div>
+  <section class="sheet" id="sheet" aria-hidden="true">
+    <div class="sheet-card">
+      <header><b>Check sound</b><button type="button" id="sheet-close">Done</button></header>
+      <div id="picker"></div>
+    </div>
+  </section>
+  <div class="toast" id="toast" role="status"></div>
+  <script type="module" src="map.js"></script>
+</body>
+</html>

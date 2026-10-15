@@ -118,12 +118,33 @@ its row, the box checks with its own juice (a ghost check slams down from big to
 under the box, a shake, a click: `flow/sound.js`, an interface sound), and the juice object (crystal, repair or map,
 `flow/juice/`) comes over the screen in a splash, plays the change and settles into the header as the track's
 progress.
+
 - **A tweaks panel** on a tab at the right edge changes how the page is built, live, kept in the browser: the current
   objective as a panel, a strip in the header (the default), a line in the header, the gems alone, or off; the gems;
   a tap opening the sub-list below or on a page of its own; a studio button on each row; the path line; the fog;
   clearing effects (full, subtle, off); the hold time; density; corner brackets.
 - Every control acts on the touch itself (`onTap` in `tweaks.js`): iPhone WebKit can swallow the click after a touch
   when it thinks the page changed under the finger, and this page always animates.
+
+### The map round: a heavy ledger, and The Wasteland unlocked (14 October 2026)
+
+The map won the flow round, so the next demos are the map only. `/studio/checklist/map/`:
+
+- **The checklist is a ledger.** Big square boxes with thick walls stand proud of the page; a checked one is solid,
+  pressed into the page and dated ("Settled · 14 OCT 21:04"). A tap on a checked box only knocks; holding it reopens
+  the item. Entries are numbered, steps ruled, with a tally of squares under each.
+- **The check is slow and heavy** (`map/check.js`). The box lifts out of its row to the middle of the screen, big; a
+  ghost check hangs over it and slams down; on contact everything holds for a beat, then sparks, chips and dust burst
+  and settle, white comes out from under the box, rings go out, the screen shakes and an impact mark stays. Nothing
+  springs back. The sound is a choice of low clunks and snaps (`map/sounds.js`, an interface sound).
+- **The box becomes its room.** The map starts zoomed so the item's room sits exactly where the big box was, reveals
+  it, then follows the trail out through the region's wall into The Wasteland to the item's find (`map/world.js`).
+  Clearing a step opens its whole zone and its cache.
+- **Finds are things to use** (`map/finds.js`, all mocked): each item leads to one find from the library or the
+  agents' work (raw, collaged, processed, made whole cloth, learned), relevant to that item. A find's card says what
+  it is, where it came from, why it surfaced and where it can be used; taken into the track, it shows up in those
+  items' widgets ("From your crate"). Unrevealed finds show as signals through the fog: they entice, and nothing waits
+  on them.
 
 ## The reference space
 
