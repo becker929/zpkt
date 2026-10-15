@@ -1,0 +1,32 @@
+{
+  "anvil": {
+    "hit": "anvil-hit-c242b349.m4a",
+    "strong": "anvil-strong-28259d98.m4a",
+    "land": "anvil-land-f1d2324b.m4a"
+  },
+  "vault": {
+    "hit": "vault-hit-0b3cf6f9.m4a",
+    "strong": "vault-strong-f6713cf0.m4a",
+    "land": "vault-land-f0a993d5.m4a"
+  },
+  "crack": {
+    "hit": "crack-hit-55c2d2f5.m4a",
+    "strong": "crack-strong-05066788.m4a",
+    "land": "crack-land-ed9c1a58.m4a"
+  },
+  "slam": {
+    "hit": "slam-hit-29a78bd6.m4a",
+    "strong": "slam-strong-7bbf59bb.m4a",
+    "land": "slam-land-d392cfec.m4a"
+  },
+  "block": {
+    "hit": "block-hit-def12843.m4a",
+    "strong": "block-strong-54287b55.m4a",
+    "land": "block-land-50218ba0.m4a"
+  },
+  "thunder": {
+    "hit": "thunder-hit-edddc826.m4a",
+    "strong": "thunder-strong-8d612bb6.m4a",
+    "land": "thunder-land-2b6d542f.m4a"
+  }
+}

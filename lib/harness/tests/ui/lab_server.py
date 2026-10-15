@@ -20,6 +20,8 @@ from harness.studio.lab_audio import default_out
 class _Cfg:
     def __init__(self, audio: Path):
         self.lab_audio = audio
+        self.site = "https://anthonybecker.me"                       # the check sounds come from R2 through it
+        self.check_sounds = Path(audio) / "check-sounds"
 
 
 class _Studio:
@@ -34,6 +36,7 @@ def app(audio: Path | None = None) -> web.Application:
     sub.router.add_get("/lab/audio/{name}", routes.lab_audio)
     sub.router.add_get("/lab/{path:.*}", routes.lab_file)
     sub.router.add_get("/checklist", routes.checklist_slash)
+    sub.router.add_get("/checklist/map/sounds/{name}", routes.check_sound)
     sub.router.add_get("/checklist/{path:.*}", routes.checklist_file)
     root = web.Application()
     root.add_subapp("/studio", sub)

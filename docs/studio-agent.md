@@ -136,7 +136,9 @@ The map won the flow round, so the next demos are the map only. `/studio/checkli
 - **The check is slow and heavy** (`map/check.js`). The box lifts out of its row to the middle of the screen, big; a
   ghost check hangs over it and slams down; on contact everything holds for a beat, then sparks, chips and dust burst
   and settle, white comes out from under the box, rings go out, the screen shakes and an impact mark stays. Nothing
-  springs back. The sound is a choice of low clunks and snaps (`map/sounds.js`, an interface sound).
+  springs back. The sound is one of six layered hits rendered in Live (a low body, a click, a splash, with delay,
+  distortion and compression), each with a heavier version for a finished step and a soft knock for the landing
+  (`map/sounds.js`; the recipe is `hands/scripts/ui_sounds/`, the files are in R2).
 - **The box becomes its room.** The map starts zoomed so the item's room sits exactly where the big box was, reveals
   it, then follows the trail out through the region's wall into The Wasteland to the item's find (`map/world.js`).
   Clearing a step opens its whole zone and its cache.

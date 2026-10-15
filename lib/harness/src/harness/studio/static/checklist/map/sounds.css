@@ -25,3 +25,11 @@
 .sp-row b { font-size: 17px; line-height: 1.2; }
 .sp-row span { font-size: 13px; color: var(--sp-ink-3); }
 .sp.off .sp-list { opacity: 0.45; }
+.sp-note { margin: 10px 0 2px; font-size: 13px; color: var(--sp-ink-3); }
+.sp-item { border-bottom: 1px solid var(--sp-line); padding-bottom: 10px; }
+.sp-item .sp-row { border-bottom: 0; }
+.sp-alts { display: flex; gap: 8px; padding-left: 40px; }
+.sp .sp-alt {
+  min-height: 36px; padding: 0 12px; border: 1.5px solid var(--sp-ink); font-size: 13px; font-weight: 600; text-align: center;
+}
+.sp .sp-alt:active { background: var(--sp-ink); color: var(--sp-bg); }

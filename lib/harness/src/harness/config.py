@@ -81,6 +81,8 @@ class Config:
     steps_port: int = int(os.environ.get("HARNESS_STEPS_PORT", "8788"))
     # The lab (/studio/lab/): HW002's stems and clips as the phone plays them, built by `harness lab-audio`.
     lab_audio: Path = Path(os.environ.get("HARNESS_LAB_AUDIO", Path.home() / "_agent_scratch" / "lab" / "audio"))
+    # The map checklist's check sounds: kept in R2 (audio never goes in git), copied here on first use.
+    check_sounds: Path = Path(os.environ.get("HARNESS_CHECK_SOUNDS", Path.home() / "_agent_scratch" / "studio" / "check-sounds"))
 
     @property
     def app_url(self) -> str:
