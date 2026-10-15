@@ -1,5 +1,6 @@
-"""A stand-in server for the lab (/studio/lab/) and the checklist (/studio/checklist/): their files, their audio and
-the artist agent's API (with a store of its own, and the rule-based quick question), no login, no studio.
+"""A stand-in server for the lab (/studio/lab/) and the checklist (/studio/checklist/): their files, their audio, the
+artist agent's API (with a store of its own, and the rule-based quick question) and the regions' state and renders,
+no login, no studio.
 
     uv run --extra dev python tests/ui/lab_server.py [--port 8799] [--audio DIR]
 
@@ -16,6 +17,7 @@ from aiohttp import web
 
 from harness.studio import routes
 from harness.studio.artist import SEED, Artist
+from harness.studio.regions import RegionStore
 from harness.studio.lab_audio import default_out
 
 
@@ -26,6 +28,7 @@ class _Cfg:
         self.check_sounds = Path(audio) / "check-sounds"
         self.site_audio = Path(audio) / "site-audio"
         self.images_dir = Path(audio) / "images"                    # the images' wall (harness.images)
+        self.regions_audio = Path(audio) / "regions"                # <region>/audio/<file>: the regions' renders
 
 
 class _Studio:
@@ -33,6 +36,7 @@ class _Studio:
         self.cfg = _Cfg(audio)
         self.artist = Artist(Path(audio) / "artist", SEED)
         self.artist_model = None                                     # the quick question comes from the rules
+        self.regions = RegionStore(Path(audio) / "regions")          # the regions' state, beside their renders
 
 
 def app(audio: Path | None = None) -> web.Application:
@@ -46,6 +50,7 @@ def app(audio: Path | None = None) -> web.Application:
     sub.router.add_get("/checklist/{path:.*}", routes.checklist_file)
     sub.router.add_get("/site-audio/{path:.+}", routes.site_audio)
     routes.add_artist_routes(sub)
+    routes.add_region_routes(sub)
     routes.add_image_routes(sub)
     root = web.Application()
     root.add_subapp("/studio", sub)

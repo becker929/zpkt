@@ -88,6 +88,8 @@ class Config:
     site_audio: Path = Path(os.environ.get("HARNESS_SITE_AUDIO", Path.home() / "_agent_scratch" / "studio" / "site-audio"))
     # Every image made with Gemini, with its record (harness.images, docs/images.md); shown at /studio/images/.
     images_dir: Path = Path(os.environ.get("HARNESS_IMAGES", Path.home() / "_agent_scratch" / "studio" / "images"))
+    # The regions' renders (docs/rummage.md): <regions_audio>/<region>/audio/<file>, made in Live, never in git.
+    regions_audio: Path = Path(os.environ.get("HARNESS_REGIONS_AUDIO", Path.home() / "_agent_scratch" / "studio" / "regions"))
 
     @property
     def app_url(self) -> str:
