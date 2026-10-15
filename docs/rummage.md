@@ -77,6 +77,57 @@ Nothing is locked, in the spirit of the spine (`docs/studio-agent.md`): any mach
   "combos": { "1-1-1": { "file": "sh001-1-1-1-<hash8>.m4a", "lufs": -13.8, "gain_db": -0.6 }, ... } }
 ```
 
+## Music (as made)
+
+The music agent's account of SH001 as rendered (15 October 2026). The recipe is `hands/scripts/rummage/` (README,
+`parts.py` for the music, `make.py` for the steps, `liveops.py` for Live).
+
+- **118 BPM, 4/4, 32 bars = 65.085 s, D minor with a dorian colour.** Two bars a chord: Dm9, G9, Bbmaj7, A7sus4 to
+  A7, three times; the last time round turns home: Dm9, G9, Bbmaj7, D(add9). One tune over the eight-bar cycle (A, A,
+  a higher answering phrase over the full groove, then A turning home), the same in every bed, so any bed sits with
+  any drums and any bass.
+- **Arrangement:** bars 1-8 the bed alone (it swells in over the first four bars); 9-12 kick and hats; 13-16 the whole
+  kit, a fill at 16; 17-28 the bass and the full groove (extra percussion, fills at 24 and 28); 29-32 the outro: one
+  last hit, the bass holds Bb then D, the bed rings out on D(add9). A shared track of found sounds marks the seams in
+  every combo: a cassette going in at the start, a radio tuning in over bars 7-8, a noise riser and a broken box into
+  bar 17, a dropped thing and vinyl run-out crackle at 29.
+- **The options** (all Live 12 Suite Core Library; the Lost and Found pack is not installed on this Mac):
+
+| Part | Option | What it is |
+|---|---|---|
+| bed 1 | Music box & hiss | Music Box picks out the tune over its own eighth-note arpeggio, through Chorus-Ensemble, over a looping tape-noise sample |
+| bed 2 | Parlour upright | Childhood Home Piano in a lopsided, syncopated comp; Toy Piano Bells on the tune an octave up, detuned by a chorus |
+| bed 3 | Branches & tin bowl | Tree Branches (a pad of rustling branches) holds the chords; Tin Bowl sings the tune at half speed |
+| drums 1 | Tin-can break | Rattle Kit: a broken beat of slaps, a wooden box, buzzing tin, a cracked cowbell |
+| drums 2 | Clockwork four | Clockwork Kit: four on the floor, a clanking off-beat, a ticking clock |
+| drums 3 | Cutlery shuffle | Perc Kitchen Kit (spoons, knives, pans, glass) in triplets over a Kick Wood sample |
+| bass 1 | Round sub | Sub Mellow through Saturator's Bass Shaper, long notes on the roots |
+| bass 2 | Rubber band | Tension Rubber Bass, plucked and skipping around the beat |
+| bass 3 | Bowed gut | Cat Gut Bass, roughened by a hard-curve Saturator, gliding through the changes |
+
+- **Mix:** each option balanced alone through Main (its own render, measured: options within about 1.5 LU of each
+  other), then Main: EQ Eight high-pass at 32 Hz, Glue Compressor (2:1 at -12 dB, 10 ms, auto release), Limiter
+  (True Peak, ceiling -1.8 dB). The 27 renders land at -14.5 to -14.1 LUFS integrated, true peaks -1.4 dBTP or lower;
+  `gain_db` (+0.1 to +0.5) brings each to -14.
+- **Rendering:** every combo is the same set with only the nine option tracks' mutes changed, exported through Live's
+  own Export dialog: 32 bars, 24-bit WAV, about 18 s each, the 27 in 8.5 minutes; all 27 are 2,870,238 samples. Each
+  WAV is checked (length to 10 ms, not silent), measured with ffmpeg's EBU R128 meter and encoded with Apple's AAC
+  encoder at 192 kb/s; each .m4a is checked again (length, loudness within 0.3 LU of its WAV) before any is added.
+  New renders are added beside the old ones in the audio folder (the names carry a content hash) and never replace a
+  file an audio.json names.
+- **Rounds:** v1 (commit 3207db2) the first 27; v2 the seams track, humanizing, the beds' swell, a rebalance (the
+  27 within 0.5 LU before the match); v3 the answering phrase in bars 17-24; v4 bed 1's tape hiss raised 19 dB (at
+  -61 dBFS it was inaudible; now about 20 dB under the music box), the nine bed-1 combos re-rendered; v5 the ending
+  (the last notes let go in time for their tails to die inside bar 32: bed 3 had ended at -21 dBFS on the last
+  sample, now -67; the hiss and the run-out crackle fade out) and the bowed bass passing Bb-G-A. Probing and
+  listening stand-ins: spectrograms, band shares and per-bar chroma against the chords (the beds put 83-93 % of their
+  pitched energy on chord tones), since the agent cannot hear the renders.
+- **Gotchas:** two macOS permission prompts sat over Live all night and took every keystroke, so hands' export
+  script could not type; `liveops.py` exports and saves through the menu bar and accessibility only (see its
+  docstring). Live keeps one note per pitch and start (duplicates are dropped before writing). Selecting Main by LOM
+  can silently fail right after a view change, and a device load then lands on another track (the selection is now
+  read back). The LOM cannot write automation into arrangement clips, so the beds' swell is in their velocities.
+
 ## Art
 
 - **Style:** collage, bric-a-brac, faux multi-material. Cut-outs with a thin white paper edge, mixed textures (wood

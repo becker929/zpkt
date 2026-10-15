@@ -26,8 +26,8 @@ import time
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
-import liveops as L  # noqa: E402  (sets the rig environment before hands is imported)
-import parts as P  # noqa: E402
+import liveops as L  # sets the rig environment before hands is imported
+import parts as P
 
 ROOT = Path(__file__).resolve().parents[3]
 MANIFEST = ROOT / "lib/harness/src/harness/studio/static/checklist/rummage/audio.json"
@@ -55,7 +55,7 @@ def build_tracks() -> None:
             sys.exit(f"STOP: track {i} {name!r} is an audio track; build from a new set or a set of MIDI tracks")
     while len(L.run("result = [t.name for t in song.tracks]")) < len(NAMES):
         L.run("song.create_midi_track(-1)\nresult = 'ok'")
-    L.run("for i, n in enumerate(%r):\n    song.tracks[i].name = n\nresult = 'ok'" % NAMES)
+    L.run(f"for i, n in enumerate({NAMES!r}):\n    song.tracks[i].name = n\nresult = 'ok'")
     got = L.run("result = ([t.name for t in song.tracks], song.tempo)")
     if got[0][:len(NAMES)] != NAMES or abs(got[1] - P.BPM) > 1e-6:
         sys.exit(f"STOP: tracks {got}")
@@ -216,7 +216,7 @@ def check(path: Path) -> dict:
 def loudness(path: Path) -> dict:
     """Integrated loudness (LUFS), loudness range and true peak, from ffmpeg's EBU R128 meter."""
     run = subprocess.run(["ffmpeg", "-hide_banner", "-nostats", "-i", str(path), "-af", "ebur128=peak=true",
-                          "-f", "null", "-"], capture_output=True, text=True)
+                          "-f", "null", "-"], check=False, capture_output=True, text=True)
     tail = run.stderr[run.stderr.rfind("Summary:"):]
     val = {}
     for line in tail.splitlines():
@@ -240,23 +240,32 @@ def measure(paths) -> list[dict]:
 
 
 def encode() -> None:
+    """Encode every combo, verify each .m4a (decodes, the right length, its loudness close to the WAV's), add it to
+    WEB beside the earlier ones (names carry a content hash; the files a published audio.json names are never
+    deleted or overwritten), and only then write audio.json."""
     WEB.mkdir(parents=True, exist_ok=True)
-    combos = {}
+    work = RENDERS / "m4a"
+    work.mkdir(parents=True, exist_ok=True)
+    combos, ready = {}, []
     for c in P.combos():
         wav = RENDERS / f"sh001-{combo_name(c)}.wav"
         (row,) = measure([wav])
-        tmp = WEB / f"sh001-{combo_name(c)}.tmp.m4a"
+        tmp = work / f"sh001-{combo_name(c)}.m4a"
         tmp.unlink(missing_ok=True)
         subprocess.run(["ffmpeg", "-v", "error", "-y", "-i", str(wav), "-c:a", "aac_at", "-b:a", "192k", "-ar", "44100",
                         "-movflags", "+faststart", str(tmp)], check=True)
+        got = loudness(tmp)
+        dur = float(subprocess.run(["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0",
+                                    str(tmp)], capture_output=True, text=True, check=True).stdout)
+        if abs(dur - SECONDS) > 0.05 or abs(got["lufs"] - row["lufs"]) > 0.3 or got.get("true_peak", 0) > -0.5:
+            sys.exit(f"STOP: {tmp.name} does not verify: {dur:.3f} s, {got} against {row['lufs']} LUFS")
         h = hashlib.sha256(tmp.read_bytes()).hexdigest()[:8]
-        named = WEB / f"sh001-{combo_name(c)}-{h}.m4a"
-        for stale in WEB.glob(f"sh001-{combo_name(c)}-*.m4a"):
-            if stale != named:
-                stale.unlink()
-        tmp.replace(named)
+        ready.append((tmp, WEB / f"sh001-{combo_name(c)}-{h}.m4a"))
         gain = max(-6.0, min(6.0, -14.0 - row["lufs"]))
-        combos[combo_name(c)] = {"file": named.name, "lufs": round(row["lufs"], 1), "gain_db": round(gain, 1)}
+        combos[combo_name(c)] = {"file": ready[-1][1].name, "lufs": round(row["lufs"], 1), "gain_db": round(gain, 1)}
+    for tmp, named in ready:                       # all 27 verified: add them (never replace an existing file)
+        if not named.exists():
+            tmp.replace(named)
     manifest = {"track": "sh001", "bpm": P.BPM, "bars": P.BARS, "seconds": round(SECONDS, 3), "sample_rate": 44100,
                 "parts": P.OPTIONS, "combos": combos}
     MANIFEST.parent.mkdir(parents=True, exist_ok=True)
