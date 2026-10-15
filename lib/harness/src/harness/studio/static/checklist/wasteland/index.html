@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#000000">
+  <title>The Wasteland</title>
+  <link rel="stylesheet" href="wasteland.css">
+  <link rel="stylesheet" href="../map/feedback.css">
+</head>
+<body>
+  <label class="haptic" aria-hidden="true"><input type="checkbox" switch tabindex="-1"></label>
+  <canvas id="game" aria-label="The Wasteland: drag to walk, or tap a spot to walk there"></canvas>
+  <div id="labels" aria-live="polite"></div>
+  <div id="ring" aria-hidden="true"><i></i></div>
+  <header class="top">
+    <a class="back" href="../map/" aria-label="Back to the ledger">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>
+    </a>
+    <p class="where">HW002 · The Wasteland</p>
+  </header>
+  <div class="title" id="title" aria-hidden="true"><b>The Wasteland</b><span>HW002</span></div>
+  <p class="hint" id="hint">Drag anywhere to walk · tap a spot to go there</p>
+  <script type="module" src="main.js"></script>
+</body>
+</html>
