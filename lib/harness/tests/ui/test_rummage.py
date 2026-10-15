@@ -73,7 +73,7 @@ def _real(errors: list[str]) -> list[str]:
     return [e for e in errors if not e.startswith("Failed to load resource")]
 
 
-async def _open(browser, site, q="", *, music=True, fresh=True, api=True):
+async def _open(browser, site, q="", *, music=True, fresh=True, api=True, art=True):
     context = await browser.new_context(**IPHONE_15)
     await context.add_init_script(MUTE)
     await context.add_init_script(NO_SOUNDS)
@@ -82,6 +82,8 @@ async def _open(browser, site, q="", *, music=True, fresh=True, api=True):
         await context.route("**/rummage/audio.json*", lambda r: r.fulfill(status=200, content_type="application/json", body=body))
     if not api:
         await context.route("**/api/regions/rummage/state", lambda r: r.fulfill(status=404, body="no region API"))
+    if not art:
+        await context.route("**/rummage/art/**", lambda r: r.fulfill(status=404, body="no art"))
     page = await context.new_page()
     errors: list[str] = []
     page.on("console", lambda m: errors.append(m.text) if m.type == "error" else None)
@@ -264,10 +266,14 @@ async def test_one_at_a_time_and_the_stand_in_machine(webkit, site):
     assert not _real(errors), errors
 
 
-async def test_without_the_region_api_this_browser_keeps_it(webkit, site):
-    page, errors = await _open(webkit, site, "?stub", music=False, api=False)
+async def test_without_the_api_the_art_or_the_music_it_still_plays(webkit, site):
+    """Software and art land in either order: with no art pack the things are cut-paper placeholders of the same
+    sizes, with no renders there is no player, and with no region API this browser keeps the state."""
+    page, errors = await _open(webkit, site, "?stub", music=False, api=False, art=False)
     assert await page.evaluate("__rummage.flow.mode") == "local"
     assert await page.evaluate("__rummage.player") is None                        # no renders: no player
+    assert await page.evaluate("Object.keys(__rummage.art.manifest).length") == 0
+    assert await page.evaluate("__rummage.R.things.length") > 60
     await _go(page, "bed")
     await page.tap("#act")
     await page.wait_for_selector(".sm.show .sm-opt")
