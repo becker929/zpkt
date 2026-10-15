@@ -1,0 +1,535 @@
+{
+ "version": 1,
+ "ground": [
+  {
+   "id": "ground-a",
+   "file": "ground-a.webp",
+   "w": 1024,
+   "h": 1024,
+   "src": "20261015-061502-67bf98"
+  },
+  {
+   "id": "ground-b",
+   "file": "ground-b.webp",
+   "w": 1024,
+   "h": 1024,
+   "src": "20261015-061504-866791"
+  },
+  {
+   "id": "ground-c",
+   "file": "ground-c.webp",
+   "w": 1024,
+   "h": 1024,
+   "src": "20261015-061504-29b68f"
+  }
+ ],
+ "path": {
+  "file": "path.webp",
+  "w": 512,
+  "h": 181,
+  "src": "20261015-061505-1cb165"
+ },
+ "props": [
+  {
+   "id": "radio",
+   "file": "props/radio.webp",
+   "w": 247,
+   "h": 230,
+   "anchor": [
+    0.542,
+    0.961
+   ],
+   "foot": 0.379,
+   "src": "20261015-061249-5ff413"
+  },
+  {
+   "id": "teapot",
+   "file": "props/teapot.webp",
+   "w": 255,
+   "h": 200,
+   "anchor": [
+    0.508,
+    0.96
+   ],
+   "foot": 0.333,
+   "src": "20261015-061251-b62bcb"
+  },
+  {
+   "id": "tin-cans",
+   "file": "props/tin-cans.webp",
+   "w": 189,
+   "h": 240,
+   "anchor": [
+    0.499,
+    0.961
+   ],
+   "foot": 0.396,
+   "src": "20261015-061251-80e949"
+  },
+  {
+   "id": "cassettes",
+   "file": "props/cassettes.webp",
+   "w": 212,
+   "h": 200,
+   "anchor": [
+    0.51,
+    0.96
+   ],
+   "foot": 0.396,
+   "src": "20261015-061251-08b718"
+  },
+  {
+   "id": "bicycle-wheel",
+   "file": "props/bicycle-wheel.webp",
+   "w": 224,
+   "h": 280,
+   "anchor": [
+    0.475,
+    0.961
+   ],
+   "foot": 0.388,
+   "src": "20261015-061251-1b1544"
+  },
+  {
+   "id": "floor-lamp",
+   "file": "props/floor-lamp.webp",
+   "w": 131,
+   "h": 360,
+   "anchor": [
+    0.523,
+    0.962
+   ],
+   "foot": 0.28,
+   "src": "20261015-061829-398fda"
+  },
+  {
+   "id": "birdcage",
+   "file": "props/birdcage.webp",
+   "w": 168,
+   "h": 300,
+   "anchor": [
+    0.501,
+    0.962
+   ],
+   "foot": 0.395,
+   "src": "20261015-061251-196697"
+  },
+  {
+   "id": "fern",
+   "file": "props/fern.webp",
+   "w": 221,
+   "h": 260,
+   "anchor": [
+    0.483,
+    0.961
+   ],
+   "foot": 0.362,
+   "src": "20261015-061307-8dd635"
+  },
+  {
+   "id": "books",
+   "file": "props/books.webp",
+   "w": 204,
+   "h": 280,
+   "anchor": [
+    0.474,
+    0.961
+   ],
+   "foot": 0.365,
+   "src": "20261015-061306-08e4c1"
+  },
+  {
+   "id": "mantel-clock",
+   "file": "props/mantel-clock.webp",
+   "w": 197,
+   "h": 240,
+   "anchor": [
+    0.472,
+    0.961
+   ],
+   "foot": 0.396,
+   "src": "20261015-061307-52a43e"
+  },
+  {
+   "id": "typewriter",
+   "file": "props/typewriter.webp",
+   "w": 215,
+   "h": 220,
+   "anchor": [
+    0.546,
+    0.96
+   ],
+   "foot": 0.367,
+   "src": "20261015-061308-961027"
+  },
+  {
+   "id": "accordion",
+   "file": "props/accordion.webp",
+   "w": 276,
+   "h": 240,
+   "anchor": [
+    0.483,
+    0.961
+   ],
+   "foot": 0.316,
+   "src": "20261015-061311-498281"
+  },
+  {
+   "id": "sewing-machine",
+   "file": "props/sewing-machine.webp",
+   "w": 270,
+   "h": 300,
+   "anchor": [
+    0.526,
+    0.962
+   ],
+   "foot": 0.304,
+   "src": "20261015-061308-b8aeb6"
+  },
+  {
+   "id": "umbrella",
+   "file": "props/umbrella.webp",
+   "w": 269,
+   "h": 250,
+   "anchor": [
+    0.614,
+    0.961
+   ],
+   "foot": 0.397,
+   "src": "20261015-061308-9f1a7a"
+  },
+  {
+   "id": "chair",
+   "file": "props/chair.webp",
+   "w": 178,
+   "h": 320,
+   "anchor": [
+    0.455,
+    0.962
+   ],
+   "foot": 0.348,
+   "src": "20261015-061324-32212a"
+  },
+  {
+   "id": "suitcases",
+   "file": "props/suitcases.webp",
+   "w": 283,
+   "h": 250,
+   "anchor": [
+    0.464,
+    0.961
+   ],
+   "foot": 0.392,
+   "src": "20261015-061326-624e67"
+  },
+  {
+   "id": "trumpet",
+   "file": "props/trumpet.webp",
+   "w": 300,
+   "h": 219,
+   "anchor": [
+    0.315,
+    0.96
+   ],
+   "foot": 0.339,
+   "src": "20261015-061323-11597b"
+  },
+  {
+   "id": "record-crate",
+   "file": "props/record-crate.webp",
+   "w": 228,
+   "h": 240,
+   "anchor": [
+    0.494,
+    0.961
+   ],
+   "foot": 0.396,
+   "src": "20261015-061326-eeb4fb"
+  },
+  {
+   "id": "dolls-house",
+   "file": "props/dolls-house.webp",
+   "w": 294,
+   "h": 320,
+   "anchor": [
+    0.524,
+    0.962
+   ],
+   "foot": 0.374,
+   "src": "20261015-061327-e5dd15"
+  },
+  {
+   "id": "oil-lamp",
+   "file": "props/oil-lamp.webp",
+   "w": 118,
+   "h": 240,
+   "anchor": [
+    0.462,
+    0.961
+   ],
+   "foot": 0.393,
+   "src": "20261015-061336-a78c84"
+  },
+  {
+   "id": "globe",
+   "file": "props/globe.webp",
+   "w": 215,
+   "h": 280,
+   "anchor": [
+    0.496,
+    0.961
+   ],
+   "foot": 0.28,
+   "src": "20261015-061340-1cb555"
+  },
+  {
+   "id": "toy-robot",
+   "file": "props/toy-robot.webp",
+   "w": 160,
+   "h": 240,
+   "anchor": [
+    0.478,
+    0.965
+   ],
+   "foot": 0.388,
+   "src": "20261015-061833-ad33c7"
+  },
+  {
+   "id": "buttons",
+   "file": "props/buttons.webp",
+   "w": 220,
+   "h": 200,
+   "anchor": [
+    0.5,
+    0.965
+   ],
+   "foot": 0.393,
+   "src": "20261015-061341-6b0a22"
+  },
+  {
+   "id": "telephone",
+   "file": "props/telephone.webp",
+   "w": 198,
+   "h": 200,
+   "anchor": [
+    0.455,
+    0.96
+   ],
+   "foot": 0.396,
+   "src": "20261015-061344-1c5c0d"
+  },
+  {
+   "id": "watering-can",
+   "file": "props/watering-can.webp",
+   "w": 233,
+   "h": 230,
+   "anchor": [
+    0.548,
+    0.961
+   ],
+   "foot": 0.28,
+   "src": "20261015-061343-d08bc8"
+  },
+  {
+   "id": "hatboxes",
+   "file": "props/hatboxes.webp",
+   "w": 186,
+   "h": 280,
+   "anchor": [
+    0.5,
+    0.961
+   ],
+   "foot": 0.396,
+   "src": "20261015-061344-bd63ef"
+  },
+  {
+   "id": "rocking-horse",
+   "file": "props/rocking-horse.webp",
+   "w": 302,
+   "h": 260,
+   "anchor": [
+    0.511,
+    0.961
+   ],
+   "foot": 0.397,
+   "src": "20261015-061346-40f0a5"
+  },
+  {
+   "id": "television",
+   "file": "props/television.webp",
+   "w": 219,
+   "h": 260,
+   "anchor": [
+    0.54,
+    0.961
+   ],
+   "foot": 0.395,
+   "src": "20261015-061353-5922eb"
+  }
+ ],
+ "machines": {
+  "bed": {
+   "file": "machines/bed.webp",
+   "w": 420,
+   "h": 720,
+   "anchor": [
+    0.477,
+    0.972
+   ],
+   "foot": 0.397,
+   "src": "20261015-061832-a1f073",
+   "panel": "panels/bed.webp",
+   "panel_src": "20261015-062027-63aa55"
+  },
+  "drums": {
+   "file": "machines/drums.webp",
+   "w": 412,
+   "h": 720,
+   "anchor": [
+    0.513,
+    0.974
+   ],
+   "foot": 0.396,
+   "src": "20261015-061831-f8597e",
+   "panel": "panels/drums.webp",
+   "panel_src": "20261015-062152-bad26a"
+  },
+  "bass": {
+   "file": "machines/bass.webp",
+   "w": 420,
+   "h": 720,
+   "anchor": [
+    0.52,
+    0.974
+   ],
+   "foot": 0.397,
+   "src": "20261015-061838-518703",
+   "panel": "panels/bass.webp",
+   "panel_src": "20261015-062028-4f43a0"
+  }
+ },
+ "gramophone": {
+  "file": "gramophone.webp",
+  "w": 540,
+  "h": 700,
+  "anchor": [
+   0.478,
+   0.967
+  ],
+  "foot": 0.397,
+  "src": "20261015-062348-b2c39b",
+  "slots": [
+   [
+    0.168,
+    0.78
+   ],
+   [
+    0.504,
+    0.838
+   ],
+   [
+    0.823,
+    0.784
+   ]
+  ]
+ },
+ "artifacts": {
+  "bed-1": {
+   "file": "artifacts/bed-1.webp",
+   "w": 141,
+   "h": 200,
+   "src": "20261015-061430-ad1390"
+  },
+  "bed-2": {
+   "file": "artifacts/bed-2.webp",
+   "w": 195,
+   "h": 200,
+   "src": "20261015-062343-ee8e4c"
+  },
+  "bed-3": {
+   "file": "artifacts/bed-3.webp",
+   "w": 181,
+   "h": 200,
+   "src": "20261015-061428-2a6cd5"
+  },
+  "drums-1": {
+   "file": "artifacts/drums-1.webp",
+   "w": 200,
+   "h": 196,
+   "src": "20261015-061430-6d240a"
+  },
+  "drums-2": {
+   "file": "artifacts/drums-2.webp",
+   "w": 148,
+   "h": 200,
+   "src": "20261015-061429-80149c"
+  },
+  "drums-3": {
+   "file": "artifacts/drums-3.webp",
+   "w": 111,
+   "h": 200,
+   "src": "20261015-062347-417d14"
+  },
+  "bass-1": {
+   "file": "artifacts/bass-1.webp",
+   "w": 180,
+   "h": 200,
+   "src": "20261015-061447-9ec983"
+  },
+  "bass-2": {
+   "file": "artifacts/bass-2.webp",
+   "w": 200,
+   "h": 178,
+   "src": "20261015-061446-19ffa3"
+  },
+  "bass-3": {
+   "file": "artifacts/bass-3.webp",
+   "w": 200,
+   "h": 184,
+   "src": "20261015-061447-467477"
+  }
+ },
+ "hero": {
+  "front": {
+   "file": "hero/front.webp",
+   "w": 141,
+   "h": 260,
+   "anchor": [
+    0.5,
+    0.976
+   ],
+   "src": "20261015-062025-d31745"
+  },
+  "side": {
+   "file": "hero/side.webp",
+   "w": 167,
+   "h": 260,
+   "anchor": [
+    0.567,
+    0.976
+   ],
+   "src": "20261015-062025-d31745"
+  },
+  "back": {
+   "file": "hero/back.webp",
+   "w": 141,
+   "h": 260,
+   "anchor": [
+    0.5,
+    0.976
+   ],
+   "src": "20261015-062025-d31745"
+  }
+ },
+ "portal": {
+  "file": "portal.webp",
+  "w": 250,
+  "h": 360,
+  "anchor": [
+   0.516,
+   0.967
+  ],
+  "foot": 0.397,
+  "src": "20261015-061504-e5b97f"
+ }
+}
