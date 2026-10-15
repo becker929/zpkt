@@ -297,6 +297,7 @@ def export(out: Path, start_beat: float, length_beats: float, *, bits: int = 24,
     if tmp.exists() or out.exists():
         sys.exit(f"STOP: {tmp} or {out} already exists")
     guard(f"export {out.name}")
+    LIVE.run("song.loop_start = 0.0\nsong.loop_length = 4.0\nresult = 'ok'")   # else a later start can pass the end
     timeops.select(LIVE, start_beat, length_beats)
     if not ui.menu("File", "Export Audio/Video..."):
         sys.exit("STOP: File > Export Audio/Video... stayed disabled")

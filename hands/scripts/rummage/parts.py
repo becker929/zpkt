@@ -106,7 +106,7 @@ def music_box() -> list[tuple]:
 
 def hiss() -> list[tuple]:
     """Bed 1's tape hiss: one held note, the sample looping, for the whole short."""
-    return [(0.0, 60, float(BEATS) - 0.25, 100)]
+    return [(0.0, 60, 120.0, 100)]                               # its 3 s release: the tape runs out by bar 32
 
 
 COMP = [(0.0, 1.4, 92), (1.5, 0.4, 72), (2.5, 1.0, 84),            # bar A of the parlour comp: (beat, length, vel)
@@ -121,7 +121,7 @@ def parlour_piano() -> list[tuple]:
         v = VOICE[ch]
         base = cell * 8.0
         if cell == 15:                                           # the last chord: struck once, held
-            notes += [(base, p, 7.5, 80) for p in v[1:]] + [(base, v[0], 7.5, 74)]
+            notes += [(base, p, 3.0, 80) for p in v[1:]] + [(base, v[0], 3.0, 74)]   # let go in time to ring out
             continue
         for b, d, vel in COMP:
             ch2 = chord_at(base + b)
@@ -143,7 +143,7 @@ def branches_pad() -> list[tuple]:
     for cell in range(BARS // 2):
         base = cell * 8.0
         ch = CHORDS[cell * 2]
-        d = 8.0 if cell < 15 else 7.75
+        d = 8.0 if cell < 15 else 2.0                           # the last chord: struck, released, its tail inside bar 32
         notes += [(base, p, d - 0.05, 86) for p in VOICE[ch]]
         if CHORDS[cell * 2 + 1] != ch:                           # A7sus4 -> A7: move the one note that changes
             for p in set(VOICE[CHORDS[cell * 2 + 1]]) - set(VOICE[ch]):
@@ -157,7 +157,7 @@ def tin_bowl() -> list[tuple]:
     for b, p, d, v in melody():
         if b % 2 == 0 and b < 120:
             notes.append((b, p, 1.9, v))
-    notes.append((120.0, 74, 7.5, 90))
+    notes.append((120.0, 74, 4.0, 90))
     return notes
 
 
@@ -256,10 +256,10 @@ def bass(n: int) -> list[tuple]:
                       (base + 4.0, r2, 0.45, 112), (base + 5.0, f2, 0.4, 86), (base + 5.5, r2 + 12, 0.3, 92),
                       (base + 6.5, r2, 0.4, 102), (base + 7.25, s2, 0.2, 72), (base + 7.5, f2, 0.4, 90)]
         else:
-            step = {"Dm9": 36, "G9": 33, "Bbmaj7": 36, "A7sus": 37}[ch]   # a passing note into the next chord
+            step = {"Dm9": 36, "G9": 33, "Bbmaj7": 31, "A7sus": 37}[ch]   # a passing note into the next chord
             notes += [(base, lo, 4.05, 100), (base + 4.0, LOW[ch2], 2.05, 92), (base + 6.0, step, 2.0, 92)]
     # outro: Bb for bars 29-30, D for bar 31 (left to ring into 32)
-    notes += [(112.0, 34, 7.8, 100), (120.0, 38, 6.0, 96)]
+    notes += [(112.0, 34, 7.8, 100), (120.0, 38, 4.0, 96)]
     return notes
 
 
@@ -271,14 +271,14 @@ FX_PADS = {
     37: ("Radio Station Search.wav", {**GATE, "Ve Attack": "3000 ms", "Ve Release": "250 ms", "Volume": "-8 dB"}),
     38: ("Riser White Noise.wav", {}),                                               # into bar 17
     39: ("FX Broken Box.wav", {}),                                                   # bar 17: the bass arrives
-    40: ("Crackle Vinyl Pop.wav", {**GATE, "Ve Attack": "1500 ms", "Ve Release": "2500 ms", "Volume": "6 dB"}),
+    40: ("Crackle Vinyl Pop.wav", {**GATE, "Ve Attack": "1500 ms", "Ve Release": "2500 ms", "Volume": "0 dB"}),
     41: ("Foley Drop LDre.wav", {}),                                                 # bar 29: the drums stop
 }
 
 
 def seams() -> list[tuple]:
     return [(0.0, 36, 0.25, 96), (24.0, 37, 7.9, 100), (64.0 - 3.81 * BPM / 60, 38, 0.25, 90), (64.0, 39, 0.25, 104),
-            (112.0, 40, 15.5, 100), (112.0, 41, 0.25, 96)]
+            (112.0, 40, 10.0, 100), (112.0, 41, 0.25, 96)]
 
 
 def arc(notes: list[tuple]) -> list[tuple]:
