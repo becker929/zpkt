@@ -1,5 +1,5 @@
 """harness serve | job "<prompt>" | jobs | show <id> | timings [--turns N] | studio-music-mp3 [--dry-run] | lab-audio | lab-params
-| lab-bars"""
+| lab-bars | artist show|propose | images gen|batch|list"""
 
 from __future__ import annotations
 
@@ -35,6 +35,17 @@ def main() -> None:
     ar = sub.add_parser("artist", help="the artist agent (docs/artist-agent.md): show its data, or propose works")
     ar.add_argument("action", choices=["show", "propose"])
     ar.add_argument("--dry-run", action="store_true", help="propose: print the new repertoire, don't keep it")
+    im = sub.add_parser("images", help="make images with Gemini, each one kept with its record (docs/images.md)")
+    im.add_argument("action", choices=["gen", "batch", "list"])
+    im.add_argument("what", nargs="?", help="gen: the prompt; batch: a JSON file of jobs")
+    im.add_argument("--context", help="why these were made, in a sentence (shown with every image)")
+    im.add_argument("--batch", help="the batch's name, e.g. wasteland-styles-1")
+    im.add_argument("--title", default="")
+    im.add_argument("--model", default=None)
+    im.add_argument("--aspect", default="1:1")
+    im.add_argument("--size", default=None, help="1K, 2K or 4K")
+    im.add_argument("--input", action="append", default=[], help="a reference image to send with the prompt")
+    im.add_argument("--parallel", type=int, default=4)
     a = ap.parse_args()
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
     cfg = Config()
@@ -102,9 +113,45 @@ def main() -> None:
         kw = {"als": Path(a.set).expanduser()} if a.set else {}
         print(lab_bars.summary(lab_bars.build(**kw)))
         print(f"-> {lab_bars.OUT}")
+    elif a.cmd == "images":
+        _images(cfg, a, ap)
     elif a.cmd == "show":
         job = store.load(a.id)
         print(json.dumps({"job": job.public() if job else None, "events": store.events(a.id)}, indent=2))
+
+
+def _images(cfg: Config, a: argparse.Namespace, ap: argparse.ArgumentParser) -> None:
+    from pathlib import Path
+
+    from . import images as I
+    from .config import secret
+    store = I.Store(cfg.images_dir)
+    if a.action == "list":
+        recs, total, batches = store.page(0, 10_000, a.batch)
+        for b in batches:
+            print(f"{b['batch']}: {b['count']}")
+        for r in recs[:40]:
+            print(f"  {r.id}  {r.batch:24}  {r.model:24}  {r.title or r.prompt[:50]}")
+        print(f"{total} images in {cfg.images_dir}")
+        return
+    if not a.what or not a.context or not a.batch:
+        ap.error("images gen|batch need the prompt (or jobs file), --context and --batch")
+    key = secret("gemini")
+    if not key:
+        ap.error("no Gemini key: security add-generic-password -U -s zpkt-gemini-api-key -a \"$USER\" -w")
+    model = a.model or I.DEFAULT_MODEL
+    if a.action == "gen":
+        recs = I.generate(store, a.what, key=key, context=a.context, batch=a.batch, title=a.title, model=model,
+                          aspect=a.aspect, size=a.size, inputs=[Path(p).expanduser() for p in a.input])
+        errors = [] if recs else ["no image (see errors.jsonl)"]
+    else:
+        jobs = json.loads(Path(a.what).expanduser().read_text())
+        recs, errors = I.run_batch(store, jobs, key=key, context=a.context, batch=a.batch, model=model, parallel=a.parallel)
+    for r in recs:
+        print(f"{r.id}  {r.seconds:5.1f}s  {r.width}x{r.height}  {r.title or r.prompt[:60]}")
+    for e in errors:
+        print(f"error: {e}")
+    print(f"{len(recs)} kept in {cfg.images_dir}; see {cfg.app_url}/studio/images/?batch={a.batch}")
 
 
 if __name__ == "__main__":

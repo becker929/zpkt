@@ -25,6 +25,7 @@ class _Cfg:
         self.site = "https://anthonybecker.me"                       # the check sounds come from R2 through it
         self.check_sounds = Path(audio) / "check-sounds"
         self.site_audio = Path(audio) / "site-audio"
+        self.images_dir = Path(audio) / "images"                    # the images' wall (harness.images)
 
 
 class _Studio:
@@ -45,6 +46,7 @@ def app(audio: Path | None = None) -> web.Application:
     sub.router.add_get("/checklist/{path:.*}", routes.checklist_file)
     sub.router.add_get("/site-audio/{path:.+}", routes.site_audio)
     routes.add_artist_routes(sub)
+    routes.add_image_routes(sub)
     root = web.Application()
     root.add_subapp("/studio", sub)
     return root

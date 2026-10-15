@@ -29,8 +29,22 @@ Built in small releases, each shown to him before the next.
 
    Places name themselves as he comes near. Footprints, dust, the wind's motes, firelight and a scarf that streams
    behind are the first juice. Where he stood is kept in the browser, and the artist's thumbs are on the edges.
-2. **The world, iterated**: what he says about release 1.
-3. **The map**: a separate screen with the points of interest.
+2. **The world, iterated.** Anthony's notes on release 1: "It jitters by a drawn pixel width constantly while
+   moving"; he wants a camera with inertia and easing, a new art style made with image generation (keeping the
+   trees), and machines like obelisks: "a VST or eurorack module expanded to the size of Stonehenge".
+   - **The camera** is now a critically damped spring (Unity's SmoothDamp, 0.32 s) after a look-ahead that eases
+     on its own (0.7 s). The look-ahead also makes up the spring's lag (velocity x smoothing time), so it really
+     leads.
+   - **The world is drawn straight to the screen**, an art pixel to S device pixels. It is shifted by the camera's
+     remainder in device pixels, and the wanderer is placed to the device pixel. The jitter came from rounding him
+     and the camera to whole art pixels separately. Measured on a steady walk, his screen position now never
+     reverses.
+   - **Styles and machines** are explored with Gemini (`docs/images.md`; the batches `wasteland-styles-1`,
+     `wasteland-machines-1` and `wasteland-sprites-1` on the wall).
+3. **The map** (built with release 2). It is a screen of its own, opened from the header or with M. It charts the
+   storm, the paths, the ground's marks and the nine places. Fog lifts where you walk and is kept. Tap a place, on
+   the chart or in the list, to set a waypoint: a gold arrow on the screen's edge points to it, and a pillar of
+   light stands over it until you arrive.
 4. **Unlocks and machines**: work unlocks a point of interest, and a machine appears there.
 5. **The studio machine**: operate a machine, play, commit, get an artifact.
 6. **Carrying it home**: the artifact goes into the track's machine (the checklist, as screens).
