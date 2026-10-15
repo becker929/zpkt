@@ -159,8 +159,11 @@ The music agent's account of SH001 as rendered (15 October 2026). The recipe is 
 
 ### Art (as made)
 
-Made on the night of 14 October 2026 in two rounds: 86 images, then 57 more for the sleeves, the title, the walk
-frames and a new `ground-a` (143 in all).
+Made on the night of 14 October 2026, in three rounds (164 images in all):
+
+1. 86 images: the style and the region's assets;
+2. 57 more: the sleeves, the title, the walk frames and a new `ground-a`;
+3. 21 more: set pieces, rugs, edge walls and 4 props, to give the market shape.
 
 **The style.** Engraving-led cut-out collage, after two style rounds:
 
@@ -201,7 +204,20 @@ no cast shadow, no floor, no other objects, no text, no letters, no numbers, no 
   - `ground-a` (small, even scraps of kraft and ledger paper) is a variant;
   - `ground-c` (faded sheet music and maps) is busy, for small patches only;
 - the torn-paper path strip;
-- 28 props;
+- 32 props;
+- 9 set pieces (`sets`, 520-780 px tall), each a composed cluster that gives the market shape:
+  - a striped market stall;
+  - a heap of junk;
+  - a tower of suitcases and hatboxes;
+  - a carousel horse;
+  - a bookshelf spilling books;
+  - a dresser with a mirror and lamps;
+  - a tin-can pyramid with a ladder;
+  - a pram full of cassettes;
+  - a papered-over phone box (its sign says TELEPHONE);
+- 4 rugs (`rugs`, 600 px wide, flat, for the ground layer): oriental, braided rag, patchwork quilt, a blank doormat;
+- 4 edge walls (`edge`, 1200 px wide, with ragged ends so they overlap) for the border: crates, furniture,
+  bedframes, pipes;
 - 3 machines and their 3 panels;
 - the Gramophone;
 - 9 artifacts;
@@ -231,11 +247,18 @@ no cast shadow, no floor, no other objects, no text, no letters, no numbers, no 
 - Gramophone `slots`: the centre of each plinth's brass dish, where an artifact's base rests, left to right `bed`,
   `drums`, `bass` (the plinths' dishes are amber, red and blue).
 - Panels: the lower quarter to third is calm and dark for the selector and lever.
+- `block`, on the wide set pieces (stall, heap, bookshelf) and the edge walls: a rectangular base `[w_frac, h_frac]`,
+  as fractions of the sprite.
+  - It is centred on the anchor and rises from it.
+  - Its width is the solid part of the sprite's lower band.
+  - Its depth is set by hand: 0.2-0.25 for the sets, 0.35 for the walls.
+- An edge wall's anchor is the middle of its base (x 0.5): its lowest point is off-centre.
 
 **Batches** (all on the wall, `/studio/images/?batch=<name>`):
 
 - `rummage-style-1`, `rummage-style-2`;
-- `rummage-props-1` (its first three, in the round-1 style, are unused), `rummage-props-2`;
+- `rummage-props-1` (its first three, in the round-1 style, are unused), `rummage-props-2`, `rummage-props-3`;
+- `rummage-sets-1`, `rummage-rugs-1`, `rummage-edge-1`;
 - `rummage-machines-1` (unused), `rummage-machines-2`;
 - `rummage-panels-1`, `rummage-panels-2`;
 - `rummage-gramophone-1` (unused), `rummage-gramophone-2`;
