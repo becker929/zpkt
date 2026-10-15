@@ -11,7 +11,8 @@ Sound follows `docs/sound.md`: music is rendered files through the player engine
 DAW's job. The speaker, the options clip, the mic and the ready sound are allowed uses of Web Audio.
 The agent, the checklist page and The Wasteland that come next are designed in `docs/studio-agent.md`; the
 checklist page's first draft is at `/studio/checklist/` (the menu's Checklist row). The artist agent, its feedback
-thumbs and the gallery of plates are designed in `docs/artist-agent.md`.
+thumbs and the gallery of plates are designed in `docs/artist-agent.md`; The Wasteland as a world to walk, and its
+releases, in `docs/wasteland.md`.
 
 ## A turn
 
