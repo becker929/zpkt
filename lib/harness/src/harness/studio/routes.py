@@ -19,6 +19,11 @@
     POST /studio/api/artist/plates              a plate for the gallery: the work as it played, the map, the render
     GET  /studio/api/artist/plates              the gallery's plates, oldest first (?track=)
     GET  /studio/api/artist/repertoire          the works the page chooses from (newest version; the seed at first)
+    GET  /studio/api/regions/<id>/state         a region's permanent state: commits, the artifact carried, the plinths,
+                                                completions (an empty state at first; docs/rummage.md, regions.py)
+    POST /studio/api/regions/<id>/state         replace it (validated: 400 if the page could not have made it)
+    GET  /studio/regions/<id>/audio/<file>      the region's renders (a combination per file, named by content: cached
+                                                forever), from HARNESS_REGIONS_AUDIO/<id>/audio, outside the repo
     GET  /studio/images/          every image made with Gemini, as a wall (static/images, docs/images.md)
     GET  /studio/images/api/list  their records, newest first (?offset=&limit=&batch=), and the batches
     GET  /studio/images/files/<name>  an image or its gallery copy (cached forever: names are never reused)
@@ -35,6 +40,7 @@ from typing import TYPE_CHECKING
 from aiohttp import ClientError, ClientSession, ClientTimeout, WSMsgType, web
 
 from . import artist as A
+from . import regions as R
 from .assets import Assets, accepts_gzip
 from .conversation import PAGE
 from .hub import Client
@@ -65,6 +71,7 @@ def app(studio: "Studio") -> web.Application:
     sub.router.add_get("/api/timings", timings)
     sub.router.add_post("/api/conversation", new_conversation)
     add_artist_routes(sub)
+    add_region_routes(sub)
     sub.router.add_get("/ws", socket)
     sub.router.add_get("/lab", lab_slash)
     sub.router.add_get("/lab/audio/{name}", lab_audio)
@@ -94,6 +101,13 @@ def add_artist_routes(sub: web.Application) -> None:
     sub.router.add_post("/api/artist/plates", artist_plate)
     sub.router.add_get("/api/artist/plates", artist_plates)
     sub.router.add_get("/api/artist/repertoire", artist_repertoire)
+
+
+def add_region_routes(sub: web.Application) -> None:
+    """The regions' state and renders (also mounted by the browser tests' stand-in server)."""
+    sub.router.add_get("/api/regions/{id}/state", region_state)
+    sub.router.add_post("/api/regions/{id}/state", region_set_state)
+    sub.router.add_get("/regions/{id}/audio/{name}", region_audio)
 
 
 def _studio(request: web.Request) -> "Studio":
@@ -213,7 +227,7 @@ async def images_file(request: web.Request) -> web.StreamResponse:
 CHECK_SOUND = re.compile(r"[a-z]+-(hit|strong|land)-[0-9a-f]{8}\.m4a")
 CHECK_SOUNDS_AT = "zpkt/check-sounds/"           # on the site (R2): public, but sent without CORS headers
 SITE_AUDIO = re.compile(r"(skrng/[A-Za-z0-9._-]+\.mp3|zpkt/check-sounds/[a-z]+-(hit|strong|land)-[0-9a-f]{8}\.m4a)")
-AUDIO_TYPES = {".mp3": "audio/mpeg", ".m4a": "audio/mp4"}
+AUDIO_TYPES = {".mp3": "audio/mpeg", ".m4a": "audio/mp4", ".wav": "audio/wav"}
 
 
 async def _site_copy(site: str, path: Path, rel: str) -> Path:
@@ -333,6 +347,44 @@ async def artist_plates(request: web.Request) -> web.Response:
 
 async def artist_repertoire(request: web.Request) -> web.Response:
     return _gzipped(request, web.json_response(_artist(request).repertoire(), headers=NO_STORE))
+
+
+# --- the regions: their permanent state and their renders (docs/rummage.md) --------------------------------------
+def _region(request: web.Request) -> str:
+    region = request.match_info["id"]
+    if region not in R.REGIONS:
+        raise web.HTTPNotFound()
+    return region
+
+
+async def region_state(request: web.Request) -> web.Response:
+    return web.json_response(_studio(request).regions.get(_region(request)), headers=NO_STORE)
+
+
+async def region_set_state(request: web.Request) -> web.Response:
+    region = _region(request)
+    body = await _body(request)
+    try:
+        kept = _studio(request).regions.put(region, body)
+    except R.Invalid as exc:
+        raise web.HTTPBadRequest(text=str(exc)) from None
+    return web.json_response(kept, headers=NO_STORE)
+
+
+# A combination's render: <track>-<bed>-<drums>-<bass>-<hash8>.m4a (the browser tests' fixtures are .wav)
+REGION_AUDIO = re.compile(r"[a-z0-9]{2,16}-[1-3]-[1-3]-[1-3]-[0-9a-f]{8}\.(m4a|wav)")
+
+
+async def region_audio(request: web.Request) -> web.StreamResponse:
+    """A region's renders, made in Live by the region's recipe (hands/scripts/<id>/) and kept outside the repo.
+    The page plays them as rendered. Names carry a hash of the content, so they are cached for good."""
+    region, name = _region(request), request.match_info["name"]
+    if not REGION_AUDIO.fullmatch(name):
+        raise web.HTTPNotFound()
+    path = _studio(request).cfg.regions_audio / region / "audio" / name
+    if not path.is_file():
+        raise web.HTTPNotFound()
+    return web.FileResponse(path, headers={"Cache-Control": FOREVER, "Content-Type": AUDIO_TYPES[path.suffix]})
 
 
 async def lab_audio(request: web.Request) -> web.StreamResponse:
