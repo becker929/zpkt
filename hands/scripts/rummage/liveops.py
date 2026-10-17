@@ -258,7 +258,7 @@ def save_as(folder: Path, name: str, timeout_s: float = 60) -> Path:
 
 def _dialog_popup(desc: str, want: str) -> None:
     """Set an Export-dialog popup (by its description): click it, click the named item in the menu window."""
-    get = f'return value of (first pop up button of {_DIALOG} whose description is "{desc}") as text'
+    get = f'set v to value of (first pop up button of {_DIALOG} whose description is "{desc}")\nreturn v as text'
     if _ax(get) == want:
         return
     _ax(f'click (first pop up button of {_DIALOG} whose description is "{desc}")')
@@ -279,15 +279,15 @@ click mi''')
 
 def _dialog_check(desc: str, on: bool) -> None:
     b = f'(first button of {_DIALOG} whose description is "{desc}")'
-    if (_ax(f"return value of {b} as text") == "On") != on:
+    if (_ax(f"set v to value of {b}\nreturn v as text") == "On") != on:
         _ax(f"click {b}")
         time.sleep(0.2)
-    if (_ax(f"return value of {b} as text") == "On") != on:
+    if (_ax(f"set v to value of {b}\nreturn v as text") == "On") != on:
         sys.exit(f"STOP: export option {desc} would not turn {'on' if on else 'off'}")
 
 
 def _slider(desc: str) -> float:
-    return float(_ax(f'return value of (first slider of {_DIALOG} whose description is "{desc}") as text'))
+    return float(_ax(f'set v to value of (first slider of {_DIALOG} whose description is "{desc}")\nreturn v as text'))
 
 
 def export(out: Path, start_beat: float, length_beats: float, *, bits: int = 24, timeout_s: float = 300) -> Path:
