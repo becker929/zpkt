@@ -9,6 +9,9 @@ every sound's layers on the timeline, render it in one export, cut it into one f
   cd hands && uv run python scripts/juice_box/make.py encode     # cut, trim under -80 dBFS, .m4a named by content
   cd hands && uv run python scripts/juice_box/make.py upload     # -> R2 audio/demos/juice-box/
 
+A second argument picks another demo's kit from the same set and lanes: `make.py score four-by-four` and so on
+(chess.py, demo 11's sounds). Run build once per kit too: it adds any lanes the kit needs.
+
 The layers are Core Library one-shots (foley, wood, slaps, glass, coins, mallets, bells), placed as arrangement
 audio clips with warp off, so a clip's transpose repitches it the way a sampler would. Each layer plays on a lane of
 its role, and a role's lanes share its devices and sends:
@@ -47,10 +50,8 @@ import ops  # noqa: E402  - the rig environment first
 from ops import L  # noqa: E402
 
 CORE = Path("/Applications/Ableton Live 12 Suite.app/Contents/App-Resources/Core Library/Samples")
-SITE = Path("~/_agent_scratch/site/demos/12/juice-box").expanduser()
-BUCKET = "anthonybecker-audio/audio/demos/juice-box"
 OUT = ops.SCRATCH / "renders"
-RENDER = OUT / "juice-all.wav"
+DEMOS = Path("~/_agent_scratch/site/demos").expanduser()
 SPB = 0.5                                  # seconds per beat at 120 BPM
 TAIL = 2.5                                 # seconds after the last layer dies, for reverb and delay
 
@@ -62,15 +63,7 @@ ROLES = {   # devices on each lane, sends in dB (A-Reverb, B-Delay; None is off)
     "shine": ((), (-6, -10)),
     "air": ((), (-10, -20)),
 }
-SCALE = (0, 2, 4, 7, 9, 12, 14, 16)        # the button combo climbs this
-
-
-def S(role, name, t=0.0, db=0.0, st=0):
-    return ("s", role, name, t, db, st)
-
-
-def N(pitch, t=0.0, length=0.1, vel=100):
-    return ("n", pitch, t, length, vel)
+from layers import N, S, SCALE  # noqa: E402
 
 
 def sounds() -> dict:
@@ -178,6 +171,22 @@ def sounds() -> dict:
     return out
 
 
+def kits() -> dict:
+    """Each demo's sounds, where its manifest goes and what its files are called. Juice Box kept its first names."""
+    from chess import sounds as chess
+    return {
+        "juice-box": {"sounds": sounds, "site": DEMOS / "12/juice-box", "render": OUT / "juice-all.wav",
+                      "slots": ops.SCRATCH / "slots.json", "web": OUT / "web"},
+        "four-by-four": {"sounds": chess, "site": DEMOS / "11/four-by-four", "render": OUT / "four-by-four-all.wav",
+                         "slots": ops.SCRATCH / "four-by-four-slots.json", "web": OUT / "web-four-by-four"},
+    }
+
+
+KIT = sys.argv[2] if len(sys.argv) > 2 else "juice-box"
+K = kits()[KIT]
+BUCKET = f"anthonybecker-audio/audio/demos/{KIT}"
+
+
 # ---- samples ----------------------------------------------------------------------------------------------------------
 _FILES: dict[str, Path] = {}
 
@@ -214,7 +223,7 @@ def plan() -> tuple[list, dict, float]:
     """Each sound's slot (start, seconds), the clips laid on role lanes, and the timeline's length in beats."""
     lanes: dict[str, list[float]] = {r: [] for r in ROLES}     # per role: each lane's end, in seconds
     clips, notes, slots, at = [], [], {}, 0.0
-    for name, layers in sounds().items():
+    for name, layers in K["sounds"]().items():
         end = 0.0
         for layer in layers:
             if layer[0] == "n":
@@ -360,22 +369,23 @@ def score() -> None:
     if placed != len(clips) or warped:
         sys.exit(f"STOP: placed {placed} of {len(clips)} clips, {warped} still warped: {got}")
     print(f"{len(clips)} clips, {len(info['notes'])} sine notes, {len(info['slots'])} sounds, {beats:.0f} beats")
-    (ops.SCRATCH / "slots.json").write_text(json.dumps(info["slots"], indent=1))
+    K["slots"].write_text(json.dumps(info["slots"], indent=1))
 
 
 def render() -> None:
     _, info, beats = plan()
     OUT.mkdir(parents=True, exist_ok=True)
-    if RENDER.exists():
-        RENDER.rename(OUT / f"juice-all-{int(RENDER.stat().st_mtime)}.wav")
-    print(L.export(RENDER, 0, math.ceil(beats), bits=24))
+    r = K["render"]
+    if r.exists():
+        r.rename(r.with_name(f"{r.stem}-{int(r.stat().st_mtime)}.wav"))
+    print(L.export(r, 0, math.ceil(beats), bits=24))
 
 
 def cut():
     import numpy as np
     import soundfile as sf
-    y, sr = sf.read(RENDER, always_2d=True)
-    slots = json.loads((ops.SCRATCH / "slots.json").read_text())
+    y, sr = sf.read(K["render"], always_2d=True)
+    slots = json.loads(K["slots"].read_text())
     for name, (at, secs) in slots.items():
         seg = y[int(round(at * sr)):int(round((at + secs) * sr))]
         a = np.abs(seg).max(axis=1)
@@ -402,7 +412,7 @@ def measure() -> None:
 
 def encode() -> None:
     import soundfile as sf
-    web = OUT / "web"
+    web = K["web"]
     web.mkdir(parents=True, exist_ok=True)
     manifest = {}
     for name, seg, sr in cut():
@@ -414,12 +424,12 @@ def encode() -> None:
         m4a.replace(named)
         manifest[name] = named.name
         print(named.name, f"{len(seg) / sr:.2f} s", f"{named.stat().st_size // 1024} KB")
-    (SITE / "sounds.json").write_text(json.dumps(manifest, indent=1) + "\n")
+    (K["site"] / "sounds.json").write_text(json.dumps(manifest, indent=1) + "\n")
 
 
 def upload() -> None:
-    web = OUT / "web"
-    for file in json.loads((SITE / "sounds.json").read_text()).values():
+    web = K["web"]
+    for file in json.loads((K["site"] / "sounds.json").read_text()).values():
         subprocess.run(["npx", "--yes", "wrangler", "r2", "object", "put", f"{BUCKET}/{file}", "--file", str(web / file),
                         "--content-type", "audio/mp4", "--cache-control", "public, max-age=31536000, immutable",
                         "--remote"], check=True)
