@@ -10,7 +10,8 @@ every sound's layers on the timeline, render it in one export, cut it into one f
   cd hands && uv run python scripts/juice_box/make.py upload     # -> R2 audio/demos/juice-box/
 
 A second argument picks another demo's kit from the same set and lanes: `make.py score four-by-four` and so on
-(chess.py, demo 11's sounds). Run build once per kit too: it adds any lanes the kit needs.
+(chess.py, demo 11's sounds; cube.py, the few demo 13 adds). Run build once per kit too: it adds any lanes the kit
+needs.
 
 The layers are Core Library one-shots (foley, wood, slaps, glass, coins, mallets, bells), placed as arrangement
 audio clips with warp off, so a clip's transpose repitches it the way a sampler would. Each layer plays on a lane of
@@ -174,11 +175,16 @@ def sounds() -> dict:
 def kits() -> dict:
     """Each demo's sounds, where its manifest goes and what its files are called. Juice Box kept its first names."""
     from chess import sounds as chess
+    from cube import sounds as cube
     return {
         "juice-box": {"sounds": sounds, "site": DEMOS / "12/juice-box", "render": OUT / "juice-all.wav",
                       "slots": ops.SCRATCH / "slots.json", "web": OUT / "web"},
         "four-by-four": {"sounds": chess, "site": DEMOS / "11/four-by-four", "render": OUT / "four-by-four-all.wav",
                          "slots": ops.SCRATCH / "four-by-four-slots.json", "web": OUT / "web-four-by-four"},
+        # 4x4x4 plays Four by Four's kit and adds its own; its manifest names files by folder under /audio/demos/,
+        # so encode merges this kit's entries into it under a "4x4x4/" prefix.
+        "4x4x4": {"sounds": cube, "site": DEMOS / "13/4x4x4", "render": OUT / "4x4x4-all.wav",
+                  "slots": ops.SCRATCH / "4x4x4-slots.json", "web": OUT / "web-4x4x4", "prefix": "4x4x4/"},
     }
 
 
@@ -414,7 +420,9 @@ def encode() -> None:
     import soundfile as sf
     web = K["web"]
     web.mkdir(parents=True, exist_ok=True)
-    manifest = {}
+    pre = K.get("prefix", "")
+    path = K["site"] / "sounds.json"
+    manifest = json.loads(path.read_text()) if pre and path.exists() else {}
     for name, seg, sr in cut():
         wav, m4a = web / f"{name}.wav", web / f"{name}.m4a"
         sf.write(wav, seg, sr, subtype="PCM_16")
@@ -422,14 +430,18 @@ def encode() -> None:
         subprocess.run(["afconvert", "-f", "m4af", "-d", "aac", "-b", "160000", str(wav), str(m4a)], check=True)
         named = web / f"{name}-{hashlib.sha256(m4a.read_bytes()).hexdigest()[:8]}.m4a"
         m4a.replace(named)
-        manifest[name] = named.name
+        manifest[name] = pre + named.name
         print(named.name, f"{len(seg) / sr:.2f} s", f"{named.stat().st_size // 1024} KB")
-    (K["site"] / "sounds.json").write_text(json.dumps(manifest, indent=1) + "\n")
+    path.write_text(json.dumps(manifest, indent=1) + "\n")
 
 
 def upload() -> None:
     web = K["web"]
+    pre = K.get("prefix", "")
     for file in json.loads((K["site"] / "sounds.json").read_text()).values():
+        if not file.startswith(pre):
+            continue    # another kit's file, already in R2
+        file = file[len(pre):]
         subprocess.run(["npx", "--yes", "wrangler", "r2", "object", "put", f"{BUCKET}/{file}", "--file", str(web / file),
                         "--content-type", "audio/mp4", "--cache-control", "public, max-age=31536000, immutable",
                         "--remote"], check=True)
