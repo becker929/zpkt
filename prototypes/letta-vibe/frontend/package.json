@@ -49,7 +49,7 @@
     "tailwindcss-animate": "^1.0.7",
     "uuid": "^11.0.5",
     "wavesurfer.js": "^7.9.5",
-    "zod": "^3.24.1"
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
