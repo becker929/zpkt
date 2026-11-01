@@ -8,6 +8,10 @@
 # Needs: BetterDisplay (virtual display), Caffeine, the AbletonLiveMCP Remote
 # Script enabled in Live, and Accessibility/Automation permission for the
 # calling app (window placement goes through System Events).
+#
+# Live's audio device is the Mac's onboard output (Settings → Audio: Mac mini
+# Speakers, 44100 Hz). An external interface only carries that output to
+# monitors; renders must not depend on one being plugged in.
 set -euo pipefail
 
 LIVE_APP=${LIVE_APP:-"Ableton Live 12 Suite"}
@@ -76,7 +80,7 @@ except LiveError as exc:
     sys.exit(f"    MCP error: {exc}")
 if not clock:
     sys.exit("    audio clock frozen (the song position did not move): no audio device. "
-             "Check the USB interface and Live's Settings → Audio.")
+             "Set Live's Settings → Audio to the Mac's onboard output (Mac mini Speakers).")
 print("    audio clock ok")
 EOF
 
