@@ -165,7 +165,7 @@ class Runner:
             gain = loudness_gain(m["lufs"], plan.master_gain_db)
             if gain is not None:                       # quiet: more into Main's limiter, in Live, and export again
                 step("loudness")
-                b.master_gain(plan, gain, front)
+                gain = b.master_gain(plan, gain, front)
                 wav = b.export(plan, out / f"render-{jid}-2.wav", front)
                 m = M.measure(wav, sections)
                 m["master_gain_db"] = gain
