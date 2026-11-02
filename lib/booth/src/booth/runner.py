@@ -157,7 +157,10 @@ class Runner:
             b.build(plan, front)
             t = mark("build", t)
             self.jobs.update(jid, state="rendering")
-            wav = b.export(plan, out / f"render-{jid}.wav", front)   # staged by the Save panel first: a unique name
+            # staged by the Save panel first: a unique name, per attempt too (a held job run again finds its first
+            # attempt's file there, and Live's export won't overwrite it)
+            att = (job["attempts"] or 0) + 1
+            wav = b.export(plan, out / f"render-{jid}-{att}.wav", front)
             t = mark("export", t)
             m = M.measure(wav, sections)
             if "silent" in m["flags"]:
@@ -166,7 +169,7 @@ class Runner:
             if gain is not None:                       # quiet: more into Main's limiter, in Live, and export again
                 step("loudness")
                 gain = b.master_gain(plan, gain, front)
-                wav = b.export(plan, out / f"render-{jid}-2.wav", front)
+                wav = b.export(plan, out / f"render-{jid}-{att}-louder.wav", front)
                 m = M.measure(wav, sections)
                 m["master_gain_db"] = gain
                 t = mark("loudness", t)
