@@ -1,0 +1,263 @@
+{
+  "keys.music_box": {
+    "devices": [
+      "Music Box"
+    ],
+    "pads": []
+  },
+  "keys.upright": {
+    "devices": [
+      "Childhood Home Piano"
+    ],
+    "pads": []
+  },
+  "keys.toy_piano": {
+    "devices": [
+      "Toy Piano Bells"
+    ],
+    "pads": []
+  },
+  "pad.branches": {
+    "devices": [
+      "Tree Branches"
+    ],
+    "pads": []
+  },
+  "mallets.tin_bowl": {
+    "devices": [
+      "Tin Bowl"
+    ],
+    "pads": []
+  },
+  "drums.tin": {
+    "devices": [
+      "Rattle Kit"
+    ],
+    "pads": [
+      [
+        36,
+        "Kick Hat Combo Dirty"
+      ],
+      [
+        37,
+        "Clap Blap"
+      ],
+      [
+        38,
+        "Snare Small Slap"
+      ],
+      [
+        39,
+        "Wood Hall"
+      ],
+      [
+        40,
+        "Wood Rough Low"
+      ],
+      [
+        41,
+        "Perc Bass Pluck"
+      ],
+      [
+        42,
+        "Hihat Closed Acoustic Room"
+      ],
+      [
+        43,
+        "Hihat Closed Buzz"
+      ],
+      [
+        44,
+        "Kick Acoustic Room"
+      ],
+      [
+        45,
+        "Perc Tuned High"
+      ],
+      [
+        46,
+        "Hihat Open Rough"
+      ],
+      [
+        47,
+        "Bell Cash"
+      ],
+      [
+        48,
+        "Perc Metallic Clatter"
+      ],
+      [
+        49,
+        "Crash Old Time"
+      ],
+      [
+        50,
+        "Cowbell Broken"
+      ],
+      [
+        51,
+        "Tamb Frame"
+      ]
+    ]
+  },
+  "drums.clockwork": {
+    "devices": [
+      "Clockwork Kit"
+    ],
+    "pads": [
+      [
+        36,
+        "Kick Partial"
+      ],
+      [
+        37,
+        "E-Perc Screech Kick"
+      ],
+      [
+        38,
+        "Snare Support"
+      ],
+      [
+        39,
+        "E-Perc Clop"
+      ],
+      [
+        40,
+        "E-Perc Spring"
+      ],
+      [
+        41,
+        "E-Perc Wood Knock"
+      ],
+      [
+        42,
+        "E-Perc Metal 1"
+      ],
+      [
+        43,
+        "Kick Atmos"
+      ],
+      [
+        44,
+        "Bell Chop"
+      ],
+      [
+        45,
+        "E-Perc Low Knock"
+      ],
+      [
+        46,
+        "Hihat Closed Low Chop"
+      ],
+      [
+        47,
+        "Snare Perc Combo"
+      ],
+      [
+        48,
+        "Impact Deep Pad 120 bpm"
+      ],
+      [
+        49,
+        "Kick Synth Bass"
+      ],
+      [
+        50,
+        "FX Bleep Alarm Digital"
+      ],
+      [
+        51,
+        "E-Perc Digital Bleep"
+      ]
+    ]
+  },
+  "drums.kitchen": {
+    "devices": [
+      "Perc Kitchen Kit"
+    ],
+    "pads": [
+      [
+        36,
+        "Perc Pan"
+      ],
+      [
+        37,
+        "Perc Pot 1"
+      ],
+      [
+        38,
+        "Perc Pot 2"
+      ],
+      [
+        39,
+        "Perc Strike"
+      ],
+      [
+        40,
+        "FX Drip 1"
+      ],
+      [
+        41,
+        "FX Drip 2"
+      ],
+      [
+        42,
+        "Perc Knifes"
+      ],
+      [
+        43,
+        "FX Drip 3"
+      ],
+      [
+        44,
+        "FX Ice Cubes"
+      ],
+      [
+        45,
+        "FX Drip 4"
+      ],
+      [
+        46,
+        "Perc Spoons"
+      ],
+      [
+        47,
+        "FX Water"
+      ],
+      [
+        48,
+        "Perc Glass Low"
+      ],
+      [
+        49,
+        "Perc Kettle"
+      ],
+      [
+        50,
+        "Perc Kling"
+      ],
+      [
+        51,
+        "Perc Klang"
+      ]
+    ]
+  },
+  "bass.sub_mellow": {
+    "devices": [
+      "Sub Mellow"
+    ],
+    "pads": []
+  },
+  "bass.rubber": {
+    "devices": [
+      "Tension Rubber Bass"
+    ],
+    "pads": []
+  },
+  "bass.bowed": {
+    "devices": [
+      "Cat Gut Bass"
+    ],
+    "pads": []
+  }
+}

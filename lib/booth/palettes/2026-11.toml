@@ -1,0 +1,122 @@
+# The booth's palette, November 2026: what a score may name. Live 12 Suite's Core Library only, the presets SH001 (The
+# Rummage) was made with (hands/scripts/rummage/parts.py), so every load path and setting below has worked in Live.
+# Nothing purchased, nothing of Anthony's, nothing in iCloud.
+#
+# A score sees ids, roles, ranges, `about` and macro names (GET /v1/guide). `load`, `fx`, `set` and the macro mappings
+# never leave the booth. `trim` is the starting volume in dB that balanced each preset in SH001's mix.
+# Settings are in Live's display units ("10 dB", "2200 ms"), set by hands' binary search over str_for_value.
+#
+# A palette is never edited once a score has used it: make the next month's file instead, so old scores render the same.
+
+version = "2026-11"
+
+[instrument."keys.music_box"]
+role = "keys"
+load = ["sounds", "Piano & Keys", "Music Box.adg"]
+fx = ["Chorus-Ensemble", "Utility"]
+set = { 2 = { "Output" = "14 dB" } }         # the rack plays about 15 dB under the others
+trim = -1.3
+range = [48, 96]
+about = "a wind-up music box, bright and small; good for a tune or an arpeggio"
+
+[instrument."keys.upright"]
+role = "keys"
+load = ["sounds", "Piano & Keys", "Childhood Home Piano.adg"]
+trim = 0.6
+range = [28, 100]
+about = "an old upright piano, a little out of tune; chords and melodies"
+
+[instrument."keys.toy_piano"]
+role = "lead"
+load = ["sounds", "Piano & Keys", "Toy Piano Bells.adv"]
+fx = ["Chorus-Ensemble"]
+trim = -0.4
+range = [55, 100]
+about = "a detuned toy piano with bells; carries a tune over chords"
+
+[instrument."pad.branches"]
+role = "pad"
+load = ["sounds", "Pad", "Tree Branches.adg"]
+trim = -4.6
+range = [36, 84]
+about = "a pad of rustling branches; long held chords, slow attack"
+
+[instrument."mallets.tin_bowl"]
+role = "lead"
+load = ["sounds", "Mallets", "Tin Bowl.adv"]
+trim = -2.6
+range = [48, 96]
+about = "a struck tin bowl that rings; slow melodies, sparse notes"
+
+[instrument."drums.tin"]
+role = "drums"
+load = ["drums", "", "Rattle Kit.adg"]
+trim = -1.0
+range = [36, 51]
+about = "slaps, a wooden box, buzzing tin and a cracked cowbell; broken beats. Pads 36-51, named in the guide"
+
+[instrument."drums.clockwork"]
+role = "drums"
+load = ["drums", "", "Clockwork Kit.adg"]
+trim = -3.0
+range = [36, 51]
+about = "clanking clockwork and ticking; steady four-on-the-floor. Pads 36-51, named in the guide"
+
+[instrument."drums.kitchen"]
+role = "drums"
+load = ["drums", "", "Perc Kitchen Kit.adg"]
+trim = -2.7
+range = [36, 51]
+about = "spoons, knives, pans and glass, no kick; shuffles and percussion over another kit. Pads 36-51, named in the guide"
+
+[instrument."bass.sub_mellow"]
+role = "bass"
+load = ["sounds", "Bass", "Sub Mellow.adg"]
+fx = ["Saturator"]
+set = { 1 = { "Type" = "Bass Shaper", "Drive" = "10 dB", "Output" = "-7 dB" } }
+trim = -8.5
+range = [24, 55]
+about = "a round sub bass; the drive macro makes it carry on a phone speaker"
+macros = { drive = { device = 1, param = "Drive", lo = "0 dB", hi = "16 dB" } }
+
+[instrument."bass.rubber"]
+role = "bass"
+load = ["sounds", "Bass", "Tension Rubber Bass.adv"]
+trim = 0.6
+range = [28, 60]
+about = "a bouncy rubber-band bass; short notes, funky lines"
+
+[instrument."bass.bowed"]
+role = "bass"
+load = ["sounds", "Bass", "Cat Gut Bass.adv"]
+fx = ["Saturator"]
+set = { 1 = { "Type" = "Hard Curve", "Drive" = "16 dB", "Output" = "-10 dB", "Dry/Wet" = "75 %" } }
+trim = -3.6
+range = [28, 60]
+about = "a bowed gut-string bass, woody and dark; held notes"
+macros = { drive = { device = 1, param = "Drive", lo = "4 dB", hi = "20 dB" } }
+
+# Returns: Live's new set has A Reverb and B Delay. One named setting each per score.
+[returns.room]
+track = 0
+device = "Reverb"
+[returns.room.settings]
+small = { "Decay Time" = "900 ms", "Predelay" = "8 ms", "Dry/Wet" = "100 %" }
+hall = { "Decay Time" = "2200 ms", "Predelay" = "18 ms", "Dry/Wet" = "100 %" }
+cave = { "Decay Time" = "5000 ms", "Predelay" = "30 ms", "Dry/Wet" = "100 %" }
+
+[returns.echo]
+track = 1
+device = "Delay"
+[returns.echo.settings]
+dotted_eighth = { "Ping Pong" = "On", "L 16th" = "3", "R 16th" = "3", "Feedback" = "32 %", "Filter On" = "On", "Filter Freq" = "1500 Hz", "Filter Width" = "6" }
+quarter = { "Ping Pong" = "On", "L 16th" = "4", "R 16th" = "4", "Feedback" = "28 %", "Filter On" = "On", "Filter Freq" = "1200 Hz", "Filter Width" = "6" }
+slap = { "Ping Pong" = "Off", "L 16th" = "1", "R 16th" = "1", "Feedback" = "10 %", "Filter On" = "On", "Filter Freq" = "2500 Hz", "Filter Width" = "6" }
+
+# Main: SH001's chain (EQ Eight high-pass, Glue Compressor, a true-peak Limiter). Glue's Ratio, Attack and Release are indices.
+[master]
+devices = ["EQ Eight", "Glue Compressor", "Limiter"]
+[master.set]
+0 = { "1 Filter Type A" = "High Pass 48dB", "1 Frequency A" = "32 Hz", "1 Filter On A" = "On" }
+1 = { "Threshold" = "-12 dB", "Ratio" = 0, "Attack" = 5, "Release" = 6, "Output" = "1.5 dB", "Dry/Wet" = 1.0 }
+2 = { "Mode" = "True Peak", "Ceiling" = "-1.8 dB", "Lookahead" = "3 ms", "Auto" = "On", "Input Gain" = "6 dB" }

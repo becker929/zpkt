@@ -1,0 +1,13 @@
+{
+  "name": "zpkt-music-bot",
+  "private": true,
+  "type": "module",
+  "description": "zpkt's music bot: makes a short piece for friends who ask it on Bluesky, in Live through the booth, and replies with a video of it",
+  "scripts": {
+    "start": "node main.mjs",
+    "test": "node test.mjs"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^1.3.0"
+  }
+}
