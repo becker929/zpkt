@@ -158,6 +158,7 @@ def test_a_loop_is_made_only_when_asked(tmp_path, fake):
     assert made == [pytest.approx(sum(sec["bars"] for sec in s["song"]) * 4 * 60.0 / s["bpm"])]
 
 
+@pytest.mark.skipif(not __import__("shutil").which("ffmpeg"), reason="needs ffmpeg (the booth Mac has it; CI may not)")
 def test_the_loop_folds_the_tail_onto_the_start_and_fits_room_worlds_limit(tmp_path):
     import json, subprocess
     from booth import video
