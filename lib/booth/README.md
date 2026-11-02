@@ -38,7 +38,9 @@ uv run booth open
 uv run booth serve                                       # in tmux, like the harness
 ```
 
-`booth run` and `booth serve` start a job only while a `booth_` set is in front of Live. Opening any other set takes
+First runs (2026-11-01): the template, the survey (drum pad names now in the guide) and three renders, about 70 s
+each, 90 s with the loudness pass. `booth run` is for a person watching: it skips the open flag, hours and quiet
+time, but still needs a `booth_` set in front. `booth serve` starts a job only while a `booth_` set is in front of Live. Opening any other set takes
 Live back. `booth close` stops new jobs. A held job closes the booth until `booth open`.
 
 ## Tests

@@ -37,6 +37,8 @@ def test_palette_loads_and_hides_its_internals():
     g = pal.guide()
     assert len(g["instruments"]) == len(pal.instruments) >= 10
     assert set(g["instruments"][0]) == {"id", "role", "range", "about", "macros"}
+    drums = [i for i in g["instruments"] if i["role"] == "drums"]
+    assert all(len(i["pads"]) == 16 and i["pads"][0]["note"] == 36 for i in drums)    # from booth survey, in git
     for inst in pal.instruments.values():
         for m in inst.macros.values():
             assert m.display(0.0) and m.display(1.0)

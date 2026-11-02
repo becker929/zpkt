@@ -162,15 +162,19 @@ Job states: `queued → building → rendering → measuring → done`, or `fail
    they take Live the same way. While the booth may not start, jobs wait in the queue; only a booth that is closed
    (by Anthony, or by a hold) answers `503 closed`.
 2. **Set.** `copy_set("booth_template", "booth_<job>")`, then `open_set`. The template is a Live 12-native set
-   (never an older one: the "save as a new file" dialog), no tracks, and the two returns and Main's chain in place.
-   `booth template` makes it once, watched.
+   (never an older one: the "save as a new file" dialog) with one empty MIDI track `p1` (Live won't delete a set's
+   last track, so jobs reuse it as their first part), and the two returns and Main's chain in place. `booth
+   template` makes it once, watched.
 3. **Build.** Tracks named `p1`..`p8`, instruments from the palette (`liveops.load_item`, then a read-back of the
    track's devices), settings and macros in display units (`liveops.setp`), one arrangement clip per track with
    `add_new_notes` 400 notes to a call (then the clip's note count read back), the mixer and sends, the returns'
    settings. Each LOM call short, each read back in a separate call. Arrangement automation, if a later score version adds it, is
    written into the `.als` with `als.py` before the set opens, since the LOM can't write it.
 4. **Render.** `liveops.export` (menu clicks and accessibility, no keystrokes, so a stray system prompt can't eat
-   them) to a folder outside `~/Music`, then `audio.check_audio` (readable, the right length, not silent).
+   them), staged in liveops' own folder (the Save panel's Where popup can't reach the booth's) and moved to the job,
+   then `audio.check_audio` (readable, the right length, not silent). **Loudness, in Live:** if the render is more
+   than 2 LU under -14 LUFS, Main's Limiter Input Gain goes up by the shortfall (whole dB, at most +24) and it exports
+   once more. The first two real renders came out at -21.6 and -20.7 LUFS without it; the lullaby with it, -14.2.
 5. **Measure.** Integrated LUFS (pyloudnorm, as ears), true peak (4x oversampled), each section's loudness (v8's
    "flat and smooshed" lesson) and the 180 Hz phone model. These go back in `measure.json` with flags and a plain
    sentence each: `silent` (which holds the job: Live's audio engine), `clipping`, `too_quiet`, `no_contrast`,
@@ -183,8 +187,9 @@ Job states: `queued → building → rendering → measuring → done`, or `fail
    deletes the job's `.als`. The score plus the palette version is the
    record: any piece can be rebuilt. Files stay 30 days under `~/_agent_scratch/booth/jobs/<job>/`.
 
-A 30 s piece should take about 45 s: load ~5, build ~10, export ~16, measure and encode ~10. To be measured on the
-first runs: every job keeps its timings per stage.
+Measured on the first runs (2026-11-01, three parts, about 33 s of audio): open 3-5 s, build 44-47 s (browser loads
+dominate, ~15 s a part), export 15-16 s, the loudness pass 18 s when needed, close and encode 4 s. About 70 s a
+piece, 90 s with the loudness pass, so 60 renders a day is about 1.5 hours of Live.
 
 ### On a surprise, stop
 

@@ -14,7 +14,7 @@ from typing import Any
 from .palette import Instrument, Palette
 from .score import BEATS_PER_BAR, Score
 
-HEADROOM_DB = -6.0   # every track starts here, so a full mix leaves the master chain room
+HEADROOM_DB = 0.0    # every track starts here; at -6 dB the first real render was -21.6 LUFS and never reached the limiter
 TAIL_BARS = 1        # rendered after the song so reverb and echo ring out
 SEND_OFF = 0.0
 
@@ -40,6 +40,7 @@ class Plan:
     returns: dict[int, dict[str, Any]]      # return track index -> settings for its device 0
     master_devices: tuple[str, ...]
     master_set: dict[int, dict[str, Any]]
+    master_gain_db: float = 6.0              # the Limiter's Input Gain the template starts with
 
 
 def send_db(amount: float) -> float | None:
@@ -111,4 +112,10 @@ def compile(score: Score, pal: Palette) -> Plan:
         bpm=score.bpm, beats=score.beats, render_beats=score.beats + TAIL_BARS * BEATS_PER_BAR, tracks=tracks,
         returns={pal.returns[name].track: pal.returns[name].settings[getattr(score.mix, name)] for name in ("room", "echo")},
         master_devices=pal.master_devices, master_set=pal.master_set,
+        master_gain_db=_limiter_gain(pal),
     )
+
+
+def _limiter_gain(pal: Palette) -> float:
+    k = pal.master_devices.index("Limiter")
+    return float(str(pal.master_set.get(k, {}).get("Input Gain", "0 dB")).split()[0])

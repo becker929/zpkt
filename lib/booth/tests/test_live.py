@@ -71,7 +71,7 @@ def test_a_template_with_tracks_stops(fake, monkeypatch):
         lv.song = Song()
         lv.song.create_midi_track(-1)
     monkeypatch.setattr(session, "open_set", open_set)
-    with pytest.raises(Stop, match="not empty"):
+    with pytest.raises(Stop, match="not one empty MIDI track"):
         Builder(lv).open("abc")
 
 
@@ -98,8 +98,8 @@ def test_a_guard_failure_is_a_stop(fake, monkeypatch):
 
 
 def test_sh001s_helpers_load_and_point_at_the_booth():
-    from booth import HOME, gui
+    from booth import gui
     L = gui.ops(object())
     for name in ("load_item", "devices", "setp", "mixer", "export", "save_as"):
         assert callable(getattr(L, name))
-    assert L.EXPORT_DIR == HOME and L.LIVE is not None
+    assert L.EXPORT_DIR.name == "rummage" and L.LIVE is not None

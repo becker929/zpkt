@@ -50,12 +50,15 @@ class Builder:
             raise Stop(f"no template set {TEMPLATE} in {SETS_DIR}: run `booth template` once, watched")
         self.step("open")
         with stops("open"):
+            if session._front() == name:          # a held job run again: its half-built set is still in front
+                session.open_set(self.live, TEMPLATE)
             session.copy_set(TEMPLATE, name)
             session.open_set(self.live, name)
         self.guard("opened", name)
-        got = self.run("result = (len(song.tracks), [r.name for r in song.return_tracks], [d.name for d in song.master_track.devices])")
-        if got[0] != 0 or len(got[1]) < 2:
-            raise Stop(f"open: the template is not empty with two returns: {got}")
+        got = self.run("result = ([(t.name, t.has_midi_input, len(t.devices), len(t.arrangement_clips)) for t in song.tracks], "
+                       "[r.name for r in song.return_tracks])")
+        if [list(t) for t in got[0]] != [["p1", True, 0, 0]] or len(got[1]) < 2:      # the LOM answers lists
+            raise Stop(f"open: the template is not one empty MIDI track p1 and two returns: {got}")
         return name
 
     def close(self, job: str) -> None:
@@ -78,7 +81,7 @@ class Builder:
             raise Stop(f"master: Main has {got[1]}, the palette's chain is {list(plan.master_devices)}")
 
         self.guard("tracks", front)
-        for k, t in enumerate(plan.tracks):
+        for k, t in enumerate(plan.tracks[1:], start=1):      # Live keeps at least one track: the template's is p1
             self.run(f"song.create_midi_track(-1)\nsong.tracks[{k}].name = {t.name!r}\nresult = 'ok'")
         names = self.run("result = [t.name for t in song.tracks]")
         if names != [t.name for t in plan.tracks]:
@@ -130,6 +133,16 @@ class Builder:
         if [g[0] for g in got] != [round(t.pan, 3) for t in plan.tracks]:
             raise Stop(f"mix: pans are {got}")
 
+    def master_gain(self, plan: Plan, db: float, front: str) -> None:
+        """Main's Limiter Input Gain, in dB, read back."""
+        self.guard("loudness", front)
+        k = plan.master_devices.index("Limiter")
+        with stops("loudness"):
+            self.L.setp(f"song.master_track.devices[{k}]", {"Input Gain": f"{float(db):.1f} dB"})
+        got = self.run(f"p = [p for p in song.master_track.devices[{k}].parameters if p.name == 'Input Gain'][0]\nresult = p.str_for_value(p.value)")
+        if abs(float(str(got).split()[0]) - db) > 0.5:
+            raise Stop(f"loudness: the Limiter's Input Gain reads {got}, wanted {db:.1f} dB")
+
     # ---- the render ----------------------------------------------------------------------------------------------
     def export(self, plan: Plan, out: Path, front: str) -> Path:
         from hands import audio
@@ -153,13 +166,18 @@ def survey(client, palette, out: Path) -> dict:
     found = {}
     try:
         for k, inst in enumerate(palette.instruments.values()):
-            b.run(f"song.create_midi_track(-1)\nsong.tracks[{k}].name = {('s' + str(k + 1))!r}\nresult = 'ok'")
+            if k:
+                b.run(f"song.create_midi_track(-1)\nsong.tracks[{k}].name = {('s' + str(k + 1))!r}\nresult = 'ok'")
             b.guard(f"survey {inst.id}", front)
             root, folder, item = inst.load
             with stops(f"survey {inst.id}"):
                 b.L.load_item(f"song.tracks[{k}]", root, folder or None, item)
             devs = b.run(f"result = [d.name for d in song.tracks[{k}].devices]")
-            pads = b.run(f"d = song.tracks[{k}].devices[0]\nresult = [(p.note, p.name) for p in d.drum_pads if len(p.chains)] if d.can_have_drum_pads else []")
+            # a kit preset is often an Instrument Rack around the Drum Rack (SH001's Perc Kitchen Kit): look one level in
+            pads = b.run(f"d = song.tracks[{k}].devices[0]\n"
+                         "if not d.can_have_drum_pads and d.can_have_chains and d.chains and d.chains[0].devices:\n"
+                         "    d = d.chains[0].devices[0]\n"
+                         "result = [(p.note, p.name) for p in d.drum_pads if len(p.chains)] if d.can_have_drum_pads else []")
             found[inst.id] = {"devices": devs, "pads": pads}
             time.sleep(0.2)
     finally:
@@ -196,12 +214,26 @@ def make_template(client, palette, seed_dir: Path) -> Path:
         shutil.copytree(seed.parent, SETS_DIR)
         (SETS_DIR / "booth_seed.als").rename(target)
         session.open_set(client, TEMPLATE, save_current=False)
-        b = Builder(client)
-        b.guard("template", TEMPLATE)
-        if b.run("result = len(song.tracks)"):
-            b.run("while len(song.tracks):\n    song.delete_track(len(song.tracks) - 1)\nresult = 'ok'")
+    finish_template(client, palette)
+    return target
+
+
+def finish_template(client, palette) -> None:
+    """The template's contents, with booth_template in front: one empty MIDI track p1 (Live won't delete a set's
+    last track), Main's chain from the palette, the two returns checked; then saved."""
+    from hands.live import session
+    L = ops(client)
+    b = Builder(client)
+    b.guard("template", TEMPLATE)
+    with stops("template"):
+        b.run("while len(song.tracks) > 1:\n    song.delete_track(len(song.tracks) - 1)\nresult = 'ok'")
+        t0 = b.run("t = song.tracks[0]\nresult = (t.has_midi_input, len(t.devices), len(t.arrangement_clips))")
+        if t0 != [True, 0, 0]:
+            raise Stop(f"template: its last track is not an empty MIDI track: {t0}")
+        b.run("song.tracks[0].name = 'p1'\nresult = 'ok'")
         for name in palette.master_devices:
-            L.load_item("song.master_track", "audio_effects", None, name)
+            if name not in L.devices("song.master_track"):
+                L.load_item("song.master_track", "audio_effects", None, name)
         devs = L.devices("song.master_track")
         if tuple(devs) != tuple(palette.master_devices):
             raise Stop(f"template: Main has {devs}")
@@ -212,4 +244,3 @@ def make_template(client, palette, seed_dir: Path) -> Path:
             if len(rets) <= r.track or rets[r.track][:1] != [r.device]:
                 raise Stop(f"template: return {r.track} has {rets}, wanted {r.device} for {name}")
         session.save(TEMPLATE)
-    return target

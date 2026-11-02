@@ -53,21 +53,21 @@ role = "drums"
 load = ["drums", "", "Rattle Kit.adg"]
 trim = -1.0
 range = [36, 51]
-about = "slaps, a wooden box, buzzing tin and a cracked cowbell; broken beats. Pads 36-51 (36 is the kick, 38 the snare, 42 a closed hat on most Live kits)"
+about = "slaps, a wooden box, buzzing tin and a cracked cowbell; broken beats. Pads 36-51, named in the guide"
 
 [instrument."drums.clockwork"]
 role = "drums"
 load = ["drums", "", "Clockwork Kit.adg"]
 trim = -3.0
 range = [36, 51]
-about = "clanking clockwork and ticking; steady four-on-the-floor. Pads 36-51 (36 is the kick, 38 the snare, 42 a closed hat on most Live kits)"
+about = "clanking clockwork and ticking; steady four-on-the-floor. Pads 36-51, named in the guide"
 
 [instrument."drums.kitchen"]
 role = "drums"
 load = ["drums", "", "Perc Kitchen Kit.adg"]
 trim = -2.7
 range = [36, 51]
-about = "spoons, knives, pans and glass, no kick; shuffles and percussion over another kit. Pads 36-51"
+about = "spoons, knives, pans and glass, no kick; shuffles and percussion over another kit. Pads 36-51, named in the guide"
 
 [instrument."bass.sub_mellow"]
 role = "bass"

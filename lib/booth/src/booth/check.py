@@ -41,9 +41,9 @@ def _path(loc: tuple) -> str:
 
 def estimate(score: Score, notes: int) -> dict:
     audio = score.seconds
-    # set load ~5 s, a track ~1.2 s, a notes call ~0.9 s per 500, the export ~13 s + 0.1 s per audio second (and the
-    # one-bar tail), measuring and encoding ~8 s
-    render = 5 + 1.2 * len(score.parts) + 0.9 * (notes / 500 + len(score.parts)) + 13 + 0.1 * (audio + 2) + 8
+    # measured on the first real runs (2026-11-01, 3 parts): open ~4 s, build ~15 s a part (browser loads and their
+    # waits), export ~16 s, close and encode ~4 s; a quiet piece adds a second export (~18 s), counted at half
+    render = 4 + 15 * len(score.parts) + 0.9 * notes / 400 + 16 + 0.1 * (audio + 2) + 4 + 9
     return {"audio_s": round(audio, 1), "render_s": round(render), "notes": notes}
 
 

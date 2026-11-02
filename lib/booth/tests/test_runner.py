@@ -6,7 +6,7 @@ from booth.config import Settings
 from booth.gui import Stop
 from booth.jobs import Jobs
 from booth.live import Builder
-from booth.runner import Gate, Runner
+from booth.runner import Gate, Runner, loudness_gain
 from conftest import example
 
 
@@ -35,7 +35,7 @@ def test_a_job_runs_to_done(tmp_path, fake):
     assert created and r.runner.tick() == job["id"]
     done = r.jobs.public(r.jobs.get(job["id"]))
     assert done["state"] == "done" and set(done["files"]) == {"render.m4a", "video.mp4", "still.jpg", "score.json", "measure.json"}
-    assert {"open", "build", "export", "measure", "total"} <= set(done["timings"])
+    assert {"open", "build", "export", "close", "encode", "total"} <= set(done["timings"])
     assert done["measure"]["lufs"] is not None and len(done["measure"]["sections"]) == 4
 
 
@@ -117,3 +117,28 @@ def test_a_restart_holds_running_jobs(tmp_path, fake):
     r.jobs.update(a["id"], state="rendering")
     r.jobs.recover()
     assert r.jobs.get(a["id"])["state"] == "held"
+
+
+def test_loudness_gain():
+    assert loudness_gain(-15.0, 6.0) is None and loudness_gain(None, 6.0) is None
+    assert loudness_gain(-21.6, 6.0) == 14.0
+    assert loudness_gain(-40.0, 6.0) == 24.0
+
+
+def test_a_quiet_render_is_exported_again_louder_in_live(tmp_path, fake):
+    r = Rig(tmp_path, fake)
+    r.ops.level = 0.05
+    a, _ = r.jobs.add("a", example(), {})
+    r.runner.tick()
+    j = r.jobs.get(a["id"])
+    assert j["state"] == "done" and len(r.ops.exports) == 2 and "loudness" in j["timings"]
+    assert any(d.startswith("song.master_track.devices[2]") and "Input Gain" in v for d, v in r.ops.sets)
+    assert j["measure"]["master_gain_db"] > 6 and j["measure"]["lufs"] > -21
+
+
+def test_a_loud_enough_render_is_exported_once(tmp_path, fake):
+    r = Rig(tmp_path, fake)
+    r.ops.level = 0.5
+    a, _ = r.jobs.add("a", example(), {})
+    r.runner.tick()
+    assert r.jobs.get(a["id"])["state"] == "done" and len(r.ops.exports) == 1

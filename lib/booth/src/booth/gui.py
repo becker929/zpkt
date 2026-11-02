@@ -11,8 +11,6 @@ import importlib.util
 from contextlib import contextmanager
 from pathlib import Path
 
-from . import HOME
-
 _PATH = Path(__file__).resolve().parents[4] / "hands" / "scripts" / "rummage" / "liveops.py"
 
 
@@ -24,7 +22,8 @@ def _load():
     spec = importlib.util.spec_from_file_location("booth_liveops", _PATH)
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)   # its os.environ.setdefault calls change nothing: booth/__init__ set them first
-    mod.EXPORT_DIR = HOME          # a parent of sets/, so the Save panel reaches it from the set's own folder
+    # Exports keep liveops' own staging folder (~/_agent_scratch/rummage): the Save panel's Where popup reaches it,
+    # and it could not reach BOOTH_HOME (first watched run, 2026-11-01). liveops moves each file on to the job.
     return mod
 
 

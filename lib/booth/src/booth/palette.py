@@ -5,6 +5,7 @@ Only the booth reads `load`, `fx`, `set` and the macro mappings; `guide()` is wh
 
 from __future__ import annotations
 
+import json
 import re
 import tomllib
 from dataclasses import dataclass, field
@@ -67,10 +68,15 @@ class Palette:
     master_set: dict[int, dict[str, Any]]
 
     def guide(self) -> dict:
+        """What the composer sees. Drum kits carry their pads' names from `booth survey` (<version>.survey.json),
+        read from Live itself."""
+        survey = PALETTES / f"{self.version}.survey.json"
+        pads = {k: v.get("pads", []) for k, v in json.loads(survey.read_text()).items()} if survey.is_file() else {}
         return {
             "palette": self.version,
             "instruments": [
-                {"id": i.id, "role": i.role, "range": list(i.range), "about": i.about, "macros": sorted(i.macros)}
+                {"id": i.id, "role": i.role, "range": list(i.range), "about": i.about, "macros": sorted(i.macros),
+                 **({"pads": [{"note": n, "name": name} for n, name in pads[i.id]]} if pads.get(i.id) else {})}
                 for i in self.instruments.values()
             ],
             "returns": {name: sorted(r.settings) for name, r in self.returns.items()},

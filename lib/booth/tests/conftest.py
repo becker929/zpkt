@@ -24,8 +24,11 @@ def example(name: str = "clockwork") -> dict:
 
 
 class Param:
-    def __init__(self, value=0.0):
-        self.value = value
+    def __init__(self, value=0.0, name=""):
+        self.value, self.name = value, name
+
+    def str_for_value(self, v):
+        return f"{v:.1f} dB"
 
 
 class Clip:
@@ -42,6 +45,7 @@ class Clip:
 class Track:
     def __init__(self):
         self.name, self.devices, self.arrangement_clips = "", [], []
+        self.has_midi_input = True
         self.mixer_device = types.SimpleNamespace(panning=Param(), volume=Param(), sends=[Param(), Param()])
 
     def delete_clip(self, c):
@@ -55,7 +59,8 @@ class Song:
     def __init__(self, master=("EQ Eight", "Glue Compressor", "Limiter")):
         self.tracks, self.tempo = [], 120.0
         self.signature_numerator = self.signature_denominator = 4
-        self.master_track = types.SimpleNamespace(devices=[types.SimpleNamespace(name=n) for n in master])
+        self.master_track = types.SimpleNamespace(devices=[types.SimpleNamespace(name=n, parameters=[Param(6.0, "Input Gain")])
+                                                           for n in master])
         self.return_tracks = [types.SimpleNamespace(name="A-Reverb"), types.SimpleNamespace(name="B-Delay")]
 
     def create_midi_track(self, index):
@@ -84,9 +89,10 @@ class FakeLive:
 class FakeOps:
     """Stands in for liveops' GUI and browser helpers."""
 
-    def __init__(self, live: FakeLive, *, export_silent=False, devices_override=None):
+    def __init__(self, live: FakeLive, *, export_silent=False, devices_override=None, level=0.3):
         self.live, self.export_silent, self.devices_override = live, export_silent, devices_override
-        self.loads, self.sets, self.mixes = [], [], []
+        self.level = level                       # the render's sine amplitude
+        self.loads, self.sets, self.mixes, self.exports = [], [], [], []
 
     def _track(self, path):
         return eval(path, {"song": self.live.song})
@@ -102,6 +108,10 @@ class FakeOps:
 
     def setp(self, dev, params):
         self.sets.append((dev, dict(params)))
+        if dev.startswith("song.master_track") and "Input Gain" in params:
+            db = float(params["Input Gain"].split()[0])
+            self._track(dev).parameters[0].value = db
+            self.level = min(0.9, self.level * 10 ** ((db - 6.0) / 20))
 
     def mixer(self, track, vol_db=None, sends=(), pan=None):
         self.mixes.append((track, vol_db, tuple(sends), pan))
@@ -111,7 +121,8 @@ class FakeOps:
         sr = 44100
         seconds = length_beats * 60 / self.live.song.tempo
         t = np.arange(int(sr * seconds)) / sr
-        y = np.zeros_like(t) if self.export_silent else 0.3 * np.sin(2 * np.pi * 110 * t) * (0.4 + 0.6 * (t > seconds / 2))
+        self.exports.append(Path(out).name)
+        y = np.zeros_like(t) if self.export_silent else self.level * np.sin(2 * np.pi * 110 * t) * (0.4 + 0.6 * (t > seconds / 2))
         Path(out).parent.mkdir(parents=True, exist_ok=True)
         sf.write(out, np.stack([y, y], 1), sr, subtype="PCM_24")
         return Path(out)
@@ -126,8 +137,10 @@ def fake(monkeypatch, tmp_path):
     fo = FakeOps(lv)
     monkeypatch.setattr(booth_live, "ops", lambda client=None: fo)
     monkeypatch.setattr(session, "check", lambda client, where, **k: k.get("expect_front") or "booth_x")
-    def open_set(client, name, **k):     # a set opens fresh from its file: the template is empty
+    def open_set(client, name, **k):     # a set opens fresh from its file: the template's one empty track
         lv.song = Song()
+        lv.song.create_midi_track(-1)
+        lv.song.tracks[0].name = "p1"
         return 1.0
     monkeypatch.setattr(session, "open_set", open_set)
     monkeypatch.setattr(session, "copy_set", lambda a, b: tmp_path / f"{b}.als")

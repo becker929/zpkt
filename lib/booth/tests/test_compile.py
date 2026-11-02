@@ -50,7 +50,7 @@ def test_mixer_and_macros():
     assert bass.room_db is None and p.tracks[0].room_db == round(-36 + 30 * 0.15, 2)
     assert bass.settings[1]["Drive"] == "9.60 dB"         # 0.6 of 0-16 dB
     assert bass.settings[1]["Type"] == "Bass Shaper"      # the palette's own settings stay
-    assert bass.volume_db == round(-6 - 8.5 - 2, 2)
+    assert bass.volume_db == round(C.HEADROOM_DB - 8.5 - 2, 2)
     assert p.returns == {0: P.load("2026-11").returns["room"].settings["hall"], 1: P.load("2026-11").returns["echo"].settings["dotted_eighth"]}
 
 

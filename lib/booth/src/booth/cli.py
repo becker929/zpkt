@@ -6,7 +6,7 @@
     booth check SCORE.json       what POST /v1/check answers; never touches Live
     booth plan SCORE.json        the compiled plan (tracks, note counts, mixer); never touches Live
     booth run SCORE.json         one job now, in this process, watched: needs a booth_ set in front of Live
-    booth template               once, watched: make booth_template from File > New Live Set
+    booth template [--finish]    once, watched: make booth_template from File > New Live Set
     booth survey                 watched: load each palette instrument, write palettes/<v>.survey.json
     booth token --new            make the bot's token and keep it in the Keychain
 """
@@ -22,7 +22,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-from . import HOME
+from . import HOME, PREFIX
 
 
 def _runner(jobs, settings):
@@ -51,7 +51,7 @@ def main(argv: list[str] | None = None) -> int:
     sub.add_parser("status")
     for name in ("check", "plan", "run"):
         sub.add_parser(name).add_argument("score", type=Path)
-    sub.add_parser("template")
+    sub.add_parser("template").add_argument("--finish", action="store_true", help="finish booth_template, open in front, after a stop")
     sub.add_parser("survey")
     t = sub.add_parser("token")
     t.add_argument("--new", action="store_true")
@@ -120,8 +120,11 @@ def main(argv: list[str] | None = None) -> int:
             print(json.dumps(res.json(), indent=2))
             return 1
         r = _runner(jobs, s)
-        why = r.gate.reason(jobs)
-        if why and not why.startswith(("closed", "held", "outside")):
+        # a person is watching this one: open/closed, the hours and the quiet time are for the bot's jobs; only the
+        # lease (a booth_ set in front of Live) still applies
+        front = r.gate.front()
+        why = None if front and front.startswith(PREFIX) else "Live is being used for something else"
+        if why:
             print(f"not now: {why}", file=sys.stderr)
             return 1
         job, _ = jobs.add(f"cli:{a.score.name}:{secrets.token_hex(3)}", res.score.model_dump(), {})
@@ -130,10 +133,13 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     if a.cmd in ("template", "survey"):
         from . import palette as P
-        from .live import make_template, survey
+        from .live import finish_template, make_template, survey
         from hands.live.transport import LiveClient
         pal = P.current()
-        if a.cmd == "template":
+        if a.cmd == "template" and a.finish:
+            finish_template(LiveClient(), pal)
+            print("finished booth_template")
+        elif a.cmd == "template":
             print(make_template(LiveClient(), pal, Path("~/_agent_scratch/rummage/set").expanduser()))
         else:
             out = P.PALETTES / f"{pal.version}.survey.json"

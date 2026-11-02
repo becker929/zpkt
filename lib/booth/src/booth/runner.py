@@ -29,6 +29,21 @@ from .jobs import Jobs
 log = logging.getLogger(__name__)
 
 
+TARGET_LUFS = -14.0
+LOUDNESS_SLACK = 2.0      # within this of the target, the first export stands
+MAX_MASTER_GAIN_DB = 24.0  # the Limiter's Input Gain tops out at +24 dB
+
+
+def loudness_gain(lufs: float | None, current_db: float) -> float | None:
+    """The Limiter's Input Gain for a second export when the first came out quiet, else None.
+
+    The first two real renders (2026-11-01) came out at -21.6 and -20.7 LUFS and never reached the limiter: sparse
+    pieces can't be balanced by track levels alone. The gain is added in Live, so the render stays Live's own."""
+    if lufs is None or lufs >= TARGET_LUFS - LOUDNESS_SLACK:
+        return None
+    return float(round(min(MAX_MASTER_GAIN_DB, current_db + TARGET_LUFS - lufs)))   # Live shows it in whole dB above 10
+
+
 class Gate:
     """Is Live the booth's to use now? Each check is a function, so tests can stand in for Live."""
 
@@ -128,6 +143,11 @@ class Runner:
         score = res.score
         pal = P.load(score.palette)
         plan = C.compile(score, pal)
+        sections, offset = [], 0.0
+        for k, sec in enumerate(score.song):
+            length = sec.bars * 4 * 60.0 / score.bpm
+            sections.append((f"section {k + 1}", offset, offset + length))
+            offset += length
         b = self.builder(step)
         try:
             t = time.time()
@@ -136,8 +156,19 @@ class Runner:
             b.build(plan, front)
             t = mark("build", t)
             self.jobs.update(jid, state="rendering")
-            wav = b.export(plan, out / f"render-{jid}.wav", front)   # the Save panel writes into HOME first: a unique name
+            wav = b.export(plan, out / f"render-{jid}.wav", front)   # staged by the Save panel first: a unique name
             t = mark("export", t)
+            m = M.measure(wav, sections)
+            if "silent" in m["flags"]:
+                raise Stop("render: silent; Live's audio engine may be off")
+            gain = loudness_gain(m["lufs"], plan.master_gain_db)
+            if gain is not None:                       # quiet: more into Main's limiter, in Live, and export again
+                step("loudness")
+                b.master_gain(plan, gain, front)
+                wav = b.export(plan, out / f"render-{jid}-2.wav", front)
+                m = M.measure(wav, sections)
+                m["master_gain_db"] = gain
+                t = mark("loudness", t)
             b.close(jid)
             t = mark("close", t)
         except Stop as exc:
@@ -147,24 +178,14 @@ class Runner:
             log.exception("job %s", jid)
             self._hold(jid, stage["name"], f"{type(exc).__name__}: {exc}\n{traceback.format_exc(limit=3)}")
             return
-        self.jobs.update(jid, state="measuring", stage="measure")
+        self.jobs.update(jid, state="measuring", stage="encode")
         try:
-            sections, offset = [], 0.0
-            for k, sec in enumerate(score.song):
-                length = sec.bars * 4 * 60.0 / score.bpm
-                sections.append((f"section {k + 1}", offset, offset + length))
-                offset += length
-            m = M.measure(wav, sections)
             m["notes"] = M.explain(m["flags"])
             (out / "measure.json").write_text(__import__("json").dumps(m, indent=2) + "\n")
-            t = mark("measure", t)
-            if "silent" in m["flags"]:
-                self._hold(jid, "measure", "the render is silent: Live's audio engine may be off")
-                return
             self.encode(plan, score, wav, out, self.settings.video_size)
             mark("encode", t)
         except Exception as exc:
-            log.exception("job %s measure/encode", jid)
+            log.exception("job %s encode", jid)
             self.jobs.update(jid, state="failed", finished=time.time(), error={
                 "stage": "encode", "code": "encode_failed", "message": str(exc)[:500], "retryable": True})
             return
