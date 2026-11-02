@@ -144,6 +144,7 @@ def fake(monkeypatch, tmp_path):
         return 1.0
     monkeypatch.setattr(session, "open_set", open_set)
     monkeypatch.setattr(session, "copy_set", lambda a, b: tmp_path / f"{b}.als")
+    monkeypatch.setattr(session, "_front", lambda *a, **k: None)   # asks macOS (osascript); CI runs on Linux
     template = session.config.rig().set_path("booth_template")
     template.parent.mkdir(parents=True, exist_ok=True)
     template.write_text("")
