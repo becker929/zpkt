@@ -16,7 +16,7 @@ from pathlib import Path
 
 STATES = ("queued", "building", "rendering", "measuring", "done", "failed", "held")
 RUNNING = ("building", "rendering", "measuring")
-FILES = ("render.m4a", "video.mp4", "still.jpg", "score.json", "measure.json")
+FILES = ("render.m4a", "video.mp4", "still.jpg", "score.json", "measure.json", "loop.m4a")  # loop.m4a: with want.loop
 
 
 def new_id() -> str:

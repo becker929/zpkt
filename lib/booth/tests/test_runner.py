@@ -142,3 +142,32 @@ def test_a_loud_enough_render_is_exported_once(tmp_path, fake):
     a, _ = r.jobs.add("a", example(), {})
     r.runner.tick()
     assert r.jobs.get(a["id"])["state"] == "done" and len(r.ops.exports) == 1
+
+
+def test_a_loop_is_made_only_when_asked(tmp_path, fake):
+    made = []
+    r = Rig(tmp_path, fake)
+    r.runner.loop = lambda wav, seconds, m4a: (made.append(seconds), m4a.write_bytes(b"x"))
+    plain, _ = r.jobs.add("at://m/2#v1", example(), {})
+    r.runner.tick()
+    assert "loop.m4a" not in r.jobs.public(r.jobs.get(plain["id"]))["files"] and not made
+    looped, _ = r.jobs.add("at://m/3#v1", example(), {"loop": True})
+    r.runner.tick()
+    assert "loop.m4a" in r.jobs.public(r.jobs.get(looped["id"]))["files"]
+    s = example()
+    assert made == [pytest.approx(sum(sec["bars"] for sec in s["song"]) * 4 * 60.0 / s["bpm"])]
+
+
+def test_the_loop_folds_the_tail_onto_the_start_and_fits_room_worlds_limit(tmp_path):
+    import json, subprocess
+    from booth import video
+    # 70 s of song and 2 s of tail: a tone that is silent for the song's last second, so only the tail sounds there
+    wav = tmp_path / "render.wav"
+    subprocess.run(["ffmpeg", "-v", "error", "-f", "lavfi", "-i", "sine=f=440:d=72", "-af", "volume='if(between(t,69,70),0,1)':eval=frame",
+                    "-ar", "44100", "-ac", "2", str(wav)], check=True)
+    m4a = tmp_path / "loop.m4a"
+    kbps = video.loop(wav, 70.0, m4a)
+    assert m4a.stat().st_size <= video.CLIP_BYTES and 48 <= kbps <= 192
+    d = json.loads(subprocess.run(["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "json", str(m4a)],
+                                  capture_output=True, check=True).stdout)["format"]["duration"]
+    assert abs(float(d) - 70.0) < 0.1

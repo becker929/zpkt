@@ -61,6 +61,24 @@ def roll(plan: Plan, title: str, credit: str, size: tuple[int, int], out: Path) 
     return x0, width, TOP - 20
 
 
+CLIP_BYTES = 1024 * 1024  # Room World's limit for an uploaded clip
+
+
+def loop(wav: Path, seconds: float, m4a: Path, max_bytes: int = CLIP_BYTES) -> int:
+    """The render as a seamless loop for a Room World room: the song's own length (`seconds`, whole bars), with the
+    tail that rings out past its end (reverb, echo) mixed back onto its start, so the loop's seam sounds like the song
+    going round. AAC at the highest bitrate that keeps the file under Room World's clip limit; ffmpeg's MP4 records the
+    encoder delay, which browsers skip, so nothing is inserted at the seam. Returns the bitrate in kb/s."""
+    kbps = int(min(192, max(48, max_bytes * 8 * 0.9 / seconds / 1000)))
+    graph = (f"[0]asplit[a][b];[a]atrim=0:{seconds:.6f},asetpts=PTS-STARTPTS[body];"
+             f"[b]atrim={seconds:.6f},asetpts=PTS-STARTPTS[tail];[body][tail]amix=inputs=2:duration=first:normalize=0[out]")
+    subprocess.run(["ffmpeg", "-nostdin", "-y", "-loglevel", "error", "-i", str(wav), "-filter_complex", graph, "-map", "[out]",
+         "-c:a", "aac", "-b:a", f"{kbps}k", str(m4a)], check=True, capture_output=True, timeout=300)
+    if m4a.stat().st_size > max_bytes:
+        raise RuntimeError(f"loop is {m4a.stat().st_size} bytes, over the {max_bytes} clip limit")
+    return kbps
+
+
 def encode(wav: Path, still: Path, geom: tuple[int, int, int], size: tuple[int, int], seconds: float,
            m4a: Path, mp4: Path) -> None:
     x0, width, y0 = geom

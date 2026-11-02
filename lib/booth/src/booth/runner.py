@@ -87,11 +87,12 @@ class Gate:
 
 class Runner:
     def __init__(self, jobs: Jobs, settings: Settings, gate: Gate, *, builder: Callable, notify: Callable[[str, str], None],
-                 encode: Callable | None = None) -> None:
+                 encode: Callable | None = None, loop: Callable | None = None) -> None:
         self.jobs, self.settings, self.gate = jobs, settings, gate
         self.builder = builder                # client -> live.Builder (a fake in tests)
         self.notify = notify
         self.encode = encode or _encode
+        self.loop = loop or _loop
         self.current: str | None = None
 
     def close(self, reason: str) -> None:
@@ -183,6 +184,8 @@ class Runner:
             m["notes"] = M.explain(m["flags"])
             (out / "measure.json").write_text(__import__("json").dumps(m, indent=2) + "\n")
             self.encode(plan, score, wav, out, self.settings.video_size)
+            if (job.get("want") or {}).get("loop"):   # for a Room World room: the song folded into a seamless loop
+                self.loop(wav, plan.beats * 60.0 / plan.bpm, out / "loop.m4a")
             mark("encode", t)
         except Exception as exc:
             log.exception("job %s encode", jid)
@@ -198,6 +201,11 @@ class Runner:
         self.close(f"held at {stage}")
         log.error("held %s at %s: %s", jid, stage, message)
         self.notify("booth held a job", f"{jid} at {stage}: {message[:300]}\nLook at Live, then `booth open`.")
+
+
+def _loop(wav, seconds, m4a) -> None:
+    from . import video
+    video.loop(wav, seconds, m4a)
 
 
 def _encode(plan, score, wav, out, size) -> None:
