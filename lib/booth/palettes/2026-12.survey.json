@@ -1,0 +1,3238 @@
+{
+  "keys.music_box": {
+    "devices": [
+      "Music Box",
+      "Chorus-Ensemble",
+      "Utility"
+    ],
+    "pads": [],
+    "macros": [
+      [
+        "Filter Cutoff",
+        "30.0 Hz"
+      ],
+      [
+        "Filter Reso",
+        "0.0 %"
+      ],
+      [
+        "Tremolo Rate",
+        "6.00 Hz"
+      ],
+      [
+        "Tremolo Amount",
+        "0.00 %"
+      ],
+      [
+        "Attack",
+        "0.00 ms"
+      ],
+      [
+        "Release",
+        "5.20 s"
+      ],
+      [
+        "Chorus",
+        "15 %"
+      ],
+      [
+        "Reverb",
+        "21"
+      ],
+      [
+        "Macro 9",
+        "0"
+      ],
+      [
+        "Macro 10",
+        "0"
+      ],
+      [
+        "Macro 11",
+        "0"
+      ],
+      [
+        "Macro 12",
+        "0"
+      ],
+      [
+        "Macro 13",
+        "0"
+      ],
+      [
+        "Macro 14",
+        "0"
+      ],
+      [
+        "Macro 15",
+        "0"
+      ],
+      [
+        "Macro 16",
+        "0"
+      ]
+    ],
+    "lufs": -17.5,
+    "peak_db": -0.3
+  },
+  "keys.upright": {
+    "devices": [
+      "Childhood Home Piano"
+    ],
+    "pads": [],
+    "macros": [
+      [
+        "Filter Cutoff",
+        "17.0 kHz"
+      ],
+      [
+        "Filter Reso",
+        "65 %"
+      ],
+      [
+        "Sustain Pedal",
+        "127"
+      ],
+      [
+        "Keys Clacking",
+        "-8.0 dB"
+      ],
+      [
+        "Dream Scape",
+        "0"
+      ],
+      [
+        "Grit / Hiss",
+        "0"
+      ],
+      [
+        "Tremolo Amount",
+        "29.9 %"
+      ],
+      [
+        "Tremolo Rate",
+        "1/3"
+      ],
+      [
+        "Macro 9",
+        "0"
+      ],
+      [
+        "Macro 10",
+        "0"
+      ],
+      [
+        "Macro 11",
+        "0"
+      ],
+      [
+        "Macro 12",
+        "0"
+      ],
+      [
+        "Macro 13",
+        "0"
+      ],
+      [
+        "Macro 14",
+        "0"
+      ],
+      [
+        "Macro 15",
+        "0"
+      ],
+      [
+        "Macro 16",
+        "0"
+      ]
+    ],
+    "lufs": -23.7,
+    "peak_db": -12.3
+  },
+  "keys.toy_piano": {
+    "devices": [
+      "Toy Piano Bells",
+      "Chorus-Ensemble"
+    ],
+    "pads": [],
+    "macros": [],
+    "lufs": -23.5,
+    "peak_db": -8.4
+  },
+  "pad.branches": {
+    "devices": [
+      "Tree Branches"
+    ],
+    "pads": [],
+    "macros": [
+      [
+        "Filter Cutoff",
+        "4.69 kHz"
+      ],
+      [
+        "Filter Reso",
+        "31 %"
+      ],
+      [
+        "LFO Rate",
+        "1/4"
+      ],
+      [
+        "Tone",
+        "53"
+      ],
+      [
+        "Attack",
+        "365 ms"
+      ],
+      [
+        "Release",
+        "1.16 s"
+      ],
+      [
+        "Delay",
+        "34 %"
+      ],
+      [
+        "Flanger",
+        "44 %"
+      ],
+      [
+        "Macro 9",
+        "0"
+      ],
+      [
+        "Macro 10",
+        "0"
+      ],
+      [
+        "Macro 11",
+        "0"
+      ],
+      [
+        "Macro 12",
+        "0"
+      ],
+      [
+        "Macro 13",
+        "0"
+      ],
+      [
+        "Macro 14",
+        "0"
+      ],
+      [
+        "Macro 15",
+        "0"
+      ],
+      [
+        "Macro 16",
+        "0"
+      ]
+    ],
+    "lufs": -20.1,
+    "peak_db": -7.5
+  },
+  "mallets.tin_bowl": {
+    "devices": [
+      "Tin Bowl"
+    ],
+    "pads": [],
+    "macros": [],
+    "lufs": -25.2,
+    "peak_db": -9.7
+  },
+  "drums.tin": {
+    "devices": [
+      "Rattle Kit"
+    ],
+    "pads": [
+      [
+        36,
+        "Kick Hat Combo Dirty"
+      ],
+      [
+        37,
+        "Clap Blap"
+      ],
+      [
+        38,
+        "Snare Small Slap"
+      ],
+      [
+        39,
+        "Wood Hall"
+      ],
+      [
+        40,
+        "Wood Rough Low"
+      ],
+      [
+        41,
+        "Perc Bass Pluck"
+      ],
+      [
+        42,
+        "Hihat Closed Acoustic Room"
+      ],
+      [
+        43,
+        "Hihat Closed Buzz"
+      ],
+      [
+        44,
+        "Kick Acoustic Room"
+      ],
+      [
+        45,
+        "Perc Tuned High"
+      ],
+      [
+        46,
+        "Hihat Open Rough"
+      ],
+      [
+        47,
+        "Bell Cash"
+      ],
+      [
+        48,
+        "Perc Metallic Clatter"
+      ],
+      [
+        49,
+        "Crash Old Time"
+      ],
+      [
+        50,
+        "Cowbell Broken"
+      ],
+      [
+        51,
+        "Tamb Frame"
+      ]
+    ],
+    "macros": [
+      [
+        "Drive Amount",
+        "1.1 dB"
+      ],
+      [
+        "Drive Color",
+        "-81 %"
+      ],
+      [
+        "Drive Output",
+        "0.0 dB"
+      ],
+      [
+        "Dry/Wet",
+        "100 %"
+      ],
+      [
+        "Macro 5",
+        "0"
+      ],
+      [
+        "Macro 6",
+        "0"
+      ],
+      [
+        "Macro 7",
+        "0"
+      ],
+      [
+        "Macro 8",
+        "0"
+      ],
+      [
+        "Macro 9",
+        "0"
+      ],
+      [
+        "Macro 10",
+        "0"
+      ],
+      [
+        "Macro 11",
+        "0"
+      ],
+      [
+        "Macro 12",
+        "0"
+      ],
+      [
+        "Macro 13",
+        "0"
+      ],
+      [
+        "Macro 14",
+        "0"
+      ],
+      [
+        "Macro 15",
+        "0"
+      ],
+      [
+        "Macro 16",
+        "0"
+      ]
+    ],
+    "lufs": -18.9,
+    "peak_db": -4.7
+  },
+  "drums.clockwork": {
+    "devices": [
+      "Clockwork Kit"
+    ],
+    "pads": [
+      [
+        36,
+        "Kick Partial"
+      ],
+      [
+        37,
+        "E-Perc Screech Kick"
+      ],
+      [
+        38,
+        "Snare Support"
+      ],
+      [
+        39,
+        "E-Perc Clop"
+      ],
+      [
+        40,
+        "E-Perc Spring"
+      ],
+      [
+        41,
+        "E-Perc Wood Knock"
+      ],
+      [
+        42,
+        "E-Perc Metal 1"
+      ],
+      [
+        43,
+        "Kick Atmos"
+      ],
+      [
+        44,
+        "Bell Chop"
+      ],
+      [
+        45,
+        "E-Perc Low Knock"
+      ],
+      [
+        46,
+        "Hihat Closed Low Chop"
+      ],
+      [
+        47,
+        "Snare Perc Combo"
+      ],
+      [
+        48,
+        "Impact Deep Pad 120 bpm"
+      ],
+      [
+        49,
+        "Kick Synth Bass"
+      ],
+      [
+        50,
+        "FX Bleep Alarm Digital"
+      ],
+      [
+        51,
+        "E-Perc Digital Bleep"
+      ]
+    ],
+    "macros": [
+      [
+        "Drive Amount",
+        "26 dB"
+      ],
+      [
+        "Drive Color",
+        "-20 %"
+      ],
+      [
+        "Drive Output",
+        "-14 dB"
+      ],
+      [
+        "Dry/Wet",
+        "9.4 %"
+      ],
+      [
+        "Macro 5",
+        "0"
+      ],
+      [
+        "Macro 6",
+        "0"
+      ],
+      [
+        "Macro 7",
+        "0"
+      ],
+      [
+        "Macro 8",
+        "0"
+      ],
+      [
+        "Macro 9",
+        "0"
+      ],
+      [
+        "Macro 10",
+        "0"
+      ],
+      [
+        "Macro 11",
+        "0"
+      ],
+      [
+        "Macro 12",
+        "0"
+      ],
+      [
+        "Macro 13",
+        "0"
+      ],
+      [
+        "Macro 14",
+        "0"
+      ],
+      [
+        "Macro 15",
+        "0"
+      ],
+      [
+        "Macro 16",
+        "0"
+      ]
+    ],
+    "lufs": -19.8,
+    "peak_db": -7.0
+  },
+  "drums.kitchen": {
+    "devices": [
+      "Perc Kitchen Kit"
+    ],
+    "pads": [
+      [
+        36,
+        "Perc Pan"
+      ],
+      [
+        37,
+        "Perc Pot 1"
+      ],
+      [
+        38,
+        "Perc Pot 2"
+      ],
+      [
+        39,
+        "Perc Strike"
+      ],
+      [
+        40,
+        "FX Drip 1"
+      ],
+      [
+        41,
+        "FX Drip 2"
+      ],
+      [
+        42,
+        "Perc Knifes"
+      ],
+      [
+        43,
+        "FX Drip 3"
+      ],
+      [
+        44,
+        "FX Ice Cubes"
+      ],
+      [
+        45,
+        "FX Drip 4"
+      ],
+      [
+        46,
+        "Perc Spoons"
+      ],
+      [
+        47,
+        "FX Water"
+      ],
+      [
+        48,
+        "Perc Glass Low"
+      ],
+      [
+        49,
+        "Perc Kettle"
+      ],
+      [
+        50,
+        "Perc Kling"
+      ],
+      [
+        51,
+        "Perc Klang"
+      ]
+    ],
+    "macros": [
+      [
+        "Drive Amount",
+        "0.0 dB"
+      ],
+      [
+        "Drive Color",
+        "0.0 %"
+      ],
+      [
+        "Drive Output",
+        "0.0 dB"
+      ],
+      [
+        "Dry/Wet",
+        "100 %"
+      ],
+      [
+        "Macro 5",
+        "0"
+      ],
+      [
+        "Macro 6",
+        "0"
+      ],
+      [
+        "Macro 7",
+        "0"
+      ],
+      [
+        "Macro 8",
+        "0"
+      ],
+      [
+        "Macro 9",
+        "0"
+      ],
+      [
+        "Macro 10",
+        "0"
+      ],
+      [
+        "Macro 11",
+        "0"
+      ],
+      [
+        "Macro 12",
+        "0"
+      ],
+      [
+        "Macro 13",
+        "0"
+      ],
+      [
+        "Macro 14",
+        "0"
+      ],
+      [
+        "Macro 15",
+        "0"
+      ],
+      [
+        "Macro 16",
+        "0"
+      ]
+    ],
+    "lufs": -20.4,
+    "peak_db": -2.3
+  },
+  "bass.sub_mellow": {
+    "devices": [
+      "Sub Mellow",
+      "Saturator"
+    ],
+    "pads": [],
+    "macros": [
+      [
+        "Filter Cutoff",
+        "42.9 Hz"
+      ],
+      [
+        "Filter Reso",
+        "22 %"
+      ],
+      [
+        "Glide",
+        "15.0 ms"
+      ],
+      [
+        "Drive",
+        "57"
+      ],
+      [
+        "Env 2 Decay",
+        "138 ms"
+      ],
+      [
+        "Release",
+        "142 ms"
+      ],
+      [
+        "Mod Amount",
+        "24 %"
+      ],
+      [
+        "Sub Gain",
+        "-11 dB"
+      ],
+      [
+        "Macro 9",
+        "0"
+      ],
+      [
+        "Macro 10",
+        "0"
+      ],
+      [
+        "Macro 11",
+        "0"
+      ],
+      [
+        "Macro 12",
+        "0"
+      ],
+      [
+        "Macro 13",
+        "0"
+      ],
+      [
+        "Macro 14",
+        "0"
+      ],
+      [
+        "Macro 15",
+        "0"
+      ],
+      [
+        "Macro 16",
+        "0"
+      ]
+    ],
+    "lufs": -15.8,
+    "peak_db": -9.5
+  },
+  "bass.rubber": {
+    "devices": [
+      "Tension Rubber Bass"
+    ],
+    "pads": [],
+    "macros": [],
+    "lufs": -23.5,
+    "peak_db": -9.8
+  },
+  "bass.bowed": {
+    "devices": [
+      "Cat Gut Bass",
+      "Saturator"
+    ],
+    "pads": [],
+    "macros": [],
+    "lufs": -14.4,
+    "peak_db": -9.2
+  },
+  "bass.808": {
+    "devices": [
+      "808 Pure"
+    ],
+    "pads": [],
+    "macros": [
+      [
+        "Filter Cutoff",
+        "19.9 kHz",
+        "82.8 Hz",
+        "19.9 kHz"
+      ],
+      [
+        "Filter Reso",
+        "0.0 %",
+        "0.0 %",
+        "125 %"
+      ],
+      [
+        "Sculpt",
+        "1.00 ",
+        "0.00 ",
+        "1.00 "
+      ],
+      [
+        "Shape",
+        "0.00 ",
+        "0.00 ",
+        "1.00 "
+      ],
+      [
+        "Attack",
+        "3.30 ms",
+        "3.30 ms",
+        "534 ms"
+      ],
+      [
+        "Release",
+        "3.39 s",
+        "28.4 ms",
+        "3.39 s"
+      ],
+      [
+        "Drive Tone",
+        "100 %",
+        "0.0 %",
+        "100 %"
+      ],
+      [
+        "Drive Amount",
+        "0 %",
+        "0 %",
+        "17 %"
+      ]
+    ],
+    "lufs": -9.0,
+    "peak_db": -6.7
+  },
+  "bass.acid": {
+    "devices": [
+      "Basic 303 Bass"
+    ],
+    "pads": [],
+    "macros": [
+      [
+        "Filter Cutoff",
+        "61.5 Hz",
+        "20.0 Hz",
+        "2.00 kHz"
+      ],
+      [
+        "Filter Reso",
+        "96 %",
+        "30 %",
+        "125 %"
+      ],
+      [
+        "Tone",
+        "127",
+        "0",
+        "127"
+      ],
+      [
+        "Drive",
+        "74",
+        "0",
+        "127"
+      ],
+      [
+        "Time",
+        "0.0 %",
+        "-100 %",
+        "100 %"
+      ],
+      [
+        "Glide",
+        "88.4 ms",
+        "0.00 ms",
+        "20.0 s"
+      ],
+      [
+        "Delay",
+        "4.3 %",
+        "0.0 %",
+        "60 %"
+      ],
+      [
+        "Sub Gain",
+        "-8.0 dB",
+        "-inf dB",
+        "0.0 dB"
+      ]
+    ],
+    "lufs": -11.7,
+    "peak_db": -5.6
+  },
+  "bass.upright": {
+    "devices": [
+      "Upright Bass"
+    ],
+    "pads": [],
+    "macros": [],
+    "lufs": -18.5,
+    "peak_db": -4.8
+  },
+  "bass.finger": {
+    "devices": [
+      "Electric Bass Soft"
+    ],
+    "pads": [],
+    "macros": [
+      [
+        "Filter Cutoff",
+        "22.0 kHz"
+      ],
+      [
+        "Filter Reso",
+        "11 %"
+      ],
+      [
+        "LFO Rate",
+        "6.00 Hz"
+      ],
+      [
+        "Volume LFO",
+        "0.00 %"
+      ],
+      [
+        "Decay",
+        "4.04 s"
+      ],
+      [
+        "Release",
+        "262 ms"
+      ],
+      [
+        "Chorus",
+        "13 %"
+      ],
+      [
+        "Saturate",
+        "50 %"
+      ],
+      [
+        "Macro 9",
+        "0"
+      ],
+      [
+        "Macro 10",
+        "0"
+      ],
+      [
+        "Macro 11",
+        "0"
+      ],
+      [
+        "Macro 12",
+        "0"
+      ],
+      [
+        "Macro 13",
+        "0"
+      ],
+      [
+        "Macro 14",
+        "0"
+      ],
+      [
+        "Macro 15",
+        "0"
+      ],
+      [
+        "Macro 16",
+        "0"
+      ]
+    ],
+    "lufs": -19.9,
+    "peak_db": -6.8
+  },
+  "bass.pluck": {
+    "devices": [
+      "Round Pluck Bass"
+    ],
+    "pads": [],
+    "macros": [
+      [
+        "Filter Cutoff",
+        "50.6 Hz"
+      ],
+      [
+        "Filter Reso",
+        "65 %"
+      ],
+      [
+        "Osc 2 Warp",
+        "38 %"
+      ],
+      [
+        "Reverb",
+        "8.7 %"
+      ],
+      [
+        "Filter Decay",
+        "1.14 s"
+      ],
+      [
+        "Release",
+        "95.2 ms"
+      ],
+      [
+        "Osc 1 Effects",
+        "0"
+      ],
+      [
+        "Unison",
+        "20 %"
+      ],
+      [
+        "Macro 9",
+        "0"
+      ],
+      [
+        "Macro 10",
+        "0"
+      ],
+      [
+        "Macro 11",
+        "0"
+      ],
+      [
+        "Macro 12",
+        "0"
+      ],
+      [
+        "Macro 13",
+        "0"
+      ],
+      [
+        "Macro 14",
+        "0"
+      ],
+      [
+        "Macro 15",
+        "0"
+      ],
+      [
+        "Macro 16",
+        "0"
+      ]
+    ],
+    "lufs": -18.2,
+    "peak_db": -10.0
+  },
+  "bass.reese": {
+    "devices": [
+      "Reese Classic"
+    ],
+    "pads": [],
+    "macros": [
+      [
+        "Filter Cutoff",
+        "97",
+        "0",
+        "127"
+      ],
+      [
+        "Glide",
+        "83.9 ms",
+        "0.00 ms",
+        "13.0 s"
+      ],
+      [
+        "Detune",
+        "64",
+        "0",
+        "127"
+      ],
+      [
+        "Flanger",
+        "13 %",
+        "0.0 %",
+        "100 %"
+      ],
+      [
+        "Attack",
+        "0.64 ms",
+        "0.00 ms",
+        "8.00 s"
+      ],
+      [
+        "Release",
+        "110 ms",
+        "1.50 ms",
+        "10.0 s"
+      ],
+      [
+        "LFO Amount",
+        "13",
+        "0",
+        "127"
+      ],
+      [
+        "LFO Rate",
+        "1/8",
+        "8",
+        "1/64"
+      ]
+    ],
+    "lufs": -19.1,
+    "peak_db": -10.9
+  },
+  "lead.saw": {
+    "devices": [
+      "Basic OG Lead"
+    ],
+    "pads": [],
+    "macros": [
+      [
+        "Filter Cutoff",
+        "1.49 kHz",
+        "90.0 Hz",
+        "20.5 kHz"
+      ],
+      [
+        "Filter Reso",
+        "39 %",
+        "0.0 %",
+        "80 %"
+      ],
+      [
+        "Wave Position",
+        "80",
+        "0",
+        "127"
+      ],
+      [
+        "Fold",
+        "0.0 %",
+        "0.0 %",
+        "100 %"
+      ],
+      [
+        "Attack",
+        "5.77 ms",
+        "1.00 ms",
+        "1.00 s"
+      ],
+      [
+        "Release",
+        "959 ms",
+        "50.0 ms",
+        "3.00 s"
+      ],
+      [
+        "Glide",
+        "81.2 ms",
+        "0.00 ms",
+        "2.00 s"
+      ],
+      [
+        "Reverb",
+        "0.8 %",
+        "0.0 %",
+        "100 %"
+      ]
+    ],
+    "lufs": -18.8,
+    "peak_db": -13.6
+  },
+  "lead.chip": {
+    "devices": [
+      "Chiptune Dream"
+    ],
+    "pads": [],
+    "macros": [
+      [
+        "Filter Cutoff",
+        "0"
+      ],
+      [
+        "Filter Reso",
+        "75.0 "
+      ],
+      [
+        "Tone Shaper",
+        "0"
+      ],
+      [
+        "Multiply",
+        "0"
+      ],
+      [
+        "Attack",
+        "0.00 ms"
+      ],
+      [
+        "Decay",
+        "63"
+      ],
+      [
+        "Hentai Spectre",
+        "0"
+      ],
+      [
+        "Hentai Dream",
+        "127"
+      ],
+      [
+        "Macro 9",
+        "0"
+      ],
+      [
+        "Macro 10",
+        "0"
+      ],
+      [
+        "Macro 11",
+        "0"
+      ],
+      [
+        "Macro 12",
+        "0"
+      ],
+      [
+        "Macro 13",
+        "0"
+      ],
+      [
+        "Macro 14",
+        "0"
+      ],
+      [
+        "Macro 15",
+        "0"
+      ],
+      [
+        "Macro 16",
+        "0"
+      ]
+    ],
+    "lufs": -22.4,
+    "peak_db": -7.2
+  },
+  "lead.whistle": {
+    "devices": [
+      "Theremin Whistle"
+    ],
+    "pads": [],
+    "macros": [
+      [
+        "Filter Cutoff",
+        "20.5 kHz"
+      ],
+      [
+        "Wave Position",
+        "0.0 %"
+      ],
+      [
+        "FM Amount",
+        "0.0 %"
+      ],
+      [
+        "FM Tune",
+        "0.0 %"
+      ],
+      [
+        "Space",
+        "38"
+      ],
+      [
+        "Attack",
+        "214 ms"
+      ],
+      [
+        "Release",
+        "700 ms"
+      ],
+      [
+        "LFO Amount",
+        "37 %"
+      ],
+      [
+        "LFO Rate",
+        "4.50 Hz"
+      ],
+      [
+        "Volume",
+        "0.0 dB"
+      ],
+      [
+        "Macro 11",
+        "0"
+      ],
+      [
+        "Macro 12",
+        "0"
+      ],
+      [
+        "Macro 13",
+        "0"
+      ],
+      [
+        "Macro 14",
+        "0"
+      ],
+      [
+        "Macro 15",
+        "0"
+      ],
+      [
+        "Macro 16",
+        "0"
+      ]
+    ],
+    "lufs": -11.6,
+    "peak_db": -6.0
+  },
+  "pluck.synth": {
+    "devices": [
+      "Simple Pluck"
+    ],
+    "pads": [],
+    "macros": [
+      [
+        "Filter Env",
+        "64 %"
+      ],
+      [
+        "Filter Reso",
+        "59"
+      ],
+      [
+        "Wave Position",
+        "16 %"
+      ],
+      [
+        "Tone",
+        "0"
+      ],
+      [
+        "Filter Decay",
+        "506 ms"
+      ],
+      [
+        "Release",
+        "82"
+      ],
+      [
+        "Unison",
+        "0.0 %"
+      ],
+      [
+        "Delay",
+        "33 %"
+      ],
+      [
+        "Macro 9",
+        "0"
+      ],
+      [
+        "Macro 10",
+        "0"
+      ],
+      [
+        "Macro 11",
+        "0"
+      ],
+      [
+        "Macro 12",
+        "0"
+      ],
+      [
+        "Macro 13",
+        "0"
+      ],
+      [
+        "Macro 14",
+        "0"
+      ],
+      [
+        "Macro 15",
+        "0"
+      ],
+      [
+        "Macro 16",
+        "0"
+      ]
+    ],
+    "lufs": -24.6,
+    "peak_db": -11.2
+  },
+  "pluck.kalimba": {
+    "devices": [
+      "Thumb Piano Tiny"
+    ],
+    "pads": [],
+    "macros": [
+      [
+        "Filter Cutoff",
+        "20.9 kHz"
+      ],
+      [
+        "Filter Reso",
+        "15 %"
+      ],
+      [
+        "Tremolo Rate",
+        "9.00 Hz"
+      ],
+      [
+        "Tremolo Amount",
+        "0.00 %"
+      ],
+      [
+        "Decay Sustain",
+        "127"
+      ],
+      [
+        "Release",
+        "3.36 s"
+      ],
+      [
+        "Flanger",
+        "21 %"
+      ],
+      [
+        "Delay",
+        "0.0 %"
+      ],
+      [
+        "Macro 9",
+        "0"
+      ],
+      [
+        "Macro 10",
+        "0"
+      ],
+      [
+        "Macro 11",
+        "0"
+      ],
+      [
+        "Macro 12",
+        "0"
+      ],
+      [
+        "Macro 13",
+        "0"
+      ],
+      [
+        "Macro 14",
+        "0"
+      ],
+      [
+        "Macro 15",
+        "0"
+      ],
+      [
+        "Macro 16",
+        "0"
+      ]
+    ],
+    "lufs": -28.0,
+    "peak_db": -10.2
+  },
+  "pluck.koto": {
+    "devices": [
+      "Koto"
+    ],
+    "pads": [],
+    "macros": [],
+    "lufs": -24.3,
+    "peak_db": -13.8
+  },
+  "pad.analog": {
+    "devices": [
+      "Warm Analog Pad"
+    ],
+    "pads": [],
+    "macros": [
+      [
+        "Low Pass Filter",
+        "88.0 Hz",
+        "20.0 Hz",
+        "20.0 kHz"
+      ],
+      [
+        "Low Pass Reso",
+        "0.00 ",
+        "0.00 ",
+        "1.01 "
+      ],
+      [
+        "Hi Pass Filter",
+        "10.0 Hz",
+        "10.0 Hz",
+        "20.5 kHz"
+      ],
+      [
+        "Lo Pass Env",
+        "68 %",
+        "-100 %",
+        "100 %"
+      ],
+      [
+        "Attack",
+        "1.50 s",
+        "0.00 ms",
+        "10.0 s"
+      ],
+      [
+        "Release",
+        "6.00 s",
+        "10.0 ms",
+        "20.0 s"
+      ],
+      [
+        "Drift",
+        "72 %",
+        "0.0 %",
+        "100 %"
+      ],
+      [
+        "Space",
+        "39",
+        "0",
+        "127"
+      ]
+    ],
+    "lufs": -16.4,
+    "peak_db": -5.2
+  },
+  "strings.orchestra": {
+    "devices": [
+      "Ac Strings Orch"
+    ],
+    "pads": [],
+    "macros": [
+      [
+        "Filter Cutoff",
+        "22.0 kHz",
+        "30.0 Hz",
+        "22.0 kHz"
+      ],
+      [
+        "Tone",
+        "3.0 dB",
+        "-15 dB",
+        "15 dB"
+      ],
+      [
+        "Tremolo Rate",
+        "8.00 Hz",
+        "0.01 Hz",
+        "30.0 Hz"
+      ],
+      [
+        "Tremolo Amount",
+        "0.00 %",
+        "0.00 %",
+        "100 %"
+      ],
+      [
+        "Attack",
+        "0.00 ms",
+        "0.00 ms",
+        "20.0 s"
+      ],
+      [
+        "Release",
+        "1.10 s",
+        "10.00 ms",
+        "30.0 s"
+      ],
+      [
+        "Reverb Decay",
+        "4.55 s",
+        "200 ms",
+        "60.0 s"
+      ],
+      [
+        "Reverb Amount",
+        "22 %",
+        "0.0 %",
+        "100 %"
+      ]
+    ],
+    "lufs": -18.3,
+    "peak_db": -6.9
+  },
+  "strings.pizzicato": {
+    "devices": [
+      "Ac Strings Pizz Basic"
+    ],
+    "pads": [],
+    "macros": [
+      [
+        "Filter Cutoff",
+        "22.0 kHz",
+        "30.0 Hz",
+        "22.0 kHz"
+      ],
+      [
+        "Filter Reso",
+        "0.0 %",
+        "0.0 %",
+        "125 %"
+      ],
+      [
+        "Attack",
+        "0.00 ms",
+        "0.00 ms",
+        "100.0 ms"
+      ],
+      [
+        "Decay",
+        "5.06 s",
+        "1.00 ms",
+        "60.0 s"
+      ],
+      [
+        "Delay",
+        "0.0 %",
+        "0.0 %",
+        "100 %"
+      ],
+      [
+        "Reverb",
+        "24",
+        "0",
+        "127"
+      ]
+    ],
+    "lufs": -30.2,
+    "peak_db": -18.1
+  },
+  "strings.machine": {
+    "devices": [
+      "String Machine"
+    ],
+    "pads": [],
+    "macros": [
+      [
+        "Filter Cutoff",
+        "8.76 kHz",
+        "70.0 Hz",
+        "20.5 kHz"
+      ],
+      [
+        "Pulse Width",
+        "0",
+        "0",
+        "127"
+      ],
+      [
+        "Sync",
+        "0",
+        "0",
+        "127"
+      ],
+      [
+        "Osc 2 Pitch",
+        "0 st",
+        "0 st",
+        "24 st"
+      ],
+      [
+        "Attack",
+        "101 ms",
+        "0.00 ms",
+        "3.89 s"
+      ],
+      [
+        "Release",
+        "743 ms",
+        "1.50 ms",
+        "4.27 s"
+      ],
+      [
+        "Detune",
+        "35",
+        "0",
+        "127"
+      ],
+      [
+        "Reverb",
+        "13 %",
+        "0.0 %",
+        "100 %"
+      ]
+    ],
+    "lufs": -16.0,
+    "peak_db": -5.3
+  },
+  "brass.flugelhorn": {
+    "devices": [
+      "Ac Flugelhorn"
+    ],
+    "pads": [],
+    "macros": [
+      [
+        "Filter Cutoff",
+        "20.9 kHz",
+        "30.0 Hz",
+        "22.0 kHz"
+      ],
+      [
+        "Delay",
+        "22",
+        "0",
+        "127"
+      ],
+      [
+        "Reverb",
+        "14 %",
+        "0.0 %",
+        "100 %"
+      ],
+      [
+        "Attack",
+        "0.00 ms",
+        "0.00 ms",
+        "150 ms"
+      ],
+      [
+        "Decay Sustain",
+        "127",
+        "0",
+        "127"
+      ],
+      [
+        "Release",
+        "46.0 ms",
+        "30.0 ms",
+        "5.00 s"
+      ]
+    ],
+    "lufs": -27.1,
+    "peak_db": -14.8
+  },
+  "brass.synth": {
+    "devices": [
+      "Basic Synth Brass"
+    ],
+    "pads": [],
+    "macros": [
+      [
+        "Filter Cutoff",
+        "88",
+        "0",
+        "127"
+      ],
+      [
+        "Lower Octave",
+        "41",
+        "0",
+        "127"
+      ],
+      [
+        "Spread",
+        "67 %",
+        "0 %",
+        "100 %"
+      ],
+      [
+        "Motion",
+        "1.00 Hz",
+        "1.00 Hz",
+        "10.3 Hz"
+      ],
+      [
+        "Filter Attack",
+        "614 ms",
+        "500 ms",
+        "1.84 s"
+      ],
+      [
+        "Decay",
+        "0.0 dB",
+        "-inf dB",
+        "0.0 dB"
+      ],
+      [
+        "Time",
+        "-100 %",
+        "-100 %",
+        "100 %"
+      ],
+      [
+        "Volume",
+        "0.0 dB",
+        "-inf dB",
+        "6.0 dB"
+      ]
+    ],
+    "lufs": -15.6,
+    "peak_db": -2.4
+  },
+  "winds.flute": {
+    "devices": [
+      "Clay Flute"
+    ],
+    "pads": [],
+    "macros": [
+      [
+        "Filter Cutoff",
+        "22.0 kHz",
+        "30.0 Hz",
+        "22.0 kHz"
+      ],
+      [
+        "Filter Reso",
+        "0.0 %",
+        "0.0 %",
+        "125 %"
+      ],
+      [
+        "Reverb Decay",
+        "1.76 s",
+        "200 ms",
+        "60.0 s"
+      ],
+      [
+        "Reverb Amount",
+        "30 %",
+        "0.0 %",
+        "100 %"
+      ],
+      [
+        "Attack",
+        "0.00 ms",
+        "0.00 ms",
+        "1.68 s"
+      ],
+      [
+        "Release",
+        "600 ms",
+        "1.00 ms",
+        "21.4 s"
+      ],
+      [
+        "Tremolo Rate",
+        "5.27 Hz",
+        "1.09 Hz",
+        "12.5 Hz"
+      ],
+      [
+        "Tremolo Amount",
+        "0.00 %",
+        "0.00 %",
+        "100 %"
+      ]
+    ],
+    "lufs": -18.8,
+    "peak_db": -13.5
+  },
+  "keys.grand": {
+    "devices": [
+      "Grand Piano"
+    ],
+    "pads": [],
+    "macros": [
+      [
+        "Bright",
+        "56",
+        "0",
+        "127"
+      ],
+      [
+        "Tone",
+        "65",
+        "0",
+        "127"
+      ],
+      [
+        "Glue",
+        "0.0 %",
+        "0.0 %",
+        "100 %"
+      ],
+      [
+        "Reverb",
+        "7.7 %",
+        "0.0 %",
+        "70 %"
+      ],
+      [
+        "Attack",
+        "0",
+        "0",
+        "127"
+      ],
+      [
+        "Release",
+        "60",
+        "0",
+        "127"
+      ],
+      [
+        "Soft / Hard",
+        "53",
+        "0",
+        "127"
+      ],
+      [
+        "Volume",
+        "0.0 dB",
+        "-inf dB",
+        "6.0 dB"
+      ]
+    ],
+    "lufs": -23.3,
+    "peak_db": -12.2
+  },
+  "keys.rhodes": {
+    "devices": [
+      "E-Piano MKI Mellow"
+    ],
+    "pads": [],
+    "macros": [],
+    "lufs": -20.9,
+    "peak_db": -13.3
+  },
+  "keys.wurli": {
+    "devices": [
+      "Wurli Classic Piano"
+    ],
+    "pads": [],
+    "macros": [],
+    "lufs": -14.9,
+    "peak_db": -5.8
+  },
+  "keys.organ": {
+    "devices": [
+      "Organ Bandstand"
+    ],
+    "pads": [],
+    "macros": [
+      [
+        "Filter Cutoff",
+        "1.76 kHz",
+        "20.0 Hz",
+        "20.5 kHz"
+      ],
+      [
+        "Filter Reso",
+        "24 %",
+        "7.8 %",
+        "55 %"
+      ],
+      [
+        "Pulse Width",
+        "39 %",
+        "9.4 %",
+        "100 %"
+      ],
+      [
+        "Sync",
+        "0.0 %",
+        "0.0 %",
+        "100 %"
+      ],
+      [
+        "Attack",
+        "2.95 ms",
+        "0.00 ms",
+        "8.00 s"
+      ],
+      [
+        "Release",
+        "47",
+        "0",
+        "127"
+      ],
+      [
+        "Unison",
+        "10 %",
+        "1.6 %",
+        "100 %"
+      ],
+      [
+        "Reverb",
+        "17",
+        "0",
+        "127"
+      ]
+    ],
+    "lufs": -18.7,
+    "peak_db": -7.5
+  },
+  "keys.clav": {
+    "devices": [
+      "Clav Session"
+    ],
+    "pads": [],
+    "macros": [],
+    "lufs": -21.6,
+    "peak_db": -9.1
+  },
+  "guitar.nylon": {
+    "devices": [
+      "Basic Nylon Concerto Guitar"
+    ],
+    "pads": [],
+    "macros": [
+      [
+        "Filter Cutoff",
+        "127",
+        "0",
+        "127"
+      ],
+      [
+        "Color",
+        "127",
+        "0",
+        "127"
+      ],
+      [
+        "Vibrato",
+        "0",
+        "0",
+        "127"
+      ],
+      [
+        "Reverb",
+        "127",
+        "0",
+        "127"
+      ],
+      [
+        "Attack",
+        "127",
+        "0",
+        "127"
+      ],
+      [
+        "Decay",
+        "76",
+        "0",
+        "127"
+      ],
+      [
+        "Tone",
+        "0",
+        "0",
+        "127"
+      ],
+      [
+        "Volume",
+        "0.0 dB",
+        "-inf dB",
+        "6.0 dB"
+      ]
+    ],
+    "lufs": -16.1,
+    "peak_db": -5.7
+  },
+  "guitar.clean": {
+    "devices": [
+      "Guitar Electric Clean"
+    ],
+    "pads": [],
+    "macros": [
+      [
+        "Filter Cutoff",
+        "22.0 kHz",
+        "30.0 Hz",
+        "22.0 kHz"
+      ],
+      [
+        "Filter Reso",
+        "11 %",
+        "0.0 %",
+        "85 %"
+      ],
+      [
+        "Tremolo Rate",
+        "6.00 Hz",
+        "0.01 Hz",
+        "30.0 Hz"
+      ],
+      [
+        "Tremolo Amount",
+        "0.00 %",
+        "0.00 %",
+        "100 %"
+      ],
+      [
+        "Attack",
+        "0.00 ms",
+        "0.00 ms",
+        "200 ms"
+      ],
+      [
+        "Release",
+        "2.00 s",
+        "1.00 ms",
+        "10.00 s"
+      ],
+      [
+        "Phaser",
+        "17 %",
+        "0.0 %",
+        "100 %"
+      ],
+      [
+        "Reverb",
+        "15 %",
+        "0.0 %",
+        "100 %"
+      ]
+    ],
+    "lufs": -23.0,
+    "peak_db": -8.1
+  },
+  "strings.harp": {
+    "devices": [
+      "Harp Concert"
+    ],
+    "pads": [],
+    "macros": [
+      [
+        "Filter Cutoff",
+        "117 Hz",
+        "30.0 Hz",
+        "22.0 kHz"
+      ],
+      [
+        "Filter Reso",
+        "0.0 %",
+        "0.0 %",
+        "125 %"
+      ],
+      [
+        "Tremolo Rate",
+        "6.00 Hz",
+        "2.00 Hz",
+        "15.0 Hz"
+      ],
+      [
+        "Tremolo Amount",
+        "0.00 %",
+        "0.00 %",
+        "100 %"
+      ],
+      [
+        "Attack",
+        "0.00 ms",
+        "0.00 ms",
+        "130 ms"
+      ],
+      [
+        "Release",
+        "3.36 s",
+        "1.00 ms",
+        "10.00 s"
+      ],
+      [
+        "Chorus",
+        "0.0 %",
+        "0.0 %",
+        "100 %"
+      ],
+      [
+        "Reverb",
+        "14 %",
+        "0.0 %",
+        "100 %"
+      ]
+    ],
+    "lufs": -21.4,
+    "peak_db": -12.5
+  },
+  "mallets.marimba": {
+    "devices": [
+      "Marimba Concert"
+    ],
+    "pads": [],
+    "macros": [
+      [
+        "Filter Cutoff",
+        "200 Hz",
+        "30.0 Hz",
+        "22.0 kHz"
+      ],
+      [
+        "Filter Reso",
+        "0.0 %",
+        "0.0 %",
+        "85 %"
+      ],
+      [
+        "Tremolo Rate",
+        "6.00 Hz",
+        "2.00 Hz",
+        "15.0 Hz"
+      ],
+      [
+        "Tremolo Amount",
+        "0.00 %",
+        "0.00 %",
+        "100 %"
+      ],
+      [
+        "Attack",
+        "0.00 ms",
+        "0.00 ms",
+        "200 ms"
+      ],
+      [
+        "Release",
+        "11.4 s",
+        "1.00 ms",
+        "12.0 s"
+      ],
+      [
+        "Delay",
+        "0.0 %",
+        "0.0 %",
+        "100 %"
+      ],
+      [
+        "Reverb",
+        "15 %",
+        "0.0 %",
+        "100 %"
+      ]
+    ],
+    "lufs": -27.2,
+    "peak_db": -15.4
+  },
+  "mallets.vibes": {
+    "devices": [
+      "Vibraphone"
+    ],
+    "pads": [],
+    "macros": [
+      [
+        "Filter Cutoff",
+        "30.0 Hz",
+        "30.0 Hz",
+        "22.0 kHz"
+      ],
+      [
+        "Filter Reso",
+        "0.0 %",
+        "0.0 %",
+        "125 %"
+      ],
+      [
+        "Tremolo Rate",
+        "1.00 Hz",
+        "0.01 Hz",
+        "30.0 Hz"
+      ],
+      [
+        "Tremolo Amount",
+        "0.00 %",
+        "0.00 %",
+        "100 %"
+      ],
+      [
+        "Attack",
+        "0.00 ms",
+        "0.00 ms",
+        "100.0 ms"
+      ],
+      [
+        "Release",
+        "17.7 s",
+        "1.00 ms",
+        "18.0 s"
+      ],
+      [
+        "Phaser",
+        "0.0 %",
+        "0.0 %",
+        "100 %"
+      ],
+      [
+        "Reverb",
+        "19 %",
+        "0.0 %",
+        "100 %"
+      ]
+    ],
+    "lufs": -24.7,
+    "peak_db": -11.0
+  },
+  "mallets.glockenspiel": {
+    "devices": [
+      "Glockenspiel Basic"
+    ],
+    "pads": [],
+    "macros": [],
+    "lufs": -22.4,
+    "peak_db": -9.6
+  },
+  "bells.tubular": {
+    "devices": [
+      "Tubular FM Bells"
+    ],
+    "pads": [],
+    "macros": [
+      [
+        "Filter Cutoff",
+        "4.69 kHz",
+        "70.0 Hz",
+        "20.5 kHz"
+      ],
+      [
+        "Filter Reso",
+        "0.0 %",
+        "0.0 %",
+        "90 %"
+      ],
+      [
+        "FM Amount",
+        "39 %",
+        "0.0 %",
+        "80 %"
+      ],
+      [
+        "FM Tune",
+        "90 %",
+        "-100 %",
+        "100 %"
+      ],
+      [
+        "Attack",
+        "1.00 ms",
+        "1.00 ms",
+        "1.00 s"
+      ],
+      [
+        "Release",
+        "2.20 s",
+        "700 ms",
+        "4.00 s"
+      ],
+      [
+        "Bell Timbre",
+        "0",
+        "0",
+        "127"
+      ],
+      [
+        "Space",
+        "64",
+        "0",
+        "127"
+      ]
+    ],
+    "lufs": -20.3,
+    "peak_db": -10.6
+  },
+  "drums.acoustic": {
+    "devices": [
+      "Dry Session Kit"
+    ],
+    "pads": [
+      [
+        36,
+        "Kick Felt"
+      ],
+      [
+        37,
+        "Snare Sidestick"
+      ],
+      [
+        38,
+        "Snare Dry Session"
+      ],
+      [
+        39,
+        "Snare 2 Dry Session"
+      ],
+      [
+        40,
+        "Cowbell Dry Session"
+      ],
+      [
+        41,
+        "Tom Floor"
+      ],
+      [
+        42,
+        "Hihat Closed"
+      ],
+      [
+        43,
+        "Tom Low"
+      ],
+      [
+        44,
+        "Hihat Pedal"
+      ],
+      [
+        45,
+        "Tom Mid"
+      ],
+      [
+        46,
+        "Hihat Open"
+      ],
+      [
+        47,
+        "Tom Hi"
+      ],
+      [
+        48,
+        "Crash 1 Dry Session"
+      ],
+      [
+        49,
+        "Crash 2 Dry Session"
+      ],
+      [
+        50,
+        "Ride Dry Session"
+      ],
+      [
+        51,
+        "Conga Dry Session"
+      ]
+    ],
+    "macros": [
+      [
+        "Warmth",
+        "0",
+        "0",
+        "127"
+      ],
+      [
+        "Drive",
+        "0",
+        "0",
+        "127"
+      ],
+      [
+        "Reverb",
+        "0",
+        "0",
+        "127"
+      ],
+      [
+        "K+S Para Comp",
+        "0",
+        "0",
+        "127"
+      ],
+      [
+        "Master EQ",
+        "0",
+        "0",
+        "127"
+      ],
+      [
+        "Trnsnt",
+        "0.00",
+        "-1.00",
+        "1.00"
+      ],
+      [
+        "Comp Gain",
+        "2.50 dB",
+        "-15.0 dB",
+        "15.0 dB"
+      ],
+      [
+        "Master Comp",
+        "0",
+        "0",
+        "127"
+      ]
+    ],
+    "lufs": -21.4,
+    "peak_db": -4.0
+  },
+  "drums.brushes": {
+    "devices": [
+      "Ahlimba Kit"
+    ],
+    "pads": [
+      [
+        36,
+        "Kick Shuffle"
+      ],
+      [
+        37,
+        "Wood Stick Optimus"
+      ],
+      [
+        38,
+        "Snare Shuffle"
+      ],
+      [
+        39,
+        "Perc Clapstick CD"
+      ],
+      [
+        40,
+        "Bass Pluck B1"
+      ],
+      [
+        41,
+        "Tom Dry Funk Brush"
+      ],
+      [
+        42,
+        "Hihat Closed Shuffle 2"
+      ],
+      [
+        43,
+        "Hihat Closed Shuffle 1"
+      ],
+      [
+        44,
+        "Tamb Processed 2"
+      ],
+      [
+        45,
+        "Tom Low Jazz Processed"
+      ],
+      [
+        46,
+        "Hihat Open Dry Funk Brush"
+      ],
+      [
+        47,
+        "Conga Processed 3"
+      ],
+      [
+        48,
+        "Ride Dry Funk Brush"
+      ],
+      [
+        49,
+        "Wurli Piano Dmin"
+      ],
+      [
+        50,
+        "Wurli Piano Dmin7"
+      ],
+      [
+        51,
+        "Wurli Piano Dmin6"
+      ]
+    ],
+    "macros": [
+      [
+        "Drive Amount",
+        "0.0 dB",
+        "0.0 dB",
+        "36 dB"
+      ],
+      [
+        "Drive Color",
+        "0.0 %",
+        "-100 %",
+        "100 %"
+      ],
+      [
+        "Drive Output",
+        "0.0 dB",
+        "-36 dB",
+        "0.0 dB"
+      ],
+      [
+        "Dry/Wet",
+        "100 %",
+        "0.0 %",
+        "100 %"
+      ]
+    ],
+    "lufs": -20.1,
+    "peak_db": -2.8
+  },
+  "drums.808": {
+    "devices": [
+      "808 Core Kit"
+    ],
+    "pads": [
+      [
+        36,
+        "Bass Drum"
+      ],
+      [
+        37,
+        "Rim Shot"
+      ],
+      [
+        38,
+        "Snare Drum"
+      ],
+      [
+        39,
+        "Hand Clap"
+      ],
+      [
+        40,
+        "Low Conga"
+      ],
+      [
+        41,
+        "Mid Conga"
+      ],
+      [
+        42,
+        "Closed Hi Hat"
+      ],
+      [
+        43,
+        "Hi Conga"
+      ],
+      [
+        44,
+        "Low Tom"
+      ],
+      [
+        45,
+        "Mid Tom"
+      ],
+      [
+        46,
+        "Open Hi Hat"
+      ],
+      [
+        47,
+        "Hi Tom"
+      ],
+      [
+        48,
+        "Maracas"
+      ],
+      [
+        49,
+        "Cymbal"
+      ],
+      [
+        50,
+        "Cow Bell"
+      ],
+      [
+        51,
+        "Claves"
+      ]
+    ],
+    "macros": [
+      [
+        "Low Gain  ",
+        "0.0 dB",
+        "-15 dB",
+        "15 dB"
+      ],
+      [
+        "Mid Gain",
+        "0.0 dB",
+        "-12 dB",
+        "12 dB"
+      ],
+      [
+        "High Gain",
+        "0.0 dB",
+        "-15 dB",
+        "15 dB"
+      ],
+      [
+        "Gain",
+        "-7.0 dB",
+        "-12 dB",
+        "12 dB"
+      ],
+      [
+        "Drive Amount",
+        "0",
+        "0",
+        "127"
+      ],
+      [
+        "Drive Tone",
+        "0",
+        "0",
+        "127"
+      ],
+      [
+        "Glue",
+        "0",
+        "0",
+        "127"
+      ],
+      [
+        "Vintage",
+        "0",
+        "0",
+        "127"
+      ]
+    ],
+    "lufs": -21.9,
+    "peak_db": -6.4
+  },
+  "drums.909": {
+    "devices": [
+      "909 Core Kit"
+    ],
+    "pads": [
+      [
+        36,
+        "Bass Drum"
+      ],
+      [
+        37,
+        "Rim Shot"
+      ],
+      [
+        38,
+        "Snare Drum"
+      ],
+      [
+        39,
+        "Hand Clap"
+      ],
+      [
+        40,
+        "Bass Drum"
+      ],
+      [
+        41,
+        "Snare Drum"
+      ],
+      [
+        42,
+        "Closed Hi Hat"
+      ],
+      [
+        43,
+        "Snare Drum"
+      ],
+      [
+        44,
+        "Low Tom"
+      ],
+      [
+        45,
+        "Mid Tom"
+      ],
+      [
+        46,
+        "Open Hi Hat"
+      ],
+      [
+        47,
+        "Hi Tom"
+      ],
+      [
+        48,
+        "Crash"
+      ],
+      [
+        49,
+        "Crash"
+      ],
+      [
+        50,
+        "Ride"
+      ],
+      [
+        51,
+        "Ride"
+      ]
+    ],
+    "macros": [
+      [
+        "Low Gain  ",
+        "0.0 dB",
+        "-15 dB",
+        "15 dB"
+      ],
+      [
+        "Mid Gain",
+        "0.0 dB",
+        "-12 dB",
+        "12 dB"
+      ],
+      [
+        "High Gain",
+        "0.0 dB",
+        "-15 dB",
+        "15 dB"
+      ],
+      [
+        "Gain",
+        "-7.5 dB",
+        "-12 dB",
+        "12 dB"
+      ],
+      [
+        "Drive Amount",
+        "0",
+        "0",
+        "127"
+      ],
+      [
+        "Drive Tone",
+        "0",
+        "0",
+        "127"
+      ],
+      [
+        "Glue",
+        "0",
+        "0",
+        "127"
+      ],
+      [
+        "Vintage",
+        "0",
+        "0",
+        "127"
+      ]
+    ],
+    "lufs": -22.9,
+    "peak_db": -6.6
+  },
+  "drums.lofi": {
+    "devices": [
+      "LDre Cozy Kit"
+    ],
+    "pads": [
+      [
+        36,
+        "Kick LDre 6"
+      ],
+      [
+        37,
+        "Snare LDre 4"
+      ],
+      [
+        38,
+        "Hihat Closed LDre 3"
+      ],
+      [
+        39,
+        "Organ Pad LDre FMaj7"
+      ],
+      [
+        40,
+        "Kick LDre 10"
+      ],
+      [
+        41,
+        "Snare LDre 3"
+      ],
+      [
+        42,
+        "Hihat Closed LDre 1"
+      ],
+      [
+        43,
+        "Organ Pad LDre Emin7"
+      ],
+      [
+        44,
+        "Kick LDre 3"
+      ],
+      [
+        45,
+        "Rim LDre 3"
+      ],
+      [
+        46,
+        "Hihat Open LDre 2"
+      ],
+      [
+        47,
+        "Organ Pad LDre Dmin7"
+      ],
+      [
+        48,
+        "Kick LDre 8"
+      ],
+      [
+        49,
+        "Perc Stick LDre 2"
+      ],
+      [
+        50,
+        "Hihat Open LDre 1"
+      ],
+      [
+        51,
+        "Organ Pad LDre Amin7"
+      ]
+    ],
+    "macros": [
+      [
+        "Drive Amount",
+        "8.0 dB",
+        "0.0 dB",
+        "36 dB"
+      ],
+      [
+        "Drive Color",
+        "0.0 %",
+        "-100 %",
+        "100 %"
+      ],
+      [
+        "Drive Output",
+        "-5.0 dB",
+        "-36 dB",
+        "0.0 dB"
+      ],
+      [
+        "Dry/Wet",
+        "50 %",
+        "0.0 %",
+        "100 %"
+      ]
+    ],
+    "lufs": -18.9,
+    "peak_db": -5.5
+  },
+  "drums.break": {
+    "devices": [
+      "Sliced Break"
+    ],
+    "pads": [
+      [
+        36,
+        "Break Funk Chop 115 bpm"
+      ],
+      [
+        37,
+        "Break Funk Chop 115 bpm"
+      ],
+      [
+        38,
+        "Break Funk Chop 115 bpm"
+      ],
+      [
+        39,
+        "Break Funk Chop 115 bpm"
+      ],
+      [
+        40,
+        "Break Funk Chop 115 bpm"
+      ],
+      [
+        41,
+        "Break Funk Chop 115 bpm"
+      ],
+      [
+        42,
+        "Break Funk Chop 115 bpm"
+      ],
+      [
+        43,
+        "Break Funk Chop 115 bpm"
+      ],
+      [
+        44,
+        "Break Funk Chop 115 bpm"
+      ],
+      [
+        45,
+        "Break Funk Chop 115 bpm"
+      ],
+      [
+        46,
+        "Break Funk Chop 115 bpm"
+      ],
+      [
+        47,
+        "Break Funk Chop 115 bpm"
+      ],
+      [
+        48,
+        "Break Funk Chop 115 bpm"
+      ],
+      [
+        49,
+        "Break Funk Chop 115 bpm"
+      ],
+      [
+        50,
+        "Break Funk Chop 115 bpm"
+      ],
+      [
+        51,
+        "Break Funk Chop 115 bpm"
+      ]
+    ],
+    "macros": [
+      [
+        "Drive Amount",
+        "0.0 dB",
+        "0.0 dB",
+        "36 dB"
+      ],
+      [
+        "Drive Color",
+        "0.0 %",
+        "-100 %",
+        "100 %"
+      ],
+      [
+        "Drive Output",
+        "0.0 dB",
+        "-36 dB",
+        "0.0 dB"
+      ],
+      [
+        "Dry/Wet",
+        "100 %",
+        "0.0 %",
+        "100 %"
+      ]
+    ],
+    "lufs": -16.9,
+    "peak_db": -9.6
+  },
+  "drums.percussion": {
+    "devices": [
+      "Percussion Core Kit"
+    ],
+    "pads": [
+      [
+        36,
+        "Conga Low Ring"
+      ],
+      [
+        37,
+        "Wood Claves"
+      ],
+      [
+        38,
+        "Conga Low Slap"
+      ],
+      [
+        39,
+        "Cowbell Simple"
+      ],
+      [
+        40,
+        "Conga Hi Muted"
+      ],
+      [
+        41,
+        "Shaker Egg"
+      ],
+      [
+        42,
+        "Shake Cabasa Short"
+      ],
+      [
+        43,
+        "Bongo Low Open"
+      ],
+      [
+        44,
+        "Triangle Mute"
+      ],
+      [
+        45,
+        "Bongo High Open"
+      ],
+      [
+        46,
+        "Triangle Open"
+      ],
+      [
+        47,
+        "Wood Block Low"
+      ],
+      [
+        48,
+        "Tamb"
+      ],
+      [
+        49,
+        "Tamb Shake"
+      ],
+      [
+        50,
+        "Wood Vibraslap"
+      ],
+      [
+        51,
+        "Chimes Finger Down"
+      ]
+    ],
+    "macros": [
+      [
+        "Gain",
+        "-3.00 dB",
+        "-12.0 dB",
+        "0.00 dB"
+      ],
+      [
+        "Trnsnt",
+        "0.20",
+        "-1.00",
+        "1.00"
+      ],
+      [
+        "Echo Amount",
+        "0",
+        "0",
+        "127"
+      ],
+      [
+        "Echo Time",
+        "1/8",
+        "1/64",
+        "1"
+      ],
+      [
+        "Comp",
+        "0",
+        "0",
+        "127"
+      ],
+      [
+        "Reverb",
+        "20 %",
+        "0.0 %",
+        "80 %"
+      ],
+      [
+        "Hi Pass Filter",
+        "10.0 Hz",
+        "10.0 Hz",
+        "2.00 kHz"
+      ],
+      [
+        "Hi Gain",
+        "0.00 dB",
+        "-9.00 dB",
+        "9.00 dB"
+      ]
+    ],
+    "lufs": -19.7,
+    "peak_db": -6.4
+  },
+  "texture.rain": {
+    "devices": [
+      "Rainstorm",
+      "Utility"
+    ],
+    "pads": [],
+    "macros": [
+      [
+        "Storm Strength",
+        "127",
+        "0",
+        "127"
+      ],
+      [
+        "Outside/Inside",
+        "87",
+        "0",
+        "127"
+      ],
+      [
+        "Storm Volume",
+        "-6.56 dB",
+        "-inf dB",
+        "-6.56 dB"
+      ],
+      [
+        "Deeper Rain",
+        "-9.00",
+        "-9.00",
+        "-16.0"
+      ],
+      [
+        " Near/ Far",
+        "22 %",
+        "86 %",
+        "0.0 %"
+      ],
+      [
+        "Soft/ Heavy",
+        "167 Hz",
+        "4.53 kHz",
+        "50.0 Hz"
+      ],
+      [
+        "Heavy Umbrella",
+        "55.09 ",
+        "55.09 ",
+        "0.22 "
+      ],
+      [
+        "Tornado",
+        "0",
+        "0",
+        "127"
+      ]
+    ],
+    "lufs": -23.6,
+    "peak_db": -7.7
+  },
+  "texture.seashore": {
+    "devices": [
+      "Seashore Pad"
+    ],
+    "pads": [],
+    "macros": [
+      [
+        "Filter Cutoff",
+        "59",
+        "0",
+        "127"
+      ],
+      [
+        "Filter Reso",
+        "66",
+        "0",
+        "127"
+      ],
+      [
+        "Shaper",
+        "83",
+        "0",
+        "127"
+      ],
+      [
+        "Reverb",
+        "39 %",
+        "0.0 %",
+        "55 %"
+      ],
+      [
+        "Attack",
+        "47",
+        "0",
+        "127"
+      ],
+      [
+        "Release",
+        "100",
+        "0",
+        "127"
+      ],
+      [
+        "Tone",
+        "23",
+        "0",
+        "127"
+      ],
+      [
+        "Volume",
+        "0.0 dB",
+        "-inf dB",
+        "6.0 dB"
+      ]
+    ],
+    "lufs": -15.8,
+    "peak_db": -3.6
+  }
+}

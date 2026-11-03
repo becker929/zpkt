@@ -129,6 +129,10 @@ about = "a round sub bass; the drive macro makes it carry on a phone speaker"
 macros = { drive = { device = 1, param = "Drive", lo = "0 dB", hi = "16 dB" } }
 ```
 
+The booth serves one palette to the composer (`palette` in its `config.toml`, else `palette.SERVED`) and renders
+any it has, so a new month's file changes nothing until the booth is switched to it. `booth survey --listen` loads,
+plays and measures each instrument in Live first (`<version>.survey.json`); 2026-12 adds forty to 2026-11's eleven.
+
 `about` and `role` go to the composer; `load` and the macro mappings never leave the booth. The first palette is
 Live 12 Suite's Core Library only, the presets SH001 was made with: nothing purchased, nothing of Anthony's, nothing
 in iCloud (reading iCloud from Live raised a prompt and froze its main thread on 2026-10-15). VEC2 can join later,

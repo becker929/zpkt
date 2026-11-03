@@ -103,3 +103,24 @@ def test_sh001s_helpers_load_and_point_at_the_booth():
     for name in ("load_item", "devices", "setp", "mixer", "export", "save_as"):
         assert callable(getattr(L, name))
     assert L.EXPORT_DIR.name == "rummage" and L.LIVE is not None
+
+
+def test_survey_listens_and_keeps_the_rest(fake, tmp_path):
+    import json
+    from booth.live import SLOT_BEATS, audition, survey
+    lv, fo = fake
+    pal = P.load("2026-12")
+    out = tmp_path / "s.json"
+    out.write_text(json.dumps({"keys.upright": {"devices": ["Childhood Home Piano"], "pads": []}}))
+    got = survey(lv, pal, out, only=["bass.sub_mellow", "drums.909"], listen=True, render=tmp_path / "s.wav")
+    assert set(got) == {"bass.sub_mellow", "drums.909"}
+    assert got["bass.sub_mellow"]["devices"] == ["Sub Mellow", "Saturator"]            # the preset, its fx, its settings
+    assert ("song.tracks[0].devices[1]", pal.instruments["bass.sub_mellow"].set[1]) in fo.sets
+    assert all(v["lufs"] is not None and v["peak_db"] < 0 for v in got.values())
+    assert [s for s in fo.sets if s[0].startswith("song.master_track")] == [
+        (f"song.master_track.devices[{k}]", {"Device On": 0}) for k in range(3)]       # Main's chain off in the copy
+    assert list(json.loads(out.read_text())) == ["keys.upright", "bass.sub_mellow", "drums.909"]   # palette order
+    for k, inst in enumerate(pal.instruments.values()):                                    # every phrase in range, in its slot
+        notes = audition(inst, k)
+        assert notes and all(inst.range[0] <= p <= inst.range[1] for p, *_ in notes)
+        assert all(k * SLOT_BEATS <= t and t + d <= (k + 1) * SLOT_BEATS for _, t, d, _ in notes)

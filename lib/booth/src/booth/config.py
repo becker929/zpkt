@@ -26,6 +26,7 @@ class Settings:
     keep_days: int = 30
     quiet_s: float = 300.0               # no job starts while something else used the LOM this recently
     video_size: tuple[int, int] = (1080, 1920)
+    palette: str = ""                    # the palette GET /v1/guide serves; "" is palette.SERVED
 
     def in_hours(self, now: datetime | None = None) -> bool:
         now = now or datetime.now()

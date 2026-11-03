@@ -7,7 +7,9 @@
     booth plan SCORE.json        the compiled plan (tracks, note counts, mixer); never touches Live
     booth run SCORE.json         one job now, in this process, watched: needs a booth_ set in front of Live
     booth template [--finish]    once, watched: make booth_template from File > New Live Set
-    booth survey                 watched: load each palette instrument, write palettes/<v>.survey.json
+    booth survey [--palette V] [--only ID,ID] [--listen]
+                                 watched: load palette instruments, write palettes/<v>.survey.json; --listen also
+                                 renders a phrase each and records its loudness
     booth token --new            make the bot's token and keep it in the Keychain
 """
 
@@ -52,7 +54,10 @@ def main(argv: list[str] | None = None) -> int:
     for name in ("check", "plan", "run"):
         sub.add_parser(name).add_argument("score", type=Path)
     sub.add_parser("template").add_argument("--finish", action="store_true", help="finish booth_template, open in front, after a stop")
-    sub.add_parser("survey")
+    sv = sub.add_parser("survey")
+    sv.add_argument("--palette", help="a palette version (default: the one the guide serves)")
+    sv.add_argument("--only", help="comma-separated instrument ids; the rest of the survey file is kept")
+    sv.add_argument("--listen", action="store_true", help="play and render each one, and measure its loudness")
     t = sub.add_parser("token")
     t.add_argument("--new", action="store_true")
     a = ap.parse_args(argv)
@@ -99,8 +104,10 @@ def main(argv: list[str] | None = None) -> int:
         print("closed")
         return 0
     if a.cmd == "status":
+        from . import palette as P
         r = _runner(jobs, s)
         print(json.dumps({"open": jobs.kv("open", "0") == "1", "would_start": r.gate.reason(jobs) or "yes",
+                          "palette": s.palette or P.SERVED,
                           "queue": [(j["id"], j["key"]) for j in jobs.queue()], "today": jobs.today()}, indent=2))
         return 0
     if a.cmd == "serve":
@@ -135,15 +142,22 @@ def main(argv: list[str] | None = None) -> int:
         from . import palette as P
         from .live import finish_template, make_template, survey
         from hands.live.transport import LiveClient
-        pal = P.current()
+        pal = P.load(a.palette) if a.cmd == "survey" and a.palette else P.served(s.palette)
         if a.cmd == "template" and a.finish:
             finish_template(LiveClient(), pal)
             print("finished booth_template")
         elif a.cmd == "template":
             print(make_template(LiveClient(), pal, Path("~/_agent_scratch/rummage/set").expanduser()))
         else:
+            from datetime import datetime
             out = P.PALETTES / f"{pal.version}.survey.json"
-            print(json.dumps(survey(LiveClient(), pal, out), indent=2))
+            only = [i.strip() for i in a.only.split(",") if i.strip()] if a.only else None
+            unknown = [i for i in only or [] if i not in pal.instruments]
+            if unknown:
+                print(f"not in palette {pal.version}: {unknown}", file=sys.stderr)
+                return 2
+            render = HOME / "survey" / f"{pal.version}-{datetime.now():%Y%m%d-%H%M%S}.wav"
+            print(json.dumps(survey(LiveClient(), pal, out, only=only, listen=a.listen, render=render), indent=2))
         return 0
     return 1
 

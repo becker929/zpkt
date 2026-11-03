@@ -32,6 +32,25 @@ async def test_guide(client):
     assert {"room", "echo"} == set(g["returns"])
 
 
+async def test_guide_for_another_palette(client):
+    g = await (await client.get("/v1/guide?palette=2026-12", headers=AUTH)).json()
+    assert g["palette"] == "2026-12" and len(g["instruments"]) > 40
+    assert all(e["palette"] == "2026-12" for e in g["examples"]) and len(g["examples"]) == 2   # old examples, new version
+    kit = [i for i in g["instruments"] if i["id"] == "drums.909"][0]
+    assert kit["pads"][0] == {"note": 36, "name": "Bass Drum"} and len(kit["pads"]) == 16
+    res = await client.get("/v1/guide?palette=2027-01", headers=AUTH)
+    assert res.status == 404 and (await res.json())["error"] == "unknown_palette"
+
+
+async def test_config_pins_the_served_palette(tmp_path, fake):
+    rig = Rig(tmp_path, fake)
+    rig.settings.palette = "2026-12"
+    a = app(rig.jobs, rig.runner, rig.settings, TOKEN)
+    a.cleanup_ctx.clear()
+    async with TestClient(TestServer(a)) as c:
+        assert (await (await c.get("/v1/guide", headers=AUTH)).json())["palette"] == "2026-12"
+
+
 async def test_check(client):
     ok = await (await client.post("/v1/check", json={"score": example()}, headers=AUTH)).json()
     assert ok["ok"] and ok["estimate"]["notes"] > 0

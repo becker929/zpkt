@@ -36,13 +36,25 @@ RULES = """\
 """
 
 
-def guide() -> dict:
-    pal = P.current()
+def examples(pal: P.Palette) -> list[dict]:
+    """The example scores, written for that palette: those whose instruments it has, with its version."""
+    out = []
+    for path in sorted(EXAMPLES.glob("*.json")):
+        ex = json.loads(path.read_text())
+        if all(part["instrument"] in pal.instruments for part in ex["parts"]):
+            out.append({**ex, "palette": pal.version})
+    return out
+
+
+def guide(version: str | None = None) -> dict:
+    """That palette's guide, else palette.SERVED's. The server asks for config.toml's `palette`, or the request's
+    `?palette=`, so the bot can be tried on the next palette before the booth serves it. KeyError: no such palette."""
+    pal = P.load(version) if version else P.served()
     return {
         **pal.guide(),
         "schema": Score.model_json_schema(),
         "rules": RULES,
-        "examples": [json.loads(p.read_text()) for p in sorted(EXAMPLES.glob("*.json"))],
+        "examples": examples(pal),
         "limits": {"parts": MAX_PARTS, "bars": [4, MAX_BARS], "audio_s": MAX_AUDIO_S, "notes": MAX_NOTES, "bpm": [60, 180]},
     }
 
@@ -76,8 +88,12 @@ def app(jobs: Jobs, runner: Runner, settings: Settings, token: str) -> web.Appli
                                      content_type="application/json")
         return data
 
-    async def get_guide(_):
-        return web.json_response(guide())
+    async def get_guide(request):
+        version = request.query.get("palette") or settings.palette or None
+        try:
+            return web.json_response(guide(version))
+        except KeyError:
+            return _err(404, "unknown_palette", f"the booth has palettes {P.versions()}")
 
     async def post_check(request):
         data = await body(request)

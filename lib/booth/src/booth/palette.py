@@ -14,6 +14,10 @@ from pathlib import Path
 from typing import Any
 
 PALETTES = Path(__file__).resolve().parents[2] / "palettes"
+# The palette GET /v1/guide serves, so the one the composer writes for, unless BOOTH_HOME/config.toml names another
+# (`palette = "2026-12"`). A new palette file changes nothing until one of the two says so: check, compile and jobs
+# take any palette the booth has, since a score carries its own version.
+SERVED = "2026-11"
 UNIT = re.compile(r"^\s*(-?[\d.]+)\s*(dB|ms|Hz|kHz|%|s|st|ct)?\s*$")
 
 
@@ -69,9 +73,11 @@ class Palette:
 
     def guide(self) -> dict:
         """What the composer sees. Drum kits carry their pads' names from `booth survey` (<version>.survey.json),
-        read from Live itself."""
+        read from Live itself, those inside the kit's range only."""
         survey = PALETTES / f"{self.version}.survey.json"
-        pads = {k: v.get("pads", []) for k, v in json.loads(survey.read_text()).items()} if survey.is_file() else {}
+        found = json.loads(survey.read_text()) if survey.is_file() else {}
+        pads = {k: [(n, name) for n, name in v.get("pads", []) if self.instruments[k].range[0] <= n <= self.instruments[k].range[1]]
+                for k, v in found.items() if k in self.instruments}
         return {
             "palette": self.version,
             "instruments": [
@@ -116,5 +122,6 @@ def versions() -> list[str]:
     return sorted(p.stem for p in PALETTES.glob("*.toml"))
 
 
-def current() -> Palette:
-    return load(versions()[-1])
+def served(pin: str | None = None) -> Palette:
+    """The palette the guide serves: `pin` (config.toml's `palette`) if set, else SERVED."""
+    return load(pin or SERVED)

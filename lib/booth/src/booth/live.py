@@ -8,12 +8,13 @@ is in front; anything else raises Stop.
 
 from __future__ import annotations
 
+import json
 import shutil
 import time
 from pathlib import Path
 from typing import Callable
 
-from . import PREFIX, SETS_DIR, TEMPLATE
+from . import HOME, PREFIX, SETS_DIR, TEMPLATE
 from .compile import Plan, TrackPlan
 from .gui import Stop, ops, stops
 
@@ -163,31 +164,82 @@ class Builder:
         return out
 
 
-def survey(client, palette, out: Path) -> dict:
-    """Load each palette instrument once into the template's copy and record its devices and drum pad names, for
-    the guide (`booth palette survey`, watched). Returns {instrument id: {devices, pads}}."""
+SURVEY_BPM = 120.0
+SLOT_BEATS = 12.0           # each instrument plays 8 beats, then 4 of silence for its tail
+
+
+def audition(inst, slot: int) -> list[tuple[int, float, float, int]]:
+    """A short phrase in the instrument's range for its role, at velocity 100, starting at its slot: enough to hear it
+    load and to compare levels, not music."""
+    t0 = slot * SLOT_BEATS
+    lo, hi = inst.range
+    if inst.role == "drums":            # every pad once, then a plain beat on the first three
+        hits = [(lo + k, k * 0.25) for k in range(min(16, hi - lo + 1))]
+        hits += [(lo, 4.0), (lo + 2, 5.0), (lo, 6.0), (lo + 2, 7.0)] + [(min(hi, lo + 6), 4.0 + k * 0.5) for k in range(8)]
+        return [(p, t0 + t, 0.25, 100) for p, t in hits]
+    root = max(lo, min(hi - 7, (lo + hi) // 2 - 6 if inst.role != "bass" else lo + 12))
+    if inst.role in ("pad", "texture"):
+        return [(min(hi, root + i), t0, 8.0, 100) for i in (0, 4, 7)]
+    if inst.role == "keys":
+        return [(min(hi, root + i), t0 + b, 0.9, 100) for b in range(8) for i in (0, 4, 7)]
+    steps = [0, 2, 4, 7, 4, 2, 0, 7] if inst.role != "bass" else [0, 0, 7, 0, 5, 0, 7, 12]
+    return [(min(hi, root + d), t0 + k, 0.9, 100) for k, d in enumerate(steps)]
+
+
+def survey(client, palette, out: Path, *, only: list[str] | None = None, listen: bool = False,
+           render: Path | None = None) -> dict:
+    """Load palette instruments into a copy of the template, the way a job does (preset, fx, settings, the device
+    check), and record their devices, drum pad names and rack macros (name, value, min, max as Live shows them) for
+    the guide (`booth survey`, watched). With `listen`, each also plays a short phrase at 0 dB with Main's chain
+    switched off in that copy, and one export to `render` measures each (`lufs`, `peak_db`), so a silent instrument
+    shows and trims can be set. `only` surveys some ids and keeps the rest of `out`. Returns what it found."""
+    from . import measure as M
+    insts = [palette.instruments[i] for i in only] if only else list(palette.instruments.values())
     b = Builder(client)
     front = b.open("survey")
     found = {}
     try:
-        for k, inst in enumerate(palette.instruments.values()):
+        tracks = [TrackPlan(name=f"s{k + 1}", instrument=inst, settings={d: dict(v) for d, v in inst.set.items()},
+                            notes=audition(inst, k) if listen else [])
+                  for k, inst in enumerate(insts)]
+        for k, t in enumerate(tracks):
             if k:
-                b.run(f"song.create_midi_track(-1)\nsong.tracks[{k}].name = {('s' + str(k + 1))!r}\nresult = 'ok'")
-            b.guard(f"survey {inst.id}", front)
-            root, folder, item = inst.load
-            with stops(f"survey {inst.id}"):
-                b.L.load_item(f"song.tracks[{k}]", root, folder or None, item)
-            devs = b.run(f"result = [d.name for d in song.tracks[{k}].devices]")
+                b.run(f"song.create_midi_track(-1)\nsong.tracks[{k}].name = {t.name!r}\nresult = 'ok'")
+            b.instrument(k, t, front)           # raises Stop if the devices are not what the palette says
             # a kit preset is often an Instrument Rack around the Drum Rack (SH001's Perc Kitchen Kit): look one level in
             pads = b.run(f"d = song.tracks[{k}].devices[0]\n"
                          "if not d.can_have_drum_pads and d.can_have_chains and d.chains and d.chains[0].devices:\n"
                          "    d = d.chains[0].devices[0]\n"
                          "result = [(p.note, p.name) for p in d.drum_pads if len(p.chains)] if d.can_have_drum_pads else []")
-            found[inst.id] = {"devices": devs, "pads": pads}
+            macros = b.run(f"d = song.tracks[{k}].devices[0]\n"
+                           "result = [(p.name, p.str_for_value(p.value), p.str_for_value(p.min), p.str_for_value(p.max)) "
+                           "for p in list(d.parameters)[1:17] if not p.name.startswith('Macro ')] if d.can_have_chains else []")
+            found[t.instrument.id] = {"devices": b.L.devices(f"song.tracks[{k}]"), "pads": pads, "macros": macros}
             time.sleep(0.2)
+        if listen:
+            beats = SLOT_BEATS * len(tracks)
+            b.guard("survey tempo", front)
+            b.run(f"song.tempo = {SURVEY_BPM!r}\nresult = 'ok'")
+            for k, t in enumerate(tracks):
+                b.notes(k, t, beats, front)
+            b.guard("survey mix", front)
+            with stops("survey mix"):
+                for k, _ in enumerate(tracks):
+                    b.L.mixer(f"song.tracks[{k}]", 0.0, (None, None), 0.0)
+                for k, _ in enumerate(palette.master_devices):        # the instruments as they are, not as Main makes them
+                    b.L.setp(f"song.master_track.devices[{k}]", {"Device On": 0})
+            plan = Plan(bpm=SURVEY_BPM, beats=beats, render_beats=beats, tracks=tracks, returns={},
+                        master_devices=palette.master_devices, master_set={})
+            wav = b.export(plan, render or HOME / "survey" / f"{palette.version}.wav", front)
+            beat_s = 60.0 / SURVEY_BPM
+            levels = M.levels(wav, [(k * SLOT_BEATS * beat_s, (k + 1) * SLOT_BEATS * beat_s) for k in range(len(tracks))])
+            for t, (lufs, peak) in zip(tracks, levels):
+                found[t.instrument.id].update(lufs=lufs, peak_db=peak)
     finally:
         b.close("survey")
-    out.write_text(__import__("json").dumps(found, indent=2) + "\n")
+    old = json.loads(out.read_text()) if out.is_file() and only else {}
+    merged = {i: found.get(i, old.get(i)) for i in palette.instruments if i in found or i in old}
+    out.write_text(json.dumps(merged, indent=2) + "\n")
     return found
 
 
