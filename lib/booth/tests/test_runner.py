@@ -172,3 +172,37 @@ def test_the_loop_folds_the_tail_onto_the_start_and_fits_room_worlds_limit(tmp_p
     d = json.loads(subprocess.run(["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "json", str(m4a)],
                                   capture_output=True, check=True).stdout)["format"]["duration"]
     assert abs(float(d) - 70.0) < 0.1
+
+
+def test_the_loudness_gain_is_sent_as_live_shows_it_and_its_rounding_is_no_surprise(tmp_path, fake):
+    """2026-11-02, the first room's loop: "12.0 dB" landed on 11 dB (Live shows whole dB from 10 up) and held."""
+    r = Rig(tmp_path, fake)
+    r.ops.level = 0.02
+    sent = []
+    real = r.ops.setp
+
+    def like_live(dev, params):        # Live's text lookup: a decimal above 10 lands one step down
+        text = params.get("Input Gain")
+        if text:
+            sent.append(text)
+            db = float(text.split()[0])
+            if db >= 10 and "." in text:
+                params = {**params, "Input Gain": f"{db - 1:.0f} dB"}
+        return real(dev, params)
+    r.ops.setp = like_live
+    a, _ = r.jobs.add("a", example(), {})
+    r.runner.tick()
+    j = r.jobs.get(a["id"])
+    assert j["state"] == "done", j["error"]
+    assert sent and all("." not in t for t in sent if float(t.split()[0]) >= 10), sent
+    assert j["measure"]["master_gain_db"] == float(sent[-1].split()[0])
+
+
+def test_a_held_job_run_again_exports_under_a_new_name(tmp_path, fake):
+    """2026-11-02: the first room loop, run again after a hold, stopped on its first attempt's render-<job>.wav."""
+    r = Rig(tmp_path, fake)
+    a, _ = r.jobs.add("a", example(), {})
+    r.jobs.update(a["id"], attempts=1)
+    r.runner.tick()
+    names = list(r.ops.exports)
+    assert r.jobs.get(a["id"])["state"] == "done" and names[0] == f"render-{a['id']}-2.wav", names

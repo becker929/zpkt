@@ -133,15 +133,20 @@ class Builder:
         if [g[0] for g in got] != [round(t.pan, 3) for t in plan.tracks]:
             raise Stop(f"mix: pans are {got}")
 
-    def master_gain(self, plan: Plan, db: float, front: str) -> None:
-        """Main's Limiter Input Gain, in dB, read back."""
+    def master_gain(self, plan: Plan, db: float, front: str) -> float:
+        """Main's Limiter Input Gain, in dB, read back; answers what Live reads. Live shows it in whole dB from 10 up
+        ("12 dB"), and a "12.0 dB" sent there lands on the step below (2026-11-02: 11 dB), so whole dB are sent then;
+        a readback within 1 dB is Live's own rounding, not a surprise."""
         self.guard("loudness", front)
         k = plan.master_devices.index("Limiter")
+        text = f"{round(db):.0f} dB" if abs(db) >= 10 else f"{float(db):.1f} dB"
         with stops("loudness"):
-            self.L.setp(f"song.master_track.devices[{k}]", {"Input Gain": f"{float(db):.1f} dB"})
+            self.L.setp(f"song.master_track.devices[{k}]", {"Input Gain": text})
         got = self.run(f"p = [p for p in song.master_track.devices[{k}].parameters if p.name == 'Input Gain'][0]\nresult = p.str_for_value(p.value)")
-        if abs(float(str(got).split()[0]) - db) > 0.5:
+        read = float(str(got).split()[0])
+        if abs(read - db) > 1.0:
             raise Stop(f"loudness: the Limiter's Input Gain reads {got}, wanted {db:.1f} dB")
+        return read
 
     # ---- the render ----------------------------------------------------------------------------------------------
     def export(self, plan: Plan, out: Path, front: str) -> Path:
