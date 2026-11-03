@@ -10,6 +10,7 @@
     booth survey [--palette V] [--only ID,ID] [--listen]
                                  watched: load palette instruments, write palettes/<v>.survey.json; --listen also
                                  renders a phrase each and records its loudness
+    booth sample FILE            keep an audio file as a sample, as POST /v1/samples does; prints its id
     booth token --new            make the bot's token and keep it in the Keychain
 """
 
@@ -58,6 +59,7 @@ def main(argv: list[str] | None = None) -> int:
     sv.add_argument("--palette", help="a palette version (default: the one the guide serves)")
     sv.add_argument("--only", help="comma-separated instrument ids; the rest of the survey file is kept")
     sv.add_argument("--listen", action="store_true", help="play and render each one, and measure its loudness")
+    sub.add_parser("sample").add_argument("file", type=Path)
     t = sub.add_parser("token")
     t.add_argument("--new", action="store_true")
     a = ap.parse_args(argv)
@@ -78,9 +80,22 @@ def main(argv: list[str] | None = None) -> int:
         from . import palette as P
         plan = C.compile(res.score, P.load(res.score.palette))
         print(json.dumps({"bpm": plan.bpm, "beats": plan.beats, "render_beats": plan.render_beats, "returns": plan.returns,
-                          "tracks": [{"name": t.name, "instrument": t.instrument.id, "notes": len(t.notes), "volume_db": t.volume_db,
-                                      "pan": t.pan, "room_db": t.room_db, "echo_db": t.echo_db, "settings": t.settings}
+                          "tracks": [{"name": t.name, "kind": t.kind, "plays": t.label, "notes": len(t.notes),
+                                      **({"clips": t.sample.clips, "warp": t.sample.warp, "fit_beats": t.sample.fit_beats,
+                                          "slices": t.sample.slices} if t.sample else {}),
+                                      "volume_db": t.volume_db, "pan": t.pan, "room_db": t.room_db, "echo_db": t.echo_db,
+                                      "settings": t.settings}
                                      for t in plan.tracks]}, indent=2))
+        return 0
+
+    if a.cmd == "sample":
+        from . import samples as S
+        try:
+            meta, new = S.add(a.file.read_bytes())
+        except S.SampleError as exc:
+            print(f"{exc.code}: {exc}", file=sys.stderr)
+            return 1
+        print(json.dumps({**S.public(meta), "new": new}, indent=2))
         return 0
 
     if a.cmd == "token":
@@ -107,7 +122,7 @@ def main(argv: list[str] | None = None) -> int:
         from . import palette as P
         r = _runner(jobs, s)
         print(json.dumps({"open": jobs.kv("open", "0") == "1", "would_start": r.gate.reason(jobs) or "yes",
-                          "palette": s.palette or P.SERVED,
+                          "palette": s.palette or P.SERVED, "samples": s.samples,
                           "queue": [(j["id"], j["key"]) for j in jobs.queue()], "today": jobs.today()}, indent=2))
         return 0
     if a.cmd == "serve":

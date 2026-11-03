@@ -44,10 +44,14 @@ def roll(plan: Plan, title: str, credit: str, size: tuple[int, int], out: Path) 
     lane_h = (h - TOP - BOTTOM) / lanes
     for k, t in enumerate(plan.tracks):
         y = TOP + k * lane_h
-        d.text((x0, y + 6), t.instrument.id, fill=DIM, font=_font(26))
-        lo, hi = t.instrument.range
+        d.text((x0, y + 6), t.label, fill=DIM, font=_font(26))
+        lo, hi = t.range
         span = max(1, hi - lo)
         hue = HUES[k % len(HUES)]
+        for s, dur in (t.sample.clips if t.sample else []):      # a sample's clips: a band across the lane
+            nx = x0 + s / plan.render_beats * width
+            nw = max(3.0, dur / plan.render_beats * width)
+            d.rectangle([nx, y + 44, nx + nw - 2, y + lane_h - 16], fill=tuple(int(c * 0.55) for c in hue))
         for p, s, dur, v in t.notes:
             nx = x0 + s / plan.render_beats * width
             nw = max(3.0, dur / plan.render_beats * width)

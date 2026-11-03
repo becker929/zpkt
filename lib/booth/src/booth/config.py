@@ -27,6 +27,8 @@ class Settings:
     quiet_s: float = 300.0               # no job starts while something else used the LOM this recently
     video_size: tuple[int, int] = (1080, 1920)
     palette: str = ""                    # the palette GET /v1/guide serves; "" is palette.SERVED
+    samples: list[str] = field(default_factory=list)   # the sample modes the booth takes ("clip", "one_shot",
+                                         # "slices"); none: no uploads, and the guide doesn't mention samples
 
     def in_hours(self, now: datetime | None = None) -> bool:
         now = now or datetime.now()
