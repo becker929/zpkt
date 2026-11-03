@@ -100,27 +100,37 @@ def walk_audio_files(
 
     Directory symlinks are not followed, so a loop cannot trap the walk. File
     symlinks are yielded and resolved later by the caller.
+
+    The order is fixed: depth first, each directory's files before its
+    subdirectories, both by name. ``os.scandir`` order belongs to the
+    filesystem (APFS, ext4 and tmpfs all differ), and the walk order becomes
+    the alias ids that every "first path" of a sound is chosen by. Without the
+    sort the same tree indexes differently on another machine.
     """
     allow = {e.lower() for e in extensions}
     stack = [str(root_path)]
     while stack:
         current = stack.pop()
         try:
-            with os.scandir(current) as entries:
-                for entry in entries:
-                    try:
-                        if entry.is_dir(follow_symlinks=False):
-                            stack.append(entry.path)
-                            continue
-                    except OSError:
-                        continue
-                    if entry.name.startswith("._"):
-                        continue  # AppleDouble sidecar, never audio
-                    ext = os.path.splitext(entry.name)[1].lower()
-                    if ext in allow:
-                        yield Path(entry.path)
+            with os.scandir(current) as it:
+                entries = sorted(it, key=lambda e: e.name)
         except OSError as exc:
             on_error(f"skip directory {current}: {exc}")
+            continue
+        subdirs: list[str] = []
+        for entry in entries:
+            try:
+                if entry.is_dir(follow_symlinks=False):
+                    subdirs.append(entry.path)
+                    continue
+            except OSError:
+                continue
+            if entry.name.startswith("._"):
+                continue  # AppleDouble sidecar, never audio
+            ext = os.path.splitext(entry.name)[1].lower()
+            if ext in allow:
+                yield Path(entry.path)
+        stack.extend(reversed(subdirs))  # popped in name order
 
 
 def scan_roots(
