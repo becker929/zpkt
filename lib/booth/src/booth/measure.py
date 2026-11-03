@@ -73,5 +73,21 @@ def measure(path, sections: list[tuple[str, float, float]]) -> dict:
     return out
 
 
+def levels(path, windows: list[tuple[float, float]]) -> list[tuple[float | None, float | None]]:
+    """(LUFS, sample peak dBFS) of each (start s, end s) window; None for a silent one (`booth survey --listen`)."""
+    y, sr = sf.read(str(path), always_2d=True)
+    meter = pyln.Meter(sr)
+    out = []
+    for a, b in windows:
+        seg = y[int(a * sr):int(b * sr)]
+        peak = float(np.max(np.abs(seg))) if len(seg) else 0.0
+        if peak < 1e-4 or len(seg) < sr * 0.5:
+            out.append((None, None))
+            continue
+        lufs = float(meter.integrated_loudness(seg))
+        out.append((round(lufs, 1) if np.isfinite(lufs) else None, round(20 * np.log10(peak), 1)))
+    return out
+
+
 def explain(flags: list[str]) -> list[str]:
     return [FLAGS[f] for f in flags if f in FLAGS]

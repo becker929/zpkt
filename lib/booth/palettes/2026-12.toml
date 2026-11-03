@@ -1,0 +1,433 @@
+# The booth's palette, December 2026: what a score may name. 2026-11's eleven instruments, unchanged, and forty more
+# from Live 12 Suite's Core Library, so the rooms' loops stop sounding alike: basses, leads and plucks, pads and
+# strings, brass and winds, pianos and organs, guitars and harp, mallets and bells, seven drum kits, two textures.
+# Core Library only: nothing purchased, nothing of Anthony's, nothing in iCloud. Every new one was loaded, played and
+# measured in Live by `booth survey --palette 2026-12 --listen` (2026-12.survey.json: devices, pads, macros, loudness).
+#
+# A score sees ids, roles, ranges, `about` and macro names (GET /v1/guide). `load`, `fx`, `set` and the macro mappings
+# never leave the booth. Roles say what a part does: bass, lead (a tune), keys (chords and comping), pluck (short
+# notes, ostinatos), pad (held notes), drums (pads 36-51), texture (a bed of noise or weather).
+# `trim` is the starting volume in dB. The old eleven keep SH001's; a new one's trim brings its measured loudness at
+# 0 dB to the old ones' median (`lufs` + `trim` in the survey), rounded, so a part at gain 0 sits near the others.
+# A macro maps a score's 0..1 linearly between `lo` and `hi`, in the units Live shows for that rack macro (the
+# survey's `macros`: name, value, min, max). A score with eight new parts and their macros rendered clean on
+# 2026-11-02 (-14.5 LUFS, no flags). None of the forty was dropped; Rainstorm needed a Utility, as Music Box does.
+#
+# A palette is never edited once a score has used it: make the next month's file instead, so old scores render the same.
+# The booth serves 2026-11 until config.toml (`palette = "2026-12"`) or palette.SERVED says otherwise.
+
+version = "2026-12"
+
+[instrument."keys.music_box"]
+role = "keys"
+load = ["sounds", "Piano & Keys", "Music Box.adg"]
+fx = ["Chorus-Ensemble", "Utility"]
+set = { 2 = { "Output" = "14 dB" } }         # the rack plays about 15 dB under the others
+trim = -1.3
+range = [48, 96]
+about = "a wind-up music box, bright and small; good for a tune or an arpeggio"
+
+[instrument."keys.upright"]
+role = "keys"
+load = ["sounds", "Piano & Keys", "Childhood Home Piano.adg"]
+trim = 0.6
+range = [28, 100]
+about = "an old upright piano, a little out of tune; chords and melodies"
+
+[instrument."keys.toy_piano"]
+role = "lead"
+load = ["sounds", "Piano & Keys", "Toy Piano Bells.adv"]
+fx = ["Chorus-Ensemble"]
+trim = -0.4
+range = [55, 100]
+about = "a detuned toy piano with bells; carries a tune over chords"
+
+[instrument."pad.branches"]
+role = "pad"
+load = ["sounds", "Pad", "Tree Branches.adg"]
+trim = -4.6
+range = [36, 84]
+about = "a pad of rustling branches; long held chords, slow attack"
+
+[instrument."mallets.tin_bowl"]
+role = "lead"
+load = ["sounds", "Mallets", "Tin Bowl.adv"]
+trim = -2.6
+range = [48, 96]
+about = "a struck tin bowl that rings; slow melodies, sparse notes"
+
+[instrument."drums.tin"]
+role = "drums"
+load = ["drums", "", "Rattle Kit.adg"]
+trim = -1.0
+range = [36, 51]
+about = "slaps, a wooden box, buzzing tin and a cracked cowbell; broken beats. Pads 36-51, named in the guide"
+
+[instrument."drums.clockwork"]
+role = "drums"
+load = ["drums", "", "Clockwork Kit.adg"]
+trim = -3.0
+range = [36, 51]
+about = "clanking clockwork and ticking; steady four-on-the-floor. Pads 36-51, named in the guide"
+
+[instrument."drums.kitchen"]
+role = "drums"
+load = ["drums", "", "Perc Kitchen Kit.adg"]
+trim = -2.7
+range = [36, 51]
+about = "spoons, knives, pans and glass, no kick; shuffles and percussion over another kit. Pads 36-51, named in the guide"
+
+[instrument."bass.sub_mellow"]
+role = "bass"
+load = ["sounds", "Bass", "Sub Mellow.adg"]
+fx = ["Saturator"]
+set = { 1 = { "Type" = "Bass Shaper", "Drive" = "10 dB", "Output" = "-7 dB" } }
+trim = -8.5
+range = [24, 55]
+about = "a round sub bass; the drive macro makes it carry on a phone speaker"
+macros = { drive = { device = 1, param = "Drive", lo = "0 dB", hi = "16 dB" } }
+
+[instrument."bass.rubber"]
+role = "bass"
+load = ["sounds", "Bass", "Tension Rubber Bass.adv"]
+trim = 0.6
+range = [28, 60]
+about = "a bouncy rubber-band bass; short notes, funky lines"
+
+[instrument."bass.bowed"]
+role = "bass"
+load = ["sounds", "Bass", "Cat Gut Bass.adv"]
+fx = ["Saturator"]
+set = { 1 = { "Type" = "Hard Curve", "Drive" = "16 dB", "Output" = "-10 dB", "Dry/Wet" = "75 %" } }
+trim = -3.6
+range = [28, 60]
+about = "a bowed gut-string bass, woody and dark; held notes"
+macros = { drive = { device = 1, param = "Drive", lo = "4 dB", hi = "20 dB" } }
+
+# ---- New in 2026-12 ---------------------------------------------------------------------------------------------------
+
+# Basses
+[instrument."bass.808"]
+role = "bass"
+load = ["sounds", "Bass", "808 Pure.adg"]
+trim = -14.1
+range = [24, 55]
+about = "a long 808 sub boom; hip-hop and trap low end, one long note per bar or two; mostly below what a phone plays, so pair it with something higher; the drive macro adds grit"
+macros = { drive = { device = 0, param = "Drive Amount", lo = "0 %", hi = "17 %" } }
+
+[instrument."bass.acid"]
+role = "bass"
+load = ["sounds", "Bass", "Basic 303 Bass.adg"]
+trim = -11.4
+range = [24, 60]
+about = "a squelchy 303 acid line; busy 16ths with octave jumps; the cutoff and reso macros open it up and make it scream"
+macros = { cutoff = { device = 0, param = "Filter Cutoff", lo = "40 Hz", hi = "1200 Hz" }, reso = { device = 0, param = "Filter Reso", lo = "40 %", hi = "120 %" } }
+
+[instrument."bass.upright"]
+role = "bass"
+load = ["sounds", "Bass", "Upright Bass.adv"]
+trim = -4.6
+range = [28, 60]
+about = "a plucked acoustic upright bass; walking quarter notes, jazz, folk"
+
+[instrument."bass.finger"]
+role = "bass"
+load = ["sounds", "Bass", "Electric Bass Soft.adg"]
+trim = -3.2
+range = [28, 64]
+about = "a soft fingered electric bass; funk, soul, pop lines"
+
+[instrument."bass.pluck"]
+role = "bass"
+load = ["sounds", "Bass", "Round Pluck Bass.adg"]
+trim = -4.9
+range = [24, 60]
+about = "a round plucked synth bass that dies away fast; house and disco 8ths, offbeats"
+
+[instrument."bass.reese"]
+role = "bass"
+load = ["sounds", "Bass", "Reese Classic.adg"]
+trim = -4.0
+range = [24, 55]
+about = "a wide, detuned, growling reese bass; drum and bass, dark held notes; the cutoff macro opens it"
+macros = { cutoff = { device = 0, param = "Filter Cutoff", lo = "30", hi = "127" } }
+
+# Leads
+[instrument."lead.saw"]
+role = "lead"
+load = ["sounds", "Synth Lead", "Basic OG Lead.adg"]
+trim = -4.3
+range = [48, 96]
+about = "a bright classic synth lead; melodies that cut through; the cutoff macro darkens or brightens it"
+macros = { cutoff = { device = 0, param = "Filter Cutoff", lo = "300 Hz", hi = "8000 Hz" } }
+
+[instrument."lead.chip"]
+role = "lead"
+load = ["sounds", "Synth Lead", "Chiptune Dream.adg"]
+trim = -0.7
+range = [48, 96]
+about = "a square-wave video game lead; quick 8-bit tunes and arpeggios"
+
+[instrument."lead.whistle"]
+role = "lead"
+load = ["sounds", "Synth Lead", "Theremin Whistle.adg"]
+trim = -11.5
+range = [60, 96]
+about = "a theremin-like whistle with vibrato; slow eerie melodies, long notes"
+
+# Plucks
+[instrument."pluck.synth"]
+role = "pluck"
+load = ["sounds", "Guitar & Plucked", "Simple Pluck.adg"]
+trim = 1.5
+range = [48, 96]
+about = "a clean synth pluck; arpeggios and offbeat chord stabs"
+
+[instrument."pluck.kalimba"]
+role = "pluck"
+load = ["sounds", "Guitar & Plucked", "Thumb Piano Tiny.adg"]
+trim = 4.9
+range = [55, 91]
+about = "a tiny thumb piano (kalimba); gentle repeating figures"
+
+[instrument."pluck.koto"]
+role = "pluck"
+load = ["sounds", "Guitar & Plucked", "Koto.adv"]
+trim = 1.2
+range = [48, 91]
+about = "a koto, a Japanese plucked zither; pentatonic phrases, sparse notes"
+
+# Pads and strings
+[instrument."pad.analog"]
+role = "pad"
+load = ["sounds", "Pad", "Warm Analog Pad.adg"]
+trim = -6.7
+range = [36, 84]
+about = "a warm analog synth pad with a slow attack; held chords under everything; the cutoff macro opens it"
+macros = { cutoff = { device = 0, param = "Low Pass Filter", lo = "60 Hz", hi = "1500 Hz" } }
+
+[instrument."strings.orchestra"]
+role = "pad"
+load = ["sounds", "Strings", "Ac Strings Orch.adg"]
+trim = -4.8
+range = [36, 96]
+about = "an orchestral string section; held chords, swells, slow lines; the tremolo macro makes it shiver"
+macros = { tremolo = { device = 0, param = "Tremolo Amount", lo = "0 %", hi = "60 %" } }
+
+[instrument."strings.pizzicato"]
+role = "pluck"
+load = ["sounds", "Strings", "Ac Strings Pizz Basic.adg"]
+trim = 6.0
+range = [36, 91]
+about = "plucked orchestral strings (pizzicato); light, bouncy ostinatos"
+
+[instrument."strings.machine"]
+role = "pad"
+load = ["sounds", "Strings", "String Machine.adg"]
+trim = -7.1
+range = [36, 89]
+about = "a 70s string machine, thin and shimmering; disco and synth-pop chords"
+
+# Brass and winds
+[instrument."brass.flugelhorn"]
+role = "lead"
+load = ["sounds", "Brass", "Ac Flugelhorn.adg"]
+trim = 4.0
+range = [52, 82]
+about = "a mellow flugelhorn; one breathy horn line, jazz and ballads"
+
+[instrument."brass.synth"]
+role = "keys"
+load = ["sounds", "Brass", "Basic Synth Brass.adg"]
+trim = -7.5
+range = [36, 84]
+about = "an 80s synth brass; punchy chord stabs and fanfares; the cutoff macro opens it"
+macros = { cutoff = { device = 0, param = "Filter Cutoff", lo = "30", hi = "127" } }
+
+[instrument."winds.flute"]
+role = "lead"
+load = ["sounds", "Winds", "Clay Flute.adg"]
+trim = -4.3
+range = [60, 96]
+about = "a breathy clay flute; folk melodies, long notes"
+
+# Pianos and organs
+[instrument."keys.grand"]
+role = "keys"
+load = ["sounds", "Piano & Keys", "Grand Piano.adg"]
+trim = 0.2
+range = [21, 108]
+about = "a concert grand piano; chords, melodies, the whole keyboard; the bright macro hardens its tone"
+macros = { bright = { device = 0, param = "Bright", lo = "10", hi = "120" } }
+
+[instrument."keys.rhodes"]
+role = "keys"
+load = ["sounds", "Piano & Keys", "E-Piano MKI Mellow.adv"]
+trim = -2.2
+range = [28, 100]
+about = "a mellow Rhodes-style electric piano; soft jazz, soul and lo-fi chords"
+
+[instrument."keys.wurli"]
+role = "keys"
+load = ["sounds", "Piano & Keys", "Wurli Classic Piano.adv"]
+trim = -8.2
+range = [33, 96]
+about = "a Wurlitzer electric piano, a little bark; soul and indie chords"
+
+[instrument."keys.organ"]
+role = "keys"
+load = ["sounds", "Piano & Keys", "Organ Bandstand.adg"]
+trim = -4.4
+range = [36, 96]
+about = "a combo organ; held chords and offbeat skanks, reggae, garage, gospel"
+
+[instrument."keys.clav"]
+role = "keys"
+load = ["sounds", "Piano & Keys", "Clav Session.adv"]
+trim = -1.5
+range = [36, 96]
+about = "a funky clavinet; short percussive chords and riffs"
+
+# Guitars and plucked strings
+[instrument."guitar.nylon"]
+role = "keys"
+load = ["sounds", "Guitar & Plucked", "Basic Nylon Concerto Guitar.adg"]
+trim = -7.0
+range = [40, 84]
+about = "a nylon-string classical guitar; fingerpicked chords, bossa nova"
+
+[instrument."guitar.clean"]
+role = "keys"
+load = ["sounds", "Guitar & Plucked", "Guitar Electric Clean.adg"]
+trim = -0.1
+range = [40, 88]
+about = "a clean electric guitar; chords, funk chops, simple riffs"
+
+[instrument."strings.harp"]
+role = "pluck"
+load = ["sounds", "Guitar & Plucked", "Harp Concert.adg"]
+trim = -1.7
+range = [24, 103]
+about = "a concert harp; glissandos, rolled chords and arpeggios"
+
+# Mallets and bells
+[instrument."mallets.marimba"]
+role = "pluck"
+load = ["sounds", "Mallets", "Marimba Concert.adg"]
+trim = 4.1
+range = [45, 96]
+about = "a wooden concert marimba; quick patterns and rolls"
+
+[instrument."mallets.vibes"]
+role = "keys"
+load = ["sounds", "Mallets", "Vibraphone.adg"]
+trim = 1.6
+range = [53, 89]
+about = "a vibraphone, soft metal bars that ring; jazz chords and melodies"
+
+[instrument."mallets.glockenspiel"]
+role = "lead"
+load = ["sounds", "Mallets", "Glockenspiel Basic.adv"]
+trim = -0.7
+range = [72, 108]
+about = "a glockenspiel, tiny bright bells; a high melody, few notes"
+
+[instrument."bells.tubular"]
+role = "lead"
+load = ["sounds", "Mallets", "Tubular FM Bells.adg"]
+trim = -2.8
+range = [48, 84]
+about = "big tubular church bells; one strike per bar, long ring"
+
+# Drum kits (pads 36-51, named in the guide)
+[instrument."drums.acoustic"]
+role = "drums"
+load = ["drums", "", "Dry Session Kit.adg"]
+trim = -1.7
+range = [36, 51]
+about = "a dry acoustic studio kit; rock, pop, funk. Kick 36, sidestick 37, snare 38, closed hat 42, pedal hat 44, open hat 46, toms 41/43/45/47, crashes 48/49, ride 50"
+
+[instrument."drums.brushes"]
+role = "drums"
+load = ["drums", "", "Ahlimba Kit.adg"]
+trim = -3.0
+range = [36, 51]
+about = "a soft shuffle kit with brushed ride, toms and hats; jazz and swing. Kick 36, snare 38, closed hats 42/43, open hat 46, brush ride 48, brush tom 41; 49-51 are Wurli piano chords"
+
+[instrument."drums.808"]
+role = "drums"
+load = ["drums", "", "808 Core Kit.adg"]
+trim = -1.2
+range = [36, 51]
+about = "the TR-808 drum machine; hip-hop, trap, electro. Kick 36, rim 37, snare 38, clap 39, closed hat 42, open hat 46, toms 44/45/47, congas 40/41/43, cowbell 50, claves 51"
+
+[instrument."drums.909"]
+role = "drums"
+load = ["drums", "", "909 Core Kit.adg"]
+trim = -0.2
+range = [36, 51]
+about = "the TR-909 drum machine; house and techno, four on the floor. Kicks 36/40, snares 38/41/43, clap 39, closed hat 42, open hat 46, crash 48, ride 50"
+
+[instrument."drums.lofi"]
+role = "drums"
+load = ["drums", "", "LDre Cozy Kit.adg"]
+trim = -4.2
+range = [36, 51]
+about = "a dusty, soft lo-fi hip-hop kit. Kicks 36/40/44/48, snares 37/41, closed hats 38/42, open hats 46/50, rim 45; 39/43/47/51 are organ chords"
+
+[instrument."drums.break"]
+role = "drums"
+load = ["drums", "", "Sliced Break.adg"]
+trim = -6.2
+range = [36, 51]
+about = "a funk breakbeat (115 BPM) cut into 16 slices on pads 36-51, in order: play 36, 37, 38... on 8th notes for the break, or rearrange them"
+
+[instrument."drums.percussion"]
+role = "drums"
+load = ["drums", "", "Percussion Core Kit.adg"]
+trim = -3.4
+range = [36, 51]
+about = "hand percussion to layer over another kit: congas 36/38/40, bongos 43/45, shakers 41/42/49, tambourine 48, cowbell 39, claves 37, triangle 44/46, wood block 47"
+
+# Textures
+[instrument."texture.rain"]
+role = "texture"
+load = ["sounds", "Effects", "Rainstorm.adg"]
+fx = ["Utility"]
+set = { 1 = { "Output" = "14 dB" } }        # the rack plays about 15 dB under the others, like Music Box
+trim = 0.5
+range = [48, 72]
+about = "rain and wind, made by a synth; hold one note for a whole section; the strength macro calms or swells the storm"
+macros = { strength = { device = 0, param = "Storm Strength", lo = "20", hi = "127" } }
+
+[instrument."texture.seashore"]
+role = "texture"
+load = ["sounds", "Ambient & Evolving", "Seashore Pad.adg"]
+trim = -7.3
+range = [36, 84]
+about = "a pad of waves on a shore; hold a chord or one note for a long time"
+
+# Returns: Live's new set has A Reverb and B Delay. One named setting each per score.
+[returns.room]
+track = 0
+device = "Reverb"
+[returns.room.settings]
+small = { "Decay Time" = "900 ms", "Predelay" = "8 ms", "Dry/Wet" = "100 %" }
+hall = { "Decay Time" = "2200 ms", "Predelay" = "18 ms", "Dry/Wet" = "100 %" }
+cave = { "Decay Time" = "5000 ms", "Predelay" = "30 ms", "Dry/Wet" = "100 %" }
+
+[returns.echo]
+track = 1
+device = "Delay"
+[returns.echo.settings]
+dotted_eighth = { "Ping Pong" = "On", "L 16th" = "3", "R 16th" = "3", "Feedback" = "32 %", "Filter On" = "On", "Filter Freq" = "1500 Hz", "Filter Width" = "6" }
+quarter = { "Ping Pong" = "On", "L 16th" = "4", "R 16th" = "4", "Feedback" = "28 %", "Filter On" = "On", "Filter Freq" = "1200 Hz", "Filter Width" = "6" }
+slap = { "Ping Pong" = "Off", "L 16th" = "1", "R 16th" = "1", "Feedback" = "10 %", "Filter On" = "On", "Filter Freq" = "2500 Hz", "Filter Width" = "6" }
+
+# Main: SH001's chain (EQ Eight high-pass, Glue Compressor, a true-peak Limiter). Glue's Ratio, Attack and Release are indices.
+[master]
+devices = ["EQ Eight", "Glue Compressor", "Limiter"]
+[master.set]
+0 = { "1 Filter Type A" = "High Pass 48dB", "1 Frequency A" = "32 Hz", "1 Filter On A" = "On" }
+1 = { "Threshold" = "-12 dB", "Ratio" = 0, "Attack" = 5, "Release" = 6, "Output" = "1.5 dB", "Dry/Wet" = 1.0 }
+2 = { "Mode" = "True Peak", "Ceiling" = "-1.8 dB", "Lookahead" = "3 ms", "Auto" = "On", "Input Gain" = "6 dB" }

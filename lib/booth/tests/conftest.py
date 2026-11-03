@@ -99,7 +99,8 @@ class FakeOps:
 
     def load_item(self, path, root, folder, name):
         self.loads.append((path, root, folder, name))
-        self._track(path).devices.append(types.SimpleNamespace(name=name.rsplit(".", 1)[0]))
+        self._track(path).devices.append(types.SimpleNamespace(name=name.rsplit(".", 1)[0], can_have_drum_pads=False,
+                                                               can_have_chains=False, parameters=[]))
 
     def devices(self, path):
         if self.devices_override:
