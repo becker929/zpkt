@@ -15,10 +15,12 @@ from pathlib import Path
 from typing import Callable
 
 from . import HOME, PREFIX, SETS_DIR, TEMPLATE
-from .compile import Plan, TrackPlan
+from .compile import PLAYBACK_MODES, WARP_MODES, Plan, TrackPlan
 from .gui import Stop, ops, stops
 
 NOTES_PER_CALL = 400
+COPIES_PER_CALL = 8          # duplicate_clip_to_arrangement calls in one LOM call
+SLICING_MANUAL = 3           # Sample.slicing_style: 0 Transient, 1 Beat, 2 Region, 3 Manual
 
 
 def set_name(job: str) -> str:
@@ -83,15 +85,24 @@ class Builder:
 
         self.guard("tracks", front)
         for k, t in enumerate(plan.tracks[1:], start=1):      # Live keeps at least one track: the template's is p1
-            self.run(f"song.create_midi_track(-1)\nsong.tracks[{k}].name = {t.name!r}\nresult = 'ok'")
-        names = self.run("result = [t.name for t in song.tracks]")
-        if names != [t.name for t in plan.tracks]:
-            raise Stop(f"tracks: Live has {names}")
+            self.run(f"song.create_{t.kind}_track(-1)\nsong.tracks[{k}].name = {t.name!r}\nresult = 'ok'")
+        if plan.tracks[0].kind == "audio":                   # the template's p1 is MIDI: an audio track takes its place
+            self.run("song.create_audio_track(0)\nresult = 'ok'")
+            self.run("song.delete_track(1)\nsong.tracks[0].name = 'p1'\nresult = 'ok'")
+        got = self.run("result = [(t.name, t.has_midi_input) for t in song.tracks]")
+        if [list(g) for g in got] != [[t.name, t.kind == "midi"] for t in plan.tracks]:
+            raise Stop(f"tracks: Live has {got}")
 
         for k, t in enumerate(plan.tracks):
-            self.instrument(k, t, front)
+            if t.kind == "audio":
+                self.clips(k, t, plan.bpm, front)
+            elif t.sample:
+                self.simpler(k, t, front)
+            else:
+                self.instrument(k, t, front)
         for k, t in enumerate(plan.tracks):
-            self.notes(k, t, plan.beats, front)
+            if t.kind == "midi":
+                self.notes(k, t, plan.beats, front)
         self.mix(plan, front)
 
     def instrument(self, k: int, t: TrackPlan, front: str) -> None:
@@ -109,6 +120,103 @@ class Builder:
         for dev, values in sorted(t.settings.items()):
             with stops(f"set {t.name} device {dev}"):
                 self.L.setp(f"{path}.devices[{dev}]", values)
+
+    # ---- samples ---------------------------------------------------------------------------------------------------
+    def clips(self, k: int, t: TrackPlan, bpm: float, front: str) -> None:
+        """A clip-mode sample on audio track k: the file at its first position, warped or not, transposed, cut to its
+        length; then copied back to back for a loop, and the last copy cut. Each write is read back in its own call."""
+        sp = t.sample
+        path = f"song.tracks[{k}]"
+        at0, len0 = sp.clips[0]
+        first = f"[c for c in {path}.arrangement_clips if abs(c.start_time - {float(at0)!r}) < 1e-4][0]"
+        self.guard(f"sample {t.name}", front)
+        self.run(f"t = {path}\nfor c in list(t.arrangement_clips):\n    t.delete_clip(c)\n"
+                 f"t.create_audio_clip({str(sp.path)!r}, {float(at0)!r})\nresult = 'ok'")
+        got = self.run(f"result = [(c.start_time, c.is_audio_clip, c.file_path) for c in {path}.arrangement_clips]")
+        if len(got) != 1 or abs(got[0][0] - at0) > 1e-4 or not got[0][1] or Path(str(got[0][2])).name != sp.path.name:
+            raise Stop(f"sample {t.name}: the track has {got}, wanted {sp.path.name} at beat {at0}")
+
+        # warp first: it changes what the markers mean (beats warped, file seconds not), and unwarping moves the start
+        # marker to the first transient (hands/scripts/proptest), so the markers are set after it
+        warp = f"c.warping = True\nc.warp_mode = {WARP_MODES[sp.warp]}" if sp.warp != "off" else "c.warping = False"
+        self.run(f"c = {first}\nc.looping = False\n{warp}\nresult = 'ok'")
+        got = self.run(f"c = {first}\nresult = (c.warping, c.warp_mode, c.looping)")
+        if bool(got[0]) != (sp.warp != "off") or got[2] or (sp.warp != "off" and got[1] != WARP_MODES[sp.warp]):
+            raise Stop(f"sample {t.name}: warping, warp mode, looping are {got}, wanted {sp.warp}")
+        if sp.warp != "off":
+            self.fit(first, t)
+        if sp.transpose:
+            self.run(f"c = {first}\nc.pitch_coarse = {int(sp.transpose)}\nresult = 'ok'")
+
+        end = sp.end_marker(len0, bpm) if sp.warp != "off" else min(sp.seconds, sp.end_marker(len0, bpm))
+        self.run(f"c = {first}\nc.loop_end = {end!r}\nc.end_marker = {end!r}\nresult = 'ok'")       # the end, then the start
+        self.run(f"c = {first}\nc.loop_start = 0.0\nc.start_marker = 0.0\nresult = 'ok'")
+        got = self.run(f"c = {first}\nresult = (c.start_time, c.end_time, c.start_marker, c.pitch_coarse)")
+        if abs(got[0] - at0) > 1e-4 or abs(got[1] - got[0] - len0) > 0.02 or abs(got[2]) > 1e-4 or got[3] != sp.transpose:
+            raise Stop(f"sample {t.name}: the clip is {got}, wanted {at0}+{len0} beats from 0, {sp.transpose} st")
+
+        rest = sp.clips[1:]
+        for i in range(0, len(rest), COPIES_PER_CALL):     # the first clip is a whole play whenever copies follow it
+            self.run(f"t = {path}\nsrc = {first}\n" + "".join(
+                f"t.duplicate_clip_to_arrangement(src, {float(a)!r})\n" for a, _ in rest[i:i + COPIES_PER_CALL]) + "result = 'ok'")
+        if rest and rest[-1][1] < sp.natural_beats - 1e-6:
+            a, length = rest[-1]
+            end = sp.end_marker(length, bpm)
+            self.run(f"c = [c for c in {path}.arrangement_clips if abs(c.start_time - {float(a)!r}) < 1e-4][0]\n"
+                     f"c.loop_end = {end!r}\nc.end_marker = {end!r}\nresult = 'ok'")
+        got = self.run(f"result = sorted((c.start_time, c.end_time) for c in {path}.arrangement_clips)")
+        want = [(a, a + n) for a, n in sp.clips]
+        if len(got) != len(want) or any(abs(g[0] - w[0]) > 1e-3 or abs(g[1] - w[1]) > 0.02 for g, w in zip(got, want)):
+            raise Stop(f"sample {t.name}: clips {got}, wanted {want}")
+
+    def fit(self, first: str, t: TrackPlan) -> None:
+        """Warp the whole file evenly onto fit_beats. Live auto-warps a new clip at a tempo it guesses: keep only its
+        first marker, add one near the file's end on the even stretch, then move the first onto it too. Read back:
+        every marker on the line beat = seconds * fit / length."""
+        sp = t.sample
+        slope = sp.fit_beats / sp.seconds
+        markers = self.run(f"c = {first}\nresult = [(w.sample_time, w.beat_time) for w in c.warp_markers]")
+        if not markers:
+            raise Stop(f"sample {t.name}: a warped clip with no warp markers")
+        drop = [float(b) for _, b in markers[1:]]
+        if drop:
+            self.run(f"c = {first}\nfor b in {drop!r}:\n    c.remove_warp_marker(b)\nresult = 'ok'")
+        got = self.run(f"c = {first}\nresult = [(w.sample_time, w.beat_time) for w in c.warp_markers]")
+        if len(got) != 1:
+            raise Stop(f"sample {t.name}: warp markers {got} after removing all but the first")
+        (s0, b0), s1 = got[0], round(max(sp.seconds - 0.005, sp.seconds * 0.99), 6)
+        self.run(f"import Live\nc = {first}\nc.add_warp_marker(Live.Clip.WarpMarker({s1!r}, {round(s1 * slope, 6)!r}))\nresult = 'ok'")
+        if abs(b0 - s0 * slope) > 1e-6:
+            self.run(f"c = {first}\nc.move_warp_marker({float(b0)!r}, {round(s0 * slope - b0, 6)!r})\nresult = 'ok'")
+        got = self.run(f"c = {first}\nresult = [(w.sample_time, w.beat_time) for w in c.warp_markers]")
+        if len(got) < 2 or any(abs(b - s * slope) > 1e-3 for s, b in got) or abs(got[-1][0] - s1) > 1e-3:
+            raise Stop(f"sample {t.name}: warp markers {got}, wanted the line beat = {slope:.4f} * seconds")
+
+    def simpler(self, k: int, t: TrackPlan, front: str) -> None:
+        """A one-shot or sliced sample: Simpler on MIDI track k, holding the file (replace_sample, as in
+        hands/scripts/proptest), unwarped, in One-Shot or Slicing mode; slices placed by hand (Manual)."""
+        sp = t.sample
+        path, dev = f"song.tracks[{k}]", f"song.tracks[{k}].devices[0]"
+        self.guard(f"load {t.name}", front)
+        with stops(f"load {t.name}"):
+            self.L.load_item(path, "instruments", None, "Simpler")
+            devs = self.L.devices(path)
+        if devs != ["Simpler"]:
+            raise Stop(f"load {t.name}: devices {devs}, wanted Simpler")
+        self.run(f"{dev}.replace_sample({str(sp.path)!r})\nresult = 'ok'")
+        time.sleep(0.5)
+        got = self.run(f"d = {dev}\nresult = d.sample.file_path if d.sample else None")
+        if not got or Path(str(got)).name != sp.path.name:
+            raise Stop(f"load {t.name}: Simpler holds {got}, wanted {sp.path.name}")
+        self.run(f"{dev}.playback_mode = {PLAYBACK_MODES[sp.mode]}\nresult = 'ok'")
+        self.run(f"{dev}.sample.warping = False\nresult = 'ok'")
+        if sp.mode == "slices":
+            self.run(f"s = {dev}.sample\ns.slicing_style = {SLICING_MANUAL}\nresult = 'ok'")
+            self.run(f"s = {dev}.sample\ns.clear_slices()\nfor f in {[int(f) for f in sp.slices]!r}:\n    s.insert_slice(f)\nresult = 'ok'")
+        got = self.run(f"d = {dev}\nresult = (d.playback_mode, d.sample.warping, "
+                       f"sorted(int(x) for x in d.sample.slices if x > 0) if d.playback_mode == 2 else [])")
+        if [got[0], bool(got[1]), list(got[2])] != [PLAYBACK_MODES[sp.mode], False, sp.slices]:
+            raise Stop(f"load {t.name}: Simpler's mode, warping, slices are {got}, wanted {sp.mode}, unwarped, {sp.slices}")
 
     def notes(self, k: int, t: TrackPlan, beats: float, front: str) -> None:
         path = f"song.tracks[{k}]"

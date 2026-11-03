@@ -42,17 +42,115 @@ class Clip:
         return list(self.notes)
 
 
+class AudioClip:
+    """Live's arrangement audio clip, as far as the booth uses it. Like Live: a new clip is auto-warped at a tempo it
+    guesses (100 BPM here) and looped; unwarping moves the start marker to the first transient (0.12 s here); markers
+    are clip beats when warped and file seconds when not; an unwarped clip's transpose plays it faster, like tape."""
+
+    GUESS_BPM, TRANSIENT_S = 100.0, 0.12
+
+    def __init__(self, song, path, start):
+        self.song, self.file_path, self.start_time = song, str(path), float(start)
+        self.seconds = sf.info(str(path)).duration
+        self.is_audio_clip, self.looping, self.pitch_coarse, self.warp_mode = True, True, 0, 0
+        self._warping = True
+        self.warp_markers = [WarpMarker(0.0, 0.0), WarpMarker(self.seconds, self.seconds * self.GUESS_BPM / 60)]
+        self.start_marker = self.loop_start = 0.0
+        self.end_marker = self.loop_end = self.warp_markers[-1].beat_time
+
+    @property
+    def warping(self):
+        return self._warping
+
+    @warping.setter
+    def warping(self, on):
+        if bool(on) == self._warping:
+            return
+        self._warping = bool(on)
+        if on:
+            self.start_marker = self.loop_start = 0.0
+            self.end_marker = self.loop_end = self.seconds * self.GUESS_BPM / 60
+        else:
+            self.start_marker = self.loop_start = self.TRANSIENT_S
+            self.end_marker = self.loop_end = self.seconds
+
+    @property
+    def end_time(self):
+        span = self.end_marker - self.start_marker
+        if self._warping:
+            return self.start_time + span
+        return self.start_time + span * self.song.tempo / 60 / 2 ** (self.pitch_coarse / 12)
+
+    def add_warp_marker(self, w):
+        self.warp_markers = sorted([*self.warp_markers, w], key=lambda m: m.beat_time)
+
+    def remove_warp_marker(self, beat):
+        self.warp_markers = [m for m in self.warp_markers if abs(m.beat_time - beat) > 1e-9]
+
+    def move_warp_marker(self, beat, distance):
+        for m in self.warp_markers:
+            if abs(m.beat_time - beat) < 1e-9:
+                m.beat_time += distance
+
+    def copy(self, start):
+        c = AudioClip.__new__(AudioClip)
+        c.__dict__.update(self.__dict__, start_time=float(start), warp_markers=[WarpMarker(m.sample_time, m.beat_time) for m in self.warp_markers])
+        return c
+
+
+class WarpMarker:
+    def __init__(self, sample_time, beat_time):
+        self.sample_time, self.beat_time = sample_time, beat_time
+
+
 class Track:
-    def __init__(self):
+    def __init__(self, song=None, audio=False):
+        self.song = song
         self.name, self.devices, self.arrangement_clips = "", [], []
-        self.has_midi_input = True
+        self.has_midi_input = not audio
         self.mixer_device = types.SimpleNamespace(panning=Param(), volume=Param(), sends=[Param(), Param()])
 
     def delete_clip(self, c):
         self.arrangement_clips.remove(c)
 
     def create_midi_clip(self, start, length):
+        if not self.has_midi_input:
+            raise RuntimeError("create_midi_clip on an audio track")
         self.arrangement_clips.append(Clip(start, length))
+
+    def create_audio_clip(self, path, start):
+        if self.has_midi_input:
+            raise RuntimeError("create_audio_clip on a MIDI track")
+        self.arrangement_clips.append(AudioClip(self.song, path, start))
+        return self.arrangement_clips[-1]
+
+    def duplicate_clip_to_arrangement(self, clip, start):
+        self.arrangement_clips.append(clip.copy(start))
+
+
+class Sample:
+    def __init__(self, path):
+        self.file_path, self.warping, self.slicing_style, self._slices = str(path), True, 0, [0]
+
+    @property
+    def slices(self):
+        return list(self._slices)
+
+    def clear_slices(self):
+        self._slices = [0]
+
+    def insert_slice(self, frame):
+        if frame not in self._slices:
+            self._slices = sorted([*self._slices, int(frame)])
+
+
+class Simpler:
+    def __init__(self):
+        self.name, self.can_have_drum_pads, self.can_have_chains, self.parameters = "Simpler", False, False, []
+        self.sample, self.playback_mode = None, 0
+
+    def replace_sample(self, path):
+        self.sample = Sample(path)
 
 
 class Song:
@@ -64,7 +162,16 @@ class Song:
         self.return_tracks = [types.SimpleNamespace(name="A-Reverb"), types.SimpleNamespace(name="B-Delay")]
 
     def create_midi_track(self, index):
-        self.tracks.append(Track())
+        self.tracks.append(Track(self))
+
+    def create_audio_track(self, index):
+        t = Track(self, audio=True)
+        self.tracks.insert(len(self.tracks) if index == -1 else index, t)
+
+    def delete_track(self, index):
+        if len(self.tracks) < 2:
+            raise RuntimeError("Live keeps one track")
+        del self.tracks[index]
 
 
 class FakeLive:
@@ -73,7 +180,7 @@ class FakeLive:
     def __init__(self, song=None):
         self.song = song or Song()
         self.calls: list[str] = []
-        self.live_mod = types.SimpleNamespace(Clip=types.SimpleNamespace(MidiNoteSpecification=lambda **k: k))
+        self.live_mod = types.SimpleNamespace(Clip=types.SimpleNamespace(MidiNoteSpecification=lambda **k: k, WarpMarker=WarpMarker))
         sys.modules.setdefault("Live", self.live_mod)
 
     def run(self, code):
@@ -99,6 +206,9 @@ class FakeOps:
 
     def load_item(self, path, root, folder, name):
         self.loads.append((path, root, folder, name))
+        if (root, name) == ("instruments", "Simpler"):
+            self._track(path).devices.append(Simpler())
+            return
         self._track(path).devices.append(types.SimpleNamespace(name=name.rsplit(".", 1)[0], can_have_drum_pads=False,
                                                                can_have_chains=False, parameters=[]))
 
@@ -127,6 +237,25 @@ class FakeOps:
         Path(out).parent.mkdir(parents=True, exist_ok=True)
         sf.write(out, np.stack([y, y], 1), sr, subtype="PCM_24")
         return Path(out)
+
+
+def make_sample(seconds: float = 2.0, *, hits: int = 4, sr: int = 44100, seed: int = 1) -> dict:
+    """A sample in the booth's store without ffmpeg: decaying noise bursts, `hits` of them, evenly spaced."""
+    from booth import samples as S
+    rng = np.random.default_rng(seed)
+    n = int(seconds * sr)
+    y = np.zeros(n)
+    for k in range(hits):
+        a = int(k * n / hits)
+        m = min(n - a, int(0.25 * sr))
+        y[a:a + m] += 0.5 * rng.standard_normal(m) * np.exp(-np.arange(m) / (0.04 * sr))
+    S.DIR.mkdir(parents=True, exist_ok=True)
+    sid = f"{seed:04x}{int(seconds * 1000):06x}{hits:06x}"[:16]
+    wav = S.DIR / f"{sid}.wav"
+    sf.write(wav, np.stack([y, y], 1), sr, subtype="PCM_24")
+    meta = {**S._measure(wav), "sample": sid, "format": "wav", "bytes": wav.stat().st_size, "added": 0}
+    (S.DIR / f"{sid}.json").write_text(json.dumps(meta))
+    return meta
 
 
 @pytest.fixture

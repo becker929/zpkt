@@ -15,6 +15,7 @@ generated from it). The booth never runs code it was sent. Every LOM call comes 
 | `palettes/2026-12.toml` | 2026-11's eleven and forty more Core Library instruments; not served yet |
 | `palettes/<v>.survey.json` | what `booth survey` read from Live: devices, drum pads, rack macros, loudness |
 | `palettes/examples/` | two scores, also shown to the composer |
+| `samples.py` | uploaded audio: magic bytes, ffmpeg to WAV at 44.1 kHz, kept as `samples/<hash>.wav`, measured |
 | `check.py` | `check(raw)`: errors with paths, warnings, an estimate; never touches Live |
 | `compile.py` | a checked score becomes a `Plan`: absolute notes, the booth's track names, mixer values in dB |
 | `live.py` | a `Plan` into Live, one checked step at a time; also `make_template` and `survey` |
@@ -24,7 +25,8 @@ generated from it). The booth never runs code it was sent. Every LOM call comes 
 | `server.py`, `cli.py` | the HTTP API on 127.0.0.1:8794, and Anthony's controls |
 
 Everything the booth keeps is in `~/_agent_scratch/booth/` (`BOOTH_HOME`): `booth.db`, `jobs/<id>/`, the sets in
-`sets/booth Project/`, and an optional `config.toml` (`port`, `hours`, `queue_max`, `quiet_s`).
+`sets/booth Project/`, `samples/`, and an optional `config.toml` (`port`, `hours`, `queue_max`, `quiet_s`, `palette`,
+`samples`).
 
 ## The first runs (watched, in this order)
 
@@ -61,6 +63,33 @@ uv run booth open                                            # straight after ea
 `--listen` plays a phrase on each instrument at 0 dB with Main's chain off in the survey's copy of the template, and
 writes its loudness to the survey file. A new instrument's `trim` brings it to the median of the old ones (their
 `lufs` plus `trim`). Then switch: `palette = "2026-12"` in `config.toml`, and restart `booth serve`.
+
+## Samples
+
+Audio a friend shared with the bot (a video's soundtrack, an audio link) can play in a score. The bot fetches and
+converts it, then sends the file as the body of `POST /v1/samples` (WAV, AIFF, FLAC or MP3 by its first bytes, at
+most 20 MB and 60 s). The booth converts it with ffmpeg, its demuxer forced to that format, to 24-bit WAV at 44.1 kHz,
+keeps it as `samples/<id>.wav` (the id is the first 16 hex digits of the upload's SHA-256, so the same bytes answer
+the same id), and measures it: seconds, peak, loudness, and where its hits start. `GET /v1/samples/<id>` answers the
+same. A score names a sample only by that id; the path Live gets is the booth's own.
+
+A part has `instrument` or `sample`, never both:
+
+```json
+{ "id": "found", "gain_db": -4, "room": 0.2,
+  "sample": { "id": "d77efb5f20cf7a4e", "mode": "clip", "start_beat": 16, "loop": true, "warp": "beats", "fit_beats": 8 } }
+```
+
+| Mode | In Live | Fields |
+|---|---|---|
+| `clip` | audio track; `Track.create_audio_clip` at `start_beat`, copied back to back with `loop`, cut at `length_beats` and at the song's end. No patterns. | `start_beat`, `length_beats`, `loop`, `warp` (`off`, `beats`, `complex`), `fit_beats` (warped: the whole file's length in beats; default the nearest whole bars), `transpose` |
+| `one_shot` | MIDI track, Simpler (`replace_sample`) in One-Shot mode, unwarped; pitch 60 as recorded | none; patterns play it |
+| `slices` | the same in Slicing mode, slices placed by hand (Manual) at `slices` seconds; pitch 36 the first | `slices` |
+
+A sample's track starts at the level that brings it to -23 LUFS, where the palette's instruments sit, then
+`gain_db`. The booth takes samples only in the modes `samples` in `config.toml` lists (`samples = ["clip"]`); with
+none, uploads answer `403 samples_off`, check refuses sample parts and the guide doesn't mention them.
+`booth sample FILE` keeps a file the way the endpoint does, for a watched `booth run`.
 
 ## Tests
 

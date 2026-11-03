@@ -99,6 +99,10 @@ names, no tuples, extra keys refused. Two full examples are in `lib/booth/palett
   revision ("double the hats in the second half") is a small edit a person could read.
 - **Feel** is applied by the booth's compiler, seeded, so swing and humanizing come out the same every time and the
   model doesn't have to fake them note by note (SH001's seeded humanizing, moved into trusted code).
+- **Samples.** A part may play an uploaded sample instead of an instrument, by the id the booth gave it: as audio
+  clips in the arrangement (warped to the song's tempo or not), or in a Simpler that patterns play whole or in
+  slices (`lib/booth/README.md`, "Samples"). The id is checked against the booth's own store, and the path that
+  reaches Live is the booth's.
 - **The mix** is gain, pan, two sends and the instrument's named macros. The returns and the master chain are fixed:
   two palette returns (a room and an echo, each with a few named settings) and a master the booth owns (SH001's
   EQ Eight high-pass, Glue Compressor and true-peak Limiter). Friends shape the music; the booth keeps it safe to play.
@@ -152,6 +156,8 @@ All JSON. Errors are `{error, message}` with a stable `error` code, as in Room W
 | `GET /v1/jobs/{job}/files/{name}` | | `render.m4a`, `video.mp4`, `still.jpg`, `score.json`, `measure.json` (and `stems/*.m4a` if asked) |
 | `DELETE /v1/jobs/{job}` | | cancels a queued job; a running one finishes |
 | `GET /v1/status` | | `{open, reason, queue, live: {ok, front, engine}, today: {jobs, live_s}}` |
+| `POST /v1/samples` | the audio file as the body (WAV, AIFF, FLAC, MP3; 20 MB, 60 s) | `201` (or `200`: the same bytes before) `{sample, seconds, channels, sample_rate, peak_db, lufs, onsets_s, format}`. `403 samples_off`, `413 too_large`, `415 bad_format`, `400 unreadable`, `too_long`, `too_short`, `silent`. |
+| `GET /v1/samples/{id}` | | the same measurements |
 
 Job states: `queued → building → rendering → measuring → done`, or `failed {stage, code, retryable}`, or `held`
 (the booth stopped itself on a surprise, below). The bot polls a job every 5 s; nothing calls back into the bot.

@@ -8,6 +8,10 @@ the model's own names, no tuples.
 Time is in beats, 4/4 only. A pattern is `bars` long and repeats to fill each song section that plays it (cut at
 the section's end).
 
+A part plays a palette instrument or a sample (samples.py): an id the booth gave the bot for a file it uploaded, never
+a path. A sample is either placed in the arrangement as audio clips (mode "clip", which plays no patterns), or held
+by a Simpler that the part's patterns play like any instrument (modes "one_shot" and "slices").
+
 lib/contracts/score.schema.json is generated from Score by scripts/gen_schema.py; tests fail if it is stale.
 """
 
@@ -25,9 +29,12 @@ MAX_PATTERN_NOTES = 512
 MAX_NOTES = 2000          # after patterns repeat; add_new_notes calls stay well under the transport's 12 s
 MAX_BARS = 64
 MAX_AUDIO_S = 60.0
+MAX_CLIPS = 64            # arrangement clips a looped sample becomes, all parts together
+MAX_SLICES = 32
 
 Id = Annotated[str, StringConstraints(pattern=r"^[a-z][a-z0-9_]{0,23}$")]
 PaletteId = Annotated[str, StringConstraints(pattern=r"^[a-z0-9_.]{1,64}$")]
+SampleId = Annotated[str, StringConstraints(pattern=r"^[0-9a-f]{16}$")]
 
 
 class _Strict(BaseModel):
@@ -48,9 +55,30 @@ class Macro(_Strict):
     value: float = Field(ge=0.0, le=1.0)
 
 
+class Sample(_Strict):
+    """A sample the part plays. Fields for another mode are left out."""
+
+    id: SampleId = Field(description="a sample id the booth gave for an uploaded file")
+    mode: Literal["clip", "one_shot", "slices"] = Field(
+        "clip", description="clip: the audio itself in the arrangement, no patterns; one_shot: patterns trigger the whole "
+        "sample, pitch 60 as recorded; slices: patterns trigger slices, pitch 36 the first")
+    start_beat: float = Field(0.0, ge=0.0, le=MAX_BARS * BEATS_PER_BAR, description="clip: where it starts, in song beats")
+    length_beats: float | None = Field(None, gt=0.0, le=MAX_BARS * BEATS_PER_BAR,
+                                       description="clip: cut after this many beats; none plays it out (looped: to the song's end)")
+    loop: bool = Field(False, description="clip: repeat it back to back until length_beats or the song's end")
+    warp: Literal["off", "beats", "complex"] = Field(
+        "off", description="clip: off plays it as recorded; beats (drums, loops) or complex (anything else) stretch it to fit_beats")
+    fit_beats: float | None = Field(None, gt=0.0, le=MAX_BARS * BEATS_PER_BAR,
+                                    description="clip, warped: how many beats the whole sample lasts; none is the nearest whole bars")
+    transpose: int = Field(0, ge=-24, le=24, description="clip: semitones; with warp off it also plays faster or slower, like tape")
+    slices: list[float] = Field(default_factory=list, max_length=MAX_SLICES,
+                                description="slices: where each slice starts, seconds into the sample, rising, the first 0")
+
+
 class Part(_Strict):
     id: Id
-    instrument: PaletteId = Field(description="an instrument id from the guide")
+    instrument: PaletteId | None = Field(None, description="an instrument id from the guide; or give sample instead")
+    sample: Sample | None = Field(None, description="a sample instead of an instrument")
     gain_db: float = Field(0.0, ge=-30.0, le=6.0)
     pan: float = Field(0.0, ge=-1.0, le=1.0)
     room: float = Field(0.0, ge=0.0, le=1.0, description="send to the room return")
@@ -97,7 +125,7 @@ class Score(_Strict):
     key: Annotated[str, StringConstraints(max_length=24)] = ""
     feel: Feel = Field(default_factory=Feel)
     parts: list[Part] = Field(min_length=1, max_length=MAX_PARTS)
-    patterns: list[Pattern] = Field(min_length=1, max_length=MAX_PATTERNS)
+    patterns: list[Pattern] = Field(max_length=MAX_PATTERNS, description="none only when every part is a clip-mode sample")
     song: list[Section] = Field(min_length=1, max_length=MAX_SECTIONS)
     mix: Mix
 

@@ -136,10 +136,30 @@
           "type": "string"
         },
         "instrument": {
-          "description": "an instrument id from the guide",
-          "pattern": "^[a-z0-9_.]{1,64}$",
-          "title": "Instrument",
-          "type": "string"
+          "anyOf": [
+            {
+              "pattern": "^[a-z0-9_.]{1,64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "an instrument id from the guide; or give sample instead",
+          "title": "Instrument"
+        },
+        "sample": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Sample"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "a sample instead of an instrument"
         },
         "gain_db": {
           "default": 0.0,
@@ -181,8 +201,7 @@
         }
       },
       "required": [
-        "id",
-        "instrument"
+        "id"
       ],
       "title": "Part",
       "type": "object"
@@ -243,6 +262,106 @@
         "pattern"
       ],
       "title": "Play",
+      "type": "object"
+    },
+    "Sample": {
+      "additionalProperties": false,
+      "description": "A sample the part plays. Fields for another mode are left out.",
+      "properties": {
+        "id": {
+          "description": "a sample id the booth gave for an uploaded file",
+          "pattern": "^[0-9a-f]{16}$",
+          "title": "Id",
+          "type": "string"
+        },
+        "mode": {
+          "default": "clip",
+          "description": "clip: the audio itself in the arrangement, no patterns; one_shot: patterns trigger the whole sample, pitch 60 as recorded; slices: patterns trigger slices, pitch 36 the first",
+          "enum": [
+            "clip",
+            "one_shot",
+            "slices"
+          ],
+          "title": "Mode",
+          "type": "string"
+        },
+        "start_beat": {
+          "default": 0.0,
+          "description": "clip: where it starts, in song beats",
+          "maximum": 256,
+          "minimum": 0.0,
+          "title": "Start Beat",
+          "type": "number"
+        },
+        "length_beats": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0.0,
+              "maximum": 256,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "clip: cut after this many beats; none plays it out (looped: to the song's end)",
+          "title": "Length Beats"
+        },
+        "loop": {
+          "default": false,
+          "description": "clip: repeat it back to back until length_beats or the song's end",
+          "title": "Loop",
+          "type": "boolean"
+        },
+        "warp": {
+          "default": "off",
+          "description": "clip: off plays it as recorded; beats (drums, loops) or complex (anything else) stretch it to fit_beats",
+          "enum": [
+            "off",
+            "beats",
+            "complex"
+          ],
+          "title": "Warp",
+          "type": "string"
+        },
+        "fit_beats": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0.0,
+              "maximum": 256,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "clip, warped: how many beats the whole sample lasts; none is the nearest whole bars",
+          "title": "Fit Beats"
+        },
+        "transpose": {
+          "default": 0,
+          "description": "clip: semitones; with warp off it also plays faster or slower, like tape",
+          "maximum": 24,
+          "minimum": -24,
+          "title": "Transpose",
+          "type": "integer"
+        },
+        "slices": {
+          "description": "slices: where each slice starts, seconds into the sample, rising, the first 0",
+          "items": {
+            "type": "number"
+          },
+          "maxItems": 32,
+          "title": "Slices",
+          "type": "array"
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "title": "Sample",
       "type": "object"
     },
     "Section": {
@@ -316,11 +435,11 @@
       "type": "array"
     },
     "patterns": {
+      "description": "none only when every part is a clip-mode sample",
       "items": {
         "$ref": "#/$defs/Pattern"
       },
       "maxItems": 64,
-      "minItems": 1,
       "title": "Patterns",
       "type": "array"
     },
