@@ -45,7 +45,9 @@ class Clip:
 class AudioClip:
     """Live's arrangement audio clip, as far as the booth uses it. Like Live: a new clip is auto-warped at a tempo it
     guesses (100 BPM here) and looped; unwarping moves the start marker to the first transient (0.12 s here); markers
-    are clip beats when warped and file seconds when not; an unwarped clip's transpose plays it faster, like tape."""
+    are clip beats when warped and file seconds when not; an unwarped clip's transpose plays it faster, like tape.
+    warp_markers ends in Live's shadow marker: 1/32 beat after the last real one, at the tempo before it, and it can't
+    be deleted (Live 12.4, 2026-11-03)."""
 
     GUESS_BPM, TRANSIENT_S = 100.0, 0.12
 
@@ -54,9 +56,22 @@ class AudioClip:
         self.seconds = sf.info(str(path)).duration
         self.is_audio_clip, self.looping, self.pitch_coarse, self.warp_mode = True, True, 0, 0
         self._warping = True
-        self.warp_markers = [WarpMarker(0.0, 0.0), WarpMarker(self.seconds, self.seconds * self.GUESS_BPM / 60)]
+        self._wm = [WarpMarker(0.0, 0.0), WarpMarker(self.seconds, self.seconds * self.GUESS_BPM / 60)]
         self.start_marker = self.loop_start = 0.0
-        self.end_marker = self.loop_end = self.warp_markers[-1].beat_time
+        self.end_marker = self.loop_end = self._wm[-1].beat_time
+
+    SHADOW = 1 / 32
+
+    @property
+    def warp_markers(self):
+        if not self._wm:
+            return []
+        last = self._wm[-1]
+        rate = ((last.beat_time - self._wm[-2].beat_time) / (last.sample_time - self._wm[-2].sample_time)
+                if len(self._wm) > 1 and last.sample_time > self._wm[-2].sample_time else self.GUESS_BPM / 60)
+        if rate <= 0:
+            return list(self._wm)
+        return [*self._wm, WarpMarker(last.sample_time + self.SHADOW / rate, last.beat_time + self.SHADOW)]
 
     @property
     def warping(self):
@@ -82,19 +97,22 @@ class AudioClip:
         return self.start_time + span * self.song.tempo / 60 / 2 ** (self.pitch_coarse / 12)
 
     def add_warp_marker(self, w):
-        self.warp_markers = sorted([*self.warp_markers, w], key=lambda m: m.beat_time)
+        self._wm = sorted([*self._wm, w], key=lambda m: m.beat_time)
 
     def remove_warp_marker(self, beat):
-        self.warp_markers = [m for m in self.warp_markers if abs(m.beat_time - beat) > 1e-9]
+        if not any(abs(m.beat_time - beat) < 1e-9 for m in self._wm):
+            raise RuntimeError("The shadow marker can't be deleted." if abs(self.warp_markers[-1].beat_time - beat) < 1e-9
+                               else "The specified warp marker doesn't exist")
+        self._wm = [m for m in self._wm if abs(m.beat_time - beat) > 1e-9]
 
     def move_warp_marker(self, beat, distance):
-        for m in self.warp_markers:
+        for m in self._wm:
             if abs(m.beat_time - beat) < 1e-9:
                 m.beat_time += distance
 
     def copy(self, start):
         c = AudioClip.__new__(AudioClip)
-        c.__dict__.update(self.__dict__, start_time=float(start), warp_markers=[WarpMarker(m.sample_time, m.beat_time) for m in self.warp_markers])
+        c.__dict__.update(self.__dict__, start_time=float(start), _wm=[WarpMarker(m.sample_time, m.beat_time) for m in self._wm])
         return c
 
 

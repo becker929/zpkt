@@ -172,25 +172,32 @@ class Builder:
     def fit(self, first: str, t: TrackPlan) -> None:
         """Warp the whole file evenly onto fit_beats. Live auto-warps a new clip at a tempo it guesses: keep only its
         first marker, add one near the file's end on the even stretch, then move the first onto it too. Read back:
-        every marker on the line beat = seconds * fit / length."""
+        every marker on the line beat = seconds * fit / length. Live lists a shadow marker last, 1/32 beat after the
+        last real one at the tempo before it; it can't be deleted or placed, so it's left out of all of this."""
         sp = t.sample
         slope = sp.fit_beats / sp.seconds
-        markers = self.run(f"c = {first}\nresult = [(w.sample_time, w.beat_time) for w in c.warp_markers]")
+        markers = self.markers(first)
         if not markers:
             raise Stop(f"sample {t.name}: a warped clip with no warp markers")
         drop = [float(b) for _, b in markers[1:]]
         if drop:
             self.run(f"c = {first}\nfor b in {drop!r}:\n    c.remove_warp_marker(b)\nresult = 'ok'")
-        got = self.run(f"c = {first}\nresult = [(w.sample_time, w.beat_time) for w in c.warp_markers]")
+        got = self.markers(first)
         if len(got) != 1:
             raise Stop(f"sample {t.name}: warp markers {got} after removing all but the first")
         (s0, b0), s1 = got[0], round(max(sp.seconds - 0.005, sp.seconds * 0.99), 6)
         self.run(f"import Live\nc = {first}\nc.add_warp_marker(Live.Clip.WarpMarker({s1!r}, {round(s1 * slope, 6)!r}))\nresult = 'ok'")
         if abs(b0 - s0 * slope) > 1e-6:
             self.run(f"c = {first}\nc.move_warp_marker({float(b0)!r}, {round(s0 * slope - b0, 6)!r})\nresult = 'ok'")
-        got = self.run(f"c = {first}\nresult = [(w.sample_time, w.beat_time) for w in c.warp_markers]")
+        got = self.markers(first)
         if len(got) < 2 or any(abs(b - s * slope) > 1e-3 for s, b in got) or abs(got[-1][0] - s1) > 1e-3:
             raise Stop(f"sample {t.name}: warp markers {got}, wanted the line beat = {slope:.4f} * seconds")
+
+    def markers(self, first: str) -> list[tuple[float, float]]:
+        """A warped clip's warp markers (sample seconds, clip beats), without Live's shadow marker."""
+        got = self.run(f"c = {first}\nresult = [(w.sample_time, w.beat_time) for w in c.warp_markers]")
+        shadow = len(got) > 1 and abs(got[-1][1] - got[-2][1] - 1 / 32) < 1e-6
+        return [tuple(m) for m in (got[:-1] if shadow else got)]
 
     def simpler(self, k: int, t: TrackPlan, front: str) -> None:
         """A one-shot or sliced sample: Simpler on MIDI track k, holding the file (replace_sample, as in
