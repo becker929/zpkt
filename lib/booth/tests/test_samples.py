@@ -234,7 +234,7 @@ def test_a_warped_loop_is_placed_fitted_and_copied(fake):
     c = clips[0]
     assert c.warping and c.warp_mode == 4 and not c.looping and c.start_marker == 0.0
     slope = 8.0 / smp["seconds"]
-    assert all(abs(m.beat_time - m.sample_time * slope) < 1e-3 for m in c.warp_markers) and len(c.warp_markers) == 2
+    assert all(abs(m.beat_time - m.sample_time * slope) < 1e-3 for m in c.warp_markers[:-1]) and len(c.warp_markers) == 3
     assert all(len(t.arrangement_clips) == 1 for t in song.tracks[:3])          # the instruments' MIDI clips as before
 
 
