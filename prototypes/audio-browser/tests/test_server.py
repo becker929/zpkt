@@ -587,7 +587,10 @@ def test_dupes_hides_copies_locked_inside_a_project_bundle(bundled: Fixture) -> 
     """The cleanup view lists only what a cleanup could actually remove."""
     body = bundled.client.get("/api/dupes").json()
     assert body["include_bundles"] is False
-    assert [g["filename"] for g in body["items"]] == ["loose.wav"]
+    assert [g["hash"] for g in body["items"]] == [bundled.hash_of("loose.wav")]
+    # A group is named after its first path in walk order, which is by name:
+    # packs/ comes before samples/ on every filesystem.
+    assert body["items"][0]["filename"] == "loose-copy.wav"
     assert body["total"] == 1
     assert body["wasted_bytes"] == body["items"][0]["size_bytes"]
 
@@ -617,7 +620,7 @@ def test_a_loose_copy_stays_deletable(bundled: Fixture) -> None:
     group = next(
         g
         for g in bundled.client.get("/api/dupes").json()["items"]
-        if g["filename"] == "loose.wav"
+        if g["hash"] == bundled.hash_of("loose.wav")
     )
     assert group["bundle_copies"] == 0
     assert all(e["deletable"] for e in group["entries"])
@@ -627,7 +630,7 @@ def test_a_loose_copy_stays_deletable(bundled: Fixture) -> None:
 def test_the_raw_count_also_honours_the_bundle_guard(bundled: Fixture) -> None:
     """``within_root=false`` widens the scope; it does not unlock the bundles."""
     body = bundled.client.get("/api/dupes?within_root=false").json()
-    assert [g["filename"] for g in body["items"]] == ["loose.wav"]
+    assert [g["hash"] for g in body["items"]] == [bundled.hash_of("loose.wav")]
     assert body["excluded_bundle_groups"] == 1
 
 

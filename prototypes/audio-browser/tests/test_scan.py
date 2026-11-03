@@ -45,6 +45,45 @@ def test_walk_does_not_follow_directory_symlinks(tmp_path: Path) -> None:
     assert len(found) == 1
 
 
+def test_walk_order_does_not_depend_on_the_filesystem(
+    tmp_path: Path, monkeypatch
+) -> None:
+    """Depth first, files before subdirectories, each by name, on any disk.
+
+    ``os.scandir`` returns entries in whatever order the filesystem keeps them,
+    and that order differs between APFS, ext4 and tmpfs. Alias ids follow the
+    walk, so an unsorted walk indexes the same tree differently on another
+    machine. Reversing every listing here must not change the result.
+    """
+    for rel in ("b/z.wav", "b/a.wav", "a/y.wav", "a/deep/x.wav", "top.wav"):
+        write_wav(tmp_path / rel)
+    expected = ["top.wav", "a/y.wav", "a/deep/x.wav", "b/a.wav", "b/z.wav"]
+
+    def walked() -> list[str]:
+        return [
+            p.relative_to(tmp_path).as_posix()
+            for p in walk_audio_files(tmp_path, on_error=quiet)
+        ]
+
+    assert walked() == expected
+
+    real_scandir = os.scandir
+
+    class Reversed:
+        def __init__(self, path: str) -> None:
+            with real_scandir(path) as it:
+                self.entries = list(it)[::-1]
+
+        def __enter__(self):
+            return iter(self.entries)
+
+        def __exit__(self, *exc: object) -> None:
+            return None
+
+    monkeypatch.setattr(os, "scandir", Reversed)
+    assert walked() == expected
+
+
 def test_identical_files_share_one_blob(conn: sqlite3.Connection, two_roots) -> None:
     stats = run(conn, two_roots)
     # 3 files per tree, two trees; kick.wav and kick-again.wav share bytes.
