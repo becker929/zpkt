@@ -30,6 +30,8 @@ app = typer.Typer(name="hands", help="DAW control layer for Ableton Live.")
 app.add_typer(live_app, name="live")
 app.add_typer(plan_app, name="plan")
 app.add_typer(library_app, name="library")
+from hands.serum2.cli import app as serum2_app  # noqa: E402
+app.add_typer(serum2_app, name="serum2")
 als_app = typer.Typer(help="Check Live set files offline.", no_args_is_help=True)
 app.add_typer(als_app, name="als")
 kit_app = typer.Typer(help="Probe kits: P variants of a section in one load and one export.", no_args_is_help=True)

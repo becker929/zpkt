@@ -14,6 +14,13 @@ Extensions SDK, no Accessibility clicking for the data model.
 - Everything is driven by `scripts/live.py` (a dependency-free OSC client +
   Python library). Full address list: `reference/osc-api.md`.
 
+> **Path B is often the only path.** Many machines run just the AbletonLiveMCP
+> Remote Script (TCP 16619), driven by `uv run hands live exec` in zpkt's `hands/`
+> (see "Path B" below); AbletonOSC (Path A) is optional. `doctor.sh` reports READY
+> when MCP is up, even without AbletonOSC. Machine-specific facts (which Control
+> Surface rows are taken, which paths are installed) belong in that machine's own
+> notes, not here.
+
 ## Quickstart (copy-paste)
 
 **Run this first, always** — `doctor.sh` is a one-shot, non-destructive preflight
@@ -29,7 +36,7 @@ If a path is down, do the one-time enable:
 ```sh
 bash scripts/install_abletonosc.sh                 # only if AbletonOSC not on disk
 # open Live -> Settings... -> Link/Tempo/MIDI, then:
-bash scripts/enable_osc.sh 2                        # select AbletonOSC into free row 2
+bash scripts/enable_osc.sh <ROW>                    # select AbletonOSC into a row you confirmed reads None
 ```
 
 Verify each path, then send a first command:
@@ -67,7 +74,9 @@ See "Setup" below for the full one-time enable walkthrough and safety notes.
 >   Never run a raw `cliclick` directly. Pure OSC/MCP control never touches the
 >   cursor and needs no parking.
 
-**Default to Path A.** It is self-contained, verified against Live 12.4.5, and
+**Where AbletonOSC isn't installed, use Path B** (see the note at the top).
+
+**Default to Path A** (where installed). It is self-contained, verified against Live 12.4.5, and
 sufficient for almost everything (transport, tracks, clips, notes, devices,
 parameters, scenes, routing, listeners, closed-loop readback). Reach for Path B
 only when you need something outside AbletonOSC's vocabulary (browser navigation,
@@ -218,6 +227,18 @@ sleep between browser loads, etc.). That guide mirrors the canonical
 (`hands.live`: sessions, time edits, knobs, export) is the productionized
 consumer of this path and the best reference for real recipes.
 
+### Gotchas (Path B)
+
+- **A bridge call that sleeps blocks Live's main thread**, so clips fired inside
+  that call never launch. Fire in one call, then read meters in later calls.
+- **Selecting a track auto-arms it.** Record the previous arm state and restore
+  it afterwards.
+- **Native device parameters are often normalized 0..1** (e.g. Roar's Drive), not
+  the units shown in the GUI. Read `p.min` / `p.max` before writing `p.value`.
+- **Never use `cs.component_map[...]` to inspect a factory control surface** — it
+  constructs components. Read `cs.elements.*` instead.
+- **`song.count_in_duration` is read-only.**
+
 ## Setup (only if `osc_up.sh` failed)
 
 ### 1. Install AbletonOSC (one-time, persists on disk)
@@ -248,18 +269,18 @@ choice is saved in Live's Preferences and survives restarts.
 1. Open Live's Settings on the **Link/Tempo/MIDI** page (Live menu -> Settings...;
    note: three literal periods, and do NOT use Cmd+, — on the virtual display that
    has triggered a "Save As" dialog instead).
-2. Run the helper (defaults to Control Surface **row 2**):
+2. Run the helper with a row you have confirmed is **free** (there is no default):
 
    ```sh
-   bash scripts/enable_osc.sh 2
+   bash scripts/enable_osc.sh <ROW>
    ```
 
 3. **Verify with one screenshot** that the intended row now shows "AbletonOSC"
    (use `bash scripts/snap.sh /tmp/cs.png 1050x380+1220+680`, then read the crop).
 
-**CRITICAL SAFETY:** Row 1 is often the user's real hardware controller (on this
-machine it is a MiniLab 3). **Never select AbletonOSC into a row that already has
-a controller.** Use a free row (one that reads "None"); default is row 2. Live's
+**CRITICAL SAFETY:** Some rows usually hold the user's real hardware controller
+and AbletonLiveMCP. **Never select AbletonOSC into a row that already has a
+controller or AbletonLiveMCP.** Use a free row (one that reads "None"). Live's
 Settings table is NOT reliably introspectable via the accessibility API (all rows
 report the same value), so confirm free rows visually, not via the AX tree.
 

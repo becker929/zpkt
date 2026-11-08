@@ -5,6 +5,14 @@ description: Map any MIDI CC — from a software virtual port or a hardware cont
 
 # MIDI -> parameter mapping in Ableton Live 12
 
+> **Warning: the AgentMap Remote Script is missing from this repo.**
+> `scripts/AgentMap/` (`__init__.py`, `config.json`) was never committed, and it
+> is not in git history. `scripts/install.sh` copies from that directory, so it
+> **will fail** until the script is restored. The steps below that depend on
+> AgentMap (install, selecting it as a control surface, `setmap.py` hot-reload)
+> do not work as-is. The MIDI tools (`vport.sh`, `send.sh`, `monitor.sh`) still
+> run, but injected CCs only reach Live parameters through AgentMap.
+
 Bind arbitrary MIDI CCs to arbitrary Live parameters, agentically and
 verifiably. This complements the **ableton-live-control** skill (OSC/LOM access,
 `scripts/live.py`), which you use here to read parameter values back and confirm
@@ -157,8 +165,8 @@ To fully remove: set AgentMap's Control Surface row to `None`, and delete
 | Path | Purpose |
 |---|---|
 | `scripts/install.sh` | One-time: venv + python-rtmidi, install AgentMap into Live |
-| `scripts/AgentMap/__init__.py` | The control-surface script (config-driven mapper) |
-| `scripts/AgentMap/config.json` | Starter config (empty) |
+| `scripts/AgentMap/__init__.py` | **MISSING from repo** (see warning at top). The control-surface script (config-driven mapper) |
+| `scripts/AgentMap/config.json` | **MISSING from repo** (see warning at top). Starter config (empty) |
 | `scripts/midi_vport.py` | Virtual MIDI output port daemon (AgentVirtualMIDI) |
 | `scripts/vport.sh` | start/stop/status the virtual port daemon (tmux) |
 | `scripts/send.sh` | Inject a CC/NOTE/PB via the virtual port |

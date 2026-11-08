@@ -18,6 +18,13 @@ plans = [
     "soundfile>=0.12",
     "pyloudnorm>=0.1.1",
 ]
+# `hands serum2` (Serum 2 state codec; pedalboard/mido for offline renders and knob values).
+serum = [
+    "cbor2>=5.6",
+    "zstandard>=0.23",
+    "pedalboard>=0.9",
+    "mido>=1.3",
+]
 dev = [
     "pytest>=8.0",
     "mypy>=2.4.0",

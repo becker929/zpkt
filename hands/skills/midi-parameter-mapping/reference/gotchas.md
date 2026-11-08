@@ -57,7 +57,7 @@ Arturia MiniLab 3.
 ## Sharing a port with a factory control surface
 
 - You can point AgentMap's Input at the same physical port that the controller's
-  factory script (e.g. `MiniLab_3` on row 1) uses. In testing, AgentMap's
+  factory script (e.g. `MiniLab_3`) uses. In testing, AgentMap's
   `map_midi_cc` bindings worked without disabling the factory script, as long as
   the CC you map is not already consumed for the same target by that script.
 - If a mapping seems ignored, set the factory script's row to `None` (or change

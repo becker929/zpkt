@@ -10,5 +10,6 @@ local config = require("config")
 require("modules.ab-hotkeys").bind(config.ab)
 HARNESS = require("modules.harness")  -- global: hs.task is collected if nothing holds it
 HARNESS.start()
+RIG_COUNTDOWN = require("modules.countdown")  -- scripts/rig-confirm.sh: cancellable countdowns
 hs.autoLaunch(true)
 hs.alert.show("zpkt hotkeys ready", 1)

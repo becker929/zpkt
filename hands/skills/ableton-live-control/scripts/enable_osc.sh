@@ -23,7 +23,9 @@
 #     only that row) now shows "AbletonOSC".
 set -euo pipefail
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-ROW="${1:-2}"
+# No default row: rows often hold AbletonLiveMCP or a hardware controller, so a default could
+# replace one. Pass a row you have confirmed reads "None".
+ROW="${1:?usage: enable_osc.sh ROW (a Control Surface row you confirmed is None)}"
 
 # already up?
 if [ "$(python3 "$DIR/live.py" --timeout 1.5 /live/test 2>/dev/null)" = "ok" ]; then

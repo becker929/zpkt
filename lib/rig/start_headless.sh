@@ -9,14 +9,17 @@
 # Script enabled in Live, and Accessibility/Automation permission for the
 # calling app (window placement goes through System Events).
 #
-# Live's audio device is the Mac's onboard output (Settings → Audio: Mac mini
-# Speakers, 44100 Hz). An external interface only carries that output to
-# monitors; renders must not depend on one being plugged in.
+# Live's audio output is whatever is available: an external interface when it
+# is connected, otherwise the Mac's built-in output. Renders work on either
+# device; no switching is needed before a render.
+#
+# WIN_POS / WIN_SIZE: set them for your display (the defaults suit a common
+# laptop-size screen).
 set -euo pipefail
 
 LIVE_APP=${LIVE_APP:-"Ableton Live 12 Suite"}
-WIN_POS=${WIN_POS:-"80, 30"}
-WIN_SIZE=${WIN_SIZE:-"2400, 1300"}
+WIN_POS=${WIN_POS:-"0, 25"}
+WIN_SIZE=${WIN_SIZE:-"1440, 850"}
 PORT=${ABLETON_TCP_PORT:-16619}
 BOOT_TIMEOUT=${BOOT_TIMEOUT:-120}
 REPO=${0:A:h:h:h}/hands
@@ -80,7 +83,8 @@ except LiveError as exc:
     sys.exit(f"    MCP error: {exc}")
 if not clock:
     sys.exit("    audio clock frozen (the song position did not move): no audio device. "
-             "Set Live's Settings → Audio to the Mac's onboard output (Mac mini Speakers).")
+             "Set Live's Settings → Audio output to an available device (an interface, "
+             "else the built-in output).")
 print("    audio clock ok")
 EOF
 

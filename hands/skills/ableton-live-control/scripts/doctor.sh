@@ -5,7 +5,8 @@
 # knows its exact starting state before doing anything.
 #
 # Usage: bash doctor.sh
-# Exit:  0 if at least one control path (OSC or MCP) is usable; 1 otherwise.
+# Exit:  0 if at least one control path (MCP or OSC) is usable; 1 otherwise.
+# Path B (MCP, TCP 16619) is the primary path; AbletonOSC (Path A) is optional.
 set -uo pipefail
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 HANDS="$(cd "$DIR/../../.." && pwd)"
@@ -22,22 +23,7 @@ else
   echo "${NO}Live process NOT running  -> open a set: open -a 'Ableton Live 12 Suite' <set.als>"
 fi
 
-# 2) AbletonOSC remote script installed on disk
-OSC_DEST="$HOME/Music/Ableton/User Library/Remote Scripts/AbletonOSC"
-if [ -d "$OSC_DEST" ]; then
-  echo "${OK}AbletonOSC installed ($OSC_DEST)"
-else
-  echo "${NO}AbletonOSC not installed  -> bash $DIR/install_abletonosc.sh"
-fi
-
-# 3) OSC reachable (Path A, UDP 11000/11001)
-if [ "$(python3 "$DIR/live.py" --timeout 1.5 /live/test 2>/dev/null)" = "ok" ]; then
-  echo "${OK}Path A OSC reachable (UDP 11000/11001)"; pass_osc=1
-else
-  echo "${NO}Path A OSC not answering  -> enable surface: bash $DIR/enable_osc.sh 2"
-fi
-
-# 4) MCP reachable (Path B, TCP 16619)
+# 2) MCP reachable (Path B, TCP 16619) -- primary control path
 if nc -z 127.0.0.1 16619 2>/dev/null; then
   if [ "$(uv run --quiet --project "$HANDS" hands live exec --timeout 5 --json 'result = 1 + 1' 2>/dev/null)" = "2" ]; then
     echo "${OK}Path B MCP reachable (TCP 16619); LOM round-trip OK"; pass_mcp=1
@@ -46,6 +32,28 @@ if nc -z 127.0.0.1 16619 2>/dev/null; then
   fi
 else
   echo "${NO}Path B MCP not listening  -> select AbletonLiveMCP control surface"
+fi
+
+# 3) AbletonOSC remote script installed on disk (optional)
+OSC_DEST="$HOME/Music/Ableton/User Library/Remote Scripts/AbletonOSC"
+osc_installed=0
+if [ -d "$OSC_DEST" ]; then
+  echo "${OK}AbletonOSC installed ($OSC_DEST)"; osc_installed=1
+elif [ $pass_mcp -eq 1 ]; then
+  echo "${NO}AbletonOSC optional, not installed"
+else
+  echo "${NO}AbletonOSC not installed  -> bash $DIR/install_abletonosc.sh"
+fi
+
+# 4) OSC reachable (Path A, UDP 11000/11001; optional)
+if [ "$(python3 "$DIR/live.py" --timeout 1.5 /live/test 2>/dev/null)" = "ok" ]; then
+  echo "${OK}Path A OSC reachable (UDP 11000/11001)"; pass_osc=1
+elif [ $osc_installed -eq 0 ]; then
+  echo "${NO}Path A OSC skipped (AbletonOSC not installed)"
+elif [ $pass_mcp -eq 1 ]; then
+  echo "${NO}Path A OSC not answering (optional; surface not selected)"
+else
+  echo "${NO}Path A OSC not answering  -> enable surface in a free row: bash $DIR/enable_osc.sh <ROW>"
 fi
 
 # 5) cliclick (needed only for the one-time GUI enable / export)
@@ -84,7 +92,7 @@ fi
 
 echo "----"
 if [ $pass_osc -eq 1 ] || [ $pass_mcp -eq 1 ]; then
-  echo "READY: Path A=$([ $pass_osc -eq 1 ] && echo up || echo down), Path B=$([ $pass_mcp -eq 1 ] && echo up || echo down)"
+  echo "READY: Path B (MCP, primary)=$([ $pass_mcp -eq 1 ] && echo up || echo down), Path A (OSC, optional)=$([ $pass_osc -eq 1 ] && echo up || echo down)"
   exit 0
 else
   echo "NOT READY: no control path is up. See the arrows above."

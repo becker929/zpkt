@@ -24,6 +24,52 @@ def _fail(message: str, code: int = 1) -> NoReturn:
 
 
 @app.command()
+def audition(
+    track: str = typer.Argument(..., help="Track name."),
+    notes: str = typer.Option("69,72", help="Comma-separated MIDI notes."),
+    listen: float = typer.Option(2.0, help="Seconds to read the meters."),
+    force: bool = typer.Option(False, help="Audition even if Live is playing."),
+    host: str = HOST, port: int = PORT,
+) -> None:
+    """Play a chord on TRACK from a temporary arrangement clip, print meter peaks, clean up."""
+    from hands.live.agent import audition as run_audition
+    try:
+        print(json.dumps(run_audition(LiveClient(host, port), track, [int(n) for n in notes.split(",")],
+                                      listen_s=listen, force=force)))
+    except LiveError as exc:
+        _fail(str(exc))
+
+
+@app.command()
+def reload(
+    set_path: Path = typer.Argument(..., help="The .als Live has open (after an offline edit)."),
+    save_first: bool = typer.Option(False, "--save-first", help="Save Live before reopening (only if the file was NOT edited offline)."),
+    seconds: int = typer.Option(10, help="Countdown length (the user can cancel)."),
+) -> None:
+    """Reopen SET_PATH in Live behind a cancellable countdown; wait for the bridge to answer."""
+    import subprocess
+    import time
+
+    from hands.live import ui
+    confirm = Path(__file__).resolve().parents[3] / "macros/hammerspoon/scripts/rig-confirm.sh"
+    if save_first and not ui.menu("File", "Save Live Set"):
+        _fail("could not save Live")
+    if subprocess.run(["bash", str(confirm), f"Reloading the Live set {set_path.stem}", str(seconds)]).returncode != 0:
+        _fail("cancelled (or no countdown)")
+    subprocess.run(["open", "-a", "Ableton Live 12 Suite", str(set_path)], check=True)
+    time.sleep(3)
+    ui.reap_modals(reap=False)
+    for _ in range(60):
+        try:
+            LiveClient(retries=0, timeout=3).run("1")
+            print(f"reloaded: {ui.front_title()}")
+            return
+        except LiveError:
+            time.sleep(2)
+    _fail("Live did not answer after the reload")
+
+
+@app.command()
 def ping(host: str = HOST, port: int = PORT,
          timeout: float = typer.Option(5.0, "--timeout", help="Seconds to wait for the pong.")) -> None:
     """Check that the Remote Script is listening (it answers from its own thread, not Live's)."""
@@ -40,6 +86,7 @@ def exec_(
     file: Path = typer.Option(None, "--file", help="Read the code from a file."),
     stdin: bool = typer.Option(False, "--stdin", help="Read the code from stdin."),
     as_json: bool = typer.Option(False, "--json", help="Print the result as JSON."),
+    raw: bool = typer.Option(False, "--raw", help="Don't prepend the helpers (param, set_norm, set_clamped, select_track)."),
     timeout: float = typer.Option(15.0, "--timeout", help="Seconds to wait for the reply."),
     retries: int = typer.Option(2, "--retries", help="Connection retries (a sent request is never resent)."),
     host: str = HOST, port: int = PORT,
@@ -48,6 +95,9 @@ def exec_(
     source = file.read_text() if file else sys.stdin.read() if stdin else code
     if not source or not source.strip():
         _fail("give the code as an argument, --file or --stdin", 2)
+    if not raw:
+        from hands.live.agent import with_prelude
+        source = with_prelude(source)
     res = LiveClient(host, port, timeout=timeout, retries=retries).execute(source)
     if res.warning:
         print(f"warning: {res.warning}", file=sys.stderr)

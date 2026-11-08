@@ -155,14 +155,24 @@ def test_mock_transport_runs_and_raises():
     assert mock.calls == ["1 + 2", "x"]
 
 
+def test_cli_exec_prepends_helpers(remote):
+    seen = []
+    live = remote(lambda m: seen.append(m["code"]) or {"status": "ok", "result": 3})
+    out = CliRunner().invoke(app, ["live", "exec", "--json", "1 + 2", "--port", str(live.port)])
+    assert out.exit_code == 0 and out.stdout.strip() == "3"
+    code = seen[0]
+    assert "def select_track(t):" in code and code.rstrip().endswith("result = (1 + 2)")
+    compile(code, "<prelude>", "exec")
+
+
 def test_cli_exec_and_ping(remote):
     live = remote(lambda m: {"status": "ok", "pong": True} if m.get("ping")
                   else {"status": "ok", "result": [1, 2]} if m["code"] == "[1, 2]"
                   else {"status": "error", "error": "NameError", "traceback": "tb"})
     port = ["--port", str(live.port)]
-    out = CliRunner().invoke(app, ["live", "exec", "--json", "[1, 2]", *port])
+    out = CliRunner().invoke(app, ["live", "exec", "--json", "--raw", "[1, 2]", *port])
     assert out.exit_code == 0 and out.stdout.strip() == "[1, 2]"
-    bad = CliRunner().invoke(app, ["live", "exec", "nope", *port])
+    bad = CliRunner().invoke(app, ["live", "exec", "--raw", "nope", *port])
     assert bad.exit_code == 1 and "ERROR: NameError" in bad.stderr
     pong = CliRunner().invoke(app, ["live", "ping", *port])
     assert pong.exit_code == 0 and pong.stdout.startswith("pong in")

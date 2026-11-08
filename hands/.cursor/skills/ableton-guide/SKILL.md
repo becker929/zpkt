@@ -47,7 +47,7 @@ song.start_playing()
 result = song.current_song_time   # must be > 0
 ```
 
-If `is_playing` is `True` but `current_song_time` stays at `0.0`, Live has no audio clock — no clip will launch (slots sit in `is_triggered`) and every bounce is silent. Cause: no output device (Live shows an info-bar message at the bottom of the window; e.g. the USB audio interface is unplugged). This cannot be fixed over the LOM — ask the human to fix **Settings → Audio**.
+If `is_playing` is `True` but `current_song_time` stays at `0.0`, Live has no audio clock — no clip will launch (slots sit in `is_triggered`) and every bounce is silent. Cause: no output device (Live shows an info-bar message at the bottom of the window; e.g. the USB audio interface is unplugged). This cannot be fixed over the LOM — ask the human to fix **Settings → Audio**: output to the USB audio interface if present, else the Mac's built-in output. Renders work on either.
 
 ---
 
