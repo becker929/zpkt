@@ -1,8 +1,11 @@
-# hands — Live control as a library
+# hands: drive Ableton Live
 
 `hands` turns intent into changes in Ableton Live 12 and audio out of it. It is a library first
-(the voice loop's skills call it: set knobs in the open set, export a short loop, pack probes into
-one render) and a CLI for shells, skills and Hammerspoon.
+(set knobs in the open set, export a short loop, pack several variants into one render) and a CLI
+for shells, agents and hotkeys.
+
+New here? [`docs/getting-started.md`](../docs/getting-started.md) installs the Remote Script and
+gets you to a first export.
 
 Everything that touches Live goes through two channels: the LOM, over the AbletonLiveMCP Remote
 Script on 127.0.0.1:16619 (`hands.live.transport`), and the GUI, over AppleScript, only for what
@@ -25,13 +28,13 @@ front and the LOM answers, and stops the run on anything else.
 | `als.py` | the .als editor: `load`/`save`, `resolve`, `current_value`, `param_range`, `set_manual`, `set_speaker`, `rename_track`, `set_steps`, `add_device_from_donor`, `check -> Report`, `xml_hash` (plan-cache key) |
 | `probe_kit.py` | `Kit`, `template`, `write_batch(kit, tag, steps, devices=())`, `render(client, batch_set, kit, out_dir)`, `merge_patterns`, `constant`, `scale`/`unscale` |
 | `arrange/` | `fx` (clip edits, tracks as arguments), `autostate` (automation state, `restore` after Delete Time), `hats` (layered hat sections) |
-| `library/` | the WIP library, read-only: `inventory(roots, exports=, records_file=, measure=) -> Inventory` scores each track's seven steps (`../docs/workflow.md`); `facts.read_set` (what a .als shows), `score` (one scorer per step), `records` (Anthony's word beats the heuristic), `markdown` |
+| `library/` | the WIP library, read-only: `inventory(roots, exports=, records_file=, measure=) -> Inventory` scores each track's seven steps (`../docs/workflow.md`); `facts.read_set` (what a .als shows), `score` (one scorer per step), `records` (the producer's word beats the heuristic), `markdown` |
 | `steps.py` | `report(caption, level="minor", x=None, y=None)` to the studio app; `timing(step, seconds, **fields)` to `bench.jsonl` |
 | `config.py` | `rig()`: the private rig settings below |
 | `models.py`, `codegen.py`, `builder.py`, `runner.py` | `ProjectConfig` → LOM steps → `StepRunner` (`hands build / execute`); `models.py` is the source of the `lib/contracts` schemas (`scripts/gen_schemas.py`) |
 | `ab.py` | A/B against "REF …" tracks and the master Spectrum (Hammerspoon hotkeys) |
 
-A render, as the voice loop will run it:
+A render from Python:
 
 ```python
 from hands import audio, config
@@ -53,7 +56,8 @@ real devices; a knob without one is refused rather than guessed.
 
 ## Rig settings
 
-What differs per Mac stays out of the repo. Each key comes from its environment variable, else
+What differs per Mac stays out of the repo. With no file and no variables set, everything lives
+under `~/Music/zpkt/`. Each key comes from its environment variable, else
 from `~/.config/zpkt/rig.toml` (or the file `ZPKT_RIG_CONFIG` names), else a neutral default.
 Unknown keys are refused.
 
@@ -65,7 +69,9 @@ Unknown keys are refused.
 | `renders_dir` | `ZPKT_RENDERS_DIR` | `~/Music/zpkt/renders` | where `hands live export NAME` writes a bare file name |
 | `set_prefixes` | `ZPKT_SET_PREFIXES` (comma-separated) | `["zpkt_"]` | sets the guards accept as ours; new kit and batch sets get the first |
 | `live_prefs_dir` | `ZPKT_LIVE_PREFS_DIR` | the newest `~/Library/Preferences/Ableton/Live *` | `Log.txt`, for `other_agent_active` |
-| `library_dir` | `ZPKT_LIBRARY_DIR` | `~/Music/zpkt/library` | Anthony's WIP Live projects, one folder per track, read-only (`hands library inventory`) |
+| `library_dir` | `ZPKT_LIBRARY_DIR` | `~/Music/zpkt/library` | work-in-progress Live projects, one folder per track, read-only (`hands library inventory`) |
+| `plans_dir` | `ZPKT_PLANS_DIR` | `~/Music/zpkt/plans` | the plan render cache (`hands plan`); `HANDS_PLANS` overrides it for one run |
+| `records_file` | `ZPKT_RECORDS_FILE` | `<library_dir>/records.toml` | what you have declared done per track; it beats the inventory's guess (`docs/workflow.md`) |
 
 ```toml
 # ~/.config/zpkt/rig.toml (an example; use your own folders and prefixes)
@@ -74,7 +80,7 @@ data_dir = "~/Music/MyProject/probe-data"
 set_prefixes = ["MyProject_pp_", "MyProject_v_"]
 ```
 
-The studio app's step reports use `STUDIO_STEP_URL` and `STUDIO_STEP_TOKEN` from the environment
+The step reports to my studio app (`contrib/harness`) use `STUDIO_STEP_URL` and `STUDIO_STEP_TOKEN` from the environment
 (loopback only); without them `steps.report` does nothing.
 
 ## CLI
@@ -95,28 +101,36 @@ hands library inventory [--root DIR] [--exports DIR] [--measure] [--json | --mar
 hands ab toggle | next | status;  hands spectrum
 ```
 
-## Batch scripts
+## Scripts from real tracks
 
-`scripts/probe_pack/` holds the HW002 batch-8 experiments that run on the library: `sweep8.py`
-(sweeps and A/B batches in mix/solo/rest views), `ab_live.py` (experiments; source sets for kits)
-and `climb_live.py` (the batch 6 hill climber, whose bests are batch 8's baseline). The pipeline is
-in `../docs/hw002/batch-8-chord-and-break.md`; the measurements behind probe packing are in
-`docs/probe-packing-findings.md`. `archive/` keeps the older batch, bench and sweep scripts for
-reference; they no longer run.
+`scripts/` holds the batch scripts I wrote for particular pieces. They are not part of the
+library, and they name my sets and samples, but each is a worked example of `hands` on a real
+job:
 
-## In zpkt
+| Folder | What it did |
+|---|---|
+| `probe_pack/` | The HW002 mix experiments: sweeps and A/B batches packed into one render (`sweep8.py`, `ab_live.py`), and a hill climber (`climb_live.py`). The pipeline is in `../docs/journal/hw002/batch-8-chord-and-break.md`; the measurements behind probe packing are in `docs/probe-packing-findings.md`. |
+| `industrial/`, `proptest/` | Short pieces composed in code and rendered in Live with stock instruments. |
+| `rummage/`, `juice_box/`, `ui_sounds/` | Sound sets for games and interfaces, built in Live from samples. |
 
-- The headless rig startup is `../lib/rig/start_headless.sh`.
-- Agent skills for driving Live are in `skills/` and `.cursor/skills/ableton-guide` (the LOM crash
-  rules); Hammerspoon macros in `macros/hammerspoon/`.
-- The Letta/vibe stack (vibe server, its frontend, the MCP bridge for Letta) moved to
-  `../prototypes/letta-vibe`.
+The older batch, bench and sweep scripts are in `../prototypes/archive/`; they no longer run.
+
+## Around hands
+
+- Starting Live on a headless Mac: `../lib/rig/start_headless.sh`.
+- Skills for an agent that drives Live: `../agent/`.
+- `remote_scripts/`: the Control Surface scripts `install.sh` copies into Live's User Library.
+  `AbletonLiveMCP` is the bridge (from opendining/ableton-mcp-server, MIT).
+- `macros/hammerspoon/`: my desk hotkeys (A/B against a reference, spectrum, backups) and the
+  supervisor for `contrib/harness`. `config.lua` holds the paths.
 
 ## Tests
 
 ```bash
-uv run pytest -q -p no:cacheprovider
+uv run --all-extras pytest -q -p no:cacheprovider
 ```
+
+Without `--all-extras` the plan and Serum 2 tests are skipped, since their packages are optional.
 
 Everything runs offline: a fake Remote Script on a free port, fakes for osascript and the GUI, the
 BSD fixture set in `tests/fixtures` with devices planted the way Live writes them, small synthetic

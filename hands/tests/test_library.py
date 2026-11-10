@@ -196,7 +196,7 @@ def test_records_central_and_project_file(tmp_path):
     (tmp_path / "HW1").mkdir()
     (tmp_path / "HW1" / records.PROJECT_FILE).write_text('[kick]\npercent = 100\nnote = "picked"\n')
     own, _ = records.load_project(tmp_path / "HW1")
-    assert own["kick"].by == "anthony" and own["kick"].percent == 100
+    assert own["kick"].by == "owner" and own["kick"].percent == 100
     central.write_text('[HW1.sound_design]\npercent = 1\n')
     with pytest.raises(ValueError, match="unknown step 'sound_design'"):
         records.load_central(central)
@@ -249,7 +249,7 @@ def test_inventory_end_to_end(tmp_path):
     steps = {s.step: s for s in hw900.steps}
     assert steps["master"].percent == 80 and steps["master"].record is None
     assert steps["release"].record.url.endswith("/x") and steps["release"].heuristic == 60
-    assert steps["release"].evidence[0].startswith("record (anthony): no note")
+    assert steps["release"].evidence[0].startswith("record (owner): no note")
     assert measured == ["HW900 final master.wav"]
     assert hw900.notes == ["the Short"]
     hw901 = by["HW901"]
@@ -266,7 +266,7 @@ def test_project_file_beats_the_central_records(tmp_path):
     (root / "HW900" / records.PROJECT_FILE).write_text('[master]\npercent = 100\n[release]\npercent = 50\n')
     inv = inventory.inventory([root], records_file=records_file, browser=None)
     hw900 = next(t for t in inv.tracks if t.track == "HW900")
-    assert hw900.lowest_incomplete == "release" and hw900.steps[-1].record.by == "anthony"
+    assert hw900.lowest_incomplete == "release" and hw900.steps[-1].record.by == "owner"   # the file says "anthony": the old name is still read
 
 
 def test_inventory_is_read_only(tmp_path):

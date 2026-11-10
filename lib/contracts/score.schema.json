@@ -391,7 +391,7 @@
     }
   },
   "additionalProperties": false,
-  "description": "A short piece for the booth to build in Live (docs/bluesky-bot.md). Generated from lib/booth/src/booth/score.py \u2014 do not edit by hand.",
+  "description": "A short piece for the booth to build in Live (docs/design/bluesky-bot.md). Generated from contrib/booth/src/booth/score.py \u2014 do not edit by hand.",
   "properties": {
     "score": {
       "const": 1,

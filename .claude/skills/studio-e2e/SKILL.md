@@ -1,12 +1,12 @@
 ---
 name: studio-e2e
-description: Test studio end to end as Anthony uses it - the real server, Kokoro and Parakeet, the real Claude session and narrator - with a virtual user on an iPhone-sized WebKit who talks to it, taps the cards and switches apps, then hold the run to fixed rules and write a report. Use after any change to studio (lib/harness/studio, lib/voice, the music skills), before saying a studio feature works, and to reproduce a problem Anthony reports from his phone.
+description: Test studio end to end as Anthony uses it - the real server, Kokoro and Parakeet, the real Claude session and narrator - with a virtual user on an iPhone-sized WebKit who talks to it, taps the cards and switches apps, then hold the run to fixed rules and write a report. Use after any change to studio (contrib/harness/studio, contrib/voice, the music skills), before saying a studio feature works, and to reproduce a problem Anthony reports from his phone.
 ---
 
 # studio-e2e
 
 ```bash
-cd lib/harness
+cd contrib/harness
 uv run --extra dev python -m e2e smoke                   # ~1 min: slider, app switch, replay; scripted Claude
 uv run --extra dev python -m e2e                         # quick (the default), ~4 min: every part, scripted Claude
 uv run --extra dev python -m e2e full                    # ~15 min: every part, the real Claude and narrator

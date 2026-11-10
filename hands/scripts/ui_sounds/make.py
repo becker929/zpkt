@@ -10,7 +10,7 @@
 The sounds are stock Live devices only (Operator, Saturator, Echo, Delay, Drum Buss, Glue Compressor, Limiter), no
 samples. Settings are in variants.py. Renders go to <data_dir>/ui_sounds (hands.config). Audio never goes in git: encode
 writes <data_dir>/ui_sounds/web/<id>-<kind>-<hash>.m4a, each cut where the render stays under -80 dBFS (nothing
-audible is cut; no fade, no gain), and the manifest naming them, lib/harness/.../checklist/map/sounds.json; upload
+audible is cut; no fade, no gain), and the manifest naming them, contrib/harness/.../checklist/map/sounds.json; upload
 puts the files in R2 at audio/zpkt/check-sounds/, where the harness fetches them once (its check_sound route). The
 Limiter's ceiling is -3.5 dB so AAC's overshoot never reaches full scale.
 
@@ -34,7 +34,7 @@ from hands.live.transport import LiveClient
 
 LIVE = LiveClient()
 ROOT = Path(__file__).resolve().parents[3]
-MANIFEST = ROOT / "lib/harness/src/harness/studio/static/checklist/map/sounds.json"
+MANIFEST = ROOT / "contrib/harness/src/harness/studio/static/checklist/map/sounds.json"
 BUCKET = "anthonybecker-audio/audio/zpkt/check-sounds"
 OUT = config.rig().data_dir / "ui_sounds"        # not under ~/Music: a Save panel there asks for Apple Music access
 KINDS = ("hit", "strong", "land")

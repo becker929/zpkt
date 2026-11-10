@@ -1,7 +1,7 @@
 # Probe packing: findings
 
 Study date: 2026-10-06. Ableton Live 12.4.6. The bench scripts are kept, unmaintained, in
-`hands/archive/probe_pack/`; the method they led to is `hands.probe_kit`, the .als editor `hands.als`.
+`prototypes/archive/probe_pack/`; the method they led to is `hands.probe_kit`, the .als editor `hands.als`.
 
 ## 1. Question and setup
 

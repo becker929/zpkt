@@ -1,6 +1,6 @@
 {
   "file": {
-    "path": "/Users/anthonybecker/_agent_scratch/renders/hw002_60s_demo.wav",
+    "path": "~/_agent_scratch/renders/hw002_60s_demo.wav",
     "sr": 44100,
     "channels": 2,
     "duration_s": 60.0,

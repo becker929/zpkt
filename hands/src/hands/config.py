@@ -13,8 +13,12 @@ default:
                                                                 separated in the environment); new sets
                                                                 are named with the first one
     live_prefs_dir  ZPKT_LIVE_PREFS_DIR  the newest ~/Library/Preferences/Ableton/Live */ (Log.txt)
-    library_dir     ZPKT_LIBRARY_DIR     ~/Music/zpkt/library   Anthony's WIP Live projects, one folder per
+    library_dir     ZPKT_LIBRARY_DIR     ~/Music/zpkt/library   work-in-progress Live projects, one folder per
                                                                 track; read-only (hands library inventory)
+    plans_dir       ZPKT_PLANS_DIR       ~/Music/zpkt/plans     the plan render cache (hands plan); HANDS_PLANS
+                                                                overrides it for one run
+    records_file    ZPKT_RECORDS_FILE    <library_dir>/records.toml   what you have declared done per track,
+                                                                which beats the inventory's guess
 
 A front set without one of the prefixes means someone else is using Live, so the session guards
 stop rather than act on it.
@@ -40,6 +44,8 @@ DEFAULTS = {
     "set_prefixes": ["zpkt_"],
     "live_prefs_dir": "",
     "library_dir": "~/Music/zpkt/library",
+    "plans_dir": "~/Music/zpkt/plans",
+    "records_file": "",
 }
 
 
@@ -52,6 +58,8 @@ class Rig:
     set_prefixes: tuple[str, ...]
     live_prefs_dir: Path | None
     library_dir: Path
+    plans_dir: Path
+    records_file: Path
 
     def set_path(self, name: str) -> Path:
         """The .als of a set named `name` in sets_dir."""
@@ -96,6 +104,8 @@ def load(env: Mapping[str, str] = os.environ, path: str | Path | None = None) ->
         set_prefixes=prefixes,
         live_prefs_dir=Path(values["live_prefs_dir"]).expanduser() if values["live_prefs_dir"] else _newest_live_prefs(),
         library_dir=Path(values["library_dir"]).expanduser(),
+        plans_dir=Path(values["plans_dir"]).expanduser(),
+        records_file=Path(values["records_file"] or Path(values["library_dir"]) / "records.toml").expanduser(),
     )
 
 

@@ -31,7 +31,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 import liveops as L  # noqa: E402  (after the rig environment above)
 
 ROOT = Path(__file__).resolve().parents[3]
-MANIFEST = ROOT / "lib/harness/src/harness/studio/static/checklist/rummage/sounds.json"
+MANIFEST = ROOT / "contrib/harness/src/harness/studio/static/checklist/rummage/sounds.json"
 OUT = L.SCRATCH / "renders" / "ui"
 WEB = Path("~/_agent_scratch/studio/regions/rummage/audio").expanduser()
 BPM = 120.0

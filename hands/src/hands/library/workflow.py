@@ -13,7 +13,7 @@ class Step:
     key: str
     numeral: str
     name: str
-    cap: int  # the most the heuristics give; the rest takes a record (Anthony's word or a documented decision)
+    cap: int  # the most the heuristics give; the rest takes a record (the producer's word or a documented decision)
     done: str
 
 
@@ -23,11 +23,11 @@ STEPS: tuple[Step, ...] = (
     Step("drums", "II", "drums", 100,
          "kick, rumble, hats and percussion programmed and placed across the arrangement"),
     Step("arrange", "III", "arrange", 90,
-         "a Short-length arrangement (33-50 s) with at least three sections, approved by Anthony"),
+         "a Short-length arrangement (33-50 s) with at least three sections, approved by the producer"),
     Step("kick", "IV", "kick", 80,
-         "the kick and rumble have their own processed chain and Anthony has picked the sound"),
+         "the kick and rumble have their own processed chain and the producer has picked the sound"),
     Step("mix", "V", "mix", 80,
-         "groups and buses processed, levels set, a mix render Anthony accepts"),
+         "groups and buses processed, levels set, a mix render the producer accepts"),
     Step("master", "VI", "master", 80,
          "a master-bus chain and a mastered export at -14 to -11 LUFS, at most -1.5 dBTP"),
     Step("release", "VII", "release", 60,
@@ -36,7 +36,7 @@ STEPS: tuple[Step, ...] = (
 KEYS = tuple(s.key for s in STEPS)
 BY_KEY = {s.key: s for s in STEPS}
 
-SHORT_S = (33.0, 50.0)       # target length of a Short (docs/hw002, Anthony's 1 Oct feedback)
+SHORT_S = (33.0, 50.0)       # target length of a Short (docs/journal/hw002, feedback of 1 Oct 2026)
 NEAR_SHORT_S = (25.0, 64.0)  # close enough to cut down or pad out
 MASTER_LUFS = (-14.0, -11.0)  # ears/mlab/guides/youtube-short-delivery.md
 MASTER_TP = -1.0              # dBTP; the spec says -1.5, -1.0 allows for meter differences

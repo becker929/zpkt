@@ -1,6 +1,6 @@
 # The workflow: seven steps from sound to Short
 
-Anthony makes industrial hard techno Shorts for YouTube.
+I make industrial hard techno Shorts for YouTube.
 Every track goes through seven steps, in this order.
 The order is the spine's lifecycle; ears and hands serve every step (see the README).
 
@@ -8,9 +8,9 @@ The order is the spine's lifecycle; ears and hands serve every step (see the REA
 |---|---|---|---|
 | I | audio collage | Found and library sounds chosen, cut, resampled and laid out as the track's bed. Game audio, field recordings, voices, stems. | The bed exists on the timeline, with its resampled pieces. |
 | II | drums | Kick, rumble, hats and percussion programmed. In this genre the rumble is part of the kit. | All four play across the arrangement. |
-| III | arrange | The Short's shape: a 33–50 s cut with an arc, usually from a longer track. | A Short-length cut with three or more sections, and Anthony approves it. |
-| IV | kick | The kick and rumble get their own chain: scoop, distortion, compression. It is its own step because the kick carries the genre. | The chain is built and Anthony has picked the sound. |
-| V | mix | Groups and buses processed, levels and sends set, colour and space. | A mix render Anthony accepts. |
+| III | arrange | The Short's shape: a 33–50 s cut with an arc, usually from a longer track. | A Short-length cut with three or more sections, and I approve it. |
+| IV | kick | The kick and rumble get their own chain: scoop, distortion, compression. It is its own step because the kick carries the genre. | The chain is built and I have picked the sound. |
+| V | mix | Groups and buses processed, levels and sends set, colour and space. | A mix render I accept. |
 | VI | master | The master-bus chain and a mastered export for YouTube. | -14 to -11 LUFS integrated, true peak at most -1.5 dBTP, Short length. |
 | VII | release | The final export goes up as a YouTube Short. | It is published and its link is recorded. |
 
@@ -21,9 +21,9 @@ A track at "III. arrange" may already have mix work done.
 
 ## Targets
 
-- **Length.** 33–50 s, from Anthony's feedback on 1 October 2026 (see `docs/hw002/`).
+- **Length.** 33–50 s, from my own feedback on 1 October 2026 (see `docs/journal/hw002/`).
   Genre Shorts that travel run 6–34 s.
-  Label previews run 42–60 s per track (`docs/hw002/arrangement-references.md`). YouTube allows up to 3 minutes.
+  Label previews run 42–60 s per track (`docs/journal/hw002/arrangement-references.md`). YouTube allows up to 3 minutes.
 - **Grid.** Mostly 4- and 8-bar sections on a power-of-two grid. Never open on a single bar.
 - **Loudness.** -14 to -11 LUFS integrated; YouTube turns louder masters down to about -14.
   True peak at most -1.5 dBTP, since AAC adds about 0.5 dB
@@ -47,7 +47,7 @@ evidence lines that say where its points came from. The rules are points with ca
 **The caps are deliberate.** The heuristics see files, not sound.
 A kick chain with six devices may still be the wrong kick.
 So kick, mix and master stop at 80 %. Arrange stops at 90 %, release at 60 %.
-The last stretch takes a record: Anthony's word, or a decision in zpkt docs.
+The last stretch takes a record: the producer's word, or a decision written down in docs.
 Collage and drums can reach 100 % from the file. Their evidence is the material itself.
 
 ### Which set, which files
@@ -74,9 +74,9 @@ A record sets a step's percent and beats the heuristic, in both directions.
 The heuristic's own figure and evidence stay in the report beside it.
 Records live in two places with the same fields:
 
-- `docs/inventory/records.toml` in zpkt, tables keyed by track. Agents add records here in a PR.
+- The rig's `records_file` (default `<library_dir>/records.toml`), tables keyed by track. Agents add records here. Mine is `docs/journal/inventory/records.toml`.
 - `zpkt-workflow.toml` in a project folder, with step tables at the top level.
-  Anthony writes that one, so it wins. Agents never write into the library.
+  The producer writes that one, so it wins. Agents never write into the library.
 
 ```toml
 [HW002]
@@ -84,14 +84,14 @@ note = "The release is a YouTube Short cut from the full track."
 
 [HW002.mix]
 percent = 40
-by = "docs"            # anthony: his word; docs: a decision in zpkt docs; agent: an agent's judgment
+by = "docs"            # owner: your word; docs: a decision in docs; agent: an agent's judgment
 date = "2026-10-09"
 note = "Batch 6 'all' is the baseline; batches 8.2-8.7 wait for listening."
-source = "docs/hw002/batch-6-7-decisions.md"
+source = "docs/journal/hw002/batch-6-7-decisions.md"
 
 [HW002.release]
 percent = 100
-by = "anthony"
+by = "owner"
 url = "https://youtube.com/shorts/..."
 ```
 
@@ -112,7 +112,7 @@ The library root comes from the rig settings: `library_dir` in `~/.config/zpkt/r
 `ZPKT_LIBRARY_DIR` (see `hands/README.md`). The scan is read-only.
 It lists folders and reads `.als` files.
 With `--measure` it decodes at most three files per track.
-Reports are dated in `docs/inventory/`.
+Reports are dated in `docs/journal/inventory/`.
 
 ## Known weak spots
 

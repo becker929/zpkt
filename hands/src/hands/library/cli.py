@@ -21,7 +21,7 @@ def inventory_cmd(
                                     "Default: the rig's library_dir."),
     exports: list[Path] = typer.Option(None, "--exports", help="Another folder to look in for renders named after a "
                                        "track (repeatable). Default: the rig's renders_dir."),
-    records_file: Path = typer.Option(None, "--records", help="Records file (default docs/inventory/records.toml)."),
+    records_file: Path = typer.Option(None, "--records", help="Records file (default: the rig's records_file, <library_dir>/records.toml)."),
     browser: Path = typer.Option(None, "--browser", help="audio-browser projects folder "
                                  "(default prototypes/audio-browser/projects)."),
     measure: bool = typer.Option(False, "--measure", help="Measure up to 3 master candidates per track with ears/mlab."),
@@ -37,7 +37,7 @@ def inventory_cmd(
     rig = config.rig()
     inv = inv_mod.inventory(
         root or [rig.library_dir], exports=exports if exports is not None else [rig.renders_dir],
-        records_file=records_file or inv_mod.CENTRAL_RECORDS, browser=browser or inv_mod.BROWSER_PROJECTS,
+        records_file=records_file or config.rig().records_file, browser=browser or inv_mod.BROWSER_PROJECTS,
         measure=inv_mod.measure_mlab if measure else None)
     if as_json:
         print(inv.model_dump_json(indent=2))

@@ -1,6 +1,7 @@
 # lib/rig
 
-The Live runtime the spine runs on.
+Brings Live up on a headless Mac. I run zpkt on a Mac mini with no screen attached; this is the
+script that makes that dependable. On a laptop with Live already open you do not need it.
 
 - `start_headless.sh` — starts BetterDisplay and Caffeine, launches Live,
   waits for the AbletonLiveMCP port, places the window on the virtual
@@ -10,4 +11,4 @@ The Live runtime the spine runs on.
   built-in output); renders work on either.
 
 The failure modes it guards against are listed in
-`hands/.cursor/skills/ableton-guide/SKILL.md` (silent bounces, §0 and §2).
+`agent/skills/ableton-guide/SKILL.md` (silent bounces, §0 and §2).

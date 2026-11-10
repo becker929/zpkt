@@ -5,13 +5,13 @@ import os
 from pathlib import Path
 import numpy as np
 
-# Set EARS_DCLAP_MODEL to the .onnx file. The default is the pre-split
-# monorepo location (taste 2/dclap_models), which a standalone clone lacks.
-_DEFAULT_MODEL = Path(__file__).parents[4] / "taste 2" / "dclap_models" / "model_epoch_36.onnx"
+# The model is not in the repo (too big, and not ours to ship). Set EARS_DCLAP_MODEL to the
+# .onnx file, or put it at the default path below. Without it, embeddings are skipped and said so.
+DEFAULT_MODEL = Path("~/.cache/zpkt/models/dclap/model_epoch_36.onnx")
 
 
 def model_path() -> Path:
-    return Path(os.environ.get("EARS_DCLAP_MODEL", _DEFAULT_MODEL))
+    return Path(os.environ.get("EARS_DCLAP_MODEL") or DEFAULT_MODEL).expanduser()
 
 _SR = 48000
 _SEGMENT_LENGTH = 480000
@@ -32,7 +32,7 @@ def embed(audio_path: str) -> np.ndarray:
 
     model = model_path()
     if not model.exists():
-        raise FileNotFoundError(f"DCLAP model not found at {model}; set EARS_DCLAP_MODEL")
+        raise FileNotFoundError(f"DCLAP model not found at {model}; set EARS_DCLAP_MODEL (see ears/README.md)")
 
     session = ort.InferenceSession(str(model), providers=["CPUExecutionProvider"])
     audio, _ = librosa.load(audio_path, sr=_SR, mono=True)

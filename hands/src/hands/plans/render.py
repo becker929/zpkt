@@ -19,7 +19,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Iterator, Protocol
 
-from .cache import Cache, Entry
+from .cache import Cache, Entry, cache_dir
 from .kits import Kit, KnobReader
 from .model import KnobId, KnobInfo, Plan, write_ahead
 
@@ -32,7 +32,7 @@ class Renderer(Protocol):
 
 class LiveRenderer:
     def __init__(self, work: Path | None = None):
-        self.work = work or Path(os.environ.get("HANDS_PLANS", "~/_agent_scratch/plans")).expanduser() / "work"
+        self.work = work or cache_dir() / "work"
 
     def render(self, kit: Kit, patterns: list[dict[str, float]], tag: str) -> tuple[list[Path], dict[str, Any]]:
         from hands import probe_kit

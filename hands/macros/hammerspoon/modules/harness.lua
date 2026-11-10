@@ -1,4 +1,4 @@
--- Keeps the zpkt harness (lib/harness: browser -> Mac Claude Code jobs) running.
+-- Keeps the zpkt harness (contrib/harness: browser -> Mac Claude Code jobs) running.
 --
 -- It runs under Hammerspoon rather than launchd because the code and the jobs
 -- live in ~/Desktop, which macOS guards per app. Hammerspoon already has
@@ -7,7 +7,7 @@
 local M = {}
 
 local HOME = os.getenv("HOME")
-local DIR = HOME .. "/Desktop/zpkt/lib/harness"
+local DIR = HOME .. "/Desktop/zpkt/contrib/harness"
 local LOG = HOME .. "/_agent_scratch/jobs/harness.log"
 local UV = HOME .. "/.local/bin/uv"
 local RESTART_S = 30

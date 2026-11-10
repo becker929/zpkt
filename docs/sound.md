@@ -6,7 +6,7 @@
 audio in a way that belongs in the DAW: no synths or drum machines, no EQ or filters, no compression, distortion or
 clipping, no reverb or delay, no panning or width, no gain moves standing in for a mix move, no granular, slicing,
 time-stretch or pitch-shift, no collage or arrangement assembled from pieces. Nothing that sketches what a change
-"would" sound like. Anthony decided this on 14 October 2026 after the HW002 lab (`docs/lab.md`): its stand-ins for
+"would" sound like. Anthony decided this on 14 October 2026 after the HW002 lab (`docs/design/lab.md`): its stand-ins for
 COLDFIRE, the Decapitator, Supermassive and the rest sounded plausible and were wrong, and a sound that is plausible
 and wrong fools him. That is worse than no sound at all.
 
@@ -29,7 +29,7 @@ never read as lifting the rule in general.
 
 Where the files come from: a change to a set is heard only as a render of that set from Live. Other material is
 played as the file it is: library sounds, collages made on the Mac, and the background work in The Wasteland
-(`docs/studio-agent.md`). Each file is labelled with where it came from, so a sketch is never taken for the set.
+(`docs/design/studio-agent.md`). Each file is labelled with where it came from, so a sketch is never taken for the set.
 
 What the rule does not cover:
 
@@ -109,7 +109,7 @@ Both are timed to the audio, not to the tap. If the change lands on the next bar
 
 - **A surface can only offer what has been rendered.** A continuous knob becomes a set of rendered stops; between
   them it shows a ghost and, if asked, queues a render. Sweeps and pack renders (`hands`) are how the stops get made.
-- **The reference space decides what to render** (`docs/studio-agent.md`): a bounded region around the references'
+- **The reference space decides what to render** (`docs/design/studio-agent.md`): a bounded region around the references'
   measurements, plus about 10 % of renders beyond it on purpose. Renders are spent where Anthony is likely to play.
 - **Speed comes from rendering ahead.** The engine is only as quick as the renders behind it, so the agent renders
   the likely next states while Anthony listens to the current one.

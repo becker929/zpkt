@@ -1,5 +1,8 @@
+-- Paths on this Mac. ZPKT_HOME names the clone (default ~/Desktop/zpkt).
+local HOME = os.getenv("HOME")
+local ZPKT = os.getenv("ZPKT_HOME") or (HOME .. "/Desktop/zpkt")
 -- The zpkt `hands` CLI: Live control over the AbletonLiveMCP remote script.
-local handsBin = os.getenv("HOME") .. "/Desktop/zpkt/hands/.venv/bin/hands"
+local handsBin = ZPKT .. "/hands/.venv/bin/hands"
 
 return {
   handsBin = handsBin,
@@ -9,7 +12,7 @@ return {
     bundleID = "com.ableton.live",
   },
 
-  rendersDir = "/Users/anthonybecker/_renders",
+  rendersDir = HOME .. "/_renders",
 
   -- Apps that will be QUIT (not minimized) during workspace activation.
   -- Restore will relaunch them best-effort.
@@ -22,9 +25,9 @@ return {
     intervalMinutes = 5,
     idleSeconds     = 120,
     maxVersions     = 5,
-    projectsDir     = "/Users/anthonybecker/_music_projects",
-    backupsDir      = "/Users/anthonybecker/Library/Mobile Documents/com~apple~CloudDocs/Ableton Backups",
-    cloneDir        = "/Users/anthonybecker/Library/Mobile Documents/com~apple~CloudDocs/_music_projects",
+    projectsDir     = HOME .. "/_music_projects",
+    backupsDir      = HOME .. "/Library/Mobile Documents/com~apple~CloudDocs/Ableton Backups",
+    cloneDir        = HOME .. "/Library/Mobile Documents/com~apple~CloudDocs/_music_projects",
   },
 
   hotkeys = {

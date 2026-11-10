@@ -12,7 +12,7 @@ Its id is "track/device/param", the device written "Mixer", "plugin:<name>" or "
 The LOM shows the same parameter under another name and often in other units: EQ Eight's
 frequency is 0-1 on a log scale, Utility's gain is dB/35, its width the square root of the .als
 fraction. UNITS holds the conversions measured on HW002: the rumble chain's .als values against a
-LOM dump of the same devices (ears/soundfunction/results/live_rumble_bypass_v1, 12 Sep) and the
+LOM dump of the same devices (prototypes/soundfunction/results/live_rumble_bypass_v1, 12 Sep) and the
 kick-group compressor's (knobmap_hw002_kickgroup_v1). A knob without a measured conversion is
 refused rather than written with a guess; add one after reading both values in Live.
 

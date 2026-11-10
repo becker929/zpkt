@@ -3,7 +3,7 @@
   cd hands && uv run python scripts/probe_pack/ab_live.py kick_distortion
   cd hands && uv run python scripts/probe_pack/ab_live.py source_chord   # offline, once
 
-From Anthony's review of batches 6 and 7 (docs/hw002/batch-6-7-decisions.md): the baseline is
+From Anthony's review of batches 6 and 7 (docs/journal/hw002/batch-6-7-decisions.md): the baseline is
 batch 6 "all" (every b6 aspect whose climb improved, at its best, as combine_live.py), and an
 experiment is three alternatives at the low end, centre and high end of a target range, never
 outside it. Pattern 0 = the baseline, patterns 1-3 = the alternatives, the rest repeat the

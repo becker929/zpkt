@@ -1,0 +1,190 @@
+// Whose turn it is, seen from this page: the Mac's phase, whether this page owns the mic and the
+// speaker, what the big button does now, and whether the mic should be open.
+//
+// The mic is open exactly when the Mac has asked for it (`listen`, not yet `unlisten`), the user has
+// not ended the turn, and nothing is playing: a bubble tapped while listening closes the mic, plays,
+// and the mic reopens when it has finished if the Mac is still listening.
+import { Emitter } from './emitter.js';
+
+// While the Mac listens, the button follows the mic (mic.js): "Go ahead" only once its frames reach the Mac.
+const MIC_MODES = { open: 'listen', stuck: 'resume' };      // opening or closed: wait
+
+/**
+ * What a tap on the turn button does:
+ *   start     take the mic and speaker (the first tap also unlocks audio and asks for the mic)
+ *   wait      my turn, but the mic is not hearing yet: nothing to end, so the tap only tries the mic again
+ *   listen    the mic hears me: end my turn, same as saying the stop word
+ *   resume    the phone took the mic away (the background, a call): the tap is the gesture that brings it back
+ *   work      interrupt Claude
+ *   answer    stop Claude's answer: my turn
+ *   playback  stop what I tapped
+ */
+export class Turn extends Emitter {
+  connected = false;
+  started = false;          // a tap has started this page (audio is unlocked)
+  owner = false;            // this page has the mic and the speaker
+  phase = 'idle';
+  label = '';
+  speechReady = true;
+  caption = '';
+  #listenTurn = null;       // the turn the Mac asked us to listen for
+  #endedTurn = null;        // a turn the user ended by tapping
+
+  constructor({ socket, mic, engine, prefs, timing, wake }) {
+    super();
+    Object.assign(this, { socket, mic, engine, prefs, timing, wake });
+    engine.on('busy', () => this.#syncMic());
+    engine.on('idle', () => this.#syncMic());
+    engine.on('nowplaying', () => this.#changed());
+    mic.on('state', () => this.#changed());
+  }
+
+  get mode() {
+    if (!this.started || !this.owner) return 'start';
+    if (this.phase === 'working') return 'work';
+    if (this.phase === 'responding') return 'answer';
+    if (this.engine.busy) return 'playback';
+    if (this.phase === 'listening') return MIC_MODES[this.mic.state] ?? 'wait';
+    return 'start';
+  }
+
+  get listening() {
+    return this.mic.state !== 'closed';
+  }
+
+  tap() {
+    const mode = this.mode;     // what the button showed: unlocking may move the mic to a new context (mic.js)
+    this.engine.unlock();       // every tap may be the gesture iOS wants (the first start, or after a call)
+    switch (mode) {
+      case 'start':
+        this.start();
+        break;
+      case 'wait':
+      case 'resume':
+        this.mic.retry();
+        break;
+      case 'listen':
+        this.socket.send({ type: 'end_turn' });
+        this.#endedTurn = this.#listenTurn;
+        this.#syncMic();
+        break;
+      case 'work':
+      case 'answer':
+        this.engine.stop();
+        this.socket.send({ type: 'interrupt' });
+        break;
+      case 'playback':
+        this.engine.stop();
+        break;
+    }
+    this.#changed();
+  }
+
+  /** Take the mic and the speaker, with hands-free on. */
+  start() {
+    const first = !this.started;
+    this.started = true;
+    this.owner = true;
+    this.prefs.set('handsfree', true);
+    this.wake.set(true);
+    this.engine.resetCount();
+    this.socket.send({ type: 'start' });
+    if (first) this.mic.prime();
+    this.#syncMic();
+    this.#changed();
+  }
+
+  /** A typed turn was just sent, from a tap. The Mac gives this page the speaker for it (docs/design/studio.md), so
+   * unlock the audio here, in the gesture, and count the page as started: the answer plays, and the mic
+   * opens after it as it would after Start (with hands-free on). */
+  typed() {
+    this.engine.unlock();
+    if (!this.started) {
+      this.started = true;
+      this.wake.set(this.prefs.get('handsfree'));
+    }
+    this.owner = true;
+    this.#changed();
+  }
+
+  setHandsfree(on) {
+    this.prefs.set('handsfree', on);
+    this.wake.set(on && this.started);
+    if (!on) this.socket.send({ type: 'pause' });
+    // Mid-turn, the Mac reads the preference when the answer ends; from idle, it takes a start.
+    else if (this.started && this.phase === 'idle') this.start();
+    this.#changed();
+  }
+
+  // --- from the Mac --------------------------------------------------------------------------------
+
+  connection(state) {
+    this.connected = state === 'open';
+    if (!this.connected) {
+      this.#listenTurn = null;
+      this.engine.endStreams();
+    }
+    this.#syncMic();
+    this.#changed();
+  }
+
+  welcome(msg) {
+    this.owner = !!msg.owner;
+    this.speechReady = msg.speech_ready !== false;
+    this.#setPhase(msg.phase, msg.turn, msg.label);
+    // Back after a dropped connection, and the Mac no longer counts us as the owner: take it back.
+    if (this.started && !this.owner && this.prefs.get('handsfree')) this.start();
+  }
+
+  phaseChanged(msg) {
+    this.#setPhase(msg.phase, msg.turn, msg.label);
+  }
+
+  listen(msg) {
+    this.owner = true;
+    this.#listenTurn = msg.turn ?? 'listen';
+    this.caption = '';
+    if (msg.turn) this.timing.turn = msg.turn;
+    this.#syncMic();
+    this.#changed();
+  }
+
+  /** Another page took the mic and the speaker (or this one got them back). */
+  ownerChanged(msg) {
+    this.owner = !!msg.owner;
+    this.#changed();
+  }
+
+  unlisten(msg) {
+    if (!msg.turn || msg.turn === this.#listenTurn) this.#listenTurn = null;
+    this.#syncMic();
+    this.#changed();
+  }
+
+  captionChanged(msg) {
+    this.caption = msg.text ?? '';
+    this.emit('caption', this.caption);
+  }
+
+  #setPhase(phase, turn, label) {
+    this.phase = phase || 'idle';
+    this.label = label ?? '';
+    if (turn) this.timing.turn = turn;
+    if (this.phase !== 'listening') {
+      this.#listenTurn = null;
+      this.caption = '';
+    }
+    this.#syncMic();
+    this.#changed();
+  }
+
+  #syncMic() {
+    const open = this.started && this.connected && this.#listenTurn && this.#listenTurn !== this.#endedTurn
+      && !this.engine.busy;
+    this.mic.want(open ? this.#listenTurn : null);
+  }
+
+  #changed() {
+    this.emit('change', this);
+  }
+}

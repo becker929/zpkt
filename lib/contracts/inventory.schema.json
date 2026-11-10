@@ -13,10 +13,10 @@
           "type": "integer"
         },
         "by": {
-          "default": "anthony",
-          "description": "anthony: his word; docs: a decision recorded in zpkt docs; agent: an agent's judgment",
+          "default": "owner",
+          "description": "owner: the producer's word; docs: a decision recorded in docs; agent: an agent's judgment",
           "enum": [
-            "anthony",
+            "owner",
             "docs",
             "agent"
           ],
@@ -30,7 +30,7 @@
         },
         "source": {
           "default": "",
-          "description": "where it is written down, e.g. docs/hw002/batch-6-7-decisions.md",
+          "description": "where it is written down, e.g. docs/journal/hw002/batch-6-7-decisions.md",
           "title": "Source",
           "type": "string"
         },

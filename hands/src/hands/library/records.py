@@ -1,6 +1,6 @@
-"""Records: a step's state on Anthony's word, or from a decision written down in zpkt docs. They beat the heuristic.
+"""Records: a step's state on the producer's word, or from a decision written down in docs. They beat the heuristic.
 
-Two places, same shape. The central file (docs/inventory/records.toml in zpkt) keys tables by track:
+Two places, same shape. The central file (the rig's records_file, by default <library_dir>/records.toml) keys tables by track:
 
     [HW002]
     note = "the Short is cut from the full track"
@@ -9,7 +9,7 @@ Two places, same shape. The central file (docs/inventory/records.toml in zpkt) k
     percent = 80
     by = "docs"
     note = "canonical shape chosen (batch 4.3 track 1); chord loop still missing"
-    source = "docs/hw002/batch-4.3-4.4-decisions.md"
+    source = "docs/journal/hw002/batch-4.3-4.4-decisions.md"
     date = "2026-10-06"
 
     [HW002.release]
@@ -17,8 +17,8 @@ Two places, same shape. The central file (docs/inventory/records.toml in zpkt) k
     url = "https://youtube.com/shorts/..."
 
 A project folder may hold its own `zpkt-workflow.toml` with the step tables at the top level
-(`[arrange]`, ...). Anthony writes that one, so it wins over the central file. Agents never write
-into the library; they add to the central file, in a PR.
+(`[arrange]`, ...). The producer writes that one, so it wins over the central file. Agents never write
+into a project folder; they add to the central file.
 """
 from __future__ import annotations
 
@@ -65,4 +65,4 @@ def load_project(folder: Path | None) -> tuple[dict[str, Record], str]:
     if file is None or not file.is_file():
         return {}, ""
     data = tomllib.loads(file.read_text())
-    return _steps(data, str(file), "anthony"), str(data.get("note", ""))
+    return _steps(data, str(file), "owner"), str(data.get("note", ""))
