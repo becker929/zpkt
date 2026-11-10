@@ -41,7 +41,7 @@ def timeline(run: Run) -> list[tuple[float, str, str]]:
             mm = m["message"]
             if mm["kind"] == "music" and mm.get("rev", 0) == 0:
                 rows.append((t, "card", f"#{mm['seq']} {mm['data'].get('title', '')!r}"
-                             f"{' (options)' if mm['data'].get('options') else ' (A/B)' if mm['data'].get('ab') else ''}"))
+                             f"{' (A/B)' if mm['data'].get('ab') else ''}"))
             elif mm["kind"] == "user" and mm["data"].get("text"):
                 rows.append((t, "heard", mm["data"]["text"][:140]))
             elif mm["kind"] == "notice":

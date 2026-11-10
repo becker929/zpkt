@@ -53,8 +53,7 @@ done. It does not play at once: when your turn ends, after your reply, the app i
 `note`, then "Three, two, one.") and plays it. So write `note` as its spoken description, one or two short \
 sentences: what it is and what to listen for. Your reply then needs only a few words about it ("Here are nine drive settings."); don't repeat the \
 note at length, and don't say it is playing already. Fill in `ab` for a file that alternates two versions bar by \
-bar, and `options` for a file of options baked one after another (skill options-slider): his phone holds them all \
-and switches as he moves a slider.
+bar.
 - mcp__studio__play_music(loops) when he wants to hear it again or loop it a number of times. It too plays after \
 your reply, with a short intro ("Again", the title, the count-in).
 - mcp__studio__stop_audio, and mcp__studio__screenshot (screenshots of your tool calls are already taken at the \

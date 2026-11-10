@@ -46,22 +46,6 @@ PRESENT = {
             },
             "required": ["bar_seconds", "bars"],
         },
-        "options": {
-            "type": "object",
-            "description": "Give this for a file of options baked one after another (`hands plan slider`, `line` "
-                           "or `options`): pass the printed `options` as it is. His phone keeps all of them in memory "
-                           "and switches between them itself, with a slider or a button each.",
-            "properties": {
-                "layout": {"type": "string", "enum": ["slider", "buttons"]},
-                "name": {"type": "string", "description": "What the options change, in a few words."},
-                "bar_seconds": {"type": "number"},
-                "bars": {"type": "integer", "description": "Bars per option."},
-                "now": {"type": ["integer", "null"], "description": "The option that sounds like the set now."},
-                "options": {"type": "array", "items": {"type": "object", "properties": {
-                    "label": {"type": "string"}, "match_db": {"type": "number"}}, "required": ["label"]}},
-            },
-            "required": ["bar_seconds", "bars", "options"],
-        },
     },
     "required": ["path", "title"],
 }
@@ -87,25 +71,6 @@ SCREENSHOT = {
 }
 
 
-MAX_OPTIONS = 32
-
-
-def baked_options(raw: dict[str, Any]) -> dict[str, Any]:
-    """`hands plan slider|line|options` output as the music message keeps it. Raises on anything malformed."""
-    opts = raw.get("options") or []
-    if not 2 <= len(opts) <= MAX_OPTIONS:
-        raise ValueError(f"options needs 2 to {MAX_OPTIONS} options, got {len(opts)}")
-    bar_s, bars = float(raw["bar_seconds"]), int(raw["bars"])
-    if bar_s <= 0 or bars < 1:
-        raise ValueError("options needs bar_seconds > 0 and bars >= 1")
-    now = raw.get("now")
-    now = int(now) if now is not None and 0 <= int(now) < len(opts) else None
-    return {"layout": "buttons" if raw.get("layout") == "buttons" else "slider", "name": str(raw.get("name", ""))[:80],
-            "bar_seconds": bar_s, "bars": bars, "now": now,
-            "options": [{"label": str(o.get("label", i + 1))[:40], "match_db": round(float(o.get("match_db") or 0), 2)}
-                        for i, o in enumerate(opts)]}
-
-
 def _when(conversation: "Conversation", intro: str) -> str:
     """When music cued now plays, for the tools' answers: Claude should not say it is playing while it waits."""
     after = f" and {intro}" if intro else ""
@@ -128,7 +93,7 @@ def server(conversation: "Conversation") -> McpSdkServerConfig:
           "his phone when your turn ends, after your reply: the app says its `title`, then its `note`, then counts "
           "in (\"Three, two, one.\"), and the music starts. So `note` is its spoken description, and your reply "
           "need not repeat it. Use it for every render he should hear. For an A/B that switches every bar, fill in "
-          "`ab`; for options baked into one file (a slider, or buttons), fill in `options`.",
+          "`ab`.",
           PRESENT)
     async def present_music(args: dict[str, Any]) -> dict[str, Any]:
         path = Path(str(args["path"])).expanduser()
@@ -139,17 +104,10 @@ def server(conversation: "Conversation") -> McpSdkServerConfig:
             ab = {"bar_seconds": float(ab["bar_seconds"]), "bars": int(ab["bars"]), "first": ab.get("first", "A"),
                   "every": int(ab.get("every", 1)), "labels": {"A": ab.get("a", "A"), "B": ab.get("b", "B")}}
         try:
-            options = baked_options(args["options"]) if args.get("options") else None
-            msg = await conversation.present_music(path, str(args["title"])[:120], ab, str(args.get("note", ""))[:600],
-                                                   options=options)
+            msg = await conversation.present_music(path, str(args["title"])[:120], ab, str(args.get("note", ""))[:600])
         except Exception as exc:  # noqa: BLE001 - report to Claude, which can fix the file and retry
             return _error(f"Could not present it: {exc}")
         autoplay, when = conversation.hub.autoplay, _when(conversation, "its intro (title, note, count-in)")
-        if options:
-            n, playing = len(options["options"]), (f"It sweeps through them on his phone {when}, one bar each."
-                                                   if autoplay else "Autoplay is off: it waits.")
-            return _ok(f"Options #{msg.seq}: {n} of them, in memory on his phone once it loads. {playing} He moves "
-                       "between them himself; when he picks one, his next message says which.")
         playing = f"It plays on his phone {when}." if autoplay else "Autoplay is off: it waits in the chat."
         return _ok(f"Music #{msg.seq}, {msg.data['duration']:.1f} s. {playing}")
 

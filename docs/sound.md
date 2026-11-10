@@ -46,7 +46,7 @@ gets work, and never copied.
 | Where | What it does | Status |
 |---|---|---|
 | `studio/static/lab/` (the HW002 lab) | Stems through channel strips, sketches of every kick and mix param, a kick synth, granular and slice players | Breaks the rule. Its sound is replaced by the player engine; its surfaces stay. |
-| `studio/static/js/audio.js`, `clip.js`, `options-clip.js`, `buffers.js` | Plays speech and renders on the audio clock; options switch with short fades and a loudness match | Allowed: this is the player engine's seed. |
+| `studio/static/js/audio.js`, `clip.js`, `buffers.js` | Plays speech and renders on the audio clock | Allowed: this is the player engine's seed. |
 | `studio/static/js/cue.js` | The ready sound: two notes made with oscillators | Allowed: an interface sound, not music. |
 | `studio/static/checklist/flow/sound.js` | The check's click: a filtered noise tick and a short tone, about 60 ms | Allowed: an interface sound, not music. |
 | `studio/static/checklist/map/sounds.js` | The check's sounds: six layered hits rendered in Live (`hands/scripts/ui_sounds/`), each with a heavier and a soft version, kept in R2 and decoded and started as rendered | Allowed: playing rendered files. |
@@ -65,8 +65,7 @@ yet, or one still on its way). The engine's whole job is to make that difference
 Two layouts, chosen per surface:
 
 1. **Many files.** One render per state (an option, a step on a macro, a knob value). The engine switches between
-   them on the bar clock, at the same place in the bar, so a switch never jumps in the music. This is what
-   `options-clip.js` already does for studio's options.
+   them on the bar clock, at the same place in the bar, so a switch never jumps in the music.
 2. **A sprite atlas.** One long render holding every state back to back, each the same number of bars, with an
    index of where each state starts. The engine jumps around in the one file. One fetch, one decode, and every
    state that exists is ready at once. Good for a grid of variants rendered in one batch (a pack render).
@@ -75,7 +74,7 @@ In both, a state's audio is exactly what Live rendered: level matching, if a com
 time (a second file at the matched level), not with a gain in the browser.
 
 The engine plays through Web Audio, on the audio clock: buffer sources started and stopped at sample-exact times,
-with only the short fades a switch needs. `options-clip.js` is its seed. Not `<audio>` elements: they cannot jump on
+with only the short fades a switch needs. `clip.js` is its seed. Not `<audio>` elements: they cannot jump on
 the bar (tens of milliseconds of jitter), and iOS limits how many play at once.
 
 ### Controls: not yet audible
