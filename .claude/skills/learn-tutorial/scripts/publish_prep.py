@@ -20,8 +20,8 @@ would push peaks more than --max-limit dB (default 3) into the limiter, it says 
 compressor on Live's master and re-render, or lower the target. Never 7 dB of offline limiting
 (run 1 did, and the limiter moved the kick's attack by 15 ms). MP3: 44.1 kHz, CBR 192 kbps,
 5 ms fade-in, 0.5 s fade-out; decoded true peak <= --tp-max (default -1.0 dBTP). Announcements
-use lib/record/batch_intro.py's voice and loudness ("Track N." per track, the intro once).
-upload: the R2 puts for the upload map (bucket as lib/record). Public: only with Anthony's go-ahead.
+use contrib/skrng/batch_intro.py's voice and loudness ("Track N." per track, the intro once).
+upload: the R2 puts for the upload map (bucket as contrib/skrng). Public: only with Anthony's go-ahead.
 apply: prepends the entries to skrng/manifest.json and adds the batch to skrng/batches.json in a
 site checkout; commit and PR there as usual.
 """
@@ -105,7 +105,7 @@ def prep(a) -> None:
         print(f"WARNING: {over:.1f} dB of limiting (> {a.max_limit}). Prefer glue on Live's master and a re-render, "
               "or a lower --target; see reference/publishing.md")
 
-    sys.path.insert(0, str(ROOT / "lib" / "record"))
+    sys.path.insert(0, str(ROOT / "contrib" / "skrng"))
     from batch_intro import spoken_id, tts
 
     n = spec["batch"]

@@ -14,7 +14,7 @@
 Every Live command first checks: one Live window, no dialog, the expected set in front, the LOM
 answering. Then it does one thing, logs it with its time, and exits 2 on anything odd (a dialog,
 another set in front, a call that took over 8 s: Live may be stalled). Nothing is chained: the
-agent reads each result before the next step. Rules from hands/skills/ableton-live-control: never
+agent reads each result before the next step. Rules from agent/skills/ableton-live-control: never
 read a property in the call that wrote it (write in exec, check in a separate read); at most 20
 parameters of one device per call; time.sleep(0.3) between browser loads; keep calls well under
 the Remote Script's 12 s.

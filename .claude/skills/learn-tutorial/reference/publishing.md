@@ -37,7 +37,7 @@ it plays and how it differs from the others, and end with the credit line:
 
 > Tutorial: "TITLE" by CHANNEL, URL.
 
-`refs` holds the same link. The announcements use `lib/record/batch_intro.py`'s voice and loudness;
+`refs` holds the same link. The announcements use `contrib/skrng/batch_intro.py`'s voice and loudness;
 `publish_prep.py` calls it.
 
 **Batch number.** Take the next free `n` in the site checkout's `skrng/batches.json`. Skip any number that a
@@ -64,10 +64,10 @@ prepared but unpublished run has reserved: the `published` field of each line in
 2. **Only when Anthony permits uploads** (the policy at the top). Until then, stop at "prepared, not
    uploaded" with the batch number reserved as above; the files stay ready. When uploads are permitted:
    1. `$S/run publish_prep.py upload W/practice/publish/entries.json` prints the R2 commands; run it again
-      with `--yes` to upload. The bucket is lib/record's, through `npx wrangler`.
+      with `--yes` to upload. The bucket is contrib/skrng's, through `npx wrangler`.
    2. `$S/run publish_prep.py apply W/practice/publish/entries.json --site ~/_agent_scratch/site` prepends
       the entries and adds the batch.
    3. In the site repo: branch, commit, push, PR, merge. Saving means merged.
    4. Check every audio URL returns 200 and the batch page plays.
-   5. Send the phone notification through `lib/harness`'s `notify` (the topic stays in the Keychain).
+   5. Send the phone notification through `contrib/harness`'s `notify` (the topic stays in the Keychain).
    6. Record it with `$S/run runlog.py set ID published "uploaded: /skrng batch N"`.

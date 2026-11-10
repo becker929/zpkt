@@ -155,7 +155,7 @@ line in `$Z/.claude/skills/learn-tutorial/runs.jsonl` and compares it with the e
 | a stage took over 1.5× its median | find the slow step in PROCESS.md or PRACTICE-REPORT.md; script it, or cut it from the brief |
 | verifier errors rose | turn the error class into a checklist line or a script check (`recipe_check.py`, `measure_render.py`) |
 | the render onset error grew, or the self-test bias moved | fix the detector in `common.py` and add a case to `selftest.py` |
-| an incident kind repeated | the recovery was not enough: add a preflight check, or move the fix into hands (TODO.md) |
+| an incident kind repeated | the recovery was not enough: add a preflight check, or move the fix into hands (docs/journal/2026-10-01-todo.md) |
 
 Then:
 
@@ -166,7 +166,7 @@ Then:
    - Keep the file short.
 2. **Apply small changes now.** Make what the signals call for in the briefs, the scripts or this file.
    After any script change, run `$S/run selftest.py` and `uvx ruff@0.14.0 check $S`.
-3. **Hands gaps.** Add new ones to `$Z/TODO.md` under "Hands gaps from learn-tutorial".
+3. **Hands gaps.** Add new ones to `$Z/docs/journal/2026-10-01-todo.md` under "Hands gaps from learn-tutorial".
 4. **Check what you will commit.** Run each of these from `$Z`; both must exit 0. A finding means you
    rephrase; `--allow` is only for quotes that are not the tutorial's (its title, Anthony's verdict).
    - `$S/run recipe_check.py docs/techniques/<recipe file> --public`

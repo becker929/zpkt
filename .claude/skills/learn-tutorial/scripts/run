@@ -7,11 +7,11 @@
 #   $S/run --hands live modals                  # the hands CLI
 #   $S/run --which transcribe.py                # print the project only
 #
-# transcribe.py      -> lib/voice  (parakeet-mlx; HF_HUB_OFFLINE=1, the model is cached)
+# transcribe.py      -> contrib/voice  (parakeet-mlx; HF_HUB_OFFLINE=1, the model is cached)
 # preflight.py, live_step.py, render.py -> hands  (Live's GUI and LOM)
 # everything else    -> ears/mlab  (numpy, scipy, soundfile, the calibrated meters)
 #
-# --no-sync is deliberate: a plain `uv run` would sync lib/voice without its `engines` extra and
+# --no-sync is deliberate: a plain `uv run` would sync contrib/voice without its `engines` extra and
 # remove parakeet-mlx, and in a fresh worktree it would build new venvs on a nearly full disk.
 # Venvs: ZPKT_ROOT if set, else this checkout, else (a worktree without venvs) the main checkout
 # that the worktree belongs to.
@@ -34,7 +34,7 @@ case "${1:-}" in
     case "${2:-}" in
       mlab) project="$root/ears/mlab" ;;
       hands) project="$root/hands" ;;
-      voice) project="$root/lib/voice"; export HF_HUB_OFFLINE=1 ;;
+      voice) project="$root/contrib/voice"; export HF_HUB_OFFLINE=1 ;;
       *) echo "--in takes mlab, hands or voice" >&2; exit 2 ;;
     esac
     shift 2 ;;
@@ -48,7 +48,7 @@ shift
 if [[ "$script" == */* ]]; then file="$script"; else file="$here/$script"; fi
 if [[ -z "$project" ]]; then
   case "$script" in
-    transcribe.py) project="$root/lib/voice"; export HF_HUB_OFFLINE=1 ;;
+    transcribe.py) project="$root/contrib/voice"; export HF_HUB_OFFLINE=1 ;;
     preflight.py|live_step.py|render.py) project="$root/hands" ;;
     *) project="$root/ears/mlab" ;;
   esac

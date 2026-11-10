@@ -37,7 +37,7 @@ These carry over unchanged. Anthony set them after a chained run left a prompt o
   - Never read a property in the call that wrote it.
   - Touch at most 20 parameters of one device per call.
   - Put `time.sleep(0.3)` between browser loads.
-  - See `$Z/hands/skills/ableton-live-control/SKILL.md` and its `reference/lom-guide.md`.
+  - See `$Z/agent/skills/ableton-live-control/SKILL.md` and its `reference/lom-guide.md`.
 - **Never discard or overwrite a set you don't own.**
   - The only set you edit or save is `SET`.
   - If the front set has unsaved changes and is not yours, stop and report. Do not save it, discard it or
