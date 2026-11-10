@@ -5,7 +5,7 @@ brief context, the full prompt and the settings used. This is how that is made d
 
 ## The rule
 
-**Every call to an image model goes through `harness.images`** (`lib/harness/src/harness/images.py`). Nothing else
+**Every call to an image model goes through `harness.images`** (`contrib/harness/src/harness/images.py`). Nothing else
 calls the Gemini API for images: no scripts of their own, no curl. The wrapper keeps every image a call returns,
 together with its record, before it returns. A call without its context and batch is refused, and calls that make
 no image are recorded too.
@@ -13,7 +13,7 @@ no image are recorded too.
 ## Making images
 
 ```
-cd lib/harness
+cd contrib/harness
 uv run harness images gen "<prompt>" --context "why, in a sentence" --batch wasteland-styles-2 \
     [--title euro] [--model gemini-3-pro-image] [--aspect 9:16] [--size 2K] [--input ref.png ...]
 uv run harness images batch jobs.json --context "..." --batch ... [--parallel 4]
@@ -38,7 +38,7 @@ uv run harness images list [--batch ...]
   - Every image, newest first, in a masonry layout, with chips to filter by batch.
   - Each card shows the batch and its brief context, the model and settings, and the full prompt and settings when
     opened. Tap an image to see it whole.
-  - Each card has a thumb up and down, which go to the artist's feedback (`docs/artist-agent.md`, view `images`).
+  - Each card has a thumb up and down, which go to the artist's feedback (`docs/design/artist-agent.md`, view `images`).
   - The page holds only what is near the screen. An image loads as it comes within a screen and a half and is let go
     (its src removed) beyond that. Records arrive a page at a time.
 

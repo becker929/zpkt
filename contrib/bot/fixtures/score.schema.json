@@ -1,0 +1,351 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/becker929/zpkt/lib/contracts/score.schema.json",
+  "$defs": {
+    "Feel": {
+      "additionalProperties": false,
+      "description": "Applied by the booth's compiler, seeded: the same score always gives the same notes.",
+      "properties": {
+        "swing": {
+          "default": 0.0,
+          "description": "how far each off-beat 16th moves late, as a share of a 16th",
+          "maximum": 0.5,
+          "minimum": 0.0,
+          "title": "Swing",
+          "type": "number"
+        },
+        "humanize_ms": {
+          "default": 0.0,
+          "description": "random timing spread, milliseconds",
+          "maximum": 25.0,
+          "minimum": 0.0,
+          "title": "Humanize Ms",
+          "type": "number"
+        },
+        "velocity_jitter": {
+          "default": 0,
+          "description": "random velocity spread",
+          "maximum": 24,
+          "minimum": 0,
+          "title": "Velocity Jitter",
+          "type": "integer"
+        },
+        "seed": {
+          "default": 0,
+          "maximum": 2147483647,
+          "minimum": 0,
+          "title": "Seed",
+          "type": "integer"
+        }
+      },
+      "title": "Feel",
+      "type": "object"
+    },
+    "Macro": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "description": "one of the instrument's macros in the guide",
+          "pattern": "^[a-z][a-z0-9_]{0,23}$",
+          "title": "Name",
+          "type": "string"
+        },
+        "value": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Value",
+          "type": "number"
+        }
+      },
+      "required": [
+        "name",
+        "value"
+      ],
+      "title": "Macro",
+      "type": "object"
+    },
+    "Mix": {
+      "additionalProperties": false,
+      "properties": {
+        "room": {
+          "description": "a room setting from the guide",
+          "pattern": "^[a-z][a-z0-9_]{0,23}$",
+          "title": "Room",
+          "type": "string"
+        },
+        "echo": {
+          "description": "an echo setting from the guide",
+          "pattern": "^[a-z][a-z0-9_]{0,23}$",
+          "title": "Echo",
+          "type": "string"
+        }
+      },
+      "required": [
+        "room",
+        "echo"
+      ],
+      "title": "Mix",
+      "type": "object"
+    },
+    "Note": {
+      "additionalProperties": false,
+      "properties": {
+        "p": {
+          "description": "MIDI pitch",
+          "maximum": 127,
+          "minimum": 0,
+          "title": "P",
+          "type": "integer"
+        },
+        "t": {
+          "description": "start, beats from the pattern's start",
+          "minimum": 0.0,
+          "title": "T",
+          "type": "number"
+        },
+        "d": {
+          "description": "length, beats",
+          "exclusiveMinimum": 0.0,
+          "maximum": 64.0,
+          "title": "D",
+          "type": "number"
+        },
+        "v": {
+          "description": "velocity",
+          "maximum": 127,
+          "minimum": 1,
+          "title": "V",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "p",
+        "t",
+        "d",
+        "v"
+      ],
+      "title": "Note",
+      "type": "object"
+    },
+    "Part": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "pattern": "^[a-z][a-z0-9_]{0,23}$",
+          "title": "Id",
+          "type": "string"
+        },
+        "instrument": {
+          "description": "an instrument id from the guide",
+          "pattern": "^[a-z0-9_.]{1,64}$",
+          "title": "Instrument",
+          "type": "string"
+        },
+        "gain_db": {
+          "default": 0.0,
+          "maximum": 6.0,
+          "minimum": -30.0,
+          "title": "Gain Db",
+          "type": "number"
+        },
+        "pan": {
+          "default": 0.0,
+          "maximum": 1.0,
+          "minimum": -1.0,
+          "title": "Pan",
+          "type": "number"
+        },
+        "room": {
+          "default": 0.0,
+          "description": "send to the room return",
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Room",
+          "type": "number"
+        },
+        "echo": {
+          "default": 0.0,
+          "description": "send to the echo return",
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Echo",
+          "type": "number"
+        },
+        "macros": {
+          "items": {
+            "$ref": "#/$defs/Macro"
+          },
+          "maxItems": 8,
+          "title": "Macros",
+          "type": "array"
+        }
+      },
+      "required": [
+        "id",
+        "instrument"
+      ],
+      "title": "Part",
+      "type": "object"
+    },
+    "Pattern": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "pattern": "^[a-z][a-z0-9_]{0,23}$",
+          "title": "Id",
+          "type": "string"
+        },
+        "part": {
+          "description": "the part that plays it",
+          "pattern": "^[a-z][a-z0-9_]{0,23}$",
+          "title": "Part",
+          "type": "string"
+        },
+        "bars": {
+          "maximum": 8,
+          "minimum": 1,
+          "title": "Bars",
+          "type": "integer"
+        },
+        "notes": {
+          "items": {
+            "$ref": "#/$defs/Note"
+          },
+          "maxItems": 512,
+          "title": "Notes",
+          "type": "array"
+        }
+      },
+      "required": [
+        "id",
+        "part",
+        "bars"
+      ],
+      "title": "Pattern",
+      "type": "object"
+    },
+    "Play": {
+      "additionalProperties": false,
+      "properties": {
+        "part": {
+          "pattern": "^[a-z][a-z0-9_]{0,23}$",
+          "title": "Part",
+          "type": "string"
+        },
+        "pattern": {
+          "pattern": "^[a-z][a-z0-9_]{0,23}$",
+          "title": "Pattern",
+          "type": "string"
+        }
+      },
+      "required": [
+        "part",
+        "pattern"
+      ],
+      "title": "Play",
+      "type": "object"
+    },
+    "Section": {
+      "additionalProperties": false,
+      "properties": {
+        "bars": {
+          "maximum": 32,
+          "minimum": 1,
+          "title": "Bars",
+          "type": "integer"
+        },
+        "play": {
+          "description": "silent parts are left out",
+          "items": {
+            "$ref": "#/$defs/Play"
+          },
+          "maxItems": 8,
+          "title": "Play",
+          "type": "array"
+        }
+      },
+      "required": [
+        "bars"
+      ],
+      "title": "Section",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "A short piece for the booth to build in Live (docs/design/bluesky-bot.md). Generated from contrib/booth/src/booth/score.py \u2014 do not edit by hand.",
+  "properties": {
+    "score": {
+      "const": 1,
+      "default": 1,
+      "title": "Score",
+      "type": "integer"
+    },
+    "palette": {
+      "pattern": "^\\d{4}-\\d{2}$",
+      "title": "Palette",
+      "type": "string"
+    },
+    "title": {
+      "maxLength": 80,
+      "minLength": 1,
+      "title": "Title",
+      "type": "string"
+    },
+    "bpm": {
+      "maximum": 180.0,
+      "minimum": 60.0,
+      "title": "Bpm",
+      "type": "number"
+    },
+    "key": {
+      "default": "",
+      "maxLength": 24,
+      "title": "Key",
+      "type": "string"
+    },
+    "feel": {
+      "$ref": "#/$defs/Feel"
+    },
+    "parts": {
+      "items": {
+        "$ref": "#/$defs/Part"
+      },
+      "maxItems": 8,
+      "minItems": 1,
+      "title": "Parts",
+      "type": "array"
+    },
+    "patterns": {
+      "items": {
+        "$ref": "#/$defs/Pattern"
+      },
+      "maxItems": 64,
+      "minItems": 1,
+      "title": "Patterns",
+      "type": "array"
+    },
+    "song": {
+      "items": {
+        "$ref": "#/$defs/Section"
+      },
+      "maxItems": 32,
+      "minItems": 1,
+      "title": "Song",
+      "type": "array"
+    },
+    "mix": {
+      "$ref": "#/$defs/Mix"
+    }
+  },
+  "required": [
+    "palette",
+    "title",
+    "bpm",
+    "parts",
+    "patterns",
+    "song",
+    "mix"
+  ],
+  "title": "Score",
+  "type": "object"
+}

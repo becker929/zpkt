@@ -1,7 +1,7 @@
 """A/B against reference tracks, and show a spectrum analyzer.
 
 Reference tracks are audio tracks named "REF <name>", kept muted while the mix
-plays (see docs/hw002/references.md). Listening to a reference unmutes and
+plays (see docs/journal/hw002/references.md). Listening to a reference unmutes and
 solos it, so the mix goes quiet without touching its own mutes. Going back
 unsolos and re-mutes every reference.
 

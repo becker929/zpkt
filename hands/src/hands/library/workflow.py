@@ -36,7 +36,7 @@ STEPS: tuple[Step, ...] = (
 KEYS = tuple(s.key for s in STEPS)
 BY_KEY = {s.key: s for s in STEPS}
 
-SHORT_S = (33.0, 50.0)       # target length of a Short (docs/hw002, Anthony's 1 Oct feedback)
+SHORT_S = (33.0, 50.0)       # target length of a Short (docs/journal/hw002, Anthony's 1 Oct feedback)
 NEAR_SHORT_S = (25.0, 64.0)  # close enough to cut down or pad out
 MASTER_LUFS = (-14.0, -11.0)  # ears/mlab/guides/youtube-short-delivery.md
 MASTER_TP = -1.0              # dBTP; the spec says -1.5, -1.0 allows for meter differences

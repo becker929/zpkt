@@ -10,4 +10,4 @@ The Live runtime the spine runs on.
   built-in output); renders work on either.
 
 The failure modes it guards against are listed in
-`hands/.cursor/skills/ableton-guide/SKILL.md` (silent bounces, §0 and §2).
+`agent/skills/ableton-guide/SKILL.md` (silent bounces, §0 and §2).

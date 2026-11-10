@@ -1,6 +1,6 @@
 # SH001, the short The Rummage plays
 
-The music for The Rummage (`docs/rummage.md`): a 32-bar short in three parts with three options each, made in Ableton
+The music for The Rummage (`docs/design/rummage.md`): a 32-bar short in three parts with three options each, made in Ableton
 Live 12 Suite by hands and rendered as all 27 combinations. The page plays the renders (`docs/sound.md`); it never
 makes or changes sound.
 
@@ -76,7 +76,7 @@ the rip are Simplers of their own. Paper LDre is quiet (about -35 dBFS): the rip
 
 Where things go: the set and the WAV renders under `~/_agent_scratch/rummage/` (never `~/Music`), the .m4a files in
 `~/_agent_scratch/studio/regions/rummage/audio/` (the harness serves them at `/studio/regions/rummage/audio/<file>`),
-the manifest at `lib/harness/src/harness/studio/static/checklist/rummage/audio.json`. Audio never goes in git.
+the manifest at `contrib/harness/src/harness/studio/static/checklist/rummage/audio.json`. Audio never goes in git.
 
 Notes from making it (14-15 October 2026):
 

@@ -13,10 +13,10 @@ parts, and it runs across every stage of making a track.
 
 - [`lib/rig/`](lib/rig/): the Live runtime — headless display, startup,
   preflight.
-- [`lib/record/`](lib/record/): what the system keeps — models, renders,
+- [`contrib/skrng/`](contrib/skrng/): what the system keeps — models, renders,
   publishing to [anthonybecker.me/skrng](https://anthonybecker.me/skrng/).
 - [`lib/contracts/`](lib/contracts/): the JSON that crosses between parts.
-- [`lib/harness/`](lib/harness/): Claude Code jobs started from the
+- [`contrib/harness/`](contrib/harness/): Claude Code jobs started from the
   browser (/skrng feedback), over an outbound socket to the site.
 
 Beside the main path:
@@ -32,7 +32,7 @@ Beside the main path:
     corpus holds five seed verdicts and no real picks yet.
   - [`engineer/`](prototypes/engineer/): what should be tried next,
     unattended? Its loop and genetic algorithm are not wired in.
-  - [`letta-vibe/`](prototypes/letta-vibe/): a Letta agent that drives
+  - [`letta-vibe/`](contrib/letta-vibe/): a Letta agent that drives
     Live, a phone page for listening and feedback, and their MCP bridge.
 
 ## The main path is perpendicular to the workflow
@@ -53,7 +53,7 @@ shows the prototypes beside the main path. Mastering is a step, not a component.
 
 Work happens out of order, so a track's headline is its lowest incomplete step.
 `hands library inventory` reads the library of WIP projects and reports each track's seven
-steps with the evidence behind them; dated reports are in [docs/inventory/](docs/inventory/).
+steps with the evidence behind them; dated reports are in [docs/journal/inventory/](docs/journal/inventory/).
 
 **Sound in zpkt's pages is rendered files only.** The browser never does the DAW's job, mock-ups included: no
 synthesis, EQ, dynamics, effects or mix moves. Pages play rendered audio through one player engine (Web Audio, used
@@ -73,8 +73,8 @@ Two rules keep the parts honest:
 | Directory | From | Notes |
 |---|---|---|
 | `hands/` | github.com/becker929/hands | Live control: the `hands` library and CLI |
-| `hands/archive/` | hands' batch, bench and sweep scripts, Sep-Oct 2026 | kept for reference, unmaintained |
-| `hands/skills/` | the old Mac's agent skills | driving Live: OSC + LOM, virtual display, export |
+| `prototypes/archive/` | hands' batch, bench and sweep scripts, Sep-Oct 2026 | kept for reference, unmaintained |
+| `agent/skills/` | the old Mac's agent skills | driving Live: OSC + LOM, virtual display, export |
 | `hands/macros/hammerspoon/` | github.com/becker929/hammerspoon-config | music-desk macros, render + upload, backups |
 | `ears/` | github.com/becker929/ears | `ears analyze` — the AudioProfile |
 | `ears/mlab/` | the HW002 mastering lab | calibrated meters, 81 known-answer tests, hypothesis runner (`mlab hyp run`) |
@@ -83,7 +83,7 @@ Two rules keep the parts honest:
 | `prototypes/audio-browser/` | autodaw `feature/audio-browser` | sound-library triage and collage |
 | `prototypes/taste/` | github.com/becker929/taste (+ taste2 prototype) | preference judge, pick corpus |
 | `prototypes/engineer/` | taste's loop, autodaw's GA | `engineer loop` |
-| `prototypes/letta-vibe/` | hands' vibe server, frontend and MCP bridge | `letta-vibe vibe` |
+| `contrib/letta-vibe/` | hands' vibe server, frontend and MCP bridge | `letta-vibe vibe` |
 
 The source repos (hands, ears, taste, taste2-prototype, autodaw,
 hammerspoon-config) are archived, each with a README pointing here.
@@ -98,7 +98,7 @@ The design and history are written up as notes 15–19 on
 
 ```bash
 lib/rig/start_headless.sh                 # bring up Live on the virtual display, check the audio clock
-eval "$(lib/record/fetch_models.sh | grep ^export)"   # embedding model for ears
+eval "$(contrib/skrng/fetch_models.sh | grep ^export)"   # embedding model for ears
 cd ears && uv run ears analyze take.wav    # measure a render
 cd hands && uv run hands record --arrangement --beats 80 --output take.wav
 cd hands && uv run hands library inventory --markdown   # where every WIP track is in the seven steps

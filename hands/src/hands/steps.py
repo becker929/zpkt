@@ -1,6 +1,6 @@
 """Tell the studio app about a step, so it can take a screenshot of it, and log timings.
 
-The studio (docs/studio.md) gives scripts a loopback-only endpoint in the environment:
+The studio (docs/design/studio.md) gives scripts a loopback-only endpoint in the environment:
 STUDIO_STEP_URL, with its token in STUDIO_STEP_TOKEN. `report` posts one step there:
 "major" for the moments worth a picture at the default level (a set opened, an export done, a
 guard tripped), "minor" for the small steps in between. Without the variables it does nothing.

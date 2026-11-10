@@ -5,7 +5,7 @@
 Reads one experiment rendered in Live by zpkt hands/scripts/probe_pack/ab_live.py
 (~/_agent_scratch/probepack/ab8/<experiment>/): pattern 0 is the baseline (batch 6 "all"),
 patterns 1-3 the alternatives at the low end, centre and high end of a target range.
-The format follows Anthony's review of batches 6 and 7 (zpkt docs/hw002/batch-6-7-decisions.md):
+The format follows Anthony's review of batches 6 and 7 (zpkt docs/journal/hw002/batch-6-7-decisions.md):
 
 - Tracks 1-3: one alternative against the baseline, switching every 2 bars, the
   alternative first ("on, off, on, off"), 16 bars.
@@ -29,7 +29,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import publish as P5  # noqa: E402  (at, announce)
 import publish6 as P6  # noqa: E402  (upload, SITE)
 
-sys.path.insert(0, os.path.expanduser("~/Desktop/zpkt/lib/record"))
+sys.path.insert(0, os.path.expanduser("~/Desktop/zpkt/contrib/skrng"))
 import batch_intro as BI  # noqa: E402
 
 DATA = os.path.expanduser("~/_agent_scratch/probepack/ab8/")

@@ -100,17 +100,17 @@ hands ab toggle | next | status;  hands spectrum
 `scripts/probe_pack/` holds the HW002 batch-8 experiments that run on the library: `sweep8.py`
 (sweeps and A/B batches in mix/solo/rest views), `ab_live.py` (experiments; source sets for kits)
 and `climb_live.py` (the batch 6 hill climber, whose bests are batch 8's baseline). The pipeline is
-in `../docs/hw002/batch-8-chord-and-break.md`; the measurements behind probe packing are in
+in `../docs/journal/hw002/batch-8-chord-and-break.md`; the measurements behind probe packing are in
 `docs/probe-packing-findings.md`. `archive/` keeps the older batch, bench and sweep scripts for
 reference; they no longer run.
 
 ## In zpkt
 
 - The headless rig startup is `../lib/rig/start_headless.sh`.
-- Agent skills for driving Live are in `skills/` and `.cursor/skills/ableton-guide` (the LOM crash
+- Agent skills for driving Live are in `skills/` and `agent/skills/ableton-guide` (the LOM crash
   rules); Hammerspoon macros in `macros/hammerspoon/`.
 - The Letta/vibe stack (vibe server, its frontend, the MCP bridge for Letta) moved to
-  `../prototypes/letta-vibe`.
+  `../contrib/letta-vibe`.
 
 ## Tests
 

@@ -23,7 +23,7 @@ from hands.library.models import Inventory, StepKey, StepScore, TrackReport
 from hands.library.score import Export, Project
 
 ZPKT = Path(__file__).resolve().parents[4]
-CENTRAL_RECORDS = ZPKT / "docs" / "inventory" / "records.toml"
+CENTRAL_RECORDS = ZPKT / "docs" / "journal" / "inventory" / "records.toml"
 BROWSER_PROJECTS = ZPKT / "prototypes" / "audio-browser" / "projects"
 PRUNE = {"Backup", "Samples", "Ableton Project Info", ".git", "__MACOSX"}
 SKIP_SET = re.compile(r"^(debug|ref|test|tmp|scratch)([_\- .]|$)", re.I)

@@ -9,7 +9,7 @@
 The composition and the sounds are in parts.py. Live 12 Suite's own instruments, kits and Core Library samples only.
 The set is ~/_agent_scratch/rummage/set/SH001_rummage Project/SH001_rummage.als; renders go to
 ~/_agent_scratch/rummage/renders/ (never ~/Music), the .m4a files to ~/_agent_scratch/studio/regions/rummage/audio/
-(served by the harness), and the manifest to lib/harness/.../static/checklist/rummage/audio.json. Audio never goes
+(served by the harness), and the manifest to contrib/harness/.../static/checklist/rummage/audio.json. Audio never goes
 in git.
 
 Each Live step is checked: hands' guard before it (no dialog, this set in front, the LOM answering), a read-back
@@ -30,7 +30,7 @@ import liveops as L  # sets the rig environment before hands is imported
 import parts as P
 
 ROOT = Path(__file__).resolve().parents[3]
-MANIFEST = ROOT / "lib/harness/src/harness/studio/static/checklist/rummage/audio.json"
+MANIFEST = ROOT / "contrib/harness/src/harness/studio/static/checklist/rummage/audio.json"
 RENDERS = L.SCRATCH / "renders"
 WEB = Path("~/_agent_scratch/studio/regions/rummage/audio").expanduser()
 SECONDS = P.BEATS * 60.0 / P.BPM

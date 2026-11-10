@@ -1,6 +1,6 @@
 """Records: a step's state on Anthony's word, or from a decision written down in zpkt docs. They beat the heuristic.
 
-Two places, same shape. The central file (docs/inventory/records.toml in zpkt) keys tables by track:
+Two places, same shape. The central file (docs/journal/inventory/records.toml in zpkt) keys tables by track:
 
     [HW002]
     note = "the Short is cut from the full track"
@@ -9,7 +9,7 @@ Two places, same shape. The central file (docs/inventory/records.toml in zpkt) k
     percent = 80
     by = "docs"
     note = "canonical shape chosen (batch 4.3 track 1); chord loop still missing"
-    source = "docs/hw002/batch-4.3-4.4-decisions.md"
+    source = "docs/journal/hw002/batch-4.3-4.4-decisions.md"
     date = "2026-10-06"
 
     [HW002.release]

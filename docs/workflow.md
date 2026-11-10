@@ -21,9 +21,9 @@ A track at "III. arrange" may already have mix work done.
 
 ## Targets
 
-- **Length.** 33–50 s, from Anthony's feedback on 1 October 2026 (see `docs/hw002/`).
+- **Length.** 33–50 s, from Anthony's feedback on 1 October 2026 (see `docs/journal/hw002/`).
   Genre Shorts that travel run 6–34 s.
-  Label previews run 42–60 s per track (`docs/hw002/arrangement-references.md`). YouTube allows up to 3 minutes.
+  Label previews run 42–60 s per track (`docs/journal/hw002/arrangement-references.md`). YouTube allows up to 3 minutes.
 - **Grid.** Mostly 4- and 8-bar sections on a power-of-two grid. Never open on a single bar.
 - **Loudness.** -14 to -11 LUFS integrated; YouTube turns louder masters down to about -14.
   True peak at most -1.5 dBTP, since AAC adds about 0.5 dB
@@ -74,7 +74,7 @@ A record sets a step's percent and beats the heuristic, in both directions.
 The heuristic's own figure and evidence stay in the report beside it.
 Records live in two places with the same fields:
 
-- `docs/inventory/records.toml` in zpkt, tables keyed by track. Agents add records here in a PR.
+- `docs/journal/inventory/records.toml` in zpkt, tables keyed by track. Agents add records here in a PR.
 - `zpkt-workflow.toml` in a project folder, with step tables at the top level.
   Anthony writes that one, so it wins. Agents never write into the library.
 
@@ -87,7 +87,7 @@ percent = 40
 by = "docs"            # anthony: his word; docs: a decision in zpkt docs; agent: an agent's judgment
 date = "2026-10-09"
 note = "Batch 6 'all' is the baseline; batches 8.2-8.7 wait for listening."
-source = "docs/hw002/batch-6-7-decisions.md"
+source = "docs/journal/hw002/batch-6-7-decisions.md"
 
 [HW002.release]
 percent = 100
@@ -112,7 +112,7 @@ The library root comes from the rig settings: `library_dir` in `~/.config/zpkt/r
 `ZPKT_LIBRARY_DIR` (see `hands/README.md`). The scan is read-only.
 It lists folders and reads `.als` files.
 With `--measure` it decodes at most three files per track.
-Reports are dated in `docs/inventory/`.
+Reports are dated in `docs/journal/inventory/`.
 
 ## Known weak spots
 

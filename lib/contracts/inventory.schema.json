@@ -30,7 +30,7 @@
         },
         "source": {
           "default": "",
-          "description": "where it is written down, e.g. docs/hw002/batch-6-7-decisions.md",
+          "description": "where it is written down, e.g. docs/journal/hw002/batch-6-7-decisions.md",
           "title": "Source",
           "type": "string"
         },
