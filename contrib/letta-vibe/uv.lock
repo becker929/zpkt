@@ -480,20 +480,27 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
-    { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.10" },
+    { name = "cbor2", marker = "extra == 'serum'", specifier = ">=5.6" },
+    { name = "mido", marker = "extra == 'serum'", specifier = ">=1.3" },
+    { name = "mypy", marker = "extra == 'dev'", specifier = ">=2.4.0" },
     { name = "numpy", specifier = ">=2.0" },
+    { name = "numpy", marker = "extra == 'plans'", specifier = ">=2.0" },
+    { name = "pedalboard", marker = "extra == 'serum'", specifier = ">=0.9" },
     { name = "pydantic", specifier = ">=2.0.0" },
+    { name = "pyloudnorm", marker = "extra == 'plans'", specifier = ">=0.1.1" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.0" },
     { name = "rich", specifier = ">=13.0.0" },
     { name = "soundfile", specifier = ">=0.12" },
-    { name = "typer", specifier = ">=0.12.0" },
+    { name = "soundfile", marker = "extra == 'plans'", specifier = ">=0.12" },
+    { name = "typer", specifier = ">=0.27.3" },
+    { name = "zstandard", marker = "extra == 'serum'", specifier = ">=0.23" },
 ]
-provides-extras = ["dev"]
+provides-extras = ["plans", "serum", "dev"]
 
 [package.metadata.requires-dev]
 dev = [
     { name = "jsonschema", specifier = ">=4.26.0" },
-    { name = "mypy", specifier = ">=1.19.1" },
+    { name = "mypy", specifier = ">=2.4.0" },
     { name = "pytest", specifier = ">=9.0.2" },
 ]
 

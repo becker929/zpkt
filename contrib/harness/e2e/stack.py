@@ -22,7 +22,7 @@ from harness.studio.shots import Frame
 from harness.studio.speech import VoiceWorker
 from harness.web import App
 
-PLANS = Path(os.environ.get("HANDS_PLANS", "~/_agent_scratch/plans")).expanduser()
+PLANS = Path(os.environ.get("HANDS_PLANS") or os.environ.get("ZPKT_PLANS_DIR") or "~/_agent_scratch/plans").expanduser()
 
 # The real Claude, told what a test run is: without it, it rightly stops before presenting stand-in tones as music.
 TEST_NOTE = ("This session is an automated end-to-end test of the app, not Anthony. The user is a virtual tester. "

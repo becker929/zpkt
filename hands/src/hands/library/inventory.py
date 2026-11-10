@@ -23,7 +23,6 @@ from hands.library.models import Inventory, StepKey, StepScore, TrackReport
 from hands.library.score import Export, Project
 
 ZPKT = Path(__file__).resolve().parents[4]
-CENTRAL_RECORDS = ZPKT / "docs" / "journal" / "inventory" / "records.toml"
 BROWSER_PROJECTS = ZPKT / "prototypes" / "audio-browser" / "projects"
 PRUNE = {"Backup", "Samples", "Ableton Project Info", ".git", "__MACOSX"}
 SKIP_SET = re.compile(r"^(debug|ref|test|tmp|scratch)([_\- .]|$)", re.I)
@@ -175,7 +174,7 @@ def sort_key(t: TrackReport) -> tuple:
     return (-idx, -at, -t.overall, t.track.lower())
 
 
-def inventory(roots: Iterable[Path], *, exports: Iterable[Path] = (), records_file: Path | None = CENTRAL_RECORDS,
+def inventory(roots: Iterable[Path], *, exports: Iterable[Path] = (), records_file: Path | None = None,
               browser: Path | None = BROWSER_PROJECTS, measure: Measure | None = None) -> Inventory:
     """Scan every root, score every project, apply records. measure (e.g. measure_mlab) reads loudness of up to
     three master candidates per track."""

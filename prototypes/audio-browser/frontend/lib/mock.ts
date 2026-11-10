@@ -281,7 +281,7 @@ function buildCollection(): MockFile[] {
         ? `${folder}/song ${a + 1}.logicx/Media/Audio Files/`
         : `${folder}/${a > 0 ? `bounce ${a}/` : ""}`;
       aliases.push({
-        path: `/Users/anthonybecker/_tmsmsm/daw-library/${root}/${where}${filename}`,
+        path: `~/Music/daw-library/${root}/${where}${filename}`,
         root,
         filename,
         ext,

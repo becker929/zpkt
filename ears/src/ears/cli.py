@@ -9,7 +9,9 @@ import typer
 from rich.console import Console
 from rich.table import Table
 
-app = typer.Typer(name="ears", help="ears — audio perception layer for the agent harness.")
+app = typer.Typer(name="ears", help="ears: measure a render. Loudness, true peak, spectra, embeddings, your corpus.")
+corpus_app = typer.Typer(help="Your reference corpus: build it once from a folder, then place renders in it.")
+app.add_typer(corpus_app, name="corpus")
 console = Console()
 err_console = Console(stderr=True)
 
@@ -130,6 +132,80 @@ def compare(
     for p in (a, b):
         if p.errors:
             console.print(f"  [yellow]{Path(p.audio_path).name}:[/yellow] {', '.join(p.errors)}")
+
+
+@corpus_app.command("build")
+def corpus_build(
+    folder: Path = typer.Argument(..., help="Folder of reference tracks (searched recursively)."),
+    out: Path = typer.Option(None, "--out", help="Corpus file to write (default $EARS_CORPUS, else ~/.cache/zpkt/corpus.json)."),
+    no_embeddings: bool = typer.Option(False, "--no-embeddings", help="Skip DCLAP embeddings."),
+) -> None:
+    """Measure every track in FOLDER once and write the corpus file."""
+    from . import corpus as _corpus
+
+    if not folder.is_dir():
+        err_console.print(f"[red]Not a folder: {folder}[/red]")
+        raise typer.Exit(1)
+
+    def progress(i: int, n: int, path: Path) -> None:
+        err_console.print(f"[dim]{i + 1}/{n}[/dim] {path.name}")
+
+    try:
+        built = _corpus.build(folder, embeddings=not no_embeddings, progress=progress)
+    except ValueError as exc:
+        err_console.print(f"[red]{exc}[/red]")
+        raise typer.Exit(1)
+    path = _corpus.save(built, out or _corpus.default_path())
+    with_vectors = sum(1 for t in built["tracks"] if t.get("embedding"))
+    console.print(f"{len(built['tracks'])} tracks ({with_vectors} with embeddings, {len(built['skipped'])} skipped) -> {path}")
+    if not no_embeddings and not with_vectors:
+        console.print("[yellow]No embeddings: set EARS_DCLAP_MODEL (see the README). Measures still work.[/yellow]")
+
+
+@corpus_app.command("distance")
+def corpus_distance(
+    audio_path: Path = typer.Argument(..., help="The render to place in the corpus."),
+    corpus_path: Path = typer.Option(None, "--corpus", help="Corpus file (default $EARS_CORPUS, else ~/.cache/zpkt/corpus.json)."),
+    no_embeddings: bool = typer.Option(False, "--no-embeddings", help="Skip DCLAP embedding."),
+    json_out: bool = typer.Option(False, "--json", help="Output raw JSON to stdout."),
+) -> None:
+    """Place a render in your corpus: each measure against the corpus's range, and the nearest tracks."""
+    from . import corpus as _corpus
+    from .analyzer import analyze as _analyze
+
+    if not audio_path.exists():
+        err_console.print(f"[red]File not found: {audio_path}[/red]")
+        raise typer.Exit(1)
+    try:
+        loaded = _corpus.load(corpus_path)
+    except (FileNotFoundError, ValueError) as exc:
+        err_console.print(f"[red]{exc}[/red]")
+        raise typer.Exit(1)
+    profile = _analyze(str(audio_path), run_embeddings=not no_embeddings)
+    result = _corpus.distance(profile, loaded)
+    if json_out:
+        print(json.dumps(result))
+        return
+    console.print(f"[bold]{audio_path.name}[/bold] against {result['corpus_tracks']} corpus tracks")
+    t = Table(show_header=True, header_style="dim", box=None, padding=(0, 1))
+    for col in ("Measure", "Yours", "Median", "p10", "p90", "z"):
+        t.add_column(col, justify="left" if col == "Measure" else "right")
+    for name, m in result["measures"].items():
+        z = "n/a" if m["z"] is None else f"{m['z']:+.1f}"
+        style = None if m["inside"] else "yellow"
+        t.add_row(name, f"{m['value']:.3g}", f"{m['median']:.3g}", f"{m['p10']:.3g}", f"{m['p90']:.3g}", z, style=style)
+    console.print(t)
+    console.print("[dim]Yellow rows are outside the corpus's 10th to 90th percentile.[/dim]")
+    emb = result["embedding"]
+    if emb:
+        console.print(f"\nEmbedding: {emb['to_centre']:.3f} to the corpus centre "
+                      f"(corpus tracks: median {emb['corpus_median']:.3f}, 10th percentile {emb['corpus_p10']:.3f})")
+        for near in emb["nearest"]:
+            console.print(f"  {near['cosine']:.3f}  {near['path']}")
+    else:
+        console.print("\n[dim]No embedding distance (set EARS_DCLAP_MODEL and rebuild the corpus to get it).[/dim]")
+    if profile.errors:
+        console.print(f"\n[yellow]Errors:[/yellow] {', '.join(profile.errors)}")
 
 
 def _json_default(obj):

@@ -27,12 +27,8 @@ from hands.models import (
     SamplePad,
 )
 
-_DEFAULT_SAMPLE_BASE = (
-    "/Users/anthonybecker/Desktop/tmsmsm/current projects/"
-    "Schranz, SNTS percussion/anthony_2026-03-15/"
-    "1_anthony_2026-03-15 Project/Samples/Imported"
-)
-SAMPLE_BASE = os.getenv("SCHRANZ_SAMPLE_BASE", _DEFAULT_SAMPLE_BASE)
+# The folder that holds the one-shots named below. Point it at your own samples.
+SAMPLE_BASE = os.getenv("SCHRANZ_SAMPLE_BASE", os.path.expanduser("~/Music/zpkt/samples"))
 
 
 # ---------------------------------------------------------------------------

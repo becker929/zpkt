@@ -23,7 +23,11 @@ NEAR = 0.08          # within 8% of the knobs' ranges (Euclidean, across knobs) 
 
 
 def cache_dir() -> Path:
-    return Path(os.environ.get("HANDS_PLANS", "~/_agent_scratch/plans")).expanduser()
+    """Where plans and their renders are kept: $HANDS_PLANS for one run, else the rig's plans_dir."""
+    if os.environ.get("HANDS_PLANS"):
+        return Path(os.environ["HANDS_PLANS"]).expanduser()
+    from hands import config
+    return config.rig().plans_dir
 
 
 @dataclass

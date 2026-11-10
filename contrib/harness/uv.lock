@@ -1562,6 +1562,7 @@ dependencies = [
 [package.metadata]
 requires-dist = [
     { name = "kokoro-onnx", marker = "extra == 'engines'", specifier = ">=0.6" },
+    { name = "nltk", marker = "extra == 'engines'", specifier = ">=3.9" },
     { name = "numpy", specifier = ">=2" },
     { name = "parakeet-mlx", marker = "extra == 'engines'", specifier = ">=0.5.3" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.0" },

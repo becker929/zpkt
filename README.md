@@ -78,7 +78,7 @@ Two rules keep the parts honest:
 | `hands/macros/hammerspoon/` | github.com/becker929/hammerspoon-config | music-desk macros, render + upload, backups |
 | `ears/` | github.com/becker929/ears | `ears analyze` — the AudioProfile |
 | `ears/mlab/` | the HW002 mastering lab | calibrated meters, 81 known-answer tests, hypothesis runner (`mlab hyp run`) |
-| `ears/soundfunction/` | anthonybecker.me research branch | sound-function measures, knob-map results, docs |
+| `prototypes/soundfunction/` | anthonybecker.me research branch | sound-function measures, knob-map results, docs |
 | `humming/` | anthonybecker.me research copy | transcriber and HumTrans benchmarks |
 | `prototypes/audio-browser/` | autodaw `feature/audio-browser` | sound-library triage and collage |
 | `prototypes/taste/` | github.com/becker929/taste (+ taste2 prototype) | preference judge, pick corpus |
