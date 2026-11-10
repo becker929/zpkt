@@ -47,6 +47,14 @@ docs/journal/      dated working docs
 6. CI green on every part; a fresh-clone dry run following only the README.
 7. Branch, PR, merge.
 
+## What changed from the plan
+
+- `hands/archive` was kept, under `prototypes/archive`, with the knob-measure-map skill that depends on it.
+- `ears/soundfunction` moved to `prototypes/soundfunction`: it is research, not part of the measured path.
+- `lib/` stays, with `rig` and `contracts`. `lib/record` became `contrib/skrng`.
+- The Live Remote Script is vendored (`hands/remote_scripts/AbletonLiveMCP`, MIT), so a clone can install it.
+- The embedding model is a public download (`ears/scripts/fetch_model.sh`).
+
 ## Still to settle as I go
 
 - Whether `lib/` stays a name or folds into core.
