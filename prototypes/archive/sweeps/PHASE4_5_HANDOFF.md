@@ -87,7 +87,7 @@ cd ~/sandbox/autodaw/hands
 uv run python sweeps/rig.py solo-device --track 6 --device <N> --name <task>
 timeout 900 uv run python sweeps/run_sweep_stem.py --sweep sweeps/<spec>.sweep.json \
   --capture-track 44 --source-track 6 --source-input "Kick (G)"
-export EARS_CMD="/Users/anthonybecker/_agent_scratch/ears_lab/.venv/bin/ears"
+export EARS_CMD="~/_agent_scratch/ears_lab/.venv/bin/ears"
 uv run python sweeps/assemble_curve.py --dir sweeps/out/<id> \
   --ears-cmd "uv run python sweeps/ears_shim.py" \
   --measure-keys crest_db sub_share low_share mid_share high_share air_share \

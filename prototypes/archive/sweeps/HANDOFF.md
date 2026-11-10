@@ -118,7 +118,7 @@ Style=0.5, AutoGain off) at 0.025 resolution across Drive 0.4..0.7,
   STEM_KICK_4on4 session clip still in place, Decapitator still the only
   enabled FX. Next moves per the skill: (2) sweep StandardCLIP threshold
   at devices[6] for a cleaner crest control, or (3) swap in the real
-  `ears` lab. The clone is disposable under `/Users/anthonybecker/_agent_scratch/`.
+  `ears` lab. The clone is disposable under `~/_agent_scratch/`.
 
 SECOND KNOB, A CLEAN CREST LEVER (turn 6): swept the **StandardCLIP**
 clipper on the SAME kick (Kick (G) devices[6]). Its `Clipping` param is
@@ -231,7 +231,7 @@ Decapitator OFF, all else fixed), same STEM_CAP=track44 tap.
 
 MOVE (3) DONE -- the real `ears` lab now RUNS (turn 8, delegated to a subagent).
 This REVERSES the prior "not runnable / out of scope" note. Built an isolated
-venv at `/Users/anthonybecker/_agent_scratch/ears_lab` (source copied out of the
+venv at `~/_agent_scratch/ears_lab` (source copied out of the
 read-only archive; archive untouched): `uv venv --python 3.12` +
 `uv pip install librosa numpy pyloudnorm soundfile typer rich` +
 `uv pip install -e . --no-deps`. Network (PyPI) was NOT blocked after all.
@@ -250,11 +250,11 @@ degrade gracefully). `requires-python >=3.12` mattered; pinned CPython 3.12.6.
   switching to ears on these stems.
 - THE SHIM (so ears can drop into assemble_curve.py --ears-cmd): real ears has
   NO flat `sub_share` and NO `crest`/`crest_db`. A shim at
-  `/Users/anthonybecker/_agent_scratch/ears_lab/ears_shim.py` maps
+  `~/_agent_scratch/ears_lab/ears_shim.py` maps
   loudness.band_energy.{sub,low,mid,high,air} -> {sub,low,mid,high,air}_share
   and computes crest = 20*log10(peak/rms) from the wav (same math as
-  measure_local). Invoke: `--ears-cmd "/Users/anthonybecker/_agent_scratch/
-  ears_lab/.venv/bin/python /Users/anthonybecker/_agent_scratch/ears_lab/
+  measure_local). Invoke: `--ears-cmd "~/_agent_scratch/
+  ears_lab/.venv/bin/python ~/_agent_scratch/ears_lab/
   ears_shim.py" --measure-keys crest sub_share`. Proven end-to-end.
 - STILL TRUE: ears' lufs_integrated / true_peak are GAIN-DEPENDENT (the sample
   above read lufs ~-24 LUFS), so they remain MEANINGLESS on our gain-scaled
@@ -348,7 +348,7 @@ re-checked against this number.
 
 Bounced every surviving track of two real sets to isolated per-track wav +
 `.params.json`, per `research/live-multitrack-bounce.md`. Both clones live
-under `/Users/anthonybecker/_agent_scratch/`; originals were never opened.
+under `~/_agent_scratch/`; originals were never opened.
 
 - **HW002** (`_agent_scratch/HW002/HW002_14.als`): all 12 surviving tracks
   bounced, verified clean. `out/live_multitrack_bounce_v1/hw002/`.
@@ -493,7 +493,7 @@ Then measure + assemble the curve. **ears is the measurer of record:**
 ```bash
 uv run python sweeps/assemble_curve.py \
   --dir sweeps/out/<sweep_id> \
-  --ears-cmd "/Users/anthonybecker/_agent_scratch/ears_lab/.venv/bin/python /Users/anthonybecker/_agent_scratch/ears_lab/ears_shim.py" \
+  --ears-cmd "~/_agent_scratch/ears_lab/.venv/bin/python ~/_agent_scratch/ears_lab/ears_shim.py" \
   --measure-keys crest sub_share low_share mid_share high_share air_share \
   --out sweeps/out/<sweep_id>/<sweep_id>.acceptance.ears.csv
 ```
@@ -530,7 +530,7 @@ and both return byte-identical real-ears band shares. Prefer the FIRST.
 ### 12a. PREFERRED: the in-repo shim + `EARS_CMD` (durable)
 
 ```bash
-export EARS_CMD="/Users/anthonybecker/_agent_scratch/ears_lab/.venv/bin/ears"
+export EARS_CMD="~/_agent_scratch/ears_lab/.venv/bin/ears"
 uv run python sweeps/assemble_curve.py --dir sweeps/out/<sweep_id> \
   --ears-cmd "uv run python sweeps/ears_shim.py" \
   --measure-keys crest_db sub_share low_share mid_share high_share air_share \
@@ -553,7 +553,7 @@ Note it emits **`crest_db`**, so use `crest_db` in `--measure-keys`.
 ### 12b. Equivalent: the lab-side shim (emits `crest`)
 
 ```
---ears-cmd "/Users/anthonybecker/_agent_scratch/ears_lab/.venv/bin/python /Users/anthonybecker/_agent_scratch/ears_lab/ears_shim.py"
+--ears-cmd "~/_agent_scratch/ears_lab/.venv/bin/python ~/_agent_scratch/ears_lab/ears_shim.py"
 --measure-keys crest sub_share low_share mid_share high_share air_share
 ```
 
@@ -574,7 +574,7 @@ with real ears to better than 3.2e-8 on every measured sweep (section 4).
 
 ### 12d. The raw lab
 
-`/Users/anthonybecker/_agent_scratch/ears_lab/` with a working `.venv`, a
+`~/_agent_scratch/ears_lab/` with a working `.venv`, a
 `pyproject.toml`, and a `uv.lock` (220 KB — that lock IS the version pin, copy
 it somewhere durable). Raw CLI:
 `.venv/bin/ears analyze <wav> --json --no-embeddings`. Real `ears` emits NESTED

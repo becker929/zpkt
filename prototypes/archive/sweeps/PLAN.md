@@ -26,11 +26,11 @@ Order:
 - Curve builder: `assemble_curve.py`. Joins bounces + a measurer into an
   acceptance CSV.
 - The map: `MAP.md`. The log: `HANDOFF.md` (append findings to section 4).
-- Real lab: `/Users/anthonybecker/_agent_scratch/ears_lab/` with a working
+- Real lab: `~/_agent_scratch/ears_lab/` with a working
   `.venv` and a shim `ears_shim.py`.
 - ears run line: `.venv/bin/ears analyze <wav> --json --no-embeddings`.
 - ears via the pipeline:
-  `--ears-cmd "/Users/anthonybecker/_agent_scratch/ears_lab/.venv/bin/python /Users/anthonybecker/_agent_scratch/ears_lab/ears_shim.py"`.
+  `--ears-cmd "~/_agent_scratch/ears_lab/.venv/bin/python ~/_agent_scratch/ears_lab/ears_shim.py"`.
 - Live clone is open. Rig is up: capture track `STEM_CAP` = `song.tracks[44]`,
   session clip on `song.tracks[6].clip_slots[0]`. Kick (G) = `song.tracks[6]`.
 

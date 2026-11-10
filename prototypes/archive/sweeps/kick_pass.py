@@ -3,12 +3,12 @@ the track's REAL content (0 to 704 beats) plus a 4-beat tail, not to
 song.last_event_time, which sits far past the end of the music."""
 import shutil, sys, time
 from pathlib import Path
-sys.path.insert(0, "/Users/anthonybecker/.agents/skills/ableton-live-control/scripts")
+sys.path.insert(0, "~/.agents/skills/ableton-live-control/scripts")
 from live_mcp import LiveMcp
 
 SRC, LFO, CAP = 2, 4, 18
 BEATS = 708.0            # 704 content + 4 beat tail
-OUT = Path("/Users/anthonybecker/sandbox/sound-function/stems/hw002_bypass")
+OUT = Path("~/sandbox/sound-function/stems/hw002_bypass")
 live = LiveMcp()
 
 def run(code):

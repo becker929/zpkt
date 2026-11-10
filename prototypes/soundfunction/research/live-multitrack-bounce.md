@@ -50,11 +50,11 @@ sidecar per stem, and skip anything already rendered on a re-run.
 Exactly the PLAYBOOK's clone step. Never open the artist's real file.
 
 ```bash
-mkdir -p "/Users/anthonybecker/_agent_scratch"
-cp -Rc "/Users/anthonybecker/_tmsmsm/.../PROJECT_FOLDER" \
-       "/Users/anthonybecker/_agent_scratch/PROJECT_FOLDER"
+mkdir -p "~/_agent_scratch"
+cp -Rc "~/_tmsmsm/.../PROJECT_FOLDER" \
+       "~/_agent_scratch/PROJECT_FOLDER"
 open -a "Ableton Live 12 Suite" \
-     "/Users/anthonybecker/_agent_scratch/PROJECT_FOLDER/THE_SET.als"
+     "~/_agent_scratch/PROJECT_FOLDER/THE_SET.als"
 ```
 
 `cp -Rc` on APFS is instant and copy-on-write, so edits to the clone cannot

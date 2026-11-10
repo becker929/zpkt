@@ -18,13 +18,13 @@ import json, shutil, sys, time, wave
 from datetime import datetime, timezone
 from pathlib import Path
 
-sys.path.insert(0, "/Users/anthonybecker/.agents/skills/ableton-live-control/scripts")
+sys.path.insert(0, "~/.agents/skills/ableton-live-control/scripts")
 from live_mcp import LiveMcp  # noqa: E402
 
 SRC_TRACK = 3
 LFO_DEVICE = 4
-OUT = Path("/Users/anthonybecker/sandbox/sound-function/stems/hw002_bypass")
-SOURCE_SET = "/Users/anthonybecker/_agent_scratch/HW002_rumble_bypass/HW002_14.als"
+OUT = Path("~/sandbox/sound-function/stems/hw002_bypass")
+SOURCE_SET = "~/_agent_scratch/HW002_rumble_bypass/HW002_14.als"
 SETTLE = 4.0
 
 live = LiveMcp()

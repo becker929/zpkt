@@ -3,8 +3,8 @@
   "job_type": "multitrack_bounce",
   "doc": "research/live-multitrack-bounce.md",
   "instrument": "FILL IN: <set name> (clone) / all surviving tracks",
-  "source_set": "FILL IN: /Users/anthonybecker/_agent_scratch/PROJECT_FOLDER/THE_SET.als",
-  "clone_of": "FILL IN: /Users/anthonybecker/_tmsmsm/.../PROJECT_FOLDER (never opened directly)",
+  "source_set": "FILL IN: ~/_agent_scratch/PROJECT_FOLDER/THE_SET.als",
+  "clone_of": "FILL IN: ~/_tmsmsm/.../PROJECT_FOLDER (never opened directly)",
   "capture_track": "FILL IN: index of the reused capture audio track",
   "track_selection": {
     "enumerate": "song.tracks (0-based; song.master_track and song.return_tracks are never enumerated)",

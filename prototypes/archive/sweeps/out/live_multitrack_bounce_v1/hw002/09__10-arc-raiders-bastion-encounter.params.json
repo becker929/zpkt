@@ -44,7 +44,7 @@
   "muted": false,
   "sample_rate": 44100,
   "wav": "09__10-arc-raiders-bastion-encounter.wav",
-  "source_set": "/Users/anthonybecker/_agent_scratch/HW002/HW002_14.als",
+  "source_set": "~/_agent_scratch/HW002/HW002_14.als",
   "capture_track": 18,
   "arrangement_length_beats": 1637.749841304529,
   "timestamp_utc": "2026-09-09T08:48:13.193333+00:00"

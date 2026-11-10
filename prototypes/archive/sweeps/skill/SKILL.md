@@ -77,15 +77,15 @@ target select  ->  clone (COW)  ->  launch Live on clone  ->  locate device/para
 ## 1. Pick a target (rich real project)
 
 The "mothership" of Anthony's projects:
-`/Users/anthonybecker/_tmsmsm/`. Real tracks live under
+`~/_tmsmsm/`. Real tracks live under
 `Active Tracks/` and `daw-library/experimental projects/`.
 
 Rank `.als` files by size — bigger usually means a richer, more-developed set.
 `.als` files are gzipped XML, so size tracks complexity well. Exclude `Backup/`.
 
 ```bash
-find "/Users/anthonybecker/_tmsmsm/Active Tracks" \
-     "/Users/anthonybecker/_tmsmsm/daw-library" \
+find "~/_tmsmsm/Active Tracks" \
+     "~/_tmsmsm/daw-library" \
      -type f -iname "*.als" ! -path "*Backup*" -print0 2>/dev/null \
   | xargs -0 stat -f "%z	%N" 2>/dev/null | sort -rn | head -n 25
 ```
@@ -132,9 +132,9 @@ uses no real disk; edits to the clone can't affect the original. Clone the whole
 project folder so `Samples/` stay linked (the instrument needs them).
 
 ```bash
-mkdir -p "/Users/anthonybecker/_agent_scratch"
-cp -Rc "/Users/anthonybecker/_tmsmsm/.../PROJECT_FOLDER" \
-       "/Users/anthonybecker/_agent_scratch/PROJECT_FOLDER"
+mkdir -p "~/_agent_scratch"
+cp -Rc "~/_tmsmsm/.../PROJECT_FOLDER" \
+       "~/_agent_scratch/PROJECT_FOLDER"
 ```
 
 You then operate on the clone in memory and **never save**. Even a crash leaves
@@ -148,7 +148,7 @@ Live must not already be running (it opens fresh). Check first:
 `pgrep -fl "Ableton Live"`. Then:
 
 ```bash
-open -a "Ableton Live 12 Suite" "/Users/anthonybecker/_agent_scratch/PROJECT_FOLDER/THE_SET.als"
+open -a "Ableton Live 12 Suite" "~/_agent_scratch/PROJECT_FOLDER/THE_SET.als"
 ```
 
 A large set can take 30-60s to load. Poll for Path B (MCP, TCP 16619):
@@ -357,7 +357,7 @@ is verified, not assumed.
 shim.** Use this:
 
 ```bash
-export EARS_CMD="/Users/anthonybecker/_agent_scratch/ears_lab/.venv/bin/ears"
+export EARS_CMD="~/_agent_scratch/ears_lab/.venv/bin/ears"
 --ears-cmd "uv run python archive/sweeps/ears_shim.py"
 --measure-keys crest_db sub_share low_share mid_share high_share air_share
 ```
@@ -381,7 +381,7 @@ and it TELLS you which happened via its `measurer` field:
 Check that field. Do not assume you got the lab.
 
 There is also a lab-side shim at
-`/Users/anthonybecker/_agent_scratch/ears_lab/ears_shim.py`, which is what built
+`~/_agent_scratch/ears_lab/ears_shim.py`, which is what built
 the existing `*.acceptance.ears.csv` files — that is why their crest column is
 named `crest` rather than `crest_db`. Same numbers, but it dies with
 `_agent_scratch`.
@@ -411,7 +411,7 @@ crest changed:
 cd ~/sandbox/autodaw/hands
 uv run python archive/sweeps/assemble_curve.py \
   --dir archive/sweeps/out/snts_kick_decap_drive_v1 \
-  --ears-cmd "/Users/anthonybecker/_agent_scratch/ears_lab/.venv/bin/python /Users/anthonybecker/_agent_scratch/ears_lab/ears_shim.py" \
+  --ears-cmd "~/_agent_scratch/ears_lab/.venv/bin/python ~/_agent_scratch/ears_lab/ears_shim.py" \
   --measure-keys crest sub_share low_share mid_share high_share air_share \
   --out archive/sweeps/out/snts_kick_decap_drive_v1/snts_kick_decap_drive_v1.acceptance.ears.csv
 ```
@@ -490,7 +490,7 @@ automated).
 - Restore the target device `On` to its original value.
 - `song.tracks[6].clip_slots[0].delete_clip()` and
   `song.delete_track(<capture_idx>)` to remove the rig (optional).
-- Quit Live and delete the clone under `/Users/anthonybecker/_agent_scratch/`
+- Quit Live and delete the clone under `~/_agent_scratch/`
   when done, or leave the rig up for follow-up sweeps (finer range, next knob).
 
 ## File map (in `prototypes/archive/sweeps/`)

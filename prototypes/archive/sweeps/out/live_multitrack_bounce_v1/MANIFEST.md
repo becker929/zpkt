@@ -18,12 +18,12 @@ still answer the core question even if it died partway through.
 ## Sets used
 
 - **SNTS Style track 2026-04-21** — clone of
-  `/Users/anthonybecker/_tmsmsm/daw-library/experimental projects/SNTS_4-22/SNTS Style track 2026-04-21.als`,
-  opened at `/Users/anthonybecker/_agent_scratch/SNTS_4-22/SNTS Style track 2026-04-21.als`.
+  `~/_tmsmsm/daw-library/experimental projects/SNTS_4-22/SNTS Style track 2026-04-21.als`,
+  opened at `~/_agent_scratch/SNTS_4-22/SNTS Style track 2026-04-21.als`.
   Tempo 160 BPM. 44 original tracks (before an agent-added capture track).
 - **HW002_14** — clone of
-  `/Users/anthonybecker/_tmsmsm/Active Tracks/HW002/HW002_14.als`, opened at
-  `/Users/anthonybecker/_agent_scratch/HW002/HW002_14.als`. Tempo 160 BPM. 18
+  `~/_tmsmsm/Active Tracks/HW002/HW002_14.als`, opened at
+  `~/_agent_scratch/HW002/HW002_14.als`. Tempo 160 BPM. 18
   original tracks (before an agent-added capture track). Chosen as the
   largest/most-developed non-backup `.als` under that project folder.
 

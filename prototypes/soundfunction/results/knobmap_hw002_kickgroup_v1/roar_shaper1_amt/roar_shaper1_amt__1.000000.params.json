@@ -62,7 +62,7 @@
   ]
  },
  "note": "Row is about the kick group bus as heard: kick + rumble, rumble's LFOTool on. Not a solo kick.",
- "source_set": "/Users/anthonybecker/_agent_scratch/HW002_rumble_bypass/HW002_14.als",
+ "source_set": "~/_agent_scratch/HW002_rumble_bypass/HW002_14.als",
  "wav": "roar_shaper1_amt__1.000000.wav",
  "peak_dbfs": -1.76,
  "timestamp_utc": "2026-09-12T08:46:48.358051+00:00"

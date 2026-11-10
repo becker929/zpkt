@@ -13,7 +13,7 @@ row here is about the group as heard, not a solo kick.
 import json, shutil, sys, time, wave, math, audioop
 from datetime import datetime, timezone
 from pathlib import Path
-sys.path.insert(0, "/Users/anthonybecker/.agents/skills/ableton-live-control/scripts")
+sys.path.insert(0, "~/.agents/skills/ableton-live-control/scripts")
 from live_mcp import LiveMcp
 
 GROUP, CAP = 1, 18
@@ -91,7 +91,7 @@ try:
                     loop_start_beats=LOOP_START, loop_beats=LOOP_BEATS, capture_track=CAP, tap="kick group (bus output)",
                     bus=bus, held={HOLD[2]: HOLD[3], "original": hold_orig},
                     note="Row is about the kick group bus as heard: kick + rumble, rumble's LFOTool on. Not a solo kick. Threshold HELD at 0.4 for this row so the compressor is working; at the set threshold it is idle.",
-                    source_set="/Users/anthonybecker/_agent_scratch/HW002_rumble_bypass/HW002_14.als",
+                    source_set="~/_agent_scratch/HW002_rumble_bypass/HW002_14.als",
                     wav=wav.name, peak_dbfs=round(peak_dbfs(wav), 2), timestamp_utc=datetime.now(timezone.utc).isoformat()), indent=1))
                 print(f"  {v:.4f} -> {wav.name} peak {peak_dbfs(wav):.1f}", flush=True)
         finally:

@@ -8,9 +8,9 @@ Phase 2 of `PLAN.md`. Everything here is verified, not remembered.
 
 | | |
 |---|---|
-| ORIGINAL (Anthony's real work) | `/Users/anthonybecker/_tmsmsm/daw-library/experimental projects/SNTS_4-22/` |
-| CLONE (all our work) | `/Users/anthonybecker/_agent_scratch/SNTS_4-22/` |
-| Copy command | `cp -Rc "<original>" /Users/anthonybecker/_agent_scratch/SNTS_4-22` (`-c` = APFS clone, instant + copy-on-write) |
+| ORIGINAL (Anthony's real work) | `~/_tmsmsm/daw-library/experimental projects/SNTS_4-22/` |
+| CLONE (all our work) | `~/_agent_scratch/SNTS_4-22/` |
+| Copy command | `cp -Rc "<original>" ~/_agent_scratch/SNTS_4-22` (`-c` = APFS clone, instant + copy-on-write) |
 
 **The original is PROVEN untouched.** Verified by checksum, not by trust:
 
@@ -29,7 +29,7 @@ The project contains four set versions; the newest is
 
 ## 2. How to relaunch
 
-1. Confirm the clone exists at `/Users/anthonybecker/_agent_scratch/SNTS_4-22/`.
+1. Confirm the clone exists at `~/_agent_scratch/SNTS_4-22/`.
    If `_agent_scratch` was wiped, re-clone with the `cp -Rc` line above.
 2. Open a set from the CLONE directory — never from `_tmsmsm`. Double-check the
    Live title bar / window path says `_agent_scratch` before touching anything.
@@ -128,7 +128,7 @@ a better property than copying a 220 KB lock plus a venv into the repo.
 Rebuild the lab:
 
 ```bash
-cd /Users/anthonybecker/_agent_scratch/ears_lab   # or wherever the ears source is
+cd ~/_agent_scratch/ears_lab   # or wherever the ears source is
 uv sync                                           # uv.lock IS the pin
 .venv/bin/ears analyze <wav> --json --no-embeddings
 ```

@@ -66,7 +66,7 @@
   "original": 0.713178277015686
  },
  "note": "Row is about the kick group bus as heard: kick + rumble, rumble's LFOTool on. Not a solo kick. Threshold HELD at 0.4 for this row so the compressor is working; at the set threshold it is idle.",
- "source_set": "/Users/anthonybecker/_agent_scratch/HW002_rumble_bypass/HW002_14.als",
+ "source_set": "~/_agent_scratch/HW002_rumble_bypass/HW002_14.als",
  "wav": "compressor_release_thr040__0.416667.wav",
  "peak_dbfs": -5.51,
  "timestamp_utc": "2026-09-12T13:15:13.228757+00:00",

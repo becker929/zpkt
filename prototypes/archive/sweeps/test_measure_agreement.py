@@ -36,7 +36,7 @@ SWEEPS_DIR = Path(__file__).resolve().parent
 PROJECT_ROOT = SWEEPS_DIR.parent
 LOCAL_MEASURER = SWEEPS_DIR / "measure_local.py"
 
-EARS_LAB = Path("/Users/anthonybecker/_agent_scratch/ears_lab")
+EARS_LAB = Path("~/_agent_scratch/ears_lab")
 EARS_PYTHON = EARS_LAB / ".venv" / "bin" / "python"
 EARS_SHIM = EARS_LAB / "ears_shim.py"
 

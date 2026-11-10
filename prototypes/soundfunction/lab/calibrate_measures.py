@@ -16,7 +16,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from analysis import fixtures, grid, loudness, signal_features
 OUT = Path("results/calibrate_measures_v1"); OUT.mkdir(parents=True, exist_ok=True)
 SR = 44100; rng = np.random.default_rng(0)
-EARS_PY = "/Users/anthonybecker/_agent_scratch/ears_lab/.venv/bin/python"; EARS = "/Users/anthonybecker/_agent_scratch/ears_lab/ears_shim.py"
+EARS_PY = "~/_agent_scratch/ears_lab/.venv/bin/python"; EARS = "~/_agent_scratch/ears_lab/ears_shim.py"
 
 def crest_full(y):
     y = np.asarray(y, np.float64); return 20*math.log10(np.abs(y).max() / (math.sqrt((y**2).mean()) + 1e-20))

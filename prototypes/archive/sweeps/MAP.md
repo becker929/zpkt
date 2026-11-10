@@ -24,7 +24,7 @@ Measurer command (use for every new row — the in-repo shim, so it survives
 `_agent_scratch` being wiped; see `HANDOFF.md` §12):
 
 ```bash
-export EARS_CMD="/Users/anthonybecker/_agent_scratch/ears_lab/.venv/bin/ears"
+export EARS_CMD="~/_agent_scratch/ears_lab/.venv/bin/ears"
 --ears-cmd "uv run python sweeps/ears_shim.py"
 --measure-keys crest_db sub_share low_share mid_share high_share air_share
 ```

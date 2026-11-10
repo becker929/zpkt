@@ -18,7 +18,7 @@ measure by how much.
 
 The lab consumes the pair out-of-band, e.g. `ears analyze bounce_NNN.wav --json`.
 The `ears` project is not in this repo — the working lab lives at
-`/Users/anthonybecker/_agent_scratch/ears_lab/` (with a `.venv` and a shim).
+`~/_agent_scratch/ears_lab/` (with a `.venv` and a shim).
 See `HANDOFF.md` §12 for the exact `--ears-cmd`.
 
 ## Read these first

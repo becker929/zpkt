@@ -231,7 +231,7 @@ load_to(t, browser.audio_effects, "EQ Eight") # correct for built-in
 String matching is substring+prefix ranked — use longer queries to avoid ambiguity (`"Reverb"` not `"Rev"`).
 After loading, new device is at `song.tracks[idx].devices[-1]` — re-query in a new call.
 
-For available instruments and effects names, see [references/available-devices.md](references/available-devices.md).
+Instrument and effect names are the ones Live's browser shows (`Operator`, `Drum Rack`, `Saturator`); which exist depends on your edition and packs.
 
 ---
 

@@ -17,7 +17,7 @@ overwritten: the original `*.acceptance.csv` files are untouched.
 Use this as the `--ears-cmd`, from `~/sandbox/autodaw/hands`:
 
 ```
---ears-cmd "/Users/anthonybecker/_agent_scratch/ears_lab/.venv/bin/python /Users/anthonybecker/_agent_scratch/ears_lab/ears_shim.py"
+--ears-cmd "~/_agent_scratch/ears_lab/.venv/bin/python ~/_agent_scratch/ears_lab/ears_shim.py"
 ```
 
 Full invocation used for every sweep in this report:
@@ -25,7 +25,7 @@ Full invocation used for every sweep in this report:
 ```sh
 uv run python sweeps/assemble_curve.py \
   --dir sweeps/out/<sweep_id> \
-  --ears-cmd "/Users/anthonybecker/_agent_scratch/ears_lab/.venv/bin/python /Users/anthonybecker/_agent_scratch/ears_lab/ears_shim.py" \
+  --ears-cmd "~/_agent_scratch/ears_lab/.venv/bin/python ~/_agent_scratch/ears_lab/ears_shim.py" \
   --measure-keys crest sub_share low_share mid_share high_share air_share \
   --out sweeps/out/<sweep_id>/<sweep_id>.acceptance.ears.csv
 ```
