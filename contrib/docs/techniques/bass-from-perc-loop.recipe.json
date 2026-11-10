@@ -1,0 +1,612 @@
+{
+ "schema": "tutorial-recipe/v1",
+ "public": true,
+ "technique": {
+  "slug": "bass-from-perc-loop",
+  "name": "Bass line from a percussion loop",
+  "summary": "Borrow a bass rhythm from a percussion loop: lay short bass notes under the loop's strongest body hits (never its hats), nudge them until the pattern grooves, then take the loop away and keep the bass.",
+  "why": "A good loop already carries syncopated accents that a hand-programmed bass rarely finds. Following its body hits, which sit off the beat once a four-on-the-floor kick is assumed, makes the bass answer the kick instead of doubling it. Removing the loop hides where the rhythm came from, so the line sounds composed. Short decaying notes keep the low end clear for the kick.",
+  "generalises": true,
+  "method_rules": [
+   "Measure the loop's onset strength per 16th in a body band (40-1500 Hz) and a hats band (5-16 kHz), averaged over two passes, with a calibrated detector.",
+   "A position is a hat when the hats band leads the body band; otherwise it is a body hit, ranked by body strength.",
+   "Candidates are body hits of at least medium strength (0.35 of the loop's strongest).",
+   "No bass note on a quarter-note beat: the kick plays there and the bass answers it.",
+   "Take the strongest candidates, up to seven, with at least two in each bar.",
+   "Two pitches a fifth apart: the low note under darker hits, the upper note under brighter ones; notes are a 16th long, with one 8th for variety.",
+   "Judge rhythm only; tune the bass to the loop only if the loop stays in the track."
+  ]
+ },
+ "source": {
+  "title": "Ableton Bass Tutorial - Fast House & Techno Bass Patterns",
+  "channel": "Finish More Music",
+  "url": "https://www.youtube.com/watch?v=HztFoqevNMU",
+  "video_id": "HztFoqevNMU",
+  "duration_s": 147,
+  "upload_date": "2019-04-26",
+  "live_version_shown": "Live 10-era interface",
+  "tutorial_medium": "audio clips in Arrangement View; no MIDI, devices or automation shown"
+ },
+ "target": "Ableton Live 12 Suite, stock devices only",
+ "conventions": {
+  "beat_zero": "the start of the 2-bar loop (the tutorial's loop starts at bar 15; ours at 1.1.1)",
+  "beats": "quarter notes from beat 0; 8 beats = 2 bars of 4/4",
+  "pitch": "MIDI number; pitch_live uses Live's names (C3 = 60), pitch_sci scientific names (C4 = 60)",
+  "tags": "seen = read on screen; heard = from the voice-over, paraphrased; inferred = measured from pixels or audio; proposed = our stock substitute; measured = from our own renders"
+ },
+ "global": {
+  "tempo_bpm": {
+   "value": 123.0,
+   "tag": "seen"
+  },
+  "time_signature": {
+   "value": "4/4",
+   "tag": "seen"
+  },
+  "loop": {
+   "start": "1.1.1",
+   "length": "2.0.0",
+   "length_bars": 2,
+   "tutorial_start": "15.1.1",
+   "tag": "seen"
+  },
+  "grid": {
+   "value": "1/16",
+   "tag": "inferred",
+   "note": "the screen shows a 1/8 grid, but the notes sit on 16ths"
+  }
+ },
+ "tracks": [
+  {
+   "name": "Perc Loop",
+   "role": "rhythm source, removed later",
+   "volume_db": -10.5,
+   "pan": "C",
+   "tag": "seen",
+   "content": "a third-party percussion loop (substitutes below)"
+  },
+  {
+   "name": "Bass Line",
+   "role": "the bass",
+   "volume_db": -6.0,
+   "pan": "C",
+   "tag": "seen",
+   "content": "short bass one-shots in the tutorial; Operator here"
+  },
+  {
+   "name": "Kick",
+   "role": "drums",
+   "volume_db": null,
+   "tag": "seen (name only)"
+  },
+  {
+   "name": "Tops Loop",
+   "role": "drums",
+   "volume_db": null,
+   "tag": "seen (name only)"
+  },
+  {
+   "name": "Vinyl Layer",
+   "role": "texture",
+   "volume_db": null,
+   "tag": "seen (name) + inferred (audio track)"
+  }
+ ],
+ "steps": [
+  {
+   "id": "R01",
+   "source_ts": "0:03",
+   "title": "Set up the loop",
+   "action": "Tempo 123 BPM, 4/4, arrangement loop 1.1.1 for 2 bars, loop on, fixed 1/16 grid.",
+   "params": {
+    "tempo_bpm": 123.0,
+    "loop_start": "1.1.1",
+    "loop_length": "2.0.0",
+    "grid": "1/16"
+   },
+   "why": "The whole technique happens inside one looped 2-bar section.",
+   "tag": "seen (tempo, loop) + inferred (grid)",
+   "third_party": false
+  },
+  {
+   "id": "R02",
+   "source_ts": "0:10-0:25",
+   "title": "Choose a percussion loop of medium density",
+   "action": "Audio track 'Perc Loop' at -10.5 dB with a 2-bar percussion loop, warped to the tempo.",
+   "params": {
+    "track_volume_db": -10.5,
+    "clip_length": "2.0.0",
+    "warp": true
+   },
+   "why": "A sparse loop gives the bass nothing to follow and a dense one gives it too much; the useful loops sit between.",
+   "tag": "heard + seen (volume)",
+   "third_party": true,
+   "third_party_item": "a percussion loop from a course pack",
+   "substitute": {
+    "stock": "a Core Library percussion loop screened with the method's own measure (Agogo Atabaques 112 bpm, bars 1-2, warped to 123 in Beats mode)",
+    "fallback": "the tutor's loop rebuilt as Drum Rack notes (private run workspace)",
+    "tag": "proposed"
+   }
+  },
+  {
+   "id": "R03",
+   "source_ts": "0:19-0:25",
+   "title": "Solo the loop and find its main hits",
+   "action": "Listen to the loop alone and mark its loud body hits, ignoring hats and shakers.",
+   "params": {
+    "expected_main_hits_beats": [
+     1.5,
+     2.75,
+     3.5,
+     6.75,
+     7.5,
+     0.5,
+     4.5,
+     5.5
+    ]
+   },
+   "why": "Those hits are what the bass will copy.",
+   "tag": "seen + inferred (hit strengths from the waveform and audio)",
+   "third_party": false
+  },
+  {
+   "id": "R04",
+   "source_ts": "0:30-0:42",
+   "title": "Make a short bass sound",
+   "action": "MIDI track 'Bass Line' at -6 dB with Operator: oscillator A only, sine, coarse 1; envelope attack 0 ms, decay 200 ms, sustain -inf dB, release 50 ms; glide off; Operator volume -12 dB.",
+   "params": {
+    "track_volume_db": -6.0,
+    "instrument": "Operator",
+    "osc_a": {
+     "wave": "sine",
+     "coarse": 1,
+     "attack_ms": 0,
+     "decay_ms": 200,
+     "sustain_db": "-inf",
+     "release_ms": 50
+    },
+    "glide": "off",
+    "operator_volume_db": -12.0
+   },
+   "why": "Any short, round bass works (the tutor allows a plain sine); a decaying sine keeps the low end tidy.",
+   "tag": "heard (sine allowed) + seen (volume) + proposed (Operator values) + measured (output level)",
+   "third_party": true,
+   "third_party_item": "bass one-shots sliced from an earlier course example",
+   "substitute": {
+    "stock": "Operator as above, or Simpler with a Core Library bass one-shot",
+    "tag": "proposed"
+   }
+  },
+  {
+   "id": "R05",
+   "source_ts": "0:42-1:09",
+   "title": "Put bass notes under the main hits",
+   "action": "Write short bass notes into a 2-bar MIDI clip under the main hits from R03, none on a beat, and move them until it grooves. The tutor's final line is kept in the private run workspace.",
+   "params": {
+    "notes_ref": "private run workspace"
+   },
+   "why": "Body hits carry the loop's groove; hats would only add clutter under the bass.",
+   "tag": "heard (method) + seen (positions, lengths) + inferred (pitch, velocity)",
+   "third_party": false
+  },
+  {
+   "id": "R06",
+   "source_ts": "1:09-1:21",
+   "title": "Hear bass and loop together",
+   "action": "Solo both tracks and loop the 2 bars.",
+   "params": {
+    "solo": [
+     "Perc Loop",
+     "Bass Line"
+    ]
+   },
+   "why": "Checks that the bass sits on the loop's accents.",
+   "tag": "seen",
+   "third_party": false
+  },
+  {
+   "id": "R07",
+   "source_ts": "1:21-1:38",
+   "title": "Judge rhythm, not key",
+   "action": "Leave the bass untuned against the loop. Only if the loop stays in the final track, make the two agree harmonically.",
+   "params": {},
+   "why": "The loop is scaffolding; its pitch only matters if it is heard.",
+   "tag": "heard",
+   "third_party": false
+  },
+  {
+   "id": "R08",
+   "source_ts": "1:41-1:46",
+   "title": "Take the loop away",
+   "action": "Deactivate the loop's clip (key 0) and release the solos.",
+   "params": {
+    "perc_clip_active": false
+   },
+   "why": "Without the loop the bass stands on its own and no longer sounds like a copy.",
+   "tag": "seen + heard (the key is inferred)",
+   "third_party": false
+  },
+  {
+   "id": "R09",
+   "source_ts": "1:44-1:58",
+   "title": "Add the drums",
+   "action": "Kick on every beat, clap on 2 and 4, closed hats on the off-beat 8ths (notes.kick_substitute, notes.clap_substitute, notes.hats_substitute in a stock Drum Rack at +1.4 dB), and a vinyl-crackle layer at -12 dB rendered once from Vinyl Distortion onto its own audio track.",
+   "params": {
+    "drums_track_db": 1.4,
+    "vinyl_layer_db": -12.0
+   },
+   "why": "In context the bass fills the gaps the kick leaves.",
+   "tag": "seen (track names) + inferred (patterns from the audio) + measured (levels)",
+   "third_party": true,
+   "third_party_item": "kick, tops loop and vinyl-noise samples",
+   "substitute": {
+    "stock": "909 Core Kit (kick 36, clap 39, closed hat 42) and Vinyl Distortion crackle",
+    "tag": "proposed"
+   }
+  },
+  {
+   "id": "R10",
+   "source_ts": "2:12-2:21",
+   "title": "Keep it as a seed",
+   "action": "Treat the 2-bar line as a starting point to vary and extend.",
+   "params": {},
+   "why": "The method gives a first idea quickly; the track decides the rest.",
+   "tag": "heard",
+   "third_party": false
+  }
+ ],
+ "notes": {
+  "kick_substitute": [
+   {
+    "pitch": 36,
+    "pitch_live": "C1",
+    "pitch_sci": "C2",
+    "start_beat": 0,
+    "length_beats": 0.25,
+    "velocity": 100,
+    "live_position": "1.1.1",
+    "tag": "inferred"
+   },
+   {
+    "pitch": 36,
+    "pitch_live": "C1",
+    "pitch_sci": "C2",
+    "start_beat": 1,
+    "length_beats": 0.25,
+    "velocity": 100,
+    "live_position": "1.2.1",
+    "tag": "inferred"
+   },
+   {
+    "pitch": 36,
+    "pitch_live": "C1",
+    "pitch_sci": "C2",
+    "start_beat": 2,
+    "length_beats": 0.25,
+    "velocity": 100,
+    "live_position": "1.3.1",
+    "tag": "inferred"
+   },
+   {
+    "pitch": 36,
+    "pitch_live": "C1",
+    "pitch_sci": "C2",
+    "start_beat": 3,
+    "length_beats": 0.25,
+    "velocity": 100,
+    "live_position": "1.4.1",
+    "tag": "inferred"
+   },
+   {
+    "pitch": 36,
+    "pitch_live": "C1",
+    "pitch_sci": "C2",
+    "start_beat": 4,
+    "length_beats": 0.25,
+    "velocity": 100,
+    "live_position": "2.1.1",
+    "tag": "inferred"
+   },
+   {
+    "pitch": 36,
+    "pitch_live": "C1",
+    "pitch_sci": "C2",
+    "start_beat": 5,
+    "length_beats": 0.25,
+    "velocity": 100,
+    "live_position": "2.2.1",
+    "tag": "inferred"
+   },
+   {
+    "pitch": 36,
+    "pitch_live": "C1",
+    "pitch_sci": "C2",
+    "start_beat": 6,
+    "length_beats": 0.25,
+    "velocity": 100,
+    "live_position": "2.3.1",
+    "tag": "inferred"
+   },
+   {
+    "pitch": 36,
+    "pitch_live": "C1",
+    "pitch_sci": "C2",
+    "start_beat": 7,
+    "length_beats": 0.25,
+    "velocity": 100,
+    "live_position": "2.4.1",
+    "tag": "inferred"
+   }
+  ],
+  "clap_substitute": [
+   {
+    "pitch": 39,
+    "pitch_live": "D#1",
+    "pitch_sci": "D#2",
+    "start_beat": 1,
+    "length_beats": 0.25,
+    "velocity": 100,
+    "live_position": "1.2.1",
+    "tag": "inferred"
+   },
+   {
+    "pitch": 39,
+    "pitch_live": "D#1",
+    "pitch_sci": "D#2",
+    "start_beat": 3,
+    "length_beats": 0.25,
+    "velocity": 100,
+    "live_position": "1.4.1",
+    "tag": "inferred"
+   },
+   {
+    "pitch": 39,
+    "pitch_live": "D#1",
+    "pitch_sci": "D#2",
+    "start_beat": 5,
+    "length_beats": 0.25,
+    "velocity": 100,
+    "live_position": "2.2.1",
+    "tag": "inferred"
+   },
+   {
+    "pitch": 39,
+    "pitch_live": "D#1",
+    "pitch_sci": "D#2",
+    "start_beat": 7,
+    "length_beats": 0.25,
+    "velocity": 100,
+    "live_position": "2.4.1",
+    "tag": "inferred"
+   }
+  ],
+  "hats_substitute": [
+   {
+    "pitch": 42,
+    "pitch_live": "F#1",
+    "pitch_sci": "F#2",
+    "start_beat": 0.5,
+    "length_beats": 0.25,
+    "velocity": 90,
+    "live_position": "1.1.3",
+    "tag": "inferred"
+   },
+   {
+    "pitch": 42,
+    "pitch_live": "F#1",
+    "pitch_sci": "F#2",
+    "start_beat": 1.5,
+    "length_beats": 0.25,
+    "velocity": 90,
+    "live_position": "1.2.3",
+    "tag": "inferred"
+   },
+   {
+    "pitch": 42,
+    "pitch_live": "F#1",
+    "pitch_sci": "F#2",
+    "start_beat": 2.5,
+    "length_beats": 0.25,
+    "velocity": 90,
+    "live_position": "1.3.3",
+    "tag": "inferred"
+   },
+   {
+    "pitch": 42,
+    "pitch_live": "F#1",
+    "pitch_sci": "F#2",
+    "start_beat": 3.5,
+    "length_beats": 0.25,
+    "velocity": 90,
+    "live_position": "1.4.3",
+    "tag": "inferred"
+   },
+   {
+    "pitch": 42,
+    "pitch_live": "F#1",
+    "pitch_sci": "F#2",
+    "start_beat": 4.5,
+    "length_beats": 0.25,
+    "velocity": 90,
+    "live_position": "2.1.3",
+    "tag": "inferred"
+   },
+   {
+    "pitch": 42,
+    "pitch_live": "F#1",
+    "pitch_sci": "F#2",
+    "start_beat": 5.5,
+    "length_beats": 0.25,
+    "velocity": 90,
+    "live_position": "2.2.3",
+    "tag": "inferred"
+   },
+   {
+    "pitch": 42,
+    "pitch_live": "F#1",
+    "pitch_sci": "F#2",
+    "start_beat": 6.5,
+    "length_beats": 0.25,
+    "velocity": 90,
+    "live_position": "2.3.3",
+    "tag": "inferred"
+   },
+   {
+    "pitch": 42,
+    "pitch_live": "F#1",
+    "pitch_sci": "F#2",
+    "start_beat": 7.5,
+    "length_beats": 0.25,
+    "velocity": 90,
+    "live_position": "2.4.3",
+    "tag": "inferred"
+   }
+  ],
+  "bass_b": [
+   {
+    "pitch": 33,
+    "pitch_live": "A0",
+    "pitch_sci": "A1",
+    "start_beat": 1.5,
+    "length_beats": 0.25,
+    "velocity": 100,
+    "live_position": "1.2.3",
+    "tag": "measured"
+   },
+   {
+    "pitch": 40,
+    "pitch_live": "E1",
+    "pitch_sci": "E2",
+    "start_beat": 3.5,
+    "length_beats": 0.5,
+    "velocity": 100,
+    "live_position": "1.4.3",
+    "tag": "measured"
+   },
+   {
+    "pitch": 40,
+    "pitch_live": "E1",
+    "pitch_sci": "E2",
+    "start_beat": 4.75,
+    "length_beats": 0.25,
+    "velocity": 100,
+    "live_position": "2.1.4",
+    "tag": "measured"
+   },
+   {
+    "pitch": 33,
+    "pitch_live": "A0",
+    "pitch_sci": "A1",
+    "start_beat": 5.5,
+    "length_beats": 0.25,
+    "velocity": 100,
+    "live_position": "2.2.3",
+    "tag": "measured"
+   },
+   {
+    "pitch": 40,
+    "pitch_live": "E1",
+    "pitch_sci": "E2",
+    "start_beat": 6.75,
+    "length_beats": 0.25,
+    "velocity": 100,
+    "live_position": "2.3.4",
+    "tag": "measured"
+   },
+   {
+    "pitch": 33,
+    "pitch_live": "A0",
+    "pitch_sci": "A1",
+    "start_beat": 7.5,
+    "length_beats": 0.25,
+    "velocity": 100,
+    "live_position": "2.4.3",
+    "tag": "measured"
+   }
+  ],
+  "private_note": "The tutor's exact bass line and the loop's transient map were transcribed for study and stay in the run workspace (~/_agent_scratch/tutorials/HztFoqevNMU/recipe.json), not in this public repo. In outline: seven short notes over 2 bars, none on a beat, two pitches a fifth apart (about A and E)."
+ },
+ "levels": {
+  "Perc Loop": {
+   "fader_db": -10.5,
+   "tag": "seen"
+  },
+  "Bass Line": {
+   "fader_db": -6.0,
+   "operator_volume_db": -12.0,
+   "tag": "seen (fader) + measured (output, fitted to the tutorial's audio)"
+  },
+  "Drums": {
+   "fader_db": 1.4,
+   "tag": "measured (fitted to the tutorial's audio)"
+  },
+  "Vinyl Layer": {
+   "fader_db": -12.0,
+   "tag": "proposed"
+  }
+ },
+ "target_sound": "A 123 BPM house groove: short, round sub notes on off-beat 16ths, two pitches a fifth apart trading call and response, none on the beat, so the bass rolls between the kicks. With the loop removed it should sound like a written bass line.",
+ "gaps": [
+  "The loop and the bass samples are third-party; only their sound is known.",
+  "Bass pitch is never stated; A and E are measured, and E is approximate.",
+  "No device, clip or mixer settings beyond two faders are shown; the bass output and drum levels were fitted to the tutorial's audio.",
+  "The drum tracks are collapsed; their patterns are measured from the final playback.",
+  "The trial-and-error placement happens off screen; the video opens with the notes in place."
+ ],
+ "third_party_summary": [
+  {
+   "step": "R02",
+   "item": "percussion loop",
+   "stock_substitute": "Agogo Atabaques 112 bpm (Core Library), or the tutor's loop rebuilt as notes (private run workspace)"
+  },
+  {
+   "step": "R04",
+   "item": "bass one-shots",
+   "stock_substitute": "Operator sine, A 0 / D 200 ms / S -inf / R 50 ms"
+  },
+  {
+   "step": "R09",
+   "item": "kick, tops and vinyl samples",
+   "stock_substitute": "909 Core Kit patterns and Vinyl Distortion crackle"
+  }
+ ],
+ "results": {
+  "date": "2026-10-11",
+  "render": "16 bars at 123 BPM after a 2-bar lead-in: bars 1-4 loop alone, 5-8 loop and bass, 9-16 bass and drums with the loop deactivated",
+  "A_faithful": {
+   "perc": "tutor loop rebuilt as notes on Conga Low Slap (private run workspace)",
+   "bass": "the tutor's line (private run workspace)",
+   "bass_onsets_within_15ms": "42/42",
+   "bass_max_error_ms": 3.72,
+   "sections_lufs": [
+    -34.19,
+    -31.39,
+    -21.38
+   ],
+   "perc_absent_bars_9_16": "template gain -0.03 to -0.05",
+   "mp3_lufs": -14.36,
+   "mp3_true_peak_dbtp": -1.18
+  },
+  "B_method": {
+   "perc": "Agogo Atabaques 112 bpm, bars 1-2, warped to 123",
+   "bass": "notes.bass_b",
+   "bass_onsets_within_15ms": "36/36",
+   "bass_max_error_ms": 3.73,
+   "sections_lufs": [
+    -34.18,
+    -31.44,
+    -21.41
+   ],
+   "perc_absent_bars_9_16": "template gain 0.00 to 0.03",
+   "mp3_lufs": -13.71,
+   "mp3_true_peak_dbtp": -1.1,
+   "doubtful": "2.1.4 sits on a mixed hit (a soft drum plus a shaker)"
+  },
+  "verifier": "both renders passed shape, timing, pitch and delivery; B's first plan used a detector 21 ms off and was redone",
+  "verdict": {
+   "by": "Anthony",
+   "text": "Those sound really good",
+   "date": "2026-10-12"
+  }
+ }
+}
