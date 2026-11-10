@@ -1,7 +1,7 @@
 # The studio agent, the checklist and The Wasteland (design)
 
-A design, not yet built, written 14 October 2026 from Anthony's direction after the HW002 lab (`docs/design/lab.md`). The
-lab's lesson is that its surfaces are good to touch and its sound was not to be trusted (`docs/sound.md`). This
+A design, not yet built, written 14 October 2026 from Anthony's direction after the HW002 lab (`contrib/docs/design/lab.md`). The
+lab's lesson is that its surfaces are good to touch and its sound was not to be trusted (`contrib/docs/sound.md`). This
 design keeps the first and makes the agent, not a fixed page of 100 knobs, the way in.
 
 ## What it is a crystallization of
@@ -30,25 +30,25 @@ In order of priority:
   kept with the checklist item they belong to.
 - **The checklist.** Read it, add items, change an item's status, attach evidence (renders, measurements, answers).
 - **Render and present.** Changes go to Live through `hands`. What comes back is rendered audio, played by the
-  player engine (`docs/sound.md`) and announced as studio already does (`present_music`).
+  player engine (`contrib/docs/sound.md`) and announced as studio already does (`present_music`).
 - **Widgets.** Make a control surface for the question at hand, as a description the page draws (a widget kind,
   the parameters or macro it moves, the rendered stops it plays, the reference range on it). Not code. Widgets are
   cached, so a good one can be used again (see "From chat to a fixed flow").
 
 ## The checklist
 
-One checklist per track. It covers the whole track across the spine (`docs/workflow.md`: collage, drums, arrange,
+One checklist per track. It covers the whole track across the spine (`contrib/docs/workflow.md`: collage, drums, arrange,
 kick, mix, master, release), and each step drills down into sub-checklists from two sources:
 
 - **The toolset**, with HW002 as the template: the set's devices and the moves the HW002 experiments made at each
   step (the scoop, COLDFIRE and the Decapitator, the hat staircase, the Short's cut, the batch 6 climbs).
-- **The style**, from the references (`docs/journal/hw002/references.md`): where the track sits against them on what each
+- **The style**, from the references (`contrib/docs/journal/hw002/references.md`): where the track sits against them on what each
   step can be measured on.
 
 An item is one thing to settle. It has the step it belongs to; the question; what settled means; where it came from
 (template, references, Anthony, the agent); its status (open, asked, being rendered, waiting for Anthony, settled,
 skipped); and its evidence (renders, measurements, answers, the decision doc). Settled items roll up into the
-step's percent through the workflow's records (`docs/journal/inventory/records.toml`).
+step's percent through the workflow's records (`contrib/docs/journal/inventory/records.toml`).
 
 For HW002 today: collage, drums and arrange are done; the kick is being tightened before the mix. So its kick
 sub-checklist is where the agent works. From the template, it holds the scoop, the distortion (batch 8.1's 37-50 %
@@ -164,7 +164,7 @@ space, while about 10 % of what it offers deliberately breaks out of the region 
   the kick on its own. Those limits shape what each step's decisions can be about.
 - **Macros are defined in this space.** "Mid warmth" or "sub weight" moves the track along one measured dimension;
   which knobs do that, and how far, is learned from rendered sweeps, measured with `ears`.
-- **The region decides what to render**, since the player engine can only play what exists (`docs/sound.md`).
+- **The region decides what to render**, since the player engine can only play what exists (`contrib/docs/sound.md`).
 
 ## From chat to a fixed flow
 

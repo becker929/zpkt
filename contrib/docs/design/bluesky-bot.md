@@ -192,7 +192,7 @@ Job states: `queued → building → rendering → measuring → done`, or `fail
 6. **Encode.** `render.m4a` (AAC 256k) and `video.mp4`: the audio over a 1080x1920 picture drawn from the score
    (a piano roll per part in its colour, a moving playhead, the title, tempo and key), drawn with Pillow and
    encoded by ffmpeg in the booth.
-   No browser is involved, so no Web Audio question arises (`docs/sound.md`).
+   No browser is involved, so no Web Audio question arises (`contrib/docs/sound.md`).
 7. **Close.** The booth opens `booth_template` again (`open_set` saves the job's set first, so Live never asks) and
    deletes the job's `.als`. The score plus the palette version is the
    record: any piece can be rebuilt. Files stay 30 days under `~/_agent_scratch/booth/jobs/<job>/`.

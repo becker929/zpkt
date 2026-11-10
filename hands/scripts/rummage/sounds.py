@@ -1,4 +1,4 @@
-"""The Rummage's interface sounds, made in Live like SH001 (docs/sound.md: interface sounds are rendered files).
+"""The Rummage's interface sounds, made in Live like SH001 (contrib/docs/sound.md: interface sounds are rendered files).
 
   cd hands && uv run python scripts/rummage/sounds.py new        # File > New Live Set, saved as SH001_ui (no keys)
   cd hands && uv run python scripts/rummage/sounds.py build      # tracks, instruments, pads, notes, mix, Main

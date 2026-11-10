@@ -6,12 +6,12 @@
     uv run python scripts/cutout.py scripts/rummage-art.json --sheet ~/somewhere/sheet.png
 
 The plan (JSON) names, for every asset, the id of the image it is cut from (an id in images.jsonl, made through
-`harness images`, docs/images.md) and its size. Sprites are generated as one object on flat magenta (#FF00FF):
+`harness images`, contrib/docs/images.md) and its size. Sprites are generated as one object on flat magenta (#FF00FF):
 the magenta is keyed out (soft alpha only near the background, and magenta in shadow counts as background), the
 pink fringe is unmixed and despilled, small specks are dropped, the sprite is trimmed to its alpha, resized
 (premultiplied) and written as WebP with alpha. Ground textures are made to tile: the far band of each axis is laid
 over the near one along a minimum-error cut, so the seam follows edges already in the texture. Panels are
-cover-cropped. The manifest follows docs/design/rummage.md: w/h are the file's pixels, anchor is the base point as
+cover-cropped. The manifest follows contrib/docs/design/rummage.md: w/h are the file's pixels, anchor is the base point as
 fractions, foot the collision radius as a fraction of the width; a plan entry may also give `pick` ([index, count]:
 one figure of a sheet, from the left), `slots_src` (points in the source's pixels, mapped into the sprite), `anchor`,
 `foot`, `flip`, `crop` ([x0, y0, x1, y1] before keying), `scale`, `key` (keying settings), for a hero view `walk`

@@ -1,4 +1,4 @@
-"""A scripted stand-in for the studio server (docs/design/studio.md), for the page's browser tests.
+"""A scripted stand-in for the studio server (contrib/docs/design/studio.md), for the page's browser tests.
 
 It serves the real page (studio/static, versioned and with the newest page of history in it, as the Mac does:
 studio/assets.py) and speaks the protocol deterministically, the way the Mac does:

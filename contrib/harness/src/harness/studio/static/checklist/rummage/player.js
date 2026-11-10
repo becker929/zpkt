@@ -1,4 +1,4 @@
-// The short's renders through Web Audio: the player engine for a region (docs/design/rummage.md, docs/sound.md). Every
+// The short's renders through Web Audio: the player engine for a region (contrib/docs/design/rummage.md, contrib/docs/sound.md). Every
 // combination of the three parts is its own render from Live (sh001-<bed>-<drums>-<bass>), all the same length and
 // tempo. The renders in play are decoded and started together on one clock, each through its own gain, and only one
 // is audible: a switch is a short equal-power crossfade between two of them at the identical playhead (they never

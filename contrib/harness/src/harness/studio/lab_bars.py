@@ -13,7 +13,7 @@ What it measures, from the same audio `harness lab-audio` serves (lab_audio's pa
 - the splash sample (the set's clip on 6-2022-05-30-005) and a gain curve per 16th that shapes it into the
   canonical long splash (it swells for three beats, then decays),
 - the whole song bar by bar (its break, the beats before its kick returns), and the four references at -14 LUFS
-  bar by bar at their own tempo, with their breaks (docs/journal/hw002/references.md).
+  bar by bar at their own tempo, with their breaks (contrib/docs/journal/hw002/references.md).
 
 Arrays are 0-based bars; the page labels them 1-based.
 """

@@ -38,7 +38,7 @@ uv run harness images list [--batch ...]
   - Every image, newest first, in a masonry layout, with chips to filter by batch.
   - Each card shows the batch and its brief context, the model and settings, and the full prompt and settings when
     opened. Tap an image to see it whole.
-  - Each card has a thumb up and down, which go to the artist's feedback (`docs/design/artist-agent.md`, view `images`).
+  - Each card has a thumb up and down, which go to the artist's feedback (`contrib/docs/design/artist-agent.md`, view `images`).
   - The page holds only what is near the screen. An image loads as it comes within a screen and a half and is let go
     (its src removed) beyond that. Records arrive a page at a time.
 

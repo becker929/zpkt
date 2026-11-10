@@ -1,4 +1,4 @@
-"""The WebSocket between the page and the Mac (docs/design/studio.md has the tables).
+"""The WebSocket between the page and the Mac (contrib/docs/design/studio.md has the tables).
 
 Text frames are JSON objects with a "type". Binary frames start with a channel byte:
 

@@ -1,5 +1,5 @@
 {
- "about": "The Rummage's art: which generated image (images.jsonl id, docs/images.md) each asset is cut from, and its size. Run: uv run python scripts/cutout.py scripts/rummage-art.json",
+ "about": "The Rummage's art: which generated image (images.jsonl id, contrib/docs/images.md) each asset is cut from, and its size. Run: uv run python scripts/cutout.py scripts/rummage-art.json",
  "out": "../src/harness/studio/static/checklist/rummage/art",
  "ground": [
   {

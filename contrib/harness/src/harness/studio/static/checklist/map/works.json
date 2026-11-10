@@ -1,7 +1,7 @@
 {
   "version": 1,
   "parent": null,
-  "notes": "The seed repertoire: the map round's juice as works, plus four to start from (docs/design/artist-agent.md).",
+  "notes": "The seed repertoire: the map round's juice as works, plus four to start from (contrib/docs/design/artist-agent.md).",
   "works": [
     {
       "id": "ledger",

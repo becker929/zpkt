@@ -1,7 +1,7 @@
 """The reply's picture and video: a piano roll drawn from the score with a moving playhead, over the render's audio.
 
 Bluesky has no audio posts, so the piece goes out as an MP4. Drawn with Pillow and encoded by ffmpeg in the booth;
-no browser is involved (docs/sound.md).
+no browser is involved (contrib/docs/sound.md).
 """
 
 from __future__ import annotations

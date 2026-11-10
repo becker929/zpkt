@@ -11,7 +11,7 @@ browser's session are stored (auth.json, mode 600), so nobody else, the
 agent included, ever sees the password.
 
 Routes, all behind the password except /login:
-    /studio/...               the voice production app (studio/, docs/design/studio.md); / opens it
+    /studio/...               the voice production app (studio/, contrib/docs/design/studio.md); / opens it
     /skrng/..., /style.css    the public site's pages, fetched from it (they are public anyway)
     /audio/...                redirect to the public site's audio
     /api/skrng/feedback       the voice review's answers, kept on the Mac (feedback.jsonl)

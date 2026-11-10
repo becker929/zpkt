@@ -1,4 +1,4 @@
-// The Rummage (docs/design/rummage.md): a region you play to finish a short, SH001. A junk market on layered paper with
+// The Rummage (contrib/docs/design/rummage.md): a region you play to finish a short, SH001. A junk market on layered paper with
 // three machines standing in it (The Wireless, the bed; The Clatter, the drums; The Bellows, the low end) and the
 // Gramophone at its heart. Walk up to a machine and operate it (machine.js fills the screen); commit, and the choice
 // falls into your hands as an artifact; carry it to the Gramophone and set it on its plinth. With all three on, the

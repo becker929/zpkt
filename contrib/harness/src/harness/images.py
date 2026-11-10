@@ -1,4 +1,4 @@
-"""Images made with Gemini, and the record of every one (docs/images.md).
+"""Images made with Gemini, and the record of every one (contrib/docs/images.md).
 
 This is the only way this project calls an image model. Each call keeps what came back, with what it was for:
 

@@ -2,7 +2,7 @@
 
 Errors are {path, code, message}: `path` points into the score ("parts[2].instrument") so the composer can fix just
 that, and `code` is stable for the bot to act on. Warnings never stop a build. The estimate is the booth's guess at
-the job's cost in Live time, from the measurements in docs/design/bluesky-bot.md ("Inside the booth").
+the job's cost in Live time, from the measurements in contrib/docs/design/bluesky-bot.md ("Inside the booth").
 """
 
 from __future__ import annotations

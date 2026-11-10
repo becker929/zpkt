@@ -1,7 +1,7 @@
 # studio: handoff (2026-10-10)
 
-Where the voice production app stands after Phase 2 steps V1-V4 (`docs/journal/2026-10-plan.md`). Read with
-`docs/design/studio.md` (design and protocol) and `docs/design/voice-benchmark.md` (the speech models and how turns are timed).
+Where the voice production app stands after Phase 2 steps V1-V4 (`contrib/docs/journal/2026-10-plan.md`). Read with
+`contrib/docs/design/studio.md` (design and protocol) and `contrib/docs/design/voice-benchmark.md` (the speech models and how turns are timed).
 
 Branch `p2-studio-web`, stacked on `stack-base-2026-10` (open PRs #26, #28-#30). It contains `p2-studio` (server,
 agent, screenshots, voice worker), merged in.

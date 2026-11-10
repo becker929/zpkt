@@ -1,4 +1,4 @@
-"""The library of WIP tracks, read-only: where each track is in the seven steps (docs/workflow.md).
+"""The library of WIP tracks, read-only: where each track is in the seven steps (contrib/docs/workflow.md).
 
     workflow   the steps, their order, caps and targets
     facts      what a .als shows (tracks, devices, clips, samples, Main chain), via hands.als

@@ -13,7 +13,7 @@ site, my accounts and my rig. They are here to read and borrow from, not to inst
 | [`letta-vibe/`](letta-vibe/) | An earlier agent: Letta driving Live through an MCP bridge, with a phone page for feedback. Parked. | Letta, Docker |
 | [`demo/`](demo/) | The tools that made the 33-second zpkt demo video from a screen recording of Live. | my HW002 set |
 
-Design notes for these are in [`docs/design/`](../docs/design/). The security model they share
+My workflow, the design notes for these parts and a dated journal are in [`docs/`](docs/). The security model they share
 (loopback only, a secret on everything) is in [`SECURITY.md`](../SECURITY.md).
 
 Tests: `make test-all` from the repo root runs every part here that has a suite.

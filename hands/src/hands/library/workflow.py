@@ -1,4 +1,4 @@
-"""The seven steps of a track, in order. docs/workflow.md says what each means and what "done" is.
+"""The seven steps of a track, in order. contrib/docs/workflow.md says what each means and what "done" is.
 
 Work can happen out of order (mix moves before the arrangement is final), so a track's headline is
 its lowest incomplete step: the first step, in this order, below 100 %.
@@ -36,7 +36,7 @@ STEPS: tuple[Step, ...] = (
 KEYS = tuple(s.key for s in STEPS)
 BY_KEY = {s.key: s for s in STEPS}
 
-SHORT_S = (33.0, 50.0)       # target length of a Short (docs/journal/hw002, feedback of 1 Oct 2026)
+SHORT_S = (33.0, 50.0)       # target length of a Short (contrib/docs/journal/hw002, feedback of 1 Oct 2026)
 NEAR_SHORT_S = (25.0, 64.0)  # close enough to cut down or pad out
 MASTER_LUFS = (-14.0, -11.0)  # ears/mlab/guides/youtube-short-delivery.md
 MASTER_TP = -1.0              # dBTP; the spec says -1.5, -1.0 allows for meter differences

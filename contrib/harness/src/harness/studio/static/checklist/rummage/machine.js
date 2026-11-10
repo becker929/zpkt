@@ -1,4 +1,4 @@
-// The studio machine (docs/design/rummage.md): a machine of The Rummage, operated full screen. Its panel art fills the
+// The studio machine (contrib/docs/design/rummage.md): a machine of The Rummage, operated full screen. Its panel art fills the
 // screen; over its lower part, on a board screwed to the panel, are a heavy three-way rotary selector, the chosen
 // option's name and line on a taped paper scrap, a play/stop button with a bar counter, and the commit lever. The
 // short plays with this machine's option swapped in (the other parts as committed, or option 1), and turning the
@@ -31,7 +31,7 @@ export const PARTS = {
   drums: { n: 2, label: 'the drums', glyph: 'M4 9c0-2 3.6-3 8-3s8 1 8 3v7c0 2-3.6 3-8 3s-8-1-8-3zM4 9c0 2 3.6 3 8 3s8-1 8-3M15 3l-3 6M9 3l3 6' },
   bass: { n: 3, label: 'the low end', glyph: 'M3 12c2-5 4-5 6 0s4 5 6 0 4-5 6 0M5 19h14M7 5h10' },
 };
-// Where each part comes in, in the fixed arrangement (docs/design/rummage.md): bars 1-8 bed, 9-16 + drums, 17-28 + bass,
+// Where each part comes in, in the fixed arrangement (contrib/docs/design/rummage.md): bars 1-8 bed, 9-16 + drums, 17-28 + bass,
 // 29-32 the outro. A machine's preview loops from where its part comes in to the outro, so you hear it at once.
 // audio.json may set its own as `preview: { part: [from bar, to bar) }`.
 const ENTERS = { bed: 1, drums: 9, bass: 17 };

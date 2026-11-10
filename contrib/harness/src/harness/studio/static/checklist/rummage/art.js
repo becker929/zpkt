@@ -1,4 +1,4 @@
-// The art pack (art/manifest.json, docs/design/rummage.md "Art (as made)") as assets the scene can draw. Every asset has
+// The art pack (art/manifest.json, contrib/docs/design/rummage.md "Art (as made)") as assets the scene can draw. Every asset has
 // a world size (half its file's pixels, times a scale for the megaliths), an anchor (its base, as fractions of the
 // sprite), a foot (its collision radius, as a fraction of its width) and a way to draw itself: the decoded image once
 // it is in, the placeholder from paper.js until then, or for good when the manifest or the file is missing. So the

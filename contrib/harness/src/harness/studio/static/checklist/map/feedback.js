@@ -1,4 +1,4 @@
-// Feedback for the artist agent (docs/design/artist-agent.md): a thumbs up on the left edge and a thumbs down on the right,
+// Feedback for the artist agent (contrib/docs/design/artist-agent.md): a thumbs up on the left edge and a thumbs down on the right,
 // on every view, always there. A press is stored at once, with what was on screen and what had just played (the
 // caller's `context()`); only then does a quick question come up in a small chat by the thumb, which can be
 // answered or let go. A press that can't reach the harness waits in this browser and is sent with the next one.

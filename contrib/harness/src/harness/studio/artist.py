@@ -1,4 +1,4 @@
-"""The artist agent's store (docs/design/artist-agent.md): Anthony's thumbs and his answers, the plates the gallery keeps,
+"""The artist agent's store (contrib/docs/design/artist-agent.md): Anthony's thumbs and his answers, the plates the gallery keeps,
 and the repertoire of works the page chooses from.
 
     <root>/artist.sqlite3   feedback, questions, answers, plates, repertoire versions
@@ -306,7 +306,7 @@ async def ask(event: dict[str, Any], model_fn: ModelFn | None = None) -> dict[st
 # --- the offline artist: a new repertoire from what he did and said --------------------------------------------
 PRESS_WINDOW_S = 20.0           # a press this soon after a plate is taken as about that plate's work
 
-PROPOSE_PROMPT = """You are the artist agent of zpkt's studio app (docs/design/artist-agent.md). Your job is to make the \
+PROPOSE_PROMPT = """You are the artist agent of zpkt's studio app (contrib/docs/design/artist-agent.md). Your job is to make the \
 app more rewarding to use for Anthony, a music producer, by choosing and tuning the "works" the page plays when he \
 checks off a production task: a stamp, particles, a shake, a freeze on contact, the map's camera, a lamp in the \
 settled room, stars at night, a rare wax seal.

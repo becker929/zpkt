@@ -1,4 +1,4 @@
-"""`voice serve`: the speech models behind a pipe (frames: voice.protocol; requests: docs/design/studio.md).
+"""`voice serve`: the speech models behind a pipe (frames: voice.protocol; requests: contrib/docs/design/studio.md).
 
     voice serve [--tts kokoro|fake] [--stt parakeet|fake]
     voice say "Hello there." -o hello.wav           # one-off synthesis, for trying voices

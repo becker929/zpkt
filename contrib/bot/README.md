@@ -4,7 +4,7 @@ A Bluesky account that makes short pieces of music for friends. Mention it with 
 vertical video of a new piece: the audio over a piano roll of its score. Reply under one of its pieces and it makes
 the next version. Quote a piece and mention it, and it makes a remix that starts from that score and credits it.
 It runs on this Mac (`main.mjs`, a Node program that keeps running) because the music is made in Ableton Live
-here, through the booth (`contrib/booth`). The design is `docs/design/bluesky-bot.md`; this follows the Room World room bot
+here, through the booth (`contrib/booth`). The design is `contrib/docs/design/bluesky-bot.md`; this follows the Room World room bot
 (`~/world2/bot`) wherever it can.
 
 Three stages run side by side in the one process, so a minute in Live never holds up anyone else's like or answer:

@@ -30,7 +30,7 @@ KEYCHAIN = {
     "skrng_token": "skrng-token",           # read the owner's feedback from /api/skrng/feedback
     "oauth": "zpkt-claude-oauth",           # `claude setup-token` output -> CLAUDE_CODE_OAUTH_TOKEN
     "ntfy_topic": "zpkt-ntfy-topic",        # ntfy.sh topic for job start/finish
-    "gemini": "zpkt-gemini-api-key",        # Gemini's image models, only through harness.images (docs/images.md)
+    "gemini": "zpkt-gemini-api-key",        # Gemini's image models, only through harness.images (contrib/docs/images.md)
 }
 
 
@@ -68,7 +68,7 @@ class Config:
     # The old public route (browser -> anthonybecker.me /api/rpc -> socket -> Mac). Off: /skrng's
     # agent is reached over the tailnet only. HARNESS_PUBLIC_RPC=1 turns the socket back on.
     public_rpc: bool = os.environ.get("HARNESS_PUBLIC_RPC") == "1"
-    # studio, the voice production app (docs/design/studio.md): where it keeps its chat and media, the Claude session's
+    # studio, the voice production app (contrib/docs/design/studio.md): where it keeps its chat and media, the Claude session's
     # working directory, the speech settings, and the loopback port scripts report steps to.
     studio_dir: Path = Path(os.environ.get("HARNESS_STUDIO", Path.home() / "_agent_scratch" / "studio"))
     studio_workdir: Path = Path(os.environ.get("HARNESS_STUDIO_WORKDIR", ZPKT))
@@ -86,9 +86,9 @@ class Config:
     check_sounds: Path = Path(os.environ.get("HARNESS_CHECK_SOUNDS", Path.home() / "_agent_scratch" / "studio" / "check-sounds"))
     # The site's published audio the checklist plays (the gallery's renders), copied here on first use.
     site_audio: Path = Path(os.environ.get("HARNESS_SITE_AUDIO", Path.home() / "_agent_scratch" / "studio" / "site-audio"))
-    # Every image made with Gemini, with its record (harness.images, docs/images.md); shown at /studio/images/.
+    # Every image made with Gemini, with its record (harness.images, contrib/docs/images.md); shown at /studio/images/.
     images_dir: Path = Path(os.environ.get("HARNESS_IMAGES", Path.home() / "_agent_scratch" / "studio" / "images"))
-    # The regions' renders (docs/design/rummage.md): <regions_audio>/<region>/audio/<file>, made in Live, never in git.
+    # The regions' renders (contrib/docs/design/rummage.md): <regions_audio>/<region>/audio/<file>, made in Live, never in git.
     regions_audio: Path = Path(os.environ.get("HARNESS_REGIONS_AUDIO", Path.home() / "_agent_scratch" / "studio" / "regions"))
 
     @property

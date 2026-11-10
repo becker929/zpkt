@@ -1,6 +1,6 @@
 // A find's card, full bleed: what it is, where it came from, why it surfaced now, where it can be used, and taking it
 // into the track's crate. MOCKED: nothing plays. The player strip is drawn from the find's key and has no sound at
-// all (docs/sound.md: music is rendered files on the player engine, and there are none here yet).
+// all (contrib/docs/sound.md: music is rendered files on the player engine, and there are none here yet).
 //
 //   openCard(host, find, { data, taken, onTake(), onWork(key), onClose() })   -> { destroy() }
 //   openSignal(host, find, { data, onWork(key), onClose() })                  -> { destroy() }
@@ -90,7 +90,7 @@ export function openCard(host, find, { data, taken = false, onTake = () => {}, o
   paint();
   tapOn(take, () => { taken = !taken; paint(); onTake(taken); }, offs);
   tapOn(root.querySelector('.wl-c-back'), () => onClose(), offs);
-  // "Not for me" closes; with the real agent it is also a signal: it learns what Anthony passes over (docs/design/studio-agent.md)
+  // "Not for me" closes; with the real agent it is also a signal: it learns what Anthony passes over (contrib/docs/design/studio-agent.md)
   tapOn(root.querySelector('.wl-c-pass'), () => onClose(), offs);
   for (const b of root.querySelectorAll('.wl-c-use')) tapOn(b, () => onWork(b.dataset.key), offs);
   const play = root.querySelector('.wl-c-play'), head = root.querySelector('.wl-c-head');

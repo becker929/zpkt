@@ -1,7 +1,7 @@
 [project]
 name = "booth"
 version = "0.1.0"
-description = "The booth: scores in, Live renders out, for the Bluesky music bot (docs/design/bluesky-bot.md)"
+description = "The booth: scores in, Live renders out, for the Bluesky music bot (contrib/docs/design/bluesky-bot.md)"
 requires-python = ">=3.12"
 dependencies = [
     "aiohttp>=3.14.4",

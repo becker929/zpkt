@@ -6,13 +6,13 @@
     GET  /studio/api/messages     history, a page at a time (?before=<seq>&limit=<n>)
     GET  /studio/api/timings      the last turns' timing marks (?turns=<n>)
     POST /studio/api/conversation start a new conversation
-    GET  /studio/ws               the WebSocket (docs/design/studio.md)
-    GET  /studio/lab/<file>       the lab: HW002's controls as phone surfaces (static/lab, docs/design/lab.md)
+    GET  /studio/ws               the WebSocket (contrib/docs/design/studio.md)
+    GET  /studio/lab/<file>       the lab: HW002's controls as phone surfaces (static/lab, contrib/docs/design/lab.md)
     GET  /studio/lab/audio/<file> its audio, built by `harness lab-audio` outside the repo (cached forever)
-    GET  /studio/checklist/<file> the track's checklist across the spine (static/checklist, docs/design/studio-agent.md)
+    GET  /studio/checklist/<file> the track's checklist across the spine (static/checklist, contrib/docs/design/studio-agent.md)
     GET  /studio/checklist/map/sounds/<file>  its check sounds, from R2 through a local copy (cached forever)
     GET  /studio/site-audio/<path>  the site's published audio (skrng batches, check sounds), through a local copy
-    POST /studio/api/artist/feedback            a thumbs up or down, stored at once (docs/design/artist-agent.md)
+    POST /studio/api/artist/feedback            a thumbs up or down, stored at once (contrib/docs/design/artist-agent.md)
     POST /studio/api/artist/feedback/<id>/question   the quick question after it (a small model, else rules)
     POST /studio/api/artist/feedback/<id>/answer     his answer
     GET  /studio/api/artist/feedback            the newest presses with their questions and answers (?limit=)
@@ -20,12 +20,12 @@
     GET  /studio/api/artist/plates              the gallery's plates, oldest first (?track=)
     GET  /studio/api/artist/repertoire          the works the page chooses from (newest version; the seed at first)
     GET  /studio/api/regions/<id>/state         a region's permanent state: commits, the artifact carried, the plinths,
-                                                completions (an empty state at first; docs/design/rummage.md, regions.py)
+                                                completions (an empty state at first; contrib/docs/design/rummage.md, regions.py)
     POST /studio/api/regions/<id>/state         replace it (validated: 400 if the page could not have made it)
     GET  /studio/regions/<id>/audio/<file>      the region's renders (a combination per file, and its interface sounds,
                                                 named by content: cached forever), from HARNESS_REGIONS_AUDIO/<id>/audio,
                                                 outside the repo
-    GET  /studio/images/          every image made with Gemini, as a wall (static/images, docs/images.md)
+    GET  /studio/images/          every image made with Gemini, as a wall (static/images, contrib/docs/images.md)
     GET  /studio/images/api/list  their records, newest first (?offset=&limit=&batch=), and the batches
     GET  /studio/images/files/<name>  an image or its gallery copy (cached forever: names are never reused)
 """
@@ -273,7 +273,7 @@ async def site_audio(request: web.Request) -> web.StreamResponse:
     return web.FileResponse(path, headers={"Cache-Control": FOREVER, "Content-Type": AUDIO_TYPES[path.suffix]})
 
 
-# --- the artist agent: thumbs, questions, plates, the repertoire (docs/design/artist-agent.md) --------------------------
+# --- the artist agent: thumbs, questions, plates, the repertoire (contrib/docs/design/artist-agent.md) --------------------------
 def _artist(request: web.Request) -> A.Artist:
     return _studio(request).artist
 
@@ -350,7 +350,7 @@ async def artist_repertoire(request: web.Request) -> web.Response:
     return _gzipped(request, web.json_response(_artist(request).repertoire(), headers=NO_STORE))
 
 
-# --- the regions: their permanent state and their renders (docs/design/rummage.md) --------------------------------------
+# --- the regions: their permanent state and their renders (contrib/docs/design/rummage.md) --------------------------------------
 def _region(request: web.Request) -> str:
     region = request.match_info["id"]
     if region not in R.REGIONS:

@@ -30,11 +30,11 @@ This is the brief the overnight agents share. HW002 is paused.
    `sh001`), and the region keeps your artifacts on the Gramophone for good. You can recommit a machine later. A
    new artifact replaces the old one on the plinth, and the short updates.
 
-Nothing is locked, in the spirit of the spine (`docs/design/studio-agent.md`): any machine can be operated in any order.
+Nothing is locked, in the spirit of the spine (`contrib/docs/design/studio-agent.md`): any machine can be operated in any order.
 
 ## Music (SH001)
 
-- **Made in Ableton Live** (Live 12 Suite on this Mac) by hands, played as rendered (`docs/sound.md`, `CLAUDE.md`).
+- **Made in Ableton Live** (Live 12 Suite on this Mac) by hands, played as rendered (`contrib/docs/sound.md`, `CLAUDE.md`).
   The browser only plays the renders, with click-free switches and a loudness match.
 - **A short:** 32 bars at the tempo the music agent picks (about 60 s). Fixed arrangement:
   - bars 1-8: bed;
@@ -144,7 +144,7 @@ The music agent's account of SH001 as rendered (15 October 2026). The recipe is 
 - **Style:** collage, bric-a-brac, faux multi-material. Cut-outs with a thin white paper edge, mixed textures (wood
   grain, brass, enamel, kraft paper, fabric, tin, print), a hand-made, stop-motion feel. The wanderer keeps the gold
   scarf.
-- **Made with Gemini through `harness images` only** (`docs/images.md`): every image with its context and batch,
+- **Made with Gemini through `harness images` only** (`contrib/docs/images.md`): every image with its context and batch,
   batches named `rummage-*`.
 - **Processing:** generated on a flat chroma background, keyed out, trimmed, resized (sprites at about 2x their
   largest on-screen size), and written as WebP with alpha into `static/checklist/rummage/art/`. Committed, small.

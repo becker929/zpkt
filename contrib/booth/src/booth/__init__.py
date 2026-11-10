@@ -1,4 +1,4 @@
-"""The booth: scores in, Live renders out, for the Bluesky music bot (docs/design/bluesky-bot.md).
+"""The booth: scores in, Live renders out, for the Bluesky music bot (contrib/docs/design/bluesky-bot.md).
 
 hands reads its rig from the environment when it is first used, so the booth's own rig is set here, before anything
 imports hands: its sets live in the booth's folder and only `booth_` sets count as ours, so no guard ever lets it

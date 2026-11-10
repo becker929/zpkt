@@ -1,7 +1,7 @@
 # The map, the artist agent and the gallery (design)
 
 A design, not yet built, written 14 October 2026 from Anthony's direction after the map round
-(`docs/design/studio-agent.md`, "The map round"). It covers three things: what the map is as a game, an agent whose job
+(`contrib/docs/design/studio-agent.md`, "The map round"). It covers three things: what the map is as a game, an agent whose job
 is to make the app more rewarding over time, and a gallery that keeps everything it makes.
 
 ## The map as a game
@@ -18,7 +18,7 @@ player and the map:
 - **Collection**: Animal Crossing's museum. What you found is kept and displayed.
 
 Here the actions are music production tasks: a checked item reveals its room and its find, a cleared step opens a
-zone of The Wasteland. Release is never locked (`docs/design/studio-agent.md`): the map entices and never forces.
+zone of The Wasteland. Release is never locked (`contrib/docs/design/studio-agent.md`): the map entices and never forces.
 
 **The rule the crystal taught: the map is drawn from the work.** Its details come from what was actually decided,
 deterministically, not from a random roll. Settling the drive at 41 % gives that room a particular roughness;
@@ -41,7 +41,7 @@ is a learning problem: it learns what delights Anthony and what they tire of, an
 - **Then a quick question.** The agent may follow up in a small pop-over chat ("the shake, or the sound?"). It
   can be answered, or dismissed. The press counts either way.
 - The same pop-over is how the agent asks anything, on any view (the studio agent's ask tool,
-  `docs/design/studio-agent.md`).
+  `contrib/docs/design/studio-agent.md`).
 
 The other signals are what they do: commits made after a reward against before it, how long they stay on the
 splash, whether they open a find, what they skip.
@@ -49,17 +49,17 @@ splash, whether they open a find, what they skip.
 ### What it makes: works, not code
 
 A **work** is one piece of juice: what happens when something is done. It is a description the page performs, as
-widgets are (`docs/design/studio-agent.md`): which primitives, in what order, with what values, bound to which facts of
+widgets are (`contrib/docs/design/studio-agent.md`): which primitives, in what order, with what values, bound to which facts of
 the work. Primitives are the page's vocabulary: camera moves, particles, stamps and seals, map features (lamps,
 weather, figures on trails, constellations), type and illumination, sounds. New primitives are added as code
 through reviewed PRs; the agent composes and tunes them.
 
-Sounds are rendered in Live, never made in the browser (`docs/sound.md`). The check sounds' recipe
+Sounds are rendered in Live, never made in the browser (`contrib/docs/sound.md`). The check sounds' recipe
 (`hands/scripts/ui_sounds/`) is the pattern: the agent writes a variant and Live renders it.
 
 ### How it learns
 
-- **Like the reference space** (`docs/design/studio-agent.md`): most of what it offers comes from the region of what they
+- **Like the reference space** (`contrib/docs/design/studio-agent.md`): most of what it offers comes from the region of what they
   have liked, and about one in ten deliberately goes outside it. A delight is partly surprise, so a known-good
   work loses its effect when it repeats.
 - **Novelty wears off.** A work's value falls with how often they have seen it. The agent rotates works and keeps

@@ -5,7 +5,7 @@ through an MCP bridge, a vibe server that bounces audio for listening on a phone
 feedback, a Next.js chat frontend, and a watchdog that restarts the stack and can ask the Claude
 Agent SDK to fix it.
 
-Nothing on zpkt's main path uses it. The voice loop in `docs/journal/2026-10-plan.md` replaces it with a
+Nothing on zpkt's main path uses it. The voice loop in `contrib/docs/journal/2026-10-plan.md` replaces it with a
 Claude Code session and skills, calling the `hands` library directly. It depends on `hands` for
 the LOM client (`hands.live.transport.LiveClient`).
 

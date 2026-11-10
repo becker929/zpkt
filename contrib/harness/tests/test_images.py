@@ -1,4 +1,4 @@
-"""Images made with Gemini (harness/images.py, docs/images.md): every image a call returns is kept with its record
+"""Images made with Gemini (harness/images.py, contrib/docs/images.md): every image a call returns is kept with its record
 (context, batch, the full prompt, the model, the settings sent, timings), failures are recorded too, a call without
 its context is refused, and the wall's API pages them newest first and serves their files."""
 

@@ -1,4 +1,4 @@
-"""One job at a time, and the rule that the booth stops itself on any surprise (docs/design/bluesky-bot.md).
+"""One job at a time, and the rule that the booth stops itself on any surprise (contrib/docs/design/bluesky-bot.md).
 
 When may a job start? Only when the booth is open, inside its hours, nothing else used the LOM in the last few
 minutes, and **one of the booth's own sets is in front of Live**. That last rule is the lease: Anthony gives the

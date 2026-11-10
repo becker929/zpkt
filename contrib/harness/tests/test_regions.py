@@ -1,4 +1,4 @@
-"""The regions' state and renders (studio/regions.py, docs/design/rummage.md): an empty state at first, a valid state kept
+"""The regions' state and renders (studio/regions.py, contrib/docs/design/rummage.md): an empty state at first, a valid state kept
 whole and read back, anything the page could not have made refused, a broken file set aside, and the renders served
 from their own folder by name only, cached for good."""
 

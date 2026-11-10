@@ -1,4 +1,4 @@
-// The Gramophone, opened (docs/design/rummage.md): the track's checklist as a machine. A sheet over the bottom of the
+// The Gramophone, opened (contrib/docs/design/rummage.md): the track's checklist as a machine. A sheet over the bottom of the
 // screen, with the Gramophone itself still in view above it: its three plinths (what is on each, or which machine
 // to go and operate), a big play control that plays the short as made (the render of the three choices, at full
 // length, through the player), and the record sleeve that is the reward for finishing it.

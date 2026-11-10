@@ -1,7 +1,7 @@
 """`harness lab-params`: HW002's 100 most salient parameters, for the lab's surfaces (static/lab/data/params.json).
 
 The list is chosen here, by hand, from what the HW002 experiments touched and what the workflow's steps are about
-(docs/workflow.md: collage, arrange, kick, mix; docs/journal/hw002/*; hands/docs/probe-packing-findings.md). Each value in
+(contrib/docs/workflow.md: collage, arrange, kick, mix; contrib/docs/journal/hw002/*; hands/docs/probe-packing-findings.md). Each value in
 the set is read from the Live set itself, so the lab's "set" mark is what Live has. Ranges and findings come from
 the experiments (batches 4-8, the b6 climbs).
 
@@ -214,7 +214,7 @@ def plan() -> list[P]:
 
     # ---- ARRANGE (step III): the Short's shape. Their "set" is the canonical Short, batch 4.3 track 1
     # (prototypes/archive/arrange_prototype/plan43.json b43-01): no gap before the kick, no SFX, no break.
-    arr = "docs/journal/hw002/batch-4.3-4.4-decisions.md"
+    arr = "contrib/docs/journal/hw002/batch-4.3-4.4-decisions.md"
     add(P("arr.length", "arrange", "Shape", "Length", "bars", "lin", 16, 40, set=20, step=4, tried=[22, 33], short="Bars",
           sketch="arr.length", note="Canonical shape: 20 bars, 30 s. The target is 33-50 s: 22-33 bars, on a 4/8-bar grid."))
     add(P("arr.intro", "arrange", "Shape", "Scooped-kick opening", "bars", "lin", 2, 8, set=4, step=2, short="Scoop bars",

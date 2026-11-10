@@ -1,5 +1,5 @@
 """Kokoro through FluidAudio (Swift, Core ML on the Neural Engine): the same voice as voice.tts, its first audio in
-~0.1 s rather than ~0.5 s (docs/design/voice-benchmark.md).
+~0.1 s rather than ~0.5 s (contrib/docs/design/voice-benchmark.md).
 
 The helper (swift/, next to this file) is built on first use into VOICE_MODELS/fluid, in a directory that hashes its
 sources, so no binary is committed and a changed source builds afresh. The build fetches FluidAudio 0.17.7 and the

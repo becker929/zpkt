@@ -2,7 +2,7 @@
 
 A friend shares a video or an audio link with the bot; the bot fetches its sound and uploads the file here. The booth
 keeps it under its own folder (BOOTH_HOME/samples/<id>.wav), named by a hash of the bytes it was sent, so a score
-names a sample only by that id and never by a path (docs/design/bluesky-bot.md, "The one rule"). Every file is converted to
+names a sample only by that id and never by a path (contrib/docs/design/bluesky-bot.md, "The one rule"). Every file is converted to
 WAV at the booth's sample rate by ffmpeg, with its demuxer forced to the format the magic bytes say, so ffmpeg never
 guesses at a stranger's file (a playlist that fetches URLs, say). Then it is measured: length, peak, loudness, and
 where its hits start, for the composer to cut slices at.

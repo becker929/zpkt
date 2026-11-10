@@ -1,6 +1,6 @@
 // The production widgets: a full-bleed studio surface for one checklist item, its done measures, and the commit.
 // Mocked: nothing plays (the sound rule: music is rendered files on the player engine, and here there are none), but
-// the player engine's audibility cues are real (docs/sound.md): a switch shows as pending until the next bar, then
+// the player engine's audibility cues are real (contrib/docs/sound.md): a switch shows as pending until the next bar, then
 // becomes audible with rings at the control and a diagonal flash across the player.
 //
 //   openWidget(host, ctx) -> { destroy() }

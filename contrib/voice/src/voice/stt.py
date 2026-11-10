@@ -1,6 +1,6 @@
 """Speech to text for one turn, with the stop word: Parakeet TDT 0.6B v3 (NVIDIA) on MLX, gated by Silero VAD.
 
-Chosen and tuned by benchmark (docs/design/voice-benchmark.md): 240 files, 6 noise conditions, 11 engine configurations.
+Chosen and tuned by benchmark (contrib/docs/design/voice-benchmark.md): 240 files, 6 noise conditions, 11 engine configurations.
 
 A turn ends ONLY when the transcript's last word is the stop word ("tomato"); pauses alone never end it.
 
@@ -41,7 +41,7 @@ FD = FRAME / SR
 DEFAULT_MODEL = "mlx-community/parakeet-tdt-0.6b-v3"
 SILERO_URL = "https://github.com/snakers4/silero-vad/raw/v6.0/src/silero_vad/data/silero_vad.onnx"
 
-# Tuned on the benchmark (docs/design/voice-benchmark.md, "Tuned parameters").
+# Tuned on the benchmark (contrib/docs/design/voice-benchmark.md, "Tuned parameters").
 CLOSE_MS = 150                   # silence after speech before the stop-word check
 PARTIAL_MS = 600                 # caption cadence while speech is open
 STABLE_GAP_S = 0.5
