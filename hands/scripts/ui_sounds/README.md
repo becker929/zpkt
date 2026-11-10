@@ -1,7 +1,7 @@
 # The map checklist's check sounds
 
 Six check sounds for `/studio/checklist/map/`, made in Ableton Live and played by the page as rendered
-(`docs/sound.md`). Each is three layers, all stock Live devices and no samples:
+(`contrib/docs/sound.md`). Each is three layers, all stock Live devices and no samples:
 
 - **Body**: Operator, a sine with a fast pitch drop and some feedback, through a Saturator. Pitched 98-147 Hz so
   its harmonics carry on a phone speaker.

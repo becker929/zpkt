@@ -1,7 +1,7 @@
 # contrib/booth
 
 The booth takes scores from the Bluesky music bot and renders them in Live on this Mac. It is the only way the bot
-reaches Live. The design is `docs/design/bluesky-bot.md`.
+reaches Live. The design is `contrib/docs/design/bluesky-bot.md`.
 
 A score is data: palette instruments, notes, a mix (`src/booth/score.py`, and `lib/contracts/score.schema.json`
 generated from it). The booth never runs code it was sent. Every LOM call comes from its own compiler.

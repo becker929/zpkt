@@ -1,4 +1,4 @@
-// Works: the juice as descriptions the page performs (docs/design/artist-agent.md). A work is a set of values for the page's
+// Works: the juice as descriptions the page performs (contrib/docs/design/artist-agent.md). A work is a set of values for the page's
 // primitives (the vocabulary below); the artist agent composes and tunes works, and new primitives only arrive as
 // reviewed code. The repertoire comes from the harness (the artist's current version), else the seed in works.json.
 //

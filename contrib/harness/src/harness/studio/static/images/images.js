@@ -1,6 +1,6 @@
-// The image wall (docs/images.md): every image made with Gemini in this project, newest first, as a masonry wall.
+// The image wall (contrib/docs/images.md): every image made with Gemini in this project, newest first, as a masonry wall.
 // Each card has the image, its batch and brief context, the model and settings, and the full prompt; a thumb up or
-// down on each tells the artist (docs/design/artist-agent.md) which way to go. Tap an image to see it whole.
+// down on each tells the artist (contrib/docs/design/artist-agent.md) which way to go. Tap an image to see it whole.
 //
 // A wall can grow without end, so the page holds only what is near the screen: cards are laid out from the records'
 // sizes before any image arrives (each card keeps its shape), an image loads as it comes within a screen and a half

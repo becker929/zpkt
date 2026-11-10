@@ -1,9 +1,9 @@
-// The gallery (docs/design/artist-agent.md): every commit hangs a plate, the work that played, the map at that moment, the
+// The gallery (contrib/docs/design/artist-agent.md): every commit hangs a plate, the work that played, the map at that moment, the
 // item settled and, where there is one, the render approved. A wing per track, the one with the newest plate first.
 // The checklist's track (HW002): rooms by step, plates in the order they were made; the repertoire's works not yet
 // seen hang at the end as silhouettes, their titles hidden. A plate opens full bleed with its render to play (as
-// rendered: decoded and started, nothing made in the browser, docs/sound.md), the batch's other renders, and what it
-// unlocked out in The Wasteland. A short's wing (SH001, finished in The Rummage, docs/design/rummage.md): the record sleeves
+// rendered: decoded and started, nothing made in the browser, contrib/docs/sound.md), the batch's other renders, and what it
+// unlocked out in The Wasteland. A short's wing (SH001, finished in The Rummage, contrib/docs/design/rummage.md): the record sleeves
 // of the shorts as made hang side by side, newest first, each with its three choices, its date and its render to
 // play. One render plays at a time. #<track> in the address goes to that wing and lights its newest plate; ?from=
 // (wasteland, rummage) points the back link at where you came in. The plates and the repertoire come from the harness

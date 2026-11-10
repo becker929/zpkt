@@ -1,4 +1,4 @@
-"""The score: everything the booth will take from the bot, as data (docs/design/bluesky-bot.md, "The score").
+"""The score: everything the booth will take from the bot, as data (contrib/docs/design/bluesky-bot.md, "The score").
 
 A score never carries code, paths or device names. Instruments, returns and macros are palette ids and names that
 the booth looks up in its own table (palette.py); numbers are bounded here and again by the palette (check.py). The

@@ -6,7 +6,7 @@
 // (world.js), and the map settles into the header. A checked box stays pressed into the ledger, dated; holding it
 // reopens it. Nothing is locked: finds entice, and release never waits on them.
 //
-// The artist agent (docs/design/artist-agent.md): each commit performs a work, picked from the artist's repertoire
+// The artist agent (contrib/docs/design/artist-agent.md): each commit performs a work, picked from the artist's repertoire
 // (works.js), and hangs a plate in the gallery (gallery.html): the work, the map at that moment and the render of the
 // task. Thumbs on both edges of every view tell the artist what landed (feedback.js).
 import {

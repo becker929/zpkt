@@ -1,4 +1,4 @@
-// What the four references measure, and HW002 against them (ears/mlab, 1 October 2026; docs/journal/hw002/references.md,
+// What the four references measure, and HW002 against them (ears/mlab, 1 October 2026; contrib/docs/journal/hw002/references.md,
 // ~/_agent_scratch/mixclimb/targets.json). Each is the 30 s peak window of the track. Band levels are relative to
 // the window's own total power (the 29 bands sum to 0 dB), so loudness cancels and only the shape is compared.
 // References: BSLS, Hedon, KSMS, Patriotic.

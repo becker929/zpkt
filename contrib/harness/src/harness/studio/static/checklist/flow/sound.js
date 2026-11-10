@@ -1,4 +1,4 @@
-// The check's click: an interface sound, not music (docs/sound.md allows these), made on the spot like studio's
+// The check's click: an interface sound, not music (contrib/docs/sound.md allows these), made on the spot like studio's
 // ready cue. A short filtered noise tick for the contact and a quick high "tock" for the body, about 60 ms, quiet.
 // The context is made on the first touch (iOS only starts one inside a gesture) and the click can be turned off.
 

@@ -1,4 +1,4 @@
-"""The artist agent's store and API (studio/artist.py, docs/design/artist-agent.md): a press is kept before any question;
+"""The artist agent's store and API (studio/artist.py, contrib/docs/design/artist-agent.md): a press is kept before any question;
 answers, plates and repertoire versions; works outside the page's primitives are refused; the quick question falls
 back to rules; site audio is served from an allowlist only."""
 

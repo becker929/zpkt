@@ -1,5 +1,5 @@
 // What The Wasteland holds for HW002: one find per checklist item, out in its step's zone, and one cache per step,
-// opened when the step clears (docs/design/studio-agent.md, "The Wasteland"). All of it is MOCKED: the titles describe the
+// opened when the step clears (contrib/docs/design/studio-agent.md, "The Wasteland"). All of it is MOCKED: the titles describe the
 // kinds of things the agent would surface from Anthony's own library and from background agents, never real files
 // (this repo is public, and his library never goes in it). A find is relevant to the item that reaches it, and
 // useIn names the items where it can be put to work (its own step or a later one).

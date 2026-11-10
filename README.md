@@ -50,7 +50,7 @@ Two rules keep the loop honest:
   `ears`' job. What is left for a person is taste: choosing between versions that already pass.
 
 I work through a track in seven steps: audio collage, drums, arrange, kick, mix, master,
-release ([docs/workflow.md](docs/workflow.md)). `hands library inventory` reads a folder of Live
+release ([contrib/docs/workflow.md](contrib/docs/workflow.md)). `hands library inventory` reads a folder of Live
 projects and says where each track is in those steps.
 
 ## What is in the repo
@@ -62,7 +62,7 @@ projects and says where each track is in those steps.
 | [`lib/contracts/`](lib/contracts/) | The JSON schemas the parts exchange. | Supported. |
 | [`contrib/`](contrib/) | My own setup around the core: a phone voice app, a Bluesky music bot and its render booth, publishing to my site. | Works on my Mac. Read it for ideas; expect to adapt it. |
 | [`prototypes/`](prototypes/) | Experiments beside the main path: a sound-library browser, a preference judge, an unattended loop, a humming transcriber, research. | Mixed; each says what state it is in. |
-| [`docs/`](docs/) | Guides, design notes and a dated [journal](docs/journal/) of the work. | |
+| [`docs/`](docs/) | The getting-started guide. My workflow, design notes and dated journal are in [`contrib/docs/`](contrib/docs/). | |
 
 ## Working rules
 

@@ -1,4 +1,4 @@
-"""The artist agent's first slice on the map (/studio/checklist/map/, docs/design/artist-agent.md): each commit performs a
+"""The artist agent's first slice on the map (/studio/checklist/map/, contrib/docs/design/artist-agent.md): each commit performs a
 work from the artist's repertoire (a wax seal, a room lit in the colour of the decision, stars at night) and hangs a
 plate in the gallery with the work, the map and the render of the task; the thumbs on both edges of every view store
 a press at once, with what was on screen and what had just played, and then ask a quick question."""

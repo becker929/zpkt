@@ -1,7 +1,7 @@
 # audio-browser
 
 > Its collage player assembles and soft-clips audio in the browser (`frontend/lib/collagePlayer.ts`, `slicePlayer.ts`,
-> `softClip.ts`), which breaks zpkt's sound rule (`docs/sound.md`); it is replaced if the prototype is revived.
+> `softClip.ts`), which breaks zpkt's sound rule (`contrib/docs/sound.md`); it is replaced if the prototype is revived.
 
 A tool for listening through a personal sound library once and deciding what
 each sound is for.

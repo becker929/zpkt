@@ -1,4 +1,4 @@
-// The Rummage, laid out (docs/design/rummage.md): a junk market on layered paper. The Gramophone stands at the heart, in
+// The Rummage, laid out (contrib/docs/design/rummage.md): a junk market on layered paper. The Gramophone stands at the heart, in
 // the north, its three plinth dishes facing you; the three machines stand round a crossroads to the west, the east
 // and the south-west, with a signpost; the tear back to The Wasteland is at the south entrance. Torn-paper paths
 // join them, bric-a-brac lines the paths like stalls, stands about in the open and piles up round the edge, and

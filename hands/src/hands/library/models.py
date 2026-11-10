@@ -16,7 +16,7 @@ class Record(BaseModel):
     by: Literal["owner", "docs", "agent"] = Field(
         "owner", description="owner: the producer's word; docs: a decision recorded in docs; agent: an agent's judgment")
     note: str = ""
-    source: str = Field("", description="where it is written down, e.g. docs/journal/hw002/batch-6-7-decisions.md")
+    source: str = Field("", description="where it is written down, e.g. contrib/docs/journal/hw002/batch-6-7-decisions.md")
     date: str = Field("", description="YYYY-MM-DD")
     url: str = Field("", description="release: the published link")
 

@@ -9,7 +9,7 @@ Two places, same shape. The central file (the rig's records_file, by default <li
     percent = 80
     by = "docs"
     note = "canonical shape chosen (batch 4.3 track 1); chord loop still missing"
-    source = "docs/journal/hw002/batch-4.3-4.4-decisions.md"
+    source = "contrib/docs/journal/hw002/batch-4.3-4.4-decisions.md"
     date = "2026-10-06"
 
     [HW002.release]

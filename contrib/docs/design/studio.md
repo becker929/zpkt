@@ -1,18 +1,18 @@
 # studio: the voice production app
 
 A chat with Claude Code that works by voice. You talk on your phone, Claude works on the Mac (Live, zpkt), and the
-answer comes back as speech and as music in the same chat. The plan is in `docs/journal/2026-10-plan.md` (Phase 2).
+answer comes back as speech and as music in the same chat. The plan is in `contrib/docs/journal/2026-10-plan.md` (Phase 2).
 
 It runs on the Mac inside `harness serve` and is reached over the tailnet only, behind the harness password, at `/`
 (which opens `/studio/`). The /skrng pages stay at `/skrng/`. The HW002 lab, the set's knobs as phone surfaces, is
-at `/studio/lab/` (`docs/design/lab.md`; the menu has a row for it).
+at `/studio/lab/` (`contrib/docs/design/lab.md`; the menu has a row for it).
 
-Sound follows `docs/sound.md`: music is rendered files through the player engine, and the browser never does the
+Sound follows `contrib/docs/sound.md`: music is rendered files through the player engine, and the browser never does the
 DAW's job. The speaker, the mic and the ready sound are allowed uses of Web Audio.
-The agent, the checklist page and The Wasteland that come next are designed in `docs/design/studio-agent.md`; the
+The agent, the checklist page and The Wasteland that come next are designed in `contrib/docs/design/studio-agent.md`; the
 checklist page's first draft is at `/studio/checklist/` (the menu's Checklist row). The artist agent, its feedback
-thumbs and the gallery of plates are designed in `docs/design/artist-agent.md`; The Wasteland as a world to walk, and its
-releases, in `docs/design/wasteland.md`.
+thumbs and the gallery of plates are designed in `contrib/docs/design/artist-agent.md`; The Wasteland as a world to walk, and its
+releases, in `contrib/docs/design/wasteland.md`.
 
 ## A turn
 
@@ -128,7 +128,7 @@ contrib/voice/src/voice/
   worker.py        `voice serve`: reads requests on stdin, writes replies on stdout
   tts.py           Kokoro: sentences, streaming synthesis; the build to use (VOICE_TTS_MODEL), and the ONNX one
   fluid.py         Kokoro on FluidAudio (Neural Engine): builds the Swift helper (swift/) on first use, talks to it
-  stt.py           Silero VAD + Parakeet (MLX) + the stop word, one turn at a time (docs/design/voice-benchmark.md)
+  stt.py           Silero VAD + Parakeet (MLX) + the stop word, one turn at a time (contrib/docs/design/voice-benchmark.md)
   fake.py          stand-in engines for tests and page work (--tts fake --stt fake)
 ```
 
@@ -352,7 +352,7 @@ Tests: `uv run --project contrib/harness --extra dev pytest` and `uv run --proje
 (`VOICE_ENGINES=1` and `--extra engines` add the real models). The speech models are fetched on first use: Kokoro
 and Silero into `~/.cache/zpkt-voice` (`VOICE_MODELS`; FluidAudio's helper is built there too, about a minute and a
 half the first time), Parakeet into the Hugging Face cache. Turn timings:
-`harness timings` (docs/design/voice-benchmark.md).
+`harness timings` (contrib/docs/design/voice-benchmark.md).
 
 Music stored before it was MP3 is FLAC, which iPhone Safari cannot play: `harness studio-music-mp3 --dry-run` lists
 it, and without `--dry-run` each such bubble gets an MP3 (the FLAC file is kept, and the message keeps its

@@ -1,4 +1,4 @@
-"""The regions' permanent state (docs/design/rummage.md): a region is a place in the world you play to finish a short, and
+"""The regions' permanent state (contrib/docs/design/rummage.md): a region is a place in the world you play to finish a short, and
 what stays when you leave it is kept here, one JSON file per region.
 
     <root>/<id>.json        root is <studio_dir>/regions

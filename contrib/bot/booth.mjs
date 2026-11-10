@@ -1,6 +1,6 @@
 // The booth as the bot uses it: contrib/booth's HTTP service on loopback (127.0.0.1:8794), as Anthony, in front of
 // Live. JSON in and out, every request with the bot's token (Bearer zb1_...). The booth takes a score and nothing
-// else (docs/design/bluesky-bot.md, "The one rule"), so this client only ever sends scores, keys and job ids.
+// else (contrib/docs/design/bluesky-bot.md, "The one rule"), so this client only ever sends scores, keys and job ids.
 //
 // Errors are {error, message} with a stable code. Two of them mean "not now" rather than "no": 503 closed (the
 // booth is shut, outside its hours, or Live is busy) and 429 queue_full; both carry or imply a wait, and BoothError

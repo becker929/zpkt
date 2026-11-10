@@ -1,4 +1,4 @@
-// The Rummage's permanent state and its rules (docs/design/rummage.md): what each machine has committed, the one artifact
+// The Rummage's permanent state and its rules (contrib/docs/design/rummage.md): what each machine has committed, the one artifact
 // carried, what sits on the Gramophone's three plinths, and every time the short was finished. Nothing is locked:
 // any machine can be operated in any order, and recommitted later.
 //

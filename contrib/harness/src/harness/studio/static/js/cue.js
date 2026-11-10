@@ -2,7 +2,7 @@
 // start talking without looking at the phone. It is made on the spot with two oscillators on the engine's context:
 // no file to fetch or decode. The menu's "Ready sound" turns it off.
 //
-// The mic and the speaker are never on together (docs/design/studio.md, "A turn"), and this cue is the one deliberate
+// The mic and the speaker are never on together (contrib/docs/design/studio.md, "A turn"), and this cue is the one deliberate
 // exception. The rule is there so a car's Bluetooth is never switched between its profiles mid-sound, and so the
 // answer never goes back into the mic. The cue does neither: it plays in the audio session the open mic already
 // has (play-and-record), so nothing switches; it lasts 150 ms and is quiet, before anyone has started talking; and

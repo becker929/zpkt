@@ -1,5 +1,5 @@
 // The Rummage's interface sounds: made in Ableton Live from paper, tin, wood, brass and found objects (in D where
-// pitched) by hands/scripts/rummage/sounds.py, and played as rendered (docs/sound.md): decoded once, started, nothing
+// pitched) by hands/scripts/rummage/sounds.py, and played as rendered (contrib/docs/sound.md): decoded once, started, nothing
 // else. No gain, no filters, nothing made here. sounds.json names each sound's files by content, a list where a
 // sound has variants (step has three); the harness serves them from /studio/regions/rummage/audio/.
 //

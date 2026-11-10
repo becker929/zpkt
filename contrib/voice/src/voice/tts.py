@@ -3,7 +3,7 @@
 VOICE_TTS_MODEL picks the build. `fluid` (the default) runs it through FluidAudio on the Neural Engine (voice.fluid),
 about 0.1 s to the first audio; where that cannot be built or started, ONNX Runtime fp32 (~0.5 s) takes over. `fp32`
 and `int8` ask for ONNX directly; int8 is about half the time of fp32 (260 against 520 ms on the benchmark,
-docs/design/voice-benchmark.md) for a slightly rougher voice. The ONNX model and its voices are fetched on first use into
+contrib/docs/design/voice-benchmark.md) for a slightly rougher voice. The ONNX model and its voices are fetched on first use into
 VOICE_MODELS (default ~/.cache/zpkt-voice) and kept there.
 Text is cut into sentences (and over-long sentences at clause marks) so the first audio is ready after the first
 sentence rather than after the whole reply; each piece is synthesised and handed on as soon as it is made.

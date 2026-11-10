@@ -5,7 +5,7 @@ jobs. `harness serve` runs it all.
 
 ```
 phone (Tailscale on) --https--> tailscale serve (tailnet only) --> 127.0.0.1:8787  harness serve
-                                                                    ├─ /studio/   the voice app (docs/design/studio.md)
+                                                                    ├─ /studio/   the voice app (contrib/docs/design/studio.md)
                                                                     ├─ /skrng/    the site's pages, keyless here
                                                                     ├─ /api/rpc   the methods below, in-process
                                                                     └─ jobs       Claude Code sessions, one at a time
@@ -23,7 +23,7 @@ The older public route (browser → anthonybecker.me Worker → RigBroker socket
 ## studio
 
 The voice production app: a chat with one long-lived Claude Code session (cwd: zpkt), spoken both ways, with music
-and screenshots as their own bubbles. Its design, turn model and protocol are in `docs/design/studio.md`; the code is
+and screenshots as their own bubbles. Its design, turn model and protocol are in `contrib/docs/design/studio.md`; the code is
 `src/harness/studio/`, and the speech models run in their own process (`contrib/voice`), started and restarted by the
 harness. Its data (SQLite chat, media) lives in `~/_agent_scratch/studio/` (`HARNESS_STUDIO`).
 
@@ -40,7 +40,7 @@ Settings (environment):
 | `HARNESS_VOICE_CMD` | `uv run --project contrib/voice --extra engines voice serve` | how to start the speech worker |
 | `HARNESS_STEPS_PORT` | `8788` | loopback port where scripts report steps (for screenshots) |
 | `VOICE_TTS_MODEL` | `fluid` | Kokoro build: `fluid` (FluidAudio on the Neural Engine, ~0.1 s to the first audio; built on first use, ONNX `fp32` where it cannot be), `fp32` (ONNX, ~0.3-0.5 s), or `int8` (ONNX, about half of fp32) |
-| `VOICE_STT_MODEL` | `mlx-community/parakeet-tdt-0.6b-v3` | the speech-to-text model (docs/design/voice-benchmark.md) |
+| `VOICE_STT_MODEL` | `mlx-community/parakeet-tdt-0.6b-v3` | the speech-to-text model (contrib/docs/design/voice-benchmark.md) |
 | `VOICE_MODELS` | `~/.cache/zpkt-voice` | where Kokoro (and the FluidAudio helper) and Silero are kept |
 
 `harness timings` prints the median of every stage of the recent turns: first turn after a start against later

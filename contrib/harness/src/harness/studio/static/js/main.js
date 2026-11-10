@@ -1,4 +1,4 @@
-// studio, the page: builds the parts and routes the Mac's messages to them (docs/design/studio.md).
+// studio, the page: builds the parts and routes the Mac's messages to them (contrib/docs/design/studio.md).
 import { abSide } from './ab.js';
 import * as api from './api.js';
 import { AudioSession } from './audio-session.js';

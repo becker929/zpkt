@@ -11,7 +11,7 @@ from pathlib import Path
 from booth.score import Score
 
 CONTRACTS = Path(__file__).resolve().parents[3] / "lib" / "contracts"
-DESCRIPTION = ("A short piece for the booth to build in Live (docs/design/bluesky-bot.md). "
+DESCRIPTION = ("A short piece for the booth to build in Live (contrib/docs/design/bluesky-bot.md). "
                "Generated from contrib/booth/src/booth/score.py — do not edit by hand.")
 
 

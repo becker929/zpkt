@@ -1,4 +1,4 @@
-// The check's sounds: interface sounds rendered in Ableton Live, played as rendered (docs/sound.md). Each is three
+// The check's sounds: interface sounds rendered in Ableton Live, played as rendered (contrib/docs/sound.md). Each is three
 // layers in Live (a low body from Operator with a pitch drop, a click transient, a splashy mid-high of noise-FM
 // through a filter), with an Echo on the splash, a ping-pong Delay return, and Drum Buss (distortion, transients,
 // boom), Glue Compressor and a Limiter on Main. The recipe that makes them is hands/scripts/ui_sounds/ (one set,

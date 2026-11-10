@@ -1,4 +1,4 @@
-"""studio: the voice production app (docs/design/studio.md). `Studio` wires its parts together and runs them inside
+"""studio: the voice production app (contrib/docs/design/studio.md). `Studio` wires its parts together and runs them inside
 `harness serve`: the web routes under /studio/, the voice worker, the Claude Code session, and a loopback-only
 endpoint where scripts report their steps."""
 
@@ -35,7 +35,7 @@ log = logging.getLogger(__name__)
 VERSION = "1"
 
 INSTRUCTIONS = """\
-You are talking with Anthony through studio, a voice app on his phone (zpkt docs/design/studio.md). He hears what you \
+You are talking with Anthony through studio, a voice app on his phone (zpkt contrib/docs/design/studio.md). He hears what you \
 write, read aloud by a speech model on the Mac, and sees it in a chat. He may be driving.
 
 How to talk:
@@ -81,10 +81,10 @@ class Studio:
         self.steps_token = secrets.token_urlsafe(24)
         self.agent = agent or AgentSession(self._options)
         self.narrator_model = None if summarize else HaikuLines(cfg.narrator_model, cfg.cli_path, job_env(cfg))
-        # The artist agent's store and its quick question's model (docs/design/artist-agent.md)
+        # The artist agent's store and its quick question's model (contrib/docs/design/artist-agent.md)
         self.artist = Artist(cfg.studio_dir / "artist", SEED)
         self.artist_model = None if summarize else QuestionLines(cfg.narrator_model, cfg.cli_path, job_env(cfg))
-        # The regions' permanent state (docs/design/rummage.md)
+        # The regions' permanent state (contrib/docs/design/rummage.md)
         self.regions = RegionStore(cfg.studio_dir / "regions")
         # The page's files are part of the version: a page left open across a deploy is offered a reload.
         settings = Settings(stop_word=cfg.stop_word, voice=cfg.tts_voice, speed=cfg.tts_speed,

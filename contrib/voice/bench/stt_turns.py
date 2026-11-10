@@ -1,4 +1,4 @@
-"""Run voice.stt's turn over a benchmark test set and score it (docs/design/voice-benchmark.md).
+"""Run voice.stt's turn over a benchmark test set and score it (contrib/docs/design/voice-benchmark.md).
 
     uv run --extra engines python bench/stt_turns.py <testset dir> [--frame-ms 40] [--json out.json]
 

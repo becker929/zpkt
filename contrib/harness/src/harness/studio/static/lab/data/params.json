@@ -1081,7 +1081,7 @@
    "min": 3,
    "max": 17,
    "set": 5,
-   "note": "With a long splash on the same bar (docs/journal/hw002/batch-4.3-4.4-decisions.md).",
+   "note": "With a long splash on the same bar (contrib/docs/journal/hw002/batch-4.3-4.4-decisions.md).",
    "sketch": "arr.kickIn",
    "short": "Kick in",
    "step": 1,

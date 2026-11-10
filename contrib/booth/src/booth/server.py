@@ -1,4 +1,4 @@
-"""The booth's HTTP API on 127.0.0.1 (docs/design/bluesky-bot.md, "The API"). Every request needs the bot's token.
+"""The booth's HTTP API on 127.0.0.1 (contrib/docs/design/bluesky-bot.md, "The API"). Every request needs the bot's token.
 
 The worker runs in a thread beside the server and takes one job at a time (runner.py); a request never waits on Live.
 """

@@ -14,7 +14,7 @@
 | Site-tied parts | Kept public under `contrib/`: harness, booth, voice, bot, /skrng publishing, letta-vibe |
 | Prototypes | Keep `prototypes/` (audio-browser, taste, engineer, humming joins them); clean READMEs |
 | Corpus | Bring your own: `ears corpus build <folder>`; loudness/peak/spectra work without one |
-| Working docs | `docs/journal/`, dated, apart from reference docs (plans, interviews, hw002, inventory, handoffs, TODO) |
+| Working docs | `contrib/docs/journal/`, dated, apart from reference docs (plans, interviews, hw002, inventory, handoffs, TODO) |
 | History | Audit the current tree only; leave history alone |
 
 ## Target tree
@@ -31,13 +31,13 @@ lib/               rig, contracts, record (minus /skrng publishing)
 contrib/           harness, booth, voice, bot, skrng publish, letta-vibe
 prototypes/        audio-browser, taste, engineer, humming
 docs/              getting-started, hands, ears, agent, workflow, sound, contracts
-docs/journal/      dated working docs
+contrib/docs/journal/      dated working docs
 ```
 
 ## Work order
 
 1. Tree audit: secrets, personal paths, emails, Keychain names, tailnet hosts. Report before changing.
-2. Move files (`git mv`, history kept): contrib/, agent/, humming → prototypes/, docs/journal/.
+2. Move files (`git mv`, history kept): contrib/, agent/, humming → prototypes/, contrib/docs/journal/.
    Settle the untracked `demo/`, `hands/frontend/`, and the stray top-level `taste/`, `engineer/`.
 3. Refactor core: hardcoded paths become config/env, remove dead code and `hands/archive` from the supported surface,
    consistent CLI names, Live remote-script install step.

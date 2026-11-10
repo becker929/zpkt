@@ -28,7 +28,7 @@ front and the LOM answers, and stops the run on anything else.
 | `als.py` | the .als editor: `load`/`save`, `resolve`, `current_value`, `param_range`, `set_manual`, `set_speaker`, `rename_track`, `set_steps`, `add_device_from_donor`, `check -> Report`, `xml_hash` (plan-cache key) |
 | `probe_kit.py` | `Kit`, `template`, `write_batch(kit, tag, steps, devices=())`, `render(client, batch_set, kit, out_dir)`, `merge_patterns`, `constant`, `scale`/`unscale` |
 | `arrange/` | `fx` (clip edits, tracks as arguments), `autostate` (automation state, `restore` after Delete Time), `hats` (layered hat sections) |
-| `library/` | the WIP library, read-only: `inventory(roots, exports=, records_file=, measure=) -> Inventory` scores each track's seven steps (`../docs/workflow.md`); `facts.read_set` (what a .als shows), `score` (one scorer per step), `records` (the producer's word beats the heuristic), `markdown` |
+| `library/` | the WIP library, read-only: `inventory(roots, exports=, records_file=, measure=) -> Inventory` scores each track's seven steps (`../contrib/docs/workflow.md`); `facts.read_set` (what a .als shows), `score` (one scorer per step), `records` (the producer's word beats the heuristic), `markdown` |
 | `steps.py` | `report(caption, level="minor", x=None, y=None)` to the studio app; `timing(step, seconds, **fields)` to `bench.jsonl` |
 | `config.py` | `rig()`: the private rig settings below |
 | `models.py`, `codegen.py`, `builder.py`, `runner.py` | `ProjectConfig` → LOM steps → `StepRunner` (`hands build / execute`); `models.py` is the source of the `lib/contracts` schemas (`scripts/gen_schemas.py`) |
@@ -71,7 +71,7 @@ Unknown keys are refused.
 | `live_prefs_dir` | `ZPKT_LIVE_PREFS_DIR` | the newest `~/Library/Preferences/Ableton/Live *` | `Log.txt`, for `other_agent_active` |
 | `library_dir` | `ZPKT_LIBRARY_DIR` | `~/Music/zpkt/library` | work-in-progress Live projects, one folder per track, read-only (`hands library inventory`) |
 | `plans_dir` | `ZPKT_PLANS_DIR` | `~/Music/zpkt/plans` | the plan render cache (`hands plan`); `HANDS_PLANS` overrides it for one run |
-| `records_file` | `ZPKT_RECORDS_FILE` | `<library_dir>/records.toml` | what you have declared done per track; it beats the inventory's guess (`docs/workflow.md`) |
+| `records_file` | `ZPKT_RECORDS_FILE` | `<library_dir>/records.toml` | what you have declared done per track; it beats the inventory's guess (`contrib/docs/workflow.md`) |
 
 ```toml
 # ~/.config/zpkt/rig.toml (an example; use your own folders and prefixes)
@@ -109,7 +109,7 @@ job:
 
 | Folder | What it did |
 |---|---|
-| `probe_pack/` | The HW002 mix experiments: sweeps and A/B batches packed into one render (`sweep8.py`, `ab_live.py`), and a hill climber (`climb_live.py`). The pipeline is in `../docs/journal/hw002/batch-8-chord-and-break.md`; the measurements behind probe packing are in `docs/probe-packing-findings.md`. |
+| `probe_pack/` | The HW002 mix experiments: sweeps and A/B batches packed into one render (`sweep8.py`, `ab_live.py`), and a hill climber (`climb_live.py`). The pipeline is in `../contrib/docs/journal/hw002/batch-8-chord-and-break.md`; the measurements behind probe packing are in `docs/probe-packing-findings.md`. |
 | `industrial/`, `proptest/` | Short pieces composed in code and rendered in Live with stock instruments. |
 | `rummage/`, `juice_box/`, `ui_sounds/` | Sound sets for games and interfaces, built in Live from samples. |
 

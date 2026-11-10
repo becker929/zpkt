@@ -4,7 +4,7 @@
 // It counts as open (state 'open', the dock's "Go ahead") only once its frames are on their way to the Mac from a
 // track that is not muted; that is when it tells the Mac (`mic open`) and plays the ready cue (cue.js). Until the
 // first frame the route is settling, getUserMedia is asking or the worklet is loading, and anything said is lost,
-// so the dock says to wait. Each stage of an open is a timing mark (docs/design/studio.md, "A turn").
+// so the dock says to wait. Each stage of an open is a timing mark (contrib/docs/design/studio.md, "A turn").
 //
 // It records from the phone's own mic where there is one (the `phoneMic` preference, on by default), so a car's or
 // headset's Bluetooth is only ever used for playback and stays in its media profile.

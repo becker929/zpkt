@@ -1,7 +1,7 @@
 # SH001, the short The Rummage plays
 
-The music for The Rummage (`docs/design/rummage.md`): a 32-bar short in three parts with three options each, made in Ableton
-Live 12 Suite by hands and rendered as all 27 combinations. The page plays the renders (`docs/sound.md`); it never
+The music for The Rummage (`contrib/docs/design/rummage.md`): a 32-bar short in three parts with three options each, made in Ableton
+Live 12 Suite by hands and rendered as all 27 combinations. The page plays the renders (`contrib/docs/sound.md`); it never
 makes or changes sound.
 
 - **118 BPM, 4/4, 32 bars, 65.085 s. D minor, dorian colour.** Two bars a chord: Dm9, G9, Bbmaj7, A7sus4 to A7, three

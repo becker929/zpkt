@@ -1,4 +1,4 @@
-"""The image wall (/studio/images/, docs/images.md): a masonry of every image with its context, settings and full
+"""The image wall (/studio/images/, contrib/docs/images.md): a masonry of every image with its context, settings and full
 prompt; images load as they come near the screen and are let go when they are far from it; batches filter it."""
 
 from __future__ import annotations

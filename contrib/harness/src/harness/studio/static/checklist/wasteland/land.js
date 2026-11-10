@@ -1,6 +1,6 @@
 // The Wasteland as a place to walk: the camp in the middle with the track's machine, the museum below it, and the
 // seven sites of the spine on a ring around them, joined to the camp by worn paths. In the storm to the east, a tear:
-// the way into The Rummage (docs/design/rummage.md). Between them, sand, dunes,
+// the way into The Rummage (contrib/docs/design/rummage.md). Between them, sand, dunes,
 // cracked ground, rocks, dead trees, ruins, wrecks and a line of pylons; round the edge, the storm. Everything is
 // drawn from a fixed seed, so it is the same place every visit (the map screen will draw from the same layout).
 //

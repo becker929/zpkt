@@ -18,7 +18,7 @@
 #   - if the bot was running as you (the LaunchAgent me.anthonybecker.musicbot in your session), that one is stopped
 #     and its plist renamed .disabled, so two bots never answer the same account.
 # What roombot then holds for the music bot: its Bluesky app password, its Anthropic key and the booth token. A booth
-# token can queue scores and nothing else (docs/design/bluesky-bot.md, "The one rule").
+# token can queue scores and nothing else (contrib/docs/design/bluesky-bot.md, "The one rule").
 set -euo pipefail
 
 USER_NAME=roombot

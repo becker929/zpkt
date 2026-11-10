@@ -30,7 +30,7 @@
         },
         "source": {
           "default": "",
-          "description": "where it is written down, e.g. docs/journal/hw002/batch-6-7-decisions.md",
+          "description": "where it is written down, e.g. contrib/docs/journal/hw002/batch-6-7-decisions.md",
           "title": "Source",
           "type": "string"
         },
@@ -252,5 +252,5 @@
   ],
   "title": "Inventory",
   "type": "object",
-  "description": "Each WIP track's place in the seven workflow steps (docs/workflow.md), from `hands library inventory --json`. Generated from hands/src/hands/library/models.py \u2014 do not edit by hand."
+  "description": "Each WIP track's place in the seven workflow steps (contrib/docs/workflow.md), from `hands library inventory --json`. Generated from hands/src/hands/library/models.py \u2014 do not edit by hand."
 }

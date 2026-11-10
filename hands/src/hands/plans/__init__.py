@@ -1,4 +1,4 @@
-"""Plans: how the voice loop changes the music (docs/design/studio.md, "Making music").
+"""Plans: how the voice loop changes the music (contrib/docs/design/studio.md, "Making music").
 
 A plan says which knobs of a probe kit take which values, for one section. Plans are rendered in packs (one Live
 load and one export for up to P of them), every render is kept in a cache keyed by the kit's version and the

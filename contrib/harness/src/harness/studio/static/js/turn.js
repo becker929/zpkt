@@ -94,7 +94,7 @@ export class Turn extends Emitter {
     this.#changed();
   }
 
-  /** A typed turn was just sent, from a tap. The Mac gives this page the speaker for it (docs/design/studio.md), so
+  /** A typed turn was just sent, from a tap. The Mac gives this page the speaker for it (contrib/docs/design/studio.md), so
    * unlock the audio here, in the gesture, and count the page as started: the answer plays, and the mic
    * opens after it as it would after Start (with hands-free on). */
   typed() {
