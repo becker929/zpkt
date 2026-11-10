@@ -1,7 +1,7 @@
 """Validate a recipe.json against reference/recipe.schema.json and check its conversions.
 
     run recipe_check.py recipe.json                       # the scrape's private recipe
-    run recipe_check.py docs/techniques/<slug>.recipe.json --public
+    run recipe_check.py contrib/docs/techniques/<slug>.recipe.json --public
     run recipe_check.py recipe.json --tables              # Markdown note tables for RECIPE.md
 
 Checks:

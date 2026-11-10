@@ -1,6 +1,6 @@
 ---
 name: learn-tutorial
-description: Turn a music-production tutorial video into practised, rendered, filed knowledge. A scrape agent writes a verified recipe; a practice agent builds it in Live through hands (a version faithful to the tutorial, and the method on new material) and renders both; you send Anthony the MP3s, prepare the /skrng batch, file a technique card in docs/techniques/ and log the run so the next one goes better. Use when Anthony shares a tutorial link (YouTube), or asks to learn, study or practise a production technique from a video.
+description: Turn a music-production tutorial video into practised, rendered, filed knowledge. A scrape agent writes a verified recipe; a practice agent builds it in Live through hands (a version faithful to the tutorial, and the method on new material) and renders both; you send Anthony the MP3s, prepare the /skrng batch, file a technique card in contrib/docs/techniques/ and log the run so the next one goes better. Use when Anthony shares a tutorial link (YouTube), or asks to learn, study or practise a production technique from a video.
 ---
 
 # learn-tutorial
@@ -53,7 +53,7 @@ Variables used below:
    `git -C ~/Desktop/zpkt worktree add ~/_agent_scratch/zpkt-learn-$ID -b learn/$ID origin/main`.
    That worktree is `Z`. Learn the id first from the URL (the `v=` or `youtu.be/` part).
 2. **The workspace.** `$S/run runlog.py init "<url>"` creates `W/run.json`. It refuses with exit 3 when
-   the id is already in `runs.jsonl` or `docs/techniques/README.md`. Then point Anthony to the card, and
+   the id is already in `runs.jsonl` or `contrib/docs/techniques/README.md`. Then point Anthony to the card, and
    pass `--again` only if he wants a re-run.
 3. **Look back.** Read `$Z/.claude/skills/learn-tutorial/LESSONS.md` and run `$S/run runlog.py compare`.
    Write what matters for this run into the agents' `Notes:` line (steps 3 and 4).
@@ -93,7 +93,7 @@ Variables used below:
 3. When it is done, record:
    - `$S/run runlog.py stage $ID scrape end --verifier-errors N`, where N is the confirmed errors;
    - `$S/run runlog.py set $ID technique <slug>`, the slug from `W/recipe.json`'s `technique`.
-4. **Same technique?** If `docs/techniques/` already has the slug, or the same technique under another
+4. **Same technique?** If `contrib/docs/techniques/` already has the slug, or the same technique under another
    name, this run compares instead of adding a card (step 6).
 5. **Version A only?** If `technique.generalises` in `W/recipe.json` is false, the practice makes Version A
    only.
@@ -132,17 +132,17 @@ Variables used below:
 
 ## 6. File the knowledge
 
-1. **The card.** Write `$Z/docs/techniques/<slug>.md` from the private recipe and the practice report,
+1. **The card.** Write `$Z/contrib/docs/techniques/<slug>.md` from the private recipe and the practice report,
    in your own words. Copy the shape of `bass-from-perc-loop.md`: what it is and why it works, the steps with
    values, the stock substitutes, the measured results of A and B, and the credit line.
-2. **The public recipe.** `$Z/docs/techniques/<slug>.recipe.json` with `"public": true`.
+2. **The public recipe.** `$Z/contrib/docs/techniques/<slug>.recipe.json` with `"public": true`.
    - `why` fields are paraphrases. There are no `reason`, `heard` or evidence paths.
    - Add `results` from the measurements.
 3. **The same technique, from another tutorial.**
    - Name the recipe `<slug>.<ID>.recipe.json`.
    - Add a "Compared with" section to the existing card: what differs, and what each render measured.
    - Add an index row for this tutorial.
-4. **The index.** Add a row to `$Z/docs/techniques/README.md`.
+4. **The index.** Add a row to `$Z/contrib/docs/techniques/README.md`.
 
 ## 7. Retro
 
@@ -155,7 +155,7 @@ line in `$Z/.claude/skills/learn-tutorial/runs.jsonl` and compares it with the e
 | a stage took over 1.5× its median | find the slow step in PROCESS.md or PRACTICE-REPORT.md; script it, or cut it from the brief |
 | verifier errors rose | turn the error class into a checklist line or a script check (`recipe_check.py`, `measure_render.py`) |
 | the render onset error grew, or the self-test bias moved | fix the detector in `common.py` and add a case to `selftest.py` |
-| an incident kind repeated | the recovery was not enough: add a preflight check, or move the fix into hands (docs/journal/2026-10-01-todo.md) |
+| an incident kind repeated | the recovery was not enough: add a preflight check, or move the fix into hands (contrib/docs/journal/2026-10-01-todo.md) |
 
 Then:
 
@@ -166,11 +166,11 @@ Then:
    - Keep the file short.
 2. **Apply small changes now.** Make what the signals call for in the briefs, the scripts or this file.
    After any script change, run `$S/run selftest.py` and `uvx ruff@0.14.0 check $S`.
-3. **Hands gaps.** Add new ones to `$Z/docs/journal/2026-10-01-todo.md` under "Hands gaps from learn-tutorial".
+3. **Hands gaps.** Add new ones to `$Z/contrib/docs/journal/2026-10-01-todo.md` under "Hands gaps from learn-tutorial".
 4. **Check what you will commit.** Run each of these from `$Z`; both must exit 0. A finding means you
    rephrase; `--allow` is only for quotes that are not the tutorial's (its title, Anthony's verdict).
-   - `$S/run recipe_check.py docs/techniques/<recipe file> --public`
-   - `$S/run public_check.py docs/techniques/<slug>.md docs/techniques/<recipe file> docs/techniques/README.md .claude/skills/learn-tutorial/LESSONS.md .claude/skills/learn-tutorial/runs.jsonl --transcript $W/transcript.parakeet.json --captions $W/src/$ID.en.json3 --allow "<tutorial title>" --deny ~/.config/zpkt/public-deny.txt`
+   - `$S/run recipe_check.py contrib/docs/techniques/<recipe file> --public`
+   - `$S/run public_check.py contrib/docs/techniques/<slug>.md contrib/docs/techniques/<recipe file> contrib/docs/techniques/README.md .claude/skills/learn-tutorial/LESSONS.md .claude/skills/learn-tutorial/runs.jsonl --transcript $W/transcript.parakeet.json --captions $W/src/$ID.en.json3 --allow "<tutorial title>" --deny ~/.config/zpkt/public-deny.txt`
 
    The deny list is private and optional: names that must never appear in zpkt. Briefs and scripts are not
    checked: they hold path templates, not tutorial text.
@@ -193,4 +193,4 @@ Then:
 | `reference/publishing.md` | loudness, batch format, entries.json, uploads, the current upload policy |
 | `scripts/` | `run` (the launcher) and the tools; each has `--help` |
 | `LESSONS.md`, `runs.jsonl` | what earlier runs taught, and their metrics |
-| `docs/techniques/` | the filed knowledge: the index, cards and public recipes |
+| `contrib/docs/techniques/` | the filed knowledge: the index, cards and public recipes |

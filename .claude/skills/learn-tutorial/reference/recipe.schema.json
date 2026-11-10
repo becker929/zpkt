@@ -7,7 +7,7 @@
   "required": ["schema", "source", "target", "global", "steps", "notes", "gaps"],
   "properties": {
     "schema": {"const": "tutorial-recipe/v1"},
-    "public": {"type": "boolean", "description": "true for the copy in zpkt docs/techniques/"},
+    "public": {"type": "boolean", "description": "true for the copy in zpkt contrib/docs/techniques/"},
     "technique": {
       "type": "object",
       "required": ["slug", "name", "summary", "why"],

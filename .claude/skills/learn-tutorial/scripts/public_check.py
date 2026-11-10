@@ -1,6 +1,6 @@
 """Check files bound for the public zpkt repo: no copied tutorial content, no rig details.
 
-    run public_check.py docs/techniques/<slug>.md docs/techniques/<slug>.recipe.json \\
+    run public_check.py contrib/docs/techniques/<slug>.md contrib/docs/techniques/<slug>.recipe.json \\
         --transcript ~/_agent_scratch/tutorials/<id>/transcript.parakeet.json \\
         --captions ~/_agent_scratch/tutorials/<id>/src/<id>.en.json3
 

@@ -79,7 +79,7 @@ def init(a) -> None:
     in_index = INDEX.exists() and vid in INDEX.read_text()
     if (done or in_index) and not a.again:
         print(f"{vid} was learned already (runs.jsonl: {[r['run'] for r in done]}, index: {in_index}); "
-              "open its card in docs/techniques/ instead, or pass --again for a deliberate re-run")
+              "open its card in contrib/docs/techniques/ instead, or pass --again for a deliberate re-run")
         sys.exit(3)
     p = path_for(a.root, vid)
     if p.exists():

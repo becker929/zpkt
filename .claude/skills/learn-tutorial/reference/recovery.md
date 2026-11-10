@@ -40,7 +40,7 @@ The front set has unsaved changes.
   On a set Anthony works in, ask him.
 - **Fix, if ours.** Run `$S/run live_step.py --log W/practice/live_steps.jsonl save --expect SET --path ALS`.
 - **Never.** Press Don't Save on a set that is not ours, or `open` another set over a dirty one.
-- **Hands gap:** `session.is_dirty`, and plan renders leaving their set dirty (docs/journal/2026-10-01-todo.md).
+- **Hands gap:** `session.is_dirty`, and plan renders leaving their set dirty (contrib/docs/journal/2026-10-01-todo.md).
 
 ## audio-stall
 
@@ -68,7 +68,7 @@ Live's audio engine has stalled.
   tests are skipped.
 - **If the clock still does not move:** check Live > Settings > Audio (the output device is selected) and
   Options > Audio Engine On.
-- **Hands gap:** an audio-health preflight that does not play (docs/journal/2026-10-01-todo.md).
+- **Hands gap:** an audio-health preflight that does not play (contrib/docs/journal/2026-10-01-todo.md).
 
 ## old-template
 
@@ -82,7 +82,7 @@ A set from an older Live cannot be saved in place.
   1. Press Cancel.
   2. Start from File > New Live Set (`live_step.py new`): an Untitled, Live-native set.
   3. Give it a name and folder at once with `live_step.py save-as`.
-- **Hands gap:** `new_set` and `save_as` (docs/journal/2026-10-01-todo.md).
+- **Hands gap:** `new_set` and `save_as` (contrib/docs/journal/2026-10-01-todo.md).
 
 ## foreign-prompt
 
@@ -102,7 +102,7 @@ A system prompt holds the key focus.
     Escape). Both refuse while a prompt is open or Live is not the front app, because Return or Escape could
     answer the prompt. Wait until Anthony has answered it.
   - Export into the folder the Save panel already uses (`export-folder`).
-- **Hands gap:** export by menu or AX press, with a read-back of the Save panel's folder (docs/journal/2026-10-01-todo.md).
+- **Hands gap:** export by menu or AX press, with a read-back of the Save panel's folder (contrib/docs/journal/2026-10-01-todo.md).
 
 ## export-folder
 
@@ -131,7 +131,7 @@ Live's own alerts have no name or text that accessibility can read.
      the button moved, or if it is titled Save, Replace or Delete.
   4. Record the text in the step log.
 - **Never.** Press anything you have not read.
-- **Hands gap:** `reap_modals` should report an unnamed dialog with its size and element count (docs/journal/2026-10-01-todo.md).
+- **Hands gap:** `reap_modals` should report an unnamed dialog with its size and element count (contrib/docs/journal/2026-10-01-todo.md).
 
 ## dialog
 
@@ -165,7 +165,7 @@ A device makes sound with no input.
   1. Probe any noise, crackle or LFO-driven device with a short export that includes the lead-in.
   2. If it sounds by itself, render its output once (a track-mode export) into an audio clip.
   3. Put the clip on its own track, only where the plan wants it.
-- **Hands gap:** arrangement automation for such devices (docs/journal/2026-10-01-todo.md).
+- **Hands gap:** arrangement automation for such devices (contrib/docs/journal/2026-10-01-todo.md).
 
 ## live-down
 
