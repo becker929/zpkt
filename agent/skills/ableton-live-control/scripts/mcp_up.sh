@@ -7,7 +7,7 @@
 # Usage: bash mcp_up.sh
 set -euo pipefail
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-HANDS="$(cd "$DIR/../../.." && pwd)"
+HANDS="$(cd "$DIR/../../../../hands" && pwd)"
 HOST="${MCP_HOST:-127.0.0.1}"
 PORT="${MCP_PORT:-16619}"
 

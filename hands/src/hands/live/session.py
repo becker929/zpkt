@@ -188,6 +188,8 @@ def save(name: str | None = None, *, timeout_s: float = 30.0) -> bool:
         except FileNotFoundError:
             pass  # Live replaces the file, so it is missing for a moment
         time.sleep(0.05)
+    if not ui.menu_enabled("File", "Save Live Set"):
+        return False  # Live had nothing to save; the item greys out a moment after a save, so the click did nothing
     stop(f"save: {path.name} was not rewritten in {timeout_s:g} s")
 
 

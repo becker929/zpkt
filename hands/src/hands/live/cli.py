@@ -56,17 +56,24 @@ def reload(
         _fail("could not save Live")
     if subprocess.run(["bash", str(confirm), f"Reloading the Live set {set_path.stem}", str(seconds)]).returncode != 0:
         _fail("cancelled (or no countdown)")
-    subprocess.run(["open", "-a", "Ableton Live 12 Suite", str(set_path)], check=True)
+    subprocess.run(["open", "-a", config.rig().live_app, str(set_path)], check=True)
     time.sleep(3)
-    ui.reap_modals(reap=False)
     for _ in range(60):
         try:
+            if ui.dialogs():
+                time.sleep(2)  # the set may still be loading behind a progress window
+                continue
             LiveClient(retries=0, timeout=3).run("1")
-            print(f"reloaded: {ui.front_title()}")
-            return
-        except LiveError:
-            time.sleep(2)
-    _fail("Live did not answer after the reload")
+            if ui.front_title() == set_path.stem:
+                print(f"reloaded: {set_path.stem}")
+                return
+        except (LiveError, ui.UiError):
+            pass
+        time.sleep(2)
+    if ui.dialogs():
+        _fail("Live is showing a dialog, most likely about unsaved changes; answer it in Live, "
+              "or save first (--save-first) when the file was not edited offline")
+    _fail("Live did not show the set after the reload")
 
 
 @app.command()
@@ -154,6 +161,10 @@ def modals(reap: bool = typer.Option(False, "--reap", help="Press each safe butt
     from hands.live import ui
 
     try:
-        print(ui.reap_modals(reap))
+        found = ui.reap_modals(reap)
+        own = ui.dialogs() if found.strip() == "CLEAN" else 0
     except ui.UiError as exc:
         _fail(str(exc))
+    if own:  # Live draws its own prompts (Save changes?, Save As): no buttons to read or press from here
+        found = f"OPEN | {own} dialog(s) Live draws itself; they cannot be read or pressed from here, look at Live"
+    print(found)

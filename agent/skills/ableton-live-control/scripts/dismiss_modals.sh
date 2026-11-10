@@ -27,7 +27,7 @@
 # stalled accessibility tree fails fast. Still: prepend `timeout` at the CLI.
 set -uo pipefail
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-HANDS="$(cd "$DIR/../../.." && pwd)"
+HANDS="$(cd "$DIR/../../../../hands" && pwd)"
 MODE="check"
 FLAG=""   # a string, not an array: macOS bash 3.2 calls an empty array unbound under set -u
 [ "${1:-}" = "--reap" ] && MODE="reap" && FLAG="--reap"
@@ -47,6 +47,11 @@ case "$REPORT" in
 esac
 
 echo "$REPORT"
+
+# A prompt Live draws itself (Save changes?, Save As) has no buttons to read: report it and stop.
+if printf '%s\n' "$REPORT" | grep -q '^OPEN'; then
+  exit 3
+fi
 
 # If any line is an ABORT, snapshot and fail loudly for manual inspection.
 if printf '%s\n' "$REPORT" | grep -q '^ABORT'; then

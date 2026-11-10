@@ -135,6 +135,17 @@ the front set is "one of ours": its name starts with one of `set_prefixes` (defa
 is how the tools avoid acting on a set someone else has open. Name your working copies to match,
 or set your own prefixes.
 
+Two things about the sets folder, both from Live:
+
+- **It must be a Live Project.** Live refuses to save a set outside one and shows a Save As
+  prompt, which stops `hands`. Save a set there once with File → Save Live Set As (Live makes
+  the `Ableton Project Info` folder), then copy sets into it freely.
+- **Sets must be saved by your version of Live.** A set from an older version also gets a Save
+  As prompt on its first save. Open it and save it under a new name before pointing `hands` at it.
+
+Live draws those prompts itself, so `hands live modals` can only say that one is open (`OPEN`),
+not which. Look at Live when you see it.
+
 ## A headless Mac
 
 [`lib/rig/start_headless.sh`](../lib/rig/) brings Live up on a Mac with no screen: a virtual

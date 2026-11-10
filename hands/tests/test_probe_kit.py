@@ -138,11 +138,11 @@ def test_template_trims_and_doubles(rig, monkeypatch):
     monkeypatch.setattr(session, "save", lambda name=None, **kw: edits.append(("save", name)) or True)
     monkeypatch.setattr(timeops, "song_end", lambda client: next(ends))
     monkeypatch.setattr(timeops, "delete", lambda client, start, length, tol: edits.append(("delete", start, length)))
-    monkeypatch.setattr(timeops, "duplicate", lambda client, start, length, end, clips_from:
-                        edits.append(("duplicate", start, length, end)))
+    monkeypatch.setattr(timeops, "duplicate", lambda client, start, length, end, clips_from, tol=1e-6:
+                        edits.append(("duplicate", start, length, round(end - tol, 3), round(end + tol, 3))))
     made = PK.template(MockTransport(), "t4", "test_src", 24.0, 56.0, 4)
     assert edits == [("delete", 56.0, 144.0), ("delete", 8.0, 16.0),
-                     ("duplicate", 8.0, 32.0, 72.0), ("duplicate", 8.0, 64.0, 136.0), ("save", "test_kit_t4")]
+                     ("duplicate", 8.0, 32.0, 72.0, 72.0), ("duplicate", 8.0, 64.0, 136.0, 136.0), ("save", "test_kit_t4")]
     assert made == PK.Kit.load("t4") and made.set == "test_kit_t4" and rig.set_path("test_kit_t4").exists()
 
 
@@ -153,8 +153,8 @@ def _fake_template_live(monkeypatch, ends, saves=(True,)):
     monkeypatch.setattr(session, "save", lambda name=None, **kw: edits.append(("save", name)) or next(saves))
     monkeypatch.setattr(timeops, "song_end", lambda client: next(ends))
     monkeypatch.setattr(timeops, "delete", lambda client, start, length, tol: edits.append(("delete", start, length)))
-    monkeypatch.setattr(timeops, "duplicate", lambda client, start, length, end, clips_from:
-                        edits.append(("duplicate", start, length, end)))
+    monkeypatch.setattr(timeops, "duplicate", lambda client, start, length, end, clips_from, tol=1e-6:
+                        edits.append(("duplicate", start, length, round(end - tol, 3), round(end + tol, 3))))
     monkeypatch.setattr(PK.time, "sleep", lambda s: None)
     return edits
 
@@ -163,7 +163,9 @@ def test_template_carries_a_trailing_breakpoint_through_the_doublings(rig, monke
     planted_set(rig.set_path("test_src"))
     edits = _fake_template_live(monkeypatch, [200.0, 41.5])  # a breakpoint 1.5 beats past the section
     PK.template(MockTransport(), "t4", "test_src", 24.0, 56.0, 4)
-    assert [e for e in edits if e[0] == "duplicate"] == [("duplicate", 8.0, 32.0, 73.5), ("duplicate", 8.0, 64.0, 137.5)]
+    # each doubling may carry the breakpoint along or drop it (a set with no automation drops it): both ends pass
+    assert [e for e in edits if e[0] == "duplicate"] == [("duplicate", 8.0, 32.0, 72.0, 73.5),
+                                                         ("duplicate", 8.0, 64.0, 136.0, 137.5)]
 
 
 def test_template_retries_a_greyed_out_save_once_then_stops(rig, monkeypatch):
