@@ -3,6 +3,9 @@
     voice serve [--tts kokoro|fake] [--stt parakeet|fake]
     voice say "Hello there." -o hello.wav           # one-off synthesis, for trying voices
     voice hear turn.wav                              # one-off transcription of a file, as a turn
+    voice phonemes script.txt                        # script to phonemes, growing lexicon/en-us.tsv
+    voice read script.txt -o out.mp3                 # read a script aloud, from phonemes only
+    voice lexicon WORD [PHONEMES]                    # show a word's phonemes, or correct them
 
 One thread runs the models, so a long synthesis never blocks reading the next frame, and speech and transcription
 never run at the same time on the GPU (they never need to: the mic and the speaker take turns). Anything a library
@@ -189,6 +192,20 @@ def main() -> None:
     say.add_argument("text")
     say.add_argument("-o", "--out", default="say.wav")
     say.add_argument("--voice", default="af_heart")
+    ph = sub.add_parser("phonemes", help="translate a script to phonemes through the lexicon (grows it)")
+    ph.add_argument("script")
+    ph.add_argument("-o", "--out")
+    lx = sub.add_parser("lexicon", help="show a word's phonemes, or correct them")
+    lx.add_argument("word")
+    lx.add_argument("phonemes", nargs="?")
+    lx.add_argument("--source", default="human", choices=["human", "claude"])
+    rd = sub.add_parser("read", help="read a script aloud to mp3, from phonemes")
+    rd.add_argument("script")
+    rd.add_argument("-o", "--out", required=True)
+    rd.add_argument("--voice", default="af_heart")
+    rd.add_argument("--speed", type=float, default=1.0)
+    rd.add_argument("--title", default="")
+    rd.add_argument("--artist", default="")
     hear = sub.add_parser("hear", help="transcribe a mono 16-bit WAV as one turn")
     hear.add_argument("wav")
     hear.add_argument("--stop-word", default="tomato")
@@ -196,6 +213,22 @@ def main() -> None:
     logging.basicConfig(level=logging.INFO, stream=sys.stderr, format="%(asctime)s %(levelname)s %(message)s")
     if a.cmd == "serve":
         asyncio.run(serve(a.tts, a.stt))
+    elif a.cmd == "phonemes":
+        from .read import phonemes
+        from pathlib import Path
+        print(phonemes(Path(a.script), Path(a.out) if a.out else None))
+    elif a.cmd == "lexicon":
+        from .lexicon import Lexicon
+        lex = Lexicon()
+        if a.phonemes:
+            lex.set(a.word, a.phonemes, a.source)
+        else:
+            lex.learn([a.word])
+        print("\t".join((lex.key(a.word),) + lex.entries[lex.key(a.word)]))
+    elif a.cmd == "read":
+        from .read import read
+        from pathlib import Path
+        print(read(Path(a.script), Path(a.out), a.voice, a.speed, a.title, a.artist))
     elif a.cmd == "say":
         _say(a.text, a.out, a.tts, a.voice)
     else:
