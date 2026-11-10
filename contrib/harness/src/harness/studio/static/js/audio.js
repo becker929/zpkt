@@ -5,15 +5,10 @@
 // `start` or received `stop_audio`, and it travels in every `playback` message, so the Mac opens the
 // mic only once the phone has played (or dropped) everything it was sent. A tapped bubble plays at
 // once (dropping whatever was queued) and is not counted.
-//
-// A music message with `options` (options.js) plays as an OptionsClip: the Mac's play sweeps the options, a tap
-// holds one, and picking another switches on the audio clock without asking the Mac.
 import { normaliseAb } from './ab.js';
 import { BufferCache } from './buffers.js';
 import { Clip } from './clip.js';
 import { Emitter } from './emitter.js';
-import { OptionsClip } from './options-clip.js';
-import { normaliseOptions } from './options.js';
 import { SpeechStream } from './speech-stream.js';
 
 const LOG_LENGTH = 50;
@@ -32,14 +27,12 @@ export class AudioEngine extends Emitter {
   #stale = false;            // the page has been in the background since the context was made
   log = [];                  // the last items: what played, how, and how it ended
 
-  /** `lookup(seq)` gives a message: from the chat window, or fetched from the Mac; `optionsMatch(seq)` whether a card
-   * of options plays level-matched. */
-  constructor({ session, timing, lookup, optionsMatch = () => true }) {
+  /** `lookup(seq)` gives a message: from the chat window, or fetched from the Mac. */
+  constructor({ session, timing, lookup }) {
     super();
     this.session = session;
     this.timing = timing;
     this.lookup = lookup;
-    this.optionsMatch = optionsMatch;
     this.buffers = new BufferCache(() => this.#ctx);
     document.addEventListener('visibilitychange', () => {
       if (document.visibilityState === 'hidden') this.#stale = true;
@@ -64,7 +57,6 @@ export class AudioEngine extends Emitter {
       ctx.addEventListener('statechange', () => {
         if (ctx === this.#ctx) this.emit('context', ctx.state);
       });
-      this.buffers.decodeAhead();
     }
     if (this.#ctx.state !== 'running') this.#ctx.resume().catch(() => {});
     // Older iOS unlocks output only once a source has started inside the gesture.
@@ -138,9 +130,8 @@ export class AudioEngine extends Emitter {
     const asked = performance.now();
     const turn = this.timing.turn;
     const known = this.lookup(seq);
-    const Kind = known?.data?.options ? OptionsClip : Clip;      // a message still being fetched plays as a file
-    const item = new Kind({
-      seq, kind: 'music', loops: Math.max(1, loops | 0), match: this.optionsMatch(seq),
+    const item = new Clip({
+      seq, kind: 'music', loops: Math.max(1, loops | 0),
       load: () => this.#load(seq, known),
       onFirstSound: (lead) => this.timing.mark('music_first_play', performance.now() - asked + this.#heardIn(lead), { seq }, turn),
     });
@@ -149,34 +140,11 @@ export class AudioEngine extends Emitter {
 
   // --- the user's taps --------------------------------------------------------------------------------
 
-  /** A bubble's play: now, dropping the queue. `msg` is the bubble's message; a card of options holds `pick`. */
-  playNow(msg, loops = 1, { pick = null, match = true } = {}) {
+  /** A bubble's play: now, dropping the queue. `msg` is the bubble's message. */
+  playNow(msg, loops = 1) {
     this.#clear();
-    const load = () => this.#load(msg.seq, msg);
-    const item = msg.data?.options
-      ? new OptionsClip({ seq: msg.seq, kind: msg.kind, mode: 'hold', pick, match, load })
-      : new Clip({ seq: msg.seq, kind: msg.kind, loops, load });
+    const item = new Clip({ seq: msg.seq, kind: msg.kind, loops, load: () => this.#load(msg.seq, msg) });
     this.#enqueue(item, false);
-  }
-
-  /** Switch the options playing now (if they are this card's) to `index`. False when they are not playing. */
-  pickOption(seq, index) {
-    const item = this.#current;
-    if (!(item instanceof OptionsClip) || item.seq !== seq) return false;
-    item.setPick(index);
-    return true;
-  }
-
-  setMatch(seq, on) {
-    const item = this.#current;
-    if (item instanceof OptionsClip && item.seq === seq) item.setMatch(on);
-  }
-
-  /** Fetch a card's options now, and decode them as soon as there is a context, so its first pick plays at once.
-   * Resolves when they are in memory. */
-  preload(msg) {
-    const url = msg.data?.audio?.url;
-    return url ? this.buffers.preload(url, msg.seq) : Promise.resolve();
   }
 
   /** Stop and drop everything (a tap on stop, or an interrupt). */
@@ -214,10 +182,10 @@ export class AudioEngine extends Emitter {
     if (this.#current instanceof Clip && this.#current.seq === seq) this.#current.setLoops(loops);
   }
 
-  /** The music playing now: {seq, t (s into the pass), duration, pass, loops, ab, option}, or null. */
+  /** The music playing now: {seq, t (s into the pass), duration, pass, loops, ab}, or null. */
   position() {
     const item = this.#current;
-    if (!(item instanceof Clip || item instanceof OptionsClip) || !this.#ctx) return null;
+    if (!(item instanceof Clip) || !this.#ctx) return null;
     const pos = item.position(this.#ctx.currentTime - this.#outputLatency());
     return pos && { seq: item.seq, kind: item.kind, ...pos, duration: item.duration, loops: item.loops, ab: item.ab };
   }
@@ -235,8 +203,6 @@ export class AudioEngine extends Emitter {
   // --- the queue -------------------------------------------------------------------------------------
 
   #enqueue(item, counted) {
-    // A held option gives way to what the Mac sends, at the next bar line.
-    if (counted && this.#current instanceof OptionsClip && !this.#current.counted) this.#current.yieldAtBar();
     item.counted = counted;
     item.epoch = this.#epoch;
     if (!this.#ctx) {
@@ -334,10 +300,7 @@ export class AudioEngine extends Emitter {
     const msg = await (known ?? this.lookup(seq));
     const url = msg?.data?.audio?.url;
     if (!url) throw new Error(`message ${seq} has no audio`);
-    return {
-      buffer: await this.buffers.load(url, seq), ab: normaliseAb(msg.data.ab), length: msg.data.duration,
-      options: normaliseOptions(msg.data.options),
-    };
+    return { buffer: await this.buffers.load(url, seq), ab: normaliseAb(msg.data.ab), length: msg.data.duration };
   }
 
   #outputLatency() {

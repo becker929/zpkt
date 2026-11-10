@@ -526,35 +526,6 @@ async def test_a_page_is_told_when_it_gains_or_loses_the_mic(rig):
     assert not tv.of("unlisten") and [m["owner"] for m in tv.of("owner")] == [True]
 
 
-@pytest.mark.skipif(not shutil.which("ffmpeg"), reason="needs ffmpeg")
-async def test_options_are_checked_against_the_file_and_the_macs_play_is_a_sweep(rig):
-    from harness.studio.conversation import play_seconds
-    from harness.studio.tools import baked_options
-
-    client, studio, agent, tmp = rig
-    raw = {"layout": "slider", "name": "rumble Drive", "bar_seconds": 0.25, "bars": 1, "now": 7,
-           "options": [{"label": "0%", "match_db": -1.234, "lufs": -12.0}, {"label": "50%"}, {"label": "100%"},
-                       {"label": "x" * 99, "match_db": 2}]}
-    opts = baked_options(raw)
-    assert opts["now"] is None, "a `now` that is not one of the options is dropped"
-    assert opts["options"][0] == {"label": "0%", "match_db": -1.23} and len(opts["options"][3]["label"]) == 40
-    for bad in ({**raw, "options": raw["options"][:1]}, {**raw, "bar_seconds": 0}):
-        with pytest.raises(ValueError):
-            baked_options(bad)
-
-    page = await connect(client)
-    await page.ws.send_json({"type": "start"})
-    await page.until(lambda m: m["type"] == "listen")
-    with pytest.raises(ValueError, match="make 1.00 s"):              # 4 x 1 bar x 0.25 s, but the file is 2 s
-        await studio.conversation.present_music(tone(tmp / "long.wav", seconds=2.0), "Drive", None, "", options=opts)
-    music = await studio.conversation.present_music(tone(tmp / "o.wav", seconds=1.0), "Drive", None, "", options=opts)
-    assert music.data["options"]["layout"] == "slider" and music.data["duration"] == pytest.approx(1.0, abs=0.01)
-    play = await page.until(lambda m: m["type"] == "play")
-    assert play["seq"] == music.seq
-    assert play_seconds(music.data) == pytest.approx(1.0), "the Mac's play: one bar of each of the 4 options"
-    assert play_seconds({"duration": 3.5}) == 3.5
-
-
 # --- music waits for Claude's words, and never starts unannounced --------------------------------------------------
 
 PRESENT = "mcp__studio__present_music"
@@ -580,7 +551,7 @@ async def test_music_presented_in_a_turn_plays_after_the_reply_with_its_intro(ri
         answers.append(await present({"path": str(tone(tmp / "o.wav")), "title": "Rumble drive", "note": note}))
 
     agent.script = lambda prompt: [
-        TextDelta(0, "Baking the drive settings."), TextDone(0, "Baking the drive settings."),
+        TextDelta(0, "Rendering the drive settings."), TextDone(0, "Rendering the drive settings."),
         ToolStart("t1", PRESENT, {"title": "Rumble drive"}), present_it, ToolDone("t1", PRESENT, True, "ok"),
         TextDelta(1, "Here they are."), TextDone(1, "Here they are."),
         TurnDone("Here they are.", True, 0.01, "s1"),
@@ -589,7 +560,7 @@ async def test_music_presented_in_a_turn_plays_after_the_reply_with_its_intro(ri
     await page.ws.send_json({"type": "start"})
     await page.until(lambda m: m["type"] == "listen")
     now = page.mark()
-    await page.ws.send_json({"type": "say", "text": "a slider for the rumble drive"})
+    await page.ws.send_json({"type": "say", "text": "more drive on the rumble"})
     await page.until(lambda m: m["type"] == "play", since=now)
     card = await page.until(upsert("music"), since=now)
     seq = card["message"]["seq"]
@@ -662,12 +633,12 @@ async def test_once_music_is_waiting_the_narrator_says_nothing_more(rig, monkeyp
         await asyncio.sleep(1.2)                 # long enough for the narrator to have spoken again (it looks every 0.5 s)
 
     agent.script = lambda prompt: [
-        ToolStart("t1", "Bash", {"description": "Bake the options"}), first_line_spoken,
+        ToolStart("t1", "Bash", {"description": "Render the drive settings"}), first_line_spoken,
         ToolDone("t1", "Bash", True, ""),
-        TextDelta(0, "Baking. "), a_line_waits,
+        TextDelta(0, "Rendering. "), a_line_waits,
         ToolStart("t2", "Bash", {"description": "Measure their loudness"}), second_line_asked, present_it,
         ToolDone("t2", "Bash", True, ""),
-        TextDone(0, "Baking."),
+        TextDone(0, "Rendering."),
         ToolStart("t3", "Bash", {"description": "Tidy up"}), a_while, ToolDone("t3", "Bash", True, ""),
         TextDelta(1, "Here it is."), TextDone(1, "Here it is."),
         TurnDone("Here it is.", True, 0.01, "s1"),
@@ -676,7 +647,7 @@ async def test_once_music_is_waiting_the_narrator_says_nothing_more(rig, monkeyp
     await page.ws.send_json({"type": "start"})
     await page.until(lambda m: m["type"] == "listen")
     now = page.mark()
-    await page.ws.send_json({"type": "say", "text": "a slider for the rumble drive"})
+    await page.ws.send_json({"type": "say", "text": "more drive on the rumble"})
     play = await page.until(lambda m: m["type"] == "play", since=now, timeout=15)
 
     # One narration, from before the render; the line in flight and the one waiting were dropped, and nothing more

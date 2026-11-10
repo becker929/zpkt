@@ -36,8 +36,8 @@ clone.
 
 ## Rules for agents in this repo
 
-[`CLAUDE.md`](../CLAUDE.md) holds the repo's standing rules. The five other skills in
-`.claude/skills/` (`render-plan`, `plan-cache`, `ab-1bar`, `options-slider`, `studio-e2e`)
+[`CLAUDE.md`](../CLAUDE.md) holds the repo's standing rules. The four other skills in
+`.claude/skills/` (`render-plan`, `plan-cache`, `ab-1bar`, `studio-e2e`)
 belong to my voice app in [`contrib/harness`](../contrib/harness/); they show how a larger
 workflow is built on `hands plan`, and they assume my setup.
 

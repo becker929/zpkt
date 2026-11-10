@@ -1,27 +1,26 @@
 """A stand-in for Claude, for the quick suites: the same work as Claude, without the model's minutes per turn.
 
-It reads what the user said and does what Claude would through the same paths: `hands plan` on the command line
-(cached Live renders, stand-ins for new ones), present_music with the printed `options` or `ab`, a tool call the
-screens and the narrator see, and a short spoken reply. Its renders are small so the suites stay fast: 4 stops on
-the long C kit, one bar each, and 2-bar A/Bs. Anything it does not recognise gets a one-line answer.
+It reads what the user said and does what Claude would through the same paths: a tool call the screens and the
+narrator see, present_music with `ab`, and a short spoken reply. Its render is a small generated file (two bars,
+A against B, a tone each), so the suites stay fast and need neither Live nor a kit. Anything it does not recognise
+gets a one-line answer.
 """
 
 from __future__ import annotations
 
-import asyncio
 import json
 import re
-import shutil
+import tempfile
 from pathlib import Path
-from typing import Any
 
-from harness.config import ZPKT
-from harness.studio import tools
+import numpy as np
+import soundfile as sf
+
 from harness.studio.agent import TextDelta, TextDone, ToolDone, ToolStart, TurnDone
 
-UV = shutil.which("uv") or str(Path.home() / ".local" / "bin" / "uv")
-KIT = "c8x16"
-DRIVE = "rumble|plugin:Decapitator|Drive"
+RATE = 48_000
+BAR_S = 1.5                    # one bar at 160 BPM
+AB_HZ = {"A": 330.0, "B": 550.0}
 
 
 async def narrate(prompt: str) -> str:
@@ -29,19 +28,14 @@ async def narrate(prompt: str) -> str:
     return "Working on the rumble drive."
 
 
-async def hands(*args: str) -> dict[str, Any]:
-    proc = await asyncio.create_subprocess_exec(UV, "run", "--project", str(ZPKT / "hands"), "--extra", "plans",
-                                                "hands", "plan", *args, stdout=asyncio.subprocess.PIPE,
-                                                stderr=asyncio.subprocess.PIPE)
-    out, err = await proc.communicate()
-    if proc.returncode:
-        raise RuntimeError(f"hands plan {args[0]} failed: {err.decode()[-600:]}")
-    return json.loads(out)
-
-
-def percent(label: str) -> float:
-    m = re.search(r"-?\d+(?:\.\d+)?", label)
-    return float(m.group()) / 100 if m else 0.0
+def ab_wav(path: Path, bars: int = 2) -> dict:
+    """A stand-in A/B render: `bars` bars that alternate A's tone and B's, with a short fade at each bar's ends."""
+    n = int(BAR_S * RATE)
+    t = np.arange(n) / RATE
+    fade = np.minimum(1.0, np.minimum(t, BAR_S - t) / 0.01)
+    mono = np.concatenate([0.2 * fade * np.sin(2 * np.pi * AB_HZ["AB"[k % 2]] * t) for k in range(bars)])
+    sf.write(str(path), np.stack([mono, mono], axis=1).astype(np.float32), RATE, subtype="PCM_16")
+    return {"bar_seconds": BAR_S, "bars": bars, "first": "A", "every": 1}
 
 
 class ScriptedClaude:
@@ -54,19 +48,8 @@ class ScriptedClaude:
     async def turn(self, prompt: str):
         self.prompts.append(prompt)
         said = prompt.lower()
-        if "finer" in said and "between" in said:
-            m = re.search(r"between ([\d.]+%) and ([\d.]+%)", prompt)
-            lo, hi = (percent(m.group(1)), percent(m.group(2))) if m else (0.4, 0.6)
-            async for e in self._slider(lo, hi, "Finer rumble drive", "A closer look at that range."):
-                yield e
-        elif "slider" in said:
-            async for e in self._slider(0.0, 1.0, "Rumble drive", "Four steps from clean to crushed."):
-                yield e
-        elif re.search(r"\ba ?b\b|against|versus", said):
+        if re.search(r"\ba ?b\b|against|versus", said):
             async for e in self._ab():
-                yield e
-        elif said.lstrip("[ ").startswith("keep") or " keep " in said:
-            for e in self._say("Kept. That is the new starting point."):
                 yield e
         else:
             for e in self._say("Okay."):
@@ -98,46 +81,18 @@ class ScriptedClaude:
         await hooks["post"](call, tid, None)
         yield ToolDone(tid, "Bash", True, json.dumps(result)[:400])
 
-    async def _present(self, made: dict[str, Any], title: str, note: str, kind: str) -> None:
-        conv = self.studio.conversation
-        if kind == "options":
-            await conv.present_music(Path(made["path"]), title, None, note, options=tools.baked_options(made["options"]))
-        else:
-            x = made["ab"]
-            ab = {"bar_seconds": x["bar_seconds"], "bars": x["bars"], "first": x["first"], "every": x["every"],
-                  "labels": {"A": x["a"], "B": x["b"]}}
-            await conv.present_music(Path(made["path"]), title, ab, note)
-
-    async def _slider(self, lo: float, hi: float, title: str, note: str):
-        for e in self._say("Baking a slider for the rumble drive."):
-            yield e
-        made: dict[str, Any] = {}
-
-        async def bake():
-            made.update(await hands("slider", KIT, DRIVE, "--from", f"{lo:.4f}", "--to", f"{hi:.4f}", "--stops", "4",
-                                    "--bars", "1"))
-            return {"rendered": made["rendered"], "cached": made["cached"]}
-
-        async for e in self._tool(f"hands plan slider {KIT} '{DRIVE}' --from {lo:.2f} --to {hi:.2f} --stops 4", bake):
-            yield e
-        await self._present(made, title, note, "options")
-        for e in self._say("It's on your phone."):
-            yield e
-
     async def _ab(self):
         for e in self._say("Rendering forty against fifty."):
             yield e
-        made: dict[str, Any] = {}
-        a = json.dumps({"kit": KIT, "knobs": {DRIVE: 0.4}, "label": "drive 40%"})
-        b = json.dumps({"kit": KIT, "knobs": {DRIVE: 0.5}, "label": "drive 50%"})
-
         async def render():
-            made.update(await hands("ab", a, b, "--bars", "2", "--no-write-ahead"))
-            return {"rendered": made["rendered"]}
+            with tempfile.TemporaryDirectory() as tmp:
+                path = Path(tmp) / "drive-40-vs-50.wav"
+                ab = {**ab_wav(path), "labels": {"A": "drive 40%", "B": "drive 50%"}}
+                await self.studio.conversation.present_music(path, "Drive forty versus fifty", ab,
+                                                             "A is forty, B is fifty.")
+            return {"rendered": 2}
 
-        async for e in self._tool("hands plan ab A B --bars 2", render):
+        async for e in self._tool("render the rumble drive at 40% and 50%, A against B", render):
             yield e
-        await self._present(made, "Drive forty versus fifty", "A is forty, B is fifty.", "ab")
         for e in self._say("Here it is."):
             yield e
-

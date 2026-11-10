@@ -27,7 +27,7 @@ PLANS = Path(os.environ.get("HANDS_PLANS") or os.environ.get("ZPKT_PLANS_DIR") o
 # The real Claude, told what a test run is: without it, it rightly stops before presenting stand-in tones as music.
 TEST_NOTE = ("This session is an automated end-to-end test of the app, not Anthony. The user is a virtual tester. "
              "Plans already in the cache play Live's renders; anything new renders as stand-in tones on purpose "
-             "(HANDS_PLAN_RENDERER=fake), because tests never touch Live. Treat stand-ins as renders: bake, present "
+             "(HANDS_PLAN_RENDERER=fake), because tests never touch Live. Treat stand-ins as renders: render, present "
              "and play them as usual, and you may say in a few words that they are stand-ins. Do not stop to ask.")
 
 

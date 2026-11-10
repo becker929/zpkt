@@ -3,9 +3,7 @@ import { abSide } from './ab.js';
 import * as api from './api.js';
 import { AudioSession } from './audio-session.js';
 import { AudioEngine } from './audio.js';
-import {
-  loopsOf, matchFor, optionMatch, optionPick, optionsOf, optionsTurn, setLoops, setOptionPick, toggleOptionMatch,
-} from './bubbles.js';
+import { loopsOf, setLoops } from './bubbles.js';
 import { Dock } from './dock.js';
 import { reducedMotion } from './dom.js';
 import { hydrateIcons } from './icons.js';
@@ -32,9 +30,7 @@ const socket = new Socket(socketUrl(api.BASE), () => ({
 const timing = new Timing((msg) => socket.send(msg));
 const session = new AudioSession({ timing, settleMs: settleOverride() });
 const store = new MessageWindow();
-const engine = new AudioEngine({
-  session, timing, lookup: (seq) => store.get(seq) ?? api.message(seq), optionsMatch: matchFor,
-});
+const engine = new AudioEngine({ session, timing, lookup: (seq) => store.get(seq) ?? api.message(seq) });
 const mic = new Mic({ engine, session, socket, timing, prefs });
 const turn = new Turn({ socket, mic, engine, prefs, timing, wake: new ScreenWake() });
 const toasts = new Toasts($('toasts'));
@@ -111,40 +107,17 @@ function upsert(message) {
   if (message.kind === 'music' && prefs.get('autoplay')) engine.prefetch(message);
 }
 
-store.on('change', ({ added = [], removed = [] }) => {
-  engine.release(removed);
-  for (const seq of added) {
-    const msg = store.get(seq);
-    if (msg?.kind === 'music' && msg.data?.options) preloadOptions(msg);
-  }
-});
-
-/** A card of options switches only as fast as its file is in memory: fetch it as soon as the card is in the chat. */
-function preloadOptions(msg) {
-  view.setOptionsState(msg.seq, 'loading');
-  engine.preload(msg).then(() => view.setOptionsState(msg.seq, 'ready'), () => view.setOptionsState(msg.seq, 'error'));
-}
+store.on('change', ({ removed = [] }) => engine.release(removed));
 
 // --- the page's own controls -----------------------------------------------------------------------
 
-view.on('action', ({ action, seq, el, control, index }) => {
+view.on('action', ({ action, seq, el, control }) => {
   const msg = store.get(seq);
   if (!msg) return;
   if (action === 'play') {
     engine.unlock();
     if (engine.nowPlaying?.seq === seq) engine.stop();
-    else if (optionsOf(el)) engine.playNow(msg, 1, { pick: optionPick(el), match: optionMatch(el) });
     else engine.playNow(msg, msg.kind === 'music' ? loopsOf(el) : 1);
-  } else if (action === 'pick') {
-    // Touching an option plays it; with the card playing, the switch happens on the phone's audio clock.
-    setOptionPick(el, index ?? Number(control.dataset.index));
-    engine.unlock();
-    if (!engine.pickOption(seq, optionPick(el))) engine.playNow(msg, 1, { pick: optionPick(el), match: optionMatch(el) });
-  } else if (action === 'opt-match') {
-    engine.setMatch(seq, toggleOptionMatch(el));
-  } else if (action === 'opt-keep' || action === 'opt-finer') {
-    if (engine.nowPlaying?.seq === seq) engine.stop();
-    socket.send({ type: 'say', text: optionsTurn(el, action, msg.data.title) });
   } else if (action === 'loops-down' || action === 'loops-up') {
     engine.setLoops(seq, setLoops(el, loopsOf(el) + (action === 'loops-up' ? 1 : -1)));
   } else if (action === 'shot') {
@@ -254,7 +227,7 @@ function animate() {
     for (const el of meters) el.style.setProperty('--level', level.toFixed(3));
     const pos = engine.position();
     const side = pos?.ab ? abSide(pos.ab, pos.t) : null;
-    if (pos) view.updatePlayhead(pos.seq, pos.t / pos.duration, side, pos.option ?? null, !!pos.sweeping);
+    if (pos) view.updatePlayhead(pos.seq, pos.t / pos.duration, side);
     topbar.setSide(side);
     if (mic.state === 'open' || engine.nowPlaying || level > 0.01) requestAnimationFrame(frame);
     else animating = false;

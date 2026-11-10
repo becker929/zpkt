@@ -312,28 +312,6 @@ class Phone:
                     at: [Math.round({x}), Math.round({y})] }};
         }}""")
 
-    async def tap_option(self, seq: int, index: int) -> None:
-        """A tap on a slider's tick, or on an option's button, once the chat has stopped moving. A tap the card did
-        not take is tried once more, as a person would, and noted (the report counts them)."""
-        sel = f'#messages [data-seq="{seq}"]'
-        loc = self.page.locator(f"{sel} .opt-tick[data-index='{index}'], {sel} .opt-button[data-index='{index}']").first
-        for attempt in (1, 2):
-            x, y = await self.reach(loc)
-            under = await self.under(x, y)
-            await self.page.touchscreen.tap(x, y)
-            await self.note("tap option", seq=seq, index=index, attempt=attempt, under=under)
-            try:
-                await self.page.wait_for_function(
-                    f"() => document.querySelector('{sel}')?.dataset.pick === '{index}'", timeout=1500)
-                return
-            except Exception:                  # noqa: BLE001 - not taken: look, then try once more
-                await self.shot(f"tap-missed-{seq}-{index}")
-                now = await loc.bounding_box()
-                await self.note("tap not taken", seq=seq, index=index,
-                                pick=await self.js(f"() => document.querySelector('{sel}')?.dataset.pick"),
-                                moved=[round(now["x"] + now["width"] / 2 - x), round(now["y"] + now["height"] / 2 - y)]
-                                if now else None, under_now=await self.under(x, y))
-
     async def switch_apps(self, away_s: float) -> None:
         """Leave for another app, as iOS does it: hidden, the capture tracks ended, the audio interrupted."""
         await self.js("""() => {

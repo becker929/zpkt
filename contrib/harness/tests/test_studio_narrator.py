@@ -62,13 +62,13 @@ async def test_a_hushed_narrator_drops_the_line_being_written_and_asks_nothing_m
     async def slow(prompt):
         asked.append(prompt)
         n.hush()                                        # music was put in the turn while the line was being written
-        return "I'm offering you a few options."
+        return "I'm rendering the kick."
 
     n._summarize = slow
     n.turn_started("x")
     n.turn_ended()
     n._turn = 3
-    n.note("Bake the options")
+    n.note("Render the kick")
     clock.t += n.QUIET_S
     assert await n.tick(3) is None and spoken == []
     n.note("Tidy up")
