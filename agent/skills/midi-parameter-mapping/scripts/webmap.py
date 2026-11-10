@@ -34,7 +34,7 @@ DEFAULT_CONFIG = os.environ.get(
     os.path.expanduser("~/Music/Ableton/User Library/Remote Scripts/AgentMap/config.json"),
 )
 DEFAULT_PAGE = os.environ.get("WEBMAP_PAGE", os.path.expanduser("~/arturia-minilab3.html"))
-DEFAULT_ALC = os.path.expanduser("~/.agents/skills/ableton-live-control/scripts")
+DEFAULT_ALC = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "ableton-live-control", "scripts")
 
 # MiniLab 3 default CC map, mirrored from the web controller (arturia-minilab3.html).
 ARTURIA = {"main": 114, "encoders": [74, 71, 76, 77, 93, 18, 19, 16],

@@ -1,131 +1,93 @@
 # zpkt
 
-A techno production system built as one body. The main path is three
-parts, and it runs across every stage of making a track.
+Tools for making techno in Ableton Live 12 with an agent at the controls. I built zpkt to
+finish my own tracks: an agent changes the set, renders it, measures the render and shows me
+the result, and I decide by ear.
 
-| Part | Job | Question it answers |
+It is three things you can use on their own:
+
+| Part | What it does | Start here |
 |---|---|---|
-| [`ears/`](ears/) | Measure | What does it sound like, objectively? |
-| [`hands/`](hands/) | Act | How does intent become a change in Live? |
-| [`lib/`](lib/) | Support | What do the parts run on, keep and exchange? |
+| [`hands/`](hands/) | Drives Live from Python or the shell: run code against the open set, set knobs, edit time, export audio, edit `.als` files offline. | `hands live ping` |
+| [`ears/`](ears/) | Measures a render: loudness, true peak, spectra, an embedding, and its distance from your own reference tracks. [`ears/mlab/`](ears/mlab/) adds calibrated mastering meters. | `ears analyze take.wav` |
+| [`agent/`](agent/) | Skills and rules that let Claude Code (or another agent) drive Live through `hands` without crashing it. | open the repo in Claude Code |
 
-`lib/` is shared infrastructure, first class in the design:
+macOS only. You need Ableton Live 12 and [uv](https://docs.astral.sh/uv/). Each part is its own
+uv project, so nothing is installed globally.
 
-- [`lib/rig/`](lib/rig/): the Live runtime — headless display, startup,
-  preflight.
-- [`contrib/skrng/`](contrib/skrng/): what the system keeps — models, renders,
-  publishing to [anthonybecker.me/skrng](https://anthonybecker.me/skrng/).
-- [`lib/contracts/`](lib/contracts/): the JSON that crosses between parts.
-- [`contrib/harness/`](contrib/harness/): Claude Code jobs started from the
-  browser (/skrng feedback), over an outbound socket to the site.
-
-Beside the main path:
-
-- [`humming/`](humming/) turns a hummed idea into production data (notes,
-  tempo, key). It is its own product and feeds `hands`.
-- [`prototypes/`](prototypes/) holds experiments not yet on the release
-  path:
-  - [`audio-browser/`](prototypes/audio-browser/): listen through a sound
-    library once and decide what each sound is for; a collage editor beside
-    it.
-  - [`taste/`](prototypes/taste/): which version would Anthony pick? Its
-    corpus holds five seed verdicts and no real picks yet.
-  - [`engineer/`](prototypes/engineer/): what should be tried next,
-    unattended? Its loop and genetic algorithm are not wired in.
-  - [`letta-vibe/`](contrib/letta-vibe/): a Letta agent that drives
-    Live, a phone page for listening and feedback, and their MCP bridge.
-
-## The main path is perpendicular to the workflow
-
-A track goes through seven steps, in order: audio collage, drums, arrange, kick, mix, master,
-release ([docs/workflow.md](docs/workflow.md)). Every step uses ears and hands. The last column
-shows the prototypes beside the main path. Mastering is a step, not a component.
-
-| Step | ears | hands | beside the main path |
-|---|---|---|---|
-| I. audio collage | — | — | audio-browser: triage the library, lay out the collage; humming: a hummed idea as notes |
-| II. drums | — | drum racks, hat layers (`arrange/hats`) | — |
-| III. arrange | section energy | Delete Time, move clips, cut the Short | taste: which cut; engineer: cut candidates |
-| IV. kick | knob-sweep measures | set knobs, knob maps, probe kits | taste: which kick; engineer: search over settings |
-| V. mix | corpus distance, pump, band levels | bus settings, probe kits, A/B | taste: which balance; engineer: overnight loop |
-| VI. master | loudness, true peak, hypothesis runs (`mlab`) | limiter, render | taste: ABX picks |
-| VII. release | codec checks, YouTube gain (`mlab deliver`) | render, upload | — |
-
-Work happens out of order, so a track's headline is its lowest incomplete step.
-`hands library inventory` reads the library of WIP projects and reports each track's seven
-steps with the evidence behind them; dated reports are in [docs/journal/inventory/](docs/journal/inventory/).
-
-**Sound in zpkt's pages is rendered files only.** The browser never does the DAW's job, mock-ups included: no
-synthesis, EQ, dynamics, effects or mix moves. Pages play rendered audio through one player engine (Web Audio, used
-only to play files, for the mic and for interface sounds) ([docs/sound.md](docs/sound.md)). Only Anthony can make
-an exception, and it is written into that doc first.
-
-Two rules keep the parts honest:
-
-- **Objective judgment is `ears`.** Anything measurable — loudness,
-  distance to the 508-track reference corpus — is a measurement.
-- **`taste` only models preferences.** It learns from Anthony's picks, which
-  are scarce, so the engineer should meet objective targets first and ask
-  him only to choose between versions that already pass.
-
-## What lives where
-
-| Directory | From | Notes |
-|---|---|---|
-| `hands/` | github.com/becker929/hands | Live control: the `hands` library and CLI |
-| `prototypes/archive/` | hands' batch, bench and sweep scripts, Sep-Oct 2026 | kept for reference, unmaintained |
-| `agent/skills/` | the old Mac's agent skills | driving Live: OSC + LOM, virtual display, export |
-| `hands/macros/hammerspoon/` | github.com/becker929/hammerspoon-config | music-desk macros, render + upload, backups |
-| `ears/` | github.com/becker929/ears | `ears analyze` — the AudioProfile |
-| `ears/mlab/` | the HW002 mastering lab | calibrated meters, 81 known-answer tests, hypothesis runner (`mlab hyp run`) |
-| `prototypes/soundfunction/` | anthonybecker.me research branch | sound-function measures, knob-map results, docs |
-| `humming/` | anthonybecker.me research copy | transcriber and HumTrans benchmarks |
-| `prototypes/audio-browser/` | autodaw `feature/audio-browser` | sound-library triage and collage |
-| `prototypes/taste/` | github.com/becker929/taste (+ taste2 prototype) | preference judge, pick corpus |
-| `prototypes/engineer/` | taste's loop, autodaw's GA | `engineer loop` |
-| `contrib/letta-vibe/` | hands' vibe server, frontend and MCP bridge | `letta-vibe vibe` |
-
-The source repos (hands, ears, taste, taste2-prototype, autodaw,
-hammerspoon-config) are archived, each with a README pointing here.
-
-Every import kept its git history (`git log --follow -- <file>` goes back to
-2025, across later moves).
-Audio, models and databases were stripped from history and stay out of git.
-The design and history are written up as notes 15–19 on
-[anthonybecker.me](https://anthonybecker.me/notes/three-eras/).
-
-## Quick start
+## Ten-minute first run
 
 ```bash
-lib/rig/start_headless.sh                 # bring up Live on the virtual display, check the audio clock
-eval "$(contrib/skrng/fetch_models.sh | grep ^export)"   # embedding model for ears
-cd ears && uv run ears analyze take.wav    # measure a render
-cd hands && uv run hands record --arrangement --beats 80 --output take.wav
-cd hands && uv run hands library inventory --markdown   # where every WIP track is in the seven steps
-cd ears/mlab && uv run mlab hyp run hypotheses/H001-loudness-buys-nothing-on-youtube.yaml
+git clone https://github.com/becker929/zpkt && cd zpkt
+hands/remote_scripts/install.sh
 ```
 
-Each part is its own uv project. Run a part's tests from its directory:
+Start (or restart) Live. In Settings → Link, Tempo & MIDI, pick **AbletonLiveMCP** as a Control
+Surface on a free row, with Input and Output set to None. Then:
 
 ```bash
-cd hands && uv run pytest
+cd hands
+uv run hands live ping                                # pong in 200 ms
+uv run hands live exec "result = song.tempo"          # any Python against Live's object model
+uv run hands live export take.wav --start 8 --length 32   # 32 beats through Live's Export dialog
+cd ../ears
+uv run ears analyze ~/Music/zpkt/renders/take.wav     # loudness, true peak, band energy, spectra
 ```
 
-CI runs every part's tests on each push, including contract tests that fail
-if a part's output drifts from `lib/contracts/`.
+[docs/getting-started.md](docs/getting-started.md) walks through each step, the permissions
+macOS asks for, and what to do when a step fails.
 
-## Security
+## How the parts fit
 
-Every service listens on loopback only and needs a secret; agents acting on
-outside input run with least privilege. See [SECURITY.md](SECURITY.md) for
-the services, their guards and the tokens to set (`MCP_BRIDGE_TOKEN`,
-`LETTA_API_KEY`, `VIBE_TOKEN`).
+`hands` acts and `ears` measures. Neither imports the other; they exchange files and JSON, and
+the JSON is pinned by schemas in [`lib/contracts/`](lib/contracts/). An agent sits on top and
+calls both through their CLIs.
+
+Two rules keep the loop honest:
+
+- **Trust the rendered file, not a report.** After every change that matters, export and measure.
+- **Anything measurable is a measurement.** Loudness, peak and distance from references are
+  `ears`' job. What is left for a person is taste: choosing between versions that already pass.
+
+I work through a track in seven steps: audio collage, drums, arrange, kick, mix, master,
+release ([docs/workflow.md](docs/workflow.md)). `hands library inventory` reads a folder of Live
+projects and says where each track is in those steps.
+
+## What is in the repo
+
+| Folder | What | Status |
+|---|---|---|
+| `hands/`, `ears/`, `agent/` | The three parts above. | Supported. Tests run on every push. |
+| [`lib/rig/`](lib/rig/) | Brings Live up on a headless Mac (virtual display, audio clock check). | Supported; written for my Mac mini. |
+| [`lib/contracts/`](lib/contracts/) | The JSON schemas the parts exchange. | Supported. |
+| [`contrib/`](contrib/) | My own setup around the core: a phone voice app, a Bluesky music bot and its render booth, publishing to my site. | Works on my Mac. Read it for ideas; expect to adapt it. |
+| [`prototypes/`](prototypes/) | Experiments beside the main path: a sound-library browser, a preference judge, an unattended loop, a humming transcriber, research. | Mixed; each says what state it is in. |
+| [`docs/`](docs/) | Guides, design notes and a dated [journal](docs/journal/) of the work. | |
 
 ## Working rules
 
 - Work on copies of Live projects, never the originals.
-- Trust the rendered file, not a report: measure its peak.
-- Calibrate a measure against a known answer before using it.
-- Commit working code the same day. Untracked work gets left behind.
+- Measure the rendered file's peak before you believe a render worked. A silent bounce looks
+  fine in every log.
+- Calibrate a measure against a known answer before you use it (`mlab calibrate`).
 - Keep audio, models and data out of git (see `.gitignore`).
-- The vibe server is local-only; its code-changing endpoints need `VIBE_TOKEN`.
+- Every service listens on loopback only and needs a secret ([SECURITY.md](SECURITY.md)).
+  `hands` runs arbitrary Python inside Live, so anything that can reach it can run code as you.
+
+## Tests
+
+```bash
+make test        # hands, ears, mlab: no Live, no audio files, no network
+make test-all    # every part, contrib and prototypes included
+```
+
+## More
+
+- The design and its history are written up on
+  [anthonybecker.me](https://anthonybecker.me/notes/three-eras/) (notes 15 to 19).
+- zpkt grew out of several repos (hands, ears, taste, autodaw, hammerspoon-config). Every import
+  kept its history: `git log --follow -- <file>` goes back to 2025.
+- The Remote Script in `hands/remote_scripts/AbletonLiveMCP/` is from
+  [opendining/ableton-mcp-server](https://github.com/opendining/ableton-mcp-server) (MIT).
+
+MIT licensed ([LICENSE](LICENSE)).

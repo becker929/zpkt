@@ -163,7 +163,7 @@ def park_cursor() -> None:
     """Put the pointer in the middle of the main display (the one with the menu bar).
 
     The export script clicks the Save panel's name field with cliclick, which moves the real
-    pointer; parking it afterwards hands it back where Anthony expects it. Best effort: a failure
+    pointer; parking it afterwards hands it back where the person at the Mac expects it. Best effort: a failure
     here must not hide the export's own result.
     """
     try:

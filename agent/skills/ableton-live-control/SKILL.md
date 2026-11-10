@@ -69,7 +69,7 @@ See "Setup" below for the full one-time enable walkthrough and safety notes.
 >   a one-off clicking `osascript`) must be run through the wrapper, which parks
 >   on every exit path and preserves the exit code:
 >   ```sh
->   bash ~/.agents/skills/virtual-display/scripts/with-cursor-parked.sh cliclick c:1200,680 c:1185,711
+>   bash scripts/with-cursor-parked.sh cliclick c:1200,680 c:1185,711
 >   ```
 >   Never run a raw `cliclick` directly. Pure OSC/MCP control never touches the
 >   cursor and needs no parking.
@@ -249,13 +249,9 @@ bash scripts/install_abletonosc.sh          # --force to reinstall
 
 ### 2. Get Live running (off-screen recommended)
 
-To keep Live off the user's physical screen, use the sibling **virtual-display**
-skill (`~/.agents/skills/virtual-display`):
-
-```sh
-bash ~/.agents/skills/virtual-display/scripts/create.sh          # note the origin, e.g. (1440,0)
-bash ~/.agents/skills/virtual-display/scripts/run-on-vdisplay.sh "Live" 1600 120
-```
+To keep Live off the user's physical screen, put it on a virtual display (BetterDisplay makes
+one). zpkt's `lib/rig/start_headless.sh` does this for a headless Mac: it starts the display,
+launches Live, places the window and checks the bridge and the audio clock.
 
 If Live is already running on the user's main display, that's fine too — OSC works
 regardless of where the window is.
@@ -423,5 +419,5 @@ back over OSC (notes, parameters, meter levels, playing status) to close the loo
 | `hands live modals [--reap]` | what `dismiss_modals.sh` runs (zpkt `hands/`; its AppleScript is `src/hands/live/reap_modals.applescript`) |
 | `scripts/snap.sh` | The only sanctioned screenshot path: always crops/downscales and enforces a KB budget |
 | `reference/osc-api.md` | Exhaustive OSC address reference + quirks (Path A) |
-| `reference/lom-guide.md` | LOM crash-avoidance rules + idioms for Path B (mirror of the `autodaw/hands` `ableton-guide` skill) |
+| `reference/lom-guide.md` | LOM crash-avoidance rules + idioms for Path B (a pointer to the sibling `ableton-guide` skill) |
 | `hands live export` | Native audio export (GUI, verified; zpkt `hands/`): Main / isolated-track / all-tracks-at-once modes |

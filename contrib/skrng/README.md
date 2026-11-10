@@ -1,10 +1,10 @@
 # contrib/skrng
 
-What the system keeps, outside git.
+Publishing renders to my site. /skrng on anthonybecker.me is where I listen to batches of
+renders and leave feedback from my phone.
 
-- `fetch_models.sh` — downloads the models ears needs from R2 (private
-  `models/` prefix), verifies their SHA-256, and prints `EARS_DCLAP_MODEL`.
-- `publish_render.sh` — uploads an approved MP3 to R2 for
-  anthonybecker.me/skrng and prints its manifest entry.
+- `publish_render.sh` uploads an approved MP3 to R2 and prints its manifest entry.
+- `batch_intro.py` writes the spoken intro for a batch.
 
-Both need a wrangler login with access to the `anthonybecker-audio` bucket.
+Both need a wrangler login with access to my bucket, so they are useful only as an example.
+The embedding model `ears` needs is public: `ears/scripts/fetch_model.sh`.

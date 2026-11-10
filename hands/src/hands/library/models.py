@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 StepKey = Literal["collage", "drums", "arrange", "kick", "mix", "master", "release"]
 
@@ -13,12 +13,18 @@ class Record(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     percent: int = Field(ge=0, le=100)
-    by: Literal["anthony", "docs", "agent"] = Field(
-        "anthony", description="anthony: his word; docs: a decision recorded in zpkt docs; agent: an agent's judgment")
+    by: Literal["owner", "docs", "agent"] = Field(
+        "owner", description="owner: the producer's word; docs: a decision recorded in docs; agent: an agent's judgment")
     note: str = ""
     source: str = Field("", description="where it is written down, e.g. docs/journal/hw002/batch-6-7-decisions.md")
     date: str = Field("", description="YYYY-MM-DD")
     url: str = Field("", description="release: the published link")
+
+    @field_validator("by", mode="before")
+    @classmethod
+    def _legacy_owner(cls, value: object) -> object:
+        """Records written before the rename say by = "anthony"."""
+        return "owner" if value == "anthony" else value
 
 
 class StepScore(BaseModel):
