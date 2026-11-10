@@ -71,7 +71,7 @@
     "typescript": "^5.7.3"
   },
   "overrides": {
-    "postcss": "^8.5.23",
+    "postcss": "$postcss",
     "qs": "^6.16.0",
     "brace-expansion@^1": "^1.1.21",
     "postcss-selector-parser": "^7.1.6"
