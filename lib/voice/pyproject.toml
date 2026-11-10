@@ -7,7 +7,11 @@ dependencies = ["numpy>=2"]
 
 [project.optional-dependencies]
 # The models. Without them the worker still runs with --tts fake --stt fake (tests, page work).
-engines = ["kokoro-onnx>=0.6", "parakeet-mlx>=0.5.3"]
+engines = [
+    "kokoro-onnx>=0.6",
+    "nltk>=3.9",
+    "parakeet-mlx>=0.5.3",
+]
 dev = ["pytest>=8.0", "pytest-asyncio>=0.23"]
 
 [project.scripts]
