@@ -97,11 +97,12 @@ def template(client: McpTransport, kit: str, src: str, keep_start: float, keep_e
     end = timeops.song_end(client)
     if not lead + pat <= end <= lead + pat + 2.0:
         stop(f"kit: after trims the set ends at {end}, expected about {lead + pat}")
-    slack = end - (lead + pat)  # a trailing breakpoint the trims kept; each doubling carries it along
+    slack = end - (lead + pat)  # a trailing breakpoint the trims kept; a doubling may carry it along or drop it
     n = 1
     while n < P:
         t = time.monotonic()
-        timeops.duplicate(client, lead, n * pat, end=lead + 2 * n * pat + slack, clips_from=lead)
+        timeops.duplicate(client, lead, n * pat, end=lead + 2 * n * pat + slack / 2, tol=slack / 2 + 1e-6,
+                          clips_from=lead)
         timing("kit_duplicate", time.monotonic() - t, kit=kit, to_P=2 * n)
         n *= 2
         session.check(client, f"kit:dup{n}", expect_front=name)

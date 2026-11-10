@@ -64,7 +64,7 @@ Unknown keys are refused.
 | Key | Environment | Default | Used for |
 |---|---|---|---|
 | `live_app` | `ZPKT_LIVE_APP` | `Ableton Live 12 Suite` | `open -a`, quit, restart |
-| `sets_dir` | `ZPKT_SETS_DIR` | `~/Music/zpkt/sets` | the Live sets hands opens, copies and saves (named without `.als`) |
+| `sets_dir` | `ZPKT_SETS_DIR` | `~/Music/zpkt/sets` | the Live sets hands opens, copies and saves (named without `.als`); must be a Live Project folder |
 | `data_dir` | `ZPKT_DATA_DIR` | `~/Music/zpkt/data` | probe kits (`kits/`), batch renders, `bench.jsonl` |
 | `renders_dir` | `ZPKT_RENDERS_DIR` | `~/Music/zpkt/renders` | where `hands live export NAME` writes a bare file name |
 | `set_prefixes` | `ZPKT_SET_PREFIXES` (comma-separated) | `["zpkt_"]` | sets the guards accept as ours; new kit and batch sets get the first |

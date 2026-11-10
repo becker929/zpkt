@@ -5,6 +5,8 @@
 # automation starts failing with error -1728. A Claude Code update silently
 # breaks the grant, because the granted path carries the version number.
 set -uo pipefail
+# macOS has no `timeout` unless coreutils is installed.
+timeout() { if type -P timeout >/dev/null 2>&1; then command timeout "$@"; else perl -e 'alarm shift; exec @ARGV' "$@"; fi; }
 BASE="$HOME/Library/Application Support/Claude/claude-code"
 RUNNING=$(ps auxww | grep -o "claude-code/[0-9.]*/claude.app" | sort -u | head -1 | cut -d/ -f2)
 # Every probe is time-boxed: a preflight must never hang the caller.

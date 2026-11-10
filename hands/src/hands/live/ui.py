@@ -98,8 +98,18 @@ def menu(menu: str, item: str, tries: int = 6, wait_s: float = 0.4) -> bool:
 
 
 def front_title() -> str:
-    """The front window's title, which is the open set's name. UiError if Live shows no window."""
-    return osa(f"tell application \"System Events\" to get name of front window of process {_q(PROCESS)}")
+    """The front window's title, which is the open set's name. UiError if Live shows no window.
+
+    A floating plug-in window in front has no title: then the set's own window is read instead,
+    unless a dialog is open (callers treat "" as "not a set in front").
+    """
+    title = osa(f"tell application \"System Events\" to get name of front window of process {_q(PROCESS)}")
+    if title:
+        return title
+    found = windows()
+    if any(subrole == "AXDialog" for _, subrole in found):
+        return ""
+    return next((name for name, subrole in found if subrole == "AXStandardWindow"), "")
 
 
 _WINDOWS = f"""tell application "System Events" to tell process {_q(PROCESS)}

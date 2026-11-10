@@ -9,7 +9,9 @@
 # Path B (MCP, TCP 16619) is the primary path; AbletonOSC (Path A) is optional.
 set -uo pipefail
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-HANDS="$(cd "$DIR/../../.." && pwd)"
+# macOS has no `timeout` unless coreutils is installed.
+timeout() { if type -P timeout >/dev/null 2>&1; then command timeout "$@"; else perl -e 'alarm shift; exec @ARGV' "$@"; fi; }
+HANDS="$(cd "$DIR/../../../../hands" && pwd)"
 OK="  [ok]  "; NO="  [--]  "; WARN="  [??]  "
 
 pass_osc=0; pass_mcp=0
