@@ -47,6 +47,24 @@ STATES = {
     "break-chop": ((16,), BREAK),
     "break-beatbox": ((17,), BREAK),
 }
+# one drum-rack pad alone: state -> (track index, chain index in its Drum Rack). The hat layers.
+PADS = {
+    "p1-oh": (6, 0), "p1-ch": (6, 1), "p1-rd": (6, 2), "p1-oh66": (6, 3),
+    "p2-rd2": (7, 0), "p2-rd1": (7, 1), "p2-oh": (7, 3), "p2-ch27": (7, 4), "p2-ch1": (7, 5),   # chain 2, "OH layer", is muted in the set
+}
+for _name, (_track, _chain) in PADS.items():
+    STATES[_name] = ((_track,), SONG)
+
+
+def solo_chain(track: int | None, chain: int | None) -> None:
+    """Solo one chain of a track's Drum Rack, or clear every chain solo on the racks in PADS."""
+    for t in sorted({t for t, _ in PADS.values()}):
+        want = chain if t == track else None
+        liveops.run(f"for i, c in enumerate(song.tracks[{t}].devices[0].chains):\n    c.solo = i == {want!r}\nresult = 'ok'")
+        time.sleep(0.2)
+        got = liveops.run(f"result = [i for i, c in enumerate(song.tracks[{t}].devices[0].chains) if c.solo]")
+        if list(got) != ([] if want is None else [want]):
+            sys.exit(f"STOP: track {t} has chains {got} soloed, wanted {want}")
 
 
 def solo(indices: tuple[int, ...]) -> None:
@@ -68,10 +86,12 @@ def main(names: list[str]) -> None:
         if liveops.guard(f"bounce {name}") != SET:
             sys.exit(f"STOP: {SET} is not in front")
         solo(indices)
+        solo_chain(*PADS.get(name, (None, None)))
         t0 = time.time()
         liveops.export(out, start, length, bits=24, timeout_s=600)
         print(f"{name}: {out.stat().st_size / 1e6:.1f} MB in {time.time() - t0:.0f} s", flush=True)
     solo(())
+    solo_chain(None, None)
 
 
 if __name__ == "__main__":

@@ -8,6 +8,7 @@ Bars below are 1-based and inclusive, as the page shows them. Clip ids are the o
 from __future__ import annotations
 
 import json
+import sys
 import time
 from pathlib import Path
 
@@ -73,6 +74,37 @@ SHORTS = {
         *peak(17, 32),
         ("kick", "kick-rumble-a", 33, 40), ("perc1", "perc1-g", 33, 40), ("chord", "chord-a", 33, 40),
     ],
+    # Maximal variants of "2 Long horn break" (the parent): same 12 / 4 / 16 / 8 shape, every spare sound used.
+    "7 Long horn, everything": [
+        # break: the parent's horn, chop and stab, plus the game snippets, the hit, the whole beatbox and a quiet closed hat
+        ("break-horn", "break-horn-a", 1, 8), ("break-chop", "break-chop-a", 1, 4), ("break-chop", "break-chop-b", 5, 12),
+        ("break-stab", "break-stab-a", 1, 2), ("break-stab", "break-stab-b", 5, 16),
+        ("break-beatbox", "break-beatbox-a", 1, 5), ("break-beatbox", "break-beatbox-b", 6, 16),
+        ("splash", "splash-b", 1, 5), ("splash", "splash-c", 9, 12),   # not the hit: on top of the horn and beatbox it took the sum over full scale
+        ("p1-ch", "p1-ch-a", 5, 12), ("chord", "chord-a", 9, 16), ("break-horn", "break-horn-b", 9, 14),
+        # build: single hat pads stack up, the last horn phrase
+        ("p1-ch", "p1-ch-b", 13, 16), ("p1-oh", "p1-oh-b", 13, 16), ("p2-ch27", "p2-ch27-a", 13, 16),
+        ("p2-rd2", "p2-rd2-a", 15, 16), ("p1-rd", "p1-rd-a", 15, 16), ("break-horn", "break-horn-c", 15, 16),
+        # peak: everything, then the horn and stab come back over it
+        *peak(17, 32), ("crash", "crash-b", 25, 25),
+        ("break-horn", "break-horn-b", 25, 32), ("break-stab", "break-stab-b", 25, 32),
+        # out: still at peak, chop on top, the song's closing splash
+        ("kick", "kick-rumble-a", 33, 40), ("perc1", "perc1-d", 33, 40), ("perc2", "perc2-d", 33, 40), ("chord", "chord-a", 33, 40),
+        ("break-chop", "break-chop-b", 33, 40), ("crash", "crash-b", 33, 33), ("splash", "splash-c", 33, 36), ("splash", "splash-e", 37, 40),
+    ],
+    "8 Long horn, hats by hand": [
+        # the hats are built from the nine single pads instead of the two mixed hat tracks: 2 in the break, 5 by the
+        # drop, all 9 for the second half of the peak
+        ("break-horn", "break-horn-a", 1, 8), ("break-chop", "break-chop-a", 1, 4), ("break-chop", "break-chop-b", 5, 12),
+        ("break-stab", "break-stab-b", 5, 16), ("break-horn", "break-horn-b", 9, 14), ("break-beatbox", "break-beatbox-b", 9, 16),
+        ("break-horn", "break-horn-c", 15, 16), ("splash", "splash-b", 1, 5), ("splash", "splash-c", 9, 12),
+        ("p1-ch", "p1-ch-a", 5, 8), ("p1-ch", "p1-ch-b", 9, 40), ("p2-ch27", "p2-ch27-a", 9, 40),
+        ("p1-oh", "p1-oh-b", 13, 40), ("p2-rd2", "p2-rd2-a", 13, 32), ("p1-rd", "p1-rd-a", 15, 32),
+        ("kick", "kick-rumble-a", 17, 40), ("chord", "chord-a", 17, 40), ("splash", "splash-d", 17, 20), ("crash", "crash-b", 17, 17),
+        ("p1-oh66", "p1-oh66-c", 25, 32), ("p2-oh", "p2-oh-b", 25, 32), ("p2-rd1", "p2-rd1-a", 25, 32), ("p2-ch1", "p2-ch1-a", 25, 32),
+        ("splash", "splash-c", 25, 28), ("crash", "crash-b", 25, 25),
+        ("break-horn", "break-horn-b", 33, 40), ("crash", "crash-b", 33, 33), ("splash", "splash-e", 37, 40),
+    ],
 }
 
 
@@ -80,9 +112,12 @@ def main() -> None:
     clips = {c["id"]: c for c in json.loads((DATA / "loops.json").read_text())["clips"]}
     folder = DATA / "arrangements"
     folder.mkdir(parents=True, exist_ok=True)
+    only = set(sys.argv[1:])                                               # e.g. "7 8": write just those tabs
     for i, (name, rows) in enumerate(SHORTS.items(), 1):
+        if only and str(i) not in only:
+            continue
         regions = []
-        drop = min(a for lane, _, a, _ in rows if lane == "splash")        # the drop is where the splash lands
+        drop = min(a for _, clip, a, _ in rows if clip == "splash-d")      # the drop is where the long splash lands
         assert all(a >= drop for lane, _, a, _ in rows if lane == "kick"), f"{name}: the kick comes in before the drop"
         for lane, clip, a, b in rows:
             c = clips[clip]
