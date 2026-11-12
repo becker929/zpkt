@@ -122,7 +122,8 @@ REVERBS = {   # Reverb settings, one render each
 }
 # What the page offers: the best and loudest few of each kind (Anthony, 12 Nov 2026: "Too many options. Please reduce
 # the options to the best and loudest"), chosen by each sound's loudest beat after the levels were raised, a few of
-# each shape; plus the two he had already stacked (nr-lp-2 at the drop, hf-ch1-32-1b at bar 9). All are still made.
+# each shape; plus the two he had already stacked (nr-lp-2 at the drop, hf-ch1-32-1b at bar 9). All are still made and
+# listed in fx.json ("offered" marks these), so a pick made before the list was cut still plays and shows.
 SHORTLIST = {
     "riser": ["nr-bp-4", "nr-lp-8", "pr-sine-8", "nr-lp-2"],
     "downlifter": ["dl-sub-2", "dl-saw-1", "dl-bp-2"],
@@ -608,7 +609,7 @@ def cut() -> None:
     keep = {i for ids in SHORTLIST.values() for i in ids}
     assert keep <= {r["id"] for r in rows}, keep - {r["id"] for r in rows}
     (FX / "fx.json").write_text(json.dumps({"made": time.time(), "set": RSET, "check": check,
-                                            "candidates": [r for r in rows if r["id"] in keep]}, indent=1))
+                                            "candidates": [{**r, "offered": r["id"] in keep} for r in rows if r["kind"] != "check"]}, indent=1))
     print(f"{len(rows)} candidates written to {out_dir}; {len(keep)} offered on the page")
 
 

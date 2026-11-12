@@ -259,7 +259,11 @@ function frame() {
 function restartIfPlaying() { if (playing) play(); }
 
 // ---------- the page ----------
-function seamCands(s) { return FX.candidates.filter(c => c.seams.includes(s)); }
+// The short list, plus anything stacked or hearted here before the list was cut (it stays until taken off).
+function seamCands(s) {
+  const p = seamPicks(s);
+  return FX.candidates.filter(c => c.seams.includes(s) && (c.offered !== false || p.stack.includes(c.id) || p.liked.includes(c.id)));
+}
 function renderSeams() {
   const nav = $('#seams'); nav.innerHTML = '';
   for (const s of Object.keys(SEAMS).map(Number)) {
@@ -312,7 +316,7 @@ function renderList() {
     for (const c of these) {
       const chip = el('button', 'chip' + (picks.stack.includes(c.id) ? ' on' : ''));
       chip.dataset.id = c.id; chip.style.setProperty('--c', `var(--${kind})`);
-      chip.innerHTML = `${c.title}<small>${c.mode === 'replace' ? 'in place of the kick, ' : ''}${where(c)} · peak ${c.peakDb} dB</small>`;
+      chip.innerHTML = `${c.title}<small>${c.offered === false ? 'an earlier pick · ' : ''}${c.mode === 'replace' ? 'in place of the kick, ' : ''}${where(c)} · peak ${c.peakDb} dB</small>`;
       const like = el('button', 'like' + (picks.liked.includes(c.id) ? ' on' : ''), ICON.heart);
       like.setAttribute('aria-label', 'Keep');
       like.onclick = e => { e.stopPropagation(); toggle(picks.liked, c.id); like.classList.toggle('on'); save(); };
@@ -335,7 +339,7 @@ async function choose(c, chip) {
   const picks = seamPicks();
   if (picks.stack.includes(c.id)) picks.stack = picks.stack.filter(x => x !== c.id);
   else {   // one of each kind; two replace sounds on one lane cannot both play
-    picks.stack = picks.stack.filter(x => CANDS[x].kind !== c.kind && !(c.mode === 'replace' && CANDS[x].mode === 'replace' && CANDS[x].lane === c.lane));
+    picks.stack = picks.stack.filter(x => CANDS[x] && CANDS[x].kind !== c.kind && !(c.mode === 'replace' && CANDS[x].mode === 'replace' && CANDS[x].lane === c.lane));
     picks.stack.push(c.id);
     if (playing) chip.classList.add('pending');   // audible from the next pass
     await fetchBuf('/fx/audio/' + c.file);
