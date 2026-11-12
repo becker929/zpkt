@@ -287,7 +287,13 @@ def _dialog_check(desc: str, on: bool) -> None:
 
 
 def _slider(desc: str) -> float:
-    return float(_ax(f'set v to value of (first slider of {_DIALOG} whose description is "{desc}")\nreturn v as text'))
+    """A range slider's value. Live 12.4 calls them "... Rendered Audio File ...", older ones "... Rendered Sample ..."."""
+    for d in (desc, desc.replace("Rendered Sample", "Rendered Audio File")):
+        try:
+            return float(_ax(f'set v to value of (first slider of {_DIALOG} whose description is "{d}")\nreturn v as text'))
+        except ui.UiError as exc:
+            error = exc
+    raise error
 
 
 def export(out: Path, start_beat: float, length_beats: float, *, bits: int = 24, timeout_s: float = 300) -> Path:

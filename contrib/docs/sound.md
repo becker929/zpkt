@@ -27,6 +27,17 @@ this document and every document that repeats the rule, as narrowly as the reque
 one page, with its reason and date. Then it builds what was asked, and nothing beyond that exception. A request is
 never read as lifting the rule in general.
 
+### The one exception: the HW002 arranger (11 November 2026)
+
+Anthony asked for it: "Bounce loops from HW002 and build an arrangement app". `contrib/arranger/` may do one thing the
+rule above forbids: **start loops bounced from Live together on the bar clock**, so an arrangement can be tried in
+the time it takes to tap it in. Nothing else is lifted. The loops are Live's own bounces of the set (one part soloed,
+through its devices, its group's and Main), cut on the bar and played at their rendered level: no gain, EQ, effect,
+stretch or synthesis in the browser, only the few-millisecond fade a cut needs. The page says on its face that it is
+a sketch and not a render of the set, and `mine.py` measures how far the song's own arrangement, summed this way, is
+from Live's bounce of the mix. An arrangement that matters is still heard as a render from Live. The exception is
+for this page only and is not a pattern to copy.
+
 Where the files come from: a change to a set is heard only as a render of that set from Live. Other material is
 played as the file it is: library sounds, collages made on the Mac, and the background work in The Wasteland
 (`contrib/docs/design/studio-agent.md`). Each file is labelled with where it came from, so a sketch is never taken for the set.
@@ -52,6 +63,7 @@ gets work, and never copied.
 | `studio/static/checklist/map/sounds.js` | The check's sounds: six layered hits rendered in Live (`hands/scripts/ui_sounds/`), each with a heavier and a soft version, kept in R2 and decoded and started as rendered | Allowed: playing rendered files. |
 | `studio/static/checklist/rummage/sounds.js` | The Rummage's interface sounds (steps, pickup, place, a machine's open, tick, lever and stamp, the finish, the tear), rendered in Live from found objects (`hands/scripts/rummage/sounds.py`), decoded once and started as rendered | Allowed: playing rendered files. |
 | `studio/static/js/mic.js` | Captures the mic through an AudioWorklet | Allowed: the mic. |
+| `contrib/arranger/static/index.html` (the HW002 arranger) | Starts loops bounced from Live together on the bar clock, as rendered | Allowed by the one named exception above, for this page only. |
 | `prototypes/audio-browser/frontend/lib/` (`collagePlayer.ts`, `slicePlayer.ts`, `softClip.ts`) | Assembles a collage from slices and soft-clips it | Breaks the rule (assembly and clipping); to be replaced if the prototype is revived. |
 
 ## The player engine
