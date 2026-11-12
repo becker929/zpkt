@@ -1,0 +1,472 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>HW002 arranger</title>
+<style>
+:root { --bg:#111214; --panel:#1a1c20; --line:#2a2d33; --text:#e9e9ea; --dim:#8b8f98; --accent:#ffd34d; --w:16px; --lh:38px; --lab:74px; }
+* { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+html, body { margin:0; height:100%; background:var(--bg); color:var(--text); font:14px/1.3 -apple-system, system-ui, sans-serif; overscroll-behavior:none; }
+body { display:flex; flex-direction:column; height:100dvh; user-select:none; -webkit-user-select:none; }
+button { font:inherit; color:inherit; background:#24272d; border:1px solid var(--line); border-radius:8px; padding:0; min-width:40px; height:40px; display:inline-flex; align-items:center; justify-content:center; gap:6px; }
+button:active { background:#33373f; }
+button[disabled] { opacity:.35; }
+button svg { width:20px; height:20px; fill:none; stroke:currentColor; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; }
+header { display:flex; align-items:center; gap:8px; padding:8px 10px; padding-top:max(8px, env(safe-area-inset-top)); background:var(--panel); border-bottom:1px solid var(--line); }
+#play { min-width:52px; background:var(--accent); color:#111; border-color:var(--accent); }
+#play svg { fill:currentColor; stroke:none; }
+#pos { font-variant-numeric:tabular-nums; min-width:64px; color:var(--dim); }
+#pos b { color:var(--text); font-size:17px; }
+#name { flex:1; min-width:0; justify-content:flex-start; padding:0 10px; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; }
+#name span { overflow:hidden; text-overflow:ellipsis; }
+#sketch { font-size:11px; color:var(--dim); padding:5px 10px; border-bottom:1px solid var(--line); background:#15171a; }
+#sketch b { color:var(--accent); font-weight:600; }
+#scroll { flex:1; overflow:auto; position:relative; -webkit-overflow-scrolling:touch; }
+#grid { position:relative; width:max-content; min-width:100%; }
+#ruler { position:sticky; top:0; z-index:5; height:26px; display:flex; background:var(--panel); border-bottom:1px solid var(--line); }
+#ruler .corner { position:sticky; left:0; z-index:6; width:var(--lab); flex:none; background:var(--panel); border-right:1px solid var(--line); font-size:11px; color:var(--dim); display:flex; align-items:center; padding-left:8px; }
+#bars { position:relative; height:100%; }
+#bars i { position:absolute; top:0; bottom:0; font-style:normal; font-size:10px; color:var(--dim); padding:6px 0 0 3px; border-left:1px solid var(--line); }
+#bars i.s16 { color:var(--text); border-left-color:#555a64; }
+#cursor { position:absolute; top:0; width:0; height:0; border:6px solid transparent; border-top:9px solid var(--accent); margin-left:-6px; z-index:2; }
+.lane { display:flex; height:var(--lh); border-bottom:1px solid var(--line); }
+.lane.gap { margin-top:6px; border-top:1px solid var(--line); }
+.label { position:sticky; left:0; z-index:4; width:var(--lab); flex:none; background:var(--panel); border-right:1px solid var(--line); display:flex; align-items:center; padding:0 4px 0 7px; font-size:11.5px; line-height:1.1; border-left:4px solid var(--c); gap:2px; }
+.label span { flex:1; overflow:hidden; }
+.label .mute { min-width:22px; width:22px; height:22px; border-radius:5px; font-size:10px; color:var(--dim); }
+.lane.muted .mute { background:#b33; color:#fff; border-color:#b33; }
+.lane.muted .track { opacity:.35; }
+.lane.sel .label { background:#2b2f37; }
+.track { position:relative; height:100%; background-image:linear-gradient(to right, #23262b 1px, transparent 1px), linear-gradient(to right, #3a3e46 1px, transparent 1px); background-size:calc(var(--w) * 4) 100%, calc(var(--w) * 16) 100%; }
+.lane.sel .track { background-color:#17191d; }
+.region { position:absolute; top:3px; bottom:3px; border-radius:4px; background-color:var(--c); background-repeat:repeat-x; overflow:hidden; font-size:10px; color:#0b0b0c; padding:1px 3px; white-space:nowrap; box-shadow:inset 0 0 0 1px rgba(0,0,0,.35); }
+.region.once { border-radius:4px 12px 12px 4px; }
+.region.sel { box-shadow:inset 0 0 0 2px #fff; z-index:2; }
+.region.hit { animation:hit .35s ease-out; }
+@keyframes hit { from { filter:brightness(2.2); box-shadow:0 0 0 3px #fff; } to { filter:none; } }
+#head { position:absolute; top:0; bottom:0; width:2px; background:#fff; z-index:3; pointer-events:none; display:none; left:0; will-change:transform; }
+footer { background:var(--panel); border-top:1px solid var(--line); padding:8px 10px; padding-bottom:max(8px, env(safe-area-inset-bottom)); }
+#tools { display:flex; gap:6px; align-items:center; margin-bottom:8px; overflow-x:auto; }
+#tools .what { flex:1; min-width:70px; font-size:12px; color:var(--dim); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+#tools button { flex:none; padding:0 8px; font-size:12px; }
+#palette { display:flex; gap:8px; overflow-x:auto; padding-bottom:2px; min-height:66px; }
+.chip { flex:none; width:118px; height:62px; border-radius:8px; border:2px solid transparent; background-color:var(--c); color:#0b0b0c; position:relative; overflow:hidden; background-repeat:no-repeat; background-size:100% 100%; padding:3px 6px; font-size:11px; display:block; text-align:left; }
+.chip.on { border-color:#fff; }
+.chip b { display:block; font-size:12px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.chip .au { position:absolute; right:3px; bottom:3px; width:30px; min-width:30px; height:30px; border-radius:15px; background:rgba(0,0,0,.55); color:#fff; border:none; }
+.chip .au svg { width:14px; height:14px; fill:currentColor; stroke:none; }
+.hint { color:var(--dim); font-size:12px; align-self:center; }
+#menu { position:fixed; inset:0; background:rgba(0,0,0,.6); z-index:20; display:none; align-items:flex-end; justify-content:center; }
+#menu.open { display:flex; }
+#sheet { background:var(--panel); width:100%; max-width:560px; max-height:80dvh; overflow:auto; border-radius:14px 14px 0 0; padding:14px; padding-bottom:max(14px, env(safe-area-inset-bottom)); }
+#sheet h3 { margin:4px 0 8px; font-size:13px; color:var(--dim); font-weight:500; }
+#sheet .row { display:flex; gap:8px; margin-bottom:8px; align-items:center; }
+#sheet .row button { flex:1; padding:0 10px; }
+#sheet .item { width:100%; justify-content:space-between; padding:0 12px; margin-bottom:6px; }
+#sheet .item small { color:var(--dim); }
+#sheet input { flex:1; height:40px; border-radius:8px; border:1px solid var(--line); background:#101114; color:var(--text); font:inherit; padding:0 10px; user-select:text; -webkit-user-select:text; }
+#sheet p { color:var(--dim); font-size:12px; margin:6px 0 10px; }
+#load { position:fixed; inset:0; background:var(--bg); z-index:30; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:14px; }
+#load div { width:220px; height:6px; background:#24272d; border-radius:3px; overflow:hidden; }
+#load div i { display:block; height:100%; width:0; background:var(--accent); transition:width .15s; }
+</style>
+</head>
+<body>
+<header>
+  <button id="play" aria-label="Play"></button>
+  <div id="pos"><b>1</b> / 32</div>
+  <button id="name"><span></span></button>
+  <button id="undo" aria-label="Undo" disabled></button>
+  <button id="zoomout" aria-label="Zoom out"></button>
+  <button id="zoomin" aria-label="Zoom in"></button>
+</header>
+<div id="sketch"><b>Sketch.</b> Loops bounced from Live, started together here. Not a render of the set.</div>
+<div id="scroll"><div id="grid">
+  <div id="ruler"><div class="corner">bar</div><div id="bars"><div id="cursor"></div></div></div>
+  <div id="lanes"></div>
+  <div id="head"></div>
+</div></div>
+<footer>
+  <div id="tools"></div>
+  <div id="palette"></div>
+</footer>
+<div id="menu"><div id="sheet"></div></div>
+<div id="load"><span>Loading loops</span><div><i></i></div></div>
+<script>
+'use strict';
+const $ = s => document.querySelector(s);
+const el = (tag, cls, html) => { const e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e; };
+const ICON = {
+  play: '<svg viewBox="0 0 24 24"><path d="M7 4l13 8-13 8z"/></svg>',
+  stop: '<svg viewBox="0 0 24 24"><rect x="5" y="5" width="14" height="14" rx="2"/></svg>',
+  undo: '<svg viewBox="0 0 24 24"><path d="M9 7L4 12l5 5"/><path d="M4 12h10a6 6 0 0 1 0 12h-2" transform="translate(0 -5)"/></svg>',
+  minus: '<svg viewBox="0 0 24 24"><path d="M5 12h14"/></svg>',
+  plus: '<svg viewBox="0 0 24 24"><path d="M5 12h14M12 5v14"/></svg>',
+  left: '<svg viewBox="0 0 24 24"><path d="M14 6l-6 6 6 6"/></svg>',
+  right: '<svg viewBox="0 0 24 24"><path d="M10 6l6 6-6 6"/></svg>',
+  trash: '<svg viewBox="0 0 24 24"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/></svg>',
+  copy: '<svg viewBox="0 0 24 24"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V5a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h3"/></svg>',
+  menu: '<svg viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>',
+};
+$('#undo').innerHTML = ICON.undo; $('#zoomout').innerHTML = ICON.minus; $('#zoomin').innerHTML = ICON.plus;
+
+let DATA, CLIPS = {}, LANES = {};
+let arr = null;                      // {id, name, bars, regions:[{lane, clip, start, len, off}], mutes:[]}
+let selLane = null, brush = null, selRegion = null, cursor = 0;
+let W = +(localStorage.getItem('arr.w') || 16);
+const history = [];
+
+// ---------- audio: bounced files, started on the audio clock, as rendered ----------
+let ctx, buffers = {}, playing = null, live = new Set(), audition = null;
+function makeCtx() {
+  const AC = window.AudioContext || window.webkitAudioContext;
+  try { ctx = new AC({ sampleRate: DATA.rate, latencyHint: 'playback' }); } catch (e) { ctx = new AC(); }
+}
+async function loadAudio() {
+  const files = [...new Set(DATA.clips.flatMap(c => c.tail ? [c.file, c.tail] : [c.file]))];
+  let done = 0;
+  const queue = files.slice();
+  const worker = async () => {
+    for (let f; (f = queue.shift());) {
+      const raw = await (await fetch('/audio/' + f)).arrayBuffer();
+      buffers[f] = await new Promise((ok, no) => ctx.decodeAudioData(raw, ok, no));
+      $('#load i').style.width = (100 * ++done / files.length) + '%';
+    }
+  };
+  await Promise.all([1, 2, 3, 4].map(worker));
+}
+function start(file, when, offset, dur, fadeIn, fadeOut) {
+  const src = ctx.createBufferSource();
+  src.buffer = buffers[file];
+  let node = src;
+  if (fadeIn || fadeOut) {             // only the few-millisecond fade a cut needs
+    const g = ctx.createGain();
+    if (fadeIn) { g.gain.setValueAtTime(0, when); g.gain.linearRampToValueAtTime(1, when + 0.004); }
+    if (fadeOut) { g.gain.setValueAtTime(1, when + dur - 0.008); g.gain.linearRampToValueAtTime(0, when + dur); }
+    src.connect(g); node = g;
+  }
+  const out = ctx.createGain();        // unity; used to end the note cleanly on Stop
+  node.connect(out); out.connect(ctx.destination);
+  if (dur != null) src.start(when, offset, dur); else src.start(when, offset);
+  const h = { src, out };
+  live.add(h);
+  src.onended = () => { live.delete(h); out.disconnect(); };
+  return h;
+}
+function silence(set) {
+  const t = ctx.currentTime;
+  for (const h of set) {
+    try { h.out.gain.cancelScheduledValues(t); h.out.gain.setValueAtTime(1, t); h.out.gain.linearRampToValueAtTime(0, t + 0.012); h.src.stop(t + 0.02); } catch (e) {}
+  }
+}
+function regionAt(lane, bar) { return arr.regions.find(r => r.lane === lane && r.start <= bar && bar < r.start + r.len); }
+function scheduleBar(bar, when, first) {
+  const B = DATA.barSeconds;
+  for (const lane of DATA.lanes) {
+    if (arr.mutes.includes(lane.id)) continue;
+    const r = regionAt(lane.id, bar);
+    if (!r) continue;
+    const c = CLIPS[r.clip];
+    if (!c || !buffers[c.file]) continue;
+    const into = bar - r.start;
+    if (c.kind === 'once') {
+      if (into === 0 || first) { if (into < c.fileBars) start(c.file, when, into * B, null, into > 0, false); }
+    } else {
+      const phase = ((into + (r.off || 0)) % c.bars + c.bars) % c.bars;
+      const last = into === r.len - 1;
+      const rings = last && c.tail && buffers[c.tail] && !regionAt(lane.id, (bar + 1) % arr.bars);
+      start(c.file, when, phase * B, B, first && phase !== 0, last && !rings);
+      if (rings) start(c.tail, when + B, 0, null, false, false);   // what Live played after this loop stopped
+    }
+    if (into === 0) flash(r, when);
+  }
+}
+function flash(r, when) {
+  setTimeout(() => {
+    const e = r._el; if (!e) return;
+    e.classList.remove('hit'); void e.offsetWidth; e.classList.add('hit');
+  }, Math.max(0, (when - ctx.currentTime) * 1000));
+}
+function play(from) {
+  stop();
+  if (ctx.state !== 'running') ctx.resume();
+  const t0 = ctx.currentTime + 0.12;
+  playing = { t0, from, n: 0 };
+  playing.timer = setInterval(pump, 40);
+  pump();
+  $('#play').innerHTML = ICON.stop; $('#head').style.display = 'block';
+  requestAnimationFrame(frame);
+}
+function pump() {
+  if (!playing) return;
+  const B = DATA.barSeconds;
+  while (playing.t0 + playing.n * B < ctx.currentTime + 0.3) {
+    scheduleBar((playing.from + playing.n) % arr.bars, playing.t0 + playing.n * B, playing.n === 0);
+    playing.n++;
+  }
+}
+function stop() {
+  if (audition) { silence(audition); audition = null; }
+  if (!playing) return;
+  clearInterval(playing.timer); playing = null;
+  silence(live);
+  $('#play').innerHTML = ICON.play; $('#head').style.display = 'none';
+  showPos(cursor);
+}
+function frame() {
+  if (!playing) return;
+  const bars = Math.max(0, (ctx.currentTime - playing.t0) / DATA.barSeconds);
+  const at = (playing.from + bars) % arr.bars;
+  $('#head').style.transform = `translateX(${labW() + at * W}px)`;
+  showPos(Math.floor(at));
+  requestAnimationFrame(frame);
+}
+function playClip(c) {
+  if (ctx.state !== 'running') ctx.resume();
+  if (audition) silence(audition);
+  const before = new Set(live);
+  start(c.file, ctx.currentTime + 0.05, 0, null, false, false);
+  audition = new Set([...live].filter(h => !before.has(h)));
+}
+
+// ---------- the arrangement ----------
+const snap = () => JSON.stringify({ bars: arr.bars, regions: arr.regions.map(({ _el, ...r }) => r), mutes: arr.mutes });
+function edit(fn) {
+  history.push(snap()); if (history.length > 100) history.shift();
+  fn(); render(); save();
+}
+function undo() {
+  const s = history.pop(); if (!s) return;
+  Object.assign(arr, JSON.parse(s)); selRegion = null; render(); save();
+}
+function carve(lane, a, b, keep) {       // clear [a, b) on a lane, splitting what it cuts
+  const out = [];
+  for (const r of arr.regions) {
+    if (r.lane !== lane || r === keep || r.start + r.len <= a || r.start >= b) { out.push(r); continue; }
+    const c = CLIPS[r.clip];
+    if (c && c.kind === 'once') continue;             // a one-shot is whole or gone
+    if (r.start < a) out.push({ ...r, _el: null, len: a - r.start });
+    if (r.start + r.len > b) out.push({ ...r, _el: null, start: b, len: r.start + r.len - b, off: ((r.off || 0) + b - r.start) % c.bars });
+  }
+  arr.regions = out;
+}
+function place(lane, clip, at) {
+  const c = CLIPS[clip];
+  let len = c.kind === 'once' ? c.bars : Math.max(c.bars, 4);
+  at = Math.max(0, Math.min(at, arr.bars - 1));
+  len = Math.min(len, arr.bars - at);
+  edit(() => {
+    carve(lane, at, at + len);
+    const r = { lane, clip, start: at, len, off: 0 };
+    arr.regions.push(r); selRegion = r;
+  });
+}
+function change(r, fn) {
+  edit(() => {
+    const live = arr.regions.find(x => x === r); if (!live) return;
+    fn(live);
+    live.start = Math.max(0, Math.min(live.start, arr.bars - 1));
+    live.len = Math.max(1, Math.min(live.len, arr.bars - live.start));
+    carve(live.lane, live.start, live.start + live.len, live);
+  });
+}
+let saveTimer, saveState = '';
+function save() {
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(async () => {
+    const body = JSON.stringify({ name: arr.name, ...JSON.parse(snap()) });
+    try {
+      const res = await fetch('/api/arrangements/' + arr.id, { method: 'PUT', body });
+      saveState = res.ok ? '' : ' (not saved)';
+    } catch (e) { saveState = ' (not saved)'; }
+    $('#name span').textContent = arr.name + saveState;
+  }, 600);
+}
+async function open(id) {
+  stop();
+  const a = await (await fetch('/api/arrangements/' + id)).json();
+  arr = { id, name: a.name || id, bars: a.bars || 32, regions: (a.regions || []).filter(r => CLIPS[r.clip] && LANES[r.lane]), mutes: a.mutes || [] };
+  history.length = 0; selRegion = null; cursor = 0;
+  localStorage.setItem('arr.id', id);
+  render();
+}
+function fresh(name, from) {
+  stop();
+  const id = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 40) + '-' + Math.random().toString(36).slice(2, 6);
+  arr = { id, name, bars: from ? from.bars : 32, regions: from ? from.regions.map(({ _el, ...r }) => ({ ...r })) : [], mutes: from && from.mutes ? [...from.mutes] : [] };
+  history.length = 0; selRegion = null; cursor = 0;
+  localStorage.setItem('arr.id', id);
+  render(); save();
+}
+
+// ---------- drawing ----------
+const labW = () => parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--lab'));
+const waves = {};
+function wave(c) {                      // the clip's peaks as a translucent shape, one tile per clip length
+  if (waves[c.id]) return waves[c.id];
+  const p = c.peaks, n = p.length;
+  let d = `M0 50`;
+  for (let i = 0; i < n; i++) d += `L${(i * 100 / n).toFixed(2)} ${(50 - 46 * p[i]).toFixed(1)}`;
+  for (let i = n - 1; i >= 0; i--) d += `L${(i * 100 / n).toFixed(2)} ${(50 + 46 * p[i]).toFixed(1)}`;
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" preserveAspectRatio="none"><path d="${d}Z" fill="rgba(0,0,0,.38)"/></svg>`;
+  return waves[c.id] = `url("data:image/svg+xml,${encodeURIComponent(svg)}")`;
+}
+function showPos(bar) { $('#pos').innerHTML = `<b>${bar + 1}</b> / ${arr.bars}`; }
+function render() {
+  document.documentElement.style.setProperty('--w', W + 'px');
+  $('#name span').textContent = arr.name + saveState;
+  $('#undo').disabled = !history.length;
+  showPos(cursor);
+  const bars = $('#bars');
+  bars.style.width = arr.bars * W + 'px';
+  bars.querySelectorAll('i').forEach(e => e.remove());
+  const step = W >= 24 ? 1 : W >= 12 ? 4 : 8;
+  for (let b = 0; b < arr.bars; b += step) {
+    const i = el('i', b % 16 === 0 ? 's16' : '', b + 1);
+    i.style.left = b * W + 'px'; bars.appendChild(i);
+  }
+  $('#cursor').style.left = cursor * W + 'px';
+  const lanes = $('#lanes'); lanes.innerHTML = '';
+  let group = null;
+  for (const lane of DATA.lanes) {
+    const row = el('div', 'lane' + (lane.id === selLane ? ' sel' : '') + (arr.mutes.includes(lane.id) ? ' muted' : '') + (group && group !== lane.group ? ' gap' : ''));
+    group = lane.group;
+    row.style.setProperty('--c', lane.color);
+    const label = el('div', 'label', `<span>${lane.title}</span>`);
+    const mute = el('button', 'mute', 'M');
+    mute.onclick = ev => { ev.stopPropagation(); edit(() => { arr.mutes = arr.mutes.includes(lane.id) ? arr.mutes.filter(x => x !== lane.id) : [...arr.mutes, lane.id]; }); };
+    label.appendChild(mute);
+    label.onclick = () => pickLane(lane.id);
+    const track = el('div', 'track');
+    track.style.width = arr.bars * W + 'px';
+    track.onclick = ev => {
+      const bar = Math.floor((ev.clientX - track.getBoundingClientRect().left) / W);
+      if (selLane !== lane.id) { pickLane(lane.id); return; }
+      if (selRegion) { selRegion = null; render(); return; }
+      if (brush && CLIPS[brush].lane === lane.id) place(lane.id, brush, CLIPS[brush].kind === 'once' ? bar : bar - bar % Math.min(4, CLIPS[brush].bars));
+    };
+    for (const r of arr.regions) {
+      if (r.lane !== lane.id) continue;
+      const c = CLIPS[r.clip];
+      const e = el('div', 'region' + (c.kind === 'once' ? ' once' : '') + (r === selRegion ? ' sel' : ''), W * r.len > 34 ? c.title : '');
+      e.style.left = r.start * W + 'px'; e.style.width = r.len * W - 1 + 'px';
+      e.style.backgroundImage = wave(c);
+      e.style.backgroundSize = `${c.bars * W}px 100%`;
+      e.style.backgroundPositionX = -(r.off || 0) * W + 'px';
+      if (c.kind === 'once') e.style.backgroundRepeat = 'no-repeat';
+      e.onclick = ev => { ev.stopPropagation(); selLane = lane.id; selRegion = r === selRegion ? null : r; if (selRegion) brush = r.clip; render(); };
+      r._el = e; track.appendChild(e);
+    }
+    row.append(label, track); lanes.appendChild(row);
+  }
+  $('#head').style.height = $('#grid').offsetHeight + 'px';
+  renderFooter();
+}
+function pickLane(id) {
+  selLane = id; selRegion = null;
+  if (!brush || CLIPS[brush].lane !== id) brush = (DATA.clips.find(c => c.lane === id) || {}).id || null;
+  render();
+}
+function renderFooter() {
+  const tools = $('#tools'); tools.innerHTML = '';
+  const b = (icon, text, fn) => { const x = el('button', '', (icon ? ICON[icon] : '') + (text || '')); x.onclick = fn; tools.appendChild(x); return x; };
+  if (selRegion) {
+    const r = selRegion, c = CLIPS[r.clip];
+    tools.appendChild(el('div', 'what', `${c.title}<br>bars ${r.start + 1}–${r.start + r.len}`));
+    b('left', '', () => change(r, x => { x.start -= 1; }));
+    b('right', '', () => change(r, x => { x.start += 1; }));
+    if (c.kind !== 'once') {
+      b('minus', '', () => change(r, x => { x.len -= x.len > 4 ? 4 : 1; }));
+      b('plus', '', () => change(r, x => { x.len += x.len >= 4 ? 4 : 1; }));
+    }
+    b('copy', '', () => { const at = r.start + r.len; if (at >= arr.bars) return; edit(() => { const len = Math.min(r.len, arr.bars - at); carve(r.lane, at, at + len); const n = { lane: r.lane, clip: r.clip, start: at, len, off: r.off || 0 }; arr.regions.push(n); selRegion = n; }); });
+    b('trash', '', () => edit(() => { arr.regions = arr.regions.filter(x => x !== r); selRegion = null; }));
+  } else {
+    tools.appendChild(el('div', 'what', selLane ? `${LANES[selLane].title}: pick a loop, then tap the lane` : 'Tap a lane to see its loops'));
+    b('minus', ' 4 bars', () => edit(() => { arr.bars = Math.max(4, arr.bars - 4); arr.regions = arr.regions.filter(r => r.start < arr.bars); arr.regions.forEach(r => { r.len = Math.min(r.len, arr.bars - r.start); }); cursor = Math.min(cursor, arr.bars - 1); }));
+    b('plus', ' 4 bars', () => edit(() => { arr.bars = Math.min(512, arr.bars + 4); }));
+  }
+  const pal = $('#palette'); pal.innerHTML = '';
+  if (!selLane) { pal.appendChild(el('div', 'hint', 'Each lane holds the loops bounced from one part of the set.')); return; }
+  for (const c of DATA.clips.filter(c => c.lane === selLane)) {
+    const chip = el('div', 'chip' + (c.id === brush ? ' on' : ''), `<b>${c.title}</b>${c.kind === 'once' ? 'one-shot' : c.bars + (c.bars === 1 ? ' bar' : ' bars')} · from bar ${c.src.bar + 1}`);
+    chip.style.setProperty('--c', LANES[selLane].color);
+    chip.style.backgroundImage = wave(c);
+    chip.onclick = () => { brush = c.id; selRegion = null; render(); };
+    const au = el('button', 'au', ICON.play);
+    au.onclick = ev => { ev.stopPropagation(); brush = c.id; playClip(c); renderFooter(); };
+    chip.appendChild(au); pal.appendChild(chip);
+  }
+}
+
+// ---------- the arrangements sheet ----------
+async function menu() {
+  const sheet = $('#sheet'); sheet.innerHTML = '';
+  const row = () => { const r = el('div', 'row'); sheet.appendChild(r); return r; };
+  const close = () => $('#menu').classList.remove('open');
+  sheet.appendChild(el('h3', '', 'This arrangement'));
+  const r1 = row();
+  const input = el('input'); input.value = arr.name; input.onchange = () => { arr.name = input.value.trim() || arr.name; render(); save(); };
+  r1.appendChild(input);
+  const r2 = row();
+  const dup = el('button', '', 'Duplicate'); dup.onclick = () => { fresh(arr.name + ' copy', arr); close(); };
+  const del = el('button', '', 'Remove'); del.onclick = async () => { await fetch('/api/arrangements/' + arr.id, { method: 'DELETE' }); localStorage.removeItem('arr.id'); close(); boot(); };
+  r2.append(dup, del);
+  sheet.appendChild(el('h3', '', 'Start another'));
+  const r3 = row();
+  const empty = el('button', '', 'Empty, 32 bars'); empty.onclick = () => { fresh('Untitled'); close(); };
+  r3.appendChild(empty);
+  for (const p of DATA.presets) { const x = el('button', '', p.name); x.onclick = () => { fresh(p.name, p); close(); }; r3.appendChild(x); }
+  sheet.appendChild(el('h3', '', 'Saved'));
+  const list = await (await fetch('/api/arrangements')).json();
+  for (const a of list) {
+    const it = el('button', 'item', `<span>${a.name}</span><small>${a.bars} bars${a.id === arr.id ? ' · open' : ''}</small>`);
+    it.onclick = async () => { await open(a.id); close(); };
+    sheet.appendChild(it);
+  }
+  sheet.appendChild(el('h3', '', 'About the sound'));
+  sheet.appendChild(el('p', '', `Every loop is a bounce from Live of ${DATA.set} (${DATA.made}): one part soloed, through its own devices, its group's devices and Main. This page only starts those files together on the bar, at their rendered level. It is a sketch: parts that share a group's distortion or compressor react to each other in the set, and a loop that stops here is cut where the set would let its tail ring. ${DATA.check || ''}`));
+  $('#menu').classList.add('open');
+}
+$('#menu').onclick = ev => { if (ev.target.id === 'menu') $('#menu').classList.remove('open'); };
+
+// ---------- controls ----------
+$('#play').onclick = () => playing ? stop() : play(cursor);
+$('#name').onclick = menu;
+$('#undo').onclick = undo;
+$('#zoomin').onclick = () => { W = Math.min(48, Math.round(W * 1.5)); localStorage.setItem('arr.w', W); render(); };
+$('#zoomout').onclick = () => { W = Math.max(5, Math.round(W / 1.5)); localStorage.setItem('arr.w', W); render(); };
+$('#bars').onclick = ev => {
+  cursor = Math.max(0, Math.min(arr.bars - 1, Math.floor((ev.clientX - $('#bars').getBoundingClientRect().left) / W)));
+  $('#cursor').style.left = cursor * W + 'px';
+  if (playing) play(cursor); else showPos(cursor);
+};
+document.addEventListener('keydown', ev => {
+  if (ev.target.tagName === 'INPUT') return;
+  if (ev.code === 'Space') { ev.preventDefault(); $('#play').click(); }
+  if ((ev.metaKey || ev.ctrlKey) && ev.key === 'z') { ev.preventDefault(); undo(); }
+  if (ev.key === 'Backspace' && selRegion) { const r = selRegion; edit(() => { arr.regions = arr.regions.filter(x => x !== r); selRegion = null; }); }
+});
+
+async function boot() {
+  const id = localStorage.getItem('arr.id');
+  if (id) { try { await open(id); return; } catch (e) {} }
+  const list = await (await fetch('/api/arrangements')).json();
+  if (list.length) await open(list[0].id); else fresh(DATA.presets[0].name, DATA.presets[0]);
+}
+(async () => {
+  DATA = await (await fetch('/loops.json')).json();
+  for (const c of DATA.clips) CLIPS[c.id] = c;
+  for (const l of DATA.lanes) LANES[l.id] = l;
+  $('#play').innerHTML = ICON.play;
+  makeCtx();
+  await boot();
+  selLane = DATA.lanes[0].id; pickLane(selLane);
+  try { await loadAudio(); $('#load').remove(); }
+  catch (e) { $('#load span').textContent = 'Could not load the loops: ' + e; }
+})();
+</script>
+</body>
+</html>
