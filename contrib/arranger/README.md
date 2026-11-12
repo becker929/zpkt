@@ -13,3 +13,7 @@ The audio and the saved arrangements stay outside the repo (`~/_agent_scratch/ar
 The page starts the loops together on the bar clock and does nothing else to them. That is the one named exception
 to the sound rule (`contrib/docs/sound.md`): it is a sketch, and an arrangement that matters is rendered in Live.
 Each saved arrangement names its loops by stem and source bar, so it can be rebuilt in the set.
+
+`shorts.py` writes the one-minute arrangements shown as tabs (tab 8 and its high-frequency ramps), and
+`uv run --project ears python contrib/arranger/measure.py short-8a` prints a tab's level above 6 and 10 kHz for each
+four bars, and its peak.
