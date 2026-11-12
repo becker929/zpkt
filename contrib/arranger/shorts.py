@@ -1,13 +1,13 @@
 """One-minute arrangements (40 bars at 160 BPM) for the arranger, in the shape of a Klangkuenstler short: breakdown
 first, a build to the drop, at least 16 bars of peak, then 4-16 bars of more peak or an outro.
 
-    python3 contrib/arranger/shorts.py            # writes the ramp tabs (8a ...); tab 8 itself only when named
-    python3 contrib/arranger/shorts.py 8 8a       # writes just those; this overwrites edits made in the page
+    python3 contrib/arranger/shorts.py            # writes the variation tabs (8d1 ...); tab 8d itself only when named
+    python3 contrib/arranger/shorts.py 8d 8d1     # writes just those; this overwrites edits made in the page
 
-"8 Long horn, hats by hand" is the parent (Anthony, 12 Nov 2026: "8 is the closest"); the six first tries and
-"7 Long horn, everything" are gone (git history has them). The others here are 8 with the high-frequency energy
-ramped over the whole track in different ways. The page has no gain or filter, so a ramp is only which hat pads
-play when. `measure.py` prints each tab's level above 6 kHz bar by bar.
+"8d Ramp: from the bottom up" is the parent (Anthony, 12 Nov 2026: "8d is the best"); tab 8 and the ramps 8a-8c are
+gone (git history has them). The others here are 8d with its high-frequency ramp opened on a different pad. The page
+has no gain or filter, so a ramp is only which hat pads play when. `measure.py` prints each tab's level above 6 kHz
+bar by bar.
 
 Bars below are 1-based and inclusive, as the page shows them. Clip ids are the ones in loops.json.
 """
@@ -51,31 +51,32 @@ def hats(*rows: tuple) -> list[tuple]:
 
 
 SHORTS = {
-    "8": ("8 Long horn, hats by hand", [   # the parent: 2 pads in the break, 5 by the drop, all 9 for 25-32, then thinner
-        *BASE,
-        *hats((CH_A, 5, 8), (CH, 9, 40), (CH27, 9, 40), (OH, 13, 40), (RD2, 13, 32), (RD, 15, 32),
-              (OH66, 25, 32), (OH2, 25, 32), (RD1, 25, 32), (CH1, 25, 32)),
-    ]),
-    "8a": ("8a Ramp: one step every 4 bars", [   # a straight line: one more pad each 4 bars, quietest first, brightest at the end
-        *BASE,
-        *hats((CH_A, 5, 8), (CH, 9, 40), (OH, 13, 40), (CH27, 17, 40), (RD1, 17, 40), (OH66, 21, 40), (OH2, 25, 40),
-              (RD2, 29, 40), (RD, 33, 40), (CH1, 37, 40)),
-    ]),
-    "8b": ("8b Ramp: dark, then opens late", [   # closed hats only until 8 bars into the peak, then two pads every 4 bars
-        *BASE,
-        *hats((CH_A, 9, 16), (CH, 17, 40), (CH27, 17, 40), (OH, 25, 40), (OH66, 25, 40), (OH2, 29, 40), (RD1, 29, 40),
-              (RD2, 33, 40), (RD, 33, 40), (CH1, 37, 40)),
-    ]),
-    "8c": ("8c Ramp: twice, reset at the drop", [   # the build climbs to the rides, the drop cuts back to one closed hat, then it climbs again, higher
-        *BASE,
-        *hats((CH_A, 5, 8), (CH, 9, 40), (OH, 9, 16), (CH27, 13, 16), (OH66, 13, 16), (RD2, 15, 16), (RD, 15, 16),
-              (OH, 21, 40), (CH27, 21, 40), (OH66, 25, 40), (OH2, 25, 40), (RD1, 25, 40), (RD2, 29, 40), (RD, 29, 40),
-              (CH1, 33, 40)),
-    ]),
-    "8d": ("8d Ramp: from the bottom up", [   # pads enter in order of pitch, not level: the dark ones first, the airiest last
+    "8d": ("8d Ramp: from the bottom up", [   # the parent: pads enter in order of pitch, not level, the airiest last
         *BASE,
         *hats((CH_A, 5, 8), (CH, 9, 40), (OH, 13, 40), (OH66, 17, 40), (OH2, 17, 40), (CH1, 21, 40), (RD2, 25, 40),
               (RD, 29, 40), (CH27, 33, 40), (RD1, 37, 40)),
+    ]),
+    # 8d's variations: the same climb, but the ramp does not open on P1 closed (Anthony, 12 Nov 2026). Each opens on a
+    # different pad, one more pad every 4 bars from there; P1 closed comes in at the drop or not at all.
+    "8d1": ("8d1 Opens on P1 open", [   # the darkest open hat starts it; P1 closed only joins under the drop
+        *BASE,
+        *hats((OH, 5, 40), (OH66, 9, 40), (OH2, 13, 40), (CH, 17, 40), (CH1, 21, 40), (RD2, 25, 40), (RD, 29, 40),
+              (CH27, 33, 40), (RD1, 37, 40)),
+    ]),
+    "8d2": ("8d2 Opens on P1 open 2, no P1 closed", [   # the soft open hat with the least above 10 kHz starts it
+        *BASE,
+        *hats((OH66, 5, 40), (OH, 9, 40), (OH2, 13, 40), (CH27, 17, 40), (CH1, 21, 40), (RD2, 25, 40), (RD, 29, 40),
+              (RD1, 37, 40)),
+    ]),
+    "8d3": ("8d3 Opens on P2 closed 2, no P1 closed", [   # a thin, high tick starts it instead of a dark one
+        *BASE,
+        *hats((CH27, 5, 40), (OH, 9, 40), (OH66, 13, 40), (OH2, 17, 40), (CH1, 21, 40), (RD2, 25, 40), (RD, 29, 40),
+              (RD1, 37, 40)),
+    ]),
+    "8d4": ("8d4 Opens on P2 ride 1, no P1 closed", [   # the airiest pad, quiet low down, starts it as a shimmer
+        *BASE,
+        *hats((RD1, 5, 40), (OH, 9, 40), (OH66, 13, 40), (OH2, 17, 40), (CH1, 21, 40), (RD2, 25, 40), (RD, 29, 40),
+              (CH27, 37, 40)),
     ]),
 }
 
@@ -97,7 +98,7 @@ def main() -> None:
     clips = {c["id"]: c for c in json.loads((DATA / "loops.json").read_text())["clips"]}
     folder = DATA / "arrangements"
     folder.mkdir(parents=True, exist_ok=True)
-    for key in sys.argv[1:] or [k for k in SHORTS if k != "8"]:
+    for key in sys.argv[1:] or [k for k in reversed(SHORTS) if k != "8d"]:   # the page lists the newest first
         name, regions = regions_of(key, clips)
         (folder / f"short-{key}.json").write_text(json.dumps({"name": name, "bars": BARS, "regions": regions, "mutes": [], "saved": time.time()}))
         print(f"short-{key}: {name}, {len(regions)} regions")
