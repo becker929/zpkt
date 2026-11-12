@@ -34,6 +34,16 @@ LANES = [
     ("kick", "Kick", "kick", "#ff6b5e", [("kick-rumble", "Kick + rumble", 0), ("kick", "Kick alone", 0), ("rumble", "Rumble alone", 0)]),
     ("perc1", "Perc 1", "perc", "#ffd34d", [("perc1", "Perc 1", 0)]),
     ("perc2", "Perc 2", "perc", "#c7e65a", [("perc2", "Perc 2", 0)]),
+    # single pads of the two hat racks, each alone through its track's devices: layers to stack by hand
+    ("p1-oh", "P1 open", "hats", "#ffe27a", [("p1-oh", "P1 open hat", 0)]),
+    ("p1-ch", "P1 closed", "hats", "#ffe27a", [("p1-ch", "P1 closed hat", 0)]),
+    ("p1-rd", "P1 ride", "hats", "#ffe27a", [("p1-rd", "P1 ride", 0)]),
+    ("p1-oh66", "P1 open 2", "hats", "#ffe27a", [("p1-oh66", "P1 open hat 2", 0)]),
+    ("p2-rd2", "P2 ride 2", "hats", "#d5ec7e", [("p2-rd2", "P2 ride 2", 0)]),
+    ("p2-rd1", "P2 ride 1", "hats", "#d5ec7e", [("p2-rd1", "P2 ride 1", 0)]),
+    ("p2-oh", "P2 open", "hats", "#d5ec7e", [("p2-oh", "P2 open hat", 0)]),
+    ("p2-ch27", "P2 closed 2", "hats", "#d5ec7e", [("p2-ch27", "P2 closed hat 2", 0)]),
+    ("p2-ch1", "P2 closed 1", "hats", "#d5ec7e", [("p2-ch1", "P2 closed hat 1", 0)]),
     ("crash", "Crash", "perc", "#8fe0a0", [("crash", "Crash", 0)]),
     ("splash", "Splash", "sfx", "#62c8f2", [("splash", "Splash", 0)]),
     ("chord", "Chord", "sfx", "#8aa4ff", [("chord", "Chord", 0)]),
@@ -44,7 +54,8 @@ LANES = [
     ("break-beatbox", "Brk beatbox", "break", "#f5b3a8", [("break-beatbox", "Beatbox", 80)]),
     ("break-hit", "Brk hit", "break", "#f7c9a0", [("break-hit", "Hit", 80)]),
 ]
-SONG_ONLY_FIRST = {"break-horn", "break-stab", "break-chop", "break-beatbox", "break-hit"}  # in the song via "Break, all"
+SONG_ONLY_FIRST = {"break-horn", "break-stab", "break-chop", "break-beatbox", "break-hit",
+                   "p1-oh", "p1-ch", "p1-rd", "p1-oh66", "p2-rd2", "p2-rd1", "p2-oh", "p2-ch27", "p2-ch1"}  # in the song via "Break, all"
 
 
 def features(x: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
