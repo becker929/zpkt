@@ -14,6 +14,6 @@ The page starts the loops together on the bar clock and does nothing else to the
 to the sound rule (`contrib/docs/sound.md`): it is a sketch, and an arrangement that matters is rendered in Live.
 Each saved arrangement names its loops by stem and source bar, so it can be rebuilt in the set.
 
-`shorts.py` writes the one-minute arrangements shown as tabs (tab 8d and its variations), and
-`uv run --project ears python contrib/arranger/measure.py short-8d1` prints a tab's level above 6 and 10 kHz for each
+`shorts.py` writes the one-minute arrangements shown as tabs (tab 8d2 and its variations), and
+`uv run --project ears python contrib/arranger/measure.py short-8d2a` prints a tab's level above 6 and 10 kHz for each
 four bars, and its peak.
