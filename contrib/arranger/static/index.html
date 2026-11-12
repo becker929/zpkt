@@ -21,6 +21,10 @@ header { display:flex; align-items:center; gap:8px; padding:8px 10px; padding-to
 #pos b { color:var(--text); font-size:17px; }
 #name { flex:1; min-width:0; justify-content:flex-start; padding:0 10px; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; }
 #name span { overflow:hidden; text-overflow:ellipsis; }
+#tabs { display:flex; gap:6px; overflow-x:auto; padding:6px 10px; background:#15171a; border-bottom:1px solid var(--line); scrollbar-width:none; }
+#tabs::-webkit-scrollbar { display:none; }
+#tabs button { flex:none; height:32px; padding:0 12px; font-size:12.5px; white-space:nowrap; color:var(--dim); }
+#tabs button.on { background:var(--accent); border-color:var(--accent); color:#111; font-weight:600; }
 #sketch { font-size:11px; color:var(--dim); padding:5px 10px; border-bottom:1px solid var(--line); background:#15171a; }
 #sketch b { color:var(--accent); font-weight:600; }
 #scroll { flex:1; overflow:auto; position:relative; -webkit-overflow-scrolling:touch; }
@@ -82,6 +86,7 @@ footer { background:var(--panel); border-top:1px solid var(--line); padding:8px 
   <button id="zoomout" aria-label="Zoom out"></button>
   <button id="zoomin" aria-label="Zoom in"></button>
 </header>
+<nav id="tabs"></nav>
 <div id="sketch"><b>Sketch.</b> Loops bounced from Live, started together here. Not a render of the set.</div>
 <div id="scroll"><div id="grid">
   <div id="ruler"><div class="corner">bar</div><div id="bars"><div id="cursor"></div></div></div>
@@ -273,32 +278,37 @@ function change(r, fn) {
   });
 }
 let saveTimer, saveState = '';
+let dirty = false;
+async function flush() {                 // write the open arrangement now, if it has unsaved edits
+  if (!dirty || !arr) return;
+  dirty = false;
+  const body = JSON.stringify({ name: arr.name, ...JSON.parse(snap()) });
+  try {
+    const res = await fetch('/api/arrangements/' + arr.id, { method: 'PUT', body });
+    saveState = res.ok ? '' : ' (not saved)';
+  } catch (e) { saveState = ' (not saved)'; }
+  $('#name span').textContent = arr.name + saveState;
+}
 function save() {
+  dirty = true;
   clearTimeout(saveTimer);
-  saveTimer = setTimeout(async () => {
-    const body = JSON.stringify({ name: arr.name, ...JSON.parse(snap()) });
-    try {
-      const res = await fetch('/api/arrangements/' + arr.id, { method: 'PUT', body });
-      saveState = res.ok ? '' : ' (not saved)';
-    } catch (e) { saveState = ' (not saved)'; }
-    $('#name span').textContent = arr.name + saveState;
-  }, 600);
+  saveTimer = setTimeout(flush, 600);
 }
 async function open(id) {
-  stop();
+  stop(); clearTimeout(saveTimer); await flush();
   const a = await (await fetch('/api/arrangements/' + id)).json();
   arr = { id, name: a.name || id, bars: a.bars || 32, regions: (a.regions || []).filter(r => CLIPS[r.clip] && LANES[r.lane]), mutes: a.mutes || [] };
   history.length = 0; selRegion = null; cursor = 0;
   localStorage.setItem('arr.id', id);
-  render();
+  render(); tabs();
 }
 function fresh(name, from) {
-  stop();
+  stop(); clearTimeout(saveTimer); flush();
   const id = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 40) + '-' + Math.random().toString(36).slice(2, 6);
   arr = { id, name, bars: from ? from.bars : 32, regions: from ? from.regions.map(({ _el, ...r }) => ({ ...r })) : [], mutes: from && from.mutes ? [...from.mutes] : [] };
   history.length = 0; selRegion = null; cursor = 0;
   localStorage.setItem('arr.id', id);
-  render(); save();
+  render(); dirty = true; flush().then(tabs);
 }
 
 // ---------- drawing ----------
@@ -401,6 +411,22 @@ function renderFooter() {
   }
 }
 
+// ---------- tabs: one per saved arrangement ----------
+async function tabs() {
+  let list = [];
+  try { list = await (await fetch('/api/arrangements')).json(); } catch (e) { return; }
+  if (arr && !list.some(a => a.id === arr.id)) list.push({ id: arr.id, name: arr.name });
+  list.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
+  const bar = $('#tabs'); bar.innerHTML = '';
+  for (const a of list) {
+    const t = el('button', arr && a.id === arr.id ? 'on' : '');
+    t.textContent = arr && a.id === arr.id ? arr.name : a.name;
+    t.onclick = async () => { if (a.id !== arr.id) await open(a.id); };
+    bar.appendChild(t);
+    if (arr && a.id === arr.id) setTimeout(() => t.scrollIntoView({ inline: 'center', block: 'nearest' }), 0);
+  }
+}
+
 // ---------- the arrangements sheet ----------
 async function menu() {
   const sheet = $('#sheet'); sheet.innerHTML = '';
@@ -408,7 +434,7 @@ async function menu() {
   const close = () => $('#menu').classList.remove('open');
   sheet.appendChild(el('h3', '', 'This arrangement'));
   const r1 = row();
-  const input = el('input'); input.value = arr.name; input.onchange = () => { arr.name = input.value.trim() || arr.name; render(); save(); };
+  const input = el('input'); input.value = arr.name; input.onchange = () => { arr.name = input.value.trim() || arr.name; render(); dirty = true; flush().then(tabs); };
   r1.appendChild(input);
   const r2 = row();
   const dup = el('button', '', 'Duplicate'); dup.onclick = () => { fresh(arr.name + ' copy', arr); close(); };
