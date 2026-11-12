@@ -112,10 +112,24 @@ SOURCES = {   # reverse-reverb sources: the set's own hit where the song plays i
     "crash": (CRASH, 256.0, (17, 25, 33)), "splash-c": (SPLASH, 104.0, (9, 25)), "splash-d": (SPLASH, 384.0, (17,)),
     "splash-b": (SPLASH, 72.0, (41,)),
 }
+# The gate Utility's gain into the Reverb, per source, so each tail's loudest beat sits near -20 dB (the mix is about
+# -15 dB): the first renders, at 0 dB, were 20-40 dB under the mix (Anthony, 12 Nov 2026: "pretty quiet").
+SOURCE_GAIN = {"horn-b": 10.0, "horn-a": 30.0, "chord": 30.0, "crash": 15.0, "splash-c": 12.0, "splash-d": 12.0, "splash-b": 12.0}
 REVERBS = {   # Reverb settings, one render each
     "room": {"Decay Time": "1.20 s", "Room Size": 40.0, "Diffusion": "60 %"},
     "hall": {"Decay Time": "4.00 s", "Room Size": 100.0, "Diffusion": "80 %"},
     "huge": {"Decay Time": "12.0 s", "Room Size": 200.0, "Diffusion": "100 %"},
+}
+# What the page offers: the best and loudest few of each kind (Anthony, 12 Nov 2026: "Too many options. Please reduce
+# the options to the best and loudest"), chosen by each sound's loudest beat after the levels were raised, a few of
+# each shape; plus the two he had already stacked (nr-lp-2 at the drop, hf-ch1-32-1b at bar 9). All are still made.
+SHORTLIST = {
+    "riser": ["nr-bp-4", "nr-lp-8", "pr-sine-8", "nr-lp-2"],
+    "downlifter": ["dl-sub-2", "dl-saw-1", "dl-bp-2"],
+    "reverse": ["rv-splash-c-huge-4", "rv-horn-b-huge-8", "rv-splash-d-huge-4", "rv-crash-huge-4", "rv-chord-huge-8",
+                "rv-splash-b-huge-4", "rv-horn-a-huge-8"],
+    "scoop": ["sc-hp-1bar", "sc-cut-1b", "sc-mute-1b", "sc-in-2"],
+    "fill": ["kf-8ths-1bar", "kf-roll-1bar", "kit-snare-roll-4", "kit-toms-1bar", "hf-ch1-32-1b"],
 }
 KICK_SEAMS = (25, 33, 41)      # the kick plays in the bars before these
 KICK_IN_SEAMS = (17, 25, 33)   # and in the bars after these
@@ -317,12 +331,14 @@ def build() -> None:
 
 STATIC = {   # device settings that do not move (the moving ones are automated in the .als)
     ("fx noise", 0): {"Osc-A Wave": "Noise White", "Filter On": "Off", "Ae Attack": "0.00 ms", "Ae Decay": "20.0 s",
-                      "Ae Sustain": "0.0 dB", "Ae Release": "20.0 ms", "Osc-A Lev < Vel": "0 %", "Volume": "-12 dB"},
+                      "Ae Sustain": "0.0 dB", "Ae Release": "20.0 ms", "Osc-A Lev < Vel": "0 %", "Volume": "-3 dB"},
     ("fx tone", 0): {"Osc-A Wave": "Saw D", "Filter On": "Off", "Ae Attack": "0.00 ms", "Ae Decay": "20.0 s",
-                     "Ae Sustain": "0.0 dB", "Ae Release": "30.0 ms", "Osc-A Lev < Vel": "0 %", "Volume": "-12 dB",
+                     "Ae Sustain": "0.0 dB", "Ae Release": "30.0 ms", "Osc-A Lev < Vel": "0 %", "Volume": "-3 dB",
                      "Pe On": "On", "Osc-A < Pe": "On", "Pe Init": "0 st", "Pe Amount": "100 %", "Pe Release": "0.00 ms",
                      "Pe Mode": "None"},
+    ("fx kit", 1): {"Output": "6.0 dB"},
 }
+# Operator Volume was -12 dB for the first renders, 10 dB or more under the mix; -3 dB puts risers near -17 dB.
 
 
 def clip_notes(L, track: str, start: float, length: float, notes: list) -> None:
@@ -486,10 +502,9 @@ def states(L) -> dict:
                         ("perc2", (PERC2,)), ("kick", (KICK, RUMBLE))):
         n = 1 + max(c.slot for c in C if c.track == key and c.kind != "reverse")
         out[key.replace(" ", "-")] = (tracks or (track_index(L, key),), FX0 - 4.0, n * SLOT + 8.0, None)
-    for ti in sorted({ti for ti, _, _ in SOURCES.values()}):
-        hits = [h for t, h, _ in SOURCES.values() if t == ti]
+    for src, (ti, hit, _) in SOURCES.items():   # one source at a time: each has its own gain into the reverb
         for verb in REVERBS:
-            out[f"rv-{ti}-{verb}"] = ((ti,), min(hits), max(hits) - min(hits) + 40.0, verb)
+            out[f"rv-{src}-{verb}"] = ((ti,), hit, 40.0, (verb, src))
     return out
 
 
@@ -505,7 +520,9 @@ def render(only: list[str]) -> None:
             print(f"{name}: already there", flush=True)
             continue
         if verb:
+            verb, src = verb
             L.setp(f"song.tracks[{tracks[0]}].devices[-1]", REVERBS[verb])
+            L.setp(f"song.tracks[{tracks[0]}].devices[-2]", {"Output": f"{SOURCE_GAIN[src]} dB"})
         solo(L, tracks)
         t0 = time.time()
         L.export(out, float(start), float(length), bits=24, timeout_s=900)
@@ -521,7 +538,7 @@ def recipe(c: Cand) -> dict:
     if c.kind == "reverse":
         ti, hit, _ = SOURCES[c.track]
         return {"in": RSET, "track": ti, "source": c.track, "hitBeat": hit, "gateBeats": 1.0,
-                "devices": ["Utility (gate)", "Reverb"], "reverb": {"Dry/Wet": "100 %", **REVERBS[c.src["reverb"]]},
+                "devices": ["Utility (gate)", "Reverb"], "gateGainDb": SOURCE_GAIN[c.track], "reverb": {"Dry/Wet": "100 %", **REVERBS[c.src["reverb"]]},
                 "reversed": True, "beats": -c.start}
     track = {"kick": "kick + rumble (kick group: EQ Eight, Utility added)", "perc1": "perc 1", "perc2": "perc 2"}.get(c.track, c.track)
     out = {"in": RSET, "track": track, "notes": [list(n) for n in c.notes], "automation": {k: [list(p) for p in v] for k, v in c.auto.items()}}
@@ -552,16 +569,13 @@ def cut() -> None:
     st = {}
     for name in ["fx-noise", "fx-tone", "fx-kit", "perc1", "perc2", "kick"]:
         st[name] = FX0 - 4.0
-    rv_start = {}
-    for ti in sorted({ti for ti, _, _ in SOURCES.values()}):
-        rv_start[ti] = min(h for t, h, _ in SOURCES.values() if t == ti)
     out_dir = FX / "audio"
     out_dir.mkdir(parents=True, exist_ok=True)
     rows = []
     for c in candidates():
         if c.kind == "reverse":
             ti, hit, _ = SOURCES[c.track]
-            x = take(f"rv-{ti}-{c.src['reverb']}", hit, hit - c.start, rv_start[ti])[::-1].copy()
+            x = take(f"rv-{c.track}-{c.src['reverb']}", hit, hit - c.start, hit)[::-1].copy()
         else:
             state = c.track.replace(" ", "-")
             tail = 0.0 if c.mode == "replace" else 8.0     # what rings past the end, for a sound laid over the music
@@ -591,9 +605,11 @@ def cut() -> None:
     check = ("The kick pass made in the slots against the arranger's kick loop, level by band (20 Hz to 20 kHz in six bands): "
              + ", ".join(f"{d:+.1f}" for d in diffs) + " dB.")
     print(check)
+    keep = {i for ids in SHORTLIST.values() for i in ids}
+    assert keep <= {r["id"] for r in rows}, keep - {r["id"] for r in rows}
     (FX / "fx.json").write_text(json.dumps({"made": time.time(), "set": RSET, "check": check,
-                                            "candidates": [r for r in rows if r["kind"] != "check"]}, indent=1))
-    print(f"{len(rows)} candidates written to {out_dir}")
+                                            "candidates": [r for r in rows if r["id"] in keep]}, indent=1))
+    print(f"{len(rows)} candidates written to {out_dir}; {len(keep)} offered on the page")
 
 
 def save() -> None:

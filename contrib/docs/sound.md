@@ -43,6 +43,17 @@ bar; the transition sounds are made in a copy of the set (`contrib/arranger/fxse
 that it is a sketch and not a render of the set, and `mine.py` measures how far the song's own arrangement, summed
 this way, is from Live's bounce of the mix. An arrangement that matters is heard as a render from Live.
 
+### The one exception: gain faders on the transitions page (12 November 2026)
+
+Anthony asked for it: "boost them and then add a gain fader for each type per transition". Offered rendered level
+stops instead, he chose a gain in the browser. `contrib/arranger/static/transitions.html` may do one thing the rule
+above forbids: **set the level of each kind of transition sound (risers, reverse reverbs, fills, scoops,
+downlifters) at each section change with a Web Audio gain**, so a riser's level can be found against the music by ear.
+Nothing else is lifted: one plain gain per kind, no EQ, filter, effect or automation. The level is part of the
+structure the page writes (each pick's `gainDb`), so Live applies it when the transitions are built into the set; an
+arrangement that matters is still heard as a render from Live. The exception is for this page only and is not a
+pattern to copy.
+
 Where the files come from: a change to a set is heard only as a render of that set from Live. Other material is
 played as the file it is: library sounds, collages made on the Mac, and the background work in The Wasteland
 (`contrib/docs/design/studio-agent.md`). Each file is labelled with where it came from, so a sketch is never taken for the set.
@@ -69,7 +80,7 @@ gets work, and never copied.
 | `studio/static/checklist/rummage/sounds.js` | The Rummage's interface sounds (steps, pickup, place, a machine's open, tick, lever and stamp, the finish, the tear), rendered in Live from found objects (`hands/scripts/rummage/sounds.py`), decoded once and started as rendered | Allowed: playing rendered files. |
 | `studio/static/js/mic.js` | Captures the mic through an AudioWorklet | Allowed: the mic. |
 | `contrib/arranger/static/index.html` (the HW002 arranger) | Starts loops bounced from Live together on the bar clock, as rendered; saves arrangements as structures | Allowed: playing rendered files. |
-| `contrib/arranger/static/transitions.html` (the arranger's transitions page) | Starts transition sounds made in Live on the beat over the loops; writes the picked transitions into the arrangement's structure | Allowed: playing rendered files. |
+| `contrib/arranger/static/transitions.html` (the arranger's transitions page) | Starts transition sounds made in Live on the beat over the loops; a gain fader per kind of transition at each section change; writes the picks and their levels into the arrangement's structure | Playing rendered files; the faders are the one named exception above. |
 | `prototypes/audio-browser/frontend/lib/` (`collagePlayer.ts`, `slicePlayer.ts`, `softClip.ts`) | Assembles a collage from slices and soft-clips it | Breaks the rule (slicing and clipping); to be replaced if the prototype is revived. |
 
 ## The player engine

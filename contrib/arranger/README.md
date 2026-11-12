@@ -26,7 +26,9 @@ over the change: risers, reverse reverbs, drum fills, bass scoops and downlifter
 could use. What it produces is a structure: the stack at each change is written into the arrangement
 (`arrangements/short-8d2a2.json`, `transitions`), each pick with the change it lands at, its beats, and the Live recipe
 that made it (track, notes, automation, source hit), so the chosen transitions can be built into the set and rendered.
-Hearts and the page's view are kept in `~/_agent_scratch/arranger/transitions.json`.
+Each kind has a level fader at each change, a plain gain in the page (the one named exception in
+`contrib/docs/sound.md`); its level goes into each pick as `gainDb` for Live to apply. Hearts, faders and the page's
+view are kept in `~/_agent_scratch/arranger/transitions.json`.
 
 Every sound is made in Live by `fxset.py`, in a copy of the set (its docstring has the recipe): Operator noise and
 tones through Auto Filter for risers and downlifters, the set's own hits through Live's Reverb for reverse reverbs,

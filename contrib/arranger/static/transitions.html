@@ -48,6 +48,9 @@ header .sp { flex:1; }
 #list h2 { font-size:12px; letter-spacing:.06em; text-transform:uppercase; color:var(--dim); font-weight:600; margin:14px 0 6px; display:flex; gap:8px; align-items:center; }
 #list h2 i { width:10px; height:10px; border-radius:2px; background:var(--c); display:inline-block; }
 #list h2 small { text-transform:none; letter-spacing:0; font-weight:400; }
+#list h2 .fader { margin-left:auto; display:flex; align-items:center; gap:6px; text-transform:none; letter-spacing:0; }
+#list h2 input[type=range] { width:120px; accent-color:var(--c); }
+#list h2 output { min-width:52px; text-align:right; font-variant-numeric:tabular-nums; color:var(--text); font-weight:500; }
 .chips { display:grid; grid-template-columns:repeat(auto-fill, minmax(150px, 1fr)); gap:6px; }
 .chip { position:relative; min-height:58px; border-radius:8px; border:1px solid var(--line); background:#1d2025; padding:6px 34px 6px 8px; text-align:left; font-size:12px; line-height:1.25; display:block; height:auto; justify-content:flex-start; }
 .chip.on { background:var(--c); color:#0b0b0c; border-color:var(--c); }
@@ -99,11 +102,12 @@ const ARR_ID = 'short-8d2a2';
 
 let DATA, FX, ARR, CLIPS = {}, CANDS = {};
 let ctx, buffers = {}, live = new Set(), playing = null;
-let state = { seam: 17, pre: 4, picks: {} };   // picks[seam] = { stack: [ids], liked: [ids] }
+let state = { seam: 17, pre: 4, picks: {}, gains: {} };   // picks[seam] = { stack, liked }; gains[seam][kind] = dB
 let on = true, onPending = null;
 const POST = 4;
 
 function seamPicks(s = state.seam) { return state.picks[s] || (state.picks[s] = { stack: [], liked: [] }); }
+function gainDb(kind, s = state.seam) { return (state.gains[s] || {})[kind] || 0; }
 
 // ---------- audio: rendered files, started on the audio clock, as rendered ----------
 function makeCtx() {
@@ -120,7 +124,7 @@ async function loadAll(urls, bar) {
   const worker = async () => { for (let u; (u = q.shift());) { await fetchBuf(u); if (bar) bar.style.width = (100 * ++done / urls.length) + '%'; } };
   await Promise.all([1, 2, 3, 4].map(worker));
 }
-function start(buf, when, offset, dur, fadeIn, fadeOut) {
+function start(buf, when, offset, dur, fadeIn, fadeOut, dest = ctx.destination) {
   const src = ctx.createBufferSource();
   src.buffer = buf;
   let node = src;
@@ -131,7 +135,7 @@ function start(buf, when, offset, dur, fadeIn, fadeOut) {
     src.connect(g); node = g;
   }
   const out = ctx.createGain();        // unity; used to end the sound cleanly on Stop
-  node.connect(out); out.connect(ctx.destination);
+  node.connect(out); out.connect(dest);
   if (dur != null) src.start(when, offset, dur); else src.start(when, offset);
   const h = { src, out };
   live.add(h);
@@ -143,6 +147,17 @@ function silence(set) {
   for (const h of set) {
     try { h.out.gain.cancelScheduledValues(t); h.out.gain.setValueAtTime(1, t); h.out.gain.linearRampToValueAtTime(0, t + 0.012); h.src.stop(t + 0.02); } catch (e) {}
   }
+}
+
+// The one named exception to the sound rule (contrib/docs/sound.md): a plain gain per kind of transition sound at
+// the section change shown, set by its fader. Nothing else touches the sound.
+const kindGain = {};
+function kindNode(kind) {
+  if (!kindGain[kind]) { kindGain[kind] = ctx.createGain(); kindGain[kind].connect(ctx.destination); }
+  return kindGain[kind];
+}
+function applyGains() {
+  for (const [kind] of KINDS) kindNode(kind).gain.setTargetAtTime(Math.pow(10, gainDb(kind) / 20), ctx.currentTime, 0.01);
 }
 
 // The window: `pre` bars before the seam and POST after it, in the arrangement's bars (0-based, wrapping at the end).
@@ -191,7 +206,7 @@ function scheduleFx(passStart) {   // the stacked candidates, once per pass of t
     if (t < passStart) { off = passStart - t; t = passStart; }
     if (t >= end || off >= buf.duration) continue;
     const dur = c.mode === 'replace' ? Math.min(buf.duration - off, end - t) : null;
-    start(buf, t, off, dur, off > 0, c.mode === 'replace');
+    start(buf, t, off, dur, off > 0, c.mode === 'replace', kindNode(c.kind));
     landed(id, t);
   }
 }
@@ -250,7 +265,7 @@ function renderSeams() {
   for (const s of Object.keys(SEAMS).map(Number)) {
     const n = seamPicks(s).stack.length;
     const b = el('button', s === state.seam ? 'on' : '', `Bar ${s === 41 ? '40 → 1' : s} <small>${SEAMS[s]}${n ? ' · ' + n : ''}</small>`);
-    b.onclick = () => { state.seam = s; save(); renderAll(); prefetch(); restartIfPlaying(); };
+    b.onclick = () => { state.seam = s; save(); renderAll(); applyGains(); prefetch(); restartIfPlaying(); };
     nav.appendChild(b);
   }
 }
@@ -281,6 +296,16 @@ function renderList() {
   for (const [kind, title] of KINDS) {
     const these = cs.filter(c => c.kind === kind);
     const h = el('h2', '', `<i style="--c:var(--${kind})"></i>${title} <small>${these.length}</small>`);
+    h.style.setProperty('--c', `var(--${kind})`);
+    if (these.length) {
+      const f = el('label', 'fader');
+      const r = el('input'); Object.assign(r, { type: 'range', min: -24, max: 12, step: 0.5, value: gainDb(kind) });
+      r.setAttribute('aria-label', `${title} level`);
+      const o = el('output', '', fmtDb(gainDb(kind)));
+      r.oninput = () => { (state.gains[state.seam] ||= {})[kind] = Number(r.value); o.textContent = fmtDb(Number(r.value)); applyGains(); save(); };
+      o.ondblclick = () => { r.value = 0; r.oninput(); };
+      f.append(r, o); h.appendChild(f);
+    }
     list.appendChild(h);
     if (!these.length) { list.appendChild(el('div', 'hint', kind === 'scoop' && state.seam === 9 ? '<small style="color:var(--dim)">No kick here to scoop.</small>' : '')); continue; }
     const grid = el('div', 'chips');
@@ -298,6 +323,7 @@ function renderList() {
     list.appendChild(grid);
   }
 }
+function fmtDb(v) { return (v > 0 ? '+' : v < 0 ? '\u2212' : '') + Math.abs(v).toFixed(1) + ' dB'; }
 function where(c) {
   const b = x => (Math.abs(x) % 4 === 0 ? `${Math.abs(x) / 4} bar${Math.abs(x) === 4 ? '' : 's'}` : `${Math.abs(x)} beat${Math.abs(x) === 1 ? '' : 's'}`);
   if (c.end <= 0) return `${b(c.start)} before`;
@@ -339,7 +365,7 @@ function structure() {
       const c = CANDS[id]; if (!c) continue;
       const at = b => ((seamBeat + b) % len + len) % len;
       out.push({ seam: Number(s), id, kind: c.kind, title: c.title, mode: c.mode, lane: c.lane || null,
-                 startBeat: at(c.start), beats: c.end - c.start, recipe: c.recipe });   // past the end wraps to bar 1
+                 startBeat: at(c.start), beats: c.end - c.start, gainDb: gainDb(c.kind, s), recipe: c.recipe });   // past the end wraps to bar 1
     }
   }
   return out.sort((a, b) => a.seam - b.seam || a.startBeat - b.startBeat);
@@ -376,11 +402,12 @@ async function main() {
   document.querySelectorAll('#opts button').forEach(b => b.onclick = () => { state.pre = Number(b.dataset.pre); save(); renderAll(); restartIfPlaying(); });
   $('#info').onclick = () => $('#about').classList.add('open');
   $('#about').onclick = e => { if (e.target.id === 'about') $('#about').classList.remove('open'); };
-  $('#about div').innerHTML = `<p>The canonical arrangement (8d2a2) around one section change, looping. Tap sounds to stack them over the change, one of each kind; the heart keeps a sound you like. With / Without switches the whole stack on or off from the next pass.</p>
+  $('#about div').innerHTML = `<p>The canonical arrangement (8d2a2) around one section change, looping. Tap sounds to stack them over the change, one of each kind; the heart keeps a sound you like. With / Without switches the whole stack on or off from the next pass. Each kind has a level fader for this change (double-tap the number for 0 dB); it is the one thing this page does to sound, a plain gain, and the level is saved with the picks for Live to apply.</p>
 <p>What this page makes is a structure, not audio: the stack at each change is written into the arrangement (its transitions), each pick with its beats and the Live recipe that made it, to be built into the set and rendered in Live.</p>
 <p>Every sound you hear was made in Live, in a copy of ${DATA.set} (${FX.set}), through the set's own tracks and Main: noise and Operator risers and downlifters with Auto Filter sweeps, reverse reverbs of the set's own hits through Live's Reverb (turned around after the render, as Live's Rev button does), bass scoops with an EQ Eight on the kick group, fills on the set's hat racks and kick, and on Live's 909 Core Kit. A scoop or a kick fill plays in place of the kick's bars. This page only starts those files on the beat, at their rendered level; it makes no sound of its own.</p>
 <p>It is a sketch: in the set, a riser shares Main's chain with everything else, so levels and glue here are only close. ${FX.check || ''}</p>`;
-  renderAll(); prefetch();
+  state.gains = state.gains || {};
+  applyGains(); renderAll(); prefetch();
 }
 main();
 </script>
