@@ -1,15 +1,14 @@
 """One-minute arrangements (40 bars at 160 BPM) for the arranger, in the shape of a Klangkuenstler short: breakdown
 first, a build to the drop, at least 16 bars of peak, then 4-16 bars of more peak or an outro.
 
-    python3 contrib/arranger/shorts.py            # writes the variation tabs (8d2a ...); tab 8d2 itself only when named
-    python3 contrib/arranger/shorts.py 8d2 8d2a   # writes just those; this overwrites edits made in the page
+    python3 contrib/arranger/shorts.py             # writes the variation tabs (8d2a1 ...); 8d2a, 8d2c only when named
+    python3 contrib/arranger/shorts.py 8d2a 8d2a1  # writes just those; this overwrites edits made in the page
 
-"8d2 Opens on P1 open 2, no P1 closed" is the parent (Anthony, 12 Nov 2026: "I like 8d2 best"); 8, 8a-8d and the
-other 8d variations are gone (git history has them). In 8d2 an off-beat open hat comes in, then another off-beat open
-hat in the same range. Anthony wants the ramp to alternate rhythms and frequency ranges instead, so in the others each
-new pad plays the other rhythm from the one before it and, where the pads allow, sits in another range. The page has
-no gain or filter, so a ramp is only which hat pads play when. `measure.py` prints each tab's level above 6 kHz bar by
-bar.
+"8d2a" and "8d2c" are the parents (Anthony, 12 Nov 2026: "a and c are the best"). Both open on P1 open 2 and flip
+the rhythm with each new pad (off-beat 8ths <-> 16ths), changing range where the pads allow, as he asked after 8d2:
+a adds a pad every 4 bars, c every 8. Earlier tabs are gone (git history has them). The others here mix and move
+those two. The page has no gain or filter, so a ramp is only which hat pads play when. `measure.py` prints each
+tab's level above 6 kHz bar by bar.
 
 Bars below are 1-based and inclusive, as the page shows them. Clip ids are the ones in loops.json.
 """
@@ -55,25 +54,31 @@ def hats(*rows: tuple) -> list[tuple]:
 
 
 SHORTS = {
-    "8d2": ("8d2 Opens on P1 open 2, no P1 closed", [   # the parent: off-beat open hats stack up before anything else
-        *BASE,
-        *hats((OH66, 5, 40), (OH, 9, 40), (OH2, 13, 40), (CH27, 17, 40), (CH1, 21, 40), (RD2, 25, 40), (RD, 29, 40),
-              (RD1, 37, 40)),
-    ]),
-    # 8d2's variations: still open on P1 open 2 with no P1 closed, but each new pad flips the rhythm (off <-> 16ths).
-    # P1 open is left out: next to P1 open 2 it adds nothing new. With 4 off-beat pads and 3 sixteenth pads, only one
-    # step in 8d2a keeps the range of the step before it (8d2b gives up two, to keep the rides last).
+    # The parents. Each new pad flips the rhythm. P1 open (P1 open 2's twin) and P1 closed stay out.
     "8d2a": ("8d2a Alternating, every 4 bars", [   # low off, high 16ths, mid off, high 16ths, mid off, mid 16ths, high off
         *BASE,
         *hats((OH66, 5, 40), (CH27, 9, 40), (OH2, 13, 40), (RD, 17, 40), (RD2, 21, 40), (CH1, 25, 40), (RD1, 33, 40)),
     ]),
-    "8d2b": ("8d2b Alternating, closed hats before rides", [   # the tight pads first, the three washy rides last
-        *BASE,
-        *hats((OH66, 5, 40), (CH27, 9, 40), (OH2, 13, 40), (CH1, 17, 40), (RD1, 21, 40), (RD, 25, 40), (RD2, 33, 40)),
-    ]),
     "8d2c": ("8d2c Alternating, every 8 bars", [   # fewer, further apart, every range change heard on its own
         *BASE,
         *hats((OH66, 5, 40), (CH27, 13, 40), (OH2, 21, 40), (RD, 29, 40), (RD1, 37, 40)),
+    ]),
+    # Their children: a's seven pads at c's slower pace in one half and a's in the other, or c's five pads moved.
+    "8d2a1": ("8d2a1 Slow build, fast peak", [   # c's 8-bar steps up to the drop, then a's 4-bar steps
+        *BASE,
+        *hats((OH66, 5, 40), (CH27, 13, 40), (OH2, 17, 40), (RD, 21, 40), (RD2, 25, 40), (CH1, 29, 40), (RD1, 33, 40)),
+    ]),
+    "8d2a2": ("8d2a2 Fast build, slow peak", [   # a's 4-bar steps up to the drop, then 8 bars between pads
+        *BASE,
+        *hats((OH66, 5, 40), (CH27, 9, 40), (OH2, 13, 40), (RD, 17, 40), (RD2, 25, 40), (CH1, 33, 40), (RD1, 37, 40)),
+    ]),
+    "8d2c1": ("8d2c1 Every 8 bars, on the section marks", [   # c's pads, each landing where a section turns: build, drop, crash, horn
+        *BASE,
+        *hats((OH66, 5, 40), (CH27, 13, 40), (OH2, 17, 40), (RD, 25, 40), (RD1, 33, 40)),
+    ]),
+    "8d2c2": ("8d2c2 Every 8 bars, tight closed hat for the ride", [   # c, with P2 closed 1 where P1 ride was: tighter 16ths, mid not high
+        *BASE,
+        *hats((OH66, 5, 40), (CH27, 13, 40), (OH2, 21, 40), (CH1, 29, 40), (RD1, 37, 40)),
     ]),
 }
 
@@ -95,7 +100,7 @@ def main() -> None:
     clips = {c["id"]: c for c in json.loads((DATA / "loops.json").read_text())["clips"]}
     folder = DATA / "arrangements"
     folder.mkdir(parents=True, exist_ok=True)
-    for key in sys.argv[1:] or [k for k in reversed(SHORTS) if k != "8d2"]:   # the page lists the newest first
+    for key in sys.argv[1:] or [k for k in reversed(SHORTS) if k not in ("8d2a", "8d2c")]:   # the page lists the newest first
         name, regions = regions_of(key, clips)
         (folder / f"short-{key}.json").write_text(json.dumps({"name": name, "bars": BARS, "regions": regions, "mutes": [], "saved": time.time()}))
         print(f"short-{key}: {name}, {len(regions)} regions")
