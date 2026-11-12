@@ -17,8 +17,9 @@ its folder, or `make test`.
   (`contrib/docs/sound.md`): the rule is about making sound, not playing it, so starting rendered files together on
   the beat is fine. Arrangement pages output structures (what plays where), which Live renders. Not even if Anthony
   asks: first change `contrib/docs/sound.md` (and every doc that repeats the rule) by the smallest named exception his
-  request needs, then build only that. One exception exists: the arranger's transitions page has a plain gain fader
-  per kind of transition sound at each section change. - **Images from
+  request needs, then build only that. Two exceptions exist, both in `contrib/arranger/`: the transitions page has a
+  plain gain fader per kind of transition sound at each section change, and the first mix page has a gain, a pan and
+  EQ cuts (never boosts) per channel. - **Images from
   Gemini are made only through `harness images`** (`contrib/harness/src/harness/images.py`), never by calling the API
   directly. It keeps every image with its context, full prompt and settings, and shows them all at `/studio/images/`
   (`contrib/docs/images.md`). Generated originals live on the Mac, never in git. Game assets cut from them may be

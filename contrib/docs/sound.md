@@ -43,7 +43,9 @@ bar; the transition sounds are made in a copy of the set (`contrib/arranger/fxse
 that it is a sketch and not a render of the set, and `mine.py` measures how far the song's own arrangement, summed
 this way, is from Live's bounce of the mix. An arrangement that matters is heard as a render from Live.
 
-### The one exception: gain faders on the transitions page (12 November 2026)
+### Named exceptions
+
+#### Gain faders on the transitions page (12 November 2026)
 
 Anthony asked for it: "boost them and then add a gain fader for each type per transition". Offered rendered level
 stops instead, he chose a gain in the browser. `contrib/arranger/static/transitions.html` may do one thing the rule
@@ -52,6 +54,18 @@ downlifters) at each section change with a Web Audio gain**, so a riser's level 
 Nothing else is lifted: one plain gain per kind, no EQ, filter, effect or automation. The level is part of the
 structure the page writes (each pick's `gainDb`), so Live applies it when the transitions are built into the set; an
 arrangement that matters is still heard as a render from Live. The exception is for this page only and is not a
+pattern to copy.
+
+#### The first mix page: gain, pan and EQ cuts (12 November 2026)
+
+Anthony asked for it: "Mixing should be another app that stores structure ... Gain balance, Pan, EQ cuts ... Start
+with the online browser audio for initial mixing." `contrib/arranger/static/mix.html` may do three things the rule
+above forbids, on each channel (a lane of the arrangement, or a kind of transition): **a gain, a pan, and EQ cuts**
+(a high-pass, a low-pass and up to three bell cuts, each Web Audio's plain biquad, never a boost). Nothing else is
+lifted: no boosts, distortion, compression, bus processing, sends or automation; those are the second mixing step,
+heard only as small batches rendered in Live. What the page produces is a structure (the arrangement's `mix`: each
+channel's gain, pan and cuts), which Live applies when the recipe is run. Web Audio's filters are not Live's EQ Eight,
+so the cuts are a sketch of where to cut, and the page says so. The exception is for this page only and is not a
 pattern to copy.
 
 Where the files come from: a change to a set is heard only as a render of that set from Live. Other material is
@@ -80,7 +94,8 @@ gets work, and never copied.
 | `studio/static/checklist/rummage/sounds.js` | The Rummage's interface sounds (steps, pickup, place, a machine's open, tick, lever and stamp, the finish, the tear), rendered in Live from found objects (`hands/scripts/rummage/sounds.py`), decoded once and started as rendered | Allowed: playing rendered files. |
 | `studio/static/js/mic.js` | Captures the mic through an AudioWorklet | Allowed: the mic. |
 | `contrib/arranger/static/index.html` (the HW002 arranger) | Starts loops bounced from Live together on the bar clock, as rendered; saves arrangements as structures | Allowed: playing rendered files. |
-| `contrib/arranger/static/transitions.html` (the arranger's transitions page) | Starts transition sounds made in Live on the beat over the loops; a gain fader per kind of transition at each section change; writes the picks and their levels into the arrangement's structure | Playing rendered files; the faders are the one named exception above. |
+| `contrib/arranger/static/transitions.html` (the arranger's transitions page) | Starts transition sounds made in Live on the beat over the loops; a gain fader per kind of transition at each section change; writes the picks and their levels into the arrangement's structure | Playing rendered files; the faders are a named exception above. |
+| `contrib/arranger/static/mix.html` (the first mix page) | Plays the arrangement's loops and transitions through a gain, a pan and EQ cuts per channel; writes the arrangement's `mix` | The second named exception above, for this page only. |
 | `prototypes/audio-browser/frontend/lib/` (`collagePlayer.ts`, `slicePlayer.ts`, `softClip.ts`) | Assembles a collage from slices and soft-clips it | Breaks the rule (slicing and clipping); to be replaced if the prototype is revived. |
 
 ## The player engine

@@ -1,5 +1,6 @@
-"""The HW002 arranger's server: the page, the bounced loops and the saved arrangements; and the transitions page
-(/transitions/) with the transition sounds made by fxset.py and the picks made there.
+"""The HW002 arranger's server: the page, the bounced loops and the saved arrangements; the transitions page
+(/transitions/) with the transition sounds made by fxset.py; and the first mix page (/mix/). Each page writes its
+structure into the arrangement file (`regions`, `transitions`, `mix`).
 
     python3 contrib/arranger/server.py            # 127.0.0.1:8975
 
@@ -55,6 +56,8 @@ class Handler(BaseHTTPRequestHandler):
             return self._file(DATA / "loops.json")
         if path in ("/transitions", "/transitions/"):
             return self._file(HERE / "static" / "transitions.html")
+        if path in ("/mix", "/mix/"):
+            return self._file(HERE / "static" / "mix.html")
         if path == "/fx.json":
             return self._file(DATA / "fx" / "fx.json")
         if m := re.fullmatch(r"/fx/audio/([a-z0-9-]{1,64}\.flac)", path):
@@ -82,18 +85,21 @@ class Handler(BaseHTTPRequestHandler):
     do_HEAD = do_GET
 
     def do_PUT(self) -> None:
-        if m := re.fullmatch(r"/api/arrangements/([^/]+)/transitions", self.path):   # the transitions page's output
+        if m := re.fullmatch(r"/api/arrangements/([^/]+)/(transitions|mix)", self.path):   # a later page's structure
             f = DATA / "arrangements" / f"{m[1]}.json"
             if not ID.match(m[1]) or not f.is_file():
                 return self._json({"error": "no such arrangement"}, 404)
             n = int(self.headers.get("Content-Length") or 0)
             try:
                 t = json.loads(self.rfile.read(n)) if 0 < n < 2_000_000 else None
-                assert isinstance(t, list) and all(isinstance(x, dict) and "id" in x and "seam" in x for x in t)
+                if m[2] == "transitions":
+                    assert isinstance(t, list) and all(isinstance(x, dict) and "id" in x and "seam" in x for x in t)
+                else:
+                    assert isinstance(t, dict) and isinstance(t.get("channels"), dict)
             except (ValueError, AssertionError):
-                return self._json({"error": "bad transitions"}, 400)
+                return self._json({"error": f"bad {m[2]}"}, 400)
             a = json.loads(f.read_text())
-            a["transitions"] = t
+            a[m[2]] = t
             tmp = f.with_name(f".{m[1]}.tmp")
             tmp.write_text(json.dumps(a))
             tmp.replace(f)
@@ -127,10 +133,12 @@ class Handler(BaseHTTPRequestHandler):
         folder = DATA / "arrangements"
         folder.mkdir(parents=True, exist_ok=True)
         old = folder / f"{m[1]}.json"
-        if "transitions" not in a and old.is_file():   # the arranger page does not know them: keep what is there
+        if old.is_file():   # the arranger page does not know the later steps' structure: keep what is there
             try:
-                if t := json.loads(old.read_text()).get("transitions"):
-                    a["transitions"] = t
+                prev = json.loads(old.read_text())
+                for key in ("transitions", "mix"):
+                    if key not in a and key in prev:
+                        a[key] = prev[key]
             except ValueError:
                 pass
         tmp = folder / f".{m[1]}.tmp"
