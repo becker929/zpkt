@@ -114,6 +114,26 @@ def test_set_steps_writes_a_step_envelope_live_can_load(tmp_path):
     assert [e.get("Value") for e in als.envelopes(tree)["1-Audio > PluginDevice > ParameterValue"][2]] == ["0.5", "0.5"]
 
 
+def test_add_points_ramps_jumps_and_appends(tmp_path):
+    tree = planted_tree()
+    tr, dev, path = als.resolve(tree, TRACK, DECAP, "Drive")
+    assert als.value_at(tr, dev, path, 10) == als.knob_param(tree, TRACK, DECAP, "Drive").find("Manual").get("Value")
+    als.add_points(tree, tr, dev, path, [(8, 0.2), (16, 0.6), (16, 0.1)])   # a ramp, then a jump
+    als.add_points(tree, tr, dev, path, [(32, 0.1), (40, 0.9)])            # appended after the last event
+    out = als.save(tree, tmp_path / "points.als")
+    envs = als.envelopes(als.load(out))
+    got = [(e.get("Time"), e.get("Value")) for e in envs["1-Audio > PluginDevice > ParameterValue"][2]]
+    assert got == [("-63072000", "0.2"), ("8", "0.2"), ("16", "0.6"), ("16", "0.1"), ("32", "0.1"), ("40", "0.9")]
+    assert als.check(out, against=FIXTURE).problems == []
+    tree = als.load(out)
+    tr, dev, path = als.resolve(tree, TRACK, DECAP, "Drive")
+    assert [als.value_at(tr, dev, path, b) for b in (0, 16, 20, 99)] == ["0.2", "0.1", "0.1", "0.9"]
+    with pytest.raises(ValueError, match="before the envelope's last event"):
+        als.add_points(tree, tr, dev, path, [(39, 0.5)])
+    with pytest.raises(ValueError, match="non-decreasing"):
+        als.add_points(tree, tr, dev, path, [(50, 0.5), (48, 0.5)])
+
+
 def test_set_steps_refuses_bad_input():
     tree = planted_tree()
     tr, dev, path = als.resolve(tree, TRACK, UTIL, "StereoWidth")
