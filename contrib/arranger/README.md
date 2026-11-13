@@ -52,8 +52,10 @@ slices the exports into `fx/audio/<id>.flac` and `fx/fx.json`. `contrib/docs/sou
 
 ## Mix 1
 
-`/mix/` is a ladder: the sounds from the most fundamental up (kick, chord, the break parts, the hats in the order the
-ramp brings them in, crash and splash, the transitions), each set in its own view against the ones above it. The view
+`/mix/` is a row of cards, swiped left to right, with a strip of them along the top (the mini map) and a map of the
+whole process (the recipe's steps, then every card by group). The cards are a ladder: the sounds from the most fundamental up (kick, chord, the break parts, the hats in the order the
+ramp brings them in, crash and splash, the transitions), each set on its own card against the ones above it, and a last card for the whole mix against a
+reference. The view
 loops the bars where the sound matters, plays what is set so far under it (or everything, or it alone), and asks for
 level, then pan, then cuts; the suggested cuts come from where the sound's average spectrum sits close under the
 strongest bands of the sounds above it. One A/B button switches on the next beat between before and after, without

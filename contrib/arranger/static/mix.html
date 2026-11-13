@@ -25,19 +25,49 @@ header { display:flex; align-items:center; gap:8px; padding:8px 10px; padding-to
 main { flex:1; overflow:auto; -webkit-overflow-scrolling:touch; }
 .sketch { font-size:11px; color:var(--dim); padding:6px 12px; }
 .sketch b { color:var(--accent); }
-/* ladder */
-#ladder .step { display:flex; align-items:center; gap:10px; padding:10px 12px; border-bottom:1px solid var(--line); }
-#ladder .n { width:24px; height:24px; border-radius:12px; display:grid; place-items:center; font-size:11px; background:#24272d; color:var(--dim); flex:none; }
-#ladder .step.done .n { background:#5fd38d; color:#111; }
-#ladder .step.next .n { background:var(--accent); color:#111; }
-#ladder .sw { width:4px; align-self:stretch; border-radius:2px; background:var(--c); flex:none; }
-#ladder .nm { flex:1; min-width:0; }
-#ladder .nm small { display:block; color:var(--dim); font-size:11px; }
-#ladder .go { height:32px; font-size:12px; }
-/* focus */
-#focus { display:none; }
-#focus.open { display:block; }
-#ladder.hidden { display:none; }
+main { display:flex; flex-direction:column; overflow:hidden; }
+/* mini map: one tick per card, left to right */
+#mini { display:flex; align-items:center; gap:8px; padding:6px 12px; border-bottom:1px solid var(--line); }
+#miniTrack { flex:1; display:flex; gap:3px; height:22px; align-items:stretch; }
+#miniTrack i { flex:1; border-radius:3px; background:#2a2d33; position:relative; cursor:pointer; }
+#miniTrack i.done { background:color-mix(in srgb, var(--c) 70%, #000); }
+#miniTrack i.cur { background:var(--c); box-shadow:0 0 0 2px #fff; }
+#miniTrack i.whole { background:#3a3e46; }
+#miniTrack i.whole.cur { background:#fff; }
+#mapBtn { height:30px; font-size:12px; }
+/* the cards: one per step, swiped left to right */
+#cards { flex:1; display:flex; overflow-x:auto; overflow-y:hidden; scroll-snap-type:x mandatory; scrollbar-width:none; -webkit-overflow-scrolling:touch; }
+#cards::-webkit-scrollbar { display:none; }
+.card { flex:0 0 100%; scroll-snap-align:center; scroll-snap-stop:always; overflow-y:auto; padding:10px 10px 0; }
+.card .face { border:1px solid var(--line); border-radius:14px; background:#16181b; overflow:hidden; border-top:4px solid var(--c); min-height:calc(100% - 10px); }
+.card .head { display:flex; align-items:baseline; gap:8px; padding:10px 12px 0; }
+.card .head b { font-size:18px; }
+.card .head span { color:var(--dim); font-size:12px; flex:1; }
+.card .head em { font-style:normal; font-size:11px; color:#111; background:#5fd38d; border-radius:6px; padding:2px 6px; }
+.card .summary { padding:6px 12px 12px; color:var(--dim); font-size:13px; }
+.card .hint { padding:30px 12px; color:var(--dim); font-size:12px; text-align:center; }
+.card.whole .face { border-top-color:#fff; }
+.wl { display:flex; align-items:center; gap:8px; padding:7px 12px; border-top:1px solid var(--line); font-size:13px; }
+.wl i { width:4px; height:18px; border-radius:2px; background:var(--c); }
+.wl span { flex:1; }
+.wl small { color:var(--dim); }
+/* the map of the process */
+#map { position:fixed; inset:0; background:var(--bg); z-index:25; display:none; flex-direction:column; }
+#map.open { display:flex; }
+#map header { justify-content:space-between; }
+#map .body { flex:1; overflow:auto; padding:6px 12px 20px; }
+#map h3 { font-size:11px; color:var(--dim); text-transform:uppercase; letter-spacing:.06em; margin:16px 0 8px; font-weight:600; }
+.recipe { display:flex; gap:6px; overflow-x:auto; padding-bottom:4px; }
+.recipe a, .recipe div { flex:0 0 auto; min-width:92px; border:1px solid var(--line); border-radius:10px; padding:8px; font-size:12px; color:var(--text); text-decoration:none; background:#16181b; }
+.recipe .now { border-color:var(--accent); box-shadow:0 0 0 1px var(--accent); }
+.recipe small { display:block; color:var(--dim); margin-top:2px; }
+.recipe .arrow { min-width:0; border:none; background:none; padding:8px 0; color:var(--dim); align-self:center; }
+.mapgrid { display:grid; grid-template-columns:repeat(auto-fill, minmax(104px, 1fr)); gap:6px; }
+.mapcard { border:1px solid var(--line); border-top:3px solid var(--c); border-radius:10px; background:#16181b; padding:7px 8px; font-size:12px; text-align:left; height:auto; display:block; }
+.mapcard b { display:block; font-size:13px; }
+.mapcard small { color:var(--dim); display:block; }
+.mapcard.done { background:#17201b; }
+.mapcard.cur { box-shadow:0 0 0 2px #fff; }
 .bar2 { display:flex; gap:6px; padding:8px 12px 0; align-items:center; flex-wrap:wrap; }
 .bar2 .lab { font-size:11px; color:var(--dim); width:42px; }
 .seg { display:flex; gap:4px; flex-wrap:wrap; flex:1; }
@@ -99,13 +129,14 @@ footer { background:var(--panel); border-top:1px solid var(--line); padding:8px 
 <header>
   <button id="play" aria-label="Play"></button>
   <div id="pos"><b>-</b></div>
-  <div id="htitle">Mix<small>Set one sound at a time, from the kick up</small></div>
+  <div id="htitle">Mix 1<small>Gain, pan and cuts, one card at a time</small></div>
   <div id="peak"></div>
   <button id="info" aria-label="About">?</button>
 </header>
 <main>
+  <div id="mini"><div id="miniTrack"></div><button id="mapBtn">Map</button></div>
   <div class="sketch"><b>Sketch.</b> Gain, pan and cuts in the browser, written down for Live. Not a render of the set.</div>
-  <section id="ladder"></section>
+  <section id="cards"></section>
   <section id="focus">
     <div class="bar2"><span class="lab">Under</span><div class="seg" id="under"></div></div>
     <div class="bar2"><span class="lab">Bars</span><div class="seg" id="bars"></div></div>
@@ -113,9 +144,10 @@ footer { background:var(--panel); border-top:1px solid var(--line); padding:8px 
     <div class="legend" id="legend"></div>
     <div id="tabs"><button data-t="level">Level</button><button data-t="pan">Pan</button><button data-t="cuts">Cuts</button></div>
     <div class="pane" id="pane"></div>
-    <div class="nav"><button id="prev">Previous</button><button id="back">Ladder</button><button id="done" class="done">Done, next</button></div>
+    <div class="nav"><button id="prev">← Previous</button><button id="done" class="done">Done, next →</button></div>
   </section>
 </main>
+<div id="map"><header><b>The process</b><button id="mapClose">Close</button></header><div class="body"></div></div>
 <footer>
   <div id="abmodes"><button data-m="ba">Before / after</button><button data-m="io">Without / with</button><button data-m="ref">Mix / reference</button></div>
   <button id="ab"><span data-s="A"></span><span data-s="B"></span></button>
@@ -255,7 +287,7 @@ function replacedAt(lane, bar) {
   return (ARR.transitions || []).find(t => t.mode === 'replace' && t.lane === lane && t.startBeat <= beat && beat < t.startBeat + t.beats);
 }
 const B = () => DATA.barSeconds, BEAT = () => DATA.barSeconds / 4;
-function win() { const w = WINDOWS.find(w => w[0] === (view.win[view.focus] || defaultWin(view.focus))) || WINDOWS[3]; return [w[1] - 1, w[2] - 1]; }   // 0-based bars
+function win() { const w = WINDOWS.find(w => w[0] === (view.win[view.focus || '_whole'] || defaultWin(view.focus))) || WINDOWS[3]; return [w[1] - 1, w[2] - 1]; }   // 0-based bars
 function scheduleBar(bar, when, off) {   // off: seconds into this bar (the first bar after a jump)
   for (const lane of DATA.lanes) {
     const ch = chan(lane.id); if (!ch) continue;
@@ -549,40 +581,145 @@ function defaultWin(id) {
   const first = Math.min(...ARR.regions.filter(r => r.lane === id).map(r => r.start));
   return first < 8 ? 'Break' : first < 16 ? 'Build' : first < 24 ? 'Drop' : first < 32 ? 'Peak' : 'Horn back';
 }
-function renderLadder() {
-  const box = $('#ladder'); box.innerHTML = '';
-  const L = ladder(), next = L.find(c => !chMix(c.id).done);
-  L.forEach((c, i) => {
-    const m = chMix(c.id), row = el('div', 'step' + (m.done ? ' done' : '') + (c === next ? ' next' : ''));
-    row.style.setProperty('--c', c.color);
-    const cuts = m.eq.cuts.filter(x => x.on).length + (m.eq.hp.on ? 1 : 0) + (m.eq.lp.on ? 1 : 0);
-    row.innerHTML = `<div class="n">${m.done ? '✓' : i + 1}</div><div class="sw"></div><div class="nm">${c.title}<small>${fmtDb(m.gainDb)} · ${fmtPan(m.pan)}${cuts ? ` · ${cuts} cut${cuts > 1 ? 's' : ''}` : ''}</small></div>`;
-    const go = el('button', 'go', c === next ? 'Set' : 'Open'); go.onclick = () => openFocus(c.id);
-    row.appendChild(go); box.appendChild(row);
+// ---------- the cards: one per sound, from the kick up, then the whole mix ----------
+const WHOLE = '_whole';
+function cardIds() { return [...ladder().map(c => c.id), WHOLE]; }
+let cardIdx = 0, scrollTimer = null;
+function cardSummary(id) {
+  if (id === WHOLE) return 'Every sound together, against a reference.';
+  const m = chMix(id), cuts = m.eq.cuts.filter(x => x.on).length + (m.eq.hp.on ? 1 : 0) + (m.eq.lp.on ? 1 : 0);
+  return `${fmtDb(m.gainDb)} · ${fmtPan(m.pan)}${cuts ? ` · ${cuts} cut${cuts > 1 ? 's' : ''}` : ' · no cuts'}`;
+}
+function cardHead(id, i) {
+  const ch = chan(id), n = cardIds().length, done = id !== WHOLE && chMix(id).done;
+  const against = id === WHOLE ? '' : i ? ` · against the ${i} above it` : ' · the anchor';
+  return `<b>${ch ? ch.title : 'Whole mix'}</b><span>${i + 1} of ${n}${against}</span>${done ? '<em>set</em>' : ''}`;
+}
+function renderCards() {
+  const box = $('#cards');
+  box.innerHTML = '';
+  cardIds().forEach((id, i) => {
+    const ch = chan(id), card = el('div', 'card' + (id === WHOLE ? ' whole' : ''));
+    card.dataset.id = id;
+    const face = el('div', 'face'); face.style.setProperty('--c', ch ? ch.color : '#fff');
+    face.appendChild(el('div', 'head', cardHead(id, i)));
+    face.appendChild(el('div', 'summary', cardSummary(id)));
+    face.appendChild(el('div', 'hint', 'Swipe here, or tap it in the strip or the map.'));
+    card.appendChild(face); box.appendChild(card);
   });
+  renderMini();
+}
+function refreshCard(i) {   // its head and summary, after a change
+  const card = document.querySelectorAll('#cards .card')[i]; if (!card) return;
+  const id = cardIds()[i];
+  card.querySelector('.head').innerHTML = cardHead(id, i);
+  card.querySelector('.summary').textContent = cardSummary(id);
+}
+function renderMini() {
+  const t = $('#miniTrack'); t.innerHTML = '';
+  cardIds().forEach((id, i) => {
+    const ch = chan(id), tick = el('i', (id === WHOLE ? 'whole' : '') + (id !== WHOLE && chMix(id).done ? ' done' : '') + (i === cardIdx ? ' cur' : ''));
+    tick.style.setProperty('--c', ch ? ch.color : '#fff');
+    tick.title = ch ? ch.title : 'Whole mix';
+    tick.onclick = () => goCard(i);
+    t.appendChild(tick);
+  });
+}
+function goCard(i, smooth = true) {
+  const box = $('#cards'), n = cardIds().length;
+  i = Math.max(0, Math.min(n - 1, i));
+  box.scrollTo({ left: i * box.clientWidth, behavior: smooth ? 'smooth' : 'auto' });
+  if (!smooth || Math.abs(box.scrollLeft - i * box.clientWidth) < 2) { activate(i); return; }
+  setTimeout(() => {   // if the smooth scroll did not get there (a backgrounded tab does not animate), jump
+    if (cardIdx !== i) { box.scrollLeft = i * box.clientWidth; activate(i); }
+  }, 700);
+}
+function onScroll() {   // the card under the snap, once the swipe settles
+  clearTimeout(scrollTimer);
+  scrollTimer = setTimeout(() => {
+    const box = $('#cards'), i = Math.round(box.scrollLeft / box.clientWidth);
+    if (i !== cardIdx || !$('#focus').closest('.card')) activate(i);
+  }, 90);
+}
+function activate(i) {
+  const ids = cardIds(), id = ids[i], card = document.querySelectorAll('#cards .card')[i];
+  if (!card) return;
+  const prev = $('#focus').closest('.card');
+  if (prev && prev !== card && !prev.querySelector('.hint')) prev.querySelector('.face').appendChild(el('div', 'hint', 'Swipe here, or tap it in the strip or the map.'));
+  cardIdx = i; view.card = id; saveView();
+  card.querySelector('.hint')?.remove();
+  card.querySelector('.face').appendChild($('#focus'));
+  $('#focus').classList.add('open');
+  openFocus(id === WHOLE ? null : id);
+  renderMini();
+  restart();
+}
+function renderMap() {
+  const b = $('#map .body'); b.innerHTML = '';
+  b.appendChild(el('h3', '', 'The recipe'));
+  const r = el('div', 'recipe');
+  const steps = [['Arrange', '/', '8d2a2', 'done'], ['Transitions', '/transitions/', `${(ARR.transitions || []).length} picks`, 'done'],
+                 ['Mix 1', null, `${ladder().filter(c => chMix(c.id).done).length} of ${ladder().length} set`, 'now'],
+                 ['Mix 2', '/mix2/', `${(ARR.mix2 || []).length} kept`, ''], ['Master', null, 'not built yet', '']];
+  steps.forEach(([t, href, sub, st], k) => {
+    const e = el(href ? 'a' : 'div', st === 'now' ? 'now' : '', `${st === 'done' ? '✓ ' : ''}${t}<small>${sub}</small>`);
+    if (href) e.href = href;
+    r.appendChild(e);
+    if (k < steps.length - 1) r.appendChild(el('div', 'arrow', '→'));
+  });
+  b.appendChild(r);
+  const groups = [['The anchor', ['kick']], ['The bed', ['chord']], ['The break', ['break-horn', 'break-stab', 'break-chop', 'break-beatbox']],
+                  ['Hats, in the order the ramp brings them in', ['p1-oh66', 'p2-ch27', 'p2-oh', 'p1-rd', 'p2-rd2', 'p2-ch1', 'p2-rd1']],
+                  ['Cymbals', ['crash', 'splash']], ['Transitions', ['fx-riser', 'fx-reverse', 'fx-fill', 'fx-downlifter']], ['Together', [WHOLE]]];
+  const ids = cardIds();
+  const placed = new Set(groups.flatMap(g => g[1]));
+  const rest = ids.filter(id => !placed.has(id));
+  if (rest.length) groups.splice(groups.length - 1, 0, ['Others', rest]);
+  for (const [title, members] of groups) {
+    const these = members.filter(id => ids.includes(id)); if (!these.length) continue;
+    b.appendChild(el('h3', '', title));
+    const g = el('div', 'mapgrid');
+    for (const id of these) {
+      const i = ids.indexOf(id), ch = chan(id);
+      const c = el('button', 'mapcard' + (id !== WHOLE && chMix(id).done ? ' done' : '') + (i === cardIdx ? ' cur' : ''),
+                   `<small>${i + 1}${id !== WHOLE && chMix(id).done ? ' · set' : ''}</small><b>${ch ? ch.title : 'Whole mix'}</b><small>${cardSummary(id)}</small>`);
+      c.style.setProperty('--c', ch ? ch.color : '#fff');
+      c.onclick = () => { $('#map').classList.remove('open'); goCard(i); };
+      g.appendChild(c);
+    }
+    b.appendChild(g);
+  }
+  $('#map').classList.add('open');
 }
 function openFocus(id) {
   if (side === 'A' && playing) applySide(ctx.currentTime + 0.03, false, 'B');
   side = 'B'; pendingSide = null; outFocus = false;
   view.focus = id; saveView();
-  snapshot = JSON.parse(JSON.stringify(chMix(id)));   // "before" is how this sound was when you opened it
   smooth.focus = smooth.bed = null;
-  $('#ladder').classList.add('hidden'); $('#focus').classList.add('open');
-  const L = ladder(), k = L.findIndex(c => c.id === id), ch = L[k];
-  $('#htitle').innerHTML = `${ch.title}<small>${k + 1} of ${L.length} · set against the ones above it</small>`;
+  const L = ladder(), k = L.findIndex(c => c.id === id), ch = L[k], whole = !id;
+  if (whole) view.mode = 'ref';   // the whole-mix card compares the mix with a reference
+  else snapshot = JSON.parse(JSON.stringify(chMix(id)));   // "before" is how this sound was when its card opened
+  $('#htitle').innerHTML = whole ? 'Whole mix<small>Every sound, against a reference</small>' : `${ch.title}<small>Mix 1 · card ${k + 1} of ${L.length + 1}</small>`;
+  document.querySelectorAll('#abmodes button').forEach(b => { b.disabled = whole && b.dataset.m !== 'ref'; });
   const under = $('#under'); under.innerHTML = '';
+  under.parentElement.style.display = whole ? 'none' : '';
   for (const [u, t] of UNDER) { const b = el('button', view.under === u ? 'on' : '', t); b.onclick = () => { view.under = u; saveView(); routeListen(0); openFocus(id); }; under.appendChild(b); }
   const bars = $('#bars'); bars.innerHTML = '';
-  const cur = view.win[id] || defaultWin(id);
-  for (const [w, a, z] of WINDOWS) { const b = el('button', w === cur ? 'on' : '', `${w} ${a}–${z}`); b.onclick = () => { view.win[id] = w; saveView(); openFocus(id); restart(); }; bars.appendChild(b); }
-  routeListen(0); legend(); abShow(); renderPane();
+  const key = id || WHOLE, cur = view.win[key] || defaultWin(id);
+  for (const [w, a, z] of WINDOWS) { const b = el('button', w === cur ? 'on' : '', `${w} ${a}–${z}`); b.onclick = () => { view.win[key] = w; saveView(); openFocus(id); restart(); }; bars.appendChild(b); }
+  $('#tabs').style.display = whole ? 'none' : '';
+  $('#prev').disabled = k === 0;
+  $('#done').textContent = whole ? 'The map' : (k === L.length - 1 ? 'Done, whole mix →' : 'Done, next →');
+  routeListen(0); legend(); abShow();
+  if (whole) renderWhole(); else renderPane();
 }
-function closeFocus() {
-  if (side === 'A' && playing) applySide(ctx.currentTime + 0.03, false, 'B');
-  side = 'B'; outFocus = false; view.focus = null; saveView(); routeListen(0);
-  $('#focus').classList.remove('open'); $('#ladder').classList.remove('hidden');
-  $('#htitle').innerHTML = 'Mix<small>Set one sound at a time, from the kick up</small>';
-  renderLadder(); abShow();
+function renderWhole() {
+  const p = $('#pane'); p.innerHTML = '';
+  ladder().forEach((c, i) => {
+    const r = el('div', 'wl', `<i style="--c:${c.color}"></i><span>${c.title}</span><small>${cardSummary(c.id)}</small>`);
+    r.onclick = () => goCard(i);
+    p.appendChild(r);
+  });
 }
 const fmtDb = v => (v > 0 ? '+' : v < 0 ? '−' : '') + Math.abs(v).toFixed(1) + ' dB';
 const fmtPan = v => Math.abs(v) < 0.005 ? 'centre' : (v < 0 ? 'left ' : 'right ') + Math.round(Math.abs(v) * 100);
@@ -591,7 +728,7 @@ const logPos = (f, lo, hi) => Math.log(f / lo) / Math.log(hi / lo) * 1000, posLo
 function changed() {
   const ch = chan(view.focus);
   if (side === 'A' && view.mode === 'ba') { side = 'B'; abShow(); }   // editing always plays the edit
-  applyChannel(ch, chMix(ch.id), 0); save();
+  applyChannel(ch, chMix(ch.id), 0); save(); refreshCard(cardIdx);
 }
 function renderPane() {
   document.querySelectorAll('#tabs button').forEach(b => b.classList.toggle('on', b.dataset.t === view.tab));
@@ -725,22 +862,27 @@ async function main() {
   document.querySelectorAll('#tabs button').forEach(b => b.onclick = () => { view.tab = b.dataset.t; saveView(); renderPane(); });
   $('#pickref').onclick = pickRef;
   $('#sheet').onclick = e => { if (e.target.id === 'sheet') $('#sheet').classList.remove('open'); };
-  $('#back').onclick = closeFocus;
-  $('#prev').onclick = () => { const L = ladder(), k = L.findIndex(c => c.id === view.focus); if (k > 0) { openFocus(L[k - 1].id); restart(); } };
+  $('#prev').onclick = () => goCard(cardIdx - 1);
   $('#done').onclick = () => {
+    if (!view.focus) { renderMap(); return; }
     chMix(view.focus).done = true; save();
-    const L = ladder(), k = L.findIndex(c => c.id === view.focus);
-    if (k < L.length - 1) { openFocus(L[k + 1].id); restart(); } else closeFocus();
+    refreshCard(cardIdx); renderMini(); goCard(cardIdx + 1);
   };
+  $('#mapBtn').onclick = renderMap;
+  $('#mapClose').onclick = () => $('#map').classList.remove('open');
+  $('#cards').addEventListener('scroll', onScroll, { passive: true });
+  window.addEventListener('resize', () => goCard(cardIdx, false));
   $('#info').onclick = () => {
-    $('#sheet > div').innerHTML = `<h3>How this page works</h3><p>Set the mix one sound at a time, from the kick up: each sound is heard against the ones already set (Under: set so far), on the bars where it matters. Level first, then pan, then cuts; the suggested cuts come from where the sound overlaps the ones above it.</p>
+    $('#sheet > div').innerHTML = `<h3>How this page works</h3><p>Each card is one sound, from the kick up: swipe left to right through them, or jump with the strip at the top or the map. Each sound is heard against the ones already set (Under: set so far), on the bars where it matters; the last card is the whole mix against a reference. Level first, then pan, then cuts; the suggested cuts come from where the sound overlaps the ones above it.</p>
 <p>The A/B button switches on the next beat. Before / after: this sound as it was when you opened it, against now. Without / with: the mix without this sound. Mix / reference: the reference track at its own tempo, at the same place relative to the drop (your bar 17 = its drop), turned to the mix's loudness over the same bars (a listening aid); switching back picks the mix up where the reference has got to.</p>
 <p>The curves are measured from what plays: the sound, what is under it, and the reference at the same place (dashed). What this page makes is a structure, the arrangement's <code>mix</code>, for Live to apply. The sound is the loops and transition sounds rendered in Live, through the browser's gain, pan and filters (a named exception to the sound rule for this page), so it is a sketch of the balance, not a render.</p>`;
     $('#sheet').classList.add('open');
   };
   if (view.ref) await chooseRef(view.ref).catch(() => {});
-  abShow(); renderLadder();
-  if (view.focus && chan(view.focus)) openFocus(view.focus);
+  renderCards();
+  const ids = cardIds(), first = ids.findIndex(id => id !== WHOLE && !chMix(id).done);
+  const at = view.card && ids.includes(view.card) ? ids.indexOf(view.card) : Math.max(0, first);
+  setTimeout(() => goCard(at, false), 0);
 }
 main();
 </script>
