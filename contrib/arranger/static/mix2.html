@@ -1,0 +1,352 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>HW002 mix 2</title>
+<style>
+:root { --bg:#111214; --panel:#1a1c20; --line:#2a2d33; --text:#e9e9ea; --dim:#8b8f98; --accent:#ffd34d; --on:#7fd1ff; }
+* { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+html, body { margin:0; height:100%; background:var(--bg); color:var(--text); font:14px/1.35 -apple-system, system-ui, sans-serif; overscroll-behavior:none; }
+body { display:flex; flex-direction:column; height:100dvh; user-select:none; -webkit-user-select:none; }
+button, select, input { font:inherit; color:inherit; }
+button { background:#24272d; border:1px solid var(--line); border-radius:8px; padding:0 12px; min-width:36px; height:38px; display:inline-flex; align-items:center; justify-content:center; gap:6px; }
+button:active { background:#33373f; }
+button.primary { background:var(--accent); border-color:var(--accent); color:#111; font-weight:600; }
+button svg { width:20px; height:20px; fill:currentColor; }
+select, input[type=number] { background:#101114; border:1px solid var(--line); border-radius:8px; height:38px; padding:0 8px; min-width:0; }
+header { display:flex; align-items:center; gap:8px; padding:8px 10px; padding-top:max(8px, env(safe-area-inset-top)); background:var(--panel); border-bottom:1px solid var(--line); }
+header h1 { font-size:15px; margin:0; flex:1; }
+#tabs { display:flex; gap:6px; padding:8px 10px; border-bottom:1px solid var(--line); }
+#tabs button.on { background:#cfd3da; border-color:#cfd3da; color:#111; }
+#sketch { font-size:11px; color:var(--dim); padding:6px 10px; }
+#sketch b { color:var(--accent); }
+main { flex:1; overflow:auto; padding:0 10px 16px; -webkit-overflow-scrolling:touch; }
+h2 { font-size:11px; letter-spacing:.06em; text-transform:uppercase; color:var(--dim); font-weight:600; margin:14px 0 6px; }
+.row { display:flex; gap:8px; align-items:center; margin:6px 0; flex-wrap:wrap; }
+.row > label { font-size:12px; color:var(--dim); min-width:56px; }
+.row select { flex:1; }
+.param { border:1px solid var(--line); border-radius:10px; padding:8px; margin:8px 0; }
+.param .row input[type=number] { width:84px; }
+.chips { display:flex; gap:6px; flex-wrap:wrap; }
+.chips button { height:32px; font-size:12.5px; }
+.chips button.on { background:var(--on); border-color:var(--on); color:#111; }
+.note { font-size:12px; color:var(--dim); margin:6px 0; }
+.batch { border:1px solid var(--line); border-radius:10px; padding:10px; margin:8px 0; display:flex; align-items:center; gap:10px; }
+.batch div { flex:1; min-width:0; }
+.batch small { color:var(--dim); display:block; }
+.batch .st { font-size:12px; color:var(--dim); }
+.batch .st.ready { color:#5fd38d; }
+.batch .st.failed { color:#ff6b6b; }
+#player { display:none; }
+#player.open { display:block; }
+#ptop { display:flex; align-items:center; gap:8px; margin:10px 0; }
+#play { min-width:52px; background:var(--accent); color:#111; border-color:var(--accent); }
+#bar { font-variant-numeric:tabular-nums; color:var(--dim); min-width:60px; }
+#bar b { color:var(--text); font-size:16px; }
+#grid { display:grid; gap:6px; }
+#grid .ax { font-size:11px; color:var(--dim); display:flex; align-items:center; justify-content:center; text-align:center; }
+.cell { min-height:52px; height:auto; padding:6px; font-size:12px; line-height:1.2; flex-direction:column; border-radius:8px; }
+.cell.cur { background:var(--on); border-color:var(--on); color:#111; font-weight:600; }
+.cell.pending { outline:2px dashed #fff; outline-offset:-2px; animation:pend 1.4s ease-in-out infinite; }
+@keyframes pend { 50% { opacity:.55; } }
+.cell.kept::after { content:'kept'; font-size:10px; opacity:.8; }
+.cell.land { animation:land .5s ease-out; }
+@keyframes land { 0% { box-shadow:0 0 0 0 rgba(255,255,255,.9), 0 0 0 0 rgba(255,255,255,.6); } 100% { box-shadow:0 0 0 14px rgba(255,255,255,0), 0 0 0 22px rgba(255,255,255,0); } }
+#flash { position:relative; }
+#flash.go::after { content:''; position:absolute; inset:0; pointer-events:none; background:linear-gradient(115deg, transparent 30%, rgba(255,255,255,.25) 50%, transparent 70%); animation:sweep .45s ease-out; }
+@keyframes sweep { from { transform:translateX(-100%); } to { transform:translateX(100%); } }
+#match.on { background:var(--on); border-color:var(--on); color:#111; }
+#match.pending { outline:2px dashed #fff; outline-offset:-2px; animation:pend 1.4s ease-in-out infinite; }
+.cell small { font-weight:400; opacity:.75; }
+#kept .k { display:flex; align-items:center; gap:8px; padding:8px 0; border-bottom:1px solid var(--line); font-size:13px; }
+#kept .k span { flex:1; }
+</style>
+</head>
+<body>
+<header><h1>Mix 2: rendered in Live</h1><button id="refresh" aria-label="Refresh">↻</button></header>
+<nav id="tabs"><button data-tab="new" class="on">New batch</button><button data-tab="batches">Batches</button><button data-tab="kept">Kept</button></nav>
+<div id="sketch"><b>Live renders.</b> Every sound here is a render of the mix set in Live. The page only plays them and switches on the bar.</div>
+<main>
+  <section id="new"></section>
+  <section id="batches" hidden><div id="list"></div>
+    <div id="player"><div id="flash">
+      <div id="ptop"><button id="play" aria-label="Play"></button><div id="bar"><b>-</b></div><div style="flex:1" id="ptitle"></div><button id="match" aria-label="Match loudness">Matched</button></div>
+      <div id="grid"></div>
+      <div class="row" style="margin-top:10px"><button id="keep" class="primary">Keep this one</button><span class="note" id="keepnote"></span></div>
+    </div></div>
+  </section>
+  <section id="kept" hidden></section>
+</main>
+<script>
+'use strict';
+const $ = s => document.querySelector(s);
+const el = (tag, cls, html) => { const e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e; };
+const PLAY = '<svg viewBox="0 0 24 24"><path d="M7 4l13 8-13 8z"/></svg>', STOP = '<svg viewBox="0 0 24 24"><rect x="5" y="5" width="14" height="14" rx="2"/></svg>';
+const ARR_ID = 'short-8d2a2', BAR_S = 1.5;
+const STRETCHES = [['Break', 1, 16], ['Drop', 17, 24], ['Peak', 25, 32], ['Horn back', 33, 40], ['Peak, 16 bars', 17, 32]];
+let CAT, ARR, form = { target: 'kick', device: 'Saturator', params: [], bars: [17, 32] };
+
+// ---------- new batch: the ranges to hear ----------
+function defaultParam(spec) {
+  if (spec.values) return { name: spec.name, values: spec.values.slice(0, 3) };
+  const span = spec.max - spec.min;
+  return { name: spec.name, unit: spec.unit, min: +(spec.min + span * 0.1).toFixed(2), max: +(spec.min + span * 0.6).toFixed(2), steps: 3 };
+}
+function renderNew() {
+  const box = $('#new'); box.innerHTML = '';
+  const dev = CAT.devices[form.device];
+  box.appendChild(el('h2', '', 'What to process'));
+  const tr = el('div', 'row', '<label>On</label>'), ts = el('select');
+  for (const [title, opts] of [['Channels', CAT.channels], ['Buses', CAT.buses]]) {
+    const g = el('optgroup'); g.label = title;
+    for (const o of opts) { const op = el('option', '', o.title); op.value = o.id; g.appendChild(op); }
+    ts.appendChild(g);
+  }
+  ts.value = form.target; ts.onchange = () => { form.target = ts.value; };
+  tr.appendChild(ts); box.appendChild(tr);
+  const dr = el('div', 'row', '<label>Device</label>'), ds = el('select');
+  for (const [k, v] of Object.entries(CAT.devices)) { const op = el('option', '', `${k} (${v.what})`); op.value = k; ds.appendChild(op); }
+  ds.value = form.device; ds.onchange = () => { form.device = ds.value; form.params = [defaultParam(CAT.devices[form.device].params[0])]; renderNew(); };
+  dr.appendChild(ds); box.appendChild(dr);
+  if (!form.params.length) form.params = [defaultParam(dev.params[0])];
+  box.appendChild(el('h2', '', 'Parameters to sweep (one or two)'));
+  form.params.forEach((p, i) => {
+    const d = el('div', 'param');
+    const r1 = el('div', 'row'), ps = el('select');
+    for (const sp of dev.params) { const op = el('option', '', sp.name); op.value = sp.name; ps.appendChild(op); }
+    ps.value = p.name;
+    ps.onchange = () => { form.params[i] = defaultParam(dev.params.find(x => x.name === ps.value)); renderNew(); };
+    r1.appendChild(ps);
+    if (form.params.length > 1) { const x = el('button', '', 'Remove'); x.onclick = () => { form.params.splice(i, 1); renderNew(); }; r1.appendChild(x); }
+    d.appendChild(r1);
+    const spec = dev.params.find(x => x.name === p.name);
+    if (spec.values) {
+      const chips = el('div', 'chips');
+      for (const v of spec.values) {
+        const b = el('button', p.values.includes(v) ? 'on' : '', v);
+        b.onclick = () => { p.values = p.values.includes(v) ? p.values.filter(x => x !== v) : [...p.values, v].sort((a, b) => spec.values.indexOf(a) - spec.values.indexOf(b)); renderNew(); };
+        chips.appendChild(b);
+      }
+      d.appendChild(chips);
+    } else {
+      const r2 = el('div', 'row');
+      const num = (label, key) => {
+        const l = el('label', '', label), n = el('input'); Object.assign(n, { type: 'number', value: p[key], step: 'any', min: spec.min, max: spec.max });
+        n.onchange = () => { p[key] = Math.min(spec.max, Math.max(spec.min, Number(n.value))); renderNew(); };
+        r2.append(l, n);
+      };
+      num('From', 'min'); num('to', 'max');
+      r2.appendChild(el('span', 'note', spec.unit || ''));
+      d.appendChild(r2);
+      const r3 = el('div', 'row', '<label>Steps</label>'), chips = el('div', 'chips');
+      for (const n of [2, 3, 4, 5, 6]) { const b = el('button', p.steps === n ? 'on' : '', String(n)); b.onclick = () => { p.steps = n; renderNew(); }; chips.appendChild(b); }
+      r3.appendChild(chips); d.appendChild(r3);
+      d.appendChild(el('div', 'note', `Range ${spec.min} to ${spec.max} ${spec.unit || ''}.`));
+    }
+    box.appendChild(d);
+  });
+  if (form.params.length < 2) {
+    const add = el('button', '', '+ A second parameter');
+    add.onclick = () => { const rest = dev.params.filter(x => !form.params.some(p => p.name === x.name)); if (rest.length) { form.params.push(defaultParam(rest[0])); renderNew(); } };
+    box.appendChild(add);
+  }
+  box.appendChild(el('h2', '', 'Bars to render'));
+  const chips = el('div', 'chips');
+  for (const [t, a, b] of STRETCHES) {
+    const c = el('button', form.bars[0] === a && form.bars[1] === b ? 'on' : '', `${t} (${a}-${b})`);
+    c.onclick = () => { form.bars = [a, b]; renderNew(); };
+    chips.appendChild(c);
+  }
+  box.appendChild(chips);
+  const n = form.params.reduce((k, p) => k * (p.values ? p.values.length : p.steps), 1);
+  const secs = (form.bars[1] - form.bars[0] + 2) * BAR_S;
+  box.appendChild(el('p', 'note', `${n} renders plus the mix as it stands, about ${Math.ceil((n + 1) * (secs / 6 + 14) / 60)} minutes in Live. The mix as kept so far, mix 1 and every kept mix-2 choice, is in each render.`));
+  const go = el('button', 'primary', 'Render this grid');
+  go.disabled = n < 1 || n > 36;
+  go.onclick = async () => {
+    go.disabled = true;
+    const res = await fetch('/api/mix2/requests', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(form) });
+    if (res.ok) { tab('batches'); await refresh(); } else { go.disabled = false; alert('Could not queue: ' + (await res.text())); }
+  };
+  box.appendChild(go);
+}
+
+// ---------- batches ----------
+let batches = [];
+const title = r => `${r.device} on ${[...CAT.channels, ...CAT.buses].find(c => c.id === r.target)?.title || r.target}`;
+const sweep = r => r.params.map(p => p.values ? `${p.name}: ${p.values.join(', ')}` : `${p.name} ${p.min} to ${p.max} ${p.unit || ''} in ${p.steps}`).join(' × ');
+async function refresh() {
+  batches = await (await fetch('/api/mix2/requests')).json();
+  ARR = await (await fetch('/api/arrangements/' + ARR_ID)).json();
+  const list = $('#list'); list.innerHTML = '';
+  if (!batches.length) list.appendChild(el('p', 'note', 'No batches yet.'));
+  for (const r of batches) {
+    const b = el('div', 'batch');
+    const st = r.status === 'rendering' ? `rendering ${r.done || 0} of ${r.total || '?'}` : r.status === 'failed' ? 'failed: ' + (r.error || '') : r.status;
+    b.innerHTML = `<div>${title(r)}<small>${sweep(r)} · bars ${r.bars[0]}-${r.bars[1]}</small><span class="st ${r.status}">${st}</span></div>`;
+    if (r.status === 'ready' || (r.points && r.points.length)) { const o = el('button', '', 'Play'); o.onclick = () => openGrid(r); b.appendChild(o); }
+    list.appendChild(b);
+  }
+  renderKept();
+  if (batches.some(r => r.status === 'queued' || r.status === 'rendering')) setTimeout(() => { if (!$('#batches').hidden) refresh(); }, 5000);
+}
+
+// ---------- the grid player: renders switched on the bar ----------
+let ctx, cur = null, pending = null, playing = null, batch = null, bufs = {};
+let matched = true;   // play the loudness-matched render of each point (rendered in Live with Main turned to the base's loudness)
+function audio() { if (!ctx) { const AC = window.AudioContext || window.webkitAudioContext; ctx = new AC({ latencyHint: 'playback' }); } return ctx; }
+async function buf(file) {
+  const url = `/mix2/${batch.id}/${file}`;
+  if (!bufs[url]) bufs[url] = fetch(url).then(r => r.arrayBuffer()).then(a => new Promise((ok, no) => audio().decodeAudioData(a, ok, no)));
+  return bufs[url];
+}
+function openGrid(r) {
+  stop(); batch = r; bufs = {}; cur = 'base'; pending = null;
+  $('#player').classList.add('open');
+  $('#ptitle').textContent = `${title(r)}, bars ${r.bars[0]}-${r.bars[1]}`;
+  const g = $('#grid'); g.innerHTML = '';
+  const axes = r.params.map(p => p.name);
+  const vals = axes.map(a => [...new Set((r.points || []).map(pt => JSON.stringify(pt.values[a])))].map(v => JSON.parse(v)));
+  const cell = (key, label) => {
+    const pt = key === 'base' ? null : r.points.find(p => 'p' + p.k === key);
+    const c = el('button', 'cell' + (key === cur ? ' cur' : ''), label + (pt && pt.matchDb != null ? `<small>${pt.matchDb > 0 ? '+' : ''}${pt.matchDb} dB to match</small>` : ''));
+    c.dataset.key = key;
+    const kept = (ARR.mix2 || []).some(k => k.batch === r.id && k.point === key);
+    if (kept) c.classList.add('kept');
+    c.onclick = () => choose(key);
+    return c;
+  };
+  const base = cell('base', 'As it stands');
+  if (axes.length === 2) {
+    g.style.gridTemplateColumns = `auto repeat(${vals[1].length}, 1fr)`;
+    g.appendChild(base);
+    vals[1].forEach(v => g.appendChild(el('div', 'ax', `${axes[1]}<br>${v}`)));
+    vals[0].forEach(v0 => {
+      g.appendChild(el('div', 'ax', `${axes[0]}<br>${v0}`));
+      vals[1].forEach(v1 => {
+        const pt = r.points.find(p => JSON.stringify(p.values[axes[0]]) === JSON.stringify(v0) && JSON.stringify(p.values[axes[1]]) === JSON.stringify(v1));
+        g.appendChild(pt ? cell('p' + pt.k, `${v0}<br>${v1}`) : el('div', 'ax', '…'));
+      });
+    });
+  } else {
+    g.style.gridTemplateColumns = 'repeat(auto-fill, minmax(96px, 1fr))';
+    g.appendChild(base);
+    for (const pt of r.points || []) g.appendChild(cell('p' + pt.k, `${axes[0]}<br>${pt.values[axes[0]]}`));
+  }
+  $('#keepnote').textContent = '';
+  $('#play').innerHTML = PLAY;
+  for (const f of ['base.flac', ...(r.points || []).flatMap(p => [p.matched || p.file])]) buf(f);   // decode ahead
+  $('#match').classList.toggle('on', matched);
+}
+const fileOf = (key, m = matched) => {
+  if (key === 'base') return 'base.flac';
+  const p = batch.points.find(p => 'p' + p.k === key);
+  return m && p.matched ? p.matched : p.file;
+};
+function choose(key) {
+  if (!playing) { cur = key; marks(); return; }
+  if (key === cur) return;
+  pending = key; marks();
+}
+function marks() {
+  document.querySelectorAll('#grid .cell').forEach(c => { c.classList.toggle('cur', c.dataset.key === cur); c.classList.toggle('pending', c.dataset.key === pending); });
+}
+async function play() {
+  const c = audio(); if (c.state !== 'running') await c.resume();
+  const b = await buf(fileOf(cur));
+  playing = { t0: c.currentTime + 0.1, len: b.duration, src: null, key: cur, bars: Math.round(b.duration / BAR_S) };
+  startAt(cur, playing.t0, 0);
+  playing.timer = setInterval(tick, 50);
+  $('#play').innerHTML = STOP;
+  requestAnimationFrame(frame);
+}
+async function startAt(key, when, offset) {
+  const b = await buf(fileOf(key));
+  const src = ctx.createBufferSource(); src.buffer = b; src.loop = true;
+  const g = ctx.createGain(); src.connect(g); g.connect(ctx.destination);
+  g.gain.setValueAtTime(0, when); g.gain.linearRampToValueAtTime(1, when + 0.005);   // the few-millisecond fade a switch needs
+  src.start(when, offset % b.duration);
+  const old = playing.src;
+  if (old) { old.g.gain.setValueAtTime(1, when); old.g.gain.linearRampToValueAtTime(0, when + 0.005); old.s.stop(when + 0.01); }
+  playing.src = { s: src, g };
+}
+let matchPending = null;
+function tick() {
+  if (!playing || (!pending && matchPending === null)) return;
+  const t = ctx.currentTime - playing.t0, nextBar = Math.ceil((t + 0.25) / BAR_S) * BAR_S;   // the next bar line far enough ahead
+  const key = pending || cur; pending = null;
+  if (matchPending !== null) { const m = matchPending; matchPending = null; matched = m;
+    setTimeout(() => { $('#match').classList.remove('pending'); $('#match').classList.toggle('on', matched); }, Math.max(0, (playing.t0 + nextBar - ctx.currentTime) * 1000)); }
+  startAt(key, playing.t0 + nextBar, nextBar);
+  setTimeout(() => {   // the change lands when the sound does
+    cur = key; marks();
+    const c = document.querySelector(`#grid .cell[data-key="${key}"]`); if (c) { c.classList.remove('land'); void c.offsetWidth; c.classList.add('land'); }
+    const f = $('#flash'); f.classList.remove('go'); void f.offsetWidth; f.classList.add('go');
+  }, Math.max(0, (playing.t0 + nextBar - ctx.currentTime) * 1000));
+}
+function frame() {
+  if (!playing) return;
+  const t = ctx.currentTime - playing.t0;
+  if (t >= 0) $('#bar').innerHTML = `<b>${batch.bars[0] + Math.floor((t % playing.len) / BAR_S)}</b>`;
+  requestAnimationFrame(frame);
+}
+function stop() {
+  if (!playing) return;
+  clearInterval(playing.timer);
+  if (playing.src) { const t = ctx.currentTime; playing.src.g.gain.setValueAtTime(1, t); playing.src.g.gain.linearRampToValueAtTime(0, t + 0.01); playing.src.s.stop(t + 0.02); }
+  playing = null; pending = null; marks();
+  $('#play').innerHTML = PLAY;
+}
+
+// ---------- kept: the mix-2 structure ----------
+async function saveKept(list) {
+  await fetch(`/api/arrangements/${ARR_ID}/mix2`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(list) });
+  ARR.mix2 = list;
+}
+async function keep() {
+  if (!batch || cur === 'base') { $('#keepnote').textContent = 'Pick a render first.'; return; }
+  const pt = batch.points.find(p => 'p' + p.k === cur);
+  const list = (ARR.mix2 || []).filter(k => !(k.target === batch.target && k.device === batch.device));   // one of each device per target
+  list.push({ target: batch.target, device: batch.device, values: pt.values, batch: batch.id, point: cur, bars: batch.bars, kept: Date.now() / 1000 });
+  await saveKept(list);
+  const playingKey = cur;
+  openGrid(batch); cur = playingKey; marks();
+  $('#keepnote').textContent = 'Kept. The next batches are rendered with it.';
+}
+function renderKept() {
+  const box = $('#kept'); box.innerHTML = '';
+  box.appendChild(el('h2', '', 'Kept mix-2 choices (applied in Live, in this order)'));
+  const list = ARR.mix2 || [];
+  if (!list.length) box.appendChild(el('p', 'note', 'Nothing kept yet. Play a batch and keep the render you like.'));
+  list.forEach((k, i) => {
+    const r = el('div', 'k', `<span>${k.device} on ${[...CAT.channels, ...CAT.buses].find(c => c.id === k.target)?.title || k.target}<br><small class="note">${Object.entries(k.values).map(([a, b]) => `${a} ${b}`).join(', ')}</small></span>`);
+    const x = el('button', '', 'Remove'); x.onclick = async () => { await saveKept(list.filter((_, j) => j !== i)); renderKept(); };
+    r.appendChild(x); box.appendChild(r);
+  });
+}
+
+function tab(name) {
+  document.querySelectorAll('#tabs button').forEach(b => b.classList.toggle('on', b.dataset.tab === name));
+  for (const s of ['new', 'batches', 'kept']) $('#' + s).hidden = s !== name;
+  if (name !== 'new') refresh();
+}
+async function main() {
+  CAT = await (await fetch('/mix2/catalog.json')).json();
+  ARR = await (await fetch('/api/arrangements/' + ARR_ID)).json();
+  document.querySelectorAll('#tabs button').forEach(b => b.onclick = () => tab(b.dataset.tab));
+  $('#refresh').onclick = refresh;
+  $('#play').onclick = () => (playing ? stop() : play());
+  $('#keep').onclick = keep;
+  $('#match').onclick = () => {
+    if (!playing) { matched = !matched; $('#match').classList.toggle('on', matched); return; }
+    matchPending = !(matchPending === null ? matched : matchPending);
+    if (matchPending === matched) { matchPending = null; $('#match').classList.remove('pending'); } else $('#match').classList.add('pending');
+  };
+  renderNew(); refresh();
+}
+main();
+</script>
+</body>
+</html>

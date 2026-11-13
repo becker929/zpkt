@@ -96,6 +96,7 @@ gets work, and never copied.
 | `contrib/arranger/static/index.html` (the HW002 arranger) | Starts loops bounced from Live together on the bar clock, as rendered; saves arrangements as structures | Allowed: playing rendered files. |
 | `contrib/arranger/static/transitions.html` (the arranger's transitions page) | Starts transition sounds made in Live on the beat over the loops; a gain fader per kind of transition at each section change; writes the picks and their levels into the arrangement's structure | Playing rendered files; the faders are a named exception above. |
 | `contrib/arranger/static/mix.html` (the first mix page) | Plays the arrangement's loops and transitions through a gain, a pan and EQ cuts per channel; writes the arrangement's `mix` | The second named exception above, for this page only. |
+| `contrib/arranger/static/mix2.html` (the second mix page) | Plays renders of the mix set made in Live (`mixset.py`), switched on the bar; its loudness match is a second render made in Live | Allowed: playing rendered files. |
 | `prototypes/audio-browser/frontend/lib/` (`collagePlayer.ts`, `slicePlayer.ts`, `softClip.ts`) | Assembles a collage from slices and soft-clips it | Breaks the rule (slicing and clipping); to be replaced if the prototype is revived. |
 
 ## The player engine

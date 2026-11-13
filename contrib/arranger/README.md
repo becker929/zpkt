@@ -10,7 +10,7 @@ in ableton live").
 | Arrange | `/` | `regions` | Loops bounced from Live, started together in the browser |
 | Transitions | `/transitions/` | `transitions` (picks, levels, Live recipes) | Sounds made in Live, started over the loops |
 | Mix 1: gain, pan, EQ cuts | `/mix/` | `mix` (per channel) | The same files through a gain, a pan and cuts in the browser |
-| Mix 2: distortion, EQ boosts, compression, bus processing | not built yet | | Small batches rendered in Live: Anthony picks the ranges, a coarse grid of them is rendered, he plays the grid in the page |
+| Mix 2: distortion, EQ boosts, compression, bus processing | `/mix2/` | `mix2` (kept devices and settings, in order) | Small batches rendered in Live: Anthony picks the ranges, `mixset.py` renders a coarse grid of them in the mix set, he plays the grid in the page |
 | Master | not built yet | | Runs the whole recipe in Live |
 
 Three ways to hear a change: offline DAW audio (renders), online browser audio (the first three steps, within the
@@ -49,4 +49,19 @@ tones through Auto Filter for risers and downlifters, the set's own hits through
 an EQ Eight on the kick group for scoops, and fills on the set's hat racks and kick and on Live's 909 Core Kit. Each
 candidate sits in its own slot past the end of the song; one export per soloed track renders them all, and `cut`
 slices the exports into `fx/audio/<id>.flac` and `fx/fx.json`. `contrib/docs/sound.md` says what the page may do.
+
+## Mix 2
+
+`/mix2/` asks for a batch: a channel or a bus, a Live device (Saturator, Drum Buss, EQ Eight as a boost, Compressor,
+Glue Compressor), one or two of its parameters with a range and a number of steps (or a few of its settings), and a
+stretch of bars. The server queues it and starts `mixset.py worker`, which renders it in Live and stops at the first
+surprise (the batch then shows why it failed). Live must have `HW002_121_pp_mix` in front.
+
+The renders come from the mix set, `HW002_121_pp_mix.als`, built by `mixset.py build` from the arrangement file: one
+audio track per mix channel with the loops and picked transitions where the arrangement puts them, routed to a bus per
+group, mix 1 on the mixers and an EQ Eight, and a -6 dB Utility on Main for headroom. Built that way, every bar
+without a transition matches the page's own sum to 0.0 dB. Each batch renders the mix as it stands (mix 1 and every
+kept mix-2 choice), then each grid point twice: as it comes out, and with Main turned to the first render's loudness
+(integrated LUFS), so a louder setting does not win by being louder. The page plays the renders and switches between
+them on the bar; Keep writes the point into the arrangement's `mix2`, and later batches are rendered with it.
 
