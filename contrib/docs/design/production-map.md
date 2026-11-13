@@ -2,7 +2,8 @@
 
 A map of what zpkt builds for making a track, written 12 November 2026 at the end of the day the HW002 arranger,
 transitions page and both mix pages were built (PRs #139-#141). It says which steps exist, which are partly there,
-and which are missing, so the next pieces of work can be chosen against the whole. The same map as a page:
+and which are missing, so the next pieces of work can be chosen against the whole. The same map drawn as a land map
+(stages as territories, work as places coloured by status, roads for what feeds what, the recipe as a river):
 [`production-map.html`](production-map.html).
 
 ## The principle
