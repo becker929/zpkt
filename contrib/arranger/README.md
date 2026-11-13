@@ -1,6 +1,20 @@
 # The HW002 arranger
 
-A phone page for trying arrangements of HW002 out of loops bounced from Live.
+A phone page for trying arrangements of HW002 out of loops bounced from Live, and the pages after it. Each page
+writes structure into the arrangement file, and the structure adds up to a recipe that the mastering step runs in
+Ableton Live (Anthony, 12 November 2026: "All of this accumulates into a recipe for the mastering step to actually run
+in ableton live").
+
+| Step | Page | Writes | How it is heard |
+|---|---|---|---|
+| Arrange | `/` | `regions` | Loops bounced from Live, started together in the browser |
+| Transitions | `/transitions/` | `transitions` (picks, levels, Live recipes) | Sounds made in Live, started over the loops |
+| Mix 1: gain, pan, EQ cuts | `/mix/` | `mix` (per channel) | The same files through a gain, a pan and cuts in the browser, set one sound at a time and A/B'd against the reference tracks |
+| Mix 2: distortion, EQ boosts, compression, bus processing | `/mix2/` | `mix2` (kept devices and settings, in order) | Small batches rendered in Live: Anthony picks the ranges, `mixset.py` renders a coarse grid of them in the mix set, he plays the grid in the page |
+| Master | not built yet | | Runs the whole recipe in Live |
+
+Three ways to hear a change: offline DAW audio (renders), online browser audio (the first three steps, within the
+named exceptions in `contrib/docs/sound.md`), and, for the second mix step, online small-batch DAW audio.
 
 1. `uv run --project hands python contrib/arranger/bounce.py` solos each part of the set in Live and exports Main
    (15 bounces, about 6 minutes). Live must have the working copy `HW002_121_pp_loops` in front.
@@ -35,4 +49,39 @@ tones through Auto Filter for risers and downlifters, the set's own hits through
 an EQ Eight on the kick group for scoops, and fills on the set's hat racks and kick and on Live's 909 Core Kit. Each
 candidate sits in its own slot past the end of the song; one export per soloed track renders them all, and `cut`
 slices the exports into `fx/audio/<id>.flac` and `fx/fx.json`. `contrib/docs/sound.md` says what the page may do.
+
+## Mix 1
+
+`/mix/` is a row of small cards, one decision each (a sound's level, then its pan, then its cuts; the kick only level
+and cuts), swiped left to right, with a strip of them along the top grouped by sound (the mini map) and a map of the
+whole process (the recipe's steps, then every sound with its decisions). The listening options fold into one line,
+and the curves show only on the cuts cards and the whole mix. The cards are a ladder: the sounds from the most fundamental up (kick, chord, the break parts, the hats in the order the
+ramp brings them in, crash and splash, the transitions), each set on its own card against the ones above it, and a last card for the whole mix against a
+reference. The view
+loops the bars where the sound matters, plays what is set so far under it (or everything, or it alone), and asks for
+level, then pan, then cuts; the suggested cuts come from where the sound's average spectrum sits close under the
+strongest bands of the sounds above it. One A/B button switches on the next beat between before and after, without
+and with, or the mix and a reference track. A reference plays at its own tempo from the same place relative to the
+drop (8d2a2's bar 17 is the reference's drop, as wav-timeline finds it), turned to the mix's loudness over the same
+bars (K-weighted, a listening aid), and switching back picks the mix up where the reference has got to. The curves are
+measured from what plays: the sound, what is under it, the whole mix, and the reference at the same place.
+
+`uv run --project ears python contrib/arranger/refs.py` prepares the references (the four HW002 references and the
+Klangkuenstler shorts: tempo and drop from wav-timeline's own analysis, the 40 bars around the drop, K-weighted power
+per bar, a spectrogram) and the average spectrum of each sound, in `~/_agent_scratch/arranger/refs/`.
+
+## Mix 2
+
+`/mix2/` asks for a batch: a channel or a bus, a Live device (Saturator, Drum Buss, EQ Eight as a boost, Compressor,
+Glue Compressor), one or two of its parameters with a range and a number of steps (or a few of its settings), and a
+stretch of bars. The server queues it and starts `mixset.py worker`, which renders it in Live and stops at the first
+surprise (the batch then shows why it failed). Live must have `HW002_121_pp_mix` in front.
+
+The renders come from the mix set, `HW002_121_pp_mix.als`, built by `mixset.py build` from the arrangement file: one
+audio track per mix channel with the loops and picked transitions where the arrangement puts them, routed to a bus per
+group, mix 1 on the mixers and an EQ Eight, and a -6 dB Utility on Main for headroom. Built that way, every bar
+without a transition matches the page's own sum to 0.0 dB. Each batch renders the mix as it stands (mix 1 and every
+kept mix-2 choice), then each grid point twice: as it comes out, and with Main turned to the first render's loudness
+(integrated LUFS), so a louder setting does not win by being louder. The page plays the renders and switches between
+them on the bar; Keep writes the point into the arrangement's `mix2`, and later batches are rendered with it.
 
