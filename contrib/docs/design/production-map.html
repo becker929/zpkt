@@ -1,0 +1,234 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Track Production Map</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+body { margin: 0; }
+/* Layout: a land map read west to east. Each stage is a territory; each piece of work a place in it; roads are what
+   feeds what; the river along the south is the recipe every territory drains into, flowing to the master. */
+:root {
+  --bg: #e9ece6; --paper: #f4f5f0; --ink: #1d2320; --muted: #5b655f; --line: #cdd3cb;
+  --land: #dfe5d8; --land-edge: #b9c3b2; --road: #8b958d; --river: #8fb3cf; --river-edge: #6d97b8; --accent: #b5651d;
+  --built: #2f8f5b; --partial: #b47d10; --designed: #6a55a8; --wanted: #2f6fb5; --missing: #b3403a;
+  --display: "Barlow Condensed", "Arial Narrow", "Helvetica Neue", sans-serif;
+  --body: "IBM Plex Sans", -apple-system, "Segoe UI", sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #121614; --paper: #171c19; --ink: #e5eae6; --muted: #98a39c; --line: #2a322d;
+  --land: #1f2723; --land-edge: #34403a; --road: #6e7a73; --river: #2a4a63; --river-edge: #3e6a8c; --accent: #e2a052;
+  --built: #5fcf8e; --partial: #e6b04a; --designed: #b19df0; --wanted: #73aef0; --missing: #f08077; color-scheme: dark; } }
+:root[data-theme="dark"] {
+  --bg: #121614; --paper: #171c19; --ink: #e5eae6; --muted: #98a39c; --line: #2a322d;
+  --land: #1f2723; --land-edge: #34403a; --road: #6e7a73; --river: #2a4a63; --river-edge: #3e6a8c; --accent: #e2a052;
+  --built: #5fcf8e; --partial: #e6b04a; --designed: #b19df0; --wanted: #73aef0; --missing: #f08077; color-scheme: dark; }
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--ink); font: 14px/1.45 var(--body);
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 26px 36px; }
+.wrap { max-width: 1320px; margin: 0 auto; display: grid; gap: 16px; }
+header { display: grid; gap: 8px; }
+.eyebrow { font: 500 11px var(--mono); letter-spacing: .12em; text-transform: uppercase; color: var(--accent); }
+h1 { font: 700 clamp(30px, 5vw, 46px)/1 var(--display); margin: 0; text-wrap: balance; }
+.lede { max-width: 70ch; color: var(--muted); margin: 0; }
+.lede b { color: var(--ink); font-weight: 600; }
+.legend { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; font-size: 12.5px; color: var(--muted); }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.legend svg { width: 16px; height: 16px; }
+.tally { font: 500 12px var(--mono); }
+.sheet { background: var(--paper); border: 1px solid var(--line); border-radius: 10px; overflow-x: auto; }
+.sheet svg { display: block; min-width: 1080px; width: 100%; height: auto; }
+.hint { font-size: 12px; color: var(--muted); }
+svg text { font-family: var(--body); fill: var(--ink); }
+.region-name { font: 600 19px var(--display); letter-spacing: .14em; text-transform: uppercase; fill: var(--muted); }
+.region-num { font: 500 12px var(--mono); fill: var(--accent); }
+.place { font-size: 13.5px; font-weight: 600; }
+.place-note { font-size: 11.5px; fill: var(--muted); }
+.writes { font: 400 11px var(--mono); fill: var(--river-edge); }
+.river-label { font: italic 500 14px var(--body); fill: var(--river-edge); letter-spacing: .04em; }
+.grid line { stroke: var(--line); stroke-width: 1; }
+footer { color: var(--muted); font-size: 12px; max-width: 74ch; display: grid; gap: 6px; }
+</style>
+
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="eyebrow">HW002 and every track after it · 12 November 2026</div>
+    <h1>From references to release</h1>
+    <p class="lede">Read it west to east. Each stage is a territory; each piece of work is a place in it, coloured by whether it exists. Roads show what feeds what. Every territory drains into the river along the south: <b>the recipe</b>, one arrangement file of structure that the master step runs in Ableton Live.</p>
+    <div class="legend" id="legend"></div>
+  </header>
+  <div class="sheet"><svg id="map" viewBox="0 0 1700 800" role="img" aria-label="Map of the production stages and their parts"></svg></div>
+  <div class="hint">On a phone, scroll the map sideways.</div>
+  <footer>
+    <div>Through every stage: the recipe file, ears (measure), hands (act in Live), taste (your preferences), and the sound rule (pages play renders and never make sound, apart from named exceptions).</div>
+    <div>Three ways to hear a change: offline renders from Live, rendered parts started together in the browser, and small batches rendered in Live over ranges you pick.</div>
+    <div>Statuses as of the end of 12 November 2026. The notes behind the map: production-map.md, beside this file.</div>
+  </footer>
+</div>
+
+<script>
+const STATUS = {
+  built: 'Built', partial: 'Partly built', designed: 'Designed separately', wanted: 'Wanted next', missing: 'Missing, not designed',
+};
+// stages west to east; each place: id, name, note, status
+const STAGES = [
+  { name: 'References', writes: 'brief', places: [
+    ['ref', 'Reference analysis', 'wav-timeline', 'built'],
+    ['brief', 'The brief', 'tempo, key, shape, refs', 'missing'] ] },
+  { name: 'Sound design', writes: 'sounds', places: [
+    ['synth', 'Synth design', 'your apps, small steps', 'built'],
+    ['collage', 'Audio collage', 'library browser, Rummage', 'partial'],
+    ['drums', 'Drums', 'hats, perc, grooves', 'missing'],
+    ['kick', 'Kick and rumble', 'from how HW002 does it', 'missing'],
+    ['fxs', 'Transition sounds', 'fxset.py, 121 made', 'built'] ] },
+  { name: 'Parts bank', writes: 'loops.json', places: [
+    ['parts', 'Bounce and cut', 'HW002 only so far', 'partial'] ] },
+  { name: 'Arrange', writes: 'regions · transitions', places: [
+    ['arr', 'Arranger', '8d2a2 canonical', 'built'],
+    ['trans', 'Transitions', 'picks with levels', 'built'] ] },
+  { name: 'Mix', writes: 'mix · mix2 · automation', places: [
+    ['mix1', 'Mix 1', 'gain, pan, cuts', 'built'],
+    ['mix2', 'Mix 2', 'device grids in Live', 'built'],
+    ['auto', 'Automation', 'sweeps, swells, rides', 'wanted'],
+    ['low', 'Low end, sidechain', 'kick against the bed', 'missing'],
+    ['space', 'Space', 'reverb and delay sends', 'missing'] ] },
+  { name: 'Bridge', writes: 'renders/vN', places: [
+    ['runner', 'Recipe runner', 'full mix and stems', 'missing'],
+    ['check', 'Pre-master check', 'headroom, balance', 'missing'],
+    ['versions', 'Versions log', 'notes, blind A/B', 'missing'] ] },
+  { name: 'Master', writes: 'the finished file', places: [
+    ['meters', 'Mastering meters', 'ears/mlab', 'built'],
+    ['master', 'Mastering app', 'your design', 'designed'] ] },
+  { name: 'Release', writes: 'the Short', places: [
+    ['film', 'Art film', 'looping vertical film', 'partial'],
+    ['publish', 'Publishing', 'site, /skrng, R2', 'partial'],
+    ['short', 'Short hand-off', 'video, loudness, post', 'missing'] ] },
+];
+const ROADS = [
+  ['ref', 'brief'], ['brief', 'arr'], ['brief', 'parts'],
+  ['synth', 'parts'], ['collage', 'parts'], ['drums', 'parts'], ['kick', 'parts'],
+  ['fxs', 'trans'], ['parts', 'arr'], ['arr', 'trans'], ['trans', 'mix1'],
+  ['mix1', 'mix2'], ['mix2', 'auto'], ['kick', 'low'], ['low', 'mix2'], ['mix2', 'space'],
+  ['auto', 'runner'], ['space', 'runner'], ['mix2', 'runner'], ['runner', 'check'], ['runner', 'versions'],
+  ['check', 'master'], ['meters', 'check'], ['meters', 'master'], ['versions', 'master'],
+  ['master', 'film'], ['master', 'publish'], ['master', 'short'], ['film', 'short'],
+];
+const HERE = 'mix1';   // where HW002 is
+
+const NS = 'http://www.w3.org/2000/svg';
+const svg = document.getElementById('map');
+const mk = (tag, attrs, parent = svg) => { const e = document.createElementNS(NS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); parent.appendChild(e); return e; };
+const css = v => `var(--${v})`;
+
+// a seeded wobble, so the coastlines are the same every load
+let seed = 7; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+function blob(cx, cy, rx, ry, n = 14) {   // a closed, smooth, slightly irregular outline (Catmull-Rom through jittered points)
+  const pts = Array.from({ length: n }, (_, i) => {
+    const a = i / n * Math.PI * 2, j = 0.86 + rnd() * 0.22;
+    return [cx + Math.cos(a) * rx * j, cy + Math.sin(a) * ry * j];
+  });
+  let d = `M${pts[0][0].toFixed(1)},${pts[0][1].toFixed(1)}`;
+  for (let i = 0; i < n; i++) {
+    const p0 = pts[(i - 1 + n) % n], p1 = pts[i], p2 = pts[(i + 1) % n], p3 = pts[(i + 2) % n];
+    const c1 = [p1[0] + (p2[0] - p0[0]) / 6, p1[1] + (p2[1] - p0[1]) / 6], c2 = [p2[0] - (p3[0] - p1[0]) / 6, p2[1] - (p3[1] - p1[1]) / 6];
+    d += ` C${c1[0].toFixed(1)},${c1[1].toFixed(1)} ${c2[0].toFixed(1)},${c2[1].toFixed(1)} ${p2[0].toFixed(1)},${p2[1].toFixed(1)}`;
+  }
+  return d + 'Z';
+}
+
+// layout
+const X0 = 120, DX = 208, TOP = 150, STEP = 84, RIVER = 690;
+const pos = {};
+STAGES.forEach((s, i) => {
+  const cx = X0 + i * DX, n = s.places.length, h = (n - 1) * STEP;
+  const y0 = TOP + Math.max(0, (4 * STEP - h) / 2) + 40;
+  s.cx = cx; s.cy = y0 + h / 2; s.h = h;
+  s.places.forEach(([id], k) => { pos[id] = [cx - 62 + (k % 2 ? 14 : 0), y0 + k * STEP]; });
+});
+
+// faint graticule
+const g = mk('g', { class: 'grid' });
+for (let x = 50; x < 1700; x += 100) mk('line', { x1: x, y1: 20, x2: x, y2: 780, 'stroke-dasharray': '2 6' }, g);
+
+// the river: the recipe, flowing east into the master
+const riverPath = `M0,${RIVER + 30} C300,${RIVER - 10} 520,${RIVER + 50} 800,${RIVER + 12} S1180,${RIVER - 24} ${STAGES[6].cx},${RIVER - 4} S1640,${RIVER + 40} 1700,${RIVER + 20}`;
+mk('path', { d: riverPath, fill: 'none', stroke: css('river-edge'), 'stroke-width': 30, 'stroke-linecap': 'round', opacity: .55 });
+mk('path', { d: riverPath, fill: 'none', stroke: css('river'), 'stroke-width': 22, 'stroke-linecap': 'round' });
+const rl = mk('text', { class: 'river-label', x: 40, y: RIVER + 72 }); rl.textContent = 'the recipe · one arrangement file of structure, run in Live by the master step';
+
+// territories
+STAGES.forEach((s, i) => {
+  mk('path', { d: blob(s.cx, s.cy, 102, s.h / 2 + 70), fill: css('land'), stroke: css('land-edge'), 'stroke-width': 1.5 });
+  // a tributary down to the river, labelled with what the stage writes
+  const ty = s.cy + s.h / 2 + 62;
+  mk('path', { d: `M${s.cx},${ty} C${s.cx - 14},${ty + 30} ${s.cx + 18},${RIVER - 40} ${s.cx + 4},${RIVER - 6}`, fill: 'none', stroke: css('river'), 'stroke-width': 3, 'stroke-linecap': 'round' });
+  const w = mk('text', { class: 'writes', x: s.cx + 12, y: Math.min(RIVER - 18, ty + 34) }); w.textContent = s.writes;
+  const num = mk('text', { class: 'region-num', x: s.cx - 90, y: 58 }); num.textContent = String(i);
+  const nm = mk('text', { class: 'region-name', x: s.cx - 74, y: 59 }); nm.textContent = s.name;
+});
+
+// roads
+const all = Object.fromEntries(STAGES.flatMap(s => s.places.map(p => [p[0], p])));
+for (const [a, b] of ROADS) {
+  const [x1, y1] = pos[a], [x2, y2] = pos[b], mx = (x1 + x2) / 2;
+  const unbuilt = ['missing', 'wanted'].includes(all[a][3]) || ['missing', 'wanted'].includes(all[b][3]);
+  const d = Math.abs(x2 - x1) < 40 ? `M${x1},${y1} C${x1 - 30},${(y1 + y2) / 2} ${x2 - 30},${(y1 + y2) / 2} ${x2},${y2}` : `M${x1},${y1} C${mx},${y1} ${mx},${y2} ${x2},${y2}`;
+  mk('path', { d, fill: 'none', stroke: css('road'), 'stroke-width': unbuilt ? 1.4 : 2.2, 'stroke-dasharray': unbuilt ? '5 5' : 'none', opacity: unbuilt ? .75 : .9 });
+}
+
+// places
+function marker(parent, x, y, status, r = 9) {
+  const c = css(status);
+  if (status === 'built') mk('circle', { cx: x, cy: y, r, fill: c, stroke: css('paper'), 'stroke-width': 2 }, parent);
+  else if (status === 'partial') {
+    mk('circle', { cx: x, cy: y, r, fill: css('paper'), stroke: c, 'stroke-width': 2.5 }, parent);
+    mk('path', { d: `M${x},${y - r + 2} A${r - 2},${r - 2} 0 0 1 ${x},${y + r - 2} Z`, fill: c }, parent);
+  } else if (status === 'designed') mk('rect', { x: x - r + 1, y: y - r + 1, width: 2 * r - 2, height: 2 * r - 2, rx: 2, fill: c, stroke: css('paper'), 'stroke-width': 2 }, parent);
+  else if (status === 'wanted') mk('path', { d: `M${x},${y - r - 1} L${x + r + 1},${y} L${x},${y + r + 1} L${x - r - 1},${y} Z`, fill: c, stroke: css('paper'), 'stroke-width': 2 }, parent);
+  else mk('circle', { cx: x, cy: y, r, fill: css('paper'), stroke: c, 'stroke-width': 2.2, 'stroke-dasharray': '3 2.5' }, parent);
+}
+STAGES.forEach(s => s.places.forEach(([id, name, note, status]) => {
+  const [x, y] = pos[id], gp = mk('g', {});
+  const t = mk('title', {}, gp); t.textContent = `${name}: ${STATUS[status]}`;
+  marker(gp, x, y, status);
+  const a = mk('text', { class: 'place', x: x + 15, y: y + 1 }, gp); a.textContent = name;
+  if (status === 'missing') a.setAttribute('fill', css('missing'));
+  const b = mk('text', { class: 'place-note', x: x + 15, y: y + 16 }, gp); b.textContent = note;
+}));
+
+// you are here
+const [hx, hy] = pos[HERE];
+const pin = mk('g', {});
+mk('path', { d: `M${hx},${hy - 13} c-9,-12 -15,-18 -15,-26 a15,15 0 0 1 30,0 c0,8 -6,14 -15,26 z`, fill: css('accent') }, pin);
+mk('circle', { cx: hx, cy: hy - 39, r: 5, fill: css('paper') }, pin);
+const ht = mk('text', { x: hx + 20, y: hy - 38, 'font-size': 12, 'font-weight': 600, fill: css('accent') }, pin); ht.textContent = 'HW002 is here';
+
+// track home: the one place that overlooks every territory
+const th = [STAGES[0].cx - 70, 110];
+marker(svg, th[0], th[1], 'missing', 8);
+const tt = mk('text', { class: 'place', x: th[0] + 14, y: th[1] + 4 }); tt.textContent = 'Track home'; tt.setAttribute('fill', css('missing'));
+const tn = mk('text', { class: 'place-note', x: th[0] + 14, y: th[1] + 19 }); tn.textContent = 'one map per track across every stage';
+
+// legend and tally
+const legend = document.getElementById('legend'), tally = {};
+STAGES.forEach(s => s.places.forEach(p => { tally[p[3]] = (tally[p[3]] || 0) + 1; }));
+tally.missing += 1;   // track home
+for (const [k, label] of Object.entries(STATUS)) {
+  const span = document.createElement('span');
+  const sv = document.createElementNS(NS, 'svg'); sv.setAttribute('viewBox', '0 0 24 24');
+  const sav = svg; marker(sv, 12, 12, k, 8); span.appendChild(sv);
+  span.append(`${label} (${tally[k] || 0})`); legend.appendChild(span);
+}
+const road = document.createElement('span');
+road.innerHTML = '<svg viewBox="0 0 24 24"><path d="M2 12 H22" stroke="var(--road)" stroke-width="2.2"/></svg>Road: feeds into';
+legend.appendChild(road);
+</script>
+
+</body>
+</html>
