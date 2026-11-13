@@ -76,6 +76,10 @@ class Handler(BaseHTTPRequestHandler):
             return self._file(HERE / "static" / "transitions.html")
         if path in ("/mix", "/mix/"):
             return self._file(HERE / "static" / "mix.html")
+        if path == "/refs/refs.json":
+            return self._file(DATA / "refs" / "refs.json")
+        if m := re.fullmatch(r"/refs/([a-z0-9-]{1,64}(?:\.flac|\.spec\.json))", path):   # made by refs.py
+            return self._file(DATA / "refs" / m[1], "public, max-age=3600")
         if path in ("/mix2", "/mix2/"):
             return self._file(HERE / "static" / "mix2.html")
         if path == "/mix2/catalog.json":

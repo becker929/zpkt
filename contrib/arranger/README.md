@@ -9,7 +9,7 @@ in ableton live").
 |---|---|---|---|
 | Arrange | `/` | `regions` | Loops bounced from Live, started together in the browser |
 | Transitions | `/transitions/` | `transitions` (picks, levels, Live recipes) | Sounds made in Live, started over the loops |
-| Mix 1: gain, pan, EQ cuts | `/mix/` | `mix` (per channel) | The same files through a gain, a pan and cuts in the browser |
+| Mix 1: gain, pan, EQ cuts | `/mix/` | `mix` (per channel) | The same files through a gain, a pan and cuts in the browser, set one sound at a time and A/B'd against the reference tracks |
 | Mix 2: distortion, EQ boosts, compression, bus processing | `/mix2/` | `mix2` (kept devices and settings, in order) | Small batches rendered in Live: Anthony picks the ranges, `mixset.py` renders a coarse grid of them in the mix set, he plays the grid in the page |
 | Master | not built yet | | Runs the whole recipe in Live |
 
@@ -49,6 +49,22 @@ tones through Auto Filter for risers and downlifters, the set's own hits through
 an EQ Eight on the kick group for scoops, and fills on the set's hat racks and kick and on Live's 909 Core Kit. Each
 candidate sits in its own slot past the end of the song; one export per soloed track renders them all, and `cut`
 slices the exports into `fx/audio/<id>.flac` and `fx/fx.json`. `contrib/docs/sound.md` says what the page may do.
+
+## Mix 1
+
+`/mix/` is a ladder: the sounds from the most fundamental up (kick, chord, the break parts, the hats in the order the
+ramp brings them in, crash and splash, the transitions), each set in its own view against the ones above it. The view
+loops the bars where the sound matters, plays what is set so far under it (or everything, or it alone), and asks for
+level, then pan, then cuts; the suggested cuts come from where the sound's average spectrum sits close under the
+strongest bands of the sounds above it. One A/B button switches on the next beat between before and after, without
+and with, or the mix and a reference track. A reference plays at its own tempo from the same place relative to the
+drop (8d2a2's bar 17 is the reference's drop, as wav-timeline finds it), turned to the mix's loudness over the same
+bars (K-weighted, a listening aid), and switching back picks the mix up where the reference has got to. The curves are
+measured from what plays: the sound, what is under it, the whole mix, and the reference at the same place.
+
+`uv run --project ears python contrib/arranger/refs.py` prepares the references (the four HW002 references and the
+Klangkuenstler shorts: tempo and drop from wav-timeline's own analysis, the 40 bars around the drop, K-weighted power
+per bar, a spectrogram) and the average spectrum of each sound, in `~/_agent_scratch/arranger/refs/`.
 
 ## Mix 2
 
