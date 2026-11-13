@@ -1,0 +1,207 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Track Production Map</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+body { margin:0; }
+/* Layout: a signal path of eight numbered stages, left to right, each a column of parts with a status;
+   a rail underneath for what runs through every stage. */
+:root {
+  --bg: #eef0f2; --panel: #ffffff; --ink: #1c2126; --muted: #5d6670; --line: #d3d8de; --rail: #e3e7eb;
+  --accent: #b5651d;
+  --built: #2f8f5b; --built-bg: #e3f3ea; --partial: #a87412; --partial-bg: #fbf0d9;
+  --wanted: #2f6fb5; --wanted-bg: #e2edf9; --missing: #b3403a; --missing-bg: #fbe7e5; --designed: #6a55a8; --designed-bg: #ece7f8;
+  --display: "Barlow Condensed", "Arial Narrow", "Helvetica Neue", sans-serif;
+  --body: "IBM Plex Sans", -apple-system, "Segoe UI", sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #121519; --panel: #1a1e23; --ink: #e7eaee; --muted: #9aa3ad; --line: #2c333b; --rail: #20262d; --accent: #e2a052;
+  --built: #5fcf8e; --built-bg: #173225; --partial: #e6b04a; --partial-bg: #33280f; --wanted: #73aef0; --wanted-bg: #172a40;
+  --missing: #f08077; --missing-bg: #3a1c1a; --designed: #b19df0; --designed-bg: #282140; color-scheme: dark; } }
+:root[data-theme="dark"] {
+  --bg: #121519; --panel: #1a1e23; --ink: #e7eaee; --muted: #9aa3ad; --line: #2c333b; --rail: #20262d; --accent: #e2a052;
+  --built: #5fcf8e; --built-bg: #173225; --partial: #e6b04a; --partial-bg: #33280f; --wanted: #73aef0; --wanted-bg: #172a40;
+  --missing: #f08077; --missing-bg: #3a1c1a; --designed: #b19df0; --designed-bg: #282140; color-scheme: dark; }
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--ink); font: 14px/1.45 var(--body);
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 28px 40px; }
+.wrap { max-width: 1240px; margin: 0 auto; display: grid; gap: 22px; }
+header { display: grid; gap: 8px; }
+.eyebrow { font: 500 11px var(--mono); letter-spacing: .12em; text-transform: uppercase; color: var(--accent); }
+h1 { font: 700 clamp(30px, 5vw, 46px)/1 var(--display); letter-spacing: .01em; margin: 0; text-wrap: balance; }
+.lede { max-width: 68ch; color: var(--muted); margin: 0; }
+.lede b { color: var(--ink); font-weight: 600; }
+.legend { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; font-size: 12.5px; color: var(--muted); }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.tally { font: 500 12px var(--mono); color: var(--muted); }
+/* the signal path */
+.path { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 12px; counter-reset: stage; }
+.stage { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px 14px 12px; display: grid; gap: 10px; align-content: start; min-width: 0; position: relative; }
+.stage.here { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+.stage .top { display: flex; align-items: baseline; gap: 10px; }
+.stage .num { font: 600 13px var(--mono); color: var(--accent); }
+.stage h2 { font: 600 22px/1.05 var(--display); letter-spacing: .02em; margin: 0; text-transform: uppercase; }
+.stage .writes { font: 400 11.5px var(--mono); color: var(--muted); }
+.stage .writes code { font: inherit; color: var(--ink); }
+.heard { font-size: 11.5px; color: var(--muted); border-top: 1px dashed var(--line); padding-top: 8px; }
+.items { display: grid; gap: 6px; }
+.item { border-radius: 7px; padding: 7px 9px; border: 1px solid transparent; display: grid; gap: 2px; min-width: 0; }
+.item b { font-weight: 600; font-size: 13.5px; display: flex; align-items: center; gap: 7px; }
+.item small { color: var(--muted); font-size: 12px; overflow-wrap: anywhere; }
+.dot { width: 9px; height: 9px; border-radius: 50%; flex: none; }
+.built { background: var(--built-bg); } .built .dot { background: var(--built); }
+.partial { background: var(--partial-bg); } .partial .dot { background: transparent; border: 2px solid var(--partial); }
+.designed { background: var(--designed-bg); } .designed .dot { background: var(--designed); border-radius: 2px; }
+.wanted { background: var(--wanted-bg); border: 1px dashed var(--wanted); } .wanted .dot { background: var(--wanted); transform: rotate(45deg); border-radius: 1px; }
+.missing { background: transparent; border: 1px dashed var(--missing); } .missing .dot { background: transparent; border: 2px solid var(--missing); }
+.tag { margin-left: auto; font: 500 10px var(--mono); letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.hw { font: 500 10.5px var(--mono); color: var(--accent); }
+/* the rail */
+.rail { background: var(--rail); border-radius: 10px; padding: 14px; display: grid; gap: 10px; }
+.rail h2 { font: 600 18px var(--display); text-transform: uppercase; letter-spacing: .03em; margin: 0; }
+.rail .row { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 8px; }
+.rail .item { background: var(--panel); }
+.rail .item.missing { background: var(--panel); }
+.modes { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 8px; }
+.mode { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; }
+.mode b { font: 600 15px var(--display); text-transform: uppercase; letter-spacing: .03em; display: block; }
+.mode small { color: var(--muted); }
+footer { color: var(--muted); font-size: 12px; max-width: 70ch; }
+@media (prefers-reduced-motion: no-preference) { .stage { transition: border-color .2s; } }
+</style>
+
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="eyebrow">HW002 and every track after it · 12 November 2026</div>
+    <h1>From references to release</h1>
+    <p class="lede">Each step writes <b>structure</b>, not audio. The structure adds up to one <b>recipe</b> that the mastering step runs in Ableton Live. Stages run left to right; a track's place is its lowest unfinished stage.</p>
+    <div class="legend">
+      <span><i class="dot" style="background:var(--built)"></i>Built</span>
+      <span><i class="dot" style="border:2px solid var(--partial)"></i>Partly built</span>
+      <span><i class="dot" style="background:var(--designed);border-radius:2px"></i>Designed separately</span>
+      <span><i class="dot" style="background:var(--wanted);transform:rotate(45deg);border-radius:1px"></i>Wanted next</span>
+      <span><i class="dot" style="border:2px solid var(--missing)"></i>Missing</span>
+      <span class="tally" id="tally"></span>
+    </div>
+  </header>
+
+  <section class="path" aria-label="The stages">
+    <article class="stage">
+      <div class="top"><span class="num">0</span><h2>References and brief</h2></div>
+      <div class="writes">writes <code>brief</code>: tempo, key, length, shape, references</div>
+      <div class="items">
+        <div class="item built"><b><i class="dot"></i>Reference analysis</b><small>wav-timeline: aligned drops, tempo, spectrogram and EQ columns, named regions</small></div>
+        <div class="item missing"><b><i class="dot"></i>The brief</b><small>One first card the later steps read. Today it lives inside scripts such as shorts.py.</small></div>
+      </div>
+    </article>
+
+    <article class="stage">
+      <div class="top"><span class="num">1</span><h2>Sound design</h2></div>
+      <div class="writes">writes <code>sounds</code>: presets, MIDI, samples, in the set</div>
+      <div class="items">
+        <div class="item built"><b><i class="dot"></i>Synth design<span class="tag">small steps</span></b><small>Your separate synth and chord apps</small></div>
+        <div class="item partial"><b><i class="dot"></i>Audio collage</b><small>The sound-library prototype and the Rummage</small></div>
+        <div class="item missing"><b><i class="dot"></i>Drums</b><small>Hats, percussion and grooves</small></div>
+        <div class="item missing"><b><i class="dot"></i>Kick and rumble</b><small>Design from how HW002 does it: layered kick pads, a rumble bounce, the kick-scoop EQ, the kick group's chain</small></div>
+        <div class="item built"><b><i class="dot"></i>Transition sounds</b><small>fxset.py: 121 risers, downlifters, reverse reverbs, scoops and fills made in Live</small></div>
+      </div>
+      <div class="heard">Heard as offline renders from Live</div>
+    </article>
+
+    <article class="stage">
+      <div class="top"><span class="num">2</span><h2>Parts bank</h2></div>
+      <div class="writes">writes <code>loops.json</code>: every part cut into bar loops</div>
+      <div class="items">
+        <div class="item partial"><b><i class="dot"></i>Bounce and cut</b><small>bounce.py and mine.py, wired to the HW002 set only. Every new track needs a general version.</small></div>
+      </div>
+      <div class="heard">Heard as offline renders from Live</div>
+    </article>
+
+    <article class="stage">
+      <div class="top"><span class="num">3</span><h2>Arrange</h2></div>
+      <div class="writes">writes <code>regions</code>, <code>transitions</code></div>
+      <div class="items">
+        <div class="item built"><b><i class="dot"></i>Arranger</b><small>Loops on lanes, tabs of tries; 8d2a2 is canonical <span class="hw">HW002 done</span></small></div>
+        <div class="item built"><b><i class="dot"></i>Transitions</b><small>Picks at each section change, with levels and Live recipes <span class="hw">HW002 done</span></small></div>
+      </div>
+      <div class="heard">Heard in the browser: rendered loops started together</div>
+    </article>
+
+    <article class="stage here">
+      <div class="top"><span class="num">4</span><h2>Mix</h2></div>
+      <div class="writes">writes <code>mix</code>, <code>mix2</code>, <code>automation</code></div>
+      <div class="items">
+        <div class="item built"><b><i class="dot"></i>Mix 1: gain, pan, cuts</b><small>One card per decision, A/B against the references <span class="hw">HW002 here</span></small></div>
+        <div class="item built"><b><i class="dot"></i>Mix 2: devices</b><small>Distortion, EQ boosts, compression, buses as grids of Live renders</small></div>
+        <div class="item wanted"><b><i class="dot"></i>Automation</b><small>Smooth movement over the bars: sweeps, swells, rides, pumps</small></div>
+        <div class="item missing"><b><i class="dot"></i>Low end and sidechain</b><small>Kick and rumble tuning, ducking of the chord and bass</small></div>
+        <div class="item missing"><b><i class="dot"></i>Space</b><small>Shared reverb and delay returns with sends</small></div>
+      </div>
+      <div class="heard">Heard in the browser (mix 1) and as small batches rendered in Live (mix 2 onward)</div>
+    </article>
+
+    <article class="stage">
+      <div class="top"><span class="num">5</span><h2>Bridge</h2></div>
+      <div class="writes">writes <code>renders/vN</code>: the full mix and stems</div>
+      <div class="items">
+        <div class="item missing"><b><i class="dot"></i>Recipe runner</b><small>Builds the whole recipe into one Live set; renders the mix and stems for mastering</small></div>
+        <div class="item missing"><b><i class="dot"></i>Pre-master check</b><small>Headroom, true peak, loudness by section, mono low end, tonal balance against the references</small></div>
+        <div class="item missing"><b><i class="dot"></i>Versions and listening log</b><small>Every render with notes and blind A/B, so mastering starts from a chosen mix</small></div>
+      </div>
+      <div class="heard">Heard as offline renders from Live</div>
+    </article>
+
+    <article class="stage">
+      <div class="top"><span class="num">6</span><h2>Master</h2></div>
+      <div class="writes">writes <code>master</code>: the finished file</div>
+      <div class="items">
+        <div class="item designed"><b><i class="dot"></i>Mastering app</b><small>Your own design; runs the recipe in Live</small></div>
+        <div class="item built"><b><i class="dot"></i>Mastering meters</b><small>ears/mlab: calibrated loudness and peak measures</small></div>
+      </div>
+      <div class="heard">Heard as offline renders from Live</div>
+    </article>
+
+    <article class="stage">
+      <div class="top"><span class="num">7</span><h2>Release</h2></div>
+      <div class="writes">writes <code>release</code>: the Short and where it went</div>
+      <div class="items">
+        <div class="item partial"><b><i class="dot"></i>Art film</b><small>15-second looping vertical film with an original track</small></div>
+        <div class="item partial"><b><i class="dot"></i>Publishing</b><small>Site notes, /skrng batches, renders in R2</small></div>
+        <div class="item missing"><b><i class="dot"></i>Short hand-off</b><small>One step from the master to the YouTube Short: video, platform loudness, posting</small></div>
+      </div>
+    </article>
+  </section>
+
+  <section class="rail" aria-label="Through every stage">
+    <h2>Through every stage</h2>
+    <div class="row">
+      <div class="item built"><b><i class="dot"></i>The recipe</b><small>One arrangement file that each step adds its structure to</small></div>
+      <div class="item missing"><b><i class="dot"></i>Track home</b><small>One map per track across all the stages. `hands library inventory` is the command-line start.</small></div>
+      <div class="item built"><b><i class="dot"></i>ears, hands, taste</b><small>Measure, act in Live, model your preferences</small></div>
+      <div class="item built"><b><i class="dot"></i>The sound rule</b><small>Pages play renders and never make sound, apart from named exceptions</small></div>
+    </div>
+    <div class="modes">
+      <div class="mode"><b>Offline DAW audio</b><small>Live renders a state; the page plays the file</small></div>
+      <div class="mode"><b>Online browser audio</b><small>Rendered parts started together; gain, pan and cuts in mix 1</small></div>
+      <div class="mode"><b>Online small-batch DAW audio</b><small>You pick ranges; Live renders a coarse grid you play</small></div>
+    </div>
+  </section>
+
+  <footer>Statuses as of the end of 12 November 2026, after the arranger, transitions and both mix pages were built for HW002. The notes behind it: production-map.md.</footer>
+</div>
+<script>
+const t = { built: 0, partial: 0, designed: 0, wanted: 0, missing: 0 };
+document.querySelectorAll('.path .item').forEach(e => { for (const k in t) if (e.classList.contains(k)) t[k]++; });
+document.getElementById('tally').textContent = `${t.built} built · ${t.partial} partly · ${t.designed} designed · ${t.wanted} wanted · ${t.missing} missing`;
+</script>
+
+</body>
+</html>
