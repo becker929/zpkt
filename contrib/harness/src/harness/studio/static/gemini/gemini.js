@@ -1,5 +1,6 @@
-// The Gemini chat (contrib/docs/gemini.md): chats live on the Mac, answers stream as NDJSON events, tool steps and
-// images show inline, and any reply can be handed to Claude as a harness job.
+// Gemini CLI on the phone (contrib/docs/gemini.md). The Mac runs Gemini CLI in zpkt over ACP; this page shows a
+// session's events (what it said and thought, the tools it ran, what it asks), answers its questions, and follows a
+// turn that is still running even after a reload.
 const $ = (s) => document.querySelector(s);
 const API = '/studio/gemini/api';
 const ICON = {
@@ -7,18 +8,23 @@ const ICON = {
   stop: '<rect x="7" y="7" width="10" height="10" fill="currentColor"/>',
   x: '<path d="M6 6l12 12M18 6L6 18"/>',
 };
+const MODES = [
+  ['default', 'Asks first'], ['autoEdit', 'Auto-edit'], ['yolo', 'YOLO'], ['plan', 'Read-only'],
+];
 
-let state = { chats: [], settings: {}, usage: null, branch: '' };
-let chat = null;            // the open chat, as the server keeps it
-let models = [];
-let pending = [];           // images to attach: {mime, data}
-let ctrl = null;            // while answering
-let live = null;            // the answer being streamed: {el, segs: [...]}
-const remembered = (() => { try { return localStorage.getItem('gemini.chat'); } catch { return null; } })();
-const remember = (id) => { try { id ? localStorage.setItem('gemini.chat', id) : localStorage.removeItem('gemini.chat'); } catch {} };
+let state = { sessions: [], usage: null, offers: {}, cwd: '' };
+let cur = null;             // the open session's record
+let blocks = [];            // what the thread shows, built from the events
+let lastN = -1;             // the newest event seen
+let following = null;       // the events stream's AbortController
+let pending = [];           // images to attach
+let draftMode = 'default';  // the mode a new session starts in
+const remembered = (() => { try { return localStorage.getItem('gemini.session'); } catch { return null; } })();
+const remember = (id) => { try { id ? localStorage.setItem('gemini.session', id) : localStorage.removeItem('gemini.session'); } catch {} };
 
 const dollars = (d) => (d >= 1 ? '$' + d.toFixed(2) : d >= 0.01 ? '$' + d.toFixed(3) : d > 0 ? '<$0.01' : '$0');
-const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 async function api(path, opts = {}) {
   const r = await fetch(API + path, { headers: { 'content-type': 'application/json' }, ...opts });
@@ -79,244 +85,281 @@ function md(src) {
   return out;
 }
 
-/* ---------- what a stored chat looks like on screen ---------- */
-// A turn: what he typed, then everything the model did until it answered (text, tool steps, images).
-function turns(contents) {
-  const out = [];
-  let cur = null;
-  for (const c of contents) {
-    const isReply = c.role === 'user' && c.parts.some((p) => p.functionResponse);
-    if (c.role === 'user' && !isReply) {
-      out.push({ user: c }); cur = { segs: [], dollars: 0, model: '' }; out.push({ model: cur });
-      continue;
+/* ---------- events -> blocks ---------- */
+// A block is one thing on screen: what he typed, a stretch of text or thought, a tool, a question, a plan, the end
+// of a turn. Events that amend an earlier one (`of`) replace that block's data.
+function take(ev) {
+  lastN = Math.max(lastN, ev.n);
+  if (ev.type === 'note' && ev.mode && cur) { cur.mode = ev.mode; header(); }
+  const last = blocks[blocks.length - 1];
+  const key = ev.of ?? ev.n;
+  if (ev.of != null) {
+    const b = blocks.find((x) => x.key === ev.of);
+    if (b) { b.ev = ev; b.dirty = true; return; }
+  }
+  if ((ev.type === 'text' || ev.type === 'thought') && last && last.ev.type === ev.type && !last.closed) {
+    last.text += ev.text; last.dirty = true; return;
+  }
+  if (ev.type === 'idle') { if (last) last.closed = true; return; }
+  if (ev.type === 'plan') {
+    const p = [...blocks].reverse().find((x) => x.ev.type === 'plan' && !x.closed);
+    if (p && p === last) { p.ev = ev; p.dirty = true; return; }
+  }
+  if (last) last.closed = last.closed || ev.type !== last.ev.type;
+  blocks.push({ key, ev, text: ev.text || '', dirty: true });
+}
+
+function toolHTML(t, open) {
+  const kind = t.kind || 'tool';
+  const status = t.status || '';
+  let body = '';
+  for (const c of t.content || []) {
+    if (c.diff != null) body += `<details${open ? ' open' : ''}><summary>${esc(short(c.diff))}</summary><pre>${diffHTML(c.old, c.new)}</pre></details>`;
+    else if (c.text) body += `<details${open ? ' open' : ''}><summary>output</summary><pre>${esc(c.text)}</pre></details>`;
+  }
+  return `<div class="tool ${esc(status)}"><div class="h"><span class="k">${esc(kind)}</span><span class="t">${esc(t.title || '')}</span><span class="s">${esc(status.replace('_', ' '))}</span></div>${body}</div>`;
+}
+const short = (p) => (state.cwd && p.startsWith(state.cwd + '/') ? p.slice(state.cwd.length + 1) : p);
+function diffHTML(a, b) {
+  const A = (a || '').split('\n'), B = (b || '').split('\n');
+  let i = 0; while (i < A.length && i < B.length && A[i] === B[i]) i++;
+  let j = 0; while (j < A.length - i && j < B.length - i && A[A.length - 1 - j] === B[B.length - 1 - j]) j++;
+  const ctx = (l) => esc(l) + '\n';
+  if (!a) return B.map((l) => `<span class="add">+ ${esc(l)}</span>\n`).join('');      // a new file
+  let out = A.slice(Math.max(0, i - 2), i).map(ctx).join('');
+  out += A.slice(i, A.length - j).map((l) => `<span class="del">- ${esc(l)}</span>\n`).join('');
+  out += B.slice(i, B.length - j).map((l) => `<span class="add">+ ${esc(l)}</span>\n`).join('');
+  out += A.slice(A.length - j, A.length - j + 2).map(ctx).join('');
+  return out;
+}
+
+function blockHTML(b) {
+  const e = b.ev;
+  switch (e.type) {
+    case 'user':
+      return `<div class="m user">${(e.files || []).length ? '<div class="attached">' + e.files.map((f) => `<img src="/studio/gemini/files/${esc(cur.id)}/${esc(f)}" alt="">`).join('') + '</div>' : ''}${b.text.trim() ? `<div class="bubble">${esc(b.text)}</div>` : ''}</div>`;
+    case 'text': return `<div class="m model"><div class="bubble">${md(b.text)}</div></div>`;
+    case 'thought': return `<details class="thought"><summary>Thinking</summary><div>${esc(b.text.trim())}</div></details>`;
+    case 'tool': return toolHTML(e, false);
+    case 'permission': {
+      const done = e.answered != null;
+      const picked = (e.options || []).find((o) => o.id === e.answered);
+      return `<div class="ask${done ? ' done' : ''}" data-pid="${esc(e.id)}"><p>${done ? 'Asked' : 'Gemini asks'}</p>${toolHTML(e.tool || {}, !done)}` +
+        (done ? `<div class="ans">${esc(picked ? picked.name : 'No answer (stopped)')}</div>`
+          : `<div class="opts">${(e.options || []).map((o) => `<button type="button" data-opt="${esc(o.id)}" class="${o.kind === 'allow_once' ? 'allow' : ''}">${esc(o.name)}</button>`).join('')}</div>`) + '</div>';
     }
-    if (!cur) { cur = { segs: [], dollars: 0, model: '' }; out.push({ model: cur }); }
-    for (const p of c.parts) {
-      if (p.text && !p.thought) addText(cur.segs, p.text);
-      else if (p.functionCall) cur.segs.push({ step: p.functionCall });
-      else if (p._images) cur.segs.push({ images: p._images });
-    }
-    if (c._meta?.usage) { cur.dollars += c._meta.usage.dollars || 0; cur.model = c._meta.model; }
+    case 'plan': return `<ul class="plan">${(e.entries || []).map((x) => `<li class="${esc(x.status)}">${esc(x.content)}</li>`).join('')}</ul>`;
+    case 'note': return `<p class="note">${esc(e.text)}</p>`;
+    case 'error': return `<p class="err">${esc(e.text)}</p>`;
+    case 'done':
+      return `<div class="acts"><button type="button" data-a="copy">Copy</button><button type="button" data-a="claude" class="claude">Send to Claude</button>` +
+        `<span class="cost">${esc(e.model || '')} ${e.dollars ? dollars(e.dollars) : ''}${e.stop && e.stop !== 'end_turn' ? ' · ' + esc(e.stop) : ''}</span></div>`;
+    default: return '';
   }
-  return out.filter((t) => t.user || t.model.segs.length || t.model.err);
-}
-function addText(segs, text) {
-  const last = segs[segs.length - 1];
-  if (last && 'text' in last) last.text += text; else segs.push({ text });
 }
 
-function stepLine(call) {
-  const a = call.args || {};
-  const say = {
-    zpkt_list: () => ['list', a.path || '/'],
-    zpkt_read: () => ['read', a.path + (a.offset > 1 ? `:${a.offset}` : '')],
-    zpkt_search: () => ['search', `/${a.pattern}/` + (a.path ? ` in ${a.path}` : '') + (a.glob ? ` ${a.glob}` : '')],
-    zpkt_log: () => ['git log', a.path || ''],
-    list_images: () => ['images', a.batch || 'newest'],
-    make_image: () => ['make image', a.title || (a.prompt || '').slice(0, 60)],
-  }[call.name];
-  const [verb, what] = say ? say() : [call.name, JSON.stringify(a).slice(0, 80)];
-  return `<div class="step"><span><b>${esc(verb)}</b> ${esc(what)}</span></div>`;
-}
-
-function imagesHTML(list) {
-  return '<div class="made">' + list.map((im) =>
-    `<a href="/studio/images/files/${esc(im.file)}" target="_blank" rel="noopener"><img src="/studio/images/files/${esc(im.thumb)}" width="${im.width}" height="${im.height}" alt="" loading="lazy"></a>`).join('') + '</div>';
-}
-
-function modelHTML(t, streaming) {
-  let h = '<div class="bubble">';
-  for (const s of t.segs) {
-    if ('text' in s) h += md(s.text);
-    else if (s.step) h += stepLine(s.step);
-    else if (s.images) h += imagesHTML(s.images);
-  }
-  if (streaming) h += '<span class="dots"></span>';
-  if (t.err) h += `<p class="err">${esc(t.err)}</p>`;
-  h += '</div>';
-  if (!streaming) {
-    const text = t.segs.filter((s) => 'text' in s).map((s) => s.text).join('\n\n');
-    h += '<div class="acts">' +
-      (text ? '<button type="button" data-a="copy">Copy</button>' : '') +
-      (t.last ? '<button type="button" data-a="retry">Retry</button>' : '') +
-      (text ? '<button type="button" data-a="claude" class="claude">Send to Claude</button>' : '') +
-      (t.dollars ? `<span class="cost">${esc(t.model || '')} ${dollars(t.dollars)}</span>` : '') + '</div>';
-  }
-  return h;
-}
-
-function userHTML(c) {
-  const files = c.parts.filter((p) => p.file);
-  const text = c.parts.filter((p) => p.text).map((p) => p.text).join('').trim();
-  let h = '';
-  if (files.length) h += '<div class="attached">' + files.map((p) => `<img src="/studio/gemini/files/${esc(chat.id)}/${esc(p.file)}" alt="">`).join('') + '</div>';
-  if (text) h += `<div class="bubble">${esc(text)}</div>`;
-  return h;
-}
-
-function render() {
-  $('#title').textContent = chat?.title || 'Gemini';
-  sub();
+let raf = 0;
+function paint() {
+  raf = 0;
   const th = $('#thread');
-  if (!chat || !chat.contents.length) {
-    th.innerHTML = `<div class="empty"><h2>Gemini in zpkt</h2><div>It can read the repo and make images for the wall. Any reply can go to Claude as a job.</div>
-      <div class="tries">${['What changed in zpkt this week?', 'Explain how the harness serves the studio pages.', 'Summarise the newest journal entry.']
+  if (!cur) {
+    th.innerHTML = `<div class="empty"><h2>Gemini CLI in zpkt</h2><div>It works in the repo on the Mac: reads, edits, runs hands and ears. Pick how much it may do without asking, below.</div>
+      <div class="tries">${['What changed in zpkt this week?', 'Check that hands can reach Live, and tell me what set is open.', 'Read the newest journal entry and list its open questions.']
         .map((q) => `<button type="button" data-try="${esc(q)}">${esc(q)}</button>`).join('')}</div></div>`;
-  } else {
-    const ts = turns(chat.contents);
-    const lastModel = [...ts].reverse().find((t) => t.model);
-    if (lastModel) lastModel.model.last = true;
-    th.innerHTML = '';
-    ts.forEach((t, i) => {
-      const d = document.createElement('div');
-      d.className = 'm ' + (t.user ? 'user' : 'model');
-      d.dataset.i = i;
-      d.innerHTML = t.user ? userHTML(t.user) : modelHTML(t.model, false);
-      if (t.model) d._turn = t.model;
-      th.append(d);
-    });
+    return;
   }
-  renderList();
-  scroll(true);
+  if (th.querySelector('.empty')) th.innerHTML = '';
+  for (const b of blocks) {
+    if (!b.dirty) continue;
+    const wrap = document.createElement('div');
+    wrap.innerHTML = blockHTML(b);
+    const el = wrap.firstElementChild || document.createElement('span');
+    el._block = b;
+    if (b.el) {
+      el.querySelectorAll('details').forEach((d, k) => { const was = b.el.querySelectorAll('details')[k]; if (was) d.open = was.open; });
+      b.el.replaceWith(el);
+    } else th.append(el);
+    b.el = el; b.dirty = false;
+  }
+  scroll();
+}
+const repaint = () => { if (!raf) raf = requestAnimationFrame(paint); };
+
+function scroll(force) {
+  const s = $('#msgs');
+  if (force || s.scrollHeight - s.scrollTop - s.clientHeight < 200) s.scrollTop = s.scrollHeight;
 }
 
-function sub() {
-  const parts = [];
-  const s = chat?.settings || state.settings;
-  if (s.model) parts.push(s.model);
-  if (s.zpkt) parts.push('zpkt' + (state.branch && state.branch !== 'main' ? ` @ ${state.branch}` : ''));
-  if (chat?.dollars) parts.push(dollars(chat.dollars));
-  $('#sub').textContent = parts.join(' · ');
+function header() {
+  $('#title').textContent = cur?.title || 'Gemini CLI';
+  const bits = [];
+  if (cur?.model) bits.push(cur.model);
+  if (cur?.running) bits.push(cur.asking ? 'waiting for you' : 'working');
+  if (cur?.dollars) bits.push(dollars(cur.dollars));
+  $('#sub').textContent = bits.join(' · ');
+  const mode = cur ? cur.mode : draftMode;
+  $('#modes').innerHTML = MODES.map(([id, name]) =>
+    `<button type="button" role="radio" aria-checked="${id === mode}" data-mode="${id}" class="${id === mode ? 'on' : ''}${id === 'yolo' ? ' hot' : ''}">${name}</button>`).join('');
+  const busy = !!cur?.running;
+  $('#send').classList.toggle('stop', busy);
+  $('#send-icon').innerHTML = busy ? ICON.stop : ICON.send;
+  $('#send').setAttribute('aria-label', busy ? 'Stop' : 'Send');
 }
 
 function renderList() {
   const l = $('#list'); l.innerHTML = '';
-  for (const c of state.chats) {
+  for (const s of state.sessions) {
     const d = document.createElement('div');
-    d.className = 'g-item' + (c.id === chat?.id ? ' on' : '');
-    d.innerHTML = `<button type="button" class="t"><span></span><i>${esc(c.updated.slice(0, 10))}${c.dollars ? ' · ' + dollars(c.dollars) : ''}</i></button>
-      <button type="button" class="x" aria-label="Delete chat"><svg viewBox="0 0 24 24">${ICON.x}</svg></button>`;
-    d.querySelector('.t span').textContent = c.title;
-    d.querySelector('.t').onclick = () => { document.body.classList.remove('nav'); open(c.id); };
+    d.className = 'g-item' + (s.id === cur?.id ? ' on' : '');
+    const flag = s.asking ? ' · <b>asks</b>' : s.running ? ' · <b>working</b>' : '';
+    d.innerHTML = `<button type="button" class="t"><span></span><i>${esc(s.updated.slice(0, 10))}${s.dollars ? ' · ' + dollars(s.dollars) : ''}${flag}</i></button>
+      <button type="button" class="x" aria-label="Forget session"><svg viewBox="0 0 24 24">${ICON.x}</svg></button>`;
+    d.querySelector('.t span').textContent = s.title;
+    d.querySelector('.t').onclick = () => { document.body.classList.remove('nav'); open(s.id); };
     d.querySelector('.x').onclick = async () => {
-      if (!confirm(`Delete “${c.title}”?`)) return;
-      await api(`/chats/${c.id}`, { method: 'DELETE' });
-      if (chat?.id === c.id) { chat = null; remember(null); }
-      await refresh(); render();
+      if (!confirm(`Forget “${s.title}” here? Gemini CLI keeps its own copy.`)) return;
+      try { await api(`/sessions/${s.id}`, { method: 'DELETE' }); } catch (e) { alert(e.message); return; }
+      if (cur?.id === s.id) close();
+      await refresh();
     };
     l.append(d);
   }
   const u = state.usage;
-  $('#spend').textContent = u ? `${u.month}: chat ${dollars(u.chat)} · ${u.image_count} images ${dollars(u.images)} (est.)` : '';
+  $('#spend').textContent = u ? `${u.month}: Gemini CLI ${dollars(u.agent)} · ${u.image_count} images ${dollars(u.images)} (est.)` : '';
 }
 
-function scroll(force) {
-  const s = $('#msgs');
-  if (force || s.scrollHeight - s.scrollTop - s.clientHeight < 160) s.scrollTop = s.scrollHeight;
+async function refresh() {
+  state = await api('/state');
+  if (cur) { const s = state.sessions.find((x) => x.id === cur.id); if (s) cur = { ...cur, ...s }; }
+  renderList(); header();
 }
 
-async function refresh() { state = await api('/state'); }
+function close() {
+  following?.abort(); following = null;
+  cur = null; blocks = []; lastN = -1; remember(null);
+  $('#thread').innerHTML = ''; header(); paint(); renderList();
+}
+
 async function open(id) {
-  if (ctrl) return;
-  try { chat = await api(`/chats/${id}`); remember(id); } catch { chat = null; remember(null); }
-  render();
+  following?.abort(); following = null;
+  let s;
+  try { s = await api(`/sessions/${id}`); } catch { close(); return; }
+  cur = s; blocks = []; lastN = -1; remember(id);
+  $('#thread').innerHTML = '';
+  s.events.forEach(take);
+  if (blocks.length) blocks[blocks.length - 1].closed = !s.running;
+  delete cur.events;
+  paint(); scroll(true); header(); renderList();
+  if (s.running) follow();
 }
 
-/* ---------- a turn, streamed ---------- */
-function setBusy(on) {
-  $('#send').classList.toggle('stop', on);
-  $('#send-icon').innerHTML = on ? ICON.stop : ICON.send;
-  $('#send').setAttribute('aria-label', on ? 'Stop' : 'Send');
-}
-
-async function stream(path, body) {
-  ctrl = new AbortController(); setBusy(true);
-  const t = { segs: [], dollars: 0, model: '' };
-  const el = document.createElement('div'); el.className = 'm model';
-  $('#thread').querySelector('.empty')?.remove();
-  $('#thread').append(el);
-  let raf = 0;
-  const paint = () => { raf = 0; el.innerHTML = modelHTML(t, true); scroll(); };
-  const upd = () => { if (!raf) raf = requestAnimationFrame(paint); };
-  paint();
-  let id = chat?.id;
-  try {
-    const r = await fetch(API + path, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body), signal: ctrl.signal });
-    if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || `HTTP ${r.status}`);
-    const rd = r.body.getReader(), dec = new TextDecoder();
-    let buf = '';
-    for (;;) {
-      const { done, value } = await rd.read();
-      if (done) break;
-      buf += dec.decode(value, { stream: true });
-      let k;
-      while ((k = buf.indexOf('\n')) >= 0) {
-        const line = buf.slice(0, k); buf = buf.slice(k + 1);
-        if (!line.trim()) continue;
-        const ev = JSON.parse(line);
-        if (ev.type === 'chat') { id = ev.id; remember(id); $('#title').textContent = ev.title; }
-        else if (ev.type === 'text') addText(t.segs, ev.text);
-        else if (ev.type === 'tool') t.segs.push({ step: { name: ev.name, args: ev.args } });
-        else if (ev.type === 'images') t.segs.push({ images: ev.images });
-        else if (ev.type === 'usage') { t.dollars += ev.dollars; t.model = ev.model; }
-        else if (ev.type === 'error') t.err = ev.error;
-        upd();
+// Follows the session's events until it is idle; reconnects if the stream drops while it is still working.
+async function follow() {
+  if (!cur) return;
+  const id = cur.id;
+  following?.abort();
+  const ctrl = following = new AbortController();
+  for (let tries = 0; tries < 50 && cur?.id === id && !ctrl.signal.aborted; tries++) {
+    try {
+      const r = await fetch(`${API}/sessions/${id}/events?after=${lastN}`, { signal: ctrl.signal });
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      const rd = r.body.getReader(), dec = new TextDecoder();
+      let buf = '';
+      for (;;) {
+        const { done, value } = await rd.read();
+        if (done) break;
+        buf += dec.decode(value, { stream: true });
+        let k;
+        while ((k = buf.indexOf('\n')) >= 0) {
+          const line = buf.slice(0, k); buf = buf.slice(k + 1);
+          if (!line.trim()) continue;
+          const ev = JSON.parse(line);
+          take(ev);
+          if (ev.type === 'permission' && ev.answered == null) { cur.asking = true; header(); }
+          if (ev.type === 'idle') { cur.running = false; cur.asking = false; }
+          repaint();
+        }
       }
+    } catch (e) {
+      if (ctrl.signal.aborted) return;
     }
-  } catch (e) {
-    if (e.name !== 'AbortError') t.err = e.message;
-  } finally {
-    ctrl = null; setBusy(false);
-    if (raf) cancelAnimationFrame(raf);
+    if (cur?.id !== id || !cur.running) break;
+    await sleep(1000);
+    try { const s = await api(`/sessions/${id}`); cur.running = s.running; s.events.filter((ev) => ev.n > lastN).forEach(take); repaint(); } catch {}
+    if (!cur.running) break;
   }
-  // The Mac's copy is the truth: load it again (an aborted answer keeps what was saved before it stopped).
+  if (following === ctrl) following = null;
   await refresh().catch(() => {});
-  if (id) { try { chat = await api(`/chats/${id}`); } catch {} }
-  render();
-  if (t.err) {
-    const last = [...$('#thread').querySelectorAll('.m.model')].pop();
-    last?.querySelector('.bubble')?.insertAdjacentHTML('beforeend', `<p class="err">${esc(t.err)}</p>`);
-    scroll(true);
-  }
 }
 
+/* ---------- sending ---------- */
 async function send() {
-  if (ctrl) { ctrl.abort(); return; }
+  if (cur?.running) { await api(`/sessions/${cur.id}/cancel`, { method: 'POST' }).catch((e) => alert(e.message)); return; }
   const text = $('#in').value.trim();
   if (!text && !pending.length) return;
   const images = pending;
-  pending = []; $('#in').value = ''; grow(); renderPrev();
-  // show his message at once
-  $('#thread').querySelector('.empty')?.remove();
-  const u = document.createElement('div'); u.className = 'm user';
-  u.innerHTML = (images.length ? '<div class="attached">' + images.map((x) => `<img src="data:${x.mime};base64,${x.data}" alt="">`).join('') + '</div>' : '') +
-    (text ? `<div class="bubble">${esc(text)}</div>` : '');
-  $('#thread').append(u); scroll(true);
-  await stream(`/chats/${chat ? chat.id : 'new'}/send`, { text, images, settings: chat ? undefined : state.settings });
+  $('#send').disabled = true;
+  try {
+    if (!cur) {
+      $('#sub').textContent = 'starting Gemini CLI…';
+      const s = await api('/sessions', { method: 'POST', body: JSON.stringify({ mode: draftMode }) });
+      cur = s; blocks = []; lastN = -1; remember(s.id);
+      $('#thread').innerHTML = '';
+    }
+    await api(`/sessions/${cur.id}/prompt`, { method: 'POST', body: JSON.stringify({ text, images }) });
+    pending = []; $('#in').value = ''; grow(); renderPrev();
+    cur.running = true; header();
+    follow();
+    refresh().catch(() => {});
+  } catch (e) {
+    alert(e.message);
+  } finally {
+    $('#send').disabled = false;
+  }
 }
 
-/* ---------- actions under a reply ---------- */
+$('#modes').addEventListener('click', async (e) => {
+  const m = e.target.closest('[data-mode]')?.dataset.mode;
+  if (!m) return;
+  if (m === 'yolo' && !confirm('YOLO: Gemini runs every edit and command without asking. Use it?')) return;
+  if (!cur) { draftMode = m; header(); return; }
+  try { cur = { ...cur, ...(await api(`/sessions/${cur.id}`, { method: 'PATCH', body: JSON.stringify({ mode: m }) })) }; }
+  catch (err) { alert(err.message); }
+  header();
+  if (!cur.running) { const s = await api(`/sessions/${cur.id}`); s.events.filter((ev) => ev.n > lastN).forEach(take); repaint(); }
+});
+
+/* ---------- in the thread ---------- */
 $('#thread').addEventListener('click', async (e) => {
   const tr = e.target.closest('[data-try]');
   if (tr) { $('#in').value = tr.dataset.try; grow(); send(); return; }
   const cp = e.target.closest('.cp');
   if (cp) { await navigator.clipboard?.writeText(cp.nextElementSibling.textContent); cp.textContent = 'Copied'; setTimeout(() => (cp.textContent = 'Copy'), 1200); return; }
+  const opt = e.target.closest('[data-opt]');
+  if (opt) {
+    const pid = opt.closest('[data-pid]').dataset.pid;
+    opt.closest('.opts').querySelectorAll('button').forEach((b) => (b.disabled = true));
+    try { await api(`/permissions/${pid}`, { method: 'POST', body: JSON.stringify({ option: opt.dataset.opt }) }); cur.asking = false; header(); }
+    catch (err) { alert(err.message); opt.closest('.opts').querySelectorAll('button').forEach((b) => (b.disabled = false)); }
+    return;
+  }
   const a = e.target.closest('[data-a]')?.dataset.a;
   if (!a) return;
-  const el = e.target.closest('.m'), t = el._turn;
-  const text = t.segs.filter((s) => 'text' in s).map((s) => s.text).join('\n\n');
-  if (a === 'copy') { await navigator.clipboard?.writeText(text); e.target.textContent = 'Copied'; }
-  if (a === 'retry' && !ctrl) { el.remove(); await stream(`/chats/${chat.id}/retry`, {}); }
-  if (a === 'claude') openJob(el, text);
+  const doneBlock = e.target.closest('.acts')._block;
+  const i = blocks.indexOf(doneBlock);
+  let start = i; while (start > 0 && blocks[start - 1].ev.type !== 'user') start--;
+  const asked = start > 0 ? blocks[start - 1].text : '';
+  const said = blocks.slice(start, i).filter((b) => b.ev.type === 'text').map((b) => b.text).join('\n\n');
+  if (a === 'copy') { await navigator.clipboard?.writeText(said); e.target.textContent = 'Copied'; }
+  if (a === 'claude') openJob(asked, said);
 });
 
-function openJob(el, text) {
-  const asked = el.previousElementSibling?.classList.contains('user') ? el.previousElementSibling.textContent.trim() : '';
-  $('#job-title').value = (asked || chat.title).slice(0, 80);
+function openJob(asked, said) {
+  $('#job-title').value = (asked || cur.title).slice(0, 80);
   $('#job-prompt').value =
-    `From the Gemini chat “${chat.title}” (/studio/gemini/, chat ${chat.id}).\n\n` +
+    `From the Gemini CLI session “${cur.title}” (/studio/gemini/, session ${cur.id}).\n\n` +
     (asked ? `Anthony asked Gemini:\n${asked}\n\n` : '') +
-    `Gemini answered:\n${text}\n\nDo what this calls for in zpkt. Check Gemini's claims against the repo first.`;
+    `Gemini answered:\n${said}\n\nTake it from here in zpkt. Check what Gemini said and did against the repo first.`;
   $('#job-msg').textContent = '';
   $('#job-ok').disabled = false;
   sheet('#job', true);
@@ -339,26 +382,22 @@ $('#job-x').onclick = () => sheet('#job', false);
 
 /* ---------- settings ---------- */
 function sheet(id, on) { $(id).classList.toggle('open', on); $(id).setAttribute('aria-hidden', String(!on)); }
-async function loadModels() {
-  try { models = (await api('/models')).models; } catch (e) { models = []; $('#model').innerHTML = `<option value="">Could not load models: ${esc(e.message)}</option>`; }
-}
-function openSettings() {
-  const s = chat?.settings || state.settings;
-  const list = models.some((m) => m.id === s.model) ? models : [{ id: s.model, name: s.model }, ...models];
-  $('#model').innerHTML = list.map((m) => `<option value="${esc(m.id)}">${esc(m.id)}</option>`).join('');
-  $('#model').value = s.model; $('#zpkt').checked = !!s.zpkt; $('#sys').value = s.system || '';
-  $('#temp').value = s.temperature ?? 1; $('#tv').textContent = $('#temp').value;
+$('#gear').onclick = () => {
+  if (!cur) { alert('Start a session first: write something below.'); return; }
+  const models = state.offers?.models?.length ? state.offers.models : [cur.model];
+  const list = models.includes(cur.model) ? models : [cur.model, ...models];
+  $('#model').innerHTML = list.map((m) => `<option value="${esc(m)}">${esc(m)}</option>`).join('');
+  $('#model').value = cur.model; $('#stitle').value = cur.title;
+  $('#cwd').textContent = `Works in ${cur.cwd}`;
   sheet('#set', true);
-}
-$('#gear').onclick = openSettings;
-$('#temp').oninput = (e) => ($('#tv').textContent = e.target.value);
+};
 $('#set-x').onclick = () => sheet('#set', false);
 $('#set-form').onsubmit = async (e) => {
   e.preventDefault();
-  const s = { model: $('#model').value, zpkt: $('#zpkt').checked, system: $('#sys').value, temperature: Number($('#temp').value) };
-  state.settings = (await api('/settings', { method: 'POST', body: JSON.stringify(s) })).settings;
-  if (chat) chat = { ...(await api(`/chats/${chat.id}`, { method: 'PATCH', body: JSON.stringify({ settings: s }) })), dollars: chat.dollars };
-  sheet('#set', false); sub();
+  try {
+    cur = { ...cur, ...(await api(`/sessions/${cur.id}`, { method: 'PATCH', body: JSON.stringify({ model: $('#model').value, title: $('#stitle').value }) })) };
+    sheet('#set', false); header(); refresh().catch(() => {});
+  } catch (err) { alert(err.message); }
 };
 for (const id of ['#set', '#job']) $(id).addEventListener('click', (e) => { if (e.target.id === id.slice(1)) sheet(id, false); });
 
@@ -383,8 +422,7 @@ function renderPrev() {
     p.append(d);
   });
 }
-// downscale to keep requests small (long edge 1600 px, JPEG)
-function shrink(file) {
+function shrink(file) {    // long edge 1600 px, JPEG
   return new Promise((res) => {
     const im = new Image(), u = URL.createObjectURL(file);
     im.onload = () => {
@@ -399,13 +437,13 @@ function shrink(file) {
 }
 
 /* ---------- chrome ---------- */
-$('#new').onclick = () => { if (ctrl) return; chat = null; remember(null); document.body.classList.remove('nav'); render(); $('#in').focus(); };
+$('#new').onclick = () => { document.body.classList.remove('nav'); close(); $('#in').focus(); };
 $('#menu').onclick = () => document.body.classList.add('nav');
 $('#scrim').onclick = () => document.body.classList.remove('nav');
+document.addEventListener('visibilitychange', () => { if (!document.hidden && cur && !following) open(cur.id); });
 
 (async () => {
-  await refresh().catch((e) => { $('#thread').innerHTML = `<p class="err">${esc(e.message)}</p>`; });
-  const want = new URLSearchParams(location.search).get('chat') || remembered;
-  if (want && state.chats.some((c) => c.id === want)) await open(want); else render();
-  loadModels();
+  try { await refresh(); } catch (e) { $('#thread').innerHTML = `<p class="err">${esc(e.message)}</p>`; return; }
+  const want = new URLSearchParams(location.search).get('s') || remembered;
+  if (want && state.sessions.some((s) => s.id === want)) await open(want); else { header(); paint(); }
 })();
