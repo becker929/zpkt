@@ -110,3 +110,41 @@ table { border-collapse: collapse; font-size: 14px; } th, td { border: 1px solid
   body.nav #scrim { display: block; position: fixed; inset: 0; background: rgb(0 0 0 / .6); z-index: 9; }
   #menu { display: grid; }
 }
+
+/* Gemini CLI: modes, thoughts, tool cards, permission questions, plans */
+.g-modes { display: flex; gap: 0; margin: 0 0 8px; border: 1.5px solid var(--line); }
+.g-modes button { flex: 1; min-height: 36px; font: 10px var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--ink-2); }
+.g-modes button + button { border-left: 1.5px solid var(--line); }
+.g-modes button.on { background: var(--ink); color: #000; }
+.g-modes button.on.hot { background: var(--gold); }
+.thought { margin: 6px 0; font-size: 13px; color: var(--ink-2); }
+.thought summary { font: 10px var(--mono); letter-spacing: .1em; text-transform: uppercase; cursor: pointer; padding: 4px 0; list-style: none; }
+.thought summary::before { content: '+ '; } .thought[open] summary::before { content: '− '; }
+.thought div { white-space: pre-wrap; border-left: 2px solid var(--line); padding-left: 10px; }
+.tool { margin: 6px 0; border: 1.5px solid var(--line); padding: 6px 8px; font: 11px/1.4 var(--mono); }
+.tool .h { display: flex; gap: 8px; align-items: baseline; }
+.tool .k { color: var(--gold); text-transform: uppercase; letter-spacing: .08em; flex: none; }
+.tool .t { flex: 1; min-width: 0; overflow-wrap: anywhere; color: var(--ink); }
+.tool .s { flex: none; color: var(--ink-2); }
+.tool.failed { border-color: var(--err); } .tool.failed .s { color: var(--err); }
+.tool.in_progress .s::after, .tool.pending .s::after { content: ''; display: inline-block; width: 6px; height: 6px; margin-left: 5px; background: var(--gold); animation: b 1s infinite; }
+.tool details { margin-top: 4px; }
+.tool summary { cursor: pointer; color: var(--ink-2); list-style: none; padding: 2px 0; }
+.tool summary::before { content: '+ '; } .tool details[open] summary::before { content: '− '; }
+.tool pre { margin: 4px 0 0; max-height: 50vh; overflow: auto; white-space: pre-wrap; font: 11px/1.4 var(--mono); color: var(--ink-2); }
+.tool pre .del { color: var(--err); } .tool pre .add { color: #8fdc8f; }
+.ask { margin: 8px 0; border: 2px solid var(--gold); padding: 10px; }
+.ask > p { margin: 0 0 6px; font: 700 11px var(--mono); letter-spacing: .1em; text-transform: uppercase; color: var(--gold); }
+.ask .tool { border: 0; padding: 0; }
+.ask .opts { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.ask .opts button { flex: 1 1 auto; min-height: 44px; padding: 0 12px; border: 1.5px solid var(--ink); font: 700 11px var(--mono); letter-spacing: .08em; text-transform: uppercase; }
+.ask .opts button.allow { background: var(--ink); color: #000; }
+.ask .ans { margin-top: 8px; font: 11px var(--mono); color: var(--ink-2); }
+.ask.done { border-color: var(--line); } .ask.done > p { color: var(--ink-2); }
+.plan { margin: 8px 0; padding: 0; list-style: none; font-size: 14px; }
+.plan li { display: flex; gap: 8px; align-items: baseline; padding: 2px 0; }
+.plan li::before { content: ''; flex: none; width: 9px; height: 9px; border: 1.5px solid var(--ink-2); transform: translateY(1px); }
+.plan li.completed { color: var(--ink-2); text-decoration: line-through; } .plan li.completed::before { background: var(--ink-2); }
+.plan li.in_progress::before { border-color: var(--gold); background: var(--gold); }
+.note { margin: 6px 0; font: 10px var(--mono); letter-spacing: .1em; text-transform: uppercase; color: var(--ink-2); text-align: center; }
+.g-item .t i b { color: var(--gold); font-weight: 400; }

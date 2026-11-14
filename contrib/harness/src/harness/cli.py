@@ -1,5 +1,5 @@
 """harness serve | job "<prompt>" | jobs | show <id> | timings [--turns N] | studio-music-mp3 [--dry-run] | lab-audio | lab-params
-| lab-bars | artist show|propose | images gen|batch|list"""
+| lab-bars | artist show|propose | images gen|batch|list | gemini [gemini-cli args]"""
 
 from __future__ import annotations
 
@@ -7,12 +7,16 @@ import argparse
 import asyncio
 import json
 import logging
+import sys
 
 from . import jobs as J
 from .config import Config
 
 
 def main() -> None:
+    if sys.argv[1:2] == ["gemini"]:                   # everything after it is Gemini CLI's, flags included
+        from .gemini import exec_cli
+        exec_cli(sys.argv[2:])
     ap = argparse.ArgumentParser(prog="harness")
     sub = ap.add_subparsers(dest="cmd", required=True)
     sub.add_parser("serve", help="keep the socket to the site open and run jobs")
@@ -46,6 +50,8 @@ def main() -> None:
     im.add_argument("--size", default=None, help="1K, 2K or 4K")
     im.add_argument("--input", action="append", default=[], help="a reference image to send with the prompt")
     im.add_argument("--parallel", type=int, default=4)
+    ge = sub.add_parser("gemini", help="Gemini CLI in this zpkt checkout, with the key from the Keychain (contrib/docs/gemini.md)")
+    ge.add_argument("args", nargs=argparse.REMAINDER, help="passed to gemini as they are (-p, -m, --resume ...)")
     a = ap.parse_args()
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
     cfg = Config()

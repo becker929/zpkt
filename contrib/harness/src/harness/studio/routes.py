@@ -28,7 +28,7 @@
     GET  /studio/images/          every image made with Gemini, as a wall (static/images, contrib/docs/images.md)
     GET  /studio/images/api/list  their records, newest first (?offset=&limit=&batch=), and the batches
     GET  /studio/images/files/<name>  an image or its gallery copy (cached forever: names are never reused)
-    /studio/gemini/...            the Gemini chat that knows zpkt (gemini_routes.py, contrib/docs/gemini.md)
+    /studio/gemini/...            Gemini CLI sessions in zpkt, over ACP (gemini_routes.py, contrib/docs/gemini.md)
 """
 
 from __future__ import annotations

@@ -1,208 +1,243 @@
-"""The Gemini chat (harness/gemini.py, studio/gemini_routes.py, contrib/docs/gemini.md): a turn runs the model and its
-tools until it answers, the repo tools see tracked files only, images go through harness.images onto the wall, chats
-and usage are kept on the Mac, attachments past the harness's 64 KB body cap arrive, and a retry answers again."""
+"""Gemini CLI in zpkt (harness/gemini.py, studio/gemini_routes.py, contrib/docs/gemini.md), against a stand-in for
+`gemini --acp` (fake_gemini_acp.py): a turn streams to the page and goes on without it, a question waits for the
+phone's answer, a session survives a harness restart (session/load, its replay not shown twice), the mode reaches
+Gemini CLI, a turn can be stopped, images past the harness's 64 KB body cap arrive, and each turn's cost is kept."""
 
 from __future__ import annotations
 
+import asyncio
 import base64
-import io
 import json
-import subprocess
+import sys
+from pathlib import Path
 
 import pytest
 from aiohttp import web
 from aiohttp.test_utils import TestClient, TestServer
-from PIL import Image
 
 from harness import gemini as G
-from harness import images as I
 from harness.studio.gemini_routes import add_gemini_routes
-from harness.studio.routes import IMAGES_KEY
 
-
-def png(w=32, h=32) -> bytes:
-    buf = io.BytesIO()
-    Image.new("RGB", (w, h), (200, 30, 30)).save(buf, "PNG")
-    return buf.getvalue()
+FAKE = [sys.executable, str(Path(__file__).parent / "fake_gemini_acp.py")]
 
 
 @pytest.fixture
-def repo(tmp_path):
-    r = tmp_path / "zpkt"
-    (r / "docs").mkdir(parents=True)
-    (r / "README.md").write_text("# zpkt\nhands drives Live\nears measures renders\n")
-    (r / "docs" / "workflow.md").write_text("step one\nthe kick stays out until the drop\n")
-    (r / ".env").write_text("SECRET=1\n")
-    (r / "notes.txt").write_text("untracked\n")
-    git = lambda *a: subprocess.run(["git", "-C", str(r), *a], check=True, capture_output=True)
-    git("init", "-q", "-b", "main")
-    git("add", "README.md", "docs/workflow.md", ".env")
-    git("-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qm", "first")
-    return r
+def acp_log(tmp_path, monkeypatch):
+    path = tmp_path / "acp.jsonl"
+    monkeypatch.setenv("FAKE_ACP_LOG", str(path))
+    return path
 
 
-def fake_stream(*rounds):
-    """Each round is a list of SSE events; records every request body."""
-    sent, it = [], iter(rounds)
-
-    async def stream(url, body, headers):
-        sent.append({"url": url, "body": json.loads(json.dumps(body)), "headers": headers})
-        for ev in next(it):
-            yield ev
-    return stream, sent
+def sent(path: Path, method: str) -> list[dict]:
+    if not path.is_file():
+        return []
+    return [m for m in map(json.loads, path.read_text().splitlines()) if m.get("method") == method]
 
 
-def text_events(*chunks, usage=None):
-    evs = [{"candidates": [{"content": {"role": "model", "parts": [{"text": c}]}}]} for c in chunks]
-    evs[-1]["candidates"][0]["finishReason"] = "STOP"
-    evs[-1]["usageMetadata"] = usage or {"promptTokenCount": 1000, "candidatesTokenCount": 200, "thoughtsTokenCount": 100}
-    return evs
+def make(tmp_path, notes=None) -> G.Gemini:
+    notify = (lambda title, body, sid: notes.append((title, body, sid))) if notes is not None else None
+    return G.Gemini(tmp_path / "gemini", tmp_path, lambda: "k", cmd=FAKE, notify=notify)
 
 
-def call_event(name, args, sig="c2lnbmF0dXJl"):
-    return [{"candidates": [{"content": {"role": "model", "parts": [
-        {"functionCall": {"name": name, "args": args}, "thoughtSignature": sig}]}}],
-        "usageMetadata": {"promptTokenCount": 800, "candidatesTokenCount": 20}}]
-
-
-async def client(tmp_path, repo, stream, image_post=None) -> TestClient:
+async def client(g: G.Gemini) -> TestClient:
     sub = web.Application()
-    sub[IMAGES_KEY] = I.Store(tmp_path / "images")
-    add_gemini_routes(sub, root=tmp_path / "gemini", repo=repo, key="k", stream=stream, image_post=image_post)
-    app = web.Application(client_max_size=64 * 1024)          # the harness's own cap, which /send reads past
+    add_gemini_routes(sub, gemini=g)
+    app = web.Application(client_max_size=64 * 1024)          # the harness's own cap, which /prompt reads past
     app.add_subapp("/studio", sub)
     c = TestClient(TestServer(app))
     await c.start_server()
     return c
 
 
-async def events(resp) -> list[dict]:
-    return [json.loads(line) for line in (await resp.text()).splitlines() if line.strip()]
+async def follow(c: TestClient, sid: str, after: int = -1, on=None) -> list[dict]:
+    """Reads the events stream to its end (the session idle), calling on(ev) for each."""
+    r = await c.get(f"/studio/gemini/api/sessions/{sid}/events?after={after}")
+    out = []
+    async for line in r.content:
+        if line.strip():
+            ev = json.loads(line)
+            out.append(ev)
+            if on:
+                await on(ev)
+    return out
 
 
-async def test_a_turn_reads_the_repo_then_answers(tmp_path, repo):
-    stream, sent = fake_stream(call_event("zpkt_read", {"path": "docs/workflow.md"}), text_events("The kick ", "waits."))
-    c = await client(tmp_path, repo, stream)
+async def test_a_turn_streams_and_is_kept(tmp_path, acp_log):
+    g = make(tmp_path)
+    c = await client(g)
     try:
-        r = await c.post("/studio/gemini/api/chats/new/send", json={"text": "When does the kick come in?"})
-        evs = await events(r)
+        s = await (await c.post("/studio/gemini/api/sessions", json={})).json()
+        assert s["model"] == "gemini-flash-latest" and s["mode"] == "default" and s["cwd"] == str(tmp_path)
+        r = await c.post(f"/studio/gemini/api/sessions/{s['id']}/prompt", json={"text": "hello zpkt"})
+        assert (await r.json())["after"] == -1
+        evs = await follow(c, s["id"])
         types = [e["type"] for e in evs]
-        assert types[0] == "chat" and types[-1] == "done" and "tool" in types
-        assert "".join(e["text"] for e in evs if e["type"] == "text") == "The kick waits."
-        cid = evs[0]["id"]
-        assert evs[0]["title"] == "When does the kick come in?"
+        assert types[0] == "user" and types[-2:] == ["done", "idle"] and "thought" in types
+        assert "".join(e["text"] for e in evs if e["type"] == "text") == "echo: hello zpkt (0 images)"
+        assert [e["n"] for e in evs] == list(range(len(evs)))
 
-        first, second = sent
-        assert first["headers"]["x-goog-api-key"] == "k" and ":streamGenerateContent?alt=sse" in first["url"]
-        assert first["body"]["tools"] == G.TOOLS
-        assert "zpkt" in first["body"]["systemInstruction"]["parts"][0]["text"]
-        # the call goes back with its signature, then the tool's answer
-        call, reply = second["body"]["contents"][1:]
-        assert call["parts"][0]["thoughtSignature"] == "c2lnbmF0dXJl"
-        got = reply["parts"][0]["functionResponse"]
-        assert got["name"] == "zpkt_read" and "the kick stays out until the drop" in got["response"]["text"]
-        assert not any(k.startswith("_") for msg in second["body"]["contents"] for k in msg)
+        init = sent(acp_log, "initialize")[0]["params"]
+        assert init["clientCapabilities"]["fs"] == {"readTextFile": False, "writeTextFile": False}
+        assert sent(acp_log, "session/new")[0]["params"]["cwd"] == str(tmp_path)
 
-        chat = await (await c.get(f"/studio/gemini/api/chats/{cid}")).json()
-        assert [x["role"] for x in chat["contents"]] == ["user", "model", "user", "model"]
-        assert chat["dollars"] > 0
         state = await (await c.get("/studio/gemini/api/state")).json()
-        assert state["chats"][0]["id"] == cid and state["usage"]["chat"] >= 0
-        rows = (tmp_path / "gemini" / "usage.jsonl").read_text().splitlines()
-        assert len(rows) == 2 and json.loads(rows[0])["chat"] == cid
+        row = state["sessions"][0]
+        assert row["title"] == "hello zpkt" and row["dollars"] > 0 and not row["running"]
+        assert state["offers"]["models"] == ["gemini-flash-latest", "gemini-3.1-pro-preview"]
+        done = next(e for e in evs if e["type"] == "done")
+        # 600 fresh + 400 cached at a tenth, at flash input; 150 out at flash output
+        assert done["dollars"] == pytest.approx((600 * 0.5 + 40 * 0.5 + 150 * 3.0) / 1e6)
+        # the page can come back later and get it all
+        again = await (await c.get(f"/studio/gemini/api/sessions/{s['id']}")).json()
+        assert again["events"] == evs
     finally:
         await c.close()
+        await g.close()
 
 
-async def test_images_go_through_harness_images(tmp_path, repo):
-    def post(url, body, headers, timeout):
-        return {"candidates": [{"content": {"parts": [{"inlineData": {"mimeType": "image/png", "data": base64.b64encode(png()).decode()}}]}}],
-                "usageMetadata": {"totalTokenCount": 1300}}
-    stream, sent = fake_stream(call_event("make_image", {"prompt": "a gold obelisk", "title": "obelisk", "aspect": "9:16"}),
-                               text_events("Here it is."))
-    c = await client(tmp_path, repo, stream, image_post=post)
+async def test_a_question_waits_for_the_phone(tmp_path, acp_log):
+    notes = []
+    g = make(tmp_path, notes)
+    c = await client(g)
     try:
-        evs = await events(await c.post("/studio/gemini/api/chats/new/send", json={"text": "make me an obelisk"}))
-        made = next(e for e in evs if e["type"] == "images")["images"]
-        cid = evs[0]["id"]
-        rec = I.Store(tmp_path / "images").all()[0]
-        assert made[0]["id"] == rec.id and rec.batch == f"gemini-{cid}" and rec.prompt == "a gold obelisk"
-        assert "make me an obelisk" in rec.context and rec.settings["imageConfig"]["aspectRatio"] == "9:16"
-        resp = sent[1]["body"]["contents"][2]["parts"][0]["functionResponse"]["response"]
-        assert resp["wall"] == f"/studio/images/?batch=gemini-{cid}"
-        chat = await (await c.get(f"/studio/gemini/api/chats/{cid}")).json()
-        assert chat["contents"][2]["parts"][0]["_images"][0]["thumb"] == rec.thumb     # the page shows it again later
+        s = await (await c.post("/studio/gemini/api/sessions", json={})).json()
+        await c.post(f"/studio/gemini/api/sessions/{s['id']}/prompt", json={"text": "edit the readme"})
+
+        async def answer(ev):
+            if ev["type"] == "permission" and "answered" not in ev:
+                assert [o["kind"] for o in ev["options"]] == ["allow_once", "allow_always", "reject_once"]
+                assert ev["tool"]["content"][0]["diff"] == "/repo/README.md"
+                listed = await (await c.get("/studio/gemini/api/state")).json()
+                assert listed["sessions"][0]["asking"] is True
+                bad = await c.post(f"/studio/gemini/api/permissions/{ev['id']}", json={"option": "nope"})
+                assert bad.status == 400
+                ok = await c.post(f"/studio/gemini/api/permissions/{ev['id']}", json={"option": "proceed_once"})
+                assert ok.status == 200
+        evs = await follow(c, s["id"], on=answer)
+        tools = [e for e in evs if e["type"] == "tool"]
+        assert tools[0]["status"] == "pending" and tools[-1]["status"] == "completed" and tools[-1]["of"] == tools[0]["n"]
+        assert tools[-1]["content"][0]["diff"] == "/repo/README.md"      # an update keeps what came before
+        asked = [e for e in evs if e["type"] == "permission"]
+        assert asked[-1]["answered"] == "proceed_once" and asked[-1]["of"] == asked[0]["n"]
+        assert "Done." in "".join(e["text"] for e in evs if e["type"] == "text")
+        reply = [m for m in map(json.loads, acp_log.read_text().splitlines())
+                 if "outcome" in (m.get("result") or {})]
+        assert reply[0]["result"]["outcome"] == {"outcome": "selected", "optionId": "proceed_once"}
+        await asyncio.sleep(0.2)
+        assert notes == [("Gemini asks", "Edit README.md", s["id"])]
     finally:
         await c.close()
+        await g.close()
 
 
-def test_the_repo_tools_see_tracked_files_only(repo):
-    r = G.Repo(repo)
-    assert r.list("")["entries"] == ["docs/", "README.md"]                # no .env, no untracked notes
-    with pytest.raises(ValueError):
-        r.read("notes.txt")
-    with pytest.raises(ValueError):
-        r.read(".env")
-    with pytest.raises(ValueError):
-        r.read("../zpkt/README.md")
-    assert r.read("README.md", 2, 1)["text"] == "2\thands drives Live"
-    hits = r.search("measures|kick")["hits"]
-    assert hits == ["README.md:3: ears measures renders", "docs/workflow.md:2: the kick stays out until the drop"]
-    assert r.search("kick", glob="*.md", path="docs")["files"] == 1
-    assert r.log()["commits"][0].endswith("first")
-
-
-async def test_attachments_past_64k_are_kept_and_sent_inline(tmp_path, repo):
-    stream, sent = fake_stream(text_events("A red square."))
-    c = await client(tmp_path, repo, stream)
-    big = base64.b64encode(png(700, 700) + b"\0" * 90_000).decode()          # well past 64 KB
+async def test_allow_always_changes_the_mode(tmp_path, acp_log):
+    g = make(tmp_path)
+    c = await client(g)
     try:
-        evs = await events(await c.post("/studio/gemini/api/chats/new/send",
-                                        json={"text": "what is this", "images": [{"mime": "image/png", "data": big}],
-                                              "settings": {"zpkt": False, "model": "gemini-flash-latest"}}))
-        assert evs[-1]["type"] == "done"
-        body = sent[0]["body"]
-        assert "tools" not in body and "systemInstruction" not in body and "gemini-flash-latest" in sent[0]["url"]
-        assert body["contents"][0]["parts"][0]["inlineData"]["data"] == big
-        chat = await (await c.get(f"/studio/gemini/api/chats/{evs[0]['id']}")).json()
-        name = chat["contents"][0]["parts"][0]["file"]
-        f = await c.get(f"/studio/gemini/files/{chat['id']}/{name}")
-        assert f.status == 200 and len(await f.read()) == len(base64.b64decode(big))
+        s = await (await c.post("/studio/gemini/api/sessions", json={})).json()
+        await c.post(f"/studio/gemini/api/sessions/{s['id']}/prompt", json={"text": "edit it"})
+
+        async def always(ev):
+            if ev["type"] == "permission" and "answered" not in ev:
+                await c.post(f"/studio/gemini/api/permissions/{ev['id']}", json={"option": "proceed_always"})
+        evs = await follow(c, s["id"], on=always)
+        assert "".join(e["text"] for e in evs if e["type"] == "text") == "Done."     # no [MODE_UPDATE] in the answer
+        assert [e["mode"] for e in evs if e["type"] == "note"] == ["autoEdit"]
+        assert (await (await c.get(f"/studio/gemini/api/sessions/{s['id']}")).json())["mode"] == "autoEdit"
     finally:
         await c.close()
+        await g.close()
 
 
-async def test_retry_answers_the_last_message_again(tmp_path, repo):
-    stream, sent = fake_stream(text_events("one"), text_events("two"))
-    c = await client(tmp_path, repo, stream)
+async def test_yolo_mode_reaches_gemini_cli(tmp_path, acp_log):
+    g = make(tmp_path)
+    c = await client(g)
     try:
-        cid = (await events(await c.post("/studio/gemini/api/chats/new/send", json={"text": "count"})))[0]["id"]
-        evs = await events(await c.post(f"/studio/gemini/api/chats/{cid}/retry"))
-        assert [e["text"] for e in evs if e["type"] == "text"] == ["two"]
-        chat = await (await c.get(f"/studio/gemini/api/chats/{cid}")).json()
-        assert len(chat["contents"]) == 2 and chat["contents"][1]["parts"][0]["text"] == "two"
-        assert len(sent[1]["body"]["contents"]) == 1
-        assert (await c.delete(f"/studio/gemini/api/chats/{cid}")).status == 200
-        assert (await c.get(f"/studio/gemini/api/chats/{cid}")).status == 404
+        s = await (await c.post("/studio/gemini/api/sessions", json={"mode": "yolo"})).json()
+        assert s["mode"] == "yolo"
+        assert sent(acp_log, "session/set_mode")[0]["params"] == {"sessionId": s["id"], "modeId": "yolo"}
+        await c.post(f"/studio/gemini/api/sessions/{s['id']}/prompt", json={"text": "edit it"})
+        evs = await follow(c, s["id"])
+        assert not [e for e in evs if e["type"] == "permission"]
+        assert "Done." in "".join(e["text"] for e in evs if e["type"] == "text")
+        bad = await c.patch(f"/studio/gemini/api/sessions/{s['id']}", json={"mode": "anything"})
+        assert bad.status == 400
     finally:
         await c.close()
+        await g.close()
 
 
-async def test_an_error_is_shown_in_the_chat(tmp_path, repo):
-    async def stream(url, body, headers):
-        raise RuntimeError("quota exceeded")
-        yield  # never reached: it makes this an async generator
-    c = await client(tmp_path, repo, stream)
+async def test_a_session_survives_a_restart(tmp_path, acp_log):
+    g = make(tmp_path)
+    c = await client(g)
+    s = await (await c.post("/studio/gemini/api/sessions", json={})).json()
+    await c.post(f"/studio/gemini/api/sessions/{s['id']}/prompt", json={"text": "one"})
+    await follow(c, s["id"])
+    await c.close()
+    await g.close()
+
+    g2 = make(tmp_path)                                        # the harness restarted: a new process
+    c2 = await client(g2)
     try:
-        evs = await events(await c.post("/studio/gemini/api/chats/new/send", json={"text": "hi"}))
-        assert evs[-1] == {"type": "error", "error": "quota exceeded"}
+        before = len(g2.session(s["id"]).events)
+        await c2.post(f"/studio/gemini/api/sessions/{s['id']}/prompt", json={"text": "two"})
+        evs = await follow(c2, s["id"], after=before - 1)
+        loads = sent(acp_log, "session/load")
+        assert loads and loads[0]["params"]["sessionId"] == s["id"]
+        said = "".join(e["text"] for e in evs if e["type"] == "text")
+        assert said == "echo: two (0 images)"                  # the replayed history is not shown again
+        assert sent(acp_log, "session/set_model")[-1]["params"]["modelId"] == "gemini-flash-latest"
+    finally:
+        await c2.close()
+        await g2.close()
+
+
+async def test_a_turn_can_be_stopped(tmp_path, acp_log):
+    g = make(tmp_path)
+    c = await client(g)
+    try:
+        s = await (await c.post("/studio/gemini/api/sessions", json={})).json()
+        await c.post(f"/studio/gemini/api/sessions/{s['id']}/prompt", json={"text": "slow please"})
+        busy = await c.post(f"/studio/gemini/api/sessions/{s['id']}/prompt", json={"text": "again"})
+        assert busy.status == 409
+
+        async def stop(ev):
+            if ev["type"] == "text" and ev["text"] == "3 ":
+                await c.post(f"/studio/gemini/api/sessions/{s['id']}/cancel")
+        evs = await follow(c, s["id"], on=stop)
+        assert evs[-2]["type"] == "done" and evs[-2]["stop"] == "cancelled"
+        assert len([e for e in evs if e["type"] == "text"]) < 50
     finally:
         await c.close()
+        await g.close()
 
 
-def test_the_estimate():
-    assert G.cost("gemini-flash-latest", {"promptTokenCount": 1_000_000}) == pytest.approx(0.5)
-    assert G.cost("gemini-pro-latest", {"candidatesTokenCount": 500_000, "thoughtsTokenCount": 500_000}) == pytest.approx(12)
+async def test_images_past_64k_reach_gemini_cli(tmp_path, acp_log):
+    g = make(tmp_path)
+    c = await client(g)
+    big = base64.b64encode(b"\x89PNG" + b"\0" * 120_000).decode()
+    try:
+        s = await (await c.post("/studio/gemini/api/sessions", json={})).json()
+        r = await c.post(f"/studio/gemini/api/sessions/{s['id']}/prompt",
+                         json={"text": "what is this", "images": [{"mime": "image/png", "data": big}]})
+        assert r.status == 200
+        evs = await follow(c, s["id"])
+        assert "(1 images)" in "".join(e["text"] for e in evs if e["type"] == "text")
+        block = sent(acp_log, "session/prompt")[0]["params"]["prompt"][0]
+        assert block == {"type": "image", "mimeType": "image/png", "data": big}
+        name = evs[0]["files"][0]
+        f = await c.get(f"/studio/gemini/files/{s['id']}/{name}")
+        assert f.status == 200 and len(await f.read()) == 120_004
+        assert (await c.delete(f"/studio/gemini/api/sessions/{s['id']}")).status == 200
+        assert (await c.get(f"/studio/gemini/api/sessions/{s['id']}")).status == 404
+    finally:
+        await c.close()
+        await g.close()
+
+
+def test_the_estimates():
+    assert G.turn_cost("gemini-3.1-pro-preview", {"inputTokens": 1_000_000}) == pytest.approx(2.0)
+    assert G.turn_cost("gemini-flash-latest", {"outputTokens": 500_000, "thoughtTokens": 500_000}) == pytest.approx(3.0)
     img = {"promptTokenCount": 100, "candidatesTokenCount": 1240, "thoughtsTokenCount": 200,
            "candidatesTokensDetails": [{"modality": "IMAGE", "tokenCount": 1120}]}
     assert G.cost("gemini-3-pro-image", img) == pytest.approx((100 * 2 + 320 * 12 + 1120 * 120) / 1e6)

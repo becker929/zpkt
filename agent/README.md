@@ -21,6 +21,12 @@ ln -s "$PWD/agent/skills/ableton-live-control" ~/.claude/skills/
 ln -s "$PWD/agent/skills/ableton-guide" ~/.claude/skills/
 ```
 
+## Use them in Gemini CLI
+
+Nothing to install either. `.agents/skills/` links to the same folders, and `.gemini/settings.json`
+makes Gemini CLI read `AGENTS.md` as its context file. Run `gemini` from the repo root (on
+Anthony's Mac, `harness gemini` adds the API key from the Keychain).
+
 The skills call `hands` by its path in this repo (`cd hands && uv run hands …`), so keep the
 clone.
 
