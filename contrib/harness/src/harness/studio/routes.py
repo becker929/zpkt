@@ -28,6 +28,7 @@
     GET  /studio/images/          every image made with Gemini, as a wall (static/images, contrib/docs/images.md)
     GET  /studio/images/api/list  their records, newest first (?offset=&limit=&batch=), and the batches
     GET  /studio/images/files/<name>  an image or its gallery copy (cached forever: names are never reused)
+    /studio/gemini/...            the Gemini chat that knows zpkt (gemini_routes.py, contrib/docs/gemini.md)
 """
 
 from __future__ import annotations
@@ -44,6 +45,7 @@ from . import artist as A
 from . import regions as R
 from .assets import Assets, accepts_gzip
 from .conversation import PAGE
+from .gemini_routes import add_gemini_routes
 from .hub import Client
 from .model import Prefs
 from .protocol import MIC, BadMessage, parse_binary, parse_text
@@ -82,6 +84,7 @@ def app(studio: "Studio") -> web.Application:
     sub.router.add_get("/checklist/{path:.*}", checklist_file)
     sub.router.add_get("/site-audio/{path:.+}", site_audio)
     add_image_routes(sub)
+    add_gemini_routes(sub)
     return sub
 
 
