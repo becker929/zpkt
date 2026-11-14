@@ -6,6 +6,7 @@ jobs. `harness serve` runs it all.
 ```
 phone (Tailscale on) --https--> tailscale serve (tailnet only) --> 127.0.0.1:8787  harness serve
                                                                     ├─ /studio/   the voice app (contrib/docs/design/studio.md)
+                                                                    ├─ /studio/gemini/  the Gemini chat that reads zpkt (contrib/docs/gemini.md)
                                                                     ├─ /skrng/    the site's pages, keyless here
                                                                     ├─ /api/rpc   the methods below, in-process
                                                                     └─ jobs       Claude Code sessions, one at a time
