@@ -2,6 +2,12 @@
 
 ## The rule
 
+**No instruments in the browser.** Anthony, 17 November 2026: "That rule means no instruments in the browser. You can
+use audio playback libraries." No page, demo, prototype, mock-up or test page makes music of its own: no synths, drum
+machines or other instruments, and no oscillators or noise standing in for a sound. Playing rendered audio is fine,
+and so is doing it with an audio playback library (wavesurfer.js, Howler, Tone.js's Player and Transport, and the
+like), as long as the library only plays the rendered files.
+
 **The browser never does the DAW's job.** No page, demo, prototype, mock-up or test page may synthesize or change
 audio in a way that belongs in the DAW: no synths or drum machines, no EQ or filters, no compression, distortion or
 clipping, no reverb or delay, no panning or width, no gain moves standing in for a mix move, no granular, slicing,
@@ -17,7 +23,8 @@ rendered. Every change you hear is a different file, or a different place in one
 switch on the bar). These uses are allowed, because none of them does the DAW's job:
 
 - **Playing rendered files**: decoding, starting, stopping and jumping on the audio clock, and the few-millisecond
-  fades a switch needs so it does not click.
+  fades a switch needs so it does not click. A playback library may do this work (17 November 2026), and may draw the
+  waveform; its instruments, synths and effects stay unused.
 - **A loudness match for comparing** two renders (studio's Match loudness): a listening aid, not a mix move.
 - **The mic**: capture, levels and sending it to the Mac.
 - **Interface sounds** that are not music, such as studio's ready sound.
