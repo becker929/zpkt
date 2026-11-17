@@ -33,7 +33,7 @@ from claude_agent_sdk import (
     query,
 )
 
-from .config import Config, secret
+from .config import Config, agent_path, secret
 
 log = logging.getLogger(__name__)
 
@@ -100,6 +100,7 @@ def new_id() -> str:
 def job_env(cfg: Config) -> dict[str, str]:
     """The environment every Claude Code session from the harness gets (the Keychain login, if there is one)."""
     env = dict(cfg.extra_env)
+    env["PATH"] = agent_path(env.get("PATH"))
     token = secret("oauth")
     if token:
         env["CLAUDE_CODE_OAUTH_TOKEN"] = token

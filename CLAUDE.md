@@ -1,10 +1,12 @@
 # zpkt: rules for agents
 
-Where things are: `hands/` drives Live, `ears/` measures renders, `agent/skills/` holds the skills for driving Live
-(linked into `.claude/skills/`), `lib/` has the rig startup and the JSON contracts. `contrib/` is Anthony's own setup
-(the studio voice app in `contrib/harness`, the music bot and booth, publishing, and in `contrib/docs/` his workflow,
-design notes and dated journal); `prototypes/` holds experiments. Each part is its own uv project: run its tests from
-its folder, or `make test`.
+Where things are: `hands/` drives Live, `ears/` measures renders (`ears/mlab/reports/` holds mastering and reference
+sheets), `agent/skills/` holds the skills for driving Live (linked into `.claude/skills/` and `.agents/skills/`),
+`lib/` has the rig startup and the JSON contracts. `contrib/` is Anthony's own setup (the studio voice app and Gemini
+CLI sessions in `contrib/harness`, the HW002 arranger and spectral comparison tools in `contrib/arranger`, the music
+bot and booth, publishing, and in `contrib/docs/` his workflow, design notes and dated journal); `prototypes/` holds
+experiments. Each part is its own uv project: run its tests from its folder, or `make test`. In non-interactive
+shells where `uv` is not on `PATH`, use `~/.local/bin/uv` or `ears/.venv/bin/python` directly.
 
 - **Read `agent/skills/ableton-guide/SKILL.md` before sending code to Live.** Work on copies of sets, keep each
   `hands live exec` call short, and measure the rendered file before saying a render worked.
