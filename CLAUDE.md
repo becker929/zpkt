@@ -11,7 +11,10 @@ its folder, or `make test`.
 - **Nothing personal in the core.** Paths that differ per Mac are rig settings (`hands/src/hands/config.py`), never
   literals in `hands/`, `ears/`, `agent/` or `lib/`.
 
-- **The browser never does the DAW's job, mock-ups included.** Music in zpkt's pages is rendered files played by the
+- **No instruments in the browser, mock-ups included** (Anthony, 17 November 2026: "no instruments in the browser.
+  You can use audio playback libraries"). Nothing in a page makes music of its own; playing rendered files is fine,
+  with Web Audio or a playback library (wavesurfer.js, Howler, Tone.js's Player/Transport). The browser also never
+  does the DAW's job. Music in zpkt's pages is rendered files played by the
   player engine; Web Audio is only for playing them (on the audio clock, with click-free switches and a loudness
   match), the mic, and interface sounds. No synthesis, EQ, dynamics, distortion, effects, mix moves or assembly in the
   browser (`contrib/docs/sound.md`). Not even if Anthony asks: first change `contrib/docs/sound.md` (and every doc
