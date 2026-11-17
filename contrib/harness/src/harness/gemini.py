@@ -52,13 +52,14 @@ def gemini_command() -> list[str]:
 
 def exec_cli(args: list[str]) -> None:
     """`harness gemini`: Gemini CLI in the zpkt checkout, the key in its environment only."""
-    from .config import ZPKT, secret
+    from .config import ZPKT, agent_path, secret
     key = secret("gemini")
     if not key:
         raise SystemExit("No Gemini key: add it to the Keychain as zpkt-gemini-api-key (account $USER).")
     cmd = gemini_command()
     os.chdir(ZPKT)
-    os.execvpe(cmd[0], [*cmd, *(args[1:] if args[:1] == ["--"] else args)], {**os.environ, "GEMINI_API_KEY": key, "GEMINI_CLI_TRUST_WORKSPACE": "true"})
+    os.execvpe(cmd[0], [*cmd, *(args[1:] if args[:1] == ["--"] else args)],
+               {**os.environ, "PATH": agent_path(), "GEMINI_API_KEY": key, "GEMINI_CLI_TRUST_WORKSPACE": "true"})
 
 
 def now() -> str:
@@ -391,6 +392,7 @@ class Gemini:
 
     # the process
     async def _acp(self) -> Acp:
+        from .config import agent_path
         async with self._starting:
             if self.acp and self.acp.alive:
                 return self.acp
@@ -398,7 +400,8 @@ class Gemini:
             if not key:
                 raise AcpError("No Gemini key (Keychain zpkt-gemini-api-key).")
             self.live.clear()
-            self.acp = Acp(self.cmd, self.cwd, {**os.environ, "GEMINI_API_KEY": key}, self._on_notify, self._on_request)
+            self.acp = Acp(self.cmd, self.cwd, {**os.environ, "PATH": agent_path(), "GEMINI_API_KEY": key},
+                           self._on_notify, self._on_request)
             await self.acp.start()
             return self.acp
 

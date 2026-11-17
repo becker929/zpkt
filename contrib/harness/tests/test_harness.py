@@ -84,6 +84,9 @@ async def test_ask_is_read_only(cfg):
     opts = J.options(cfg, ask=True)
     assert "Bash" not in opts.allowed_tools and "Bash" in opts.disallowed_tools
     assert J.options(cfg).permission_mode == "acceptEdits"
+    path = J.job_env(cfg)["PATH"].split(":")
+    assert any(p.endswith("/.local/bin") for p in path)
+    assert any(p.endswith("/ears/.venv/bin") for p in path)
 
 
 class Socket:

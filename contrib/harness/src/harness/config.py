@@ -25,6 +25,14 @@ def voice_command() -> list[str]:
     uv = shutil.which("uv") or str(Path.home() / ".local" / "bin" / "uv")
     return [uv, "run", "--project", str(ZPKT / "contrib" / "voice"), "--extra", "engines", "voice", "serve"]
 
+
+def agent_path(base: str | None = None) -> str:
+    """PATH for agent sessions (Claude Code and Gemini CLI), with uv and ears' venv in front."""
+    cur = base or os.environ.get("PATH", "/usr/bin:/bin:/usr/sbin:/sbin")
+    items = cur.split(":") if cur else []
+    extra = [str(Path.home() / ".local" / "bin"), str(ZPKT / "ears" / ".venv" / "bin")]
+    return ":".join([*(p for p in extra if p not in items), *items])
+
 KEYCHAIN = {
     "rig_token": "zpkt-rig-token",          # Mac -> Worker socket (RIG_TOKEN on the Worker)
     "skrng_token": "skrng-token",           # read the owner's feedback from /api/skrng/feedback
@@ -54,7 +62,7 @@ def secret(name: str) -> str | None:
 @dataclass
 class Config:
     site: str = os.environ.get("HARNESS_SITE", "https://anthonybecker.me")
-    workdir: Path = Path(os.environ.get("HARNESS_WORKDIR", Path.home() / "Desktop"))
+    workdir: Path = Path(os.environ.get("HARNESS_WORKDIR", ZPKT))
     jobs_dir: Path = Path(os.environ.get("HARNESS_JOBS", Path.home() / "_agent_scratch" / "jobs"))
     cli_path: str | None = os.environ.get("HARNESS_CLI")  # None: the SDK's bundled Claude Code
     model: str | None = os.environ.get("HARNESS_MODEL")
