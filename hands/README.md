@@ -115,6 +115,10 @@ hands panel make --spec - <<'JSON'                    # track + instrument + val
 JSON
 hands panel make --spec '{"sound": "saw", "seq": "A B C D", "every": 4}'   # the short form: no parameter names, name made up
 hands panel apply funk-bass --state '{"values": {"filter_freq": 0.7}}'   # the page's values back in; next version + A/B deck
+hands panel grid funk-bass --axes '{"cutoff": {"from": "200 Hz", "to": "2 kHz", "steps": 4}}'   # 4 versions in one deck, A B C D
+hands panel pick funk-bass 1 C                         # keep version C of grid 1 (sets Live; nothing is rendered again)
+hands panel make --spec '{"name": "buses", "bars": [17, 8], "faders": ["bus-kick", "bus-hats"]}'   # a mix panel: tracks in the set, bars of the arrangement
+hands song make --spec '{"name": "tune", "tempo": 124, "sections": [{"name": "intro", "bars": 8, "parts": ["funk-bass"]}]}'   # panels' riffs over sections
 hands panel drop funk-bass                            # delete the track; renders stay
 ```
 
