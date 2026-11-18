@@ -93,10 +93,22 @@ class LiveClient(Transport):
     """TCP client for the AbletonLiveMCP Remote Script."""
 
     def __init__(self, host: str = DEFAULT_HOST, port: int = DEFAULT_PORT, timeout: float = 15.0,
-                 retries: int = 2, backoff: float = 0.5) -> None:
+                 retries: int = 2, backoff: float = 0.5, keep: bool = False) -> None:
+        """keep: hold one connection for every call (a new one costs about half a second on the Live rig).
+        The Remote Script serves one client at a time, so only a short-lived command should keep it."""
         self.host, self.port, self.timeout = host, port, timeout
         self.retries, self.backoff = retries, backoff
+        self.keep = keep
+        self._sock: socket.socket | None = None
         self._cmd_id = 0
+
+    def close(self) -> None:
+        if self._sock is not None:
+            try:
+                self._sock.close()
+            except OSError:
+                pass
+            self._sock = None
 
     def execute(self, code: str) -> McpResult:
         self._cmd_id += 1
@@ -142,20 +154,51 @@ class LiveClient(Transport):
             attempt += 1
 
     def _exchange(self, message: dict) -> dict:
-        with self._connect() as sock:
-            try:
-                sock.sendall((json.dumps(message) + "\n").encode())
-                line = sock.makefile("rb").readline()
-            except TimeoutError as exc:
-                raise _Lost(f"{LOST}: no reply in {self.timeout:g} s; the code may still run") from exc
-            except OSError as exc:
-                raise _Lost(f"{LOST}: connection lost ({exc}); the code may have run") from exc
+        data = (json.dumps(message) + "\n").encode()
+        if not self.keep:
+            with self._connect() as sock:
+                line = self._ask(sock, data)
+        else:
+            if self._sock is not None:
+                try:                                     # a kept connection may have gone stale: nothing was sent, so start a new one
+                    self._sock.sendall(data)
+                except OSError:
+                    self.close()
+                else:
+                    line = self._read(self._sock)
+            if self._sock is None:
+                self._sock = self._connect()
+                line = self._ask(self._sock, data)
         if not line.strip():
             raise _Lost(f"{LOST}: Live closed the connection without a reply")
         try:
             return json.loads(line)
         except ValueError as exc:
             raise _Lost(f"{LOST}: unreadable reply {line[:80]!r}") from exc
+
+    def _ask(self, sock: socket.socket, data: bytes) -> bytes:
+        try:
+            sock.sendall(data)
+        except OSError as exc:
+            self.close()
+            raise _Lost(f"{LOST}: connection lost ({exc}); the code may have run") from exc
+        return self._read(sock)
+
+    def _read(self, sock: socket.socket) -> bytes:
+        try:
+            buf = b""
+            while not buf.endswith(b"\n"):
+                part = sock.recv(65536)
+                if not part:
+                    break
+                buf += part
+            return buf
+        except TimeoutError as exc:
+            self.close()
+            raise _Lost(f"{LOST}: no reply in {self.timeout:g} s; the code may still run") from exc
+        except OSError as exc:
+            self.close()
+            raise _Lost(f"{LOST}: connection lost ({exc}); the code may have run") from exc
 
 
 class DryRunTransport(Transport):

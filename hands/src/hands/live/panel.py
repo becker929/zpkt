@@ -31,7 +31,8 @@ from hands.live.transport import McpTransport
 TRACK_PREFIX = "panel "
 LEAD_SECONDS = 1.5    # rendered before the riff and cut off: the first ~0.9 s of a resampled take is not on the timeline
 SAMPLES = 33          # points per parameter when reading what Live shows across its range
-ROUNDS = 3            # of narrowing in on the value that reads as asked: 1/32768 of the range
+ROUNDS = 2            # of narrowing in on the value that reads as asked: the whole range, then one stretch of it
+FINE = 513            # points in the second round: 1/16384 of the range, in one call
 ANCHORS = 9           # of those, how many go into a control's `display`
 MAX_BEATS = 128.0     # renders are real time
 MAX_CONTROLS = 16
@@ -145,6 +146,17 @@ def sequence(seq: str, *, every: float = 1.0, gate: float = 0.9, velocity: int =
 SOUNDS = {"saw": "Saw D", "sawtooth": "Saw D", "square": "Square D", "sine": "Sine", "triangle": "Triangle", "noise": "Noise White"}
 SOUND_CONTROLS = [{"param": "Filter Freq", "label": "Cutoff"}, {"param": "Filter Res", "label": "Resonance"},
                   {"param": "Ae Decay", "label": "Decay"}, {"param": "Ae Release", "label": "Release"}]
+# Designed sounds: Operator with four detuned saws side by side, a slow swell and a low-pass filter.
+_LAYERS = {"Algorithm": 10, "Osc-A Wave": "Saw D", "Osc-A Level": 1.0, "Osc-B On": 1, "Osc-B Wave": "Saw D", "Osc-B Level": 0.85,
+           "B Fine": 14, "Osc-C On": 1, "Osc-C Wave": "Saw D", "Osc-C Level": 0.75, "C Fine": 986, "Osc-D On": 1, "Osc-D Wave": "Saw D",
+           "Osc-D Level": 0.6, "D Coarse": 2, "D Fine": 8, "Spread": 85, "Filter On": 1, "Filter Type": "Lowpass", "Filter Slope": "24 dB",
+           "Ae Decay": "3.5 s", "Ae Sustain": "80 %"}
+PRESETS = {
+    "pad": {**_LAYERS, "Ae Attack": "1.4 s", "Ae Release": "2.8 s", "Filter Freq": "1.1 kHz", "Filter Res": "30 %"},
+    "strings": {**_LAYERS, "Ae Attack": "350 ms", "Ae Release": "1.2 s", "Filter Freq": "2.5 kHz", "Filter Res": "15 %"},
+}
+PRESET_CONTROLS = [{"param": "Filter Freq", "label": "Cutoff"}, {"param": "Filter Res", "label": "Resonance"}, {"param": "Ae Attack", "label": "Attack"},
+                   {"param": "Ae Release", "label": "Release"}, {"param": "Spread", "label": "Width"}]
 
 
 def expand(spec: dict, *, new: bool) -> dict:
@@ -152,8 +164,17 @@ def expand(spec: dict, *, new: bool) -> dict:
     if not spec.get("sound"):
         return spec
     sound = str(spec["sound"]).strip().lower()
+    if sound in PRESETS:                         # held chords by default: a pad that plays staccato is not a pad
+        out = {**spec, "params": {**PRESETS[sound], **(spec.get("params") or {})}}
+        if spec.get("chords"):
+            out.setdefault("rhythm", "whole")
+        if new:
+            out.setdefault("instrument", "Operator")
+            out.setdefault("controls", PRESET_CONTROLS)
+            out.setdefault("tail", 4.0)
+        return out
     if sound not in SOUNDS:
-        raise PanelError(f'no sound {sound!r}; sounds: {", ".join(sorted(set(SOUNDS)))}. For anything else give "instrument" and "params"')
+        raise PanelError(f'no sound {sound!r}; sounds: {", ".join(sorted({*SOUNDS, *PRESETS}))}. For anything else give "instrument" and "params"')
     out = {**spec, "params": {"Osc-A Wave": SOUNDS[sound], **(spec.get("params") or {})}}
     if new:
         out.setdefault("instrument", "Operator")
@@ -295,10 +316,11 @@ def resolve(client: McpTransport, track: str, catalog: list[dict], wants: dict[s
         todo = [n for n in shown if n not in values]
         if not todo:
             break
-        tables = _tables(client, track, device, todo, catalog) if device and not depth else sample(client, track, [(n, *spans[n]) for n in todo])
+        tables = (_tables(client, track, device, todo, catalog) if device and not depth
+                  else sample(client, track, [(n, *spans[n]) for n in todo], SAMPLES if not depth else FINE))
         for n in todo:
             target, unit = shown[n]
-            xs, table = _grid(*spans[n]), tables[n]
+            xs, table = _grid(*spans[n], len(tables[n])), tables[n]
             hits = _between(target, xs, table, unit)
             if not hits:
                 ends = [reading(table[0]), reading(table[-1])]
@@ -411,23 +433,26 @@ def record_span(transport: McpTransport, *, filename: str, output_dir: str, star
     try:
         transport.run(before + "\nsong.stop_playing()\nsong.loop = False\nsong.back_to_arranger = False\n"
                       f"for _i in {armed!r}:\n    song.tracks[_i].arm = 0\nsong.create_audio_track(-1)\nresult = 'ok'")
-        for _ in range(10):                      # a new track can report no input types for a moment
-            time.sleep(0.3)
+        for k in range(10):                      # a new track can report no input types for a moment
+            if k:
+                time.sleep(0.3)
             if transport.run(f"_t = song.tracks[{idx}]\n_t.name = 'Render'\n"
                              "_rt = next((r for r in _t.available_input_routing_types if 'Resampling' in r.display_name), None)\n"
                              "if _rt is not None:\n    _t.input_routing_type = _rt\nresult = _rt is not None"):
                 break
-        time.sleep(0.2)
         transport.run(f"_t = song.tracks[{idx}]\nif 'Resampling' not in str(_t.input_routing_type.display_name):\n"
                       "    raise RuntimeError('could not set the render track to Resampling')\n_t.arm = 1\nresult = 'ok'")
-        time.sleep(0.2)
         transport.run(f"song.start_time = {float(start_beat)!r}\nsong.current_song_time = {float(start_beat)!r}\n"
                       "song.record_mode = True\nsong.start_playing()\nresult = 'ok'")
-        time.sleep((duration_beats + tail_beats) * 60.0 / tempo + 0.5)
+        time.sleep((duration_beats + tail_beats) * 60.0 / tempo + 0.3)
         transport.run("song.stop_playing()\nsong.record_mode = False\nresult = 'ok'")
-        time.sleep(1.0)
-        clip = transport.run(f"_c = list(song.tracks[{idx}].arrangement_clips)[:1]\n"
-                             "result = [_c[0].file_path, _c[0].start_marker, [[w.beat_time, w.sample_time] for w in _c[0].warp_markers], _c[0].start_time] if _c else None")
+        clip = None
+        for k in range(6):                       # the take appears on the track a moment after the stop
+            time.sleep(0.2 if k else 0.1)
+            clip = transport.run(f"_c = list(song.tracks[{idx}].arrangement_clips)[:1]\n"
+                                 "result = [_c[0].file_path, _c[0].start_marker, [[w.beat_time, w.sample_time] for w in _c[0].warp_markers], _c[0].start_time] if _c else None")
+            if clip and Path(clip[0]).exists():
+                break
         if not clip or not Path(clip[0]).exists():
             return None
         take = clip[0]

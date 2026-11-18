@@ -224,7 +224,7 @@ def test_params_lists_from_the_cache_after_the_first_read(tmp_path):
 def test_cli_reads_the_spec_from_stdin(tmp_path, monkeypatch):
     from hands.cli import app
     live = FakeLive()
-    monkeypatch.setattr("hands.live.panel_cli.LiveClient", lambda host, port: live)
+    monkeypatch.setattr("hands.live.panel_cli.LiveClient", lambda host, port, keep=False: live)
     monkeypatch.setattr(panel, "_recorder", lambda: recorder([]))
     res = CliRunner().invoke(app, ["panel", "make", "--spec", "-", "--out", str(tmp_path)], input=json.dumps(SPEC))
     assert res.exit_code == 0 and "```zpkt-surface" in res.stdout
@@ -255,3 +255,21 @@ def test_plain_words_make_a_panel_with_a_name_of_its_own(tmp_path):
     assert {p.name: p.value for p in live.song.tracks[1].devices[0].parameters}["Osc-A Wave"] == 2 and "4 beats" in text
     with pytest.raises(panel.PanelError, match="no sound 'banjo'"):
         panel.make(live, {"sound": "banjo", "seq": "A"}, tmp_path, recorder=recorder(seen))
+
+
+def test_a_pad_is_a_designed_sound_with_held_chords():
+    spec = panel.expand({"sound": "pad", "chords": "D#m,D#m/A,Em,D#m", "params": {"Filter Freq": "600 Hz"}}, new=True)
+    assert spec["instrument"] == "Operator" and spec["rhythm"] == "whole" and spec["tail"] == 4.0
+    assert spec["params"]["Osc-D On"] == 1 and spec["params"]["Filter Freq"] == "600 Hz"       # what was asked wins
+    assert [c["label"] for c in spec["controls"]] == ["Cutoff", "Resonance", "Attack", "Release", "Width"]
+    notes, beats = panel.riff(spec)
+    assert beats == 16 and {n[1] for n in notes} == {0.0, 4.0, 8.0, 12.0}
+    assert sorted(n[0] for n in notes if n[1] == 4.0)[0] == 45                                 # D#m over A
+    assert panel.expand({"sound": "strings", "seq": "A C"}, new=True)["params"]["Ae Attack"] == "350 ms"
+    with pytest.raises(panel.PanelError, match="pad"):
+        panel.expand({"sound": "choir"}, new=True)
+
+
+def test_a_chord_that_cannot_be_read_says_what_can():
+    with pytest.raises(panel.PanelError, match=r"Kinds: .*maj7.*Separate chords with commas"):
+        panel.riff({"chords": "Dm9,Cwobble"})

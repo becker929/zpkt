@@ -63,7 +63,7 @@ def make(
     """Load the instrument on a new track, set it, render the riff, print the audio and control panel blocks.
 
     The short form needs no parameter names: {"sound": "saw", "seq": "A B C D", "every": 4} is a saw playing
-    one note on each downbeat. sound: saw, square, sine, triangle, noise (an Operator with cutoff, resonance,
+    one note on each downbeat. sound: saw, square, sine, triangle, noise, or pad / strings (layered saws that swell; chords are held) (an Operator with cutoff, resonance,
     decay and release knobs). seq: notes in order ("A B C D" climbs; "A1 C2" with octaves; "-" rests), one
     every `every` beats (1), each sounding `gate` (0.9) of its step. The name is made up if left out.
 
@@ -79,7 +79,7 @@ def make(
     data = _json(spec, "--spec")
     if not isinstance(data, dict):
         _fail("--spec must be a JSON object", 2)
-    _run(panel.make, LiveClient(host, port), data, out, replace=replace, force=force)
+    _run(panel.make, LiveClient(host, port, keep=True), data, out, replace=replace, force=force)
 
 
 @app.command()
@@ -90,7 +90,7 @@ def apply(
     out: Path = OUT, force: bool = FORCE, host: str = HOST, port: int = PORT,
 ) -> None:
     """Set the panel's values, render the next version, print it with a before/after deck."""
-    _run(panel.apply, LiveClient(host, port), name, out, state_values=_json(state, "--state"), spec=_json(spec, "--spec"), force=force)
+    _run(panel.apply, LiveClient(host, port, keep=True), name, out, state_values=_json(state, "--state"), spec=_json(spec, "--spec"), force=force)
 
 
 @app.command()
@@ -100,10 +100,10 @@ def params(
     host: str = HOST, port: int = PORT,
 ) -> None:
     """List a device's parameters: name | range | default = what Live shows | choices."""
-    _run(panel.params, LiveClient(host, port), instrument, grep)
+    _run(panel.params, LiveClient(host, port, keep=True), instrument, grep)
 
 
 @app.command()
 def drop(name: str = typer.Argument(..., help="The panel's name."), out: Path = OUT, host: str = HOST, port: int = PORT) -> None:
     """Delete the panel's track from the open set. Its renders stay."""
-    _run(panel.drop, LiveClient(host, port), name, out)
+    _run(panel.drop, LiveClient(host, port, keep=True), name, out)
