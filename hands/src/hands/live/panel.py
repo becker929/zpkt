@@ -253,8 +253,12 @@ def _track(name: str) -> str:
     return f"next(x for x in song.tracks if x.name == {name!r})"
 
 
+class Loc(str):
+    """Where a device is when it is not a panel track's instrument: the Live expression for it (hands.live.mix)."""
+
+
 def _device(name: str) -> str:
-    return f"{_track(name)}.devices[0]"
+    return str(name) if isinstance(name, Loc) else f"{_track(name)}.devices[0]"
 
 
 def read_catalog(client: McpTransport, track: str) -> list[dict]:
@@ -471,9 +475,6 @@ def record_span(transport: McpTransport, *, filename: str, output_dir: str, star
 def _render(client: McpTransport, track: str, state: dict, notes: list[Note], beats: float, tail: float,
             tempo: float | None, out: Path, recorder: Callable[..., str | None], values: dict[str, float] | None = None) -> dict:
     """Set the values, write the riff past the end of the arrangement, record it, cut the take to the riff, put the set back."""
-    import numpy as np
-    import soundfile as sf
-
     tempo = float(tempo or state["tempo"])
     lead = lead_beats(tempo)
     start = (int(state["end"] / 4) + 4) * 4.0 + math.ceil(lead / 4) * 4.0
@@ -498,22 +499,47 @@ def _render(client: McpTransport, track: str, state: dict, notes: list[Note], be
                         armed=state["armed"], before=before, after=after)
         if not path:
             raise PanelError("Live recorded nothing; check its audio output (`hands live check`)")
-        timing = json.loads(Path(f"{path}.timing.json").read_text())
-        x, sr = sf.read(path, always_2d=True, dtype="float64")
-        spb = 60.0 / timing["tempo"]
-        a = int(round((timing["song_zero_seconds"] + (start - timing.get("clip_start", start - lead)) * spb) * sr))
-        y = x[max(0, a):max(0, a) + int(round((beats + tail) * spb * sr))].copy()
-        if not len(y):
-            raise PanelError("the take ended before the riff began")
-        fade = min(len(y), int(0.03 * sr))
-        y[len(y) - fade:] *= np.linspace(1, 0, fade)[:, None]
-        sf.write(out, y, sr, subtype="PCM_24")
-        peak, rms = float(np.max(np.abs(y))), float(np.sqrt(np.mean(y ** 2)))
-        db = lambda v: round(20 * math.log10(v), 1) if v > 0 else -120.0  # noqa: E731
-        return {"seconds": round(len(y) / sr, 2), "peak_dbfs": db(peak), "rms_dbfs": db(rms), "tempo": timing["tempo"]}
+        return cut_take(path, out, start, beats + tail, lead)
     finally:
         for f in (take, Path(f"{take}.timing.json")):
             f.unlink(missing_ok=True)
+
+
+def cut_take(path: str, out: Path, start: float, length_beats: float, lead: float, fade_s: float = 0.03) -> dict:
+    """Cut a take made by record_span to `length_beats` from the song beat `start`; write it and say how loud it is."""
+    import numpy as np
+    import soundfile as sf
+
+    timing = json.loads(Path(f"{path}.timing.json").read_text())
+    x, sr = sf.read(path, always_2d=True, dtype="float64")
+    spb = 60.0 / timing["tempo"]
+    a = int(round((timing["song_zero_seconds"] + (start - timing.get("clip_start", start - lead)) * spb) * sr))
+    y = x[max(0, a):max(0, a) + int(round(length_beats * spb * sr))].copy()
+    if not len(y):
+        raise PanelError("the take ended before the part to keep began")
+    fade = min(len(y), int(fade_s * sr))
+    if fade:
+        y[len(y) - fade:] *= np.linspace(1, 0, fade)[:, None]
+    sf.write(out, y, sr, subtype="PCM_24")
+    return {**levels(y), "seconds": round(len(y) / sr, 2), "tempo": timing["tempo"]}
+
+
+def levels(y) -> dict:
+    import numpy as np
+
+    peak, rms = float(np.max(np.abs(y))), float(np.sqrt(np.mean(y ** 2)))
+    db = lambda v: round(20 * math.log10(v), 1) if v > 0 else -120.0  # noqa: E731
+    return {"peak_dbfs": db(peak), "rms_dbfs": db(rms)}
+
+
+def set_code(panel: dict, values: dict[str, float]) -> str:
+    """Live code that sets a panel's values: an instrument's parameters by name, a mix panel's by where each one is."""
+    if not values:
+        return ""
+    if panel.get("kind") == "mix":
+        return "".join(f"{panel['exprs'][k]}.value = {float(v)!r}\n" for k, v in sorted(values.items()))
+    return (f"_by = {{p.name: p for p in {_device(panel['track'])}.parameters}}\n"
+            f"for _n, _v in {sorted(values.items())!r}:\n    _by[_n].value = _v\n")
 
 
 # ---------------------------------------------------------------------------------------------
@@ -569,7 +595,7 @@ def surface(panel: dict, ab: tuple[str, str] | None = None) -> dict:
         if c["kind"] == "toggle":
             controls.append({"kind": "toggle", "id": c["id"], "label": c["label"], "value": v > (c["min"] + c["max"]) / 2, "midiSlot": c["midiSlot"]})
             continue
-        k = {"kind": "knob", "id": c["id"], "label": c["label"], "min": _num(c["min"]), "max": _num(c["max"]), "value": _num(v)}
+        k = {"kind": "fader" if c["kind"] == "fader" else "knob", "id": c["id"], "label": c["label"], "min": _num(c["min"]), "max": _num(c["max"]), "value": _num(v)}
         if c.get("step"):
             k["step"] = c["step"]
         if c.get("display"):
@@ -579,7 +605,8 @@ def surface(panel: dict, ab: tuple[str, str] | None = None) -> dict:
         side = lambda label, src: {"label": label, "src": src, "bpm": _num(panel["tempo"]), "downbeatMs": 0}  # noqa: E731
         controls.append({"kind": "ab", "id": "ab", "label": "Before / after", "a": side("before", ab[0]), "b": side("after", ab[1]),
                          "loop": {"startBar": 1, "bars": max(1, min(64, int(panel["beats"] // 4)))}, "quantize": "bar"})
-    note = f"{panel['device']} · {panel['beats']:g} beats at {panel['tempo']:g} BPM · v{panel['version']}"
+    note = (f"bars {panel['bars'][0]}-{panel['bars'][0] + panel['bars'][1] - 1} at {panel['tempo']:g} BPM · v{panel['version']}" if panel.get("kind") == "mix"
+            else f"{panel['device']} · {panel['beats']:g} beats at {panel['tempo']:g} BPM · v{panel['version']}")
     return {"title": panel.get("title") or panel["name"], "note": note, "panel": panel["name"], "controls": controls}
 
 
@@ -597,13 +624,15 @@ def blocks(panel: dict, result: dict, warnings: list[str], ab: tuple[str, str] |
                    *[" " + json.dumps(c, ensure_ascii=False) for c in spec["controls"]]]
     body = head + "\n" + ",\n".join(rows) + "\n]}"
     level = f"peak {result['peak_dbfs']:g} dBFS, RMS {result['rms_dbfs']:g} dBFS, {result['seconds']:g} s"
-    lines = [f"panel {panel['name']} v{panel['version']}: {panel['device']} on track {panel['track']!r}, {level}"]
+    what = "mix of " + ", ".join(dict.fromkeys(c["track"] for c in panel["controls"])) if panel.get("kind") == "mix" else f"{panel['device']} on track {panel['track']!r}"
+    lines = [f"panel {panel['name']} v{panel['version']}: {what}, {level}"]
     if result["peak_dbfs"] < -60:
         lines.append("WARNING: the render is silent. Check the instrument's level, the notes' range and Live's audio output.")
     lines += [f"warning: {w}" for w in warnings]
     lines += ["Paste both blocks into your answer as they are:", "", "```audio", panel["renders"][-1], "```", "",
               "```zpkt-surface", body, "```", "",
-              f"When the user's Surface state comes back: hands panel apply {panel['name']} --state '<that JSON>'"]
+              f"When the user's Surface state comes back: hands panel apply {panel['name']} --state '<that JSON>'. "
+              f"Several versions to compare at once: hands panel grid {panel['name']} --axes '{{\"{panel['controls'][0]['id'] if panel['controls'] else 'id'}\": {{\"steps\": 4}}}}'"]
     return "\n".join(lines)
 
 

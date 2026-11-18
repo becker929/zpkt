@@ -39,6 +39,8 @@ kit_app = typer.Typer(help="Probe kits: P variants of a section in one load and 
 app.add_typer(kit_app, name="kit")
 from hands.live.panel_cli import app as panel_app  # noqa: E402
 app.add_typer(panel_app, name="panel")
+from hands.live.panel_cli import song_app  # noqa: E402
+app.add_typer(song_app, name="song")
 console = Console()
 
 
