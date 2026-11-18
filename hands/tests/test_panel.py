@@ -33,9 +33,10 @@ def hz(v):   # 20 Hz .. 20 kHz, exponential, shown the way Live does
 
 def operator():
     return types.SimpleNamespace(name="Operator", parameters=[
-        Param("Device On", 1.0, items=["Off", "On"]), Param("Osc-A Wave", 0.0, 0.0, 3.0, items=["Sine", "Saw D", "Square", "Noise"]),
+        Param("Device On", 1.0, items=["Off", "On"]), Param("Osc-A Wave", 0.0, 0.0, 3.0, items=["Sine", "Saw D", "Square D", "Noise White"]),
         Param("Filter Freq", 0.5, show=hz), Param("Filter Res", 0.2, show=lambda v: f"{v * 100:.0f} %"),
-        Param("Volume", 0.8, show=lambda v: "-inf dB" if v <= 0 else f"{20 * math.log10(v):.1f} dB"), Param("Tone", 0.3)])
+        Param("Volume", 0.8, show=lambda v: "-inf dB" if v <= 0 else f"{20 * math.log10(v):.1f} dB"), Param("Tone", 0.3),
+        Param("Ae Decay", 0.6), Param("Ae Release", 0.5)])
 
 
 class Item:
@@ -156,7 +157,7 @@ def test_make_sets_renders_and_leaves_the_set_as_it_was(tmp_path):
     assert "```audio\n" in text and "funk-bass.wav\n```" in text and surface["panel"] == "funk-bass"
     assert freq["kind"] == "knob" and freq["display"][0] == "20 Hz" and freq["display"][-1] == "20.00 kHz" and len(freq["display"]) == 9
     assert wave == {"kind": "knob", "id": "osc_a_wave", "label": "Wave", "min": 0, "max": 3, "value": 1, "step": 1,
-                    "display": ["Sine", "Saw D", "Square", "Noise"], "midiSlot": 1}
+                    "display": ["Sine", "Saw D", "Square D", "Noise White"], "midiSlot": 1}
     assert on == {"kind": "toggle", "id": "device_on", "label": "Device On", "value": True, "midiSlot": 2}
 
 
@@ -210,9 +211,9 @@ def test_make_refuses_while_live_plays_and_when_the_panel_exists(tmp_path):
 def test_params_lists_from_the_cache_after_the_first_read(tmp_path):
     live = FakeLive()
     text = panel.params(live, "Operator", "filter|wave")
-    assert text.splitlines()[1:] == ["Osc-A Wave | 0..3 | 0 = Sine | Sine, Saw D, Square, Noise", "Filter Freq | 0..1 | 0.5 = 632 Hz", "Filter Res | 0..1 | 0.2 = 20 %"]
+    assert text.splitlines()[1:] == ["Osc-A Wave | 0..3 | 0 = Sine | Sine, Saw D, Square D, Noise White", "Filter Freq | 0..1 | 0.5 = 632 Hz", "Filter Res | 0..1 | 0.2 = 20 %"]
     assert [t.name for t in live.song.tracks] == ["mix"]
-    assert "3 of 6" in panel.params(None, "Operator", "filter|wave")       # no Live needed the second time
+    assert "3 of 8" in panel.params(None, "Operator", "filter|wave")       # no Live needed the second time
 
 
 def test_cli_reads_the_spec_from_stdin(tmp_path, monkeypatch):
@@ -224,3 +225,28 @@ def test_cli_reads_the_spec_from_stdin(tmp_path, monkeypatch):
     assert res.exit_code == 0 and "```zpkt-surface" in res.stdout
     res = CliRunner().invoke(app, ["panel", "make", "--spec", "{nope", "--out", str(tmp_path)])
     assert res.exit_code == 2
+
+
+def test_a_sequence_climbs_and_rests():
+    notes, period = panel.sequence("A B C D", every=4)
+    assert [n[0] for n in notes] == [57, 59, 60, 62] and [n[1] for n in notes] == [0, 4, 8, 12] and period == 16
+    notes, period = panel.sequence("A1, - , G1 C2", every=0.5, gate=0.5)
+    assert [(n[0], n[1], n[2]) for n in notes] == [(45, 0, 0.25), (43, 1.0, 0.25), (48, 1.5, 0.25)] and period == 2
+    assert [n[0] for n in panel.sequence("C B A")[0]] == [48, 47, 45]            # nearest, so this one descends
+    with pytest.raises(panel.PanelError, match="cannot read the note 'H'"):
+        panel.sequence("A H")
+
+
+def test_plain_words_make_a_panel_with_a_name_of_its_own(tmp_path):
+    live, seen = FakeLive(), []
+    text = panel.make(live, {"sound": "sawtooth", "seq": "A B C D", "every": 4, "tempo": 120}, tmp_path, recorder=recorder(seen))
+    track = live.song.tracks[-1]
+    assert track.name == "panel sawtooth-a-b-c-d" and {p.name: p.value for p in track.devices[0].parameters}["Osc-A Wave"] == 1
+    assert seen[0]["beats"] == 8 + 16 and [n["start_time"] for n in track.notes] == [0, 4, 8, 12]
+    assert [c["label"] for c in spec_of(text)["controls"]] == ["Cutoff", "Resonance", "Decay", "Release"]
+    panel.make(live, {"sound": "sawtooth", "seq": "A B C D", "every": 4}, tmp_path, recorder=recorder(seen))
+    assert live.song.tracks[-1].name == "panel sawtooth-a-b-c-d-2"
+    text = panel.apply(live, "sawtooth-a-b-c-d", tmp_path, spec={"sound": "square", "seq": "A C", "every": 2}, recorder=recorder(seen))
+    assert {p.name: p.value for p in live.song.tracks[1].devices[0].parameters}["Osc-A Wave"] == 2 and "4 beats" in text
+    with pytest.raises(panel.PanelError, match="no sound 'banjo'"):
+        panel.make(live, {"sound": "banjo", "seq": "A"}, tmp_path, recorder=recorder(seen))

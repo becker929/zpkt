@@ -62,6 +62,11 @@ def make(
 ) -> None:
     """Load the instrument on a new track, set it, render the riff, print the audio and control panel blocks.
 
+    The short form needs no parameter names: {"sound": "saw", "seq": "A B C D", "every": 4} is a saw playing
+    one note on each downbeat. sound: saw, square, sine, triangle, noise (an Operator with cutoff, resonance,
+    decay and release knobs). seq: notes in order ("A B C D" climbs; "A1 C2" with octaves; "-" rests), one
+    every `every` beats (1), each sounding `gate` (0.9) of its step. The name is made up if left out.
+
     Spec keys: name, instrument ("Operator", "Operator/Acid Bass", "Serum 2"), params ({name: value}; a number
     is the raw value, text is what Live shows: "800 Hz", "50%", "Saw D"), notes ([[pitch, start, length,
     velocity], ...] in beats, one pattern, repeated to fill beats; C3 is 60) or chords ("Dm9,Bbmaj9", one per

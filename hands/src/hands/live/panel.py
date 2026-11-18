@@ -83,8 +83,12 @@ def riff(spec: dict) -> tuple[list[Note], float]:
             raise PanelError(str(exc)) from exc
         return [(int(p), float(s), float(d), int(v)) for p, s, d, v in notes], beats
     raw = spec.get("notes")
+    if spec.get("seq") and not raw:
+        raw, period = sequence(str(spec["seq"]), every=float(spec.get("every") or 1), gate=float(spec.get("gate") or 0.9),
+                               velocity=int(spec.get("velocity") or 100))
+        spec = {"pattern_beats": period, **spec}
     if not isinstance(raw, list) or not raw:
-        raise PanelError('the spec needs "notes" ([[pitch, start, length, velocity], ...], in beats) or "chords"')
+        raise PanelError('the spec needs "seq" ("A B C D"), "notes" ([[pitch, start, length, velocity], ...], in beats) or "chords"')
     pattern: list[Note] = []
     for n in raw:
         if not isinstance(n, (list, tuple)) or len(n) < 3:
@@ -108,6 +112,53 @@ def riff(spec: dict) -> tuple[list[Note], float]:
                 out.append((p, round(at, 6), round(min(d, beats - at), 6), v))
         k += 1
     return out, beats
+
+
+def sequence(seq: str, *, every: float = 1.0, gate: float = 0.9, velocity: int = 100, octave: int = 2) -> tuple[list[list], float]:
+    """Notes from "A B C D": one every `every` beats, sounding for `gate` of the step; "-" is a rest. A name
+    without an octave takes the pitch nearest the note before it (the first one sits in `octave`), so
+    "A B C D" climbs. Returns the notes and the length of one pass."""
+    steps = [t for t in re.split(r"[\s,]+", seq.strip()) if t]
+    if not steps or not 0 < every <= 16 or not 0 < gate <= 1 or len(steps) > 128:
+        raise PanelError('seq is 1 to 128 notes ("A B C D", "-" for a rest), every is beats between notes (up to 16), gate is 0..1')
+    notes, last = [], None
+    for k, step in enumerate(steps):
+        if step in "-._":
+            continue
+        m = re.fullmatch(r"([A-Ga-g])([#b]?)(-?\d)?", step)
+        if not m:
+            raise PanelError(f"cannot read the note {step!r} in seq: use names like A, C#, Bb2 (C3 is 60), or - for a rest")
+        if m[3] is not None:
+            n = pitch(step)
+        else:
+            pc = (_PITCH_CLASS[m[1].upper()] + {"#": 1, "b": -1, "": 0}[m[2]]) % 12
+            near = [pc + 12 * o for o in range(11)]
+            n = pc + (octave + 2) * 12 if last is None else min(near, key=lambda c: (abs(c - last), -c))
+        last = n
+        notes.append([n, k * every, every * gate, velocity])
+    if not notes:
+        raise PanelError("seq has only rests")
+    return notes, len(steps) * every
+
+
+# Plain words for a sound: an Operator with that wave and the knobs most worth having.
+SOUNDS = {"saw": "Saw D", "sawtooth": "Saw D", "square": "Square D", "sine": "Sine", "triangle": "Triangle", "noise": "Noise White"}
+SOUND_CONTROLS = [{"param": "Filter Freq", "label": "Cutoff"}, {"param": "Filter Res", "label": "Resonance"},
+                  {"param": "Ae Decay", "label": "Decay"}, {"param": "Ae Release", "label": "Release"}]
+
+
+def expand(spec: dict, *, new: bool) -> dict:
+    """A spec with `sound` ("saw") written out as instrument, params and, for a new panel, controls."""
+    if not spec.get("sound"):
+        return spec
+    sound = str(spec["sound"]).strip().lower()
+    if sound not in SOUNDS:
+        raise PanelError(f'no sound {sound!r}; sounds: {", ".join(sorted(set(SOUNDS)))}. For anything else give "instrument" and "params"')
+    out = {**spec, "params": {"Osc-A Wave": SOUNDS[sound], **(spec.get("params") or {})}}
+    if new:
+        out.setdefault("instrument", "Operator")
+        out.setdefault("controls", SOUND_CONTROLS)
+    return out
 
 
 def _check_beats(beats: float) -> None:
@@ -516,13 +567,20 @@ def _recorder() -> Callable[..., str | None]:
 def make(client: McpTransport, spec: dict, out_dir: Path, *, replace: bool = False, force: bool = False,
          recorder: Callable[..., str | None] | None = None) -> str:
     """Make a panel from a spec and render it; return the text to print."""
+    spec = expand(spec, new=True)
+    state = _state(client)
+    if not spec.get("name"):                     # named after what it is; a second one of the same gets a number
+        base = re.sub(r"[^a-z0-9]+", "-", f"{spec.get('sound') or spec.get('instrument') or 'panel'} {spec.get('seq') or spec.get('chords') or ''}".lower()).strip("-")[:32]
+        name, k = base, 2
+        while TRACK_PREFIX + name in state["names"] or _file(out_dir, name).exists():
+            name, k = f"{base}-{k}", k + 1
+        spec = {**spec, "name": name}
     name = _name(spec)
     instrument = str(spec.get("instrument") or "").strip()
     if not instrument:
         raise PanelError('the spec needs an "instrument": a name from Live\'s browser ("Operator", "Operator/Acid Bass", "Serum 2")')
     notes, beats = riff(spec)
     track = TRACK_PREFIX + name
-    state = _state(client)
     if state["playing"] and not force:
         raise PanelError("Live is playing (maybe the user): not rendering; pass --force to stop it")
     if track in state["names"]:
@@ -561,7 +619,7 @@ def apply(client: McpTransport, name: str, out_dir: Path, *, state_values: dict 
     if not f.exists():
         raise PanelError(f"no panel {name!r} in {out_dir} (expected {f.name}); make it with `hands panel make`")
     panel = json.loads(f.read_text())
-    spec = spec or {}
+    spec = expand(spec or {}, new=False)
     track = panel["track"]
     state = _state(client)
     if state["playing"] and not force:
@@ -583,8 +641,10 @@ def apply(client: McpTransport, name: str, out_dir: Path, *, state_values: dict 
         panel["controls"] = controls_for(client, track, catalog, spec["controls"])
         for c in panel["controls"]:
             panel["values"].setdefault(c["param"], _param(catalog, c["param"])["value"])
-    if spec.get("notes") or spec.get("chords"):
-        panel["notes"], panel["beats"] = riff({"beats": panel["beats"], **spec} if "beats" not in spec else spec)
+    if spec.get("notes") or spec.get("chords") or spec.get("seq"):
+        panel["notes"], panel["beats"] = riff(spec)
+    elif spec.get("beats"):
+        raise PanelError("to change the length, give the notes again (seq, notes or chords) with beats")
     for key in ("tempo", "tail"):
         if spec.get(key) is not None:
             panel[key] = float(spec[key])

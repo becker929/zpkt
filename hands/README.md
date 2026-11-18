@@ -113,6 +113,7 @@ hands panel make --spec - <<'JSON'                    # track + instrument + val
  "notes": [["A2", 0, 0.4, 115], ["C3", 1.5, 0.4, 105], ["E3", 3, 0.5, 110]], "beats": 8,
  "controls": [{"param": "Filter Freq", "label": "Cutoff"}, "Filter Res"]}
 JSON
+hands panel make --spec '{"sound": "saw", "seq": "A B C D", "every": 4}'   # the short form: no parameter names, name made up
 hands panel apply funk-bass --state '{"values": {"filter_freq": 0.7}}'   # the page's values back in; next version + A/B deck
 hands panel drop funk-bass                            # delete the track; renders stay
 ```
