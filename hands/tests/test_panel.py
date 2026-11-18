@@ -347,6 +347,8 @@ def test_a_mix_panel_renders_bars_of_the_arrangement_and_leaves_faders_where_the
     assert kick.mixer_device.volume.value == 0.4 and seen[-1]["vol"] == 0.4          # set in Live, then rendered
     assert spec_of(text)["controls"][-1]["kind"] == "ab" and "buses-2.wav" in text
 
+    mix.apply(live, versions.load(tmp_path, "buses"), tmp_path, spec={"values": {"bus-hats": "-6 dB", "drive": "12 dB"}}, recorder=bars_recorder(seen))
+    assert 20 * math.log10(live.song.tracks[2].mixer_device.volume.value / 0.85) == pytest.approx(-6, abs=0.05) and kick.devices[0].parameters[1].value == pytest.approx(12, abs=0.01)
     with pytest.raises(panel.PanelError, match="close names: bus-kick"):
         mix.make(live, {**MIX, "name": "x", "faders": ["kick"]}, tmp_path, recorder=bars_recorder(seen))
     with pytest.raises(panel.PanelError, match="run-up"):

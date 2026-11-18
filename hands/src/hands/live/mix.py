@@ -226,6 +226,11 @@ def apply(client: McpTransport, panel: dict, out_dir: Path, *, state_values: dic
     if state["playing"] and not force:
         raise P.PanelError("Live is playing (maybe the user): not rendering; pass --force to stop it")
     values = values_from(panel, state_values)
+    if spec and isinstance(spec.get("values"), dict):       # by control, as Live shows it: {"bus-kick": "-3 dB"}
+        from hands.live import versions as V
+        for key, want in spec["values"].items():
+            c = V._control(panel, key)
+            values[c["param"]] = V._raw(client, panel, c, want)
     if spec and spec.get("bars"):
         panel["bars"] = list(bars_of(spec))
         panel["beats"] = panel["bars"][1] * 4.0
