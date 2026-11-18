@@ -10,6 +10,7 @@ Commands:
     als      — check a Live set file, list a device's parameters (offline)
     kit      — build a probe kit in Live, render a batch
     plan     — plans to renders to A/B files, for the voice loop (hands.plans)
+    panel    — an instrument, a riff, a render and its control panel for Zpkt web (hands.live.panel)
     library  — the WIP library: each track's place in the seven steps (hands.library, read-only)
 """
 
@@ -36,6 +37,8 @@ als_app = typer.Typer(help="Check Live set files offline.", no_args_is_help=True
 app.add_typer(als_app, name="als")
 kit_app = typer.Typer(help="Probe kits: P variants of a section in one load and one export.", no_args_is_help=True)
 app.add_typer(kit_app, name="kit")
+from hands.live.panel_cli import app as panel_app  # noqa: E402
+app.add_typer(panel_app, name="panel")
 console = Console()
 
 

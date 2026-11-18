@@ -32,9 +32,13 @@ class UiError(RuntimeError):
     """osascript failed: Live is not running, there is no Accessibility grant, or the script erred."""
 
 
-def osa(script: str, *, timeout: float = 30) -> str:
+DEFAULT_TIMEOUT = float(os.environ.get("ZPKT_UI_TIMEOUT", "30"))
+
+
+def osa(script: str, *, timeout: float | None = None) -> str:
     """Run AppleScript source; return its output, stripped. Raise UiError if it fails."""
-    return _osascript(["-e", script], timeout)
+    t = DEFAULT_TIMEOUT if timeout is None else timeout
+    return _osascript(["-e", script], t)
 
 
 def osa_file(path: str | os.PathLike, *args: str, timeout: float = 900) -> str:
