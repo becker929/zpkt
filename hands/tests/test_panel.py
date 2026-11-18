@@ -89,17 +89,22 @@ class FakeLive(Transport):
 
 
 def recorder(seen):
-    """A take the way record_arrangement leaves it: 0.5 s of junk, silence for the lead-in, then a tone."""
-    def record(*, transport, filename, duration_beats, output_dir, tail_beats, start_beat, keep_take):
-        sr, spb = 8000, 60.0 / transport.song.tempo
-        seen.append({"start": start_beat, "beats": duration_beats, "tempo": transport.song.tempo,
-                     "clips": len(transport.song.tracks[-1].arrangement_clips)})
-        n = lambda beats: int(round(beats * spb * sr))  # noqa: E731
-        x = np.concatenate([np.full(sr // 2, 0.9), np.zeros(n(panel.LEAD_BEATS)), np.full(n(duration_beats - panel.LEAD_BEATS + tail_beats), 0.5)])
-        path = str(Path(output_dir) / filename)
-        sf.write(path, np.column_stack([x, x]), sr, subtype="FLOAT")
-        Path(path + ".timing.json").write_text(json.dumps({"song_zero_seconds": 0.5, "clip_start": start_beat, "tempo": transport.song.tempo}))
-        return path
+    """A take the way record_span leaves it: 0.5 s of junk, silence for the lead-in, then a tone."""
+    def record(*, transport, filename, output_dir, start_beat, duration_beats, tail_beats, tempo, n_tracks, armed, before, after):
+        transport.run(before + "\nresult = 'ok'")
+        try:
+            sr, spb, lead = 8000, 60.0 / tempo, panel.lead_beats(tempo)
+            assert transport.song.tempo == tempo and n_tracks == len(transport.song.tracks)
+            seen.append({"start": start_beat, "beats": duration_beats, "tempo": tempo, "clips": len(transport.song.tracks[-1].arrangement_clips)})
+            n = lambda beats: int(round(beats * spb * sr))  # noqa: E731
+            x = np.concatenate([np.full(sr // 2, 0.9), np.zeros(n(lead)), np.full(n(duration_beats - lead + tail_beats), 0.5)])
+            path = str(Path(output_dir) / filename)
+            sf.write(path, np.column_stack([x, x]), sr, subtype="FLOAT")
+            Path(path + ".timing.json").write_text(json.dumps({"song_zero_seconds": 0.5, "clip_start": start_beat, "tempo": tempo}))
+            return path
+        finally:
+            from hands.live.agent import with_prelude
+            transport.run(with_prelude(after + "\nresult = 'ok'"))
     return record
 
 
@@ -143,7 +148,7 @@ def test_make_sets_renders_and_leaves_the_set_as_it_was(tmp_path):
     assert 20 * 1000 ** by["Filter Freq"].value == pytest.approx(2000, rel=0.01)
     assert by["Tone"].value == 0.5 and by["Volume"].value == 0.7
     # rendered past the end of the arrangement, at the spec's tempo, with the riff in place
-    assert seen == [{"start": 80.0, "beats": 16.0, "tempo": 100.0, "clips": 1}]
+    assert seen == [{"start": 81.0, "beats": 11.0, "tempo": 100.0, "clips": 1}]
     assert len(track.notes) == 4 and track.notes[0]["pitch"] == 45
     # and everything else is back: no clip, tempo, loop, markers, selection, arm states
     assert track.arrangement_clips == [] and (song.tempo, song.loop, song.start_time, song.current_song_time) == (160.0, True, 4.0, 12.0)
@@ -242,7 +247,7 @@ def test_plain_words_make_a_panel_with_a_name_of_its_own(tmp_path):
     text = panel.make(live, {"sound": "sawtooth", "seq": "A B C D", "every": 4, "tempo": 120}, tmp_path, recorder=recorder(seen))
     track = live.song.tracks[-1]
     assert track.name == "panel sawtooth-a-b-c-d" and {p.name: p.value for p in track.devices[0].parameters}["Osc-A Wave"] == 1
-    assert seen[0]["beats"] == 8 + 16 and [n["start_time"] for n in track.notes] == [0, 4, 8, 12]
+    assert seen[0]["beats"] == 3 + 16 and [n["start_time"] for n in track.notes] == [0, 4, 8, 12]
     assert [c["label"] for c in spec_of(text)["controls"]] == ["Cutoff", "Resonance", "Decay", "Release"]
     panel.make(live, {"sound": "sawtooth", "seq": "A B C D", "every": 4}, tmp_path, recorder=recorder(seen))
     assert live.song.tracks[-1].name == "panel sawtooth-a-b-c-d-2"

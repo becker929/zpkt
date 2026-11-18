@@ -29,7 +29,7 @@ from hands.live.agent import with_prelude
 from hands.live.transport import McpTransport
 
 TRACK_PREFIX = "panel "
-LEAD_BEATS = 8.0      # rendered before the riff and cut off: the head of a resampled take is not on the timeline
+LEAD_SECONDS = 1.5    # rendered before the riff and cut off: the first ~0.9 s of a resampled take is not on the timeline
 SAMPLES = 33          # points per parameter when reading what Live shows across its range
 ROUNDS = 3            # of narrowing in on the value that reads as asked: 1/32768 of the range
 ANCHORS = 9           # of those, how many go into a control's `display`
@@ -263,7 +263,7 @@ def sample(client: McpTransport, track: str, asks: list[tuple[str, float, float]
     return out
 
 
-def resolve(client: McpTransport, track: str, catalog: list[dict], wants: dict[str, Any]) -> tuple[dict[str, float], list[str]]:
+def resolve(client: McpTransport, track: str, catalog: list[dict], wants: dict[str, Any], device: str = "") -> tuple[dict[str, float], list[str]]:
     """Raw values for what a spec asks: a number is the raw value, "50%" a point in the range, any other
     text what Live shows ("800 Hz", "Saw D", "On")."""
     values: dict[str, float] = {}
@@ -295,7 +295,7 @@ def resolve(client: McpTransport, track: str, catalog: list[dict], wants: dict[s
         todo = [n for n in shown if n not in values]
         if not todo:
             break
-        tables = sample(client, track, [(n, *spans[n]) for n in todo])
+        tables = _tables(client, track, device, todo, catalog) if device and not depth else sample(client, track, [(n, *spans[n]) for n in todo])
         for n in todo:
             target, unit = shown[n]
             xs, table = _grid(*spans[n]), tables[n]
@@ -319,12 +319,6 @@ def resolve(client: McpTransport, track: str, catalog: list[dict], wants: dict[s
             else:
                 spans[n] = (hits[0][0], hits[-1][1])
     return values, warnings
-
-
-def set_values(client: McpTransport, track: str, values: dict[str, float]) -> None:
-    if values:
-        client.run(f"_by = {{p.name: p for p in {_device(track)}.parameters}}\n"
-                   f"for _n, _v in {sorted(values.items())!r}:\n    _by[_n].value = _v\nresult = 'ok'")
 
 
 def _state(client: McpTransport) -> dict:
@@ -380,12 +374,11 @@ result = _item.name
 def _load(client: McpTransport, track: str, instrument: str, state: dict) -> str:
     """Add the panel's track at the end and load the instrument on it; return the device's name."""
     idx = len(state["names"])
-    client.run("song.create_midi_track(-1)\nresult = 'ok'")
-    time.sleep(0.3)
     parts = [p.strip().lower() for p in instrument.split("/") if p.strip()]
-    client.run(with_prelude(_LOAD.format(idx=idx, track=track, parts=parts, instrument=instrument, armed=state["armed"])))
+    # One call: every round trip to Live waits for its next tick, close to a second when Live is in the background.
+    client.run(with_prelude("song.create_midi_track(-1)\n" + _LOAD.format(idx=idx, track=track, parts=parts, instrument=instrument, armed=state["armed"])))
     for _ in range(12):                          # a plug-in can take a few seconds to appear
-        time.sleep(0.5)
+        time.sleep(0.2)
         devices = client.run(f"result = [d.name for d in {_track(track)}.devices]")
         if devices:
             return devices[0]
@@ -397,31 +390,93 @@ def _drop(client: McpTransport, track: str) -> None:
                "if _i is not None:\n    song.delete_track(_i)\nresult = 'ok'")
 
 
+def lead_beats(tempo: float) -> float:
+    """Whole beats rendered before the riff, enough to cover LEAD_SECONDS."""
+    return float(max(2, math.ceil(LEAD_SECONDS * tempo / 60.0)))
+
+
+def record_span(transport: McpTransport, *, filename: str, output_dir: str, start_beat: float, duration_beats: float,
+                tail_beats: float, tempo: float, n_tracks: int, armed: list[int], before: str = "", after: str = "") -> str | None:
+    """Record the arrangement from start_beat through a resampling track, in as few round trips as Live allows.
+
+    The same method as hands.live.record.record_arrangement (which see for why), batched: `before` (writes
+    only) runs in the first call and `after` in the last, which always runs and also removes the render track
+    and puts the arm states back. Writes <output_dir>/<filename> and its .timing.json; returns the path.
+    """
+    import shutil
+
+    from hands.live.record import _beat_to_seconds
+
+    idx, out, take = n_tracks, str(Path(output_dir) / filename), None
+    try:
+        transport.run(before + "\nsong.stop_playing()\nsong.loop = False\nsong.back_to_arranger = False\n"
+                      f"for _i in {armed!r}:\n    song.tracks[_i].arm = 0\nsong.create_audio_track(-1)\nresult = 'ok'")
+        for _ in range(10):                      # a new track can report no input types for a moment
+            time.sleep(0.3)
+            if transport.run(f"_t = song.tracks[{idx}]\n_t.name = 'Render'\n"
+                             "_rt = next((r for r in _t.available_input_routing_types if 'Resampling' in r.display_name), None)\n"
+                             "if _rt is not None:\n    _t.input_routing_type = _rt\nresult = _rt is not None"):
+                break
+        time.sleep(0.2)
+        transport.run(f"_t = song.tracks[{idx}]\nif 'Resampling' not in str(_t.input_routing_type.display_name):\n"
+                      "    raise RuntimeError('could not set the render track to Resampling')\n_t.arm = 1\nresult = 'ok'")
+        time.sleep(0.2)
+        transport.run(f"song.start_time = {float(start_beat)!r}\nsong.current_song_time = {float(start_beat)!r}\n"
+                      "song.record_mode = True\nsong.start_playing()\nresult = 'ok'")
+        time.sleep((duration_beats + tail_beats) * 60.0 / tempo + 0.5)
+        transport.run("song.stop_playing()\nsong.record_mode = False\nresult = 'ok'")
+        time.sleep(1.0)
+        clip = transport.run(f"_c = list(song.tracks[{idx}].arrangement_clips)[:1]\n"
+                             "result = [_c[0].file_path, _c[0].start_marker, [[w.beat_time, w.sample_time] for w in _c[0].warp_markers], _c[0].start_time] if _c else None")
+        if not clip or not Path(clip[0]).exists():
+            return None
+        take = clip[0]
+        shutil.copy2(take, out)
+        Path(out + ".timing.json").write_text(json.dumps({"song_zero_seconds": _beat_to_seconds(clip[2], clip[1]), "clip_start": clip[3], "tempo": tempo}))
+        return out
+    finally:
+        transport.run(with_prelude(
+            f"song.stop_playing()\nsong.record_mode = False\n"
+            f"if len(song.tracks) > {idx} and song.tracks[{idx}].name == 'Render':\n    song.delete_track({idx})\n"
+            f"for _i in {armed!r}:\n    song.tracks[_i].arm = 1\n" + after + "\nresult = 'ok'"))
+        for leftover in ([take, take + ".asd"] if take else []):   # Live's own take file in the project
+            Path(leftover).unlink(missing_ok=True)
+
+
 def _render(client: McpTransport, track: str, state: dict, notes: list[Note], beats: float, tail: float,
-            tempo: float | None, out: Path, recorder: Callable[..., str | None]) -> dict:
-    """Write the riff past the end of the arrangement, record it, cut the take to the riff, put the set back."""
+            tempo: float | None, out: Path, recorder: Callable[..., str | None], values: dict[str, float] | None = None) -> dict:
+    """Set the values, write the riff past the end of the arrangement, record it, cut the take to the riff, put the set back."""
     import numpy as np
     import soundfile as sf
 
-    start = (int(state["end"] / 4) + 4) * 4.0 + LEAD_BEATS
+    tempo = float(tempo or state["tempo"])
+    lead = lead_beats(tempo)
+    start = (int(state["end"] / 4) + 4) * 4.0 + math.ceil(lead / 4) * 4.0
     out.parent.mkdir(parents=True, exist_ok=True)
     take = out.with_name(f".{out.stem}.take.wav")
+    sel = state.get("selected")
+    before = (
+        (f"_by = {{p.name: p for p in {_device(track)}.parameters}}\nfor _n, _v in {sorted(values.items())!r}:\n    _by[_n].value = _v\n" if values else "")
+        + (f"song.tempo = {tempo!r}\n" if abs(tempo - state["tempo"]) > 1e-6 else "")
+        + f"_c = {_track(track)}.create_midi_clip({start!r}, {float(beats)!r})\n_c.name = 'panel riff'\n"
+        "_c.add_new_notes(tuple(Live.Clip.MidiNoteSpecification(pitch=p, start_time=s, duration=d, velocity=v)"
+        f" for p, s, d, v in {notes!r}))\n")
+    after = (
+        f"_t = next((x for x in song.tracks if x.name == {track!r}), None)\n"
+        "for _c in (list(_t.arrangement_clips) if _t else []):\n    _t.delete_clip(_c)\n"
+        f"song.tempo = {state['tempo']!r}\nsong.loop = {state['loop']!r}\nsong.start_time = {state['start_time']!r}\n"
+        f"song.current_song_time = {state['pos']!r}\n"
+        + (f"select_track(song.tracks[{sel}])\n" if sel is not None and sel < len(state["names"]) else ""))
     try:
-        if tempo and abs(tempo - state["tempo"]) > 1e-6:
-            client.run(f"song.tempo = {float(tempo)!r}\nresult = 'ok'")
-        client.run(
-            f"_c = {_track(track)}.create_midi_clip({start!r}, {float(beats)!r})\n_c.name = 'panel riff'\n"
-            "_c.add_new_notes(tuple(Live.Clip.MidiNoteSpecification(pitch=p, start_time=s, duration=d, velocity=v)"
-            f" for p, s, d, v in {notes!r}))\nresult = 'ok'")
-        with contextlib.redirect_stdout(io.StringIO()):      # the recorder's progress lines are not part of the answer
-            path = recorder(transport=client, filename=take.name, duration_beats=LEAD_BEATS + beats, output_dir=str(out.parent),
-                            tail_beats=tail, start_beat=start - LEAD_BEATS, keep_take=False)
+        path = recorder(transport=client, filename=take.name, output_dir=str(out.parent), start_beat=start - lead,
+                        duration_beats=lead + beats, tail_beats=tail, tempo=tempo, n_tracks=len(state["names"]),
+                        armed=state["armed"], before=before, after=after)
         if not path:
             raise PanelError("Live recorded nothing; check its audio output (`hands live check`)")
         timing = json.loads(Path(f"{path}.timing.json").read_text())
         x, sr = sf.read(path, always_2d=True, dtype="float64")
         spb = 60.0 / timing["tempo"]
-        a = int(round((timing["song_zero_seconds"] + (start - timing.get("clip_start", start - LEAD_BEATS)) * spb) * sr))
+        a = int(round((timing["song_zero_seconds"] + (start - timing.get("clip_start", start - lead)) * spb) * sr))
         y = x[max(0, a):max(0, a) + int(round((beats + tail) * spb * sr))].copy()
         if not len(y):
             raise PanelError("the take ended before the riff began")
@@ -434,15 +489,6 @@ def _render(client: McpTransport, track: str, state: dict, notes: list[Note], be
     finally:
         for f in (take, Path(f"{take}.timing.json")):
             f.unlink(missing_ok=True)
-        sel = state.get("selected")
-        client.run(with_prelude(
-            "song.stop_playing()\n"
-            f"_t = next((x for x in song.tracks if x.name == {track!r}), None)\n"
-            "for _c in (list(_t.arrangement_clips) if _t else []):\n    _t.delete_clip(_c)\n"
-            f"song.tempo = {state['tempo']!r}\nsong.loop = {state['loop']!r}\nsong.start_time = {state['start_time']!r}\n"
-            f"song.current_song_time = {state['pos']!r}\n"
-            + (f"select_track(song.tracks[{sel}])\n" if sel is not None and sel < len(state["names"]) else "")
-            + "result = 'ok'"))
 
 
 # ---------------------------------------------------------------------------------------------
@@ -457,7 +503,7 @@ def _slug(name: str, taken: set[str]) -> str:
     return out
 
 
-def controls_for(client: McpTransport, track: str, catalog: list[dict], wanted: list[Any]) -> list[dict]:
+def controls_for(client: McpTransport, track: str, catalog: list[dict], wanted: list[Any], device: str = "") -> list[dict]:
     """One control per wanted parameter (a name, or {"param", "label"}), with what Live shows across its range."""
     picks = []
     for w in wanted[:MAX_CONTROLS]:
@@ -465,7 +511,8 @@ def controls_for(client: McpTransport, track: str, catalog: list[dict], wanted: 
         p = _param(catalog, str(w.get("param") or ""))
         picks.append((p, str(w.get("label") or p["name"])[:30]))
     smooth = [p for p, _ in picks if not p["quantized"]]
-    tables = sample(client, track, [(p["name"], p["min"], p["max"]) for p in smooth]) if smooth else {}
+    names = [p["name"] for p in smooth]
+    tables = {} if not names else _tables(client, track, device, names, catalog) if device else sample(client, track, [(p["name"], p["min"], p["max"]) for p in smooth])
     taken: set[str] = set()
     out = []
     for slot, (p, label) in enumerate(picks):
@@ -560,8 +607,29 @@ def _name(spec: dict) -> str:
 
 
 def _recorder() -> Callable[..., str | None]:
-    from hands.live.record import record_arrangement
-    return record_arrangement
+    return record_span
+
+
+def _catalog(client: McpTransport, track: str, device: str) -> list[dict]:
+    """The device's parameters, from the cache when it has been read before (a read is six round trips)."""
+    cache = _cache_file(device)
+    if cache.exists():
+        return json.loads(cache.read_text())
+    catalog = read_catalog(client, track)
+    _remember(device, catalog)
+    return catalog
+
+
+def _tables(client: McpTransport, track: str, device: str, names: list[str], catalog: list[dict]) -> dict[str, list[str]]:
+    """What Live shows across each parameter's whole range; read once per device and parameter, then kept."""
+    f = _cache_file(device).with_suffix(".shown.json")
+    have = json.loads(f.read_text()) if f.exists() else {}
+    missing = [n for n in names if n not in have]
+    if missing:
+        have.update(sample(client, track, [(n, _param(catalog, n)["min"], _param(catalog, n)["max"]) for n in missing]))
+        f.parent.mkdir(parents=True, exist_ok=True)
+        f.write_text(json.dumps(have))
+    return {n: have[n] for n in names}
 
 
 def make(client: McpTransport, spec: dict, out_dir: Path, *, replace: bool = False, force: bool = False,
@@ -591,21 +659,23 @@ def make(client: McpTransport, spec: dict, out_dir: Path, *, replace: bool = Fal
         state = _state(client)
     try:
         device = _load(client, track, instrument, state)
-        catalog = read_catalog(client, track)
-        _remember(device, catalog)
+        catalog = _catalog(client, track, device)
         wants = dict(spec.get("params") or {})
-        values, warnings = resolve(client, track, catalog, wants)
+        values, warnings = resolve(client, track, catalog, wants, device)
         wanted = spec.get("controls") or list(values)[:8] or [p["name"] for p in catalog[1:9]]
-        controls = controls_for(client, track, catalog, wanted)
-        set_values(client, track, values)
+        controls = controls_for(client, track, catalog, wanted, device)
         panel = {"name": name, "title": str(spec.get("title") or name), "track": track, "instrument": instrument, "device": device,
                  "tempo": float(spec.get("tempo") or state["tempo"]), "beats": beats, "tail": float(spec.get("tail", 2.0)),
                  "notes": notes, "controls": controls, "version": 1, "renders": [],
                  "values": {**{c["param"]: _param(catalog, c["param"])["value"] for c in controls}, **values}}
         out = out_dir / f"{name}.wav"
-        result = _render(client, track, state, notes, beats, panel["tail"], panel["tempo"], out, recorder or _recorder())
-    except Exception:
+        state = {**state, "names": [*state["names"], track]}
+        result = _render(client, track, state, notes, beats, panel["tail"], panel["tempo"], out, recorder or _recorder(), values)
+    except Exception as exc:
         _drop(client, track)                     # leave nothing behind: the next try starts clean
+        if "KeyError" in str(exc):               # the kept parameter list no longer fits the device: read it afresh next time
+            for stale in (_cache_file(device), _cache_file(device).with_suffix(".shown.json")):
+                stale.unlink(missing_ok=True)
         raise
     panel["renders"].append(_shown_path(out))
     _file(out_dir, name).write_text(json.dumps(panel))
@@ -626,8 +696,8 @@ def apply(client: McpTransport, name: str, out_dir: Path, *, state_values: dict 
         raise PanelError("Live is playing (maybe the user): not rendering; pass --force to stop it")
     if track not in state["names"]:
         raise PanelError(f"the track {track!r} is not in the open set; make the panel again (`hands panel make --replace`)")
-    cache = _cache_file(panel["device"])
-    catalog = json.loads(cache.read_text()) if cache.exists() else read_catalog(client, track)
+    device = panel["device"]
+    catalog = _catalog(client, track, device)
     by_id = {c["id"]: c for c in panel["controls"]}
     values: dict[str, float] = {}
     for cid, v in ((state_values or {}).get("values", state_values or {})).items():
@@ -635,10 +705,10 @@ def apply(client: McpTransport, name: str, out_dir: Path, *, state_values: dict 
         if c is None or isinstance(v, str):      # the deck's side, or a control this panel does not have
             continue
         values[c["param"]] = (c["max"] if v else c["min"]) if isinstance(v, bool) else max(c["min"], min(c["max"], float(v)))
-    asked, warnings = resolve(client, track, catalog, dict(spec.get("params") or {}))
+    asked, warnings = resolve(client, track, catalog, dict(spec.get("params") or {}), device)
     values.update(asked)
     if spec.get("controls"):
-        panel["controls"] = controls_for(client, track, catalog, spec["controls"])
+        panel["controls"] = controls_for(client, track, catalog, spec["controls"], device)
         for c in panel["controls"]:
             panel["values"].setdefault(c["param"], _param(catalog, c["param"])["value"])
     if spec.get("notes") or spec.get("chords") or spec.get("seq"):
@@ -650,12 +720,11 @@ def apply(client: McpTransport, name: str, out_dir: Path, *, state_values: dict 
             panel[key] = float(spec[key])
     if spec.get("title"):
         panel["title"] = str(spec["title"])
-    set_values(client, track, values)
     panel["values"].update(values)
     panel["version"] += 1
     out = out_dir / f"{name}-{panel['version']}.wav"
     notes = [tuple(n) for n in panel["notes"]]
-    result = _render(client, track, state, notes, panel["beats"], panel["tail"], panel["tempo"], out, recorder or _recorder())
+    result = _render(client, track, state, notes, panel["beats"], panel["tail"], panel["tempo"], out, recorder or _recorder(), values)
     before = panel["renders"][-1]
     panel["renders"].append(_shown_path(out))
     f.write_text(json.dumps(panel))
