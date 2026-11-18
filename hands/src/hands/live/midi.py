@@ -106,9 +106,20 @@ def parse_chord(spec: str, bass_octave: int = 2, upper_octave: int = 3) -> list[
         parts = [int(p.strip()) for p in re.split(r"[,\s]+", spec) if p.strip()]
         return sorted(parts)
 
+    # A slash chord ("D#m/A"): the chord, over another bass note.
+    over = re.fullmatch(r"(.+)/([A-Ga-g][#b]?)", spec)
+    if over:
+        notes = parse_chord(over.group(1), bass_octave, upper_octave)
+        bass = (bass_octave + 1) * 12 + NOTE_NAMES[over.group(2).upper()]
+        while bass > 45:
+            bass -= 12
+        while bass < 30:
+            bass += 12
+        return sorted({bass, *notes[1:]})
+
     m = re.match(r"^([A-Ga-g][#b]?)(.*)$", spec)
     if not m:
-        raise ValueError(f"Cannot parse chord specification: {spec!r}")
+        raise ValueError(f"cannot read the chord {spec!r}: write chords like Dm9, Bbmaj7 or D#m/A, separated by commas")
 
     root_name = m.group(1).upper()
     quality = m.group(2).strip()
@@ -142,7 +153,8 @@ def parse_chord(spec: str, bass_octave: int = 2, upper_octave: int = 3) -> list[
         elif q_key in ("o", "dim7"):
             q_key = "dim7"
         else:
-            raise ValueError(f"Unknown chord quality: {quality!r} in {spec!r}")
+            raise ValueError(f"cannot read the chord {spec!r}: {quality!r} is not a chord kind. Kinds: {', '.join(sorted(CHORD_INTERVALS))} "
+                             '(nothing for major). Separate chords with commas ("Dm9,Bbmaj7,D#m/A"), or give "notes" instead')
 
     intervals = CHORD_INTERVALS[q_key]
 
@@ -163,13 +175,16 @@ def parse_chord(spec: str, bass_octave: int = 2, upper_octave: int = 3) -> list[
 
 def parse_progression(prog_str: str) -> list[list[int]]:
     """Parse comma, semicolon, pipe, or slash separated chord progression."""
+    bare = r"[A-Ga-g][#b]?"                                   # after a slash, a bare note is a bass note: D#m/A
     if ";" in prog_str:
         chunks = [c.strip() for c in prog_str.split(";") if c.strip()]
-    elif "/" in prog_str and not re.search(r"\d+/\d+", prog_str):
+    elif "," in prog_str and not re.fullmatch(r"[\d,\s/|]+", prog_str):
+        chunks = [c.strip() for c in prog_str.split(",") if c.strip()]
+    elif "/" in prog_str and not re.search(r"\d+/\d+", prog_str) and not all(re.fullmatch(bare, c.strip()) for c in prog_str.split("/")[1:]):
         chunks = [c.strip() for c in prog_str.split("/") if c.strip()]
     elif "|" in prog_str:
         chunks = [c.strip() for c in prog_str.split("|") if c.strip()]
-    elif "-" in prog_str and not prog_str.startswith("-"):
+    elif "-" in prog_str and not prog_str.startswith("-") and "/" not in prog_str:
         chunks = [c.strip() for c in prog_str.split("-") if c.strip()]
     else:
         chunks = [c.strip() for c in prog_str.split(",") if c.strip()]

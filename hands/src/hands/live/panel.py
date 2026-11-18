@@ -31,7 +31,8 @@ from hands.live.transport import McpTransport
 TRACK_PREFIX = "panel "
 LEAD_SECONDS = 1.5    # rendered before the riff and cut off: the first ~0.9 s of a resampled take is not on the timeline
 SAMPLES = 33          # points per parameter when reading what Live shows across its range
-ROUNDS = 3            # of narrowing in on the value that reads as asked: 1/32768 of the range
+ROUNDS = 2            # of narrowing in on the value that reads as asked: the whole range, then one stretch of it
+FINE = 513            # points in the second round: 1/16384 of the range, in one call
 ANCHORS = 9           # of those, how many go into a control's `display`
 MAX_BEATS = 128.0     # renders are real time
 MAX_CONTROLS = 16
@@ -145,6 +146,17 @@ def sequence(seq: str, *, every: float = 1.0, gate: float = 0.9, velocity: int =
 SOUNDS = {"saw": "Saw D", "sawtooth": "Saw D", "square": "Square D", "sine": "Sine", "triangle": "Triangle", "noise": "Noise White"}
 SOUND_CONTROLS = [{"param": "Filter Freq", "label": "Cutoff"}, {"param": "Filter Res", "label": "Resonance"},
                   {"param": "Ae Decay", "label": "Decay"}, {"param": "Ae Release", "label": "Release"}]
+# Designed sounds: Operator with four detuned saws side by side, a slow swell and a low-pass filter.
+_LAYERS = {"Algorithm": 10, "Osc-A Wave": "Saw D", "Osc-A Level": 1.0, "Osc-B On": 1, "Osc-B Wave": "Saw D", "Osc-B Level": 0.85,
+           "B Fine": 14, "Osc-C On": 1, "Osc-C Wave": "Saw D", "Osc-C Level": 0.75, "C Fine": 986, "Osc-D On": 1, "Osc-D Wave": "Saw D",
+           "Osc-D Level": 0.6, "D Coarse": 2, "D Fine": 8, "Spread": 85, "Filter On": 1, "Filter Type": "Lowpass", "Filter Slope": "24 dB",
+           "Ae Decay": "3.5 s", "Ae Sustain": "80 %"}
+PRESETS = {
+    "pad": {**_LAYERS, "Ae Attack": "1.4 s", "Ae Release": "2.8 s", "Filter Freq": "1.1 kHz", "Filter Res": "30 %"},
+    "strings": {**_LAYERS, "Ae Attack": "350 ms", "Ae Release": "1.2 s", "Filter Freq": "2.5 kHz", "Filter Res": "15 %"},
+}
+PRESET_CONTROLS = [{"param": "Filter Freq", "label": "Cutoff"}, {"param": "Filter Res", "label": "Resonance"}, {"param": "Ae Attack", "label": "Attack"},
+                   {"param": "Ae Release", "label": "Release"}, {"param": "Spread", "label": "Width"}]
 
 
 def expand(spec: dict, *, new: bool) -> dict:
@@ -152,8 +164,17 @@ def expand(spec: dict, *, new: bool) -> dict:
     if not spec.get("sound"):
         return spec
     sound = str(spec["sound"]).strip().lower()
+    if sound in PRESETS:                         # held chords by default: a pad that plays staccato is not a pad
+        out = {**spec, "params": {**PRESETS[sound], **(spec.get("params") or {})}}
+        if spec.get("chords"):
+            out.setdefault("rhythm", "whole")
+        if new:
+            out.setdefault("instrument", "Operator")
+            out.setdefault("controls", PRESET_CONTROLS)
+            out.setdefault("tail", 4.0)
+        return out
     if sound not in SOUNDS:
-        raise PanelError(f'no sound {sound!r}; sounds: {", ".join(sorted(set(SOUNDS)))}. For anything else give "instrument" and "params"')
+        raise PanelError(f'no sound {sound!r}; sounds: {", ".join(sorted({*SOUNDS, *PRESETS}))}. For anything else give "instrument" and "params"')
     out = {**spec, "params": {"Osc-A Wave": SOUNDS[sound], **(spec.get("params") or {})}}
     if new:
         out.setdefault("instrument", "Operator")
@@ -232,8 +253,12 @@ def _track(name: str) -> str:
     return f"next(x for x in song.tracks if x.name == {name!r})"
 
 
+class Loc(str):
+    """Where a device is when it is not a panel track's instrument: the Live expression for it (hands.live.mix)."""
+
+
 def _device(name: str) -> str:
-    return f"{_track(name)}.devices[0]"
+    return str(name) if isinstance(name, Loc) else f"{_track(name)}.devices[0]"
 
 
 def read_catalog(client: McpTransport, track: str) -> list[dict]:
@@ -295,10 +320,11 @@ def resolve(client: McpTransport, track: str, catalog: list[dict], wants: dict[s
         todo = [n for n in shown if n not in values]
         if not todo:
             break
-        tables = _tables(client, track, device, todo, catalog) if device and not depth else sample(client, track, [(n, *spans[n]) for n in todo])
+        tables = (_tables(client, track, device, todo, catalog) if device and not depth
+                  else sample(client, track, [(n, *spans[n]) for n in todo], SAMPLES if not depth else FINE))
         for n in todo:
             target, unit = shown[n]
-            xs, table = _grid(*spans[n]), tables[n]
+            xs, table = _grid(*spans[n], len(tables[n])), tables[n]
             hits = _between(target, xs, table, unit)
             if not hits:
                 ends = [reading(table[0]), reading(table[-1])]
@@ -411,23 +437,26 @@ def record_span(transport: McpTransport, *, filename: str, output_dir: str, star
     try:
         transport.run(before + "\nsong.stop_playing()\nsong.loop = False\nsong.back_to_arranger = False\n"
                       f"for _i in {armed!r}:\n    song.tracks[_i].arm = 0\nsong.create_audio_track(-1)\nresult = 'ok'")
-        for _ in range(10):                      # a new track can report no input types for a moment
-            time.sleep(0.3)
+        for k in range(10):                      # a new track can report no input types for a moment
+            if k:
+                time.sleep(0.3)
             if transport.run(f"_t = song.tracks[{idx}]\n_t.name = 'Render'\n"
                              "_rt = next((r for r in _t.available_input_routing_types if 'Resampling' in r.display_name), None)\n"
                              "if _rt is not None:\n    _t.input_routing_type = _rt\nresult = _rt is not None"):
                 break
-        time.sleep(0.2)
         transport.run(f"_t = song.tracks[{idx}]\nif 'Resampling' not in str(_t.input_routing_type.display_name):\n"
                       "    raise RuntimeError('could not set the render track to Resampling')\n_t.arm = 1\nresult = 'ok'")
-        time.sleep(0.2)
         transport.run(f"song.start_time = {float(start_beat)!r}\nsong.current_song_time = {float(start_beat)!r}\n"
                       "song.record_mode = True\nsong.start_playing()\nresult = 'ok'")
-        time.sleep((duration_beats + tail_beats) * 60.0 / tempo + 0.5)
+        time.sleep((duration_beats + tail_beats) * 60.0 / tempo + 0.3)
         transport.run("song.stop_playing()\nsong.record_mode = False\nresult = 'ok'")
-        time.sleep(1.0)
-        clip = transport.run(f"_c = list(song.tracks[{idx}].arrangement_clips)[:1]\n"
-                             "result = [_c[0].file_path, _c[0].start_marker, [[w.beat_time, w.sample_time] for w in _c[0].warp_markers], _c[0].start_time] if _c else None")
+        clip = None
+        for k in range(6):                       # the take appears on the track a moment after the stop
+            time.sleep(0.2 if k else 0.1)
+            clip = transport.run(f"_c = list(song.tracks[{idx}].arrangement_clips)[:1]\n"
+                                 "result = [_c[0].file_path, _c[0].start_marker, [[w.beat_time, w.sample_time] for w in _c[0].warp_markers], _c[0].start_time] if _c else None")
+            if clip and Path(clip[0]).exists():
+                break
         if not clip or not Path(clip[0]).exists():
             return None
         take = clip[0]
@@ -446,9 +475,6 @@ def record_span(transport: McpTransport, *, filename: str, output_dir: str, star
 def _render(client: McpTransport, track: str, state: dict, notes: list[Note], beats: float, tail: float,
             tempo: float | None, out: Path, recorder: Callable[..., str | None], values: dict[str, float] | None = None) -> dict:
     """Set the values, write the riff past the end of the arrangement, record it, cut the take to the riff, put the set back."""
-    import numpy as np
-    import soundfile as sf
-
     tempo = float(tempo or state["tempo"])
     lead = lead_beats(tempo)
     start = (int(state["end"] / 4) + 4) * 4.0 + math.ceil(lead / 4) * 4.0
@@ -473,22 +499,47 @@ def _render(client: McpTransport, track: str, state: dict, notes: list[Note], be
                         armed=state["armed"], before=before, after=after)
         if not path:
             raise PanelError("Live recorded nothing; check its audio output (`hands live check`)")
-        timing = json.loads(Path(f"{path}.timing.json").read_text())
-        x, sr = sf.read(path, always_2d=True, dtype="float64")
-        spb = 60.0 / timing["tempo"]
-        a = int(round((timing["song_zero_seconds"] + (start - timing.get("clip_start", start - lead)) * spb) * sr))
-        y = x[max(0, a):max(0, a) + int(round((beats + tail) * spb * sr))].copy()
-        if not len(y):
-            raise PanelError("the take ended before the riff began")
-        fade = min(len(y), int(0.03 * sr))
-        y[len(y) - fade:] *= np.linspace(1, 0, fade)[:, None]
-        sf.write(out, y, sr, subtype="PCM_24")
-        peak, rms = float(np.max(np.abs(y))), float(np.sqrt(np.mean(y ** 2)))
-        db = lambda v: round(20 * math.log10(v), 1) if v > 0 else -120.0  # noqa: E731
-        return {"seconds": round(len(y) / sr, 2), "peak_dbfs": db(peak), "rms_dbfs": db(rms), "tempo": timing["tempo"]}
+        return cut_take(path, out, start, beats + tail, lead)
     finally:
         for f in (take, Path(f"{take}.timing.json")):
             f.unlink(missing_ok=True)
+
+
+def cut_take(path: str, out: Path, start: float, length_beats: float, lead: float, fade_s: float = 0.03) -> dict:
+    """Cut a take made by record_span to `length_beats` from the song beat `start`; write it and say how loud it is."""
+    import numpy as np
+    import soundfile as sf
+
+    timing = json.loads(Path(f"{path}.timing.json").read_text())
+    x, sr = sf.read(path, always_2d=True, dtype="float64")
+    spb = 60.0 / timing["tempo"]
+    a = int(round((timing["song_zero_seconds"] + (start - timing.get("clip_start", start - lead)) * spb) * sr))
+    y = x[max(0, a):max(0, a) + int(round(length_beats * spb * sr))].copy()
+    if not len(y):
+        raise PanelError("the take ended before the part to keep began")
+    fade = min(len(y), int(fade_s * sr))
+    if fade:
+        y[len(y) - fade:] *= np.linspace(1, 0, fade)[:, None]
+    sf.write(out, y, sr, subtype="PCM_24")
+    return {**levels(y), "seconds": round(len(y) / sr, 2), "tempo": timing["tempo"]}
+
+
+def levels(y) -> dict:
+    import numpy as np
+
+    peak, rms = float(np.max(np.abs(y))), float(np.sqrt(np.mean(y ** 2)))
+    db = lambda v: round(20 * math.log10(v), 1) if v > 0 else -120.0  # noqa: E731
+    return {"peak_dbfs": db(peak), "rms_dbfs": db(rms)}
+
+
+def set_code(panel: dict, values: dict[str, float]) -> str:
+    """Live code that sets a panel's values: an instrument's parameters by name, a mix panel's by where each one is."""
+    if not values:
+        return ""
+    if panel.get("kind") == "mix":
+        return "".join(f"{panel['exprs'][k]}.value = {float(v)!r}\n" for k, v in sorted(values.items()))
+    return (f"_by = {{p.name: p for p in {_device(panel['track'])}.parameters}}\n"
+            f"for _n, _v in {sorted(values.items())!r}:\n    _by[_n].value = _v\n")
 
 
 # ---------------------------------------------------------------------------------------------
@@ -544,7 +595,7 @@ def surface(panel: dict, ab: tuple[str, str] | None = None) -> dict:
         if c["kind"] == "toggle":
             controls.append({"kind": "toggle", "id": c["id"], "label": c["label"], "value": v > (c["min"] + c["max"]) / 2, "midiSlot": c["midiSlot"]})
             continue
-        k = {"kind": "knob", "id": c["id"], "label": c["label"], "min": _num(c["min"]), "max": _num(c["max"]), "value": _num(v)}
+        k = {"kind": "fader" if c["kind"] == "fader" else "knob", "id": c["id"], "label": c["label"], "min": _num(c["min"]), "max": _num(c["max"]), "value": _num(v)}
         if c.get("step"):
             k["step"] = c["step"]
         if c.get("display"):
@@ -554,7 +605,8 @@ def surface(panel: dict, ab: tuple[str, str] | None = None) -> dict:
         side = lambda label, src: {"label": label, "src": src, "bpm": _num(panel["tempo"]), "downbeatMs": 0}  # noqa: E731
         controls.append({"kind": "ab", "id": "ab", "label": "Before / after", "a": side("before", ab[0]), "b": side("after", ab[1]),
                          "loop": {"startBar": 1, "bars": max(1, min(64, int(panel["beats"] // 4)))}, "quantize": "bar"})
-    note = f"{panel['device']} · {panel['beats']:g} beats at {panel['tempo']:g} BPM · v{panel['version']}"
+    note = (f"bars {panel['bars'][0]}-{panel['bars'][0] + panel['bars'][1] - 1} at {panel['tempo']:g} BPM · v{panel['version']}" if panel.get("kind") == "mix"
+            else f"{panel['device']} · {panel['beats']:g} beats at {panel['tempo']:g} BPM · v{panel['version']}")
     return {"title": panel.get("title") or panel["name"], "note": note, "panel": panel["name"], "controls": controls}
 
 
@@ -572,13 +624,15 @@ def blocks(panel: dict, result: dict, warnings: list[str], ab: tuple[str, str] |
                    *[" " + json.dumps(c, ensure_ascii=False) for c in spec["controls"]]]
     body = head + "\n" + ",\n".join(rows) + "\n]}"
     level = f"peak {result['peak_dbfs']:g} dBFS, RMS {result['rms_dbfs']:g} dBFS, {result['seconds']:g} s"
-    lines = [f"panel {panel['name']} v{panel['version']}: {panel['device']} on track {panel['track']!r}, {level}"]
+    what = "mix of " + ", ".join(dict.fromkeys(c["track"] for c in panel["controls"])) if panel.get("kind") == "mix" else f"{panel['device']} on track {panel['track']!r}"
+    lines = [f"panel {panel['name']} v{panel['version']}: {what}, {level}"]
     if result["peak_dbfs"] < -60:
         lines.append("WARNING: the render is silent. Check the instrument's level, the notes' range and Live's audio output.")
     lines += [f"warning: {w}" for w in warnings]
     lines += ["Paste both blocks into your answer as they are:", "", "```audio", panel["renders"][-1], "```", "",
               "```zpkt-surface", body, "```", "",
-              f"When the user's Surface state comes back: hands panel apply {panel['name']} --state '<that JSON>'"]
+              f"When the user's Surface state comes back: hands panel apply {panel['name']} --state '<that JSON>'. "
+              f"Several versions to compare at once: hands panel grid {panel['name']} --axes '{{\"{panel['controls'][0]['id'] if panel['controls'] else 'id'}\": {{\"steps\": 4}}}}'"]
     return "\n".join(lines)
 
 

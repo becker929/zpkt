@@ -64,7 +64,7 @@ class FakeLive(Transport):
     """A small Live: runs the code the way the Remote Script does (exec, then `result`)."""
 
     def __init__(self):
-        mix = Track("mix", [types.SimpleNamespace(end_time=64.0)])
+        mix = Track("mix", [types.SimpleNamespace(end_time=64.0, name="")])
         mix.arm = True
         s = self.song = types.SimpleNamespace(tracks=[mix], is_playing=False, tempo=160.0, loop=True, start_time=4.0, current_song_time=12.0)
         s.view = types.SimpleNamespace(selected_track=mix)
@@ -224,7 +224,7 @@ def test_params_lists_from_the_cache_after_the_first_read(tmp_path):
 def test_cli_reads_the_spec_from_stdin(tmp_path, monkeypatch):
     from hands.cli import app
     live = FakeLive()
-    monkeypatch.setattr("hands.live.panel_cli.LiveClient", lambda host, port: live)
+    monkeypatch.setattr("hands.live.panel_cli.LiveClient", lambda host, port, keep=False: live)
     monkeypatch.setattr(panel, "_recorder", lambda: recorder([]))
     res = CliRunner().invoke(app, ["panel", "make", "--spec", "-", "--out", str(tmp_path)], input=json.dumps(SPEC))
     assert res.exit_code == 0 and "```zpkt-surface" in res.stdout
@@ -255,3 +255,168 @@ def test_plain_words_make_a_panel_with_a_name_of_its_own(tmp_path):
     assert {p.name: p.value for p in live.song.tracks[1].devices[0].parameters}["Osc-A Wave"] == 2 and "4 beats" in text
     with pytest.raises(panel.PanelError, match="no sound 'banjo'"):
         panel.make(live, {"sound": "banjo", "seq": "A"}, tmp_path, recorder=recorder(seen))
+
+
+def test_a_pad_is_a_designed_sound_with_held_chords():
+    spec = panel.expand({"sound": "pad", "chords": "D#m,D#m/A,Em,D#m", "params": {"Filter Freq": "600 Hz"}}, new=True)
+    assert spec["instrument"] == "Operator" and spec["rhythm"] == "whole" and spec["tail"] == 4.0
+    assert spec["params"]["Osc-D On"] == 1 and spec["params"]["Filter Freq"] == "600 Hz"       # what was asked wins
+    assert [c["label"] for c in spec["controls"]] == ["Cutoff", "Resonance", "Attack", "Release", "Width"]
+    notes, beats = panel.riff(spec)
+    assert beats == 16 and {n[1] for n in notes} == {0.0, 4.0, 8.0, 12.0}
+    assert sorted(n[0] for n in notes if n[1] == 4.0)[0] == 45                                 # D#m over A
+    assert panel.expand({"sound": "strings", "seq": "A C"}, new=True)["params"]["Ae Attack"] == "350 ms"
+    with pytest.raises(panel.PanelError, match="pad"):
+        panel.expand({"sound": "choir"}, new=True)
+
+
+def test_a_chord_that_cannot_be_read_says_what_can():
+    with pytest.raises(panel.PanelError, match=r"Kinds: .*maj7.*Separate chords with commas"):
+        panel.riff({"chords": "Dm9,Cwobble"})
+
+
+# ---------------------------------------------------------------------------------------------
+# Mix panels, grids and songs
+
+from hands.live import mix, song, versions  # noqa: E402
+
+
+def db(v):
+    return "-inf dB" if v <= 0 else f"{20 * math.log10(v / 0.85):.1f} dB"
+
+
+def saturator():
+    return types.SimpleNamespace(name="Saturator", parameters=[Param("Device On", 1.0, items=["Off", "On"]),
+                                                                 Param("Drive", 0.0, -36.0, 36.0, show=lambda v: f"{v:.1f} dB"), Param("Dry/Wet", 1.0, show=lambda v: f"{v * 100:.0f} %")])
+
+
+def mix_live():
+    live = FakeLive()
+    s = live.song
+    for name in ("bus-kick", "bus-hats"):
+        t = Track(name, [types.SimpleNamespace(end_time=160.0, name="")])
+        s.tracks.append(t)
+    for t in s.tracks:
+        t.mixer_device = types.SimpleNamespace(volume=Param("Track Volume", 0.85, show=db), panning=Param("Track Panning", 0.0, -1.0, 1.0, show=lambda v: f"{v * 50:.0f}"))
+        t.delete_device = lambda i, t=t: t.devices.pop(i)
+    s.return_tracks = []
+    s.master_track = Track("Main")
+    s.master_track.mixer_device = types.SimpleNamespace(volume=Param("Track Volume", 0.85, show=db), panning=Param("Track Panning", 0.0, -1.0, 1.0))
+    live.browser.audio_effects = Item("Audio Effects", children=[Item("Saturator", saturator)])
+    return live
+
+
+def bars_recorder(seen):
+    """A take of arrangement bars: its level follows the kick bus fader, so versions differ the way they would."""
+    def record(*, transport, filename, output_dir, start_beat, duration_beats, tail_beats, tempo, n_tracks, armed, before, after):
+        transport.run(before + "\nresult = 'ok'")
+        try:
+            sr, spb, lead = 8000, 60.0 / tempo, panel.lead_beats(tempo)
+            vol = next((t.mixer_device.volume.value for t in transport.song.tracks if t.name == "bus-kick"), 0.5)
+            seen.append({"start": start_beat, "beats": duration_beats, "tempo": tempo, "vol": vol})
+            n = lambda beats: int(round(beats * spb * sr))  # noqa: E731
+            x = np.concatenate([np.zeros(sr // 2 + n(lead)), np.full(n(duration_beats - lead + tail_beats), 0.5 * vol)])
+            path = str(Path(output_dir) / filename)
+            sf.write(path, np.column_stack([x, x]), sr, subtype="FLOAT")
+            Path(path + ".timing.json").write_text(json.dumps({"song_zero_seconds": 0.5, "clip_start": start_beat, "tempo": tempo}))
+            return path
+        finally:
+            from hands.live.agent import with_prelude
+            transport.run(with_prelude(after + "\nresult = 'ok'"))
+    return record
+
+
+MIX = {"name": "buses", "bars": [17, 8], "faders": ["bus-kick", "bus-hats"],
+       "devices": [{"track": "bus-kick", "device": "Saturator", "params": {"Drive": "6 dB"}, "controls": ["Drive"]}]}
+
+
+def test_a_mix_panel_renders_bars_of_the_arrangement_and_leaves_faders_where_they_are(tmp_path):
+    live, seen = mix_live(), []
+    text = mix.make(live, MIX, tmp_path, recorder=bars_recorder(seen))
+    spec = spec_of(text)
+    assert [(c["kind"], c["label"]) for c in spec["controls"]] == [("fader", "bus-kick"), ("fader", "bus-hats"), ("knob", "bus-kick Drive")]
+    assert spec["controls"][0]["display"][-1] == "1.4 dB" and spec["panel"] == "buses" and "bars 17-24 at 160 BPM" in spec["note"]
+    assert seen[0]["start"] == 64.0 - panel.lead_beats(160) and seen[0]["beats"] == 32 + panel.lead_beats(160)
+    kick = live.song.tracks[1]
+    assert kick.devices[0].name == "mix buses Saturator" and kick.devices[0].parameters[1].value == pytest.approx(6.0, abs=0.01)
+    assert kick.mixer_device.volume.value == 0.85                                   # making a panel does not move a fader
+    assert sf.info(tmp_path / "buses.wav").duration == pytest.approx(8 * 4 * 60 / 160, abs=0.01)
+    assert live.song.current_song_time == 12.0 and live.song.loop is True and len(live.song.tracks) == 3
+
+    text = mix.apply(live, versions.load(tmp_path, "buses"), tmp_path, state_values={"values": {"bus_kick_volume": 0.4, "side": "b"}}, recorder=bars_recorder(seen))
+    assert kick.mixer_device.volume.value == 0.4 and seen[-1]["vol"] == 0.4          # set in Live, then rendered
+    assert spec_of(text)["controls"][-1]["kind"] == "ab" and "buses-2.wav" in text
+
+    mix.apply(live, versions.load(tmp_path, "buses"), tmp_path, spec={"values": {"bus-hats": "-6 dB", "drive": "12 dB"}}, recorder=bars_recorder(seen))
+    assert 20 * math.log10(live.song.tracks[2].mixer_device.volume.value / 0.85) == pytest.approx(-6, abs=0.05) and kick.devices[0].parameters[1].value == pytest.approx(12, abs=0.01)
+    with pytest.raises(panel.PanelError, match="close names: bus-kick"):
+        mix.make(live, {**MIX, "name": "x", "faders": ["kick"]}, tmp_path, recorder=bars_recorder(seen))
+    with pytest.raises(panel.PanelError, match="run-up"):
+        mix.make(live, {"name": "y", "bars": [1, 4], "faders": ["bus-kick"]}, tmp_path, recorder=bars_recorder(seen))
+    assert "1 device(s)" in mix.drop(live, versions.load(tmp_path, "buses"), tmp_path) and kick.devices == []
+    assert kick.mixer_device.volume.value == 0.4                                     # the mix stays; only the added device goes
+
+
+def test_a_grid_renders_every_version_into_one_deck_and_a_pick_sets_live(tmp_path):
+    live, seen = mix_live(), []
+    mix.make(live, MIX, tmp_path, recorder=bars_recorder(seen))
+    kick = live.song.tracks[1]
+    text = versions.grid(live, "buses", tmp_path, {"bus-kick": {"values": ["-12 dB", "-6 dB", "0 dB"]}, "bus-kick Drive": {"from": 0, "to": 12, "steps": 2}},
+                         recorder=bars_recorder(seen))
+    d = spec_of(text)["controls"][0]
+    assert d["kind"] == "deck" and [s["label"] for s in d["sources"]] == list("ABCDEF") and d["pick"] == 1 and d["quantize"] == "bar"
+    assert d["sources"][0]["note"] == "bus-kick -12.0 dB · bus-kick Drive 0.0 dB" and d["sources"][5]["note"] == "bus-kick 0.0 dB · bus-kick Drive 12.0 dB"
+    assert [round(20 * math.log10(s["vol"] / 0.85)) for s in seen[1:]] == [-12, -12, -6, -6, 0, 0]
+    assert "matched" not in d["sources"][0] and d["sources"][5]["matched"].endswith("buses-g1-f-m.wav")
+    quiet, loud = (np.sqrt(np.mean(sf.read(tmp_path / f)[0] ** 2)) for f in ("buses-g1-a.wav", "buses-g1-f-m.wav"))
+    assert loud == pytest.approx(quiet, rel=0.01)                                    # matched down to the quietest
+    assert kick.mixer_device.volume.value == 0.85 and kick.devices[0].parameters[1].value == pytest.approx(6.0, abs=0.01)   # the panel has not moved
+
+    text = versions.pick(live, "buses", tmp_path, 1, "d")
+    assert text.startswith("picked D (bus-kick -6.0 dB · bus-kick Drive 12.0 dB)")
+    assert 20 * math.log10(kick.mixer_device.volume.value / 0.85) == pytest.approx(-6, abs=0.05) and kick.devices[0].parameters[1].value == 12.0
+    made = versions.load(tmp_path, "buses")
+    assert made["version"] == 2 and made["renders"][-1].endswith("buses-g1-d.wav") and len(seen) == 7      # nothing rendered again
+    with pytest.raises(panel.PanelError, match="2 to 16 versions"):
+        versions.grid(live, "buses", tmp_path, {"bus-kick": {"steps": 5}, "bus-hats": {"steps": 5}}, recorder=bars_recorder(seen))
+    with pytest.raises(panel.PanelError, match="no control 'nope'; it has: bus_kick_volume"):
+        versions.grid(live, "buses", tmp_path, {"nope": {}}, recorder=bars_recorder(seen))
+
+
+def test_a_grid_over_an_instrument_panel(tmp_path):
+    live, seen = FakeLive(), []
+    panel.make(live, SPEC, tmp_path, recorder=recorder(seen))
+    text = versions.grid(live, "funk-bass", tmp_path, {"Filter Freq": {"from": "200 Hz", "to": "2 kHz", "steps": 3}}, recorder=recorder(seen))
+    d = spec_of(text)["controls"][0]
+    assert [s["note"] for s in d["sources"]] == ["Filter Freq 200 Hz", "Filter Freq 632 Hz", "Filter Freq 2.00 kHz"] and d["loop"]["bars"] == 2
+    dev = live.song.tracks[-1].devices[0]
+    assert hz(dev.parameters[2].value) == "2.00 kHz" and len(live.song.tracks) == 2 and live.song.tracks[-1].arrangement_clips == []
+    versions.pick(live, "funk-bass", tmp_path, 1, "A")
+    assert hz(dev.parameters[2].value) == "200 Hz"
+
+
+def test_a_song_lays_riffs_over_sections_and_a_mix_panel_hears_its_bars(tmp_path):
+    live, seen = mix_live(), []
+    panel.make(live, {**SPEC, "name": "bass", "beats": 8}, tmp_path, recorder=recorder(seen))
+    panel.make(live, {"name": "lead", "sound": "saw", "seq": "A C", "every": 2}, tmp_path, recorder=recorder(seen))
+    for t in live.song.tracks[-2:]:
+        t.mixer_device = types.SimpleNamespace(volume=Param("Track Volume", 0.85, show=db), panning=Param("Track Panning", 0.0, -1.0, 1.0))
+    spec = {"name": "tune", "tempo": 120, "sections": [{"name": "intro", "bars": 2, "parts": ["bass"]}, {"name": "drop", "bars": 4, "parts": ["bass", "lead"]},
+                                                         {"name": "out", "bars": 2, "parts": ["lead"]}]}
+    text = song.make(live, spec, tmp_path, recorder=recorder(seen))
+    assert "song tune v1: 8 bars at 120 BPM" in text and "intro 1-2 | drop 3-6 | out 7-8" in text and "```audio" in text
+    bass, lead = live.song.tracks[-2], live.song.tracks[-1]
+    made = json.loads((tmp_path / "tune.song.json").read_text())
+    start = made["start"]
+    assert start > 160 and [(c.start_time - start, c.end_time - start) for c in bass.arrangement_clips] == [(0.0, 24.0)]      # intro and drop are one run
+    assert [(c.start_time - start, c.end_time - start) for c in lead.arrangement_clips] == [(8.0, 32.0)]
+    assert len(bass.notes) == 12 and live.song.tempo == 160.0 and seen[-1]["tempo"] == 120                                    # the riff three times; tempo put back
+    assert sf.info(tmp_path / "tune.wav").duration == pytest.approx((32 + 4) * 0.5, abs=0.01)
+
+    text = mix.make(live, {"name": "tune-mix", "song": "tune", "bars": [3, 2], "faders": ["panel bass", "panel lead"]}, tmp_path, recorder=bars_recorder(seen))
+    assert seen[-1]["start"] == start + 8 - panel.lead_beats(120) and seen[-1]["tempo"] == 120 and "bars 3-4 at 120 BPM" in text
+    assert "song tune v2" in song.render(live, "tune", tmp_path, recorder=recorder(seen))
+    with pytest.raises(panel.PanelError, match="not an instrument panel here"):
+        song.make(live, {"name": "bad", "sections": [{"bars": 2, "parts": ["nobody"]}]}, tmp_path, recorder=recorder(seen))
+    song.drop(live, "tune", tmp_path)
+    assert bass.arrangement_clips == [] and lead.arrangement_clips == [] and len(live.song.tracks) == 5
