@@ -202,8 +202,10 @@ def record_arrangement(
     duration_beats: float,
     output_dir: str | Path = ".",
     tail_beats: float = 4.0,
+    start_beat: float = 0.0,
+    keep_take: bool = True,
 ) -> str | None:
-    """Render the set's arrangement from beat 0 via a resampling track.
+    """Render the set's arrangement from ``start_beat`` (beat 0 by default) via a resampling track.
 
     Leaves the source tracks' arrangement clips alone. Records
     ``duration_beats + tail_beats`` in arrangement record mode, exports the
@@ -216,7 +218,10 @@ def record_arrangement(
     file time matches song time within a few 512-sample buffers. So render
     two or more bars of lead-in before the material you need and trim them:
     the take's ``.timing.json`` says where song beat 0 is in the file, and
-    hands.audio.trim_take cuts there.
+    hands.audio.trim_take cuts there. With a ``start_beat`` the take's first
+    clip sits at about that beat: ``clip_start`` in the timing file is the
+    song beat that ``song_zero_seconds`` belongs to. ``keep_take=False`` removes
+    Live's own take file from the project once the export is written.
     """
     out_dir = Path(output_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -255,7 +260,10 @@ def record_arrangement(
     transport.run(f"song.tracks[{idx}].arm = 1")
     time.sleep(0.2)
 
-    transport.run("song.current_song_time = 0.0")
+    if start_beat:
+        # start_playing() plays from the start marker, not from current_song_time
+        transport.run(f"song.start_time = {float(start_beat)!r}")
+    transport.run(f"song.current_song_time = {float(start_beat)!r}")
     time.sleep(0.1)
     transport.run("song.record_mode = True")
     transport.run("song.start_playing()")
@@ -290,6 +298,11 @@ def record_arrangement(
         print("  No recorded clip found!")
     transport.run(f"song.delete_track({idx})")
     _restore_arm(transport, armed)
+    if result and not keep_take:
+        # Live's own take file in the project's Samples/Recorded: the export is a copy of it
+        for leftover in (file_path[0], file_path[0] + ".asd"):
+            if os.path.exists(leftover):
+                os.remove(leftover)
     return result
 
 
