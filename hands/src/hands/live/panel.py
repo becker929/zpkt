@@ -433,7 +433,10 @@ def record_span(transport: McpTransport, *, filename: str, output_dir: str, star
 
     from hands.live.record import _beat_to_seconds
 
+    from hands.live import sweep
+
     idx, out, take = n_tracks, str(Path(output_dir) / filename), None
+    sweep.make_room(Path(output_dir), (duration_beats + tail_beats) * 60.0 / tempo)
     try:
         transport.run(before + "\nsong.stop_playing()\nsong.loop = False\nsong.back_to_arranger = False\n"
                       f"for _i in {armed!r}:\n    song.tracks[_i].arm = 0\nsong.create_audio_track(-1)\nresult = 'ok'")
@@ -460,6 +463,7 @@ def record_span(transport: McpTransport, *, filename: str, output_dir: str, star
         if not clip or not Path(clip[0]).exists():
             return None
         take = clip[0]
+        sweep.note_takes(Path(output_dir), Path(take).parent)
         shutil.copy2(take, out)
         Path(out + ".timing.json").write_text(json.dumps({"song_zero_seconds": _beat_to_seconds(clip[2], clip[1]), "clip_start": clip[3], "tempo": tempo}))
         return out

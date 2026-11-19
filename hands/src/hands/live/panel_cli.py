@@ -196,3 +196,29 @@ def song_drop(name: str = typer.Argument(..., help="The song's name."), out: Pat
     """Delete the song's clips from the arrangement. Its panels' tracks and its renders stay."""
     from hands.live import song
     _run(song.drop, LiveClient(host, port, keep=True), name, out)
+
+
+def sweep_command(
+    out: Path = OUT,
+    project: list[Path] = typer.Option([], "--project", help="A Live project to look for leftover takes in (repeat for more). The open set's project is looked at anyway."),
+    days: float = typer.Option(7.0, "--days", help="Superseded renders go once they are this old."),
+    apply: bool = typer.Option(False, "--apply", help="Delete. Without it, only say what would go."),
+    pressure: bool = typer.Option(False, "--pressure", help="Do not wait --days: sweep everything superseded now."),
+    as_json: bool = typer.Option(False, "--json", help="Print the result as JSON."),
+    host: str = HOST, port: int = PORT,
+) -> None:
+    """Delete the files hands made that nothing can need again: leftover takes, old versions, old grids."""
+    from hands.live import sweep
+
+    projects, in_use = list(project), set()
+    try:   # the open set: its project, and the audio it plays (which a set not saved yet would not show on disk)
+        live = LiveClient(host, port, timeout=4.0, retries=0, keep=True)
+        path, clips = live.run("result = [str(getattr(song, 'file_path', '') or ''), sorted({str(c.file_path) for t in song.tracks "
+                               "for c in list(t.arrangement_clips) + [s.clip for s in t.clip_slots if s.has_clip] if c.is_audio_clip})]")
+        in_use = set(clips)
+        if path:
+            projects.append(Path(path).parent)
+    except (LiveError, OSError, ValueError, TypeError):
+        pass
+    result = sweep.sweep(out, projects, apply=apply, keep_days=days, pressure=pressure, in_use=in_use)
+    print(json.dumps(result) if as_json else sweep.report(result))

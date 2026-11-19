@@ -41,6 +41,8 @@ from hands.live.panel_cli import app as panel_app  # noqa: E402
 app.add_typer(panel_app, name="panel")
 from hands.live.panel_cli import song_app  # noqa: E402
 app.add_typer(song_app, name="song")
+from hands.live.panel_cli import sweep_command  # noqa: E402
+app.command("sweep")(sweep_command)
 console = Console()
 
 
