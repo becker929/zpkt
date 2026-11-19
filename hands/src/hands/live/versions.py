@@ -182,6 +182,8 @@ def pick(client: McpTransport, name: str, out_dir: Path, grid_id: int, letter: s
     g = next((x for x in panel.get("grids") or [] if x["id"] == int(grid_id)), None)
     if g is None:
         raise P.PanelError(f"panel {name!r} has no grid {grid_id}; it has: {', '.join(str(x['id']) for x in panel.get('grids') or []) or 'none'}")
+    if g.get("swept"):
+        raise P.PanelError(f"grid {grid_id} of {name!r} was swept (its renders were deleted to save space); make the grid again")
     o = next((x for x in g["options"] if x["letter"] == str(letter).strip().upper()), None)
     if o is None:
         raise P.PanelError(f"grid {grid_id} has no option {letter!r}; it has {g['options'][0]['letter']} to {g['options'][-1]['letter']}")
