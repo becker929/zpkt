@@ -451,6 +451,9 @@ def record_span(transport: McpTransport, *, filename: str, output_dir: str, star
                       "    raise RuntimeError('could not set the render track to Resampling')\n_t.arm = 1\nresult = 'ok'")
         transport.run(f"song.start_time = {float(start_beat)!r}\nsong.current_song_time = {float(start_beat)!r}\n"
                       "song.record_mode = True\nsong.start_playing()\nresult = 'ok'")
+        from hands.live.record import AUDIO_STALLED, playhead_moves
+        if not playhead_moves(transport, float(start_beat)):
+            raise PanelError(AUDIO_STALLED)
         time.sleep((duration_beats + tail_beats) * 60.0 / tempo + 0.3)
         transport.run("song.stop_playing()\nsong.record_mode = False\nresult = 'ok'")
         clip = None

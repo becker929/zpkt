@@ -17,6 +17,24 @@ from typing import Any
 from hands.live.transport import McpTransport
 
 
+
+AUDIO_STALLED = ("Live's playhead did not move, so its audio engine is not running and nothing can be recorded. "
+                 "Run `hands rig reset`: it gives Live an audio device again, or restarts Live and macOS audio.")
+
+
+def playhead_moves(transport, start_beat: float, seconds: float = 1.5) -> bool:
+    """After start_playing(): does the playhead leave start_beat within `seconds`? It cannot when the audio engine is
+    stopped (a wedged coreaudiod, no output device), and then a recording waits out its whole length for nothing."""
+    deadline = time.time() + seconds
+    while time.time() < deadline:
+        time.sleep(0.25)
+        try:
+            if float(transport.run("song.current_song_time")) > float(start_beat) + 0.01:
+                return True
+        except Exception:
+            return True   # cannot tell: let the recording go ahead as before
+    return False
+
 def record_via_resampling(
     transport: McpTransport,
     filename: str,
@@ -267,6 +285,12 @@ def record_arrangement(
     time.sleep(0.1)
     transport.run("song.record_mode = True")
     transport.run("song.start_playing()")
+    if not playhead_moves(transport, float(start_beat or 0.0)):
+        transport.run("song.stop_playing()")
+        transport.run("song.record_mode = False")
+        transport.run(f"song.delete_track({idx})")
+        _restore_arm(transport, armed)
+        raise RuntimeError(AUDIO_STALLED)
     tempo = transport.run("song.tempo")
     wait_secs = (duration_beats + tail_beats) / tempo * 60 + 0.5
     print(f"  Recording arrangement for {wait_secs:.1f}s ({duration_beats}+{tail_beats} beats at {tempo} BPM)...")

@@ -108,6 +108,67 @@ def song_of(out_dir: Path, name: str) -> dict:
     return json.loads(f.read_text())
 
 
+_OPEN_BUSES = """_fed = set(str(t.output_routing_type.display_name) for t in song.tracks)
+_opened = []
+for _t in song.tracks:
+    if _t.name in _fed and not _t.is_foldable and _t.has_audio_input and _t.current_monitoring_state == 2:
+        _t.current_monitoring_state = 0
+        _opened.append(_t.name)
+result = _opened"""
+
+
+def open_buses(client: McpTransport) -> list[str]:
+    """Turn monitoring to In on audio tracks that other tracks play into (a bus made of an audio track).
+
+    With monitoring Off such a bus passes nothing, so every render through it is silent; HW002's mix set
+    was built that way (2026-11-20). Returns the tracks it changed; the change stays in the set."""
+    try:
+        return list(client.run(_OPEN_BUSES) or [])
+    except Exception:  # an older Live API: render anyway, the silence check still speaks up
+        return []
+
+
+_QUIET = """_names = {names!r}
+_lo, _hi = {lo!r}, {hi!r}
+def _clips(name, seen):
+    out = []
+    for _t in song.tracks:
+        if _t.is_foldable or _t.name in seen:
+            continue
+        if _t.name == name or str(_t.output_routing_type.display_name) == name:
+            seen.add(_t.name)
+            out += [(c.start_time, c.end_time) for c in _t.arrangement_clips if not c.muted]
+            if _t.name != name:
+                out += _clips(_t.name, seen)
+    return out
+result = {{}}
+for _n in _names:
+    _c = _clips(_n, set())
+    if not any(a < _hi and b > _lo for a, b in _c):
+        result[_n] = min([a for a, b in _c if a >= _hi] or [None] if _c else [None])
+"""
+
+
+def quiet_tracks(client: McpTransport, names: list[str], start: float, beats: float) -> list[str]:
+    """Warn about the panel's tracks that play nothing in its bars (no clip on them or on what feeds them):
+    their faders change nothing there, and a grid of them sounds the same."""
+    names = [n for n in dict.fromkeys(names) if n not in ("Main", "Master")]
+    try:
+        quiet = client.run(_QUIET.format(names=names, lo=start, hi=start + beats)) or {}
+    except Exception:
+        return []
+    out = []
+    for n, nxt in quiet.items():
+        later = f"; it first plays at bar {int(nxt // 4) + 1}" if isinstance(nxt, (int, float)) else ""
+        out.append(f"{n} plays nothing in these bars{later}: its controls change nothing here")
+    return out
+
+
+def opened_note(names: list[str]) -> list[str]:
+    return [f"turned monitoring to In on {', '.join(names)}: other tracks play into them, and with monitoring Off "
+            "they passed no sound"] if names else []
+
+
 def render_bars(client: McpTransport, panel: dict, state: dict, out: Path, recorder: Callable[..., str | None],
                 values: dict[str, float] | None = None) -> dict:
     """Set the values, record the panel's bars of the arrangement through Main, cut the take to those bars."""
@@ -120,6 +181,7 @@ def render_bars(client: McpTransport, panel: dict, state: dict, out: Path, recor
     out.parent.mkdir(parents=True, exist_ok=True)
     take = out.with_name(f".{out.stem}.take.wav")
     sel = state.get("selected")
+    opened = open_buses(client)
     before = P.set_code(panel, values or {}) + (f"song.tempo = {tempo!r}\n" if abs(tempo - state["tempo"]) > 1e-6 else "")
     after = (f"song.tempo = {state['tempo']!r}\nsong.loop = {state['loop']!r}\nsong.start_time = {state['start_time']!r}\n"
              f"song.current_song_time = {state['pos']!r}\n"
@@ -130,7 +192,8 @@ def render_bars(client: McpTransport, panel: dict, state: dict, out: Path, recor
                         n_tracks=len(state["names"]), armed=state["armed"], before=before, after=after)
         if not path:
             raise P.PanelError("Live recorded nothing; check its audio output (`hands live check`)")
-        return P.cut_take(path, out, start, beats + float(panel.get("tail", 0.0)), lead, fade_s=0.005)
+        result = P.cut_take(path, out, start, beats + float(panel.get("tail", 0.0)), lead, fade_s=0.005)
+        return {**result, "opened": opened}
     finally:
         for f in (take, Path(f"{take}.timing.json")):
             f.unlink(missing_ok=True)
@@ -158,6 +221,8 @@ def make(client: McpTransport, spec: dict, out_dir: Path, *, replace: bool = Fal
             raise P.PanelError(f"no track {t!r} in the open set; close names: {', '.join(near) or 'none'}. Tracks: {', '.join(everything[:40])}")
     if not faders and not pans and not devices:
         raise P.PanelError('a mix panel needs something to turn: "faders" (track names), "pans" or "devices"')
+    quiet = quiet_tracks(client, [*faders, *pans, *[str(d.get("track")) for d in devices]],
+                         (float(song["start"]) if song else 0.0) + (first - 1) * 4.0, count * 4.0)
     if f.exists():
         drop(client, json.loads(f.read_text()), out_dir)
     added: list[dict] = []
@@ -216,7 +281,7 @@ def make(client: McpTransport, spec: dict, out_dir: Path, *, replace: bool = Fal
         raise
     panel["renders"].append(P._shown_path(out))
     f.write_text(json.dumps(panel))
-    return P.blocks(panel, result, warnings)
+    return P.blocks(panel, result, warnings + opened_note(result.pop("opened", [])) + quiet)
 
 
 def apply(client: McpTransport, panel: dict, out_dir: Path, *, state_values: dict | None = None, spec: dict | None = None,
@@ -241,7 +306,7 @@ def apply(client: McpTransport, panel: dict, out_dir: Path, *, state_values: dic
     before = panel["renders"][-1]
     panel["renders"].append(P._shown_path(out))
     P._file(out_dir, panel["name"]).write_text(json.dumps(panel))
-    return P.blocks(panel, result, [], ab=(before, panel["renders"][-1]))
+    return P.blocks(panel, result, opened_note(result.pop("opened", [])), ab=(before, panel["renders"][-1]))
 
 
 def values_from(panel: dict, state_values: dict | None) -> dict[str, float]:

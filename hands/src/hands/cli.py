@@ -11,6 +11,7 @@ Commands:
     kit      — build a probe kit in Live, render a batch
     plan     — plans to renders to A/B files, for the voice loop (hands.plans)
     panel    — an instrument, a riff, a render and its control panel for Zpkt web (hands.live.panel)
+    rig      — check the Live rig, and reset it when its state gets weird (hands.live.rig)
     library  — the WIP library: each track's place in the seven steps (hands.library, read-only)
 """
 
@@ -43,6 +44,8 @@ from hands.live.panel_cli import song_app  # noqa: E402
 app.add_typer(song_app, name="song")
 from hands.live.panel_cli import sweep_command  # noqa: E402
 app.command("sweep")(sweep_command)
+from hands.live.rig_cli import app as rig_app  # noqa: E402
+app.add_typer(rig_app, name="rig")
 console = Console()
 
 

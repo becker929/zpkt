@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import json
+import os
+import re
 import sys
 from pathlib import Path
 from typing import NoReturn
@@ -87,6 +89,68 @@ def ping(host: str = HOST, port: int = PORT,
     print(f"pong in {seconds * 1000:.0f} ms")
 
 
+_IMPORT_SONG = re.compile(r"^\s*(import\s+song\b.*|from\s+song\s+import\b.*)$")
+_PRINT_SHIM = """_printed = []
+def print(*_a, sep=" ", end="\\n", **_k):
+    _printed.append(sep.join(str(_x) for _x in _a))
+"""
+_PRINT_TAIL = """
+
+if _printed and globals().get("result") is None:
+    result = "\\n".join(_printed)
+"""
+
+
+_WRITES = re.compile(r"^(insert_|delete_|create_|duplicate_|set_|start_|stop_|continue_|fire|jump|tap_|undo|redo|"
+                     r"load|move|add_|remove_|record|capture|quantize|clear|store|crop|paste|duplicate|append|"
+                     r"re_enable|trigger|scrub|play|select)")
+AGENT_READ_ONLY = ("`hands live exec` only reads Live when the Zpkt agent runs it, so this changed nothing. To change "
+                   "levels, pans or devices, make a mix panel: hands panel make --spec '{\"name\": \"mix\", "
+                   "\"bars\": [17, 8], \"faders\": [\"Kick bus\"], \"devices\": [{\"track\": \"Kick bus\", "
+                   "\"device\": \"EQ Eight\", \"params\": {...}}]}'. It renders what it changed and `hands panel drop` "
+                   "takes it out. For Live itself (a dialog, no sound): hands rig reset.")
+
+
+def writes(source: str) -> bool:
+    """Does this Live code change anything? An assignment to an attribute or item, a `del`, or a call of a method
+    whose name changes Live (insert_device, delete_track, start_playing, ...). Code that does not parse is let
+    through: Live reports the syntax error."""
+    import ast
+    try:
+        tree = ast.parse(source)
+    except SyntaxError:
+        return False
+    for node in ast.walk(tree):
+        if isinstance(node, (ast.Assign, ast.AugAssign, ast.AnnAssign)):
+            targets = node.targets if isinstance(node, ast.Assign) else [node.target]
+            for t in targets:
+                for sub in ast.walk(t):
+                    if isinstance(sub, (ast.Attribute, ast.Subscript)) and isinstance(sub.ctx, ast.Store):
+                        return True
+        if isinstance(node, ast.Delete):
+            return True
+        if isinstance(node, ast.Call):
+            f = node.func
+            name = f.attr if isinstance(f, ast.Attribute) else f.id if isinstance(f, ast.Name) else ""
+            if _WRITES.match(name) and name not in ("select_track",):
+                return True
+    return False
+
+
+def friendly(source: str) -> tuple[str, list[str]]:
+    """Forgive the two mistakes agents make most in Live code (2026-11-20, a 32-call loop): `import song`
+    (song is already defined) and `print` (it shows nothing in Live; here it becomes the result)."""
+    notes: list[str] = []
+    lines = source.splitlines()
+    kept = [line for line in lines if not _IMPORT_SONG.match(line)]
+    if len(kept) != len(lines):
+        notes.append("`song` is already defined in Live; `import song` was removed (never import it)")
+    source = "\n".join(kept)
+    if re.search(r"\bprint\s*\(", source):
+        source = _PRINT_SHIM + source + _PRINT_TAIL
+    return source, notes
+
+
 @app.command("exec")
 def exec_(
     code: str = typer.Argument(None, help="Python to run in Live: an expression, or statements that set `result`."),
@@ -102,8 +166,13 @@ def exec_(
     source = file.read_text() if file else sys.stdin.read() if stdin else code
     if not source or not source.strip():
         _fail("give the code as an argument, --file or --stdin", 2)
+    if os.environ.get("ZPKT_AGENT") and writes(source):
+        _fail(f"ERROR: {AGENT_READ_ONLY}")
     if not raw:
         from hands.live.agent import with_prelude
+        source, notes = friendly(source)
+        for note in notes:
+            print(f"note: {note}", file=sys.stderr)
         source = with_prelude(source)
     res = LiveClient(host, port, timeout=timeout, retries=retries).execute(source)
     if res.warning:
