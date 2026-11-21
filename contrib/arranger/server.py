@@ -1,5 +1,8 @@
-"""The HW002 arranger's server: the page, the bounced loops and the saved arrangements; and the transitions page
-(/transitions/) with the transition sounds made by fxset.py and the picks made there.
+"""The HW002 arranger's server: the page, the bounced loops and the saved arrangements; the transitions page
+(/transitions/) with the transition sounds made by fxset.py; the first mix page (/mix/); the second (/mix2/), whose
+batches mixset.py renders in Live (the server starts its worker when a batch is queued); and the spectral A/B
+(/spectral/), renders of fixes made by spectral.py; and the kick design page (/kick/), kicks only. Each page writes its structure into the arrangement file
+(`regions`, `transitions`, `mix`, `mix2`, `spectral`).
 
     python3 contrib/arranger/server.py            # 127.0.0.1:8975
 
@@ -12,6 +15,8 @@ from __future__ import annotations
 import json
 import os
 import re
+import shutil
+import subprocess
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -22,6 +27,21 @@ PORT = int(os.environ.get("ARRANGER_PORT", "8975"))
 TYPES = {".html": "text/html; charset=utf-8", ".js": "text/javascript", ".css": "text/css", ".json": "application/json",
          ".flac": "audio/flac", ".svg": "image/svg+xml"}
 ID = re.compile(r"^[a-z0-9][a-z0-9-]{0,63}$")
+MIX2 = DATA / "mix2"
+UV = shutil.which("uv") or str(Path("~/.local/bin/uv").expanduser())
+_worker = None   # the mix-2 render worker (mixset.py worker), at most one
+
+
+def start_worker() -> None:
+    """Start mixset.py's worker if it is not running: it renders the queued mix-2 requests in Live, one after another,
+    and stops at the first surprise (that request is marked failed with the reason)."""
+    global _worker
+    if _worker is not None and _worker.poll() is None:
+        return
+    root = HERE.parents[1]
+    log = open(MIX2 / "worker.log", "a")
+    _worker = subprocess.Popen([UV, "run", "--project", str(root / "hands"), "python", str(HERE / "mixset.py"), "worker"],
+                               cwd=root, stdout=log, stderr=subprocess.STDOUT, env={**os.environ, "ARRANGER_DATA": str(DATA)})
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -55,6 +75,44 @@ class Handler(BaseHTTPRequestHandler):
             return self._file(DATA / "loops.json")
         if path in ("/transitions", "/transitions/"):
             return self._file(HERE / "static" / "transitions.html")
+        if path in ("/mix", "/mix/"):
+            return self._file(HERE / "static" / "mix.html")
+        if path == "/refs/refs.json":
+            return self._file(DATA / "refs" / "refs.json")
+        if m := re.fullmatch(r"/refs/([a-z0-9-]{1,64}(?:\.flac|\.spec\.json))", path):   # made by refs.py
+            return self._file(DATA / "refs" / m[1], "public, max-age=3600")
+        if path in ("/mix2", "/mix2/"):
+            return self._file(HERE / "static" / "mix2.html")
+        if path == "/mix2/catalog.json":
+            return self._file(MIX2 / "catalog.json")
+        if m := re.fullmatch(r"/mix2/([a-z0-9-]{1,64})/([a-z0-9-]{1,32}\.flac)", path):
+            return self._file(MIX2 / m[1] / m[2])
+        if path == "/api/mix2/requests":
+            rows = []
+            for f in (MIX2 / "requests").glob("*.json"):
+                try:
+                    rows.append(json.loads(f.read_text()))
+                except ValueError:
+                    continue
+            return self._json(sorted(rows, key=lambda r: -(r.get("made") or 0)))
+        if path in ("/spectral", "/spectral/"):   # the mix against the references by spectrum (spectral.py)
+            return self._file(HERE / "static" / "spectral.html")
+        if path == "/spectral/renders.json":
+            return self._file(DATA / "spectral" / "renders.json")
+        if m := re.fullmatch(r"/spectral/([a-z0-9-]{1,32}\.flac)", path):
+            return self._file(DATA / "spectral" / m[1])
+        if path in ("/kick", "/kick/"):   # the kick design page: kicks only, A/B/C (kickdesign.py makes its data)
+            return self._file(HERE / "static" / "kick.html")
+        if path == "/kickdesign/kicks.json":
+            return self._file(DATA / "kickdesign" / "kicks.json")
+        if m := re.fullmatch(r"/kickdesign/frames/([a-z0-9-]{1,64}\.json)", path):
+            return self._file(DATA / "kickdesign" / "frames" / m[1])
+        if m := re.fullmatch(r"/kickdesign/(ref-[a-z0-9-]{1,64}\.flac)", path):
+            return self._file(DATA / "kickdesign" / m[1], "public, max-age=3600")
+        if path == "/kickfuzz/renders.json":   # kick options from HW002's own chain (kickfuzz.py)
+            return self._file(DATA / "kickfuzz" / "renders.json")
+        if m := re.fullmatch(r"/kickfuzz/([a-z0-9-]{1,32}\.flac)", path):
+            return self._file(DATA / "kickfuzz" / m[1])
         if path == "/fx.json":
             return self._file(DATA / "fx" / "fx.json")
         if m := re.fullmatch(r"/fx/audio/([a-z0-9-]{1,64}\.flac)", path):
@@ -82,18 +140,30 @@ class Handler(BaseHTTPRequestHandler):
     do_HEAD = do_GET
 
     def do_PUT(self) -> None:
-        if m := re.fullmatch(r"/api/arrangements/([^/]+)/transitions", self.path):   # the transitions page's output
+        if m := re.fullmatch(r"/api/arrangements/([^/]+)/(transitions|mix|mix2|spectral|kickFuzz)", self.path):   # a later page's structure
             f = DATA / "arrangements" / f"{m[1]}.json"
             if not ID.match(m[1]) or not f.is_file():
                 return self._json({"error": "no such arrangement"}, 404)
             n = int(self.headers.get("Content-Length") or 0)
             try:
                 t = json.loads(self.rfile.read(n)) if 0 < n < 2_000_000 else None
-                assert isinstance(t, list) and all(isinstance(x, dict) and "id" in x and "seam" in x for x in t)
+                if m[2] == "transitions":
+                    assert isinstance(t, list) and all(isinstance(x, dict) and "id" in x and "seam" in x for x in t)
+                elif m[2] == "kickFuzz":   # the kick option kept, or null for HW002's kick as it is
+                    assert t is None or (isinstance(t, dict) and isinstance(t.get("loop"), str) and re.fullmatch(r"[a-z0-9-]{1,32}\.flac", t["loop"])
+                                         and isinstance(t.get("kickTurnedDb"), (int, float))
+                                         and (t.get("bells") is None or (isinstance(t["bells"], list) and len(t["bells"]) <= 6
+                                              and all(isinstance(b, list) and len(b) == 3 and all(isinstance(v, (int, float)) for v in b) for b in t["bells"]))))
+                elif m[2] == "spectral":   # the spectral fixes kept: ids from spectral/fixes.json, with their recipe
+                    assert isinstance(t, list) and all(isinstance(x, dict) and "id" in x and "parts" in x for x in t)
+                elif m[2] == "mix2":
+                    assert isinstance(t, list) and all(isinstance(x, dict) and "device" in x and "target" in x for x in t)
+                else:
+                    assert isinstance(t, dict) and isinstance(t.get("channels"), dict)
             except (ValueError, AssertionError):
-                return self._json({"error": "bad transitions"}, 400)
+                return self._json({"error": f"bad {m[2]}"}, 400)
             a = json.loads(f.read_text())
-            a["transitions"] = t
+            a[m[2]] = t
             tmp = f.with_name(f".{m[1]}.tmp")
             tmp.write_text(json.dumps(a))
             tmp.replace(f)
@@ -127,16 +197,35 @@ class Handler(BaseHTTPRequestHandler):
         folder = DATA / "arrangements"
         folder.mkdir(parents=True, exist_ok=True)
         old = folder / f"{m[1]}.json"
-        if "transitions" not in a and old.is_file():   # the arranger page does not know them: keep what is there
+        if old.is_file():   # the arranger page does not know the later steps' structure: keep what is there
             try:
-                if t := json.loads(old.read_text()).get("transitions"):
-                    a["transitions"] = t
+                prev = json.loads(old.read_text())
+                for key in ("transitions", "mix", "mix2", "spectral", "kickFuzz"):
+                    if key not in a and key in prev:
+                        a[key] = prev[key]
             except ValueError:
                 pass
         tmp = folder / f".{m[1]}.tmp"
         tmp.write_text(json.dumps(a))
         tmp.replace(folder / f"{m[1]}.json")
         self._json({"ok": True, "saved": a["saved"]})
+
+    def do_POST(self) -> None:
+        if self.path != "/api/mix2/requests":   # a batch to render: a target, a device, one or two ranges, some bars
+            return self._json({"error": "not found"}, 404)
+        n = int(self.headers.get("Content-Length") or 0)
+        try:
+            r = json.loads(self.rfile.read(n)) if 0 < n < 100_000 else None
+            assert isinstance(r, dict) and isinstance(r.get("target"), str) and isinstance(r.get("device"), str)
+            assert isinstance(r.get("params"), list) and 1 <= len(r["params"]) <= 2
+            assert isinstance(r.get("bars"), list) and len(r["bars"]) == 2 and 1 <= r["bars"][0] <= r["bars"][1] <= 40
+        except (ValueError, AssertionError):
+            return self._json({"error": "bad request"}, 400)
+        r.update(id=time.strftime("b%m%d-%H%M%S"), status="queued", made=time.time())
+        (MIX2 / "requests").mkdir(parents=True, exist_ok=True)
+        (MIX2 / "requests" / f"{r['id']}.json").write_text(json.dumps(r, indent=1))
+        start_worker()
+        self._json(r)
 
     def do_DELETE(self) -> None:
         m = re.fullmatch(r"/api/arrangements/([^/]+)", self.path)

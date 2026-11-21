@@ -1,0 +1,318 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>HW002 spectrum A/B</title>
+<style>
+/* Layout: a player bar on top (A and B, the big switch, the stretch of bars), the drop's spectrum against the four
+   references under it, then the five differences as cards, each with its own A/B and a Keep. Dark like mix 2. */
+:root { --bg:#111214; --panel:#1a1c20; --line:#2a2d33; --text:#e9e9ea; --dim:#8b8f98; --accent:#ffd34d; --a:#7fd1ff; --b:#ff9f6b; --ref:#5fd38d; }
+* { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+html, body { margin:0; background:var(--bg); color:var(--text); font:14px/1.4 -apple-system, system-ui, sans-serif; }
+body { padding:0 0 32px; user-select:none; -webkit-user-select:none; }
+button, select { font:inherit; color:inherit; }
+button { background:#24272d; border:1px solid var(--line); border-radius:8px; padding:0 12px; height:36px; display:inline-flex; align-items:center; justify-content:center; gap:6px; cursor:pointer; }
+button:active { background:#33373f; }
+select { background:#101114; border:1px solid var(--line); border-radius:8px; height:36px; padding:0 6px; min-width:0; }
+header { position:sticky; top:0; z-index:5; background:var(--panel); border-bottom:1px solid var(--line); padding:8px 12px; padding-top:max(8px, env(safe-area-inset-top)); display:grid; gap:8px; }
+header h1 { font-size:15px; margin:0; display:flex; align-items:baseline; gap:8px; }
+header h1 small { color:var(--dim); font-weight:400; font-size:12px; }
+.row { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+.slot { flex:1; min-width:140px; display:flex; gap:6px; align-items:center; border:1px solid var(--line); border-radius:10px; padding:4px 6px; }
+.slot b { width:22px; height:22px; border-radius:6px; display:grid; place-items:center; font-size:12px; color:#111; flex:none; }
+.slot select { flex:1; border:none; background:transparent; height:30px; }
+.slot.on { border-color:currentColor; }
+#slotA { color:var(--a); } #slotA b { background:var(--a); }
+#slotB { color:var(--b); } #slotB b { background:var(--b); }
+.slot select { color:var(--text); }
+#play { min-width:56px; background:var(--accent); color:#111; border-color:var(--accent); font-weight:600; }
+#ab { flex:1; height:44px; font-size:16px; font-weight:600; min-width:120px; }
+#ab.isA { background:var(--a); border-color:var(--a); color:#111; }
+#ab.isB { background:var(--b); border-color:var(--b); color:#111; }
+#ab.pending { outline:2px dashed #fff; outline-offset:-3px; }
+#pos { font-variant-numeric:tabular-nums; color:var(--dim); min-width:58px; text-align:right; }
+#pos b { color:var(--text); font-size:15px; }
+.seg button { height:30px; font-size:12.5px; }
+.seg button.on { background:#cfd3da; border-color:#cfd3da; color:#111; }
+#match.on { background:#cfd3da; border-color:#cfd3da; color:#111; }
+.note { font-size:12px; color:var(--dim); }
+main { padding:0 12px; max-width:760px; margin:0 auto; }
+h2 { font-size:11px; letter-spacing:.06em; text-transform:uppercase; color:var(--dim); font-weight:600; margin:16px 0 6px; }
+#chart { width:100%; height:auto; display:block; background:#0c0d0f; border:1px solid var(--line); border-radius:10px; }
+.legend { display:flex; gap:12px; flex-wrap:wrap; font-size:12px; color:var(--dim); margin-top:6px; }
+.legend i { display:inline-block; width:14px; height:3px; border-radius:2px; vertical-align:middle; margin-right:5px; }
+.card { border:1px solid var(--line); border-radius:12px; padding:10px 12px; margin:10px 0; display:grid; gap:6px; }
+.card.focus { border-color:var(--b); }
+.card h3 { margin:0; font-size:14px; display:flex; gap:8px; align-items:baseline; }
+.card h3 .n { color:var(--b); font-variant-numeric:tabular-nums; }
+.card h3 .num { margin-left:auto; font:500 12px ui-monospace, Menlo, monospace; color:var(--accent); white-space:nowrap; }
+.card p { margin:0; font-size:13px; color:#c9ccd2; }
+.card .fix { font-size:12.5px; color:var(--dim); }
+.card .fix b { color:var(--text); font-weight:500; }
+.card .res { font: 12px ui-monospace, Menlo, monospace; color:var(--dim); }
+.card .res .good { color:var(--ref); }
+.card .acts { display:flex; gap:8px; flex-wrap:wrap; }
+.card .acts button { height:32px; font-size:12.5px; }
+.keep.on { background:var(--ref); border-color:var(--ref); color:#111; font-weight:600; }
+#loading { font-size:12px; color:var(--dim); }
+#tabs { display:flex; gap:6px; }
+#tabs button { height:30px; font-size:12.5px; }
+#tabs button.on { background:#cfd3da; border-color:#cfd3da; color:#111; }
+.shape { width:100%; height:auto; display:block; }
+.card.kept { border-color:var(--ref); }
+.best { font:600 10.5px ui-monospace, Menlo, monospace; color:#111; background:var(--accent); border-radius:4px; padding:1px 6px; align-self:center; }
+</style>
+</head>
+<body>
+<header>
+  <h1>HW002 against its references <small>Live renders</small></h1>
+  <div id="tabs"><button data-t="spec">Spectrum fixes</button><button data-t="kick">Kick fuzz</button></div>
+  <div class="row">
+    <label class="slot on" id="slotA"><b>A</b><select id="selA" aria-label="A"></select></label>
+    <label class="slot" id="slotB"><b>B</b><select id="selB" aria-label="B"></select></label>
+  </div>
+  <div class="row">
+    <button id="play" aria-label="Play">Play</button>
+    <button id="ab" class="isA">A</button>
+    <div id="pos"><b>–</b></div>
+  </div>
+  <div class="row">
+    <div class="seg row" id="bars"></div>
+    <button id="match" class="on" title="Turn each file to the same loudness over the drop">Matched</button>
+  </div>
+</header>
+<main>
+  <p class="note" id="loading">Loading…</p>
+  <h2>The drop (bars 17–32): spectrum, loudness taken out</h2>
+  <svg id="chart" viewBox="0 0 720 300" role="img" aria-label="Spectrum of A and B against the references' range"></svg>
+  <div class="legend"><span><i style="background:var(--ref);opacity:.35;height:10px"></i>the four references, lowest to highest</span><span><i style="background:var(--ref)"></i>their average</span><span><i style="background:var(--a)"></i>A</span><span><i style="background:var(--b)"></i>B</span></div>
+  <section id="specView">
+  <h2>The five biggest differences, and the fixes</h2>
+  <div id="cards"></div>
+  <p class="note" id="dnote"></p>
+  </section>
+  <section id="kickView" hidden>
+  <h2>Kick fuzz from HW002's own chain, at the same loudness</h2>
+  <p class="note">Each option changes devices already in HW002's kick chain, bounced through it, with the kick channel turned so the kick is as loud as before. The references' kicks are isolated by the beat (the median over every beat of the drop, from the kick onset to the next sixteenth; <code>kickiso.py</code>), and our mix the same way. The chart shows the isolated kick's shape (energy per range, dB of its total): green is the four references' range, white is this option, the hollow mark is the kick as it is. Above about 5 kHz on-beat hats leak into every isolated kick, ours and theirs, so read fizz loosely. Mix: the whole mix with this kick. Kick alone: four bars of kick and rumble, looped.</p>
+  <div id="kcards"></div>
+  </section>
+  <p class="note">Every sound here is a render of the mix set in Live (<code>spectral.py</code>), or a reference as released. The page only plays the files and switches between them on the beat. Matched turns each file to the same loudness over the drop, as a listening aid; the references stay far louder and denser than the mix until mastering. A reference plays at its own tempo, its drop lined up with bar 17. Keep writes the fix into the recipe (the arrangement's <code>spectral</code>), for Live to apply.</p>
+</main>
+<script>
+const $ = s => document.querySelector(s);
+const ARR = 'short-8d2a2', BAR = 1.5, DROP = 24.0;   // the track: 160 BPM, bar 17 at 24 s
+const BEST = ['mmtf12', 't-mtf12'];   // the kicks Anthony picked
+const STRETCH = { build: [1, 16], drop: [17, 32], drop2: [33, 40], whole: [1, 40] };
+let D, K = null, ctx, kept = [], keptKick = null, tab = 'spec', view = { a: 'before', b: 'after', side: 'a', bars: 'drop', match: true, focus: null };
+const bufs = {}, loading = {};
+
+// ---------- sources: renders of the mix set, and the references ----------
+function sources() {
+  return [...D.renders.map(r => ({ id: r.id, title: r.title, url: `/spectral/${r.file}`, spb: BAR, drop: DROP, lufs: r.drop.lufs, spec: r.drop.spectrum, render: r })),
+          ...(K ? K.options.filter(o => o.mix && o.id !== 'base').map(o => ({ id: 'kf:' + o.id, title: 'Kick ' + o.title, url: `/kickfuzz/${o.mix}`, spb: BAR, drop: DROP, lufs: o.drop.lufs, spec: o.drop.spectrum })) : []),
+          ...(K ? K.options.map(o => ({ id: 'kl:' + o.id, title: 'Kick alone: ' + o.title, url: `/kickfuzz/${o.loop}`, spb: BAR, drop: 0, lufs: o.loopLufs, loop: true, spec: null })) : []),
+          ...D.refs.map(r => ({ id: 'ref:' + r.id, title: 'Ref: ' + r.title, url: `/refs/${r.file}`, spb: r.barSeconds, drop: r.drop, lufs: r.lufsDrop, spec: r.dropSpectrum }))];
+}
+const src = id => sources().find(s => s.id === id);
+function audio() { if (!ctx) { const AC = window.AudioContext || window.webkitAudioContext; ctx = new AC({ latencyHint: 'playback' }); } return ctx; }
+async function buf(s) {
+  if (bufs[s.id]) return bufs[s.id];
+  loading[s.id] ||= fetch(s.url).then(r => r.arrayBuffer()).then(a => new Promise((ok, no) => audio().decodeAudioData(a, ok, no))).then(b => (bufs[s.id] = b));
+  return loading[s.id];
+}
+// a file's offset in seconds for a position in the track's bars (1-based, fractional): the drop lines up with bar 17
+const offsetOf = (s, bar) => s.loop ? ((((bar - 17) % 4) + 4) % 4) * s.spb : s.drop + (bar - 17) * s.spb;
+// the loudness match: every file to the before render's drop loudness (a listening aid)
+// (a kick loop alone: to the kick as it is)
+const gainOf = s => !view.match || s.lufs == null ? 1 : Math.pow(10, ((s.loop ? src('kl:base').lufs : src('before').lufs) - s.lufs) / 20);
+
+// ---------- the player: one source at a time, on a clock in bars ----------
+let playing = null, clock = null, timer = null, pendingSide = null;
+function barNow() { return clock ? clock.bar + (audio().currentTime - clock.t) / clock.spb : STRETCH[view.bars][0]; }
+function startSrc(s, when, bar) {
+  const b = bufs[s.id]; if (!b) return null;
+  const n = audio().createBufferSource(), g = audio().createGain();
+  n.buffer = b; n.connect(g); if (s.loop) { n.loop = true; n.loopStart = 0; n.loopEnd = b.duration; } g.connect(audio().destination);
+  const gain = gainOf(s);
+  g.gain.setValueAtTime(0, when); g.gain.linearRampToValueAtTime(gain, when + 0.006);
+  const off = Math.max(0, offsetOf(s, bar));
+  n.start(when, off);
+  return { n, g, s };
+}
+function stopSrc(h, when) {
+  if (!h) return;
+  try { h.g.gain.cancelScheduledValues(when); h.g.gain.setValueAtTime(h.g.gain.value, when); h.g.gain.linearRampToValueAtTime(0, when + 0.008); h.n.stop(when + 0.012); } catch (e) {}
+}
+const curId = () => view.side === 'a' ? view.a : view.b;
+async function play() {
+  if (playing) { stopSrc(playing, audio().currentTime); playing = null; clock = null; clearInterval(timer); timer = null; paint(); return; }
+  await audio().resume();
+  const s = src(curId()); await buf(s);
+  const when = audio().currentTime + 0.08, bar = STRETCH[view.bars][0];
+  playing = startSrc(s, when, bar); clock = { t: when, bar, spb: s.spb };
+  timer = setInterval(tick, 25); paint();
+}
+function tick() {
+  if (!playing) return;
+  const [a, b] = STRETCH[view.bars], end = b + 1, look = 0.12;
+  const t = audio().currentTime, bar = barNow();
+  // the loop: back to the stretch's first bar, on the bar
+  const tEnd = clock.t + (end - clock.bar) * clock.spb;
+  if (tEnd - t < look && !clock.wrapping) {
+    clock.wrapping = true;
+    const s = src(curId()), old = playing;
+    stopSrc(old, tEnd); playing = startSrc(s, tEnd, a); clock = { t: tEnd, bar: a, spb: s.spb };
+  }
+  // a switch: on the next beat, to the same place in the music (the other file's own tempo after that)
+  if (pendingSide && !clock.wrapping) {
+    const s = src(pendingSide === 'a' ? view.a : view.b);
+    if (bufs[s.id]) {
+      const nextBeat = Math.floor((bar - 1) * 4 + 1) / 4 + 1, when = Math.max(t + 0.03, clock.t + (nextBeat - clock.bar) * clock.spb);
+      if (nextBeat < end) {
+        const old = playing; stopSrc(old, when); playing = startSrc(s, when, nextBeat); clock = { t: when, bar: nextBeat, spb: s.spb };
+        view.side = pendingSide; pendingSide = null;
+        setTimeout(paint, Math.max(0, (when - t) * 1000));
+      }
+    }
+  }
+  if (clock.wrapping && t > clock.t) clock.wrapping = false;
+  const p = barNow(); $('#pos').innerHTML = `<b>${Math.floor(p)}</b>.${Math.floor((p % 1) * 4) + 1}`;
+}
+async function flip(side) {
+  side ||= view.side === 'a' ? 'b' : 'a';
+  if (!playing) { view.side = side; paint(); return; }
+  await buf(src(side === 'a' ? view.a : view.b));
+  pendingSide = side; paint();
+}
+async function choose(slot, id) {   // a new file in a slot: heard at once if that slot is playing
+  view[slot] = id; buf(src(id));
+  if (playing && view.side === slot) { await buf(src(id)); pendingSide = slot; }
+  paint();
+}
+
+// ---------- the chart ----------
+const W = 720, H = 300, L = 38, R = 8, T = 10, Bm = 26;
+function paintChart() {
+  const c = D.bands.centres, n = c.length, lx = f => L + (Math.log(f / 20) / Math.log(1000)) * (W - L - R);
+  const all = [...D.refMin, ...D.refMax, ...(src(view.a).spec || []), ...(src(view.b).spec || [])].filter(v => isFinite(v));
+  const top = Math.ceil(Math.max(...all) / 6) * 6 + 2, bot = top - 42, ly = v => T + (top - Math.max(bot, v)) / (top - bot) * (H - T - Bm);
+  const line = arr => arr.map((v, k) => `${k ? 'L' : 'M'}${lx(c[k]).toFixed(1)},${ly(v).toFixed(1)}`).join('');
+  let s = '';
+  for (const f of [20, 50, 100, 200, 500, 1000, 2000, 5000, 10000, 20000]) s += `<line x1="${lx(f)}" x2="${lx(f)}" y1="${T}" y2="${H - Bm}" stroke="#22252a"/><text x="${lx(f)}" y="${H - 8}" fill="#8b8f98" font-size="11" text-anchor="middle">${f >= 1000 ? f / 1000 + 'k' : f}</text>`;
+  for (let v = bot; v <= top; v += 6) s += `<line x1="${L}" x2="${W - R}" y1="${ly(v)}" y2="${ly(v)}" stroke="#1b1d21"/><text x="${L - 6}" y="${ly(v) + 4}" fill="#5c6068" font-size="10" text-anchor="end">${v - top + 2}</text>`;
+  const f = view.focus && D.fixes.find(x => x.id === view.focus);
+  if (f && f.band) s += `<rect x="${lx(f.band[0])}" y="${T}" width="${lx(f.band[1]) - lx(f.band[0])}" height="${H - T - Bm}" fill="#ff9f6b" opacity=".09"/><text x="${(lx(f.band[0]) + lx(f.band[1])) / 2}" y="${T + 14}" fill="#ff9f6b" font-size="11" text-anchor="middle">${f.short || ''}</text>`;
+  s += `<path d="${line(D.refMax)}${D.refMin.map((v, k) => `L${lx(c[n - 1 - k]).toFixed(1)},${ly(D.refMin[n - 1 - k]).toFixed(1)}`).join('')}Z" fill="#5fd38d" opacity=".16"/>`;
+  s += `<path d="${line(D.refMean)}" fill="none" stroke="#5fd38d" stroke-width="1.5" opacity=".8"/>`;
+  if (src(view.a).spec) s += `<path d="${line(src(view.a).spec)}" fill="none" stroke="#7fd1ff" stroke-width="${view.side === 'a' ? 2.4 : 1.4}"/>`;
+  if (src(view.b).spec) s += `<path d="${line(src(view.b).spec)}" fill="none" stroke="#ff9f6b" stroke-width="${view.side === 'b' ? 2.4 : 1.4}"/>`;
+  s += `<text x="${L + 4}" y="${T + 12}" fill="#5c6068" font-size="10">dB (each curve relative to its own loudness)</text>`;
+  $('#chart').innerHTML = s;
+}
+
+// ---------- the five differences ----------
+async function saveKept() {
+  const body = D.fixes.filter(f => kept.includes(f.id)).map(f => ({ id: f.id, title: f.title, parts: f.parts || [{ target: f.target, device: f.device, values: f.values }] }));
+  await fetch(`/api/arrangements/${ARR}/spectral`, { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
+}
+function paintCards() {
+  const box = $('#cards'); box.innerHTML = '';
+  D.fixes.forEach((f, i) => {
+    const r = D.renders.find(x => x.fix === f.id);
+    const c = document.createElement('div'); c.className = 'card' + (view.focus === f.id ? ' focus' : '');
+    c.innerHTML = `<h3><span class="n">${i + 1}</span>${f.title}<span class="num">${f.measure || ''}</span></h3>
+      <p>${f.why || ''}</p><div class="fix"><b>Fix:</b> ${f.how || ''}</div>${f.result ? `<div class="res">${f.result}</div>` : ''}
+      <div class="acts"><button data-do="hear">Hear: before / this fix</button><button data-do="ref">Before / reference</button><button class="keep ${kept.includes(f.id) ? 'on' : ''}" data-do="keep">${kept.includes(f.id) ? 'Kept' : 'Keep'}</button></div>`;
+    c.querySelector('[data-do=hear]').onclick = () => { view.focus = f.id; choose('a', 'before'); choose('b', r ? r.id : 'after'); if (view.bars === 'whole' || (f.id === 'build') !== (view.bars === 'build')) setBars(f.id === 'build' ? 'build' : 'drop'); paint(); };
+    c.querySelector('[data-do=ref]').onclick = () => { view.focus = f.id; choose('a', 'before'); choose('b', 'ref:' + D.refs[0].id); paint(); };
+    c.querySelector('[data-do=keep]').onclick = async () => { kept = kept.includes(f.id) ? kept.filter(x => x !== f.id) : [...kept, f.id]; paint(); await saveKept(); };
+    box.appendChild(c);
+  });
+}
+// ---------- kick fuzz ----------
+function shapeSvg(o) {
+  const G = K.groups, base = K.options.find(x => x.id === 'base').shape, w = 340, h = 120, l = 30, top = 0, bot = -42;
+  const x = i => l + (i + 0.5) * (w - l) / G.length, y = v => 6 + (top - Math.max(bot, Math.min(top, v))) / (top - bot) * (h - 26);
+  let s = '';
+  for (let v = 0; v >= bot; v -= 12) s += `<line x1="${l}" x2="${w}" y1="${y(v)}" y2="${y(v)}" stroke="#1f2226"/><text x="${l - 4}" y="${y(v) + 3}" fill="#5c6068" font-size="9" text-anchor="end">${v}</text>`;
+  G.forEach((g, i) => {
+    const vals = K.refs.map(r => r.shape[g]), lo = Math.min(...vals), hi = Math.max(...vals), bw = (w - l) / G.length * 0.5;
+    s += `<rect x="${x(i) - bw / 2}" y="${y(hi)}" width="${bw}" height="${Math.max(2, y(lo) - y(hi))}" rx="3" fill="#5fd38d" opacity=".28"/>`;
+    s += `<circle cx="${x(i)}" cy="${y(base[g])}" r="4.5" fill="none" stroke="#8b8f98" stroke-width="1.5"/>`;
+    s += `<circle cx="${x(i)}" cy="${y(o.shape[g])}" r="3.5" fill="#e9e9ea"/>`;
+    s += `<text x="${x(i)}" y="${h - 6}" fill="#8b8f98" font-size="10" text-anchor="middle">${g}</text>`;
+  });
+  return `<svg class="shape" viewBox="0 0 ${w} ${h}">${s}</svg>`;
+}
+async function saveKick() {
+  const o = keptKick && K.options.find(x => x.id === keptKick);
+  const body = o ? { id: o.id, title: o.title, what: o.what, loop: o.recipeLoop || o.loop, bells: o.bells || null, kickTurnedDb: o.kickTurnedDb || 0 } : null;
+  await fetch(`/api/arrangements/${ARR}/kickFuzz`, { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
+}
+function paintKick() {
+  const box = $('#kcards'); box.innerHTML = '';
+  if (!K) { box.innerHTML = '<p class="note">Not rendered yet.</p>'; return; }
+  // Anthony's picks first (13 Nov 2026: "The best versions are punch fuzz and punch fuzz ksms"), then as it is, then closest
+  const rank = o => BEST.includes(o.id) ? -10 + BEST.indexOf(o.id) : o.id === 'base' ? -1 : o.isoDistance == null ? 99 : o.isoDistance;
+  [...K.options].sort((x, y) => rank(x) - rank(y)).forEach(o => {
+    const c = document.createElement('div'); c.className = 'card' + (keptKick === o.id ? ' kept' : '') + (view.focus === 'k:' + o.id ? ' focus' : '');
+    const turned = o.kickTurnedDb != null ? `kick turned ${o.kickTurnedDb > 0 ? '+' : ''}${o.kickTurnedDb.toFixed(1)} dB to stay as loud` : '';
+    c.innerHTML = `<h3>${BEST.includes(o.id) ? '<span class="best">pick</span>' : ''}${o.title}<span class="num">${turned}</span></h3><p>${o.what}</p>${o.isoDistance != null ? `<div class="res">kick isolated from this mix: ${o.isoDistance.toFixed(1)} dB (RMS, 40 Hz–4 kHz) from the references' isolated kicks; 2–4 kHz ${o.isoGap2to4k > 0 ? '+' : ''}${o.isoGap2to4k.toFixed(1)} dB</div>` : ''}${o.note ? `<div class="fix">${o.note}</div>` : ''}${shapeSvg(o)}
+      <div class="acts">${o.id !== 'base' && o.mix ? '<button data-do="mix">Mix: as it is / this</button>' : ''}<button data-do="loop">Kick alone: as it is / this</button>${o.mix ? '<button data-do="ref">This / reference</button>' : ''}${o.id !== 'base' ? `<button class="keep ${keptKick === o.id ? 'on' : ''}" data-do="keep">${keptKick === o.id ? 'Kept' : 'Keep'}</button>` : ''}</div>`;
+    const on = (k, f) => { const b = c.querySelector(`[data-do=${k}]`); if (b) b.onclick = f; };
+    on('mix', () => { view.focus = 'k:' + o.id; choose('a', 'before'); choose('b', 'kf:' + o.id); if (view.bars === 'build') setBars('drop'); paint(); });
+    on('loop', () => { view.focus = 'k:' + o.id; choose('a', 'kl:base'); choose('b', 'kl:' + o.id); if (view.bars === 'build') setBars('drop'); paint(); });
+    on('ref', () => { view.focus = 'k:' + o.id; choose('a', o.id === 'base' ? 'before' : 'kf:' + o.id); choose('b', 'ref:' + D.refs[0].id); paint(); });
+    on('keep', async () => { keptKick = keptKick === o.id ? null : o.id; paint(); await saveKick(); });
+    box.appendChild(c);
+  });
+}
+
+function setBars(k) {
+  view.bars = k;
+  if (playing) { const [a, b] = STRETCH[k], bar = barNow(); if (bar < a || bar >= b + 1) { const s = src(curId()), when = audio().currentTime + 0.05; stopSrc(playing, when); playing = startSrc(s, when, a); clock = { t: when, bar: a, spb: s.spb }; } }
+  paint();
+}
+
+function paint() {
+  for (const [slot, sel] of [['a', '#selA'], ['b', '#selB']]) $(sel).value = view[slot];
+  $('#slotA').classList.toggle('on', view.side === 'a'); $('#slotB').classList.toggle('on', view.side === 'b');
+  const ab = $('#ab'); ab.className = view.side === 'a' ? 'isA' : 'isB'; ab.classList.toggle('pending', !!pendingSide);
+  ab.textContent = pendingSide ? `→ ${pendingSide.toUpperCase()} on the beat` : `${view.side.toUpperCase()} · ${src(curId()).title}`;
+  $('#play').textContent = playing ? 'Stop' : 'Play';
+  $('#match').classList.toggle('on', view.match);
+  [...$('#bars').children].forEach(b => b.classList.toggle('on', b.dataset.k === view.bars));
+  [...$('#tabs').children].forEach(b => b.classList.toggle('on', b.dataset.t === tab));
+  $('#specView').hidden = tab !== 'spec'; $('#kickView').hidden = tab !== 'kick';
+  paintChart(); paintCards(); paintKick();
+}
+
+async function main() {
+  D = await (await fetch('/spectral/renders.json')).json();
+  try { const r = await fetch('/kickfuzz/renders.json'); if (r.ok) K = await r.json(); } catch (e) {}
+  try { const a = await (await fetch(`/api/arrangements/${ARR}`)).json(); kept = (a.spectral || []).map(x => x.id); keptKick = a.kickFuzz ? a.kickFuzz.id : null; } catch (e) {}
+  try { tab = new URLSearchParams(location.search).get('tab') || localStorage.getItem('spectral-tab') || (K ? 'kick' : 'spec'); } catch (e) {}
+  if (tab === 'kick' && K && K.options.some(o => o.id === BEST[0] && o.mix)) { view.a = 'before'; view.b = 'kf:' + BEST[0]; }
+  $('#tabs').onclick = e => { if (!e.target.dataset.t) return; tab = e.target.dataset.t; try { localStorage.setItem('spectral-tab', tab); } catch (e) {} paint(); };
+  for (const sel of ['#selA', '#selB']) $(sel).innerHTML = sources().map(s => `<option value="${s.id}">${s.title}</option>`).join('');
+  $('#selA').onchange = e => choose('a', e.target.value); $('#selB').onchange = e => choose('b', e.target.value);
+  $('#slotA').onclick = e => { if (e.target.tagName !== 'SELECT') flip('a'); };
+  $('#slotB').onclick = e => { if (e.target.tagName !== 'SELECT') flip('b'); };
+  $('#bars').innerHTML = Object.entries({ build: 'Build 1–16', drop: 'Drop 17–32', drop2: 'Drop 2 33–40', whole: 'All 40' }).map(([k, t]) => `<button data-k="${k}">${t}</button>`).join('');
+  $('#bars').onclick = e => e.target.dataset.k && setBars(e.target.dataset.k);
+  $('#play').onclick = play; $('#ab').onclick = () => flip();
+  $('#match').onclick = () => { view.match = !view.match; if (playing) playing.g.gain.setTargetAtTime(gainOf(playing.s), audio().currentTime, 0.01); paint(); };
+  document.addEventListener('keydown', e => { if (e.code === 'Space') { e.preventDefault(); flip(); } if (e.key === 'p') play(); });
+  $('#dnote').textContent = D.note || '';
+  $('#loading').textContent = 'Loading audio…';
+  paint();
+  await Promise.all([buf(src('before')), buf(src('after'))].map(p => p.catch(() => null)));
+  $('#loading').textContent = 'Space or the big button switches A and B on the next beat.';
+  sources().forEach(s => buf(s).catch(() => null));   // the rest in the background
+}
+main();
+</script>
+</body>
+</html>

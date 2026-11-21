@@ -110,3 +110,13 @@ def test_a_hung_hammerspoon_rerun_is_a_ui_error(fake, monkeypatch):
     monkeypatch.setattr(ui, "_via_hammerspoon", hang)
     with pytest.raises(ui.UiError, match="did not finish"):
         ui.dialogs()
+
+def test_custom_ui_timeout_is_honored(monkeypatch):
+    monkeypatch.setattr(ui, "DEFAULT_TIMEOUT", 2.5)
+
+    def check_timeout(argv, **kw):
+        assert kw["timeout"] == 2.5
+        return subprocess.CompletedProcess(argv, 0, "SetTitle\n", "")
+
+    monkeypatch.setattr(ui.subprocess, "run", check_timeout)
+    assert ui.front_title() == "SetTitle"

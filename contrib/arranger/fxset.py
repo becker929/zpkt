@@ -279,6 +279,9 @@ def env(path: str = "") -> None:
 
 
 def lo():
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    from mixset import give_back_focus
+    give_back_focus()   # hand the front back to whatever Anthony was using, if Live takes it
     env()
     import liveops
     liveops.EXPORT_DIR = DATA / "raw"   # a folder the Save panel already knows; export() moves the file to its target
