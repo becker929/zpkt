@@ -155,6 +155,7 @@ def test_restart_order_quits_live_before_audio(rigstate, monkeypatch, tmp_path):
     monkeypatch.setattr(rig, "launch", lambda report, path, client: order.append("launch") or True)
     monkeypatch.setattr(rig, "soft_reset", lambda client, report: order.append("soft"))
     monkeypatch.setattr(rig, "check", lambda client=None, play=True: rig.Health(needs="restart" if not order else "nothing"))
+    (tmp_path / "s.als").write_text("a set")
     report = rig.reset(set_path=tmp_path / "s.als", level="restart", client=Lom())
     assert order == ["quit", "audio", "launch", "soft"]
     assert report.ok
@@ -165,6 +166,7 @@ def test_restart_without_a_snapshot_asks_for_the_device(rigstate, monkeypatch, t
     monkeypatch.setattr(rig, "launch", lambda report, path, client: True)
     monkeypatch.setattr(rig, "soft_reset", lambda client, report: None)
     monkeypatch.setattr(rig, "check", lambda client=None, play=True: rig.Health(needs="soft", device=rig.NO_DEVICE, problems=["no device"]))
+    (tmp_path / "s.als").write_text("a set")
     report = rig.reset(set_path=tmp_path / "s.als", level="restart", client=Lom())
     assert not report.ok and any("Audio Output Device" in n for n in report.needs_you)
 
@@ -211,6 +213,7 @@ def test_asking_for_another_set_restarts_live_with_it(rigstate, monkeypatch, tmp
     monkeypatch.setattr(rig, "soft_reset", lambda client, report: None)
     healthy = rig.Health(needs="nothing", front="HW002_121_pp_mix")
     monkeypatch.setattr(rig, "check", lambda client=None, play=True: healthy)
+    (tmp_path / "other.als").write_text("a set")
     report = rig.reset(set_path=tmp_path / "other.als", client=Lom())
     assert opened == ["other"] and report.ok
 

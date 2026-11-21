@@ -15,6 +15,7 @@ import math
 from pathlib import Path
 from typing import Callable
 
+from hands.live import hold
 from hands.live import panel as P
 from hands.live.transport import McpTransport
 
@@ -64,8 +65,12 @@ def layout(spec: dict, panels: dict[str, dict]) -> tuple[list[dict], dict[str, l
     return sections, runs, at
 
 
+def _clear_code(name: str) -> str:
+    return f"for _t in song.tracks:\n    for _c in [c for c in _t.arrangement_clips if c.name == {CLIP + name!r}]:\n        _t.delete_clip(_c)\nresult = 'ok'"
+
+
 def _clear(client: McpTransport, name: str) -> None:
-    client.run(f"for _t in song.tracks:\n    for _c in [c for c in _t.arrangement_clips if c.name == {CLIP + name!r}]:\n        _t.delete_clip(_c)\nresult = 'ok'")
+    client.run(_clear_code(name))
 
 
 def _record(client: McpTransport, song: dict, state: dict, out: Path, recorder, start_bar: int = 1, bars: int | None = None) -> dict:
@@ -105,13 +110,15 @@ def _text(song: dict, result: dict) -> str:
 
 def make(client: McpTransport, spec: dict, out_dir: Path, *, force: bool = False, recorder: Callable[..., str | None] | None = None) -> str:
     """Lay the song out in the arrangement and render it; return the text to print."""
+    from hands.live import shape
+    spec = shape.clean(spec, shape.SONG, "the spec")
     name = P._name(spec)
     wanted = sorted({str(p) for s in spec.get("sections") or [] for p in s.get("parts") or []})
     panels = {}
     for p in wanted:
         f = P._file(out_dir, p)
         if f.exists():
-            d = json.loads(f.read_text())
+            d = P.read_file(f, f"panel {p!r}")
             if d.get("kind") != "mix":
                 panels[p] = d
     sections, runs, total = layout(spec, panels)
@@ -125,6 +132,7 @@ def make(client: McpTransport, spec: dict, out_dir: Path, *, force: bool = False
     tempo = float(spec.get("tempo") or state["tempo"])
     lead = P.lead_beats(tempo)
     start = (int(state["end"] / 4) + 4) * 4.0 + math.ceil(lead / 4) * 4.0
+    unfinished = hold.note(f"the clips of a song that was not finished ({name})", _clear_code(name))
     for pname, spans in runs.items():
         code = f"_t = {P._track(panels[pname]['track'])}\n"
         for a, length, notes in spans:
@@ -132,17 +140,21 @@ def make(client: McpTransport, spec: dict, out_dir: Path, *, force: bool = False
                      "_c.add_new_notes(tuple(Live.Clip.MidiNoteSpecification(pitch=p, start_time=s, duration=d, velocity=v)"
                      f" for p, s, d, v in {notes!r}))\n")
         client.run(code + "result = 'ok'")
-    old = json.loads(_file(out_dir, name).read_text()) if _file(out_dir, name).exists() else {}
+    try:
+        old = P.read_file(_file(out_dir, name), f"song {name!r}") if _file(out_dir, name).exists() else {}
+    except P.PanelError:
+        old = {}
     song = {"name": name, "tempo": tempo, "start": start, "beats": total, "tail": float(spec.get("tail", 4.0)), "sections": sections,
             "parts": sorted(runs), "version": int(old.get("version", 0)) + 1, "renders": list(old.get("renders") or [])}
     out = out_dir / (f"{name}.wav" if song["version"] == 1 else f"{name}-{song['version']}.wav")
     try:
         result = _record(client, song, {**state, "end": start + total}, out, recorder or P._recorder())
-    except Exception:
-        _clear(client, name)
+    except BaseException:
+        hold.settle(client, unfinished)
         raise
+    hold.forget(unfinished)
     song["renders"].append(P._shown_path(out))
-    _file(out_dir, name).write_text(json.dumps(song))
+    hold.save_json(_file(out_dir, name), song)
     return _text(song, result)
 
 
@@ -157,7 +169,7 @@ def render(client: McpTransport, name: str, out_dir: Path, *, force: bool = Fals
     out = out_dir / f"{name}-{song['version']}.wav"
     result = _record(client, song, state, out, recorder or P._recorder())
     song["renders"].append(P._shown_path(out))
-    _file(out_dir, name).write_text(json.dumps(song))
+    hold.save_json(_file(out_dir, name), song)
     return _text(song, result)
 
 

@@ -24,7 +24,8 @@ def check(
         print(json.dumps(h.as_dict()))
     elif h.problems:
         print("\n".join(f"- {p}" for p in h.problems))
-        print(f"`hands rig reset` would do a {h.needs} reset.")
+        if h.needs != "wait":
+            print(f"`hands rig reset` would do a {h.needs} reset.")
     else:
         print("ready: Live answers, plays and has an audio device")
     raise typer.Exit(0 if h.needs == "nothing" else 1)

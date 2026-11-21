@@ -163,7 +163,10 @@ def exec_(
     host: str = HOST, port: int = PORT,
 ) -> None:
     """Run LOM code in Live and print its result. Exit 1 if Live raised or was not reachable."""
-    source = file.read_text() if file else sys.stdin.read() if stdin else code
+    try:
+        source = file.read_text() if file else sys.stdin.read() if stdin else code
+    except (OSError, UnicodeDecodeError) as exc:
+        _fail(f"ERROR: cannot read the code ({exc})", 2)
     if not source or not source.strip():
         _fail("give the code as an argument, --file or --stdin", 2)
     if os.environ.get("ZPKT_AGENT") and writes(source):

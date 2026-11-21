@@ -296,4 +296,16 @@ def kit_render(
 
 
 def main() -> None:
-    app()
+    """The `hands` command. A failure nobody planned for ends in one line an agent can act on, not a traceback
+    (set HANDS_TRACEBACK=1 to see it)."""
+    import os
+    import sys
+
+    try:
+        app()
+    except Exception as exc:  # noqa: BLE001
+        if os.environ.get("HANDS_TRACEBACK"):
+            raise
+        from hands.live.panel_cli import inside
+        print(f"ERROR: {inside(exc)}", file=sys.stderr)
+        sys.exit(1)
