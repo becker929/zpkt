@@ -1,7 +1,8 @@
 """The HW002 arranger's server: the page, the bounced loops and the saved arrangements; the transitions page
-(/transitions/) with the transition sounds made by fxset.py; the first mix page (/mix/); and the second (/mix2/), whose
-batches mixset.py renders in Live (the server starts its worker when a batch is queued). Each page writes its
-structure into the arrangement file (`regions`, `transitions`, `mix`, `mix2`).
+(/transitions/) with the transition sounds made by fxset.py; the first mix page (/mix/); the second (/mix2/), whose
+batches mixset.py renders in Live (the server starts its worker when a batch is queued); and the spectral A/B
+(/spectral/), renders of fixes made by spectral.py; and the kick design page (/kick/), kicks only. Each page writes its structure into the arrangement file
+(`regions`, `transitions`, `mix`, `mix2`, `spectral`).
 
     python3 contrib/arranger/server.py            # 127.0.0.1:8975
 
@@ -94,6 +95,24 @@ class Handler(BaseHTTPRequestHandler):
                 except ValueError:
                     continue
             return self._json(sorted(rows, key=lambda r: -(r.get("made") or 0)))
+        if path in ("/spectral", "/spectral/"):   # the mix against the references by spectrum (spectral.py)
+            return self._file(HERE / "static" / "spectral.html")
+        if path == "/spectral/renders.json":
+            return self._file(DATA / "spectral" / "renders.json")
+        if m := re.fullmatch(r"/spectral/([a-z0-9-]{1,32}\.flac)", path):
+            return self._file(DATA / "spectral" / m[1])
+        if path in ("/kick", "/kick/"):   # the kick design page: kicks only, A/B/C (kickdesign.py makes its data)
+            return self._file(HERE / "static" / "kick.html")
+        if path == "/kickdesign/kicks.json":
+            return self._file(DATA / "kickdesign" / "kicks.json")
+        if m := re.fullmatch(r"/kickdesign/frames/([a-z0-9-]{1,64}\.json)", path):
+            return self._file(DATA / "kickdesign" / "frames" / m[1])
+        if m := re.fullmatch(r"/kickdesign/(ref-[a-z0-9-]{1,64}\.flac)", path):
+            return self._file(DATA / "kickdesign" / m[1], "public, max-age=3600")
+        if path == "/kickfuzz/renders.json":   # kick options from HW002's own chain (kickfuzz.py)
+            return self._file(DATA / "kickfuzz" / "renders.json")
+        if m := re.fullmatch(r"/kickfuzz/([a-z0-9-]{1,32}\.flac)", path):
+            return self._file(DATA / "kickfuzz" / m[1])
         if path == "/fx.json":
             return self._file(DATA / "fx" / "fx.json")
         if m := re.fullmatch(r"/fx/audio/([a-z0-9-]{1,64}\.flac)", path):
@@ -121,7 +140,7 @@ class Handler(BaseHTTPRequestHandler):
     do_HEAD = do_GET
 
     def do_PUT(self) -> None:
-        if m := re.fullmatch(r"/api/arrangements/([^/]+)/(transitions|mix|mix2)", self.path):   # a later page's structure
+        if m := re.fullmatch(r"/api/arrangements/([^/]+)/(transitions|mix|mix2|spectral|kickFuzz)", self.path):   # a later page's structure
             f = DATA / "arrangements" / f"{m[1]}.json"
             if not ID.match(m[1]) or not f.is_file():
                 return self._json({"error": "no such arrangement"}, 404)
@@ -130,6 +149,13 @@ class Handler(BaseHTTPRequestHandler):
                 t = json.loads(self.rfile.read(n)) if 0 < n < 2_000_000 else None
                 if m[2] == "transitions":
                     assert isinstance(t, list) and all(isinstance(x, dict) and "id" in x and "seam" in x for x in t)
+                elif m[2] == "kickFuzz":   # the kick option kept, or null for HW002's kick as it is
+                    assert t is None or (isinstance(t, dict) and isinstance(t.get("loop"), str) and re.fullmatch(r"[a-z0-9-]{1,32}\.flac", t["loop"])
+                                         and isinstance(t.get("kickTurnedDb"), (int, float))
+                                         and (t.get("bells") is None or (isinstance(t["bells"], list) and len(t["bells"]) <= 6
+                                              and all(isinstance(b, list) and len(b) == 3 and all(isinstance(v, (int, float)) for v in b) for b in t["bells"]))))
+                elif m[2] == "spectral":   # the spectral fixes kept: ids from spectral/fixes.json, with their recipe
+                    assert isinstance(t, list) and all(isinstance(x, dict) and "id" in x and "parts" in x for x in t)
                 elif m[2] == "mix2":
                     assert isinstance(t, list) and all(isinstance(x, dict) and "device" in x and "target" in x for x in t)
                 else:
@@ -174,7 +200,7 @@ class Handler(BaseHTTPRequestHandler):
         if old.is_file():   # the arranger page does not know the later steps' structure: keep what is there
             try:
                 prev = json.loads(old.read_text())
-                for key in ("transitions", "mix", "mix2"):
+                for key in ("transitions", "mix", "mix2", "spectral", "kickFuzz"):
                     if key not in a and key in prev:
                         a[key] = prev[key]
             except ValueError:

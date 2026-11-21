@@ -97,6 +97,8 @@ gets work, and never copied.
 | `contrib/arranger/static/transitions.html` (the arranger's transitions page) | Starts transition sounds made in Live on the beat over the loops; a gain fader per kind of transition at each section change; writes the picks and their levels into the arrangement's structure | Playing rendered files; the faders are a named exception above. |
 | `contrib/arranger/static/mix.html` (the first mix page) | Plays the arrangement's loops and transitions through a gain, a pan and EQ cuts per channel; writes the arrangement's `mix` | The second named exception above, for this page only. |
 | `contrib/arranger/static/mix2.html` (the second mix page) | Plays renders of the mix set made in Live (`mixset.py`), switched on the bar; its loudness match is a second render made in Live | Allowed: playing rendered files. |
+| `contrib/arranger/static/spectral.html` (the spectrum A/B) | Plays renders of the mix set made in Live (`spectral.py`) and the reference tracks, switched on the beat; a loudness match for comparing | Allowed: playing rendered files, and the loudness match. |
+| `contrib/arranger/static/kick.html` (the kick design page) | Plays kick loops rendered in Live (`kickfuzz.py`) and bars cut from the reference tracks where their kick plays nearly alone, A/B/C on the beat; a loudness match for comparing; draws each kick's spectrum frame by frame from numbers worked out on the Mac (`kickdesign.py`) | Allowed: playing rendered files, the loudness match, and measuring. |
 | `prototypes/audio-browser/frontend/lib/` (`collagePlayer.ts`, `slicePlayer.ts`, `softClip.ts`) | Assembles a collage from slices and soft-clips it | Breaks the rule (slicing and clipping); to be replaced if the prototype is revived. |
 
 ## The player engine

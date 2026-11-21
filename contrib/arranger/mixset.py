@@ -57,7 +57,34 @@ DEVICES = {
 }
 
 
+def _front_app() -> str:
+    return subprocess.run(["osascript", "-e", 'tell application "System Events" to get name of first application process whose frontmost is true'],
+                          capture_output=True, text=True).stdout.strip()
+
+
+_FOCUS_ARMED = False
+
+
+def give_back_focus() -> None:
+    """Anthony uses this Mac while Live works (13 Nov 2026: "Refocus whatever is on top when you're done in case you
+    take focus"). Remember the front app now, and at exit, if Live has taken the front, hand it back."""
+    global _FOCUS_ARMED
+    if _FOCUS_ARMED:
+        return
+    _FOCUS_ARMED = True
+    was = _front_app()
+    if not was or was == "Live":
+        return
+
+    def back() -> None:
+        if _front_app() == "Live":
+            subprocess.run(["osascript", "-e", f'tell application "{was}" to activate'], capture_output=True)
+    import atexit
+    atexit.register(back)
+
+
 def lo():
+    give_back_focus()
     os.environ["ZPKT_SETS_DIR"] = str(SETS)
     os.environ["ZPKT_SET_PREFIXES"] = "HW002_121_pp_"
     os.environ["ZPKT_DATA_DIR"] = str(MIX2 / "data")
@@ -194,10 +221,19 @@ def apply_mix(L, arr: dict, chans: list[dict]) -> None:
     for name in [c["id"] for c in chans] + list(BUSES.values()):
         if name in idx:
             L.run(f"t = song.tracks[{idx[name]}]\nwhile len(t.devices):\n    t.delete_device(0)\nresult = 'ok'")
+    kf = arr.get("kickFuzz")   # a kick option kept on the spectral page (kickfuzz.py): its loop, and the kick turned to match
+    if kf and "kick" in idx:
+        t = f"song.tracks[{idx['kick']}]"
+        path = str(DATA / "kickfuzz" / kf["loop"])
+        starts = L.run(f"result = [c.start_time for c in {t}.arrangement_clips]")
+        L.run(f"t = {t}\nfor c in list(t.arrangement_clips):\n    t.delete_clip(c)\nresult = 'ok'")
+        for k in range(0, len(starts), 12):
+            L.run("".join(f"c = {t}.create_audio_clip({path!r}, {s_})\nc.warping = False\n" for s_ in starts[k:k + 12]) + "result = 'ok'")
     for c in chans:
         m = mix.get(c["id"], {})
         t = f"song.tracks[{idx[c['id']]}]"
-        L.mixer(t, float(m.get("gainDb", 0.0)), (), float(m.get("pan", 0.0)))
+        g = float(m.get("gainDb", 0.0)) + (float(kf["kickTurnedDb"]) if kf and c["id"] == "kick" else 0.0)
+        L.mixer(t, g, (), float(m.get("pan", 0.0)))
         eq = m.get("eq") or {}
         cuts = [x for x in eq.get("cuts", []) if x.get("on")]
         if not (cuts or (eq.get("hp") or {}).get("on") or (eq.get("lp") or {}).get("on")):
@@ -212,8 +248,25 @@ def apply_mix(L, arr: dict, chans: list[dict]) -> None:
         if (eq.get("lp") or {}).get("on"):
             p.update({"8 Filter On A": "On", "8 Filter Type A": "Low Pass 12dB", "8 Frequency A": f"{eq['lp']['freq']} Hz"})
         L.setp(f"{t}.devices[0]", p)
-    for k in arr.get("mix2", []):
+    if kf and kf.get("bells"):   # the kept kick's match EQ (kickiso.py), after mix 1's cuts
+        t = f"song.tracks[{idx['kick']}]"
+        L.load_item(t, "audio_effects", None, "EQ Eight")
+        v = {f"{k} Filter On A": "Off" for k in range(1, 9)}
+        for k, (f, g_, q) in enumerate(kf["bells"], start=2):
+            v.update({f"{k} Filter On A": "On", f"{k} Filter Type A": "Bell", f"{k} Frequency A": f"{f} Hz", f"{k} Gain A": f"{g_} dB", f"{k} Q A": float(q)})
+        L.setp(f"{t}.devices[{len(L.devices(t)) - 1}]", v)
+    for k in arr.get("mix2") or []:
         add_device(L, idx, k["target"], k["device"], k["values"])
+    for f in arr.get("spectral") or []:   # the spectral fixes kept (spectral.py): a gain move or a device
+        for p in f["parts"]:
+            if p["device"] == "gain":
+                c = next(c for c in chans if c["id"] == p["target"])
+                m = mix.get(c["id"], {})
+                L.mixer(f"song.tracks[{idx[c['id']]}]", float(m.get("gainDb", 0.0)) + p["values"]["dB"], (), float(m.get("pan", 0.0)))
+            else:
+                t = "song.master_track" if p["target"] == "main" else target_track(idx, p["target"])
+                L.load_item(t, "audio_effects", None, p["device"])
+                L.setp(f"{t}.devices[{len(L.devices(t)) - 1}]", p["values"])
     print("mix applied", flush=True)
 
 

@@ -127,7 +127,7 @@ def select_track(track: str) -> None:
         time.sleep(0.2)
         if LIVE.run(f"result = song.view.selected_track.name == {track}.name"):
             return
-        LIVE.run("song.view.selected_track = song.return_tracks[0]\nresult = 'ok'")
+        LIVE.run("song.view.selected_track = song.return_tracks[0] if len(song.return_tracks) else song.tracks[0]\nresult = 'ok'")
         time.sleep(0.2)
     sys.exit(f"STOP: could not select {track}")
 

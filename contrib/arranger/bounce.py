@@ -77,6 +77,9 @@ def solo(indices: tuple[int, ...]) -> None:
 
 
 def main(names: list[str]) -> None:
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    from mixset import give_back_focus
+    give_back_focus()   # hand the front back to whatever Anthony was using, if Live takes it
     for name in names or list(STATES):
         indices, (start, length) = STATES[name]
         out = OUT / "stems" / f"{name}.wav"

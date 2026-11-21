@@ -11,6 +11,8 @@ in ableton live").
 | Transitions | `/transitions/` | `transitions` (picks, levels, Live recipes) | Sounds made in Live, started over the loops |
 | Mix 1: gain, pan, EQ cuts | `/mix/` | `mix` (per channel) | The same files through a gain, a pan and cuts in the browser, set one sound at a time and A/B'd against the reference tracks |
 | Mix 2: distortion, EQ boosts, compression, bus processing | `/mix2/` | `mix2` (kept devices and settings, in order) | Small batches rendered in Live: Anthony picks the ranges, `mixset.py` renders a coarse grid of them in the mix set, he plays the grid in the page |
+| Spectrum against the references | `/spectral/` | `spectral` (fixes kept, each a gain move or devices with values) | `spectral.py` compares the mix's spectrum with the four HW002 references, fixes the five biggest differences in Live and renders each; the page A/Bs them against the mix and the references |
+| Kick design | `/kick/` | `kickFuzz` (the kick kept) | Kicks only, A/B/C on the beat, on the phone: HW002's kick options rendered through its own chain (`kickfuzz.py`) against the references' own kick bars (`kickdesign.py`), with each kick's spectrum moving as it plays |
 | Master | not built yet | | Runs the whole recipe in Live |
 
 Three ways to hear a change: offline DAW audio (renders), online browser audio (the first three steps, within the
@@ -85,3 +87,79 @@ kept mix-2 choice), then each grid point twice: as it comes out, and with Main t
 (integrated LUFS), so a louder setting does not win by being louder. The page plays the renders and switches between
 them on the bar; Keep writes the point into the arrangement's `mix2`, and later batches are rendered with it.
 
+
+## Spectrum against the references
+
+`spectral.py` renders the mix as the recipe stands (`before`), measures its long-term spectrum in 48 log bands, its
+width per range (side against mid) and its peak-to-loudness, over the build (bars 1-16) and the drop (17-32), against
+the same windows of the four HW002 references (their drop lined up with bar 17), each curve relative to its own
+loudness so the comparison is shape, not level (`analyze`). The five biggest differences and a fix for each are
+written by hand into `DATA/spectral/fixes.json`: a mix-1 gain move or a Live device with its values on a channel, a
+bus or Main. `after` renders each fix alone and all of them together; `measure` writes what the page plays.
+
+`/spectral/` plays any two of those renders or a reference as A and B, switching on the beat at the same place in the
+music, over the build, the drop or all 40 bars, matched in loudness over the drop as a listening aid. It draws the
+drop's spectrum of A and B against the references' range, and each difference as a card: what was measured, why it
+matters, the fix, and what the fix did. Keep writes the fix into the arrangement's `spectral`; `mixset.py` applies kept
+fixes after mix 2, and `spectral.py` renders `before` without them.
+
+### Kick fuzz and the references' isolated kicks
+
+`kickiso.py` isolates the references' kicks by the beat. Each of the drop's 64 beats is lined up on its kick onset.
+The median spectrogram over the beats keeps what repeats on every beat, and the slice from the onset to the next
+sixteenth is the kick. It does the same to our mix, and to our kick loop alone, which checks the method: below 4 kHz the
+two agree to within 1 dB, while above 5 kHz on-beat hats leak in. `kickiso.py match` fits an EQ Eight to the gap
+between ours and the references' average.
+
+`kickfuzz.py` makes kick options from HW002's own kick chain, in `HW002_121_pp_loops`. Every touched value is put back
+before the set is left. The options:
+
+- the hidden 3.4 kHz cut and 325 Hz low-pass off;
+- the 052 fuzz layer up;
+- the kick group's multiband Roar on;
+- the rumble's Decapitator driven.
+
+Each option is bounced as `bounce.py` would and cut like `kick-rumble-a`. In the mix set the kick channel's clips are
+swapped for it and the channel is turned by the loop's loudness change, then the 40 bars are rendered. `match`
+renders the fitted EQs on the kick channel, with the loudness matched by soloing the kick in Live. `measure` isolates
+the kick from every mix for the page.
+
+The page's Kick fuzz tab A/Bs the mixes and the kick loops alone. Keep writes the arrangement's `kickFuzz` (the loop,
+the gain, and the EQ if there is one), and `mixset.py` applies it.
+
+### The kick design page
+
+`/kick/` shows kicks only. There are three slots, A, B and C. Tapping a slot switches to it on the next beat, and the
+row of kicks under the slots fills the selected one. HW002's kick options (from `kickfuzz.py`) sit beside two bars
+cut from each HW002 reference where its kick plays nearly alone. `kickdesign.py` finds those bars by the beat: every
+beat must open with a kick, and the score is how quiet the rest of the beat is above 300 Hz, so the kick's own fuzz
+doesn't count against it. Each stretch agrees with the same reference's kick isolated from its drop (`kickiso.py`)
+to within 1 dB on three of the four.
+
+`kickdesign.py` works out every kick's spectrum on the Mac, 86 frames a second in 72 bands. The page draws the
+playing kick's curve at the playing moment, its average, the other two slots at the same place in the beat, and the
+references' kicks as a band. When stopped it previews the selected kick's first beat. The page cannot be zoomed.
+
+### Kick texture (KSMS is the canonical reference)
+
+Anthony heard every fuzz option as "basically a soft noise, like an echo of a stick hit", where KSMS is "fuzzy and
+compressed". `kicktexture.py` measures a kick's mid-highs (1-6 kHz) over its median beat:
+
+- how long they hold within 12 dB of their peak;
+- how much is left 100-170 ms after the hit, before HW002's offbeat pad;
+- how noise-like their spectrum is (flatness);
+- the crest of their envelope (how compressed they are);
+- their share of the kick's energy.
+
+It also gives a distance to KSMS. Our loops are read on their exact grid. An onset search locks onto the rumble's
+swell between kicks.
+
+HW002's kick as it is clicks: its mid-highs are gone in 8 ms. The 052 layer is high-passed at 958 Hz *before*
+COLDFIRE, so COLDFIRE only ever saw the click. What matches KSMS's texture is fuzz made from the body. The kick
+group's multiband Roar clips the low band (Tri Fold, 24 dB drive), a high-pass after the shaper keeps only what the
+clipping adds above 600 Hz, and that is blended 35 % under the clean kick and compressed (`t-f1`). Roar on the whole
+group or on the kick track fuzzes the long boom or the rumble too, and never stops.
+
+`kickiso.py match` then fits the whole spectrum to KSMS's isolated kick (`mf1`). The deep sub (30-50 Hz) stays about
+11 dB short whatever the EQ does, and easing HW002's 30 Hz shelves doesn't bring it back. It looks like a
+sound-design difference: our rumble is ducked under each kick, and KSMS's sub sits on the hit.
