@@ -15,6 +15,7 @@ import time
 from pathlib import Path
 from typing import Any, Callable
 
+from hands.live import hold
 from hands.live import panel as P
 from hands.live.agent import with_prelude
 from hands.live.transport import McpTransport
@@ -77,6 +78,35 @@ result = _n
 '''
 
 
+# A panel being replaced: its devices are renamed and switched off (parked) while the new one is made, deleted
+# when it has rendered, and put back as they were if it fails. The name keeps whether the device was on.
+PARKED = (" (parked, on)", " (parked, off)")
+_EVERY = "for _t in list(song.tracks) + list(song.return_tracks) + [song.master_track]:\n"
+_PARK = _EVERY + """    for _d in _t.devices:
+        if _d.name in {names!r}:
+            _on = _d.parameters[0].value > 0.5
+            _d.parameters[0].value = 0
+            _d.name = _d.name + (" (parked, on)" if _on else " (parked, off)")
+result = 'ok'
+"""
+_UNPARK = _EVERY + """    for _d in _t.devices:
+        for _k, _s in enumerate((" (parked, on)", " (parked, off)")):
+            if _d.name.endswith(_s):
+                _d.parameters[0].value = 1 - _k
+                _d.name = _d.name[:-len(_s)]
+result = 'ok'
+"""
+_DELETE = _EVERY + """    for _i in reversed(range(len(_t.devices))):
+        if _t.devices[_i].name in {names!r}:
+            _t.delete_device(_i)
+"""
+_DELETE_PARKED = _EVERY + """    for _i in reversed(range(len(_t.devices))):
+        if _t.devices[_i].name.endswith((" (parked, on)", " (parked, off)")):
+            _t.delete_device(_i)
+result = 'ok'
+"""
+
+
 def _add_device(client: McpTransport, track: str, device: str, name: str) -> None:
     """Put an audio effect at the end of a track's chain and give it the panel's name for it."""
     n = client.run(with_prelude(_ADD.format(track=tr(track), device=device)))
@@ -105,7 +135,68 @@ def song_of(out_dir: Path, name: str) -> dict:
     f = out_dir / f"{name}.song.json"
     if not f.exists():
         raise P.PanelError(f"no song {name!r} in {out_dir}; make it with `hands song make`")
-    return json.loads(f.read_text())
+    return P.read_file(f, f"song {name!r}")
+
+
+_OPEN_BUSES = """_fed = set(str(t.output_routing_type.display_name) for t in song.tracks)
+_opened = []
+for _t in song.tracks:
+    if _t.name in _fed and not _t.is_foldable and _t.has_audio_input and _t.current_monitoring_state == 2:
+        _t.current_monitoring_state = 0
+        _opened.append(_t.name)
+result = _opened"""
+
+
+def open_buses(client: McpTransport) -> list[str]:
+    """Turn monitoring to In on audio tracks that other tracks play into (a bus made of an audio track).
+
+    With monitoring Off such a bus passes nothing, so every render through it is silent; HW002's mix set
+    was built that way (2026-11-20). Returns the tracks it changed; the change stays in the set."""
+    try:
+        return list(client.run(_OPEN_BUSES) or [])
+    except Exception:  # an older Live API: render anyway, the silence check still speaks up
+        return []
+
+
+_QUIET = """_names = {names!r}
+_lo, _hi = {lo!r}, {hi!r}
+def _clips(name, seen):
+    out = []
+    for _t in song.tracks:
+        if _t.is_foldable or _t.name in seen:
+            continue
+        if _t.name == name or str(_t.output_routing_type.display_name) == name:
+            seen.add(_t.name)
+            out += [(c.start_time, c.end_time) for c in _t.arrangement_clips if not c.muted]
+            if _t.name != name:
+                out += _clips(_t.name, seen)
+    return out
+result = {{}}
+for _n in _names:
+    _c = _clips(_n, set())
+    if not any(a < _hi and b > _lo for a, b in _c):
+        result[_n] = min([a for a, b in _c if a >= _hi] or [None] if _c else [None])
+"""
+
+
+def quiet_tracks(client: McpTransport, names: list[str], start: float, beats: float) -> list[str]:
+    """Warn about the panel's tracks that play nothing in its bars (no clip on them or on what feeds them):
+    their faders change nothing there, and a grid of them sounds the same."""
+    names = [n for n in dict.fromkeys(names) if n not in ("Main", "Master")]
+    try:
+        quiet = client.run(_QUIET.format(names=names, lo=start, hi=start + beats)) or {}
+    except Exception:
+        return []
+    out = []
+    for n, nxt in quiet.items():
+        later = f"; it first plays at bar {int(nxt // 4) + 1}" if isinstance(nxt, (int, float)) else ""
+        out.append(f"{n} plays nothing in these bars{later}: its controls change nothing here")
+    return out
+
+
+def opened_note(names: list[str]) -> list[str]:
+    return [f"turned monitoring to In on {', '.join(names)}: other tracks play into them, and with monitoring Off "
+            "they passed no sound"] if names else []
 
 
 def render_bars(client: McpTransport, panel: dict, state: dict, out: Path, recorder: Callable[..., str | None],
@@ -120,6 +211,7 @@ def render_bars(client: McpTransport, panel: dict, state: dict, out: Path, recor
     out.parent.mkdir(parents=True, exist_ok=True)
     take = out.with_name(f".{out.stem}.take.wav")
     sel = state.get("selected")
+    opened = open_buses(client)
     before = P.set_code(panel, values or {}) + (f"song.tempo = {tempo!r}\n" if abs(tempo - state["tempo"]) > 1e-6 else "")
     after = (f"song.tempo = {state['tempo']!r}\nsong.loop = {state['loop']!r}\nsong.start_time = {state['start_time']!r}\n"
              f"song.current_song_time = {state['pos']!r}\n"
@@ -130,7 +222,8 @@ def render_bars(client: McpTransport, panel: dict, state: dict, out: Path, recor
                         n_tracks=len(state["names"]), armed=state["armed"], before=before, after=after)
         if not path:
             raise P.PanelError("Live recorded nothing; check its audio output (`hands live check`)")
-        return P.cut_take(path, out, start, beats + float(panel.get("tail", 0.0)), lead, fade_s=0.005)
+        result = P.cut_take(path, out, start, beats + float(panel.get("tail", 0.0)), lead, fade_s=0.005)
+        return {**result, "opened": opened}
     finally:
         for f in (take, Path(f"{take}.timing.json")):
             f.unlink(missing_ok=True)
@@ -139,6 +232,8 @@ def render_bars(client: McpTransport, panel: dict, state: dict, out: Path, recor
 def make(client: McpTransport, spec: dict, out_dir: Path, *, replace: bool = False, force: bool = False,
          recorder: Callable[..., str | None] | None = None) -> str:
     """Make a mix panel over tracks of the open set and render its bars; return the text to print."""
+    from hands.live import shape
+    spec = shape.clean(spec, shape.MIX, "the spec")
     name = P._name(spec)
     first, count = bars_of(spec)
     f = P._file(out_dir, name)
@@ -158,9 +253,21 @@ def make(client: McpTransport, spec: dict, out_dir: Path, *, replace: bool = Fal
             raise P.PanelError(f"no track {t!r} in the open set; close names: {', '.join(near) or 'none'}. Tracks: {', '.join(everything[:40])}")
     if not faders and not pans and not devices:
         raise P.PanelError('a mix panel needs something to turn: "faders" (track names), "pans" or "devices"')
-    if f.exists():
-        drop(client, json.loads(f.read_text()), out_dir)
+    quiet = quiet_tracks(client, [*faders, *pans, *[str(d.get("track")) for d in devices]],
+                         (float(song["start"]) if song else 0.0) + (first - 1) * 4.0, count * 4.0)
+    ours = [f"{DEVICE_PREFIX}{name} {str(d.get('device') or '').strip()}" for d in devices]
+    if len({(str(d.get("track")), n) for d, n in zip(devices, ours)}) < len(devices):
+        raise P.PanelError("a mix panel takes one of each device per track; give each device once and all its params together")
+    old_devices: list[str] = []
+    if f.exists():                               # the panel this one replaces keeps its devices, switched off, until
+        try:                                     # the new one has rendered: a spec with a mistake must not cost them
+            old_devices = [str(a["device"]) for a in P.read_file(f, f"panel {name!r}").get("added") or []]
+        except (P.PanelError, KeyError, TypeError):
+            pass                                 # a damaged file: nothing in it to find in Live
     added: list[dict] = []
+    unfinished = hold.note(f"the devices of a mix panel that was not finished ({name})", _DELETE.format(names=ours) + _UNPARK)
+    if old_devices:
+        client.run(_PARK.format(names=old_devices))
     try:
         picks: list[tuple[str, str, str, str, str]] = []            # key, label, expr, kind, track
         picks += [(f"{t} volume", t, f"{tr(t)}.mixer_device.volume", "fader", t) for t in faders]
@@ -182,7 +289,7 @@ def make(client: McpTransport, spec: dict, out_dir: Path, *, replace: bool = Fal
             for pname, v in got.items():
                 key = f"{track} {device} {pname}"
                 values[key], exprs[key] = v, _par(where, pname)
-            for c in d.get("controls") or list(got)[:4]:
+            for c in d["controls"] if "controls" in d else list(got)[:4]:   # "controls": [] means no knobs for this device
                 c = c if isinstance(c, dict) else {"param": c}
                 pname = P._param(catalog, str(c.get("param") or ""))["name"]
                 key = f"{track} {device} {pname}"
@@ -211,17 +318,26 @@ def make(client: McpTransport, spec: dict, out_dir: Path, *, replace: bool = Fal
                  "controls": controls, "values": values, "exprs": exprs, "added": added, "version": 1, "renders": []}
         out = out_dir / f"{name}.wav"
         result = render_bars(client, panel, state, out, recorder or P._recorder(), values)
-    except Exception:
-        _remove(client, added)                   # leave nothing behind: the next try starts clean
+    except BaseException:
+        hold.settle(client, unfinished)          # leave nothing behind: the next try starts clean
         raise
+    hold.forget(unfinished)
+    if old_devices:
+        try:
+            client.run(_DELETE_PARKED)
+        except Exception:  # noqa: BLE001  (the new panel is made; a parked device is off and only clutter)
+            pass
     panel["renders"].append(P._shown_path(out))
-    f.write_text(json.dumps(panel))
-    return P.blocks(panel, result, warnings)
+    hold.save_json(f, panel)
+    return P.blocks(panel, result, warnings + opened_note(result.pop("opened", [])) + quiet)
 
 
 def apply(client: McpTransport, panel: dict, out_dir: Path, *, state_values: dict | None = None, spec: dict | None = None,
           force: bool = False, recorder: Callable[..., str | None] | None = None) -> str:
     """Set a mix panel's values from the page's Surface state, render the next version."""
+    from hands.live import shape
+    spec = shape.clean(spec or {}, shape.MIX_CHANGE, "--spec")
+    state_values = shape.state(state_values)
     state = P._state(client)
     if state["playing"] and not force:
         raise P.PanelError("Live is playing (maybe the user): not rendering; pass --force to stop it")
@@ -234,21 +350,29 @@ def apply(client: McpTransport, panel: dict, out_dir: Path, *, state_values: dic
     if spec and spec.get("bars"):
         panel["bars"] = list(bars_of(spec))
         panel["beats"] = panel["bars"][1] * 4.0
+    were = {k: panel["values"][k] for k in values if k in panel["values"]}
     panel["values"].update(values)
     panel["version"] += 1
     out = out_dir / f"{panel['name']}-{panel['version']}.wav"
-    result = render_bars(client, panel, state, out, recorder or P._recorder(), values)
+    failed = hold.note(f"the values of panel {panel['name']!r} from before a render that failed", P.set_code(panel, were) + "result = 'ok'")
+    try:
+        result = render_bars(client, panel, state, out, recorder or P._recorder(), values)
+    except BaseException:
+        hold.settle(client, failed)              # the page still shows the old values: Live must too
+        raise
+    hold.forget(failed)
     before = panel["renders"][-1]
     panel["renders"].append(P._shown_path(out))
-    P._file(out_dir, panel["name"]).write_text(json.dumps(panel))
-    return P.blocks(panel, result, [], ab=(before, panel["renders"][-1]))
+    hold.save_json(P._file(out_dir, panel["name"]), panel)
+    return P.blocks(panel, result, opened_note(result.pop("opened", [])), ab=(before, panel["renders"][-1]))
 
 
 def values_from(panel: dict, state_values: dict | None) -> dict[str, float]:
     """Raw values by parameter from the page's Surface state (by control id)."""
+    from hands.live import shape
     by_id = {c["id"]: c for c in panel["controls"]}
     values: dict[str, float] = {}
-    for cid, v in ((state_values or {}).get("values", state_values or {})).items():
+    for cid, v in shape.state(state_values)["values"].items():
         c = by_id.get(cid)
         if c is None or isinstance(v, str):      # a deck's side, or a control this panel does not have
             continue

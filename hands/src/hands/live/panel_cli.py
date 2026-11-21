@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 import sys
 from pathlib import Path
 from typing import Any, NoReturn
@@ -48,18 +49,51 @@ def _json(arg: str | None, what: str) -> Any:
     """JSON from the argument itself, from @FILE, or from stdin (-)."""
     if arg is None:
         return None
-    text = sys.stdin.read() if arg == "-" else Path(arg[1:]).read_text() if arg.startswith("@") else arg
     try:
+        text = sys.stdin.read() if arg == "-" else Path(arg[1:]).read_text() if arg.startswith("@") else arg
         return json.loads(text)
+    except OSError as exc:
+        _fail(f"{what}: cannot read {arg[1:]} ({exc.strerror or exc})", 2)
     except ValueError as exc:
         _fail(f"{what} is not JSON: {exc}", 2)
 
 
-def _run(fn, *args, **kwargs) -> None:
+def _run(fn, client, *args, what: str = "", **kwargs) -> None:
+    """Run one command with Live held for it (hands.live.hold): one command at a time, and what an interrupted
+    one left is put back first."""
+    from hands.live import hold
+    what = what or f"hands {fn.__module__.rsplit('.', 1)[-1]} {fn.__name__}".replace("hands versions", "hands panel").replace("hands mix", "hands panel")
     try:
-        print(fn(*args, **kwargs))
-    except (panel.PanelError, LiveError) as exc:
+        with hold.using_live(what, client=client) as put_back:
+            for line in put_back:
+                print(f"note: {line}", file=sys.stderr)
+            print(fn(client, *args, **kwargs))
+    except hold.Busy as exc:
         _fail(f"ERROR: {exc}")
+    except (panel.PanelError, LiveError) as exc:
+        _fail(f"ERROR: {plain(exc)}")
+    except Exception as exc:  # noqa: BLE001  (an agent reads this: one line it can act on, not a traceback)
+        _fail(f"ERROR: {inside(exc)}")
+
+
+_NOISE = re.compile(r" \(Multi-line code may have partially executed[^)]*\)| \[in '[^']*'\]|^(ValueError|RuntimeError|StopIteration): ")
+
+
+def plain(exc: BaseException) -> str:
+    """An error from Live without the parts that are about hands' own code (which line of it, undo advice)."""
+    text = _NOISE.sub("", str(exc)).strip()
+    return text or f"Live could not do that ({type(exc).__name__}); check the names in the command against the set"
+
+
+def inside(exc: BaseException) -> str:
+    """One line for a failure hands did not expect: what, where, and the two things worth trying."""
+    tb = exc.__traceback__
+    while tb and tb.tb_next:
+        tb = tb.tb_next
+    where = f"{Path(tb.tb_frame.f_code.co_filename).name}:{tb.tb_lineno}" if tb else "?"
+    return (f"hands failed inside ({type(exc).__name__}: {str(exc)[:200]} at {where}). Either a value in the JSON has the "
+            "wrong shape (compare it with the example in --help), or Live answered something odd: run `hands rig reset` "
+            "and try once more.")
 
 
 @app.command()
@@ -100,16 +134,23 @@ def apply(
 ) -> None:
     """Set the panel's values, render the next version, print it with a before/after deck."""
     from hands.live import mix
-    made = _made(out, name)
-    if made and made.get("kind") == "mix":
-        _run(mix.apply, LiveClient(host, port, keep=True), made, out, state_values=_json(state, "--state"), spec=_json(spec, "--spec"), force=force)
-        return
-    _run(panel.apply, LiveClient(host, port, keep=True), name, out, state_values=_json(state, "--state"), spec=_json(spec, "--spec"), force=force)
+    values, changes = _json(state, "--state"), _json(spec, "--spec")
+
+    def apply(client):                           # the panel's file is read once Live is held: another apply may be writing it
+        made = _made(out, name)
+        if made and made.get("kind") == "mix":
+            return mix.apply(client, made, out, state_values=values, spec=changes, force=force)
+        return panel.apply(client, name, out, state_values=values, spec=changes, force=force)
+    _run(apply, LiveClient(host, port, keep=True), what="hands panel apply")
 
 
 def _made(out: Path, name: str) -> dict | None:
-    f = panel._file(out, name)
-    return json.loads(f.read_text()) if f.exists() else None
+    """The panel's file, if it is there and whole (a cut-short or foreign file reads as no panel)."""
+    try:
+        made = json.loads(panel._file(out, name).read_text())
+    except (OSError, ValueError):
+        return None
+    return made if isinstance(made, dict) else None
 
 
 @app.command()
@@ -155,11 +196,11 @@ def params(
 def drop(name: str = typer.Argument(..., help="The panel's name."), out: Path = OUT, host: str = HOST, port: int = PORT) -> None:
     """Delete the panel's track from the open set. Its renders stay."""
     from hands.live import mix
-    made = _made(out, name)
-    if made and made.get("kind") == "mix":
-        _run(mix.drop, LiveClient(host, port, keep=True), made, out)
-        return
-    _run(panel.drop, LiveClient(host, port, keep=True), name, out)
+
+    def drop(client):
+        made = _made(out, name)
+        return mix.drop(client, made, out) if made and made.get("kind") == "mix" else panel.drop(client, name, out)
+    _run(drop, LiveClient(host, port, keep=True), what="hands panel drop")
 
 
 song_app = typer.Typer(no_args_is_help=True, help="""A song from panels: each panel's riff looped over the sections it plays in.
@@ -218,7 +259,10 @@ def sweep_command(
         in_use = set(clips)
         if path:
             projects.append(Path(path).parent)
-    except (LiveError, OSError, ValueError, TypeError):
+    except Exception:  # noqa: BLE001  (Live not there, or answering oddly: sweep what the disk shows)
         pass
-    result = sweep.sweep(out, projects, apply=apply, keep_days=days, pressure=pressure, in_use=in_use)
+    try:
+        result = sweep.sweep(out, projects, apply=apply, keep_days=days, pressure=pressure, in_use=in_use)
+    except Exception as exc:  # noqa: BLE001
+        _fail(f"ERROR: {inside(exc)}")
     print(json.dumps(result) if as_json else sweep.report(result))

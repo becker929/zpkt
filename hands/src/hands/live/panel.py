@@ -25,6 +25,7 @@ from pathlib import Path
 from typing import Any
 
 from hands import config
+from hands.live import hold
 from hands.live.agent import with_prelude
 from hands.live.transport import McpTransport
 
@@ -348,14 +349,20 @@ def resolve(client: McpTransport, track: str, catalog: list[dict], wants: dict[s
 
 
 def _state(client: McpTransport) -> dict:
-    return client.run(
+    state = client.run(
         "_sel = song.view.selected_track\n"
         "_leaf = [t for t in song.tracks if not t.is_foldable]\n"
         "result = {'playing': bool(song.is_playing), 'names': [t.name for t in song.tracks], 'tempo': song.tempo,\n"
         "          'end': max([c.end_time for t in _leaf for c in t.arrangement_clips] + [0.0]),\n"
         "          'armed': [i for i, t in enumerate(song.tracks) if t.can_be_armed and t.arm],\n"
         "          'selected': next((i for i, t in enumerate(song.tracks) if t == _sel), None),\n"
-        "          'loop': bool(song.loop), 'start_time': song.start_time, 'pos': song.current_song_time}")
+        "          'loop': bool(song.loop), 'start_time': song.start_time, 'pos': song.current_song_time,\n"
+        "          'set': str(getattr(song, 'file_path', '') or '')}")
+    if not isinstance(state, dict) or not isinstance(state.get("names"), list):
+        from hands.live.transport import LiveError
+        raise LiveError(f"Live answered something that is not the set's state ({str(state)[:80]}); run `hands rig reset`")
+    hold.on_set(state.get("set"))
+    return state
 
 
 _LOAD = '''
@@ -411,9 +418,33 @@ def _load(client: McpTransport, track: str, instrument: str, state: dict) -> str
     raise PanelError(f"{instrument!r} did not load onto the track")
 
 
+def _drop_code(track: str) -> str:
+    return (f"_i = next((i for i, t in enumerate(song.tracks) if t.name == {track!r}), None)\n"
+            "if _i is not None:\n    song.delete_track(_i)\nresult = 'ok'")
+
+
+ASIDE = " (being replaced)"
+
+
+def _rename_code(old: str, new: str) -> str:
+    return (f"_t = next((t for t in song.tracks if t.name == {old!r}), None)\n"
+            f"if _t is not None:\n    _t.name = {new!r}\nresult = 'ok'")
+
+
 def _drop(client: McpTransport, track: str) -> None:
-    client.run(f"_i = next((i for i, t in enumerate(song.tracks) if t.name == {track!r}), None)\n"
-               "if _i is not None:\n    song.delete_track(_i)\nresult = 'ok'")
+    client.run(_drop_code(track))
+
+
+def read_file(f: Path, what: str) -> dict:
+    """A panel's or a song's file as hands wrote it. A file that is cut short or is not one of ours is an error
+    the caller can act on, not a crash."""
+    try:
+        made = json.loads(f.read_text())
+    except (OSError, ValueError) as exc:
+        raise PanelError(f"the file of {what} cannot be read ({f.name}: {str(exc)[:80]}); make it again (--replace)") from exc
+    if not isinstance(made, dict):
+        raise PanelError(f"the file of {what} is not one hands wrote ({f.name}); make it again (--replace)")
+    return made
 
 
 def lead_beats(tempo: float) -> float:
@@ -437,41 +468,46 @@ def record_span(transport: McpTransport, *, filename: str, output_dir: str, star
 
     idx, out, take = n_tracks, str(Path(output_dir) / filename), None
     sweep.make_room(Path(output_dir), (duration_beats + tail_beats) * 60.0 / tempo)
+    put_back = with_prelude(
+        f"song.stop_playing()\nsong.record_mode = False\n"
+        f"if len(song.tracks) > {idx} and song.tracks[{idx}].name == 'Render':\n    song.delete_track({idx})\n"
+        f"for _i in {armed!r}:\n    if _i < len(song.tracks) and song.tracks[_i].can_be_armed:\n        song.tracks[_i].arm = 1\n"
+        + after + "\nresult = 'ok'")
     try:
-        transport.run(before + "\nsong.stop_playing()\nsong.loop = False\nsong.back_to_arranger = False\n"
-                      f"for _i in {armed!r}:\n    song.tracks[_i].arm = 0\nsong.create_audio_track(-1)\nresult = 'ok'")
-        for k in range(10):                      # a new track can report no input types for a moment
-            if k:
-                time.sleep(0.3)
-            if transport.run(f"_t = song.tracks[{idx}]\n_t.name = 'Render'\n"
-                             "_rt = next((r for r in _t.available_input_routing_types if 'Resampling' in r.display_name), None)\n"
-                             "if _rt is not None:\n    _t.input_routing_type = _rt\nresult = _rt is not None"):
-                break
-        transport.run(f"_t = song.tracks[{idx}]\nif 'Resampling' not in str(_t.input_routing_type.display_name):\n"
-                      "    raise RuntimeError('could not set the render track to Resampling')\n_t.arm = 1\nresult = 'ok'")
-        transport.run(f"song.start_time = {float(start_beat)!r}\nsong.current_song_time = {float(start_beat)!r}\n"
-                      "song.record_mode = True\nsong.start_playing()\nresult = 'ok'")
-        time.sleep((duration_beats + tail_beats) * 60.0 / tempo + 0.3)
-        transport.run("song.stop_playing()\nsong.record_mode = False\nresult = 'ok'")
-        clip = None
-        for k in range(6):                       # the take appears on the track a moment after the stop
-            time.sleep(0.2 if k else 0.1)
-            clip = transport.run(f"_c = list(song.tracks[{idx}].arrangement_clips)[:1]\n"
-                                 "result = [_c[0].file_path, _c[0].start_marker, [[w.beat_time, w.sample_time] for w in _c[0].warp_markers], _c[0].start_time] if _c else None")
-            if clip and Path(clip[0]).exists():
-                break
-        if not clip or not Path(clip[0]).exists():
-            return None
-        take = clip[0]
-        sweep.note_takes(Path(output_dir), Path(take).parent)
-        shutil.copy2(take, out)
-        Path(out + ".timing.json").write_text(json.dumps({"song_zero_seconds": _beat_to_seconds(clip[2], clip[1]), "clip_start": clip[3], "tempo": tempo}))
-        return out
+        with hold.undo(transport, "the set as it was before a render (its Render track, record mode, tempo and playhead)", put_back):
+            transport.run(before + "\nsong.stop_playing()\nsong.loop = False\nsong.back_to_arranger = False\n"
+                          f"for _i in {armed!r}:\n    song.tracks[_i].arm = 0\nsong.create_audio_track(-1)\nresult = 'ok'")
+            for k in range(10):                      # a new track can report no input types for a moment
+                if k:
+                    time.sleep(0.3)
+                if transport.run(f"_t = song.tracks[{idx}]\n_t.name = 'Render'\n"
+                                 "_rt = next((r for r in _t.available_input_routing_types if 'Resampling' in r.display_name), None)\n"
+                                 "if _rt is not None:\n    _t.input_routing_type = _rt\nresult = _rt is not None"):
+                    break
+            transport.run(f"_t = song.tracks[{idx}]\nif 'Resampling' not in str(_t.input_routing_type.display_name):\n"
+                          "    raise RuntimeError('could not set the render track to Resampling')\n_t.arm = 1\nresult = 'ok'")
+            transport.run(f"song.start_time = {float(start_beat)!r}\nsong.current_song_time = {float(start_beat)!r}\n"
+                          "song.record_mode = True\nsong.start_playing()\nresult = 'ok'")
+            from hands.live.record import AUDIO_STALLED, playhead_moves
+            if not playhead_moves(transport, float(start_beat)):
+                raise PanelError(AUDIO_STALLED)
+            time.sleep((duration_beats + tail_beats) * 60.0 / tempo + 0.3)
+            transport.run("song.stop_playing()\nsong.record_mode = False\nresult = 'ok'")
+            clip = None
+            for k in range(6):                       # the take appears on the track a moment after the stop
+                time.sleep(0.2 if k else 0.1)
+                clip = transport.run(f"_c = list(song.tracks[{idx}].arrangement_clips)[:1]\n"
+                                     "result = [_c[0].file_path, _c[0].start_marker, [[w.beat_time, w.sample_time] for w in _c[0].warp_markers], _c[0].start_time] if _c else None")
+                if clip and Path(clip[0]).exists():
+                    break
+            if not clip or not Path(clip[0]).exists():
+                return None
+            take = clip[0]
+            sweep.note_takes(Path(output_dir), Path(take).parent)
+            shutil.copy2(take, out)
+            Path(out + ".timing.json").write_text(json.dumps({"song_zero_seconds": _beat_to_seconds(clip[2], clip[1]), "clip_start": clip[3], "tempo": tempo}))
+            return out
     finally:
-        transport.run(with_prelude(
-            f"song.stop_playing()\nsong.record_mode = False\n"
-            f"if len(song.tracks) > {idx} and song.tracks[{idx}].name == 'Render':\n    song.delete_track({idx})\n"
-            f"for _i in {armed!r}:\n    song.tracks[_i].arm = 1\n" + after + "\nresult = 'ok'"))
         for leftover in ([take, take + ".asd"] if take else []):   # Live's own take file in the project
             Path(leftover).unlink(missing_ok=True)
 
@@ -672,7 +708,12 @@ def _catalog(client: McpTransport, track: str, device: str) -> list[dict]:
     """The device's parameters, from the cache when it has been read before (a read is six round trips)."""
     cache = _cache_file(device)
     if cache.exists():
-        return json.loads(cache.read_text())
+        try:
+            kept = json.loads(cache.read_text())
+            if isinstance(kept, list) and kept and all(isinstance(p, dict) and "name" in p for p in kept):
+                return kept
+        except (OSError, ValueError):
+            pass                                 # a damaged copy: read the device again
     catalog = read_catalog(client, track)
     _remember(device, catalog)
     return catalog
@@ -693,7 +734,8 @@ def _tables(client: McpTransport, track: str, device: str, names: list[str], cat
 def make(client: McpTransport, spec: dict, out_dir: Path, *, replace: bool = False, force: bool = False,
          recorder: Callable[..., str | None] | None = None) -> str:
     """Make a panel from a spec and render it; return the text to print."""
-    spec = expand(spec, new=True)
+    from hands.live import shape
+    spec = expand(shape.clean(spec, shape.INSTRUMENT, "the spec"), new=True)
     state = _state(client)
     if not spec.get("name"):                     # named after what it is; a second one of the same gets a number
         base = re.sub(r"[^a-z0-9]+", "-", f"{spec.get('sound') or spec.get('instrument') or 'panel'} {spec.get('seq') or spec.get('chords') or ''}".lower()).strip("-")[:32]
@@ -709,16 +751,22 @@ def make(client: McpTransport, spec: dict, out_dir: Path, *, replace: bool = Fal
     track = TRACK_PREFIX + name
     if state["playing"] and not force:
         raise PanelError("Live is playing (maybe the user): not rendering; pass --force to stop it")
+    aside = None
     if track in state["names"]:
         if not replace:
             raise PanelError(f"a panel called {name!r} exists: change it with `hands panel apply {name}`, or pass --replace")
-        _drop(client, track)
-        time.sleep(0.3)
+        aside = track + ASIDE                    # the old one stays until the new one has rendered: a spec with a
+        client.run(_rename_code(track, aside))   # mistake in it must not cost the panel it was to replace
         state = _state(client)
+    unfinished = hold.note(f"the track {track!r} of a panel that was not finished",
+                           _drop_code(track) + ("\n" + _rename_code(aside, track) if aside else ""))
+    device = instrument
     try:
         device = _load(client, track, instrument, state)
         catalog = _catalog(client, track, device)
-        wants = dict(spec.get("params") or {})
+        wants = spec.get("params") or {}
+        if not isinstance(wants, dict):
+            raise PanelError('"params" is {name: value}, for example {"Filter Freq": "600 Hz"}')
         values, warnings = resolve(client, track, catalog, wants, device)
         wanted = spec.get("controls") or list(values)[:8] or [p["name"] for p in catalog[1:9]]
         controls = controls_for(client, track, catalog, wanted, device)
@@ -729,14 +777,18 @@ def make(client: McpTransport, spec: dict, out_dir: Path, *, replace: bool = Fal
         out = out_dir / f"{name}.wav"
         state = {**state, "names": [*state["names"], track]}
         result = _render(client, track, state, notes, beats, panel["tail"], panel["tempo"], out, recorder or _recorder(), values)
-    except Exception as exc:
-        _drop(client, track)                     # leave nothing behind: the next try starts clean
+    except BaseException as exc:
+        hold.settle(client, unfinished)          # leave nothing behind: the next try starts clean
         if "KeyError" in str(exc):               # the kept parameter list no longer fits the device: read it afresh next time
             for stale in (_cache_file(device), _cache_file(device).with_suffix(".shown.json")):
                 stale.unlink(missing_ok=True)
         raise
+    hold.forget(unfinished)
+    if aside:
+        with contextlib.suppress(Exception):     # the new panel is made; a leftover old track is only clutter
+            _drop(client, aside)
     panel["renders"].append(_shown_path(out))
-    _file(out_dir, name).write_text(json.dumps(panel))
+    hold.save_json(_file(out_dir, name), panel)
     return blocks(panel, result, warnings)
 
 
@@ -746,8 +798,10 @@ def apply(client: McpTransport, name: str, out_dir: Path, *, state_values: dict 
     f = _file(out_dir, name)
     if not f.exists():
         raise PanelError(f"no panel {name!r} in {out_dir} (expected {f.name}); make it with `hands panel make`")
-    panel = json.loads(f.read_text())
-    spec = expand(spec or {}, new=False)
+    from hands.live import shape
+    panel = read_file(f, f"panel {name!r}")
+    spec = expand(shape.clean(spec or {}, shape.INSTRUMENT_CHANGE, "--spec"), new=False)
+    state_values = shape.state(state_values)
     track = panel["track"]
     state = _state(client)
     if state["playing"] and not force:
@@ -778,14 +832,21 @@ def apply(client: McpTransport, name: str, out_dir: Path, *, state_values: dict 
             panel[key] = float(spec[key])
     if spec.get("title"):
         panel["title"] = str(spec["title"])
+    were = {k: panel["values"][k] for k in values if k in panel["values"]}
     panel["values"].update(values)
     panel["version"] += 1
     out = out_dir / f"{name}-{panel['version']}.wav"
     notes = [tuple(n) for n in panel["notes"]]
-    result = _render(client, track, state, notes, panel["beats"], panel["tail"], panel["tempo"], out, recorder or _recorder(), values)
+    failed = hold.note(f"the values of panel {name!r} from before a render that failed", set_code(panel, were) + "result = 'ok'")
+    try:
+        result = _render(client, track, state, notes, panel["beats"], panel["tail"], panel["tempo"], out, recorder or _recorder(), values)
+    except BaseException:
+        hold.settle(client, failed)              # the page still shows the old values: Live must too
+        raise
+    hold.forget(failed)
     before = panel["renders"][-1]
     panel["renders"].append(_shown_path(out))
-    f.write_text(json.dumps(panel))
+    hold.save_json(f, panel)
     return blocks(panel, result, warnings, ab=(before, panel["renders"][-1]))
 
 
@@ -804,18 +865,31 @@ def params(client: McpTransport | None, instrument: str, grep: str = "") -> str:
     """A device's parameters, one per line: name | range | value = what Live shows | choices. Read from the
     cache when the device has been loaded before; otherwise loaded on a temporary track, read, and removed."""
     cache = _cache_file(instrument)
+    catalog = None
     if cache.exists():
-        catalog = json.loads(cache.read_text())
-    else:
+        try:
+            catalog = json.loads(cache.read_text())
+        except (OSError, ValueError):
+            catalog = None
+    if not (isinstance(catalog, list) and catalog and all(isinstance(p, dict) and "name" in p for p in catalog)):
         if client is None:
             raise PanelError(f"{instrument!r} has not been read yet and Live is not reachable")
         state = _state(client)
         track = TRACK_PREFIX + "params (temporary)"
-        try:
-            device = _load(client, track, instrument, state)
+        with hold.undo(client, "the temporary track that reads a device's parameters", _drop_code(track)):
+            try:
+                device = _load(client, track, instrument, state)
+            except Exception as exc:  # noqa: BLE001
+                if "no loadable" not in str(exc):
+                    raise
+                from hands.live import mix   # not an instrument: an audio effect ("EQ Eight", "Saturator"), for a mix panel's devices
+                try:
+                    mix._add_device(client, track, instrument, instrument)
+                except Exception:  # noqa: BLE001
+                    raise PanelError(f"no instrument or audio effect called {instrument!r} in Live's browser; give the name as the "
+                                     'browser shows it ("Operator", "EQ Eight", "Saturator", "Glue Compressor", "Compressor", "Reverb")') from None
+                device = instrument
             catalog = read_catalog(client, track)
-        finally:
-            _drop(client, track)
         _remember(device, catalog)
         if device != instrument:
             _remember(instrument, catalog)

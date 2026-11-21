@@ -9,12 +9,15 @@ not move until an option is picked. Works for instrument panels and mix panels a
 """
 from __future__ import annotations
 
+import re
+
 import itertools
 import json
 from pathlib import Path
 from typing import Any, Callable
 
 from hands.live import mix as M
+from hands.live import hold
 from hands.live import panel as P
 from hands.live.transport import McpTransport
 
@@ -26,7 +29,7 @@ def load(out_dir: Path, name: str) -> dict:
     f = P._file(out_dir, name)
     if not f.exists():
         raise P.PanelError(f"no panel {name!r} in {out_dir} (expected {f.name}); make it with `hands panel make`")
-    return json.loads(f.read_text())
+    return P.read_file(f, f"panel {name!r}")
 
 
 def _control(panel: dict, key: str) -> dict:
@@ -68,6 +71,23 @@ def _raw(client: McpTransport, panel: dict, c: dict, want: Any) -> float:
     return (lo + hi) / 2
 
 
+FADER_SPAN_DB = 6.0
+
+
+def fader_span(client: McpTransport, panel: dict, c: dict, lo: float, hi: float) -> tuple[float, float]:
+    """A level grid with no range given spans the 6 dB below where the fader is (the question is nearly always
+    "a bit louder or quieter?"), not silence to +6 dB. The whole travel if the level cannot be read."""
+    current = (panel.get("values") or {}).get(c["param"])
+    if current is None:
+        return lo, hi
+    try:
+        shown = str(client.run(f"_p = {_where(panel, c)}\nresult = str(_p.str_for_value({float(current)!r}))"))
+        db = float(re.match(r"\s*(-?[\d.]+)\s*dB", shown).group(1))
+    except (AttributeError, ValueError, TypeError, Exception):
+        return lo, hi
+    return _raw(client, panel, c, f"{db - FADER_SPAN_DB:g} dB"), float(current)
+
+
 def axis_values(client: McpTransport, panel: dict, c: dict, ask: Any) -> list[float]:
     """The raw values one axis takes: {"values": [...]}, or {"from", "to", "steps"} (evenly, in the control's own travel)."""
     ask = ask if isinstance(ask, dict) else {"values": ask} if isinstance(ask, list) else {}
@@ -80,6 +100,8 @@ def axis_values(client: McpTransport, panel: dict, c: dict, ask: Any) -> list[fl
         raise P.PanelError(f"{c['label']}: 2 to 8 steps; got {steps}")
     lo = _raw(client, panel, c, ask["from"]) if ask.get("from") is not None else c["min"]
     hi = _raw(client, panel, c, ask["to"]) if ask.get("to") is not None else c["max"]
+    if c["kind"] == "fader" and ask.get("from") is None and ask.get("to") is None:
+        lo, hi = fader_span(client, panel, c, lo, hi)
     vals = [lo + (hi - lo) * k / (steps - 1) for k in range(steps)]
     return [float(round(v)) for v in vals] if c.get("step") else vals
 
@@ -130,7 +152,9 @@ def _print(panel: dict, grid: dict, lines: list[str]) -> str:
 def grid(client: McpTransport, name: str, out_dir: Path, axes: dict, *, state_values: dict | None = None, force: bool = False,
          recorder: Callable[..., str | None] | None = None, progress: Callable[[int, int], None] | None = None) -> str:
     """Render every combination of the axes' values; return the text to print (a deck of the options)."""
+    from hands.live import shape
     panel = load(out_dir, name)
+    axes = shape.clean(axes, shape.AXES, "--axes") if isinstance(axes, dict) else axes
     if not isinstance(axes, dict) or not axes:
         raise P.PanelError('give --axes as {"control id": {"from": ..., "to": ..., "steps": 4}} or {"control id": {"values": [...]}}')
     state = P._state(client)
@@ -150,7 +174,7 @@ def grid(client: McpTransport, name: str, out_dir: Path, axes: dict, *, state_va
     gid = len(panel.get("grids") or []) + 1
     rec = recorder or P._recorder()
     options, files, results = [], [], []
-    try:
+    with hold.undo(client, f"the values of panel {name!r} from before its grid", P.set_code(panel, current) + "result = 'ok'"):
         for k, combo in enumerate(combos):
             if progress:
                 progress(k, len(combos))
@@ -162,18 +186,42 @@ def grid(client: McpTransport, name: str, out_dir: Path, axes: dict, *, state_va
             options.append({"letter": LETTERS[k], "values": {c["param"]: v for (c, _), v in zip(cols, combo)},
                             "label": " · ".join(f"{c['label']} {text[i][v]}" for i, ((c, _), v) in enumerate(zip(cols, combo))),
                             "file": P._shown_path(out), **r})
-    finally:
-        client.run(P.set_code(panel, current) + "result = 'ok'")   # the panel itself has not moved
     for o, m in zip(options, _matched(files, results)):
         if m:
             o["matched"] = m
     g = {"id": gid, "axes": [{"id": c["id"], "label": c["label"]} for c, _ in cols], "options": options}
     panel.setdefault("grids", []).append(g)
     panel["values"] = current
-    P._file(out_dir, name).write_text(json.dumps(panel))
+    hold.save_json(P._file(out_dir, name), panel)
     lines = [f"grid {gid} of panel {name}: {len(options)} versions"]
     lines += [f"  {o['letter']}  {o['label']}  (peak {o['peak_dbfs']:g} dBFS, RMS {o['rms_dbfs']:g} dBFS)" for o in options]
+    same = same_note(options, panel)
+    if same and panel.get("kind") != "mix":
+        lines += same  # an instrument's versions can measure alike and still sound different (a filter)
+    elif same:
+        hint = ""
+        if panel.get("bars"):
+            tracks = [c.get("track") for c, _ in cols if c.get("track")]
+            bars = panel["bars"]
+            quiet = M.quiet_tracks(client, tracks, float(panel.get("offset", 0.0)) + (bars[0] - 1) * 4.0, bars[1] * 4.0)
+            later = re.search(r"first plays at bar (\d+)", " ".join(quiet))
+            if later:
+                hint = (f" {quiet[0].split(':')[0]}. Move the panel there, then run this grid again: hands panel apply {name} --spec "
+                        f"'{{\"bars\": [{later.group(1)}, {bars[1]}]}}'")
+        raise P.PanelError(same[0].removeprefix("warning: ").replace(
+            " Do not offer them; choose bars where that track plays, or another control.", "") + hint)
     return _print(panel, g, lines)
+
+
+def same_note(options: list[dict], panel: dict) -> list[str]:
+    """A grid whose versions all measure the same changed nothing that plays: say so, rather than let the user
+    listen for a difference that is not there."""
+    rms = [o.get("rms_dbfs") for o in options]
+    if len(rms) < 2 or None in rms or max(rms) - min(rms) > 0.1:
+        return []
+    where = f" in bars {panel['bars'][0]}-{panel['bars'][0] + panel['bars'][1] - 1}" if panel.get("bars") else ""
+    return [f"warning: the versions measure the same (RMS {rms[0]:g} dBFS): the control changes nothing that plays{where}. "
+            "Do not offer them; choose bars where that track plays, or another control."]
 
 
 def pick(client: McpTransport, name: str, out_dir: Path, grid_id: int, letter: str, *, force: bool = False) -> str:
@@ -195,6 +243,6 @@ def pick(client: McpTransport, name: str, out_dir: Path, grid_id: int, letter: s
     panel["values"].update(o["values"])
     panel["version"] += 1
     panel["renders"].append(o["file"])
-    P._file(out_dir, name).write_text(json.dumps(panel))
+    hold.save_json(P._file(out_dir, name), panel)
     result = {"peak_dbfs": o["peak_dbfs"], "rms_dbfs": o["rms_dbfs"], "seconds": o["seconds"]}
     return f"picked {o['letter']} ({o['label']}) from grid {grid_id}\n" + P.blocks(panel, result, [], ab=(before, o["file"]))

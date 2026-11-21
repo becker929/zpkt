@@ -30,6 +30,8 @@ import time
 from pathlib import Path
 from typing import Callable
 
+from hands.live import hold
+
 TAKE = re.compile(r"Render \d{4} \[\d{4}-\d{2}-\d{2} \d{6}\]\.wav")
 _TAKE_B = re.compile(TAKE.pattern.encode())
 GRID = re.compile(r"^(?P<panel>.+)-g(?P<id>\d+)-[a-p](?:-m)?\.wav$")
@@ -113,7 +115,7 @@ def _names(shown) -> list[str]:
 
 
 def _grid_files(g: dict) -> list[str]:
-    return [n for o in g.get("options") or [] for k in ("file", "matched") for n in _names(o.get(k))]
+    return [n for o in g.get("options") or [] if isinstance(o, dict) for k in ("file", "matched") for n in _names(o.get(k))]
 
 
 def plan(out_dir: Path, projects: list[Path] | None = None, *, keep_days: float = KEEP_DAYS, pressure: bool = False,
@@ -139,20 +141,23 @@ def plan(out_dir: Path, projects: list[Path] | None = None, *, keep_days: float 
     spent: list[tuple[str, str]] = []
     panels: set[str] = set()
     for f in (sorted(out_dir.glob("*.panel.json")) + sorted(out_dir.glob("*.song.json"))) if here else []:
+        if f.name.endswith(".panel.json"):
+            panels.add(f.name[:-len(".panel.json")])   # even if its file cannot be read: its grids are not orphans
         try:
             made = json.loads(f.read_text())
-        except (OSError, ValueError):
-            continue
-        name = str(made.get("name") or f.name.split(".")[0])
+            name = str(made.get("name") or f.name.split(".")[0])
+            renders = [n for r in made.get("renders") or [] for n in _names(r)]
+            grids = [g for g in made.get("grids") or [] if isinstance(g, dict)]
+            newest = _grid_files(grids[-1]) if grids else []
+            older = [(n, f"grid {g.get('id')} of {name}, not its newest") for g in grids[:-1] for n in _grid_files(g)]
+        except (OSError, ValueError, TypeError, AttributeError, KeyError):
+            continue                             # a damaged file: nothing it names is swept on its word
         if f.name.endswith(".panel.json"):
             panels.add(name)
-        renders = [n for r in made.get("renders") or [] for n in _names(r)]
         keep.update(renders[-2:])
         spent += [(n, f"an earlier version of {name}") for n in renders[:-2]]
-        grids = [g for g in made.get("grids") or [] if isinstance(g, dict)]
-        if grids:
-            keep.update(_grid_files(grids[-1]))
-        spent += [(n, f"grid {g.get('id')} of {name}, not its newest") for g in grids[:-1] for n in _grid_files(g)]
+        keep.update(newest)
+        spent += older
     for name, why in spent:
         if name not in keep:
             add(out_dir / name, "superseded", why, old)
@@ -186,14 +191,14 @@ def _mark_swept(out_dir: Path, gone: set[str]) -> None:
     for f in out_dir.glob("*.panel.json"):
         try:
             made = json.loads(f.read_text())
-        except (OSError, ValueError):
+            hit = False
+            for g in made.get("grids") or []:
+                if isinstance(g, dict) and not g.get("swept") and any(n in gone for n in _grid_files(g)):
+                    g["swept"], hit = True, True
+            if hit:
+                hold.save_json(f, made)
+        except (OSError, ValueError, TypeError, AttributeError, KeyError):
             continue
-        hit = False
-        for g in made.get("grids") or []:
-            if isinstance(g, dict) and not g.get("swept") and any(n in gone for n in _grid_files(g)):
-                g["swept"], hit = True, True
-        if hit:
-            f.write_text(json.dumps(made))
 
 
 def sweep(out_dir: Path, projects: list[Path] | None = None, *, apply: bool = False, keep_days: float = KEEP_DAYS,
