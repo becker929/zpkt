@@ -8,7 +8,9 @@ Terms used in this lab, in plain words. Standards named in brackets.
 | **ABX** | Blind test: hear A, hear B, then say whether unknown X is A or B. Guessing gets half right. |
 | **AAC** | Lossy audio codec. YouTube serves AAC at about 128 kb/s alongside Opus. |
 | **Attack / release** | How fast a compressor reacts when level rises (attack) and recovers when it falls (release). Here measured as time to 63 % of the change. |
+| **Build / drop window** | The 16 bars before the drop (build) and the 16 bars from it (drop). `mlab target` compares mix and references window by window. |
 | **Crest factor** | Peak level minus RMS level, in dB. A sine is 3 dB. High crest = spiky; low crest = dense. |
+| **dB rel LUFS** | A band's power in dB minus the window's integrated loudness. It compares spectral shape, not level. |
 | **dBFS** | Decibels relative to digital full scale. 0 dBFS is the largest sample value. |
 | **dBTP** | Decibels true peak: the peak of the reconstructed analogue waveform, found by oversampling [BS.1770]. |
 | **DC offset** | A constant shift of the waveform away from zero. Wastes headroom; causes clicks at edits. |
@@ -31,8 +33,10 @@ Terms used in this lab, in plain words. Standards named in brackets.
 | **Macrodynamics** | Loudness change between sections: verse to drop, breakdown to peak. |
 | **Microdynamics** | Level change inside a beat: the hit versus the body of a kick. |
 | **Mid/side (M/S)** | Stereo split into the sum (mid) and difference (side) signals. |
+| **Model check** | `eqfit`'s self-test: its no-move prediction against the measured stem sum, per band. The largest error says how far to trust a plan. |
 | **Noise shaping** | Moving dither noise to frequencies where the ear is less sensitive, usually very high ones. |
 | **Opus** | Lossy codec. YouTube serves Opus at about 130–160 kb/s. |
+| **Outside the range** | How far a mix value sits outside the references' min–max range. 0 inside it; negative = under every reference. |
 | **Parametric EQ** | EQ bands with adjustable frequency, gain and width (Q). |
 | **Phon** | Loudness level: a sound is N phon if it is as loud as N dB SPL at 1 kHz. |
 | **PLR** | Peak-to-loudness ratio: true peak minus integrated loudness. Low PLR = heavily limited. |
@@ -42,12 +46,19 @@ Terms used in this lab, in plain words. Standards named in brackets.
 | **Q** | Width of an EQ band. Higher Q = narrower. |
 | **Reference track** | A finished release you compare against, at matched loudness. |
 | **RMS** | Root mean square: average power as a level. |
+| **Section contrast** | Integrated loudness of the drop window minus that of the build window, in LU. |
 | **Shelving EQ** | EQ that raises or lowers everything above (high shelf) or below (low shelf) a frequency. |
+| **Side minus mid** | Side energy minus mid energy in one band, in dB. Very negative = mono there; 0 dB = as wide as two unrelated channels. |
 | **Signal flow** | The path audio takes through tracks, groups, sends and the main bus. |
+| **Stem** | A solo render of one bus. A mix's stems sum to about the mix (L-018). |
 | **TPDF / RPDF** | Triangular / rectangular probability dither. TPDF removes noise modulation; it is the default. |
 | **Transfer function** | What a device does to each frequency; `eq-diff` measures it from dry and wet files. |
 | **Truncation** | Cutting off low bits without dither. Makes distortion on quiet material. |
 | **Word length** | Bit depth: 16, 24 or 32-bit float. |
+| **FFT bin** | One frequency step of a spectrum. Its width is the sample rate over the segment length. |
+| **Welch segment** | One short slice of a file whose spectrum is taken. A Welch PSD averages many of them. |
+| **Trapezoid** | Summing a curve by straight lines between its points. Used to add up the bins in a band. |
+| **Crossover** | A filter pair that splits audio into bands that sum back to the whole. |
 
 **Peak window.** The ~30 s stretch, on the bar grid, with the most 2–16 kHz energy while the kick plays. `mlab refs --peaks` compares peak windows so intros and breaks do not dilute the comparison.
 

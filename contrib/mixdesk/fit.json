@@ -1,0 +1,60 @@
+{
+  "note": "The controls the reference match may move, as desk controls: a bus, its desk EQ band (EQ Eight band number, type in Live, and the RBJ kind that models it; EQ Eight measured within 0.2 dB of RBJ at Q 1, 0.5 dB at Q 0.4), and the range each value may take. Fader moves are trims in dB on the bus. Every value starts where it changes nothing.",
+  "stems": {
+    "Kick bus": "stem-kick-bus.flac",
+    "Hats bus": "stem-hats-bus.flac",
+    "Perc bus": "stem-perc-bus.flac",
+    "Chord and splash bus": "stem-chord-and-splash-bus.flac",
+    "Break bus": "stem-break-bus.flac",
+    "Transitions bus": "stem-transitions-bus.flac"
+  },
+  "controls": {
+    "Kick bus": {
+      "fader": [-3, 3],
+      "bands": [
+        {"band": 2, "type": "Bell", "kind": "peak", "label": "Sub", "f": [32, 60], "gain_db": [-3, 9], "q": [0.7, 1.6], "start": {"f": 45, "q": 1.0}},
+        {"band": 3, "type": "Bell", "kind": "peak", "label": "Body", "f": [60, 140], "gain_db": [-6, 3], "q": [0.7, 2.0], "start": {"f": 85, "q": 1.2}},
+        {"band": 4, "type": "Bell", "kind": "peak", "label": "Knock", "f": [700, 3500], "gain_db": [-3, 6], "q": [0.4, 1.5], "start": {"f": 1600, "q": 1.0}},
+        {"band": 7, "type": "High Shelf", "kind": "highshelf", "label": "Top", "f": [5000, 12000], "gain_db": [-6, 3], "q": 0.71, "start": {"f": 10000}}
+      ]
+    },
+    "Hats bus": {
+      "fader": [-4, 2],
+      "bands": [
+        {"band": 4, "type": "Bell", "kind": "peak", "label": "Bite", "f": [2000, 8000], "gain_db": [-4, 4], "q": [0.7, 2.0], "start": {"f": 4000, "q": 1.0}},
+        {"band": 7, "type": "High Shelf", "kind": "highshelf", "label": "Air", "f": [4000, 12000], "gain_db": [-10, 2], "q": 0.71, "start": {"f": 10000}}
+      ]
+    },
+    "Perc bus": {
+      "fader": [-4, 2],
+      "bands": [
+        {"band": 7, "type": "High Shelf", "kind": "highshelf", "label": "Air", "f": [4000, 12000], "gain_db": [-10, 2], "q": 0.71, "start": {"f": 10000}}
+      ]
+    },
+    "Chord and splash bus": {
+      "fader": [-3, 3],
+      "bands": [
+        {"band": 4, "type": "Bell", "kind": "peak", "label": "Presence", "f": [800, 4000], "gain_db": [-3, 6], "q": [0.5, 1.5], "start": {"f": 1600, "q": 1.0}}
+      ]
+    },
+    "Break bus": {
+      "fader": [-3, 3],
+      "bands": [
+        {"band": 2, "type": "Low Shelf", "kind": "lowshelf", "label": "Low shelf", "f": [80, 300], "gain_db": [-6, 3], "q": 0.71, "start": {"f": 120}},
+        {"band": 4, "type": "Bell", "kind": "peak", "label": "Mid", "f": [250, 1500], "gain_db": [-4, 5], "q": [0.5, 1.5], "start": {"f": 600, "q": 1.0}},
+        {"band": 7, "type": "High Shelf", "kind": "highshelf", "label": "Air", "f": [5000, 12000], "gain_db": [-6, 2], "q": 0.71, "start": {"f": 10000}}
+      ]
+    },
+    "Transitions bus": {
+      "fader": [-4, 2],
+      "bands": [
+        {"band": 2, "type": "Low Shelf", "kind": "lowshelf", "label": "Sub shelf", "f": [60, 200], "gain_db": [-12, 3], "q": 0.71, "start": {"f": 120}},
+        {"band": 7, "type": "High Shelf", "kind": "highshelf", "label": "Air", "f": [4000, 12000], "gain_db": [-10, 2], "q": 0.71, "start": {"f": 10000}}
+      ]
+    }
+  },
+  "main": [
+    {"track": "Main", "device": "desk Utility", "param": "Bass Mono", "value": "On"},
+    {"track": "Main", "device": "desk Utility", "param": "Bass Freq", "value": "250 Hz"}
+  ]
+}

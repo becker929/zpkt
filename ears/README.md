@@ -79,7 +79,7 @@ meter is checked against a signal whose answer is known before it is trusted.
 
 ```bash
 cd mlab
-uv run mlab calibrate                  # 99 known-answer checks -> calibration/CALIBRATION.md
+uv run mlab calibrate                  # 125 known-answer checks -> calibration/CALIBRATION.md
 uv run mlab measure take.wav           # the full measurement sheet
 uv run mlab premaster take.wav         # a premaster checklist
 uv run mlab deliver take.wav           # platform normalisation and a codec round trip

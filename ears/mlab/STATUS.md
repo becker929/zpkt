@@ -3,7 +3,7 @@
 ## Ready
 
 - **Instruments** for all six subjects (`mlab/`), one CLI (`python3 -m mlab …`).
-- **Calibration**: 94 known-answer checks, all passing, against EBU 3341/3342, BS.1770, ISO 226,
+- **Calibration**: 125 known-answer checks (2026-11-22: `target` and `eqfit` added), all passing, against EBU 3341/3342, BS.1770, ISO 226,
   analytic cases, planted faults, and cross-checks with pyloudnorm and ffmpeg.
   Latest: see `calibration/CALIBRATION.md`. Tests: `python3 -m pytest calibration -q`.
 - **Hypothesis runner** with a template and six worked hypotheses on the HW002 demo.

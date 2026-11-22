@@ -55,7 +55,7 @@ main { flex: 1; display: grid; gap: 10px; padding: 10px 16px; grid-template-colu
 .slot { font: 600 9px ui-monospace, Menlo, monospace; color: var(--muted); opacity: .8; }
 .faders { display: grid; grid-template-columns: repeat(4, 48px); gap: 4px; }
 .fader { display: flex; flex-direction: column; align-items: center; gap: 2px; min-width: 0; border-radius: 6px; }
-.track { position: relative; width: 14px; height: 150px; border-radius: 6px; background: var(--panel2); border: 1px solid var(--line); overflow: hidden; }
+.track { position: relative; width: 14px; height: clamp(64px, 13vh, 150px); border-radius: 6px; background: var(--panel2); border: 1px solid var(--line); overflow: hidden; }
 .track .fill { position: absolute; left: 0; right: 0; bottom: 0; background: var(--text); opacity: .85; }
 .card.on .track .fill { background: var(--accent); }
 .track .ghost { position: absolute; left: -2px; right: -2px; height: 2px; background: var(--ghost); display: none; }
@@ -90,7 +90,7 @@ footer b { color: var(--text); font-weight: 600; }
 <nav id="tabs"></nav>
 <main id="cards"></main>
 <footer>
-  <span><b>Pads A1–A8</b> or the <b>big encoder</b>: arm a page</span>
+  <span><b>Pads A1–A8</b> or the <b>big encoder</b>: arm a page; press the pad again for its second layer (A2·2)</span>
   <span><b>Knobs 1–8</b>: snap to the armed page's values</span>
   <span><b>Faders 1–4</b>: pick up once they pass the value (blue line = where the fader is)</span>
   <span><b>Pads B1–B8</b>: the page's switches</span>
@@ -114,18 +114,27 @@ function arcPath(n) {
   return `M${x0.toFixed(2)},${y0.toFixed(2)} A${r},${r} 0 ${a1 - a0 > 180 ? 1 : 0} 1 ${x1.toFixed(2)},${y1.toFixed(2)}`;
 }
 
+// the bank-A pad of each page, and its layer on that pad: pages that share a pad are flipped by pressing it again
+function padLabel(i) {
+  const padOf = (k) => desk.pages[k].pad != null ? Number(desk.pages[k].pad) : (k < 8 ? k + 1 : null);
+  const p = padOf(i);
+  if (p == null) return "enc";
+  const layer = desk.pages.slice(0, i).filter((_, k) => padOf(k) === p).length;
+  return layer ? `A${p}·${layer + 1}` : `A${p}`;
+}
+
 function build() {
   const tabs = document.getElementById("tabs"), cards = document.getElementById("cards");
   tabs.innerHTML = ""; cards.innerHTML = "";
   desk.pages.forEach((pg, i) => {
     const b = document.createElement("button");
-    b.innerHTML = `<span class="pad">A${i + 1}</span>${pg.name}`;
+    b.innerHTML = `<span class="pad">${padLabel(i)}</span>${pg.name}`;
     b.onclick = () => arm(i);
     tabs.appendChild(b); el[`tab:${i}`] = b;
 
     const card = document.createElement("section");
     card.className = "card";
-    card.innerHTML = `<h2><span class="pad">A${i + 1}</span>${pg.name}<span class="chip"></span></h2><div class="what">${pg.what || ""}</div>`;
+    card.innerHTML = `<h2><span class="pad">${padLabel(i)}</span>${pg.name}<span class="chip"></span></h2><div class="what">${pg.what || ""}</div>`;
     card.onclick = (ev) => { if (state.page !== i && !ev.target.closest(".padb")) arm(i); };
     const body = document.createElement("div"); body.className = "body";
     const knobs = document.createElement("div"); knobs.className = "knobs";
@@ -185,7 +194,7 @@ function paintFaders() {
 
 function paintPage() {
   const pg = desk.pages[state.page] || {};
-  document.getElementById("armed").textContent = pg.name ? `A${state.page + 1} · ${pg.name}` : "–";
+  document.getElementById("armed").textContent = pg.name ? `${padLabel(state.page)} · ${pg.name}` : "–";
   document.getElementById("what").textContent = pg.what || "";
   desk.pages.forEach((_, i) => {
     el[`tab:${i}`].classList.toggle("on", i === state.page);

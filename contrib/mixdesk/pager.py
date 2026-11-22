@@ -6,6 +6,9 @@ go of it while we hold it. Bank-A pads (and the big encoder) arm one of desk.jso
 8 bank-B pads then drive what that page lists. Knobs are realigned to the parameter when a page is armed; faders
 pick up (they act once they pass the value Live has), so arming a page never makes a value jump.
 
+A page may name its pad ("pad": 2); pages that share a pad are layers: pressing the pad of the page that is armed
+arms the next page on that pad. The big encoder steps through every page in order.
+
 Every change (a value moved in Live by anything, a control touched, a page armed) goes out as one small JSON UDP
 datagram to the server, which shows it on the surface. Live's Python is 3.11; keep this file free of newer syntax.
 """
@@ -137,6 +140,14 @@ class _Target(object):
             pass
 
 
+def pad_of(cfg, i):
+    """The bank-A pad (1-8) that arms page i: its "pad", or its place among the first eight pages."""
+    page = cfg["pages"][i]
+    if "pad" in page:
+        return int(page["pad"])
+    return i + 1 if i < 8 else None
+
+
 def _named(track, name):
     # a return shows as "A-Space": the letter is part of its name
     return track.name == name or track.name[1:] == "-" + name
@@ -250,9 +261,17 @@ class Desk(object):
         return on
 
     def _page_pad(self, k):
+        """Pad A(k+1) arms the first page on that pad; pressed again, the next page on the same pad (a layer)."""
         def on(value):
-            if value:
-                self.arm(k)
+            if not value:
+                return
+            on_pad = [i for i, _ in enumerate(self.cfg["pages"]) if pad_of(self.cfg, i) == k + 1]
+            if not on_pad:
+                return
+            if self.page in on_pad:
+                self.arm(on_pad[(on_pad.index(self.page) + 1) % len(on_pad)])
+            else:
+                self.arm(on_pad[0])
         return on
 
     def _toggle_pad(self, slot):
