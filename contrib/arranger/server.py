@@ -200,7 +200,7 @@ class Handler(BaseHTTPRequestHandler):
         if old.is_file():   # the arranger page does not know the later steps' structure: keep what is there
             try:
                 prev = json.loads(old.read_text())
-                for key in ("transitions", "mix", "mix2", "spectral", "kickFuzz"):
+                for key in ("transitions", "mix", "mix2", "spectral", "kickFuzz", "desk"):   # desk: contrib/mixdesk/recipe.py
                     if key not in a and key in prev:
                         a[key] = prev[key]
             except ValueError:
