@@ -1,0 +1,182 @@
+{
+  "set": "HW002_121_pp_finish",
+  "controller": "Arturia MiniLab 3",
+  "note": "Eight pages. Pads 1-8 of bank A arm a page (so does the big encoder); the page's faders f1-f4, knobs k1-k8 and bank-B pads b1-b8 then drive what it lists. A control is a track and either volume, pan, send:<return>, mute, solo, or a device and one of its parameters. Faders pick up: they act once they pass the value Live has.",
+  "pages": [
+    {
+      "name": "Buses",
+      "what": "The six group buses against each other, their sends, and the headroom",
+      "controls": {
+        "f1": {"track": "Kick bus", "param": "volume"},
+        "f2": {"track": "Hats bus", "param": "volume"},
+        "f3": {"track": "Break bus", "param": "volume"},
+        "f4": {"track": "Chord and splash bus", "param": "volume"},
+        "k1": {"track": "Perc bus", "param": "volume"},
+        "k2": {"track": "Transitions bus", "param": "volume"},
+        "k3": {"track": "Hats bus", "param": "send:Space", "label": "Hats → Space"},
+        "k4": {"track": "Perc bus", "param": "send:Space", "label": "Perc → Space"},
+        "k5": {"track": "Chord and splash bus", "param": "send:Space", "label": "Chord → Space"},
+        "k6": {"track": "Break bus", "param": "send:Space", "label": "Break → Space"},
+        "k7": {"track": "Break bus", "param": "send:Echo", "label": "Break → Echo"},
+        "k8": {"track": "Main", "device": "desk headroom", "param": "Output", "label": "Headroom"},
+        "b1": {"track": "Kick bus", "param": "mute"},
+        "b2": {"track": "Hats bus", "param": "mute"},
+        "b3": {"track": "Break bus", "param": "mute"},
+        "b4": {"track": "Chord and splash bus", "param": "mute"},
+        "b5": {"track": "Perc bus", "param": "mute"},
+        "b6": {"track": "Transitions bus", "param": "mute"},
+        "b7": {"track": "Space", "param": "mute"},
+        "b8": {"track": "Echo", "param": "mute"}
+      }
+    },
+    {
+      "name": "Kick",
+      "what": "Crest and body: clip the beater spike, bring back sub and knock (mix notes 18 Nov)",
+      "controls": {
+        "f1": {"track": "kick", "param": "volume", "label": "Kick"},
+        "f2": {"track": "Kick bus", "param": "volume"},
+        "f3": {"track": "Kick bus", "device": "desk Sat", "param": "Dry/Wet", "label": "Sat wet"},
+        "f4": {"track": "Kick bus", "device": "desk Glue", "param": "Dry/Wet", "label": "Glue wet"},
+        "k1": {"track": "Kick bus", "device": "desk Sat", "param": "Drive", "label": "Sat drive"},
+        "k2": {"track": "Kick bus", "device": "desk Sat", "param": "Output", "label": "Sat out"},
+        "k3": {"track": "Kick bus", "device": "desk EQ", "param": "2 Gain A", "label": "Sub gain"},
+        "k4": {"track": "Kick bus", "device": "desk EQ", "param": "2 Frequency A", "label": "Sub freq"},
+        "k5": {"track": "Kick bus", "device": "desk EQ", "param": "4 Gain A", "label": "Knock gain"},
+        "k6": {"track": "Kick bus", "device": "desk EQ", "param": "4 Frequency A", "label": "Knock freq"},
+        "k7": {"track": "Kick bus", "device": "desk Glue", "param": "Threshold", "label": "Glue thresh"},
+        "k8": {"track": "Kick bus", "device": "desk Glue", "param": "Output", "label": "Glue out"},
+        "b1": {"track": "Kick bus", "device": "desk EQ", "param": "1 Filter On A", "label": "Low cut"},
+        "b2": {"track": "Kick bus", "device": "desk Sat", "param": "Device On", "label": "Sat on"},
+        "b3": {"track": "Kick bus", "device": "desk Glue", "param": "Device On", "label": "Glue on"},
+        "b4": {"track": "kick", "device": "EQ Eight", "param": "Device On", "label": "KSMS match EQ"},
+        "b5": {"track": "Kick bus", "device": "desk Sat", "param": "Post Clip Mode", "label": "Sat clip"},
+        "b8": {"track": "Kick bus", "param": "solo"}
+      }
+    },
+    {
+      "name": "Hats",
+      "what": "The seven hat lanes in ramp order, air and grit on the hats bus",
+      "controls": {
+        "f1": {"track": "p1-rd", "param": "volume"},
+        "f2": {"track": "p1-oh66", "param": "volume"},
+        "f3": {"track": "p2-rd2", "param": "volume"},
+        "f4": {"track": "p2-rd1", "param": "volume"},
+        "k1": {"track": "p2-oh", "param": "volume"},
+        "k2": {"track": "p2-ch27", "param": "volume"},
+        "k3": {"track": "p2-ch1", "param": "volume"},
+        "k4": {"track": "Hats bus", "device": "desk EQ", "param": "7 Gain A", "label": "Air"},
+        "k5": {"track": "Hats bus", "device": "desk EQ", "param": "1 Frequency A", "label": "Low cut"},
+        "k6": {"track": "Hats bus", "device": "desk Sat", "param": "Drive", "label": "Sat drive"},
+        "k7": {"track": "Hats bus", "device": "desk Sat", "param": "Dry/Wet", "label": "Sat wet"},
+        "k8": {"track": "Hats bus", "param": "send:Space", "label": "→ Space"},
+        "b1": {"track": "Hats bus", "device": "desk EQ", "param": "1 Filter On A", "label": "Low cut on"},
+        "b2": {"track": "Hats bus", "device": "desk Sat", "param": "Device On", "label": "Sat on"},
+        "b8": {"track": "Hats bus", "param": "solo"}
+      }
+    },
+    {
+      "name": "Break",
+      "what": "Horn, stab, chop and beatbox; body and glue on the break bus",
+      "controls": {
+        "f1": {"track": "break-horn", "param": "volume", "label": "Horn"},
+        "f2": {"track": "break-stab", "param": "volume", "label": "Stab"},
+        "f3": {"track": "break-chop", "param": "volume", "label": "Chop"},
+        "f4": {"track": "break-beatbox", "param": "volume", "label": "Beatbox"},
+        "k1": {"track": "Break bus", "device": "desk EQ", "param": "1 Frequency A", "label": "Low cut"},
+        "k2": {"track": "Break bus", "device": "desk EQ", "param": "4 Gain A", "label": "Mid gain"},
+        "k3": {"track": "Break bus", "device": "desk EQ", "param": "4 Frequency A", "label": "Mid freq"},
+        "k4": {"track": "Break bus", "device": "desk Sat", "param": "Drive", "label": "Sat drive"},
+        "k5": {"track": "Break bus", "device": "desk Sat", "param": "Dry/Wet", "label": "Sat wet"},
+        "k6": {"track": "Break bus", "device": "desk Glue", "param": "Threshold", "label": "Glue thresh"},
+        "k7": {"track": "Break bus", "device": "desk Glue", "param": "Dry/Wet", "label": "Glue wet"},
+        "k8": {"track": "Break bus", "param": "send:Space", "label": "→ Space"},
+        "b1": {"track": "Break bus", "device": "desk EQ", "param": "1 Filter On A", "label": "Low cut on"},
+        "b2": {"track": "Break bus", "device": "desk Sat", "param": "Device On", "label": "Sat on"},
+        "b3": {"track": "Break bus", "device": "desk Glue", "param": "Device On", "label": "Glue on"},
+        "b8": {"track": "Break bus", "param": "solo"}
+      }
+    },
+    {
+      "name": "Chord + perc",
+      "what": "The chord loop, splash and crash; colour on the chord bus, air on perc",
+      "controls": {
+        "f1": {"track": "chord", "param": "volume", "label": "Chord"},
+        "f2": {"track": "splash", "param": "volume", "label": "Splash"},
+        "f3": {"track": "crash", "param": "volume", "label": "Crash"},
+        "f4": {"track": "Chord and splash bus", "param": "volume", "label": "Chord bus"},
+        "k1": {"track": "Chord and splash bus", "device": "desk EQ", "param": "1 Frequency A", "label": "Chord low cut"},
+        "k2": {"track": "Chord and splash bus", "device": "desk EQ", "param": "4 Gain A", "label": "Chord 1.6k"},
+        "k3": {"track": "Chord and splash bus", "device": "desk Sat", "param": "Drive", "label": "Chord drive"},
+        "k4": {"track": "Chord and splash bus", "device": "desk Sat", "param": "Dry/Wet", "label": "Chord sat wet"},
+        "k5": {"track": "Perc bus", "device": "desk EQ", "param": "1 Frequency A", "label": "Perc low cut"},
+        "k6": {"track": "Perc bus", "device": "desk EQ", "param": "7 Gain A", "label": "Perc air"},
+        "k7": {"track": "Chord and splash bus", "param": "send:Space", "label": "Chord → Space"},
+        "k8": {"track": "Chord and splash bus", "param": "send:Echo", "label": "Chord → Echo"},
+        "b1": {"track": "Chord and splash bus", "device": "desk EQ", "param": "1 Filter On A", "label": "Chord cut on"},
+        "b2": {"track": "Chord and splash bus", "device": "desk Sat", "param": "Device On", "label": "Chord sat on"},
+        "b3": {"track": "Perc bus", "device": "desk EQ", "param": "1 Filter On A", "label": "Perc cut on"},
+        "b7": {"track": "Perc bus", "param": "solo"},
+        "b8": {"track": "Chord and splash bus", "param": "solo"}
+      }
+    },
+    {
+      "name": "Transitions",
+      "what": "Risers, reverse reverbs, fills and downlifters",
+      "controls": {
+        "f1": {"track": "fx-riser", "param": "volume", "label": "Risers"},
+        "f2": {"track": "fx-reverse", "param": "volume", "label": "Reverse"},
+        "f3": {"track": "fx-fill", "param": "volume", "label": "Fills"},
+        "f4": {"track": "fx-downlifter", "param": "volume", "label": "Downlifters"},
+        "k1": {"track": "Transitions bus", "param": "volume"},
+        "k2": {"track": "Transitions bus", "device": "desk EQ", "param": "1 Frequency A", "label": "Low cut"},
+        "k3": {"track": "Transitions bus", "device": "desk EQ", "param": "2 Gain A", "label": "Low shelf"},
+        "k4": {"track": "Transitions bus", "device": "desk EQ", "param": "7 Gain A", "label": "Air"},
+        "k5": {"track": "Transitions bus", "param": "send:Space", "label": "→ Space"},
+        "k6": {"track": "Transitions bus", "param": "send:Echo", "label": "→ Echo"},
+        "b1": {"track": "Transitions bus", "device": "desk EQ", "param": "1 Filter On A", "label": "Low cut on"},
+        "b8": {"track": "Transitions bus", "param": "solo"}
+      }
+    },
+    {
+      "name": "Space",
+      "what": "The two returns: a Reverb and an Echo, fed from the bus sends",
+      "controls": {
+        "f1": {"track": "Space", "param": "volume", "label": "Space return"},
+        "f2": {"track": "Echo", "param": "volume", "label": "Echo return"},
+        "f3": {"track": "Hats bus", "param": "send:Space", "label": "Hats → Space"},
+        "f4": {"track": "Perc bus", "param": "send:Space", "label": "Perc → Space"},
+        "k1": {"track": "Space", "device": "Reverb", "param": "Decay Time", "label": "Decay"},
+        "k2": {"track": "Space", "device": "Reverb", "param": "Predelay"},
+        "k3": {"track": "Space", "device": "Reverb", "param": "Room Size", "label": "Size"},
+        "k4": {"track": "Space", "device": "Reverb", "param": "Input Freq", "label": "In filter"},
+        "k5": {"track": "Space", "device": "Reverb", "param": "HiShelf Gain", "label": "Hi shelf"},
+        "k6": {"track": "Space", "device": "Reverb", "param": "Stereo Image", "label": "Width"},
+        "k7": {"track": "Echo", "device": "Echo", "param": "Feedback"},
+        "k8": {"track": "Echo", "device": "Echo", "param": "L 16th", "label": "Echo time"},
+        "b1": {"track": "Space", "device": "Reverb", "param": "In Lo Cut On", "label": "Rev lo cut"},
+        "b2": {"track": "Echo", "device": "Echo", "param": "Filter On", "label": "Echo filter"},
+        "b7": {"track": "Space", "param": "solo"},
+        "b8": {"track": "Echo", "param": "solo"}
+      }
+    },
+    {
+      "name": "Main",
+      "what": "Glue, width and mono low end on Main (mix notes: side under 120 Hz too high)",
+      "controls": {
+        "f1": {"track": "Main", "device": "desk Glue", "param": "Dry/Wet", "label": "Glue wet"},
+        "f2": {"track": "Main", "device": "desk Glue", "param": "Threshold", "label": "Glue thresh"},
+        "f3": {"track": "Main", "device": "desk Utility", "param": "Stereo Width", "label": "Width"},
+        "f4": {"track": "Main", "device": "desk headroom", "param": "Output", "label": "Headroom"},
+        "k1": {"track": "Main", "device": "desk Glue", "param": "Ratio", "label": "Glue ratio"},
+        "k2": {"track": "Main", "device": "desk Glue", "param": "Attack", "label": "Glue attack"},
+        "k3": {"track": "Main", "device": "desk Glue", "param": "Release", "label": "Glue release"},
+        "k4": {"track": "Main", "device": "desk Glue", "param": "Output", "label": "Glue out"},
+        "k5": {"track": "Main", "device": "desk Utility", "param": "Bass Freq", "label": "Mono below"},
+        "k6": {"track": "Main", "param": "volume", "label": "Main"},
+        "b1": {"track": "Main", "device": "desk Utility", "param": "Bass Mono", "label": "Bass mono"},
+        "b2": {"track": "Main", "device": "desk Glue", "param": "Device On", "label": "Glue on"},
+        "b3": {"track": "Main", "device": "desk Glue", "param": "Peak Clip In", "label": "Glue clip"}
+      }
+    }
+  ]
+}
