@@ -235,6 +235,160 @@ def _refs_peaks(a):
             json.dump(out, f, indent=1)
 
 
+def _num(v, fmt="{:+.1f}", none="-"):
+    if v is None:
+        return none
+    s = fmt.format(v)
+    return fmt.format(0.0) if not s.lstrip("+-").replace("0", "").replace(".", "") else s   # no "-0.0"
+
+
+def _refs_text(n):
+    return f"{n} reference" + ("" if n == 1 else "s")
+
+
+def _range_row(label, g, fmt="{:.1f}", width=26):
+    """label | mix | refs mean [min .. max] | diff | outside (g from target.gap)."""
+    if not g:
+        return f"  {label:<{width}}{'-':>8}"
+    rng = f"{fmt.format(g['mean'])} [{fmt.format(g['min'])} .. {fmt.format(g['max'])}]"
+    flag = "  <" if g["outside"] < 0 else ("  >" if g["outside"] > 0 else "")
+    return f"  {label:<{width}}{fmt.format(g['mix']):>8}   {rng:<24}{_num(g['diff']):>7}{_num(g['outside']):>9}{flag}"
+
+
+def _ref_profiles(a):
+    from . import target as T
+    refs = T.load_refs(a.refs, a.set)
+    if not refs:
+        sys.exit(f"no references in {a.refs}" + (f" with set {a.set!r}" if a.set else ""))
+    return refs, {r["id"]: T.profile_ref(r) for r in refs}
+
+
+def cmd_target(a):
+    from . import target as T
+    au = aio.load(a.file)
+    wins = T.windows(a.drop, a.bar)
+    mix = T.profile(au.x, au.sr, wins, a.bar)
+    refs, profs = _ref_profiles(a)
+    g = T.gaps(mix, profs)
+    print(f"{os.path.basename(a.file)} ({au.sr / 1000:g} kHz) vs {_refs_text(len(refs))}"
+          + (f", set {a.set}" if a.set else "") + f"; drop {a.drop:g} s, bar {a.bar:g} s")
+    for r_ in refs:
+        p = profs[r_["id"]]
+        spans = ", ".join(f"{w} {v['span_s'][0]:.1f}-{v['span_s'][1]:.1f} s" for w, v in p["windows"].items())
+        print(f"  ref {r_['id'][:40]:<40} {p['sr'] / 1000:g} kHz  {spans}")
+    for w, why in mix["skipped"].items():
+        print(f"  mix window {w} skipped: {why}")
+    head = f"  {'':<26}{'mix':>8}   {'refs mean [min .. max]':<24}{'diff':>7}{'outside':>9}"
+    print("\nSection contrast, LUFS(drop) - LUFS(build), LU")
+    print(head)
+    print(_range_row("contrast", g["contrast_lu"]))
+    for w, gw in g["windows"].items():
+        a0, b0 = mix["windows"][w]["span_s"]
+        print(f"\n== {w.upper()} {a0:.1f}-{b0:.1f} s, {gw['n_refs']} refs ==")
+        print(head)
+        sc = gw["scalars"]
+        for key, label in (("lufs", "LUFS"), ("plr_db", "PLR (dB, true peak)"),
+                           ("block_crest_median_db", "block crest (dB)"),
+                           ("transient_contrast_median_db", "punch (dB)")):
+            print(_range_row(label, sc[key]))
+        print("\n  Regions (dB rel LUFS)")
+        for k in T.REGION_KEYS:
+            print(_range_row(T.LABELS[k], gw["regions"][k]))
+        print("\n  Side minus mid (dB)")
+        for k in T.SM_KEYS:
+            print(_range_row(T.LABELS[k], gw["side_minus_mid_db"][k]))
+        print("\n  1/3 octave, mix - refs mean (dB); < or > = outside the refs' range")
+        cells = [f"{T.nominal(b['hz'])}:{b['diff']:+.1f}{'<' if b['outside'] < 0 else '>' if b['outside'] > 0 else ''}"
+                 for b in gw["bands"]]
+        for i in range(0, len(cells), 10):
+            print("  " + " ".join(f"{c:<11}" for c in cells[i:i + 10]).rstrip())
+        s = gw["score"]
+        print(f"  score {T.hz_text(T.SCORE_HZ[0])}-{T.hz_text(T.SCORE_HZ[1])}: rms outside "
+              f"{_num(s['rms_outside_db'], '{:.2f}')} dB, rms diff {_num(s['rms_diff_db'], '{:.2f}')} dB "
+              f"({s['bands']} bands)")
+    if a.json:
+        aio.dump_json({"file": a.file, "drop_s": a.drop, "bar_s": a.bar, "set": a.set, "mix": mix,
+                       "refs": [{k: r_[k] for k in ("id", "title", "drop", "bar_s", "set") if k in r_} for r_ in refs],
+                       "ref_profiles": profs, "gaps": g}, a.json)
+        print(f"\n(saved {a.json})")
+
+
+def cmd_eqfit(a):
+    from . import eqfit as E, target as T
+    names = a.names or [_stem(p) for p in a.stems]
+    if len(names) != len(a.stems) or len(set(names)) != len(names):
+        sys.exit("--names needs one unique name per stem")
+    auds = [aio.load(p) for p in a.stems]
+    if len({au.sr for au in auds}) > 1:
+        sys.exit("stems must share one sample rate, got " + ", ".join(str(au.sr) for au in auds))
+    sr = auds[0].sr
+    with open(a.moves) as fh:
+        spec = json.load(fh)
+    opts = {k: spec[k] for k in ("weights", "alpha", "beta") if "moves" in spec and k in spec}
+    moves = spec["moves"] if "moves" in spec else spec
+    refs, profs = _ref_profiles(a)
+    wins = T.windows(a.drop, a.bar)
+    res = E.fit({n: au.x for n, au in zip(names, auds)}, sr, wins, T.ref_stats(profs), moves, bar_s=a.bar, **opts)
+    ob = res["objective"]
+    print(f"eqfit: {len(names)} stems ({', '.join(names)}) at {sr / 1000:g} kHz vs {_refs_text(len(refs))}"
+          + (f", set {a.set}" if a.set else "") + f"; drop {a.drop:g} s, bar {a.bar:g} s")
+    print(f"objective {ob['before']:.2f} with no moves -> {_num(ob['after'], '{:.2f}')}"
+          f" (alpha {ob['alpha']:g}, beta {ob['beta']:g}, weights {ob['weights']}, best of {len(res['starts'])} starts)")
+    if not res["converged"]:
+        best = min(res["starts"], key=lambda r_: r_["objective"])
+        print(f"  ! the best start did not converge ({best['message']}); the plan may not be final")
+    for w, u in res["unreachable"].items():
+        print(f"  {w}: left out of the fit, no content to EQ (>{E.UNREACHABLE_DB:g} dB under every reference): "
+              + ", ".join(T.hz_text(b["hz"]) for b in u))
+    if res["trimmed_s"] > 0:
+        print(f"  stems trimmed to the shortest: {res['trimmed_s']:.2f} s cut")
+    for w, why in res["skipped"].items():
+        print(f"  window {w} skipped: {why}")
+    print(f"\nFitted values\n  {'stem':<12}{'parameter':<16}{'kind':<11}{'value':>10}   bounds")
+    for p in res["params"]:
+        f_ = p["param"].endswith(".f")
+        val = f"{p['value']:.0f} Hz" if f_ else (_num(p["value"], "{:.2f}") if p["param"].endswith(".q")
+                                                 else _num(p["value"], "{:+.2f}") + " dB")
+        print(f"  {p['stem']:<12}{p['param']:<16}{p['kind']:<11}{val:>10}   [{p['bounds'][0]:g}, {p['bounds'][1]:g}]")
+    print("\nPlan")
+    for stem, sp in res["plan"].items():
+        eqs = "; ".join(f"{b['kind']} {b['f']:.0f} Hz" + (f" {b['gain_db']:+.1f} dB" if b["kind"] in E.GAINED else "")
+                        + f" Q {b['q']:.2f}" for b in sp["eq"])
+        print(f"  {stem}: fader {_num(sp['gain_db'])} dB" + (f"; {eqs}" if eqs else ""))
+    for w, rw in res["windows"].items():
+        print(f"\n== {w.upper()}: predicted LUFS change {rw['lufs_change_lu']:+.2f} LU ==")
+        print(f"  {'region (dB rel LUFS)':<26}{'before':>8}{'after':>8}   {'refs mean [min .. max]':<24}{'outside before -> after':>24}")
+        for k in T.REGION_KEYS:
+            b0, a0 = rw["before"]["regions"][k], rw["after"]["regions"][k]
+            if not b0:
+                continue
+            rng = f"{b0['mean']:.1f} [{b0['min']:.1f} .. {b0['max']:.1f}]"
+            print(f"  {T.LABELS[k]:<26}{b0['mix']:>8.1f}{a0['mix']:>8.1f}   {rng:<24}"
+                  f"{_num(b0['outside']):>15} -> {_num(a0['outside'])}")
+        sb, sa = rw["before"]["score"], rw["after"]["score"]
+        print(f"  score 31.5 Hz-16 kHz: rms outside {_num(sb['rms_outside_db'], '{:.2f}')} -> "
+              f"{_num(sa['rms_outside_db'], '{:.2f}')} dB, rms diff {_num(sb['rms_diff_db'], '{:.2f}')} -> "
+              f"{_num(sa['rms_diff_db'], '{:.2f}')} dB ({sa['bands']} bands)")
+    print("\nModel check: predicted with no moves vs measured stem sum, 31.5 Hz-16 kHz")
+    for w, m in res["model_check"].items():
+        print(f"  {w}: max |error| {m['max_abs_err_db']:.2f} dB at {T.hz_text(m['at_hz'])} (rms {m['rms_err_db']:.2f} dB)")
+    print("  " + res["note"])
+    if any(m["max_abs_err_db"] > 1.0 for m in res["model_check"].values()):
+        print("  ! model error above 1 dB: the stems' powers do not add up to their sum there;"
+              " treat predicted moves in those bands with care")
+    if res.get("measured"):
+        print("\nMeasured check: the plan applied to the stems (dsp.eq), EQ'd sum measured")
+        for w, m in res["measured"].items():
+            print(f"  {w}: LUFS change measured {m['lufs_change_measured_lu']:+.2f} LU, predicted "
+                  f"{m['lufs_change_predicted_lu']:+.2f} LU; worst band error {m['max_abs_band_err_db']:.2f} dB"
+                  + (f" at {T.hz_text(m['at_hz'])}" if m["at_hz"] else "")
+                  + ("  ! LUFS prediction off by more than 0.5 LU: the band targets moved too" if m["flag"] else ""))
+    if a.out:
+        aio.dump_json({"stems": dict(zip(names, a.stems)), "moves": moves, "drop_s": a.drop, "bar_s": a.bar,
+                       "refs": [r_["id"] for r_ in refs], "set": a.set, **res}, a.out)
+        print(f"\n(saved {a.out})")
+
+
 def cmd_review(a):
     from . import review
     path, fb = review.run(a.file, a.refs, a.bpm, codecs=not a.no_codecs)
@@ -292,6 +446,17 @@ def main(argv=None):
         (["--target"], {"type": float, "default": -14.0, "help": "excerpt loudness (LUFS)"}),
         (["--json"], {"help": "with --peaks: write results to this JSON file"}),
         help="compare with a folder of references")
+    R = (["--refs"], {"required": True, "help": "refs.json: {refs: [{id, file, drop, barSeconds, set}]}"})
+    SET = (["--set"], {"help": "only references whose set is this (e.g. hw002)"})
+    DROP = (["--drop"], {"type": float, "default": 24.0, "help": "drop time of the mix in seconds (default 24)"})
+    BAR = (["--bar"], {"type": float, "default": 1.5, "help": "bar length in seconds (default 1.5 = 160 BPM)"})
+    add("target", cmd_target, F, R, SET, DROP, BAR, (["--json"], {"help": "write profiles and gaps to this JSON file"}),
+        help="mix vs references per window (build, drop): bands, regions, side/mid, PLR, contrast")
+    add("eqfit", cmd_eqfit, (["--stems"], {"nargs": "+", "required": True}),
+        (["--names"], {"nargs": "+", "help": "one name per stem (default: file names)"}),
+        (["--moves"], {"required": True, "help": "moves JSON: {stem: [EQ bands] or {eq, gain_db}}"}),
+        R, SET, DROP, BAR, (["--out"], {"help": "write the plan and predictions to this JSON file"}),
+        help="fit EQ moves on stems so their sum matches the references")
     add("hyp", cmd_hyp, (["action"], {"choices": ["run"]}), F,
         (["--codecs"], {"action": argparse.BooleanOptionalAction,
                         "help": "also measure after codec round trips (overrides the YAML's codecs)"}),

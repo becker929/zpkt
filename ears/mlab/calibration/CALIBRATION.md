@@ -1,7 +1,7 @@
 # Calibration report
 
-Generated 2026-10-01 09:27 by `python3 -m mlab calibrate`.
-**99 / 99 checks pass.**
+Generated 2026-11-22 10:13 by `python3 -m mlab calibrate`.
+**125 / 125 checks pass.**
 
 Basis: EBU-3341/3342 and BS.1770 = published test cases, re-synthesised; analytic = closed-form; self-consistency = recovers a known processor; cross-check = independent implementation; planted fault = a defect inserted on purpose.
 
@@ -28,7 +28,7 @@ Basis: EBU-3341/3342 and BS.1770 = published test cases, re-synthesised; analyti
 | true peak | fs/4 sine at 45°: TP - sample peak | 3.0103 | 3.0102 | 0.05 | ✅ | analytic |
 | true peak | isolated band-limited pulse, peak between samples | -0.9151 | -0.9252 | 0.1 | ✅ | analytic |
 | true peak | same pulse: sample peak under-reads by > 0.3 dB | True | True | 0 | ✅ | analytic |
-| true peak | 60 random full-scale sines 0.02-0.45 fs: worst |error| dB | 0.0 | 0.0002 | 0.1 | ✅ | analytic |
+| true peak | 60 random full-scale sines 0.02-0.45 fs: worst \|error\| dB | 0.0 | 0.0002 | 0.1 | ✅ | analytic |
 | true peak | reference limiter holds -1 dBTP on hot pink noise (TP) | -1.0 | -1.0 | 0.05 | ✅ | self-consistency |
 | dynamics | crest factor of a sine (dB) | 3.0103 | 3.0102 | 0.01 | ✅ | analytic |
 | dynamics | crest factor of a square wave (dB) | 0.0 | 0.0001 | 0.01 | ✅ | analytic |
@@ -79,7 +79,7 @@ Basis: EBU-3341/3342 and BS.1770 = published test cases, re-synthesised; analyti
 | premaster | clipped/limited main bus (PLR < 8): plr_db | WARN | WARN | 0 | ✅ | planted fault |
 | premaster | no fade-out: tail_last_10ms_dbfs | WARN | WARN | 0 | ✅ | planted fault |
 | premaster | 16-bit export: format | WARN | WARN | 0 | ✅ | planted fault |
-| compare | loudness match: |LUFS A - LUFS B| | 0.0 | 0.0 | 0.01 | ✅ | analytic |
+| compare | loudness match: \|LUFS A - LUFS B\| | 0.0 | 0.0 | 0.01 | ✅ | analytic |
 | compare | ABX: P(>=10 of 12 by guessing) | 0.0193 | 0.0193 | 0.0001 | ✅ | analytic |
 | compare | ABX: P(>=9 of 12 by guessing) | 0.073 | 0.073 | 0.0001 | ✅ | analytic |
 | delivery | YouTube gain for a -8 LUFS master | -6.0 | -6.0 | 1e-09 | ✅ | platform model |
@@ -98,6 +98,32 @@ Basis: EBU-3341/3342 and BS.1770 = published test cases, re-synthesised; analyti
 | sections | peak window = densest [25, 42] (140.0 BPM) | [25, 42] | [25, 42] | 0 | ✅ | analytic |
 | sections | drop vs peak highs, hats +6.02 dB in peak (140.0 BPM) | -6.02 | -6.0 | 0.5 | ✅ | analytic |
 | sections | peak window survives a one-bar kick dropout | [25, 43] | [25, 43] | 0 | ✅ | planted fault |
+| target | windows for drop 24 s, bar 1.5 s: build, drop (s) | [[0.0, 24.0], [24.0, 48.0]] | [[0.0, 24.0], [24.0, 48.0]] | 0 | ✅ | analytic |
+| target | layout {drop2: bars 16-24} adds 48-60 s | [48.0, 60.0] | [48.0, 60.0] | 0 | ✅ | analytic |
+| target | band power of a 1/f density, 25 Hz-16 kHz: worst error (dB) | 0.0 | 0.003 | 0.05 | ✅ | analytic |
+| target | pink, 8 s: worst abs(region - boxcar FFT region) (dB rel LUFS) | 0.0 | 0.0994 | 0.15 | ✅ | analytic |
+| target | pink, 8 s: worst abs(band - boxcar FFT band) 31.5 Hz-16 kHz (dB rel LUFS) | 0.0 | 0.0933 | 0.3 | ✅ | analytic |
+| target | pink through +6 dB peak 1 kHz Q1: diff(1 kHz) - diff(125 Hz) (dB) | 5.7849 | 5.788 | 0.3 | ✅ | analytic |
+| target | stereo 1 kHz sine, -6 dBFS: 1 kHz band = -3.0103 + 0.691 - K(1 kHz) (dB rel LUFS) | -3.0198 | -3.0202 | 0.005 | ✅ | BS.1770 |
+| target | mono file: highest side-minus-mid over regions (floor -99, must be <= -60) | -99.0 | -99.0 | 39.0 | ✅ | analytic |
+| target | independent L/R pink, 32 s: worst abs side-minus-mid over regions (dB) | 0.0 | 0.26 | 0.5 | ✅ | analytic |
+| target | refs at +1/+3 dB in deep sub 20-48 Hz: mix outside (dB) | -1.0 | -0.9704 | 0.1 | ✅ | analytic |
+| target | refs at -1/-3 dB in deep sub 20-48 Hz: mix outside (dB) | 1.0 | 0.9738 | 0.1 | ✅ | analytic |
+| target | drop 6 dB louder than build: section contrast (LU) | 6.0 | 6.0 | 0.1 | ✅ | analytic |
+| target | same noise, drop 6 dB louder: worst abs(drop band - build band) (dB rel LUFS) | 0.0 | 0.0 | 0.05 | ✅ | analytic |
+| target | 160 BPM kick/off-beat-hat loop: window on the beat vs half a beat later, worst abs change in kick body and air 8-14k (dB) | 0.0 | 0.0146 | 0.1 | ✅ | analytic |
+| target | 160 BPM loop on the beat: worst abs(region - boxcar FFT region), kick body and air 8-14k (dB) | 0.0 | 0.0065 | 0.15 | ✅ | analytic |
+| target | same pink at 44.1 kHz (mix) and 48 kHz (ref): worst abs band diff 31.5 Hz-16 kHz (dB) | 0.0 | 0.0107 | 0.3 | ✅ | analytic |
+| target | 24 s window, HF burst in its last 300 ms, 44.1 vs 48 kHz: worst abs band diff 31.5 Hz-16 kHz (dB) | 0.0 | 0.0109 | 0.1 | ✅ | analytic |
+| target | 50 Hz sine at 0.9, window edges on its crest: worst true peak (dBTP) | -0.9151 | -0.9152 | 0.05 | ✅ | analytic |
+| target | drop window clipped to 3 bars is skipped, contrast undefined | True | True | 0 | ✅ | planted fault |
+| eqfit | response_db = fader + sum of dsp.biquad_response_db (max abs err dB) | 0.0 | 0.0 | 1e-06 | ✅ | analytic |
+| eqfit | gains free: kick peak 50 Hz Q1, +6 dB applied (dB) | 6.0 | 6.0157 | 0.5 | ✅ | self-consistency |
+| eqfit | gains free: hats high shelf 8 kHz, -6 dB applied (dB) | -6.0 | -5.9989 | 0.5 | ✅ | self-consistency |
+| eqfit | model check, uncorrelated stems: max \|predicted - measured\| band 31.5 Hz-16 kHz (dB) | 0.0 | 0.1586 | 0.5 | ✅ | self-consistency |
+| eqfit | shelf frequency free in 4-12 kHz: octaves from the 8 kHz applied | 0.0 | -0.0005 | 0.3333333333333333 | ✅ | self-consistency |
+| eqfit | target = the unmodified sum: largest \|fitted gain\| (dB) | 0.0 | 0.0117 | 0.25 | ✅ | self-consistency |
+| eqfit | predicted LUFS change of the applied moves vs measured on the EQ'd sum (LU) | 1.7495 | 1.738 | 0.1 | ✅ | self-consistency |
 | loudness | integrated vs pyloudnorm: pink -20 dBFS | -18.8389 | -18.7973 | 0.1 | ✅ | cross-check |
 | loudness | integrated vs ffmpeg ebur128: pink -20 dBFS | -18.8 | -18.7973 | 0.2 | ✅ | cross-check |
 | loudness | LRA vs ffmpeg ebur128: pink -20 dBFS | 0.0 | 0.056 | 0.5 | ✅ | cross-check |

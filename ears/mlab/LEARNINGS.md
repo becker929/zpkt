@@ -128,3 +128,58 @@ Group stems summed against the mix take gave -4.7 dB residual, aligned to one sa
 On the measured features they agree: bands within 0.11 dB, correlation 0.003, block crest 0.02 dB.
 That is tighter than two mix takes agree (bands 0.24 dB).
 Change: check stems and re-renders by feature agreement, not by a null test (spike `hw002_mixclimb`).
+
+## Mix against references (`target`, `eqfit`)
+
+**L-019 · 2026-11-22 · `spectrum.third_octave` reads narrow low bands 1–3 dB low.**
+`spectrum.band_power` takes a trapezoid over the bins inside each band.
+That drops up to one bin of width per band.
+A 25 Hz band is only 6 Hz wide, about two bins.
+At 44.1 kHz, pink noise reads 1.3–2.8 dB low at 25–50 Hz.
+At 48 kHz it reads 0.9–2.4 dB low, so the two rates disagree too.
+Its own check covers only 100 Hz–10 kHz, so this went unseen.
+
+Evidence: 24 s of pink noise, default 2^14-sample segments, against the 200 Hz–5 kHz median.
+Change: `mlab target` treats each bin as a constant density, cut at band edges.
+It also uses 0.75 s Welch segments at every rate: one grid of 1.33 Hz bins.
+Pink noise at 44.1 and 48 kHz now agrees within 0.01 dB per band.
+`third_octave` is unchanged; `tonal_balance`, `compare` and `refs --peaks` still use it.
+
+**L-020 · 2026-11-22 · The earlier HW002 analysis read 48 kHz references high below 48 Hz.**
+Its cached output (`analysis.json`, 12 November) holds 48-band spectra per reference.
+Their scale carries an offset of about 70 dB, so only spreads mean anything.
+Old minus `mlab target` in the deep sub (20–48 Hz): 68.5–70.8 dB at 44.1 kHz.
+At 48 kHz it was 71.6–72.4 dB, about 2 dB higher, in both windows.
+In mud (300–600 Hz) all four sat at 69.8–70.6 dB, with no rate pattern.
+Two of the four hw002 references are 48 kHz files.
+
+Change: trust `mlab target`'s deep-sub gaps over the old ones; it reads both rates alike.
+On mix-mmtf12 every region gap still agrees with the old one in sign.
+Sizes differ by up to 1.6 dB (build mud: +0.1 here, +1.7 before).
+
+**L-021 · 2026-11-22 · mix-mmtf12 against the four hw002 references.**
+In the drop, air (8–20 kHz) sits 2.6 dB over the brightest reference.
+Deep sub (20–48 Hz) sits 1.7 dB under the leanest one.
+Side minus mid at 60–120 Hz is -9.3 dB; the references run -21.9 to -43.5 dB.
+PLR is 10.3 dB against 3.1–6.4: the references are far more limited.
+In the build, deep sub sits 11.2 dB over the references' mean.
+Section contrast is 3.3 LU; the references span 0.2–15.4 LU.
+
+Evidence: `mlab target out/hw002/mix-mmtf12.wav --refs refs.json --set hw002 --drop 24 --bar 1.5`.
+Change: these are the gaps `mlab eqfit` should close on the bus stems.
+
+**L-022 · 2026-11-22 · `eqfit`'s model holds only for stems that do not share content.**
+On three uncorrelated synthetic buses its model check was 0.24 dB at worst.
+On the real mix split by crossovers (120 Hz, 4 kHz) it was about 5 dB.
+The middle band, mix minus the other two, carries the crossovers' phase residue.
+That residue cancels against the neighbouring bands; added powers read up to 5 dB high.
+Change: trust an eqfit plan only when its model check stays under about 1 dB.
+Parallel copies of one source would likely break it the same way (untested).
+
+**L-023 · 2026-11-22 · Live's EQ Eight follows the RBJ cookbook closely.**
+Solo bus renders from Live, with and without known EQ Eight settings, were compared with `eq-diff`.
+Bells at Q 1 and shelves at Q 0.71 sat within 0.2 dB of `dsp.biquad`.
+A bell at Q 0.4 ran slightly wider: up to 0.5 dB more an octave and a half away.
+Six bus solos summed back to the mix within -117 dB.
+Change: `eqfit` predictions on bus solos transfer to EQ Eight; check one render, not every move.
+

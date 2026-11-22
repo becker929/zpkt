@@ -374,8 +374,235 @@ def check_sections():
     return rows
 
 
+def _region_gain(x, sr, lo, hi, gain_db, ramp_hz=6.0):
+    """x with [lo, hi) Hz scaled by gain_db (FFT), ramping back to 0 dB over ramp_hz outside it.
+    The ramp keeps Welch leakage at the region's edges from eating the offset."""
+    X = np.fft.rfft(x, axis=0)
+    f = np.fft.rfftfreq(len(x), 1 / sr)
+    g = np.interp(f, [lo - ramp_hz, lo, hi, hi + ramp_hz], [0.0, gain_db, gain_db, 0.0], left=0.0, right=0.0)
+    return np.fft.irfft(X * lin(g)[:, None], n=len(x), axis=0)
+
+
+def _boxcar_spectral(seg, sr, lufs):
+    """Exact reference for target.spectral: one boxcar FFT of the whole window (every sample weighted
+    the same), channel-averaged density, integrated per band and region; dB rel the given LUFS."""
+    from mlab import target as T
+    x = np.asarray(seg, float)
+    x = (x[:, None] if x.ndim == 1 else x)
+    x = x - x.mean(axis=0)
+    n = len(x)
+    p = (2 * np.abs(np.fft.rfft(x, axis=0)) ** 2 / (sr * n)).mean(axis=1)
+    f = np.fft.rfftfreq(n, 1 / sr)
+    c, lo, hi = T.band_grid(sr)
+    bands = {round(float(cc), 1): float(10 * np.log10(v) - lufs) for cc, v in zip(c, T.band_power(f, p, lo, hi))}
+    rp = T.band_power(f, p, *T.region_edges(sr))
+    return bands, {k: float(10 * np.log10(v) - lufs) for k, v in zip(T.REGION_KEYS, rp)}
+
+
+def beat_loop(sr, bpm=160.0, dur=14.0, last_beat_db=0.0, last_beat_at=None):
+    """Strictly periodic loop: a 70 Hz kick (60 ms decay) on every beat, a 30 ms 8-14 kHz hat
+    (the same noise every time) on every off-beat. Optionally one beat starting at last_beat_at
+    gets its hat last_beat_db louder."""
+    from scipy import signal as sps
+    beat = 60.0 / bpm
+    n = int(round(dur * sr))
+    t = np.arange(n) / sr
+    ph = t % beat
+    kick = 0.5 * np.sin(2 * np.pi * 70.0 * ph) * np.exp(-ph / 0.06)
+    hn = int(0.03 * sr)
+    burst = sps.sosfilt(sps.butter(6, [8000, 14000], "bandpass", fs=sr, output="sos"),
+                        np.random.default_rng(41).standard_normal(hn + 2000))[2000:] * 0.5
+    hat = np.zeros(n)
+    k = 0
+    while (k + 0.5) * beat < dur:
+        a = int(round((k + 0.5) * beat * sr))
+        m = min(hn, n - a)
+        g = lin(last_beat_db) if last_beat_at is not None and k * beat >= last_beat_at - 1e-9 else 1.0
+        hat[a:a + m] += burst[:m] * g
+        k += 1
+    y = kick + hat
+    return np.stack([y, y], axis=1)
+
+
+def check_target():
+    """A mix against references per window (mlab/target.py). Windows of 8 s (bar 0.5 s) keep it fast."""
+    from scipy import signal as sps
+    from mlab import target as T
+    rows = []
+    sr = 44100
+    w = T.windows(24.0, 1.5)
+    rows.append(row("target", "windows for drop 24 s, bar 1.5 s: build, drop (s)", [[0.0, 24.0], [24.0, 48.0]],
+                    [list(w["build"]), list(w["drop"])], 0, "analytic"))
+    rows.append(row("target", "layout {drop2: bars 16-24} adds 48-60 s", [48.0, 60.0],
+                    list(T.windows(24.0, 1.5, {"drop2": (16, 24)})["drop2"]), 0, "analytic"))
+    # the band integrator: a 1/f density on the Welch grid has ln(10^0.1) in every 1/3 octave
+    f = np.arange(T.nperseg(sr) // 2 + 1) * sr / T.nperseg(sr)
+    c, lo, hi = T.band_grid(sr)
+    p = np.where(f > 0, 1 / np.maximum(f, 1e-9), 0.0)
+    err = 10 * np.log10(T.band_power(f, p, lo, hi) / np.log(10 ** 0.1))
+    rows.append(row("target", "band power of a 1/f density, 25 Hz-16 kHz: worst error (dB)", 0.0,
+                    float(np.max(np.abs(err))), 0.05, "analytic"))
+
+    bar, wins = 0.5, T.windows(8.0, 0.5)
+    x = siggen.pink(16, sr, seed=21)
+    px = T.profile(x, sr, wins, bar)
+    # profile's bands and regions against one boxcar FFT of the same window (every sample weighted the same)
+    d = px["windows"]["drop"]
+    i0, i1 = int(round(d["span_s"][0] * sr)), int(round(d["span_s"][1] * sr))
+    eb, er = _boxcar_spectral(x[i0:i1], sr, d["lufs"])
+    rows.append(row("target", "pink, 8 s: worst abs(region - boxcar FFT region) (dB rel LUFS)", 0.0,
+                    max(abs(v - er[k]) for k, v in d["regions"].items()), 0.15, "analytic"))
+    rows.append(row("target", "pink, 8 s: worst abs(band - boxcar FFT band) 31.5 Hz-16 kHz (dB rel LUFS)", 0.0,
+                    max(abs(v - eb[round(c_, 1)]) for c_, v in d["bands"] if T.in_score(c_)), 0.3, "analytic"))
+
+    # +6 dB RBJ peak at 1 kHz, Q 1: expected band change = power mean of |H|^2 over log f (pink weighting)
+    eqd = dsp.eq(x, sr, [{"type": "peak", "f": 1000.0, "gain_db": 6.0, "q": 1.0}])
+    g = T.gaps(T.profile(eqd, sr, wins, bar), {"dry": px})["windows"]["drop"]
+    by = {b["hz"]: b["diff"] for b in g["bands"]}
+
+    def mean_resp(fc):
+        ff = np.geomspace(fc / 10 ** 0.05, fc * 10 ** 0.05, 2000)
+        return 10 * np.log10(np.mean(10 ** (dsp.biquad_response_db("peak", 1000.0, sr, 6.0, 1.0, ff) / 10)))
+    rows.append(row("target", "pink through +6 dB peak 1 kHz Q1: diff(1 kHz) - diff(125 Hz) (dB)",
+                    float(mean_resp(1000.0) - mean_resp(125.9)), by[1000.0] - by[125.9], 0.3, "analytic"))
+
+    # stereo sine, -6 dBFS peak: band = 20 log A - 3.0103; LUFS = -0.691 + 20 log A + K(1 kHz)
+    kdb = sum(20 * np.log10(abs(sps.freqz(b_, a_, worN=[1000.0], fs=sr)[1][0])) for b_, a_ in L.k_weighting(sr))
+    s = T.profile(siggen.sine(1000, -6, 16, sr), sr, wins, bar)["windows"]["drop"]
+    rows.append(row("target", "stereo 1 kHz sine, -6 dBFS: 1 kHz band = -3.0103 + 0.691 - K(1 kHz) (dB rel LUFS)",
+                    float(-3.0103 + 0.691 - kdb), dict((round(c_, 1), v) for c_, v in s["bands"])[1000.0], 0.005,
+                    "BS.1770"))
+
+    mono = T.profile(siggen.pink(16, sr, ch=1, seed=22), sr, wins, bar)["windows"]["drop"]
+    rows.append(row("target", "mono file: highest side-minus-mid over regions (floor -99, must be <= -60)", -99.0,
+                    max(mono["side_minus_mid_db"].values()), 39.0, "analytic"))
+    lr = T.side_minus_mid(siggen.pink(32, sr, seed=23), sr)
+    rows.append(row("target", "independent L/R pink, 32 s: worst abs side-minus-mid over regions (dB)", 0.0,
+                    max(abs(v) for v in lr.values()), 0.5, "analytic"))
+
+    # refs = the mix with the deep sub (20-48 Hz) at +1 and +3 dB -> the mix is 1 dB under their range
+    refs = {f"+{k}": T.profile(_region_gain(x, sr, 20, 48, float(k)), sr, wins, bar) for k in (1, 3)}
+    g = T.gaps(px, refs)["windows"]["drop"]["regions"]["deep_sub"]
+    rows.append(row("target", "refs at +1/+3 dB in deep sub 20-48 Hz: mix outside (dB)", -1.0, g["outside"], 0.1, "analytic"))
+    refs = {f"-{k}": T.profile(_region_gain(x, sr, 20, 48, -float(k)), sr, wins, bar) for k in (1, 3)}
+    g = T.gaps(px, refs)["windows"]["drop"]["regions"]["deep_sub"]
+    rows.append(row("target", "refs at -1/-3 dB in deep sub 20-48 Hz: mix outside (dB)", 1.0, g["outside"], 0.1, "analytic"))
+
+    n = siggen.pink(8, sr, seed=24)
+    cp = T.profile(np.vstack([n, n * lin(6.0)]), sr, wins, bar)
+    rows.append(row("target", "drop 6 dB louder than build: section contrast (LU)", 6.0, cp["contrast_lu"], 0.1, "analytic"))
+    # each window is normalised by its own LUFS: the same noise 6 dB louder reads the same bands
+    bb = dict(cp["windows"]["build"]["bands"])
+    rows.append(row("target", "same noise, drop 6 dB louder: worst abs(drop band - build band) (dB rel LUFS)", 0.0,
+                    max(abs(v - bb[c_]) for c_, v in cp["windows"]["drop"]["bands"] if T.in_score(c_)), 0.05, "analytic"))
+
+    # 160 BPM loop (kick on the beat, hat off the beat): window phase must not tilt the balance
+    lsr, lw = 48000, {"build": None, "drop": (0, 4)}
+    loop = beat_loop(lsr)
+    keys = ("kick_body", "air_8_14k")
+    on = T.profile(loop, lsr, T.windows(6.0, 1.5, lw), 1.5)["windows"]["drop"]
+    off = T.profile(loop, lsr, T.windows(6.1875, 1.5, lw), 1.5)["windows"]["drop"]
+    rows.append(row("target", "160 BPM kick/off-beat-hat loop: window on the beat vs half a beat later, "
+                    "worst abs change in kick body and air 8-14k (dB)", 0.0,
+                    max(abs(on["regions"][k] - off["regions"][k]) for k in keys), 0.1, "analytic"))
+    i0, i1 = int(round(6.0 * lsr)), int(round(12.0 * lsr))
+    _, er = _boxcar_spectral(loop[i0:i1], lsr, on["lufs"])
+    rows.append(row("target", "160 BPM loop on the beat: worst abs(region - boxcar FFT region), kick body and air 8-14k (dB)",
+                    0.0, max(abs(on["regions"][k] - er[k]) for k in keys), 0.15, "analytic"))
+
+    # pink band-limited to 18 kHz, so the resampler's roll-off near 22 kHz leaves it untouched
+    x18 = siggen.pink(16, sr, seed=26, band=(1, 18000))
+    x48 = sps.resample_poly(x18, 160, 147, axis=0)
+    g = T.gaps(T.profile(x18, sr, wins, bar), {"48k": T.profile(x48, 48000, wins, bar)})["windows"]["drop"]
+    worst = max(abs(b["diff"]) for b in g["bands"] if 30 <= b["hz"] <= 17000)
+    rows.append(row("target", "same pink at 44.1 kHz (mix) and 48 kHz (ref): worst abs band diff 31.5 Hz-16 kHz (dB)",
+                    0.0, worst, 0.3, "analytic"))
+    # non-stationary, 24 s window: an 8-14 kHz burst in the last 300 ms must count at both rates
+    bw = T.windows(24.0, 1.5, {"drop": None})
+    y = siggen.pink(24, sr, seed=27, rms_dbfs=-30, band=(1, 18000))
+    y[-int(0.3 * sr):] += siggen.pink(0.3, sr, seed=28, rms_dbfs=-12, band=(8000, 14000))[:int(0.3 * sr)]
+    y48 = sps.resample_poly(y, 160, 147, axis=0)
+    b41 = dict(T.profile(y, sr, bw, 1.5)["windows"]["build"]["bands"])
+    b48 = {round(c_, 1): v for c_, v in T.profile(y48, 48000, bw, 1.5)["windows"]["build"]["bands"]}
+    rows.append(row("target", "24 s window, HF burst in its last 300 ms, 44.1 vs 48 kHz: worst abs band diff 31.5 Hz-16 kHz (dB)",
+                    0.0, max(abs(v - b48[round(c_, 1)]) for c_, v in b41.items() if T.in_score(c_)), 0.1, "analytic"))
+
+    # true peak with real context: a 50 Hz sine at 0.9 whose window edges fall on its crest
+    tt = np.arange(int(20 * sr)) / sr
+    cs = 0.9 * np.cos(2 * np.pi * 50.0 * tt)
+    tp = T.profile(np.stack([cs, cs], axis=1), sr, T.windows(10.0, 0.5), 0.5)["windows"]
+    rows.append(row("target", "50 Hz sine at 0.9, window edges on its crest: worst true peak (dBTP)",
+                    float(20 * np.log10(0.9)), max(tp[w]["true_peak_db"] for w in tp), 0.05, "analytic"))
+
+    short = T.profile(siggen.pink(9.5, sr, seed=25), sr, wins, bar)
+    rows.append(row("target", "drop window clipped to 3 bars is skipped, contrast undefined", True,
+                    "drop" in short["skipped"] and short["contrast_lu"] is None, 0, "planted fault"))
+    return rows
+
+
+def eqfit_stems(sr=44100, dur=16.0):
+    """Three uncorrelated synthetic buses: pink noise shaped to a low 'kick', a mid 'stab', high 'hats'."""
+    from scipy import signal as sps
+
+    def bus(seed, sos, rms_db):
+        y = sps.sosfilt(sos, siggen.pink(dur, sr, seed=seed), axis=0)
+        return y * lin(rms_db) / np.sqrt(np.mean(y ** 2))
+    return {"kick": bus(31, sps.butter(4, [25, 110], "bandpass", fs=sr, output="sos"), -14.0),
+            "stab": bus(32, sps.butter(4, [300, 2500], "bandpass", fs=sr, output="sos"), -20.0),
+            "hats": bus(33, sps.butter(4, 3500, "highpass", fs=sr, output="sos"), -24.0)}
+
+
+def check_eqfit():
+    """EQ moves on stems recovered from a target made with known RBJ moves (mlab/eqfit.py)."""
+    from mlab import eqfit as E, target as T
+    rows = []
+    sr, bar = 44100, 0.5
+    wins = T.windows(8.0, bar)
+    st = eqfit_stems(sr)
+    kick_eq = {"kind": "peak", "f": 50.0, "gain_db": 6.0, "q": 1.0}
+    hats_eq = {"kind": "highshelf", "f": 8000.0, "gain_db": -6.0, "q": 0.707}
+
+    fq = np.geomspace(20, 20000, 300)
+    exp = -2.0 + sum(dsp.biquad_response_db(b["kind"], b["f"], sr, b["gain_db"], b["q"], fq) for b in (kick_eq, hats_eq))
+    got = E.response_db({"gain_db": -2.0, "eq": [kick_eq, hats_eq]}, fq, sr)
+    rows.append(row("eqfit", "response_db = fader + sum of dsp.biquad_response_db (max abs err dB)", 0.0,
+                    float(np.max(np.abs(got - exp))), 1e-6, "analytic"))
+
+    def rbj(x, b):
+        return dsp.eq(x, sr, [{"type": b["kind"], "f": b["f"], "gain_db": b["gain_db"], "q": b["q"]}])
+    plain = sum(st.values())
+    moved = rbj(st["kick"], kick_eq) + st["stab"] + rbj(st["hats"], hats_eq)
+    p_plain, p_moved = T.profile(plain, sr, wins, bar), T.profile(moved, sr, wins, bar)
+    model = E.Model(st, sr, wins, bar)
+
+    free = {"kick": [dict(kick_eq, gain_db=[-12, 12])], "hats": [dict(hats_eq, gain_db=[-12, 12])]}
+    res = E.fit(st, sr, wins, T.ref_stats({"moved": p_moved}), free, bar_s=bar, model=model)
+    v = {(p["stem"], p["param"]): p["value"] for p in res["params"]}
+    rows.append(row("eqfit", "gains free: kick peak 50 Hz Q1, +6 dB applied (dB)", 6.0, v[("kick", "eq[0].gain_db")], 0.5, "self-consistency"))
+    rows.append(row("eqfit", "gains free: hats high shelf 8 kHz, -6 dB applied (dB)", -6.0, v[("hats", "eq[0].gain_db")], 0.5, "self-consistency"))
+    rows.append(row("eqfit", "model check, uncorrelated stems: max |predicted - measured| band 31.5 Hz-16 kHz (dB)", 0.0,
+                    max(m["max_abs_err_db"] for m in res["model_check"].values()), 0.5, "self-consistency"))
+
+    free_f = {"kick": free["kick"], "hats": [dict(hats_eq, gain_db=[-12, 12], f=[4000, 12000])]}
+    res = E.fit(st, sr, wins, T.ref_stats({"moved": p_moved}), free_f, bar_s=bar, model=model)
+    f = next(p["value"] for p in res["params"] if p["param"] == "eq[0].f")
+    rows.append(row("eqfit", "shelf frequency free in 4-12 kHz: octaves from the 8 kHz applied", 0.0,
+                    float(np.log2(f / 8000.0)), 1 / 3, "self-consistency"))
+
+    res = E.fit(st, sr, wins, T.ref_stats({"plain": p_plain}), free_f, bar_s=bar, model=model)
+    rows.append(row("eqfit", "target = the unmodified sum: largest |fitted gain| (dB)", 0.0,
+                    max(abs(p["value"]) for p in res["params"] if p["param"].endswith("gain_db")), 0.25, "self-consistency"))
+
+    pred = model.predict({"kick": {"eq": [kick_eq]}, "hats": {"eq": [hats_eq]}})
+    meas = p_moved["windows"]["drop"]["lufs"] - p_plain["windows"]["drop"]["lufs"]
+    rows.append(row("eqfit", "predicted LUFS change of the applied moves vs measured on the EQ'd sum (LU)", float(meas),
+                    pred["drop"]["lufs"] - model.predict({})["drop"]["lufs"], 0.1, "self-consistency"))
+    return rows
+
+
 ALL = [check_edge_cases, check_kweighting, check_ebu3341, check_ebu3342, check_truepeak, check_dynamics,
-       check_spectrum, check_bitdepth, check_premaster, check_compare_delivery, check_als, check_sections]
+       check_spectrum, check_bitdepth, check_premaster, check_compare_delivery, check_als, check_sections,
+       check_target, check_eqfit]
 
 
 def hw_files():
@@ -409,7 +636,8 @@ def write_report(path, crosscheck=True):
         m = round(m, 4) if isinstance(m, float) else m
         e = r_["expected"]
         e = round(e, 4) if isinstance(e, float) else e
-        lines.append(f"| {r_['instrument']} | {r_['case']} | {e} | {m} | {r_['tol']} | {'✅' if r_['ok'] else '❌'} | {r_['basis']} |")
+        case = str(r_['case']).replace('|', '\\|')
+        lines.append(f"| {r_['instrument']} | {case} | {e} | {m} | {r_['tol']} | {'✅' if r_['ok'] else '❌'} | {r_['basis']} |")
     with open(path, "w") as f:
         f.write("\n".join(lines) + "\n")
     print(f"{n_ok}/{len(rows)} checks pass -> {os.path.relpath(path, LAB)}")
