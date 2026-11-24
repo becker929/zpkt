@@ -393,11 +393,23 @@ app.add_typer(state_app, name="state")
 
 
 def _front_set() -> str:
-    from hands.live import ui
+    """The open set's name: Live's window title, else (window on another Space, full screen) the set hands
+    last saw Live open or save, which a `hands live ...` command keeps on disk."""
+    from hands.live import session, ui
     try:
-        return ui.front_title()
-    except ui.UiError as exc:
-        _fail(f"Live shows no set: {exc}")
+        if title := ui.front_title():
+            return title
+    except ui.UiError:
+        pass
+    try:
+        seen = json.loads(session._loaded_file().read_text())
+    except (FileNotFoundError, ValueError):
+        seen = {}
+    if seen:
+        name = max(seen, key=seen.get)
+        print(f"(Live's window is not readable: using {name}, the set hands last saw open)", file=sys.stderr)
+        return name
+    _fail("Live shows no set, and hands has not seen one opened or saved")
 
 
 @app.command("open")
