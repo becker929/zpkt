@@ -13,17 +13,22 @@ from __future__ import annotations
 import base64
 import json
 import re
+import subprocess
+import tempfile
 from pathlib import Path
 
 import numpy as np
 import pyloudnorm as pl
 import soundfile as sf
 
-DATA = Path("~/_agent_scratch/arranger").expanduser()
+import hw002
+
+DATA = hw002.DATA
 OUT = DATA / "refs"
-HW002 = Path("~/_agent_scratch/refs/HW002").expanduser()
+HW002 = hw002.REFERENCE_WAVS
 KK = Path("~/Desktop/Klangkuenstler shorts").expanduser()
-KK_TRACKS = Path("~/Desktop/wav-timeline/tracks.json").expanduser()
+WT = Path("~/Desktop/wav-timeline").expanduser()  # wav-timeline: its drop finder, and its tracks.json for the shorts
+KK_TRACKS = WT / "tracks.json"
 BANDS, FMIN, FMAX, FPS = 96, 20.0, 20000.0, 8
 PRE, POST = 16, 24          # bars kept before and after the drop
 
@@ -67,14 +72,9 @@ def kpower(x: np.ndarray, rate: int, bar_s: float) -> list[float]:
     return [round(float(10 * np.log10(p[i:i + n].mean() + 1e-12)), 2) for i in range(0, len(p) - n + 1, n)]
 
 
-WT = Path("~/Desktop/wav-timeline").expanduser()
-
-
 def wav_timeline(x: np.ndarray, rate: int) -> tuple[float, float]:
     """Drop (seconds) and BPM as wav-timeline finds them (its js/analysis.js, run in Node on a 16-bit copy), so the
     page lines up with the drops Anthony already uses there."""
-    import subprocess
-    import tempfile
     with tempfile.TemporaryDirectory() as d:
         f = Path(d) / "x.wav"
         sf.write(f, x, rate, subtype="PCM_16")
@@ -109,7 +109,7 @@ def sounds() -> dict:
     """Average spectrum (dB per band) of each loop and transition file the arrangement uses."""
     loops = json.loads((DATA / "loops.json").read_text())
     fx = json.loads((DATA / "fx" / "fx.json").read_text())
-    arr = json.loads((DATA / "arrangements" / "short-8d2a2.json").read_text())
+    arr = json.loads((DATA / "arrangements" / f"{hw002.CANONICAL}.json").read_text())
     clips = {c["id"]: c for c in loops["clips"]}
     cands = {c["id"]: c for c in fx["candidates"]}
     files = {clips[r["clip"]]["file"]: DATA / "audio" / clips[r["clip"]]["file"] for r in arr["regions"]}

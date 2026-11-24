@@ -19,8 +19,10 @@ import sys
 import time
 from pathlib import Path
 
-DATA = Path("~/_agent_scratch/arranger").expanduser()
-BARS = 40
+import hw002
+
+DATA = hw002.DATA
+BARS = hw002.SHORT_BARS
 
 # Tab 8 without its hats: 12 bars of break led by the horn, 4 of build, the drop at 17, the horn back from 33.
 # The kick group stays out until the drop (Anthony, 11 Nov 2026): a build is hats and break parts, never the kick.
@@ -63,6 +65,8 @@ SHORTS = {
 
 
 def regions_of(key: str, clips: dict) -> tuple[str, list[dict]]:
+    """A short's name and its regions (0-based start, length in bars), checked against the clips in loops.json:
+    each clip on its own lane, inside the 40 bars, one clip at a time on a lane, no kick before the drop."""
     name, rows = SHORTS[key]
     drop = min(a for _, clip, a, _ in rows if clip == "splash-d")      # the drop is where the long splash lands
     assert all(a >= drop for lane, _, a, _ in rows if lane == "kick"), f"{name}: the kick comes in before the drop"
@@ -75,15 +79,20 @@ def regions_of(key: str, clips: dict) -> tuple[str, list[dict]]:
     return name, regions
 
 
-def main() -> None:
-    clips = {c["id"]: c for c in json.loads((DATA / "loops.json").read_text())["clips"]}
-    folder = DATA / "arrangements"
+def write_shorts(data: Path, keys: list[str]) -> None:
+    """Write each short as arrangements/short-<key>.json. This replaces the file, later pages' keys included."""
+    unknown = [k for k in keys if k not in SHORTS]
+    if unknown:
+        sys.exit(f"no such short {unknown}; shorts: {', '.join(SHORTS)}")
+    clips = {c["id"]: c for c in json.loads((data / "loops.json").read_text())["clips"]}
+    folder = data / "arrangements"
     folder.mkdir(parents=True, exist_ok=True)
-    for key in sys.argv[1:] or list(SHORTS):
+    for key in keys or list(SHORTS):
         name, regions = regions_of(key, clips)
-        (folder / f"short-{key}.json").write_text(json.dumps({"name": name, "bars": BARS, "regions": regions, "mutes": [], "saved": time.time()}))
+        body = {"name": name, "bars": BARS, "regions": regions, "mutes": [], "saved": time.time()}
+        (folder / f"short-{key}.json").write_text(json.dumps(body))
         print(f"short-{key}: {name}, {len(regions)} regions")
 
 
 if __name__ == "__main__":
-    main()
+    write_shorts(DATA, sys.argv[1:])
