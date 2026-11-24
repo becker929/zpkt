@@ -1,0 +1,50 @@
+[
+ [
+  "run",
+  "for i, t in enumerate(song.tracks):\n    t.solo = i in {2, 3}\nresult = 'ok'"
+ ],
+ [
+  "run",
+  "result = [i for i, t in enumerate(song.tracks) if t.solo]"
+ ],
+ [
+  "run",
+  "for i, c in enumerate(song.tracks[6].devices[0].chains):\n    c.solo = i == None\nresult = 'ok'"
+ ],
+ [
+  "run",
+  "result = [i for i, c in enumerate(song.tracks[6].devices[0].chains) if c.solo]"
+ ],
+ [
+  "run",
+  "for i, c in enumerate(song.tracks[7].devices[0].chains):\n    c.solo = i == 4\nresult = 'ok'"
+ ],
+ [
+  "run",
+  "result = [i for i, c in enumerate(song.tracks[7].devices[0].chains) if c.solo]"
+ ],
+ [
+  "run",
+  "for i, t in enumerate(song.tracks):\n    t.solo = i in ()\nresult = 'ok'"
+ ],
+ [
+  "run",
+  "result = [i for i, t in enumerate(song.tracks) if t.solo]"
+ ],
+ [
+  "run",
+  "for i, c in enumerate(song.tracks[6].devices[0].chains):\n    c.solo = i == None\nresult = 'ok'"
+ ],
+ [
+  "run",
+  "result = [i for i, c in enumerate(song.tracks[6].devices[0].chains) if c.solo]"
+ ],
+ [
+  "run",
+  "for i, c in enumerate(song.tracks[7].devices[0].chains):\n    c.solo = i == None\nresult = 'ok'"
+ ],
+ [
+  "run",
+  "result = [i for i, c in enumerate(song.tracks[7].devices[0].chains) if c.solo]"
+ ]
+]

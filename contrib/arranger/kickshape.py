@@ -1,30 +1,34 @@
-"""The kick-shape measures kickfuzz.py compares against: third-octave energy, and a reference's kick-alone bars.
+"""The kick-shape measures kickfuzz.py's `measure` compares against: third-octave energy, and the bars of a reference
+where its kick plays nearly alone.
 
-Carried over unchanged from the industrial short's listen.py (hands/scripts/industrial, 15 Oct 2026), which
-kickfuzz loaded by path until hands/scripts was archived (zpkt-archive, 24 Nov 2026).
+From the industrial short's listen.py (15 Oct 2026), which kickfuzz loaded by path until hands/scripts was archived
+(24 Nov 2026). The numbers are the same; kickiso.py's isolation by the beat is the finer method the pages now use.
 """
 
 from __future__ import annotations
 
 from pathlib import Path
 
+import hw002
 import numpy as np
 import soundfile as sf
 
-REFS = Path("~/_agent_scratch/refs/HW002").expanduser()
+REFS = hw002.REFERENCE_WAVS
 THIRDS = [25 * 2 ** (k / 3) for k in range(28)]  # 25 Hz .. ~16 kHz
 
 
-def mono(path):
+def mono(path: Path) -> tuple[np.ndarray, int]:
+    """A file as one channel (the mean of its channels), and its rate."""
     x, sr = sf.read(path, always_2d=True)
     return x.mean(1), sr
 
 
-def rms_db(x):
-    return 20 * np.log10(np.sqrt(np.mean(x**2)) + 1e-12)
+def rms_db(x: np.ndarray) -> float:
+    return float(20 * np.log10(np.sqrt(np.mean(x**2)) + 1e-12))
 
 
-def third_octaves(x, sr) -> np.ndarray:
+def third_octaves(x: np.ndarray, sr: int) -> np.ndarray:
+    """Energy per third octave (THIRDS), in dB of the total: shape, not level."""
     n = 1 << 15
     S = np.zeros(n // 2 + 1)
     for k in range(0, len(x) - n, n // 2):
@@ -34,7 +38,7 @@ def third_octaves(x, sr) -> np.ndarray:
     return 10 * np.log10(e / e.sum() + 1e-12)
 
 
-def kick_alone(r, sr, bpm: float = 150.0, bars: int = 2) -> np.ndarray:
+def kick_alone(r: np.ndarray, sr: int, bpm: float = 150.0, bars: int = 2) -> tuple[np.ndarray, float]:
     """The reference's loudest-kick stretch where little else plays: windows of `bars` bars, scored by low-band
     level minus how much sits above 2 kHz (hats, synths)."""
     win = int(bars * 4 * 60 / bpm * sr)

@@ -1,0 +1,155 @@
+{
+ "undo": [
+  [
+   "delete",
+   "song.tracks[2]",
+   0
+  ]
+ ],
+ "calls": [
+  [
+   "devices",
+   "song.tracks[2]"
+  ],
+  [
+   "load_item",
+   "song.tracks[2]",
+   "audio_effects",
+   null,
+   "Roar"
+  ],
+  [
+   "devices",
+   "song.tracks[2]"
+  ],
+  [
+   "devices",
+   "song.tracks[2]"
+  ],
+  [
+   "setp",
+   "song.tracks[2].devices[0]",
+   {
+    "Shaper 1 On": "On"
+   }
+  ],
+  [
+   "devices",
+   "song.tracks[2]"
+  ],
+  [
+   "setp",
+   "song.tracks[2].devices[0]",
+   {
+    "Shaper 1 Type": "Diode Clipper"
+   }
+  ],
+  [
+   "devices",
+   "song.tracks[2]"
+  ],
+  [
+   "setp",
+   "song.tracks[2].devices[0]",
+   {
+    "Shaper 1 Amt": "100 %"
+   }
+  ],
+  [
+   "devices",
+   "song.tracks[2]"
+  ],
+  [
+   "setp",
+   "song.tracks[2].devices[0]",
+   {
+    "Drive": "18 dB"
+   }
+  ],
+  [
+   "devices",
+   "song.tracks[2]"
+  ],
+  [
+   "setp",
+   "song.tracks[2].devices[0]",
+   {
+    "Shaper 1 Level": "0.0 dB"
+   }
+  ],
+  [
+   "devices",
+   "song.tracks[2]"
+  ],
+  [
+   "setp",
+   "song.tracks[2].devices[0]",
+   {
+    "Flt 1 On": "On"
+   }
+  ],
+  [
+   "devices",
+   "song.tracks[2]"
+  ],
+  [
+   "setp",
+   "song.tracks[2].devices[0]",
+   {
+    "Flt 1 Type": "HP"
+   }
+  ],
+  [
+   "devices",
+   "song.tracks[2]"
+  ],
+  [
+   "setp",
+   "song.tracks[2].devices[0]",
+   {
+    "Flt 1 Freq": "600 Hz"
+   }
+  ],
+  [
+   "devices",
+   "song.tracks[2]"
+  ],
+  [
+   "setp",
+   "song.tracks[2].devices[0]",
+   {
+    "Flt 1 Pre On": "Off"
+   }
+  ],
+  [
+   "devices",
+   "song.tracks[2]"
+  ],
+  [
+   "setp",
+   "song.tracks[2].devices[0]",
+   {
+    "Comp Amt": "60 %"
+   }
+  ],
+  [
+   "devices",
+   "song.tracks[2]"
+  ],
+  [
+   "setp",
+   "song.tracks[2].devices[0]",
+   {
+    "Dry/Wet": "50 %"
+   }
+  ],
+  [
+   "run",
+   "song.tracks[2].delete_device(0)\nresult = 'ok'"
+  ],
+  [
+   "devices",
+   "song.tracks[2]"
+  ]
+ ]
+}

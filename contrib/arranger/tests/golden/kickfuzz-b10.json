@@ -1,0 +1,122 @@
+{
+ "undo": [
+  [
+   "song.tracks[2].devices[1].parameters[3]",
+   0.25
+  ],
+  [
+   "song.tracks[2].devices[0].chains[1].devices[3].parameters[3]",
+   0.25
+  ],
+  [
+   "song.tracks[2].devices[0].chains[0].devices[0].chains[1].mixer_device.volume",
+   0.25
+  ],
+  [
+   "song.tracks[2].devices[0].chains[0].devices[0].chains[1].devices[4].parameters[3]",
+   0.25
+  ]
+ ],
+ "calls": [
+  [
+   "run",
+   "result = [i for i, p in enumerate(song.tracks[2].devices[1].parameters) if p.name == '3 Filter On A']"
+  ],
+  [
+   "run",
+   "result = song.tracks[2].devices[1].parameters[3].value"
+  ],
+  [
+   "setp",
+   "song.tracks[2].devices[1]",
+   {
+    "3 Filter On A": "Off"
+   }
+  ],
+  [
+   "run",
+   "result = [i for i, p in enumerate(song.tracks[2].devices[0].chains[1].devices[3].parameters) if p.name == '8 Filter On A']"
+  ],
+  [
+   "run",
+   "result = song.tracks[2].devices[0].chains[1].devices[3].parameters[3].value"
+  ],
+  [
+   "setp",
+   "song.tracks[2].devices[0].chains[1].devices[3]",
+   {
+    "8 Filter On A": "Off"
+   }
+  ],
+  [
+   "run",
+   "result = [c.name for c in song.tracks[2].devices[0].chains[0].devices[0].chains]"
+  ],
+  [
+   "run",
+   "result = song.tracks[2].devices[0].chains[0].devices[0].chains[1].mixer_device.volume.value"
+  ],
+  [
+   "run",
+   "result = [c.name for c in song.tracks[2].devices[0].chains[0].devices[0].chains]"
+  ],
+  [
+   "mixer",
+   "song.tracks[2].devices[0].chains[0].devices[0].chains[1]",
+   6.0,
+   [],
+   null
+  ],
+  [
+   "run",
+   "result = [c.name for c in song.tracks[2].devices[0].chains[0].devices[0].chains]"
+  ],
+  [
+   "run",
+   "result = [i for i, p in enumerate(song.tracks[2].devices[0].chains[0].devices[0].chains[1].devices[4].parameters) if p.name == 'Output']"
+  ],
+  [
+   "run",
+   "result = song.tracks[2].devices[0].chains[0].devices[0].chains[1].devices[4].parameters[3].value"
+  ],
+  [
+   "setp",
+   "song.tracks[2].devices[0].chains[0].devices[0].chains[1].devices[4]",
+   {
+    "Output": "1.8 dB"
+   }
+  ],
+  [
+   "run",
+   "song.tracks[2].devices[0].chains[0].devices[0].chains[1].devices[4].parameters[3].value = 0.25\nresult = 'ok'"
+  ],
+  [
+   "run",
+   "song.tracks[2].devices[0].chains[0].devices[0].chains[1].mixer_device.volume.value = 0.25\nresult = 'ok'"
+  ],
+  [
+   "run",
+   "song.tracks[2].devices[0].chains[1].devices[3].parameters[3].value = 0.25\nresult = 'ok'"
+  ],
+  [
+   "run",
+   "song.tracks[2].devices[1].parameters[3].value = 0.25\nresult = 'ok'"
+  ],
+  [
+   "run",
+   "result = song.tracks[2].devices[1].parameters[3].value"
+  ],
+  [
+   "run",
+   "result = song.tracks[2].devices[0].chains[1].devices[3].parameters[3].value"
+  ],
+  [
+   "run",
+   "result = song.tracks[2].devices[0].chains[0].devices[0].chains[1].mixer_device.volume.value"
+  ],
+  [
+   "run",
+   "result = song.tracks[2].devices[0].chains[0].devices[0].chains[1].devices[4].parameters[3].value"
+  ]
+ ]
+}

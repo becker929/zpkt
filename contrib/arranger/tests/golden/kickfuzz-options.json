@@ -1,0 +1,3704 @@
+{
+ "base": {
+  "title": "As it is",
+  "set": []
+ },
+ "a": {
+  "title": "A: unhide",
+  "set": [
+   [
+    "song.tracks[2].devices[1]",
+    "3 Filter On A",
+    "Off"
+   ],
+   [
+    "song.tracks[2].devices[0].chains[1].devices[3]",
+    "8 Filter On A",
+    "Off"
+   ]
+  ],
+  "what": "Kick track's 3.4 kHz cut off, offbeat pad's 325 Hz low-pass off"
+ },
+ "b6": {
+  "title": "B: 052 layer +6",
+  "set": [
+   [
+    "song.tracks[2].devices[1]",
+    "3 Filter On A",
+    "Off"
+   ],
+   [
+    "song.tracks[2].devices[0].chains[1].devices[3]",
+    "8 Filter On A",
+    "Off"
+   ],
+   [
+    "chain052",
+    "volume",
+    6.0
+   ]
+  ],
+  "what": "A, and the 052 layer (high-passed at 958 Hz into COLDFIRE) +6 dB"
+ },
+ "b10": {
+  "title": "B: 052 layer +10",
+  "set": [
+   [
+    "song.tracks[2].devices[1]",
+    "3 Filter On A",
+    "Off"
+   ],
+   [
+    "song.tracks[2].devices[0].chains[1].devices[3]",
+    "8 Filter On A",
+    "Off"
+   ],
+   [
+    "chain052",
+    "volume",
+    6.0
+   ],
+   [
+    "util052",
+    "Output",
+    "1.8 dB"
+   ]
+  ],
+  "what": "A, and the 052 layer +10 dB (its chain fader at Live's +6 dB limit, its Utility from -2.2 to +1.8 dB)"
+ },
+ "c1": {
+  "title": "C: Roar, some",
+  "set": [
+   [
+    "song.tracks[1].devices[1]",
+    "Device On",
+    "On"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Shaper 1 Amt",
+    "0.0 %"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Shaper 2 Amt",
+    "35 %"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Shaper 3 Amt",
+    "25 %"
+   ]
+  ],
+  "what": "The kick group's Roar on (multiband, 200 Hz / 2 kHz): mid band Noise Injection 35 %, high band Bit Crusher 25 %"
+ },
+ "c2": {
+  "title": "C: Roar, lots",
+  "set": [
+   [
+    "song.tracks[1].devices[1]",
+    "Device On",
+    "On"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Shaper 1 Amt",
+    "0.0 %"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Shaper 2 Amt",
+    "70 %"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Shaper 3 Amt",
+    "55 %"
+   ]
+  ],
+  "what": "The same Roar: mid 70 %, high 55 %"
+ },
+ "d2": {
+  "title": "D: rumble, drive N",
+  "set": [
+   [
+    "song.tracks[3].devices[2]",
+    "Drive",
+    0.6
+   ],
+   [
+    "song.tracks[3].devices[2]",
+    "Style",
+    0.5
+   ],
+   [
+    "song.tracks[3].devices[2]",
+    "HighCut",
+    0.0
+   ]
+  ],
+  "what": "The rumble's Decapitator: drive 0.27 to 0.6, style A to N, high cut at its other end"
+ },
+ "d3": {
+  "title": "D: rumble, punish",
+  "set": [
+   [
+    "song.tracks[3].devices[2]",
+    "Drive",
+    0.5
+   ],
+   [
+    "song.tracks[3].devices[2]",
+    "Punish",
+    1.0
+   ],
+   [
+    "song.tracks[3].devices[2]",
+    "HighCut",
+    0.0
+   ]
+  ],
+  "what": "The rumble's Decapitator: drive 0.5, Punish on, high cut at its other end"
+ },
+ "e": {
+  "title": "B + Roar's high band",
+  "set": [
+   [
+    "song.tracks[2].devices[1]",
+    "3 Filter On A",
+    "Off"
+   ],
+   [
+    "song.tracks[2].devices[0].chains[1].devices[3]",
+    "8 Filter On A",
+    "Off"
+   ],
+   [
+    "chain052",
+    "volume",
+    6.0
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Device On",
+    "On"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Shaper 1 Amt",
+    "0.0 %"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Shaper 2 Amt",
+    "0.0 %"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Shaper 3 Amt",
+    "30 %"
+   ]
+  ],
+  "what": "B +6, and the kick group's Roar on with only its high band (Bit Crusher above 2 kHz) at 30 %"
+ },
+ "d": {
+  "title": "D: punish the rumble",
+  "set": [
+   [
+    "song.tracks[3].devices[2]",
+    "Drive",
+    0.6
+   ],
+   [
+    "song.tracks[3].devices[2]",
+    "Style",
+    1.0
+   ],
+   [
+    "song.tracks[3].devices[2]",
+    "HighCut",
+    1.0
+   ]
+  ],
+  "what": "The rumble's Decapitator: drive 0.27 to 0.6, style A to P, its high cut opened"
+ },
+ "t-dc60": {
+  "title": "Fuzz: Digital Clip 60 %",
+  "group": "texture",
+  "set": [
+   [
+    "song.tracks[1].devices[1]",
+    "Device On",
+    "On"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Shaper 1 On",
+    "On"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Shaper 1 Type",
+    "Digital Clip"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Shaper 1 Amt",
+    "60 %"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Flt 1 On",
+    "On"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Flt 1 Type",
+    "HP"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Flt 1 Freq",
+    "600 Hz"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Flt 1 Pre On",
+    "Off"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Shaper 2 Amt",
+    "0.0 %"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Shaper 3 Amt",
+    "0.0 %"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Comp Amt",
+    "50 %"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Dry/Wet",
+    "40 %"
+   ]
+  ],
+  "what": "Roar's low band through Digital Clip at 60 %, high-passed at 600 Hz after it, 40 % wet, its compressor at 50 %"
+ },
+ "t-dc100": {
+  "title": "Fuzz: Digital Clip 100 %",
+  "group": "texture",
+  "set": [
+   [
+    "song.tracks[1].devices[1]",
+    "Device On",
+    "On"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Shaper 1 On",
+    "On"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Shaper 1 Type",
+    "Digital Clip"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Shaper 1 Amt",
+    "100 %"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Flt 1 On",
+    "On"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Flt 1 Type",
+    "HP"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Flt 1 Freq",
+    "600 Hz"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Flt 1 Pre On",
+    "Off"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Shaper 2 Amt",
+    "0.0 %"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Shaper 3 Amt",
+    "0.0 %"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Comp Amt",
+    "50 %"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Dry/Wet",
+    "40 %"
+   ]
+  ],
+  "what": "Roar's low band through Digital Clip at 100 %, high-passed at 600 Hz after it, 40 % wet, its compressor at 50 %"
+ },
+ "t-di60": {
+  "title": "Fuzz: Diode Clipper 60 %",
+  "group": "texture",
+  "set": [
+   [
+    "song.tracks[1].devices[1]",
+    "Device On",
+    "On"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Shaper 1 On",
+    "On"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Shaper 1 Type",
+    "Diode Clipper"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Shaper 1 Amt",
+    "60 %"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Flt 1 On",
+    "On"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Flt 1 Type",
+    "HP"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Flt 1 Freq",
+    "600 Hz"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Flt 1 Pre On",
+    "Off"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Shaper 2 Amt",
+    "0.0 %"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Shaper 3 Amt",
+    "0.0 %"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Comp Amt",
+    "50 %"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Dry/Wet",
+    "40 %"
+   ]
+  ],
+  "what": "Roar's low band through Diode Clipper at 60 %, high-passed at 600 Hz after it, 40 % wet, its compressor at 50 %"
+ },
+ "t-di100": {
+  "title": "Fuzz: Diode Clipper 100 %",
+  "group": "texture",
+  "set": [
+   [
+    "song.tracks[1].devices[1]",
+    "Device On",
+    "On"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Shaper 1 On",
+    "On"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Shaper 1 Type",
+    "Diode Clipper"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Shaper 1 Amt",
+    "100 %"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Flt 1 On",
+    "On"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Flt 1 Type",
+    "HP"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Flt 1 Freq",
+    "600 Hz"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Flt 1 Pre On",
+    "Off"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Shaper 2 Amt",
+    "0.0 %"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Shaper 3 Amt",
+    "0.0 %"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Comp Amt",
+    "50 %"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Dry/Wet",
+    "40 %"
+   ]
+  ],
+  "what": "Roar's low band through Diode Clipper at 100 %, high-passed at 600 Hz after it, 40 % wet, its compressor at 50 %"
+ },
+ "t-tu60": {
+  "title": "Fuzz: Tube Preamp 60 %",
+  "group": "texture",
+  "set": [
+   [
+    "song.tracks[1].devices[1]",
+    "Device On",
+    "On"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Shaper 1 On",
+    "On"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Shaper 1 Type",
+    "Tube Preamp"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Shaper 1 Amt",
+    "60 %"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Flt 1 On",
+    "On"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Flt 1 Type",
+    "HP"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Flt 1 Freq",
+    "600 Hz"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Flt 1 Pre On",
+    "Off"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Shaper 2 Amt",
+    "0.0 %"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Shaper 3 Amt",
+    "0.0 %"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Comp Amt",
+    "50 %"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Dry/Wet",
+    "40 %"
+   ]
+  ],
+  "what": "Roar's low band through Tube Preamp at 60 %, high-passed at 600 Hz after it, 40 % wet, its compressor at 50 %"
+ },
+ "t-tu100": {
+  "title": "Fuzz: Tube Preamp 100 %",
+  "group": "texture",
+  "set": [
+   [
+    "song.tracks[1].devices[1]",
+    "Device On",
+    "On"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Shaper 1 On",
+    "On"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Shaper 1 Type",
+    "Tube Preamp"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Shaper 1 Amt",
+    "100 %"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Flt 1 On",
+    "On"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Flt 1 Type",
+    "HP"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Flt 1 Freq",
+    "600 Hz"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Flt 1 Pre On",
+    "Off"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Shaper 2 Amt",
+    "0.0 %"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Shaper 3 Amt",
+    "0.0 %"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Comp Amt",
+    "50 %"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Dry/Wet",
+    "40 %"
+   ]
+  ],
+  "what": "Roar's low band through Tube Preamp at 100 %, high-passed at 600 Hz after it, 40 % wet, its compressor at 50 %"
+ },
+ "t-fw60": {
+  "title": "Fuzz: Full Wave Rectifier 60 %",
+  "group": "texture",
+  "set": [
+   [
+    "song.tracks[1].devices[1]",
+    "Device On",
+    "On"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Shaper 1 On",
+    "On"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Shaper 1 Type",
+    "Full Wave Rectifier"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Shaper 1 Amt",
+    "60 %"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Flt 1 On",
+    "On"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Flt 1 Type",
+    "HP"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Flt 1 Freq",
+    "600 Hz"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Flt 1 Pre On",
+    "Off"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Shaper 2 Amt",
+    "0.0 %"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Shaper 3 Amt",
+    "0.0 %"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Comp Amt",
+    "50 %"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Dry/Wet",
+    "40 %"
+   ]
+  ],
+  "what": "Roar's low band through Full Wave Rectifier at 60 %, high-passed at 600 Hz after it, 40 % wet, its compressor at 50 %"
+ },
+ "t-fw100": {
+  "title": "Fuzz: Full Wave Rectifier 100 %",
+  "group": "texture",
+  "set": [
+   [
+    "song.tracks[1].devices[1]",
+    "Device On",
+    "On"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Shaper 1 On",
+    "On"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Shaper 1 Type",
+    "Full Wave Rectifier"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Shaper 1 Amt",
+    "100 %"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Flt 1 On",
+    "On"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Flt 1 Type",
+    "HP"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Flt 1 Freq",
+    "600 Hz"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Flt 1 Pre On",
+    "Off"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Shaper 2 Amt",
+    "0.0 %"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Shaper 3 Amt",
+    "0.0 %"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Comp Amt",
+    "50 %"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Dry/Wet",
+    "40 %"
+   ]
+  ],
+  "what": "Roar's low band through Full Wave Rectifier at 100 %, high-passed at 600 Hz after it, 40 % wet, its compressor at 50 %"
+ },
+ "t-t2a": {
+  "title": "Fuzz: Diode Clipper, drive 12 dB",
+  "group": "texture",
+  "set": [
+   [
+    "song.tracks[1].devices[1]",
+    "Device On",
+    "On"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Shaper 1 On",
+    "On"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Shaper 1 Type",
+    "Diode Clipper"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Shaper 1 Amt",
+    "100 %"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Flt 1 On",
+    "On"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Flt 1 Type",
+    "HP"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Flt 1 Freq",
+    "600 Hz"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Flt 1 Pre On",
+    "Off"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Shaper 2 Amt",
+    "0.0 %"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Shaper 3 Amt",
+    "0.0 %"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Comp Amt",
+    "60 %"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Dry/Wet",
+    "50 %"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Drive",
+    "12 dB"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Shaper 1 Level",
+    "6.0 dB"
+   ]
+  ],
+  "what": "Roar's low band driven 12 dB into Diode Clipper at 100 %, +6.0 dB out, high-passed at 600 Hz after it, 50 % wet, compressor 60 %"
+ },
+ "t-t2b": {
+  "title": "Fuzz: Diode Clipper, drive 18 dB",
+  "group": "texture",
+  "set": [
+   [
+    "song.tracks[1].devices[1]",
+    "Device On",
+    "On"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Shaper 1 On",
+    "On"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Shaper 1 Type",
+    "Diode Clipper"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Shaper 1 Amt",
+    "100 %"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Flt 1 On",
+    "On"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Flt 1 Type",
+    "HP"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Flt 1 Freq",
+    "600 Hz"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Flt 1 Pre On",
+    "Off"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Shaper 2 Amt",
+    "0.0 %"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Shaper 3 Amt",
+    "0.0 %"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Comp Amt",
+    "60 %"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Dry/Wet",
+    "50 %"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Drive",
+    "18 dB"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Shaper 1 Level",
+    "6.0 dB"
+   ]
+  ],
+  "what": "Roar's low band driven 18 dB into Diode Clipper at 100 %, +6.0 dB out, high-passed at 600 Hz after it, 50 % wet, compressor 60 %"
+ },
+ "t-t2c": {
+  "title": "Fuzz: Diode Clipper, drive 24 dB",
+  "group": "texture",
+  "set": [
+   [
+    "song.tracks[1].devices[1]",
+    "Device On",
+    "On"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Shaper 1 On",
+    "On"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Shaper 1 Type",
+    "Diode Clipper"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Shaper 1 Amt",
+    "100 %"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Flt 1 On",
+    "On"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Flt 1 Type",
+    "HP"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Flt 1 Freq",
+    "600 Hz"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Flt 1 Pre On",
+    "Off"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Shaper 2 Amt",
+    "0.0 %"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Shaper 3 Amt",
+    "0.0 %"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Comp Amt",
+    "60 %"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Dry/Wet",
+    "50 %"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Drive",
+    "24 dB"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Shaper 1 Level",
+    "6.0 dB"
+   ]
+  ],
+  "what": "Roar's low band driven 24 dB into Diode Clipper at 100 %, +6.0 dB out, high-passed at 600 Hz after it, 50 % wet, compressor 60 %"
+ },
+ "t-t2d": {
+  "title": "Fuzz: Diode Clipper, drive 18 dB",
+  "group": "texture",
+  "set": [
+   [
+    "song.tracks[1].devices[1]",
+    "Device On",
+    "On"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Shaper 1 On",
+    "On"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Shaper 1 Type",
+    "Diode Clipper"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Shaper 1 Amt",
+    "100 %"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Flt 1 On",
+    "On"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Flt 1 Type",
+    "HP"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Flt 1 Freq",
+    "600 Hz"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Flt 1 Pre On",
+    "Off"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Shaper 2 Amt",
+    "0.0 %"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Shaper 3 Amt",
+    "0.0 %"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Comp Amt",
+    "80 %"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Dry/Wet",
+    "60 %"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Drive",
+    "18 dB"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Shaper 1 Level",
+    "12 dB"
+   ]
+  ],
+  "what": "Roar's low band driven 18 dB into Diode Clipper at 100 %, +12 dB out, high-passed at 600 Hz after it, 60 % wet, compressor 80 %"
+ },
+ "t-t2e": {
+  "title": "Fuzz: Diode Clipper, drive 24 dB",
+  "group": "texture",
+  "set": [
+   [
+    "song.tracks[1].devices[1]",
+    "Device On",
+    "On"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Shaper 1 On",
+    "On"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Shaper 1 Type",
+    "Diode Clipper"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Shaper 1 Amt",
+    "100 %"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Flt 1 On",
+    "On"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Flt 1 Type",
+    "HP"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Flt 1 Freq",
+    "600 Hz"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Flt 1 Pre On",
+    "Off"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Shaper 2 Amt",
+    "0.0 %"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Shaper 3 Amt",
+    "0.0 %"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Comp Amt",
+    "100 %"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Dry/Wet",
+    "70 %"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Drive",
+    "24 dB"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Shaper 1 Level",
+    "12 dB"
+   ]
+  ],
+  "what": "Roar's low band driven 24 dB into Diode Clipper at 100 %, +12 dB out, high-passed at 600 Hz after it, 70 % wet, compressor 100 %"
+ },
+ "t-t2f": {
+  "title": "Fuzz: Full Wave Rectifier, drive 18 dB",
+  "group": "texture",
+  "set": [
+   [
+    "song.tracks[1].devices[1]",
+    "Device On",
+    "On"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Shaper 1 On",
+    "On"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Shaper 1 Type",
+    "Full Wave Rectifier"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Shaper 1 Amt",
+    "100 %"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Flt 1 On",
+    "On"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Flt 1 Type",
+    "HP"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Flt 1 Freq",
+    "600 Hz"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Flt 1 Pre On",
+    "Off"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Shaper 2 Amt",
+    "0.0 %"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Shaper 3 Amt",
+    "0.0 %"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Comp Amt",
+    "80 %"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Dry/Wet",
+    "60 %"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Drive",
+    "18 dB"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Shaper 1 Level",
+    "12 dB"
+   ]
+  ],
+  "what": "Roar's low band driven 18 dB into Full Wave Rectifier at 100 %, +12 dB out, high-passed at 600 Hz after it, 60 % wet, compressor 80 %"
+ },
+ "t-t3tf": {
+  "title": "Fuzz: Tri Fold, comp 60 %",
+  "group": "texture",
+  "set": [
+   [
+    "song.tracks[1].devices[1]",
+    "Device On",
+    "On"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Shaper 1 On",
+    "On"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Shaper 1 Type",
+    "Tri Fold"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Shaper 1 Amt",
+    "100 %"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Flt 1 On",
+    "On"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Flt 1 Type",
+    "HP"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Flt 1 Freq",
+    "600 Hz"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Flt 1 Pre On",
+    "Off"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Shaper 2 Amt",
+    "0.0 %"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Shaper 3 Amt",
+    "0.0 %"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Comp Amt",
+    "60 %"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Dry/Wet",
+    "50 %"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Drive",
+    "24 dB"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Shaper 1 Level",
+    "6.0 dB"
+   ]
+  ],
+  "what": "Roar's low band driven 24 dB into Tri Fold at 100 %, 6.0 dB out, high-passed at 600 Hz after it, 50 % wet, compressor 60 %"
+ },
+ "t-t3fr": {
+  "title": "Fuzz: Fractal, comp 60 %",
+  "group": "texture",
+  "set": [
+   [
+    "song.tracks[1].devices[1]",
+    "Device On",
+    "On"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Shaper 1 On",
+    "On"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Shaper 1 Type",
+    "Fractal"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Shaper 1 Amt",
+    "100 %"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Flt 1 On",
+    "On"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Flt 1 Type",
+    "HP"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Flt 1 Freq",
+    "600 Hz"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Flt 1 Pre On",
+    "Off"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Shaper 2 Amt",
+    "0.0 %"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Shaper 3 Amt",
+    "0.0 %"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Comp Amt",
+    "60 %"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Dry/Wet",
+    "50 %"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Drive",
+    "24 dB"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Shaper 1 Level",
+    "6.0 dB"
+   ]
+  ],
+  "what": "Roar's low band driven 24 dB into Fractal at 100 %, 6.0 dB out, high-passed at 600 Hz after it, 50 % wet, compressor 60 %"
+ },
+ "t-t3sh": {
+  "title": "Fuzz: Shards, comp 60 %",
+  "group": "texture",
+  "set": [
+   [
+    "song.tracks[1].devices[1]",
+    "Device On",
+    "On"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Shaper 1 On",
+    "On"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Shaper 1 Type",
+    "Shards"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Shaper 1 Amt",
+    "100 %"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Flt 1 On",
+    "On"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Flt 1 Type",
+    "HP"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Flt 1 Freq",
+    "600 Hz"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Flt 1 Pre On",
+    "Off"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Shaper 2 Amt",
+    "0.0 %"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Shaper 3 Amt",
+    "0.0 %"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Comp Amt",
+    "60 %"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Dry/Wet",
+    "50 %"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Drive",
+    "24 dB"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Shaper 1 Level",
+    "6.0 dB"
+   ]
+  ],
+  "what": "Roar's low band driven 24 dB into Shards at 100 %, 6.0 dB out, high-passed at 600 Hz after it, 50 % wet, compressor 60 %"
+ },
+ "t-t3po": {
+  "title": "Fuzz: Polynomial, comp 60 %",
+  "group": "texture",
+  "set": [
+   [
+    "song.tracks[1].devices[1]",
+    "Device On",
+    "On"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Shaper 1 On",
+    "On"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Shaper 1 Type",
+    "Polynomial"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Shaper 1 Amt",
+    "100 %"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Flt 1 On",
+    "On"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Flt 1 Type",
+    "HP"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Flt 1 Freq",
+    "600 Hz"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Flt 1 Pre On",
+    "Off"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Shaper 2 Amt",
+    "0.0 %"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Shaper 3 Amt",
+    "0.0 %"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Comp Amt",
+    "60 %"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Dry/Wet",
+    "50 %"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Drive",
+    "24 dB"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Shaper 1 Level",
+    "6.0 dB"
+   ]
+  ],
+  "what": "Roar's low band driven 24 dB into Polynomial at 100 %, 6.0 dB out, high-passed at 600 Hz after it, 50 % wet, compressor 60 %"
+ },
+ "t-t3ni": {
+  "title": "Fuzz: Noise Injection, comp 60 %",
+  "group": "texture",
+  "set": [
+   [
+    "song.tracks[1].devices[1]",
+    "Device On",
+    "On"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Shaper 1 On",
+    "On"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Shaper 1 Type",
+    "Noise Injection"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Shaper 1 Amt",
+    "100 %"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Flt 1 On",
+    "On"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Flt 1 Type",
+    "HP"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Flt 1 Freq",
+    "600 Hz"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Flt 1 Pre On",
+    "Off"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Shaper 2 Amt",
+    "0.0 %"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Shaper 3 Amt",
+    "0.0 %"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Comp Amt",
+    "60 %"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Dry/Wet",
+    "50 %"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Drive",
+    "24 dB"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Shaper 1 Level",
+    "6.0 dB"
+   ]
+  ],
+  "what": "Roar's low band driven 24 dB into Noise Injection at 100 %, 6.0 dB out, high-passed at 600 Hz after it, 50 % wet, compressor 60 %"
+ },
+ "t-t3dc": {
+  "title": "Fuzz: Diode Clipper, comp 100 %",
+  "group": "texture",
+  "set": [
+   [
+    "song.tracks[1].devices[1]",
+    "Device On",
+    "On"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Shaper 1 On",
+    "On"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Shaper 1 Type",
+    "Diode Clipper"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Shaper 1 Amt",
+    "100 %"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Flt 1 On",
+    "On"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Flt 1 Type",
+    "HP"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Flt 1 Freq",
+    "600 Hz"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Flt 1 Pre On",
+    "Off"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Shaper 2 Amt",
+    "0.0 %"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Shaper 3 Amt",
+    "0.0 %"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Comp Amt",
+    "100 %"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Dry/Wet",
+    "50 %"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Drive",
+    "24 dB"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Shaper 1 Level",
+    "0.0 dB"
+   ]
+  ],
+  "what": "Roar's low band driven 24 dB into Diode Clipper at 100 %, 0.0 dB out, high-passed at 600 Hz after it, 50 % wet, compressor 100 %"
+ },
+ "t-t3tc": {
+  "title": "Fuzz: Tri Fold, comp 100 %",
+  "group": "texture",
+  "set": [
+   [
+    "song.tracks[1].devices[1]",
+    "Device On",
+    "On"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Shaper 1 On",
+    "On"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Shaper 1 Type",
+    "Tri Fold"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Shaper 1 Amt",
+    "100 %"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Flt 1 On",
+    "On"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Flt 1 Type",
+    "HP"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Flt 1 Freq",
+    "600 Hz"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Flt 1 Pre On",
+    "Off"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Shaper 2 Amt",
+    "0.0 %"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Shaper 3 Amt",
+    "0.0 %"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Comp Amt",
+    "100 %"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Dry/Wet",
+    "50 %"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Drive",
+    "24 dB"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Shaper 1 Level",
+    "0.0 dB"
+   ]
+  ],
+  "what": "Roar's low band driven 24 dB into Tri Fold at 100 %, 0.0 dB out, high-passed at 600 Hz after it, 50 % wet, compressor 100 %"
+ },
+ "t-kdi18": {
+  "title": "Kick fuzz: Diode Clipper, drive 18 dB",
+  "group": "texture",
+  "set": [
+   [
+    "load",
+    "song.tracks[2]",
+    "Roar"
+   ],
+   [
+    "kickroar",
+    "Shaper 1 On",
+    "On"
+   ],
+   [
+    "kickroar",
+    "Shaper 1 Type",
+    "Diode Clipper"
+   ],
+   [
+    "kickroar",
+    "Shaper 1 Amt",
+    "100 %"
+   ],
+   [
+    "kickroar",
+    "Drive",
+    "18 dB"
+   ],
+   [
+    "kickroar",
+    "Shaper 1 Level",
+    "0.0 dB"
+   ],
+   [
+    "kickroar",
+    "Flt 1 On",
+    "On"
+   ],
+   [
+    "kickroar",
+    "Flt 1 Type",
+    "HP"
+   ],
+   [
+    "kickroar",
+    "Flt 1 Freq",
+    "600 Hz"
+   ],
+   [
+    "kickroar",
+    "Flt 1 Pre On",
+    "Off"
+   ],
+   [
+    "kickroar",
+    "Comp Amt",
+    "60 %"
+   ],
+   [
+    "kickroar",
+    "Dry/Wet",
+    "50 %"
+   ]
+  ],
+  "what": "A Roar on the kick track (not the rumble): Diode Clipper driven 18 dB, high-passed at 600 Hz after it, 50 % wet, compressor 60 %"
+ },
+ "t-kdi24": {
+  "title": "Kick fuzz: Diode Clipper, drive 24 dB",
+  "group": "texture",
+  "set": [
+   [
+    "load",
+    "song.tracks[2]",
+    "Roar"
+   ],
+   [
+    "kickroar",
+    "Shaper 1 On",
+    "On"
+   ],
+   [
+    "kickroar",
+    "Shaper 1 Type",
+    "Diode Clipper"
+   ],
+   [
+    "kickroar",
+    "Shaper 1 Amt",
+    "100 %"
+   ],
+   [
+    "kickroar",
+    "Drive",
+    "24 dB"
+   ],
+   [
+    "kickroar",
+    "Shaper 1 Level",
+    "0.0 dB"
+   ],
+   [
+    "kickroar",
+    "Flt 1 On",
+    "On"
+   ],
+   [
+    "kickroar",
+    "Flt 1 Type",
+    "HP"
+   ],
+   [
+    "kickroar",
+    "Flt 1 Freq",
+    "600 Hz"
+   ],
+   [
+    "kickroar",
+    "Flt 1 Pre On",
+    "Off"
+   ],
+   [
+    "kickroar",
+    "Comp Amt",
+    "60 %"
+   ],
+   [
+    "kickroar",
+    "Dry/Wet",
+    "50 %"
+   ]
+  ],
+  "what": "A Roar on the kick track (not the rumble): Diode Clipper driven 24 dB, high-passed at 600 Hz after it, 50 % wet, compressor 60 %"
+ },
+ "t-ktf18": {
+  "title": "Kick fuzz: Tri Fold, drive 18 dB",
+  "group": "texture",
+  "set": [
+   [
+    "load",
+    "song.tracks[2]",
+    "Roar"
+   ],
+   [
+    "kickroar",
+    "Shaper 1 On",
+    "On"
+   ],
+   [
+    "kickroar",
+    "Shaper 1 Type",
+    "Tri Fold"
+   ],
+   [
+    "kickroar",
+    "Shaper 1 Amt",
+    "100 %"
+   ],
+   [
+    "kickroar",
+    "Drive",
+    "18 dB"
+   ],
+   [
+    "kickroar",
+    "Shaper 1 Level",
+    "0.0 dB"
+   ],
+   [
+    "kickroar",
+    "Flt 1 On",
+    "On"
+   ],
+   [
+    "kickroar",
+    "Flt 1 Type",
+    "HP"
+   ],
+   [
+    "kickroar",
+    "Flt 1 Freq",
+    "600 Hz"
+   ],
+   [
+    "kickroar",
+    "Flt 1 Pre On",
+    "Off"
+   ],
+   [
+    "kickroar",
+    "Comp Amt",
+    "60 %"
+   ],
+   [
+    "kickroar",
+    "Dry/Wet",
+    "50 %"
+   ]
+  ],
+  "what": "A Roar on the kick track (not the rumble): Tri Fold driven 18 dB, high-passed at 600 Hz after it, 50 % wet, compressor 60 %"
+ },
+ "t-ktf24": {
+  "title": "Kick fuzz: Tri Fold, drive 24 dB",
+  "group": "texture",
+  "set": [
+   [
+    "load",
+    "song.tracks[2]",
+    "Roar"
+   ],
+   [
+    "kickroar",
+    "Shaper 1 On",
+    "On"
+   ],
+   [
+    "kickroar",
+    "Shaper 1 Type",
+    "Tri Fold"
+   ],
+   [
+    "kickroar",
+    "Shaper 1 Amt",
+    "100 %"
+   ],
+   [
+    "kickroar",
+    "Drive",
+    "24 dB"
+   ],
+   [
+    "kickroar",
+    "Shaper 1 Level",
+    "0.0 dB"
+   ],
+   [
+    "kickroar",
+    "Flt 1 On",
+    "On"
+   ],
+   [
+    "kickroar",
+    "Flt 1 Type",
+    "HP"
+   ],
+   [
+    "kickroar",
+    "Flt 1 Freq",
+    "600 Hz"
+   ],
+   [
+    "kickroar",
+    "Flt 1 Pre On",
+    "Off"
+   ],
+   [
+    "kickroar",
+    "Comp Amt",
+    "60 %"
+   ],
+   [
+    "kickroar",
+    "Dry/Wet",
+    "50 %"
+   ]
+  ],
+  "what": "A Roar on the kick track (not the rumble): Tri Fold driven 24 dB, high-passed at 600 Hz after it, 50 % wet, compressor 60 %"
+ },
+ "t-kpo18": {
+  "title": "Kick fuzz: Polynomial, drive 18 dB",
+  "group": "texture",
+  "set": [
+   [
+    "load",
+    "song.tracks[2]",
+    "Roar"
+   ],
+   [
+    "kickroar",
+    "Shaper 1 On",
+    "On"
+   ],
+   [
+    "kickroar",
+    "Shaper 1 Type",
+    "Polynomial"
+   ],
+   [
+    "kickroar",
+    "Shaper 1 Amt",
+    "100 %"
+   ],
+   [
+    "kickroar",
+    "Drive",
+    "18 dB"
+   ],
+   [
+    "kickroar",
+    "Shaper 1 Level",
+    "0.0 dB"
+   ],
+   [
+    "kickroar",
+    "Flt 1 On",
+    "On"
+   ],
+   [
+    "kickroar",
+    "Flt 1 Type",
+    "HP"
+   ],
+   [
+    "kickroar",
+    "Flt 1 Freq",
+    "600 Hz"
+   ],
+   [
+    "kickroar",
+    "Flt 1 Pre On",
+    "Off"
+   ],
+   [
+    "kickroar",
+    "Comp Amt",
+    "60 %"
+   ],
+   [
+    "kickroar",
+    "Dry/Wet",
+    "50 %"
+   ]
+  ],
+  "what": "A Roar on the kick track (not the rumble): Polynomial driven 18 dB, high-passed at 600 Hz after it, 50 % wet, compressor 60 %"
+ },
+ "t-kpo24": {
+  "title": "Kick fuzz: Polynomial, drive 24 dB",
+  "group": "texture",
+  "set": [
+   [
+    "load",
+    "song.tracks[2]",
+    "Roar"
+   ],
+   [
+    "kickroar",
+    "Shaper 1 On",
+    "On"
+   ],
+   [
+    "kickroar",
+    "Shaper 1 Type",
+    "Polynomial"
+   ],
+   [
+    "kickroar",
+    "Shaper 1 Amt",
+    "100 %"
+   ],
+   [
+    "kickroar",
+    "Drive",
+    "24 dB"
+   ],
+   [
+    "kickroar",
+    "Shaper 1 Level",
+    "0.0 dB"
+   ],
+   [
+    "kickroar",
+    "Flt 1 On",
+    "On"
+   ],
+   [
+    "kickroar",
+    "Flt 1 Type",
+    "HP"
+   ],
+   [
+    "kickroar",
+    "Flt 1 Freq",
+    "600 Hz"
+   ],
+   [
+    "kickroar",
+    "Flt 1 Pre On",
+    "Off"
+   ],
+   [
+    "kickroar",
+    "Comp Amt",
+    "60 %"
+   ],
+   [
+    "kickroar",
+    "Dry/Wet",
+    "50 %"
+   ]
+  ],
+  "what": "A Roar on the kick track (not the rumble): Polynomial driven 24 dB, high-passed at 600 Hz after it, 50 % wet, compressor 60 %"
+ },
+ "t-qdi9": {
+  "title": "Kick fuzz: Diode Clipper, drive 9 dB",
+  "group": "texture",
+  "set": [
+   [
+    "load",
+    "song.tracks[2]",
+    "Roar"
+   ],
+   [
+    "kickroar",
+    "Shaper 1 On",
+    "On"
+   ],
+   [
+    "kickroar",
+    "Shaper 1 Type",
+    "Diode Clipper"
+   ],
+   [
+    "kickroar",
+    "Shaper 1 Amt",
+    "100 %"
+   ],
+   [
+    "kickroar",
+    "Drive",
+    "9 dB"
+   ],
+   [
+    "kickroar",
+    "Shaper 1 Level",
+    "0.0 dB"
+   ],
+   [
+    "kickroar",
+    "Flt 1 On",
+    "On"
+   ],
+   [
+    "kickroar",
+    "Flt 1 Type",
+    "HP"
+   ],
+   [
+    "kickroar",
+    "Flt 1 Freq",
+    "600 Hz"
+   ],
+   [
+    "kickroar",
+    "Flt 1 Pre On",
+    "Off"
+   ],
+   [
+    "kickroar",
+    "Comp Amt",
+    "0.0 %"
+   ],
+   [
+    "kickroar",
+    "Dry/Wet",
+    "40 %"
+   ]
+  ],
+  "what": "A Roar on the kick track (not the rumble): Diode Clipper driven 9 dB, high-passed at 600 Hz after it, 40 % wet, no compression"
+ },
+ "t-qdi12": {
+  "title": "Kick fuzz: Diode Clipper, drive 12 dB",
+  "group": "texture",
+  "set": [
+   [
+    "load",
+    "song.tracks[2]",
+    "Roar"
+   ],
+   [
+    "kickroar",
+    "Shaper 1 On",
+    "On"
+   ],
+   [
+    "kickroar",
+    "Shaper 1 Type",
+    "Diode Clipper"
+   ],
+   [
+    "kickroar",
+    "Shaper 1 Amt",
+    "100 %"
+   ],
+   [
+    "kickroar",
+    "Drive",
+    "12 dB"
+   ],
+   [
+    "kickroar",
+    "Shaper 1 Level",
+    "0.0 dB"
+   ],
+   [
+    "kickroar",
+    "Flt 1 On",
+    "On"
+   ],
+   [
+    "kickroar",
+    "Flt 1 Type",
+    "HP"
+   ],
+   [
+    "kickroar",
+    "Flt 1 Freq",
+    "600 Hz"
+   ],
+   [
+    "kickroar",
+    "Flt 1 Pre On",
+    "Off"
+   ],
+   [
+    "kickroar",
+    "Comp Amt",
+    "0.0 %"
+   ],
+   [
+    "kickroar",
+    "Dry/Wet",
+    "40 %"
+   ]
+  ],
+  "what": "A Roar on the kick track (not the rumble): Diode Clipper driven 12 dB, high-passed at 600 Hz after it, 40 % wet, no compression"
+ },
+ "t-qdi15": {
+  "title": "Kick fuzz: Diode Clipper, drive 15 dB",
+  "group": "texture",
+  "set": [
+   [
+    "load",
+    "song.tracks[2]",
+    "Roar"
+   ],
+   [
+    "kickroar",
+    "Shaper 1 On",
+    "On"
+   ],
+   [
+    "kickroar",
+    "Shaper 1 Type",
+    "Diode Clipper"
+   ],
+   [
+    "kickroar",
+    "Shaper 1 Amt",
+    "100 %"
+   ],
+   [
+    "kickroar",
+    "Drive",
+    "15 dB"
+   ],
+   [
+    "kickroar",
+    "Shaper 1 Level",
+    "0.0 dB"
+   ],
+   [
+    "kickroar",
+    "Flt 1 On",
+    "On"
+   ],
+   [
+    "kickroar",
+    "Flt 1 Type",
+    "HP"
+   ],
+   [
+    "kickroar",
+    "Flt 1 Freq",
+    "600 Hz"
+   ],
+   [
+    "kickroar",
+    "Flt 1 Pre On",
+    "Off"
+   ],
+   [
+    "kickroar",
+    "Comp Amt",
+    "0.0 %"
+   ],
+   [
+    "kickroar",
+    "Dry/Wet",
+    "40 %"
+   ]
+  ],
+  "what": "A Roar on the kick track (not the rumble): Diode Clipper driven 15 dB, high-passed at 600 Hz after it, 40 % wet, no compression"
+ },
+ "t-qtf9": {
+  "title": "Kick fuzz: Tri Fold, drive 9 dB",
+  "group": "texture",
+  "set": [
+   [
+    "load",
+    "song.tracks[2]",
+    "Roar"
+   ],
+   [
+    "kickroar",
+    "Shaper 1 On",
+    "On"
+   ],
+   [
+    "kickroar",
+    "Shaper 1 Type",
+    "Tri Fold"
+   ],
+   [
+    "kickroar",
+    "Shaper 1 Amt",
+    "100 %"
+   ],
+   [
+    "kickroar",
+    "Drive",
+    "9 dB"
+   ],
+   [
+    "kickroar",
+    "Shaper 1 Level",
+    "0.0 dB"
+   ],
+   [
+    "kickroar",
+    "Flt 1 On",
+    "On"
+   ],
+   [
+    "kickroar",
+    "Flt 1 Type",
+    "HP"
+   ],
+   [
+    "kickroar",
+    "Flt 1 Freq",
+    "600 Hz"
+   ],
+   [
+    "kickroar",
+    "Flt 1 Pre On",
+    "Off"
+   ],
+   [
+    "kickroar",
+    "Comp Amt",
+    "0.0 %"
+   ],
+   [
+    "kickroar",
+    "Dry/Wet",
+    "40 %"
+   ]
+  ],
+  "what": "A Roar on the kick track (not the rumble): Tri Fold driven 9 dB, high-passed at 600 Hz after it, 40 % wet, no compression"
+ },
+ "t-qtf12": {
+  "title": "Kick fuzz: Tri Fold, drive 12 dB",
+  "group": "texture",
+  "set": [
+   [
+    "load",
+    "song.tracks[2]",
+    "Roar"
+   ],
+   [
+    "kickroar",
+    "Shaper 1 On",
+    "On"
+   ],
+   [
+    "kickroar",
+    "Shaper 1 Type",
+    "Tri Fold"
+   ],
+   [
+    "kickroar",
+    "Shaper 1 Amt",
+    "100 %"
+   ],
+   [
+    "kickroar",
+    "Drive",
+    "12 dB"
+   ],
+   [
+    "kickroar",
+    "Shaper 1 Level",
+    "0.0 dB"
+   ],
+   [
+    "kickroar",
+    "Flt 1 On",
+    "On"
+   ],
+   [
+    "kickroar",
+    "Flt 1 Type",
+    "HP"
+   ],
+   [
+    "kickroar",
+    "Flt 1 Freq",
+    "600 Hz"
+   ],
+   [
+    "kickroar",
+    "Flt 1 Pre On",
+    "Off"
+   ],
+   [
+    "kickroar",
+    "Comp Amt",
+    "0.0 %"
+   ],
+   [
+    "kickroar",
+    "Dry/Wet",
+    "40 %"
+   ]
+  ],
+  "what": "A Roar on the kick track (not the rumble): Tri Fold driven 12 dB, high-passed at 600 Hz after it, 40 % wet, no compression"
+ },
+ "t-qtf15": {
+  "title": "Kick fuzz: Tri Fold, drive 15 dB",
+  "group": "texture",
+  "set": [
+   [
+    "load",
+    "song.tracks[2]",
+    "Roar"
+   ],
+   [
+    "kickroar",
+    "Shaper 1 On",
+    "On"
+   ],
+   [
+    "kickroar",
+    "Shaper 1 Type",
+    "Tri Fold"
+   ],
+   [
+    "kickroar",
+    "Shaper 1 Amt",
+    "100 %"
+   ],
+   [
+    "kickroar",
+    "Drive",
+    "15 dB"
+   ],
+   [
+    "kickroar",
+    "Shaper 1 Level",
+    "0.0 dB"
+   ],
+   [
+    "kickroar",
+    "Flt 1 On",
+    "On"
+   ],
+   [
+    "kickroar",
+    "Flt 1 Type",
+    "HP"
+   ],
+   [
+    "kickroar",
+    "Flt 1 Freq",
+    "600 Hz"
+   ],
+   [
+    "kickroar",
+    "Flt 1 Pre On",
+    "Off"
+   ],
+   [
+    "kickroar",
+    "Comp Amt",
+    "0.0 %"
+   ],
+   [
+    "kickroar",
+    "Dry/Wet",
+    "40 %"
+   ]
+  ],
+  "what": "A Roar on the kick track (not the rumble): Tri Fold driven 15 dB, high-passed at 600 Hz after it, 40 % wet, no compression"
+ },
+ "t-mdi6": {
+  "title": "Punch fuzz: Diode Clipper, drive 6 dB",
+  "group": "texture",
+  "set": [
+   [
+    "song.tracks[1].devices[1]",
+    "Device On",
+    "On"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Shaper 1 Amt",
+    "0.0 %"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Shaper 3 Amt",
+    "0.0 %"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Shaper 2 On",
+    "On"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Shaper 2 Type",
+    "Diode Clipper"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Shaper 2 Amt",
+    "100 %"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Shaper 2 Level",
+    "0.0 dB"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Flt 2 On",
+    "Off"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Drive",
+    "6 dB"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Comp Amt",
+    "0.0 %"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Dry/Wet",
+    "100 %"
+   ]
+  ],
+  "what": "The kick group's multiband Roar: only the mid band (200 Hz-2 kHz, the punch) through Diode Clipper, drive 6 dB, its 1.44 kHz low-pass off; low and high bands clean"
+ },
+ "t-mdi12": {
+  "title": "Punch fuzz: Diode Clipper, drive 12 dB",
+  "group": "texture",
+  "set": [
+   [
+    "song.tracks[1].devices[1]",
+    "Device On",
+    "On"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Shaper 1 Amt",
+    "0.0 %"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Shaper 3 Amt",
+    "0.0 %"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Shaper 2 On",
+    "On"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Shaper 2 Type",
+    "Diode Clipper"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Shaper 2 Amt",
+    "100 %"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Shaper 2 Level",
+    "0.0 dB"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Flt 2 On",
+    "Off"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Drive",
+    "12 dB"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Comp Amt",
+    "0.0 %"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Dry/Wet",
+    "100 %"
+   ]
+  ],
+  "what": "The kick group's multiband Roar: only the mid band (200 Hz-2 kHz, the punch) through Diode Clipper, drive 12 dB, its 1.44 kHz low-pass off; low and high bands clean"
+ },
+ "t-mtf6": {
+  "title": "Punch fuzz: Tri Fold, drive 6 dB",
+  "group": "texture",
+  "set": [
+   [
+    "song.tracks[1].devices[1]",
+    "Device On",
+    "On"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Shaper 1 Amt",
+    "0.0 %"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Shaper 3 Amt",
+    "0.0 %"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Shaper 2 On",
+    "On"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Shaper 2 Type",
+    "Tri Fold"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Shaper 2 Amt",
+    "100 %"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Shaper 2 Level",
+    "0.0 dB"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Flt 2 On",
+    "Off"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Drive",
+    "6 dB"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Comp Amt",
+    "0.0 %"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Dry/Wet",
+    "100 %"
+   ]
+  ],
+  "what": "The kick group's multiband Roar: only the mid band (200 Hz-2 kHz, the punch) through Tri Fold, drive 6 dB, its 1.44 kHz low-pass off; low and high bands clean"
+ },
+ "t-mtf12": {
+  "title": "Punch fuzz: Tri Fold, drive 12 dB",
+  "group": "texture",
+  "set": [
+   [
+    "song.tracks[1].devices[1]",
+    "Device On",
+    "On"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Shaper 1 Amt",
+    "0.0 %"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Shaper 3 Amt",
+    "0.0 %"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Shaper 2 On",
+    "On"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Shaper 2 Type",
+    "Tri Fold"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Shaper 2 Amt",
+    "100 %"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Shaper 2 Level",
+    "0.0 dB"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Flt 2 On",
+    "Off"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Drive",
+    "12 dB"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Comp Amt",
+    "0.0 %"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Dry/Wet",
+    "100 %"
+   ]
+  ],
+  "what": "The kick group's multiband Roar: only the mid band (200 Hz-2 kHz, the punch) through Tri Fold, drive 12 dB, its 1.44 kHz low-pass off; low and high bands clean"
+ },
+ "t-h150": {
+  "title": "052 body into COLDFIRE, 150 Hz",
+  "group": "texture",
+  "set": [
+   [
+    "song.tracks[2].devices[1]",
+    "3 Filter On A",
+    "Off"
+   ],
+   [
+    "song.tracks[2].devices[0].chains[1].devices[3]",
+    "8 Filter On A",
+    "Off"
+   ],
+   [
+    "chain052",
+    "volume",
+    6.0
+   ],
+   [
+    "eq052",
+    "4 Frequency A",
+    "150 Hz"
+   ]
+  ],
+  "what": "Unhidden, the 052 layer +6 dB, and its high-pass before COLDFIRE lowered from 958 to 150 Hz, so COLDFIRE clips 052's short body, not only its click"
+ },
+ "t-h300": {
+  "title": "052 body into COLDFIRE, 300 Hz",
+  "group": "texture",
+  "set": [
+   [
+    "song.tracks[2].devices[1]",
+    "3 Filter On A",
+    "Off"
+   ],
+   [
+    "song.tracks[2].devices[0].chains[1].devices[3]",
+    "8 Filter On A",
+    "Off"
+   ],
+   [
+    "chain052",
+    "volume",
+    6.0
+   ],
+   [
+    "eq052",
+    "4 Frequency A",
+    "300 Hz"
+   ]
+  ],
+  "what": "Unhidden, the 052 layer +6 dB, and its high-pass before COLDFIRE lowered from 958 to 300 Hz, so COLDFIRE clips 052's short body, not only its click"
+ },
+ "t-h500": {
+  "title": "052 body into COLDFIRE, 500 Hz",
+  "group": "texture",
+  "set": [
+   [
+    "song.tracks[2].devices[1]",
+    "3 Filter On A",
+    "Off"
+   ],
+   [
+    "song.tracks[2].devices[0].chains[1].devices[3]",
+    "8 Filter On A",
+    "Off"
+   ],
+   [
+    "chain052",
+    "volume",
+    6.0
+   ],
+   [
+    "eq052",
+    "4 Frequency A",
+    "500 Hz"
+   ]
+  ],
+  "what": "Unhidden, the 052 layer +6 dB, and its high-pass before COLDFIRE lowered from 958 to 500 Hz, so COLDFIRE clips 052's short body, not only its click"
+ },
+ "t-d150-6": {
+  "title": "052 body driven +6 dB, 150 Hz",
+  "group": "texture",
+  "set": [
+   [
+    "song.tracks[2].devices[1]",
+    "3 Filter On A",
+    "Off"
+   ],
+   [
+    "song.tracks[2].devices[0].chains[1].devices[3]",
+    "8 Filter On A",
+    "Off"
+   ],
+   [
+    "chain052",
+    "volume",
+    6.0
+   ],
+   [
+    "eq052",
+    "4 Frequency A",
+    "150 Hz"
+   ],
+   [
+    "eq052",
+    "Output",
+    "6.0 dB"
+   ],
+   [
+    "util052",
+    "Output",
+    "-8.2 dB"
+   ]
+  ],
+  "what": "Unhidden, the 052 layer +6 dB, its high-pass before COLDFIRE at 150 Hz, and 6 dB more into COLDFIRE (the EQ's output up, the Utility after it down as much)"
+ },
+ "t-d150-12": {
+  "title": "052 body driven +12 dB, 150 Hz",
+  "group": "texture",
+  "set": [
+   [
+    "song.tracks[2].devices[1]",
+    "3 Filter On A",
+    "Off"
+   ],
+   [
+    "song.tracks[2].devices[0].chains[1].devices[3]",
+    "8 Filter On A",
+    "Off"
+   ],
+   [
+    "chain052",
+    "volume",
+    6.0
+   ],
+   [
+    "eq052",
+    "4 Frequency A",
+    "150 Hz"
+   ],
+   [
+    "eq052",
+    "Output",
+    "12.0 dB"
+   ],
+   [
+    "util052",
+    "Output",
+    "-14.2 dB"
+   ]
+  ],
+  "what": "Unhidden, the 052 layer +6 dB, its high-pass before COLDFIRE at 150 Hz, and 12 dB more into COLDFIRE (the EQ's output up, the Utility after it down as much)"
+ },
+ "t-d250-6": {
+  "title": "052 body driven +6 dB, 250 Hz",
+  "group": "texture",
+  "set": [
+   [
+    "song.tracks[2].devices[1]",
+    "3 Filter On A",
+    "Off"
+   ],
+   [
+    "song.tracks[2].devices[0].chains[1].devices[3]",
+    "8 Filter On A",
+    "Off"
+   ],
+   [
+    "chain052",
+    "volume",
+    6.0
+   ],
+   [
+    "eq052",
+    "4 Frequency A",
+    "250 Hz"
+   ],
+   [
+    "eq052",
+    "Output",
+    "6.0 dB"
+   ],
+   [
+    "util052",
+    "Output",
+    "-8.2 dB"
+   ]
+  ],
+  "what": "Unhidden, the 052 layer +6 dB, its high-pass before COLDFIRE at 250 Hz, and 6 dB more into COLDFIRE (the EQ's output up, the Utility after it down as much)"
+ },
+ "t-d250-12": {
+  "title": "052 body driven +12 dB, 250 Hz",
+  "group": "texture",
+  "set": [
+   [
+    "song.tracks[2].devices[1]",
+    "3 Filter On A",
+    "Off"
+   ],
+   [
+    "song.tracks[2].devices[0].chains[1].devices[3]",
+    "8 Filter On A",
+    "Off"
+   ],
+   [
+    "chain052",
+    "volume",
+    6.0
+   ],
+   [
+    "eq052",
+    "4 Frequency A",
+    "250 Hz"
+   ],
+   [
+    "eq052",
+    "Output",
+    "12.0 dB"
+   ],
+   [
+    "util052",
+    "Output",
+    "-14.2 dB"
+   ]
+  ],
+  "what": "Unhidden, the 052 layer +6 dB, its high-pass before COLDFIRE at 250 Hz, and 12 dB more into COLDFIRE (the EQ's output up, the Utility after it down as much)"
+ },
+ "t-n1": {
+  "title": "052 body fuzz",
+  "group": "texture",
+  "set": [
+   [
+    "song.tracks[2].devices[1]",
+    "3 Filter On A",
+    "Off"
+   ],
+   [
+    "song.tracks[2].devices[0].chains[1].devices[3]",
+    "8 Filter On A",
+    "Off"
+   ],
+   [
+    "chain052",
+    "volume",
+    6.0
+   ],
+   [
+    "eq052",
+    "4 Frequency A",
+    "250 Hz"
+   ],
+   [
+    "eq052",
+    "Output",
+    "6.0 dB"
+   ],
+   [
+    "util052",
+    "Output",
+    "-5.2 dB"
+   ]
+  ],
+  "what": "Unhidden; the 052 layer +6 dB with its high-pass before COLDFIRE at 250 Hz, so COLDFIRE clips its short body, driven 6 dB harder; and nothing more"
+ },
+ "t-n2": {
+  "title": "052 body fuzz + Noise Injection",
+  "group": "texture",
+  "set": [
+   [
+    "song.tracks[2].devices[1]",
+    "3 Filter On A",
+    "Off"
+   ],
+   [
+    "song.tracks[2].devices[0].chains[1].devices[3]",
+    "8 Filter On A",
+    "Off"
+   ],
+   [
+    "chain052",
+    "volume",
+    6.0
+   ],
+   [
+    "eq052",
+    "4 Frequency A",
+    "250 Hz"
+   ],
+   [
+    "eq052",
+    "Output",
+    "6.0 dB"
+   ],
+   [
+    "util052",
+    "Output",
+    "-5.2 dB"
+   ],
+   [
+    "load",
+    "song.tracks[2]",
+    "Roar"
+   ],
+   [
+    "kickroar",
+    "Shaper 1 On",
+    "On"
+   ],
+   [
+    "kickroar",
+    "Shaper 1 Type",
+    "Noise Injection"
+   ],
+   [
+    "kickroar",
+    "Shaper 1 Amt",
+    "100 %"
+   ],
+   [
+    "kickroar",
+    "Drive",
+    "6.0 dB"
+   ],
+   [
+    "kickroar",
+    "Shaper 1 Level",
+    "0.0 dB"
+   ],
+   [
+    "kickroar",
+    "Flt 1 On",
+    "On"
+   ],
+   [
+    "kickroar",
+    "Flt 1 Type",
+    "HP"
+   ],
+   [
+    "kickroar",
+    "Flt 1 Freq",
+    "1000 Hz"
+   ],
+   [
+    "kickroar",
+    "Flt 1 Pre On",
+    "Off"
+   ],
+   [
+    "kickroar",
+    "Comp Amt",
+    "0.0 %"
+   ],
+   [
+    "kickroar",
+    "Dry/Wet",
+    "20 %"
+   ]
+  ],
+  "what": "Unhidden; the 052 layer +6 dB with its high-pass before COLDFIRE at 250 Hz, so COLDFIRE clips its short body, driven 6 dB harder; and Roar's Noise Injection on the kick track, 20 % wet, high-passed at 1 kHz"
+ },
+ "t-n3": {
+  "title": "052 body fuzz + Noise Injection",
+  "group": "texture",
+  "set": [
+   [
+    "song.tracks[2].devices[1]",
+    "3 Filter On A",
+    "Off"
+   ],
+   [
+    "song.tracks[2].devices[0].chains[1].devices[3]",
+    "8 Filter On A",
+    "Off"
+   ],
+   [
+    "chain052",
+    "volume",
+    6.0
+   ],
+   [
+    "eq052",
+    "4 Frequency A",
+    "250 Hz"
+   ],
+   [
+    "eq052",
+    "Output",
+    "6.0 dB"
+   ],
+   [
+    "util052",
+    "Output",
+    "-5.2 dB"
+   ],
+   [
+    "load",
+    "song.tracks[2]",
+    "Roar"
+   ],
+   [
+    "kickroar",
+    "Shaper 1 On",
+    "On"
+   ],
+   [
+    "kickroar",
+    "Shaper 1 Type",
+    "Noise Injection"
+   ],
+   [
+    "kickroar",
+    "Shaper 1 Amt",
+    "100 %"
+   ],
+   [
+    "kickroar",
+    "Drive",
+    "6.0 dB"
+   ],
+   [
+    "kickroar",
+    "Shaper 1 Level",
+    "0.0 dB"
+   ],
+   [
+    "kickroar",
+    "Flt 1 On",
+    "On"
+   ],
+   [
+    "kickroar",
+    "Flt 1 Type",
+    "HP"
+   ],
+   [
+    "kickroar",
+    "Flt 1 Freq",
+    "1000 Hz"
+   ],
+   [
+    "kickroar",
+    "Flt 1 Pre On",
+    "Off"
+   ],
+   [
+    "kickroar",
+    "Comp Amt",
+    "0.0 %"
+   ],
+   [
+    "kickroar",
+    "Dry/Wet",
+    "35 %"
+   ]
+  ],
+  "what": "Unhidden; the 052 layer +6 dB with its high-pass before COLDFIRE at 250 Hz, so COLDFIRE clips its short body, driven 6 dB harder; and Roar's Noise Injection on the kick track, 35 % wet, high-passed at 1 kHz"
+ },
+ "t-n4": {
+  "title": "052 body fuzz + Bit Crusher",
+  "group": "texture",
+  "set": [
+   [
+    "song.tracks[2].devices[1]",
+    "3 Filter On A",
+    "Off"
+   ],
+   [
+    "song.tracks[2].devices[0].chains[1].devices[3]",
+    "8 Filter On A",
+    "Off"
+   ],
+   [
+    "chain052",
+    "volume",
+    6.0
+   ],
+   [
+    "eq052",
+    "4 Frequency A",
+    "250 Hz"
+   ],
+   [
+    "eq052",
+    "Output",
+    "6.0 dB"
+   ],
+   [
+    "util052",
+    "Output",
+    "-5.2 dB"
+   ],
+   [
+    "load",
+    "song.tracks[2]",
+    "Roar"
+   ],
+   [
+    "kickroar",
+    "Shaper 1 On",
+    "On"
+   ],
+   [
+    "kickroar",
+    "Shaper 1 Type",
+    "Bit Crusher"
+   ],
+   [
+    "kickroar",
+    "Shaper 1 Amt",
+    "100 %"
+   ],
+   [
+    "kickroar",
+    "Drive",
+    "6.0 dB"
+   ],
+   [
+    "kickroar",
+    "Shaper 1 Level",
+    "0.0 dB"
+   ],
+   [
+    "kickroar",
+    "Flt 1 On",
+    "On"
+   ],
+   [
+    "kickroar",
+    "Flt 1 Type",
+    "HP"
+   ],
+   [
+    "kickroar",
+    "Flt 1 Freq",
+    "1000 Hz"
+   ],
+   [
+    "kickroar",
+    "Flt 1 Pre On",
+    "Off"
+   ],
+   [
+    "kickroar",
+    "Comp Amt",
+    "0.0 %"
+   ],
+   [
+    "kickroar",
+    "Dry/Wet",
+    "25 %"
+   ]
+  ],
+  "what": "Unhidden; the 052 layer +6 dB with its high-pass before COLDFIRE at 250 Hz, so COLDFIRE clips its short body, driven 6 dB harder; and Roar's Bit Crusher on the kick track, 25 % wet, high-passed at 1 kHz"
+ },
+ "t-f1": {
+  "title": "Body fuzz, Tri Fold, 35 % wet",
+  "group": "texture",
+  "set": [
+   [
+    "song.tracks[1].devices[1]",
+    "Device On",
+    "On"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Shaper 1 On",
+    "On"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Shaper 1 Type",
+    "Tri Fold"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Shaper 1 Amt",
+    "100 %"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Flt 1 On",
+    "On"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Flt 1 Type",
+    "HP"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Flt 1 Freq",
+    "600 Hz"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Flt 1 Pre On",
+    "Off"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Shaper 2 Amt",
+    "0.0 %"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Shaper 3 Amt",
+    "0.0 %"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Comp Amt",
+    "60 %"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Dry/Wet",
+    "35 %"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Drive",
+    "24 dB"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Shaper 1 Level",
+    "6.0 dB"
+   ]
+  ],
+  "what": "The kick group's Roar: its low band driven 24 dB into Tri Fold, high-passed at 600 Hz after it, 35 % wet, compressor 60 %"
+ },
+ "t-f2": {
+  "title": "Body fuzz, Tri Fold, 3 dB down",
+  "group": "texture",
+  "set": [
+   [
+    "song.tracks[1].devices[1]",
+    "Device On",
+    "On"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Shaper 1 On",
+    "On"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Shaper 1 Type",
+    "Tri Fold"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Shaper 1 Amt",
+    "100 %"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Flt 1 On",
+    "On"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Flt 1 Type",
+    "HP"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Flt 1 Freq",
+    "600 Hz"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Flt 1 Pre On",
+    "Off"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Shaper 2 Amt",
+    "0.0 %"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Shaper 3 Amt",
+    "0.0 %"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Comp Amt",
+    "60 %"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Dry/Wet",
+    "50 %"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Drive",
+    "24 dB"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Shaper 1 Level",
+    "3.0 dB"
+   ]
+  ],
+  "what": "The kick group's Roar: its low band driven 24 dB into Tri Fold (+3 dB out), high-passed at 600 Hz after it, 50 % wet, compressor 60 %"
+ },
+ "t-f3": {
+  "title": "Body + punch fuzz, Tri Fold",
+  "group": "texture",
+  "set": [
+   [
+    "song.tracks[1].devices[1]",
+    "Device On",
+    "On"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Shaper 1 On",
+    "On"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Shaper 1 Type",
+    "Tri Fold"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Shaper 1 Amt",
+    "100 %"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Flt 1 On",
+    "On"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Flt 1 Type",
+    "HP"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Flt 1 Freq",
+    "600 Hz"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Flt 1 Pre On",
+    "Off"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Shaper 2 Amt",
+    "0.0 %"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Shaper 3 Amt",
+    "0.0 %"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Comp Amt",
+    "60 %"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Dry/Wet",
+    "40 %"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Drive",
+    "24 dB"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Shaper 1 Level",
+    "3.0 dB"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Shaper 2 Type",
+    "Tri Fold"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Shaper 2 Amt",
+    "50 %"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Flt 2 On",
+    "Off"
+   ]
+  ],
+  "what": "The kick group's Roar: its low band driven 24 dB into Tri Fold, high-passed at 600 Hz after it, and the mid band (the punch) folded at 50 %, 40 % wet, compressor 60 %"
+ },
+ "t-f1s": {
+  "title": "Body fuzz, sub back",
+  "group": "texture",
+  "set": [
+   [
+    "song.tracks[1].devices[1]",
+    "Device On",
+    "On"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Shaper 1 On",
+    "On"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Shaper 1 Type",
+    "Tri Fold"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Shaper 1 Amt",
+    "100 %"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Flt 1 On",
+    "On"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Flt 1 Type",
+    "HP"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Flt 1 Freq",
+    "600 Hz"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Flt 1 Pre On",
+    "Off"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Shaper 2 Amt",
+    "0.0 %"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Shaper 3 Amt",
+    "0.0 %"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Comp Amt",
+    "60 %"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Dry/Wet",
+    "35 %"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Drive",
+    "24 dB"
+   ],
+   [
+    "song.tracks[1].devices[1]",
+    "Shaper 1 Level",
+    "6.0 dB"
+   ],
+   [
+    "song.tracks[1].devices[0]",
+    "1 Gain A",
+    "-6.0 dB"
+   ],
+   [
+    "song.tracks[3].devices[3]",
+    "1 Gain A",
+    "-6.0 dB"
+   ]
+  ],
+  "what": "The kick group's Roar: its low band driven 24 dB into Tri Fold, high-passed at 600 Hz after it, 35 % wet, compressor 60 %; and HW002's deep-sub cuts eased: the kick group's and the rumble's low shelves at 30 Hz from -15 to -6 dB"
+ }
+}

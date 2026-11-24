@@ -20,19 +20,57 @@ named exceptions in `contrib/docs/sound.md`), and, for the second mix step, onli
 
 1. `uv run --project hands python contrib/arranger/bounce.py` solos each part of the set in Live and exports Main
    (15 bounces, about 6 minutes). Live must have the working copy `HW002_121_pp_loops` in front.
-2. `uv run --project hands python contrib/arranger/mine.py` cuts those bounces into loops and one-shots on the bar,
+2. `uv run --project ears python contrib/arranger/mine.py` cuts those bounces into loops and one-shots on the bar,
    writes `loops.json`, and checks the song's own arrangement, summed, against Live's bounce of the mix.
-3. `python3 contrib/arranger/server.py` serves the page on 127.0.0.1:8975; `tailscale serve` puts it on the tailnet.
-
-The audio and the saved arrangements stay outside the repo (`~/_agent_scratch/arranger`).
+3. `python3 contrib/arranger/server.py` serves the pages on 127.0.0.1:8975 (`ARRANGER_PORT` to change it);
+   `tailscale serve` puts it on the tailnet.
 
 The page starts the loops together on the bar clock and does nothing else to them (`contrib/docs/sound.md`: the
 browser plays renders, it never makes sound). What it produces is a structure, not audio: each saved arrangement
 names its loops by stem and source bar, so it can be rebuilt in the set and rendered in Live.
 
-`shorts.py` writes the one-minute arrangements shown as tabs (the canonical 8d2a2), and
-`uv run --project ears python contrib/arranger/measure.py short-8d2a2` prints a tab's level above 6 and 10 kHz for each
-four bars, and its peak.
+`shorts.py` writes the one-minute arrangements shown as tabs (the canonical 8d2a2; it replaces the file, later
+steps included), and `uv run --project ears python contrib/arranger/measure.py short-8d2a2` prints a tab's level
+above 6 and 10 kHz for each four bars, and its peak.
+
+### Where the data is, and what a save keeps
+
+I keep the audio, the renders and the saved arrangements outside the repo, in `$ARRANGER_DATA` (default
+`~/_agent_scratch/arranger`). Every script and the server read that one folder, whichever checkout they run from.
+The mix desk (`contrib/mixdesk/recipe.py`) reads the same variable with the same default, and writes its `desk` key
+into the same `arrangements/short-8d2a2.json`. So the arranger and the desk share one recipe file only when both
+run with the same `ARRANGER_DATA` (by default they do).
+
+The arrangement file is the recipe. Each page owns its keys: the arranger page `name, bars, regions, mutes`; the
+others `transitions`, `mix`, `mix2`, `spectral`, `kickFuzz`; the mix desk `desk`. A save from the arranger page keeps
+every key it does not own, so editing the arrangement never drops a later step or the desk. Its shape is
+`lib/contracts/arrangement.schema.json`; `arrangement.py` is the code that parses it.
+
+### How it is built
+
+| File | What it is |
+|---|---|
+| `server.py` | The pages and their files: a table of routes grouped by page, each a short function. `make_server(data, port=...)` starts it anywhere. |
+| `arrangement.py` | The arrangement's typed shape, the one parse of each body a page sends, and what a save keeps. Pure. |
+| `hw002.py` | What every script shares about HW002: tempo, bar, the 40-bar span and the drop at bar 17, the set names, the data folder, and `live_ops` (hands' LiveOps for these sets). |
+| `bounce.py`, `mine.py`, `shorts.py`, `measure.py`, `refs.py` | The loops, the tabs, and the references for mix 1. |
+| `fxset.py` | The transition sounds, made in a copy of the set. |
+| `mixset.py`, `spectral.py` | The mix set, mix-2 batches, and the spectrum against the references. |
+| `kickfuzz.py`, `kickiso.py`, `kickdesign.py`, `kicktexture.py`, `kickshape.py` | The kick options and their measures. |
+
+Each script is a few library functions and a thin command at the bottom. Nothing changes the environment at import:
+hands' rig settings are pointed at the HW002 sets only when a command asks for Live (`hw002.live_ops`).
+
+### Tests
+
+Offline, in hands' environment plus scipy and pyloudnorm for the measuring scripts:
+
+    cd hands && uv run --all-extras --with scipy --with pyloudnorm pytest -q ../contrib/arranger/tests
+
+They start the server in-process on a free port against a temporary data folder and call every route over HTTP;
+replay the scripts' Live steps against a stand-in for LiveOps and compare them with goldens in `tests/golden/`;
+and run the measuring scripts on made-up audio. Nothing talks to Live. A golden is rewritten only on purpose, with
+`ARRANGER_GOLDEN=write`, when the behaviour is meant to change.
 
 ## Transitions
 
