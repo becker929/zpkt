@@ -9,12 +9,9 @@ import pytest
 from aiohttp.test_utils import TestClient, TestServer
 from booth.contract import BadRequest, parse_job_request
 from booth.server import app
-from conftest import example
-from test_runner import Rig
+from conftest import AUTH, TOKEN, Rig, example
 
 CONTRACTS = Path(__file__).resolve().parents[3] / "lib" / "contracts"
-TOKEN = "zb1_test"
-AUTH = {"Authorization": f"Bearer {TOKEN}"}
 
 
 def valid(name: str, data) -> None:
@@ -31,6 +28,7 @@ def invalid(name: str, data) -> bool:
 
 @pytest.fixture
 async def client(tmp_path, fake):
+    """The API open for jobs (conftest's is closed)."""
     rig = Rig(tmp_path, fake)
     a = app(rig.jobs, rig.runner, rig.settings, TOKEN)
     a.cleanup_ctx.clear()

@@ -57,12 +57,11 @@ SAMPLE_RULES = {
 - mode "one_shot": patterns play the whole sample from each note, like a drum hit; pitch 60 plays it as recorded,
   each semitone repitches it (24-96).
 """,
-    "slices": """\
-- mode "slices": the sample is cut where `slices` says (seconds into it, rising, the first 0, at most %d; onsets_s is
+    "slices": f"""\
+- mode "slices": the sample is cut where `slices` says (seconds into it, rising, the first 0, at most {MAX_SLICES}; onsets_s is
   a good start, or even steps for a loop); pitch 36 plays the first slice, 37 the second, and so on, each from its
   start to the next. Write patterns that chop and reorder them.
-"""
-    % MAX_SLICES,
+""",
 }
 
 
@@ -129,7 +128,7 @@ def app(jobs: Jobs, runner: Runner, settings: Settings, token: str) -> web.Appli
             raise web.HTTPBadRequest(
                 text=json.dumps({"error": "bad_json", "message": "the body is not JSON"}),
                 content_type="application/json",
-            )
+            ) from None
         if not isinstance(data, dict):
             raise web.HTTPBadRequest(
                 text=json.dumps({"error": "bad_json", "message": "the body is not an object"}),

@@ -1,22 +1,6 @@
-import pytest
 from aiohttp.test_utils import TestClient, TestServer
 from booth.server import app
-from conftest import example
-from test_runner import Rig
-
-TOKEN = "zb1_test"
-AUTH = {"Authorization": f"Bearer {TOKEN}"}
-
-
-@pytest.fixture
-async def client(tmp_path, fake):
-    rig = Rig(tmp_path, fake)
-    rig.runner.close("tests drive the worker themselves")
-    a = app(rig.jobs, rig.runner, rig.settings, TOKEN)
-    a.cleanup_ctx.clear()  # no background worker: tests call tick()
-    async with TestClient(TestServer(a)) as c:
-        c.rig = rig
-        yield c
+from conftest import AUTH, TOKEN, Rig, example
 
 
 async def test_token_is_required(client):
@@ -37,7 +21,7 @@ async def test_guide_for_another_palette(client):
     assert (
         all(e["palette"] == "2026-12" for e in g["examples"]) and len(g["examples"]) == 2
     )  # old examples, new version
-    kit = [i for i in g["instruments"] if i["id"] == "drums.909"][0]
+    kit = next(i for i in g["instruments"] if i["id"] == "drums.909")
     assert kit["pads"][0] == {"note": 36, "name": "Bass Drum"} and len(kit["pads"]) == 16
     res = await client.get("/v1/guide?palette=2027-01", headers=AUTH)
     assert res.status == 404 and (await res.json())["error"] == "unknown_palette"

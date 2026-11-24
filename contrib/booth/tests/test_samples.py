@@ -13,7 +13,6 @@ from booth.check import check
 from booth.gui import Stop
 from booth.live import Builder
 from conftest import example, make_sample
-from test_server import client  # noqa: F401  - the API fixture
 
 needs_ffmpeg = pytest.mark.skipif(not shutil.which("ffmpeg"), reason="needs ffmpeg (the booth Mac has it; CI may not)")
 
@@ -226,7 +225,7 @@ def test_slices_become_frames():
 
 # ---- in Live (the fake) ---------------------------------------------------------------------------------------------
 def build(fake, raw):
-    lv, fo = fake
+    lv, _fo = fake
     p = plan_of(raw)
     b = Builder(lv)
     b.build(p, b.open("abc"))
@@ -235,7 +234,7 @@ def build(fake, raw):
 
 def test_a_warped_loop_is_placed_fitted_and_copied(fake):
     smp = make_sample(3.7)
-    song, p = build(fake, with_sample(smp, start_beat=36, warp="complex", loop=True))
+    song, _p = build(fake, with_sample(smp, start_beat=36, warp="complex", loop=True))
     tr = song.tracks[3]
     assert tr.name == "p4" and not tr.has_midi_input
     clips = sorted(tr.arrangement_clips, key=lambda c: c.start_time)
@@ -256,7 +255,7 @@ def test_a_warped_loop_is_placed_fitted_and_copied(fake):
 
 def test_an_unwarped_transposed_clip_first_in_the_score_takes_p1s_place(fake):
     smp = make_sample(3.0)
-    song, p = build(fake, with_sample(smp, replace=0, start_beat=2, transpose=-12))
+    song, _p = build(fake, with_sample(smp, replace=0, start_beat=2, transpose=-12))
     assert [(t.name, t.has_midi_input) for t in song.tracks] == [("p1", False), ("p2", True), ("p3", True)]
     (c,) = song.tracks[0].arrangement_clips
     assert not c.warping and c.pitch_coarse == -12 and c.start_marker == 0.0  # the transient's offset undone
@@ -276,7 +275,7 @@ def test_a_wrong_clip_stops(fake, monkeypatch):
 
 
 def test_one_shot_and_slices_load_a_simpler(fake):
-    lv, fo = fake
+    _lv, fo = fake
     smp = make_sample(2.0)
     s = with_sample(smp, mode="slices", slices=[0, 0.5, 1.0, 1.5])
     s["patterns"].append(
@@ -315,7 +314,7 @@ def test_a_simpler_that_doesnt_take_the_sample_stops(fake, monkeypatch):
 
 def test_a_job_with_a_sample_runs_to_done_and_draws_it(tmp_path, fake):
     from booth import video
-    from test_runner import Rig
+    from conftest import Rig
 
     smp = make_sample(3.7)
     raw = with_sample(smp, start_beat=4, warp="beats", loop=True)
@@ -330,7 +329,7 @@ def test_a_job_with_a_sample_runs_to_done_and_draws_it(tmp_path, fake):
 
 # ---- the API --------------------------------------------------------------------------------------------------------
 async def test_the_guide_mentions_samples_only_when_the_booth_takes_them(client):
-    from test_server import AUTH
+    from conftest import AUTH
 
     g = await (await client.get("/v1/guide", headers=AUTH)).json()
     assert "samples" not in g and "sample" not in g["rules"].lower()
@@ -345,7 +344,7 @@ async def test_the_guide_mentions_samples_only_when_the_booth_takes_them(client)
 
 
 async def test_check_and_jobs_follow_the_booths_sample_modes(client):
-    from test_server import AUTH
+    from conftest import AUTH
 
     raw = with_sample(make_sample(2.0), warp="beats")
     res = await (await client.post("/v1/check", json={"score": raw}, headers=AUTH)).json()
@@ -364,7 +363,7 @@ async def test_check_and_jobs_follow_the_booths_sample_modes(client):
 
 @needs_ffmpeg
 async def test_upload(client, tmp_path):
-    from test_server import AUTH
+    from conftest import AUTH
 
     data = wav_bytes(tmp_path, seconds=1.0)
     assert (await client.post("/v1/samples", data=data)).status == 401

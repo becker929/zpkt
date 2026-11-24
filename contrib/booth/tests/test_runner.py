@@ -1,36 +1,8 @@
 from datetime import datetime, timedelta
 
 import pytest
-from booth.config import Settings
-from booth.jobs import Jobs
-from booth.live import Builder
-from booth.runner import Gate, Runner, loudness_gain
-from conftest import example
-
-
-class Rig:
-    def __init__(self, tmp_path, fake, *, front="booth_template", last=None, encode=None):
-        self.jobs = Jobs(tmp_path)
-        self.settings = Settings(hours=["00:00-23:59"])
-        self.front = front
-        self.last = last
-        self.gate = Gate(self.settings, front=lambda: self.front, last_lom=lambda: self.last)
-        self.notes = []
-        lv, self.ops = fake
-        self.runner = Runner(
-            self.jobs,
-            self.settings,
-            self.gate,
-            builder=lambda step: Builder(lv, step=step),
-            notify=lambda t, b: self.notes.append((t, b)),
-            encode=encode or self.fake_encode,
-        )
-        self.runner.open()
-
-    @staticmethod
-    def fake_encode(plan, score, wav, out, size):
-        for name in ("render.m4a", "video.mp4", "still.jpg"):
-            (out / name).write_bytes(b"x")
+from booth.runner import loudness_gain
+from conftest import Rig, example
 
 
 def test_a_job_runs_to_done(tmp_path, fake):

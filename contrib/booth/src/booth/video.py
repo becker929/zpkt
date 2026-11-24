@@ -119,7 +119,10 @@ def encode(
 ) -> None:
     x0, width, y0 = geom
     h = size[1] - BOTTOM + 30 - y0
-    run = lambda argv: subprocess.run(argv, check=True, capture_output=True, timeout=300)
+
+    def run(argv: list[str]) -> None:
+        subprocess.run(argv, check=True, capture_output=True, timeout=300)
+
     run(["ffmpeg", "-nostdin", "-y", "-loglevel", "error", "-i", str(wav), "-c:a", "aac", "-b:a", "256k", str(m4a)])
     run(
         [

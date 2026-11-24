@@ -90,7 +90,7 @@ def test_video(tmp_path):
     )
     streams = json.loads(probe.stdout)["streams"]
     assert {s["codec_type"] for s in streams} == {"video", "audio"}
-    assert [s for s in streams if s["codec_type"] == "video"][0]["width"] == 540
+    assert next(s for s in streams if s["codec_type"] == "video")["width"] == 540
 
 
 def test_a_new_palette_keeps_the_old_one_and_was_surveyed():

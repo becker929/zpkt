@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from collections import Counter
 from dataclasses import dataclass, field
+from itertools import pairwise
 from typing import Any
 
 from pydantic import ValidationError
@@ -81,7 +82,7 @@ def _sample(i: int, part, modes, err, warn) -> dict | None:
         ts = sm.slices
         if len(ts) < 2:
             err(f"{where}.slices", "bad_slices", "at least two slices, the first at 0")
-        elif ts[0] != 0 or any(b <= a for a, b in zip(ts, ts[1:])):
+        elif ts[0] != 0 or any(b <= a for a, b in pairwise(ts)):
             err(f"{where}.slices", "bad_slices", "slice starts rise from 0")
         elif ts[-1] >= meta["seconds"] - 0.01:
             err(f"{where}.slices", "bad_slices", f"the sample is {meta['seconds']:.2f} s long")

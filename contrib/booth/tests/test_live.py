@@ -29,7 +29,7 @@ def test_build_runs_the_generated_lom_code(fake, tmp_path):
 
 
 def test_notes_go_in_short_calls(fake):
-    lv, fo = fake
+    lv, _fo = fake
     s = example()
     s["patterns"][0]["notes"] = [{"p": 42, "t": i / 8, "d": 0.1, "v": 60} for i in range(32)]
     s["feel"] = {"swing": 0, "humanize_ms": 0, "velocity_jitter": 0, "seed": 0}
@@ -42,7 +42,7 @@ def test_notes_go_in_short_calls(fake):
 
 
 def test_no_score_text_reaches_live(fake):
-    lv, fo = fake
+    lv, _fo = fake
     s = example()
     s["title"] = "'); import os; os.system('say hi') #"
     s["key"] = '"; song.tracks = None'
@@ -66,7 +66,7 @@ def test_a_template_with_tracks_stops(fake, monkeypatch):
 
     from hands.live import session
 
-    lv, fo = fake
+    lv, _fo = fake
 
     def open_set(client, name, **k):
         lv.song = Song()
@@ -91,7 +91,7 @@ def test_silent_render_stops(fake, tmp_path):
 def test_a_guard_failure_is_a_stop(fake, monkeypatch):
     from hands.live import session
 
-    lv, fo = fake
+    lv, _fo = fake
 
     def guard(client, where, **k):
         session.stop(f"{where}: 1 dialog(s) open in Live")

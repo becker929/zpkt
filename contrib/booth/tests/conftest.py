@@ -324,3 +324,54 @@ def fake(monkeypatch, tmp_path):
     template.parent.mkdir(parents=True, exist_ok=True)
     template.write_text("")
     return lv, fo
+
+
+class Rig:
+    """The booth's job table, gate and runner over the fake Live, with the gate always open and encode stubbed."""
+
+    def __init__(self, tmp_path, fake, *, front="booth_template", last=None, encode=None):
+        from booth.config import Settings
+        from booth.jobs import Jobs
+        from booth.live import Builder
+        from booth.runner import Gate, Runner
+
+        self.jobs = Jobs(tmp_path)
+        self.settings = Settings(hours=["00:00-23:59"])
+        self.front = front
+        self.last = last
+        self.gate = Gate(self.settings, front=lambda: self.front, last_lom=lambda: self.last)
+        self.notes = []
+        lv, self.ops = fake
+        self.runner = Runner(
+            self.jobs,
+            self.settings,
+            self.gate,
+            builder=lambda step: Builder(lv, step=step),
+            notify=lambda t, b: self.notes.append((t, b)),
+            encode=encode or self.fake_encode,
+        )
+        self.runner.open()
+
+    @staticmethod
+    def fake_encode(plan, score, wav, out, size):
+        for name in ("render.m4a", "video.mp4", "still.jpg"):
+            (out / name).write_bytes(b"x")
+
+
+TOKEN = "zb1_test"
+AUTH = {"Authorization": f"Bearer {TOKEN}"}
+
+
+@pytest.fixture
+async def client(tmp_path, fake):
+    """The booth's API on a free port in this process, closed: tests open it and call tick() themselves."""
+    from aiohttp.test_utils import TestClient, TestServer
+    from booth.server import app
+
+    rig = Rig(tmp_path, fake)
+    rig.runner.close("tests drive the worker themselves")
+    a = app(rig.jobs, rig.runner, rig.settings, TOKEN)
+    a.cleanup_ctx.clear()  # no background worker
+    async with TestClient(TestServer(a)) as c:
+        c.rig = rig
+        yield c

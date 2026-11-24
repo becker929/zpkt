@@ -187,7 +187,9 @@ class Builder:
             )
         got = self.run(f"result = sorted((c.start_time, c.end_time) for c in {path}.arrangement_clips)")
         want = [(a, a + n) for a, n in sp.clips]
-        if len(got) != len(want) or any(abs(g[0] - w[0]) > 1e-3 or abs(g[1] - w[1]) > 0.02 for g, w in zip(got, want)):
+        if len(got) != len(want) or any(
+            abs(g[0] - w[0]) > 1e-3 or abs(g[1] - w[1]) > 0.02 for g, w in zip(got, want, strict=True)
+        ):
             raise Stop(f"sample {t.name}: clips {got}, wanted {want}")
 
     def fit(self, first: str, t: TrackPlan) -> None:
@@ -411,7 +413,7 @@ def survey(
             levels = M.levels(
                 wav, [(k * SLOT_BEATS * beat_s, (k + 1) * SLOT_BEATS * beat_s) for k in range(len(tracks))]
             )
-            for t, (lufs, peak) in zip(tracks, levels):
+            for t, (lufs, peak) in zip(tracks, levels, strict=True):
                 found[t.instrument.id].update(lufs=lufs, peak_db=peak)
     finally:
         b.close("survey")
