@@ -11,6 +11,8 @@
 
 from __future__ import annotations
 
+import itertools
+
 import numpy as np
 from scipy import signal
 
@@ -68,7 +70,7 @@ def tonal_balance(x, sr, f_p=None):
     return {
         "groups_db_rel_total": groups,
         "slope_db_per_oct": r(slope),
-        "third_octave": [(r(c, 1), r(l)) for c, l in bands],
+        "third_octave": [(r(c, 1), r(level)) for c, level in bands],
     }
 
 
@@ -83,14 +85,14 @@ def stereo_by_band(x, sr, edges=(20, 120, 500, 2000, 8000, 20000)):
     if x.shape[1] < 2:
         return []
     out = []
-    for lo, hi in zip(edges[:-1], edges[1:]):
+    for lo, hi in itertools.pairwise(edges):
         hi = min(hi, sr / 2 * 0.99)
         sos = signal.butter(4, [lo, hi], "bandpass", fs=sr, output="sos")
         y = signal.sosfiltfilt(sos, x, axis=0)
-        l, rr = y[:, 0], y[:, 1]
-        den = np.sqrt(np.sum(l * l) * np.sum(rr * rr))
-        corr = float(np.sum(l * rr) / den) if den > 0 else 1.0
-        m, s = (l + rr) / 2, (l - rr) / 2
+        left, right = y[:, 0], y[:, 1]
+        den = np.sqrt(np.sum(left * left) * np.sum(right * right))
+        corr = float(np.sum(left * right) / den) if den > 0 else 1.0
+        m, s = (left + right) / 2, (left - right) / 2
         out.append(
             {
                 "band_hz": [lo, int(hi)],
@@ -333,4 +335,4 @@ def perceived_balance(bands, listen_phon=80.0, ref_phon=None):
     _, c_ref = iso226(ref_phon, fc)
     # extra SPL a band needs at the quieter level, relative to 1 kHz
     need = (c_listen - listen_phon) - (c_ref - ref_phon)
-    return [(r(f, 1), r(-n)) for f, n in zip(fc, need)]
+    return [(r(f, 1), r(-n)) for f, n in zip(fc, need, strict=True)]

@@ -14,7 +14,9 @@ import os
 
 import numpy as np
 
-from . import io as aio, measure, premaster, spectrum as S
+from . import io as aio
+from . import measure, premaster
+from . import spectrum as S
 from .util import db, r
 
 AUDIO_EXT = (".wav", ".aif", ".aiff", ".flac", ".mp3", ".m4a")
@@ -96,10 +98,13 @@ def run(path, refdir=None, bpm=160.0, codecs=True):
     if tonal:
         mine = np.array([v for _, v in S.third_octave(a.x, a.sr)])
         n = min(len(mine), *(len(t) for t in tonal))
-        norm = lambda v: v[:n] - 10 * np.log10(np.sum(10 ** (v[:n] / 10)))
+
+        def norm(v):
+            return v[:n] - 10 * np.log10(np.sum(10 ** (v[:n] / 10)))
+
         med = np.median(np.vstack([norm(t) for t in tonal]), axis=0)
         cs = [c for c, _ in S.third_octave(a.x, a.sr)][:n]
-        tonal_diff = [(r(c, 0), r(d)) for c, d in zip(cs, norm(mine) - med)]
+        tonal_diff = [(r(c, 0), r(d)) for c, d in zip(cs, norm(mine) - med, strict=True)]
     fb = feedback(pm, fl, peaks, refs)
     name = os.path.splitext(os.path.basename(path))[0]
     lab = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))

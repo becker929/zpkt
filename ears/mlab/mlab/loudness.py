@@ -57,7 +57,7 @@ def k_filter(x: np.ndarray, sr: int) -> np.ndarray:
 
 def _block_power(y: np.ndarray, sr: int, win_s: float, hop_s: float) -> np.ndarray:
     """Mean-square per channel for sliding rectangular windows -> summed over channels."""
-    win, hop = int(round(win_s * sr)), int(round(hop_s * sr))
+    win, hop = round(win_s * sr), round(hop_s * sr)
     if y.shape[0] < win:
         return np.array([])
     c = np.cumsum(np.vstack([np.zeros((1, y.shape[1])), y**2]), axis=0)
@@ -119,8 +119,8 @@ def integrated(x: np.ndarray, sr: int) -> float:
 def _gate_integrated(p: np.ndarray) -> float:
     if p.size == 0:
         return float("nan")
-    l = _lk(p)
-    p1 = p[l > ABS_GATE]
+    levels = _lk(p)
+    p1 = p[levels > ABS_GATE]
     if p1.size == 0:
         return float("nan")  # silent (below the -70 LUFS gate): loudness undefined
     rel = _lk(p1.mean()) + REL_GATE_I
@@ -188,13 +188,13 @@ def analyze(x: np.ndarray, sr: int) -> LoudnessResult:
     pm = _block_power(y, sr, 0.4, 0.1)
     ps = _block_power(y, sr, 3.0, 0.1)
     m, s = _lk(pm), _lk(ps)
-    I = _gate_integrated(pm)
+    integrated_lufs = _gate_integrated(pm)
     lra, lo, hi = loudness_range(s)
     tp_sig = true_peak_envelope(x, sr)
     tp = float(db(tp_sig.max()))
     psr_min = _psr_min(tp_sig, s, sr)
     return LoudnessResult(
-        integrated=I,
+        integrated=integrated_lufs,
         momentary_max=float(m.max()) if m.size and m.max() > ABS_GATE else float("nan"),
         short_term_max=float(s.max()) if s.size and s.max() > ABS_GATE else float("nan"),
         lra=lra,
@@ -202,7 +202,7 @@ def analyze(x: np.ndarray, sr: int) -> LoudnessResult:
         lra_high=hi,
         sample_peak=sample_peak(x),
         true_peak=tp,
-        plr=tp - I,
+        plr=tp - integrated_lufs,
         psr_min=psr_min,
         momentary=m,
         short_term=s,

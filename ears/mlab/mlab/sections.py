@@ -66,7 +66,7 @@ def kick_mask(low_db):
 def kickless_runs(kick, min_bars=2):
     """1-based inclusive [first, last] bar ranges without kick."""
     runs, start = [], None
-    for b, k in enumerate(list(kick) + [True]):
+    for b, k in enumerate([*kick, True]):
         if not k and start is None:
             start = b
         if k and start is not None:
@@ -78,7 +78,7 @@ def kickless_runs(kick, min_bars=2):
 
 def peak_window(high_db, kick, bpm, seconds=PEAK_S):
     """1-based inclusive bar range of the densest kick section, or None."""
-    wb = max(1, int(round(seconds / (4 * 60 / bpm))))
+    wb = max(1, round(seconds / (4 * 60 / bpm)))
     best, at = -np.inf, None
     for b in range(0, len(high_db) - wb + 1):
         if kick[b : b + wb].mean() < PEAK_KICK_FRACTION:
@@ -135,4 +135,4 @@ def _rel_third_octave(x, sr):
     bands = S.third_octave(x, sr)
     lv = np.array([v for _, v in bands])
     lv -= 10 * np.log10(np.sum(10 ** (lv / 10)))
-    return [(round(c, 1), round(float(v), 2)) for (c, _), v in zip(bands, lv)]
+    return [(round(c, 1), round(float(v), 2)) for (c, _), v in zip(bands, lv, strict=True)]

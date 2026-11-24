@@ -153,7 +153,7 @@ def segments(x, sr, wins, bar_s=None):
                 f" ({MIN_BARS} bars)" if bar_s else ""
             )
             continue
-        keep[name] = ((a2, b2), x[int(round(a2 * sr)) : int(round(b2 * sr))])
+        keep[name] = ((a2, b2), x[round(a2 * sr) : round(b2 * sr)])
     return keep, skipped
 
 
@@ -164,7 +164,7 @@ SEG_S = 0.75  # Hann segment length in seconds, at every rate
 def nperseg(sr):
     """Segment length: 0.75 s at any rate, rounded to a multiple of 4 samples so the
     75 % overlap hop is exact. 44.1 and 48 kHz share one grid of ~1.33 Hz bins."""
-    return 4 * int(round(SEG_S * sr / 4))
+    return 4 * round(SEG_S * sr / 4)
 
 
 def psd(seg, sr):
@@ -195,7 +195,8 @@ def psd(seg, sr):
 
 def band_grid(sr):
     """Centres and edges of spectrum.third_octave's bands that fit under Nyquist."""
-    c = S.CENTRES[S.CENTRES * 10**0.05 <= sr / 2]
+    top_edges = S.CENTRES * 10**0.05
+    c = S.CENTRES[top_edges <= sr / 2]
     return c, c / 10**0.05, c * 10**0.05
 
 
@@ -218,9 +219,9 @@ def spectral(seg, sr, lufs):
     """1/3-octave bands [[hz, dB rel LUFS], ...] and regions {key: dB rel LUFS}."""
     f, p = psd(seg, sr)
     c, lo, hi = band_grid(sr)
-    bands = [[float(cc), float(pdb(v) - lufs)] for cc, v in zip(c, band_power(f, p, lo, hi))]
+    bands = [[float(cc), float(pdb(v) - lufs)] for cc, v in zip(c, band_power(f, p, lo, hi), strict=True)]
     rp = band_power(f, p, *region_edges(sr))
-    return bands, {k: float(pdb(v) - lufs) for k, v in zip(REGION_KEYS, rp)}
+    return bands, {k: float(pdb(v) - lufs) for k, v in zip(REGION_KEYS, rp, strict=True)}
 
 
 def side_minus_mid(seg, sr):
@@ -228,7 +229,7 @@ def side_minus_mid(seg, sr):
     A mono file has no side: it reads SM_FLOOR."""
     seg = _stereo(seg)
     st = S.stereo_by_band(seg, sr, SM_EDGES)
-    return {k: max(SM_FLOOR, float(b["side_minus_mid_db"])) for k, b in zip(SM_KEYS, st)}
+    return {k: max(SM_FLOOR, float(b["side_minus_mid_db"])) for k, b in zip(SM_KEYS, st, strict=True)}
 
 
 # ------------------------------------------------------------------ profile
@@ -249,7 +250,7 @@ def profile(x, sr, wins, bar_s=None):
         if not np.isfinite(lufs):
             skipped[name] = "silent (below the -70 LUFS gate)"
             continue
-        tp = window_true_peak(x, sr, int(round(a * sr)), int(round(a * sr)) + len(seg))
+        tp = window_true_peak(x, sr, round(a * sr), round(a * sr) + len(seg))
         bands, regions = spectral(seg, sr, lufs)
         tc = D.transient_contrast(seg, sr)
         out["windows"][name] = {

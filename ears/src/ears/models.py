@@ -5,7 +5,6 @@ from __future__ import annotations
 import dataclasses
 import time
 from dataclasses import dataclass, field
-from typing import Optional
 
 
 @dataclass
@@ -22,36 +21,36 @@ class SpectralFeatures:
     mfcc_means: list[float] = field(default_factory=list)
     mfcc_stds: list[float] = field(default_factory=list)
     chroma_means: list[float] = field(default_factory=list)
-    key: Optional[str] = None
+    key: str | None = None
     key_strength: float = 0.0
-    danceability: Optional[float] = None
+    danceability: float | None = None
 
 
 @dataclass
 class LoudnessFeatures:
-    lufs_integrated: Optional[float] = None
-    lufs_short_term_peak: Optional[float] = None
-    lufs_momentary_max: Optional[float] = None
-    true_peak_db: Optional[float] = None  # dBTP (4x oversampled, BS.1770)
+    lufs_integrated: float | None = None
+    lufs_short_term_peak: float | None = None
+    lufs_momentary_max: float | None = None
+    true_peak_db: float | None = None  # dBTP (4x oversampled, BS.1770)
     band_energy: dict[str, float] = field(default_factory=dict)
-    camelot_key: Optional[str] = None
+    camelot_key: str | None = None
 
 
 @dataclass
 class RhythmFeatures:
-    bpm: Optional[float] = None
+    bpm: float | None = None
     bpm_confidence: float = 0.0
     beats: list[float] = field(default_factory=list)
     downbeats: list[float] = field(default_factory=list)
     meter_numerator: int = 4
-    swing_ratio: Optional[float] = None
+    swing_ratio: float | None = None
     beat_regularity: float = 0.0
     groove_density: float = 0.0
 
 
 @dataclass
 class PitchFeatures:
-    predominant_pitch_hz: Optional[float] = None
+    predominant_pitch_hz: float | None = None
     pitch_confidence: float = 0.0
     note_events: list[dict] = field(default_factory=list)
 
@@ -62,11 +61,11 @@ class AudioProfile:
     audio_path: str = ""
     duration_seconds: float = 0.0
     sample_rate: int = 0
-    spectral: Optional[SpectralFeatures] = None
-    loudness: Optional[LoudnessFeatures] = None
-    rhythm: Optional[RhythmFeatures] = None
-    pitch: Optional[PitchFeatures] = None
-    embedding: Optional[list[float]] = None
+    spectral: SpectralFeatures | None = None
+    loudness: LoudnessFeatures | None = None
+    rhythm: RhythmFeatures | None = None
+    pitch: PitchFeatures | None = None
+    embedding: list[float] | None = None
     description: str = ""
     extracted_at: float = field(default_factory=time.time)
     errors: list[str] = field(default_factory=list)
@@ -79,9 +78,9 @@ class AudioProfile:
 class SimilarityResult:
     clip_a: str
     clip_b: str
-    embedding_cosine: Optional[float] = None
-    spectral_distance: Optional[float] = None
-    overall_score: Optional[float] = None
+    embedding_cosine: float | None = None
+    spectral_distance: float | None = None
+    overall_score: float | None = None
 
     def to_dict(self) -> dict:
         return dataclasses.asdict(self)

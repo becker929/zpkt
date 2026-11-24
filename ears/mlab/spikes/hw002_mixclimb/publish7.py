@@ -15,13 +15,12 @@ import os
 import subprocess
 import sys
 
-import numpy as np
-import soundfile as sf
-
 import climb as K  # the spike's own modules, beside this script
 import features as F
+import numpy as np
 import publish as P5  # at, announce, SHOW
 import publish6 as P6  # human, changes, upload, NAME, SLUG, ORDER
+import soundfile as sf
 
 DATA = P6.DATA
 SITE = P6.SITE

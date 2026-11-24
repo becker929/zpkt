@@ -27,11 +27,11 @@ import numpy as np
 import soundfile as sf
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-import publish as P5  # noqa: E402  (at, announce)
-import publish6 as P6  # noqa: E402  (upload, SITE)
+import publish as P5
+import publish6 as P6
 
 sys.path.insert(0, os.path.expanduser("~/Desktop/zpkt/contrib/skrng"))
-import batch_intro as BI  # noqa: E402
+import batch_intro as BI
 
 DATA = os.path.expanduser("~/_agent_scratch/probepack/ab8/")
 SWEEPS = os.path.expanduser("~/_agent_scratch/probepack/sweep8/")  # hands/scripts/probe_pack/sweep8.py

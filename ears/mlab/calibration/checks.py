@@ -27,19 +27,10 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 LAB = os.path.dirname(HERE)
 sys.path.insert(0, LAB)
 
-from mlab import (
-    als,
-    bitdepth,
-    compare,
-    delivery,
-    dsp,
-    dynamics,
-    loudness as L,  # noqa: E402
-    premaster,
-    siggen,
-    spectrum as S,
-    io as aio,
-)
+from mlab import als, bitdepth, compare, delivery, dsp, dynamics, premaster, siggen  # noqa: E402
+from mlab import io as aio  # noqa: E402
+from mlab import loudness as L  # noqa: E402
+from mlab import spectrum as S  # noqa: E402
 from mlab.util import db, lin  # noqa: E402
 
 FIX = os.path.join(HERE, "fixtures")
@@ -70,9 +61,9 @@ def check_kweighting():
         (1.0, -2.0, 1.0, -1.99004745483398, 0.99007225036621),
     ]
     rows = []
-    for i, ((b, a), rf) in enumerate(zip(L.k_weighting(48000), ref)):
+    for i, ((b, a), rf) in enumerate(zip(L.k_weighting(48000), ref, strict=True)):
         got = (*b, a[1], a[2])
-        err = max(abs(g - e) for g, e in zip(got, rf))
+        err = max(abs(g - e) for g, e in zip(got, rf, strict=True))
         rows.append(
             row(
                 "loudness",
@@ -190,7 +181,7 @@ def check_truepeak():
     rng = np.random.default_rng(3)
     errs = [
         L.true_peak((np.sin(2 * np.pi * f * k / sr + ph) * fade)[:, None], sr)
-        for f, ph in zip(rng.uniform(0.02, 0.45, 60) * sr, rng.uniform(0, 2 * np.pi, 60))
+        for f, ph in zip(rng.uniform(0.02, 0.45, 60) * sr, rng.uniform(0, 2 * np.pi, 60), strict=True)
     ]
     rows.append(
         row(
@@ -280,12 +271,12 @@ def ffmpeg_ebur128(x, sr):
         )
     txt = res.stderr.split("Summary:")[-1]
     try:
-        I = float(re.search(r"I:\s+(-?[\d.]+) LUFS", txt).group(1))
+        integrated = float(re.search(r"I:\s+(-?[\d.]+) LUFS", txt).group(1))
         LRA = float(re.search(r"LRA:\s+(-?[\d.]+) LU", txt).group(1))
         TP = float(re.search(r"Peak:\s+(-?[\d.]+) dBFS", txt).group(1))
     except AttributeError:
         return None
-    return {"I": I, "LRA": LRA, "TP": TP}
+    return {"I": integrated, "LRA": LRA, "TP": TP}
 
 
 # ------------------------------------------------------------------ dynamics
@@ -645,7 +636,8 @@ def check_als():
     s10 = als.read(os.path.join(FIX, "example-140.als"))
     rows.append(row("als", "Live 10 set: tempo read from MasterTrack", 140.0, s10["tempo"], 0, "fixture"))
     # plant devices into a copy of the Live 12 fixture
-    raw = gzip.open(os.path.join(FIX, "L12-automation.als")).read().decode()
+    with gzip.open(os.path.join(FIX, "L12-automation.als")) as fh:
+        raw = fh.read().decode()
     lim = '<Limiter Id="900"><On><Manual Value="true" /></On><UserName Value="" /></Limiter>'
     plug = (
         '<PluginDevice Id="901"><On><Manual Value="false" /></On><UserName Value="" /><PluginDesc>'
@@ -776,9 +768,11 @@ def _boxcar_spectral(seg, sr, lufs):
     p = (2 * np.abs(np.fft.rfft(x, axis=0)) ** 2 / (sr * n)).mean(axis=1)
     f = np.fft.rfftfreq(n, 1 / sr)
     c, lo, hi = T.band_grid(sr)
-    bands = {round(float(cc), 1): float(10 * np.log10(v) - lufs) for cc, v in zip(c, T.band_power(f, p, lo, hi))}
+    bands = {
+        round(float(cc), 1): float(10 * np.log10(v) - lufs) for cc, v in zip(c, T.band_power(f, p, lo, hi), strict=True)
+    }
     rp = T.band_power(f, p, *T.region_edges(sr))
-    return bands, {k: float(10 * np.log10(v) - lufs) for k, v in zip(T.REGION_KEYS, rp)}
+    return bands, {k: float(10 * np.log10(v) - lufs) for k, v in zip(T.REGION_KEYS, rp, strict=True)}
 
 
 def beat_loop(sr, bpm=160.0, dur=14.0, last_beat_db=0.0, last_beat_at=None):
@@ -788,7 +782,7 @@ def beat_loop(sr, bpm=160.0, dur=14.0, last_beat_db=0.0, last_beat_at=None):
     from scipy import signal as sps
 
     beat = 60.0 / bpm
-    n = int(round(dur * sr))
+    n = round(dur * sr)
     t = np.arange(n) / sr
     ph = t % beat
     kick = 0.5 * np.sin(2 * np.pi * 70.0 * ph) * np.exp(-ph / 0.06)
@@ -803,7 +797,7 @@ def beat_loop(sr, bpm=160.0, dur=14.0, last_beat_db=0.0, last_beat_at=None):
     hat = np.zeros(n)
     k = 0
     while (k + 0.5) * beat < dur:
-        a = int(round((k + 0.5) * beat * sr))
+        a = round((k + 0.5) * beat * sr)
         m = min(hn, n - a)
         g = lin(last_beat_db) if last_beat_at is not None and k * beat >= last_beat_at - 1e-9 else 1.0
         hat[a : a + m] += burst[:m] * g
@@ -814,8 +808,8 @@ def beat_loop(sr, bpm=160.0, dur=14.0, last_beat_db=0.0, last_beat_at=None):
 
 def check_target():
     """A mix against references per window (mlab/target.py). Windows of 8 s (bar 0.5 s) keep it fast."""
-    from scipy import signal as sps
     from mlab import target as T
+    from scipy import signal as sps
 
     rows = []
     sr = 44100
@@ -842,7 +836,7 @@ def check_target():
     )
     # the band integrator: a 1/f density on the Welch grid has ln(10^0.1) in every 1/3 octave
     f = np.arange(T.nperseg(sr) // 2 + 1) * sr / T.nperseg(sr)
-    c, lo, hi = T.band_grid(sr)
+    _, lo, hi = T.band_grid(sr)
     p = np.where(f > 0, 1 / np.maximum(f, 1e-9), 0.0)
     err = 10 * np.log10(T.band_power(f, p, lo, hi) / np.log(10**0.1))
     rows.append(
@@ -861,7 +855,7 @@ def check_target():
     px = T.profile(x, sr, wins, bar)
     # profile's bands and regions against one boxcar FFT of the same window (every sample weighted the same)
     d = px["windows"]["drop"]
-    i0, i1 = int(round(d["span_s"][0] * sr)), int(round(d["span_s"][1] * sr))
+    i0, i1 = round(d["span_s"][0] * sr), round(d["span_s"][1] * sr)
     eb, er = _boxcar_spectral(x[i0:i1], sr, d["lufs"])
     rows.append(
         row(
@@ -988,7 +982,7 @@ def check_target():
             "analytic",
         )
     )
-    i0, i1 = int(round(6.0 * lsr)), int(round(12.0 * lsr))
+    i0, i1 = round(6.0 * lsr), round(12.0 * lsr)
     _, er = _boxcar_spectral(loop[i0:i1], lsr, on["lufs"])
     rows.append(
         row(
@@ -1080,7 +1074,8 @@ def eqfit_stems(sr=44100, dur=16.0):
 
 def check_eqfit():
     """EQ moves on stems recovered from a target made with known RBJ moves (mlab/eqfit.py)."""
-    from mlab import eqfit as E, target as T
+    from mlab import eqfit as E
+    from mlab import target as T
 
     rows = []
     sr, bar = 44100, 0.5

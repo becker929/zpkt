@@ -31,7 +31,7 @@ def match(audios, target=None, section=None):
         levels.append(L.integrated(x, a.sr))
     tgt = min(levels) if target is None else target
     out = []
-    for a, lv in zip(audios, levels):
+    for a, lv in zip(audios, levels, strict=True):
         g = tgt - lv
         out.append((a.x * lin(g), g))
     return out, tgt

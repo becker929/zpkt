@@ -49,11 +49,11 @@ def cmd_premaster(a):
         return _out(res, True)
     print(f"Premaster check: {os.path.basename(a.file)} -> {res['overall']}\n")
     for row in res["checks"]:
-        print(f"  [{row['status']:4}] {row['check']:30} {str(row['value']):>10}   {row['why']}")
+        print(f"  [{row['status']:4}] {row['check']:30} {row['value']!s:>10}   {row['why']}")
 
 
 def cmd_deliver(a):
-    from . import delivery, loudness as L
+    from . import delivery
 
     au = aio.load(a.file)
     res = delivery.report(au.x, au.sr, codecs=not a.no_codecs)
@@ -62,7 +62,7 @@ def cmd_deliver(a):
     print(f"Delivery: {os.path.basename(a.file)}  I={res['integrated']} LUFS  TP={res['true_peak']} dBTP\n")
     for p, v in res["normalization"].items():
         print(
-            f"  {p:13} gain {str(v['gain_db']):>6} dB -> {str(v['playback_lufs']):>6} LUFS, {str(v['playback_true_peak']):>6} dBTP   ({v['note']})"
+            f"  {p:13} gain {v['gain_db']!s:>6} dB -> {v['playback_lufs']!s:>6} LUFS, {v['playback_true_peak']!s:>6} dBTP   ({v['note']})"
         )
     for c, v in res.get("codec_roundtrip", {}).items():
         print(f"  codec {c:8} {v}")
@@ -90,7 +90,7 @@ def cmd_spectrum(a):
         rf = aio.load(a.ref)
         out["difference_vs_ref_third_octave"] = S.compare(au.x, rf.x, au.sr, rf.sr)
     if a.phon is not None:
-        out["perceived_change_vs_%s_phon" % a.ref_phon] = S.perceived_balance(tb["third_octave"], a.phon, a.ref_phon)
+        out[f"perceived_change_vs_{a.ref_phon}_phon"] = S.perceived_balance(tb["third_octave"], a.phon, a.ref_phon)
     _out(out, True)
 
 
@@ -108,7 +108,7 @@ def cmd_eqdiff(a):
 
 
 def cmd_compprobe(a):
-    from . import dynamics as D, spectrum as S
+    from . import dynamics as D
 
     d, w = aio.load(a.dry), aio.load(a.wet)
     dd, ww, lag = D.probe_align(d.x, w.x)
@@ -136,7 +136,7 @@ def cmd_match(a):
     auds = [aio.load(p) for p in a.files]
     res, tgt = compare.match(auds, a.target)
     out = os.path.join(LAB, "audio", "renders", "matched")
-    for au, (x, g) in zip(auds, res):
+    for au, (x, g) in zip(auds, res, strict=True):
         p = os.path.join(out, f"{_stem(au.path)}_@{r(tgt, 1)}LUFS.wav")
         aio.save(p, x, au.sr)
         print(f"{os.path.basename(au.path)}: {r(g):+} dB -> {os.path.relpath(p, LAB)}")
@@ -179,7 +179,7 @@ def cmd_als(a):
     for t in s["tracks"]:
         devs = ", ".join(f"{d['device']}{'' if d['on'] else ' (off)'}" for d in t["devices"])
         print(
-            f"  {t['type'][:5]:5} {t['name'][:40]:40} {str(t['volume_db']):>7} dB {'' if t['active'] else '[deactivated]'}  {devs}"
+            f"  {t['type'][:5]:5} {t['name'][:40]:40} {t['volume_db']!s:>7} dB {'' if t['active'] else '[deactivated]'}  {devs}"
         )
     for f in s["findings"]:
         print("  ! " + f)
@@ -207,6 +207,7 @@ def _refs_peaks(a):
     """Section-aware comparison: structure, then peak window against peak window."""
     import numpy as np
     import soundfile as sf
+
     from . import loudness as L
     from . import sections as SE
 
@@ -225,7 +226,7 @@ def _refs_peaks(a):
     print(f"{'track':<19}{'BPM':>7}{'bars':>6}  {'main break':<12}{'peak':<12}{'drop vs peak':>13}  peak after break")
     for k, (_, an, _) in rows.items():
         print(
-            f"{k:<19}{an['bpm']:>7.2f}{an['bars']:>6}  {str(an['main_break']):<12}{str(an['peak_bars']):<12}"
+            f"{k:<19}{an['bpm']:>7.2f}{an['bars']:>6}  {an['main_break']!s:<12}{an['peak_bars']!s:<12}"
             f"{an['drop_vs_peak_high_db'] if an['drop_vs_peak_high_db'] is not None else '-':>13}  {an['peak_after_main_break']}"
         )
 
@@ -382,7 +383,8 @@ def cmd_target(a):
 
 
 def cmd_eqfit(a):
-    from . import eqfit as E, target as T
+    from . import eqfit as E
+    from . import target as T
 
     names = a.names or [_stem(p) for p in a.stems]
     if len(names) != len(a.stems) or len(set(names)) != len(names):
@@ -394,10 +396,12 @@ def cmd_eqfit(a):
     with open(a.moves) as fh:
         spec = json.load(fh)
     opts = {k: spec[k] for k in ("weights", "alpha", "beta") if "moves" in spec and k in spec}
-    moves = spec["moves"] if "moves" in spec else spec
+    moves = spec.get("moves", spec)
     refs, profs = _ref_profiles(a)
     wins = T.windows(a.drop, a.bar)
-    res = E.fit({n: au.x for n, au in zip(names, auds)}, sr, wins, T.ref_stats(profs), moves, bar_s=a.bar, **opts)
+    res = E.fit(
+        {n: au.x for n, au in zip(names, auds, strict=True)}, sr, wins, T.ref_stats(profs), moves, bar_s=a.bar, **opts
+    )
     ob = res["objective"]
     print(
         f"eqfit: {len(names)} stems ({', '.join(names)}) at {sr / 1000:g} kHz vs {_refs_text(len(refs))}"
@@ -481,7 +485,7 @@ def cmd_eqfit(a):
     if a.out:
         aio.dump_json(
             {
-                "stems": dict(zip(names, a.stems)),
+                "stems": dict(zip(names, a.stems, strict=True)),
                 "moves": moves,
                 "drop_s": a.drop,
                 "bar_s": a.bar,
@@ -511,7 +515,7 @@ def cmd_hyp(a):
 
 def cmd_calibrate(a):
     sys.path.insert(0, os.path.join(LAB, "calibration"))
-    import checks  # noqa
+    import checks
 
     ok = checks.write_report(os.path.join(LAB, "calibration", "CALIBRATION.md"), crosscheck=not a.quick)
     sys.exit(0 if ok else 1)

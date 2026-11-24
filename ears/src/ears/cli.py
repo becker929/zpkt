@@ -5,6 +5,7 @@ from __future__ import annotations
 import dataclasses
 import json
 from pathlib import Path
+from typing import Annotated
 
 import typer
 from rich.console import Console
@@ -19,11 +20,11 @@ err_console = Console(stderr=True)
 
 @app.command()
 def analyze(
-    audio_path: str = typer.Argument(..., help="Path to audio file (WAV or MP3)."),
-    no_embeddings: bool = typer.Option(False, "--no-embeddings", help="Skip DCLAP embedding."),
-    rhythm: bool = typer.Option(False, "--rhythm", help="Run madmom beat tracking (optional dep)."),
-    pitch: bool = typer.Option(False, "--pitch", help="Run basic-pitch (optional dep, slow)."),
-    json_out: bool = typer.Option(False, "--json", help="Output raw JSON to stdout."),
+    audio_path: Annotated[str, typer.Argument(help="Path to audio file (WAV or MP3).")],
+    no_embeddings: Annotated[bool, typer.Option("--no-embeddings", help="Skip DCLAP embedding.")] = False,
+    rhythm: Annotated[bool, typer.Option("--rhythm", help="Run madmom beat tracking (optional dep).")] = False,
+    pitch: Annotated[bool, typer.Option("--pitch", help="Run basic-pitch (optional dep, slow).")] = False,
+    json_out: Annotated[bool, typer.Option("--json", help="Output raw JSON to stdout.")] = False,
 ) -> None:
     """Run the audio perception pipeline and print the AudioProfile."""
     from .analyzer import analyze as _analyze
@@ -54,7 +55,7 @@ def analyze(
 
     if profile.loudness:
         ld = profile.loudness
-        console.print(f"\n[bold]Loudness[/bold]")
+        console.print("\n[bold]Loudness[/bold]")
 
         def _row(label: str, value: float | None, unit: str) -> None:
             text = f"{value:.2f} {unit}" if value is not None else "n/a"
@@ -76,7 +77,7 @@ def analyze(
 
     if profile.spectral:
         sp = profile.spectral
-        console.print(f"\n[bold]Spectral[/bold]")
+        console.print("\n[bold]Spectral[/bold]")
         console.print(f"  Centroid:   {sp.spectral_centroid_mean:.1f} Hz")
         console.print(f"  Rolloff:    {sp.spectral_rolloff_mean:.1f} Hz")
         console.print(f"  Flatness:   {sp.spectral_flatness_mean:.4f}")
@@ -88,7 +89,7 @@ def analyze(
 
     if profile.rhythm:
         ry = profile.rhythm
-        console.print(f"\n[bold]Rhythm[/bold]")
+        console.print("\n[bold]Rhythm[/bold]")
         console.print(f"  BPM:        {ry.bpm:.1f}" if ry.bpm else "  BPM:   n/a")
         console.print(f"  Meter:      {ry.meter_numerator}/4")
         if ry.swing_ratio is not None:
@@ -105,9 +106,9 @@ def analyze(
 
 @app.command()
 def compare(
-    file_a: str = typer.Argument(...),
-    file_b: str = typer.Argument(...),
-    no_embeddings: bool = typer.Option(False, "--no-embeddings"),
+    file_a: Annotated[str, typer.Argument()],
+    file_b: Annotated[str, typer.Argument()],
+    no_embeddings: Annotated[bool, typer.Option("--no-embeddings")] = False,
 ) -> None:
     """Compare two audio files and print a similarity report."""
     from .analyzer import analyze as _analyze
@@ -140,11 +141,12 @@ def compare(
 
 @corpus_app.command("build")
 def corpus_build(
-    folder: Path = typer.Argument(..., help="Folder of reference tracks (searched recursively)."),
-    out: Path = typer.Option(
-        None, "--out", help="Corpus file to write (default $EARS_CORPUS, else ~/.cache/zpkt/corpus.json)."
-    ),
-    no_embeddings: bool = typer.Option(False, "--no-embeddings", help="Skip DCLAP embeddings."),
+    folder: Annotated[Path, typer.Argument(help="Folder of reference tracks (searched recursively).")],
+    out: Annotated[
+        Path | None,
+        typer.Option("--out", help="Corpus file to write (default $EARS_CORPUS, else ~/.cache/zpkt/corpus.json)."),
+    ] = None,
+    no_embeddings: Annotated[bool, typer.Option("--no-embeddings", help="Skip DCLAP embeddings.")] = False,
 ) -> None:
     """Measure every track in FOLDER once and write the corpus file."""
     from . import corpus as _corpus
@@ -160,7 +162,7 @@ def corpus_build(
         built = _corpus.build(folder, embeddings=not no_embeddings, progress=progress)
     except ValueError as exc:
         err_console.print(f"[red]{exc}[/red]")
-        raise typer.Exit(1)
+        raise typer.Exit(1) from None
     path = _corpus.save(built, out or _corpus.default_path())
     with_vectors = sum(1 for t in built["tracks"] if t.get("embedding"))
     console.print(
@@ -172,12 +174,13 @@ def corpus_build(
 
 @corpus_app.command("distance")
 def corpus_distance(
-    audio_path: Path = typer.Argument(..., help="The render to place in the corpus."),
-    corpus_path: Path = typer.Option(
-        None, "--corpus", help="Corpus file (default $EARS_CORPUS, else ~/.cache/zpkt/corpus.json)."
-    ),
-    no_embeddings: bool = typer.Option(False, "--no-embeddings", help="Skip DCLAP embedding."),
-    json_out: bool = typer.Option(False, "--json", help="Output raw JSON to stdout."),
+    audio_path: Annotated[Path, typer.Argument(help="The render to place in the corpus.")],
+    corpus_path: Annotated[
+        Path | None,
+        typer.Option("--corpus", help="Corpus file (default $EARS_CORPUS, else ~/.cache/zpkt/corpus.json)."),
+    ] = None,
+    no_embeddings: Annotated[bool, typer.Option("--no-embeddings", help="Skip DCLAP embedding.")] = False,
+    json_out: Annotated[bool, typer.Option("--json", help="Output raw JSON to stdout.")] = False,
 ) -> None:
     """Place a render in your corpus: each measure against the corpus's range, and the nearest tracks."""
     from . import corpus as _corpus
@@ -190,7 +193,7 @@ def corpus_distance(
         loaded = _corpus.load(corpus_path)
     except (FileNotFoundError, ValueError) as exc:
         err_console.print(f"[red]{exc}[/red]")
-        raise typer.Exit(1)
+        raise typer.Exit(1) from None
     profile = _analyze(str(audio_path), run_embeddings=not no_embeddings)
     result = _corpus.distance(profile, loaded)
     if json_out:

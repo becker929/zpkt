@@ -129,9 +129,9 @@ def run(audio, lres=None, checks=None):
     )
     # stereo
     if x.shape[1] == 2:
-        l, rr = x[:, 0], x[:, 1]
-        den = np.sqrt(np.sum(l * l) * np.sum(rr * rr))
-        corr = float(np.sum(l * rr) / den) if den else 1.0
+        left, right = x[:, 0], x[:, 1]
+        den = np.sqrt(np.sum(left * left) * np.sum(right * right))
+        corr = float(np.sum(left * right) / den) if den else 1.0
         rows.append(
             _row(
                 "correlation",
@@ -160,7 +160,7 @@ def run(audio, lres=None, checks=None):
                 "loudness lost when summed to mono (phone speaker, club)",
             )
         )
-        bal = float(db(rms(l)) - db(rms(rr)))
+        bal = float(db(rms(left)) - db(rms(right)))
         rows.append(
             _row("lr_balance_db", "WARN" if abs(bal) > C["balance_warn_db"] else "PASS", r(bal), "L minus R RMS")
         )

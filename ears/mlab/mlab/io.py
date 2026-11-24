@@ -12,7 +12,7 @@ import os
 import shutil
 import subprocess
 import tempfile
-from dataclasses import dataclass, field, asdict
+from dataclasses import asdict, dataclass, field
 
 import numpy as np
 import soundfile as sf

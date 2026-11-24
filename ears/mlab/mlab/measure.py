@@ -6,9 +6,9 @@
 
 from __future__ import annotations
 
-import numpy as np
-
-from . import bitdepth, delivery, dynamics, loudness as L, spectrum as S
+from . import bitdepth, delivery, dynamics
+from . import loudness as L
+from . import spectrum as S
 from .util import r
 
 
@@ -42,7 +42,7 @@ def flat(d, prefix=""):
             out.update(flat(v, key + "."))
         elif isinstance(v, (int, float, str, bool)) or v is None:
             out[key] = v
-    for i, row in enumerate(d.get("stereo", []) if isinstance(d.get("stereo"), list) else []):
+    for row in d.get("stereo", []) if isinstance(d.get("stereo"), list) else []:
         lo, hi = row["band_hz"]
         out[f"{prefix}stereo.corr_{lo}_{hi}"] = row["correlation"]
     return out
@@ -72,7 +72,6 @@ CORE_KEYS = [
 
 
 def markdown(sh: dict, title=None) -> str:
-    fl = flat(sh)
     m = sh["file"]
     lines = [
         f"# Measurement sheet — {title or m['path']}",

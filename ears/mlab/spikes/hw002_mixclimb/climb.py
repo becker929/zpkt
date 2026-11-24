@@ -20,8 +20,8 @@ import numpy as np
 import soundfile as sf
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-import chains as C  # noqa: E402
-import features as F  # noqa: E402
+import chains as C
+import features as F
 
 W = os.environ.get("MIXCLIMB_DIR", os.path.expanduser("~/_agent_scratch/mixclimb/"))
 BAR = 1.5  # seconds per bar at 160 BPM

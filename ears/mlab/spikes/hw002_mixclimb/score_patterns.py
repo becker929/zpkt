@@ -20,8 +20,8 @@ from concurrent.futures import ProcessPoolExecutor
 import soundfile as sf
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-import climb as K  # noqa: E402
-import features as F  # noqa: E402
+import climb as K
+import features as F
 
 BAR = 1.5
 

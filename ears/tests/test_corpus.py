@@ -7,11 +7,11 @@ import json
 import numpy as np
 import pytest
 import soundfile as sf
+from ears.cli import app
+from ears.models import AudioProfile, LoudnessFeatures, SpectralFeatures
 from typer.testing import CliRunner
 
 from ears import corpus
-from ears.cli import app
-from ears.models import AudioProfile, LoudnessFeatures, SpectralFeatures
 
 SR = 48000
 

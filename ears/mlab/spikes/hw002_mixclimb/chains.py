@@ -10,8 +10,6 @@ import numpy as np
 import pedalboard as P
 from scipy import signal
 
-from mlab import loudness as L
-
 SR = 44100
 
 

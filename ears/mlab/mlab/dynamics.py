@@ -15,8 +15,8 @@ from __future__ import annotations
 import numpy as np
 from scipy import signal
 
-from .util import db, pdb, r, rms
 from . import loudness as L
+from .util import db, r, rms
 
 
 def crest_db(x):
@@ -74,7 +74,7 @@ def transient_contrast(x, sr, hit_ms=10.0, body=(20.0, 120.0)):
     flux = np.diff(ed, prepend=ed[0])
     peaks, _ = signal.find_peaks(flux, height=4, distance=int(0.1 * sr / hop))
     if len(peaks) < 3:
-        return {"onsets": int(len(peaks))}
+        return {"onsets": len(peaks)}
     h, b0, b1 = int(hit_ms / 1000 * sr), int(body[0] / 1000 * sr), int(body[1] / 1000 * sr)
     hits, bods = [], []
     for p in peaks:

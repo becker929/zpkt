@@ -173,8 +173,8 @@ class Model:
             self.kw2 *= np.abs(b[0] + b[1] * self.z1 + b[2] * z2) ** 2 / np.abs(a[0] + a[1] * self.z1 + a[2] * z2) ** 2
         c, blo, bhi = T.band_grid(sr)
         self.band_hz = [T._hz(v) for v in c]
-        self.band_ix = np.array([(_ix(e, a), _ix(e, b)) for a, b in zip(blo, bhi)])
-        self.region_ix = {k: (_ix(e, a), _ix(e, b)) for k, a, b in zip(T.REGION_KEYS, *T.region_edges(sr))}
+        self.band_ix = np.array([(_ix(e, a), _ix(e, b)) for a, b in zip(blo, bhi, strict=True)])
+        self.region_ix = {k: (_ix(e, a), _ix(e, b)) for k, a, b in zip(T.REGION_KEYS, *T.region_edges(sr), strict=True)}
         keep, self.skipped = T.segments(sum(xs), sr, wins, bar_s)
         self.windows = {}
         for w, ((a, b), seg) in keep.items():
@@ -182,7 +182,7 @@ class Model:
             if not np.isfinite(lufs):
                 self.skipped[w] = "silent (below the -70 LUFS gate)"
                 continue
-            i0, i1 = int(round(a * sr)), int(round(b * sr))
+            i0, i1 = round(a * sr), round(b * sr)
             P = np.array([T.band_power(*T.psd(x[i0:i1], sr), lo, hi) for x in xs])  # stems x sub-bands
             bands, regions = T.spectral(seg, sr, lufs)
             self.windows[w] = {
@@ -213,7 +213,7 @@ class Model:
             bv = pdb(cs[self.band_ix[:, 1]] - cs[self.band_ix[:, 0]]) - lufs
             out[w] = {
                 "lufs": float(lufs),
-                "bands": [[hz, float(v)] for hz, v in zip(self.band_hz, bv)],
+                "bands": [[hz, float(v)] for hz, v in zip(self.band_hz, bv, strict=True)],
                 "regions": {k: float(pdb(cs[j] - cs[i]) - lufs) for k, (i, j) in self.region_ix.items()},
             }
         return out
@@ -344,7 +344,7 @@ def _x_bounds(params):
 
 
 def _to_vals(params, x):
-    return [float(np.exp(v)) if p["log"] else float(v) for p, v in zip(params, x)]
+    return [float(np.exp(v)) if p["log"] else float(v) for p, v in zip(params, x, strict=True)]
 
 
 def starts(params, n):
@@ -503,9 +503,9 @@ def fit(
 
     def data_term(G):
         tot = 0.0
-        for w, wt, I, J, mean, lo, hi in terms:
+        for w, wt, first, last, mean, lo, hi in terms:
             lufs, cs = model.levels(G, w)
-            v = pdb(cs[J] - cs[I]) - lufs
+            v = pdb(cs[last] - cs[first]) - lufs
             d = v - mean
             o = np.where(v > hi, v - hi, np.where(v < lo, v - lo, 0.0))
             tot += wt * float(o @ o + alpha * (d @ d))
@@ -531,7 +531,7 @@ def fit(
                 objective,
                 x0,
                 method="L-BFGS-B",
-                bounds=list(zip(lo, hi)),
+                bounds=list(zip(lo, hi, strict=True)),
                 options={"maxiter": maxiter, "maxfun": maxfun},
             )
             runs.append(
@@ -554,7 +554,7 @@ def fit(
     out = {
         "params": [
             {"stem": p["stem"], "param": p["param"], "kind": p["kind"], "value": v, "bounds": [p["lo"], p["hi"]]}
-            for p, v in zip(params, vals)
+            for p, v in zip(params, vals, strict=True)
         ],
         "plan": plan,
         "objective": {

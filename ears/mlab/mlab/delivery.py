@@ -18,7 +18,7 @@ import numpy as np
 import soundfile as sf
 
 from . import loudness as L
-from .util import db, r
+from .util import r
 
 PLATFORMS = {
     # name: (target LUFS, turns quiet content up?, note)

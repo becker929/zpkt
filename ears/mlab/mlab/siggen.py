@@ -14,7 +14,7 @@ from .util import lin
 
 def sine(freq, dbfs, dur, sr, ch=2, phase=0.0, fade_ms=0.0):
     """Sine with PEAK at dbfs (dBFS sample-peak convention)."""
-    t = np.arange(int(round(dur * sr))) / sr
+    t = np.arange(round(dur * sr)) / sr
     s = lin(dbfs) * np.sin(2 * np.pi * freq * t + phase)
     if fade_ms:
         s *= _fade(len(s), sr, fade_ms)
@@ -31,7 +31,7 @@ def pink(dur, sr, ch=2, seed=0, rms_dbfs=None, band=None):
     """Pink noise by 1/f spectral shaping; optional band-limit and RMS level.
     rms_dbfs uses the plain (not sine-referenced) RMS."""
     rng = np.random.default_rng(seed)
-    n = int(round(dur * sr))
+    n = round(dur * sr)
     X = np.fft.rfft(rng.standard_normal((n, ch)), axis=0)
     f = np.fft.rfftfreq(n, 1 / sr)
     shape = np.zeros_like(f)
@@ -149,7 +149,7 @@ def song_sections(sr=44100, bpm=160.0, ch=2, seed=0, dropout_bar=None):
     rng = np.random.default_rng(seed)
     beat = 60 / bpm
     bar = 4 * beat
-    wb = max(1, int(round(30.0 / bar)))
+    wb = max(1, round(30.0 / bar))
     layout = [
         ("intro", 8, True, 1.0),
         ("break", 8, False, 0.0),

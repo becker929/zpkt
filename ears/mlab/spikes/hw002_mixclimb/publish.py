@@ -17,9 +17,9 @@ import numpy as np
 import soundfile as sf
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-import chains as C  # noqa: E402
-import climb as K  # noqa: E402
-from mlab import loudness as L  # noqa: E402
+import chains as C
+import climb as K
+from mlab import loudness as L
 
 W = K.W
 SITE = os.environ.get("SKRNG_SITE", os.path.expanduser("~/_agent_scratch/site")) + "/skrng/"

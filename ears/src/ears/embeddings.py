@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
+
 import numpy as np
 
 # The model is not in the repo (too big, and not ours to ship). Set EARS_DCLAP_MODEL to the

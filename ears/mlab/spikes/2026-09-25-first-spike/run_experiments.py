@@ -2,8 +2,12 @@
 Run: python3 run_experiments.py   (needs numpy scipy soundfile pyloudnorm)
 All output WAVs land in ./out, numbers in ./RESULTS.md."""
 
-import os, json, random
-import numpy as np, soundfile as sf, pyloudnorm as pyln
+import os
+import random
+
+import numpy as np
+import pyloudnorm as pyln
+import soundfile as sf
 from scipy import signal
 from scipy.ndimage import minimum_filter1d
 

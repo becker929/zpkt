@@ -15,8 +15,6 @@ from __future__ import annotations
 import gzip
 import xml.etree.ElementTree as ET
 
-import numpy as np
-
 from .util import db, r
 
 TRACK_TAGS = ("AudioTrack", "MidiTrack", "GroupTrack", "ReturnTrack")

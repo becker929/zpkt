@@ -16,7 +16,7 @@ import numpy as np
 import soundfile as sf
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-import features as F  # noqa: E402
+import features as F
 
 M = os.path.expanduser("~/_agent_scratch/refs/HW002/matched/")
 OUT = os.path.expanduser("~/_agent_scratch/mixclimb/")

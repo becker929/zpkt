@@ -18,7 +18,7 @@ import numpy as np
 import soundfile as sf
 from scipy import signal
 
-from .util import db, dc_is_real, dc_offset_db, pdb, r, rms
+from .util import db, dc_is_real, dc_offset_db, pdb, r
 
 
 def theoretical_floor_dbfs(bits, dither="tpdf"):
@@ -98,7 +98,7 @@ def analyze(audio) -> dict:
         out["quietest_blocks_dbfs"] = r(float(np.median(q)))
     bits_for_ref = eb if 8 <= eb <= 24 else (24 if "24" in audio.subtype else 16)
     refs = {d: r(theoretical_floor_dbfs(bits_for_ref, d)) for d in ("none", "rpdf", "tpdf")}
-    out["reference_floors_dbfs_at_%d_bits" % bits_for_ref] = refs
+    out[f"reference_floors_dbfs_at_{bits_for_ref}_bits"] = refs
     # tilt measured on the quietest 10 % of 100 ms blocks (where only the floor remains)
     b = int(0.1 * sr)
     k = len(x) // b

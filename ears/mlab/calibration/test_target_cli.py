@@ -12,7 +12,8 @@ sys.path.insert(0, os.path.dirname(HERE))
 sys.path.insert(0, HERE)
 
 import checks  # noqa: E402
-from mlab import cli, dsp, siggen, target as T  # noqa: E402
+from mlab import cli, dsp, siggen  # noqa: E402
+from mlab import target as T  # noqa: E402
 
 SR = 44100
 

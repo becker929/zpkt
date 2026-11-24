@@ -78,7 +78,7 @@
  "embedding": null,
  "description": "",
  "errors": [
-  "run_pitch_task failed: basic-pitch is not installed. Install with: uv pip install 'ears[pitch]'",
-  "run_rhythm_task failed: madmom is not installed. Install with: uv pip install 'ears[rhythm]'"
+  "run_pitch_task failed: basic-pitch is not installed: run `uv pip install basic-pitch` in ears/",
+  "run_rhythm_task failed: madmom is not installed: run `uv pip install madmom` in ears/ (it needs Cython)"
  ]
 }

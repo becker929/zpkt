@@ -15,8 +15,8 @@ import numpy as np
 from scipy import signal
 from scipy.ndimage import minimum_filter1d
 
-from .util import db, lin
 from . import loudness as L
+from .util import db, lin
 
 
 # ---------------------------------------------------------------- EQ (Ch. 4)
@@ -187,7 +187,7 @@ def master_to(x, sr, target_lufs, ceiling_db=-1.0, **kw):
     if abs(got - target_lufs) > 0.3:
         import warnings
 
-        warnings.warn(f"master_to: reached {got:.2f} LUFS, not {target_lufs} (limiter saturated)")
+        warnings.warn(f"master_to: reached {got:.2f} LUFS, not {target_lufs} (limiter saturated)", stacklevel=2)
     return y, (lo + hi) / 2
 
 

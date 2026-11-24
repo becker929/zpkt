@@ -15,13 +15,11 @@ import os
 import subprocess
 import sys
 
-import numpy as np
 import soundfile as sf
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-import features as F  # noqa: E402
-import publish as P5  # noqa: E402  (ab_file, announce, cut-free helpers from batch 5)
-from mlab import loudness as L  # noqa: E402
+import features as F
+import publish as P5
 
 DATA = os.path.expanduser("~/_agent_scratch/probepack/")
 SITE = os.environ.get("SKRNG_SITE", os.path.expanduser("~/_agent_scratch/site")) + "/skrng/"
@@ -85,11 +83,8 @@ def changes(aspect, params):
     before = NEUTRAL[aspect]  # the set's own values (written from the kit template)
     out = []
     for k, v in params.items():
-        if (
-            isinstance(v, bool)
-            and v == before[k]
-            or not isinstance(v, bool)
-            and abs(v - before[k]) <= 1e-6 * max(1, abs(before[k]))
+        if (isinstance(v, bool) and v == before[k]) or (
+            not isinstance(v, bool) and abs(v - before[k]) <= 1e-6 * max(1, abs(before[k]))
         ):
             continue
         if human(k, before[k]) == human(k, v):
