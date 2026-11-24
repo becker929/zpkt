@@ -1,5 +1,5 @@
-"""harness serve | job "<prompt>" | jobs | show <id> | timings [--turns N] | studio-music-mp3 [--dry-run] | lab-audio | lab-params
-| lab-bars | artist show|propose | images gen|batch|list | gemini [gemini-cli args]"""
+"""harness serve | job "<prompt>" | jobs | show <id> | lab-audio | lab-params | lab-bars | artist show|propose
+| images gen|batch|list | gemini [gemini-cli args]"""
 
 from __future__ import annotations
 
@@ -25,10 +25,6 @@ def main() -> None:
     sub.add_parser("jobs", help="list recent jobs")
     s = sub.add_parser("show", help="one job and its last events")
     s.add_argument("id")
-    t = sub.add_parser("timings", help="studio's turn timings: first vs later turns, Safari vs Chrome, Bluetooth")
-    t.add_argument("--turns", type=int, default=100)
-    m = sub.add_parser("studio-music-mp3", help="studio's old FLAC music as MP3, which iPhone Safari can play")
-    m.add_argument("--dry-run", action="store_true", help="only say what would be converted")
     la = sub.add_parser("lab-audio", help="HW002's stems and clips for the lab (/studio/lab/), outside the repo")
     la.add_argument("--set", help="the Live set whose clips and arrangement to read")
     la.add_argument("--out", help="where to write (default HARNESS_LAB_AUDIO)")
@@ -67,22 +63,6 @@ def main() -> None:
     elif a.cmd == "jobs":
         for job in store.recent(20):
             print(f"{job.id}  {job.status:8}  {job.title}")
-    elif a.cmd == "timings":
-        from .studio.store import Store
-        from .studio.timing import report
-        print(report(Store(cfg.studio_dir).timings(a.turns)))
-    elif a.cmd == "studio-music-mp3":
-        from .studio.migrate import music_to_mp3
-        from .studio.store import Store
-        studio = Store(cfg.studio_dir)
-        try:
-            done = asyncio.run(music_to_mp3(studio, dry_run=a.dry_run))
-        finally:
-            studio.close()
-        for c in done:
-            print(f"#{c.seq}  {c.status:13}  {c.source}" + (f" -> {c.mp3}" if c.mp3 else "")
-                  + (f"  ({c.error})" if c.error else ""))
-        print(f"{sum(c.status == 'converted' for c in done)} converted of {len(done)} FLAC music messages")
     elif a.cmd == "artist":
         from .studio import artist as A
         art = A.Artist(cfg.studio_dir / "artist", A.SEED)

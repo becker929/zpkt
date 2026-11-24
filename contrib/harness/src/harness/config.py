@@ -9,21 +9,11 @@ from __future__ import annotations
 import getpass
 import json
 import os
-import shlex
-import shutil
 import subprocess
 from dataclasses import dataclass, field
 from pathlib import Path
 
 ZPKT = Path(__file__).resolve().parents[4]     # contrib/harness/src/harness/config.py -> the repo
-
-
-def voice_command() -> list[str]:
-    """How to start the voice worker: HARNESS_VOICE_CMD, else contrib/voice through uv."""
-    if os.environ.get("HARNESS_VOICE_CMD"):
-        return shlex.split(os.environ["HARNESS_VOICE_CMD"])
-    uv = shutil.which("uv") or str(Path.home() / ".local" / "bin" / "uv")
-    return [uv, "run", "--project", str(ZPKT / "contrib" / "voice"), "--extra", "engines", "voice", "serve"]
 
 
 def agent_path(base: str | None = None) -> str:
@@ -76,18 +66,12 @@ class Config:
     # The old public route (browser -> anthonybecker.me /api/rpc -> socket -> Mac). Off: /skrng's
     # agent is reached over the tailnet only. HARNESS_PUBLIC_RPC=1 turns the socket back on.
     public_rpc: bool = os.environ.get("HARNESS_PUBLIC_RPC") == "1"
-    # studio, the voice production app (contrib/docs/design/studio.md): where it keeps its chat and media, the Claude session's
-    # working directory, the speech settings, and the loopback port scripts report steps to.
+    # The pages under /studio/: where they keep their data (the artist's, the regions', Gemini's), the working
+    # directory of Gemini CLI sessions, the model the artist proposes with, and the small model of its quick question.
     studio_dir: Path = Path(os.environ.get("HARNESS_STUDIO", Path.home() / "_agent_scratch" / "studio"))
     studio_workdir: Path = Path(os.environ.get("HARNESS_STUDIO_WORKDIR", ZPKT))
     studio_model: str | None = os.environ.get("HARNESS_STUDIO_MODEL")
-    studio_note: str = os.environ.get("HARNESS_STUDIO_NOTE", "")     # appended to the session's instructions
     narrator_model: str = os.environ.get("HARNESS_NARRATOR_MODEL", "claude-haiku-5-5")
-    voice_command: list[str] = field(default_factory=voice_command)
-    tts_voice: str = os.environ.get("HARNESS_TTS_VOICE", "af_heart")
-    tts_speed: float = float(os.environ.get("HARNESS_TTS_SPEED", "1.0"))
-    stop_word: str = os.environ.get("HARNESS_STOP_WORD", "tomato")
-    steps_port: int = int(os.environ.get("HARNESS_STEPS_PORT", "8788"))
     # The lab (/studio/lab/): HW002's stems and clips as the phone plays them, built by `harness lab-audio`.
     lab_audio: Path = Path(os.environ.get("HARNESS_LAB_AUDIO", Path.home() / "_agent_scratch" / "lab" / "audio"))
     # The map checklist's check sounds: kept in R2 (audio never goes in git), copied here on first use.

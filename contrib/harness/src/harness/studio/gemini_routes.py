@@ -26,7 +26,7 @@ from aiohttp import web
 
 from .. import gemini as G
 from ..config import ZPKT
-from .assets import accepts_gzip
+from .files import accepts_gzip
 
 log = logging.getLogger(__name__)
 

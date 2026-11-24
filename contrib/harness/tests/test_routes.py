@@ -131,3 +131,12 @@ async def test_the_pages_that_stay_are_served(client):
     assert r.status == 200 and (await r.json())["works"]
     r = await client.get("/studio/api/regions/rummage/state")
     assert r.status == 200 and (await r.json())["region"] == "rummage"
+
+
+async def test_studio_opens_the_home_page_that_links_what_is_here(client):
+    await sign_in(client)
+    r = await client.get("/studio", allow_redirects=False)
+    assert r.status == 302 and r.headers["Location"] == "/studio/"
+    page = await (await client.get("/studio/")).text()
+    for link in ("/studio/gemini/", "/studio/lab/", "/skrng/"):
+        assert f'href="{link}"' in page, link

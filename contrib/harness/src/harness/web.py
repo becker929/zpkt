@@ -3,7 +3,7 @@
     phone (Tailscale on) --https--> tailscale serve (tailnet only) --> 127.0.0.1:8787 (this)
 
 This server listens on loopback only; `tailscale serve` puts it on the tailnet
-with an HTTPS certificate (the mic needs a secure page). Nothing reaches it
+with an HTTPS certificate. Nothing reaches it
 from the public internet. On top of that it asks for a password once per
 browser: the first visit sets it (the tailnet is already private), later
 visits sign in with it. Only scrypt hashes of the password and of each
@@ -11,7 +11,7 @@ browser's session are stored (auth.json, mode 600), so nobody else, the
 agent included, ever sees the password.
 
 Routes, all behind the password except /login:
-    /studio/...               the voice production app (studio/, contrib/docs/design/studio.md); / opens it
+    /studio/...               the pages under /studio/ (studio/routes.py); / opens its home page
     /skrng/..., /style.css    the public site's pages, fetched from it (they are public anyway)
     /audio/...                redirect to the public site's audio
     /api/skrng/feedback       the voice review's answers, kept on the Mac (feedback.jsonl)
@@ -48,7 +48,7 @@ MAX_BODY = 64 * 1024
 RPC_TIMEOUT = {"ask": 125.0}
 DEFAULT_RPC_TIMEOUT = 20.0
 PROXIED = ("/skrng/", "/style.css", "/favicon.ico", "/favicon.svg")
-API = ("/api/", "/studio/api/", "/studio/ws")    # answered with 401 JSON rather than a sign-in redirect
+API = ("/api/", "/studio/api/")    # answered with 401 JSON rather than a sign-in redirect
 
 
 def _scrypt(text: str, salt: bytes) -> str:
@@ -153,8 +153,8 @@ class App:
         app.router.add_post("/api/rpc", self.rpc)
         app.router.add_get("/audio/{tail:.*}", self.audio)
         if self.studio is not None:
+            app.router.add_get("/studio", self.studio_slash)     # before the sub-app, whose prefix would take it
             app.add_subapp("/studio", self.studio.app())
-            app.router.add_get("/studio", self.studio_slash)
         app.router.add_get("/{tail:.*}", self.proxy)
         app.on_cleanup.append(self._close)
         return app

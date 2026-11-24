@@ -2,8 +2,8 @@
 
 Where things are: `hands/` drives Live, `ears/` measures renders (`ears/mlab/reports/` holds mastering and reference
 sheets), `agent/skills/` holds the skills for driving Live (linked into `.claude/skills/` and `.agents/skills/`),
-`lib/` has the rig startup and the JSON contracts. `contrib/` is Anthony's own setup (the studio voice app and Gemini
-CLI sessions in `contrib/harness`, the HW002 arranger and spectral comparison tools in `contrib/arranger`, the HW002 mix desk for the MiniLab 3 in `contrib/mixdesk`, the music
+`lib/` has the rig startup and the JSON contracts. `contrib/` is Anthony's own setup (Gemini CLI sessions and the
+HW002 lab in `contrib/harness`, the HW002 arranger and spectral comparison tools in `contrib/arranger`, the HW002 mix desk for the MiniLab 3 in `contrib/mixdesk`, the music
 bot and booth, publishing, and in `contrib/docs/` his workflow, design notes and dated journal); `prototypes/` holds
 experiments. Each part is its own uv project: run its tests from its folder, or `make test`. In non-interactive
 shells where `uv` is not on `PATH`, use `~/.local/bin/uv` or `ears/.venv/bin/python` directly.
