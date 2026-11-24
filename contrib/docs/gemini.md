@@ -43,13 +43,14 @@ from, with its own tools: it reads, edits, runs shell commands and drives Live t
   first message in an old session loads it into the new process. Gemini CLI deletes sessions after 30 days by
   default (`general.sessionRetention`). An older session still shows on the page but can no longer go on.
 - **Costs:** each turn's tokens are logged with an estimate in dollars, at the standard rates in
-  `harness/gemini.py`. Each answer shows its cost. The side panel shows the month's total for Gemini CLI and for
+  `harness/gemini/cost.py`. Each answer shows its cost. The side panel shows the month's total for Gemini CLI and for
   images (every image in `images.jsonl`, whoever made it). The real bill is on the AI Studio and Cloud Billing
   pages, because the key cannot read billing.
 
 ## Where things are
 
-- **Code:** `contrib/harness/src/harness/gemini.py` (the wrapper, the ACP client, the sessions, the estimate) and
+- **Code:** `contrib/harness/src/harness/gemini/` (`terminal.py` the wrapper, `acp.py` the ACP client, `sessions.py`
+  the sessions, `cost.py` the estimate) and
   `contrib/harness/src/harness/studio/gemini_routes.py` (the routes, listed at its top).
 - **Page:** `contrib/harness/src/harness/studio/static/gemini/`.
 - **Tests:** `contrib/harness/tests/test_gemini.py`, against a fake Gemini CLI that speaks ACP

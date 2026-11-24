@@ -1,4 +1,4 @@
-"""Gemini CLI in zpkt (harness/gemini.py, studio/gemini_routes.py, contrib/docs/gemini.md), against a stand-in for
+"""Gemini CLI in zpkt (harness/gemini/, studio/gemini_routes.py, contrib/docs/gemini.md), against a stand-in for
 `gemini --acp` (fake_gemini_acp.py): a turn streams to the page and goes on without it, a question waits for the
 phone's answer, a session survives a harness restart (session/load, its replay not shown twice), the mode reaches
 Gemini CLI, a turn can be stopped, images past the harness's 64 KB body cap arrive, and each turn's cost is kept."""

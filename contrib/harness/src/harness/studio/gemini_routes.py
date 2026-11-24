@@ -1,4 +1,4 @@
-"""Gemini CLI sessions on the phone, under /studio/gemini/ behind the harness password (harness/gemini.py,
+"""Gemini CLI sessions on the phone, under /studio/gemini/ behind the harness password (harness/gemini/,
 contrib/docs/gemini.md).
 
     GET    /studio/gemini/                          the page (static/gemini)

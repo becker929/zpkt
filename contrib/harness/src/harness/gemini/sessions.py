@@ -1,23 +1,15 @@
-"""Gemini CLI in zpkt (contrib/docs/gemini.md).
-
-Two ways in, one agent:
-
-    harness gemini [args]   Gemini CLI in a terminal, in this zpkt checkout, with the key from the Keychain
-    /studio/gemini/         the phone's view of Gemini CLI sessions, driven over ACP (Agent Client Protocol: JSON-RPC
-                            on the stdio of one long-lived `gemini --acp` process)
-
-Gemini CLI does the work itself: it reads AGENTS.md (.gemini/settings.json), finds the skills in .agents/skills, and
-edits files and runs commands with its own tools. In a session's default mode every edit and command waits for a
-yes from the phone (a notification goes out), "autoEdit" lets edits through, "yolo" lets everything through, and
-"plan" is read-only.
+"""Gemini CLI sessions as the phone sees them (/studio/gemini/): one ACP process (acp.py), the sessions the page knows,
+their events, and the permissions waiting for an answer on the phone.
 
     <gemini_dir>/sessions/<id>.json   a session the page knows: title, model, mode, dates
     <gemini_dir>/events/<id>.jsonl    what the page shows, one event per line, numbered (n)
     <gemini_dir>/files/<id>/<name>    images he attached
-    <gemini_dir>/usage.jsonl          one line per turn: tokens and estimated dollars
+    <gemini_dir>/usage.jsonl          one line per turn: tokens and estimated dollars (cost.py)
 
 Gemini CLI keeps its own record of each session (~/.gemini), which is how a session survives a restart: the harness
-loads it into a new process (session/load) the next time he writes in it.
+loads it into a new process (session/load) the next time he writes in it. In a session's default mode every edit
+and command waits for a yes from the phone (a notification goes out), "autoEdit" lets edits through, "yolo" lets
+everything through, and "plan" is read-only.
 """
 
 from __future__ import annotations
@@ -32,10 +24,15 @@ import re
 import secrets
 import shutil
 import threading
-from collections.abc import AsyncIterator, Awaitable, Callable
+from collections.abc import AsyncIterator, Callable
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
+
+from ..config import agent_path
+from .acp import Acp, AcpError
+from .cost import turn_cost
+from .terminal import gemini_command
 
 log = logging.getLogger(__name__)
 
@@ -44,210 +41,8 @@ KEEP_TEXT = 6000  # characters of a tool's output kept for the page
 MODE_UPDATE = re.compile(r"\[MODE_UPDATE\] (\w+)")
 
 
-def gemini_command() -> list[str]:
-    if os.environ.get("HARNESS_GEMINI_CMD"):
-        return os.environ["HARNESS_GEMINI_CMD"].split()
-    return [shutil.which("gemini") or "/opt/homebrew/bin/gemini"]
-
-
-def exec_cli(args: list[str]) -> None:
-    """`harness gemini`: Gemini CLI in the zpkt checkout, the key in its environment only."""
-    from .config import ZPKT, agent_path, secret
-
-    key = secret("gemini")
-    if not key:
-        raise SystemExit("No Gemini key: add it to the Keychain as zpkt-gemini-api-key (account $USER).")
-    cmd = gemini_command()
-    os.chdir(ZPKT)
-    os.execvpe(
-        cmd[0],
-        [*cmd, *(args[1:] if args[:1] == ["--"] else args)],
-        {**os.environ, "PATH": agent_path(), "GEMINI_API_KEY": key, "GEMINI_CLI_TRUST_WORKSPACE": "true"},
-    )
-
-
 def now() -> str:
     return datetime.now(UTC).isoformat(timespec="seconds")
-
-
-# --- the estimate ---------------------------------------------------------------------------------------------------
-
-# Dollars per million tokens (input, output incl. thinking), the standard tier, for the estimate only, by family:
-# flash-lite, flash, 2.5 pro, and everything else at the 3.x pro rate (so an unknown model errs high). Cached input
-# is billed at a tenth.
-PRICES = (("flash-lite", 0.1, 0.4), ("flash", 0.5, 3.0), ("2.5-pro", 1.25, 10.0))
-IMAGE_OUT = 120.0  # dollars per million image-output tokens (1120 a 1K/2K image: about $0.134)
-
-
-def price(model: str) -> tuple[float, float]:
-    for part, i, o in PRICES:
-        if part in model and "image" not in model:
-            return i, o
-    return 2.0, 12.0
-
-
-def cost(model: str, usage: dict) -> float:
-    """An estimate of one generateContent call's dollars from its usageMetadata (images included)."""
-    i, o = price(model)
-    image = sum(
-        d.get("tokenCount", 0) for d in usage.get("candidatesTokensDetails") or [] if d.get("modality") == "IMAGE"
-    )
-    text_out = usage.get("candidatesTokenCount", 0) - image + usage.get("thoughtsTokenCount", 0)
-    return (usage.get("promptTokenCount", 0) * i + text_out * o + image * IMAGE_OUT) / 1e6
-
-
-def turn_cost(model: str, usage: dict) -> float:
-    """An estimate of one ACP turn's dollars from session/prompt's usage."""
-    i, o = price(model)
-    cached = usage.get("cachedReadTokens", 0)
-    fresh = max(0, usage.get("inputTokens", 0) - cached)
-    out = usage.get("outputTokens", 0) + usage.get("thoughtTokens", 0)
-    return (fresh * i + cached * i * 0.1 + out * o) / 1e6
-
-
-def image_cost(rec: dict) -> float:
-    t = rec.get("tokens") or {}
-    if "candidatesTokensDetails" in t:
-        return cost(rec.get("model", ""), t)
-    return 0.134 if "pro" in rec.get("model", "") else 0.07  # imported records only kept a total
-
-
-def month_usage(usage_rows: list[dict], images_manifest: Path, month: str | None = None) -> dict:
-    """This month's estimated dollars: Gemini CLI's turns here, and every image the image wall made (its images.jsonl)."""
-    month = month or datetime.now(UTC).strftime("%Y-%m")
-    agent = sum(r.get("dollars", 0.0) for r in usage_rows if r.get("at", "").startswith(month))
-    img, n = 0.0, 0
-    if images_manifest.is_file():
-        for line in images_manifest.read_text().splitlines():
-            try:
-                r = json.loads(line)
-            except ValueError:
-                continue
-            if r.get("created", "").startswith(month):
-                img += image_cost(r)
-                n += 1
-    return {"month": month, "agent": round(agent, 4), "images": round(img, 4), "image_count": n}
-
-
-# --- ACP: one gemini --acp process ----------------------------------------------------------------------------------
-
-
-class AcpError(RuntimeError):
-    pass
-
-
-class Acp:
-    """JSON-RPC 2.0 over a child's stdio, one JSON object per line. Requests from the agent (permission) go to
-    `on_request`; notifications (session/update) to `on_notify`."""
-
-    def __init__(
-        self,
-        cmd: list[str],
-        cwd: Path,
-        env: dict,
-        on_notify: Callable[[str, dict], None],
-        on_request: Callable[[str, dict], Awaitable[Any]],
-    ):
-        self.cmd, self.cwd, self.env = cmd, cwd, env
-        self.on_notify, self.on_request = on_notify, on_request
-        self.proc: asyncio.subprocess.Process | None = None
-        self.next_id = 0
-        self.pending: dict[int, asyncio.Future] = {}
-        self.info: dict = {}
-        self._tasks: list[asyncio.Task] = []
-
-    @property
-    def alive(self) -> bool:
-        return self.proc is not None and self.proc.returncode is None
-
-    async def start(self) -> None:
-        self.proc = await asyncio.create_subprocess_exec(
-            *self.cmd,
-            "--acp",
-            "--skip-trust",
-            cwd=str(self.cwd),
-            env=self.env,
-            limit=1 << 25,
-            stdin=asyncio.subprocess.PIPE,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-        )
-        self._tasks = [asyncio.create_task(self._read()), asyncio.create_task(self._stderr())]
-        self.info = await self.request(
-            "initialize",
-            {"protocolVersion": 1, "clientCapabilities": {"fs": {"readTextFile": False, "writeTextFile": False}}},
-            60,
-        )
-
-    async def close(self) -> None:
-        if self.alive:
-            self.proc.terminate()
-            with contextlib.suppress(asyncio.TimeoutError):
-                await asyncio.wait_for(self.proc.wait(), 5)
-            if self.alive:
-                self.proc.kill()
-        for t in self._tasks:
-            t.cancel()
-
-    async def _send(self, msg: dict) -> None:
-        if not self.alive:
-            raise AcpError("Gemini CLI is not running.")
-        self.proc.stdin.write((json.dumps(msg) + "\n").encode())
-        await self.proc.stdin.drain()
-
-    async def request(self, method: str, params: dict, timeout: float | None = None) -> Any:
-        self.next_id += 1
-        fut = asyncio.get_running_loop().create_future()
-        self.pending[self.next_id] = fut
-        await self._send({"jsonrpc": "2.0", "id": self.next_id, "method": method, "params": params})
-        msg = await (asyncio.wait_for(fut, timeout) if timeout else fut)
-        if "error" in msg:
-            e = msg["error"]
-            raise AcpError(f"{method}: {e.get('message', e)}" + (f" ({e['data']})" if e.get("data") else ""))
-        return msg.get("result")
-
-    async def notify(self, method: str, params: dict) -> None:
-        await self._send({"jsonrpc": "2.0", "method": method, "params": params})
-
-    async def _read(self) -> None:
-        assert self.proc and self.proc.stdout
-        try:
-            while line := await self.proc.stdout.readline():
-                try:
-                    msg = json.loads(line)
-                except ValueError:
-                    log.debug("gemini acp: %s", line[:200])
-                    continue
-                if "method" not in msg:
-                    fut = self.pending.pop(msg.get("id"), None)
-                    if fut and not fut.done():
-                        fut.set_result(msg)
-                elif "id" in msg:
-                    asyncio.create_task(self._answer(msg))
-                else:
-                    try:
-                        self.on_notify(msg["method"], msg.get("params") or {})
-                    except Exception:
-                        log.exception("gemini acp update")
-        finally:
-            for fut in self.pending.values():
-                if not fut.done():
-                    fut.set_result({"error": {"message": "Gemini CLI stopped."}})
-            self.pending.clear()
-
-    async def _answer(self, msg: dict) -> None:
-        try:
-            result = await self.on_request(msg["method"], msg.get("params") or {})
-            reply = {"jsonrpc": "2.0", "id": msg["id"], "result": result}
-        except Exception as e:  # noqa: BLE001
-            reply = {"jsonrpc": "2.0", "id": msg["id"], "error": {"code": -32603, "message": str(e)}}
-        with contextlib.suppress(AcpError, ConnectionError):
-            await self._send(reply)
-
-    async def _stderr(self) -> None:
-        assert self.proc and self.proc.stderr
-        while line := await self.proc.stderr.readline():
-            log.info("gemini cli: %s", line.decode(errors="replace").rstrip()[:300])
 
 
 # --- sessions as the page sees them ---------------------------------------------------------------------------------
@@ -432,8 +227,6 @@ class Gemini:
 
     # the process
     async def _acp(self) -> Acp:
-        from .config import agent_path
-
         async with self._starting:
             if self.acp and self.acp.alive:
                 return self.acp
@@ -682,17 +475,11 @@ class Gemini:
         return {"outcome": {"outcome": "selected", "optionId": choice}}
 
 
-def keychain_key() -> str | None:
-    from .config import secret
-
-    return secret("gemini")
-
-
 def phone_notify(app_url: Callable[[], str]) -> Callable[[str, str, str], None]:
     """ntfy, with a tap that opens the session on the page."""
 
     def send(title: str, body: str, sid: str) -> None:
-        from .notify import notify
+        from ..notify import notify
 
         notify(title, body, click=f"{app_url()}/studio/gemini/?s={sid}")
 
