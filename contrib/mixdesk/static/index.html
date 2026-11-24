@@ -685,7 +685,33 @@ function drawWave() {
   g.strokeStyle = c.fg; g.lineWidth = 2; g.beginPath(); g.moveTo(x(curPos()), 0); g.lineTo(x(curPos()), H); g.stroke();
 }
 
+// the live meter on Main (meter.py, measured in Live): third-octave RMS in dB, about 10 a second. Smoothed here
+// over about a second (in power), then put on the renders' 1/6-octave grid: a third-octave band holds two of those
+// bands, so 3 dB comes off. Both are the mid signal's power per band, so the curves share one scale.
+const LIVE = { pow: null, at: 0 };
+const LIVE_ALPHA = 0.18;
+function meterIn(m) {
+  const p = m.db.map((d) => Math.pow(10, d / 10));
+  LIVE.hz = m.hz;
+  LIVE.pow = LIVE.pow ? LIVE.pow.map((v, i) => v + LIVE_ALPHA * (p[i] - v)) : p;
+  LIVE.at = performance.now();
+}
+function liveLevels() {
+  if (!LIVE.pow || performance.now() - LIVE.at > 1500) return null;
+  const db = LIVE.pow.map((v) => 10 * Math.log10(Math.max(v, 1e-14)));
+  if (Math.max(...db) < -90) return null;              // Live is silent
+  const lf = LIVE.hz.map((f) => Math.log(f));
+  return AN.centers.map((f, i) => {
+    const x = Math.log(f);
+    let k = lf.findIndex((v) => v >= x); if (k <= 0) k = Math.max(1, k === -1 ? lf.length - 1 : 1);
+    const t = (x - lf[k - 1]) / (lf[k] - lf[k - 1]);
+    const v = db[k - 1] + Math.max(0, Math.min(1, t)) * (db[k] - db[k - 1]) - 3.01;
+    return v + (S.tilt && S.mode === "abs" ? 4.5 * Math.log2(f / 1000) : 0);
+  });
+}
+
 function specLevels(slot) {
+  if (slot === "W") return liveLevels();
   const x = src(slot); if (!x) return null;
   const sec = slot === "C" ? x.sections.drop : x.sections[S.sec];
   const gdb = gainDb(slot);
@@ -696,13 +722,13 @@ function drawSpec() {
   const cv = $("spec"), c = setup(cv), { g, W, H } = c; g.clearRect(0, 0, W, H);
   const L = 38, R = 8, T = 8, B = 18, pw = W - L - R, ph = H - T - B;
   const F = AN.centers, fx = (f) => L + (Math.log(f / 20) / Math.log(1000)) * pw;
-  const lv = { A: specLevels("A"), B: specLevels("B"), C: specLevels("C") };
+  const lv = { A: specLevels("A"), B: specLevels("B"), C: specLevels("C"), W: specLevels("W") };
   let lines = [], dashed = {};
-  if (S.mode === "abs") lines = [["A", lv.A], ["B", lv.B], ["C", lv.C]];
-  else if (S.mode === "rel") lines = [["A", lv.A.map((v, i) => v - lv.C[i])], ["B", lv.B.map((v, i) => v - lv.C[i])], ["C", lv.C.map(() => 0)]];
-  else { lines = [["B", lv.B.map((v, i) => v - lv.A[i])], ["C", lv.C.map((v, i) => v - lv.A[i])]]; dashed = { C: true }; }
+  if (S.mode === "abs") lines = [["A", lv.A], ["B", lv.B], ["C", lv.C]].concat(lv.W ? [["W", lv.W]] : []);
+  else if (S.mode === "rel") lines = [["A", lv.A.map((v, i) => v - lv.C[i])], ["B", lv.B.map((v, i) => v - lv.C[i])], ["C", lv.C.map(() => 0)]].concat(lv.W ? [["W", lv.W.map((v, i) => v - lv.C[i])]] : []);
+  else { lines = [["B", lv.B.map((v, i) => v - lv.A[i])], ["C", lv.C.map((v, i) => v - lv.A[i])]].concat(lv.W ? [["W", lv.W.map((v, i) => v - lv.A[i])]] : []); dashed = { C: true }; }
   let lo, hi;
-  if (S.mode === "abs") { hi = Math.max(...lines.flatMap(([, a]) => a)); lo = hi - 60; hi += 3; }
+  if (S.mode === "abs") { hi = Math.max(...lines.filter(([sl]) => sl !== "W").flatMap(([, a]) => a)); lo = hi - 60; hi += 3; }
   else { const m = Math.max(6, ...lines.flatMap(([, a]) => a.slice(4).map(Math.abs))); const r = Math.ceil(Math.min(m, 24) / 3) * 3; lo = -r; hi = r; }
   const y = (v) => T + (1 - (Math.max(lo, Math.min(hi, v)) - lo) / (hi - lo)) * ph;
   // grid
@@ -736,13 +762,13 @@ function drawSpec() {
       txt.forEach((t, k) => { g.fillStyle = k ? COL[lines[k - 1][0]] : c.fg; g.textAlign = "left"; g.fillText(t, hx + 4, T + 14 + k * 14); });
     }
   }
-  const x = (s) => src(s) ? `${s} ${src(s).label}` : "";
+  const x = (s) => s === "W" ? `Live now${S.sel !== "W" ? ` (playing ${S.sel})` : ""}` : src(s) ? `${s} ${src(s).label}` : "";
   $("specleg").innerHTML = lines.map(([s]) => `<span><i style="background:${COL[s]}"></i>${x(s)}${dashed[s] ? " − A (what the reference would change)" : ""}</span>`).join("")
 ;
   $("specnote").textContent = ({
-    abs: `Measured from the renders (B as of its last bounce, not live)${S.match ? ", loudness matched" : ""}. Mean level per band over the ${S.sec}. ${S.tilt ? "Tilted +4.5 dB/oct so a typical mix looks flat. " : ""}Reference clips are drop-only${S.sec === "build" ? " (dashed)" : ""}.`,
-    rel: `Each curve minus the reference (C, the green line at 0): above it = more of that band than the reference. ${S.sec === "build" ? "Reference is its drop. " : ""}`,
-    chg: `Solid = what the match changed (B − A). Dashed = what the reference has that A lacks (C − A). Where they agree, the move went the right way.`
+    abs: `${lv.W ? "Blue = what Live plays now, measured on Main, about the last second. " : "The blue live curve appears while Live plays. "}A, B and C are measured from the renders${S.match ? ", loudness matched" : ""}. Mean level per band over the ${S.sec}. ${S.tilt ? "Tilted +4.5 dB/oct so a typical mix looks flat. " : ""}Reference clips are drop-only${S.sec === "build" ? " (dashed)" : ""}.`,
+    rel: `Each curve minus the reference (C, the green line at 0): above it = more of that band than the reference. ${lv.W ? "Blue = live now. " : ""}${S.sec === "build" ? "Reference is its drop. " : ""}`,
+    chg: `${lv.W ? "Blue = live now minus A. " : ""}Solid = what the match changed (B − A). Dashed = what the reference has that A lacks (C − A). Where they agree, the move went the right way.`
   })[S.mode];
 }
 
@@ -815,6 +841,7 @@ function listen() {
     else if (m.t === "pos") { setPos(m.b, m.p); if (AN && !S.playing) draw(); }
     else if (m.t === "mon") { S.sel = m.slot; S.ref = m.ref; if (AN) { paintAbc(); draw(); } }
     else if (m.t === "loop") { S.loop = m.loop; paintLoop(); if (AN) draw(); }
+    else if (m.t === "meter") { meterIn(m); if (AN && document.querySelector('.rpage.on[data-p="spec"]')) drawSpec(); }
   };
 }
 

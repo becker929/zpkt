@@ -110,3 +110,17 @@ The bar under the page tabs keeps the mix's history (`history.py`):
   live state put`); a `before-revert-...` checkpoint of the mix as it was is saved first, because only the desk's
   controls can be undone.
 
+## The page, and the live spectrum
+
+The left side shows one MiniLab page at a time: **Prev / Next** (or the picker, or **[** / **]**) arm the page on
+the controller too. **Show: All / Changes lit / Only changes** lights what differs from the checkpoint chosen under
+Changes; with Only changes, Prev/Next skip pages where nothing differs. **?** shows what the MiniLab's controls do.
+The right side keeps A / B / W / C, Play and the waveform on top, and pages **Spectrum / Over time / Numbers /
+Changes** (checkpoints, compare, revert, history) below.
+
+The spectrum's blue curve is what Live plays now. `meter.py install` puts a Max for Live device, "zpkt desk meter",
+last on Main (once; it passes the audio through untouched). It measures Main in 31 third-octave bands (Max's fffb~),
+10 times a second, and sends the levels to the server on UDP 8987. The page smooths them over about a second and
+draws them on the renders' scale (both are the mid signal's power per band), so W can be read against A, B and C as
+you turn knobs. With A, B or C monitored, the blue curve is that render as Live plays it.
+

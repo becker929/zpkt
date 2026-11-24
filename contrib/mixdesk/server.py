@@ -14,6 +14,7 @@ Nothing here makes or plays sound: the page shows and arms controls; the mix its
 from __future__ import annotations
 
 import json
+import math
 import os
 import queue
 import socket
@@ -27,6 +28,7 @@ from hands.live import state as S
 from hands.live.transport import LiveClient, LiveError
 
 import history
+import meter
 import monitor
 
 HERE = Path(__file__).resolve().parent
@@ -201,6 +203,19 @@ def udp() -> None:
         push(msg)
         if msg["t"] == "v" and HIST.seen(msg.get("key"), msg.get("s", ""), msg.get("r"), bool(msg.get("sys"))):
             push(HIST.view())
+
+
+def meter_udp() -> None:
+    """The live meter on Main (meter.py): 31 third-octave RMS levels, 10 a second, to the page as dB."""
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    s.bind(("127.0.0.1", meter.METER_PORT))
+    hz = [round(f, 2) for f in meter.centers()]
+    while True:
+        data, _ = s.recvfrom(4096)
+        vals = meter.parse(data)
+        if vals and len(vals) == len(hz):
+            db = [round(20 * math.log10(v), 2) if v > 1e-7 else -140.0 for v in vals]
+            push({"t": "meter", "hz": hz, "db": db})
 
 
 def write(pairs: list[list]) -> list:
@@ -402,6 +417,7 @@ class Handler(BaseHTTPRequestHandler):
 
 def main() -> None:
     threading.Thread(target=udp, daemon=True).start()
+    threading.Thread(target=meter_udp, daemon=True).start()
     threading.Thread(target=supervisor, daemon=True).start()
     srv = ThreadingHTTPServer(("127.0.0.1", HTTP_PORT), Handler)
     srv.daemon_threads = True
