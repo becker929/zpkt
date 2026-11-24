@@ -78,7 +78,7 @@ def frames_of(x: np.ndarray, r: int) -> tuple[np.ndarray, np.ndarray]:
     t = 0.0
     pad = np.concatenate([np.zeros(n // 2), m, np.zeros(n)])
     while t * r < len(m):
-        a = int(round(t * r))
+        a = round(t * r)
         S = np.abs(np.fft.rfft(pad[a : a + n] * win)) ** 2
         out.append(
             [

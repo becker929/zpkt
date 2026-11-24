@@ -14,15 +14,14 @@ Cutting a render on the bar is all this does: no gain, no processing. Files are 
 from __future__ import annotations
 
 import hashlib
+import itertools
 import json
 import time
-from pathlib import Path
 
+import hw002
 import numpy as np
 import pyloudnorm
 import soundfile as sf
-
-import hw002
 
 DATA = hw002.DATA
 STEMS = DATA / "raw" / "stems"
@@ -92,7 +91,7 @@ def features(x: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
         seg = mono[b * BAR : (b + 1) * BAR]
         db.append(20 * np.log10(np.sqrt((seg**2).mean()) + 1e-9))
         S = np.abs(np.fft.rfft(np.lib.stride_tricks.sliding_window_view(seg, 1024)[::512] * win, axis=1))
-        F.append(np.log1p(200 * np.stack([S[:, a:b_].sum(1) for a, b_ in zip(edges[:-1], edges[1:])], 1)).ravel())
+        F.append(np.log1p(200 * np.stack([S[:, a:b_].sum(1) for a, b_ in itertools.pairwise(edges)], 1)).ravel())
     return np.array(F), np.array(db)
 
 
@@ -146,7 +145,7 @@ def peaks(x: np.ndarray, bars: float) -> list[float]:
     n = int(min(480, max(24, round(bars * 24))))
     mono = np.abs(x).max(1)
     cuts = np.linspace(0, len(mono), n + 1).astype(int)
-    p = np.array([mono[a:b].max() if b > a else 0.0 for a, b in zip(cuts[:-1], cuts[1:])])
+    p = np.array([mono[a:b].max() if b > a else 0.0 for a, b in itertools.pairwise(cuts)])
     return [round(float(v), 3) for v in p / (p.max() + 1e-9)]
 
 

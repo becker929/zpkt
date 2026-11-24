@@ -56,6 +56,12 @@ def hold_ms(e: np.ndarray, r: int, drop_db: float = 12.0) -> float:
     return 1000 * (below[0] if len(below) else len(db) - p) / r
 
 
+def fast(v: np.ndarray, r: int) -> np.ndarray:
+    """The fast movement only (an 8 ms moving average taken out), so two envelopes do not correlate by a shared decay."""
+    k = int(0.008 * r)
+    return v - np.convolve(v, np.ones(k) / k, mode="same")
+
+
 def texture(path: Path, bpm: float, t0: float | None = None, exact: bool = False) -> dict:
     x, r = sf.read(path, always_2d=True)
     m = x.mean(axis=1)
@@ -86,9 +92,7 @@ def texture(path: Path, bpm: float, t0: float | None = None, exact: bool = False
         out["holdMh"].append(hold_ms(env(mh, r, 3.0), r))
         out["holdBody"].append(hold_ms(ebo, r))
         a, b = int(0.01 * r), int(0.25 * r)
-        k8 = int(0.008 * r)
-        hp = lambda v: v - np.convolve(v, np.ones(k8) / k8, mode="same")  # the fast movement only: no shared decay
-        rect, e1 = hp(np.abs(bo))[a:b], hp(emh)[a:b]
+        rect, e1 = fast(np.abs(bo), r)[a:b], fast(emh, r)[a:b]
         best = 0.0
         for lag in range(-int(0.012 * r), int(0.012 * r) + 1, max(1, int(0.0002 * r))):  # within a cycle of the body
             best = max(best, abs(np.corrcoef(np.roll(e1, lag), rect)[0, 1]))

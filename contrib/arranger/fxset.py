@@ -361,13 +361,13 @@ def candidates() -> list[Cand]:
     # bass scoops on the kick and rumble: a 4-bar pass of the kick that replaces the lane's bars
     hp = lambda t0, t1: _exp(10, 250, t0, t1, 8)  # noqa: E731 - the high-pass climbing into the seam
     pre = [
-        ("sc-hp-1b", "High-pass sweep, last beat", {"hp": [(-16.0, 10.0)] + hp(-1.0, 0.0)}),
-        ("sc-hp-2b", "High-pass sweep, last 2 beats", {"hp": [(-16.0, 10.0)] + hp(-2.0, 0.0)}),
-        ("sc-hp-1bar", "High-pass sweep, last bar", {"hp": [(-16.0, 10.0)] + hp(-4.0, 0.0)}),
-        ("sc-hp-2bar", "High-pass sweep, last 2 bars", {"hp": [(-16.0, 10.0)] + hp(-8.0, 0.0)}),
+        ("sc-hp-1b", "High-pass sweep, last beat", {"hp": [(-16.0, 10.0), *hp(-1.0, 0.0)]}),
+        ("sc-hp-2b", "High-pass sweep, last 2 beats", {"hp": [(-16.0, 10.0), *hp(-2.0, 0.0)]}),
+        ("sc-hp-1bar", "High-pass sweep, last bar", {"hp": [(-16.0, 10.0), *hp(-4.0, 0.0)]}),
+        ("sc-hp-2bar", "High-pass sweep, last 2 bars", {"hp": [(-16.0, 10.0), *hp(-8.0, 0.0)]}),
         ("sc-cut-1b", "Low end cut at 300 Hz, last beat", {"hp": [(-16.0, 10.0), (-1.0, 10.0), (-1.0, 300.0)]}),
         ("sc-cut-2b", "Low end cut at 300 Hz, last 2 beats", {"hp": [(-16.0, 10.0), (-2.0, 10.0), (-2.0, 300.0)]}),
-        ("sc-shelf-1bar", "Low shelf down 15 dB, last bar", {"shelf": [(-16.0, 0.0)] + _lin(0, -15, -4.0, 0.0, 4)}),
+        ("sc-shelf-1bar", "Low shelf down 15 dB, last bar", {"shelf": [(-16.0, 0.0), *_lin(0, -15, -4.0, 0.0, 4)]}),
         ("sc-mute-half", "Kick and rumble out, last half beat", {"kmute": [(-16.0, False), (-0.5, True)]}),
         ("sc-mute-1b", "Kick and rumble out, last beat", {"kmute": [(-16.0, False), (-1.0, True)]}),
     ]
@@ -488,7 +488,7 @@ def candidates() -> list[Cand]:
     # each track's candidates get slots 0, 1, 2 ... in order (each track is rendered on its own)
     count: dict = {}
     for c in C:
-        key = c.src.get("reverb") and "reverse" or c.track
+        key = (c.src.get("reverb") and "reverse") or c.track
         if c.kind != "reverse":
             c.slot = count.get(key, 0)
             count[key] = c.slot + 1
@@ -640,7 +640,7 @@ def notes() -> None:
         "perc1": f"song.tracks[{PERC1}]",
         "perc2": f"song.tracks[{PERC2}]",
     }
-    for name, path in paths.items():  # clear what an earlier run left past the song
+    for path in paths.values():  # clear what an earlier run left past the song
         L.run(
             f"t = {path}\nfor c in list(t.arrangement_clips):\n    if c.start_time >= {FX0}:\n        t.delete_clip(c)\nresult = 'ok'"
         )
@@ -705,7 +705,6 @@ def automate() -> None:
     from hands import als
 
     tree = als.load(ALS)
-    names = [als.track_name(t) for t in als.all_tracks(tree)]
 
     def dev(track_name: str, tag: str, which: int):
         tr = als.find_track(tree, track_name)
@@ -726,7 +725,7 @@ def automate() -> None:
                 own = [(seam + t, v) for t, v in c.auto.get(key, [(c.start, default)])]
                 if prev is not None:
                     pts.append((setup, prev))
-                pts += [(setup, own[0][1])] + own
+                pts += [(setup, own[0][1]), *own]
                 prev = own[-1][1]
             als.add_points(tree, tr, d, pname, [(t, conv(v)) for t, v in pts])
         print(f"{track}: {', '.join(keys)} over {len(cs)} slots", flush=True)
@@ -745,7 +744,7 @@ def automate() -> None:
         print(f"{name}: held at {v} from beat {FX0 - 2.0}", flush=True)
     # 3. reverse-reverb gates: each source's Utility mutes the track except for one beat at each of its hits
     by_track: dict = {}
-    for src, (ti, hit, _) in SOURCES.items():
+    for _src, (ti, hit, _) in SOURCES.items():
         by_track.setdefault(ti, []).append(hit)
     for ti, hits in by_track.items():
         tr = als.all_tracks(tree)[ti]
@@ -872,7 +871,7 @@ def cut() -> None:
     rows = []
     for c in candidates():
         if c.kind == "reverse":
-            ti, hit, _ = SOURCES[c.track]
+            _ti, hit, _ = SOURCES[c.track]
             x = take(f"rv-{c.track}-{c.src['reverb']}", hit, hit - c.start, hit)[::-1].copy()
         else:
             state = c.track.replace(" ", "-")
@@ -905,7 +904,7 @@ def cut() -> None:
     # own passes differ that way too, bar 4-6 against 8-10 of the bounced stem by -1.5 dB of residual.)
     loops = json.loads((DATA / "loops.json").read_text())
     ref = sf.read(
-        DATA / "audio" / [c for c in loops["clips"] if c["id"] == "kick-rumble-a"][0]["file"],
+        DATA / "audio" / next(c for c in loops["clips"] if c["id"] == "kick-rumble-a")["file"],
         dtype="float32",
         always_2d=True,
     )[0]

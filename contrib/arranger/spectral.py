@@ -249,8 +249,8 @@ def analyze() -> None:
 def measure() -> None:
     """Every render the page plays, measured the same way: loudness over the drop (the page's loudness match) and the
     drop's spectrum (its curve)."""
-    import soundfile as sf
     import pyloudnorm as pl
+    import soundfile as sf
 
     fixes = json.loads((OUT / "fixes.json").read_text())["fixes"]
     an = json.loads((OUT / "analysis.json").read_text())
@@ -330,7 +330,8 @@ def compare() -> None:
     if not measured:
         measured = {"before": an["mix"]}
     ksms_key = KSMS
-    bands = REGIONS + [
+    bands = [
+        *REGIONS,
         ("deep sub", 20, 48),
         ("kick/bass body", 55, 120),
         ("1-4 kHz bite", 1000, 4000),

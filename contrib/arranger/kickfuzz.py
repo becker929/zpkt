@@ -56,22 +56,22 @@ OPTIONS = {
     },
     "b6": {
         "title": "B: 052 layer +6",
-        "set": UNHIDE + [("chain052", "volume", 6.0)],
+        "set": [*UNHIDE, ("chain052", "volume", 6.0)],
         "what": "A, and the 052 layer (high-passed at 958 Hz into COLDFIRE) +6 dB",
     },
     "b10": {
         "title": "B: 052 layer +10",
-        "set": UNHIDE + [("chain052", "volume", 6.0), ("util052", "Output", "1.8 dB")],
+        "set": [*UNHIDE, ("chain052", "volume", 6.0), ("util052", "Output", "1.8 dB")],
         "what": "A, and the 052 layer +10 dB (its chain fader at Live's +6 dB limit, its Utility from -2.2 to +1.8 dB)",
     },
     "c1": {
         "title": "C: Roar, some",
-        "set": ROAR_ON + [(ROAR, "Shaper 2 Amt", "35 %"), (ROAR, "Shaper 3 Amt", "25 %")],
+        "set": [*ROAR_ON, (ROAR, "Shaper 2 Amt", "35 %"), (ROAR, "Shaper 3 Amt", "25 %")],
         "what": "The kick group's Roar on (multiband, 200 Hz / 2 kHz): mid band Noise Injection 35 %, high band Bit Crusher 25 %",
     },
     "c2": {
         "title": "C: Roar, lots",
-        "set": ROAR_ON + [(ROAR, "Shaper 2 Amt", "70 %"), (ROAR, "Shaper 3 Amt", "55 %")],
+        "set": [*ROAR_ON, (ROAR, "Shaper 2 Amt", "70 %"), (ROAR, "Shaper 3 Amt", "55 %")],
         "what": "The same Roar: mid 70 %, high 55 %",
     },
     "d2": {
@@ -86,10 +86,13 @@ OPTIONS = {
     },
     "e": {
         "title": "B + Roar's high band",
-        "set": UNHIDE
-        + [("chain052", "volume", 6.0)]
-        + ROAR_ON
-        + [(ROAR, "Shaper 2 Amt", "0.0 %"), (ROAR, "Shaper 3 Amt", "30 %")],
+        "set": [
+            *UNHIDE,
+            ("chain052", "volume", 6.0),
+            *ROAR_ON,
+            (ROAR, "Shaper 2 Amt", "0.0 %"),
+            (ROAR, "Shaper 3 Amt", "30 %"),
+        ],
         "what": "B +6, and the kick group's Roar on with only its high band (Bit Crusher above 2 kHz) at 30 %",
     },
     "d": {
@@ -245,7 +248,7 @@ for _hp in ("150", "300", "500"):
     OPTIONS[f"t-h{_hp}"] = {
         "title": f"052 body into COLDFIRE, {_hp} Hz",
         "group": "texture",
-        "set": UNHIDE + [("chain052", "volume", 6.0), ("eq052", "4 Frequency A", f"{_hp} Hz")],
+        "set": [*UNHIDE, ("chain052", "volume", 6.0), ("eq052", "4 Frequency A", f"{_hp} Hz")],
         "what": f"Unhidden, the 052 layer +6 dB, and its high-pass before COLDFIRE lowered from 958 to {_hp} Hz, so COLDFIRE clips 052's short body, not only its click",
     }
 
@@ -255,8 +258,8 @@ for _hp in ("150", "250"):
         OPTIONS[f"t-d{_hp}-{_up}"] = {
             "title": f"052 body driven +{_up} dB, {_hp} Hz",
             "group": "texture",
-            "set": UNHIDE
-            + [
+            "set": [
+                *UNHIDE,
                 ("chain052", "volume", 6.0),
                 ("eq052", "4 Frequency A", f"{_hp} Hz"),
                 ("eq052", "Output", f"{_up}.0 dB"),
@@ -266,7 +269,8 @@ for _hp in ("150", "250"):
         }
 
 # texture round 9: the 052 body at 250 Hz driven +6 dB, 3 dB louder; grain from a Roar on the kick track
-_BODY = UNHIDE + [
+_BODY = [
+    *UNHIDE,
     ("chain052", "volume", 6.0),
     ("eq052", "4 Frequency A", "250 Hz"),
     ("eq052", "Output", "6.0 dB"),
@@ -566,7 +570,12 @@ def measure(_names: list[str]) -> None:
     def shape(x, sr):
         lin = 10 ** (kickshape.third_octaves(x, sr) / 10)
         return {
-            g: round(float(10 * np.log10(sum(e for c, e in zip(kickshape.THIRDS, lin) if lo <= c < hi) + 1e-12)), 1)
+            g: round(
+                float(
+                    10 * np.log10(sum(e for c, e in zip(kickshape.THIRDS, lin, strict=False) if lo <= c < hi) + 1e-12)
+                ),
+                1,
+            )
             for g, lo, hi in GROUPS
         }
 
@@ -630,7 +639,7 @@ def measure(_names: list[str]) -> None:
     def grouped(t):  # third-octave dB (of total) into the chart's groups
         lin = 10 ** (np.array(t) / 10)
         return {
-            g: round(float(10 * np.log10(sum(e for c, e in zip(th, lin) if lo <= c < hi) + 1e-12)), 1)
+            g: round(float(10 * np.log10(sum(e for c, e in zip(th, lin, strict=False) if lo <= c < hi) + 1e-12)), 1)
             for g, lo, hi in GROUPS
         }
 

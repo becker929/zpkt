@@ -12,17 +12,17 @@ spectrum, for the page's suggested cuts. Measuring only: nothing here makes soun
 from __future__ import annotations
 
 import base64
+import itertools
 import json
 import re
 import subprocess
 import tempfile
 from pathlib import Path
 
+import hw002
 import numpy as np
 import pyloudnorm as pl
 import soundfile as sf
-
-import hw002
 
 DATA = hw002.DATA
 OUT = DATA / "refs"
@@ -37,7 +37,7 @@ PRE, POST = 16, 24  # bars kept before and after the drop
 def band_edges(rate: int, n_fft: int) -> list[np.ndarray]:
     f = np.fft.rfftfreq(n_fft, 1 / rate)
     edges = FMIN * (FMAX / FMIN) ** (np.arange(BANDS + 1) / BANDS)
-    return [np.where((f >= a) & (f < b))[0] for a, b in zip(edges[:-1], edges[1:])]
+    return [np.where((f >= a) & (f < b))[0] for a, b in itertools.pairwise(edges)]
 
 
 def spectrogram(x: np.ndarray, rate: int) -> np.ndarray:
@@ -48,7 +48,7 @@ def spectrogram(x: np.ndarray, rate: int) -> np.ndarray:
     idx = band_edges(rate, n_fft)
     f = np.fft.rfftfreq(n_fft, 1 / rate)
     centers = FMIN * (FMAX / FMIN) ** ((np.arange(BANDS) + 0.5) / BANDS)
-    idx = [i if len(i) else np.array([int(np.argmin(np.abs(f - c)))]) for i, c in zip(idx, centers)]
+    idx = [i if len(i) else np.array([int(np.argmin(np.abs(f - c)))]) for i, c in zip(idx, centers, strict=False)]
     frames = []
     for s in range(0, max(1, len(mono) - n_fft), hop):
         P = np.abs(np.fft.rfft(mono[s : s + n_fft] * win)) ** 2 * (4 / np.sum(win) ** 2)
@@ -69,7 +69,7 @@ def kpower(x: np.ndarray, rate: int, bar_s: float) -> list[float]:
         for c in range(y.shape[1]):
             y[:, c] = f.apply_filter(y[:, c])
     p = (y**2).sum(1)
-    n = int(round(bar_s * rate))
+    n = round(bar_s * rate)
     return [round(float(10 * np.log10(p[i : i + n].mean() + 1e-12)), 2) for i in range(0, len(p) - n + 1, n)]
 
 
