@@ -17,7 +17,7 @@ from __future__ import annotations
 import time
 from pathlib import Path
 
-from hands import steps
+from hands import bench
 from hands.live import timeops, ui
 from hands.live.session import stop
 from hands.live.transport import McpTransport
@@ -63,7 +63,6 @@ def export(
             t0 = time.time()
             if start_beat is not None and length_beats is not None:
                 timeops.select(client, start_beat, length_beats)
-            steps.report(f"export {out.name}: the Export dialog", "minor")
             try:
                 ui.osa_file(SCRIPT, *args, timeout=900)
                 ok = True
@@ -78,9 +77,8 @@ def export(
                     ui.close_dialogs()
                 if ui.dialogs():
                     stop(f"export: wrote {len(written)} file(s) but a dialog stayed open: {error}")
-                steps.timing("export_script_error_files_ok", time.time() - t0, files=len(written), err=error[-120:])
+                bench.timing("export_script_error_files_ok", time.time() - t0, files=len(written), err=error[-120:])
             if written:
-                steps.report(f"exported {', '.join(f.name for f in written)}", "major")
                 return written
             ui.close_dialogs()
             if ui.dialogs():

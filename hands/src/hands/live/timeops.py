@@ -15,7 +15,6 @@ from __future__ import annotations
 
 import time
 
-from hands import steps
 from hands.live import ui
 from hands.live.session import stop
 from hands.live.transport import McpTransport
@@ -85,7 +84,6 @@ def _edit(
         if ui.menu("Edit", item, tries=3):
             time.sleep(1.0)  # Live finishes the edit after the click returns
             moved = check_end(item, where, before, song_end(client), delta=delta, end=end, tol=tol)
-            steps.report(f"Edit > {item} {where}", "minor")
             return moved
     stop(f"Edit > {item} stayed disabled at {where}")
 

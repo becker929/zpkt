@@ -30,7 +30,6 @@ from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from typing import Any
 
-from hands import steps
 from hands.live.transport import McpTransport
 
 MAX_PER_DEVICE = 20  # parameters of one device per call (ableton-guide rule 2)
@@ -409,7 +408,6 @@ def set_many(client: McpTransport, values: Mapping[Knob, Any]) -> dict[Knob, Any
         raise KnobError(f"write failed, {res['restored']} earlier write(s) put back: " + "; ".join(res["problems"]))
     if res["problems"]:
         raise KnobError("nothing written: " + "; ".join(res["problems"]))
-    steps.report(f"set {len(values)} knob(s)", "minor")
     return {k: res["written"][k.id] for k in values}
 
 

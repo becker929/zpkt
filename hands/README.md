@@ -50,7 +50,7 @@ the command and a row.
 | `probe_kit.py` | `Kit`, `template`, `write_batch(kit, tag, steps, devices=())`, `render(client, batch_set, kit, out_dir)`, `merge_patterns`, `constant`, `scale`/`unscale` |
 | `arrange/` | `fx` (clip edits, tracks as arguments), `autostate` (automation state, `restore` after Delete Time), `hats` (layered hat sections) |
 | `library/` | the WIP library, read-only: `inventory(roots, exports=, records_file=, measure=) -> Inventory` scores each track's seven steps (`../contrib/docs/workflow.md`); `facts.read_set` (what a .als shows), `score` (one scorer per step), `records` (the producer's word beats the heuristic), `markdown` |
-| `steps.py` | `report(caption, level="minor", x=None, y=None)` to the studio app; `timing(step, seconds, **fields)` to `bench.jsonl` |
+| `bench.py` | `timing(step, seconds, **fields)` appends to `<data_dir>/bench.jsonl` |
 | `config.py` | `rig()`: the private rig settings below |
 | `models.py`, `codegen.py`, `builder.py`, `runner.py` | `ProjectConfig` → LOM steps → `StepRunner` (`hands build / execute`); `models.py` is the source of the `lib/contracts` schemas (`tools/gen_schemas.py`) |
 | `ab.py` | A/B against "REF …" tracks and the master Spectrum (Hammerspoon hotkeys) |
@@ -102,8 +102,6 @@ data_dir = "~/Music/MyProject/probe-data"
 set_prefixes = ["MyProject_pp_", "MyProject_v_"]
 ```
 
-The step reports to my studio app (`contrib/harness`) use `STUDIO_STEP_URL` and `STUDIO_STEP_TOKEN` from the environment
-(loopback only); without them `steps.report` does nothing.
 
 ## CLI
 

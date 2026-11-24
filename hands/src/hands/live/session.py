@@ -3,8 +3,7 @@
 Before and after each Live step, `check` makes sure Live is where the step expects it: no dialog
 open, one of our sets in front (config.set_prefixes: anything else means someone else is using
 Live), the expected set if one is named, and the LOM answering. A Guard means stop: never chain the
-next step past a surprise (docs/probe-packing-findings.md, section 7). Each Guard is also reported
-to the studio as a major step, so there is a screenshot of what went wrong.
+next step past a surprise (docs/probe-packing-findings.md, section 7).
 
 Sets live in config.sets_dir and are named without ".als".
 """
@@ -20,7 +19,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import NoReturn
 
-from hands import config, steps
+from hands import config
 from hands.live import ui
 from hands.live.transport import LiveError, McpTransport
 
@@ -32,8 +31,7 @@ class Guard(RuntimeError):
 
 
 def stop(message: str) -> NoReturn:
-    """Report the surprise to the studio (a screenshot of it), then raise Guard."""
-    steps.report(f"guard: {message}", "major")
+    """Stop the run: raise Guard with what was found."""
     raise Guard(message)
 
 
@@ -95,7 +93,6 @@ def _save_front(front: str, where: str) -> None:
             f"{where}: {front}.als changed on disk since Live loaded it and Live has unsaved changes; "
             "saving would overwrite the file, not saving would leave Live's prompt open"
         )
-    steps.report(f"{where}: not saving {front}, its file changed on disk since Live loaded it", "minor")
 
 
 def check(client: McpTransport, where: str, *, expect_front: str | None = None, ours: bool = True) -> str:
@@ -139,7 +136,6 @@ def open_set(client: McpTransport, name: str, *, save_current: bool = True, time
         stop(f"open: {name} is already open, and Live would not reload it; open another set first")
     if save_current and front and rig.set_path(front).exists():
         _save_front(front, "open")
-    steps.report(f"opening {name}", "minor")
     t0 = time.monotonic()
     opened = subprocess.run(["open", "-a", rig.live_app, str(path)], capture_output=True, text=True)
     if opened.returncode:
@@ -155,7 +151,6 @@ def open_set(client: McpTransport, name: str, *, save_current: bool = True, time
         time.sleep(0.1)
     seconds = time.monotonic() - t0
     _remember(name)
-    steps.report(f"opened {name} in {seconds:.1f} s", "major")
     return seconds
 
 
@@ -185,7 +180,6 @@ def save(name: str | None = None, *, timeout_s: float = 30.0) -> bool:
         try:
             if path.stat().st_mtime_ns != before:
                 _remember(name)
-                steps.report(f"saved {name}", "minor")
                 return True
         except FileNotFoundError:
             pass  # Live replaces the file, so it is missing for a moment
@@ -229,7 +223,6 @@ def restart(client: McpTransport, *, timeout_s: float = 240.0) -> float:
         _save_front(front, "restart")
     if ui.dialogs():
         stop("restart: a dialog is open; quitting would stop at it")
-    steps.report("quitting Live", "major")
     t0 = time.monotonic()
     ui.osa(f'tell application "{config.rig().live_app}" to quit', timeout=60)
     for _ in range(120):
@@ -241,7 +234,6 @@ def restart(client: McpTransport, *, timeout_s: float = 240.0) -> float:
     launch()
     while time.monotonic() - t0 < timeout_s:
         if _answers(client):
-            steps.report("Live is back", "major")
             return time.monotonic() - t0
         time.sleep(2)
     stop(f"restart: Live did not answer LOM {timeout_s:g} s after the relaunch")

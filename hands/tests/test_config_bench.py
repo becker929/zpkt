@@ -1,4 +1,4 @@
-"""Rig settings (environment over file over defaults) and step reports to a local test server."""
+"""Rig settings (environment over file over defaults) and the bench log."""
 
 from __future__ import annotations
 
@@ -10,7 +10,7 @@ from pathlib import Path
 
 import pytest
 
-from hands import config, steps
+from hands import bench, config
 
 
 def test_defaults_are_neutral(tmp_path):
@@ -90,41 +90,9 @@ def studio():
     server.server_close()
 
 
-def test_report_posts_the_step_with_the_token(studio, monkeypatch):
-    url, seen = studio
-    monkeypatch.setenv("STUDIO_STEP_URL", url)
-    monkeypatch.setenv("STUDIO_STEP_TOKEN", "t0k")
-    assert steps.report("export done", "major", x=120, y=40)
-    assert steps.report("Delete Time 8+32")
-    assert seen == [
-        ("Bearer t0k", {"caption": "export done", "level": "major", "x": 120, "y": 40}),
-        ("Bearer t0k", {"caption": "Delete Time 8+32", "level": "minor"}),
-    ]
-
-
-def test_report_is_a_no_op_without_the_variables(studio, monkeypatch):
-    url, seen = studio
-    monkeypatch.setenv("STUDIO_STEP_URL", url)  # but no token
-    assert steps.report("x") is False and seen == []
-
-
-def test_report_never_raises(studio, monkeypatch):
-    url, _ = studio
-    monkeypatch.setenv("STUDIO_STEP_TOKEN", "t")
-    monkeypatch.setattr(steps, "TIMEOUT_S", 0.2)
-    monkeypatch.setenv("STUDIO_STEP_URL", url)
-    assert steps.report("slow") is False  # timed out
-    monkeypatch.setenv("STUDIO_STEP_URL", "http://127.0.0.1:9/step")
-    assert steps.report("x") is False  # nothing listening
-    monkeypatch.setenv("STUDIO_STEP_URL", "http://example.com/step")
-    assert steps.report("x") is False  # never sends the token off the Mac
-    monkeypatch.setenv("STUDIO_STEP_URL", "not a url")
-    assert steps.report("x") is False
-
-
 def test_timing_appends_to_the_bench_log(rig):
-    steps.timing("kit_load", 7.2345, kit="c8x4")
-    steps.timing("kit_render", 25.0)
+    bench.timing("kit_load", 7.2345, kit="c8x4")
+    bench.timing("kit_render", 25.0)
     rows = [json.loads(line) for line in (rig.data_dir / "bench.jsonl").read_text().splitlines()]
     assert [(r["step"], r["s"]) for r in rows] == [("kit_load", 7.234), ("kit_render", 25.0)]
     assert rows[0]["kit"] == "c8x4"
