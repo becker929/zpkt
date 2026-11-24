@@ -28,7 +28,7 @@ shells where `uv` is not on `PATH`, use `~/.local/bin/uv` or `ears/.venv/bin/pyt
   request needs, then build only that. Two exceptions exist, both in `contrib/arranger/`: the transitions page has a
   plain gain fader per kind of transition sound at each section change, and the first mix page has a gain, a pan and
   EQ cuts (never boosts) per channel. - **Images from
-  Gemini are made only through `harness images`** (`contrib/harness/src/harness/images.py`), never by calling the API
-  directly. It keeps every image with its context, full prompt and settings, and shows them all at `/studio/images/`
-  (`contrib/docs/images.md`). Generated originals live on the Mac, never in git. Game assets cut from them may be
-  committed, small, with their source image ids.
+  Gemini are made only through the image wall's `images` command** (its own repo, becker929/image-wall, in
+  `~/Desktop/image-wall`), never by calling the API directly. It keeps every image with its context, full prompt and
+  settings, and shows them all on its wall (`images serve`; the rule is its `docs/images.md`). Generated originals
+  live on the Mac, never in git. Game assets cut from them may be committed, small, with their source image ids.

@@ -18,9 +18,6 @@
     GET  /studio/regions/<id>/audio/<file>      the region's renders (a combination per file, and its interface sounds,
                                                 named by content: cached forever), from HARNESS_REGIONS_AUDIO/<id>/audio,
                                                 outside the repo
-    GET  /studio/images/          every image made with Gemini, as a wall (static/images, contrib/docs/images.md)
-    GET  /studio/images/api/list  their records, newest first (?offset=&limit=&batch=), and the batches
-    GET  /studio/images/files/<name>  an image or its gallery copy (cached forever: names are never reused)
     /studio/gemini/...            Gemini CLI sessions in zpkt, over ACP (gemini_routes.py, contrib/docs/gemini.md)
 """
 
@@ -45,7 +42,6 @@ log = logging.getLogger(__name__)
 
 STATIC = Path(__file__).parent / "static"
 STUDIO_KEY = web.AppKey("studio", object)
-IMAGES_KEY = web.AppKey("images", object)       # an images Store (the tests' stand-in server sets one)
 
 
 def app(studio: "Studio") -> web.Application:
@@ -58,17 +54,8 @@ def app(studio: "Studio") -> web.Application:
     sub.router.add_get("/lab/audio/{name}", lab_audio)
     sub.router.add_get("/lab/{path:.*}", lab_file)
     sub.router.add_get("/site-audio/{path:.+}", site_audio)
-    add_image_routes(sub)
     add_gemini_routes(sub)
     return sub
-
-
-def add_image_routes(sub: web.Application) -> None:
-    """The images' wall (also mounted by the browser tests' stand-in server)."""
-    sub.router.add_get("/images", images_slash)
-    sub.router.add_get("/images/api/list", images_list)
-    sub.router.add_get("/images/files/{name}", images_file)
-    sub.router.add_get("/images/{path:.*}", images_page)
 
 
 def add_artist_routes(sub: web.Application) -> None:
@@ -108,47 +95,6 @@ async def lab_file(request: web.Request) -> web.StreamResponse:
     """The lab's page and modules, by relative path (so the same files run from any static server in tests),
     revalidated each load: it is a test bench, changed often."""
     return static_file(request, LAB, request.match_info["path"])
-
-
-IMAGES_PAGE = STATIC / "images"
-
-
-_IMAGE_STORES: dict = {}
-
-
-def _image_store(request: web.Request):
-    from ..images import Store
-    store = request.config_dict.get(IMAGES_KEY)
-    if store is None:
-        root = _studio(request).cfg.images_dir
-        store = _IMAGE_STORES.get(root) or _IMAGE_STORES.setdefault(root, Store(root))
-    return store
-
-
-async def images_slash(_request: web.Request) -> web.Response:
-    raise web.HTTPFound("/studio/images/")
-
-
-async def images_page(request: web.Request) -> web.StreamResponse:
-    return static_file(request, IMAGES_PAGE, request.match_info["path"])
-
-
-async def images_list(request: web.Request) -> web.Response:
-    q = request.query
-    try:
-        offset, limit = max(0, int(q.get("offset", 0))), min(200, max(1, int(q.get("limit", 60))))
-    except ValueError:
-        raise web.HTTPBadRequest(text="offset and limit are numbers") from None
-    recs, total, batches = _image_store(request).page(offset, limit, q.get("batch") or None)
-    return gzipped(request, web.json_response({"items": [r.public() for r in recs], "total": total, "batches": batches},
-                                               headers={"Cache-Control": "no-cache"}))
-
-
-async def images_file(request: web.Request) -> web.StreamResponse:
-    path = _image_store(request).path(request.match_info["name"])
-    if path is None:
-        raise web.HTTPNotFound()
-    return web.FileResponse(path, headers={"Cache-Control": FOREVER})
 
 
 SITE_AUDIO = re.compile(r"(skrng/[A-Za-z0-9._-]+\.mp3|zpkt/check-sounds/[a-z]+-(hit|strong|land)-[0-9a-f]{8}\.m4a)")

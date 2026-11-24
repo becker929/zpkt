@@ -1,5 +1,5 @@
 """A stand-in server for the lab (/studio/lab/): its files and audio, the artist agent's API (with a store of its
-own, and the rule-based quick question), the regions' state and renders, and the images' wall, no login.
+own, and the rule-based quick question), and the regions' state and renders, no login.
 
     uv run --extra dev python tests/ui/lab_server.py [--port 8799] [--audio DIR]
 
@@ -25,7 +25,6 @@ class _Cfg:
         self.lab_audio = audio
         self.site = "https://anthonybecker.me"                       # site-audio comes from R2 through it
         self.site_audio = Path(audio) / "site-audio"
-        self.images_dir = Path(audio) / "images"                    # the images' wall (harness.images)
         self.regions_audio = Path(audio) / "regions"                # <region>/audio/<file>: the regions' renders
 
 
@@ -46,7 +45,6 @@ def app(audio: Path | None = None) -> web.Application:
     sub.router.add_get("/site-audio/{path:.+}", routes.site_audio)
     routes.add_artist_routes(sub)
     routes.add_region_routes(sub)
-    routes.add_image_routes(sub)
     root = web.Application()
     root.add_subapp("/studio", sub)
     return root

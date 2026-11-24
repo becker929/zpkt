@@ -135,3 +135,15 @@ async def test_studio_opens_the_home_page_that_links_what_is_here(client):
     page = await (await client.get("/studio/")).text()
     for link in ("/studio/gemini/", "/studio/lab/", "/skrng/"):
         assert f'href="{link}"' in page, link
+
+
+async def test_gemini_counts_the_image_walls_images_in_the_months_spend(client, tmp_path):
+    from datetime import UTC, datetime
+
+    await sign_in(client)
+    (tmp_path / "images").mkdir()
+    now = datetime.now(UTC).isoformat()
+    (tmp_path / "images" / "images.jsonl").write_text(
+        f'{{"created": "{now}", "model": "gemini-3-pro-image", "tokens": {{}}}}\n')
+    usage = (await (await client.get("/studio/gemini/api/state")).json())["usage"]
+    assert usage["image_count"] == 1 and usage["images"] == 0.134

@@ -107,7 +107,7 @@ def image_cost(rec: dict) -> float:
 
 
 def month_usage(usage_rows: list[dict], images_manifest: Path, month: str | None = None) -> dict:
-    """This month's estimated dollars: Gemini CLI's turns here, and every image made through harness.images."""
+    """This month's estimated dollars: Gemini CLI's turns here, and every image the image wall made (its images.jsonl)."""
     month = month or datetime.now(UTC).strftime("%Y-%m")
     agent = sum(r.get("dollars", 0.0) for r in usage_rows if r.get("at", "").startswith(month))
     img, n = 0.0, 0

@@ -6,7 +6,7 @@
     uv run python scripts/cutout.py scripts/rummage-art.json --sheet ~/somewhere/sheet.png
 
 The plan (JSON) names, for every asset, the id of the image it is cut from (an id in images.jsonl, made through
-`harness images`, contrib/docs/images.md) and its size. Sprites are generated as one object on flat magenta (#FF00FF):
+the image wall's `images`, becker929/image-wall) and its size. Sprites are generated as one object on flat magenta (#FF00FF):
 the magenta is keyed out (soft alpha only near the background, and magenta in shadow counts as background), the
 pink fringe is unmixed and despilled, small specks are dropped, the sprite is trimmed to its alpha, resized
 (premultiplied) and written as WebP with alpha. Ground textures are made to tile: the far band of each axis is laid

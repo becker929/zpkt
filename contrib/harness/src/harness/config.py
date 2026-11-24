@@ -26,7 +26,7 @@ def agent_path(base: str | None = None) -> str:
 KEYCHAIN = {
     "oauth": "zpkt-claude-oauth",           # `claude setup-token` output -> CLAUDE_CODE_OAUTH_TOKEN
     "ntfy_topic": "zpkt-ntfy-topic",        # ntfy.sh topic for Gemini's questions
-    "gemini": "zpkt-gemini-api-key",        # Gemini's image models, only through harness.images (contrib/docs/images.md)
+    "gemini": "zpkt-gemini-api-key",        # Gemini CLI (harness gemini, /studio/gemini/); the image wall reads it too
 }
 
 
@@ -66,7 +66,7 @@ class Config:
     lab_audio: Path = Path(os.environ.get("HARNESS_LAB_AUDIO", Path.home() / "_agent_scratch" / "lab" / "audio"))
     # The site's published audio the checklist prototype plays (the gallery's renders), copied here on first use.
     site_audio: Path = Path(os.environ.get("HARNESS_SITE_AUDIO", Path.home() / "_agent_scratch" / "studio" / "site-audio"))
-    # Every image made with Gemini, with its record (harness.images, contrib/docs/images.md); shown at /studio/images/.
+    # The image wall's folder (becker929/image-wall): read only, for Gemini's monthly spend on images.
     images_dir: Path = Path(os.environ.get("HARNESS_IMAGES", Path.home() / "_agent_scratch" / "studio" / "images"))
     # The regions' renders (contrib/docs/design/rummage.md): <regions_audio>/<region>/audio/<file>, made in Live, never in git.
     regions_audio: Path = Path(os.environ.get("HARNESS_REGIONS_AUDIO", Path.home() / "_agent_scratch" / "studio" / "regions"))

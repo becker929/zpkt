@@ -11,7 +11,7 @@ beside Claude Code, and he can reach it two ways:
 ## How zpkt is set up for it
 
 - **Rules:** `.gemini/settings.json` makes Gemini CLI read `AGENTS.md`, which links to `CLAUDE.md`. Both agents get
-  the same rules: Live through `hands`, images only through `harness images`, and nothing personal in the core.
+  the same rules: Live through `hands`, images only through the image wall's `images` command (becker929/image-wall), and nothing personal in the core.
 - **Skills:** `.agents/skills/` links to the skills in `agent/skills/`, as `.claude/skills/` does for Claude Code.
 - **Key:** `harness gemini` and the page both take the key from the Keychain's `zpkt-gemini-api-key` (or
   `HARNESS_GEMINI`), the same key the images use. They put it only in Gemini CLI's environment, and never write it

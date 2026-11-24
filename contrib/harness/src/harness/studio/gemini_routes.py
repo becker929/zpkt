@@ -118,13 +118,15 @@ async def page(request: web.Request) -> web.StreamResponse:
 
 async def state(request: web.Request) -> web.Response:
     g = _g(request)
-    from .routes import _image_store
-    try:
-        manifest = _image_store(request).manifest
-    except Exception:  # noqa: BLE001 - no studio in some tests
-        manifest = g.root / "none"
-    return _json({"sessions": g.list(), "usage": G.month_usage(g.usage_rows(), manifest), "offers": g.offers,
+    return _json({"sessions": g.list(), "usage": G.month_usage(g.usage_rows(), _images_manifest(request, g)), "offers": g.offers,
                   "modes": list(G.MODES), "cwd": str(g.cwd)})
+
+
+def _images_manifest(request: web.Request, g: G.Gemini) -> Path:
+    """The image wall's records (becker929/image-wall keeps them in HARNESS_IMAGES), read for the month's spend."""
+    from .routes import STUDIO_KEY
+    studio = request.config_dict.get(STUDIO_KEY)
+    return studio.cfg.images_dir / "images.jsonl" if studio is not None else g.root / "none"
 
 
 async def new_session(request: web.Request) -> web.Response:

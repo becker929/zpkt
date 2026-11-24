@@ -7,7 +7,6 @@ dependencies = [
     "aiohttp>=3.14.4",
     "claude-agent-sdk>=0.2.165",
     "numpy>=2",
-    "pillow>=13.0.0",
 ]
 
 [project.optional-dependencies]

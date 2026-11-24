@@ -144,7 +144,7 @@ The music agent's account of SH001 as rendered (15 October 2026). The recipe is 
 - **Style:** collage, bric-a-brac, faux multi-material. Cut-outs with a thin white paper edge, mixed textures (wood
   grain, brass, enamel, kraft paper, fabric, tin, print), a hand-made, stop-motion feel. The wanderer keeps the gold
   scarf.
-- **Made with Gemini through `harness images` only** (`contrib/docs/images.md`): every image with its context and batch,
+- **Made with Gemini through the image wall's `images` only** (becker929/image-wall, its `docs/images.md`): every image with its context and batch,
   batches named `rummage-*`.
 - **Processing:** generated on a flat chroma background, keyed out, trimmed, resized (sprites at about 2x their
   largest on-screen size), and written as WebP with alpha into `prototypes/checklist/static/rummage/art/`. Committed, small.
@@ -265,7 +265,7 @@ no cast shadow, no floor, no other objects, no text, no letters, no numbers, no 
   - Its depth is set by hand: 0.2-0.25 for the sets, 0.35 for the walls.
 - An edge wall's anchor is the middle of its base (x 0.5): its lowest point is off-centre.
 
-**Batches** (all on the wall, `/studio/images/?batch=<name>`):
+**Batches** (all on the image wall, `images serve`, then `/?batch=<name>`):
 
 - `rummage-style-1`, `rummage-style-2`;
 - `rummage-props-1` (its first three, in the round-1 style, are unused), `rummage-props-2`, `rummage-props-3`;
@@ -286,9 +286,10 @@ batches.
 
 **To remake or change an asset:**
 
-1. Make the image with `harness images` (the style bible, `--input` the style reference, magenta for sprites).
-2. Put its id in `contrib/harness/scripts/rummage-art.json`.
-3. Run it from `contrib/harness`:
+1. Make the image with the image wall's `images gen` (the style bible, `--input` the style reference, magenta for
+   sprites).
+2. Put its id in `prototypes/checklist/scripts/rummage-art.json`.
+3. Run it from `prototypes/checklist`:
 
    ```
    uv run python scripts/cutout.py scripts/rummage-art.json [--only props/teapot,hero] [--sheet ~/sheet.png]

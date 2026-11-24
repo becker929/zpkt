@@ -39,7 +39,7 @@ Built in small releases, each shown to Anthony before the next.
      remainder in device pixels, and the wanderer is placed to the device pixel. The jitter came from rounding the
      wanderer and the camera to whole art pixels separately. Measured on a steady walk, the wanderer's screen position now never
      reverses.
-   - **Styles and machines** are explored with Gemini (`contrib/docs/images.md`; the batches `wasteland-styles-1`,
+   - **Styles and machines** are explored with Gemini (the image wall, becker929/image-wall; the batches `wasteland-styles-1`,
      `wasteland-machines-1` and `wasteland-sprites-1` on the wall).
 3. **The map** (built with release 2). It is a screen of its own, opened from the header or with M. It charts the
    storm, the paths, the ground's marks and the nine places. Fog lifts where you walk and is kept. Tap a place, on
