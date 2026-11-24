@@ -52,7 +52,7 @@ Built in small releases, each shown to Anthony before the next.
 
 ## How it is built
 
-- `static/checklist/wasteland/`:
+- `prototypes/checklist/static/wasteland/`:
   - `pix.js`: a 1-bit drawing surface, dither, noise;
   - `props.js`: everything standing, drawn by code;
   - `land.js`: the layout, the collision grid and the ground, drawn in 256 px chunks on first sight;

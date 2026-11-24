@@ -31,7 +31,9 @@ def new_id(prefix: str) -> str:
     """A sortable id: the prefix, the time to the second, and four random hex digits."""
     return prefix + time.strftime("%Y%m%d%H%M%S") + secrets.token_hex(2)
 
-SEED = Path(__file__).parent / "static" / "checklist" / "map" / "works.json"     # the first repertoire
+# The first repertoire: the works the checklist prototype's map page was made with (prototypes/checklist/static/map/
+# works.json; its tests check the two agree).
+SEED = Path(__file__).parent / "artist_works.json"
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS feedback (

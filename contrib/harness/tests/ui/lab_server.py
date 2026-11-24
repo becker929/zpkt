@@ -1,6 +1,5 @@
-"""A stand-in server for the lab (/studio/lab/) and the checklist (/studio/checklist/): their files, their audio, the
-artist agent's API (with a store of its own, and the rule-based quick question) and the regions' state and renders,
-no login, no studio.
+"""A stand-in server for the lab (/studio/lab/): its files and audio, the artist agent's API (with a store of its
+own, and the rule-based quick question), the regions' state and renders, and the images' wall, no login.
 
     uv run --extra dev python tests/ui/lab_server.py [--port 8799] [--audio DIR]
 
@@ -24,8 +23,7 @@ from harness.studio.regions import RegionStore
 class _Cfg:
     def __init__(self, audio: Path):
         self.lab_audio = audio
-        self.site = "https://anthonybecker.me"                       # the check sounds come from R2 through it
-        self.check_sounds = Path(audio) / "check-sounds"
+        self.site = "https://anthonybecker.me"                       # site-audio comes from R2 through it
         self.site_audio = Path(audio) / "site-audio"
         self.images_dir = Path(audio) / "images"                    # the images' wall (harness.images)
         self.regions_audio = Path(audio) / "regions"                # <region>/audio/<file>: the regions' renders
@@ -45,9 +43,6 @@ def app(audio: Path | None = None) -> web.Application:
     sub.router.add_get("/lab", routes.lab_slash)
     sub.router.add_get("/lab/audio/{name}", routes.lab_audio)
     sub.router.add_get("/lab/{path:.*}", routes.lab_file)
-    sub.router.add_get("/checklist", routes.checklist_slash)
-    sub.router.add_get("/checklist/map/sounds/{name}", routes.check_sound)
-    sub.router.add_get("/checklist/{path:.*}", routes.checklist_file)
     sub.router.add_get("/site-audio/{path:.+}", routes.site_audio)
     routes.add_artist_routes(sub)
     routes.add_region_routes(sub)

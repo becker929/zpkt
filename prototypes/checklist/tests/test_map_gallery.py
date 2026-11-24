@@ -19,11 +19,11 @@ import pytest
 from aiohttp.test_utils import TestServer
 
 from conftest import IPHONE_15
-from lab_server import app
+from server import app
 
 pytestmark = pytest.mark.ui
 
-MAP = Path(__file__).resolve().parents[2] / "src/harness/studio/static/checklist/map"
+MAP = Path(__file__).resolve().parents[1] / "static" / "map"
 REPERTOIRE = {**json.loads((MAP / "works.json").read_text()), "at": 1760000000}
 
 COUNT = """(() => {

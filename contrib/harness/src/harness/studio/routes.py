@@ -3,9 +3,8 @@
     GET  /studio/                 the home page: links to what is here (static/index.html)
     GET  /studio/lab/<file>       the lab: HW002's controls as phone surfaces (static/lab, contrib/docs/design/lab.md)
     GET  /studio/lab/audio/<file> its audio, built by `harness lab-audio` outside the repo (cached forever)
-    GET  /studio/checklist/<file> the track's checklist across the spine (static/checklist, contrib/docs/design/studio-agent.md)
-    GET  /studio/checklist/map/sounds/<file>  its check sounds, from R2 through a local copy (cached forever)
     GET  /studio/site-audio/<path>  the site's published audio (skrng batches, check sounds), through a local copy
+                                  (the checklist prototype's gallery plays them: prototypes/checklist)
     POST /studio/api/artist/feedback            a thumbs up or down, stored at once (contrib/docs/design/artist-agent.md)
     POST /studio/api/artist/feedback/<id>/question   the quick question after it (a small model, else rules)
     POST /studio/api/artist/feedback/<id>/answer     his answer
@@ -58,9 +57,6 @@ def app(studio: "Studio") -> web.Application:
     sub.router.add_get("/lab", lab_slash)
     sub.router.add_get("/lab/audio/{name}", lab_audio)
     sub.router.add_get("/lab/{path:.*}", lab_file)
-    sub.router.add_get("/checklist", checklist_slash)
-    sub.router.add_get("/checklist/map/sounds/{name}", check_sound)
-    sub.router.add_get("/checklist/{path:.*}", checklist_file)
     sub.router.add_get("/site-audio/{path:.+}", site_audio)
     add_image_routes(sub)
     add_gemini_routes(sub)
@@ -114,18 +110,6 @@ async def lab_file(request: web.Request) -> web.StreamResponse:
     return static_file(request, LAB, request.match_info["path"])
 
 
-CHECKLIST = STATIC / "checklist"
-
-
-async def checklist_slash(_request: web.Request) -> web.Response:
-    raise web.HTTPFound("/studio/checklist/")
-
-
-async def checklist_file(request: web.Request) -> web.StreamResponse:
-    """The checklist page (a first draft: its items are in its own data file), served like the lab."""
-    return static_file(request, CHECKLIST, request.match_info["path"])
-
-
 IMAGES_PAGE = STATIC / "images"
 
 
@@ -167,13 +151,11 @@ async def images_file(request: web.Request) -> web.StreamResponse:
     return web.FileResponse(path, headers={"Cache-Control": FOREVER})
 
 
-CHECK_SOUND = re.compile(r"[a-z]+-(hit|strong|land)-[0-9a-f]{8}\.m4a")
-CHECK_SOUNDS_AT = "zpkt/check-sounds/"           # on the site (R2): public, but sent without CORS headers
 SITE_AUDIO = re.compile(r"(skrng/[A-Za-z0-9._-]+\.mp3|zpkt/check-sounds/[a-z]+-(hit|strong|land)-[0-9a-f]{8}\.m4a)")
 AUDIO_TYPES = {".mp3": "audio/mpeg", ".m4a": "audio/mp4", ".wav": "audio/wav"}
 
 
-async def _site_copy(site: str, path: Path, rel: str) -> Path:
+async def site_copy(site: str, path: Path, rel: str) -> Path:
     """The site's published audio at /audio/<rel>, copied to `path` the first time it is asked for. The site sends
     no CORS headers, so the page can't read it cross-origin; published files never change, so the copy is kept."""
     if not path.is_file():
@@ -192,26 +174,14 @@ async def _site_copy(site: str, path: Path, rel: str) -> Path:
     return path
 
 
-async def check_sound(request: web.Request) -> web.StreamResponse:
-    """The map checklist's check sounds (rendered in Live by hands/scripts/ui_sounds; map/sounds.json names them).
-    They live in R2, since audio never goes in git, and come through a local copy. Names carry a hash of the
-    content."""
-    name = request.match_info["name"]
-    if not CHECK_SOUND.fullmatch(name):
-        raise web.HTTPNotFound()
-    cfg = _studio(request).cfg
-    path = await _site_copy(cfg.site, cfg.check_sounds / name, CHECK_SOUNDS_AT + name)
-    return web.FileResponse(path, headers={"Cache-Control": FOREVER, "Content-Type": "audio/mp4"})
-
-
 async def site_audio(request: web.Request) -> web.StreamResponse:
-    """The site's published audio the checklist plays (the gallery's renders: skrng batches; the check sounds), from
-    an allowlist only, through a local copy kept for good."""
+    """The site's published audio the checklist prototype plays (the gallery's renders: skrng batches; the check
+    sounds), from an allowlist only, through a local copy kept for good."""
     rel = request.match_info["path"]
     if not SITE_AUDIO.fullmatch(rel):
         raise web.HTTPNotFound()
     cfg = _studio(request).cfg
-    path = await _site_copy(cfg.site, cfg.site_audio / rel, rel)
+    path = await site_copy(cfg.site, cfg.site_audio / rel, rel)
     return web.FileResponse(path, headers={"Cache-Control": FOREVER, "Content-Type": AUDIO_TYPES[path.suffix]})
 
 

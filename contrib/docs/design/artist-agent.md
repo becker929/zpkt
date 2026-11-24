@@ -137,7 +137,7 @@ Each is drawn from the work or from their time with it, so it is true, not decor
 - **Plates**: `POST /studio/api/artist/plates` keeps one per commit, numbered across the whole gallery, and `GET`
   lists them by track, oldest first.
 - **The repertoire**: `GET /studio/api/artist/repertoire` serves the newest version. The first time, it is the
-  seed, `static/checklist/map/works.json`. Every version is checked against the page's primitives (`PRIMITIVES`,
+  seed, `prototypes/checklist/static/map/works.json` (the harness keeps a copy, `artist_works.json`). Every version is checked against the page's primitives (`PRIMITIVES`,
   the same ranges as `map/works.js`), and anything outside them is refused.
 - **Renders**: `GET /studio/site-audio/<path>` serves the site's published audio from an allowlist (the /skrng
   batches, the check sounds). The site sends no CORS headers, so the harness copies each file the first time it is

@@ -53,7 +53,7 @@ Nothing is locked, in the spirit of the spine (`contrib/docs/design/studio-agent
 - **Where:**
   - renders on the Mac only, under `~/_agent_scratch/studio/regions/rummage/audio/` (never in git, never
     `~/Music`), served by the harness at `/studio/regions/rummage/audio/<file>`;
-  - the manifest, `static/checklist/rummage/audio.json`, is in git (no audio);
+  - the manifest, `prototypes/checklist/static/rummage/audio.json`, is in git (no audio);
   - the recipe, `hands/scripts/rummage/` (build | render | measure | encode, like `hands/scripts/ui_sounds/`), is in
     git.
 - **Sounds:** Live's own instruments, devices and packs only (look for the Lost and Found pack: instruments made from
@@ -147,7 +147,7 @@ The music agent's account of SH001 as rendered (15 October 2026). The recipe is 
 - **Made with Gemini through `harness images` only** (`contrib/docs/images.md`): every image with its context and batch,
   batches named `rummage-*`.
 - **Processing:** generated on a flat chroma background, keyed out, trimmed, resized (sprites at about 2x their
-  largest on-screen size), and written as WebP with alpha into `static/checklist/rummage/art/`. Committed, small.
+  largest on-screen size), and written as WebP with alpha into `prototypes/checklist/static/rummage/art/`. Committed, small.
 - **`art/manifest.json`** names every asset with its source image id:
 
 ```json
@@ -308,7 +308,7 @@ batches.
 
 ## Software
 
-- **The page** is `static/checklist/rummage/`:
+- **The page** is `prototypes/checklist/static/rummage/`:
   - `index.html`;
   - `rummage.css`;
   - `main.js`: the loop, the input (a floating stick, tap-to-walk, the keys, as in the Wasteland), and the camera

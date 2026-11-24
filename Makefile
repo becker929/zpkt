@@ -21,4 +21,5 @@ test-all: test  ## contrib and prototypes too
 	@for p in $(CONTRIB); do echo "== $$p"; (cd $$p && $(PYTEST)) || exit 1; done
 	cd contrib/harness && uv run --extra dev pytest -q -p no:cacheprovider
 	cd prototypes/audio-browser && $(PYTEST) --ignore tests/test_segment.py
+	cd prototypes/checklist && uv run --extra dev pytest -q -p no:cacheprovider
 	cd contrib/bot && npm ci --ignore-scripts --no-audit --no-fund && npm test

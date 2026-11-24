@@ -64,9 +64,7 @@ class Config:
     narrator_model: str = os.environ.get("HARNESS_NARRATOR_MODEL", "claude-haiku-5-5")
     # The lab (/studio/lab/): HW002's stems and clips as the phone plays them, built by `harness lab-audio`.
     lab_audio: Path = Path(os.environ.get("HARNESS_LAB_AUDIO", Path.home() / "_agent_scratch" / "lab" / "audio"))
-    # The map checklist's check sounds: kept in R2 (audio never goes in git), copied here on first use.
-    check_sounds: Path = Path(os.environ.get("HARNESS_CHECK_SOUNDS", Path.home() / "_agent_scratch" / "studio" / "check-sounds"))
-    # The site's published audio the checklist plays (the gallery's renders), copied here on first use.
+    # The site's published audio the checklist prototype plays (the gallery's renders), copied here on first use.
     site_audio: Path = Path(os.environ.get("HARNESS_SITE_AUDIO", Path.home() / "_agent_scratch" / "studio" / "site-audio"))
     # Every image made with Gemini, with its record (harness.images, contrib/docs/images.md); shown at /studio/images/.
     images_dir: Path = Path(os.environ.get("HARNESS_IMAGES", Path.home() / "_agent_scratch" / "studio" / "images"))

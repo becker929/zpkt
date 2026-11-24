@@ -10,6 +10,7 @@ that can reach a control surface can run code on the Mac. The rule is simple:
 |---|---|---|---|
 | AbletonLiveMCP remote script (in Live) | 127.0.0.1:16619 | raw TCP, loopback only | — |
 | audio-browser API (`prototypes/audio-browser`) | 127.0.0.1:8090 | CORS limited to localhost, tailnet and `*.ts.net` origins | — |
+| checklist prototype (`prototypes/checklist/server.py`) | 127.0.0.1:8798 | loopback only, no secret: it serves pages and writes only the artist's and the regions' records | — |
 | harness (`contrib/harness`) | 127.0.0.1:8787, on the tailnet through `tailscale serve` | a password per browser (scrypt hashes only, `auth.json` mode 600); every route but `/login` needs the session cookie | the password |
 
 To reach a service from another device, bind it to the machine's Tailscale

@@ -28,6 +28,9 @@ class Studio:
         return sub
 
     async def _on_cleanup(self, _app: web.Application) -> None:
+        await self.close()
+
+    async def close(self) -> None:
         if self.artist_model is not None:
             await self.artist_model.close()
         self.artist.close()

@@ -1,6 +1,6 @@
 """Cut game sprites out of generated images and write a region's art manifest.
 
-    cd contrib/harness
+    cd prototypes/checklist
     uv run python scripts/cutout.py scripts/rummage-art.json            # every asset in the plan
     uv run python scripts/cutout.py scripts/rummage-art.json --only props/teapot,hero
     uv run python scripts/cutout.py scripts/rummage-art.json --sheet ~/somewhere/sheet.png

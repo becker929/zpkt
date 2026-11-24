@@ -63,7 +63,7 @@ item's status, open questions and evidence (playable through the player engine).
 artifact: the agent refers to items by name, changes them, and the page shows what changed and who changed it.
 Anthony can edit it directly too.
 
-First draft (14 October 2026): `/studio/checklist/`, from `static/checklist/data/hw002.json`. The steps and their
+First draft (14 October 2026): `/studio/checklist/`, from `prototypes/checklist/static/data/hw002.json`. The steps and their
 items are HW002's for real; what is inside an item (sub-steps, the agent's question, a widget, evidence) is a
 wireframe, labelled as mocked. It is meant to feel like a precise video game, so moving the track along is its own
 pull: a current-objective HUD, the spine as seven gems, items that clear with a hold (the socket and the row fill;
@@ -92,7 +92,7 @@ not to unblock a sequence.
 ### Three concepts for a 2D, game-like checklist
 
 Kept separate on purpose, each proving two features, each reading and writing the same checks
-(`static/checklist/concepts/`, shared state in `model.js`):
+(`prototypes/checklist/static/concepts/`, shared state in `model.js`):
 
 - **Stamp rally** (`stamps.html`): a passport of seven stamp cards. A hold presses a stamp (a print that is the same
   for an item everywhere, from a hash), and what the agent has made ready shows as the ghost of the exact print.

@@ -47,7 +47,7 @@ same for all 27, so they line up sample for sample.
 in D where pitched, with their energy where a phone speaker has it (150 Hz to 6 kHz: Main high-passes at 130 Hz and
 shelves off above 8 kHz), peaks at -3.5 dBFS or lower. Each sound has a 6-second slot, so one export renders them
 all; `cut` slices, trims (where it stays under -60 dBFS), fades the last 20 ms and checks; `encode` adds
-`ui-<name>-<hash8>.m4a` to the audio folder and writes `static/checklist/rummage/sounds.json` (a list per name: step
+`ui-<name>-<hash8>.m4a` to the audio folder and writes `prototypes/checklist/static/rummage/sounds.json` (a list per name: step
 has three). The page plays them through `rummage/sounds.js`, as rendered.
 
 | Sound | What it is | Length, peak |
@@ -76,7 +76,7 @@ the rip are Simplers of their own. Paper LDre is quiet (about -35 dBFS): the rip
 
 Where things go: the set and the WAV renders under `~/_agent_scratch/rummage/` (never `~/Music`), the .m4a files in
 `~/_agent_scratch/studio/regions/rummage/audio/` (the harness serves them at `/studio/regions/rummage/audio/<file>`),
-the manifest at `contrib/harness/src/harness/studio/static/checklist/rummage/audio.json`. Audio never goes in git.
+the manifest at `prototypes/checklist/static/rummage/audio.json`. Audio never goes in git.
 
 Notes from making it (14-15 October 2026):
 

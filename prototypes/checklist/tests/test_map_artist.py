@@ -9,7 +9,7 @@ import pytest
 from aiohttp.test_utils import TestServer
 
 from conftest import IPHONE_15
-from lab_server import app
+from server import app
 
 pytestmark = pytest.mark.ui
 
