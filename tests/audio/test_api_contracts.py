@@ -14,13 +14,14 @@ import subprocess
 import sys
 
 import numpy as np
+from signals import SR, mix, write
+
 from zpkt.audio.meters import dsp, eqfit, target
 from zpkt.audio.meters import dynamics as D
 from zpkt.audio.meters import io as aio
 from zpkt.audio.meters import loudness as L
 from zpkt.audio.meters import sections as SEC
 from zpkt.audio.meters import spectrum as S
-from signals import SR, mix, write
 
 # Copied from hands/src/hands/library/inventory.py (measure_mlab). If this has to change, hands has to change too.
 HANDS_CODE = (

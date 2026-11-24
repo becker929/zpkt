@@ -7,7 +7,6 @@ from __future__ import annotations
 
 import json
 
-from zpkt.live.transport import MockTransport
 from zpkt.live.models import (
     EQ8Band,
     EQ8Spec,
@@ -20,6 +19,7 @@ from zpkt.live.models import (
     ProjectConfig,
     SamplePad,
 )
+from zpkt.live.transport import MockTransport
 
 
 def test_project_config_round_trip() -> None:

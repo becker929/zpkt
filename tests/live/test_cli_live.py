@@ -12,8 +12,8 @@ import socket
 import pytest
 from typer.testing import CliRunner
 
-from zpkt.live.cli import app
 from zpkt.live import session, ui
+from zpkt.live.cli import app
 from zpkt.live.testing import FakeLive, fake_set
 
 LIVE_PORT = 16619

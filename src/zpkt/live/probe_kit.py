@@ -24,10 +24,9 @@ from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
-from zpkt.live import als, audio, config
-from zpkt.live.bench import timing
+from zpkt.live import als, audio, config, session, timeops
 from zpkt.live import render as live_render
-from zpkt.live import session, timeops
+from zpkt.live.bench import timing
 from zpkt.live.knobs import Knob
 from zpkt.live.session import stop
 from zpkt.live.transport import McpTransport

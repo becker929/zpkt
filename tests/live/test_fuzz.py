@@ -17,9 +17,8 @@ import traceback
 import pytest
 from typer.testing import CliRunner
 
+from zpkt.live import live_cli, panel_cli, rig, ui
 from zpkt.live.cli import app
-from zpkt.live import live_cli
-from zpkt.live import panel_cli, rig, ui
 from zpkt.live.transport import McpResult, Transport
 
 SEED = int(os.environ.get("HANDS_FUZZ_SEED", "1"))

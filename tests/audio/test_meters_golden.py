@@ -14,6 +14,8 @@ from pathlib import Path
 import numpy as np
 import soundfile as sf
 from golden_check import check, text
+from signals import SR, mix, reference, write
+
 from zpkt.audio.meters import (
     als,
     bitdepth,
@@ -33,7 +35,6 @@ from zpkt.audio.meters import (
 from zpkt.audio.meters import io as aio
 from zpkt.audio.meters import loudness as L
 from zpkt.audio.meters import spectrum as S
-from signals import SR, mix, reference, write
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 FIXTURES = os.path.join(ROOT, "ears", "mlab", "calibration", "fixtures")

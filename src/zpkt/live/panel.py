@@ -23,8 +23,7 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
-from zpkt.live import config
-from zpkt.live import hold
+from zpkt.live import config, hold
 from zpkt.live.agent import with_prelude
 from zpkt.live.panel_base import (
     ANCHORS,

@@ -7,11 +7,11 @@ import json
 import numpy as np
 import pytest
 import soundfile as sf
-from zpkt.audio.cli import app
-from zpkt.audio.models import AudioProfile, LoudnessFeatures, SpectralFeatures
 from typer.testing import CliRunner
 
 from zpkt.audio import corpus
+from zpkt.audio.cli import app
+from zpkt.audio.models import AudioProfile, LoudnessFeatures, SpectralFeatures
 
 SR = 48000
 

@@ -11,6 +11,7 @@ import json
 import numpy as np
 import pytest
 import soundfile as sf
+
 from zpkt.audio.models import (
     AudioProfile,
     LoudnessFeatures,

@@ -9,8 +9,7 @@ import signal
 
 import pytest
 
-from zpkt.live import config
-from zpkt.live import hold, mix, panel, rig
+from zpkt.live import config, hold, mix, panel, rig
 from zpkt.live.transport import LiveError, McpResult, Transport
 
 

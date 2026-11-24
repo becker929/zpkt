@@ -11,7 +11,6 @@ import math
 
 from pydantic import BaseModel, ConfigDict
 
-from zpkt.live.units import EQ8_FREQ
 from zpkt.live.models import (
     DeviceSource,
     DeviceSpec,
@@ -21,6 +20,7 @@ from zpkt.live.models import (
     ParallelRack,
     SamplePad,
 )
+from zpkt.live.units import EQ8_FREQ
 
 
 class Step(BaseModel):

@@ -8,8 +8,8 @@ from pathlib import Path
 import pytest
 from typer.testing import CliRunner
 
-from zpkt.live.cli import app
 from zpkt.live import render, session, timeops, ui
+from zpkt.live.cli import app
 from zpkt.live.session import Guard
 from zpkt.live.transport import MockTransport
 

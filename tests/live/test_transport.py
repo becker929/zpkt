@@ -11,8 +11,8 @@ import pytest
 from typer.testing import CliRunner
 
 from zpkt.live import config
-from zpkt.live.cli import app
 from zpkt.live import transport as T
+from zpkt.live.cli import app
 from zpkt.live.transport import (
     LOST,
     UNREACHABLE,

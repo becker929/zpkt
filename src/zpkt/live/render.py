@@ -17,8 +17,7 @@ from __future__ import annotations
 import time
 from pathlib import Path
 
-from zpkt.live import bench
-from zpkt.live import timeops, ui
+from zpkt.live import bench, timeops, ui
 from zpkt.live.session import stop
 from zpkt.live.transport import McpTransport
 

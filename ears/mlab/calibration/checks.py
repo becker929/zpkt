@@ -808,8 +808,9 @@ def beat_loop(sr, bpm=160.0, dur=14.0, last_beat_db=0.0, last_beat_at=None):
 
 def check_target():
     """A mix against references per window (mlab/target.py). Windows of 8 s (bar 0.5 s) keep it fast."""
-    from zpkt.audio.meters import target as T
     from scipy import signal as sps
+
+    from zpkt.audio.meters import target as T
 
     rows = []
     sr = 44100

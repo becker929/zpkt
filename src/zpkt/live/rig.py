@@ -53,8 +53,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from zpkt.live import config
-from zpkt.live import hold, ui
+from zpkt.live import config, hold, ui
 from zpkt.live.transport import LiveClient, LiveError, McpTransport
 
 AUDIO_RESTART = ["sudo", "-n", "/usr/bin/killall", "coreaudiod"]

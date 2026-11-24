@@ -10,10 +10,10 @@ import types
 
 import pytest
 
-from zpkt.live.transport import LOST, LiveClient, LiveError
 from zpkt.live.testing import FakeLive, fake_set, hw002_like
 from zpkt.live.testing.fakelive import REMOTE_SCRIPT
 from zpkt.live.testing.lom import NOTIFICATION_REFUSED, MidiNoteSpecification
+from zpkt.live.transport import LOST, LiveClient, LiveError
 
 LIVE_PORT = 16619
 

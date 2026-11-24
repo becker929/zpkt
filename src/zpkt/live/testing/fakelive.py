@@ -32,9 +32,9 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Literal
 
-from zpkt.live.transport import DEFAULT_PORT, LOST, McpResult, Transport
 from zpkt.live.testing import devices
 from zpkt.live.testing.lom import MAIN_THREAD, Application, Browser, Song, live_module
+from zpkt.live.transport import DEFAULT_PORT, LOST, McpResult, Transport
 
 REMOTE_SCRIPT = Path(__file__).resolve().parents[1] / "remote_scripts" / "AbletonLiveMCP" / "__init__.py"
 _ABSENT = object()

@@ -137,8 +137,8 @@ def test_put_reports_what_the_set_lacks():
 def test_live_open_command_calls_open_set(monkeypatch):
     from typer.testing import CliRunner
 
-    from zpkt.live.cli import app
     from zpkt.live import session
+    from zpkt.live.cli import app
 
     seen = {}
     monkeypatch.setattr(

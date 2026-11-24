@@ -12,6 +12,7 @@ sys.path.insert(0, os.path.dirname(HERE))
 sys.path.insert(0, HERE)
 
 import checks  # noqa: E402
+
 from zpkt.audio.meters import cli, dsp, siggen  # noqa: E402
 from zpkt.audio.meters import target as T  # noqa: E402
 

@@ -9,10 +9,9 @@ import pytest
 import soundfile as sf
 from planted import TRACK, planted_set
 
-from zpkt.live import als, audio
+from zpkt.live import als, audio, session, timeops
 from zpkt.live import probe_kit as PK
 from zpkt.live import render as live_render
-from zpkt.live import session, timeops
 from zpkt.live.knobs import Knob
 from zpkt.live.session import Guard
 from zpkt.live.transport import McpResult, MockTransport

@@ -15,9 +15,10 @@ from pathlib import Path
 import numpy as np
 import pytest
 from golden_check import check, text
+from signals import BEAT_S, SR, mix, reference, refs_json, write
+
 from zpkt.audio.meters import cli, dsp, siggen
 from zpkt.audio.meters.util import lin
-from signals import BEAT_S, SR, mix, reference, refs_json, write
 
 
 def run(capsys: pytest.CaptureFixture[str], mask, *argv: str) -> str:

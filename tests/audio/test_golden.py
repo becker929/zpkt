@@ -12,13 +12,13 @@ from pathlib import Path
 import numpy as np
 import pytest
 import soundfile as sf
-from zpkt.audio.analyzer import analyze
-from zpkt.audio.cli import app
-from zpkt.audio.models import AudioProfile
 from golden_check import check, plain, text
 from typer.testing import CliRunner
 
 from zpkt.audio import corpus, embeddings, features, loudness
+from zpkt.audio.analyzer import analyze
+from zpkt.audio.cli import app
+from zpkt.audio.models import AudioProfile
 
 SR = 44100
 

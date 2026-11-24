@@ -40,8 +40,8 @@ def build(
 ) -> None:
     """Render a ProjectConfig to Step list and print or execute."""
     from zpkt.live.builder import ProjectBuilder
-    from zpkt.live.transport import DryRunTransport
     from zpkt.live.runner import ManualPolicy, StepRunner
+    from zpkt.live.transport import DryRunTransport
 
     cfg = _load_config(config)
     builder = ProjectBuilder(cfg)
@@ -74,8 +74,8 @@ def execute(
 ) -> None:
     """Execute Steps against a live Ableton session."""
     from zpkt.live.builder import ProjectBuilder
-    from zpkt.live.transport import LiveClient
     from zpkt.live.runner import ManualPolicy, StepRunner
+    from zpkt.live.transport import LiveClient
 
     cfg = _load_config(config)
     builder = ProjectBuilder(cfg)

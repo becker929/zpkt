@@ -13,8 +13,8 @@ import json
 import sys
 from pathlib import Path
 
-from zpkt.live.library.models import Inventory
 from zpkt.live.desk import Desk
+from zpkt.live.library.models import Inventory
 from zpkt.live.models import Feedback, ProjectConfig
 
 CONTRACTS = Path(__file__).resolve().parents[2] / "lib" / "contracts"

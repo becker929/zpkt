@@ -19,8 +19,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, NoReturn
 
-from zpkt.live import config
-from zpkt.live import ui
+from zpkt.live import config, ui
 from zpkt.live.transport import LiveError, McpTransport
 
 _LOG_TAIL_BYTES = 4 << 20  # Log.txt grows by megabytes a day; the last connections are at its end

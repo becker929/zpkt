@@ -32,10 +32,8 @@ import tempfile
 import time
 from pathlib import Path
 
-from zpkt.live import render, ui
+from zpkt.live import audio, render, ui
 from zpkt.live.transport import LiveClient
-
-from zpkt.live import audio
 
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))

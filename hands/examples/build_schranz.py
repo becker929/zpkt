@@ -290,8 +290,8 @@ def schranz_config() -> ProjectConfig:
 
 if __name__ == "__main__":
     from zpkt.live.builder import ProjectBuilder
-    from zpkt.live.transport import DryRunTransport
     from zpkt.live.runner import ManualPolicy, StepRunner
+    from zpkt.live.transport import DryRunTransport
 
     config = schranz_config()
     builder = ProjectBuilder(config)
