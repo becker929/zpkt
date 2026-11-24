@@ -6,6 +6,7 @@ import json
 import os
 import re
 import sys
+import time
 from pathlib import Path
 from typing import NoReturn
 
@@ -381,3 +382,135 @@ def surface_apply(
         print(json.dumps(res))
     except LiveError as exc:
         _fail(str(exc))
+
+
+# ---------------------------------------------------------------------------
+# The set as a file, and its mix state as data: save, state take/diff/put/ls
+
+state_app = typer.Typer(help="The mix state of the open set as data: take it, compare it, put it back.",
+                        no_args_is_help=True)
+app.add_typer(state_app, name="state")
+
+
+def _front_set() -> str:
+    """The open set's name: Live's window title, else (window on another Space, full screen) the set hands
+    last saw Live open or save, which a `hands live ...` command keeps on disk."""
+    from hands.live import session, ui
+    try:
+        if title := ui.front_title():
+            return title
+    except ui.UiError:
+        pass
+    try:
+        seen = json.loads(session._loaded_file().read_text())
+    except (FileNotFoundError, ValueError):
+        seen = {}
+    if seen:
+        name = max(seen, key=seen.get)
+        print(f"(Live's window is not readable: using {name}, the set hands last saw open)", file=sys.stderr)
+        return name
+    _fail("Live shows no set, and hands has not seen one opened or saved")
+
+
+@app.command("open")
+def open_(
+    name: str = typer.Argument(..., help="A set in the rig's sets folder, without .als."),
+    no_save: bool = typer.Option(False, "--no-save", help="Do not save the set in front first."),
+    host: str = HOST, port: int = PORT,
+) -> None:
+    """Open a set and wait until it is in front and the LOM answers. The set in front is saved first."""
+    from hands.live import session
+    try:
+        seconds = session.open_set(LiveClient(host, port), name.removesuffix(".als"), save_current=not no_save)
+    except session.Guard as exc:
+        _fail(str(exc))
+    print(f"opened {name} in {seconds:.1f} s")
+
+
+@app.command()
+def save(
+    as_: str = typer.Option(None, "--as", help="Also keep a copy as sets_dir/<AS>.als (refuses to replace one)."),
+    state: str = typer.Option(None, "--state", help="Also take the mix state as NAME (see `hands live state`)."),
+    host: str = HOST, port: int = PORT,
+) -> None:
+    """File > Save Live Set on the front set and wait for its file; optionally keep a named copy and its state."""
+    from hands.live import session
+    from hands.live import state as S
+    name = _front_set()
+    if as_ and config.rig().set_path(as_).exists():
+        _fail(f"{config.rig().set_path(as_)} exists; pick another name")
+    wrote = session.save(name)
+    print(f"{'saved' if wrote else 'nothing to save in'} {config.rig().set_path(name)}")
+    if as_:
+        print(f"copy {session.copy_set(name, as_)}")
+    if state:
+        p = S.save(S.take(LiveClient(host, port, keep=True)), S.path_for(name, state), name)
+        print(f"state {p}")
+
+
+@state_app.command("take")
+def state_take(
+    name: str = typer.Argument(..., help="State name (or a .json path)."),
+    only: list[str] = typer.Option(None, "--only", help="Only these tracks (repeatable)."),
+    host: str = HOST, port: int = PORT,
+) -> None:
+    """Every mixer and device value of the front set -> sets_dir/state/<set>/NAME.json."""
+    from hands.live import state as S
+    set_name = _front_set()
+    t0 = time.monotonic()
+    st = S.take(LiveClient(host, port, keep=True), only)
+    p = S.save(st, S.path_for(set_name, name), set_name)
+    print(f"{p}  ({len(st['tracks'])} tracks, {len(S.flatten(st))} values, "
+          f"{time.monotonic() - t0:.1f} s)")
+
+
+@state_app.command("diff")
+def state_diff(
+    a: str = typer.Argument(..., help="A state name, a state .json, or a recipe .json with a \"desk\"."),
+    b: str = typer.Argument(None, help="Another one; default: Live now."),
+    ignore: list[str] = typer.Option(None, "--ignore", help="Skip keys starting with this (e.g. 'mon '), repeatable."),
+    full: bool = typer.Option(False, "--full", help="Every row, not the collapsed summary."),
+    host: str = HOST, port: int = PORT,
+) -> None:
+    """What differs between A and B (or Live now). Only tracks A holds are read from Live. Exit 1 if anything does."""
+    from hands.live import state as S
+    set_name = _front_set() if b is None or not b.endswith(".json") or not a.endswith(".json") else ""
+    sa = S.load(S.path_for(set_name, a))
+    if b is None:
+        sb = S.take(LiveClient(host, port, keep=True), only=list(sa["tracks"]))
+    else:
+        sb = S.load(S.path_for(set_name, b))
+    rows = S.diff(sa, sb, tuple(ignore or ()))
+    n = len(S.flatten(sa))
+    print(f"{n} values in A, {len(rows)} differ")
+    print(S.summarize(rows, limit=10**6 if full else 60))
+    if rows:
+        raise typer.Exit(1)
+
+
+@state_app.command("put")
+def state_put(
+    name: str = typer.Argument(..., help="A state name or .json (a recipe with a \"desk\" works too)."),
+    only: list[str] = typer.Option(None, "--only", help="Only these tracks (repeatable)."),
+    host: str = HOST, port: int = PORT,
+) -> None:
+    """Write a state's raw values into Live, read them back; exit 1 with what still differs."""
+    from hands.live import hold
+    from hands.live import state as S
+    set_name = _front_set()
+    st = S.load(S.path_for(set_name, name))
+    with hold.using_live(f"hands live state put {name}"):
+        rows = S.put(LiveClient(host, port, keep=True), st, only)
+    print("put, Live matches" if not rows else f"{len(rows)} differ after put:\n{S.summarize(rows)}")
+    if rows:
+        raise typer.Exit(1)
+
+
+@state_app.command("ls")
+def state_ls() -> None:
+    """The states kept for the front set, newest first."""
+    from hands.live import state as S
+    d = S.folder(_front_set())
+    files = sorted(d.glob("*.json"), key=lambda p: p.stat().st_mtime, reverse=True) if d.exists() else []
+    print("\n".join(f"{p.stem:30s} {time.strftime('%Y-%m-%d %H:%M', time.localtime(p.stat().st_mtime))}"
+                    for p in files) or f"none in {d}")

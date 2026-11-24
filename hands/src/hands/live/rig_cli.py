@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import sys
+import time
 
 import typer
 
@@ -52,3 +53,27 @@ def reset(
         problems = (report.health or {}).get("problems") or []
         print("ready" if report.ok else "still not ready:\n" + "\n".join(f"- {p}" for p in problems))
     raise typer.Exit(0 if report.ok else 1)
+
+
+@app.command()
+def output(
+    name: str = typer.Argument(None, help="Start of the device's name as Live lists it (e.g. 'Yeti'); none: show it."),
+) -> None:
+    """Show Live's audio output device, or choose one (Live's Settings window, through Accessibility)."""
+    from hands.live import ui
+    if not name:
+        print(ui.osa_file(rig.DEVICE_SCRIPT, "read", timeout=40))
+        return
+    since = rig.log_size()
+    chosen = ui.osa_file(rig.DEVICE_SCRIPT, "set", name, timeout=40)
+    if chosen in ("NONE", "NO_LIVE", "NO_SETTINGS", "NO_POPUP"):
+        print(f"could not choose {name!r} ({chosen})", file=sys.stderr)
+        raise typer.Exit(1)
+    for _ in range(20):
+        opened = rig.output_device(rig.log_since(since))
+        if opened and opened != rig.NO_DEVICE:
+            print(f"Live's output: {opened}")
+            return
+        time.sleep(0.5)
+    print(f"chose {chosen}, but Live's log does not show it open", file=sys.stderr)
+    raise typer.Exit(1)

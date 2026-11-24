@@ -296,7 +296,9 @@ def _check(client: McpTransport | None, play: bool) -> Health:
     h.front = set_window()
     h.lom = lom_ok(client)
     if h.device == NO_DEVICE:
-        h.problems.append("Live has no audio output device")
+        last = last_good_device()
+        h.problems.append("Live has no audio output device (it is silent): "
+                          + (f"`hands rig output '{last.split()[0]}'` puts back {last}" if last else "`hands rig output NAME`"))
     if h.dialogs:
         h.problems.append(f"Live shows {h.dialogs} dialog(s)" + (f" (latest message: {h.last_message})" if h.last_message else ""))
     busy = hold.holder() if not h.lom else {}

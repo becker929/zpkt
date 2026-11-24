@@ -246,6 +246,38 @@ def als_params(
     print("\n".join(als.list_params(file, track, device, index)))
 
 
+@als_app.command("mix")
+def als_mix(
+    file: Path = typer.Argument(..., help="A saved set (.als) or a name in the rig's sets folder."),
+    against: Path = typer.Option(None, "--against", help="Another saved set: show only what differs (B = FILE)."),
+    ignore: list[str] = typer.Option(None, "--ignore", help="Skip keys starting with this (e.g. 'mon '), repeatable."),
+    full: bool = typer.Option(False, "--full", help="Every row, not the collapsed summary."),
+) -> None:
+    """The mix a saved set holds (faders, sends, mutes, devices), offline; with --against, what differs.
+    Live is not touched. Exit 1 if --against finds a difference."""
+    from hands import als, config
+    from hands.live import state as S
+
+    def resolve(p: Path) -> Path:
+        return p if p.exists() else config.rig().set_path(str(p).removesuffix(".als"))
+
+    b = als.mix_state(resolve(file))
+    if against is None:
+        for name, t in b["tracks"].items():
+            m = t["mixer"]
+            sends = {r: v[0] for r, v in m.get("sends", {}).items() if not v[0].startswith("-inf")}
+            devs = ", ".join(d["name"] + ("" if d["params"].get("On", [0, 1.0])[1] else " (off)") for d in t["devices"])
+            print(f"{name:24s} {m['volume'][0]:>10s} pan {m['pan'][0]:>5s}{'  MUTED' if m.get('mute', [0, False])[1] else ''}"
+                  f"{'  sends ' + str(sends) if sends else ''}{'  | ' + devs if devs else ''}")
+        return
+    a = als.mix_state(resolve(against))
+    rows = S.diff(a, b, tuple(ignore or ()))
+    print(f"{len(S.flatten(a))} values in A ({resolve(against).name}), {len(rows)} differ in B ({resolve(file).name})")
+    print(S.summarize(rows, limit=10**6 if full else 60))
+    if rows:
+        raise typer.Exit(1)
+
+
 @kit_app.command("template")
 def kit_template(
     kit: str = typer.Argument(..., help="The kit's name, e.g. c8x4."),

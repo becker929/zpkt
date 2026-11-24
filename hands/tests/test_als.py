@@ -171,3 +171,23 @@ def test_list_params_and_cli(tmp_path):
     out = CliRunner().invoke(app, ["als", "params", str(path), TRACK, "Eq8"])
     assert out.exit_code == 0 and out.stdout.split()[:2] == ["On", "Bool"]
     assert "Bands" not in out.stdout   # band parameters sit one level down
+
+
+def test_mix_state_reads_a_saved_mix_and_diffs_two_files(tmp_path):
+    from hands.live import state as S
+
+    src = planted_set(tmp_path / "a.als")
+    a = als.mix_state(src)
+    assert set(a["tracks"]) >= {TRACK, "Main"}
+    t = a["tracks"][TRACK]
+    assert t["mixer"]["mute"][1] is False and t["mixer"]["volume"][0].endswith("dB")
+    assert [d["class"] for d in t["devices"]] == ["StereoGain", "PluginDevice", "Eq8"]
+    assert S.diff(a, als.mix_state(planted_set(tmp_path / "b.als"))) == []
+
+    tree = als.load(src)
+    als.set_speaker(tree, TRACK, False)
+    muted = als.save(tree, tmp_path / "muted.als")
+    assert S.diff(a, als.mix_state(muted)) == [(f"{TRACK}/mute", "False", "True")]
+
+    res = CliRunner().invoke(app, ["als", "mix", str(muted), "--against", str(src)])
+    assert res.exit_code == 1 and f"{TRACK}/mute: False -> True" in res.output
