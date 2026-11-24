@@ -1,0 +1,17 @@
+mine.wav against 3 corpus tracks
+ Measure                   Yours    Median       p10       p90     z 
+ lufs_integrated           -10.9     -15.3     -18.1     -13.3  +1.9 
+ true_peak_db              -6.09     -10.4     -13.2     -8.37  +1.9 
+ band_sub                  0.647     0.648     0.647     0.648  -0.7 
+ band_low                0.00155   0.00149   0.00142   0.00152  +1.4 
+ band_mid                  0.299     0.298     0.298     0.299  +0.4 
+ band_high                0.0262    0.0261    0.0261    0.0261  +2.1 
+ band_air                 0.0263    0.0263    0.0261    0.0263  +0.7 
+ spectral_centroid_hz   8.85e+03  8.85e+03  8.84e+03  8.85e+03  +1.1 
+ spectral_rolloff_hz    1.78e+04  1.78e+04  1.78e+04  1.78e+04  -2.0 
+ spectral_bandwidth_hz  6.96e+03  6.96e+03  6.96e+03  6.96e+03  -0.0 
+ spectral_flatness        0.0428    0.0426    0.0425    0.0427  +2.2 
+ onset_strength            0.917     0.917     0.915     0.924  -0.5 
+Yellow rows are outside the corpus's 10th to 90th percentile.
+
+No embedding distance (set EARS_DCLAP_MODEL and rebuild the corpus to get it).

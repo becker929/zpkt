@@ -1,0 +1,1 @@
+wrote K-System calibration noise to audio/renders/k-system/ — see guides/ch20-21-monitoring.md

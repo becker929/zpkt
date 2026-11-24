@@ -1,0 +1,265 @@
+{
+ "normalization_loud": {
+  "youtube": {
+   "gain_db": -5.7,
+   "playback_lufs": -14.0,
+   "playback_true_peak": -6.1,
+   "note": "observed; applies to uploads incl. Shorts (assumed)"
+  },
+  "spotify": {
+   "gain_db": -5.7,
+   "playback_lufs": -14.0,
+   "playback_true_peak": -6.1,
+   "note": "documented by Spotify; up-gain limited by peak headroom"
+  },
+  "apple_music": {
+   "gain_db": -7.7,
+   "playback_lufs": -16.0,
+   "playback_true_peak": -8.1,
+   "note": "Sound Check; reported"
+  },
+  "tidal": {
+   "gain_db": -5.7,
+   "playback_lufs": -14.0,
+   "playback_true_peak": -6.1,
+   "note": "reported"
+  },
+  "amazon_music": {
+   "gain_db": -5.7,
+   "playback_lufs": -14.0,
+   "playback_true_peak": -6.1,
+   "note": "reported, varies"
+  },
+  "soundcloud": {
+   "gain_db": 0.0,
+   "playback_lufs": -8.3,
+   "playback_true_peak": -0.4,
+   "note": "no normalisation reported"
+  },
+  "instagram": {
+   "gain_db": 0.0,
+   "playback_lufs": -8.3,
+   "playback_true_peak": -0.4,
+   "note": "undocumented; measure a real upload"
+  },
+  "tiktok": {
+   "gain_db": 0.0,
+   "playback_lufs": -8.3,
+   "playback_true_peak": -0.4,
+   "note": "undocumented; measure a real upload"
+  }
+ },
+ "normalization_quiet": {
+  "youtube": {
+   "gain_db": 0.0,
+   "playback_lufs": -19.0,
+   "playback_true_peak": -6.0,
+   "note": "observed; applies to uploads incl. Shorts (assumed)"
+  },
+  "spotify": {
+   "gain_db": 5.0,
+   "playback_lufs": -14.0,
+   "playback_true_peak": -1.0,
+   "note": "documented by Spotify; up-gain limited by peak headroom"
+  },
+  "apple_music": {
+   "gain_db": 3.0,
+   "playback_lufs": -16.0,
+   "playback_true_peak": -3.0,
+   "note": "Sound Check; reported"
+  },
+  "tidal": {
+   "gain_db": 0.0,
+   "playback_lufs": -19.0,
+   "playback_true_peak": -6.0,
+   "note": "reported"
+  },
+  "amazon_music": {
+   "gain_db": 0.0,
+   "playback_lufs": -19.0,
+   "playback_true_peak": -6.0,
+   "note": "reported, varies"
+  },
+  "soundcloud": {
+   "gain_db": 0.0,
+   "playback_lufs": -19.0,
+   "playback_true_peak": -6.0,
+   "note": "no normalisation reported"
+  },
+  "instagram": {
+   "gain_db": 0.0,
+   "playback_lufs": -19.0,
+   "playback_true_peak": -6.0,
+   "note": "undocumented; measure a real upload"
+  },
+  "tiktok": {
+   "gain_db": 0.0,
+   "playback_lufs": -19.0,
+   "playback_true_peak": -6.0,
+   "note": "undocumented; measure a real upload"
+  }
+ },
+ "normalization_silent": {
+  "youtube": {
+   "gain_db": null,
+   "playback_lufs": null,
+   "playback_true_peak": null,
+   "note": "silent or too short to measure"
+  },
+  "spotify": {
+   "gain_db": null,
+   "playback_lufs": null,
+   "playback_true_peak": null,
+   "note": "silent or too short to measure"
+  },
+  "apple_music": {
+   "gain_db": null,
+   "playback_lufs": null,
+   "playback_true_peak": null,
+   "note": "silent or too short to measure"
+  },
+  "tidal": {
+   "gain_db": null,
+   "playback_lufs": null,
+   "playback_true_peak": null,
+   "note": "silent or too short to measure"
+  },
+  "amazon_music": {
+   "gain_db": null,
+   "playback_lufs": null,
+   "playback_true_peak": null,
+   "note": "silent or too short to measure"
+  },
+  "soundcloud": {
+   "gain_db": null,
+   "playback_lufs": null,
+   "playback_true_peak": null,
+   "note": "silent or too short to measure"
+  },
+  "instagram": {
+   "gain_db": null,
+   "playback_lufs": null,
+   "playback_true_peak": null,
+   "note": "silent or too short to measure"
+  },
+  "tiktok": {
+   "gain_db": null,
+   "playback_lufs": null,
+   "playback_true_peak": null,
+   "note": "silent or too short to measure"
+  }
+ },
+ "report": {
+  "integrated": -22.37,
+  "true_peak": -4.85,
+  "normalization": {
+   "youtube": {
+    "gain_db": 0.0,
+    "playback_lufs": -22.37,
+    "playback_true_peak": -4.85,
+    "note": "observed; applies to uploads incl. Shorts (assumed)"
+   },
+   "spotify": {
+    "gain_db": 3.85,
+    "playback_lufs": -18.52,
+    "playback_true_peak": -1.0,
+    "note": "documented by Spotify; up-gain limited by peak headroom"
+   },
+   "apple_music": {
+    "gain_db": 3.85,
+    "playback_lufs": -18.52,
+    "playback_true_peak": -1.0,
+    "note": "Sound Check; reported"
+   },
+   "tidal": {
+    "gain_db": 0.0,
+    "playback_lufs": -22.37,
+    "playback_true_peak": -4.85,
+    "note": "reported"
+   },
+   "amazon_music": {
+    "gain_db": 0.0,
+    "playback_lufs": -22.37,
+    "playback_true_peak": -4.85,
+    "note": "reported, varies"
+   },
+   "soundcloud": {
+    "gain_db": 0.0,
+    "playback_lufs": -22.37,
+    "playback_true_peak": -4.85,
+    "note": "no normalisation reported"
+   },
+   "instagram": {
+    "gain_db": 0.0,
+    "playback_lufs": -22.37,
+    "playback_true_peak": -4.85,
+    "note": "undocumented; measure a real upload"
+   },
+   "tiktok": {
+    "gain_db": 0.0,
+    "playback_lufs": -22.37,
+    "playback_true_peak": -4.85,
+    "note": "undocumented; measure a real upload"
+   }
+  },
+  "advice": []
+ },
+ "report_hot": {
+  "integrated": -10.37,
+  "true_peak": 7.15,
+  "normalization": {
+   "youtube": {
+    "gain_db": -3.63,
+    "playback_lufs": -14.0,
+    "playback_true_peak": 3.52,
+    "note": "observed; applies to uploads incl. Shorts (assumed)"
+   },
+   "spotify": {
+    "gain_db": -3.63,
+    "playback_lufs": -14.0,
+    "playback_true_peak": 3.52,
+    "note": "documented by Spotify; up-gain limited by peak headroom"
+   },
+   "apple_music": {
+    "gain_db": -5.63,
+    "playback_lufs": -16.0,
+    "playback_true_peak": 1.52,
+    "note": "Sound Check; reported"
+   },
+   "tidal": {
+    "gain_db": -3.63,
+    "playback_lufs": -14.0,
+    "playback_true_peak": 3.52,
+    "note": "reported"
+   },
+   "amazon_music": {
+    "gain_db": -3.63,
+    "playback_lufs": -14.0,
+    "playback_true_peak": 3.52,
+    "note": "reported, varies"
+   },
+   "soundcloud": {
+    "gain_db": 0.0,
+    "playback_lufs": -10.37,
+    "playback_true_peak": 7.15,
+    "note": "no normalisation reported"
+   },
+   "instagram": {
+    "gain_db": 0.0,
+    "playback_lufs": -10.37,
+    "playback_true_peak": 7.15,
+    "note": "undocumented; measure a real upload"
+   },
+   "tiktok": {
+    "gain_db": 0.0,
+    "playback_lufs": -10.37,
+    "playback_true_peak": 7.15,
+    "note": "undocumented; measure a real upload"
+   }
+  },
+  "advice": [
+   "YouTube turns this down 3.63 dB; loudness above -14 LUFS buys nothing there",
+   "true peak above -1 dBTP: expect codec overs; lower the limiter ceiling"
+  ]
+ }
+}

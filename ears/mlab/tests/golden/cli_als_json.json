@@ -1,0 +1,19 @@
+{
+ "creator": "Ableton Live 10.1.7",
+ "tempo": 140.0,
+ "main_volume_db": 0.0,
+ "main_devices": [],
+ "tracks": [
+  {
+   "type": "AudioTrack",
+   "name": "1-divineboys-v1",
+   "id": "14",
+   "group_id": "-1",
+   "active": true,
+   "frozen": false,
+   "volume_db": 0.0,
+   "devices": []
+  }
+ ],
+ "findings": []
+}

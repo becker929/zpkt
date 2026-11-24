@@ -1,0 +1,7 @@
+Analyzing A: a.wav
+Analyzing B: b.wav
+
+Comparison
+  LUFS delta:         +6.02 dB  (A vs B)
+  Centroid delta:     +11.2 Hz
+  DCLAP cosine sim:   n/a (no embeddings)

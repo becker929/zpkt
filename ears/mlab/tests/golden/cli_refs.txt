@@ -1,0 +1,22 @@
+| measure | this | bright | dark | ref median | this − median |
+|---|---|---|---|---|---|
+| loudness.integrated | -22.37 | -21.8 | -27.62 | -24.71 | 2.34 |
+| loudness.short_term_max | -20.82 | -20.25 | -26.06 | -23.16 | 2.34 |
+| loudness.lra | 4.05 | 4.04 | 4.05 | 4.04 | 0.0 |
+| loudness.true_peak | -4.85 | -3.73 | -10.37 | -7.05 | 2.2 |
+| loudness.plr | 17.52 | 18.08 | 17.25 | 17.66 | -0.14 |
+| loudness.psr_min | 15.71 | 16.32 | 15.34 | 15.83 | -0.12 |
+| dynamics.crest_db | 18.14 | 18.74 | 17.75 | 18.24 | -0.1 |
+| dynamics.block_crest_median_db | 15.69 | 16.58 | 15.3 | 15.94 | -0.25 |
+| dynamics.transient_contrast_median_db | 11.3 | 12.09 | 10.98 | 11.54 | -0.23 |
+| tonal.slope_db_per_oct | -4.37 | -3.95 | -4.64 | -4.29 | -0.08 |
+| tonal.centroid_hz | 591.0 | 963.0 | 440.0 | 701.5 | -110.5 |
+| tonal.group.sub | -3.85 | -4.02 | -3.78 | -3.9 | 0.05 |
+| tonal.group.bass | -3.49 | -3.66 | -3.42 | -3.54 | 0.05 |
+| tonal.group.low_mid | -17.29 | -17.46 | -17.22 | -17.34 | 0.05 |
+| tonal.group.mid | -15.1 | -15.23 | -15.05 | -15.14 | 0.04 |
+| tonal.group.upper_mid | -17.75 | -17.24 | -18.11 | -17.67 | -0.08 |
+| tonal.group.presence | -17.84 | -15.62 | -19.35 | -17.48 | -0.36 |
+| tonal.group.air | -15.96 | -13.16 | -17.88 | -15.52 | -0.44 |
+| stereo.corr_20_120 | 0.952 | 0.952 | 0.952 | 0.95 | 0.0 |
+

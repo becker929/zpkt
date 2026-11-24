@@ -1,0 +1,11 @@
+{
+ "makeup_db": 0.0,
+ "threshold_db": -18.0,
+ "knee_db": 4.0,
+ "ratio": 3.98,
+ "static_fit_rms_err_db": 0.005,
+ "attack_ms": 8.5,
+ "release_ms": 155.0,
+ "note": "attack/release = time to 63 % of the gain change after a 30 dB step; compare devices with the same probe, not with their knob labels",
+ "latency_samples": 200
+}

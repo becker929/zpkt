@@ -1,0 +1,54 @@
+{
+ "slope_db_per_oct": -4.64,
+ "groups": {
+  "sub": -3.78,
+  "bass": -3.42,
+  "low_mid": -17.22,
+  "mid": -15.05,
+  "upper_mid": -18.11,
+  "presence": -19.35,
+  "air": -17.88
+ },
+ "stereo": [
+  {
+   "band_hz": [
+    20,
+    120
+   ],
+   "correlation": 0.952,
+   "side_minus_mid_db": -16.09
+  },
+  {
+   "band_hz": [
+    120,
+    500
+   ],
+   "correlation": 0.86,
+   "side_minus_mid_db": -11.24
+  },
+  {
+   "band_hz": [
+    500,
+    2000
+   ],
+   "correlation": 0.058,
+   "side_minus_mid_db": -0.51
+  },
+  {
+   "band_hz": [
+    2000,
+    8000
+   ],
+   "correlation": 0.137,
+   "side_minus_mid_db": -1.2
+  },
+  {
+   "band_hz": [
+    8000,
+    20000
+   ],
+   "correlation": 0.274,
+   "side_minus_mid_db": -2.44
+  }
+ ]
+}

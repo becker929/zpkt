@@ -1,0 +1,39 @@
+{
+ "peaks": {
+  "median_beat_peak_dbfs": -7.93,
+  "p90_beat_peak_dbfs": -5.62,
+  "top": [
+   {
+    "t_s": 11.25,
+    "peak_dbfs": -4.93,
+    "above_median_db": 3.0
+   },
+   {
+    "t_s": 10.12,
+    "peak_dbfs": -5.14,
+    "above_median_db": 2.79
+   },
+   {
+    "t_s": 8.62,
+    "peak_dbfs": -5.59,
+    "above_median_db": 2.34
+   },
+   {
+    "t_s": 10.87,
+    "peak_dbfs": -5.62,
+    "above_median_db": 2.32
+   },
+   {
+    "t_s": 11.62,
+    "peak_dbfs": -5.66,
+    "above_median_db": 2.27
+   }
+  ]
+ },
+ "feedback": [
+  "[WARN] head_first_10ms_dbfs = -18.14: loud first samples = clipped start / missing pre-roll; also causes inter-sample overs",
+  "[WARN] tail_last_10ms_dbfs = -28.46: loud last samples = reverb/delay tail cut off; extend the export length",
+  "[REF] loudness.plr = 17.52, outside the references' range 3.0..4.0 (median 3.5)"
+ ],
+ "short": null
+}

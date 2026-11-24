@@ -1,0 +1,38 @@
+{
+ "all": [
+  {
+   "id": "a",
+   "title": "A",
+   "file": "a.flac",
+   "drop": 24.0,
+   "barSeconds": 1.5,
+   "bpm": 160,
+   "set": "hw002",
+   "path": "/base/a.flac",
+   "bar_s": 1.5
+  },
+  {
+   "id": "b",
+   "file": "b.wav",
+   "drop": 20.5,
+   "barSeconds": 1.6,
+   "set": "other",
+   "extra": 1,
+   "path": "/base/b.wav",
+   "bar_s": 1.6
+  }
+ ],
+ "hw002": [
+  {
+   "id": "a",
+   "title": "A",
+   "file": "a.flac",
+   "drop": 24.0,
+   "barSeconds": 1.5,
+   "bpm": 160,
+   "set": "hw002",
+   "path": "/base/a.flac",
+   "bar_s": 1.5
+  }
+ ]
+}

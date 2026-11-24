@@ -25,4 +25,4 @@ build-backend = "hatchling.build"
 packages = ["mlab"]
 
 [tool.pytest.ini_options]
-testpaths = ["calibration"]
+testpaths = ["calibration", "tests"]   # known-answer checks; characterization of every command and output

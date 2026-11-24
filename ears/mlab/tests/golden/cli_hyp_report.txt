@@ -1,0 +1,52 @@
+# H901 — summing to mono
+
+Run <time> · chapter 20-21 · source: test
+
+**Claim.** Mono keeps a dual-mono tone.
+
+**Verdict: SUPPORTED**
+
+## Predictions
+
+| metric | left − right | op | threshold | observed | status |
+|---|---|---|---|---|---|
+| loudness.integrated | mono − as_is | abs< | 1.5 | -1.0 | PASS |
+| | *gain* | | | | |
+| loudness.true_peak | mono − 0 | < | -12 | -13.0 | PASS |
+
+## Measurements
+
+| metric | as_is | mono |
+|---|---|---|
+| loudness.integrated | -12.68 | -13.68 |
+| loudness.short_term_max | -12.68 | -13.68 |
+| loudness.lra | None | None |
+| loudness.true_peak | -12.0 | -13.0 |
+| loudness.plr | 0.68 | 0.68 |
+| loudness.psr_min | 0.68 | 0.68 |
+| dynamics.crest_db | 3.01 | 3.01 |
+| dynamics.block_crest_median_db | 3.01 | 3.01 |
+| dynamics.transient_contrast_median_db | None | None |
+| tonal.slope_db_per_oct | -15.35 | -15.35 |
+| tonal.centroid_hz | 440.0 | 440.0 |
+| tonal.group.sub | -129.28 | -129.28 |
+| tonal.group.bass | -111.56 | -111.56 |
+| tonal.group.low_mid | -0.0 | -0.0 |
+| tonal.group.mid | -86.34 | -86.34 |
+| tonal.group.upper_mid | -155.74 | -155.74 |
+| tonal.group.presence | -160.16 | -160.16 |
+| tonal.group.air | -155.06 | -155.06 |
+| stereo.corr_20_120 | 1.0 | 1.0 |
+
+## Variants
+
+- **as_is**: tone → 
+- **mono**: tone → mono → gain
+
+## Listening
+
+Blind ABX kit in `hypotheses/results/H901-mono/abx` (level-matched). Score with `python3 -m mlab abx-score <folder> <answers>`.
+
+## Interpretation
+
+_Write what this changes, then log it in LEARNINGS.md._

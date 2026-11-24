@@ -1,0 +1,3 @@
+- [WARN] head_first_10ms_dbfs = -18.14: loud first samples = clipped start / missing pre-roll; also causes inter-sample overs
+- [WARN] tail_last_10ms_dbfs = -28.46: loud last samples = reverb/delay tail cut off; extend the export length
+(full review: reports/review-mix.md)

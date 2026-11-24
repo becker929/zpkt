@@ -1,0 +1,535 @@
+{
+ "premaster": {
+  "overall": "WARN",
+  "checks": [
+   {
+    "check": "format",
+    "status": "PASS",
+    "value": "FLOAT",
+    "why": "24-bit or float keeps the noise floor out of the way"
+   },
+   {
+    "check": "sample_rate",
+    "status": "INFO",
+    "value": 44100,
+    "why": "keep the project rate; convert only at delivery"
+   },
+   {
+    "check": "sample_peak_dbfs",
+    "status": "PASS",
+    "value": -4.93,
+    "why": "leave headroom; -3.0 dBFS or lower is comfortable"
+   },
+   {
+    "check": "true_peak_dbtp",
+    "status": "PASS",
+    "value": -4.85,
+    "why": "above 0 dBTP the premaster already has inter-sample overs"
+   },
+   {
+    "check": "clipped_runs",
+    "status": "PASS",
+    "value": 0,
+    "why": "runs of >= 3 full-scale samples"
+   },
+   {
+    "check": "plr_db",
+    "status": "PASS",
+    "value": 17.52,
+    "why": "low PLR = limiter/clipper already on the main bus; bypass it for the premaster"
+   },
+   {
+    "check": "integrated_lufs",
+    "status": "INFO",
+    "value": -22.37,
+    "why": "premaster loudness is not a target; headroom matters more"
+   },
+   {
+    "check": "dc_offset_dbfs",
+    "status": "PASS",
+    "value": -60.29,
+    "why": "DC wastes headroom and thumps at edits (mean is bass wander, not a steady offset)"
+   },
+   {
+    "check": "head_first_10ms_dbfs",
+    "status": "WARN",
+    "value": -18.14,
+    "why": "loud first samples = clipped start / missing pre-roll; also causes inter-sample overs"
+   },
+   {
+    "check": "tail_last_10ms_dbfs",
+    "status": "WARN",
+    "value": -28.46,
+    "why": "loud last samples = reverb/delay tail cut off; extend the export length"
+   },
+   {
+    "check": "correlation",
+    "status": "PASS",
+    "value": 0.759,
+    "why": "negative overall correlation = polarity problem"
+   },
+   {
+    "check": "low_end_correlation_20_120hz",
+    "status": "PASS",
+    "value": 0.952,
+    "why": "club systems and phones sum bass to mono; keep it near 1"
+   },
+   {
+    "check": "mono_sum_loss_lu",
+    "status": "PASS",
+    "value": 0.59,
+    "why": "loudness lost when summed to mono (phone speaker, club)"
+   },
+   {
+    "check": "lr_balance_db",
+    "status": "PASS",
+    "value": -0.08,
+    "why": "L minus R RMS"
+   },
+   {
+    "check": "duration_s",
+    "status": "INFO",
+    "value": 12.0,
+    "why": "YouTube Shorts: up to 180 s"
+   }
+  ]
+ },
+ "sheet": {
+  "file": {
+   "path": "<tmp>/mix.wav",
+   "sr": 44100,
+   "channels": 2,
+   "duration_s": 12.0,
+   "subtype": "FLOAT",
+   "format": "WAV",
+   "lossy": false
+  },
+  "loudness": {
+   "integrated": -22.37,
+   "momentary_max": -19.69,
+   "short_term_max": -20.82,
+   "lra": 4.05,
+   "lra_low": -24.88,
+   "lra_high": -20.83,
+   "sample_peak": -4.93,
+   "true_peak": -4.85,
+   "plr": 17.52,
+   "psr_min": 15.71
+  },
+  "dynamics": {
+   "crest_db": 18.14,
+   "plr_db": 17.52,
+   "psr_min_db": 15.71,
+   "k20_rms_db": -0.06,
+   "k14_rms_db": -6.06,
+   "lra_lu": 4.05,
+   "short_term_p95_minus_p10": 4.05,
+   "short_term_max_minus_integrated": 1.56,
+   "block_crest_median_db": 15.69,
+   "block_crest_p10_db": 14.95,
+   "block_crest_p90_db": 16.37,
+   "onsets": 37,
+   "transient_contrast_median_db": 11.3
+  },
+  "tonal": {
+   "slope_db_per_oct": -4.37,
+   "centroid_hz": 591.0,
+   "group.sub": -3.85,
+   "group.bass": -3.49,
+   "group.low_mid": -17.29,
+   "group.mid": -15.1,
+   "group.upper_mid": -17.75,
+   "group.presence": -17.84,
+   "group.air": -15.96
+  },
+  "third_octave": [
+   [
+    25.1,
+    -50.15
+   ],
+   [
+    31.6,
+    -47.74
+   ],
+   [
+    39.8,
+    -45.63
+   ],
+   [
+    50.1,
+    -29.6
+   ],
+   [
+    63.1,
+    -32.49
+   ],
+   [
+    79.4,
+    -34.14
+   ],
+   [
+    100.0,
+    -36.42
+   ],
+   [
+    125.9,
+    -34.23
+   ],
+   [
+    158.5,
+    -35.23
+   ],
+   [
+    199.5,
+    -40.21
+   ],
+   [
+    251.2,
+    -44.22
+   ],
+   [
+    316.2,
+    -46.04
+   ],
+   [
+    398.1,
+    -46.5
+   ],
+   [
+    501.2,
+    -46.57
+   ],
+   [
+    631.0,
+    -46.88
+   ],
+   [
+    794.3,
+    -46.81
+   ],
+   [
+    1000.0,
+    -46.86
+   ],
+   [
+    1258.9,
+    -46.91
+   ],
+   [
+    1584.9,
+    -46.8
+   ],
+   [
+    1995.3,
+    -46.17
+   ],
+   [
+    2511.9,
+    -46.36
+   ],
+   [
+    3162.3,
+    -46.2
+   ],
+   [
+    3981.1,
+    -46.73
+   ],
+   [
+    5011.9,
+    -46.59
+   ],
+   [
+    6309.6,
+    -46.35
+   ],
+   [
+    7943.3,
+    -46.24
+   ],
+   [
+    10000.0,
+    -45.53
+   ],
+   [
+    12589.3,
+    -45.97
+   ],
+   [
+    15848.9,
+    -45.5
+   ]
+  ],
+  "stereo": [
+   {
+    "band_hz": [
+     20,
+     120
+    ],
+    "correlation": 0.952,
+    "side_minus_mid_db": -16.08
+   },
+   {
+    "band_hz": [
+     120,
+     500
+    ],
+    "correlation": 0.86,
+    "side_minus_mid_db": -11.24
+   },
+   {
+    "band_hz": [
+     500,
+     2000
+    ],
+    "correlation": 0.058,
+    "side_minus_mid_db": -0.51
+   },
+   {
+    "band_hz": [
+     2000,
+     8000
+    ],
+    "correlation": 0.136,
+    "side_minus_mid_db": -1.19
+   },
+   {
+    "band_hz": [
+     8000,
+     20000
+    ],
+    "correlation": 0.274,
+    "side_minus_mid_db": -2.44
+   }
+  ],
+  "word_length": {
+   "container": "FLOAT",
+   "sample_rate": 44100,
+   "lossy": false,
+   "effective_bits": 32,
+   "dc_offset_dbfs": [
+    -60.29,
+    -66.01
+   ],
+   "dc_steady": false,
+   "dc_max_dbfs": -60.29,
+   "digital_zero_blocks_100ms": 0,
+   "quietest_blocks_dbfs": -30.41,
+   "reference_floors_dbfs_at_16_bits": {
+    "none": -101.1,
+    "rpdf": -98.09,
+    "tpdf": -96.33
+   },
+   "quiet_region_tilt_db": -8.47,
+   "verdict": "nothing notable"
+  },
+  "delivery": {
+   "integrated": -22.37,
+   "true_peak": -4.85,
+   "normalization": {
+    "youtube": {
+     "gain_db": 0.0,
+     "playback_lufs": -22.37,
+     "playback_true_peak": -4.85,
+     "note": "observed; applies to uploads incl. Shorts (assumed)"
+    },
+    "spotify": {
+     "gain_db": 3.85,
+     "playback_lufs": -18.52,
+     "playback_true_peak": -1.0,
+     "note": "documented by Spotify; up-gain limited by peak headroom"
+    },
+    "apple_music": {
+     "gain_db": 3.85,
+     "playback_lufs": -18.52,
+     "playback_true_peak": -1.0,
+     "note": "Sound Check; reported"
+    },
+    "tidal": {
+     "gain_db": 0.0,
+     "playback_lufs": -22.37,
+     "playback_true_peak": -4.85,
+     "note": "reported"
+    },
+    "amazon_music": {
+     "gain_db": 0.0,
+     "playback_lufs": -22.37,
+     "playback_true_peak": -4.85,
+     "note": "reported, varies"
+    },
+    "soundcloud": {
+     "gain_db": 0.0,
+     "playback_lufs": -22.37,
+     "playback_true_peak": -4.85,
+     "note": "no normalisation reported"
+    },
+    "instagram": {
+     "gain_db": 0.0,
+     "playback_lufs": -22.37,
+     "playback_true_peak": -4.85,
+     "note": "undocumented; measure a real upload"
+    },
+    "tiktok": {
+     "gain_db": 0.0,
+     "playback_lufs": -22.37,
+     "playback_true_peak": -4.85,
+     "note": "undocumented; measure a real upload"
+    }
+   },
+   "advice": []
+  }
+ },
+ "peaks": {
+  "median_beat_peak_dbfs": -7.93,
+  "p90_beat_peak_dbfs": -5.62,
+  "top": [
+   {
+    "t_s": 11.25,
+    "peak_dbfs": -4.93,
+    "above_median_db": 3.0
+   },
+   {
+    "t_s": 10.12,
+    "peak_dbfs": -5.14,
+    "above_median_db": 2.79
+   },
+   {
+    "t_s": 8.62,
+    "peak_dbfs": -5.59,
+    "above_median_db": 2.34
+   },
+   {
+    "t_s": 10.87,
+    "peak_dbfs": -5.62,
+    "above_median_db": 2.32
+   },
+   {
+    "t_s": 11.62,
+    "peak_dbfs": -5.66,
+    "above_median_db": 2.27
+   }
+  ]
+ },
+ "feedback": [
+  "[WARN] head_first_10ms_dbfs = -18.14: loud first samples = clipped start / missing pre-roll; also causes inter-sample overs",
+  "[WARN] tail_last_10ms_dbfs = -28.46: loud last samples = reverb/delay tail cut off; extend the export length"
+ ],
+ "tonal_diff": [
+  [
+   25.0,
+   0.05
+  ],
+  [
+   32.0,
+   0.05
+  ],
+  [
+   40.0,
+   0.05
+  ],
+  [
+   50.0,
+   0.05
+  ],
+  [
+   63.0,
+   0.05
+  ],
+  [
+   79.0,
+   0.05
+  ],
+  [
+   100.0,
+   0.05
+  ],
+  [
+   126.0,
+   0.05
+  ],
+  [
+   158.0,
+   0.05
+  ],
+  [
+   200.0,
+   0.05
+  ],
+  [
+   251.0,
+   0.05
+  ],
+  [
+   316.0,
+   0.05
+  ],
+  [
+   398.0,
+   0.05
+  ],
+  [
+   501.0,
+   0.05
+  ],
+  [
+   631.0,
+   0.05
+  ],
+  [
+   794.0,
+   0.05
+  ],
+  [
+   1000.0,
+   0.05
+  ],
+  [
+   1259.0,
+   0.05
+  ],
+  [
+   1585.0,
+   0.04
+  ],
+  [
+   1995.0,
+   0.03
+  ],
+  [
+   2512.0,
+   -0.01
+  ],
+  [
+   3162.0,
+   -0.09
+  ],
+  [
+   3981.0,
+   -0.2
+  ],
+  [
+   5012.0,
+   -0.31
+  ],
+  [
+   6310.0,
+   -0.38
+  ],
+  [
+   7943.0,
+   -0.42
+  ],
+  [
+   10000.0,
+   -0.44
+  ],
+  [
+   12589.0,
+   -0.44
+  ],
+  [
+   15849.0,
+   -0.45
+  ]
+ ]
+}
