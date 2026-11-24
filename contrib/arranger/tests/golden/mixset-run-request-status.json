@@ -1,0 +1,48 @@
+{
+ "id": "b1114-101010",
+ "status": "ready",
+ "made": 5.0,
+ "target": "bus-kick",
+ "device": "Saturator",
+ "params": [
+  {
+   "name": "Drive",
+   "min": 0,
+   "max": 12,
+   "steps": 2,
+   "unit": "dB"
+  }
+ ],
+ "bars": [
+  17,
+  24
+ ],
+ "total": 5,
+ "done": 5,
+ "started": 0,
+ "base": "base.flac",
+ "baseLufs": -14.0,
+ "points": [
+  {
+   "k": 0,
+   "values": {
+    "Drive": "0.0 dB"
+   },
+   "file": "p00.flac",
+   "matched": "p00-m.flac",
+   "lufs": -12.0,
+   "matchDb": -2.0
+  },
+  {
+   "k": 1,
+   "values": {
+    "Drive": "12.0 dB"
+   },
+   "file": "p01.flac",
+   "matched": "p01-m.flac",
+   "lufs": -13.5,
+   "matchDb": -0.5
+  }
+ ],
+ "finished": 0
+}

@@ -1,0 +1,282 @@
+{
+ "fx-noise": [
+  [
+   20
+  ],
+  1196.0,
+  1072.0,
+  null
+ ],
+ "fx-tone": [
+  [
+   21
+  ],
+  1196.0,
+  456.0,
+  null
+ ],
+ "fx-kit": [
+  [
+   22
+  ],
+  1196.0,
+  400.0,
+  null
+ ],
+ "perc1": [
+  [
+   6
+  ],
+  1196.0,
+  64.0,
+  null
+ ],
+ "perc2": [
+  [
+   7
+  ],
+  1196.0,
+  288.0,
+  null
+ ],
+ "kick": [
+  [
+   2,
+   3
+  ],
+  1196.0,
+  1072.0,
+  null
+ ],
+ "rv-horn-b-room": [
+  [
+   15
+  ],
+  360.0,
+  40.0,
+  [
+   "room",
+   "horn-b"
+  ]
+ ],
+ "rv-horn-b-hall": [
+  [
+   15
+  ],
+  360.0,
+  40.0,
+  [
+   "hall",
+   "horn-b"
+  ]
+ ],
+ "rv-horn-b-huge": [
+  [
+   15
+  ],
+  360.0,
+  40.0,
+  [
+   "huge",
+   "horn-b"
+  ]
+ ],
+ "rv-horn-a-room": [
+  [
+   15
+  ],
+  320.0,
+  40.0,
+  [
+   "room",
+   "horn-a"
+  ]
+ ],
+ "rv-horn-a-hall": [
+  [
+   15
+  ],
+  320.0,
+  40.0,
+  [
+   "hall",
+   "horn-a"
+  ]
+ ],
+ "rv-horn-a-huge": [
+  [
+   15
+  ],
+  320.0,
+  40.0,
+  [
+   "huge",
+   "horn-a"
+  ]
+ ],
+ "rv-chord-room": [
+  [
+   11
+  ],
+  64.0,
+  40.0,
+  [
+   "room",
+   "chord"
+  ]
+ ],
+ "rv-chord-hall": [
+  [
+   11
+  ],
+  64.0,
+  40.0,
+  [
+   "hall",
+   "chord"
+  ]
+ ],
+ "rv-chord-huge": [
+  [
+   11
+  ],
+  64.0,
+  40.0,
+  [
+   "huge",
+   "chord"
+  ]
+ ],
+ "rv-crash-room": [
+  [
+   5
+  ],
+  256.0,
+  40.0,
+  [
+   "room",
+   "crash"
+  ]
+ ],
+ "rv-crash-hall": [
+  [
+   5
+  ],
+  256.0,
+  40.0,
+  [
+   "hall",
+   "crash"
+  ]
+ ],
+ "rv-crash-huge": [
+  [
+   5
+  ],
+  256.0,
+  40.0,
+  [
+   "huge",
+   "crash"
+  ]
+ ],
+ "rv-splash-c-room": [
+  [
+   9
+  ],
+  104.0,
+  40.0,
+  [
+   "room",
+   "splash-c"
+  ]
+ ],
+ "rv-splash-c-hall": [
+  [
+   9
+  ],
+  104.0,
+  40.0,
+  [
+   "hall",
+   "splash-c"
+  ]
+ ],
+ "rv-splash-c-huge": [
+  [
+   9
+  ],
+  104.0,
+  40.0,
+  [
+   "huge",
+   "splash-c"
+  ]
+ ],
+ "rv-splash-d-room": [
+  [
+   9
+  ],
+  384.0,
+  40.0,
+  [
+   "room",
+   "splash-d"
+  ]
+ ],
+ "rv-splash-d-hall": [
+  [
+   9
+  ],
+  384.0,
+  40.0,
+  [
+   "hall",
+   "splash-d"
+  ]
+ ],
+ "rv-splash-d-huge": [
+  [
+   9
+  ],
+  384.0,
+  40.0,
+  [
+   "huge",
+   "splash-d"
+  ]
+ ],
+ "rv-splash-b-room": [
+  [
+   9
+  ],
+  72.0,
+  40.0,
+  [
+   "room",
+   "splash-b"
+  ]
+ ],
+ "rv-splash-b-hall": [
+  [
+   9
+  ],
+  72.0,
+  40.0,
+  [
+   "hall",
+   "splash-b"
+  ]
+ ],
+ "rv-splash-b-huge": [
+  [
+   9
+  ],
+  72.0,
+  40.0,
+  [
+   "huge",
+   "splash-b"
+  ]
+ ]
+}

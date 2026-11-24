@@ -1,0 +1,241 @@
+[
+ [
+  "run",
+  "t = song.master_track\nwhile len(t.devices):\n    t.delete_device(0)\nresult = 'ok'"
+ ],
+ [
+  "run",
+  "result = [d.class_name for d in song.master_track.devices][-1:]"
+ ],
+ [
+  "setp",
+  "song.master_track.devices[-1]",
+  {
+   "Output": "-6.0 dB"
+  }
+ ],
+ [
+  "run",
+  "result = [t.name for t in song.tracks]"
+ ],
+ [
+  "run",
+  "t = song.tracks[4]\nwhile len(t.devices):\n    t.delete_device(0)\nresult = 'ok'"
+ ],
+ [
+  "run",
+  "t = song.tracks[5]\nwhile len(t.devices):\n    t.delete_device(0)\nresult = 'ok'"
+ ],
+ [
+  "run",
+  "t = song.tracks[6]\nwhile len(t.devices):\n    t.delete_device(0)\nresult = 'ok'"
+ ],
+ [
+  "run",
+  "t = song.tracks[7]\nwhile len(t.devices):\n    t.delete_device(0)\nresult = 'ok'"
+ ],
+ [
+  "run",
+  "t = song.tracks[8]\nwhile len(t.devices):\n    t.delete_device(0)\nresult = 'ok'"
+ ],
+ [
+  "run",
+  "t = song.tracks[0]\nwhile len(t.devices):\n    t.delete_device(0)\nresult = 'ok'"
+ ],
+ [
+  "run",
+  "t = song.tracks[1]\nwhile len(t.devices):\n    t.delete_device(0)\nresult = 'ok'"
+ ],
+ [
+  "run",
+  "t = song.tracks[2]\nwhile len(t.devices):\n    t.delete_device(0)\nresult = 'ok'"
+ ],
+ [
+  "run",
+  "t = song.tracks[3]\nwhile len(t.devices):\n    t.delete_device(0)\nresult = 'ok'"
+ ],
+ [
+  "run",
+  "result = [c.start_time for c in song.tracks[4].arrangement_clips]"
+ ],
+ [
+  "run",
+  "t = song.tracks[4]\nfor c in list(t.arrangement_clips):\n    t.delete_clip(c)\nresult = 'ok'"
+ ],
+ [
+  "run",
+  "c = song.tracks[4].create_audio_clip('DATA/kickfuzz/solo-mf1.flac', 64.0)\nc.warping = False\nc = song.tracks[4].create_audio_clip('DATA/kickfuzz/solo-mf1.flac', 80.0)\nc.warping = False\nc = song.tracks[4].create_audio_clip('DATA/kickfuzz/solo-mf1.flac', 96.0)\nc.warping = False\nresult = 'ok'"
+ ],
+ [
+  "mixer",
+  "song.tracks[4]",
+  0.0,
+  [],
+  0.0
+ ],
+ [
+  "load_item",
+  "song.tracks[4]",
+  "audio_effects",
+  null,
+  "EQ Eight"
+ ],
+ [
+  "setp",
+  "song.tracks[4].devices[0]",
+  {
+   "1 Filter On A": "On",
+   "2 Filter On A": "On",
+   "3 Filter On A": "Off",
+   "4 Filter On A": "Off",
+   "5 Filter On A": "Off",
+   "6 Filter On A": "Off",
+   "7 Filter On A": "Off",
+   "8 Filter On A": "Off",
+   "1 Filter Type A": "High Pass 12dB",
+   "1 Frequency A": "30 Hz",
+   "2 Filter Type A": "Bell",
+   "2 Frequency A": "320 Hz",
+   "2 Gain A": "-3.0 dB",
+   "2 Q A": 1.4
+  }
+ ],
+ [
+  "mixer",
+  "song.tracks[5]",
+  0.0,
+  [],
+  0.0
+ ],
+ [
+  "mixer",
+  "song.tracks[6]",
+  0.0,
+  [],
+  0.0
+ ],
+ [
+  "mixer",
+  "song.tracks[7]",
+  -4.0,
+  [],
+  0.1
+ ],
+ [
+  "load_item",
+  "song.tracks[7]",
+  "audio_effects",
+  null,
+  "EQ Eight"
+ ],
+ [
+  "setp",
+  "song.tracks[7].devices[0]",
+  {
+   "1 Filter On A": "Off",
+   "2 Filter On A": "Off",
+   "3 Filter On A": "Off",
+   "4 Filter On A": "Off",
+   "5 Filter On A": "Off",
+   "6 Filter On A": "Off",
+   "7 Filter On A": "Off",
+   "8 Filter On A": "On",
+   "8 Filter Type A": "Low Pass 12dB",
+   "8 Frequency A": "9000 Hz"
+  }
+ ],
+ [
+  "mixer",
+  "song.tracks[8]",
+  2.0,
+  [],
+  -0.2
+ ],
+ [
+  "load_item",
+  "song.tracks[4]",
+  "audio_effects",
+  null,
+  "EQ Eight"
+ ],
+ [
+  "devices",
+  "song.tracks[4]"
+ ],
+ [
+  "setp",
+  "song.tracks[4].devices[1]",
+  {
+   "1 Filter On A": "Off",
+   "2 Filter On A": "On",
+   "3 Filter On A": "Off",
+   "4 Filter On A": "Off",
+   "5 Filter On A": "Off",
+   "6 Filter On A": "Off",
+   "7 Filter On A": "Off",
+   "8 Filter On A": "Off",
+   "2 Filter Type A": "Bell",
+   "2 Frequency A": "40.0 Hz",
+   "2 Gain A": "8.0 dB",
+   "2 Q A": 0.7
+  }
+ ],
+ [
+  "load_item",
+  "song.tracks[0]",
+  "audio_effects",
+  null,
+  "Saturator"
+ ],
+ [
+  "devices",
+  "song.tracks[0]"
+ ],
+ [
+  "setp",
+  "song.tracks[0].devices[0]",
+  {
+   "Drive": "6.0 dB"
+  }
+ ],
+ [
+  "run",
+  "result = [t.name for t in song.tracks]"
+ ],
+ [
+  "load_item",
+  "song.tracks[2]",
+  "audio_effects",
+  null,
+  "EQ Eight"
+ ],
+ [
+  "devices",
+  "song.tracks[2]"
+ ],
+ [
+  "setp",
+  "song.tracks[2].devices[0]",
+  {
+   "2 Gain A": "-2.0 dB"
+  }
+ ],
+ [
+  "load_item",
+  "song.master_track",
+  "audio_effects",
+  null,
+  "Glue Compressor"
+ ],
+ [
+  "devices",
+  "song.master_track"
+ ],
+ [
+  "setp",
+  "song.master_track.devices[0]",
+  {
+   "Threshold": "-10.0 dB"
+  }
+ ]
+]

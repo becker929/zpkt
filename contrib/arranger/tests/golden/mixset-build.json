@@ -1,0 +1,338 @@
+[
+ [
+  "guard",
+  "mix set"
+ ],
+ [
+  "run",
+  "song.tempo = 160.0\nresult = 'ok'"
+ ],
+ [
+  "run",
+  "result = [t.name for t in song.tracks]"
+ ],
+ [
+  "run",
+  "t = song.create_audio_track(-1)\nt.name = 'Kick bus'\nresult = 'ok'"
+ ],
+ [
+  "run",
+  "t = song.create_audio_track(-1)\nt.name = 'Hats bus'\nresult = 'ok'"
+ ],
+ [
+  "run",
+  "t = song.create_audio_track(-1)\nt.name = 'Chord and splash bus'\nresult = 'ok'"
+ ],
+ [
+  "run",
+  "t = song.create_audio_track(-1)\nt.name = 'Transitions bus'\nresult = 'ok'"
+ ],
+ [
+  "run",
+  "t = song.create_audio_track(-1)\nt.name = 'kick'\nresult = 'ok'"
+ ],
+ [
+  "run",
+  "t = song.create_audio_track(-1)\nt.name = 'p1-oh'\nresult = 'ok'"
+ ],
+ [
+  "run",
+  "t = song.create_audio_track(-1)\nt.name = 'splash'\nresult = 'ok'"
+ ],
+ [
+  "run",
+  "t = song.create_audio_track(-1)\nt.name = 'chord'\nresult = 'ok'"
+ ],
+ [
+  "run",
+  "t = song.create_audio_track(-1)\nt.name = 'fx-riser'\nresult = 'ok'"
+ ],
+ [
+  "run",
+  "for _ in range(2):\n    song.delete_track(0)\nresult = 'ok'"
+ ],
+ [
+  "run",
+  "while len(song.return_tracks):\n    song.delete_return_track(0)\nresult = 'ok'"
+ ],
+ [
+  "run",
+  "result = [t.name for t in song.tracks]"
+ ],
+ [
+  "run",
+  "t = song.tracks[0]\nr = [x for x in t.available_input_routing_types if x.display_name == 'No Input']\nt.input_routing_type = r[0]\nt.current_monitoring_state = 0\nresult = [t.input_routing_type.display_name, t.current_monitoring_state]"
+ ],
+ [
+  "run",
+  "t = song.tracks[1]\nr = [x for x in t.available_input_routing_types if x.display_name == 'No Input']\nt.input_routing_type = r[0]\nt.current_monitoring_state = 0\nresult = [t.input_routing_type.display_name, t.current_monitoring_state]"
+ ],
+ [
+  "run",
+  "t = song.tracks[2]\nr = [x for x in t.available_input_routing_types if x.display_name == 'No Input']\nt.input_routing_type = r[0]\nt.current_monitoring_state = 0\nresult = [t.input_routing_type.display_name, t.current_monitoring_state]"
+ ],
+ [
+  "run",
+  "t = song.tracks[3]\nr = [x for x in t.available_input_routing_types if x.display_name == 'No Input']\nt.input_routing_type = r[0]\nt.current_monitoring_state = 0\nresult = [t.input_routing_type.display_name, t.current_monitoring_state]"
+ ],
+ [
+  "run",
+  "t = song.tracks[4]\nr = [x for x in t.available_output_routing_types if x.display_name == 'Kick bus']\nif r:\n    t.output_routing_type = r[0]\nresult = t.output_routing_type.display_name"
+ ],
+ [
+  "run",
+  "t = song.tracks[5]\nr = [x for x in t.available_output_routing_types if x.display_name == 'Hats bus']\nif r:\n    t.output_routing_type = r[0]\nresult = t.output_routing_type.display_name"
+ ],
+ [
+  "run",
+  "t = song.tracks[6]\nr = [x for x in t.available_output_routing_types if x.display_name == 'Chord and splash bus']\nif r:\n    t.output_routing_type = r[0]\nresult = t.output_routing_type.display_name"
+ ],
+ [
+  "run",
+  "t = song.tracks[7]\nr = [x for x in t.available_output_routing_types if x.display_name == 'Chord and splash bus']\nif r:\n    t.output_routing_type = r[0]\nresult = t.output_routing_type.display_name"
+ ],
+ [
+  "run",
+  "t = song.tracks[8]\nr = [x for x in t.available_output_routing_types if x.display_name == 'Transitions bus']\nif r:\n    t.output_routing_type = r[0]\nresult = t.output_routing_type.display_name"
+ ],
+ [
+  "run",
+  "out = []\nt = song.tracks[6]\nc = t.create_audio_clip('DATA/audio/0000000000000003.flac', 64.0)\nc.warping = False\nout.append(c.end_time - c.start_time)\nt = song.tracks[5]\nc = t.create_audio_clip('DATA/audio/0000000000000002.flac', 16.0)\nc.warping = False\nout.append(c.end_time - c.start_time)\nt = song.tracks[5]\nc = t.create_audio_clip('DATA/audio/0000000000000002.flac', 20.0)\nc.warping = False\nout.append(c.end_time - c.start_time)\nt = song.tracks[5]\nc = t.create_audio_clip('DATA/audio/0000000000000002.flac', 24.0)\nc.warping = False\nout.append(c.end_time - c.start_time)\nt = song.tracks[5]\nc = t.create_audio_clip('DATA/audio/0000000000000002.flac', 28.0)\nc.warping = False\nout.append(c.end_time - c.start_time)\nt = song.tracks[5]\nc = t.create_audio_clip('DATA/audio/0000000000000002.flac', 32.0)\nc.warping = False\nout.append(c.end_time - c.start_time)\nt = song.tracks[5]\nc = t.create_audio_clip('DATA/audio/0000000000000002.flac', 36.0)\nc.warping = False\nout.append(c.end_time - c.start_time)\nt = song.tracks[5]\nc = t.create_audio_clip('DATA/audio/0000000000000002.flac', 40.0)\nc.warping = False\nout.append(c.end_time - c.start_time)\nt = song.tracks[5]\nc = t.create_audio_clip('DATA/audio/0000000000000002.flac', 44.0)\nc.warping = False\nout.append(c.end_time - c.start_time)\nt = song.tracks[5]\nc = t.create_audio_clip('DATA/audio/0000000000000002.flac', 48.0)\nc.warping = False\nout.append(c.end_time - c.start_time)\nt = song.tracks[5]\nc = t.create_audio_clip('DATA/audio/0000000000000002.flac', 52.0)\nc.warping = False\nout.append(c.end_time - c.start_time)\nt = song.tracks[5]\nc = t.create_audio_clip('DATA/audio/0000000000000002.flac', 56.0)\nc.warping = False\nout.append(c.end_time - c.start_time)\nresult = out"
+ ],
+ [
+  "run",
+  "out = []\nt = song.tracks[5]\nc = t.create_audio_clip('DATA/audio/0000000000000002.flac', 60.0)\nc.warping = False\nout.append(c.end_time - c.start_time)\nt = song.tracks[5]\nc = t.create_audio_clip('DATA/audio/0000000000000002.flac', 64.0)\nc.warping = False\nout.append(c.end_time - c.start_time)\nt = song.tracks[5]\nc = t.create_audio_clip('DATA/audio/0000000000000002.flac', 68.0)\nc.warping = False\nout.append(c.end_time - c.start_time)\nt = song.tracks[5]\nc = t.create_audio_clip('DATA/audio/0000000000000002.flac', 72.0)\nc.warping = False\nout.append(c.end_time - c.start_time)\nt = song.tracks[5]\nc = t.create_audio_clip('DATA/audio/0000000000000002.flac', 76.0)\nc.warping = False\nout.append(c.end_time - c.start_time)\nt = song.tracks[5]\nc = t.create_audio_clip('DATA/audio/0000000000000002.flac', 80.0)\nc.warping = False\nout.append(c.end_time - c.start_time)\nt = song.tracks[5]\nc = t.create_audio_clip('DATA/audio/0000000000000002.flac', 84.0)\nc.warping = False\nout.append(c.end_time - c.start_time)\nt = song.tracks[5]\nc = t.create_audio_clip('DATA/audio/0000000000000002.flac', 88.0)\nc.warping = False\nout.append(c.end_time - c.start_time)\nt = song.tracks[5]\nc = t.create_audio_clip('DATA/audio/0000000000000002.flac', 92.0)\nc.warping = False\nout.append(c.end_time - c.start_time)\nt = song.tracks[5]\nc = t.create_audio_clip('DATA/audio/0000000000000002.flac', 96.0)\nc.warping = False\nout.append(c.end_time - c.start_time)\nt = song.tracks[5]\nc = t.create_audio_clip('DATA/audio/0000000000000002.flac', 100.0)\nc.warping = False\nout.append(c.end_time - c.start_time)\nt = song.tracks[5]\nc = t.create_audio_clip('DATA/audio/0000000000000002.flac', 104.0)\nc.warping = False\nout.append(c.end_time - c.start_time)\nresult = out"
+ ],
+ [
+  "run",
+  "out = []\nt = song.tracks[5]\nc = t.create_audio_clip('DATA/audio/0000000000000002.flac', 108.0)\nc.warping = False\nout.append(c.end_time - c.start_time)\nt = song.tracks[5]\nc = t.create_audio_clip('DATA/audio/0000000000000002.flac', 112.0)\nc.warping = False\nout.append(c.end_time - c.start_time)\nt = song.tracks[5]\nc = t.create_audio_clip('DATA/audio/0000000000000002.flac', 116.0)\nc.warping = False\nout.append(c.end_time - c.start_time)\nt = song.tracks[5]\nc = t.create_audio_clip('DATA/audio/0000000000000002.flac', 120.0)\nc.warping = False\nout.append(c.end_time - c.start_time)\nt = song.tracks[5]\nc = t.create_audio_clip('DATA/audio/0000000000000002.flac', 124.0)\nc.warping = False\nout.append(c.end_time - c.start_time)\nt = song.tracks[5]\nc = t.create_audio_clip('DATA/audio/0000000000000002.flac', 128.0)\nc.warping = False\nout.append(c.end_time - c.start_time)\nt = song.tracks[5]\nc = t.create_audio_clip('DATA/audio/0000000000000002.flac', 132.0)\nc.warping = False\nout.append(c.end_time - c.start_time)\nt = song.tracks[5]\nc = t.create_audio_clip('DATA/audio/0000000000000002.flac', 136.0)\nc.warping = False\nout.append(c.end_time - c.start_time)\nt = song.tracks[5]\nc = t.create_audio_clip('DATA/audio/0000000000000002.flac', 140.0)\nc.warping = False\nout.append(c.end_time - c.start_time)\nt = song.tracks[5]\nc = t.create_audio_clip('DATA/audio/0000000000000002.flac', 144.0)\nc.warping = False\nout.append(c.end_time - c.start_time)\nt = song.tracks[5]\nc = t.create_audio_clip('DATA/audio/0000000000000002.flac', 148.0)\nc.warping = False\nout.append(c.end_time - c.start_time)\nt = song.tracks[5]\nc = t.create_audio_clip('DATA/audio/0000000000000002.flac', 152.0)\nc.warping = False\nout.append(c.end_time - c.start_time)\nresult = out"
+ ],
+ [
+  "run",
+  "out = []\nt = song.tracks[5]\nc = t.create_audio_clip('DATA/audio/0000000000000002.flac', 156.0)\nc.warping = False\nout.append(c.end_time - c.start_time)\nt = song.tracks[4]\nc = t.create_audio_clip('DATA/audio/0000000000000001.flac', 64.0)\nc.warping = False\nout.append(c.end_time - c.start_time)\nt = song.tracks[4]\nc = t.create_audio_clip('DATA/audio/0000000000000001.flac', 96.0)\nc.warping = False\nout.append(c.end_time - c.start_time)\nt = song.tracks[4]\nc = t.create_audio_clip('DATA/audio/0000000000000001.flac', 112.0)\nc.warping = False\nout.append(c.end_time - c.start_time)\nt = song.tracks[4]\nc = t.create_audio_clip('DATA/audio/0000000000000001.flac', 128.0)\nc.warping = False\nout.append(c.end_time - c.start_time)\nt = song.tracks[4]\nc = t.create_audio_clip('DATA/audio/0000000000000001.flac', 144.0)\nc.warping = False\nout.append(c.end_time - c.start_time)\nt = song.tracks[7]\nc = t.create_audio_clip('DATA/audio/0000000000000004.flac', 64.0)\nc.warping = False\nout.append(c.end_time - c.start_time)\nt = song.tracks[7]\nc = t.create_audio_clip('DATA/audio/0000000000000004.flac', 96.0)\nc.warping = False\nout.append(c.end_time - c.start_time)\nt = song.tracks[7]\nc = t.create_audio_clip('DATA/audio/0000000000000005.flac', 128.0)\nc.warping = False\nout.append(c.end_time - c.start_time)\nt = song.tracks[8]\nc = t.create_audio_clip('DATA/fx/audio/nr-lp-2.flac', 56.0)\nc.warping = False\nout.append(c.end_time - c.start_time)\nt = song.tracks[4]\nc = t.create_audio_clip('DATA/fx/audio/sc-hp-1bar.flac', 80.0)\nc.warping = False\nout.append(c.end_time - c.start_time)\nresult = out"
+ ],
+ [
+  "run",
+  "t = song.tracks[8]\nc = [c for c in t.arrangement_clips if abs(c.start_time - 56.0) < 1e-6 and c.file_path == 'DATA/fx/audio/nr-lp-2.flac'][0]\nwant = -3.0\nlo_, hi_ = 0.0, 1.0\nfor _ in range(40):\n    mid = (lo_ + hi_) / 2\n    c.gain = mid\n    s = c.gain_display_string.replace(' dB', '')\n    v = -999.0 if 'inf' in s else float(s)\n    if v < want: lo_ = mid\n    else: hi_ = mid\nc.gain = hi_\nresult = c.gain_display_string"
+ ],
+ [
+  "run",
+  "result = [d.class_name for d in song.master_track.devices][-1:]"
+ ],
+ [
+  "setp",
+  "song.master_track.devices[-1]",
+  {
+   "Output": "-6.0 dB"
+  }
+ ],
+ [
+  "run",
+  "result = [t.name for t in song.tracks]"
+ ],
+ [
+  "run",
+  "t = song.tracks[4]\nwhile len(t.devices):\n    t.delete_device(0)\nresult = 'ok'"
+ ],
+ [
+  "run",
+  "t = song.tracks[5]\nwhile len(t.devices):\n    t.delete_device(0)\nresult = 'ok'"
+ ],
+ [
+  "run",
+  "t = song.tracks[6]\nwhile len(t.devices):\n    t.delete_device(0)\nresult = 'ok'"
+ ],
+ [
+  "run",
+  "t = song.tracks[7]\nwhile len(t.devices):\n    t.delete_device(0)\nresult = 'ok'"
+ ],
+ [
+  "run",
+  "t = song.tracks[8]\nwhile len(t.devices):\n    t.delete_device(0)\nresult = 'ok'"
+ ],
+ [
+  "run",
+  "t = song.tracks[0]\nwhile len(t.devices):\n    t.delete_device(0)\nresult = 'ok'"
+ ],
+ [
+  "run",
+  "t = song.tracks[1]\nwhile len(t.devices):\n    t.delete_device(0)\nresult = 'ok'"
+ ],
+ [
+  "run",
+  "t = song.tracks[2]\nwhile len(t.devices):\n    t.delete_device(0)\nresult = 'ok'"
+ ],
+ [
+  "run",
+  "t = song.tracks[3]\nwhile len(t.devices):\n    t.delete_device(0)\nresult = 'ok'"
+ ],
+ [
+  "run",
+  "result = [c.start_time for c in song.tracks[4].arrangement_clips]"
+ ],
+ [
+  "run",
+  "t = song.tracks[4]\nfor c in list(t.arrangement_clips):\n    t.delete_clip(c)\nresult = 'ok'"
+ ],
+ [
+  "run",
+  "c = song.tracks[4].create_audio_clip('DATA/kickfuzz/solo-mf1.flac', 64.0)\nc.warping = False\nc = song.tracks[4].create_audio_clip('DATA/kickfuzz/solo-mf1.flac', 80.0)\nc.warping = False\nc = song.tracks[4].create_audio_clip('DATA/kickfuzz/solo-mf1.flac', 96.0)\nc.warping = False\nresult = 'ok'"
+ ],
+ [
+  "mixer",
+  "song.tracks[4]",
+  -1.0,
+  [],
+  0.0
+ ],
+ [
+  "load_item",
+  "song.tracks[4]",
+  "audio_effects",
+  null,
+  "EQ Eight"
+ ],
+ [
+  "setp",
+  "song.tracks[4].devices[0]",
+  {
+   "1 Filter On A": "On",
+   "2 Filter On A": "On",
+   "3 Filter On A": "Off",
+   "4 Filter On A": "Off",
+   "5 Filter On A": "Off",
+   "6 Filter On A": "Off",
+   "7 Filter On A": "Off",
+   "8 Filter On A": "Off",
+   "1 Filter Type A": "High Pass 12dB",
+   "1 Frequency A": "30 Hz",
+   "2 Filter Type A": "Bell",
+   "2 Frequency A": "320 Hz",
+   "2 Gain A": "-3.0 dB",
+   "2 Q A": 1.4
+  }
+ ],
+ [
+  "mixer",
+  "song.tracks[5]",
+  0.0,
+  [],
+  0.0
+ ],
+ [
+  "mixer",
+  "song.tracks[6]",
+  0.0,
+  [],
+  0.0
+ ],
+ [
+  "mixer",
+  "song.tracks[7]",
+  -4.0,
+  [],
+  0.1
+ ],
+ [
+  "load_item",
+  "song.tracks[7]",
+  "audio_effects",
+  null,
+  "EQ Eight"
+ ],
+ [
+  "setp",
+  "song.tracks[7].devices[0]",
+  {
+   "1 Filter On A": "Off",
+   "2 Filter On A": "Off",
+   "3 Filter On A": "Off",
+   "4 Filter On A": "Off",
+   "5 Filter On A": "Off",
+   "6 Filter On A": "Off",
+   "7 Filter On A": "Off",
+   "8 Filter On A": "On",
+   "8 Filter Type A": "Low Pass 12dB",
+   "8 Frequency A": "9000 Hz"
+  }
+ ],
+ [
+  "mixer",
+  "song.tracks[8]",
+  2.0,
+  [],
+  -0.2
+ ],
+ [
+  "load_item",
+  "song.tracks[4]",
+  "audio_effects",
+  null,
+  "EQ Eight"
+ ],
+ [
+  "devices",
+  "song.tracks[4]"
+ ],
+ [
+  "setp",
+  "song.tracks[4].devices[1]",
+  {
+   "1 Filter On A": "Off",
+   "2 Filter On A": "On",
+   "3 Filter On A": "Off",
+   "4 Filter On A": "Off",
+   "5 Filter On A": "Off",
+   "6 Filter On A": "Off",
+   "7 Filter On A": "Off",
+   "8 Filter On A": "Off",
+   "2 Filter Type A": "Bell",
+   "2 Frequency A": "40.0 Hz",
+   "2 Gain A": "8.0 dB",
+   "2 Q A": 0.7
+  }
+ ],
+ [
+  "load_item",
+  "song.tracks[0]",
+  "audio_effects",
+  null,
+  "Saturator"
+ ],
+ [
+  "devices",
+  "song.tracks[0]"
+ ],
+ [
+  "setp",
+  "song.tracks[0].devices[0]",
+  {
+   "Drive": "6.0 dB"
+  }
+ ],
+ [
+  "mixer",
+  "song.tracks[7]",
+  -5.0,
+  [],
+  0.1
+ ],
+ [
+  "load_item",
+  "song.master_track",
+  "audio_effects",
+  null,
+  "EQ Eight"
+ ],
+ [
+  "devices",
+  "song.master_track"
+ ],
+ [
+  "setp",
+  "song.master_track.devices[0]",
+  {
+   "1 Gain A": "1.0 dB"
+  }
+ ]
+]

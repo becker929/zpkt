@@ -1,0 +1,242 @@
+{
+ "channels": [
+  {
+   "id": "kick",
+   "title": "Kick",
+   "group": "kick"
+  },
+  {
+   "id": "p1-oh",
+   "title": "P1 open",
+   "group": "hats"
+  },
+  {
+   "id": "splash",
+   "title": "Splash",
+   "group": "sfx"
+  },
+  {
+   "id": "chord",
+   "title": "Chord",
+   "group": "sfx"
+  },
+  {
+   "id": "fx-riser",
+   "title": "Risers",
+   "group": "fx"
+  }
+ ],
+ "buses": [
+  {
+   "id": "bus-kick",
+   "title": "Kick bus"
+  },
+  {
+   "id": "bus-hats",
+   "title": "Hats bus"
+  },
+  {
+   "id": "bus-sfx",
+   "title": "Chord and splash bus"
+  },
+  {
+   "id": "bus-fx",
+   "title": "Transitions bus"
+  }
+ ],
+ "devices": {
+  "Saturator": {
+   "what": "distortion",
+   "params": [
+    {
+     "name": "Drive",
+     "unit": "dB",
+     "min": 0,
+     "max": 36
+    },
+    {
+     "name": "Type",
+     "values": [
+      "Analog Clip",
+      "Soft Sine",
+      "Medium Curve",
+      "Hard Curve",
+      "Digital Clip"
+     ]
+    },
+    {
+     "name": "Dry/Wet",
+     "unit": "%",
+     "min": 0,
+     "max": 100
+    },
+    {
+     "name": "Output",
+     "unit": "dB",
+     "min": -36,
+     "max": 0
+    }
+   ]
+  },
+  "Drum Buss": {
+   "what": "distortion and bus",
+   "params": [
+    {
+     "name": "Drive",
+     "unit": "%",
+     "min": 0,
+     "max": 100
+    },
+    {
+     "name": "Crunch",
+     "unit": "%",
+     "min": 0,
+     "max": 100
+    },
+    {
+     "name": "Boom Amt",
+     "unit": "%",
+     "min": 0,
+     "max": 100
+    },
+    {
+     "name": "Transients",
+     "unit": "",
+     "min": -1,
+     "max": 1
+    },
+    {
+     "name": "Drive Type",
+     "values": [
+      "Soft",
+      "Medium",
+      "Hard"
+     ]
+    },
+    {
+     "name": "Dry/Wet",
+     "unit": "%",
+     "min": 0,
+     "max": 100
+    }
+   ]
+  },
+  "EQ Eight": {
+   "what": "EQ boost",
+   "params": [
+    {
+     "name": "4 Frequency A",
+     "unit": "Hz",
+     "min": 30,
+     "max": 16000
+    },
+    {
+     "name": "4 Gain A",
+     "unit": "dB",
+     "min": 0,
+     "max": 15
+    },
+    {
+     "name": "4 Q A",
+     "unit": "",
+     "min": 0.1,
+     "max": 4
+    }
+   ]
+  },
+  "Compressor": {
+   "what": "compression",
+   "params": [
+    {
+     "name": "Threshold",
+     "unit": "dB",
+     "min": -40,
+     "max": 0
+    },
+    {
+     "name": "Ratio",
+     "unit": ":1",
+     "min": 1,
+     "max": 20
+    },
+    {
+     "name": "Attack",
+     "unit": "ms",
+     "min": 0.1,
+     "max": 100
+    },
+    {
+     "name": "Release",
+     "unit": "ms",
+     "min": 10,
+     "max": 1000
+    },
+    {
+     "name": "Output",
+     "unit": "dB",
+     "min": 0,
+     "max": 24
+    },
+    {
+     "name": "Dry/Wet",
+     "unit": "%",
+     "min": 0,
+     "max": 100
+    }
+   ]
+  },
+  "Glue Compressor": {
+   "what": "bus compression",
+   "params": [
+    {
+     "name": "Threshold",
+     "unit": "dB",
+     "min": -40,
+     "max": 0
+    },
+    {
+     "name": "Ratio",
+     "values": [
+      "2",
+      "4",
+      "10"
+     ]
+    },
+    {
+     "name": "Attack",
+     "values": [
+      ".01",
+      ".1",
+      ".3",
+      "1",
+      "3",
+      "10",
+      "30"
+     ]
+    },
+    {
+     "name": "Release",
+     "values": [
+      ".1",
+      ".2",
+      ".4",
+      ".6",
+      "1.2"
+     ]
+    },
+    {
+     "name": "Output",
+     "unit": "dB",
+     "min": 0,
+     "max": 20
+    },
+    {
+     "name": "Dry/Wet",
+     "unit": "%",
+     "min": 0,
+     "max": 100
+    }
+   ]
+  }
+ }
+}
