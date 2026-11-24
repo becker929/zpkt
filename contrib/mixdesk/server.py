@@ -130,6 +130,7 @@ class Desk:
         )
         self.history.labels = self.labels
         self.making = threading.Lock()  # one "Make a surface" job at a time
+        self._analysis: tuple[float | None, dict[str, Any]] = (None, {"sources": {}})
 
     # ---- reading the state -----------------------------------------------------------------------------------------
     def snapshot(self) -> D.DeskState:
@@ -137,6 +138,10 @@ class Desk:
         with self.lock:
             copy: D.DeskState = json.loads(json.dumps(self.state))
         return copy
+
+    def page_state(self) -> dict[str, Any]:
+        """The state as the page gets it: a copy, with the loudness match's gains for every reference."""
+        return {**self.snapshot(), "gains": D.matched_gains(self.analysis()["sources"])}
 
     def monitor_choice(self) -> D.MonitorChoice:
         return self.snapshot()["monitor"]
@@ -172,7 +177,7 @@ class Desk:
                 pass
 
     def push_full(self) -> None:
-        self.push({"t": "full", "state": self.snapshot()})
+        self.push({"t": "full", "state": self.page_state()})
 
     def set_state(self, snap: dict[str, Any] | None, status: str) -> None:
         """A pager snapshot (or None) and Live's status: learn its keys, fold it in, send the page all of it."""
@@ -259,8 +264,16 @@ class Desk:
 
     # ---- monitor ---------------------------------------------------------------------------------------------------
     def analysis(self) -> dict[str, Any]:
+        """analyze.py's analysis.json (read again when it changes), or no sources before it has run."""
         f = self.settings.viz_dir / "analysis.json"
-        return json.loads(f.read_text()) if f.exists() else {"sources": {}}
+        try:
+            mtime = f.stat().st_mtime
+        except FileNotFoundError:
+            return {"sources": {}}
+        with self.lock:
+            if self._analysis[0] != mtime:
+                self._analysis = (mtime, json.loads(f.read_text()))
+            return self._analysis[1]
 
     def gain_db(self, slot: str, ref: str) -> float:
         return D.matched_gain_db(self.analysis()["sources"], slot, ref, self.snapshot()["match"])
@@ -625,7 +638,7 @@ class Handler(BaseHTTPRequestHandler):
             self._json({"error": str(exc)}, 404)
 
     def get_state(self, query: dict[str, str]) -> None:
-        self._json(self.desk.snapshot())
+        self._json(self.desk.page_state())
 
     def get_events(self, query: dict[str, str]) -> None:
         q: queue.Queue[dict[str, Any]] = queue.Queue(maxsize=2000)
@@ -635,7 +648,7 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header("Cache-Control", "no-store")
         self.end_headers()
         try:
-            first = json.dumps({"t": "full", "state": self.desk.snapshot()})
+            first = json.dumps({"t": "full", "state": self.desk.page_state()})
             self.wfile.write(f"data: {first}\n\n".encode())
             self.wfile.flush()
             while True:

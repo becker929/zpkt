@@ -42,7 +42,8 @@ class ControlValue(TypedDict, total=False):
 
 
 class DeskState(TypedDict):
-    """The whole state the page is sent as {"t": "full", "state": ...}; "values" is keyed "page:slot"."""
+    """The whole state the page is sent as {"t": "full", "state": ...}; "values" is keyed "page:slot". The server
+    adds "gains" when it sends it (see matched_gains)."""
 
     page: int
     attached: bool
@@ -187,6 +188,14 @@ def matched_gain_db(sources: Mapping[str, Any], slot: str, ref: str, match: bool
         return 0.0
     lufs = {i: float(sources[i]["sections"]["drop"]["lufs"]) for i in ids}
     return min(lufs.values()) - lufs[ref if slot == "C" else slot]
+
+
+def matched_gains(sources: Mapping[str, Any]) -> dict[str, dict[str, float]]:
+    """For each reference: the gain in dB that matches A, B and C (that reference) when the match is on. The page
+    shows and draws these; the pager plays them (matched_gain_db)."""
+    refs = [i for i in sources if i not in ("A", "B")]
+    return {ref: {slot: round(matched_gain_db(sources, slot, ref, True), 3) for slot in ("A", "B", "C")}
+            for ref in refs}
 
 
 def seek_beat(beat: float, slot: str, align_beat: float) -> float:

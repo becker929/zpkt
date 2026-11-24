@@ -248,3 +248,8 @@ def test_revert_all_to_a_missing_checkpoint_changes_nothing(rig):
     assert rig.post("/api/revert", {"to": "nope", "all": True})[0] == 400
     assert rig.get("/api/history")[1]["checkpoints"] == []  # no before-revert checkpoint was made
     assert rig.state()["monitor"]["slot"] == "A"  # and the monitor was not switched
+
+
+def test_the_state_carries_the_loudness_match_for_the_page(rig):
+    gains = rig.state()["gains"]
+    assert gains["C1"] == {"A": -3.0, "B": -2.0, "C": 0.0} and set(gains) == {"C1", "C2", "C3", "C4"}

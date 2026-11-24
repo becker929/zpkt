@@ -64,3 +64,8 @@ def test_the_loudness_match_brings_each_to_the_quietest_drop(slot, match, db):
 def test_no_match_without_an_analysis_and_c_seeks_from_the_drop():
     assert D.matched_gain_db(SOURCES, "A", "C2", True) == 0.0
     assert D.seek_beat(8.0, "C", 64.0) == 64.0 and D.seek_beat(8.0, "A", 64.0) == 8.0
+
+
+def test_matched_gains_for_every_reference_are_what_the_page_shows():
+    sources = {**SOURCES, "C2": {"sections": {"drop": {"lufs": -8.0}}}}
+    assert D.matched_gains(sources) == {"C1": {"A": -3.0, "B": -2.0, "C": 0.0}, "C2": {"A": -1.0, "B": 0.0, "C": -2.0}}

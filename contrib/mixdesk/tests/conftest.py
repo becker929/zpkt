@@ -28,15 +28,33 @@ from hands.testing import FakeLive, MiniLab_3, hw002_like  # noqa: E402
 
 MOD = "zpkt_mixdesk_pager"
 
-# A made-up analysis.json in the shape analyze.py writes (only what the server reads, plus a little for the page).
-ANALYSIS = {
-    "ref_align_s": 24.0,
-    "sources": {
-        sid: {"id": sid, "kind": "ref" if sid.startswith("C") else "mix", "duration_s": 60.0,
-              "sections": {"drop": {"lufs": lufs}, "build": {"lufs": lufs - 3}}}
-        for sid, lufs in (("A", -9.0), ("B", -10.0), ("C1", -12.0), ("C2", -11.0), ("C3", -11.5), ("C4", -13.0))
-    },
-}
+def made_up_analysis() -> dict:
+    """An analysis.json in the shape analyze.py writes (every key the page draws), with made-up numbers."""
+    centers = [round(20.0 * 2 ** (k / 6), 2) for k in range(61)]
+
+    def section(a: float, b: float, lufs: float) -> dict:
+        return {"from_s": a, "to_s": b, "lufs": lufs, "spec": [-30.0 - k * 0.3 for k in range(61)],
+                "side_spec": [-40.0 - k * 0.3 for k in range(61)], "peak_db": -0.5, "crest_db": 9.0,
+                "width_db": -12.0, "bass_corr": 0.98}
+
+    sources = {}
+    for sid, label, lufs in (("A", "Original", -9.0), ("B", "Recipe", -10.0), ("C1", "KSMS", -12.0),
+                             ("C2", "BSLS", -11.0), ("C3", "Hedon", -11.5), ("C4", "Patriotic", -13.0)):
+        ref = sid.startswith("C")
+        dur = 30.0 if ref else 60.0
+        secs = {"drop": section(0.0, dur, lufs)} if ref else {"build": section(0.0, 24.0, lufs - 3),
+                                                              "drop": section(24.0, dur, lufs)}
+        ts = [t + 1.5 for t in range(int(dur) - 1)]
+        sources[sid] = {"duration_s": dur, "sr": 44100, "sections": secs,
+                        "timeline": {"t": ts, "lufs": [lufs] * len(ts), "crest": [9.0] * len(ts),
+                                     "width": [-12.0] * len(ts), "bass_corr": [0.98] * len(ts)},
+                        "bands": {k: [-6.0] * len(ts) for k in ("low", "mid", "high")},
+                        "env": [0.3] * int(dur * 20), "peak_db": -0.5, "id": sid, "label": label, "what": label,
+                        "kind": "ref" if ref else "mix", "file": f"/made/up/{sid}.flac", "wav": f"/media/{sid}.wav"}
+    return {"build_end_s": 24.0, "ref_align_s": 24.0, "centers": centers, "sources": sources}
+
+
+ANALYSIS = made_up_analysis()
 
 
 def free_port(kind: int = socket.SOCK_STREAM) -> int:

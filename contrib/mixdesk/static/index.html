@@ -274,7 +274,7 @@ const ALL_SLOTS = [...KNOB_SLOTS, ...FADER_SLOTS, ...PAD_SLOTS];
 let desk = null, state = { page: 0, values: {}, hw: {}, picked: {}, attached: false, live: "" };
 const el = {};                 // "page:slot" -> its tile; "card:i" -> the page's card
 const ui = { make: false };    // the Make a surface page is this page's own (it is not a MiniLab page)
-const H = { view: "normal", a: "", b: "now", va: null, vb: null, changed: {}, perPage: {}, hist: null, histPage: 0 };
+const H = { view: "normal", a: "", b: "now", cmp: null, changed: {}, perPage: {}, hist: null, histPage: 0 };
 const post = (path, body) => fetch(path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body || {}) }).then((r) => r.json()).catch(() => ({}));
 const esc = (x) => String(x).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 
@@ -438,24 +438,32 @@ function paintStatus() {
   $("status").textContent = ok ? "MiniLab 3 → Live" : (state.live || "connecting");
 }
 
-// ---- what changed (compare a checkpoint with now, or with another checkpoint)
-const sameRaw = (x, y) => x != null && y != null && Math.abs(Number(x) - Number(y)) <= 1e-6;
+// ---- what changed (a checkpoint against now, or against another checkpoint): the server compares, this paints
 const fmtT = (t) => new Date(t * 1000).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false });
-async function loadCmp() {
-  const get = async (n) => n && n !== "now" ? (await fetch(`/api/checkpoint?name=${encodeURIComponent(n)}`)).json() : null;
-  H.va = await get(H.a); H.vb = await get(H.b);
+const cmpLoad = { busy: false, again: false };
+async function loadCmp() {           // /api/compare: {key: {a: [shown, raw], b: [shown, raw]}} for what differs
+  if (!H.a) { H.cmp = null; return paintChanged(); }
+  if (cmpLoad.busy) { cmpLoad.again = true; return; }
+  cmpLoad.busy = true;
+  try { H.cmp = await (await fetch(`/api/compare?a=${encodeURIComponent(H.a)}&b=${encodeURIComponent(H.b)}`)).json(); }
+  catch (e) { H.cmp = null; }
+  cmpLoad.busy = false;
   paintChanged();
+  if (cmpLoad.again) { cmpLoad.again = false; loadCmp(); }
 }
 let changedQueued = false;
-function queueChanged() { if (!changedQueued) { changedQueued = true; requestAnimationFrame(() => { changedQueued = false; paintChanged(); }); } }
+function queueChanged() {          // a value moved: against "now", ask the server again (at most once a frame)
+  if (changedQueued) return;
+  changedQueued = true;
+  requestAnimationFrame(() => { changedQueued = false; if (H.a && H.b === "now") loadCmp(); else paintChanged(); });
+}
 function paintChanged() {
   if (!desk) return;
   const changed = {}, perPage = {}, keys = new Set();
-  if (H.va && !H.va.error) {
+  if (H.cmp && !H.cmp.error) {
     for (const [k, v] of Object.entries(state.values)) {
-      if (!v.key) continue;
-      const a = H.va[v.key], b = H.b === "now" ? (v.r != null ? [v.s, v.r] : null) : H.vb && H.vb[v.key];
-      if (a && b && !sameRaw(a[1], b[1])) { changed[k] = String(a[0]).trim(); keys.add(v.key); const pg = k.split(":")[0]; perPage[pg] = (perPage[pg] || 0) + 1; }
+      const d = v.key && H.cmp[v.key];
+      if (d) { changed[k] = String(d.a[0]).trim(); keys.add(v.key); const pg = k.split(":")[0]; perPage[pg] = (perPage[pg] || 0) + 1; }
     }
   }
   H.changed = changed; H.perPage = perPage;
@@ -468,7 +476,7 @@ function paintChanged() {
     const w = d.querySelector(".was"); if (w) { const t = c != null ? `was ${c}` : ""; if (w.textContent !== t) w.textContent = t; }
     const rv = d.querySelector(".rv"); if (rv) rv.classList.toggle("can", H.b === "now");
   }));
-  $("nchg").innerHTML = H.va ? (H.va.error ? `no checkpoint ${esc(H.a)}` : `<b>${keys.size}</b> changed since <b>${esc(H.a)}</b>${H.b !== "now" ? ` (to ${esc(H.b)})` : ""}`) : "";
+  $("nchg").innerHTML = H.cmp ? (H.cmp.error ? `no checkpoint ${esc(H.a)}` : `<b>${keys.size}</b> changed since <b>${esc(H.a)}</b>${H.b !== "now" ? ` (to ${esc(H.b)})` : ""}`) : "";
   $("revshown").disabled = !(H.b === "now" && keys.size);
   $("revall").disabled = !(H.b === "now" && H.a);
   paintPage();
@@ -561,8 +569,8 @@ const redraw = (...what) => (what.length ? what : Object.keys(dirty)).forEach((k
 const idOf = (slot) => slot === "C" ? S.ref : slot;
 const src = (slot) => AN && AN.sources[idOf(slot)];
 const align = (slot) => slot === "C" ? AN.ref_align_s : 0;
-function matchTarget() { return Math.min(...["A", "B", "C"].map((s) => src(s)).filter(Boolean).map((x) => x.sections.drop.lufs)); }
-function gainDb(slot) { return S.match && src(slot) ? matchTarget() - src(slot).sections.drop.lufs : 0; }
+// the loudness match's gains come from the server (state.gains: reference -> {A, B, C} in dB); W is never changed
+function gainDb(slot) { const g = state.gains && state.gains[S.ref]; return S.match && g && g[slot] != null ? g[slot] : 0; }
 function curPos() { return S.playing ? S.pos + (performance.now() - S.posAt) / 1000 : S.pos; }
 function setPos(beats, playing) { S.pos = beats * BEAT_S; S.posAt = performance.now(); if (S.playing !== playing) { S.playing = playing; $("play").textContent = playing ? "Pause" : "Play"; } }
 const togglePlay = () => post("/api/transport", { action: S.playing ? "pause" : "play" });
@@ -825,7 +833,7 @@ function listen() {
     } else if (m.t === "v") {
       const k = `${m.page}:${m.slot}`;
       state.values[k] = { ...(state.values[k] || {}), n: m.n, s: m.s, r: m.r, key: m.key };
-      paintValue(k); if (H.view !== "normal" || H.va) queueChanged();
+      paintValue(k); if (H.view !== "normal" || H.cmp) queueChanged();
     } else if (m.t === "page") { state.page = m.page; state.picked = {}; ui.make = false; paintPage(); }
     else if (m.t === "hw") {
       if (m.hw != null && m.slot[0] === "f") { state.hw[m.slot] = m.hw; state.picked[m.slot] = m.picked; paintFaders(); }
