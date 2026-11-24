@@ -18,7 +18,14 @@ export const RS_COLOR = '#f2ecdf';
 
 export function metaFor(clip) {
   const key = `${clip.track ?? ''} ${clip.title ?? ''}`;
-  return META.find((m) => m.test.test(key)) ?? { name: clip.title?.slice(0, 14) ?? clip.id, long: clip.title ?? '', tag: 'CLIP', color: '#e0b7ff' };
+  return (
+    META.find((m) => m.test.test(key)) ?? {
+      name: clip.title?.slice(0, 14) ?? clip.id,
+      long: clip.title ?? '',
+      tag: 'CLIP',
+      color: '#e0b7ff',
+    }
+  );
 }
 
 /** "0:12.4" from seconds. */

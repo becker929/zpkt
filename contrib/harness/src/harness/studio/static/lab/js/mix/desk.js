@@ -13,11 +13,66 @@ import { levelOf } from './taps.js';
 import { canvas, dbToLin, fit, rgba } from './util.js';
 
 export const STRIPS = [
-  { key: 'kick', name: 'Kick', sub: 'group', bus: 'kick', level: 'mix.kick', send: 'kick.verb', sendLabel: 'Flexverb', mute: 'mix.muteKick', solo: 'mix.soloKick', col: '--stage-kick' },
-  { key: 'perc', name: 'Perc', sub: 'group', bus: 'perc', level: 'mix.perc', send: 'mix.spaceMix', sendLabel: 'Space', mute: 'mix.mutePerc', solo: 'mix.soloPerc', col: '--cold' },
-  { key: 'sfx', name: 'SFX', sub: 'group', bus: 'sfx', level: 'mix.sfx', send: 'mix.sfxVerb', sendLabel: 'Hybrid', mute: 'mix.muteSfx', solo: 'mix.soloSfx', col: '--stage-collage' },
-  { key: 'retA', name: 'Ret A', sub: 'room', ret: 'A', level: 'mix.retA', send: 'mix.spaceDensity', sendLabel: 'Size', mute: 'mix.muteRetA', solo: 'mix.soloRetA', col: '--text-2' },
-  { key: 'retB', name: 'Ret B', sub: 'echo', ret: 'B', level: 'mix.retB', send: 'mix.spaceFeedback', sendLabel: 'Repeats', mute: 'mix.muteRetB', solo: 'mix.soloRetB', col: '--text-2' },
+  {
+    key: 'kick',
+    name: 'Kick',
+    sub: 'group',
+    bus: 'kick',
+    level: 'mix.kick',
+    send: 'kick.verb',
+    sendLabel: 'Flexverb',
+    mute: 'mix.muteKick',
+    solo: 'mix.soloKick',
+    col: '--stage-kick',
+  },
+  {
+    key: 'perc',
+    name: 'Perc',
+    sub: 'group',
+    bus: 'perc',
+    level: 'mix.perc',
+    send: 'mix.spaceMix',
+    sendLabel: 'Space',
+    mute: 'mix.mutePerc',
+    solo: 'mix.soloPerc',
+    col: '--cold',
+  },
+  {
+    key: 'sfx',
+    name: 'SFX',
+    sub: 'group',
+    bus: 'sfx',
+    level: 'mix.sfx',
+    send: 'mix.sfxVerb',
+    sendLabel: 'Hybrid',
+    mute: 'mix.muteSfx',
+    solo: 'mix.soloSfx',
+    col: '--stage-collage',
+  },
+  {
+    key: 'retA',
+    name: 'Ret A',
+    sub: 'room',
+    ret: 'A',
+    level: 'mix.retA',
+    send: 'mix.spaceDensity',
+    sendLabel: 'Size',
+    mute: 'mix.muteRetA',
+    solo: 'mix.soloRetA',
+    col: '--text-2',
+  },
+  {
+    key: 'retB',
+    name: 'Ret B',
+    sub: 'echo',
+    ret: 'B',
+    level: 'mix.retB',
+    send: 'mix.spaceFeedback',
+    sendLabel: 'Repeats',
+    mute: 'mix.muteRetB',
+    solo: 'mix.soloRetB',
+    col: '--text-2',
+  },
 ];
 
 const FADER = 176;
@@ -31,8 +86,10 @@ export function desk(rt, { onSelect } = {}) {
   // --- mute / solo / return levels -> the engine -------------------------------------------------------------
   const apply = () => {
     if (!engine.ctx) return;
-    const groups = STRIPS.filter((s) => s.bus), rets = STRIPS.filter((s) => s.ret);
-    const soloG = groups.some((s) => on(s.solo)), soloR = rets.some((s) => on(s.solo));
+    const groups = STRIPS.filter((s) => s.bus),
+      rets = STRIPS.filter((s) => s.ret);
+    const soloG = groups.some((s) => on(s.solo)),
+      soloR = rets.some((s) => on(s.solo));
     for (const s of groups) {
       const muted = on(s.mute);
       const sends = !muted && (!soloG || on(s.solo));
@@ -50,7 +107,9 @@ export function desk(rt, { onSelect } = {}) {
     for (const st of strips) {
       st.el.classList.toggle('is-muted', on(st.s.mute));
       st.el.classList.toggle('is-solo', on(st.s.solo));
-      const silent = st.s.bus ? (on(st.s.mute) || ((soloG || soloR) && !on(st.s.solo))) : (on(st.s.mute) || (soloR && !on(st.s.solo)));
+      const silent = st.s.bus
+        ? on(st.s.mute) || ((soloG || soloR) && !on(st.s.solo))
+        : on(st.s.mute) || (soloR && !on(st.s.solo));
       st.el.classList.toggle('is-silent', silent);
     }
   };
@@ -61,7 +120,12 @@ export function desk(rt, { onSelect } = {}) {
     const ids = STRIPS.flatMap((s) => [s.mute, s.solo]).filter((id) => store.get(id) > 0.5);
     for (const id of ids) store.set(id, 0, { source: 'desk', record: false });
     if (engine.ctx) {
-      for (const s of STRIPS) if (s.bus) { const ch = engine.bus(s.bus); ch.set('mute', 0); ch.output.gain.setTargetAtTime(1, engine.ctx.currentTime, 0.015); }
+      for (const s of STRIPS)
+        if (s.bus) {
+          const ch = engine.bus(s.bus);
+          ch.set('mute', 0);
+          ch.output.gain.setTargetAtTime(1, engine.ctx.currentTime, 0.015);
+        }
       engine.setMaster('reverbLevel', dbToLin(store.real('mix.retA')));
       engine.setMaster('delayLevel', dbToLin(store.real('mix.retB')));
     }
@@ -69,10 +133,22 @@ export function desk(rt, { onSelect } = {}) {
 
   // --- strips ------------------------------------------------------------------------------------------------
   const button = (id, letter, cls) => {
-    const b = h('button', { type: 'button', class: `mx-btn ${cls}`, 'aria-label': ctx.params.get(id).label, 'aria-pressed': 'false' }, h('i'), h('span', { text: letter }));
-    ctx.own(store.on(id, (v) => { b.classList.toggle('is-on', v > 0.5); b.setAttribute('aria-pressed', String(v > 0.5)); }));
+    const b = h(
+      'button',
+      { type: 'button', class: `mx-btn ${cls}`, 'aria-label': ctx.params.get(id).label, 'aria-pressed': 'false' },
+      h('i'),
+      h('span', { text: letter }),
+    );
+    ctx.own(
+      store.on(id, (v) => {
+        b.classList.toggle('is-on', v > 0.5);
+        b.setAttribute('aria-pressed', String(v > 0.5));
+      }),
+    );
     b.addEventListener('click', () => {
-      store.begin(); store.set(id, store.get(id) > 0.5 ? 0 : 1, { source: 'desk' }); store.end();
+      store.begin();
+      store.set(id, store.get(id) > 0.5 ? 0 : 1, { source: 'desk' });
+      store.end();
       haptic(true);
     });
     longPress(b, () => inspect(id));
@@ -83,15 +159,29 @@ export function desk(rt, { onSelect } = {}) {
     const led = canvas('mx-led', loop);
     led.style.height = `${FADER}px`;
     const f = fader(ctx, s.level, { length: FADER, label: '' });
-    const plate = h('button', {
-      type: 'button', class: 'mx-plate', 'aria-label': `${s.name}: open its colour`,
-      onclick: () => { haptic(); onSelect?.(s); },
-    }, h('i', { class: 'mx-plate-led' }), h('b', { text: s.name }), h('span', { text: s.sub }));
-    const el = h('div', { class: `mx-strip${s.ret ? ' is-ret' : ''}`, dataset: { key: s.key }, style: { '--sc': `var(${s.col})` } },
+    const plate = h(
+      'button',
+      {
+        type: 'button',
+        class: 'mx-plate',
+        'aria-label': `${s.name}: open its colour`,
+        onclick: () => {
+          haptic();
+          onSelect?.(s);
+        },
+      },
+      h('i', { class: 'mx-plate-led' }),
+      h('b', { text: s.name }),
+      h('span', { text: s.sub }),
+    );
+    const el = h(
+      'div',
+      { class: `mx-strip${s.ret ? ' is-ret' : ''}`, dataset: { key: s.key }, style: { '--sc': `var(${s.col})` } },
       plate,
       h('div', { class: 'mx-ms' }, button(s.mute, 'M', 'mx-m'), button(s.solo, 'S', 'mx-s')),
       knob(ctx, s.send, { size: 38, label: s.sendLabel }),
-      h('div', { class: 'mx-fadebox' }, led, f));
+      h('div', { class: 'mx-fadebox' }, led, f),
+    );
     const st = { s, el, led, hold: -90, holdT: 0, rms: -90, peak: -90 };
     meters.push(st);
     return st;
@@ -103,7 +193,8 @@ export function desk(rt, { onSelect } = {}) {
 
   // --- meters --------------------------------------------------------------------------------------------------
   const buf = new Float32Array(1024);
-  const LO = -48, HI = 3;
+  const LO = -48,
+    HI = 3;
   loop.add({
     el,
     draw(now) {
@@ -116,14 +207,18 @@ export function desk(rt, { onSelect } = {}) {
         }
         st.peak = lv.peak > st.peak ? lv.peak : st.peak - 0.9;
         st.rms = lv.rms > st.rms ? st.rms + (lv.rms - st.rms) * 0.5 : st.rms - 0.45;
-        if (st.peak > st.hold || now - st.holdT > 1400) { st.hold = st.peak; st.holdT = now; }
+        if (st.peak > st.hold || now - st.holdT > 1400) {
+          st.hold = st.peak;
+          st.holdT = now;
+        }
         const { g, w, h: H } = fit(loop, st.led);
         if (!w) continue;
         g.clearRect(0, 0, w, H);
-        const n = 34, sh = H / n;
-        const y = (db) => H - (Math.max(LO, Math.min(HI, db)) - LO) / (HI - LO) * H;
+        const n = 34,
+          sh = H / n;
+        const y = (db) => H - ((Math.max(LO, Math.min(HI, db)) - LO) / (HI - LO)) * H;
         for (let i = 0; i < n; i++) {
-          const db = LO + (i + 0.5) / n * (HI - LO);
+          const db = LO + ((i + 0.5) / n) * (HI - LO);
           const top = H - (i + 1) * sh;
           const col = db > -0.5 ? C.alarm : db > -9 ? C.lcd : C.acid;
           const lit = db <= st.peak;

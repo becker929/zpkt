@@ -25,7 +25,15 @@ vec3 heat(float h){
 `;
 
 export function context(canvas) {
-  const o = { alpha: false, antialias: false, depth: false, stencil: false, premultipliedAlpha: false, preserveDrawingBuffer: false, powerPreference: 'high-performance' };
+  const o = {
+    alpha: false,
+    antialias: false,
+    depth: false,
+    stencil: false,
+    premultipliedAlpha: false,
+    preserveDrawingBuffer: false,
+    powerPreference: 'high-performance',
+  };
   return canvas.getContext('webgl2', o) || canvas.getContext('webgl', o) || canvas.getContext('experimental-webgl', o);
 }
 
@@ -65,7 +73,10 @@ export class Program {
     return true;
   }
 
-  use() { this.gl.useProgram(this.p); return this; }
+  use() {
+    this.gl.useProgram(this.p);
+    return this;
+  }
 
   u(name) {
     if (!this.locs.has(name)) this.locs.set(name, this.gl.getUniformLocation(this.p, name));
@@ -74,7 +85,8 @@ export class Program {
 
   /** set('uTime', t) / set('uRes', w, h) / ...: uniform1f..4f by the number of values. */
   set(name, a, b, c, d) {
-    const gl = this.gl, l = this.u(name);
+    const gl = this.gl,
+      l = this.u(name);
     if (l == null) return this;
     if (d !== undefined) gl.uniform4f(l, a, b, c, d);
     else if (c !== undefined) gl.uniform3f(l, a, b, c);
@@ -94,7 +106,9 @@ export class Program {
 
   dispose() {
     const gl = this.gl;
-    gl.deleteProgram(this.p); gl.deleteShader(this.vs); gl.deleteShader(this.fs);
+    gl.deleteProgram(this.p);
+    gl.deleteShader(this.vs);
+    gl.deleteShader(this.fs);
   }
 }
 
@@ -110,7 +124,9 @@ export function triangle(gl) {
       gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
       gl.drawArrays(gl.TRIANGLES, 0, 3);
     },
-    dispose() { gl.deleteBuffer(b); },
+    dispose() {
+      gl.deleteBuffer(b);
+    },
   };
 }
 
@@ -126,10 +142,14 @@ export function target(gl, w, h) {
   const tex = gl.createTexture();
   const fbo = gl.createFramebuffer();
   const t = {
-    tex, fbo, w: 0, h: 0,
+    tex,
+    fbo,
+    w: 0,
+    h: 0,
     resize(W, H) {
       if (W === t.w && H === t.h) return;
-      t.w = W; t.h = H;
+      t.w = W;
+      t.h = H;
       gl.bindTexture(gl.TEXTURE_2D, tex);
       texParams(gl);
       gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, W, H, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
@@ -137,7 +157,10 @@ export function target(gl, w, h) {
       gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tex, 0);
       gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     },
-    dispose() { gl.deleteTexture(tex); gl.deleteFramebuffer(fbo); },
+    dispose() {
+      gl.deleteTexture(tex);
+      gl.deleteFramebuffer(fbo);
+    },
   };
   t.resize(w, h);
   return t;
@@ -163,7 +186,11 @@ export function glView(room, m, { setup, render, dispose, dprMax = 2 } = {}) {
   const msg = h('div', { class: 'pl-gl-msg', hidden: true });
   m.view.append(cv, msg);
   m.canvas = cv;
-  let gl = null, st = null, failed = false, pending = false, lost = false;
+  let gl = null,
+    st = null,
+    failed = false,
+    pending = false,
+    lost = false;
   const fail = (text, err) => {
     failed = true;
     msg.textContent = text;
@@ -171,34 +198,76 @@ export function glView(room, m, { setup, render, dispose, dprMax = 2 } = {}) {
     if (err) console.warn(`play/${m.key}:`, err.message || err);
   };
   // iOS can take a context back (memory, the app in the background): wait for it to come back, then rebuild.
-  cv.addEventListener('webglcontextlost', (e) => { e.preventDefault(); lost = true; gl = null; st = null; });
-  cv.addEventListener('webglcontextrestored', () => { lost = false; pending = false; });
+  cv.addEventListener('webglcontextlost', (e) => {
+    e.preventDefault();
+    lost = true;
+    gl = null;
+    st = null;
+  });
+  cv.addEventListener('webglcontextrestored', () => {
+    lost = false;
+    pending = false;
+  });
   const build = () => {
     pending = false;
     if (!room.stats.mounted || lost) return;
     const t0 = performance.now();
     gl = context(cv);
-    if (!gl) { fail('No WebGL on this browser: this machine stays dark.'); return; }
-    if (gl.isContextLost()) { gl = null; return; }
-    try { st = setup(gl); } catch (err) { gl = null; fail('This machine\'s shader did not build.', err); }
+    if (!gl) {
+      fail('No WebGL on this browser: this machine stays dark.');
+      return;
+    }
+    if (gl.isContextLost()) {
+      gl = null;
+      return;
+    }
+    try {
+      st = setup(gl);
+    } catch (err) {
+      gl = null;
+      fail("This machine's shader did not build.", err);
+    }
     (room.stats.build ??= {})[m.key] = Math.round(performance.now() - t0);
   };
   m.draw = (dt) => {
     if (failed || lost) return;
     if (!gl || !st) {
-      if (!pending) { pending = true; room.whenSafe(build); }
+      if (!pending) {
+        pending = true;
+        room.whenSafe(build);
+      }
       return;
     }
     const dpr = Math.min(devicePixelRatio || 1, dprMax);
-    const w = Math.max(1, cv.clientWidth), hh = Math.max(1, cv.clientHeight);
-    const W = Math.round(w * dpr), H = Math.round(hh * dpr);
-    if (cv.width !== W || cv.height !== H) { cv.width = W; cv.height = H; }
-    try { render(gl, st, dt, { W, H, w, h: hh, dpr }); } catch (err) { fail('This machine\'s shader did not build.', err); }
+    const w = Math.max(1, cv.clientWidth),
+      hh = Math.max(1, cv.clientHeight);
+    const W = Math.round(w * dpr),
+      H = Math.round(hh * dpr);
+    if (cv.width !== W || cv.height !== H) {
+      cv.width = W;
+      cv.height = H;
+    }
+    try {
+      render(gl, st, dt, { W, H, w, h: hh, dpr });
+    } catch (err) {
+      fail("This machine's shader did not build.", err);
+    }
   };
   m.destroy = () => {
-    if (gl && st) { try { dispose?.(gl, st); } catch { /* the context may be gone */ } }
-    try { gl?.getExtension('WEBGL_lose_context')?.loseContext(); } catch { /* fine */ }
-    gl = null; st = null;
+    if (gl && st) {
+      try {
+        dispose?.(gl, st);
+      } catch {
+        /* the context may be gone */
+      }
+    }
+    try {
+      gl?.getExtension('WEBGL_lose_context')?.loseContext();
+    } catch {
+      /* fine */
+    }
+    gl = null;
+    st = null;
   };
   m.glState = () => ({ gl: !!gl, failed, pending });
   return cv;
@@ -208,20 +277,51 @@ export function glView(room, m, { setup, render, dispose, dprMax = 2 } = {}) {
 export function xyTouch(el, { onStart, onMove, onPinch, onEnd, onTap, onDouble }) {
   el.style.touchAction = 'none';
   const pts = new Map();
-  let moved = false, fine = false, t0 = 0, x0 = 0, y0 = 0, last = -Infinity, spread = 0, active = false;
-  const dist = () => { const [a, b] = [...pts.values()]; return Math.hypot(a.x - b.x, a.y - b.y); };
+  let moved = false,
+    fine = false,
+    t0 = 0,
+    x0 = 0,
+    y0 = 0,
+    last = -Infinity,
+    spread = 0,
+    active = false;
+  const dist = () => {
+    const [a, b] = [...pts.values()];
+    return Math.hypot(a.x - b.x, a.y - b.y);
+  };
   el.addEventListener('pointerdown', (e) => {
-    try { el.setPointerCapture?.(e.pointerId); } catch { /* synthetic pointers */ }
+    try {
+      el.setPointerCapture?.(e.pointerId);
+    } catch {
+      /* synthetic pointers */
+    }
     pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
-    if (pts.size === 1) { moved = false; fine = false; t0 = performance.now(); x0 = e.clientX; y0 = e.clientY; active = true; onStart?.(e); }
-    else if (pts.size === 2) { spread = dist(); moved = true; }
+    if (pts.size === 1) {
+      moved = false;
+      fine = false;
+      t0 = performance.now();
+      x0 = e.clientX;
+      y0 = e.clientY;
+      active = true;
+      onStart?.(e);
+    } else if (pts.size === 2) {
+      spread = dist();
+      moved = true;
+    }
   });
   el.addEventListener('pointermove', (e) => {
     const p = pts.get(e.pointerId);
     if (!p) return;
-    const dx = e.clientX - p.x, dy = e.clientY - p.y;
-    p.x = e.clientX; p.y = e.clientY;
-    if (pts.size >= 2) { const d = dist(); onPinch?.(d - spread, e); spread = d; return; }
+    const dx = e.clientX - p.x,
+      dy = e.clientY - p.y;
+    p.x = e.clientX;
+    p.y = e.clientY;
+    if (pts.size >= 2) {
+      const d = dist();
+      onPinch?.(d - spread, e);
+      spread = d;
+      return;
+    }
     if (!moved) {
       if (Math.hypot(e.clientX - x0, e.clientY - y0) < 5) return;
       moved = true;
@@ -237,7 +337,13 @@ export function xyTouch(el, { onStart, onMove, onPinch, onEnd, onTap, onDouble }
     active = false;
     if (!moved && e.type === 'pointerup' && Math.hypot(e.clientX - x0, e.clientY - y0) < 10) {
       const now = performance.now();
-      if (now - last < 320) { last = -Infinity; onDouble?.(e); } else { last = now; onTap?.(e); }
+      if (now - last < 320) {
+        last = -Infinity;
+        onDouble?.(e);
+      } else {
+        last = now;
+        onTap?.(e);
+      }
     }
     onEnd?.(e, moved);
   };

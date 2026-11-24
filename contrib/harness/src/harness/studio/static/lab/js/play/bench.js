@@ -10,6 +10,6 @@ import { Bench } from '../bench/bench.js';
 
 export function mountBench(root, ctx) {
   const bench = new Bench(root, ctx);
-  root.bench = bench;                       // for tests and the console
+  root.bench = bench; // for tests and the console
   return bench;
 }

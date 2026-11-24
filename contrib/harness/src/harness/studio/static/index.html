@@ -1,32 +1,86 @@
 <!doctype html>
 <html lang="en">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="color-scheme" content="light dark">
-  <meta name="robots" content="noindex">
-  <title>zpkt harness</title>
-  <style>
-    :root { --ink: #111; --ink-2: #555; --line: #d8d8d8; --bg: #fff; --gold: #9a6700; color-scheme: light dark; }
-    @media (prefers-color-scheme: dark) {
-      :root { --ink: #fff; --ink-2: rgb(255 255 255 / 0.66); --line: rgb(255 255 255 / 0.18); --bg: #000; --gold: #f1b64a; }
-    }
-    body { margin: 0 auto; max-width: 30rem; padding: calc(env(safe-area-inset-top) + 24px) 16px 32px;
-      background: var(--bg); color: var(--ink); font: 17px/1.45 -apple-system, system-ui, sans-serif; }
-    h1 { font: 700 14px/1.2 ui-monospace, 'SF Mono', Menlo, monospace; letter-spacing: 0.12em; text-transform: uppercase; }
-    ul { list-style: none; margin: 0; padding: 0; }
-    li { border-top: 1px solid var(--line); }
-    a { display: block; padding: 14px 0; color: var(--ink); text-decoration: none; }
-    a b { display: block; color: var(--gold); font-weight: 600; }
-    span { color: var(--ink-2); font-size: 15px; }
-  </style>
-</head>
-<body>
-  <h1>zpkt harness</h1>
-  <ul>
-    <li><a href="/studio/gemini/"><b>Gemini CLI</b><span>Sessions in the zpkt checkout.</span></a></li>
-    <li><a href="/studio/lab/"><b>HW002 lab</b><span>The set's controls as phone surfaces.</span></a></li>
-    <li><a href="/skrng/"><b>skrng</b><span>The site's render pages.</span></a></li>
-  </ul>
-</body>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="color-scheme" content="light dark" />
+    <meta name="robots" content="noindex" />
+    <title>zpkt harness</title>
+    <style>
+      :root {
+        --ink: #111;
+        --ink-2: #555;
+        --line: #d8d8d8;
+        --bg: #fff;
+        --gold: #9a6700;
+        color-scheme: light dark;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --ink: #fff;
+          --ink-2: rgb(255 255 255 / 0.66);
+          --line: rgb(255 255 255 / 0.18);
+          --bg: #000;
+          --gold: #f1b64a;
+        }
+      }
+      body {
+        margin: 0 auto;
+        max-width: 30rem;
+        padding: calc(env(safe-area-inset-top) + 24px) 16px 32px;
+        background: var(--bg);
+        color: var(--ink);
+        font:
+          17px/1.45 -apple-system,
+          system-ui,
+          sans-serif;
+      }
+      h1 {
+        font:
+          700 14px/1.2 ui-monospace,
+          'SF Mono',
+          Menlo,
+          monospace;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+      }
+      ul {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+      }
+      li {
+        border-top: 1px solid var(--line);
+      }
+      a {
+        display: block;
+        padding: 14px 0;
+        color: var(--ink);
+        text-decoration: none;
+      }
+      a b {
+        display: block;
+        color: var(--gold);
+        font-weight: 600;
+      }
+      span {
+        color: var(--ink-2);
+        font-size: 15px;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>zpkt harness</h1>
+    <ul>
+      <li>
+        <a href="/studio/gemini/"><b>Gemini CLI</b><span>Sessions in the zpkt checkout.</span></a>
+      </li>
+      <li>
+        <a href="/studio/lab/"><b>HW002 lab</b><span>The set's controls as phone surfaces.</span></a>
+      </li>
+      <li>
+        <a href="/skrng/"><b>skrng</b><span>The site's render pages.</span></a>
+      </li>
+    </ul>
+  </body>
 </html>

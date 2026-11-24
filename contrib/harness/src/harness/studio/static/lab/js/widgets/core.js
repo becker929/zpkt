@@ -11,10 +11,12 @@ import { haptic } from '../ui.js';
 /** Follow one param: render(norm, real, text, source) now and on every change. */
 export function follow(ctx, id, render) {
   const p = ctx.params.get(id);
-  ctx.own(ctx.store.on(id, (v, _id, source) => {
-    const real = toReal(p, v);
-    render(v, real, format(p, real), source);
-  }));
+  ctx.own(
+    ctx.store.on(id, (v, _id, source) => {
+      const real = toReal(p, v);
+      render(v, real, format(p, real), source);
+    }),
+  );
   return p;
 }
 
@@ -28,7 +30,10 @@ export function writer(ctx, id, source) {
   let last = ctx.store.get(id);
   const w = {
     p,
-    begin() { ctx.store.begin(); last = ctx.store.get(id); },
+    begin() {
+      ctx.store.begin();
+      last = ctx.store.get(id);
+    },
     set(v) {
       v = Math.min(1, Math.max(0, v));
       if (p.scale === 'enum' || p.scale === 'toggle') {
@@ -39,8 +44,12 @@ export function writer(ctx, id, source) {
       ctx.store.set(id, v, { source });
       last = v;
     },
-    add(d) { w.set(ctx.store.get(id) + d); },
-    end() { ctx.store.end(); },
+    add(d) {
+      w.set(ctx.store.get(id) + d);
+    },
+    end() {
+      ctx.store.end();
+    },
   };
   return w;
 }

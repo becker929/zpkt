@@ -17,21 +17,40 @@
 //   chord             the chord loop under every bar outside the breaks
 
 export const BAR_S = 1.5;
-export const TARGET = { lo: 33, hi: 50 };                       // seconds
+export const TARGET = { lo: 33, hi: 50 }; // seconds
 export const LAYERS = ['A', 'B', 'C', 'D'];
 export const PRE_KICK = ['wuh', 'silence', 'straight in'];
-export const SPLASH_EVERY = [4, 8, 16, 0];                     // 0: once
+export const SPLASH_EVERY = [4, 8, 16, 0]; // 0: once
 export const SFX_AT = ['from the start', 'with the kick', 'at the drop', 'withheld'];
 
 /** The arr.* params a plan reads, keyed by the short names below. */
 export const KEYS = {
-  length: 'arr.length', intro: 'arr.intro', kickIn: 'arr.kickIn', preKick: 'arr.preKick', preKickBeats: 'arr.preKickBeats',
-  hatA: 'arr.hatA', hatB: 'arr.hatB', hatC: 'arr.hatC', hatD: 'arr.hatD',
-  splashEvery: 'arr.splashEvery', splashLong: 'arr.splashLong', splashShort: 'arr.splashShort',
-  breakOn: 'arr.breakOn', breakAt: 'arr.breakAt', breakBars: 'arr.breakBars', breakStyle: 'arr.breakStyle',
-  secondBreak: 'arr.secondBreak', break2At: 'arr.break2At', break2Bars: 'arr.break2Bars',
-  chord: 'arr.chord', sfxBuild: 'arr.sfxBuild', dropBars: 'arr.dropBars',
-  splashLevel: 'arr.splashLevel', breakLevel: 'arr.breakLevel', chordLevel: 'arr.chordLevel', chordWidth: 'arr.chordWidth',
+  length: 'arr.length',
+  intro: 'arr.intro',
+  kickIn: 'arr.kickIn',
+  preKick: 'arr.preKick',
+  preKickBeats: 'arr.preKickBeats',
+  hatA: 'arr.hatA',
+  hatB: 'arr.hatB',
+  hatC: 'arr.hatC',
+  hatD: 'arr.hatD',
+  splashEvery: 'arr.splashEvery',
+  splashLong: 'arr.splashLong',
+  splashShort: 'arr.splashShort',
+  breakOn: 'arr.breakOn',
+  breakAt: 'arr.breakAt',
+  breakBars: 'arr.breakBars',
+  breakStyle: 'arr.breakStyle',
+  secondBreak: 'arr.secondBreak',
+  break2At: 'arr.break2At',
+  break2Bars: 'arr.break2Bars',
+  chord: 'arr.chord',
+  sfxBuild: 'arr.sfxBuild',
+  dropBars: 'arr.dropBars',
+  splashLevel: 'arr.splashLevel',
+  breakLevel: 'arr.breakLevel',
+  chordLevel: 'arr.chordLevel',
+  chordWidth: 'arr.chordWidth',
 };
 
 /** Read the plan's values (real units) from the store, or from a snapshot of normalised values. */
@@ -66,22 +85,40 @@ const r = Math.round;
 export function plan(v) {
   const L = Math.max(4, r(v.length ?? 20));
   const bars = Array.from({ length: L }, (_, i) => ({
-    i, kick: null, hats: '', brk: null, drop: false, entry: false, gap: null, wuh: null, splash: null, arc: null, chord: null,
+    i,
+    kick: null,
+    hats: '',
+    brk: null,
+    drop: false,
+    entry: false,
+    gap: null,
+    wuh: null,
+    splash: null,
+    arc: null,
+    chord: null,
   }));
   const notes = [];
 
   // breaks (merged where they touch)
   const spans = [];
   if (v.breakOn >= 0.5 && v.breakBars > 0) spans.push([r(v.breakAt) - 1, r(v.breakAt) - 1 + r(v.breakBars)]);
-  if (v.secondBreak >= 0.5 && (v.break2Bars ?? 0) > 0) spans.push([r(v.break2At ?? 25) - 1, r(v.break2At ?? 25) - 1 + r(v.break2Bars)]);
+  if (v.secondBreak >= 0.5 && (v.break2Bars ?? 0) > 0)
+    spans.push([r(v.break2At ?? 25) - 1, r(v.break2At ?? 25) - 1 + r(v.break2Bars)]);
   const breaks = [];
   for (const [a0, b0] of spans.sort((x, y) => x[0] - y[0])) {
-    const a = Math.max(0, a0), b = Math.min(L, b0);
-    if (b <= a) { notes.push('A break sits past the end of the Short.'); continue; }
+    const a = Math.max(0, a0),
+      b = Math.min(L, b0);
+    if (b <= a) {
+      notes.push('A break sits past the end of the Short.');
+      continue;
+    }
     const last = breaks.at(-1);
-    if (last && a <= last.to) last.to = Math.max(last.to, b); else breaks.push({ from: a, to: b });
+    if (last && a <= last.to) last.to = Math.max(last.to, b);
+    else breaks.push({ from: a, to: b });
   }
-  breaks.forEach((s, n) => { for (let i = s.from; i < s.to; i++) bars[i].brk = { k: i - s.from, len: s.to - s.from, n }; });
+  breaks.forEach((s, n) => {
+    for (let i = s.from; i < s.to; i++) bars[i].brk = { k: i - s.from, len: s.to - s.from, n };
+  });
 
   // the drop: the last dropBars bars
   const dropBars = Math.min(L, r(v.dropBars ?? 8));
@@ -89,7 +126,8 @@ export function plan(v) {
   for (let i = drop.from; i < L; i++) bars[i].drop = true;
 
   // the kick
-  const intro = r(v.intro ?? 4), kickIn = r(v.kickIn ?? 5);
+  const intro = r(v.intro ?? 4),
+    kickIn = r(v.kickIn ?? 5);
   for (const b of bars) {
     if (b.brk) continue;
     const n = b.i + 1;
@@ -98,23 +136,33 @@ export function plan(v) {
   }
   const entries = [];
   for (const b of bars) {
-    if (b.kick === 'full' && (b.i === 0 ? false : bars[b.i - 1].kick !== 'full')) { b.entry = true; entries.push(b.i); }
+    if (b.kick === 'full' && (b.i === 0 ? false : bars[b.i - 1].kick !== 'full')) {
+      b.entry = true;
+      entries.push(b.i);
+    }
   }
-  if (bars[0].kick === 'full') { bars[0].entry = true; entries.unshift(0); }
+  if (bars[0].kick === 'full') {
+    bars[0].entry = true;
+    entries.unshift(0);
+  }
 
   // the hats: each layer from its bar; the drop has all four; a break thins (song style: none, stems style: A)
   const hat = { A: v.hatA ?? 1, B: v.hatB ?? 5, C: v.hatC ?? 9, D: v.hatD ?? 13 };
   for (const b of bars) {
-    if (b.brk) { b.hats = (v.breakStyle ?? 0) >= 0.5 ? 'A' : ''; continue; }
+    if (b.brk) {
+      b.hats = (v.breakStyle ?? 0) >= 0.5 ? 'A' : '';
+      continue;
+    }
     b.hats = b.drop ? 'ABCD' : LAYERS.filter((x) => b.i + 1 >= r(hat[x])).join('');
   }
 
   // the pre-kick gap before every kick entry (not at bar 1)
-  const style = r(v.preKick ?? 0), beats = r(v.preKickBeats ?? 4);
+  const style = r(v.preKick ?? 0),
+    beats = r(v.preKickBeats ?? 4);
   if (style < 2 && beats > 0) {
     for (const e of entries) {
       if (e === 0) continue;
-      const start = Math.max(0, e * 4 - beats);              // in beats
+      const start = Math.max(0, e * 4 - beats); // in beats
       const first = Math.floor(start / 4);
       for (let j = first; j < e; j++) {
         const from = Math.max(0, start - j * 4);
@@ -126,7 +174,8 @@ export function plan(v) {
 
   // splashes: long on every kick entry, short every N bars after it until the next break or entry
   const every = SPLASH_EVERY[r(v.splashEvery ?? 1)] ?? 8;
-  const long = r(v.splashLong ?? 8), short = r(v.splashShort ?? 3);
+  const long = r(v.splashLong ?? 8),
+    short = r(v.splashShort ?? 3);
   for (const e of entries) {
     bars[e].splash = { beats: long, long: true };
     if (!every) continue;

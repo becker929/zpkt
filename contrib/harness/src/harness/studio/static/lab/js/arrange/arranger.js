@@ -18,7 +18,7 @@ const SONG_BREAK0 = 80;
 
 /** The song's break bar (0-based) for bar k of a break `len` bars long: its last `len` bars, into the kick. */
 export function breakBar(k, len) {
-  return SONG_BREAK0 + (((16 - (len % 16)) % 16) + k) % 16;
+  return SONG_BREAK0 + ((((16 - (len % 16)) % 16) + k) % 16);
 }
 
 /** The canonical Short's perc bars for a layer set (null: it has none), from the bar library. */
@@ -34,20 +34,29 @@ function shapeBars(data, set) {
 export function toSequence(pl, { shape = false, data = null } = {}) {
   const songStyle = (pl.values.breakStyle ?? 0) < 0.5;
   const bars = pl.bars;
-  const real = new Map();                       // bar -> canonical perc bar holding a real splash
+  const real = new Map(); // bar -> canonical perc bar holding a real splash
   if (shape && data?.shape) {
     const sp = data.shape.splash ?? { long: [4, 5], short: [12] };
     const clean = (b) => b && !b.gap && !b.brk && !b.splash;
     for (const b of bars) {
       if (!b.splash || b.gap) continue;
-      if (b.splash.long && b.splash.beats === 8 && b.hats === 'AB' && bars[b.i + 1]?.hats === 'AB' && clean(bars[b.i + 1])) {
-        real.set(b.i, sp.long[0]); real.set(b.i + 1, sp.long[1]);
+      if (
+        b.splash.long &&
+        b.splash.beats === 8 &&
+        b.hats === 'AB' &&
+        bars[b.i + 1]?.hats === 'AB' &&
+        clean(bars[b.i + 1])
+      ) {
+        real.set(b.i, sp.long[0]);
+        real.set(b.i + 1, sp.long[1]);
       } else if (!b.splash.long && b.splash.beats === 3 && b.hats === 'ABCD') real.set(b.i, sp.short[0]);
     }
   }
   return bars.map((b) => {
     const kick = b.kick === 'scoop' ? b.i % 2 : b.kick === 'full' ? full(b.i) : -1;
-    let perc = -1, hats = null, shapeBar = null;
+    let perc = -1,
+      hats = null,
+      shapeBar = null;
     const own = shape ? shapeBars(data, b.hats) : null;
     if (real.has(b.i)) shapeBar = real.get(b.i);
     else if (own) {
@@ -56,16 +65,28 @@ export function toSequence(pl, { shape = false, data = null } = {}) {
       let run = b.i;
       while (run > 0 && bars[run - 1].hats === b.hats && !bars[run - 1].brk) run--;
       shapeBar = own.includes(b.i) ? b.i : own[(b.i - run) % own.length];
-    }
-    else if (b.hats === 'ABCD') perc = full(b.i);
+    } else if (b.hats === 'ABCD') perc = full(b.i);
     else if (b.hats) hats = b.hats;
     const sfx = b.arc === 0 ? 8 : b.arc === 1 ? 9 : -1;
     const brk = b.brk && songStyle ? breakBar(b.brk.k, b.brk.len) : null;
     const splash = real.has(b.i) ? null : b.splash;
-    const x = { i: b.i, hats, shape: shapeBar, chord: b.chord, brk, splash, realSplash: real.has(b.i), wuh: b.wuh, part: null };
+    const x = {
+      i: b.i,
+      hats,
+      shape: shapeBar,
+      chord: b.chord,
+      brk,
+      splash,
+      realSplash: real.has(b.i),
+      wuh: b.wuh,
+      part: null,
+    };
     if (b.gap) {
       if (b.gap.from > 0) x.part = { kick, perc, sfx, hats, shape: shapeBar, chord: b.chord, brk, until: b.gap.from };
-      x.hats = null; x.shape = null; x.chord = null; x.brk = null;
+      x.hats = null;
+      x.shape = null;
+      x.chord = null;
+      x.brk = null;
       return { kick: -1, perc: -1, sfx: -1, x };
     }
     return { kick, perc, sfx, x };
@@ -89,10 +110,19 @@ export function fitBars(seq, bars) {
   const w = (n) => (n >= 0 ? n % bars : n);
   const chord = (x) => (x?.chord != null ? (16 + x.chord) % bars : undefined);
   return seq.map((e) => ({
-    kick: w(e.kick), perc: w(e.perc), sfx: w(e.sfx),
+    kick: w(e.kick),
+    perc: w(e.perc),
+    sfx: w(e.sfx),
     x: e.x && {
-      ...e.x, chordBar: chord(e.x),
-      part: e.x.part && { ...e.x.part, kick: w(e.x.part.kick), perc: w(e.x.part.perc), sfx: w(e.x.part.sfx), chordBar: chord(e.x.part) },
+      ...e.x,
+      chordBar: chord(e.x),
+      part: e.x.part && {
+        ...e.x.part,
+        kick: w(e.x.part.kick),
+        perc: w(e.x.part.perc),
+        sfx: w(e.x.part.sfx),
+        chordBar: chord(e.x.part),
+      },
     },
   }));
 }
@@ -100,7 +130,8 @@ export function fitBars(seq, bars) {
 /** Bars from several sequences in turn, `every` bars each (Anthony's A/B inside one track). */
 export function interleave(seqs, every = 2) {
   const n = Math.max(...seqs.map((s) => s.length));
-  const out = [], which = [];
+  const out = [],
+    which = [];
   for (let i = 0; i < n; i++) {
     const v = Math.floor(i / every) % seqs.length;
     const s = seqs[v];
@@ -114,7 +145,8 @@ export function interleave(seqs, every = 2) {
 /** How loud each bar is (LUFS, from the bar library), and what makes it up. */
 export function energy(pl, data, levels = {}, { shape = false } = {}) {
   const P = (lufs) => Math.pow(10, lufs / 10);
-  const st = data.stems, song = data.song;
+  const st = data.stems,
+    song = data.song;
   const dl = { splash: 0, break: 0, chord: 0, ...levels };
   const seq = toSequence(pl, { shape, data });
   const splashAdd = new Float64Array(pl.L);
@@ -170,18 +202,21 @@ export class Arranger {
     this.lanes = lanes;
     this.loop = true;
     this.countIn = false;
-    this.offset = 0;               // the absolute bar where index 0 of the Short plays (mod length)
-    this.rotated = false;          // the sequence is in its playing form (rotated by offset)
-    this.abc = null;               // {plans: [p, p, p], seqs, which, hold: -1|0..2, axis}
+    this.offset = 0; // the absolute bar where index 0 of the Short plays (mod length)
+    this.rotated = false; // the sequence is in its playing form (rotated by offset)
+    this.abc = null; // {plans: [p, p, p], seqs, which, hold: -1|0..2, axis}
     this.fns = new Set();
     this.pl = null;
     this.seq = [];
     this.applied = null;
     this._queued = false;
-    this.mode = 'short';           // 'short' | 'song' (the whole-song map plays) | 'audition' (the bar library)
+    this.mode = 'short'; // 'short' | 'song' (the whole-song map plays) | 'audition' (the bar library)
   }
 
-  onChange(fn) { this.fns.add(fn); return () => this.fns.delete(fn); }
+  onChange(fn) {
+    this.fns.add(fn);
+    return () => this.fns.delete(fn);
+  }
 
   /** The canonical Short's stems are in the manifest (before it loads: the bar library says they exist). */
   get useShape() {
@@ -190,16 +225,23 @@ export class Arranger {
   }
 
   /** The energy of a plan, as this arranger would play it. */
-  energy(pl, levels) { return energy(pl, this.data, levels, { shape: this.useShape }); }
+  energy(pl, levels) {
+    return energy(pl, this.data, levels, { shape: this.useShape });
+  }
 
   /** The plan from the store now (or from a snapshot). */
-  plan(snap = null) { return makePlan(readValues(this.store, snap)); }
+  plan(snap = null) {
+    return makePlan(readValues(this.store, snap));
+  }
 
   /** Recompute (coalesced): call from sketches and store listeners. */
   invalidate() {
     if (this._queued) return;
     this._queued = true;
-    queueMicrotask(() => { this._queued = false; this.recompute(); });
+    queueMicrotask(() => {
+      this._queued = false;
+      this.recompute();
+    });
   }
 
   recompute() {
@@ -209,8 +251,10 @@ export class Arranger {
     if (this.abc) {
       this.abc.plans = this.abc.make();
       this.abc.seqs = this.abc.plans.map((p) => toSequence(p, opts));
-      const { seq, which } = this.abc.hold >= 0 ? { seq: this.abc.seqs[this.abc.hold], which: null } : interleave(this.abc.seqs, 2);
-      this.seq = seq; this.abc.which = which;
+      const { seq, which } =
+        this.abc.hold >= 0 ? { seq: this.abc.seqs[this.abc.hold], which: null } : interleave(this.abc.seqs, 2);
+      this.seq = seq;
+      this.abc.which = which;
     } else this.seq = this.base;
     this.apply();
     const wantFull = this.seq.some((x) => x.x?.wuh || x.x?.brk != null || x.x?.part?.brk != null);
@@ -225,7 +269,8 @@ export class Arranger {
     const playing = this.e.playing;
     if (this.countIn && !(playing && this.rotated)) return [COUNT_IN, ...s];
     if (this.offset % s.length === 0) return s;
-    const L = s.length, off = this.offset;
+    const L = s.length,
+      off = this.offset;
     return s.map((_, j) => s[(((j - off) % L) + L) % L]);
   }
 
@@ -248,7 +293,9 @@ export class Arranger {
       if (bar === seq.length) {
         const ms = Math.max(0, (when - e.ctx.currentTime) * 1000);
         clearTimeout(this._end);
-        this._end = setTimeout(() => { if (e.playing) e.stop(); }, ms + 20);
+        this._end = setTimeout(() => {
+          if (e.playing) e.stop();
+        }, ms + 20);
       }
       return;
     }
@@ -280,7 +327,7 @@ export class Arranger {
     if (this.loop) t = ((t % L) + L) % L;
     else if (t >= L) return { i: L, t: L, L, done: true };
     const i = Math.floor(t);
-    const variant = this.abc?.which ? this.abc.which[i] : (this.abc ? this.abc.hold : null);
+    const variant = this.abc?.which ? this.abc.which[i] : this.abc ? this.abc.hold : null;
     return { i, t, L, variant };
   }
 
@@ -289,15 +336,19 @@ export class Arranger {
     const m = this.e.manifest;
     if (!m) return [];
     const out = [];
-    if (!m.full) out.push('No whole song in this build: the song\'s break, the "wuh" and the map\'s playback stay silent.');
+    if (!m.full)
+      out.push('No whole song in this build: the song\'s break, the "wuh" and the map\'s playback stay silent.');
     const bars = this.e.stems.bars;
     if (bars > 0 && bars < 24) out.push(`The stems hold ${bars} bars, not 24: the Short reuses them in turn.`);
     if (!this.useShape) out.push('No canonical Short stems in this build: every hat layer set is a masked sketch.');
-    if (!this.lanes.hasSource(this.data.splash.src)) out.push('No splash sample (src-2) in this build: the splashes stay silent.');
-    if (!m.tracks?.length) out.push('No arrangement in the manifest: the whole song\'s map has no tracks.');
+    if (!this.lanes.hasSource(this.data.splash.src))
+      out.push('No splash sample (src-2) in this build: the splashes stay silent.');
+    if (!m.tracks?.length) out.push("No arrangement in the manifest: the whole song's map has no tracks.");
     return out;
   }
 
   /** Seconds of the Short (the variant or plan now). */
-  get seconds() { return this.seq.length * BAR_S; }
+  get seconds() {
+    return this.seq.length * BAR_S;
+  }
 }

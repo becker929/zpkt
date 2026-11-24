@@ -115,42 +115,87 @@ ${TAIL}`;
 
 /** The rotozoomer's tile: a floor plate, 256 px (power of two, so it can repeat). */
 function plateTile() {
-  const N = 256, cv = document.createElement('canvas');
+  const N = 256,
+    cv = document.createElement('canvas');
   cv.width = cv.height = N;
   const g = cv.getContext('2d');
   const grd = g.createLinearGradient(0, 0, N, N);
-  grd.addColorStop(0, '#1d1f24'); grd.addColorStop(1, '#0d0e11');
-  g.fillStyle = grd; g.fillRect(0, 0, N, N);
+  grd.addColorStop(0, '#1d1f24');
+  grd.addColorStop(1, '#0d0e11');
+  g.fillStyle = grd;
+  g.fillRect(0, 0, N, N);
   g.strokeStyle = 'rgba(255,255,255,0.05)';
-  for (let y = 0; y < N; y += 3) { g.beginPath(); g.moveTo(0, y + 0.5); g.lineTo(N, y + 0.5); g.stroke(); }
+  for (let y = 0; y < N; y += 3) {
+    g.beginPath();
+    g.moveTo(0, y + 0.5);
+    g.lineTo(N, y + 0.5);
+    g.stroke();
+  }
   g.save();
-  g.beginPath(); g.rect(0, N * 0.74, N, N * 0.2); g.clip();
-  g.fillStyle = '#0a0a0a'; g.fillRect(0, N * 0.74, N, N * 0.2);
+  g.beginPath();
+  g.rect(0, N * 0.74, N, N * 0.2);
+  g.clip();
+  g.fillStyle = '#0a0a0a';
+  g.fillRect(0, N * 0.74, N, N * 0.2);
   g.fillStyle = '#ff5a1f';
-  for (let x = -N; x < N * 2; x += 32) { g.beginPath(); g.moveTo(x, N * 0.94); g.lineTo(x + 16, N * 0.94); g.lineTo(x + 16 + N * 0.2, N * 0.74); g.lineTo(x + N * 0.2, N * 0.74); g.fill(); }
+  for (let x = -N; x < N * 2; x += 32) {
+    g.beginPath();
+    g.moveTo(x, N * 0.94);
+    g.lineTo(x + 16, N * 0.94);
+    g.lineTo(x + 16 + N * 0.2, N * 0.74);
+    g.lineTo(x + N * 0.2, N * 0.74);
+    g.fill();
+  }
   g.restore();
   g.font = `italic 900 ${N * 0.3}px -apple-system, "Helvetica Neue", Arial, sans-serif`;
-  g.textAlign = 'center'; g.textBaseline = 'middle';
+  g.textAlign = 'center';
+  g.textBaseline = 'middle';
   const tg = g.createLinearGradient(0, N * 0.22, 0, N * 0.58);
-  tg.addColorStop(0, '#2a2f9e'); tg.addColorStop(0.48, '#fbe9ff'); tg.addColorStop(0.5, '#ffffff'); tg.addColorStop(0.52, '#5a1a10'); tg.addColorStop(1, '#ff9a4a');
-  g.fillStyle = '#000'; g.fillText('HW002', N / 2 + 4, N * 0.42 + 4);
-  g.fillStyle = tg; g.fillText('HW002', N / 2, N * 0.42);
-  g.strokeStyle = '#ff3df2'; g.lineWidth = 2; g.strokeText('HW002', N / 2, N * 0.42);
-  for (const [x, y] of [[14, 14], [N - 14, 14], [14, N * 0.66], [N - 14, N * 0.66]]) {
+  tg.addColorStop(0, '#2a2f9e');
+  tg.addColorStop(0.48, '#fbe9ff');
+  tg.addColorStop(0.5, '#ffffff');
+  tg.addColorStop(0.52, '#5a1a10');
+  tg.addColorStop(1, '#ff9a4a');
+  g.fillStyle = '#000';
+  g.fillText('HW002', N / 2 + 4, N * 0.42 + 4);
+  g.fillStyle = tg;
+  g.fillText('HW002', N / 2, N * 0.42);
+  g.strokeStyle = '#ff3df2';
+  g.lineWidth = 2;
+  g.strokeText('HW002', N / 2, N * 0.42);
+  for (const [x, y] of [
+    [14, 14],
+    [N - 14, 14],
+    [14, N * 0.66],
+    [N - 14, N * 0.66],
+  ]) {
     const rg = g.createRadialGradient(x - 2, y - 2, 1, x, y, 7);
-    rg.addColorStop(0, '#8a909c'); rg.addColorStop(1, '#16181c');
-    g.fillStyle = rg; g.beginPath(); g.arc(x, y, 6, 0, Math.PI * 2); g.fill();
+    rg.addColorStop(0, '#8a909c');
+    rg.addColorStop(1, '#16181c');
+    g.fillStyle = rg;
+    g.beginPath();
+    g.arc(x, y, 6, 0, Math.PI * 2);
+    g.fill();
   }
-  g.strokeStyle = '#000'; g.lineWidth = 3; g.strokeRect(1.5, 1.5, N - 3, N - 3);
+  g.strokeStyle = '#000';
+  g.lineWidth = 3;
+  g.strokeRect(1.5, 1.5, N - 3, N - 3);
   return cv;
 }
 
-const SCENES = [['Tunnel', TUNNEL], ['Plasma', PLASMA], ['Rotozoom', ROTO]];
+const SCENES = [
+  ['Tunnel', TUNNEL],
+  ['Plasma', PLASMA],
+  ['Rotozoom', ROTO],
+];
 
 export function tunnel(room) {
   const { ctx, store } = room;
   const m = shell(room, {
-    key: 'tunnel', title: 'Tunnel', sub: 'three demo parts on the kick', gl: true,
+    key: 'tunnel',
+    title: 'Tunnel',
+    sub: 'three demo parts on the kick',
+    gl: true,
     note: 'Rings rush past one per beat, a hazard ring every bar. Drag across: X. Drag up: Y. Pinch: the third. Double tap: the three back to the set.',
   });
   const picks = chips(room, m, [
@@ -164,52 +209,99 @@ export function tunnel(room) {
   const hudR = h('span', { class: 'pl-hud-r lcd-s', text: '001.1' });
   const hint = h('span', { class: 'pl-hud-hint is-gone' });
   let hideTimer = 0;
-  const show = (text) => { clearTimeout(hideTimer); hint.textContent = text; hint.classList.remove('is-gone'); };
-  const hide = () => { clearTimeout(hideTimer); hideTimer = setTimeout(() => hint.classList.add('is-gone'), 1200); };
+  const show = (text) => {
+    clearTimeout(hideTimer);
+    hint.textContent = text;
+    hint.classList.remove('is-gone');
+  };
+  const hide = () => {
+    clearTimeout(hideTimer);
+    hideTimer = setTimeout(() => hint.classList.add('is-gone'), 1200);
+  };
   room.own(() => clearTimeout(hideTimer));
-  const seg = segments(SCENES.map(([n]) => n), scene, (i) => { scene = i; save('tunnel.scene', i); hudL.textContent = SCENES[i][0].toUpperCase(); });
+  const seg = segments(
+    SCENES.map(([n]) => n),
+    scene,
+    (i) => {
+      scene = i;
+      save('tunnel.scene', i);
+      hudL.textContent = SCENES[i][0].toUpperCase();
+    },
+  );
   m.tools.append(seg.el);
 
   const cv = glView(room, m, {
     dprMax: 1.5,
     setup(gl) {
-      return { progs: SCENES.map(([, fs]) => new Program(gl, fs)), tri: triangle(gl), tile: texture(gl, plateTile(), { repeat: true }), time: 0 };
+      return {
+        progs: SCENES.map(([, fs]) => new Program(gl, fs)),
+        tri: triangle(gl),
+        tile: texture(gl, plateTile(), { repeat: true }),
+        time: 0,
+      };
     },
     render(gl, st, dt, { W, H }) {
       const prog = st.progs[scene];
       if (!prog.ready()) return;
-      const a = room.audio(), c = room.clock(), L = (id) => store.live(id);
+      const a = room.audio(),
+        c = room.clock(),
+        L = (id) => store.live(id);
       st.time += dt;
       const [X, Y, Z] = picks.ids;
       gl.viewport(0, 0, W, H);
-      prog.use().tex('uTile', 0, st.tile)
-        .set('uRes', W, H).set('uTime', st.time).set('uBeats', c.beats).set('uPulse', a.pulse)
-        .set('uX', L(X)).set('uY', L(Y)).set('uZ', L(Z)).set('uHue', L('kick.colourFreq')).set('uDrive', L('rumble.drive'))
-        .set('uMid', a.mid).set('uHigh', a.high);
+      prog
+        .use()
+        .tex('uTile', 0, st.tile)
+        .set('uRes', W, H)
+        .set('uTime', st.time)
+        .set('uBeats', c.beats)
+        .set('uPulse', a.pulse)
+        .set('uX', L(X))
+        .set('uY', L(Y))
+        .set('uZ', L(Z))
+        .set('uHue', L('kick.colourFreq'))
+        .set('uDrive', L('rumble.drive'))
+        .set('uMid', a.mid)
+        .set('uHigh', a.high);
       st.tri.draw();
       const t = c.playing ? barText(c) : 'STOP';
       if (hudR.textContent !== t) hudR.textContent = t;
     },
-    dispose(gl, st) { st.progs.forEach((p) => p.dispose()); st.tri.dispose(); gl.deleteTexture(st.tile); },
+    dispose(gl, st) {
+      st.progs.forEach((p) => p.dispose());
+      st.tri.dispose();
+      gl.deleteTexture(st.tile);
+    },
   });
   m.view.append(h('div', { class: 'pl-hud' }, hudL, hint, hudR));
 
   let ws = null;
   xyTouch(cv, {
-    onStart: () => { ws = picks.ids.map((id) => writer(ctx, id, 'play')); ws.forEach((w) => w.begin()); },
+    onStart: () => {
+      ws = picks.ids.map((id) => writer(ctx, id, 'play'));
+      ws.forEach((w) => w.begin());
+    },
     onMove: (dx, dy) => {
-      ws[0].add(dx / Math.max(200, cv.clientWidth)); ws[1].add(-dy / Math.max(200, cv.clientHeight));
+      ws[0].add(dx / Math.max(200, cv.clientWidth));
+      ws[1].add(-dy / Math.max(200, cv.clientHeight));
       show(readout(room, picks.ids.slice(0, 2)));
     },
-    onPinch: (dd) => { ws[2].add(dd / 260); show(readout(room, picks.ids.slice(2))); },
-    onEnd: () => { ws?.forEach((w) => w.end()); ws = null; hide(); },
+    onPinch: (dd) => {
+      ws[2].add(dd / 260);
+      show(readout(room, picks.ids.slice(2)));
+    },
+    onEnd: () => {
+      ws?.forEach((w) => w.end());
+      ws = null;
+      hide();
+    },
     onTap: () => haptic(),
     onDouble: () => {
       store.begin();
       for (const id of picks.ids) store.reset(id, { source: 'doubletap' });
       store.end();
       haptic(true);
-      toast('Tunnel: X, Y and pinch at the set\'s values');
+      toast("Tunnel: X, Y and pinch at the set's values");
     },
   });
   return room.add(m);
