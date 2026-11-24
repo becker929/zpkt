@@ -6,8 +6,9 @@
 
 Anthony (12 Nov 2026): every page stores structure, and it all accumulates into a recipe the mastering step runs in
 Live. The desk's part of it is "desk": the two returns and their devices, every desk device on the buses and Main
-(in chain order, every parameter), every track's mixer (volume, pan, sends by return name, mute), and the switches
-the desk owns on devices it did not add (the kick's KSMS match EQ). Each value is kept twice, as Live shows it and as
+(in chain order, every parameter), every track's mixer (volume, pan, sends by return name, mute), the switches
+the desk owns on devices it did not add (the kick's KSMS match EQ), and the monitor tracks (monitor.py: the
+original render and the references, as audio clips in the Arrangement, with their files and positions). Each value is kept twice, as Live shows it and as
 its raw value; `apply` sets the raw value, which round-trips exactly on the same Live version.
 
 `apply` works on the finishing set or on a mix set freshly built by contrib/arranger/mixset.py: it adds what is
@@ -26,6 +27,7 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 import match as M  # noqa: E402  (sets the rig environment for liveops before hands is imported)
+import monitor as MON  # noqa: E402
 import workspace as W  # noqa: E402
 
 L = M.L
@@ -81,6 +83,10 @@ def read_desk() -> dict:
         if k >= 0:
             vals = _params(t, k)
             desk["owned"].append({"track": track, "device": dev, "values": {p: vals[p] for p in params}})
+    desk["monitor"] = [{"track": n, "file": clips[0][0], "beat": clips[0][1], "warping": clips[0][2]}
+                       for n, clips in L.run("result = [[t.name, [[c.file_path, c.start_time, c.warping] "
+                                             "for c in t.arrangement_clips]] for t in song.tracks "
+                                             "if t.name.startswith('mon ')]") if clips]
     return desk
 
 
@@ -94,7 +100,7 @@ def write() -> None:
     tmp.replace(ARR)
     d = arr["desk"]
     print(f"{ARR}: desk with {len(d['returns'])} returns, {sum(len(c) for c in d['chains'].values())} desk devices on "
-          f"{len(d['chains'])} tracks, {len(d['mixer'])} mixers")
+          f"{len(d['chains'])} tracks, {len(d['mixer'])} mixers, {len(d.get('monitor', []))} monitor tracks")
 
 
 def show() -> None:
@@ -104,6 +110,8 @@ def show() -> None:
     print(f"desk from {d['set']}, written {time.strftime('%Y-%m-%d %H:%M', time.localtime(d['made']))}")
     for r in d["returns"]:
         print(f"return {r['name']}: " + ", ".join(x["name"] for x in r["devices"]))
+    for m in d.get("monitor", []):
+        print(f"monitor {m['track']}: {Path(m['file']).name} at beat {m['beat']}, warping {m['warping']}")
     for track, chain in d["chains"].items():
         for dev in chain:
             moved = {k: v[0] for k, v in dev["values"].items() if k != "Device On"}
@@ -134,6 +142,9 @@ def apply() -> None:
     if not d:
         sys.exit(f"{ARR} has no desk yet")
     W.devices()   # returns and desk devices, added where missing, at neutral values
+    if d.get("monitor"):   # the monitor tracks and their clips, added where missing (muted), before their mixers
+        MON.ensure(L, log=lambda *a: print(*a, flush=True),
+                   want={m["track"]: (Path(m["file"]), float(m["beat"])) for m in d["monitor"]})
     for r in d["returns"]:
         t = M.tr(r["name"])
         have = L.run(f"result = [d.name for d in {t}.devices]")

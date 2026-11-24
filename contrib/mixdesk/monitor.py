@@ -30,9 +30,11 @@ def wanted() -> dict[str, tuple[Path, float]]:
     return w
 
 
-def ensure(live: LiveClient | None = None, log=print) -> None:
+def ensure(live: LiveClient | None = None, log=print, want: dict[str, tuple[Path, float]] | None = None) -> None:
+    """Add the monitor tracks that are missing. `want` ({name: (wav, beat)}) defaults to sources.json's; the
+    recipe passes its own, so a rebuilt set gets the tracks the recipe was written with."""
     live = live or LiveClient(timeout=10.0, retries=1)
-    for name, (wav, beat) in wanted().items():
+    for name, (wav, beat) in (want or wanted()).items():
         if not wav.exists():
             raise SystemExit(f"missing {wav}: run analyze.py")
         have = live.run(f"result = [t.name for t in song.tracks]")
