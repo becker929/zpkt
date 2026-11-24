@@ -35,7 +35,7 @@ from mlab import loudness as L
 from mlab import spectrum as S
 from signals import SR, mix, reference, write
 
-FIXTURES = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "calibration", "fixtures")
+FIXTURES = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "mlab", "calibration", "fixtures")
 
 
 def fingerprint(y: np.ndarray) -> dict:

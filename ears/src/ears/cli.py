@@ -1,4 +1,9 @@
-"""ears CLI — analyze audio files and emit AudioProfile JSON."""
+"""The ears command: every way of measuring a render, in one CLI.
+
+Its own commands make an AudioProfile (`analyze`, `compare`) and place a render in your corpus (`corpus`). Every
+calibrated meter's command (`measure`, `target`, `eqfit`, ...) is here too, handed as it is to the meters' CLI
+(ears/meters/cli.py), which `mlab` runs on its own with the same subcommands and flags.
+"""
 
 from __future__ import annotations
 
@@ -11,9 +16,13 @@ import typer
 from rich.console import Console
 from rich.table import Table
 
+from .meters import cli as meters_cli
 from .models import AudioProfile, LoudnessFeatures, RhythmFeatures, SpectralFeatures
 
-app = typer.Typer(name="ears", help="ears: measure a render. Loudness, true peak, spectra, embeddings, your corpus.")
+app = typer.Typer(
+    name="ears",
+    help="ears: measure a render. Calibrated meters, a profile with an embedding, and your reference corpus.",
+)
 corpus_app = typer.Typer(help="Your reference corpus: build it once from a folder, then place renders in it.")
 app.add_typer(corpus_app, name="corpus")
 console = Console()
@@ -237,6 +246,24 @@ def _json_default(obj):
         return float(obj)
     except Exception:
         return str(obj)
+
+
+def _add_meter_command(name: str, help_text: str) -> None:
+    """`ears NAME ...` runs `mlab NAME ...`: its arguments, --help included, go to the meters' parser unread."""
+
+    @app.command(
+        name,
+        help=f"{help_text}; `ears {name} --help` for its flags",
+        rich_help_panel="Calibrated meters (also `mlab COMMAND`)",
+        add_help_option=False,
+        context_settings={"allow_extra_args": True, "ignore_unknown_options": True},
+    )
+    def run(ctx: typer.Context) -> None:
+        meters_cli.main([name, *ctx.args], prog="ears")
+
+
+for _name, _help in meters_cli.commands().items():
+    _add_meter_command(_name, _help)
 
 
 def main():

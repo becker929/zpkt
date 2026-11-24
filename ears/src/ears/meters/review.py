@@ -14,7 +14,7 @@ import os
 import numpy as np
 
 from . import io as aio
-from . import measure, premaster, references
+from . import lab, measure, premaster, references
 from . import spectrum as S
 from .util import db, r
 
@@ -84,7 +84,9 @@ def feedback(pm, fl, peaks, refs):
     return fb
 
 
-def run(path, refdir=None, bpm=160.0, codecs=True):
+def run(path, refdir=None, bpm=160.0, codecs=True, reports_dir=None):
+    """Review one premaster; write review-<name>.md and .json to reports_dir (default: the lab's reports/).
+    Returns the .md path and the feedback lines."""
     a = aio.load(path)
     sh = measure.sheet(a, codecs=codecs)
     fl = measure.flat(sh)
@@ -104,8 +106,7 @@ def run(path, refdir=None, bpm=160.0, codecs=True):
         tonal_diff = [(r(c, 0), r(d)) for c, d in zip(cs, norm(mine) - med, strict=True)]
     fb = feedback(pm, fl, peaks, refs)
     name = os.path.splitext(os.path.basename(path))[0]
-    lab = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    base = os.path.join(lab, "reports", f"review-{name}")
+    base = os.path.join(reports_dir or os.path.join(lab.ROOT, "reports"), f"review-{name}")
     md = [
         f"# Premaster review — {name}",
         "",

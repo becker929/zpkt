@@ -5,13 +5,14 @@ build-backend = "hatchling.build"
 [project]
 name = "ears"
 version = "0.1.0"
-description = "Audio perception — AudioProfile extraction from bounced files"
+description = "Measuring renders: calibrated mastering meters (ears.meters, once mlab), profiles, a reference corpus"
 requires-python = ">=3.12"
 dependencies = [
     "librosa>=0.11.0",
     "numpy>=1.26.0",
     "onnxruntime>=1.20.0",
     "pyloudnorm>=0.1.1",
+    "pyyaml>=6.0",
     "scipy>=1.11.0",
     "soundfile>=0.12.0",
     "typer>=0.12.0",
@@ -27,10 +28,11 @@ dependencies = [
 gemini   = ["google-generativeai>=0.8.6"]
 
 [project.scripts]
-ears = "ears.cli:main"
+ears = "ears.cli:main"           # everything: profiles, the corpus and every meter
+mlab = "ears.meters.cli:main"    # the mastering lab's commands, as they were when mlab was its own project
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/ears"]
+packages = ["src/ears", "src/mlab"]   # mlab: the old import name of ears.meters
 
 [dependency-groups]
 dev = [
@@ -39,6 +41,5 @@ dev = [
 ]
 
 [tool.pytest.ini_options]
-# mlab/ and soundfunction/ have their own suites; soundfunction's needs the
-# corpus, which stays out of git.
-testpaths = ["tests"]
+# tests: ears and the meters (characterization, goldens); mlab/calibration: the meters' known-answer checks.
+testpaths = ["tests", "mlab/calibration"]

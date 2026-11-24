@@ -8,11 +8,11 @@ import os
 import sys
 
 from . import io as aio
-from . import references
+from . import lab, references
 from . import windows as W
 from .util import r
 
-LAB = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+LAB = lab.ROOT  # reports/ and audio/renders/ go here
 
 
 def _out(obj, as_json):
@@ -314,7 +314,7 @@ def cmd_eqfit(a):
 def cmd_review(a):
     from . import review
 
-    path, fb = review.run(a.file, a.refs, a.bpm, codecs=not a.no_codecs)
+    path, fb = review.run(a.file, a.refs, a.bpm, codecs=not a.no_codecs, reports_dir=os.path.join(LAB, "reports"))
     print("\n".join("- " + x for x in fb) or "nothing flagged")
     print(f"(full review: {os.path.relpath(path, LAB)})")
 
@@ -334,11 +334,14 @@ def cmd_calibrate(a):
     sys.exit(0 if ok else 1)
 
 
-def main(argv=None):
-    p = argparse.ArgumentParser(prog="mlab", description="Calibrated mastering instruments (HW002 lab)")
+def parser(prog="mlab"):
+    """The argument parser: one subcommand per instrument. `ears` offers the same subcommands (ears/cli.py)."""
+    p = argparse.ArgumentParser(prog=prog, description="Calibrated mastering instruments (HW002 lab)")
     sp = p.add_subparsers(dest="cmd", required=True)
+    p.set_defaults(commands={})  # subcommand -> its help line, for commands()
 
     def add(name, fn, *args, **kw):
+        p.get_default("commands")[name] = kw.get("help") or ""
         s = sp.add_parser(name, help=kw.pop("help", None))
         for arg in args:
             s.add_argument(*arg[0], **arg[1])
@@ -456,7 +459,16 @@ def main(argv=None):
         help="run a hypothesis YAML",
     )
     add("calibrate", cmd_calibrate, (["--quick"], {"action": "store_true"}), help="run known-answer checks")
-    a = p.parse_args(argv)
+    return p
+
+
+def commands():
+    """{subcommand: its one-line help}, in the order `mlab --help` lists them."""
+    return dict(parser().get_default("commands"))
+
+
+def main(argv=None, prog="mlab"):
+    a = parser(prog).parse_args(argv)
     a.fn(a)
 
 

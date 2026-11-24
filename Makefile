@@ -1,5 +1,5 @@
 # zpkt: each part is its own uv project. These targets run them from the repo root.
-CORE     := hands ears ears/mlab
+CORE     := hands ears
 CONTRIB  := contrib/booth contrib/letta-vibe
 PROTO    := prototypes/taste prototypes/engineer
 PYTEST   := uv run pytest -q -p no:cacheprovider
@@ -16,7 +16,6 @@ remote-script:
 test:  ## the supported parts: offline, no Live
 	cd hands && uv run --all-extras pytest -q -p no:cacheprovider
 	cd ears && $(PYTEST)
-	cd ears/mlab && $(PYTEST)
 
 test-all: test  ## contrib and prototypes too
 	@for p in $(CONTRIB) $(PROTO); do echo "== $$p"; (cd $$p && $(PYTEST)) || exit 1; done

@@ -1,4 +1,5 @@
-"""Shared fixtures: a throwaway lab folder for the CLI, and output with the temporary path masked."""
+"""Shared fixtures for the meters' tests: a throwaway lab folder for the CLI, and output with the temporary path
+masked."""
 
 from __future__ import annotations
 
@@ -9,7 +10,7 @@ from pathlib import Path
 import pytest
 
 HERE = Path(__file__).resolve().parent
-sys.path.insert(0, str(HERE.parent / "calibration"))  # checks.py: the known-answer signals
+sys.path.insert(0, str(HERE.parent / "mlab" / "calibration"))  # checks.py: the known-answer signals
 
 
 @pytest.fixture

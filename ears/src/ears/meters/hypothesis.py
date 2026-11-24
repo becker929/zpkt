@@ -14,12 +14,12 @@ import os
 import numpy as np
 import yaml
 
-from . import compare, delivery, dsp, measure
+from . import compare, delivery, dsp, lab, measure
 from . import io as aio
 from . import loudness as L
 from .util import lin, r
 
-ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+ROOT = lab.ROOT
 LAB = os.environ.get("MLAB_DATA", ROOT)
 
 

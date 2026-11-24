@@ -15,7 +15,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 from golden_check import check, text
-from mlab import cli, dsp, review, siggen
+from mlab import cli, dsp, siggen
 from mlab.util import lin
 from signals import BEAT_S, SR, mix, reference, refs_json, write
 
@@ -117,14 +117,12 @@ def test_match_and_abx(lab, files, capsys, masked, monkeypatch) -> None:
 
 
 def test_als(lab, capsys, masked) -> None:
-    fixtures = Path(__file__).resolve().parents[1] / "calibration" / "fixtures"
+    fixtures = Path(__file__).resolve().parents[1] / "mlab" / "calibration" / "fixtures"
     text("cli_als", run(capsys, masked, "als", str(fixtures / "L12-automation.als")))
     check("cli_als_json", json.loads(run(capsys, masked, "als", str(fixtures / "example-140.als"), "--json")))
 
 
 def test_review(lab, files, tmp_path, capsys, masked, monkeypatch) -> None:
-    # review writes beside the package: point its __file__ into the temporary lab
-    monkeypatch.setattr(review, "__file__", str(lab / "mlab" / "review.py"))
     out = run(capsys, masked, "review", str(files["mix"]), "--refs", str(files["refs_dir"]), "--no-codecs")
     text("cli_review", out)
     md = (lab / "reports" / "review-mix.md").read_text()
@@ -250,7 +248,7 @@ def test_calibrate_writes_the_report(lab, monkeypatch, capsys) -> None:
 
 
 def test_python_dash_m_and_usage(files) -> None:
-    lab_root = Path(__file__).resolve().parents[1]
+    lab_root = Path(__file__).resolve().parents[1] / "mlab"  # where people run `python3 -m mlab`
     res = subprocess.run(
         [sys.executable, "-m", "mlab", "bitdepth", str(files["mix16"])], capture_output=True, text=True, cwd=lab_root
     )
