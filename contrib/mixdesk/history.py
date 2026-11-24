@@ -34,6 +34,13 @@ HISTORY_DIR = Path("~/_agent_scratch/mixdesk/history").expanduser()
 NAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9 ._-]{0,60}$")
 
 
+def check_name(name: str) -> str:
+    """A checkpoint name as it may be saved; ValueError says what a name may hold."""
+    if not NAME_RE.match(name):
+        raise ValueError("a checkpoint name is letters, digits, space . _ - (up to 60)")
+    return name
+
+
 def same(a: Any, b: Any) -> bool:
     if a is None or b is None:
         return a is b
@@ -41,9 +48,13 @@ def same(a: Any, b: Any) -> bool:
 
 
 class History:
-    def __init__(self, set_name: str, labels: dict[str, str], directory: Path | None = None) -> None:
+    def __init__(self, set_name: str, labels: dict[str, str], directory: Path | None = None,
+                 checkpoints: Path | None = None) -> None:
+        """`directory` holds <set>.json (default HISTORY_DIR); `checkpoints` the set's hands states (default
+        hands.live.state.folder(set_name))."""
         self.set_name, self.labels = set_name, labels
         self.directory = directory or HISTORY_DIR
+        self.checkpoints_dir = checkpoints
         self.lock = threading.RLock()
         self.cur: dict[str, list] = {}           # key -> [shown, raw], as Live has it now
         self.expect: dict[str, tuple[float, float]] = {}   # key -> (raw the desk wrote, until)
@@ -160,7 +171,7 @@ class History:
 
     # ---- checkpoints ----------------------------------------------------------------------------------------------
     def folder(self) -> Path:
-        return S.folder(self.set_name)
+        return self.checkpoints_dir or S.folder(self.set_name)
 
     def checkpoints(self) -> list[dict]:
         d = self.folder()
@@ -179,8 +190,7 @@ class History:
         """Save `full` (a state just taken) as checkpoint `name`, with the desk's own values on top (they are what
         the history knows), the monitor tracks as the desk leaves them (muted, not soloed) and Main's desk devices
         as they are when nothing is monitored. Adds a checkpoint entry to the history."""
-        if not NAME_RE.match(name):
-            raise ValueError("a checkpoint name is letters, digits, space . _ - (up to 60)")
+        check_name(name)
         with self.lock:
             for tname, body in full["tracks"].items():
                 mix = body["mixer"]

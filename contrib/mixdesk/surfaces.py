@@ -47,9 +47,9 @@ def folder(set_name: str) -> Path:
     return config.rig().sets_dir / "surfaces" / set_name
 
 
-def pages(set_name: str) -> list[dict]:
-    """The saved surfaces as desk pages, oldest first."""
-    d = folder(set_name)
+def pages(set_name: str, directory: Path | None = None) -> list[dict]:
+    """The saved surfaces as desk pages, oldest first. `directory` defaults to folder(set_name)."""
+    d = directory or folder(set_name)
     out = []
     for p in sorted(d.glob("*.json"), key=lambda p: p.stat().st_mtime) if d.exists() else []:
         try:
@@ -264,8 +264,8 @@ def validate(surface: dict, inv: dict, taken: list[str]) -> dict:
     return {"name": name, "what": str(surface.get("what", "")).strip()[:200], "controls": controls, "notes": notes}
 
 
-def save(surface: dict, set_name: str, prompt: str) -> Path:
-    d = folder(set_name)
+def save(surface: dict, set_name: str, prompt: str, directory: Path | None = None) -> Path:
+    d = directory or folder(set_name)
     d.mkdir(parents=True, exist_ok=True)
     slug = re.sub(r"[^a-z0-9]+", "-", surface["name"].lower()).strip("-") or "surface"
     path, n = d / f"{slug}.json", 2
@@ -275,21 +275,23 @@ def save(surface: dict, set_name: str, prompt: str) -> Path:
     return path
 
 
-def remove(set_name: str, file: str) -> Path:
+def remove(set_name: str, file: str, directory: Path | None = None) -> Path:
     """Move a surface's file to the folder's "removed" folder (nothing is deleted)."""
     if "/" in file or not file.endswith(".json"):
         raise SurfaceError("bad surface file")
-    src = folder(set_name) / file
+    d = directory or folder(set_name)
+    src = d / file
     if not src.exists():
         raise SurfaceError(f"no surface {file}")
-    gone = folder(set_name) / "removed"
+    gone = d / "removed"
     gone.mkdir(exist_ok=True)
     dst = gone / f"{time.strftime('%Y%m%d-%H%M%S')}-{file}"
     src.rename(dst)
     return dst
 
 
-def make(request: str, inv: dict, set_name: str, taken: list[str], ask=ask_claude) -> tuple[Path, dict]:
+def make(request: str, inv: dict, set_name: str, taken: list[str], ask=ask_claude,
+         directory: Path | None = None) -> tuple[Path, dict]:
     """The whole job: ask, check against the set, save. Returns the file and the surface."""
     surface = validate(extract_json(ask(prompt_for(request, inv, taken))), inv, taken)
-    return save(surface, set_name, request), surface
+    return save(surface, set_name, request, directory), surface

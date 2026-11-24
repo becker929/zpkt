@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-import threading
+import queue
 import urllib.request
 
 import pytest
@@ -117,7 +117,7 @@ def test_a_move_is_history_and_undo_redo_write_it_back(rig):
 def test_checkpoints_compare_and_revert(rig):
     code, out = rig.post("/api/checkpoint", {"name": "before"})
     assert code == 200 and out == {"ok": True, "name": "before"}
-    saved = json.loads((rig.tmp / "state" / rig.server.SET / "before.json").read_text())
+    saved = json.loads((rig.tmp / "state" / "before.json").read_text())
     assert saved["made_by"] == "mixdesk" and saved["tracks"]["Kick bus"]["mixer"]["volume"][1] == pytest.approx(0.85)
     assert rig.post("/api/checkpoint", {"name": "../x"})[0] == 400
     move_kick_bus(rig, 0.5)
@@ -169,24 +169,20 @@ def test_save_and_remove_a_surface(rig):
 def test_make_a_surface_runs_the_job_with_a_stand_in_for_claude(rig, monkeypatch):
     import surfaces
 
-    done = threading.Event()
     monkeypatch.setattr(surfaces, "ask_claude", lambda prompt: json.dumps(SURFACE))
-    real_make = surfaces.make
-    monkeypatch.setattr(surfaces, "make", lambda *a, **k: real_make(*a, ask=surfaces.ask_claude, **k))
-    q = rig.server.queue.Queue()
-    rig.server.CLIENTS.append(q)
+    q = queue.Queue()
+    rig.desk.clients.append(q)
     try:
         assert rig.post("/api/surface/make", {"text": "the kick"}) == (200, {"ok": True})
         msgs = []
-        while not done.is_set():
+        while not msgs or msgs[-1]["status"] not in ("done", "error"):
             m = q.get(timeout=10)
             if m["t"] == "surface":
                 msgs.append(m)
-                if m["status"] in ("done", "error"):
-                    done.set()
         assert msgs[-1]["status"] == "done" and "Kick test" in msgs[-1]["msg"]
     finally:
-        rig.server.CLIENTS.remove(q)
+        rig.desk.clients.remove(q)
+    assert rig.get("/api/desk")[1]["pages"][-1]["name"] == "Kick test"
     assert rig.post("/api/surface/make", {"text": "  "}) == (400, {"error": "say what the surface is for"})
 
 
@@ -208,3 +204,42 @@ def test_events_start_with_the_full_state_then_stream_moves(rig):
                     break
         else:
             pytest.fail("no value message for the move")
+
+
+# ---- bad requests --------------------------------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("path", "body"),
+    [
+        ("/api/page", {}),
+        ("/api/page", {"page": "two"}),
+        ("/api/toggle", {"slot": "b1"}),
+        ("/api/transport", {}),
+        ("/api/transport", {"action": "seek"}),
+        ("/api/transport", {"action": "seek", "beat": "soon"}),
+        ("/api/transport", {"action": "seek", "beat": "nan"}),
+        ("/api/transport", {"action": "loop"}),
+        ("/api/surface/save", {}),
+        ("/api/revert", {}),
+        ("/api/revert", {"to": "../x"}),
+        ("/api/revert", {"to": "nope"}),
+        ("/api/revert", {"to": "nope", "keys": "Kick bus/volume"}),
+    ],
+)
+def test_a_bad_body_is_a_400_that_says_what_is_wrong(rig, path, body):
+    code, out = rig.post(path, body)
+    assert code == 400 and out["error"]
+
+
+def test_a_body_that_is_not_a_json_object_is_a_400_and_an_unknown_route_a_404(rig):
+    assert rig.post("/api/page", raw=b"{not json")[0] == 400
+    assert rig.post("/api/page", raw=b"[1]")[0] == 400
+    assert rig.post("/api/nope") == (404, {"error": "not found"})
+
+
+def test_revert_all_to_a_missing_checkpoint_changes_nothing(rig):
+    rig.post("/api/monitor", {"slot": "A"})
+    assert rig.post("/api/revert", {"to": "nope", "all": True})[0] == 400
+    assert rig.get("/api/history")[1]["checkpoints"] == []  # no before-revert checkpoint was made
+    assert rig.state()["monitor"]["slot"] == "A"  # and the monitor was not switched

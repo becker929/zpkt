@@ -16,7 +16,6 @@ import urllib.error
 import urllib.request
 from collections.abc import Callable, Iterator
 from dataclasses import dataclass
-from functools import partial
 from pathlib import Path
 from typing import Any
 
@@ -25,7 +24,6 @@ import pytest
 HERE = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(HERE))
 
-from hands.live.transport import LiveClient  # noqa: E402
 from hands.testing import FakeLive, MiniLab_3, hw002_like  # noqa: E402
 
 MOD = "zpkt_mixdesk_pager"
@@ -61,12 +59,12 @@ def wait_for(check: Callable[[], Any], seconds: float = 3.0) -> Any:
 
 @dataclass
 class Rig:
-    """A running desk: its base URL, the fake Live and MiniLab, and the server module."""
+    """A running desk: its base URL, the fake Live and MiniLab, and the server's Desk."""
 
     url: str
     live: FakeLive
     minilab: MiniLab_3
-    server: Any
+    desk: Any
     tmp: Path
 
     def request(self, method: str, path: str, body: Any = None, raw: bytes | None = None,
@@ -86,6 +84,12 @@ class Rig:
     def post(self, path: str, body: Any = None, **kw: Any) -> tuple[int, Any]:
         return self.request("POST", path, body=body if body is not None else {}, **kw)
 
+    def send(self, data: bytes | dict) -> None:
+        """One datagram to the desk's UDP port, as the pager sends them."""
+        out = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        out.sendto(data if isinstance(data, bytes) else json.dumps(data).encode(), ("127.0.0.1", self.desk.settings.udp_port))
+        out.close()
+
     def state(self) -> dict:
         return self.get("/api/state")[1]
 
@@ -99,42 +103,38 @@ class Rig:
         return next(t for t in [*song.tracks, *song.return_tracks, song.master_track] if t.name == name)
 
 
-@pytest.fixture()
-def rig(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[Rig]:
-    import history
-    import monitor
+def settings(tmp: Path, live_port: int | None) -> Any:
     import server
-    import surfaces
 
-    viz = tmp_path / "viz"
-    viz.mkdir()
+    viz = tmp / "viz"
+    viz.mkdir(exist_ok=True)
     (viz / "analysis.json").write_text(json.dumps(ANALYSIS))
     (viz / "A.wav").write_bytes(b"RIFF" + bytes(range(256)) * 4)
-    monkeypatch.setattr(server, "VIZ", viz)
-    monkeypatch.setattr(monitor, "VIZ", viz)
-    monkeypatch.setattr(server.history.S, "folder", lambda set_name: tmp_path / "state" / set_name)
-    monkeypatch.setattr(surfaces, "folder", lambda set_name: tmp_path / "surfaces" / set_name)
-    monkeypatch.setattr(server, "HIST", history.History(server.SET, server.LABELS, directory=tmp_path / "hist"))
-    monkeypatch.setattr(server, "STATE", json.loads(json.dumps(server.STATE)))
-    monkeypatch.setattr(server, "LABELS", server.LABELS)
-    server.HIST.labels = server.LABELS
-    server.LABELS.clear()
+    return server.Settings(
+        set_name="HW002_121_pp_finish",
+        viz_dir=viz,
+        http_port=0,
+        udp_port=free_port(socket.SOCK_DGRAM),
+        meter_port=free_port(socket.SOCK_DGRAM),
+        live_port=live_port,
+        history_dir=tmp / "hist",
+        checkpoints_dir=tmp / "state",
+        surfaces_dir=tmp / "surfaces",
+    )
+
+
+@pytest.fixture()
+def rig(tmp_path: Path) -> Iterator[Rig]:
+    import server
 
     minilab = MiniLab_3()
     live = FakeLive(hw002_like(), surfaces=[minilab])
-    live_port = live.serve()
-    client = partial(LiveClient, port=live_port)
-    monkeypatch.setattr(server, "LiveClient", client)
-    monkeypatch.setattr(server, "live", lambda: client(timeout=10.0, retries=1))
-    monkeypatch.setattr(server, "UDP_PORT", free_port(socket.SOCK_DGRAM))
-    threading.Thread(target=server.udp, daemon=True).start()
-    http = server.ThreadingHTTPServer(("127.0.0.1", 0), server.Handler)
-    http.daemon_threads = True
+    desk = server.Desk(settings(tmp_path, live.serve()))
+    http = server.start(desk, supervise=False)
     threading.Thread(target=http.serve_forever, kwargs={"poll_interval": 0.05}, daemon=True).start()
-    time.sleep(0.05)
-    server.set_state(server.start_pager(), "attached")
+    desk.restart_pager()
     try:
-        yield Rig(f"http://127.0.0.1:{http.server_address[1]}", live, minilab, server, tmp_path)
+        yield Rig(f"http://127.0.0.1:{http.server_address[1]}", live, minilab, desk, tmp_path)
     finally:
         http.shutdown()
         http.server_close()
