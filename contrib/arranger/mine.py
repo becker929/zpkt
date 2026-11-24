@@ -21,9 +21,11 @@ import numpy as np
 import pyloudnorm
 import soundfile as sf
 
-DATA = Path("~/_agent_scratch/arranger").expanduser()
+import hw002
+
+DATA = hw002.DATA
 STEMS = DATA / "raw" / "stems"
-RATE, BAR = 44100, 66150            # 160 BPM: a bar is 1.5 s
+RATE, BAR = hw002.RATE, hw002.BAR_SAMPLES
 PERIODS = (1, 2, 4, 8, 16, 32)
 SILENT_DB = -62.0
 SET = "HW002_121_full.als"
@@ -132,132 +134,157 @@ def write(x: np.ndarray) -> str:
     return name
 
 
-def main() -> None:
-    clips, lanes, song, used = [], [], [], set()
-    render = {}                                   # lane -> the song preset's audio for that lane, for the check
-    for lane, title, group, colour, stems in LANES:
-        lanes.append({"id": lane, "title": title, "group": group, "color": colour})
-        for si, (stem, prefix, first) in enumerate(stems):
-            x, sr = sf.read(STEMS / f"{stem}.wav", dtype="float32")
-            assert sr == RATE
-            F, db = features(x)
-            active = db > SILENT_DB
-            segs, thr = segments(F, active)
-            print(f"{stem}: threshold {thr:.3f}; " + ", ".join(f"{a + first + 1}-{b + first}" + (f"/{p}" if p else " once") for a, b, p in segs))
-            known: list[tuple[int, np.ndarray, str]] = []       # (period, feature, clip id)
-            letter = 0
-            prev = None                                          # the loop clip of the stretch just before
-            for a, b, p in segs:
-                off = 0
-                if not p and prev and prev[1] == a and db[a] < db[a - 1] - 8:
-                    # what rings on after a loop stops: kept as the loop's tail, not as a clip of its own
-                    end = b
-                    while end < len(db) and end < a + 4 and db[end] > -80 and not active[end]:
-                        end += 1
-                    if "tail" not in prev[0]:
-                        audio = x[a * BAR:end * BAR].copy()
-                        fade = min(len(audio), 2205)
-                        audio[-fade:] *= np.linspace(1, 0, fade, dtype="float32")[:, None]
-                        prev[0]["tail"], prev[0]["tailBars"] = write(audio), end - a
-                    prev = None
-                    continue
-                if p:
-                    src = a + p if b - a >= 3 * p else a          # a short stretch keeps its first pass, with its attack
-                    feat = F[src:src + p]
-                    match = None
-                    for kp, kf, kid in known:
-                        if kp != p:
-                            continue
-                        for r in range(p):                       # the same loop, entered r bars in
-                            if dist(np.roll(kf, -r, axis=0), feat) < thr:
-                                match, off = kid, r
-                                break
-                        if match:
-                            break
-                    if match is None:
-                        audio = x[src * BAR:(src + p) * BAR]
-                        match = f"{stem}-{chr(97 + letter)}"
-                        clips.append({"id": match, "lane": lane, "title": f"{prefix} {chr(65 + letter)}", "kind": "loop", "bars": p,
-                                      "fileBars": p, "file": write(audio), "peaks": peaks(audio, p), "src": {"stem": stem, "bar": src + first}})
-                        known.append((p, feat, match))
-                        letter += 1
-                    region = {"lane": lane, "clip": match, "start": a + first, "len": b - a, "off": off}
-                    prev = (next(c for c in clips if c["id"] == match), b)
-                else:
-                    end = b
-                    while end < len(db) and end < b + 4 and db[end] > -80 and not active[end]:
-                        end += 1                                 # the tail that rings into the silence after it
-                    audio = x[a * BAR:end * BAR].copy()
-                    fade = min(len(audio), 441)
-                    audio[-fade:] *= np.linspace(1, 0, fade, dtype="float32")[:, None]
-                    cid = next((kid for kp, kf, kid in known if kp == -(b - a) and dist(kf, F[a:b]) < max(thr, 0.05)), None)
-                    if cid is None:                              # the same one-shot again is kept once
-                        cid = f"{stem}-{chr(97 + letter)}"
-                        clips.append({"id": cid, "lane": lane, "title": f"{prefix} {chr(65 + letter)}", "kind": "once", "bars": b - a,
-                                      "fileBars": end - a, "file": write(audio), "peaks": peaks(audio, end - a), "src": {"stem": stem, "bar": a + first}})
-                        known.append((-(b - a), F[a:b], cid))
-                        letter += 1
-                    region = {"lane": lane, "clip": cid, "start": a + first, "len": b - a, "off": 0}
-                    prev = None
-                if si == 0 and lane not in SONG_ONLY_FIRST:
-                    song.append(region)
-                    used.add(region["clip"])
-    by_id = {c["id"]: c for c in clips}
+def fade_out(x: np.ndarray, samples: int) -> np.ndarray:
+    """A copy of `x` with a linear fade over its last `samples` (or all of it, if shorter)."""
+    y = x.copy()
+    n = min(len(y), samples)
+    y[-n:] *= np.linspace(1, 0, n, dtype="float32")[:, None]
+    return y
 
-    # the check: the song preset, summed the way the page plays it, against the bounced mix
-    mix, _ = sf.read(STEMS / "mix.wav", dtype="float32")
-    total = np.zeros_like(mix)
-    cache = {}
+
+def ring_end(db: np.ndarray, active: np.ndarray, start: int, limit: int) -> int:
+    """The bar after the quiet bars that follow `start` and still ring (above -80 dB), at most up to `limit`."""
+    end = start
+    while end < len(db) and end < limit and db[end] > -80 and not active[end]:
+        end += 1
+    return end
+
+
+def cut_stem(lane: str, stem: str, prefix: str, first: int, clips: list[dict]) -> list[dict]:
+    """Cut one stem into clips (appended to `clips`) and return the regions that play it as the song does."""
+    x, sr = sf.read(STEMS / f"{stem}.wav", dtype="float32")
+    assert sr == RATE, f"{stem}.wav is {sr} Hz; the stems are bounced at {RATE}"
+    F, db = features(x)
+    active = db > SILENT_DB
+    segs, thr = segments(F, active)
+    print(f"{stem}: threshold {thr:.3f}; " + ", ".join(f"{a + first + 1}-{b + first}" + (f"/{p}" if p else " once") for a, b, p in segs))
+    known: list[tuple[int, np.ndarray, str]] = []  # (period, feature, clip id); a one-shot's period is minus its bars
+    regions = []
+    prev = None  # (the loop clip of the stretch just before, where that stretch ends)
+
+    def new_clip(kind: str, bars: int, file_bars: int, audio: np.ndarray, src_bar: int) -> str:
+        letter = len(known)
+        cid = f"{stem}-{chr(97 + letter)}"
+        clips.append({"id": cid, "lane": lane, "title": f"{prefix} {chr(65 + letter)}", "kind": kind, "bars": bars,
+                      "fileBars": file_bars, "file": write(audio), "peaks": peaks(audio, file_bars),
+                      "src": {"stem": stem, "bar": src_bar}})
+        return cid
+
+    for a, b, p in segs:
+        off = 0
+        if not p and prev and prev[1] == a and db[a] < db[a - 1] - 8:
+            # what rings on after a loop stops: kept as the loop's tail, not as a clip of its own
+            end = ring_end(db, active, b, a + 4)
+            if "tail" not in prev[0]:
+                prev[0]["tail"], prev[0]["tailBars"] = write(fade_out(x[a * BAR : end * BAR], 2205)), end - a
+            prev = None
+            continue
+        if p:
+            src = a + p if b - a >= 3 * p else a  # a short stretch keeps its first pass, with its attack
+            feat = F[src : src + p]
+            match = None
+            for kp, kf, kid in known:
+                if kp != p:
+                    continue
+                for r in range(p):  # the same loop, entered r bars in
+                    if dist(np.roll(kf, -r, axis=0), feat) < thr:
+                        match, off = kid, r
+                        break
+                if match:
+                    break
+            if match is None:
+                match = new_clip("loop", p, p, x[src * BAR : (src + p) * BAR], src + first)
+                known.append((p, feat, match))
+            regions.append({"lane": lane, "clip": match, "start": a + first, "len": b - a, "off": off})
+            prev = (next(c for c in clips if c["id"] == match), b)
+        else:
+            end = ring_end(db, active, b, b + 4)  # the tail that rings into the silence after it
+            cid = next((kid for kp, kf, kid in known if kp == -(b - a) and dist(kf, F[a:b]) < max(thr, 0.05)), None)
+            if cid is None:  # the same one-shot again is kept once
+                cid = new_clip("once", b - a, end - a, fade_out(x[a * BAR : end * BAR], 441), a + first)
+                known.append((-(b - a), F[a:b], cid))
+            regions.append({"lane": lane, "clip": cid, "start": a + first, "len": b - a, "off": 0})
+            prev = None
+    return regions
+
+
+def sum_song(song: list[dict], by_id: dict[str, dict], length: int) -> np.ndarray:
+    """The song preset summed as the page plays it: loops by the bar, one-shots whole, each loop's tail at its end."""
+    total = np.zeros((length, 2), dtype="float32")
+    cache: dict[str, np.ndarray] = {}
 
     def audio_of(name: str) -> np.ndarray:
         if name not in cache:
             cache[name] = sf.read(DATA / "audio" / name, dtype="float32")[0]
         return cache[name]
 
+    def add(x: np.ndarray, at: int) -> None:
+        n = min(len(x), len(total) - at)
+        if n > 0:
+            total[at : at + n] += x[:n]
+
     for r in song:
         c = by_id[r["clip"]]
         a = audio_of(c["file"])
         if c.get("tail"):
-            t, at_end = audio_of(c["tail"]), (r["start"] + r["len"]) * BAR
-            n = min(len(t), len(total) - at_end)
-            if n > 0:
-                total[at_end:at_end + n] += t[:n]
+            add(audio_of(c["tail"]), (r["start"] + r["len"]) * BAR)
         at = r["start"] * BAR
         if c["kind"] == "once":
-            n = min(len(a), len(total) - at)
-            total[at:at + n] += a[:n]
-        else:
-            for i in range(r["len"]):
-                ph = (i + r["off"]) % c["bars"]
-                bar = a[ph * BAR:(ph + 1) * BAR]
-                n = min(BAR, len(total) - (at + i * BAR))
-                total[at + i * BAR:at + i * BAR + n] += bar[:n]
+            add(a, at)
+            continue
+        for i in range(r["len"]):
+            ph = (i + r["off"]) % c["bars"]
+            add(a[ph * BAR : (ph + 1) * BAR], at + i * BAR)
+    return total
+
+
+def check(song: list[dict], by_id: dict[str, dict]) -> str:
+    """The song preset, summed, against Live's bounce of the mix: loudness, level bar by bar, spectral distance."""
+    mix, _ = sf.read(STEMS / "mix.wav", dtype="float32")
+    total = sum_song(song, by_id, len(mix))
     meter = pyloudnorm.Meter(RATE)
     lu = meter.integrated_loudness(total) - meter.integrated_loudness(mix)
     Fm, dbm = features(mix)
     Ft, dbt = features(total)
-    d = np.array([dist(Fm[k], Ft[k]) for k in range(len(Fm)) if dbm[k] > SILENT_DB])
-    lvl = np.array([dbt[k] - dbm[k] for k in range(len(Fm)) if dbm[k] > SILENT_DB])
-    check = (f"Check: the song preset, summed as this page plays it, is {lu:+.1f} LU from Live's own bounce of the mix; "
-             f"bar by bar the level differs by {np.median(np.abs(lvl)):.1f} dB (median) and {np.abs(lvl).max():.1f} dB (worst bar).")
-    print(check)
-    print(f"bar distance to the mix: median {np.median(d):.3f}, 90% {np.quantile(d, .9):.3f}, max {d.max():.3f}; peak of the sum {np.abs(total).max():.3f}, of the mix {np.abs(mix).max():.3f}")
-    worst = np.argsort(-np.abs(dbt - dbm) * (dbm > SILENT_DB))[:8]
+    loud = dbm > SILENT_DB
+    d = np.array([dist(Fm[k], Ft[k]) for k in range(len(Fm)) if loud[k]])
+    lvl = np.array([dbt[k] - dbm[k] for k in range(len(Fm)) if loud[k]])
+    text = (f"Check: the song preset, summed as this page plays it, is {lu:+.1f} LU from Live's own bounce of the mix; "
+            f"bar by bar the level differs by {np.median(np.abs(lvl)):.1f} dB (median) and {np.abs(lvl).max():.1f} dB (worst bar).")
+    print(text)
+    print(f"bar distance to the mix: median {np.median(d):.3f}, 90% {np.quantile(d, 0.9):.3f}, max {d.max():.3f}; "
+          f"peak of the sum {np.abs(total).max():.3f}, of the mix {np.abs(mix).max():.3f}")
+    worst = np.argsort(-np.abs(dbt - dbm) * loud)[:8]
     print("worst bars:", [(int(k) + 1, round(float(dbt[k] - dbm[k]), 1)) for k in worst])
+    return text
 
+
+def first_drop(song: list[dict], by_id: dict[str, dict], bars: int = 32) -> list[dict]:
+    """The song preset's first `bars` bars: the regions that start in them, a loop cut short at the end."""
+    keep = [r for r in song if r["start"] < bars and (r["start"] + r["len"] <= bars or by_id[r["clip"]]["kind"] == "loop")]
+    return [{**r, "len": min(r["len"], bars - r["start"])} for r in keep]
+
+
+def main() -> None:
+    clips: list[dict] = []
+    lanes, song = [], []
+    for lane, title, group, colour, stems in LANES:
+        lanes.append({"id": lane, "title": title, "group": group, "color": colour})
+        for si, (stem, prefix, first) in enumerate(stems):
+            regions = cut_stem(lane, stem, prefix, first, clips)
+            if si == 0 and lane not in SONG_ONLY_FIRST:
+                song += regions
+    by_id = {c["id"]: c for c in clips}
+    text = check(song, by_id)
     files = {c["file"] for c in clips} | {c["tail"] for c in clips if c.get("tail")}
     for f in (DATA / "audio").glob("*.flac"):
         if f.name not in files:
             f.unlink()
     size = sum((DATA / "audio" / f).stat().st_size for f in files)
-    out = {"set": SET, "made": time.strftime("%-d %b %Y"), "bpm": 160, "rate": RATE, "barSeconds": BAR / RATE, "lanes": lanes,
-           "clips": clips, "check": check,
+    out = {"set": SET, "made": time.strftime("%-d %b %Y"), "bpm": int(hw002.TEMPO_BPM), "rate": RATE,
+           "barSeconds": BAR / RATE, "lanes": lanes, "clips": clips, "check": text,
            "presets": [{"name": "The song", "bars": 180, "regions": song},
-                       {"name": "First drop", "bars": 32, "regions": [r for r in song if r["start"] < 32 and (r["start"] + r["len"] <= 32 or by_id[r["clip"]]["kind"] == "loop")]}]}
-    for r in out["presets"][1]["regions"]:
-        r2 = dict(r)
-        r2["len"] = min(r["len"], 32 - r["start"])
-        out["presets"][1]["regions"][out["presets"][1]["regions"].index(r)] = r2
+                       {"name": "First drop", "bars": 32, "regions": first_drop(song, by_id)}]}
     (DATA / "loops.json").write_text(json.dumps(out))
     print(f"{len(clips)} clips ({sum(c['kind'] == 'loop' for c in clips)} loops), {len(files)} files, {size / 1e6:.1f} MB; song preset {len(song)} regions")
 

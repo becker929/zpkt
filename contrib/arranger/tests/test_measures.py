@@ -179,3 +179,35 @@ def test_spectral_analyze_measure_compare(tmp_path, monkeypatch, capsys):
     spectral.compare()
     report = capsys.readouterr().out
     assert "=== DROP SPECTRAL BANDS" in report and "[a] More air" in report
+
+
+def test_mine_end_to_end(tmp_path, monkeypatch, capsys):
+    """mine.py on two made-up stems and their mix: the loops index it writes (loops.json) and the check it prints."""
+    import json
+
+    import mine
+
+    stems = tmp_path / "raw" / "stems"
+    stems.mkdir(parents=True)
+    bar = mine.BAR
+    silence = np.zeros((4 * bar, 2), "float32")
+    kick = np.concatenate([silence, kick_loop(64), silence])
+    t = np.arange(8 * bar) / RATE
+    chord = (0.2 * np.sin(2 * np.pi * 220 * t) * (1 + (t % 3 < 1.5))).astype("float32")
+    chord = np.concatenate([np.zeros((12 * bar, 2), "float32"), np.stack([chord, chord], 1), np.zeros((4 * bar, 2), "float32")])
+    for name, x in (("kick", kick), ("chord", chord), ("mix", kick + chord)):
+        sf.write(stems / f"{name}.wav", x, RATE, subtype="FLOAT")
+    monkeypatch.setattr(mine, "DATA", tmp_path)
+    monkeypatch.setattr(mine, "STEMS", stems)
+    monkeypatch.setattr(mine, "LANES", [("kick", "Kick", "kick", "#ff6b5e", [("kick", "Kick alone", 0)]),
+                                        ("chord", "Chord", "sfx", "#8aa4ff", [("chord", "Chord", 0)])])
+    (tmp_path / "audio").mkdir()
+    (tmp_path / "audio" / "stale.flac").write_bytes(b"old")
+    mine.main()
+    index = json.loads((tmp_path / "loops.json").read_text())
+    assert index.pop("made")
+    assert not (tmp_path / "audio" / "stale.flac").exists()
+    assert sorted(p.name for p in (tmp_path / "audio").iterdir()) == sorted(
+        {c["file"] for c in index["clips"]} | {c["tail"] for c in index["clips"] if c.get("tail")})
+    assert_golden("mine-index", index)
+    assert "Check: the song preset" in capsys.readouterr().out
