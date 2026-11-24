@@ -56,3 +56,18 @@ def test_a_bad_datagram_is_dropped_and_the_udp_thread_keeps_serving(udp_server):
     udp_server({"t": "pos", "b": 12.5, "p": True})
     assert wait_for(lambda: server.STATE["pos"] == 12.5 and server.STATE["playing"] is True)
 
+
+def test_a_queued_full_state_does_not_change_when_a_later_datagram_arrives(udp_server):
+    q: server.queue.Queue = server.queue.Queue()
+    server.CLIENTS.append(q)
+    try:
+        with server.LOCK:
+            server.STATE["pos"] = 0.0
+        server.set_state(None, "attached")
+        udp_server({"t": "pos", "b": 32.0, "p": False})
+        assert wait_for(lambda: server.STATE["pos"] == 32.0)
+        queued = q.get_nowait()
+        assert queued["t"] == "full" and queued["state"]["pos"] == 0.0
+        assert queued["state"] is not server.STATE
+    finally:
+        server.CLIENTS.remove(q)

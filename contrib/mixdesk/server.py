@@ -112,7 +112,13 @@ def set_state(snap: dict | None, status: str) -> None:
                 lp = snap["loop"]
                 STATE["loop"] = lp if isinstance(lp, str) else ("off" if not lp else (STATE["loop"] if STATE["loop"] != "off" else "on"))
         STATE["live"] = status
-    push({"t": "full", "state": STATE})
+        snap_state = state_copy()
+    push({"t": "full", "state": snap_state})
+
+
+def state_copy() -> dict:
+    """A deep copy of STATE, for the page: the UDP thread keeps changing STATE after it is queued. Hold LOCK."""
+    return json.loads(json.dumps(STATE))
 
 
 def push(msg: dict) -> None:
@@ -360,7 +366,8 @@ class Handler(BaseHTTPRequestHandler):
                 self._json({"error": str(exc)}, 404)
         elif path == "/api/state":
             with LOCK:
-                self._json(STATE)
+                snap_state = state_copy()
+            self._json(snap_state)
         elif path == "/events":
             q: queue.Queue = queue.Queue(maxsize=2000)
             CLIENTS.append(q)
@@ -423,7 +430,7 @@ class Handler(BaseHTTPRequestHandler):
                         STATE["match"] = bool(body["match"])
                 apply_monitor(slot, ref)
                 with LOCK:
-                    snap_state = dict(STATE)
+                    snap_state = state_copy()
                 push({"t": "full", "state": snap_state})
             elif self.path == "/api/restart":
                 set_state(start_pager(), "attached")
