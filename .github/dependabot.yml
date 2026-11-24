@@ -1,24 +1,22 @@
 # Security and version updates. Grouped weekly so PRs stay few.
+# The music bot and booth (becker929/music-bot) and the demo tools (becker929/zpkt-demo) left on 24 November 2026
+# and have their own.
 version: 2
 updates:
   - package-ecosystem: github-actions
     directory: /
     schedule: { interval: weekly }
   - package-ecosystem: npm
-    directories: [/contrib/letta-vibe/frontend, /prototypes/audio-browser/frontend]
+    directories: [/prototypes/audio-browser/frontend]
     schedule: { interval: weekly }
     groups: { npm: { patterns: ["*"] } }
   - package-ecosystem: uv
-    directories: [/, /contrib/booth, /contrib/harness, /prototypes/audio-browser, /prototypes/checklist]
+    directories: [/, /contrib/harness, /prototypes/audio-browser, /prototypes/checklist]
     schedule: { interval: weekly }
     groups: { python: { patterns: ["*"] } }
     ignore:
-      # mcp 2 renamed FastMCP (hands/src/hands/mcp_server.py); move to it on purpose.
-      - { dependency-name: mcp, update-types: ["version-update:semver-major"] }
       # tensorflow_hub still imports pkg_resources, which setuptools 81 removed (prototypes/audio-browser).
       - { dependency-name: setuptools, versions: [">=81"] }
-      # Local path packages (contrib/booth -> zpkt). PyPI has unrelated projects with
-      # the same names, and an "update" to one of those cannot resolve.
-      - { dependency-name: taste }
-      - { dependency-name: hands }
-      - { dependency-name: zpkt }
+      # A local path package (prototypes/checklist -> contrib/harness). PyPI has an unrelated project with the same
+      # name, and an "update" to it cannot resolve.
+      - { dependency-name: harness }

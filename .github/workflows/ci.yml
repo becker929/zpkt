@@ -15,9 +15,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # "." is the core (zpkt.live and zpkt.audio, one uv project); booth is its own. Contract tests
-        # fail if output drifts from lib/contracts/.
-        part: [".", contrib/booth]
+        # "." is the core (zpkt.live and zpkt.audio, one uv project). Contract tests fail if output drifts from
+        # lib/contracts/. The booth left for becker929/music-bot (24 Nov 2026); the check keeps its name ".".
+        part: ["."]
     steps:
       # Actions are pinned to commit SHAs (tags can be moved).
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
