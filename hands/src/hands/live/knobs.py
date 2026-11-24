@@ -12,7 +12,7 @@ lab spelled the same id with pipes, "track|Tag:index|param" (`pipe_id`); `Knob.p
 
 The LOM shows the same parameter under another name and often in other units: EQ Eight's
 frequency is 0-1 on a log scale, Utility's gain is dB/35, its width the square root of the .als
-fraction. UNITS holds the conversions measured on HW002: the rumble chain's .als values against a
+fraction. hands.live.units holds the conversions (UNITS) measured on HW002: the rumble chain's .als values against a
 LOM dump of the same devices (prototypes/soundfunction/results/live_rumble_bypass_v1, 12 Sep; the prototype is
 in git tag pre-upgrade-2026-11-24) and the kick-group compressor's (knobmap_hw002_kickgroup_v1). A knob without a measured conversion is
 refused rather than written with a guess; add one after reading both values in Live.
@@ -24,14 +24,32 @@ parameters are refused: a manual write would override their arrangement automati
 
 from __future__ import annotations
 
-import math
-import re
 from collections import Counter
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from typing import Any
 
 from hands.live.transport import McpTransport
+from hands.live.units import (  # noqa: F401  (Unit, Lin, Log and the tables are part of knobs' API)
+    _BAND_PATH,
+    BOOL,
+    EQ8_BAND,
+    EQ8_FREQ,
+    FADER,
+    MIXER,
+    MUTE,
+    SAME,
+    UNITS,
+    Bool,
+    Db35,
+    Fader,
+    Lin,
+    Log,
+    Mute,
+    Ratio,
+    Sqrt,
+    Unit,
+)
 
 MAX_PER_DEVICE = 20  # parameters of one device per call (ableton-guide rule 2)
 
@@ -75,10 +93,12 @@ class Knob:
         """A knob from either spelling of its id (`id`, `pipe_id`). ValueError says what an id looks like."""
         pipes = [part.strip() for part in text.split("|")]
         if len(pipes) == 3 and all(pipes) and "/" not in pipes[0]:  # a slash id's param may hold a "|"
-            return cls._from_parts(text, *pipes, index_mark=":")
+            track, dev, param = pipes
+            return cls._from_parts(text, track, dev, param, index_mark=":")
         slashes = text.split("/", 2)
         if len(slashes) == 3 and all(slashes):
-            return cls._from_parts(text, *slashes, index_mark="#")
+            track, dev, param = slashes
+            return cls._from_parts(text, track, dev, param, index_mark="#")
         raise ValueError(f"a knob id is track/Tag#index/param (or track|Tag:index|param), not {text!r}")
 
     @classmethod
@@ -99,138 +119,6 @@ class Knob:
 
     def __str__(self) -> str:
         return self.id
-
-
-# --------------------------------------------------------------------------- units
-
-
-class Unit:
-    """How a parameter's .als value maps onto its LOM value."""
-
-    def to_lom(self, v):
-        return float(v)
-
-    def from_lom(self, u):
-        return float(u)
-
-
-class Lin(Unit):
-    def __init__(self, lo: float, hi: float):
-        self.lo, self.hi = lo, hi
-
-    def to_lom(self, v):
-        return (float(v) - self.lo) / (self.hi - self.lo)
-
-    def from_lom(self, u):
-        return self.lo + float(u) * (self.hi - self.lo)
-
-
-class Log(Lin):
-    def to_lom(self, v):
-        return math.log(float(v) / self.lo) / math.log(self.hi / self.lo)
-
-    def from_lom(self, u):
-        return self.lo * (self.hi / self.lo) ** float(u)
-
-
-class Bool(Unit):
-    def to_lom(self, v):
-        if not isinstance(v, bool):
-            raise TypeError(f"a switch takes True/False, not {v!r}")
-        return 1.0 if v else 0.0
-
-    def from_lom(self, u):
-        return float(u) >= 0.5
-
-
-class Db35(Unit):
-    """Utility's gain: linear amplitude in the .als, dB/35 (-1..1) in the LOM."""
-
-    def to_lom(self, v):
-        return -1.0 if v <= 0 else max(-1.0, min(1.0, 20 * math.log10(v) / 35))
-
-    def from_lom(self, u):
-        return 10 ** (float(u) * 35 / 20)
-
-
-class Sqrt(Unit):
-    """Utility's width: a fraction 0-4 in the .als, its square root 0-2 in the LOM."""
-
-    def to_lom(self, v):
-        return math.sqrt(float(v))
-
-    def from_lom(self, u):
-        return float(u) ** 2
-
-
-class Ratio(Unit):
-    """Compressor ratio: r in the .als, 1 - 1/r in the LOM."""
-
-    def to_lom(self, v):
-        return 1 - 1 / float(v)
-
-    def from_lom(self, u):
-        return math.inf if float(u) >= 1 else 1 / (1 - float(u))
-
-
-class Fader(Unit):
-    """Mixer volume: linear gain in the .als; in the LOM a fader position whose dB only Live
-    knows (str_for_value), so Live finds the position by bisection on the display."""
-
-    def to_lom(self, v):
-        """The target in dB; None for silence (0 or less), which is the bottom of the fader, -inf."""
-        return 20 * math.log10(v) if v > 0 else None
-
-    def from_lom(self, display):
-        text = display.replace(" dB", "")
-        return 0.0 if "inf" in text else 10 ** (float(text) / 20)
-
-
-class Mute(Unit):
-    """The track's activator (Mixer Speaker): True is on. The LOM sets track.mute to the opposite."""
-
-    def to_lom(self, v):
-        if not isinstance(v, bool):
-            raise TypeError(f"a track's activator takes True/False, not {v!r}")
-        return v
-
-    def from_lom(self, u):
-        return bool(u)
-
-
-SAME, BOOL, MUTE, FADER = Unit(), Bool(), Mute(), Fader()
-
-# (device tag, .als param) -> (LOM parameter name, unit). Evidence pairs, .als -> LOM:
-#   Utility Gain 0.4084238708 -> -0.2222222 (-7.78 dB / 35); StereoWidth 0.8770471 -> 0.9365079;
-#   BassMonoFrequency 120 -> 0.3802112 (log 50-500); EQ Eight Freq 30.95 Hz -> 0.1468144 and
-#   5000 Hz -> 0.8074892 (log 10-22000), Q 2.2926 -> 0.6031746 (log 0.1-18), Gain -14.256 ->
-#   -14.256; Compressor Ratio 3 -> 0.6666667, Attack 0.0791 ms -> 0.1796875 (log 0.01-1000);
-#   Reverb MixDirect -> Dry/Wet as is (probe-pack bench, 6 Oct); plugin parameters 0-1 as is.
-UNITS: dict[tuple[str, str], tuple[str, Unit]] = {
-    ("StereoGain", "Gain"): ("Output", Db35()),
-    ("StereoGain", "StereoWidth"): ("Stereo Width", Sqrt()),
-    ("StereoGain", "BassMono"): ("Bass Mono", BOOL),
-    ("StereoGain", "BassMonoFrequency"): ("Bass Freq", Log(50.0, 500.0)),
-    ("StereoGain", "Balance"): ("Balance", SAME),
-    ("StereoGain", "ChannelMode"): ("Channel Mode", SAME),
-    ("StereoGain", "Mono"): ("Mono", BOOL),
-    ("Eq8", "GlobalGain"): ("Output", SAME),
-    ("Eq8", "Scale"): ("Scale", SAME),
-    ("Compressor2", "Ratio"): ("Ratio", Ratio()),
-    ("Compressor2", "Attack"): ("Attack", Log(0.01, 1000.0)),
-    ("Compressor2", "Knee"): ("Knee", SAME),
-    ("Reverb", "MixDirect"): ("Dry/Wet", SAME),
-}
-EQ8_FREQ = Log(10.0, 22000.0)
-EQ8_BAND = {
-    "Freq": ("Frequency", EQ8_FREQ),
-    "Gain": ("Gain", SAME),
-    "Q": ("Q", Log(0.1, 18.0)),
-    "IsOn": ("Filter On", BOOL),
-    "Mode": ("Filter Type", SAME),
-}
-_BAND_PATH = re.compile(r"Bands\.(\d)/Parameter([AB])/(\w+)")
-MIXER = {"Volume": ("volume", FADER), "Pan": ("pan", SAME), "Speaker": ("mute", MUTE)}
 
 
 def lom_target(knob: Knob) -> tuple[str, str | None, Unit]:

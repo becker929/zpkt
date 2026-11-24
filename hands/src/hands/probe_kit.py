@@ -28,9 +28,10 @@ from hands import als, audio, config
 from hands.bench import timing
 from hands.live import render as live_render
 from hands.live import session, timeops
-from hands.live.knobs import Knob, Lin, Log
+from hands.live.knobs import Knob
 from hands.live.session import stop
 from hands.live.transport import McpTransport
+from hands.live.units import Lin, Log
 
 Step = tuple[Knob, Sequence]  # one value per pattern, in the knob's .als units
 

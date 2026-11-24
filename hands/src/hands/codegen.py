@@ -9,7 +9,7 @@ import math
 
 from pydantic import BaseModel, ConfigDict
 
-from hands.live.knobs import EQ8_FREQ
+from hands.live.units import EQ8_FREQ
 from hands.models import (
     DeviceSource,
     DeviceSpec,
