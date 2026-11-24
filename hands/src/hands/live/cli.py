@@ -13,12 +13,12 @@ from typing import NoReturn
 import typer
 
 from hands import config
-from hands.live.transport import DEFAULT_HOST, DEFAULT_PORT, LiveClient, LiveError
+from hands.live.transport import DEFAULT_HOST, LiveClient, LiveError
 
 app = typer.Typer(help="Drive the open Live set through the AbletonLiveMCP Remote Script.", no_args_is_help=True)
 
 HOST = typer.Option(DEFAULT_HOST, "--host", help="Remote Script host.")
-PORT = typer.Option(DEFAULT_PORT, "--port", help="Remote Script port.")
+PORT = typer.Option(None, "--port", help="Remote Script port (default: the rig's live_port, 16619).")
 
 
 def _fail(message: str, code: int = 1) -> NoReturn:
@@ -32,7 +32,7 @@ def audition(
     notes: str = typer.Option("69,72", help="Comma-separated MIDI notes."),
     listen: float = typer.Option(2.0, help="Seconds to read the meters."),
     force: bool = typer.Option(False, help="Audition even if Live is playing."),
-    host: str = HOST, port: int = PORT,
+    host: str = HOST, port: int | None = PORT,
 ) -> None:
     """Play a chord on TRACK from a temporary arrangement clip, print meter peaks, clean up."""
     from hands.live.agent import audition as run_audition
@@ -80,7 +80,7 @@ def reload(
 
 
 @app.command()
-def ping(host: str = HOST, port: int = PORT,
+def ping(host: str = HOST, port: int | None = PORT,
          timeout: float = typer.Option(5.0, "--timeout", help="Seconds to wait for the pong.")) -> None:
     """Check that the Remote Script is listening (it answers from its own thread, not Live's)."""
     try:
@@ -161,7 +161,7 @@ def exec_(
     raw: bool = typer.Option(False, "--raw", help="Don't prepend the helpers (param, set_norm, set_clamped, select_track)."),
     timeout: float = typer.Option(15.0, "--timeout", help="Seconds to wait for the reply."),
     retries: int = typer.Option(2, "--retries", help="Connection retries (a sent request is never resent)."),
-    host: str = HOST, port: int = PORT,
+    host: str = HOST, port: int | None = PORT,
 ) -> None:
     """Run LOM code in Live and print its result. Exit 1 if Live raised or was not reachable."""
     try:
@@ -190,7 +190,7 @@ def exec_(
 def check(
     expect: str = typer.Option(None, "--expect", help="The set that must be in front."),
     any_set: bool = typer.Option(False, "--any-set", help="Accept a set that is not one of ours (a desk session)."),
-    host: str = HOST, port: int = PORT,
+    host: str = HOST, port: int | None = PORT,
 ) -> None:
     """Run the session guard: no dialog open, one of our sets in front, the LOM answering.
     Prints the front set; exit 1 with the reason if a check fails."""
@@ -210,7 +210,7 @@ def export(
     mode: str = typer.Option("Main", "--mode", help='"Main", a track name, "All Individual Tracks" or "Selected Tracks Only".'),
     bits: int = typer.Option(32, "--bits", help="16, 24 or 32."),
     sample_rate: int = typer.Option(44100, "--sample-rate"),
-    host: str = HOST, port: int = PORT,
+    host: str = HOST, port: int | None = PORT,
 ) -> None:
     """Render through Live's Export dialog and print the files written. Drives the GUI."""
     from hands.live import render, ui
@@ -261,7 +261,7 @@ def reset(
     track_name: str = typer.Option("Operator", "--track-name", help="Name for the single armed MIDI track."),
     tempo: float = typer.Option(None, "--tempo", help="Tempo in BPM."),
     force: bool = typer.Option(False, "--force", help="Reset even a set that has an arrangement or more than two tracks."),
-    host: str = HOST, port: int = PORT,
+    host: str = HOST, port: int | None = PORT,
 ) -> None:
     """Reset the running Live set to a single named MIDI track. Deletes everything else: refuses a set
     with an arrangement or more than two tracks unless --force."""
@@ -283,7 +283,7 @@ def clip_create(
     rhythm: str = typer.Option("staccato-16ths", "--rhythm", help="Rhythm preset or comma-separated beat offsets."),
     velocity: int = typer.Option(110, "--velocity", help="Base velocity (1-127)."),
     duration: float = typer.Option(None, "--duration", help="Note duration in beats."),
-    host: str = HOST, port: int = PORT,
+    host: str = HOST, port: int | None = PORT,
 ) -> None:
     """Create an arrangement MIDI clip with chords and rhythm in one atomic call."""
     from hands.live import midi
@@ -301,7 +301,7 @@ def device_load(
     track: str = typer.Argument(..., help="Track name or index."),
     device_name: str = typer.Argument(..., help="Device name from Live browser (e.g. 'Operator')."),
     category: str = typer.Option("instruments", "--category", help="'instruments' or 'audio_effects'."),
-    host: str = HOST, port: int = PORT,
+    host: str = HOST, port: int | None = PORT,
 ) -> None:
     """Load a device onto a track from the Live browser."""
     from hands.live import device
@@ -318,7 +318,7 @@ def device_set(
     device: str = typer.Option("0", "--device", help="Device name or index on track."),
     param: list[str] = typer.Option([], "--param", help="NAME=VALUE parameter pairs (repeatable)."),
     json_params: str = typer.Option(None, "--json", help="JSON dictionary of parameter name/value pairs."),
-    host: str = HOST, port: int = PORT,
+    host: str = HOST, port: int | None = PORT,
 ) -> None:
     """Batch-set parameters on a device in a single atomic call."""
     from hands.live import device as dev_mod
@@ -347,7 +347,7 @@ def device_set(
 def device_list(
     track: str = typer.Argument(..., help="Track name or index."),
     device: str = typer.Option("0", "--device", help="Device name or index on track."),
-    host: str = HOST, port: int = PORT,
+    host: str = HOST, port: int | None = PORT,
 ) -> None:
     """List parameters on a device with their ranges and values."""
     from hands.live import device as dev_mod
@@ -364,7 +364,7 @@ def surface_apply(
     track: str = typer.Option("0", "--track", help="Track name or index."),
     device: str = typer.Option("0", "--device", help="Device name or index."),
     map_json: str = typer.Option(None, "--map", help="Optional JSON mapping surface IDs to device parameter names."),
-    host: str = HOST, port: int = PORT,
+    host: str = HOST, port: int | None = PORT,
 ) -> None:
     """Apply zpkt-surface state to Live device and mixer parameters."""
     from hands.live import surface
@@ -416,7 +416,7 @@ def _front_set() -> str:
 def open_(
     name: str = typer.Argument(..., help="A set in the rig's sets folder, without .als."),
     no_save: bool = typer.Option(False, "--no-save", help="Do not save the set in front first."),
-    host: str = HOST, port: int = PORT,
+    host: str = HOST, port: int | None = PORT,
 ) -> None:
     """Open a set and wait until it is in front and the LOM answers. The set in front is saved first."""
     from hands.live import session
@@ -431,7 +431,7 @@ def open_(
 def save(
     as_: str = typer.Option(None, "--as", help="Also keep a copy as sets_dir/<AS>.als (refuses to replace one)."),
     state: str = typer.Option(None, "--state", help="Also take the mix state as NAME (see `hands live state`)."),
-    host: str = HOST, port: int = PORT,
+    host: str = HOST, port: int | None = PORT,
 ) -> None:
     """File > Save Live Set on the front set and wait for its file; optionally keep a named copy and its state."""
     from hands.live import session
@@ -452,7 +452,7 @@ def save(
 def state_take(
     name: str = typer.Argument(..., help="State name (or a .json path)."),
     only: list[str] = typer.Option(None, "--only", help="Only these tracks (repeatable)."),
-    host: str = HOST, port: int = PORT,
+    host: str = HOST, port: int | None = PORT,
 ) -> None:
     """Every mixer and device value of the front set -> sets_dir/state/<set>/NAME.json."""
     from hands.live import state as S
@@ -470,7 +470,7 @@ def state_diff(
     b: str = typer.Argument(None, help="Another one; default: Live now."),
     ignore: list[str] = typer.Option(None, "--ignore", help="Skip keys starting with this (e.g. 'mon '), repeatable."),
     full: bool = typer.Option(False, "--full", help="Every row, not the collapsed summary."),
-    host: str = HOST, port: int = PORT,
+    host: str = HOST, port: int | None = PORT,
 ) -> None:
     """What differs between A and B (or Live now). Only tracks A holds are read from Live. Exit 1 if anything does."""
     from hands.live import state as S
@@ -492,7 +492,7 @@ def state_diff(
 def state_put(
     name: str = typer.Argument(..., help="A state name or .json (a recipe with a \"desk\" works too)."),
     only: list[str] = typer.Option(None, "--only", help="Only these tracks (repeatable)."),
-    host: str = HOST, port: int = PORT,
+    host: str = HOST, port: int | None = PORT,
 ) -> None:
     """Write a state's raw values into Live, read them back; exit 1 with what still differs."""
     from hands.live import hold

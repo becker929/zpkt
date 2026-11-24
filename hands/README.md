@@ -37,7 +37,7 @@ the command and a row.
 
 | Module | Public API |
 |---|---|
-| `live/transport.py` | `LiveClient(host, port, timeout=15, retries=2)`: `.run(code) -> result` (raises `LiveError`), `.execute(code) -> McpResult` (keeps `warning`, `elapsed`, `traceback`), `.ping() -> seconds`. `McpTransport`, `DryRunTransport`, `MockTransport`. Retries only while connecting: a sent request is never resent. |
+| `live/transport.py` | `LiveClient(host, port=None, timeout=15, retries=2)` (no port: the rig's `live_port`): `.run(code) -> result` (raises `LiveError`), `.execute(code) -> McpResult` (keeps `warning`, `elapsed`, `traceback`), `.ping() -> seconds`. `McpTransport`, `DryRunTransport`, `MockTransport`. Retries only while connecting: a sent request is never resent. |
 | `live/ui.py` | `osa`, `osa_file` (rerun through Hammerspoon without an Accessibility grant), `menu`, `menu_enabled`, `front_title`, `windows`, `dialogs`, `close_dialogs`, `reap_modals`, `park_cursor` |
 | `live/session.py` | `Guard`, `stop`, `check(client, where, *, expect_front=None, ours=True) -> str`, `open_set(client, name, *, save_current=True, timeout_s=120) -> float`, `save(name=None) -> bool`, `copy_set`, `launch`, `restart`, `audio_clock_ok`, `memory`, `other_agent_active` |
 | `live/state.py` | `take(client, only=None) -> state` (one LOM call per 8 tracks, about 3 s), `diff(a, b, ignore=()) -> [(key, a, b)]`, `summarize(rows)`, `put(client, state, only=None) -> rows still differing` (writes only what differs, reads back), `load`/`load_dict` (a state, or a mixdesk recipe's `"desk"`), `save`, `path_for` (`sets_dir/state/<set>/NAME.json`) |
@@ -54,6 +54,7 @@ the command and a row.
 | `config.py` | `rig()`: the private rig settings below |
 | `models.py`, `codegen.py`, `builder.py`, `runner.py` | `ProjectConfig` → LOM steps → `StepRunner` (`hands build / execute`); `models.py` is the source of the `lib/contracts` schemas (`scripts/gen_schemas.py`) |
 | `ab.py` | A/B against "REF …" tracks and the master Spectrum (Hammerspoon hotkeys) |
+| `testing/` | for tests: `FakeLive(song)`, an offline Live that runs the Remote Script's own code over a fake set (an `McpTransport`; `.serve()` for other processes); `fake_set(spec)`, `hw002_like()`, `MiniLab_3` ([README](src/hands/testing/README.md)) |
 
 A render from Python:
 
@@ -85,6 +86,7 @@ Unknown keys are refused.
 | Key | Environment | Default | Used for |
 |---|---|---|---|
 | `live_app` | `ZPKT_LIVE_APP` | `Ableton Live 12 Suite` | `open -a`, quit, restart |
+| `live_port` | `ZPKT_LIVE_PORT` | `16619` | the Remote Script's port, for every client and `--port` default; a test points it at a `FakeLive` |
 | `sets_dir` | `ZPKT_SETS_DIR` | `~/Music/zpkt/sets` | the Live sets hands opens, copies and saves (named without `.als`); must be a Live Project folder |
 | `data_dir` | `ZPKT_DATA_DIR` | `~/Music/zpkt/data` | probe kits (`kits/`), batch renders, `bench.jsonl` |
 | `renders_dir` | `ZPKT_RENDERS_DIR` | `~/Music/zpkt/renders` | where `hands live export NAME` writes a bare file name |
@@ -185,7 +187,8 @@ uv run --all-extras pytest -q -p no:cacheprovider
 
 Without `--all-extras` the plan and Serum 2 tests are skipped, since their packages are optional.
 
-Everything runs offline: a fake Remote Script on a free port, fakes for osascript and the GUI, the
+Everything runs offline: `hands.testing.FakeLive`, which runs the Remote Script's own code over a fake
+Live set (`src/hands/testing/README.md`), a fake Remote Script on a free port, fakes for osascript and the GUI, the
 BSD fixture set in `tests/fixtures` with devices planted the way Live writes them, small synthetic
 sets written by `tests/synth_set.py` for the library tests, and synthetic audio. Nothing in the
 tests talks to Live or reads a real project.

@@ -101,7 +101,7 @@ def execute(
     config: str = typer.Option(..., "--config", help="Path to ProjectConfig JSON."),
     resume: int = typer.Option(0, "--resume", help="Resume from step index."),
     host: str = typer.Option("127.0.0.1", "--host", help="Ableton MCP server host."),
-    port: int = typer.Option(16619, "--port", help="Ableton MCP server port."),
+    port: int | None = typer.Option(None, "--port", help="Ableton MCP server port (default: the rig's live_port, 16619)."),
 ) -> None:
     """Execute Steps against a live Ableton session."""
     from hands.builder import ProjectBuilder
@@ -112,11 +112,11 @@ def execute(
     builder = ProjectBuilder(cfg)
     steps = builder.build_steps()
 
-    console.print(f"[bold]Executing {len(steps)} steps against Ableton @ {host}:{port}[/bold]")
+    transport = LiveClient(host=host, port=port)
+    console.print(f"[bold]Executing {len(steps)} steps against Ableton @ {transport.host}:{transport.port}[/bold]")
     if resume > 0:
         console.print(f"[yellow]Resuming from step {resume}[/yellow]")
 
-    transport = LiveClient(host=host, port=port)
     runner = StepRunner(transport)
     results = runner.execute(steps, on_manual=ManualPolicy.PROMPT, resume_from=resume)
 
@@ -137,7 +137,7 @@ def record(
     ),
     tail: float = typer.Option(4.0, "--tail", help="Extra beats recorded after --beats (arrangement mode)."),
     host: str = typer.Option("127.0.0.1", "--host", help="Ableton MCP server host."),
-    port: int = typer.Option(16619, "--port", help="Ableton MCP server port."),
+    port: int | None = typer.Option(None, "--port", help="Ableton MCP server port (default: the rig's live_port, 16619)."),
 ) -> None:
     """Record Ableton output via resampling track and export."""
     from hands.live.record import record_arrangement, record_via_resampling
@@ -180,7 +180,7 @@ def ab(
     action: str = typer.Argument("toggle", help="toggle | next | status"),
     spectrum: bool = typer.Option(False, "--spectrum", help="Also show the master Spectrum."),
     host: str = typer.Option("127.0.0.1", "--host", help="Ableton MCP server host."),
-    port: int = typer.Option(16619, "--port", help="Ableton MCP server port."),
+    port: int | None = typer.Option(None, "--port", help="Ableton MCP server port (default: the rig's live_port, 16619)."),
 ) -> None:
     """A/B the mix against the current reference track (tracks named "REF ...")."""
     from hands import ab as ab_mod
@@ -206,7 +206,7 @@ def ab(
 def spectrum_cmd(
     show: bool = typer.Option(False, "--show", help="Always show; never hide."),
     host: str = typer.Option("127.0.0.1", "--host", help="Ableton MCP server host."),
-    port: int = typer.Option(16619, "--port", help="Ableton MCP server port."),
+    port: int | None = typer.Option(None, "--port", help="Ableton MCP server port (default: the rig's live_port, 16619)."),
 ) -> None:
     """Toggle the master Spectrum analyzer in Live's detail view."""
     from hands import ab as ab_mod
@@ -287,7 +287,7 @@ def kit_template(
     patterns: int = typer.Argument(..., help="P, a power of two."),
     lead: float = typer.Option(8.0, "--lead", help="Beats of lead-in kept before the first pattern."),
     host: str = typer.Option("127.0.0.1", "--host"),
-    port: int = typer.Option(16619, "--port"),
+    port: int | None = typer.Option(None, "--port", help="Ableton MCP server port (default: the rig's live_port, 16619)."),
 ) -> None:
     """Build a kit in Live (copy, Delete Time, Duplicate Time, save) and print its description."""
     from dataclasses import asdict
@@ -310,7 +310,7 @@ def kit_render(
     kit: str = typer.Argument(..., help="The kit it was made from."),
     out: Path = typer.Option(None, "--out", help="Folder for all.wav and pattern_XX.wav (default <data_dir>/kit_out/BATCH_SET)."),
     host: str = typer.Option("127.0.0.1", "--host"),
-    port: int = typer.Option(16619, "--port"),
+    port: int | None = typer.Option(None, "--port", help="Ableton MCP server port (default: the rig's live_port, 16619)."),
 ) -> None:
     """Load a batch set, export it once, check it and slice one WAV per pattern; print the manifest."""
     from hands import config, probe_kit
