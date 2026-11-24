@@ -75,3 +75,17 @@ datagram to the server, which streams it to the page. If a set load rebuilds the
 within 5 s and starts the pager again.
 
 Nothing in the page makes or plays sound: it shows and arms controls, and the mix is Live's (`contrib/docs/sound.md`).
+
+## Listen and see (right half of the page)
+
+The page is split: the control surface on the left, Live transport/monitoring and measurements on the right.
+
+- `sources.json` names A (original), B (mixed) and the references (C, four to pick from). Run
+  `~/Desktop/zpkt/ears/.venv/bin/python contrib/mixdesk/analyze.py` after you render a new A or B: it writes 16-bit WAVs and
+  `analysis.json` (spectrum per 1/6 octave for build and drop, loudness/crest/width/bass-mono over time) to
+  `~/_agent_scratch/mixdesk/viz/`. Nothing there changes a sound.
+- Everything you hear comes from Live: `monitor.py ensure` places `mon A` (at beat 0) and `mon C1`–`mon C4` (at bar 17 /
+  beat 64, warping off, muted by default) in the Arrangement. **Play**, **seek**, and **loop** drive Live's transport;
+  switching **A** / **B** / **C** solos the chosen monitor track (bypassing Main's desk devices and matching loudness)
+  or unmutes back to **B** (the live mix itself). Keys: A B C, space, arrows, 1–4. The spectrum shows levels from the
+  cached renders, each curve against the reference, or what the match moved against what the reference would move.

@@ -14,6 +14,7 @@ datagram to the server, which shows it on the surface. Live's Python is 3.11; ke
 """
 import json
 import socket
+import time
 
 import Live
 
@@ -21,7 +22,23 @@ PRIORITY = 20          # above ZpktMiniLabTempo (10): while the desk holds fader
 FADERS = ["volume_fader", "send_a_fader", "send_b_fader", "pan_fader"]   # CC 14, 15, 30, 31: left to right
 PICKUP = 0.03
 
+MAIN_DEVICES = ("desk headroom", "desk Glue", "desk Utility")   # bypassed while an audio-clip monitor track plays
+END_BEAT = 160.0                                                 # the arrangement is 40 bars at 160 BPM
 DESK = None
+
+
+def _db_to_volume(param, db):
+    """The mixer volume value whose label reads db (bisection on Live's own fader law)."""
+    lo, hi = 0.0, 1.0
+    for _ in range(24):
+        mid = (lo + hi) / 2
+        txt = param.str_for_value(mid).split()[0]
+        val = float("-inf") if "inf" in txt else float(txt)
+        if val < db:
+            lo = mid
+        else:
+            hi = mid
+    return (lo + hi) / 2
 
 
 def _minilab():
@@ -169,9 +186,110 @@ class Desk(object):
         self.picked = {}      # fader slot -> True once the fader has passed the value
         self.targets = {}     # (page, slot) -> _Target
         self.listeners = []
+        self.main_saved = None      # Main's desk devices' On values while a monitor track plays (None = not bypassed)
+        self.monitor_slot, self.monitor_ref = "B", "C1"
+        self._last_pos = 0.0
+        self._song_listeners = []
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.sock.setblocking(False)
         self.resolve()
+        self._listen_song()
+
+    # ---- transport and monitor (the page is a control surface only: all audio is Live's) ---------------------------
+    def _listen_song(self):
+        for add, fn in ((self.song.add_current_song_time_listener, self._on_pos),
+                        (self.song.add_is_playing_listener, self._on_pos_force)):
+            add(fn)
+            self._song_listeners.append(fn)
+
+    def _on_pos(self):
+        now = time.time()
+        if now - self._last_pos < 0.07:
+            return
+        self._last_pos = now
+        self._emit_pos()
+
+    def _on_pos_force(self):
+        self._emit_pos()
+
+    def _emit_pos(self):
+        s = self.song
+        b, playing = s.current_song_time, s.is_playing
+        self.emit({"t": "pos", "b": b, "p": bool(playing)})
+        if playing and not s.loop and b >= END_BEAT:
+            try:
+                s.stop_playing()
+            except Exception:
+                if self.cs is not None:
+                    self.cs.schedule_message(1, lambda: s.stop_playing())
+
+    def transport(self, action, beat=None, loop=None):
+        s = self.song
+        if action == "play":
+            if s.back_to_arranger:
+                s.back_to_arranger = False
+            # start_playing begins at the start marker; continue_playing from a position set through the LOM jumped
+            # to a stale spot in testing, so play from where the playhead is by moving the marker there first
+            pos = 0.0 if s.current_song_time >= END_BEAT else s.current_song_time
+            s.start_time = pos
+            s.start_playing()
+        elif action == "pause":
+            s.stop_playing()
+        elif action == "seek":
+            pos = max(0.0, min(END_BEAT - 0.01, float(beat)))
+            s.current_song_time = pos
+            if not s.is_playing:
+                s.start_time = pos
+        elif action == "loop":
+            if loop == "off":
+                s.loop = False
+            else:
+                a, n = (0.0, 64.0) if loop == "build" else (64.0, END_BEAT - 64.0)
+                s.loop_start = a
+                s.loop_length = n
+                s.loop = True
+        self.emit({"t": "loop", "loop": loop} if action == "loop" else {"t": "pos", "b": s.current_song_time, "p": bool(s.is_playing)})
+
+    def monitor(self, slot, ref, gain_db):
+        """Choose what is heard. B = the mix itself (all monitor tracks muted, Main's desk devices as they were).
+        A / C = the audio clip on 'mon A' / 'mon <ref>', soloed, at gain_db, with Main's desk devices bypassed so the
+        clip (rendered after them) is heard exactly as rendered."""
+        s = self.song
+        mons = dict((t.name, t) for t in s.tracks if t.name.startswith("mon "))
+        target = mons.get("mon A") if slot == "A" else mons.get("mon " + ref) if slot == "C" else None
+        if slot != "B" and target is None:
+            self.emit({"t": "mon", "slot": self.monitor_slot, "ref": self.monitor_ref, "err": "monitor tracks missing"})
+            return
+        if slot != "B":      # exclusive: nothing else soloed
+            for t in list(s.tracks) + list(s.return_tracks):
+                if t.solo and t is not target:
+                    t.solo = False
+        for t in mons.values():
+            if t is not target:
+                if t.solo:
+                    t.solo = False
+                if not t.mute:
+                    t.mute = True
+        if target is not None:
+            if target.mute:
+                target.mute = False
+            target.mixer_device.volume.value = _db_to_volume(target.mixer_device.volume, gain_db)
+            if not target.solo:
+                target.solo = True
+        devs = [d for d in s.master_track.devices if d.name in MAIN_DEVICES]
+        if slot != "B":
+            if self.main_saved is None:
+                self.main_saved = dict((d.name, d.parameters[0].value) for d in devs)
+            for d in devs:
+                if d.parameters[0].value != 0.0:
+                    d.parameters[0].value = 0.0
+        else:
+            saved = self.main_saved or {}
+            for d in devs:
+                d.parameters[0].value = saved.get(d.name, 1.0)
+            self.main_saved = None
+        self.monitor_slot, self.monitor_ref = slot, ref
+        self.emit({"t": "mon", "slot": slot, "ref": ref})
 
     # ---- the set ------------------------------------------------------------------------------------------------
     def resolve(self):
@@ -334,15 +452,34 @@ class Desk(object):
         except Exception:
             pass
 
+    def _loop_mode(self):
+        s = self.song
+        if not s.loop:
+            return "off"
+        if abs(s.loop_start) < 0.5 and abs(s.loop_length - 64.0) < 0.5:
+            return "build"
+        if abs(s.loop_start - 64.0) < 0.5 and abs(s.loop_length - (END_BEAT - 64.0)) < 0.5:
+            return "drop"
+        return "on"
+
     def snapshot(self):
         vals = {}
         for (page, slot), t in self.targets.items():
             vals["%d:%s" % (page, slot)] = {"n": t.norm() if not t.error else None, "s": t.text() if not t.error else "",
                                             "q": t.quantized() if not t.error else False, "err": t.error}
         return {"page": self.page, "attached": self.attached(), "values": vals, "hw": self.hw,
-                "picked": self.picked, "set": self.song.name if hasattr(self.song, "name") else ""}
+                "picked": self.picked, "monitor": {"slot": self.monitor_slot, "ref": self.monitor_ref},
+                "pos": self.song.current_song_time, "playing": bool(self.song.is_playing), "loop": self._loop_mode(),
+                "set": self.song.name if hasattr(self.song, "name") else ""}
 
     def stop(self):
+        for fn in self._song_listeners:
+            for rm in (self.song.remove_current_song_time_listener, self.song.remove_is_playing_listener):
+                try:
+                    rm(fn)
+                except Exception:
+                    pass
+        self._song_listeners = []
         self.unlisten()
         self.release()
         try:
@@ -356,10 +493,14 @@ def start(song, cfg, port):
     global DESK
     if DESK is not None:
         page = DESK.page
+        carry = {"main_saved": DESK.main_saved, "slot": DESK.monitor_slot, "ref": DESK.monitor_ref}
         DESK.stop()
     else:
-        page = 0
+        carry = globals().get("CARRY") or {}      # server.py hands over the old module's state when it reloads this file
+        page = carry.get("page", 0)
     DESK = Desk(song, cfg, port)
     DESK.page = page
+    DESK.main_saved = carry.get("main_saved")
+    DESK.monitor_slot, DESK.monitor_ref = carry.get("slot", "B"), carry.get("ref", "C1")
     DESK.attach()
     return DESK.snapshot()

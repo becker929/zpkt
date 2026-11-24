@@ -17,7 +17,10 @@
 * { box-sizing: border-box; }
 html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text);
   font: var(--fs)/1.3 -apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter", system-ui, sans-serif; }
-body { display: flex; flex-direction: column; min-height: 100vh; }
+.split { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); height: 100vh; }
+.pane { overflow: auto; min-width: 0; display: flex; flex-direction: column; }
+.left { border-right: 1px solid var(--line); }
+.right { padding: 10px 14px 16px; gap: 10px; background: var(--bg); }
 header { display: flex; align-items: center; gap: 16px; padding: 10px 16px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
 header h1 { font-size: 15px; margin: 0; letter-spacing: .02em; font-weight: 650; }
 header .armed { font-size: 15px; color: var(--accent); font-weight: 650; }
@@ -32,7 +35,7 @@ nav button .pad { font: 600 10px ui-monospace, Menlo, monospace; color: var(--mu
   border-radius: 4px; padding: 1px 4px; }
 nav button.on { border-color: var(--accent); background: var(--accent-dim); }
 nav button.on .pad { color: var(--accent); border-color: var(--accent); }
-main { flex: 1; display: grid; gap: 10px; padding: 10px 16px; grid-template-columns: repeat(4, minmax(0, 1fr)); grid-auto-rows: 1fr; }
+main { flex: 1; display: grid; gap: 10px; padding: 10px 12px; grid-template-columns: repeat(2, minmax(0, 1fr)); grid-auto-rows: min-content; }
 .card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 10px; display: flex;
   flex-direction: column; gap: 8px; cursor: pointer; transition: border-color .15s, opacity .15s; min-width: 0; }
 .card:not(.on) { opacity: .72; }
@@ -46,21 +49,21 @@ main { flex: 1; display: grid; gap: 10px; padding: 10px 16px; grid-template-colu
 .body { display: grid; grid-template-columns: 1fr auto; gap: 10px; flex: 1; align-items: start; }
 .knobs { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px 4px; align-content: start; }
 .knob { display: flex; flex-direction: column; align-items: center; gap: 1px; min-width: 0; border-radius: 6px; padding: 2px 0; }
-.knob svg { width: 50px; height: 50px; }
+.knob svg { width: 42px; height: 42px; }
 .knob .arc-bg { stroke: var(--line); }
 .knob .arc { stroke: var(--text); }
 .card.on .knob .arc { stroke: var(--accent); }
 .lbl { font-size: 11px; text-align: center; line-height: 1.15; max-width: 100%; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; min-height: 2.3em; }
 .val { font: 10px ui-monospace, Menlo, monospace; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
 .slot { font: 600 9px ui-monospace, Menlo, monospace; color: var(--muted); opacity: .8; }
-.faders { display: grid; grid-template-columns: repeat(4, 48px); gap: 4px; }
+.faders { display: grid; grid-template-columns: repeat(4, 40px); gap: 3px; }
 .fader { display: flex; flex-direction: column; align-items: center; gap: 2px; min-width: 0; border-radius: 6px; }
 .track { position: relative; width: 14px; height: clamp(64px, 13vh, 150px); border-radius: 6px; background: var(--panel2); border: 1px solid var(--line); overflow: hidden; }
 .track .fill { position: absolute; left: 0; right: 0; bottom: 0; background: var(--text); opacity: .85; }
 .card.on .track .fill { background: var(--accent); }
 .track .ghost { position: absolute; left: -2px; right: -2px; height: 2px; background: var(--ghost); display: none; }
 .fader.waiting .ghost { display: block; }
-.fader .lbl, .fader .val { max-width: 48px; }
+.fader .lbl, .fader .val { max-width: 40px; }
 .pads { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); gap: 4px; }
 .padb { border: 1px solid var(--line); border-radius: 6px; background: var(--panel2); padding: 4px 2px; min-height: 46px;
   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; min-width: 0; cursor: pointer; }
@@ -72,15 +75,49 @@ main { flex: 1; display: grid; gap: 10px; padding: 10px 16px; grid-template-colu
 @keyframes flash { 0% { background: var(--accent-dim); box-shadow: 0 0 0 2px var(--accent); } 100% { background: transparent; box-shadow: none; } }
 footer { padding: 6px 16px 12px; color: var(--muted); display: flex; gap: 18px; flex-wrap: wrap; }
 footer b { color: var(--text); font-weight: 600; }
-@media (max-width: 1500px) { main { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 1000px) { .split { display: block; height: auto; } .pane { overflow: visible; } .left { border-right: 0; } }
 @media (max-width: 760px) {
   main { grid-template-columns: 1fr; }
   .card.on { order: -1; }
   .knob svg { width: 36px; height: 36px; }
 }
+
+/* right half: listen and see */
+.right h3 { margin: 0 0 4px; font-size: 12px; letter-spacing: .04em; color: var(--muted); font-weight: 650; text-transform: uppercase; }
+.box { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 10px; }
+.abc { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.abc button { text-align: left; border: 1px solid var(--line); background: var(--panel2); color: var(--text); border-radius: 10px;
+  padding: 8px 10px; font: inherit; cursor: pointer; border-left: 5px solid var(--c); min-width: 0; }
+.abc button .k { font: 700 18px ui-monospace, Menlo, monospace; color: var(--c); }
+.abc button .n { font-weight: 650; margin-left: 6px; }
+.abc button .w { display: block; color: var(--muted); font-size: 10.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.abc button .l { display: block; font: 10.5px ui-monospace, Menlo, monospace; color: var(--muted); }
+.abc button.on { background: color-mix(in srgb, var(--c) 18%, var(--panel2)); border-color: var(--c); box-shadow: 0 0 0 1px var(--c) inset; }
+.row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.row .sp { flex: 1; }
+.chip2, .seg button, .btn { border: 1px solid var(--line); background: var(--panel2); color: var(--text); border-radius: 7px; padding: 4px 9px; font: inherit; cursor: pointer; }
+.seg { display: inline-flex; } .seg button { border-radius: 0; margin-left: -1px; } .seg button:first-child { border-radius: 7px 0 0 7px; margin-left: 0; } .seg button:last-child { border-radius: 0 7px 7px 0; }
+.seg button.on, .chip2.on { background: var(--accent-dim); border-color: var(--accent); color: var(--text); }
+.btn.play { font-weight: 700; min-width: 74px; background: var(--accent); color: #1a1205; border-color: var(--accent); }
+.time { font: 12px ui-monospace, Menlo, monospace; color: var(--muted); }
+label.chk { display: inline-flex; align-items: center; gap: 5px; color: var(--muted); cursor: pointer; }
+canvas { width: 100%; display: block; border-radius: 8px; }
+#wave { height: 64px; cursor: pointer; }
+#spec { height: clamp(220px, 34vh, 360px); }
+#tl { height: clamp(120px, 20vh, 190px); cursor: pointer; }
+table.params { width: 100%; border-collapse: collapse; font: 11.5px ui-monospace, Menlo, monospace; }
+table.params th { text-align: right; color: var(--muted); font-weight: 600; padding: 3px 6px; border-bottom: 1px solid var(--line); }
+table.params td { text-align: right; padding: 3px 6px; }
+table.params th:first-child, table.params td:first-child { text-align: left; }
+table.params td .d { color: var(--muted); }
+.note { color: var(--muted); font-size: 11px; margin-top: 4px; }
+.legend { display: flex; gap: 12px; flex-wrap: wrap; font-size: 11px; color: var(--muted); margin-top: 4px; }
+.legend i { display: inline-block; width: 14px; height: 3px; vertical-align: middle; margin-right: 4px; border-radius: 2px; }
 </style>
 </head>
 <body>
+<div class="split">
+<div class="pane left">
 <header>
   <h1>HW002 mix desk</h1>
   <span class="armed" id="armed">–</span>
@@ -96,6 +133,44 @@ footer b { color: var(--text); font-weight: 600; }
   <span><b>Pads B1–B8</b>: the page's switches</span>
   <span>Click a page here to arm it; click a lit pad to flip it</span>
 </footer>
+</div>
+<div class="pane right" id="viz">
+  <div class="abc" id="abc"></div>
+  <div class="box">
+    <div class="row">
+      <button class="btn play" id="play">Play</button>
+      <span class="time" id="time">0:00.0 · bar 1</span>
+      <span class="sp"></span>
+      <span class="seg" id="loop"><button data-v="off" class="on">No loop</button><button data-v="build">Loop build</button><button data-v="drop">Loop drop</button></span>
+      <label class="chk"><input type="checkbox" id="match" checked>Match loudness</label>
+    </div>
+    <canvas id="wave" style="margin-top:8px"></canvas>
+    <div class="row" id="refs" style="margin-top:6px"></div>
+    <div class="note">Everything you hear is Live: <b>Play</b> runs Live's transport. <b>B</b> is the mix itself, live, with your controls; <b>A</b> and <b>C</b> are the original and the reference as audio in the arrangement. Keys: <b>A</b> <b>B</b> <b>C</b> switch · <b>Space</b> play/pause · <b>←/→</b> one bar · <b>1–4</b> pick the reference. The reference clips start on the drop (ref 0 s = bar 17).</div>
+  </div>
+  <div class="box">
+    <div class="row"><h3 style="margin:0">Spectrum, 1/6 octave</h3><span class="sp"></span>
+      <span class="seg" id="sec"><button data-v="build">Build</button><button data-v="drop" class="on">Drop</button></span>
+      <span class="seg" id="mode"><button data-v="abs" class="on">Levels</button><button data-v="rel">vs reference</button><button data-v="chg">Moves</button></span>
+      <label class="chk"><input type="checkbox" id="tilt" checked>+4.5 dB/oct tilt</label>
+    </div>
+    <canvas id="spec" style="margin-top:6px"></canvas>
+    <div class="legend" id="specleg"></div>
+    <div class="note" id="specnote"></div>
+  </div>
+  <div class="box">
+    <div class="row"><h3 style="margin:0">Over time</h3><span class="sp"></span>
+      <span class="seg" id="metric"><button data-v="lufs" class="on">Loudness</button><button data-v="crest">Crest</button><button data-v="width">Width</button><button data-v="bass_corr">Bass mono</button><button data-v="low">Low</button><button data-v="mid">Mid</button><button data-v="high">High</button></span>
+    </div>
+    <canvas id="tl" style="margin-top:6px"></canvas>
+    <div class="note" id="tlnote"></div>
+  </div>
+  <div class="box">
+    <div class="row"><h3 style="margin:0">Numbers</h3><span class="sp"></span><span class="note" id="tabnote" style="margin:0"></span></div>
+    <table class="params" id="params"></table>
+  </div>
+</div>
+</div>
 <script>
 const KNOB_SLOTS = ["k1","k2","k3","k4","k5","k6","k7","k8"];
 const FADER_SLOTS = ["f1","f2","f3","f4"];
@@ -240,6 +315,274 @@ function connect() {
 }
 
 fetch("/api/desk").then((r) => r.json()).then((d) => { desk = d; build(); connect(); });
+</script>
+<script>
+// ---- right half: a control surface for Live. All audio is Live's (the arrangement, and the monitor tracks that hold
+// the original and the references); this page only sends transport and source choices and draws what Live reports.
+(() => {
+const COL = { A: "#b48cff", B: "#ffb547", C: "#5fd38d" };
+const BAR_S = 1.5, BEAT_S = 0.375;       // 160 BPM
+const $ = (id) => document.getElementById(id);
+const S = { sel: "B", ref: "C1", sec: "drop", mode: "abs", metric: "lufs", loop: "off", match: true, tilt: true,
+            playing: false, pos: 0, posAt: 0 };
+let AN = null;
+
+const idOf = (slot) => slot === "C" ? S.ref : slot;
+const src = (slot) => AN && AN.sources[idOf(slot)];
+const align = (slot) => slot === "C" ? AN.ref_align_s : 0;
+function matchTarget() { return Math.min(...["A", "B", "C"].map((s) => src(s)).filter(Boolean).map((x) => x.sections.drop.lufs)); }
+function gainDb(slot) { return S.match && src(slot) ? matchTarget() - src(slot).sections.drop.lufs : 0; }
+
+const post = (path, body) => fetch(path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }).catch(() => {});
+// Live's position, in seconds; between its reports (about 14 a second) it is carried forward while Live plays
+function curPos() { return S.playing ? S.pos + (performance.now() - S.posAt) / 1000 : S.pos; }
+function setPos(beats, playing) { S.pos = beats * BEAT_S; S.posAt = performance.now(); S.playing = playing; $("play").textContent = playing ? "Pause" : "Play"; }
+
+const toggle = () => post("/api/transport", { action: S.playing ? "pause" : "play" });
+const seek = (t) => { const d = AN.sources.A.duration_s; t = Math.max(0, Math.min(d - 0.05, t)); if (S.sel === "C") t = Math.max(t, AN.ref_align_s); S.pos = t; S.posAt = performance.now(); post("/api/transport", { action: "seek", beat: t / BEAT_S }); draw(); };
+const select = (slot) => { S.sel = slot; paintAbc(); draw(); post("/api/monitor", { slot, ref: S.ref, match: S.match }); };
+const pickRef = (id) => { S.ref = id; paintAbc(); draw(); post("/api/monitor", { slot: S.sel, ref: id, match: S.match }); };
+
+function seg(id, key) {
+  const box = $(id);
+  box.querySelectorAll("button").forEach((b) => {
+    b.onclick = () => {
+      S[key] = b.dataset.v;
+      box.querySelectorAll("button").forEach((o) => o.classList.toggle("on", o === b));
+      draw();
+    };
+  });
+}
+
+function paintAbc() {
+  if (!AN) return;
+  const abc = $("abc");
+  abc.innerHTML = "";
+  ["A", "B", "C"].forEach((slot) => {
+    const x = src(slot);
+    if (!x) return;
+    const gdb = gainDb(slot);
+    const lufs = x.sections.drop.lufs;
+    const b = document.createElement("button");
+    b.style.setProperty("--c", COL[slot]);
+    b.className = S.sel === slot ? "on" : "";
+    const what = slot === "B" ? "live mix in Ableton" : x.what;
+    const lvl = lufs != null ? `${lufs.toFixed(1)} LUFS${S.match && Math.abs(gdb) >= 0.05 ? ` (${gdb >= 0 ? "+" : ""}${gdb.toFixed(1)} dB)` : ""}` : "";
+    b.innerHTML = `<span class="k">${slot}</span><span class="n">${x.label}</span><span class="w">${what}</span><span class="l">${lvl}</span>`;
+    b.onclick = () => select(slot);
+    abc.appendChild(b);
+  });
+  const refs = $("refs");
+  refs.innerHTML = '<span class="note" style="margin:0">Reference (C):</span>';
+  Object.values(AN.sources).filter((x) => x.kind === "ref").forEach((r, i) => {
+    const b = document.createElement("button");
+    b.className = "chip2" + (r.id === S.ref ? " on" : "");
+    b.textContent = `${i + 1} · ${r.label}`;
+    b.title = r.what;
+    b.onclick = () => pickRef(r.id);
+    refs.appendChild(b);
+  });
+}
+
+// ---------- canvases
+function setup(cv) {
+  const r = cv.getBoundingClientRect(), d = window.devicePixelRatio || 1;
+  const w = Math.max(10, Math.round(r.width * d)), h = Math.max(10, Math.round(r.height * d));
+  if (cv.width !== w || cv.height !== h) { cv.width = w; cv.height = h; }
+  const g = cv.getContext("2d"); g.setTransform(d, 0, 0, d, 0, 0);
+  const css = getComputedStyle(document.documentElement);
+  return { g, W: r.width, H: r.height, fg: css.getPropertyValue("--text").trim(), mut: css.getPropertyValue("--muted").trim(), line: css.getPropertyValue("--line").trim() };
+}
+const fmt = (t) => `${Math.floor(t / 60)}:${(t % 60).toFixed(1).padStart(4, "0")}`;
+
+function drawWave() {
+  const c = setup($("wave")), { g, W, H } = c; g.clearRect(0, 0, W, H);
+  const dur = AN.sources.A.duration_s, x = (t) => (t / dur) * W;
+  // section shading
+  g.fillStyle = c.line + "55"; g.fillRect(x(AN.build_end_s), 0, W - x(AN.build_end_s), H);
+  g.fillStyle = c.mut; g.font = "10px system-ui"; g.fillText("build", 4, 11); g.fillText("drop", x(AN.build_end_s) + 4, 11);
+  const s = src(S.sel), off = align(S.sel), env = s.env, col = COL[S.sel];
+  g.fillStyle = col + "bb";
+  const mx = Math.max(...env, 1e-6);
+  env.forEach((v, i) => { const t = i / 20 + off, h = Math.max(1, (v / mx) * (H - 16)); g.fillRect(x(t), H / 2 - h / 2 + 5, Math.max(1, W / dur / 20), h); });
+  // bar lines every 4 bars
+  g.strokeStyle = c.line; g.lineWidth = 1;
+  for (let b = 4; b * BAR_S < dur; b += 4) { g.beginPath(); g.moveTo(x(b * BAR_S) + .5, H - 6); g.lineTo(x(b * BAR_S) + .5, H); g.stroke(); }
+  if (S.loop !== "off") { const a = S.loop === "build" ? 0 : AN.build_end_s, b = S.loop === "build" ? AN.build_end_s : dur; g.strokeStyle = COL[S.sel]; g.strokeRect(x(a) + .5, 1.5, x(b) - x(a) - 1, H - 3); }
+  g.strokeStyle = c.fg; g.lineWidth = 2; g.beginPath(); g.moveTo(x(curPos()), 0); g.lineTo(x(curPos()), H); g.stroke();
+}
+
+function specLevels(slot) {
+  const x = src(slot); if (!x) return null;
+  const sec = slot === "C" ? x.sections.drop : x.sections[S.sec];
+  const gdb = gainDb(slot);
+  return sec.spec.map((v, i) => v + gdb + (S.tilt && S.mode === "abs" ? 4.5 * Math.log2(AN.centers[i] / 1000) : 0));
+}
+
+function drawSpec() {
+  const cv = $("spec"), c = setup(cv), { g, W, H } = c; g.clearRect(0, 0, W, H);
+  const L = 38, R = 8, T = 8, B = 18, pw = W - L - R, ph = H - T - B;
+  const F = AN.centers, fx = (f) => L + (Math.log(f / 20) / Math.log(1000)) * pw;
+  const lv = { A: specLevels("A"), B: specLevels("B"), C: specLevels("C") };
+  let lines = [], dashed = {};
+  if (S.mode === "abs") lines = [["A", lv.A], ["B", lv.B], ["C", lv.C]];
+  else if (S.mode === "rel") lines = [["A", lv.A.map((v, i) => v - lv.C[i])], ["B", lv.B.map((v, i) => v - lv.C[i])], ["C", lv.C.map(() => 0)]];
+  else { lines = [["B", lv.B.map((v, i) => v - lv.A[i])], ["C", lv.C.map((v, i) => v - lv.A[i])]]; dashed = { C: true }; }
+  let lo, hi;
+  if (S.mode === "abs") { hi = Math.max(...lines.flatMap(([, a]) => a)); lo = hi - 60; hi += 3; }
+  else { const m = Math.max(6, ...lines.flatMap(([, a]) => a.slice(4).map(Math.abs))); const r = Math.ceil(Math.min(m, 24) / 3) * 3; lo = -r; hi = r; }
+  const y = (v) => T + (1 - (Math.max(lo, Math.min(hi, v)) - lo) / (hi - lo)) * ph;
+  // grid
+  g.font = "10px system-ui"; g.lineWidth = 1;
+  const step = S.mode === "abs" ? 10 : (hi - lo > 24 ? 6 : 3);
+  for (let v = Math.ceil(lo / step) * step; v <= hi; v += step) {
+    g.strokeStyle = v === 0 && S.mode !== "abs" ? c.mut : c.line; g.beginPath(); g.moveTo(L, y(v) + .5); g.lineTo(W - R, y(v) + .5); g.stroke();
+    g.fillStyle = c.mut; g.textAlign = "right"; g.fillText(`${v > 0 && S.mode !== "abs" ? "+" : ""}${v}`, L - 4, y(v) + 3);
+  }
+  g.textAlign = "center";
+  [20, 50, 100, 200, 500, 1000, 2000, 5000, 10000, 20000].forEach((f) => {
+    g.strokeStyle = c.line; g.beginPath(); g.moveTo(fx(f) + .5, T); g.lineTo(fx(f) + .5, T + ph); g.stroke();
+    g.fillStyle = c.mut; g.fillText(f >= 1000 ? `${f / 1000}k` : f, fx(f), H - 5);
+  });
+  // curves
+  for (const [slot, arr] of lines) {
+    g.strokeStyle = COL[slot]; g.lineWidth = slot === S.sel ? 2.6 : 1.5; g.globalAlpha = slot === S.sel ? 1 : .75;
+    g.setLineDash(dashed[slot] || (slot === "C" && S.sec === "build" && S.mode === "abs") ? [5, 4] : []);
+    g.beginPath(); arr.forEach((v, i) => { i ? g.lineTo(fx(F[i]), y(v)) : g.moveTo(fx(F[i]), y(v)); }); g.stroke();
+  }
+  g.setLineDash([]); g.globalAlpha = 1;
+  // hover readout
+  if (cv._hover != null) {
+    const mx = cv._hover, f = 20 * Math.pow(1000, (mx - L) / pw);
+    if (f >= 20 && f <= 20000) {
+      const i = Math.max(0, Math.min(F.length - 1, Math.round(6 * Math.log2(f / 20))));
+      g.strokeStyle = c.mut; g.beginPath(); g.moveTo(fx(F[i]) + .5, T); g.lineTo(fx(F[i]) + .5, T + ph); g.stroke();
+      const txt = [`${Math.round(F[i])} Hz`, ...lines.map(([s, a]) => `${s} ${a[i] > 0 && S.mode !== "abs" ? "+" : ""}${a[i].toFixed(1)}`)];
+      g.font = "11px ui-monospace, Menlo, monospace"; const w = 84, hx = fx(F[i]) > W / 2 ? fx(F[i]) - w - 8 : fx(F[i]) + 8;
+      g.fillStyle = getComputedStyle(document.documentElement).getPropertyValue("--panel2"); g.fillRect(hx, T + 2, w, 14 * txt.length + 4);
+      txt.forEach((t, k) => { g.fillStyle = k ? COL[lines[k - 1][0]] : c.fg; g.textAlign = "left"; g.fillText(t, hx + 4, T + 14 + k * 14); });
+    }
+  }
+  const x = (s) => src(s) ? `${s} ${src(s).label}` : "";
+  $("specleg").innerHTML = lines.map(([s]) => `<span><i style="background:${COL[s]}"></i>${x(s)}${dashed[s] ? " − A (what the reference would change)" : ""}</span>`).join("")
+;
+  $("specnote").textContent = ({
+    abs: `Measured from the renders (B as of its last bounce, not live)${S.match ? ", loudness matched" : ""}. Mean level per band over the ${S.sec}. ${S.tilt ? "Tilted +4.5 dB/oct so a typical mix looks flat. " : ""}Reference clips are drop-only${S.sec === "build" ? " (dashed)" : ""}.`,
+    rel: `Each curve minus the reference (C, the green line at 0): above it = more of that band than the reference. ${S.sec === "build" ? "Reference is its drop. " : ""}`,
+    chg: `Solid = what the match changed (B − A). Dashed = what the reference has that A lacks (C − A). Where they agree, the move went the right way.`
+  })[S.mode];
+}
+
+function tlSeries(slot) {
+  const x = src(slot); if (!x) return null, null;
+  const m = S.metric, off = align(slot);
+  const arr = (m === "lufs" || m === "crest" || m === "width" || m === "bass_corr") ? x.timeline[m] : x.bands[m];
+  const t = (m === "lufs" || m === "crest" || m === "width" || m === "bass_corr") ? x.timeline.t : x.timeline.t.map((v) => v - 1);
+  return { t: t.map((v) => v + off), v: arr.map((v) => v + (m === "lufs" ? gainDb(slot) : 0)) };
+}
+const UNIT = { lufs: "LUFS, 3 s", crest: "dB crest, 3 s", width: "dB side/mid, 3 s", bass_corr: "L/R correlation below 150 Hz", low: "dB share of energy, <150 Hz", mid: "dB share of energy, 150 Hz–4 kHz", high: "dB share of energy, >4 kHz" };
+function drawTl() {
+  const c = setup($("tl")), { g, W, H } = c; g.clearRect(0, 0, W, H);
+  const L = 38, R = 8, T = 6, B = 16, pw = W - L - R, ph = H - T - B, dur = AN.sources.A.duration_s;
+  const ser = { A: tlSeries("A"), B: tlSeries("B"), C: tlSeries("C") };
+  const vals = Object.values(ser).filter(Boolean).flatMap((s) => s.v);
+  let lo = Math.min(...vals), hi = Math.max(...vals); const pad = (hi - lo) * .1 + .5; lo -= pad; hi += pad;
+  if (S.metric === "bass_corr") hi = Math.min(1.02, hi);
+  const x = (t) => L + (t / dur) * pw, y = (v) => T + (1 - (v - lo) / (hi - lo)) * ph;
+  g.fillStyle = c.line + "55"; g.fillRect(x(AN.build_end_s), T, W - R - x(AN.build_end_s), ph);
+  g.font = "10px system-ui"; g.lineWidth = 1; g.textAlign = "right";
+  const span = hi - lo, st = span > 30 ? 10 : span > 12 ? 5 : span > 5 ? 2 : span > 2 ? 1 : .25;
+  for (let v = Math.ceil(lo / st) * st; v <= hi; v += st) { g.strokeStyle = c.line; g.beginPath(); g.moveTo(L, y(v) + .5); g.lineTo(W - R, y(v) + .5); g.stroke(); g.fillStyle = c.mut; g.fillText(Number.isInteger(st) ? v : v.toFixed(2), L - 4, y(v) + 3); }
+  g.textAlign = "center"; for (let t = 0; t <= dur; t += 12) g.fillText(`${t}s`, x(t), H - 3);
+  for (const slot of ["A", "B", "C"]) {
+    const s = ser[slot]; if (!s) continue;
+    g.strokeStyle = COL[slot]; g.lineWidth = slot === S.sel ? 2.6 : 1.5; g.globalAlpha = slot === S.sel ? 1 : .75; g.beginPath();
+    s.t.forEach((t, i) => i ? g.lineTo(x(t), y(s.v[i])) : g.moveTo(x(t), y(s.v[i]))); g.stroke();
+  }
+  g.globalAlpha = 1; g.strokeStyle = c.fg; g.lineWidth = 2; g.beginPath(); g.moveTo(x(curPos()), T); g.lineTo(x(curPos()), T + ph); g.stroke();
+  $("tlnote").textContent = `${UNIT[S.metric]}${S.metric === "lufs" && S.match ? ", loudness matched" : ""}. Click to jump. The reference is drawn from the drop.`;
+}
+
+function drawParams() {
+  const sec = S.sec, ids = ["A", "B", "C"].filter((s) => src(s));
+  const row = (name, f, d) => {
+    const vals = ids.map((s) => f(src(s), s));
+    return `<tr><td>${name}</td>${vals.map((v, i) => `<td>${v == null ? "–" : v.toFixed(d)}</td>`).join("")}<td><span class="d">${vals[1] != null && vals[2] != null ? (vals[1] - vals[2] >= 0 ? "+" : "") + (vals[1] - vals[2]).toFixed(d) : ""}</span></td></tr>`;
+  };
+  const sc = (x, s) => s === "C" ? x.sections.drop : x.sections[sec];
+  $("params").innerHTML = `<tr><th></th>${ids.map((s) => `<th style="color:${COL[s]}">${s} ${src(s).label}</th>`).join("")}<th>B − C</th></tr>`
+    + row("Loudness, LUFS", (x, s) => sc(x, s).lufs, 1) + row("Crest, dB", (x, s) => sc(x, s).crest_db, 1)
+    + row("Width, dB side/mid", (x, s) => sc(x, s).width_db, 1) + row("Bass mono (corr <150 Hz)", (x, s) => sc(x, s).bass_corr, 2)
+    + row("Peak, dBFS", (x, s) => sc(x, s).peak_db, 1)
+    + row("Drop − build, LU", (x, s) => s === "C" ? null : x.sections.drop.lufs - x.sections.build.lufs, 1);
+  $("tabnote").textContent = `${sec === "build" ? "build" : "drop"}; reference = its 30 s peak cut`;
+}
+
+function drawTime() {
+  const p = curPos(); $("time").textContent = `${fmt(p)} · bar ${Math.floor(p / BAR_S) + 1}.${Math.floor(((p % BAR_S) / BAR_S) * 4) + 1}`;
+}
+function draw() { if (!AN) return; drawWave(); drawSpec(); drawTl(); drawParams(); drawTime(); }
+
+function frame() { if (AN && S.playing) draw(); requestAnimationFrame(frame); }
+
+// Live's state, from the server: position, playing, loop, which source is on
+function applyState(st) {
+  if (st.pos != null) setPos(st.pos, !!st.playing);
+  if (st.monitor) { S.sel = st.monitor.slot; S.ref = st.monitor.ref; }
+  if (st.match != null) { S.match = st.match; $("match").checked = S.match; }
+  if (st.loop) { S.loop = st.loop === "on" ? S.loop : st.loop; paintLoop(); }
+  if (AN) { paintAbc(); draw(); }
+}
+function paintLoop() { $("loop").querySelectorAll("button").forEach((o) => o.classList.toggle("on", o.dataset.v === S.loop)); }
+function listen() {
+  const es = new EventSource("/events");
+  es.onmessage = (ev) => {
+    const m = JSON.parse(ev.data);
+    if (m.t === "full") applyState(m.state);
+    else if (m.t === "pos") { setPos(m.b, m.p); if (AN && !S.playing) draw(); }
+    else if (m.t === "mon") { S.sel = m.slot; S.ref = m.ref; if (AN) { paintAbc(); draw(); } }
+    else if (m.t === "loop") { S.loop = m.loop; paintLoop(); if (AN) draw(); }
+  };
+}
+
+function pointer(cv, fn) {
+  let down = false;
+  const go = (e) => { const r = cv.getBoundingClientRect(); fn(e.clientX - r.left, r.width); };
+  cv.addEventListener("pointerdown", (e) => { down = true; cv.setPointerCapture(e.pointerId); go(e); });
+  cv.addEventListener("pointermove", (e) => { if (down) go(e); });
+  cv.addEventListener("pointerup", () => { down = false; });
+}
+
+async function init() {
+  const r = await fetch("/api/analysis");
+  if (!r.ok) { $("viz").insertAdjacentHTML("afterbegin", '<div class="box">No analysis yet. Run <code>contrib/mixdesk/analyze.py</code>.</div>'); return; }
+  AN = await r.json();
+  paintAbc();
+  seg("sec", "sec"); seg("mode", "mode"); seg("metric", "metric");
+  $("loop").querySelectorAll("button").forEach((b) => b.onclick = () => { S.loop = b.dataset.v; paintLoop(); draw(); post("/api/transport", { action: "loop", loop: b.dataset.v }); });
+  $("match").onchange = (e) => { S.match = e.target.checked; paintAbc(); draw(); post("/api/monitor", { slot: S.sel, ref: S.ref, match: S.match }); };
+  $("tilt").onchange = (e) => { S.tilt = e.target.checked; draw(); };
+  $("play").onclick = toggle;
+  pointer($("wave"), (x, w) => seek((x / w) * AN.sources.A.duration_s));
+  pointer($("tl"), (x, w) => seek(Math.max(0, ((x - 38) / (w - 46)) * AN.sources.A.duration_s)));
+  const sp = $("spec");
+  sp.addEventListener("pointermove", (e) => { sp._hover = e.clientX - sp.getBoundingClientRect().left; draw(); });
+  sp.addEventListener("pointerleave", () => { sp._hover = null; draw(); });
+  document.addEventListener("keydown", (e) => {
+    if ((e.target.closest && e.target.closest("input,textarea")) || e.metaKey || e.ctrlKey || e.altKey) return;
+    const k = e.key.toLowerCase();
+    if (k === "a" || k === "b" || k === "c") select(k.toUpperCase());
+    else if (k === " ") { e.preventDefault(); toggle(); }
+    else if (k === "arrowleft") seek(curPos() - BAR_S); else if (k === "arrowright") seek(curPos() + BAR_S);
+    else if (/^[1-4]$/.test(k)) { const refs = Object.values(AN.sources).filter((x) => x.kind === "ref"); if (refs[k - 1]) pickRef(refs[k - 1].id); }
+  });
+  new ResizeObserver(draw).observe($("viz"));
+  matchMedia("(prefers-color-scheme: dark)").addEventListener("change", draw);
+  draw(); requestAnimationFrame(frame);
+  listen();
+}
+init();
+})();
 </script>
 </body>
 </html>
