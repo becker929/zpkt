@@ -60,9 +60,15 @@ async def site():
 
 @pytest.fixture
 async def client(tmp_path, site):
-    cfg = Config(site=site.url, skrng_dir=tmp_path / "skrng",
-                 studio_dir=tmp_path / "studio", lab_audio=tmp_path / "lab", site_audio=tmp_path / "site-audio",
-                 regions_audio=tmp_path / "regions", images_dir=tmp_path / "images")
+    cfg = Config(
+        site=site.url,
+        skrng_dir=tmp_path / "skrng",
+        studio_dir=tmp_path / "studio",
+        lab_audio=tmp_path / "lab",
+        site_audio=tmp_path / "site-audio",
+        regions_audio=tmp_path / "regions",
+        images_dir=tmp_path / "images",
+    )
     app = App(cfg, cfg.skrng_dir, secure_cookie=False, studio=StandIn(cfg))
     c = TestClient(TestServer(app.build()))
     await c.start_server()
@@ -94,7 +100,7 @@ async def test_the_site_pages_are_proxied_and_cached(client, site):
     r = await client.get("/skrng/talk/")
     assert r.status == 200 and await r.text() == "<h1>talk</h1>" and r.content_type == "text/html"
     await client.get("/skrng/talk/")
-    assert site.hits.count("/skrng/talk/") == 1                        # the second came from the 30 s cache
+    assert site.hits.count("/skrng/talk/") == 1  # the second came from the 30 s cache
     r = await client.get("/style.css")
     assert r.status == 200 and r.content_type == "text/css"
     r = await client.get("/skrng/missing/")
@@ -144,6 +150,7 @@ async def test_gemini_counts_the_image_walls_images_in_the_months_spend(client, 
     (tmp_path / "images").mkdir()
     now = datetime.now(UTC).isoformat()
     (tmp_path / "images" / "images.jsonl").write_text(
-        f'{{"created": "{now}", "model": "gemini-3-pro-image", "tokens": {{}}}}\n')
+        f'{{"created": "{now}", "model": "gemini-3-pro-image", "tokens": {{}}}}\n'
+    )
     usage = (await (await client.get("/studio/gemini/api/state")).json())["usage"]
     assert usage["image_count"] == 1 and usage["images"] == 0.134

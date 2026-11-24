@@ -13,7 +13,7 @@ import subprocess
 from dataclasses import dataclass, field
 from pathlib import Path
 
-ZPKT = Path(__file__).resolve().parents[4]     # contrib/harness/src/harness/config.py -> the repo
+ZPKT = Path(__file__).resolve().parents[4]  # contrib/harness/src/harness/config.py -> the repo
 
 
 def agent_path(base: str | None = None) -> str:
@@ -23,10 +23,11 @@ def agent_path(base: str | None = None) -> str:
     extra = [str(Path.home() / ".local" / "bin"), str(ZPKT / "ears" / ".venv" / "bin")]
     return ":".join([*(p for p in extra if p not in items), *items])
 
+
 KEYCHAIN = {
-    "oauth": "zpkt-claude-oauth",           # `claude setup-token` output -> CLAUDE_CODE_OAUTH_TOKEN
-    "ntfy_topic": "zpkt-ntfy-topic",        # ntfy.sh topic for Gemini's questions
-    "gemini": "zpkt-gemini-api-key",        # Gemini CLI (harness gemini, /studio/gemini/); the image wall reads it too
+    "oauth": "zpkt-claude-oauth",  # `claude setup-token` output -> CLAUDE_CODE_OAUTH_TOKEN
+    "ntfy_topic": "zpkt-ntfy-topic",  # ntfy.sh topic for Gemini's questions
+    "gemini": "zpkt-gemini-api-key",  # Gemini CLI (harness gemini, /studio/gemini/); the image wall reads it too
 }
 
 
@@ -34,7 +35,9 @@ def keychain(service: str) -> str | None:
     try:
         out = subprocess.run(
             ["security", "find-generic-password", "-s", service, "-a", getpass.getuser(), "-w"],
-            capture_output=True, text=True, timeout=10,
+            capture_output=True,
+            text=True,
+            timeout=10,
         )
     except (OSError, subprocess.TimeoutExpired):
         return None
@@ -51,7 +54,7 @@ def secret(name: str) -> str | None:
 class Config:
     site: str = os.environ.get("HARNESS_SITE", "https://anthonybecker.me")
     cli_path: str | None = os.environ.get("HARNESS_CLI")  # None: the SDK's bundled Claude Code
-    extra_env: dict[str, str] = field(default_factory=dict)   # added to the environment of every Claude session
+    extra_env: dict[str, str] = field(default_factory=dict)  # added to the environment of every Claude session
     # /skrng from the Mac (web.py): loopback port behind `tailscale serve`, and where it keeps
     # the password hash and the signed-in browsers.
     web_port: int = int(os.environ.get("HARNESS_WEB_PORT", "8787"))
@@ -65,11 +68,15 @@ class Config:
     # The lab (/studio/lab/): HW002's stems and clips as the phone plays them, built by `harness lab-audio`.
     lab_audio: Path = Path(os.environ.get("HARNESS_LAB_AUDIO", Path.home() / "_agent_scratch" / "lab" / "audio"))
     # The site's published audio the checklist prototype plays (the gallery's renders), copied here on first use.
-    site_audio: Path = Path(os.environ.get("HARNESS_SITE_AUDIO", Path.home() / "_agent_scratch" / "studio" / "site-audio"))
+    site_audio: Path = Path(
+        os.environ.get("HARNESS_SITE_AUDIO", Path.home() / "_agent_scratch" / "studio" / "site-audio")
+    )
     # The image wall's folder (becker929/image-wall): read only, for Gemini's monthly spend on images.
     images_dir: Path = Path(os.environ.get("HARNESS_IMAGES", Path.home() / "_agent_scratch" / "studio" / "images"))
     # The regions' renders (contrib/docs/design/rummage.md): <regions_audio>/<region>/audio/<file>, made in Live, never in git.
-    regions_audio: Path = Path(os.environ.get("HARNESS_REGIONS_AUDIO", Path.home() / "_agent_scratch" / "studio" / "regions"))
+    regions_audio: Path = Path(
+        os.environ.get("HARNESS_REGIONS_AUDIO", Path.home() / "_agent_scratch" / "studio" / "regions")
+    )
 
     @property
     def app_url(self) -> str:

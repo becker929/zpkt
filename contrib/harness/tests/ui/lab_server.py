@@ -23,17 +23,17 @@ from harness.studio.regions import RegionStore
 class _Cfg:
     def __init__(self, audio: Path):
         self.lab_audio = audio
-        self.site = "https://anthonybecker.me"                       # site-audio comes from R2 through it
+        self.site = "https://anthonybecker.me"  # site-audio comes from R2 through it
         self.site_audio = Path(audio) / "site-audio"
-        self.regions_audio = Path(audio) / "regions"                # <region>/audio/<file>: the regions' renders
+        self.regions_audio = Path(audio) / "regions"  # <region>/audio/<file>: the regions' renders
 
 
 class _Studio:
     def __init__(self, audio: Path):
         self.cfg = _Cfg(audio)
         self.artist = Artist(Path(audio) / "artist", SEED)
-        self.artist_model = None                                     # the quick question comes from the rules
-        self.regions = RegionStore(Path(audio) / "regions")          # the regions' state, beside their renders
+        self.artist_model = None  # the quick question comes from the rules
+        self.regions = RegionStore(Path(audio) / "regions")  # the regions' state, beside their renders
 
 
 def app(audio: Path | None = None) -> web.Application:

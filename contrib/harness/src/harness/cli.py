@@ -12,8 +12,9 @@ from .config import Config, claude_env
 
 
 def main() -> None:
-    if sys.argv[1:2] == ["gemini"]:                   # everything after it is Gemini CLI's, flags included
+    if sys.argv[1:2] == ["gemini"]:  # everything after it is Gemini CLI's, flags included
         from .gemini import exec_cli
+
         exec_cli(sys.argv[2:])
     ap = argparse.ArgumentParser(prog="harness")
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -25,19 +26,25 @@ def main() -> None:
     lp.add_argument("--set", help="the Live set to read values from")
     lb = sub.add_parser("lab-bars", help="the arrange surface's bar library: what each bar of the lab's stems holds")
     lb.add_argument("--set", help="the Live set whose splash clip to read")
-    ar = sub.add_parser("artist", help="the artist agent (contrib/docs/design/artist-agent.md): show its data, or propose works")
+    ar = sub.add_parser(
+        "artist", help="the artist agent (contrib/docs/design/artist-agent.md): show its data, or propose works"
+    )
     ar.add_argument("action", choices=["show", "propose"])
     ar.add_argument("--dry-run", action="store_true", help="propose: print the new repertoire, don't keep it")
-    ge = sub.add_parser("gemini", help="Gemini CLI in this zpkt checkout, with the key from the Keychain (contrib/docs/gemini.md)")
+    ge = sub.add_parser(
+        "gemini", help="Gemini CLI in this zpkt checkout, with the key from the Keychain (contrib/docs/gemini.md)"
+    )
     ge.add_argument("args", nargs=argparse.REMAINDER, help="passed to gemini as they are (-p, -m, --resume ...)")
     a = ap.parse_args()
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
     cfg = Config()
     if a.cmd == "serve":
         from .service import serve
+
         asyncio.run(serve(cfg))
     elif a.cmd == "artist":
         from .studio import artist as A
+
         art = A.Artist(cfg.studio_dir / "artist", A.SEED)
         try:
             if a.action == "show":
@@ -52,12 +59,14 @@ def main() -> None:
         from pathlib import Path
 
         from .studio import lab_audio
+
         kw = {"als": Path(a.set).expanduser()} if a.set else {}
         print(lab_audio.summary(lab_audio.build(Path(a.out).expanduser() if a.out else cfg.lab_audio, **kw)))
     elif a.cmd == "lab-params":
         from pathlib import Path
 
         from .studio import lab_params
+
         rows = lab_params.build(Path(a.set).expanduser()) if a.set else lab_params.build()
         by = {}
         for r in rows:
@@ -69,6 +78,7 @@ def main() -> None:
         from pathlib import Path
 
         from .studio import lab_bars
+
         kw = {"als": Path(a.set).expanduser()} if a.set else {}
         print(lab_bars.summary(lab_bars.build(**kw)))
         print(f"-> {lab_bars.OUT}")

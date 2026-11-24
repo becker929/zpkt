@@ -12,7 +12,7 @@ PW = "correct horse battery"
 @pytest.fixture
 async def client(tmp_path):
     cfg = Config(skrng_dir=tmp_path / "skrng")
-    app = App(cfg, cfg.skrng_dir, secure_cookie=False)   # the test server is plain http
+    app = App(cfg, cfg.skrng_dir, secure_cookie=False)  # the test server is plain http
     c = TestClient(TestServer(app.build()))
     await c.start_server()
     c.app_state = app
@@ -27,8 +27,9 @@ async def signed_in(client) -> bool:
 
 
 async def sign_in(client, pw=PW, confirm=PW):
-    return await client.post("/login", data={"password": pw, "confirm": confirm, "next": "/skrng/talk/"},
-                             allow_redirects=False)
+    return await client.post(
+        "/login", data={"password": pw, "confirm": confirm, "next": "/skrng/talk/"}, allow_redirects=False
+    )
 
 
 async def test_everything_needs_a_session(client):

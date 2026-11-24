@@ -46,11 +46,22 @@ def ask(sid, tool):
     rid = next_id[0]
     ev = threading.Event()
     pending[rid] = [ev, None]
-    send({"jsonrpc": "2.0", "id": rid, "method": "session/request_permission", "params": {
-        "sessionId": sid, "toolCall": tool, "options": [
-            {"optionId": "proceed_once", "name": "Allow", "kind": "allow_once"},
-            {"optionId": "proceed_always", "name": "Allow always", "kind": "allow_always"},
-            {"optionId": "cancel", "name": "Reject", "kind": "reject_once"}]}})
+    send(
+        {
+            "jsonrpc": "2.0",
+            "id": rid,
+            "method": "session/request_permission",
+            "params": {
+                "sessionId": sid,
+                "toolCall": tool,
+                "options": [
+                    {"optionId": "proceed_once", "name": "Allow", "kind": "allow_once"},
+                    {"optionId": "proceed_always", "name": "Allow always", "kind": "allow_always"},
+                    {"optionId": "cancel", "name": "Reject", "kind": "reject_once"},
+                ],
+            },
+        }
+    )
     ev.wait(30)
     return pending.pop(rid)[1]
 
@@ -62,9 +73,14 @@ def prompt(msg):
     images = sum(1 for b in p["prompt"] if b["type"] == "image")
     stop = "end_turn"
     if words.startswith("edit"):
-        tool = {"toolCallId": "edit-1", "title": "Edit README.md", "kind": "edit", "status": "pending",
-                "locations": [{"path": "/repo/README.md"}],
-                "content": [{"type": "diff", "path": "/repo/README.md", "oldText": "a\nb\n", "newText": "a\nc\n"}]}
+        tool = {
+            "toolCallId": "edit-1",
+            "title": "Edit README.md",
+            "kind": "edit",
+            "status": "pending",
+            "locations": [{"path": "/repo/README.md"}],
+            "content": [{"type": "diff", "path": "/repo/README.md", "oldText": "a\nb\n", "newText": "a\nc\n"}],
+        }
         update(sid, {"sessionUpdate": "tool_call", **tool})
         if modes.get(sid) == "yolo":
             outcome = {"outcome": "selected", "optionId": "proceed_once"}
@@ -94,9 +110,17 @@ def prompt(msg):
         text(sid, "Thinking it over.", "agent_thought_chunk")
         text(sid, "echo: ")
         text(sid, f"{words} ({images} images)")
-    send({"jsonrpc": "2.0", "id": msg["id"], "result": {
-        "stopReason": stop, "usage": {"inputTokens": 1000, "cachedReadTokens": 400, "outputTokens": 100, "thoughtTokens": 50},
-        "_meta": {"quota": {"model_usage": [{"model": "gemini-flash-latest"}]}}}})
+    send(
+        {
+            "jsonrpc": "2.0",
+            "id": msg["id"],
+            "result": {
+                "stopReason": stop,
+                "usage": {"inputTokens": 1000, "cachedReadTokens": 400, "outputTokens": 100, "thoughtTokens": 50},
+                "_meta": {"quota": {"model_usage": [{"model": "gemini-flash-latest"}]}},
+            },
+        }
+    )
 
 
 def main():
@@ -110,14 +134,35 @@ def main():
                 pending[mid][0].set()
             continue
         if m == "initialize":
-            send({"jsonrpc": "2.0", "id": mid, "result": {"protocolVersion": 1, "agentCapabilities": {"loadSession": True}}})
+            send(
+                {
+                    "jsonrpc": "2.0",
+                    "id": mid,
+                    "result": {"protocolVersion": 1, "agentCapabilities": {"loadSession": True}},
+                }
+            )
         elif m == "session/new":
             sid = str(uuid.uuid4())
-            send({"jsonrpc": "2.0", "id": mid, "result": {
-                "sessionId": sid,
-                "models": {"availableModels": [{"modelId": "gemini-flash-latest"}, {"modelId": "gemini-3.1-pro-preview"}],
-                           "currentModelId": "gemini-flash-latest"},
-                "modes": {"availableModes": [{"id": x} for x in ("default", "autoEdit", "yolo", "plan")], "currentModeId": "default"}}})
+            send(
+                {
+                    "jsonrpc": "2.0",
+                    "id": mid,
+                    "result": {
+                        "sessionId": sid,
+                        "models": {
+                            "availableModels": [
+                                {"modelId": "gemini-flash-latest"},
+                                {"modelId": "gemini-3.1-pro-preview"},
+                            ],
+                            "currentModelId": "gemini-flash-latest",
+                        },
+                        "modes": {
+                            "availableModes": [{"id": x} for x in ("default", "autoEdit", "yolo", "plan")],
+                            "currentModeId": "default",
+                        },
+                    },
+                }
+            )
         elif m == "session/load":
             text(msg["params"]["sessionId"], "(replayed history)")
             send({"jsonrpc": "2.0", "id": mid, "result": {}})

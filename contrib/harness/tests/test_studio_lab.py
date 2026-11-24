@@ -36,7 +36,9 @@ def test_the_params_file_matches_the_plan_and_every_set_value_is_in_range():
     assert [r["id"] for r in rows] == [p.id for p in lab_params.plan()]
     for r in rows:
         if r["scale"] in ("lin", "log"):
-            assert r["min"] - 1e-6 <= r["set"] <= r["max"] + 1e-6, f"{r['id']}: set {r['set']} outside [{r['min']}, {r['max']}]"
+            assert r["min"] - 1e-6 <= r["set"] <= r["max"] + 1e-6, (
+                f"{r['id']}: set {r['set']} outside [{r['min']}, {r['max']}]"
+            )
         assert r["origin"] in ("set", "arrangement")
         assert (r["live"] is None) == (r["origin"] == "arrangement"), r["id"]
 
@@ -85,7 +87,9 @@ def test_values_are_read_from_the_set_in_lives_units(tmp_path):
     assert float(lab_params.read(tr, ("kick group", "Eq8:0", "Bands.0/ParameterA/Gain"))) == -14.75
     raw = lab_params.read(tr, ("kick group", "plugin:Dist COLDFIRE", "Distortion A Drive"))
     assert lab_params.convert(raw, "pct") == pytest.approx(12.35)
-    assert lab_params.convert(lab_params.read(tr, ("kick group", "Mixer", "Volume")), "lin2db") == pytest.approx(-6.02, abs=0.01)
+    assert lab_params.convert(lab_params.read(tr, ("kick group", "Mixer", "Volume")), "lin2db") == pytest.approx(
+        -6.02, abs=0.01
+    )
     assert lab_params.read(tr, ("kick group", "plugin:Decapitator", "Drive")) is None
 
 
@@ -101,14 +105,16 @@ def test_the_arrangement_skips_muted_tracks_and_counts_in_bars(tmp_path):
 def test_where_a_clip_plays_in_its_file_follows_the_warp_markers(tmp_path):
     _, _, clips = arrangement(_set(tmp_path))
     warped, plain = clips
-    assert warped.file_s == (17.0, 25.0)     # beats 4..20 at 2 beats a second from 15 s (the last segment extended)
-    assert plain.file_s == (33.5, 36.5)      # seconds as they are; 8 beats at 160 BPM is 3 s
+    assert warped.file_s == (17.0, 25.0)  # beats 4..20 at 2 beats a second from 15 s (the last segment extended)
+    assert plain.file_s == (33.5, 36.5)  # seconds as they are; 8 beats at 160 BPM is 3 s
 
 
 async def test_the_routes_serve_the_lab_and_its_audio_and_nothing_else(tmp_path):
     import sys
+
     sys.path.insert(0, str(Path(__file__).parent / "ui"))
     from lab_server import app
+
     (tmp_path / "manifest.json").write_text("{}")
     (tmp_path / "a.mp3").write_bytes(b"ID3")
     client = TestClient(TestServer(app(tmp_path)))

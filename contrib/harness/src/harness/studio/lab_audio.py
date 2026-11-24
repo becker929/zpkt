@@ -37,12 +37,12 @@ log = logging.getLogger(__name__)
 SCRATCH = Path.home() / "_agent_scratch"
 SET = SCRATCH / "HW002" / "HW002_121_full.als"
 STEMS = SCRATCH / "mixclimb" / "stems-fullsong"
-SHAPE = SCRATCH / "mixclimb" / "stems"         # the canonical Short (b43-01), 30 s
+SHAPE = SCRATCH / "mixclimb" / "stems"  # the canonical Short (b43-01), 30 s
 FULL = SCRATCH / "renders" / "hw002_121_full_aligned.wav"
 RATE = 44100
-HEAD = 2048                  # samples of each file's start kept for lining it up
-MAX_CLIP_S = 60.0            # at most this much of a source (decoded on the phone: 60 s of stereo is 21 MB)
-MARGIN_S = 10.0              # kept either side of the part of a source the set plays: room to explore
+HEAD = 2048  # samples of each file's start kept for lining it up
+MAX_CLIP_S = 60.0  # at most this much of a source (decoded on the phone: 60 s of stereo is 21 MB)
+MARGIN_S = 10.0  # kept either side of the part of a source the set plays: room to explore
 STEM_TITLES = {"kick": "Kick group", "perc": "Perc group", "sfx": "SFX group", "brk": "Break group", "mix": "Mix"}
 
 
@@ -50,10 +50,10 @@ STEM_TITLES = {"kick": "Kick group", "perc": "Perc group", "sfx": "SFX group", "
 class Clip:
     track: str
     group: str | None
-    start: float            # beats in the arrangement
+    start: float  # beats in the arrangement
     end: float
     file: str
-    file_s: tuple[float, float]   # the part of the file it plays, in seconds (through the warp markers when warped)
+    file_s: tuple[float, float]  # the part of the file it plays, in seconds (through the warp markers when warped)
 
 
 def arrangement(als: Path) -> tuple[float, list[dict], list[Clip]]:
@@ -116,8 +116,11 @@ def _file_span(c: ET.Element, start: float, end: float, v) -> tuple[float, float
 
 def decode(path: Path, seconds: float | None = None) -> np.ndarray:
     """Any audio file as float32 stereo at RATE (ffmpeg)."""
-    cmd = ["ffmpeg", "-v", "error", "-i", str(path)] + (["-t", str(seconds)] if seconds else []) + \
-          ["-f", "f32le", "-ac", "2", "-ar", str(RATE), "-"]
+    cmd = (
+        ["ffmpeg", "-v", "error", "-i", str(path)]
+        + (["-t", str(seconds)] if seconds else [])
+        + ["-f", "f32le", "-ac", "2", "-ar", str(RATE), "-"]
+    )
     raw = subprocess.run(cmd, capture_output=True, check=True).stdout
     return np.frombuffer(raw, np.float32).reshape(-1, 2)
 
@@ -125,9 +128,31 @@ def decode(path: Path, seconds: float | None = None) -> np.ndarray:
 def mp3(x: np.ndarray, out: Path, kbps: int = 192) -> tuple[str, float]:
     """`x` as an MP3 in `out`, named by its content; returns (file name, seconds)."""
     pcm = np.clip(x, -1, 1).astype(np.float32).tobytes()
-    data = subprocess.run(["ffmpeg", "-v", "error", "-f", "f32le", "-ac", "2", "-ar", str(RATE), "-i", "-",
-                           "-c:a", "libmp3lame", "-b:a", f"{kbps}k", "-f", "mp3", "-"],
-                          input=pcm, capture_output=True, check=True).stdout
+    data = subprocess.run(
+        [
+            "ffmpeg",
+            "-v",
+            "error",
+            "-f",
+            "f32le",
+            "-ac",
+            "2",
+            "-ar",
+            str(RATE),
+            "-i",
+            "-",
+            "-c:a",
+            "libmp3lame",
+            "-b:a",
+            f"{kbps}k",
+            "-f",
+            "mp3",
+            "-",
+        ],
+        input=pcm,
+        capture_output=True,
+        check=True,
+    ).stdout
     name = hashlib.sha256(data).hexdigest()[:16] + ".mp3"
     (out / name).write_bytes(data)
     return name, round(len(x) / RATE, 3)
@@ -138,7 +163,7 @@ def head(x: np.ndarray) -> dict:
     mono = x.mean(axis=1)
     loud = np.flatnonzero(np.abs(mono) > 0.01)
     at = int(loud[0]) if len(loud) else 0
-    piece = mono[at:at + HEAD]
+    piece = mono[at : at + HEAD]
     return {"at": at, "pcm": base64.b64encode((np.clip(piece, -1, 1) * 32767).astype("<i2").tobytes()).decode()}
 
 
@@ -147,15 +172,15 @@ def kick_hits(kick: np.ndarray, bpm: float, n: int = 6) -> list[tuple[int, np.nd
     beat = int(round(RATE * 60 / bpm))
     mono = np.abs(kick.mean(axis=1))
     starts = range(0, len(kick) - beat, beat)
-    peaks = sorted(((float(mono[s:s + 400].max()), s) for s in starts), reverse=True)
+    peaks = sorted(((float(mono[s : s + 400].max()), s) for s in starts), reverse=True)
     chosen, bars = [], set()
     for level, s in peaks:
         bar = s // (beat * 4)
         if level < 0.05 or bar in bars:
             continue
         bars.add(bar)
-        hit = kick[s:s + beat].copy()
-        hit[-220:] *= np.linspace(1, 0, 220)[:, None]                 # 5 ms fade
+        hit = kick[s : s + beat].copy()
+        hit[-220:] *= np.linspace(1, 0, 220)[:, None]  # 5 ms fade
         chosen.append((s // beat, hit))
         if len(chosen) == n:
             break
@@ -166,8 +191,19 @@ def build(out: Path, als: Path = SET, stems: Path = STEMS, full: Path = FULL, sh
     out.mkdir(parents=True, exist_ok=True)
     tempo, tracks, clips = arrangement(als)
     bar_s = 4 * 60 / tempo
-    manifest: dict = {"made": time.strftime("%Y-%m-%d %H:%M:%S"), "set": als.name, "bpm": tempo, "rate": RATE,
-                      "bar_seconds": bar_s, "stems": [], "shape": [], "full": None, "clips": [], "kicks": [], "tracks": []}
+    manifest: dict = {
+        "made": time.strftime("%Y-%m-%d %H:%M:%S"),
+        "set": als.name,
+        "bpm": tempo,
+        "rate": RATE,
+        "bar_seconds": bar_s,
+        "stems": [],
+        "shape": [],
+        "full": None,
+        "clips": [],
+        "kicks": [],
+        "tracks": [],
+    }
 
     for key, title in STEM_TITLES.items():
         path = stems / f"{key}.wav"
@@ -179,13 +215,22 @@ def build(out: Path, als: Path = SET, stems: Path = STEMS, full: Path = FULL, sh
             log.info("stem %s is silent: left out", key)
             continue
         name, seconds = mp3(x, out)
-        manifest["stems"].append({"id": key, "title": title, "file": name, "seconds": seconds,
-                                  "bars": round(seconds / bar_s, 3), "head": head(x)})
+        manifest["stems"].append(
+            {
+                "id": key,
+                "title": title,
+                "file": name,
+                "seconds": seconds,
+                "bars": round(seconds / bar_s, 3),
+                "head": head(x),
+            }
+        )
         if key == "kick":
             for beat_no, hit in kick_hits(x, tempo):
                 hname, hs = mp3(hit, out, 256)
-                manifest["kicks"].append({"id": f"kick-{beat_no}", "title": f"Kick, beat {beat_no + 1}",
-                                          "file": hname, "seconds": hs})
+                manifest["kicks"].append(
+                    {"id": f"kick-{beat_no}", "title": f"Kick, beat {beat_no + 1}", "file": hname, "seconds": hs}
+                )
     for key, title in STEM_TITLES.items():
         path = shape / f"{key}.wav"
         if not path.exists():
@@ -194,13 +239,27 @@ def build(out: Path, als: Path = SET, stems: Path = STEMS, full: Path = FULL, sh
         if float(np.abs(x).max()) < 1e-4:
             continue
         name, seconds = mp3(x, out)
-        manifest["shape"].append({"id": f"shape-{key}", "title": f"{title} (the canonical Short)", "file": name,
-                                  "seconds": seconds, "bars": round(seconds / bar_s, 3), "head": head(x)})
+        manifest["shape"].append(
+            {
+                "id": f"shape-{key}",
+                "title": f"{title} (the canonical Short)",
+                "file": name,
+                "seconds": seconds,
+                "bars": round(seconds / bar_s, 3),
+                "head": head(x),
+            }
+        )
     if full.exists():
         x = decode(full)
         name, seconds = mp3(x, out, 160)
-        manifest["full"] = {"id": "full", "title": "HW002, whole song", "file": name, "seconds": seconds,
-                            "bars": round(seconds / bar_s, 3), "head": head(x)}
+        manifest["full"] = {
+            "id": "full",
+            "title": "HW002, whole song",
+            "file": name,
+            "seconds": seconds,
+            "bars": round(seconds / bar_s, 3),
+            "head": head(x),
+        }
 
     ids: dict[str, str] = {}
     for c in clips:
@@ -211,17 +270,35 @@ def build(out: Path, als: Path = SET, stems: Path = STEMS, full: Path = FULL, sh
         whole = len(x) / RATE
         lo = max(0.0, min(o.file_s[0] for o in mine) - MARGIN_S)
         hi = min(whole, max(o.file_s[1] for o in mine) + MARGIN_S, lo + MAX_CLIP_S)
-        if hi - lo < 1.0:                              # nothing usable found: keep the start of the file
+        if hi - lo < 1.0:  # nothing usable found: keep the start of the file
             lo, hi = 0.0, min(whole, MAX_CLIP_S)
-        x = x[int(lo * RATE):int(hi * RATE)]
+        x = x[int(lo * RATE) : int(hi * RATE)]
         name, seconds = mp3(x, out)
         sid = f"src-{len(ids) + 1}"
         ids[c.file] = sid
-        uses = [[round(o.start / 4, 2), round(o.end / 4, 2), round(max(0.0, o.file_s[0] - lo), 3),
-                 round(min(hi, o.file_s[1]) - lo, 3)] for o in mine]
-        manifest["clips"].append({"id": sid, "title": Path(c.file).stem, "track": c.track, "group": c.group,
-                                  "file": name, "seconds": seconds, "from_s": round(lo, 3), "file_seconds": round(whole, 3),
-                                  "uses": uses, "head": head(x)})
+        uses = [
+            [
+                round(o.start / 4, 2),
+                round(o.end / 4, 2),
+                round(max(0.0, o.file_s[0] - lo), 3),
+                round(min(hi, o.file_s[1]) - lo, 3),
+            ]
+            for o in mine
+        ]
+        manifest["clips"].append(
+            {
+                "id": sid,
+                "title": Path(c.file).stem,
+                "track": c.track,
+                "group": c.group,
+                "file": name,
+                "seconds": seconds,
+                "from_s": round(lo, 3),
+                "file_seconds": round(whole, 3),
+                "uses": uses,
+                "head": head(x),
+            }
+        )
     for t in tracks:
         t["clips"] = [[a, b, ids.get(f) if f else "midi"] for a, b, f in t["clips"]]
     manifest["tracks"] = tracks
@@ -242,10 +319,14 @@ def summary(m: dict) -> str:
     lines += [f"  {s['id']:10} {s['seconds']:6.1f} s  {s['file']}" for s in m.get("shape", [])]
     if m["full"]:
         lines.append(f"  full       {m['full']['seconds']:6.1f} s  {m['full']['file']}")
-    lines += [f"  clip {c['id']:6} {c['seconds']:6.1f} s of {c['file_seconds']:6.1f} (from {c['from_s']:.1f})  "
-              f"{c['title'][:40]} ({len(c['uses'])} uses)" for c in m["clips"]]
-    lines.append(f"  {len(m['kicks'])} kick hits; {sum(len(t['clips']) for t in m['tracks'])} clips on "
-                 f"{len(m['tracks'])} tracks")
+    lines += [
+        f"  clip {c['id']:6} {c['seconds']:6.1f} s of {c['file_seconds']:6.1f} (from {c['from_s']:.1f})  "
+        f"{c['title'][:40]} ({len(c['uses'])} uses)"
+        for c in m["clips"]
+    ]
+    lines.append(
+        f"  {len(m['kicks'])} kick hits; {sum(len(t['clips']) for t in m['tracks'])} clips on {len(m['tracks'])} tracks"
+    )
     return "\n".join(lines)
 
 

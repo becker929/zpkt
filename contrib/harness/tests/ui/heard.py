@@ -110,7 +110,7 @@ MUTE = """
 })();
 """
 
-SILENT = 1e-3          # below this (-60 dBFS) a sample is silence
+SILENT = 1e-3  # below this (-60 dBFS) a sample is silence
 
 
 @dataclass
@@ -121,7 +121,7 @@ class Ear:
     rate: int
     t0: float
     samples: np.ndarray
-    clock: np.ndarray               # rows of (audio-clock s, performance-clock s when that sample is heard)
+    clock: np.ndarray  # rows of (audio-clock s, performance-clock s when that sample is heard)
     state: str = ""
     # Where a chunk did not follow on from the one before: (audio-clock time, samples missing). Chromium skips a
     # quantum or two while a context first starts its worklet thread, before anything plays; nothing else should.
@@ -134,7 +134,7 @@ class Ear:
         return int(round((t - self.t0) * self.rate))
 
     def between(self, t1: float, t2: float) -> np.ndarray:
-        return self.samples[max(0, self.index(t1)):max(0, self.index(t2))]
+        return self.samples[max(0, self.index(t1)) : max(0, self.index(t2))]
 
     def perf(self, t: float) -> float:
         """When the sample at audio-clock time `t` reached the speakers, on the page's performance clock (s). The
@@ -174,12 +174,12 @@ async def heard(page) -> list[Ear]:
             pos = int(round((t - t0) * rate))
             if i and pos != expected:
                 gaps.append((t, pos - expected))
-            samples[pos:pos + n] = chunk[at:at + n]
+            samples[pos : pos + n] = chunk[at : at + n]
             at += n
             expected = pos + n
         if raw["heardAt"]:
             clock = np.array(raw["heardAt"])
-        else:                                    # no output timestamps: now, plus the output's latency
+        else:  # no output timestamps: now, plus the output's latency
             clock = np.array(raw["now"]) + [0.0, raw["outputLatency"]]
         out.append(Ear(raw["id"], rate, t0, samples, clock, raw["state"], gaps))
     return out

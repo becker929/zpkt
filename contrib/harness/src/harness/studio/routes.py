@@ -1,24 +1,24 @@
 """The routes under /studio/, behind the harness password (the gate covers sub-apps too).
 
-    GET  /studio/                 the home page: links to what is here (static/index.html)
-    GET  /studio/lab/<file>       the lab: HW002's controls as phone surfaces (static/lab, contrib/docs/design/lab.md)
-    GET  /studio/lab/audio/<file> its audio, built by `harness lab-audio` outside the repo (cached forever)
-    GET  /studio/site-audio/<path>  the site's published audio (skrng batches, check sounds), through a local copy
-                                  (the checklist prototype's gallery plays them: prototypes/checklist)
-    POST /studio/api/artist/feedback            a thumbs up or down, stored at once (contrib/docs/design/artist-agent.md)
-    POST /studio/api/artist/feedback/<id>/question   the quick question after it (a small model, else rules)
-    POST /studio/api/artist/feedback/<id>/answer     his answer
-    GET  /studio/api/artist/feedback            the newest presses with their questions and answers (?limit=)
-    POST /studio/api/artist/plates              a plate for the gallery: the work as it played, the map, the render
-    GET  /studio/api/artist/plates              the gallery's plates, oldest first (?track=)
-    GET  /studio/api/artist/repertoire          the works the page chooses from (newest version; the seed at first)
-    GET  /studio/api/regions/<id>/state         a region's permanent state: commits, the artifact carried, the plinths,
-                                                completions (an empty state at first; contrib/docs/design/rummage.md, regions.py)
-    POST /studio/api/regions/<id>/state         replace it (validated: 400 if the page could not have made it)
-    GET  /studio/regions/<id>/audio/<file>      the region's renders (a combination per file, and its interface sounds,
-                                                named by content: cached forever), from HARNESS_REGIONS_AUDIO/<id>/audio,
-                                                outside the repo
-    /studio/gemini/...            Gemini CLI sessions in zpkt, over ACP (gemini_routes.py, contrib/docs/gemini.md)
+GET  /studio/                 the home page: links to what is here (static/index.html)
+GET  /studio/lab/<file>       the lab: HW002's controls as phone surfaces (static/lab, contrib/docs/design/lab.md)
+GET  /studio/lab/audio/<file> its audio, built by `harness lab-audio` outside the repo (cached forever)
+GET  /studio/site-audio/<path>  the site's published audio (skrng batches, check sounds), through a local copy
+                              (the checklist prototype's gallery plays them: prototypes/checklist)
+POST /studio/api/artist/feedback            a thumbs up or down, stored at once (contrib/docs/design/artist-agent.md)
+POST /studio/api/artist/feedback/<id>/question   the quick question after it (a small model, else rules)
+POST /studio/api/artist/feedback/<id>/answer     his answer
+GET  /studio/api/artist/feedback            the newest presses with their questions and answers (?limit=)
+POST /studio/api/artist/plates              a plate for the gallery: the work as it played, the map, the render
+GET  /studio/api/artist/plates              the gallery's plates, oldest first (?track=)
+GET  /studio/api/artist/repertoire          the works the page chooses from (newest version; the seed at first)
+GET  /studio/api/regions/<id>/state         a region's permanent state: commits, the artifact carried, the plinths,
+                                            completions (an empty state at first; contrib/docs/design/rummage.md, regions.py)
+POST /studio/api/regions/<id>/state         replace it (validated: 400 if the page could not have made it)
+GET  /studio/regions/<id>/audio/<file>      the region's renders (a combination per file, and its interface sounds,
+                                            named by content: cached forever), from HARNESS_REGIONS_AUDIO/<id>/audio,
+                                            outside the repo
+/studio/gemini/...            Gemini CLI sessions in zpkt, over ACP (gemini_routes.py, contrib/docs/gemini.md)
 """
 
 from __future__ import annotations
@@ -106,8 +106,7 @@ async def site_copy(site: str, path: Path, rel: str) -> Path:
     no CORS headers, so the page can't read it cross-origin; published files never change, so the copy is kept."""
     if not path.is_file():
         try:
-            async with ClientSession(timeout=ClientTimeout(total=15)) as http, \
-                    http.get(f"{site}/audio/{rel}") as r:
+            async with ClientSession(timeout=ClientTimeout(total=15)) as http, http.get(f"{site}/audio/{rel}") as r:
                 if r.status != 200:
                     raise web.HTTPNotFound()
                 data = await r.read()
@@ -151,8 +150,12 @@ async def artist_feedback(request: web.Request) -> web.Response:
     body = await _body(request)
     try:
         ts = body.get("client_ts")
-        made = _artist(request).add_feedback(body.get("vote"), str(body.get("view") or ""), body.get("context"),
-                                             float(ts) if isinstance(ts, (int, float)) else None)
+        made = _artist(request).add_feedback(
+            body.get("vote"),
+            str(body.get("view") or ""),
+            body.get("context"),
+            float(ts) if isinstance(ts, (int, float)) else None,
+        )
     except ValueError as exc:
         raise web.HTTPBadRequest(text=str(exc)) from None
     return web.json_response(made, status=201, headers=NO_STORE)
@@ -172,8 +175,9 @@ async def artist_answer(request: web.Request) -> web.Response:
     body = await _body(request)
     choice = body.get("choice")
     try:
-        _artist(request).add_answer(request.match_info["id"], str(body.get("text") or ""),
-                                    None if choice is None else str(choice))
+        _artist(request).add_answer(
+            request.match_info["id"], str(body.get("text") or ""), None if choice is None else str(choice)
+        )
     except KeyError:
         raise web.HTTPNotFound() from None
     return web.json_response({"ok": True}, headers=NO_STORE)

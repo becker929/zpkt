@@ -45,14 +45,31 @@ def stand_in_audio(folder: Path, bars: int = 4) -> Path:
     hats = rng.standard_normal(n) * np.exp(-((t + beat / 2) % beat) * 60) * 0.15
     pad = np.sin(2 * np.pi * 220 * t) * 0.05
     files = {"kick": kick, "perc": hats, "sfx": pad, "mix": kick + hats + pad}
-    manifest = {"bpm": 160, "rate": RATE, "bar_seconds": BAR, "stems": [], "full": None, "clips": [], "kicks": [],
-                "tracks": []}
+    manifest = {
+        "bpm": 160,
+        "rate": RATE,
+        "bar_seconds": BAR,
+        "stems": [],
+        "full": None,
+        "clips": [],
+        "kicks": [],
+        "tracks": [],
+    }
     for key, x in files.items():
         (folder / f"{key}.wav").write_bytes(_wav(x))
         manifest["stems"].append({"id": key, "title": key, "file": f"{key}.wav", "seconds": n / RATE, "bars": bars})
     (folder / "clip.wav").write_bytes(_wav(pad * 4))
-    manifest["clips"].append({"id": "src-1", "title": "a tone", "track": "11-Audio", "group": "SFX group",
-                              "file": "clip.wav", "seconds": n / RATE, "uses": [[1, 5, 0]]})
+    manifest["clips"].append(
+        {
+            "id": "src-1",
+            "title": "a tone",
+            "track": "11-Audio",
+            "group": "SFX group",
+            "file": "clip.wav",
+            "seconds": n / RATE,
+            "uses": [[1, 5, 0]],
+        }
+    )
     (folder / "hit.wav").write_bytes(_wav(kick[: int(beat * RATE)]))
     manifest["kicks"].append({"id": "kick-0", "title": "Kick, beat 1", "file": "hit.wav", "seconds": beat})
     (folder / "manifest.json").write_text(json.dumps(manifest))
@@ -79,14 +96,17 @@ class Lab:
 
     async def drag(self, selector: str, dx: float, dy: float) -> None:
         """A one-finger drag as touch pointer events, in ten steps."""
-        await self.js("""([sel, dx, dy]) => {
+        await self.js(
+            """([sel, dx, dy]) => {
           const el = document.querySelector(sel); const r = el.getBoundingClientRect();
           const x = r.x + r.width / 2, y = r.y + r.height / 2;
           const o = {pointerId: 7, pointerType: 'touch', bubbles: true, isPrimary: true};
           el.dispatchEvent(new PointerEvent('pointerdown', {...o, clientX: x, clientY: y}));
           for (let i = 1; i <= 10; i++) el.dispatchEvent(new PointerEvent('pointermove', {...o, clientX: x + dx * i / 10, clientY: y + dy * i / 10}));
           el.dispatchEvent(new PointerEvent('pointerup', {...o, clientX: x + dx, clientY: y + dy}));
-        }""", [selector, dx, dy])
+        }""",
+            [selector, dx, dy],
+        )
 
 
 async def open_lab(browser, url: str, surface: str = "kick") -> Lab:
@@ -95,7 +115,9 @@ async def open_lab(browser, url: str, surface: str = "kick") -> Lab:
     lab = Lab(await context.new_page())
     await lab.page.goto(f"{url}?s={surface}")
     await lab.page.click(".gate button")
-    await lab.page.wait_for_function("() => !document.querySelector('.gate') && window.lab?.engine.playing", timeout=20_000)
+    await lab.page.wait_for_function(
+        "() => !document.querySelector('.gate') && window.lab?.engine.playing", timeout=20_000
+    )
     return lab
 
 
@@ -105,8 +127,8 @@ async def test_it_starts_with_hw002s_100_params_and_plays(either, lab):
     assert n == 100
     await page.page.wait_for_timeout(800)
     pos = await page.js("window.lab.engine.position()")
-    assert pos["playing"] and pos["t"] > 0.05          # in bars: the clock runs
-    assert await page.js("window.lab.engine.loudness().peak") > -40          # the stems are heard
+    assert pos["playing"] and pos["t"] > 0.05  # in bars: the clock runs
+    assert await page.js("window.lab.engine.loudness().peak") > -40  # the stems are heard
     assert page.errors == [], page.errors
     await page.page.context.close()
 

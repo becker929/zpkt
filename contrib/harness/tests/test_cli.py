@@ -87,10 +87,17 @@ def test_lab_audio_and_bars_read_the_set_they_are_given(monkeypatch, cfg, capsys
     run(monkeypatch, "lab-audio", "--set", str(tmp_path / "x.als"))
     run(monkeypatch, "lab-audio", "--out", str(tmp_path / "elsewhere"))
     run(monkeypatch, "lab-bars")
-    assert calls == [("audio", cfg.lab_audio, {"als": tmp_path / "x.als"}), ("audio", tmp_path / "elsewhere", {}),
-                     ("bars", {})]
-    assert capsys.readouterr().out.splitlines() == ["audio summary", "audio summary", "bars summary",
-                                                    f"-> {lab_bars.OUT}"]
+    assert calls == [
+        ("audio", cfg.lab_audio, {"als": tmp_path / "x.als"}),
+        ("audio", tmp_path / "elsewhere", {}),
+        ("bars", {}),
+    ]
+    assert capsys.readouterr().out.splitlines() == [
+        "audio summary",
+        "audio summary",
+        "bars summary",
+        f"-> {lab_bars.OUT}",
+    ]
 
 
 def test_no_command_is_a_usage_error(monkeypatch):

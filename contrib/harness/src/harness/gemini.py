@@ -40,7 +40,7 @@ from typing import Any
 log = logging.getLogger(__name__)
 
 MODES = ("default", "autoEdit", "yolo", "plan")
-KEEP_TEXT = 6000                 # characters of a tool's output kept for the page
+KEEP_TEXT = 6000  # characters of a tool's output kept for the page
 MODE_UPDATE = re.compile(r"\[MODE_UPDATE\] (\w+)")
 
 
@@ -53,13 +53,17 @@ def gemini_command() -> list[str]:
 def exec_cli(args: list[str]) -> None:
     """`harness gemini`: Gemini CLI in the zpkt checkout, the key in its environment only."""
     from .config import ZPKT, agent_path, secret
+
     key = secret("gemini")
     if not key:
         raise SystemExit("No Gemini key: add it to the Keychain as zpkt-gemini-api-key (account $USER).")
     cmd = gemini_command()
     os.chdir(ZPKT)
-    os.execvpe(cmd[0], [*cmd, *(args[1:] if args[:1] == ["--"] else args)],
-               {**os.environ, "PATH": agent_path(), "GEMINI_API_KEY": key, "GEMINI_CLI_TRUST_WORKSPACE": "true"})
+    os.execvpe(
+        cmd[0],
+        [*cmd, *(args[1:] if args[:1] == ["--"] else args)],
+        {**os.environ, "PATH": agent_path(), "GEMINI_API_KEY": key, "GEMINI_CLI_TRUST_WORKSPACE": "true"},
+    )
 
 
 def now() -> str:
@@ -72,7 +76,7 @@ def now() -> str:
 # flash-lite, flash, 2.5 pro, and everything else at the 3.x pro rate (so an unknown model errs high). Cached input
 # is billed at a tenth.
 PRICES = (("flash-lite", 0.1, 0.4), ("flash", 0.5, 3.0), ("2.5-pro", 1.25, 10.0))
-IMAGE_OUT = 120.0              # dollars per million image-output tokens (1120 a 1K/2K image: about $0.134)
+IMAGE_OUT = 120.0  # dollars per million image-output tokens (1120 a 1K/2K image: about $0.134)
 
 
 def price(model: str) -> tuple[float, float]:
@@ -85,7 +89,9 @@ def price(model: str) -> tuple[float, float]:
 def cost(model: str, usage: dict) -> float:
     """An estimate of one generateContent call's dollars from its usageMetadata (images included)."""
     i, o = price(model)
-    image = sum(d.get("tokenCount", 0) for d in usage.get("candidatesTokensDetails") or [] if d.get("modality") == "IMAGE")
+    image = sum(
+        d.get("tokenCount", 0) for d in usage.get("candidatesTokensDetails") or [] if d.get("modality") == "IMAGE"
+    )
     text_out = usage.get("candidatesTokenCount", 0) - image + usage.get("thoughtsTokenCount", 0)
     return (usage.get("promptTokenCount", 0) * i + text_out * o + image * IMAGE_OUT) / 1e6
 
@@ -103,7 +109,7 @@ def image_cost(rec: dict) -> float:
     t = rec.get("tokens") or {}
     if "candidatesTokensDetails" in t:
         return cost(rec.get("model", ""), t)
-    return 0.134 if "pro" in rec.get("model", "") else 0.07          # imported records only kept a total
+    return 0.134 if "pro" in rec.get("model", "") else 0.07  # imported records only kept a total
 
 
 def month_usage(usage_rows: list[dict], images_manifest: Path, month: str | None = None) -> dict:
@@ -125,6 +131,7 @@ def month_usage(usage_rows: list[dict], images_manifest: Path, month: str | None
 
 # --- ACP: one gemini --acp process ----------------------------------------------------------------------------------
 
+
 class AcpError(RuntimeError):
     pass
 
@@ -133,8 +140,14 @@ class Acp:
     """JSON-RPC 2.0 over a child's stdio, one JSON object per line. Requests from the agent (permission) go to
     `on_request`; notifications (session/update) to `on_notify`."""
 
-    def __init__(self, cmd: list[str], cwd: Path, env: dict, on_notify: Callable[[str, dict], None],
-                 on_request: Callable[[str, dict], Awaitable[Any]]):
+    def __init__(
+        self,
+        cmd: list[str],
+        cwd: Path,
+        env: dict,
+        on_notify: Callable[[str, dict], None],
+        on_request: Callable[[str, dict], Awaitable[Any]],
+    ):
         self.cmd, self.cwd, self.env = cmd, cwd, env
         self.on_notify, self.on_request = on_notify, on_request
         self.proc: asyncio.subprocess.Process | None = None
@@ -149,11 +162,22 @@ class Acp:
 
     async def start(self) -> None:
         self.proc = await asyncio.create_subprocess_exec(
-            *self.cmd, "--acp", "--skip-trust", cwd=str(self.cwd), env=self.env, limit=1 << 25,
-            stdin=asyncio.subprocess.PIPE, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
+            *self.cmd,
+            "--acp",
+            "--skip-trust",
+            cwd=str(self.cwd),
+            env=self.env,
+            limit=1 << 25,
+            stdin=asyncio.subprocess.PIPE,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
         self._tasks = [asyncio.create_task(self._read()), asyncio.create_task(self._stderr())]
-        self.info = await self.request("initialize", {
-            "protocolVersion": 1, "clientCapabilities": {"fs": {"readTextFile": False, "writeTextFile": False}}}, 60)
+        self.info = await self.request(
+            "initialize",
+            {"protocolVersion": 1, "clientCapabilities": {"fs": {"readTextFile": False, "writeTextFile": False}}},
+            60,
+        )
 
     async def close(self) -> None:
         if self.alive:
@@ -228,6 +252,7 @@ class Acp:
 
 # --- sessions as the page sees them ---------------------------------------------------------------------------------
 
+
 class Session:
     """One session's page events, in memory and on disk, and who is waiting for the next one."""
 
@@ -240,7 +265,7 @@ class Session:
                     self.events.append(json.loads(line))
         self.changed = asyncio.Condition()
         self.running = False
-        self.tools: dict[str, int] = {}             # toolCallId -> its event's n, to update in place
+        self.tools: dict[str, int] = {}  # toolCallId -> its event's n, to update in place
 
     def add(self, ev: dict) -> dict:
         ev = {"n": len(self.events), "at": now(), **ev}
@@ -275,8 +300,13 @@ def _tool_view(tc: dict) -> dict:
     shown = []
     for c in tc.get("content") or []:
         if c.get("type") == "diff":
-            shown.append({"diff": c.get("path", ""), "old": (c.get("oldText") or "")[:KEEP_TEXT],
-                          "new": (c.get("newText") or "")[:KEEP_TEXT]})
+            shown.append(
+                {
+                    "diff": c.get("path", ""),
+                    "old": (c.get("oldText") or "")[:KEEP_TEXT],
+                    "new": (c.get("newText") or "")[:KEEP_TEXT],
+                }
+            )
         elif c.get("type") == "content":
             t = _text_of(c.get("content"))
             if t:
@@ -290,8 +320,14 @@ class Gemini:
     """The harness's side of Gemini CLI: one ACP process (started on first use, restarted when it dies), the
     sessions the page knows, their events, and the permissions waiting for the phone."""
 
-    def __init__(self, root: Path, cwd: Path, key: Callable[[], str | None], cmd: list[str] | None = None,
-                 notify: Callable[[str, str, str], None] | None = None):
+    def __init__(
+        self,
+        root: Path,
+        cwd: Path,
+        key: Callable[[], str | None],
+        cmd: list[str] | None = None,
+        notify: Callable[[str, str, str], None] | None = None,
+    ):
         self.root, self.cwd, self.key, self.cmd = Path(root), Path(cwd), key, cmd or gemini_command()
         self.notify = notify
         for d in ("sessions", "events", "files"):
@@ -299,11 +335,11 @@ class Gemini:
         self.usage_path = self.root / "usage.jsonl"
         self.acp: Acp | None = None
         self._starting = asyncio.Lock()
-        self.live: set[str] = set()                 # sessions open in the current process
-        self.loading: set[str] = set()              # sessions being loaded (their replayed updates are skipped)
+        self.live: set[str] = set()  # sessions open in the current process
+        self.loading: set[str] = set()  # sessions being loaded (their replayed updates are skipped)
         self.sessions: dict[str, Session] = {}
-        self.waiting: dict[str, tuple[str, asyncio.Future, dict]] = {}   # permission id -> (session, answer, options)
-        self.offers: dict = {}                      # the models and modes the last new session offered
+        self.waiting: dict[str, tuple[str, asyncio.Future, dict]] = {}  # permission id -> (session, answer, options)
+        self.offers: dict = {}  # the models and modes the last new session offered
         self._lock = threading.Lock()
 
     # records
@@ -331,8 +367,12 @@ class Gemini:
 
     def view(self, rec: dict) -> dict:
         s = self.sessions.get(rec["id"])
-        return {**rec, "dollars": round(self.spent().get(rec["id"], 0.0), 4), "running": bool(s and s.running),
-                "asking": any(w[0] == rec["id"] for w in self.waiting.values())}
+        return {
+            **rec,
+            "dollars": round(self.spent().get(rec["id"], 0.0), 4),
+            "running": bool(s and s.running),
+            "asking": any(w[0] == rec["id"] for w in self.waiting.values()),
+        }
 
     def list(self) -> list[dict]:
         out = []
@@ -393,6 +433,7 @@ class Gemini:
     # the process
     async def _acp(self) -> Acp:
         from .config import agent_path
+
         async with self._starting:
             if self.acp and self.acp.alive:
                 return self.acp
@@ -400,8 +441,13 @@ class Gemini:
             if not key:
                 raise AcpError("No Gemini key (Keychain zpkt-gemini-api-key).")
             self.live.clear()
-            self.acp = Acp(self.cmd, self.cwd, {**os.environ, "PATH": agent_path(), "GEMINI_API_KEY": key},
-                           self._on_notify, self._on_request)
+            self.acp = Acp(
+                self.cmd,
+                self.cwd,
+                {**os.environ, "PATH": agent_path(), "GEMINI_API_KEY": key},
+                self._on_notify,
+                self._on_request,
+            )
             await self.acp.start()
             return self.acp
 
@@ -417,10 +463,19 @@ class Gemini:
         res = await acp.request("session/new", {"cwd": str(self.cwd), "mcpServers": []}, 120)
         sid = res["sessionId"]
         self.live.add(sid)
-        self.offers = {"models": [m["modelId"] for m in (res.get("models") or {}).get("availableModels", [])],
-                       "modes": [m["id"] for m in (res.get("modes") or {}).get("availableModes", [])]}
-        rec = {"id": sid, "title": title, "created": now(), "updated": now(), "cwd": str(self.cwd),
-               "model": (res.get("models") or {}).get("currentModelId", ""), "mode": "default"}
+        self.offers = {
+            "models": [m["modelId"] for m in (res.get("models") or {}).get("availableModels", [])],
+            "modes": [m["id"] for m in (res.get("modes") or {}).get("availableModes", [])],
+        }
+        rec = {
+            "id": sid,
+            "title": title,
+            "created": now(),
+            "updated": now(),
+            "cwd": str(self.cwd),
+            "model": (res.get("models") or {}).get("currentModelId", ""),
+            "mode": "default",
+        }
         self.save(rec)
         if model and model != rec["model"]:
             rec = await self.set_model(sid, model)
@@ -434,8 +489,9 @@ class Gemini:
             rec = self.record(sid)
             self.loading.add(sid)
             try:
-                await acp.request("session/load", {"sessionId": sid, "cwd": rec.get("cwd", str(self.cwd)),
-                                                   "mcpServers": []}, 120)
+                await acp.request(
+                    "session/load", {"sessionId": sid, "cwd": rec.get("cwd", str(self.cwd)), "mcpServers": []}, 120
+                )
             finally:
                 self.loading.discard(sid)
             self.live.add(sid)
@@ -495,9 +551,13 @@ class Gemini:
             usage = res.get("usage") or {}
             per_model = ((res.get("_meta") or {}).get("quota") or {}).get("model_usage") or []
             model = per_model[0].get("model", "") if len(per_model) == 1 else rec.get("model", "")
-            row = {"at": now(), "session": sid, "model": model, **{k: usage.get(k, 0) for k in
-                   ("inputTokens", "cachedReadTokens", "outputTokens", "thoughtTokens")},
-                   "dollars": round(turn_cost(model, usage), 6)}
+            row = {
+                "at": now(),
+                "session": sid,
+                "model": model,
+                **{k: usage.get(k, 0) for k in ("inputTokens", "cachedReadTokens", "outputTokens", "thoughtTokens")},
+                "dollars": round(turn_cost(model, usage), 6),
+            }
             with self._lock, self.usage_path.open("a") as f:
                 f.write(json.dumps(row) + "\n")
             self.save(rec)
@@ -555,7 +615,7 @@ class Gemini:
         u = params.get("update") or {}
         kind = u.get("sessionUpdate")
         if kind == "agent_message_chunk" and (m := MODE_UPDATE.fullmatch(_text_of(u.get("content")).strip())):
-            self._mode_changed(sid, m.group(1))         # Gemini CLI says a mode change as text ("allow always")
+            self._mode_changed(sid, m.group(1))  # Gemini CLI says a mode change as text ("allow always")
         elif kind == "current_mode_update":
             self._mode_changed(sid, u.get("currentModeId", ""))
         elif kind in ("agent_message_chunk", "agent_thought_chunk"):
@@ -570,8 +630,14 @@ class Gemini:
             if i is not None:
                 s.tools[u.get("toolCallId", "")] = s.amend(i, **_tool_view(u))["n"]
         elif kind == "plan":
-            s.add({"type": "plan", "entries": [{"content": e.get("content", ""), "status": e.get("status", "")}
-                                               for e in u.get("entries") or []]})
+            s.add(
+                {
+                    "type": "plan",
+                    "entries": [
+                        {"content": e.get("content", ""), "status": e.get("status", "")} for e in u.get("entries") or []
+                    ],
+                }
+            )
 
     def _mode_changed(self, sid: str, mode: str) -> None:
         if mode not in MODES:
@@ -592,9 +658,17 @@ class Gemini:
         pid = secrets.token_hex(6)
         fut = asyncio.get_running_loop().create_future()
         self.waiting[pid] = (sid, fut, options)
-        ev = s.add({"type": "permission", "id": pid, "tool": _tool_view(tc),
-                    "options": [{"id": o["optionId"], "name": o.get("name", ""), "kind": o.get("kind", "")}
-                                for o in options.values()]})
+        ev = s.add(
+            {
+                "type": "permission",
+                "id": pid,
+                "tool": _tool_view(tc),
+                "options": [
+                    {"id": o["optionId"], "name": o.get("name", ""), "kind": o.get("kind", "")}
+                    for o in options.values()
+                ],
+            }
+        )
         if self.notify:
             title = (tc.get("title") or "a tool")[:120]
             asyncio.get_running_loop().run_in_executor(None, self.notify, "Gemini asks", title, sid)
@@ -610,12 +684,16 @@ class Gemini:
 
 def keychain_key() -> str | None:
     from .config import secret
+
     return secret("gemini")
 
 
 def phone_notify(app_url: Callable[[], str]) -> Callable[[str, str, str], None]:
     """ntfy, with a tap that opens the session on the page."""
+
     def send(title: str, body: str, sid: str) -> None:
         from .notify import notify
+
         notify(title, body, click=f"{app_url()}/studio/gemini/?s={sid}")
+
     return send

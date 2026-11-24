@@ -8,9 +8,9 @@ from pathlib import Path
 
 from aiohttp import web
 
-FOREVER = "private, max-age=31536000, immutable"     # for files named by their content, or never reused
+FOREVER = "private, max-age=31536000, immutable"  # for files named by their content, or never reused
 NO_STORE = {"Cache-Control": "no-store"}
-GZIP_FROM = 1024                                      # bytes: a JSON answer longer than this goes gzipped
+GZIP_FROM = 1024  # bytes: a JSON answer longer than this goes gzipped
 TEXT_SUFFIXES = (".html", ".js", ".css", ".json", ".svg")
 
 
@@ -25,7 +25,11 @@ def accepts_gzip(accept_encoding: str) -> bool:
 
 def gzipped(request: web.Request, resp: web.Response) -> web.Response:
     """Text over GZIP_FROM bytes goes gzipped to a browser that takes it."""
-    if resp.body is not None and len(resp.body) > GZIP_FROM and accepts_gzip(request.headers.get("Accept-Encoding", "")):
+    if (
+        resp.body is not None
+        and len(resp.body) > GZIP_FROM
+        and accepts_gzip(request.headers.get("Accept-Encoding", ""))
+    ):
         resp.enable_compression(web.ContentCoding.gzip)
     return resp
 

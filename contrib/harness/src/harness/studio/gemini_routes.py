@@ -31,7 +31,7 @@ from .files import accepts_gzip
 log = logging.getLogger(__name__)
 
 PAGE = Path(__file__).parent / "static" / "gemini"
-MAX_PROMPT = 16 * 1024 * 1024      # images come inline; read from the stream, past the harness's 64 KB body cap
+MAX_PROMPT = 16 * 1024 * 1024  # images come inline; read from the stream, past the harness's 64 KB body cap
 GEMINI_KEY = web.AppKey("gemini", dict)
 
 
@@ -64,9 +64,14 @@ def _g(request: web.Request) -> G.Gemini:
     box = request.config_dict[GEMINI_KEY]
     if box["gemini"] is None:
         from .routes import _studio
+
         cfg = _studio(request).cfg
-        box["gemini"] = G.Gemini(cfg.studio_dir / "gemini", getattr(cfg, "studio_workdir", ZPKT), G.keychain_key,
-                                 notify=G.phone_notify(lambda: cfg.app_url))
+        box["gemini"] = G.Gemini(
+            cfg.studio_dir / "gemini",
+            getattr(cfg, "studio_workdir", ZPKT),
+            G.keychain_key,
+            notify=G.phone_notify(lambda: cfg.app_url),
+        )
     return box["gemini"]
 
 
@@ -118,13 +123,21 @@ async def page(request: web.Request) -> web.StreamResponse:
 
 async def state(request: web.Request) -> web.Response:
     g = _g(request)
-    return _json({"sessions": g.list(), "usage": G.month_usage(g.usage_rows(), _images_manifest(request, g)), "offers": g.offers,
-                  "modes": list(G.MODES), "cwd": str(g.cwd)})
+    return _json(
+        {
+            "sessions": g.list(),
+            "usage": G.month_usage(g.usage_rows(), _images_manifest(request, g)),
+            "offers": g.offers,
+            "modes": list(G.MODES),
+            "cwd": str(g.cwd),
+        }
+    )
 
 
 def _images_manifest(request: web.Request, g: G.Gemini) -> Path:
     """The image wall's records (becker929/image-wall keeps them in HARNESS_IMAGES), read for the month's spend."""
     from .routes import STUDIO_KEY
+
     studio = request.config_dict.get(STUDIO_KEY)
     return studio.cfg.images_dir / "images.jsonl" if studio is not None else g.root / "none"
 
@@ -194,14 +207,15 @@ async def events(request: web.Request) -> web.StreamResponse:
         after = int(request.query.get("after", -1))
     except ValueError:
         raise _err(400, "after is a number") from None
-    resp = web.StreamResponse(headers={"Content-Type": "application/x-ndjson", "Cache-Control": "no-store",
-                                       "X-Accel-Buffering": "no"})
+    resp = web.StreamResponse(
+        headers={"Content-Type": "application/x-ndjson", "Cache-Control": "no-store", "X-Accel-Buffering": "no"}
+    )
     await resp.prepare(request)
     try:
         async for ev in _g(request).events(rec["id"], after):
             await resp.write((json.dumps(ev) + "\n").encode())
     except (ConnectionResetError, asyncio.CancelledError):
-        return resp                                   # the page went away; the turn goes on
+        return resp  # the page went away; the turn goes on
     await resp.write_eof()
     return resp
 

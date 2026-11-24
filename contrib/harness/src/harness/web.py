@@ -43,7 +43,7 @@ COOKIE = "skrng_session"
 SESSION_DAYS = 400
 MAX_BODY = 64 * 1024
 PROXIED = ("/skrng/", "/style.css", "/favicon.ico", "/favicon.svg")
-API = ("/api/", "/studio/api/")    # answered with 401 JSON rather than a sign-in redirect
+API = ("/api/", "/studio/api/")  # answered with 401 JSON rather than a sign-in redirect
 
 
 def _scrypt(text: str, salt: bytes) -> str:
@@ -106,9 +106,11 @@ LOGIN = """<!doctype html><html lang="en"><head><meta charset="utf-8">
 {confirm}<button>{button}</button></form></body></html>"""
 
 
-CSS = (":root{color-scheme:light dark}body{font:17px/1.4 -apple-system,system-ui,sans-serif;max-width:26rem;"
-       "margin:15vh auto;padding:0 16px}input,button{font:inherit;width:100%;box-sizing:border-box;padding:.7rem;"
-       "margin:.35rem 0;border-radius:6px;border:1px solid #888}button{font-weight:600}.err{color:#c33}")
+CSS = (
+    ":root{color-scheme:light dark}body{font:17px/1.4 -apple-system,system-ui,sans-serif;max-width:26rem;"
+    "margin:15vh auto;padding:0 16px}input,button{font:inherit;width:100%;box-sizing:border-box;padding:.7rem;"
+    "margin:.35rem 0;border-radius:6px;border:1px solid #888}button{font-weight:600}.err{color:#c33}"
+)
 
 
 def redirect(location: str) -> web.Response:
@@ -120,9 +122,14 @@ def login_page(auth: Auth, next_: str, error: str = "") -> web.Response:
     html = LOGIN.format(
         css=CSS,
         lede="Choose a password for this Mac's skrng. Only you will know it." if first else "Sign in.",
-        error=error, next=_safe_next(next_).replace('"', ""), ac="new-password" if first else "current-password",
-        confirm='<input type="password" name="confirm" placeholder="The same again" autocomplete="new-password" required>' if first else "",
-        button="Set password" if first else "Sign in")
+        error=error,
+        next=_safe_next(next_).replace('"', ""),
+        ac="new-password" if first else "current-password",
+        confirm='<input type="password" name="confirm" placeholder="The same again" autocomplete="new-password" required>'
+        if first
+        else "",
+        button="Set password" if first else "Sign in",
+    )
     return web.Response(text=html, content_type="text/html", status=401 if error else 200)
 
 
@@ -144,7 +151,7 @@ class App:
         app.router.add_get("/", self.home)
         app.router.add_get("/audio/{tail:.*}", self.audio)
         if self.studio is not None:
-            app.router.add_get("/studio", self.studio_slash)     # before the sub-app, whose prefix would take it
+            app.router.add_get("/studio", self.studio_slash)  # before the sub-app, whose prefix would take it
             app.add_subapp("/studio", self.studio.app())
         app.router.add_get("/{tail:.*}", self.proxy)
         app.on_cleanup.append(self._close)
@@ -157,7 +164,7 @@ class App:
         return redirect("/studio/")
 
     async def audio(self, request: web.Request) -> web.Response:
-        return redirect(self.cfg.site + request.path_qs)   # the audio is public; the browser fetches it there
+        return redirect(self.cfg.site + request.path_qs)  # the audio is public; the browser fetches it there
 
     async def _close(self, _app: web.Application) -> None:
         if self.http:
@@ -188,8 +195,15 @@ class App:
             await asyncio.sleep(1.5)  # slow down guessing
             return login_page(self.auth, next_, "Wrong password.")
         resp = redirect(_safe_next(next_))
-        resp.set_cookie(COOKIE, self.auth.new_session(), max_age=SESSION_DAYS * 86400, secure=self.secure_cookie,
-                        httponly=True, samesite="Lax", path="/")
+        resp.set_cookie(
+            COOKIE,
+            self.auth.new_session(),
+            max_age=SESSION_DAYS * 86400,
+            secure=self.secure_cookie,
+            httponly=True,
+            samesite="Lax",
+            path="/",
+        )
         return resp
 
     # --- the pages, from the public site --------------------------------------
