@@ -27,6 +27,7 @@ the command and a row.
 | Put a kept mix (or a recipe's desk) back | `hands live state put NAME [--only TRACK]` |
 | Which mixes are kept for this set? | `hands live state ls` |
 | Render a span to a file | `hands live export FILE --start BEAT --length BEATS` |
+| Which output is Live playing through? / Play through another one | `hands rig output [NAME]` (e.g. `Yeti`) |
 | A dialog is stuck | `hands live modals --reap` |
 | Live is acting strange | `hands rig check`, then `hands rig reset` |
 
