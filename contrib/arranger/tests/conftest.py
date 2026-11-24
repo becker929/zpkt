@@ -3,14 +3,12 @@
 from __future__ import annotations
 
 import http.client
-import importlib.util
 import json
 import sys
 import threading
 import urllib.error
 import urllib.request
 from dataclasses import dataclass, field
-from http.server import ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
 
@@ -62,22 +60,14 @@ class Running:
         return reply
 
 
-def load_server(data: Path, monkeypatch: pytest.MonkeyPatch):
-    monkeypatch.setenv("ARRANGER_DATA", str(data))
-    spec = importlib.util.spec_from_file_location("arranger_server_under_test", HERE / "server.py")
-    mod = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(mod)
-    return mod
-
-
 @pytest.fixture
-def server(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+def server(tmp_path: Path):
+    import server as arranger_server
+
     data = tmp_path / "arranger"
     data.mkdir()
-    mod = load_server(data, monkeypatch)
     running = Running("", data)
-    monkeypatch.setattr(mod, "start_worker", lambda: running.worker_starts.append(1))
-    httpd = ThreadingHTTPServer(("127.0.0.1", 0), mod.Handler)
+    httpd = arranger_server.make_server(data, port=0, start_worker=lambda: running.worker_starts.append(1))
     running.url = f"http://127.0.0.1:{httpd.server_address[1]}"
     t = threading.Thread(target=httpd.serve_forever, kwargs={"poll_interval": 0.01}, daemon=True)
     t.start()

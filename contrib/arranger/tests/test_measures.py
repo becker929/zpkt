@@ -150,14 +150,33 @@ def test_spectral_analyze_measure_compare(tmp_path, monkeypatch, capsys):
     rows = []
     for k, seed in (("ksms-roses-of-flesh-and-blood", 4), ("other-ref", 5)):
         sf.write(refs / f"{k}.flac", kick_loop(160, seed=seed) + noise[::-1], RATE, subtype="PCM_16")
-        rows.append({"id": k, "title": k.upper(), "set": "hw002", "file": f"{k}.flac", "drop": 24.0, "bpm": 160.0,
-                     "barSeconds": 1.5})
-    rows.append({"id": "kk-short", "title": "KK", "set": "kk", "file": "kk.flac", "drop": 1.0, "bpm": 150.0, "barSeconds": 1.6})
+        rows.append(
+            {
+                "id": k,
+                "title": k.upper(),
+                "set": "hw002",
+                "file": f"{k}.flac",
+                "drop": 24.0,
+                "bpm": 160.0,
+                "barSeconds": 1.5,
+            }
+        )
+    rows.append(
+        {"id": "kk-short", "title": "KK", "set": "kk", "file": "kk.flac", "drop": 1.0, "bpm": 150.0, "barSeconds": 1.6}
+    )
     (refs / "refs.json").write_text(json.dumps({"refs": rows}))
-    fixes = {"note": "made up", "fixes": [
-        {"id": "a", "title": "More air", "band": [8000, 20000], "parts": [{"target": "main", "device": "EQ Eight", "values": {}}]},
-        {"id": "w", "title": "Wider", "measureBy": "side", "region": "air", "band": [8000, 20000], "parts": []},
-    ]}
+    fixes = {
+        "note": "made up",
+        "fixes": [
+            {
+                "id": "a",
+                "title": "More air",
+                "band": [8000, 20000],
+                "parts": [{"target": "main", "device": "EQ Eight", "values": {}}],
+            },
+            {"id": "w", "title": "Wider", "measureBy": "side", "region": "air", "band": [8000, 20000], "parts": []},
+        ],
+    }
     (out / "fixes.json").write_text(json.dumps(fixes))
     (out / "fix-w.flac").write_bytes((out / "fix-a.flac").read_bytes())
     spectral.analyze()
@@ -194,13 +213,21 @@ def test_mine_end_to_end(tmp_path, monkeypatch, capsys):
     kick = np.concatenate([silence, kick_loop(64), silence])
     t = np.arange(8 * bar) / RATE
     chord = (0.2 * np.sin(2 * np.pi * 220 * t) * (1 + (t % 3 < 1.5))).astype("float32")
-    chord = np.concatenate([np.zeros((12 * bar, 2), "float32"), np.stack([chord, chord], 1), np.zeros((4 * bar, 2), "float32")])
+    chord = np.concatenate(
+        [np.zeros((12 * bar, 2), "float32"), np.stack([chord, chord], 1), np.zeros((4 * bar, 2), "float32")]
+    )
     for name, x in (("kick", kick), ("chord", chord), ("mix", kick + chord)):
         sf.write(stems / f"{name}.wav", x, RATE, subtype="FLOAT")
     monkeypatch.setattr(mine, "DATA", tmp_path)
     monkeypatch.setattr(mine, "STEMS", stems)
-    monkeypatch.setattr(mine, "LANES", [("kick", "Kick", "kick", "#ff6b5e", [("kick", "Kick alone", 0)]),
-                                        ("chord", "Chord", "sfx", "#8aa4ff", [("chord", "Chord", 0)])])
+    monkeypatch.setattr(
+        mine,
+        "LANES",
+        [
+            ("kick", "Kick", "kick", "#ff6b5e", [("kick", "Kick alone", 0)]),
+            ("chord", "Chord", "sfx", "#8aa4ff", [("chord", "Chord", 0)]),
+        ],
+    )
     (tmp_path / "audio").mkdir()
     (tmp_path / "audio" / "stale.flac").write_bytes(b"old")
     mine.main()
@@ -208,6 +235,7 @@ def test_mine_end_to_end(tmp_path, monkeypatch, capsys):
     assert index.pop("made")
     assert not (tmp_path / "audio" / "stale.flac").exists()
     assert sorted(p.name for p in (tmp_path / "audio").iterdir()) == sorted(
-        {c["file"] for c in index["clips"]} | {c["tail"] for c in index["clips"] if c.get("tail")})
+        {c["file"] for c in index["clips"]} | {c["tail"] for c in index["clips"] if c.get("tail")}
+    )
     assert_golden("mine-index", index)
     assert "Check: the song preset" in capsys.readouterr().out

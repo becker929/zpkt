@@ -50,6 +50,7 @@ def test_fx_clip_notes_merges_same_pitch_and_start():
 @pytest.fixture
 def bounce_module():
     """bounce.py, imported; importing it leaves the environment as it was."""
+
     def rig_env() -> dict[str, str]:
         return {k: v for k, v in os.environ.items() if k.startswith("ZPKT_")}
 
