@@ -189,6 +189,58 @@ def save(name: str | None = None, *, timeout_s: float = 30.0) -> bool:
     stop(f"save: {path.name} was not rewritten in {timeout_s:g} s")
 
 
+def front_set() -> tuple[str, bool]:
+    """The open set's name, and whether it is a guess: Live's window title, else (the window on another Space, full
+    screen) the set hands last saw Live open or save, which each `hands live ...` command keeps on disk. Guard if
+    there is neither."""
+    try:
+        if title := ui.front_title():
+            return title, False
+    except ui.UiError:
+        pass
+    try:
+        seen = json.loads(_loaded_file().read_text())
+    except (FileNotFoundError, ValueError):
+        seen = {}
+    if not seen:
+        stop("Live shows no set, and hands has not seen one opened or saved")
+    return max(seen, key=seen.get), True
+
+
+CONFIRM = Path(__file__).resolve().parents[3] / "macros/hammerspoon/scripts/rig-confirm.sh"
+
+
+def reload_set(set_path: Path, *, save_first: bool = False, seconds: int = 10) -> None:
+    """Reopen `set_path` in Live behind a countdown the person at the Mac can cancel (rig-confirm.sh), and wait until
+    Live shows it and the LOM answers. For a set edited offline; with save_first, Live saves first (only when the
+    file was not edited offline). Guard if the countdown is cancelled or Live does not come back with the set."""
+    from hands.live.transport import LiveClient
+
+    if save_first and not ui.menu("File", "Save Live Set"):
+        stop("could not save Live")
+    if subprocess.run(["bash", str(CONFIRM), f"Reloading the Live set {set_path.stem}", str(seconds)]).returncode:
+        stop("cancelled (or no countdown)")
+    subprocess.run(["open", "-a", config.rig().live_app, str(set_path)], check=True)
+    time.sleep(3)
+    for _ in range(60):
+        try:
+            if ui.dialogs():
+                time.sleep(2)  # the set may still be loading behind a progress window
+                continue
+            LiveClient(retries=0, timeout=3).run("1")
+            if ui.front_title() == set_path.stem:
+                return
+        except (LiveError, ui.UiError):
+            pass
+        time.sleep(2)
+    if ui.dialogs():
+        stop(
+            "Live is showing a dialog, most likely about unsaved changes; answer it in Live, "
+            "or save first (--save-first) when the file was not edited offline"
+        )
+    stop("Live did not show the set after the reload")
+
+
 def copy_set(src: str, dst: str) -> Path:
     """Copy sets_dir/<src>.als to sets_dir/<dst>.als (replacing it) and return the new path."""
     rig = config.rig()

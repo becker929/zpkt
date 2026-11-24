@@ -6,12 +6,13 @@ import json
 import re
 import sys
 from pathlib import Path
-from typing import Any, NoReturn
+from typing import Any
 
 import typer
 
 from hands.live import panel
-from hands.live.transport import DEFAULT_HOST, LiveClient, LiveError
+from hands.live.cli_options import HOST, PORT, fail
+from hands.live.transport import LiveClient, LiveError
 
 app = typer.Typer(
     no_args_is_help=True,
@@ -38,14 +39,7 @@ each one in Live and prints one deck (A, B, C, ...); `hands panel pick NAME 1 C`
 )
 
 OUT = typer.Option(Path("renders"), "--out", help="Folder for the renders and the panel's file.")
-HOST = typer.Option(DEFAULT_HOST, "--host", help="Remote Script host.")
-PORT = typer.Option(None, "--port", help="Remote Script port (default: the rig's live_port, 16619).")
 FORCE = typer.Option(False, "--force", help="Render even if Live is playing (stops it).")
-
-
-def _fail(message: str, code: int = 1) -> NoReturn:
-    print(message, file=sys.stderr)
-    raise typer.Exit(code)
 
 
 def _json(arg: str | None, what: str) -> Any:
@@ -56,9 +50,9 @@ def _json(arg: str | None, what: str) -> Any:
         text = sys.stdin.read() if arg == "-" else Path(arg[1:]).read_text() if arg.startswith("@") else arg
         return json.loads(text)
     except OSError as exc:
-        _fail(f"{what}: cannot read {arg[1:]} ({exc.strerror or exc})", 2)
+        fail(f"{what}: cannot read {arg[1:]} ({exc.strerror or exc})", 2)
     except ValueError as exc:
-        _fail(f"{what} is not JSON: {exc}", 2)
+        fail(f"{what} is not JSON: {exc}", 2)
 
 
 def _run(fn, client, *args, what: str = "", **kwargs) -> None:
@@ -75,11 +69,11 @@ def _run(fn, client, *args, what: str = "", **kwargs) -> None:
                 print(f"note: {line}", file=sys.stderr)
             print(fn(client, *args, **kwargs))
     except hold.Busy as exc:
-        _fail(f"ERROR: {exc}")
+        fail(f"ERROR: {exc}")
     except (panel.PanelError, LiveError) as exc:
-        _fail(f"ERROR: {plain(exc)}")
+        fail(f"ERROR: {plain(exc)}")
     except Exception as exc:
-        _fail(f"ERROR: {inside(exc)}")
+        fail(f"ERROR: {inside(exc)}")
 
 
 _NOISE = re.compile(
@@ -133,7 +127,7 @@ def make(
     """
     data = _json(spec, "--spec")
     if not isinstance(data, dict):
-        _fail("--spec must be a JSON object", 2)
+        fail("--spec must be a JSON object", 2)
     from hands.live import mix
 
     _run(
@@ -292,7 +286,7 @@ def song_make(
 
     data = _json(spec, "--spec")
     if not isinstance(data, dict):
-        _fail("--spec must be a JSON object", 2)
+        fail("--spec must be a JSON object", 2)
     _run(song.make, LiveClient(host, port, keep=True, timeout=30.0), data, out, force=force)
 
 
@@ -352,5 +346,5 @@ def sweep_command(
     try:
         result = sweep.sweep(out, projects, apply=apply, keep_days=days, pressure=pressure, in_use=in_use)
     except Exception as exc:
-        _fail(f"ERROR: {inside(exc)}")
+        fail(f"ERROR: {inside(exc)}")
     print(json.dumps(result) if as_json else sweep.report(result))
