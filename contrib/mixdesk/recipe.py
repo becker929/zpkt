@@ -137,7 +137,9 @@ def apply_desk(live: LiveOps, desk: dict[str, Any], log: Any = print) -> list[S.
     missing, then every value (hands.live.state.put). Returns what still differs after the read-back."""
     W.devices(live)  # returns and desk devices, added where missing, at neutral values
     if desk.get("monitor"):  # the monitor tracks and their clips, added where missing (muted), before their mixers
-        MON.ensure(live, log=log, want={m["track"]: (Path(m["file"]), float(m["beat"])) for m in desk["monitor"]})
+        MON.ensure(
+            live.client, log=log, want={m["track"]: (Path(m["file"]), float(m["beat"])) for m in desk["monitor"]}
+        )
     return S.put(live.client, S.from_desk(desk))
 
 

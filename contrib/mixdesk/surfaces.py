@@ -243,9 +243,10 @@ def _end(want: str, v: dict, where: str, notes: list[str]) -> str | None:
     if x is None or lo is None or hi is None:
         notes.append(f"{where}: {w!r} is not a value this parameter shows ({v['min']} .. {v['max']}); left out.")
         return None
+    rising = lo <= hi  # the parameter's lowest raw value shows the smallest number
     lo, hi = min(lo, hi), max(lo, hi)
     if x < lo or x > hi:
-        end = "min" if (x < lo) == (shown_number(v["min"]) <= shown_number(v["max"])) else "max"
+        end = "min" if (x < lo) == rising else "max"
         notes.append(
             f"{where}: {w} is outside {v['min']} .. {v['max']}; set to its {'lowest' if end == 'min' else 'highest'}."
         )

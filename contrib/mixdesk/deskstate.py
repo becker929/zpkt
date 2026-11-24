@@ -82,7 +82,7 @@ def initial() -> DeskState:
 def _value(state: DeskState, m: Any, now: float) -> DeskState:
     key = f"{m['page']}:{m['slot']}"
     value: ControlValue = {**state["values"].get(key, {})}
-    value.update({k: m[k] for k in ("n", "s", "r", "key") if k in m})  # type: ignore[misc]
+    value.update({k: m[k] for k in ("n", "s", "r", "key") if k in m})  # type: ignore[typeddict-item]
     return {**state, "values": {**state["values"], key: value}}
 
 

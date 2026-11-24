@@ -14,6 +14,7 @@ from __future__ import annotations
 import json
 import sys
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 import pyloudnorm as pyln
@@ -81,7 +82,7 @@ def measure(path: Path, is_ref: bool) -> tuple[dict, np.ndarray, int]:
         bass = lowpass_fft(seg[:, 0], sr, BASS_HZ), lowpass_fft(seg[:, 1], sr, BASS_HZ)
         sections[name]["bass_corr"] = corr(*bass)
     # timeline, 1 s hop, 3 s window (short-term loudness)
-    tl = {"t": [], "lufs": [], "crest": [], "width": [], "bass_corr": []}
+    tl: dict[str, list[float]] = {"t": [], "lufs": [], "crest": [], "width": [], "bass_corr": []}
     for t in np.arange(0, dur - 0.5, 1.0):
         a, b = int(t * sr), int(min(dur, t + 3.0) * sr)
         w = x[a:b]
@@ -95,7 +96,7 @@ def measure(path: Path, is_ref: bool) -> tuple[dict, np.ndarray, int]:
         tl["width"].append(float(10 * np.log10((s**2).sum() / ((m**2).sum() + 1e-12) + 1e-12)))
         tl["bass_corr"].append(corr(lowpass_fft(w[:, 0], sr, BASS_HZ), lowpass_fft(w[:, 1], sr, BASS_HZ)))
     # three-band energy over time (low <150 Hz, mid, high >4 kHz), dB, 1 s hop, 1 s window
-    bands = {"low": [], "mid": [], "high": []}
+    bands: dict[str, list[float]] = {"low": [], "mid": [], "high": []}
     for t in np.arange(0, dur - 0.5, 1.0):
         a, b = int(t * sr), int(min(dur, t + 1.0) * sr)
         sp = np.abs(np.fft.rfft(mid[a:b] * np.hanning(b - a))) ** 2
@@ -120,7 +121,7 @@ def measure(path: Path, is_ref: bool) -> tuple[dict, np.ndarray, int]:
 
 def main() -> None:
     OUT.mkdir(parents=True, exist_ok=True)
-    result = {
+    result: dict[str, Any] = {
         "build_end_s": BUILD_END,
         "ref_align_s": float(CFG["ref_align_s"]),
         "centers": [round(float(c), 2) for c in CENTERS],

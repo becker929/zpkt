@@ -78,3 +78,20 @@ def test_the_schema_accepts_what_the_parser_accepts():
 def test_every_kind_has_its_fields_typed_in_the_parser():
     for kind, (message_type, fields) in P._KINDS.items():
         assert set(message_type.__annotations__) - {"t"} == set(fields), kind
+
+
+def test_mypy_is_clean_for_the_desk():
+    import subprocess
+    import sys
+    from pathlib import Path
+
+    mypy = Path(sys.executable).with_name("mypy")
+    if not mypy.exists():
+        import pytest
+
+        pytest.skip("mypy is not in this venv")
+    root = Path(__file__).resolve().parents[3]
+    out = subprocess.run(
+        [str(mypy), "--config-file", "contrib/mixdesk/mypy.ini"], cwd=root, capture_output=True, text=True
+    )
+    assert out.returncode == 0, out.stdout

@@ -197,13 +197,13 @@ class History:
             out.append({"name": p.stem, "at": p.stat().st_mtime})
         return out
 
-    def load(self, name: str) -> dict[str, list]:
+    def load(self, name: str) -> dict[str, S.ShownRaw]:
         """A checkpoint's values for the desk's keys (all the keys it has)."""
         if not NAME_RE.match(name):
             raise ValueError(f"bad checkpoint name {name!r}")
         return S.flatten(S.load(self.folder() / f"{name}.json"))
 
-    def checkpoint(self, name: str, full: dict, main_saved: dict | None) -> dict:
+    def checkpoint(self, name: str, full: S.State, main_saved: dict | None) -> dict:
         """Save `full` (a state just taken) as checkpoint `name`, with the desk's own values on top (they are what
         the history knows), the monitor tracks as the desk leaves them (muted, not soloed) and Main's desk devices
         as they are when nothing is monitored. Adds a checkpoint entry to the history."""
@@ -212,13 +212,15 @@ class History:
             for tname, body in full["tracks"].items():
                 mix = body["mixer"]
                 if tname.startswith("mon "):
-                    mix["mute"], mix["solo"] = ["True", True], ["False", False]
+                    mix["mute"], mix["solo"] = S.ShownRaw.of("True", True), S.ShownRaw.of("False", False)
                 if tname == "Main" and main_saved:
                     for d in body["devices"]:
                         if d["name"] in main_saved and "Device On" in d["params"]:
                             on = main_saved[d["name"]]
-                            d["params"]["Device On"] = ["On" if on else "Off", on]
-            S.save({**full, "name": name, "made_by": "mixdesk"}, self.folder() / f"{name}.json", self.set_name)
+                            d["params"]["Device On"] = S.ShownRaw.of("On" if on else "Off", on)
+            # hands' State does not list a checkpoint's "name" and "made_by"; its readers keep unknown keys
+            marked: Any = {**full, "name": name, "made_by": "mixdesk"}
+            S.save(marked, self.folder() / f"{name}.json", self.set_name)
             e = self._push({"k": "checkpoint", "name": name, "moves": []})
             self._save()
             return e
