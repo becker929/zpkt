@@ -26,25 +26,28 @@ import signal
 import threading
 import time
 import uuid
+from collections.abc import Iterator
 from pathlib import Path
-from typing import Iterator
+from typing import Any
 
 from hands import config
-from hands.live.transport import UNREACHABLE, LOST, LiveError, McpTransport
+from hands.live.transport import LOST, UNREACHABLE, LiveError, McpTransport
 
 LOCK, UNDO = "live.lock", "live-undo.json"
-STALE_S = 24 * 3600.0     # an undo note this old is for a set that has moved on: dropped, with a word
+STALE_S = 24 * 3600.0  # an undo note this old is for a set that has moved on: dropped, with a word
 
 
 class Busy(RuntimeError):
     """Another hands command is using Live."""
 
-    def __init__(self, holder: dict, waited: float) -> None:
+    def __init__(self, holder: dict[str, Any], waited: float) -> None:
         self.holder = holder
         what = holder.get("what") or "another hands command"
         age = f", for {time.time() - holder['at']:.0f} s" if isinstance(holder.get("at"), (int, float)) else ""
-        super().__init__(f"Live is busy with `{what}` (waited {waited:.0f} s{age}). Run one hands command at a time: "
-                         "wait for that one to finish, then run this again.")
+        super().__init__(
+            f"Live is busy with `{what}` (waited {waited:.0f} s{age}). Run one hands command at a time: "
+            "wait for that one to finish, then run this again."
+        )
 
 
 def _dir() -> Path:
@@ -53,7 +56,7 @@ def _dir() -> Path:
     return d
 
 
-def holder() -> dict:
+def holder() -> dict[str, Any]:
     """Which other command holds Live now, as it wrote itself: {pid, what, at}. {} when nobody does, or
     when this process is the one holding it."""
     if _depth:
@@ -83,14 +86,14 @@ def using_live(what: str, *, wait_s: float = 300.0, client: McpTransport | None 
     """Hold Live for one command. Waits for another command to finish (Busy after wait_s). With a client,
     first puts back what an interrupted command left; yields what that did, one line each."""
     global _depth
-    if _depth:                                   # a command inside a command (a reset that renders): already held
+    if _depth:  # a command inside a command (a reset that renders): already held
         _depth += 1
         try:
             yield []
         finally:
             _depth -= 1
         return
-    f = open(_dir() / LOCK, "a+")
+    f = open(_dir() / LOCK, "a+")  # noqa: SIM115  (held open for the lock's whole life; closed in the finally)
     t0 = time.monotonic()
     try:
         while True:
@@ -124,25 +127,29 @@ def using_live(what: str, *, wait_s: float = 300.0, client: McpTransport | None 
                 f.seek(0)
                 f.truncate()
     finally:
-        f.close()                                # closing lets the lock go
+        f.close()  # closing lets the lock go
 
 
-def _terminate(signum, frame) -> None:
-    raise SystemExit(143)                        # unwinds through every `finally`, so Live is put back
+def _terminate(signum: int, frame: object) -> None:
+    raise SystemExit(143)  # unwinds through every `finally`, so Live is put back
 
 
 # ---------------------------------------------------------------- what to put back
 
 
-def pending() -> list[dict]:
+def pending() -> list[dict[str, Any]]:
     try:
         entries = json.loads((_dir() / UNDO).read_text())
     except (OSError, ValueError):
         return []
-    return [e for e in entries if isinstance(e, dict) and isinstance(e.get("code"), str)] if isinstance(entries, list) else []
+    return (
+        [e for e in entries if isinstance(e, dict) and isinstance(e.get("code"), str)]
+        if isinstance(entries, list)
+        else []
+    )
 
 
-def _write(entries: list[dict]) -> None:
+def _write(entries: list[dict[str, Any]]) -> None:
     f = _dir() / UNDO
     if not entries:
         f.unlink(missing_ok=True)
@@ -152,7 +159,7 @@ def _write(entries: list[dict]) -> None:
     os.replace(tmp, f)
 
 
-_set = ""                 # the file of the set the running command works on (P._state tells us)
+_set = ""  # the file of the set the running command works on (P._state tells us)
 SET_PATH = "result = str(getattr(song, 'file_path', '') or '')"
 
 
@@ -164,19 +171,22 @@ def on_set(path: str | None) -> None:
 
 def note(what: str, code: str) -> str:
     """Write down Live code that puts back what the caller is about to change. Returns the note's id."""
-    entry = {"id": uuid.uuid4().hex[:12], "what": what, "code": code, "pid": os.getpid(), "at": time.time(), "set": _set}
-    try:
+    entry = {
+        "id": uuid.uuid4().hex[:12],
+        "what": what,
+        "code": code,
+        "pid": os.getpid(),
+        "at": time.time(),
+        "set": _set,
+    }
+    with contextlib.suppress(OSError):  # a full disk must not stop the command; it only loses the safety net
         _write([*pending(), entry])
-    except OSError:
-        pass                                     # a full disk must not stop the command; it only loses the safety net
-    return entry["id"]
+    return str(entry["id"])
 
 
 def forget(note_id: str) -> None:
-    try:
+    with contextlib.suppress(OSError):
         _write([e for e in pending() if e.get("id") != note_id])
-    except OSError:
-        pass
 
 
 @contextlib.contextmanager
@@ -194,7 +204,7 @@ def undo(client: McpTransport, what: str, code: str) -> Iterator[None]:
             forget(note_id)
         except LiveError as exc:
             if not _unreachable(exc):
-                forget(note_id)                  # Live answered and refused: trying again later would refuse again
+                forget(note_id)  # Live answered and refused: trying again later would refuse again
             if not failed:
                 raise
 
@@ -210,7 +220,7 @@ def settle(client: McpTransport, note_id: str) -> None:
     except LiveError as exc:
         if _unreachable(exc):
             return
-    except Exception:  # noqa: BLE001
+    except Exception:
         pass
     forget(note_id)
 
@@ -225,12 +235,12 @@ def replay(client: McpTransport) -> list[str]:
     if not entries:
         return []
     done: list[str] = []
-    left: list[dict] = []
+    left: list[dict[str, Any]] = []
     try:
         open_set = str(client.run(SET_PATH) or "")
     except LiveError as exc:
         if _unreachable(exc):
-            return []                            # Live is not answering: every note waits
+            return []  # Live is not answering: every note waits
         open_set = ""
     for e in reversed(entries):
         what = str(e.get("what") or "an interrupted command")
@@ -238,14 +248,16 @@ def replay(client: McpTransport) -> list[str]:
             done.append(f"dropped an old note to put back {what} (over a day old)")
             continue
         if e.get("set") and open_set and e["set"] != open_set:
-            done.append(f"dropped a note to put back {what}: it was for {Path(e['set']).stem}, and {Path(open_set).stem} is open now")
+            done.append(
+                f"dropped a note to put back {what}: it was for {Path(e['set']).stem}, and {Path(open_set).stem} is open now"
+            )
             continue
         try:
             client.run(e["code"])
             done.append(f"put back {what}, left by an interrupted command")
         except LiveError as exc:
             if _unreachable(exc):
-                left.insert(0, e)                # Live is not answering: keep it for the reset
+                left.insert(0, e)  # Live is not answering: keep it for the reset
             else:
                 done.append(f"could not put back {what} ({str(exc)[:120]})")
     with contextlib.suppress(OSError):
@@ -253,7 +265,7 @@ def replay(client: McpTransport) -> list[str]:
     return done
 
 
-def save_json(path: Path, data) -> None:
+def save_json(path: Path, data: Any) -> None:
     """Write a panel's or a song's file whole or not at all (a cut-short file reads as no panel)."""
     path.parent.mkdir(parents=True, exist_ok=True)
     tmp = path.with_name(f".{path.name}.{os.getpid()}.tmp")

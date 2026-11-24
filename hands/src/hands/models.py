@@ -1,15 +1,15 @@
-"""Pydantic models for the hands layer.
+"""ProjectConfig and Feedback: the models of the first design, and the source of their schemas in lib/contracts
+(tools/gen_schemas.py). Frozen and JSON-clean.
 
-All models are frozen (immutable) and serialise cleanly to JSON.
-These are the source of truth for ProjectConfig and Feedback schemas.
-
-No imports from ears or taste — JSON is the cross-repo interface.
+The first design (Oct 2026): a declarative ProjectConfig -> codegen steps -> builder -> StepRunner, behind `hands build`
+and `hands execute`. Its user (prototypes/engineer) was removed on 24 Nov 2026; Anthony keeps it to see whether it
+folds into something later.
 """
 
 from __future__ import annotations
 
 from enum import Enum
-from typing import Annotated, Any, Literal, Union
+from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, Field, model_validator
 
@@ -20,8 +20,10 @@ _FROZEN: dict[str, Any] = {"frozen": True}
 # Primitives
 # ---------------------------------------------------------------------------
 
-class DeviceSource(str, Enum):
+
+class DeviceSource(str, Enum):  # noqa: UP042  (StrEnum would change str(member), which the schema and codegen use)
     """Browser subtree where Live finds a device."""
+
     BUILTIN = "audio_effects"
     PLUGINS = "plugins"
     DRUMS = "drums"
@@ -62,7 +64,7 @@ class EQ8Spec(BaseModel):
 
 
 TrackDevice = Annotated[
-    Union[DeviceSpec, EQ8Spec],
+    DeviceSpec | EQ8Spec,
     Field(discriminator="kind"),
 ]
 
@@ -89,6 +91,7 @@ class ParallelRack(BaseModel):
 # Sample / pad layer
 # ---------------------------------------------------------------------------
 
+
 class SamplePad(BaseModel):
     """A single drum pad: MIDI note, sample name, optional Simpler trim.
 
@@ -107,7 +110,7 @@ class SamplePad(BaseModel):
     devices: tuple[DeviceSpec, ...] = ()
 
     @model_validator(mode="after")
-    def _validate_start_end(self) -> "SamplePad":
+    def _validate_start_end(self) -> SamplePad:
         if self.end is not None and self.end <= self.start:
             raise ValueError(f"end ({self.end}) must be greater than start ({self.start})")
         return self
@@ -149,6 +152,7 @@ class PercGroup(BaseModel):
 # ---------------------------------------------------------------------------
 # Track-level configs
 # ---------------------------------------------------------------------------
+
 
 class PercConfig(BaseModel):
     """Full percussion section: groups, bus chain, MIDI pattern."""
@@ -204,6 +208,7 @@ class MidLayerConfig(BaseModel):
 # ---------------------------------------------------------------------------
 # Arrangement
 # ---------------------------------------------------------------------------
+
 
 class ArrangementClip(BaseModel):
     """One clip placed in the arrangement view."""
@@ -264,6 +269,7 @@ class ArrangementConfig(BaseModel):
 # ---------------------------------------------------------------------------
 # Top-level project
 # ---------------------------------------------------------------------------
+
 
 class ProjectConfig(BaseModel):
     """Top-level declarative project configuration.

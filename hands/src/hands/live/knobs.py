@@ -6,14 +6,15 @@ A Knob is (track, device, param) as the .als names it (hands.als.resolve):
     param   the XML path in the device ("Bands.1/ParameterA/Gain"), or a plugin parameter's name
 
 Its id is "track/device/param", the device written "Mixer", "plugin:<name>" or "<tag>#<index>":
-"S01 kick group/Compressor2#0/Ratio", "Break group/plugin:Dist COLDFIRE/Color". Values are in the
-.als's units (the parameter's Manual), as in hands.probe_kit steps and plan files.
+"S01 kick group/Compressor2#0/Ratio", "Break group/plugin:Dist COLDFIRE/Color". The plan files and the studio
+lab spelled the same id with pipes, "track|Tag:index|param" (`pipe_id`); `Knob.parse` reads both. Values are in the
+.als's units (the parameter's Manual), as in hands.probe_kit steps.
 
 The LOM shows the same parameter under another name and often in other units: EQ Eight's
 frequency is 0-1 on a log scale, Utility's gain is dB/35, its width the square root of the .als
-fraction. UNITS holds the conversions measured on HW002: the rumble chain's .als values against a
-LOM dump of the same devices (prototypes/soundfunction/results/live_rumble_bypass_v1, 12 Sep) and the
-kick-group compressor's (knobmap_hw002_kickgroup_v1). A knob without a measured conversion is
+fraction. hands.live.units holds the conversions (UNITS) measured on HW002: the rumble chain's .als values against a
+LOM dump of the same devices (prototypes/soundfunction/results/live_rumble_bypass_v1, 12 Sep; the prototype is
+in git tag pre-upgrade-2026-11-24) and the kick-group compressor's (knobmap_hw002_kickgroup_v1). A knob without a measured conversion is
 refused rather than written with a guess; add one after reading both values in Live.
 
 set_many writes in one LOM call and read_many reads in another: reading a value in the call that
@@ -23,15 +24,32 @@ parameters are refused: a manual write would override their arrangement automati
 
 from __future__ import annotations
 
-import math
-import re
 from collections import Counter
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from typing import Any
 
-from hands import steps
 from hands.live.transport import McpTransport
+from hands.live.units import (
+    _BAND_PATH,
+    BOOL,
+    EQ8_BAND,
+    EQ8_FREQ,  # noqa: F401
+    FADER,  # noqa: F401
+    MIXER,
+    MUTE,  # noqa: F401
+    SAME,
+    UNITS,
+    Bool,  # noqa: F401
+    Db35,  # noqa: F401
+    Fader,  # noqa: F401
+    Lin,  # noqa: F401
+    Log,  # noqa: F401
+    Mute,  # noqa: F401
+    Ratio,  # noqa: F401
+    Sqrt,  # noqa: F401
+    Unit,
+)
 
 MAX_PER_DEVICE = 20  # parameters of one device per call (ableton-guide rule 2)
 
@@ -58,153 +76,49 @@ class Knob:
 
     @property
     def id(self) -> str:
+        """The id hands writes: "track/Tag#index/param", "track/plugin:Name/param", "track/Mixer/param"."""
+        return f"{self.track}/{self._device_text('#')}/{self.param}"
+
+    @property
+    def pipe_id(self) -> str:
+        """The same id in the plan files' and the studio lab's spelling: "track|Tag:index|param"."""
+        return f"{self.track}|{self._device_text(':')}|{self.param}"
+
+    def _device_text(self, index_mark: str) -> str:
         d = self.device
-        dev = "Mixer" if d == "Mixer" else f"plugin:{d[1]}" if d[0] == "plugin" else f"{d[0]}#{d[1]}"
-        return f"{self.track}/{dev}/{self.param}"
+        return "Mixer" if d == "Mixer" else f"plugin:{d[1]}" if d[0] == "plugin" else f"{d[0]}{index_mark}{d[1]}"
 
     @classmethod
     def parse(cls, text: str) -> Knob:
-        track, dev, param = text.split("/", 2)
+        """A knob from either spelling of its id (`id`, `pipe_id`). ValueError says what an id looks like."""
+        pipes = [part.strip() for part in text.split("|")]
+        if len(pipes) == 3 and all(pipes) and "/" not in pipes[0]:  # a slash id's param may hold a "|"
+            track, dev, param = pipes
+            return cls._from_parts(text, track, dev, param, index_mark=":")
+        slashes = text.split("/", 2)
+        if len(slashes) == 3 and all(slashes):
+            track, dev, param = slashes
+            return cls._from_parts(text, track, dev, param, index_mark="#")
+        raise ValueError(f"a knob id is track/Tag#index/param (or track|Tag:index|param), not {text!r}")
+
+    @classmethod
+    def _from_parts(cls, text: str, track: str, dev: str, param: str, index_mark: str) -> Knob:
         if dev == "Mixer":
             return cls(track, "Mixer", param)
         if dev.startswith("plugin:"):
             return cls(track, ("plugin", dev.removeprefix("plugin:")), param)
-        tag, _, index = dev.partition("#")
+        tag, _, index = dev.rpartition(index_mark)
+        if not tag or not index.lstrip("-").isdigit():
+            raise ValueError(f"{text!r}: the device is Mixer, plugin:<name> or <Tag>{index_mark}<index>, not {dev!r}")
         return cls(track, (tag, int(index)), param)
 
     @property
-    def spec(self) -> tuple:
+    def spec(self) -> tuple[Any, ...]:
         """(track, device, param), as hands.als takes them."""
         return self.track, self.device, self.param
 
     def __str__(self) -> str:
         return self.id
-
-
-# --------------------------------------------------------------------------- units
-
-class Unit:
-    """How a parameter's .als value maps onto its LOM value."""
-
-    def to_lom(self, v):
-        return float(v)
-
-    def from_lom(self, u):
-        return float(u)
-
-
-class Lin(Unit):
-    def __init__(self, lo: float, hi: float):
-        self.lo, self.hi = lo, hi
-
-    def to_lom(self, v):
-        return (float(v) - self.lo) / (self.hi - self.lo)
-
-    def from_lom(self, u):
-        return self.lo + float(u) * (self.hi - self.lo)
-
-
-class Log(Lin):
-    def to_lom(self, v):
-        return math.log(float(v) / self.lo) / math.log(self.hi / self.lo)
-
-    def from_lom(self, u):
-        return self.lo * (self.hi / self.lo) ** float(u)
-
-
-class Bool(Unit):
-    def to_lom(self, v):
-        if not isinstance(v, bool):
-            raise TypeError(f"a switch takes True/False, not {v!r}")
-        return 1.0 if v else 0.0
-
-    def from_lom(self, u):
-        return float(u) >= 0.5
-
-
-class Db35(Unit):
-    """Utility's gain: linear amplitude in the .als, dB/35 (-1..1) in the LOM."""
-
-    def to_lom(self, v):
-        return -1.0 if v <= 0 else max(-1.0, min(1.0, 20 * math.log10(v) / 35))
-
-    def from_lom(self, u):
-        return 10 ** (float(u) * 35 / 20)
-
-
-class Sqrt(Unit):
-    """Utility's width: a fraction 0-4 in the .als, its square root 0-2 in the LOM."""
-
-    def to_lom(self, v):
-        return math.sqrt(float(v))
-
-    def from_lom(self, u):
-        return float(u) ** 2
-
-
-class Ratio(Unit):
-    """Compressor ratio: r in the .als, 1 - 1/r in the LOM."""
-
-    def to_lom(self, v):
-        return 1 - 1 / float(v)
-
-    def from_lom(self, u):
-        return math.inf if float(u) >= 1 else 1 / (1 - float(u))
-
-
-class Fader(Unit):
-    """Mixer volume: linear gain in the .als; in the LOM a fader position whose dB only Live
-    knows (str_for_value), so Live finds the position by bisection on the display."""
-
-    def to_lom(self, v):
-        """The target in dB; None for silence (0 or less), which is the bottom of the fader, -inf."""
-        return 20 * math.log10(v) if v > 0 else None
-
-    def from_lom(self, display):
-        text = display.replace(" dB", "")
-        return 0.0 if "inf" in text else 10 ** (float(text) / 20)
-
-
-class Mute(Unit):
-    """The track's activator (Mixer Speaker): True is on. The LOM sets track.mute to the opposite."""
-
-    def to_lom(self, v):
-        if not isinstance(v, bool):
-            raise TypeError(f"a track's activator takes True/False, not {v!r}")
-        return v
-
-    def from_lom(self, u):
-        return bool(u)
-
-
-SAME, BOOL, MUTE, FADER = Unit(), Bool(), Mute(), Fader()
-
-# (device tag, .als param) -> (LOM parameter name, unit). Evidence pairs, .als -> LOM:
-#   Utility Gain 0.4084238708 -> -0.2222222 (-7.78 dB / 35); StereoWidth 0.8770471 -> 0.9365079;
-#   BassMonoFrequency 120 -> 0.3802112 (log 50-500); EQ Eight Freq 30.95 Hz -> 0.1468144 and
-#   5000 Hz -> 0.8074892 (log 10-22000), Q 2.2926 -> 0.6031746 (log 0.1-18), Gain -14.256 ->
-#   -14.256; Compressor Ratio 3 -> 0.6666667, Attack 0.0791 ms -> 0.1796875 (log 0.01-1000);
-#   Reverb MixDirect -> Dry/Wet as is (probe-pack bench, 6 Oct); plugin parameters 0-1 as is.
-UNITS: dict[tuple[str, str], tuple[str, Unit]] = {
-    ("StereoGain", "Gain"): ("Output", Db35()),
-    ("StereoGain", "StereoWidth"): ("Stereo Width", Sqrt()),
-    ("StereoGain", "BassMono"): ("Bass Mono", BOOL),
-    ("StereoGain", "BassMonoFrequency"): ("Bass Freq", Log(50.0, 500.0)),
-    ("StereoGain", "Balance"): ("Balance", SAME),
-    ("StereoGain", "ChannelMode"): ("Channel Mode", SAME),
-    ("StereoGain", "Mono"): ("Mono", BOOL),
-    ("Eq8", "GlobalGain"): ("Output", SAME),
-    ("Eq8", "Scale"): ("Scale", SAME),
-    ("Compressor2", "Ratio"): ("Ratio", Ratio()),
-    ("Compressor2", "Attack"): ("Attack", Log(0.01, 1000.0)),
-    ("Compressor2", "Knee"): ("Knee", SAME),
-    ("Reverb", "MixDirect"): ("Dry/Wet", SAME),
-}
-EQ8_FREQ = Log(10.0, 22000.0)
-EQ8_BAND = {"Freq": ("Frequency", EQ8_FREQ), "Gain": ("Gain", SAME), "Q": ("Q", Log(0.1, 18.0)),
-            "IsOn": ("Filter On", BOOL), "Mode": ("Filter Type", SAME)}
-_BAND_PATH = re.compile(r"Bands\.(\d)/Parameter([AB])/(\w+)")
-MIXER = {"Volume": ("volume", FADER), "Pan": ("pan", SAME), "Speaker": ("mute", MUTE)}
 
 
 def lom_target(knob: Knob) -> tuple[str, str | None, Unit]:
@@ -222,13 +136,15 @@ def lom_target(knob: Knob) -> tuple[str, str | None, Unit]:
         return "param", f"{int(m[1]) + 1} {name} {m[2]}", unit
     elif (knob.device[0], knob.param) in UNITS:
         return "param", *UNITS[(knob.device[0], knob.param)]
-    raise KeyError(f"{knob}: no measured LOM conversion; add one to knobs.UNITS after reading the "
-                   f".als and LOM values of the same parameter in Live")
+    raise KeyError(
+        f"{knob}: no measured LOM conversion; add one to knobs.UNITS after reading the "
+        f".als and LOM values of the same parameter in Live"
+    )
 
 
 # --------------------------------------------------------------------------- LOM code
 
-_FIND = '''
+_FIND = """
 def _track(name):
     found = [(t.name, t) for t in list(song.tracks) + list(song.return_tracks)] + [("Main", song.master_track)]
     hits = [t for n, t in found if n == name]
@@ -256,9 +172,11 @@ def _param(track, s):
     if len(hits) != 1:
         raise LookupError("%s has %d parameters named %r" % (dev.name, len(hits), s["name"]))
     return hits[0]
-'''
+"""
 
-_SET = _FIND + '''
+_SET = (
+    _FIND
+    + '''
 def _gate(t, s):
     """The DeviceParameter whose automation a write would override (a mute's is the track activator)."""
     if s["where"] == "mute":
@@ -336,8 +254,11 @@ if not problems:
         written = {}
 result = {"problems": problems, "written": written, "failed": failed, "restored": len(done) if failed else 0}
 '''
+)
 
-_READ = _FIND + '''
+_READ = (
+    _FIND
+    + """
 result = {}
 for s in SPEC:
     t = _track(s["track"])
@@ -347,15 +268,21 @@ for s in SPEC:
         result[s["id"]] = [not t.mute, "on" if not t.mute else "off", gate.automation_state if gate else 0]
     else:
         result[s["id"]] = [p.value, p.str_for_value(p.value), p.automation_state]
-'''
+"""
+)
 
 
-def _specs(knobs: Iterable[Knob], values: Mapping[Knob, object] | None = None) -> list[dict]:
+def _specs(knobs: Iterable[Knob], values: Mapping[Knob, object] | None = None) -> list[dict[str, Any]]:
     specs = []
     for k in knobs:
         where, name, unit = lom_target(k)
-        s: dict[str, Any] = {"id": k.id, "track": k.track, "where": where, "name": name,
-                             "device": None if k.device == "Mixer" else tuple(k.device)}
+        s: dict[str, Any] = {
+            "id": k.id,
+            "track": k.track,
+            "where": where,
+            "name": name,
+            "device": None if k.device == "Mixer" else tuple(k.device),
+        }
         if values is not None:
             s["value"] = unit.to_lom(values[k])
         specs.append(s)
@@ -368,9 +295,9 @@ def _specs(knobs: Iterable[Knob], values: Mapping[Knob, object] | None = None) -
 
 @dataclass(frozen=True)
 class Reading:
-    value: Any         # in .als units
-    lom: Any           # the LOM's own value (bool for a track's activator)
-    display: str       # what Live shows, e.g. "-7.8 dB"
+    value: Any  # in .als units
+    lom: Any  # the LOM's own value (bool for a track's activator)
+    display: str  # what Live shows, e.g. "-7.8 dB"
     automated: bool
 
 
@@ -390,7 +317,6 @@ def set_many(client: McpTransport, values: Mapping[Knob, Any]) -> dict[Knob, Any
         raise KnobError(f"write failed, {res['restored']} earlier write(s) put back: " + "; ".join(res["problems"]))
     if res["problems"]:
         raise KnobError("nothing written: " + "; ".join(res["problems"]))
-    steps.report(f"set {len(values)} knob(s)", "minor")
     return {k: res["written"][k.id] for k in values}
 
 
@@ -407,16 +333,20 @@ def read_many(client: McpTransport, knobs: Iterable[Knob]) -> dict[Knob, Reading
     return out
 
 
-def apply(client: McpTransport, values: Mapping[Knob, object], *, verify: bool = True,
-          tol: float = 1e-4) -> dict[Knob, Reading]:
+def apply(
+    client: McpTransport, values: Mapping[Knob, object], *, verify: bool = True, tol: float = 1e-4
+) -> dict[Knob, Reading]:
     """set_many, then (with verify) read_many in a separate call and check each LOM value is the
     one written, within tol. Returns the readings ({} without verify)."""
     written = set_many(client, values)
     if not verify:
         return {}
     got = read_many(client, values)
-    off = [f"{k}: wrote {written[k]!r}, reads {got[k].lom!r} ({got[k].display})" for k in values
-           if not (got[k].lom == written[k] if isinstance(written[k], bool) else abs(got[k].lom - written[k]) <= tol)]
+    off = [
+        f"{k}: wrote {written[k]!r}, reads {got[k].lom!r} ({got[k].display})"
+        for k in values
+        if not (got[k].lom == written[k] if isinstance(written[k], bool) else abs(got[k].lom - written[k]) <= tol)
+    ]
     if off:
         raise KnobError("read back differs: " + "; ".join(off))
     return got

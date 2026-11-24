@@ -25,8 +25,7 @@ def mod_dest_ids() -> dict[str, int]:
 
 
 def serum_devices(track: ET.Element) -> list[ET.Element]:
-    return [d for d in track.iter("PluginDevice")
-            if any(n.get("Value") == "Serum 2" for n in d.iter("Name"))]
+    return [d for d in track.iter("PluginDevice") if any(n.get("Value") == "Serum 2" for n in d.iter("Name"))]
 
 
 def find_serum(tree: ET.ElementTree, track_name: str) -> ET.Element:
@@ -45,7 +44,7 @@ def _req(el: ET.Element, path: str) -> ET.Element:
 
 def _hex_text(data: bytes, indent: str) -> str:
     h = data.hex().upper()
-    return "\n" + "\n".join(indent + h[i:i + 80] for i in range(0, len(h), 80)) + "\n" + indent[:-1]
+    return "\n" + "\n".join(indent + h[i : i + 80] for i in range(0, len(h), 80)) + "\n" + indent[:-1]
 
 
 def get_state(dev: ET.Element) -> tuple[bytes, bytes]:
@@ -77,7 +76,7 @@ def configure(dev: ET.Element, knobs: list[tuple[str, float]]) -> None:
         _req(slot, "ParameterId").set("Value", str(pid))
         _req(slot, "VisualIndex").set("Value", str(i))
         _req(slot, "ParameterValue/Manual").set("Value", f"{min(1.0, max(0.0, value)):.7f}")
-    for slot in floats[len(knobs):]:  # un-configure leftovers from an earlier knob set
+    for slot in floats[len(knobs) :]:  # un-configure leftovers from an earlier knob set
         if _req(slot, "ParameterId").get("Value") != "-1":
             _req(slot, "ParameterName").set("Value", "")
             _req(slot, "ParameterId").set("Value", "-1")

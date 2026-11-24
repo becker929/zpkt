@@ -1,4 +1,5 @@
 """hands.live.session against a fake GUI (ui) and a mock LOM; nothing here touches Live."""
+
 from __future__ import annotations
 
 import os
@@ -56,12 +57,15 @@ def test_check_passes_and_returns_the_front_set(monkeypatch):
     assert lom.calls == ["result = 1"]
 
 
-@pytest.mark.parametrize("fronts, dialogs, kw, message", [
-    (["test_a"], 1, {}, "1 dialog"),
-    (["test_a"], 0, {"expect_front": "test_b"}, "expected 'test_b'"),
-    (["Anthony's mix"], 0, {}, "not one of ours"),
-    ([None], 0, {}, "cannot read Live's windows"),
-])
+@pytest.mark.parametrize(
+    "fronts, dialogs, kw, message",
+    [
+        (["test_a"], 1, {}, "1 dialog"),
+        (["test_a"], 0, {"expect_front": "test_b"}, "expected 'test_b'"),
+        (["Anthony's mix"], 0, {}, "not one of ours"),
+        ([None], 0, {}, "cannot read Live's windows"),
+    ],
+)
 def test_check_stops_on_surprises(monkeypatch, fronts, dialogs, kw, message):
     FakeGui(monkeypatch, fronts, dialogs=dialogs)
     with pytest.raises(Guard, match=message):
@@ -71,6 +75,7 @@ def test_check_stops_on_surprises(monkeypatch, fronts, dialogs, kw, message):
 def test_check_stops_cleanly_when_osascript_hangs(monkeypatch):
     def hang(argv, **kw):
         raise subprocess.TimeoutExpired(argv, kw["timeout"])
+
     monkeypatch.setattr(ui.subprocess, "run", hang)
     with pytest.raises(Guard, match="cannot read Live's windows .*did not finish"):
         session.check(MockTransport(), "render:start")
@@ -87,27 +92,30 @@ def test_open_set_waits_for_the_window_then_the_lom(monkeypatch, rig):
     for name in ("test_old", "test_new"):
         rig.set_path(name).write_bytes(b"als")
     path = rig.set_path("test_old")
-    gui = FakeGui(monkeypatch, ["test_old", "test_old", None, None, "test_new"],
-                  on_save=lambda: os.utime(path, ns=(0, path.stat().st_mtime_ns + 10**9)))
+    gui = FakeGui(
+        monkeypatch,
+        ["test_old", "test_old", None, None, "test_new"],
+        on_save=lambda: os.utime(path, ns=(0, path.stat().st_mtime_ns + 10**9)),
+    )
     lom = MockTransport([DOWN, DOWN])
     assert session.open_set(lom, "test_new") >= 0.0
-    assert gui.clicks == ["File > Save Live Set"]                     # the old set was saved first
+    assert gui.clicks == ["File > Save Live Set"]  # the old set was saved first
     assert gui.opened == [["open", "-a", rig.live_app, str(rig.set_path("test_new"))]]
-    assert lom.calls == ["result = 1"] * 3                             # polled until it answered
+    assert lom.calls == ["result = 1"] * 3  # polled until it answered
 
 
 def test_open_set_does_not_save_live_over_a_set_rewritten_on_disk(monkeypatch, rig):
     for name in ("test_batch", "test_next"):
         rig.set_path(name).write_bytes(b"als")
     gui = FakeGui(monkeypatch, ["test_batch", "test_batch", "test_next"], save_enabled=False)
-    session._remember("test_batch")                                    # Live loaded this version
+    session._remember("test_batch")  # Live loaded this version
     path = rig.set_path("test_batch")
     path.write_bytes(b"new batch, written offline")
     os.utime(path, ns=(0, path.stat().st_mtime_ns + 10**9))
     assert session.rewritten_on_disk("test_batch")
     session.open_set(MockTransport(), "test_next")
     assert gui.clicks == [] and path.read_bytes() == b"new batch, written offline"
-    assert not session.rewritten_on_disk("test_next")                  # remembered as loaded
+    assert not session.rewritten_on_disk("test_next")  # remembered as loaded
 
 
 def test_open_set_stops_when_both_the_file_and_live_changed(monkeypatch, rig):
@@ -148,10 +156,10 @@ def test_save(monkeypatch, rig):
     path = rig.set_path("test_kit")
     path.write_bytes(b"als")
     FakeGui(monkeypatch, ["test_kit"], save_enabled=False)
-    assert session.save() is False                                     # nothing to save
+    assert session.save() is False  # nothing to save
     FakeGui(monkeypatch, ["test_kit"], on_save=lambda: os.utime(path, ns=(0, 1)))
     assert session.save("test_kit") is True
-    FakeGui(monkeypatch, ["test_kit"])                                 # clicked, file never changes
+    FakeGui(monkeypatch, ["test_kit"])  # clicked, file never changes
     with pytest.raises(Guard, match="not rewritten"):
         session.save(timeout_s=0.01)
     FakeGui(monkeypatch, ["test_other"])
@@ -171,8 +179,10 @@ def test_audio_clock_compares_positions():
 
 def test_other_agent_active_reads_the_live_log(rig):
     log = rig.live_log
-    log.write_text("2026-10-10T07:00:00.000001: info: RemoteScriptMessage: (AbletonLiveMCP) AbletonLiveMCP: connected: 127.0.0.1:5\n"
-                   "2026-10-10T07:15:11.464529: info: MemoryUsage: V: 508 GB\n")
+    log.write_text(
+        "2026-10-10T07:00:00.000001: info: RemoteScriptMessage: (AbletonLiveMCP) AbletonLiveMCP: connected: 127.0.0.1:5\n"
+        "2026-10-10T07:15:11.464529: info: MemoryUsage: V: 508 GB\n"
+    )
     assert session.last_lom_connection() == datetime(2026, 10, 10, 7, 0, 0, 1)
     assert session.other_agent_active(now=datetime(2026, 10, 10, 7, 4))
     assert not session.other_agent_active(now=datetime(2026, 10, 10, 7, 6))

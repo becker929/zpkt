@@ -1,6 +1,8 @@
-"""Low-level code generation for Ableton MCP execute() calls.
+"""LOM code for the first design's steps: each `gen_*` returns a Step (label, code, optional note) for hands.runner.
 
-Returns `Step` (label, code, optional note) ready for MCP execute().
+The first design (Oct 2026): a declarative ProjectConfig -> codegen steps -> builder -> StepRunner, behind `hands build`
+and `hands execute`. Its user (prototypes/engineer) was removed on 24 Nov 2026; Anthony keeps it to see whether it
+folds into something later.
 """
 
 from __future__ import annotations
@@ -9,14 +11,21 @@ import math
 
 from pydantic import BaseModel, ConfigDict
 
-from hands.live.knobs import EQ8_FREQ
+from hands.live.units import EQ8_FREQ
 from hands.models import (
-    DeviceSource, DeviceSpec, EQ8Spec, MidiNote, MidiPattern, ParallelRack, SamplePad,
+    DeviceSource,
+    DeviceSpec,
+    EQ8Spec,
+    MidiNote,
+    MidiPattern,
+    ParallelRack,
+    SamplePad,
 )
 
 
 class Step(BaseModel):
     """One atomic MCP execute() call."""
+
     model_config = ConfigDict(frozen=True)
 
     label: str
@@ -44,11 +53,11 @@ def gen_create_tracks(names: list[tuple[str, str]]) -> Step:
         "for i in range(len(song.tracks) - 1, 0, -1):",
         "    song.delete_track(i)",
         "t0 = song.tracks[0]",
-        f't0.name = {names[0][0]!r}',
+        f"t0.name = {names[0][0]!r}",
         "for i in range(len(t0.devices) - 1, -1, -1):",
         "    t0.delete_device(i)",
     ]
-    for idx, (name, ttype) in enumerate(names[1:], start=1):
+    for idx, (_name, ttype) in enumerate(names[1:], start=1):
         method = "create_midi_track" if ttype == "midi" else "create_audio_track"
         lines.append(f"song.{method}({idx})")
         lines.append("time.sleep(0.3)")
@@ -57,7 +66,7 @@ def gen_create_tracks(names: list[tuple[str, str]]) -> Step:
 
 
 def gen_rename_tracks(names: list[tuple[str, str]]) -> Step:
-    lines = [f'song.tracks[{i}].name = {n!r}' for i, (n, _) in enumerate(names)]
+    lines = [f"song.tracks[{i}].name = {n!r}" for i, (n, _) in enumerate(names)]
     lines.append("result = [(i, t.name) for i, t in enumerate(song.tracks)]")
     return Step(label="Rename tracks", code="\n".join(lines))
 
@@ -66,7 +75,7 @@ def gen_load_device(track_idx: int, device: DeviceSpec) -> Step:
     attr = _browser_attr(device.source)
     code = (
         f"t = song.tracks[{track_idx}]\n"
-        f'load_to(t, {attr}, {device.name!r})\n'
+        f"load_to(t, {attr}, {device.name!r})\n"
         "time.sleep(0.3)\n"
         "result = [d.name for d in t.devices]"
     )
@@ -76,7 +85,7 @@ def gen_load_device(track_idx: int, device: DeviceSpec) -> Step:
 def gen_load_devices(track_idx: int, devices: list[DeviceSpec]) -> Step:
     lines = [f"t = song.tracks[{track_idx}]"]
     for d in devices:
-        lines.append(f'load_to(t, {_browser_attr(d.source)}, {d.name!r})')
+        lines.append(f"load_to(t, {_browser_attr(d.source)}, {d.name!r})")
         lines.append("time.sleep(0.3)")
     lines.append("result = [d.name for d in t.devices]")
     return Step(
@@ -85,8 +94,7 @@ def gen_load_devices(track_idx: int, devices: list[DeviceSpec]) -> Step:
     )
 
 
-def gen_set_params(track_idx: int, device_idx: int,
-                   params: dict[str, float], label: str) -> Step:
+def gen_set_params(track_idx: int, device_idx: int, params: dict[str, float], label: str) -> Step:
     lines = [
         f"t = song.tracks[{track_idx}]",
         f"dev = t.devices[{device_idx}]",
@@ -98,8 +106,7 @@ def gen_set_params(track_idx: int, device_idx: int,
     return Step(label=f"Configure {label}", code="\n".join(lines))
 
 
-def gen_configure_eq8(track_idx: int, device_idx: int,
-                      spec: EQ8Spec, label: str) -> Step:
+def gen_configure_eq8(track_idx: int, device_idx: int, spec: EQ8Spec, label: str) -> Step:
     lines = [
         f"t = song.tracks[{track_idx}]",
         f"eq = t.devices[{device_idx}]",
@@ -121,14 +128,17 @@ def gen_configure_eq8(track_idx: int, device_idx: int,
 
 def gen_midi_clip(track_idx: int, slot: int, pattern: MidiPattern) -> Step:
     def _note(n: MidiNote) -> str:
-        return (f"notes.append(MidiNoteSpecification(pitch={n.pitch}, "
-                f"start_time={n.time}, duration={n.duration}, velocity={n.velocity}))")
+        return (
+            f"notes.append(MidiNoteSpecification(pitch={n.pitch}, "
+            f"start_time={n.time}, duration={n.duration}, velocity={n.velocity}))"
+        )
+
     lines = [
         f"t = song.tracks[{track_idx}]",
         f"cs = t.clip_slots[{slot}]",
         f"cs.create_clip({pattern.length_beats})",
         "clip = cs.clip",
-        f'clip.name = {pattern.name!r}',
+        f"clip.name = {pattern.name!r}",
         "notes = []",
         *(_note(n) for n in pattern.notes),
         "clip.add_new_notes(tuple(notes))",
@@ -153,7 +163,10 @@ def gen_select_drum_pad(track_idx: int, device_idx: int, note: int) -> Step:
 
 
 def gen_load_sample_to_pad(
-    track_idx: int, device_idx: int, note: int, sample_query: str,
+    track_idx: int,
+    device_idx: int,
+    note: int,
+    sample_query: str,
 ) -> Step:
     lines = [
         f"t = song.tracks[{track_idx}]",
@@ -175,7 +188,10 @@ def gen_load_sample_to_pad(
 
 
 def gen_set_simpler_params(
-    track_idx: int, device_idx: int, note: int, pad: SamplePad,
+    track_idx: int,
+    device_idx: int,
+    note: int,
+    pad: SamplePad,
 ) -> Step:
     s_start = pad.start / 100.0
     s_length = max(0.0, (pad.end - pad.start) / 100.0) if pad.end is not None else (1.0 - s_start)
@@ -196,7 +212,10 @@ def gen_set_simpler_params(
 
 
 def gen_load_device_to_pad(
-    track_idx: int, device_idx: int, note: int, device: DeviceSpec,
+    track_idx: int,
+    device_idx: int,
+    note: int,
+    device: DeviceSpec,
 ) -> Step:
     attr = _browser_attr(device.source)
     lines = [
@@ -220,8 +239,12 @@ def gen_load_device_to_pad(
 
 
 def gen_set_pad_chain_device_params(
-    track_idx: int, device_idx: int, note: int,
-    chain_device_idx: int, params: dict[str, float], label: str,
+    track_idx: int,
+    device_idx: int,
+    note: int,
+    chain_device_idx: int,
+    params: dict[str, float],
+    label: str,
 ) -> Step:
     """Set params on a device in a pad chain (0=Simpler, 1+=effects)."""
     lines = [
@@ -237,10 +260,7 @@ def gen_set_pad_chain_device_params(
 
 
 def gen_manual_rack_setup(track_idx: int, rack: ParallelRack) -> Step:
-    chain_desc = ", ".join(
-        f"'{c.name}' ({', '.join(d.name for d in c.devices) or 'empty'})"
-        for c in rack.chains
-    )
+    chain_desc = ", ".join(f"'{c.name}' ({', '.join(d.name for d in c.devices) or 'empty'})" for c in rack.chains)
     return Step(
         label=f"MANUAL: Audio Effect Rack chains on track {track_idx}",
         code="result = 'MANUAL STEP — see note'",
@@ -252,9 +272,9 @@ def gen_manual_rack_setup(track_idx: int, rack: ParallelRack) -> Step:
     )
 
 
-def gen_configure_rack_chain(track_idx: int, rack_device_idx: int,
-                             chain_idx: int, device_in_chain: int,
-                             params: dict[str, float], label: str) -> Step:
+def gen_configure_rack_chain(
+    track_idx: int, rack_device_idx: int, chain_idx: int, device_in_chain: int, params: dict[str, float], label: str
+) -> Step:
     lines = [
         f"t = song.tracks[{track_idx}]",
         f"aer = t.devices[{rack_device_idx}]",
@@ -274,8 +294,11 @@ def gen_configure_rack_chain(track_idx: int, rack_device_idx: int,
 
 
 def gen_tile_session_to_arrangement(
-    track_idx: int, session_slot: int,
-    start_beat: float, end_beat: float, clip_length: float,
+    track_idx: int,
+    session_slot: int,
+    start_beat: float,
+    end_beat: float,
+    clip_length: float,
 ) -> Step:
     """Tile a session clip across a range in the arrangement."""
     code = (

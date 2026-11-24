@@ -37,6 +37,7 @@ What the reset learned the hard way (2026-11-20):
 
 from __future__ import annotations
 
+import contextlib
 import json
 import os
 import re
@@ -46,18 +47,22 @@ import subprocess
 import tempfile
 import time
 import wave
+from contextlib import AbstractContextManager, suppress
 from dataclasses import asdict, dataclass, field
 from datetime import datetime
 from pathlib import Path
+from typing import Any
 
 from hands import config
 from hands.live import hold, ui
-from hands.live.transport import LiveError, LiveClient, McpTransport
+from hands.live.transport import LiveClient, LiveError, McpTransport
 
 AUDIO_RESTART = ["sudo", "-n", "/usr/bin/killall", "coreaudiod"]
-SUDOERS_HINT = ("restarting macOS audio needs your password once: run `sudo visudo -f /etc/sudoers.d/zpkt-audio` "
-                f"and add the line `{os.environ.get('USER', 'you')} ALL=(root) NOPASSWD: /usr/bin/killall coreaudiod`, "
-                "or run `sudo killall coreaudiod` yourself")
+SUDOERS_HINT = (
+    "restarting macOS audio needs your password once: run `sudo visudo -f /etc/sudoers.d/zpkt-audio` "
+    f"and add the line `{os.environ.get('USER', 'you')} ALL=(root) NOPASSWD: /usr/bin/killall coreaudiod`, "
+    "or run `sudo killall coreaudiod` yourself"
+)
 NO_DEVICE = "No Device"
 LAUNCH_MARK = "Live App: Begin Init"
 _BOX = re.compile(r"Message Box: (.*)")
@@ -92,7 +97,7 @@ def log_since(offset: int | None = None) -> list[str]:
         lines = f.read().decode("utf-8", "replace").splitlines()
     if offset is None:
         marks = [i for i, line in enumerate(lines) if LAUNCH_MARK in line]
-        lines = lines[marks[-1]:] if marks else lines
+        lines = lines[marks[-1] :] if marks else lines
     return lines
 
 
@@ -104,7 +109,7 @@ def output_device(lines: list[str]) -> str | None:
     """The output device Live last opened in these lines; NO_DEVICE when it has none."""
     device = None
     for line in lines:
-        if (m := _DEVICE.search(line)):
+        if m := _DEVICE.search(line):
             device = m.group(1).strip()
         elif "Message Box: Audio is disabled" in line:
             device = NO_DEVICE
@@ -173,13 +178,13 @@ def playhead_moves(client: McpTransport, wait_s: float = 1.0) -> bool | None:
 
 def press(key: str) -> None:
     """Bring Live to the front and press a key: 'return', 'escape' or 'dont-save' (Command-D)."""
-    stroke = {"return": "key code 36", "escape": "key code 53",
-              "dont-save": 'keystroke "d" using command down'}[key]
-    try:
-        ui.osa(f'tell application "{config.rig().live_app}" to activate\ndelay 0.4\n'
-               f'tell application "System Events" to {stroke}', timeout=15)
-    except ui.UiError:
-        pass                                     # the caller looks again and reports a dialog that stayed
+    stroke = {"return": "key code 36", "escape": "key code 53", "dont-save": 'keystroke "d" using command down'}[key]
+    with contextlib.suppress(ui.UiError):  # the caller looks again and reports a dialog that stayed
+        ui.osa(
+            f'tell application "{config.rig().live_app}" to activate\ndelay 0.4\n'
+            f'tell application "System Events" to {stroke}',
+            timeout=15,
+        )
     time.sleep(0.8)
 
 
@@ -254,11 +259,11 @@ class Health:
     playing: bool | None = None
     recording: bool | None = None
     render_tracks: int = 0
-    undone: int = 0          # notes of things an interrupted command did not put back (hands.live.hold)
+    undone: int = 0  # notes of things an interrupted command did not put back (hands.live.hold)
     problems: list[str] = field(default_factory=list)
     needs: str = "nothing"  # nothing | soft | restart | wait (another hands command is using Live)
 
-    def as_dict(self) -> dict:
+    def as_dict(self) -> dict[str, Any]:
         return asdict(self)
 
 
@@ -274,9 +279,12 @@ def check(client: McpTransport | None = None, *, play: bool = True) -> Health:
     a check that cannot finish says so as a problem."""
     try:
         return _check(client, play)
-    except Exception as exc:  # noqa: BLE001
-        return Health(live_running=live_running(), needs="restart",
-                      problems=[f"the check itself failed ({type(exc).__name__}: {str(exc)[:160]})"])
+    except Exception as exc:
+        return Health(
+            live_running=live_running(),
+            needs="restart",
+            problems=[f"the check itself failed ({type(exc).__name__}: {str(exc)[:160]})"],
+        )
 
 
 def _check(client: McpTransport | None, play: bool) -> Health:
@@ -297,13 +305,19 @@ def _check(client: McpTransport | None, play: bool) -> Health:
     h.lom = lom_ok(client)
     if h.device == NO_DEVICE:
         last = last_good_device()
-        h.problems.append("Live has no audio output device (it is silent): "
-                          + (f"`hands rig output '{last.split()[0]}'` puts back {last}" if last else "`hands rig output NAME`"))
+        h.problems.append(
+            "Live has no audio output device (it is silent): "
+            + (f"`hands rig output '{last.split()[0]}'` puts back {last}" if last else "`hands rig output NAME`")
+        )
     if h.dialogs:
-        h.problems.append(f"Live shows {h.dialogs} dialog(s)" + (f" (latest message: {h.last_message})" if h.last_message else ""))
+        h.problems.append(
+            f"Live shows {h.dialogs} dialog(s)" + (f" (latest message: {h.last_message})" if h.last_message else "")
+        )
     busy = hold.holder() if not h.lom else {}
-    if busy:                                     # the Remote Script serves one command at a time: silent is not broken
-        h.problems.append(f"Live is busy with `{busy.get('what') or 'another hands command'}`; check again when it is done")
+    if busy:  # the Remote Script serves one command at a time: silent is not broken
+        h.problems.append(
+            f"Live is busy with `{busy.get('what') or 'another hands command'}`; check again when it is done"
+        )
         h.needs = "wait"
         return h
     if not h.lom:
@@ -311,14 +325,18 @@ def _check(client: McpTransport | None, play: bool) -> Health:
     if h.lom:
         try:
             state = client.run(_STATE)
-            h.playing, h.recording, h.render_tracks = bool(state["playing"]), bool(state["recording"]), int(state["render_tracks"])
+            h.playing, h.recording, h.render_tracks = (
+                bool(state["playing"]),
+                bool(state["recording"]),
+                int(state["render_tracks"]),
+            )
         except (LiveError, OSError, KeyError, TypeError, ValueError):
             pass
         if h.recording:
             h.problems.append("Live is recording")
         if h.render_tracks:
             h.problems.append(f"{h.render_tracks} leftover Render track(s) from an interrupted render")
-        if play and h.device != NO_DEVICE and not h.dialogs and not hold.holder():   # never press play under a render
+        if play and h.device != NO_DEVICE and not h.dialogs and not hold.holder():  # never press play under a render
             h.playhead = playhead_moves(client)
             if h.playhead is False:
                 h.problems.append("Live's playhead does not move: its audio engine is not running")
@@ -329,7 +347,11 @@ def _check(client: McpTransport | None, play: bool) -> Health:
     # the default may be a TV that is off, while Live plays through the Mac's speakers.
     if not h.system_audio and h.playhead is not True:
         h.problems.append("macOS cannot play a sound either (its audio may be stuck)")
-    hard = h.playhead is False or (not h.lom and not h.dialogs) or (not h.system_audio and h.playhead is not True and not h.dialogs)
+    hard = (
+        h.playhead is False
+        or (not h.lom and not h.dialogs)
+        or (not h.system_audio and h.playhead is not True and not h.dialogs)
+    )
     h.needs = "restart" if hard else ("soft" if h.problems else "nothing")
     return h
 
@@ -344,7 +366,7 @@ class Report:
     steps: list[str] = field(default_factory=list)
     needs_you: list[str] = field(default_factory=list)
     backup: str | None = None
-    health: dict | None = None
+    health: dict[str, Any] | None = None
 
     def step(self, text: str) -> None:
         self.steps.append(text)
@@ -414,10 +436,8 @@ def _last_set_file() -> Path:
 
 
 def remember_set(path: Path) -> None:
-    try:
+    with suppress(OSError):
         hold.save_json(_last_set_file(), {"set": str(path)})
-    except OSError:
-        pass
 
 
 def last_set() -> Path | None:
@@ -474,14 +494,17 @@ def quit_live(report: Report, keep: bool, timeout_s: float = 45) -> None:
             report.step(f"could not save {front} ({str(exc)[:120]}); Live will offer to recover it")
             force = True
     elif unsaved:
-        report.step(f"{front or 'the open set'} has unsaved changes hands cannot back up; Live will offer to recover them")
+        report.step(
+            f"{front or 'the open set'} has unsaved changes hands cannot back up; Live will offer to recover them"
+        )
         force = True
     if not force:
-        try:
-            subprocess.Popen(["osascript", "-e", f'tell application "{config.rig().live_app}" to quit'],
-                             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        except OSError:
-            pass
+        with suppress(OSError):
+            subprocess.Popen(
+                ["osascript", "-e", f'tell application "{config.rig().live_app}" to quit'],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
         deadline = time.monotonic() + timeout_s
         pressed = False
         while live_running() and time.monotonic() < deadline:
@@ -496,11 +519,9 @@ def quit_live(report: Report, keep: bool, timeout_s: float = 45) -> None:
         except (OSError, subprocess.SubprocessError):
             pids = []
         for pid in pids:
-            try:
+            with suppress(ValueError, OSError):
                 os.kill(int(pid), signal.SIGKILL)
-            except (ValueError, OSError):
-                pass
-        for _ in range(20):                      # until it is gone: `open` on a dying Live opens nothing
+        for _ in range(20):  # until it is gone: `open` on a dying Live opens nothing
             if not live_running():
                 break
             time.sleep(0.5)
@@ -566,14 +587,17 @@ def launch(report: Report, set_path: Path | None, client: McpTransport, timeout_
     return False
 
 
-def reset(*, set_path: Path | None = None, level: str = "auto", keep: bool = True,
-          client: McpTransport | None = None) -> Report:
+def reset(
+    *, set_path: Path | None = None, level: str = "auto", keep: bool = True, client: McpTransport | None = None
+) -> Report:
     """Bring the rig back. level: auto (the mildest step that fixes what check finds), soft or restart.
     Always returns a report, whatever fails on the way."""
     client = client or LiveClient(retries=0, timeout=5)
     report = Report()
     if set_path is not None and not (set_path.suffix == ".als" and set_path.is_file()):
-        report.needs_you.append(f"there is no Live set at {set_path}; give --set the path of an .als file, or leave it out")
+        report.needs_you.append(
+            f"there is no Live set at {set_path}; give --set the path of an .als file, or leave it out"
+        )
         report.health = check(client, play=False).as_dict()
         return report
     try:
@@ -582,11 +606,12 @@ def reset(*, set_path: Path | None = None, level: str = "auto", keep: bool = Tru
     except hold.Busy as exc:
         report.needs_you.append(str(exc))
         report.health = report.health or {"needs": "soft", "problems": ["Live is busy with another hands command"]}
-    except Exception as exc:  # noqa: BLE001  (the one command that must not die half-way without a word)
+    except Exception as exc:
         report.step(f"the reset stopped ({type(exc).__name__}: {str(exc)[:160]})")
         report.health = check(client, play=False).as_dict()
-    report.ok = bool(report.health) and report.health.get("needs") == "nothing" and not report.needs_you
-    if not report.ok and not report.needs_you and not report.health.get("problems"):
+    health = report.health or {}
+    report.ok = bool(health) and health.get("needs") == "nothing" and not report.needs_you
+    if not report.ok and not report.needs_you and not health.get("problems"):
         report.needs_you.append("the reset could not finish; run it again, and if it stops the same way look at Live")
     if report.ok and report.set:
         path = set_path or _set_path(report.set, None)
@@ -595,7 +620,7 @@ def reset(*, set_path: Path | None = None, level: str = "auto", keep: bool = Tru
     return report
 
 
-def _held(report: Report):
+def _held(report: Report) -> AbstractContextManager[list[str]]:
     """The lock every hands command holds while it drives Live. The agent's reset waits its turn. A person's
     reset (the app refuses it while the app itself renders) stops a hands command that still holds the lock."""
     if os.environ.get("ZPKT_AGENT"):
@@ -604,9 +629,14 @@ def _held(report: Report):
     pid = h.get("pid")
     if isinstance(pid, int) and pid != os.getpid():
         try:
-            mine = "hands" in subprocess.run(["ps", "-o", "command=", "-p", str(pid)], capture_output=True, text=True, timeout=5).stdout
+            mine = (
+                "hands"
+                in subprocess.run(
+                    ["ps", "-o", "command=", "-p", str(pid)], capture_output=True, text=True, timeout=5
+                ).stdout
+            )
             if mine:
-                os.kill(pid, signal.SIGTERM)     # it unwinds through its `finally` blocks and puts Live back
+                os.kill(pid, signal.SIGTERM)  # it unwinds through its `finally` blocks and puts Live back
                 report.step(f"stopped `{h.get('what') or 'a hands command'}`, which was still using Live")
         except (OSError, subprocess.SubprocessError):
             pass
@@ -619,7 +649,7 @@ def _reset(report: Report, client: McpTransport, set_path: Path | None, level: s
     asked = set_path
     set_path = set_path or _set_path(front, None) or last_set()
     report.set = set_path.stem if set_path else None
-    need = level if level != "auto" else before.needs
+    need = level if before is None else before.needs
     if asked and front != asked.stem and need != "restart":
         report.step(f"{front or 'no set'} is open, not {asked.stem}: Live restarts with it")
         need = "restart"
@@ -631,7 +661,7 @@ def _reset(report: Report, client: McpTransport, set_path: Path | None, level: s
         report.health = after.as_dict()
     if need == "restart":
         if lom_ok(client):
-            for line in hold.replay(client):     # before the set is saved, so the file does not keep a half-done render
+            for line in hold.replay(client):  # before the set is saved, so the file does not keep a half-done render
                 report.step(line)
         quit_live(report, keep)
         if not system_audio_ok():
@@ -640,9 +670,10 @@ def _reset(report: Report, client: McpTransport, set_path: Path | None, level: s
             soft_reset(client, report)
         report.health = check(client).as_dict()
         if report.health["device"] == NO_DEVICE:
-            report.needs_you.append("Live has no audio output device: choose one in Live > Settings > Audio "
-                                    "(Audio Output Device)")
-        if report.health["needs"] == "soft":     # what a second look still finds (a late dialog, a note Live refused)
+            report.needs_you.append(
+                "Live has no audio output device: choose one in Live > Settings > Audio (Audio Output Device)"
+            )
+        if report.health["needs"] == "soft":  # what a second look still finds (a late dialog, a note Live refused)
             soft_reset(client, report)
             report.health = check(client).as_dict()
     elif need == "nothing":

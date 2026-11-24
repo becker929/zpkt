@@ -3,8 +3,7 @@
 Before and after each Live step, `check` makes sure Live is where the step expects it: no dialog
 open, one of our sets in front (config.set_prefixes: anything else means someone else is using
 Live), the expected set if one is named, and the LOM answering. A Guard means stop: never chain the
-next step past a surprise (docs/probe-packing-findings.md, section 7). Each Guard is also reported
-to the studio as a major step, so there is a screenshot of what went wrong.
+next step past a surprise (docs/probe-packing-findings.md, section 7).
 
 Sets live in config.sets_dir and are named without ".als".
 """
@@ -18,9 +17,9 @@ import subprocess
 import time
 from datetime import datetime
 from pathlib import Path
-from typing import NoReturn
+from typing import Any, NoReturn
 
-from hands import config, steps
+from hands import config
 from hands.live import ui
 from hands.live.transport import LiveError, McpTransport
 
@@ -32,8 +31,7 @@ class Guard(RuntimeError):
 
 
 def stop(message: str) -> NoReturn:
-    """Report the surprise to the studio (a screenshot of it), then raise Guard."""
-    steps.report(f"guard: {message}", "major")
+    """Stop the run: raise Guard with what was found."""
     raise Guard(message)
 
 
@@ -91,9 +89,10 @@ def _save_front(front: str, where: str) -> None:
         save(front)
         return
     if ui.menu_enabled("File", "Save Live Set"):
-        stop(f"{where}: {front}.als changed on disk since Live loaded it and Live has unsaved changes; "
-             "saving would overwrite the file, not saving would leave Live's prompt open")
-    steps.report(f"{where}: not saving {front}, its file changed on disk since Live loaded it", "minor")
+        stop(
+            f"{where}: {front}.als changed on disk since Live loaded it and Live has unsaved changes; "
+            "saving would overwrite the file, not saving would leave Live's prompt open"
+        )
 
 
 def check(client: McpTransport, where: str, *, expect_front: str | None = None, ours: bool = True) -> str:
@@ -137,7 +136,6 @@ def open_set(client: McpTransport, name: str, *, save_current: bool = True, time
         stop(f"open: {name} is already open, and Live would not reload it; open another set first")
     if save_current and front and rig.set_path(front).exists():
         _save_front(front, "open")
-    steps.report(f"opening {name}", "minor")
     t0 = time.monotonic()
     opened = subprocess.run(["open", "-a", rig.live_app, str(path)], capture_output=True, text=True)
     if opened.returncode:
@@ -153,7 +151,6 @@ def open_set(client: McpTransport, name: str, *, save_current: bool = True, time
         time.sleep(0.1)
     seconds = time.monotonic() - t0
     _remember(name)
-    steps.report(f"opened {name} in {seconds:.1f} s", "major")
     return seconds
 
 
@@ -183,7 +180,6 @@ def save(name: str | None = None, *, timeout_s: float = 30.0) -> bool:
         try:
             if path.stat().st_mtime_ns != before:
                 _remember(name)
-                steps.report(f"saved {name}", "minor")
                 return True
         except FileNotFoundError:
             pass  # Live replaces the file, so it is missing for a moment
@@ -191,6 +187,58 @@ def save(name: str | None = None, *, timeout_s: float = 30.0) -> bool:
     if not ui.menu_enabled("File", "Save Live Set"):
         return False  # Live had nothing to save; the item greys out a moment after a save, so the click did nothing
     stop(f"save: {path.name} was not rewritten in {timeout_s:g} s")
+
+
+def front_set() -> tuple[str, bool]:
+    """The open set's name, and whether it is a guess: Live's window title, else (the window on another Space, full
+    screen) the set hands last saw Live open or save, which each `hands live ...` command keeps on disk. Guard if
+    there is neither."""
+    try:
+        if title := ui.front_title():
+            return title, False
+    except ui.UiError:
+        pass
+    try:
+        seen = json.loads(_loaded_file().read_text())
+    except (FileNotFoundError, ValueError):
+        seen = {}
+    if not seen:
+        stop("Live shows no set, and hands has not seen one opened or saved")
+    return max(seen, key=seen.get), True
+
+
+CONFIRM = Path(__file__).resolve().parents[3] / "macros/hammerspoon/scripts/rig-confirm.sh"
+
+
+def reload_set(set_path: Path, *, save_first: bool = False, seconds: int = 10) -> None:
+    """Reopen `set_path` in Live behind a countdown the person at the Mac can cancel (rig-confirm.sh), and wait until
+    Live shows it and the LOM answers. For a set edited offline; with save_first, Live saves first (only when the
+    file was not edited offline). Guard if the countdown is cancelled or Live does not come back with the set."""
+    from hands.live.transport import LiveClient
+
+    if save_first and not ui.menu("File", "Save Live Set"):
+        stop("could not save Live")
+    if subprocess.run(["bash", str(CONFIRM), f"Reloading the Live set {set_path.stem}", str(seconds)]).returncode:
+        stop("cancelled (or no countdown)")
+    subprocess.run(["open", "-a", config.rig().live_app, str(set_path)], check=True)
+    time.sleep(3)
+    for _ in range(60):
+        try:
+            if ui.dialogs():
+                time.sleep(2)  # the set may still be loading behind a progress window
+                continue
+            LiveClient(retries=0, timeout=3).run("1")
+            if ui.front_title() == set_path.stem:
+                return
+        except (LiveError, ui.UiError):
+            pass
+        time.sleep(2)
+    if ui.dialogs():
+        stop(
+            "Live is showing a dialog, most likely about unsaved changes; answer it in Live, "
+            "or save first (--save-first) when the file was not edited offline"
+        )
+    stop("Live did not show the set after the reload")
 
 
 def copy_set(src: str, dst: str) -> Path:
@@ -227,7 +275,6 @@ def restart(client: McpTransport, *, timeout_s: float = 240.0) -> float:
         _save_front(front, "restart")
     if ui.dialogs():
         stop("restart: a dialog is open; quitting would stop at it")
-    steps.report("quitting Live", "major")
     t0 = time.monotonic()
     ui.osa(f'tell application "{config.rig().live_app}" to quit', timeout=60)
     for _ in range(120):
@@ -239,7 +286,6 @@ def restart(client: McpTransport, *, timeout_s: float = 240.0) -> float:
     launch()
     while time.monotonic() - t0 < timeout_s:
         if _answers(client):
-            steps.report("Live is back", "major")
             return time.monotonic() - t0
         time.sleep(2)
     stop(f"restart: Live did not answer LOM {timeout_s:g} s after the relaunch")
@@ -254,7 +300,7 @@ def audio_clock_ok(client: McpTransport, wait_s: float = 1.2) -> bool:
     return after > before
 
 
-def memory() -> dict:
+def memory() -> dict[str, Any]:
     """The Mac's swap, compressed and free memory, and Live's resident and full footprint, in GB.
 
     Live's footprint (top's MEM) counts its compressed pages, which RSS misses under pressure.
@@ -268,15 +314,20 @@ def memory() -> dict:
         line = next(line for line in vm.splitlines() if line.startswith(label))
         return int(line.split(":")[1].strip().rstrip(".")) * page / 2**30
 
-    out = {"swap_used_gb": round(float(swap.split("used = ")[1].split("M")[0]) / 1024, 2),
-           "compressed_gb": round(pages("Pages occupied by compressor"), 2),
-           "free_gb": round(pages("Pages free"), 2),
-           "live_rss_gb": None, "live_mem_gb": None, "live_compressed_gb": None}
+    out = {
+        "swap_used_gb": round(float(swap.split("used = ")[1].split("M")[0]) / 1024, 2),
+        "compressed_gb": round(pages("Pages occupied by compressor"), 2),
+        "free_gb": round(pages("Pages free"), 2),
+        "live_rss_gb": None,
+        "live_mem_gb": None,
+        "live_compressed_gb": None,
+    }
     pid = subprocess.run(["pgrep", "-x", "Live"], capture_output=True, text=True).stdout.split()
     if pid:
         rss_kb = int(subprocess.run(["ps", "-o", "rss=", "-p", pid[0]], capture_output=True, text=True).stdout)
-        top = subprocess.run(["top", "-l", "1", "-pid", pid[0], "-stats", "mem,cmprs"],
-                             capture_output=True, text=True).stdout
+        top = subprocess.run(
+            ["top", "-l", "1", "-pid", pid[0], "-stats", "mem,cmprs"], capture_output=True, text=True
+        ).stdout
         mem, cmprs = top.strip().splitlines()[-1].split()[:2]
         out.update(live_rss_gb=round(rss_kb / 2**20, 3), live_mem_gb=_gb(mem), live_compressed_gb=_gb(cmprs))
     return out

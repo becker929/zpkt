@@ -20,7 +20,7 @@ Each part is its own uv project with its own lockfile. Run one part's tests from
   needs audio files or models. `hands` tests use a fake Remote Script and fake GUI; `ears`
   tests synthesise their audio.
 - **Contracts stay current.** The schemas in `lib/contracts/` are generated from each part's
-  models (`hands/scripts/gen_schemas.py`, `ears/scripts/gen_schema.py`). A test fails if a
+  models (`hands/tools/gen_schemas.py`, `ears/scripts/gen_schema.py`). A test fails if a
   committed schema is stale.
 - **No personal paths.** What differs per Mac goes in `~/.config/zpkt/rig.toml`
   (`hands/src/hands/config.py`), not in code.

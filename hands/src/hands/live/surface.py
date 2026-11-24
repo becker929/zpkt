@@ -1,4 +1,9 @@
-"""Bridge zpkt-surface JSON state into Ableton Live parameter updates."""
+"""`hands live surface apply`: a zpkt-surface state's values onto one device's parameters.
+
+It guesses: a control's parameter from words in its id ("cutoff", "decay") and its units from the same words (Hz, ms),
+then maps them onto Operator-like 0..1 curves. Nothing in Zpkt web calls it; `hands panel apply` is the measured way
+(each value set by what Live shows). Kept and tested so the command keeps working.
+"""
 
 from __future__ import annotations
 
@@ -79,13 +84,21 @@ def apply_surface_state(
     values = state.get("values", state)
     param_updates = map_surface_values(values, mapping)
 
-    t_expr = f"song.tracks[{track}]" if isinstance(track, int) or (isinstance(track, str) and track.isdigit()) else f"next(x for x in song.tracks if x.name == {track!r})"
-    d_expr = f"{t_expr}.devices[{device}]" if isinstance(device, int) or (isinstance(device, str) and device.isdigit()) else f"next(d for d in {t_expr}.devices if d.name == {device!r})"
+    t_expr = (
+        f"song.tracks[{track}]"
+        if isinstance(track, int) or (isinstance(track, str) and track.isdigit())
+        else f"next(x for x in song.tracks if x.name == {track!r})"
+    )
+    d_expr = (
+        f"{t_expr}.devices[{device}]"
+        if isinstance(device, int) or (isinstance(device, str) and device.isdigit())
+        else f"next(d for d in {t_expr}.devices if d.name == {device!r})"
+    )
 
     # Check if level/volume should also adjust mixer
     level_val = values.get("level")
 
-    code = f'''
+    code = f"""
 _t = {t_expr}
 _d = {d_expr}
 _by_name = {{p.name: p for p in _d.parameters}}
@@ -115,5 +128,5 @@ result = {{
     "applied": _applied,
     "count": len(_applied),
 }}
-'''
+"""
     return client.run(code)

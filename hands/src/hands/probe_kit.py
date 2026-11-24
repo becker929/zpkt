@@ -25,23 +25,24 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 
 from hands import als, audio, config
+from hands.bench import timing
 from hands.live import render as live_render
 from hands.live import session, timeops
-from hands.live.knobs import Knob, Lin, Log
+from hands.live.knobs import Knob
 from hands.live.session import stop
 from hands.live.transport import McpTransport
-from hands.steps import timing
+from hands.live.units import Lin, Log
 
 Step = tuple[Knob, Sequence]  # one value per pattern, in the knob's .als units
 
 
 @dataclass
 class Kit:
-    kit: str               # the kit's name, e.g. "c8x4"
-    set: str               # its Live set in sets_dir
-    src: str               # the set it was cut from
-    keep: list[float]      # [start, end) of the section in src, in beats
-    lead: float            # beats before the first pattern
+    kit: str  # the kit's name, e.g. "c8x4"
+    set: str  # its Live set in sets_dir
+    src: str  # the set it was cut from
+    keep: list[float]  # [start, end) of the section in src, in beats
+    lead: float  # beats before the first pattern
     pattern_beats: float
     P: int
 
@@ -72,8 +73,9 @@ def _kit(kit: Kit | str) -> Kit:
     return Kit.load(kit) if isinstance(kit, str) else kit
 
 
-def template(client: McpTransport, kit: str, src: str, keep_start: float, keep_end: float, P: int,
-             lead: float = 8.0) -> Kit:
+def template(
+    client: McpTransport, kit: str, src: str, keep_start: float, keep_end: float, P: int, lead: float = 8.0
+) -> Kit:
     """Build a kit set in Live: [0, lead) of `src` + [keep_start, keep_end), repeated P times.
 
     P must be a power of two: Duplicate Time doubles the region. Takes 14 s + 7 s per doubling.
@@ -101,8 +103,9 @@ def template(client: McpTransport, kit: str, src: str, keep_start: float, keep_e
     n = 1
     while n < P:
         t = time.monotonic()
-        timeops.duplicate(client, lead, n * pat, end=lead + 2 * n * pat + slack / 2, tol=slack / 2 + 1e-6,
-                          clips_from=lead)
+        timeops.duplicate(
+            client, lead, n * pat, end=lead + 2 * n * pat + slack / 2, tol=slack / 2 + 1e-6, clips_from=lead
+        )
         timing("kit_duplicate", time.monotonic() - t, kit=kit, to_P=2 * n)
         n *= 2
         session.check(client, f"kit:dup{n}", expect_front=name)
@@ -141,7 +144,7 @@ def write_batch(kit: Kit | str, tag: str, steps: Iterable[Step], devices: Iterab
         if len(values) != kit.P:
             raise ValueError(f"{knob}: {len(values)} values for {kit.P} patterns")
         track, device, path = als.resolve(tree, *knob.spec)
-        als.set_steps(tree, track, device, path, list(zip(times, values)))
+        als.set_steps(tree, track, device, path, list(zip(times, values, strict=False)))
     name = f"{rig.new_set_prefix}x_{kit.kit}_{tag}"
     problems = als.check(als.save(tree, rig.set_path(name), overwrite=True)).problems
     if problems:
@@ -166,15 +169,26 @@ def render(client: McpTransport, batch_set: str, kit: Kit | str, out_dir: str | 
     audio.check_audio(out_dir / "all.wav", seconds=kit.length_beats * spb)
     cuts = [(kit.lead + k * kit.pattern_beats) * spb for k in range(kit.P + 1)]
     files = audio.slice_render(out_dir / "all.wav", cuts, out_dir)
-    manifest = {"batch_set": batch_set, "kit": asdict(kit), "load_s": round(t_load, 2), "export_s": round(t_export, 2),
-                "files": [str(f) for f in files], "seconds_per_probe": round((t_load + t_export) / kit.P, 2)}
+    manifest = {
+        "batch_set": batch_set,
+        "kit": asdict(kit),
+        "load_s": round(t_load, 2),
+        "export_s": round(t_export, 2),
+        "files": [str(f) for f in files],
+        "seconds_per_probe": round((t_load + t_export) / kit.P, 2),
+    }
     (out_dir / "manifest.json").write_text(json.dumps(manifest, indent=1))
     timing("kit_render", t_load + t_export, kit=kit.kit, P=kit.P, load=round(t_load, 2), export=round(t_export, 2))
     return manifest
 
 
-def merge_patterns(patterns: Sequence[Iterable[tuple[Knob, object]]], P: int,
-                   baseline: Callable[[Knob], object], *, taken: Iterable[Knob] = ()) -> list[Step]:
+def merge_patterns(
+    patterns: Sequence[Iterable[tuple[Knob, object]]],
+    P: int,
+    baseline: Callable[[Knob], object],
+    *,
+    taken: Iterable[Knob] = (),
+) -> list[Step]:
     """One step envelope per knob from per-pattern settings.
 
     patterns[j] lists the (knob, value) pairs pattern j sets (at most P patterns). A pattern that

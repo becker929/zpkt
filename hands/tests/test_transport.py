@@ -1,4 +1,5 @@
 """LiveClient against a fake Remote Script on a free loopback port (never Live's own 16619)."""
+
 from __future__ import annotations
 
 import json
@@ -65,6 +66,7 @@ def remote():
     def start(answer):
         servers.append(FakeRemoteScript(answer))
         return servers[-1]
+
     yield start
     for s in servers:
         s.close()
@@ -81,17 +83,27 @@ def test_ok_reply_keeps_result_and_elapsed(remote):
 
 
 def test_error_reply_keeps_traceback_and_warning(remote):
-    live = remote(lambda m: {"status": "error", "error": "boom", "traceback": "Traceback ...",
-                             "warning": "Multi-line code may have partially executed."})
+    live = remote(
+        lambda m: {
+            "status": "error",
+            "error": "boom",
+            "traceback": "Traceback ...",
+            "warning": "Multi-line code may have partially executed.",
+        }
+    )
     res = live.client().execute("a = 1\nraise ValueError('boom')")
     assert (res.status, res.error, res.traceback) == ("error", "boom", "Traceback ...")
-    with pytest.raises(LiveError, match=r"boom \(Multi-line code may have partially executed\.\) \[in 'a = 1'\]") as exc:
+    with pytest.raises(
+        LiveError, match=r"boom \(Multi-line code may have partially executed\.\) \[in 'a = 1'\]"
+    ) as exc:
         live.client().run("a = 1\nraise ValueError('boom')")
     assert exc.value.result.traceback == "Traceback ..."
 
 
 def test_loading_hint_becomes_the_warning(remote):
-    live = remote(lambda m: {"status": "error", "error": "Scope unavailable: x", "hint": "Ableton may still be loading."})
+    live = remote(
+        lambda m: {"status": "error", "error": "Scope unavailable: x", "hint": "Ableton may still be loading."}
+    )
     assert live.client().execute("song.tempo").warning == "Ableton may still be loading."
 
 
@@ -110,6 +122,7 @@ def test_unreachable_retries_the_connection_only(monkeypatch):
     def refuse(address, timeout):
         attempts.append(address)
         raise ConnectionRefusedError("refused")
+
     monkeypatch.setattr(T.socket, "create_connection", refuse)
     client = LiveClient("127.0.0.1", 9, retries=2, backoff=0.0)
     res = client.execute("song.tempo")
@@ -128,6 +141,7 @@ def test_a_failed_connect_is_retried_until_it_works(remote, monkeypatch):
         if len(calls) == 1:
             raise TimeoutError("timed out")
         return real(address, timeout)
+
     monkeypatch.setattr(T.socket, "create_connection", flaky)
     assert live.client(retries=1).run("1 + 1") == 2
     assert len(calls) == 2 and len(live.seen) == 1
@@ -167,9 +181,15 @@ def test_cli_exec_prepends_helpers(remote):
 
 
 def test_cli_exec_and_ping(remote):
-    live = remote(lambda m: {"status": "ok", "pong": True} if m.get("ping")
-                  else {"status": "ok", "result": [1, 2]} if m["code"] == "[1, 2]"
-                  else {"status": "error", "error": "NameError", "traceback": "tb"})
+    live = remote(
+        lambda m: (
+            {"status": "ok", "pong": True}
+            if m.get("ping")
+            else {"status": "ok", "result": [1, 2]}
+            if m["code"] == "[1, 2]"
+            else {"status": "error", "error": "NameError", "traceback": "tb"}
+        )
+    )
     port = ["--port", str(live.port)]
     out = CliRunner().invoke(app, ["live", "exec", "--json", "--raw", "[1, 2]", *port])
     assert out.exit_code == 0 and out.stdout.strip() == "[1, 2]"
@@ -185,11 +205,16 @@ def test_clients_default_to_the_rig_port(monkeypatch):
     assert LiveClient().port == 17002 and LiveClient(port=9).port == 9
 
 
-@pytest.mark.parametrize("argv", [["live", "exec", "--json", "--raw", "1 + 2"], ["ab", "status"],
-                                  ["sweep", "--json", "--out", "{tmp}"]])
+@pytest.mark.parametrize(
+    "argv", [["live", "exec", "--json", "--raw", "1 + 2"], ["ab", "status"], ["sweep", "--json", "--out", "{tmp}"]]
+)
 def test_cli_commands_without_port_use_the_rig_port(remote, monkeypatch, tmp_path, argv):
-    live = remote(lambda m: {"status": "ok", "result": 3 if "1 + 2" in m.get("code", "") else
-                             {"mode": "mix", "ref": "REF a", "refs": ["REF a"]}})
+    live = remote(
+        lambda m: {
+            "status": "ok",
+            "result": 3 if "1 + 2" in m.get("code", "") else {"mode": "mix", "ref": "REF a", "refs": ["REF a"]},
+        }
+    )
     monkeypatch.setenv("ZPKT_LIVE_PORT", str(live.port))
     config.rig.cache_clear()
     out = CliRunner().invoke(app, [a.replace("{tmp}", str(tmp_path)) for a in argv])

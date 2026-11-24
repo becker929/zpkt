@@ -1,4 +1,5 @@
 """hands.live.ui without running osascript: subprocess is replaced by a script of answers."""
+
 from __future__ import annotations
 
 import subprocess
@@ -29,6 +30,7 @@ def fake(monkeypatch):
         monkeypatch.setattr(ui, "_direct_works", False)
         monkeypatch.setattr(ui.time, "sleep", lambda s: None)
         return f
+
     return install
 
 
@@ -39,25 +41,29 @@ def test_osa_returns_stripped_output(fake):
 
 
 def test_no_accessibility_reruns_through_hammerspoon(fake):
-    f = fake((1, "", "execution error: osascript is not allowed assistive access. (-1719)"),
-             (0, "-- Loading extension: osascript\ntrue\n", ""))
+    f = fake(
+        (1, "", "execution error: osascript is not allowed assistive access. (-1719)"),
+        (0, "-- Loading extension: osascript\ntrue\n", ""),
+    )
     assert ui.menu_enabled("File", "Save Live Set") is True
     assert f.calls[1][:2] == ["hs", "-c"]
 
 
 def test_hammerspoon_failure_is_an_error(fake):
-    fake((1, "", "System Events got an error: Can't get window 1 (-1728)"),
-         (0, "System Events got an error (-1728)\n__OSA_FAIL__\n", ""))
+    fake(
+        (1, "", "System Events got an error: Can't get window 1 (-1728)"),
+        (0, "System Events got an error (-1728)\n__OSA_FAIL__\n", ""),
+    )
     with pytest.raises(ui.UiError, match="-1728"):
         ui.front_title()
 
 
 def test_once_direct_calls_work_a_1728_is_a_real_error(fake):
-    f = fake((0, "x", ""), (1, "", "Can't get window 1 of process \"Live\". (-1728)"))
+    f = fake((0, "x", ""), (1, "", 'Can\'t get window 1 of process "Live". (-1728)'))
     ui.front_title()
     with pytest.raises(ui.UiError, match="-1728"):
         ui.front_title()
-    assert len(f.calls) == 2           # no detour through Hammerspoon
+    assert len(f.calls) == 2  # no detour through Hammerspoon
 
 
 def test_without_hammerspoon_the_error_stands(fake):
@@ -76,7 +82,7 @@ def test_windows_and_dialogs(fake):
 def test_menu_waits_until_the_item_is_enabled(fake):
     f = fake((0, "false", ""), (0, "false", ""), (0, "true", ""), (0, "", ""))
     assert ui.menu("Edit", "Delete Time", tries=3) is True
-    assert "click menu item \"Delete Time\" of menu \"Edit\"" in f.calls[-1][2]
+    assert 'click menu item "Delete Time" of menu "Edit"' in f.calls[-1][2]
     fake((0, "false", ""), (0, "false", ""))
     assert ui.menu("Edit", "Delete Time", tries=2) is False
 
@@ -97,6 +103,7 @@ def test_reap_modals_runs_the_packaged_script(fake):
 def test_a_hung_script_is_a_ui_error(monkeypatch):
     def hang(argv, **kw):
         raise subprocess.TimeoutExpired(argv, kw["timeout"])
+
     monkeypatch.setattr(ui.subprocess, "run", hang)
     with pytest.raises(ui.UiError, match="did not finish in 30 s"):
         ui.front_title()
@@ -107,9 +114,11 @@ def test_a_hung_hammerspoon_rerun_is_a_ui_error(fake, monkeypatch):
 
     def hang(argv, timeout):
         raise subprocess.TimeoutExpired(argv, timeout)
+
     monkeypatch.setattr(ui, "_via_hammerspoon", hang)
     with pytest.raises(ui.UiError, match="did not finish"):
         ui.dialogs()
+
 
 def test_custom_ui_timeout_is_honored(monkeypatch):
     monkeypatch.setattr(ui, "DEFAULT_TIMEOUT", 2.5)

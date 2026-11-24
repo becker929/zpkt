@@ -1,4 +1,5 @@
 """hands.live.timeops: the selection call and the song-end checks, against a fake Live."""
+
 from __future__ import annotations
 
 import pytest
@@ -34,6 +35,7 @@ def menus(monkeypatch):
             return False
         clicked.append(item)
         return True
+
     monkeypatch.setattr(ui, "menu", menu)
     monkeypatch.setattr(timeops.time, "sleep", lambda s: None)
     monkeypatch.setattr(session.time, "sleep", lambda s: None)
@@ -69,7 +71,7 @@ def test_delete_checks_the_song_end(menus):
 def test_duplicate_by_end_and_clip_count(menus):
     live = FakeArrangement([40.0, 72.0], clips=[12, 24])
     assert timeops.duplicate(live, 8, 32) == 32.0
-    live = FakeArrangement([40.0, 72.5], clips=[12, 24])   # a breakpoint past the region moved the end
+    live = FakeArrangement([40.0, 72.5], clips=[12, 24])  # a breakpoint past the region moved the end
     assert timeops.duplicate(live, 8, 32, end=72.5, clips_from=8) == 32.5
     live = FakeArrangement([40.0, 72.0], clips=[12, 23])
     with pytest.raises(Guard, match="23 clips after 8, expected 24"):

@@ -1,9 +1,9 @@
 """The library of WIP tracks, read-only: where each track is in the seven steps (contrib/docs/workflow.md).
 
-    workflow   the steps, their order, caps and targets
-    facts      what a .als shows (tracks, devices, clips, samples, Main chain), via hands.als
-    score      one scorer per step: (percent, evidence)
-    records    a step's state on the producer's word or a documented decision; beats the heuristic
-    inventory  scan roots, find exports, apply records, sort; Markdown
-    models     the Inventory JSON (lib/contracts/inventory.schema.json)
+workflow   the steps, their order, caps and targets
+facts      what a .als shows (tracks, devices, clips, samples, Main chain), via hands.als
+score      one scorer per step: (percent, evidence)
+records    a step's state on the producer's word or a documented decision; beats the heuristic
+inventory  scan roots, find exports, apply records, sort; Markdown
+models     the Inventory JSON (lib/contracts/inventory.schema.json)
 """

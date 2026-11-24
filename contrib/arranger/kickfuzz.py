@@ -402,10 +402,9 @@ GROUPS = [("sub", 25, 63), ("body", 63, 160), ("box", 160, 400), ("mid", 400, 10
 
 def measure(_names: list[str]) -> None:
     """Each kick loop's shape (third-octave energy per group, dB of its total) against the references' kick-alone
-    bars, the way hands/scripts/industrial/listen.py kickshape does; and each mix's drop for the page."""
+    bars, the way the industrial short's listen.py kickshape did (kickshape.py); and each mix's drop for the page."""
     import numpy as np
-    sys.path.insert(0, str(mixset.ROOT / "hands" / "scripts" / "industrial"))
-    import listen
+    import kickshape as listen
 
     def shape(x, sr):
         lin = 10 ** (listen.third_octaves(x, sr) / 10)

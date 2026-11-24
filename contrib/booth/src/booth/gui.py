@@ -1,48 +1,43 @@
 """Live's GUI steps without keystrokes: browser loads, parameters in display units, the mixer, Save As and the
-export. They are SH001's (hands/scripts/rummage/liveops.py), loaded from there rather than copied, pointed at the
-booth's client and folders.
+export. They are hands.live.ops (SH001's liveops.py, moved into hands), pointed at the booth's client and folders.
 
-liveops stops with sys.exit("STOP: ..."); here that becomes Stop, so the runner can hold the job instead of exiting.
+hands stops with Guard (and older steps with sys.exit("STOP: ...")); here that becomes Stop, so the runner can hold
+the job instead of exiting.
 """
 
 from __future__ import annotations
 
-import importlib.util
 from contextlib import contextmanager
 from pathlib import Path
 
-_PATH = Path(__file__).resolve().parents[4] / "hands" / "scripts" / "rummage" / "liveops.py"
+# Exports are staged in SH001's folder (~/_agent_scratch/rummage): the Save panel's Where popup reaches it, and it
+# could not reach BOOTH_HOME (first watched run, 2026-11-01). Each file then moves on to the job.
+STAGING = Path("~/_agent_scratch/rummage").expanduser()
 
 
 class Stop(RuntimeError):
     """Something in Live was not as expected. The job is held and the booth closes (runner.py)."""
 
 
-def _load():
-    spec = importlib.util.spec_from_file_location("booth_liveops", _PATH)
-    mod = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(mod)   # its os.environ.setdefault calls change nothing: booth/__init__ set them first
-    # Exports keep liveops' own staging folder (~/_agent_scratch/rummage): the Save panel's Where popup reaches it,
-    # and it could not reach BOOTH_HOME (first watched run, 2026-11-01). liveops moves each file on to the job.
-    return mod
-
-
 _ops = None
 
 
 def ops(client=None):
-    """liveops, using `client` for its LOM calls."""
+    """hands' LiveOps, using `client` for its LOM calls."""
     global _ops
     if _ops is None:
-        _ops = _load()
+        from hands.live.ops import LiveOps
+        from hands.live.transport import LiveClient
+
+        _ops = LiveOps(LiveClient(), staging=STAGING)
     if client is not None:
-        _ops.LIVE = client
+        _ops.client = client
     return _ops
 
 
 @contextmanager
 def stops(where: str):
-    """Turn liveops' and hands' stops into Stop, naming the step."""
+    """Turn hands' stops into Stop, naming the step."""
     from hands.live.session import Guard
     from hands.live.transport import LiveError
     try:

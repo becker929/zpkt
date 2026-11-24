@@ -1,8 +1,9 @@
-"""MCP Step Runner — executes a list[Step] against a transport.
+"""StepRunner: runs a list of Steps against a transport (the first design; see hands.builder).
 
 Provides retry logic, rollback on error, and interactive prompts for manual steps.
 Tracks partial execution state so runs can be resumed from a specific step index.
 """
+
 from __future__ import annotations
 
 import time
@@ -30,7 +31,6 @@ class ManualPolicy(Enum):
     PROMPT = "prompt"
     SKIP = "skip"
     FAIL = "fail"
-
 
 
 class StepRunner:
@@ -71,39 +71,34 @@ class StepRunner:
 
             print(f"\n[{i:2d}/{len(steps) - 1}] {step.label}")
 
-            if step.note is not None:
-                result = self._handle_manual(i, step, on_manual)
-            else:
-                result = self._execute_step(i, step)
+            result = self._handle_manual(i, step, on_manual) if step.note is not None else self._execute_step(i, step)
 
             results.append(result)
 
             if result.status in ("error", "aborted"):
-                print(f"  Pipeline stopped at step {i}. "
-                      f"Resume with --resume {i} after fixing the issue.")
+                print(f"  Pipeline stopped at step {i}. Resume with --resume {i} after fixing the issue.")
                 break
 
         return results
 
     def _handle_manual(
-        self, index: int, step: Step, policy: ManualPolicy,
+        self,
+        index: int,
+        step: Step,
+        policy: ManualPolicy,
     ) -> StepResult:
         print(f"  MANUAL — {step.note}")
 
         if policy is ManualPolicy.PROMPT:
             input("  Press Enter when done...")
             mcp = self._transport.execute(step.code)
-            return StepResult(index=index, label=step.label, status="manual",
-                              result=mcp.result)
+            return StepResult(index=index, label=step.label, status="manual", result=mcp.result)
 
         if policy is ManualPolicy.SKIP:
             print("  Skipping (SKIP policy).")
             return StepResult(index=index, label=step.label, status="skipped")
 
-        raise RuntimeError(
-            f"Manual step {index} ({step.label!r}) cannot be automated. "
-            f"Note: {step.note}"
-        )
+        raise RuntimeError(f"Manual step {index} ({step.label!r}) cannot be automated. Note: {step.note}")
 
     def _execute_step(self, index: int, step: Step) -> StepResult:
         for attempt in range(self._retry_count + 1):
@@ -113,8 +108,11 @@ class StepRunner:
                 if mcp.result is not None:
                     print(f"  → {mcp.result}")
                 return StepResult(
-                    index=index, label=step.label, status="ok",
-                    result=mcp.result, retried=(attempt > 0),
+                    index=index,
+                    label=step.label,
+                    status="ok",
+                    result=mcp.result,
+                    retried=(attempt > 0),
                 )
 
             error_str = str(mcp.error or mcp.result or "unknown error")
@@ -123,7 +121,9 @@ class StepRunner:
                 # Live got the code and may have run it (or still be running it): sending it
                 # again could apply a non-idempotent edit twice, and an undo could race it.
                 return StepResult(
-                    index=index, label=step.label, status="aborted",
+                    index=index,
+                    label=step.label,
+                    status="aborted",
                     error=f"{error_str} (not re-sent: Live may have run it; check the set)",
                     retried=(attempt > 0),
                 )
@@ -134,25 +134,28 @@ class StepRunner:
                     time.sleep(self._retry_delay)
                     continue
                 return StepResult(
-                    index=index, label=step.label, status="aborted",
+                    index=index,
+                    label=step.label,
+                    status="aborted",
                     error=f"Ableton unreachable after {attempt + 1} attempt(s): {error_str}",
                 )
 
             print(f"  error (attempt {attempt + 1}): {error_str}")
             self._attempt_undo()
 
-
             if attempt < self._retry_count:
                 print(f"  retrying step {index}...")
                 continue
 
             return StepResult(
-                index=index, label=step.label, status="error",
-                error=error_str, retried=(attempt > 0),
+                index=index,
+                label=step.label,
+                status="error",
+                error=error_str,
+                retried=(attempt > 0),
             )
 
-        return StepResult(index=index, label=step.label, status="aborted",
-                          error="retry loop exited unexpectedly")
+        return StepResult(index=index, label=step.label, status="aborted", error="retry loop exited unexpectedly")
 
     def _attempt_undo(self) -> None:
         try:

@@ -1,0 +1,437 @@
+"""Read and write an Ableton Live set file (.als) offline: knob values and arrangement automation.
+
+Why: the LOM cannot write arrangement automation (Clip.automation_envelope refuses arrangement
+clips, and devices on group tracks have no envelope object). A .als file is gzip-compressed XML,
+so we edit the XML, load the set once and export once to render P parameter variants
+(hands.probe_kit). Nothing here opens Live; `save` writes only the file it is given.
+
+    hands als check FILE [--against SRC]     # self-checks, and what changed against the source
+    hands als params FILE TRACK DEVICE       # automatable element names of a device
+
+A knob is (track, device, param), named the way the .als names it (see `resolve`); values are in
+the parameter's Manual units, which are not always the LOM's (hands.live.knobs converts).
+
+What the .als holds (Live 12.4.6, schema "12.0_12402")
+------------------------------------------------------
+* stdlib ElementTree round-trips a Live set byte for byte (tabs, `<X Value="" />` empty tags) as
+  long as we write Live's own `<?xml ...?>` line ourselves. Diffs therefore stay minimal.
+* Tracks: LiveSet/Tracks/{AudioTrack,MidiTrack,GroupTrack,ReturnTrack} plus LiveSet/MainTrack.
+  Name: Name/EffectiveName. Devices: <track>/DeviceChain/DeviceChain/Devices/<DeviceTag Id=..>.
+* A parameter is one element inside the device (e.g. <MixDirect>). It holds <Manual Value=..>,
+  the knob value in natural units, <MidiControllerRange> Min/Max for numeric params, an
+  <AutomationTarget Id=..> and, when modulatable, a <ModulationTarget Id=..>.
+* Arrangement automation lives on the TRACK whose device chain contains the device (group
+  tracks too; also devices nested in racks):
+      <track>/AutomationEnvelopes/Envelopes/AutomationEnvelope Id=..
+          EnvelopeTarget/PointeeId Value = Id of the parameter's AutomationTarget
+          Automation/Events/{Float|Bool|Enum}Event Id=.. Time=<beats> Value=<Manual units>
+  The first event has Time="-63072000" and gives the value before any real event. After the last
+  event the value holds.
+* Event type (checked on 360 envelopes in local and factory sets): BoolEvent if Manual is
+  true/false, FloatEvent if the parameter has a ModulationTarget, otherwise EnumEvent.
+* A step (jump) is two events at the SAME Time: old value first, then new value. Live writes it
+  this way in 234 of the 355 arrangement float envelopes in the factory sets.
+
+Id rules (checked on every HW002_121_pp_*.als and 80 sets in the Live bundle)
+----------------------------------------------------------------------------
+* "Pointee" ids are global to the set. They are the Id of every AutomationTarget,
+  ModulationTarget, *ModulationTarget (Simpler), Pointee and ControllerTargets.N element. They are
+  unique across all of these tags and all lie below LiveSet/NextPointeeId. <PointeeId Value=..>
+  (envelope targets) is the only reference to them. A device copied from another set keeps that
+  set's ids, so we renumber them from max(NextPointeeId, max id + 1) and raise NextPointeeId.
+* Every other Id attribute is a list index, unique only among its siblings: the device Id in its
+  Devices list, the AutomationEnvelope Id in Envelopes, the event Id in Events, and so on.
+"""
+
+from __future__ import annotations
+
+import copy
+import gzip
+import hashlib
+import itertools
+import os
+import warnings
+import xml.etree.ElementTree as ET
+
+XML_DECL = '<?xml version="1.0" encoding="UTF-8"?>\n'  # exactly what Live writes
+DEFAULT_TIME = -63072000  # time of the "default" event that holds the value before the first one
+TRACK_TAGS = ("AudioTrack", "MidiTrack", "GroupTrack", "ReturnTrack", "MainTrack", "PreHearTrack")
+PLUGIN_TAGS = ("PluginDevice", "AuPluginDevice")
+
+
+# --------------------------------------------------------------------------- load / save
+
+
+def load(path: str | os.PathLike) -> ET.ElementTree:
+    """Read a .als (gzip XML). Comments/declaration are not kept; save() writes Live's declaration."""
+    with gzip.open(path, "rb") as f:
+        root = ET.fromstring(f.read())
+    if root.tag != "Ableton" or root.find("LiveSet") is None:
+        raise ValueError(f"{path}: not a Live set (root <{root.tag}>)")
+    return ET.ElementTree(root)
+
+
+def save(tree: ET.ElementTree, path: str | os.PathLike, overwrite: bool = False) -> str:
+    """Write the tree as a .als. The root keeps its Creator/MajorVersion/MinorVersion attributes.
+    Refuses to replace an existing file unless overwrite=True; writes via a temp file + rename."""
+    path = os.fspath(path)
+    if os.path.exists(path) and not overwrite:
+        raise FileExistsError(f"{path} exists (pass overwrite=True)")
+    xml = XML_DECL + ET.tostring(tree.getroot(), encoding="unicode") + "\n"
+    tmp = path + ".tmp"
+    with open(tmp, "wb") as f:
+        f.write(gzip.compress(xml.encode("utf-8"), mtime=0))
+    os.replace(tmp, path)
+    return path
+
+
+def xml_hash(path: str | os.PathLike) -> str:
+    """SHA-256 of the set's XML (gunzipped), a cache key for "this version of the set".
+
+    Hashing the XML rather than the file ignores the gzip header, so re-compressing the same
+    set gives the same key; any change Live saves (including view state) gives a new one.
+    """
+    with gzip.open(path, "rb") as f:
+        return hashlib.sha256(f.read()).hexdigest()
+
+
+# --------------------------------------------------------------------------- navigation
+
+
+def all_tracks(tree: ET.ElementTree) -> list[ET.Element]:
+    ls = tree.getroot().find("LiveSet")
+    out = list(ls.find("Tracks"))
+    out += [t for t in (ls.find("MainTrack"), ls.find("PreHearTrack")) if t is not None]
+    return out
+
+
+def track_name(track: ET.Element) -> str:
+    return track.find("Name/EffectiveName").get("Value")
+
+
+def find_track(tree: ET.ElementTree, name: str) -> ET.Element:
+    """The one audio/MIDI/group/return/main track whose Name/EffectiveName is `name`."""
+    hits = [t for t in all_tracks(tree) if track_name(t) == name]
+    if len(hits) != 1:
+        raise LookupError(f"{len(hits)} tracks named {name!r}")
+    return hits[0]
+
+
+def devices(track: ET.Element) -> list[ET.Element]:
+    """Top-level devices of a track, in chain order (rack contents are inside these elements)."""
+    d = track.find("DeviceChain/DeviceChain/Devices")
+    return list(d) if d is not None else []
+
+
+def find_device(track: ET.Element, tag: str, index: int = 0) -> ET.Element:
+    """The index-th top-level device with XML tag `tag` (e.g. "Reverb", "Eq8"); index=-1 = last."""
+    hits = [d for d in devices(track) if d.tag == tag]
+    if not hits:
+        raise LookupError(f"no <{tag}> on track {track_name(track)!r}: {[d.tag for d in devices(track)]}")
+    return hits[index]
+
+
+def parent_map(root: ET.Element) -> dict:
+    return {c: p for p in root.iter() for c in p}
+
+
+def depth(root: ET.Element, elem: ET.Element) -> int:
+    """Number of ancestors of elem, which is also its indentation in tabs in Live's format."""
+    stack = [(root, 0)]
+    while stack:
+        e, d = stack.pop()
+        if e is elem:
+            return d
+        stack.extend((c, d + 1) for c in e)
+    raise ValueError("element not in tree")
+
+
+def is_pointee_tag(tag: str) -> bool:
+    """Tags whose Id is a set-global "pointee" id (see module docstring)."""
+    return (
+        tag in ("AutomationTarget", "ModulationTarget", "Pointee")
+        or tag.endswith("ModulationTarget")
+        or tag.startswith("ControllerTargets.")
+    )
+
+
+def pointee_elements(elem: ET.Element) -> list[ET.Element]:
+    return [e for e in elem.iter() if "Id" in e.attrib and is_pointee_tag(e.tag)]
+
+
+def _append(parent: ET.Element, child: ET.Element, parent_depth: int) -> None:
+    """Append child to parent using Live's tab indentation."""
+    ET.indent(child, space="\t", level=parent_depth + 1)
+    inner, outer = "\n" + "\t" * (parent_depth + 1), "\n" + "\t" * parent_depth
+    if len(parent):
+        parent[-1].tail = inner
+    else:
+        parent.text = inner
+    child.tail = outer
+    parent.append(child)
+
+
+# --------------------------------------------------------------------------- knobs
+
+
+def resolve(tree: ET.ElementTree, track: str, device, param: str) -> tuple[ET.Element, ET.Element, str]:
+    """(track element, device element, parameter path inside the device) for a knob.
+
+    device: "Mixer" (the track mixer: Volume, Pan, Speaker, Sends/TrackSendHolder/Send),
+    ("plugin", PlugName) for a VST/AU device, or (device_tag, index) for a Live device (index
+    among devices with that tag; -1 = last). A bare tag means the last device with it.
+    param: an XML path for Live devices ("Bands.3/ParameterA/Gain"); a plugin parameter's
+    display name ("Drive") for plugins, which resolves to its ParameterValue element.
+    """
+    tr = find_track(tree, track)
+    if device == "Mixer":
+        return tr, tr.find("./DeviceChain/Mixer"), param
+    if isinstance(device, str):
+        device = (device, -1)
+    if device[0] == "plugin":
+        plugs = [
+            d
+            for d in devices(tr)
+            if d.tag in PLUGIN_TAGS
+            and any(e.get("Value") == device[1] for e in d.find("./PluginDesc").iter() if e.tag in ("PlugName", "Name"))
+        ]
+        if len(plugs) != 1:
+            raise KeyError(f"{track}: {len(plugs)} plugins named {device[1]!r}")
+        params = plugs[0].findall("./ParameterList/PluginFloatParameter")
+        idx = [i for i, p in enumerate(params, 1) if p.find("./ParameterName").get("Value") == param]
+        if len(idx) != 1:
+            raise KeyError(f"{track}/{device[1]}: {len(idx)} parameters named {param!r}")
+        return tr, plugs[0], f"ParameterList/PluginFloatParameter[{idx[0]}]/ParameterValue"
+    return tr, find_device(tr, device[0], device[1]), param
+
+
+def knob_param(tree: ET.ElementTree, track: str, device, param: str) -> ET.Element:
+    """The parameter element of a knob (the one holding Manual and AutomationTarget)."""
+    _, dev, path = resolve(tree, track, device, param)
+    return param_element(dev, path)
+
+
+def current_value(tree: ET.ElementTree, track: str, device, param: str) -> float | bool:
+    """The knob's value as set (Manual: a float, or a bool for switches)."""
+    v = knob_param(tree, track, device, param).find("Manual").get("Value")
+    return v == "true" if v in ("true", "false") else float(v)
+
+
+def param_range(tree: ET.ElementTree, track: str, device, param: str) -> tuple[float, float] | None:
+    """(min, max) of a numeric knob in Manual units; None for switches."""
+    rng = knob_param(tree, track, device, param).find("MidiControllerRange")
+    return None if rng is None else (float(rng.find("Min").get("Value")), float(rng.find("Max").get("Value")))
+
+
+def set_manual(tree: ET.ElementTree, track: str, device, param: str, value) -> None:
+    """Set a knob's static value. Refuses an automated knob: its envelope would override it."""
+    tr, dev, path = resolve(tree, track, device, param)
+    p = param_element(dev, path)
+    if _envelope(tr, p) is not None:
+        raise ValueError(f"{track}/{param} is automated; write steps instead")
+    p.find("Manual").set("Value", _value(event_kind(p), value, p))
+
+
+def set_speaker(tree: ET.ElementTree, track: str, on: bool) -> None:
+    """Switch a track's activator (Mixer Speaker): False mutes the track."""
+    set_manual(tree, track, "Mixer", "Speaker", on)
+
+
+def rename_track(tree: ET.ElementTree, old: str, new: str) -> ET.Element:
+    """Rename a track (EffectiveName and UserName), keeping names unique."""
+    if any(track_name(t) == new for t in all_tracks(tree)):
+        raise ValueError(f"a track is already named {new!r}")
+    tr = find_track(tree, old)
+    for tag in ("EffectiveName", "UserName"):
+        tr.find(f"./Name/{tag}").set("Value", new)
+    return tr
+
+
+# --------------------------------------------------------------------------- devices
+
+
+def add_device_from_donor(tree: ET.ElementTree, track: ET.Element, donor) -> ET.Element:
+    """Append a copy of `donor` (a device Element, e.g. a Reverb taken from another set, or its XML
+    text) to the end of `track`'s device chain. Returns the new element.
+
+    * Every pointee id inside the copy (AutomationTarget, ModulationTarget, Pointee, ...) gets a new
+      id from max(NextPointeeId, max id in set + 1), in document order. That keeps the AT/MT
+      pairing pattern. PointeeId refs inside the copy are remapped, and NextPointeeId is raised.
+    * The device's own Id is a list index: max sibling Id + 1 (0 in an empty chain).
+    """
+    root = tree.getroot()
+    dev = copy.deepcopy(donor if ET.iselement(donor) else ET.fromstring(donor))
+
+    npi = root.find("LiveSet/NextPointeeId")
+    used = [int(e.get("Id")) for e in pointee_elements(root)]
+    start = max([int(npi.get("Value"))] + [i + 1 for i in used])
+    remap = {}
+    for k, e in enumerate(pointee_elements(dev)):
+        if e.get("Id") in remap:
+            raise ValueError(f"donor repeats pointee id {e.get('Id')}")
+        remap[e.get("Id")] = str(start + k)
+        e.set("Id", remap[e.get("Id")])
+    for ref in dev.iter("PointeeId"):
+        if ref.get("Value") not in remap:  # would point at something in the donor's set
+            raise ValueError(f"donor references pointee {ref.get('Value')} outside itself")
+        ref.set("Value", remap[ref.get("Value")])
+    npi.set("Value", str(start + len(remap)))
+
+    # Routings (e.g. a compressor sidechain) name tracks of the donor set by Id: not remappable.
+    for e in dev.iter("Target"):
+        if "Track." in e.get("Value", ""):
+            warnings.warn(f"donor routing {e.get('Value')!r} refers to a track of the donor set", stacklevel=2)
+
+    chain = track.find("DeviceChain/DeviceChain/Devices")
+    sib = [int(c.get("Id")) for c in chain if "Id" in c.attrib]
+    dev.set("Id", str(max(sib) + 1 if sib else 0))
+    _append(chain, dev, depth(root, chain))
+    return dev
+
+
+def param_element(device: ET.Element, param_name: str) -> ET.Element:
+    """The parameter element `param_name` (an ElementTree path relative to the device, usually
+    just the tag, e.g. "MixDirect"; "Bands.3/ParameterA/IsOn" for an Eq8 band) that owns an
+    AutomationTarget."""
+    p = device.find(param_name)
+    if p is None or p.find("AutomationTarget") is None:
+        names = [c.tag for c in device if c.find("AutomationTarget") is not None]
+        raise KeyError(f"<{device.tag}> has no automatable {param_name!r}; try one of {names}")
+    return p
+
+
+def event_kind(param: ET.Element) -> str:
+    """'Bool', 'Float' or 'Enum': the *Event tag Live uses for this parameter (module docstring)."""
+    manual = param.find("Manual")
+    if manual is not None and manual.get("Value") in ("true", "false"):
+        return "Bool"
+    return "Float" if param.find("ModulationTarget") is not None else "Enum"
+
+
+def _num(x: float) -> str:
+    x = float(x)
+    return str(int(x)) if x.is_integer() else repr(x)
+
+
+def _value(kind: str, v, param: ET.Element) -> str:
+    if kind == "Bool":
+        if not isinstance(v, bool):
+            raise TypeError(f"{param.tag}: bool parameter needs True/False, got {v!r}")
+        return "true" if v else "false"
+    rng = param.find("MidiControllerRange")
+    if rng is not None:
+        lo, hi = float(rng.find("Min").get("Value")), float(rng.find("Max").get("Value"))
+        if not lo - 1e-6 <= float(v) <= hi + 1e-6:
+            raise ValueError(f"{param.tag}: {v} outside [{lo}, {hi}]")
+    return str(int(v)) if kind == "Enum" else _num(v)
+
+
+# --------------------------------------------------------------------------- automation
+
+
+def _envelope(track: ET.Element, param: ET.Element) -> ET.Element | None:
+    """The track's arrangement envelope that targets `param`, if any."""
+    target = param.find("AutomationTarget").get("Id")
+    envs = track.find("AutomationEnvelopes/Envelopes")
+    return next((e for e in envs if e.find("EnvelopeTarget/PointeeId").get("Value") == target), None)
+
+
+def set_steps(
+    tree: ET.ElementTree, track: ET.Element, device: ET.Element, param_name: str, steps, kind: str | None = None
+) -> ET.Element:
+    """Write (or replace) the arrangement envelope of one device parameter as a step function.
+
+    steps: [(start_beat, value), ...], start beats strictly increasing. Each value holds until the
+    next step and the last one holds forever. The value before the first step equals the first
+    value (stored in the Time=-63072000 default event). Values use the parameter's Manual units.
+    Each jump is written as Live writes it: two events at the same Time (old value, new value).
+    """
+    root = tree.getroot()
+    if not any(e is device for e in track.iter()):
+        raise ValueError(f"<{device.tag}> is not in track {track_name(track)!r}")
+    param = param_element(device, param_name)
+    target = param.find("AutomationTarget").get("Id")
+    kind = kind or event_kind(param)
+
+    steps = [(float(t), v) for t, v in steps]
+    if not steps:
+        raise ValueError("no steps")
+    if any(t < 0 for t, _ in steps) or any(b[0] <= a[0] for a, b in itertools.pairwise(steps)):
+        raise ValueError(f"step times must be >= 0 and strictly increasing: {steps}")
+    events = [(DEFAULT_TIME, steps[0][1])]
+    prev = None
+    for t, v in steps:
+        if prev is not None and prev != v:
+            events.append((t, prev))  # end of the previous level ...
+        events.append((t, v))  # ... and start of the new one, at the same time
+        prev = v
+    rows = [(_num(t), _value(kind, v, param)) for t, v in events]  # validate before editing
+
+    envs = track.find("AutomationEnvelopes/Envelopes")
+    env = _envelope(track, param)
+    if env is None:
+        ids = [int(e.get("Id")) for e in envs]
+        env = ET.Element("AutomationEnvelope", Id=str(max(ids) + 1 if ids else 0))
+        ET.SubElement(ET.SubElement(env, "EnvelopeTarget"), "PointeeId", Value=target)
+        auto = ET.SubElement(env, "Automation")
+        ET.SubElement(auto, "Events")
+        view = ET.SubElement(auto, "AutomationTransformViewState")
+        ET.SubElement(view, "IsTransformPending", Value="false")
+        ET.SubElement(view, "TimeAndValueTransforms")
+        _append(envs, env, depth(root, envs))
+    evs = env.find("Automation/Events")
+    for e in list(evs):
+        evs.remove(e)
+    for i, (t, v) in enumerate(rows):
+        ET.SubElement(evs, f"{kind}Event", Id=str(i), Time=t, Value=v)
+    ET.indent(env, space="\t", level=depth(root, env))
+    return env
+
+
+def add_points(
+    tree: ET.ElementTree, track: ET.Element, device: ET.Element, param_name: str, points, kind: str | None = None
+) -> ET.Element:
+    """Append breakpoints to the arrangement envelope of one device parameter, creating it if there is none.
+
+    points: [(beat, value), ...], beats non-decreasing and not before the envelope's last event. Live ramps a float
+    parameter linearly between two points at different beats; two points at the same beat are a jump. A new
+    envelope's value before the first point is the first point's value. Values use the parameter's Manual units.
+    """
+    root = tree.getroot()
+    param = param_element(device, param_name)
+    kind = kind or event_kind(param)
+    points = [(float(t), v) for t, v in points]
+    if not points:
+        raise ValueError("no points")
+    if any(t < 0 for t, _ in points) or any(b[0] < a[0] for a, b in itertools.pairwise(points)):
+        raise ValueError(f"point times must be >= 0 and non-decreasing: {points[:4]} ...")
+    if _envelope(track, param) is None:
+        set_steps(tree, track, device, param_name, [points[0]], kind)  # just the default event, then the points
+        evs = _envelope(track, param).find("Automation/Events")
+        for e in list(evs)[1:]:
+            evs.remove(e)
+    env = _envelope(track, param)
+    evs = env.find("Automation/Events")
+    last = max(float(e.get("Time")) for e in evs)
+    if points[0][0] < last:
+        raise ValueError(f"{param_name}: first point {points[0][0]} is before the envelope's last event {last}")
+    start = len(evs)
+    for i, (t, v) in enumerate(points):
+        ET.SubElement(evs, f"{kind}Event", Id=str(start + i), Time=_num(t), Value=_value(kind, v, param))
+    ET.indent(env, space="\t", level=depth(root, env))
+    return env
+
+
+def value_at(track: ET.Element, device: ET.Element, param_name: str, beat: float) -> str:
+    """A parameter's automated value at `beat` as the .als stores it (its Manual value when it has no envelope).
+    Read as steps: between two events of a ramp this gives the earlier event's value."""
+    param = param_element(device, param_name)
+    env = _envelope(track, param)
+    if env is None:
+        return param.find("Manual").get("Value")
+    evs = sorted(env.find("Automation/Events"), key=lambda e: (float(e.get("Time")), int(e.get("Id"))))
+    got = evs[0].get("Value")
+    for e in evs:
+        if float(e.get("Time")) <= beat:
+            got = e.get("Value")
+    return got

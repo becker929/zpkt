@@ -21,18 +21,20 @@ could apply an edit twice, so that is an error for the caller to judge.
 
 from __future__ import annotations
 
+import contextlib
 import json
 import socket
 import time
+from collections.abc import Sequence
 from dataclasses import dataclass
-from typing import Any, Literal, Protocol, Sequence, runtime_checkable
+from typing import Any, Literal, Protocol, runtime_checkable
 
 from hands import config
 
 DEFAULT_HOST = "127.0.0.1"
-DEFAULT_PORT = 16619   # the Remote Script's own port; clients default to the rig's live_port, which is this unless set
-UNREACHABLE = "Cannot reach Ableton"   # nothing was sent: StepRunner may try again
-LOST = "Lost the reply from Ableton"    # sent, no reply: it may have run, so never resend it
+DEFAULT_PORT = 16619  # the Remote Script's own port; clients default to the rig's live_port, which is this unless set
+UNREACHABLE = "Cannot reach Ableton"  # nothing was sent: StepRunner may try again
+LOST = "Lost the reply from Ableton"  # sent, no reply: it may have run, so never resend it
 
 
 @dataclass
@@ -40,8 +42,8 @@ class McpResult:
     status: Literal["ok", "error"]
     result: Any = None
     error: str | None = None
-    warning: str | None = None     # e.g. "Code may still be running on the main thread."
-    elapsed: float | None = None   # seconds Live spent running the code
+    warning: str | None = None  # e.g. "Code may still be running on the main thread."
+    elapsed: float | None = None  # seconds Live spent running the code
     traceback: str | None = None
 
 
@@ -95,8 +97,15 @@ class _Lost(OSError):
 class LiveClient(Transport):
     """TCP client for the AbletonLiveMCP Remote Script."""
 
-    def __init__(self, host: str = DEFAULT_HOST, port: int | None = None, timeout: float = 15.0,
-                 retries: int = 2, backoff: float = 0.5, keep: bool = False) -> None:
+    def __init__(
+        self,
+        host: str = DEFAULT_HOST,
+        port: int | None = None,
+        timeout: float = 15.0,
+        retries: int = 2,
+        backoff: float = 0.5,
+        keep: bool = False,
+    ) -> None:
         """port: None is the rig's live_port. keep: hold one connection for every call (a new one costs about half
         a second on the Live rig). The Remote Script serves one client at a time, so only a short-lived command
         should keep it."""
@@ -109,10 +118,8 @@ class LiveClient(Transport):
 
     def close(self) -> None:
         if self._sock is not None:
-            try:
+            with contextlib.suppress(OSError):
                 self._sock.close()
-            except OSError:
-                pass
             self._sock = None
 
     def execute(self, code: str) -> McpResult:
@@ -155,17 +162,17 @@ class LiveClient(Transport):
             except OSError as exc:
                 if attempt >= self.retries:
                     raise _NotSent(f"{UNREACHABLE}: {exc}") from exc
-            time.sleep(self.backoff * 2 ** attempt)
+            time.sleep(self.backoff * 2**attempt)
             attempt += 1
 
-    def _exchange(self, message: dict) -> dict:
+    def _exchange(self, message: dict[str, Any]) -> dict[str, Any]:
         data = (json.dumps(message) + "\n").encode()
         if not self.keep:
             with self._connect() as sock:
                 line = self._ask(sock, data)
         else:
             if self._sock is not None:
-                try:                                     # a kept connection may have gone stale: nothing was sent, so start a new one
+                try:  # a kept connection may have gone stale: nothing was sent, so start a new one
                     self._sock.sendall(data)
                 except OSError:
                     self.close()

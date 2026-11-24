@@ -1,4 +1,5 @@
 """hands.live.rig against fakes: what the log says, what check concludes, what reset does in which order."""
+
 from __future__ import annotations
 
 import pytest
@@ -25,7 +26,9 @@ def log(tmp_path, monkeypatch):
 def test_log_since_launch_starts_at_the_latest_launch(log):
     lines = rig.log_since()
     assert lines[0].endswith("Live App: Begin Init") and "09:24" in lines[0]
-    assert rig.message_boxes(lines) == ["Audio is disabled. Please choose an audio output device in the Audio Settings."]
+    assert rig.message_boxes(lines) == [
+        "Audio is disabled. Please choose an audio output device in the Audio Settings."
+    ]
 
 
 def test_output_device(log):
@@ -41,11 +44,17 @@ def test_log_since_an_offset(log):
     assert rig.message_boxes(rig.log_since(offset)) == ["Save changes?"]
 
 
-@pytest.mark.parametrize("box, key", [
-    ("Audio is disabled. Please choose an audio output device in the Audio Settings.", "return"),
-    ('Live unexpectedly quit while you were working on the Live Set "x.als." Would you like to recover your work?', "recover"),
-    ("Do you want to replace the file?", "escape"),
-])
+@pytest.mark.parametrize(
+    "box, key",
+    [
+        ("Audio is disabled. Please choose an audio output device in the Audio Settings.", "return"),
+        (
+            'Live unexpectedly quit while you were working on the Live Set "x.als." Would you like to recover your work?',
+            "recover",
+        ),
+        ("Do you want to replace the file?", "escape"),
+    ],
+)
 def test_answer_for(box, key):
     assert rig.answer_for(box) == key
 
@@ -88,7 +97,9 @@ def rigstate(monkeypatch, log):
 
 
 def _healthy_log(log):
-    log.write_text("x: info: Live App: Begin Init\nx: info: Audio In Out: Output Device: Mac mini Speakers (0 In, 2 Out)\n")
+    log.write_text(
+        "x: info: Live App: Begin Init\nx: info: Audio In Out: Output Device: Mac mini Speakers (0 In, 2 Out)\n"
+    )
 
 
 def test_check_ready(rigstate, log):
@@ -100,7 +111,7 @@ def test_check_ready(rigstate, log):
 def test_check_no_device_needs_a_soft_reset(rigstate):
     h = rig.check(Lom())
     assert h.needs == "soft" and any(p.startswith("Live has no audio output device") for p in h.problems)
-    assert any("hands rig output" in p for p in h.problems)    # the problem names its fix
+    assert any("hands rig output" in p for p in h.problems)  # the problem names its fix
     assert h.playhead is None  # no point playing without a device
 
 
@@ -155,7 +166,9 @@ def test_restart_order_quits_live_before_audio(rigstate, monkeypatch, tmp_path):
     monkeypatch.setattr(rig, "restart_audio", lambda report: (order.append("audio"), rigstate.update(audio=True)))
     monkeypatch.setattr(rig, "launch", lambda report, path, client: order.append("launch") or True)
     monkeypatch.setattr(rig, "soft_reset", lambda client, report: order.append("soft"))
-    monkeypatch.setattr(rig, "check", lambda client=None, play=True: rig.Health(needs="restart" if not order else "nothing"))
+    monkeypatch.setattr(
+        rig, "check", lambda client=None, play=True: rig.Health(needs="restart" if not order else "nothing")
+    )
     (tmp_path / "s.als").write_text("a set")
     report = rig.reset(set_path=tmp_path / "s.als", level="restart", client=Lom())
     assert order == ["quit", "audio", "launch", "soft"]
@@ -166,14 +179,20 @@ def test_restart_without_a_snapshot_asks_for_the_device(rigstate, monkeypatch, t
     monkeypatch.setattr(rig, "quit_live", lambda report, keep: rigstate.update(running=False))
     monkeypatch.setattr(rig, "launch", lambda report, path, client: True)
     monkeypatch.setattr(rig, "soft_reset", lambda client, report: None)
-    monkeypatch.setattr(rig, "check", lambda client=None, play=True: rig.Health(needs="soft", device=rig.NO_DEVICE, problems=["no device"]))
+    monkeypatch.setattr(
+        rig,
+        "check",
+        lambda client=None, play=True: rig.Health(needs="soft", device=rig.NO_DEVICE, problems=["no device"]),
+    )
     (tmp_path / "s.als").write_text("a set")
     report = rig.reset(set_path=tmp_path / "s.als", level="restart", client=Lom())
     assert not report.ok and any("Audio Output Device" in n for n in report.needs_you)
 
 
 def test_audio_restart_without_sudo_says_how(monkeypatch):
-    monkeypatch.setattr(rig.subprocess, "run", lambda *a, **k: rig.subprocess.CompletedProcess(a, 1, "", "a password is required"))
+    monkeypatch.setattr(
+        rig.subprocess, "run", lambda *a, **k: rig.subprocess.CompletedProcess(a, 1, "", "a password is required")
+    )
     report = rig.Report()
     assert not rig.restart_audio(report)
     assert "sudoers" in report.needs_you[0] and "killall coreaudiod" in report.needs_you[0]
@@ -202,8 +221,11 @@ def test_last_good_device_skips_no_device(log):
 
 
 def test_set_window_ignores_settings(monkeypatch):
-    monkeypatch.setattr(rig.ui, "windows", lambda: [("Settings", "AXStandardWindow"), ("", "AXUnknown"),
-                                                     ("HW002_121_pp_mix", "AXStandardWindow")])
+    monkeypatch.setattr(
+        rig.ui,
+        "windows",
+        lambda: [("Settings", "AXStandardWindow"), ("", "AXUnknown"), ("HW002_121_pp_mix", "AXStandardWindow")],
+    )
     assert rig.set_window() == "HW002_121_pp_mix"
 
 
@@ -240,6 +262,7 @@ def test_mix_renders_open_deaf_buses():
 
 def test_live_exec_forgives_import_song_and_print():
     from hands.live.cli import friendly
+
     src, notes = friendly("import song\nfrom song import tracks\nprint(song.tempo)")
     assert "import song" not in src and "from song" not in src and notes
     assert src.startswith("_printed = []") and 'result = "\\n".join(_printed)' in src
@@ -249,8 +272,12 @@ def test_live_exec_forgives_import_song_and_print():
 
 def test_grid_of_identical_versions_says_so():
     from hands.live.versions import same_note
+
     same = [{"rms_dbfs": -26.0}, {"rms_dbfs": -26.0}, {"rms_dbfs": -26.05}]
-    assert "measure the same" in same_note(same, {"bars": [2, 6]})[0] and "bars 2-7" in same_note(same, {"bars": [2, 6]})[0]
+    assert (
+        "measure the same" in same_note(same, {"bars": [2, 6]})[0]
+        and "bars 2-7" in same_note(same, {"bars": [2, 6]})[0]
+    )
     assert same_note([{"rms_dbfs": -26.0}, {"rms_dbfs": -20.0}], {"bars": [2, 6]}) == []
 
 
@@ -263,31 +290,43 @@ def test_quiet_tracks_names_where_they_first_play():
             return {"Kick bus": 64.0, "fx": None}
 
     notes = mix.quiet_tracks(Live(), ["Kick bus", "Main", "fx"], 4.0, 24.0)
-    assert notes[0] == "Kick bus plays nothing in these bars; it first plays at bar 17: its controls change nothing here"
+    assert (
+        notes[0] == "Kick bus plays nothing in these bars; it first plays at bar 17: its controls change nothing here"
+    )
     assert notes[1].startswith("fx plays nothing in these bars:")
 
 
-@pytest.mark.parametrize("code, changes", [
-    ("[t.name for t in song.tracks]", False),
-    ("result = song.tracks[0].mixer_device.volume.value", False),
-    ("t = song.tracks[0]\nprint(t.devices)", False),
-    ("song.tracks[0].mixer_device.volume.value = 0.5", True),
-    ("t = song.tracks[0]\nt.insert_device('Saturator')", True),
-    ("song.delete_track(3)", True),
-    ("for _t in song.tracks: _t.current_monitoring_state = 2", True),
-    ("song.start_playing()", True),
-    ("t.devices.append(None)", True),
-    ("x = [d for d in t deves]", False),
-])
+@pytest.mark.parametrize(
+    "code, changes",
+    [
+        ("[t.name for t in song.tracks]", False),
+        ("result = song.tracks[0].mixer_device.volume.value", False),
+        ("t = song.tracks[0]\nprint(t.devices)", False),
+        ("song.tracks[0].mixer_device.volume.value = 0.5", True),
+        ("t = song.tracks[0]\nt.insert_device('Saturator')", True),
+        ("song.delete_track(3)", True),
+        ("for _t in song.tracks: _t.current_monitoring_state = 2", True),
+        ("song.start_playing()", True),
+        ("t.devices.append(None)", True),
+        ("x = [d for d in t deves]", False),
+    ],
+)
 def test_live_exec_knows_what_changes_live(code, changes):
     from hands.live.cli import writes
+
     assert writes(code) is changes
 
 
 def test_identical_grid_fails_with_where_to_move(monkeypatch):
     from hands.live import mix, versions
-    monkeypatch.setattr(mix, "quiet_tracks", lambda client, tracks, start, beats:
-                        ["Kick bus plays nothing in these bars; it first plays at bar 17: its controls change nothing here"])
+
+    monkeypatch.setattr(
+        mix,
+        "quiet_tracks",
+        lambda client, tracks, start, beats: [
+            "Kick bus plays nothing in these bars; it first plays at bar 17: its controls change nothing here"
+        ],
+    )
     same = versions.same_note([{"rms_dbfs": -22.5}] * 3, {"bars": [3, 8]})
     assert same  # the error path is exercised end to end in the lab; here, the hint's parts
     hint = versions.re.search(r"first plays at bar (\d+)", " ".join(mix.quiet_tracks(None, ["Kick bus"], 8.0, 32.0)))

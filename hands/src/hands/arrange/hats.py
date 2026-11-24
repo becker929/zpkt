@@ -53,8 +53,9 @@ def tile(loop: float, notes: list, length: float, pitches: set[int]) -> list[lis
     return out
 
 
-def rewrite(client: McpTransport, sections: list[tuple[float, float, str]], pats: dict,
-            layers: dict = LAYERS) -> list[tuple]:
+def rewrite(
+    client: McpTransport, sections: list[tuple[float, float, str]], pats: dict, layers: dict = LAYERS
+) -> list[tuple]:
     """Clear the hat tracks, then write one MIDI clip per track and section.
 
     sections: [(start_beat, length_beats, "ABC"), ...] on the current timeline; a track gets a clip

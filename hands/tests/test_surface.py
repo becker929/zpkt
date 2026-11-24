@@ -1,6 +1,5 @@
 """Tests for hands.live.surface translation of zpkt-surface JSON values."""
 
-import pytest
 from hands.live import surface
 
 

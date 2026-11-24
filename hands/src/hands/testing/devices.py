@@ -1,6 +1,6 @@
 """Live's built-in devices as the fake LOM makes them: parameter names, ranges, choices and what each one shows.
 
-Names and order follow a dump of a real set (hands/scripts/industrial/set-v8.json) for EQ Eight, Utility, Glue
+Names and order follow a dump of a real set (the industrial short's set-v8.json, now in zpkt-archive) for EQ Eight, Utility, Glue
 Compressor, Compressor, Reverb and Limiter; raw ranges follow hands.live.knobs' measured conversions (EQ Eight's
 frequency 0-1 on a log scale from 10 Hz to 22 kHz, Utility's gain dB/35, its width the square root of the fraction).
 Saturator, Echo, Spectrum, Operator, Simpler and the racks are smaller: the parameters zpkt names, with GUESS ranges.

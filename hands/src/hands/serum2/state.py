@@ -29,22 +29,54 @@ MAGIC = b"XferJson\x00"
 # Serum's source menu order (Mod Wheel, Env 1..4, LFO 1..10, Velo, Note#, Aftertouch, Poly AT,
 # Noise OSC, NoteOn Rand1, Rand2, Alt, Alt2, Macro 1..8, ...).
 MOD_SOURCES: dict[str, int] = {
-    "mod_wheel": 1, "env1": 2, "env2": 3, "env3": 4, "env4": 5,
+    "mod_wheel": 1,
+    "env1": 2,
+    "env2": 3,
+    "env3": 4,
+    "env4": 5,
     **{f"lfo{i}": 5 + i for i in range(1, 11)},
-    "velocity": 16, "note": 17, "aftertouch": 18, "poly_aftertouch": 19, "noise_osc": 20,
-    "noteon_rand1": 21, "noteon_rand2": 22, "noteon_alt": 23, "noteon_alt2": 24,
+    "velocity": 16,
+    "note": 17,
+    "aftertouch": 18,
+    "poly_aftertouch": 19,
+    "noise_osc": 20,
+    "noteon_rand1": 21,
+    "noteon_rand2": 22,
+    "noteon_alt": 23,
+    "noteon_alt2": 24,
     **{f"macro{i}": 24 + i for i in range(1, 9)},
 }
 
 # FXRack FX "type" ids (each FX dict also holds {"FX<Name>": {"plainParams": {...}}}).
 FX_TYPES: dict[str, int] = {
-    "Distortion": 0, "Flanger": 1, "Phaser": 2, "Chorus": 3, "Delay": 4, "Comp": 5, "Reverb": 6,
-    "EQ": 7, "Filter": 8, "HyperD": 9, "Bode": 10, "Conv": 11, "Utils": 12, "Split": 13,
-    "Split3": 14, "SplitMS": 15,
+    "Distortion": 0,
+    "Flanger": 1,
+    "Phaser": 2,
+    "Chorus": 3,
+    "Delay": 4,
+    "Comp": 5,
+    "Reverb": 6,
+    "EQ": 7,
+    "Filter": 8,
+    "HyperD": 9,
+    "Bode": 10,
+    "Conv": 11,
+    "Utils": 12,
+    "Split": 13,
+    "Split3": 14,
+    "SplitMS": 15,
 }
 
-_PRESET_ONLY = ("fileType", "presetName", "presetAuthor", "presetDescription", "tags", "hash",
-                "arpBankDisplayName", "clipBankDisplayName")
+_PRESET_ONLY = (
+    "fileType",
+    "presetName",
+    "presetAuthor",
+    "presetDescription",
+    "tags",
+    "hash",
+    "arpBankDisplayName",
+    "clipBankDisplayName",
+)
 
 
 @dataclass
@@ -61,8 +93,8 @@ def decode(blob: bytes) -> XferBlob:
     import zstandard
 
     n = struct.unpack("<Q", blob[9:17])[0]
-    header = json.loads(blob[17:17 + n])
-    rest = blob[17 + n:]
+    header = json.loads(blob[17 : 17 + n])
+    rest = blob[17 + n :]
     size, fmt = struct.unpack("<II", rest[:8])
     raw = zstandard.ZstdDecompressor().decompress(rest[8:], max_output_size=size)
     return XferBlob(header, fmt, cbor2.loads(raw))
@@ -90,9 +122,21 @@ def preset_to_processor(preset: bytes, processor_template: bytes) -> bytes:
     return encode(XferBlob(t.header, t.fmt, data))
 
 
-def mod_slot(source: str, dest_type: str, dest_param: str, dest_param_id: int, amount: float,
-             dest_index: int = 0, source_index: int = 0) -> dict[str, Any]:
+def mod_slot(
+    source: str,
+    dest_type: str,
+    dest_param: str,
+    dest_param_id: int,
+    amount: float,
+    dest_index: int = 0,
+    source_index: int = 0,
+) -> dict[str, Any]:
     """One mod-matrix routing. dest_param_id: see DEST_PARAM_IDS / mod_dest_ids.json."""
-    return {"source": [MOD_SOURCES[source], source_index], "destModuleTypeString": dest_type,
-            "destModuleID": dest_index, "destModuleParamName": dest_param,
-            "destModuleParamID": dest_param_id, "plainParams": {"kParamAmount": float(amount)}}
+    return {
+        "source": [MOD_SOURCES[source], source_index],
+        "destModuleTypeString": dest_type,
+        "destModuleID": dest_index,
+        "destModuleParamName": dest_param,
+        "destModuleParamID": dest_param_id,
+        "plainParams": {"kParamAmount": float(amount)},
+    }

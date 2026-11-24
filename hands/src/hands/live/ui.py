@@ -41,7 +41,7 @@ def osa(script: str, *, timeout: float | None = None) -> str:
     return _osascript(["-e", script], t)
 
 
-def osa_file(path: str | os.PathLike, *args: str, timeout: float = 900) -> str:
+def osa_file(path: str | os.PathLike[str], *args: str, timeout: float = 900) -> str:
     """Run an AppleScript file with arguments; return its output, stripped. Raise UiError if it fails."""
     return _osascript([os.fspath(path), *args], timeout)
 
@@ -63,7 +63,7 @@ def _osascript(argv: list[str], timeout: float) -> str:
     return run.stdout.strip()
 
 
-def _via_hammerspoon(argv: list[str], timeout: float) -> subprocess.CompletedProcess:
+def _via_hammerspoon(argv: list[str], timeout: float) -> subprocess.CompletedProcess[str]:
     """Run osascript as a child of Hammerspoon, which inherits its Accessibility grant."""
     with tempfile.NamedTemporaryFile("w", suffix=".sh", delete=False) as f:
         f.write("#!/bin/bash\nexec osascript " + " ".join(map(shlex.quote, argv)) + " 2>&1\n")
@@ -85,8 +85,13 @@ def _q(text: str) -> str:
 
 
 def menu_enabled(menu: str, item: str) -> bool:
-    return osa(f"tell application \"System Events\" to tell process {_q(PROCESS)} to get enabled of "
-               f"menu item {_q(item)} of menu {_q(menu)} of menu bar 1") == "true"
+    return (
+        osa(
+            f'tell application "System Events" to tell process {_q(PROCESS)} to get enabled of '
+            f"menu item {_q(item)} of menu {_q(menu)} of menu bar 1"
+        )
+        == "true"
+    )
 
 
 def menu(menu: str, item: str, tries: int = 6, wait_s: float = 0.4) -> bool:
@@ -94,8 +99,10 @@ def menu(menu: str, item: str, tries: int = 6, wait_s: float = 0.4) -> bool:
     it is busy, and some (Delete Time) until a time selection exists."""
     for _ in range(tries):
         if menu_enabled(menu, item):
-            osa(f"tell application \"System Events\" to tell process {_q(PROCESS)} to click "
-                f"menu item {_q(item)} of menu {_q(menu)} of menu bar 1")
+            osa(
+                f'tell application "System Events" to tell process {_q(PROCESS)} to click '
+                f"menu item {_q(item)} of menu {_q(menu)} of menu bar 1"
+            )
             return True
         time.sleep(wait_s)
     return False
@@ -107,7 +114,7 @@ def front_title() -> str:
     A floating plug-in window in front has no title: then the set's own window is read instead,
     unless a dialog is open (callers treat "" as "not a set in front").
     """
-    title = osa(f"tell application \"System Events\" to get name of front window of process {_q(PROCESS)}")
+    title = osa(f'tell application "System Events" to get name of front window of process {_q(PROCESS)}')
     if title:
         return title
     found = windows()

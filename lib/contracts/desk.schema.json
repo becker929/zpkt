@@ -1,0 +1,333 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/becker929/zpkt/lib/contracts/desk.schema.json",
+  "$defs": {
+    "DeskDevice": {
+      "additionalProperties": true,
+      "properties": {
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "class": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The device's LOM class_name.",
+          "title": "Class"
+        },
+        "values": {
+          "additionalProperties": {
+            "maxItems": 2,
+            "minItems": 2,
+            "prefixItems": [
+              {
+                "type": "string"
+              },
+              {
+                "anyOf": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "boolean"
+                  }
+                ]
+              }
+            ],
+            "type": "array"
+          },
+          "description": "Every parameter by LOM name.",
+          "title": "Values",
+          "type": "object"
+        }
+      },
+      "required": [
+        "name",
+        "values"
+      ],
+      "title": "DeskDevice",
+      "type": "object"
+    },
+    "DeskMixer": {
+      "additionalProperties": true,
+      "properties": {
+        "volume": {
+          "maxItems": 2,
+          "minItems": 2,
+          "prefixItems": [
+            {
+              "type": "string"
+            },
+            {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "boolean"
+                }
+              ]
+            }
+          ],
+          "title": "Volume",
+          "type": "array"
+        },
+        "pan": {
+          "maxItems": 2,
+          "minItems": 2,
+          "prefixItems": [
+            {
+              "type": "string"
+            },
+            {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "boolean"
+                }
+              ]
+            }
+          ],
+          "title": "Pan",
+          "type": "array"
+        },
+        "sends": {
+          "additionalProperties": {
+            "maxItems": 2,
+            "minItems": 2,
+            "prefixItems": [
+              {
+                "type": "string"
+              },
+              {
+                "anyOf": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "boolean"
+                  }
+                ]
+              }
+            ],
+            "type": "array"
+          },
+          "description": "By the return's short name.",
+          "title": "Sends",
+          "type": "object"
+        },
+        "mute": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Tracks only; Main has none.",
+          "title": "Mute"
+        }
+      },
+      "required": [
+        "volume",
+        "pan"
+      ],
+      "title": "DeskMixer",
+      "type": "object"
+    },
+    "DeskMonitor": {
+      "additionalProperties": true,
+      "properties": {
+        "track": {
+          "title": "Track",
+          "type": "string"
+        },
+        "file": {
+          "title": "File",
+          "type": "string"
+        },
+        "beat": {
+          "title": "Beat",
+          "type": "number"
+        },
+        "warping": {
+          "title": "Warping",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "track",
+        "file",
+        "beat",
+        "warping"
+      ],
+      "title": "DeskMonitor",
+      "type": "object"
+    },
+    "DeskOwned": {
+      "additionalProperties": true,
+      "properties": {
+        "track": {
+          "title": "Track",
+          "type": "string"
+        },
+        "device": {
+          "title": "Device",
+          "type": "string"
+        },
+        "values": {
+          "additionalProperties": {
+            "maxItems": 2,
+            "minItems": 2,
+            "prefixItems": [
+              {
+                "type": "string"
+              },
+              {
+                "anyOf": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "boolean"
+                  }
+                ]
+              }
+            ],
+            "type": "array"
+          },
+          "description": "Only the parameters the desk owns (switches).",
+          "title": "Values",
+          "type": "object"
+        }
+      },
+      "required": [
+        "track",
+        "device",
+        "values"
+      ],
+      "title": "DeskOwned",
+      "type": "object"
+    },
+    "DeskReturn": {
+      "additionalProperties": true,
+      "properties": {
+        "name": {
+          "description": "The return's name without Live's letter.",
+          "title": "Name",
+          "type": "string"
+        },
+        "devices": {
+          "items": {
+            "$ref": "#/$defs/DeskDevice"
+          },
+          "title": "Devices",
+          "type": "array"
+        }
+      },
+      "required": [
+        "name",
+        "devices"
+      ],
+      "title": "DeskReturn",
+      "type": "object"
+    }
+  },
+  "additionalProperties": true,
+  "description": "The mix desk recipe's desk (contrib/mixdesk/recipe.py writes it; `hands live state diff|put` read it as a partial state). Generated from hands/src/hands/live/desk.py \u2014 do not edit by hand.",
+  "properties": {
+    "made": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "When it was read from Live (Unix seconds).",
+      "title": "Made"
+    },
+    "set": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Set"
+    },
+    "note": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Note"
+    },
+    "returns": {
+      "items": {
+        "$ref": "#/$defs/DeskReturn"
+      },
+      "title": "Returns",
+      "type": "array"
+    },
+    "chains": {
+      "additionalProperties": {
+        "items": {
+          "$ref": "#/$defs/DeskDevice"
+        },
+        "type": "array"
+      },
+      "description": "Desk devices by track short name.",
+      "title": "Chains",
+      "type": "object"
+    },
+    "mixer": {
+      "additionalProperties": {
+        "$ref": "#/$defs/DeskMixer"
+      },
+      "description": "Every track, return and Main by short name.",
+      "title": "Mixer",
+      "type": "object"
+    },
+    "owned": {
+      "items": {
+        "$ref": "#/$defs/DeskOwned"
+      },
+      "title": "Owned",
+      "type": "array"
+    },
+    "monitor": {
+      "items": {
+        "$ref": "#/$defs/DeskMonitor"
+      },
+      "title": "Monitor",
+      "type": "array"
+    }
+  },
+  "required": [
+    "mixer"
+  ],
+  "title": "Desk",
+  "type": "object"
+}

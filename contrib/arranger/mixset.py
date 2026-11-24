@@ -89,11 +89,10 @@ def lo():
     os.environ["ZPKT_SET_PREFIXES"] = "HW002_121_pp_"
     os.environ["ZPKT_DATA_DIR"] = str(MIX2 / "data")
     os.environ["ZPKT_RENDERS_DIR"] = str(MIX2 / "raw")
-    sys.path.insert(0, str(ROOT / "hands" / "scripts" / "rummage"))
-    import liveops
+    from hands.live.ops import LiveOps
+    from hands.live.transport import LiveClient
     # a folder the Save panel already knows (export() moves the file to its target), whatever ARRANGER_DATA says
-    liveops.EXPORT_DIR = Path("~/_agent_scratch/arranger/raw").expanduser()
-    return liveops
+    return LiveOps(LiveClient(), staging=Path("~/_agent_scratch/arranger/raw").expanduser())
 
 
 def load() -> tuple[dict, dict, dict]:
@@ -336,7 +335,7 @@ def points(req: dict) -> list[dict]:
                 vals = [lo_ * (hi_ / lo_) ** (k / (n - 1)) for k in range(n)]
             else:
                 vals = [lo_ + (hi_ - lo_) * k / (n - 1) for k in range(n)]
-            unit = p.get("unit", "")   # in the parameter's display units, as liveops.setp takes them
+            unit = p.get("unit", "")   # in the parameter's display units, as LiveOps.setp takes them
             axes.append([(p["name"], f"{round(v, 2)} {unit}" if unit and unit != ":1" else f"{round(v, 3)}") for v in vals])
     return [dict(c) for c in itertools.product(*axes)]
 

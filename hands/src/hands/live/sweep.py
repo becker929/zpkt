@@ -22,13 +22,15 @@ refuses, because Live crashes when it cannot write a recording.
 
 from __future__ import annotations
 
+import contextlib
 import gzip
 import json
 import re
 import shutil
 import time
+from collections.abc import Callable
 from pathlib import Path
-from typing import Callable
+from typing import Any
 
 from hands.live import hold
 
@@ -36,9 +38,9 @@ TAKE = re.compile(r"Render \d{4} \[\d{4}-\d{2}-\d{2} \d{6}\]\.wav")
 _TAKE_B = re.compile(TAKE.pattern.encode())
 GRID = re.compile(r"^(?P<panel>.+)-g(?P<id>\d+)-[a-p](?:-m)?\.wav$")
 KEEP_DAYS = 7.0
-SETTLE = 3600.0                  # seconds: nothing younger is swept (a render may be under way)
-LOW = 2 * 2**30                  # bytes free under which a render sweeps first
-FLOOR = 300 * 2**20              # bytes that must stay free beside the take
+SETTLE = 3600.0  # seconds: nothing younger is swept (a render may be under way)
+LOW = 2 * 2**30  # bytes free under which a render sweeps first
+FLOOR = 300 * 2**20  # bytes that must stay free beside the take
 TAKE_BYTES_PER_SECOND = 400_000  # Live records 32-bit float stereo
 
 
@@ -53,7 +55,7 @@ def _memo(out_dir: Path) -> Path:
     return out_dir / ".sweep.json"
 
 
-def _read(out_dir: Path) -> dict:
+def _read(out_dir: Path) -> dict[str, Any]:
     try:
         m = json.loads(_memo(out_dir).read_text())
         return m if isinstance(m, dict) else {}
@@ -61,11 +63,9 @@ def _read(out_dir: Path) -> dict:
         return {}
 
 
-def _write(out_dir: Path, memo: dict) -> None:
-    try:
+def _write(out_dir: Path, memo: dict[str, Any]) -> None:
+    with contextlib.suppress(OSError):
         _memo(out_dir).write_text(json.dumps(memo))
-    except OSError:
-        pass
 
 
 def note_takes(out_dir: Path, folder: Path) -> None:
@@ -82,7 +82,7 @@ def _project_of(folder: Path) -> Path:
     return folder.parent.parent if folder.name == "Recorded" and folder.parent.name == "Samples" else folder
 
 
-def used_by_sets(project: Path, memo: dict) -> set[str]:
+def used_by_sets(project: Path, memo: dict[str, Any]) -> set[str]:
     """The take names any Live set under the project refers to. Sets are read once and remembered by date and size."""
     seen = memo.setdefault("sets", {})
     names: set[str] = set()
@@ -97,7 +97,8 @@ def used_by_sets(project: Path, memo: dict) -> set[str]:
         hit = seen.get(key)
         if not hit or hit[0] != stamp:
             try:
-                data = gzip.open(als).read()
+                with gzip.open(als) as fh:
+                    data = fh.read()
             except (OSError, EOFError):
                 try:
                     data = als.read_bytes()
@@ -110,23 +111,33 @@ def used_by_sets(project: Path, memo: dict) -> set[str]:
     return names
 
 
-def _names(shown) -> list[str]:
+def _names(shown: object) -> list[str]:
     return [Path(shown).name] if isinstance(shown, str) and shown else []
 
 
-def _grid_files(g: dict) -> list[str]:
-    return [n for o in g.get("options") or [] if isinstance(o, dict) for k in ("file", "matched") for n in _names(o.get(k))]
+def _grid_files(g: dict[str, Any]) -> list[str]:
+    return [
+        n for o in g.get("options") or [] if isinstance(o, dict) for k in ("file", "matched") for n in _names(o.get(k))
+    ]
 
 
-def plan(out_dir: Path, projects: list[Path] | None = None, *, keep_days: float = KEEP_DAYS, pressure: bool = False,
-         in_use: set[str] | None = None, now: float | None = None, memo: dict | None = None) -> list[dict]:
+def plan(
+    out_dir: Path,
+    projects: list[Path] | None = None,
+    *,
+    keep_days: float = KEEP_DAYS,
+    pressure: bool = False,
+    in_use: set[str] | None = None,
+    now: float | None = None,
+    memo: dict[str, Any] | None = None,
+) -> list[dict[str, Any]]:
     """What a sweep would delete: [{path, bytes, kind, why}], biggest first. Deletes nothing."""
     out_dir = Path(out_dir)
     now = time.time() if now is None else now
     memo = _read(out_dir) if memo is None else memo
     in_use = in_use or set()
     old = SETTLE if pressure else max(SETTLE, keep_days * 86400.0)
-    items: dict[str, dict] = {}
+    items: dict[str, dict[str, Any]] = {}
     here = out_dir.is_dir()
 
     def add(p: Path, kind: str, why: str, age: float) -> None:
@@ -142,7 +153,7 @@ def plan(out_dir: Path, projects: list[Path] | None = None, *, keep_days: float 
     panels: set[str] = set()
     for f in (sorted(out_dir.glob("*.panel.json")) + sorted(out_dir.glob("*.song.json"))) if here else []:
         if f.name.endswith(".panel.json"):
-            panels.add(f.name[:-len(".panel.json")])   # even if its file cannot be read: its grids are not orphans
+            panels.add(f.name[: -len(".panel.json")])  # even if its file cannot be read: its grids are not orphans
         try:
             made = json.loads(f.read_text())
             name = str(made.get("name") or f.name.split(".")[0])
@@ -151,7 +162,7 @@ def plan(out_dir: Path, projects: list[Path] | None = None, *, keep_days: float 
             newest = _grid_files(grids[-1]) if grids else []
             older = [(n, f"grid {g.get('id')} of {name}, not its newest") for g in grids[:-1] for n in _grid_files(g)]
         except (OSError, ValueError, TypeError, AttributeError, KeyError):
-            continue                             # a damaged file: nothing it names is swept on its word
+            continue  # a damaged file: nothing it names is swept on its word
         if f.name.endswith(".panel.json"):
             panels.add(name)
         keep.update(renders[-2:])
@@ -201,8 +212,16 @@ def _mark_swept(out_dir: Path, gone: set[str]) -> None:
             continue
 
 
-def sweep(out_dir: Path, projects: list[Path] | None = None, *, apply: bool = False, keep_days: float = KEEP_DAYS,
-          pressure: bool = False, in_use: set[str] | None = None, now: float | None = None) -> dict:
+def sweep(
+    out_dir: Path,
+    projects: list[Path] | None = None,
+    *,
+    apply: bool = False,
+    keep_days: float = KEEP_DAYS,
+    pressure: bool = False,
+    in_use: set[str] | None = None,
+    now: float | None = None,
+) -> dict[str, Any]:
     """Plan a sweep and, with apply, carry it out. Returns {applied, files, bytes, kinds, items, free}."""
     out_dir = Path(out_dir)
     memo = _read(out_dir)
@@ -219,25 +238,34 @@ def sweep(out_dir: Path, projects: list[Path] | None = None, *, apply: bool = Fa
         done.append(it)
     if apply and done:
         _mark_swept(out_dir, {Path(i["path"]).name for i in done if Path(i["path"]).parent == out_dir})
-    kinds: dict[str, dict] = {}
+    kinds: dict[str, dict[str, Any]] = {}
     for it in done:
         k = kinds.setdefault(it["kind"], {"files": 0, "bytes": 0})
         k["files"] += 1
         k["bytes"] += it["bytes"]
-    return {"applied": apply, "files": len(done), "bytes": sum(i["bytes"] for i in done), "kinds": kinds,
-            "items": done, "free": free_bytes(out_dir), "low": LOW}
+    return {
+        "applied": apply,
+        "files": len(done),
+        "bytes": sum(i["bytes"] for i in done),
+        "kinds": kinds,
+        "items": done,
+        "free": free_bytes(out_dir),
+        "low": LOW,
+    }
 
 
 def size(n: float) -> str:
     return f"{n / 2**30:.1f} GB" if n >= 2**30 else f"{n / 2**20:.0f} MB" if n >= 2**20 else f"{n / 1024:.0f} KB"
 
 
-def report(result: dict, shown: int = 12) -> str:
+def report(result: dict[str, Any], shown: int = 12) -> str:
     verb = "deleted" if result["applied"] else "would delete"
     if not result["files"]:
         return f"nothing to sweep; {size(result['free'])} free"
-    lines = [f"{verb} {result['files']} files, {size(result['bytes'])}; {size(result['free'])} free"
-             + ("" if result["applied"] else " now (run again with --apply to delete them)")]
+    lines = [
+        f"{verb} {result['files']} files, {size(result['bytes'])}; {size(result['free'])} free"
+        + ("" if result["applied"] else " now (run again with --apply to delete them)")
+    ]
     for kind, k in sorted(result["kinds"].items(), key=lambda kv: -kv[1]["bytes"]):
         lines.append(f"  {kind}: {k['files']} files, {size(k['bytes'])}")
     for it in result["items"][:shown]:
@@ -252,14 +280,16 @@ def make_room(out_dir: Path, seconds: float = 0.0, *, free: Callable[[Path], int
     from hands.live.panel import PanelError
 
     out_dir = Path(out_dir)
-    need = FLOOR + int(seconds * TAKE_BYTES_PER_SECOND) * 2      # Live's take, and the copy hands cuts from
+    need = FLOOR + int(seconds * TAKE_BYTES_PER_SECOND) * 2  # Live's take, and the copy hands cuts from
     have = free(out_dir)
     if have >= max(LOW, need):
         return
     result = sweep(out_dir, apply=True, pressure=True)
     have = free(out_dir)
     if have < need:
-        raise PanelError(f"not rendering: only {size(have)} is free on this disk"
-                         + (f" after sweeping {size(result['bytes'])} of old renders" if result["bytes"] else "")
-                         + f", and this take needs {size(need)}. Live crashes when it cannot write a recording. "
-                         "Free some space and render again (`hands sweep --project DIR` shows what hands can delete)")
+        raise PanelError(
+            f"not rendering: only {size(have)} is free on this disk"
+            + (f" after sweeping {size(result['bytes'])} of old renders" if result["bytes"] else "")
+            + f", and this take needs {size(need)}. Live crashes when it cannot write a recording. "
+            "Free some space and render again (`hands sweep --project DIR` shows what hands can delete)"
+        )

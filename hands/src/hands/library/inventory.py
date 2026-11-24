@@ -6,6 +6,7 @@ are skipped). The track is the folder's name without Live's " Project" suffix. I
 newest first; the newest one's facts score every step except arrange, which takes the best set
 (a Short is often cut in a set of its own).
 """
+
 from __future__ import annotations
 
 import json
@@ -13,7 +14,7 @@ import os
 import re
 import subprocess
 from collections.abc import Callable, Iterable
-from datetime import date, datetime, timezone
+from datetime import UTC, date, datetime
 from pathlib import Path
 from typing import cast
 
@@ -67,7 +68,9 @@ def export_kind(path: Path) -> str:
     return "render"
 
 
-def find_exports(name: str, folder: Path | None, set_stems: set[str], used: set[str], extra: Iterable[Path]) -> list[Export]:
+def find_exports(
+    name: str, folder: Path | None, set_stems: set[str], used: set[str], extra: Iterable[Path]
+) -> list[Export]:
     """Audio and video that look like renders of the track: in its folder, files that carry the track's name, a
     set's name or an export word and are not a sample a set plays; in the extra folders, files that carry the
     track's name."""
@@ -93,14 +96,21 @@ def find_exports(name: str, folder: Path | None, set_stems: set[str], used: set[
 def measure_mlab(path: Path) -> dict | None:
     """Integrated loudness, true peak and length of one file with ears/mlab's calibrated meter (a subprocess, so
     hands does not depend on mlab). None when mlab or uv is not there."""
-    code = ("import json,sys;from mlab import io,loudness as L;a=io.load(sys.argv[1]);r=L.analyze(a.x,a.sr);"
-            "print(json.dumps({'lufs':r.integrated,'true_peak':r.true_peak,'seconds':a.duration}))")
+    code = (
+        "import json,sys;from mlab import io,loudness as L;a=io.load(sys.argv[1]);r=L.analyze(a.x,a.sr);"
+        "print(json.dumps({'lufs':r.integrated,'true_peak':r.true_peak,'seconds':a.duration}))"
+    )
     mlab = ZPKT / "ears" / "mlab"
     if not mlab.is_dir():
         return None
     try:
-        out = subprocess.run(["uv", "run", "--quiet", "--project", str(mlab), "python", "-c", code, str(path)],
-                             capture_output=True, text=True, timeout=600, check=True)
+        out = subprocess.run(
+            ["uv", "run", "--quiet", "--project", str(mlab), "python", "-c", code, str(path)],
+            capture_output=True,
+            text=True,
+            timeout=600,
+            check=True,
+        )
         return json.loads(out.stdout.strip().splitlines()[-1])
     except (OSError, subprocess.SubprocessError, ValueError, IndexError):
         return None
@@ -151,20 +161,37 @@ def score_project(p: Project, central: dict, notes: dict) -> TrackReport:
             line = f"record ({rec.by}{', ' + rec.date if rec.date else ''}): {rec.note or 'no note'}"
             line += f" [{rec.source}]" if rec.source else ""
             line += f" {rec.url}" if rec.url else ""
-            ev = [line] + [f"heuristic {heuristic}%: " + "; ".join(ev)]
-        steps.append(StepScore(step=cast(StepKey, s.key), numeral=s.numeral, percent=rec.percent if rec else heuristic,
-                               heuristic=heuristic, record=rec, evidence=ev))
+            ev = [line, f"heuristic {heuristic}%: " + "; ".join(ev)]
+        steps.append(
+            StepScore(
+                step=cast(StepKey, s.key),
+                numeral=s.numeral,
+                percent=rec.percent if rec else heuristic,
+                heuristic=heuristic,
+                record=rec,
+                evidence=ev,
+            )
+        )
     percents: dict[str, int] = {x.step: x.percent for x in steps}
     track_notes = [n for n in (notes.get(p.name.lower()), own_note) if n]
     if p.forked_from:
-        track_notes.append("plays samples from another project's folder ("
-                           + ", ".join(f"{k}: {v}" for k, v in p.forked_from.items()) + "): likely a copy of it")
+        track_notes.append(
+            "plays samples from another project's folder ("
+            + ", ".join(f"{k}: {v}" for k, v in p.forked_from.items())
+            + "): likely a copy of it"
+        )
     cur = p.current
     return TrackReport(
-        track=p.name, folder=str(p.folder) if p.folder else None, set=cur.path.name if cur else None,
-        sets=len(p.sets), last_saved=date.fromtimestamp(cur.mtime).isoformat() if cur else None,
+        track=p.name,
+        folder=str(p.folder) if p.folder else None,
+        set=cur.path.name if cur else None,
+        sets=len(p.sets),
+        last_saved=date.fromtimestamp(cur.mtime).isoformat() if cur else None,
         lowest_incomplete=cast("StepKey | None", workflow.lowest_incomplete(percents)),
-        overall=round(sum(percents.values()) / len(percents)), steps=steps, notes=track_notes)
+        overall=round(sum(percents.values()) / len(percents)),
+        steps=steps,
+        notes=track_notes,
+    )
 
 
 def sort_key(t: TrackReport) -> tuple:
@@ -174,8 +201,14 @@ def sort_key(t: TrackReport) -> tuple:
     return (-idx, -at, -t.overall, t.track.lower())
 
 
-def inventory(roots: Iterable[Path], *, exports: Iterable[Path] = (), records_file: Path | None = None,
-              browser: Path | None = BROWSER_PROJECTS, measure: Measure | None = None) -> Inventory:
+def inventory(
+    roots: Iterable[Path],
+    *,
+    exports: Iterable[Path] = (),
+    records_file: Path | None = None,
+    browser: Path | None = BROWSER_PROJECTS,
+    measure: Measure | None = None,
+) -> Inventory:
     """Scan every root, score every project, apply records. measure (e.g. measure_mlab) reads loudness of up to
     three master candidates per track."""
     roots = [Path(r).expanduser() for r in roots]
@@ -196,7 +229,7 @@ def inventory(roots: Iterable[Path], *, exports: Iterable[Path] = (), records_fi
                 continue
             projects.append(load_project(d, names - {d.name}, skipped))
     live = []
-    for p in projects:                      # a canceled track is out of the inventory (the project file wins)
+    for p in projects:  # a canceled track is out of the inventory (the project file wins)
         status = records.project_status(p.folder) or statuses.get(p.name.lower(), "")
         if status == "canceled":
             note = notes.get(p.name.lower(), "")
@@ -219,8 +252,12 @@ def inventory(roots: Iterable[Path], *, exports: Iterable[Path] = (), records_fi
                 if m := measure(e.path):
                     e.lufs, e.true_peak, e.seconds = m.get("lufs"), m.get("true_peak"), m.get("seconds")
     reports = sorted((score_project(p, central, notes) for p in projects), key=sort_key)
-    return Inventory(generated=datetime.now(timezone.utc).isoformat(timespec="seconds"),
-                     roots=[str(r) for r in roots], tracks=reports, skipped=skipped)
+    return Inventory(
+        generated=datetime.now(UTC).isoformat(timespec="seconds"),
+        roots=[str(r) for r in roots],
+        tracks=reports,
+        skipped=skipped,
+    )
 
 
 def step_label(key: str | None) -> str:
@@ -237,8 +274,7 @@ def markdown(inv: Inventory, evidence: bool = True) -> str:
     rows = []
     for t in inv.tracks:
         cells = [f"{x.percent}{'*' if x.record else ''}" for x in t.steps]
-        rows.append(f"| {t.track} | {step_label(t.lowest_incomplete)} | " + " | ".join(cells)
-                    + f" | {t.set or '—'} |")
+        rows.append(f"| {t.track} | {step_label(t.lowest_incomplete)} | " + " | ".join(cells) + f" | {t.set or '—'} |")
     out = [head, rule, *rows, "", "`*` = set by a record (records.toml), not the heuristic."]
     if evidence:
         for t in inv.tracks:

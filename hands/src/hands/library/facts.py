@@ -3,6 +3,7 @@
 Facts, not judgments: tracks with their devices, clips, automation and samples; the Main chain;
 tempo and locators. hands.library.score turns them into step percentages.
 """
+
 from __future__ import annotations
 
 import os
@@ -14,9 +15,23 @@ from pathlib import Path
 from hands import als
 
 RACKS = ("AudioEffectGroupDevice", "InstrumentGroupDevice", "DrumGroupDevice", "MidiEffectGroupDevice")
-INSTRUMENTS = ("DrumGroupDevice", "InstrumentGroupDevice", "OriginalSimpler", "MultiSampler", "InstrumentVector",
-               "UltraAnalog", "Operator", "Drift", "Collision", "LoungeLizard", "StringStudio", "InstrumentImpulse",
-               "DrumCell", "Meld", "Tension")
+INSTRUMENTS = (
+    "DrumGroupDevice",
+    "InstrumentGroupDevice",
+    "OriginalSimpler",
+    "MultiSampler",
+    "InstrumentVector",
+    "UltraAnalog",
+    "Operator",
+    "Drift",
+    "Collision",
+    "LoungeLizard",
+    "StringStudio",
+    "InstrumentImpulse",
+    "DrumCell",
+    "Meld",
+    "Tension",
+)
 REF_NAME = re.compile(r"(^|[\s_\-(])ref(s|erence)?\b", re.I)
 TRASH_NAME = re.compile(r"\b(trash|unused|old|bin)\b", re.I)
 
@@ -25,20 +40,20 @@ TRASH_NAME = re.compile(r"\b(trash|unused|old|bin)\b", re.I)
 class Clip:
     start: float  # beats
     end: float
-    kind: str     # "audio" | "midi"
-    sample: str = ""   # audio clips: the file the clip plays
-    notes: int = 0     # midi clips
+    kind: str  # "audio" | "midi"
+    sample: str = ""  # audio clips: the file the clip plays
+    notes: int = 0  # midi clips
 
 
 @dataclass
 class Track:
     name: str
-    kind: str          # audio | midi | group | return | main
+    kind: str  # audio | midi | group | return | main
     id: str = ""
     group: str = "-1"  # Id of the enclosing group track, "-1" for none
     muted: bool = False
-    devices: list[str] = field(default_factory=list)   # every device that is on, racks flattened
-    clips: list[Clip] = field(default_factory=list)    # arrangement clips that are not disabled
+    devices: list[str] = field(default_factory=list)  # every device that is on, racks flattened
+    clips: list[Clip] = field(default_factory=list)  # arrangement clips that are not disabled
     session_clips: int = 0
     envelopes: int = 0
     volume: float = 1.0
@@ -98,7 +113,7 @@ def device_name(d: ET.Element) -> str:
     """A Live device's XML tag, or a plugin's own name ("Dist COLDFIRE", "Pro-L 2")."""
     if d.tag in als.PLUGIN_TAGS:
         desc = d.find("PluginDesc")
-        for e in (desc.iter() if desc is not None else ()):
+        for e in desc.iter() if desc is not None else ():
             if e.tag in ("PlugName", "Name") and e.get("Value"):
                 return e.get("Value") or ""
         return "Plugin"
@@ -129,13 +144,21 @@ def _clip(c: ET.Element, kind: str) -> Clip | None:
 
 
 def read_track(t: ET.Element) -> Track:
-    kind = {"AudioTrack": "audio", "MidiTrack": "midi", "GroupTrack": "group", "ReturnTrack": "return",
-            "MainTrack": "main", "MasterTrack": "main"}.get(t.tag, t.tag)
+    kind = {
+        "AudioTrack": "audio",
+        "MidiTrack": "midi",
+        "GroupTrack": "group",
+        "ReturnTrack": "return",
+        "MainTrack": "main",
+        "MasterTrack": "main",
+    }.get(t.tag, t.tag)
     chain = t.find("DeviceChain")
     devs = flat_devices(t.find("DeviceChain/DeviceChain/Devices"))
     tr = Track(
         name=_val(t, "Name/EffectiveName") or _val(t, "Name/UserName") or t.tag,
-        kind=kind, id=t.get("Id", ""), group=_val(t, "TrackGroupId", "-1"),
+        kind=kind,
+        id=t.get("Id", ""),
+        group=_val(t, "TrackGroupId", "-1"),
         muted=_val(chain, "Mixer/Speaker/Manual", "true") == "false",
         devices=[device_name(d) for d in devs if _val(d, "On/Manual", "true") != "false"],
         envelopes=len(t.findall("AutomationEnvelopes/Envelopes/AutomationEnvelope")),
@@ -143,7 +166,9 @@ def read_track(t: ET.Element) -> Track:
     )
     try:
         tr.volume = float(_val(chain, "Mixer/Volume/Manual", "1"))
-        tr.sends = [float(s.get("Value", "0")) for s in t.findall("DeviceChain/Mixer/Sends/TrackSendHolder/Send/Manual")]
+        tr.sends = [
+            float(s.get("Value", "0")) for s in t.findall("DeviceChain/Mixer/Sends/TrackSendHolder/Send/Manual")
+        ]
     except ValueError:
         pass
     for c in t.findall("DeviceChain/MainSequencer/Sample/ArrangerAutomation/Events/AudioClip"):
@@ -179,8 +204,9 @@ def read_set(path: str | os.PathLike) -> SetFacts:
             locators.append((float(_val(loc, "Time", "0")), _val(loc, "Name")))
         except ValueError:
             continue
-    facts = SetFacts(Path(path), os.path.getmtime(path), tempo, tracks, main, sorted(locators),
-                     root.get("Creator") or "")
+    facts = SetFacts(
+        Path(path), os.path.getmtime(path), tempo, tracks, main, sorted(locators), root.get("Creator") or ""
+    )
     mark_references(facts)
     return facts
 
@@ -192,5 +218,9 @@ def mark_references(facts: SetFacts) -> None:
     for t in facts.tracks:
         names = [t.name] + [g.name for g in facts.groups_of(t)]
         t.reference = any(REF_NAME.search(n) or TRASH_NAME.search(n) for n in names) or (
-            t.kind == "audio" and t.muted and len(t.clips) == 1 and not t.devices
-            and t.clips[0].end - t.clips[0].start >= 0.5 * max(end, 1.0))
+            t.kind == "audio"
+            and t.muted
+            and len(t.clips) == 1
+            and not t.devices
+            and t.clips[0].end - t.clips[0].start >= 0.5 * max(end, 1.0)
+        )

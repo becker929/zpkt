@@ -1,4 +1,5 @@
 """hands.als on the BSD fixture set, with devices planted the way Live 12 writes them."""
+
 from __future__ import annotations
 
 import copy
@@ -51,7 +52,7 @@ def test_knob_values_and_ranges():
     assert als.current_value(tree, TRACK, "Mixer", "Volume") == 1.0
     assert als.current_value(tree, TRACK, "Mixer", "Speaker") is True
     assert als.current_value(tree, TRACK, UTIL, "Gain") == pytest.approx(0.4084238708)
-    assert als.current_value(tree, TRACK, "StereoGain", "BassMono") is False   # bare tag: the last one
+    assert als.current_value(tree, TRACK, "StereoGain", "BassMono") is False  # bare tag: the last one
     assert als.current_value(tree, TRACK, DECAP, "Drive") == pytest.approx(0.27)
     assert als.current_value(tree, TRACK, ("Eq8", 0), "Bands.0/ParameterA/Freq") == pytest.approx(30.9539299)
     assert als.param_range(tree, TRACK, UTIL, "StereoWidth") == (0.0, 4.0)
@@ -99,9 +100,15 @@ def test_set_steps_writes_a_step_envelope_live_can_load(tmp_path):
     out = als.save(tree, tmp_path / "steps.als")
     envs = als.envelopes(als.load(out))
     drive = [(e.tag, e.get("Time"), e.get("Value")) for e in envs["1-Audio > PluginDevice > ParameterValue"][2]]
-    assert drive == [("FloatEvent", "-63072000", "0.2"), ("FloatEvent", "0", "0.2"),
-                     ("FloatEvent", "40", "0.2"), ("FloatEvent", "40", "0.4"), ("FloatEvent", "72", "0.4"),
-                     ("FloatEvent", "104", "0.4"), ("FloatEvent", "104", "0.8")]
+    assert drive == [
+        ("FloatEvent", "-63072000", "0.2"),
+        ("FloatEvent", "0", "0.2"),
+        ("FloatEvent", "40", "0.2"),
+        ("FloatEvent", "40", "0.4"),
+        ("FloatEvent", "72", "0.4"),
+        ("FloatEvent", "104", "0.4"),
+        ("FloatEvent", "104", "0.8"),
+    ]
     ison = [(e.tag, e.get("Time"), e.get("Value")) for e in envs["1-Audio > Eq8 > IsOn"][2]]
     assert ison[0] == ("BoolEvent", "-63072000", "true") and ison[-1] == ("BoolEvent", "40", "false")
     report = als.check(out, against=FIXTURE)
@@ -118,8 +125,8 @@ def test_add_points_ramps_jumps_and_appends(tmp_path):
     tree = planted_tree()
     tr, dev, path = als.resolve(tree, TRACK, DECAP, "Drive")
     assert als.value_at(tr, dev, path, 10) == als.knob_param(tree, TRACK, DECAP, "Drive").find("Manual").get("Value")
-    als.add_points(tree, tr, dev, path, [(8, 0.2), (16, 0.6), (16, 0.1)])   # a ramp, then a jump
-    als.add_points(tree, tr, dev, path, [(32, 0.1), (40, 0.9)])            # appended after the last event
+    als.add_points(tree, tr, dev, path, [(8, 0.2), (16, 0.6), (16, 0.1)])  # a ramp, then a jump
+    als.add_points(tree, tr, dev, path, [(32, 0.1), (40, 0.9)])  # appended after the last event
     out = als.save(tree, tmp_path / "points.als")
     envs = als.envelopes(als.load(out))
     got = [(e.get("Time"), e.get("Value")) for e in envs["1-Audio > PluginDevice > ParameterValue"][2]]
@@ -144,15 +151,15 @@ def test_set_steps_refuses_bad_input():
     main = als.find_track(tree, "Main")
     with pytest.raises(ValueError, match="not in track"):
         als.set_steps(tree, main, dev, path, [(0, 1.0)])
-    assert len(als.envelopes(tree)) == 2   # only the fixture's own two on Main
+    assert len(als.envelopes(tree)) == 2  # only the fixture's own two on Main
 
 
 def test_add_device_from_donor_renumbers_its_ids(tmp_path):
     tree = als.load(FIXTURE)
-    donor = ET.fromstring(DECAPITATOR)          # ids 22110-22115, as if from another set
+    donor = ET.fromstring(DECAPITATOR)  # ids 22110-22115, as if from another set
     dev = als.add_device_from_donor(tree, als.find_track(tree, TRACK), donor)
     ids = sorted(int(e.get("Id")) for e in als.pointee_elements(dev))
-    assert ids == list(range(22031, 22037))      # from the fixture's NextPointeeId on
+    assert ids == list(range(22031, 22037))  # from the fixture's NextPointeeId on
     assert tree.getroot().find("LiveSet/NextPointeeId").get("Value") == "22037"
     assert dev.get("Id") == "0"
     out = als.save(tree, tmp_path / "donor.als")
@@ -165,15 +172,16 @@ def test_donor_references_and_routings():
     outside = ET.fromstring('<Reverb Id="0"><Envelope><PointeeId Value="5" /></Envelope></Reverb>')
     with pytest.raises(ValueError, match="outside itself"):
         als.add_device_from_donor(tree, als.find_track(tree, TRACK), outside)
-    sidechain = ET.fromstring('<Compressor2 Id="0"><SideChain><Target Value="AudioIn/Track.7/PostFxOut" />'
-                              '</SideChain></Compressor2>')
+    sidechain = ET.fromstring(
+        '<Compressor2 Id="0"><SideChain><Target Value="AudioIn/Track.7/PostFxOut" /></SideChain></Compressor2>'
+    )
     with pytest.warns(UserWarning, match="donor set"):
         als.add_device_from_donor(tree, als.find_track(tree, TRACK), sidechain)
 
 
 def test_check_finds_what_would_break_loading(tmp_path):
     text = xml_text(planted_set(tmp_path / "ok.als"))
-    broken = text.replace('<Pointee Id="22117" />', '<Pointee Id="22101" />')       # a duplicate id
+    broken = text.replace('<Pointee Id="22117" />', '<Pointee Id="22101" />')  # a duplicate id
     broken = broken.replace('<NextPointeeId Value="22200" />', '<NextPointeeId Value="22120" />')
     path = tmp_path / "broken.als"
     path.write_bytes(gzip.compress(broken.encode()))
@@ -190,7 +198,7 @@ def test_list_params_and_cli(tmp_path):
     assert out.exit_code == 0 and out.stdout.rstrip().endswith("OK")
     out = CliRunner().invoke(app, ["als", "params", str(path), TRACK, "Eq8"])
     assert out.exit_code == 0 and out.stdout.split()[:2] == ["On", "Bool"]
-    assert "Bands" not in out.stdout   # band parameters sit one level down
+    assert "Bands" not in out.stdout  # band parameters sit one level down
 
 
 def test_mix_state_reads_a_saved_mix_and_diffs_two_files(tmp_path):
@@ -211,3 +219,13 @@ def test_mix_state_reads_a_saved_mix_and_diffs_two_files(tmp_path):
 
     res = CliRunner().invoke(app, ["als", "mix", str(muted), "--against", str(src)])
     assert res.exit_code == 1 and f"{TRACK}/mute: False -> True" in res.output
+
+
+def test_als_mix_prints_one_line_per_track(tmp_path):
+    src = planted_set(tmp_path / "a.als")
+    out = CliRunner().invoke(app, ["als", "mix", str(src)])
+    assert out.exit_code == 0
+    assert out.stdout == (
+        "1-Audio                     0.00 dB pan +0.00  | StereoGain, PluginDevice, Eq8\n"
+        "Main                        0.00 dB pan +0.00\n"
+    )

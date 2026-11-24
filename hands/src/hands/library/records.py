@@ -23,6 +23,7 @@ A project folder may hold its own `zpkt-workflow.toml` with the step tables at t
 (`[arrange]`, ...). The producer writes that one, so it wins over the central file. Agents never write
 into a project folder; they add to the central file.
 """
+
 from __future__ import annotations
 
 import tomllib
@@ -33,7 +34,7 @@ from hands.library import workflow
 from hands.library.models import Record
 
 PROJECT_FILE = "zpkt-workflow.toml"
-STATUSES = ("canceled",)       # a track's status; without one it is in progress
+STATUSES = ("canceled",)  # a track's status; without one it is in progress
 
 
 def _steps(table: dict[str, Any], where: str, default_by: str) -> dict[str, Record]:

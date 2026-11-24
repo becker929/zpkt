@@ -1,4 +1,5 @@
 """hands.live.hold: one user of Live at a time, and what an interrupted command left is put back by the next."""
+
 from __future__ import annotations
 
 import fcntl
@@ -33,21 +34,22 @@ class Live(Transport):
 def test_undo_runs_its_code_whether_the_body_ends_or_raises():
     live = Live()
     with hold.undo(live, "the tempo", "song.tempo = 120"):
-        assert [e["what"] for e in hold.pending()] == ["the tempo"]     # on disk while the body runs
-    with pytest.raises(ValueError):
-        with hold.undo(live, "the tempo", "song.tempo = 121"):
-            raise ValueError("the render failed")
+        assert [e["what"] for e in hold.pending()] == ["the tempo"]  # on disk while the body runs
+    with pytest.raises(ValueError), hold.undo(live, "the tempo", "song.tempo = 121"):
+        raise ValueError("the render failed")
     assert live.ran == ["song.tempo = 120", "song.tempo = 121"] and hold.pending() == []
 
 
 def test_what_a_killed_command_left_is_put_back_by_the_next_newest_first():
-    hold.note("the faders of a grid", "faders()")       # a process that died after writing these
+    hold.note("the faders of a grid", "faders()")  # a process that died after writing these
     hold.note("the Render track", "render_track()")
     live = Live()
     with hold.using_live("hands panel make", client=live) as put_back:
         assert live.ran == ["render_track()", "faders()"]
-        assert put_back == ["put back the Render track, left by an interrupted command",
-                            "put back the faders of a grid, left by an interrupted command"]
+        assert put_back == [
+            "put back the Render track, left by an interrupted command",
+            "put back the faders of a grid, left by an interrupted command",
+        ]
     assert hold.pending() == []
 
 
@@ -57,22 +59,23 @@ def test_a_note_waits_while_live_is_away_and_goes_when_live_refuses_it():
     live.down = True
     assert hold.replay(live) == [] and len(hold.pending()) == 1
     live.down, live.refuse = False, True
-    assert hold.replay(live) == ["could not put back the tempo (IndexError: list index out of range [in 'song.tempo = 120'])"]
+    assert hold.replay(live) == [
+        "could not put back the tempo (IndexError: list index out of range [in 'song.tempo = 120'])"
+    ]
     assert hold.pending() == []
 
 
 def test_undo_keeps_its_note_when_live_cannot_be_reached_and_says_so():
     live = Live()
-    with pytest.raises(LiveError):
-        with hold.undo(live, "the tempo", "song.tempo = 120"):
-            live.down = True
+    with pytest.raises(LiveError), hold.undo(live, "the tempo", "song.tempo = 120"):
+        live.down = True
     assert len(hold.pending()) == 1
 
 
 def test_a_second_command_is_told_who_has_live():
     path = config.rig().data_dir / hold.LOCK
     path.parent.mkdir(parents=True, exist_ok=True)
-    with open(path, "a+") as other:                      # another process, as flock sees it: its own open file
+    with open(path, "a+") as other:  # another process, as flock sees it: its own open file
         fcntl.flock(other, fcntl.LOCK_EX)
         other.write(json.dumps({"pid": 1, "what": "hands panel grid", "at": 0}))
         other.flush()
@@ -87,11 +90,10 @@ def test_a_second_command_is_told_who_has_live():
 
 def test_sigterm_while_holding_live_unwinds_through_finally():
     live = Live()
-    with pytest.raises(SystemExit):
-        with hold.using_live("hands panel make"):
-            with hold.undo(live, "the tempo", "song.tempo = 120"):
-                os.kill(os.getpid(), signal.SIGTERM)
-                signal.raise_signal(signal.SIGTERM)       # delivered before the next line, whatever the platform
+    with pytest.raises(SystemExit), hold.using_live("hands panel make"):
+        with hold.undo(live, "the tempo", "song.tempo = 120"):
+            os.kill(os.getpid(), signal.SIGTERM)
+            signal.raise_signal(signal.SIGTERM)  # delivered before the next line, whatever the platform
     assert live.ran == ["song.tempo = 120"] and hold.pending() == []
     assert signal.getsignal(signal.SIGTERM) is signal.SIG_DFL or callable(signal.getsignal(signal.SIGTERM))
 
@@ -134,31 +136,45 @@ def test_the_rig_check_sees_notes_and_the_soft_reset_runs_them(monkeypatch):
 def test_a_reset_reports_instead_of_raising(monkeypatch):
     def boom(*a, **k):
         raise RuntimeError("the disk is full")
+
     monkeypatch.setattr(rig, "_reset", boom)
     monkeypatch.setattr(rig, "check", lambda *a, **k: rig.Health(needs="restart", problems=["Live is not running"]))
     report = rig.reset(client=Live())
     assert not report.ok and report.steps == ["the reset stopped (RuntimeError: the disk is full)"]
-    assert rig.reset(set_path=config.rig().sets_dir / "nope.als", client=Live()).needs_you[0].startswith("there is no Live set at")
+    assert (
+        rig.reset(set_path=config.rig().sets_dir / "nope.als", client=Live())
+        .needs_you[0]
+        .startswith("there is no Live set at")
+    )
 
 
 def test_replacing_a_panel_with_a_bad_spec_keeps_the_one_it_had(tmp_path, monkeypatch):
     from test_panel import MIX, SPEC, bars_recorder, mix_live, recorder
+
     monkeypatch.setattr("time.sleep", lambda s: None)
     live = mix_live()
     live.song.create_audio_track = lambda i: None
     panel.make(live, SPEC, tmp_path, recorder=recorder([]))
     mix.make(live, MIX, tmp_path, recorder=bars_recorder([]))
     kick = next(t for t in live.song.tracks if t.name == "bus-kick")
-    kick.devices[0].parameters[1].value = 11.0                       # the user's own setting of the Drive
+    kick.devices[0].parameters[1].value = 11.0  # the user's own setting of the Drive
     names = [t.name for t in live.song.tracks]
     with pytest.raises(panel.PanelError, match="no parameter 'Cutof'"):
         panel.make(live, {**SPEC, "controls": ["Cutof"]}, tmp_path, replace=True, recorder=recorder([]))
     with pytest.raises(panel.PanelError, match="no parameter 'Driv3'"):
-        mix.make(live, {**MIX, "devices": [{**MIX["devices"][0], "controls": ["Driv3"]}]}, tmp_path, replace=True, recorder=bars_recorder([]))
+        mix.make(
+            live,
+            {**MIX, "devices": [{**MIX["devices"][0], "controls": ["Driv3"]}]},
+            tmp_path,
+            replace=True,
+            recorder=bars_recorder([]),
+        )
     assert [t.name for t in live.song.tracks] == names
-    assert [(d.name, d.parameters[0].value, d.parameters[1].value) for d in kick.devices] == [("mix buses Saturator", 1.0, 11.0)]
+    assert [(d.name, d.parameters[0].value, d.parameters[1].value) for d in kick.devices] == [
+        ("mix buses Saturator", 1.0, 11.0)
+    ]
     assert hold.pending() == []
-    mix.make(live, MIX, tmp_path, replace=True, recorder=bars_recorder([]))     # and a good one does replace it
+    mix.make(live, MIX, tmp_path, replace=True, recorder=bars_recorder([]))  # and a good one does replace it
     assert [(d.name, round(d.parameters[1].value)) for d in kick.devices] == [("mix buses Saturator", 6)]
 
 
@@ -181,6 +197,8 @@ def test_a_note_for_one_set_is_never_run_on_another():
     hold.on_set("/sets/HW002.als")
     hold.note("the faders of a grid", "faders()")
     live.set = "/sets/Other song.als"
-    assert hold.replay(live) == ["dropped a note to put back the faders of a grid: it was for HW002, and Other song is open now"]
+    assert hold.replay(live) == [
+        "dropped a note to put back the faders of a grid: it was for HW002, and Other song is open now"
+    ]
     assert live.ran == [] and hold.pending() == []
     hold.on_set("")

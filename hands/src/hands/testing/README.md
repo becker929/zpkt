@@ -11,12 +11,13 @@ answer, and a refactor can show it sends the same calls as before.
 from hands.live import state
 from hands.testing import FakeLive, fake_set, hw002_like
 
+
 def test_take(tmp_path):
-    with FakeLive(hw002_like()) as live:          # an McpTransport: pass it wherever hands takes a client
+    with FakeLive(hw002_like()) as live:  # an McpTransport: pass it wherever hands takes a client
         st = state.take(live)
         assert st["tracks"]["Kick bus"]["mixer"]["volume"] == ["0.0 dB", 0.85]
-        assert len(live.calls) == 7                # every call: code, seconds, status, readbacks
-        assert not any(c.readbacks for c in live.calls)   # nothing read back in the call that wrote it
+        assert len(live.calls) == 7  # every call: code, seconds, status, readbacks
+        assert not any(c.readbacks for c in live.calls)  # nothing read back in the call that wrote it
 ```
 
 - `fake_set({...})` builds a set from a dict: tracks (audio, MIDI, group), returns, Main, devices, clips, routing

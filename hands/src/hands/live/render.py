@@ -1,6 +1,8 @@
-"""Render the arrangement to files through Live's Export Audio/Video dialog: the one export path.
+"""Render the arrangement to files through Live's Export Audio/Video dialog, by keystrokes.
 
-export_audio.applescript (package data) drives the dialog and the Save panel: it sets the rendered
+This is the "keys" method of hands.live.export.export, which also has the "menu" method (no keystrokes, Main only),
+for when a macOS prompt could take the keys. export_audio.applescript (package data) drives the dialog and the Save
+panel: it opens the dialog with Cmd+Shift+R, sets the rendered
 track, file type, bit depth and sample rate, turns MP3 off, types the file name and waits for the
 file. The range is the arrangement's time selection, made by timeops.select, so the script never
 types into the range sliders. An export costs about 13 s plus 0.1 s per second of audio, most of
@@ -15,7 +17,7 @@ from __future__ import annotations
 import time
 from pathlib import Path
 
-from hands import steps
+from hands import bench
 from hands.live import timeops, ui
 from hands.live.session import stop
 from hands.live.transport import McpTransport
@@ -24,8 +26,17 @@ SCRIPT = Path(__file__).with_name("export_audio.applescript")
 FILE_TYPES = {".wav": "WAV", ".aif": "AIFF", ".aiff": "AIFF", ".flac": "FLAC"}
 
 
-def export(client: McpTransport, out: Path, start_beat: float | None = None, length_beats: float | None = None,
-           *, mode: str = "Main", bits: int = 32, sample_rate: int = 44100, tries: int = 2) -> list[Path]:
+def export(
+    client: McpTransport,
+    out: Path,
+    start_beat: float | None = None,
+    length_beats: float | None = None,
+    *,
+    mode: str = "Main",
+    bits: int = 32,
+    sample_rate: int = 44100,
+    tries: int = 2,
+) -> list[Path]:
     """Export [start_beat, start_beat + length_beats) and return the files Live wrote.
 
     Without a range the dialog keeps Live's own: the loop brace if set, else the whole song.
@@ -52,7 +63,6 @@ def export(client: McpTransport, out: Path, start_beat: float | None = None, len
             t0 = time.time()
             if start_beat is not None and length_beats is not None:
                 timeops.select(client, start_beat, length_beats)
-            steps.report(f"export {out.name}: the Export dialog", "minor")
             try:
                 ui.osa_file(SCRIPT, *args, timeout=900)
                 ok = True
@@ -67,9 +77,8 @@ def export(client: McpTransport, out: Path, start_beat: float | None = None, len
                     ui.close_dialogs()
                 if ui.dialogs():
                     stop(f"export: wrote {len(written)} file(s) but a dialog stayed open: {error}")
-                steps.timing("export_script_error_files_ok", time.time() - t0, files=len(written), err=error[-120:])
+                bench.timing("export_script_error_files_ok", time.time() - t0, files=len(written), err=error[-120:])
             if written:
-                steps.report(f"exported {', '.join(f.name for f in written)}", "major")
                 return written
             ui.close_dialogs()
             if ui.dialogs():

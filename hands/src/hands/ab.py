@@ -75,7 +75,9 @@ def _with_spectrum(body: str, spectrum: bool, toggle: bool) -> str:
 
 def toggle(transport: McpTransport, spectrum: bool = False) -> dict[str, Any]:
     """Switch between the mix and the current reference."""
-    body = _PRELUDE + f"""
+    body = (
+        _PRELUDE
+        + f"""
 if listening:
 {_indent(_LISTEN_MIX)}
     mode = "mix"
@@ -84,25 +86,32 @@ else:
     mode = "ref"
 result = {{"mode": mode, "ref": cur.name}}
 """
+    )
     return _run(transport, _with_spectrum(body, spectrum, toggle=False))
 
 
 def next_ref(transport: McpTransport) -> dict[str, Any]:
     """Make the next reference current; if one is playing, switch to it."""
-    body = _PRELUDE + f"""
+    body = (
+        _PRELUDE
+        + f"""
 cur = refs[(refs.index(cur) + 1) % len(refs)]
 song.set_data({DATA_KEY!r}, cur.name)
 if listening:
 {_indent(_LISTEN_REF)}
 result = {{"mode": "ref" if listening else "mix", "ref": cur.name}}
 """
+    )
     return _run(transport, _with_spectrum(body, False, False))
 
 
 def status(transport: McpTransport) -> dict[str, Any]:
-    body = _PRELUDE + """
+    body = (
+        _PRELUDE
+        + """
 result = {"mode": "ref" if listening else "mix", "ref": cur.name, "refs": names}
 """
+    )
     return _run(transport, body)
 
 
