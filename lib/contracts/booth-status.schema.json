@@ -1,0 +1,90 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/becker929/zpkt/lib/contracts/booth-status.schema.json",
+  "$defs": {
+    "StatusLive": {
+      "properties": {
+        "front": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "the set in front of Live, None when Live cannot be asked",
+          "title": "Front"
+        }
+      },
+      "required": [
+        "front"
+      ],
+      "title": "StatusLive",
+      "type": "object"
+    },
+    "Today": {
+      "properties": {
+        "jobs": {
+          "title": "Jobs",
+          "type": "integer"
+        },
+        "live_s": {
+          "title": "Live S",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "jobs",
+        "live_s"
+      ],
+      "title": "Today",
+      "type": "object"
+    }
+  },
+  "description": "GET /v1/status. Generated from contrib/booth/src/booth/contract.py (Status) \u2014 do not edit by hand.",
+  "properties": {
+    "open": {
+      "description": "Anthony's switch (booth open / booth close)",
+      "title": "Open",
+      "type": "boolean"
+    },
+    "reason": {
+      "description": "why a job may not start now, \"\" when one may",
+      "title": "Reason",
+      "type": "string"
+    },
+    "running": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "the job in Live now",
+      "title": "Running"
+    },
+    "queue": {
+      "title": "Queue",
+      "type": "integer"
+    },
+    "live": {
+      "$ref": "#/$defs/StatusLive"
+    },
+    "today": {
+      "$ref": "#/$defs/Today"
+    }
+  },
+  "required": [
+    "open",
+    "reason",
+    "running",
+    "queue",
+    "live",
+    "today"
+  ],
+  "title": "Status",
+  "type": "object"
+}

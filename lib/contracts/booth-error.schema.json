@@ -1,0 +1,91 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/becker929/zpkt/lib/contracts/booth-error.schema.json",
+  "$defs": {
+    "Problem": {
+      "description": "One error or warning of a check: `path` points into the score, `code` is stable.",
+      "properties": {
+        "path": {
+          "title": "Path",
+          "type": "string"
+        },
+        "code": {
+          "title": "Code",
+          "type": "string"
+        },
+        "message": {
+          "title": "Message",
+          "type": "string"
+        }
+      },
+      "required": [
+        "path",
+        "code",
+        "message"
+      ],
+      "title": "Problem",
+      "type": "object"
+    }
+  },
+  "additionalProperties": true,
+  "description": "Every answer that is not a 2xx. 503 `closed` and 429 `queue_full` mean \"not now\" and carry `retry_in_s`. Generated from contrib/booth/src/booth/contract.py (ErrorBody) \u2014 do not edit by hand.",
+  "properties": {
+    "error": {
+      "description": "a stable code: unauthorized, bad_json, bad_key, invalid_score, queue_full, closed, ...",
+      "title": "Error",
+      "type": "string"
+    },
+    "message": {
+      "title": "Message",
+      "type": "string"
+    },
+    "reason": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "with 503 closed",
+      "title": "Reason"
+    },
+    "retry_in_s": {
+      "anyOf": [
+        {
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "with 503 closed and 429 queue_full",
+      "title": "Retry In S"
+    },
+    "errors": {
+      "anyOf": [
+        {
+          "items": {
+            "$ref": "#/$defs/Problem"
+          },
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "with 400 invalid_score",
+      "title": "Errors"
+    }
+  },
+  "required": [
+    "error",
+    "message"
+  ],
+  "title": "ErrorBody",
+  "type": "object"
+}

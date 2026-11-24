@@ -1,0 +1,107 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/becker929/zpkt/lib/contracts/booth-check.schema.json",
+  "$defs": {
+    "Estimate": {
+      "additionalProperties": true,
+      "properties": {
+        "audio_s": {
+          "title": "Audio S",
+          "type": "number"
+        },
+        "render_s": {
+          "description": "the booth's guess at the Live time the job takes, seconds",
+          "title": "Render S",
+          "type": "integer"
+        },
+        "notes": {
+          "title": "Notes",
+          "type": "integer"
+        },
+        "clips": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "only when samples are placed as clips",
+          "title": "Clips"
+        }
+      },
+      "required": [
+        "audio_s",
+        "render_s",
+        "notes"
+      ],
+      "title": "Estimate",
+      "type": "object"
+    },
+    "Problem": {
+      "description": "One error or warning of a check: `path` points into the score, `code` is stable.",
+      "properties": {
+        "path": {
+          "title": "Path",
+          "type": "string"
+        },
+        "code": {
+          "title": "Code",
+          "type": "string"
+        },
+        "message": {
+          "title": "Message",
+          "type": "string"
+        }
+      },
+      "required": [
+        "path",
+        "code",
+        "message"
+      ],
+      "title": "Problem",
+      "type": "object"
+    }
+  },
+  "description": "POST /v1/check. Generated from contrib/booth/src/booth/contract.py (CheckResult) \u2014 do not edit by hand.",
+  "properties": {
+    "ok": {
+      "title": "Ok",
+      "type": "boolean"
+    },
+    "errors": {
+      "items": {
+        "$ref": "#/$defs/Problem"
+      },
+      "title": "Errors",
+      "type": "array"
+    },
+    "warnings": {
+      "items": {
+        "$ref": "#/$defs/Problem"
+      },
+      "title": "Warnings",
+      "type": "array"
+    },
+    "estimate": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Estimate"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  },
+  "required": [
+    "ok",
+    "errors",
+    "warnings",
+    "estimate"
+  ],
+  "title": "CheckResult",
+  "type": "object"
+}

@@ -122,3 +122,17 @@ def test_the_served_palette_is_pinned():
     assert P.served("2026-12").version == "2026-12"
     with pytest.raises(KeyError):
         P.served("2027-01")
+
+
+def _gen():
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("gen", Path(__file__).resolve().parents[1] / "scripts" / "gen_schema.py")
+    gen = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(gen)
+    return gen
+
+
+def test_api_schemas_are_current():
+    for name, schema in _gen().build_api().items():
+        path = SCHEMA.parent / f"{name}.schema.json"
+        assert json.loads(path.read_text()) == schema, f"{path.name}: run uv run python scripts/gen_schema.py"
