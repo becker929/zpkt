@@ -157,8 +157,10 @@ harness's Keychain item). When it is not, the page says so.
 ## How it is built
 
 - `server.py`: `Desk` owns the one state the page sees, its lock, the page's event queues and the history. GET and
-  POST are dispatch tables; each POST route checks its body, and a bad one gets a 400 that says what is wrong.
-  `Settings` holds the ports and folders (`Settings.from_env()` for the running desk; tests make their own).
+  POST are module-level dispatch tables (`GET_ROUTES`, `POST_ROUTES`: functions of the desk and the request); each
+  POST route checks its body, and a bad one gets a 400 that says what is wrong. The HTML pages are a table of their
+  own (`PAGES`), so a second page shares every route. `Settings` holds the ports, folders and the desk file
+  (`Settings.from_env()` for the running desk; tests make their own).
 - `deskstate.py`: the pure rules. `reduce(state, message, now)` folds one pager message in; the loudness match,
   history labels and the seek rule are plain functions too. The page only paints what the server sends (the match's
   gains are in the state; what changed comes from `/api/compare`).

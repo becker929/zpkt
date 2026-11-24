@@ -24,7 +24,7 @@ import socket
 import sys
 import threading
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -64,6 +64,7 @@ class Settings:
     checkpoints_dir: Path  # hands states, <sets_dir>/state/<set>
     surfaces_dir: Path  # made surfaces, <sets_dir>/surfaces/<set>
     align_beat: float = monitor.ALIGN_BEAT  # where the references start (the drop)
+    desk_file: Path = HERE / "desk.json"  # the set's own pages; its made surfaces follow them
 
     @classmethod
     def from_env(cls) -> Settings:
@@ -158,7 +159,7 @@ class Desk:
 
     def cfg(self) -> dict[str, Any]:
         """desk.json's pages, then the surfaces made for this set (surfaces.py), oldest first."""
-        d = json.loads((HERE / "desk.json").read_text())
+        d = json.loads(self.settings.desk_file.read_text())
         d["pages"] = d["pages"] + surfaces.pages(self.settings.set_name, self.settings.surfaces_dir)
         return d
 
@@ -553,6 +554,67 @@ POST_ROUTES: dict[str, Callable[[Desk, dict[str, Any]], Reply]] = {
 }
 
 
+# ---- GET routes: each takes the desk and the query, and returns a Response ------------------------------------------
+
+
+@dataclass(frozen=True)
+class Response:
+    """What a GET route answers: a status, a body and its type."""
+
+    code: int
+    body: bytes
+    ctype: str = "application/json"
+
+
+def json_response(obj: Any, code: int = 200) -> Response:
+    return Response(code, json.dumps(obj).encode())
+
+
+def get_analysis(desk: Desk, query: dict[str, str]) -> Response:
+    f = desk.settings.viz_dir / "analysis.json"
+    return Response(200, f.read_bytes()) if f.exists() else json_response({"error": "run analyze.py first"}, 404)
+
+
+def get_desk(desk: Desk, query: dict[str, str]) -> Response:
+    return json_response(desk.cfg())
+
+
+def get_history(desk: Desk, query: dict[str, str]) -> Response:
+    return json_response(desk.history.view())
+
+
+def get_checkpoint(desk: Desk, query: dict[str, str]) -> Response:
+    try:
+        vals = desk.history.load(query.get("name", ""))
+    except (ValueError, FileNotFoundError) as exc:
+        return json_response({"error": str(exc)}, 404)
+    return json_response({k: vals[k] for k in desk.history.cur if k in vals})
+
+
+def get_compare(desk: Desk, query: dict[str, str]) -> Response:
+    try:
+        return json_response(desk.history.compare(query.get("a", ""), query.get("b", "now")))
+    except (ValueError, FileNotFoundError) as exc:
+        return json_response({"error": str(exc)}, 404)
+
+
+def get_state(desk: Desk, query: dict[str, str]) -> Response:
+    return json_response(desk.page_state())
+
+
+GET_ROUTES: dict[str, Callable[[Desk, dict[str, str]], Response]] = {
+    "/api/analysis": get_analysis,
+    "/api/desk": get_desk,
+    "/api/history": get_history,
+    "/api/checkpoint": get_checkpoint,
+    "/api/compare": get_compare,
+    "/api/state": get_state,
+}
+
+# The HTML pages served, by path. The routes above serve any page; a second page is one more entry here.
+PAGES: dict[str, Path] = {"/": HERE / "static" / "index.html", "/index.html": HERE / "static" / "index.html"}
+
+
 def parse_body(raw: bytes) -> dict[str, Any]:
     """A POST body: a JSON object, or nothing (an empty object)."""
     try:
@@ -615,38 +677,6 @@ class Handler(BaseHTTPRequestHandler):
         self.wfile.write(body)
 
     # ---- GET -----------------------------------------------------------------------------------------------------
-    def get_index(self, query: dict[str, str]) -> None:
-        self._send(200, (HERE / "static" / "index.html").read_bytes(), "text/html; charset=utf-8")
-
-    def get_analysis(self, query: dict[str, str]) -> None:
-        f = self.desk.settings.viz_dir / "analysis.json"
-        if f.exists():
-            self._send(200, f.read_bytes(), "application/json")
-        else:
-            self._json({"error": "run analyze.py first"}, 404)
-
-    def get_desk(self, query: dict[str, str]) -> None:
-        self._json(self.desk.cfg())
-
-    def get_history(self, query: dict[str, str]) -> None:
-        self._json(self.desk.history.view())
-
-    def get_checkpoint(self, query: dict[str, str]) -> None:
-        try:
-            vals = self.desk.history.load(query.get("name", ""))
-        except (ValueError, FileNotFoundError) as exc:
-            return self._json({"error": str(exc)}, 404)
-        self._json({k: vals[k] for k in self.desk.history.cur if k in vals})
-
-    def get_compare(self, query: dict[str, str]) -> None:
-        try:
-            self._json(self.desk.history.compare(query.get("a", ""), query.get("b", "now")))
-        except (ValueError, FileNotFoundError) as exc:
-            self._json({"error": str(exc)}, 404)
-
-    def get_state(self, query: dict[str, str]) -> None:
-        self._json(self.desk.page_state())
-
     def get_events(self, query: dict[str, str]) -> None:
         q: queue.Queue[dict[str, Any]] = queue.Queue(maxsize=2000)
         self.desk.clients.append(q)
@@ -670,26 +700,25 @@ class Handler(BaseHTTPRequestHandler):
         finally:
             self.desk.clients.remove(q)
 
-    GET_ROUTES: ClassVar[dict[str, Callable[[Handler, dict[str, str]], None]]] = {
-        "/": get_index,
-        "/index.html": get_index,
-        "/api/analysis": get_analysis,
-        "/api/desk": get_desk,
-        "/api/history": get_history,
-        "/api/checkpoint": get_checkpoint,
-        "/api/compare": get_compare,
-        "/api/state": get_state,
-        "/events": get_events,
-    }
+    # routes that write as they go (server-sent events), so they need the connection itself
+    STREAMS: ClassVar[dict[str, Callable[[Handler, dict[str, str]], None]]] = {"/events": get_events}
 
     def do_GET(self) -> None:
         url = urlparse(self.path)
+        query = {k: v[0] for k, v in parse_qs(url.query).items()}
+        page = self.server.pages.get(url.path)
+        if page is not None:
+            return self._send(200, page.read_bytes(), "text/html; charset=utf-8")
         if url.path.startswith("/media/"):
             return self._media(url.path[len("/media/") :])
-        route = self.GET_ROUTES.get(url.path)
+        stream = self.STREAMS.get(url.path)
+        if stream is not None:
+            return stream(self, query)
+        route = GET_ROUTES.get(url.path)
         if route is None:
             return self._send(404, b"not found", "text/plain")
-        route(self, {k: v[0] for k, v in parse_qs(url.query).items()})
+        answer = route(self.desk, query)
+        self._send(answer.code, answer.body, answer.ctype)
 
     # ---- POST ----------------------------------------------------------------------------------------------------
     def do_POST(self) -> None:
@@ -708,11 +737,14 @@ class Handler(BaseHTTPRequestHandler):
 
 
 class DeskHTTPServer(ThreadingHTTPServer):
+    """The desk's HTTP server: the routes above for `desk`, and the HTML `pages` (path -> file; default PAGES)."""
+
     daemon_threads = True
 
-    def __init__(self, address: tuple[str, int], desk: Desk) -> None:
+    def __init__(self, address: tuple[str, int], desk: Desk, pages: Mapping[str, Path] | None = None) -> None:
         super().__init__(address, Handler)
         self.desk = desk
+        self.pages = dict(PAGES if pages is None else pages)
 
 
 def udp_socket(port: int) -> socket.socket:
@@ -721,13 +753,13 @@ def udp_socket(port: int) -> socket.socket:
     return s
 
 
-def start(desk: Desk, supervise: bool = True) -> DeskHTTPServer:
-    """The desk's threads (pager datagrams, meter, supervisor) and its HTTP server, not yet serving."""
+def start(desk: Desk, supervise: bool = True, pages: Mapping[str, Path] | None = None) -> DeskHTTPServer:
+    """The desk's threads (pager datagrams, meter, supervisor) and its HTTP server for `pages`, not yet serving."""
     threading.Thread(target=desk.serve_udp, args=(udp_socket(desk.settings.udp_port),), daemon=True).start()
     threading.Thread(target=desk.serve_meter, args=(udp_socket(desk.settings.meter_port),), daemon=True).start()
     if supervise:
         threading.Thread(target=desk.supervise, daemon=True).start()
-    return DeskHTTPServer(("127.0.0.1", desk.settings.http_port), desk)
+    return DeskHTTPServer(("127.0.0.1", desk.settings.http_port), desk, pages)
 
 
 def main() -> None:
