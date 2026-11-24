@@ -41,12 +41,13 @@ def same(a: Any, b: Any) -> bool:
 
 
 class History:
-    def __init__(self, set_name: str, labels: dict[str, str]) -> None:
+    def __init__(self, set_name: str, labels: dict[str, str], directory: Path | None = None) -> None:
         self.set_name, self.labels = set_name, labels
+        self.directory = directory or HISTORY_DIR
         self.lock = threading.RLock()
         self.cur: dict[str, list] = {}           # key -> [shown, raw], as Live has it now
         self.expect: dict[str, tuple[float, float]] = {}   # key -> (raw the desk wrote, until)
-        self.file = HISTORY_DIR / f"{set_name}.json"
+        self.file = self.directory / f"{set_name}.json"
         try:
             d = json.loads(self.file.read_text())
             self.entries, self.pos, self.seq = d["entries"], d["pos"], d.get("seq", len(d["entries"]))
@@ -211,7 +212,7 @@ class History:
 
     # ---- disk, and what the page shows -----------------------------------------------------------------------------
     def _save(self) -> None:
-        HISTORY_DIR.mkdir(parents=True, exist_ok=True)
+        self.directory.mkdir(parents=True, exist_ok=True)
         tmp = self.file.with_name(f".{self.file.name}.tmp")
         tmp.write_text(json.dumps({"entries": self.entries, "pos": self.pos, "seq": self.seq}))
         os.replace(tmp, self.file)

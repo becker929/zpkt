@@ -44,7 +44,7 @@ STATE: dict = {"page": 0, "attached": False, "values": {}, "hw": {}, "picked": {
 CLIENTS: list[queue.Queue] = []
 SET = json.loads((HERE / "sources.json").read_text())["set"]
 LABELS: dict[str, str] = {}
-HIST = history.History(SET, LABELS)
+HIST: history.History = None  # type: ignore[assignment]  # main() opens it: importing reads no history file
 START_CHECKPOINT_H = 12     # a server start makes a "start-..." checkpoint unless the desk made one this recently
 
 
@@ -491,6 +491,8 @@ class Handler(BaseHTTPRequestHandler):
 
 
 def main() -> None:
+    global HIST
+    HIST = history.History(SET, LABELS)
     threading.Thread(target=udp, daemon=True).start()
     threading.Thread(target=meter_udp, daemon=True).start()
     threading.Thread(target=supervisor, daemon=True).start()
