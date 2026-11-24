@@ -20,6 +20,7 @@ import os
 import re
 import threading
 import time
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
@@ -49,9 +50,10 @@ def same(a: Any, b: Any) -> bool:
 
 class History:
     def __init__(self, set_name: str, labels: dict[str, str], directory: Path | None = None,
-                 checkpoints: Path | None = None) -> None:
+                 checkpoints: Path | None = None, clock: Callable[[], float] = time.time) -> None:
         """`directory` holds <set>.json (default HISTORY_DIR); `checkpoints` the set's hands states (default
-        hands.live.state.folder(set_name))."""
+        hands.live.state.folder(set_name)); `clock` gives seconds (tests pass their own)."""
+        self.clock = clock
         self.set_name, self.labels = set_name, labels
         self.directory = directory or HISTORY_DIR
         self.checkpoints_dir = checkpoints
@@ -84,13 +86,13 @@ class History:
             if before is None or same(before[1], raw):
                 return False
             exp = self.expect.get(key)
-            if exp and time.time() < exp[1]:
+            if exp and self.clock() < exp[1]:
                 if same(exp[0], raw):
                     self.expect.pop(key, None)
                 return False
             if sys:
                 return False
-            now = time.time()
+            now = self.clock()
             top = self.entries[-1] if self.entries and self.pos == len(self.entries) else None
             if top and top["k"] == "move" and now - top["at"] < COALESCE_S:
                 mine = next((m for m in top["moves"] if m["key"] == key), None)
@@ -116,7 +118,7 @@ class History:
     def _push(self, entry: dict) -> dict:
         del self.entries[self.pos:]           # a new step drops what could be redone
         self.seq += 1
-        entry.update(id=self.seq, at=time.time())
+        entry.update(id=self.seq, at=self.clock())
         self.entries.append(entry)
         if len(self.entries) > KEEP:
             cut = len(self.entries) - KEEP
@@ -125,7 +127,7 @@ class History:
         return entry
 
     def _writes(self, moves: list[dict], side: str) -> list[list]:
-        until = time.time() + EXPECT_S
+        until = self.clock() + EXPECT_S
         out = []
         for m in moves:
             raw = m[side][1]
