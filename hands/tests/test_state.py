@@ -106,3 +106,16 @@ def test_put_reports_what_the_set_lacks():
     want["tracks"]["kick"]["devices"].append({"name": "desk Sat", "class": "X", "params": {"Drive": ["0", 0.0]}})
     rows = S.put(FakeLive(_state()), want)
     assert ("kick/desk Sat", "device", None) in rows
+
+
+def test_live_open_command_calls_open_set(monkeypatch):
+    from typer.testing import CliRunner
+
+    from hands.cli import app
+    from hands.live import session
+    seen = {}
+    monkeypatch.setattr(session, "open_set", lambda client, name, save_current=True: seen.update(
+        name=name, save=save_current) or 3.2)
+    res = CliRunner().invoke(app, ["live", "open", "HW_x.als", "--no-save"])
+    assert res.exit_code == 0 and "opened HW_x.als in 3.2 s" in res.output
+    assert seen == {"name": "HW_x", "save": False}

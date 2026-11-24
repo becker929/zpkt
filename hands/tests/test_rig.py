@@ -99,7 +99,8 @@ def test_check_ready(rigstate, log):
 
 def test_check_no_device_needs_a_soft_reset(rigstate):
     h = rig.check(Lom())
-    assert h.needs == "soft" and "Live has no audio output device" in h.problems
+    assert h.needs == "soft" and any(p.startswith("Live has no audio output device") for p in h.problems)
+    assert any("hands rig output" in p for p in h.problems)    # the problem names its fix
     assert h.playhead is None  # no point playing without a device
 
 

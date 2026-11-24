@@ -400,6 +400,21 @@ def _front_set() -> str:
         _fail(f"Live shows no set: {exc}")
 
 
+@app.command("open")
+def open_(
+    name: str = typer.Argument(..., help="A set in the rig's sets folder, without .als."),
+    no_save: bool = typer.Option(False, "--no-save", help="Do not save the set in front first."),
+    host: str = HOST, port: int = PORT,
+) -> None:
+    """Open a set and wait until it is in front and the LOM answers. The set in front is saved first."""
+    from hands.live import session
+    try:
+        seconds = session.open_set(LiveClient(host, port), name.removesuffix(".als"), save_current=not no_save)
+    except session.Guard as exc:
+        _fail(str(exc))
+    print(f"opened {name} in {seconds:.1f} s")
+
+
 @app.command()
 def save(
     as_: str = typer.Option(None, "--as", help="Also keep a copy as sets_dir/<AS>.als (refuses to replace one)."),

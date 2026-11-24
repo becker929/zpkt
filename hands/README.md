@@ -21,6 +21,8 @@ the command and a row.
 | Ask | Command |
 |---|---|
 | Is Live there, which set is in front? | `hands live check` |
+| Open a set (saving the one in front) | `hands live open NAME` |
+| What mix does a saved set hold? What differs between two saved sets? | `hands als mix FILE [--against OTHER]` (offline, Live untouched) |
 | Save the set (an explicit save, not Live's backup) | `hands live save [--as NAME] [--state NAME]` |
 | Keep the whole mix (every fader, send, mute, device value) | `hands live state take NAME` |
 | What changed since then? / Does Live match a recipe? | `hands live state diff NAME [OTHER]` (a recipe .json with a `"desk"` works) |
@@ -44,7 +46,7 @@ the command and a row.
 | `live/render.py` | `export(client, out, start_beat=None, length_beats=None, *, mode="Main", bits=32, sample_rate=44100) -> [Path]`, the one export path (`export_audio.applescript`) |
 | `live/record.py` | `record_arrangement` (writes `<take>.timing.json`), `record_via_resampling`: real-time takes |
 | `audio.py` | `check_audio(path, *, seconds)` (readable, finite, the right length, not silent), `slice_render`, `trim_take`, `best_lag`, `low_band`, `timeline_check` |
-| `als.py` | the .als editor: `load`/`save`, `resolve`, `current_value`, `param_range`, `set_manual`, `set_speaker`, `rename_track`, `set_steps`, `add_device_from_donor`, `check -> Report`, `xml_hash` (plan-cache key) |
+| `als.py` | the .als editor: `load`/`save`, `resolve`, `current_value`, `param_range`, `set_manual`, `set_speaker`, `rename_track`, `mix_state` (a saved set's mix in hands.live.state's shape), `set_steps`, `add_device_from_donor`, `check -> Report`, `xml_hash` (plan-cache key) |
 | `probe_kit.py` | `Kit`, `template`, `write_batch(kit, tag, steps, devices=())`, `render(client, batch_set, kit, out_dir)`, `merge_patterns`, `constant`, `scale`/`unscale` |
 | `arrange/` | `fx` (clip edits, tracks as arguments), `autostate` (automation state, `restore` after Delete Time), `hats` (layered hat sections) |
 | `library/` | the WIP library, read-only: `inventory(roots, exports=, records_file=, measure=) -> Inventory` scores each track's seven steps (`../contrib/docs/workflow.md`); `facts.read_set` (what a .als shows), `score` (one scorer per step), `records` (the producer's word beats the heuristic), `markdown` |
@@ -114,6 +116,7 @@ hands live export take.wav [--start 8 --length 32] [--mode Main] [--bits 24]
 hands live modals [--reap]                       # Live's modal dialogs; --reap presses only safe buttons
 hands als check FILE.als [--against SRC.als]     # offline self-checks before Live loads a set
 hands als params FILE.als TRACK DEVICE_TAG
+hands als mix FILE.als [--against OTHER.als]      # the mix a saved set holds; what differs between two
 hands kit template KIT SRC KEEP_START KEEP_END P [--lead 8]
 hands kit render BATCH_SET KIT [--out DIR]
 hands record --arrangement --beats 80 --output take.wav
