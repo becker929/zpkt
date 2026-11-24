@@ -105,7 +105,7 @@ module = [
     "zpkt.live.state_cli", "zpkt.live.surface", "zpkt.live.sweep", "zpkt.live.timeops", "zpkt.live.transport",
     "zpkt.live.ui", "zpkt.live.units", "zpkt.live.versions", "zpkt.live.writes",
     "zpkt.live.bench", "zpkt.live.config", "zpkt.live.als_cli", "zpkt.live.kit_cli", "zpkt.live.project_cli",
-    "zpkt", "zpkt.cli", "zpkt._aliases", "hands", "hands.*", "ears", "mlab", "mlab.*",
+    "zpkt", "zpkt.cli", "zpkt._aliases", "zpkt.app", "hands", "hands.*", "ears", "mlab", "mlab.*",
 ]
 disallow_untyped_defs = true
 disallow_incomplete_defs = true
