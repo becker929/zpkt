@@ -7,7 +7,7 @@ dependencies = [
     "aiohttp>=3.14.4",
     "claude-agent-sdk>=0.2.165",
     "numpy>=2",
-    "pillow>=11",
+    "pillow>=13.0.0",
     "voice",
     "websockets>=13.0",
 ]
