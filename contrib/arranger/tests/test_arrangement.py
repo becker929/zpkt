@@ -112,3 +112,57 @@ def test_server_runs_as_a_script(tmp_path):
     finally:
         proc.terminate()
         proc.wait(5)
+
+
+# ---- the contract: lib/contracts/arrangement.schema.json agrees with the code ---------------------------------------
+
+jsonschema = pytest.importorskip("jsonschema")
+SCHEMA = json.loads((HERE.parents[1] / "lib" / "contracts" / "arrangement.schema.json").read_text())
+
+
+def valid(doc) -> bool:
+    return not list(jsonschema.Draft202012Validator(SCHEMA).iter_errors(doc))
+
+
+def test_schema_is_a_schema():
+    jsonschema.Draft202012Validator.check_schema(SCHEMA)
+
+
+def test_sample_and_server_files_match_the_schema(server):
+    from samples import ARRANGEMENT
+
+    assert valid(ARRANGEMENT)
+    server.call(
+        "PUT", "/api/arrangements/short-x", {"name": "x", "bars": 40, "regions": ARRANGEMENT["regions"], "mutes": []}
+    )
+    for key in A.LATER_KEYS:
+        server.call("PUT", f"/api/arrangements/short-x/{key}", ARRANGEMENT[key])
+    assert valid(json.loads((server.data / "arrangements" / "short-x.json").read_text()))
+
+
+LATER_BODIES = [
+    ("transitions", [{"id": "a", "seam": 17}], True),
+    ("transitions", [{"id": "a"}], False),
+    ("mix", {"channels": {}}, True),
+    ("mix", {"channels": []}, False),
+    ("mix2", [{"device": "d", "target": "t"}], True),
+    ("mix2", [{"device": "d"}], False),
+    ("spectral", [{"id": "a", "parts": []}], True),
+    ("spectral", [{"parts": []}], False),
+    ("kickFuzz", None, True),
+    ("kickFuzz", {"loop": "a.flac", "kickTurnedDb": 1.5, "bells": [[40, 8, 0.7]]}, True),
+    ("kickFuzz", {"loop": "A.flac", "kickTurnedDb": 1.5}, False),
+    ("kickFuzz", {"loop": "a.flac", "kickTurnedDb": 1, "bells": [[1, 2]]}, False),
+    ("kickFuzz", {"loop": "a.flac", "kickTurnedDb": 1, "bells": [[1, 2, 3]] * 7}, False),
+]
+
+
+@pytest.mark.parametrize(("key", "body", "ok"), LATER_BODIES)
+def test_parse_and_schema_agree(key, body, ok):
+    try:
+        A.parse_later_key(key, body)
+        parsed = True
+    except A.Rejected:
+        parsed = False
+    assert parsed is ok
+    assert valid({"regions": [], key: body}) is ok

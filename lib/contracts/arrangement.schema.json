@@ -1,0 +1,76 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/becker929/zpkt/lib/contracts/arrangement.schema.json",
+  "title": "Arrangement",
+  "description": "The HW002 arrangement file (arrangements/<id>.json under the arranger's data folder): the recipe each page adds its structure to. Written by hand to match contrib/arranger/arrangement.py, whose tests check that the two agree. Keys a later step adds are kept by every writer, so the object is open.",
+  "type": "object",
+  "required": ["regions"],
+  "additionalProperties": true,
+  "properties": {
+    "name": {"type": "string"},
+    "bars": {"type": "integer", "minimum": 1},
+    "regions": {"type": "array", "items": {"$ref": "#/$defs/Region"}},
+    "mutes": {"type": "array", "items": {"type": "string"}},
+    "saved": {"type": "number", "description": "Unix time of the arranger page's last save."},
+    "transitions": {
+      "description": "The transitions page: each pick with the section change it lands at.",
+      "type": "array",
+      "items": {"type": "object", "required": ["id", "seam"]}
+    },
+    "mix": {
+      "description": "Mix 1: each channel's gain, pan and cuts.",
+      "type": "object",
+      "required": ["channels"],
+      "properties": {"channels": {"type": "object"}}
+    },
+    "mix2": {
+      "description": "Mix 2: the devices kept, in order.",
+      "type": "array",
+      "items": {"type": "object", "required": ["device", "target"]}
+    },
+    "spectral": {
+      "description": "The spectral fixes kept, each with its parts (a gain move or a device with values).",
+      "type": "array",
+      "items": {"type": "object", "required": ["id", "parts"]}
+    },
+    "kickFuzz": {
+      "description": "The kick option kept (kickfuzz.py), or null for HW002's kick as it is.",
+      "anyOf": [{"type": "null"}, {"$ref": "#/$defs/KickOption"}]
+    },
+    "desk": {
+      "description": "The mix desk's recipe (contrib/mixdesk/recipe.py); its shape is desk.schema.json.",
+      "type": "object"
+    }
+  },
+  "$defs": {
+    "Region": {
+      "type": "object",
+      "required": ["lane", "clip", "start", "len"],
+      "properties": {
+        "lane": {"type": "string"},
+        "clip": {"type": "string", "description": "A clip id from loops.json."},
+        "start": {"type": "integer", "minimum": 0, "description": "0-based bar."},
+        "len": {"type": "integer", "minimum": 1, "description": "Bars."},
+        "off": {"type": "integer", "minimum": 0, "description": "Bars into the loop where the region enters it."}
+      }
+    },
+    "KickOption": {
+      "type": "object",
+      "required": ["loop", "kickTurnedDb"],
+      "properties": {
+        "loop": {"type": "string", "pattern": "^[a-z0-9-]{1,32}\\.flac$"},
+        "kickTurnedDb": {"type": "number"},
+        "bells": {
+          "anyOf": [
+            {"type": "null"},
+            {
+              "type": "array",
+              "maxItems": 6,
+              "items": {"type": "array", "minItems": 3, "maxItems": 3, "items": {"type": "number"}}
+            }
+          ]
+        }
+      }
+    }
+  }
+}

@@ -11,6 +11,7 @@ output against these files in its tests, so a join cannot drift silently.
 | `desk.schema.json` | the mix desk (`contrib/mixdesk/recipe.py write`, the recipe's `desk`) | hands (`hands live state diff\|put RECIPE.json`) | generated from `hands/src/hands/live/desk.py` by `hands/tools/gen_schemas.py` |
 | `inventory.schema.json` | hands (`hands library inventory --json`) | a person, agents planning work | generated from `hands/src/hands/library/models.py` by `hands/tools/gen_schemas.py` |
 | `score.schema.json` | the music bot's composer (Claude) | the booth (`contrib/booth`) | generated from `contrib/booth/src/booth/score.py` by `contrib/booth/scripts/gen_schema.py` |
+| `arrangement.schema.json` | the HW002 arranger's pages (`contrib/arranger/server.py`) and the mix desk (`desk`) | the arranger's scripts (`mixset.py`, `spectral.py`, `kickfuzz.py`), the mix desk, hands (`hands live state ... RECIPE.json`) | written by hand to match `contrib/arranger/arrangement.py`; its tests check both agree |
 
 taste, engineer and the letta-vibe agent, which used `feedback` and the old `verdict` contract, were removed on
 24 November 2026 (git tag `pre-upgrade-2026-11-24`). The models
