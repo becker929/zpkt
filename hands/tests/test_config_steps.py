@@ -40,6 +40,17 @@ def test_unknown_keys_and_empty_prefixes_are_refused(tmp_path):
         config.load(env={"ZPKT_SET_PREFIXES": " , "}, path=tmp_path / "none.toml")
 
 
+def test_live_port_comes_from_the_file_or_the_environment(tmp_path):
+    assert config.load(env={}, path=tmp_path / "missing.toml").live_port == 16619
+    file = tmp_path / "rig.toml"
+    file.write_text("live_port = 17000\n")
+    assert config.load(env={}, path=file).live_port == 17000
+    assert config.load(env={"ZPKT_LIVE_PORT": "17001"}, path=file).live_port == 17001
+    for bad in ("x", "0", "70000", "16619.5"):
+        with pytest.raises(ValueError, match="live_port must be a TCP port number"):
+            config.load(env={"ZPKT_LIVE_PORT": bad}, path=file)
+
+
 def test_newest_live_prefs(tmp_path):
     for name in ("Live 12.4.5", "Live 12.4.10", "Live 11.3.2", "Other"):
         (tmp_path / name).mkdir()

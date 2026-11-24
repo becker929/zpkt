@@ -1,6 +1,7 @@
 """One client for the AbletonLiveMCP Remote Script, plus the doubles tests use.
 
-The Remote Script runs inside Live on 127.0.0.1:16619 and speaks one JSON object per line:
+The Remote Script runs inside Live on 127.0.0.1:16619 (the rig's live_port: hands.config) and speaks one JSON
+object per line:
 
     -> {"id": "cmd-1", "code": "<python>"}          or  {"ping": true}
     <- {"status": "ok", "result": ..., "elapsed": s}     {"status": "ok", "pong": true}
@@ -26,8 +27,10 @@ import time
 from dataclasses import dataclass
 from typing import Any, Literal, Protocol, Sequence, runtime_checkable
 
+from hands import config
+
 DEFAULT_HOST = "127.0.0.1"
-DEFAULT_PORT = 16619
+DEFAULT_PORT = 16619   # the Remote Script's own port; clients default to the rig's live_port, which is this unless set
 UNREACHABLE = "Cannot reach Ableton"   # nothing was sent: StepRunner may try again
 LOST = "Lost the reply from Ableton"    # sent, no reply: it may have run, so never resend it
 
@@ -92,11 +95,13 @@ class _Lost(OSError):
 class LiveClient(Transport):
     """TCP client for the AbletonLiveMCP Remote Script."""
 
-    def __init__(self, host: str = DEFAULT_HOST, port: int = DEFAULT_PORT, timeout: float = 15.0,
+    def __init__(self, host: str = DEFAULT_HOST, port: int | None = None, timeout: float = 15.0,
                  retries: int = 2, backoff: float = 0.5, keep: bool = False) -> None:
-        """keep: hold one connection for every call (a new one costs about half a second on the Live rig).
-        The Remote Script serves one client at a time, so only a short-lived command should keep it."""
-        self.host, self.port, self.timeout = host, port, timeout
+        """port: None is the rig's live_port. keep: hold one connection for every call (a new one costs about half
+        a second on the Live rig). The Remote Script serves one client at a time, so only a short-lived command
+        should keep it."""
+        self.host, self.timeout = host, timeout
+        self.port = config.rig().live_port if port is None else port
         self.retries, self.backoff = retries, backoff
         self.keep = keep
         self._sock: socket.socket | None = None

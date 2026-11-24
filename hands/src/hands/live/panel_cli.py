@@ -11,7 +11,7 @@ from typing import Any, NoReturn
 import typer
 
 from hands.live import panel
-from hands.live.transport import DEFAULT_HOST, DEFAULT_PORT, LiveClient, LiveError
+from hands.live.transport import DEFAULT_HOST, LiveClient, LiveError
 
 app = typer.Typer(no_args_is_help=True, help="""Control panels for Zpkt web: one instrument, a riff, a render, the knobs.
 
@@ -36,7 +36,7 @@ each one in Live and prints one deck (A, B, C, ...); `hands panel pick NAME 1 C`
 
 OUT = typer.Option(Path("renders"), "--out", help="Folder for the renders and the panel's file.")
 HOST = typer.Option(DEFAULT_HOST, "--host", help="Remote Script host.")
-PORT = typer.Option(DEFAULT_PORT, "--port", help="Remote Script port.")
+PORT = typer.Option(None, "--port", help="Remote Script port (default: the rig's live_port, 16619).")
 FORCE = typer.Option(False, "--force", help="Render even if Live is playing (stops it).")
 
 
@@ -100,7 +100,7 @@ def inside(exc: BaseException) -> str:
 def make(
     spec: str = typer.Option(..., "--spec", help="The panel as JSON: the text itself, @FILE, or - for stdin."),
     replace: bool = typer.Option(False, "--replace", help="Replace the panel of the same name."),
-    out: Path = OUT, force: bool = FORCE, host: str = HOST, port: int = PORT,
+    out: Path = OUT, force: bool = FORCE, host: str = HOST, port: int | None = PORT,
 ) -> None:
     """Load the instrument on a new track, set it, render the riff, print the audio and control panel blocks.
 
@@ -130,7 +130,7 @@ def apply(
     name: str = typer.Argument(..., help="The panel's name."),
     state: str = typer.Option(None, "--state", help="The Surface state from the page (or its values), as JSON, @FILE or -."),
     spec: str = typer.Option(None, "--spec", help="Changes as JSON, @FILE or -: params, notes or chords, beats, tempo, controls."),
-    out: Path = OUT, force: bool = FORCE, host: str = HOST, port: int = PORT,
+    out: Path = OUT, force: bool = FORCE, host: str = HOST, port: int | None = PORT,
 ) -> None:
     """Set the panel's values, render the next version, print it with a before/after deck."""
     from hands.live import mix
@@ -158,7 +158,7 @@ def grid(
     name: str = typer.Argument(..., help="The panel's name."),
     axes: str = typer.Option(..., "--axes", help='What to vary, as JSON, @FILE or -: {"control id": {"from": "200 Hz", "to": "2 kHz", "steps": 4}} or {"control id": {"values": ["10 %", "60 %"]}}.'),
     state: str = typer.Option(None, "--state", help="The Surface state from the page, so the other knobs are where the user has them."),
-    out: Path = OUT, force: bool = FORCE, host: str = HOST, port: int = PORT,
+    out: Path = OUT, force: bool = FORCE, host: str = HOST, port: int | None = PORT,
 ) -> None:
     """Render every combination (2 to 16 versions) and print them as one deck, A, B, C, ..., to hear side by side.
 
@@ -175,7 +175,7 @@ def pick(
     name: str = typer.Argument(..., help="The panel's name."),
     grid_id: int = typer.Argument(..., help="Which grid (its number)."),
     letter: str = typer.Argument(..., help="Which version: A, B, C, ..."),
-    out: Path = OUT, force: bool = FORCE, host: str = HOST, port: int = PORT,
+    out: Path = OUT, force: bool = FORCE, host: str = HOST, port: int | None = PORT,
 ) -> None:
     """Make one version of a grid the panel's values, in Live too. Nothing is rendered again."""
     from hands.live import versions
@@ -186,14 +186,14 @@ def pick(
 def params(
     instrument: str = typer.Argument(..., help="A name from Live's browser, as in a spec."),
     grep: str = typer.Option("", "--grep", help="Only names matching this (a regular expression, any case)."),
-    host: str = HOST, port: int = PORT,
+    host: str = HOST, port: int | None = PORT,
 ) -> None:
     """List a device's parameters: name | range | default = what Live shows | choices."""
     _run(panel.params, LiveClient(host, port, keep=True), instrument, grep)
 
 
 @app.command()
-def drop(name: str = typer.Argument(..., help="The panel's name."), out: Path = OUT, host: str = HOST, port: int = PORT) -> None:
+def drop(name: str = typer.Argument(..., help="The panel's name."), out: Path = OUT, host: str = HOST, port: int | None = PORT) -> None:
     """Delete the panel's track from the open set. Its renders stay."""
     from hands.live import mix
 
@@ -215,7 +215,7 @@ of the song ({"song": "night-drive", "bars": [9, 8], "faders": ["panel nd-pad", 
 @song_app.command("make")
 def song_make(
     spec: str = typer.Option(..., "--spec", help="The song as JSON, @FILE or -: name, tempo, sections [{name, bars, parts: [panel names]}], tail."),
-    out: Path = OUT, force: bool = FORCE, host: str = HOST, port: int = PORT,
+    out: Path = OUT, force: bool = FORCE, host: str = HOST, port: int | None = PORT,
 ) -> None:
     """Lay the song out in the arrangement and render it (real time). Making it again replaces its clips."""
     from hands.live import song
@@ -226,14 +226,14 @@ def song_make(
 
 
 @song_app.command("render")
-def song_render(name: str = typer.Argument(..., help="The song's name."), out: Path = OUT, force: bool = FORCE, host: str = HOST, port: int = PORT) -> None:
+def song_render(name: str = typer.Argument(..., help="The song's name."), out: Path = OUT, force: bool = FORCE, host: str = HOST, port: int | None = PORT) -> None:
     """Render the song again as it now stands (after its panels or its mix changed)."""
     from hands.live import song
     _run(song.render, LiveClient(host, port, keep=True), name, out, force=force)
 
 
 @song_app.command("drop")
-def song_drop(name: str = typer.Argument(..., help="The song's name."), out: Path = OUT, host: str = HOST, port: int = PORT) -> None:
+def song_drop(name: str = typer.Argument(..., help="The song's name."), out: Path = OUT, host: str = HOST, port: int | None = PORT) -> None:
     """Delete the song's clips from the arrangement. Its panels' tracks and its renders stay."""
     from hands.live import song
     _run(song.drop, LiveClient(host, port, keep=True), name, out)
@@ -246,7 +246,7 @@ def sweep_command(
     apply: bool = typer.Option(False, "--apply", help="Delete. Without it, only say what would go."),
     pressure: bool = typer.Option(False, "--pressure", help="Do not wait --days: sweep everything superseded now."),
     as_json: bool = typer.Option(False, "--json", help="Print the result as JSON."),
-    host: str = HOST, port: int = PORT,
+    host: str = HOST, port: int | None = PORT,
 ) -> None:
     """Delete the files hands made that nothing can need again: leftover takes, old versions, old grids."""
     from hands.live import sweep

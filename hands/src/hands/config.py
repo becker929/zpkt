@@ -6,6 +6,8 @@ default:
 
     key             env                  default
     live_app        ZPKT_LIVE_APP        Ableton Live 12 Suite
+    live_port       ZPKT_LIVE_PORT       16619                  the AbletonLiveMCP Remote Script's port; a test
+                                                                points it at a FakeLive (hands.testing)
     sets_dir        ZPKT_SETS_DIR        ~/Music/zpkt/sets      the Live sets hands opens, copies, saves
     data_dir        ZPKT_DATA_DIR        ~/Music/zpkt/data      probe kits, renders, bench.jsonl
     renders_dir     ZPKT_RENDERS_DIR     ~/Music/zpkt/renders   where `hands live export NAME` writes
@@ -38,6 +40,7 @@ from typing import Any
 CONFIG_FILE = "~/.config/zpkt/rig.toml"
 DEFAULTS = {
     "live_app": "Ableton Live 12 Suite",
+    "live_port": 16619,
     "sets_dir": "~/Music/zpkt/sets",
     "data_dir": "~/Music/zpkt/data",
     "renders_dir": "~/Music/zpkt/renders",
@@ -52,6 +55,7 @@ DEFAULTS = {
 @dataclass(frozen=True)
 class Rig:
     live_app: str
+    live_port: int
     sets_dir: Path
     data_dir: Path
     renders_dir: Path
@@ -98,6 +102,7 @@ def load(env: Mapping[str, str] = os.environ, path: str | Path | None = None) ->
         raise ValueError("set_prefixes is empty: the guards would accept any set")
     return Rig(
         live_app=values["live_app"],
+        live_port=_port(values["live_port"]),
         sets_dir=Path(values["sets_dir"]).expanduser(),
         data_dir=Path(values["data_dir"]).expanduser(),
         renders_dir=Path(values["renders_dir"]).expanduser(),
@@ -107,6 +112,17 @@ def load(env: Mapping[str, str] = os.environ, path: str | Path | None = None) ->
         plans_dir=Path(values["plans_dir"]).expanduser(),
         records_file=Path(values["records_file"] or Path(values["library_dir"]) / "records.toml").expanduser(),
     )
+
+
+def _port(value: Any) -> int:
+    """A TCP port from the file (a number) or the environment (text)."""
+    try:
+        port = int(value)
+    except (TypeError, ValueError):
+        port = 0
+    if isinstance(value, bool) or not 0 < port < 65536 or str(port) != str(value).strip():
+        raise ValueError(f"live_port must be a TCP port number (1-65535), not {value!r}")
+    return port
 
 
 @functools.cache

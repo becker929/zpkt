@@ -9,6 +9,7 @@ import threading
 import pytest
 from typer.testing import CliRunner
 
+from hands import config
 from hands.cli import app
 from hands.live import transport as T
 from hands.live.transport import (
@@ -176,3 +177,21 @@ def test_cli_exec_and_ping(remote):
     assert bad.exit_code == 1 and "ERROR: NameError" in bad.stderr
     pong = CliRunner().invoke(app, ["live", "ping", *port])
     assert pong.exit_code == 0 and pong.stdout.startswith("pong in")
+
+
+def test_clients_default_to_the_rig_port(monkeypatch):
+    monkeypatch.setenv("ZPKT_LIVE_PORT", "17002")
+    config.rig.cache_clear()
+    assert LiveClient().port == 17002 and LiveClient(port=9).port == 9
+
+
+@pytest.mark.parametrize("argv", [["live", "exec", "--json", "--raw", "1 + 2"], ["ab", "status"],
+                                  ["sweep", "--json", "--out", "{tmp}"]])
+def test_cli_commands_without_port_use_the_rig_port(remote, monkeypatch, tmp_path, argv):
+    live = remote(lambda m: {"status": "ok", "result": 3 if "1 + 2" in m.get("code", "") else
+                             {"mode": "mix", "ref": "REF a", "refs": ["REF a"]}})
+    monkeypatch.setenv("ZPKT_LIVE_PORT", str(live.port))
+    config.rig.cache_clear()
+    out = CliRunner().invoke(app, [a.replace("{tmp}", str(tmp_path)) for a in argv])
+    assert out.exit_code == 0, out.output
+    assert live.seen, "the command did not reach the port the rig names"
