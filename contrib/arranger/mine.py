@@ -10,6 +10,7 @@ and that preset, summed, is checked against the bounced mix.
 
 Cutting a render on the bar is all this does: no gain, no processing. Files are 16-bit FLAC, named by content.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -33,7 +34,13 @@ SET = "HW002_121_full.als"
 # lane id, title, group, colour, [(stem, title prefix, first bar of the stem in the song)]; a lane's first stem is the
 # one the song preset uses
 LANES = [
-    ("kick", "Kick", "kick", "#ff6b5e", [("kick-rumble", "Kick + rumble", 0), ("kick", "Kick alone", 0), ("rumble", "Rumble alone", 0)]),
+    (
+        "kick",
+        "Kick",
+        "kick",
+        "#ff6b5e",
+        [("kick-rumble", "Kick + rumble", 0), ("kick", "Kick alone", 0), ("rumble", "Rumble alone", 0)],
+    ),
     ("perc1", "Perc 1", "perc", "#ffd34d", [("perc1", "Perc 1", 0)]),
     ("perc2", "Perc 2", "perc", "#c7e65a", [("perc2", "Perc 2", 0)]),
     # single pads of the two hat racks, each alone through its track's devices: layers to stack by hand
@@ -56,8 +63,22 @@ LANES = [
     ("break-beatbox", "Brk beatbox", "break", "#f5b3a8", [("break-beatbox", "Beatbox", 80)]),
     ("break-hit", "Brk hit", "break", "#f7c9a0", [("break-hit", "Hit", 80)]),
 ]
-SONG_ONLY_FIRST = {"break-horn", "break-stab", "break-chop", "break-beatbox", "break-hit",
-                   "p1-oh", "p1-ch", "p1-rd", "p1-oh66", "p2-rd2", "p2-rd1", "p2-oh", "p2-ch27", "p2-ch1"}  # in the song via "Break, all"
+SONG_ONLY_FIRST = {
+    "break-horn",
+    "break-stab",
+    "break-chop",
+    "break-beatbox",
+    "break-hit",
+    "p1-oh",
+    "p1-ch",
+    "p1-rd",
+    "p1-oh66",
+    "p2-rd2",
+    "p2-rd1",
+    "p2-oh",
+    "p2-ch27",
+    "p2-ch1",
+}  # in the song via "Break, all"
 
 
 def features(x: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
@@ -68,8 +89,8 @@ def features(x: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
     edges = np.unique(np.geomspace(1, 512, 25).astype(int))
     F, db = [], []
     for b in range(n):
-        seg = mono[b * BAR:(b + 1) * BAR]
-        db.append(20 * np.log10(np.sqrt((seg ** 2).mean()) + 1e-9))
+        seg = mono[b * BAR : (b + 1) * BAR]
+        db.append(20 * np.log10(np.sqrt((seg**2).mean()) + 1e-9))
         S = np.abs(np.fft.rfft(np.lib.stride_tricks.sliding_window_view(seg, 1024)[::512] * win, axis=1))
         F.append(np.log1p(200 * np.stack([S[:, a:b_].sum(1) for a, b_ in zip(edges[:-1], edges[1:])], 1)).ravel())
     return np.array(F), np.array(db)
@@ -82,7 +103,11 @@ def dist(a: np.ndarray, b: np.ndarray) -> float:
 def segments(F: np.ndarray, active: np.ndarray) -> tuple[list[tuple[int, int, int]], float]:
     """[(start bar, end bar, period)], period 0 for a stretch that does not repeat; and the threshold used."""
     n = len(F)
-    D = {p: np.array([dist(F[k], F[k + p]) if active[k] and active[k + p] else 9.0 for k in range(n - p)]) for p in PERIODS if p < n}
+    D = {
+        p: np.array([dist(F[k], F[k + p]) if active[k] and active[k + p] else 9.0 for k in range(n - p)])
+        for p in PERIODS
+        if p < n
+    }
     floor = np.array([min(D[p][k] for p in D if k < len(D[p])) for k in range(n - 1) if active[k]])
     floor = floor[floor < 1.0]
     # identical bars sit at the low end; a part that never repeats has no low end, so the threshold is capped
@@ -93,14 +118,14 @@ def segments(F: np.ndarray, active: np.ndarray) -> tuple[list[tuple[int, int, in
         if not active[s]:
             s += 1
             continue
-        best = (0, 0, 9.0)                     # (extent, period, mean distance)
-        soft = s == 0 or not active[s - 1]     # the first bar after silence has no tail from the bar before it
+        best = (0, 0, 9.0)  # (extent, period, mean distance)
+        soft = s == 0 or not active[s - 1]  # the first bar after silence has no tail from the bar before it
         for p, d in D.items():
             k = s
             while k < len(d) and (d[k] < thr or (soft and k == s and d[k] < 4 * thr)):
                 k += 1
             reps = k - s
-            if reps < (2 * p if thr >= 0.1 else p):   # under two passes (three where the match is loose): not a loop
+            if reps < (2 * p if thr >= 0.1 else p):  # under two passes (three where the match is loose): not a loop
                 continue
             extent, mean = reps + p, float(d[s:k].mean())
             if extent > best[0] + best[1] or (extent >= best[0] and mean < 0.5 * best[2]):
@@ -157,7 +182,10 @@ def cut_stem(lane: str, stem: str, prefix: str, first: int, clips: list[dict]) -
     F, db = features(x)
     active = db > SILENT_DB
     segs, thr = segments(F, active)
-    print(f"{stem}: threshold {thr:.3f}; " + ", ".join(f"{a + first + 1}-{b + first}" + (f"/{p}" if p else " once") for a, b, p in segs))
+    print(
+        f"{stem}: threshold {thr:.3f}; "
+        + ", ".join(f"{a + first + 1}-{b + first}" + (f"/{p}" if p else " once") for a, b, p in segs)
+    )
     known: list[tuple[int, np.ndarray, str]] = []  # (period, feature, clip id); a one-shot's period is minus its bars
     regions = []
     prev = None  # (the loop clip of the stretch just before, where that stretch ends)
@@ -165,9 +193,19 @@ def cut_stem(lane: str, stem: str, prefix: str, first: int, clips: list[dict]) -
     def new_clip(kind: str, bars: int, file_bars: int, audio: np.ndarray, src_bar: int) -> str:
         letter = len(known)
         cid = f"{stem}-{chr(97 + letter)}"
-        clips.append({"id": cid, "lane": lane, "title": f"{prefix} {chr(65 + letter)}", "kind": kind, "bars": bars,
-                      "fileBars": file_bars, "file": write(audio), "peaks": peaks(audio, file_bars),
-                      "src": {"stem": stem, "bar": src_bar}})
+        clips.append(
+            {
+                "id": cid,
+                "lane": lane,
+                "title": f"{prefix} {chr(65 + letter)}",
+                "kind": kind,
+                "bars": bars,
+                "fileBars": file_bars,
+                "file": write(audio),
+                "peaks": peaks(audio, file_bars),
+                "src": {"stem": stem, "bar": src_bar},
+            }
+        )
         return cid
 
     for a, b, p in segs:
@@ -249,11 +287,15 @@ def check(song: list[dict], by_id: dict[str, dict]) -> str:
     loud = dbm > SILENT_DB
     d = np.array([dist(Fm[k], Ft[k]) for k in range(len(Fm)) if loud[k]])
     lvl = np.array([dbt[k] - dbm[k] for k in range(len(Fm)) if loud[k]])
-    text = (f"Check: the song preset, summed as this page plays it, is {lu:+.1f} LU from Live's own bounce of the mix; "
-            f"bar by bar the level differs by {np.median(np.abs(lvl)):.1f} dB (median) and {np.abs(lvl).max():.1f} dB (worst bar).")
+    text = (
+        f"Check: the song preset, summed as this page plays it, is {lu:+.1f} LU from Live's own bounce of the mix; "
+        f"bar by bar the level differs by {np.median(np.abs(lvl)):.1f} dB (median) and {np.abs(lvl).max():.1f} dB (worst bar)."
+    )
     print(text)
-    print(f"bar distance to the mix: median {np.median(d):.3f}, 90% {np.quantile(d, 0.9):.3f}, max {d.max():.3f}; "
-          f"peak of the sum {np.abs(total).max():.3f}, of the mix {np.abs(mix).max():.3f}")
+    print(
+        f"bar distance to the mix: median {np.median(d):.3f}, 90% {np.quantile(d, 0.9):.3f}, max {d.max():.3f}; "
+        f"peak of the sum {np.abs(total).max():.3f}, of the mix {np.abs(mix).max():.3f}"
+    )
     worst = np.argsort(-np.abs(dbt - dbm) * loud)[:8]
     print("worst bars:", [(int(k) + 1, round(float(dbt[k] - dbm[k]), 1)) for k in worst])
     return text
@@ -261,7 +303,9 @@ def check(song: list[dict], by_id: dict[str, dict]) -> str:
 
 def first_drop(song: list[dict], by_id: dict[str, dict], bars: int = 32) -> list[dict]:
     """The song preset's first `bars` bars: the regions that start in them, a loop cut short at the end."""
-    keep = [r for r in song if r["start"] < bars and (r["start"] + r["len"] <= bars or by_id[r["clip"]]["kind"] == "loop")]
+    keep = [
+        r for r in song if r["start"] < bars and (r["start"] + r["len"] <= bars or by_id[r["clip"]]["kind"] == "loop")
+    ]
     return [{**r, "len": min(r["len"], bars - r["start"])} for r in keep]
 
 
@@ -281,12 +325,24 @@ def main() -> None:
         if f.name not in files:
             f.unlink()
     size = sum((DATA / "audio" / f).stat().st_size for f in files)
-    out = {"set": SET, "made": time.strftime("%-d %b %Y"), "bpm": int(hw002.TEMPO_BPM), "rate": RATE,
-           "barSeconds": BAR / RATE, "lanes": lanes, "clips": clips, "check": text,
-           "presets": [{"name": "The song", "bars": 180, "regions": song},
-                       {"name": "First drop", "bars": 32, "regions": first_drop(song, by_id)}]}
+    out = {
+        "set": SET,
+        "made": time.strftime("%-d %b %Y"),
+        "bpm": int(hw002.TEMPO_BPM),
+        "rate": RATE,
+        "barSeconds": BAR / RATE,
+        "lanes": lanes,
+        "clips": clips,
+        "check": text,
+        "presets": [
+            {"name": "The song", "bars": 180, "regions": song},
+            {"name": "First drop", "bars": 32, "regions": first_drop(song, by_id)},
+        ],
+    }
     (DATA / "loops.json").write_text(json.dumps(out))
-    print(f"{len(clips)} clips ({sum(c['kind'] == 'loop' for c in clips)} loops), {len(files)} files, {size / 1e6:.1f} MB; song preset {len(song)} regions")
+    print(
+        f"{len(clips)} clips ({sum(c['kind'] == 'loop' for c in clips)} loops), {len(files)} files, {size / 1e6:.1f} MB; song preset {len(song)} regions"
+    )
 
 
 if __name__ == "__main__":

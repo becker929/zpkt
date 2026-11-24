@@ -19,6 +19,7 @@ Per kick, over the median beat (every beat lined up on its kick onset, as kickis
 
     uv run --project ears python contrib/arranger/kicktexture.py [file ...]
 """
+
 from __future__ import annotations
 
 import json
@@ -37,7 +38,7 @@ BODY = (40, 150)
 
 def median_beat(m: np.ndarray, r: int, starts: list[float], beat: float) -> np.ndarray:
     n = int(beat * r)
-    segs = [m[int(s * r) - int(0.005 * r):int(s * r) - int(0.005 * r) + n] for s in starts]
+    segs = [m[int(s * r) - int(0.005 * r) : int(s * r) - int(0.005 * r) + n] for s in starts]
     segs = [s for s in segs if len(s) == n]
     return np.array(segs)
 
@@ -60,11 +61,12 @@ def texture(path: Path, bpm: float, t0: float | None = None, exact: bool = False
     m = x.mean(axis=1)
     beat = 60 / bpm
     n = int(len(m) / r / beat)
-    if exact:   # bounced on the grid: the beats are where the grid says (a search would lock onto the rumble's swell)
+    if exact:  # bounced on the grid: the beats are where the grid says (a search would lock onto the rumble's swell)
         starts = [0.005 + k * beat for k in range(n)]
-    else:       # a reference: the grid from its cut, each beat moved to the steepest rise of 30-300 Hz within 8 ms
+    else:  # a reference: the grid from its cut, each beat moved to the steepest rise of 30-300 Hz within 8 ms
         from scipy.signal import butter as _b
         from scipy.signal import sosfilt as _sf
+
         lo = _sf(_b(4, [30, 300], btype="band", fs=r, output="sos"), m)
         e = np.convolve(np.abs(lo), np.ones(int(0.001 * r)) / int(0.001 * r), mode="same")
         d = np.diff(e, prepend=e[0])
@@ -73,7 +75,7 @@ def texture(path: Path, bpm: float, t0: float | None = None, exact: bool = False
         for k in range(n):
             c = int(((t0 if t0 is not None else 0.003) + k * beat) * r)
             if c - w >= 0 and c + w < len(m):
-                starts.append((c - w + int(np.argmax(d[c - w:c + w]))) / r)
+                starts.append((c - w + int(np.argmax(d[c - w : c + w]))) / r)
     segs = median_beat(m, r, starts, beat)
     mh_f = butter(6, MH, btype="band", fs=r, output="sos")
     bo_f = butter(4, BODY, btype="band", fs=r, output="sos")
@@ -85,10 +87,10 @@ def texture(path: Path, bpm: float, t0: float | None = None, exact: bool = False
         out["holdBody"].append(hold_ms(ebo, r))
         a, b = int(0.01 * r), int(0.25 * r)
         k8 = int(0.008 * r)
-        hp = lambda v: v - np.convolve(v, np.ones(k8) / k8, mode="same")   # the fast movement only: no shared decay
+        hp = lambda v: v - np.convolve(v, np.ones(k8) / k8, mode="same")  # the fast movement only: no shared decay
         rect, e1 = hp(np.abs(bo))[a:b], hp(emh)[a:b]
         best = 0.0
-        for lag in range(-int(0.012 * r), int(0.012 * r) + 1, max(1, int(0.0002 * r))):   # within a cycle of the body
+        for lag in range(-int(0.012 * r), int(0.012 * r) + 1, max(1, int(0.0002 * r))):  # within a cycle of the body
             best = max(best, abs(np.corrcoef(np.roll(e1, lag), rect)[0, 1]))
         out["lock"].append(best)
         a, b = int(0.03 * r), int(0.2 * r)
@@ -96,8 +98,8 @@ def texture(path: Path, bpm: float, t0: float | None = None, exact: bool = False
         f = np.fft.rfftfreq(b - a, 1 / r)
         band = S[(f >= MH[0]) & (f < MH[1])] + 1e-30
         out["flatness"].append(float(np.exp(np.mean(np.log(band))) / np.mean(band)))
-        out["crest"].append(20 * np.log10(np.max(emh) / np.sqrt(np.mean(emh ** 2)) + 1e-12))
-        out["level"].append(10 * np.log10(np.sum(mh ** 2) / np.sum(s ** 2) + 1e-20))
+        out["crest"].append(20 * np.log10(np.max(emh) / np.sqrt(np.mean(emh**2)) + 1e-12))
+        out["level"].append(10 * np.log10(np.sum(mh**2) / np.sum(s**2) + 1e-20))
     res = {k: round(float(np.median(v)), 3 if k in ("lock", "flatness") else 1) for k, v in out.items()}
     # hold, crest and tail from the median envelope over the beats (one beat's envelope is too noisy to read)
     mh_f6 = mh_f
@@ -106,8 +108,10 @@ def texture(path: Path, bpm: float, t0: float | None = None, exact: bool = False
     res["holdMh"] = round(hold_ms(E, r), 1)
     res["holdBody"] = round(hold_ms(Eb, r), 1)
     db = 20 * np.log10(E + 1e-12) - 20 * np.log10(E.max() + 1e-12)
-    res["tail"] = round(float(np.mean(db[int(0.100 * r):int(0.170 * r)])), 1)   # the mid-highs 100-170 ms after the hit (before an offbeat at half a beat)
-    res["crest"] = round(float(20 * np.log10(E.max() / np.sqrt(np.mean(E ** 2)))), 1)
+    res["tail"] = round(
+        float(np.mean(db[int(0.100 * r) : int(0.170 * r)])), 1
+    )  # the mid-highs 100-170 ms after the hit (before an offbeat at half a beat)
+    res["crest"] = round(float(20 * np.log10(E.max() / np.sqrt(np.mean(E**2)))), 1)
     res["holdRatio"] = round(res["holdMh"] / max(1.0, res["holdBody"]), 2)
     res["beats"] = len(segs)
     return res
@@ -123,10 +127,20 @@ def main(files: list[str]) -> None:
         rows.append((Path(f).stem, texture(Path(f), hw002.TEMPO_BPM, exact=True)))
     ks = dict(rows)["KSMS"]
 
-    def dist(r):   # how far from KSMS's texture: hold in octaves, flatness per 0.05, crest per 2 dB, level per 3 dB
-        return round(float(np.sqrt(np.log2(max(r["holdMh"], 1) / ks["holdMh"]) ** 2 + ((r["flatness"] - ks["flatness"]) / 0.05) ** 2
-                                   + ((r["crest"] - ks["crest"]) / 2) ** 2 + ((r["level"] - ks["level"]) / 3) ** 2
-                                   + ((r["tail"] - ks["tail"]) / 4) ** 2)), 2)
+    def dist(r):  # how far from KSMS's texture: hold in octaves, flatness per 0.05, crest per 2 dB, level per 3 dB
+        return round(
+            float(
+                np.sqrt(
+                    np.log2(max(r["holdMh"], 1) / ks["holdMh"]) ** 2
+                    + ((r["flatness"] - ks["flatness"]) / 0.05) ** 2
+                    + ((r["crest"] - ks["crest"]) / 2) ** 2
+                    + ((r["level"] - ks["level"]) / 3) ** 2
+                    + ((r["tail"] - ks["tail"]) / 4) ** 2
+                )
+            ),
+            2,
+        )
+
     for _, r in rows:
         r["toKsms"] = dist(r)
     keys = ["toKsms", "tail", "holdMh", "holdBody", "holdRatio", "lock", "flatness", "crest", "level"]

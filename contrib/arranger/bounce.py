@@ -58,7 +58,9 @@ def solo_chain(live: Any, track: int | None, chain: int | None) -> None:
     """Solo one chain of a track's Drum Rack, or clear every chain solo on the racks in PADS."""
     for t in sorted({t for t, _ in PADS.values()}):
         want = chain if t == track else None
-        live.run(f"for i, c in enumerate(song.tracks[{t}].devices[0].chains):\n    c.solo = i == {want!r}\nresult = 'ok'")
+        live.run(
+            f"for i, c in enumerate(song.tracks[{t}].devices[0].chains):\n    c.solo = i == {want!r}\nresult = 'ok'"
+        )
         time.sleep(0.2)
         got = live.run(f"result = [i for i, c in enumerate(song.tracks[{t}].devices[0].chains) if c.solo]")
         if list(got) != ([] if want is None else [want]):

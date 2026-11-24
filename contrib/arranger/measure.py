@@ -6,6 +6,7 @@ of the four).
 
 Measured, not heard: it says where the top end rises, not whether the rise is the right one.
 """
+
 from __future__ import annotations
 
 import json
@@ -59,7 +60,9 @@ def render(arr: dict, loops: Loops) -> np.ndarray:
         for i in range(r["len"]):
             ph = (i + r.get("off", 0)) % c["bars"]
             add(a[ph * bar : (ph + 1) * bar], at + i * bar)
-        follows = any(o["lane"] == r["lane"] and o["start"] == (r["start"] + r["len"]) % arr["bars"] for o in arr["regions"])
+        follows = any(
+            o["lane"] == r["lane"] and o["start"] == (r["start"] + r["len"]) % arr["bars"] for o in arr["regions"]
+        )
         if c.get("tail") and not follows:
             add(loops.audio(c["tail"]), end)
     out[: len(out) - n] += out[n:]
@@ -78,8 +81,10 @@ def clip_report(loops: Loops) -> list[str]:
     lines = []
     for c in loops.index["clips"]:
         a = loops.audio(c["file"])[: c["bars"] * loops.bar]
-        lines.append(f"{c['id']:18s} {c['kind']:5s} {c['bars']:2d} bars   above 6 kHz {band_db(a, 6000, loops.rate):6.1f}"
-                     f"   above 10 kHz {band_db(a, 10000, loops.rate):6.1f}")
+        lines.append(
+            f"{c['id']:18s} {c['kind']:5s} {c['bars']:2d} bars   above 6 kHz {band_db(a, 6000, loops.rate):6.1f}"
+            f"   above 10 kHz {band_db(a, 10000, loops.rate):6.1f}"
+        )
     return lines
 
 
@@ -91,11 +96,13 @@ def arrangement_report(arr: dict, loops: Loops) -> list[str]:
         v = [band_db(b, lo, loops.rate) for b in bars]
         return " ".join(f"{np.median(v[i : i + 4]):6.1f}" for i in range(0, len(v), 4))
 
-    return [f"{arr['name']}   peak {np.abs(x).max():.2f}, samples over full scale {int((np.abs(x) > 1).sum())}",
-            "  bars       " + " ".join(f"{i + 1:>3d}-{i + 4:<2d}" for i in range(0, arr["bars"], 4)),
-            "  above 6k   " + row(6000),
-            "  above 10k  " + row(10000),
-            "  all        " + row(20)]
+    return [
+        f"{arr['name']}   peak {np.abs(x).max():.2f}, samples over full scale {int((np.abs(x) > 1).sum())}",
+        "  bars       " + " ".join(f"{i + 1:>3d}-{i + 4:<2d}" for i in range(0, arr["bars"], 4)),
+        "  above 6k   " + row(6000),
+        "  above 10k  " + row(10000),
+        "  all        " + row(20),
+    ]
 
 
 def main(argv: list[str]) -> None:

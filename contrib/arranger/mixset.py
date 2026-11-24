@@ -16,6 +16,7 @@ the parts summed after their own groups: close to, not the same as, the same dev
     uv run --project hands python contrib/arranger/mixset.py base       # render the mix as it stands (the reference)
     uv run --project hands python contrib/arranger/mixset.py worker     # render queued requests, one after another
 """
+
 from __future__ import annotations
 
 import itertools
@@ -121,7 +122,11 @@ def channels(loops: dict, arr: dict) -> list[dict]:
     used = {r["lane"] for r in arr["regions"]} | {
         t["lane"] for t in arr.get("transitions", []) if t.get("mode") == "replace"
     }
-    out = [{"id": lane["id"], "title": lane["title"], "group": lane["group"]} for lane in loops["lanes"] if lane["id"] in used]
+    out = [
+        {"id": lane["id"], "title": lane["title"], "group": lane["group"]}
+        for lane in loops["lanes"]
+        if lane["id"] in used
+    ]
     kinds = {t["kind"] for t in arr.get("transitions", []) if t.get("mode") != "replace"}
     out += [{"id": f"fx-{k}", "title": v, "group": "fx"} for k, v in FX_KINDS.items() if k in kinds]
     return out
@@ -388,7 +393,10 @@ def to_flac(wav: Path, flac: Path, skip_beats: float = 0.0) -> None:
         f"n = round(float(sys.argv[3]) * r * 60 / {hw002.TEMPO_BPM:g})\n"
         "sf.write(sys.argv[2], x[n:], r, subtype='PCM_16')"
     )
-    subprocess.run(["uv", "run", "--project", str(ROOT / "ears"), "python", "-c", code, str(wav), str(flac), str(skip_beats)], check=True)
+    subprocess.run(
+        ["uv", "run", "--project", str(ROOT / "ears"), "python", "-c", code, str(wav), str(flac), str(skip_beats)],
+        check=True,
+    )
     wav.unlink()
 
 
@@ -479,7 +487,16 @@ def run_request(L: Any, path: Path) -> None:
         main_gain(L, HEADROOM + ref - loud)
         render(L, folder / fm, bars)
         main_gain(L, HEADROOM)
-        out.append({"k": k, "values": values, "file": f, "matched": fm, "lufs": round(loud, 2), "matchDb": round(ref - loud, 2)})
+        out.append(
+            {
+                "k": k,
+                "values": values,
+                "file": f,
+                "matched": fm,
+                "lufs": round(loud, 2),
+                "matchDb": round(ref - loud, 2),
+            }
+        )
         status(done=2 * k + 3, points=out)
     L.run(f"t = {target_track(idx, req['target'])}\nt.delete_device(len(t.devices) - 1)\nresult = 'ok'")
     status(status="ready", finished=time.time())

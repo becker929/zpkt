@@ -10,6 +10,7 @@ hat), and on our kick loop alone, where the answer is known: the difference is t
 
     uv run --project ears python contrib/arranger/kickiso.py            # shapes, and the match curve
 """
+
 from __future__ import annotations
 
 import json
@@ -23,7 +24,7 @@ import soundfile as sf
 DATA = hw002.DATA
 OUT = DATA / "kickiso"
 N, HOP = 4096, 256
-THIRDS = [25 * 2 ** (k / 3) for k in range(0, 30)]          # 25 Hz to about 16 kHz
+THIRDS = [25 * 2 ** (k / 3) for k in range(0, 30)]  # 25 Hz to about 16 kHz
 
 
 def mono(path: Path) -> tuple[np.ndarray, int]:
@@ -34,6 +35,7 @@ def mono(path: Path) -> tuple[np.ndarray, int]:
 def onsets(m: np.ndarray, r: int, t0: float, beat: float, n: int) -> list[float]:
     """The kick onset nearest each beat of the grid: the steepest rise of the 40-150 Hz envelope within 30 ms."""
     from scipy.signal import butter, sosfilt
+
     low = sosfilt(butter(4, [40, 150], btype="band", fs=r, output="sos"), m)
     env = np.convolve(np.abs(low), np.ones(int(0.002 * r)) / int(0.002 * r), mode="same")
     d = np.diff(env, prepend=env[0])
@@ -42,7 +44,7 @@ def onsets(m: np.ndarray, r: int, t0: float, beat: float, n: int) -> list[float]
         c = int((t0 + k * beat) * r)
         if c - w < 0 or c + w >= len(m):
             continue
-        out.append((c - w + int(np.argmax(d[c - w:c + w]))) / r)
+        out.append((c - w + int(np.argmax(d[c - w : c + w]))) / r)
     return out
 
 
@@ -51,20 +53,22 @@ def kick_spectrum(m: np.ndarray, r: int, starts: list[float], beat: float) -> tu
     next sixteenth); summed over those frames. Returns (frequencies, power)."""
     win = np.hanning(N)
     span = int(0.22 * beat * r)
-    frames = list(range(-N // 4, span - N // 2, HOP))   # frame starts relative to the onset (the first frame catches the attack)
+    frames = list(
+        range(-N // 4, span - N // 2, HOP)
+    )  # frame starts relative to the onset (the first frame catches the attack)
     stack = []
     for s in starts:
         c = int(s * r)
         rows = []
         for f in frames:
             a = c + f
-            seg = m[a:a + N] if a >= 0 and a + N <= len(m) else None
+            seg = m[a : a + N] if a >= 0 and a + N <= len(m) else None
             if seg is None:
                 break
             rows.append(np.abs(np.fft.rfft(seg * win)) ** 2)
         if len(rows) == len(frames):
             stack.append(rows)
-    S = np.median(np.array(stack), axis=0)          # [frames, bins]: what repeats on every beat
+    S = np.median(np.array(stack), axis=0)  # [frames, bins]: what repeats on every beat
     return np.fft.rfftfreq(N, 1 / r), S.sum(axis=0)
 
 
@@ -72,13 +76,13 @@ def thirds(f: np.ndarray, p: np.ndarray) -> np.ndarray:
     out = []
     for c in THIRDS:
         sel = (f >= c / 2 ** (1 / 6)) & (f < c * 2 ** (1 / 6))
-        if not sel.any():   # a band narrower than a bin (the lowest): the bin it falls in, scaled to its width
+        if not sel.any():  # a band narrower than a bin (the lowest): the bin it falls in, scaled to its width
             k = int(np.argmin(abs(f - c)))
             out.append(10 * np.log10(p[k] * (c * (2 ** (1 / 6) - 2 ** (-1 / 6))) / (f[1] - f[0]) + 1e-20))
             continue
         out.append(10 * np.log10(p[sel].sum() + 1e-20))
     out = np.array(out)
-    return out - 10 * np.log10((10 ** (out / 10)).sum())   # dB of its own total: shape, not level
+    return out - 10 * np.log10((10 ** (out / 10)).sum())  # dB of its own total: shape, not level
 
 
 def shape_of(path: Path, drop: float, bpm: float, beats: int = 64) -> tuple[np.ndarray, int]:
@@ -113,25 +117,35 @@ def main() -> None:
         opts[loopf.stem], _ = shape_of(tmp, 6.0, hw002.TEMPO_BPM)
     ref = np.array(list(rows.values()))
     mean, lo, hi = ref.mean(0), ref.min(0), ref.max(0)
-    res = {"thirds": [round(c, 1) for c in THIRDS], "refs": {k: [round(float(v), 2) for v in s] for k, s in rows.items()},
-           "titles": {x["id"]: x["title"] for x in refs}, "refMean": [round(float(v), 2) for v in mean],
-           "ours": [round(float(v), 2) for v in ours], "oursAlone": [round(float(v), 2) for v in alone],
-           # what to add to our kick to reach the references' average, read off the mix (both sides isolated alike)
-           "match": [round(float(v), 2) for v in mean - ours],
-           "options": {k: [round(float(v), 2) for v in s] for k, s in opts.items()}}
+    res = {
+        "thirds": [round(c, 1) for c in THIRDS],
+        "refs": {k: [round(float(v), 2) for v in s] for k, s in rows.items()},
+        "titles": {x["id"]: x["title"] for x in refs},
+        "refMean": [round(float(v), 2) for v in mean],
+        "ours": [round(float(v), 2) for v in ours],
+        "oursAlone": [round(float(v), 2) for v in alone],
+        # what to add to our kick to reach the references' average, read off the mix (both sides isolated alike)
+        "match": [round(float(v), 2) for v in mean - ours],
+        "options": {k: [round(float(v), 2) for v in s] for k, s in opts.items()},
+    }
     clean = (np.array(THIRDS) >= 40) & (np.array(THIRDS) <= 4100)
     print("distance to the references' average, 40 Hz-4 kHz (RMS dB), and the gap at 2-4 kHz:")
     for k, s_ in sorted(opts.items(), key=lambda kv: np.sqrt(np.mean((kv[1] - mean)[clean] ** 2))):
         d = s_ - mean
-        print(f"  {k:5s} {np.sqrt(np.mean(d[clean] ** 2)):5.2f}  2-4k {np.mean(d[(np.array(THIRDS) >= 2000) & (np.array(THIRDS) <= 4100)]):+5.1f}"
-              f"  80-200 {np.mean(d[(np.array(THIRDS) >= 79) & (np.array(THIRDS) <= 200)]):+5.1f}")
+        print(
+            f"  {k:5s} {np.sqrt(np.mean(d[clean] ** 2)):5.2f}  2-4k {np.mean(d[(np.array(THIRDS) >= 2000) & (np.array(THIRDS) <= 4100)]):+5.1f}"
+            f"  80-200 {np.mean(d[(np.array(THIRDS) >= 79) & (np.array(THIRDS) <= 200)]):+5.1f}"
+        )
     (OUT / "kickiso.json").write_text(json.dumps(res))
     print(f"\n{'Hz':>7s} {'ours':>6s} {'alone':>6s} {'error':>6s} {'refs':>6s} [{'lo':>6s} {'hi':>6s}] {'match':>6s}")
     for k, c in enumerate(THIRDS):
-        print(f"{c:7.0f} {ours[k]:6.1f} {alone[k]:6.1f} {ours[k] - alone[k]:+6.1f} {mean[k]:6.1f} [{lo[k]:6.1f} {hi[k]:6.1f}] {mean[k] - ours[k]:+6.1f}")
+        print(
+            f"{c:7.0f} {ours[k]:6.1f} {alone[k]:6.1f} {ours[k] - alone[k]:+6.1f} {mean[k]:6.1f} [{lo[k]:6.1f} {hi[k]:6.1f}] {mean[k] - ours[k]:+6.1f}"
+        )
 
 
 # ---- the match: an EQ Eight fitted to the gap ------------------------------------------------------------------------
+
 
 def bell(f: np.ndarray, f0: float, g: float, q: float, fs: float = 44100.0) -> np.ndarray:
     """RBJ peaking filter's gain in dB at f (EQ Eight's bell is this shape, close enough to fit with)."""
@@ -140,7 +154,7 @@ def bell(f: np.ndarray, f0: float, g: float, q: float, fs: float = 44100.0) -> n
     b = np.array([1 + al * A, -2 * np.cos(w0), 1 - al * A])
     a = np.array([1 + al / A, -2 * np.cos(w0), 1 - al / A])
     z = np.exp(-1j * 2 * np.pi * f / fs)
-    h = (b[0] + b[1] * z + b[2] * z ** 2) / (a[0] + a[1] * z + a[2] * z ** 2)
+    h = (b[0] + b[1] * z + b[2] * z**2) / (a[0] + a[1] * z + a[2] * z**2)
     return 20 * np.log10(np.abs(h))
 
 
@@ -150,13 +164,13 @@ def fit(gap: np.ndarray, lo: float = 30.0, hi: float = 4100.0, bands: int = 6, c
     f = np.array(THIRDS)
     use = (f >= lo) & (f <= hi)
     r, out = np.where(use, gap, 0.0), []
-    free = use.copy()   # one bell per region: no two within two thirds of an octave, so no frequency gets past +-cap
+    free = use.copy()  # one bell per region: no two within two thirds of an octave, so no frequency gets past +-cap
     for _ in range(bands):
         sm = np.convolve(r, [0.25, 0.5, 0.25], mode="same")
         if not free.any():
             break
         k = int(np.argmax(np.abs(sm) * free))
-        free[max(0, k - 2):k + 3] = False
+        free[max(0, k - 2) : k + 3] = False
         if abs(sm[k]) < 1.0:
             break
         g = float(np.clip(sm[k], -cap, cap))
@@ -167,8 +181,11 @@ def fit(gap: np.ndarray, lo: float = 30.0, hi: float = 4100.0, bands: int = 6, c
 
 
 MATCHES = [  # (name, the kick it starts from, the target: "mean" of the four references, or one reference's id)
-    ("m0", "base", "mean"), ("mb6", "b6", "mean"),
-    ("mf1", "t-f1", "ksms-roses-of-flesh-and-blood"), ("mf1s", "t-f1s", "ksms-roses-of-flesh-and-blood"), ("mmtf12", "t-mtf12", "ksms-roses-of-flesh-and-blood"),
+    ("m0", "base", "mean"),
+    ("mb6", "b6", "mean"),
+    ("mf1", "t-f1", "ksms-roses-of-flesh-and-blood"),
+    ("mf1s", "t-f1s", "ksms-roses-of-flesh-and-blood"),
+    ("mmtf12", "t-mtf12", "ksms-roses-of-flesh-and-blood"),
 ]
 
 
@@ -180,8 +197,12 @@ def match() -> None:
         eq = fit(mean - np.array(res["options"][start]))
         after = np.array(res["options"][start]) + sum(bell(np.array(THIRDS), *b) for b in eq)
         clean = (np.array(THIRDS) >= 40) & (np.array(THIRDS) <= 4100)
-        out[name] = {"from": start, "target": target, "bells": eq,
-                     "predictedRms": round(float(np.sqrt(np.mean((after - mean)[clean] ** 2))), 2)}
+        out[name] = {
+            "from": start,
+            "target": target,
+            "bells": eq,
+            "predictedRms": round(float(np.sqrt(np.mean((after - mean)[clean] ** 2))), 2),
+        }
         print(name, start, eq, "predicted distance", out[name]["predictedRms"])
     (OUT / "match.json").write_text(json.dumps(out, indent=1))
 
