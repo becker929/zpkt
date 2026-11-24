@@ -1,6 +1,6 @@
 """Measure the desk's A/B/C sources once and cache it for the page.
 
-    ~/Desktop/zpkt/ears/.venv/bin/python contrib/mixdesk/analyze.py        # needs numpy, scipy, soundfile, pyloudnorm
+    ears/.venv/bin/python contrib/mixdesk/analyze.py        # the ears project's venv; needs numpy, scipy, soundfile, pyloudnorm
 
 Reads sources.json; writes 16-bit PCM WAVs (what the browser decodes reliably) and analysis.json to its "dir".
 This is measurement only: nothing here changes a sound. The page plays the WAVs, and draws these numbers.

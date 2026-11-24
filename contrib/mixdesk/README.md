@@ -81,7 +81,7 @@ Nothing in the page makes or plays sound: it shows and arms controls, and the mi
 The page is split: the control surface on the left, Live transport/monitoring and measurements on the right.
 
 - `sources.json` names A (original), B (mixed) and the references (C, four to pick from). Run
-  `~/Desktop/zpkt/ears/.venv/bin/python contrib/mixdesk/analyze.py` after you render a new A or B: it writes 16-bit WAVs and
+  `ears/.venv/bin/python contrib/mixdesk/analyze.py` (the ears venv) after you render a new A or B: it writes 16-bit WAVs and
   `analysis.json` (spectrum per 1/6 octave for build and drop, loudness/crest/width/bass-mono over time) to
   `~/_agent_scratch/mixdesk/viz/`. Nothing there changes a sound.
 - Everything you hear comes from Live: `monitor.py ensure` places `mon A` (at beat 0) and `mon C1`–`mon C4` (at bar 17 /
