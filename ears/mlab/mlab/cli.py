@@ -3,13 +3,14 @@
 from __future__ import annotations
 
 import argparse
-import glob
 import json
 import os
 import sys
 
 from . import bands as B
 from . import io as aio
+from . import references
+from . import windows as W
 from .util import r
 
 LAB = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -186,21 +187,16 @@ def cmd_als(a):
         print("  ! " + f)
 
 
-def _ref_paths(folder):
-    return [
-        p
-        for p in sorted(glob.glob(os.path.join(folder, "*")))
-        if os.path.splitext(p)[1].lower() in (".wav", ".aif", ".aiff", ".flac", ".mp3", ".m4a")
-    ]
-
-
 def cmd_refs(a):
     if a.peaks:
         return _refs_peaks(a)
     from . import compare, measure
 
     t = measure.flat(measure.sheet(aio.load(a.file)))
-    refs = {_stem(p)[:18]: measure.flat(measure.sheet(aio.load(p))) for p in _ref_paths(a.refs)}
+    refs = {
+        references.reference_name(p, 18): measure.flat(measure.sheet(aio.load(p)))
+        for p in references.reference_files(a.refs)
+    }
     print(compare.refs_table(t, refs, measure.CORE_KEYS))
 
 
@@ -219,8 +215,8 @@ def _refs_peaks(a):
         return au, an, prof
 
     tgt = load(a.file)
-    refs = {_stem(p)[:18]: load(p) for p in _ref_paths(a.refs)}
-    rows = {"TARGET " + _stem(a.file)[:11]: tgt, **refs}
+    refs = {references.reference_name(p, 18): load(p) for p in references.reference_files(a.refs)}
+    rows = {"TARGET " + references.reference_name(a.file, 11): tgt, **refs}
     out = {"structure": {k: v[1] for k, v in rows.items()}}
 
     print("Structure (bars, 1-based)\n")
@@ -316,7 +312,7 @@ def cmd_target(a):
     from . import target as T
 
     au = aio.load(a.file)
-    wins = T.windows(a.drop, a.bar)
+    wins = W.windows(a.drop, a.bar)
     mix = T.profile(au.x, au.sr, wins, a.bar)
     refs, profs = _ref_profiles(a)
     g = T.gaps(mix, profs)
@@ -399,7 +395,7 @@ def cmd_eqfit(a):
     opts = {k: spec[k] for k in ("weights", "alpha", "beta") if "moves" in spec and k in spec}
     moves = spec.get("moves", spec)
     refs, profs = _ref_profiles(a)
-    wins = T.windows(a.drop, a.bar)
+    wins = W.windows(a.drop, a.bar)
     res = E.fit(
         {n: au.x for n, au in zip(names, auds, strict=True)}, sr, wins, T.ref_stats(profs), moves, bar_s=a.bar, **opts
     )
@@ -601,8 +597,10 @@ def main(argv=None):
     )
     R = (["--refs"], {"required": True, "help": "refs.json: {refs: [{id, file, drop, barSeconds, set}]}"})
     SET = (["--set"], {"help": "only references whose set is this (e.g. hw002)"})
-    DROP = (["--drop"], {"type": float, "default": 24.0, "help": "drop time of the mix in seconds (default 24)"})
-    BAR = (["--bar"], {"type": float, "default": 1.5, "help": "bar length in seconds (default 1.5 = 160 BPM)"})
+    drop_help = f"drop time of the mix in seconds (default {W.DEFAULT_DROP_S:g})"
+    bar_help = f"bar length in seconds (default {W.DEFAULT_BAR_S:g} = 160 BPM)"
+    DROP = (["--drop"], {"type": float, "default": W.DEFAULT_DROP_S, "help": drop_help})
+    BAR = (["--bar"], {"type": float, "default": W.DEFAULT_BAR_S, "help": bar_help})
     add(
         "target",
         cmd_target,

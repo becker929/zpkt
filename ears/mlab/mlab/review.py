@@ -9,17 +9,16 @@ and each one names the number it rests on, so Anthony can argue with it.
 
 from __future__ import annotations
 
-import glob
 import os
 
 import numpy as np
 
 from . import io as aio
-from . import measure, premaster
+from . import measure, premaster, references
 from . import spectrum as S
 from .util import db, r
 
-AUDIO_EXT = (".wav", ".aif", ".aiff", ".flac", ".mp3", ".m4a")
+AUDIO_EXT = references.AUDIO_EXTENSIONS  # kept for callers; the list lives in references.py
 
 
 def peak_events(x, sr, bpm=160.0, top=5):
@@ -44,11 +43,9 @@ def ref_rows(refdir):
     rows, tonal = {}, []
     if not refdir or not os.path.isdir(refdir):
         return rows, None
-    for p in sorted(glob.glob(os.path.join(refdir, "*"))):
-        if os.path.splitext(p)[1].lower() not in AUDIO_EXT:
-            continue
+    for p in references.reference_files(refdir):
         a = aio.load(p)
-        rows[os.path.splitext(os.path.basename(p))[0][:24]] = measure.flat(measure.sheet(a))
+        rows[references.reference_name(p, 24)] = measure.flat(measure.sheet(a))
         tonal.append(np.array([v for _, v in S.third_octave(a.x, a.sr)]))
     return rows, tonal
 

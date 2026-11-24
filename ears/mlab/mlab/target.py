@@ -14,7 +14,7 @@ level: band power in dB minus the window's own integrated loudness
 - `ref_stats`, `gaps`: the references' mean (of dB values), min and max for
   every value, and the mix's diff (mix - mean) and outside (0 inside the
   references' range, else the signed distance to the nearest edge).
-- `load_refs`: the arranger's refs.json (id, file, drop, barSeconds, set).
+- `load_refs`: the arranger's refs.json (id, file, drop, barSeconds, set); read in references.py.
 
 Band power integrates the PSD exactly: each bin is a constant density
 over its own width, so a band edge may cut a bin. The PSD weights every
@@ -32,20 +32,20 @@ Known answers: calibration/checks.py (check_target).
 
 from __future__ import annotations
 
-import json
-import os
-
 import numpy as np
 
 from . import bands as B
 from . import dynamics as D
 from . import loudness as L
+from . import references
 from . import spectrum as S
+from . import windows as W
 from .util import pdb
 
-BARS = 16  # build and drop: 16 bars each
-MIN_BARS = 4  # a window clipped below 4 bars is skipped
-LAYOUT = {"build": (-BARS, 0), "drop": (0, BARS)}  # bar offsets from the drop
+# Windows live in windows.py; these names stay for callers.
+BARS, MIN_BARS, LAYOUT = W.BARS, W.MIN_BARS, W.LAYOUT
+DEFAULT_DROP_S, DEFAULT_BAR_S = W.DEFAULT_DROP_S, W.DEFAULT_BAR_S
+windows, segments = W.windows, W.segments
 SM_FLOOR = -99.0  # side-minus-mid floor (a mono file has no side)
 SCALARS = ("lufs", "true_peak_db", "plr_db", "block_crest_median_db", "transient_contrast_median_db")
 
@@ -64,17 +64,6 @@ region_edges = B.region_edges
 in_score = B.in_score
 
 
-# ------------------------------------------------------------------ windows
-def windows(drop_s, bar_s, layout=None):
-    """{name: (start_s, end_s)}: build = 16 bars before the drop, drop = 16 bars from it.
-
-    `layout` adds or replaces windows as bar offsets from the drop, e.g.
-    {"drop2": (16, 24)}; a value of None removes a default window."""
-    lay = dict(LAYOUT)
-    lay.update(layout or {})
-    return {k: (float(drop_s + v[0] * bar_s), float(drop_s + v[1] * bar_s)) for k, v in lay.items() if v is not None}
-
-
 def _stereo(x):
     x = np.asarray(x, dtype=float)
     x = x[:, None] if x.ndim == 1 else x
@@ -90,22 +79,6 @@ def window_true_peak(x, sr, a, b):
     lo, hi = max(0, a - TP_CONTEXT), min(len(x), b + TP_CONTEXT)
     env = L.true_peak_envelope(x[lo:hi], sr)[a - lo : b - lo]
     return float(20 * np.log10(np.max(env))) if env.size and np.max(env) > 0 else float("-inf")
-
-
-def segments(x, sr, wins, bar_s=None):
-    """Clip each window to the file. Returns ({name: (span, seg)}, {name: why skipped})."""
-    dur = len(x) / sr
-    min_s = max(MIN_BARS * bar_s if bar_s else 0.0, 0.4)  # at least one 400 ms loudness block
-    keep, skipped = {}, {}
-    for name, (a, b) in wins.items():
-        a2, b2 = max(0.0, float(a)), min(dur, float(b))
-        if b2 - a2 < min_s - 1e-6:
-            skipped[name] = f"{max(0.0, b2 - a2):.2f} s inside the file, needs {min_s:.2f} s" + (
-                f" ({MIN_BARS} bars)" if bar_s else ""
-            )
-            continue
-        keep[name] = ((a2, b2), x[round(a2 * sr) : round(b2 * sr)])
-    return keep, skipped
 
 
 # ------------------------------------------------------------------ spectrum
@@ -212,20 +185,7 @@ def profile(x, sr, wins, bar_s=None):
 
 
 # ------------------------------------------------------------------ references
-def load_refs(path, set_name=None, base_dir=None):
-    """Entries of refs.json ({"refs": [{"id", "title", "file", "drop", "barSeconds", "bpm", "set"}]}).
-    `file` is relative to the JSON's folder unless base_dir is given. Adds `path` and `bar_s`."""
-    with open(path) as fh:
-        data = json.load(fh)
-    base = base_dir or os.path.dirname(os.path.abspath(path))
-    out = []
-    for r in data.get("refs", []):
-        if set_name and r.get("set") != set_name:
-            continue
-        out.append(
-            {**r, "path": os.path.join(base, r["file"]), "drop": float(r["drop"]), "bar_s": float(r["barSeconds"])}
-        )
-    return out
+load_refs = references.load_refs  # read refs.json (references.py); kept here for callers
 
 
 def profile_ref(ref, layout=None):

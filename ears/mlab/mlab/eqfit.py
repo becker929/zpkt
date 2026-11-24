@@ -76,6 +76,7 @@ from . import bands as B
 from . import dsp
 from . import loudness as L
 from . import target as T
+from . import windows as W
 from .util import pdb
 
 KINDS = ("peak", "lowshelf", "highshelf", "highpass", "lowpass")
@@ -176,7 +177,7 @@ class Model:
         self.band_hz = [T._hz(v) for v in c]
         self.band_ix = np.array([(_ix(e, a), _ix(e, b)) for a, b in zip(blo, bhi, strict=True)])
         self.region_ix = {k: (_ix(e, a), _ix(e, b)) for k, a, b in zip(B.REGION_KEYS, *B.region_edges(sr), strict=True)}
-        keep, self.skipped = T.segments(sum(xs), sr, wins, bar_s)
+        keep, self.skipped = W.segments(sum(xs), sr, wins, bar_s)
         self.windows = {}
         for w, ((a, b), seg) in keep.items():
             lufs = L.integrated(seg, sr)

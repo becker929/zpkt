@@ -44,9 +44,14 @@ def tempo(x, sr, lo=120.0, hi=190.0, step=0.01):
     return float(cands[int(np.argmax(score))])
 
 
+def bar_seconds(bpm):
+    """Length of one 4/4 bar in seconds."""
+    return 4 * 60 / bpm
+
+
 def bars(x, sr, bpm):
     """Per-bar (low_db, high_db) arrays on a grid starting at sample 0."""
-    bar = 4 * 60 / bpm
+    bar = bar_seconds(bpm)
     nb = int(len(x) / sr / bar)
     lo = signal.sosfilt(signal.butter(4, B.KICK_LOWPASS_HZ, "low", fs=sr, output="sos"), x.mean(axis=1))
     hi = signal.sosfilt(signal.butter(4, B.HATS_HZ, "bandpass", fs=sr, output="sos"), x.mean(axis=1))
@@ -77,7 +82,7 @@ def kickless_runs(kick, min_bars=2):
 
 def peak_window(high_db, kick, bpm, seconds=PEAK_S):
     """1-based inclusive bar range of the densest kick section, or None."""
-    wb = max(1, round(seconds / (4 * 60 / bpm)))
+    wb = max(1, round(seconds / bar_seconds(bpm)))
     best, at = -np.inf, None
     for b in range(0, len(high_db) - wb + 1):
         if kick[b : b + wb].mean() < PEAK_KICK_FRACTION:
@@ -89,7 +94,7 @@ def peak_window(high_db, kick, bpm, seconds=PEAK_S):
 
 
 def excerpt(x, sr, bpm, bar_range):
-    bar = 4 * 60 / bpm
+    bar = bar_seconds(bpm)
     return x[int((bar_range[0] - 1) * bar * sr) : int(bar_range[1] * bar * sr)]
 
 
