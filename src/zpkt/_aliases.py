@@ -11,6 +11,7 @@ from __future__ import annotations
 import importlib
 import importlib.abc
 import importlib.machinery
+import importlib.util
 import sys
 from types import ModuleType
 
@@ -35,7 +36,14 @@ class Alias(importlib.abc.MetaPathFinder, importlib.abc.Loader):
     def find_spec(
         self, fullname: str, path: object = None, target: ModuleType | None = None
     ) -> importlib.machinery.ModuleSpec | None:
-        return importlib.machinery.ModuleSpec(fullname, self) if self.target(fullname) else None
+        new = self.target(fullname)
+        if new is None:
+            return None
+        spec = importlib.machinery.ModuleSpec(fullname, self)
+        real = importlib.util.find_spec(new)
+        if real is not None and real.submodule_search_locations is not None:
+            spec.submodule_search_locations = list(real.submodule_search_locations)  # a package (`python -m` asks)
+        return spec
 
     def create_module(self, spec: importlib.machinery.ModuleSpec) -> ModuleType:
         new = self.target(spec.name)
