@@ -5,6 +5,9 @@ Who writes what (production-map.md): the arranger page owns `name, bars, regions
 `transitions`; mix 1 `mix`; mix 2 `mix2`; the spectral page `spectral`; the kick and spectral pages `kickFuzz`; the
 mix desk (contrib/mixdesk/recipe.py) `desk`, outside this server. A save from the arranger page keeps every key it
 does not own, so no later step is lost when the arrangement is edited.
+
+The type names two halves: `Structure` (regions and transitions, with the page's name, bars and mutes) and `Sound`
+(mix, mix2, spectral, kickFuzz, desk). The file does not nest them: their keys stay side by side at the top level.
 """
 
 from __future__ import annotations
@@ -39,18 +42,47 @@ class KickOption(TypedDict):
     bells: NotRequired[list[list[float]] | None]
 
 
-class Arrangement(TypedDict):
+class Structure(TypedDict):
+    """The arrangement's structure: what plays where. The arranger page owns name, bars, regions and mutes; the
+    transitions page `transitions`."""
+
     name: NotRequired[str]
     bars: NotRequired[int]
     regions: list[Region]
     mutes: NotRequired[list[str]]
-    saved: NotRequired[float]
     transitions: NotRequired[list[dict[str, Any]]]
+
+
+class Sound(TypedDict):
+    """How the arrangement sounds: mix 1 `mix`, mix 2 `mix2`, the spectral page `spectral`, the kick option
+    `kickFuzz`, the mix desk's `desk`."""
+
     mix: NotRequired[dict[str, Any]]
     mix2: NotRequired[list[dict[str, Any]]]
     spectral: NotRequired[list[dict[str, Any]]]
     kickFuzz: NotRequired[KickOption | None]
     desk: NotRequired[dict[str, Any]]
+
+
+class Arrangement(Structure, Sound):
+    """The arrangement file: its structure and its sound. The two halves are named in the type only; in the file their
+    keys sit side by side at the top level, with `saved` (when the arranger page last saved it)."""
+
+    saved: NotRequired[float]
+
+
+STRUCTURE_KEYS = tuple(Structure.__annotations__)  # name, bars, regions, mutes, transitions
+SOUND_KEYS = tuple(Sound.__annotations__)  # mix, mix2, spectral, kickFuzz, desk
+
+
+def structure(a: dict[str, Any]) -> Structure:
+    """The structure half of an arrangement file: the keys of it the file holds."""
+    return cast(Structure, {k: a[k] for k in STRUCTURE_KEYS if k in a})
+
+
+def sound(a: dict[str, Any]) -> Sound:
+    """The sound half of an arrangement file: the keys of it the file holds."""
+    return cast(Sound, {k: a[k] for k in SOUND_KEYS if k in a})
 
 
 class Rejected(ValueError):

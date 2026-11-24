@@ -44,7 +44,9 @@ run with the same `ARRANGER_DATA` (by default they do).
 The arrangement file is the recipe. Each page owns its keys: the arranger page `name, bars, regions, mutes`; the
 others `transitions`, `mix`, `mix2`, `spectral`, `kickFuzz`; the mix desk `desk`. A save from the arranger page keeps
 every key it does not own, so editing the arrangement never drops a later step or the desk. Its shape is
-`lib/contracts/arrangement.schema.json`; `arrangement.py` is the code that parses it.
+`lib/contracts/arrangement.schema.json`; `arrangement.py` is the code that parses it. Its type names two halves,
+`Structure` (regions and transitions, with the page's name, bars and mutes) and `Sound` (mix, mix2, spectral,
+kickFuzz, desk); in the file their keys stay side by side, as they always were.
 
 ### How it is built
 
