@@ -11,8 +11,8 @@ Report numbers first, then what they mean.
 - HW002: 160 BPM, 44.1 kHz. A 1-minute demo exists (`audio/hw002/`).
 - The published notes are at anthonybecker.me/notes. The research code is
   in `github.com/becker929/anthonybecker.me` under `research/sound-function/repo`.
-- `github.com/becker929/ears` is the older perception layer. Its loudness
-  numbers are NOT calibrated (see LEARNINGS.md, L-003). Use `mlab` instead.
+- ears' own profile (`ears analyze`) is the older perception layer. Its loudness
+  numbers are NOT calibrated (see LEARNINGS.md, L-003). Use these meters instead.
 
 ## Commands
 
@@ -35,7 +35,9 @@ python3 -m mlab hyp run hypotheses/H###.yaml
 python3 -m pytest calibration -q          # same checks as `calibrate`, as tests
 ```
 
-Install once: `pip install -r requirements.txt` (numpy, scipy, soundfile, pyloudnorm, pyyaml, pytest).
+Install once: `cd ears && uv sync`. The meters are part of the ears project (`ears.meters`) since 24 Nov 2026.
+Run the commands above from this folder inside that environment: `uv run python -m mlab ...`, `uv run mlab ...`
+or `uv run ears ...` (uv finds the project one folder up). The code is in `ears/src/ears/meters/`.
 ffmpeg is needed for mp3/m4a input, codec simulation and the cross-check.
 
 ## Rules

@@ -1,0 +1,23 @@
+Analyzing: take.wav
+
+AudioProfile — take.wav
+  Duration:  3.00s  |  SR: 44100 Hz
+  clip_id:   <id>
+
+Loudness
+  LUFS integrated:   -10.89 LUFS
+  LUFS short-term:   n/a
+  LUFS momentary:    -10.87 LUFS
+  True peak:         -5.78 dBTP
+ Band  Energy % 
+ sub      64.7% 
+ low       0.1% 
+ mid      29.9% 
+ high      2.6% 
+ air       2.6% 
+
+Spectral
+  Centroid:   8848.4 Hz
+  Rolloff:    17778.4 Hz
+  Flatness:   0.0423
+  Onset str:  0.930

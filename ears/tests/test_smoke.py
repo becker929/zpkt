@@ -11,7 +11,6 @@ import json
 import numpy as np
 import pytest
 import soundfile as sf
-
 from ears.models import (
     AudioProfile,
     LoudnessFeatures,

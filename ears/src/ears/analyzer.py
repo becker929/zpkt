@@ -1,10 +1,12 @@
 """Audio analysis orchestrator — runs extractors in parallel, returns AudioProfile."""
+
 from __future__ import annotations
 
 import hashlib
 import os
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from typing import Any
 
 from .models import AudioProfile
 
@@ -52,24 +54,29 @@ def analyze(
         profile.errors.append(f"audio load failed: {exc}")
         return profile
 
-    def run_spectral():
+    def run_spectral() -> tuple[str, Any]:
         from .features import extract
+
         return "spectral", extract(audio, sr)
 
-    def run_loudness():
+    def run_loudness() -> tuple[str, Any]:
         from .loudness import extract
+
         return "loudness", extract(audio, sr, channels)
 
-    def run_rhythm_task():
+    def run_rhythm_task() -> tuple[str, Any]:
         from .rhythm import extract
+
         return "rhythm", extract(audio_path)
 
-    def run_pitch_task():
+    def run_pitch_task() -> tuple[str, Any]:
         from .pitch import extract
+
         return "pitch", extract(audio_path)
 
-    def run_embed():
+    def run_embed() -> tuple[str, Any]:
         from .embeddings import embed
+
         return "embedding", embed(audio_path)
 
     tasks = [run_spectral, run_loudness]
@@ -84,17 +91,8 @@ def analyze(
         futures = {pool.submit(t): t.__name__ for t in tasks}
         for future in as_completed(futures):
             try:
-                key, result = future.result()
-                if key == "spectral":
-                    profile.spectral = result
-                elif key == "loudness":
-                    profile.loudness = result
-                elif key == "rhythm":
-                    profile.rhythm = result
-                elif key == "pitch":
-                    profile.pitch = result
-                elif key == "embedding":
-                    profile.embedding = [float(v) for v in result]
+                key, result = future.result()  # key is the AudioProfile field the extractor fills
+                setattr(profile, key, [float(v) for v in result] if key == "embedding" else result)
             except Exception as exc:
                 profile.errors.append(f"{futures[future]} failed: {exc}")
 

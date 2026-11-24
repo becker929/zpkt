@@ -1,0 +1,401 @@
+{
+ "sheet": {
+  "file": {
+   "path": "mix",
+   "sr": 44100,
+   "channels": 2,
+   "duration_s": 12.0,
+   "subtype": "FLOAT",
+   "format": "ARRAY",
+   "lossy": false
+  },
+  "loudness": {
+   "integrated": -22.37,
+   "momentary_max": -19.69,
+   "short_term_max": -20.82,
+   "lra": 4.05,
+   "lra_low": -24.88,
+   "lra_high": -20.83,
+   "sample_peak": -4.93,
+   "true_peak": -4.85,
+   "plr": 17.52,
+   "psr_min": 15.71
+  },
+  "dynamics": {
+   "crest_db": 18.14,
+   "plr_db": 17.52,
+   "psr_min_db": 15.71,
+   "k20_rms_db": -0.06,
+   "k14_rms_db": -6.06,
+   "lra_lu": 4.05,
+   "short_term_p95_minus_p10": 4.05,
+   "short_term_max_minus_integrated": 1.56,
+   "block_crest_median_db": 15.69,
+   "block_crest_p10_db": 14.95,
+   "block_crest_p90_db": 16.37,
+   "onsets": 37,
+   "transient_contrast_median_db": 11.3
+  },
+  "tonal": {
+   "slope_db_per_oct": -4.37,
+   "centroid_hz": 591.0,
+   "group.sub": -3.85,
+   "group.bass": -3.49,
+   "group.low_mid": -17.29,
+   "group.mid": -15.1,
+   "group.upper_mid": -17.75,
+   "group.presence": -17.84,
+   "group.air": -15.96
+  },
+  "third_octave": [
+   [
+    25.1,
+    -50.15
+   ],
+   [
+    31.6,
+    -47.74
+   ],
+   [
+    39.8,
+    -45.63
+   ],
+   [
+    50.1,
+    -29.6
+   ],
+   [
+    63.1,
+    -32.49
+   ],
+   [
+    79.4,
+    -34.14
+   ],
+   [
+    100.0,
+    -36.42
+   ],
+   [
+    125.9,
+    -34.23
+   ],
+   [
+    158.5,
+    -35.23
+   ],
+   [
+    199.5,
+    -40.21
+   ],
+   [
+    251.2,
+    -44.22
+   ],
+   [
+    316.2,
+    -46.04
+   ],
+   [
+    398.1,
+    -46.5
+   ],
+   [
+    501.2,
+    -46.57
+   ],
+   [
+    631.0,
+    -46.88
+   ],
+   [
+    794.3,
+    -46.81
+   ],
+   [
+    1000.0,
+    -46.86
+   ],
+   [
+    1258.9,
+    -46.91
+   ],
+   [
+    1584.9,
+    -46.8
+   ],
+   [
+    1995.3,
+    -46.17
+   ],
+   [
+    2511.9,
+    -46.36
+   ],
+   [
+    3162.3,
+    -46.2
+   ],
+   [
+    3981.1,
+    -46.73
+   ],
+   [
+    5011.9,
+    -46.59
+   ],
+   [
+    6309.6,
+    -46.35
+   ],
+   [
+    7943.3,
+    -46.24
+   ],
+   [
+    10000.0,
+    -45.53
+   ],
+   [
+    12589.3,
+    -45.97
+   ],
+   [
+    15848.9,
+    -45.5
+   ]
+  ],
+  "stereo": [
+   {
+    "band_hz": [
+     20,
+     120
+    ],
+    "correlation": 0.952,
+    "side_minus_mid_db": -16.08
+   },
+   {
+    "band_hz": [
+     120,
+     500
+    ],
+    "correlation": 0.86,
+    "side_minus_mid_db": -11.24
+   },
+   {
+    "band_hz": [
+     500,
+     2000
+    ],
+    "correlation": 0.058,
+    "side_minus_mid_db": -0.51
+   },
+   {
+    "band_hz": [
+     2000,
+     8000
+    ],
+    "correlation": 0.136,
+    "side_minus_mid_db": -1.19
+   },
+   {
+    "band_hz": [
+     8000,
+     20000
+    ],
+    "correlation": 0.274,
+    "side_minus_mid_db": -2.44
+   }
+  ],
+  "word_length": {
+   "container": "FLOAT",
+   "sample_rate": 44100,
+   "lossy": false,
+   "effective_bits": 32,
+   "dc_offset_dbfs": [
+    -60.29,
+    -66.01
+   ],
+   "dc_steady": false,
+   "dc_max_dbfs": -60.29,
+   "digital_zero_blocks_100ms": 0,
+   "quietest_blocks_dbfs": -30.41,
+   "reference_floors_dbfs_at_16_bits": {
+    "none": -101.1,
+    "rpdf": -98.09,
+    "tpdf": -96.33
+   },
+   "quiet_region_tilt_db": -8.47,
+   "verdict": "nothing notable"
+  },
+  "delivery": {
+   "integrated": -22.37,
+   "true_peak": -4.85,
+   "normalization": {
+    "youtube": {
+     "gain_db": 0.0,
+     "playback_lufs": -22.37,
+     "playback_true_peak": -4.85,
+     "note": "observed; applies to uploads incl. Shorts (assumed)"
+    },
+    "spotify": {
+     "gain_db": 3.85,
+     "playback_lufs": -18.52,
+     "playback_true_peak": -1.0,
+     "note": "documented by Spotify; up-gain limited by peak headroom"
+    },
+    "apple_music": {
+     "gain_db": 3.85,
+     "playback_lufs": -18.52,
+     "playback_true_peak": -1.0,
+     "note": "Sound Check; reported"
+    },
+    "tidal": {
+     "gain_db": 0.0,
+     "playback_lufs": -22.37,
+     "playback_true_peak": -4.85,
+     "note": "reported"
+    },
+    "amazon_music": {
+     "gain_db": 0.0,
+     "playback_lufs": -22.37,
+     "playback_true_peak": -4.85,
+     "note": "reported, varies"
+    },
+    "soundcloud": {
+     "gain_db": 0.0,
+     "playback_lufs": -22.37,
+     "playback_true_peak": -4.85,
+     "note": "no normalisation reported"
+    },
+    "instagram": {
+     "gain_db": 0.0,
+     "playback_lufs": -22.37,
+     "playback_true_peak": -4.85,
+     "note": "undocumented; measure a real upload"
+    },
+    "tiktok": {
+     "gain_db": 0.0,
+     "playback_lufs": -22.37,
+     "playback_true_peak": -4.85,
+     "note": "undocumented; measure a real upload"
+    }
+   },
+   "advice": []
+  }
+ },
+ "flat": {
+  "file.path": "mix",
+  "file.sr": 44100,
+  "file.channels": 2,
+  "file.duration_s": 12.0,
+  "file.subtype": "FLOAT",
+  "file.format": "ARRAY",
+  "file.lossy": false,
+  "loudness.integrated": -22.37,
+  "loudness.momentary_max": -19.69,
+  "loudness.short_term_max": -20.82,
+  "loudness.lra": 4.05,
+  "loudness.lra_low": -24.88,
+  "loudness.lra_high": -20.83,
+  "loudness.sample_peak": -4.93,
+  "loudness.true_peak": -4.85,
+  "loudness.plr": 17.52,
+  "loudness.psr_min": 15.71,
+  "dynamics.crest_db": 18.14,
+  "dynamics.plr_db": 17.52,
+  "dynamics.psr_min_db": 15.71,
+  "dynamics.k20_rms_db": -0.06,
+  "dynamics.k14_rms_db": -6.06,
+  "dynamics.lra_lu": 4.05,
+  "dynamics.short_term_p95_minus_p10": 4.05,
+  "dynamics.short_term_max_minus_integrated": 1.56,
+  "dynamics.block_crest_median_db": 15.69,
+  "dynamics.block_crest_p10_db": 14.95,
+  "dynamics.block_crest_p90_db": 16.37,
+  "dynamics.onsets": 37,
+  "dynamics.transient_contrast_median_db": 11.3,
+  "tonal.slope_db_per_oct": -4.37,
+  "tonal.centroid_hz": 591.0,
+  "tonal.group.sub": -3.85,
+  "tonal.group.bass": -3.49,
+  "tonal.group.low_mid": -17.29,
+  "tonal.group.mid": -15.1,
+  "tonal.group.upper_mid": -17.75,
+  "tonal.group.presence": -17.84,
+  "tonal.group.air": -15.96,
+  "word_length.container": "FLOAT",
+  "word_length.sample_rate": 44100,
+  "word_length.lossy": false,
+  "word_length.effective_bits": 32,
+  "word_length.dc_steady": false,
+  "word_length.dc_max_dbfs": -60.29,
+  "word_length.digital_zero_blocks_100ms": 0,
+  "word_length.quietest_blocks_dbfs": -30.41,
+  "word_length.reference_floors_dbfs_at_16_bits.none": -101.1,
+  "word_length.reference_floors_dbfs_at_16_bits.rpdf": -98.09,
+  "word_length.reference_floors_dbfs_at_16_bits.tpdf": -96.33,
+  "word_length.quiet_region_tilt_db": -8.47,
+  "word_length.verdict": "nothing notable",
+  "delivery.integrated": -22.37,
+  "delivery.true_peak": -4.85,
+  "delivery.normalization.youtube.gain_db": 0.0,
+  "delivery.normalization.youtube.playback_lufs": -22.37,
+  "delivery.normalization.youtube.playback_true_peak": -4.85,
+  "delivery.normalization.youtube.note": "observed; applies to uploads incl. Shorts (assumed)",
+  "delivery.normalization.spotify.gain_db": 3.85,
+  "delivery.normalization.spotify.playback_lufs": -18.52,
+  "delivery.normalization.spotify.playback_true_peak": -1.0,
+  "delivery.normalization.spotify.note": "documented by Spotify; up-gain limited by peak headroom",
+  "delivery.normalization.apple_music.gain_db": 3.85,
+  "delivery.normalization.apple_music.playback_lufs": -18.52,
+  "delivery.normalization.apple_music.playback_true_peak": -1.0,
+  "delivery.normalization.apple_music.note": "Sound Check; reported",
+  "delivery.normalization.tidal.gain_db": 0.0,
+  "delivery.normalization.tidal.playback_lufs": -22.37,
+  "delivery.normalization.tidal.playback_true_peak": -4.85,
+  "delivery.normalization.tidal.note": "reported",
+  "delivery.normalization.amazon_music.gain_db": 0.0,
+  "delivery.normalization.amazon_music.playback_lufs": -22.37,
+  "delivery.normalization.amazon_music.playback_true_peak": -4.85,
+  "delivery.normalization.amazon_music.note": "reported, varies",
+  "delivery.normalization.soundcloud.gain_db": 0.0,
+  "delivery.normalization.soundcloud.playback_lufs": -22.37,
+  "delivery.normalization.soundcloud.playback_true_peak": -4.85,
+  "delivery.normalization.soundcloud.note": "no normalisation reported",
+  "delivery.normalization.instagram.gain_db": 0.0,
+  "delivery.normalization.instagram.playback_lufs": -22.37,
+  "delivery.normalization.instagram.playback_true_peak": -4.85,
+  "delivery.normalization.instagram.note": "undocumented; measure a real upload",
+  "delivery.normalization.tiktok.gain_db": 0.0,
+  "delivery.normalization.tiktok.playback_lufs": -22.37,
+  "delivery.normalization.tiktok.playback_true_peak": -4.85,
+  "delivery.normalization.tiktok.note": "undocumented; measure a real upload",
+  "stereo.corr_20_120": 0.952,
+  "stereo.corr_120_500": 0.86,
+  "stereo.corr_500_2000": 0.058,
+  "stereo.corr_2000_8000": 0.136,
+  "stereo.corr_8000_20000": 0.274
+ },
+ "core_keys": [
+  "loudness.integrated",
+  "loudness.short_term_max",
+  "loudness.lra",
+  "loudness.true_peak",
+  "loudness.plr",
+  "loudness.psr_min",
+  "dynamics.crest_db",
+  "dynamics.block_crest_median_db",
+  "dynamics.transient_contrast_median_db",
+  "tonal.slope_db_per_oct",
+  "tonal.centroid_hz",
+  "tonal.group.sub",
+  "tonal.group.bass",
+  "tonal.group.low_mid",
+  "tonal.group.mid",
+  "tonal.group.upper_mid",
+  "tonal.group.presence",
+  "tonal.group.air",
+  "stereo.corr_20_120"
+ ]
+}

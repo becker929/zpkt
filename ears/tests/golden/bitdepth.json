@@ -1,0 +1,141 @@
+{
+ "float": {
+  "container": "FLOAT",
+  "sample_rate": 44100,
+  "lossy": false,
+  "effective_bits": 32,
+  "dc_offset_dbfs": [
+   -66.29,
+   -72.01
+  ],
+  "dc_steady": false,
+  "dc_max_dbfs": -66.29,
+  "digital_zero_blocks_100ms": 0,
+  "quietest_blocks_dbfs": -36.41,
+  "reference_floors_dbfs_at_16_bits": {
+   "none": -101.1,
+   "rpdf": -98.09,
+   "tpdf": -96.33
+  },
+  "quiet_region_tilt_db": -8.47,
+  "verdict": "nothing notable"
+ },
+ "pcm16_tpdf": {
+  "container": "PCM_16",
+  "sample_rate": 44100,
+  "lossy": false,
+  "effective_bits": 16,
+  "dc_offset_dbfs": [
+   -66.29,
+   -72.01
+  ],
+  "dc_steady": false,
+  "dc_max_dbfs": -66.29,
+  "digital_zero_blocks_100ms": 0,
+  "quietest_blocks_dbfs": -36.41,
+  "reference_floors_dbfs_at_16_bits": {
+   "none": -101.1,
+   "rpdf": -98.09,
+   "tpdf": -96.33
+  },
+  "quiet_region_tilt_db": -8.47,
+  "verdict": "programme never gets quiet enough to see the floor: dither not observable (masked)"
+ },
+ "pcm24_holding_16": {
+  "container": "PCM_24",
+  "sample_rate": 44100,
+  "lossy": false,
+  "effective_bits": 16,
+  "dc_offset_dbfs": [
+   -66.29,
+   -72.01
+  ],
+  "dc_steady": false,
+  "dc_max_dbfs": -66.29,
+  "digital_zero_blocks_100ms": 0,
+  "quietest_blocks_dbfs": -36.41,
+  "reference_floors_dbfs_at_16_bits": {
+   "none": -101.1,
+   "rpdf": -98.09,
+   "tpdf": -96.33
+  },
+  "quiet_region_tilt_db": -8.47,
+  "verdict": "24-bit container holding 16-bit audio: re-exported from a 16-bit source?; programme never gets quiet enough to see the floor: dither not observable (masked)"
+ },
+ "float_holding_24": {
+  "container": "FLOAT",
+  "sample_rate": 44100,
+  "lossy": false,
+  "effective_bits": 24,
+  "dc_offset_dbfs": [
+   -66.29,
+   -72.01
+  ],
+  "dc_steady": false,
+  "dc_max_dbfs": -66.29,
+  "digital_zero_blocks_100ms": 0,
+  "quietest_blocks_dbfs": -36.41,
+  "reference_floors_dbfs_at_24_bits": {
+   "none": -149.27,
+   "rpdf": -146.26,
+   "tpdf": -144.49
+  },
+  "quiet_region_tilt_db": -8.47,
+  "verdict": "float container holding 24-bit values: something upstream reduced word length; programme never gets quiet enough to see the floor: dither not observable (masked)"
+ },
+ "lossy": {
+  "container": "lossy:mp3",
+  "sample_rate": 44100,
+  "lossy": true,
+  "verdict": "lossy file: word length and dither are not observable after perceptual coding. Measure the WAV you exported instead.",
+  "dc_offset_dbfs": [
+   -66.29,
+   -72.01
+  ],
+  "dc_max_dbfs": -66.29,
+  "dc_steady": false,
+  "digital_zero_blocks_100ms": 0,
+  "quietest_blocks_dbfs": -36.41
+ },
+ "silence": {
+  "container": "PCM_24",
+  "sample_rate": 44100,
+  "lossy": false,
+  "effective_bits": 0,
+  "verdict": "digital silence: nothing to analyse",
+  "dc_offset_dbfs": [
+   null,
+   null
+  ],
+  "dc_max_dbfs": null
+ },
+ "truncation_distortion": -11.673139379684777,
+ "floors": {
+  "16-none": -101.10081115967061,
+  "16-rpdf": -98.0905112030308,
+  "16-tpdf": -96.32959861247399,
+  "24-none": -149.2656104659076,
+  "24-rpdf": -146.2553105092678,
+  "24-tpdf": -144.49439791871097
+ },
+ "quiet_blocks": [
+  {
+   "shape": [
+    20
+   ],
+   "sum": -732.9643126327026,
+   "sum_sq": 26883.016867788465,
+   "max_abs": 38.60639062133556,
+   "samples": [
+    -38.60639062133556,
+    -37.90262462308157,
+    -37.175708857167294,
+    -36.49569698816851,
+    -35.823747527198634,
+    -35.72328081496188,
+    -35.55440071467046
+   ]
+  },
+  0
+ ]
+}

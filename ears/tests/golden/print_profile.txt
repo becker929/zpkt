@@ -1,0 +1,38 @@
+
+AudioProfile — x.wav
+  Duration:  1.50s  |  SR: 48000 Hz
+  clip_id:   abc
+
+Loudness
+  LUFS integrated:   -9.50 LUFS
+  LUFS short-term:   n/a
+  LUFS momentary:    n/a
+  True peak:         -0.30 dBTP
+  Key (Camelot):     8A
+ Band  Energy % 
+ sub      50.0% 
+
+Spectral
+  Centroid:   1234.5 Hz
+  Rolloff:    0.0 Hz
+  Flatness:   0.0000
+  Onset str:  0.000
+  Key:        A minor (strength 0.80)
+  Danceability: 1.250
+
+Rhythm
+  BPM:        160.0
+  Meter:      4/4
+  Swing:      0.520
+
+Embedding  5-dim DCLAP vector (first 4): [0.1, 0.2, 0.3, 0.4]
+
+Errors: one failed: why, two failed: why
+
+AudioProfile — y.wav
+  Duration:  0.00s  |  SR: 0 Hz
+  clip_id:   
+
+Rhythm
+  BPM:   n/a
+  Meter:      4/4

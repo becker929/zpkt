@@ -1,0 +1,34 @@
+{
+ "creator": "Ableton Live 12.0b16",
+ "tempo": 120.0,
+ "main_volume_db": 0.0,
+ "main_devices": [
+  {
+   "device": "Limiter",
+   "on": true,
+   "label": "Lim"
+  }
+ ],
+ "tracks": [
+  {
+   "type": "AudioTrack",
+   "name": "1-Audio",
+   "id": "14",
+   "group_id": "-1",
+   "active": false,
+   "frozen": false,
+   "volume_db": 0.0,
+   "devices": [
+    {
+     "device": "Decapitator",
+     "on": false
+    }
+   ]
+  }
+ ],
+ "findings": [
+  "Main bus has active dynamics/saturation: Limiter. For a premaster, bypass them (or print two versions).",
+  "1 device(s) are switched off, e.g. Decapitator on '1-Audio'. An agent sweeping them would move nothing.",
+  "1 track(s) deactivated: 1-Audio"
+ ]
+}

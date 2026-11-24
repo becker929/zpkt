@@ -31,6 +31,7 @@ def cosine(v1: list[float] | None, v2: list[float] | None) -> float | None:
     if v1 is None or v2 is None or len(v1) != len(v2):
         return None
     import numpy as np
+
     a = np.asarray(v1, dtype=np.float32)
     b = np.asarray(v2, dtype=np.float32)
     norm_a = np.linalg.norm(a)

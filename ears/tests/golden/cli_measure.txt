@@ -1,0 +1,85 @@
+# Measurement sheet — mix.wav
+
+12.0 s · 44100 Hz · 2 ch · FLOAT
+
+## Loudness (Ch. 17-19)
+
+| measure | value |
+|---|---|
+| integrated | -22.37 |
+| momentary_max | -19.69 |
+| short_term_max | -20.82 |
+| lra | 4.05 |
+| lra_low | -24.88 |
+| lra_high | -20.83 |
+| sample_peak | -4.93 |
+| true_peak | -4.85 |
+| plr | 17.52 |
+| psr_min | 15.71 |
+
+## Dynamics (Ch. 5-7)
+
+| measure | value |
+|---|---|
+| crest_db | 18.14 |
+| plr_db | 17.52 |
+| psr_min_db | 15.71 |
+| k20_rms_db | -0.06 |
+| k14_rms_db | -6.06 |
+| lra_lu | 4.05 |
+| short_term_p95_minus_p10 | 4.05 |
+| short_term_max_minus_integrated | 1.56 |
+| block_crest_median_db | 15.69 |
+| block_crest_p10_db | 14.95 |
+| block_crest_p90_db | 16.37 |
+| onsets | 37 |
+| transient_contrast_median_db | 11.3 |
+
+## Tonal balance (Ch. 4)
+
+| measure | value |
+|---|---|
+| slope_db_per_oct | -4.37 |
+| centroid_hz | 591.0 |
+| group.sub | -3.85 |
+| group.bass | -3.49 |
+| group.low_mid | -17.29 |
+| group.mid | -15.1 |
+| group.upper_mid | -17.75 |
+| group.presence | -17.84 |
+| group.air | -15.96 |
+
+1/3-octave levels (dB, relative):
+
+25:-50.15 31:-47.74 39:-45.63 50:-29.6 63:-32.49 79:-34.14 100:-36.42 125:-34.23 158:-35.23 199:-40.21 251:-44.22 316:-46.04 398:-46.5 501:-46.57 631:-46.88 794:-46.81 1000:-46.86 1258:-46.91 1584:-46.8 1995:-46.17 2511:-46.36 3162:-46.2 3981:-46.73 5011:-46.59 6309:-46.35 7943:-46.24 10000:-45.53 12589:-45.97 15848:-45.5
+
+## Stereo
+
+| band Hz | correlation | side−mid dB |
+|---|---|---|
+| 20–120 | 0.952 | -16.08 |
+| 120–500 | 0.86 | -11.24 |
+| 500–2000 | 0.058 | -0.51 |
+| 2000–8000 | 0.136 | -1.19 |
+| 8000–20000 | 0.274 | -2.44 |
+
+## Word length (Ch. 15)
+
+- container: FLOAT
+- effective bits: 32
+- verdict: nothing notable
+
+## Delivery (YouTube and others)
+
+| platform | gain dB | plays at LUFS | plays at dBTP | note |
+|---|---|---|---|---|
+| youtube | 0.0 | -22.37 | -4.85 | observed; applies to uploads incl. Shorts (assumed) |
+| spotify | 3.85 | -18.52 | -1.0 | documented by Spotify; up-gain limited by peak headroom |
+| apple_music | 3.85 | -18.52 | -1.0 | Sound Check; reported |
+| tidal | 0.0 | -22.37 | -4.85 | reported |
+| amazon_music | 0.0 | -22.37 | -4.85 | reported, varies |
+| soundcloud | 0.0 | -22.37 | -4.85 | no normalisation reported |
+| instagram | 0.0 | -22.37 | -4.85 | undocumented; measure a real upload |
+| tiktok | 0.0 | -22.37 | -4.85 | undocumented; measure a real upload |
+
+(saved reports/mix.md / .json)

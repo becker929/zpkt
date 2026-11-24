@@ -1,0 +1,60 @@
+eqfit: 3 stems (kick, stab, hats) at 44.1 kHz vs 1 reference; drop 8 s, bar 0.5 s
+objective 251.23 with no moves -> 0.12 (alpha 0, beta 0.1, weights {'build': 0.25, 'drop': 1.0}, best of 6 starts)
+
+Fitted values
+  stem        parameter       kind            value   bounds
+  kick        gain_db         fader        +0.03 dB   [-3, 3]
+  kick        eq[0].f         peak            55 Hz   [40, 80]
+  kick        eq[0].gain_db   peak         +4.97 dB   [-9, 9]
+  stab        gain_db         fader        -1.00 dB   [-3, 3]
+  stab        eq[0].gain_db   lowshelf     -0.05 dB   [-6, 6]
+  hats        gain_db         fader        +0.00 dB   [-3, 3]
+  hats        eq[0].gain_db   highshelf    -4.00 dB   [-9, 9]
+
+Plan
+  kick: fader +0.0 dB; peak 55 Hz +5.0 dB Q 1.00
+  stab: fader -1.0 dB; lowshelf 250 Hz -0.1 dB Q 0.71
+  hats: fader +0.0 dB; highshelf 7000 Hz -4.0 dB Q 0.71; highpass 200 Hz Q 0.71
+
+== BUILD: predicted LUFS change +1.38 LU ==
+  region (dB rel LUFS)        before   after   refs mean [min .. max]   outside before -> after
+  sub 20-60                     -4.6    -2.4   -2.4 [-2.4 .. -2.4]                -2.2 -> +0.0
+  bass 60-120                   -6.5    -4.6   -4.6 [-4.6 .. -4.6]                -1.9 -> +0.0
+  low mids 120-300             -18.5   -19.4   -19.4 [-19.4 .. -19.4]             +0.9 -> +0.0
+  mud 300-600                  -13.9   -16.2   -16.2 [-16.2 .. -16.2]             +2.4 -> +0.0
+  mids 600-1.5k                -12.2   -14.6   -14.6 [-14.6 .. -14.6]             +2.4 -> +0.0
+  upper mids 1.5-4k            -14.0   -16.3   -16.3 [-16.3 .. -16.3]             +2.3 -> +0.0
+  presence 4-8k                -17.0   -19.6   -19.6 [-19.6 .. -19.6]             +2.6 -> +0.0
+  air 8-20k                    -15.5   -20.6   -20.6 [-20.6 .. -20.6]             +5.0 -> +0.0
+  deep sub 20-48                -5.9    -4.4   -4.4 [-4.4 .. -4.4]                -1.5 -> +0.0
+  kick/bass body 55-120         -5.8    -3.7   -3.7 [-3.7 .. -3.7]                -2.2 -> +0.0
+  bite 1-4k                    -11.8   -14.1   -14.1 [-14.1 .. -14.1]             +2.3 -> +0.0
+  air 8-14k                    -17.7   -22.5   -22.5 [-22.5 .. -22.5]             +4.8 -> +0.0
+  score 31.5 Hz-16 kHz: rms outside 2.74 -> 0.02 dB, rms diff 2.74 -> 0.02 dB (28 bands)
+
+== DROP: predicted LUFS change +1.24 LU ==
+  region (dB rel LUFS)        before   after   refs mean [min .. max]   outside before -> after
+  sub 20-60                     -5.0    -2.7   -2.7 [-2.7 .. -2.7]                -2.3 -> +0.0
+  bass 60-120                   -6.5    -4.5   -4.6 [-4.6 .. -4.6]                -2.0 -> +0.0
+  low mids 120-300             -18.1   -18.9   -18.9 [-18.9 .. -18.9]             +0.7 -> +0.0
+  mud 300-600                  -13.7   -15.9   -15.9 [-15.9 .. -15.9]             +2.2 -> +0.0
+  mids 600-1.5k                -12.0   -14.3   -14.3 [-14.3 .. -14.3]             +2.2 -> +0.0
+  upper mids 1.5-4k            -13.9   -16.1   -16.1 [-16.1 .. -16.1]             +2.1 -> +0.0
+  presence 4-8k                -16.8   -19.3   -19.3 [-19.3 .. -19.3]             +2.5 -> +0.0
+  air 8-20k                    -15.4   -20.3   -20.3 [-20.3 .. -20.3]             +4.9 -> +0.0
+  deep sub 20-48                -6.3    -4.6   -4.7 [-4.7 .. -4.7]                -1.6 -> +0.0
+  kick/bass body 55-120         -6.0    -3.8   -3.8 [-3.8 .. -3.8]                -2.2 -> +0.0
+  bite 1-4k                    -11.7   -13.8   -13.9 [-13.9 .. -13.9]             +2.2 -> +0.0
+  air 8-14k                    -17.5   -22.2   -22.2 [-22.2 .. -22.2]             +4.7 -> +0.0
+  score 31.5 Hz-16 kHz: rms outside 2.66 -> 0.01 dB, rms diff 2.66 -> 0.01 dB (28 bands)
+
+Model check: predicted with no moves vs measured stem sum, 31.5 Hz-16 kHz
+  build: max |error| 0.07 dB at 200 Hz (rms 0.01 dB)
+  drop: max |error| 0.16 dB at 200 Hz (rms 0.03 dB)
+  powers add: correlation between stems is ignored (see model_check)
+
+Measured check: the plan applied to the stems (dsp.eq), EQ'd sum measured
+  build: LUFS change measured +1.38 LU, predicted +1.38 LU; worst band error 0.07 dB at 200 Hz
+  drop: LUFS change measured +1.25 LU, predicted +1.24 LU; worst band error 0.07 dB at 200 Hz
+
+(saved <tmp>/plan.json)

@@ -1,8 +1,11 @@
 """DCLAP audio embeddings via ONNX (AudioMuse-AI-DCLAP)."""
+
 from __future__ import annotations
 
 import os
 from pathlib import Path
+from typing import Any
+
 import numpy as np
 
 # The model is not in the repo (too big, and not ours to ship). Set EARS_DCLAP_MODEL to the
@@ -12,6 +15,7 @@ DEFAULT_MODEL = Path("~/.cache/zpkt/models/dclap/model_epoch_36.onnx")
 
 def model_path() -> Path:
     return Path(os.environ.get("EARS_DCLAP_MODEL") or DEFAULT_MODEL).expanduser()
+
 
 _SR = 48000
 _SEGMENT_LENGTH = 480000
@@ -40,7 +44,7 @@ def embed(audio_path: str) -> np.ndarray:
     segments = []
     start = 0
     while start + _SEGMENT_LENGTH <= len(audio):
-        seg = audio[start: start + _SEGMENT_LENGTH]
+        seg = audio[start : start + _SEGMENT_LENGTH]
         segments.append(_run_model(session, _mel(seg)))
         start += _HOP_LENGTH
 
@@ -55,13 +59,18 @@ def embed(audio_path: str) -> np.ndarray:
 
 def _mel(segment: np.ndarray) -> np.ndarray:
     import librosa
+
     mel = librosa.feature.melspectrogram(
-        y=segment, sr=_SR, n_fft=_N_FFT, hop_length=_HOP_LENGTH_MELS, n_mels=_N_MELS,
+        y=segment,
+        sr=_SR,
+        n_fft=_N_FFT,
+        hop_length=_HOP_LENGTH_MELS,
+        n_mels=_N_MELS,
     )
     return librosa.power_to_db(mel, ref=np.max).astype(np.float32)
 
 
-def _run_model(session, mel: np.ndarray) -> np.ndarray:
+def _run_model(session: Any, mel: np.ndarray) -> np.ndarray:
     inp = session.get_inputs()[0].name
     if mel.ndim == 2:
         mel = mel[np.newaxis, np.newaxis, :, :]

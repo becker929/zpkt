@@ -1,0 +1,10 @@
+Delivery: mix.wav  I=-22.37 LUFS  TP=-4.85 dBTP
+
+  youtube       gain    0.0 dB -> -22.37 LUFS,  -4.85 dBTP   (observed; applies to uploads incl. Shorts (assumed))
+  spotify       gain   3.85 dB -> -18.52 LUFS,   -1.0 dBTP   (documented by Spotify; up-gain limited by peak headroom)
+  apple_music   gain   3.85 dB -> -18.52 LUFS,   -1.0 dBTP   (Sound Check; reported)
+  tidal         gain    0.0 dB -> -22.37 LUFS,  -4.85 dBTP   (reported)
+  amazon_music  gain    0.0 dB -> -22.37 LUFS,  -4.85 dBTP   (reported, varies)
+  soundcloud    gain    0.0 dB -> -22.37 LUFS,  -4.85 dBTP   (no normalisation reported)
+  instagram     gain    0.0 dB -> -22.37 LUFS,  -4.85 dBTP   (undocumented; measure a real upload)
+  tiktok        gain    0.0 dB -> -22.37 LUFS,  -4.85 dBTP   (undocumented; measure a real upload)

@@ -1,34 +1,57 @@
-"""Loudness and spectral band energy extraction."""
+"""Loudness and spectral band energy extraction.
+
+BANDS is ears' one band table: five coarse shares of the spectrum for a profile and a corpus. Its "sub" is
+20-150 Hz. mlab's bands (ears/mlab/mlab/bands.py) are finer and name other ranges (its sub is 20-60 Hz); the two
+are not interchangeable.
+"""
+
 from __future__ import annotations
 
-from typing import Optional
+import contextlib
+from typing import Any
 
 import numpy as np
 
 from .models import LoudnessFeatures
 
-BANDS = {
-    "sub":  (20,    150),
-    "low":  (150,   600),
-    "mid":  (600,   4000),
-    "high": (4000,  12000),
-    "air":  (12000, 20000),
+BANDS: dict[str, tuple[int, int]] = {  # name: (lo Hz, hi Hz), lo inclusive
+    "sub": (20, 150),
+    "low": (150, 600),
+    "mid": (600, 4000),
+    "high": (4000, 12000),
+    "air": (12000, 20000),
 }
 
 _CAMELOT = {
-    ("B", "major"): "1B", ("Gb", "major"): "2B", ("Db", "major"): "3B",
-    ("Ab", "major"): "4B", ("Eb", "major"): "5B", ("Bb", "major"): "6B",
-    ("F", "major"): "7B", ("C", "major"): "8B", ("G", "major"): "9B",
-    ("D", "major"): "10B", ("A", "major"): "11B", ("E", "major"): "12B",
-    ("Ab", "minor"): "1A", ("Eb", "minor"): "2A", ("Bb", "minor"): "3A",
-    ("F", "minor"): "4A", ("C", "minor"): "5A", ("G", "minor"): "6A",
-    ("D", "minor"): "7A", ("A", "minor"): "8A", ("E", "minor"): "9A",
-    ("B", "minor"): "10A", ("Gb", "minor"): "11A", ("Db", "minor"): "12A",
+    ("B", "major"): "1B",
+    ("Gb", "major"): "2B",
+    ("Db", "major"): "3B",
+    ("Ab", "major"): "4B",
+    ("Eb", "major"): "5B",
+    ("Bb", "major"): "6B",
+    ("F", "major"): "7B",
+    ("C", "major"): "8B",
+    ("G", "major"): "9B",
+    ("D", "major"): "10B",
+    ("A", "major"): "11B",
+    ("E", "major"): "12B",
+    ("Ab", "minor"): "1A",
+    ("Eb", "minor"): "2A",
+    ("Bb", "minor"): "3A",
+    ("F", "minor"): "4A",
+    ("C", "minor"): "5A",
+    ("G", "minor"): "6A",
+    ("D", "minor"): "7A",
+    ("A", "minor"): "8A",
+    ("E", "minor"): "9A",
+    ("B", "minor"): "10A",
+    ("Gb", "minor"): "11A",
+    ("Db", "minor"): "12A",
 }
 _ENHARMONIC = {"F#": "Gb", "C#": "Db", "G#": "Ab", "D#": "Eb", "A#": "Bb"}
 
 
-def _band_energy(audio: np.ndarray, sr: int, lo: float, hi: float) -> float:
+def _band_energy(audio: np.ndarray, sr: float, lo: float, hi: float) -> float:
     n = len(audio)
     freqs = np.fft.rfftfreq(n, d=1.0 / sr)
     spectrum = np.abs(np.fft.rfft(audio)) ** 2
@@ -41,7 +64,7 @@ def _to_camelot(key: str, scale: str) -> str:
     return _CAMELOT.get((k, scale), f"{key} {scale}")
 
 
-def true_peak_dbtp(channels: np.ndarray, sr: int) -> Optional[float]:
+def true_peak_dbtp(channels: np.ndarray, sr: float) -> float | None:
     """BS.1770 true peak in dBTP: 4x oversample each channel, take the max.
 
     ``channels`` is (samples,) or (samples, n_channels). None for silence.
@@ -55,12 +78,12 @@ def true_peak_dbtp(channels: np.ndarray, sr: int) -> Optional[float]:
     return 20.0 * np.log10(peak) if peak > 0 else None
 
 
-def _windowed_max_lufs(meter, channels: np.ndarray, sr: int, window_s: float) -> Optional[float]:
+def _windowed_max_lufs(meter: Any, channels: np.ndarray, sr: float, window_s: float) -> float | None:
     size = int(sr * window_s)
     vals = []
     for start in range(0, len(channels) - size, size // 2):
         try:
-            v = meter.integrated_loudness(channels[start: start + size])
+            v = meter.integrated_loudness(channels[start : start + size])
             if np.isfinite(v):
                 vals.append(v)
         except Exception:
@@ -68,7 +91,7 @@ def _windowed_max_lufs(meter, channels: np.ndarray, sr: int, window_s: float) ->
     return float(max(vals)) if vals else None
 
 
-def extract(audio: np.ndarray, sr: int, channels: Optional[np.ndarray] = None) -> LoudnessFeatures:
+def extract(audio: np.ndarray, sr: float, channels: np.ndarray | None = None) -> LoudnessFeatures:
     """Extract loudness and 5-band spectral energy.
 
     ``audio`` is mono float32 (used for band energy and key). ``channels`` is
@@ -79,13 +102,13 @@ def extract(audio: np.ndarray, sr: int, channels: Optional[np.ndarray] = None) -
     feats = LoudnessFeatures()
     chans = audio if channels is None else channels
 
-    try:
+    # A meter that fails leaves its field None, which the profile shows as n/a; the others still run.
+    with contextlib.suppress(Exception):
         feats.true_peak_db = true_peak_dbtp(chans, sr)
-    except Exception:
-        pass
 
     try:
         import pyloudnorm as pyln
+
         meter = pyln.Meter(sr)
         val = meter.integrated_loudness(chans)
         feats.lufs_integrated = float(val) if np.isfinite(val) else None
@@ -95,13 +118,11 @@ def extract(audio: np.ndarray, sr: int, channels: Optional[np.ndarray] = None) -
         pass
 
     total = sum(_band_energy(audio, sr, lo, hi) for lo, hi in BANDS.values()) + 1e-10
-    feats.band_energy = {
-        name: _band_energy(audio, sr, lo, hi) / total
-        for name, (lo, hi) in BANDS.items()
-    }
+    feats.band_energy = {name: _band_energy(audio, sr, lo, hi) / total for name, (lo, hi) in BANDS.items()}
 
     try:
         import essentia.standard as es
+
         key, scale, _ = es.KeyExtractor()(audio.astype(np.float32))
         feats.camelot_key = _to_camelot(key, scale)
     except Exception:
