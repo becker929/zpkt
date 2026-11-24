@@ -116,6 +116,7 @@ def test_the_schemas_refuse_what_the_bot_must_not_rely_on():
 def test_parse_job_request_is_as_lenient_as_the_booth_was():
     key, score, parent, want = parse_job_request({"key": "k", "score": {"a": 1}, "parent": 7, "want": "loop"})
     assert (key, score, parent, want) == ("k", {"a": 1}, None, {})
+    assert parse_job_request({"key": "k", "parent": ""})[2] is None
     assert parse_job_request({"key": "k", "parent": "p" * 400, "want": {"loop": True}})[2:] == ("p" * 300, {"loop": True})
     for bad in ({}, {"key": ""}, {"key": 3}, {"key": "k" * 301}):
         with pytest.raises(BadRequest) as exc:

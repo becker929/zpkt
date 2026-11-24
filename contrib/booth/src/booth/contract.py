@@ -67,7 +67,7 @@ def parse_job_request(data: dict[str, Any]) -> tuple[str, Any, str | None, dict[
         raise BadRequest("bad_key", f"key is a string of 1-{MAX_KEY} characters")
     parent = data.get("parent")
     want = data.get("want")
-    return key, data.get("score"), parent[:MAX_KEY] if isinstance(parent, str) else None, want if isinstance(want, dict) else {}
+    return key, data.get("score"), parent[:MAX_KEY] if isinstance(parent, str) and parent else None, want if isinstance(want, dict) else {}
 
 
 # ---- what the booth answers ----------------------------------------------------------------------------------------

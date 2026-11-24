@@ -17,6 +17,7 @@ from . import palette as P
 from . import samples as S
 from .check import check
 from .config import Settings
+from .contract import BadRequest, parse_job_request
 from .jobs import FILES, Jobs
 from .runner import Runner
 from .score import MAX_AUDIO_S, MAX_BARS, MAX_CLIPS, MAX_NOTES, MAX_PARTS, MAX_SLICES, Score
@@ -136,14 +137,14 @@ def app(jobs: Jobs, runner: Runner, settings: Settings, token: str) -> web.Appli
         return web.json_response(check(data.get("score"), samples=settings.samples).json())
 
     async def post_job(request):
-        data = await body(request)
-        key = data.get("key")
-        if not isinstance(key, str) or not 1 <= len(key) <= 300:
-            return _err(400, "bad_key", "key is a string of 1-300 characters")
+        try:
+            key, raw_score, parent, want = parse_job_request(await body(request))
+        except BadRequest as exc:
+            return _err(400, exc.code, str(exc))
         old = jobs.by_key(key)
         if old:
             return web.json_response(jobs.public(old), status=200)
-        res = check(data.get("score"), samples=settings.samples)
+        res = check(raw_score, samples=settings.samples)
         if not res.ok:
             return _err(400, "invalid_score", "the score does not pass check", errors=res.errors)
         if len(jobs.queue()) >= settings.queue_max:
@@ -151,9 +152,7 @@ def app(jobs: Jobs, runner: Runner, settings: Settings, token: str) -> web.Appli
         reason = runner.gate.reason(jobs)
         if reason and jobs.kv("open", "0") != "1":      # closed by Anthony or held: don't take more work
             return _err(503, "closed", reason, reason=reason, retry_in_s=600)
-        parent = data.get("parent") if isinstance(data.get("parent"), str) else None
-        want = data.get("want") if isinstance(data.get("want"), dict) else {}
-        job, _ = jobs.add(key, res.score.model_dump(), want, parent[:300] if parent else None)
+        job, _ = jobs.add(key, res.score.model_dump(), want, parent)
         out = jobs.public(job)
         out["eta_s"] = int(sum(check(j["score"]).estimate["render_s"] for j in jobs.queue()))
         return web.json_response(out, status=202)
