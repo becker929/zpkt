@@ -51,17 +51,34 @@ def record_via_resampling(
     refuses unless ``allow_clearing_arrangement`` is set. Use
     ``record_arrangement`` to render an existing arrangement.
 
-    Args:
-        transport: Live MCP transport to execute LOM code.
-        filename: Output filename (with extension). Use .wav to skip ffmpeg.
-        duration_beats: How many beats to record.
-        output_dir: Directory to write the output file into.
-        allow_clearing_arrangement: Proceed even if source tracks already
-            have arrangement clips (they will be deleted).
-
-    Returns:
-        Absolute path to the exported file, or None on failure.
+    filename's extension picks the format (.wav skips ffmpeg). Returns the absolute path to the exported file, or
+    None when nothing was recorded.
     """
+    _refuse_to_clear_the_arrangement(transport, allow_clearing_arrangement)
+    out_path, want_wav = _target(output_dir, filename)
+    _rewind(transport)
+    n = transport.run("len(song.tracks)")
+    _copy_session_clips_to_the_arrangement(transport, n)
+    _loop_the_arrangement(transport, n, duration_beats)
+    # trigger_session_record() records on every armed track, so an armed source (Live auto-arms the selected MIDI
+    # track) gets a new empty clip that silences it, and the bounce comes out silent.
+    armed = _disarm(transport, f"[i for i in range({n}) if song.tracks[i].can_be_armed and song.tracks[i].arm]")
+    if armed:
+        print(f"  Disarmed source tracks {armed} for the bounce")
+    idx = _resampling_track_for_session(transport)
+    tempo = _record_session(transport, idx, duration_beats)
+    file_path = _session_take(transport, idx)
+    if file_path is None:
+        print("  No recorded clip found!")
+        _cleanup_arrangement_clips(transport, n, armed)
+        return None
+    result = _export(file_path, out_path, duration_beats, tempo, want_wav)
+    transport.run(f"song.delete_track({idx})")
+    _cleanup_arrangement_clips(transport, n, armed)
+    return result
+
+
+def _refuse_to_clear_the_arrangement(transport: McpTransport, allowed: bool) -> None:
     existing = (
         transport.run(
             # Group tracks raise on arrangement_clips; only leaf tracks hold clips.
@@ -69,155 +86,135 @@ def record_via_resampling(
         )
         or 0
     )
-    if existing and not allow_clearing_arrangement:
+    if existing and not allowed:
         raise RuntimeError(
             f"The set already has {existing} arrangement clip(s); record_via_resampling "
             "would delete them. Use record_arrangement to render the arrangement, or "
             "pass allow_clearing_arrangement=True."
         )
 
+
+def _target(output_dir: str | Path, filename: str) -> tuple[str, bool]:
+    """The output path (its folder made) and whether it is a WAV (else ffmpeg encodes it)."""
     out_dir = Path(output_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
-    out_path = str(out_dir / filename)
-    want_wav = filename.lower().endswith(".wav")
+    return str(out_dir / filename), filename.lower().endswith(".wav")
 
+
+def _rewind(transport: McpTransport) -> None:
     transport.run("song.stop_playing()")
     time.sleep(0.3)
-
     transport.run("song.current_song_time = 0.0")
     time.sleep(0.1)
     current_pos = transport.run("song.current_song_time")
     print(f"  Rewound to beat 0, current_song_time = {current_pos}")
 
-    # Copy session slot 0 clips into arrangement at beat 0 on every source
-    # track. Arrangement playback is deterministic — no clip-triggering races.
-    num_tracks_now = transport.run("len(song.tracks)")
-    for i in range(num_tracks_now):
-        has_clip = transport.run(f"song.tracks[{i}].clip_slots[0].has_clip")
-        if not has_clip:
+
+def _copy_session_clips_to_the_arrangement(transport: McpTransport, n: int) -> None:
+    """Each source track's session slot-0 clip into the arrangement at beat 0: arrangement playback is
+    deterministic, with no clip-triggering races."""
+    for i in range(n):
+        if not transport.run(f"song.tracks[{i}].clip_slots[0].has_clip"):
             continue
         print(f"  Copying session clip on track {i} to arrangement at beat 0")
-        # Clear any existing arrangement clips on this track first.
-        transport.run(
-            f"[song.tracks[{i}].delete_clip(c) for c in list(song.tracks[{i}].arrangement_clips)]",
-        )
+        transport.run(f"[song.tracks[{i}].delete_clip(c) for c in list(song.tracks[{i}].arrangement_clips)]")
         time.sleep(0.1)
-        transport.run(
-            f"song.tracks[{i}].duplicate_clip_to_arrangement(song.tracks[{i}].clip_slots[0].clip, 0.0)",
-        )
+        transport.run(f"song.tracks[{i}].duplicate_clip_to_arrangement(song.tracks[{i}].clip_slots[0].clip, 0.0)")
         time.sleep(0.2)
 
-    # Set arrangement loop to exactly the requested duration.
+
+def _loop_the_arrangement(transport: McpTransport, n: int, duration_beats: float) -> None:
+    """Loop exactly the requested beats, and stop the session so the arrangement drives playback."""
     transport.run("song.loop = True")
     transport.run("song.loop_start = 0.0")
     transport.run(f"song.loop_length = {duration_beats}")
     time.sleep(0.1)
-
-    # Stop session clips so the arrangement (not session) drives playback.
-    for i in range(num_tracks_now):
+    for i in range(n):
         transport.run(f"song.tracks[{i}].stop_all_clips()")
     time.sleep(0.1)
-    # stop_all_clips leaves each track following the (now stopped) session
-    # and lights "Back to Arrangement"; clear it so arrangement clips play.
+    # stop_all_clips leaves each track following the (now stopped) session and lights "Back to Arrangement"; clear
+    # it so arrangement clips play.
     transport.run("song.back_to_arranger = False")
     time.sleep(0.1)
 
-    # Disarm source tracks. trigger_session_record() records on every armed
-    # track, so an armed source (Live auto-arms the selected MIDI track) gets a
-    # new empty clip that silences it, and the bounce comes out silent.
-    armed = (
-        transport.run(
-            f"[i for i in range({num_tracks_now}) if song.tracks[i].can_be_armed and song.tracks[i].arm]",
-        )
-        or []
-    )
+
+def _disarm(transport: McpTransport, armed_expr: str) -> list[int]:
+    """Disarm the tracks `armed_expr` lists (indices); return them, to arm again afterwards."""
+    armed = transport.run(armed_expr) or []
     for i in armed:
         transport.run(f"song.tracks[{i}].arm = 0")
-    if armed:
-        print(f"  Disarmed source tracks {armed} for the bounce")
+    return armed
 
-    # Create and configure the resampling track.
-    resample_idx = transport.run("len(song.tracks)")
+
+def _new_audio_track(transport: McpTransport, name: str) -> int:
+    idx = transport.run("len(song.tracks)")
     transport.run("song.create_audio_track(-1)")
     time.sleep(0.3)
-    transport.run(f'song.tracks[{resample_idx}].name = "Resample"')
+    transport.run(f'song.tracks[{idx}].name = "{name}"')
+    return idx
 
-    types = _wait_for_resampling(transport, resample_idx)
+
+def _route_resampling(transport: McpTransport, idx: int) -> str:
+    """Set the track's input to Resampling; return the input it shows. The RoutingType object must be found and
+    assigned in one LOM call."""
+    transport.run(
+        f"_rt = next((rt for rt in song.tracks[{idx}].available_input_routing_types"
+        f' if "Resampling" in rt.display_name), None);'
+        f" song.tracks[{idx}].input_routing_type = _rt",
+    )
+    time.sleep(0.2)
+    return str(transport.run(f"song.tracks[{idx}].input_routing_type.display_name"))
+
+
+def _resampling_track_for_session(transport: McpTransport) -> int:
+    idx = _new_audio_track(transport, "Resample")
+    types = _wait_for_resampling(transport, idx)
     print(f"  Available input types: {types}")
     if not types or not any("Resamp" in str(t) for t in types):
         raise RuntimeError(f"Resampling input type not found. Available: {types}")
-
-    # Must find and assign the actual RoutingType object in a single LOM call.
-    transport.run(
-        f"_rt = next((rt for rt in song.tracks[{resample_idx}].available_input_routing_types"
-        f' if "Resampling" in rt.display_name), None);'
-        f" song.tracks[{resample_idx}].input_routing_type = _rt",
-    )
-    time.sleep(0.2)
-
-    routing_type = transport.run(
-        f"song.tracks[{resample_idx}].input_routing_type.display_name",
-    )
+    routing_type = _route_resampling(transport, idx)
     print(f"  Resampling track input set to: {routing_type}")
-    if "Resampling" not in str(routing_type):
+    if "Resampling" not in routing_type:
         raise RuntimeError(f"Failed to set Resampling input — got: {routing_type}")
-
-    transport.run(f"song.tracks[{resample_idx}].arm = 1")
-    transport.run(f"song.tracks[{resample_idx}].current_monitoring_state = 1")  # Auto (0=In, 1=Auto, 2=Off)
+    transport.run(f"song.tracks[{idx}].arm = 1")
+    transport.run(f"song.tracks[{idx}].current_monitoring_state = 1")  # Auto (0=In, 1=Auto, 2=Off)
     time.sleep(0.2)
+    return idx
 
+
+def _record_session(transport: McpTransport, idx: int, duration_beats: float) -> float:
+    """Record from beat 0 for `duration_beats` (and a second) into the resampling track; return the tempo."""
     transport.run("song.session_record = 0")
     transport.run("song.overdub = 0")
-
-    # Rewind once more in case track setup nudged the playhead.
-    transport.run("song.current_song_time = 0.0")
+    transport.run("song.current_song_time = 0.0")  # once more, in case track setup nudged the playhead
     time.sleep(0.1)
-
     transport.run("song.trigger_session_record()")
     time.sleep(0.3)
-
-    is_playing = transport.run("song.is_playing")
-    if not is_playing:
+    if not transport.run("song.is_playing"):
         print("  Transport not started by trigger_session_record — calling start_playing()")
         transport.run("song.start_playing()")
         time.sleep(0.2)
-
     tempo = transport.run("song.tempo")
     wait_secs = (duration_beats / tempo) * 60 + 1.0
     print(f"  Recording for {wait_secs:.1f}s ({duration_beats} beats at {tempo} BPM)...")
     time.sleep(wait_secs)
-
     transport.run("song.stop_playing()")
     time.sleep(1.0)
+    return tempo
 
-    has_clip = transport.run(f"song.tracks[{resample_idx}].clip_slots[0].has_clip")
-    if not has_clip:
-        for slot in range(8):
-            has_clip = transport.run(
-                f"song.tracks[{resample_idx}].clip_slots[{slot}].has_clip",
-            )
-            if has_clip:
-                file_path = transport.run(
-                    f"song.tracks[{resample_idx}].clip_slots[{slot}].clip.file_path",
-                )
-                print(f"  Found recorded clip in slot {slot}: {file_path}")
-                result = _export(file_path, out_path, duration_beats, tempo, want_wav)
-                transport.run(f"song.delete_track({resample_idx})")
-                _cleanup_arrangement_clips(transport, num_tracks_now, armed)
-                return result
-        print("  No recorded clip found!")
-        _cleanup_arrangement_clips(transport, num_tracks_now, armed)
-        return None
 
-    file_path = transport.run(
-        f"song.tracks[{resample_idx}].clip_slots[0].clip.file_path",
-    )
-    print(f"  Recorded audio file: {file_path}")
-
-    result = _export(file_path, out_path, duration_beats, tempo, want_wav)
-    transport.run(f"song.delete_track({resample_idx})")
-    _cleanup_arrangement_clips(transport, num_tracks_now, armed)
-    return result
+def _session_take(transport: McpTransport, idx: int) -> str | None:
+    """The recorded take's file: in slot 0, else the first of slots 0-7 that holds a clip; None if none does."""
+    if transport.run(f"song.tracks[{idx}].clip_slots[0].has_clip"):
+        file_path = transport.run(f"song.tracks[{idx}].clip_slots[0].clip.file_path")
+        print(f"  Recorded audio file: {file_path}")
+        return file_path
+    for slot in range(8):
+        if transport.run(f"song.tracks[{idx}].clip_slots[{slot}].has_clip"):
+            file_path = transport.run(f"song.tracks[{idx}].clip_slots[{slot}].clip.file_path")
+            print(f"  Found recorded clip in slot {slot}: {file_path}")
+            return file_path
+    return None
 
 
 def record_arrangement(
@@ -247,46 +244,54 @@ def record_arrangement(
     song beat that ``song_zero_seconds`` belongs to. ``keep_take=False`` removes
     Live's own take file from the project once the export is written.
     """
-    out_dir = Path(output_dir)
-    out_dir.mkdir(parents=True, exist_ok=True)
-    out_path = str(out_dir / filename)
-    want_wav = filename.lower().endswith(".wav")
-
+    out_path, want_wav = _target(output_dir, filename)
     transport.run("song.stop_playing()")
     time.sleep(0.3)
     transport.run("song.loop = False")
-
-    # Same silent-take causes as record_via_resampling: armed sources get
-    # recorded over, and a lit "Back to Arrangement" ignores arrangement clips.
-    armed = (
-        transport.run(
-            "[i for i, t in enumerate(song.tracks) if t.can_be_armed and t.arm]",
-        )
-        or []
-    )
-    for i in armed:
-        transport.run(f"song.tracks[{i}].arm = 0")
+    # Same silent-take causes as record_via_resampling: armed sources get recorded over, and a lit "Back to
+    # Arrangement" ignores arrangement clips.
+    armed = _disarm(transport, "[i for i, t in enumerate(song.tracks) if t.can_be_armed and t.arm]")
     transport.run("song.back_to_arranger = False")
+    idx = _resampling_track_for_arrangement(transport, armed)
+    tempo = _record_arrangement_take(transport, idx, armed, start_beat, duration_beats, tail_beats)
+    file_path = transport.run(f"[c.file_path for c in song.tracks[{idx}].arrangement_clips][:1]")
+    timing = _take_timing(transport, idx) if file_path else None
+    result = None
+    if file_path:
+        print(f"  Recorded audio file: {file_path[0]}")
+        result = _export(file_path[0], out_path, duration_beats + tail_beats, tempo, want_wav)
+        if result and timing:
+            _write_timing(result, timing, tempo)
+    else:
+        print("  No recorded clip found!")
+    transport.run(f"song.delete_track({idx})")
+    _restore_arm(transport, armed)
+    if result and not keep_take:
+        # Live's own take file in the project's Samples/Recorded: the export is a copy of it
+        for leftover in (file_path[0], file_path[0] + ".asd"):
+            if os.path.exists(leftover):
+                os.remove(leftover)
+    return result
 
-    idx = transport.run("len(song.tracks)")
-    transport.run("song.create_audio_track(-1)")
-    time.sleep(0.3)
-    transport.run(f'song.tracks[{idx}].name = "Render"')
+
+def _resampling_track_for_arrangement(transport: McpTransport, armed: list[int]) -> int:
+    idx = _new_audio_track(transport, "Render")
     _wait_for_resampling(transport, idx)
-    transport.run(
-        f"_rt = next((rt for rt in song.tracks[{idx}].available_input_routing_types"
-        f' if "Resampling" in rt.display_name), None);'
-        f" song.tracks[{idx}].input_routing_type = _rt",
-    )
-    time.sleep(0.2)
-    routing = transport.run(f"song.tracks[{idx}].input_routing_type.display_name")
-    if "Resampling" not in str(routing):
+    routing = _route_resampling(transport, idx)
+    if "Resampling" not in routing:
         transport.run(f"song.delete_track({idx})")
         _restore_arm(transport, armed)
         raise RuntimeError(f"Failed to set Resampling input — got: {routing}")
     transport.run(f"song.tracks[{idx}].arm = 1")
     time.sleep(0.2)
+    return idx
 
+
+def _record_arrangement_take(
+    transport: McpTransport, idx: int, armed: list[int], start_beat: float, duration_beats: float, tail_beats: float
+) -> float:
+    """Play from start_beat in arrangement record mode for the beats and the tail; return the tempo. If the playhead
+    does not move (Live's audio engine is stopped), take the track away and raise with what to do."""
     if start_beat:
         # start_playing() plays from the start marker, not from current_song_time
         transport.run(f"song.start_time = {float(start_beat)!r}")
@@ -307,40 +312,24 @@ def record_arrangement(
     transport.run("song.stop_playing()")
     transport.run("song.record_mode = False")
     time.sleep(1.5)
+    return tempo
 
-    file_path = transport.run(
-        f"[c.file_path for c in song.tracks[{idx}].arrangement_clips][:1]",
+
+def _take_timing(transport: McpTransport, idx: int) -> dict[str, Any]:
+    """Where song beat 0 sits in the take: the clip starts at its start_marker (clip beats), which its warp markers
+    map to seconds in the file."""
+    return transport.run(
+        f"c = song.tracks[{idx}].arrangement_clips[0]; result = {{'start_marker': c.start_marker, "
+        f"'warp_markers': [[w.beat_time, w.sample_time] for w in c.warp_markers], 'clip_start': c.start_time}}",
     )
-    # Where song beat 0 sits in the take: the clip starts at its start_marker
-    # (clip beats), which its warp markers map to seconds in the file.
-    timing = (
-        transport.run(
-            f"c = song.tracks[{idx}].arrangement_clips[0]; result = {{'start_marker': c.start_marker, "
-            f"'warp_markers': [[w.beat_time, w.sample_time] for w in c.warp_markers], 'clip_start': c.start_time}}",
-        )
-        if file_path
-        else None
-    )
-    result = None
-    if file_path:
-        print(f"  Recorded audio file: {file_path[0]}")
-        result = _export(file_path[0], out_path, duration_beats + tail_beats, tempo, want_wav)
-        if result and timing:
-            timing["song_zero_seconds"] = _beat_to_seconds(timing["warp_markers"], timing["start_marker"])
-            timing["tempo"] = tempo
-            with open(result + ".timing.json", "w") as f:
-                json.dump(timing, f)
-            print(f"  Song beat 0 is at {timing['song_zero_seconds']:.3f} s in the take")
-    else:
-        print("  No recorded clip found!")
-    transport.run(f"song.delete_track({idx})")
-    _restore_arm(transport, armed)
-    if result and not keep_take:
-        # Live's own take file in the project's Samples/Recorded: the export is a copy of it
-        for leftover in (file_path[0], file_path[0] + ".asd"):
-            if os.path.exists(leftover):
-                os.remove(leftover)
-    return result
+
+
+def _write_timing(result: str, timing: dict[str, Any], tempo: float) -> None:
+    timing["song_zero_seconds"] = _beat_to_seconds(timing["warp_markers"], timing["start_marker"])
+    timing["tempo"] = tempo
+    with open(result + ".timing.json", "w") as f:
+        json.dump(timing, f)
+    print(f"  Song beat 0 is at {timing['song_zero_seconds']:.3f} s in the take")
 
 
 def _wait_for_resampling(transport: McpTransport, idx: int, attempts: int = 10) -> list:
