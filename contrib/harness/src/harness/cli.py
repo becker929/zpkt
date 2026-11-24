@@ -1,5 +1,5 @@
-"""harness serve | job "<prompt>" | jobs | show <id> | lab-audio | lab-params | lab-bars | artist show|propose
-| images gen|batch|list | gemini [gemini-cli args]"""
+"""harness serve | lab-audio | lab-params | lab-bars | artist show|propose | images gen|batch|list
+| gemini [gemini-cli args]"""
 
 from __future__ import annotations
 
@@ -9,8 +9,7 @@ import json
 import logging
 import sys
 
-from . import jobs as J
-from .config import Config
+from .config import Config, claude_env
 
 
 def main() -> None:
@@ -19,12 +18,7 @@ def main() -> None:
         exec_cli(sys.argv[2:])
     ap = argparse.ArgumentParser(prog="harness")
     sub = ap.add_subparsers(dest="cmd", required=True)
-    sub.add_parser("serve", help="keep the socket to the site open and run jobs")
-    j = sub.add_parser("job", help="run one job here, in the foreground")
-    j.add_argument("prompt")
-    sub.add_parser("jobs", help="list recent jobs")
-    s = sub.add_parser("show", help="one job and its last events")
-    s.add_argument("id")
+    sub.add_parser("serve", help="the pages for the phone, on loopback behind the password")
     la = sub.add_parser("lab-audio", help="HW002's stems and clips for the lab (/studio/lab/), outside the repo")
     la.add_argument("--set", help="the Live set whose clips and arrangement to read")
     la.add_argument("--out", help="where to write (default HARNESS_LAB_AUDIO)")
@@ -51,18 +45,9 @@ def main() -> None:
     a = ap.parse_args()
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
     cfg = Config()
-    store = J.JobStore(cfg.jobs_dir)
     if a.cmd == "serve":
         from .service import serve
         asyncio.run(serve(cfg))
-    elif a.cmd == "job":
-        runner = J.Runner(cfg, store)
-        job = runner.submit("job", a.prompt.splitlines()[0][:80], a.prompt)
-        job = asyncio.run(runner.run_one(job))
-        print(json.dumps(job.public(), indent=2))
-    elif a.cmd == "jobs":
-        for job in store.recent(20):
-            print(f"{job.id}  {job.status:8}  {job.title}")
     elif a.cmd == "artist":
         from .studio import artist as A
         art = A.Artist(cfg.studio_dir / "artist", A.SEED)
@@ -70,7 +55,7 @@ def main() -> None:
             if a.action == "show":
                 print(A.show(art))
             else:
-                out = asyncio.run(A.propose(art, cfg.studio_model, cfg.cli_path, J.job_env(cfg), dry_run=a.dry_run))
+                out = asyncio.run(A.propose(art, cfg.studio_model, cfg.cli_path, claude_env(cfg), dry_run=a.dry_run))
                 print(out["notes"])
                 print(json.dumps(out["works"], indent=2) if a.dry_run else f"kept as repertoire v{out['version']}")
         finally:
@@ -101,9 +86,6 @@ def main() -> None:
         print(f"-> {lab_bars.OUT}")
     elif a.cmd == "images":
         _images(cfg, a, ap)
-    elif a.cmd == "show":
-        job = store.load(a.id)
-        print(json.dumps({"job": job.public() if job else None, "events": store.events(a.id)}, indent=2))
 
 
 def _images(cfg: Config, a: argparse.Namespace, ap: argparse.ArgumentParser) -> None:

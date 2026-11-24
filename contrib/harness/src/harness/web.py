@@ -15,7 +15,6 @@ Routes, all behind the password except /login:
     /skrng/..., /style.css    the public site's pages, fetched from it (they are public anyway)
     /audio/...                redirect to the public site's audio
     /api/skrng/feedback       the voice review's answers, kept on the Mac (feedback.jsonl)
-    /api/rpc                  the harness methods (rpc.Methods), called in-process
 The pages see they are on a .ts.net host and drop their key: the cookie is the key here.
 """
 
@@ -35,7 +34,6 @@ from typing import TYPE_CHECKING, Any
 from aiohttp import ClientSession, ClientTimeout, web
 
 from .config import Config
-from .rpc import Methods
 
 if TYPE_CHECKING:
     from .studio import Studio
@@ -45,8 +43,6 @@ log = logging.getLogger(__name__)
 COOKIE = "skrng_session"
 SESSION_DAYS = 400
 MAX_BODY = 64 * 1024
-RPC_TIMEOUT = {"ask": 125.0}
-DEFAULT_RPC_TIMEOUT = 20.0
 PROXIED = ("/skrng/", "/style.css", "/favicon.ico", "/favicon.svg")
 API = ("/api/", "/studio/api/")    # answered with 401 JSON rather than a sign-in redirect
 
@@ -136,9 +132,8 @@ def _safe_next(n: str | None) -> str:
 
 
 class App:
-    def __init__(self, cfg: Config, methods: Methods, data_dir: Path, secure_cookie: bool = True,
-                 studio: "Studio | None" = None):
-        self.cfg, self.methods, self.secure_cookie, self.studio = cfg, methods, secure_cookie, studio
+    def __init__(self, cfg: Config, data_dir: Path, secure_cookie: bool = True, studio: "Studio | None" = None):
+        self.cfg, self.secure_cookie, self.studio = cfg, secure_cookie, studio
         self.auth = Auth(data_dir / "auth.json")
         self.feedback_path = data_dir / "feedback.jsonl"
         self.http: ClientSession | None = None
@@ -150,7 +145,6 @@ class App:
         app.router.add_post("/login", self.login_post)
         app.router.add_get("/", self.home)
         app.router.add_route("*", "/api/skrng/feedback", self.feedback)
-        app.router.add_post("/api/rpc", self.rpc)
         app.router.add_get("/audio/{tail:.*}", self.audio)
         if self.studio is not None:
             app.router.add_get("/studio", self.studio_slash)     # before the sub-app, whose prefix would take it
@@ -221,25 +215,6 @@ class App:
             return web.json_response(rows, headers={"Cache-Control": "no-store"})
         raise web.HTTPMethodNotAllowed(request.method, ["GET", "POST"])
 
-    # --- the harness, in-process ---------------------------------------------
-    async def rpc(self, request: web.Request) -> web.Response:
-        try:
-            body = await request.json()
-        except ValueError:
-            return web.json_response({"error": "Body must be JSON."}, status=400)
-        method = str(body.get("method"))
-        timeout = RPC_TIMEOUT.get(method, DEFAULT_RPC_TIMEOUT)
-        try:
-            result = await asyncio.wait_for(self.methods.call(method, body.get("params") or {}), timeout)
-        except asyncio.TimeoutError:
-            return web.json_response({"error": f"The Mac did not answer {method} within {timeout:.0f} s."}, status=504)
-        except ValueError as exc:
-            return web.json_response({"error": str(exc)}, status=400)
-        except Exception as exc:  # noqa: BLE001 - report, don't crash the server
-            log.exception("rpc %s", method)
-            return web.json_response({"error": f"{type(exc).__name__}: {exc}"}, status=500)
-        return web.json_response(result)
-
     # --- the pages, from the public site --------------------------------------
     async def proxy(self, request: web.Request) -> web.Response:
         path = request.path
@@ -273,8 +248,8 @@ def read_feedback(path: Path, batch: float | None = None) -> list[dict[str, Any]
     return rows
 
 
-async def run(cfg: Config, methods: Methods, studio: "Studio | None" = None) -> None:
-    app = App(cfg, methods, cfg.skrng_dir, studio=studio).build()
+async def run(cfg: Config, studio: "Studio | None" = None) -> None:
+    app = App(cfg, cfg.skrng_dir, studio=studio).build()
     runner = web.AppRunner(app, access_log=None)
     await runner.setup()
     await web.TCPSite(runner, "127.0.0.1", cfg.web_port).start()

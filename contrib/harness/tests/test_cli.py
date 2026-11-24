@@ -18,8 +18,7 @@ def run(monkeypatch, *args: str) -> None:
 
 @pytest.fixture
 def cfg(tmp_path, monkeypatch) -> Config:
-    c = Config(studio_dir=tmp_path / "studio", skrng_dir=tmp_path / "skrng", lab_audio=tmp_path / "lab",
-               jobs_dir=tmp_path / "jobs")
+    c = Config(studio_dir=tmp_path / "studio", skrng_dir=tmp_path / "skrng", lab_audio=tmp_path / "lab")
     monkeypatch.setattr(cli, "Config", lambda: c)
     return c
 

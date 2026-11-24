@@ -152,7 +152,7 @@ function blockHTML(b) {
     case 'note': return `<p class="note">${esc(e.text)}</p>`;
     case 'error': return `<p class="err">${esc(e.text)}</p>`;
     case 'done':
-      return `<div class="acts"><button type="button" data-a="copy">Copy</button><button type="button" data-a="claude" class="claude">Send to Claude</button>` +
+      return `<div class="acts"><button type="button" data-a="copy">Copy</button>` +
         `<span class="cost">${esc(e.model || '')} ${e.dollars ? dollars(e.dollars) : ''}${e.stop && e.stop !== 'end_turn' ? ' · ' + esc(e.stop) : ''}</span></div>`;
     default: return '';
   }
@@ -348,37 +348,9 @@ $('#thread').addEventListener('click', async (e) => {
   const doneBlock = e.target.closest('.acts')._block;
   const i = blocks.indexOf(doneBlock);
   let start = i; while (start > 0 && blocks[start - 1].ev.type !== 'user') start--;
-  const asked = start > 0 ? blocks[start - 1].text : '';
   const said = blocks.slice(start, i).filter((b) => b.ev.type === 'text').map((b) => b.text).join('\n\n');
   if (a === 'copy') { await navigator.clipboard?.writeText(said); e.target.textContent = 'Copied'; }
-  if (a === 'claude') openJob(asked, said);
 });
-
-function openJob(asked, said) {
-  $('#job-title').value = (asked || cur.title).slice(0, 80);
-  $('#job-prompt').value =
-    `From the Gemini CLI session “${cur.title}” (/studio/gemini/, session ${cur.id}).\n\n` +
-    (asked ? `Anthony asked Gemini:\n${asked}\n\n` : '') +
-    `Gemini answered:\n${said}\n\nTake it from here in zpkt. Check what Gemini said and did against the repo first.`;
-  $('#job-msg').textContent = '';
-  $('#job-ok').disabled = false;
-  sheet('#job', true);
-}
-$('#job-form').onsubmit = async (e) => {
-  e.preventDefault();
-  $('#job-ok').disabled = true;
-  try {
-    const r = await fetch('/api/rpc', { method: 'POST', headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ method: 'job', params: { prompt: $('#job-prompt').value, title: $('#job-title').value } }) });
-    const j = await r.json();
-    if (!r.ok) throw new Error(j.error || `HTTP ${r.status}`);
-    $('#job-msg').innerHTML = `Started job <b>${esc(j.job_id)}</b>. <a href="/skrng/#jobs">Follow it</a>.`;
-  } catch (err) {
-    $('#job-msg').textContent = 'Could not start it: ' + err.message;
-    $('#job-ok').disabled = false;
-  }
-};
-$('#job-x').onclick = () => sheet('#job', false);
 
 /* ---------- settings ---------- */
 function sheet(id, on) { $(id).classList.toggle('open', on); $(id).setAttribute('aria-hidden', String(!on)); }
@@ -399,7 +371,7 @@ $('#set-form').onsubmit = async (e) => {
     sheet('#set', false); header(); refresh().catch(() => {});
   } catch (err) { alert(err.message); }
 };
-for (const id of ['#set', '#job']) $(id).addEventListener('click', (e) => { if (e.target.id === id.slice(1)) sheet(id, false); });
+for (const id of ['#set']) $(id).addEventListener('click', (e) => { if (e.target.id === id.slice(1)) sheet(id, false); });
 
 /* ---------- composer ---------- */
 function grow() { const t = $('#in'); t.style.height = 'auto'; t.style.height = t.scrollHeight + 'px'; }

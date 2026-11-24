@@ -38,8 +38,7 @@ from, with its own tools: it reads, edits, runs shell commands and drives Live t
 - **A turn runs on the Mac.** Closing the page doesn't stop it. Opening the page again shows everything so far and
   follows what comes next. The stop button cancels the turn.
 - **On screen:** the answer as it streams, Gemini's thinking (folded away), each tool call with its status and its
-  diff or output, and its plan. **Send to Claude** under each answer starts a Claude Code job with the question and
-  the answer.
+  diff or output, and its plan. **Copy** under each answer copies it.
 - **Sessions last across restarts.** Gemini CLI keeps each session in `~/.gemini`. After the harness restarts, the
   first message in an old session loads it into the new process. Gemini CLI deletes sessions after 30 days by
   default (`general.sessionRetention`). An older session still shows on the page but can no longer go on.

@@ -1,14 +1,13 @@
 [project]
 name = "harness"
 version = "0.1.0"
-description = "The Mac end: /skrng and the pages under /studio/ over the tailnet, Claude Code jobs through the Agent SDK"
+description = "The Mac end: /skrng and the pages under /studio/ over the tailnet"
 requires-python = ">=3.12"
 dependencies = [
     "aiohttp>=3.14.4",
     "claude-agent-sdk>=0.2.165",
     "numpy>=2",
     "pillow>=13.0.0",
-    "websockets>=13.0",
 ]
 
 [project.optional-dependencies]

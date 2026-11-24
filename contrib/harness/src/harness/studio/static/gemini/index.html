@@ -16,7 +16,7 @@
     <div id="list" class="g-list"></div>
     <footer class="g-side-foot">
       <p id="spend"></p>
-      <a href="/studio/images/">Images wall</a> · <a href="/skrng/#jobs">Claude jobs</a>
+      <a href="/studio/images/">Images wall</a>
     </footer>
   </aside>
   <div id="scrim"></div>
@@ -45,15 +45,6 @@
     <label for="stitle">Title</label><input id="stitle" maxlength="80">
     <p class="g-note" id="cwd"></p>
     <div class="g-row"><button type="button" id="set-x">Cancel</button><button class="pri" id="set-ok">Save</button></div>
-  </form></div>
-
-  <div class="g-sheet-bg" id="job" aria-hidden="true"><form class="g-sheet" id="job-form">
-    <h2>Send to Claude</h2>
-    <p class="g-note">This starts a Claude Code job in zpkt on the Mac. You get a notification when it finishes.</p>
-    <label for="job-title">Title</label><input id="job-title" maxlength="80">
-    <label for="job-prompt">What Claude gets</label><textarea id="job-prompt" rows="10"></textarea>
-    <p class="g-note" id="job-msg"></p>
-    <div class="g-row"><button type="button" id="job-x">Cancel</button><button class="pri" id="job-ok">Start the job</button></div>
   </form></div>
 
   <script type="module" src="gemini.js"></script>

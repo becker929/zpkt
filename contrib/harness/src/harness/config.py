@@ -24,10 +24,9 @@ def agent_path(base: str | None = None) -> str:
     return ":".join([*(p for p in extra if p not in items), *items])
 
 KEYCHAIN = {
-    "rig_token": "zpkt-rig-token",          # Mac -> Worker socket (RIG_TOKEN on the Worker)
     "skrng_token": "skrng-token",           # read the owner's feedback from /api/skrng/feedback
     "oauth": "zpkt-claude-oauth",           # `claude setup-token` output -> CLAUDE_CODE_OAUTH_TOKEN
-    "ntfy_topic": "zpkt-ntfy-topic",        # ntfy.sh topic for job start/finish
+    "ntfy_topic": "zpkt-ntfy-topic",        # ntfy.sh topic for Gemini's questions
     "gemini": "zpkt-gemini-api-key",        # Gemini's image models, only through harness.images (contrib/docs/images.md)
 }
 
@@ -52,20 +51,12 @@ def secret(name: str) -> str | None:
 @dataclass
 class Config:
     site: str = os.environ.get("HARNESS_SITE", "https://anthonybecker.me")
-    workdir: Path = Path(os.environ.get("HARNESS_WORKDIR", ZPKT))
-    jobs_dir: Path = Path(os.environ.get("HARNESS_JOBS", Path.home() / "_agent_scratch" / "jobs"))
     cli_path: str | None = os.environ.get("HARNESS_CLI")  # None: the SDK's bundled Claude Code
-    model: str | None = os.environ.get("HARNESS_MODEL")
-    job_turns: int = int(os.environ.get("HARNESS_JOB_TURNS", "400"))
-    ask_turns: int = int(os.environ.get("HARNESS_ASK_TURNS", "12"))
-    extra_env: dict[str, str] = field(default_factory=dict)
+    extra_env: dict[str, str] = field(default_factory=dict)   # added to the environment of every Claude session
     # /skrng from the Mac (web.py): loopback port behind `tailscale serve`, and where it keeps
     # the password hash, sessions and feedback.
     web_port: int = int(os.environ.get("HARNESS_WEB_PORT", "8787"))
     skrng_dir: Path = Path(os.environ.get("HARNESS_SKRNG", Path.home() / "_agent_scratch" / "skrng"))
-    # The old public route (browser -> anthonybecker.me /api/rpc -> socket -> Mac). Off: /skrng's
-    # agent is reached over the tailnet only. HARNESS_PUBLIC_RPC=1 turns the socket back on.
-    public_rpc: bool = os.environ.get("HARNESS_PUBLIC_RPC") == "1"
     # The pages under /studio/: where they keep their data (the artist's, the regions', Gemini's), the working
     # directory of Gemini CLI sessions, the model the artist proposes with, and the small model of its quick question.
     studio_dir: Path = Path(os.environ.get("HARNESS_STUDIO", Path.home() / "_agent_scratch" / "studio"))
@@ -93,6 +84,12 @@ class Config:
         except (OSError, ValueError, KeyError, subprocess.TimeoutExpired):
             return self.site
 
-    @property
-    def connect_url(self) -> str:
-        return self.site.replace("https://", "wss://").replace("http://", "ws://") + "/api/rig/connect"
+
+def claude_env(cfg: Config) -> dict[str, str]:
+    """The environment every Claude Code session from the harness gets (the Keychain login, if there is one)."""
+    env = dict(cfg.extra_env)
+    env["PATH"] = agent_path(env.get("PATH"))
+    token = secret("oauth")
+    if token:
+        env["CLAUDE_CODE_OAUTH_TOKEN"] = token
+    return env

@@ -48,11 +48,6 @@ class StandIn:
         return routes.app(self)
 
 
-class NoMethods:
-    async def call(self, method, params):
-        raise ValueError(f"unknown method {method!r}")
-
-
 @pytest.fixture
 async def site():
     s = Site()
@@ -65,10 +60,10 @@ async def site():
 
 @pytest.fixture
 async def client(tmp_path, site):
-    cfg = Config(site=site.url, jobs_dir=tmp_path / "jobs", workdir=tmp_path, skrng_dir=tmp_path / "skrng",
+    cfg = Config(site=site.url, skrng_dir=tmp_path / "skrng",
                  studio_dir=tmp_path / "studio", lab_audio=tmp_path / "lab", site_audio=tmp_path / "site-audio",
                  regions_audio=tmp_path / "regions", images_dir=tmp_path / "images")
-    app = App(cfg, NoMethods(), cfg.skrng_dir, secure_cookie=False, studio=StandIn(cfg))
+    app = App(cfg, cfg.skrng_dir, secure_cookie=False, studio=StandIn(cfg))
     c = TestClient(TestServer(app.build()))
     await c.start_server()
     yield c

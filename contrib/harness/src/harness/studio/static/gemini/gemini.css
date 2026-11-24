@@ -66,7 +66,6 @@ table { border-collapse: collapse; font-size: 14px; } th, td { border: 1px solid
 .err { color: var(--err); font: 12px/1.4 var(--mono); margin: 6px 0; }
 .acts { display: flex; flex-wrap: wrap; gap: 2px; margin: 4px 0 0 -8px; }
 .acts button { min-height: 36px; padding: 0 8px; font: 10px var(--mono); letter-spacing: .1em; text-transform: uppercase; color: var(--ink-2); }
-.acts button.claude { color: var(--gold); }
 .acts .cost { align-self: center; font: 10px var(--mono); color: var(--ink-2); opacity: .7; padding: 0 8px; }
 .dots::after { content: ''; display: inline-block; width: 8px; height: 8px; background: var(--gold); animation: b 1s infinite; }
 @keyframes b { 50% { opacity: .2; } }

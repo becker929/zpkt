@@ -5,7 +5,7 @@ site, my accounts and my rig. They are here to read and borrow from, not to inst
 
 | Folder | What it is | Tied to |
 |---|---|---|
-| [`harness/`](harness/) | The Mac end of my phone: Gemini CLI sessions, Claude Code jobs started from the browser, the checklist and lab pages. | anthonybecker.me, Keychain secrets, Hammerspoon |
+| [`harness/`](harness/) | The Mac end of my phone: Gemini CLI sessions, the checklist and lab pages, behind a password on my tailnet. | anthonybecker.me, Keychain secrets, Hammerspoon |
 | [`booth/`](booth/) | Takes a score (JSON) and renders it in Live with a fixed palette of instruments. The only way the bot reaches Live. | my Live library |
 | [`bot/`](bot/) | A Bluesky account that makes short pieces for people who mention it, by writing scores for the booth. | Bluesky, Anthropic API |
 | [`skrng/`](skrng/) | Publishing renders to /skrng on my site, and fetching models from my bucket. | my R2 bucket |
