@@ -37,9 +37,24 @@ packages = ["src/ears", "src/mlab"]   # mlab: the old import name of ears.meters
 [dependency-groups]
 dev = [
     "jsonschema>=4.26.0",
+    "mypy>=1.18",
     "pytest>=8.0",
 ]
 
 [tool.pytest.ini_options]
 # tests: ears and the meters (characterization, goldens); mlab/calibration: the meters' known-answer checks.
 testpaths = ["tests", "mlab/calibration"]
+
+[tool.mypy]
+strict = true
+files = ["src"]
+mypy_path = "src"
+# numpy's stubs type most reductions and many ufuncs as Any. Wrapping each in float() would change what some
+# reports print (repr of np.float64), so returning those values is allowed; everything else is strict.
+warn_return_any = false
+
+[[tool.mypy.overrides]]
+# Libraries without type information.
+module = ["scipy", "scipy.*", "soundfile", "pyloudnorm", "librosa", "librosa.*", "yaml", "onnxruntime",
+          "madmom", "madmom.*", "basic_pitch", "basic_pitch.*", "essentia", "essentia.*"]
+ignore_missing_imports = true

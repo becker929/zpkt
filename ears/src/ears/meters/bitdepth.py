@@ -14,21 +14,25 @@ Reference noise floors for N-bit quantisation of full scale +/-1 (q = 2^(1-N)):
 
 from __future__ import annotations
 
+from typing import Any
+
 import numpy as np
 import soundfile as sf
 from scipy import signal
 
 from . import bands as B
+from .arrays import BoolArray, FloatArray, Json
+from .io import Audio
 from .util import db, dc_is_real, dc_offset_db, pdb, r
 
 
-def theoretical_floor_dbfs(bits, dither="tpdf"):
+def theoretical_floor_dbfs(bits: int, dither: str = "tpdf") -> float:
     q = 2.0 ** (1 - bits)
     k = {"none": np.sqrt(12), "rpdf": np.sqrt(6), "tpdf": 2.0}[dither]
     return float(db(q / k))
 
 
-def effective_bits(x: np.ndarray, max_bits=32) -> int:
+def effective_bits(x: FloatArray, max_bits: int = 32) -> int:
     """Smallest N such that every sample is a multiple of 2^(1-N) (full scale +/-1).
     32 means 'more than 24 bits of resolution used' (true float content)."""
     v = x[np.abs(x) > 0]
@@ -42,7 +46,7 @@ def effective_bits(x: np.ndarray, max_bits=32) -> int:
     return max_bits
 
 
-def quiet_blocks(x, sr, block_s=0.1, n=20):
+def quiet_blocks(x: FloatArray, sr: int, block_s: float = 0.1, n: int = 20) -> tuple[FloatArray, int]:
     """RMS (dBFS) of the quietest non-silent blocks, and how many blocks are digital zero."""
     b = int(block_s * sr)
     k = len(x) // b
@@ -55,7 +59,7 @@ def quiet_blocks(x, sr, block_s=0.1, n=20):
     return nz[:n], zero
 
 
-def noise_shape_tilt(x, sr, mask):
+def noise_shape_tilt(x: FloatArray, sr: int, mask: BoolArray) -> float | None:
     """High (>15 kHz) minus low (1-5 kHz) spectral density in the given samples, dB.
     Flat TPDF ~ 0 dB; noise-shaped dither is strongly positive (often +10..+30)."""
     seg = x[mask]
@@ -68,9 +72,9 @@ def noise_shape_tilt(x, sr, mask):
     return float(pdb(hi) - pdb(lo))
 
 
-def analyze(audio) -> dict:
+def analyze(audio: Audio) -> Json:
     x, sr = audio.x, audio.sr
-    out = {"container": audio.subtype, "sample_rate": sr, "lossy": audio.lossy}
+    out: Json = {"container": audio.subtype, "sample_rate": sr, "lossy": audio.lossy}
     if audio.lossy:
         out["verdict"] = (
             "lossy file: word length and dither are not observable after "
@@ -115,7 +119,7 @@ def analyze(audio) -> dict:
     return out
 
 
-def _verdict(o, eb, subtype):
+def _verdict(o: Json, eb: int, subtype: str) -> str:
     msgs = []
     if "FLOAT" in subtype and eb <= 24:
         msgs.append(f"float container holding {eb}-bit values: something upstream reduced word length")
@@ -142,7 +146,7 @@ def _verdict(o, eb, subtype):
     return "; ".join(msgs) or "nothing notable"
 
 
-def truncation_distortion(original, reduced, sr, f0, tail_s=2.0):
+def truncation_distortion(original: FloatArray, reduced: FloatArray, sr: int, f0: float, tail_s: float = 2.0) -> float:
     """Share of the reduction error at harmonics of f0 (dB re total error).
     Undithered truncation/rounding of a tone concentrates error at harmonics
     (correlated distortion); dither spreads it into noise (lower share)."""
@@ -155,7 +159,7 @@ def truncation_distortion(original, reduced, sr, f0, tail_s=2.0):
     return float(pdb(harm / max(S.sum(), 1e-30)))
 
 
-def read_int_codes(path):
+def read_int_codes(path: str) -> Any:
     """Raw integer samples of a PCM file (for histogram-level forensics)."""
     inf = sf.info(path)
     dt = {"PCM_16": "int16", "PCM_24": "int32", "PCM_32": "int32"}.get(inf.subtype)

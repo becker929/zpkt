@@ -9,10 +9,13 @@ from __future__ import annotations
 import numpy as np
 from scipy import signal
 
+from .arrays import FloatArray, Json
 from .util import lin
 
 
-def sine(freq, dbfs, dur, sr, ch=2, phase=0.0, fade_ms=0.0):
+def sine(
+    freq: float, dbfs: float, dur: float, sr: int, ch: int = 2, phase: float = 0.0, fade_ms: float = 0.0
+) -> FloatArray:
     """Sine with PEAK at dbfs (dBFS sample-peak convention)."""
     t = np.arange(round(dur * sr)) / sr
     s = lin(dbfs) * np.sin(2 * np.pi * freq * t + phase)
@@ -21,13 +24,20 @@ def sine(freq, dbfs, dur, sr, ch=2, phase=0.0, fade_ms=0.0):
     return np.repeat(s[:, None], ch, axis=1)
 
 
-def _fade(n, sr, ms):
+def _fade(n: int, sr: int, ms: float) -> FloatArray:
     k = np.arange(n)
     nf = max(1, int(sr * ms / 1000))
     return np.minimum(1.0, np.minimum(k, n - 1 - k) / nf)
 
 
-def pink(dur, sr, ch=2, seed=0, rms_dbfs=None, band=None):
+def pink(
+    dur: float,
+    sr: int,
+    ch: int = 2,
+    seed: int = 0,
+    rms_dbfs: float | None = None,
+    band: tuple[float, float] | None = None,
+) -> FloatArray:
     """Pink noise by 1/f spectral shaping; optional band-limit and RMS level.
     rms_dbfs uses the plain (not sine-referenced) RMS."""
     rng = np.random.default_rng(seed)
@@ -44,12 +54,14 @@ def pink(dur, sr, ch=2, seed=0, rms_dbfs=None, band=None):
     return y * (lin(rms_dbfs) if rms_dbfs is not None else lin(-20))
 
 
-def white(dur, sr, ch=2, seed=0, rms_dbfs=-20):
+def white(dur: float, sr: int, ch: int = 2, seed: int = 0, rms_dbfs: float = -20) -> FloatArray:
     rng = np.random.default_rng(seed)
     return rng.standard_normal((int(dur * sr), ch)) * lin(rms_dbfs)
 
 
-def bandlimited_click(sr, peak=0.9, offset_frac=0.37, cutoff=0.4, dur=1.0, ch=2):
+def bandlimited_click(
+    sr: int, peak: float = 0.9, offset_frac: float = 0.37, cutoff: float = 0.4, dur: float = 1.0, ch: int = 2
+) -> FloatArray:
     """One isolated band-limited pulse whose true peak (= `peak`) falls BETWEEN samples.
     Worst case for a true-peak meter; the answer is known exactly."""
     n = int(dur * sr)
@@ -60,7 +72,7 @@ def bandlimited_click(sr, peak=0.9, offset_frac=0.37, cutoff=0.4, dur=1.0, ch=2)
 
 
 # --------------------------------------------------- compressor probe
-COMP_PROBE_LAYOUT = {
+COMP_PROBE_LAYOUT: Json = {
     "freq_hz": 1000.0,
     "ramp": [0.5, 20.5],  # seconds: -60 -> 0 dBFS linear-in-dB ramp
     "steps": [  # (start, end, direction) of each hold after a step
@@ -76,7 +88,7 @@ COMP_PROBE_LAYOUT = {
 }
 
 
-def comp_probe(sr=44100, ch=2):
+def comp_probe(sr: int = 44100, ch: int = 2) -> tuple[FloatArray, Json]:
     """1 kHz tone: silence, a 20 s level ramp (-60..0 dBFS), then three 30 dB up/down steps.
     Render it through a compressor with makeup OFF (or note the makeup), export, then
     `mlab comp-probe probe.wav render.wav`."""
@@ -96,12 +108,12 @@ def comp_probe(sr=44100, ch=2):
     return np.repeat(s[:, None], ch, axis=1), lay
 
 
-def eq_probe(sr=44100, dur=20.0, ch=2, seed=1):
+def eq_probe(sr: int = 44100, dur: float = 20.0, ch: int = 2, seed: int = 1) -> FloatArray:
     """Pink noise at -20 dBFS RMS: run it through an EQ, export, then `mlab eq-diff`."""
     return pink(dur, sr, ch, seed=seed, rms_dbfs=-20)
 
 
-def kcal_files(sr=44100, dur=60.0):
+def kcal_files(sr: int = 44100, dur: float = 60.0) -> dict[str, FloatArray]:
     """K-System calibration: pink noise at -20/-14/-12 dBFS RMS (sine-referenced, AES-17),
     full band and 500 Hz-2 kHz band, left-only and right-only.
     Play each; set monitor gain so one speaker reads 83 dB SPL C-weighted slow at K-20."""
@@ -116,7 +128,7 @@ def kcal_files(sr=44100, dur=60.0):
     return out
 
 
-def kick_loop(sr=44100, bpm=160, bars=4, ch=2, seed=0):
+def kick_loop(sr: int = 44100, bpm: float = 160, bars: int = 4, ch: int = 2, seed: int = 0) -> FloatArray:
     """Four-on-the-floor synthetic kick with a sharp click and a 200 ms body, plus a
     quiet sustained rumble. Known structure for calibrating punch measures."""
     rng = np.random.default_rng(seed)
@@ -137,7 +149,9 @@ def kick_loop(sr=44100, bpm=160, bars=4, ch=2, seed=0):
     return np.repeat(y[:, None], ch, axis=1)
 
 
-def song_sections(sr=44100, bpm=160.0, ch=2, seed=0, dropout_bar=None):
+def song_sections(
+    sr: int = 44100, bpm: float = 160.0, ch: int = 2, seed: int = 0, dropout_bar: int | None = None
+) -> tuple[FloatArray, dict[str, list[int]]]:
     """A techno-shaped song with a known layout, for calibrating sections.py.
 
     intro 8 bars (kick + hats) | break bars 9-16 (no kick, quiet pad) |

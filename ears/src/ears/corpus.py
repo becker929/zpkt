@@ -15,6 +15,7 @@ import os
 import time
 from collections.abc import Callable, Iterable
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 
@@ -59,20 +60,23 @@ def build(
     embeddings: bool = True,
     analyze: Callable[..., AudioProfile] | None = None,
     progress: Callable[[int, int, Path], None] | None = None,
-) -> dict:
+) -> dict[str, Any]:
     """Measure every audio file under `folder` and return the corpus (see `save`). Files that fail to load are
     listed under "skipped" with the reason."""
     if analyze is None:
-        from .analyzer import analyze
+        from .analyzer import analyze as measure
+    else:
+        measure = analyze
     folder = Path(folder).expanduser()
     files = audio_files(folder)
     if not files:
         raise ValueError(f"{folder}: no audio files ({', '.join(sorted(AUDIO))})")
-    tracks, skipped = [], []
+    tracks: list[dict[str, Any]] = []
+    skipped: list[dict[str, str]] = []
     for i, path in enumerate(files):
         if progress:
             progress(i, len(files), path)
-        profile = analyze(str(path), run_embeddings=embeddings)
+        profile = measure(str(path), run_embeddings=embeddings)
         feats = features(profile)
         if not feats:
             skipped.append({"path": str(path.relative_to(folder)), "why": "; ".join(profile.errors) or "no measures"})
@@ -97,7 +101,7 @@ def build(
     }
 
 
-def _stats(tracks: Iterable[dict]) -> dict[str, dict[str, float]]:
+def _stats(tracks: Iterable[dict[str, Any]]) -> dict[str, dict[str, float]]:
     columns: dict[str, list[float]] = {}
     for track in tracks:
         for name, value in track["features"].items():
@@ -117,14 +121,14 @@ def _stats(tracks: Iterable[dict]) -> dict[str, dict[str, float]]:
     return stats
 
 
-def save(corpus: dict, path: Path) -> Path:
+def save(corpus: dict[str, Any], path: Path) -> Path:
     path = Path(path).expanduser()
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(corpus))
     return path
 
 
-def load(path: Path | None = None) -> dict:
+def load(path: Path | None = None) -> dict[str, Any]:
     path = Path(path).expanduser() if path else default_path()
     if not path.is_file():
         raise FileNotFoundError(f"no corpus at {path}: build one with `ears corpus build FOLDER`")
@@ -138,7 +142,7 @@ def _unit(vectors: np.ndarray) -> np.ndarray:
     return vectors / (np.linalg.norm(vectors, axis=-1, keepdims=True) + 1e-12)
 
 
-def distance(profile: AudioProfile, corpus: dict, *, nearest: int = 3) -> dict:
+def distance(profile: AudioProfile, corpus: dict[str, Any], *, nearest: int = 3) -> dict[str, Any]:
     """Where `profile` sits in `corpus`.
 
     "measures": per measure, the render's value, the corpus median, p10 and p90, z (corpus standard deviations

@@ -6,6 +6,7 @@ import hashlib
 import os
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from typing import Any
 
 from .models import AudioProfile
 
@@ -53,27 +54,27 @@ def analyze(
         profile.errors.append(f"audio load failed: {exc}")
         return profile
 
-    def run_spectral():
+    def run_spectral() -> tuple[str, Any]:
         from .features import extract
 
         return "spectral", extract(audio, sr)
 
-    def run_loudness():
+    def run_loudness() -> tuple[str, Any]:
         from .loudness import extract
 
         return "loudness", extract(audio, sr, channels)
 
-    def run_rhythm_task():
+    def run_rhythm_task() -> tuple[str, Any]:
         from .rhythm import extract
 
         return "rhythm", extract(audio_path)
 
-    def run_pitch_task():
+    def run_pitch_task() -> tuple[str, Any]:
         from .pitch import extract
 
         return "pitch", extract(audio_path)
 
-    def run_embed():
+    def run_embed() -> tuple[str, Any]:
         from .embeddings import embed
 
         return "embedding", embed(audio_path)

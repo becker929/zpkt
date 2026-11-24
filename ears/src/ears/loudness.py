@@ -8,6 +8,7 @@ are not interchangeable.
 from __future__ import annotations
 
 import contextlib
+from typing import Any
 
 import numpy as np
 
@@ -50,7 +51,7 @@ _CAMELOT = {
 _ENHARMONIC = {"F#": "Gb", "C#": "Db", "G#": "Ab", "D#": "Eb", "A#": "Bb"}
 
 
-def _band_energy(audio: np.ndarray, sr: int, lo: float, hi: float) -> float:
+def _band_energy(audio: np.ndarray, sr: float, lo: float, hi: float) -> float:
     n = len(audio)
     freqs = np.fft.rfftfreq(n, d=1.0 / sr)
     spectrum = np.abs(np.fft.rfft(audio)) ** 2
@@ -63,7 +64,7 @@ def _to_camelot(key: str, scale: str) -> str:
     return _CAMELOT.get((k, scale), f"{key} {scale}")
 
 
-def true_peak_dbtp(channels: np.ndarray, sr: int) -> float | None:
+def true_peak_dbtp(channels: np.ndarray, sr: float) -> float | None:
     """BS.1770 true peak in dBTP: 4x oversample each channel, take the max.
 
     ``channels`` is (samples,) or (samples, n_channels). None for silence.
@@ -77,7 +78,7 @@ def true_peak_dbtp(channels: np.ndarray, sr: int) -> float | None:
     return 20.0 * np.log10(peak) if peak > 0 else None
 
 
-def _windowed_max_lufs(meter, channels: np.ndarray, sr: int, window_s: float) -> float | None:
+def _windowed_max_lufs(meter: Any, channels: np.ndarray, sr: float, window_s: float) -> float | None:
     size = int(sr * window_s)
     vals = []
     for start in range(0, len(channels) - size, size // 2):
@@ -90,7 +91,7 @@ def _windowed_max_lufs(meter, channels: np.ndarray, sr: int, window_s: float) ->
     return float(max(vals)) if vals else None
 
 
-def extract(audio: np.ndarray, sr: int, channels: np.ndarray | None = None) -> LoudnessFeatures:
+def extract(audio: np.ndarray, sr: float, channels: np.ndarray | None = None) -> LoudnessFeatures:
     """Extract loudness and 5-band spectral energy.
 
     ``audio`` is mono float32 (used for band energy and key). ``channels`` is

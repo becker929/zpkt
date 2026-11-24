@@ -6,13 +6,17 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 from . import bitdepth, delivery, dynamics
 from . import loudness as L
 from . import spectrum as S
+from .arrays import Json
+from .io import Audio
 from .util import r
 
 
-def sheet(audio, codecs=False) -> dict:
+def sheet(audio: Audio, codecs: bool = False) -> Json:
     x, sr = audio.x, audio.sr
     lres = L.analyze(x, sr)
     f_p = S.psd(x, sr)
@@ -34,8 +38,8 @@ def sheet(audio, codecs=False) -> dict:
     return out
 
 
-def flat(d, prefix=""):
-    out = {}
+def flat(d: Json, prefix: str = "") -> dict[str, Any]:
+    out: dict[str, Any] = {}
     for k, v in d.items():
         key = f"{prefix}{k}"
         if isinstance(v, dict):
@@ -71,7 +75,7 @@ CORE_KEYS = [
 ]
 
 
-def markdown(sh: dict, title=None) -> str:
+def markdown(sh: Json, title: str | None = None) -> str:
     m = sh["file"]
     lines = [
         f"# Measurement sheet — {title or m['path']}",

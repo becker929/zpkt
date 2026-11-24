@@ -7,11 +7,15 @@ Thresholds live in CHECKS so a hypothesis can argue with them.
 
 from __future__ import annotations
 
+from typing import Any
+
 import numpy as np
 
 from . import bands as B
 from . import loudness as L
 from . import spectrum as S
+from .arrays import FloatArray, Json
+from .io import Audio
 from .util import db, dc_is_real, dc_offset_db, r, rms
 
 CHECKS = {
@@ -31,11 +35,11 @@ CHECKS = {
 }
 
 
-def _row(item, status, value, why):
+def _row(item: str, status: str, value: Any, why: str) -> Json:
     return {"check": item, "status": status, "value": value, "why": why}
 
 
-def clip_runs(x, run=3, level=0.9999):
+def clip_runs(x: FloatArray, run: int = 3, level: float = 0.9999) -> int:
     hits = np.abs(x) >= level
     count = 0
     for c in range(x.shape[1]):
@@ -48,11 +52,11 @@ def clip_runs(x, run=3, level=0.9999):
     return count
 
 
-def run(audio, lres=None, checks=None):
+def run(audio: Audio, lres: L.LoudnessResult | None = None, checks: Json | None = None) -> Json:
     C = dict(CHECKS, **(checks or {}))
     x, sr = audio.x, audio.sr
     lres = lres or L.analyze(x, sr)
-    rows = []
+    rows: list[Json] = []
     if not np.isfinite(lres.integrated):
         rows.append(_row("audible_content", "FAIL", None, "silent, or shorter than 400 ms: nothing to master"))
     # format

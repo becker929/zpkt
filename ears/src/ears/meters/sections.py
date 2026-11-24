@@ -14,19 +14,23 @@ Known answers live in calibration/checks.py (check_sections).
 
 from __future__ import annotations
 
+from collections.abc import Sequence
+from typing import Any
+
 import numpy as np
 from scipy import signal
 
 from . import bands as B
 from . import loudness as L
 from . import spectrum as S
+from .arrays import BoolArray, FloatArray, Json
 
 KICK_DROP_DB = 8.0
 PEAK_S = 30.0
 PEAK_KICK_FRACTION = 0.9
 
 
-def onset_envelope(x, sr, hop=256, n_fft=1024):
+def onset_envelope(x: FloatArray, sr: int, hop: int = 256, n_fft: int = 1024) -> tuple[FloatArray, float]:
     """Half-wave rectified spectral flux of the log-magnitude STFT (mono)."""
     m = x.mean(axis=1) if x.ndim == 2 else x
     _, _, z = signal.stft(m, sr, nperseg=n_fft, noverlap=n_fft - hop, boundary=None, padded=False)
@@ -35,7 +39,7 @@ def onset_envelope(x, sr, hop=256, n_fft=1024):
     return flux - flux.mean(), sr / hop
 
 
-def tempo(x, sr, lo=120.0, hi=190.0, step=0.01):
+def tempo(x: FloatArray, sr: int, lo: float = 120.0, hi: float = 190.0, step: float = 0.01) -> float:
     env, fps = onset_envelope(x, sr)
     ac = np.correlate(env, env, "full")[len(env) - 1 :]
     lag = np.arange(len(ac))
@@ -44,12 +48,12 @@ def tempo(x, sr, lo=120.0, hi=190.0, step=0.01):
     return float(cands[int(np.argmax(score))])
 
 
-def bar_seconds(bpm):
+def bar_seconds(bpm: float) -> float:
     """Length of one 4/4 bar in seconds."""
     return 4 * 60 / bpm
 
 
-def bars(x, sr, bpm):
+def bars(x: FloatArray, sr: int, bpm: float) -> tuple[FloatArray, FloatArray]:
     """Per-bar (low_db, high_db) arrays on a grid starting at sample 0."""
     bar = bar_seconds(bpm)
     nb = int(len(x) / sr / bar)
@@ -63,13 +67,14 @@ def bars(x, sr, bpm):
     return low_db, high_db
 
 
-def kick_mask(low_db):
+def kick_mask(low_db: FloatArray) -> BoolArray:
     return low_db > np.median(low_db) - KICK_DROP_DB
 
 
-def kickless_runs(kick, min_bars=2):
+def kickless_runs(kick: Sequence[bool] | BoolArray, min_bars: int = 2) -> list[list[int]]:
     """1-based inclusive [first, last] bar ranges without kick."""
-    runs, start = [], None
+    runs: list[list[int]] = []
+    start: int | None = None
     for b, k in enumerate([*kick, True]):
         if not k and start is None:
             start = b
@@ -80,7 +85,7 @@ def kickless_runs(kick, min_bars=2):
     return runs
 
 
-def peak_window(high_db, kick, bpm, seconds=PEAK_S):
+def peak_window(high_db: FloatArray, kick: BoolArray, bpm: float, seconds: float = PEAK_S) -> list[int] | None:
     """1-based inclusive bar range of the densest kick section, or None."""
     wb = max(1, round(seconds / bar_seconds(bpm)))
     best, at = -np.inf, None
@@ -93,12 +98,12 @@ def peak_window(high_db, kick, bpm, seconds=PEAK_S):
     return None if at is None else [at + 1, at + wb]
 
 
-def excerpt(x, sr, bpm, bar_range):
+def excerpt(x: FloatArray, sr: int, bpm: float, bar_range: Sequence[int]) -> FloatArray:
     bar = bar_seconds(bpm)
     return x[int((bar_range[0] - 1) * bar * sr) : int(bar_range[1] * bar * sr)]
 
 
-def analyze(x, sr, bpm=None):
+def analyze(x: FloatArray, sr: int, bpm: float | None = None) -> Json:
     bpm = bpm or tempo(x, sr)
     low_db, high_db = bars(x, sr, bpm)
     kick = kick_mask(low_db)
@@ -120,7 +125,7 @@ def analyze(x, sr, bpm=None):
     }
 
 
-def peak_profile(x, sr, bpm, bar_range):
+def peak_profile(x: FloatArray, sr: int, bpm: float, bar_range: Sequence[int]) -> Json:
     """Measures of a peak excerpt that do not depend on its level."""
     seg = excerpt(x, sr, bpm, bar_range)
     from . import dynamics as D
@@ -135,7 +140,7 @@ def peak_profile(x, sr, bpm, bar_range):
     }
 
 
-def _rel_third_octave(x, sr):
+def _rel_third_octave(x: FloatArray, sr: int) -> list[tuple[Any, float]]:
     bands = S.third_octave(x, sr)
     lv = np.array([v for _, v in bands])
     lv -= 10 * np.log10(np.sum(10 ** (lv / 10)))

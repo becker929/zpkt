@@ -11,16 +11,21 @@ Every processor takes and returns float64 (n, ch).
 
 from __future__ import annotations
 
+from collections.abc import Sequence
+from typing import Any
+
 import numpy as np
+import numpy.typing as npt
 from scipy import signal
 from scipy.ndimage import minimum_filter1d
 
 from . import loudness as L
+from .arrays import FloatArray, Json
 from .util import db, lin
 
 
 # ---------------------------------------------------------------- EQ (Ch. 4)
-def biquad(kind: str, f0: float, sr: int, gain_db: float = 0.0, q: float = 0.707):
+def biquad(kind: str, f0: float, sr: int, gain_db: float = 0.0, q: float = 0.707) -> tuple[FloatArray, FloatArray]:
     """RBJ Audio-EQ-Cookbook biquads. kind: peak, lowshelf, highshelf, highpass, lowpass.
 
     Shelves use q as the cookbook's Q (0.707 = no overshoot)."""
@@ -47,12 +52,12 @@ def biquad(kind: str, f0: float, sr: int, gain_db: float = 0.0, q: float = 0.707
         b = [(1 - cw) / 2, 1 - cw, (1 - cw) / 2]
         a = [1 + alpha, -2 * cw, 1 - alpha]
     else:
-        raise ValueError(kind)
-    b, a = np.array(b), np.array(a)
-    return b / a[0], a / a[0]
+        raise ValueError(f"unknown filter kind {kind!r}: use peak, lowshelf, highshelf, highpass or lowpass")
+    num, den = np.array(b), np.array(a)
+    return num / den[0], den / den[0]
 
 
-def eq(x, sr, bands):
+def eq(x: FloatArray, sr: int, bands: Sequence[Json]) -> FloatArray:
     """bands: list of dicts {type, f, gain_db, q}. Applied in series."""
     y = x
     for bd in bands:
@@ -61,14 +66,14 @@ def eq(x, sr, bands):
     return y
 
 
-def biquad_response_db(kind, f0, sr, gain_db, q, freqs):
+def biquad_response_db(kind: str, f0: float, sr: int, gain_db: float, q: float, freqs: npt.ArrayLike) -> FloatArray:
     b, a = biquad(kind, f0, sr, gain_db, q)
     _, h = signal.freqz(b, a, worN=np.asarray(freqs), fs=sr)
     return db(h)
 
 
 # ----------------------------------------------------- dynamics (Ch. 5-7)
-def gain_computer(level_db, threshold, ratio, knee):
+def gain_computer(level_db: FloatArray, threshold: float, ratio: float, knee: float) -> FloatArray:
     """Static curve: dB of gain reduction (>= 0) for a detector level in dB.
 
     Soft knee per Giannoulis, Massberg & Reiss (JAES 2012)."""
@@ -82,19 +87,19 @@ def gain_computer(level_db, threshold, ratio, knee):
 
 
 def compressor(
-    x,
-    sr,
-    threshold=-20.0,
-    ratio=4.0,
-    attack_ms=10.0,
-    release_ms=100.0,
-    knee=6.0,
-    makeup_db=0.0,
-    detector="peak",
-    rms_ms=10.0,
-    hold_ms=5.0,
-    return_gr=False,
-):
+    x: FloatArray,
+    sr: int,
+    threshold: float = -20.0,
+    ratio: float = 4.0,
+    attack_ms: float = 10.0,
+    release_ms: float = 100.0,
+    knee: float = 6.0,
+    makeup_db: float = 0.0,
+    detector: str = "peak",
+    rms_ms: float = 10.0,
+    hold_ms: float = 5.0,
+    return_gr: bool = False,
+) -> Any:
     """Feed-forward, stereo-linked compressor with a smoothed-gain (log-domain) ballistic.
 
     detector: 'peak' (instant rectified max of channels) or 'rms' (rms_ms window).
@@ -115,7 +120,7 @@ def compressor(
     return (y, gr) if return_gr else y
 
 
-def _causal_max(v, h):
+def _causal_max(v: FloatArray, h: int) -> FloatArray:
     """max(v[i-h+1 .. i]) for every i."""
     if h <= 1:
         return v
@@ -126,7 +131,7 @@ def _causal_max(v, h):
     return np.concatenate([np.full(k, c[0]), c[: len(c) - k]]) if k else c
 
 
-def _ballistics(target, aa, ar):
+def _ballistics(target: FloatArray, aa: float, ar: float) -> FloatArray:
     out = np.empty_like(target)
     s = 0.0
     t = target.tolist()
@@ -137,13 +142,21 @@ def _ballistics(target, aa, ar):
     return out
 
 
-def _peak_env(x, sr, true_peak=True):
+def _peak_env(x: FloatArray, sr: int, true_peak: bool = True) -> FloatArray:
     return L.true_peak_envelope(x, sr) if true_peak else np.max(np.abs(x), axis=1)
 
 
 def limiter(
-    x, sr, ceiling_db=-1.0, lookahead_ms=5.0, release_ms=80.0, true_peak=True, drive_db=0.0, peak_env=None, trim=True
-):
+    x: FloatArray,
+    sr: int,
+    ceiling_db: float = -1.0,
+    lookahead_ms: float = 5.0,
+    release_ms: float = 80.0,
+    true_peak: bool = True,
+    drive_db: float = 0.0,
+    peak_env: FloatArray | None = None,
+    trim: bool = True,
+) -> FloatArray:
     """Lookahead brickwall limiter. true_peak=True detects on the 8x oversampled signal,
     so the output's TRUE peak stays at or under the ceiling (verified in calibration)."""
     la = max(1, int(sr * lookahead_ms / 1000))
@@ -171,7 +184,9 @@ def limiter(
     return y
 
 
-def master_to(x, sr, target_lufs, ceiling_db=-1.0, **kw):
+def master_to(
+    x: FloatArray, sr: int, target_lufs: float, ceiling_db: float = -1.0, **kw: Any
+) -> tuple[FloatArray, float]:
     """Drive the limiter until integrated loudness hits target. Returns (y, drive_db)."""
     lo, hi = -24.0, 48.0
     env = _peak_env(x, sr, kw.get("true_peak", True))  # peaks scale with drive: detect once
@@ -191,7 +206,7 @@ def master_to(x, sr, target_lufs, ceiling_db=-1.0, **kw):
     return y, (lo + hi) / 2
 
 
-def clip(x, ceiling_db=0.0, mode="hard"):
+def clip(x: FloatArray, ceiling_db: float = 0.0, mode: str = "hard") -> FloatArray:
     c = lin(ceiling_db)
     if mode == "hard":
         return np.clip(x, -c, c)
@@ -199,7 +214,7 @@ def clip(x, ceiling_db=0.0, mode="hard"):
 
 
 # ------------------------------------------------- word length (Ch. 15)
-def quantize(x, bits=16, dither="tpdf", shaping=False, seed=0):
+def quantize(x: FloatArray, bits: int = 16, dither: str = "tpdf", shaping: bool = False, seed: int = 0) -> FloatArray:
     """Reduce to `bits` (full scale +/-1). dither: none | rpdf | tpdf.
     'none' ROUNDS (no bias); use truncate() for true truncation.
     shaping=True adds first-order error-feedback noise shaping (pushes noise up)."""
@@ -223,32 +238,32 @@ def quantize(x, bits=16, dither="tpdf", shaping=False, seed=0):
     return np.clip(y, -1.0, 1.0 - q)
 
 
-def truncate(x, bits=16):
+def truncate(x: FloatArray, bits: int = 16) -> FloatArray:
     q = 2.0 ** (1 - bits)
     return np.floor(x / q) * q
 
 
 # ------------------------------------------------- misc experiment ops
-def gain(x, gain_db):
+def gain(x: FloatArray, gain_db: float) -> FloatArray:
     return x * lin(gain_db)
 
 
-def normalize_lufs(x, sr, target):
+def normalize_lufs(x: FloatArray, sr: int, target: float) -> FloatArray:
     return x * lin(L.gain_to(x, sr, target))
 
 
-def to_mono(x):
+def to_mono(x: FloatArray) -> FloatArray:
     m = x.mean(axis=1, keepdims=True)
     return np.repeat(m, x.shape[1], axis=1)
 
 
-def ms_width(x, side_gain_db=0.0):
+def ms_width(x: FloatArray, side_gain_db: float = 0.0) -> FloatArray:
     m = (x[:, 0] + x[:, 1]) / 2
     s = (x[:, 0] - x[:, 1]) / 2 * lin(side_gain_db)
     return np.stack([m + s, m - s], 1)
 
 
-def excerpt(x, sr, start_s, dur_s, fade_ms=10.0):
+def excerpt(x: FloatArray, sr: int, start_s: float, dur_s: float, fade_ms: float = 10.0) -> FloatArray:
     a, b = int(start_s * sr), int((start_s + dur_s) * sr)
     y = x[a:b].copy()
     nf = int(sr * fade_ms / 1000)

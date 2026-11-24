@@ -12,32 +12,37 @@
 from __future__ import annotations
 
 import itertools
+from collections.abc import Sequence
+from typing import Any
 
 import numpy as np
+import numpy.typing as npt
 from scipy import signal
 
 from . import bands as B
+from .arrays import FloatArray, Json
 from .util import db, pdb, r
 
 CENTRES = B.THIRD_OCTAVE_CENTRES  # the band tables live in bands.py; these names stay for callers
 GROUPS = B.TONAL_GROUPS
 
 
-def psd(x, sr, nperseg=None):
+def psd(x: FloatArray, sr: int, nperseg: int | None = None) -> tuple[FloatArray, FloatArray]:
     """Welch power spectral density of the channel-summed power (per-channel average)."""
     nperseg = nperseg or min(len(x), 2 ** int(np.log2(sr / 2)))  # 2^15 at 44.1/48 kHz: ~1.3-1.5 Hz bins
     f, p = signal.welch(x, sr, window="hann", nperseg=nperseg, axis=0, scaling="density")
     return f, p.mean(axis=1) if p.ndim == 2 else p
 
 
-def band_power(f, p, lo, hi):
+def band_power(f: FloatArray, p: FloatArray, lo: float, hi: float) -> float:
     m = (f >= lo) & (f < hi)
     if not m.any():
         return 0.0
-    return float(np.trapezoid(p[m], f[m]) if hasattr(np, "trapezoid") else np.trapz(p[m], f[m]))
+    integrate = np.trapezoid if hasattr(np, "trapezoid") else np.trapz  # type: ignore[attr-defined]  # numpy < 2
+    return float(integrate(p[m], f[m]))
 
 
-def third_octave(x, sr, f_p=None):
+def third_octave(x: FloatArray, sr: int, f_p: tuple[FloatArray, FloatArray] | None = None) -> list[tuple[float, float]]:
     f, p = f_p if f_p is not None else psd(x, sr)
     out = []
     for c, lo, hi in zip(CENTRES, *B.third_octave_edges(CENTRES), strict=True):
@@ -47,7 +52,7 @@ def third_octave(x, sr, f_p=None):
     return out
 
 
-def tonal_balance(x, sr, f_p=None):
+def tonal_balance(x: FloatArray, sr: int, f_p: tuple[FloatArray, FloatArray] | None = None) -> Json:
     f, p = f_p if f_p is not None else psd(x, sr)
     total = band_power(f, p, 20, min(20000, sr / 2))
     groups = {k: r(pdb(band_power(f, p, lo, min(hi, sr / 2)) / max(total, 1e-30))) for k, (lo, hi) in GROUPS.items()}
@@ -66,13 +71,13 @@ def tonal_balance(x, sr, f_p=None):
     }
 
 
-def centroid(x, sr, f_p=None):
+def centroid(x: FloatArray, sr: int, f_p: tuple[FloatArray, FloatArray] | None = None) -> float:
     f, p = f_p if f_p is not None else psd(x, sr)
     m = (f >= 20) & (f <= 20000)
     return float(np.sum(f[m] * p[m]) / max(np.sum(p[m]), 1e-30))
 
 
-def stereo_by_band(x, sr, edges=B.STEREO_EDGES):
+def stereo_by_band(x: FloatArray, sr: int, edges: Sequence[float] = B.STEREO_EDGES) -> list[Json]:
     """Correlation and side/mid energy per band. Low-band correlation near 1 = mono bass."""
     if x.shape[1] < 2:
         return []
@@ -95,7 +100,7 @@ def stereo_by_band(x, sr, edges=B.STEREO_EDGES):
     return out
 
 
-def compare(x, ref, sr, sr_ref=None):
+def compare(x: FloatArray, ref: FloatArray, sr: int, sr_ref: int | None = None) -> list[tuple[Any, Any]]:
     """Tonal difference x - ref per 1/3 octave after equal-loudness normalisation
     (both brought to the same total power, so only shape differs)."""
     a = third_octave(x, sr)
@@ -109,7 +114,7 @@ def compare(x, ref, sr, sr_ref=None):
 
 
 # ---------------------------------------------------------------- EQ diff
-def eq_diff(dry, wet, sr, nperseg=16384, smooth_oct=1 / 6):
+def eq_diff(dry: FloatArray, wet: FloatArray, sr: int, nperseg: int = 16384, smooth_oct: float = 1 / 6) -> Json:
     """Magnitude response wet/dry (dB) with coherence. Signals must be time-aligned
     (use align()). Returns dict with log-spaced frequency grid."""
     d, w = dry.mean(axis=1), wet.mean(axis=1)
@@ -129,7 +134,9 @@ def eq_diff(dry, wet, sr, nperseg=16384, smooth_oct=1 / 6):
     return {"freq_hz": grid.tolist(), "gain_db": mag, "coherence": co}
 
 
-def align(dry, wet, max_lag_s=0.5, sr=48000):
+def align(
+    dry: FloatArray, wet: FloatArray, max_lag_s: float = 0.5, sr: int = 48000
+) -> tuple[FloatArray, FloatArray, int]:
     """Shift wet to line up with dry (plugin latency). Returns (dry, wet, lag_samples)."""
     a, b = dry.mean(axis=1), wet.mean(axis=1)
     n = min(len(a), len(b), int(sr * 10))
@@ -146,7 +153,7 @@ def align(dry, wet, max_lag_s=0.5, sr=48000):
     return dry[:L], wet[:L], lag
 
 
-def summarize_eq(res, min_coh=0.9, min_db=0.5):
+def summarize_eq(res: Json, min_coh: float = 0.9, min_db: float = 0.5) -> Json:
     """Name the main moves: largest boost, largest cut, low/high shelf trend."""
     f = np.array(res["freq_hz"])
     g = np.array(res["gain_db"])
@@ -305,7 +312,7 @@ _TF = np.array(
 )
 
 
-def iso226(phon: float, freqs=None):
+def iso226(phon: float, freqs: npt.ArrayLike | None = None) -> tuple[FloatArray, FloatArray]:
     """SPL (dB) needed at each frequency to sound as loud as `phon` dB at 1 kHz.
     ISO 226:2003 formula and table (valid 20 Hz-12.5 kHz, 20-90 phon;
     the 2023 revision moves values by about 1 dB at most in that range)."""
@@ -316,7 +323,9 @@ def iso226(phon: float, freqs=None):
     return np.asarray(freqs), np.interp(np.log10(freqs), np.log10(_F), lp)
 
 
-def perceived_balance(bands, listen_phon=80.0, ref_phon=None):
+def perceived_balance(
+    bands: Sequence[tuple[float, float]], listen_phon: float = 80.0, ref_phon: float | None = None
+) -> list[tuple[Any, Any]]:
     """How much each band's loudness changes between two listening levels.
 
     Returns per-band dB: contour(ref) - contour(listen), shifted so 1 kHz = 0.

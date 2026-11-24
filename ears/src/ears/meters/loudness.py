@@ -17,10 +17,12 @@ Note that some meters treat mono as dual-mono (+3 dB). This one does not.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Any
 
 import numpy as np
 from scipy import signal
 
+from .arrays import FloatArray
 from .util import db, pdb, r
 
 ABS_GATE = -70.0
@@ -29,7 +31,7 @@ REL_GATE_LRA = -20.0  # loudness range relative gate (EBU Tech 3342)
 OFFSET = -0.691
 
 
-def k_weighting(sr: int):
+def k_weighting(sr: int) -> list[tuple[FloatArray, FloatArray]]:
     """Return [(b, a), (b, a)] for the pre-filter shelf and the RLB high-pass."""
     # Stage 1: high shelf (head acoustics)
     f0, G, Q = 1681.974450955533, 3.999843853973347, 0.7071752369554196
@@ -48,14 +50,14 @@ def k_weighting(sr: int):
     return [(np.array(b1), np.array(a1)), (np.array(b2), np.array(a2))]
 
 
-def k_filter(x: np.ndarray, sr: int) -> np.ndarray:
+def k_filter(x: FloatArray, sr: int) -> FloatArray:
     y = x
     for b, a in k_weighting(sr):
         y = signal.lfilter(b, a, y, axis=0)
     return y
 
 
-def _block_power(y: np.ndarray, sr: int, win_s: float, hop_s: float) -> np.ndarray:
+def _block_power(y: FloatArray, sr: int, win_s: float, hop_s: float) -> FloatArray:
     """Mean-square per channel for sliding rectangular windows -> summed over channels."""
     win, hop = round(win_s * sr), round(hop_s * sr)
     if y.shape[0] < win:
@@ -66,7 +68,7 @@ def _block_power(y: np.ndarray, sr: int, win_s: float, hop_s: float) -> np.ndarr
     return ms.sum(axis=1)  # channel weights all 1.0
 
 
-def _lk(p):
+def _lk(p: Any) -> Any:
     return OFFSET + pdb(p)
 
 
@@ -82,10 +84,10 @@ class LoudnessResult:
     true_peak: float
     plr: float  # peak-to-loudness ratio: true peak - integrated
     psr_min: float  # min over time of true-peak(3 s) - short-term; low = squashed
-    momentary: np.ndarray
-    short_term: np.ndarray
+    momentary: FloatArray
+    short_term: FloatArray
 
-    def summary(self) -> dict:
+    def summary(self) -> dict[str, Any]:
         return {
             k: r(getattr(self, k))
             for k in (
@@ -103,20 +105,20 @@ class LoudnessResult:
         }
 
 
-def momentary(x, sr, hop_s=0.1):
+def momentary(x: FloatArray, sr: int, hop_s: float = 0.1) -> FloatArray:
     return _lk(_block_power(k_filter(x, sr), sr, 0.4, hop_s))
 
 
-def short_term(x, sr, hop_s=0.1):
+def short_term(x: FloatArray, sr: int, hop_s: float = 0.1) -> FloatArray:
     return _lk(_block_power(k_filter(x, sr), sr, 3.0, hop_s))
 
 
-def integrated(x: np.ndarray, sr: int) -> float:
+def integrated(x: FloatArray, sr: int) -> float:
     p = _block_power(k_filter(x, sr), sr, 0.4, 0.1)  # 75 % overlap
     return _gate_integrated(p)
 
 
-def _gate_integrated(p: np.ndarray) -> float:
+def _gate_integrated(p: FloatArray) -> float:
     if p.size == 0:
         return float("nan")
     levels = _lk(p)
@@ -128,7 +130,7 @@ def _gate_integrated(p: np.ndarray) -> float:
     return float(_lk(p2.mean()))
 
 
-def loudness_range(st: np.ndarray):
+def loudness_range(st: FloatArray) -> tuple[float, float, float]:
     """EBU Tech 3342 LRA from short-term values (LUFS). Returns (lra, p10, p95)."""
     st = st[st > ABS_GATE]
     if st.size < 2:
@@ -146,7 +148,7 @@ def oversample_factor(sr: int) -> int:
     return 8 if sr < 96000 else (4 if sr < 192000 else 2)
 
 
-def true_peak_signal(x: np.ndarray, sr: int, factor: int | None = None) -> np.ndarray:
+def true_peak_signal(x: FloatArray, sr: int, factor: int | None = None) -> FloatArray:
     """Oversampled absolute signal (per channel). Used for TP and TP-aware limiting."""
     f = factor or oversample_factor(sr)
     # Long Kaiser-windowed FIR: flat passband to ~0.45 fs keeps the estimate honest
@@ -155,7 +157,7 @@ def true_peak_signal(x: np.ndarray, sr: int, factor: int | None = None) -> np.nd
     return np.abs(up)
 
 
-def true_peak_envelope(x: np.ndarray, sr: int, factor: int | None = None, chunk: int = 1 << 18) -> np.ndarray:
+def true_peak_envelope(x: FloatArray, sr: int, factor: int | None = None, chunk: int = 1 << 18) -> FloatArray:
     """Per original sample: max over channels and the `factor` interpolated points after it.
     Chunked with 512-sample overlap so an 84 s file needs ~50 MB, not ~1 GB."""
     f = factor or oversample_factor(sr)
@@ -171,19 +173,19 @@ def true_peak_envelope(x: np.ndarray, sr: int, factor: int | None = None, chunk:
     return out
 
 
-def true_peak(x: np.ndarray, sr: int, factor: int | None = None) -> float:
+def true_peak(x: FloatArray, sr: int, factor: int | None = None) -> float:
     return float(db(np.max(true_peak_envelope(x, sr, factor)))) if x.size else float("-inf")
 
 
-def true_peak_per_channel(x, sr):
+def true_peak_per_channel(x: FloatArray, sr: int) -> list[float]:
     return [true_peak(x[:, [c]], sr) for c in range(x.shape[1])]
 
 
-def sample_peak(x: np.ndarray) -> float:
+def sample_peak(x: FloatArray) -> float:
     return float(db(np.max(np.abs(x)))) if x.size else float("-inf")
 
 
-def analyze(x: np.ndarray, sr: int) -> LoudnessResult:
+def analyze(x: FloatArray, sr: int) -> LoudnessResult:
     y = k_filter(x, sr)
     pm = _block_power(y, sr, 0.4, 0.1)
     ps = _block_power(y, sr, 3.0, 0.1)
@@ -209,7 +211,7 @@ def analyze(x: np.ndarray, sr: int) -> LoudnessResult:
     )
 
 
-def _psr_min(tp_sig, st, sr):
+def _psr_min(tp_sig: FloatArray, st: FloatArray, sr: int) -> float:
     """Peak-to-short-term-loudness ratio, minimum over gated 3 s windows."""
     if st.size == 0:
         return float("nan")
@@ -224,6 +226,6 @@ def _psr_min(tp_sig, st, sr):
     return min(vals) if vals else float("nan")
 
 
-def gain_to(x: np.ndarray, sr: int, target_lufs: float) -> float:
+def gain_to(x: FloatArray, sr: int, target_lufs: float) -> float:
     """dB of gain that moves integrated loudness to target."""
     return target_lufs - integrated(x, sr)

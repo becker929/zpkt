@@ -8,8 +8,8 @@ from .models import PitchFeatures
 def extract(audio_path: str) -> PitchFeatures:
     """Extract predominant pitch. Needs basic-pitch, which ears does not install (see pyproject.toml)."""
     try:
-        from basic_pitch import ICASSP_2022_MODEL_PATH  # type: ignore[import]
-        from basic_pitch.inference import predict  # type: ignore[import]
+        from basic_pitch import ICASSP_2022_MODEL_PATH
+        from basic_pitch.inference import predict
     except ImportError:
         raise ImportError("basic-pitch is not installed: run `uv pip install basic-pitch` in ears/") from None
 

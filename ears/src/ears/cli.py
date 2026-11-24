@@ -10,7 +10,7 @@ from __future__ import annotations
 import dataclasses
 import json
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Any
 
 import typer
 from rich.console import Console
@@ -241,7 +241,7 @@ def _print_rhythm(ry: RhythmFeatures) -> None:
         console.print(f"  Swing:      {ry.swing_ratio:.3f}")
 
 
-def _json_default(obj):
+def _json_default(obj: Any) -> Any:
     try:
         return float(obj)
     except Exception:
@@ -266,7 +266,7 @@ for _name, _help in meters_cli.commands().items():
     _add_meter_command(_name, _help)
 
 
-def main():
+def main() -> None:
     app()
 
 

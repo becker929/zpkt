@@ -14,7 +14,10 @@ from __future__ import annotations
 
 import gzip
 import xml.etree.ElementTree as ET
+from collections.abc import Iterator
+from typing import Any
 
+from .arrays import Json
 from .util import db, r
 
 TRACK_TAGS = ("AudioTrack", "MidiTrack", "GroupTrack", "ReturnTrack")
@@ -46,12 +49,18 @@ MASTERING_PLUGIN_HINTS = (
 )
 
 
-def _val(el, path, default=None):
+def _require(el: ET.Element | None, what: str, path: str) -> ET.Element:
+    if el is None:
+        raise ValueError(f"{path}: no {what} found; is it an Ableton Live set (.als)?")
+    return el
+
+
+def _val(el: ET.Element, path: str, default: str | None = None) -> Any:
     e = el.find(path)
     return e.get("Value") if e is not None else default
 
 
-def _device_name(d):
+def _device_name(d: ET.Element) -> str:
     if d.tag == "PluginDevice":
         for p in (
             "PluginDesc/VstPluginInfo/PlugName",
@@ -65,8 +74,8 @@ def _device_name(d):
     return d.tag
 
 
-def _devices(chain_el):
-    out = []
+def _devices(chain_el: ET.Element | None) -> list[Json]:
+    out: list[Json] = []
     if chain_el is None:
         return out
     for d in chain_el:
@@ -77,7 +86,7 @@ def _devices(chain_el):
         if user:
             item["label"] = user
         if d.tag in ("AudioEffectGroupDevice", "InstrumentGroupDevice", "DrumGroupDevice"):
-            inner = []
+            inner: list[Json] = []
             for br in d.iter("DeviceChain"):
                 inner += _devices(br.find("Devices"))
             if inner:
@@ -86,7 +95,7 @@ def _devices(chain_el):
     return out
 
 
-def _track(t):
+def _track(t: ET.Element) -> Json:
     name = _val(t, "Name/EffectiveName", "?")
     mixer = t.find("DeviceChain/Mixer")
     vol = float(_val(mixer, "Volume/Manual", "1")) if mixer is not None else 1.0
@@ -103,15 +112,15 @@ def _track(t):
     }
 
 
-def read(path: str) -> dict:
+def read(path: str) -> Json:
     with gzip.open(path) as f:
         root = ET.fromstring(f.read())
-    ls = root.find("LiveSet")
+    ls = _require(root.find("LiveSet"), "<LiveSet>", path)
     main = ls.find("MainTrack")
     if main is None:
-        main = ls.find("MasterTrack")
-    tracks = [_track(t) for t in ls.find("Tracks") if t.tag in TRACK_TAGS]
-    mixer = main.find("DeviceChain/Mixer")
+        main = _require(ls.find("MasterTrack"), "<MainTrack> or <MasterTrack>", path)
+    tracks = [_track(t) for t in _require(ls.find("Tracks"), "<Tracks>", path) if t.tag in TRACK_TAGS]
+    mixer = _require(main.find("DeviceChain/Mixer"), "Main mixer", path)
     out = {
         "creator": root.get("Creator"),
         "tempo": float(_val(mixer, "Tempo/Manual", "nan")),
@@ -123,14 +132,14 @@ def read(path: str) -> dict:
     return out
 
 
-def _flat(devs):
+def _flat(devs: list[Json]) -> Iterator[Json]:
     for d in devs:
         yield d
         yield from _flat(d.get("contains", []))
 
 
-def findings(s: dict) -> list[str]:
-    f = []
+def findings(s: Json) -> list[str]:
+    f: list[str] = []
     live_main = [d for d in _flat(s["main_devices"]) if d["on"]]
     lim = [
         d["device"]

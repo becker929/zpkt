@@ -16,24 +16,25 @@ import numpy as np
 from scipy import signal
 
 from . import loudness as L
+from .arrays import FloatArray, Json
 from .util import db, r, rms
 
 
-def crest_db(x):
+def crest_db(x: FloatArray) -> float:
     """Sample peak over RMS, both channels pooled. Sine = 3.01 dB."""
     return float(db(np.max(np.abs(x))) - db(rms(x))) if x.size else float("nan")
 
 
-def micro(x, sr, block_s=0.4):
+def micro(x: FloatArray, sr: int, block_s: float = 0.4) -> Json:
     """Per-block crest (peak/RMS) over loud blocks. Median = typical punch inside a beat."""
     n = int(block_s * sr)
-    vals, levels = [], []
+    crests: list[float] = []
+    block_levels: list[float] = []
     for i in range(0, len(x) - n + 1, n):
         b = x[i : i + n]
-        lv = db(rms(b))
-        levels.append(lv)
-        vals.append(crest_db(b))
-    vals, levels = np.array(vals), np.array(levels)
+        block_levels.append(db(rms(b)))
+        crests.append(crest_db(b))
+    vals, levels = np.array(crests), np.array(block_levels)
     if vals.size == 0:
         return {}
     loud = levels > (np.max(levels) - 20)
@@ -45,7 +46,7 @@ def micro(x, sr, block_s=0.4):
     }
 
 
-def envelope_db(x, sr, attack_ms, release_ms):
+def envelope_db(x: FloatArray, sr: int, attack_ms: float, release_ms: float) -> FloatArray:
     """Peak envelope follower (dB) on the channel max."""
     rect = np.max(np.abs(x), axis=1)
     aa = np.exp(-1.0 / (sr * attack_ms / 1000))
@@ -59,7 +60,7 @@ def envelope_db(x, sr, attack_ms, release_ms):
     return db(out)
 
 
-def transient_contrast(x, sr, hit_ms=10.0, body=(20.0, 120.0)):
+def transient_contrast(x: FloatArray, sr: int, hit_ms: float = 10.0, body: tuple[float, float] = (20.0, 120.0)) -> Json:
     """'Punch' at each onset: peak in the first `hit_ms` minus RMS of the body window
     (20-120 ms after the onset), in dB. Median over onsets.
 
@@ -76,21 +77,22 @@ def transient_contrast(x, sr, hit_ms=10.0, body=(20.0, 120.0)):
     if len(peaks) < 3:
         return {"onsets": len(peaks)}
     h, b0, b1 = int(hit_ms / 1000 * sr), int(body[0] / 1000 * sr), int(body[1] / 1000 * sr)
-    hits, bods = [], []
+    hit_db: list[float] = []
+    body_db: list[float] = []
     for p in peaks:
         on = max(0, p * hop - w)  # envelope lags the true onset by ~one window
         if on + b1 > len(m):
             break
-        hits.append(float(db(np.max(m[on : on + h + w]))))
-        bods.append(float(db(np.sqrt(np.mean(m[on + b0 : on + b1] ** 2)))))
-    hits, bods = np.array(hits), np.array(bods)
+        hit_db.append(float(db(np.max(m[on : on + h + w]))))
+        body_db.append(float(db(np.sqrt(np.mean(m[on + b0 : on + b1] ** 2)))))
+    hits, bods = np.array(hit_db), np.array(body_db)
     keep = hits >= hits.max() - 10 if hits.size else hits.astype(bool)  # main hits only (kicks)
     if keep.sum() < 3:
         return {"onsets": int(keep.sum())}
     return {"onsets": int(keep.sum()), "transient_contrast_median_db": r(np.median(hits[keep] - bods[keep]))}
 
 
-def macro(lres: L.LoudnessResult):
+def macro(lres: L.LoudnessResult) -> Json:
     st = lres.short_term
     st = st[st > -70]
     if st.size == 0:
@@ -102,7 +104,7 @@ def macro(lres: L.LoudnessResult):
     }
 
 
-def analyze(x, sr, lres: L.LoudnessResult | None = None):
+def analyze(x: FloatArray, sr: int, lres: L.LoudnessResult | None = None) -> Json:
     lres = lres or L.analyze(x, sr)
     rm = rms(x)
     out = {
@@ -119,13 +121,13 @@ def analyze(x, sr, lres: L.LoudnessResult | None = None):
 
 
 # --------------------------------------------------------- compressor probe
-def probe_align(dry, wet, thresh_dbfs=-80.0):
+def probe_align(dry: FloatArray, wet: FloatArray, thresh_dbfs: float = -80.0) -> tuple[FloatArray, FloatArray, int]:
     """Align a probe render by the silence-to-tone onset, not by cross-correlation.
     The probe is a steady 1 kHz tone, so correlation is ambiguous by whole cycles
     (a plugin with lookahead would shift attack/release by milliseconds)."""
     th = 10 ** (thresh_dbfs / 20)
 
-    def onset(x):
+    def onset(x: FloatArray) -> int:
         idx = np.flatnonzero(np.max(np.abs(x), axis=1) > th)
         return int(idx[0]) if idx.size else 0
 
@@ -138,7 +140,9 @@ def probe_align(dry, wet, thresh_dbfs=-80.0):
     return dry[:n], wet[:n], lag
 
 
-def gain_curve_db(dry, wet, sr, win_ms=2.0):
+def gain_curve_db(
+    dry: FloatArray, wet: FloatArray, sr: int, win_ms: float = 2.0
+) -> tuple[FloatArray, FloatArray, FloatArray]:
     """Frame-wise gain wet/dry in dB (RMS over win_ms). Needs aligned signals."""
     n = max(1, int(sr * win_ms / 1000))
     k = len(dry) // n
@@ -151,7 +155,7 @@ def gain_curve_db(dry, wet, sr, win_ms=2.0):
     return t, g, db(d)
 
 
-def comp_probe(dry, wet, sr, layout=None):
+def comp_probe(dry: FloatArray, wet: FloatArray, sr: int, layout: Json | None = None) -> Json:
     """Estimate compressor parameters from a render of siggen.comp_probe().
 
     layout: dict from the probe's sidecar JSON (segment times). Returns a dict."""
@@ -159,7 +163,7 @@ def comp_probe(dry, wet, sr, layout=None):
 
     lay = layout or COMP_PROBE_LAYOUT
     t, g, lvl = gain_curve_db(dry, wet, sr)
-    out = {}
+    out: Json = {}
     # static curve from the slow ramp: input level (sine-referenced) vs output level
     a, b = lay["ramp"]
     m = (t > a + 0.05) & (t < b - 0.05) & np.isfinite(g)
@@ -195,7 +199,8 @@ def comp_probe(dry, wet, sr, layout=None):
         )
     # time constants from the level steps: 63 % of each GR change (fine 0.5 ms frames)
     t, g, _ = gain_curve_db(dry, wet, sr, win_ms=0.5)
-    atk, rel = [], []
+    atk: list[float] = []
+    rel: list[float] = []
     for t0, t1, kind in lay["steps"]:
         seg = (t >= t0) & (t < t1) & np.isfinite(g)
         if seg.sum() < 5:

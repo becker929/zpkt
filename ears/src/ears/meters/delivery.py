@@ -13,14 +13,16 @@ import os
 import shutil
 import subprocess
 import tempfile
+from collections.abc import Sequence
 
 import numpy as np
 import soundfile as sf
 
 from . import loudness as L
+from .arrays import FloatArray, Json
 from .util import r
 
-PLATFORMS = {
+PLATFORMS: dict[str, tuple[float | None, bool, str]] = {
     # name: (target LUFS, turns quiet content up?, note)
     "youtube": (-14.0, False, "observed; applies to uploads incl. Shorts (assumed)"),
     "spotify": (-14.0, True, "documented by Spotify; up-gain limited by peak headroom"),
@@ -41,8 +43,8 @@ CODECS = {
 EXT = {"aac128": "m4a", "opus160": "opus", "mp3_320": "mp3"}
 
 
-def normalization(integrated_lufs, true_peak_dbtp):
-    rows = {}
+def normalization(integrated_lufs: float, true_peak_dbtp: float) -> dict[str, Json]:
+    rows: dict[str, Json] = {}
     if not np.isfinite(integrated_lufs):
         return {
             name: {
@@ -76,7 +78,7 @@ def normalization(integrated_lufs, true_peak_dbtp):
     return rows
 
 
-def codec_available(label):
+def codec_available(label: str) -> bool:
     if not shutil.which("ffmpeg"):
         return False
     enc = CODECS[label][1]
@@ -84,7 +86,7 @@ def codec_available(label):
     return f" {enc} " in out
 
 
-def roundtrip(x, sr, label, keep_dir=None, name="master"):
+def roundtrip(x: FloatArray, sr: int, label: str, keep_dir: str | None = None, name: str = "master") -> FloatArray:
     """Encode then decode with ffmpeg. Returns decoded float array (n, ch) at sr."""
     with tempfile.TemporaryDirectory() as d:
         src = os.path.join(d, "src.wav")
@@ -99,7 +101,7 @@ def roundtrip(x, sr, label, keep_dir=None, name="master"):
     return _align_len(x, y)
 
 
-def _align_len(x, y):
+def _align_len(x: FloatArray, y: FloatArray) -> FloatArray:
     """Codecs add priming delay. Find it by cross-correlation and trim."""
     from scipy import signal
 
@@ -114,8 +116,8 @@ def _align_len(x, y):
     return y[: len(x)]
 
 
-def codec_report(x, sr, labels=("aac128", "opus160")):
-    res = {}
+def codec_report(x: FloatArray, sr: int, labels: Sequence[str] = ("aac128", "opus160")) -> dict[str, Json]:
+    res: dict[str, Json] = {}
     base_tp = L.true_peak(x, sr)
     base_i = L.integrated(x, sr)
     for lab in labels:
@@ -134,9 +136,9 @@ def codec_report(x, sr, labels=("aac128", "opus160")):
     return res
 
 
-def report(x, sr, lres=None, codecs=True):
+def report(x: FloatArray, sr: int, lres: L.LoudnessResult | None = None, codecs: bool = True) -> Json:
     lres = lres or L.analyze(x, sr)
-    out = {
+    out: Json = {
         "integrated": r(lres.integrated),
         "true_peak": r(lres.true_peak),
         "normalization": normalization(lres.integrated, lres.true_peak),
@@ -144,7 +146,7 @@ def report(x, sr, lres=None, codecs=True):
     if codecs:
         out["codec_roundtrip"] = codec_report(x, sr)
     yt = out["normalization"]["youtube"]
-    advice = []
+    advice: list[str] = []
     if np.isfinite(lres.integrated) and lres.integrated > -14:
         advice.append(f"YouTube turns this down {abs(yt['gain_db'])} dB; loudness above -14 LUFS buys nothing there")
     if lres.true_peak > -1:

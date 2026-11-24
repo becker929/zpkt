@@ -13,21 +13,24 @@ import shutil
 import subprocess
 import tempfile
 from dataclasses import asdict, dataclass, field
+from typing import Any
 
 import numpy as np
 import soundfile as sf
+
+from .arrays import FloatArray, Json
 
 LOSSY_EXT = {".mp3", ".m4a", ".aac", ".ogg", ".opus", ".webm"}
 
 
 @dataclass
 class Audio:
-    x: np.ndarray  # (n, ch) float64, full scale = 1.0
+    x: FloatArray  # (n, ch) float64, full scale = 1.0
     sr: int
     path: str = ""
     subtype: str = ""  # e.g. PCM_16, PCM_24, FLOAT, or "lossy:mp3"
     fmt: str = ""  # WAV, AIFF, FLAC, MP3 ...
-    info: dict = field(default_factory=dict)
+    info: Json = field(default_factory=dict)
 
     @property
     def n(self) -> int:
@@ -45,7 +48,7 @@ class Audio:
     def lossy(self) -> bool:
         return self.subtype.startswith("lossy")
 
-    def meta(self) -> dict:
+    def meta(self) -> Json:
         return {
             "path": self.path,
             "sr": self.sr,
@@ -57,7 +60,7 @@ class Audio:
         }
 
 
-def _as2d(x: np.ndarray) -> np.ndarray:
+def _as2d(x: Any) -> FloatArray:
     x = np.asarray(x, dtype=np.float64)
     return x[:, None] if x.ndim == 1 else x
 
@@ -82,25 +85,25 @@ def _load_ffmpeg(path: str, ext: str) -> Audio:
     return Audio(x, sr, path, "lossy:" + ext[1:], ext[1:].upper(), {"decoder": "ffmpeg"})
 
 
-def save(path: str, x: np.ndarray, sr: int, subtype: str = "FLOAT") -> str:
+def save(path: str, x: Any, sr: int, subtype: str = "FLOAT") -> str:
     """Write audio. Default 32-bit float so nothing clips or truncates silently."""
     os.makedirs(os.path.dirname(os.path.abspath(path)), exist_ok=True)
     sf.write(path, _as2d(x), sr, subtype=subtype)
     return path
 
 
-def from_array(x: np.ndarray, sr: int, name: str = "<array>") -> Audio:
+def from_array(x: Any, sr: int, name: str = "<array>") -> Audio:
     return Audio(_as2d(x), sr, name, "FLOAT", "ARRAY")
 
 
-def dump_json(obj, path: str) -> str:
+def dump_json(obj: Any, path: str) -> str:
     os.makedirs(os.path.dirname(os.path.abspath(path)), exist_ok=True)
     with open(path, "w") as f:
         json.dump(obj, f, indent=2, default=_json_default)
     return path
 
 
-def _json_default(o):
+def _json_default(o: Any) -> Any:
     if isinstance(o, (np.floating,)):
         return float(o)
     if isinstance(o, (np.integer,)):

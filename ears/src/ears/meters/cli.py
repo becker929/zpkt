@@ -6,26 +6,31 @@ import argparse
 import json
 import os
 import sys
+from collections.abc import Callable, Sequence
+from typing import Any
 
 from . import io as aio
 from . import lab, references
 from . import windows as W
+from .arrays import Json
+from .io import Audio
+from .references import Reference
 from .util import r
 
 LAB = lab.ROOT  # reports/ and audio/renders/ go here
 
 
-def _out(obj, as_json):
+def _out(obj: Any, as_json: bool) -> Any:
     if as_json:
         print(json.dumps(obj, indent=2, default=aio._json_default))
     return obj
 
 
-def _stem(p):
+def _stem(p: str) -> str:
     return os.path.splitext(os.path.basename(p))[0]
 
 
-def cmd_measure(a):
+def cmd_measure(a: argparse.Namespace) -> None:
     from . import measure
 
     au = aio.load(a.file)
@@ -42,24 +47,26 @@ def cmd_measure(a):
         print(f"(saved {os.path.relpath(base, LAB)}.md / .json)")
 
 
-def cmd_premaster(a):
+def cmd_premaster(a: argparse.Namespace) -> None:
     from . import premaster
 
     res = premaster.run(aio.load(a.file))
     if a.json:
-        return _out(res, True)
+        _out(res, True)
+        return
     print(f"Premaster check: {os.path.basename(a.file)} -> {res['overall']}\n")
     for row in res["checks"]:
         print(f"  [{row['status']:4}] {row['check']:30} {row['value']!s:>10}   {row['why']}")
 
 
-def cmd_deliver(a):
+def cmd_deliver(a: argparse.Namespace) -> None:
     from . import delivery
 
     au = aio.load(a.file)
     res = delivery.report(au.x, au.sr, codecs=not a.no_codecs)
     if a.json:
-        return _out(res, True)
+        _out(res, True)
+        return
     print(f"Delivery: {os.path.basename(a.file)}  I={res['integrated']} LUFS  TP={res['true_peak']} dBTP\n")
     for p, v in res["normalization"].items():
         print(
@@ -71,13 +78,13 @@ def cmd_deliver(a):
         print("  ! " + adv)
 
 
-def cmd_bitdepth(a):
+def cmd_bitdepth(a: argparse.Namespace) -> None:
     from . import bitdepth
 
     _out(bitdepth.analyze(aio.load(a.file)), True)
 
 
-def cmd_spectrum(a):
+def cmd_spectrum(a: argparse.Namespace) -> None:
     from . import spectrum as S
 
     au = aio.load(a.file)
@@ -95,7 +102,7 @@ def cmd_spectrum(a):
     _out(out, True)
 
 
-def cmd_eqdiff(a):
+def cmd_eqdiff(a: argparse.Namespace) -> None:
     from . import spectrum as S
 
     d, w = aio.load(a.dry), aio.load(a.wet)
@@ -104,11 +111,12 @@ def cmd_eqdiff(a):
     summ = S.summarize_eq(res)
     summ["latency_samples"] = lag
     if a.json:
-        return _out({"summary": summ, "curve": res}, True)
+        _out({"summary": summ, "curve": res}, True)
+        return
     _out(summ, True)
 
 
-def cmd_compprobe(a):
+def cmd_compprobe(a: argparse.Namespace) -> None:
     from . import dynamics as D
 
     d, w = aio.load(a.dry), aio.load(a.wet)
@@ -118,7 +126,7 @@ def cmd_compprobe(a):
     _out(res, True)
 
 
-def cmd_probe(a):
+def cmd_probe(a: argparse.Namespace) -> None:
     from . import siggen
 
     out = os.path.join(LAB, "audio", "renders", "probes")
@@ -131,7 +139,7 @@ def cmd_probe(a):
     )
 
 
-def cmd_match(a):
+def cmd_match(a: argparse.Namespace) -> None:
     from . import compare
 
     auds = [aio.load(p) for p in a.files]
@@ -143,7 +151,7 @@ def cmd_match(a):
         print(f"{os.path.basename(au.path)}: {r(g):+} dB -> {os.path.relpath(p, LAB)}")
 
 
-def cmd_abx(a):
+def cmd_abx(a: argparse.Namespace) -> None:
     from . import compare
 
     out = a.out or os.path.join(LAB, "audio", "renders", "abx", f"{_stem(a.a)}_vs_{_stem(a.b)}")
@@ -151,13 +159,13 @@ def cmd_abx(a):
     print(f"ABX kit: {os.path.relpath(out, LAB)}  (see HOW_TO.md; do not open .answer_key.json)")
 
 
-def cmd_abxscore(a):
+def cmd_abxscore(a: argparse.Namespace) -> None:
     from . import compare
 
     _out(compare.abx_score(a.folder, a.answers), True)
 
 
-def cmd_kcal(a):
+def cmd_kcal(a: argparse.Namespace) -> None:
     from . import siggen
 
     out = os.path.join(LAB, "audio", "renders", "k-system")
@@ -166,12 +174,13 @@ def cmd_kcal(a):
     print(f"wrote K-System calibration noise to {os.path.relpath(out, LAB)}/ — see guides/ch20-21-monitoring.md")
 
 
-def cmd_als(a):
+def cmd_als(a: argparse.Namespace) -> None:
     from . import als
 
     s = als.read(a.file)
     if a.json:
-        return _out(s, True)
+        _out(s, True)
+        return
     print(f"{os.path.basename(a.file)} — {s['creator']} — {s['tempo']} BPM — main fader {s['main_volume_db']} dB")
     print(
         "Main chain: "
@@ -186,9 +195,10 @@ def cmd_als(a):
         print("  ! " + f)
 
 
-def cmd_refs(a):
+def cmd_refs(a: argparse.Namespace) -> None:
     if a.peaks:
-        return _refs_peaks(a)
+        _refs_peaks(a)
+        return
     from . import compare, measure
 
     t = measure.flat(measure.sheet(aio.load(a.file)))
@@ -199,7 +209,7 @@ def cmd_refs(a):
     print(compare.refs_table(t, refs, measure.CORE_KEYS))
 
 
-def _refs_peaks(a):
+def _refs_peaks(a: argparse.Namespace) -> None:
     """Section-aware comparison: structure, then peak window against peak window."""
     import soundfile as sf
 
@@ -207,7 +217,7 @@ def _refs_peaks(a):
     from . import printouts
     from . import sections as SE
 
-    def load(p):
+    def load(p: str) -> tuple[Audio, Json, Json | None]:
         au = aio.load(p)
         an = SE.analyze(au.x, au.sr)
         prof = SE.peak_profile(au.x, au.sr, an["bpm"], an["peak_bars"]) if an["peak_bars"] else None
@@ -236,7 +246,7 @@ def _refs_peaks(a):
             json.dump(out, f, indent=1)
 
 
-def _ref_profiles(a):
+def _ref_profiles(a: argparse.Namespace) -> tuple[list[Reference], dict[str, Json]]:
     from . import target as T
 
     refs = T.load_refs(a.refs, a.set)
@@ -245,7 +255,7 @@ def _ref_profiles(a):
     return refs, {r["id"]: T.profile_ref(r) for r in refs}
 
 
-def cmd_target(a):
+def cmd_target(a: argparse.Namespace) -> None:
     from . import printouts
     from . import target as T
 
@@ -273,7 +283,7 @@ def cmd_target(a):
         print(f"\n(saved {a.json})")
 
 
-def cmd_eqfit(a):
+def cmd_eqfit(a: argparse.Namespace) -> None:
     from . import eqfit as E
     from . import printouts
     from . import target as T
@@ -311,7 +321,7 @@ def cmd_eqfit(a):
         print(f"\n(saved {a.out})")
 
 
-def cmd_review(a):
+def cmd_review(a: argparse.Namespace) -> None:
     from . import review
 
     path, fb = review.run(a.file, a.refs, a.bpm, codecs=not a.no_codecs, reports_dir=os.path.join(LAB, "reports"))
@@ -319,28 +329,30 @@ def cmd_review(a):
     print(f"(full review: {os.path.relpath(path, LAB)})")
 
 
-def cmd_hyp(a):
+def cmd_hyp(a: argparse.Namespace) -> None:
     from . import hypothesis
 
     outdir, verdict = hypothesis.run(a.file, codecs=a.codecs)
     print(f"{verdict}  →  {outdir}")
 
 
-def cmd_calibrate(a):
+def cmd_calibrate(a: argparse.Namespace) -> None:
     sys.path.insert(0, os.path.join(LAB, "calibration"))
-    import checks
+    import checks  # type: ignore[import-not-found]  # calibration/checks.py, put on the path above
 
     ok = checks.write_report(os.path.join(LAB, "calibration", "CALIBRATION.md"), crosscheck=not a.quick)
     sys.exit(0 if ok else 1)
 
 
-def parser(prog="mlab"):
+def parser(prog: str = "mlab") -> argparse.ArgumentParser:
     """The argument parser: one subcommand per instrument. `ears` offers the same subcommands (ears/cli.py)."""
     p = argparse.ArgumentParser(prog=prog, description="Calibrated mastering instruments (HW002 lab)")
     sp = p.add_subparsers(dest="cmd", required=True)
     p.set_defaults(commands={})  # subcommand -> its help line, for commands()
 
-    def add(name, fn, *args, **kw):
+    def add(
+        name: str, fn: Callable[[argparse.Namespace], None], *args: tuple[list[str], dict[str, Any]], **kw: Any
+    ) -> argparse.ArgumentParser:
         p.get_default("commands")[name] = kw.get("help") or ""
         s = sp.add_parser(name, help=kw.pop("help", None))
         for arg in args:
@@ -348,8 +360,9 @@ def parser(prog="mlab"):
         s.set_defaults(fn=fn)
         return s
 
-    F = (["file"], {})
-    J = (["--json"], {"action": "store_true"})
+    Arg = tuple[list[str], dict[str, Any]]
+    F: Arg = (["file"], {})
+    J: Arg = (["--json"], {"action": "store_true"})
     add("measure", cmd_measure, F, J, (["--codecs"], {"action": "store_true"}), help="full measurement sheet")
     add("premaster", cmd_premaster, F, J, help="Ch.14 premaster checklist")
     add(
@@ -462,12 +475,12 @@ def parser(prog="mlab"):
     return p
 
 
-def commands():
+def commands() -> dict[str, str]:
     """{subcommand: its one-line help}, in the order `mlab --help` lists them."""
     return dict(parser().get_default("commands"))
 
 
-def main(argv=None, prog="mlab"):
+def main(argv: Sequence[str] | None = None, prog: str = "mlab") -> None:
     a = parser(prog).parse_args(argv)
     a.fn(a)
 

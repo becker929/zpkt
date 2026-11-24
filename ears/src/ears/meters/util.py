@@ -2,30 +2,35 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 import numpy as np
+import numpy.typing as npt
+
+from .arrays import FloatArray
 
 EPS = 1e-20
 
 
-def db(x) -> np.ndarray | float:
+def db(x: npt.ArrayLike) -> Any:
     """Amplitude ratio -> dB. Silence maps to a large negative number, never -inf."""
     return 20.0 * np.log10(np.maximum(np.abs(x), EPS))
 
 
-def pdb(p) -> np.ndarray | float:
+def pdb(p: npt.ArrayLike) -> Any:
     """Power ratio -> dB."""
     return 10.0 * np.log10(np.maximum(p, EPS))
 
 
-def lin(d) -> np.ndarray | float:
+def lin(d: npt.ArrayLike) -> Any:
     return 10.0 ** (np.asarray(d, dtype=float) / 20.0)
 
 
-def rms(x: np.ndarray) -> float:
+def rms(x: FloatArray) -> float:
     return float(np.sqrt(np.mean(np.square(x)))) if x.size else 0.0
 
 
-def r(v, nd=2):
+def r(v: Any, nd: int = 2) -> Any:
     """Round for reports; keep None and non-finite values readable."""
     if v is None:
         return None
@@ -38,17 +43,17 @@ def r(v, nd=2):
     return round(f, nd)
 
 
-def mono(x: np.ndarray) -> np.ndarray:
+def mono(x: FloatArray) -> FloatArray:
     """Mid signal (L+R)/2 for stereo; passthrough for mono."""
     return x.mean(axis=1) if x.ndim == 2 else x
 
 
-def dc_offset_db(x, sr, block_s=1.0):
+def dc_offset_db(x: FloatArray, sr: int, block_s: float = 1.0) -> list[float]:
     """Per-channel DC estimate (dBFS) = overall mean. See dc_is_real() before acting on it."""
     return [float(db(np.mean(x[:, c]))) for c in range(x.shape[1])]
 
 
-def dc_is_real(x, sr, block_s=1.0, z=4.0):
+def dc_is_real(x: FloatArray, sr: int, block_s: float = 1.0, z: float = 4.0) -> bool:
     """True if some channel's mean is a steady offset, not low-frequency music.
     A true offset shows in every 1 s block; bass wander changes sign, so its
     block means scatter widely around a small overall mean."""

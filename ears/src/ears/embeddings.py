@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 
@@ -69,7 +70,7 @@ def _mel(segment: np.ndarray) -> np.ndarray:
     return librosa.power_to_db(mel, ref=np.max).astype(np.float32)
 
 
-def _run_model(session, mel: np.ndarray) -> np.ndarray:
+def _run_model(session: Any, mel: np.ndarray) -> np.ndarray:
     inp = session.get_inputs()[0].name
     if mel.ndim == 2:
         mel = mel[np.newaxis, np.newaxis, :, :]

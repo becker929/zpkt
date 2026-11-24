@@ -5,6 +5,7 @@ from __future__ import annotations
 import dataclasses
 import time
 from dataclasses import dataclass, field
+from typing import Any
 
 
 @dataclass
@@ -52,7 +53,7 @@ class RhythmFeatures:
 class PitchFeatures:
     predominant_pitch_hz: float | None = None
     pitch_confidence: float = 0.0
-    note_events: list[dict] = field(default_factory=list)
+    note_events: list[Any] = field(default_factory=list)  # {start, end, pitch_hz, velocity} per note
 
 
 @dataclass
@@ -70,7 +71,7 @@ class AudioProfile:
     extracted_at: float = field(default_factory=time.time)
     errors: list[str] = field(default_factory=list)
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> dict[str, Any]:
         return dataclasses.asdict(self)
 
 
@@ -82,5 +83,5 @@ class SimilarityResult:
     spectral_distance: float | None = None
     overall_score: float | None = None
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> dict[str, Any]:
         return dataclasses.asdict(self)

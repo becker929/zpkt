@@ -10,6 +10,8 @@ from __future__ import annotations
 
 import datetime as dt
 import os
+from collections.abc import Callable, Mapping, Sequence
+from typing import Any
 
 import numpy as np
 import yaml
@@ -17,24 +19,25 @@ import yaml
 from . import compare, delivery, dsp, lab, measure
 from . import io as aio
 from . import loudness as L
+from .arrays import FloatArray, Json
 from .util import lin, r
 
 ROOT = lab.ROOT
 LAB = os.environ.get("MLAB_DATA", ROOT)
 
 
-def _p(path):
+def _p(path: str) -> str:
     return path if os.path.isabs(path) else os.path.join(LAB, path)
 
 
-def _platform(x, sr, op):
+def _platform(x: FloatArray, sr: int, op: Json) -> FloatArray:
     # same model as `mlab deliver` (turn-down only, or turn-up capped at -1 dBTP)
     row = delivery.normalization(L.integrated(x, sr), L.true_peak(x, sr))[op.get("name", "youtube")]
     return x * lin(row["gain_db"] or 0.0)
 
 
 # op name -> fn(x, sr, op), where op holds the YAML's other keys (hypotheses/TEMPLATE.yaml lists them)
-OPS_BY_NAME = {
+OPS_BY_NAME: dict[str, Callable[[FloatArray, int, Json], FloatArray]] = {
     "gain": lambda x, sr, op: dsp.gain(x, op["gain_db"]),
     "eq": lambda x, sr, op: dsp.eq(x, sr, op["bands"]),
     "compressor": lambda x, sr, op: dsp.compressor(x, sr, **op),
@@ -52,7 +55,7 @@ OPS_BY_NAME = {
 }
 
 
-def apply_op(x, sr, op: dict):
+def apply_op(x: FloatArray, sr: int, op: Mapping[str, Any]) -> FloatArray:
     """One step of a variant's chain: {"op": name, ...its settings} applied to x."""
     op = dict(op)
     name = op.pop("op")
@@ -61,9 +64,9 @@ def apply_op(x, sr, op: dict):
     return OPS_BY_NAME[name](x, sr, op)
 
 
-def build_variants(spec):
+def build_variants(spec: Json) -> dict[str, aio.Audio]:
     inputs = {k: aio.load(_p(v)) for k, v in (spec.get("inputs") or {}).items()}
-    out = {}
+    out: dict[str, aio.Audio] = {}
     for v in spec["variants"]:
         if "file" in v:
             a = aio.load(_p(v["file"]))
@@ -88,7 +91,7 @@ def build_variants(spec):
 OPS = {"<": np.less, "<=": np.less_equal, ">": np.greater, ">=": np.greater_equal}
 
 
-def evaluate(pred, rows):
+def evaluate(pred: Mapping[str, Any], rows: Mapping[str, Mapping[str, Any]]) -> Json:
     lm = rows.get(pred["left"], {}).get(pred["metric"])
     rm = rows.get(pred["right"], {}).get(pred["metric"]) if pred.get("right") else 0.0
     if not isinstance(lm, (int, float)) or not isinstance(rm, (int, float)):
@@ -110,7 +113,7 @@ def evaluate(pred, rows):
     return {"status": "PASS" if ok else "FAIL", "observed": r(obs, 3)}
 
 
-def run(path, outroot=None, codecs=None):
+def run(path: str, outroot: str | None = None, codecs: bool | None = None) -> tuple[str, str]:
     with open(path) as f:
         spec = yaml.safe_load(f)
     hid = spec["id"]
@@ -119,7 +122,8 @@ def run(path, outroot=None, codecs=None):
     os.makedirs(outdir, exist_ok=True)
     variants = build_variants(spec)
     want_codecs = spec.get("codecs", False) if codecs is None else codecs
-    rows, sheets = {}, {}
+    rows: dict[str, dict[str, Any]] = {}
+    sheets: dict[str, Json] = {}
     for name, a in variants.items():
         aio.save(os.path.join(outdir, "audio", f"{name}.wav"), a.x, a.sr)
         sh = measure.sheet(a, codecs=want_codecs)
@@ -127,7 +131,7 @@ def run(path, outroot=None, codecs=None):
         rows[name] = measure.flat(sh)
         aio.dump_json(sh, os.path.join(outdir, "sheets", f"{name}.json"))
     keys = spec.get("metrics") or measure.CORE_KEYS
-    preds = []
+    preds: list[Json] = []
     for p in spec.get("predictions", []) or []:
         preds.append({**p, **evaluate(p, rows)})
     statuses = [p["status"] for p in preds]
@@ -164,7 +168,15 @@ def run(path, outroot=None, codecs=None):
     return outdir, verdict
 
 
-def _report(spec, variants, rows, keys, preds, verdict, abx_dir):
+def _report(
+    spec: Json,
+    variants: Mapping[str, aio.Audio],
+    rows: Mapping[str, Mapping[str, Any]],
+    keys: Sequence[str],
+    preds: Sequence[Json],
+    verdict: str,
+    abx_dir: str | None,
+) -> str:
     names = list(variants)
     L_ = [
         f"# {spec['id']} — {spec.get('title', '')}",

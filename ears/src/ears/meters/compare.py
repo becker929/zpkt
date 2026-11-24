@@ -13,31 +13,44 @@ import json
 import math
 import os
 import random
+from collections.abc import Mapping, Sequence
+from typing import Any
 
 import numpy as np
 
 from . import dsp
 from . import io as aio
 from . import loudness as L
+from .arrays import FloatArray, Json
 from .util import lin, r
 
 
-def match(audios, target=None, section=None):
+def match(
+    audios: Sequence[aio.Audio], target: float | None = None, section: Sequence[float] | None = None
+) -> tuple[list[tuple[FloatArray, float]], float]:
     """audios: list of Audio. section: (start_s, dur_s) to match on a passage only.
     Returns list of (array, gain_db)."""
     levels = []
     for a in audios:
-        x = a.x if section is None else dsp.excerpt(a.x, a.sr, *section, fade_ms=0)
+        x = a.x if section is None else dsp.excerpt(a.x, a.sr, section[0], section[1], fade_ms=0)
         levels.append(L.integrated(x, a.sr))
     tgt = min(levels) if target is None else target
-    out = []
+    out: list[tuple[FloatArray, float]] = []
     for a, lv in zip(audios, levels, strict=True):
         g = tgt - lv
         out.append((a.x * lin(g), g))
     return out, tgt
 
 
-def abx_kit(a, b, outdir, trials=12, start=None, dur=None, seed=None):
+def abx_kit(
+    a: aio.Audio,
+    b: aio.Audio,
+    outdir: str,
+    trials: int = 12,
+    start: float | None = None,
+    dur: float | None = None,
+    seed: int | None = None,
+) -> str:
     """Level-match A and B, cut the same excerpt, write the kit. Returns key path."""
     os.makedirs(outdir, exist_ok=True)
     (xa, ga), (xb, gb) = match([a, b])[0]
@@ -81,12 +94,12 @@ Do not open `.answer_key.json` first.
 """
 
 
-def binom_p(correct, n):
+def binom_p(correct: int, n: int) -> float:
     """One-sided probability of >= correct right answers by guessing."""
     return sum(math.comb(n, k) for k in range(correct, n + 1)) / 2**n
 
 
-def abx_score(folder, answers):
+def abx_score(folder: str, answers: str) -> Json:
     with open(os.path.join(folder, ".answer_key.json")) as f:
         key = json.load(f)["key"]
     answers = answers.strip().upper()
@@ -101,7 +114,7 @@ def abx_score(folder, answers):
     }
 
 
-def refs_table(target_rows: dict, ref_rows: dict[str, dict], keys):
+def refs_table(target_rows: Mapping[str, Any], ref_rows: Mapping[str, Mapping[str, Any]], keys: Sequence[str]) -> str:
     """Markdown table: target vs each reference vs reference median on selected keys."""
     names = list(ref_rows)
     head = "| measure | this | " + " | ".join(names) + " | ref median | this − median |\n"

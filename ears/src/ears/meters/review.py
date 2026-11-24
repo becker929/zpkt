@@ -10,18 +10,21 @@ and each one names the number it rests on, so Anthony can argue with it.
 from __future__ import annotations
 
 import os
+from collections.abc import Mapping
+from typing import Any
 
 import numpy as np
 
 from . import io as aio
 from . import lab, measure, premaster, references
 from . import spectrum as S
+from .arrays import FloatArray, Json
 from .util import db, r
 
 AUDIO_EXT = references.AUDIO_EXTENSIONS  # kept for callers; the list lives in references.py
 
 
-def peak_events(x, sr, bpm=160.0, top=5):
+def peak_events(x: FloatArray, sr: int, bpm: float = 160.0, top: int = 5) -> Json | None:
     """Loudest beats vs the typical beat. An outlier event will drive the master limiter."""
     m = np.max(np.abs(x), axis=1)
     b = max(1, int(sr * 60 / bpm))
@@ -39,8 +42,9 @@ def peak_events(x, sr, bpm=160.0, top=5):
     }
 
 
-def ref_rows(refdir):
-    rows, tonal = {}, []
+def ref_rows(refdir: str | None) -> tuple[dict[str, dict[str, Any]], list[FloatArray] | None]:
+    rows: dict[str, dict[str, Any]] = {}
+    tonal: list[FloatArray] = []
     if not refdir or not os.path.isdir(refdir):
         return rows, None
     for p in references.reference_files(refdir):
@@ -50,8 +54,8 @@ def ref_rows(refdir):
     return rows, tonal
 
 
-def feedback(pm, fl, peaks, refs):
-    fb = []
+def feedback(pm: Json, fl: Mapping[str, Any], peaks: Json | None, refs: Mapping[str, Mapping[str, Any]]) -> list[str]:
+    fb: list[str] = []
     for row in pm["checks"]:
         if row["status"] in ("FAIL", "WARN"):
             fb.append(f"[{row['status']}] {row['check']} = {row['value']}: {row['why']}")
@@ -74,7 +78,7 @@ def feedback(pm, fl, peaks, refs):
             "tonal.slope_db_per_oct",
         ] + [f"tonal.group.{g}" for g in S.GROUPS]
         for k in keys:
-            vals = [v.get(k) for v in refs.values() if isinstance(v.get(k), (int, float))]
+            vals: list[float] = [x for x in (v.get(k) for v in refs.values()) if isinstance(x, (int, float))]
             t = fl.get(k)
             if len(vals) < 2 or not isinstance(t, (int, float)):
                 continue
@@ -84,7 +88,9 @@ def feedback(pm, fl, peaks, refs):
     return fb
 
 
-def run(path, refdir=None, bpm=160.0, codecs=True, reports_dir=None):
+def run(
+    path: str, refdir: str | None = None, bpm: float = 160.0, codecs: bool = True, reports_dir: str | None = None
+) -> tuple[str, list[str]]:
     """Review one premaster; write review-<name>.md and .json to reports_dir (default: the lab's reports/).
     Returns the .md path and the feedback lines."""
     a = aio.load(path)
@@ -98,7 +104,7 @@ def run(path, refdir=None, bpm=160.0, codecs=True, reports_dir=None):
         mine = np.array([v for _, v in S.third_octave(a.x, a.sr)])
         n = min(len(mine), *(len(t) for t in tonal))
 
-        def norm(v):
+        def norm(v: FloatArray) -> FloatArray:
             return v[:n] - 10 * np.log10(np.sum(10 ** (v[:n] / 10)))
 
         med = np.median(np.vstack([norm(t) for t in tonal]), axis=0)

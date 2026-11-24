@@ -7,7 +7,7 @@ import numpy as np
 from .models import SpectralFeatures
 
 
-def extract(audio: np.ndarray, sr: int) -> SpectralFeatures:
+def extract(audio: np.ndarray, sr: float) -> SpectralFeatures:
     """Extract spectral + timbral features from mono float32 audio."""
     import librosa
 

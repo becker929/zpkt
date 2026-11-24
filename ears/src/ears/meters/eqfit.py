@@ -69,7 +69,11 @@ Known answers: calibration/checks.py (check_eqfit).
 
 from __future__ import annotations
 
+from collections.abc import Mapping, Sequence
+from typing import Any
+
 import numpy as np
+import numpy.typing as npt
 from scipy import optimize
 
 from . import bands as B
@@ -77,6 +81,7 @@ from . import dsp
 from . import loudness as L
 from . import target as T
 from . import windows as W
+from .arrays import ComplexArray, FloatArray, Json
 from .util import pdb
 
 KINDS = ("peak", "lowshelf", "highshelf", "highpass", "lowpass")
@@ -93,18 +98,18 @@ F_LOW = 5.0  # sub-bands are log-spaced from here; [0, F_LOW) is one sub-band
 
 
 # ------------------------------------------------------------------ responses
-def _h2(kind, f0, sr, gain_db, q, z1):
+def _h2(kind: str, f0: float, sr: int, gain_db: float, q: float, z1: ComplexArray) -> FloatArray:
     """|H|^2 of one RBJ biquad at z1 = exp(-j w)."""
     b, a = dsp.biquad(kind, f0, sr, gain_db, q)
     z2 = z1 * z1
     return np.abs(b[0] + b[1] * z1 + b[2] * z2) ** 2 / np.abs(a[0] + a[1] * z1 + a[2] * z2) ** 2
 
 
-def _is_band(d):
+def _is_band(d: Any) -> bool:
     return isinstance(d, dict) and ("kind" in d or "type" in d)
 
 
-def _stem_plan(sp):
+def _stem_plan(sp: Any) -> Json:
     """One stem's plan as {"gain_db", "eq"}: from that dict, a single band dict, or a list of bands
     that may hold one {"gain_db": ...} fader entry (as parse_moves accepts)."""
     if not sp:
@@ -120,7 +125,7 @@ def _stem_plan(sp):
     return {"gain_db": float(sp.get("gain_db", 0.0) or 0.0), "eq": sp.get("eq", sp.get("bands", []))}
 
 
-def _power_gain(sp, sr, z1):
+def _power_gain(sp: Any, sr: int, z1: ComplexArray) -> FloatArray:
     sp = _stem_plan(sp)
     h = np.full(z1.shape, 10 ** (sp["gain_db"] / 10))
     for bd in sp["eq"]:
@@ -129,7 +134,7 @@ def _power_gain(sp, sr, z1):
     return h
 
 
-def response_db(plan, freqs, sr):
+def response_db(plan: Any, freqs: npt.ArrayLike, sr: int) -> Any:
     """dB response of a plan at freqs (fader + every band). `plan` is one band, a list of bands
     (with at most one {"gain_db"} fader entry), one stem's {"gain_db", "eq"}, or a whole plan
     {stem: ...} (returns {stem: curve})."""
@@ -140,7 +145,7 @@ def response_db(plan, freqs, sr):
 
 
 # ------------------------------------------------------------------ model
-def subband_edges(sr):
+def subband_edges(sr: int) -> FloatArray:
     """0, F_LOW, then 1/48-octave steps to Nyquist, plus every 1/3-octave band and region edge."""
     top = sr / 2
     k = np.arange(int(np.floor(np.log2(top / F_LOW) * SUB_PER_OCT)) + 1)
@@ -151,14 +156,16 @@ def subband_edges(sr):
     return e[np.concatenate([[True], np.diff(e) > 1e-6])]
 
 
-def _ix(e, v):
+def _ix(e: FloatArray, v: float) -> int:
     return int(np.argmin(np.abs(e - v)))
 
 
 class Model:
     """Sub-band powers of each stem per window, and the measured stem sum for the model check."""
 
-    def __init__(self, stems, sr, wins, bar_s=None):
+    def __init__(
+        self, stems: Mapping[str, Any], sr: int, wins: Mapping[str, W.Span], bar_s: float | None = None
+    ) -> None:
         self.names = list(stems)
         xs = [T._stereo(stems[k]) for k in self.names]
         n = min(len(x) for x in xs)
@@ -170,15 +177,18 @@ class Model:
         self.fc = np.where(lo > 0, np.sqrt(lo * np.maximum(hi, lo)), hi / 2)
         self.z1 = np.exp(-2j * np.pi * self.fc / sr)
         self.kw2 = np.ones_like(self.fc)
-        for b, a in L.k_weighting(sr):
+        for num, den in L.k_weighting(sr):
             z2 = self.z1 * self.z1
-            self.kw2 *= np.abs(b[0] + b[1] * self.z1 + b[2] * z2) ** 2 / np.abs(a[0] + a[1] * self.z1 + a[2] * z2) ** 2
+            self.kw2 *= (
+                np.abs(num[0] + num[1] * self.z1 + num[2] * z2) ** 2
+                / np.abs(den[0] + den[1] * self.z1 + den[2] * z2) ** 2
+            )
         c, blo, bhi = B.third_octave_grid(sr)
         self.band_hz = [T._hz(v) for v in c]
         self.band_ix = np.array([(_ix(e, a), _ix(e, b)) for a, b in zip(blo, bhi, strict=True)])
         self.region_ix = {k: (_ix(e, a), _ix(e, b)) for k, a, b in zip(B.REGION_KEYS, *B.region_edges(sr), strict=True)}
         keep, self.skipped = W.segments(sum(xs), sr, wins, bar_s)
-        self.windows = {}
+        self.windows: dict[str, Json] = {}
         for w, ((a, b), seg) in keep.items():
             lufs = L.integrated(seg, sr)
             if not np.isfinite(lufs):
@@ -196,18 +206,18 @@ class Model:
                 "measured_regions": regions,
             }
 
-    def gains(self, plan):
+    def gains(self, plan: Mapping[str, Any]) -> FloatArray:
         """stems x sub-bands power gains of a plan {stem: list of bands or {"gain_db", "eq"}}."""
         return np.array([_power_gain(plan.get(k), self.sr, self.z1) for k in self.names])
 
-    def levels(self, G, w):
-        W = self.windows[w]
-        pred = np.sum(G * W["P"], axis=0)
-        lufs = W["offset"] + pdb(np.sum(self.kw2 * pred))
+    def levels(self, G: FloatArray, w: str) -> tuple[float, FloatArray]:
+        win = self.windows[w]
+        pred = np.sum(G * win["P"], axis=0)
+        lufs = win["offset"] + pdb(np.sum(self.kw2 * pred))
         cs = np.concatenate([[0.0], np.cumsum(pred)])
         return lufs, cs
 
-    def predict(self, plan):
+    def predict(self, plan: Mapping[str, Any]) -> dict[str, Json]:
         """{window: {"lufs", "bands": [[hz, dB rel LUFS]], "regions": {key: dB rel LUFS}}}."""
         G, out = self.gains(plan), {}
         for w in self.windows:
@@ -220,9 +230,9 @@ class Model:
             }
         return out
 
-    def check(self):
+    def check(self) -> dict[str, Json]:
         """Model check: predicted (no moves) minus measured bands of the stem sum, per window."""
-        out = {}
+        out: dict[str, Json] = {}
         for w, p in self.predict({}).items():
             meas = {T._hz(c): v for c, v in self.windows[w]["measured_bands"]}
             err = [(hz, v - meas[hz]) for hz, v in p["bands"] if B.in_score(hz) and hz in meas]
@@ -239,12 +249,13 @@ class Model:
 
 
 # ------------------------------------------------------------------ moves
-def parse_moves(moves, names, sr):
+def parse_moves(moves: Mapping[str, Any], names: Sequence[str], sr: int) -> tuple[dict[str, Json], list[Json]]:
     """-> (spec, params). spec {stem: {"gain_db": slot, "eq": [{"kind", "f": slot, "gain_db": slot, "q": slot}]}},
     where a slot is ("fixed", value) or ("free", index into params)."""
-    spec, params = {}, []
+    spec: dict[str, Json] = {}
+    params: list[Json] = []
 
-    def slot(stem, where, key, kind, v, log):
+    def slot(stem: str, where: str, key: str, kind: str, v: Any, log: bool) -> tuple[str, Any]:
         if isinstance(v, (list, tuple)):
             lo, hi = float(v[0]), float(v[1])
             if lo > hi:
@@ -286,7 +297,7 @@ def parse_moves(moves, names, sr):
                 "eq": [b for b in m if "kind" in b or "type" in b],
                 "gain_db": faders[0].get("gain_db", 0.0) if faders else 0.0,
             }
-        s = {"gain_db": slot(stem, "gain_db", "gain_db", "fader", m.get("gain_db", 0.0), False), "eq": []}
+        s: Json = {"gain_db": slot(stem, "gain_db", "gain_db", "fader", m.get("gain_db", 0.0), False), "eq": []}
         for i, bd in enumerate(m.get("eq", m.get("bands", []))):
             kind = bd.get("kind", bd.get("type"))
             if set(bd) - BAND_KEYS:
@@ -316,11 +327,11 @@ def parse_moves(moves, names, sr):
     return spec, params
 
 
-def _value(sl, vals):
+def _value(sl: tuple[str, Any], vals: Sequence[float]) -> float:
     return sl[1] if sl[0] == "fixed" else float(vals[sl[1]])
 
 
-def realize(spec, vals):
+def realize(spec: Mapping[str, Json], vals: Sequence[float]) -> dict[str, Json]:
     """Concrete plan {stem: {"gain_db", "eq": [{"kind", "f", "gain_db", "q"}]}} for parameter values."""
     return {
         stem: {
@@ -339,17 +350,17 @@ def realize(spec, vals):
     }
 
 
-def _x_bounds(params):
+def _x_bounds(params: Sequence[Json]) -> tuple[FloatArray, FloatArray]:
     lo = np.array([np.log(p["lo"]) if p["log"] else p["lo"] for p in params])
     hi = np.array([np.log(p["hi"]) if p["log"] else p["hi"] for p in params])
     return lo, hi
 
 
-def _to_vals(params, x):
+def _to_vals(params: Sequence[Json], x: Sequence[float] | FloatArray) -> list[float]:
     return [float(np.exp(v)) if p["log"] else float(v) for p, v in zip(params, x, strict=True)]
 
 
-def starts(params, n):
+def starts(params: Sequence[Json], n: int) -> list[FloatArray]:
     """Neutral start (gains 0 dB or the bound nearest it, f and q mid-range in log), then seeded
     uniform draws: the same starts on every run."""
     lo, hi = _x_bounds(params)
@@ -359,7 +370,7 @@ def starts(params, n):
 
 
 # ------------------------------------------------------------------ fit
-def _compare(pred, tw):
+def _compare(pred: Json, tw: Json) -> Json:
     """Predicted window levels against the refs' statistics (target.gap per band and region)."""
     tb = {b["hz"]: b for b in tw["bands"]}
     bands = [{"hz": hz, **g} for hz, v in pred["bands"] if (g := T.gap(v, tb.get(hz)))]
@@ -374,9 +385,9 @@ def _compare(pred, tw):
     return {"bands": bands, "regions": regions, "score": T.score(bands)}
 
 
-def apply_plan(stems, sr, plan):
+def apply_plan(stems: Mapping[str, Any], sr: int, plan: Mapping[str, Any]) -> dict[str, FloatArray]:
     """The stems with a plan applied (dsp.eq in series, then the fader)."""
-    out = {}
+    out: dict[str, FloatArray] = {}
     for k, x in stems.items():
         sp = _stem_plan(plan.get(k))
         y = dsp.eq(
@@ -396,7 +407,13 @@ def apply_plan(stems, sr, plan):
     return out
 
 
-def measured_check(model, stems, plan, wins, bar_s=None):
+def measured_check(
+    model: Model,
+    stems: Mapping[str, Any],
+    plan: Mapping[str, Any],
+    wins: Mapping[str, W.Span],
+    bar_s: float | None = None,
+) -> dict[str, Json]:
     """Apply the plan to the stems, measure the EQ'd sum with target.profile and compare with the
     prediction, per window: LUFS change (measured vs predicted) and the worst band error (dB rel LUFS)
     over 31.5 Hz-16 kHz. `flag` is set where the LUFS changes differ by more than LUFS_FLAG_LU."""
@@ -404,7 +421,7 @@ def measured_check(model, stems, plan, wins, bar_s=None):
     n = min(len(x) for x in xs.values())
     prof = T.profile(sum(x[:n] for x in xs.values()), model.sr, wins, bar_s)
     pred = model.predict(plan)
-    out = {}
+    out: dict[str, Json] = {}
     for w, pw in pred.items():
         mw = prof["windows"].get(w)
         if not mw:
@@ -425,7 +442,7 @@ def measured_check(model, stems, plan, wins, bar_s=None):
     return out
 
 
-def _decommon(params, vals, names):
+def _decommon(params: Sequence[Json], vals: list[float], names: Sequence[str]) -> list[float]:
     """When every stem has a free fader, shift those faders by their median (clipped so all stay in
     bounds). Every dB rel LUFS value is unchanged; one fader move stays one move."""
     fad = {p["stem"]: i for i, p in enumerate(params) if p["param"] == "gain_db"}
@@ -443,20 +460,20 @@ def _decommon(params, vals, names):
 
 
 def fit(
-    stems,
-    sr,
-    wins,
-    targets,
-    moves,
-    bar_s=None,
-    weights=None,
-    alpha=ALPHA,
-    beta=BETA,
-    n_starts=6,
-    model=None,
-    maxiter=500,
-    measure=True,
-):
+    stems: Mapping[str, Any],
+    sr: int,
+    wins: Mapping[str, W.Span],
+    targets: Json,
+    moves: Mapping[str, Any],
+    bar_s: float | None = None,
+    weights: Mapping[str, float] | None = None,
+    alpha: float = ALPHA,
+    beta: float = BETA,
+    n_starts: int = 6,
+    model: Model | None = None,
+    maxiter: int = 500,
+    measure: bool = True,
+) -> Json:
     """Fit the free parameters of `moves` so the predicted stem sum matches `targets`
     (target.ref_stats of the references). Returns values, plan, before/after gaps, model check,
     and (measure=True) the measured check of the plan on the actual stems."""
@@ -464,14 +481,16 @@ def fit(
     spec, params = parse_moves(moves, model.names, sr)
     ws = dict(WEIGHTS, **(weights or {}))
     before = model.predict({})
-    terms, unreachable = [], {}
+    terms: list[tuple[Any, ...]] = []
+    unreachable: dict[str, list[Json]] = {}
     for w in model.windows:
         tw = targets.get("windows", {}).get(w)
         if not tw or ws.get(w, 1.0) <= 0:
             continue
         tb = {b["hz"]: b for b in tw["bands"]}
         b0 = dict((hz, v) for hz, v in before[w]["bands"])
-        sel, dead = [], []
+        sel: list[int] = []
+        dead: list[int] = []
         for k, hz in enumerate(model.band_hz):
             if not (B.in_score(hz) and hz in tb):
                 continue
@@ -503,7 +522,7 @@ def fit(
     rows = {k: i for i, k in enumerate(model.names)}
     gain_ix = np.array([i for i, p in enumerate(params) if p["param"].endswith("gain_db")], dtype=int)
 
-    def data_term(G):
+    def data_term(G: FloatArray) -> float:
         tot = 0.0
         for w, wt, first, last, mean, lo, hi in terms:
             lufs, cs = model.levels(G, w)
@@ -513,7 +532,7 @@ def fit(
             tot += wt * float(o @ o + alpha * (d @ d))
         return tot
 
-    def obj_vals(vals):
+    def obj_vals(vals: Sequence[float]) -> float:
         plan = realize(spec, vals)
         G = G_fixed.copy()
         for k in free_stems:
@@ -521,11 +540,11 @@ def fit(
         g = np.asarray(vals)[gain_ix] if gain_ix.size else np.zeros(0)
         return data_term(G) + beta * float(np.sum((g / 6.0) ** 2))
 
-    def objective(x):
+    def objective(x: FloatArray) -> float:
         return obj_vals(_to_vals(params, x))
 
     lo, hi = _x_bounds(params)
-    runs = []
+    runs: list[Json] = []
     if params:
         maxfun = maxiter * (len(params) + 1) * 5  # a numeric gradient costs n + 1 evaluations
         for i, x0 in enumerate(starts(params, n_starts)):
@@ -553,7 +572,7 @@ def fit(
         best, vals = None, []
     plan = realize(spec, vals)
     after = model.predict(plan)
-    out = {
+    out: Json = {
         "params": [
             {"stem": p["stem"], "param": p["param"], "kind": p["kind"], "value": v, "bounds": [p["lo"], p["hi"]]}
             for p, v in zip(params, vals, strict=True)
