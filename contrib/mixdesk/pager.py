@@ -3,8 +3,9 @@
 It rides on Live's factory MiniLab_3 control surface the way zpkt.live's remote_scripts/ZpktMiniLabTempo does: every
 MiniLab control is a StackingResource, and grabbing it above the factory script's own layers makes the script let
 go of it while we hold it. Bank-A pads (and the big encoder) arm one of desk.json's pages; the 4 faders, 8 knobs and
-8 bank-B pads then drive what that page lists. Knobs are realigned to the parameter when a page is armed; faders
-pick up (they act once they pass the value Live has), so arming a page never makes a value jump.
+8 bank-B pads then drive what that page lists (pagercore.HARDWARE is that map, as a table). Knobs are realigned to
+the parameter when a page is armed; faders pick up (they act once they pass the value Live has), so arming a page
+never makes a value jump.
 
 A page may name its pad ("pad": 2); pages that share a pad are layers: pressing the pad of the page that is armed
 arms the next page on that pad. The big encoder steps through every page in order.
@@ -43,7 +44,6 @@ shown = _load("zpkt_inlive_shown", os.path.join(_INLIVE, "shown.py"))
 keys = _load("zpkt_inlive_keys", os.path.join(_INLIVE, "keys.py"))
 
 PRIORITY = 20  # above ZpktMiniLabTempo (10): while the desk holds fader 4, the tempo script does not
-FADERS = ["volume_fader", "send_a_fader", "send_b_fader", "pan_fader"]  # CC 14, 15, 30, 31: left to right
 MAIN_DEVICES = ("desk headroom", "desk Glue", "desk Utility")  # bypassed while an audio-clip monitor track plays
 END_BEAT = core.END_BEAT
 SLOTS_V = core.SLOTS_V  # the server hands this over on a reload (server.pager_start_code)
@@ -253,6 +253,20 @@ class _Macro:
             self.subs[0][0].param.remove_value_listener(self._wrapped.pop(fn))
 
 
+def _hardware(cs, rows):
+    """(control, role, target) for each row of a hardware table (pagercore.HARDWARE) the controller has."""
+    out = []
+    for element, index, role, target in rows:
+        control = getattr(cs.elements, element)
+        if index is not None:
+            controls = list(control)
+            if index >= len(controls):
+                continue
+            control = controls[index]
+        out.append((control, role, target))
+    return out
+
+
 def _key_name(track, song):
     """A track's name in a state key: "Main", a return without Live's letter, any other track as it is."""
     if track == song.master_track:
@@ -427,17 +441,14 @@ class Desk:
         cs = _minilab()
         if cs is None:
             return False
-        e = cs.elements
-        g = []
-        for k, enc in enumerate(list(e.encoders_raw)[:8]):
-            g.append(_Grab(enc, self._knob(f"k{k + 1}")))
-        for k, name in enumerate(FADERS):
-            g.append(_Grab(getattr(e, name), self._fader(f"f{k + 1}")))
-        for k, pad in enumerate(list(e.pad_bank_a_raw)[:8]):
-            g.append(_Grab(pad, self._page_pad(k)))
-        for k, pad in enumerate(list(e.pad_bank_b_raw)[:8]):
-            g.append(_Grab(pad, self._toggle_pad(f"b{k + 1}")))
-        g.append(_Grab(e.display_encoder, self._page_encoder))
+        handlers = {
+            "knob": self._knob,
+            "fader": self._fader,
+            "page_pad": self._page_pad,
+            "toggle_pad": self._toggle_pad,
+            "page_encoder": lambda _target: self._page_encoder,
+        }
+        g = [_Grab(control, handlers[role](target)) for control, role, target in _hardware(cs, core.HARDWARE)]
         for x in g:
             x.grab()
         self.grabs, self.cs = g, cs
@@ -487,11 +498,11 @@ class Desk:
 
         return on
 
-    def _page_pad(self, k):
-        """Pad A(k+1) arms the first page on that pad; pressed again, the next page on the same pad (a layer)."""
+    def _page_pad(self, pad):
+        """Pad A`pad` arms the first page on that pad; pressed again, the next page on the same pad (a layer)."""
 
         def on(value):
-            page = core.page_for_pad(self.cfg, k + 1, self.page) if value else None
+            page = core.page_for_pad(self.cfg, pad, self.page) if value else None
             if page is not None:
                 self.arm(page)
 
@@ -523,9 +534,8 @@ class Desk:
         self.page = page
         self.picked = {}
         if self.cs is not None:
-            encs = list(self.cs.elements.encoders_raw)[:8]
-            for k, enc in enumerate(encs):
-                t = self.targets.get((page, f"k{k + 1}"))
+            for enc, _role, slot in _hardware(self.cs, core.hardware_rows("knob")):
+                t = self.targets.get((page, slot))
                 v = round(127 * t.norm()) if t is not None and not t.error else 0
                 try:
                     enc.realign_value(v)

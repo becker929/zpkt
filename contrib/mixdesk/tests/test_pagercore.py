@@ -120,3 +120,22 @@ def test_pagercore_imports_nothing():
 
     tree = ast.parse(Path(C.__file__).read_text())
     assert not [n for n in ast.walk(tree) if isinstance(n, ast.Import | ast.ImportFrom)]
+
+
+def test_the_hardware_table_says_which_minilab_control_does_what():
+    import surfaces
+
+    assert len(C.HARDWARE) == 29 and {row[2] for row in C.HARDWARE} == set(C.ROLES)
+    slots = [row[3] for row in C.HARDWARE if row[2] in ("knob", "fader", "toggle_pad")]
+    assert sorted(slots) == sorted(surfaces.SLOTS)  # every slot a surface may fill has a control, and only those
+    assert [row[0] for row in C.hardware_rows("fader")] == list(C.FADER_ELEMENTS)
+    assert [row[3] for row in C.hardware_rows("page_pad")] == list(range(1, 9))
+    assert C.hardware_rows("knob")[0] == ("encoders_raw", 0, "knob", "k1")
+    assert C.hardware_rows("page_encoder") == [("display_encoder", None, "page_encoder", None)]
+
+
+def test_another_timeline_is_passed_in():
+    loops = {"build": (0.0, 32.0), "drop": (32.0, 32.0)}
+    assert C.loop_mode(True, 32.0, 32.0, loops) == "drop" and C.loop_mode(True, 64.0, 96.0, loops) == "on"
+    assert C.seek_position(500, end=64.0) == pytest.approx(63.99)
+    assert C.play_from(64.0, end=64.0) == 0.0 and C.ran_past_end(True, False, 64.0, end=64.0)
