@@ -128,3 +128,54 @@ def test_refs_spectrogram_and_k_power():
             "packHead": refs.pack(spec)[:80],
         },
     )
+
+
+def test_spectral_analyze_measure_compare(tmp_path, monkeypatch, capsys):
+    """analyze, measure and compare end to end on made-up renders and references; renders.json is what the
+    spectral page reads."""
+    import json
+
+    import spectral
+
+    out, refs = tmp_path / "spectral", tmp_path / "refs"
+    out.mkdir()
+    refs.mkdir()
+    monkeypatch.setattr(spectral, "OUT", out)
+    monkeypatch.setattr(spectral, "REFS", refs)
+    monkeypatch.setattr(spectral, "TEXTURE", tmp_path / "texture.json")
+    noise = np.random.default_rng(3).standard_normal((len(kick_loop(160)), 2)).astype("float32") * 0.02
+    sf.write(out / "before.flac", kick_loop(160), RATE, subtype="PCM_16")
+    sf.write(out / "fix-a.flac", kick_loop(160) + noise, RATE, subtype="PCM_16")
+    sf.write(out / "after.flac", kick_loop(160) + 2 * noise, RATE, subtype="PCM_16")
+    rows = []
+    for k, seed in (("ksms-roses-of-flesh-and-blood", 4), ("other-ref", 5)):
+        sf.write(refs / f"{k}.flac", kick_loop(160, seed=seed) + noise[::-1], RATE, subtype="PCM_16")
+        rows.append({"id": k, "title": k.upper(), "set": "hw002", "file": f"{k}.flac", "drop": 24.0, "bpm": 160.0,
+                     "barSeconds": 1.5})
+    rows.append({"id": "kk-short", "title": "KK", "set": "kk", "file": "kk.flac", "drop": 1.0, "bpm": 150.0, "barSeconds": 1.6})
+    (refs / "refs.json").write_text(json.dumps({"refs": rows}))
+    fixes = {"note": "made up", "fixes": [
+        {"id": "a", "title": "More air", "band": [8000, 20000], "parts": [{"target": "main", "device": "EQ Eight", "values": {}}]},
+        {"id": "w", "title": "Wider", "measureBy": "side", "region": "air", "band": [8000, 20000], "parts": []},
+    ]}
+    (out / "fixes.json").write_text(json.dumps(fixes))
+    (out / "fix-w.flac").write_bytes((out / "fix-a.flac").read_bytes())
+    spectral.analyze()
+    spectral.measure()
+    got = json.loads((out / "renders.json").read_text())
+
+    def rounded(o):
+        if isinstance(o, float):
+            return round(o, 1)
+        if isinstance(o, list):
+            return [rounded(v) for v in o]
+        if isinstance(o, dict):
+            return {k: rounded(v) for k, v in o.items()}
+        return o
+
+    assert_golden("spectral-renders", rounded(got))
+    capsys.readouterr()
+    monkeypatch.setattr(spectral.sys, "argv", ["spectral.py", "compare"])
+    spectral.compare()
+    report = capsys.readouterr().out
+    assert "=== DROP SPECTRAL BANDS" in report and "[a] More air" in report

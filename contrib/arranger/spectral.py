@@ -18,13 +18,16 @@ from __future__ import annotations
 import json
 import sys
 from pathlib import Path
+from typing import Any
 
-sys.path.insert(0, str(Path(__file__).resolve().parent))
-import mixset  # noqa: E402
+import hw002
+import mixset
 
-OUT = mixset.DATA / "spectral"
-BARS = (1, 40)
-REFS = mixset.DATA / "refs"
+OUT = hw002.DATA / "spectral"
+BARS = hw002.SPAN
+REFS = hw002.DATA / "refs"
+TEXTURE = hw002.DATA / "kickdesign" / "texture.json"  # kicktexture.py's measures, shown by compare
+KSMS = "ksms-roses-of-flesh-and-blood"  # the canonical reference (Anthony, 13 Nov 2026)
 
 
 # ---- in Live --------------------------------------------------------------------------------------------------------
@@ -33,7 +36,7 @@ def parts(fixes: list[dict]) -> list[dict]:
     return [p for f in fixes for p in f.get("parts", [f])]
 
 
-def state(L, arr: dict, chans: list[dict], fixes: list[dict]) -> None:
+def state(L: Any, arr: dict, chans: list[dict], fixes: list[dict]) -> None:
     """The mix set as the recipe stands, plus these fixes. A gain fix moves a channel's mix-1 gain; any other fix is a
     device with its values at the end of a channel's, bus's or Main's chain (on Main after the headroom Utility: a
     Utility and an EQ are both linear, so the order does not change the sound)."""
@@ -146,6 +149,15 @@ def windows(drop: float, bar: float) -> dict:
     return {"build": (drop - 16 * bar, drop), "drop": (drop, drop + 16 * bar), "drop2": (drop + 16 * bar, drop + 24 * bar)}
 
 
+def band_db(spec: list[float], lo_: float, hi_: float) -> float:
+    """The power sum, in dB, of a spectrum's bands whose centres lie in lo_..hi_ Hz."""
+    import numpy as np
+
+    c = np.array(CENTRES)
+    sel = (c >= lo_) & (c < hi_)
+    return float(10 * np.log10((10 ** (np.array(spec)[sel] / 10)).sum()))
+
+
 def region_of(f: float) -> str:
     return next(n for n, a, b in REGIONS if a <= f < b)
 
@@ -168,7 +180,7 @@ def measure_file(path: Path, drop: float, bar: float) -> dict:
 def analyze() -> None:
     import numpy as np
     refs = [r for r in json.loads((REFS / "refs.json").read_text())["refs"] if r["set"] == "hw002"]
-    mine = measure_file(OUT / "before.flac", 24.0, 1.5)
+    mine = measure_file(OUT / "before.flac", hw002.DROP_SECONDS, hw002.BAR_SECONDS)
     theirs = {r["id"]: measure_file(REFS / r["file"], r["drop"], r["barSeconds"]) for r in refs}
     res = {"bands": {"n": NB, "centres": [round(c, 1) for c in CENTRES]}, "regions": REGIONS, "mix": mine, "refs": theirs,
            "titles": {r["id"]: r["title"] for r in refs}}
@@ -207,7 +219,7 @@ def measure() -> None:
     if (OUT / "after.flac").exists():
         items.append({"id": "after", "title": "All fixes", "file": "after.flac"})
     for it in items:
-        m = measure_file(OUT / it["file"], 24.0, 1.5)
+        m = measure_file(OUT / it["file"], hw002.DROP_SECONDS, hw002.BAR_SECONDS)
         it.update(drop=m["drop"], build=m.get("build"))
         x, r = sf.read(OUT / it["file"], always_2d=True)
         it["lufsWhole"] = round(float(pl.Meter(r).integrated_loudness(x)), 2)
@@ -218,12 +230,6 @@ def measure() -> None:
                      "barSeconds": meta["barSeconds"], "lufsDrop": an["refs"][k]["drop"]["lufs"],
                      "dropSpectrum": an["refs"][k]["drop"]["spectrum"]})
     # each fix's result, measured: the gap to the references' average in its band, before and with the fix alone
-    import numpy as np
-    c = np.array(CENTRES)
-
-    def band_db(spec, lo_, hi_):
-        sel = (c >= lo_) & (c < hi_)
-        return 10 * np.log10((10 ** (np.array(spec)[sel] / 10)).sum())
     before_m = next(it for it in items if it["id"] == "before")
     after_m = next((it for it in items if it["id"] == "after"), None)
     for f in fixes:
@@ -253,19 +259,12 @@ def measure() -> None:
 
 def compare() -> None:
     """Fast read-only spectral comparison of given audio files (or before.flac) against cached analysis.json & texture.json."""
-    import numpy as np
     an = json.loads((OUT / "analysis.json").read_text())
     paths = [Path(p).expanduser() for p in sys.argv[2:]] or [OUT / "before.flac"]
-    measured = {p.stem: measure_file(p, 24.0, 1.5) for p in paths if p.exists()}
+    measured = {p.stem: measure_file(p, hw002.DROP_SECONDS, hw002.BAR_SECONDS) for p in paths if p.exists()}
     if not measured:
         measured = {"before": an["mix"]}
-    c = np.array(CENTRES)
-
-    def band_db(spec, lo_, hi_):
-        sel = (c >= lo_) & (c < hi_)
-        return 10 * np.log10((10 ** (np.array(spec)[sel] / 10)).sum())
-
-    ksms_key = "ksms-roses-of-flesh-and-blood"
+    ksms_key = KSMS
     bands = REGIONS + [("deep sub", 20, 48), ("kick/bass body", 55, 120), ("1-4 kHz bite", 1000, 4000), ("8-14 kHz air", 8000, 14000)]
     for part in ("drop", "build"):
         print(f"=== {part.upper()} DYNAMICS & STEREO ===")
@@ -291,13 +290,23 @@ def compare() -> None:
         print("=== TOP SPECTRAL FIXES (fixes.json) ===")
         for f in json.loads(fixes_p.read_text()).get("fixes", []):
             print(f"  [{f['id']}] {f['title']} ({f.get('short', f.get('region', ''))}: {f.get('measure', '')}) -> {f.get('how', '')}")
-    tex_p = mixset.DATA / "kickdesign" / "texture.json"
+    tex_p = TEXTURE
     if tex_p.exists():
         print("\n=== KICK TEXTURE (1-6 kHz) ===")
         for k, v in json.loads(tex_p.read_text()).items():
             print(f"  {k:22s}: holdMh={v.get('holdMh')} ms | flatness={v.get('flatness')} | crest={v.get('crest')} dB | toKsms={v.get('toKsms')}")
 
 
+COMMANDS = {"before": before, "after": after, "analyze": analyze, "measure": measure, "compare": compare}
+
+
+def main(argv: list[str]) -> None:
+    """`after` and `compare` read further arguments from sys.argv[2:] (fix ids, files)."""
+    if not argv or argv[0] not in COMMANDS:
+        sys.exit(f"usage: spectral.py {{{'|'.join(COMMANDS)}}} [...]")
+    COMMANDS[argv[0]]()
+
+
 if __name__ == "__main__":
-    {"before": before, "after": after, "analyze": analyze, "measure": measure, "compare": compare}[sys.argv[1]]()
+    main(sys.argv[1:])
 
