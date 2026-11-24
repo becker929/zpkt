@@ -102,7 +102,7 @@ def test_sh001s_helpers_load_and_point_at_the_booth():
     L = gui.ops(object())
     for name in ("load_item", "devices", "setp", "mixer", "export", "save_as"):
         assert callable(getattr(L, name))
-    assert L.EXPORT_DIR.name == "rummage" and L.LIVE is not None
+    assert L.staging.name == "rummage" and L.client is not None
 
 
 def test_survey_listens_and_keeps_the_rest(fake, tmp_path):

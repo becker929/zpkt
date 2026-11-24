@@ -32,39 +32,22 @@ os.environ["ZPKT_SETS_DIR"] = str(Path("~/_agent_scratch/HW002").expanduser())
 os.environ["ZPKT_SET_PREFIXES"] = "HW002_121_pp_"
 os.environ.setdefault("ZPKT_DATA_DIR", str(OUT / "data"))
 os.environ.setdefault("ZPKT_RENDERS_DIR", str(RENDERS))
-sys.path.insert(0, str(ROOT / "hands" / "scripts" / "rummage"))
-import liveops as L  # noqa: E402
 from hands.live import hold, ui  # noqa: E402
+from hands.live.export import SavePanel  # noqa: E402
+from hands.live.inlive import with_source  # noqa: E402
+from hands.live.ops import LiveOps  # noqa: E402
+from hands.live.transport import LiveClient  # noqa: E402
 
 SET = "HW002_121_pp_finish"
 BAR = 4.0
 BARS = (1, 40)          # the whole 8d2a2 arrangement: build 1-16, drop 17-32, horn's return 33-40
 BUSES = ["Kick bus", "Hats bus", "Perc bus", "Chord and splash bus", "Break bus", "Transitions bus"]
-# the Save panel opens where the last export went; this folder is one it has reached before
-L.EXPORT_DIR = Path("~/_agent_scratch/arranger/raw").expanduser()
-
-
-def _goto(folder: Path) -> None:
-    """The Save panel's folder, by its Go to Folder sheet (Cmd+Shift+G) when it is not already there: the Where
-    popup's menu does not open by accessibility on this Mac (2026-11-22)."""
-    where = L._ax(f"return value of {L._POPUP}")
-    if where == folder.name:
-        return
-    ui.osa('tell application "System Events" to tell process "Live" to set frontmost to true')
-    time.sleep(0.3)
-    ui.osa('tell application "System Events" to keystroke "g" using {command down, shift down}')
-    time.sleep(0.8)
-    ui.osa('tell application "System Events" to keystroke "a" using {command down}')
-    ui.osa(f'tell application "System Events" to keystroke "{folder}/"')
-    time.sleep(0.8)
-    ui.osa('tell application "System Events" to key code 36')
-    time.sleep(1.2)
-    where = L._ax(f"return value of {L._POPUP}")
-    if where != folder.name:
-        sys.exit(f"STOP: the Save panel is in {where!r}, not {folder}")
-
-
-L._goto = _goto
+# the Save panel opens where the last export went; this folder is one it has reached before. It is reached by the Go
+# to Folder sheet when it is not already there: the Where popup's menu does not open by accessibility on this Mac
+# (2026-11-22).
+L = LiveOps(
+    LiveClient(), staging=Path("~/_agent_scratch/arranger/raw").expanduser(), save_panel=SavePanel(reach="go_to_folder")
+)
 
 
 def tr(name: str) -> str:
@@ -111,7 +94,7 @@ def render(name: str, solo_names: list[str] | None = None) -> Path:
     RENDERS.mkdir(parents=True, exist_ok=True)
     out = RENDERS / f"{name}.flac"
     wav = RENDERS / f"{name}.wav"
-    for p in (out, wav, L.EXPORT_DIR / wav.name):
+    for p in (out, wav, L.staging / wav.name):
         if p.exists():
             p.unlink()
     a, b = BARS
@@ -166,7 +149,7 @@ def apply(plan_path: str) -> None:
         elif m["param"].startswith("send:"):
             ret = m["param"][5:]
             i = L.run(f"result = next(k for k, r in enumerate(song.return_tracks) if r.name == {ret!r} or r.name[1:] == {'-' + ret!r})")
-            bad = L.run(L.HELPER + f"\nresult = _setp({t}.mixer_device.sends[{i}], {str(m['value'])!r}, 'send')")
+            bad = L.run(with_source(f"result = set_shown({t}.mixer_device.sends[{i}], {str(m['value'])!r}, 'send')", "shown"))
             if bad:
                 sys.exit(f"STOP: {m}: {bad}")
             got = L.run(f"result = str({t}.mixer_device.sends[{i}])")

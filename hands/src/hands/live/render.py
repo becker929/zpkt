@@ -1,6 +1,8 @@
-"""Render the arrangement to files through Live's Export Audio/Video dialog: the one export path.
+"""Render the arrangement to files through Live's Export Audio/Video dialog, by keystrokes.
 
-export_audio.applescript (package data) drives the dialog and the Save panel: it sets the rendered
+This is the "keys" method of hands.live.export.export, which also has the "menu" method (no keystrokes, Main only),
+for when a macOS prompt could take the keys. export_audio.applescript (package data) drives the dialog and the Save
+panel: it opens the dialog with Cmd+Shift+R, sets the rendered
 track, file type, bit depth and sample rate, turns MP3 off, types the file name and waits for the
 file. The range is the arrangement's time selection, made by timeops.select, so the script never
 types into the range sliders. An export costs about 13 s plus 0.1 s per second of audio, most of

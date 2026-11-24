@@ -19,7 +19,7 @@ generated from it). The booth never runs code it was sent. Every LOM call comes 
 | `check.py` | `check(raw)`: errors with paths, warnings, an estimate; never touches Live |
 | `compile.py` | a checked score becomes a `Plan`: absolute notes, the booth's track names, mixer values in dB |
 | `live.py` | a `Plan` into Live, one checked step at a time; also `make_template` and `survey` |
-| `gui.py` | SH001's keystroke-free helpers (`hands/scripts/rummage/liveops.py`), loaded from there |
+| `gui.py` | the keystroke-free Live steps (`hands.live.ops`, once SH001's liveops.py), with the booth's staging folder |
 | `measure.py`, `video.py` | measurements and flags; the piano-roll still, the MP4 and the M4A |
 | `jobs.py`, `runner.py` | the job table, the lease (`Gate`) and the hold-and-close rule |
 | `server.py`, `cli.py` | the HTTP API on 127.0.0.1:8794, and Anthony's controls |

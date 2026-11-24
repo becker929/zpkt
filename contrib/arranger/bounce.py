@@ -5,7 +5,7 @@ devices, their group's devices and Main. Run from hands' environment, one state 
 
     uv run --project hands python contrib/arranger/bounce.py [state ...]
 
-Exports go through hands/scripts/rummage/liveops.py (menu clicks and accessibility, no keystrokes: a macOS
+Exports go through hands.live.ops (menu clicks and accessibility, no keystrokes: a macOS
 permission prompt on screen takes every key). Stops at the first surprise.
 """
 from __future__ import annotations
@@ -22,10 +22,10 @@ os.environ["ZPKT_SETS_DIR"] = str(Path("~/_agent_scratch/HW002").expanduser())
 os.environ["ZPKT_SET_PREFIXES"] = "HW002_121_pp_"
 os.environ["ZPKT_DATA_DIR"] = str(OUT / "data")
 os.environ["ZPKT_RENDERS_DIR"] = str(OUT)
-sys.path.insert(0, str(ROOT / "hands" / "scripts" / "rummage"))
-import liveops  # noqa: E402
+from hands.live.ops import LiveOps  # noqa: E402
+from hands.live.transport import LiveClient  # noqa: E402
 
-liveops.EXPORT_DIR = OUT
+liveops = LiveOps(LiveClient(), staging=OUT)
 
 SONG = (0.0, 720.0)      # beats: the 176 bars and a 4-bar tail
 BREAK = (320.0, 80.0)    # the break (bars 81-96) and a 4-bar tail

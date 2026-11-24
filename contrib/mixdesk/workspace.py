@@ -24,9 +24,12 @@ os.environ["ZPKT_SETS_DIR"] = str(SETS)
 os.environ["ZPKT_SET_PREFIXES"] = "HW002_121_pp_"
 os.environ.setdefault("ZPKT_DATA_DIR", str(Path("~/_agent_scratch/mixdesk/data").expanduser()))
 os.environ.setdefault("ZPKT_RENDERS_DIR", str(Path("~/_agent_scratch/mixdesk/renders").expanduser()))
-sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "hands" / "scripts" / "rummage"))
-import liveops as L  # noqa: E402
 from hands.live import hold, ui  # noqa: E402
+from hands.live.export import SavePanel  # noqa: E402
+from hands.live.ops import LiveOps  # noqa: E402
+from hands.live.transport import LiveClient  # noqa: E402
+
+L = LiveOps(LiveClient(), save_panel=SavePanel(reach="go_to_folder"))
 
 TEMPO = 160.0
 DESK = Path(__file__).with_name("desk.json")
@@ -41,25 +44,9 @@ def save_as(name: str) -> Path:
     target = SETS / f"{name}.als"
     if target.exists():
         sys.exit(f"STOP: {target} exists")
-    if not any(w[0] == "Save" for w in ui.windows()) and not ui.menu("File", "Save Live Set As..."):
-        sys.exit("STOP: Save Live Set As... stayed disabled")   # a Save panel left open (a macOS prompt held it) is reused
-    try:
-        if not L._wait_window("Save"):
-            sys.exit("STOP: no Save panel")
-        time.sleep(0.8)
-        where = L._ax(f"return value of {L._POPUP}")
-        if where not in (SETS.name, SETS.resolve().name):   # Save As opens in the set's own folder (HW002 links to ~/Music/zpkt/sets)
-            L._goto(SETS)
-        L._goto = lambda folder: None
-        L._save_panel(SETS, name)
-    except (SystemExit, Exception):
-        ui.close_dialogs()
-        raise
-    for _ in range(120):
-        if target.exists() and not ui.dialogs():
-            return target
-        time.sleep(0.5)
-    sys.exit(f"STOP: {target} did not appear (windows: {ui.windows()})")
+    # a Save panel left open (a macOS prompt held it) is reused; Save As opens in the set's own folder (HW002 links
+    # to ~/Music/zpkt/sets), which the panel then need not leave
+    return L.save_as(SETS, name, project=False)
 
 
 def save() -> None:

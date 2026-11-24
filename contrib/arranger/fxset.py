@@ -275,7 +275,6 @@ def env(path: str = "") -> None:
     os.environ["ZPKT_SET_PREFIXES"] = "HW002_121_pp_"
     os.environ["ZPKT_DATA_DIR"] = str(FX / "data")
     os.environ["ZPKT_RENDERS_DIR"] = str(FX / "raw")
-    sys.path.insert(0, str(ROOT / "hands" / "scripts" / "rummage"))
 
 
 def lo():
@@ -283,9 +282,9 @@ def lo():
     from mixset import give_back_focus
     give_back_focus()   # hand the front back to whatever Anthony was using, if Live takes it
     env()
-    import liveops
-    liveops.EXPORT_DIR = DATA / "raw"   # a folder the Save panel already knows; export() moves the file to its target
-    return liveops
+    from hands.live.ops import LiveOps
+    from hands.live.transport import LiveClient
+    return LiveOps(LiveClient(), staging=DATA / "raw")   # a folder the Save panel already knows; export() moves the file
 
 
 def track_index(L, name: str) -> int:
