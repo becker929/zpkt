@@ -23,8 +23,10 @@ import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
+from hands.live import state as S
 from hands.live.transport import LiveClient, LiveError
 
+import history
 import monitor
 
 HERE = Path(__file__).resolve().parent
@@ -37,6 +39,32 @@ LOCK = threading.Lock()
 STATE: dict = {"page": 0, "attached": False, "values": {}, "hw": {}, "picked": {}, "live": "starting", "touch": None,
                "monitor": {"slot": "W", "ref": "C1"}, "match": True, "pos": 0.0, "playing": False, "loop": "off"}
 CLIENTS: list[queue.Queue] = []
+SET = json.loads((HERE / "sources.json").read_text())["set"]
+LABELS: dict[str, str] = {}
+HIST = history.History(SET, LABELS)
+START_CHECKPOINT_H = 12     # a server start makes a "start-..." checkpoint unless the desk made one this recently
+
+
+def _label(spec: dict) -> str:
+    p, t = spec["param"], spec["track"]
+    if spec.get("label"):
+        return f"{t}: {spec['label']}"
+    if p in ("volume", "pan", "mute", "solo"):
+        return f"{t} {p}"
+    if p.startswith("send:"):
+        return f"{t} send {p[5:]}"
+    return f"{t}: {spec.get('device', '')} {p}"
+
+
+def learn(values: dict) -> None:
+    """The snapshot's keys and labels, and its values as the history's starting point (not moves)."""
+    pages = cfg()["pages"]
+    for pk, v in values.items():
+        page, slot = pk.split(":")
+        spec = pages[int(page)]["controls"].get(slot)
+        if v.get("key") and spec:
+            LABELS.setdefault(v["key"], _label(spec))
+    HIST.baseline(values)
 
 
 def cfg() -> dict:
@@ -70,6 +98,8 @@ def call(expr: str):
 def set_state(snap: dict | None, status: str) -> None:
     with LOCK:
         if snap:
+            if snap.get("values"):
+                learn(snap["values"])
             STATE.update({k: snap[k] for k in ("page", "attached", "values", "hw", "picked", "monitor", "pos", "playing") if k in snap})
             if "loop" in snap:
                 lp = snap["loop"]
@@ -115,7 +145,7 @@ def apply_monitor(slot: str, ref: str) -> None:
 
 def supervisor() -> None:
     """Keep the pager in Live and holding the MiniLab."""
-    ensured = False
+    ensured = started = False
     while True:
         try:
             if not ensured and STATE["live"] != "starting":
@@ -123,6 +153,9 @@ def supervisor() -> None:
                 if not all(n in names for n in monitor.wanted()):
                     monitor.ensure(live(), log=lambda *a: print(*a, flush=True))
                 ensured = True
+            if not started and HIST.cur:      # the pager reports keys (a pager from before history has none)
+                start_checkpoint()
+                started = True
             ok = call("m.DESK.attached()")
             if ok is None:
                 snap = start_pager()
@@ -151,7 +184,7 @@ def udp() -> None:
             if msg["t"] == "v":
                 key = f"{msg['page']}:{msg['slot']}"
                 v = STATE["values"].setdefault(key, {})
-                v.update({"n": msg["n"], "s": msg["s"]})
+                v.update({k: msg[k] for k in ("n", "s", "r", "key") if k in msg})
             elif msg["t"] == "pos":
                 STATE["pos"], STATE["playing"] = msg["b"], msg["p"]
             elif msg["t"] == "mon":
@@ -166,6 +199,30 @@ def udp() -> None:
                     STATE["picked"][msg["slot"]] = msg["picked"]
                 STATE["touch"] = {"page": msg["page"], "slot": msg["slot"], "at": time.time()}
         push(msg)
+        if msg["t"] == "v" and HIST.seen(msg.get("key"), msg.get("s", ""), msg.get("r"), bool(msg.get("sys"))):
+            push(HIST.view())
+
+
+def write(pairs: list[list]) -> list:
+    """[[key, raw], ...] into Live through the pager (one call); returns the keys it could not find."""
+    return call(f"m.DESK.set_raw({pairs!r})") if pairs else []
+
+
+def make_checkpoint(name: str) -> dict:
+    client = LiveClient(timeout=10.0, retries=1, keep=True)    # one connection for the whole read
+    try:
+        full = S.take(client)
+    finally:
+        client.close()
+    saved = call("m.DESK.main_saved") if STATE["monitor"]["slot"] != "W" else None
+    return HIST.checkpoint(name, full, saved)
+
+
+def start_checkpoint() -> None:
+    recent = [e for e in HIST.entries if e["k"] == "checkpoint" and time.time() - e["at"] < START_CHECKPOINT_H * 3600]
+    if not recent:
+        make_checkpoint(time.strftime("start-%Y%m%d-%H%M"))
+        push(HIST.view())
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -223,6 +280,19 @@ class Handler(BaseHTTPRequestHandler):
             self._media(path[len("/media/"):])
         elif path == "/api/desk":
             self._json(cfg())
+        elif path == "/api/history":
+            self._json(HIST.view())
+        elif path in ("/api/checkpoint", "/api/compare"):
+            from urllib.parse import parse_qs, urlparse
+            q = {k: v[0] for k, v in parse_qs(urlparse(self.path).query).items()}
+            try:
+                if path == "/api/checkpoint":
+                    vals = HIST.load(q.get("name", ""))
+                    self._json({k: vals[k] for k in HIST.cur if k in vals})
+                else:
+                    self._json(HIST.compare(q.get("a", ""), q.get("b", "now")))
+            except (ValueError, FileNotFoundError) as exc:
+                self._json({"error": str(exc)}, 404)
         elif path == "/api/state":
             with LOCK:
                 self._json(STATE)
@@ -292,6 +362,37 @@ class Handler(BaseHTTPRequestHandler):
                 push({"t": "full", "state": snap_state})
             elif self.path == "/api/restart":
                 set_state(start_pager(), "attached")
+            elif self.path in ("/api/undo", "/api/redo"):
+                pairs, e = HIST.undo() if self.path == "/api/undo" else HIST.redo()
+                missing = write(pairs)
+                push(HIST.view())
+                return self._json({"ok": True, "entry": e and e["id"], "missing": missing})
+            elif self.path == "/api/checkpoint":
+                name = str(body.get("name") or time.strftime("cp-%H%M%S")).strip()
+                try:
+                    e = make_checkpoint(name)
+                except ValueError as exc:
+                    return self._json({"error": str(exc)}, 400)
+                push(HIST.view())
+                return self._json({"ok": True, "name": e["name"]})
+            elif self.path == "/api/revert":
+                to = str(body["to"])
+                keys = body.get("keys")
+                if body.get("all"):
+                    # the whole mix: the desk's controls as one undoable step, then everything else (not undoable,
+                    # so a checkpoint of the mix as it was comes first), heard on W so the monitor tracks stay put
+                    make_checkpoint(time.strftime("before-revert-%H%M%S"))
+                    if STATE["monitor"]["slot"] != "W":
+                        apply_monitor("W", STATE["monitor"]["ref"])
+                    pairs, e = HIST.revert(to)
+                    write(pairs)
+                    rows = S.put(live(), S.load(HIST.folder() / f"{to}.json"))
+                    push(HIST.view())
+                    return self._json({"ok": True, "left": [list(r) for r in rows if not r[0].startswith("mon ")][:20]})
+                pairs, e = HIST.revert(to, keys)
+                missing = write(pairs)
+                push(HIST.view())
+                return self._json({"ok": True, "moved": len(pairs), "missing": missing})
             else:
                 return self._json({"error": "not found"}, 404)
             self._json({"ok": True})

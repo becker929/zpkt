@@ -77,22 +77,29 @@ class _Target(object):
 
     def __init__(self, song, spec):
         self.spec, self.param, self.track, self.flag, self.error = spec, None, None, None, None
+        self.key = None
         try:
             self.track = _track(song, spec["track"])
+            tn = "Main" if self.track == song.master_track else _short(self.track, song)
             p = spec["param"]
             if "device" in spec:
                 dev = next(d for d in self.track.devices if d.name == spec["device"])
                 self.param = next(x for x in dev.parameters if x.name == p)
+                self.key = "%s/%s/%s" % (tn, spec["device"], p)
             elif p == "volume":
                 self.param = self.track.mixer_device.volume
+                self.key = tn + "/volume"
             elif p == "pan":
                 self.param = self.track.mixer_device.panning
+                self.key = tn + "/pan"
             elif p.startswith("send:"):
                 rets = list(song.return_tracks)
                 i = next(k for k, r in enumerate(rets) if _named(r, p[5:]))
                 self.param = self.track.mixer_device.sends[i]
+                self.key = "%s/send %s" % (tn, _short(rets[i], song))
             elif p in ("mute", "solo"):
                 self.flag = p
+                self.key = "%s/%s" % (tn, p)
             else:
                 raise ValueError("unknown param %r" % p)
         except StopIteration:
@@ -112,6 +119,23 @@ class _Target(object):
         if self.flag:
             return "on" if getattr(self.track, self.flag) else "off"
         return str(self.param) if self.param is not None else ""
+
+    def raw(self):
+        """The exact value (what undo and checkpoints keep): the parameter's value, or the flag as a bool."""
+        if self.flag:
+            return bool(getattr(self.track, self.flag))
+        return self.param.value if self.param is not None else None
+
+    def set_raw(self, v):
+        if self.flag:
+            if bool(getattr(self.track, self.flag)) != bool(v):
+                setattr(self.track, self.flag, bool(v))
+            return
+        p = self.param
+        if p is not None and p.is_enabled:
+            v = max(p.min, min(p.max, float(v)))
+            if p.value != v:
+                p.value = v
 
     def quantized(self):
         return bool(self.flag) or bool(self.param is not None and self.param.is_quantized)
@@ -171,6 +195,12 @@ def _named(track, name):
     return track.name == name or track.name[1:] == "-" + name
 
 
+def _short(track, song):
+    """A return's name without Live's letter ("A-Space" -> "Space"), as hands.live.state keys it."""
+    n = track.name
+    return n[2:] if track in list(song.return_tracks) and n[1:2] == "-" else n
+
+
 def _track(song, name):
     if name.lower() in ("main", "master"):
         return song.master_track
@@ -189,6 +219,7 @@ class Desk(object):
         self.listeners = []
         self.main_saved = None      # Main's desk devices' On values while a monitor track plays (None = not bypassed)
         self.monitor_slot, self.monitor_ref = "W", "C1"
+        self.sys_until, self.by_key = 0.0, {}
         self._last_pos = 0.0
         self._song_listeners = []
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -257,6 +288,7 @@ class Desk(object):
         soloed, at gain_db, with Main's desk devices bypassed so the clip (rendered after them) is heard exactly as
         rendered."""
         s = self.song
+        self.sys_until = time.time() + 0.8
         mons = dict((t.name, t) for t in s.tracks if t.name.startswith("mon "))
         target = mons.get("mon " + (ref if slot == "C" else slot)) if slot != "W" else None
         if slot != "W" and target is None:
@@ -296,11 +328,13 @@ class Desk(object):
     # ---- the set ------------------------------------------------------------------------------------------------
     def resolve(self):
         self.unlisten()
-        self.targets = {}
+        self.targets, self.by_key = {}, {}
         for i, page in enumerate(self.cfg["pages"]):
             for slot, spec in page["controls"].items():
                 t = _Target(self.song, spec)
                 self.targets[(i, slot)] = t
+                if t.key and not t.error:
+                    self.by_key.setdefault(t.key, t)
                 if not t.error:
                     fn = self._watcher(i, slot)
                     t.listen(fn)
@@ -446,7 +480,26 @@ class Desk(object):
 
     def send_value(self, page, slot):
         t = self.targets[(page, slot)]
-        self.emit({"t": "v", "page": page, "slot": slot, "n": t.norm(), "s": t.text()})
+        # "sys": the desk itself moved it (a monitor switch bypassing Main's devices), so it is not a mix change
+        self.emit({"t": "v", "page": page, "slot": slot, "n": t.norm(), "s": t.text(), "r": t.raw(), "key": t.key,
+                   "sys": time.time() < self.sys_until})
+
+    def set_raw(self, pairs):
+        """[[key, raw], ...] -> the controls with those keys (undo, redo, revert). Returns the keys not found."""
+        missing = []
+        for key, v in pairs:
+            t = self.by_key.get(key)
+            if t is None:
+                missing.append(key)
+                continue
+            try:
+                t.set_raw(v)
+            except RuntimeError:
+                try:
+                    self.cs.schedule_message(1, lambda t=t, v=v: t.set_raw(v))
+                except Exception:
+                    missing.append(key)
+        return missing
 
     def emit(self, msg):
         try:
@@ -468,11 +521,12 @@ class Desk(object):
         vals = {}
         for (page, slot), t in self.targets.items():
             vals["%d:%s" % (page, slot)] = {"n": t.norm() if not t.error else None, "s": t.text() if not t.error else "",
-                                            "q": t.quantized() if not t.error else False, "err": t.error}
+                                            "q": t.quantized() if not t.error else False, "err": t.error,
+                                            "r": t.raw() if not t.error else None, "key": t.key}
         return {"page": self.page, "attached": self.attached(), "values": vals, "hw": self.hw,
                 "picked": self.picked, "monitor": {"slot": self.monitor_slot, "ref": self.monitor_ref},
                 "pos": self.song.current_song_time, "playing": bool(self.song.is_playing), "loop": self._loop_mode(),
-                "set": self.song.name if hasattr(self.song, "name") else ""}
+                "set": self.song.name if hasattr(self.song, "name") else "", "main_saved": self.main_saved}
 
     def stop(self):
         for fn in self._song_listeners:

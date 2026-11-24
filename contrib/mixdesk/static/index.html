@@ -82,6 +82,41 @@ footer b { color: var(--text); font-weight: 600; }
   .knob svg { width: 36px; height: 36px; }
 }
 
+/* history, checkpoints and what changed */
+.hbar { display: flex; align-items: center; gap: 6px; padding: 7px 12px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+.hbar .sep { width: 1px; height: 20px; background: var(--line); margin: 0 4px; }
+.hbar select, .hbar input { font: inherit; background: var(--panel2); color: var(--text); border: 1px solid var(--line); border-radius: 7px; padding: 3px 6px; max-width: 170px; }
+.hbar input { width: 120px; }
+.hbar .btn:disabled { opacity: .35; cursor: default; }
+.hbar .n { color: var(--muted); font-size: 11px; }
+.hbar .n b { color: var(--ghost); }
+:root { --hl: var(--ghost); }
+.knob, .fader, .padb { position: relative; transition: opacity .15s; }
+.dim { opacity: .22 !important; }
+.gone { visibility: hidden; }
+.card.gone { display: none; }
+.hl { box-shadow: 0 0 0 2px var(--hl) inset; background: color-mix(in srgb, var(--hl) 12%, transparent); }
+.was { font: 9.5px ui-monospace, Menlo, monospace; color: var(--hl); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; display: none; }
+.hl .was { display: block; }
+.rv { position: absolute; top: 1px; right: 1px; display: none; border: 1px solid var(--hl); color: var(--hl); background: var(--panel);
+  border-radius: 5px; font: 600 9px ui-monospace, Menlo, monospace; padding: 0 3px; cursor: pointer; line-height: 14px; }
+.hl .rv.can { display: block; }
+nav button .cnt { font: 700 10px ui-monospace, Menlo, monospace; color: var(--bg); background: var(--hl); border-radius: 8px; padding: 0 5px; }
+.hist { margin: 0 12px 10px; }
+.hist h3 { margin: 0 0 4px; font-size: 12px; letter-spacing: .04em; color: var(--muted); font-weight: 650; text-transform: uppercase; display: flex; gap: 8px; align-items: baseline; }
+.hist ol { list-style: none; margin: 0; padding: 0; max-height: 26vh; overflow: auto; border: 1px solid var(--line); border-radius: 10px; background: var(--panel); }
+.hist li { display: flex; gap: 8px; align-items: baseline; padding: 4px 8px; border-bottom: 1px solid var(--line); font-size: 11.5px; }
+.hist li:last-child { border-bottom: 0; }
+.hist li .t { font: 10px ui-monospace, Menlo, monospace; color: var(--muted); flex: 0 0 auto; }
+.hist li .m { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hist li .m i { font-style: normal; color: var(--muted); }
+.hist li.undone { opacity: .42; }
+.hist li.undone .m { text-decoration: line-through; }
+.hist li.cp { background: var(--panel2); }
+.hist li.cp .m { font-weight: 650; }
+.hist li.here { box-shadow: 0 2px 0 var(--accent) inset; }
+.hist li button { font: inherit; font-size: 10.5px; border: 1px solid var(--line); background: var(--panel); color: var(--text); border-radius: 6px; padding: 1px 6px; cursor: pointer; }
+
 /* right half: listen and see */
 .right h3 { margin: 0 0 4px; font-size: 12px; letter-spacing: .04em; color: var(--muted); font-weight: 650; text-transform: uppercase; }
 .box { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 10px; }
@@ -125,7 +160,22 @@ table.params td .d { color: var(--muted); }
   <span class="status"><span class="dot" id="dot"></span><span id="status">connecting</span></span>
 </header>
 <nav id="tabs"></nav>
+<div class="hbar">
+  <button class="btn" id="undo" title="Undo (Z)">Undo</button>
+  <button class="btn" id="redo" title="Redo (Shift+Z)">Redo</button>
+  <span class="sep"></span>
+  <input id="cpname" placeholder="checkpoint name" maxlength="60">
+  <button class="btn" id="cp" title="Save the whole mix as a checkpoint">Checkpoint</button>
+  <span class="sep"></span>
+  <span class="seg" id="view"><button data-v="normal" class="on">Normal</button><button data-v="hl">Highlight</button><button data-v="only">Only changed</button></span>
+  <span class="n">from</span><select id="cmpA" title="The checkpoint to compare from"></select>
+  <span class="n">to</span><select id="cmpB" title="Now, or another checkpoint"></select>
+  <span class="n" id="nchg"></span>
+  <button class="btn" id="revshown" title="Every highlighted control back to the 'from' checkpoint (one step, undoable)">Revert these</button>
+  <button class="btn" id="revall" title="The whole mix back to the 'from' checkpoint, controls outside the desk too">Whole mix</button>
+</div>
 <main id="cards"></main>
+<section class="hist"><h3>History <span class="n" id="histn"></span></h3><ol id="hist"></ol></section>
 <footer>
   <span><b>Pads A1–A8</b> or the <b>big encoder</b>: arm a page; press the pad again for its second layer (A2·2)</span>
   <span><b>Knobs 1–8</b>: snap to the armed page's values</span>
@@ -220,6 +270,7 @@ function build() {
         + `<path class="arc" d="" fill="none" stroke-width="4" stroke-linecap="round"/></svg>`
         + `<span class="lbl">${c ? label(c) : "—"}</span><span class="val"></span><span class="slot">K${k + 1}</span>`;
       if (c) d.title = `${c.track}${c.device ? " / " + c.device : ""} / ${c.param}`;
+      if (c) addWas(d, i, s);
       knobs.appendChild(d); el[`${i}:${s}`] = d;
     });
     const faders = document.createElement("div"); faders.className = "faders";
@@ -229,6 +280,7 @@ function build() {
       d.innerHTML = `<div class="track"><div class="fill"></div><div class="ghost"></div></div>`
         + `<span class="lbl">${c ? label(c) : "—"}</span><span class="val"></span><span class="slot">F${k + 1}</span>`;
       if (c) d.title = `${c.track}${c.device ? " / " + c.device : ""} / ${c.param}`;
+      if (c) addWas(d, i, s);
       faders.appendChild(d); el[`${i}:${s}`] = d;
     });
     body.append(knobs, faders);
@@ -237,7 +289,7 @@ function build() {
       const c = pg.controls[s], d = document.createElement("div");
       d.className = "padb" + (c ? "" : " empty");
       d.innerHTML = `<span class="lbl">${c ? label(c) : "—"}</span><span class="slot">B${k + 1}</span>`;
-      if (c) { d.title = `${c.track}${c.device ? " / " + c.device : ""} / ${c.param}`; d.onclick = () => toggle(i, s); }
+      if (c) { d.title = `${c.track}${c.device ? " / " + c.device : ""} / ${c.param}`; d.onclick = () => toggle(i, s); addWas(d, i, s); }
       pads.appendChild(d); el[`${i}:${s}`] = d;
     });
     card.append(body, pads);
@@ -303,8 +355,9 @@ function connect() {
   const es = new EventSource("/events");
   es.onmessage = (ev) => {
     const m = JSON.parse(ev.data);
-    if (m.t === "full") { state = m.state; paintAll(); }
-    else if (m.t === "v") { const k = `${m.page}:${m.slot}`; state.values[k] = { ...(state.values[k] || {}), n: m.n, s: m.s }; paintValue(k); }
+    if (m.t === "full") { state = m.state; paintAll(); paintChanged(); }
+    else if (m.t === "v") { const k = `${m.page}:${m.slot}`; state.values[k] = { ...(state.values[k] || {}), n: m.n, s: m.s, r: m.r, key: m.key }; paintValue(k); paintChanged(); }
+    else if (m.t === "hist") { paintHist(m); }
     else if (m.t === "page") { state.page = m.page; state.picked = {}; paintPage(); }
     else if (m.t === "hw") {
       if (m.hw != null && m.slot[0] === "f") { state.hw[m.slot] = m.hw; state.picked[m.slot] = m.picked; paintFaders(); }
@@ -314,7 +367,152 @@ function connect() {
   es.onerror = () => { state.live = "server not answering"; paintStatus(); };
 }
 
-fetch("/api/desk").then((r) => r.json()).then((d) => { desk = d; build(); connect(); });
+// ---- history, checkpoints, what changed ----------------------------------------------------------------------------
+// The server keeps the history (every move of a desk control, from the MiniLab, this page or Live itself) and the
+// checkpoints (whole-mix snapshots on disk). Here: undo/redo, a checkpoint button, and three views of the controls:
+// Normal; Highlight (what differs between "from" and "to" lit, the rest dimmed); Only changed (the rest hidden).
+const H = { view: "normal", a: "", b: "now", va: null, vb: null, changed: {}, hist: null };
+const $id = (x) => document.getElementById(x);
+const fmtT = (t) => new Date(t * 1000).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+const sameRaw = (x, y) => x != null && y != null && Math.abs(Number(x) - Number(y)) <= 1e-6;
+
+function addWas(d, page, slot) {
+  const w = document.createElement("span"); w.className = "was"; d.appendChild(w);
+  const b = document.createElement("span"); b.className = "rv"; b.textContent = "revert"; d.appendChild(b);
+  b.onclick = (ev) => {
+    ev.stopPropagation();
+    const v = state.values[`${page}:${slot}`];
+    if (v && v.key && H.b === "now") post("/api/revert", { to: H.a, keys: [v.key] });
+  };
+}
+
+async function loadCmp() {
+  const get = async (n) => n && n !== "now" ? (await fetch(`/api/checkpoint?name=${encodeURIComponent(n)}`)).json() : null;
+  H.va = await get(H.a); H.vb = await get(H.b);
+  paintChanged();
+}
+
+function paintChanged() {
+  if (!desk) return;
+  const changed = {};          // "page:slot" -> [from shown, to shown]
+  const perPage = {};
+  if (H.va && !H.va.error) {
+    for (const [k, v] of Object.entries(state.values)) {
+      if (!v.key) continue;
+      const a = H.va[v.key];
+      const b = H.b === "now" ? (v.r != null ? [v.s, v.r] : null) : H.vb && H.vb[v.key];
+      if (a && b && !sameRaw(a[1], b[1])) {
+        changed[k] = [String(a[0]).trim(), String(b[0]).trim()];
+        const pg = k.split(":")[0]; perPage[pg] = (perPage[pg] || 0) + 1;
+      }
+    }
+  }
+  H.changed = changed;
+  const mode = H.view;
+  const nKeys = new Set(Object.keys(changed).map((k) => state.values[k].key)).size;
+  desk.pages.forEach((pg, i) => {
+    [...KNOB_SLOTS, ...FADER_SLOTS, ...PAD_SLOTS].forEach((s) => {
+      const d = el[`${i}:${s}`]; if (!d) return;
+      const c = changed[`${i}:${s}`], empty = d.classList.contains("empty");
+      d.classList.toggle("hl", mode !== "normal" && !!c);
+      d.classList.toggle("dim", mode === "hl" && !c);
+      d.classList.toggle("gone", mode === "only" && !c);
+      const w = d.querySelector(".was"); if (w) w.textContent = c ? `was ${c[0]}` : "";
+      const rv = d.querySelector(".rv"); if (rv) rv.classList.toggle("can", H.b === "now");
+      if (c) d.dataset.was = c[0];
+    });
+    el[`card:${i}`].classList.toggle("gone", mode === "only" && !perPage[i]);
+    const tab = el[`tab:${i}`]; let cnt = tab.querySelector(".cnt");
+    if (!cnt) { cnt = document.createElement("span"); cnt.className = "cnt"; tab.appendChild(cnt); }
+    cnt.textContent = perPage[i] || ""; cnt.style.display = mode !== "normal" && perPage[i] ? "" : "none";
+  });
+  $id("nchg").innerHTML = H.va ? (H.va.error ? `no checkpoint ${H.a}` : `<b>${nKeys}</b> control${nKeys === 1 ? "" : "s"} differ`) : "";
+  $id("revshown").disabled = !(H.b === "now" && nKeys);
+  $id("revall").disabled = !(H.b === "now" && H.a);
+}
+
+function fillCheckpoints(cps) {
+  const names = cps.map((c) => c.name);
+  const opt = (n, label) => `<option value="${n}">${label || n}</option>`;
+  const byNew = [...cps].reverse();
+  if (!H.a || !names.includes(H.a)) H.a = byNew.length ? byNew[0].name : "";
+  if (H.b !== "now" && !names.includes(H.b)) H.b = "now";
+  $id("cmpA").innerHTML = byNew.map((c) => opt(c.name, `${c.name}  ·  ${fmtT(c.at)}`)).join("");
+  $id("cmpB").innerHTML = opt("now", "now") + byNew.map((c) => opt(c.name)).join("");
+  $id("cmpA").value = H.a; $id("cmpB").value = H.b;
+}
+
+function paintHist(m) {
+  H.hist = m;
+  const prev = $id("cmpA").innerHTML;
+  fillCheckpoints(m.checkpoints || []);
+  if ($id("cmpA").innerHTML !== prev || !H.va) loadCmp();
+  $id("undo").disabled = !m.can_undo; $id("redo").disabled = !m.can_redo;
+  const ol = $id("hist"); ol.innerHTML = "";
+  const esc = (x) => String(x).replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
+  m.entries.map((e, i) => [e, i]).reverse().forEach(([e, i]) => {
+    const li = document.createElement("li");
+    if (i >= m.pos) li.classList.add("undone");
+    if (i === m.pos - 1) li.classList.add("here");
+    let text;
+    if (e.k === "checkpoint") {
+      li.classList.add("cp");
+      text = `Checkpoint <b>${esc(e.name)}</b>`;
+    } else if (e.k === "revert") {
+      text = `Revert to <b>${esc(e.to)}</b> <i>(${e.moves.length} control${e.moves.length === 1 ? "" : "s"})</i>`;
+    } else {
+      const mv = e.moves[0];
+      text = `${esc(mv.label)} <i>${esc(String(mv.from[0]).trim())} → ${esc(String(mv.to[0]).trim())}</i>`;
+    }
+    li.innerHTML = `<span class="t">${fmtT(e.at)}</span><span class="m">${text}</span>`;
+    if (e.k === "checkpoint") {
+      const from = document.createElement("button"); from.textContent = "compare from";
+      from.onclick = () => { H.a = e.name; if (H.view === "normal") setView("hl"); $id("cmpA").value = e.name; loadCmp(); };
+      li.appendChild(from);
+    }
+    ol.appendChild(li);
+  });
+  const nMoves = m.entries.filter((e) => e.k !== "checkpoint").length;
+  $id("histn").textContent = `${nMoves} step${nMoves === 1 ? "" : "s"}${m.entries.length ? ", newest first" : ""}`;
+}
+
+function setView(v) {
+  H.view = v;
+  [...$id("view").children].forEach((b) => b.classList.toggle("on", b.dataset.v === v));
+  paintChanged();
+}
+
+function initHistory() {
+  $id("undo").onclick = () => post("/api/undo", {});
+  $id("redo").onclick = () => post("/api/redo", {});
+  $id("cp").onclick = async () => {
+    const name = $id("cpname").value.trim();
+    $id("cp").disabled = true; $id("cp").textContent = "Saving…";
+    try {
+      const r = await (await fetch("/api/checkpoint", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name }) })).json();
+      if (r.error) alert(r.error); else $id("cpname").value = "";
+    } finally { $id("cp").disabled = false; $id("cp").textContent = "Checkpoint"; }
+  };
+  $id("cpname").addEventListener("keydown", (e) => { if (e.key === "Enter") $id("cp").click(); });
+  [...$id("view").children].forEach((b) => b.onclick = () => setView(b.dataset.v));
+  $id("cmpA").onchange = (e) => { H.a = e.target.value; loadCmp(); };
+  $id("cmpB").onchange = (e) => { H.b = e.target.value; loadCmp(); };
+  $id("revshown").onclick = () => post("/api/revert", { to: H.a });
+  $id("revall").onclick = async () => {
+    if (!confirm(`Put the whole mix back to "${H.a}"? The desk's controls come back as one undoable step; everything else in the set too (a checkpoint of the mix as it is now is saved first).`)) return;
+    $id("revall").disabled = true; $id("revall").textContent = "Reverting…";
+    try { await post("/api/revert", { to: H.a, all: true }); } finally { $id("revall").textContent = "Whole mix"; paintChanged(); }
+  };
+  document.addEventListener("keydown", (e) => {
+    if (e.target.closest && e.target.closest("input,textarea,select")) return;
+    if (e.key.toLowerCase() !== "z" || e.altKey || e.ctrlKey) return;
+    e.preventDefault();
+    post(e.shiftKey ? "/api/redo" : "/api/undo", {});
+  }, true);
+  fetch("/api/history").then((r) => r.json()).then(paintHist);
+}
+
+fetch("/api/desk").then((r) => r.json()).then((d) => { desk = d; build(); connect(); initHistory(); });
 </script>
 <script>
 // ---- right half: a control surface for Live. All audio is Live's (the arrangement, and the monitor tracks that hold

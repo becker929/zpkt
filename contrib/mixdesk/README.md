@@ -89,3 +89,24 @@ The page is split: the control surface on the left, Live transport/monitoring an
   switching **A** / **B** / **C** solos the chosen monitor track (bypassing Main's desk devices and matching loudness)
   and **W** goes back to the working mix itself, live, with your controls. Keys: A B W C, space, arrows, 1–4. The spectrum shows levels from the
   cached renders, each curve against the reference, or what the match moved against what the reference would move.
+
+## History, undo and checkpoints
+
+The bar under the page tabs keeps the mix's history (`history.py`):
+
+- **Undo / Redo** (keys **Z** / **Shift+Z**): every move of a desk control is a step, whether it came from the MiniLab,
+  this page or Live's own mouse. Moves of one control within 2 s are one step (a fader sweep), and a control moved back
+  to where it started leaves no step. Moves the desk makes itself (a monitor switch bypassing Main's devices) are not
+  steps. The history is kept in `~/_agent_scratch/mixdesk/history/<set>.json` and outlives a server restart.
+- **Checkpoint** saves the whole mix (every fader, send, mute and device value of the set, about 3 s) as
+  `<sets_dir>/state/<set>/<name>.json`, a hands state: `hands live state diff NAME` and `put NAME` work on it too, and
+  every state there (B, `working-0854`, ...) is a checkpoint here. The server makes `start-<date>-<time>` when it starts,
+  unless the desk made one in the last 12 hours.
+- **Normal / Highlight / Only changed**: compare **from** a checkpoint **to** now or another checkpoint. Highlight lights
+  the controls that differ (with what they were) and dims the rest; Only changed hides the rest and the pages with
+  nothing changed. The page tabs count the changed controls.
+- **revert** on a highlighted control, or **Revert these** for all of them, puts them back to the "from" checkpoint as
+  one undoable step. **Whole mix** puts back everything the checkpoint holds, controls outside the desk too (`hands
+  live state put`); a `before-revert-...` checkpoint of the mix as it was is saved first, because only the desk's
+  controls can be undone.
+
