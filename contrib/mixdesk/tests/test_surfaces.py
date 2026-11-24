@@ -63,3 +63,17 @@ def test_make_asks_checks_saves_and_lists_the_page():
     assert gone.exists() and surfaces.pages("SET") == []
     with pytest.raises(surfaces.SurfaceError):
         surfaces.remove("SET", "../x.json")
+
+
+def test_macro_ends_are_fixed_checked_and_clamped():
+    s = surfaces.validate({"name": "m", "controls": {"k1": {"label": "Sweep", "macro": [
+        {"track": "Hats bus", "device": "desk EQ", "param": "7 Gain A", "from": "current", "to": "-40 dB"},
+        {"track": "Space", "device": "Reverb", "param": "Decay Time", "from": "500 ms", "to": "2 s"},
+        {"track": "Kick bus", "param": "volume", "from": "loud", "to": "max"}]}}}, INV, [])
+    subs = s["controls"]["k1"]["macro"]
+    assert subs[0]["from"] == "-6.50 dB"          # "current" is the value the set had when the page was made
+    assert subs[0]["to"] == "min"                 # below the range: its lowest, and said so
+    assert (subs[1]["from"], subs[1]["to"]) == ("500 ms", "2 s")      # ms and s are one scale
+    assert len(subs) == 2                         # "loud" is not a value: that part is left out, and said so
+    assert any("outside" in n for n in s["notes"]) and any("'loud'" in n for n in s["notes"])
+    assert surfaces.shown_number("1.73 kHz") == 1730 and surfaces.shown_number("-inf dB") < -1e8

@@ -91,12 +91,12 @@ The musician asked:
 {request}
 </request>
 
-The page has these slots: knobs k1..k8 (continuous parameters or macros), faders f1..f4 (continuous: usually volumes or macros), pads b1..b8 (switches: mute, solo, a device's "Device On", any two-state parameter). Leave slots out rather than fill them with things that were not asked for or do not serve the request. Put related controls next to each other.
+The page has these slots: knobs k1..k8 (continuous parameters or macros), faders f1..f4 (continuous: usually volumes or macros), pads b1..b8 (switches: mute, solo, a device's "Device On", any two-state parameter). Leave slots out rather than fill them with things that were not asked for or do not serve the request. Put related controls next to each other. Levels (track and bus volumes) go on faders first, knobs only when the faders are used up. If two controls on the page drive the same parameter, say so in "notes".
 
 A control is one of:
 - a mixer control: {{"track": T, "param": "volume" | "pan" | "mute" | "solo" | "send:<return name>", "label": "short"}}
 - a device parameter: {{"track": T, "device": D, "param": P, "label": "short"}}
-- a macro (one knob or fader moving several parameters together): {{"label": "short", "macro": [{{"track": T, "device": D, "param": P, "from": "<shown value>", "to": "<shown value>"}}, ...]}}. For a mixer parameter in a macro, leave "device" out. "from" is where each parameter sits with the control at 0 and "to" at full; write them the way the set shows values ("200 Hz", "-6 dB", "35 %"), inside that parameter's range, or "min" / "max" / "current". Use macros when the request names a gesture across several things ("darken all the hats", "open the filter and push the drive").
+- a macro (one knob or fader moving several parameters together): {{"label": "short", "macro": [{{"track": T, "device": D, "param": P, "from": "<shown value>", "to": "<shown value>"}}, ...]}}. For a mixer parameter in a macro, leave "device" out. "from" is where each parameter sits with the control at 0 and "to" at full; write them the way the set shows values ("200 Hz", "-6 dB", "35 %"), inside that parameter's range, or "min" / "max" / "current" ("current" is fixed to the value shown now when the page is saved). Use macros when the request names a gesture across several things ("darken all the hats", "open the filter and push the drive").
 
 Use ONLY tracks, devices and parameters from the inventory below, spelled exactly. Labels are at most 14 characters, plain words a musician reads at a glance.
 
@@ -162,6 +162,42 @@ def extract_json(text: str) -> dict:
         raise SurfaceError(f"Claude's JSON does not parse ({exc})") from None
 
 
+_NUM = re.compile(r"\s*([+-]?(?:\d+\.?\d*|\.\d+|inf))\s*([a-zA-Z%]*)")
+_SCALE = {"khz": 1e3, "ms": 1e-3}
+
+
+def shown_number(text: str) -> float | None:
+    """A value as Live shows it, as a number in its base unit ("1.73 kHz" -> 1730); the pager reads them the same
+    way (pager._num)."""
+    m = _NUM.match(str(text))
+    if not m:
+        return None
+    if "inf" in m.group(1):
+        return -1e9 if m.group(1).startswith("-") else 1e9
+    return float(m.group(1)) * _SCALE.get(m.group(2).lower(), 1.0)
+
+
+def _end(want: str, v: dict, where: str, notes: list[str]) -> str | None:
+    """One end of a macro's sweep, checked against the parameter: "current" becomes the value the set has now (so
+    the sweep stays where it was made), a value outside the range becomes that end of the range, and one that
+    cannot be read is None."""
+    w = str(want).strip()
+    if w.lower() == "current":
+        return v["now"]
+    if w.lower() in ("min", "max") or v["q"]:
+        return w
+    x, lo, hi = shown_number(w), shown_number(v["min"]), shown_number(v["max"])
+    if x is None or lo is None or hi is None:
+        notes.append(f"{where}: {w!r} is not a value this parameter shows ({v['min']} .. {v['max']}); left out.")
+        return None
+    lo, hi = min(lo, hi), max(lo, hi)
+    if x < lo or x > hi:
+        end = "min" if (x < lo) == (shown_number(v["min"]) <= shown_number(v["max"])) else "max"
+        notes.append(f"{where}: {w} is outside {v['min']} .. {v['max']}; set to its {'lowest' if end == 'min' else 'highest'}.")
+        return end
+    return w
+
+
 def _find(inv: dict, track: str, device: str, param: str) -> tuple | None:
     """The inventory key for a control, forgiving case and a return's letter."""
     want = (str(track).lower(), str(device or "").lower(), str(param).lower())
@@ -200,7 +236,12 @@ def validate(surface: dict, inv: dict, taken: list[str]) -> dict:
                 if base["param"] in ("mute", "solo"):
                     notes.append(f"{slot} macro: {base['track']} {base['param']} is a switch, not part of a sweep; left out.")
                     continue
-                subs.append({**base, "from": str(m.get("from", "min")), "to": str(m.get("to", "max"))})
+                v = inv[(base["track"], base.get("device", ""), base["param"])]
+                where = f"{slot} macro, {base['track']} {base['param']}"
+                a, b = _end(m.get("from", "min"), v, where, notes), _end(m.get("to", "max"), v, where, notes)
+                if a is None or b is None:
+                    continue
+                subs.append({**base, "from": a, "to": b})
             if subs:
                 controls[slot] = {"label": label or "Macro", "macro": subs}
             continue

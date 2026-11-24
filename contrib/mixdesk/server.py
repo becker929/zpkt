@@ -226,10 +226,13 @@ MAKING = threading.Lock()
 
 
 def adopt_surface(path: Path, surface: dict) -> int:
-    """A surface just saved: reload the pager with it, arm its page, tell the page. Returns the page's index."""
+    """A surface just saved: reload the pager with it, arm its page, tell the page. Returns the page's index.
+    What the pager could not use of its macros is added to the surface's notes."""
     set_state(start_pager(), "attached")
     idx = next(i for i, pg in enumerate(cfg()["pages"]) if pg.get("surface") == path.name)
     call(f"m.DESK.arm({idx})")
+    for x in call(f"m.DESK.macro_skipped({idx})") or []:
+        surface["notes"].append(f"{x} could not be used in Live; that part of the macro does nothing.")
     push({"t": "desk", "open": idx})
     return idx
 
@@ -436,12 +439,19 @@ class Handler(BaseHTTPRequestHandler):
                 idx = adopt_surface(path, surface)
                 return self._json({"ok": True, "file": path.name, "page": idx, "notes": surface["notes"]})
             elif self.path == "/api/surface/remove":
+                # stay on the page that was armed (by name: the indexes after the removed one shift)
+                was = cfg()["pages"]
+                old = STATE["page"]
+                armed = was[old]["name"] if 0 <= old < len(was) else None
                 try:
                     surfaces.remove(SET, str(body.get("file", "")))
                 except surfaces.SurfaceError as exc:
                     return self._json({"error": str(exc)}, 400)
                 set_state(start_pager(), "attached")
-                push({"t": "desk"})
+                names = [pg["name"] for pg in cfg()["pages"]]
+                idx = names.index(armed) if armed in names else max(0, min(old, len(names)) - 1)
+                call(f"m.DESK.arm({idx})")
+                push({"t": "desk", "open": idx})
             elif self.path in ("/api/undo", "/api/redo"):
                 pairs, e = HIST.undo() if self.path == "/api/undo" else HIST.redo()
                 missing = write(pairs)

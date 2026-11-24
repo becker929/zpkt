@@ -264,7 +264,7 @@ class _Macro(object):
         return self.pos
 
     def text(self):
-        return str(self.subs[0][0].param) if self.subs else ""
+        return "%d %%" % round(100 * self.pos)        # its own position; its parameters show on their own controls
 
     def quantized(self):
         return False
@@ -637,12 +637,22 @@ class Desk(object):
                 out.append("\t".join([name, "", "mute", "on" if t.mute else "off", "off", "on", "Q"]))
                 out.append("\t".join([name, "", "solo", "on" if t.solo else "off", "off", "on", "Q"]))
             for d in t.devices:
-                for p in d.parameters:
+                bypassed = t == s.master_track and self.main_saved is not None and d.name in self.main_saved
+                for k, p in enumerate(d.parameters):
                     try:
-                        out.append("\t".join([name, d.name, p.name, str(p), p.str_for_value(p.min), p.str_for_value(p.max), "Q" if p.is_quantized else ""]))
+                        now = p.str_for_value(self.main_saved[d.name]) if bypassed and k == 0 else str(p)
+                        out.append("\t".join([name, d.name, p.name, now, p.str_for_value(p.min), p.str_for_value(p.max), "Q" if p.is_quantized else ""]))
                     except Exception:
                         pass
         return "\n".join(out)
+
+    def macro_skipped(self, page):
+        """The macro parts of a page that could not be used (not in the set, or a "from"/"to" Live cannot show)."""
+        out = []
+        for (pg, slot), t in self.targets.items():
+            if pg == page and isinstance(t, _Macro):
+                out += ["%s: %s" % (slot, x) for x in t.skipped]
+        return out
 
     def set_raw(self, pairs):
         """[[key, raw], ...] -> the controls with those keys (undo, redo, revert). Returns the keys not found."""
