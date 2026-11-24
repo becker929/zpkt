@@ -142,15 +142,17 @@ booth's videos and stills as posted), `outbox/`.
 ## Tests
 
 ```sh
-cd bot && npm install && node test.mjs            # 26 checks, about a minute; needs ffmpeg
+cd bot && npm install && node test.mjs            # 27 checks, about a minute; needs ffmpeg
 ```
 
 Bluesky is a local fake (`fake-bsky.mjs`), the booth another (`fake-booth.mjs`: the booth's API, the real score schema
-in `fixtures/score.schema.json`, a small honest check, and jobs on a clock that end in a tiny real MP4; markers in a
+in `fixtures/score.schema.json`, a small honest check with the booth's error codes, and jobs on a clock that end in a tiny real MP4; markers in a
 score's title make a job fail, fail retryably, hold, raise measure flags or come without video), and Claude a scripted
 stand-in (`test-brain.mjs`), so the tests cost nothing, post nothing and never touch Live. They cover the text (facets
 by UTF-8 bytes, the 300-grapheme limit, scrubbing, remix credits), the score schema made fit for structured outputs
-(and that the fixture matches `lib/contracts/score.schema.json`), the limits, costs, the secrets, the Bluesky and booth
+(and that the fixture matches `lib/contracts/score.schema.json`), the fake booth's every answer against the booth's
+own API schemas (`fixtures/booth-*.schema.json`, copies of `lib/contracts/booth-*.schema.json`, checked by the small
+`schema-check.mjs`), the limits, costs, the secrets, the Bluesky and booth
 clients, the Claude requests, and whole requests: a piece replied with its video; check failures fixed in rounds; a
 revision in a thread with the parent score and v2; a remix by quote; the measure-flag round; 503 closed and 429 full
 waiting and resuming; held told once, then finished; a non-retryable failure's sorry and a retryable one sent again;

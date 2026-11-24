@@ -21,6 +21,7 @@ import { TEXT, beforeAck, beforeLike, canMake } from './limits.mjs';
 import { BOOTH_SORRY, HELD, WAITING, acknowledge, afterFailure, failed, handle, like, parentOf, passing } from './pipeline.mjs';
 import { ACK_TEXT, composeSchema, composeSystem, composeUser, fitSchema } from './prompts.mjs';
 import { POST_LIMIT, graphemes, pieceReply, plainReply, scrub } from './richtext.mjs';
+import { schemaProblems } from './schema-check.mjs';
 import { Store } from './store.mjs';
 import { ACCEPTED, REVISING, scriptedAcker, scriptedBrain } from './test-brain.mjs';
 
@@ -204,6 +205,69 @@ await step('booth client: the token on every call, check, an idempotent submit, 
   assert(/not a booth job id/.test((await b.job('../../etc').catch((x) => x)).message) && /not a booth file/.test((await b.file(a1.job, '../x').catch((x) => x)).message), 'ids and names checked');
 });
 
+// The booth's answers as contrib/booth/src/booth/contract.py types them (lib/contracts/booth-*.schema.json, copied
+// into fixtures/ so the bot keeps them when it leaves this repo). The fake booth is held to them, so it can't drift.
+const BOOTH_SCHEMAS = Object.fromEntries(['job-request', 'job', 'measure', 'check', 'status', 'error'].map((n) => [n, JSON.parse(readFileSync(join(HERE, `fixtures/booth-${n}.schema.json`), 'utf8'))]));
+
+await step("the fake booth answers in the real booth's shapes (lib/contracts/booth-*.schema.json): submit, job states, measure, check, status, errors; the client sends a job request that fits", async () => {
+  for (const n of Object.keys(BOOTH_SCHEMAS)) {
+    const contracts = join(HERE, `../../lib/contracts/booth-${n}.schema.json`);
+    if (existsSync(contracts)) assert(JSON.stringify(JSON.parse(readFileSync(contracts, 'utf8'))) === JSON.stringify(BOOTH_SCHEMAS[n]), `fixtures/booth-${n}.schema.json is stale: copy lib/contracts/booth-${n}.schema.json over it`);
+  }
+  const seen = [];
+  const fits = (name, data) => { const p = schemaProblems(BOOTH_SCHEMAS[name], data); assert(!p.length, `${name}: ${p.slice(0, 3).join('; ')}`); seen.push(name); return data; };
+  assert(schemaProblems(BOOTH_SCHEMAS.measure, { seconds: 1, sample_rate: 44100, lufs: -14, true_peak_db: -1, phone_db: -3, sections: [], flags: ['bass_inaudible_on_phone'], notes: [] }).length, 'the check refuses a flag the booth has never sent');
+  const sent = [];
+  const b = new Booth({ base: fb.url, token: TOKEN, fetch: (url, o) => { if (o.method === 'POST' && url.endsWith('/v1/jobs')) sent.push(JSON.parse(o.body)); return fetch(url, o); } });
+  const raw = async (method, path, json) => { const r = await fetch(`${fb.url}${path}`, { method, headers: { authorization: `Bearer ${TOKEN}`, 'content-type': 'application/json' }, body: json === undefined ? undefined : JSON.stringify(json) }); return [r.status, await r.json()]; };
+  const score = { ...exampleScore('shapes'), title: 'shapes [flags]' };
+  const queued = fits('job', await b.submit('at://shapes/1#v1', score, 'j00000000001'));
+  fits('job-request', sent[0]);
+  assert(queued.state === 'queued' && queued.position >= 1 && queued.eta_s > 0 && queued.parent === 'j00000000001', JSON.stringify(queued));
+  const [st200, again] = await raw('POST', '/v1/jobs', { key: 'at://shapes/1#v1', score });
+  assert(st200 === 200 && again.job === queued.job && !('eta_s' in again), 'a known key answers 200 with the job');
+  fits('job', again);
+  fits('status', await b.status());
+  await pause(200);
+  const done = fits('job', await b.job(queued.job));
+  fits('measure', done.measure);
+  assert(done.state === 'done' && done.position === null && done.measure.flags.join() === 'lost_on_phone' && done.measure.notes.length === 1 && done.measure.sections.length === score.song.length, JSON.stringify(done.measure));
+  fits('measure', JSON.parse((await b.file(queued.job, 'measure.json')).toString()));
+  const failedJob = await b.submit('at://shapes/2#v1', { ...score, title: 'shapes [fail]' });
+  await pause(150);
+  const f = fits('job', await b.job(failedJob.job));
+  assert(f.state === 'failed' && f.error.code === 'invalid_score' && f.error.retryable === false, JSON.stringify(f));
+  fb.state.holdMs = 400;
+  const held = await b.submit('at://shapes/3#v1', { ...score, title: 'shapes [hold]' });
+  await pause(60);
+  const h = fits('job', await b.job(held.job));
+  assert(h.state === 'held' && h.error.code === 'held' && h.error.retryable, JSON.stringify(h));
+  fb.state.stageMs = 5000;
+  const slow = await b.submit('at://shapes/4#v1', score);
+  assert((await b.cancel(slow.job)).cancelled === true, 'a queued job is cancelled');
+  const c = fits('job', await b.job(slow.job));
+  fb.state.stageMs = 30; fb.state.holdMs = 300;
+  assert(c.state === 'failed' && c.error.code === 'cancelled', JSON.stringify(c));
+  fits('check', await b.check(score));
+  fits('check', await b.check({ ...score, bpm: 400 }));
+  const errors = [
+    await raw('POST', '/v1/jobs', { key: '', score }),
+    await raw('POST', '/v1/jobs', { key: 'k', score: { ...score, bpm: 400 } }),
+    await raw('GET', '/v1/jobs/zzzzzzzzzzzz'),
+    await raw('GET', `/v1/jobs/${queued.job}/files/loop.m4a`),
+  ];
+  assert(errors.map(([code, body]) => `${code} ${body.error}`).join() === '400 bad_key,400 invalid_score,404 no_job,404 no_file', JSON.stringify(errors));
+  errors.forEach(([, body]) => fits('error', body));
+  assert(errors[1][1].errors[0].path === 'bpm', 'invalid_score carries the check\'s errors');
+  fb.state.closed = { reason: 'outside the booth\'s hours', retry_in_s: 600 };
+  fits('error', (await raw('POST', '/v1/jobs', { key: 'at://shapes/5#v1', score }))[1]);
+  fits('status', await b.status());
+  fb.state.closed = null; fb.state.queueFull = true;
+  fits('error', (await raw('POST', '/v1/jobs', { key: 'at://shapes/5#v1', score }))[1]);
+  fb.state.queueFull = false;
+  return `${seen.length} answers checked`;
+});
+
 function fakeAnthropic(replies) {
   const calls = [];
   const stream = (req) => { calls.push(structuredClone(req)); const r = replies.shift(); return { finalMessage: async () => { if (r instanceof Error) throw r; return r; } }; };
@@ -313,7 +377,7 @@ await step("drafts that fail the booth's check are sent back with its errors and
   const req = request('bea.test', '@tunes.test a piano thing, fix it if you must');
   assert(await handle(req, makeCtx({ brain })) === 'done', store.get(req.uri).error);
   assert(brain.log.fixes.map((f) => f.kind).join() === 'check,check', JSON.stringify(brain.log.fixes.map((f) => f.kind)));
-  assert(brain.log.fixes[0].args[0].some((e) => e.code === 'pitch_range' && /24-55/.test(e.message)) && brain.log.fixes[1].args[0].some((e) => e.code === 'unknown_instrument'), 'the composer is told what the check said');
+  assert(brain.log.fixes[0].args[0].some((e) => e.code === 'pitch_out_of_range' && /24-55/.test(e.message)) && brain.log.fixes[1].args[0].some((e) => e.code === 'unknown_instrument'), 'the composer is told what the check said');
   const r = store.get(req.uri);
   assert(r.rounds === 2 && Math.abs(r.cost - 0.05 * 3) < 1e-9 && store.piecesOf(req.uri).length === 1, `rounds ${r.rounds}, cost ${r.cost}`);
   const fails = scriptedBrain();
@@ -373,7 +437,7 @@ await step('measure flags get one render-side revision: the composer sees the fl
   const req = request('fay.test', '@tunes.test a deep sub thing [flags]');
   assert(await handle(req, makeCtx({ brain })) === 'done', store.get(req.uri).error);
   const m = brain.log.fixes.find((f) => f.kind === 'measure');
-  assert(m && m.args[0].join() === 'bass_inaudible_on_phone' && m.args[1].lufs === -14.1, JSON.stringify(brain.log.fixes));
+  assert(m && m.args[0].join() === 'lost_on_phone' && m.args[1].lufs === -14.1, JSON.stringify(brain.log.fixes));
   const rows = store.piecesOf(req.uri);
   assert(rows.length === 2 && rows[1].key === `${req.uri}#v1+1` && rows[1].kept === 1 && rows[0].kept === 0 && rows[1].post_uri && !rows[0].post_uri && rows[1].measure.flags.length === 0, JSON.stringify(rows.map((r) => [r.key, r.kept, r.measure?.flags])));
   assert(repliesTo(req.uri).at(-1).record.text.includes('“clockwork rain” v1'), 'posted as v1 still');
@@ -423,7 +487,7 @@ await step("a booth failure that isn't retryable gets a sorry and the owner is t
   const e = await handle(req, makeCtx()).catch((x) => x);
   assert(!passing(e) && await failed(store.get(req.uri), e, makeCtx()) === 'failed', `${e?.message}`);
   const r = store.get(req.uri);
-  assert(r.status === 'failed' && repliesTo(req.uri).at(-1).record.text === BOOTH_SORRY && r.reply_uri === repliesTo(req.uri).at(-1).uri && /compile_refused/.test(r.error), JSON.stringify(r));
+  assert(r.status === 'failed' && repliesTo(req.uri).at(-1).record.text === BOOTH_SORRY && r.reply_uri === repliesTo(req.uri).at(-1).uri && /invalid_score/.test(r.error), JSON.stringify(r));
   assert(logs.some((l) => l.event === 'report' && /failed for @ivy\.test/.test(l.title)), 'reported');
   const flaky = request('ivy.test', '@tunes.test a flaky one [flaky]');
   const f = await handle(flaky, makeCtx()).catch((x) => x);

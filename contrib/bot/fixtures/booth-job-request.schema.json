@@ -1,0 +1,85 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/becker929/zpkt/lib/contracts/booth-job-request.schema.json",
+  "$defs": {
+    "Want": {
+      "additionalProperties": true,
+      "description": "What the bot would like made beside the render. Only `loop` changes anything today; `video` and `stems` are\nwhat the bot sends, and the booth makes its video at config.toml's `video_size` whatever it asks.",
+      "properties": {
+        "loop": {
+          "default": false,
+          "description": "also a seamless loop.m4a of the song, for a Room World room",
+          "title": "Loop",
+          "type": "boolean"
+        },
+        "video": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "the bot sends {\"size\": [1080, 1920]}; not read",
+          "title": "Video"
+        },
+        "stems": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "not read",
+          "title": "Stems"
+        }
+      },
+      "title": "Want",
+      "type": "object"
+    }
+  },
+  "description": "POST /v1/jobs. The same key always answers the same job, so a bot that crashed never renders twice. Generated from contrib/booth/src/booth/contract.py (JobRequest) \u2014 do not edit by hand.",
+  "properties": {
+    "key": {
+      "description": "the bot's idempotency key",
+      "maxLength": 300,
+      "minLength": 1,
+      "title": "Key",
+      "type": "string"
+    },
+    "score": {
+      "additionalProperties": true,
+      "description": "a score (score.schema.json), checked by POST /v1/check's rules",
+      "title": "Score",
+      "type": "object"
+    },
+    "parent": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "the job this one revises, kept with the job (at most 300 characters)",
+      "title": "Parent"
+    },
+    "want": {
+      "$ref": "#/$defs/Want"
+    }
+  },
+  "required": [
+    "key",
+    "score"
+  ],
+  "title": "JobRequest",
+  "type": "object"
+}
