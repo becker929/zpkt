@@ -7,8 +7,8 @@
 
 A state holds, for every track, return and Main: volume, pan, sends (by return name), mute and solo, and every
 device's parameters (in chain order). Each value is kept as Live shows it and as its raw value; `put` writes the
-raw value, which round-trips exactly on the same Live version. Reading is one LOM call per track; writing is one
-device and at most 16 parameters per call (ableton-guide Rule 2).
+raw value, which round-trips exactly on the same Live version. Reading is one LOM call per 8 tracks (about 3 s for a
+33-track set); writing is one device and at most 16 parameters per call (ableton-guide Rule 2).
 
 NAME may also be a path to a state file, or to any JSON whose "desk" key or top level has this shape.
 """
@@ -26,17 +26,23 @@ from hands.live.transport import Transport
 WRITE_CHUNK = 16
 Value = list  # [shown, raw]
 
-_READ_TRACK = """t = {expr}
-m = t.mixer_device
-rets = [r.name for r in song.return_tracks]
-mix = {{'volume': [str(m.volume), m.volume.value], 'pan': [str(m.panning), m.panning.value],
-       'sends': {{rets[k]: [str(s), s.value] for k, s in enumerate(m.sends)}}}}
-if {is_track}:
-    mix['mute'] = [str(bool(t.mute)), bool(t.mute)]
-    mix['solo'] = [str(bool(t.solo)), bool(t.solo)]
-devs = [{{'name': d.name, 'class': d.class_name,
-         'params': {{p.name: [str(p), p.value] for p in d.parameters}}}} for d in t.devices]
-result = {{'mixer': mix, 'devices': devs}}"""
+READ_CHUNK = 8   # tracks per read call: one call per track cost about 0.4 s each in round trips
+
+_READ_MANY = """rets = [r.name for r in song.return_tracks]
+by = {{}}
+for t in list(song.tracks) + list(song.return_tracks):
+    by.setdefault(t.name, t)
+def _one(t, is_track):
+    m = t.mixer_device
+    mix = {{'volume': [str(m.volume), m.volume.value], 'pan': [str(m.panning), m.panning.value],
+           'sends': {{rets[k]: [str(s), s.value] for k, s in enumerate(m.sends)}}}}
+    if is_track:
+        mix['mute'] = [str(bool(t.mute)), bool(t.mute)]
+        mix['solo'] = [str(bool(t.solo)), bool(t.solo)]
+    devs = [{{'name': d.name, 'class': d.class_name,
+             'params': {{p.name: [str(p), p.value] for p in d.parameters}}}} for d in t.devices]
+    return {{'mixer': mix, 'devices': devs}}
+result = {{n: _one(song.master_track if n == 'Main' else by[n], n != 'Main') for n in {names!r}}}"""
 
 
 def track_expr(name: str) -> str:
@@ -58,9 +64,10 @@ def take(client: Transport, only: list[str] | None = None) -> dict:
     if only:
         names = [n for n in names if n in only or short(n, rets) in only]
     state: dict[str, Any] = {"at": time.strftime("%Y-%m-%d %H:%M:%S"), "returns": rets, "tracks": {}}
-    for n in names:
-        body = client.run(_READ_TRACK.format(expr=track_expr(n), is_track=n != "Main"))
-        state["tracks"][n] = _numbers(body)
+    for i in range(0, len(names), READ_CHUNK):
+        part = client.run(_READ_MANY.format(names=names[i:i + READ_CHUNK]))
+        for n in names[i:i + READ_CHUNK]:
+            state["tracks"][n] = _numbers(part[n])
     return state
 
 
@@ -76,14 +83,22 @@ def _raw(v: Any) -> Any:
     return v
 
 
+def _pair(v: Any) -> list:
+    """[shown, raw] as the bridge may send it: a list, or (deep in a reply) the list's repr as text."""
+    if isinstance(v, str) and v.startswith("["):
+        import ast
+        v = ast.literal_eval(v)
+    return [v[0], _raw(v[1])]
+
+
 def _numbers(body: dict) -> dict:
     mix = body["mixer"]
     for k in ("volume", "pan", "mute", "solo"):
         if k in mix:
-            mix[k] = [mix[k][0], _raw(mix[k][1])]
-    mix["sends"] = {r: [v[0], _raw(v[1])] for r, v in mix.get("sends", {}).items()}
+            mix[k] = _pair(mix[k])
+    mix["sends"] = {r: _pair(v) for r, v in mix.get("sends", {}).items()}
     for d in body["devices"]:
-        d["params"] = {p: [v[0], _raw(v[1])] for p, v in d["params"].items()}
+        d["params"] = {p: _pair(v) for p, v in d["params"].items()}
     return body
 
 
@@ -231,7 +246,7 @@ def path_for(set_name: str, name: str) -> Path:
     p = Path(name).expanduser()
     if p.suffix == ".json" and (p.exists() or "/" in name):
         return p
-    return folder(set_name) / f"{name}.json"
+    return folder(set_name) / (name if p.suffix == ".json" else f"{name}.json")
 
 
 def save(state: dict, path: Path, set_name: str) -> Path:

@@ -54,8 +54,11 @@ def test_return_letters_do_not_matter():
 
 
 def test_text_values_from_the_bridge_become_numbers():
-    st = S.load_dict(_state())
+    raw = _state()
+    raw["tracks"]["kick"]["devices"][0]["params"]["Gain"] = "['3 dB', 0.6]"     # a whole pair as text, deep in a reply
+    st = S.load_dict(raw)
     assert st["tracks"]["kick"]["mixer"]["sends"]["A-Space"][1] == 0.0
+    assert st["tracks"]["kick"]["devices"][0]["params"]["Gain"] == ["3 dB", 0.6]
 
 
 class FakeLive(Transport):
@@ -77,8 +80,9 @@ class FakeLive(Transport):
             return McpResult(status="ok", result=list(self.st["tracks"]))
         if code.startswith("result = [r.name for r in song.return_tracks]"):
             return McpResult(status="ok", result=self.st["returns"])
-        if code.endswith("result = {'mixer': mix, 'devices': devs}"):
-            return McpResult(status="ok", result=json.loads(json.dumps(self.st["tracks"][self._find(code)])))
+        if "def _one(t, is_track)" in code:
+            names = eval(code[code.rindex(" for n in ") + 10:code.rindex("}")])
+            return McpResult(status="ok", result={n: json.loads(json.dumps(self.st["tracks"][n])) for n in names})
         self.writes.append(code)
         t = self.st["tracks"][self._find(code)]
         if "ps = {p.name: p" in code:
