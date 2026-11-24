@@ -6,6 +6,7 @@
 - `abx_score`: binomial p-value for a set of answers.
 - `refs_table`: one file against a folder of references on the core measures.
 """
+
 from __future__ import annotations
 
 import json
@@ -51,8 +52,14 @@ def abx_kit(a, b, outdir, trials=12, start=None, dur=None, seed=None):
         pick = rng.choice("AB")
         aio.save(os.path.join(outdir, f"X{i:02d}.wav"), xa if pick == "A" else xb, a.sr)
         key.append(pick)
-    meta = {"A": a.path, "B": b.path, "gain_db": {"A": r(ga), "B": r(gb)}, "trials": trials,
-            "key": key, "excerpt": [start, dur]}
+    meta = {
+        "A": a.path,
+        "B": b.path,
+        "gain_db": {"A": r(ga), "B": r(gb)},
+        "trials": trials,
+        "key": key,
+        "excerpt": [start, dur],
+    }
     kp = os.path.join(outdir, ".answer_key.json")
     with open(kp, "w") as f:
         json.dump(meta, f, indent=2)
@@ -76,7 +83,7 @@ Do not open `.answer_key.json` first.
 
 def binom_p(correct, n):
     """One-sided probability of >= correct right answers by guessing."""
-    return sum(math.comb(n, k) for k in range(correct, n + 1)) / 2 ** n
+    return sum(math.comb(n, k) for k in range(correct, n + 1)) / 2**n
 
 
 def abx_score(folder, answers):
@@ -86,8 +93,12 @@ def abx_score(folder, answers):
     n = min(len(key), len(answers))
     correct = sum(1 for i in range(n) if key[i] == answers[i])
     p = binom_p(correct, n)
-    return {"trials": n, "correct": correct, "p_value": r(p, 4),
-            "verdict": "difference heard (p<0.05)" if p < 0.05 else "no reliable difference"}
+    return {
+        "trials": n,
+        "correct": correct,
+        "p_value": r(p, 4),
+        "verdict": "difference heard (p<0.05)" if p < 0.05 else "no reliable difference",
+    }
 
 
 def refs_table(target_rows: dict, ref_rows: dict[str, dict], keys):

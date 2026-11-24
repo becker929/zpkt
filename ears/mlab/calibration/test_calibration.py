@@ -1,4 +1,5 @@
 """pytest wrapper: one test per known-answer row."""
+
 import pytest
 
 import checks

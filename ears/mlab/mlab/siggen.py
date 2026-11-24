@@ -3,6 +3,7 @@
 Probe signals are meant to be dragged into Ableton, run through a device,
 exported, and measured against the dry file with `eq-diff` or `comp-probe`.
 """
+
 from __future__ import annotations
 
 import numpy as np
@@ -39,7 +40,7 @@ def pink(dur, sr, ch=2, seed=0, rms_dbfs=None, band=None):
         lo, hi = band
         shape[(f < lo) | (f > hi)] = 0
     y = np.fft.irfft(X * shape[:, None], n=n, axis=0)
-    y /= np.sqrt(np.mean(y ** 2))
+    y /= np.sqrt(np.mean(y**2))
     return y * (lin(rms_dbfs) if rms_dbfs is not None else lin(-20))
 
 
@@ -54,18 +55,22 @@ def bandlimited_click(sr, peak=0.9, offset_frac=0.37, cutoff=0.4, dur=1.0, ch=2)
     n = int(dur * sr)
     t = np.arange(n) - (n // 2 + offset_frac)
     h = np.sinc(2 * cutoff * t) * np.kaiser(n, 12)
-    h = h / (2 * cutoff) * (2 * cutoff)       # sinc(0) = 1 at the fractional centre
+    h = h / (2 * cutoff) * (2 * cutoff)  # sinc(0) = 1 at the fractional centre
     return np.repeat((peak * h)[:, None], ch, axis=1)
 
 
 # --------------------------------------------------- compressor probe
 COMP_PROBE_LAYOUT = {
     "freq_hz": 1000.0,
-    "ramp": [0.5, 20.5],           # seconds: -60 -> 0 dBFS linear-in-dB ramp
-    "steps": [                      # (start, end, direction) of each hold after a step
-        [21.0, 23.0, "up"], [23.0, 25.0, "down"],
-        [25.0, 27.0, "up"], [27.0, 29.0, "down"],
-        [29.0, 31.0, "up"], [31.0, 33.0, "down"]],
+    "ramp": [0.5, 20.5],  # seconds: -60 -> 0 dBFS linear-in-dB ramp
+    "steps": [  # (start, end, direction) of each hold after a step
+        [21.0, 23.0, "up"],
+        [23.0, 25.0, "down"],
+        [25.0, 27.0, "up"],
+        [27.0, 29.0, "down"],
+        [29.0, 31.0, "up"],
+        [31.0, 33.0, "down"],
+    ],
     "step_levels_dbfs": [-40.0, -10.0],
     "total_s": 33.5,
 }
@@ -126,7 +131,7 @@ def kick_loop(sr=44100, bpm=160, bars=4, ch=2, seed=0):
     kick = 0.5 * body + click * 0.5
     for i in range(bars * 4):
         a = int(i * beat * sr)
-        y[a:a + k] += kick[: n - a]
+        y[a : a + k] += kick[: n - a]
     y += 0.03 * np.sin(2 * np.pi * 45 * np.arange(n) / sr)
     y *= 0.5 / np.max(np.abs(y))
     return np.repeat(y[:, None], ch, axis=1)
@@ -145,8 +150,13 @@ def song_sections(sr=44100, bpm=160.0, ch=2, seed=0, dropout_bar=None):
     beat = 60 / bpm
     bar = 4 * beat
     wb = max(1, int(round(30.0 / bar)))
-    layout = [("intro", 8, True, 1.0), ("break", 8, False, 0.0), ("drop", 8, True, 1.0),
-              ("peak", wb, True, 2.0), ("outro", 8, True, 1.0)]
+    layout = [
+        ("intro", 8, True, 1.0),
+        ("break", 8, False, 0.0),
+        ("drop", 8, True, 1.0),
+        ("peak", wb, True, 2.0),
+        ("outro", 8, True, 1.0),
+    ]
     nbars = sum(n for _, n, _, _ in layout)
     n = int(nbars * bar * sr) + sr
     y = np.zeros(n)
@@ -164,10 +174,10 @@ def song_sections(sr=44100, bpm=160.0, ch=2, seed=0, dropout_bar=None):
             for q in range(4):
                 a = int((b * bar + q * beat) * sr)
                 if has_kick and b + 1 != dropout_bar:
-                    y[a:a + k] += 0.6 * kick
+                    y[a : a + k] += 0.6 * kick
                 if hat_amp:
                     o = int((b * bar + (q + 0.5) * beat) * sr)
-                    y[o:o + h] += 0.05 * hat_amp * hat
+                    y[o : o + h] += 0.05 * hat_amp * hat
         b0 += nb
     a, e = int((truth["break"][0] - 1) * bar * sr), int(truth["break"][1] * bar * sr)
     pad = signal.sosfilt(signal.butter(2, [300, 3000], "bandpass", fs=sr, output="sos"), rng.standard_normal(e - a))

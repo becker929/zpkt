@@ -1,4 +1,5 @@
 """`mlab refs --peaks` end to end on synthetic songs with known layouts."""
+
 import json
 import os
 import sys

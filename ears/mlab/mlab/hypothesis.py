@@ -5,6 +5,7 @@ lab data directory: $MLAB_DATA, or the lab root (ears/mlab). Results go to
 hypotheses/results in the lab root.
 Variants come from files (Ableton renders) or from Python ops (dsp.py).
 """
+
 from __future__ import annotations
 
 import datetime as dt
@@ -79,8 +80,9 @@ def build_variants(spec):
         processed = bool(v.get("chain"))
         # processed audio lives in float until something quantizes it; a lossy source
         # stays "lossy" only if no op touched it
-        out[v["name"]] = aio.Audio(x, a.sr, f"{v['name']}" if processed else a.path,
-                                   "FLOAT" if processed else a.subtype, a.fmt)
+        out[v["name"]] = aio.Audio(
+            x, a.sr, f"{v['name']}" if processed else a.path, "FLOAT" if processed else a.subtype, a.fmt
+        )
     return out
 
 
@@ -96,7 +98,7 @@ def evaluate(pred, rows):
     ref = abs(obs) if pred["op"].startswith("abs") else obs
     gap = abs(ref - pred["value"])
     strict = pred["op"] in ("<", ">", "abs<", "abs>")
-    if gap < 0.015 and (strict or gap > 0):   # metrics are rounded to 0.01; a result this close to the line is a tie
+    if gap < 0.015 and (strict or gap > 0):  # metrics are rounded to 0.01; a result this close to the line is a tie
         return {"status": "INCONCLUSIVE", "observed": r(obs, 3), "note": "within rounding of the threshold"}
     if pred["op"] in OPS:
         ok = bool(OPS[pred["op"]](obs, pred["value"]))
@@ -130,36 +132,64 @@ def run(path, outroot=None, codecs=None):
     for p in spec.get("predictions", []) or []:
         preds.append({**p, **evaluate(p, rows)})
     statuses = [p["status"] for p in preds]
-    verdict = ("NO PREDICTION" if not preds else "NOT SUPPORTED" if "FAIL" in statuses
-               else "INCONCLUSIVE" if "INCONCLUSIVE" in statuses else "SUPPORTED")
+    verdict = (
+        "NO PREDICTION"
+        if not preds
+        else "NOT SUPPORTED"
+        if "FAIL" in statuses
+        else "INCONCLUSIVE"
+        if "INCONCLUSIVE" in statuses
+        else "SUPPORTED"
+    )
     listen = spec.get("listening") or {}
     abx_dir = None
     if listen.get("abx"):
         a_name, b_name = listen["abx"]
         exc = listen.get("excerpt") or [None, None]
         abx_dir = os.path.join(outdir, "abx")
-        compare.abx_kit(variants[a_name], variants[b_name], abx_dir, trials=listen.get("trials", 12),
-                        start=exc[0], dur=exc[1])
+        compare.abx_kit(
+            variants[a_name], variants[b_name], abx_dir, trials=listen.get("trials", 12), start=exc[0], dur=exc[1]
+        )
     md = _report(spec, variants, rows, keys, preds, verdict, abx_dir)
     with open(os.path.join(outdir, "report.md"), "w") as f:
         f.write(md)
-    aio.dump_json({"id": hid, "verdict": verdict, "predictions": preds,
-                   "rows": {k: {m: v.get(m) for m in keys} for k, v in rows.items()}},
-                  os.path.join(outdir, "result.json"))
+    aio.dump_json(
+        {
+            "id": hid,
+            "verdict": verdict,
+            "predictions": preds,
+            "rows": {k: {m: v.get(m) for m in keys} for k, v in rows.items()},
+        },
+        os.path.join(outdir, "result.json"),
+    )
     return outdir, verdict
 
 
 def _report(spec, variants, rows, keys, preds, verdict, abx_dir):
     names = list(variants)
-    L_ = [f"# {spec['id']} — {spec.get('title', '')}", "",
-          f"Run {dt.datetime.now().strftime('%Y-%m-%d %H:%M')} · chapter {spec.get('chapter', '?')} · "
-          f"source: {spec.get('source', 'n/a')}", "",
-          f"**Claim.** {spec.get('claim', '').strip()}", "", f"**Verdict: {verdict}**", ""]
+    L_ = [
+        f"# {spec['id']} — {spec.get('title', '')}",
+        "",
+        f"Run {dt.datetime.now().strftime('%Y-%m-%d %H:%M')} · chapter {spec.get('chapter', '?')} · "
+        f"source: {spec.get('source', 'n/a')}",
+        "",
+        f"**Claim.** {spec.get('claim', '').strip()}",
+        "",
+        f"**Verdict: {verdict}**",
+        "",
+    ]
     if preds:
-        L_ += ["## Predictions", "", "| metric | left − right | op | threshold | observed | status |", "|---|---|---|---|---|---|"]
+        L_ += [
+            "## Predictions",
+            "",
+            "| metric | left − right | op | threshold | observed | status |",
+            "|---|---|---|---|---|---|",
+        ]
         for p in preds:
-            L_.append(f"| {p['metric']} | {p['left']} − {p.get('right', '0')} | {p['op']} | {p['value']} | "
-                      f"{p['observed']} | {p['status']} |")
+            L_.append(
+                f"| {p['metric']} | {p['left']} − {p.get('right', '0')} | {p['op']} | {p['value']} | "
+                f"{p['observed']} | {p['status']} |"
+            )
             if p.get("why"):
                 L_.append(f"| | *{p['why']}* | | | | |")
         L_.append("")
@@ -171,7 +201,18 @@ def _report(spec, variants, rows, keys, preds, verdict, abx_dir):
         src = v.get("file") or f"{v.get('from')} → " + " → ".join(o["op"] for o in v.get("chain", []) or [])
         L_.append(f"- **{v['name']}**: {src}")
     if abx_dir:
-        L_ += ["", "## Listening", "", f"Blind ABX kit in `{os.path.relpath(abx_dir, LAB)}` (level-matched). "
-               "Score with `python3 -m mlab abx-score <folder> <answers>`."]
-    L_ += ["", "## Interpretation", "", spec.get("interpretation_hint", "_Write what this changes, then log it in LEARNINGS.md._"), ""]
+        L_ += [
+            "",
+            "## Listening",
+            "",
+            f"Blind ABX kit in `{os.path.relpath(abx_dir, LAB)}` (level-matched). "
+            "Score with `python3 -m mlab abx-score <folder> <answers>`.",
+        ]
+    L_ += [
+        "",
+        "## Interpretation",
+        "",
+        spec.get("interpretation_hint", "_Write what this changes, then log it in LEARNINGS.md._"),
+        "",
+    ]
     return "\n".join(L_)

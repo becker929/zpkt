@@ -1,4 +1,5 @@
 """Small shared helpers: dB conversions and level-safe math."""
+
 from __future__ import annotations
 
 import numpy as np
@@ -55,6 +56,6 @@ def dc_is_real(x, sr, block_s=1.0, z=4.0):
     k = len(x) // b
     if k < 3:
         return True
-    m = x[:k * b].reshape(k, b, x.shape[1]).mean(axis=1)
+    m = x[: k * b].reshape(k, b, x.shape[1]).mean(axis=1)
     se = m.std(axis=0, ddof=1) / np.sqrt(k) + 1e-12
     return bool(np.any(np.abs(m.mean(axis=0)) / se > z))

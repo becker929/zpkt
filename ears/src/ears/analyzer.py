@@ -1,4 +1,5 @@
 """Audio analysis orchestrator — runs extractors in parallel, returns AudioProfile."""
+
 from __future__ import annotations
 
 import hashlib
@@ -54,22 +55,27 @@ def analyze(
 
     def run_spectral():
         from .features import extract
+
         return "spectral", extract(audio, sr)
 
     def run_loudness():
         from .loudness import extract
+
         return "loudness", extract(audio, sr, channels)
 
     def run_rhythm_task():
         from .rhythm import extract
+
         return "rhythm", extract(audio_path)
 
     def run_pitch_task():
         from .pitch import extract
+
         return "pitch", extract(audio_path)
 
     def run_embed():
         from .embeddings import embed
+
         return "embedding", embed(audio_path)
 
     tasks = [run_spectral, run_loudness]

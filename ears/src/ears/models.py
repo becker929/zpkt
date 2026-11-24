@@ -1,4 +1,5 @@
 """Dataclasses for the ears AudioProfile and all sub-feature types."""
+
 from __future__ import annotations
 
 import dataclasses

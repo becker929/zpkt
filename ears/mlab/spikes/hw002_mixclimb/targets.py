@@ -6,6 +6,7 @@ Reads the 30 s peak excerpts that `mlab refs --peaks --excerpts` wrote on 1 Oct
 (~/_agent_scratch/refs/HW002/matched/*peak30*.wav). The audio is purchased and
 private; only the numbers are written, to ~/_agent_scratch/mixclimb/targets.json.
 """
+
 import json
 import os
 import sys
@@ -33,14 +34,34 @@ keys = [k for k in rows["HW002"] if all(k in rows[r] and rows[r][k] is not None 
 tgt = {}
 for k in keys:
     v = np.array([rows[r][k] for r in REFS], dtype=float)
-    tgt[k] = {"mean": round(float(v.mean()), 3), "min": round(float(v.min()), 3), "max": round(float(v.max()), 3),
-              "hw002": rows["HW002"][k]}
+    tgt[k] = {
+        "mean": round(float(v.mean()), 3),
+        "min": round(float(v.min()), 3),
+        "max": round(float(v.max()), 3),
+        "hw002": rows["HW002"][k],
+    }
 json.dump({"refs": REFS, "targets": tgt, "rows": rows}, open(OUT + "targets.json", "w"), indent=1)
 
-show = ["third_octave_rel.31.5", "third_octave_rel.40.0", "third_octave_rel.100.0", "third_octave_rel.1000.0",
-        "third_octave_rel.2000.0", "third_octave_rel.3150.0", "third_octave_rel.10000.0", "corr.20-120",
-        "side_mid.20-120", "corr.2000-8000", "side_mid.2000-8000", "side_mid.8000-19800", "block_crest_median_db",
-        "transient_contrast_db", "ears.centroid_hz", "ears.flatness", "ears.harmonic_ratio", "ears.onset_strength"]
+show = [
+    "third_octave_rel.31.5",
+    "third_octave_rel.40.0",
+    "third_octave_rel.100.0",
+    "third_octave_rel.1000.0",
+    "third_octave_rel.2000.0",
+    "third_octave_rel.3150.0",
+    "third_octave_rel.10000.0",
+    "corr.20-120",
+    "side_mid.20-120",
+    "corr.2000-8000",
+    "side_mid.2000-8000",
+    "side_mid.8000-19800",
+    "block_crest_median_db",
+    "transient_contrast_db",
+    "ears.centroid_hz",
+    "ears.flatness",
+    "ears.harmonic_ratio",
+    "ears.onset_strength",
+]
 print(f"{'feature':32s} {'HW002':>9s} {'ref mean':>9s} {'ref min':>9s} {'ref max':>9s}")
 for k in show:
     if k in tgt:

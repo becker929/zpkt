@@ -1,4 +1,5 @@
 """ears CLI — analyze audio files and emit AudioProfile JSON."""
+
 from __future__ import annotations
 
 import dataclasses
@@ -54,9 +55,11 @@ def analyze(
     if profile.loudness:
         ld = profile.loudness
         console.print(f"\n[bold]Loudness[/bold]")
+
         def _row(label: str, value: float | None, unit: str) -> None:
             text = f"{value:.2f} {unit}" if value is not None else "n/a"
             console.print(f"  {label:<18} {text}")
+
         _row("LUFS integrated:", ld.lufs_integrated, "LUFS")
         _row("LUFS short-term:", ld.lufs_short_term_peak, "LUFS")
         _row("LUFS momentary:", ld.lufs_momentary_max, "LUFS")
@@ -92,8 +95,9 @@ def analyze(
             console.print(f"  Swing:      {ry.swing_ratio:.3f}")
 
     if profile.embedding:
-        console.print(f"\n[bold]Embedding[/bold]  {len(profile.embedding)}-dim DCLAP vector (first 4): "
-                      f"{profile.embedding[:4]}")
+        console.print(
+            f"\n[bold]Embedding[/bold]  {len(profile.embedding)}-dim DCLAP vector (first 4): {profile.embedding[:4]}"
+        )
 
     if profile.errors:
         console.print(f"\n[yellow]Errors:[/yellow] {', '.join(profile.errors)}")
@@ -137,7 +141,9 @@ def compare(
 @corpus_app.command("build")
 def corpus_build(
     folder: Path = typer.Argument(..., help="Folder of reference tracks (searched recursively)."),
-    out: Path = typer.Option(None, "--out", help="Corpus file to write (default $EARS_CORPUS, else ~/.cache/zpkt/corpus.json)."),
+    out: Path = typer.Option(
+        None, "--out", help="Corpus file to write (default $EARS_CORPUS, else ~/.cache/zpkt/corpus.json)."
+    ),
     no_embeddings: bool = typer.Option(False, "--no-embeddings", help="Skip DCLAP embeddings."),
 ) -> None:
     """Measure every track in FOLDER once and write the corpus file."""
@@ -157,7 +163,9 @@ def corpus_build(
         raise typer.Exit(1)
     path = _corpus.save(built, out or _corpus.default_path())
     with_vectors = sum(1 for t in built["tracks"] if t.get("embedding"))
-    console.print(f"{len(built['tracks'])} tracks ({with_vectors} with embeddings, {len(built['skipped'])} skipped) -> {path}")
+    console.print(
+        f"{len(built['tracks'])} tracks ({with_vectors} with embeddings, {len(built['skipped'])} skipped) -> {path}"
+    )
     if not no_embeddings and not with_vectors:
         console.print("[yellow]No embeddings: set EARS_DCLAP_MODEL (see the README). Measures still work.[/yellow]")
 
@@ -165,7 +173,9 @@ def corpus_build(
 @corpus_app.command("distance")
 def corpus_distance(
     audio_path: Path = typer.Argument(..., help="The render to place in the corpus."),
-    corpus_path: Path = typer.Option(None, "--corpus", help="Corpus file (default $EARS_CORPUS, else ~/.cache/zpkt/corpus.json)."),
+    corpus_path: Path = typer.Option(
+        None, "--corpus", help="Corpus file (default $EARS_CORPUS, else ~/.cache/zpkt/corpus.json)."
+    ),
     no_embeddings: bool = typer.Option(False, "--no-embeddings", help="Skip DCLAP embedding."),
     json_out: bool = typer.Option(False, "--json", help="Output raw JSON to stdout."),
 ) -> None:
@@ -198,8 +208,10 @@ def corpus_distance(
     console.print("[dim]Yellow rows are outside the corpus's 10th to 90th percentile.[/dim]")
     emb = result["embedding"]
     if emb:
-        console.print(f"\nEmbedding: {emb['to_centre']:.3f} to the corpus centre "
-                      f"(corpus tracks: median {emb['corpus_median']:.3f}, 10th percentile {emb['corpus_p10']:.3f})")
+        console.print(
+            f"\nEmbedding: {emb['to_centre']:.3f} to the corpus centre "
+            f"(corpus tracks: median {emb['corpus_median']:.3f}, 10th percentile {emb['corpus_p10']:.3f})"
+        )
         for near in emb["nearest"]:
             console.print(f"  {near['cosine']:.3f}  {near['path']}")
     else:

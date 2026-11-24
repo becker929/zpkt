@@ -11,6 +11,7 @@ plays) so a mix can be compared with references section to section.
 
 Known answers live in calibration/checks.py (check_sections).
 """
+
 from __future__ import annotations
 
 import numpy as np
@@ -37,7 +38,7 @@ def onset_envelope(x, sr, hop=256, n_fft=1024):
 
 def tempo(x, sr, lo=120.0, hi=190.0, step=0.01):
     env, fps = onset_envelope(x, sr)
-    ac = np.correlate(env, env, "full")[len(env) - 1:]
+    ac = np.correlate(env, env, "full")[len(env) - 1 :]
     lag = np.arange(len(ac))
     cands = np.arange(lo, hi, step)
     score = sum(np.interp(k * 60 * fps / cands, lag, ac) for k in (1, 2, 4, 8, 16, 32))
@@ -80,9 +81,9 @@ def peak_window(high_db, kick, bpm, seconds=PEAK_S):
     wb = max(1, int(round(seconds / (4 * 60 / bpm))))
     best, at = -np.inf, None
     for b in range(0, len(high_db) - wb + 1):
-        if kick[b:b + wb].mean() < PEAK_KICK_FRACTION:
+        if kick[b : b + wb].mean() < PEAK_KICK_FRACTION:
             continue
-        v = high_db[b:b + wb].mean()
+        v = high_db[b : b + wb].mean()
         if v > best:
             best, at = v, b
     return None if at is None else [at + 1, at + wb]
@@ -90,7 +91,7 @@ def peak_window(high_db, kick, bpm, seconds=PEAK_S):
 
 def excerpt(x, sr, bpm, bar_range):
     bar = 4 * 60 / bpm
-    return x[int((bar_range[0] - 1) * bar * sr): int(bar_range[1] * bar * sr)]
+    return x[int((bar_range[0] - 1) * bar * sr) : int(bar_range[1] * bar * sr)]
 
 
 def analyze(x, sr, bpm=None):
@@ -103,21 +104,31 @@ def analyze(x, sr, bpm=None):
     main = max(inner, key=lambda r: r[1] - r[0]) if inner else None
     drop = None
     if main and pk:
-        drop = float(high_db[main[1]:main[1] + 8].mean() - high_db[pk[0] - 1:pk[1]].mean())
-    return {"bpm": round(bpm, 2), "bars": len(kick), "kickless_runs": runs, "main_break": main,
-            "peak_bars": pk, "drop_vs_peak_high_db": None if drop is None else round(drop, 2),
-            "peak_after_main_break": bool(main and pk and pk[0] > main[1])}
+        drop = float(high_db[main[1] : main[1] + 8].mean() - high_db[pk[0] - 1 : pk[1]].mean())
+    return {
+        "bpm": round(bpm, 2),
+        "bars": len(kick),
+        "kickless_runs": runs,
+        "main_break": main,
+        "peak_bars": pk,
+        "drop_vs_peak_high_db": None if drop is None else round(drop, 2),
+        "peak_after_main_break": bool(main and pk and pk[0] > main[1]),
+    }
 
 
 def peak_profile(x, sr, bpm, bar_range):
     """Measures of a peak excerpt that do not depend on its level."""
     seg = excerpt(x, sr, bpm, bar_range)
     from . import dynamics as D
+
     st = S.stereo_by_band(seg, sr)
-    return {"lufs": round(L.integrated(seg, sr), 2), "third_octave_rel": _rel_third_octave(seg, sr),
-            "low_corr": st[0]["correlation"] if st else None,
-            "low_side_minus_mid_db": st[0]["side_minus_mid_db"] if st else None,
-            "crest_median_db": D.micro(seg, sr)["block_crest_median_db"]}
+    return {
+        "lufs": round(L.integrated(seg, sr), 2),
+        "third_octave_rel": _rel_third_octave(seg, sr),
+        "low_corr": st[0]["correlation"] if st else None,
+        "low_side_minus_mid_db": st[0]["side_minus_mid_db"] if st else None,
+        "crest_median_db": D.micro(seg, sr)["block_crest_median_db"],
+    }
 
 
 def _rel_third_octave(x, sr):

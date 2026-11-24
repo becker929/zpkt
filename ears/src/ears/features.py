@@ -1,4 +1,5 @@
 """Spectral and timbral feature extraction."""
+
 from __future__ import annotations
 
 import numpy as np
@@ -29,8 +30,8 @@ def extract(audio: np.ndarray, sr: int) -> SpectralFeatures:
     feats.zero_crossing_rate_mean = float(np.mean(zcr))
 
     harmonic, _ = librosa.effects.hpss(audio)
-    harmonic_power = float(np.mean(harmonic ** 2))
-    total_power = float(np.mean(audio ** 2)) + 1e-10
+    harmonic_power = float(np.mean(harmonic**2))
+    total_power = float(np.mean(audio**2)) + 1e-10
     feats.harmonic_ratio_mean = harmonic_power / total_power
 
     onset_env = librosa.onset.onset_strength(y=audio, sr=sr)
@@ -47,6 +48,7 @@ def extract(audio: np.ndarray, sr: int) -> SpectralFeatures:
     # Key detection via essentia (optional)
     try:
         import essentia.standard as es
+
         key_extractor = es.KeyExtractor()
         key, scale, strength = key_extractor(audio.astype(np.float32))
         feats.key = f"{key} {scale}"

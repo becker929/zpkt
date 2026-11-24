@@ -1,4 +1,5 @@
 """`mlab hyp run` end to end on a tone with a known answer: +6 dB of gain is 6 LU louder."""
+
 import json
 import textwrap
 

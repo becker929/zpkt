@@ -8,6 +8,7 @@ the render with `comp-probe` / `eq-diff` instead.
 
 Every processor takes and returns float64 (n, ch).
 """
+
 from __future__ import annotations
 
 import numpy as np
@@ -33,12 +34,12 @@ def biquad(kind: str, f0: float, sr: int, gain_db: float = 0.0, q: float = 0.707
     elif kind in ("lowshelf", "highshelf"):
         sa = 2 * np.sqrt(A) * alpha
         s = 1 if kind == "lowshelf" else -1
-        b = [A * ((A + 1) - s * (A - 1) * cw + sa),
-             s * 2 * A * ((A - 1) - s * (A + 1) * cw),
-             A * ((A + 1) - s * (A - 1) * cw - sa)]
-        a = [(A + 1) + s * (A - 1) * cw + sa,
-             -s * 2 * ((A - 1) + s * (A + 1) * cw),
-             (A + 1) + s * (A - 1) * cw - sa]
+        b = [
+            A * ((A + 1) - s * (A - 1) * cw + sa),
+            s * 2 * A * ((A - 1) - s * (A + 1) * cw),
+            A * ((A + 1) - s * (A - 1) * cw - sa),
+        ]
+        a = [(A + 1) + s * (A - 1) * cw + sa, -s * 2 * ((A - 1) + s * (A + 1) * cw), (A + 1) + s * (A - 1) * cw - sa]
     elif kind == "highpass":
         b = [(1 + cw) / 2, -(1 + cw), (1 + cw) / 2]
         a = [1 + alpha, -2 * cw, 1 - alpha]
@@ -80,15 +81,27 @@ def gain_computer(level_db, threshold, ratio, knee):
     return np.maximum(gr, 0.0)
 
 
-def compressor(x, sr, threshold=-20.0, ratio=4.0, attack_ms=10.0, release_ms=100.0,
-               knee=6.0, makeup_db=0.0, detector="peak", rms_ms=10.0, hold_ms=5.0, return_gr=False):
+def compressor(
+    x,
+    sr,
+    threshold=-20.0,
+    ratio=4.0,
+    attack_ms=10.0,
+    release_ms=100.0,
+    knee=6.0,
+    makeup_db=0.0,
+    detector="peak",
+    rms_ms=10.0,
+    hold_ms=5.0,
+    return_gr=False,
+):
     """Feed-forward, stereo-linked compressor with a smoothed-gain (log-domain) ballistic.
 
     detector: 'peak' (instant rectified max of channels) or 'rms' (rms_ms window).
     Attack/release are one-pole time constants (time to 63 % of a step)."""
     if detector == "rms":
         w = max(1, int(sr * rms_ms / 1000))
-        pw = signal.lfilter(np.ones(w) / w, [1.0], np.mean(x ** 2, axis=1))
+        pw = signal.lfilter(np.ones(w) / w, [1.0], np.mean(x**2, axis=1))
         lvl = 10 * np.log10(np.maximum(pw, 1e-20)) + 3.0103  # sine-referenced (AES-17)
     else:
         # peak detector with a short hold: without it, a sine's zero crossings make the
@@ -107,9 +120,10 @@ def _causal_max(v, h):
     if h <= 1:
         return v
     from scipy.ndimage import maximum_filter1d
-    c = maximum_filter1d(v, size=h, mode="nearest")      # centred window
+
+    c = maximum_filter1d(v, size=h, mode="nearest")  # centred window
     k = (h - 1) // 2
-    return np.concatenate([np.full(k, c[0]), c[:len(c) - k]]) if k else c
+    return np.concatenate([np.full(k, c[0]), c[: len(c) - k]]) if k else c
 
 
 def _ballistics(target, aa, ar):
@@ -127,8 +141,9 @@ def _peak_env(x, sr, true_peak=True):
     return L.true_peak_envelope(x, sr) if true_peak else np.max(np.abs(x), axis=1)
 
 
-def limiter(x, sr, ceiling_db=-1.0, lookahead_ms=5.0, release_ms=80.0, true_peak=True,
-            drive_db=0.0, peak_env=None, trim=True):
+def limiter(
+    x, sr, ceiling_db=-1.0, lookahead_ms=5.0, release_ms=80.0, true_peak=True, drive_db=0.0, peak_env=None, trim=True
+):
     """Lookahead brickwall limiter. true_peak=True detects on the 8x oversampled signal,
     so the output's TRUE peak stays at or under the ceiling (verified in calibration)."""
     la = max(1, int(sr * lookahead_ms / 1000))
@@ -146,7 +161,7 @@ def limiter(x, sr, ceiling_db=-1.0, lookahead_ms=5.0, release_ms=80.0, true_peak
     ar = np.exp(-D / (sr * release_ms / 1000))
     gs_b = _ballistics(gr, 0.0, ar)
     gs = np.interp(np.arange(len(g)), np.arange(k) * D + D / 2, gs_b)
-    gs = np.maximum(gs, -db(g))          # never less reduction than the sample needs
+    gs = np.maximum(gs, -db(g))  # never less reduction than the sample needs
     y = x * lin(-gs)[:, None]
     # safety: a final true-peak trim for residual interpolation overs
     if trim:
@@ -159,8 +174,8 @@ def limiter(x, sr, ceiling_db=-1.0, lookahead_ms=5.0, release_ms=80.0, true_peak
 def master_to(x, sr, target_lufs, ceiling_db=-1.0, **kw):
     """Drive the limiter until integrated loudness hits target. Returns (y, drive_db)."""
     lo, hi = -24.0, 48.0
-    env = _peak_env(x, sr, kw.get("true_peak", True))      # peaks scale with drive: detect once
-    for _ in range(13):                                      # 72 dB / 2^13 < 0.01 dB
+    env = _peak_env(x, sr, kw.get("true_peak", True))  # peaks scale with drive: detect once
+    for _ in range(13):  # 72 dB / 2^13 < 0.01 dB
         g = (lo + hi) / 2
         y = limiter(x, sr, ceiling_db, drive_db=g, peak_env=env, trim=False, **kw)
         if L.integrated(y, sr) < target_lufs:
@@ -171,6 +186,7 @@ def master_to(x, sr, target_lufs, ceiling_db=-1.0, **kw):
     got = L.integrated(y, sr)
     if abs(got - target_lufs) > 0.3:
         import warnings
+
         warnings.warn(f"master_to: reached {got:.2f} LUFS, not {target_lufs} (limiter saturated)")
     return y, (lo + hi) / 2
 

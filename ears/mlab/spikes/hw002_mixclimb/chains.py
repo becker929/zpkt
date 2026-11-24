@@ -5,6 +5,7 @@ kick (kick + rumble), perc (splash + hats), sfx, brk. Each aspect has normalised
 params in [0, 1]; params all at their "neutral" value reproduce the original mix.
 Bus levels are restored after processing, so an aspect changes tone, not balance.
 """
+
 import numpy as np
 import pedalboard as P
 from scipy import signal
@@ -19,7 +20,7 @@ def _pb(board, x, sr):
 
 
 def _match_rms(y, ref):
-    a, b = np.sqrt(np.mean(y ** 2)), np.sqrt(np.mean(ref ** 2))
+    a, b = np.sqrt(np.mean(y**2)), np.sqrt(np.mean(ref**2))
     return y * (b / a) if a > 0 else y
 
 
@@ -52,14 +53,22 @@ def kick_distortion(st, sr, u):
     f, g, drive, tone, mix = _log(u[0], 500, 4000), _lin(u[1], 0, 12), _lin(u[2], 0, 30), _log(u[3], 3000, 18000), u[4]
     xo = _log(u[5], 60, 250)
     k = st["kick"]
-    m, s = _ms(k)                      # mid only: per-channel drive decorrelates the low end
-    lo, hi = _split(m[:, None], sr, xo)   # keep the sub clean below the crossover
+    m, s = _ms(k)  # mid only: per-channel drive decorrelates the low end
+    lo, hi = _split(m[:, None], sr, xo)  # keep the sub clean below the crossover
     lo, hi = lo[:, 0], hi[:, 0]
-    wet = _pb(P.Pedalboard([P.PeakFilter(f, g, 0.8), P.Distortion(drive), P.LowpassFilter(tone)]), hi[:, None], sr)[:, 0]
+    wet = _pb(P.Pedalboard([P.PeakFilter(f, g, 0.8), P.Distortion(drive), P.LowpassFilter(tone)]), hi[:, None], sr)[
+        :, 0
+    ]
     m2 = lo + (1 - mix) * hi + mix * _match_rms(wet, hi)
     y = _match_rms(_lr(m2, s), k)
-    return {**st, "kick": y}, {"emphasis_hz": f, "emphasis_db": g, "drive_db": drive, "tone_lowpass_hz": tone, "mix": mix,
-                               "clean_below_hz": xo}
+    return {**st, "kick": y}, {
+        "emphasis_hz": f,
+        "emphasis_db": g,
+        "drive_db": drive,
+        "tone_lowpass_hz": tone,
+        "mix": mix,
+        "clean_below_hz": xo,
+    }
 
 
 def colour(st, sr, u):
@@ -68,8 +77,16 @@ def colour(st, sr, u):
     fl, gl, ql = _log(u[3], 60, 250), _lin(u[4], -6, 0), _log(u[5], 0.5, 2)
     fh, gh = _log(u[6], 4000, 14000), _lin(u[7], -10, 0)
     board = P.Pedalboard([P.PeakFilter(fm, gm, qm), P.PeakFilter(fl, gl, ql), P.HighShelfFilter(fh, gh, 0.7)])
-    return {"mix_post": board}, {"mid_hz": fm, "mid_db": gm, "mid_q": qm, "lowmid_hz": fl, "lowmid_db": gl,
-                                  "lowmid_q": ql, "air_shelf_hz": fh, "air_db": gh}
+    return {"mix_post": board}, {
+        "mid_hz": fm,
+        "mid_db": gm,
+        "mid_q": qm,
+        "lowmid_hz": fl,
+        "lowmid_db": gl,
+        "lowmid_q": ql,
+        "air_shelf_hz": fh,
+        "air_db": gh,
+    }
 
 
 def deep_sub(st, sr, u):
@@ -92,14 +109,19 @@ def density(st, sr, u):
     drive, thr, ratio = _lin(u[0], 0, 15), _lin(u[1], -40, -10), _lin(u[2], 2, 12)
     att, rel, mix = _log(u[3], 0.5, 30), _log(u[4], 30, 300), _lin(u[5], 0, 0.8)
     bus = st["kick"] + st["perc"]
-    m, s = _ms(bus)                    # mid only, side untouched (as with the kick distortion)
+    m, s = _ms(bus)  # mid only, side untouched (as with the kick distortion)
     clip = np.tanh(m * 10 ** (drive / 20)) / max(np.tanh(10 ** (drive / 20)), 1e-6) if drive > 0.01 else m
     clip = _match_rms(clip, m)
     comp = _match_rms(_pb(P.Pedalboard([P.Compressor(thr, ratio, att, rel)]), clip[:, None], sr)[:, 0], clip)
     y = _match_rms(_lr(_match_rms((1 - mix) * clip + mix * comp, m), s), bus)
     return {**st, "drumbus": y}, {
-        "clip_drive_db": drive, "comp_threshold_db": thr, "comp_ratio": ratio, "comp_attack_ms": att,
-        "comp_release_ms": rel, "parallel_mix": mix}
+        "clip_drive_db": drive,
+        "comp_threshold_db": thr,
+        "comp_ratio": ratio,
+        "comp_attack_ms": att,
+        "comp_release_ms": rel,
+        "parallel_mix": mix,
+    }
 
 
 def space(st, sr, u):
@@ -111,8 +133,13 @@ def space(st, sr, u):
     lo, hi = _split(y, sr, f)
     m, s = _ms(hi)
     y = lo + _lr(m, s * 10 ** (sg / 20))
-    return {**st, "perc": _match_rms(y, p)}, {"room_size": room, "damping": damp, "reverb_wet": wet,
-                                              "widen_above_hz": f, "side_lift_db": sg}
+    return {**st, "perc": _match_rms(y, p)}, {
+        "room_size": room,
+        "damping": damp,
+        "reverb_wet": wet,
+        "widen_above_hz": f,
+        "side_lift_db": sg,
+    }
 
 
 ASPECTS = {

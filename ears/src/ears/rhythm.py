@@ -1,4 +1,5 @@
 """Beat, tempo, and groove extraction via madmom (optional dependency)."""
+
 from __future__ import annotations
 
 import numpy as np
@@ -11,9 +12,7 @@ def extract(audio_path: str) -> RhythmFeatures:
     try:
         import madmom.features.beats as mb
     except ImportError:
-        raise ImportError(
-            "madmom is not installed. Install with: uv pip install 'ears[rhythm]'"
-        )
+        raise ImportError("madmom is not installed. Install with: uv pip install 'ears[rhythm]'")
 
     feats = RhythmFeatures()
     try:

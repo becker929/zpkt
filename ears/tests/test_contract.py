@@ -1,4 +1,5 @@
 """ears' output must match lib/contracts/audio-profile.schema.json."""
+
 from __future__ import annotations
 
 import json
@@ -17,8 +18,10 @@ sys.path.insert(0, str(ROOT / "ears" / "scripts"))
 
 def test_committed_schema_is_current() -> None:
     import gen_schema
-    assert json.loads(SCHEMA.read_text()) == gen_schema.build(), \
+
+    assert json.loads(SCHEMA.read_text()) == gen_schema.build(), (
         "stale contract: run `uv run python scripts/gen_schema.py` in ears/"
+    )
 
 
 def test_cli_output_validates(tmp_path) -> None:
@@ -27,6 +30,10 @@ def test_cli_output_validates(tmp_path) -> None:
     tone = 0.5 * np.sin(2 * np.pi * 220 * t)
     wav = tmp_path / "tone.wav"
     sf.write(wav, np.stack([tone, tone], axis=1), sr)
-    out = subprocess.run([sys.executable, "-m", "ears.cli", "analyze", str(wav), "--json", "--no-embeddings"],
-                         capture_output=True, text=True, check=True).stdout
+    out = subprocess.run(
+        [sys.executable, "-m", "ears.cli", "analyze", str(wav), "--json", "--no-embeddings"],
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout
     jsonschema.validate(json.loads(out), json.loads(SCHEMA.read_text()))

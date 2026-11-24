@@ -66,6 +66,7 @@ stem sum, max abs error in dB over 31.5 Hz-16 kHz.
 
 Known answers: calibration/checks.py (check_eqfit).
 """
+
 from __future__ import annotations
 
 import numpy as np
@@ -80,13 +81,13 @@ KINDS = ("peak", "lowshelf", "highshelf", "highpass", "lowpass")
 GAINED = ("peak", "lowshelf", "highshelf")
 WEIGHTS = {"drop": 1.0, "build": 0.5}
 ALPHA, BETA = 0.0, 0.05
-UNREACHABLE_DB = 20.0           # no-move band this far under the refs' min: left out of J
-LUFS_FLAG_LU = 0.5              # measured vs predicted LUFS change beyond this: flagged
+UNREACHABLE_DB = 20.0  # no-move band this far under the refs' min: left out of J
+LUFS_FLAG_LU = 0.5  # measured vs predicted LUFS change beyond this: flagged
 STEM_KEYS = {"eq", "bands", "gain_db"}
 BAND_KEYS = {"kind", "type", "f", "gain_db", "q"}
 Q_DEFAULT = 0.707
 SUB_PER_OCT = 48
-F_LOW = 5.0                     # sub-bands are log-spaced from here; [0, F_LOW) is one sub-band
+F_LOW = 5.0  # sub-bands are log-spaced from here; [0, F_LOW) is one sub-band
 
 
 # ------------------------------------------------------------------ responses
@@ -110,8 +111,10 @@ def _stem_plan(sp):
         return {"gain_db": 0.0, "eq": [sp]}
     if isinstance(sp, list):
         faders = [b for b in sp if not _is_band(b)]
-        return {"gain_db": float(sum(b.get("gain_db", 0.0) or 0.0 for b in faders)),
-                "eq": [b for b in sp if _is_band(b)]}
+        return {
+            "gain_db": float(sum(b.get("gain_db", 0.0) or 0.0 for b in faders)),
+            "eq": [b for b in sp if _is_band(b)],
+        }
     return {"gain_db": float(sp.get("gain_db", 0.0) or 0.0), "eq": sp.get("eq", sp.get("bands", []))}
 
 
@@ -120,8 +123,7 @@ def _power_gain(sp, sr, z1):
     h = np.full(z1.shape, 10 ** (sp["gain_db"] / 10))
     for bd in sp["eq"]:
         kind = bd.get("kind", bd.get("type"))
-        h = h * _h2(kind, bd["f"], sr, bd.get("gain_db", 0.0) if kind in GAINED else 0.0,
-                    bd.get("q", Q_DEFAULT), z1)
+        h = h * _h2(kind, bd["f"], sr, bd.get("gain_db", 0.0) if kind in GAINED else 0.0, bd.get("q", Q_DEFAULT), z1)
     return h
 
 
@@ -160,7 +162,7 @@ class Model:
         n = min(len(x) for x in xs)
         xs = [x[:n] for x in xs]
         self.sr = sr
-        self.trimmed_s = (max(len(np.asarray(v)) for v in stems.values()) - n) / sr   # cut to the shortest stem
+        self.trimmed_s = (max(len(np.asarray(v)) for v in stems.values()) - n) / sr  # cut to the shortest stem
         e = subband_edges(sr)
         lo, hi = e[:-1], e[1:]
         self.fc = np.where(lo > 0, np.sqrt(lo * np.maximum(hi, lo)), hi / 2)
@@ -181,11 +183,16 @@ class Model:
                 self.skipped[w] = "silent (below the -70 LUFS gate)"
                 continue
             i0, i1 = int(round(a * sr)), int(round(b * sr))
-            P = np.array([T.band_power(*T.psd(x[i0:i1], sr), lo, hi) for x in xs])   # stems x sub-bands
+            P = np.array([T.band_power(*T.psd(x[i0:i1], sr), lo, hi) for x in xs])  # stems x sub-bands
             bands, regions = T.spectral(seg, sr, lufs)
-            self.windows[w] = {"span_s": [a, b], "P": P, "lufs": float(lufs),
-                               "offset": float(lufs - pdb(np.sum(self.kw2 * P.sum(axis=0)))),
-                               "measured_bands": bands, "measured_regions": regions}
+            self.windows[w] = {
+                "span_s": [a, b],
+                "P": P,
+                "lufs": float(lufs),
+                "offset": float(lufs - pdb(np.sum(self.kw2 * P.sum(axis=0)))),
+                "measured_bands": bands,
+                "measured_regions": regions,
+            }
 
     def gains(self, plan):
         """stems x sub-bands power gains of a plan {stem: list of bands or {"gain_db", "eq"}}."""
@@ -204,8 +211,11 @@ class Model:
         for w in self.windows:
             lufs, cs = self.levels(G, w)
             bv = pdb(cs[self.band_ix[:, 1]] - cs[self.band_ix[:, 0]]) - lufs
-            out[w] = {"lufs": float(lufs), "bands": [[hz, float(v)] for hz, v in zip(self.band_hz, bv)],
-                      "regions": {k: float(pdb(cs[j] - cs[i]) - lufs) for k, (i, j) in self.region_ix.items()}}
+            out[w] = {
+                "lufs": float(lufs),
+                "bands": [[hz, float(v)] for hz, v in zip(self.band_hz, bv)],
+                "regions": {k: float(pdb(cs[j] - cs[i]) - lufs) for k, (i, j) in self.region_ix.items()},
+            }
         return out
 
     def check(self):
@@ -217,9 +227,12 @@ class Model:
             if not err:
                 continue
             hz, e = max(err, key=lambda t: abs(t[1]))
-            out[w] = {"max_abs_err_db": float(abs(e)), "at_hz": hz,
-                      "rms_err_db": float(np.sqrt(np.mean([v * v for _, v in err]))),
-                      "bands": [[h, float(v)] for h, v in err]}
+            out[w] = {
+                "max_abs_err_db": float(abs(e)),
+                "at_hz": hz,
+                "rms_err_db": float(np.sqrt(np.mean([v * v for _, v in err]))),
+                "bands": [[h, float(v)] for h, v in err],
+            }
         return out
 
 
@@ -253,18 +266,24 @@ def parse_moves(moves, names, sr):
         if stem not in names:
             raise ValueError(f"moves name {stem!r} is not one of the stems {names}")
         if isinstance(m, dict) and set(m) - STEM_KEYS:
-            raise ValueError(f"{stem}: keys {sorted(set(m) - STEM_KEYS)} are not stem keys {sorted(STEM_KEYS)};"
-                             " write one EQ band as a list: [{\"kind\": ...}]")
-        if isinstance(m, list):                  # bands, plus at most one {"gain_db": ...} fader entry
+            raise ValueError(
+                f"{stem}: keys {sorted(set(m) - STEM_KEYS)} are not stem keys {sorted(STEM_KEYS)};"
+                ' write one EQ band as a list: [{"kind": ...}]'
+            )
+        if isinstance(m, list):  # bands, plus at most one {"gain_db": ...} fader entry
             faders = [b for b in m if not _is_band(b)]
             for b in faders:
                 if set(b) - {"gain_db"}:
-                    raise ValueError(f"{stem}: entry {b} has no kind, so it must be a fader {{\"gain_db\": ...}}"
-                                     f" (unknown keys {sorted(set(b) - {'gain_db'})})")
+                    raise ValueError(
+                        f'{stem}: entry {b} has no kind, so it must be a fader {{"gain_db": ...}}'
+                        f" (unknown keys {sorted(set(b) - {'gain_db'})})"
+                    )
             if len(faders) > 1:
                 raise ValueError(f"{stem}: more than one fader entry")
-            m = {"eq": [b for b in m if "kind" in b or "type" in b],
-                 "gain_db": faders[0].get("gain_db", 0.0) if faders else 0.0}
+            m = {
+                "eq": [b for b in m if "kind" in b or "type" in b],
+                "gain_db": faders[0].get("gain_db", 0.0) if faders else 0.0,
+            }
         s = {"gain_db": slot(stem, "gain_db", "gain_db", "fader", m.get("gain_db", 0.0), False), "eq": []}
         for i, bd in enumerate(m.get("eq", m.get("bands", []))):
             kind = bd.get("kind", bd.get("type"))
@@ -276,11 +295,21 @@ def parse_moves(moves, names, sr):
                 raise ValueError(f"{stem} eq[{i}]: f is required")
             if kind not in GAINED and isinstance(bd.get("gain_db"), (list, tuple)):
                 raise ValueError(f"{stem} eq[{i}]: a {kind} has no gain to move")
-            s["eq"].append({"kind": kind,
-                            "f": slot(stem, f"eq[{i}].f", "f", kind, bd["f"], True),
-                            "gain_db": slot(stem, f"eq[{i}].gain_db", "gain_db", kind,
-                                            bd.get("gain_db", 0.0) if kind in GAINED else 0.0, False),
-                            "q": slot(stem, f"eq[{i}].q", "q", kind, bd.get("q", Q_DEFAULT), True)})
+            s["eq"].append(
+                {
+                    "kind": kind,
+                    "f": slot(stem, f"eq[{i}].f", "f", kind, bd["f"], True),
+                    "gain_db": slot(
+                        stem,
+                        f"eq[{i}].gain_db",
+                        "gain_db",
+                        kind,
+                        bd.get("gain_db", 0.0) if kind in GAINED else 0.0,
+                        False,
+                    ),
+                    "q": slot(stem, f"eq[{i}].q", "q", kind, bd.get("q", Q_DEFAULT), True),
+                }
+            )
         spec[stem] = s
     return spec, params
 
@@ -291,10 +320,21 @@ def _value(sl, vals):
 
 def realize(spec, vals):
     """Concrete plan {stem: {"gain_db", "eq": [{"kind", "f", "gain_db", "q"}]}} for parameter values."""
-    return {stem: {"gain_db": _value(s["gain_db"], vals),
-                   "eq": [{"kind": b["kind"], "f": _value(b["f"], vals), "gain_db": _value(b["gain_db"], vals),
-                           "q": _value(b["q"], vals)} for b in s["eq"]]}
-            for stem, s in spec.items()}
+    return {
+        stem: {
+            "gain_db": _value(s["gain_db"], vals),
+            "eq": [
+                {
+                    "kind": b["kind"],
+                    "f": _value(b["f"], vals),
+                    "gain_db": _value(b["gain_db"], vals),
+                    "q": _value(b["q"], vals),
+                }
+                for b in s["eq"]
+            ],
+        }
+        for stem, s in spec.items()
+    }
 
 
 def _x_bounds(params):
@@ -337,9 +377,19 @@ def apply_plan(stems, sr, plan):
     out = {}
     for k, x in stems.items():
         sp = _stem_plan(plan.get(k))
-        y = dsp.eq(np.asarray(x, dtype=float), sr, [{"type": b.get("kind", b.get("type")), "f": b["f"],
-                                                      "gain_db": b.get("gain_db", 0.0) if b.get("kind", b.get("type")) in GAINED else 0.0,
-                                                      "q": b.get("q", Q_DEFAULT)} for b in sp["eq"]])
+        y = dsp.eq(
+            np.asarray(x, dtype=float),
+            sr,
+            [
+                {
+                    "type": b.get("kind", b.get("type")),
+                    "f": b["f"],
+                    "gain_db": b.get("gain_db", 0.0) if b.get("kind", b.get("type")) in GAINED else 0.0,
+                    "q": b.get("q", Q_DEFAULT),
+                }
+                for b in sp["eq"]
+            ],
+        )
         out[k] = y * 10 ** (sp["gain_db"] / 20)
     return out
 
@@ -362,9 +412,14 @@ def measured_check(model, stems, plan, wins, bar_s=None):
         hz, e = max(err, key=lambda t: abs(t[1])) if err else (None, float("nan"))
         d_meas = mw["lufs"] - model.windows[w]["lufs"]
         d_pred = pw["lufs"] - model.windows[w]["lufs"]
-        out[w] = {"lufs_change_measured_lu": float(d_meas), "lufs_change_predicted_lu": float(d_pred),
-                  "lufs_error_lu": float(d_pred - d_meas), "max_abs_band_err_db": float(abs(e)), "at_hz": hz,
-                  "flag": bool(abs(d_pred - d_meas) > LUFS_FLAG_LU)}
+        out[w] = {
+            "lufs_change_measured_lu": float(d_meas),
+            "lufs_change_predicted_lu": float(d_pred),
+            "lufs_error_lu": float(d_pred - d_meas),
+            "max_abs_band_err_db": float(abs(e)),
+            "at_hz": hz,
+            "flag": bool(abs(d_pred - d_meas) > LUFS_FLAG_LU),
+        }
     return out
 
 
@@ -385,8 +440,21 @@ def _decommon(params, vals, names):
     return vals
 
 
-def fit(stems, sr, wins, targets, moves, bar_s=None, weights=None, alpha=ALPHA, beta=BETA,
-        n_starts=6, model=None, maxiter=500, measure=True):
+def fit(
+    stems,
+    sr,
+    wins,
+    targets,
+    moves,
+    bar_s=None,
+    weights=None,
+    alpha=ALPHA,
+    beta=BETA,
+    n_starts=6,
+    model=None,
+    maxiter=500,
+    measure=True,
+):
     """Fit the free parameters of `moves` so the predicted stem sum matches `targets`
     (target.ref_stats of the references). Returns values, plan, before/after gaps, model check,
     and (measure=True) the measured check of the plan on the actual stems."""
@@ -406,16 +474,28 @@ def fit(stems, sr, wins, targets, moves, bar_s=None, weights=None, alpha=ALPHA, 
             if not (T.in_score(hz) and hz in tb):
                 continue
             (dead if b0[hz] < tb[hz]["min"] - UNREACHABLE_DB else sel).append(k)
-        unreachable[w] = [{"hz": model.band_hz[k], "mix": float(b0[model.band_hz[k]]),
-                           "ref_min": tb[model.band_hz[k]]["min"]} for k in dead]
+        unreachable[w] = [
+            {"hz": model.band_hz[k], "mix": float(b0[model.band_hz[k]]), "ref_min": tb[model.band_hz[k]]["min"]}
+            for k in dead
+        ]
         if sel:
             st = [tb[model.band_hz[k]] for k in sel]
-            terms.append((w, ws.get(w, 1.0), model.band_ix[sel, 0], model.band_ix[sel, 1],
-                          np.array([s["mean"] for s in st]), np.array([s["min"] for s in st]),
-                          np.array([s["max"] for s in st])))
+            terms.append(
+                (
+                    w,
+                    ws.get(w, 1.0),
+                    model.band_ix[sel, 0],
+                    model.band_ix[sel, 1],
+                    np.array([s["mean"] for s in st]),
+                    np.array([s["min"] for s in st]),
+                    np.array([s["max"] for s in st]),
+                )
+            )
     if not terms:
-        raise ValueError(f"no window has both stems and reachable targets (stems: {list(model.windows)}, "
-                         f"targets: {list(targets.get('windows', {}))})")
+        raise ValueError(
+            f"no window has both stems and reachable targets (stems: {list(model.windows)}, "
+            f"targets: {list(targets.get('windows', {}))})"
+        )
     free_stems = {p["stem"] for p in params}
     G_fixed = model.gains({k: v for k, v in realize(spec, [0.0] * len(params)).items() if k not in free_stems})
     rows = {k: i for i, k in enumerate(model.names)}
@@ -445,13 +525,26 @@ def fit(stems, sr, wins, targets, moves, bar_s=None, weights=None, alpha=ALPHA, 
     lo, hi = _x_bounds(params)
     runs = []
     if params:
-        maxfun = maxiter * (len(params) + 1) * 5     # a numeric gradient costs n + 1 evaluations
+        maxfun = maxiter * (len(params) + 1) * 5  # a numeric gradient costs n + 1 evaluations
         for i, x0 in enumerate(starts(params, n_starts)):
-            r = optimize.minimize(objective, x0, method="L-BFGS-B", bounds=list(zip(lo, hi)),
-                                  options={"maxiter": maxiter, "maxfun": maxfun})
-            runs.append({"start": i, "objective": float(r.fun), "iterations": int(r.nit),
-                         "evaluations": int(r.nfev), "converged": bool(r.success), "message": str(r.message),
-                         "x": r.x})
+            r = optimize.minimize(
+                objective,
+                x0,
+                method="L-BFGS-B",
+                bounds=list(zip(lo, hi)),
+                options={"maxiter": maxiter, "maxfun": maxfun},
+            )
+            runs.append(
+                {
+                    "start": i,
+                    "objective": float(r.fun),
+                    "iterations": int(r.nit),
+                    "evaluations": int(r.nfev),
+                    "converged": bool(r.success),
+                    "message": str(r.message),
+                    "x": r.x,
+                }
+            )
         best = min(runs, key=lambda r_: r_["objective"])
         vals = _decommon(params, _to_vals(params, best["x"]), model.names)
     else:
@@ -459,11 +552,18 @@ def fit(stems, sr, wins, targets, moves, bar_s=None, weights=None, alpha=ALPHA, 
     plan = realize(spec, vals)
     after = model.predict(plan)
     out = {
-        "params": [{"stem": p["stem"], "param": p["param"], "kind": p["kind"], "value": v,
-                    "bounds": [p["lo"], p["hi"]]} for p, v in zip(params, vals)],
+        "params": [
+            {"stem": p["stem"], "param": p["param"], "kind": p["kind"], "value": v, "bounds": [p["lo"], p["hi"]]}
+            for p, v in zip(params, vals)
+        ],
         "plan": plan,
-        "objective": {"before": data_term(model.gains({})), "after": obj_vals(vals) if params else None,
-                      "alpha": alpha, "beta": beta, "weights": {t[0]: t[1] for t in terms}},
+        "objective": {
+            "before": data_term(model.gains({})),
+            "after": obj_vals(vals) if params else None,
+            "alpha": alpha,
+            "beta": beta,
+            "weights": {t[0]: t[1] for t in terms},
+        },
         "converged": bool(best["converged"]) if best else True,
         "starts": [{k: v for k, v in r_.items() if k != "x"} for r_ in runs],
         "unreachable": {w: u for w, u in unreachable.items() if u},
@@ -478,9 +578,13 @@ def fit(stems, sr, wins, targets, moves, bar_s=None, weights=None, alpha=ALPHA, 
         if not tw:
             continue
         b, a = _compare(before[w], tw), _compare(after[w], tw)
-        out["windows"][w] = {"lufs_before": before[w]["lufs"], "lufs_after": after[w]["lufs"],
-                             "lufs_change_lu": after[w]["lufs"] - before[w]["lufs"],
-                             "before": b, "after": a}
+        out["windows"][w] = {
+            "lufs_before": before[w]["lufs"],
+            "lufs_after": after[w]["lufs"],
+            "lufs_change_lu": after[w]["lufs"] - before[w]["lufs"],
+            "before": b,
+            "after": a,
+        }
     if measure and stems is not None:
         out["measured"] = measured_check(model, stems, plan, wins, bar_s)
     return out

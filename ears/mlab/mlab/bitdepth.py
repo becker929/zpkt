@@ -11,6 +11,7 @@ Reference noise floors for N-bit quantisation of full scale +/-1 (q = 2^(1-N)):
   RPDF dither + rounding:           q/sqrt(6)       -> 16 bit:  -98.1 dBFS
   TPDF dither + rounding:           q/2             -> 16 bit:  -96.3 dBFS
 """
+
 from __future__ import annotations
 
 import numpy as np
@@ -32,7 +33,7 @@ def effective_bits(x: np.ndarray, max_bits=32) -> int:
     v = x[np.abs(x) > 0]
     if v.size == 0:
         return 0
-    v = v[: 2_000_000]
+    v = v[:2_000_000]
     for n in range(1, max_bits + 1):
         s = v * 2.0 ** (n - 1)
         if np.all(np.abs(s - np.round(s)) < 1e-6 * np.maximum(1, np.abs(s)) + 1e-9):
@@ -46,8 +47,8 @@ def quiet_blocks(x, sr, block_s=0.1, n=20):
     k = len(x) // b
     if k == 0:
         return np.array([]), 0
-    blocks = x[:k * b].reshape(k, b, -1)
-    lv = db(np.sqrt(np.mean(blocks ** 2, axis=(1, 2))))
+    blocks = x[: k * b].reshape(k, b, -1)
+    lv = db(np.sqrt(np.mean(blocks**2, axis=(1, 2))))
     zero = int(np.sum(np.all(blocks == 0, axis=(1, 2))))
     nz = np.sort(lv[lv > -300])
     return nz[:n], zero
@@ -69,8 +70,10 @@ def analyze(audio) -> dict:
     x, sr = audio.x, audio.sr
     out = {"container": audio.subtype, "sample_rate": sr, "lossy": audio.lossy}
     if audio.lossy:
-        out["verdict"] = ("lossy file: word length and dither are not observable after "
-                          "perceptual coding. Measure the WAV you exported instead.")
+        out["verdict"] = (
+            "lossy file: word length and dither are not observable after "
+            "perceptual coding. Measure the WAV you exported instead."
+        )
         out["dc_offset_dbfs"] = [r(v) for v in dc_offset_db(x, sr)]
         out["dc_max_dbfs"] = max(out["dc_offset_dbfs"])
         out["dc_steady"] = dc_is_real(x, sr)
@@ -100,11 +103,11 @@ def analyze(audio) -> dict:
     b = int(0.1 * sr)
     k = len(x) // b
     if k >= 10 and q.size:
-        lv = db(np.sqrt(np.mean(x[:k * b].reshape(k, b, -1) ** 2, axis=(1, 2))))
+        lv = db(np.sqrt(np.mean(x[: k * b].reshape(k, b, -1) ** 2, axis=(1, 2))))
         thr = np.percentile(lv[lv > -300], 10) if np.any(lv > -300) else -300
         mask = np.zeros(len(x), bool)
         for i in np.where((lv <= thr) & (lv > -300))[0]:
-            mask[i * b:(i + 1) * b] = True
+            mask[i * b : (i + 1) * b] = True
         out["quiet_region_tilt_db"] = r(noise_shape_tilt(x, sr, mask))
     out["verdict"] = _verdict(out, eb, audio.subtype)
     return out
@@ -123,8 +126,10 @@ def _verdict(o, eb, subtype):
         if o["digital_zero_blocks_100ms"] > 0 and q > tp + 20:
             msgs.append("digital silence present and no floor elsewhere: undithered, or dither gated in silence")
         elif abs(q - tp) < 3:
-            msgs.append("quietest passages sit at the TPDF floor: dither likely present"
-                        + (" and noise-shaped" if tilt and tilt > 8 else ""))
+            msgs.append(
+                "quietest passages sit at the TPDF floor: dither likely present"
+                + (" and noise-shaped" if tilt and tilt > 8 else "")
+            )
         elif q > tp + 3:
             msgs.append("programme never gets quiet enough to see the floor: dither not observable (masked)")
         else:
@@ -139,8 +144,8 @@ def truncation_distortion(original, reduced, sr, f0, tail_s=2.0):
     """Share of the reduction error at harmonics of f0 (dB re total error).
     Undithered truncation/rounding of a tone concentrates error at harmonics
     (correlated distortion); dither spreads it into noise (lower share)."""
-    e = (reduced - original).mean(axis=1)[-int(tail_s * sr):]   # the quiet end, near the LSB
-    e = e - e.mean()                                             # truncation's DC bias is not distortion
+    e = (reduced - original).mean(axis=1)[-int(tail_s * sr) :]  # the quiet end, near the LSB
+    e = e - e.mean()  # truncation's DC bias is not distortion
     w = np.hanning(len(e))
     S = np.abs(np.fft.rfft(e * w)) ** 2
     f = np.fft.rfftfreq(len(e), 1 / sr)

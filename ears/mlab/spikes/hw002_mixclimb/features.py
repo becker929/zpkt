@@ -5,6 +5,7 @@ contrast) plus the librosa features that ears/src/ears/features.py extracts
 (centroid, rolloff, flatness, harmonic ratio, onset strength), computed the same way.
 Everything is measured at -14 LUFS, so loudness cancels out.
 """
+
 import numpy as np
 
 from mlab import dynamics as D
@@ -27,7 +28,7 @@ def ears_features(x, sr):
         "centroid_hz": float(np.mean(librosa.feature.spectral_centroid(y=y, sr=sr))),
         "rolloff_hz": float(np.mean(librosa.feature.spectral_rolloff(y=y, sr=sr))),
         "flatness": float(np.mean(librosa.feature.spectral_flatness(y=y))),
-        "harmonic_ratio": float(np.mean(harmonic ** 2) / (np.mean(y ** 2) + 1e-10)),
+        "harmonic_ratio": float(np.mean(harmonic**2) / (np.mean(y**2) + 1e-10)),
         "onset_strength": float(np.mean(librosa.onset.onset_strength(y=y, sr=sr))),
     }
 

@@ -8,6 +8,7 @@
 - `perceived_balance`: band levels re-weighted by the contour at a
   listening level, to test "bass vanishes when you turn down" claims.
 """
+
 from __future__ import annotations
 
 import numpy as np
@@ -15,16 +16,21 @@ from scipy import signal
 
 from .util import db, pdb, r
 
-CENTRES = 1000.0 * 10 ** (np.arange(-16, 14) / 10)   # 25 Hz .. 20 kHz, 30 bands
-GROUPS = {                      # plain-language regions used in the guides
-    "sub": (20, 60), "bass": (60, 250), "low_mid": (250, 500), "mid": (500, 2000),
-    "upper_mid": (2000, 4000), "presence": (4000, 8000), "air": (8000, 20000),
+CENTRES = 1000.0 * 10 ** (np.arange(-16, 14) / 10)  # 25 Hz .. 20 kHz, 30 bands
+GROUPS = {  # plain-language regions used in the guides
+    "sub": (20, 60),
+    "bass": (60, 250),
+    "low_mid": (250, 500),
+    "mid": (500, 2000),
+    "upper_mid": (2000, 4000),
+    "presence": (4000, 8000),
+    "air": (8000, 20000),
 }
 
 
 def psd(x, sr, nperseg=None):
     """Welch power spectral density of the channel-summed power (per-channel average)."""
-    nperseg = nperseg or min(len(x), 2 ** int(np.log2(sr / 2)))   # 2^15 at 44.1/48 kHz: ~1.3-1.5 Hz bins
+    nperseg = nperseg or min(len(x), 2 ** int(np.log2(sr / 2)))  # 2^15 at 44.1/48 kHz: ~1.3-1.5 Hz bins
     f, p = signal.welch(x, sr, window="hann", nperseg=nperseg, axis=0, scaling="density")
     return f, p.mean(axis=1) if p.ndim == 2 else p
 
@@ -40,7 +46,7 @@ def third_octave(x, sr, f_p=None):
     f, p = f_p if f_p is not None else psd(x, sr)
     out = []
     for c in CENTRES:
-        lo, hi = c / 10 ** 0.05, c * 10 ** 0.05
+        lo, hi = c / 10**0.05, c * 10**0.05
         if hi > sr / 2:
             break
         out.append((float(c), float(pdb(band_power(f, p, lo, hi)))))
@@ -50,18 +56,20 @@ def third_octave(x, sr, f_p=None):
 def tonal_balance(x, sr, f_p=None):
     f, p = f_p if f_p is not None else psd(x, sr)
     total = band_power(f, p, 20, min(20000, sr / 2))
-    groups = {k: r(pdb(band_power(f, p, lo, min(hi, sr / 2)) / max(total, 1e-30)))
-              for k, (lo, hi) in GROUPS.items()}
+    groups = {k: r(pdb(band_power(f, p, lo, min(hi, sr / 2)) / max(total, 1e-30))) for k, (lo, hi) in GROUPS.items()}
     bands = third_octave(x, sr, (f, p))
     fc = np.array([b[0] for b in bands])
     lv = np.array([b[1] for b in bands])
     # per-band level normalised by bandwidth -> slope of the power density in dB/oct
     m = (fc >= 100) & (fc <= 10000)
-    dens = lv - 10 * np.log10(fc * (10 ** 0.05 - 10 ** -0.05))
+    dens = lv - 10 * np.log10(fc * (10**0.05 - 10**-0.05))
     slope = float(np.polyfit(np.log2(fc[m]), dens[m], 1)[0]) if m.sum() > 3 else float("nan")
     # 10*log10 density slope: pink noise = -3.01 dB/oct, white = 0
-    return {"groups_db_rel_total": groups, "slope_db_per_oct": r(slope),
-            "third_octave": [(r(c, 1), r(l)) for c, l in bands]}
+    return {
+        "groups_db_rel_total": groups,
+        "slope_db_per_oct": r(slope),
+        "third_octave": [(r(c, 1), r(l)) for c, l in bands],
+    }
 
 
 def centroid(x, sr, f_p=None):
@@ -83,8 +91,13 @@ def stereo_by_band(x, sr, edges=(20, 120, 500, 2000, 8000, 20000)):
         den = np.sqrt(np.sum(l * l) * np.sum(rr * rr))
         corr = float(np.sum(l * rr) / den) if den > 0 else 1.0
         m, s = (l + rr) / 2, (l - rr) / 2
-        out.append({"band_hz": [lo, int(hi)], "correlation": r(corr, 3),
-                    "side_minus_mid_db": r(pdb(np.mean(s * s)) - pdb(np.mean(m * m)))})
+        out.append(
+            {
+                "band_hz": [lo, int(hi)],
+                "correlation": r(corr, 3),
+                "side_minus_mid_db": r(pdb(np.mean(s * s)) - pdb(np.mean(m * m))),
+            }
+        )
     return out
 
 
@@ -151,8 +164,10 @@ def summarize_eq(res, min_coh=0.9, min_db=0.5):
     # reported separately so a gain change is not mistaken for a tonal move
     g0 = float(np.median(g[ok]))
     rel = g
-    out = {"broadband_median_gain_db": r(g0),
-           "at_hz": {str(int(x)): r(np.interp(x, f, g)) for x in (30, 60, 100, 200, 500, 1000, 3000, 6000, 10000, 16000)}}
+    out = {
+        "broadband_median_gain_db": r(g0),
+        "at_hz": {str(int(x)): r(np.interp(x, f, g)) for x in (30, 60, 100, 200, 500, 1000, 3000, 6000, 10000, 16000)},
+    }
     i_max, i_min = int(np.argmax(np.where(ok, rel, -99))), int(np.argmin(np.where(ok, rel, 99)))
     if rel[i_max] > min_db:
         out["largest_boost"] = {"hz": r(f[i_max], 0), "db": r(rel[i_max])}
@@ -162,17 +177,138 @@ def summarize_eq(res, min_coh=0.9, min_db=0.5):
 
 
 # ------------------------------------------------ equal loudness (ISO 226)
-_F = np.array([20, 25, 31.5, 40, 50, 63, 80, 100, 125, 160, 200, 250, 315, 400, 500, 630, 800,
-               1000, 1250, 1600, 2000, 2500, 3150, 4000, 5000, 6300, 8000, 10000, 12500])
-_AF = np.array([0.532, 0.506, 0.480, 0.455, 0.432, 0.409, 0.387, 0.367, 0.349, 0.330, 0.315,
-                0.301, 0.288, 0.276, 0.267, 0.259, 0.253, 0.250, 0.246, 0.244, 0.243, 0.243,
-                0.243, 0.242, 0.242, 0.245, 0.254, 0.271, 0.301])
-_LU = np.array([-31.6, -27.2, -23.0, -19.1, -15.9, -13.0, -10.3, -8.1, -6.2, -4.5, -3.1, -2.0,
-                -1.1, -0.4, 0.0, 0.3, 0.5, 0.0, -2.7, -4.1, -1.0, 1.7, 2.5, 1.2, -2.1, -7.1,
-                -11.2, -10.7, -3.1])
-_TF = np.array([78.5, 68.7, 59.5, 51.1, 44.0, 37.5, 31.5, 26.5, 22.1, 17.9, 14.4, 11.4, 8.6,
-                6.2, 4.4, 3.0, 2.2, 2.4, 3.5, 1.7, -1.3, -4.2, -6.0, -5.4, -1.5, 6.0, 12.6,
-                13.9, 12.3])
+_F = np.array(
+    [
+        20,
+        25,
+        31.5,
+        40,
+        50,
+        63,
+        80,
+        100,
+        125,
+        160,
+        200,
+        250,
+        315,
+        400,
+        500,
+        630,
+        800,
+        1000,
+        1250,
+        1600,
+        2000,
+        2500,
+        3150,
+        4000,
+        5000,
+        6300,
+        8000,
+        10000,
+        12500,
+    ]
+)
+_AF = np.array(
+    [
+        0.532,
+        0.506,
+        0.480,
+        0.455,
+        0.432,
+        0.409,
+        0.387,
+        0.367,
+        0.349,
+        0.330,
+        0.315,
+        0.301,
+        0.288,
+        0.276,
+        0.267,
+        0.259,
+        0.253,
+        0.250,
+        0.246,
+        0.244,
+        0.243,
+        0.243,
+        0.243,
+        0.242,
+        0.242,
+        0.245,
+        0.254,
+        0.271,
+        0.301,
+    ]
+)
+_LU = np.array(
+    [
+        -31.6,
+        -27.2,
+        -23.0,
+        -19.1,
+        -15.9,
+        -13.0,
+        -10.3,
+        -8.1,
+        -6.2,
+        -4.5,
+        -3.1,
+        -2.0,
+        -1.1,
+        -0.4,
+        0.0,
+        0.3,
+        0.5,
+        0.0,
+        -2.7,
+        -4.1,
+        -1.0,
+        1.7,
+        2.5,
+        1.2,
+        -2.1,
+        -7.1,
+        -11.2,
+        -10.7,
+        -3.1,
+    ]
+)
+_TF = np.array(
+    [
+        78.5,
+        68.7,
+        59.5,
+        51.1,
+        44.0,
+        37.5,
+        31.5,
+        26.5,
+        22.1,
+        17.9,
+        14.4,
+        11.4,
+        8.6,
+        6.2,
+        4.4,
+        3.0,
+        2.2,
+        2.4,
+        3.5,
+        1.7,
+        -1.3,
+        -4.2,
+        -6.0,
+        -5.4,
+        -1.5,
+        6.0,
+        12.6,
+        13.9,
+        12.3,
+    ]
+)
 
 
 def iso226(phon: float, freqs=None):
