@@ -82,7 +82,7 @@ projects and says where each track is in those steps.
 | [`hands/`](hands/), [`ears/`](ears/) | What is not Python package code: the rig's Hammerspoon macros, `hands/bin/hands`, examples and the schema tools; the mastering lab (`ears/mlab/`: guides, reports, calibration checks). | Supported. |
 | [`lib/rig/`](lib/rig/) | Brings Live up on a headless Mac (virtual display, audio clock check). | Supported; written for my Mac mini. |
 | [`lib/contracts/`](lib/contracts/) | The JSON schemas the parts exchange. | Supported. |
-| [`contrib/`](contrib/) | My own setup around the core: phone pages for Gemini and the HW002 lab, the HW002 mix desk and arranger, a Bluesky music bot and its render booth. | Works on my Mac. Read it for ideas; expect to adapt it. |
+| [`contrib/`](contrib/) | My own setup around the core: phone pages for Gemini and the HW002 lab, the HW002 mix desk and arranger. The Bluesky music bot and its render booth, and the demo video tools, moved to their own private repos ([`contrib/README.md`](contrib/README.md)). | Works on my Mac. Read it for ideas; expect to adapt it. |
 | [`prototypes/`](prototypes/) | Experiments beside the main path: a sound-library browser. | Runs; it says what state it is in. |
 | [`docs/`](docs/) | The getting-started guide. My workflow, design notes and dated journal are in [`contrib/docs/`](contrib/docs/). | |
 

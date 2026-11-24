@@ -5,9 +5,10 @@ renders (once `ears`; the lab with `ears/mlab/reports/`, the mastering and refer
 commands `zpkt live` and `zpkt audio` have the old names `hands`, `ears` and `mlab` as aliases, and so do the imports;
 new code imports `zpkt`. Tests are in `tests/live` and `tests/audio`. `hands/` keeps the rig macros and `hands/bin/hands`; `agent/skills/` holds the skills for driving Live (linked into `.claude/skills/` and `.agents/skills/`),
 `lib/` has the rig startup and the JSON contracts. `contrib/` is Anthony's own setup (Gemini CLI sessions and the
-HW002 lab in `contrib/harness`, the HW002 arranger and spectral comparison tools in `contrib/arranger`, the HW002 mix desk for the MiniLab 3 in `contrib/mixdesk`, the music
-bot and booth, publishing, and in `contrib/docs/` his workflow, design notes and dated journal); `prototypes/` holds
-experiments. The core is one uv project at the repo root (`uv run --all-extras pytest`, or `make test`); contrib and
+HW002 lab in `contrib/harness`, the HW002 arranger and spectral comparison tools in `contrib/arranger`, the HW002 mix desk for the MiniLab 3 in `contrib/mixdesk`, publishing,
+and in `contrib/docs/` his workflow, design notes and dated journal); `prototypes/` holds experiments. The music bot
+and booth live in the private repo becker929/music-bot and the demo video tools in becker929/zpkt-demo; both use zpkt
+as a dependency, so keep `zpkt.live`'s public names working for them. The core is one uv project at the repo root (`uv run --all-extras pytest`, or `make test`); contrib and
 prototypes parts with their own pyproject run from their folder. In non-interactive
 shells where `uv` is not on `PATH`, use `~/.local/bin/uv` or `.venv/bin/python` directly.
 

@@ -13,6 +13,9 @@ that can reach a control surface can run code on the Mac. The rule is simple:
 | checklist prototype (`prototypes/checklist/server.py`) | 127.0.0.1:8798 | loopback only, no secret: it serves pages and writes only the artist's and the regions' records | — |
 | harness (`contrib/harness`) | 127.0.0.1:8787, on the tailnet through `tailscale serve` | a password per browser (scrypt hashes only, `auth.json` mode 600); every route but `/login` needs the session cookie | the password |
 
+The music bot's booth (127.0.0.1:8794, a token on every request) left with the bot for the private repo
+`becker929/music-bot` on 24 November 2026; its guard is documented there.
+
 To reach a service from another device, bind it to the machine's Tailscale
 address, not `0.0.0.0`, and add that host to the relevant allow-list
 (`DEV_ORIGINS`).

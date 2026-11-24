@@ -12,10 +12,10 @@ output against these files in its tests, so a join cannot drift silently.
 | `mixdesk-message.schema.json` | the mix desk's pager (UDP datagrams) and server (server-sent events) | the desk's server and page | generated from `contrib/mixdesk/protocol.py` by `contrib/mixdesk/gen_schema.py` |
 | `mixdesk-surface.schema.json` | the mix desk's "Make a surface" (`<sets_dir>/surfaces/<set>/*.json`) | the desk's server and pager | generated from `contrib/mixdesk/surfaces.py` by `contrib/mixdesk/gen_schema.py` |
 | `inventory.schema.json` | hands (`hands library inventory --json`) | a person, agents planning work | generated from `src/zpkt/live/library/models.py` by `hands/tools/gen_schemas.py` |
-| `score.schema.json` | the music bot's composer (Claude) | the booth (`contrib/booth`) | generated from `contrib/booth/src/booth/score.py` by `contrib/booth/scripts/gen_schema.py` |
-| `booth-job-request.schema.json` | the music bot (`contrib/bot/booth.mjs`, POST /v1/jobs) | the booth | generated from `contrib/booth/src/booth/contract.py` by `contrib/booth/scripts/gen_schema.py` |
-| `booth-job.schema.json`, `booth-measure.schema.json`, `booth-check.schema.json`, `booth-status.schema.json`, `booth-error.schema.json` | the booth's HTTP API (jobs, `measure.json`, check, status, errors) | the music bot; its fake booth is tested against them | generated from `contrib/booth/src/booth/contract.py` by `contrib/booth/scripts/gen_schema.py` |
 | `arrangement.schema.json` | the HW002 arranger's pages (`contrib/arranger/server.py`) and the mix desk (`desk`) | the arranger's scripts (`mixset.py`, `spectral.py`, `kickfuzz.py`), the mix desk, hands (`hands live state ... RECIPE.json`) | written by hand to match `contrib/arranger/arrangement.py`; its tests check both agree |
+
+The music bot's and booth's contracts (`score.schema.json`, `booth-*.schema.json`) moved with them to the private
+repo `becker929/music-bot` (its `contracts/`) on 24 November 2026.
 
 taste, engineer and the letta-vibe agent, which used `feedback` and the old `verdict` contract, were removed on
 24 November 2026 (git tag `pre-upgrade-2026-11-24`). The models

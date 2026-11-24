@@ -49,7 +49,7 @@ the command and a row.
 | `knobs.py`, `units.py` | `Knob(track, device, param)`: `.id` (`track/Tag#i/param`), `.pipe_id` (`track\|Tag:i\|param`), `Knob.parse` (both); `set_many`, `read_many`, `apply(client, values, *, verify=True)`; `units.UNITS`, the measured .als-to-LOM conversions |
 | `export.py` | `export(client, out, start, length, *, method="keys"\|"menu", staging=None, ...)`: both ways through the Export dialog; `export_by_menu` (no keystrokes, Main), `save_as(folder, name, *, project=True)`, `SavePanel(reach="where_popup"\|"go_to_folder")` |
 | `render.py` | `export(...)`, the keystroke method (`export_audio.applescript`) |
-| `ops.py` | `LiveOps(client, staging=None, save_panel=SavePanel())`: `run`, `guard`, `setp` and `mixer` in shown units, `params`, `load_item`, `select_track`, `devices`, `export`, `save_as`, for scripts that build and render sets (the booth, the arranger, the mix desk) |
+| `ops.py` | `LiveOps(client, staging=None, save_panel=SavePanel())`: `run`, `guard`, `setp` and `mixer` in shown units, `params`, `load_item`, `select_track`, `devices`, `export`, `save_as`, for scripts that build and render sets (the arranger, the mix desk; outside zpkt, the music bot's booth) |
 | `timeops.py` | `select(client, start, length)`, `delete`, `duplicate`, `copy`, `paste`, each checked by where the song ends |
 | `record.py` | `record_arrangement` (writes `<take>.timing.json`), `record_via_resampling`: real-time takes |
 | `panel.py` (+ `riff`, `panel_render`, `panel_blocks`, `mix`, `versions`, `song`) | `hands panel` and `hands song`: instrument and mix panels, grids of versions, songs over sections; `panel_blocks` prints what Zpkt web reads |

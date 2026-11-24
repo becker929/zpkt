@@ -6,12 +6,16 @@ site, my accounts and my rig. They are here to read and borrow from, not to inst
 | Folder | What it is | Tied to |
 |---|---|---|
 | [`harness/`](harness/) | The Mac end of my phone: Gemini CLI sessions, the HW002 lab, the artist agent's API, behind a password on my tailnet. | anthonybecker.me, Keychain secrets, Hammerspoon |
-| [`booth/`](booth/) | Takes a score (JSON) and renders it in Live with a fixed palette of instruments. The only way the bot reaches Live. | my Live library |
-| [`bot/`](bot/) | A Bluesky account that makes short pieces for people who mention it, by writing scores for the booth. | Bluesky, Anthropic API |
 | [`mixdesk/`](mixdesk/) | The HW002 finishing desk: the Live set's mix on one screen and on the MiniLab 3, A/B/C monitoring, history, recipes. | my HW002 set, MiniLab 3 |
 | [`arranger/`](arranger/) | The HW002 arranger: loops bounced from Live arranged on a phone page, with transitions, mix and kick pages. Writes the arrangement file the mix desk adds to. | my HW002 set |
 | [`humming/`](humming/) | A humming transcriber: a hummed idea to notes, tempo and key. Research; no CLI. | — |
-| [`demo/`](demo/) | The tools that made the 33-second zpkt demo video from a screen recording of Live. | my HW002 set |
+
+Two parts left on 24 November 2026 for private repos of their own, with their history. They use zpkt as a
+dependency for making music:
+
+- `becker929/music-bot`: the Bluesky music bot, its booth (scores in, Live renders out; the only way the bot
+  reaches Live), their contracts (`score.schema.json`, `booth-*.schema.json`) and the bot's design note.
+- `becker929/zpkt-demo`: the tools that made the 33-second zpkt demo video from a screen recording of Live.
 
 My workflow, the design notes for these parts and a dated journal are in [`docs/`](docs/). The security model they share
 (loopback only, a secret on everything) is in [`SECURITY.md`](../SECURITY.md).
