@@ -16,24 +16,29 @@ Files in DATA/kickfuzz: <option>.flac (the kick loop), mix-<option>.flac (the mi
 from __future__ import annotations
 
 import json
+import subprocess
 import sys
 from pathlib import Path
+from typing import Any
 
-sys.path.insert(0, str(Path(__file__).resolve().parent))
-import mixset  # noqa: E402
-import spectral  # noqa: E402
+import bounce as bouncer
+import hw002
+import mixset
+import spectral
 
-OUT = mixset.DATA / "kickfuzz"
-LOOPS_SET = "HW002_121_pp_loops"
+OUT = hw002.DATA / "kickfuzz"
+LOOPS_SET = hw002.LOOPS_SET
 KICK_CLIP = "kick-rumble-a"
-RATE, BAR_N = 44100, 66150
-SRC_BAR = 4                     # kick-rumble-a is bars 5-8 of the kick-rumble stem (mine.py: its second pass)
+SRC_BAR = 4  # kick-rumble-a is bars 5-8 of the kick-rumble stem (mine.py: its second pass)
 
+# HW002_121_pp_loops, by index (bounce.py's STATES name the same tracks)
+KICK_GROUP = "song.tracks[1]"
 KICK = "song.tracks[2]"
+RUMBLE = "song.tracks[3]"
 RACK = f"{KICK}.devices[0]"
-INNER = f"{RACK}.chains[0].devices[0]"   # the nested Drum Rack: the 060 body and the 052 layer
-ROAR = "song.tracks[1].devices[1]"
-DECAP = "song.tracks[3].devices[2]"
+INNER = f"{RACK}.chains[0].devices[0]"  # the nested Drum Rack: the 060 body and the 052 layer
+ROAR = f"{KICK_GROUP}.devices[1]"
+DECAP = f"{RUMBLE}.devices[2]"
 
 UNHIDE = [  # what hides the fuzz HW002 already makes
     (f"{KICK}.devices[1]", "3 Filter On A", "Off"),            # the kick track's -4.3 dB bell at 3.4 kHz
@@ -188,7 +193,7 @@ OPTIONS["t-f3"] = {"title": "Body + punch fuzz, Tri Fold", "group": "texture",
 
 # the deep sub HW002 cut: its kick group EQ's low shelf (-14.8 dB at 30 Hz) and the rumble's (-14.3 dB at 31 Hz) eased
 OPTIONS["t-f1s"] = {"title": "Body fuzz, sub back", "group": "texture",
-                    "set": OPTIONS["t-f1"]["set"] + [("song.tracks[1].devices[0]", "1 Gain A", "-6.0 dB"), (f"{DECAP[:-11]}.devices[3]", "1 Gain A", "-6.0 dB")],
+                    "set": OPTIONS["t-f1"]["set"] + [(f"{KICK_GROUP}.devices[0]", "1 Gain A", "-6.0 dB"), (f"{RUMBLE}.devices[3]", "1 Gain A", "-6.0 dB")],
                     "what": OPTIONS["t-f1"]["what"] + "; and HW002's deep-sub cuts eased: the kick group's and the rumble's low shelves at 30 Hz from -15 to -6 dB"}
 TEXTURE_KEEP_EXTRA = ("t-f1s",)
 
@@ -198,7 +203,7 @@ TEXTURE_KEEP = ("t-f1", "t-t3tf", "t-mtf12", "t-t3tc", "t-f1s")
 
 # ---- in the loops set -----------------------------------------------------------------------------------------------
 
-def chain052(L) -> str:
+def chain052(L: Any) -> str:
     names = L.run(f"result = [c.name for c in {INNER}.chains]")
     k = [i for i, n in enumerate(names) if "052" in n]
     if len(k) != 1:
@@ -206,7 +211,7 @@ def chain052(L) -> str:
     return f"{INNER}.chains[{k[0]}]"
 
 
-def param(L, dev: str, name: str) -> str:
+def param(L: Any, dev: str, name: str) -> str:
     """The LOM path of one parameter, checked to exist once."""
     n = L.run(f"result = [i for i, p in enumerate({dev}.parameters) if p.name == {name!r}]")
     if len(n) != 1:
@@ -214,7 +219,7 @@ def param(L, dev: str, name: str) -> str:
     return f"{dev}.parameters[{n[0]}]"
 
 
-def apply(L, changes: list) -> list[tuple[str, float]]:
+def apply(L: Any, changes: list) -> list[tuple[str, float]]:
     """Set the option's values; return every touched parameter's raw value before, to put back."""
     undo = []
     for dev, name, want in changes:
@@ -246,7 +251,7 @@ def apply(L, changes: list) -> list[tuple[str, float]]:
     return undo
 
 
-def restore(L, undo: list) -> None:
+def restore(L: Any, undo: list) -> None:
     for u in reversed(undo):
         if u[0] == "delete":
             L.run(f"{u[1]}.delete_device({u[2]})\nresult = 'ok'")
@@ -264,13 +269,11 @@ def restore(L, undo: list) -> None:
 
 
 def bounce(names: list[str]) -> None:
-    import bounce as B   # bounce.py's solo helpers, on the same liveops
+    """Bounce kick + rumble with each option set, put back after each, and cut the loop (the loops set in front)."""
     L = mixset.lo()
-    B.liveops = L
-    if L.guard("kickfuzz bounce") != LOOPS_SET:
-        sys.exit(f"STOP: {LOOPS_SET} is not in front")
+    hw002.stop_unless_front(L, "kickfuzz bounce", LOOPS_SET)
     OUT.mkdir(parents=True, exist_ok=True)
-    B.solo((2, 3))
+    bouncer.solo(L, (2, 3))
     try:
         for name in names or [n for n in OPTIONS if not n.startswith("t-")]:
             undo = apply(L, OPTIONS[name]["set"])
@@ -278,36 +281,31 @@ def bounce(names: list[str]) -> None:
                 wav = OUT / f"{name}-stem.wav"
                 if wav.exists():
                     wav.unlink()
-                L.export(wav, 0.0, (SRC_BAR + 4) * mixset.BAR, bits=24, timeout_s=300)
+                L.export(wav, 0.0, (SRC_BAR + 4) * hw002.BEATS_PER_BAR, bits=24, timeout_s=300)
             finally:
                 restore(L, undo)
             cut(wav, OUT / f"{name}.flac")
             print(name, "bounced", flush=True)
     finally:
-        B.solo(())
+        bouncer.solo(L, ())
 
 
 def cut(wav: Path, flac: Path) -> None:
-    """Bars 5-8 of the stem, as mine.py cut kick-rumble-a: a cut on the bar, 16-bit, no gain."""
-    import subprocess
-    code = ("import soundfile as sf, sys\nx, r = sf.read(sys.argv[1], always_2d=True)\nassert r == 44100, r\n"
-            f"sf.write(sys.argv[2], x[{SRC_BAR * BAR_N}:{(SRC_BAR + 4) * BAR_N}], r, subtype='PCM_16')")
+    """Bars 5-8 of the stem, as mine.py cut kick-rumble-a: a cut on the bar, 16-bit, no gain (in ears' environment)."""
+    a, b = SRC_BAR * hw002.BAR_SAMPLES, (SRC_BAR + 4) * hw002.BAR_SAMPLES
+    code = (
+        f"import soundfile as sf, sys\nx, r = sf.read(sys.argv[1], always_2d=True)\nassert r == {hw002.RATE}, r\n"
+        f"sf.write(sys.argv[2], x[{a}:{b}], r, subtype='PCM_16')"
+    )
     subprocess.run(["uv", "run", "--project", str(mixset.ROOT / "ears"), "python", "-c", code, str(wav), str(flac)], check=True)
     wav.unlink()
 
 
 # ---- in the mix set -------------------------------------------------------------------------------------------------
 
-def swap_kick(L, idx: dict, path: str) -> None:
-    """The kick channel's passes of kick-rumble-a, pointed at another file (same places, same length)."""
-    t = f"song.tracks[{idx['kick']}]"
-    starts = L.run(f"result = [c.start_time for c in {t}.arrangement_clips]")
-    L.run(f"t = {t}\nfor c in list(t.arrangement_clips):\n    t.delete_clip(c)\nresult = 'ok'")
-    for k in range(0, len(starts), 12):
-        L.run("".join(f"c = {t}.create_audio_clip({path!r}, {s})\nc.warping = False\n" for s in starts[k:k + 12]) + "result = 'ok'")
-    got = L.run(f"result = [(c.start_time, c.file_path) for c in {t}.arrangement_clips]")
-    if [g[0] for g in got] != starts or any(g[1] != path for g in got):
-        sys.exit(f"STOP: kick clips are {got}")
+def swap_kick(L: Any, idx: dict[str, int], path: str) -> None:
+    """The kick channel's passes of kick-rumble-a, pointed at another file (same places, same length), checked."""
+    mixset.swap_clips(L, f"song.tracks[{idx['kick']}]", path, check=True)
 
 
 def lufs_of(path: Path) -> float:
@@ -321,7 +319,7 @@ def render(names: list[str]) -> None:
     arr.pop("kickFuzz", None)   # a kick option already kept is not where these renders start
     chans = mixset.channels(loops, arr)
     clip = next(c for c in loops["clips"] if c["id"] == KICK_CLIP)
-    orig = str(mixset.DATA / "audio" / clip["file"])
+    orig = str(hw002.DATA / "audio" / clip["file"])
     base = lufs_of(OUT / "base.flac")
     info = json.loads((OUT / "kickfuzz.json").read_text()) if (OUT / "kickfuzz.json").exists() else {}
     idx = mixset.tracks(L)
@@ -341,15 +339,10 @@ def render(names: list[str]) -> None:
         spectral.state(L, arr, chans, [])
 
 
-def eq_values(bells: list) -> dict:
-    v = {f"{k} Filter On A": "Off" for k in range(1, 9)}
-    for k, (f, g, q) in enumerate(bells, start=2):
-        v.update({f"{k} Filter On A": "On", f"{k} Filter Type A": "Bell", f"{k} Frequency A": f"{f} Hz",
-                  f"{k} Gain A": f"{g} dB", f"{k} Q A": float(q)})
-    return v
+eq_values = mixset.bell_eq_values
 
 
-def solo_lufs(L, idx: dict, out: Path) -> float:
+def solo_lufs(L: Any, idx: dict[str, int], out: Path) -> float:
     """The kick channel and its bus soloed, bars 17-20: the kick's loudness in the mix set, as Live plays it."""
     keep = {idx["kick"], idx[mixset.BUSES["kick"]]}
     L.run(f"for i, t in enumerate(song.tracks):\n    t.solo = i in {keep!r}\nresult = 'ok'")
@@ -370,8 +363,8 @@ def match(names: list[str]) -> None:
     arr.pop("kickFuzz", None)
     chans = mixset.channels(loops, arr)
     clip = next(c for c in loops["clips"] if c["id"] == KICK_CLIP)
-    orig = str(mixset.DATA / "audio" / clip["file"])
-    plan = json.loads((mixset.DATA / "kickiso" / "match.json").read_text())
+    orig = str(hw002.DATA / "audio" / clip["file"])
+    plan = json.loads((hw002.DATA / "kickiso" / "match.json").read_text())
     info = json.loads((OUT / "kickfuzz.json").read_text()) if (OUT / "kickfuzz.json").exists() else {}
     idx = mixset.tracks(L)
     try:
@@ -402,25 +395,25 @@ GROUPS = [("sub", 25, 63), ("body", 63, 160), ("box", 160, 400), ("mid", 400, 10
 
 def measure(_names: list[str]) -> None:
     """Each kick loop's shape (third-octave energy per group, dB of its total) against the references' kick-alone
-    bars, the way the industrial short's listen.py kickshape did (kickshape.py); and each mix's drop for the page."""
+    bars (kickshape.py); and each mix's drop for the page."""
+    import kickshape
     import numpy as np
-    import kickshape as listen
 
     def shape(x, sr):
-        lin = 10 ** (listen.third_octaves(x, sr) / 10)
-        return {g: round(float(10 * np.log10(sum(e for c, e in zip(listen.THIRDS, lin) if lo <= c < hi) + 1e-12)), 1)
+        lin = 10 ** (kickshape.third_octaves(x, sr) / 10)
+        return {g: round(float(10 * np.log10(sum(e for c, e in zip(kickshape.THIRDS, lin) if lo <= c < hi) + 1e-12)), 1)
                 for g, lo, hi in GROUPS}
     refs = []
-    for ref in sorted(listen.REFS.glob("*.wav")):
-        r, rsr = listen.mono(ref)
-        seg, t = listen.kick_alone(r, rsr)
+    for ref in sorted(kickshape.REFS.glob("*.wav")):
+        r, rsr = kickshape.mono(ref)
+        seg, t = kickshape.kick_alone(r, rsr)
         refs.append({"title": ref.stem, "at": round(t, 1), "shape": shape(seg, rsr)})
     import kickiso
-    iso = json.loads((mixset.DATA / "kickiso" / "kickiso.json").read_text())
+    iso = json.loads((hw002.DATA / "kickiso" / "kickiso.json").read_text())
     mean, th = np.array(iso["refMean"]), np.array(kickiso.THIRDS)
     clean = (th >= 40) & (th <= 4100)
     info = json.loads((OUT / "kickfuzz.json").read_text())
-    plan = json.loads((mixset.DATA / "kickiso" / "match.json").read_text()) if (mixset.DATA / "kickiso" / "match.json").exists() else {}
+    plan = json.loads((hw002.DATA / "kickiso" / "match.json").read_text()) if (hw002.DATA / "kickiso" / "match.json").exists() else {}
     titles = {"m0": ("M: matched by EQ alone", "No distortion: an EQ Eight on the kick channel fitted to the references' isolated kicks"),
               "mb6": ("M: B +6, then matched", "Option B +6, then an EQ Eight on the kick channel fitted to what is left of the gap")}
     for k, v in plan.items():   # the EQ as it was rendered, if it was
@@ -441,7 +434,7 @@ def measure(_names: list[str]) -> None:
         loop = OUT / (f"solo-{name}.flac" if name in plan else f"{name}.flac")
         if not loop.exists():
             continue
-        x, sr = listen.mono(loop)
+        x, sr = kickshape.mono(loop)
         row = {"id": name, "title": o["title"], "what": o.get("what", "HW002's kick chain as it is"),
                "loop": loop.name, "recipeLoop": f"{plan[name]['from']}.flac" if name in plan else loop.name,
                "bells": plan[name]["bells"] if name in plan else None, "shape": shape(x, sr), "loopLufs": round(lufs_of(loop), 2), **info.get(name, {})}
@@ -456,10 +449,10 @@ def measure(_names: list[str]) -> None:
         if name == "base":
             mix = spectral.OUT / "before.flac"
         if mix.exists():
-            m = spectral.measure_file(mix, 24.0, 1.5)
+            m = spectral.measure_file(mix, hw002.DROP_SECONDS, hw002.BAR_SECONDS)
             row.update(mix=("../spectral/before.flac" if name == "base" else f"mix-{name}.flac"), drop=m["drop"])
             # the check that counts: the kick isolated from this mix (kickiso.py's method) against the references'
-            k, _ = kickiso.shape_of(mix, 24.0, 160.0)
+            k, _ = kickiso.shape_of(mix, hw002.DROP_SECONDS, hw002.TEMPO_BPM)
             row["isoDistance"] = round(float(np.sqrt(np.mean((k - mean)[clean] ** 2))), 2)
             row["isoGap2to4k"] = round(float(np.mean((k - mean)[(th >= 2000) & (th <= 4100)])), 1)
             row["shapeLoop"], row["shape"] = row["shape"], grouped(k)
@@ -471,5 +464,14 @@ def measure(_names: list[str]) -> None:
     print(OUT / "renders.json")
 
 
+COMMANDS = {"bounce": bounce, "render": render, "match": match, "measure": measure}
+
+
+def main(argv: list[str]) -> None:
+    if not argv or argv[0] not in COMMANDS:
+        sys.exit(f"usage: kickfuzz.py {{{'|'.join(COMMANDS)}}} [option ...]")
+    COMMANDS[argv[0]](argv[1:])
+
+
 if __name__ == "__main__":
-    {"bounce": bounce, "render": render, "match": match, "measure": measure}[sys.argv[1]](sys.argv[2:])
+    main(sys.argv[1:])

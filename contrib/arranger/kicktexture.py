@@ -25,15 +25,12 @@ import json
 import sys
 from pathlib import Path
 
+import hw002
 import numpy as np
 import soundfile as sf
 from scipy.signal import butter, hilbert, sosfiltfilt
 
-sys.path.insert(0, str(Path(__file__).resolve().parent))
-import kickiso  # noqa: E402
-import mixset  # noqa: E402
-
-DATA = mixset.DATA
+DATA = hw002.DATA
 MH = (1000, 6000)
 BODY = (40, 150)
 
@@ -66,7 +63,8 @@ def texture(path: Path, bpm: float, t0: float | None = None, exact: bool = False
     if exact:   # bounced on the grid: the beats are where the grid says (a search would lock onto the rumble's swell)
         starts = [0.005 + k * beat for k in range(n)]
     else:       # a reference: the grid from its cut, each beat moved to the steepest rise of 30-300 Hz within 8 ms
-        from scipy.signal import butter as _b, sosfilt as _sf
+        from scipy.signal import butter as _b
+        from scipy.signal import sosfilt as _sf
         lo = _sf(_b(4, [30, 300], btype="band", fs=r, output="sos"), m)
         e = np.convolve(np.abs(lo), np.ones(int(0.001 * r)) / int(0.001 * r), mode="same")
         d = np.diff(e, prepend=e[0])
@@ -119,10 +117,10 @@ def main(files: list[str]) -> None:
     rows = []
     kd = json.loads((DATA / "kickdesign" / "kicks.json").read_text())
     for k in kd["kicks"]:
-        p = DATA / k["url"].lstrip("/").replace("kickfuzz/", "kickfuzz/").replace("kickdesign/", "kickdesign/")
+        p = DATA / k["url"].lstrip("/")  # the page's url is the file's place under DATA
         rows.append((k["title"], texture(p, k["bpm"], exact=k["group"] == "HW002")))
     for f in files:
-        rows.append((Path(f).stem, texture(Path(f), 160.0, exact=True)))
+        rows.append((Path(f).stem, texture(Path(f), hw002.TEMPO_BPM, exact=True)))
     ks = dict(rows)["KSMS"]
 
     def dist(r):   # how far from KSMS's texture: hold in octaves, flatness per 0.05, crest per 2 dB, level per 3 dB

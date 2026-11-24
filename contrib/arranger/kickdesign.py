@@ -17,20 +17,17 @@ from __future__ import annotations
 
 import base64
 import json
-import sys
 from pathlib import Path
 
+import hw002
+import kickiso  # its onset finder
 import numpy as np
 import pyloudnorm as pl
 import soundfile as sf
 
-sys.path.insert(0, str(Path(__file__).resolve().parent))
-import kickiso  # noqa: E402  (its onset finder)
-import mixset  # noqa: E402
-
-DATA = mixset.DATA
+DATA = hw002.DATA
 OUT = DATA / "kickdesign"
-REF_WAVS = Path("~/_agent_scratch/refs/HW002").expanduser()
+REF_WAVS = hw002.REFERENCE_WAVS
 NB, F0, F1 = 72, 25.0, 16000.0
 EDGES = F0 * (F1 / F0) ** (np.arange(NB + 1) / NB)
 CENTRES = np.sqrt(EDGES[:-1] * EDGES[1:])
@@ -57,7 +54,6 @@ def frames_of(x: np.ndarray, r: int) -> tuple[np.ndarray, np.ndarray]:
     """Power per log band for each frame (FPS a second, 2048-point at 44.1 kHz scaled to the rate), and the average."""
     m = mono(x)
     n = int(2 ** round(np.log2(2048 * r / 44100)))
-    hop = r / FPS
     win = np.hanning(n)
     f = np.fft.rfftfreq(n, 1 / r)
     idx = [np.where((f >= EDGES[k]) & (f < EDGES[k + 1]))[0] for k in range(NB)]
@@ -133,7 +129,7 @@ def main() -> None:
     for kid, title, f, what in HW002:
         p = DATA / "kickfuzz" / f
         if p.exists():
-            add(kid, title, "HW002", p, f"/kickfuzz/{f}", 160.0, what)
+            add(kid, title, "HW002", p, f"/kickfuzz/{f}", hw002.TEMPO_BPM, what)
     refs = [x for x in json.loads((DATA / "refs" / "refs.json").read_text())["refs"] if x["set"] == "hw002"]
     for x in refs:
         wav = REF_WAVS / f"{x['title']}.wav"

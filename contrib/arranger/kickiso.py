@@ -16,13 +16,11 @@ import json
 import sys
 from pathlib import Path
 
+import hw002
 import numpy as np
 import soundfile as sf
 
-sys.path.insert(0, str(Path(__file__).resolve().parent))
-import mixset  # noqa: E402
-
-DATA = mixset.DATA
+DATA = hw002.DATA
 OUT = DATA / "kickiso"
 N, HOP = 4096, 256
 THIRDS = [25 * 2 ** (k / 3) for k in range(0, 30)]          # 25 Hz to about 16 kHz
@@ -98,12 +96,12 @@ def main() -> None:
     for x in refs:
         rows[x["id"]], n = shape_of(DATA / "refs" / x["file"], x["drop"], x["bpm"])
         print(f"{x['title'][:34]:34s} {n} beats")
-    ours, _ = shape_of(DATA / "spectral" / "before.flac", 24.0, 160.0)
+    ours, _ = shape_of(DATA / "spectral" / "before.flac", hw002.DROP_SECONDS, hw002.TEMPO_BPM)
     # our kick loop alone (4 bars, looped 4 times so there are 64 beats), through the same method: the method's error
     loop = sf.read(DATA / "kickfuzz" / "base.flac", always_2d=True)[0]
     tmp = OUT / "base-x4.wav"
-    sf.write(tmp, np.concatenate([loop] * 5), 44100)
-    alone, _ = shape_of(tmp, 6.0, 160.0)
+    sf.write(tmp, np.concatenate([loop] * 5), hw002.RATE)
+    alone, _ = shape_of(tmp, 6.0, hw002.TEMPO_BPM)
     # each kick option's loop (kickfuzz.py), through the same method: how far from the references' average,
     # over the range the method is clean in (40 Hz to 4 kHz)
     opts = {}
@@ -111,8 +109,8 @@ def main() -> None:
         if loopf.stem.startswith("mix-") or loopf.stem.endswith("-stem"):
             continue
         y = sf.read(loopf, always_2d=True)[0]
-        sf.write(tmp := OUT / "opt-x4.wav", np.concatenate([y] * 5), 44100)
-        opts[loopf.stem], _ = shape_of(tmp, 6.0, 160.0)
+        sf.write(tmp := OUT / "opt-x4.wav", np.concatenate([y] * 5), hw002.RATE)
+        opts[loopf.stem], _ = shape_of(tmp, 6.0, hw002.TEMPO_BPM)
     ref = np.array(list(rows.values()))
     mean, lo, hi = ref.mean(0), ref.min(0), ref.max(0)
     res = {"thirds": [round(c, 1) for c in THIRDS], "refs": {k: [round(float(v), 2) for v in s] for k, s in rows.items()},
@@ -188,7 +186,5 @@ def match() -> None:
     (OUT / "match.json").write_text(json.dumps(out, indent=1))
 
 
-if __name__ == "__main__" and sys.argv[1:] == ["match"]:
-    match()
-elif __name__ == "__main__":
-    main()
+if __name__ == "__main__":
+    match() if sys.argv[1:] == ["match"] else main()
