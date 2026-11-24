@@ -25,3 +25,13 @@ def test_a_queued_full_state_does_not_change_when_a_later_datagram_arrives(rig):
         assert queued["state"]["pos"] == 0.0
     finally:
         rig.desk.clients.remove(q)
+
+
+def test_a_moved_value_enters_the_history_with_who_moved_it(rig):
+    value = rig.state()["values"]["0:f1"]
+    move = {"t": "v", "page": 0, "slot": "f1", "n": 0.1, "s": "-30 dB", "key": value["key"]}
+    rig.send({**move, "r": 0.11, "sys": True})  # the desk's own move (a monitor switch): no entry
+    rig.send({**move, "r": 0.12, "who": "minilab"})
+    assert wait_for(lambda: len(rig.desk.history.entries) == 1)
+    assert rig.desk.history.entries[0]["who"] == "minilab"
+    assert rig.desk.history.entries[0]["moves"][0]["to"] == ["-30 dB", 0.12]

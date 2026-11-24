@@ -3,8 +3,8 @@
     python3 contrib/arranger/server.py            # 127.0.0.1:8975 ($ARRANGER_PORT)
 
 Pages: the arranger (/), transitions (/transitions/), mix 1 (/mix/), mix 2 (/mix2/, whose batches mixset.py renders
-in Live: the server starts its worker when a batch is queued), the spectral A/B (/spectral/) and kick design
-(/kick/). Each writes its structure into the arrangement file (arrangement.py says who owns which key).
+in Live: the server starts its worker when a batch is queued, and /api/mix2/queue says where the queue stands), the
+spectral A/B (/spectral/) and kick design (/kick/). Each writes its structure into the arrangement file (arrangement.py says who owns which key).
 
 Standard library only. The loops, renders and arrangements live outside the repo, in $ARRANGER_DATA (default
 ~/_agent_scratch/arranger). Put it on the tailnet with `tailscale serve --bg --https=8975 http://127.0.0.1:8975`.
@@ -26,6 +26,7 @@ from pathlib import Path
 from typing import Any
 
 import arrangement as A
+from renderqueue import RenderQueue
 
 HERE = Path(__file__).resolve().parent
 STATIC = HERE / "static"
@@ -70,6 +71,11 @@ class Mix2Worker:
                     stderr=subprocess.STDOUT,
                     env={**os.environ, "ARRANGER_DATA": str(self.data)},
                 )
+
+    def running(self) -> bool:
+        """Whether the worker this server started is still rendering."""
+        with self._lock:
+            return self._process is not None and self._process.poll() is None
 
 
 @dataclass
@@ -117,18 +123,27 @@ class Request:
 Route = Callable[["Arranger", Request], Reply]
 
 
+def _not_known() -> bool | None:
+    return None
+
+
 @dataclass
 class Arranger:
-    """The server's state: where the data is and how a mix-2 render starts. One lock orders every write to the data
-    folder, so two saves of one arrangement never interleave."""
+    """The server's state: where the data is, how a mix-2 render starts and whether it runs (None: not known). One
+    lock orders every write to the data folder, so two saves of one arrangement never interleave."""
 
     data: Path
     start_worker: Callable[[], None]
     lock: threading.Lock = field(default_factory=threading.Lock)
+    worker_running: Callable[[], bool | None] = _not_known
 
     @property
     def arrangements(self) -> Path:
         return self.data / "arrangements"
+
+    @property
+    def render_queue(self) -> RenderQueue:
+        return RenderQueue(self.data / "mix2" / "requests")
 
 
 _SIZE_CHECKED = object()
@@ -275,22 +290,17 @@ def put_transitions_view(app: Arranger, req: Request) -> Reply:
 
 
 def list_mix2_requests(app: Arranger, req: Request) -> Reply:
-    rows = []
-    for f in (app.data / "mix2" / "requests").glob("*.json"):
-        try:
-            rows.append(json.loads(f.read_text()))
-        except ValueError:
-            continue
-    return json_reply(sorted(rows, key=lambda r: -(r.get("made") or 0)))
+    return json_reply(app.render_queue.rows())
+
+
+def get_mix2_queue(app: Arranger, req: Request) -> Reply:
+    """Where the render queue stands: the worker, the batches rendering and waiting, a count per status."""
+    return json_reply(app.render_queue.status(app.worker_running()))
 
 
 def queue_mix2_request(app: Arranger, req: Request) -> Reply:
     """Queue a batch (a target, a device, one or two ranges, some bars) and start the worker."""
-    batch = A.parse_mix2_request(read_json(req, MAX_MIX2_REQUEST, "bad request", empty=None))
-    batch.update(id=time.strftime("b%m%d-%H%M%S"), status="queued", made=time.time())
-    folder = app.data / "mix2" / "requests"
-    folder.mkdir(parents=True, exist_ok=True)
-    (folder / f"{batch['id']}.json").write_text(json.dumps(batch, indent=1))
+    batch = app.render_queue.add(A.parse_mix2_request(read_json(req, MAX_MIX2_REQUEST, "bad request", empty=None)))
     app.start_worker()
     return json_reply(batch)
 
@@ -305,6 +315,7 @@ ROUTES: dict[str, list[tuple[re.Pattern[str], Route]]] = {
         (re.compile(r"/api/arrangements/([^/]+)"), get_arrangement),
         (re.compile(r"/api/transitions"), get_transitions_view),
         (re.compile(r"/api/mix2/requests"), list_mix2_requests),
+        (re.compile(r"/api/mix2/queue"), get_mix2_queue),
     ],
     "PUT": [
         (re.compile(rf"/api/arrangements/([^/]+)/({'|'.join(A.LATER_KEYS)})"), put_later_key),
@@ -363,10 +374,18 @@ def make_handler(app: Arranger) -> type[BaseHTTPRequestHandler]:
 
 
 def make_server(
-    data: Path, host: str = "127.0.0.1", port: int = DEFAULT_PORT, start_worker: Callable[[], None] | None = None
+    data: Path,
+    host: str = "127.0.0.1",
+    port: int = DEFAULT_PORT,
+    start_worker: Callable[[], None] | None = None,
+    worker_running: Callable[[], bool | None] | None = None,
 ) -> ThreadingHTTPServer:
-    """The server for `data`, not yet serving. `start_worker` starts mix 2's renders (default: mixset.py's worker)."""
-    app = Arranger(data, start_worker or Mix2Worker(data).start)
+    """The server for `data`, not yet serving. `start_worker` starts mix 2's renders and `worker_running` says whether
+    they run (default: mixset.py's worker, both; a `start_worker` given alone runs a worker nobody can ask about)."""
+    if start_worker is None:
+        worker = Mix2Worker(data)
+        start_worker, worker_running = worker.start, worker_running or worker.running
+    app = Arranger(data, start_worker, worker_running=worker_running or _not_known)
     return ThreadingHTTPServer((host, port), make_handler(app))
 
 

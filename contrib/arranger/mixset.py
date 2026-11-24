@@ -29,6 +29,7 @@ from pathlib import Path
 from typing import Any
 
 import hw002
+from renderqueue import RenderQueue
 
 ROOT = Path(__file__).resolve().parents[2]
 DATA = hw002.DATA
@@ -516,10 +517,13 @@ def run_request(L: Any, path: Path) -> None:
     print(f"{req['id']}: {len(pts)} points", flush=True)
 
 
+def render_queue() -> RenderQueue:
+    return RenderQueue(MIX2 / "requests")
+
+
 def queued_requests() -> list[Path]:
-    """The batches waiting to render, oldest first."""
-    rows = [(p, json.loads(p.read_text())) for p in (MIX2 / "requests").glob("*.json")]
-    return [p for p, r in sorted(rows, key=lambda pr: pr[1].get("made", 0)) if r.get("status") == "queued"]
+    """The batches waiting to render, oldest first (a request file that is not JSON stops the worker)."""
+    return render_queue().queued(strict=True)
 
 
 def worker() -> None:
@@ -535,9 +539,7 @@ def worker() -> None:
         try:
             run_request(L, queued[0])
         except (Exception, SystemExit) as e:
-            req = json.loads(queued[0].read_text())
-            req.update(status="failed", error=str(e))
-            queued[0].write_text(json.dumps(req, indent=1))
+            render_queue().fail(queued[0], str(e))
             raise
 
 

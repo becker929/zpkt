@@ -106,3 +106,13 @@ def test_python_m_runs_the_old_meters_command() -> None:
     for module in ("mlab", "ears.meters", "zpkt.audio.meters"):
         res = subprocess.run([sys.executable, "-m", module, "--help"], capture_output=True, text=True)
         assert res.returncode == 0 and "usage:" in res.stdout, (module, res.stderr)
+
+
+def test_zpkt_app_is_reserved_and_says_it_is_not_built_yet() -> None:
+    import zpkt.app
+
+    res = subprocess.run([str(BIN / "zpkt"), "app"], capture_output=True, text=True)
+    assert res.returncode == 1 and "not built yet" in res.stderr and res.stderr.strip() == zpkt.app.NOT_BUILT
+    usage = subprocess.run([str(BIN / "zpkt")], capture_output=True, text=True).stdout
+    assert "app" in usage and "reserved" in usage
+    assert zpkt.app.__doc__ and "mix desk" in zpkt.app.__doc__

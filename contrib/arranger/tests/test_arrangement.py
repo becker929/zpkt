@@ -166,3 +166,19 @@ def test_parse_and_schema_agree(key, body, ok):
         parsed = False
     assert parsed is ok
     assert valid({"regions": [], key: body}) is ok
+
+
+# ---- the two halves: structure and sound, named in the type, side by side in the file ---------------------------------
+
+
+def test_the_type_names_structure_and_sound_and_the_file_is_unchanged():
+    from samples import ARRANGEMENT
+
+    assert A.STRUCTURE_KEYS == ("name", "bars", "regions", "mutes", "transitions")
+    assert A.SOUND_KEYS == ("mix", "mix2", "spectral", "kickFuzz", "desk")
+    assert set(A.PAGE_KEYS) <= set(A.STRUCTURE_KEYS) and set(A.LATER_KEYS) <= {*A.STRUCTURE_KEYS, *A.SOUND_KEYS}
+    assert set(SCHEMA["properties"]) == {*A.STRUCTURE_KEYS, *A.SOUND_KEYS, "saved"}  # the file's keys, flat
+    halves = {**A.structure(ARRANGEMENT), **A.sound(ARRANGEMENT)}
+    assert halves == {k: v for k, v in ARRANGEMENT.items() if k != "saved"}
+    assert "mix" not in A.structure(ARRANGEMENT) and "regions" not in A.sound(ARRANGEMENT)
+    assert A.sound({"regions": []}) == {} and A.structure({"regions": []}) == {"regions": []}

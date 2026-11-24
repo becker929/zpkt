@@ -51,3 +51,15 @@ def test_a_macro_on_a_saved_surface_moves_its_parameters_between_their_ends(rig)
     assert str(gain).startswith("0.0")
     key = "Hats bus/desk EQ/7 Gain A"
     assert wait_for(lambda: any(v.get("key") == key for v in rig.state()["values"].values()))
+
+
+def test_the_pager_holds_every_control_its_hardware_table_names(rig):
+    import pagercore
+
+    e = rig.minilab.elements
+    held = []
+    for element, index, _role, _target in pagercore.HARDWARE:
+        control = getattr(e, element) if index is None else getattr(e, element)[index]
+        held.append(control.resource.owner is not None and control.resource.owner.grabbed)
+    assert len(held) == 29 and all(held)
+    assert all(enc.sent for enc in e.encoders_raw)  # arming the page realigned every knob

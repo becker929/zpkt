@@ -36,14 +36,21 @@ SCHEMAS: dict[Path, tuple[Any, str]] = {
 }
 
 
+# Files whose object is open: a later version adds keys, and every reader and writer keeps them.
+OPEN = {SURFACE_OUT}
+
+
 def build(path: Path) -> dict[str, Any]:
     kind, description = SCHEMAS[path]
-    return {
+    schema = {
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "$id": f"https://github.com/becker929/zpkt/lib/contracts/{path.name}",
         "description": description,
         **TypeAdapter(kind).json_schema(),
     }
+    if path in OPEN:
+        schema["additionalProperties"] = True
+    return schema
 
 
 def text(path: Path = OUT) -> str:

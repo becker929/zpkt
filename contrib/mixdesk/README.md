@@ -97,7 +97,10 @@ The bar under the page tabs keeps the mix's history (`history.py`):
 - **Undo / Redo** (keys **Z** / **Shift+Z**): every move of a desk control is a step, whether it came from the MiniLab,
   this page or Live's own mouse. Moves of one control within 2 s are one step (a fader sweep), and a control moved back
   to where it started leaves no step. Moves the desk makes itself (a monitor switch bypassing Main's devices) are not
-  steps. The history is kept in `~/_agent_scratch/mixdesk/history/<set>.json` and outlives a server restart.
+  steps. Each step says who made it (`"who"`: `you`, `minilab`, `agent`, or `sys` for the desk itself; a step from
+  before the field is `you`). The pager does not tell the MiniLab from the mouse yet, so a move is `you` unless a
+  datagram says otherwise. The history is kept in `~/_agent_scratch/mixdesk/history/<set>.json` and outlives a
+  server restart.
 - **Checkpoint** saves the whole mix (every fader, send, mute and device value of the set, about 3 s) as
   `<sets_dir>/state/<set>/<name>.json`, a hands state: `hands live state diff NAME` and `put NAME` work on it too, and
   every state there (B, `working-0854`, ...) is a checkpoint here. The server makes `start-<date>-<time>` when it starts,
@@ -138,7 +141,9 @@ The last page on the left, **＋ Make a surface**: say what you want under your 
 its ends: the pager's `inventory`), asks Claude for one page as JSON (the Claude Code CLI, headless, no tools), checks
 every control against the set (what is not there is dropped and said so) and saves it as
 `<sets_dir>/surfaces/<set>/<name>.json`, with the request. The pager is reloaded with it and its page armed. Every
-file in that folder is a page of the desk after desk.json's own; **Remove** moves a file to `removed/`.
+file in that folder is a page of the desk after desk.json's own; **Remove** moves a file to `removed/`. A surface
+file names its version (`"schema": 1`; a file without one is version 1), and keys a later version adds are kept
+when the desk reads or writes it.
 
 A control can be a **macro**: one knob or fader moving several parameters together, each from its "from" to its "to"
 (written as Live shows them: "200 Hz", "-6 dB") as the control goes from 0 to 1. The history keeps the parameters a
@@ -152,8 +157,10 @@ harness's Keychain item). When it is not, the page says so.
 ## How it is built
 
 - `server.py`: `Desk` owns the one state the page sees, its lock, the page's event queues and the history. GET and
-  POST are dispatch tables; each POST route checks its body, and a bad one gets a 400 that says what is wrong.
-  `Settings` holds the ports and folders (`Settings.from_env()` for the running desk; tests make their own).
+  POST are module-level dispatch tables (`GET_ROUTES`, `POST_ROUTES`: functions of the desk and the request); each
+  POST route checks its body, and a bad one gets a 400 that says what is wrong. The HTML pages are a table of their
+  own (`PAGES`), so a second page shares every route. `Settings` holds the ports, folders and the desk file
+  (`Settings.from_env()` for the running desk; tests make their own).
 - `deskstate.py`: the pure rules. `reduce(state, message, now)` folds one pager message in; the loudness match,
   history labels and the seek rule are plain functions too. The page only paints what the server sends (the match's
   gains are in the state; what changed comes from `/api/compare`).

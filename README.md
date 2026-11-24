@@ -10,6 +10,7 @@ The core is one Python package, `zpkt`, in two halves you can use on their own:
 |---|---|---|
 | [`zpkt.live`](src/zpkt/live/) | Drives Live from Python or the shell: run code against the open set, set knobs, edit time, export audio, edit `.als` files offline. | `zpkt live ping` |
 | [`zpkt.audio`](src/zpkt/audio/) | Measures a render with calibrated meters (loudness, true peak, dynamics, spectra, a mix against references), and places it among your own reference tracks with a profile and an embedding. Its mastering lab is [`ears/mlab/`](ears/mlab/). | `zpkt audio measure take.wav` |
+| [`zpkt.app`](src/zpkt/app/) | Reserved for the one interface I will work in, grown from the mix desk's server. Not built yet. | `zpkt app` (says so) |
 | [`agent/`](agent/) | Skills and rules that let Claude Code (or another agent) drive Live through `zpkt live` without crashing it. | open the repo in Claude Code |
 
 macOS only. You need Ableton Live 12 and [uv](https://docs.astral.sh/uv/). The repo is one uv

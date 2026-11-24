@@ -95,3 +95,36 @@ def test_mypy_is_clean_for_the_desk():
         [str(mypy), "--config-file", "contrib/mixdesk/mypy.ini"], cwd=root, capture_output=True, text=True
     )
     assert out.returncode == 0, out.stdout
+
+
+# ---- who moved a control --------------------------------------------------------------------------------------------
+
+V = {"t": "v", "page": 0, "slot": "f1", "n": 0.5, "s": "-6.0 dB", "r": 0.5, "key": "Kick bus/volume"}
+
+
+@pytest.mark.parametrize(
+    ("extra", "who"),
+    [
+        ({}, "you"),
+        ({"sys": False}, "you"),
+        ({"sys": True}, "sys"),
+        ({"who": "minilab"}, "minilab"),
+        ({"who": "agent"}, "agent"),
+    ],
+)
+def test_who_moved_reads_the_who_field_or_the_old_sys_flag(extra, who):
+    import json
+
+    assert P.who_moved(P.parse_datagram(json.dumps({**V, **extra}).encode())) == who
+
+
+def test_a_who_the_desk_does_not_know_is_a_bad_message_and_the_schema_agrees():
+    import jsonschema
+
+    with pytest.raises(P.BadMessage, match="who"):
+        P.parse_message({**V, "who": "robot"})
+    with pytest.raises(P.BadMessage, match="who"):
+        P.parse_message({**V, "who": 3})
+    validator = jsonschema.Draft202012Validator(schema())
+    assert validator.is_valid({**V, "who": "minilab"}) and not validator.is_valid({**V, "who": "robot"})
+    assert set(P.WHO) == {"you", "minilab", "agent", "sys"}

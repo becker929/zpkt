@@ -127,3 +127,39 @@ def test_parameters_moved_together_are_one_step(h):
     assert len(h.entries) == 1 and len(h.entries[0]["moves"]) == 2
     pairs, _ = h.undo()
     assert sorted(pairs) == [["Hats bus/desk EQ/1 Gain A", 0.5], ["Kick bus/volume", 0.85]]
+
+
+# ---- who made each entry --------------------------------------------------------------------------------------------
+
+
+def test_each_move_says_who_made_it_and_a_desk_move_makes_none(h):
+    assert h.seen("Kick bus/volume", "-1 dB", 0.8, who="minilab")
+    assert h.entries[-1]["who"] == "minilab"
+    assert not h.seen("Hats bus/desk EQ/1 Gain A", "1 dB", 0.6, who="sys")  # the desk itself: not a mix change
+    assert len(h.entries) == 1
+    h.now[0] += 5
+    assert h.seen("Kick bus/volume", "-2 dB", 0.7)
+    assert history.who_of(h.entries[-1]) == "you" == h.entries[-1]["who"]
+
+
+def test_moves_by_two_movers_at_once_are_two_entries(h):
+    h.seen("Kick bus/volume", "-1 dB", 0.8, who="minilab")
+    h.seen("Kick bus/volume", "-2 dB", 0.7, who="agent")  # within COALESCE_S, but someone else
+    assert [e["who"] for e in h.entries] == ["minilab", "agent"]
+    h.seen("Kick bus/volume", "-3 dB", 0.6, who="agent")  # the agent still moving: the same step
+    assert len(h.entries) == 2 and h.entries[-1]["moves"][0]["to"][1] == 0.6
+
+
+def test_an_entry_from_before_the_field_is_you(h):
+    assert history.who_of({"k": "move", "moves": [], "id": 1, "at": 0.0}) == "you"
+    h.entries.append(
+        {
+            "k": "move",
+            "moves": [{"key": "Kick bus/volume", "label": "x", "from": ["a", 0.9], "to": ["b", 0.85]}],
+            "id": 1,
+            "at": 1000.0,
+        }
+    )
+    h.pos = len(h.entries)
+    h.seen("Kick bus/volume", "-1 dB", 0.8)  # a move by "you" carries on the old entry, as it did before
+    assert len(h.entries) == 1 and "who" not in h.entries[0]

@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/becker929/zpkt/lib/contracts/mixdesk-surface.schema.json",
-  "description": "<sets_dir>/surfaces/<set>/<name>.json: a desk.json page plus where it came from.",
+  "description": "<sets_dir>/surfaces/<set>/<name>.json: a desk.json page plus where it came from. \"schema\" is the file's\nversion (absent: 1). The object is open: keys a later version adds are kept by every reader and writer.",
   "$defs": {
     "Control": {
       "description": "One parameter on a slot: a mixer value (volume, pan, send:<return>, mute, solo) or a device's parameter.",
@@ -85,6 +85,10 @@
     }
   },
   "properties": {
+    "schema": {
+      "title": "Schema",
+      "type": "integer"
+    },
     "name": {
       "title": "Name",
       "type": "string"
@@ -137,5 +141,6 @@
     "set"
   ],
   "title": "SurfaceFile",
-  "type": "object"
+  "type": "object",
+  "additionalProperties": true
 }

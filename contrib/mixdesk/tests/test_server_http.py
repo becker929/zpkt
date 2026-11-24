@@ -260,3 +260,56 @@ def test_revert_all_to_a_missing_checkpoint_changes_nothing(rig):
 def test_the_state_carries_the_loudness_match_for_the_page(rig):
     gains = rig.state()["gains"]
     assert gains["C1"] == {"A": -3.0, "B": -2.0, "C": 0.0} and set(gains) == {"C1", "C2", "C3", "C4"}
+
+
+def test_history_entries_say_who_made_them(rig):
+    rig.post("/api/checkpoint", {"name": "base"})
+    move_kick_bus(rig, 0.4)
+    wait_for(lambda: rig.get("/api/compare?a=base")[1])
+    rig.post("/api/revert", {"to": "base", "all": True})
+    entries = rig.get("/api/history")[1]["entries"]
+    made = [(e["k"], e.get("name", ""), e["who"]) for e in entries]
+    assert made[:2] == [("checkpoint", "base", "you"), ("move", "", "you")]  # the page's checkpoint, a move in Live
+    assert made[2][0] == "checkpoint" and made[2][1].startswith("before-revert-")
+    assert made[2][2] == "sys" and made[3][::2] == ("revert", "you")  # the desk's own checkpoint, then the page's
+
+
+# ---- the routes are shared: a second page, another set's desk file ------------------------------------------------
+
+
+def test_a_second_page_shares_every_route(rig, tmp_path):
+    import threading
+
+    import server
+
+    second = tmp_path / "second.html"
+    second.write_text("<!doctype html><title>second</title>")
+    pages = {**server.PAGES, "/second/": second}
+    http = server.DeskHTTPServer(("127.0.0.1", 0), rig.desk, pages)
+    threading.Thread(target=http.serve_forever, kwargs={"poll_interval": 0.05}, daemon=True).start()
+    url = f"http://127.0.0.1:{http.server_address[1]}"
+    try:
+        with urllib.request.urlopen(url + "/second/", timeout=10) as r:
+            assert r.read() == second.read_bytes() and r.headers["Content-Type"].startswith("text/html")
+        with urllib.request.urlopen(url + "/api/state", timeout=10) as r:
+            assert json.loads(r.read())["attached"] is True
+        with urllib.request.urlopen(url + "/", timeout=10) as r:
+            assert b"<script>" in r.read()
+    finally:
+        http.shutdown()
+        http.server_close()
+    assert rig.get("/second/")[0] == 404  # the desk's own server serves only its own pages
+
+
+def test_the_desk_file_is_a_setting(rig, tmp_path):
+    import dataclasses
+
+    import server
+
+    other = tmp_path / "other-desk.json"
+    other.write_text(
+        json.dumps({"pages": [{"name": "Only", "controls": {"f1": {"track": "Kick bus", "param": "volume"}}}]})
+    )
+    desk = server.Desk(dataclasses.replace(rig.desk.settings, desk_file=other))
+    assert [p["name"] for p in desk.cfg()["pages"]] == ["Only"]
+    assert rig.desk.settings.desk_file == server.HERE / "desk.json"

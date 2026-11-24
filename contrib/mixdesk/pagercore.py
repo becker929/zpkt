@@ -1,4 +1,5 @@
-"""The pager's decisions, apart from Live: pages and pads, fader pickup, loops and seeks, a control's report.
+"""The pager's decisions, apart from Live: which MiniLab control does what (a table), pages and pads, fader pickup,
+loops and seeks, a control's report.
 
 pager.py runs inside Live and loads this file by path; it imports nothing, so tests import it as it is
 (tests/test_pagercore.py). Everything here takes plain values and returns plain values; the LOM stays in pager.py.
@@ -6,11 +7,36 @@ Live's Python is 3.11: keep this file free of newer syntax.
 """
 
 PICKUP = 0.03  # a fader picks up within this distance of the value (0..1)
+# The desk's set's timeline, the default of every function that needs one; another set passes its own end and loops.
 END_BEAT = 160.0  # the arrangement is 40 bars at 160 BPM
 DROP_BEAT = 64.0  # the build is bars 1-16, the drop starts at bar 17
 LOOPS = {"build": (0.0, DROP_BEAT), "drop": (DROP_BEAT, END_BEAT - DROP_BEAT)}  # mode -> (start, length) in beats
 SLOTS_V = 2  # slots A, B, W, C (v1 had B = the live mix); a reload maps a v1 "B" to "W"
 PAGE_PADS = 8  # bank-A pads
+
+
+# ---- the hardware: which MiniLab 3 control does what ---------------------------------------------------------------
+
+# The faders as Live's factory MiniLab_3 script names them: CC 14, 15, 30, 31, left to right.
+FADER_ELEMENTS = ("volume_fader", "send_a_fader", "send_b_fader", "pan_fader")
+
+# One row per control the desk holds: (the factory script's element, the index in it or None for the element itself,
+# its role, and what the role acts on). Roles: "knob" and "fader" drive the armed page's control on that slot (a
+# fader picks up first), "toggle_pad" flips it, "page_pad" arms the page on that pad number (1-8), "page_encoder"
+# steps through the pages. pager.py grabs the controls in this order. Another controller, or a layer, is another table.
+HARDWARE = (
+    tuple(("encoders_raw", k, "knob", f"k{k + 1}") for k in range(8))
+    + tuple((name, None, "fader", f"f{k + 1}") for k, name in enumerate(FADER_ELEMENTS))
+    + tuple(("pad_bank_a_raw", k, "page_pad", k + 1) for k in range(PAGE_PADS))
+    + tuple(("pad_bank_b_raw", k, "toggle_pad", f"b{k + 1}") for k in range(8))
+    + (("display_encoder", None, "page_encoder", None),)
+)
+ROLES = ("knob", "fader", "toggle_pad", "page_pad", "page_encoder")
+
+
+def hardware_rows(role, table=HARDWARE):
+    """The rows of `table` with that role, in order."""
+    return [row for row in table if row[2] == role]
 
 
 # ---- pages ---------------------------------------------------------------------------------------------------------
@@ -50,28 +76,28 @@ def picks_up(n, last, value, tolerance=PICKUP):
 # ---- transport -----------------------------------------------------------------------------------------------------
 
 
-def loop_mode(loop_on, start, length):
+def loop_mode(loop_on, start, length, loops=LOOPS):
     """The loop as the desk names it: off, build, drop, or "on" for a loop the desk did not set."""
     if not loop_on:
         return "off"
-    for mode, (a, n) in LOOPS.items():
+    for mode, (a, n) in loops.items():
         if abs(start - a) < 0.5 and abs(length - n) < 0.5:
             return mode
     return "on"
 
 
-def seek_position(beat):
+def seek_position(beat, end=END_BEAT):
     """Where a seek lands: inside the arrangement."""
-    return max(0.0, min(END_BEAT - 0.01, float(beat)))
+    return max(0.0, min(end - 0.01, float(beat)))
 
 
-def play_from(position):
+def play_from(position, end=END_BEAT):
     """Where play starts: where the playhead is, or the top once it has run past the end."""
-    return 0.0 if position >= END_BEAT else position
+    return 0.0 if position >= end else position
 
 
-def ran_past_end(playing, looping, beat):
-    return bool(playing) and not looping and beat >= END_BEAT
+def ran_past_end(playing, looping, beat, end=END_BEAT):
+    return bool(playing) and not looping and beat >= end
 
 
 def carried_slot(carry):
