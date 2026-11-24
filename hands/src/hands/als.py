@@ -376,6 +376,54 @@ def set_steps(tree: ET.ElementTree, track: ET.Element, device: ET.Element, param
     return env
 
 
+def add_points(tree: ET.ElementTree, track: ET.Element, device: ET.Element, param_name: str,
+               points, kind: str | None = None) -> ET.Element:
+    """Append breakpoints to the arrangement envelope of one device parameter, creating it if there is none.
+
+    points: [(beat, value), ...], beats non-decreasing and not before the envelope's last event. Live ramps a float
+    parameter linearly between two points at different beats; two points at the same beat are a jump. A new
+    envelope's value before the first point is the first point's value. Values use the parameter's Manual units.
+    """
+    root = tree.getroot()
+    param = param_element(device, param_name)
+    kind = kind or event_kind(param)
+    points = [(float(t), v) for t, v in points]
+    if not points:
+        raise ValueError("no points")
+    if any(t < 0 for t, _ in points) or any(b[0] < a[0] for a, b in itertools.pairwise(points)):
+        raise ValueError(f"point times must be >= 0 and non-decreasing: {points[:4]} ...")
+    if _envelope(track, param) is None:
+        set_steps(tree, track, device, param_name, [points[0]], kind)   # just the default event, then the points
+        evs = _envelope(track, param).find("Automation/Events")
+        for e in list(evs)[1:]:
+            evs.remove(e)
+    env = _envelope(track, param)
+    evs = env.find("Automation/Events")
+    last = max(float(e.get("Time")) for e in evs)
+    if points[0][0] < last:
+        raise ValueError(f"{param_name}: first point {points[0][0]} is before the envelope's last event {last}")
+    start = len(evs)
+    for i, (t, v) in enumerate(points):
+        ET.SubElement(evs, f"{kind}Event", Id=str(start + i), Time=_num(t), Value=_value(kind, v, param))
+    ET.indent(env, space="\t", level=depth(root, env))
+    return env
+
+
+def value_at(track: ET.Element, device: ET.Element, param_name: str, beat: float) -> str:
+    """A parameter's automated value at `beat` as the .als stores it (its Manual value when it has no envelope).
+    Read as steps: between two events of a ramp this gives the earlier event's value."""
+    param = param_element(device, param_name)
+    env = _envelope(track, param)
+    if env is None:
+        return param.find("Manual").get("Value")
+    evs = sorted(env.find("Automation/Events"), key=lambda e: (float(e.get("Time")), int(e.get("Id"))))
+    got = evs[0].get("Value")
+    for e in evs:
+        if float(e.get("Time")) <= beat:
+            got = e.get("Value")
+    return got
+
+
 # --------------------------------------------------------------------------- self-checks
 
 def _describe(pm: dict, target: ET.Element) -> tuple[ET.Element | None, str]:

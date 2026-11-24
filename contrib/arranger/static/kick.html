@@ -1,0 +1,299 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, minimum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#0d0e10">
+<title>HW002 kick</title>
+<style>
+/* Layout: one screen, no scrolling. Top: play and the loudness match. Middle, centred and as big as the screen
+   allows: the kick's spectrum, moving with what is playing. Bottom: A, B and C, and the kicks to put in them. */
+:root { --bg:#0d0e10; --panel:#16181b; --line:#262a30; --text:#ecedef; --dim:#8a8f98; --a:#7fd1ff; --b:#ff9f6b; --c:#c79bff; --ref:#5fd38d; }
+* { box-sizing:border-box; -webkit-tap-highlight-color:transparent; -webkit-user-select:none; user-select:none; -webkit-touch-callout:none; }
+html, body { margin:0; height:100%; background:var(--bg); color:var(--text); font:15px/1.35 -apple-system, system-ui, sans-serif; overflow:hidden; overscroll-behavior:none; touch-action:manipulation; }
+body { display:grid; grid-template-rows:auto 1fr auto; height:100dvh;
+  padding:max(10px, env(safe-area-inset-top)) max(14px, env(safe-area-inset-right)) max(12px, env(safe-area-inset-bottom)) max(14px, env(safe-area-inset-left)); gap:10px; }
+button { font:inherit; color:inherit; background:#1e2125; border:1px solid var(--line); border-radius:12px; cursor:pointer; touch-action:manipulation; }
+button:active { transform:scale(.97); }
+header { display:flex; align-items:center; gap:10px; }
+header h1 { font-size:15px; font-weight:600; margin:0; flex:1; letter-spacing:.01em; }
+header h1 small { display:block; font-size:11.5px; font-weight:400; color:var(--dim); }
+#play { width:52px; height:44px; background:var(--text); color:#111; border-color:var(--text); display:grid; place-items:center; }
+#play svg { width:20px; height:20px; fill:currentColor; }
+#match { height:44px; padding:0 12px; font-size:13px; color:var(--dim); }
+#match.on { color:var(--text); border-color:#4a505a; }
+/* the curve */
+#stage { position:relative; min-height:0; display:grid; place-items:center; }
+#curve { width:100%; height:100%; max-height:62vh; display:block; }
+#now { position:absolute; left:0; right:0; top:4px; text-align:center; font-size:12.5px; color:var(--dim); pointer-events:none; padding:0 8px; }
+#now b { color:var(--text); font-weight:600; }
+#legend { position:absolute; left:0; right:0; bottom:-2px; text-align:center; font-size:10.5px; color:#5c6068; pointer-events:none; }
+#pos { position:absolute; right:2px; bottom:40px; font:500 11px ui-monospace, Menlo, monospace; color:var(--dim); }
+/* A B C */
+#slots { display:grid; grid-template-columns:repeat(3, 1fr); gap:8px; }
+.slot { height:74px; padding:8px 10px; text-align:left; display:grid; grid-template-rows:auto 1fr; gap:2px; border-width:2px; position:relative; overflow:hidden; }
+.slot b { font-size:20px; line-height:1; }
+.slot span { font-size:12.5px; color:var(--dim); align-self:end; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.slot.sel { border-color:currentColor; }
+.slot.on { background:currentColor; }
+.slot.on b, .slot.on span { color:#111; }
+.slot.pending::after { content:''; position:absolute; inset:0; border:2px dashed #fff; border-radius:10px; animation:pend 1s ease-in-out infinite; }
+@keyframes pend { 50% { opacity:.25; } }
+.slot[data-s=a] { color:var(--a); } .slot[data-s=b] { color:var(--b); } .slot[data-s=c] { color:var(--c); }
+#pick { display:flex; gap:6px; overflow-x:auto; padding:2px 0 4px; scrollbar-width:none; -webkit-overflow-scrolling:touch; touch-action:pan-x; }
+#pick::-webkit-scrollbar { display:none; }
+#pick button { flex:none; height:38px; padding:0 12px; font-size:13px; border-radius:19px; white-space:nowrap; }
+#pick button.ref { color:var(--ref); }
+#pick button.in { border-color:currentColor; }
+#pick .sep { flex:none; width:1px; background:var(--line); margin:6px 2px; }
+#info { font-size:12px; color:var(--dim); min-height:2.7em; display:flex; gap:8px; align-items:flex-start; }
+#info p { margin:0; flex:1; }
+#keep { flex:none; height:32px; padding:0 12px; font-size:12.5px; }
+#keep.on { background:var(--ref); border-color:var(--ref); color:#111; font-weight:600; }
+#keep[hidden] { display:none; }
+footer { display:grid; gap:8px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>HW002 kick<small>kicks only · rendered in Live, or the references as released</small></h1>
+  <button id="match" class="on" title="Every kick at the same loudness (a listening aid)">Matched</button>
+  <button id="play" aria-label="Play"></button>
+</header>
+<div id="stage">
+  <canvas id="curve" aria-label="The playing kick's spectrum, moving with the sound"></canvas>
+  <div id="now"></div>
+  <div id="pos"></div>
+  <div id="legend">moving: what you hear · thin: its average · green dashed: KSMS's kick · green band: the four references' range</div>
+</div>
+<footer>
+  <div id="slots">
+    <button class="slot sel" data-s="a"><b>A</b><span></span></button>
+    <button class="slot" data-s="b"><b>B</b><span></span></button>
+    <button class="slot" data-s="c"><b>C</b><span></span></button>
+  </div>
+  <div id="pick"></div>
+  <div id="info"><p></p><button id="keep" hidden>Keep</button></div>
+</footer>
+<script>
+const $ = s => document.querySelector(s);
+const ARR = 'short-8d2a2';
+const PLAY = '<svg viewBox="0 0 24 24"><path d="M7 4.5v15l13-7.5z"/></svg>', STOP = '<svg viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>';
+const COL = { a: '#7fd1ff', b: '#ff9f6b', c: '#c79bff' };
+let K, recipes = {}, keptId = null, ctx = null;
+const st = { a: 'mmtf12', b: 't-mtf12', c: 'ref-ksms-roses-of-flesh-and-', sel: 'a', on: 'a', match: true };
+const bufs = {}, loads = {}, frames = {};
+
+// no zooming: iOS ignores user-scalable, so pinch is stopped here; double-tap zoom is off by touch-action: manipulation
+document.addEventListener('gesturestart', e => e.preventDefault());
+document.addEventListener('gesturechange', e => e.preventDefault());
+document.addEventListener('touchmove', e => { if (e.scale !== undefined && e.scale !== 1) e.preventDefault(); }, { passive: false });
+
+const kick = id => K.kicks.find(k => k.id === id);
+const spb = k => 60 / k.bpm;
+function audio() { if (!ctx) { const AC = window.AudioContext || window.webkitAudioContext; ctx = new AC({ latencyHint: 'interactive' }); } return ctx; }
+function buf(id) {
+  if (bufs[id]) return Promise.resolve(bufs[id]);
+  return loads[id] ||= fetch(kick(id).url).then(r => r.arrayBuffer()).then(a => new Promise((ok, no) => audio().decodeAudioData(a, ok, no))).then(b => (bufs[id] = b));
+}
+function frm(id) {
+  if (frames[id]) return Promise.resolve(frames[id]);
+  return fetch(`/kickdesign/frames/${id}.json`).then(r => r.json()).then(j => {
+    const raw = atob(j.b64), u = new Uint8Array(raw.length); for (let i = 0; i < raw.length; i++) u[i] = raw.charCodeAt(i);
+    return (frames[id] = { fps: j.fps, n: j.n, u });
+  });
+}
+// the loudness match: every kick to the HW002 kick as it is (a listening aid)
+const gainOf = k => st.match ? Math.pow(10, (kick('base').lufs - k.lufs) / 20) : 1;
+
+// ---------- the player: one kick at a time, on a clock in beats; a switch lands on the next beat ----------
+let cur = null, clock = null, pending = null, timer = null;
+const beatNow = () => clock ? clock.beat + (audio().currentTime - clock.t) / clock.spb : 0;
+function start(id, when, beat) {
+  const k = kick(id), b = bufs[id];
+  const n = audio().createBufferSource(), g = audio().createGain();
+  n.buffer = b; n.loop = true; n.loopStart = 0; n.loopEnd = b.duration;
+  n.connect(g); g.connect(audio().destination);
+  g.gain.setValueAtTime(0, when); g.gain.linearRampToValueAtTime(gainOf(k), when + 0.004);
+  n.start(when, (((beat % k.beats) + k.beats) % k.beats) * spb(k));
+  return { n, g, id };
+}
+function stop(h, when) {
+  if (!h) return;
+  try { h.g.gain.cancelScheduledValues(when); h.g.gain.setValueAtTime(h.g.gain.value, when); h.g.gain.linearRampToValueAtTime(0, when + 0.006); h.n.stop(when + 0.01); } catch (e) {}
+}
+async function togglePlay() {
+  if (cur) { stop(cur, audio().currentTime); cur = null; clock = null; pending = null; clearInterval(timer); paint(); return; }
+  await audio().resume();
+  const id = st[st.on]; if (!id) return;
+  await buf(id);
+  const when = audio().currentTime + 0.05;
+  cur = start(id, when, 0); clock = { t: when, beat: 0, spb: spb(kick(id)) };
+  timer = setInterval(tick, 20); paint();
+}
+function tick() {
+  if (!cur || !pending) return;
+  const id = st[pending]; if (!id || !bufs[id]) return;
+  const t = audio().currentTime, b = beatNow(), next = Math.floor(b + 1e-6) + 1;
+  const when = Math.max(t + 0.025, clock.t + (next - clock.beat) * clock.spb);
+  stop(cur, when); cur = start(id, when, next); clock = { t: when, beat: next, spb: spb(kick(id)) };
+  morph(when); st.on = pending; pending = null;
+  setTimeout(paint, Math.max(0, (when - t) * 1000));
+}
+async function hear(slot) {
+  st.sel = slot;
+  const id = st[slot];
+  if (!id) { paint(); return; }
+  frm(id);
+  if (!cur) { st.on = slot; morph(performance.now() / 1000, true); paint(); return; }
+  if (slot === st.on && cur.id === id) { paint(); return; }
+  await buf(id);
+  pending = slot; paint();
+}
+async function put(id) {   // the kick chosen into the selected slot, heard at once if that slot is the one playing
+  st[st.sel] = id; frm(id); buf(id);
+  save();
+  if (cur && st.on === st.sel) { await buf(id); pending = st.sel; }
+  else if (!cur) { st.on = st.sel; morph(performance.now() / 1000, true); }
+  paint();
+}
+function save() { try { localStorage.setItem('kick-slots-3', JSON.stringify({ a: st.a, b: st.b, c: st.c, match: st.match })); } catch (e) {} }
+
+// ---------- the curve: pre-rendered frames, drawn where the sound is ----------
+const cv = $('#curve'), g2 = cv.getContext('2d');
+let W = 0, H = 0, DPR = 1;
+function size() { DPR = Math.min(3, window.devicePixelRatio || 1); const r = cv.getBoundingClientRect(); W = r.width; H = r.height; cv.width = W * DPR; cv.height = H * DPR; }
+new ResizeObserver(size).observe(cv);
+const TOP = 6, BOT = -54;            // dB relative to each kick's average total
+let morphFrom = null, morphT0 = 0;   // the curve as it was when a switch landed, faded into the new one
+function morph(when, now) { morphFrom = lastCurve ? lastCurve.slice() : null; morphT0 = now ? when : when - audio().currentTime + performance.now() / 1000; }
+let lastCurve = null;
+// the frame of kick `id` at a beat position (fractional), as dB per band
+function curveAt(id, beat) {
+  const k = kick(id), f = frames[id]; if (!k || !f) return null;
+  const sec = (((beat % k.beats) + k.beats) % k.beats) * spb(k);
+  const x = sec * f.fps, i0 = Math.floor(x) % f.n, i1 = (i0 + 1) % f.n, w = x - Math.floor(x), nb = K.bands.n;
+  const out = new Float32Array(nb);
+  for (let b = 0; b < nb; b++) {
+    const v0 = f.u[i0 * nb + b], v1 = f.u[i1 * nb + b];
+    out[b] = ((v0 + (v1 - v0) * w) / 255) * K.floor - K.floor;
+  }
+  return out;
+}
+const KER = [1, 4, 8, 10, 8, 4, 1].map(v => v / 36);
+function smooth(c) {   // smoothing across bands (in power, about a third of an octave) so the line reads as an EQ's curve
+  const o = new Float32Array(c.length), n = c.length;
+  for (let i = 0; i < n; i++) { let a = 0; for (let j = -3; j <= 3; j++) a += KER[j + 3] * Math.pow(10, c[Math.min(n - 1, Math.max(0, i + j))] / 10); o[i] = 10 * Math.log10(a); }
+  return o;
+}
+function draw() {
+  requestAnimationFrame(draw);
+  if (!K || !W) return;
+  const d = DPR, nb = K.bands.n, pad = { l: 8, r: 8, t: 26, b: 38 };
+  const X = i => (pad.l + (i / (nb - 1)) * (W - pad.l - pad.r)) * d;
+  const Y = v => (pad.t + (TOP - Math.max(BOT, Math.min(TOP, v))) / (TOP - BOT) * (H - pad.t - pad.b)) * d;
+  const fx = f => (pad.l + Math.log(f / K.bands.f0) / Math.log(K.bands.f1 / K.bands.f0) * (W - pad.l - pad.r)) * d;
+  g2.clearRect(0, 0, cv.width, cv.height);
+  // the grid: frequencies and the kick's regions
+  g2.font = `${10.5 * d}px -apple-system, system-ui, sans-serif`; g2.textAlign = 'center';
+  for (const [f, l] of [[50, '50'], [100, '100'], [200, '200'], [500, '500'], [1000, '1k'], [2000, '2k'], [5000, '5k'], [10000, '10k']]) {
+    g2.strokeStyle = '#1b1e22'; g2.lineWidth = d; g2.beginPath(); g2.moveTo(fx(f), pad.t * d); g2.lineTo(fx(f), (H - pad.b) * d); g2.stroke();
+    g2.fillStyle = '#5c6068'; g2.fillText(l, fx(f), (H - pad.b + 15) * d);
+  }
+  for (let v = 0; v >= BOT; v -= 12) { g2.strokeStyle = v === 0 ? '#24282d' : '#16191c'; g2.beginPath(); g2.moveTo(pad.l * d, Y(v)); g2.lineTo((W - pad.r) * d, Y(v)); g2.stroke(); }
+  g2.fillStyle = '#3d4249'; g2.font = `${10 * d}px -apple-system, system-ui, sans-serif`;
+  for (const [l, a, b] of [['sub', 25, 63], ['body', 63, 160], ['box', 160, 400], ['mid', 400, 1000], ['bite', 1000, 2500], ['edge', 2500, 6000], ['fizz', 6000, 16000]])
+    g2.fillText(l, (fx(a) + fx(b)) / 2, (pad.t + 12) * d);
+  // where we are: playing, the clock; stopped, the selected kick's first beat over and over at its tempo (a preview)
+  const playing = !!cur, onId = st[st.on];
+  const beat = playing ? beatNow() : ((performance.now() / 1000) / (onId ? spb(kick(onId)) : 0.375)) % 1;
+  // the target: the references' kicks isolated by the beat, as an average shape
+  const tl = smooth(K.targetLo), th = smooth(K.targetHi), tm = smooth(K.target);
+  g2.beginPath(); th.forEach((v, i) => i ? g2.lineTo(X(i), Y(v)) : g2.moveTo(X(i), Y(v)));
+  for (let i = tl.length - 1; i >= 0; i--) g2.lineTo(X(i), Y(tl[i]));
+  g2.closePath(); g2.fillStyle = 'rgba(95,211,141,.10)'; g2.fill();
+  g2.setLineDash([5 * d, 5 * d]); g2.strokeStyle = 'rgba(95,211,141,.8)'; g2.lineWidth = 1.5 * d; g2.beginPath();
+  tm.forEach((v, i) => i ? g2.lineTo(X(i), Y(v)) : g2.moveTo(X(i), Y(v))); g2.stroke(); g2.setLineDash([]);
+  // the other two slots, thin, at the same place in the beat
+  for (const s of ['a', 'b', 'c']) {
+    if (s === st.on || !st[s] || !frames[st[s]]) continue;
+    const c = smooth(curveAt(st[s], beat));
+    g2.strokeStyle = COL[s] + '55'; g2.lineWidth = 1.2 * d; g2.beginPath();
+    c.forEach((v, i) => i ? g2.lineTo(X(i), Y(v)) : g2.moveTo(X(i), Y(v))); g2.stroke();
+  }
+  // the one playing: its average, thin, and its moving curve, filled
+  if (onId && frames[onId]) {
+    const k = kick(onId);
+    g2.strokeStyle = COL[st.on] + '99'; g2.lineWidth = 1 * d; g2.beginPath();
+    smooth(k.avg).forEach((v, i) => i ? g2.lineTo(X(i), Y(v)) : g2.moveTo(X(i), Y(v))); g2.stroke();
+    let c = smooth(curveAt(onId, beat));
+    const m = Math.min(1, (performance.now() / 1000 - morphT0) / 0.14);   // a switch morphs in over 140 ms
+    if (morphFrom && m < 1 && m >= 0) c = c.map((v, i) => morphFrom[i] + (v - morphFrom[i]) * (1 - Math.pow(1 - m, 3)));
+    lastCurve = c;
+    const grad = g2.createLinearGradient(0, Y(TOP), 0, Y(BOT));
+    grad.addColorStop(0, COL[st.on] + 'aa'); grad.addColorStop(1, COL[st.on] + '00');
+    g2.beginPath(); g2.moveTo(X(0), Y(BOT));
+    c.forEach((v, i) => g2.lineTo(X(i), Y(v)));
+    g2.lineTo(X(nb - 1), Y(BOT)); g2.closePath(); g2.fillStyle = grad; g2.fill();
+    g2.beginPath(); c.forEach((v, i) => i ? g2.lineTo(X(i), Y(v)) : g2.moveTo(X(i), Y(v)));
+    g2.strokeStyle = COL[st.on]; g2.lineWidth = 2.4 * d; g2.lineJoin = 'round'; g2.stroke();
+  }
+  if (playing) { const k = kick(cur.id), b = ((beatNow() % k.beats) + k.beats) % k.beats; $('#pos').textContent = `${Math.floor(b / 4) + 1}.${Math.floor(b % 4) + 1}`; }
+  else $('#pos').textContent = 'preview';
+}
+
+// ---------- the page ----------
+function paint() {
+  $('#play').innerHTML = cur ? STOP : PLAY;
+  $('#match').classList.toggle('on', st.match);
+  document.querySelectorAll('.slot').forEach(b => {
+    const s = b.dataset.s, k = st[s] && kick(st[s]);
+    b.querySelector('span').textContent = k ? k.title : 'tap a kick below';
+    b.classList.toggle('sel', s === st.sel); b.classList.toggle('on', !!cur && s === st.on); b.classList.toggle('pending', pending === s);
+  });
+  const pk = $('#pick'); pk.innerHTML = '';
+  let group = null;
+  for (const k of K.kicks) {
+    if (group && k.group !== group) { const s = document.createElement('i'); s.className = 'sep'; pk.appendChild(s); }
+    group = k.group;
+    const b = document.createElement('button'); b.textContent = k.title;
+    b.className = (k.group === 'Reference' ? 'ref' : '') + (st[st.sel] === k.id ? ' in' : '');
+    b.style.color = st[st.sel] === k.id ? COL[st.sel] : '';
+    b.onclick = () => put(k.id); pk.appendChild(b);
+  }
+  const k = st[st.sel] && kick(st[st.sel]);
+  $('#info p').textContent = k ? k.what : '';
+  const kb = $('#keep'), keepable = k && k.group === 'HW002' && k.id !== 'base' && recipes[k.id];
+  kb.hidden = !keepable; kb.classList.toggle('on', keepable && keptId === k.id); kb.textContent = keepable && keptId === k.id ? 'Kept' : 'Keep';
+  const on = st[st.on] && kick(st[st.on]);
+  $('#now').innerHTML = on ? `<b style="color:${COL[st.on]}">${st.on.toUpperCase()}</b> ${on.title}${st.match ? ` · ${(kick('base').lufs - on.lufs > 0 ? '+' : '')}${(kick('base').lufs - on.lufs).toFixed(1)} dB to match` : ''}` : '';
+}
+async function keep() {
+  const k = kick(st[st.sel]), r = recipes[k.id]; if (!r) return;
+  keptId = keptId === k.id ? null : k.id; paint();
+  const body = keptId ? { id: k.id, title: r.title, what: r.what, loop: r.recipeLoop || r.loop, bells: r.bells || null, kickTurnedDb: r.kickTurnedDb || 0, changes: r.changes || null } : null;
+  await fetch(`/api/arrangements/${ARR}/kickFuzz`, { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
+}
+
+async function main() {
+  K = await (await fetch('/kickdesign/kicks.json')).json();
+  try { const r = await (await fetch('/kickfuzz/renders.json')).json(); for (const o of r.options) recipes[o.id] = o; } catch (e) {}
+  try { const a = await (await fetch(`/api/arrangements/${ARR}`)).json(); keptId = a.kickFuzz ? a.kickFuzz.id : null; } catch (e) {}
+  try { const s = JSON.parse(localStorage.getItem('kick-slots-3') || 'null'); if (s) { for (const x of ['a', 'b', 'c']) if (s[x] === null || kick(s[x])) st[x] = s[x]; st.match = s.match !== false; } } catch (e) {}
+  if (!st.c) st.c = (K.kicks.find(k => k.group === 'Reference') || {}).id || null;
+  document.querySelectorAll('.slot').forEach(b => b.onclick = () => hear(b.dataset.s));
+  $('#play').onclick = togglePlay; $('#keep').onclick = keep;
+  $('#match').onclick = () => { st.match = !st.match; save(); if (cur) cur.g.gain.setTargetAtTime(gainOf(kick(cur.id)), audio().currentTime, 0.01); paint(); };
+  document.addEventListener('keydown', e => {
+    if (e.code === 'Space') { e.preventDefault(); togglePlay(); }
+    const s = { Digit1: 'a', Digit2: 'b', Digit3: 'c', KeyA: 'a', KeyB: 'b', KeyC: 'c' }[e.code]; if (s) hear(s);
+  });
+  size(); paint(); requestAnimationFrame(draw);
+  await Promise.all(['a', 'b', 'c'].filter(s => st[s]).map(s => frm(st[s])));
+  K.kicks.forEach(k => frm(k.id));
+}
+main();
+</script>
+</body>
+</html>
