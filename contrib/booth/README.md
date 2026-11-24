@@ -23,6 +23,7 @@ generated from it). The booth never runs code it was sent. Every LOM call comes 
 | `measure.py`, `video.py` | measurements and flags; the piano-roll still, the MP4 and the M4A |
 | `jobs.py`, `runner.py` | the job table, the lease (`Gate`) and the hold-and-close rule |
 | `server.py`, `cli.py` | the HTTP API on 127.0.0.1:8794, and Anthony's controls |
+| `contract.py` | the API's messages, typed: what the bot sends (`JobRequest`) and what the booth answers (`Job`, `Measure`, `CheckResult`, `Status`, `ErrorBody`) |
 
 Everything the booth keeps is in `~/_agent_scratch/booth/` (`BOOTH_HOME`): `booth.db`, `jobs/<id>/`, the sets in
 `sets/booth Project/`, `samples/`, and an optional `config.toml` (`port`, `hours`, `queue_max`, `quiet_s`, `palette`,
@@ -91,10 +92,21 @@ A sample's track starts at the level that brings it to -23 LUFS, where the palet
 none, uploads answer `403 samples_off`, check refuses sample parts and the guide doesn't mention them.
 `booth sample FILE` keeps a file the way the endpoint does, for a watched `booth run`.
 
+## The API's contract
+
+The bot and the booth meet at the HTTP API. Its messages are typed in `contract.py`, and `scripts/gen_schema.py`
+writes them to `lib/contracts/booth-*.schema.json` (with `score.schema.json`). The tests send real requests to the
+server, in-process on a free port, and check every answer against those files. The bot keeps copies in
+`contrib/bot/fixtures/`, and its fake booth is tested against them, so the fake cannot drift from the booth.
+After changing a model, run `uv run python scripts/gen_schema.py` and copy the files over the bot's.
+
 ## Tests
 
 ```bash
-uv run pytest -q -p no:cacheprovider
+uv run pytest -q -p no:cacheprovider     # about 10 s
+uv run mypy
 ```
 
-A fake Live runs the LOM code the booth generates against a small model of a song, so the tests need no Live.
+A fake Live runs the LOM code the booth generates against a small model of a song, so the tests need no Live. The
+CLI points hands at the booth's sets and `booth_` prefix (`use_booth_rig()` in `__init__.py`); importing the package
+changes nothing.
