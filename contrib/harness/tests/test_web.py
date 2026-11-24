@@ -35,7 +35,6 @@ async def test_everything_needs_a_session(client):
     r = await client.get("/skrng/talk/", allow_redirects=False)
     assert r.status == 302 and r.headers["Location"].startswith("/login?next=/skrng/talk/")
     assert (await client.post("/api/anything", json={})).status == 401
-    assert (await client.get("/api/skrng/feedback")).status == 401
     assert not await signed_in(client)
 
 
@@ -57,15 +56,6 @@ async def test_later_visits_need_the_same_password(client):
     assert not await signed_in(client)
     assert (await sign_in(client, PW, "")).status == 302
     assert await signed_in(client)
-
-
-async def test_feedback_is_kept_on_the_mac(client, tmp_path):
-    await sign_in(client)
-    assert (await client.post("/api/skrng/feedback", json={"batch": 0, "transcript": "darker"})).status == 200
-    await client.post("/api/skrng/feedback", json={"batch": 8.7, "transcript": "brighter"})
-    rows = await (await client.get("/api/skrng/feedback?batch=0")).json()
-    assert [r["transcript"] for r in rows] == ["darker"]
-    assert len((tmp_path / "skrng" / "feedback.jsonl").read_text().splitlines()) == 2
 
 
 async def test_only_skrng_pages_are_proxied_and_audio_redirects(client):

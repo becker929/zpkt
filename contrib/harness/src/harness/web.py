@@ -14,7 +14,6 @@ Routes, all behind the password except /login:
     /studio/...               the pages under /studio/ (studio/routes.py); / opens its home page
     /skrng/..., /style.css    the public site's pages, fetched from it (they are public anyway)
     /audio/...                redirect to the public site's audio
-    /api/skrng/feedback       the voice review's answers, kept on the Mac (feedback.jsonl)
 The pages see they are on a .ts.net host and drop their key: the cookie is the key here.
 """
 
@@ -135,7 +134,6 @@ class App:
     def __init__(self, cfg: Config, data_dir: Path, secure_cookie: bool = True, studio: "Studio | None" = None):
         self.cfg, self.secure_cookie, self.studio = cfg, secure_cookie, studio
         self.auth = Auth(data_dir / "auth.json")
-        self.feedback_path = data_dir / "feedback.jsonl"
         self.http: ClientSession | None = None
         self.cache: dict[str, tuple[float, bytes, str]] = {}
 
@@ -144,7 +142,6 @@ class App:
         app.router.add_get("/login", self.login_get)
         app.router.add_post("/login", self.login_post)
         app.router.add_get("/", self.home)
-        app.router.add_route("*", "/api/skrng/feedback", self.feedback)
         app.router.add_get("/audio/{tail:.*}", self.audio)
         if self.studio is not None:
             app.router.add_get("/studio", self.studio_slash)     # before the sub-app, whose prefix would take it
@@ -195,26 +192,6 @@ class App:
                         httponly=True, samesite="Lax", path="/")
         return resp
 
-    # --- the voice review's answers ------------------------------------------
-    async def feedback(self, request: web.Request) -> web.Response:
-        if request.method == "POST":
-            try:
-                body = await request.json()
-            except ValueError:
-                return web.json_response({"error": "Invalid JSON body."}, status=400)
-            if not isinstance(body, dict) or not isinstance(body.get("batch"), (int, float)):
-                return web.json_response({"error": "A record needs a batch number."}, status=400)
-            body["server_time"] = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
-            self.feedback_path.parent.mkdir(parents=True, exist_ok=True)
-            with self.feedback_path.open("a") as f:
-                f.write(json.dumps(body) + "\n")
-            return web.json_response({"ok": True})
-        if request.method == "GET":
-            batch = request.query.get("batch")
-            rows = read_feedback(self.feedback_path, float(batch) if batch not in (None, "") else None)
-            return web.json_response(rows, headers={"Cache-Control": "no-store"})
-        raise web.HTTPMethodNotAllowed(request.method, ["GET", "POST"])
-
     # --- the pages, from the public site --------------------------------------
     async def proxy(self, request: web.Request) -> web.Response:
         path = request.path
@@ -232,20 +209,6 @@ class App:
                 return web.Response(status=r.status, body=body, content_type=ctype)
         self.cache[request.path_qs] = (time.time() + 30, body, ctype)
         return web.Response(body=body, content_type=ctype)
-
-
-def read_feedback(path: Path, batch: float | None = None) -> list[dict[str, Any]]:
-    if not path.exists():
-        return []
-    rows = []
-    for line in path.read_text().splitlines():
-        try:
-            r = json.loads(line)
-        except ValueError:
-            continue
-        if batch is None or r.get("batch") == batch:
-            rows.append(r)
-    return rows
 
 
 async def run(cfg: Config, studio: "Studio | None" = None) -> None:

@@ -24,7 +24,6 @@ def agent_path(base: str | None = None) -> str:
     return ":".join([*(p for p in extra if p not in items), *items])
 
 KEYCHAIN = {
-    "skrng_token": "skrng-token",           # read the owner's feedback from /api/skrng/feedback
     "oauth": "zpkt-claude-oauth",           # `claude setup-token` output -> CLAUDE_CODE_OAUTH_TOKEN
     "ntfy_topic": "zpkt-ntfy-topic",        # ntfy.sh topic for Gemini's questions
     "gemini": "zpkt-gemini-api-key",        # Gemini's image models, only through harness.images (contrib/docs/images.md)
@@ -54,7 +53,7 @@ class Config:
     cli_path: str | None = os.environ.get("HARNESS_CLI")  # None: the SDK's bundled Claude Code
     extra_env: dict[str, str] = field(default_factory=dict)   # added to the environment of every Claude session
     # /skrng from the Mac (web.py): loopback port behind `tailscale serve`, and where it keeps
-    # the password hash, sessions and feedback.
+    # the password hash and the signed-in browsers.
     web_port: int = int(os.environ.get("HARNESS_WEB_PORT", "8787"))
     skrng_dir: Path = Path(os.environ.get("HARNESS_SKRNG", Path.home() / "_agent_scratch" / "skrng"))
     # The pages under /studio/: where they keep their data (the artist's, the regions', Gemini's), the working
