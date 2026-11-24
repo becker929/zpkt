@@ -30,7 +30,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import publish as P5
 import publish6 as P6
 
-sys.path.insert(0, os.path.expanduser("~/Desktop/zpkt/contrib/skrng"))
+sys.path.insert(0, os.path.expanduser("~/_agent_scratch/site/skrng/_src")  # the publish tools live with the website now)
 import batch_intro as BI
 
 DATA = os.path.expanduser("~/_agent_scratch/probepack/ab8/")

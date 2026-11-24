@@ -8,7 +8,6 @@ site, my accounts and my rig. They are here to read and borrow from, not to inst
 | [`harness/`](harness/) | The Mac end of my phone: Gemini CLI sessions, the HW002 lab, the artist agent's API, behind a password on my tailnet. | anthonybecker.me, Keychain secrets, Hammerspoon |
 | [`booth/`](booth/) | Takes a score (JSON) and renders it in Live with a fixed palette of instruments. The only way the bot reaches Live. | my Live library |
 | [`bot/`](bot/) | A Bluesky account that makes short pieces for people who mention it, by writing scores for the booth. | Bluesky, Anthropic API |
-| [`skrng/`](skrng/) | Publishing renders to /skrng on my site, and fetching models from my bucket. | my R2 bucket |
 | [`mixdesk/`](mixdesk/) | The HW002 finishing desk: the Live set's mix on one screen and on the MiniLab 3, A/B/C monitoring, history, recipes. | my HW002 set, MiniLab 3 |
 | [`arranger/`](arranger/) | The HW002 arranger: loops bounced from Live arranged on a phone page, with transitions, mix and kick pages. Writes the arrangement file the mix desk adds to. | my HW002 set |
 | [`humming/`](humming/) | A humming transcriber: a hummed idea to notes, tempo and key. Research; no CLI. | — |
