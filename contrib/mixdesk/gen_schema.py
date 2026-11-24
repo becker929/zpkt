@@ -1,4 +1,4 @@
-"""Write lib/contracts/mixdesk-message.schema.json from protocol.py's message types.
+"""Write the mix desk's contracts in lib/contracts: its messages (protocol.py) and its made surfaces (surfaces.py).
 
     hands/.venv/bin/python contrib/mixdesk/gen_schema.py
 """
@@ -15,29 +15,36 @@ from pydantic import TypeAdapter
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 import protocol as P  # noqa: E402
+import surfaces  # noqa: E402
 
-OUT = HERE.parents[1] / "lib" / "contracts" / "mixdesk-message.schema.json"
-DESCRIPTION = (
-    "The mix desk's messages: what the pager (inside Live) sends the server as UDP datagrams, and what the server "
-    "streams to the page as server-sent events. Generated from contrib/mixdesk/protocol.py by "
-    "contrib/mixdesk/gen_schema.py; do not edit by hand."
-)
+CONTRACTS = HERE.parents[1] / "lib" / "contracts"
+OUT = CONTRACTS / "mixdesk-message.schema.json"
+SURFACE_OUT = CONTRACTS / "mixdesk-surface.schema.json"
+SCHEMAS: dict[Path, tuple[Any, str]] = {
+    OUT: (P.PageEvent, "The mix desk's messages: what the pager (inside Live) sends the server as UDP datagrams, and "
+          "what the server streams to the page as server-sent events. Generated from contrib/mixdesk/protocol.py by "
+          "contrib/mixdesk/gen_schema.py; do not edit by hand."),
+    SURFACE_OUT: (surfaces.SurfaceFile, "A surface made for the mix desk (<sets_dir>/surfaces/<set>/<name>.json): a "
+                  "page of MiniLab controls and macros. Generated from contrib/mixdesk/surfaces.py by "
+                  "contrib/mixdesk/gen_schema.py; do not edit by hand."),
+}
 
 
-def build() -> dict[str, Any]:
-    schema = TypeAdapter(P.PageEvent).json_schema()
+def build(path: Path) -> dict[str, Any]:
+    kind, description = SCHEMAS[path]
     return {
         "$schema": "https://json-schema.org/draft/2020-12/schema",
-        "$id": "https://github.com/becker929/zpkt/lib/contracts/mixdesk-message.schema.json",
-        "description": DESCRIPTION,
-        **schema,
+        "$id": f"https://github.com/becker929/zpkt/lib/contracts/{path.name}",
+        "description": description,
+        **TypeAdapter(kind).json_schema(),
     }
 
 
-def text() -> str:
-    return json.dumps(build(), indent=2) + "\n"
+def text(path: Path = OUT) -> str:
+    return json.dumps(build(path), indent=2) + "\n"
 
 
 if __name__ == "__main__":
-    OUT.write_text(text())
-    print(OUT)
+    for path in SCHEMAS:
+        path.write_text(text(path))
+        print(path)

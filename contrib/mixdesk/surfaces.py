@@ -21,7 +21,7 @@ A macro moves several parameters at once, each from its "from" to its "to" (as L
 Claude is called through the Claude Code CLI, headless, with no tools: it only writes the JSON. The CLI must be
 signed in on this Mac (`claude`, then /login), or HARNESS_OAUTH / the harness's Keychain item must hold a token.
 """
-from __future__ import annotations
+# no "from __future__ import annotations": the file shape's TypedDicts are read at runtime (gen_schema.py)
 
 import json
 import os
@@ -30,8 +30,10 @@ import shutil
 import subprocess
 import time
 from pathlib import Path
+from typing import NotRequired, TypedDict
 
 from hands import config
+from hands.live.inlive.shown import shown_number
 
 SLOTS = [f"k{i}" for i in range(1, 9)] + [f"f{i}" for i in range(1, 5)] + [f"b{i}" for i in range(1, 9)]
 MODEL = os.environ.get("MIXDESK_MODEL", "sonnet")
@@ -41,6 +43,42 @@ KEYCHAIN_ITEM = "zpkt-claude-oauth"      # the harness's Claude login, if it has
 
 class SurfaceError(Exception):
     pass
+
+
+# ---- the file's shape (lib/contracts/mixdesk-surface.schema.json is generated from these by gen_schema.py) ---------
+
+
+class Control(TypedDict):
+    """One parameter on a slot: a mixer value (volume, pan, send:<return>, mute, solo) or a device's parameter."""
+
+    track: str
+    param: str
+    device: NotRequired[str]
+    label: NotRequired[str]
+
+
+# One parameter a macro moves, from "from" to "to" as Live shows them (or min, max), as the control goes 0..1.
+# The functional form, because "from" is a Python keyword.
+MacroPart = TypedDict(
+    "MacroPart", {"track": str, "param": str, "device": NotRequired[str], "from": str, "to": str}
+)
+
+
+class Macro(TypedDict):
+    label: str
+    macro: list[MacroPart]
+
+
+class SurfaceFile(TypedDict):
+    """<sets_dir>/surfaces/<set>/<name>.json: a desk.json page plus where it came from."""
+
+    name: str
+    what: str
+    controls: dict[str, Control | Macro]  # slot (k1-k8, f1-f4, b1-b8) -> its control
+    notes: list[str]
+    prompt: str
+    made: str  # "2026-11-24 10:02"
+    set: str
 
 
 def folder(set_name: str) -> Path:
@@ -160,21 +198,6 @@ def extract_json(text: str) -> dict:
         return json.loads(m.group(0))
     except ValueError as exc:
         raise SurfaceError(f"Claude's JSON does not parse ({exc})") from None
-
-
-_NUM = re.compile(r"\s*([+-]?(?:\d+\.?\d*|\.\d+|inf))\s*([a-zA-Z%]*)")
-_SCALE = {"khz": 1e3, "ms": 1e-3}
-
-
-def shown_number(text: str) -> float | None:
-    """A value as Live shows it, as a number in its base unit ("1.73 kHz" -> 1730); the pager reads them the same
-    way (pager._num)."""
-    m = _NUM.match(str(text))
-    if not m:
-        return None
-    if "inf" in m.group(1):
-        return -1e9 if m.group(1).startswith("-") else 1e9
-    return float(m.group(1)) * _SCALE.get(m.group(2).lower(), 1.0)
 
 
 def _end(want: str, v: dict, where: str, notes: list[str]) -> str | None:

@@ -77,3 +77,25 @@ def test_macro_ends_are_fixed_checked_and_clamped():
     assert len(subs) == 2                         # "loud" is not a value: that part is left out, and said so
     assert any("outside" in n for n in s["notes"]) and any("'loud'" in n for n in s["notes"])
     assert surfaces.shown_number("1.73 kHz") == 1730 and surfaces.shown_number("-inf dB") < -1e8
+
+
+def test_a_saved_surface_fits_its_schema_and_a_file_in_that_shape_is_a_page():
+    import gen_schema
+    import jsonschema
+
+    assert gen_schema.SURFACE_OUT.read_text() == gen_schema.text(gen_schema.SURFACE_OUT), "run gen_schema.py"
+    validator = jsonschema.Draft202012Validator(json.loads(gen_schema.SURFACE_OUT.read_text()))
+    s = surfaces.validate({"name": "Both", "what": "x", "controls": {
+        "k1": {"track": "Hats bus", "device": "desk EQ", "param": "7 Gain A", "label": "Air"},
+        "k2": {"label": "Dark", "macro": [{"track": "Hats bus", "device": "desk EQ", "param": "7 Gain A",
+                                           "from": "0 dB", "to": "-9 dB"}]},
+        "b1": {"track": "Kick bus", "param": "mute"}}}, INV, [])
+    path = surfaces.save(s, "SET", "both kinds")
+    validator.validate(json.loads(path.read_text()))
+    # a made-up file in the same shape, as one made before the upgrade, is read as a page
+    other = path.with_name("older.json")
+    other.write_text(json.dumps({"name": "Older", "what": "w", "controls": {"f1": {"track": "Kick bus", "param": "volume"}},
+                                 "notes": [], "prompt": "p", "made": "2026-11-20 09:00", "set": "SET"}))
+    validator.validate(json.loads(other.read_text()))
+    assert [p["name"] for p in surfaces.pages("SET")] == ["Both", "Older"]
+    assert not validator.is_valid({"name": "x", "controls": {"k1": {"label": "no track"}}})
