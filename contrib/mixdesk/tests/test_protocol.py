@@ -35,3 +35,35 @@ def test_anything_else_is_a_bad_message_that_says_why(data):
     with pytest.raises(P.BadMessage) as exc:
         P.parse_datagram(data)
     assert str(exc.value)
+
+
+# ---- the JSON Schema in lib/contracts ------------------------------------------------------------------------------
+
+
+def schema() -> dict:
+    import json
+
+    import gen_schema
+
+    return json.loads(gen_schema.OUT.read_text())
+
+
+def test_the_committed_schema_is_what_protocol_py_generates():
+    import gen_schema
+
+    assert gen_schema.OUT.read_text() == gen_schema.text(), "run contrib/mixdesk/gen_schema.py"
+
+
+def test_the_schema_accepts_what_the_parser_accepts():
+    import jsonschema
+
+    validator = jsonschema.Draft202012Validator(schema())
+    for msg in GOOD:
+        validator.validate(msg)
+    for bad in ({"t": "pos", "b": 1}, {"t": "pos", "b": True, "p": True}, {"t": "page", "page": 1.5, "picked": {}}):
+        assert not validator.is_valid(bad)
+
+
+def test_every_kind_has_its_fields_typed_in_the_parser():
+    for kind, (message_type, fields) in P._KINDS.items():
+        assert set(message_type.__annotations__) - {"t"} == set(fields), kind

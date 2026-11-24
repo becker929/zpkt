@@ -2,12 +2,13 @@
 
 The pager sends one JSON object per UDP datagram, {"t": KIND, ...}; the server streams those and its own kinds to the
 page as server-sent events. The short field names (n, s, r, b, p) are the wire protocol: keep them.
-lib/contracts/mixdesk-message.schema.json is the same shapes as JSON Schema (tests/test_protocol.py keeps them equal).
+lib/contracts/mixdesk-message.schema.json is these shapes as JSON Schema, written by gen_schema.py
+(tests/test_protocol.py fails when the two drift).
 
 `parse_datagram` is the one parse of what arrives from the pager: it returns a typed message or raises BadMessage.
 """
 
-from __future__ import annotations
+# no "from __future__ import annotations": TypedDict reads NotRequired from the evaluated annotations
 
 import json
 from typing import Any, Literal, NotRequired, TypedDict
@@ -71,34 +72,70 @@ class HardwareMessage(TypedDict):
 PagerMessage = ValueMessage | PositionMessage | MonitorMessage | LoopMessage | PageMessage | HardwareMessage
 
 
+# ---- from the server to the page (server-sent events), besides the pager's own, passed on as they came -------------
+
+
+class FullMessage(TypedDict):
+    """Everything at once (deskstate.DeskState): on connect, after a pager start, after a monitor change."""
+
+    t: Literal["full"]
+    state: dict[str, Any]
+
+
+class HistoryMessage(TypedDict):
+    """The history's last entries (history.History.view): moves, reverts and checkpoints, and where undo stands."""
+
+    t: Literal["hist"]
+    entries: list[dict[str, Any]]
+    pos: int
+    can_undo: bool
+    can_redo: bool
+    checkpoints: list[dict[str, Any]]
+
+
+class MeterMessage(TypedDict):
+    """The live meter on Main: third-octave band centres and their levels in dB."""
+
+    t: Literal["meter"]
+    hz: list[float]
+    db: list[float]
+
+
+class SurfaceMessage(TypedDict):
+    """How the "Make a surface" job is going."""
+
+    t: Literal["surface"]
+    status: Literal["working", "done", "error"]
+    msg: str
+
+
+class DeskMessage(TypedDict):
+    """The pages changed (a surface made or removed): load /api/desk again and open page `open`."""
+
+    t: Literal["desk"]
+    open: int
+
+
+PageEvent = PagerMessage | FullMessage | HistoryMessage | MeterMessage | SurfaceMessage | DeskMessage
+
+
 class BadMessage(ValueError):
     """A datagram that is not one of the pager's messages."""
 
 
 _NUMBER = (int, float)
-_FIELDS: dict[str, dict[str, tuple[tuple[type, ...], bool]]] = {
-    # kind -> field -> (accepted types, required)
-    "v": {
-        "page": ((int,), True),
-        "slot": ((str,), True),
-        "n": ((*_NUMBER, type(None)), False),
-        "s": ((str,), False),
-        "r": ((*_NUMBER, bool, type(None)), False),
-        "key": ((str, type(None)), False),
-        "sys": ((bool,), False),
-    },
-    "pos": {"b": (_NUMBER, True), "p": ((bool,), True)},
-    "mon": {"slot": ((str,), True), "ref": ((str,), True), "err": ((str,), False)},
-    "loop": {"loop": ((str,), True)},
-    "page": {"page": ((int,), True), "picked": ((dict,), False)},
-    "hw": {
-        "page": ((int,), True),
-        "slot": ((str,), True),
-        "hw": ((*_NUMBER, type(None)), False),
-        "picked": ((bool,), False),
-    },
+_NONE = type(None)
+# kind -> (its type, the JSON types each field may hold); which fields are required comes from the type itself
+_KINDS: dict[str, tuple[type, dict[str, tuple[type, ...]]]] = {
+    "v": (ValueMessage, {"page": (int,), "slot": (str,), "n": (*_NUMBER, _NONE), "s": (str,),
+                         "r": (*_NUMBER, bool, _NONE), "key": (str, _NONE), "sys": (bool,)}),
+    "pos": (PositionMessage, {"b": _NUMBER, "p": (bool,)}),
+    "mon": (MonitorMessage, {"slot": (str,), "ref": (str,), "err": (str,)}),
+    "loop": (LoopMessage, {"loop": (str,)}),
+    "page": (PageMessage, {"page": (int,), "picked": (dict,)}),
+    "hw": (HardwareMessage, {"page": (int,), "slot": (str,), "hw": (*_NUMBER, _NONE), "picked": (bool,)}),
 }
-PAGER_KINDS = tuple(_FIELDS)
+PAGER_KINDS = tuple(_KINDS)
 
 
 def parse_message(obj: Any) -> PagerMessage:
@@ -106,13 +143,15 @@ def parse_message(obj: Any) -> PagerMessage:
     if not isinstance(obj, dict):
         raise BadMessage(f"a pager message is a JSON object, not {type(obj).__name__}")
     kind = obj.get("t")
-    fields = _FIELDS.get(kind) if isinstance(kind, str) else None
-    if fields is None:
+    known = _KINDS.get(kind) if isinstance(kind, str) else None
+    if known is None:
         raise BadMessage(f"unknown message kind {kind!r}; the pager sends {', '.join(PAGER_KINDS)}")
-    for name, (types, required) in fields.items():
+    message_type, fields = known
+    for name in message_type.__required_keys__:  # type: ignore[attr-defined]
         if name not in obj:
-            if required:
-                raise BadMessage(f"a {kind!r} message needs {name!r}")
+            raise BadMessage(f"a {kind!r} message needs {name!r}")
+    for name, types in fields.items():
+        if name not in obj:
             continue
         value = obj[name]
         bad_bool = isinstance(value, bool) and bool not in types  # bool is an int to Python, not to the protocol

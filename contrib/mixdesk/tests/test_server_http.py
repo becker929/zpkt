@@ -6,6 +6,8 @@ import json
 import queue
 import urllib.request
 
+import gen_schema
+import jsonschema
 import pytest
 from conftest import wait_for
 
@@ -192,7 +194,9 @@ def test_make_a_surface_runs_the_job_with_a_stand_in_for_claude(rig, monkeypatch
 def test_events_start_with_the_full_state_then_stream_moves(rig):
     with urllib.request.urlopen(rig.url + "/events", timeout=10) as r:
         assert r.headers["Content-Type"] == "text/event-stream"
+        validator = jsonschema.Draft202012Validator(json.loads(gen_schema.OUT.read_text()))
         first = json.loads(r.readline().decode()[len("data: "):])
+        validator.validate(first)
         assert first["t"] == "full" and first["state"]["live"] == "attached"
         assert r.readline() == b"\n"
         move_kick_bus(rig, 0.3)
@@ -200,6 +204,7 @@ def test_events_start_with_the_full_state_then_stream_moves(rig):
             line = r.readline().decode()
             if line.startswith("data: "):
                 m = json.loads(line[6:])
+                validator.validate(m)  # every message the pager and the server send fits the contract
                 if m["t"] == "v" and m["key"] == "Kick bus/volume":
                     break
         else:
