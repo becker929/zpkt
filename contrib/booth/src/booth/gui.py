@@ -19,20 +19,12 @@ class Stop(RuntimeError):
     """Something in Live was not as expected. The job is held and the booth closes (runner.py)."""
 
 
-_ops = None
+def ops(client):
+    """hands' LiveOps for `client`, staging its exports in STAGING. A new one for each caller, so a job, the
+    template and the survey never share one."""
+    from hands.live.ops import LiveOps
 
-
-def ops(client=None):
-    """hands' LiveOps, using `client` for its LOM calls."""
-    global _ops
-    if _ops is None:
-        from hands.live.ops import LiveOps
-        from hands.live.transport import LiveClient
-
-        _ops = LiveOps(LiveClient(), staging=STAGING)
-    if client is not None:
-        _ops.client = client
-    return _ops
+    return LiveOps(client, staging=STAGING)
 
 
 @contextmanager
