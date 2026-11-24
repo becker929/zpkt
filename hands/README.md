@@ -165,7 +165,8 @@ job:
 | `industrial/`, `proptest/` | Short pieces composed in code and rendered in Live with stock instruments. |
 | `rummage/`, `juice_box/`, `ui_sounds/` | Sound sets for games and interfaces, built in Live from samples. |
 
-The older batch, bench and sweep scripts are in `../prototypes/archive/`; they no longer run.
+The older batch, bench and sweep scripts were in `prototypes/archive/`, removed on 24 November 2026 (git tag
+`pre-upgrade-2026-11-24` has them).
 
 ## Around hands
 
