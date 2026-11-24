@@ -46,9 +46,11 @@ import subprocess
 import tempfile
 import time
 import wave
+from contextlib import AbstractContextManager
 from dataclasses import asdict, dataclass, field
 from datetime import datetime
 from pathlib import Path
+from typing import Any
 
 from hands import config
 from hands.live import hold, ui
@@ -262,7 +264,7 @@ class Health:
     problems: list[str] = field(default_factory=list)
     needs: str = "nothing"  # nothing | soft | restart | wait (another hands command is using Live)
 
-    def as_dict(self) -> dict:
+    def as_dict(self) -> dict[str, Any]:
         return asdict(self)
 
 
@@ -365,7 +367,7 @@ class Report:
     steps: list[str] = field(default_factory=list)
     needs_you: list[str] = field(default_factory=list)
     backup: str | None = None
-    health: dict | None = None
+    health: dict[str, Any] | None = None
 
     def step(self, text: str) -> None:
         self.steps.append(text)
@@ -614,8 +616,9 @@ def reset(
     except Exception as exc:
         report.step(f"the reset stopped ({type(exc).__name__}: {str(exc)[:160]})")
         report.health = check(client, play=False).as_dict()
-    report.ok = bool(report.health) and report.health.get("needs") == "nothing" and not report.needs_you
-    if not report.ok and not report.needs_you and not report.health.get("problems"):
+    health = report.health or {}
+    report.ok = bool(health) and health.get("needs") == "nothing" and not report.needs_you
+    if not report.ok and not report.needs_you and not health.get("problems"):
         report.needs_you.append("the reset could not finish; run it again, and if it stops the same way look at Live")
     if report.ok and report.set:
         path = set_path or _set_path(report.set, None)
@@ -624,7 +627,7 @@ def reset(
     return report
 
 
-def _held(report: Report):
+def _held(report: Report) -> AbstractContextManager[list[str]]:
     """The lock every hands command holds while it drives Live. The agent's reset waits its turn. A person's
     reset (the app refuses it while the app itself renders) stops a hands command that still holds the lock."""
     if os.environ.get("ZPKT_AGENT"):
@@ -653,7 +656,7 @@ def _reset(report: Report, client: McpTransport, set_path: Path | None, level: s
     asked = set_path
     set_path = set_path or _set_path(front, None) or last_set()
     report.set = set_path.stem if set_path else None
-    need = level if level != "auto" else before.needs
+    need = level if before is None else before.needs
     if asked and front != asked.stem and need != "restart":
         report.step(f"{front or 'no set'} is open, not {asked.stem}: Live restarts with it")
         need = "restart"

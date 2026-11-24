@@ -914,7 +914,7 @@ class Track(LiveObject):
         if self._kind != "audio":
             raise RuntimeError("Audio clips can only be created on audio tracks")
         try:
-            import soundfile  # type: ignore[import-untyped]
+            import soundfile
 
             seconds = soundfile.info(str(file_path)).duration
         except Exception as exc:
@@ -962,7 +962,7 @@ class ReturnTrack(Track):
         returns = self._song()._returns
         return chr(65 + returns.index(self)) if self in returns else "?"
 
-    @property  # type: ignore[override]
+    @property
     def name(self) -> str:
         return f"{self._letter()}-{self._get('name', '')}"
 

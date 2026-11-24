@@ -11,7 +11,6 @@ from typing import Any
 
 from hands.live.panel_base import MAX_BEATS, Note, PanelError
 
-
 _PITCH_CLASS = {"C": 0, "D": 2, "E": 4, "F": 5, "G": 7, "A": 9, "B": 11}
 
 
@@ -29,7 +28,7 @@ def pitch(v: Any) -> int:
     return n
 
 
-def riff(spec: dict) -> tuple[list[Note], float]:
+def riff(spec: dict[str, Any]) -> tuple[list[Note], float]:
     """A spec's notes as (pitch, start, length, velocity) in beats, and the riff's length.
 
     `notes` is one pattern ([[pitch, start, length, velocity], ...]), repeated to fill `beats`; the pattern
@@ -92,7 +91,7 @@ def riff(spec: dict) -> tuple[list[Note], float]:
 
 def sequence(
     seq: str, *, every: float = 1.0, gate: float = 0.9, velocity: int = 100, octave: int = 2
-) -> tuple[list[list], float]:
+) -> tuple[list[list[Any]], float]:
     """Notes from "A B C D": one every `every` beats, sounding for `gate` of the step; "-" is a rest. A name
     without an octave takes the pitch nearest the note before it (the first one sits in `octave`), so
     "A B C D" climbs. Returns the notes and the length of one pass."""
@@ -115,7 +114,8 @@ def sequence(
         else:
             pc = (_PITCH_CLASS[m[1].upper()] + {"#": 1, "b": -1, "": 0}[m[2]]) % 12
             near = [pc + 12 * o for o in range(11)]
-            n = pc + (octave + 2) * 12 if last is None else min(near, key=lambda c: (abs(c - last), -c))
+            prev: int | None = last
+            n = pc + (octave + 2) * 12 if prev is None else min(near, key=lambda c: (abs(c - prev), -c))
         last = n
         notes.append([n, k * every, every * gate, velocity])
     if not notes:
@@ -182,7 +182,7 @@ PRESET_CONTROLS = [
 ]
 
 
-def expand(spec: dict, *, new: bool) -> dict:
+def expand(spec: dict[str, Any], *, new: bool) -> dict[str, Any]:
     """A spec with `sound` ("saw") written out as instrument, params and, for a new panel, controls."""
     if not spec.get("sound"):
         return spec

@@ -11,6 +11,7 @@ import json
 import os
 import subprocess
 import time
+from collections.abc import Sequence
 from pathlib import Path
 from typing import Any
 
@@ -22,7 +23,7 @@ AUDIO_STALLED = (
 )
 
 
-def playhead_moves(transport, start_beat: float, seconds: float = 1.5) -> bool:
+def playhead_moves(transport: McpTransport, start_beat: float, seconds: float = 1.5) -> bool:
     """After start_playing(): does the playhead leave start_beat within `seconds`? It cannot when the audio engine is
     stopped (a wedged coreaudiod, no output device), and then a recording waits out its whole length for nothing."""
     deadline = time.time() + seconds
@@ -332,14 +333,14 @@ def _write_timing(result: str, timing: dict[str, Any], tempo: float) -> None:
     print(f"  Song beat 0 is at {timing['song_zero_seconds']:.3f} s in the take")
 
 
-def _wait_for_resampling(transport: McpTransport, idx: int, attempts: int = 10) -> list:
+def _wait_for_resampling(transport: McpTransport, idx: int, attempts: int = 10) -> list[Any]:
     """Return the track's input types once "Resampling" is among them.
 
     A freshly created track can report empty routing types for a moment, so
     setting the input straight away sometimes silently fails. Retry with a
     short settle (from the September 2026 untracked recorder).
     """
-    types: list = []
+    types: list[Any] = []
     for _ in range(attempts):
         types = (
             transport.run(
@@ -358,7 +359,7 @@ def _restore_arm(transport: McpTransport, armed: list[int]) -> None:
         transport.run(f"song.tracks[{i}].arm = 1")
 
 
-def _cleanup_arrangement_clips(transport: McpTransport, num_tracks: int, armed: list[int] = ()) -> None:
+def _cleanup_arrangement_clips(transport: McpTransport, num_tracks: int, armed: Sequence[int] = ()) -> None:
     """Remove arrangement clips placed by record_via_resampling on source tracks,
     and re-arm the source tracks that were disarmed for the bounce."""
     for i in range(num_tracks):
@@ -429,7 +430,7 @@ def _wav_seconds(path: str) -> float | None:
         return None
 
 
-def _beat_to_seconds(markers: list, beat: float) -> float | None:
+def _beat_to_seconds(markers: list[Any], beat: float) -> float | None:
     """Interpolate a clip beat to file seconds through its warp markers."""
     if not markers:
         return None

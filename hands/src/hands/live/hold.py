@@ -28,6 +28,7 @@ import time
 import uuid
 from collections.abc import Iterator
 from pathlib import Path
+from typing import Any
 
 from hands import config
 from hands.live.transport import LOST, UNREACHABLE, LiveError, McpTransport
@@ -39,7 +40,7 @@ STALE_S = 24 * 3600.0  # an undo note this old is for a set that has moved on: d
 class Busy(RuntimeError):
     """Another hands command is using Live."""
 
-    def __init__(self, holder: dict, waited: float) -> None:
+    def __init__(self, holder: dict[str, Any], waited: float) -> None:
         self.holder = holder
         what = holder.get("what") or "another hands command"
         age = f", for {time.time() - holder['at']:.0f} s" if isinstance(holder.get("at"), (int, float)) else ""
@@ -55,7 +56,7 @@ def _dir() -> Path:
     return d
 
 
-def holder() -> dict:
+def holder() -> dict[str, Any]:
     """Which other command holds Live now, as it wrote itself: {pid, what, at}. {} when nobody does, or
     when this process is the one holding it."""
     if _depth:
@@ -129,14 +130,14 @@ def using_live(what: str, *, wait_s: float = 300.0, client: McpTransport | None 
         f.close()  # closing lets the lock go
 
 
-def _terminate(signum, frame) -> None:
+def _terminate(signum: int, frame: object) -> None:
     raise SystemExit(143)  # unwinds through every `finally`, so Live is put back
 
 
 # ---------------------------------------------------------------- what to put back
 
 
-def pending() -> list[dict]:
+def pending() -> list[dict[str, Any]]:
     try:
         entries = json.loads((_dir() / UNDO).read_text())
     except (OSError, ValueError):
@@ -148,7 +149,7 @@ def pending() -> list[dict]:
     )
 
 
-def _write(entries: list[dict]) -> None:
+def _write(entries: list[dict[str, Any]]) -> None:
     f = _dir() / UNDO
     if not entries:
         f.unlink(missing_ok=True)
@@ -182,7 +183,7 @@ def note(what: str, code: str) -> str:
         _write([*pending(), entry])
     except OSError:
         pass  # a full disk must not stop the command; it only loses the safety net
-    return entry["id"]
+    return str(entry["id"])
 
 
 def forget(note_id: str) -> None:
@@ -238,7 +239,7 @@ def replay(client: McpTransport) -> list[str]:
     if not entries:
         return []
     done: list[str] = []
-    left: list[dict] = []
+    left: list[dict[str, Any]] = []
     try:
         open_set = str(client.run(SET_PATH) or "")
     except LiveError as exc:
@@ -268,7 +269,7 @@ def replay(client: McpTransport) -> list[str]:
     return done
 
 
-def save_json(path: Path, data) -> None:
+def save_json(path: Path, data: Any) -> None:
     """Write a panel's or a song's file whole or not at all (a cut-short file reads as no panel)."""
     path.parent.mkdir(parents=True, exist_ok=True)
     tmp = path.with_name(f".{path.name}.{os.getpid()}.tmp")

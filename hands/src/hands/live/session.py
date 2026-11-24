@@ -17,7 +17,7 @@ import subprocess
 import time
 from datetime import datetime
 from pathlib import Path
-from typing import NoReturn
+from typing import Any, NoReturn
 
 from hands import config
 from hands.live import ui
@@ -300,7 +300,7 @@ def audio_clock_ok(client: McpTransport, wait_s: float = 1.2) -> bool:
     return after > before
 
 
-def memory() -> dict:
+def memory() -> dict[str, Any]:
     """The Mac's swap, compressed and free memory, and Live's resident and full footprint, in GB.
 
     Live's footprint (top's MEM) counts its compressed pages, which RSS misses under pressure.

@@ -26,14 +26,14 @@ MAX_OPTIONS = 16
 LETTERS = "ABCDEFGHIJKLMNOP"
 
 
-def load(out_dir: Path, name: str) -> dict:
+def load(out_dir: Path, name: str) -> dict[str, Any]:
     f = P._file(out_dir, name)
     if not f.exists():
         raise P.PanelError(f"no panel {name!r} in {out_dir} (expected {f.name}); make it with `hands panel make`")
     return P.read_file(f, f"panel {name!r}")
 
 
-def _control(panel: dict, key: str) -> dict:
+def _control(panel: dict[str, Any], key: str) -> dict[str, Any]:
     k = str(key).strip().lower()
     for c in panel["controls"]:
         if k in (c["id"].lower(), c["label"].lower(), c["param"].lower()):
@@ -46,14 +46,14 @@ def _control(panel: dict, key: str) -> dict:
     raise P.PanelError(f"the panel has no control {key!r}; it has: {', '.join(c['id'] for c in panel['controls'])}")
 
 
-def _where(panel: dict, c: dict) -> str:
+def _where(panel: dict[str, Any], c: dict[str, Any]) -> str:
     """The Live expression for a control's parameter."""
     if panel.get("kind") == "mix":
         return panel["exprs"][c["param"]]
     return f"next(p for p in {P._device(panel['track'])}.parameters if p.name == {c['param']!r})"
 
 
-def _raw(client: McpTransport, panel: dict, c: dict, want: Any) -> float:
+def _raw(client: McpTransport, panel: dict[str, Any], c: dict[str, Any], want: Any) -> float:
     """A raw value for a number (already raw), "50%" of the range, or what Live shows ("800 Hz", "-6 dB")."""
     if isinstance(want, bool):
         return c["max"] if want else c["min"]
@@ -77,7 +77,9 @@ def _raw(client: McpTransport, panel: dict, c: dict, want: Any) -> float:
 FADER_SPAN_DB = 6.0
 
 
-def fader_span(client: McpTransport, panel: dict, c: dict, lo: float, hi: float) -> tuple[float, float]:
+def fader_span(
+    client: McpTransport, panel: dict[str, Any], c: dict[str, Any], lo: float, hi: float
+) -> tuple[float, float]:
     """A level grid with no range given spans the 6 dB below where the fader is (the question is nearly always
     "a bit louder or quieter?"), not silence to +6 dB. The whole travel if the level cannot be read."""
     current = (panel.get("values") or {}).get(c["param"])
@@ -85,13 +87,16 @@ def fader_span(client: McpTransport, panel: dict, c: dict, lo: float, hi: float)
         return lo, hi
     try:
         shown = str(client.run(f"_p = {_where(panel, c)}\nresult = str(_p.str_for_value({float(current)!r}))"))
-        db = float(re.match(r"\s*(-?[\d.]+)\s*dB", shown).group(1))
+        m = re.match(r"\s*(-?[\d.]+)\s*dB", shown)
+        if m is None:
+            return lo, hi
+        db = float(m.group(1))
     except (AttributeError, ValueError, TypeError, Exception):
         return lo, hi
     return _raw(client, panel, c, f"{db - FADER_SPAN_DB:g} dB"), float(current)
 
 
-def axis_values(client: McpTransport, panel: dict, c: dict, ask: Any) -> list[float]:
+def axis_values(client: McpTransport, panel: dict[str, Any], c: dict[str, Any], ask: Any) -> list[float]:
     """The raw values one axis takes: {"values": [...]}, or {"from", "to", "steps"} (evenly, in the control's own travel)."""
     ask = ask if isinstance(ask, dict) else {"values": ask} if isinstance(ask, list) else {}
     if ask.get("values"):
@@ -109,7 +114,14 @@ def axis_values(client: McpTransport, panel: dict, c: dict, ask: Any) -> list[fl
     return [float(round(v)) for v in vals] if c.get("step") else vals
 
 
-def _render(client: McpTransport, panel: dict, state: dict, out: Path, values: dict[str, float], recorder) -> dict:
+def _render(
+    client: McpTransport,
+    panel: dict[str, Any],
+    state: dict[str, Any],
+    out: Path,
+    values: dict[str, float],
+    recorder: Callable[..., str | None],
+) -> dict[str, Any]:
     if panel.get("kind") == "mix":
         return M.render_bars(client, panel, state, out, recorder, values)
     notes = [tuple(n) for n in panel["notes"]]
@@ -119,7 +131,7 @@ def _render(client: McpTransport, panel: dict, state: dict, out: Path, values: d
     )
 
 
-def _matched(files: list[Path], results: list[dict]) -> list[str | None]:
+def _matched(files: list[Path], results: list[dict[str, Any]]) -> list[str | None]:
     """A copy of each render turned to the same RMS as the quietest (never up, so nothing clips): hands, not the page."""
     import numpy as np
     import soundfile as sf
@@ -138,7 +150,7 @@ def _matched(files: list[Path], results: list[dict]) -> list[str | None]:
     return out
 
 
-def deck(panel: dict, grid: dict) -> dict:
+def deck(panel: dict[str, Any], grid: dict[str, Any]) -> dict[str, Any]:
     """The zpkt-surface control for a grid: every option as a source, switched on the bar."""
     bars = max(1, min(64, int(panel["beats"] // 4)))
     return {
@@ -162,7 +174,7 @@ def deck(panel: dict, grid: dict) -> dict:
     }
 
 
-def _print(panel: dict, grid: dict, lines: list[str]) -> str:
+def _print(panel: dict[str, Any], grid: dict[str, Any], lines: list[str]) -> str:
     spec = {
         "title": f"{panel.get('title') or panel['name']} · grid {grid['id']}",
         "note": f"{len(grid['options'])} versions rendered in Live",
@@ -187,9 +199,9 @@ def grid(
     client: McpTransport,
     name: str,
     out_dir: Path,
-    axes: dict,
+    axes: dict[str, Any],
     *,
-    state_values: dict | None = None,
+    state_values: dict[str, Any] | None = None,
     force: bool = False,
     recorder: Callable[..., str | None] | None = None,
     progress: Callable[[int, int], None] | None = None,
@@ -265,7 +277,7 @@ def grid(
     elif same:
         hint = ""
         if panel.get("bars"):
-            tracks = [c.get("track") for c, _ in cols if c.get("track")]
+            tracks = [str(c["track"]) for c, _ in cols if c.get("track")]
             bars = panel["bars"]
             quiet = M.quiet_tracks(client, tracks, float(panel.get("offset", 0.0)) + (bars[0] - 1) * 4.0, bars[1] * 4.0)
             later = re.search(r"first plays at bar (\d+)", " ".join(quiet))
@@ -283,11 +295,12 @@ def grid(
     return _print(panel, g, lines)
 
 
-def same_note(options: list[dict], panel: dict) -> list[str]:
+def same_note(options: list[dict[str, Any]], panel: dict[str, Any]) -> list[str]:
     """A grid whose versions all measure the same changed nothing that plays: say so, rather than let the user
     listen for a difference that is not there."""
-    rms = [o.get("rms_dbfs") for o in options]
-    if len(rms) < 2 or None in rms or max(rms) - min(rms) > 0.1:
+    measured = [o.get("rms_dbfs") for o in options]
+    rms = [float(r) for r in measured if r is not None]
+    if len(rms) < 2 or len(rms) < len(measured) or max(rms) - min(rms) > 0.1:
         return []
     where = f" in bars {panel['bars'][0]}-{panel['bars'][0] + panel['bars'][1] - 1}" if panel.get("bars") else ""
     return [

@@ -6,6 +6,7 @@ from __future__ import annotations
 import json
 import re
 from pathlib import Path
+from typing import Any
 
 
 def _slug(name: str, taken: set[str]) -> str:
@@ -22,7 +23,7 @@ def _num(v: float) -> float | int:
     return int(x) if x == int(x) else x
 
 
-def surface(panel: dict, ab: tuple[str, str] | None = None) -> dict:
+def surface(panel: dict[str, Any], ab: tuple[str, str] | None = None) -> dict[str, Any]:
     """The zpkt-surface spec for a panel as it now stands; with `ab`, a before/after deck of two renders."""
     controls = []
     for c in panel["controls"]:
@@ -52,7 +53,10 @@ def surface(panel: dict, ab: tuple[str, str] | None = None) -> dict:
             k["display"] = c["display"]
         controls.append({**k, "midiSlot": c["midiSlot"]})
     if ab:
-        side = lambda label, src: {"label": label, "src": src, "bpm": _num(panel["tempo"]), "downbeatMs": 0}  # noqa: E731
+
+        def side(label: str, src: str) -> dict[str, Any]:
+            return {"label": label, "src": src, "bpm": _num(panel["tempo"]), "downbeatMs": 0}
+
         controls.append(
             {
                 "kind": "ab",
@@ -79,7 +83,9 @@ def _shown_path(p: Path) -> str:
         return str(p.resolve())
 
 
-def blocks(panel: dict, result: dict, warnings: list[str], ab: tuple[str, str] | None = None) -> str:
+def blocks(
+    panel: dict[str, Any], result: dict[str, Any], warnings: list[str], ab: tuple[str, str] | None = None
+) -> str:
     """What the command prints: one line of facts, then the two blocks to paste into the answer as they are."""
     spec = surface(panel, ab)
     head, *rows = [

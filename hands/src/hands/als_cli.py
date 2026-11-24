@@ -51,11 +51,11 @@ def als_mix(
     def resolve(p: Path) -> Path:
         return p if p.exists() else config.rig().set_path(str(p).removesuffix(".als"))
 
-    b = als.mix_state(resolve(file))
+    b: S.State = als.mix_state(resolve(file))  # type: ignore[assignment]  # the state's shape, in .als units
     if against is None:
         print("\n".join(als.mix_lines(b)))
         return
-    a = als.mix_state(resolve(against))
+    a: S.State = als.mix_state(resolve(against))  # type: ignore[assignment]
     rows = S.diff(a, b, tuple(ignore or ()))
     print(f"{len(S.flatten(a))} values in A ({resolve(against).name}), {len(rows)} differ in B ({resolve(file).name})")
     print(S.summarize(rows, limit=10**6 if full else 60))

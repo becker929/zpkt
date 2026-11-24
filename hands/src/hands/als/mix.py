@@ -11,7 +11,6 @@ import xml.etree.ElementTree as ET
 
 from hands.als.file import devices, load, track_name
 
-
 SILENT = 0.0003162277571  # Live's fader and send floor (-70 dB), shown as -inf dB
 
 

@@ -234,8 +234,8 @@ def _mixer_lines(t: str, mix: MixerState, live: dict[str, ShownRaw], rets: list[
             lines.append(f"m.sends[{k}].value = {v[1]!r}")
     if t != "Main":
         for flag in ("mute", "solo"):
-            if flag in mix and not _same(mix[flag], live.get(keys.mixer_key(t, flag))):  # type: ignore[literal-required]
-                lines.append(f"t.{flag} = {bool(mix[flag][1])!r}")  # type: ignore[literal-required]
+            if flag in mix and not _same(mix[flag], live.get(keys.mixer_key(t, flag))):
+                lines.append(f"t.{flag} = {bool(mix[flag][1])!r}")
     return lines
 
 

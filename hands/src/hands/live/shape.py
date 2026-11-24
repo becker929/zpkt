@@ -268,7 +268,7 @@ def clean(value: Any, schema: Any, path: str) -> Any:
     return out
 
 
-def state(value: Any) -> dict:
+def state(value: Any) -> dict[str, Any]:
     """The page's Surface state, or just its values: {"values": {control id: number or switch}} or {id: ...}.
     Anything else in it (a deck's side, the page's own keys) is left for the caller to skip."""
     if value is None:

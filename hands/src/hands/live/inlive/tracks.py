@@ -12,17 +12,17 @@ Stdlib only, Python 3.11: this file also runs inside Live (hands.live.inlive).
 MAIN_NAMES = ("main", "master")
 
 
-def is_main(name):
+def is_main(name: str) -> bool:
     """Is `name` how zpkt names the master track ("Main", or Live's older "Master")?"""
     return str(name).strip().lower() in MAIN_NAMES
 
 
-def short_name(name, is_return):
+def short_name(name: str, is_return: bool) -> str:
     """A return's name without the letter Live puts in front ("A-Space" -> "Space"); other names as they are."""
     return name[2:] if is_return and len(name) > 2 and name[1] == "-" else name
 
 
-def find_track(song, name):
+def find_track(song, name: str):  # song: Live's Song
     """The track, return or Main that `name` names (the module docstring has the rule); LookupError if none."""
     if is_main(name):
         return song.master_track
@@ -35,7 +35,7 @@ def find_track(song, name):
     raise LookupError(f"no track, return or Main named {name!r}")
 
 
-def track_expr(name):
+def track_expr(name: str) -> str:
     """The rule of `find_track` as one LOM expression (StopIteration in Live if nothing matches)."""
     if is_main(name):
         return "song.master_track"

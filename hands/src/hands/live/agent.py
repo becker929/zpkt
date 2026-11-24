@@ -16,6 +16,7 @@ from __future__ import annotations
 import ast
 import re
 import time
+from typing import Any
 
 from hands.live.transport import LiveClient
 
@@ -118,7 +119,7 @@ def with_prelude(code: str) -> str:
 
 def audition(
     live: LiveClient, track: str, notes: list[int], beats: float = 2.0, listen_s: float = 2.0, force: bool = False
-) -> dict:
+) -> dict[str, Any]:
     """Play a chord on TRACK from a temporary arrangement clip past the end; return meter peaks."""
     setup = f"""
 _t = next(x for x in song.tracks if x.name == {track!r})

@@ -101,7 +101,7 @@ def _match(want: str, names: list[str]) -> str | None:
     return None
 
 
-def _param(catalog: list[dict], name: str) -> dict:
+def _param(catalog: list[dict[str, Any]], name: str) -> dict[str, Any]:
     by = {p["name"]: p for p in catalog}
     hit = by.get(name) or next((p for p in catalog if p["name"].lower() == str(name).strip().lower()), None)
     if hit is None:
@@ -122,10 +122,10 @@ def _contains(name: str, names: list[str]) -> list[str]:
 # Talking to Live
 
 
-def read_catalog(client: McpTransport, track: str) -> list[dict]:
+def read_catalog(client: McpTransport, track: str) -> list[dict[str, Any]]:
     """Every parameter of the panel's instrument: name, range, value, what Live shows, and its choices."""
     count = client.run(f"result = len({_device(track)}.parameters)")
-    out: list[dict] = []
+    out: list[dict[str, Any]] = []
     for a in range(0, int(count), CHUNK):
         rows = client.run(
             f"_d = {_device(track)}\n"
@@ -163,7 +163,7 @@ def sample(
 
 
 def resolve(
-    client: McpTransport, track: str, catalog: list[dict], wants: dict[str, Any], device: str = ""
+    client: McpTransport, track: str, catalog: list[dict[str, Any]], wants: dict[str, Any], device: str = ""
 ) -> tuple[dict[str, float], list[str]]:
     """Raw values for what a spec asks: a number is the raw value, "50%" a point in the range, any other
     text what Live shows ("800 Hz", "Saw D", "On")."""
@@ -208,16 +208,17 @@ def resolve(
             xs, table = _grid(*spans[n], len(tables[n])), tables[n]
             hits = _between(target, xs, table, unit)
             if not hits:
-                ends = [reading(table[0]), reading(table[-1])]
+                lo_end, hi_end = reading(table[0]), reading(table[-1])
                 asked = f"{target:g} {unit}".strip()
                 if (
                     depth
-                    or None in ends
-                    or (unit and unit not in (ends[0][1], ends[1][1]))
-                    or min(ends[0][0], ends[1][0]) <= target <= max(ends[0][0], ends[1][0])
+                    or lo_end is None
+                    or hi_end is None
+                    or (unit and unit not in (lo_end[1], hi_end[1]))
+                    or min(lo_end[0], hi_end[0]) <= target <= max(lo_end[0], hi_end[0])
                 ):
                     raise PanelError(f"{n}: nothing between {table[0]!r} and {table[-1]!r} reads {asked}")
-                first = (target < ends[0][0]) == (ends[0][0] <= ends[1][0])  # which end is the nearer one
+                first = (target < lo_end[0]) == (lo_end[0] <= hi_end[0])  # which end is the nearer one
                 values[n] = xs[0] if first else xs[-1]
                 warnings.append(f"{n}: {asked} is outside its range; used {table[0] if first else table[-1]}")
             elif depth == ROUNDS - 1:  # the middle of the stretch that reads as asked
@@ -235,7 +236,7 @@ def resolve(
     return values, warnings
 
 
-def _state(client: McpTransport) -> dict:
+def _state(client: McpTransport) -> dict[str, Any]:
     state = client.run(
         "_sel = song.view.selected_track\n"
         "_leaf = [t for t in song.tracks if not t.is_foldable]\n"
@@ -295,7 +296,7 @@ result = _item.name
 """
 
 
-def _load(client: McpTransport, track: str, instrument: str, state: dict) -> str:
+def _load(client: McpTransport, track: str, instrument: str, state: dict[str, Any]) -> str:
     """Add the panel's track at the end and load the instrument on it; return the device's name."""
     idx = len(state["names"])
     parts = [p.strip().lower() for p in instrument.split("/") if p.strip()]
@@ -335,7 +336,7 @@ def _drop(client: McpTransport, track: str) -> None:
     client.run(_drop_code(track))
 
 
-def read_file(f: Path, what: str) -> dict:
+def read_file(f: Path, what: str) -> dict[str, Any]:
     """A panel's or a song's file as hands wrote it. A file that is cut short or is not one of ours is an error
     the caller can act on, not a crash."""
     try:
@@ -354,8 +355,8 @@ def read_file(f: Path, what: str) -> dict:
 
 
 def controls_for(
-    client: McpTransport, track: str, catalog: list[dict], wanted: list[Any], device: str = ""
-) -> list[dict]:
+    client: McpTransport, track: str, catalog: list[dict[str, Any]], wanted: list[Any], device: str = ""
+) -> list[dict[str, Any]]:
     """One control per wanted parameter (a name, or {"param", "label"}), with what Live shows across its range."""
     picks = []
     for w in wanted[:MAX_CONTROLS]:
@@ -404,7 +405,7 @@ def _cache_file(device: str) -> Path:
     return config.rig().data_dir / "panel-params" / (re.sub(r"[^\w.-]+", "_", device) + ".json")
 
 
-def _remember(device: str, catalog: list[dict]) -> None:
+def _remember(device: str, catalog: list[dict[str, Any]]) -> None:
     f = _cache_file(device)
     f.parent.mkdir(parents=True, exist_ok=True)
     f.write_text(json.dumps(catalog))
@@ -414,7 +415,7 @@ def _file(out_dir: Path, name: str) -> Path:
     return out_dir / f"{name}.panel.json"
 
 
-def _name(spec: dict) -> str:
+def _name(spec: dict[str, Any]) -> str:
     name = re.sub(r"[^a-z0-9]+", "-", str(spec.get("name") or "").lower()).strip("-")[:40]
     if not name:
         raise PanelError('the spec needs a "name" (letters, digits, dashes)')
@@ -425,7 +426,7 @@ def _recorder() -> Callable[..., str | None]:
     return record_span
 
 
-def _catalog(client: McpTransport, track: str, device: str) -> list[dict]:
+def _catalog(client: McpTransport, track: str, device: str) -> list[dict[str, Any]]:
     """The device's parameters, from the cache when it has been read before (a read is six round trips)."""
     cache = _cache_file(device)
     if cache.exists():
@@ -441,7 +442,7 @@ def _catalog(client: McpTransport, track: str, device: str) -> list[dict]:
 
 
 def _tables(
-    client: McpTransport, track: str, device: str, names: list[str], catalog: list[dict]
+    client: McpTransport, track: str, device: str, names: list[str], catalog: list[dict[str, Any]]
 ) -> dict[str, list[str]]:
     """What Live shows across each parameter's whole range; read once per device and parameter, then kept."""
     f = _cache_file(device).with_suffix(".shown.json")
@@ -456,7 +457,7 @@ def _tables(
 
 def make(
     client: McpTransport,
-    spec: dict,
+    spec: dict[str, Any],
     out_dir: Path,
     *,
     replace: bool = False,
@@ -511,7 +512,7 @@ def make(
         values, warnings = resolve(client, track, catalog, wants, device)
         wanted = spec.get("controls") or list(values)[:8] or [p["name"] for p in catalog[1:9]]
         controls = controls_for(client, track, catalog, wanted, device)
-        panel = {
+        panel: dict[str, Any] = {
             "name": name,
             "title": str(spec.get("title") or name),
             "track": track,
@@ -551,8 +552,8 @@ def apply(
     name: str,
     out_dir: Path,
     *,
-    state_values: dict | None = None,
-    spec: dict | None = None,
+    state_values: dict[str, Any] | None = None,
+    spec: dict[str, Any] | None = None,
     force: bool = False,
     recorder: Callable[..., str | None] | None = None,
 ) -> str:

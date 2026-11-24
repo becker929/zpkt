@@ -365,7 +365,7 @@ def set_steps(
             events.append((t, prev))  # end of the previous level ...
         events.append((t, v))  # ... and start of the new one, at the same time
         prev = v
-    events = [(_num(t), _value(kind, v, param)) for t, v in events]  # validate before editing
+    rows = [(_num(t), _value(kind, v, param)) for t, v in events]  # validate before editing
 
     envs = track.find("AutomationEnvelopes/Envelopes")
     env = _envelope(track, param)
@@ -382,7 +382,7 @@ def set_steps(
     evs = env.find("Automation/Events")
     for e in list(evs):
         evs.remove(e)
-    for i, (t, v) in enumerate(events):
+    for i, (t, v) in enumerate(rows):
         ET.SubElement(evs, f"{kind}Event", Id=str(i), Time=t, Value=v)
     ET.indent(env, space="\t", level=depth(root, env))
     return env

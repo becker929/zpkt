@@ -41,9 +41,9 @@ def _par(dev_expr: str, name: str) -> str:
     return f"next(p for p in {dev_expr}.parameters if p.name == {name!r})"
 
 
-def read_params(client: McpTransport, exprs: list[str]) -> list[dict]:
+def read_params(client: McpTransport, exprs: list[str]) -> list[dict[str, Any]]:
     """Range, value and what Live shows across the range, for each parameter expression."""
-    out: list[dict] = []
+    out: list[dict[str, Any]] = []
     for a in range(0, len(exprs), 8):
         rows = client.run(
             "result = [[p.name, p.min, p.max, p.value, bool(p.is_quantized), [str(i) for i in p.value_items] if p.is_quantized else [],\n"
@@ -136,7 +136,7 @@ def _add_device(client: McpTransport, track: str, device: str, name: str) -> Non
     client.run(f"_d = list({tr(track)}.devices)[-1]\n_d.name = {name!r}\nresult = 'ok'")
 
 
-def bars_of(spec: dict) -> tuple[int, int]:
+def bars_of(spec: dict[str, Any]) -> tuple[int, int]:
     b = spec.get("bars")
     if not (isinstance(b, (list, tuple)) and len(b) == 2 and all(isinstance(x, (int, float)) for x in b)):
         raise P.PanelError('a mix panel needs "bars": [first bar, how many], for example [17, 8]')
@@ -148,7 +148,7 @@ def bars_of(spec: dict) -> tuple[int, int]:
     return first, count
 
 
-def song_of(out_dir: Path, name: str) -> dict:
+def song_of(out_dir: Path, name: str) -> dict[str, Any]:
     f = out_dir / f"{name}.song.json"
     if not f.exists():
         raise P.PanelError(f"no song {name!r} in {out_dir}; make it with `hands song make`")
@@ -224,12 +224,12 @@ def opened_note(names: list[str]) -> list[str]:
 
 def render_bars(
     client: McpTransport,
-    panel: dict,
-    state: dict,
+    panel: dict[str, Any],
+    state: dict[str, Any],
     out: Path,
     recorder: Callable[..., str | None],
     values: dict[str, float] | None = None,
-) -> dict:
+) -> dict[str, Any]:
     """Set the values, record the panel's bars of the arrangement through Main, cut the take to those bars."""
     tempo = float(panel["tempo"])
     lead = P.lead_beats(tempo)
@@ -276,7 +276,7 @@ def render_bars(
 
 def make(
     client: McpTransport,
-    spec: dict,
+    spec: dict[str, Any],
     out_dir: Path,
     *,
     replace: bool = False,
@@ -323,7 +323,7 @@ def make(
         exprs: dict[str, str] = {}
         added, warnings = _add_devices(client, name, devices, picks, values, exprs)
         controls = _controls(client, picks[: P.MAX_CONTROLS], values, exprs)
-        panel = {
+        panel: dict[str, Any] = {
             "kind": "mix",
             "name": name,
             "title": str(spec.get("title") or name),
@@ -389,12 +389,12 @@ def _devices_of_the_panel_replaced(f: Path, name: str) -> list[str]:
 
 
 def _add_devices(
-    client: McpTransport, name: str, devices: list[dict], picks: list[Pick], values: dict[str, float],
+    client: McpTransport, name: str, devices: list[dict[str, Any]], picks: list[Pick], values: dict[str, float],
     exprs: dict[str, str],
-) -> tuple[list[dict], list[str]]:  # fmt: skip
+) -> tuple[list[dict[str, Any]], list[str]]:  # fmt: skip
     """Load each spec device onto its track as "mix NAME DEVICE", set its params, and add its knobs to `picks`.
     Returns the devices added and the warnings about values."""
-    added: list[dict] = []
+    added: list[dict[str, Any]] = []
     warnings: list[str] = []
     for d in devices:
         track, device = str(d["track"]), str(d.get("device") or "").strip()
@@ -421,7 +421,9 @@ def _add_devices(
     return added, warnings
 
 
-def _controls(client: McpTransport, picks: list[Pick], values: dict[str, float], exprs: dict[str, str]) -> list[dict]:
+def _controls(
+    client: McpTransport, picks: list[Pick], values: dict[str, float], exprs: dict[str, str]
+) -> list[dict[str, Any]]:
     """One control per pick, with its range and what Live shows across it; values not set yet are read."""
     rows = read_params(client, [e for _, _, e, _, _ in picks])
     taken: set[str] = set()
@@ -453,11 +455,11 @@ def _controls(client: McpTransport, picks: list[Pick], values: dict[str, float],
 
 def apply(
     client: McpTransport,
-    panel: dict,
+    panel: dict[str, Any],
     out_dir: Path,
     *,
-    state_values: dict | None = None,
-    spec: dict | None = None,
+    state_values: dict[str, Any] | None = None,
+    spec: dict[str, Any] | None = None,
     force: bool = False,
     recorder: Callable[..., str | None] | None = None,
 ) -> str:
@@ -499,7 +501,7 @@ def apply(
     return P.blocks(panel, result, opened_note(result.pop("opened", [])), ab=(before, panel["renders"][-1]))
 
 
-def values_from(panel: dict, state_values: dict | None) -> dict[str, float]:
+def values_from(panel: dict[str, Any], state_values: dict[str, Any] | None) -> dict[str, float]:
     """Raw values by parameter from the page's Surface state (by control id)."""
     from hands.live import shape
 
@@ -515,7 +517,7 @@ def values_from(panel: dict, state_values: dict | None) -> dict[str, float]:
     return values
 
 
-def _remove(client: McpTransport, added: list[dict]) -> None:
+def _remove(client: McpTransport, added: list[dict[str, Any]]) -> None:
     for a in added:
         client.run(
             f"_t = {tr(a['track'])}\n_i = next((i for i, d in enumerate(_t.devices) if d.name == {a['device']!r}), None)\n"
@@ -523,7 +525,7 @@ def _remove(client: McpTransport, added: list[dict]) -> None:
         )
 
 
-def drop(client: McpTransport, panel: dict, out_dir: Path) -> str:
+def drop(client: McpTransport, panel: dict[str, Any], out_dir: Path) -> str:
     """Take out the devices a mix panel added; fader and pan positions stay as they are."""
     _remove(client, panel.get("added") or [])
     P._file(out_dir, panel["name"]).unlink(missing_ok=True)

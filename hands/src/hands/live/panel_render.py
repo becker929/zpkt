@@ -9,6 +9,7 @@ import math
 import time
 from collections.abc import Callable
 from pathlib import Path
+from typing import Any
 
 from hands.live import hold
 from hands.live.agent import with_prelude
@@ -114,7 +115,7 @@ def record_span(
 def _render(
     client: McpTransport,
     track: str,
-    state: dict,
+    state: dict[str, Any],
     notes: list[Note],
     beats: float,
     tail: float,
@@ -122,7 +123,7 @@ def _render(
     out: Path,
     recorder: Callable[..., str | None],
     values: dict[str, float] | None = None,
-) -> dict:
+) -> dict[str, Any]:
     """Set the values, write the riff past the end of the arrangement, record it, cut the take to the riff, put the set back."""
     tempo = float(tempo or state["tempo"])
     lead = lead_beats(tempo)
@@ -170,7 +171,9 @@ def _render(
             f.unlink(missing_ok=True)
 
 
-def cut_take(path: str, out: Path, start: float, length_beats: float, lead: float, fade_s: float = 0.03) -> dict:
+def cut_take(
+    path: str, out: Path, start: float, length_beats: float, lead: float, fade_s: float = 0.03
+) -> dict[str, Any]:
     """Cut a take made by record_span to `length_beats` from the song beat `start`; write it and say how loud it is."""
     import numpy as np
     import soundfile as sf
@@ -189,15 +192,18 @@ def cut_take(path: str, out: Path, start: float, length_beats: float, lead: floa
     return {**levels(y), "seconds": round(len(y) / sr, 2), "tempo": timing["tempo"]}
 
 
-def levels(y) -> dict:
+def levels(y: Any) -> dict[str, Any]:
     import numpy as np
 
     peak, rms = float(np.max(np.abs(y))), float(np.sqrt(np.mean(y**2)))
-    db = lambda v: round(20 * math.log10(v), 1) if v > 0 else -120.0  # noqa: E731
-    return {"peak_dbfs": db(peak), "rms_dbfs": db(rms)}
+    return {"peak_dbfs": _dbfs(peak), "rms_dbfs": _dbfs(rms)}
 
 
-def set_code(panel: dict, values: dict[str, float]) -> str:
+def _dbfs(v: float) -> float:
+    return round(20 * math.log10(v), 1) if v > 0 else -120.0
+
+
+def set_code(panel: dict[str, Any], values: dict[str, float]) -> str:
     """Live code that sets a panel's values: an instrument's parameters by name, a mix panel's by where each one is."""
     if not values:
         return ""

@@ -20,34 +20,34 @@ SEND_IN_KEY = "send "
 SEND_IN_PARAM = "send:"
 
 
-def device_label(name, nth):
+def device_label(name: str, nth: int) -> str:
     """A device's name in a key: the name, then "#2", "#3" for the second and third of that name on a track."""
     return name if nth == 1 else f"{name}#{nth}"
 
 
-def device_key(track, device, param):
+def device_key(track: str, device: str, param: str) -> str:
     """The key of a device parameter; `device` as device_label gives it."""
     return f"{track}/{device}/{param}"
 
 
-def mixer_key(track, what):
+def mixer_key(track: str, what: str) -> str:
     """The key of a mixer value: volume, pan, mute or solo."""
     if what not in MIXER:
         raise ValueError(f"{what!r} is not a mixer value; they are {', '.join(MIXER)}")
     return f"{track}/{what}"
 
 
-def send_key(track, ret):
+def send_key(track: str, ret: str) -> str:
     """The key of a send, by the return's short name ("Kick bus/send Space")."""
     return f"{track}/{SEND_IN_KEY}{ret}"
 
 
-def send_param(ret):
+def send_param(ret: str) -> str:
     """A send as a desk control's or a match plan's param ("send:Space")."""
     return SEND_IN_PARAM + ret
 
 
-def send_return(text):
+def send_return(text: str) -> str | None:
     """The return a send names, from "send:Space" or "send Space"; None if `text` is not a send."""
     for prefix in (SEND_IN_PARAM, SEND_IN_KEY):
         if text.startswith(prefix):

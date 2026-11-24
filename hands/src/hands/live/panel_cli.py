@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import re
 import sys
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
@@ -12,7 +13,7 @@ import typer
 
 from hands.live import panel
 from hands.live.cli_options import HOST, PORT, fail
-from hands.live.transport import LiveClient, LiveError
+from hands.live.transport import LiveClient, LiveError, McpTransport
 
 app = typer.Typer(
     no_args_is_help=True,
@@ -55,7 +56,7 @@ def _json(arg: str | None, what: str) -> Any:
         fail(f"{what} is not JSON: {exc}", 2)
 
 
-def _run(fn, client, *args, what: str = "", **kwargs) -> None:
+def _run(fn: Callable[..., Any], client: McpTransport, *args: Any, what: str = "", **kwargs: Any) -> None:
     """Run one command with Live held for it (hands.live.hold): one command at a time, and what an interrupted
     one left is put back first."""
     from hands.live import hold
@@ -159,7 +160,9 @@ def apply(
 
     values, changes = _json(state, "--state"), _json(spec, "--spec")
 
-    def apply(client):  # the panel's file is read once Live is held: another apply may be writing it
+    def apply(
+        client: McpTransport,
+    ) -> str:  # the panel's file is read once Live is held: another apply may be writing it
         made = _made(out, name)
         if made and made.get("kind") == "mix":
             return mix.apply(client, made, out, state_values=values, spec=changes, force=force)
@@ -168,7 +171,7 @@ def apply(
     _run(apply, LiveClient(host, port, keep=True), what="hands panel apply")
 
 
-def _made(out: Path, name: str) -> dict | None:
+def _made(out: Path, name: str) -> dict[str, Any] | None:
     """The panel's file, if it is there and whole (a cut-short or foreign file reads as no panel)."""
     try:
         made = json.loads(panel._file(out, name).read_text())
@@ -250,7 +253,7 @@ def drop(
     """Delete the panel's track from the open set. Its renders stay."""
     from hands.live import mix
 
-    def drop(client):
+    def drop(client: McpTransport) -> str:
         made = _made(out, name)
         return mix.drop(client, made, out) if made and made.get("kind") == "mix" else panel.drop(client, name, out)
 

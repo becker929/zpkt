@@ -113,7 +113,7 @@ class Knob:
         return cls(track, (tag, int(index)), param)
 
     @property
-    def spec(self) -> tuple:
+    def spec(self) -> tuple[Any, ...]:
         """(track, device, param), as hands.als takes them."""
         return self.track, self.device, self.param
 
@@ -272,7 +272,7 @@ for s in SPEC:
 )
 
 
-def _specs(knobs: Iterable[Knob], values: Mapping[Knob, object] | None = None) -> list[dict]:
+def _specs(knobs: Iterable[Knob], values: Mapping[Knob, object] | None = None) -> list[dict[str, Any]]:
     specs = []
     for k in knobs:
         where, name, unit = lom_target(k)

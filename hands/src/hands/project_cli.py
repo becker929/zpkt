@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any
 
 import typer
 from rich.console import Console
@@ -17,7 +18,7 @@ def register(app: typer.Typer) -> None:
     app.command()(execute)
 
 
-def _load_config(config_path: str):
+def _load_config(config_path: str) -> Any:
     """Load and validate a ProjectConfig from a JSON file."""
     from hands.models import ProjectConfig
 

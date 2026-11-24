@@ -166,7 +166,7 @@ class LiveClient(Transport):
             time.sleep(self.backoff * 2**attempt)
             attempt += 1
 
-    def _exchange(self, message: dict) -> dict:
+    def _exchange(self, message: dict[str, Any]) -> dict[str, Any]:
         data = (json.dumps(message) + "\n").encode()
         if not self.keep:
             with self._connect() as sock:

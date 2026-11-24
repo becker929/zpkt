@@ -29,6 +29,7 @@ import shutil
 import time
 from collections.abc import Callable
 from pathlib import Path
+from typing import Any
 
 from hands.live import hold
 
@@ -53,7 +54,7 @@ def _memo(out_dir: Path) -> Path:
     return out_dir / ".sweep.json"
 
 
-def _read(out_dir: Path) -> dict:
+def _read(out_dir: Path) -> dict[str, Any]:
     try:
         m = json.loads(_memo(out_dir).read_text())
         return m if isinstance(m, dict) else {}
@@ -61,7 +62,7 @@ def _read(out_dir: Path) -> dict:
         return {}
 
 
-def _write(out_dir: Path, memo: dict) -> None:
+def _write(out_dir: Path, memo: dict[str, Any]) -> None:
     try:
         _memo(out_dir).write_text(json.dumps(memo))
     except OSError:
@@ -82,7 +83,7 @@ def _project_of(folder: Path) -> Path:
     return folder.parent.parent if folder.name == "Recorded" and folder.parent.name == "Samples" else folder
 
 
-def used_by_sets(project: Path, memo: dict) -> set[str]:
+def used_by_sets(project: Path, memo: dict[str, Any]) -> set[str]:
     """The take names any Live set under the project refers to. Sets are read once and remembered by date and size."""
     seen = memo.setdefault("sets", {})
     names: set[str] = set()
@@ -110,11 +111,11 @@ def used_by_sets(project: Path, memo: dict) -> set[str]:
     return names
 
 
-def _names(shown) -> list[str]:
+def _names(shown: object) -> list[str]:
     return [Path(shown).name] if isinstance(shown, str) and shown else []
 
 
-def _grid_files(g: dict) -> list[str]:
+def _grid_files(g: dict[str, Any]) -> list[str]:
     return [
         n for o in g.get("options") or [] if isinstance(o, dict) for k in ("file", "matched") for n in _names(o.get(k))
     ]
@@ -128,15 +129,15 @@ def plan(
     pressure: bool = False,
     in_use: set[str] | None = None,
     now: float | None = None,
-    memo: dict | None = None,
-) -> list[dict]:
+    memo: dict[str, Any] | None = None,
+) -> list[dict[str, Any]]:
     """What a sweep would delete: [{path, bytes, kind, why}], biggest first. Deletes nothing."""
     out_dir = Path(out_dir)
     now = time.time() if now is None else now
     memo = _read(out_dir) if memo is None else memo
     in_use = in_use or set()
     old = SETTLE if pressure else max(SETTLE, keep_days * 86400.0)
-    items: dict[str, dict] = {}
+    items: dict[str, dict[str, Any]] = {}
     here = out_dir.is_dir()
 
     def add(p: Path, kind: str, why: str, age: float) -> None:
@@ -220,7 +221,7 @@ def sweep(
     pressure: bool = False,
     in_use: set[str] | None = None,
     now: float | None = None,
-) -> dict:
+) -> dict[str, Any]:
     """Plan a sweep and, with apply, carry it out. Returns {applied, files, bytes, kinds, items, free}."""
     out_dir = Path(out_dir)
     memo = _read(out_dir)
@@ -237,7 +238,7 @@ def sweep(
         done.append(it)
     if apply and done:
         _mark_swept(out_dir, {Path(i["path"]).name for i in done if Path(i["path"]).parent == out_dir})
-    kinds: dict[str, dict] = {}
+    kinds: dict[str, dict[str, Any]] = {}
     for it in done:
         k = kinds.setdefault(it["kind"], {"files": 0, "bytes": 0})
         k["files"] += 1
@@ -257,7 +258,7 @@ def size(n: float) -> str:
     return f"{n / 2**30:.1f} GB" if n >= 2**30 else f"{n / 2**20:.0f} MB" if n >= 2**20 else f"{n / 1024:.0f} KB"
 
 
-def report(result: dict, shown: int = 12) -> str:
+def report(result: dict[str, Any], shown: int = 12) -> str:
     verb = "deleted" if result["applied"] else "would delete"
     if not result["files"]:
         return f"nothing to sweep; {size(result['free'])} free"

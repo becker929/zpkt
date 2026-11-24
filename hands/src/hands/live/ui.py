@@ -41,7 +41,7 @@ def osa(script: str, *, timeout: float | None = None) -> str:
     return _osascript(["-e", script], t)
 
 
-def osa_file(path: str | os.PathLike, *args: str, timeout: float = 900) -> str:
+def osa_file(path: str | os.PathLike[str], *args: str, timeout: float = 900) -> str:
     """Run an AppleScript file with arguments; return its output, stripped. Raise UiError if it fails."""
     return _osascript([os.fspath(path), *args], timeout)
 
@@ -63,7 +63,7 @@ def _osascript(argv: list[str], timeout: float) -> str:
     return run.stdout.strip()
 
 
-def _via_hammerspoon(argv: list[str], timeout: float) -> subprocess.CompletedProcess:
+def _via_hammerspoon(argv: list[str], timeout: float) -> subprocess.CompletedProcess[str]:
     """Run osascript as a child of Hammerspoon, which inherits its Accessibility grant."""
     with tempfile.NamedTemporaryFile("w", suffix=".sh", delete=False) as f:
         f.write("#!/bin/bash\nexec osascript " + " ".join(map(shlex.quote, argv)) + " 2>&1\n")

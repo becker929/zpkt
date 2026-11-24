@@ -85,7 +85,7 @@ class LiveOps:
         if bad:
             stop(f"{track} mixer: {bad}")
 
-    def params(self, device: str, names: list[str] | None = None, start: int = 0, count: int = 20) -> list:
+    def params(self, device: str, names: list[str] | None = None, start: int = 0, count: int = 20) -> list[Any]:
         """Up to 20 parameters of a device: [name, shown, raw (rounded to 4 places)]."""
         pick = (
             f"[p for p in d.parameters if p.name in {names!r}]"

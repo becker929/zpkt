@@ -15,7 +15,7 @@ _SCALE = {"khz": 1e3, "ms": 1e-3}
 _STEPS = 40  # halvings of the range: far finer than any display rounds to
 
 
-def shown_number(text):
+def shown_number(text: object) -> float | None:
     """A shown value as a number in its base unit ("1.73 kHz" -> 1730, "2.5 ms" -> 0.0025, "-inf dB" -> -1e9);
     None if the text does not start with a number."""
     m = _NUMBER.match(str(text))
@@ -26,7 +26,7 @@ def shown_number(text):
     return float(m.group(1)) * _SCALE.get(m.group(2).lower(), 1.0)
 
 
-def _item_value(p, want):
+def _item_value(p, want: str) -> float | None:  # p: a DeviceParameter
     """A list parameter's raw value for one of its items, by name (exact first, then any case); None if none."""
     items = [str(i) for i in getattr(p, "value_items", ())]
     if want in items:
@@ -37,7 +37,7 @@ def _item_value(p, want):
     return None
 
 
-def raw_for(p, want):
+def raw_for(p, want: object):  # p: a DeviceParameter
     """The raw value at which `p` shows `want`: a text Live shows ("200 Hz", "-6 dB", "35 %"), a list item's name,
     or "min", "max", "current". None if the text cannot be read or found."""
     w = str(want).strip()
@@ -66,7 +66,7 @@ def raw_for(p, want):
     return float(round(found)) if p.is_quantized else found
 
 
-def set_shown(p, want, name=""):
+def set_shown(p, want: str | float, name: str = "") -> str | None:
     """Set `p` to `want`: a shown text (see raw_for) or a raw number, clamped to the range. Returns None when done,
     else what went wrong as "NAME=WANT? ..." (for a list parameter, its items), so a call can collect them."""
     if not isinstance(want, str):

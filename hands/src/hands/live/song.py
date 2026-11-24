@@ -14,6 +14,7 @@ from __future__ import annotations
 import math
 from collections.abc import Callable
 from pathlib import Path
+from typing import Any
 
 from hands.live import hold
 from hands.live import panel as P
@@ -27,9 +28,12 @@ def _file(out_dir: Path, name: str) -> Path:
     return out_dir / f"{name}.song.json"
 
 
-def layout(spec: dict, panels: dict[str, dict]) -> tuple[list[dict], dict[str, list[tuple[float, float, list]]], float]:
+def layout(
+    spec: dict[str, Any], panels: dict[str, dict[str, Any]]
+) -> tuple[list[dict[str, Any]], dict[str, list[tuple[float, float, list[Any]]]], float]:
     """Sections with their start beats, and per panel the runs it plays: (start, length, notes), in beats from the song's start."""
-    sections, at = [], 0.0
+    sections: list[dict[str, Any]] = []
+    at = 0.0
     for i, s in enumerate(spec.get("sections") or []):
         bars = int(s.get("bars") or 0)
         if bars < 1:
@@ -46,7 +50,7 @@ def layout(spec: dict, panels: dict[str, dict]) -> tuple[list[dict], dict[str, l
         raise P.PanelError('a song needs "sections": [{"name", "bars", "parts": [panel names]}, ...]')
     if at / 4 > BARS_MAX:
         raise P.PanelError(f"a song is at most {BARS_MAX} bars (it renders in real time); this one is {at / 4:g}")
-    runs: dict[str, list[tuple[float, float, list]]] = {}
+    runs: dict[str, list[tuple[float, float, list[Any]]]] = {}
     for name, panel in panels.items():
         spans: list[list[float]] = []  # runs of sections next to each other, so a riff carries across them
         for s in sections:
@@ -76,8 +80,14 @@ def _clear(client: McpTransport, name: str) -> None:
 
 
 def _record(
-    client: McpTransport, song: dict, state: dict, out: Path, recorder, start_bar: int = 1, bars: int | None = None
-) -> dict:
+    client: McpTransport,
+    song: dict[str, Any],
+    state: dict[str, Any],
+    out: Path,
+    recorder: Callable[..., str | None],
+    start_bar: int = 1,
+    bars: int | None = None,
+) -> dict[str, Any]:
     tempo, lead = float(song["tempo"]), P.lead_beats(float(song["tempo"]))
     start = song["start"] + (start_bar - 1) * 4.0
     beats = (bars * 4.0) if bars else song["beats"] - (start_bar - 1) * 4.0
@@ -112,7 +122,7 @@ def _record(
             f.unlink(missing_ok=True)
 
 
-def _text(song: dict, result: dict) -> str:
+def _text(song: dict[str, Any], result: dict[str, Any]) -> str:
     lines = [
         f"song {song['name']} v{song['version']}: {song['beats'] / 4:g} bars at {song['tempo']:g} BPM, "
         f"peak {result['peak_dbfs']:g} dBFS, RMS {result['rms_dbfs']:g} dBFS, {result['seconds']:g} s",
@@ -140,7 +150,7 @@ def _text(song: dict, result: dict) -> str:
 
 def make(
     client: McpTransport,
-    spec: dict,
+    spec: dict[str, Any],
     out_dir: Path,
     *,
     force: bool = False,
@@ -152,7 +162,7 @@ def make(
     spec = shape.clean(spec, shape.SONG, "the spec")
     name = P._name(spec)
     wanted = sorted({str(p) for s in spec.get("sections") or [] for p in s.get("parts") or []})
-    panels = {}
+    panels: dict[str, dict[str, Any]] = {}
     for p in wanted:
         f = P._file(out_dir, p)
         if f.exists():
@@ -164,9 +174,9 @@ def make(
     state = P._state(client)
     if state["playing"] and not force:
         raise P.PanelError("Live is playing (maybe the user): not rendering; pass --force to stop it")
-    for p in panels.values():
-        if p["track"] not in state["names"]:
-            raise P.PanelError(f"the track {p['track']!r} is not in the open set; make that panel again")
+    for made in panels.values():
+        if made["track"] not in state["names"]:
+            raise P.PanelError(f"the track {made['track']!r} is not in the open set; make that panel again")
     tempo = float(spec.get("tempo") or state["tempo"])
     lead = P.lead_beats(tempo)
     start = (int(state["end"] / 4) + 4) * 4.0 + math.ceil(lead / 4) * 4.0
@@ -184,7 +194,7 @@ def make(
         old = P.read_file(_file(out_dir, name), f"song {name!r}") if _file(out_dir, name).exists() else {}
     except P.PanelError:
         old = {}
-    song = {
+    song: dict[str, Any] = {
         "name": name,
         "tempo": tempo,
         "start": start,
