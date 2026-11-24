@@ -219,3 +219,13 @@ def test_mix_state_reads_a_saved_mix_and_diffs_two_files(tmp_path):
 
     res = CliRunner().invoke(app, ["als", "mix", str(muted), "--against", str(src)])
     assert res.exit_code == 1 and f"{TRACK}/mute: False -> True" in res.output
+
+
+def test_als_mix_prints_one_line_per_track(tmp_path):
+    src = planted_set(tmp_path / "a.als")
+    out = CliRunner().invoke(app, ["als", "mix", str(src)])
+    assert out.exit_code == 0
+    assert out.stdout == (
+        "1-Audio                     0.00 dB pan +0.00  | StereoGain, PluginDevice, Eq8\n"
+        "Main                        0.00 dB pan +0.00\n"
+    )

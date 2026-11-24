@@ -1,17 +1,17 @@
-"""Typer CLI for the hands layer.
+"""The `hands` command: drive Ableton Live from a shell.
 
-Commands:
-    build    — render a ProjectConfig to Step list (dry-run by default)
-    execute  — execute Steps against a running Ableton session
-    record   — record and export audio via the resampling track
-    ab       — A/B the mix against reference tracks
-    spectrum — show or hide the master Spectrum
-    live     — one-shot LOM commands (ping, exec)
-    als      — check a Live set file, list a device's parameters (offline)
-    kit      — build a probe kit in Live, render a batch
-    panel    — an instrument, a riff, a render and its control panel for Zpkt web (hands.live.panel)
-    rig      — check the Live rig, and reset it when its state gets weird (hands.live.rig)
+    live     — one-shot commands against the open set: exec, check, save, export, the mix state (hands.live.cli)
+    panel    — an instrument, a riff, a render and its control panel for Zpkt web; song, sweep (hands.live.panel_cli)
+    rig      — check the Live rig, and reset it when its state gets weird (hands.live.rig_cli)
+    record   — record the output through a resampling track and export it
+    ab       — A/B the mix against reference tracks; spectrum — show or hide the master Spectrum
+    kit      — probe kits: many variants of a section in one export (hands.kit_cli)
+    als      — a saved set offline: its checks, a device's parameters, its mix (hands.als_cli)
     library  — the WIP library: each track's place in the seven steps (hands.library, read-only)
+    serum2   — Serum 2 presets: list, render offline, apply into a saved set (hands.serum2)
+    build, execute — the first design: a ProjectConfig into LOM steps (hands.project_cli)
+
+Each module named here parses its arguments and prints; the work is in the library.
 """
 
 from __future__ import annotations
@@ -21,114 +21,27 @@ from pathlib import Path
 
 import typer
 from rich.console import Console
-from rich.table import Table
 
+from hands import als_cli, kit_cli, project_cli
 from hands.library.cli import app as library_app
 from hands.live.cli import app as live_app
+from hands.live.panel_cli import app as panel_app
+from hands.live.panel_cli import song_app, sweep_command
+from hands.live.rig_cli import app as rig_app
+from hands.serum2.cli import app as serum2_app
 
 app = typer.Typer(name="hands", help="DAW control layer for Ableton Live.")
+project_cli.register(app)
 app.add_typer(live_app, name="live")
 app.add_typer(library_app, name="library")
-from hands.serum2.cli import app as serum2_app  # noqa: E402
-
 app.add_typer(serum2_app, name="serum2")
-als_app = typer.Typer(help="Check Live set files offline.", no_args_is_help=True)
-app.add_typer(als_app, name="als")
-kit_app = typer.Typer(help="Probe kits: P variants of a section in one load and one export.", no_args_is_help=True)
-app.add_typer(kit_app, name="kit")
-from hands.live.panel_cli import app as panel_app  # noqa: E402
-
+app.add_typer(als_cli.app, name="als")
+app.add_typer(kit_cli.app, name="kit")
 app.add_typer(panel_app, name="panel")
-from hands.live.panel_cli import song_app  # noqa: E402
-
 app.add_typer(song_app, name="song")
-from hands.live.panel_cli import sweep_command  # noqa: E402
-
 app.command("sweep")(sweep_command)
-from hands.live.rig_cli import app as rig_app  # noqa: E402
-
 app.add_typer(rig_app, name="rig")
 console = Console()
-
-
-def _load_config(config_path: str):
-    """Load and validate a ProjectConfig from a JSON file."""
-    from hands.models import ProjectConfig
-
-    path = Path(config_path)
-    if not path.exists():
-        console.print(f"[red]Config file not found: {config_path}[/red]")
-        raise typer.Exit(1)
-
-    try:
-        return ProjectConfig.model_validate_json(path.read_text())
-    except Exception as exc:
-        console.print(f"[red]Invalid config: {exc}[/red]")
-        raise typer.Exit(1)
-
-
-@app.command()
-def build(
-    config: str = typer.Option(..., "--config", help="Path to ProjectConfig JSON."),
-    dry_run: bool = typer.Option(True, "--dry-run/--no-dry-run", help="Print steps without executing."),
-) -> None:
-    """Render a ProjectConfig to Step list and print or execute."""
-    from hands.builder import ProjectBuilder
-    from hands.live.transport import DryRunTransport
-    from hands.runner import ManualPolicy, StepRunner
-
-    cfg = _load_config(config)
-    builder = ProjectBuilder(cfg)
-    steps = builder.build_steps()
-
-    table = Table(title=f"Build: {cfg.name} ({len(steps)} steps)")
-    table.add_column("#", style="dim", width=4)
-    table.add_column("Label")
-    table.add_column("Note", style="dim")
-    for i, step in enumerate(steps):
-        table.add_row(str(i), step.label, step.note or "")
-    console.print(table)
-
-    if dry_run:
-        console.print("[yellow]Dry run — use --no-dry-run to execute against Ableton.[/yellow]")
-        transport = DryRunTransport()
-        runner = StepRunner(transport)
-        runner.execute(steps, on_manual=ManualPolicy.SKIP)
-    else:
-        console.print("[red]Execute mode not available without --no-dry-run.[/red]")
-
-
-@app.command()
-def execute(
-    config: str = typer.Option(..., "--config", help="Path to ProjectConfig JSON."),
-    resume: int = typer.Option(0, "--resume", help="Resume from step index."),
-    host: str = typer.Option("127.0.0.1", "--host", help="Ableton MCP server host."),
-    port: int | None = typer.Option(
-        None, "--port", help="Ableton MCP server port (default: the rig's live_port, 16619)."
-    ),
-) -> None:
-    """Execute Steps against a live Ableton session."""
-    from hands.builder import ProjectBuilder
-    from hands.live.transport import LiveClient
-    from hands.runner import ManualPolicy, StepRunner
-
-    cfg = _load_config(config)
-    builder = ProjectBuilder(cfg)
-    steps = builder.build_steps()
-
-    transport = LiveClient(host=host, port=port)
-    console.print(f"[bold]Executing {len(steps)} steps against Ableton @ {transport.host}:{transport.port}[/bold]")
-    if resume > 0:
-        console.print(f"[yellow]Resuming from step {resume}[/yellow]")
-
-    runner = StepRunner(transport)
-    results = runner.execute(steps, on_manual=ManualPolicy.PROMPT, resume_from=resume)
-
-    failed = [r for r in results if r.status in ("error", "aborted")]
-    if failed:
-        console.print(f"[red]{len(failed)} step(s) failed. Run with --resume {failed[0].index} to retry.[/red]")
-        raise typer.Exit(1)
-    console.print(f"[green]Done — {len(results)} steps completed.[/green]")
 
 
 @app.command()
@@ -228,123 +141,6 @@ def spectrum_cmd(
     except RuntimeError as exc:
         console.print(f"[red]{exc}[/red]")
         raise typer.Exit(1)
-
-
-@als_app.command("check")
-def als_check(
-    file: Path = typer.Argument(..., help="The .als to check."),
-    against: Path = typer.Option(None, "--against", help="The set it was made from: also show what changed."),
-) -> None:
-    """Run the self-checks a .als must pass before Live loads it. Exit 1 on a problem."""
-    from hands import als
-
-    report = als.check(file, against)
-    print(report)
-    if report.problems:
-        raise typer.Exit(1)
-
-
-@als_app.command("params")
-def als_params(
-    file: Path = typer.Argument(..., help="The .als to read."),
-    track: str = typer.Argument(..., help="Track name."),
-    device: str = typer.Argument(..., help="Device XML tag, e.g. Reverb or StereoGain."),
-    index: int = typer.Option(0, "--index", help="Which device with that tag (-1: the last)."),
-) -> None:
-    """List a device's automatable parameters: tag, event kind, value and range."""
-    from hands import als
-
-    print("\n".join(als.list_params(file, track, device, index)))
-
-
-@als_app.command("mix")
-def als_mix(
-    file: Path = typer.Argument(..., help="A saved set (.als) or a name in the rig's sets folder."),
-    against: Path = typer.Option(None, "--against", help="Another saved set: show only what differs (B = FILE)."),
-    ignore: list[str] = typer.Option(None, "--ignore", help="Skip keys starting with this (e.g. 'mon '), repeatable."),
-    full: bool = typer.Option(False, "--full", help="Every row, not the collapsed summary."),
-) -> None:
-    """The mix a saved set holds (faders, sends, mutes, devices), offline; with --against, what differs.
-    Live is not touched. Exit 1 if --against finds a difference."""
-    from hands import als, config
-    from hands.live import state as S
-
-    def resolve(p: Path) -> Path:
-        return p if p.exists() else config.rig().set_path(str(p).removesuffix(".als"))
-
-    b = als.mix_state(resolve(file))
-    if against is None:
-        for name, t in b["tracks"].items():
-            m = t["mixer"]
-            sends = {r: v[0] for r, v in m.get("sends", {}).items() if not v[0].startswith("-inf")}
-            devs = ", ".join(d["name"] + ("" if d["params"].get("On", [0, 1.0])[1] else " (off)") for d in t["devices"])
-            print(
-                f"{name:24s} {m['volume'][0]:>10s} pan {m['pan'][0]:>5s}{'  MUTED' if m.get('mute', [0, False])[1] else ''}"
-                f"{'  sends ' + str(sends) if sends else ''}{'  | ' + devs if devs else ''}"
-            )
-        return
-    a = als.mix_state(resolve(against))
-    rows = S.diff(a, b, tuple(ignore or ()))
-    print(f"{len(S.flatten(a))} values in A ({resolve(against).name}), {len(rows)} differ in B ({resolve(file).name})")
-    print(S.summarize(rows, limit=10**6 if full else 60))
-    if rows:
-        raise typer.Exit(1)
-
-
-@kit_app.command("template")
-def kit_template(
-    kit: str = typer.Argument(..., help="The kit's name, e.g. c8x4."),
-    src: str = typer.Argument(..., help="The set to cut it from (in the rig's sets folder)."),
-    keep_start: float = typer.Argument(..., help="First beat of the section."),
-    keep_end: float = typer.Argument(..., help="Beat after its end."),
-    patterns: int = typer.Argument(..., help="P, a power of two."),
-    lead: float = typer.Option(8.0, "--lead", help="Beats of lead-in kept before the first pattern."),
-    host: str = typer.Option("127.0.0.1", "--host"),
-    port: int | None = typer.Option(
-        None, "--port", help="Ableton MCP server port (default: the rig's live_port, 16619)."
-    ),
-) -> None:
-    """Build a kit in Live (copy, Delete Time, Duplicate Time, save) and print its description."""
-    from dataclasses import asdict
-
-    from hands import probe_kit
-    from hands.live.session import Guard
-    from hands.live.transport import LiveClient
-
-    try:
-        made = probe_kit.template(LiveClient(host, port), kit, src, keep_start, keep_end, patterns, lead)
-    except Guard as exc:
-        console.print(f"[red]{exc}[/red]")
-        raise typer.Exit(1)
-    print(json.dumps(asdict(made)))
-
-
-@kit_app.command("render")
-def kit_render(
-    batch_set: str = typer.Argument(..., help="The batch set written by probe_kit.write_batch."),
-    kit: str = typer.Argument(..., help="The kit it was made from."),
-    out: Path = typer.Option(
-        None, "--out", help="Folder for all.wav and pattern_XX.wav (default <data_dir>/kit_out/BATCH_SET)."
-    ),
-    host: str = typer.Option("127.0.0.1", "--host"),
-    port: int | None = typer.Option(
-        None, "--port", help="Ableton MCP server port (default: the rig's live_port, 16619)."
-    ),
-) -> None:
-    """Load a batch set, export it once, check it and slice one WAV per pattern; print the manifest."""
-    from hands import config, probe_kit
-    from hands.audio import AudioError
-    from hands.live.session import Guard
-    from hands.live.transport import LiveClient
-
-    try:
-        manifest = probe_kit.render(
-            LiveClient(host, port), batch_set, kit, out or config.rig().data_dir / "kit_out" / batch_set
-        )
-    except (Guard, AudioError) as exc:
-        console.print(f"[red]{exc}[/red]")
-        raise typer.Exit(1)
-    print(json.dumps(manifest))
 
 
 def main() -> None:

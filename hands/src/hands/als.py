@@ -690,3 +690,19 @@ def mix_state(path: str | os.PathLike) -> dict:
         devs = [{"name": _device_name(d), "class": d.tag, "params": _device_params(d)} for d in devices(t)]
         out["tracks"][name] = {"mixer": mix, "devices": devs}
     return out
+
+
+def mix_lines(state: dict) -> list[str]:
+    """One line per track of a mix state: volume, pan, MUTED, the sends that are not off, the devices (off ones
+    marked), as `hands als mix` prints them."""
+    lines = []
+    for name, t in state["tracks"].items():
+        m = t["mixer"]
+        sends = {r: v[0] for r, v in m.get("sends", {}).items() if not v[0].startswith("-inf")}
+        devs = ", ".join(d["name"] + ("" if d["params"].get("On", [0, 1.0])[1] else " (off)") for d in t["devices"])
+        muted = "  MUTED" if m.get("mute", [0, False])[1] else ""
+        lines.append(
+            f"{name:24s} {m['volume'][0]:>10s} pan {m['pan'][0]:>5s}{muted}"
+            f"{'  sends ' + str(sends) if sends else ''}{'  | ' + devs if devs else ''}"
+        )
+    return lines
