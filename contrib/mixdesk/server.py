@@ -30,6 +30,7 @@ from hands.live.transport import LiveClient, LiveError
 import history
 import meter
 import monitor
+import surfaces
 
 HERE = Path(__file__).resolve().parent
 VIZ = Path(json.loads((HERE / "sources.json").read_text())["dir"]).expanduser()
@@ -70,7 +71,10 @@ def learn(values: dict) -> None:
 
 
 def cfg() -> dict:
-    return json.loads((HERE / "desk.json").read_text())
+    """desk.json's pages, then the surfaces made for this set (surfaces.py), oldest first."""
+    d = json.loads((HERE / "desk.json").read_text())
+    d["pages"] = d["pages"] + surfaces.pages(SET)
+    return d
 
 
 def live() -> LiveClient:
@@ -216,6 +220,47 @@ def meter_udp() -> None:
         if vals and len(vals) == len(hz):
             db = [round(20 * math.log10(v), 2) if v > 1e-7 else -140.0 for v in vals]
             push({"t": "meter", "hz": hz, "db": db})
+
+
+MAKING = threading.Lock()
+
+
+def adopt_surface(path: Path, surface: dict) -> int:
+    """A surface just saved: reload the pager with it, arm its page, tell the page. Returns the page's index."""
+    set_state(start_pager(), "attached")
+    idx = next(i for i, pg in enumerate(cfg()["pages"]) if pg.get("surface") == path.name)
+    call(f"m.DESK.arm({idx})")
+    push({"t": "desk", "open": idx})
+    return idx
+
+
+def inventory() -> dict:
+    return surfaces.parse_inventory(call("m.DESK.inventory()") or "")
+
+
+def make_surface(text: str) -> None:
+    """The Make a surface job (its own thread): what the set holds -> Claude -> checked -> saved -> on the MiniLab."""
+    def say(status: str, msg: str) -> None:
+        push({"t": "surface", "status": status, "msg": msg})
+    if not MAKING.acquire(blocking=False):
+        return say("error", "A surface is already being made.")
+    try:
+        say("working", "Reading the set…")
+        inv = inventory()
+        if not inv:
+            return say("error", "Live did not answer with the set's controls.")
+        say("working", f"Asking Claude ({len(inv)} parameters in the set)…")
+        path, surface = surfaces.make(text, inv, SET, [pg["name"] for pg in cfg()["pages"]])
+        say("working", "Putting it on the MiniLab…")
+        adopt_surface(path, surface)
+        notes = " ".join(surface["notes"])
+        say("done", f"Made “{surface['name']}” ({len(surface['controls'])} controls), saved as {path.name}." + (f" {notes}" if notes else ""))
+    except surfaces.SurfaceError as exc:
+        say("error", str(exc))
+    except (LiveError, OSError) as exc:
+        say("error", f"Live does not answer ({str(exc)[:120]})")
+    finally:
+        MAKING.release()
 
 
 def write(pairs: list[list]) -> list:
@@ -377,6 +422,26 @@ class Handler(BaseHTTPRequestHandler):
                 push({"t": "full", "state": snap_state})
             elif self.path == "/api/restart":
                 set_state(start_pager(), "attached")
+            elif self.path == "/api/surface/make":
+                text = str(body.get("text", "")).strip()
+                if not text:
+                    return self._json({"error": "say what the surface is for"}, 400)
+                threading.Thread(target=make_surface, args=(text[:2000],), daemon=True).start()
+            elif self.path == "/api/surface/save":      # a ready-made surface (the same checks, no model)
+                try:
+                    surface = surfaces.validate(body["surface"], inventory(), [pg["name"] for pg in cfg()["pages"]])
+                    path = surfaces.save(surface, SET, str(body.get("prompt", "")))
+                except surfaces.SurfaceError as exc:
+                    return self._json({"error": str(exc)}, 400)
+                idx = adopt_surface(path, surface)
+                return self._json({"ok": True, "file": path.name, "page": idx, "notes": surface["notes"]})
+            elif self.path == "/api/surface/remove":
+                try:
+                    surfaces.remove(SET, str(body.get("file", "")))
+                except surfaces.SurfaceError as exc:
+                    return self._json({"error": str(exc)}, 400)
+                set_state(start_pager(), "attached")
+                push({"t": "desk"})
             elif self.path in ("/api/undo", "/api/redo"):
                 pairs, e = HIST.undo() if self.path == "/api/undo" else HIST.redo()
                 missing = write(pairs)

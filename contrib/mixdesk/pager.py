@@ -13,6 +13,7 @@ Every change (a value moved in Live by anything, a control touched, a page armed
 datagram to the server, which shows it on the surface. Live's Python is 3.11; keep this file free of newer syntax.
 """
 import json
+import re
 import socket
 import time
 
@@ -182,6 +183,126 @@ class _Target(object):
             pass
 
 
+_NUM = re.compile(r"\s*([+-]?(?:\d+\.?\d*|\.\d+|inf))\s*([a-zA-Z%]*)")
+_SCALE = {"khz": 1e3, "ms": 1e-3}
+
+
+def _num(text):
+    """A shown value as a number in its base unit ("1.73 kHz" -> 1730, "2.5 ms" -> 0.0025, "-inf dB" -> very low)."""
+    m = _NUM.match(str(text))
+    if not m:
+        return None
+    if "inf" in m.group(1):
+        return -1e9 if m.group(1).startswith("-") else 1e9
+    return float(m.group(1)) * _SCALE.get(m.group(2).lower(), 1.0)
+
+
+def _raw_for(p, want):
+    """The parameter value that shows as `want` ("200 Hz", "-6 dB", "35 %", a list item's name, or "min", "max",
+    "current"), found by bisecting what Live shows. None if it cannot be read."""
+    w = str(want).strip()
+    if w.lower() == "min":
+        return p.min
+    if w.lower() == "max":
+        return p.max
+    if w.lower() == "current":
+        return p.value
+    if p.is_quantized:
+        for v in range(int(p.min), int(p.max) + 1):
+            if p.str_for_value(v).strip().lower() == w.lower():
+                return float(v)
+    target = _num(w)
+    a, b = _num(p.str_for_value(p.min)), _num(p.str_for_value(p.max))
+    if target is None or a is None or b is None:
+        return None
+    lo, hi, rising = p.min, p.max, b >= a
+    for _ in range(40):
+        mid = (lo + hi) / 2.0
+        v = _num(p.str_for_value(mid))
+        if v is None:
+            return None
+        if (v < target) == rising:
+            lo = mid
+        else:
+            hi = mid
+    v = (lo + hi) / 2.0
+    return float(round(v)) if p.is_quantized else v
+
+
+class _Macro(object):
+    """One control that moves several parameters together: each from its "from" to its "to" as the control goes
+    from 0 to 1 ({"label": ..., "macro": [{"track", "device", "param", "from": "200 Hz", "to": "2 kHz"}, ...]}).
+    Its value is its position; the first parameter is the one it is read from and listened to."""
+
+    def __init__(self, song, spec, desk):
+        self.spec, self.desk, self.error, self.flag, self.param = spec, desk, None, None, None
+        self.key = None        # not a value of the mix: the history keeps the parameters it moves
+        self.subs, self.skipped, self.own_until, self._wrapped = [], [], 0.0, {}
+        for m in spec.get("macro", []):
+            t = _Target(song, m)
+            a = b = None
+            if not t.error and t.param is not None:
+                a, b = _raw_for(t.param, m.get("from", "min")), _raw_for(t.param, m.get("to", "max"))
+            if a is None or b is None:
+                self.skipped.append("%s/%s/%s" % (m.get("track"), m.get("device", ""), m.get("param")))
+            else:
+                self.subs.append((t, a, b))
+        if not self.subs:
+            self.error = "not in the set"
+        self.pos = self._derive()
+
+    def _derive(self):
+        if not self.subs:
+            return 0.0
+        t, a, b = self.subs[0]
+        return max(0.0, min(1.0, (t.param.value - a) / (b - a))) if b != a else 0.0
+
+    def norm(self):
+        return self.pos
+
+    def raw(self):
+        return self.pos
+
+    def text(self):
+        return str(self.subs[0][0].param) if self.subs else ""
+
+    def quantized(self):
+        return False
+
+    def set_norm(self, n):
+        n = max(0.0, min(1.0, float(n)))
+        self.pos = n
+        self.own_until = time.time() + 0.4
+        for t, a, b in self.subs:
+            p = t.param
+            if p.is_enabled:
+                v = a + (b - a) * n
+                v = max(p.min, min(p.max, round(v) if p.is_quantized else v))
+                if p.value != v:
+                    p.value = v
+
+    set_raw = set_norm
+
+    def toggle(self):
+        self.set_norm(0.0 if self.pos >= 0.5 else 1.0)
+
+    def listen(self, fn):
+        if not self.subs:
+            return
+        def changed():
+            if time.time() > self.own_until:      # the parameter was moved from elsewhere: follow it
+                self.pos = self._derive()
+            fn()
+        self._wrapped[fn] = changed
+        self.subs[0][0].param.add_value_listener(changed)
+
+    def unlisten(self, fn):
+        try:
+            self.subs[0][0].param.remove_value_listener(self._wrapped.pop(fn))
+        except Exception:
+            pass
+
+
 def pad_of(cfg, i):
     """The bank-A pad (1-8) that arms page i: its "pad", or its place among the first eight pages."""
     page = cfg["pages"][i]
@@ -331,10 +452,18 @@ class Desk(object):
         self.targets, self.by_key = {}, {}
         for i, page in enumerate(self.cfg["pages"]):
             for slot, spec in page["controls"].items():
-                t = _Target(self.song, spec)
+                t = _Macro(self.song, spec, self) if "macro" in spec else _Target(self.song, spec)
                 self.targets[(i, slot)] = t
                 if t.key and not t.error:
                     self.by_key.setdefault(t.key, t)
+                if isinstance(t, _Macro):      # the parameters a macro moves report (and can be set) like any control
+                    for j, (sub, _a, _b) in enumerate(t.subs):
+                        sslot = "%s/%d" % (slot, j)
+                        self.targets[(i, sslot)] = sub
+                        self.by_key.setdefault(sub.key, sub)
+                        fn = self._watcher(i, sslot)
+                        sub.listen(fn)
+                        self.listeners.append((sub, fn))
                 if not t.error:
                     fn = self._watcher(i, slot)
                     t.listen(fn)
@@ -393,6 +522,8 @@ class Desk(object):
             t = self.targets.get((self.page, slot))
             if t is not None and not t.error:
                 self._apply(t, value / 127.0)
+                if isinstance(t, _Macro):
+                    self.send_value(self.page, slot)
             self.emit({"t": "hw", "page": self.page, "slot": slot, "hw": value / 127.0, "picked": True})
         return on
 
@@ -411,6 +542,8 @@ class Desk(object):
                     self.picked[slot] = True
             if self.picked.get(slot):
                 self._apply(t, n)
+                if isinstance(t, _Macro):
+                    self.send_value(self.page, slot)
             self.emit({"t": "hw", "page": self.page, "slot": slot, "hw": n, "picked": bool(self.picked.get(slot))})
         return on
 
@@ -476,6 +609,8 @@ class Desk(object):
                 t.toggle()
             except RuntimeError:
                 pass
+            if isinstance(t, _Macro):
+                self.send_value(page, slot)
         self.emit({"t": "hw", "page": page, "slot": slot, "hw": None, "picked": True})
 
     def send_value(self, page, slot):
@@ -483,6 +618,31 @@ class Desk(object):
         # "sys": the desk itself moved it (a monitor switch bypassing Main's devices), so it is not a mix change
         self.emit({"t": "v", "page": page, "slot": slot, "n": t.norm(), "s": t.text(), "r": t.raw(), "key": t.key,
                    "sys": time.time() < self.sys_until})
+
+    def inventory(self):
+        """Everything a surface can hold, one line each: track, device ("" for the mixer), parameter, what it shows
+        now, at its lowest and at its highest, and Q for a switch or list. Tab-separated (one flat string: the
+        bridge garbles deep lists)."""
+        s, out = self.song, []
+        rets = list(s.return_tracks)
+        for t in list(s.tracks) + rets + [s.master_track]:
+            name = "Main" if t == s.master_track else _short(t, s)
+            if name.startswith("mon "):
+                continue
+            m = t.mixer_device
+            mixer = [("volume", m.volume), ("pan", m.panning)] + [("send:" + _short(r, s), m.sends[k]) for k, r in enumerate(rets) if k < len(m.sends)]
+            for pn, p in mixer:
+                out.append("\t".join([name, "", pn, str(p), p.str_for_value(p.min), p.str_for_value(p.max), ""]))
+            if t != s.master_track:
+                out.append("\t".join([name, "", "mute", "on" if t.mute else "off", "off", "on", "Q"]))
+                out.append("\t".join([name, "", "solo", "on" if t.solo else "off", "off", "on", "Q"]))
+            for d in t.devices:
+                for p in d.parameters:
+                    try:
+                        out.append("\t".join([name, d.name, p.name, str(p), p.str_for_value(p.min), p.str_for_value(p.max), "Q" if p.is_quantized else ""]))
+                    except Exception:
+                        pass
+        return "\n".join(out)
 
     def set_raw(self, pairs):
         """[[key, raw], ...] -> the controls with those keys (undo, redo, revert). Returns the keys not found."""
@@ -555,7 +715,7 @@ def start(song, cfg, port):
         carry = globals().get("CARRY") or {}      # server.py hands over the old module's state when it reloads this file
         page = carry.get("page", 0)
     DESK = Desk(song, cfg, port)
-    DESK.page = page
+    DESK.page = page if 0 <= page < len(cfg["pages"]) else 0     # the page it was on may be gone (a surface removed)
     DESK.main_saved = carry.get("main_saved")
     DESK.monitor_slot, DESK.monitor_ref = (lambda s: "W" if s == "B" and carry.get("v") != 2 else s)(carry.get("slot", "W")), carry.get("ref", "C1")
     DESK.attach()

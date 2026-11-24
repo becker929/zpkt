@@ -1,7 +1,8 @@
 """The desk's history: every control move, undo and redo, checkpoints, and what changed between two points.
 
 A move is one control going from one value to another; moves of the same control within COALESCE_S of each other
-are one entry (a fader sweep is one step to undo). Undo writes the "from" values back; redo the "to" values. A
+are one entry (a fader sweep is one step to undo), and controls that move at the same moment (the parameters of a
+macro) are one entry together. Undo writes the "from" values back; redo the "to" values. A
 revert to a checkpoint is one entry too, so it can be undone.
 
 A checkpoint is the whole mix (hands.live.state: every fader, send, mute and device value of the set), saved as
@@ -26,6 +27,7 @@ from hands import config
 from hands.live import state as S
 
 COALESCE_S = 2.0          # one control moved again within this long: the same step
+TOGETHER_S = 0.3          # another control moved within this long of the step: the same gesture (a macro's parameters)
 EXPECT_S = 2.0            # a value the desk wrote itself (undo, redo, revert) is not a new move for this long
 KEEP = 500                # entries kept on disk
 HISTORY_DIR = Path("~/_agent_scratch/mixdesk/history").expanduser()
@@ -78,16 +80,23 @@ class History:
                 return False
             now = time.time()
             top = self.entries[-1] if self.entries and self.pos == len(self.entries) else None
-            if (top and top["k"] == "move" and len(top["moves"]) == 1 and top["moves"][0]["key"] == key
-                    and now - top["at"] < COALESCE_S):
-                top["moves"][0]["to"] = [shown, raw]
-                top["at"] = now
-                if same(top["moves"][0]["from"][1], raw):      # moved back where it started: no step at all
-                    self.entries.pop()
-                    self.pos -= 1
-            else:
-                self._push({"k": "move", "moves": [{"key": key, "label": self.labels.get(key, key),
-                                                    "from": before, "to": [shown, raw]}]})
+            if top and top["k"] == "move" and now - top["at"] < COALESCE_S:
+                mine = next((m for m in top["moves"] if m["key"] == key), None)
+                if mine is not None:                       # the same control, still moving
+                    mine["to"] = [shown, raw]
+                    top["at"] = now
+                    if same(mine["from"][1], raw) and len(top["moves"]) == 1:   # back where it started: no step
+                        self.entries.pop()
+                        self.pos -= 1
+                    self._save()
+                    return True
+                if now - top["at"] < TOGETHER_S:           # another control at the same moment: one gesture (a macro)
+                    top["moves"].append({"key": key, "label": self.labels.get(key, key), "from": before, "to": [shown, raw]})
+                    top["at"] = now
+                    self._save()
+                    return True
+            self._push({"k": "move", "moves": [{"key": key, "label": self.labels.get(key, key),
+                                                "from": before, "to": [shown, raw]}]})
             self._save()
             return True
 

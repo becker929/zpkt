@@ -6,897 +6,922 @@
 <title>HW002 mix desk</title>
 <style>
 :root {
-  --bg: #0e0f12; --panel: #17191e; --panel2: #1e2128; --line: #2c3039; --text: #e9eaee; --muted: #8b909c;
-  --accent: #ffb547; --accent-dim: #ffb54733; --on: #5fd38d; --ghost: #7aa7ff; --err: #ff6b6b;
-  --fs: 12px;
+  --bg: #0d0e11; --panel: #16181d; --tile: #1d2027; --line: #2e323c; --text: #f1f2f5; --muted: #969bab;
+  --accent: #ffb547; --accent-dim: #ffb54730; --on: #5fd38d; --ghost: #7aa7ff; --hl: #7aa7ff; --err: #ff6b6b;
 }
 @media (prefers-color-scheme: light) {
-  :root { --bg: #f3f2ef; --panel: #ffffff; --panel2: #f6f5f2; --line: #dedbd4; --text: #1c1d21; --muted: #6c6f78;
-          --accent: #d9820b; --accent-dim: #d9820b2a; --on: #1f9d55; --ghost: #3c6fd8; --err: #c93a3a; }
+  :root { --bg: #efeeea; --panel: #ffffff; --tile: #f5f4f0; --line: #d6d3cb; --text: #17181c; --muted: #5f636e;
+          --accent: #c97400; --accent-dim: #c9740026; --on: #17874a; --ghost: #2f62d0; --hl: #2f62d0; --err: #c93a3a; }
 }
 * { box-sizing: border-box; }
-html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text);
-  font: var(--fs)/1.3 -apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter", system-ui, sans-serif; }
-.split { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); height: 100vh; }
-.pane { overflow: auto; min-width: 0; display: flex; flex-direction: column; }
+html, body { margin: 0; height: 100%; overflow: hidden; background: var(--bg); color: var(--text);
+  font: 13px/1.3 -apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter", system-ui, sans-serif; }
+button, select, input, textarea { font: inherit; color: inherit; }
+.split { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); height: 100vh; height: 100dvh; }
+.pane { display: flex; flex-direction: column; gap: 8px; min-width: 0; min-height: 0; overflow: hidden; padding: 10px 12px; }
 .left { border-right: 1px solid var(--line); }
-.right { padding: 10px 14px 16px; gap: 10px; background: var(--bg); }
-header { display: flex; align-items: center; gap: 16px; padding: 10px 16px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
-header h1 { font-size: 15px; margin: 0; letter-spacing: .02em; font-weight: 650; }
-header .armed { font-size: 15px; color: var(--accent); font-weight: 650; }
-header .what { color: var(--muted); flex: 1; min-width: 200px; }
-.status { display: flex; align-items: center; gap: 6px; color: var(--muted); }
-.dot { width: 8px; height: 8px; border-radius: 50%; background: var(--err); }
+.row { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.sp { flex: 1; }
+.muted { color: var(--muted); }
+.btn, .seg button, select, .chip { border: 1px solid var(--line); background: var(--tile); border-radius: 8px; padding: 5px 10px; cursor: pointer; white-space: nowrap; }
+.btn:disabled { opacity: .35; cursor: default; }
+.btn.go { background: var(--accent); border-color: var(--accent); color: #1a1205; font-weight: 700; }
+.seg { display: inline-flex; min-width: 0; }
+.seg button { border-radius: 0; margin-left: -1px; }
+.seg button:first-child { border-radius: 8px 0 0 8px; margin-left: 0; }
+.seg button:last-child { border-radius: 0 8px 8px 0; }
+.seg button.on, .chip.on { background: var(--accent-dim); border-color: var(--accent); position: relative; z-index: 1; }
+select { min-width: 0; text-overflow: ellipsis; }
+h1 { font-size: 15px; margin: 0; font-weight: 700; letter-spacing: .01em; white-space: nowrap; }
+.status { display: flex; align-items: center; gap: 6px; color: var(--muted); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dot { width: 8px; height: 8px; border-radius: 50%; background: var(--err); flex: 0 0 auto; }
 .dot.ok { background: var(--on); }
-nav { display: flex; gap: 6px; padding: 8px 16px; border-bottom: 1px solid var(--line); overflow-x: auto; }
-nav button { flex: 0 0 auto; display: flex; align-items: center; gap: 8px; background: var(--panel); color: var(--text);
-  border: 1px solid var(--line); border-radius: 8px; padding: 7px 12px; font: inherit; cursor: pointer; }
-nav button .pad { font: 600 10px ui-monospace, Menlo, monospace; color: var(--muted); border: 1px solid var(--line);
-  border-radius: 4px; padding: 1px 4px; }
-nav button.on { border-color: var(--accent); background: var(--accent-dim); }
-nav button.on .pad { color: var(--accent); border-color: var(--accent); }
-main { flex: 1; display: block; padding: 10px 12px; }
-nav#tabs { display: none; }
-.pager { display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-bottom: 1px solid var(--line); }
-.pager select { flex: 1; min-width: 0; font: 600 14px/1.2 inherit; font-family: inherit; background: var(--panel2); color: var(--text);
-  border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px; }
-.pager .btn { font-size: 13px; padding: 6px 12px; }
-.pager .of { color: var(--muted); font: 11px ui-monospace, Menlo, monospace; white-space: nowrap; }
-.card:not(.on) { display: none; }
-.card.on { box-shadow: none; border-color: var(--line); }
-.card .what { font-size: 12px; min-height: 0; }
-.card h2 .chip { display: none; }
-.knobs { gap: 10px 6px; }
-.knob svg { width: 58px !important; height: 58px !important; }
-.lbl { font-size: 12px; }
-.val { font-size: 11px; color: var(--text); }
-.faders { grid-template-columns: repeat(4, 58px); gap: 6px; }
-.fader .lbl, .fader .val { max-width: 58px; }
-.track { width: 20px; height: clamp(120px, 24vh, 240px); }
-.padb { min-height: 52px; }
-.help { display: none; }
-body.showhelp .help { display: flex; }
-.qbtn { border: 1px solid var(--line); background: var(--panel2); color: var(--muted); border-radius: 50%; width: 22px; height: 22px; font: 700 12px/20px inherit; font-family: inherit; cursor: pointer; padding: 0; }
-.rpage { display: none; }
-.rpage.on { display: block; }
-.card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 10px; display: flex;
-  flex-direction: column; gap: 8px; cursor: pointer; transition: border-color .15s, opacity .15s; min-width: 0; }
-.card:not(.on) { opacity: .72; }
-.card:not(.on):hover { opacity: 1; }
-.card.on { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; opacity: 1; cursor: default; }
-.card h2 { margin: 0; font-size: 13px; display: flex; align-items: baseline; gap: 8px; }
-.card h2 .pad { font: 600 10px ui-monospace, Menlo, monospace; color: var(--muted); }
-.card.on h2 .pad { color: var(--accent); }
-.card h2 .chip { margin-left: auto; font-size: 10px; font-weight: 700; letter-spacing: .08em; color: var(--accent); }
-.card .what { color: var(--muted); font-size: 11px; min-height: 2.6em; }
-.body { display: grid; grid-template-columns: 1fr auto; gap: 10px; flex: 1; align-items: start; }
-.knobs { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px 4px; align-content: start; }
-.knob { display: flex; flex-direction: column; align-items: center; gap: 1px; min-width: 0; border-radius: 6px; padding: 2px 0; }
-.knob svg { width: 42px; height: 42px; }
-.knob .arc-bg { stroke: var(--line); }
-.knob .arc { stroke: var(--text); }
-.card.on .knob .arc { stroke: var(--accent); }
-.lbl { font-size: 11px; text-align: center; line-height: 1.15; max-width: 100%; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; min-height: 2.3em; }
-.val { font: 10px ui-monospace, Menlo, monospace; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
-.slot { font: 600 9px ui-monospace, Menlo, monospace; color: var(--muted); opacity: .8; }
-.faders { display: grid; grid-template-columns: repeat(4, 40px); gap: 3px; }
-.fader { display: flex; flex-direction: column; align-items: center; gap: 2px; min-width: 0; border-radius: 6px; }
-.track { position: relative; width: 14px; height: clamp(64px, 13vh, 150px); border-radius: 6px; background: var(--panel2); border: 1px solid var(--line); overflow: hidden; }
-.track .fill { position: absolute; left: 0; right: 0; bottom: 0; background: var(--text); opacity: .85; }
-.card.on .track .fill { background: var(--accent); }
-.track .ghost { position: absolute; left: -2px; right: -2px; height: 2px; background: var(--ghost); display: none; }
+.qbtn { border: 1px solid var(--line); background: var(--tile); color: var(--muted); border-radius: 50%; width: 24px; height: 24px; padding: 0; font-weight: 700; cursor: pointer; flex: 0 0 auto; }
+.paneswitch, .narrowonly { display: none; }
+
+/* ---- left: one control page ---- */
+.pager select { flex: 1; font-size: 15px; font-weight: 650; padding: 7px 8px; }
+.pager .btn { font-size: 14px; padding: 7px 14px; }
+.of { color: var(--muted); font: 12px ui-monospace, Menlo, monospace; white-space: nowrap; }
+#nchg { color: var(--muted); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#nchg b { color: var(--hl); }
+.stage { flex: 1; min-height: 0; position: relative; }
+.card { position: absolute; inset: 0; display: none; grid-template-rows: auto minmax(0, 1fr) auto; gap: 10px;
+  background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 12px; }
+.card.on { display: grid; animation: cardin .16s ease-out; }
+@keyframes cardin { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+.chead { display: flex; align-items: baseline; gap: 10px; min-width: 0; }
+.chead .pad { font: 700 12px ui-monospace, Menlo, monospace; color: var(--accent); border: 1px solid var(--accent); border-radius: 5px; padding: 1px 6px; flex: 0 0 auto; }
+.chead .name { font-size: 18px; font-weight: 700; white-space: nowrap; }
+.chead .what { color: var(--muted); font-size: 12.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.cbody { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; min-height: 0; }
+.knobs { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); grid-template-rows: repeat(2, minmax(0, 1fr)); gap: 8px; min-height: 0; }
+.faders { display: grid; grid-template-columns: repeat(4, clamp(52px, 4.2vw, 70px)); gap: 8px; min-height: 0; }
+.pads { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); gap: 8px; height: clamp(58px, 10vh, 92px); }
+.ctl { position: relative; background: var(--tile); border: 1.5px solid var(--line); border-radius: 12px; padding: 16px 6px 6px;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; min-width: 0; min-height: 0; overflow: hidden;
+  transition: opacity .18s ease, border-color .25s ease, background-color .25s ease; }
+.ctl .tag { position: absolute; top: 4px; left: 7px; font: 700 10px ui-monospace, Menlo, monospace; color: var(--muted); letter-spacing: .04em; }
+.ctl .lbl { font-size: clamp(11.5px, 1.5vh, 14px); font-weight: 650; text-align: center; line-height: 1.15; max-width: 100%;
+  overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.ctl .val { font: 700 clamp(12px, 1.8vh, 15px) ui-monospace, Menlo, monospace; white-space: nowrap; letter-spacing: -.02em; }
+.ctl.empty { opacity: .28; border-style: dashed; }
+.ctl.empty .lbl { color: var(--muted); font-weight: 500; }
+.ctl.touch { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 10%, var(--tile)); transition-duration: 0s; }
+.ctl.err .val { color: var(--err); font-weight: 600; }
+.dial { position: relative; width: min(100%, clamp(54px, 15vh, 150px)); aspect-ratio: 1; flex: 0 1 auto; min-height: 0; }
+.dial svg { width: 100%; height: 100%; display: block; }
+.dial .arc-bg { stroke: var(--line); }
+.dial .arc { stroke: var(--accent); }
+.ctl .val b { font-weight: 700; }
+.ctl .val small { font: 600 .72em -apple-system, system-ui, sans-serif; color: var(--muted); margin-left: 3px; letter-spacing: 0; }
+.knob .val { font-size: clamp(14px, 2.1vh, 19px); margin-top: -18%; max-width: 100%; }
+.fader .val { display: flex; flex-direction: column; align-items: center; line-height: 1.05; font-size: clamp(13px, 1.9vh, 16px); }
+.fader .val small { margin-left: 0; }
+.knob .lbl { color: var(--muted); }
+.fader .lbl { color: var(--muted); }
+.fader { justify-content: flex-start; }
+.ftrack { position: relative; flex: 1; min-height: 30px; width: clamp(22px, 2.4vw, 34px); border-radius: 8px; background: var(--bg); border: 1.5px solid var(--line); overflow: hidden; }
+.ftrack .fill { position: absolute; left: 0; right: 0; bottom: 0; height: 100%; background: var(--accent); transform-origin: bottom; transform: scaleY(0); will-change: transform; }
+.ftrack .ghost { position: absolute; left: 0; right: 0; height: 3px; background: var(--ghost); display: none; }
 .fader.waiting .ghost { display: block; }
-.fader .lbl, .fader .val { max-width: 40px; }
-.pads { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); gap: 4px; }
-.padb { border: 1px solid var(--line); border-radius: 6px; background: var(--panel2); padding: 4px 2px; min-height: 46px;
-  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; min-width: 0; cursor: pointer; }
-.padb.lit { background: color-mix(in srgb, var(--on) 22%, var(--panel2)); border-color: var(--on); }
-.padb.empty, .knob.empty, .fader.empty { opacity: .28; cursor: default; }
-.padb .lbl { font-size: 10px; min-height: 0; }
-.err .val { color: var(--err); }
-.flash { animation: flash .6s ease-out; }
-@keyframes flash { 0% { background: var(--accent-dim); box-shadow: 0 0 0 2px var(--accent); } 100% { background: transparent; box-shadow: none; } }
-footer { padding: 6px 16px 12px; color: var(--muted); display: flex; gap: 18px; flex-wrap: wrap; }
-footer b { color: var(--text); font-weight: 600; }
-@media (max-width: 1000px) { .split { display: block; height: auto; } .pane { overflow: visible; } .left { border-right: 0; } }
-@media (max-width: 760px) {
-  .knob svg { width: 44px !important; height: 44px !important; }
-  .faders { grid-template-columns: repeat(4, 44px); }
-}
-
-/* history, checkpoints and what changed */
-.hbar { display: flex; align-items: center; gap: 6px; padding: 7px 12px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
-.hbar .sep { width: 1px; height: 20px; background: var(--line); margin: 0 4px; }
-.hbar select, .hbar input { font: inherit; background: var(--panel2); color: var(--text); border: 1px solid var(--line); border-radius: 7px; padding: 3px 6px; max-width: 170px; }
-.hbar input { width: 120px; }
-.hbar .btn:disabled { opacity: .35; cursor: default; }
-.hbar .n { color: var(--muted); font-size: 11px; }
-.hbar .n b { color: var(--ghost); }
-:root { --hl: var(--ghost); }
-.knob, .fader, .padb { position: relative; transition: opacity .15s; }
-.dim { opacity: .22 !important; }
+.padb { padding: 14px 4px 4px; cursor: pointer; }
+.padb .st { font: 700 11px ui-monospace, Menlo, monospace; color: var(--muted); }
+.padb.lit { background: color-mix(in srgb, var(--on) 24%, var(--tile)); border-color: var(--on); }
+.padb.lit .st { color: var(--on); }
+.padb .lbl { font-size: clamp(10.5px, 1.35vh, 12.5px); }
+.dim { opacity: .2; }
 .gone { visibility: hidden; }
-.card.gone { display: none; }
-.hl { box-shadow: 0 0 0 2px var(--hl) inset; background: color-mix(in srgb, var(--hl) 12%, transparent); }
-.was { font: 9.5px ui-monospace, Menlo, monospace; color: var(--hl); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; display: none; }
+.hl { border-color: var(--hl); background: color-mix(in srgb, var(--hl) 13%, var(--tile)); }
+.was { font: 600 10.5px ui-monospace, Menlo, monospace; color: var(--hl); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; display: none; }
 .hl .was { display: block; }
-.rv { position: absolute; top: 1px; right: 1px; display: none; border: 1px solid var(--hl); color: var(--hl); background: var(--panel);
-  border-radius: 5px; font: 600 9px ui-monospace, Menlo, monospace; padding: 0 3px; cursor: pointer; line-height: 14px; }
+.rv { position: absolute; top: 3px; right: 4px; display: none; border: 1px solid var(--hl); color: var(--hl); background: var(--panel);
+  border-radius: 6px; font: 700 10px ui-monospace, Menlo, monospace; padding: 1px 5px; cursor: pointer; }
 .hl .rv.can { display: block; }
-nav button .cnt { font: 700 10px ui-monospace, Menlo, monospace; color: var(--bg); background: var(--hl); border-radius: 8px; padding: 0 5px; }
-.hist { margin: 0 12px 10px; }
-.hist h3 { margin: 0 0 4px; font-size: 12px; letter-spacing: .04em; color: var(--muted); font-weight: 650; text-transform: uppercase; display: flex; gap: 8px; align-items: baseline; }
-.hist ol { list-style: none; margin: 0; padding: 0; max-height: 26vh; overflow: auto; border: 1px solid var(--line); border-radius: 10px; background: var(--panel); }
-.hist li { display: flex; gap: 8px; align-items: baseline; padding: 4px 8px; border-bottom: 1px solid var(--line); font-size: 11.5px; }
-.hist li:last-child { border-bottom: 0; }
-.hist li .t { font: 10px ui-monospace, Menlo, monospace; color: var(--muted); flex: 0 0 auto; }
-.hist li .m { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.hist li .m i { font-style: normal; color: var(--muted); }
-.hist li.undone { opacity: .42; }
-.hist li.undone .m { text-decoration: line-through; }
-.hist li.cp { background: var(--panel2); }
-.hist li.cp .m { font-weight: 650; }
-.hist li.here { box-shadow: 0 2px 0 var(--accent) inset; }
-.hist li button { font: inherit; font-size: 10.5px; border: 1px solid var(--line); background: var(--panel); color: var(--text); border-radius: 6px; padding: 1px 6px; cursor: pointer; }
+.macro .tag::after { content: " MACRO"; color: var(--accent); }
 
-/* right half: listen and see */
-.right h3 { margin: 0 0 4px; font-size: 12px; letter-spacing: .04em; color: var(--muted); font-weight: 650; text-transform: uppercase; }
-.box { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 10px; }
+/* make a surface */
+.make { grid-template-rows: auto auto auto minmax(0, 1fr); }
+.make textarea { width: 100%; height: clamp(70px, 16vh, 150px); resize: none; background: var(--tile); border: 1.5px solid var(--line); border-radius: 10px; padding: 10px; font-size: 14px; line-height: 1.35; }
+.make .list { min-height: 0; overflow: hidden; display: flex; flex-direction: column; gap: 6px; }
+.make .item { display: flex; align-items: center; gap: 8px; background: var(--tile); border: 1px solid var(--line); border-radius: 10px; padding: 7px 10px; min-width: 0; }
+.make .item b { white-space: nowrap; }
+.make .item span { color: var(--muted); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1; min-width: 0; }
+#mkStatus { color: var(--muted); font-size: 12.5px; min-height: 1.3em; }
+#mkStatus.err { color: var(--err); }
+
+/* ---- right: listen and see ---- */
 .abc { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
-.abc button { text-align: left; border: 1px solid var(--line); background: var(--panel2); color: var(--text); border-radius: 10px;
-  padding: 8px 10px; font: inherit; cursor: pointer; border-left: 5px solid var(--c); min-width: 0; }
-.abc button .k { font: 700 18px ui-monospace, Menlo, monospace; color: var(--c); }
-.abc button .n { font-weight: 650; margin-left: 6px; }
-.abc button .w { display: block; color: var(--muted); font-size: 10.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.abc button .l { display: block; font: 10.5px ui-monospace, Menlo, monospace; color: var(--muted); }
-.abc button.on { background: color-mix(in srgb, var(--c) 18%, var(--panel2)); border-color: var(--c); box-shadow: 0 0 0 1px var(--c) inset; }
-.row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-.row .sp { flex: 1; }
-.chip2, .seg button, .btn { border: 1px solid var(--line); background: var(--panel2); color: var(--text); border-radius: 7px; padding: 4px 9px; font: inherit; cursor: pointer; }
-.seg { display: inline-flex; } .seg button { border-radius: 0; margin-left: -1px; } .seg button:first-child { border-radius: 7px 0 0 7px; margin-left: 0; } .seg button:last-child { border-radius: 0 7px 7px 0; }
-.seg button.on, .chip2.on { background: var(--accent-dim); border-color: var(--accent); color: var(--text); }
-.btn.play { font-weight: 700; min-width: 74px; background: var(--accent); color: #1a1205; border-color: var(--accent); }
-.time { font: 12px ui-monospace, Menlo, monospace; color: var(--muted); }
-label.chk { display: inline-flex; align-items: center; gap: 5px; color: var(--muted); cursor: pointer; }
-canvas { width: 100%; display: block; border-radius: 8px; }
-#wave { height: 64px; cursor: pointer; }
-#spec { height: clamp(220px, 34vh, 360px); }
-#tl { height: clamp(120px, 20vh, 190px); cursor: pointer; }
-table.params { width: 100%; border-collapse: collapse; font: 11.5px ui-monospace, Menlo, monospace; }
-table.params th { text-align: right; color: var(--muted); font-weight: 600; padding: 3px 6px; border-bottom: 1px solid var(--line); }
-table.params td { text-align: right; padding: 3px 6px; }
-table.params th:first-child, table.params td:first-child { text-align: left; }
+.abc button { text-align: left; border: 1.5px solid var(--line); border-left: 6px solid var(--c); background: var(--tile); border-radius: 10px; padding: 6px 10px; cursor: pointer; min-width: 0; }
+.abc .k { font: 800 20px ui-monospace, Menlo, monospace; color: var(--c); }
+.abc .n { font-weight: 650; margin-left: 6px; }
+.abc .l { display: block; font: 11px ui-monospace, Menlo, monospace; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.abc button.on { background: color-mix(in srgb, var(--c) 20%, var(--tile)); border-color: var(--c); }
+.time { font: 600 13px ui-monospace, Menlo, monospace; white-space: nowrap; }
+.cwrap { position: relative; min-height: 0; }
+.cwrap canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; border-radius: 8px; }
+.cwrap .ph { position: absolute; top: 0; bottom: 0; left: 0; width: 2px; background: var(--text); pointer-events: none; will-change: transform; }
+#wavewrap { height: 40px; cursor: pointer; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+.view { flex: 1; min-height: 0; position: relative; }
+.rpage { position: absolute; inset: 0; display: none; flex-direction: column; gap: 8px; background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 10px; }
+.rpage.on { display: flex; animation: cardin .16s ease-out; }
+.rpage .cwrap { flex: 1; }
+.legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 12px; color: var(--muted); }
+.legend i { display: inline-block; width: 16px; height: 4px; vertical-align: middle; margin-right: 5px; border-radius: 2px; }
+table.params { width: 100%; border-collapse: collapse; font: 13px ui-monospace, Menlo, monospace; }
+table.params th { text-align: right; color: var(--muted); font-weight: 600; padding: 6px 8px; border-bottom: 1px solid var(--line); }
+table.params td { text-align: right; padding: 6px 8px; }
+table.params th:first-child, table.params td:first-child { text-align: left; font-family: inherit; }
 table.params td .d { color: var(--muted); }
-.note { color: var(--muted); font-size: 11px; margin-top: 4px; }
-.legend { display: flex; gap: 12px; flex-wrap: wrap; font-size: 11px; color: var(--muted); margin-top: 4px; }
-.legend i { display: inline-block; width: 14px; height: 3px; vertical-align: middle; margin-right: 4px; border-radius: 2px; }
+#hist { list-style: none; margin: 0; padding: 0; flex: 1; min-height: 0; overflow: hidden; border: 1px solid var(--line); border-radius: 10px; background: var(--tile); }
+#hist li { display: flex; gap: 8px; align-items: center; padding: 0 10px; height: 28px; border-bottom: 1px solid var(--line); font-size: 12.5px; }
+#hist li .t { font: 11px ui-monospace, Menlo, monospace; color: var(--muted); flex: 0 0 auto; }
+#hist li .m { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#hist li .m i { font-style: normal; color: var(--muted); }
+#hist li.undone { opacity: .42; }
+#hist li.undone .m { text-decoration: line-through; }
+#hist li.cp .m { font-weight: 700; }
+#hist li.here { box-shadow: 0 2px 0 var(--accent) inset; }
+#hist li button { font-size: 11px; border: 1px solid var(--line); background: var(--panel); border-radius: 6px; padding: 1px 7px; cursor: pointer; }
+#cpname { background: var(--tile); border: 1px solid var(--line); border-radius: 8px; padding: 5px 8px; width: 150px; min-width: 0; }
+
+/* help */
+#helpbox { display: none; position: fixed; inset: 0; background: #0009; z-index: 10; align-items: center; justify-content: center; padding: 20px; }
+body.showhelp #helpbox { display: flex; }
+#helpbox > div { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 18px 22px; max-width: 760px; display: grid; grid-template-columns: 1fr 1fr; gap: 6px 26px; font-size: 13px; }
+#helpbox h3 { margin: 0 0 4px; font-size: 13px; grid-column: 1 / -1; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
+#helpbox kbd { font: 700 11.5px ui-monospace, Menlo, monospace; border: 1px solid var(--line); border-radius: 5px; padding: 1px 5px; background: var(--tile); }
+
+@media (max-width: 900px) {
+  .split { grid-template-columns: minmax(0, 1fr); }
+  .paneswitch { display: inline-flex; }
+  .narrowonly { display: flex; }
+  .right .row { flex-wrap: wrap; row-gap: 6px; }
+  .right .seg button, .right .chip, .right .btn { padding: 5px 8px; }
+  .abc .n { display: none; }
+  .left .status { display: none; }
+  #nchg { flex-basis: 100%; }
+  .left > .row { flex-wrap: wrap; row-gap: 6px; }
+  .left > .row.pager { flex-wrap: nowrap; }
+  body[data-pane="left"] .right, body[data-pane="right"] .left { display: none; }
+  .left { border-right: 0; }
+  .faders { grid-template-columns: repeat(4, clamp(44px, 11vw, 70px)); }
+  .chead .what { display: none; }
+}
 </style>
 </head>
-<body>
+<body data-pane="left">
 <div class="split">
 <div class="pane left">
-<header>
-  <h1>HW002 mix desk</h1>
-  <span class="armed" id="armed">–</span>
-  <span class="what" id="what"></span>
-  <span class="status"><span class="dot" id="dot"></span><span id="status">connecting</span></span>
-  <button class="qbtn" id="help" title="What the MiniLab's controls do">?</button>
-</header>
-<nav id="tabs"></nav>
-<div class="pager">
-  <button class="btn" id="prevpg" title="Previous page (also arms it on the MiniLab)">‹ Prev</button>
-  <select id="pagesel" title="Pick a page: it is armed on the MiniLab"></select>
-  <span class="of" id="pageof"></span>
-  <button class="btn" id="nextpg" title="Next page (also arms it on the MiniLab)">Next ›</button>
-</div>
-<div class="hbar">
-  <button class="btn" id="undo" title="Undo (Z)">Undo</button>
-  <button class="btn" id="redo" title="Redo (Shift+Z)">Redo</button>
-  <span class="sep"></span>
-  <span class="n">Show</span>
-  <span class="seg" id="view"><button data-v="normal" class="on" title="Every control as it is">All</button><button data-v="hl" title="Light up what changed since the checkpoint, dim the rest">Changes lit</button><button data-v="only" title="Only the controls that changed; Prev/Next skip pages with none">Only changes</button></span>
-  <span class="n" id="nchg"></span>
-</div>
-<main id="cards"></main>
-<footer class="help">
-  <span><b>Pads A1–A8</b> or the <b>big encoder</b>: arm a page; press the pad again for its second layer (A2·2)</span>
-  <span><b>Knobs 1–8</b>: snap to the armed page's values</span>
-  <span><b>Faders 1–4</b>: pick up once they pass the value (blue line = where the fader is)</span>
-  <span><b>Pads B1–B8</b>: the page's switches</span>
-  <span>Click a page here to arm it; click a lit pad to flip it</span>
-</footer>
+  <div class="row">
+    <h1>HW002 mix desk</h1>
+    <span class="status"><span class="dot" id="dot"></span><span id="status">connecting</span></span>
+    <span class="sp"></span>
+    <span class="seg paneswitch"><button data-pane="left" class="on">Controls</button><button data-pane="right">Monitor</button></span>
+    <button class="qbtn" id="help" title="Keys and what the MiniLab's controls do (?)">?</button>
+  </div>
+  <div class="row pager">
+    <button class="btn" id="prevpg" title="Previous page ([) — arms it on the MiniLab too">‹ Prev</button>
+    <select id="pagesel" title="Pick a page: it is armed on the MiniLab"></select>
+    <span class="of" id="pageof"></span>
+    <button class="btn" id="nextpg" title="Next page (]) — arms it on the MiniLab too">Next ›</button>
+  </div>
+  <div class="row">
+    <button class="btn" id="undo" title="Undo (Z)">Undo</button>
+    <button class="btn" id="redo" title="Redo (Shift+Z)">Redo</button>
+    <span class="seg" id="view"><button data-v="normal" class="on" title="Every control as it is">All</button><button data-v="hl" title="Light up what changed since the checkpoint, dim the rest">Changes lit</button><button data-v="only" title="Only the controls that changed; Prev/Next skip pages with none">Only changes</button></span>
+    <span id="nchg"></span>
+  </div>
+  <div class="stage" id="cards"></div>
 </div>
 <div class="pane right" id="viz">
+  <div class="row narrowonly"><h1>HW002 mix desk</h1><span class="sp"></span><span class="seg paneswitch"><button data-pane="left">Controls</button><button data-pane="right" class="on">Monitor</button></span></div>
   <div class="abc" id="abc"></div>
-  <div class="box">
-    <div class="row">
-      <button class="btn play" id="play">Play</button>
-      <span class="time" id="time">0:00.0 · bar 1</span>
-      <span class="sp"></span>
-      <span class="seg" id="loop"><button data-v="off" class="on">No loop</button><button data-v="build">Loop build</button><button data-v="drop">Loop drop</button></span>
-      <label class="chk"><input type="checkbox" id="match" checked>Match loudness</label>
-    </div>
-    <canvas id="wave" style="margin-top:8px"></canvas>
-    <div class="row" id="refs" style="margin-top:6px"></div>
-    <div class="note help">Everything you hear is Live: <b>Play</b> runs Live's transport. <b>W</b> is your working mix, live, with your controls; <b>A</b> (original), <b>B</b> (the recipe's reference match) and <b>C</b> (the reference) are renders, as audio in the arrangement. The curves are A, B and C; W has none (it is live). Keys: <b>A</b> <b>B</b> <b>W</b> <b>C</b> switch · <b>Space</b> play/pause · <b>←/→</b> one bar · <b>1–4</b> pick the reference. The reference clips start on the drop (ref 0 s = bar 17).</div>
+  <div class="row">
+    <button class="btn go" id="play" style="min-width:76px">Play</button>
+    <span class="time" id="time">0:00.0 · bar 1</span>
+    <span class="sp"></span>
+    <span class="seg" id="loop"><button data-v="off" class="on" title="No loop">Whole</button><button data-v="build" title="Loop the build">Build</button><button data-v="drop" title="Loop the drop">Drop</button></span>
+    <button class="chip on" id="match" title="Play A, B and the reference at the same loudness">Level-matched</button>
   </div>
-  <div class="pager" style="border:0;padding:0">
-    <button class="btn" id="prevv">‹ Prev</button>
+  <div class="cwrap" id="wavewrap"><canvas id="wave"></canvas><div class="ph" id="phWave"></div></div>
+  <div class="row" id="refs" style="display:none"></div>
+  <div class="row">
+    <button class="btn" id="prevv" title="Previous view (,)">‹</button>
     <span class="seg" id="vtabs" style="flex:1;justify-content:center"><button data-v="spec" class="on">Spectrum</button><button data-v="time">Over time</button><button data-v="nums">Numbers</button><button data-v="chg">Changes</button></span>
-    <button class="btn" id="nextv">Next ›</button>
+    <button class="btn" id="nextv" title="Next view (.)">›</button>
   </div>
-  <div class="box rpage on" data-p="spec">
-    <div class="row"><h3 style="margin:0">Spectrum</h3><span class="sp"></span>
-      <span class="seg" id="sec"><button data-v="build">Build</button><button data-v="drop" class="on">Drop</button></span>
-      <span class="seg" id="mode"><button data-v="abs" class="on">Levels</button><button data-v="rel">vs reference</button><button data-v="chg">Moves</button></span>
-      <label class="chk"><input type="checkbox" id="tilt" checked>+4.5 dB/oct tilt</label>
+  <div class="view">
+    <div class="rpage on" data-p="spec">
+      <div class="row">
+        <span class="seg" id="sec"><button data-v="build">Build</button><button data-v="drop" class="on">Drop</button></span>
+        <span class="seg" id="mode"><button data-v="abs" class="on" title="Level per band">Levels</button><button data-v="rel" title="Each curve minus the reference">vs reference</button><button data-v="chg" title="Each curve minus the original">vs original</button></span>
+        <span class="sp"></span>
+        <button class="chip on" id="tilt" title="Tilt +4.5 dB per octave, so a typical mix looks flat">Tilt</button>
+      </div>
+      <div class="cwrap"><canvas id="spec"></canvas></div>
+      <div class="legend" id="specleg"></div>
     </div>
-    <canvas id="spec" style="margin-top:6px"></canvas>
-    <div class="legend" id="specleg"></div>
-    <div class="note" id="specnote"></div>
-  </div>
-  <div class="box rpage" data-p="time">
-    <div class="row"><h3 style="margin:0">Over time</h3><span class="sp"></span>
-      <span class="seg" id="metric"><button data-v="lufs" class="on">Loudness</button><button data-v="crest">Crest</button><button data-v="width">Width</button><button data-v="bass_corr">Bass mono</button><button data-v="low">Low</button><button data-v="mid">Mid</button><button data-v="high">High</button></span>
+    <div class="rpage" data-p="time">
+      <div class="row"><span class="seg" id="metric"><button data-v="lufs" class="on">Loudness</button><button data-v="crest">Crest</button><button data-v="width">Width</button><button data-v="bass_corr">Bass mono</button><button data-v="low">Low</button><button data-v="mid">Mid</button><button data-v="high">High</button></span></div>
+      <div class="cwrap" style="cursor:pointer"><canvas id="tl"></canvas><div class="ph" id="phTl"></div></div>
+      <div class="legend" id="tlnote"></div>
     </div>
-    <canvas id="tl" style="margin-top:6px"></canvas>
-    <div class="note" id="tlnote"></div>
-  </div>
-  <div class="box rpage" data-p="nums">
-    <div class="row"><h3 style="margin:0">Numbers</h3><span class="sp"></span><span class="note" id="tabnote" style="margin:0"></span></div>
-    <table class="params" id="params"></table>
-  </div>
-  <div class="box rpage" data-p="chg">
-    <div class="row"><h3 style="margin:0">Changes</h3><span class="sp"></span>
-      <input id="cpname" placeholder="name (optional)" maxlength="60" style="font:inherit;background:var(--panel2);color:var(--text);border:1px solid var(--line);border-radius:7px;padding:3px 6px;width:130px">
-      <button class="btn" id="cp" title="Save the whole mix as a checkpoint">Save checkpoint</button>
+    <div class="rpage" data-p="nums">
+      <div class="row"><span class="muted" id="tabnote"></span></div>
+      <table class="params" id="params"></table>
     </div>
-    <div class="row" style="margin-top:8px">
-      <span class="note" style="margin:0">Compare from</span><select id="cmpA" class="chip2" title="The checkpoint to compare from"></select>
-      <span class="note" style="margin:0">to</span><select id="cmpB" class="chip2" title="Now, or another checkpoint"></select>
+    <div class="rpage" data-p="chg">
+      <div class="row">
+        <input id="cpname" placeholder="checkpoint name" maxlength="60">
+        <button class="btn" id="cp" title="Save the whole mix as a checkpoint">Save checkpoint</button>
+        <span class="sp"></span>
+        <span class="muted">from</span><select id="cmpA" title="The checkpoint to compare from"></select>
+        <span class="muted">to</span><select id="cmpB" title="Now, or another checkpoint"></select>
+      </div>
+      <div class="row">
+        <button class="btn" id="revshown" title="Every changed desk control back to the 'from' checkpoint (one step, undoable)">Revert changed controls</button>
+        <button class="btn" id="revall" title="The whole mix back to the 'from' checkpoint, controls outside the desk too">Revert whole mix</button>
+        <span class="sp"></span>
+        <span class="muted" id="histn"></span>
+        <button class="btn" id="histNewer" title="Newer steps">‹</button>
+        <button class="btn" id="histOlder" title="Older steps">›</button>
+      </div>
+      <ol id="hist"></ol>
     </div>
-    <div class="row" style="margin-top:8px">
-      <button class="btn" id="revshown" title="Every changed desk control back to the 'from' checkpoint (one step, undoable)">Revert the changed controls</button>
-      <button class="btn" id="revall" title="The whole mix back to the 'from' checkpoint, controls outside the desk too">Revert the whole mix</button>
-    </div>
-    <div class="note">The left side lights up what differs (Show: Changes lit). A checkpoint is the whole mix, saved as a file; every state in the set's state folder is one (B is the recipe).</div>
-    <section class="hist" style="margin:10px 0 0"><h3>History <span class="n" id="histn"></span></h3><ol id="hist"></ol></section>
   </div>
 </div>
 </div>
+<div id="helpbox"><div>
+  <h3>Keys</h3>
+  <span><kbd>[</kbd> <kbd>]</kbd> control page</span><span><kbd>,</kbd> <kbd>.</kbd> monitor view</span>
+  <span><kbd>A</kbd> <kbd>B</kbd> <kbd>W</kbd> <kbd>C</kbd> what you hear</span><span><kbd>1</kbd>–<kbd>4</kbd> which reference</span>
+  <span><kbd>Space</kbd> play / pause</span><span><kbd>←</kbd> <kbd>→</kbd> one bar</span>
+  <span><kbd>Z</kbd> undo · <kbd>Shift</kbd>+<kbd>Z</kbd> redo</span><span><kbd>Tab</kbd> controls / monitor (small windows)</span>
+  <h3 style="margin-top:10px">MiniLab 3</h3>
+  <span>Pads A1–A8 or the big encoder: arm a page (press again for its second layer)</span>
+  <span>Knobs 1–8: snap to the page's values</span>
+  <span>Faders 1–4: pick up once they pass the value (blue line = where the fader is)</span>
+  <span>Pads B1–B8: the page's switches</span>
+  <h3 style="margin-top:10px">What plays</h3>
+  <span style="grid-column:1/-1">Everything you hear is Live. W is your working mix, live. A (original), B (the recipe's reference match) and C (the reference) are renders in the arrangement. The blue spectrum curve is what Live plays now, measured on Main.</span>
+</div></div>
 <script>
-const KNOB_SLOTS = ["k1","k2","k3","k4","k5","k6","k7","k8"];
-const FADER_SLOTS = ["f1","f2","f3","f4"];
-const PAD_SLOTS = ["b1","b2","b3","b4","b5","b6","b7","b8"];
+"use strict";
+const $ = (id) => document.getElementById(id);
+const KNOB_SLOTS = ["k1","k2","k3","k4","k5","k6","k7","k8"], FADER_SLOTS = ["f1","f2","f3","f4"], PAD_SLOTS = ["b1","b2","b3","b4","b5","b6","b7","b8"];
+const ALL_SLOTS = [...KNOB_SLOTS, ...FADER_SLOTS, ...PAD_SLOTS];
 let desk = null, state = { page: 0, values: {}, hw: {}, picked: {}, attached: false, live: "" };
-const el = {};   // "page:slot" -> element
+const el = {};                 // "page:slot" -> its tile; "card:i" -> the page's card
+const ui = { make: false };    // the Make a surface page is this page's own (it is not a MiniLab page)
+const H = { view: "normal", a: "", b: "now", va: null, vb: null, changed: {}, perPage: {}, hist: null, histPage: 0 };
+const post = (path, body) => fetch(path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body || {}) }).then((r) => r.json()).catch(() => ({}));
+const esc = (x) => String(x).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 
+// ====================================================================================================================
+// left: the controls
 const label = (c) => c.label || (c.param === "volume" ? c.track : c.param.startsWith("send:") ? `${c.track} → ${c.param.slice(5)}`
   : (c.param === "mute" || c.param === "solo") ? `${c.track.replace(/ bus$/, "")} ${c.param}` : `${c.device} ${c.param}`);
+const tip = (c) => c.macro ? `Macro: ${c.macro.map((m) => `${m.track}${m.device ? " / " + m.device : ""} / ${m.param} (${m.from} → ${m.to})`).join("; ")}`
+  : `${c.track}${c.device ? " / " + c.device : ""} / ${c.param}`;
 
 function arcPath(n) {
-  const a0 = -225, a1 = a0 + 270 * Math.max(0, Math.min(1, n));
-  const r = 15, cx = 20, cy = 20, rad = (a) => a * Math.PI / 180;
-  const p = (a) => [cx + r * Math.cos(rad(a)), cy + r * Math.sin(rad(a))];
-  const [x0, y0] = p(a0), [x1, y1] = p(a1);
+  const a0 = -225, a1 = a0 + 270 * Math.max(0.004, Math.min(1, n)), r = 38, rad = (a) => a * Math.PI / 180;
+  const p = (a) => [50 + r * Math.cos(rad(a)), 50 + r * Math.sin(rad(a))], [x0, y0] = p(a0), [x1, y1] = p(a1);
   return `M${x0.toFixed(2)},${y0.toFixed(2)} A${r},${r} 0 ${a1 - a0 > 180 ? 1 : 0} 1 ${x1.toFixed(2)},${y1.toFixed(2)}`;
 }
-
-// the bank-A pad of each page, and its layer on that pad: pages that share a pad are flipped by pressing it again
 function padLabel(i) {
   const padOf = (k) => desk.pages[k].pad != null ? Number(desk.pages[k].pad) : (k < 8 ? k + 1 : null);
   const p = padOf(i);
-  if (p == null) return "enc";
+  if (p == null) return desk.pages[i].surface ? "made" : "enc";
   const layer = desk.pages.slice(0, i).filter((_, k) => padOf(k) === p).length;
   return layer ? `A${p}·${layer + 1}` : `A${p}`;
 }
 
-function build() {
-  const tabs = document.getElementById("tabs"), cards = document.getElementById("cards");
-  tabs.innerHTML = ""; cards.innerHTML = "";
-  desk.pages.forEach((pg, i) => {
-    const b = document.createElement("button");
-    b.innerHTML = `<span class="pad">${padLabel(i)}</span>${pg.name}`;
-    b.onclick = () => arm(i);
-    tabs.appendChild(b); el[`tab:${i}`] = b;
+function tile(kind, c, tag, page, slot) {
+  const d = document.createElement("div");
+  d.className = `ctl ${kind}` + (c ? "" : " empty") + (c && c.macro ? " macro" : "");
+  const lbl = `<span class="lbl">${c ? esc(label(c)) : "—"}</span>`;
+  if (kind === "knob") d.innerHTML = `<span class="tag">${tag}</span><div class="dial"><svg viewBox="0 0 100 100"><path class="arc-bg" d="${arcPath(1)}" fill="none" stroke-width="9" stroke-linecap="round"/><path class="arc" d="" fill="none" stroke-width="9" stroke-linecap="round"/></svg></div><span class="val"></span>${lbl}`;
+  else if (kind === "fader") d.innerHTML = `<span class="tag">${tag}</span><span class="val"></span><div class="ftrack"><div class="fill"></div><div class="ghost"></div></div>${lbl}`;
+  else d.innerHTML = `<span class="tag">${tag}</span>${lbl}<span class="st"></span>`;
+  if (c) {
+    d.title = tip(c);
+    d.insertAdjacentHTML("beforeend", `<span class="was"></span><span class="rv">revert</span>`);
+    d.querySelector(".rv").onclick = (ev) => {
+      ev.stopPropagation();
+      const v = state.values[`${page}:${slot}`];
+      if (v && v.key && H.b === "now") post("/api/revert", { to: H.a, keys: [v.key] });
+    };
+    if (kind === "padb") d.onclick = () => post("/api/toggle", { page, slot });
+  }
+  el[`${page}:${slot}`] = d;
+  return d;
+}
 
+function build() {
+  const cards = $("cards");
+  cards.innerHTML = "";
+  Object.keys(el).forEach((k) => delete el[k]);
+  shown.clear();
+  desk.pages.forEach((pg, i) => {
     const card = document.createElement("section");
     card.className = "card";
-    card.innerHTML = `<h2><span class="pad">${padLabel(i)}</span>${pg.name}<span class="chip"></span></h2><div class="what">${pg.what || ""}</div>`;
-    card.onclick = (ev) => { if (state.page !== i && !ev.target.closest(".padb")) arm(i); };
-    const body = document.createElement("div"); body.className = "body";
+    card.innerHTML = `<div class="chead"><span class="pad">${padLabel(i)}</span><span class="name">${esc(pg.name)}</span><span class="what" title="${esc(pg.what || "")}">${esc(pg.what || "")}</span></div>`;
+    const body = document.createElement("div"); body.className = "cbody";
     const knobs = document.createElement("div"); knobs.className = "knobs";
-    KNOB_SLOTS.forEach((s, k) => {
-      const c = pg.controls[s], d = document.createElement("div");
-      d.className = "knob" + (c ? "" : " empty");
-      d.innerHTML = `<svg viewBox="0 0 40 40"><path class="arc-bg" d="${arcPath(1)}" fill="none" stroke-width="4" stroke-linecap="round"/>`
-        + `<path class="arc" d="" fill="none" stroke-width="4" stroke-linecap="round"/></svg>`
-        + `<span class="lbl">${c ? label(c) : "—"}</span><span class="val"></span><span class="slot">K${k + 1}</span>`;
-      if (c) d.title = `${c.track}${c.device ? " / " + c.device : ""} / ${c.param}`;
-      if (c) addWas(d, i, s);
-      knobs.appendChild(d); el[`${i}:${s}`] = d;
-    });
+    KNOB_SLOTS.forEach((s, k) => knobs.appendChild(tile("knob", pg.controls[s], `K${k + 1}`, i, s)));
     const faders = document.createElement("div"); faders.className = "faders";
-    FADER_SLOTS.forEach((s, k) => {
-      const c = pg.controls[s], d = document.createElement("div");
-      d.className = "fader" + (c ? "" : " empty");
-      d.innerHTML = `<div class="track"><div class="fill"></div><div class="ghost"></div></div>`
-        + `<span class="lbl">${c ? label(c) : "—"}</span><span class="val"></span><span class="slot">F${k + 1}</span>`;
-      if (c) d.title = `${c.track}${c.device ? " / " + c.device : ""} / ${c.param}`;
-      if (c) addWas(d, i, s);
-      faders.appendChild(d); el[`${i}:${s}`] = d;
-    });
+    FADER_SLOTS.forEach((s, k) => faders.appendChild(tile("fader", pg.controls[s], `F${k + 1}`, i, s)));
     body.append(knobs, faders);
     const pads = document.createElement("div"); pads.className = "pads";
-    PAD_SLOTS.forEach((s, k) => {
-      const c = pg.controls[s], d = document.createElement("div");
-      d.className = "padb" + (c ? "" : " empty");
-      d.innerHTML = `<span class="lbl">${c ? label(c) : "—"}</span><span class="slot">B${k + 1}</span>`;
-      if (c) { d.title = `${c.track}${c.device ? " / " + c.device : ""} / ${c.param}`; d.onclick = () => toggle(i, s); addWas(d, i, s); }
-      pads.appendChild(d); el[`${i}:${s}`] = d;
-    });
+    PAD_SLOTS.forEach((s, k) => pads.appendChild(tile("padb", pg.controls[s], `B${k + 1}`, i, s)));
     card.append(body, pads);
     cards.appendChild(card); el[`card:${i}`] = card;
   });
+  // the page that makes pages
+  const mk = document.createElement("section");
+  mk.className = "card make";
+  mk.innerHTML = `<div class="chead"><span class="pad">new</span><span class="name">Make a surface</span><span class="what">Say what you want under your hands. Claude builds the page and its macros from this set, and it is saved with the project.</span></div>
+    <textarea id="mkText" placeholder="For example: one page for the drop's low end. Kick sub and body on knobs, a macro that darkens all the hats at once, the kick and break bus faders, and mutes for hats and perc on the pads."></textarea>
+    <div class="row"><button class="btn go" id="mkGo">Make surface</button><span id="mkStatus"></span></div>
+    <div class="list" id="mkList"></div>`;
+  cards.appendChild(mk); el["card:make"] = mk;
+  $("mkGo").onclick = makeSurface;
+  paintMakeList();
 }
 
-function paintValue(key) {
+// ---- values: targets are set as messages arrive, the screen follows once a frame (smooth, however many messages)
+const shown = new Map();       // "page:slot" -> {cur, target} for knobs and faders in motion
+// a value as a big number and a small unit, rounded to what can be read at a glance (the tooltip has all of it)
+function valueHtml(text) {
+  const m = /^([+-]?(?:\d+\.?\d*|\.\d+|inf))\s*(.*)$/.exec(text);
+  if (!m) return `<b>${esc(text)}</b>`;
+  let num = m[1];
+  if (num.includes(".")) { const v = Number(num), a = Math.abs(v); num = a >= 100 ? v.toFixed(0) : a >= 10 ? v.toFixed(1) : v.toFixed(2); }
+  return `<b>${esc(num.replace("-", "−"))}</b>${m[2] ? `<small>${esc(m[2])}</small>` : ""}`;
+}
+function paintValue(key, snap) {
   const d = el[key], v = state.values[key];
   if (!d || !v) return;
+  const slot = key.split(":")[1], kind = slot[0];
   d.classList.toggle("err", !!v.err);
-  const slot = key.split(":")[1];
+  const text = v.err ? v.err : String(v.s || "").trim();
+  if (kind === "b") {
+    const on = (v.n || 0) >= 0.5;
+    d.classList.toggle("lit", on);
+    const st = d.querySelector(".st"); if (st) st.textContent = v.err ? v.err : (/^(on|off)$/i.test(text) || !text ? (on ? "ON" : "OFF") : text);
+    return;
+  }
   const val = d.querySelector(".val");
-  if (val) val.textContent = v.err ? v.err : (v.s || "").trim();
-  if (slot[0] === "k") d.querySelector(".arc").setAttribute("d", v.n == null ? "" : arcPath(v.n));
-  if (slot[0] === "f") d.querySelector(".fill").style.height = `${100 * (v.n || 0)}%`;
-  if (slot[0] === "b") d.classList.toggle("lit", (v.n || 0) >= 0.5);
+  if (val && val.dataset.t !== text) { val.dataset.t = text; val.innerHTML = valueHtml(text); val.title = text; }
+  const n = v.n == null ? 0 : v.n, a = shown.get(key);
+  if (snap || !a) { shown.set(key, { cur: n, target: n }); apply(key, n); } else a.target = n;
+}
+function apply(key, n) {
+  const d = el[key]; if (!d) return;
+  if (key.split(":")[1][0] === "k") d.querySelector(".arc").setAttribute("d", arcPath(n));
+  else d.querySelector(".fill").style.transform = `scaleY(${Math.max(0, Math.min(1, n)).toFixed(4)})`;
+}
+function animate() {
+  for (const [key, a] of shown) {
+    if (a.cur === a.target) continue;
+    const d = a.target - a.cur;
+    a.cur = Math.abs(d) < 0.0015 ? a.target : a.cur + d * 0.38;
+    apply(key, a.cur);
+  }
+}
+
+const touchTimers = {};
+function touch(key) {                      // a control just moved: light its tile briefly (no layout work)
+  const d = el[key]; if (!d) return;
+  d.classList.add("touch");
+  clearTimeout(touchTimers[key]);
+  touchTimers[key] = setTimeout(() => d.classList.remove("touch"), 260);
 }
 
 function paintFaders() {
   desk.pages.forEach((_, i) => FADER_SLOTS.forEach((s) => {
     const d = el[`${i}:${s}`]; if (!d) return;
-    const armed = i === state.page, hw = state.hw[s], picked = state.picked[s];
-    const waiting = armed && hw != null && !picked && !d.classList.contains("empty");
+    const hw = state.hw[s], waiting = i === state.page && hw != null && !state.picked[s] && !d.classList.contains("empty");
     d.classList.toggle("waiting", waiting);
-    if (waiting) d.querySelector(".ghost").style.bottom = `calc(${100 * hw}% - 1px)`;
+    if (waiting) d.querySelector(".ghost").style.bottom = `calc(${100 * hw}% - 1.5px)`;
   }));
 }
 
-// one page at a time: Prev/Next and the picker arm the page on the MiniLab too, so the screen and the controller agree.
-// With "Only changes" shown, Prev/Next skip pages where nothing differs.
+// ---- pages: one at a time. Prev/Next and the picker arm the page on the MiniLab too; with "Only changes" they skip
+// pages where nothing differs. The last page, Make a surface, is the screen's alone.
+const arm = (page) => { ui.make = false; paintPage(); return post("/api/page", { page }); };
 function pageStep(dir) {
-  const n = desk.pages.length, counts = H.perPage || {};
-  for (let k = 1; k <= n; k++) {
-    const i = (state.page + dir * k + n) % n;
-    if (H.view !== "only" || counts[i]) return arm(i);
+  const n = desk.pages.length, here = ui.make ? n : state.page;
+  for (let k = 1; k <= n + 1; k++) {
+    const i = (here + dir * k + (n + 1) * 2) % (n + 1);
+    if (i === n) { if (H.view === "only") continue; ui.make = true; return paintPage(); }
+    if (H.view !== "only" || H.perPage[i]) return arm(i);
   }
 }
-function fillPagePicker() {
-  const sel = document.getElementById("pagesel"), counts = H.perPage || {};
-  const want = desk.pages.map((pg, i) => `<option value="${i}">${padLabel(i)} · ${pg.name}${H.view !== "normal" && counts[i] ? `  (${counts[i]} changed)` : ""}</option>`).join("");
-  if (sel.innerHTML !== want) sel.innerHTML = want;
-  sel.value = String(state.page);
-  document.getElementById("pageof").textContent = `${state.page + 1} / ${desk.pages.length}`;
-}
-function initPager() {
-  document.getElementById("prevpg").onclick = () => pageStep(-1);
-  document.getElementById("nextpg").onclick = () => pageStep(1);
-  document.getElementById("pagesel").onchange = (e) => arm(Number(e.target.value));
-  document.getElementById("help").onclick = () => document.body.classList.toggle("showhelp");
-  document.addEventListener("keydown", (e) => {
-    if (e.target.closest && e.target.closest("input,textarea,select")) return;
-    if (e.key === "PageUp" || e.key === "[") { e.preventDefault(); pageStep(-1); }
-    if (e.key === "PageDown" || e.key === "]") { e.preventDefault(); pageStep(1); }
-  });
-}
-
 function paintPage() {
-  const pg = desk.pages[state.page] || {};
-  if (document.getElementById("pagesel")) fillPagePicker();
-  document.getElementById("armed").textContent = pg.name ? `${padLabel(state.page)} · ${pg.name}` : "–";
-  document.getElementById("what").textContent = pg.what || "";
-  desk.pages.forEach((_, i) => {
-    el[`tab:${i}`].classList.toggle("on", i === state.page);
-    el[`card:${i}`].classList.toggle("on", i === state.page);
-    el[`card:${i}`].querySelector(".chip").textContent = i === state.page ? "ON THE MINILAB" : "";
-  });
+  if (!desk) return;
+  const n = desk.pages.length, sel = $("pagesel");
+  const want = desk.pages.map((pg, i) => `<option value="${i}">${padLabel(i)} · ${esc(pg.name)}${H.view !== "normal" && H.perPage[i] ? `  (${H.perPage[i]} changed)` : ""}</option>`).join("")
+    + `<option value="make">＋ Make a surface</option>`;
+  if (sel.dataset.html !== want) { sel.innerHTML = want; sel.dataset.html = want; }
+  sel.value = ui.make ? "make" : String(state.page);
+  $("pageof").textContent = ui.make ? "new" : `${state.page + 1} / ${n}`;
+  desk.pages.forEach((_, i) => el[`card:${i}`].classList.toggle("on", !ui.make && i === state.page));
+  el["card:make"].classList.toggle("on", ui.make);
   paintFaders();
 }
-
 function paintStatus() {
   const ok = state.live === "attached";
-  document.getElementById("dot").classList.toggle("ok", ok);
-  document.getElementById("status").textContent = ok ? "MiniLab 3 → Live" : (state.live || "connecting");
+  $("dot").classList.toggle("ok", ok);
+  $("status").textContent = ok ? "MiniLab 3 → Live" : (state.live || "connecting");
 }
 
-function paintAll() { Object.keys(state.values).forEach(paintValue); paintPage(); paintStatus(); }
-
-function flash(key) {
-  const d = el[key]; if (!d) return;
-  d.classList.remove("flash"); void d.offsetWidth; d.classList.add("flash");
-}
-
-async function post(path, body) {
-  try { await fetch(path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }); }
-  catch (e) { /* the event stream shows the outcome */ }
-}
-const arm = (page) => post("/api/page", { page });
-const toggle = (page, slot) => post("/api/toggle", { page, slot });
-
-function connect() {
-  const es = new EventSource("/events");
-  es.onmessage = (ev) => {
-    const m = JSON.parse(ev.data);
-    if (m.t === "full") { state = m.state; paintAll(); paintChanged(); }
-    else if (m.t === "v") { const k = `${m.page}:${m.slot}`; state.values[k] = { ...(state.values[k] || {}), n: m.n, s: m.s, r: m.r, key: m.key }; paintValue(k); paintChanged(); }
-    else if (m.t === "hist") { paintHist(m); }
-    else if (m.t === "page") { state.page = m.page; state.picked = {}; paintPage(); }
-    else if (m.t === "hw") {
-      if (m.hw != null && m.slot[0] === "f") { state.hw[m.slot] = m.hw; state.picked[m.slot] = m.picked; paintFaders(); }
-      flash(`${m.page}:${m.slot}`);
-    }
-  };
-  es.onerror = () => { state.live = "server not answering"; paintStatus(); };
-}
-
-// ---- history, checkpoints, what changed ----------------------------------------------------------------------------
-// The server keeps the history (every move of a desk control, from the MiniLab, this page or Live itself) and the
-// checkpoints (whole-mix snapshots on disk). Here: undo/redo, a checkpoint button, and three views of the controls:
-// Normal; Highlight (what differs between "from" and "to" lit, the rest dimmed); Only changed (the rest hidden).
-const H = { view: "normal", a: "", b: "now", va: null, vb: null, changed: {}, hist: null };
-const $id = (x) => document.getElementById(x);
-const fmtT = (t) => new Date(t * 1000).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+// ---- what changed (compare a checkpoint with now, or with another checkpoint)
 const sameRaw = (x, y) => x != null && y != null && Math.abs(Number(x) - Number(y)) <= 1e-6;
-
-function addWas(d, page, slot) {
-  const w = document.createElement("span"); w.className = "was"; d.appendChild(w);
-  const b = document.createElement("span"); b.className = "rv"; b.textContent = "revert"; d.appendChild(b);
-  b.onclick = (ev) => {
-    ev.stopPropagation();
-    const v = state.values[`${page}:${slot}`];
-    if (v && v.key && H.b === "now") post("/api/revert", { to: H.a, keys: [v.key] });
-  };
-}
-
+const fmtT = (t) => new Date(t * 1000).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false });
 async function loadCmp() {
   const get = async (n) => n && n !== "now" ? (await fetch(`/api/checkpoint?name=${encodeURIComponent(n)}`)).json() : null;
   H.va = await get(H.a); H.vb = await get(H.b);
   paintChanged();
 }
-
+let changedQueued = false;
+function queueChanged() { if (!changedQueued) { changedQueued = true; requestAnimationFrame(() => { changedQueued = false; paintChanged(); }); } }
 function paintChanged() {
   if (!desk) return;
-  const changed = {};          // "page:slot" -> [from shown, to shown]
-  const perPage = {};
+  const changed = {}, perPage = {}, keys = new Set();
   if (H.va && !H.va.error) {
     for (const [k, v] of Object.entries(state.values)) {
       if (!v.key) continue;
-      const a = H.va[v.key];
-      const b = H.b === "now" ? (v.r != null ? [v.s, v.r] : null) : H.vb && H.vb[v.key];
-      if (a && b && !sameRaw(a[1], b[1])) {
-        changed[k] = [String(a[0]).trim(), String(b[0]).trim()];
-        const pg = k.split(":")[0]; perPage[pg] = (perPage[pg] || 0) + 1;
-      }
+      const a = H.va[v.key], b = H.b === "now" ? (v.r != null ? [v.s, v.r] : null) : H.vb && H.vb[v.key];
+      if (a && b && !sameRaw(a[1], b[1])) { changed[k] = String(a[0]).trim(); keys.add(v.key); const pg = k.split(":")[0]; perPage[pg] = (perPage[pg] || 0) + 1; }
     }
   }
   H.changed = changed; H.perPage = perPage;
-  const mode = H.view;
-  const nKeys = new Set(Object.keys(changed).map((k) => state.values[k].key)).size;
-  desk.pages.forEach((pg, i) => {
-    [...KNOB_SLOTS, ...FADER_SLOTS, ...PAD_SLOTS].forEach((s) => {
-      const d = el[`${i}:${s}`]; if (!d) return;
-      const c = changed[`${i}:${s}`], empty = d.classList.contains("empty");
-      d.classList.toggle("hl", mode !== "normal" && !!c);
-      d.classList.toggle("dim", mode === "hl" && !c);
-      d.classList.toggle("gone", mode === "only" && !c);
-      const w = d.querySelector(".was"); if (w) w.textContent = c ? `was ${c[0]}` : "";
-      const rv = d.querySelector(".rv"); if (rv) rv.classList.toggle("can", H.b === "now");
-      if (c) d.dataset.was = c[0];
-    });
-    el[`card:${i}`].classList.toggle("gone", mode === "only" && !perPage[i]);
-    const tab = el[`tab:${i}`]; let cnt = tab.querySelector(".cnt");
-    if (!cnt) { cnt = document.createElement("span"); cnt.className = "cnt"; tab.appendChild(cnt); }
-    cnt.textContent = perPage[i] || ""; cnt.style.display = mode !== "normal" && perPage[i] ? "" : "none";
-  });
-  $id("nchg").innerHTML = H.va ? (H.va.error ? `no checkpoint ${H.a}` : `<b>${nKeys}</b> changed since <b>${H.a}</b>${H.b !== "now" ? ` (to ${H.b})` : ""}`) : "";
-  fillPagePicker();
-  $id("revshown").disabled = !(H.b === "now" && nKeys);
-  $id("revall").disabled = !(H.b === "now" && H.a);
+  desk.pages.forEach((_, i) => ALL_SLOTS.forEach((s) => {
+    const d = el[`${i}:${s}`]; if (!d) return;
+    const c = changed[`${i}:${s}`];
+    d.classList.toggle("hl", H.view !== "normal" && c != null);
+    d.classList.toggle("dim", H.view === "hl" && c == null);
+    d.classList.toggle("gone", H.view === "only" && c == null);
+    const w = d.querySelector(".was"); if (w) { const t = c != null ? `was ${c}` : ""; if (w.textContent !== t) w.textContent = t; }
+    const rv = d.querySelector(".rv"); if (rv) rv.classList.toggle("can", H.b === "now");
+  }));
+  $("nchg").innerHTML = H.va ? (H.va.error ? `no checkpoint ${esc(H.a)}` : `<b>${keys.size}</b> changed since <b>${esc(H.a)}</b>${H.b !== "now" ? ` (to ${esc(H.b)})` : ""}`) : "";
+  $("revshown").disabled = !(H.b === "now" && keys.size);
+  $("revall").disabled = !(H.b === "now" && H.a);
+  paintPage();
+}
+function setView(v) {
+  H.view = v;
+  [...$("view").children].forEach((b) => b.classList.toggle("on", b.dataset.v === v));
+  paintChanged();
 }
 
+// ---- history (a page of it at a time: no scrolling)
 function fillCheckpoints(cps) {
-  const names = cps.map((c) => c.name);
-  const opt = (n, label) => `<option value="${n}">${label || n}</option>`;
-  const byNew = [...cps].reverse();
+  const names = cps.map((c) => c.name), byNew = [...cps].reverse();
   if (!H.a || !names.includes(H.a)) H.a = byNew.length ? byNew[0].name : "";
   if (H.b !== "now" && !names.includes(H.b)) H.b = "now";
-  $id("cmpA").innerHTML = byNew.map((c) => opt(c.name, `${c.name}  ·  ${fmtT(c.at)}`)).join("");
-  $id("cmpB").innerHTML = opt("now", "now") + byNew.map((c) => opt(c.name)).join("");
-  $id("cmpA").value = H.a; $id("cmpB").value = H.b;
+  const a = byNew.map((c) => `<option value="${esc(c.name)}">${esc(c.name)}</option>`).join("");
+  if ($("cmpA").dataset.html !== a) {
+    $("cmpA").innerHTML = a; $("cmpA").dataset.html = a;
+    $("cmpB").innerHTML = `<option value="now">now</option>` + a;
+    loadCmp();
+  }
+  $("cmpA").value = H.a; $("cmpB").value = H.b;
 }
-
 function paintHist(m) {
-  H.hist = m;
-  const prev = $id("cmpA").innerHTML;
-  fillCheckpoints(m.checkpoints || []);
-  if ($id("cmpA").innerHTML !== prev || !H.va) loadCmp();
-  $id("undo").disabled = !m.can_undo; $id("redo").disabled = !m.can_redo;
-  const ol = $id("hist"); ol.innerHTML = "";
-  const esc = (x) => String(x).replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
-  m.entries.map((e, i) => [e, i]).reverse().forEach(([e, i]) => {
+  if (m) { H.hist = m; fillCheckpoints(m.checkpoints || []); }
+  m = H.hist; if (!m) return;
+  $("undo").disabled = !m.can_undo; $("redo").disabled = !m.can_redo;
+  const ol = $("hist"), rows = Math.max(3, Math.floor((ol.clientHeight || 200) / 28));
+  const all = m.entries.map((e, i) => [e, i]).reverse(), pages = Math.max(1, Math.ceil(all.length / rows));
+  H.histPage = Math.max(0, Math.min(pages - 1, H.histPage));
+  ol.innerHTML = "";
+  all.slice(H.histPage * rows, (H.histPage + 1) * rows).forEach(([e, i]) => {
     const li = document.createElement("li");
     if (i >= m.pos) li.classList.add("undone");
     if (i === m.pos - 1) li.classList.add("here");
     let text;
-    if (e.k === "checkpoint") {
-      li.classList.add("cp");
-      text = `Checkpoint <b>${esc(e.name)}</b>`;
-    } else if (e.k === "revert") {
-      text = `Revert to <b>${esc(e.to)}</b> <i>(${e.moves.length} control${e.moves.length === 1 ? "" : "s"})</i>`;
-    } else {
-      const mv = e.moves[0];
-      text = `${esc(mv.label)} <i>${esc(String(mv.from[0]).trim())} → ${esc(String(mv.to[0]).trim())}</i>`;
-    }
+    if (e.k === "checkpoint") { li.classList.add("cp"); text = `Checkpoint ${esc(e.name)}`; }
+    else if (e.k === "revert") text = `Revert to ${esc(e.to)} <i>(${e.moves.length} control${e.moves.length === 1 ? "" : "s"})</i>`;
+    else { const mv = e.moves[0]; text = `${esc(mv.label)} <i>${esc(String(mv.from[0]).trim())} → ${esc(String(mv.to[0]).trim())}</i>${e.moves.length > 1 ? ` <i>and ${e.moves.length - 1} more</i>` : ""}`; }
     li.innerHTML = `<span class="t">${fmtT(e.at)}</span><span class="m">${text}</span>`;
     if (e.k === "checkpoint") {
-      const from = document.createElement("button"); from.textContent = "compare from";
-      from.onclick = () => { H.a = e.name; if (H.view === "normal") setView("hl"); $id("cmpA").value = e.name; loadCmp(); };
-      li.appendChild(from);
+      const b = document.createElement("button"); b.textContent = "compare from";
+      b.onclick = () => { H.a = e.name; $("cmpA").value = e.name; if (H.view === "normal") setView("hl"); loadCmp(); };
+      li.appendChild(b);
     }
     ol.appendChild(li);
   });
-  const nMoves = m.entries.filter((e) => e.k !== "checkpoint").length;
-  $id("histn").textContent = `${nMoves} step${nMoves === 1 ? "" : "s"}${m.entries.length ? ", newest first" : ""}`;
+  const steps = m.entries.filter((e) => e.k !== "checkpoint").length;
+  $("histn").textContent = `${steps} step${steps === 1 ? "" : "s"} · ${H.histPage + 1}/${pages}`;
+  $("histNewer").disabled = H.histPage === 0; $("histOlder").disabled = H.histPage >= pages - 1;
 }
 
-function setView(v) {
-  H.view = v;
-  [...$id("view").children].forEach((b) => b.classList.toggle("on", b.dataset.v === v));
-  paintChanged();
+// ---- make a surface
+function paintMakeList() {
+  const box = $("mkList"); if (!box || !desk) return;
+  const made = desk.pages.map((pg, i) => [pg, i]).filter(([pg]) => pg.surface);
+  box.innerHTML = made.length ? "" : `<span class="muted">No surfaces made yet. They are kept in the project's surfaces folder.</span>`;
+  made.slice(-6).forEach(([pg, i]) => {
+    const d = document.createElement("div"); d.className = "item";
+    d.innerHTML = `<b>${esc(pg.name)}</b><span title="${esc(pg.prompt || "")}">${esc(pg.prompt || pg.what || "")}</span>`;
+    const open = document.createElement("button"); open.className = "btn"; open.textContent = "Open"; open.onclick = () => arm(i);
+    const del = document.createElement("button"); del.className = "btn"; del.textContent = "Remove";
+    del.onclick = async () => { if (confirm(`Remove the surface "${pg.name}"? Its file is moved to the surfaces folder's "removed" folder.`)) await post("/api/surface/remove", { file: pg.surface }); };
+    d.append(open, del); box.appendChild(d);
+  });
+}
+async function makeSurface() {
+  const text = $("mkText").value.trim();
+  if (!text) return;
+  $("mkGo").disabled = true; surfaceStatus({ status: "working", msg: "Asking Claude…" });
+  const r = await post("/api/surface/make", { text });
+  if (r.error) surfaceStatus({ status: "error", msg: r.error });
+}
+function surfaceStatus(m) {
+  const s = $("mkStatus"); if (!s) return;
+  s.textContent = m.msg || ""; s.classList.toggle("err", m.status === "error");
+  if (m.status !== "working") $("mkGo").disabled = false;
+  if (m.status === "done") $("mkText").value = "";
 }
 
-function initHistory() {
-  $id("undo").onclick = () => post("/api/undo", {});
-  $id("redo").onclick = () => post("/api/redo", {});
-  $id("cp").onclick = async () => {
-    const name = $id("cpname").value.trim();
-    $id("cp").disabled = true; $id("cp").textContent = "Saving…";
-    try {
-      const r = await (await fetch("/api/checkpoint", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name }) })).json();
-      if (r.error) alert(r.error); else $id("cpname").value = "";
-    } finally { $id("cp").disabled = false; $id("cp").textContent = "Checkpoint"; }
-  };
-  $id("cpname").addEventListener("keydown", (e) => { if (e.key === "Enter") $id("cp").click(); });
-  [...$id("view").children].forEach((b) => b.onclick = () => setView(b.dataset.v));
-  $id("cmpA").onchange = (e) => { H.a = e.target.value; loadCmp(); };
-  $id("cmpB").onchange = (e) => { H.b = e.target.value; loadCmp(); };
-  $id("revshown").onclick = () => post("/api/revert", { to: H.a });
-  $id("revall").onclick = async () => {
-    if (!confirm(`Put the whole mix back to "${H.a}"? The desk's controls come back as one undoable step; everything else in the set too (a checkpoint of the mix as it is now is saved first).`)) return;
-    $id("revall").disabled = true; $id("revall").textContent = "Reverting…";
-    try { await post("/api/revert", { to: H.a, all: true }); } finally { $id("revall").textContent = "Whole mix"; paintChanged(); }
-  };
-  document.addEventListener("keydown", (e) => {
-    if (e.target.closest && e.target.closest("input,textarea,select")) return;
-    if (e.key.toLowerCase() !== "z" || e.altKey || e.ctrlKey) return;
-    e.preventDefault();
-    post(e.shiftKey ? "/api/redo" : "/api/undo", {});
-  }, true);
-  fetch("/api/history").then((r) => r.json()).then(paintHist);
-}
-
-fetch("/api/desk").then((r) => r.json()).then((d) => { desk = d; build(); initPager(); connect(); initHistory(); });
-</script>
-<script>
-// ---- right half: a control surface for Live. All audio is Live's (the arrangement, and the monitor tracks that hold
-// the original and the references); this page only sends transport and source choices and draws what Live reports.
-(() => {
+// ====================================================================================================================
+// right: a control surface for Live. All audio is Live's; this draws what Live reports and the renders' measurements.
 const COL = { A: "#b48cff", B: "#ffb547", W: "#5cc8ff", C: "#5fd38d" };
-const WORKING = { label: "Working", what: "your mix, live in Ableton" };
 const BAR_S = 1.5, BEAT_S = 0.375;       // 160 BPM
-const $ = (id) => document.getElementById(id);
-const S = { sel: "W", ref: "C1", sec: "drop", mode: "abs", metric: "lufs", loop: "off", match: true, tilt: true,
-            playing: false, pos: 0, posAt: 0 };
+const S = { sel: "W", ref: "C1", sec: "drop", mode: "abs", metric: "lufs", loop: "off", match: true, tilt: true, playing: false, pos: 0, posAt: 0, view: "spec" };
 let AN = null;
+const dirty = { wave: true, spec: true, tl: true, nums: true };
+const redraw = (...what) => (what.length ? what : Object.keys(dirty)).forEach((k) => { dirty[k] = true; });
 
 const idOf = (slot) => slot === "C" ? S.ref : slot;
 const src = (slot) => AN && AN.sources[idOf(slot)];
 const align = (slot) => slot === "C" ? AN.ref_align_s : 0;
 function matchTarget() { return Math.min(...["A", "B", "C"].map((s) => src(s)).filter(Boolean).map((x) => x.sections.drop.lufs)); }
 function gainDb(slot) { return S.match && src(slot) ? matchTarget() - src(slot).sections.drop.lufs : 0; }
-
-const post = (path, body) => fetch(path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }).catch(() => {});
-// Live's position, in seconds; between its reports (about 14 a second) it is carried forward while Live plays
 function curPos() { return S.playing ? S.pos + (performance.now() - S.posAt) / 1000 : S.pos; }
-function setPos(beats, playing) { S.pos = beats * BEAT_S; S.posAt = performance.now(); S.playing = playing; $("play").textContent = playing ? "Pause" : "Play"; }
-
-const toggle = () => post("/api/transport", { action: S.playing ? "pause" : "play" });
-const seek = (t) => { const d = AN.sources.A.duration_s; t = Math.max(0, Math.min(d - 0.05, t)); if (S.sel === "C") t = Math.max(t, AN.ref_align_s); S.pos = t; S.posAt = performance.now(); post("/api/transport", { action: "seek", beat: t / BEAT_S }); draw(); };
-const select = (slot) => { S.sel = slot; paintAbc(); draw(); post("/api/monitor", { slot, ref: S.ref, match: S.match }); };
-const pickRef = (id) => { S.ref = id; paintAbc(); draw(); post("/api/monitor", { slot: S.sel, ref: id, match: S.match }); };
-
-function seg(id, key) {
-  const box = $(id);
-  box.querySelectorAll("button").forEach((b) => {
-    b.onclick = () => {
-      S[key] = b.dataset.v;
-      box.querySelectorAll("button").forEach((o) => o.classList.toggle("on", o === b));
-      draw();
-    };
-  });
-}
+function setPos(beats, playing) { S.pos = beats * BEAT_S; S.posAt = performance.now(); if (S.playing !== playing) { S.playing = playing; $("play").textContent = playing ? "Pause" : "Play"; } }
+const togglePlay = () => post("/api/transport", { action: S.playing ? "pause" : "play" });
+const seek = (t) => { const d = AN.sources.A.duration_s; t = Math.max(0, Math.min(d - 0.05, t)); if (S.sel === "C") t = Math.max(t, AN.ref_align_s); S.pos = t; S.posAt = performance.now(); post("/api/transport", { action: "seek", beat: t / BEAT_S }); };
+const sendMonitor = () => post("/api/monitor", { slot: S.sel, ref: S.ref, match: S.match });
+const select = (slot) => { S.sel = slot; paintAbc(); redraw(); sendMonitor(); };
+const pickRef = (id) => { S.ref = id; paintAbc(); redraw(); sendMonitor(); };
 
 function paintAbc() {
   if (!AN) return;
-  const abc = $("abc");
-  abc.innerHTML = "";
+  const abc = $("abc"); abc.innerHTML = "";
   ["A", "B", "W", "C"].forEach((slot) => {
-    const x = slot === "W" ? WORKING : src(slot);
+    const x = slot === "W" ? { label: "Working" } : src(slot);
     if (!x) return;
     const gdb = slot === "W" ? 0 : gainDb(slot);
-    const lufs = slot === "W" ? null : x.sections.drop.lufs;
+    const lvl = slot === "W" ? "live" : `${x.sections.drop.lufs.toFixed(1)} LUFS${S.match && Math.abs(gdb) >= 0.05 ? ` ${gdb >= 0 ? "+" : ""}${gdb.toFixed(1)}` : ""}`;
     const b = document.createElement("button");
-    b.style.setProperty("--c", COL[slot]);
-    b.className = S.sel === slot ? "on" : "";
-    const what = x.what;
-    const lvl = slot === "W" ? "live, no curves" : lufs != null ? `${lufs.toFixed(1)} LUFS${S.match && Math.abs(gdb) >= 0.05 ? ` (${gdb >= 0 ? "+" : ""}${gdb.toFixed(1)} dB)` : ""}` : "";
-    b.innerHTML = `<span class="k">${slot}</span><span class="n">${x.label}</span><span class="w">${what}</span><span class="l">${lvl}</span>`;
+    b.style.setProperty("--c", COL[slot]); b.className = S.sel === slot ? "on" : "";
+    b.title = slot === "W" ? "Your working mix, live in Ableton" : x.what;
+    b.innerHTML = `<span class="k">${slot}</span><span class="n">${esc(x.label)}</span><span class="l">${lvl}</span>`;
     b.onclick = () => select(slot);
     abc.appendChild(b);
   });
   const refs = $("refs");
-  refs.innerHTML = '<span class="note" style="margin:0">Reference (C):</span>';
+  refs.style.display = S.sel === "C" ? "" : "none";      // the reference picker only while the reference plays
+  refs.innerHTML = '<span class="muted">Reference</span>';
   Object.values(AN.sources).filter((x) => x.kind === "ref").forEach((r, i) => {
     const b = document.createElement("button");
-    b.className = "chip2" + (r.id === S.ref ? " on" : "");
-    b.textContent = `${i + 1} · ${r.label}`;
-    b.title = r.what;
-    b.onclick = () => pickRef(r.id);
-    refs.appendChild(b);
+    b.className = "chip" + (r.id === S.ref ? " on" : ""); b.textContent = `${i + 1} · ${r.label}`; b.title = r.what;
+    b.onclick = () => pickRef(r.id); refs.appendChild(b);
   });
+  $("match").classList.toggle("on", S.match);
 }
 
-// ---------- canvases
+// ---------- canvases: drawn only when something they show changed, and only the one in view
+let CSSV = null;
+function cssv() { const c = getComputedStyle(document.documentElement), g = (n) => c.getPropertyValue(n).trim(); CSSV = { fg: g("--text"), mut: g("--muted"), line: g("--line"), tile: g("--tile") }; }
 function setup(cv) {
-  const r = cv.getBoundingClientRect(), d = window.devicePixelRatio || 1;
-  const w = Math.max(10, Math.round(r.width * d)), h = Math.max(10, Math.round(r.height * d));
+  const p = cv.parentElement, W = p.clientWidth, Hh = p.clientHeight, d = window.devicePixelRatio || 1;
+  const w = Math.max(10, Math.round(W * d)), h = Math.max(10, Math.round(Hh * d));
   if (cv.width !== w || cv.height !== h) { cv.width = w; cv.height = h; }
-  const g = cv.getContext("2d"); g.setTransform(d, 0, 0, d, 0, 0);
-  const css = getComputedStyle(document.documentElement);
-  return { g, W: r.width, H: r.height, fg: css.getPropertyValue("--text").trim(), mut: css.getPropertyValue("--muted").trim(), line: css.getPropertyValue("--line").trim() };
+  const g = cv.getContext("2d"); g.setTransform(d, 0, 0, d, 0, 0); g.clearRect(0, 0, W, Hh);
+  return { g, W, H: Hh, ...CSSV };
 }
 const fmt = (t) => `${Math.floor(t / 60)}:${(t % 60).toFixed(1).padStart(4, "0")}`;
 
 function drawWave() {
-  const c = setup($("wave")), { g, W, H } = c; g.clearRect(0, 0, W, H);
+  const c = setup($("wave")), { g, W, H: Hh } = c;
   const dur = AN.sources.A.duration_s, x = (t) => (t / dur) * W;
-  // section shading
-  g.fillStyle = c.line + "55"; g.fillRect(x(AN.build_end_s), 0, W - x(AN.build_end_s), H);
-  g.fillStyle = c.mut; g.font = "10px system-ui"; g.fillText("build", 4, 11); g.fillText("drop", x(AN.build_end_s) + 4, 11);
+  g.fillStyle = c.line + "66"; g.fillRect(x(AN.build_end_s), 0, W - x(AN.build_end_s), Hh);
   const ws = S.sel === "W" ? "B" : S.sel;     // W is live: its waveform is the arrangement's, as B rendered it
-  const s = src(ws), off = align(ws), env = s.env, col = COL[S.sel];
-  g.fillStyle = col + "bb";
-  const mx = Math.max(...env, 1e-6);
-  env.forEach((v, i) => { const t = i / 20 + off, h = Math.max(1, (v / mx) * (H - 16)); g.fillRect(x(t), H / 2 - h / 2 + 5, Math.max(1, W / dur / 20), h); });
-  // bar lines every 4 bars
-  g.strokeStyle = c.line; g.lineWidth = 1;
-  for (let b = 4; b * BAR_S < dur; b += 4) { g.beginPath(); g.moveTo(x(b * BAR_S) + .5, H - 6); g.lineTo(x(b * BAR_S) + .5, H); g.stroke(); }
-  if (S.loop !== "off") { const a = S.loop === "build" ? 0 : AN.build_end_s, b = S.loop === "build" ? AN.build_end_s : dur; g.strokeStyle = COL[S.sel]; g.strokeRect(x(a) + .5, 1.5, x(b) - x(a) - 1, H - 3); }
-  g.strokeStyle = c.fg; g.lineWidth = 2; g.beginPath(); g.moveTo(x(curPos()), 0); g.lineTo(x(curPos()), H); g.stroke();
+  const s = src(ws), off = align(ws), env = s.env;
+  g.fillStyle = COL[S.sel] + "cc";
+  const mx = Math.max(...env, 1e-6), bw = Math.max(1, W / dur / 20);
+  env.forEach((v, i) => { const h = Math.max(1, (v / mx) * (Hh - 6)); g.fillRect(x(i / 20 + off), Hh / 2 - h / 2, bw, h); });
+  g.fillStyle = c.mut; g.font = "10px system-ui"; g.fillText("build", 5, 11); g.fillText("drop", x(AN.build_end_s) + 5, 11);
+  if (S.loop !== "off") { const a = S.loop === "build" ? 0 : AN.build_end_s, b = S.loop === "build" ? AN.build_end_s : dur; g.strokeStyle = COL[S.sel]; g.lineWidth = 2; g.strokeRect(x(a) + 1, 1, x(b) - x(a) - 2, Hh - 2); }
 }
 
-// the live meter on Main (meter.py, measured in Live): third-octave RMS in dB, about 10 a second. Smoothed here
-// over about a second (in power), then put on the renders' 1/6-octave grid: a third-octave band holds two of those
-// bands, so 3 dB comes off. Both are the mid signal's power per band, so the curves share one scale.
-const LIVE = { pow: null, at: 0 };
-const LIVE_ALPHA = 0.18;
+// the live meter on Main (meter.py, measured in Live): third-octave RMS in dB, about 10 a second. Averaged over about
+// a second (in power) as it arrives, eased toward that every frame so the curve moves smoothly, then put on the
+// renders' 1/6-octave grid: a third-octave band holds two of those, so 3 dB comes off. Same scale as the renders.
+const LIVE = { pow: null, db: null, at: 0, hz: null };
 function meterIn(m) {
   const p = m.db.map((d) => Math.pow(10, d / 10));
-  LIVE.hz = m.hz;
-  LIVE.pow = LIVE.pow ? LIVE.pow.map((v, i) => v + LIVE_ALPHA * (p[i] - v)) : p;
-  LIVE.at = performance.now();
+  LIVE.hz = m.hz; LIVE.pow = LIVE.pow ? LIVE.pow.map((v, i) => v + 0.18 * (p[i] - v)) : p; LIVE.at = performance.now();
+}
+const liveOn = () => LIVE.pow && performance.now() - LIVE.at < 1500 && Math.max(...LIVE.pow) > 1e-9;
+function easeLive() {
+  if (!liveOn()) { if (LIVE.db) { LIVE.db = null; return true; } return false; }
+  const t = LIVE.pow.map((v) => 10 * Math.log10(Math.max(v, 1e-14)));
+  if (!LIVE.db) { LIVE.db = t; return true; }
+  let moved = false;
+  LIVE.db = LIVE.db.map((v, i) => { const d = t[i] - v; if (Math.abs(d) > 0.02) moved = true; return v + d * 0.22; });
+  return moved;
 }
 function liveLevels() {
-  if (!LIVE.pow || performance.now() - LIVE.at > 1500) return null;
-  const db = LIVE.pow.map((v) => 10 * Math.log10(Math.max(v, 1e-14)));
-  if (Math.max(...db) < -90) return null;              // Live is silent
-  const lf = LIVE.hz.map((f) => Math.log(f));
-  return AN.centers.map((f, i) => {
-    const x = Math.log(f);
-    let k = lf.findIndex((v) => v >= x); if (k <= 0) k = Math.max(1, k === -1 ? lf.length - 1 : 1);
-    const t = (x - lf[k - 1]) / (lf[k] - lf[k - 1]);
-    const v = db[k - 1] + Math.max(0, Math.min(1, t)) * (db[k] - db[k - 1]) - 3.01;
-    return v + (S.tilt && S.mode === "abs" ? 4.5 * Math.log2(f / 1000) : 0);
+  if (!LIVE.db) return null;
+  const lf = LIVE.hz.map(Math.log), db = LIVE.db;
+  return AN.centers.map((f) => {
+    const x = Math.log(f); let k = lf.findIndex((v) => v >= x); if (k === -1) k = lf.length - 1; if (k === 0) k = 1;
+    const t = Math.max(0, Math.min(1, (x - lf[k - 1]) / (lf[k] - lf[k - 1])));
+    return db[k - 1] + t * (db[k] - db[k - 1]) - 3.01 + (S.tilt && S.mode === "abs" ? 4.5 * Math.log2(f / 1000) : 0);
   });
 }
-
 function specLevels(slot) {
   if (slot === "W") return liveLevels();
   const x = src(slot); if (!x) return null;
-  const sec = slot === "C" ? x.sections.drop : x.sections[S.sec];
-  const gdb = gainDb(slot);
+  const sec = slot === "C" ? x.sections.drop : x.sections[S.sec], gdb = gainDb(slot);
   return sec.spec.map((v, i) => v + gdb + (S.tilt && S.mode === "abs" ? 4.5 * Math.log2(AN.centers[i] / 1000) : 0));
 }
-
+let specHover = null;
 function drawSpec() {
-  const cv = $("spec"), c = setup(cv), { g, W, H } = c; g.clearRect(0, 0, W, H);
-  const L = 38, R = 8, T = 8, B = 18, pw = W - L - R, ph = H - T - B;
+  const c = setup($("spec")), { g, W, H: Hh } = c;
+  const L = 40, R = 10, T = 8, B = 20, pw = W - L - R, ph = Hh - T - B;
   const F = AN.centers, fx = (f) => L + (Math.log(f / 20) / Math.log(1000)) * pw;
   const lv = { A: specLevels("A"), B: specLevels("B"), C: specLevels("C"), W: specLevels("W") };
-  let lines = [], dashed = {};
-  if (S.mode === "abs") lines = [["A", lv.A], ["B", lv.B], ["C", lv.C]].concat(lv.W ? [["W", lv.W]] : []);
-  else if (S.mode === "rel") lines = [["A", lv.A.map((v, i) => v - lv.C[i])], ["B", lv.B.map((v, i) => v - lv.C[i])], ["C", lv.C.map(() => 0)]].concat(lv.W ? [["W", lv.W.map((v, i) => v - lv.C[i])]] : []);
-  else { lines = [["B", lv.B.map((v, i) => v - lv.A[i])], ["C", lv.C.map((v, i) => v - lv.A[i])]].concat(lv.W ? [["W", lv.W.map((v, i) => v - lv.A[i])]] : []); dashed = { C: true }; }
+  const minus = (a, b) => a.map((v, i) => v - b[i]);
+  let lines;
+  if (S.mode === "abs") lines = [["A", lv.A], ["B", lv.B], ["C", lv.C]];
+  else if (S.mode === "rel") lines = [["A", minus(lv.A, lv.C)], ["B", minus(lv.B, lv.C)], ["C", lv.C.map(() => 0)]];
+  else lines = [["A", lv.A.map(() => 0)], ["B", minus(lv.B, lv.A)], ["C", minus(lv.C, lv.A)]];
+  if (lv.W) lines.push(["W", S.mode === "abs" ? lv.W : minus(lv.W, S.mode === "rel" ? lv.C : lv.A)]);
+  const fixed = lines.filter(([s]) => s !== "W");
   let lo, hi;
-  if (S.mode === "abs") { hi = Math.max(...lines.filter(([sl]) => sl !== "W").flatMap(([, a]) => a)); lo = hi - 60; hi += 3; }
-  else { const m = Math.max(6, ...lines.flatMap(([, a]) => a.slice(4).map(Math.abs))); const r = Math.ceil(Math.min(m, 24) / 3) * 3; lo = -r; hi = r; }
+  if (S.mode === "abs") { hi = Math.max(...fixed.flatMap(([, a]) => a)); lo = hi - 60; hi += 3; }
+  else { const m = Math.max(6, ...fixed.flatMap(([, a]) => a.slice(4).map(Math.abs))); const r = Math.ceil(Math.min(m, 24) / 3) * 3; lo = -r; hi = r; }
   const y = (v) => T + (1 - (Math.max(lo, Math.min(hi, v)) - lo) / (hi - lo)) * ph;
-  // grid
-  g.font = "10px system-ui"; g.lineWidth = 1;
+  g.font = "11px system-ui"; g.lineWidth = 1;
   const step = S.mode === "abs" ? 10 : (hi - lo > 24 ? 6 : 3);
   for (let v = Math.ceil(lo / step) * step; v <= hi; v += step) {
     g.strokeStyle = v === 0 && S.mode !== "abs" ? c.mut : c.line; g.beginPath(); g.moveTo(L, y(v) + .5); g.lineTo(W - R, y(v) + .5); g.stroke();
-    g.fillStyle = c.mut; g.textAlign = "right"; g.fillText(`${v > 0 && S.mode !== "abs" ? "+" : ""}${v}`, L - 4, y(v) + 3);
+    g.fillStyle = c.mut; g.textAlign = "right"; g.fillText(`${v > 0 && S.mode !== "abs" ? "+" : ""}${v}`, L - 5, y(v) + 4);
   }
   g.textAlign = "center";
   [20, 50, 100, 200, 500, 1000, 2000, 5000, 10000, 20000].forEach((f) => {
     g.strokeStyle = c.line; g.beginPath(); g.moveTo(fx(f) + .5, T); g.lineTo(fx(f) + .5, T + ph); g.stroke();
-    g.fillStyle = c.mut; g.fillText(f >= 1000 ? `${f / 1000}k` : f, fx(f), H - 5);
+    g.fillStyle = c.mut; g.fillText(f >= 1000 ? `${f / 1000}k` : f, fx(f), Hh - 5);
   });
-  // curves
+  g.lineJoin = "round";
   for (const [slot, arr] of lines) {
-    g.strokeStyle = COL[slot]; g.lineWidth = slot === S.sel ? 2.6 : 1.5; g.globalAlpha = slot === S.sel ? 1 : .75;
-    g.setLineDash(dashed[slot] || (slot === "C" && S.sec === "build" && S.mode === "abs") ? [5, 4] : []);
+    const main = slot === S.sel || slot === "W";
+    g.strokeStyle = COL[slot]; g.lineWidth = main ? 2.8 : 1.6; g.globalAlpha = main ? 1 : .8;
+    g.setLineDash(slot === "C" && S.sec === "build" && S.mode === "abs" ? [5, 4] : []);
     g.beginPath(); arr.forEach((v, i) => { i ? g.lineTo(fx(F[i]), y(v)) : g.moveTo(fx(F[i]), y(v)); }); g.stroke();
   }
   g.setLineDash([]); g.globalAlpha = 1;
-  // hover readout
-  if (cv._hover != null) {
-    const mx = cv._hover, f = 20 * Math.pow(1000, (mx - L) / pw);
+  if (specHover != null) {
+    const f = 20 * Math.pow(1000, (specHover - L) / pw);
     if (f >= 20 && f <= 20000) {
       const i = Math.max(0, Math.min(F.length - 1, Math.round(6 * Math.log2(f / 20))));
       g.strokeStyle = c.mut; g.beginPath(); g.moveTo(fx(F[i]) + .5, T); g.lineTo(fx(F[i]) + .5, T + ph); g.stroke();
       const txt = [`${Math.round(F[i])} Hz`, ...lines.map(([s, a]) => `${s} ${a[i] > 0 && S.mode !== "abs" ? "+" : ""}${a[i].toFixed(1)}`)];
-      g.font = "11px ui-monospace, Menlo, monospace"; const w = 84, hx = fx(F[i]) > W / 2 ? fx(F[i]) - w - 8 : fx(F[i]) + 8;
-      g.fillStyle = getComputedStyle(document.documentElement).getPropertyValue("--panel2"); g.fillRect(hx, T + 2, w, 14 * txt.length + 4);
-      txt.forEach((t, k) => { g.fillStyle = k ? COL[lines[k - 1][0]] : c.fg; g.textAlign = "left"; g.fillText(t, hx + 4, T + 14 + k * 14); });
+      g.font = "12px ui-monospace, Menlo, monospace"; const w = 92, hx = fx(F[i]) > W / 2 ? fx(F[i]) - w - 8 : fx(F[i]) + 8;
+      g.fillStyle = c.tile; g.fillRect(hx, T + 2, w, 15 * txt.length + 5);
+      txt.forEach((t, k) => { g.fillStyle = k ? COL[lines[k - 1][0]] : c.fg; g.textAlign = "left"; g.fillText(t, hx + 5, T + 15 + k * 15); });
     }
   }
-  const x = (s) => s === "W" ? `Live now${S.sel !== "W" ? ` (playing ${S.sel})` : ""}` : src(s) ? `${s} ${src(s).label}` : "";
-  $("specleg").innerHTML = lines.map(([s]) => `<span><i style="background:${COL[s]}"></i>${x(s)}${dashed[s] ? " − A (what the reference would change)" : ""}</span>`).join("")
-;
-  $("specnote").textContent = ({
-    abs: `${lv.W ? "Blue = what Live plays now, measured on Main, about the last second. " : "The blue live curve appears while Live plays. "}A, B and C are measured from the renders${S.match ? ", loudness matched" : ""}. Mean level per band over the ${S.sec}. ${S.tilt ? "Tilted +4.5 dB/oct so a typical mix looks flat. " : ""}Reference clips are drop-only${S.sec === "build" ? " (dashed)" : ""}.`,
-    rel: `Each curve minus the reference (C, the green line at 0): above it = more of that band than the reference. ${lv.W ? "Blue = live now. " : ""}${S.sec === "build" ? "Reference is its drop. " : ""}`,
-    chg: `${lv.W ? "Blue = live now minus A. " : ""}Solid = what the match changed (B − A). Dashed = what the reference has that A lacks (C − A). Where they agree, the move went the right way.`
-  })[S.mode];
+  const name = (s) => s === "W" ? `Live now${S.sel !== "W" ? ` (${S.sel} playing)` : ""}` : `${s} ${src(s).label}`;
+  const leg = lines.map(([s]) => `<span><i style="background:${COL[s]}"></i>${esc(name(s))}</span>`).join("")
+    + `<span>${S.mode === "abs" ? "dB per band" : S.mode === "rel" ? "dB above the reference" : "dB above the original"}${lv.W ? "" : " · the live curve shows while Live plays"}</span>`;
+  if ($("specleg").dataset.html !== leg) { $("specleg").innerHTML = leg; $("specleg").dataset.html = leg; }
 }
 
+const TL = { L: 40, R: 10, T: 6, B: 18 };
 function tlSeries(slot) {
-  const x = src(slot); if (!x) return null, null;
-  const m = S.metric, off = align(slot);
-  const arr = (m === "lufs" || m === "crest" || m === "width" || m === "bass_corr") ? x.timeline[m] : x.bands[m];
-  const t = (m === "lufs" || m === "crest" || m === "width" || m === "bass_corr") ? x.timeline.t : x.timeline.t.map((v) => v - 1);
+  const x = src(slot); if (!x) return null;
+  const m = S.metric, off = align(slot), tm = (m === "lufs" || m === "crest" || m === "width" || m === "bass_corr");
+  const arr = tm ? x.timeline[m] : x.bands[m], t = tm ? x.timeline.t : x.timeline.t.map((v) => v - 1);
   return { t: t.map((v) => v + off), v: arr.map((v) => v + (m === "lufs" ? gainDb(slot) : 0)) };
 }
-const UNIT = { lufs: "LUFS, 3 s", crest: "dB crest, 3 s", width: "dB side/mid, 3 s", bass_corr: "L/R correlation below 150 Hz", low: "dB share of energy, <150 Hz", mid: "dB share of energy, 150 Hz–4 kHz", high: "dB share of energy, >4 kHz" };
+const UNIT = { lufs: "LUFS over 3 s", crest: "dB crest over 3 s", width: "dB side/mid over 3 s", bass_corr: "L/R correlation below 150 Hz", low: "dB share of energy below 150 Hz", mid: "dB share of energy 150 Hz–4 kHz", high: "dB share of energy above 4 kHz" };
 function drawTl() {
-  const c = setup($("tl")), { g, W, H } = c; g.clearRect(0, 0, W, H);
-  const L = 38, R = 8, T = 6, B = 16, pw = W - L - R, ph = H - T - B, dur = AN.sources.A.duration_s;
+  const c = setup($("tl")), { g, W, H: Hh } = c, { L, R, T, B } = TL;
+  const pw = W - L - R, ph = Hh - T - B, dur = AN.sources.A.duration_s;
   const ser = { A: tlSeries("A"), B: tlSeries("B"), C: tlSeries("C") };
   const vals = Object.values(ser).filter(Boolean).flatMap((s) => s.v);
   let lo = Math.min(...vals), hi = Math.max(...vals); const pad = (hi - lo) * .1 + .5; lo -= pad; hi += pad;
   if (S.metric === "bass_corr") hi = Math.min(1.02, hi);
   const x = (t) => L + (t / dur) * pw, y = (v) => T + (1 - (v - lo) / (hi - lo)) * ph;
   g.fillStyle = c.line + "55"; g.fillRect(x(AN.build_end_s), T, W - R - x(AN.build_end_s), ph);
-  g.font = "10px system-ui"; g.lineWidth = 1; g.textAlign = "right";
+  g.font = "11px system-ui"; g.lineWidth = 1; g.textAlign = "right";
   const span = hi - lo, st = span > 30 ? 10 : span > 12 ? 5 : span > 5 ? 2 : span > 2 ? 1 : .25;
-  for (let v = Math.ceil(lo / st) * st; v <= hi; v += st) { g.strokeStyle = c.line; g.beginPath(); g.moveTo(L, y(v) + .5); g.lineTo(W - R, y(v) + .5); g.stroke(); g.fillStyle = c.mut; g.fillText(Number.isInteger(st) ? v : v.toFixed(2), L - 4, y(v) + 3); }
-  g.textAlign = "center"; for (let t = 0; t <= dur; t += 12) g.fillText(`${t}s`, x(t), H - 3);
+  for (let v = Math.ceil(lo / st) * st; v <= hi; v += st) { g.strokeStyle = c.line; g.beginPath(); g.moveTo(L, y(v) + .5); g.lineTo(W - R, y(v) + .5); g.stroke(); g.fillStyle = c.mut; g.fillText(Number.isInteger(st) ? v : v.toFixed(2), L - 5, y(v) + 4); }
+  g.textAlign = "center"; for (let t = 0; t <= dur; t += 12) g.fillText(`${t}s`, x(t), Hh - 4);
+  g.lineJoin = "round";
   for (const slot of ["A", "B", "C"]) {
     const s = ser[slot]; if (!s) continue;
-    g.strokeStyle = COL[slot]; g.lineWidth = slot === S.sel ? 2.6 : 1.5; g.globalAlpha = slot === S.sel ? 1 : .75; g.beginPath();
+    g.strokeStyle = COL[slot]; g.lineWidth = slot === S.sel ? 2.8 : 1.6; g.globalAlpha = slot === S.sel ? 1 : .8; g.beginPath();
     s.t.forEach((t, i) => i ? g.lineTo(x(t), y(s.v[i])) : g.moveTo(x(t), y(s.v[i]))); g.stroke();
   }
-  g.globalAlpha = 1; g.strokeStyle = c.fg; g.lineWidth = 2; g.beginPath(); g.moveTo(x(curPos()), T); g.lineTo(x(curPos()), T + ph); g.stroke();
-  $("tlnote").textContent = `${UNIT[S.metric]}${S.metric === "lufs" && S.match ? ", loudness matched" : ""}. Click to jump. The reference is drawn from the drop.`;
+  g.globalAlpha = 1;
+  $("tlnote").innerHTML = ["A", "B", "C"].filter(src).map((s) => `<span><i style="background:${COL[s]}"></i>${s} ${esc(src(s).label)}</span>`).join("") + `<span>${UNIT[S.metric]} · from the renders · click to jump</span>`;
 }
-
 function drawParams() {
   const sec = S.sec, ids = ["A", "B", "C"].filter((s) => src(s));
   const row = (name, f, d) => {
     const vals = ids.map((s) => f(src(s), s));
-    return `<tr><td>${name}</td>${vals.map((v, i) => `<td>${v == null ? "–" : v.toFixed(d)}</td>`).join("")}<td><span class="d">${vals[1] != null && vals[2] != null ? (vals[1] - vals[2] >= 0 ? "+" : "") + (vals[1] - vals[2]).toFixed(d) : ""}</span></td></tr>`;
+    return `<tr><td>${name}</td>${vals.map((v) => `<td>${v == null ? "–" : v.toFixed(d)}</td>`).join("")}<td><span class="d">${vals[1] != null && vals[2] != null ? (vals[1] - vals[2] >= 0 ? "+" : "") + (vals[1] - vals[2]).toFixed(d) : ""}</span></td></tr>`;
   };
   const sc = (x, s) => s === "C" ? x.sections.drop : x.sections[sec];
-  $("params").innerHTML = `<tr><th></th>${ids.map((s) => `<th style="color:${COL[s]}">${s} ${src(s).label}</th>`).join("")}<th>B − C</th></tr>`
+  $("params").innerHTML = `<tr><th></th>${ids.map((s) => `<th style="color:${COL[s]}">${s} ${esc(src(s).label)}</th>`).join("")}<th>B − C</th></tr>`
     + row("Loudness, LUFS", (x, s) => sc(x, s).lufs, 1) + row("Crest, dB", (x, s) => sc(x, s).crest_db, 1)
-    + row("Width, dB side/mid", (x, s) => sc(x, s).width_db, 1) + row("Bass mono (corr <150 Hz)", (x, s) => sc(x, s).bass_corr, 2)
+    + row("Width, dB side/mid", (x, s) => sc(x, s).width_db, 1) + row("Bass mono (corr below 150 Hz)", (x, s) => sc(x, s).bass_corr, 2)
     + row("Peak, dBFS", (x, s) => sc(x, s).peak_db, 1)
     + row("Drop − build, LU", (x, s) => s === "C" ? null : x.sections.drop.lufs - x.sections.build.lufs, 1);
-  $("tabnote").textContent = `${sec === "build" ? "build" : "drop"}; reference = its 30 s peak cut`;
+  $("tabnote").textContent = `From the renders, over the ${sec}. The reference is its 30 s peak cut. W is live and is not in this table.`;
 }
 
-function drawTime() {
-  const p = curPos(); $("time").textContent = `${fmt(p)} · bar ${Math.floor(p / BAR_S) + 1}.${Math.floor(((p % BAR_S) / BAR_S) * 4) + 1}`;
+// one loop a frame: controls ease to their values, the playheads slide (as overlays: nothing is redrawn for them),
+// and a canvas is redrawn only if it is in view and what it shows changed
+let lastTime = "", lastPh = -1;
+function frame() {
+  animate();
+  if (AN) {
+    const p = curPos(), dur = AN.sources.A.duration_s;
+    const tx = `${fmt(p)} · bar ${Math.floor(p / BAR_S) + 1}.${Math.floor(((p % BAR_S) / BAR_S) * 4) + 1}`;
+    if (tx !== lastTime) { $("time").textContent = tx; lastTime = tx; }
+    if (Math.abs(p - lastPh) > 0.002) {
+      lastPh = p;
+      const f = Math.max(0, Math.min(1, p / dur)), ww = $("wavewrap").clientWidth;
+      $("phWave").style.transform = `translateX(${(f * ww).toFixed(1)}px)`;
+      if (S.view === "time") { const tw = $("tl").parentElement.clientWidth; $("phTl").style.transform = `translateX(${(TL.L + f * (tw - TL.L - TL.R)).toFixed(1)}px)`; }
+    }
+    if (dirty.wave) { dirty.wave = false; drawWave(); }
+    if (S.view === "spec") { const moved = easeLive(); if (dirty.spec || moved) { dirty.spec = false; drawSpec(); } }
+    if (S.view === "time" && dirty.tl) { dirty.tl = false; lastPh = -1; drawTl(); }
+    if (S.view === "nums" && dirty.nums) { dirty.nums = false; drawParams(); }
+  }
+  requestAnimationFrame(frame);
 }
-function draw() { if (!AN) return; drawWave(); drawSpec(); drawTl(); drawParams(); drawTime(); }
 
-function frame() { if (AN && S.playing) draw(); requestAnimationFrame(frame); }
-
-// Live's state, from the server: position, playing, loop, which source is on
-function applyState(st) {
-  if (st.pos != null) setPos(st.pos, !!st.playing);
-  if (st.monitor) { S.sel = st.monitor.slot; S.ref = st.monitor.ref; }
-  if (st.match != null) { S.match = st.match; $("match").checked = S.match; }
-  if (st.loop) { S.loop = st.loop === "on" ? S.loop : st.loop; paintLoop(); }
-  if (AN) { paintAbc(); draw(); }
+const VIEWS = ["spec", "time", "nums", "chg"];
+function showView(v) {
+  S.view = v;
+  [...$("vtabs").children].forEach((b) => b.classList.toggle("on", b.dataset.v === v));
+  document.querySelectorAll(".rpage").forEach((p) => p.classList.toggle("on", p.dataset.p === v));
+  try { localStorage.setItem("mixdesk.view", v); } catch (e) { /* private window: not remembered */ }
+  redraw();
+  if (v === "chg") requestAnimationFrame(() => paintHist());
+}
+const viewStep = (d) => showView(VIEWS[(VIEWS.indexOf(S.view) + d + VIEWS.length) % VIEWS.length]);
+function showPane(p) {
+  document.body.dataset.pane = p;
+  document.querySelectorAll(".paneswitch button").forEach((b) => b.classList.toggle("on", b.dataset.pane === p));
+  redraw();
+}
+function segInit(id, key, after) {
+  const box = $(id);
+  box.querySelectorAll("button").forEach((b) => b.onclick = () => {
+    S[key] = b.dataset.v; box.querySelectorAll("button").forEach((o) => o.classList.toggle("on", o === b)); redraw(); if (after) after(b.dataset.v);
+  });
 }
 function paintLoop() { $("loop").querySelectorAll("button").forEach((o) => o.classList.toggle("on", o.dataset.v === S.loop)); }
+function applyMonitorState(st) {
+  if (st.pos != null) setPos(st.pos, !!st.playing);
+  if (st.monitor) { S.sel = st.monitor.slot; S.ref = st.monitor.ref; }
+  if (st.match != null) S.match = st.match;
+  if (st.loop) { S.loop = st.loop === "on" ? S.loop : st.loop; paintLoop(); }
+  if (AN) { paintAbc(); redraw(); }
+}
+function pointer(node, fn) {
+  let down = false;
+  const go = (e) => { const r = node.getBoundingClientRect(); fn(e.clientX - r.left, r.width); };
+  node.addEventListener("pointerdown", (e) => { down = true; node.setPointerCapture(e.pointerId); go(e); });
+  node.addEventListener("pointermove", (e) => { if (down) go(e); });
+  node.addEventListener("pointerup", () => { down = false; });
+}
+
+// ====================================================================================================================
+// the server's events, and start
 function listen() {
   const es = new EventSource("/events");
   es.onmessage = (ev) => {
     const m = JSON.parse(ev.data);
-    if (m.t === "full") applyState(m.state);
-    else if (m.t === "pos") { setPos(m.b, m.p); if (AN && !S.playing) draw(); }
-    else if (m.t === "mon") { S.sel = m.slot; S.ref = m.ref; if (AN) { paintAbc(); draw(); } }
-    else if (m.t === "loop") { S.loop = m.loop; paintLoop(); if (AN) draw(); }
-    else if (m.t === "meter") { meterIn(m); if (AN && document.querySelector('.rpage.on[data-p="spec"]')) drawSpec(); }
+    if (m.t === "full") {
+      state = m.state;
+      if (desk) { Object.keys(state.values).forEach((k) => paintValue(k, true)); paintPage(); queueChanged(); }
+      paintStatus(); applyMonitorState(m.state);
+    } else if (m.t === "v") {
+      const k = `${m.page}:${m.slot}`;
+      state.values[k] = { ...(state.values[k] || {}), n: m.n, s: m.s, r: m.r, key: m.key };
+      paintValue(k); if (H.view !== "normal" || H.va) queueChanged();
+    } else if (m.t === "page") { state.page = m.page; state.picked = {}; ui.make = false; paintPage(); }
+    else if (m.t === "hw") {
+      if (m.hw != null && m.slot[0] === "f") { state.hw[m.slot] = m.hw; state.picked[m.slot] = m.picked; paintFaders(); }
+      touch(`${m.page}:${m.slot}`);
+    }
+    else if (m.t === "hist") paintHist(m);
+    else if (m.t === "pos") setPos(m.b, m.p);
+    else if (m.t === "mon") { S.sel = m.slot; S.ref = m.ref; if (AN) { paintAbc(); redraw(); } }
+    else if (m.t === "loop") { S.loop = m.loop; paintLoop(); redraw("wave"); }
+    else if (m.t === "meter") meterIn(m);
+    else if (m.t === "surface") surfaceStatus(m);
+    else if (m.t === "desk") loadDesk(m.open);
   };
+  es.onerror = () => { state.live = "server not answering"; paintStatus(); };
 }
-
-function pointer(cv, fn) {
-  let down = false;
-  const go = (e) => { const r = cv.getBoundingClientRect(); fn(e.clientX - r.left, r.width); };
-  cv.addEventListener("pointerdown", (e) => { down = true; cv.setPointerCapture(e.pointerId); go(e); });
-  cv.addEventListener("pointermove", (e) => { if (down) go(e); });
-  cv.addEventListener("pointerup", () => { down = false; });
+async function loadDesk(open) {
+  desk = await (await fetch("/api/desk")).json();
+  build();
+  Object.keys(state.values).forEach((k) => paintValue(k, true));
+  if (open != null) { ui.make = false; state.page = open; }
+  paintPage(); paintChanged();
 }
 
 async function init() {
+  cssv();
+  await loadDesk();
+  // left
+  $("prevpg").onclick = () => pageStep(-1); $("nextpg").onclick = () => pageStep(1);
+  $("pagesel").onchange = (e) => { if (e.target.value === "make") { ui.make = true; paintPage(); } else arm(Number(e.target.value)); };
+  $("help").onclick = () => document.body.classList.toggle("showhelp");
+  $("helpbox").onclick = () => document.body.classList.remove("showhelp");
+  $("undo").onclick = () => post("/api/undo"); $("redo").onclick = () => post("/api/redo");
+  [...$("view").children].forEach((b) => b.onclick = () => setView(b.dataset.v));
+  document.querySelectorAll(".paneswitch button").forEach((b) => b.onclick = () => showPane(b.dataset.pane));
+  // right: changes
+  $("cp").onclick = async () => {
+    $("cp").disabled = true; $("cp").textContent = "Saving…";
+    const r = await post("/api/checkpoint", { name: $("cpname").value.trim() });
+    if (r.error) alert(r.error); else $("cpname").value = "";
+    $("cp").disabled = false; $("cp").textContent = "Save checkpoint";
+  };
+  $("cpname").addEventListener("keydown", (e) => { if (e.key === "Enter") $("cp").click(); });
+  $("cmpA").onchange = (e) => { H.a = e.target.value; loadCmp(); };
+  $("cmpB").onchange = (e) => { H.b = e.target.value; loadCmp(); };
+  $("revshown").onclick = () => post("/api/revert", { to: H.a });
+  $("revall").onclick = async () => {
+    if (!confirm(`Put the whole mix back to "${H.a}"? The desk's controls come back as one undoable step; everything else in the set too (a checkpoint of the mix as it is now is saved first).`)) return;
+    $("revall").disabled = true; await post("/api/revert", { to: H.a, all: true }); paintChanged();
+  };
+  $("histNewer").onclick = () => { H.histPage--; paintHist(); }; $("histOlder").onclick = () => { H.histPage++; paintHist(); };
+  fetch("/api/history").then((r) => r.json()).then(paintHist);
+  // right: listen and see
   const r = await fetch("/api/analysis");
-  if (!r.ok) { $("viz").insertAdjacentHTML("afterbegin", '<div class="box">No analysis yet. Run <code>contrib/mixdesk/analyze.py</code>.</div>'); return; }
-  AN = await r.json();
-  paintAbc();
-  seg("sec", "sec"); seg("mode", "mode"); seg("metric", "metric");
-  $("loop").querySelectorAll("button").forEach((b) => b.onclick = () => { S.loop = b.dataset.v; paintLoop(); draw(); post("/api/transport", { action: "loop", loop: b.dataset.v }); });
-  $("match").onchange = (e) => { S.match = e.target.checked; paintAbc(); draw(); post("/api/monitor", { slot: S.sel, ref: S.ref, match: S.match }); };
-  $("tilt").onchange = (e) => { S.tilt = e.target.checked; draw(); };
-  $("play").onclick = toggle;
-  pointer($("wave"), (x, w) => seek((x / w) * AN.sources.A.duration_s));
-  pointer($("tl"), (x, w) => seek(Math.max(0, ((x - 38) / (w - 46)) * AN.sources.A.duration_s)));
-  const sp = $("spec");
-  sp.addEventListener("pointermove", (e) => { sp._hover = e.clientX - sp.getBoundingClientRect().left; draw(); });
-  sp.addEventListener("pointerleave", () => { sp._hover = null; draw(); });
+  if (r.ok) AN = await r.json();
+  if (AN) {
+    paintAbc();
+    segInit("sec", "sec"); segInit("mode", "mode"); segInit("metric", "metric");
+    segInit("loop", "loop", (v) => post("/api/transport", { action: "loop", loop: v }));
+    $("match").onclick = () => { S.match = !S.match; paintAbc(); redraw(); sendMonitor(); };
+    $("tilt").onclick = () => { S.tilt = !S.tilt; $("tilt").classList.toggle("on", S.tilt); redraw("spec"); };
+    $("play").onclick = togglePlay;
+    pointer($("wavewrap"), (x, w) => seek((x / w) * AN.sources.A.duration_s));
+    pointer($("tl").parentElement, (x, w) => seek(Math.max(0, ((x - TL.L) / (w - TL.L - TL.R)) * AN.sources.A.duration_s)));
+    const sp = $("spec");
+    sp.addEventListener("pointermove", (e) => { specHover = e.clientX - sp.getBoundingClientRect().left; redraw("spec"); });
+    sp.addEventListener("pointerleave", () => { specHover = null; redraw("spec"); });
+  } else $("abc").innerHTML = '<span class="muted">No analysis yet: run contrib/mixdesk/analyze.py</span>';
+  [...$("vtabs").children].forEach((b) => b.onclick = () => showView(b.dataset.v));
+  $("prevv").onclick = () => viewStep(-1); $("nextv").onclick = () => viewStep(1);
+  let saved = null; try { saved = localStorage.getItem("mixdesk.view"); } catch (e) { /* none */ }
+  if (VIEWS.includes(saved)) showView(saved);
+  new ResizeObserver(() => { redraw(); lastPh = -1; if (S.view === "chg") paintHist(); }).observe(document.body);
+  matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => { cssv(); redraw(); });
+
   document.addEventListener("keydown", (e) => {
-    if ((e.target.closest && e.target.closest("input,textarea")) || e.metaKey || e.ctrlKey || e.altKey) return;
+    if (e.key === "Escape") return document.body.classList.remove("showhelp");
+    if (e.target.closest && e.target.closest("input,textarea,select")) return;
+    if (e.ctrlKey || e.altKey) return;
     const k = e.key.toLowerCase();
-    if (k === "a" || k === "b" || k === "w" || k === "c") select(k.toUpperCase());
-    else if (k === " ") { e.preventDefault(); toggle(); }
+    if (k === "z") { e.preventDefault(); return void post(e.shiftKey ? "/api/redo" : "/api/undo"); }
+    if (e.metaKey) return;
+    if (k === "[" || k === "pageup") { e.preventDefault(); pageStep(-1); }
+    else if (k === "]" || k === "pagedown") { e.preventDefault(); pageStep(1); }
+    else if (k === ",") viewStep(-1); else if (k === ".") viewStep(1);
+    else if (k === "?") document.body.classList.toggle("showhelp");
+    else if (k === "tab") { e.preventDefault(); showPane(document.body.dataset.pane === "left" ? "right" : "left"); }
+    else if (!AN) return;
+    else if (k === "a" || k === "b" || k === "w" || k === "c") select(k.toUpperCase());
+    else if (k === " ") { e.preventDefault(); togglePlay(); }
     else if (k === "arrowleft") seek(curPos() - BAR_S); else if (k === "arrowright") seek(curPos() + BAR_S);
     else if (/^[1-4]$/.test(k)) { const refs = Object.values(AN.sources).filter((x) => x.kind === "ref"); if (refs[k - 1]) pickRef(refs[k - 1].id); }
   });
-  // the right side's views, one at a time
-  const views = [...$("vtabs").children].map((b) => b.dataset.v);
-  const showView = (v) => {
-    [...$("vtabs").children].forEach((b) => b.classList.toggle("on", b.dataset.v === v));
-    document.querySelectorAll(".rpage").forEach((p) => p.classList.toggle("on", p.dataset.p === v));
-    try { localStorage.setItem("mixdesk.view", v); } catch (e) { /* private window: not remembered */ }
-    draw();
-  };
-  [...$("vtabs").children].forEach((b) => b.onclick = () => showView(b.dataset.v));
-  const cur = () => views.indexOf(($("vtabs").querySelector(".on") || {}).dataset?.v);
-  $("prevv").onclick = () => showView(views[(cur() - 1 + views.length) % views.length]);
-  $("nextv").onclick = () => showView(views[(cur() + 1) % views.length]);
-  let saved = null; try { saved = localStorage.getItem("mixdesk.view"); } catch (e) { /* none */ }
-  if (views.includes(saved)) showView(saved);
-  new ResizeObserver(draw).observe($("viz"));
-  matchMedia("(prefers-color-scheme: dark)").addEventListener("change", draw);
-  draw(); requestAnimationFrame(frame);
   listen();
+  requestAnimationFrame(frame);
 }
 init();
-})();
 </script>
 </body>
 </html>

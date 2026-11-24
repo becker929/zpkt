@@ -98,3 +98,14 @@ def test_undo_passes_over_checkpoints_and_history_survives_a_restart(h):
     assert h.undo()[0] == [["Kick bus/volume", 0.85]]
     again = history.History("SET", {})
     assert again.pos == h.pos and len(again.entries) == 2
+
+
+def test_parameters_moved_together_are_one_step(h):
+    for r_k, r_g in ((0.8, 0.45), (0.7, 0.4)):        # a macro sweeping two parameters
+        h.clock[0] += 0.05
+        h.seen("Kick bus/volume", "a", r_k)
+        h.clock[0] += 0.01
+        h.seen("Hats bus/desk EQ/1 Gain A", "b", r_g)
+    assert len(h.entries) == 1 and len(h.entries[0]["moves"]) == 2
+    pairs, _ = h.undo()
+    assert sorted(pairs) == [["Hats bus/desk EQ/1 Gain A", 0.5], ["Kick bus/volume", 0.85]]

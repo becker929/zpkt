@@ -112,15 +112,39 @@ The bar under the page tabs keeps the mix's history (`history.py`):
 
 ## The page, and the live spectrum
 
-The left side shows one MiniLab page at a time: **Prev / Next** (or the picker, or **[** / **]**) arm the page on
-the controller too. **Show: All / Changes lit / Only changes** lights what differs from the checkpoint chosen under
-Changes; with Only changes, Prev/Next skip pages where nothing differs. **?** shows what the MiniLab's controls do.
-The right side keeps A / B / W / C, Play and the waveform on top, and pages **Spectrum / Over time / Numbers /
-Changes** (checkpoints, compare, revert, history) below.
+Nothing scrolls: each side fits the window and is paged with buttons and keys.
+
+- **Left, one MiniLab page at a time.** **Prev / Next**, the picker, or **[** / **]** arm the page on the controller
+  too. Each control is a tile: its slot (K1, F1, B1), a dial or fader, the value as a large number with a small unit,
+  and its name. Values ease to where Live puts them once a frame, however many messages arrive. **Show: All / Changes
+  lit / Only changes** lights what differs from the checkpoint chosen under Changes; with Only changes, Prev/Next skip
+  pages where nothing differs.
+- **Right.** A / B / W / C, Play, the loop and the waveform stay on top (the reference picker shows only while C
+  plays); **Spectrum / Over time / Numbers / Changes** are paged below with **‹ ›** or **,** / **.**. The history under
+  Changes is paged too. The playheads are overlays, and a canvas is redrawn only when what it shows changes.
+- **?** lists the keys and what the MiniLab's controls do. Under 900 px wide one side shows at a time (**Controls /
+  Monitor**, or **Tab**).
 
 The spectrum's blue curve is what Live plays now. `meter.py install` puts a Max for Live device, "zpkt desk meter",
 last on Main (once; it passes the audio through untouched). It measures Main in 31 third-octave bands (Max's fffb~),
-10 times a second, and sends the levels to the server on UDP 8987. The page smooths them over about a second and
-draws them on the renders' scale (both are the mid signal's power per band), so W can be read against A, B and C as
-you turn knobs. With A, B or C monitored, the blue curve is that render as Live plays it.
+10 times a second, and sends the levels to the server on UDP 8987. The page averages them over about a second, eases
+the curve every frame, and draws it on the renders' scale (both are the mid signal's power per band), so W can be
+read against A, B and C as you turn knobs. With A, B or C monitored, the blue curve is that render as Live plays it.
+
+## Make a surface
+
+The last page on the left, **＋ Make a surface**: say what you want under your hands and press Make surface.
+`surfaces.py` reads what the set holds (every track's mixer and devices, with what each parameter shows now and at
+its ends: the pager's `inventory`), asks Claude for one page as JSON (the Claude Code CLI, headless, no tools), checks
+every control against the set (what is not there is dropped and said so) and saves it as
+`<sets_dir>/surfaces/<set>/<name>.json`, with the request. The pager is reloaded with it and its page armed. Every
+file in that folder is a page of the desk after desk.json's own; **Remove** moves a file to `removed/`.
+
+A control can be a **macro**: one knob or fader moving several parameters together, each from its "from" to its "to"
+(written as Live shows them: "200 Hz", "-6 dB") as the control goes from 0 to 1. The history keeps the parameters a
+macro moves, as one step, so undo puts each back exactly. `POST /api/surface/save {"surface": {...}}` saves a
+ready-made surface through the same checks.
+
+Claude must be signed in on this Mac for the CLI: `claude`, then `/login` (or a token in `HARNESS_OAUTH` / the
+harness's Keychain item). When it is not, the page says so.
 
