@@ -7,6 +7,7 @@
 bar 17), warping off. All of them stay MUTED unless the desk is monitoring them (pager.monitor), so a render of the set
 never doubles. The files are the WAVs analyze.py wrote. Each step is one short LOM call, as the ableton guide asks.
 """
+
 from __future__ import annotations
 
 import json
@@ -14,7 +15,7 @@ import sys
 import time
 from pathlib import Path
 
-from hands.live.transport import LiveClient
+from hands.live.transport import LiveClient, McpTransport
 
 HERE = Path(__file__).resolve().parent
 CFG = json.loads((HERE / "sources.json").read_text())
@@ -30,16 +31,16 @@ def wanted() -> dict[str, tuple[Path, float]]:
     return w
 
 
-def ensure(live: LiveClient | None = None, log=print, want: dict[str, tuple[Path, float]] | None = None) -> None:
+def ensure(live: McpTransport | None = None, log=print, want: dict[str, tuple[Path, float]] | None = None) -> None:
     """Add the monitor tracks that are missing. `want` ({name: (wav, beat)}) defaults to sources.json's; the
     recipe passes its own, so a rebuilt set gets the tracks the recipe was written with."""
     live = live or LiveClient(timeout=10.0, retries=1)
     for name, (wav, beat) in (want or wanted()).items():
         if not wav.exists():
             raise SystemExit(f"missing {wav}: run analyze.py")
-        have = live.run(f"result = [t.name for t in song.tracks]")
+        have = live.run("result = [t.name for t in song.tracks]")
         if name not in have:
-            live.run(f"song.create_audio_track(-1)\nresult = 'ok'")
+            live.run("song.create_audio_track(-1)\nresult = 'ok'")
             time.sleep(0.3)
             n = live.run("result = len(song.tracks)") - 1
             live.run(f"song.tracks[{n}].name = {name!r}\nresult = 'ok'")
@@ -56,7 +57,7 @@ def ensure(live: LiveClient | None = None, log=print, want: dict[str, tuple[Path
         time.sleep(0.2)
 
 
-def remove(live: LiveClient | None = None) -> None:
+def remove(live: McpTransport | None = None) -> None:
     live = live or LiveClient(timeout=10.0, retries=1)
     while True:
         idx = [i for i, n in enumerate(live.run("result = [t.name for t in song.tracks]")) if n.startswith("mon ")]
@@ -66,10 +67,12 @@ def remove(live: LiveClient | None = None) -> None:
         time.sleep(0.3)
 
 
-def status(live: LiveClient | None = None) -> list:
+def status(live: McpTransport | None = None) -> list:
     live = live or LiveClient(timeout=10.0, retries=1)
-    return live.run("result = [[t.name, t.mute, t.solo, [(c.file_path.split('/')[-1], c.start_time, c.end_time, c.warping) for c in t.arrangement_clips]] "
-                    "for t in song.tracks if t.name.startswith('mon ')]")
+    return live.run(
+        "result = [[t.name, t.mute, t.solo, [(c.file_path.split('/')[-1], c.start_time, c.end_time, c.warping) for c in t.arrangement_clips]] "
+        "for t in song.tracks if t.name.startswith('mon ')]"
+    )
 
 
 if __name__ == "__main__":

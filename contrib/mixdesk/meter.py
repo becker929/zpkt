@@ -13,6 +13,7 @@ changed outside Live (contrib/docs/sound.md).
 It is written from Live's own "Max Audio Effect" template (the .amxd header and its plugin~ -> plugout~ pair), with the
 meter's objects added.
 """
+
 from __future__ import annotations
 
 import json
@@ -28,20 +29,20 @@ METER_PORT = 8987
 BANDS = 31
 BASE_HZ = 20.0
 RATIO = 2 ** (1 / 3)
-Q = 4.32                    # a third-octave band's Q
-RMS_SAMPLES = 4410          # average~ window, about 0.1 s at 44.1 kHz
+Q = 4.32  # a third-octave band's Q
+RMS_SAMPLES = 4410  # average~ window, about 0.1 s at 44.1 kHz
 INTERVAL_MS = 100
 TEMPLATE = Path("/Applications/Ableton Live 12 Suite.app/Contents/App-Resources/Misc/Max Devices/Max Audio Effect.amxd")
 USER_LIB = Path("~/Music/Ableton/User Library/Presets/Audio Effects/Max Audio Effect").expanduser()
 
 
 def centers() -> list[float]:
-    return [BASE_HZ * RATIO ** k for k in range(BANDS)]
+    return [BASE_HZ * RATIO**k for k in range(BANDS)]
 
 
 def _read(path: Path) -> dict:
     b = path.read_bytes()
-    return json.loads(b[b.index(b"{"):].rstrip(b"\x00").decode("utf-8"))
+    return json.loads(b[b.index(b"{") :].rstrip(b"\x00").decode("utf-8"))
 
 
 def _write(patch: dict, path: Path) -> None:
@@ -61,8 +62,19 @@ def build() -> dict:
     def box(text: str, ins: int, outs: list[str], x: float, y: float, w: float = 80.0) -> str:
         n[0] += 1
         oid = f"meter-{n[0]}"
-        boxes.append({"box": {"id": oid, "maxclass": "newobj", "text": text, "numinlets": ins, "numoutlets": len(outs),
-                              "outlettype": outs, "patching_rect": [x, y, w, 22.0]}})
+        boxes.append(
+            {
+                "box": {
+                    "id": oid,
+                    "maxclass": "newobj",
+                    "text": text,
+                    "numinlets": ins,
+                    "numoutlets": len(outs),
+                    "outlettype": outs,
+                    "patching_rect": [x, y, w, 22.0],
+                }
+            }
+        )
         return oid
 
     def wire(a: str, ao: int, b: str, bi: int) -> None:
@@ -89,11 +101,13 @@ def build() -> dict:
         snap = box("snapshot~", 2, ["float"], x0 + k * 14, y0 + 160 + (k % 2) * 30, 70)
         wire(bank, k, avg, 0)
         wire(avg, 0, snap, 0)
-        wire(trig, k, snap, 0)          # t fires right to left: band 0 (pack's hot inlet) last
+        wire(trig, k, snap, 0)  # t fires right to left: band 0 (pack's hot inlet) last
         wire(snap, 0, pack, k)
     wire(pack, 0, addr, 0)
     wire(addr, 0, send, 0)
-    p["description"] = "zpkt mix desk: measures Main in third-octave bands and sends them to the desk. Audio passes through."
+    p["description"] = (
+        "zpkt mix desk: measures Main in third-octave bands and sends them to the desk. Audio passes through."
+    )
     return patch
 
 
@@ -108,16 +122,18 @@ def parse(data: bytes) -> list[float] | None:
     """An OSC "/spec f f ..." message -> its floats (None for anything else)."""
     if not data.startswith(b"/spec\x00"):
         return None
-    i = 8                                   # "/spec" padded to 8 bytes
+    i = 8  # "/spec" padded to 8 bytes
     end = data.index(b"\x00", i)
-    tags = data[i + 1:end].decode()
+    tags = data[i + 1 : end].decode()
     i = (end + 4) & ~3
     vals = []
     for t in tags:
         if t == "f":
-            vals.append(struct.unpack(">f", data[i:i + 4])[0]); i += 4
+            vals.append(struct.unpack(">f", data[i : i + 4])[0])
+            i += 4
         elif t == "i":
-            vals.append(float(struct.unpack(">i", data[i:i + 4])[0])); i += 4
+            vals.append(float(struct.unpack(">i", data[i : i + 4])[0]))
+            i += 4
         else:
             return None
     return vals
@@ -126,6 +142,7 @@ def parse(data: bytes) -> list[float] | None:
 def install() -> None:
     """Load the device last on Main through the Live browser (once: does nothing if Main has it)."""
     from hands.live.transport import LiveClient
+
     live = LiveClient(timeout=15.0, retries=1)
     if NAME in live.run("result = [d.name for d in song.master_track.devices]"):
         print("Main already has", NAME)
@@ -134,7 +151,7 @@ def install() -> None:
     print("wrote", path)
     code = f"""
 def find(item, depth=0):
-    if item.name in ({NAME!r}, {NAME + '.amxd'!r}) and item.is_loadable:
+    if item.name in ({NAME!r}, {NAME + ".amxd"!r}) and item.is_loadable:
         return item
     if depth < 6 and item.is_folder:
         for c in item.children:
@@ -151,7 +168,7 @@ if hit is not None:
         song.view.select_device(devs[-1])
     b.load_item(hit)
 result = hit is not None"""
-    for _ in range(20):                     # Live indexes a new file in the User Library within a few seconds
+    for _ in range(20):  # Live indexes a new file in the User Library within a few seconds
         if live.run(code):
             break
         time.sleep(1.5)
@@ -167,7 +184,7 @@ def listen(seconds: float = 3.0) -> None:
     s.settimeout(seconds)
     try:
         data, _ = s.recvfrom(4096)
-    except socket.timeout:
+    except TimeoutError:
         sys.exit(f"nothing on {METER_PORT} in {seconds} s")
     vals = parse(data)
     print(len(vals or []), "bands", [round(v, 5) for v in (vals or [])][:8], "...")

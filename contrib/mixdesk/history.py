@@ -12,6 +12,7 @@ state's keys ("Hats bus/desk EQ/1 Gain A", "Kick bus/volume"), which is what the
 
 The history itself is kept in HISTORY_DIR/<set>.json, so it outlives a server restart.
 """
+
 from __future__ import annotations
 
 import json
@@ -20,18 +21,25 @@ import os
 import re
 import threading
 import time
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
-from hands import config
 from hands.live import state as S
 
-COALESCE_S = 2.0          # one control moved again within this long: the same step
-TOGETHER_S = 0.3          # another control moved within this long of the step: the same gesture (a macro's parameters)
-EXPECT_S = 2.0            # a value the desk wrote itself (undo, redo, revert) is not a new move for this long
-KEEP = 500                # entries kept on disk
+COALESCE_S = 2.0  # one control moved again within this long: the same step
+TOGETHER_S = 0.3  # another control moved within this long of the step: the same gesture (a macro's parameters)
+EXPECT_S = 2.0  # a value the desk wrote itself (undo, redo, revert) is not a new move for this long
+KEEP = 500  # entries kept on disk
 HISTORY_DIR = Path("~/_agent_scratch/mixdesk/history").expanduser()
 NAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9 ._-]{0,60}$")
+
+
+def check_name(name: str) -> str:
+    """A checkpoint name as it may be saved; ValueError says what a name may hold."""
+    if not NAME_RE.match(name):
+        raise ValueError("a checkpoint name is letters, digits, space . _ - (up to 60)")
+    return name
 
 
 def same(a: Any, b: Any) -> bool:
@@ -41,12 +49,24 @@ def same(a: Any, b: Any) -> bool:
 
 
 class History:
-    def __init__(self, set_name: str, labels: dict[str, str]) -> None:
+    def __init__(
+        self,
+        set_name: str,
+        labels: dict[str, str],
+        directory: Path | None = None,
+        checkpoints: Path | None = None,
+        clock: Callable[[], float] = time.time,
+    ) -> None:
+        """`directory` holds <set>.json (default HISTORY_DIR); `checkpoints` the set's hands states (default
+        hands.live.state.folder(set_name)); `clock` gives seconds (tests pass their own)."""
+        self.clock = clock
         self.set_name, self.labels = set_name, labels
+        self.directory = directory or HISTORY_DIR
+        self.checkpoints_dir = checkpoints
         self.lock = threading.RLock()
-        self.cur: dict[str, list] = {}           # key -> [shown, raw], as Live has it now
-        self.expect: dict[str, tuple[float, float]] = {}   # key -> (raw the desk wrote, until)
-        self.file = HISTORY_DIR / f"{set_name}.json"
+        self.cur: dict[str, list] = {}  # key -> [shown, raw], as Live has it now
+        self.expect: dict[str, tuple[float, float]] = {}  # key -> (raw the desk wrote, until)
+        self.file = self.directory / f"{set_name}.json"
         try:
             d = json.loads(self.file.read_text())
             self.entries, self.pos, self.seq = d["entries"], d["pos"], d.get("seq", len(d["entries"]))
@@ -72,39 +92,45 @@ class History:
             if before is None or same(before[1], raw):
                 return False
             exp = self.expect.get(key)
-            if exp and time.time() < exp[1]:
+            if exp and self.clock() < exp[1]:
                 if same(exp[0], raw):
                     self.expect.pop(key, None)
                 return False
             if sys:
                 return False
-            now = time.time()
+            now = self.clock()
             top = self.entries[-1] if self.entries and self.pos == len(self.entries) else None
             if top and top["k"] == "move" and now - top["at"] < COALESCE_S:
                 mine = next((m for m in top["moves"] if m["key"] == key), None)
-                if mine is not None:                       # the same control, still moving
+                if mine is not None:  # the same control, still moving
                     mine["to"] = [shown, raw]
                     top["at"] = now
-                    if same(mine["from"][1], raw) and len(top["moves"]) == 1:   # back where it started: no step
+                    if same(mine["from"][1], raw) and len(top["moves"]) == 1:  # back where it started: no step
                         self.entries.pop()
                         self.pos -= 1
                     self._save()
                     return True
-                if now - top["at"] < TOGETHER_S:           # another control at the same moment: one gesture (a macro)
-                    top["moves"].append({"key": key, "label": self.labels.get(key, key), "from": before, "to": [shown, raw]})
+                if now - top["at"] < TOGETHER_S:  # another control at the same moment: one gesture (a macro)
+                    top["moves"].append(
+                        {"key": key, "label": self.labels.get(key, key), "from": before, "to": [shown, raw]}
+                    )
                     top["at"] = now
                     self._save()
                     return True
-            self._push({"k": "move", "moves": [{"key": key, "label": self.labels.get(key, key),
-                                                "from": before, "to": [shown, raw]}]})
+            self._push(
+                {
+                    "k": "move",
+                    "moves": [{"key": key, "label": self.labels.get(key, key), "from": before, "to": [shown, raw]}],
+                }
+            )
             self._save()
             return True
 
     # ---- undo, redo -----------------------------------------------------------------------------------------------
     def _push(self, entry: dict) -> dict:
-        del self.entries[self.pos:]           # a new step drops what could be redone
+        del self.entries[self.pos :]  # a new step drops what could be redone
         self.seq += 1
-        entry.update(id=self.seq, at=time.time())
+        entry.update(id=self.seq, at=self.clock())
         self.entries.append(entry)
         if len(self.entries) > KEEP:
             cut = len(self.entries) - KEEP
@@ -113,7 +139,7 @@ class History:
         return entry
 
     def _writes(self, moves: list[dict], side: str) -> list[list]:
-        until = time.time() + EXPECT_S
+        until = self.clock() + EXPECT_S
         out = []
         for m in moves:
             raw = m[side][1]
@@ -149,8 +175,11 @@ class History:
     def revert(self, name: str, keys: list[str] | None = None) -> tuple[list[list], dict | None]:
         """Every desk control (or only `keys`) back to checkpoint `name`, as one undoable entry."""
         with self.lock:
-            moves = [{"key": k, "label": self.labels.get(k, k), "from": self.cur[k], "to": v["a"]}
-                     for k, v in self.compare(name, "now").items() if keys is None or k in keys]
+            moves = [
+                {"key": k, "label": self.labels.get(k, k), "from": self.cur[k], "to": v["a"]}
+                for k, v in self.compare(name, "now").items()
+                if keys is None or k in keys
+            ]
             if not moves:
                 return [], None
             e = self._push({"k": "revert", "to": name, "moves": moves})
@@ -159,7 +188,7 @@ class History:
 
     # ---- checkpoints ----------------------------------------------------------------------------------------------
     def folder(self) -> Path:
-        return S.folder(self.set_name)
+        return self.checkpoints_dir or S.folder(self.set_name)
 
     def checkpoints(self) -> list[dict]:
         d = self.folder()
@@ -168,29 +197,30 @@ class History:
             out.append({"name": p.stem, "at": p.stat().st_mtime})
         return out
 
-    def load(self, name: str) -> dict[str, list]:
+    def load(self, name: str) -> dict[str, S.ShownRaw]:
         """A checkpoint's values for the desk's keys (all the keys it has)."""
         if not NAME_RE.match(name):
             raise ValueError(f"bad checkpoint name {name!r}")
         return S.flatten(S.load(self.folder() / f"{name}.json"))
 
-    def checkpoint(self, name: str, full: dict, main_saved: dict | None) -> dict:
+    def checkpoint(self, name: str, full: S.State, main_saved: dict | None) -> dict:
         """Save `full` (a state just taken) as checkpoint `name`, with the desk's own values on top (they are what
         the history knows), the monitor tracks as the desk leaves them (muted, not soloed) and Main's desk devices
         as they are when nothing is monitored. Adds a checkpoint entry to the history."""
-        if not NAME_RE.match(name):
-            raise ValueError("a checkpoint name is letters, digits, space . _ - (up to 60)")
+        check_name(name)
         with self.lock:
             for tname, body in full["tracks"].items():
                 mix = body["mixer"]
                 if tname.startswith("mon "):
-                    mix["mute"], mix["solo"] = ["True", True], ["False", False]
+                    mix["mute"], mix["solo"] = S.ShownRaw.of("True", True), S.ShownRaw.of("False", False)
                 if tname == "Main" and main_saved:
                     for d in body["devices"]:
                         if d["name"] in main_saved and "Device On" in d["params"]:
                             on = main_saved[d["name"]]
-                            d["params"]["Device On"] = ["On" if on else "Off", on]
-            S.save({**full, "name": name, "made_by": "mixdesk"}, self.folder() / f"{name}.json", self.set_name)
+                            d["params"]["Device On"] = S.ShownRaw.of("On" if on else "Off", on)
+            # hands' State does not list a checkpoint's "name" and "made_by"; its readers keep unknown keys
+            marked: Any = {**full, "name": name, "made_by": "mixdesk"}
+            S.save(marked, self.folder() / f"{name}.json", self.set_name)
             e = self._push({"k": "checkpoint", "name": name, "moves": []})
             self._save()
             return e
@@ -211,7 +241,7 @@ class History:
 
     # ---- disk, and what the page shows -----------------------------------------------------------------------------
     def _save(self) -> None:
-        HISTORY_DIR.mkdir(parents=True, exist_ok=True)
+        self.directory.mkdir(parents=True, exist_ok=True)
         tmp = self.file.with_name(f".{self.file.name}.tmp")
         tmp.write_text(json.dumps({"entries": self.entries, "pos": self.pos, "seq": self.seq}))
         os.replace(tmp, self.file)
@@ -219,7 +249,11 @@ class History:
     def view(self, last: int = 150) -> dict:
         with self.lock:
             start = max(0, len(self.entries) - last)
-            return {"t": "hist", "entries": self.entries[start:], "pos": self.pos - start,
-                    "can_undo": any(e["k"] != "checkpoint" for e in self.entries[:self.pos]),
-                    "can_redo": any(e["k"] != "checkpoint" for e in self.entries[self.pos:]),
-                    "checkpoints": self.checkpoints()}
+            return {
+                "t": "hist",
+                "entries": self.entries[start:],
+                "pos": self.pos - start,
+                "can_undo": any(e["k"] != "checkpoint" for e in self.entries[: self.pos]),
+                "can_redo": any(e["k"] != "checkpoint" for e in self.entries[self.pos :]),
+                "checkpoints": self.checkpoints(),
+            }
