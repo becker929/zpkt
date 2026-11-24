@@ -13,6 +13,23 @@ the LOM cannot do: time edits, saving, the Export dialog (`hands.live.ui`). Each
 guarded: before and after it, `session.check` makes sure no dialog is open, one of our sets is in
 front and the LOM answers, and stops the run on anything else.
 
+## Common asks, one command each
+
+Look here before writing LOM code or reading a module. If an ask is missing and took more than one command, add
+the command and a row.
+
+| Ask | Command |
+|---|---|
+| Is Live there, which set is in front? | `hands live check` |
+| Save the set (an explicit save, not Live's backup) | `hands live save [--as NAME] [--state NAME]` |
+| Keep the whole mix (every fader, send, mute, device value) | `hands live state take NAME` |
+| What changed since then? / Does Live match a recipe? | `hands live state diff NAME [OTHER]` (a recipe .json with a `"desk"` works) |
+| Put a kept mix (or a recipe's desk) back | `hands live state put NAME [--only TRACK]` |
+| Which mixes are kept for this set? | `hands live state ls` |
+| Render a span to a file | `hands live export FILE --start BEAT --length BEATS` |
+| A dialog is stuck | `hands live modals --reap` |
+| Live is acting strange | `hands rig check`, then `hands rig reset` |
+
 ## Modules
 
 | Module | Public API |
@@ -20,6 +37,7 @@ front and the LOM answers, and stops the run on anything else.
 | `live/transport.py` | `LiveClient(host, port, timeout=15, retries=2)`: `.run(code) -> result` (raises `LiveError`), `.execute(code) -> McpResult` (keeps `warning`, `elapsed`, `traceback`), `.ping() -> seconds`. `McpTransport`, `DryRunTransport`, `MockTransport`. Retries only while connecting: a sent request is never resent. |
 | `live/ui.py` | `osa`, `osa_file` (rerun through Hammerspoon without an Accessibility grant), `menu`, `menu_enabled`, `front_title`, `windows`, `dialogs`, `close_dialogs`, `reap_modals`, `park_cursor` |
 | `live/session.py` | `Guard`, `stop`, `check(client, where, *, expect_front=None, ours=True) -> str`, `open_set(client, name, *, save_current=True, timeout_s=120) -> float`, `save(name=None) -> bool`, `copy_set`, `launch`, `restart`, `audio_clock_ok`, `memory`, `other_agent_active` |
+| `live/state.py` | `take(client, only=None) -> state` (one LOM call per track), `diff(a, b, ignore=()) -> [(key, a, b)]`, `summarize(rows)`, `put(client, state, only=None) -> rows still differing` (writes only what differs, reads back), `load`/`load_dict` (a state, or a mixdesk recipe's `"desk"`), `save`, `path_for` (`sets_dir/state/<set>/NAME.json`) |
 | `live/timeops.py` | `select(client, start, length)` (one LOM call + Edit > Select Loop), `delete`, `duplicate(…, end=None, clips_from=None)`, `copy`, `paste`, each checked by where the song ends |
 | `live/knobs.py` | `Knob(track, device, param)` with `.id` / `Knob.parse`; `set_many(client, {knob: value})` (one write call), `read_many(client, knobs) -> {knob: Reading}` (a separate call), `apply(client, values, *, verify=True, tol=1e-4)`; `UNITS`, the measured .als-to-LOM conversions |
 | `live/render.py` | `export(client, out, start_beat=None, length_beats=None, *, mode="Main", bits=32, sample_rate=44100) -> [Path]`, the one export path (`export_audio.applescript`) |
@@ -89,6 +107,8 @@ The step reports to my studio app (`contrib/harness`) use `STUDIO_STEP_URL` and 
 hands live ping                                  # is the Remote Script listening?
 hands live exec --json "result = len(song.tracks)"   # LOM code (also --file, --stdin)
 hands live check [--expect SET] [--any-set]      # the session guard
+hands live save [--as NAME] [--state NAME]       # File > Save, wait for the file; a named copy; the mix state
+hands live state take|diff|put|ls NAME           # the mix state as data (README "Common asks")
 hands live export take.wav [--start 8 --length 32] [--mode Main] [--bits 24]
 hands live modals [--reap]                       # Live's modal dialogs; --reap presses only safe buttons
 hands als check FILE.als [--against SRC.als]     # offline self-checks before Live loads a set

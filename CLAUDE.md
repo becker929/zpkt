@@ -8,6 +8,9 @@ bot and booth, publishing, and in `contrib/docs/` his workflow, design notes and
 experiments. Each part is its own uv project: run its tests from its folder, or `make test`. In non-interactive
 shells where `uv` is not on `PATH`, use `~/.local/bin/uv` or `ears/.venv/bin/python` directly.
 
+- **Check the "Common asks" table in `hands/README.md` before writing LOM code or searching modules.** Saving the
+  set, keeping/comparing/restoring the whole mix and recipes are one command each there. When an ask takes you more
+  than one command, add the command to hands and a row to that table in the same change.
 - **Read `agent/skills/ableton-guide/SKILL.md` before sending code to Live.** Work on copies of sets, keep each
   `hands live exec` call short, and measure the rendered file before saying a render worked.
 - **Nothing personal in the core.** Paths that differ per Mac are rig settings (`hands/src/hands/config.py`), never
