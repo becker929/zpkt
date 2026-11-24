@@ -178,3 +178,69 @@ def test_a_saved_surface_fits_its_schema_and_a_file_in_that_shape_is_a_page():
     validator.validate(json.loads(other.read_text()))
     assert [p["name"] for p in surfaces.pages("SET")] == ["Both", "Older"]
     assert not validator.is_valid({"name": "x", "controls": {"k1": {"label": "no track"}}})
+
+
+# ---- the file can grow: a version, and keys this code does not know -------------------------------------------------
+
+V1 = {
+    "name": "Older",
+    "what": "w",
+    "controls": {"f1": {"track": "Kick bus", "param": "volume"}},
+    "notes": [],
+    "prompt": "p",
+    "made": "2026-11-20 09:00",
+    "set": "SET",
+}
+
+
+def test_a_file_without_a_version_is_version_1_and_its_page_is_as_before(tmp_path):
+    folder = tmp_path / "surfaces" / "SET"
+    folder.mkdir(parents=True)
+    (folder / "older.json").write_text(json.dumps(V1))
+    assert surfaces.read(folder / "older.json") == {**V1, "schema": 1}
+    assert surfaces.pages("SET") == [
+        {
+            "name": "Older",
+            "what": "w",
+            "controls": {"f1": {"track": "Kick bus", "param": "volume"}},
+            "surface": "older.json",
+            "prompt": "p",
+        }
+    ]
+
+
+def test_a_saved_surface_names_its_version():
+    s = surfaces.validate({"name": "New", "controls": {"f1": {"track": "Kick bus", "param": "volume"}}}, INV, [])
+    saved = json.loads(surfaces.save(s, "SET", "x").read_text())
+    assert saved["schema"] == surfaces.SCHEMA == 1 and next(iter(saved)) == "schema"
+
+
+def test_keys_a_later_version_adds_are_kept_on_read_and_write(tmp_path):
+    import gen_schema
+    import jsonschema
+
+    later = {**V1, "schema": 2, "groups": [{"name": "Low", "slots": ["f1"]}], "role": "mix"}
+    folder = tmp_path / "surfaces" / "SET"
+    folder.mkdir(parents=True)
+    path = folder / "later.json"
+    path.write_text(json.dumps(later))
+    read = surfaces.read(path)
+    assert read == later
+    copy = folder / "copy.json"
+    surfaces.write(copy, read)
+    assert json.loads(copy.read_text()) == later  # written back whole, its own version kept
+    page = surfaces.pages("SET")[0]
+    assert page["groups"] == later["groups"] and page["role"] == "mix" and page["surface"] == "later.json"
+    validator = jsonschema.Draft202012Validator(json.loads(gen_schema.SURFACE_OUT.read_text()))
+    validator.validate(later)  # the contract is open
+    assert not validator.is_valid({**V1, "schema": "two"})
+
+
+@pytest.mark.parametrize("bad", ["[1, 2]", '{"name": "x"}', json.dumps({**V1, "schema": 0}), "{broken"])
+def test_a_file_that_is_not_a_surface_is_passed_over(tmp_path, bad):
+    folder = tmp_path / "surfaces" / "SET"
+    folder.mkdir(parents=True)
+    (folder / "bad.json").write_text(bad)
+    assert surfaces.pages("SET") == []
+    with pytest.raises(surfaces.SurfaceError):
+        surfaces.read(folder / "bad.json")

@@ -7,12 +7,15 @@ against the set (what is not there is dropped and said so), and saves it as
 
 A surface is a desk.json page plus where it came from:
 
-    {"name": "Low end", "what": "one line", "prompt": "what was asked", "made": "2026-11-24 10:02",
+    {"schema": 1, "name": "Low end", "what": "one line", "prompt": "what was asked", "made": "2026-11-24 10:02",
      "controls": {"k1": {"track": "kick", "device": "desk EQ", "param": "1 Gain A", "label": "Sub"},
                   "k2": {"label": "Hats dark", "macro": [{"track": "Hats bus", "device": "desk EQ",
                                                           "param": "7 Gain A", "from": "0 dB", "to": "-9 dB"}]},
                   "f1": {"track": "Kick bus", "param": "volume"}, "b1": {"track": "Hats bus", "param": "mute"}},
      "notes": ["what was left out and why"]}
+
+The file can grow: `schema` is its version (a file without it is version 1), and keys this code does not know are
+kept when it is read (they reach the page) and when it is written.
 
 Slots: k1-k8 knobs, f1-f4 faders, b1-b8 pads (switches: mute, solo, a device's on/off, any two-state parameter).
 A macro moves several parameters at once, each from its "from" to its "to" (as Live shows them: "200 Hz", "-6 dB",
@@ -30,7 +33,7 @@ import shutil
 import subprocess
 import time
 from pathlib import Path
-from typing import NotRequired, TypedDict
+from typing import Any, NotRequired, TypedDict, cast
 
 from zpkt.live import config
 from zpkt.live.inlive.shown import shown_number
@@ -39,6 +42,7 @@ SLOTS = [f"k{i}" for i in range(1, 9)] + [f"f{i}" for i in range(1, 5)] + [f"b{i
 MODEL = os.environ.get("MIXDESK_MODEL", "sonnet")
 TIMEOUT_S = 180
 KEYCHAIN_ITEM = "zpkt-claude-oauth"  # the harness's Claude login, if it has one (contrib/harness config.py)
+SCHEMA = 1  # the made-surface file's version this code writes; a file without "schema" is version 1
 
 
 class SurfaceError(Exception):
@@ -68,8 +72,10 @@ class Macro(TypedDict):
 
 
 class SurfaceFile(TypedDict):
-    """<sets_dir>/surfaces/<set>/<name>.json: a desk.json page plus where it came from."""
+    """<sets_dir>/surfaces/<set>/<name>.json: a desk.json page plus where it came from. "schema" is the file's
+    version (absent: 1). The object is open: keys a later version adds are kept by every reader and writer."""
 
+    schema: NotRequired[int]
     name: str
     what: str
     controls: dict[str, Control | Macro]  # slot (k1-k8, f1-f4, b1-b8) -> its control
@@ -83,23 +89,55 @@ def folder(set_name: str) -> Path:
     return config.rig().sets_dir / "surfaces" / set_name
 
 
+# The keys a version-1 file holds; any other key is a later version's and is passed on as it is.
+FILE_KEYS = frozenset(SurfaceFile.__annotations__)
+
+
+def parse_surface(obj: Any) -> SurfaceFile:
+    """A decoded surface file, every key kept, with its version (1 when it has none); SurfaceError if it is not one."""
+    if not isinstance(obj, dict) or "name" not in obj or "controls" not in obj:
+        raise SurfaceError("a surface file is an object with a name and controls")
+    version = obj.get("schema", 1)
+    if isinstance(version, bool) or not isinstance(version, int) or version < 1:
+        raise SurfaceError(f"a surface file's schema is a version number from 1, not {version!r}")
+    return cast(SurfaceFile, {**obj, "schema": version})
+
+
+def read(path: Path) -> SurfaceFile:
+    try:
+        return parse_surface(json.loads(path.read_text()))
+    except ValueError as exc:
+        raise SurfaceError(f"{path.name} is not JSON ({exc})") from None
+
+
+def write(path: Path, surface: dict[str, Any]) -> None:
+    """Write a surface file: every key it holds (known or not), and the version (SCHEMA unless it names one)."""
+    path.write_text(json.dumps({"schema": SCHEMA, **surface}, indent=1))
+
+
+def as_page(s: SurfaceFile, file: str) -> dict[str, Any]:
+    """A surface as a desk page: its name, what, controls and prompt, the file it came from, and any key a later
+    version of the file added."""
+    later = {k: v for k, v in s.items() if k not in FILE_KEYS}
+    return {
+        **later,
+        "name": s["name"],
+        "what": s.get("what", ""),
+        "controls": s["controls"],
+        "surface": file,
+        "prompt": s.get("prompt", ""),
+    }
+
+
 def pages(set_name: str, directory: Path | None = None) -> list[dict]:
-    """The saved surfaces as desk pages, oldest first. `directory` defaults to folder(set_name)."""
+    """The saved surfaces as desk pages, oldest first; a file that is not a surface is passed over. `directory`
+    defaults to folder(set_name)."""
     d = directory or folder(set_name)
     out = []
     for p in sorted(d.glob("*.json"), key=lambda p: p.stat().st_mtime) if d.exists() else []:
         try:
-            s = json.loads(p.read_text())
-            out.append(
-                {
-                    "name": s["name"],
-                    "what": s.get("what", ""),
-                    "controls": s["controls"],
-                    "surface": p.name,
-                    "prompt": s.get("prompt", ""),
-                }
-            )
-        except (ValueError, KeyError):
+            out.append(as_page(read(p), p.name))
+        except SurfaceError:
             continue
     return out
 
@@ -331,9 +369,7 @@ def save(surface: dict, set_name: str, prompt: str, directory: Path | None = Non
     path, n = d / f"{slug}.json", 2
     while path.exists():
         path, n = d / f"{slug}-{n}.json", n + 1
-    path.write_text(
-        json.dumps({**surface, "prompt": prompt, "made": time.strftime("%Y-%m-%d %H:%M"), "set": set_name}, indent=1)
-    )
+    write(path, {**surface, "prompt": prompt, "made": time.strftime("%Y-%m-%d %H:%M"), "set": set_name})
     return path
 
 

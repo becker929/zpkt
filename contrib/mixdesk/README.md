@@ -138,7 +138,9 @@ The last page on the left, **＋ Make a surface**: say what you want under your 
 its ends: the pager's `inventory`), asks Claude for one page as JSON (the Claude Code CLI, headless, no tools), checks
 every control against the set (what is not there is dropped and said so) and saves it as
 `<sets_dir>/surfaces/<set>/<name>.json`, with the request. The pager is reloaded with it and its page armed. Every
-file in that folder is a page of the desk after desk.json's own; **Remove** moves a file to `removed/`.
+file in that folder is a page of the desk after desk.json's own; **Remove** moves a file to `removed/`. A surface
+file names its version (`"schema": 1`; a file without one is version 1), and keys a later version adds are kept
+when the desk reads or writes it.
 
 A control can be a **macro**: one knob or fader moving several parameters together, each from its "from" to its "to"
 (written as Live shows them: "200 Hz", "-6 dB") as the control goes from 0 to 1. The history keeps the parameters a
