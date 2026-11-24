@@ -26,7 +26,7 @@ from aiohttp import web
 
 from .. import gemini as G
 from ..config import ZPKT
-from .files import accepts_gzip
+from .files import static_file
 
 log = logging.getLogger(__name__)
 
@@ -111,14 +111,7 @@ async def slash(_request: web.Request) -> web.Response:
 
 
 async def page(request: web.Request) -> web.StreamResponse:
-    rel = request.match_info["path"] or "index.html"
-    path = (PAGE / rel).resolve()
-    if not path.is_relative_to(PAGE.resolve()) or not path.is_file():
-        raise web.HTTPNotFound()
-    resp = web.FileResponse(path, headers={"Cache-Control": "no-cache"})
-    if path.suffix in (".html", ".js", ".css", ".svg") and accepts_gzip(request.headers.get("Accept-Encoding", "")):
-        resp.enable_compression(web.ContentCoding.gzip)
-    return resp
+    return static_file(request, PAGE, request.match_info["path"])
 
 
 async def state(request: web.Request) -> web.Response:

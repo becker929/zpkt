@@ -1,5 +1,5 @@
 """The harness's own routes through the real server, signed in, with the public site replaced by a local fake: the
-redirects, the /skrng proxy and its cache, the site-audio copy, and the pages under /studio/ that stay."""
+redirects, the /skrng proxy and its cache, the site-audio copy, and the pages under /studio/."""
 
 from __future__ import annotations
 
@@ -8,9 +8,7 @@ from aiohttp import web
 from aiohttp.test_utils import TestClient, TestServer
 
 from harness.config import Config
-from harness.studio import routes
-from harness.studio.artist import SEED, Artist
-from harness.studio.regions import RegionStore
+from harness.studio import Studio
 from harness.web import App
 
 PW = "correct horse battery"
@@ -35,19 +33,6 @@ class Site:
         return web.Response(status=404, text="gone")
 
 
-class StandIn:
-    """What the routes under /studio/ need of the harness: its config, the artist's store, the regions."""
-
-    def __init__(self, cfg: Config):
-        self.cfg = cfg
-        self.artist = Artist(cfg.studio_dir / "artist", SEED)
-        self.artist_model = None
-        self.regions = RegionStore(cfg.studio_dir / "regions")
-
-    def app(self) -> web.Application:
-        return routes.app(self)
-
-
 @pytest.fixture
 async def site():
     s = Site()
@@ -69,7 +54,7 @@ async def client(tmp_path, site):
         regions_audio=tmp_path / "regions",
         images_dir=tmp_path / "images",
     )
-    app = App(cfg, cfg.skrng_dir, secure_cookie=False, studio=StandIn(cfg))
+    app = App(cfg, cfg.skrng_dir, secure_cookie=False, studio=Studio(cfg, question_model=False))
     c = TestClient(TestServer(app.build()))
     await c.start_server()
     yield c

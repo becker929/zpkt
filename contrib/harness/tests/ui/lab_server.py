@@ -1,5 +1,6 @@
-"""A stand-in server for the lab (/studio/lab/): its files and audio, the artist agent's API (with a store of its
-own, and the rule-based quick question), and the regions' state and renders, no login.
+"""The harness's pages without the login, for the lab's browser tests and for trying the lab (/studio/lab/) by hand:
+its files and audio, the artist agent's API (with a store of its own, and the rule-based quick question), and the
+regions' state and renders.
 
     uv run --extra dev python tests/ui/lab_server.py [--port 8799] [--audio DIR]
 
@@ -14,39 +15,20 @@ from pathlib import Path
 
 from aiohttp import web
 
-from harness.studio import routes
-from harness.studio.artist import SEED, Artist
+from harness.config import Config
+from harness.studio import Studio
 from harness.studio.lab_audio import default_out
-from harness.studio.regions import RegionStore
-
-
-class _Cfg:
-    def __init__(self, audio: Path):
-        self.lab_audio = audio
-        self.site = "https://anthonybecker.me"  # site-audio comes from R2 through it
-        self.site_audio = Path(audio) / "site-audio"
-        self.regions_audio = Path(audio) / "regions"  # <region>/audio/<file>: the regions' renders
-
-
-class _Studio:
-    def __init__(self, audio: Path):
-        self.cfg = _Cfg(audio)
-        self.artist = Artist(Path(audio) / "artist", SEED)
-        self.artist_model = None  # the quick question comes from the rules
-        self.regions = RegionStore(Path(audio) / "regions")  # the regions' state, beside their renders
 
 
 def app(audio: Path | None = None) -> web.Application:
-    sub = web.Application()
-    sub[routes.STUDIO_KEY] = _Studio(audio or default_out())
-    sub.router.add_get("/lab", routes.lab_slash)
-    sub.router.add_get("/lab/audio/{name}", routes.lab_audio)
-    sub.router.add_get("/lab/{path:.*}", routes.lab_file)
-    sub.router.add_get("/site-audio/{path:.+}", routes.site_audio)
-    routes.add_artist_routes(sub)
-    routes.add_region_routes(sub)
+    """The harness's own pages under /studio/, with every store in `audio` (default: the lab's audio folder), and
+    the artist's quick question from its rules (no model)."""
+    root_dir = Path(audio or default_out())
+    cfg = Config(
+        lab_audio=root_dir, studio_dir=root_dir, site_audio=root_dir / "site-audio", regions_audio=root_dir / "regions"
+    )
     root = web.Application()
-    root.add_subapp("/studio", sub)
+    root.add_subapp("/studio", Studio(cfg, question_model=False).app())
     return root
 
 
