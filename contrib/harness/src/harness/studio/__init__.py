@@ -18,7 +18,9 @@ class Studio:
         self.cfg = cfg
         # The artist agent's store and its quick question's model (contrib/docs/design/artist-agent.md)
         self.artist = Artist(cfg.studio_dir / "artist", SEED)
-        self.artist_model = QuestionLines(cfg.narrator_model, cfg.cli_path, claude_env(cfg)) if question_model else None
+        self.artist_model = (
+            QuestionLines(cfg.artist_question_model, cfg.cli_path, claude_env(cfg)) if question_model else None
+        )
         # The regions' permanent state (contrib/docs/design/rummage.md)
         self.regions = RegionStore(cfg.studio_dir / "regions")
 

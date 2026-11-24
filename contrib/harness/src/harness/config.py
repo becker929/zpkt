@@ -64,7 +64,8 @@ class Config:
     studio_dir: Path = Path(os.environ.get("HARNESS_STUDIO", Path.home() / "_agent_scratch" / "studio"))
     studio_workdir: Path = Path(os.environ.get("HARNESS_STUDIO_WORKDIR", ZPKT))
     studio_model: str | None = os.environ.get("HARNESS_STUDIO_MODEL")
-    narrator_model: str = os.environ.get("HARNESS_NARRATOR_MODEL", "claude-haiku-5-5")
+    # (HARNESS_NARRATOR_MODEL keeps the name it had when the voice chat's narrator used the same model.)
+    artist_question_model: str = os.environ.get("HARNESS_NARRATOR_MODEL", "claude-haiku-5-5")
     # The lab (/studio/lab/): HW002's stems and clips as the phone plays them, built by `harness lab-audio`.
     lab_audio: Path = Path(os.environ.get("HARNESS_LAB_AUDIO", Path.home() / "_agent_scratch" / "lab" / "audio"))
     # The site's published audio the checklist prototype plays (the gallery's renders), copied here on first use.
