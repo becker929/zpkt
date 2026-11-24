@@ -286,3 +286,26 @@ def test_an_automated_mute_is_refused():
         knobs.set_many(LocalLom(s), {SPEAKER: False, DRIVE: 0.6})
     assert s.tracks[0].mute is False
     assert knobs.read_many(LocalLom(s), [SPEAKER])[SPEAKER].automated
+
+
+@pytest.mark.parametrize(
+    ("pipe", "knob"),
+    [
+        ("rumble|plugin:Decapitator|Drive", Knob("rumble", ("plugin", "Decapitator"), "Drive")),
+        ("chord|Eq8:0|Bands.1/ParameterA/Gain", Knob("chord", ("Eq8", 0), "Bands.1/ParameterA/Gain")),
+        ("S01 kick group|Mixer|Volume", Knob("S01 kick group", "Mixer", "Volume")),
+        ("x|Eq8:-1|Gain", Knob("x", ("Eq8", -1), "Gain")),
+    ],
+)
+def test_the_pipe_spelling_of_the_plan_files_and_the_lab_is_read_and_written(pipe, knob):
+    assert Knob.parse(pipe) == knob and knob.pipe_id == pipe and Knob.parse(knob.id) == knob
+
+
+def test_a_slash_id_whose_param_holds_pipes_stays_a_slash_id():
+    assert Knob.parse("t/plugin:X/A|B|C") == Knob("t", ("plugin", "X"), "A|B|C")
+
+
+@pytest.mark.parametrize("bad", ["a|b", "t|Eq8|Gain", "t|Eq8:x|Gain", "t/Eq8/Gain", "nothing", "t//Gain"])
+def test_a_knob_id_that_is_neither_spelling_says_what_one_looks_like(bad):
+    with pytest.raises(ValueError, match="knob id is track/Tag#index/param|the device is Mixer"):
+        Knob.parse(bad)

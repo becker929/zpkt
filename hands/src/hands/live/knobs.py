@@ -6,14 +6,15 @@ A Knob is (track, device, param) as the .als names it (hands.als.resolve):
     param   the XML path in the device ("Bands.1/ParameterA/Gain"), or a plugin parameter's name
 
 Its id is "track/device/param", the device written "Mixer", "plugin:<name>" or "<tag>#<index>":
-"S01 kick group/Compressor2#0/Ratio", "Break group/plugin:Dist COLDFIRE/Color". Values are in the
-.als's units (the parameter's Manual), as in hands.probe_kit steps and plan files.
+"S01 kick group/Compressor2#0/Ratio", "Break group/plugin:Dist COLDFIRE/Color". The plan files and the studio
+lab spelled the same id with pipes, "track|Tag:index|param" (`pipe_id`); `Knob.parse` reads both. Values are in the
+.als's units (the parameter's Manual), as in hands.probe_kit steps.
 
 The LOM shows the same parameter under another name and often in other units: EQ Eight's
 frequency is 0-1 on a log scale, Utility's gain is dB/35, its width the square root of the .als
 fraction. UNITS holds the conversions measured on HW002: the rumble chain's .als values against a
-LOM dump of the same devices (prototypes/soundfunction/results/live_rumble_bypass_v1, 12 Sep) and the
-kick-group compressor's (knobmap_hw002_kickgroup_v1). A knob without a measured conversion is
+LOM dump of the same devices (prototypes/soundfunction/results/live_rumble_bypass_v1, 12 Sep; the prototype is
+in git tag pre-upgrade-2026-11-24) and the kick-group compressor's (knobmap_hw002_kickgroup_v1). A knob without a measured conversion is
 refused rather than written with a guess; add one after reading both values in Live.
 
 set_many writes in one LOM call and read_many reads in another: reading a value in the call that
@@ -57,18 +58,38 @@ class Knob:
 
     @property
     def id(self) -> str:
+        """The id hands writes: "track/Tag#index/param", "track/plugin:Name/param", "track/Mixer/param"."""
+        return f"{self.track}/{self._device_text('#')}/{self.param}"
+
+    @property
+    def pipe_id(self) -> str:
+        """The same id in the plan files' and the studio lab's spelling: "track|Tag:index|param"."""
+        return f"{self.track}|{self._device_text(':')}|{self.param}"
+
+    def _device_text(self, index_mark: str) -> str:
         d = self.device
-        dev = "Mixer" if d == "Mixer" else f"plugin:{d[1]}" if d[0] == "plugin" else f"{d[0]}#{d[1]}"
-        return f"{self.track}/{dev}/{self.param}"
+        return "Mixer" if d == "Mixer" else f"plugin:{d[1]}" if d[0] == "plugin" else f"{d[0]}{index_mark}{d[1]}"
 
     @classmethod
     def parse(cls, text: str) -> Knob:
-        track, dev, param = text.split("/", 2)
+        """A knob from either spelling of its id (`id`, `pipe_id`). ValueError says what an id looks like."""
+        pipes = [part.strip() for part in text.split("|")]
+        if len(pipes) == 3 and all(pipes) and "/" not in pipes[0]:  # a slash id's param may hold a "|"
+            return cls._from_parts(text, *pipes, index_mark=":")
+        slashes = text.split("/", 2)
+        if len(slashes) == 3 and all(slashes):
+            return cls._from_parts(text, *slashes, index_mark="#")
+        raise ValueError(f"a knob id is track/Tag#index/param (or track|Tag:index|param), not {text!r}")
+
+    @classmethod
+    def _from_parts(cls, text: str, track: str, dev: str, param: str, index_mark: str) -> Knob:
         if dev == "Mixer":
             return cls(track, "Mixer", param)
         if dev.startswith("plugin:"):
             return cls(track, ("plugin", dev.removeprefix("plugin:")), param)
-        tag, _, index = dev.partition("#")
+        tag, _, index = dev.rpartition(index_mark)
+        if not tag or not index.lstrip("-").isdigit():
+            raise ValueError(f"{text!r}: the device is Mixer, plugin:<name> or <Tag>{index_mark}<index>, not {dev!r}")
         return cls(track, (tag, int(index)), param)
 
     @property
