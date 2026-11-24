@@ -11,7 +11,13 @@ lib/contracts/mixdesk-message.schema.json is these shapes as JSON Schema, writte
 # no "from __future__ import annotations": TypedDict reads NotRequired from the evaluated annotations
 
 import json
-from typing import Any, Literal, NotRequired, TypedDict
+from typing import Any, Literal, NotRequired, TypedDict, get_args
+
+# Who moved a control: Anthony (on the page or in Live), the MiniLab, an agent, or the desk itself ("sys": a monitor
+# switch bypassing Main's devices, which is not a mix change). The history records it on each entry.
+Who = Literal["you", "minilab", "agent", "sys"]
+WHO: tuple[str, ...] = get_args(Who)
+DEFAULT_WHO: Who = "you"  # a move that says nothing about who made it (every move before the field existed)
 
 # ---- from the pager ------------------------------------------------------------------------------------------------
 
@@ -26,7 +32,8 @@ class ValueMessage(TypedDict):
     s: str
     r: float | bool | None
     key: str | None
-    sys: NotRequired[bool]  # the desk itself moved it (a monitor switch), so it is not a mix change
+    sys: NotRequired[bool]  # the desk itself moved it (a monitor switch), so it is not a mix change: who "sys"
+    who: NotRequired[Who]  # who moved it; a pager that sends only "sys" is read by who_moved
 
 
 class PositionMessage(TypedDict):
@@ -137,6 +144,7 @@ _KINDS: dict[str, tuple[type, dict[str, tuple[type, ...]]]] = {
             "r": (*_NUMBER, bool, _NONE),
             "key": (str, _NONE),
             "sys": (bool,),
+            "who": (str,),
         },
     ),
     "pos": (PositionMessage, {"b": _NUMBER, "p": (bool,)}),
@@ -167,7 +175,16 @@ def parse_message(obj: Any) -> PagerMessage:
         bad_bool = isinstance(value, bool) and bool not in types  # bool is an int to Python, not to the protocol
         if bad_bool or not isinstance(value, types):
             raise BadMessage(f"{kind!r} field {name!r} is {type(value).__name__}")
+    if kind == "v" and "who" in obj and obj["who"] not in WHO:
+        raise BadMessage(f"'v' field 'who' is {obj['who']!r}; it is one of {', '.join(WHO)}")
     return obj  # type: ignore[return-value]  # checked field by field above
+
+
+def who_moved(message: ValueMessage) -> Who:
+    """Who moved a control: the message's "who", else "sys" for a desk move ("sys": true), else DEFAULT_WHO."""
+    if "who" in message:
+        return message["who"]
+    return "sys" if message.get("sys") else DEFAULT_WHO
 
 
 def parse_datagram(data: bytes) -> PagerMessage:

@@ -10,6 +10,10 @@ A checkpoint is the whole mix (zpkt.live.state: every fader, send, mute and devi
 file there is a checkpoint here, including ones made outside the desk (B, the recipe; working-0854). Keys are the
 state's keys ("Hats bus/desk EQ/1 Gain A", "Kick bus/volume"), which is what the pager reports for each control.
 
+Each entry says who made it ("who": you, minilab, agent or sys; protocol.Who). A move by "sys" (the desk itself, a
+monitor switch) is not a mix change and makes no entry, as before. An entry without "who" (every one written before
+the field) is "you"; it is read and written back as it is.
+
 The history itself is kept in HISTORY_DIR/<set>.json, so it outlives a server restart.
 """
 
@@ -24,6 +28,8 @@ import time
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
+
+import protocol as P
 
 from zpkt.live import state as S
 
@@ -40,6 +46,11 @@ def check_name(name: str) -> str:
     if not NAME_RE.match(name):
         raise ValueError("a checkpoint name is letters, digits, space . _ - (up to 60)")
     return name
+
+
+def who_of(entry: dict[str, Any]) -> str:
+    """Who made a history entry; an entry from before the field was "you"."""
+    return str(entry.get("who", P.DEFAULT_WHO))
 
 
 def same(a: Any, b: Any) -> bool:
@@ -81,10 +92,12 @@ class History:
                 if v.get("key") and v.get("r") is not None:
                     self.cur[v["key"]] = [str(v.get("s", "")).strip(), v["r"]]
 
-    def seen(self, key: str | None, shown: str, raw: Any, sys: bool = False) -> bool:
-        """A control's value as Live reports it. Returns True if that made or extended a history entry."""
+    def seen(self, key: str | None, shown: str, raw: Any, sys: bool = False, *, who: P.Who | None = None) -> bool:
+        """A control's value as Live reports it, moved by `who` (`sys=True` is who "sys", for older callers).
+        Returns True if that made or extended a history entry."""
         if not key or raw is None:
             return False
+        mover = who or ("sys" if sys else P.DEFAULT_WHO)
         with self.lock:
             shown = str(shown).strip()
             before = self.cur.get(key)
@@ -96,11 +109,11 @@ class History:
                 if same(exp[0], raw):
                     self.expect.pop(key, None)
                 return False
-            if sys:
+            if mover == "sys":
                 return False
             now = self.clock()
             top = self.entries[-1] if self.entries and self.pos == len(self.entries) else None
-            if top and top["k"] == "move" and now - top["at"] < COALESCE_S:
+            if top and top["k"] == "move" and who_of(top) == mover and now - top["at"] < COALESCE_S:
                 mine = next((m for m in top["moves"] if m["key"] == key), None)
                 if mine is not None:  # the same control, still moving
                     mine["to"] = [shown, raw]
@@ -121,6 +134,7 @@ class History:
                 {
                     "k": "move",
                     "moves": [{"key": key, "label": self.labels.get(key, key), "from": before, "to": [shown, raw]}],
+                    "who": mover,
                 }
             )
             self._save()
@@ -172,7 +186,9 @@ class History:
             self._save()
             return self._writes(e["moves"], "to"), e
 
-    def revert(self, name: str, keys: list[str] | None = None) -> tuple[list[list], dict | None]:
+    def revert(
+        self, name: str, keys: list[str] | None = None, who: P.Who = P.DEFAULT_WHO
+    ) -> tuple[list[list], dict | None]:
         """Every desk control (or only `keys`) back to checkpoint `name`, as one undoable entry."""
         with self.lock:
             moves = [
@@ -182,7 +198,7 @@ class History:
             ]
             if not moves:
                 return [], None
-            e = self._push({"k": "revert", "to": name, "moves": moves})
+            e = self._push({"k": "revert", "to": name, "moves": moves, "who": who})
             self._save()
             return self._writes(moves, "to"), e
 
@@ -203,7 +219,7 @@ class History:
             raise ValueError(f"bad checkpoint name {name!r}")
         return S.flatten(S.load(self.folder() / f"{name}.json"))
 
-    def checkpoint(self, name: str, full: S.State, main_saved: dict | None) -> dict:
+    def checkpoint(self, name: str, full: S.State, main_saved: dict | None, who: P.Who = P.DEFAULT_WHO) -> dict:
         """Save `full` (a state just taken) as checkpoint `name`, with the desk's own values on top (they are what
         the history knows), the monitor tracks as the desk leaves them (muted, not soloed) and Main's desk devices
         as they are when nothing is monitored. Adds a checkpoint entry to the history."""
@@ -221,7 +237,7 @@ class History:
             # hands' State does not list a checkpoint's "name" and "made_by"; its readers keep unknown keys
             marked: Any = {**full, "name": name, "made_by": "mixdesk"}
             S.save(marked, self.folder() / f"{name}.json", self.set_name)
-            e = self._push({"k": "checkpoint", "name": name, "moves": []})
+            e = self._push({"k": "checkpoint", "name": name, "moves": [], "who": who})
             self._save()
             return e
 

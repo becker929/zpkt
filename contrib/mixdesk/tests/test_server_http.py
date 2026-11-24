@@ -260,3 +260,15 @@ def test_revert_all_to_a_missing_checkpoint_changes_nothing(rig):
 def test_the_state_carries_the_loudness_match_for_the_page(rig):
     gains = rig.state()["gains"]
     assert gains["C1"] == {"A": -3.0, "B": -2.0, "C": 0.0} and set(gains) == {"C1", "C2", "C3", "C4"}
+
+
+def test_history_entries_say_who_made_them(rig):
+    rig.post("/api/checkpoint", {"name": "base"})
+    move_kick_bus(rig, 0.4)
+    wait_for(lambda: rig.get("/api/compare?a=base")[1])
+    rig.post("/api/revert", {"to": "base", "all": True})
+    entries = rig.get("/api/history")[1]["entries"]
+    made = [(e["k"], e.get("name", ""), e["who"]) for e in entries]
+    assert made[:2] == [("checkpoint", "base", "you"), ("move", "", "you")]  # the page's checkpoint, a move in Live
+    assert made[2][0] == "checkpoint" and made[2][1].startswith("before-revert-")
+    assert made[2][2] == "sys" and made[3][::2] == ("revert", "you")  # the desk's own checkpoint, then the page's

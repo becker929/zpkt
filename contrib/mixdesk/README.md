@@ -97,7 +97,10 @@ The bar under the page tabs keeps the mix's history (`history.py`):
 - **Undo / Redo** (keys **Z** / **Shift+Z**): every move of a desk control is a step, whether it came from the MiniLab,
   this page or Live's own mouse. Moves of one control within 2 s are one step (a fader sweep), and a control moved back
   to where it started leaves no step. Moves the desk makes itself (a monitor switch bypassing Main's devices) are not
-  steps. The history is kept in `~/_agent_scratch/mixdesk/history/<set>.json` and outlives a server restart.
+  steps. Each step says who made it (`"who"`: `you`, `minilab`, `agent`, or `sys` for the desk itself; a step from
+  before the field is `you`). The pager does not tell the MiniLab from the mouse yet, so a move is `you` unless a
+  datagram says otherwise. The history is kept in `~/_agent_scratch/mixdesk/history/<set>.json` and outlives a
+  server restart.
 - **Checkpoint** saves the whole mix (every fader, send, mute and device value of the set, about 3 s) as
   `<sets_dir>/state/<set>/<name>.json`, a hands state: `hands live state diff NAME` and `put NAME` work on it too, and
   every state there (B, `working-0854`, ...) is a checkpoint here. The server makes `start-<date>-<time>` when it starts,

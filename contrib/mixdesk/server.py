@@ -204,7 +204,7 @@ class Desk:
         with self.lock:
             self.state = D.reduce(self.state, msg, time.time())
         self.push(dict(msg))
-        if msg["t"] == "v" and self.history.seen(msg.get("key"), msg.get("s", ""), msg.get("r"), bool(msg.get("sys"))):
+        if msg["t"] == "v" and self.history.seen(msg["key"], msg["s"], msg["r"], who=P.who_moved(msg)):
             self.push(self.history.view())
 
     def set_match(self, match: bool) -> None:
@@ -343,7 +343,8 @@ class Desk:
         """[[key, raw], ...] into Live through the pager (one call); returns the keys it could not find."""
         return self.call(f"m.DESK.set_raw({pairs!r})") if pairs else []
 
-    def make_checkpoint(self, name: str) -> dict[str, Any]:
+    def make_checkpoint(self, name: str, who: P.Who = P.DEFAULT_WHO) -> dict[str, Any]:
+        """Checkpoint `name`: the whole mix as Live has it now. `who` made it: "sys" when the desk did on its own."""
         history.check_name(name)
         client = self.live(keep=True)  # one connection for the whole read
         try:
@@ -351,7 +352,7 @@ class Desk:
         finally:
             client.close()
         saved = self.call("m.DESK.main_saved") if self.monitor_choice()["slot"] != "W" else None
-        return self.history.checkpoint(name, full, saved)
+        return self.history.checkpoint(name, full, saved, who)
 
     def start_checkpoint(self) -> None:
         now = time.time()
@@ -359,7 +360,7 @@ class Desk:
             e for e in self.history.entries if e["k"] == "checkpoint" and now - e["at"] < START_CHECKPOINT_H * 3600
         ]
         if not recent:
-            self.make_checkpoint(time.strftime("start-%Y%m%d-%H%M"))
+            self.make_checkpoint(time.strftime("start-%Y%m%d-%H%M"), who="sys")
             self.push(self.history.view())
 
 
@@ -521,7 +522,7 @@ def post_revert(desk: Desk, body: dict[str, Any]) -> Reply:
     if body.get("all"):
         # the whole mix: the desk's controls as one undoable step, then everything else (not undoable, so a
         # checkpoint of the mix as it was comes first), heard on W so the monitor tracks stay put
-        desk.make_checkpoint(time.strftime("before-revert-%H%M%S"))
+        desk.make_checkpoint(time.strftime("before-revert-%H%M%S"), who="sys")
         now = desk.monitor_choice()
         if now["slot"] != "W":
             desk.apply_monitor("W", now["ref"])

@@ -355,6 +355,16 @@
         "sys": {
           "title": "Sys",
           "type": "boolean"
+        },
+        "who": {
+          "enum": [
+            "you",
+            "minilab",
+            "agent",
+            "sys"
+          ],
+          "title": "Who",
+          "type": "string"
         }
       },
       "required": [
