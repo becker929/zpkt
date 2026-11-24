@@ -1,4 +1,4 @@
-"""MCP Step Runner — executes a list[Step] against a transport.
+"""StepRunner: runs a list of Steps against a transport (the first design; see hands.builder).
 
 Provides retry logic, rollback on error, and interactive prompts for manual steps.
 Tracks partial execution state so runs can be resumed from a specific step index.

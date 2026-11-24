@@ -1,6 +1,8 @@
-"""Low-level code generation for Ableton MCP execute() calls.
+"""LOM code for the first design's steps: each `gen_*` returns a Step (label, code, optional note) for hands.runner.
 
-Returns `Step` (label, code, optional note) ready for MCP execute().
+The first design (Oct 2026): a declarative ProjectConfig -> codegen steps -> builder -> StepRunner, behind `hands build`
+and `hands execute`. Its user (prototypes/engineer) was removed on 24 Nov 2026; Anthony keeps it to see whether it
+folds into something later.
 """
 
 from __future__ import annotations

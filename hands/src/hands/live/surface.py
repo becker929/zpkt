@@ -1,4 +1,9 @@
-"""Bridge zpkt-surface JSON state into Ableton Live parameter updates."""
+"""`hands live surface apply`: a zpkt-surface state's values onto one device's parameters.
+
+It guesses: a control's parameter from words in its id ("cutoff", "decay") and its units from the same words (Hz, ms),
+then maps them onto Operator-like 0..1 curves. Nothing in Zpkt web calls it; `hands panel apply` is the measured way
+(each value set by what Live shows). Kept and tested so the command keeps working.
+"""
 
 from __future__ import annotations
 

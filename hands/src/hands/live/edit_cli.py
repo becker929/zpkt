@@ -149,7 +149,8 @@ def surface_apply(
     host: str = HOST,
     port: int | None = PORT,
 ) -> None:
-    """Apply zpkt-surface state to Live device and mixer parameters."""
+    """Apply a zpkt-surface state to a device. It guesses each parameter and its units (Hz, ms) from the control
+    ids; `hands panel apply` sets values by what Live shows instead."""
     from hands.live import surface
 
     state_str = state

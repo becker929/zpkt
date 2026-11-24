@@ -1,9 +1,9 @@
-"""Pydantic models for the hands layer.
+"""ProjectConfig and Feedback: the models of the first design, and the source of their schemas in lib/contracts
+(tools/gen_schemas.py). Frozen and JSON-clean.
 
-All models are frozen (immutable) and serialise cleanly to JSON.
-These are the source of truth for ProjectConfig and Feedback schemas.
-
-No imports from ears or taste — JSON is the cross-repo interface.
+The first design (Oct 2026): a declarative ProjectConfig -> codegen steps -> builder -> StepRunner, behind `hands build`
+and `hands execute`. Its user (prototypes/engineer) was removed on 24 Nov 2026; Anthony keeps it to see whether it
+folds into something later.
 """
 
 from __future__ import annotations
