@@ -16,6 +16,10 @@ import soundfile as sf
 
 os.environ.setdefault("BOOTH_HOME", tempfile.mkdtemp(prefix="booth-test-"))
 
+import booth  # noqa: E402  (after BOOTH_HOME, which it reads)
+
+booth.use_booth_rig()
+
 EXAMPLES = Path(__file__).resolve().parents[1] / "palettes" / "examples"
 
 

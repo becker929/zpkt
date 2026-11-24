@@ -124,3 +124,19 @@ def test_survey_listens_and_keeps_the_rest(fake, tmp_path):
         notes = audition(inst, k)
         assert notes and all(inst.range[0] <= p <= inst.range[1] for p, *_ in notes)
         assert all(k * SLOT_BEATS <= t and t + d <= (k + 1) * SLOT_BEATS for _, t, d, _ in notes)
+
+
+def test_importing_the_booth_leaves_the_environment_alone():
+    import subprocess
+    import sys
+    code = ("import os; before = dict(os.environ); import booth, booth.server, booth.live, booth.runner; "
+            "assert dict(os.environ) == before; booth.use_booth_rig(); "
+            "from hands import config; r = config.rig(); assert r.set_prefixes == ('booth_',), r; "
+            "assert r.sets_dir == booth.SETS_DIR, r")
+    subprocess.run([sys.executable, "-c", code], check=True)
+
+
+def test_each_caller_gets_its_own_live_ops():
+    from booth import gui
+    a, b = gui.ops("client a"), gui.ops("client b")
+    assert a is not b and (a.client, b.client) == ("client a", "client b")

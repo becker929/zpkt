@@ -25,7 +25,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-from . import HOME, PREFIX
+from . import HOME, PREFIX, use_booth_rig
 
 
 def _runner(jobs, settings):
@@ -63,6 +63,7 @@ def main(argv: list[str] | None = None) -> int:
     t = sub.add_parser("token")
     t.add_argument("--new", action="store_true")
     a = ap.parse_args(argv)
+    use_booth_rig()
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 
     from .config import KEYCHAIN_SERVICE, settings, token
