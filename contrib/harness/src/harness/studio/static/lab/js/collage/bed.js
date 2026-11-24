@@ -15,7 +15,10 @@ export const bedPos = (step) => ((step % LOOP) + LOOP) % LOOP;
 
 export function bedStep(C, step, when) {
   const s = bedPos(step);
-  if (C.chase) { C.chase = false; chase(C, s, when); }
+  if (C.chase) {
+    C.chase = false;
+    chase(C, s, when);
+  }
   for (const c of state.bed) if (c.start === s && !c.mute) playClip(C, c, when, 0);
 }
 
@@ -26,8 +29,15 @@ function playClip(C, c, when, into = 0) {
   const dur = (c.len - into) * st;
   const off = c.rev ? c.off : c.off + into * st * rate;
   C.players.play(c.src, {
-    when: when - TAPE_BASE, off, dur, st: c.st ?? 0, rev: !!c.rev || C.tapeRev(), gain: c.gain ?? 1, tag: `bed:${c.id}`,
-    attack: into ? 0.01 : 0.003, release: 0.012,
+    when: when - TAPE_BASE,
+    off,
+    dur,
+    st: c.st ?? 0,
+    rev: !!c.rev || C.tapeRev(),
+    gain: c.gain ?? 1,
+    tag: `bed:${c.id}`,
+    attack: into ? 0.01 : 0.003,
+    release: 0.012,
   });
 }
 
@@ -44,8 +54,15 @@ export function place(C, item, lane, start) {
   const len = Math.max(1, Math.min(item.len ?? 16, LOOP));
   start = Math.max(0, Math.min(LOOP - 1, Math.round(start)));
   const clip = {
-    id: `c${++state.clipN}`, src: item.src, lane: Math.max(0, Math.min(LANES - 1, lane)), start,
-    len: Math.min(len, LOOP - start), off: item.off ?? 0, st: item.st ?? 0, rev: !!item.rev, gain: item.gain ?? 1,
+    id: `c${++state.clipN}`,
+    src: item.src,
+    lane: Math.max(0, Math.min(LANES - 1, lane)),
+    start,
+    len: Math.min(len, LOOP - start),
+    off: item.off ?? 0,
+    st: item.st ?? 0,
+    rev: !!item.rev,
+    gain: item.gain ?? 1,
   };
   state.bed.push(clip);
   saveState();
@@ -69,7 +86,9 @@ export function freeLane(start, len, prefer = 0) {
   return -1;
 }
 
-function remember() { state.bedPrev = state.bed.map((c) => ({ ...c })); }
+function remember() {
+  state.bedPrev = state.bed.map((c) => ({ ...c }));
+}
 
 export function undoBed(C) {
   if (!state.bedPrev) return false;
@@ -105,13 +124,21 @@ export function setClips(C, from, to, { tracks: want } = {}) {
       if (!src || src.tag === 'KICK GRP') continue;
       if (!lanes.has(t.name)) lanes.set(t.name, lanes.size);
       const use = src.uses.find((u) => Math.abs(u.bar - a) < 0.01) ?? src.uses[0];
-      const a2 = Math.max(a, from), b2 = Math.min(b, to);
+      const a2 = Math.max(a, from),
+        b2 = Math.min(b, to);
       const into = (a2 - a) * C.engine.barSeconds;
       const buf = bufferNow(C.engine, id);
       const off = use?.off ?? 0;
       out.push({
-        src: id, lane: lanes.get(t.name), start: Math.round((a2 - from) * 16), len: Math.max(1, Math.round((b2 - a2) * 16)),
-        off: (buf ? soundFrom(buf, off) : off) + into, st: 0, rev: false, gain: 1, track: t.name,
+        src: id,
+        lane: lanes.get(t.name),
+        start: Math.round((a2 - from) * 16),
+        len: Math.max(1, Math.round((b2 - a2) * 16)),
+        off: (buf ? soundFrom(buf, off) : off) + into,
+        st: 0,
+        rev: false,
+        gain: 1,
+        track: t.name,
       });
     }
   }
@@ -119,9 +146,8 @@ export function setClips(C, from, to, { tracks: want } = {}) {
 }
 
 export function preset(C, which) {
-  const clips = which === 'break'
-    ? setClips(C, 80, 96, { tracks: /break/i })
-    : setClips(C, 0, BARS, { tracks: /sfx|perc/i });
+  const clips =
+    which === 'break' ? setClips(C, 80, 96, { tracks: /break/i }) : setClips(C, 0, BARS, { tracks: /sfx|perc/i });
   if (!clips.length) return 0;
   remember();
   C.players?.stopAll();
@@ -133,4 +159,6 @@ export function preset(C, which) {
 }
 
 /** The set's clips in the bed's 24 bars, for the faint reference lane. */
-export function ghosts(C) { return setClips(C, 0, BARS, { tracks: /sfx|perc|break/i }); }
+export function ghosts(C) {
+  return setClips(C, 0, BARS, { tracks: /sfx|perc|break/i });
+}

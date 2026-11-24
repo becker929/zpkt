@@ -17,10 +17,15 @@ class Rec extends AudioWorkletProcessor {
     const input = inputs[0] || [];
     const n = input[0] ? input[0].length : 128;
     const f0 = currentFrame;
-    const a = Math.max(f0, j.start), b = Math.min(f0 + n, j.start + j.frames);
+    const a = Math.max(f0, j.start),
+      b = Math.min(f0 + n, j.start + j.frames);
     if (b > a && input[0]) {
-      const l = input[0], r = input[1] || input[0];
-      for (let f = a; f < b; f++) { j.L[f - j.start] = l[f - f0]; j.R[f - j.start] = r[f - f0]; }
+      const l = input[0],
+        r = input[1] || input[0];
+      for (let f = a; f < b; f++) {
+        j.L[f - j.start] = l[f - f0];
+        j.R[f - j.start] = r[f - f0];
+      }
     }
     if (f0 + n >= j.start + j.frames) {
       this.port.postMessage({ L: j.L, R: j.R }, [j.L.buffer, j.R.buffer]);

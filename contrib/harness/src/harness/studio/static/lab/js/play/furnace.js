@@ -201,11 +201,18 @@ function scrollStrip(gl, text) {
   const font = (px) => `italic 900 ${px}px -apple-system, "SF Pro Display", "Helvetica Neue", Arial, sans-serif`;
   g.font = font(H * 0.74);
   let W = Math.ceil(g.measureText(text).width);
-  if (W > max) { H = Math.floor(H * max / W); g.font = font(H * 0.74); W = Math.ceil(g.measureText(text).width); }
-  cv.width = Math.min(max, W); cv.height = H;
-  g.fillStyle = '#000'; g.fillRect(0, 0, cv.width, H);
+  if (W > max) {
+    H = Math.floor((H * max) / W);
+    g.font = font(H * 0.74);
+    W = Math.ceil(g.measureText(text).width);
+  }
+  cv.width = Math.min(max, W);
+  cv.height = H;
+  g.fillStyle = '#000';
+  g.fillRect(0, 0, cv.width, H);
   g.font = font(H * 0.74);
-  g.fillStyle = '#fff'; g.textBaseline = 'middle';
+  g.fillStyle = '#fff';
+  g.textBaseline = 'middle';
   g.fillText(text, 0, H * 0.54);
   return { tex: texture(gl, cv), aspect: cv.width / H };
 }
@@ -213,7 +220,10 @@ function scrollStrip(gl, text) {
 export function furnace(room) {
   const { ctx, store } = room;
   const m = shell(room, {
-    key: 'furnace', title: 'Furnace', sub: 'a raymarched kick monolith', gl: true,
+    key: 'furnace',
+    title: 'Furnace',
+    sub: 'a raymarched kick monolith',
+    gl: true,
     note: 'Drag across: X. Drag up: Y. Pinch: the third. Two fingers or hold, then drag: fine. Double tap: those three back to the set. The cracks glow at the colour frequency; the floor ripples as deep as the sub.',
   });
   const picks = chips(room, m, [
@@ -231,22 +241,40 @@ export function furnace(room) {
     const [x, y, z] = picks.ids.map((id) => shortOf(room.params.get(id)).toUpperCase());
     return `HW002   ///   INDUSTRIAL HARD TECHNO AT 160 BPM   ///   THE KICK CARRIES THE GENRE   ///   DRAG ACROSS: ${x}   ///   DRAG UP: ${y}   ///   PINCH: ${z}   ///   THE CRACKS GLOW AT THE COLOUR FREQUENCY   ///   GREETINGS TO BSLS, DJ JS X REDLOTUS, KSMS AND REMON VERHOEVE   ///   `;
   };
-  let flash = 0, textDirty = false;
-  room.own(picks.onChange(() => { textDirty = true; }));
+  let flash = 0,
+    textDirty = false;
+  room.own(
+    picks.onChange(() => {
+      textDirty = true;
+    }),
+  );
 
   const cv = glView(room, m, {
     setup(gl) {
       const st = {
-        scene: new Program(gl, SCENE), post: new Program(gl, POST), tri: triangle(gl),
-        rt: target(gl, 64, 64), text: scrollStrip(gl, scrollerText()),
-        time: 0, scroll: 0, scale: 0.8, ema: 1 / 60, n: 0,
+        scene: new Program(gl, SCENE),
+        post: new Program(gl, POST),
+        tri: triangle(gl),
+        rt: target(gl, 64, 64),
+        text: scrollStrip(gl, scrollerText()),
+        time: 0,
+        scroll: 0,
+        scale: 0.8,
+        ema: 1 / 60,
+        n: 0,
       };
       return st;
     },
     render(gl, st, dt, { W, H, w, h: hh }) {
       if (!st.scene.ready() || !st.post.ready()) return;
-      if (textDirty) { textDirty = false; gl.deleteTexture(st.text.tex); st.text = scrollStrip(gl, scrollerText()); }
-      const a = room.audio(), c = room.clock(), L = (id) => store.live(id);
+      if (textDirty) {
+        textDirty = false;
+        gl.deleteTexture(st.text.tex);
+        st.text = scrollStrip(gl, scrollerText());
+      }
+      const a = room.audio(),
+        c = room.clock(),
+        L = (id) => store.live(id);
       st.time += dt;
       st.ema = st.ema * 0.94 + dt * 0.06;
       if (++st.n % 40 === 0) {
@@ -255,53 +283,105 @@ export function furnace(room) {
       }
       flash *= Math.exp(-dt * 5);
       room.stats.furnaceScale = st.scale;
-      const sw = Math.max(64, Math.round(w * st.scale)), sh = Math.max(48, Math.round(hh * st.scale));
+      const sw = Math.max(64, Math.round(w * st.scale)),
+        sh = Math.max(48, Math.round(hh * st.scale));
       st.rt.resize(sw, sh);
       const [X, Y] = picks.ids;
       gl.bindFramebuffer(gl.FRAMEBUFFER, st.rt.fbo);
       gl.viewport(0, 0, sw, sh);
-      st.scene.use()
-        .set('uRes', sw, sh).set('uTime', st.time).set('uPulse', a.pulse).set('uBeat', c.playing ? c.beatPhase : 0)
-        .set('uDrive', L('kick.drive')).set('uHue', L('kick.colourFreq')).set('uBoost', clamp((L('kick.colour') - 0.5) * 2.2))
-        .set('uSpace', L('mix.spaceMix')).set('uSub', L('kick.sub30')).set('uRumble', L('rumble.drive'))
-        .set('uFlash', flash).set('uCam', L(X), L(Y));
+      st.scene
+        .use()
+        .set('uRes', sw, sh)
+        .set('uTime', st.time)
+        .set('uPulse', a.pulse)
+        .set('uBeat', c.playing ? c.beatPhase : 0)
+        .set('uDrive', L('kick.drive'))
+        .set('uHue', L('kick.colourFreq'))
+        .set('uBoost', clamp((L('kick.colour') - 0.5) * 2.2))
+        .set('uSpace', L('mix.spaceMix'))
+        .set('uSub', L('kick.sub30'))
+        .set('uRumble', L('rumble.drive'))
+        .set('uFlash', flash)
+        .set('uCam', L(X), L(Y));
       st.tri.draw();
       gl.bindFramebuffer(gl.FRAMEBUFFER, null);
       gl.viewport(0, 0, W, H);
       const band = 0.17;
-      st.scroll = (st.scroll + dt * 150 / (hh * band * st.text.aspect)) % 1;
-      st.post.use().tex('uScene', 0, st.rt.tex).tex('uText', 1, st.text.tex)
-        .set('uRes', W, H).set('uTime', st.time).set('uPulse', a.pulse).set('uAb', 0.6 + 2.4 * a.pulse + 1.6 * L('rumble.drive'))
-        .set('uScroll', st.scroll).set('uTextAspect', st.text.aspect).set('uHue', L('kick.colourFreq'))
-        .set('uDrive', L('kick.drive')).set('uFlash', flash).set('uBand', band);
+      st.scroll = (st.scroll + (dt * 150) / (hh * band * st.text.aspect)) % 1;
+      st.post
+        .use()
+        .tex('uScene', 0, st.rt.tex)
+        .tex('uText', 1, st.text.tex)
+        .set('uRes', W, H)
+        .set('uTime', st.time)
+        .set('uPulse', a.pulse)
+        .set('uAb', 0.6 + 2.4 * a.pulse + 1.6 * L('rumble.drive'))
+        .set('uScroll', st.scroll)
+        .set('uTextAspect', st.text.aspect)
+        .set('uHue', L('kick.colourFreq'))
+        .set('uDrive', L('kick.drive'))
+        .set('uFlash', flash)
+        .set('uBand', band);
       st.tri.draw();
       const t = c.playing ? barText(c) : 'STOP';
       if (hudR.textContent !== t) hudR.textContent = t;
     },
-    dispose(gl, st) { st.scene.dispose(); st.post.dispose(); st.tri.dispose(); st.rt.dispose(); gl.deleteTexture(st.text.tex); },
+    dispose(gl, st) {
+      st.scene.dispose();
+      st.post.dispose();
+      st.tri.dispose();
+      st.rt.dispose();
+      gl.deleteTexture(st.text.tex);
+    },
   });
   m.view.append(h('div', { class: 'pl-hud' }, hudL, hint, hudR));
 
-  let ws = null, hideTimer = 0;
-  const show = (text) => { clearTimeout(hideTimer); hint.textContent = text; hint.classList.remove('is-gone'); };
-  const hide = () => { clearTimeout(hideTimer); hideTimer = setTimeout(() => hint.classList.add('is-gone'), 1200); };
+  let ws = null,
+    hideTimer = 0;
+  const show = (text) => {
+    clearTimeout(hideTimer);
+    hint.textContent = text;
+    hint.classList.remove('is-gone');
+  };
+  const hide = () => {
+    clearTimeout(hideTimer);
+    hideTimer = setTimeout(() => hint.classList.add('is-gone'), 1200);
+  };
   room.own(() => clearTimeout(hideTimer));
-  const begin = () => { ws = picks.ids.map((id) => writer(ctx, id, 'play')); ws.forEach((w) => w.begin()); };
+  const begin = () => {
+    ws = picks.ids.map((id) => writer(ctx, id, 'play'));
+    ws.forEach((w) => w.begin());
+  };
   xyTouch(cv, {
-    onStart: () => { begin(); m.el.classList.add('is-touched'); },
+    onStart: () => {
+      begin();
+      m.el.classList.add('is-touched');
+    },
     onMove: (dx, dy) => {
-      ws[0].add(dx / Math.max(200, cv.clientWidth)); ws[1].add(-dy / Math.max(200, cv.clientHeight));
+      ws[0].add(dx / Math.max(200, cv.clientWidth));
+      ws[1].add(-dy / Math.max(200, cv.clientHeight));
       show(readout(room, picks.ids.slice(0, 2)));
     },
-    onPinch: (dd) => { ws[2].add(dd / 260); show(readout(room, picks.ids.slice(2))); },
-    onEnd: () => { ws?.forEach((w) => w.end()); ws = null; m.el.classList.remove('is-touched'); hide(); },
-    onTap: () => { flash = 1; haptic(); },
+    onPinch: (dd) => {
+      ws[2].add(dd / 260);
+      show(readout(room, picks.ids.slice(2)));
+    },
+    onEnd: () => {
+      ws?.forEach((w) => w.end());
+      ws = null;
+      m.el.classList.remove('is-touched');
+      hide();
+    },
+    onTap: () => {
+      flash = 1;
+      haptic();
+    },
     onDouble: () => {
       store.begin();
       for (const id of picks.ids) store.reset(id, { source: 'doubletap' });
       store.end();
       haptic(true);
-      toast('Furnace: X, Y and pinch at the set\'s values');
+      toast("Furnace: X, Y and pinch at the set's values");
     },
   });
   return room.add(m);

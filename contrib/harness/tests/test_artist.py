@@ -15,7 +15,7 @@ from aiohttp.test_utils import TestClient, TestServer
 from harness.studio import artist as A
 
 sys.path.insert(0, str(Path(__file__).parent / "ui"))
-from lab_server import app as lab_app  # noqa: E402
+from lab_server import app as lab_app
 
 SEED = json.loads(A.SEED.read_text())
 
@@ -68,21 +68,26 @@ def test_the_repertoire_starts_from_the_seed_and_versions(store):
     works[0]["weight"] = 7
     assert store.set_repertoire(works, "more ledger") == 2
     rep = store.repertoire()
-    assert rep["version"] == 2 and rep["parent"] == 1 and rep["works"][0]["weight"] == 7 and rep["notes"] == "more ledger"
+    assert (
+        rep["version"] == 2 and rep["parent"] == 1 and rep["works"][0]["weight"] == 7 and rep["notes"] == "more ledger"
+    )
 
 
-@pytest.mark.parametrize("change, why", [
-    (lambda w: w["params"].update(shake=2.0), "outside"),
-    (lambda w: w["params"]["particles"].update(palette="neon"), "not one of"),
-    (lambda w: w["params"].update(glitter=True), "unknown"),
-    (lambda w: w.update(sparkle=1), "unknown"),
-    (lambda w: w["params"].pop("sky"), "missing"),
-    (lambda w: w.update(id="Bad Id"), "id"),
-    (lambda w: w.update(title="x" * 41), "title"),
-    (lambda w: w.update(rarity=0), "outside"),
-    (lambda w: w.update(when={"night": "yes"}), "true or false"),
-    (lambda w: w["params"].update(lamp=1), "true or false"),
-])
+@pytest.mark.parametrize(
+    "change, why",
+    [
+        (lambda w: w["params"].update(shake=2.0), "outside"),
+        (lambda w: w["params"]["particles"].update(palette="neon"), "not one of"),
+        (lambda w: w["params"].update(glitter=True), "unknown"),
+        (lambda w: w.update(sparkle=1), "unknown"),
+        (lambda w: w["params"].pop("sky"), "missing"),
+        (lambda w: w.update(id="Bad Id"), "id"),
+        (lambda w: w.update(title="x" * 41), "title"),
+        (lambda w: w.update(rarity=0), "outside"),
+        (lambda w: w.update(when={"night": "yes"}), "true or false"),
+        (lambda w: w["params"].update(lamp=1), "true or false"),
+    ],
+)
 def test_works_outside_the_primitives_are_refused(change, why):
     works = copy.deepcopy(SEED["works"])
     change(works[0])
@@ -114,8 +119,11 @@ async def test_the_quick_question_falls_back_to_rules():
 
     assert (await A.ask(event, broken))["by"] == "rules"
     assert (await A.ask(event, nonsense))["by"] == "rules"
-    assert await A.ask(event, chatty) == {"question": "The seal, or the shake?", "choices": ["The seal", "The shake"],
-                                          "by": "model"}
+    assert await A.ask(event, chatty) == {
+        "question": "The seal, or the shake?",
+        "choices": ["The seal", "The shake"],
+        "by": "model",
+    }
     up = await A.ask({"vote": "up", "view": "explore", "context": {}})
     assert up["question"] == "What landed?" and "The finds" in up["choices"]
 
@@ -140,12 +148,14 @@ async def client(tmp_path):
 
 
 async def test_the_api_keeps_a_press_asks_and_takes_an_answer(client):
-    r = await client.post("/studio/api/artist/feedback", json={"vote": "up", "view": "ledger",
-                                                              "context": {"item": "kick.drive"}, "client_ts": 1.5})
+    r = await client.post(
+        "/studio/api/artist/feedback",
+        json={"vote": "up", "view": "ledger", "context": {"item": "kick.drive"}, "client_ts": 1.5},
+    )
     assert r.status == 201
     fid = (await r.json())["id"]
     items = (await (await client.get("/studio/api/artist/feedback")).json())["items"]
-    assert items[0]["id"] == fid and items[0]["question"] is None              # stored before any question
+    assert items[0]["id"] == fid and items[0]["question"] is None  # stored before any question
     q = await (await client.post(f"/studio/api/artist/feedback/{fid}/question")).json()
     assert q["by"] == "rules" and q["question"] == "What landed?"
     r = await client.post(f"/studio/api/artist/feedback/{fid}/answer", json={"text": "", "choice": q["choices"][0]})
@@ -159,10 +169,19 @@ async def test_the_api_keeps_a_press_asks_and_takes_an_answer(client):
 
 
 async def test_the_api_keeps_plates_and_serves_the_repertoire(client):
-    plate = {"track": "hw002", "step": "kick", "item": "drive", "title": "Distortion", "step_name": "Kick",
-             "work": {"id": "ledger", "version": 1, "title": "The ledger", "params": SEED["works"][0]["params"]},
-             "sound": "anvil", "done": ["kick.scoop", "kick.drive"], "unlocked": ["kick.drive"],
-             "render": {"label": "Batch 8.1, drive 37%", "path": "skrng/x.mp3"}, "client_ts": 2}
+    plate = {
+        "track": "hw002",
+        "step": "kick",
+        "item": "drive",
+        "title": "Distortion",
+        "step_name": "Kick",
+        "work": {"id": "ledger", "version": 1, "title": "The ledger", "params": SEED["works"][0]["params"]},
+        "sound": "anvil",
+        "done": ["kick.scoop", "kick.drive"],
+        "unlocked": ["kick.drive"],
+        "render": {"label": "Batch 8.1, drive 37%", "path": "skrng/x.mp3"},
+        "client_ts": 2,
+    }
     r = await client.post("/studio/api/artist/plates", json=plate)
     assert r.status == 201 and (await r.json())["n"] == 1
     r = await client.post("/studio/api/artist/plates", json={**plate, "track": "other"})
@@ -175,13 +194,21 @@ async def test_the_api_keeps_plates_and_serves_the_repertoire(client):
     assert rep["version"] == 1 and {w["id"] for w in rep["works"]} >= {"ledger", "wax"}
 
 
-@pytest.mark.parametrize("path", [
-    "skrng/../../etc/passwd", "skrng/x.wav", "elsewhere/x.mp3", "zpkt/check-sounds/anvil-hit.m4a",
-    "skrng/a b.mp3", "zpkt/check-sounds/anvil-hit-c242b349.mp3",
-])
+@pytest.mark.parametrize(
+    "path",
+    [
+        "skrng/../../etc/passwd",
+        "skrng/x.wav",
+        "elsewhere/x.mp3",
+        "zpkt/check-sounds/anvil-hit.m4a",
+        "skrng/a b.mp3",
+        "zpkt/check-sounds/anvil-hit-c242b349.mp3",
+    ],
+)
 async def test_site_audio_serves_only_its_allowlist(client, path, monkeypatch):
     def no_fetch(*_a, **_k):
         raise AssertionError("fetched a path outside the allowlist")
+
     monkeypatch.setattr("harness.studio.routes.ClientSession", no_fetch)
     r = await client.get(f"/studio/site-audio/{path}")
     assert r.status == 404

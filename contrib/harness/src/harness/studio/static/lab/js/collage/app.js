@@ -34,8 +34,20 @@ export function mountCollage(root, ctx) {
   const { engine, store } = ctx;
   let dead = false;
   const C = {
-    ctx, engine, store, state, ev: bus(), own: ctx.own,
-    G: null, players: null, grains: null, sources: [], ready: false, chase: false, dice: 0, rec: { phase: 'idle' },
+    ctx,
+    engine,
+    store,
+    state,
+    ev: bus(),
+    own: ctx.own,
+    G: null,
+    players: null,
+    grains: null,
+    sources: [],
+    ready: false,
+    chase: false,
+    dice: 0,
+    rec: { phase: 'idle' },
   };
 
   // --- what the panels ask of the runtime -----------------------------------------------------------------------
@@ -45,17 +57,31 @@ export function mountCollage(root, ctx) {
     const buf = bufferNow(engine, id);
     return buf ? soundFrom(buf, defaultCue(C.src(id))) : defaultCue(C.src(id));
   };
-  C.setCue = (id, s) => { state.cue[id] = Math.max(0, s); saveState(); C.ev.emit('cue', id); };
+  C.setCue = (id, s) => {
+    state.cue[id] = Math.max(0, s);
+    saveState();
+    C.ev.emit('cue', id);
+  };
   C.tapeRev = () => store.real('col.tape.rev') === 1;
   C.select = (id) => {
     if (!id) return;
     state.sel = id;
     saveState();
     C.ev.emit('select', id);
-    C.setLoaded({ src: id, off: C.cue(id), len: C.src(id)?.kind === 'rs' ? Math.round(C.src(id).seconds / engine.stepSeconds) : 16, st: 0, rev: false });
+    C.setLoaded({
+      src: id,
+      off: C.cue(id),
+      len: C.src(id)?.kind === 'rs' ? Math.round(C.src(id).seconds / engine.stepSeconds) : 16,
+      st: 0,
+      rev: false,
+    });
   };
   /** What a tap on an empty bed lane drops: the last thing picked or played. */
-  C.setLoaded = (item) => { state.loaded = item; saveState(); C.ev.emit('loaded'); };
+  C.setLoaded = (item) => {
+    state.loaded = item;
+    saveState();
+    C.ev.emit('loaded');
+  };
 
   /** The audio-clock time of the next bar line (now, if the transport is stopped). */
   C.nextBar = () => {
@@ -76,14 +102,29 @@ export function mountCollage(root, ctx) {
     if (!bufferNow(engine, id)) return 'loading';
     const src = C.src(id);
     const dur = src?.kind === 'rs' ? src.seconds : engine.barSeconds * 2;
-    C.players.play(id, { when: C.nextBar() - TAPE_BASE, off: C.cue(id), dur, rev: C.tapeRev(), tag: 'aud', release: 0.06 });
+    C.players.play(id, {
+      when: C.nextBar() - TAPE_BASE,
+      off: C.cue(id),
+      dur,
+      rev: C.tapeRev(),
+      tag: 'aud',
+      release: 0.06,
+    });
     return true;
   };
 
   C.auditionItem = (item) => {
     if (!C.ready) return;
     C.players.stopTag('aud');
-    C.players.play(item.src, { when: C.nextBar() - TAPE_BASE, off: item.off, dur: item.len * engine.stepSeconds, st: item.st, rev: item.rev || C.tapeRev(), tag: 'aud', release: 0.03 });
+    C.players.play(item.src, {
+      when: C.nextBar() - TAPE_BASE,
+      off: item.off,
+      dur: item.len * engine.stepSeconds,
+      st: item.st,
+      rev: item.rev || C.tapeRev(),
+      tag: 'aud',
+      release: 0.03,
+    });
   };
 
   C.found = () => found(C);
@@ -99,8 +140,14 @@ export function mountCollage(root, ctx) {
 
   // --- resampling ---------------------------------------------------------------------------------------------
   C.resample = async () => {
-    if (!C.ready) { toast('Start the engine first'); return; }
-    if (C.rec.phase !== 'idle') { C.recCancel?.cancel?.(); return; }
+    if (!C.ready) {
+      toast('Start the engine first');
+      return;
+    }
+    if (C.rec.phase !== 'idle') {
+      C.recCancel?.cancel?.();
+      return;
+    }
     const bars = [1, 2, 4, 8][store.real('col.rs.bars')] ?? 2;
     const everything = store.real('col.rs.input') === 1;
     const seconds = bars * engine.barSeconds;
@@ -108,16 +155,29 @@ export function mountCollage(root, ctx) {
     const from = everything ? engine.master.out : C.G.tape.out;
     C.rec = { phase: 'armed', when, end: when + seconds, bars };
     C.ev.emit('rec');
-    const cancel = C.recCancel = {};
+    const cancel = (C.recCancel = {});
     try {
       const buf = await record(engine.ctx, from, { when, seconds, cancel });
       if (dead) return;
       let peak = 0;
-      for (let c = 0; c < buf.numberOfChannels; c++) for (const x of buf.getChannelData(c)) { const a = Math.abs(x); if (a > peak) peak = a; }
-      if (peak < 1e-4) { toast('The take was silent: play something, then REC'); return; }
+      for (let c = 0; c < buf.numberOfChannels; c++)
+        for (const x of buf.getChannelData(c)) {
+          const a = Math.abs(x);
+          if (a > peak) peak = a;
+        }
+      if (peak < 1e-4) {
+        toast('The take was silent: play something, then REC');
+        return;
+      }
       const n = ++state.rsN;
       const d = new Date();
-      state.rs.push({ id: `rs-${n}`, name: `Resample ${n}`, buffer: buf, bars, made: `${d.getHours()}:${String(d.getMinutes()).padStart(2, '0')}` });
+      state.rs.push({
+        id: `rs-${n}`,
+        name: `Resample ${n}`,
+        buffer: buf,
+        bars,
+        made: `${d.getHours()}:${String(d.getMinutes()).padStart(2, '0')}`,
+      });
       if (state.rs.length > 12) {
         const drop = state.rs.find((r) => !state.bed.some((c) => c.src === r.id));
         if (drop) state.rs = state.rs.filter((r) => r !== drop);
@@ -130,27 +190,74 @@ export function mountCollage(root, ctx) {
       C.select(`rs-${n}`);
       C.setLoaded({ src: `rs-${n}`, off: 0, len: bars * 16, st: 0, rev: false });
       haptic(true);
-      toast(`Resample ${n}: ${bars} ${bars === 1 ? 'bar' : 'bars'} on the shelf (${everything ? 'everything' : 'the collage'})`, 2400);
+      toast(
+        `Resample ${n}: ${bars} ${bars === 1 ? 'bar' : 'bars'} on the shelf (${everything ? 'everything' : 'the collage'})`,
+        2400,
+      );
     } catch (err) {
       if (err.message === 'cancelled') toast('Resample cancelled');
-      else { console.error(err); toast(`Resample failed: ${err.message}`); }
+      else {
+        console.error(err);
+        toast(`Resample failed: ${err.message}`);
+      }
     } finally {
-      if (!dead) { C.rec = { phase: 'idle' }; C.ev.emit('rec'); }
+      if (!dead) {
+        C.rec = { phase: 'idle' };
+        C.ev.emit('rec');
+      }
     }
   };
 
   // --- layout -------------------------------------------------------------------------------------------------------
   const shelf = buildShelf(C);
   const modeBtns = MODES.map((m) => {
-    const b = h('button', { type: 'button', class: 'cl-mode', dataset: { mode: m.id }, 'aria-label': m.label }, icon(m.icon), h('span', { text: m.label }));
-    b.addEventListener('click', () => { haptic(); show(m.id); });
+    const b = h(
+      'button',
+      { type: 'button', class: 'cl-mode', dataset: { mode: m.id }, 'aria-label': m.label },
+      icon(m.icon),
+      h('span', { text: m.label }),
+    );
+    b.addEventListener('click', () => {
+      haptic();
+      show(m.id);
+    });
     return b;
   });
-  const dice = h('button', { type: 'button', class: 'cl-mode cl-found', 'aria-label': 'Found sound: a random tape, place and pitch, laid on the bed' }, icon('dice'), h('span', { text: 'Found' }));
-  dice.addEventListener('click', () => { haptic(true); dice.classList.remove('is-rolled'); void dice.offsetWidth; dice.classList.add('is-rolled'); C.found(); });
-  const stop = h('button', { type: 'button', class: 'cl-mode cl-panic', 'aria-label': 'Stop every collage sound' }, icon('stop'), h('span', { text: 'Hush' }));
-  stop.addEventListener('click', () => { haptic(true); C.panic(); });
-  const modes = h('nav', { class: 'cl-modes', 'aria-label': 'Collage modes' }, ...modeBtns, h('i', { class: 'cl-modes-gap' }), dice, stop);
+  const dice = h(
+    'button',
+    {
+      type: 'button',
+      class: 'cl-mode cl-found',
+      'aria-label': 'Found sound: a random tape, place and pitch, laid on the bed',
+    },
+    icon('dice'),
+    h('span', { text: 'Found' }),
+  );
+  dice.addEventListener('click', () => {
+    haptic(true);
+    dice.classList.remove('is-rolled');
+    void dice.offsetWidth;
+    dice.classList.add('is-rolled');
+    C.found();
+  });
+  const stop = h(
+    'button',
+    { type: 'button', class: 'cl-mode cl-panic', 'aria-label': 'Stop every collage sound' },
+    icon('stop'),
+    h('span', { text: 'Hush' }),
+  );
+  stop.addEventListener('click', () => {
+    haptic(true);
+    C.panic();
+  });
+  const modes = h(
+    'nav',
+    { class: 'cl-modes', 'aria-label': 'Collage modes' },
+    ...modeBtns,
+    h('i', { class: 'cl-modes-gap' }),
+    dice,
+    stop,
+  );
   const host = h('div', { class: 'cl-host' });
   const status = h('div', { class: 'cl-status', text: 'Start the engine (the play button) to load the tapes.' });
   const el = h('div', { class: 'cl' }, shelf.el, modes, host, status);
@@ -184,9 +291,15 @@ export function mountCollage(root, ctx) {
   const readGrains = () => {
     const r = (id) => store.real(id);
     return {
-      size: r('col.grain.size') / 1000, density: r('col.grain.density'), spray: r('col.grain.spray') / 1000,
-      pitch: r('col.grain.pitch'), rev: C.tapeRev() ? 1 : r('col.grain.rev') / 100, drift: r('col.grain.drift') / 100,
-      pan: r('col.grain.pan') / 100, ymode: r('col.grain.y'), sync: r('col.grain.sync'),
+      size: r('col.grain.size') / 1000,
+      density: r('col.grain.density'),
+      spray: r('col.grain.spray') / 1000,
+      pitch: r('col.grain.pitch'),
+      rev: C.tapeRev() ? 1 : r('col.grain.rev') / 100,
+      drift: r('col.grain.drift') / 100,
+      pan: r('col.grain.pan') / 100,
+      ymode: r('col.grain.y'),
+      sync: r('col.grain.sync'),
     };
   };
 
@@ -197,53 +310,90 @@ export function mountCollage(root, ctx) {
       try {
         const buf = await loadBuffer(engine, id);
         if (dead) return;
-        if (buf) { await buildPeaks(buf); if (!dead) C.ev.emit('buffer', id); }
-      } catch (err) { console.warn(`collage: ${id} did not load`, err); }
+        if (buf) {
+          await buildPeaks(buf);
+          if (!dead) C.ev.emit('buffer', id);
+        }
+      } catch (err) {
+        console.warn(`collage: ${id} did not load`, err);
+      }
     }
   };
 
-  ctx.own(engine.onReady(async () => {
-    try {
-      await engine.loadManifest();
-      if (dead || C.G) return;
-      C.sources = sourceList(engine);
-      if (!C.src(state.sel)) state.sel = C.sources[0]?.id ?? null;
-      C.G = buildGraph(engine, C.sources);
-      C.unsketch = collageSketches(engine, C.G, C.sources.filter((s) => s.kind === 'clip').map((s) => s.id));
-      C.players = new Players(C.G, engine);
-      C.grains = new Grains(C.G, engine, readGrains);
-      C.grains.start();
-      C.G.onPitch = (id) => { C.players.repitch(id); C.ev.emit('slices'); };
-      ctx.own(store.on('col.tape.speed', () => { C.G.speed = store.real('col.tape.speed') / 100; C.players.setSpeed(C.G.speed); }));
-      ctx.own(store.on('col.tape.wow', (v) => C.G.tape.setWow(v)));
-      ctx.own(store.on('col.tape.flutter', (v) => C.G.tape.setFlutter(v)));
-      ctx.own(store.on('col.grain.freeze', (v) => { if (v < 0.5) C.grains.releaseFrozen(); }, { now: false }));
-      warmRecorder(engine.ctx);
-      C.ready = true;
-      C.chase = engine.playing;
-      status.hidden = true;
-      if (!state.loaded && state.sel) C.select(state.sel);
-      C.ev.emit('ready');
-      C.ev.emit('sources');
-      loadAll();
-    } catch (err) {
-      console.error(err);
-      status.textContent = `The collage could not load its tapes: ${err.message || err}`;
-      status.hidden = false;
-    }
-  }));
+  ctx.own(
+    engine.onReady(async () => {
+      try {
+        await engine.loadManifest();
+        if (dead || C.G) return;
+        C.sources = sourceList(engine);
+        if (!C.src(state.sel)) state.sel = C.sources[0]?.id ?? null;
+        C.G = buildGraph(engine, C.sources);
+        C.unsketch = collageSketches(
+          engine,
+          C.G,
+          C.sources.filter((s) => s.kind === 'clip').map((s) => s.id),
+        );
+        C.players = new Players(C.G, engine);
+        C.grains = new Grains(C.G, engine, readGrains);
+        C.grains.start();
+        C.G.onPitch = (id) => {
+          C.players.repitch(id);
+          C.ev.emit('slices');
+        };
+        ctx.own(
+          store.on('col.tape.speed', () => {
+            C.G.speed = store.real('col.tape.speed') / 100;
+            C.players.setSpeed(C.G.speed);
+          }),
+        );
+        ctx.own(store.on('col.tape.wow', (v) => C.G.tape.setWow(v)));
+        ctx.own(store.on('col.tape.flutter', (v) => C.G.tape.setFlutter(v)));
+        ctx.own(
+          store.on(
+            'col.grain.freeze',
+            (v) => {
+              if (v < 0.5) C.grains.releaseFrozen();
+            },
+            { now: false },
+          ),
+        );
+        warmRecorder(engine.ctx);
+        C.ready = true;
+        C.chase = engine.playing;
+        status.hidden = true;
+        if (!state.loaded && state.sel) C.select(state.sel);
+        C.ev.emit('ready');
+        C.ev.emit('sources');
+        loadAll();
+      } catch (err) {
+        console.error(err);
+        status.textContent = `The collage could not load its tapes: ${err.message || err}`;
+        status.hidden = false;
+      }
+    }),
+  );
 
-  ctx.own(engine.onStep((step, when) => {
-    if (!C.ready || C.G.disposed) return;
-    bedStep(C, step, when);
-    seqStep(C, step, when);
-  }));
-  ctx.own(engine.onState((on) => {
-    if (!C.ready) return;
-    if (on) C.chase = true;
-    else C.players.stopAll();
-  }));
-  const vis = () => { if (document.hidden && C.ready) { C.grains.releaseAll(); C.players.stopAll(); C.ev.emit('ghost', false); } };
+  ctx.own(
+    engine.onStep((step, when) => {
+      if (!C.ready || C.G.disposed) return;
+      bedStep(C, step, when);
+      seqStep(C, step, when);
+    }),
+  );
+  ctx.own(
+    engine.onState((on) => {
+      if (!C.ready) return;
+      if (on) C.chase = true;
+      else C.players.stopAll();
+    }),
+  );
+  const vis = () => {
+    if (document.hidden && C.ready) {
+      C.grains.releaseAll();
+      C.players.stopAll();
+      C.ev.emit('ghost', false);
+    }
+  };
   document.addEventListener('visibilitychange', vis);
   ctx.own(() => document.removeEventListener('visibilitychange', vis));
 
@@ -252,7 +402,13 @@ export function mountCollage(root, ctx) {
   const frame = (t) => {
     raf = requestAnimationFrame(frame);
     if (document.hidden) return;
-    try { shelf.draw(t); current?.draw?.(t); } catch (err) { console.error(err); cancelAnimationFrame(raf); }
+    try {
+      shelf.draw(t);
+      current?.draw?.(t);
+    } catch (err) {
+      console.error(err);
+      cancelAnimationFrame(raf);
+    }
   };
   raf = requestAnimationFrame(frame);
 
@@ -266,12 +422,12 @@ export function mountCollage(root, ctx) {
       C.unsketch?.();
       C.G.dispose();
     }
-    store.unmodulate('collage-bend');                // the reels' bend and the tilt are not saved: none may stay
+    store.unmodulate('collage-bend'); // the reels' bend and the tilt are not saved: none may stay
     store.unmodulate('collage-tilt');
     C.ev.emit('unmount');
     C.ready = false;
   });
 
-  if (typeof window !== 'undefined') window.__collage = C;          // for the tests and the console
+  if (typeof window !== 'undefined') window.__collage = C; // for the tests and the console
   return C;
 }

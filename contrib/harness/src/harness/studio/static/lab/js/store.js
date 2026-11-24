@@ -12,21 +12,25 @@ export class Store {
   constructor(params) {
     this.params = params;
     this.values = new Map(params.list.map((p) => [p.id, setNorm(p)]));
-    this.subs = new Map();          // id -> Set(fn)
+    this.subs = new Map(); // id -> Set(fn)
     this.any = new Set();
     this.undoStack = [];
     this.redoStack = [];
-    this.gesture = null;            // {id -> value before} while a gesture runs
+    this.gesture = null; // {id -> value before} while a gesture runs
     this.slots = [null, null, null, null];
-    this.mods = new Map();          // id -> Map(source -> offset): what modulators (LFOs, physics, tilt) add, not saved
+    this.mods = new Map(); // id -> Map(source -> offset): what modulators (LFOs, physics, tilt) add, not saved
     this._saveTimer = 0;
     this._load();
   }
 
   // --- reading ---------------------------------------------------------------------------------------------
-  get(id) { return this.values.get(id) ?? 0; }
+  get(id) {
+    return this.values.get(id) ?? 0;
+  }
   /** The value a listener should act on: the knob plus any modulation, clamped. */
-  live(id) { return Math.min(1, Math.max(0, this.get(id) + this.modOffset(id))); }
+  live(id) {
+    return Math.min(1, Math.max(0, this.get(id) + this.modOffset(id)));
+  }
 
   /** The sum of every modulator's offset on `id`. */
   modOffset(id) {
@@ -34,8 +38,12 @@ export class Store {
     for (const v of this.mods.get(id)?.values() ?? []) sum += v;
     return sum;
   }
-  real(id) { return toReal(this.params.get(id), this.live(id)); }
-  isSet(id) { return Math.abs(this.get(id) - setNorm(this.params.get(id))) < 1e-4; }
+  real(id) {
+    return toReal(this.params.get(id), this.live(id));
+  }
+  isSet(id) {
+    return Math.abs(this.get(id) - setNorm(this.params.get(id))) < 1e-4;
+  }
 
   // --- writing ---------------------------------------------------------------------------------------------
   /** Set a value (0..1). `source` names who did it, so a widget can ignore its own echo. */
@@ -50,7 +58,9 @@ export class Store {
     this._persist();
   }
 
-  nudge(id, delta, opts) { this.set(id, this.get(id) + delta, opts); }
+  nudge(id, delta, opts) {
+    this.set(id, this.get(id) + delta, opts);
+  }
 
   /**
    * A modulation offset (-1..1 of the range) on top of the knob, from one `source` (an LFO, tilt, a ball): offsets
@@ -59,8 +69,10 @@ export class Store {
   modulate(id, offset, source = 'mod') {
     if (!this.values.has(id)) return;
     const m = this.mods.get(id) ?? new Map();
-    if (!offset) m.delete(source); else m.set(source, offset);
-    if (m.size) this.mods.set(id, m); else this.mods.delete(id);
+    if (!offset) m.delete(source);
+    else m.set(source, offset);
+    if (m.size) this.mods.set(id, m);
+    else this.mods.delete(id);
     this._emit(id, source);
   }
 
@@ -69,7 +81,9 @@ export class Store {
     for (const [id, m] of [...this.mods]) if (m.has(source)) this.modulate(id, 0, source);
   }
 
-  reset(id, opts) { this.set(id, setNorm(this.params.get(id)), opts); }
+  reset(id, opts) {
+    this.set(id, setNorm(this.params.get(id)), opts);
+  }
   resetAll(ids = [...this.values.keys()]) {
     this.begin();
     for (const id of ids) this.reset(id, { source: 'reset' });
@@ -77,15 +91,25 @@ export class Store {
   }
 
   /** Values move together as one undo step: begin(), any number of set(), end(). */
-  begin() { if (!this.gesture) this.gesture = new Map(); }
+  begin() {
+    if (!this.gesture) this.gesture = new Map();
+  }
   end() {
     const g = this.gesture;
     this.gesture = null;
-    if (g && g.size) { this.undoStack.push(g); this.redoStack.length = 0; if (this.undoStack.length > 200) this.undoStack.shift(); }
+    if (g && g.size) {
+      this.undoStack.push(g);
+      this.redoStack.length = 0;
+      if (this.undoStack.length > 200) this.undoStack.shift();
+    }
   }
 
-  undo() { this._swap(this.undoStack, this.redoStack); }
-  redo() { this._swap(this.redoStack, this.undoStack); }
+  undo() {
+    this._swap(this.undoStack, this.redoStack);
+  }
+  redo() {
+    this._swap(this.redoStack, this.undoStack);
+  }
 
   /** Move `ids` a random amount (0..1 of their range) around where they are. */
   randomize(ids, amount = 0.25) {
@@ -95,7 +119,9 @@ export class Store {
   }
 
   // --- whole states ----------------------------------------------------------------------------------------
-  snapshot(ids = [...this.values.keys()]) { return Object.fromEntries(ids.map((id) => [id, this.get(id)])); }
+  snapshot(ids = [...this.values.keys()]) {
+    return Object.fromEntries(ids.map((id) => [id, this.get(id)]));
+  }
 
   apply(snap, { source = 'snapshot' } = {}) {
     this.begin();
@@ -116,8 +142,14 @@ export class Store {
     }
   }
 
-  saveSlot(i) { this.slots[i] = this.snapshot(); this._persist(); this._emit('*slots', 'slots'); }
-  recallSlot(i) { if (this.slots[i]) this.apply(this.slots[i], { source: 'slot' }); }
+  saveSlot(i) {
+    this.slots[i] = this.snapshot();
+    this._persist();
+    this._emit('*slots', 'slots');
+  }
+  recallSlot(i) {
+    if (this.slots[i]) this.apply(this.slots[i], { source: 'slot' });
+  }
 
   /** What moved away from the set: [{id, live, from, to}] in the params' units. */
   diff() {
@@ -139,7 +171,10 @@ export class Store {
   }
 
   /** fn(id, value, source) on any change. */
-  onAny(fn) { this.any.add(fn); return () => this.any.delete(fn); }
+  onAny(fn) {
+    this.any.add(fn);
+    return () => this.any.delete(fn);
+  }
 
   // --- inside ----------------------------------------------------------------------------------------------
   _emit(id, source) {
@@ -149,7 +184,10 @@ export class Store {
   }
 
   _remember(id, before) {
-    if (this.gesture) { if (!this.gesture.has(id)) this.gesture.set(id, before); return; }
+    if (this.gesture) {
+      if (!this.gesture.has(id)) this.gesture.set(id, before);
+      return;
+    }
     this.undoStack.push(new Map([[id, before]]));
     this.redoStack.length = 0;
   }
@@ -158,7 +196,11 @@ export class Store {
     const step = from.pop();
     if (!step) return;
     const back = new Map();
-    for (const [id, v] of step) { back.set(id, this.get(id)); this.values.set(id, v); this._emit(id, 'undo'); }
+    for (const [id, v] of step) {
+      back.set(id, this.get(id));
+      this.values.set(id, v);
+      this._emit(id, 'undo');
+    }
     to.push(back);
     this._persist();
   }
@@ -168,7 +210,9 @@ export class Store {
     this._saveTimer = setTimeout(() => {
       try {
         localStorage.setItem(KEY, JSON.stringify({ values: Object.fromEntries(this.values), slots: this.slots }));
-      } catch { /* private mode: the state lives for this visit */ }
+      } catch {
+        /* private mode: the state lives for this visit */
+      }
     }, 400);
   }
 
@@ -178,6 +222,8 @@ export class Store {
       if (!saved) return;
       for (const [id, v] of Object.entries(saved.values ?? {})) if (this.values.has(id)) this.values.set(id, v);
       if (Array.isArray(saved.slots)) this.slots = saved.slots.slice(0, 4).concat([null, null, null, null]).slice(0, 4);
-    } catch { /* a broken save starts from the set */ }
+    } catch {
+      /* a broken save starts from the set */
+    }
   }
 }

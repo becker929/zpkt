@@ -16,9 +16,9 @@
 
 import { HatMasks } from './hats.js';
 
-const XF = 0.004;                  // the engine's own crossfade between bar segments
-const SONG_BREAK = [80, 96];       // 0-based bars of the whole song
-const KICK_BACK = 96;              // 0-based bar where the song's kick returns after the break
+const XF = 0.004; // the engine's own crossfade between bar segments
+const SONG_BREAK = [80, 96]; // 0-based bars of the whole song
+const KICK_BACK = 96; // 0-based bar where the song's kick returns after the break
 
 export class Lanes {
   constructor(engine, data) {
@@ -34,7 +34,8 @@ export class Lanes {
   /** Buses and gain nodes; call once the context exists. */
   init() {
     if (this.nodes) return;
-    const e = this.e, ctx = e.ctx;
+    const e = this.e,
+      ctx = e.ctx;
     const splash = ctx.createGain();
     splash.gain.value = this.splashLevel;
     splash.connect(e.bus('perc').input);
@@ -43,7 +44,11 @@ export class Lanes {
 
   dispose() {
     this.stopAll();
-    try { this.nodes?.splash.disconnect(); } catch { /* gone */ }
+    try {
+      this.nodes?.splash.disconnect();
+    } catch {
+      /* gone */
+    }
     this.nodes = null;
   }
 
@@ -58,27 +63,48 @@ export class Lanes {
       // source), or the lab's perc stem in a build without it
       const shape = this.hasSource('shape-perc');
       const id = shape ? 'shape-perc' : 'perc';
-      const src = e.buffers.get(id) ?? await e.buffer(id).catch(() => null);
+      const src = e.buffers.get(id) ?? (await e.buffer(id).catch(() => null));
       if (src && !this.masks.bands && !this.masks.failed) {
-        this.masks.prepare(e.ctx, src, shape ? this.data.hats.shape_source_bar ?? 15 : this.data.hats.source_bar ?? 12);
+        this.masks.prepare(
+          e.ctx,
+          src,
+          shape ? (this.data.hats.shape_source_bar ?? 15) : (this.data.hats.source_bar ?? 12),
+        );
         if (this.masks.bands) this.masks.warm();
       }
-    } finally { this._preparing = false; }
-    if (this.hasSource(this.data.splash.src) && !e.buffers.has(this.data.splash.src)) e.buffer(this.data.splash.src).catch(() => null);
+    } finally {
+      this._preparing = false;
+    }
+    if (this.hasSource(this.data.splash.src) && !e.buffers.has(this.data.splash.src))
+      e.buffer(this.data.splash.src).catch(() => null);
     if (full || this.wantFull) this.loadFull();
   }
 
   loadFull() {
     this.wantFull = true;
     if (!this.e.ctx || !this.e.manifest?.full || this.e.buffers.has('full') || this._fullJob) return this._fullJob;
-    this._fullJob = this.e.buffer('full').then((b) => { this._fullJob = null; this.onFull?.(b); return b; })
-      .catch((err) => { this._fullJob = null; console.warn('whole song', err); return null; });
+    this._fullJob = this.e
+      .buffer('full')
+      .then((b) => {
+        this._fullJob = null;
+        this.onFull?.(b);
+        return b;
+      })
+      .catch((err) => {
+        this._fullJob = null;
+        console.warn('whole song', err);
+        return null;
+      });
     return this._fullJob;
   }
 
-  get hasFull() { return this.e.buffers.has('full'); }
+  get hasFull() {
+    return this.e.buffers.has('full');
+  }
 
-  hasSource(id) { return this.e.sources().some((x) => x.id === id); }
+  hasSource(id) {
+    return this.e.sources().some((x) => x.id === id);
+  }
 
   setSplashLevel(db) {
     this.splashLevel = Math.pow(10, db / 20);
@@ -108,11 +134,24 @@ export class Lanes {
 
   _track(node, g) {
     this.voices.add(node);
-    node.onended = () => { this.voices.delete(node); try { g.disconnect(); } catch { /* gone */ } };
+    node.onended = () => {
+      this.voices.delete(node);
+      try {
+        g.disconnect();
+      } catch {
+        /* gone */
+      }
+    };
   }
 
   stopAll() {
-    for (const v of this.voices) { try { v.stop(); } catch { /* not started or ended */ } }
+    for (const v of this.voices) {
+      try {
+        v.stop();
+      } catch {
+        /* not started or ended */
+      }
+    }
     this.voices.clear();
   }
 
@@ -121,20 +160,34 @@ export class Lanes {
     const x = entry?.x;
     if (!x || !this.e.ctx) return;
     this.init();
-    const e = this.e, bs = e.barSeconds, beat = bs / 4;
+    const e = this.e,
+      bs = e.barSeconds,
+      beat = bs / 4;
     const bus = (name) => e.bus(name).input;
-    if (x.countIn) { this.clicks(when); return; }
+    if (x.countIn) {
+      this.clicks(when);
+      return;
+    }
     if (x.hats) this.voice(this.masks.buffer(x.hats), 0, when, bs, bus('perc'));
     if (x.shape != null) this.voice(e.buffers.get('shape-perc'), x.shape * bs, when, bs, bus('perc'));
-    if (x.chord != null) this.voice(e.buffers.get('sfx'), (x.chordBar ?? 16 + x.chord) * bs, when, bs, this.nodes.chord.input);
+    if (x.chord != null)
+      this.voice(e.buffers.get('sfx'), (x.chordBar ?? 16 + x.chord) * bs, when, bs, this.nodes.chord.input);
     if (x.brk != null) this.voice(e.buffers.get('full'), x.brk * bs, when, bs, this.nodes.brk.input);
     if (x.part) {
-      const p = x.part, dur = p.until * beat, cut = 0.006;
-      for (const name of ['kick', 'perc', 'sfx']) if (p[name] >= 0) this.voice(e.buffers.get(name), p[name] * bs, when, dur, bus(name), { fadeOut: cut });
+      const p = x.part,
+        dur = p.until * beat,
+        cut = 0.006;
+      for (const name of ['kick', 'perc', 'sfx'])
+        if (p[name] >= 0) this.voice(e.buffers.get(name), p[name] * bs, when, dur, bus(name), { fadeOut: cut });
       if (p.hats) this.voice(this.masks.buffer(p.hats), 0, when, dur, bus('perc'), { fadeOut: cut });
-      if (p.shape != null) this.voice(e.buffers.get('shape-perc'), p.shape * bs, when, dur, bus('perc'), { fadeOut: cut });
-      if (p.chord != null) this.voice(e.buffers.get('sfx'), (p.chordBar ?? 16 + p.chord) * bs, when, dur, this.nodes.chord.input, { fadeOut: cut });
-      if (p.brk != null) this.voice(e.buffers.get('full'), p.brk * bs, when, dur, this.nodes.brk.input, { fadeOut: cut });
+      if (p.shape != null)
+        this.voice(e.buffers.get('shape-perc'), p.shape * bs, when, dur, bus('perc'), { fadeOut: cut });
+      if (p.chord != null)
+        this.voice(e.buffers.get('sfx'), (p.chordBar ?? 16 + p.chord) * bs, when, dur, this.nodes.chord.input, {
+          fadeOut: cut,
+        });
+      if (p.brk != null)
+        this.voice(e.buffers.get('full'), p.brk * bs, when, dur, this.nodes.brk.input, { fadeOut: cut });
     }
     if (x.wuh) {
       const full = e.buffers.get('full');
@@ -149,9 +202,13 @@ export class Lanes {
 
   /** The splash: src-2 shaped per 16th into the canonical long splash, cut after `beats`. */
   splash(when, beats) {
-    const e = this.e, ctx = e.ctx;
+    const e = this.e,
+      ctx = e.ctx;
     const buf = e.buffers.get(this.data.splash.src);
-    if (!buf) { if (this.hasSource(this.data.splash.src)) e.buffer(this.data.splash.src).catch(() => null); return; }
+    if (!buf) {
+      if (this.hasSource(this.data.splash.src)) e.buffer(this.data.splash.src).catch(() => null);
+      return;
+    }
     const g16 = this.data.splash.gain16;
     const step = e.barSeconds / 16;
     const dur = beats * 4 * step;
@@ -171,7 +228,8 @@ export class Lanes {
   }
 
   clicks(when) {
-    const ctx = this.e.ctx, beat = this.e.barSeconds / 4;
+    const ctx = this.e.ctx,
+      beat = this.e.barSeconds / 4;
     for (let k = 0; k < 4; k++) {
       const t = when + k * beat;
       if (t < ctx.currentTime) continue;
@@ -183,7 +241,8 @@ export class Lanes {
       g.gain.linearRampToValueAtTime(k === 0 ? 0.22 : 0.14, t + 0.002);
       g.gain.exponentialRampToValueAtTime(0.0005, t + 0.05);
       o.connect(g).connect(this.nodes.click.input);
-      o.start(t); o.stop(t + 0.06);
+      o.start(t);
+      o.stop(t + 0.06);
       this._track(o, g);
     }
   }

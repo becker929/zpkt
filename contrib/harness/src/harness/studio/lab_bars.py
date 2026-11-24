@@ -37,16 +37,16 @@ BAR_S = 1.5
 BAR = int(RATE * BAR_S)
 BEAT = BAR // 4
 SPLITS = [2000.0, 5000.0, 9000.0]
-SLOTS = 16                                    # mask slots per beat (64 per bar)
+SLOTS = 16  # mask slots per beat (64 per bar)
 SPLASH_TRACK = "6-2022-05-30-005"
 # batch 4.3 track 1 (plan43.json b43-01): A on bars 1-4, AB 5-8, ABC 9-12, ABCD 13-20; the long splash on bar 5
 # (into bar 6), the short on bar 13. The clean bars of each set, 0-based (bar 6, 0-based 5, holds the long tail).
 SHAPE_STATES = {"A": [0, 1, 2, 3], "AB": [6, 7], "ABC": [8, 9, 10, 11], "ABCD": [13, 14, 15, 16, 17, 18, 19]}
 SHAPE_SPLASH = {"long": [4, 5], "short": [12]}
 LEARN = {"A": [1, 2, 3], "AB": [6, 7], "ABC": [8, 9, 10, 11], "ABCD": [13, 14, 15, 16, 17, 18, 19]}
-LAB_SOURCE_BAR = 12                           # a clean bar of the lab's perc stem (all four layers)
-SHAPE_SOURCE_BAR = 15                         # a clean ABCD bar of the canonical perc stem
-REFERENCES = [                                # name, file, BPM, breaks of 8+ bars or near bar 80 (references.md)
+LAB_SOURCE_BAR = 12  # a clean bar of the lab's perc stem (all four layers)
+SHAPE_SOURCE_BAR = 15  # a clean ABCD bar of the canonical perc stem
+REFERENCES = [  # name, file, BPM, breaks of 8+ bars or near bar 80 (references.md)
     ("HW002", "HW002 - full - -14LUFS.wav", 160, [[82, 96]]),
     ("BSLS", "BSLS - full - -14LUFS.wav", 160, [[98, 98], [117, 128]]),
     ("Hedon", "Hedon - full - -14LUFS.wav", 158, [[80, 87], [159, 175]]),
@@ -75,10 +75,12 @@ def _k_weight(n: int) -> np.ndarray:
     f0, g, q = 1681.974450955533, 3.999843853973347, 0.7071752369554196
     k = np.tan(np.pi * f0 / RATE)
     vh = 10 ** (g / 20)
-    vb = vh ** 0.4996667741545416
+    vb = vh**0.4996667741545416
     a0 = 1 + k / q + k * k
-    shelf = (np.array([(vh + vb * k / q + k * k) / a0, 2 * (k * k - vh) / a0, (vh - vb * k / q + k * k) / a0]),
-             np.array([1, 2 * (k * k - 1) / a0, (1 - k / q + k * k) / a0]))
+    shelf = (
+        np.array([(vh + vb * k / q + k * k) / a0, 2 * (k * k - vh) / a0, (vh - vb * k / q + k * k) / a0]),
+        np.array([1, 2 * (k * k - 1) / a0, (1 - k / q + k * k) / a0]),
+    )
     f0, q = 38.13547087602444, 0.5003270373238773
     k = np.tan(np.pi * f0 / RATE)
     a0 = 1 + k / q + k * k
@@ -121,7 +123,7 @@ def bandsplit(x: np.ndarray) -> list[np.ndarray]:
         out.append(lo)
         rest = rest - lo
     out.append(rest)
-    return [np.fft.irfft(b, n, axis=0)[:len(x)] for b in out]
+    return [np.fft.irfft(b, n, axis=0)[: len(x)] for b in out]
 
 
 def _slot_power(bands: list[np.ndarray], bars: list[int]) -> np.ndarray:
@@ -131,14 +133,14 @@ def _slot_power(bands: list[np.ndarray], bars: list[int]) -> np.ndarray:
     for k, b in enumerate(bands):
         mono = b.mean(1) if b.ndim == 2 else b
         for bar in bars:
-            seg = mono[bar * BAR: bar * BAR + per * 4 * SLOTS].astype(np.float64).reshape(4 * SLOTS, per)
-            out[k] += np.mean(seg ** 2, axis=1)
+            seg = mono[bar * BAR : bar * BAR + per * 4 * SLOTS].astype(np.float64).reshape(4 * SLOTS, per)
+            out[k] += np.mean(seg**2, axis=1)
         out[k] /= max(1, len(bars))
     return out.reshape(len(bands), 4, SLOTS).mean(axis=1)
 
 
 def _bar(x: np.ndarray, i: int) -> np.ndarray:
-    return x[i * BAR:(i + 1) * BAR]
+    return x[i * BAR : (i + 1) * BAR]
 
 
 def _bars(x: np.ndarray) -> int:
@@ -168,11 +170,20 @@ def _splash_clip(als: Path) -> tuple[str, Path] | None:
     return None
 
 
-def build(out_path: Path = OUT, als: Path = SET, stems: Path = STEMS, shape: Path = SHAPE, full: Path = FULL,
-          refs: Path = REFS) -> dict:
-    data: dict = {"about": "HW002's arrange surface: what each bar of the lab's stems holds. Made by `harness "
-                           "lab-bars` (lab_bars.py). LUFS per bar, K-weighted; bars 0-based in arrays.",
-                  "made": time.strftime("%Y-%m-%d %H:%M:%S"), "bar_seconds": BAR_S}
+def build(
+    out_path: Path = OUT,
+    als: Path = SET,
+    stems: Path = STEMS,
+    shape: Path = SHAPE,
+    full: Path = FULL,
+    refs: Path = REFS,
+) -> dict:
+    data: dict = {
+        "about": "HW002's arrange surface: what each bar of the lab's stems holds. Made by `harness "
+        "lab-bars` (lab_bars.py). LUFS per bar, K-weighted; bars 0-based in arrays.",
+        "made": time.strftime("%Y-%m-%d %H:%M:%S"),
+        "bar_seconds": BAR_S,
+    }
 
     # --- the lab's stems (the song's bars 121-144) ----------------------------------------------------------------
     st = {k: decode(stems / f"{k}.wav") for k in ("kick", "perc", "sfx")}
@@ -180,16 +191,22 @@ def build(out_path: Path = OUT, als: Path = SET, stems: Path = STEMS, shape: Pat
     data["stem_song_bars"] = [121 + i for i in range(n)]
     rows: dict[str, list[dict]] = {}
     for k, x in st.items():
-        rows[k] = [{"lufs": round(lufs(b), 2), "low": round(band_db(b, 20, 130), 2),
-                    "hi": round(band_db(b, 6000, 20000), 2), "air": round(band_db(b, 10000, 20000), 2)}
-                   for b in (_bar(x, i) for i in range(n))]
+        rows[k] = [
+            {
+                "lufs": round(lufs(b), 2),
+                "low": round(band_db(b, 20, 130), 2),
+                "hi": round(band_db(b, 6000, 20000), 2),
+                "air": round(band_db(b, 10000, 20000), 2),
+            }
+            for b in (_bar(x, i) for i in range(n))
+        ]
     lows = np.array([r["low"] for r in rows["kick"]])
     for i, r in enumerate(rows["kick"]):
         r["scooped"] = bool(lows[i] < np.median(lows) - 3)
     pl = np.array([r["lufs"] for r in rows["perc"]])
     for i, r in enumerate(rows["perc"]):
         r["splash"] = bool(pl[i] > np.median(pl) + 1)
-        r["layers"] = "ABCD"                       # every bar of the song's peak holds all four (checked by shape)
+        r["layers"] = "ABCD"  # every bar of the song's peak holds all four (checked by shape)
     sl = np.array([r["lufs"] for r in rows["sfx"]])
     for i, r in enumerate(rows["sfx"]):
         r["arc"] = bool(sl[i] > np.median(sl) + 6)
@@ -200,30 +217,44 @@ def build(out_path: Path = OUT, als: Path = SET, stems: Path = STEMS, shape: Pat
     perc_c = decode(shape / "perc.wav")
     kick_c = decode(shape / "kick.wav") if (shape / "kick.wav").exists() else None
     nc = _bars(perc_c)
-    shp: dict = {"about": "Batch 4.3 track 1 (plan43 b43-01), the canonical Short: hats A on bars 1-4, AB 5-8, ABC "
-                          "9-12, ABCD 13-20; a long splash on bar 5, a short one on 13. `states` lists its clean bars "
-                          "of each layer set (0-based).",
-                 "bars": nc, "states": {}, "splash": SHAPE_SPLASH, "perc": [], "kick": []}
+    shp: dict = {
+        "about": "Batch 4.3 track 1 (plan43 b43-01), the canonical Short: hats A on bars 1-4, AB 5-8, ABC "
+        "9-12, ABCD 13-20; a long splash on bar 5, a short one on 13. `states` lists its clean bars "
+        "of each layer set (0-based).",
+        "bars": nc,
+        "states": {},
+        "splash": SHAPE_SPLASH,
+        "perc": [],
+        "kick": [],
+    }
     for i in range(nc):
         b = _bar(perc_c, i)
         state = next((s for s, bs in SHAPE_STATES.items() if i in bs), "AB" if i in (4, 5) else "ABCD")
         splash = next((kind for kind, bs in SHAPE_SPLASH.items() if i in bs), None)
-        shp["perc"].append({"lufs": round(lufs(b), 2), "hi": round(band_db(b, 6000, 20000), 2), "layers": state,
-                            "splash": splash})
+        shp["perc"].append(
+            {"lufs": round(lufs(b), 2), "hi": round(band_db(b, 6000, 20000), 2), "layers": state, "splash": splash}
+        )
         if kick_c is not None and i < _bars(kick_c):
             k = _bar(kick_c, i)
             shp["kick"].append({"lufs": round(lufs(k), 2), "low": round(band_db(k, 20, 130), 2)})
     for s, bs in SHAPE_STATES.items():
         seg = np.concatenate([_bar(perc_c, i) for i in bs])
-        shp["states"][s] = {"bars": bs, "lufs": round(float(np.mean([shp["perc"][i]["lufs"] for i in bs])), 2),
-                            "hi": round(band_db(seg, 6000, 20000), 2)}
+        shp["states"][s] = {
+            "bars": bs,
+            "lufs": round(float(np.mean([shp["perc"][i]["lufs"] for i in bs])), 2),
+            "hi": round(band_db(seg, 6000, 20000), 2),
+        }
     data["shape"] = shp
 
     # --- the hat masks, learned from the canonical perc stem ----------------------------------------------------
     cb = bandsplit(perc_c)
     P = {s: _slot_power(cb, bs) for s, bs in LEARN.items()}
-    layers = {"A": P["A"], "B": np.maximum(P["AB"] - P["A"], 0), "C": np.maximum(P["ABC"] - P["AB"], 0),
-              "D": np.maximum(P["ABCD"] - P["ABC"], 0)}
+    layers = {
+        "A": P["A"],
+        "B": np.maximum(P["AB"] - P["A"], 0),
+        "C": np.maximum(P["ABC"] - P["AB"], 0),
+        "D": np.maximum(P["ABCD"] - P["ABC"], 0),
+    }
     ref = P["ABCD"]
     names = ["".join(L for j, L in enumerate("ABCD") if m >> j & 1) for m in range(1, 16)]
     lab_src, shape_src = _bar(st["perc"], LAB_SOURCE_BAR), _bar(perc_c, SHAPE_SOURCE_BAR)
@@ -235,12 +266,16 @@ def build(out_path: Path = OUT, als: Path = SET, stems: Path = STEMS, shape: Pat
         shape_subsets[name] = {"lufs": round(lufs(y), 2), "hi": round(band_db(y, 6000, 20000), 2)}
     data["hats"] = {
         "about": "Each layer's power per band (<2k, 2-5k, 5-9k, 9k+) and per 16th of a 16th (16 slots a beat), in dB "
-                 "against all four, learned from the canonical perc stem. The page masks a bar that holds all four "
-                 "(the lab's perc bar `source_bar`, or the canonical one `shape_source_bar`) with the sum of the "
-                 "layers it wants. `subsets` and `shape_subsets`: how loud each masked bar is.",
-        "splits": SPLITS, "slots": SLOTS, "source_bar": LAB_SOURCE_BAR, "shape_source_bar": SHAPE_SOURCE_BAR,
+        "against all four, learned from the canonical perc stem. The page masks a bar that holds all four "
+        "(the lab's perc bar `source_bar`, or the canonical one `shape_source_bar`) with the sum of the "
+        "layers it wants. `subsets` and `shape_subsets`: how loud each masked bar is.",
+        "splits": SPLITS,
+        "slots": SLOTS,
+        "source_bar": LAB_SOURCE_BAR,
+        "shape_source_bar": SHAPE_SOURCE_BAR,
         "masks": {L: np.round(10 * np.log10(layers[L] / ref + 1e-9), 1).clip(-60, 6).tolist() for L in layers},
-        "subsets": subsets, "shape_subsets": shape_subsets,
+        "subsets": subsets,
+        "shape_subsets": shape_subsets,
     }
 
     # --- the splash sample, shaped into the canonical long splash --------------------------------------------------
@@ -254,20 +289,26 @@ def build(out_path: Path = OUT, als: Path = SET, stems: Path = STEMS, shape: Pat
         s16 = BEAT // 4
         c16 = perc_c.mean(1).astype(np.float64)
 
-        def p16(first: int, j: int) -> float:                          # power of 16th `j` from 16th `first`
-            return float(np.mean(c16[(first + j) * s16:(first + j + 1) * s16] ** 2))
+        def p16(first: int, j: int) -> float:  # power of 16th `j` from 16th `first`
+            return float(np.mean(c16[(first + j) * s16 : (first + j + 1) * s16] ** 2))
 
-        hats = np.array([p16(6 * 16, j) for j in range(32)]).reshape(8, 4).mean(0)      # bars 7-8: AB, no splash
-        tgt = np.array([10 * np.log10(max(p16(4 * 16, j) - hats[j % 4], 1e-9)) for j in range(32)])   # bars 5-6
+        hats = np.array([p16(6 * 16, j) for j in range(32)]).reshape(8, 4).mean(0)  # bars 7-8: AB, no splash
+        tgt = np.array([10 * np.log10(max(p16(4 * 16, j) - hats[j % 4], 1e-9)) for j in range(32)])  # bars 5-6
         tgt = np.convolve(np.pad(tgt, 1, mode="edge"), [0.25, 0.5, 0.25], "valid")
-        off = lufs(lab_src) - lufs(shape_src)                          # the lab's perc against the canonical one
-        smp = np.array([10 * np.log10(np.mean(mono[at + j * s16: at + (j + 1) * s16] ** 2) + 1e-12) for j in range(32)])
+        off = lufs(lab_src) - lufs(shape_src)  # the lab's perc against the canonical one
+        smp = np.array(
+            [10 * np.log10(np.mean(mono[at + j * s16 : at + (j + 1) * s16] ** 2) + 1e-12) for j in range(32)]
+        )
         gain16 = np.clip(tgt + off - smp, -30, 30)
-        shaped = np.concatenate([mono[at + j * s16: at + (j + 1) * s16] * 10 ** (gain16[j] / 20) for j in range(32)])
-        data["splash"] = {"src": sid, "at": at, "gain16": np.round(gain16, 1).tolist(),
-                          "beat_lufs": [round(lufs(shaped[j * BEAT:(j + 1) * BEAT]), 2) for j in range(8)],
-                          "about": "The splash sample, shaped per 16th into the canonical long splash (gain16, dB); "
-                                   "the page uses the canonical Short's own splash bars where they fit."}
+        shaped = np.concatenate([mono[at + j * s16 : at + (j + 1) * s16] * 10 ** (gain16[j] / 20) for j in range(32)])
+        data["splash"] = {
+            "src": sid,
+            "at": at,
+            "gain16": np.round(gain16, 1).tolist(),
+            "beat_lufs": [round(lufs(shaped[j * BEAT : (j + 1) * BEAT]), 2) for j in range(8)],
+            "about": "The splash sample, shaped per 16th into the canonical long splash (gain16, dB); "
+            "the page uses the canonical Short's own splash bars where they fit.",
+        }
     else:
         log.warning("no splash clip on %s in %s", SPLASH_TRACK, als)
         data["splash"] = {"src": None, "at": 0, "gain16": [0.0] * 32, "beat_lufs": [-70.0] * 8}
@@ -276,14 +317,26 @@ def build(out_path: Path = OUT, als: Path = SET, stems: Path = STEMS, shape: Pat
     if full.exists():
         x = decode(full)
         nb = _bars(x)
-        data["song"] = {"bars": nb, "lufs": [round(lufs(_bar(x, i)), 2) for i in range(nb)],
-                        "break": [81, 96], "short": [121, 140], "peak": [125, 144],
-                        "pre_kick_beats_lufs": [round(lufs(x[(96 * 4 - 8 + j) * BEAT:(96 * 4 - 7 + j) * BEAT]), 2)
-                                                for j in range(8)]}
+        data["song"] = {
+            "bars": nb,
+            "lufs": [round(lufs(_bar(x, i)), 2) for i in range(nb)],
+            "break": [81, 96],
+            "short": [121, 140],
+            "peak": [125, 144],
+            "pre_kick_beats_lufs": [
+                round(lufs(x[(96 * 4 - 8 + j) * BEAT : (96 * 4 - 7 + j) * BEAT]), 2) for j in range(8)
+            ],
+        }
     else:
         log.warning("no whole song at %s", full)
-        data["song"] = {"bars": 0, "lufs": [], "break": [81, 96], "short": [121, 140], "peak": [125, 144],
-                        "pre_kick_beats_lufs": [-70.0] * 8}
+        data["song"] = {
+            "bars": 0,
+            "lufs": [],
+            "break": [81, 96],
+            "short": [121, 140],
+            "peak": [125, 144],
+            "pre_kick_beats_lufs": [-70.0] * 8,
+        }
 
     # --- the references --------------------------------------------------------------------------------------------
     data["refs"] = []
@@ -295,10 +348,17 @@ def build(out_path: Path = OUT, als: Path = SET, stems: Path = STEMS, shape: Pat
         x = decode(path)
         mono = np.abs(x.mean(1))
         start = int(np.flatnonzero(mono > 0.01)[0]) if np.any(mono > 0.01) else 0
-        bl = int(round(RATE * 240 / bpm))
+        bl = round(RATE * 240 / bpm)
         nb = (len(x) - start) // bl
-        data["refs"].append({"name": name, "bpm": bpm, "bars": nb, "breaks": breaks,
-                             "lufs": [round(lufs(x[start + i * bl: start + (i + 1) * bl]), 1) for i in range(nb)]})
+        data["refs"].append(
+            {
+                "name": name,
+                "bpm": bpm,
+                "bars": nb,
+                "breaks": breaks,
+                "lufs": [round(lufs(x[start + i * bl : start + (i + 1) * bl]), 1) for i in range(nb)],
+            }
+        )
 
     out_path = Path(out_path)
     out_path.parent.mkdir(parents=True, exist_ok=True)
@@ -310,10 +370,12 @@ def summary(d: dict) -> str:
     sh = d.get("shape") or {}
     st = sh.get("states", {})
     hs = d["hats"]["subsets"]
-    lines = [f"{len(d['stem_song_bars'])} stem bars (the song's {d['stem_song_bars'][0]}-{d['stem_song_bars'][-1]})",
-             "  scooped kick bars: " + ", ".join(str(i + 1) for i, r in enumerate(d["stems"]["kick"]) if r["scooped"]),
-             f"  canonical Short: {sh.get('bars', 0)} bars; highs " +
-             ", ".join(f"{s} {v['hi']:.1f} dB" for s, v in st.items()),
-             "  masked on the lab's perc: highs " + ", ".join(f"{s} {hs[s]['hi']:.1f}" for s in st),
-             f"  splash {d['splash']['src']}, song {d['song']['bars']} bars, {len(d['refs'])} references"]
+    lines = [
+        f"{len(d['stem_song_bars'])} stem bars (the song's {d['stem_song_bars'][0]}-{d['stem_song_bars'][-1]})",
+        "  scooped kick bars: " + ", ".join(str(i + 1) for i, r in enumerate(d["stems"]["kick"]) if r["scooped"]),
+        f"  canonical Short: {sh.get('bars', 0)} bars; highs "
+        + ", ".join(f"{s} {v['hi']:.1f} dB" for s, v in st.items()),
+        "  masked on the lab's perc: highs " + ", ".join(f"{s} {hs[s]['hi']:.1f}" for s in st),
+        f"  splash {d['splash']['src']}, song {d['song']['bars']} bars, {len(d['refs'])} references",
+    ]
     return "\n".join(lines)

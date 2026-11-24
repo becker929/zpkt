@@ -8,21 +8,37 @@
 const SPLITS_DEFAULT = [2000, 5000, 9000];
 
 function lowpass(f0, rate, q = Math.SQRT1_2) {
-  const w = 2 * Math.PI * f0 / rate, c = Math.cos(w), a = Math.sin(w) / (2 * q), a0 = 1 + a;
-  return [(1 - c) / 2 / a0, (1 - c) / a0, (1 - c) / 2 / a0, -2 * c / a0, (1 - a) / a0];
+  const w = (2 * Math.PI * f0) / rate,
+    c = Math.cos(w),
+    a = Math.sin(w) / (2 * q),
+    a0 = 1 + a;
+  return [(1 - c) / 2 / a0, (1 - c) / a0, (1 - c) / 2 / a0, (-2 * c) / a0, (1 - a) / a0];
 }
 
 /** x filtered by a biquad twice (a 4th-order Linkwitz-Riley low pass), from silence. */
 function lr4(x, k) {
   const y = new Float32Array(x.length);
   const [b0, b1, b2, a1, a2] = k;
-  let x1 = 0, x2 = 0, y1 = 0, y2 = 0, u1 = 0, u2 = 0, z1 = 0, z2 = 0;
+  let x1 = 0,
+    x2 = 0,
+    y1 = 0,
+    y2 = 0,
+    u1 = 0,
+    u2 = 0,
+    z1 = 0,
+    z2 = 0;
   for (let n = 0; n < x.length; n++) {
     const xn = x[n];
     const yn = b0 * xn + b1 * x1 + b2 * x2 - a1 * y1 - a2 * y2;
-    x2 = x1; x1 = xn; y2 = y1; y1 = yn;
+    x2 = x1;
+    x1 = xn;
+    y2 = y1;
+    y1 = yn;
     const zn = b0 * yn + b1 * u1 + b2 * u2 - a1 * z1 - a2 * z2;
-    u2 = u1; u1 = yn; z2 = z1; z1 = zn;
+    u2 = u1;
+    u1 = yn;
+    z2 = z1;
+    z1 = zn;
     y[n] = zn;
   }
   return y;
@@ -47,7 +63,7 @@ export class HatMasks {
   /** data: arrange-bars.json's `hats`. */
   constructor(data) {
     this.data = data;
-    this.buffers = new Map();       // subset ('AB') -> AudioBuffer, one bar (+ a little)
+    this.buffers = new Map(); // subset ('AB') -> AudioBuffer, one bar (+ a little)
     this.bands = null;
     this.ready = false;
   }
@@ -55,20 +71,32 @@ export class HatMasks {
   /** Split bar `bar` of `perc` (a perc stem with all four layers there) into bands, once. */
   prepare(ctx, perc, sourceBar = this.data.source_bar ?? 12) {
     if (this.bands || this.failed || !perc) return;
-    const rate = perc.sampleRate, bar = Math.round(rate * 1.5);
-    const warm = Math.round(rate * 0.12), tail = Math.round(rate * 0.012);
+    const rate = perc.sampleRate,
+      bar = Math.round(rate * 1.5);
+    const warm = Math.round(rate * 0.12),
+      tail = Math.round(rate * 0.012);
     const have = Math.floor(perc.length / bar);
-    if (have < 1) { this.failed = true; return; }                     // a stem shorter than a bar: no masks
+    if (have < 1) {
+      this.failed = true;
+      return;
+    } // a stem shorter than a bar: no masks
     const src = Math.min(sourceBar, have - 1);
-    const a = Math.max(0, src * bar - warm), b = Math.min(perc.length, (src + 1) * bar + tail);
+    const a = Math.max(0, src * bar - warm),
+      b = Math.min(perc.length, (src + 1) * bar + tail);
     const splits = this.data.splits ?? SPLITS_DEFAULT;
     this.bands = [];
     for (let c = 0; c < perc.numberOfChannels; c++) {
       const x = perc.getChannelData(c).subarray(a, b);
       this.bands.push(split(x, rate, splits).map((band) => band.subarray(src * bar - a)));
     }
-    this.rate = rate; this.bar = bar; this.len = this.bands[0][0].length; this.ctx = ctx;
-    if (this.len < 1) { this.bands = null; this.failed = true; }
+    this.rate = rate;
+    this.bar = bar;
+    this.len = this.bands[0][0].length;
+    this.ctx = ctx;
+    if (this.len < 1) {
+      this.bands = null;
+      this.failed = true;
+    }
   }
 
   /** The per-sample gain envelope of each band for a subset (smoothed over ~2 ms). */
@@ -103,7 +131,10 @@ export class HatMasks {
     const out = this.ctx.createBuffer(this.bands.length, this.len, this.rate);
     this.bands.forEach((bands, c) => {
       const y = out.getChannelData(c);
-      bands.forEach((band, k) => { const e = env[k]; for (let n = 0; n < y.length; n++) y[n] += band[n] * e[n]; });
+      bands.forEach((band, k) => {
+        const e = env[k];
+        for (let n = 0; n < y.length; n++) y[n] += band[n] * e[n];
+      });
     });
     this.buffers.set(subset, out);
     return out;
@@ -112,8 +143,17 @@ export class HatMasks {
   /** Make every subset now, a few per frame, so the first play does not wait. */
   async warm(yieldFn = () => new Promise((r) => setTimeout(r, 0))) {
     const all = [];
-    for (let m = 1; m < 16; m++) all.push('ABCD'.split('').filter((_, j) => m >> j & 1).join(''));
-    for (const s of all) { this.buffer(s); await yieldFn(); }
+    for (let m = 1; m < 16; m++)
+      all.push(
+        'ABCD'
+          .split('')
+          .filter((_, j) => (m >> j) & 1)
+          .join(''),
+      );
+    for (const s of all) {
+      this.buffer(s);
+      await yieldFn();
+    }
     this.ready = true;
   }
 }

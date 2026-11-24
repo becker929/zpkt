@@ -15,18 +15,26 @@ import asyncio
 import json
 import logging
 import re
+import secrets
 import sqlite3
 import time
 from collections.abc import Awaitable, Callable
 from pathlib import Path
 from typing import Any
 
-from .narrator import HaikuLines
-from .store import new_id
+from claude_agent_sdk import AssistantMessage, ClaudeAgentOptions, ClaudeSDKClient, TextBlock
 
 log = logging.getLogger(__name__)
 
-SEED = Path(__file__).parent / "static" / "checklist" / "map" / "works.json"     # the first repertoire
+
+def new_id(prefix: str) -> str:
+    """A sortable id: the prefix, the time to the second, and four random hex digits."""
+    return prefix + time.strftime("%Y%m%d%H%M%S") + secrets.token_hex(2)
+
+
+# The first repertoire: the works the checklist prototype's map page was made with (prototypes/checklist/static/map/
+# works.json; its tests check the two agree).
+SEED = Path(__file__).parent / "artist_works.json"
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS feedback (
@@ -46,9 +54,9 @@ CREATE TABLE IF NOT EXISTS repertoire (
 """
 
 VOTES = ("up", "down")
-CONTEXT_MAX = 8 * 1024          # bytes of context JSON kept with a press
-TEXT_MAX = 2000                 # an answer's text
-PLATE_MAX = 64 * 1024           # a plate's JSON
+CONTEXT_MAX = 8 * 1024  # bytes of context JSON kept with a press
+TEXT_MAX = 2000  # an answer's text
+PLATE_MAX = 64 * 1024  # a plate's JSON
 
 # The page's vocabulary (map/works.js): every work's params use exactly these, in these ranges.
 PRIMITIVES: dict[str, Any] = {
@@ -139,39 +147,53 @@ class Artist:
             raise ValueError(f"vote is one of {VOTES}")
         ctx = json.dumps(context if context is not None else {}, separators=(",", ":"))
         if len(ctx.encode()) > CONTEXT_MAX:
-            ctx = json.dumps({"truncated": ctx[:CONTEXT_MAX - 64]})
+            ctx = json.dumps({"truncated": ctx[: CONTEXT_MAX - 64]})
         fid, at = new_id("fb_"), time.time()
-        self.db.execute("INSERT INTO feedback (id, at, vote, view, context, client_ts) VALUES (?, ?, ?, ?, ?, ?)",
-                        (fid, at, vote, str(view)[:64], ctx, client_ts))
+        self.db.execute(
+            "INSERT INTO feedback (id, at, vote, view, context, client_ts) VALUES (?, ?, ?, ?, ?, ?)",
+            (fid, at, vote, str(view)[:64], ctx, client_ts),
+        )
         return {"id": fid, "at": at}
 
     def event(self, fid: str) -> dict[str, Any] | None:
-        row = self.db.execute("SELECT id, at, vote, view, context, client_ts FROM feedback WHERE id = ?",
-                              (fid,)).fetchone()
+        row = self.db.execute(
+            "SELECT id, at, vote, view, context, client_ts FROM feedback WHERE id = ?", (fid,)
+        ).fetchone()
         return _feedback(row) if row else None
 
     def set_question(self, fid: str, question: str, choices: list[str], by: str) -> None:
-        self.db.execute("INSERT OR REPLACE INTO questions (feedback, at, question, choices, by) VALUES (?, ?, ?, ?, ?)",
-                        (fid, time.time(), question, json.dumps(choices), by))
+        self.db.execute(
+            "INSERT OR REPLACE INTO questions (feedback, at, question, choices, by) VALUES (?, ?, ?, ?, ?)",
+            (fid, time.time(), question, json.dumps(choices), by),
+        )
 
     def add_answer(self, fid: str, text: str, choice: str | None = None) -> None:
         if self.event(fid) is None:
             raise KeyError(fid)
-        self.db.execute("INSERT INTO answers (feedback, at, text, choice) VALUES (?, ?, ?, ?)",
-                        (fid, time.time(), str(text or "")[:TEXT_MAX], None if choice is None else str(choice)[:200]))
+        self.db.execute(
+            "INSERT INTO answers (feedback, at, text, choice) VALUES (?, ?, ?, ?)",
+            (fid, time.time(), str(text or "")[:TEXT_MAX], None if choice is None else str(choice)[:200]),
+        )
 
     def feedback(self, limit: int = 50) -> list[dict[str, Any]]:
         """The newest presses first, each with its question and answers."""
         limit = max(1, min(limit, 1000))
-        rows = self.db.execute("SELECT id, at, vote, view, context, client_ts FROM feedback ORDER BY at DESC, rowid DESC "
-                               "LIMIT ?", (limit,)).fetchall()
+        rows = self.db.execute(
+            "SELECT id, at, vote, view, context, client_ts FROM feedback ORDER BY at DESC, rowid DESC LIMIT ?", (limit,)
+        ).fetchall()
         out = []
         for row in rows:
             fb = _feedback(row)
-            q = self.db.execute("SELECT question, choices, by FROM questions WHERE feedback = ?", (fb["id"],)).fetchone()
+            q = self.db.execute(
+                "SELECT question, choices, by FROM questions WHERE feedback = ?", (fb["id"],)
+            ).fetchone()
             fb["question"] = {"question": q[0], "choices": json.loads(q[1]), "by": q[2]} if q else None
-            fb["answers"] = [{"at": a, "text": t, "choice": c} for a, t, c in self.db.execute(
-                "SELECT at, text, choice FROM answers WHERE feedback = ? ORDER BY id", (fb["id"],))]
+            fb["answers"] = [
+                {"at": a, "text": t, "choice": c}
+                for a, t, c in self.db.execute(
+                    "SELECT at, text, choice FROM answers WHERE feedback = ? ORDER BY id", (fb["id"],)
+                )
+            ]
             out.append(fb)
         return out
 
@@ -185,8 +207,9 @@ class Artist:
             raise ValueError("plate too large")
         pid, at = new_id("pl_"), time.time()
         n = (self.db.execute("SELECT COALESCE(MAX(n), 0) FROM plates").fetchone()[0] or 0) + 1
-        self.db.execute("INSERT INTO plates (id, n, at, track, data) VALUES (?, ?, ?, ?, ?)",
-                        (pid, n, at, plate["track"], data))
+        self.db.execute(
+            "INSERT INTO plates (id, n, at, track, data) VALUES (?, ?, ?, ?, ?)", (pid, n, at, plate["track"], data)
+        )
         return pid, n, at
 
     def plates(self, track: str | None = None) -> list[dict[str, Any]]:
@@ -197,13 +220,16 @@ class Artist:
     # --- the repertoire ------------------------------------------------------------------------------------------
     def repertoire(self) -> dict[str, Any]:
         """The newest version; the first time, the seed (map/works.json) as version 1."""
-        row = self.db.execute("SELECT version, at, parent, notes, works FROM repertoire ORDER BY version DESC "
-                              "LIMIT 1").fetchone()
+        row = self.db.execute(
+            "SELECT version, at, parent, notes, works FROM repertoire ORDER BY version DESC LIMIT 1"
+        ).fetchone()
         if row is None:
             seed = json.loads(self.seed.read_text())
             works = validate(seed["works"])
-            self.db.execute("INSERT INTO repertoire (version, at, parent, notes, works) VALUES (1, ?, NULL, ?, ?)",
-                            (time.time(), seed.get("notes", "The seed."), json.dumps(works)))
+            self.db.execute(
+                "INSERT INTO repertoire (version, at, parent, notes, works) VALUES (1, ?, NULL, ?, ?)",
+                (time.time(), seed.get("notes", "The seed."), json.dumps(works)),
+            )
             return self.repertoire()
         version, at, parent, notes, works = row
         return {"version": version, "at": at, "parent": parent, "notes": notes, "works": json.loads(works)}
@@ -212,8 +238,10 @@ class Artist:
         works = validate(works)
         current = self.repertoire()
         version = current["version"] + 1
-        self.db.execute("INSERT INTO repertoire (version, at, parent, notes, works) VALUES (?, ?, ?, ?, ?)",
-                        (version, time.time(), current["version"], str(notes)[:2000], json.dumps(works)))
+        self.db.execute(
+            "INSERT INTO repertoire (version, at, parent, notes, works) VALUES (?, ?, ?, ?, ?)",
+            (version, time.time(), current["version"], str(notes)[:2000], json.dumps(works)),
+        )
         return version
 
 
@@ -241,7 +269,9 @@ def rules_question(event: dict[str, Any]) -> dict[str, Any]:
     up = event.get("vote") == "up"
     view = str(event.get("view") or "")
     params = ((ctx.get("work") or {}).get("params") or {}) if isinstance(ctx, dict) else {}
-    recent = isinstance(ctx, dict) and ctx.get("work") and (ctx.get("work_ago_ms") is None or ctx["work_ago_ms"] < 20000)
+    recent = (
+        isinstance(ctx, dict) and ctx.get("work") and (ctx.get("work_ago_ms") is None or ctx["work_ago_ms"] < 20000)
+    )
     choices: list[str] = []
     if recent or view in ("splash", "ledger"):
         choices += ["The sound", "The shake"]
@@ -260,7 +290,7 @@ def rules_question(event: dict[str, Any]) -> dict[str, Any]:
         choices += ["The plates", "The renders", "The layout"]
     else:
         choices += ["The look", "The timing"]
-    choices = choices[:3] + ["Something else"]
+    choices = [*choices[:3], "Something else"]
     return {"question": "What landed?" if up else "What was off?", "choices": choices, "by": "rules"}
 
 
@@ -275,15 +305,66 @@ def _parse(text: str) -> dict[str, Any] | None:
     q, choices = data.get("question"), data.get("choices")
     if not isinstance(q, str) or not q.strip() or len(q.split()) > 18:
         return None
-    if not isinstance(choices, list) or not 2 <= len(choices) <= 4 or not all(isinstance(c, str) and c for c in choices):
+    if (
+        not isinstance(choices, list)
+        or not 2 <= len(choices) <= 4
+        or not all(isinstance(c, str) and c for c in choices)
+    ):
         return None
     return {"question": q.strip(), "choices": [c.strip()[:40] for c in choices], "by": "model"}
 
 
-class QuestionLines(HaikuLines):
-    """The quick question's model: the narrator's long-lived small-model CLI, with its own instructions."""
+class QuestionLines:
+    """The quick question's model: a small model through the Mac's own Claude login, in one long-lived CLI with
+    thinking off (about 0.6 s a line, against 1.1 s for a fresh process). Questions are asked one at a time, and the
+    context is cleared after each, so it never grows."""
 
     SYSTEM = "You ask one short, friendly question and reply with JSON only."
+
+    def __init__(self, model: str, cli_path: str | None, env: dict[str, str]):
+        self.options = ClaudeAgentOptions(
+            model=model,
+            cli_path=cli_path,
+            tools=[],
+            setting_sources=[],
+            system_prompt=self.SYSTEM,
+            max_turns=1,
+            thinking={"type": "disabled"},
+            extra_args={"no-session-persistence": None},
+            env={**env, "ENABLE_CLAUDEAI_MCP_SERVERS": "false"},
+        )
+        self._client: ClaudeSDKClient | None = None
+        self._lock = asyncio.Lock()
+
+    async def __call__(self, prompt: str) -> str:
+        async with self._lock:
+            try:
+                if self._client is None:
+                    self._client = ClaudeSDKClient(self.options)
+                    await self._client.connect()
+                line = await self._ask(prompt)
+                await self._ask("/clear")
+                return line
+            except BaseException:
+                await self.close()  # a timeout or a dead CLI: start fresh next time
+                raise
+
+    async def _ask(self, prompt: str) -> str:
+        assert self._client is not None
+        parts: list[str] = []
+        await self._client.query(prompt)
+        async for msg in self._client.receive_response():
+            if isinstance(msg, AssistantMessage):
+                parts += [b.text for b in msg.content if isinstance(b, TextBlock)]
+        return " ".join(parts)
+
+    async def close(self) -> None:
+        client, self._client = self._client, None
+        if client is not None:
+            try:
+                await client.disconnect()
+            except Exception:  # closing a dead CLI; nothing more to do
+                log.debug("question model disconnect failed", exc_info=True)
 
 
 async def ask(event: dict[str, Any], model_fn: ModelFn | None = None) -> dict[str, Any]:
@@ -291,20 +372,23 @@ async def ask(event: dict[str, Any], model_fn: ModelFn | None = None) -> dict[st
     the rules. Never raises."""
     if model_fn is not None:
         up = event.get("vote") == "up"
-        prompt = ASK_PROMPT.format(vote="up" if up else "down", view=event.get("view", ""),
-                                   verb="liked" if up else "disliked",
-                                   context=json.dumps(event.get("context") or {}, indent=1)[:3000])
+        prompt = ASK_PROMPT.format(
+            vote="up" if up else "down",
+            view=event.get("view", ""),
+            verb="liked" if up else "disliked",
+            context=json.dumps(event.get("context") or {}, indent=1)[:3000],
+        )
         try:
             got = _parse(await asyncio.wait_for(model_fn(prompt), ASK_TIMEOUT_S))
             if got:
                 return got
-        except Exception:  # noqa: BLE001 - a slow or failed model falls back to the rules
+        except Exception:  # a slow or failed model falls back to the rules
             log.info("artist question: the model failed, asking by the rules", exc_info=True)
     return rules_question(event)
 
 
 # --- the offline artist: a new repertoire from what he did and said --------------------------------------------
-PRESS_WINDOW_S = 20.0           # a press this soon after a plate is taken as about that plate's work
+PRESS_WINDOW_S = 20.0  # a press this soon after a plate is taken as about that plate's work
 
 PROPOSE_PROMPT = """You are the artist agent of zpkt's studio app (contrib/docs/design/artist-agent.md). Your job is to make the \
 app more rewarding to use for Anthony, a music producer, by choosing and tuning the "works" the page plays when he \
@@ -345,10 +429,23 @@ def brief(store: Artist, limit: int = 200) -> dict[str, Any]:
         w = (_work_id(before[-1]) if before else None) or _work_id(fb.get("context"))
         if w:
             works.setdefault(w, {"played": 0, "up": 0, "down": 0})[fb["vote"]] += 1
-    said = [{"vote": fb["vote"], "view": fb["view"], "question": (fb.get("question") or {}).get("question"),
-             "answers": [a["choice"] or a["text"] for a in fb["answers"]]} for fb in presses if fb["answers"]]
-    return {"plates": len(plates), "presses": len(presses), "works": works, "said": said[-40:],
-            "views": {v: sum(1 for fb in presses if fb["view"] == v) for v in {fb["view"] for fb in presses}}}
+    said = [
+        {
+            "vote": fb["vote"],
+            "view": fb["view"],
+            "question": (fb.get("question") or {}).get("question"),
+            "answers": [a["choice"] or a["text"] for a in fb["answers"]],
+        }
+        for fb in presses
+        if fb["answers"]
+    ]
+    return {
+        "plates": len(plates),
+        "presses": len(presses),
+        "works": works,
+        "said": said[-40:],
+        "views": {v: sum(1 for fb in presses if fb["view"] == v) for v in {fb["view"] for fb in presses}},
+    }
 
 
 def show(store: Artist) -> str:
@@ -359,10 +456,13 @@ def show(store: Artist) -> str:
     tracks: dict[str, int] = {}
     for p in plates:
         tracks[p["track"]] = tracks.get(p["track"], 0) + 1
-    lines = [f"repertoire v{rep['version']} (parent {rep['parent']}): " + ", ".join(
-        f"{w['id']} w{w['weight']} r{w['rarity']}" for w in rep["works"]), f"  {rep['notes']}",
+    lines = [
+        f"repertoire v{rep['version']} (parent {rep['parent']}): "
+        + ", ".join(f"{w['id']} w{w['weight']} r{w['rarity']}" for w in rep["works"]),
+        f"  {rep['notes']}",
         f"plates: {len(plates)} " + (", ".join(f"{t} {n}" for t, n in tracks.items()) if tracks else ""),
-        f"last {len(fb)} presses:"]
+        f"last {len(fb)} presses:",
+    ]
     for f in fb:
         when = time.strftime("%m-%d %H:%M", time.localtime(f["at"]))
         work = _work_id(f["context"])
@@ -372,19 +472,30 @@ def show(store: Artist) -> str:
     return "\n".join(lines)
 
 
-async def propose(store: Artist, model: str | None, cli_path: str | None, env: dict[str, str],
-                  dry_run: bool = False) -> dict[str, Any]:
+async def propose(
+    store: Artist, model: str | None, cli_path: str | None, env: dict[str, str], dry_run: bool = False
+) -> dict[str, Any]:
     """Ask Claude for the next repertoire; validate it; keep it as the next version unless dry_run."""
     from claude_agent_sdk import AssistantMessage, ClaudeAgentOptions, TextBlock, query
 
     rep = store.repertoire()
-    prompt = PROPOSE_PROMPT.format(primitives=json.dumps({k: _spec(v) for k, v in PRIMITIVES.items()}, indent=1),
-                                   version=rep["version"], works=json.dumps(rep["works"], indent=1),
-                                   window=PRESS_WINDOW_S, brief=json.dumps(brief(store), indent=1))
-    options = ClaudeAgentOptions(model=model, cli_path=cli_path, tools=[], setting_sources=[], max_turns=1,
-                                 system_prompt="You are a careful game-feel artist. Reply with JSON only.",
-                                 extra_args={"no-session-persistence": None},
-                                 env={**env, "ENABLE_CLAUDEAI_MCP_SERVERS": "false"})
+    prompt = PROPOSE_PROMPT.format(
+        primitives=json.dumps({k: _spec(v) for k, v in PRIMITIVES.items()}, indent=1),
+        version=rep["version"],
+        works=json.dumps(rep["works"], indent=1),
+        window=PRESS_WINDOW_S,
+        brief=json.dumps(brief(store), indent=1),
+    )
+    options = ClaudeAgentOptions(
+        model=model,
+        cli_path=cli_path,
+        tools=[],
+        setting_sources=[],
+        max_turns=1,
+        system_prompt="You are a careful game-feel artist. Reply with JSON only.",
+        extra_args={"no-session-persistence": None},
+        env={**env, "ENABLE_CLAUDEAI_MCP_SERVERS": "false"},
+    )
     parts: list[str] = []
     async for msg in query(prompt=prompt, options=options):
         if isinstance(msg, AssistantMessage):

@@ -25,14 +25,36 @@ export function matrixctrl(ctx, grid, { rows = [], cols = [], label = 'matrixctr
     if (!id) return h('i', { class: 'mx-hole' });
     const p = ctx.params.get(id);
     const w = writer(ctx, id, 'matrix');
-    const arc = s('circle', { cx: 22, cy: 22, r: 15, class: 'mx-arc', transform: 'rotate(-90 22 22)', 'stroke-dasharray': `0 ${RING}` });
+    const arc = s('circle', {
+      cx: 22,
+      cy: 22,
+      r: 15,
+      class: 'mx-arc',
+      transform: 'rotate(-90 22 22)',
+      'stroke-dasharray': `0 ${RING}`,
+    });
     const sa = setNorm(p) * Math.PI * 2 - Math.PI / 2;
     const led = s('circle', { cx: 22, cy: 22, r: 7.5, class: 'mx-led' });
-    const svg = s('svg', { viewBox: '0 0 44 44', class: 'mx-svg', 'aria-hidden': 'true' },
-      s('circle', { cx: 22, cy: 22, r: 15, class: 'mx-track' }), arc,
+    const svg = s(
+      'svg',
+      { viewBox: '0 0 44 44', class: 'mx-svg', 'aria-hidden': 'true' },
+      s('circle', { cx: 22, cy: 22, r: 15, class: 'mx-track' }),
+      arc,
       s('circle', { cx: 22 + 15 * Math.cos(sa), cy: 22 + 15 * Math.sin(sa), r: 2.2, class: 'mx-setdot' }),
-      s('circle', { cx: 22, cy: 22, r: 9.5, class: 'mx-well' }), led);
-    const el = h('div', { class: 'mx-pin', role: 'slider', 'aria-label': p.label, dataset: { param: id }, style: { '--c': stageColor(p) } }, svg);
+      s('circle', { cx: 22, cy: 22, r: 9.5, class: 'mx-well' }),
+      led,
+    );
+    const el = h(
+      'div',
+      {
+        class: 'mx-pin',
+        role: 'slider',
+        'aria-label': p.label,
+        dataset: { param: id },
+        style: { '--c': stageColor(p) },
+      },
+      svg,
+    );
     follow(ctx, id, (v, _r, text) => {
       arc.setAttribute('stroke-dasharray', `${(v * RING).toFixed(2)} ${RING}`);
       led.style.opacity = (0.08 + 0.92 * v).toFixed(3);
@@ -42,13 +64,25 @@ export function matrixctrl(ctx, grid, { rows = [], cols = [], label = 'matrixctr
       el.title = `${p.label}: ${text}`;
     });
     drag(el, {
-      onStart: () => { w.begin(); el.classList.add('is-touched'); },
+      onStart: () => {
+        w.begin();
+        el.classList.add('is-touched');
+      },
       onMove: (dx, dy) => w.add((dx - dy) / 120),
-      onEnd: () => { w.end(); el.classList.remove('is-touched'); },
+      onEnd: () => {
+        w.end();
+        el.classList.remove('is-touched');
+      },
       onTap: () => {
         const v = ctx.store.get(id);
         w.begin();
-        if (v > 0.02) { memory.set(id, v); w.set(0); } else { const back = memory.get(id) ?? setNorm(p); w.set(back > 0.02 ? back : 0.75); }
+        if (v > 0.02) {
+          memory.set(id, v);
+          w.set(0);
+        } else {
+          const back = memory.get(id) ?? setNorm(p);
+          w.set(back > 0.02 ? back : 0.75);
+        }
         w.end();
         haptic(true);
       },
@@ -56,12 +90,20 @@ export function matrixctrl(ctx, grid, { rows = [], cols = [], label = 'matrixctr
     touches(el, ctx, id);
     return el;
   };
-  const el = h('div', { class: 'w-matrix', style: { '--cols': nc } },
+  const el = h(
+    'div',
+    { class: 'w-matrix', style: { '--cols': nc } },
     h('div', { class: 'w-label mx-title', text: label }),
-    h('div', { class: 'mx-grid' },
+    h(
+      'div',
+      { class: 'mx-grid' },
       h('i', { class: 'mx-corner' }),
       ...Array.from({ length: nc }, (_, c) => h('span', { class: 'mx-col', text: cols[c] ?? '' })),
-      ...grid.flatMap((row, r) => [h('span', { class: 'mx-row', text: rows[r] ?? '' }),
-        ...Array.from({ length: nc }, (_, c) => cell(row[c] ?? null))])));
+      ...grid.flatMap((row, r) => [
+        h('span', { class: 'mx-row', text: rows[r] ?? '' }),
+        ...Array.from({ length: nc }, (_, c) => cell(row[c] ?? null)),
+      ]),
+    ),
+  );
   return el;
 }

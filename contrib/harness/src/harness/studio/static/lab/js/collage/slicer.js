@@ -34,7 +34,10 @@ export function cutsOf(C, id = state.sel) {
   else if (mode === 1) cuts = onsets(buf, r.start, r.start + r.len, 16, { jitter: seed ? 2.5 : 0 });
   else if (seed) {
     // the dice on equal cuts: 16 cuts on the 32nd grid, never two on one point
-    const grid = Array.from({ length: 31 }, (_, i) => i + 1).sort(() => Math.random() - 0.5).slice(0, 15).sort((a, b) => a - b);
+    const grid = Array.from({ length: 31 }, (_, i) => i + 1)
+      .sort(() => Math.random() - 0.5)
+      .slice(0, 15)
+      .sort((a, b) => a - b);
     cuts = [r.start, ...grid.map((g) => r.start + (r.len * g) / 32)];
   } else cuts = equalCuts(r.start, r.start + r.len);
   CUTS.set(key, cuts);
@@ -58,7 +61,16 @@ export function playSlice(C, i, when, vel = 1, id = state.sel) {
   const dur = Math.max(0.02, Math.min((b - a) / rate, decay));
   const rev = C.store.real('col.slice.rev') === 1 || C.tapeRev();
   if (C.store.real('col.slice.choke') === 1) C.players.choke('slice', when);
-  const v = C.players.play(id, { when, off: a, dur, st, rev, gain: 0.25 + 0.85 * vel, tag: 'slice', release: Math.min(0.05, dur / 3) });
+  const v = C.players.play(id, {
+    when,
+    off: a,
+    dur,
+    st,
+    rev,
+    gain: 0.25 + 0.85 * vel,
+    tag: 'slice',
+    release: Math.min(0.05, dur / 3),
+  });
   C.ev.emit('pad', i, when, vel);
   return v;
 }
@@ -92,7 +104,10 @@ export function dice(C) {
   C.dice = (C.dice ?? 0) + 1;
   const pat = state.pattern;
   for (let i = 0; i < 16; i++) {
-    if (i === 0) { pat[i] = 0; continue; }
+    if (i === 0) {
+      pat[i] = 0;
+      continue;
+    }
     const r = Math.random();
     if (r < 0.22) pat[i] = -1;
     else if (r < 0.55) pat[i] = i;

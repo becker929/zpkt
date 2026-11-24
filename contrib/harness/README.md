@@ -1,130 +1,98 @@
 # harness
 
-The Mac end of everything the phone does: **studio** (the voice production app), the /skrng pages, and Claude Code
-jobs. `harness serve` runs it all.
+The Mac end of my phone. `harness serve` puts a few pages on my tailnet, behind a password: Gemini CLI sessions in
+zpkt, the HW002 lab, the artist agent's API, and my site's /skrng pages. It is a temporary home: these parts will be
+folded into zpkt's one interface, and the harness will go.
+
+On 24 November 2026 I took out what I no longer use: the spoken studio chat (and `contrib/voice`), Claude Code jobs
+and their RPC, and the render feedback. The checklist and its worlds moved to
+[`prototypes/checklist`](../../prototypes/checklist/), and the images tool to its own repo,
+[becker929/image-wall](https://github.com/becker929/image-wall). Git tag `pre-upgrade-2026-11-24` has it all.
 
 ```
 phone (Tailscale on) --https--> tailscale serve (tailnet only) --> 127.0.0.1:8787  harness serve
-                                                                    ├─ /studio/   the voice app (contrib/docs/design/studio.md)
-                                                                    ├─ /studio/gemini/  Gemini CLI sessions in zpkt, over ACP (contrib/docs/gemini.md)
-                                                                    ├─ /skrng/    the site's pages, keyless here
-                                                                    ├─ /api/rpc   the methods below, in-process
-                                                                    └─ jobs       Claude Code sessions, one at a time
+                                                                    ├─ /studio/          a home page linking the rest
+                                                                    ├─ /studio/gemini/   Gemini CLI sessions over ACP
+                                                                    ├─ /studio/lab/      HW002's controls as surfaces
+                                                                    ├─ /studio/api/...   the artist agent, the regions
+                                                                    └─ /skrng/           the site's pages, keyless here
 ```
 
-The server listens on loopback only; `tailscale serve --bg --https=443 http://127.0.0.1:8787` puts it on the tailnet
-with an HTTPS certificate (the mic needs a secure page). Nothing reaches it from the public internet. On top of
-that it asks for a password once per browser: the first visit sets it, later visits sign in with it. Only scrypt
-hashes of the password and of each browser's session are stored (`auth.json`, mode 600), so nobody else, Claude
-included, ever sees it. `/` opens studio.
+## What it serves
 
-The older public route (browser → anthonybecker.me Worker → RigBroker socket → Mac) is off unless
-`HARNESS_PUBLIC_RPC=1`; the Worker side is `src/rig.js` in the site repo.
+| Path | What |
+|---|---|
+| `/` | Redirects to `/studio/`. |
+| `/login` | The password: the first visit sets it, later visits sign in. Every other path needs the cookie. |
+| `/studio/` | A home page with links to the rest. |
+| `/studio/gemini/` | Gemini CLI sessions in the zpkt checkout: prompts with images, permissions, costs ([gemini.md](../docs/gemini.md)). |
+| `/studio/lab/` | The HW002 lab ([lab.md](../docs/design/lab.md)); its audio at `/studio/lab/audio/`. Its in-browser sound stays banned ([sound.md](../docs/sound.md)). |
+| `/studio/api/artist/...` | The artist agent: thumbs, quick questions, plates, the repertoire ([artist-agent.md](../docs/design/artist-agent.md)). |
+| `/studio/api/regions/<id>/state`, `/studio/regions/<id>/audio/<file>` | A region's state and its renders ([rummage.md](../docs/design/rummage.md)). |
+| `/studio/site-audio/<path>` | The site's published audio, from an allowlist, through a local copy. |
+| `/skrng/...`, `/style.css`, `/favicon.*` | The site's pages, fetched from it and cached 30 s. They see the tailnet host and drop their key. |
+| `/audio/...` | Redirects to the site's audio. |
 
-## studio
+The checklist prototype's pages call the artist, regions and site-audio routes; its own server mounts them from this
+package.
 
-The voice production app: a chat with one long-lived Claude Code session (cwd: zpkt), spoken both ways, with music
-and screenshots as their own bubbles. Its design, turn model and protocol are in `contrib/docs/design/studio.md`; the code is
-`src/harness/studio/`, and the speech models run in their own process (`contrib/voice`), started and restarted by the
-harness. Its data (SQLite chat, media) lives in `~/_agent_scratch/studio/` (`HARNESS_STUDIO`).
-
-Settings (environment):
-
-| Variable | Default | What |
-|---|---|---|
-| `HARNESS_STUDIO` | `~/_agent_scratch/studio` | chat database and media |
-| `HARNESS_STUDIO_WORKDIR` | the zpkt checkout | the Claude session's working directory |
-| `HARNESS_STUDIO_MODEL` | Claude Code's default | the session's model |
-| `HARNESS_NARRATOR_MODEL` | `claude-haiku-5-5` | the model that narrates tool activity |
-| `HARNESS_TTS_VOICE`, `HARNESS_TTS_SPEED` | `af_heart`, `1.0` | Kokoro voice |
-| `HARNESS_STOP_WORD` | `tomato` | the word that ends a spoken turn |
-| `HARNESS_VOICE_CMD` | `uv run --project contrib/voice --extra engines voice serve` | how to start the speech worker |
-| `HARNESS_STEPS_PORT` | `8788` | loopback port where scripts report steps (for screenshots) |
-| `VOICE_TTS_MODEL` | `fluid` | Kokoro build: `fluid` (FluidAudio on the Neural Engine, ~0.1 s to the first audio; built on first use, ONNX `fp32` where it cannot be), `fp32` (ONNX, ~0.3-0.5 s), or `int8` (ONNX, about half of fp32) |
-| `VOICE_STT_MODEL` | `mlx-community/parakeet-tdt-0.6b-v3` | the speech-to-text model (contrib/docs/design/voice-benchmark.md) |
-| `VOICE_MODELS` | `~/.cache/zpkt-voice` | where Kokoro (and the FluidAudio helper) and Silero are kept |
-
-`harness timings` prints the median of every stage of the recent turns: first turn after a start against later
-ones, Safari against Chrome, the phone's own mic against Bluetooth.
-
-## RPC methods (`POST /api/rpc`)
-
-| Method | Params | Returns |
-|---|---|---|
-| `ping` | — | `{ok, host, running, queued}` |
-| `ask` | `{prompt}` | `{answer, session_id}`; a read-only session (Read, Glob, Grep), within two minutes |
-| `feedback` | `{batch, session?, note?}` | `{job_id}`; queues a job that reads that batch's answers and acts on them |
-| `job` | `{prompt, title?}` | `{job_id}`; a free-form job |
-| `job_status` | `{id, tail?}` | the job and its last steps |
-| `jobs` | `{n?}` | recent jobs |
-
-## Jobs
-
-- **What a job is.** One Agent SDK session, with cwd `~/Desktop`. It loads the
-  same CLAUDE.md files and auto-memory as a desktop session.
-- **Tools.** Bash, Read, Write, Edit, Glob, Grep, NotebookEdit, WebFetch,
-  WebSearch, TodoWrite and Task, with edits auto-accepted. Nobody is there to
-  approve anything else, so anything else is denied.
-- **Desktop-only tools are not available.** That means the in-app browser,
-  computer use and the iOS simulator. Live is still reachable, because it is
-  driven over TCP and osascript.
-- **One at a time.** Jobs share one Live instance, so they never overlap.
-- **Notifications.** ntfy sends one when a job starts and one when it
-  finishes, with the job's final message. Tapping either opens
-  `/skrng/#jobs`.
-- **Records.** Each job is kept in `~/_agent_scratch/jobs/<id>/`:
-  `job.json` (status, result, session id, cost) and `events.jsonl` (what the
-  job said and which tools it used).
-- **Continuing a job.** Resume its session from the Mac:
-  `cd ~/Desktop && claude --resume <session_id>`. The page shows that line.
-- **Restarts.** A job that was running when the harness restarted is marked
-  failed. Queued jobs run after the restart.
-- **The voice review starts a job.** When a review ends with answers, the page
-  waits until every answer is on the site, then calls `feedback`. A second call
-  for the same batch, made before the first job starts, joins it rather than
-  queueing a new one.
-
-## Secrets (login Keychain, account `$USER`)
-
-| Keychain service | What | Also set as |
-|---|---|---|
-| `zpkt-rig-token` | the Mac's key to the broker (public route only) | Worker secret `RIG_TOKEN` |
-| `skrng-token` | the owner's key on the public site | Worker secret `SKRNG_TOKEN` |
-| `zpkt-claude-oauth` | `claude setup-token` output (optional) | passed to sessions as `CLAUDE_CODE_OAUTH_TOKEN` |
-| `zpkt-ntfy-topic` | ntfy.sh topic | — |
-
-Without `zpkt-claude-oauth`, sessions use the Mac's own `claude` login. To make one (it needs a browser sign-in):
+## Commands
 
 ```bash
-claude setup-token
-security add-generic-password -U -s zpkt-claude-oauth -a "$USER" -w
+uv run harness serve                       # the server above, on 127.0.0.1:8787
+uv run harness gemini [gemini-cli args]    # Gemini CLI in the zpkt checkout, with the key from the Keychain
+uv run harness artist show                 # the artist's data: repertoire, plates, the last presses
+uv run harness artist propose [--dry-run]  # Claude proposes the next repertoire (real Claude)
+uv run harness lab-audio [--set --out]     # HW002's stems and clips for the lab, outside the repo
+uv run harness lab-params [--set]          # the lab's 100 parameters, read from the set
+uv run harness lab-bars [--set]            # the lab's bar library
 ```
 
-The second command asks for the token. Paste it there, never on a command line.
-
-## Run
-
-Run it in tmux, so it inherits tmux's macOS permissions: Desktop access (the code lives there) and Screen Recording
-(studio's screenshots). A plain launchd job is refused ~/Desktop silently, and a process without Screen Recording
-captures only the wallpaper.
+Run `serve` in tmux, so it inherits tmux's Desktop access (a plain launchd job is refused `~/Desktop` silently):
 
 ```bash
 tmux new-session -d -s studio 'cd ~/Desktop/zpkt/contrib/harness && while :; do uv run harness serve >> ~/_agent_scratch/jobs/harness.log 2>&1; sleep 5; done'
-uv run --project contrib/harness harness jobs
-uv run --project contrib/harness harness show <id>
-uv run --project contrib/harness harness job "say hello"   # one job in the foreground, no socket
-uv run --project contrib/harness pytest
+tailscale serve --bg --https=443 http://127.0.0.1:8787
 ```
 
-The log is `~/_agent_scratch/jobs/harness.log`.
+## Settings (environment)
+
+| Variable | Default | What |
+|---|---|---|
+| `HARNESS_WEB_PORT` | `8787` | the loopback port |
+| `HARNESS_SITE` | `https://anthonybecker.me` | where /skrng, /audio and site-audio come from |
+| `HARNESS_SKRNG` | `~/_agent_scratch/skrng` | `auth.json`: the password's and sessions' hashes (mode 600) |
+| `HARNESS_STUDIO` | `~/_agent_scratch/studio` | `artist/`, `regions/`, `gemini/` |
+| `HARNESS_STUDIO_WORKDIR` | the zpkt checkout | where Gemini CLI sessions work |
+| `HARNESS_STUDIO_MODEL` | Claude Code's default | the model `artist propose` asks |
+| `HARNESS_NARRATOR_MODEL` | `claude-haiku-5-5` | the small model of the artist's quick question |
+| `HARNESS_CLI` | the SDK's own Claude Code | the `claude` binary for those two |
+| `HARNESS_LAB_AUDIO` | `~/_agent_scratch/lab/audio` | the lab's audio |
+| `HARNESS_SITE_AUDIO` | `~/_agent_scratch/studio/site-audio` | site-audio's local copies |
+| `HARNESS_REGIONS_AUDIO` | `~/_agent_scratch/studio/regions` | the regions' renders |
+| `HARNESS_IMAGES` | `~/_agent_scratch/studio/images` | the image wall's folder, read for Gemini's monthly spend |
+| `HARNESS_GEMINI_CMD` | `gemini` on PATH | how to start Gemini CLI |
+
+Secrets come from the login Keychain (account `$USER`), never from files or command lines: `zpkt-gemini-api-key`
+(Gemini), `zpkt-claude-oauth` (optional: a `claude setup-token` login for the artist's Claude calls), and
+`zpkt-ntfy-topic` (the phone notification when Gemini asks a question). Each can be overridden in the environment as
+`HARNESS_GEMINI`, `HARNESS_OAUTH` or `HARNESS_NTFY_TOPIC`.
+
+## Test
+
+```bash
+uv run --extra dev playwright install chromium webkit
+uv run --extra dev pytest                  # everything (about 20 s)
+uv run --extra dev pytest -m "not ui"      # without a browser
+```
+
+Tests run offline: the site is a local fake, Gemini CLI is `tests/fake_gemini_acp.py`, and the artist's question
+comes from its rules. Every route is tested through a real server on a free port. `tests/ui/lab_server.py` serves
+the pages without the login, for the lab's browser tests and for trying the lab by hand.
 
 ## Security
 
-- Tailnet only, then the password. Every route except `/login` needs a signed-in session cookie, the studio
-  WebSocket included; API routes answer 401 rather than redirecting.
-- studio's step endpoint (for scripts) listens on loopback only, on a port `tailscale serve` does not forward, and
-  needs a token made fresh at each start and given only to Claude's environment.
-- `ask` cannot change anything. Jobs and the studio session can, which is the point: they act for the owner.
-- A feedback job treats the transcripts as data about the music. It does not take them as commands to the shell.
-- With the public route on, the Worker forwards only the six RPC methods and caps the body at 64 KB; the browser's
-  key cannot connect as the rig, and the rig's key is never sent to a browser.
+- Tailnet only, then the password. Only scrypt hashes of the password and of each browser's session are stored,
+  so nobody else, Claude included, ever sees it. API routes answer 401 rather than redirecting.
+- Gemini CLI sessions can change the checkout: in the default mode every edit and command waits for a yes on the
+  phone.

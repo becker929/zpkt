@@ -22,12 +22,27 @@ export function numberBox(ctx, id, { label, width = 96, unit = true } = {}) {
   const digits = h('span', { class: 'num-digits' });
   const unitEl = h('span', { class: 'num-unit' });
   const tri = h('i', { class: 'num-tri' });
-  const box = h('div', { class: 'num-box', role: 'spinbutton', tabindex: '0', 'aria-label': p.label }, tri, digits, unitEl);
-  const el = h('div', {
-    class: `w-num${discrete ? ' is-discrete' : ''}`, dataset: { param: id }, style: { '--w': `${width}px`, '--c': stageColor(p) },
-  }, label === false ? null : h('div', { class: 'w-label', text: label ?? shortLabel(p) }), box);
+  const box = h(
+    'div',
+    { class: 'num-box', role: 'spinbutton', tabindex: '0', 'aria-label': p.label },
+    tri,
+    digits,
+    unitEl,
+  );
+  const el = h(
+    'div',
+    {
+      class: `w-num${discrete ? ' is-discrete' : ''}`,
+      dataset: { param: id },
+      style: { '--w': `${width}px`, '--c': stageColor(p) },
+    },
+    label === false ? null : h('div', { class: 'w-label', text: label ?? shortLabel(p) }),
+    box,
+  );
 
-  let real = 0, shown = null, hotPlace = null;
+  let real = 0,
+    shown = null,
+    hotPlace = null;
   follow(ctx, id, (v, r, text) => {
     real = r;
     render(text);
@@ -39,25 +54,41 @@ export function numberBox(ctx, id, { label, width = 96, unit = true } = {}) {
     const now = format(p, real, { unit: false });
     if (now === shown) return;
     shown = now;
-    if (discrete) { digits.replaceChildren(h('span', { text: format(p, real) })); unitEl.textContent = ''; return; }
+    if (discrete) {
+      digits.replaceChildren(h('span', { text: format(p, real) }));
+      unitEl.textContent = '';
+      return;
+    }
     let text = now;
     let mult = 1;
-    if (/k$/.test(text)) { mult = 1000; text = text.slice(0, -1).trim(); }
+    if (/k$/.test(text)) {
+      mult = 1000;
+      text = text.slice(0, -1).trim();
+    }
     const dot = text.includes('.') ? text.indexOf('.') : text.length;
-    digits.replaceChildren(...[...text].map((ch, i) => {
-      const exp = /\d/.test(ch) ? (i < dot ? dot - i - 1 : -(i - dot)) : 0;
-      const place = Math.pow(10, exp) * mult;
-      return h('span', { text: ch, class: hotPlace === place && /\d/.test(ch) ? 'is-hot' : null, dataset: { place: String(place) } });
-    }));
+    digits.replaceChildren(
+      ...[...text].map((ch, i) => {
+        const exp = /\d/.test(ch) ? (i < dot ? dot - i - 1 : -(i - dot)) : 0;
+        const place = Math.pow(10, exp) * mult;
+        return h('span', {
+          text: ch,
+          class: hotPlace === place && /\d/.test(ch) ? 'is-hot' : null,
+          dataset: { place: String(place) },
+        });
+      }),
+    );
     unitEl.textContent = unit ? (mult === 1000 ? 'k' : '') + (p.unit === 'Hz' ? 'Hz' : p.unit) : '';
   }
 
-  let place = 1, acc = 0, target = 0;
+  let place = 1,
+    acc = 0,
+    target = 0;
   drag(box, {
     onStart: (e) => {
       const t = document.elementFromPoint?.(e.clientX, e.clientY);
       place = Math.max(Number(t?.dataset?.place) || defaultPlace(), p.step ?? 0);
-      acc = 0; target = real;
+      acc = 0;
+      target = real;
       w.begin();
       el.classList.add('is-touched');
       hotPlace = digits.contains(t) ? Number(t.dataset.place) : null;
@@ -78,10 +109,17 @@ export function numberBox(ctx, id, { label, width = 96, unit = true } = {}) {
       w.set(toNorm(p, target));
       haptic();
     },
-    onEnd: () => { w.end(); el.classList.remove('is-touched'); hotPlace = null; for (const sp of digits.children) sp.classList.remove('is-hot'); },
+    onEnd: () => {
+      w.end();
+      el.classList.remove('is-touched');
+      hotPlace = null;
+      for (const sp of digits.children) sp.classList.remove('is-hot');
+    },
     onTap: () => tap(),
   });
-  longPress(box, () => { if (!ctx.local) inspect(id); });
+  longPress(box, () => {
+    if (!ctx.local) inspect(id);
+  });
 
   function defaultPlace() {
     const span = p.max - p.min;
@@ -90,11 +128,24 @@ export function numberBox(ctx, id, { label, width = 96, unit = true } = {}) {
 
   let menu = null;
   function tap() {
-    if (p.scale === 'toggle') { w.begin(); w.set(ctx.store.get(id) >= 0.5 ? 0 : 1); w.end(); haptic(); return; }
+    if (p.scale === 'toggle') {
+      w.begin();
+      w.set(ctx.store.get(id) >= 0.5 ? 0 : 1);
+      w.end();
+      haptic();
+      return;
+    }
     if (p.scale === 'enum') {
       const r = box.getBoundingClientRect();
       menu = pie(r.left + r.width / 2, r.top + r.height / 2, p.options, { title: p.label, current: Math.round(real) });
-      menu.then((i) => { menu = null; if (i >= 0) { w.begin(); w.set(i / Math.max(1, p.options.length - 1)); w.end(); } });
+      menu.then((i) => {
+        menu = null;
+        if (i >= 0) {
+          w.begin();
+          w.set(i / Math.max(1, p.options.length - 1));
+          w.end();
+        }
+      });
       return;
     }
     edit();
@@ -102,7 +153,11 @@ export function numberBox(ctx, id, { label, width = 96, unit = true } = {}) {
 
   function edit() {
     const input = h('input', {
-      class: 'num-input', type: 'text', inputmode: 'decimal', enterkeyhint: 'done', 'aria-label': `Type ${p.label}`,
+      class: 'num-input',
+      type: 'text',
+      inputmode: 'decimal',
+      enterkeyhint: 'done',
+      'aria-label': `Type ${p.label}`,
       value: String(Math.round(real * 1000) / 1000),
     });
     let gone = false;
@@ -113,12 +168,20 @@ export function numberBox(ctx, id, { label, width = 96, unit = true } = {}) {
         const raw = input.value.trim().replace(',', '.');
         let v = parseFloat(raw.replace(/[^\d.+-]/g, ''));
         if (/k/i.test(raw)) v *= 1000;
-        if (Number.isFinite(v)) { w.begin(); w.set(toNorm(p, Math.min(p.max, Math.max(p.min, v)))); w.end(); haptic(true); }
+        if (Number.isFinite(v)) {
+          w.begin();
+          w.set(toNorm(p, Math.min(p.max, Math.max(p.min, v))));
+          w.end();
+          haptic(true);
+        }
       }
       input.remove();
       box.classList.remove('is-editing');
     };
-    input.addEventListener('keydown', (e) => { if (e.key === 'Enter') commit(true); if (e.key === 'Escape') commit(false); });
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') commit(true);
+      if (e.key === 'Escape') commit(false);
+    });
     input.addEventListener('blur', () => commit(true));
     box.classList.add('is-editing');
     box.append(input);

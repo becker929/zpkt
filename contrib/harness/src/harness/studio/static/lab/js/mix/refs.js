@@ -3,7 +3,8 @@
 // the window's own total power (the 29 bands sum to 0 dB), so loudness cancels and only the shape is compared.
 // References: BSLS, Hedon, KSMS, Patriotic.
 
-export const THIRDS = [   // [centre Hz, refs min, refs mean, refs max, HW002 (the set, measured)]
+export const THIRDS = [
+  // [centre Hz, refs min, refs mean, refs max, HW002 (the set, measured)]
   [25.1, -35.1, -33.343, -29.89, -41.28],
   [31.6, -27.56, -25.477, -22.61, -34.36],
   [39.8, -20.51, -15.888, -11.86, -23.19],
@@ -41,13 +42,22 @@ export const THIRDS = [   // [centre Hz, refs min, refs mean, refs max, HW002 (t
  * that at the set they sit on HW002's own measurement. The low bands read high on the phone (the FFT's main lobe
  * smears the 50-80 Hz kick into its neighbours); the rest shift by the normalisation. Measured 2026-10-14.
  */
-export const CAL = [-2.6, -0.63, -1.68, -2.22, 0.29, 0.23, -0.01, -0.02, 0.28, 0.17, -0.19, 0.35, 0.07, 0.47, 0.61, 0.38,
-  0.52, 0.29, 0.39, 0.7, 0.6, 0.58, 0.54, 0.61, 0.62, 0.62, 0.63, 0.65, 0.73];
+export const CAL = [
+  -2.6, -0.63, -1.68, -2.22, 0.29, 0.23, -0.01, -0.02, 0.28, 0.17, -0.19, 0.35, 0.07, 0.47, 0.61, 0.38, 0.52, 0.29,
+  0.39, 0.7, 0.6, 0.58, 0.54, 0.61, 0.62, 0.62, 0.63, 0.65, 0.73,
+];
 
 /** The three tonal gaps the mix has to close, and the bands in each (the gap is their mean against the refs' mean). */
 export const ZONES = [
   { id: 'sub', label: 'Deep sub', lo: 22.4, hi: 44.7, bands: [25.1, 31.6, 39.8], say: 'more sub under 40 Hz' },
-  { id: 'mids', label: 'Mids', lo: 891, hi: 3548, bands: [1000.0, 1258.9, 1584.9, 1995.3, 2511.9, 3162.3], say: 'more 1-3 kHz bite' },
+  {
+    id: 'mids',
+    label: 'Mids',
+    lo: 891,
+    hi: 3548,
+    bands: [1000.0, 1258.9, 1584.9, 1995.3, 2511.9, 3162.3],
+    say: 'more 1-3 kHz bite',
+  },
   { id: 'air', label: 'Air', lo: 7079, hi: 14125, bands: [7943.3, 10000.0, 12589.3], say: 'less fizz near 10 kHz' },
 ];
 

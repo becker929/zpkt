@@ -5,4 +5,5 @@ soundfunction, the archive) were removed on 24 November 2026; git tag `pre-upgra
 
 | Folder | The question | State |
 |---|---|---|
+| [`checklist/`](checklist/) | How should a track's checklist across the spine feel, and how do the worlds (map, Rummage, Wasteland) relate to it? | Runs (`server.py`). Moved out of the harness on 24 November 2026. |
 | [`audio-browser/`](audio-browser/) | Can I listen through a sound library once and decide what each sound is for? A triage app with a collage editor. | Runs. Its collage player mixes in the browser, which I have since ruled out ([contrib/docs/sound.md](../contrib/docs/sound.md)). |

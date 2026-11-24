@@ -33,11 +33,15 @@ export class Players {
     dur = span / rate;
     const node = ctx.createBufferSource();
     let start = off;
-    if (rev) { node.buffer = reversedPiece(ctx, buf, off, span); start = 0; if (!node.buffer) return null; }
-    else node.buffer = buf;
+    if (rev) {
+      node.buffer = reversedPiece(ctx, buf, off, span);
+      start = 0;
+      if (!node.buffer) return null;
+    } else node.buffer = buf;
     node.playbackRate.value = rate;
     const env = ctx.createGain();
-    const a = Math.min(attack, dur / 3), r = Math.min(release, dur / 3);
+    const a = Math.min(attack, dur / 3),
+      r = Math.min(release, dur / 3);
     env.gain.value = 0;
     env.gain.setValueAtTime(0, when);
     env.gain.linearRampToValueAtTime(gain, when + a);
@@ -48,7 +52,14 @@ export class Players {
     node.stop(when + dur + 0.02);
     const v = { node, env, id, when, end: when + dur, base, tag, gain, rate, st, off, span, rev };
     this.live.add(v);
-    node.onended = () => { this.live.delete(v); try { env.disconnect(); } catch { /* */ } };
+    node.onended = () => {
+      this.live.delete(v);
+      try {
+        env.disconnect();
+      } catch {
+        /* */
+      }
+    };
     if (this.live.size > MAX_VOICES) {
       const oldest = [...this.live].sort((x, y) => x.when - y.when)[0];
       this.stop(oldest);
@@ -60,23 +71,44 @@ export class Players {
   stop(v, at = this.G.ctx.currentTime, fade = 0.015) {
     if (!v || !this.live.has(v)) return;
     at = Math.max(at, this.G.ctx.currentTime);
-    if (at <= v.when) { try { v.node.stop(); } catch { /* */ } this.live.delete(v); return; }
+    if (at <= v.when) {
+      try {
+        v.node.stop();
+      } catch {
+        /* */
+      }
+      this.live.delete(v);
+      return;
+    }
     hold(v.env.gain, at);
     v.env.gain.linearRampToValueAtTime(0, at + fade);
-    try { v.node.stop(at + fade + 0.01); } catch { /* */ }
+    try {
+      v.node.stop(at + fade + 0.01);
+    } catch {
+      /* */
+    }
     v.end = Math.min(v.end, at + fade);
   }
 
   /** Cut every voice of a choke group at `at`. */
-  choke(tag, at) { for (const v of this.live) if (v.tag === tag && v.when < at + 1e-4) this.stop(v, at, 0.008); }
+  choke(tag, at) {
+    for (const v of this.live) if (v.tag === tag && v.when < at + 1e-4) this.stop(v, at, 0.008);
+  }
 
-  stopTag(tag) { for (const v of [...this.live]) if (v.tag === tag) this.stop(v); }
-  stopAll() { for (const v of [...this.live]) this.stop(v); }
+  stopTag(tag) {
+    for (const v of [...this.live]) if (v.tag === tag) this.stop(v);
+  }
+  stopAll() {
+    for (const v of [...this.live]) this.stop(v);
+  }
 
   /** Varispeed: bend every live voice to the tape's speed. */
   setSpeed(s) {
     const t = this.G.ctx.currentTime;
-    for (const v of this.live) { v.node.playbackRate.setTargetAtTime(v.base * s, t, 0.04); v.rate = v.base * s; }
+    for (const v of this.live) {
+      v.node.playbackRate.setTargetAtTime(v.base * s, t, 0.04);
+      v.rate = v.base * s;
+    }
   }
 
   /** The clip's transpose moved: bend that source's live voices. */
@@ -99,7 +131,8 @@ export class Players {
 
   /** Where in source `id` its voices are now (seconds), for playheads. */
   heads(id) {
-    const t = this.G.ctx.currentTime, out = [];
+    const t = this.G.ctx.currentTime,
+      out = [];
     for (const v of this.live) {
       if (v.id !== id || v.when > t || v.end <= t) continue;
       const done = Math.min(v.span, (t - v.when) * v.rate);

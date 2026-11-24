@@ -61,7 +61,7 @@ projects and says where each track is in those steps.
 | `hands/`, `ears/`, `agent/` | The three parts above. | Supported. Tests run on every push. |
 | [`lib/rig/`](lib/rig/) | Brings Live up on a headless Mac (virtual display, audio clock check). | Supported; written for my Mac mini. |
 | [`lib/contracts/`](lib/contracts/) | The JSON schemas the parts exchange. | Supported. |
-| [`contrib/`](contrib/) | My own setup around the core: a phone voice app, a Bluesky music bot and its render booth, publishing to my site. | Works on my Mac. Read it for ideas; expect to adapt it. |
+| [`contrib/`](contrib/) | My own setup around the core: phone pages for Gemini and the HW002 lab, a Bluesky music bot and its render booth, publishing to my site. | Works on my Mac. Read it for ideas; expect to adapt it. |
 | [`prototypes/`](prototypes/) | Experiments beside the main path: a sound-library browser. | Runs; it says what state it is in. |
 | [`docs/`](docs/) | The getting-started guide. My workflow, design notes and dated journal are in [`contrib/docs/`](contrib/docs/). | |
 
