@@ -19,6 +19,7 @@ test:  ## the supported parts: offline, no Live
 test-all: test  ## contrib and prototypes too
 	@for p in $(CONTRIB); do echo "== $$p"; (cd $$p && $(PYTEST)) || exit 1; done
 	cd contrib/harness && uv run --extra dev pytest -q -p no:cacheprovider
+	cd hands && uv run --all-extras --with scipy --with pyloudnorm pytest -q -p no:cacheprovider ../contrib/arranger/tests
 	cd prototypes/audio-browser && $(PYTEST) --ignore tests/test_segment.py
 	cd prototypes/checklist && uv run --extra dev pytest -q -p no:cacheprovider
 	cd contrib/bot && npm ci --ignore-scripts --no-audit --no-fund && npm test
