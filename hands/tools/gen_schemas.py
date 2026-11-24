@@ -6,6 +6,7 @@ of truth; tests/test_contract.py fails if a committed file is stale.
 
     uv run python tools/gen_schemas.py
 """
+
 from __future__ import annotations
 
 import json
@@ -13,12 +14,14 @@ import sys
 from pathlib import Path
 
 from hands.library.models import Inventory
+from hands.live.desk import Desk
 from hands.models import Feedback, ProjectConfig
 
 CONTRACTS = Path(__file__).resolve().parents[2] / "lib" / "contracts"
 DESCRIPTIONS = {
     "project-config": "A declarative Live project for hands to build. Generated from hands/src/hands/models.py — do not edit by hand.",
     "feedback": "A listener's comment on a render, captured by hands' vibe server. Generated from hands/src/hands/models.py — do not edit by hand.",
+    "desk": "The mix desk recipe's desk (contrib/mixdesk/recipe.py writes it; `hands live state diff|put` read it as a partial state). Generated from hands/src/hands/live/desk.py — do not edit by hand.",
     "inventory": "Each WIP track's place in the seven workflow steps (contrib/docs/workflow.md), from `hands library inventory --json`. Generated from hands/src/hands/library/models.py — do not edit by hand.",
 }
 
@@ -31,7 +34,7 @@ def build(name: str, model) -> dict:
     }
 
 
-MODELS = {"project-config": ProjectConfig, "feedback": Feedback, "inventory": Inventory}
+MODELS = {"project-config": ProjectConfig, "feedback": Feedback, "inventory": Inventory, "desk": Desk}
 
 if __name__ == "__main__":
     for name, model in MODELS.items():
