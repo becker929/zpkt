@@ -85,7 +85,7 @@ footer b { color: var(--text); font-weight: 600; }
 /* right half: listen and see */
 .right h3 { margin: 0 0 4px; font-size: 12px; letter-spacing: .04em; color: var(--muted); font-weight: 650; text-transform: uppercase; }
 .box { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 10px; }
-.abc { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.abc { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
 .abc button { text-align: left; border: 1px solid var(--line); background: var(--panel2); color: var(--text); border-radius: 10px;
   padding: 8px 10px; font: inherit; cursor: pointer; border-left: 5px solid var(--c); min-width: 0; }
 .abc button .k { font: 700 18px ui-monospace, Menlo, monospace; color: var(--c); }
@@ -146,7 +146,7 @@ table.params td .d { color: var(--muted); }
     </div>
     <canvas id="wave" style="margin-top:8px"></canvas>
     <div class="row" id="refs" style="margin-top:6px"></div>
-    <div class="note">Everything you hear is Live: <b>Play</b> runs Live's transport. <b>B</b> is the mix itself, live, with your controls; <b>A</b> and <b>C</b> are the original and the reference as audio in the arrangement. Keys: <b>A</b> <b>B</b> <b>C</b> switch · <b>Space</b> play/pause · <b>←/→</b> one bar · <b>1–4</b> pick the reference. The reference clips start on the drop (ref 0 s = bar 17).</div>
+    <div class="note">Everything you hear is Live: <b>Play</b> runs Live's transport. <b>W</b> is your working mix, live, with your controls; <b>A</b> (original), <b>B</b> (the recipe's reference match) and <b>C</b> (the reference) are renders, as audio in the arrangement. The curves are A, B and C; W has none (it is live). Keys: <b>A</b> <b>B</b> <b>W</b> <b>C</b> switch · <b>Space</b> play/pause · <b>←/→</b> one bar · <b>1–4</b> pick the reference. The reference clips start on the drop (ref 0 s = bar 17).</div>
   </div>
   <div class="box">
     <div class="row"><h3 style="margin:0">Spectrum, 1/6 octave</h3><span class="sp"></span>
@@ -320,10 +320,11 @@ fetch("/api/desk").then((r) => r.json()).then((d) => { desk = d; build(); connec
 // ---- right half: a control surface for Live. All audio is Live's (the arrangement, and the monitor tracks that hold
 // the original and the references); this page only sends transport and source choices and draws what Live reports.
 (() => {
-const COL = { A: "#b48cff", B: "#ffb547", C: "#5fd38d" };
+const COL = { A: "#b48cff", B: "#ffb547", W: "#5cc8ff", C: "#5fd38d" };
+const WORKING = { label: "Working", what: "your mix, live in Ableton" };
 const BAR_S = 1.5, BEAT_S = 0.375;       // 160 BPM
 const $ = (id) => document.getElementById(id);
-const S = { sel: "B", ref: "C1", sec: "drop", mode: "abs", metric: "lufs", loop: "off", match: true, tilt: true,
+const S = { sel: "W", ref: "C1", sec: "drop", mode: "abs", metric: "lufs", loop: "off", match: true, tilt: true,
             playing: false, pos: 0, posAt: 0 };
 let AN = null;
 
@@ -358,16 +359,16 @@ function paintAbc() {
   if (!AN) return;
   const abc = $("abc");
   abc.innerHTML = "";
-  ["A", "B", "C"].forEach((slot) => {
-    const x = src(slot);
+  ["A", "B", "W", "C"].forEach((slot) => {
+    const x = slot === "W" ? WORKING : src(slot);
     if (!x) return;
-    const gdb = gainDb(slot);
-    const lufs = x.sections.drop.lufs;
+    const gdb = slot === "W" ? 0 : gainDb(slot);
+    const lufs = slot === "W" ? null : x.sections.drop.lufs;
     const b = document.createElement("button");
     b.style.setProperty("--c", COL[slot]);
     b.className = S.sel === slot ? "on" : "";
-    const what = slot === "B" ? "live mix in Ableton" : x.what;
-    const lvl = lufs != null ? `${lufs.toFixed(1)} LUFS${S.match && Math.abs(gdb) >= 0.05 ? ` (${gdb >= 0 ? "+" : ""}${gdb.toFixed(1)} dB)` : ""}` : "";
+    const what = x.what;
+    const lvl = slot === "W" ? "live, no curves" : lufs != null ? `${lufs.toFixed(1)} LUFS${S.match && Math.abs(gdb) >= 0.05 ? ` (${gdb >= 0 ? "+" : ""}${gdb.toFixed(1)} dB)` : ""}` : "";
     b.innerHTML = `<span class="k">${slot}</span><span class="n">${x.label}</span><span class="w">${what}</span><span class="l">${lvl}</span>`;
     b.onclick = () => select(slot);
     abc.appendChild(b);
@@ -571,7 +572,7 @@ async function init() {
   document.addEventListener("keydown", (e) => {
     if ((e.target.closest && e.target.closest("input,textarea")) || e.metaKey || e.ctrlKey || e.altKey) return;
     const k = e.key.toLowerCase();
-    if (k === "a" || k === "b" || k === "c") select(k.toUpperCase());
+    if (k === "a" || k === "b" || k === "w" || k === "c") select(k.toUpperCase());
     else if (k === " ") { e.preventDefault(); toggle(); }
     else if (k === "arrowleft") seek(curPos() - BAR_S); else if (k === "arrowright") seek(curPos() + BAR_S);
     else if (/^[1-4]$/.test(k)) { const refs = Object.values(AN.sources).filter((x) => x.kind === "ref"); if (refs[k - 1]) pickRef(refs[k - 1].id); }

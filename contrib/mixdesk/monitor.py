@@ -3,7 +3,7 @@
     uv run --project hands python contrib/mixdesk/monitor.py ensure     # add what is missing (idempotent)
     uv run --project hands python contrib/mixdesk/monitor.py remove     # delete them again (do this before a render you keep)
 
-"mon A" holds the original render (A.wav) at beat 0; "mon C1".."mon C4" hold the reference clips at the drop (beat 64 =
+"mon A" holds the original render (A.wav) and "mon B" the recipe's render (B.wav) at beat 0; "mon C1".."mon C4" hold the reference clips at the drop (beat 64 =
 bar 17), warping off. All of them stay MUTED unless the desk is monitoring them (pager.monitor), so a render of the set
 never doubles. The files are the WAVs analyze.py wrote. Each step is one short LOM call, as the ableton guide asks.
 """
@@ -24,7 +24,7 @@ ALIGN_BEAT = float(CFG["ref_align_s"]) * BEATS_PER_S
 
 
 def wanted() -> dict[str, tuple[Path, float]]:
-    w = {"mon A": (VIZ / "A.wav", 0.0)}
+    w = {"mon A": (VIZ / "A.wav", 0.0), "mon B": (VIZ / "B.wav", 0.0)}
     for r in CFG["refs"]:
         w[f"mon {r['id']}"] = (VIZ / f"{r['id']}.wav", ALIGN_BEAT)
     return w

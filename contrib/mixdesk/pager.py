@@ -23,7 +23,8 @@ FADERS = ["volume_fader", "send_a_fader", "send_b_fader", "pan_fader"]   # CC 14
 PICKUP = 0.03
 
 MAIN_DEVICES = ("desk headroom", "desk Glue", "desk Utility")   # bypassed while an audio-clip monitor track plays
-END_BEAT = 160.0                                                 # the arrangement is 40 bars at 160 BPM
+END_BEAT = 160.0
+SLOTS_V = 2          # slots A, B, W, C (v1 had B = the live mix); a reload maps a v1 "B" to "W"                                                 # the arrangement is 40 bars at 160 BPM
 DESK = None
 
 
@@ -187,7 +188,7 @@ class Desk(object):
         self.targets = {}     # (page, slot) -> _Target
         self.listeners = []
         self.main_saved = None      # Main's desk devices' On values while a monitor track plays (None = not bypassed)
-        self.monitor_slot, self.monitor_ref = "B", "C1"
+        self.monitor_slot, self.monitor_ref = "W", "C1"
         self._last_pos = 0.0
         self._song_listeners = []
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -251,16 +252,17 @@ class Desk(object):
         self.emit({"t": "loop", "loop": loop} if action == "loop" else {"t": "pos", "b": s.current_song_time, "p": bool(s.is_playing)})
 
     def monitor(self, slot, ref, gain_db):
-        """Choose what is heard. B = the mix itself (all monitor tracks muted, Main's desk devices as they were).
-        A / C = the audio clip on 'mon A' / 'mon <ref>', soloed, at gain_db, with Main's desk devices bypassed so the
-        clip (rendered after them) is heard exactly as rendered."""
+        """Choose what is heard. W = the working mix itself (all monitor tracks muted, Main's desk devices as they
+        were). A / B / C = the audio clip on 'mon A' (original render) / 'mon B' (the recipe's render) / 'mon <ref>',
+        soloed, at gain_db, with Main's desk devices bypassed so the clip (rendered after them) is heard exactly as
+        rendered."""
         s = self.song
         mons = dict((t.name, t) for t in s.tracks if t.name.startswith("mon "))
-        target = mons.get("mon A") if slot == "A" else mons.get("mon " + ref) if slot == "C" else None
-        if slot != "B" and target is None:
+        target = mons.get("mon " + (ref if slot == "C" else slot)) if slot != "W" else None
+        if slot != "W" and target is None:
             self.emit({"t": "mon", "slot": self.monitor_slot, "ref": self.monitor_ref, "err": "monitor tracks missing"})
             return
-        if slot != "B":      # exclusive: nothing else soloed
+        if slot != "W":      # exclusive: nothing else soloed
             for t in list(s.tracks) + list(s.return_tracks):
                 if t.solo and t is not target:
                     t.solo = False
@@ -277,7 +279,7 @@ class Desk(object):
             if not target.solo:
                 target.solo = True
         devs = [d for d in s.master_track.devices if d.name in MAIN_DEVICES]
-        if slot != "B":
+        if slot != "W":
             if self.main_saved is None:
                 self.main_saved = dict((d.name, d.parameters[0].value) for d in devs)
             for d in devs:
@@ -501,6 +503,6 @@ def start(song, cfg, port):
     DESK = Desk(song, cfg, port)
     DESK.page = page
     DESK.main_saved = carry.get("main_saved")
-    DESK.monitor_slot, DESK.monitor_ref = carry.get("slot", "B"), carry.get("ref", "C1")
+    DESK.monitor_slot, DESK.monitor_ref = (lambda s: "W" if s == "B" and carry.get("v") != 2 else s)(carry.get("slot", "W")), carry.get("ref", "C1")
     DESK.attach()
     return DESK.snapshot()

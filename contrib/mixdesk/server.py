@@ -35,7 +35,7 @@ MOD = "zpkt_mixdesk_pager"
 
 LOCK = threading.Lock()
 STATE: dict = {"page": 0, "attached": False, "values": {}, "hw": {}, "picked": {}, "live": "starting", "touch": None,
-               "monitor": {"slot": "B", "ref": "C1"}, "match": True, "pos": 0.0, "playing": False, "loop": "off"}
+               "monitor": {"slot": "W", "ref": "C1"}, "match": True, "pos": 0.0, "playing": False, "loop": "off"}
 CLIENTS: list[queue.Queue] = []
 
 
@@ -56,7 +56,7 @@ def start_pager() -> dict:
         f"old = sys.modules.get({MOD!r})\n"
         "if old is not None and getattr(old, 'DESK', None) is not None:\n"
         "    d = old.DESK\n"
-        "    m.CARRY = {'main_saved': getattr(d, 'main_saved', None), 'slot': getattr(d, 'monitor_slot', 'B'), 'ref': getattr(d, 'monitor_ref', 'C1'), 'page': d.page}\n"
+        "    m.CARRY = {'main_saved': getattr(d, 'main_saved', None), 'slot': getattr(d, 'monitor_slot', 'W'), 'ref': getattr(d, 'monitor_ref', 'C1'), 'page': d.page, 'v': getattr(old, 'SLOTS_V', 1)}\n"
         "    d.stop()\n"
         f"sys.modules[{MOD!r}] = m\n"
         f"result = m.start(song, json.loads({json.dumps(cfg())!r}), {UDP_PORT})\n")
@@ -92,15 +92,16 @@ def analysis() -> dict:
 
 
 def gain_db(slot: str, ref: str) -> float:
-    """Loudness match: bring A and the reference to the level of the quietest drop of A, B and the reference."""
-    if not STATE["match"] or slot == "B":
+    """Loudness match: bring A, B and the reference to the level of the quietest drop of the three. W (the
+    working mix, live) is never changed."""
+    if not STATE["match"] or slot == "W":
         return 0.0
     src = analysis()["sources"]
     ids = ["A", "B", ref]
     if not all(i in src for i in ids):
         return 0.0
     lufs = {i: src[i]["sections"]["drop"]["lufs"] for i in ids}
-    return min(lufs.values()) - lufs["A" if slot == "A" else ref]
+    return min(lufs.values()) - lufs[ref if slot == "C" else slot]
 
 
 def apply_monitor(slot: str, ref: str) -> None:
@@ -280,7 +281,7 @@ class Handler(BaseHTTPRequestHandler):
                     return self._json({"error": "bad action"}, 400)
             elif self.path == "/api/monitor":
                 slot, ref = str(body.get("slot", STATE["monitor"]["slot"])), str(body.get("ref", STATE["monitor"]["ref"]))
-                if slot not in ("A", "B", "C") or ref not in analysis()["sources"]:
+                if slot not in ("A", "B", "W", "C") or ref not in analysis()["sources"]:
                     return self._json({"error": "bad slot or ref"}, 400)
                 with LOCK:
                     if "match" in body:

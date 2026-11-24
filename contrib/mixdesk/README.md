@@ -80,12 +80,12 @@ Nothing in the page makes or plays sound: it shows and arms controls, and the mi
 
 The page is split: the control surface on the left, Live transport/monitoring and measurements on the right.
 
-- `sources.json` names A (original), B (mixed) and the references (C, four to pick from). Run
+- `sources.json` names A (original), B (the recipe's reference match, rendered) and the references (C, four to pick from). Run
   `ears/.venv/bin/python contrib/mixdesk/analyze.py` (the ears venv) after you render a new A or B: it writes 16-bit WAVs and
   `analysis.json` (spectrum per 1/6 octave for build and drop, loudness/crest/width/bass-mono over time) to
   `~/_agent_scratch/mixdesk/viz/`. Nothing there changes a sound.
-- Everything you hear comes from Live: `monitor.py ensure` places `mon A` (at beat 0) and `mon C1`–`mon C4` (at bar 17 /
+- Everything you hear comes from Live: `monitor.py ensure` places `mon A` and `mon B` (at beat 0) and `mon C1`–`mon C4` (at bar 17 /
   beat 64, warping off, muted by default) in the Arrangement. **Play**, **seek**, and **loop** drive Live's transport;
   switching **A** / **B** / **C** solos the chosen monitor track (bypassing Main's desk devices and matching loudness)
-  or unmutes back to **B** (the live mix itself). Keys: A B C, space, arrows, 1–4. The spectrum shows levels from the
+  and **W** goes back to the working mix itself, live, with your controls. Keys: A B W C, space, arrows, 1–4. The spectrum shows levels from the
   cached renders, each curve against the reference, or what the match moved against what the reference would move.
