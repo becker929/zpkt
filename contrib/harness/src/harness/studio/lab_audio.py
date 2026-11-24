@@ -21,6 +21,7 @@ from __future__ import annotations
 import base64
 import gzip
 import hashlib
+import itertools
 import json
 import logging
 import os
@@ -56,9 +57,19 @@ class Clip:
     file_s: tuple[float, float]  # the part of the file it plays, in seconds (through the warp markers when warped)
 
 
+def live_set(als: Path) -> ET.Element:
+    """The LiveSet element of a Live set (.als: gzipped XML)."""
+    with gzip.open(als) as f:
+        root = ET.fromstring(f.read())
+    live = root.find("LiveSet")
+    if live is None:
+        raise ValueError(f"{als} is not a Live set: it has no LiveSet element.")
+    return live
+
+
 def arrangement(als: Path) -> tuple[float, list[dict], list[Clip]]:
     """The set's tempo, its tracks (name, group, kind, muted) and the audio and MIDI clips on its unmuted tracks."""
-    live = ET.fromstring(gzip.open(als).read()).find("LiveSet")
+    live = live_set(als)
 
     def v(el, path):
         x = el.find(path)
@@ -104,7 +115,7 @@ def _file_span(c: ET.Element, start: float, end: float, v) -> tuple[float, float
         marks = [(0.0, 0.0), (1.0, 60 / 160)]
 
     def sec(beat: float) -> float:
-        for (b0, s0), (b1, s1) in zip(marks, marks[1:]):
+        for (b0, s0), (b1, s1) in itertools.pairwise(marks):
             if beat <= b1 or (b1, s1) == marks[-1]:
                 return s0 + (beat - b0) * (s1 - s0) / (b1 - b0 or 1)
         return marks[-1][1]
@@ -169,7 +180,7 @@ def head(x: np.ndarray) -> dict:
 
 def kick_hits(kick: np.ndarray, bpm: float, n: int = 6) -> list[tuple[int, np.ndarray]]:
     """`n` single beats of the kick stem, the loudest on-beat hits from different bars, each faded out."""
-    beat = int(round(RATE * 60 / bpm))
+    beat = round(RATE * 60 / bpm)
     mono = np.abs(kick.mean(axis=1))
     starts = range(0, len(kick) - beat, beat)
     peaks = sorted(((float(mono[s : s + 400].max()), s) for s in starts), reverse=True)

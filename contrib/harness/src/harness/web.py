@@ -138,7 +138,7 @@ def _safe_next(n: str | None) -> str:
 
 
 class App:
-    def __init__(self, cfg: Config, data_dir: Path, secure_cookie: bool = True, studio: "Studio | None" = None):
+    def __init__(self, cfg: Config, data_dir: Path, secure_cookie: bool = True, studio: Studio | None = None):
         self.cfg, self.secure_cookie, self.studio = cfg, secure_cookie, studio
         self.auth = Auth(data_dir / "auth.json")
         self.http: ClientSession | None = None
@@ -225,7 +225,7 @@ class App:
         return web.Response(body=body, content_type=ctype)
 
 
-async def run(cfg: Config, studio: "Studio | None" = None) -> None:
+async def run(cfg: Config, studio: Studio | None = None) -> None:
     app = App(cfg, cfg.skrng_dir, studio=studio).build()
     runner = web.AppRunner(app, access_log=None)
     await runner.setup()

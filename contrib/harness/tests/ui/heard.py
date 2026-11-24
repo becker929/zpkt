@@ -131,7 +131,7 @@ class Ear:
         return self.t0 + i / self.rate
 
     def index(self, t: float) -> int:
-        return int(round((t - self.t0) * self.rate))
+        return round((t - self.t0) * self.rate)
 
     def between(self, t1: float, t2: float) -> np.ndarray:
         return self.samples[max(0, self.index(t1)) : max(0, self.index(t2))]
@@ -151,7 +151,7 @@ class Ear:
         cuts = np.flatnonzero(np.diff(idx) > hold * self.rate)
         starts = np.concatenate([[idx[0]], idx[cuts + 1]])
         ends = np.concatenate([idx[cuts], [idx[-1]]])
-        return [(self.time(a), self.time(b + 1)) for a, b in zip(starts, ends)]
+        return [(self.time(a), self.time(b + 1)) for a, b in zip(starts, ends, strict=True)]
 
 
 async def heard(page) -> list[Ear]:
@@ -167,20 +167,19 @@ async def heard(page) -> list[Ear]:
             continue
         # Place every chunk at its own time (they follow on exactly unless the context stopped running).
         t0 = times[0]
-        end = int(round((times[-1] - t0) * rate)) + sizes[-1]
+        end = round((times[-1] - t0) * rate) + sizes[-1]
         samples = np.zeros(end, np.float32)
         at, expected, gaps = 0, 0, []
-        for i, (t, n) in enumerate(zip(times, sizes)):
-            pos = int(round((t - t0) * rate))
+        for i, (t, n) in enumerate(zip(times, sizes, strict=True)):
+            pos = round((t - t0) * rate)
             if i and pos != expected:
                 gaps.append((t, pos - expected))
             samples[pos : pos + n] = chunk[at : at + n]
             at += n
             expected = pos + n
-        if raw["heardAt"]:
-            clock = np.array(raw["heardAt"])
-        else:  # no output timestamps: now, plus the output's latency
-            clock = np.array(raw["now"]) + [0.0, raw["outputLatency"]]
+        # Without output timestamps: now, plus the output's latency.
+        latency = np.array([0.0, raw["outputLatency"]])
+        clock = np.array(raw["heardAt"]) if raw["heardAt"] else np.array(raw["now"]) + latency
         out.append(Ear(raw["id"], rate, t0, samples, clock, raw["state"], gaps))
     return out
 

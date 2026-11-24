@@ -12,7 +12,6 @@ from pathlib import Path
 import numpy as np
 import pytest
 from aiohttp.test_utils import TestServer
-
 from conftest import IPHONE_15
 from heard import MUTE
 from lab_server import app

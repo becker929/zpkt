@@ -348,7 +348,7 @@ def build(
         x = decode(path)
         mono = np.abs(x.mean(1))
         start = int(np.flatnonzero(mono > 0.01)[0]) if np.any(mono > 0.01) else 0
-        bl = int(round(RATE * 240 / bpm))
+        bl = round(RATE * 240 / bpm)
         nb = (len(x) - start) // bl
         data["refs"].append(
             {

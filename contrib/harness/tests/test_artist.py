@@ -15,7 +15,7 @@ from aiohttp.test_utils import TestClient, TestServer
 from harness.studio import artist as A
 
 sys.path.insert(0, str(Path(__file__).parent / "ui"))
-from lab_server import app as lab_app  # noqa: E402
+from lab_server import app as lab_app
 
 SEED = json.loads(A.SEED.read_text())
 

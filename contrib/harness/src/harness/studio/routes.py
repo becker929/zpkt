@@ -44,7 +44,7 @@ STATIC = Path(__file__).parent / "static"
 STUDIO_KEY = web.AppKey("studio", object)
 
 
-def app(studio: "Studio") -> web.Application:
+def app(studio: Studio) -> web.Application:
     sub = web.Application(client_max_size=1 << 20)
     sub[STUDIO_KEY] = studio
     sub.router.add_get("/", home)
@@ -76,7 +76,7 @@ def add_region_routes(sub: web.Application) -> None:
     sub.router.add_get("/regions/{id}/audio/{name}", region_audio)
 
 
-def _studio(request: web.Request) -> "Studio":
+def _studio(request: web.Request) -> Studio:
     return request.config_dict[STUDIO_KEY]
 
 

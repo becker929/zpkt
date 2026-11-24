@@ -12,7 +12,6 @@ marked `nested`. Arrangement choices have no knob (`live: null`) and say which d
 
 from __future__ import annotations
 
-import gzip
 import json
 import math
 import xml.etree.ElementTree as ET
@@ -20,7 +19,7 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any
 
-from .lab_audio import SET
+from .lab_audio import SET, live_set
 
 OUT = Path(__file__).parent / "static" / "lab" / "data" / "params.json"
 CHORD = "12-2022-06-02-001 [2026-05-25 092256]"
@@ -1718,10 +1717,10 @@ def plan() -> list[P]:
 
 # --- reading the set ---------------------------------------------------------------------------------------------
 def tracks(als: Path) -> dict[str, ET.Element]:
-    live = ET.fromstring(gzip.open(als).read()).find("LiveSet")
+    live = live_set(als)
     out = {}
     main = live.find("MainTrack")
-    for t in list(live.find("Tracks")) + [main if main is not None else live.find("MasterTrack")]:
+    for t in [*live.find("Tracks"), main if main is not None else live.find("MasterTrack")]:
         name = "Main" if t.tag in ("MainTrack", "MasterTrack") else t.find("Name/EffectiveName").get("Value")
         out[name] = t
     return out

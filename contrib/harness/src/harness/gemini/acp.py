@@ -36,6 +36,7 @@ class Acp:
         self.pending: dict[int, asyncio.Future] = {}
         self.info: dict = {}
         self._tasks: list[asyncio.Task] = []
+        self._answering: set[asyncio.Task] = set()  # answers to the agent's requests, kept until they finish
 
     @property
     def alive(self) -> bool:
@@ -104,7 +105,9 @@ class Acp:
                     if fut and not fut.done():
                         fut.set_result(msg)
                 elif "id" in msg:
-                    asyncio.create_task(self._answer(msg))
+                    task = asyncio.create_task(self._answer(msg))
+                    self._answering.add(task)
+                    task.add_done_callback(self._answering.discard)
                 else:
                     try:
                         self.on_notify(msg["method"], msg.get("params") or {})
@@ -120,7 +123,7 @@ class Acp:
         try:
             result = await self.on_request(msg["method"], msg.get("params") or {})
             reply = {"jsonrpc": "2.0", "id": msg["id"], "result": result}
-        except Exception as e:  # noqa: BLE001
+        except Exception as e:  # the agent gets the error as its answer
             reply = {"jsonrpc": "2.0", "id": msg["id"], "error": {"code": -32603, "message": str(e)}}
         with contextlib.suppress(AcpError, ConnectionError):
             await self._send(reply)

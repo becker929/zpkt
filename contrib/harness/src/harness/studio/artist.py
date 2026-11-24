@@ -290,7 +290,7 @@ def rules_question(event: dict[str, Any]) -> dict[str, Any]:
         choices += ["The plates", "The renders", "The layout"]
     else:
         choices += ["The look", "The timing"]
-    choices = choices[:3] + ["Something else"]
+    choices = [*choices[:3], "Something else"]
     return {"question": "What landed?" if up else "What was off?", "choices": choices, "by": "rules"}
 
 
@@ -363,7 +363,7 @@ class QuestionLines:
         if client is not None:
             try:
                 await client.disconnect()
-            except Exception:  # noqa: BLE001 - closing a dead CLI; nothing more to do
+            except Exception:  # closing a dead CLI; nothing more to do
                 log.debug("question model disconnect failed", exc_info=True)
 
 
@@ -382,7 +382,7 @@ async def ask(event: dict[str, Any], model_fn: ModelFn | None = None) -> dict[st
             got = _parse(await asyncio.wait_for(model_fn(prompt), ASK_TIMEOUT_S))
             if got:
                 return got
-        except Exception:  # noqa: BLE001 - a slow or failed model falls back to the rules
+        except Exception:  # a slow or failed model falls back to the rules
             log.info("artist question: the model failed, asking by the rules", exc_info=True)
     return rules_question(event)
 

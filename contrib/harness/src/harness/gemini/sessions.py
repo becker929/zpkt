@@ -355,7 +355,7 @@ class Gemini:
                 f.write(json.dumps(row) + "\n")
             self.save(rec)
             s.add({"type": "done", "stop": res.get("stopReason", ""), "model": model, "dollars": row["dollars"]})
-        except Exception as e:  # noqa: BLE001 - shown in the session
+        except Exception as e:  # shown in the session
             log.warning("gemini session %s: %s", sid, e)
             s.add({"type": "error", "text": str(e)[:800]})
         finally:
