@@ -9,7 +9,7 @@ It is three things you can use on their own:
 | Part | What it does | Start here |
 |---|---|---|
 | [`hands/`](hands/) | Drives Live from Python or the shell: run code against the open set, set knobs, edit time, export audio, edit `.als` files offline. | `hands live ping` |
-| [`ears/`](ears/) | Measures a render: loudness, true peak, spectra, an embedding, and its distance from your own reference tracks. [`ears/mlab/`](ears/mlab/) adds calibrated mastering meters. | `ears analyze take.wav` |
+| [`ears/`](ears/) | Measures a render with calibrated meters (loudness, true peak, dynamics, spectra, a mix against references), and places it among your own reference tracks with a profile and an embedding. Its mastering lab is [`ears/mlab/`](ears/mlab/); `mlab` runs the same meter commands. | `ears measure take.wav` |
 | [`agent/`](agent/) | Skills and rules that let Claude Code (or another agent) drive Live through `hands` without crashing it. | open the repo in Claude Code |
 
 macOS only. You need Ableton Live 12 and [uv](https://docs.astral.sh/uv/). Each part is its own
@@ -31,7 +31,8 @@ uv run hands live ping                                # pong in 200 ms
 uv run hands live exec "result = song.tempo"          # any Python against Live's object model
 uv run hands live export take.wav --start 8 --length 32   # 32 beats through Live's Export dialog
 cd ../ears
-uv run ears analyze ~/Music/zpkt/renders/take.wav     # loudness, true peak, band energy, spectra
+uv run ears measure ~/Music/zpkt/renders/take.wav     # calibrated loudness, true peak, dynamics, spectra
+uv run ears analyze ~/Music/zpkt/renders/take.wav     # a profile: band shares, spectra, an embedding
 ```
 
 [docs/getting-started.md](docs/getting-started.md) walks through each step, the permissions
@@ -69,7 +70,7 @@ projects and says where each track is in those steps.
 - Work on copies of Live projects, never the originals.
 - Measure the rendered file's peak before you believe a render worked. A silent bounce looks
   fine in every log.
-- Calibrate a measure against a known answer before you use it (`mlab calibrate`).
+- Calibrate a measure against a known answer before you use it (`ears calibrate`).
 - Keep audio, models and data out of git (see `.gitignore`).
 - Every service listens on loopback only and needs a secret ([SECURITY.md](SECURITY.md)).
   `hands` runs arbitrary Python inside Live, so anything that can reach it can run code as you.
@@ -77,7 +78,7 @@ projects and says where each track is in those steps.
 ## Tests
 
 ```bash
-make test        # hands, ears, mlab: no Live, no audio files, no network
+make test        # hands and ears (its calibrated meters too): no Live, no audio files, no network
 make test-all    # every part, contrib and prototypes included
 ```
 
