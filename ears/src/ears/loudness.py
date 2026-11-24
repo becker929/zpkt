@@ -1,4 +1,9 @@
-"""Loudness and spectral band energy extraction."""
+"""Loudness and spectral band energy extraction.
+
+BANDS is ears' one band table: five coarse shares of the spectrum for a profile and a corpus. Its "sub" is
+20-150 Hz. mlab's bands (ears/mlab/mlab/bands.py) are finer and name other ranges (its sub is 20-60 Hz); the two
+are not interchangeable.
+"""
 
 from __future__ import annotations
 
@@ -8,7 +13,7 @@ import numpy as np
 
 from .models import LoudnessFeatures
 
-BANDS = {
+BANDS: dict[str, tuple[int, int]] = {  # name: (lo Hz, hi Hz), lo inclusive
     "sub": (20, 150),
     "low": (150, 600),
     "mid": (600, 4000),

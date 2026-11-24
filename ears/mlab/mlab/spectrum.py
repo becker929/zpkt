@@ -16,18 +16,11 @@ import itertools
 import numpy as np
 from scipy import signal
 
+from . import bands as B
 from .util import db, pdb, r
 
-CENTRES = 1000.0 * 10 ** (np.arange(-16, 14) / 10)  # 25 Hz .. 20 kHz, 30 bands
-GROUPS = {  # plain-language regions used in the guides
-    "sub": (20, 60),
-    "bass": (60, 250),
-    "low_mid": (250, 500),
-    "mid": (500, 2000),
-    "upper_mid": (2000, 4000),
-    "presence": (4000, 8000),
-    "air": (8000, 20000),
-}
+CENTRES = B.THIRD_OCTAVE_CENTRES  # the band tables live in bands.py; these names stay for callers
+GROUPS = B.TONAL_GROUPS
 
 
 def psd(x, sr, nperseg=None):
@@ -47,8 +40,7 @@ def band_power(f, p, lo, hi):
 def third_octave(x, sr, f_p=None):
     f, p = f_p if f_p is not None else psd(x, sr)
     out = []
-    for c in CENTRES:
-        lo, hi = c / 10**0.05, c * 10**0.05
+    for c, lo, hi in zip(CENTRES, *B.third_octave_edges(CENTRES), strict=True):
         if hi > sr / 2:
             break
         out.append((float(c), float(pdb(band_power(f, p, lo, hi)))))
@@ -64,7 +56,7 @@ def tonal_balance(x, sr, f_p=None):
     lv = np.array([b[1] for b in bands])
     # per-band level normalised by bandwidth -> slope of the power density in dB/oct
     m = (fc >= 100) & (fc <= 10000)
-    dens = lv - 10 * np.log10(fc * (10**0.05 - 10**-0.05))
+    dens = lv - 10 * np.log10(B.third_octave_width(fc))
     slope = float(np.polyfit(np.log2(fc[m]), dens[m], 1)[0]) if m.sum() > 3 else float("nan")
     # 10*log10 density slope: pink noise = -3.01 dB/oct, white = 0
     return {
@@ -80,7 +72,7 @@ def centroid(x, sr, f_p=None):
     return float(np.sum(f[m] * p[m]) / max(np.sum(p[m]), 1e-30))
 
 
-def stereo_by_band(x, sr, edges=(20, 120, 500, 2000, 8000, 20000)):
+def stereo_by_band(x, sr, edges=B.STEREO_EDGES):
     """Correlation and side/mid energy per band. Low-band correlation near 1 = mono bass."""
     if x.shape[1] < 2:
         return []

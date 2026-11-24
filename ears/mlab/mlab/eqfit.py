@@ -72,6 +72,7 @@ from __future__ import annotations
 import numpy as np
 from scipy import optimize
 
+from . import bands as B
 from . import dsp
 from . import loudness as L
 from . import target as T
@@ -142,8 +143,8 @@ def subband_edges(sr):
     """0, F_LOW, then 1/48-octave steps to Nyquist, plus every 1/3-octave band and region edge."""
     top = sr / 2
     k = np.arange(int(np.floor(np.log2(top / F_LOW) * SUB_PER_OCT)) + 1)
-    _, blo, bhi = T.band_grid(sr)
-    rlo, rhi = T.region_edges(sr)
+    _, blo, bhi = B.third_octave_grid(sr)
+    rlo, rhi = B.region_edges(sr)
     e = np.unique(np.concatenate([[0.0, top], F_LOW * 2 ** (k / SUB_PER_OCT), blo, bhi, rlo, rhi]))
     e = e[e <= top]
     return e[np.concatenate([[True], np.diff(e) > 1e-6])]
@@ -171,10 +172,10 @@ class Model:
         for b, a in L.k_weighting(sr):
             z2 = self.z1 * self.z1
             self.kw2 *= np.abs(b[0] + b[1] * self.z1 + b[2] * z2) ** 2 / np.abs(a[0] + a[1] * self.z1 + a[2] * z2) ** 2
-        c, blo, bhi = T.band_grid(sr)
+        c, blo, bhi = B.third_octave_grid(sr)
         self.band_hz = [T._hz(v) for v in c]
         self.band_ix = np.array([(_ix(e, a), _ix(e, b)) for a, b in zip(blo, bhi, strict=True)])
-        self.region_ix = {k: (_ix(e, a), _ix(e, b)) for k, a, b in zip(T.REGION_KEYS, *T.region_edges(sr), strict=True)}
+        self.region_ix = {k: (_ix(e, a), _ix(e, b)) for k, a, b in zip(B.REGION_KEYS, *B.region_edges(sr), strict=True)}
         keep, self.skipped = T.segments(sum(xs), sr, wins, bar_s)
         self.windows = {}
         for w, ((a, b), seg) in keep.items():
@@ -223,7 +224,7 @@ class Model:
         out = {}
         for w, p in self.predict({}).items():
             meas = {T._hz(c): v for c, v in self.windows[w]["measured_bands"]}
-            err = [(hz, v - meas[hz]) for hz, v in p["bands"] if T.in_score(hz) and hz in meas]
+            err = [(hz, v - meas[hz]) for hz, v in p["bands"] if B.in_score(hz) and hz in meas]
             if not err:
                 continue
             hz, e = max(err, key=lambda t: abs(t[1]))
@@ -364,7 +365,7 @@ def _compare(pred, tw):
     for b in bands:
         b.pop("values", None)
     regions = {}
-    for k in T.REGION_KEYS:
+    for k in B.REGION_KEYS:
         g = T.gap(pred["regions"][k], tw["regions"].get(k))
         if g:
             g.pop("values", None)
@@ -408,7 +409,7 @@ def measured_check(model, stems, plan, wins, bar_s=None):
         if not mw:
             continue
         meas = {T._hz(c): v for c, v in mw["bands"]}
-        err = [(hz, v - meas[hz]) for hz, v in pw["bands"] if T.in_score(hz) and hz in meas]
+        err = [(hz, v - meas[hz]) for hz, v in pw["bands"] if B.in_score(hz) and hz in meas]
         hz, e = max(err, key=lambda t: abs(t[1])) if err else (None, float("nan"))
         d_meas = mw["lufs"] - model.windows[w]["lufs"]
         d_pred = pw["lufs"] - model.windows[w]["lufs"]
@@ -471,7 +472,7 @@ def fit(
         b0 = dict((hz, v) for hz, v in before[w]["bands"])
         sel, dead = [], []
         for k, hz in enumerate(model.band_hz):
-            if not (T.in_score(hz) and hz in tb):
+            if not (B.in_score(hz) and hz in tb):
                 continue
             (dead if b0[hz] < tb[hz]["min"] - UNREACHABLE_DB else sel).append(k)
         unreachable[w] = [

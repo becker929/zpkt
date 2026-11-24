@@ -8,6 +8,7 @@ import json
 import os
 import sys
 
+from . import bands as B
 from . import io as aio
 from .util import r
 
@@ -347,21 +348,21 @@ def cmd_target(a):
         ):
             print(_range_row(label, sc[key]))
         print("\n  Regions (dB rel LUFS)")
-        for k in T.REGION_KEYS:
-            print(_range_row(T.LABELS[k], gw["regions"][k]))
+        for k in B.REGION_KEYS:
+            print(_range_row(B.REGION_LABELS[k], gw["regions"][k]))
         print("\n  Side minus mid (dB)")
-        for k in T.SM_KEYS:
-            print(_range_row(T.LABELS[k], gw["side_minus_mid_db"][k]))
+        for k in B.SIDE_MID_KEYS:
+            print(_range_row(B.REGION_LABELS[k], gw["side_minus_mid_db"][k]))
         print("\n  1/3 octave, mix - refs mean (dB); < or > = outside the refs' range")
         cells = [
-            f"{T.nominal(b['hz'])}:{b['diff']:+.1f}{'<' if b['outside'] < 0 else '>' if b['outside'] > 0 else ''}"
+            f"{B.nominal(b['hz'])}:{b['diff']:+.1f}{'<' if b['outside'] < 0 else '>' if b['outside'] > 0 else ''}"
             for b in gw["bands"]
         ]
         for i in range(0, len(cells), 10):
             print("  " + " ".join(f"{c:<11}" for c in cells[i : i + 10]).rstrip())
         s = gw["score"]
         print(
-            f"  score {T.hz_text(T.SCORE_HZ[0])}-{T.hz_text(T.SCORE_HZ[1])}: rms outside "
+            f"  score {B.hz_text(B.SCORE_HZ[0])}-{B.hz_text(B.SCORE_HZ[1])}: rms outside "
             f"{_num(s['rms_outside_db'], '{:.2f}')} dB, rms diff {_num(s['rms_diff_db'], '{:.2f}')} dB "
             f"({s['bands']} bands)"
         )
@@ -418,7 +419,7 @@ def cmd_eqfit(a):
     for w, u in res["unreachable"].items():
         print(
             f"  {w}: left out of the fit, no content to EQ (>{E.UNREACHABLE_DB:g} dB under every reference): "
-            + ", ".join(T.hz_text(b["hz"]) for b in u)
+            + ", ".join(B.hz_text(b["hz"]) for b in u)
         )
     if res["trimmed_s"] > 0:
         print(f"  stems trimmed to the shortest: {res['trimmed_s']:.2f} s cut")
@@ -447,13 +448,13 @@ def cmd_eqfit(a):
         print(
             f"  {'region (dB rel LUFS)':<26}{'before':>8}{'after':>8}   {'refs mean [min .. max]':<24}{'outside before -> after':>24}"
         )
-        for k in T.REGION_KEYS:
+        for k in B.REGION_KEYS:
             b0, a0 = rw["before"]["regions"][k], rw["after"]["regions"][k]
             if not b0:
                 continue
             rng = f"{b0['mean']:.1f} [{b0['min']:.1f} .. {b0['max']:.1f}]"
             print(
-                f"  {T.LABELS[k]:<26}{b0['mix']:>8.1f}{a0['mix']:>8.1f}   {rng:<24}"
+                f"  {B.REGION_LABELS[k]:<26}{b0['mix']:>8.1f}{a0['mix']:>8.1f}   {rng:<24}"
                 f"{_num(b0['outside']):>15} -> {_num(a0['outside'])}"
             )
         sb, sa = rw["before"]["score"], rw["after"]["score"]
@@ -465,7 +466,7 @@ def cmd_eqfit(a):
     print("\nModel check: predicted with no moves vs measured stem sum, 31.5 Hz-16 kHz")
     for w, m in res["model_check"].items():
         print(
-            f"  {w}: max |error| {m['max_abs_err_db']:.2f} dB at {T.hz_text(m['at_hz'])} (rms {m['rms_err_db']:.2f} dB)"
+            f"  {w}: max |error| {m['max_abs_err_db']:.2f} dB at {B.hz_text(m['at_hz'])} (rms {m['rms_err_db']:.2f} dB)"
         )
     print("  " + res["note"])
     if any(m["max_abs_err_db"] > 1.0 for m in res["model_check"].values()):
@@ -479,7 +480,7 @@ def cmd_eqfit(a):
             print(
                 f"  {w}: LUFS change measured {m['lufs_change_measured_lu']:+.2f} LU, predicted "
                 f"{m['lufs_change_predicted_lu']:+.2f} LU; worst band error {m['max_abs_band_err_db']:.2f} dB"
-                + (f" at {T.hz_text(m['at_hz'])}" if m["at_hz"] else "")
+                + (f" at {B.hz_text(m['at_hz'])}" if m["at_hz"] else "")
                 + ("  ! LUFS prediction off by more than 0.5 LU: the band targets moved too" if m["flag"] else "")
             )
     if a.out:

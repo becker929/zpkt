@@ -18,6 +18,7 @@ import numpy as np
 import soundfile as sf
 from scipy import signal
 
+from . import bands as B
 from .util import db, dc_is_real, dc_offset_db, pdb, r
 
 
@@ -61,8 +62,9 @@ def noise_shape_tilt(x, sr, mask):
     if len(seg) < 4096 or sr < 36000:
         return None
     f, p = signal.welch(seg.mean(axis=1), sr, nperseg=4096)
-    lo = p[(f > 1000) & (f < 5000)].mean()
-    hi = p[(f > 15000) & (f < min(20000, sr / 2 * 0.95))].mean()
+    (low_from, low_to), (high_from, high_to) = B.DITHER_TILT_LOW_HZ, B.DITHER_TILT_HIGH_HZ
+    lo = p[(f > low_from) & (f < low_to)].mean()
+    hi = p[(f > high_from) & (f < min(high_to, sr / 2 * 0.95))].mean()
     return float(pdb(hi) - pdb(lo))
 
 

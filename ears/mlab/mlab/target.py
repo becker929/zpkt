@@ -37,6 +37,7 @@ import os
 
 import numpy as np
 
+from . import bands as B
 from . import dynamics as D
 from . import loudness as L
 from . import spectrum as S
@@ -45,72 +46,22 @@ from .util import pdb
 BARS = 16  # build and drop: 16 bars each
 MIN_BARS = 4  # a window clipped below 4 bars is skipped
 LAYOUT = {"build": (-BARS, 0), "drop": (0, BARS)}  # bar offsets from the drop
-SCORE_HZ = (31.5, 16000.0)  # 1/3-octave bands that count in scores
 SM_FLOOR = -99.0  # side-minus-mid floor (a mono file has no side)
 SCALARS = ("lufs", "true_peak_db", "plr_db", "block_crest_median_db", "transient_contrast_median_db")
 
-# key, label, lo Hz, hi Hz. The first eight tile 20 Hz-20 kHz; side/mid uses their edges.
-REGIONS = [
-    ("sub", "sub 20-60", 20, 60),
-    ("bass", "bass 60-120", 60, 120),
-    ("low_mids", "low mids 120-300", 120, 300),
-    ("mud", "mud 300-600", 300, 600),
-    ("mids", "mids 600-1.5k", 600, 1500),
-    ("upper_mids", "upper mids 1.5-4k", 1500, 4000),
-    ("presence", "presence 4-8k", 4000, 8000),
-    ("air", "air 8-20k", 8000, 20000),
-    ("deep_sub", "deep sub 20-48", 20, 48),
-    ("kick_body", "kick/bass body 55-120", 55, 120),
-    ("bite", "bite 1-4k", 1000, 4000),
-    ("air_8_14k", "air 8-14k", 8000, 14000),
-]
-REGION_KEYS = [k for k, *_ in REGIONS]
-LABELS = {k: lab for k, lab, *_ in REGIONS}
-SM_EDGES = (20, 60, 120, 300, 600, 1500, 4000, 8000, 20000)
-SM_KEYS = REGION_KEYS[:8]
-NOMINAL = [
-    "25",
-    "31.5",
-    "40",
-    "50",
-    "63",
-    "80",
-    "100",
-    "125",
-    "160",
-    "200",
-    "250",
-    "315",
-    "400",
-    "500",
-    "630",
-    "800",
-    "1k",
-    "1.25k",
-    "1.6k",
-    "2k",
-    "2.5k",
-    "3.15k",
-    "4k",
-    "5k",
-    "6.3k",
-    "8k",
-    "10k",
-    "12.5k",
-    "16k",
-    "20k",
-]  # IEC nominal names of spectrum.CENTRES
-
-
-def nominal(hz):
-    """Nominal name of a 1/3-octave centre: 31.6 -> '31.5', 1258.9 -> '1.25k'."""
-    i = int(np.argmin(np.abs(np.log(S.CENTRES / hz))))
-    return NOMINAL[i] if abs(np.log(S.CENTRES[i] / hz)) < 0.05 else f"{hz:g}"
-
-
-def hz_text(hz):
-    n = nominal(hz)
-    return n[:-1] + " kHz" if n.endswith("k") else n + " Hz"
+# The band tables live in bands.py; these names stay for callers (eqfit, the CLI, the calibration checks).
+SCORE_HZ = B.SCORE_HZ
+REGIONS = B.REGIONS
+REGION_KEYS = B.REGION_KEYS
+LABELS = B.REGION_LABELS
+SM_EDGES = B.SIDE_MID_EDGES
+SM_KEYS = B.SIDE_MID_KEYS
+NOMINAL = B.NOMINAL
+nominal = B.nominal
+hz_text = B.hz_text
+band_grid = B.third_octave_grid
+region_edges = B.region_edges
+in_score = B.in_score
 
 
 # ------------------------------------------------------------------ windows
@@ -193,13 +144,6 @@ def psd(seg, sr):
     return f, p.mean(axis=1) * k * n / (4.0 * len(x))
 
 
-def band_grid(sr):
-    """Centres and edges of spectrum.third_octave's bands that fit under Nyquist."""
-    top_edges = S.CENTRES * 10**0.05
-    c = S.CENTRES[top_edges <= sr / 2]
-    return c, c / 10**0.05, c * 10**0.05
-
-
 def band_power(f, p, lo, hi):
     """Integral of the PSD over [lo, hi) Hz (scalars or arrays).
 
@@ -208,11 +152,6 @@ def band_power(f, p, lo, hi):
     e = np.concatenate([[0.0], (f[:-1] + f[1:]) / 2, [f[-1]]])
     c = np.concatenate([[0.0], np.cumsum(p * np.diff(e))])
     return np.interp(hi, e, c) - np.interp(lo, e, c)
-
-
-def region_edges(sr):
-    lo = np.array([r[2] for r in REGIONS], float)
-    return lo, np.minimum([r[3] for r in REGIONS], sr / 2)
 
 
 def spectral(seg, sr, lufs):
@@ -354,10 +293,6 @@ def gap(mix, st):
         "n": st["n"],
         "values": st["values"],
     }
-
-
-def in_score(hz):
-    return SCORE_HZ[0] / 1.06 <= hz <= SCORE_HZ[1] * 1.06
 
 
 def score(bands):

@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import numpy as np
 
+from . import bands as B
 from . import loudness as L
 from . import spectrum as S
 from .util import db, dc_is_real, dc_offset_db, r, rms
@@ -140,7 +141,7 @@ def run(audio, lres=None, checks=None):
                 "negative overall correlation = polarity problem",
             )
         )
-        sb = S.stereo_by_band(x, sr, edges=(20, 120))
+        sb = S.stereo_by_band(x, sr, edges=B.LOW_END_HZ)
         lc = sb[0]["correlation"] if sb else 1.0
         rows.append(
             _row(

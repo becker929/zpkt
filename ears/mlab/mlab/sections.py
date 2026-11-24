@@ -17,11 +17,10 @@ from __future__ import annotations
 import numpy as np
 from scipy import signal
 
+from . import bands as B
 from . import loudness as L
 from . import spectrum as S
 
-LOW_HZ = 100.0
-HIGH_HZ = (2000.0, 16000.0)
 KICK_DROP_DB = 8.0
 PEAK_S = 30.0
 PEAK_KICK_FRACTION = 0.9
@@ -49,8 +48,8 @@ def bars(x, sr, bpm):
     """Per-bar (low_db, high_db) arrays on a grid starting at sample 0."""
     bar = 4 * 60 / bpm
     nb = int(len(x) / sr / bar)
-    lo = signal.sosfilt(signal.butter(4, LOW_HZ, "low", fs=sr, output="sos"), x.mean(axis=1))
-    hi = signal.sosfilt(signal.butter(4, HIGH_HZ, "bandpass", fs=sr, output="sos"), x.mean(axis=1))
+    lo = signal.sosfilt(signal.butter(4, B.KICK_LOWPASS_HZ, "low", fs=sr, output="sos"), x.mean(axis=1))
+    hi = signal.sosfilt(signal.butter(4, B.HATS_HZ, "bandpass", fs=sr, output="sos"), x.mean(axis=1))
     low_db, high_db = np.empty(nb), np.empty(nb)
     for b in range(nb):
         a, e = int(b * bar * sr), int((b + 1) * bar * sr)
