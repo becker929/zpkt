@@ -12,8 +12,9 @@ original render and the references, as audio clips in the Arrangement, with thei
 its raw value; `apply` sets the raw value, which round-trips exactly on the same Live version.
 
 `apply` works on the finishing set or on a mix set freshly built by contrib/arranger/mixset.py: it adds what is
-missing (workspace.py's returns and desk devices), then sets every value, one device and at most 16 parameters per
-LOM call (ableton-guide Rule 2), and reads them back.
+missing (workspace.py's returns and desk devices), then puts the desk back with hands.live.state (only values that
+differ, one device and at most 16 parameters per LOM call, ableton-guide Rule 2) and reads them back. `write` reads
+the set with hands.live.state too; the "desk" it writes has the shape of lib/contracts/desk.schema.json.
 """
 from __future__ import annotations
 
@@ -23,78 +24,67 @@ import shutil
 import sys
 import time
 from pathlib import Path
+from typing import Any
 
-HERE = Path(__file__).resolve().parent
-sys.path.insert(0, str(HERE))
-import match as M  # noqa: E402  (sets the rig environment for liveops before hands is imported)
-import monitor as MON  # noqa: E402
-import workspace as W  # noqa: E402
+import finishing as F
+import match as M
+import monitor as MON
+import workspace as W
 
-L = M.L
+from hands.live import hold
+from hands.live import state as S
+from hands.live.ops import LiveOps
+
 DATA = Path(os.environ.get("ARRANGER_DATA", "~/_agent_scratch/arranger")).expanduser()
 ARR = DATA / "arrangements" / "short-8d2a2.json"
-BACKUPS = M.OUT / "backups"
+BACKUPS = F.OUT / "backups"
 OWNED = [("kick", "EQ Eight", ["Device On"])]   # switches on devices the desk did not add
+NOTE = (__doc__ or "").split("\n\n")[2].replace("\n", " ")
+MONITOR_CLIPS = ("result = [[t.name, [[c.file_path, c.start_time, c.warping] for c in t.arrangement_clips]] "
+                 "for t in song.tracks if t.name.startswith('mon ')]")
 
 
-def _track_names() -> list[str]:
-    return L.run("result = [t.name for t in list(song.tracks) + list(song.return_tracks)] + ['Main']")
+def _device(d: S.DeviceState) -> dict[str, Any]:
+    return {"name": d["name"], "class": d["class"], "values": d["params"]}
 
 
-def _short(name: str) -> str:
-    """A return's name without Live's letter ("A-Space" -> "Space")."""
-    return name[2:] if len(name) > 2 and name[1] == "-" and name[0].isalpha() and name[0].isupper() else name
-
-
-def _params(t: str, k: int) -> dict:
-    count = L.run(f"result = len({t}.devices[{k}].parameters)")
-    out = {}
-    for a in range(0, count, 20):
-        for name, shown, raw in L.run(f"d = {t}.devices[{k}]\nresult = [[p.name, str(p), p.value] for p in list(d.parameters)[{a}:{a + 20}]]"):
-            out[name] = [shown, raw]
-    return out
-
-
-def read_desk() -> dict:
-    names = _track_names()
-    rets = L.run("result = [t.name for t in song.return_tracks]")
-    desk = {"made": time.time(), "set": M.SET, "note": __doc__.split("\n\n")[2].replace("\n", " "),
-            "returns": [], "chains": {}, "mixer": {}, "owned": []}
+def desk_from_state(state: S.State, clips: list[Any], set_name: str, made: float) -> dict[str, Any]:
+    """The recipe's "desk" from a state just taken and the monitor tracks' clips ([[track, [[file, beat,
+    warping], ...]], ...]): returns, desk chains, every mixer, the owned switches, the monitor tracks."""
+    rets = state["returns"]
+    desk: dict[str, Any] = {"made": made, "set": set_name, "note": NOTE, "returns": [], "chains": {}, "mixer": {},
+                            "owned": []}
     for r in rets:
-        t = M.tr(_short(r))
-        devs = L.run(f"result = [[d.name, d.class_name] for d in {t}.devices]")
-        desk["returns"].append({"name": _short(r), "devices": [{"name": n, "class": c, "values": _params(t, k)}
-                                                              for k, (n, c) in enumerate(devs)]})
-    for n in names:
-        t = M.tr(_short(n))
-        devs = L.run(f"result = [[d.name, d.class_name] for d in {t}.devices]")
-        chain = [{"name": dn, "class": c, "values": _params(t, k)} for k, (dn, c) in enumerate(devs) if dn.startswith("desk ")]
+        desk["returns"].append({"name": S.short(r, rets), "devices": [_device(d) for d in state["tracks"][r]["devices"]]})
+    for n, body in state["tracks"].items():
+        name = S.short(n, rets)
+        chain = [_device(d) for d in body["devices"] if d["name"].startswith("desk ")]
         if chain:
-            desk["chains"][_short(n)] = chain
-        mix = L.run(f"t = {t}\nm = t.mixer_device\nresult = [[str(m.volume), m.volume.value], [str(m.panning), m.panning.value], "
-                    "[[str(s), s.value] for s in m.sends]]")
-        entry = {"volume": mix[0], "pan": mix[1], "sends": {_short(r): s for r, s in zip(rets, mix[2])}}
+            desk["chains"][name] = chain
+        m = body["mixer"]
+        entry: dict[str, Any] = {"volume": m["volume"], "pan": m["pan"],
+                                 "sends": {S.short(r, rets): v for r, v in m.get("sends", {}).items()}}
         if n != "Main":
-            entry["mute"] = L.run(f"result = bool({t}.mute)")
-        desk["mixer"][_short(n)] = entry
+            entry["mute"] = bool(m["mute"][1])
+        desk["mixer"][name] = entry
+    by_short = {S.short(n, rets): body for n, body in state["tracks"].items()}
     for track, dev, params in OWNED:
-        t = M.tr(track)
-        k = L.run(f"result = [d.name for d in {t}.devices].index({dev!r}) if {dev!r} in [d.name for d in {t}.devices] else -1")
-        if k >= 0:
-            vals = _params(t, k)
-            desk["owned"].append({"track": track, "device": dev, "values": {p: vals[p] for p in params}})
-    desk["monitor"] = [{"track": n, "file": clips[0][0], "beat": clips[0][1], "warping": clips[0][2]}
-                       for n, clips in L.run("result = [[t.name, [[c.file_path, c.start_time, c.warping] "
-                                             "for c in t.arrangement_clips]] for t in song.tracks "
-                                             "if t.name.startswith('mon ')]") if clips]
+        found = next((d for d in by_short[track]["devices"] if d["name"] == dev), None) if track in by_short else None
+        if found is not None:
+            desk["owned"].append({"track": track, "device": dev, "values": {p: found["params"][p] for p in params}})
+    desk["monitor"] = [{"track": n, "file": c[0][0], "beat": c[0][1], "warping": c[0][2]} for n, c in clips if c]
     return desk
 
 
-def write() -> None:
+def read_desk(live: LiveOps, set_name: str = M.SET) -> dict[str, Any]:
+    return desk_from_state(S.take(live.client), live.run(MONITOR_CLIPS), set_name, time.time())
+
+
+def write(live: LiveOps, set_name: str = M.SET) -> None:
     arr = json.loads(ARR.read_text())
     BACKUPS.mkdir(parents=True, exist_ok=True)
     shutil.copy2(ARR, BACKUPS / f"{ARR.stem}.{time.strftime('%Y%m%d-%H%M%S')}.json")
-    arr["desk"] = read_desk()
+    arr["desk"] = read_desk(live, set_name)
     tmp = ARR.with_name(f".{ARR.stem}.tmp")
     tmp.write_text(json.dumps(arr))
     tmp.replace(ARR)
@@ -121,71 +111,22 @@ def show() -> None:
         print(f"{track:22s} vol {m['volume'][0]:>10s} pan {m['pan'][0]:>5s} mute {m.get('mute', False)!s:5s} sends {sends}")
 
 
-def _set_raw(t: str, k: int, values: dict) -> None:
-    items = [(n, v[1]) for n, v in values.items()]
-    for a in range(0, len(items), 16):
-        code = (f"d = {t}.devices[{k}]\nps = {{p.name: p for p in d.parameters}}\nbad = []\n"
-                f"for n, v in {items[a:a + 16]!r}:\n"
-                "    p = ps.get(n)\n"
-                "    if p is None or not p.is_enabled:\n"
-                "        bad.append(n)\n"
-                "    else:\n"
-                "        p.value = max(p.min, min(p.max, v))\n"
-                "result = bad")
-        bad = L.run(code)
-        if bad:
-            print(f"  note: {t}.devices[{k}]: not set {bad}", flush=True)
+def apply_desk(live: LiveOps, desk: dict[str, Any], log: Any = print) -> list[S.Row]:
+    """Put `desk` into the set in front: workspace.py's returns and desk devices and the monitor tracks where
+    missing, then every value (hands.live.state.put). Returns what still differs after the read-back."""
+    W.devices(live)   # returns and desk devices, added where missing, at neutral values
+    if desk.get("monitor"):   # the monitor tracks and their clips, added where missing (muted), before their mixers
+        MON.ensure(live, log=log, want={m["track"]: (Path(m["file"]), float(m["beat"])) for m in desk["monitor"]})
+    return S.put(live.client, S.from_desk(desk))
 
 
-def apply() -> None:
+def apply(live: LiveOps, set_name: str = M.SET) -> None:
     d = json.loads(ARR.read_text()).get("desk")
     if not d:
         sys.exit(f"{ARR} has no desk yet")
-    W.devices()   # returns and desk devices, added where missing, at neutral values
-    if d.get("monitor"):   # the monitor tracks and their clips, added where missing (muted), before their mixers
-        MON.ensure(L, log=lambda *a: print(*a, flush=True),
-                   want={m["track"]: (Path(m["file"]), float(m["beat"])) for m in d["monitor"]})
-    for r in d["returns"]:
-        t = M.tr(r["name"])
-        have = L.run(f"result = [d.name for d in {t}.devices]")
-        for dev in r["devices"]:
-            _set_raw(t, have.index(dev["name"]), dev["values"])
-    for track, chain in d["chains"].items():
-        t = M.tr(track)
-        have = L.run(f"result = [d.name for d in {t}.devices]")
-        for dev in chain:
-            if dev["name"] not in have:
-                sys.exit(f"STOP: {track} has no {dev['name']} after workspace.devices()")
-            _set_raw(t, have.index(dev["name"]), dev["values"])
-    for o in d.get("owned", []):
-        t = M.tr(o["track"])
-        have = L.run(f"result = [d.name for d in {t}.devices]")
-        if o["device"] in have:
-            _set_raw(t, have.index(o["device"]), o["values"])
-    rets = L.run("result = [t.name for t in song.return_tracks]")
-    for track, m in d["mixer"].items():
-        t = M.tr(track)
-        lines = [f"t = {t}", "m = t.mixer_device", f"m.volume.value = {m['volume'][1]!r}", f"m.panning.value = {m['pan'][1]!r}"]
-        for k, r in enumerate(rets):
-            if _short(r) in m["sends"]:
-                lines.append(f"m.sends[{k}].value = {m['sends'][_short(r)][1]!r}")
-        if "mute" in m and track != "Main":
-            lines.append(f"t.mute = {bool(m['mute'])!r}")
-        L.run("\n".join(lines) + "\nresult = 'ok'")
-    # read back: every value the recipe holds, as Live now shows it
-    now, wrong = read_desk(), []
-    for track, chain in d["chains"].items():
-        got = {x["name"]: x["values"] for x in now["chains"].get(track, [])}
-        for dev in chain:
-            for n, (shown, raw) in dev["values"].items():
-                g = got.get(dev["name"], {}).get(n)
-                if g is None or abs(g[1] - raw) > 1e-6:
-                    wrong.append(f"{track}/{dev['name']}/{n}: {g and g[0]} != {shown}")
-    for track, m in d["mixer"].items():
-        g = now["mixer"].get(track)
-        if g is None or abs(g["volume"][1] - m["volume"][1]) > 1e-6 or abs(g["pan"][1] - m["pan"][1]) > 1e-6:
-            wrong.append(f"{track} mixer: {g and g['volume'][0]} != {m['volume'][0]}")
-    print("recipe applied" if not wrong else "MISMATCH:\n  " + "\n  ".join(wrong[:40]), flush=True)
+    wrong = apply_desk(live, d, log=lambda *a: print(*a, flush=True))
+    lines = [f"{k}: {have} != {want}" for k, want, have in wrong]
+    print("recipe applied" if not wrong else "MISMATCH:\n  " + "\n  ".join(lines[:40]), flush=True)
     if wrong:
         sys.exit(1)
 
@@ -196,13 +137,16 @@ def main() -> None:
         return show()
     if cmd not in ("write", "apply"):
         sys.exit(__doc__)
+    set_name = M.SET
     if cmd == "apply" and sys.argv[2:3] == ["--set"]:   # apply onto another HW002_121_pp_ set (a rebuild check)
-        M.SET = W.SET = sys.argv[3]
-    was = M._front_app()
-    with M.hold.using_live(f"mixdesk recipe {cmd}"):
+        set_name = sys.argv[3]
+    F.use_rig()
+    live = F.ops()
+    was = M.front_app()
+    with hold.using_live(f"mixdesk recipe {cmd}"):
         try:
-            M.front()
-            {"write": write, "apply": apply}[cmd]()
+            M.front(live, set_name)
+            {"write": write, "apply": apply}[cmd](live, set_name)
         finally:
             M.give_back(was)
 
