@@ -30,6 +30,7 @@ from hands.live.transport import LiveClient, LiveError
 import history
 import meter
 import monitor
+import protocol
 import surfaces
 
 HERE = Path(__file__).resolve().parent
@@ -183,8 +184,9 @@ def udp() -> None:
     while True:
         data, _ = s.recvfrom(65536)
         try:
-            msg = json.loads(data)
-        except ValueError:
+            msg: dict = dict(protocol.parse_datagram(data))
+        except protocol.BadMessage as exc:
+            print(f"mixdesk: dropped a datagram from the pager: {exc}", flush=True)
             continue
         with LOCK:
             if msg["t"] == "v":
