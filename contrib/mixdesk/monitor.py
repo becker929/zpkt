@@ -7,6 +7,7 @@
 bar 17), warping off. All of them stay MUTED unless the desk is monitoring them (pager.monitor), so a render of the set
 never doubles. The files are the WAVs analyze.py wrote. Each step is one short LOM call, as the ableton guide asks.
 """
+
 from __future__ import annotations
 
 import json
@@ -68,8 +69,10 @@ def remove(live: LiveClient | None = None) -> None:
 
 def status(live: LiveClient | None = None) -> list:
     live = live or LiveClient(timeout=10.0, retries=1)
-    return live.run("result = [[t.name, t.mute, t.solo, [(c.file_path.split('/')[-1], c.start_time, c.end_time, c.warping) for c in t.arrangement_clips]] "
-                    "for t in song.tracks if t.name.startswith('mon ')]")
+    return live.run(
+        "result = [[t.name, t.mute, t.solo, [(c.file_path.split('/')[-1], c.start_time, c.end_time, c.warping) for c in t.arrangement_clips]] "
+        "for t in song.tracks if t.name.startswith('mon ')]"
+    )
 
 
 if __name__ == "__main__":

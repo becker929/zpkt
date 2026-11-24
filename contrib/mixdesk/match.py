@@ -15,6 +15,7 @@ each a track and either a device parameter or a mixer value, in Live's own units
 
 Everything here happens in Live with the set's own devices (contrib/docs/sound.md); nothing is processed offline.
 """
+
 from __future__ import annotations
 
 import json
@@ -37,7 +38,7 @@ ROOT = HERE.parents[1]
 RENDERS, SNAPS = F.RENDERS, F.SNAPSHOTS
 SET = F.SET
 BAR = 4.0
-BARS = (1, 40)          # the whole 8d2a2 arrangement: build 1-16, drop 17-32, horn's return 33-40
+BARS = (1, 40)  # the whole 8d2a2 arrangement: build 1-16, drop 17-32, horn's return 33-40
 BUSES = ["Kick bus", "Hats bus", "Perc bus", "Chord and splash bus", "Break bus", "Transitions bus"]
 
 
@@ -58,17 +59,33 @@ def give_back(was: str) -> None:
 
 
 def to_flac(wav: Path, flac: Path) -> None:
-    code = ("import soundfile as sf, sys\nx, r = sf.read(sys.argv[1], always_2d=True)\n"
-            "sf.write(sys.argv[2], x, r, subtype='PCM_24')")
-    subprocess.run([str(Path("~/.local/bin/uv").expanduser()), "run", "--project", str(ROOT / "ears"), "python", "-c",
-                    code, str(wav), str(flac)], check=True, capture_output=True)
+    code = (
+        "import soundfile as sf, sys\nx, r = sf.read(sys.argv[1], always_2d=True)\n"
+        "sf.write(sys.argv[2], x, r, subtype='PCM_24')"
+    )
+    subprocess.run(
+        [
+            str(Path("~/.local/bin/uv").expanduser()),
+            "run",
+            "--project",
+            str(ROOT / "ears"),
+            "python",
+            "-c",
+            code,
+            str(wav),
+            str(flac),
+        ],
+        check=True,
+        capture_output=True,
+    )
     wav.unlink()
 
 
 def solo(live: LiveOps, names: list[str]) -> None:
     want = sorted(names)
-    live.run("for t in list(song.tracks) + list(song.return_tracks):\n"
-             f"    t.solo = t.name in {set(names)!r}\nresult = 'ok'")
+    live.run(
+        f"for t in list(song.tracks) + list(song.return_tracks):\n    t.solo = t.name in {set(names)!r}\nresult = 'ok'"
+    )
     got = sorted(live.run("result = [t.name for t in list(song.tracks) + list(song.return_tracks) if t.solo]"))
     if got != want:
         sys.exit(f"STOP: soloed {got}, wanted {want}")
@@ -101,12 +118,19 @@ def snapshot_from_state(state: S.State, set_name: str, at: str) -> dict[str, Any
     for name, body in state["tracks"].items():
         m = body["mixer"]
         sends = list(m.get("sends", {}).values())
-        mixer = {"volume": m["volume"][0], "volumeRaw": m["volume"][1], "pan": m["pan"][0],
-                 "sends": [v[0] for v in sends], "sendsRaw": [v[1] for v in sends],
-                 "mute": bool(m["mute"][1]) if "mute" in m else False,
-                 "solo": bool(m["solo"][1]) if "solo" in m else False}
-        devices = [{"name": d["name"], "class": d["class"], "params": [[p, v[0], v[1]] for p, v in d["params"].items()]}
-                   for d in body["devices"]]
+        mixer = {
+            "volume": m["volume"][0],
+            "volumeRaw": m["volume"][1],
+            "pan": m["pan"][0],
+            "sends": [v[0] for v in sends],
+            "sendsRaw": [v[1] for v in sends],
+            "mute": bool(m["mute"][1]) if "mute" in m else False,
+            "solo": bool(m["solo"][1]) if "solo" in m else False,
+        }
+        devices = [
+            {"name": d["name"], "class": d["class"], "params": [[p, v[0], v[1]] for p, v in d["params"].items()]}
+            for d in body["devices"]
+        ]
         tracks[name] = {"mixer": mixer, "devices": devices}
     return {"set": set_name, "at": at, "tracks": tracks}
 
@@ -135,9 +159,16 @@ def apply(live: LiveOps, plan_path: str) -> None:
             got = live.run(f"result = str({t}.mixer_device.volume)")
         elif m["param"].startswith("send:"):
             ret = m["param"][5:]
-            i = live.run(with_source(f"result = next(k for k, r in enumerate(song.return_tracks) "
-                                     f"if r.name == {ret!r} or short_name(r.name, True) == {ret!r})", "tracks"))
-            bad = live.run(with_source(f"result = set_shown({t}.mixer_device.sends[{i}], {str(m['value'])!r}, 'send')", "shown"))
+            i = live.run(
+                with_source(
+                    f"result = next(k for k, r in enumerate(song.return_tracks) "
+                    f"if r.name == {ret!r} or short_name(r.name, True) == {ret!r})",
+                    "tracks",
+                )
+            )
+            bad = live.run(
+                with_source(f"result = set_shown({t}.mixer_device.sends[{i}], {str(m['value'])!r}, 'send')", "shown")
+            )
             if bad:
                 sys.exit(f"STOP: {m}: {bad}")
             got = live.run(f"result = str({t}.mixer_device.sends[{i}])")
@@ -150,7 +181,7 @@ def apply(live: LiveOps, plan_path: str) -> None:
 
 
 FIT = HERE / "fit.json"
-MIN_GAIN_DB = 0.1      # a fitted band or trim smaller than this is left where it is
+MIN_GAIN_DB = 0.1  # a fitted band or trim smaller than this is left where it is
 
 
 def _hz(f: float) -> str:
@@ -181,11 +212,13 @@ def plan_from_fit(fit_out: dict) -> dict:
                 continue
             n = b["band"]
             dev = {"track": stem, "device": "desk EQ"}
-            moves += [{**dev, "param": f"{n} Filter On A", "value": "On"},
-                      {**dev, "param": f"{n} Filter Type A", "value": b["type"]},
-                      {**dev, "param": f"{n} Frequency A", "value": _hz(g["f"])},
-                      {**dev, "param": f"{n} Gain A", "value": f"{g['gain_db']:.1f} dB"},
-                      {**dev, "param": f"{n} Q A", "value": f"{g['q']:.2f}"}]
+            moves += [
+                {**dev, "param": f"{n} Filter On A", "value": "On"},
+                {**dev, "param": f"{n} Filter Type A", "value": b["type"]},
+                {**dev, "param": f"{n} Frequency A", "value": _hz(g["f"])},
+                {**dev, "param": f"{n} Gain A", "value": f"{g['gain_db']:.1f} dB"},
+                {**dev, "param": f"{n} Q A", "value": f"{g['q']:.2f}"},
+            ]
             kept.append(f"{stem} {b['label']}: {g['gain_db']:+.1f} dB at {_hz(g['f'])}, Q {g['q']:.2f}")
         if abs(got.get("gain_db", 0.0)) >= MIN_GAIN_DB:
             moves.append({"track": stem, "param": "volume", "value": f"{got['gain_db']:.1f} dB"})
@@ -196,12 +229,12 @@ def plan_from_fit(fit_out: dict) -> dict:
 
 def main() -> None:
     cmd, args = (sys.argv[1] if len(sys.argv) > 1 else ""), sys.argv[2:]
-    if cmd == "plan-from-fit":   # FIT_OUT.json PLAN.json: no Live needed
+    if cmd == "plan-from-fit":  # FIT_OUT.json PLAN.json: no Live needed
         plan = plan_from_fit(json.loads(Path(args[0]).read_text()))
         Path(args[1]).write_text(json.dumps(plan, indent=1))
         print("\n".join(plan["kept"]) + f"\n{len(plan['moves'])} moves -> {args[1]}")
         return
-    if cmd == "eqfit-moves":     # OUT.json: fit.json as mlab eqfit's moves spec
+    if cmd == "eqfit-moves":  # OUT.json: fit.json as mlab eqfit's moves spec
         Path(args[0]).write_text(json.dumps(eqfit_moves(), indent=1))
         return
     if cmd not in ("render", "stems", "snapshot", "apply"):
@@ -214,11 +247,11 @@ def main() -> None:
             front(live)
             if cmd == "render":
                 render(live, args[0])
-            elif cmd == "stems":   # stems [--as PREFIX] [BUS ...]: PREFIX defaults to "stem"
+            elif cmd == "stems":  # stems [--as PREFIX] [BUS ...]: PREFIX defaults to "stem"
                 prefix = "stem"
                 if args[:1] == ["--as"]:
                     prefix, args = args[1], args[2:]
-                for b in (args or BUSES):
+                for b in args or BUSES:
                     render(live, prefix + "-" + b.lower().replace(" ", "-"), [b])
             elif cmd == "snapshot":
                 snapshot(live, args[0])

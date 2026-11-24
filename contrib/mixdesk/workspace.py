@@ -10,6 +10,7 @@ an EQ Eight, a Saturator and a Glue Compressor on the buses that need them (Satu
 returns (Space, a Reverb; Echo, an Echo) with every send down, and on Main a Glue Compressor (0 % wet) and a Utility
 for width and bass mono (off) before the mix set's -6 dB headroom Utility. Each step is one short LOM call, read back.
 """
+
 from __future__ import annotations
 
 import json
@@ -49,7 +50,7 @@ def save(live: LiveOps) -> None:
     if ui.dialogs() == 0 and front(live) not in (SRC, snap):
         sys.exit(f"STOP: {SRC} is not in front")
     if not (SETS / f"{snap}.als").exists():
-        print("snapshot:", save_as(live, snap))   # the mix set's unsaved state, kept as it was
+        print("snapshot:", save_as(live, snap))  # the mix set's unsaved state, kept as it was
     print("workspace:", save_as(live, SET))
     print("front:", front(live))
 
@@ -75,16 +76,37 @@ def clean(live: LiveOps) -> None:
 
 
 # The desk's devices: name in the set -> (Live device, starting values in Live's own units). Neutral until moved.
-EQ = {"1 Filter On A": "Off", "1 Filter Type A": "High Pass 12dB", "1 Frequency A": "30 Hz",
-      "2 Filter On A": "On", "2 Filter Type A": "Low Shelf", "2 Frequency A": "120 Hz", "2 Gain A": "0.0 dB",
-      "3 Filter On A": "Off", "5 Filter On A": "Off", "6 Filter On A": "Off", "8 Filter On A": "Off",
-      "4 Filter On A": "On", "4 Filter Type A": "Bell", "4 Frequency A": "1600 Hz", "4 Gain A": "0.0 dB", "4 Q A": "1.00",
-      "7 Filter On A": "On", "7 Filter Type A": "High Shelf", "7 Frequency A": "10000 Hz", "7 Gain A": "0.0 dB"}
+EQ = {
+    "1 Filter On A": "Off",
+    "1 Filter Type A": "High Pass 12dB",
+    "1 Frequency A": "30 Hz",
+    "2 Filter On A": "On",
+    "2 Filter Type A": "Low Shelf",
+    "2 Frequency A": "120 Hz",
+    "2 Gain A": "0.0 dB",
+    "3 Filter On A": "Off",
+    "5 Filter On A": "Off",
+    "6 Filter On A": "Off",
+    "8 Filter On A": "Off",
+    "4 Filter On A": "On",
+    "4 Filter Type A": "Bell",
+    "4 Frequency A": "1600 Hz",
+    "4 Gain A": "0.0 dB",
+    "4 Q A": "1.00",
+    "7 Filter On A": "On",
+    "7 Filter Type A": "High Shelf",
+    "7 Frequency A": "10000 Hz",
+    "7 Gain A": "0.0 dB",
+}
 KICK_EQ = {**EQ, "2 Filter Type A": "Bell", "2 Frequency A": "45 Hz", "2 Q A": "1.00"}
 SAT = {"Type": "Soft Sine", "Drive": "0.0 dB", "Dry/Wet": "0.0 %"}
 GLUE = {"Dry/Wet": "0.0 %"}
 DEVICES = {
-    "Kick bus": [("desk EQ", "EQ Eight", KICK_EQ), ("desk Sat", "Saturator", SAT), ("desk Glue", "Glue Compressor", GLUE)],
+    "Kick bus": [
+        ("desk EQ", "EQ Eight", KICK_EQ),
+        ("desk Sat", "Saturator", SAT),
+        ("desk Glue", "Glue Compressor", GLUE),
+    ],
     "Hats bus": [("desk EQ", "EQ Eight", EQ), ("desk Sat", "Saturator", SAT)],
     "Perc bus": [("desk EQ", "EQ Eight", EQ)],
     "Chord and splash bus": [("desk EQ", "EQ Eight", EQ), ("desk Sat", "Saturator", SAT)],
@@ -107,8 +129,10 @@ def devices(live: LiveOps) -> None:
             live.load_item(t, "audio_effects", None, dev)
         live.setp(f"{t}.devices[0]", {wet: "100 %"})
     # the mix set's headroom Utility on Main gets a name the desk can find
-    live.run("d = song.master_track.devices[0]\nif d.class_name == 'StereoGain' and d.name == 'Utility':\n"
-             "    d.name = 'desk headroom'\nresult = 'ok'")
+    live.run(
+        "d = song.master_track.devices[0]\nif d.class_name == 'StereoGain' and d.name == 'Utility':\n"
+        "    d.name = 'desk headroom'\nresult = 'ok'"
+    )
     for track, devs in DEVICES.items():
         for name, dev, values in devs:
             t = track_expr(track)
@@ -119,8 +143,14 @@ def devices(live: LiveOps) -> None:
             live.run(f"{last}.name = {name!r}\nresult = 'ok'")
             live.setp(last, values)
             print(track, "+", name, flush=True)
-    print(json.dumps(live.run("result = [[t.name, [d.name for d in t.devices]] for t in list(song.tracks)[:6] "
-                              "+ list(song.return_tracks) + [song.master_track]]")))
+    print(
+        json.dumps(
+            live.run(
+                "result = [[t.name, [d.name for d in t.devices]] for t in list(song.tracks)[:6] "
+                "+ list(song.return_tracks) + [song.master_track]]"
+            )
+        )
+    )
 
 
 def checked_devices(live: LiveOps) -> None:

@@ -194,8 +194,9 @@ def matched_gains(sources: Mapping[str, Any]) -> dict[str, dict[str, float]]:
     """For each reference: the gain in dB that matches A, B and C (that reference) when the match is on. The page
     shows and draws these; the pager plays them (matched_gain_db)."""
     refs = [i for i in sources if i not in ("A", "B")]
-    return {ref: {slot: round(matched_gain_db(sources, slot, ref, True), 3) for slot in ("A", "B", "C")}
-            for ref in refs}
+    return {
+        ref: {slot: round(matched_gain_db(sources, slot, ref, True), 3) for slot in ("A", "B", "C")} for ref in refs
+    }
 
 
 def seek_beat(beat: float, slot: str, align_beat: float) -> float:

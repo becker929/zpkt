@@ -53,8 +53,12 @@ def test_arming_a_page_and_toggling_a_pad(rig):
     assert wait_for(lambda: rig.state()["page"] == 2)
     assert rig.call("m.DESK.page") == 2
     desk = rig.get("/api/desk")[1]
-    page, slot = next((i, s) for i, p in enumerate(desk["pages"]) for s, c in p["controls"].items()
-                      if s.startswith("b") and c.get("param") == "mute")
+    page, slot = next(
+        (i, s)
+        for i, p in enumerate(desk["pages"])
+        for s, c in p["controls"].items()
+        if s.startswith("b") and c.get("param") == "mute"
+    )
     track = rig.track(desk["pages"][page]["controls"][slot]["track"])
     was = track.mute
     assert rig.post("/api/toggle", {"slot": slot, "page": page}) == (200, {"ok": True})
@@ -151,8 +155,11 @@ def test_revert_all_puts_the_whole_mix_back_after_a_checkpoint(rig):
 # ---- surfaces ------------------------------------------------------------------------------------------------------
 
 
-SURFACE = {"name": "Kick test", "what": "the kick bus", "controls": {"f1": {"track": "Kick bus", "param": "volume"},
-                                                                     "b1": {"track": "Kick bus", "param": "mute"}}}
+SURFACE = {
+    "name": "Kick test",
+    "what": "the kick bus",
+    "controls": {"f1": {"track": "Kick bus", "param": "volume"}, "b1": {"track": "Kick bus", "param": "mute"}},
+}
 
 
 def test_save_and_remove_a_surface(rig):
@@ -195,7 +202,7 @@ def test_events_start_with_the_full_state_then_stream_moves(rig):
     with urllib.request.urlopen(rig.url + "/events", timeout=10) as r:
         assert r.headers["Content-Type"] == "text/event-stream"
         validator = jsonschema.Draft202012Validator(json.loads(gen_schema.OUT.read_text()))
-        first = json.loads(r.readline().decode()[len("data: "):])
+        first = json.loads(r.readline().decode()[len("data: ") :])
         validator.validate(first)
         assert first["t"] == "full" and first["state"]["live"] == "attached"
         assert r.readline() == b"\n"

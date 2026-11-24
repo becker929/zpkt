@@ -129,8 +129,16 @@ def value_report(control):
 
 def value_message(page, slot, control, sys_move):
     """The {"t": "v"} datagram for a control that moved; sys_move: the desk itself moved it (a monitor switch)."""
-    return {"t": "v", "page": page, "slot": slot, "n": control.norm(), "s": control.text(), "r": control.raw(),
-            "key": control.key, "sys": bool(sys_move)}
+    return {
+        "t": "v",
+        "page": page,
+        "slot": slot,
+        "n": control.norm(),
+        "s": control.text(),
+        "r": control.raw(),
+        "key": control.key,
+        "sys": bool(sys_move),
+    }
 
 
 def inventory_line(track, device, param, now, lowest, highest, quantized):

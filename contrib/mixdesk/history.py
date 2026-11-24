@@ -12,6 +12,7 @@ state's keys ("Hats bus/desk EQ/1 Gain A", "Kick bus/volume"), which is what the
 
 The history itself is kept in HISTORY_DIR/<set>.json, so it outlives a server restart.
 """
+
 from __future__ import annotations
 
 import json
@@ -27,10 +28,10 @@ from typing import Any
 from hands import config
 from hands.live import state as S
 
-COALESCE_S = 2.0          # one control moved again within this long: the same step
-TOGETHER_S = 0.3          # another control moved within this long of the step: the same gesture (a macro's parameters)
-EXPECT_S = 2.0            # a value the desk wrote itself (undo, redo, revert) is not a new move for this long
-KEEP = 500                # entries kept on disk
+COALESCE_S = 2.0  # one control moved again within this long: the same step
+TOGETHER_S = 0.3  # another control moved within this long of the step: the same gesture (a macro's parameters)
+EXPECT_S = 2.0  # a value the desk wrote itself (undo, redo, revert) is not a new move for this long
+KEEP = 500  # entries kept on disk
 HISTORY_DIR = Path("~/_agent_scratch/mixdesk/history").expanduser()
 NAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9 ._-]{0,60}$")
 
@@ -49,8 +50,14 @@ def same(a: Any, b: Any) -> bool:
 
 
 class History:
-    def __init__(self, set_name: str, labels: dict[str, str], directory: Path | None = None,
-                 checkpoints: Path | None = None, clock: Callable[[], float] = time.time) -> None:
+    def __init__(
+        self,
+        set_name: str,
+        labels: dict[str, str],
+        directory: Path | None = None,
+        checkpoints: Path | None = None,
+        clock: Callable[[], float] = time.time,
+    ) -> None:
         """`directory` holds <set>.json (default HISTORY_DIR); `checkpoints` the set's hands states (default
         hands.live.state.folder(set_name)); `clock` gives seconds (tests pass their own)."""
         self.clock = clock
@@ -58,8 +65,8 @@ class History:
         self.directory = directory or HISTORY_DIR
         self.checkpoints_dir = checkpoints
         self.lock = threading.RLock()
-        self.cur: dict[str, list] = {}           # key -> [shown, raw], as Live has it now
-        self.expect: dict[str, tuple[float, float]] = {}   # key -> (raw the desk wrote, until)
+        self.cur: dict[str, list] = {}  # key -> [shown, raw], as Live has it now
+        self.expect: dict[str, tuple[float, float]] = {}  # key -> (raw the desk wrote, until)
         self.file = self.directory / f"{set_name}.json"
         try:
             d = json.loads(self.file.read_text())
@@ -96,27 +103,33 @@ class History:
             top = self.entries[-1] if self.entries and self.pos == len(self.entries) else None
             if top and top["k"] == "move" and now - top["at"] < COALESCE_S:
                 mine = next((m for m in top["moves"] if m["key"] == key), None)
-                if mine is not None:                       # the same control, still moving
+                if mine is not None:  # the same control, still moving
                     mine["to"] = [shown, raw]
                     top["at"] = now
-                    if same(mine["from"][1], raw) and len(top["moves"]) == 1:   # back where it started: no step
+                    if same(mine["from"][1], raw) and len(top["moves"]) == 1:  # back where it started: no step
                         self.entries.pop()
                         self.pos -= 1
                     self._save()
                     return True
-                if now - top["at"] < TOGETHER_S:           # another control at the same moment: one gesture (a macro)
-                    top["moves"].append({"key": key, "label": self.labels.get(key, key), "from": before, "to": [shown, raw]})
+                if now - top["at"] < TOGETHER_S:  # another control at the same moment: one gesture (a macro)
+                    top["moves"].append(
+                        {"key": key, "label": self.labels.get(key, key), "from": before, "to": [shown, raw]}
+                    )
                     top["at"] = now
                     self._save()
                     return True
-            self._push({"k": "move", "moves": [{"key": key, "label": self.labels.get(key, key),
-                                                "from": before, "to": [shown, raw]}]})
+            self._push(
+                {
+                    "k": "move",
+                    "moves": [{"key": key, "label": self.labels.get(key, key), "from": before, "to": [shown, raw]}],
+                }
+            )
             self._save()
             return True
 
     # ---- undo, redo -----------------------------------------------------------------------------------------------
     def _push(self, entry: dict) -> dict:
-        del self.entries[self.pos:]           # a new step drops what could be redone
+        del self.entries[self.pos :]  # a new step drops what could be redone
         self.seq += 1
         entry.update(id=self.seq, at=self.clock())
         self.entries.append(entry)
@@ -163,8 +176,11 @@ class History:
     def revert(self, name: str, keys: list[str] | None = None) -> tuple[list[list], dict | None]:
         """Every desk control (or only `keys`) back to checkpoint `name`, as one undoable entry."""
         with self.lock:
-            moves = [{"key": k, "label": self.labels.get(k, k), "from": self.cur[k], "to": v["a"]}
-                     for k, v in self.compare(name, "now").items() if keys is None or k in keys]
+            moves = [
+                {"key": k, "label": self.labels.get(k, k), "from": self.cur[k], "to": v["a"]}
+                for k, v in self.compare(name, "now").items()
+                if keys is None or k in keys
+            ]
             if not moves:
                 return [], None
             e = self._push({"k": "revert", "to": name, "moves": moves})
@@ -232,7 +248,11 @@ class History:
     def view(self, last: int = 150) -> dict:
         with self.lock:
             start = max(0, len(self.entries) - last)
-            return {"t": "hist", "entries": self.entries[start:], "pos": self.pos - start,
-                    "can_undo": any(e["k"] != "checkpoint" for e in self.entries[:self.pos]),
-                    "can_redo": any(e["k"] != "checkpoint" for e in self.entries[self.pos:]),
-                    "checkpoints": self.checkpoints()}
+            return {
+                "t": "hist",
+                "entries": self.entries[start:],
+                "pos": self.pos - start,
+                "can_undo": any(e["k"] != "checkpoint" for e in self.entries[: self.pos]),
+                "can_redo": any(e["k"] != "checkpoint" for e in self.entries[self.pos :]),
+                "checkpoints": self.checkpoints(),
+            }

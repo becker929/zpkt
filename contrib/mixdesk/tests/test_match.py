@@ -22,8 +22,10 @@ def test_eqfit_moves_has_every_stem_and_band_in_fit_json_order():
 
 def test_a_plan_from_a_fit_keeps_only_bands_that_move():
     spec = json.loads(match.FIT.read_text())
-    plan = {stem: {"gain_db": 0.0, "eq": [{"kind": b["kind"], "f": 100.0, "gain_db": 0.0, "q": 1.0} for b in c["bands"]]}
-            for stem, c in spec["controls"].items()}
+    plan = {
+        stem: {"gain_db": 0.0, "eq": [{"kind": b["kind"], "f": 100.0, "gain_db": 0.0, "q": 1.0} for b in c["bands"]]}
+        for stem, c in spec["controls"].items()
+    }
     plan["Kick bus"]["eq"][0] = {"kind": "peak", "f": 48.0, "gain_db": 2.5, "q": 1.2}
     plan["Kick bus"]["gain_db"] = -1.0
     out = match.plan_from_fit({"plan": plan})
@@ -31,14 +33,18 @@ def test_a_plan_from_a_fit_keeps_only_bands_that_move():
     assert {"track": "Kick bus", "device": "desk EQ", "param": "2 Gain A", "value": "2.5 dB"} in kick
     assert {"track": "Kick bus", "device": "desk EQ", "param": "2 Frequency A", "value": "48 Hz"} in kick
     assert {"track": "Kick bus", "param": "volume", "value": "-1.0 dB"} in kick
-    assert len(kick) == 6 and out["moves"][-len(spec["main"]):] == spec["main"]
+    assert len(kick) == 6 and out["moves"][-len(spec["main"]) :] == spec["main"]
 
 
 def test_apply_sets_each_move_in_live(tmp_path, capsys):
-    plan = {"moves": [{"track": "Hats bus", "device": "desk EQ", "param": "7 Gain A", "value": "-6.0 dB"},
-                      {"track": "Kick bus", "param": "volume", "value": "-5.0 dB"},
-                      {"track": "Kick bus", "param": "send:Space", "value": "-12 dB"},
-                      {"track": "Perc bus", "param": "mute", "value": True}]}
+    plan = {
+        "moves": [
+            {"track": "Hats bus", "device": "desk EQ", "param": "7 Gain A", "value": "-6.0 dB"},
+            {"track": "Kick bus", "param": "volume", "value": "-5.0 dB"},
+            {"track": "Kick bus", "param": "send:Space", "value": "-12 dB"},
+            {"track": "Perc bus", "param": "mute", "value": True},
+        ]
+    }
     path = tmp_path / "plan.json"
     path.write_text(json.dumps(plan))
     with FakeLive(hw002_like()) as live:

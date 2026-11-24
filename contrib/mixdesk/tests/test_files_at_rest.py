@@ -60,8 +60,10 @@ def test_importing_the_live_scripts_changes_no_environment():
     import subprocess
     import sys
 
-    code = ("import os, sys; sys.path.insert(0, sys.argv[1]); before = dict(os.environ); "
-            "import match, recipe, workspace; print(before == dict(os.environ))")
+    code = (
+        "import os, sys; sys.path.insert(0, sys.argv[1]); before = dict(os.environ); "
+        "import match, recipe, workspace; print(before == dict(os.environ))"
+    )
     out = subprocess.run([sys.executable, "-c", code, str(DATA.parents[1])], capture_output=True, text=True, check=True)
     assert out.stdout.strip() == "True"
 
@@ -73,9 +75,11 @@ def test_apply_puts_a_written_desk_back_into_a_moved_set(modules, monkeypatch):
     desk = json.loads((DATA / "recipe-desk.json").read_text())
     desk.pop("monitor")  # the monitor tracks' files are made up; monitor.ensure needs real ones
     with FakeLive(hw002_like()) as live:
-        live.run("find_track('Kick bus').mixer_device.volume.value = 0.3\n"
-                 "find_track('Hats bus').devices[0].parameters[1].value = 0.0\n"
-                 "find_track('kick').devices[0].parameters[0].value = 0.0\nresult = 'ok'")
+        live.run(
+            "find_track('Kick bus').mixer_device.volume.value = 0.3\n"
+            "find_track('Hats bus').devices[0].parameters[1].value = 0.0\n"
+            "find_track('kick').devices[0].parameters[0].value = 0.0\nresult = 'ok'"
+        )
         ops = LiveOps(live)
         assert recipe.apply_desk(ops, desk, log=lambda *a: None) == []
         again = recipe.read_desk(ops)

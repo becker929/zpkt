@@ -127,8 +127,18 @@ _NUMBER = (int, float)
 _NONE = type(None)
 # kind -> (its type, the JSON types each field may hold); which fields are required comes from the type itself
 _KINDS: dict[str, tuple[type, dict[str, tuple[type, ...]]]] = {
-    "v": (ValueMessage, {"page": (int,), "slot": (str,), "n": (*_NUMBER, _NONE), "s": (str,),
-                         "r": (*_NUMBER, bool, _NONE), "key": (str, _NONE), "sys": (bool,)}),
+    "v": (
+        ValueMessage,
+        {
+            "page": (int,),
+            "slot": (str,),
+            "n": (*_NUMBER, _NONE),
+            "s": (str,),
+            "r": (*_NUMBER, bool, _NONE),
+            "key": (str, _NONE),
+            "sys": (bool,),
+        },
+    ),
     "pos": (PositionMessage, {"b": _NUMBER, "p": (bool,)}),
     "mon": (MonitorMessage, {"slot": (str,), "ref": (str,), "err": (str,)}),
     "loop": (LoopMessage, {"loop": (str,)}),

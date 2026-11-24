@@ -5,8 +5,15 @@ from __future__ import annotations
 import pagercore as C
 import pytest
 
-CFG = {"pages": [{"name": "Buses"}, {"name": "Kick", "pad": 2}, {"name": "Kick EQ", "pad": 2}, {"name": "Three"},
-                 *({"name": f"p{i}"} for i in range(4, 10))]}
+CFG = {
+    "pages": [
+        {"name": "Buses"},
+        {"name": "Kick", "pad": 2},
+        {"name": "Kick EQ", "pad": 2},
+        {"name": "Three"},
+        *({"name": f"p{i}"} for i in range(4, 10)),
+    ]
+}
 
 
 def test_pads_arm_their_pages_and_a_second_press_flips_to_the_layer():
@@ -23,8 +30,13 @@ def test_the_big_encoder_steps_through_every_page_and_wraps():
 
 @pytest.mark.parametrize(
     ("n", "last", "value", "picks"),
-    [(0.51, None, 0.5, True), (0.6, None, 0.5, False), (0.6, 0.4, 0.5, True), (0.6, 0.55, 0.5, False),
-     (0.4, 0.6, 0.5, True)],
+    [
+        (0.51, None, 0.5, True),
+        (0.6, None, 0.5, False),
+        (0.6, 0.4, 0.5, True),
+        (0.6, 0.55, 0.5, False),
+        (0.4, 0.6, 0.5, True),
+    ],
 )
 def test_a_fader_picks_up_near_the_value_or_once_it_passes_it(n, last, value, picks):
     assert C.picks_up(n, last, value) is picks
@@ -73,13 +85,32 @@ class FakeControl:
 
 
 def test_reports_of_a_control():
-    assert C.value_report(FakeControl()) == {"n": 0.5, "s": "-6.0 dB", "q": False, "err": None, "r": 0.5,
-                                             "key": "Kick bus/volume"}
-    assert C.value_report(FakeControl("not in the set")) == {"n": None, "s": "", "q": False, "err": "not in the set",
-                                                             "r": None, "key": "Kick bus/volume"}
-    assert C.value_message(0, "f1", FakeControl(), True) == {"t": "v", "page": 0, "slot": "f1", "n": 0.5,
-                                                             "s": "-6.0 dB", "r": 0.5, "key": "Kick bus/volume",
-                                                             "sys": True}
+    assert C.value_report(FakeControl()) == {
+        "n": 0.5,
+        "s": "-6.0 dB",
+        "q": False,
+        "err": None,
+        "r": 0.5,
+        "key": "Kick bus/volume",
+    }
+    assert C.value_report(FakeControl("not in the set")) == {
+        "n": None,
+        "s": "",
+        "q": False,
+        "err": "not in the set",
+        "r": None,
+        "key": "Kick bus/volume",
+    }
+    assert C.value_message(0, "f1", FakeControl(), True) == {
+        "t": "v",
+        "page": 0,
+        "slot": "f1",
+        "n": 0.5,
+        "s": "-6.0 dB",
+        "r": 0.5,
+        "key": "Kick bus/volume",
+        "sys": True,
+    }
     assert C.inventory_line("Kick bus", "", "mute", "off", "off", "on", True) == "Kick bus\t\tmute\toff\toff\ton\tQ"
 
 

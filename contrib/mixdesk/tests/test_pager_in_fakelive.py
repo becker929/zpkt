@@ -30,8 +30,18 @@ def test_pad_a2_arms_its_page_then_its_layer(rig):
 
 
 def test_a_macro_on_a_saved_surface_moves_its_parameters_between_their_ends(rig):
-    surface = {"name": "Macro test", "what": "x", "controls": {"k1": {"label": "Dark", "macro": [
-        {"track": "Hats bus", "device": "desk EQ", "param": "7 Gain A", "from": "0 dB", "to": "-9 dB"}]}}}
+    surface = {
+        "name": "Macro test",
+        "what": "x",
+        "controls": {
+            "k1": {
+                "label": "Dark",
+                "macro": [
+                    {"track": "Hats bus", "device": "desk EQ", "param": "7 Gain A", "from": "0 dB", "to": "-9 dB"}
+                ],
+            }
+        },
+    }
     code, out = rig.post("/api/surface/save", {"surface": surface})
     assert code == 200, out
     rig.minilab.elements.encoders_raw[0].receive(127)

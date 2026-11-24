@@ -38,7 +38,7 @@ from hands.live.inlive.shown import shown_number
 SLOTS = [f"k{i}" for i in range(1, 9)] + [f"f{i}" for i in range(1, 5)] + [f"b{i}" for i in range(1, 9)]
 MODEL = os.environ.get("MIXDESK_MODEL", "sonnet")
 TIMEOUT_S = 180
-KEYCHAIN_ITEM = "zpkt-claude-oauth"      # the harness's Claude login, if it has one (contrib/harness config.py)
+KEYCHAIN_ITEM = "zpkt-claude-oauth"  # the harness's Claude login, if it has one (contrib/harness config.py)
 
 
 class SurfaceError(Exception):
@@ -59,9 +59,7 @@ class Control(TypedDict):
 
 # One parameter a macro moves, from "from" to "to" as Live shows them (or min, max), as the control goes 0..1.
 # The functional form, because "from" is a Python keyword.
-MacroPart = TypedDict(
-    "MacroPart", {"track": str, "param": str, "device": NotRequired[str], "from": str, "to": str}
-)
+MacroPart = TypedDict("MacroPart", {"track": str, "param": str, "device": NotRequired[str], "from": str, "to": str})
 
 
 class Macro(TypedDict):
@@ -92,8 +90,15 @@ def pages(set_name: str, directory: Path | None = None) -> list[dict]:
     for p in sorted(d.glob("*.json"), key=lambda p: p.stat().st_mtime) if d.exists() else []:
         try:
             s = json.loads(p.read_text())
-            out.append({"name": s["name"], "what": s.get("what", ""), "controls": s["controls"], "surface": p.name,
-                        "prompt": s.get("prompt", "")})
+            out.append(
+                {
+                    "name": s["name"],
+                    "what": s.get("what", ""),
+                    "controls": s["controls"],
+                    "surface": p.name,
+                    "prompt": s.get("prompt", ""),
+                }
+            )
         except (ValueError, KeyError):
             continue
     return out
@@ -153,8 +158,12 @@ def _token() -> str | None:
     if tok:
         return tok
     try:
-        out = subprocess.run(["security", "find-generic-password", "-s", KEYCHAIN_ITEM, "-a", os.environ.get("USER", ""), "-w"],
-                             capture_output=True, text=True, timeout=10)
+        out = subprocess.run(
+            ["security", "find-generic-password", "-s", KEYCHAIN_ITEM, "-a", os.environ.get("USER", ""), "-w"],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
         return out.stdout.strip() or None if out.returncode == 0 else None
     except (OSError, subprocess.TimeoutExpired):
         return None
@@ -173,9 +182,28 @@ def ask_claude(prompt: str) -> str:
     work = Path("~/_agent_scratch/mixdesk/surface-jobs").expanduser()
     work.mkdir(parents=True, exist_ok=True)
     try:
-        r = subprocess.run([cli, "-p", "--output-format", "json", "--max-turns", "1", "--model", MODEL,
-                            "--setting-sources", "", "--tools", ""],
-                           input=prompt, capture_output=True, text=True, env=env, cwd=str(work), timeout=TIMEOUT_S)
+        r = subprocess.run(
+            [
+                cli,
+                "-p",
+                "--output-format",
+                "json",
+                "--max-turns",
+                "1",
+                "--model",
+                MODEL,
+                "--setting-sources",
+                "",
+                "--tools",
+                "",
+            ],
+            input=prompt,
+            capture_output=True,
+            text=True,
+            env=env,
+            cwd=str(work),
+            timeout=TIMEOUT_S,
+        )
     except subprocess.TimeoutExpired:
         raise SurfaceError(f"Claude did not answer in {TIMEOUT_S} s") from None
     try:
@@ -185,7 +213,9 @@ def ask_claude(prompt: str) -> str:
     if d.get("is_error"):
         msg = str(d.get("result", ""))
         if "authenticate" in msg.lower() or "oauth" in msg.lower() or "login" in msg.lower():
-            raise SurfaceError("Claude is signed out on this Mac. In a terminal run `claude`, then /login, and try again.")
+            raise SurfaceError(
+                "Claude is signed out on this Mac. In a terminal run `claude`, then /login, and try again."
+            )
         raise SurfaceError(f"Claude: {msg[:200]}")
     return str(d.get("result", ""))
 
@@ -216,7 +246,9 @@ def _end(want: str, v: dict, where: str, notes: list[str]) -> str | None:
     lo, hi = min(lo, hi), max(lo, hi)
     if x < lo or x > hi:
         end = "min" if (x < lo) == (shown_number(v["min"]) <= shown_number(v["max"])) else "max"
-        notes.append(f"{where}: {w} is outside {v['min']} .. {v['max']}; set to its {'lowest' if end == 'min' else 'highest'}.")
+        notes.append(
+            f"{where}: {w} is outside {v['min']} .. {v['max']}; set to its {'lowest' if end == 'min' else 'highest'}."
+        )
         return end
     return w
 
@@ -238,7 +270,9 @@ def validate(surface: dict, inv: dict, taken: list[str]) -> dict:
     def one(c: dict, where: str) -> dict | None:
         k = _find(inv, c.get("track", ""), c.get("device", ""), c.get("param", ""))
         if k is None:
-            notes.append(f"{where}: {c.get('track')} / {c.get('device') or 'mixer'} / {c.get('param')} is not in the set; left out.")
+            notes.append(
+                f"{where}: {c.get('track')} / {c.get('device') or 'mixer'} / {c.get('param')} is not in the set; left out."
+            )
             return None
         out = {"track": k[0], "param": k[2]}
         if k[1]:
@@ -257,7 +291,9 @@ def validate(surface: dict, inv: dict, taken: list[str]) -> dict:
                 if base is None:
                     continue
                 if base["param"] in ("mute", "solo"):
-                    notes.append(f"{slot} macro: {base['track']} {base['param']} is a switch, not part of a sweep; left out.")
+                    notes.append(
+                        f"{slot} macro: {base['track']} {base['param']} is a switch, not part of a sweep; left out."
+                    )
                     continue
                 v = inv[(base["track"], base.get("device", ""), base["param"])]
                 where = f"{slot} macro, {base['track']} {base['param']}"
@@ -294,7 +330,9 @@ def save(surface: dict, set_name: str, prompt: str, directory: Path | None = Non
     path, n = d / f"{slug}.json", 2
     while path.exists():
         path, n = d / f"{slug}-{n}.json", n + 1
-    path.write_text(json.dumps({**surface, "prompt": prompt, "made": time.strftime("%Y-%m-%d %H:%M"), "set": set_name}, indent=1))
+    path.write_text(
+        json.dumps({**surface, "prompt": prompt, "made": time.strftime("%Y-%m-%d %H:%M"), "set": set_name}, indent=1)
+    )
     return path
 
 
@@ -313,8 +351,9 @@ def remove(set_name: str, file: str, directory: Path | None = None) -> Path:
     return dst
 
 
-def make(request: str, inv: dict, set_name: str, taken: list[str], ask=ask_claude,
-         directory: Path | None = None) -> tuple[Path, dict]:
+def make(
+    request: str, inv: dict, set_name: str, taken: list[str], ask=ask_claude, directory: Path | None = None
+) -> tuple[Path, dict]:
     """The whole job: ask, check against the set, save. Returns the file and the surface."""
     surface = validate(extract_json(ask(prompt_for(request, inv, taken))), inv, taken)
     return save(surface, set_name, request, directory), surface

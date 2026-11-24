@@ -27,9 +27,20 @@ def test_every_message_the_pager_sends_is_accepted(msg):
 
 @pytest.mark.parametrize(
     "data",
-    [b"", b"nope", b"[]", b"3", b"{}", b'{"t": "x"}', b'{"t": 1}', b'{"t": "pos", "b": 1}',
-     b'{"t": "pos", "b": "1", "p": true}', b'{"t": "pos", "b": true, "p": true}', b'{"t": "page", "page": 1.5}',
-     b'{"t": "v", "page": 0}'],
+    [
+        b"",
+        b"nope",
+        b"[]",
+        b"3",
+        b"{}",
+        b'{"t": "x"}',
+        b'{"t": 1}',
+        b'{"t": "pos", "b": 1}',
+        b'{"t": "pos", "b": "1", "p": true}',
+        b'{"t": "pos", "b": true, "p": true}',
+        b'{"t": "page", "page": 1.5}',
+        b'{"t": "v", "page": 0}',
+    ],
 )
 def test_anything_else_is_a_bad_message_that_says_why(data):
     with pytest.raises(P.BadMessage) as exc:

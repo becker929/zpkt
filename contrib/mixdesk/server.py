@@ -105,7 +105,9 @@ def pager_start_code(cfg: dict[str, Any], udp_port: int) -> str:
 
 def pager_call_code(expr: str) -> str:
     """An expression on the running pager's desk; None when no pager runs."""
-    return f"import sys\nm = sys.modules.get({MOD!r})\nresult = {expr} if m is not None and m.DESK is not None else None"
+    return (
+        f"import sys\nm = sys.modules.get({MOD!r})\nresult = {expr} if m is not None and m.DESK is not None else None"
+    )
 
 
 def meter_message(levels: list[float], hz: list[float]) -> dict[str, Any] | None:
@@ -318,7 +320,11 @@ class Desk:
                 return say("error", "Live did not answer with the set's controls.")
             say("working", f"Asking Claude ({len(inv)} parameters in the set)…")
             path, surface = surfaces.make(
-                text, inv, self.settings.set_name, self.page_names(), ask=ask or surfaces.ask_claude,
+                text,
+                inv,
+                self.settings.set_name,
+                self.page_names(),
+                ask=ask or surfaces.ask_claude,
                 directory=self.settings.surfaces_dir,
             )
             say("working", "Putting it on the MiniLab…")
@@ -350,8 +356,9 @@ class Desk:
 
     def start_checkpoint(self) -> None:
         now = time.time()
-        recent = [e for e in self.history.entries
-                  if e["k"] == "checkpoint" and now - e["at"] < START_CHECKPOINT_H * 3600]
+        recent = [
+            e for e in self.history.entries if e["k"] == "checkpoint" and now - e["at"] < START_CHECKPOINT_H * 3600
+        ]
         if not recent:
             self.make_checkpoint(time.strftime("start-%Y%m%d-%H%M"))
             self.push(self.history.view())
@@ -678,7 +685,7 @@ class Handler(BaseHTTPRequestHandler):
     def do_GET(self) -> None:
         url = urlparse(self.path)
         if url.path.startswith("/media/"):
-            return self._media(url.path[len("/media/"):])
+            return self._media(url.path[len("/media/") :])
         route = self.GET_ROUTES.get(url.path)
         if route is None:
             return self._send(404, b"not found", "text/plain")

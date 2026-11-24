@@ -47,8 +47,12 @@ def test_the_page_arms_a_page_and_flips_a_pad(rig, page):
     pg.select_option("#pagesel", "2")
     assert wait_for(lambda: rig.call("m.DESK.page") == 2)
     desk = rig.get("/api/desk")[1]
-    page_i, slot = next((i, s) for i, p in enumerate(desk["pages"]) for s, c in p["controls"].items()
-                        if s.startswith("b") and c.get("param") == "mute")
+    page_i, slot = next(
+        (i, s)
+        for i, p in enumerate(desk["pages"])
+        for s, c in p["controls"].items()
+        if s.startswith("b") and c.get("param") == "mute"
+    )
     track = rig.track(desk["pages"][page_i]["controls"][slot]["track"])
     was = track.mute
     pg.select_option("#pagesel", str(page_i))
