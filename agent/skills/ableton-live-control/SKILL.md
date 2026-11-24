@@ -368,7 +368,7 @@ needs one of these:
 1. **Native Export dialog (the default: offline, about 10x faster than real time).**
    `hands live export OUT [--start BEAT --length BEATS] [--mode Main] [--bits 32]`
    in zpkt `hands/` selects the range and runs `export_audio.applescript`
-   (`hands/src/hands/live/`), which drives File -> Export Audio/Video
+   (`src/zpkt/live/`), which drives File -> Export Audio/Video
    (Cmd+Shift+R) + the native Save panel, then parks the pointer. From Python:
    `hands.live.render.export(client, out, start_beat, length_beats)`, then
    `hands.audio.check_audio(out, seconds=...)` to catch a silent render.

@@ -60,16 +60,16 @@ the finishing set its render nulls against the match render (-122 dB). The arran
 
 ## Running it
 
-1. `uv run --project hands python contrib/mixdesk/workspace.py save|clean|devices` made the set
+1. `uv run python contrib/mixdesk/workspace.py save|clean|devices` made the set
    `HW002_121_pp_finish.als` (in the HW002 sets folder) from the arranger's mix set `HW002_121_pp_mix`: the
    canonical 8d2a2 arrangement, mix 1 and the kept kick, with an EQ Eight, Saturator and Glue Compressor on the buses,
    two returns (Space: Reverb, Echo: Echo) and a Glue and a Utility on Main. Every one starts where it changes nothing
    (EQ bands at 0 dB, Saturator and Glue at 0 % wet, sends down, bass mono off).
-2. With that set in Live, `uv run --project hands python contrib/mixdesk/server.py` serves the page on
+2. With that set in Live, `uv run python contrib/mixdesk/server.py` serves the page on
    127.0.0.1:8985 (`tailscale serve --bg --https=8985 http://127.0.0.1:8985` for the tailnet).
 
 The server loads `pager.py` into Live's Python through hands' Remote Script. The pager grabs the MiniLab's controls
-from Live's factory MiniLab_3 script (as `hands/remote_scripts/ZpktMiniLabTempo` does, at a higher priority, so the
+from Live's factory MiniLab_3 script (as `src/zpkt/live/remote_scripts/ZpktMiniLabTempo` does, at a higher priority, so the
 tempo fader is the desk's fader 4 while the desk runs) and drives Live directly. Every change goes out as a UDP
 datagram to the server, which streams it to the page. If a set load rebuilds the factory script, the server notices
 within 5 s and starts the pager again.
@@ -81,7 +81,7 @@ Nothing in the page makes or plays sound: it shows and arms controls, and the mi
 The page is split: the control surface on the left, Live transport/monitoring and measurements on the right.
 
 - `sources.json` names A (original), B (the recipe's reference match, rendered) and the references (C, four to pick from). Run
-  `ears/.venv/bin/python contrib/mixdesk/analyze.py` (the ears venv) after you render a new A or B: it writes 16-bit WAVs and
+  `.venv/bin/python contrib/mixdesk/analyze.py` (the repo's venv) after you render a new A or B: it writes 16-bit WAVs and
   `analysis.json` (spectrum per 1/6 octave for build and drop, loudness/crest/width/bass-mono over time) to
   `~/_agent_scratch/mixdesk/viz/`. Nothing there changes a sound.
 - Everything you hear comes from Live: `monitor.py ensure` places `mon A` and `mon B` (at beat 0) and `mon C1`–`mon C4` (at bar 17 /
@@ -170,8 +170,8 @@ harness's Keychain item). When it is not, the page says so.
 
 ## Testing
 
-    hands/.venv/bin/python -m pytest -q -p no:cacheprovider contrib/mixdesk/tests     # from the repo root
-    hands/.venv/bin/mypy --config-file contrib/mixdesk/mypy.ini
+    .venv/bin/python -m pytest -q -p no:cacheprovider contrib/mixdesk/tests     # from the repo root
+    .venv/bin/mypy --config-file contrib/mixdesk/mypy.ini
 
 The tests start the server in their own process on free ports, with the pager loaded into hands' FakeLive and its
 fake MiniLab, and every file (history, checkpoints, surfaces, analysis) made up in a temporary folder. They never
@@ -179,4 +179,4 @@ reach the running desk, Live or my files. `tests/data` holds the recipe's `desk`
 them on FakeLive's HW002-like set before the upgrade; the tests check the bytes stay the same. `test_page.py` drives
 the page in Chromium and skips without Playwright:
 
-    cd hands && uv run --all-extras --with playwright python -m pytest -q ../contrib/mixdesk/tests/test_page.py
+    uv run --all-extras --with playwright python -m pytest -q contrib/mixdesk/tests/test_page.py

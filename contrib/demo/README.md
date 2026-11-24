@@ -54,11 +54,11 @@ to 182, recorded on 6 October 2026. `knob.mp4` and `cut.mp4` are the hands and
 engineer inserts. Filming needs Live; nothing else here does.
 
 ```bash
-cd hands && uv run python ../contrib/demo/tools/livectl.py open   # copy the set into the HW002 project, save the open set, open the copy
-cd hands && uv run python ../contrib/demo/tools/film.py main      # record bars 1-182 playing, with a song-time log
-cd hands && uv run python ../contrib/demo/tools/film.py knob      # hands sets the kick sampler's Transp and Volume
-cd hands && uv run python ../contrib/demo/tools/film.py cut       # engineer runs Edit > Delete Time on bars 105-112, then undoes it
-cd hands && uv run python ../contrib/demo/tools/livectl.py restore  # reopen the previous set, Don't Save the copy
+uv run python contrib/demo/tools/livectl.py open   # copy the set into the HW002 project, save the open set, open the copy
+uv run python contrib/demo/tools/film.py main      # record bars 1-182 playing, with a song-time log
+uv run python contrib/demo/tools/film.py knob      # hands sets the kick sampler's Transp and Volume
+uv run python contrib/demo/tools/film.py cut       # engineer runs Edit > Delete Time on bars 105-112, then undoes it
+uv run python contrib/demo/tools/livectl.py restore  # reopen the previous set, Don't Save the copy
 ```
 
 - Sync: `main.sync.json` fits Live's song time against the footage clock (160.00 BPM, ~15 ms median error).

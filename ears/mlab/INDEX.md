@@ -5,7 +5,7 @@ This folder holds calibrated measuring tools, guides and a hypothesis runner.
 Start here. Agents: read `CLAUDE.md` next.
 
 Lives at `ears/mlab` in the zpkt repo. Started 2026-09-25.
-The code is the ears package's calibrated meters, `ears.meters` (`ears/src/ears/meters/`).
+The code is the ears package's calibrated meters, `zpkt.audio.meters` (`src/zpkt/audio/meters/`).
 Run the commands below from this folder with `uv run` in front; `mlab` and `ears` take the same commands.
 
 ## Start here
@@ -55,13 +55,13 @@ A moves file says which bands and faders may move, and how far.
 It predicts the mix by adding the stems' powers; correlation between stems is ignored.
 Its model check compares that prediction with the real stem sum.
 eqfit writes a plan; applying it in Live is a separate step.
-Code: `ears/src/ears/meters/target.py`, `eqfit.py`; known answers in `calibration/checks.py`.
+Code: `src/zpkt/audio/meters/target.py`, `eqfit.py`; known answers in `calibration/checks.py`.
 
 ## Folder map
 
 | Path | What |
 |---|---|
-| `../src/ears/meters/` | The Python instrument package (`ears.meters`, also importable as `mlab`). One module per job. |
+| `../../src/zpkt/audio/meters/` | The Python instrument package (`zpkt.audio.meters`, also importable as `mlab`). One module per job. |
 | `calibration/` | Known-answer tests for every instrument, plus the ffmpeg cross-check. |
 | `guides/` | One guide per study subject, plus workflow, Ableton and delivery. |
 | `hypotheses/` | Hypothesis files (`H###-*.yaml`) and their `results/`. Inputs come from `$MLAB_DATA` if set, else this folder. |

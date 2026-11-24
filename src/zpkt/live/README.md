@@ -1,15 +1,15 @@
-# hands: drive Ableton Live
+# zpkt.live: drive Ableton Live
 
-`hands` turns intent into changes in Ableton Live 12 and audio out of it. It is a library first
+`zpkt.live` (until 24 Nov 2026 the `hands` package; `hands` still works as a command and an import) turns intent into changes in Ableton Live 12 and audio out of it. It is a library first
 (set knobs in the open set, export a short loop, pack several variants into one render) and a CLI
 for shells, agents and hotkeys.
 
-New here? [`docs/getting-started.md`](../docs/getting-started.md) installs the Remote Script and
+New here? [`docs/getting-started.md`](../../../docs/getting-started.md) installs the Remote Script and
 gets you to a first export.
 
 Everything that touches Live goes through two channels: the LOM, over the AbletonLiveMCP Remote
-Script on 127.0.0.1:16619 (`hands.live.transport`), and the GUI, over AppleScript, only for what
-the LOM cannot do: time edits, saving, the Export dialog (`hands.live.ui`). Each Live step is
+Script on 127.0.0.1:16619 (`zpkt.live.transport`), and the GUI, over AppleScript, only for what
+the LOM cannot do: time edits, saving, the Export dialog (`zpkt.live.ui`). Each Live step is
 guarded: before and after it, `session.check` makes sure no dialog is open, one of our sets is in
 front and the LOM answers, and stops the run on anything else.
 
@@ -39,41 +39,41 @@ the command and a row.
 
 | Module | Public API |
 |---|---|
-| `live/transport.py` | `LiveClient(host, port=None, timeout=15, retries=2)` (no port: the rig's `live_port`): `.run(code) -> result` (raises `LiveError`), `.execute(code) -> McpResult` (keeps `warning`, `elapsed`, `traceback`), `.ping() -> seconds`. `McpTransport`, `DryRunTransport`, `MockTransport`. Retries only while connecting: a sent request is never resent. |
-| `live/ui.py` | `osa`, `osa_file` (rerun through Hammerspoon without an Accessibility grant), `menu`, `menu_enabled`, `front_title`, `windows`, `dialogs`, `close_dialogs`, `reap_modals`, `park_cursor` |
-| `live/session.py` | `Guard`, `stop`, `check(client, where, *, expect_front=None, ours=True) -> str`, `open_set`, `save(name=None) -> bool`, `copy_set`, `front_set() -> (name, guessed)`, `reload_set`, `launch`, `restart`, `audio_clock_ok`, `memory`, `other_agent_active` |
-| `live/state.py` | the one model of the whole mix: `State` (typed; values are `ShownRaw` pairs `[shown, raw]`), `take(client, only=None)`, `diff(a, b, ignore=())`, `summarize`, `put(client, state, only=None)` (writes only what differs, reads back), `load`/`load_dict` (a state, or a mix desk recipe's `"desk"`, read through `live/desk.py`), `save`, `path_for` |
-| `live/desk.py` | the mix desk recipe's `desk` as a contract (pydantic; `lib/contracts/desk.schema.json` is generated from it) and `parse` |
-| `live/inlive/` | rules that also run inside Live (stdlib, Python 3.11, loadable by path, or sent as source with `with_source`): `tracks` (a track by name: Main, returns without their letter), `shown` (the raw value that shows as "-6 dB"), `keys` (state keys and the three spellings of a send) |
-| `live/writes.py` | `set_raw(client, device, [(name, raw)])` and `read_raw`: device parameters a few to a call |
-| `live/knobs.py`, `live/units.py` | `Knob(track, device, param)`: `.id` (`track/Tag#i/param`), `.pipe_id` (`track\|Tag:i\|param`), `Knob.parse` (both); `set_many`, `read_many`, `apply(client, values, *, verify=True)`; `units.UNITS`, the measured .als-to-LOM conversions |
-| `live/export.py` | `export(client, out, start, length, *, method="keys"\|"menu", staging=None, ...)`: both ways through the Export dialog; `export_by_menu` (no keystrokes, Main), `save_as(folder, name, *, project=True)`, `SavePanel(reach="where_popup"\|"go_to_folder")` |
-| `live/render.py` | `export(...)`, the keystroke method (`export_audio.applescript`) |
-| `live/ops.py` | `LiveOps(client, staging=None, save_panel=SavePanel())`: `run`, `guard`, `setp` and `mixer` in shown units, `params`, `load_item`, `select_track`, `devices`, `export`, `save_as`, for scripts that build and render sets (the booth, the arranger, the mix desk) |
-| `live/timeops.py` | `select(client, start, length)`, `delete`, `duplicate`, `copy`, `paste`, each checked by where the song ends |
-| `live/record.py` | `record_arrangement` (writes `<take>.timing.json`), `record_via_resampling`: real-time takes |
-| `live/panel.py` (+ `riff`, `panel_render`, `panel_blocks`, `mix`, `versions`, `song`) | `hands panel` and `hands song`: instrument and mix panels, grids of versions, songs over sections; `panel_blocks` prints what Zpkt web reads |
-| `live/rig.py`, `live/hold.py` | `hands rig check/reset`; the one lock on Live and the notes that put an interrupted command's changes back |
+| `transport.py` | `LiveClient(host, port=None, timeout=15, retries=2)` (no port: the rig's `live_port`): `.run(code) -> result` (raises `LiveError`), `.execute(code) -> McpResult` (keeps `warning`, `elapsed`, `traceback`), `.ping() -> seconds`. `McpTransport`, `DryRunTransport`, `MockTransport`. Retries only while connecting: a sent request is never resent. |
+| `ui.py` | `osa`, `osa_file` (rerun through Hammerspoon without an Accessibility grant), `menu`, `menu_enabled`, `front_title`, `windows`, `dialogs`, `close_dialogs`, `reap_modals`, `park_cursor` |
+| `session.py` | `Guard`, `stop`, `check(client, where, *, expect_front=None, ours=True) -> str`, `open_set`, `save(name=None) -> bool`, `copy_set`, `front_set() -> (name, guessed)`, `reload_set`, `launch`, `restart`, `audio_clock_ok`, `memory`, `other_agent_active` |
+| `state.py` | the one model of the whole mix: `State` (typed; values are `ShownRaw` pairs `[shown, raw]`), `take(client, only=None)`, `diff(a, b, ignore=())`, `summarize`, `put(client, state, only=None)` (writes only what differs, reads back), `load`/`load_dict` (a state, or a mix desk recipe's `"desk"`, read through `desk.py`), `save`, `path_for` |
+| `desk.py` | the mix desk recipe's `desk` as a contract (pydantic; `lib/contracts/desk.schema.json` is generated from it) and `parse` |
+| `inlive/` | rules that also run inside Live (stdlib, Python 3.11, loadable by path, or sent as source with `with_source`): `tracks` (a track by name: Main, returns without their letter), `shown` (the raw value that shows as "-6 dB"), `keys` (state keys and the three spellings of a send) |
+| `writes.py` | `set_raw(client, device, [(name, raw)])` and `read_raw`: device parameters a few to a call |
+| `knobs.py`, `units.py` | `Knob(track, device, param)`: `.id` (`track/Tag#i/param`), `.pipe_id` (`track\|Tag:i\|param`), `Knob.parse` (both); `set_many`, `read_many`, `apply(client, values, *, verify=True)`; `units.UNITS`, the measured .als-to-LOM conversions |
+| `export.py` | `export(client, out, start, length, *, method="keys"\|"menu", staging=None, ...)`: both ways through the Export dialog; `export_by_menu` (no keystrokes, Main), `save_as(folder, name, *, project=True)`, `SavePanel(reach="where_popup"\|"go_to_folder")` |
+| `render.py` | `export(...)`, the keystroke method (`export_audio.applescript`) |
+| `ops.py` | `LiveOps(client, staging=None, save_panel=SavePanel())`: `run`, `guard`, `setp` and `mixer` in shown units, `params`, `load_item`, `select_track`, `devices`, `export`, `save_as`, for scripts that build and render sets (the booth, the arranger, the mix desk) |
+| `timeops.py` | `select(client, start, length)`, `delete`, `duplicate`, `copy`, `paste`, each checked by where the song ends |
+| `record.py` | `record_arrangement` (writes `<take>.timing.json`), `record_via_resampling`: real-time takes |
+| `panel.py` (+ `riff`, `panel_render`, `panel_blocks`, `mix`, `versions`, `song`) | `hands panel` and `hands song`: instrument and mix panels, grids of versions, songs over sections; `panel_blocks` prints what Zpkt web reads |
+| `rig.py`, `hold.py` | `hands rig check/reset`; the one lock on Live and the notes that put an interrupted command's changes back |
 | `audio.py` | `check_audio(path, *, seconds)`, `slice_render`, `trim_take`, `best_lag`, `low_band`, `timeline_check` |
-| `als/` | the .als offline: `file.py` (load/save, `resolve`, `current_value`, `set_manual`, `set_steps`, `add_device_from_donor`, `xml_hash`), `check.py` (`check -> Report`, `list_params`), `mix.py` (`mix_state`, `mix_lines`); all as `hands.als.<name>` |
+| `als/` | the .als offline: `file.py` (load/save, `resolve`, `current_value`, `set_manual`, `set_steps`, `add_device_from_donor`, `xml_hash`), `check.py` (`check -> Report`, `list_params`), `mix.py` (`mix_state`, `mix_lines`); all as `zpkt.live.als.<name>` |
 | `probe_kit.py` | probe kits (`hands kit`): `Kit`, `template`, `write_batch`, `render`, `merge_patterns`, `constant`, `scale`/`unscale`. Many variants of a section in one load and one export: the fast batch-render method |
 | `arrange/` | `fx` (clip edits), `autostate` (automation state, `restore` after Delete Time), `hats` |
-| `library/` | the WIP library, read-only: `inventory(...)` scores each track's seven steps (`../contrib/docs/workflow.md`) |
+| `library/` | the WIP library, read-only: `inventory(...)` scores each track's seven steps (`contrib/docs/workflow.md`) |
 | `bench.py`, `config.py` | `timing(step, seconds, **fields)` to `<data_dir>/bench.jsonl`; `rig()`, the settings below |
 | `models.py`, `codegen.py`, `builder.py`, `runner.py` | the first design: `ProjectConfig` → LOM steps → `StepRunner` (`hands build / execute`). Its user, `prototypes/engineer`, was removed on 24 Nov 2026; I keep it for now to see whether it folds into something. `models.py` is the source of two `lib/contracts` schemas (`tools/gen_schemas.py`) |
 | `ab.py` | A/B against "REF …" tracks and the master Spectrum (Hammerspoon hotkeys) |
-| `testing/` | `FakeLive(song)`, an offline Live that runs the Remote Script's own code over a fake set; `fake_set(spec)`, `hw002_like()`, `MiniLab_3` ([README](src/hands/testing/README.md)) |
+| `testing/` | `FakeLive(song)`, an offline Live that runs the Remote Script's own code over a fake set; `fake_set(spec)`, `hw002_like()`, `MiniLab_3` ([README](testing/README.md)) |
 
-Each CLI module (`cli.py`, `live/cli.py`, `live/state_cli.py`, `live/edit_cli.py`, `live/panel_cli.py`, `als_cli.py`,
+Each CLI module (`cli.py`, `live_cli.py`, `state_cli.py`, `edit_cli.py`, `panel_cli.py`, `als_cli.py`,
 `kit_cli.py`, `project_cli.py`) only parses arguments and prints; the work is in the modules above.
 
 A render from Python:
 
 ```python
-from hands import audio, config
-from hands.live import knobs, render, session
-from hands.live.knobs import Knob
-from hands.live.transport import LiveClient
+from zpkt.live import audio, config
+from zpkt.live import knobs, render, session
+from zpkt.live.knobs import Knob
+from zpkt.live.transport import LiveClient
 
 live = LiveClient()
 session.check(live, "render:start")
@@ -86,6 +86,22 @@ audio.check_audio(out, seconds=32 * 60 / 160)
 Knob values are in the .als's units (the parameter's Manual), as in probe kits and knob readings; the mix state,
 panels and the mix desk use Live's raw values instead. `units.UNITS` converts to the LOM's units and only holds conversions measured on
 real devices; a knob without one is refused rather than guessed.
+
+## Module map
+
+Every module of the old `hands` package is now `zpkt.live`'s, and `hands.live.*` is flattened into it. The old
+names still import, and give the same module (`zpkt._aliases`):
+
+| Old | New |
+|---|---|
+| `hands.<module>` (`hands.config`, `hands.als.file`, `hands.library.inventory`, `hands.testing.fakelive`, ...) | `zpkt.live.<module>` |
+| `hands.live.<module>` (`hands.live.state`, `hands.live.transport`, `hands.live.inlive.tracks`, ...) | `zpkt.live.<module>` |
+| `hands.live.cli` (`hands live ...`) | `zpkt.live.live_cli` (`hands.cli`, the whole `hands` command, stays `zpkt.live.cli`) |
+| `hands/remote_scripts/` | `src/zpkt/live/remote_scripts/` |
+| `hands/tests/` | `tests/live/` |
+| `ears.<module>`, `ears.meters.<module>`, `mlab.<module>` | `zpkt.audio.<module>`, `zpkt.audio.meters.<module>` ([its README](../audio/README.md)) |
+
+The commands keep their names: `hands` is `zpkt live`, `ears` is `zpkt audio`, and `mlab` stays.
 
 ## Rig settings
 
@@ -162,40 +178,40 @@ arrangement, at the spec's tempo. The clip, the render track, Live's take file, 
 the position, the selection and the arm states are put back, so it is safe beside a mix in progress; it refuses while
 Live is playing. Parameter values are raw numbers, `"50%"` of the range, or the text Live shows (`"600 Hz"`,
 `"-12 dB"`, `"Saw D"`); the knobs it prints carry Live's own readings (`display`). Renders and `NAME.panel.json` go to
-`./renders` (`--out`). `bin/hands` runs the CLI from any folder; link it into a folder on PATH.
+`./renders` (`--out`). `hands/bin/hands` (in the repo) runs the CLI from any folder; link it into a folder on PATH.
 
 ## Scripts from real tracks
 
 The batch scripts I wrote for particular pieces (HW002's probe packs, the industrial short, proptest, Marrow, the
 Rummage, Juice Box, the checklist's sounds), and `hands plan` with its skills, are in a separate local repo,
 zpkt-archive, since 24 November 2026; each needs the zpkt of git tag `pre-upgrade-2026-11-24` to run. What they still
-had in common moved into the library: the menu export and Save As (`hands.live.export`) and the recipe steps
-(`hands.live.ops`).
+had in common moved into the library: the menu export and Save As (`zpkt.live.export`) and the recipe steps
+(`zpkt.live.ops`).
 
-## Around hands
+## Around zpkt.live
 
-- Starting Live on a headless Mac: `../lib/rig/start_headless.sh`.
-- Skills for an agent that drives Live: `../agent/`.
-- `remote_scripts/`: the Control Surface scripts `install.sh` copies into Live's User Library.
+- Starting Live on a headless Mac: `lib/rig/start_headless.sh` (paths here are from the repo root).
+- Skills for an agent that drives Live: `agent/`.
+- `src/zpkt/live/remote_scripts/`: the Control Surface scripts (inside the package, so FakeLive finds them in an installed wheel) `install.sh` copies into Live's User Library.
   `AbletonLiveMCP` is the bridge (from opendining/ableton-mcp-server, MIT).
-- `macros/hammerspoon/`: my desk hotkeys (A/B against a reference, spectrum, backups) and the
+- `hands/macros/hammerspoon/`: my desk hotkeys (A/B against a reference, spectrum, backups) and the
   supervisor for `contrib/harness`. `config.lua` holds the paths.
 
 ## Tests
 
 ```bash
-uv run --all-extras pytest -q -p no:cacheprovider
+uv run --all-extras pytest -q -p no:cacheprovider tests/live     # from the repo root; `make test` runs both halves
 ```
 
 Without `--all-extras` the Serum 2 tests are skipped, since their packages are optional. Types and style:
 
 ```bash
-uv run --all-extras mypy        # config in pyproject.toml: strict for hands.live and the CLI modules
+uv run --all-extras mypy        # config in the root pyproject.toml: strict for the Live library and the CLI modules
 uvx ruff check . && uvx ruff format --check .   # the root ruff.toml
 ```
 
-Everything runs offline: `hands.testing.FakeLive`, which runs the Remote Script's own code over a fake
-Live set (`src/hands/testing/README.md`), a fake Remote Script on a free port, fakes for osascript and the GUI, the
-BSD fixture set in `tests/fixtures` with devices planted the way Live writes them, small synthetic
-sets written by `tests/synth_set.py` for the library tests, and synthetic audio. Nothing in the
+Everything runs offline: `zpkt.live.testing.FakeLive`, which runs the Remote Script's own code over a fake
+Live set (`testing/README.md`), a fake Remote Script on a free port, fakes for osascript and the GUI, the
+BSD fixture set in `tests/live/fixtures` with devices planted the way Live writes them, small synthetic
+sets written by `tests/live/synth_set.py` for the library tests, and synthetic audio. Nothing in the
 tests talks to Live or reads a real project.

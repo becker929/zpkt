@@ -1,20 +1,23 @@
 # zpkt: rules for agents
 
-Where things are: `hands/` drives Live, `ears/` measures renders (`ears/mlab/reports/` holds mastering and reference
-sheets), `agent/skills/` holds the skills for driving Live (linked into `.claude/skills/` and `.agents/skills/`),
+Where things are: one package, `zpkt` (`src/zpkt/`): `zpkt.live` drives Live (once `hands`), `zpkt.audio` measures
+renders (once `ears`; the lab with `ears/mlab/reports/`, the mastering and reference sheets, stays in `ears/mlab/`). The
+commands `zpkt live` and `zpkt audio` have the old names `hands`, `ears` and `mlab` as aliases, and so do the imports;
+new code imports `zpkt`. Tests are in `tests/live` and `tests/audio`. `hands/` keeps the rig macros and `hands/bin/hands`; `agent/skills/` holds the skills for driving Live (linked into `.claude/skills/` and `.agents/skills/`),
 `lib/` has the rig startup and the JSON contracts. `contrib/` is Anthony's own setup (Gemini CLI sessions and the
 HW002 lab in `contrib/harness`, the HW002 arranger and spectral comparison tools in `contrib/arranger`, the HW002 mix desk for the MiniLab 3 in `contrib/mixdesk`, the music
 bot and booth, publishing, and in `contrib/docs/` his workflow, design notes and dated journal); `prototypes/` holds
-experiments. Each part is its own uv project: run its tests from its folder, or `make test`. In non-interactive
-shells where `uv` is not on `PATH`, use `~/.local/bin/uv` or `ears/.venv/bin/python` directly.
+experiments. The core is one uv project at the repo root (`uv run --all-extras pytest`, or `make test`); contrib and
+prototypes parts with their own pyproject run from their folder. In non-interactive
+shells where `uv` is not on `PATH`, use `~/.local/bin/uv` or `.venv/bin/python` directly.
 
-- **Check the "Common asks" table in `hands/README.md` before writing LOM code or searching modules.** Saving the
+- **Check the "Common asks" table in `src/zpkt/live/README.md` before writing LOM code or searching modules.** Saving the
   set, keeping/comparing/restoring the whole mix and recipes are one command each there. When an ask takes you more
-  than one command, add the command to hands and a row to that table in the same change.
+  than one command, add the command to zpkt.live and a row to that table in the same change.
 - **Read `agent/skills/ableton-guide/SKILL.md` before sending code to Live.** Work on copies of sets, keep each
   `hands live exec` call short, and measure the rendered file before saying a render worked.
-- **Nothing personal in the core.** Paths that differ per Mac are rig settings (`hands/src/hands/config.py`), never
-  literals in `hands/`, `ears/`, `agent/` or `lib/`.
+- **Nothing personal in the core.** Paths that differ per Mac are rig settings (`src/zpkt/live/config.py`), never
+  literals in `src/`, `agent/` or `lib/`.
 
 - **No instruments in the browser, mock-ups included** (Anthony, 17 November 2026: "no instruments in the browser.
   You can use audio playback libraries"). Nothing in a page makes music of its own; playing rendered files is fine,

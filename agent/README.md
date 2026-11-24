@@ -27,7 +27,7 @@ Nothing to install either. `.agents/skills/` links to the same folders, and `.ge
 makes Gemini CLI read `AGENTS.md` as its context file. Run `gemini` from the repo root (on
 Anthony's Mac, `harness gemini` adds the API key from the Keychain).
 
-The skills call `hands` by its path in this repo (`cd hands && uv run hands …`), so keep the
+The skills call `hands` by its path in this repo (`uv run --project <repo> hands …`), so keep the
 clone.
 
 ## The loop the skills assume

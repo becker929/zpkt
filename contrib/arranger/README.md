@@ -18,9 +18,9 @@ in ableton live").
 Three ways to hear a change: offline DAW audio (renders), online browser audio (the first three steps, within the
 named exceptions in `contrib/docs/sound.md`), and, for the second mix step, online small-batch DAW audio.
 
-1. `uv run --project hands python contrib/arranger/bounce.py` solos each part of the set in Live and exports Main
+1. `uv run python contrib/arranger/bounce.py` solos each part of the set in Live and exports Main
    (15 bounces, about 6 minutes). Live must have the working copy `HW002_121_pp_loops` in front.
-2. `uv run --project ears python contrib/arranger/mine.py` cuts those bounces into loops and one-shots on the bar,
+2. `uv run --extra audio python contrib/arranger/mine.py` cuts those bounces into loops and one-shots on the bar,
    writes `loops.json`, and checks the song's own arrangement, summed, against Live's bounce of the mix.
 3. `python3 contrib/arranger/server.py` serves the pages on 127.0.0.1:8975 (`ARRANGER_PORT` to change it);
    `tailscale serve` puts it on the tailnet.
@@ -30,7 +30,7 @@ browser plays renders, it never makes sound). What it produces is a structure, n
 names its loops by stem and source bar, so it can be rebuilt in the set and rendered in Live.
 
 `shorts.py` writes the one-minute arrangements shown as tabs (the canonical 8d2a2; it replaces the file, later
-steps included), and `uv run --project ears python contrib/arranger/measure.py short-8d2a2` prints a tab's level
+steps included), and `uv run --extra audio python contrib/arranger/measure.py short-8d2a2` prints a tab's level
 above 6 and 10 kHz for each four bars, and its peak.
 
 ### Where the data is, and what a save keeps
@@ -65,7 +65,7 @@ hands' rig settings are pointed at the HW002 sets only when a command asks for L
 
 Offline, in hands' environment plus scipy and pyloudnorm for the measuring scripts:
 
-    cd hands && uv run --all-extras --with scipy --with pyloudnorm pytest -q ../contrib/arranger/tests
+    uv run --all-extras pytest -q contrib/arranger/tests     # from the repo root
 
 They start the server in-process on a free port against a temporary data folder and call every route over HTTP;
 replay the scripts' Live steps against a stand-in for LiveOps and compare them with goldens in `tests/golden/`;
@@ -106,7 +106,7 @@ drop (8d2a2's bar 17 is the reference's drop, as wav-timeline finds it), turned 
 bars (K-weighted, a listening aid), and switching back picks the mix up where the reference has got to. The curves are
 measured from what plays: the sound, what is under it, the whole mix, and the reference at the same place.
 
-`uv run --project ears python contrib/arranger/refs.py` prepares the references (the four HW002 references and the
+`uv run --extra audio python contrib/arranger/refs.py` prepares the references (the four HW002 references and the
 Klangkuenstler shorts: tempo and drop from wav-timeline's own analysis, the 40 bars around the drop, K-weighted power
 per bar, a spectrogram) and the average spectrum of each sound, in `~/_agent_scratch/arranger/refs/`.
 

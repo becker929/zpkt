@@ -1,7 +1,7 @@
 # hands.testing: a fake Live for tests
 
 I drive Live from zpkt by sending Python code strings to the AbletonLiveMCP Remote Script inside it. `FakeLive` runs
-those same strings offline. It loads its own copy of `hands/remote_scripts/AbletonLiveMCP` and runs that script's
+those same strings offline. It loads its own copy of `src/zpkt/live/remote_scripts/AbletonLiveMCP` and runs that script's
 dispatch, eval-then-exec and serialize unchanged, over a fake Live Object Model. So a test sees what Live would
 answer, and a refactor can show it sends the same calls as before.
 
@@ -59,7 +59,7 @@ def test_take(tmp_path):
 ## Tests
 
 ```bash
-cd hands && uv run --all-extras pytest -q -p no:cacheprovider tests/test_fakelive*.py
+uv run --all-extras pytest -q -p no:cacheprovider tests/live/test_fakelive*.py
 ```
 
 `test_fakelive.py` checks the fake against the Remote Script (its `serialize`, loaded by path), `test_fakelive_hands.py`

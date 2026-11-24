@@ -35,9 +35,10 @@ python3 -m mlab hyp run hypotheses/H###.yaml
 python3 -m pytest calibration -q          # same checks as `calibrate`, as tests
 ```
 
-Install once: `cd ears && uv sync`. The meters are part of the ears project (`ears.meters`) since 24 Nov 2026.
+Install once: `uv sync --extra audio` at the repo root. The meters are `zpkt.audio.meters` (once `ears.meters`, before
+that the mlab project).
 Run the commands above from this folder inside that environment: `uv run python -m mlab ...`, `uv run mlab ...`
-or `uv run ears ...` (uv finds the project one folder up). The code is in `ears/src/ears/meters/`.
+or `uv run ears ...` (uv finds the project at the repo root). The code is in `src/zpkt/audio/meters/`.
 ffmpeg is needed for mp3/m4a input, codec simulation and the cross-check.
 
 ## Rules
