@@ -26,227 +26,36 @@ from typing import Any
 from hands import config
 from hands.live import hold
 from hands.live.agent import with_prelude
+from hands.live.panel_base import (  # noqa: F401  (part of panel's API: mix, versions and song use them as P.*)
+    ANCHORS,
+    CHUNK,
+    FINE,
+    LEAD_SECONDS,
+    MAX_BEATS,
+    MAX_CONTROLS,
+    ROUNDS,
+    SAMPLES,
+    TRACK_PREFIX,
+    Loc,
+    Note,
+    PanelError,
+    _device,
+    _track,
+)
+from hands.live.panel_blocks import _num, _shown_path, _slug, blocks, surface  # noqa: F401
+from hands.live.panel_render import _render, cut_take, lead_beats, levels, record_span, set_code  # noqa: F401
+from hands.live.riff import (  # noqa: F401
+    PRESET_CONTROLS,
+    PRESETS,
+    SOUND_CONTROLS,
+    SOUNDS,
+    _check_beats,
+    expand,
+    pitch,
+    riff,
+    sequence,
+)
 from hands.live.transport import McpTransport
-
-TRACK_PREFIX = "panel "
-LEAD_SECONDS = 1.5  # rendered before the riff and cut off: the first ~0.9 s of a resampled take is not on the timeline
-SAMPLES = 33  # points per parameter when reading what Live shows across its range
-ROUNDS = 2  # of narrowing in on the value that reads as asked: the whole range, then one stretch of it
-FINE = 513  # points in the second round: 1/16384 of the range, in one call
-ANCHORS = 9  # of those, how many go into a control's `display`
-MAX_BEATS = 128.0  # renders are real time
-MAX_CONTROLS = 16
-CHUNK = 40  # parameters read per call (ableton-guide rule 2)
-
-Note = tuple[int, float, float, int]
-
-
-class PanelError(RuntimeError):
-    """The panel cannot be made or changed as asked; the message says what to change."""
-
-
-# ---------------------------------------------------------------------------------------------
-# The riff
-
-_PITCH_CLASS = {"C": 0, "D": 2, "E": 4, "F": 5, "G": 7, "A": 9, "B": 11}
-
-
-def pitch(v: Any) -> int:
-    """A MIDI note number from a number or a name. C3 is 60, as Live shows it."""
-    if isinstance(v, (int, float)) and not isinstance(v, bool):
-        n = int(v)
-    else:
-        m = re.fullmatch(r"([A-Ga-g])([#b]?)(-?\d)", str(v).strip())
-        if not m:
-            raise PanelError(f"cannot read the pitch {v!r}: use a MIDI number or a name like A1 or C#3 (C3 is 60)")
-        n = _PITCH_CLASS[m[1].upper()] + {"#": 1, "b": -1, "": 0}[m[2]] + (int(m[3]) + 2) * 12
-    if not 0 <= n <= 127:
-        raise PanelError(f"the pitch {v!r} is outside MIDI's 0..127")
-    return n
-
-
-def riff(spec: dict) -> tuple[list[Note], float]:
-    """A spec's notes as (pitch, start, length, velocity) in beats, and the riff's length.
-
-    `notes` is one pattern ([[pitch, start, length, velocity], ...]), repeated to fill `beats`; the pattern
-    is as long as `pattern_beats`, or runs to the end of the bar its last note starts in. `chords` with `rhythm` is the
-    other way in (hands.live.midi).
-    """
-    if spec.get("chords"):
-        from hands.live import midi
-
-        try:
-            chords = midi.parse_progression(str(spec["chords"]))
-            beats = float(spec.get("beats") or 4 * len(chords))
-            _check_beats(beats)
-            notes = midi.generate_clip_notes(
-                chords,
-                beats=beats,
-                rhythm=str(spec.get("rhythm") or "staccato-16ths"),
-                base_velocity=int(spec.get("velocity") or 110),
-            )
-        except ValueError as exc:
-            raise PanelError(str(exc)) from exc
-        return [(int(p), float(s), float(d), int(v)) for p, s, d, v in notes], beats
-    raw = spec.get("notes")
-    if spec.get("seq") and not raw:
-        raw, period = sequence(
-            str(spec["seq"]),
-            every=float(spec.get("every") or 1),
-            gate=float(spec.get("gate") or 0.9),
-            velocity=int(spec.get("velocity") or 100),
-        )
-        spec = {"pattern_beats": period, **spec}
-    if not isinstance(raw, list) or not raw:
-        raise PanelError(
-            'the spec needs "seq" ("A B C D"), "notes" ([[pitch, start, length, velocity], ...], in beats) or "chords"'
-        )
-    pattern: list[Note] = []
-    for n in raw:
-        if not isinstance(n, (list, tuple)) or len(n) < 3:
-            raise PanelError(f"a note is [pitch, start, length, velocity]; got {n!r}")
-        start, length = float(n[1]), float(n[2])
-        if start < 0 or length <= 0:
-            raise PanelError(f"a note starts at 0 or later and has a length above 0; got {n!r}")
-        pattern.append((pitch(n[0]), start, length, max(1, min(127, int(n[3]) if len(n) > 3 else 100))))
-    last = max(s for _, s, _, _ in pattern)  # a note may ring past the bar line; its start decides the bar
-    period = float(spec.get("pattern_beats") or (math.floor(last / 4 + 1e-9) + 1) * 4)
-    beats = float(spec.get("beats") or period)
-    _check_beats(beats)
-    if period <= 0:
-        raise PanelError("pattern_beats must be above 0")
-    out: list[Note] = []
-    k = 0
-    while k * period < beats - 1e-9:
-        for p, s, d, v in pattern:
-            at = s + k * period
-            if at < beats - 1e-9:
-                out.append((p, round(at, 6), round(min(d, beats - at), 6), v))
-        k += 1
-    return out, beats
-
-
-def sequence(
-    seq: str, *, every: float = 1.0, gate: float = 0.9, velocity: int = 100, octave: int = 2
-) -> tuple[list[list], float]:
-    """Notes from "A B C D": one every `every` beats, sounding for `gate` of the step; "-" is a rest. A name
-    without an octave takes the pitch nearest the note before it (the first one sits in `octave`), so
-    "A B C D" climbs. Returns the notes and the length of one pass."""
-    steps = [t for t in re.split(r"[\s,]+", seq.strip()) if t]
-    if not steps or not 0 < every <= 16 or not 0 < gate <= 1 or len(steps) > 128:
-        raise PanelError(
-            'seq is 1 to 128 notes ("A B C D", "-" for a rest), every is beats between notes (up to 16), gate is 0..1'
-        )
-    notes, last = [], None
-    for k, step in enumerate(steps):
-        if step in "-._":
-            continue
-        m = re.fullmatch(r"([A-Ga-g])([#b]?)(-?\d)?", step)
-        if not m:
-            raise PanelError(
-                f"cannot read the note {step!r} in seq: use names like A, C#, Bb2 (C3 is 60), or - for a rest"
-            )
-        if m[3] is not None:
-            n = pitch(step)
-        else:
-            pc = (_PITCH_CLASS[m[1].upper()] + {"#": 1, "b": -1, "": 0}[m[2]]) % 12
-            near = [pc + 12 * o for o in range(11)]
-            n = pc + (octave + 2) * 12 if last is None else min(near, key=lambda c: (abs(c - last), -c))
-        last = n
-        notes.append([n, k * every, every * gate, velocity])
-    if not notes:
-        raise PanelError("seq has only rests")
-    return notes, len(steps) * every
-
-
-# Plain words for a sound: an Operator with that wave and the knobs most worth having.
-SOUNDS = {
-    "saw": "Saw D",
-    "sawtooth": "Saw D",
-    "square": "Square D",
-    "sine": "Sine",
-    "triangle": "Triangle",
-    "noise": "Noise White",
-}
-SOUND_CONTROLS = [
-    {"param": "Filter Freq", "label": "Cutoff"},
-    {"param": "Filter Res", "label": "Resonance"},
-    {"param": "Ae Decay", "label": "Decay"},
-    {"param": "Ae Release", "label": "Release"},
-]
-# Designed sounds: Operator with four detuned saws side by side, a slow swell and a low-pass filter.
-_LAYERS = {
-    "Algorithm": 10,
-    "Osc-A Wave": "Saw D",
-    "Osc-A Level": 1.0,
-    "Osc-B On": 1,
-    "Osc-B Wave": "Saw D",
-    "Osc-B Level": 0.85,
-    "B Fine": 14,
-    "Osc-C On": 1,
-    "Osc-C Wave": "Saw D",
-    "Osc-C Level": 0.75,
-    "C Fine": 986,
-    "Osc-D On": 1,
-    "Osc-D Wave": "Saw D",
-    "Osc-D Level": 0.6,
-    "D Coarse": 2,
-    "D Fine": 8,
-    "Spread": 85,
-    "Filter On": 1,
-    "Filter Type": "Lowpass",
-    "Filter Slope": "24 dB",
-    "Ae Decay": "3.5 s",
-    "Ae Sustain": "80 %",
-}
-PRESETS = {
-    "pad": {**_LAYERS, "Ae Attack": "1.4 s", "Ae Release": "2.8 s", "Filter Freq": "1.1 kHz", "Filter Res": "30 %"},
-    "strings": {
-        **_LAYERS,
-        "Ae Attack": "350 ms",
-        "Ae Release": "1.2 s",
-        "Filter Freq": "2.5 kHz",
-        "Filter Res": "15 %",
-    },
-}
-PRESET_CONTROLS = [
-    {"param": "Filter Freq", "label": "Cutoff"},
-    {"param": "Filter Res", "label": "Resonance"},
-    {"param": "Ae Attack", "label": "Attack"},
-    {"param": "Ae Release", "label": "Release"},
-    {"param": "Spread", "label": "Width"},
-]
-
-
-def expand(spec: dict, *, new: bool) -> dict:
-    """A spec with `sound` ("saw") written out as instrument, params and, for a new panel, controls."""
-    if not spec.get("sound"):
-        return spec
-    sound = str(spec["sound"]).strip().lower()
-    if sound in PRESETS:  # held chords by default: a pad that plays staccato is not a pad
-        out = {**spec, "params": {**PRESETS[sound], **(spec.get("params") or {})}}
-        if spec.get("chords"):
-            out.setdefault("rhythm", "whole")
-        if new:
-            out.setdefault("instrument", "Operator")
-            out.setdefault("controls", PRESET_CONTROLS)
-            out.setdefault("tail", 4.0)
-        return out
-    if sound not in SOUNDS:
-        raise PanelError(
-            f'no sound {sound!r}; sounds: {", ".join(sorted({*SOUNDS, *PRESETS}))}. For anything else give "instrument" and "params"'
-        )
-    out = {**spec, "params": {"Osc-A Wave": SOUNDS[sound], **(spec.get("params") or {})}}
-    if new:
-        out.setdefault("instrument", "Operator")
-        out.setdefault("controls", SOUND_CONTROLS)
-    return out
-
-
-def _check_beats(beats: float) -> None:
-    if not 1 <= beats <= MAX_BEATS:
-        raise PanelError(f"a riff is 1 to {MAX_BEATS:g} beats long (it renders in real time); got {beats:g}")
-
 
 # ---------------------------------------------------------------------------------------------
 # What Live shows for a value, and the value for what it shows
@@ -311,18 +120,6 @@ def _contains(name: str, names: list[str]) -> list[str]:
 
 # ---------------------------------------------------------------------------------------------
 # Talking to Live
-
-
-def _track(name: str) -> str:
-    return f"next(x for x in song.tracks if x.name == {name!r})"
-
-
-class Loc(str):
-    """Where a device is when it is not a panel track's instrument: the Live expression for it (hands.live.mix)."""
-
-
-def _device(name: str) -> str:
-    return str(name) if isinstance(name, Loc) else f"{_track(name)}.devices[0]"
 
 
 def read_catalog(client: McpTransport, track: str) -> list[dict]:
@@ -552,210 +349,8 @@ def read_file(f: Path, what: str) -> dict:
     return made
 
 
-def lead_beats(tempo: float) -> float:
-    """Whole beats rendered before the riff, enough to cover LEAD_SECONDS."""
-    return float(max(2, math.ceil(LEAD_SECONDS * tempo / 60.0)))
-
-
-def record_span(
-    transport: McpTransport,
-    *,
-    filename: str,
-    output_dir: str,
-    start_beat: float,
-    duration_beats: float,
-    tail_beats: float,
-    tempo: float,
-    n_tracks: int,
-    armed: list[int],
-    before: str = "",
-    after: str = "",
-) -> str | None:
-    """Record the arrangement from start_beat through a resampling track, in as few round trips as Live allows.
-
-    The same method as hands.live.record.record_arrangement (which see for why), batched: `before` (writes
-    only) runs in the first call and `after` in the last, which always runs and also removes the render track
-    and puts the arm states back. Writes <output_dir>/<filename> and its .timing.json; returns the path.
-    """
-    import shutil
-
-    from hands.live import sweep
-    from hands.live.record import _beat_to_seconds
-
-    idx, out, take = n_tracks, str(Path(output_dir) / filename), None
-    sweep.make_room(Path(output_dir), (duration_beats + tail_beats) * 60.0 / tempo)
-    put_back = with_prelude(
-        f"song.stop_playing()\nsong.record_mode = False\n"
-        f"if len(song.tracks) > {idx} and song.tracks[{idx}].name == 'Render':\n    song.delete_track({idx})\n"
-        f"for _i in {armed!r}:\n    if _i < len(song.tracks) and song.tracks[_i].can_be_armed:\n        song.tracks[_i].arm = 1\n"
-        + after
-        + "\nresult = 'ok'"
-    )
-    try:
-        with hold.undo(
-            transport, "the set as it was before a render (its Render track, record mode, tempo and playhead)", put_back
-        ):
-            transport.run(
-                before + "\nsong.stop_playing()\nsong.loop = False\nsong.back_to_arranger = False\n"
-                f"for _i in {armed!r}:\n    song.tracks[_i].arm = 0\nsong.create_audio_track(-1)\nresult = 'ok'"
-            )
-            for k in range(10):  # a new track can report no input types for a moment
-                if k:
-                    time.sleep(0.3)
-                if transport.run(
-                    f"_t = song.tracks[{idx}]\n_t.name = 'Render'\n"
-                    "_rt = next((r for r in _t.available_input_routing_types if 'Resampling' in r.display_name), None)\n"
-                    "if _rt is not None:\n    _t.input_routing_type = _rt\nresult = _rt is not None"
-                ):
-                    break
-            transport.run(
-                f"_t = song.tracks[{idx}]\nif 'Resampling' not in str(_t.input_routing_type.display_name):\n"
-                "    raise RuntimeError('could not set the render track to Resampling')\n_t.arm = 1\nresult = 'ok'"
-            )
-            transport.run(
-                f"song.start_time = {float(start_beat)!r}\nsong.current_song_time = {float(start_beat)!r}\n"
-                "song.record_mode = True\nsong.start_playing()\nresult = 'ok'"
-            )
-            from hands.live.record import AUDIO_STALLED, playhead_moves
-
-            if not playhead_moves(transport, float(start_beat)):
-                raise PanelError(AUDIO_STALLED)
-            time.sleep((duration_beats + tail_beats) * 60.0 / tempo + 0.3)
-            transport.run("song.stop_playing()\nsong.record_mode = False\nresult = 'ok'")
-            clip = None
-            for k in range(6):  # the take appears on the track a moment after the stop
-                time.sleep(0.2 if k else 0.1)
-                clip = transport.run(
-                    f"_c = list(song.tracks[{idx}].arrangement_clips)[:1]\n"
-                    "result = [_c[0].file_path, _c[0].start_marker, [[w.beat_time, w.sample_time] for w in _c[0].warp_markers], _c[0].start_time] if _c else None"
-                )
-                if clip and Path(clip[0]).exists():
-                    break
-            if not clip or not Path(clip[0]).exists():
-                return None
-            take = clip[0]
-            sweep.note_takes(Path(output_dir), Path(take).parent)
-            shutil.copy2(take, out)
-            Path(out + ".timing.json").write_text(
-                json.dumps(
-                    {"song_zero_seconds": _beat_to_seconds(clip[2], clip[1]), "clip_start": clip[3], "tempo": tempo}
-                )
-            )
-            return out
-    finally:
-        for leftover in [take, take + ".asd"] if take else []:  # Live's own take file in the project
-            Path(leftover).unlink(missing_ok=True)
-
-
-def _render(
-    client: McpTransport,
-    track: str,
-    state: dict,
-    notes: list[Note],
-    beats: float,
-    tail: float,
-    tempo: float | None,
-    out: Path,
-    recorder: Callable[..., str | None],
-    values: dict[str, float] | None = None,
-) -> dict:
-    """Set the values, write the riff past the end of the arrangement, record it, cut the take to the riff, put the set back."""
-    tempo = float(tempo or state["tempo"])
-    lead = lead_beats(tempo)
-    start = (int(state["end"] / 4) + 4) * 4.0 + math.ceil(lead / 4) * 4.0
-    out.parent.mkdir(parents=True, exist_ok=True)
-    take = out.with_name(f".{out.stem}.take.wav")
-    sel = state.get("selected")
-    before = (
-        (
-            f"_by = {{p.name: p for p in {_device(track)}.parameters}}\nfor _n, _v in {sorted(values.items())!r}:\n    _by[_n].value = _v\n"
-            if values
-            else ""
-        )
-        + (f"song.tempo = {tempo!r}\n" if abs(tempo - state["tempo"]) > 1e-6 else "")
-        + f"_c = {_track(track)}.create_midi_clip({start!r}, {float(beats)!r})\n_c.name = 'panel riff'\n"
-        "_c.add_new_notes(tuple(Live.Clip.MidiNoteSpecification(pitch=p, start_time=s, duration=d, velocity=v)"
-        f" for p, s, d, v in {notes!r}))\n"
-    )
-    after = (
-        f"_t = next((x for x in song.tracks if x.name == {track!r}), None)\n"
-        "for _c in (list(_t.arrangement_clips) if _t else []):\n    _t.delete_clip(_c)\n"
-        f"song.tempo = {state['tempo']!r}\nsong.loop = {state['loop']!r}\nsong.start_time = {state['start_time']!r}\n"
-        f"song.current_song_time = {state['pos']!r}\n"
-        + (f"select_track(song.tracks[{sel}])\n" if sel is not None and sel < len(state["names"]) else "")
-    )
-    try:
-        path = recorder(
-            transport=client,
-            filename=take.name,
-            output_dir=str(out.parent),
-            start_beat=start - lead,
-            duration_beats=lead + beats,
-            tail_beats=tail,
-            tempo=tempo,
-            n_tracks=len(state["names"]),
-            armed=state["armed"],
-            before=before,
-            after=after,
-        )
-        if not path:
-            raise PanelError("Live recorded nothing; check its audio output (`hands live check`)")
-        return cut_take(path, out, start, beats + tail, lead)
-    finally:
-        for f in (take, Path(f"{take}.timing.json")):
-            f.unlink(missing_ok=True)
-
-
-def cut_take(path: str, out: Path, start: float, length_beats: float, lead: float, fade_s: float = 0.03) -> dict:
-    """Cut a take made by record_span to `length_beats` from the song beat `start`; write it and say how loud it is."""
-    import numpy as np
-    import soundfile as sf
-
-    timing = json.loads(Path(f"{path}.timing.json").read_text())
-    x, sr = sf.read(path, always_2d=True, dtype="float64")
-    spb = 60.0 / timing["tempo"]
-    a = int(round((timing["song_zero_seconds"] + (start - timing.get("clip_start", start - lead)) * spb) * sr))
-    y = x[max(0, a) : max(0, a) + int(round(length_beats * spb * sr))].copy()
-    if not len(y):
-        raise PanelError("the take ended before the part to keep began")
-    fade = min(len(y), int(fade_s * sr))
-    if fade:
-        y[len(y) - fade :] *= np.linspace(1, 0, fade)[:, None]
-    sf.write(out, y, sr, subtype="PCM_24")
-    return {**levels(y), "seconds": round(len(y) / sr, 2), "tempo": timing["tempo"]}
-
-
-def levels(y) -> dict:
-    import numpy as np
-
-    peak, rms = float(np.max(np.abs(y))), float(np.sqrt(np.mean(y**2)))
-    db = lambda v: round(20 * math.log10(v), 1) if v > 0 else -120.0  # noqa: E731
-    return {"peak_dbfs": db(peak), "rms_dbfs": db(rms)}
-
-
-def set_code(panel: dict, values: dict[str, float]) -> str:
-    """Live code that sets a panel's values: an instrument's parameters by name, a mix panel's by where each one is."""
-    if not values:
-        return ""
-    if panel.get("kind") == "mix":
-        return "".join(f"{panel['exprs'][k]}.value = {float(v)!r}\n" for k, v in sorted(values.items()))
-    return (
-        f"_by = {{p.name: p for p in {_device(panel['track'])}.parameters}}\n"
-        f"for _n, _v in {sorted(values.items())!r}:\n    _by[_n].value = _v\n"
-    )
-
-
 # ---------------------------------------------------------------------------------------------
-# The control panel Zpkt web draws
-
-
-def _slug(name: str, taken: set[str]) -> str:
-    base = re.sub(r"[^a-z0-9]+", "_", name.lower()).strip("_")[:34] or "c"
-    out, n = base, 2
-    while out in taken:
-        out, n = f"{base}_{n}", n + 1
-    taken.add(out)
-    return out
+# The control panel's knobs, read from Live
 
 
 def controls_for(
@@ -799,105 +394,6 @@ def controls_for(
                 c["display"] = tables[p["name"]][:: (SAMPLES - 1) // (ANCHORS - 1)]
         out.append(c)
     return out
-
-
-def _num(v: float) -> float | int:
-    x = float(f"{v:.6g}")
-    return int(x) if x == int(x) else x
-
-
-def surface(panel: dict, ab: tuple[str, str] | None = None) -> dict:
-    """The zpkt-surface spec for a panel as it now stands; with `ab`, a before/after deck of two renders."""
-    controls = []
-    for c in panel["controls"]:
-        v = panel["values"].get(c["param"], c["min"])
-        if c["kind"] == "toggle":
-            controls.append(
-                {
-                    "kind": "toggle",
-                    "id": c["id"],
-                    "label": c["label"],
-                    "value": v > (c["min"] + c["max"]) / 2,
-                    "midiSlot": c["midiSlot"],
-                }
-            )
-            continue
-        k = {
-            "kind": "fader" if c["kind"] == "fader" else "knob",
-            "id": c["id"],
-            "label": c["label"],
-            "min": _num(c["min"]),
-            "max": _num(c["max"]),
-            "value": _num(v),
-        }
-        if c.get("step"):
-            k["step"] = c["step"]
-        if c.get("display"):
-            k["display"] = c["display"]
-        controls.append({**k, "midiSlot": c["midiSlot"]})
-    if ab:
-        side = lambda label, src: {"label": label, "src": src, "bpm": _num(panel["tempo"]), "downbeatMs": 0}  # noqa: E731
-        controls.append(
-            {
-                "kind": "ab",
-                "id": "ab",
-                "label": "Before / after",
-                "a": side("before", ab[0]),
-                "b": side("after", ab[1]),
-                "loop": {"startBar": 1, "bars": max(1, min(64, int(panel["beats"] // 4)))},
-                "quantize": "bar",
-            }
-        )
-    note = (
-        f"bars {panel['bars'][0]}-{panel['bars'][0] + panel['bars'][1] - 1} at {panel['tempo']:g} BPM · v{panel['version']}"
-        if panel.get("kind") == "mix"
-        else f"{panel['device']} · {panel['beats']:g} beats at {panel['tempo']:g} BPM · v{panel['version']}"
-    )
-    return {"title": panel.get("title") or panel["name"], "note": note, "panel": panel["name"], "controls": controls}
-
-
-def _shown_path(p: Path) -> str:
-    try:
-        return str(p.resolve().relative_to(Path.cwd().resolve()))
-    except ValueError:
-        return str(p.resolve())
-
-
-def blocks(panel: dict, result: dict, warnings: list[str], ab: tuple[str, str] | None = None) -> str:
-    """What the command prints: one line of facts, then the two blocks to paste into the answer as they are."""
-    spec = surface(panel, ab)
-    head, *rows = [
-        json.dumps({k: v for k, v in spec.items() if k != "controls"}, ensure_ascii=False)[:-1] + ', "controls": [',
-        *[" " + json.dumps(c, ensure_ascii=False) for c in spec["controls"]],
-    ]
-    body = head + "\n" + ",\n".join(rows) + "\n]}"
-    level = f"peak {result['peak_dbfs']:g} dBFS, RMS {result['rms_dbfs']:g} dBFS, {result['seconds']:g} s"
-    what = (
-        "mix of " + ", ".join(dict.fromkeys(c["track"] for c in panel["controls"]))
-        if panel.get("kind") == "mix"
-        else f"{panel['device']} on track {panel['track']!r}"
-    )
-    lines = [f"panel {panel['name']} v{panel['version']}: {what}, {level}"]
-    if result["peak_dbfs"] < -60:
-        lines.append(
-            "WARNING: the render is silent. Check the instrument's level, the notes' range and Live's audio output."
-        )
-    lines += [f"warning: {w}" for w in warnings]
-    lines += [
-        "Paste both blocks into your answer as they are:",
-        "",
-        "```audio",
-        panel["renders"][-1],
-        "```",
-        "",
-        "```zpkt-surface",
-        body,
-        "```",
-        "",
-        f"When the user's Surface state comes back: hands panel apply {panel['name']} --state '<that JSON>'. "
-        f'Several versions to compare at once: hands panel grid {panel["name"]} --axes \'{{"{panel["controls"][0]["id"] if panel["controls"] else "id"}": {{"steps": 4}}}}\'',
-    ]
-    return "\n".join(lines)
 
 
 # ---------------------------------------------------------------------------------------------
