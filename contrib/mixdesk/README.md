@@ -148,3 +148,35 @@ ready-made surface through the same checks.
 Claude must be signed in on this Mac for the CLI: `claude`, then `/login` (or a token in `HARNESS_OAUTH` / the
 harness's Keychain item). When it is not, the page says so.
 
+
+## How it is built
+
+- `server.py`: `Desk` owns the one state the page sees, its lock, the page's event queues and the history. GET and
+  POST are dispatch tables; each POST route checks its body, and a bad one gets a 400 that says what is wrong.
+  `Settings` holds the ports and folders (`Settings.from_env()` for the running desk; tests make their own).
+- `deskstate.py`: the pure rules. `reduce(state, message, now)` folds one pager message in; the loudness match,
+  history labels and the seek rule are plain functions too. The page only paints what the server sends (the match's
+  gains are in the state; what changed comes from `/api/compare`).
+- `protocol.py`: one type per message (`{"t": "v" | "pos" | "mon" | "loop" | "page" | "hw"}` from the pager,
+  `full`, `hist`, `meter`, `surface`, `desk` from the server). The short field names are the wire protocol. A datagram
+  that is not one of them is logged and dropped. `gen_schema.py` writes `lib/contracts/mixdesk-message.schema.json`
+  and `mixdesk-surface.schema.json` from the types.
+- `pager.py` is the Live shell (listeners, grabs, LOM writes); `pagercore.py` holds its decisions and imports nothing.
+  The pager loads it, and hands' `inlive` helpers (tracks, keys, shown values), by path: Live's Python cannot import
+  hands. Both run on Live's Python 3.11.
+- `recipe.py` and `match.py snapshot` read the set with `hands.live.state`; `recipe.py apply` is `state.put` of the
+  desk. `finishing.py` holds the finishing sets' folder and names; each command line points hands' rig there when it
+  starts, so importing a script changes nothing.
+
+## Testing
+
+    hands/.venv/bin/python -m pytest -q -p no:cacheprovider contrib/mixdesk/tests     # from the repo root
+    hands/.venv/bin/mypy --config-file contrib/mixdesk/mypy.ini
+
+The tests start the server in their own process on free ports, with the pager loaded into hands' FakeLive and its
+fake MiniLab, and every file (history, checkpoints, surfaces, analysis) made up in a temporary folder. They never
+reach the running desk, Live or my files. `tests/data` holds the recipe's `desk` and a match snapshot as the code wrote
+them on FakeLive's HW002-like set before the upgrade; the tests check the bytes stay the same. `test_page.py` drives
+the page in Chromium and skips without Playwright:
+
+    cd hands && uv run --all-extras --with playwright python -m pytest -q ../contrib/mixdesk/tests/test_page.py
