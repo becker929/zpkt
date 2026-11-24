@@ -79,13 +79,21 @@ def apply_surface_state(
     values = state.get("values", state)
     param_updates = map_surface_values(values, mapping)
 
-    t_expr = f"song.tracks[{track}]" if isinstance(track, int) or (isinstance(track, str) and track.isdigit()) else f"next(x for x in song.tracks if x.name == {track!r})"
-    d_expr = f"{t_expr}.devices[{device}]" if isinstance(device, int) or (isinstance(device, str) and device.isdigit()) else f"next(d for d in {t_expr}.devices if d.name == {device!r})"
+    t_expr = (
+        f"song.tracks[{track}]"
+        if isinstance(track, int) or (isinstance(track, str) and track.isdigit())
+        else f"next(x for x in song.tracks if x.name == {track!r})"
+    )
+    d_expr = (
+        f"{t_expr}.devices[{device}]"
+        if isinstance(device, int) or (isinstance(device, str) and device.isdigit())
+        else f"next(d for d in {t_expr}.devices if d.name == {device!r})"
+    )
 
     # Check if level/volume should also adjust mixer
     level_val = values.get("level")
 
-    code = f'''
+    code = f"""
 _t = {t_expr}
 _d = {d_expr}
 _by_name = {{p.name: p for p in _d.parameters}}
@@ -115,5 +123,5 @@ result = {{
     "applied": _applied,
     "count": len(_applied),
 }}
-'''
+"""
     return client.run(code)

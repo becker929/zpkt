@@ -13,7 +13,9 @@ import typer
 from hands.live import panel
 from hands.live.transport import DEFAULT_HOST, LiveClient, LiveError
 
-app = typer.Typer(no_args_is_help=True, help="""Control panels for Zpkt web: one instrument, a riff, a render, the knobs.
+app = typer.Typer(
+    no_args_is_help=True,
+    help="""Control panels for Zpkt web: one instrument, a riff, a render, the knobs.
 
   hands panel make --spec - <<'JSON'
   {"name": "funk-bass", "instrument": "Operator", "tempo": 104,
@@ -32,7 +34,8 @@ A mix panel is the same thing over tracks already in the set, heard on bars of t
     "devices": [{"track": "bus-kick", "device": "Saturator", "params": {"Drive": "6 dB"}, "controls": ["Drive"]}]}'
 
 Several versions at once, for either kind: `hands panel grid NAME --axes '{"cutoff": {"steps": 4}}'` renders
-each one in Live and prints one deck (A, B, C, ...); `hands panel pick NAME 1 C` keeps one.""")
+each one in Live and prints one deck (A, B, C, ...); `hands panel pick NAME 1 C` keeps one.""",
+)
 
 OUT = typer.Option(Path("renders"), "--out", help="Folder for the renders and the panel's file.")
 HOST = typer.Option(DEFAULT_HOST, "--host", help="Remote Script host.")
@@ -62,7 +65,10 @@ def _run(fn, client, *args, what: str = "", **kwargs) -> None:
     """Run one command with Live held for it (hands.live.hold): one command at a time, and what an interrupted
     one left is put back first."""
     from hands.live import hold
-    what = what or f"hands {fn.__module__.rsplit('.', 1)[-1]} {fn.__name__}".replace("hands versions", "hands panel").replace("hands mix", "hands panel")
+
+    what = what or f"hands {fn.__module__.rsplit('.', 1)[-1]} {fn.__name__}".replace(
+        "hands versions", "hands panel"
+    ).replace("hands mix", "hands panel")
     try:
         with hold.using_live(what, client=client) as put_back:
             for line in put_back:
@@ -72,11 +78,13 @@ def _run(fn, client, *args, what: str = "", **kwargs) -> None:
         _fail(f"ERROR: {exc}")
     except (panel.PanelError, LiveError) as exc:
         _fail(f"ERROR: {plain(exc)}")
-    except Exception as exc:  # noqa: BLE001  (an agent reads this: one line it can act on, not a traceback)
+    except Exception as exc:
         _fail(f"ERROR: {inside(exc)}")
 
 
-_NOISE = re.compile(r" \(Multi-line code may have partially executed[^)]*\)| \[in '[^']*'\]|^(ValueError|RuntimeError|StopIteration): ")
+_NOISE = re.compile(
+    r" \(Multi-line code may have partially executed[^)]*\)| \[in '[^']*'\]|^(ValueError|RuntimeError|StopIteration): "
+)
 
 
 def plain(exc: BaseException) -> str:
@@ -91,16 +99,21 @@ def inside(exc: BaseException) -> str:
     while tb and tb.tb_next:
         tb = tb.tb_next
     where = f"{Path(tb.tb_frame.f_code.co_filename).name}:{tb.tb_lineno}" if tb else "?"
-    return (f"hands failed inside ({type(exc).__name__}: {str(exc)[:200]} at {where}). Either a value in the JSON has the "
-            "wrong shape (compare it with the example in --help), or Live answered something odd: run `hands rig reset` "
-            "and try once more.")
+    return (
+        f"hands failed inside ({type(exc).__name__}: {str(exc)[:200]} at {where}). Either a value in the JSON has the "
+        "wrong shape (compare it with the example in --help), or Live answered something odd: run `hands rig reset` "
+        "and try once more."
+    )
 
 
 @app.command()
 def make(
     spec: str = typer.Option(..., "--spec", help="The panel as JSON: the text itself, @FILE, or - for stdin."),
     replace: bool = typer.Option(False, "--replace", help="Replace the panel of the same name."),
-    out: Path = OUT, force: bool = FORCE, host: str = HOST, port: int | None = PORT,
+    out: Path = OUT,
+    force: bool = FORCE,
+    host: str = HOST,
+    port: int | None = PORT,
 ) -> None:
     """Load the instrument on a new track, set it, render the riff, print the audio and control panel blocks.
 
@@ -122,25 +135,42 @@ def make(
     if not isinstance(data, dict):
         _fail("--spec must be a JSON object", 2)
     from hands.live import mix
-    _run(mix.make if mix.is_mix(data) else panel.make, LiveClient(host, port, keep=True), data, out, replace=replace, force=force)
+
+    _run(
+        mix.make if mix.is_mix(data) else panel.make,
+        LiveClient(host, port, keep=True),
+        data,
+        out,
+        replace=replace,
+        force=force,
+    )
 
 
 @app.command()
 def apply(
     name: str = typer.Argument(..., help="The panel's name."),
-    state: str = typer.Option(None, "--state", help="The Surface state from the page (or its values), as JSON, @FILE or -."),
-    spec: str = typer.Option(None, "--spec", help="Changes as JSON, @FILE or -: params, notes or chords, beats, tempo, controls."),
-    out: Path = OUT, force: bool = FORCE, host: str = HOST, port: int | None = PORT,
+    state: str = typer.Option(
+        None, "--state", help="The Surface state from the page (or its values), as JSON, @FILE or -."
+    ),
+    spec: str = typer.Option(
+        None, "--spec", help="Changes as JSON, @FILE or -: params, notes or chords, beats, tempo, controls."
+    ),
+    out: Path = OUT,
+    force: bool = FORCE,
+    host: str = HOST,
+    port: int | None = PORT,
 ) -> None:
     """Set the panel's values, render the next version, print it with a before/after deck."""
     from hands.live import mix
+
     values, changes = _json(state, "--state"), _json(spec, "--spec")
 
-    def apply(client):                           # the panel's file is read once Live is held: another apply may be writing it
+    def apply(client):  # the panel's file is read once Live is held: another apply may be writing it
         made = _made(out, name)
         if made and made.get("kind") == "mix":
             return mix.apply(client, made, out, state_values=values, spec=changes, force=force)
         return panel.apply(client, name, out, state_values=values, spec=changes, force=force)
+
     _run(apply, LiveClient(host, port, keep=True), what="hands panel apply")
 
 
@@ -156,9 +186,18 @@ def _made(out: Path, name: str) -> dict | None:
 @app.command()
 def grid(
     name: str = typer.Argument(..., help="The panel's name."),
-    axes: str = typer.Option(..., "--axes", help='What to vary, as JSON, @FILE or -: {"control id": {"from": "200 Hz", "to": "2 kHz", "steps": 4}} or {"control id": {"values": ["10 %", "60 %"]}}.'),
-    state: str = typer.Option(None, "--state", help="The Surface state from the page, so the other knobs are where the user has them."),
-    out: Path = OUT, force: bool = FORCE, host: str = HOST, port: int | None = PORT,
+    axes: str = typer.Option(
+        ...,
+        "--axes",
+        help='What to vary, as JSON, @FILE or -: {"control id": {"from": "200 Hz", "to": "2 kHz", "steps": 4}} or {"control id": {"values": ["10 %", "60 %"]}}.',
+    ),
+    state: str = typer.Option(
+        None, "--state", help="The Surface state from the page, so the other knobs are where the user has them."
+    ),
+    out: Path = OUT,
+    force: bool = FORCE,
+    host: str = HOST,
+    port: int | None = PORT,
 ) -> None:
     """Render every combination (2 to 16 versions) and print them as one deck, A, B, C, ..., to hear side by side.
 
@@ -166,8 +205,18 @@ def grid(
     Without from/to, the whole range. The panel's own values do not move until `hands panel pick`.
     """
     from hands.live import versions
+
     note = lambda k, n: print(f"rendering {k + 1} of {n}", file=sys.stderr, flush=True)  # noqa: E731
-    _run(versions.grid, LiveClient(host, port, keep=True), name, out, _json(axes, "--axes"), state_values=_json(state, "--state"), force=force, progress=note)
+    _run(
+        versions.grid,
+        LiveClient(host, port, keep=True),
+        name,
+        out,
+        _json(axes, "--axes"),
+        state_values=_json(state, "--state"),
+        force=force,
+        progress=note,
+    )
 
 
 @app.command()
@@ -175,10 +224,14 @@ def pick(
     name: str = typer.Argument(..., help="The panel's name."),
     grid_id: int = typer.Argument(..., help="Which grid (its number)."),
     letter: str = typer.Argument(..., help="Which version: A, B, C, ..."),
-    out: Path = OUT, force: bool = FORCE, host: str = HOST, port: int | None = PORT,
+    out: Path = OUT,
+    force: bool = FORCE,
+    host: str = HOST,
+    port: int | None = PORT,
 ) -> None:
     """Make one version of a grid the panel's values, in Live too. Nothing is rendered again."""
     from hands.live import versions
+
     _run(versions.pick, LiveClient(host, port, keep=True), name, out, grid_id, letter, force=force)
 
 
@@ -186,39 +239,57 @@ def pick(
 def params(
     instrument: str = typer.Argument(..., help="A name from Live's browser, as in a spec."),
     grep: str = typer.Option("", "--grep", help="Only names matching this (a regular expression, any case)."),
-    host: str = HOST, port: int | None = PORT,
+    host: str = HOST,
+    port: int | None = PORT,
 ) -> None:
     """List a device's parameters: name | range | default = what Live shows | choices."""
     _run(panel.params, LiveClient(host, port, keep=True), instrument, grep)
 
 
 @app.command()
-def drop(name: str = typer.Argument(..., help="The panel's name."), out: Path = OUT, host: str = HOST, port: int | None = PORT) -> None:
+def drop(
+    name: str = typer.Argument(..., help="The panel's name."),
+    out: Path = OUT,
+    host: str = HOST,
+    port: int | None = PORT,
+) -> None:
     """Delete the panel's track from the open set. Its renders stay."""
     from hands.live import mix
 
     def drop(client):
         made = _made(out, name)
         return mix.drop(client, made, out) if made and made.get("kind") == "mix" else panel.drop(client, name, out)
+
     _run(drop, LiveClient(host, port, keep=True), what="hands panel drop")
 
 
-song_app = typer.Typer(no_args_is_help=True, help="""A song from panels: each panel's riff looped over the sections it plays in.
+song_app = typer.Typer(
+    no_args_is_help=True,
+    help="""A song from panels: each panel's riff looped over the sections it plays in.
 
   hands song make --spec '{"name": "night-drive", "tempo": 124, "sections": [
     {"name": "intro", "bars": 8, "parts": ["nd-pad"]}, {"name": "drop", "bars": 16, "parts": ["nd-pad", "nd-bass"]}]}'
 
 The clips go past the end of the arrangement and stay until `hands song drop`, so a mix panel can render bars
-of the song ({"song": "night-drive", "bars": [9, 8], "faders": ["panel nd-pad", "panel nd-bass"]}).""")
+of the song ({"song": "night-drive", "bars": [9, 8], "faders": ["panel nd-pad", "panel nd-bass"]}).""",
+)
 
 
 @song_app.command("make")
 def song_make(
-    spec: str = typer.Option(..., "--spec", help="The song as JSON, @FILE or -: name, tempo, sections [{name, bars, parts: [panel names]}], tail."),
-    out: Path = OUT, force: bool = FORCE, host: str = HOST, port: int | None = PORT,
+    spec: str = typer.Option(
+        ...,
+        "--spec",
+        help="The song as JSON, @FILE or -: name, tempo, sections [{name, bars, parts: [panel names]}], tail.",
+    ),
+    out: Path = OUT,
+    force: bool = FORCE,
+    host: str = HOST,
+    port: int | None = PORT,
 ) -> None:
     """Lay the song out in the arrangement and render it (real time). Making it again replaces its clips."""
     from hands.live import song
+
     data = _json(spec, "--spec")
     if not isinstance(data, dict):
         _fail("--spec must be a JSON object", 2)
@@ -226,43 +297,60 @@ def song_make(
 
 
 @song_app.command("render")
-def song_render(name: str = typer.Argument(..., help="The song's name."), out: Path = OUT, force: bool = FORCE, host: str = HOST, port: int | None = PORT) -> None:
+def song_render(
+    name: str = typer.Argument(..., help="The song's name."),
+    out: Path = OUT,
+    force: bool = FORCE,
+    host: str = HOST,
+    port: int | None = PORT,
+) -> None:
     """Render the song again as it now stands (after its panels or its mix changed)."""
     from hands.live import song
+
     _run(song.render, LiveClient(host, port, keep=True), name, out, force=force)
 
 
 @song_app.command("drop")
-def song_drop(name: str = typer.Argument(..., help="The song's name."), out: Path = OUT, host: str = HOST, port: int | None = PORT) -> None:
+def song_drop(
+    name: str = typer.Argument(..., help="The song's name."), out: Path = OUT, host: str = HOST, port: int | None = PORT
+) -> None:
     """Delete the song's clips from the arrangement. Its panels' tracks and its renders stay."""
     from hands.live import song
+
     _run(song.drop, LiveClient(host, port, keep=True), name, out)
 
 
 def sweep_command(
     out: Path = OUT,
-    project: list[Path] = typer.Option([], "--project", help="A Live project to look for leftover takes in (repeat for more). The open set's project is looked at anyway."),
+    project: list[Path] = typer.Option(
+        [],
+        "--project",
+        help="A Live project to look for leftover takes in (repeat for more). The open set's project is looked at anyway.",
+    ),
     days: float = typer.Option(7.0, "--days", help="Superseded renders go once they are this old."),
     apply: bool = typer.Option(False, "--apply", help="Delete. Without it, only say what would go."),
     pressure: bool = typer.Option(False, "--pressure", help="Do not wait --days: sweep everything superseded now."),
     as_json: bool = typer.Option(False, "--json", help="Print the result as JSON."),
-    host: str = HOST, port: int | None = PORT,
+    host: str = HOST,
+    port: int | None = PORT,
 ) -> None:
     """Delete the files hands made that nothing can need again: leftover takes, old versions, old grids."""
     from hands.live import sweep
 
     projects, in_use = list(project), set()
-    try:   # the open set: its project, and the audio it plays (which a set not saved yet would not show on disk)
+    try:  # the open set: its project, and the audio it plays (which a set not saved yet would not show on disk)
         live = LiveClient(host, port, timeout=4.0, retries=0, keep=True)
-        path, clips = live.run("result = [str(getattr(song, 'file_path', '') or ''), sorted({str(c.file_path) for t in song.tracks "
-                               "for c in list(t.arrangement_clips) + [s.clip for s in t.clip_slots if s.has_clip] if c.is_audio_clip})]")
+        path, clips = live.run(
+            "result = [str(getattr(song, 'file_path', '') or ''), sorted({str(c.file_path) for t in song.tracks "
+            "for c in list(t.arrangement_clips) + [s.clip for s in t.clip_slots if s.has_clip] if c.is_audio_clip})]"
+        )
         in_use = set(clips)
         if path:
             projects.append(Path(path).parent)
-    except Exception:  # noqa: BLE001  (Live not there, or answering oddly: sweep what the disk shows)
+    except Exception:
         pass
     try:
         result = sweep.sweep(out, projects, apply=apply, keep_days=days, pressure=pressure, in_use=in_use)
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         _fail(f"ERROR: {inside(exc)}")
     print(json.dumps(result) if as_json else sweep.report(result))

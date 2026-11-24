@@ -1,4 +1,5 @@
 """hands.live.render.export with the AppleScript, the GUI and the time selection faked."""
+
 from __future__ import annotations
 
 import json
@@ -33,7 +34,7 @@ class FakeExportDialog:
         if writes:
             Path(args[0]).write_bytes(b"RIFF")
         if fails:
-            raise ui.UiError("System Events got an error: Can't get window \"Export Audio/Video\" (-1728)")
+            raise ui.UiError('System Events got an error: Can\'t get window "Export Audio/Video" (-1728)')
         return args[0]
 
     def close(self):
@@ -113,10 +114,17 @@ def test_cli_export_puts_bare_names_in_the_renders_folder(monkeypatch, rig):
     def export(client, out, start, length, **kw):
         seen.update(out=out, start=start, length=length, **kw)
         return [out]
+
     monkeypatch.setattr(render, "export", export)
     result = CliRunner().invoke(app, ["live", "export", "take.wav", "--start", "8", "--length", "32", "--bits", "24"])
     assert result.exit_code == 0 and result.stdout.strip() == str(rig.renders_dir / "take.wav")
-    assert seen == {"out": rig.renders_dir / "take.wav", "start": 8.0, "length": 32.0, "mode": "Main",
-                    "bits": 24, "sample_rate": 44100}
+    assert seen == {
+        "out": rig.renders_dir / "take.wav",
+        "start": 8.0,
+        "length": 32.0,
+        "mode": "Main",
+        "bits": 24,
+        "sample_rate": 44100,
+    }
     bad = CliRunner().invoke(app, ["live", "export", "take.wav", "--start", "8"])
     assert bad.exit_code == 2

@@ -1,16 +1,34 @@
 """ProjectBuilder: turns a ProjectConfig into ordered MCP execute() steps."""
+
 from __future__ import annotations
 
 from hands.codegen import (
-    Step, gen_configure_eq8, gen_configure_rack_chain, gen_create_tracks,
-    gen_load_device, gen_load_device_to_pad, gen_load_sample_to_pad,
-    gen_manual_rack_setup, gen_midi_clip, gen_rename_tracks,
-    gen_set_arrangement_loop, gen_set_pad_chain_device_params, gen_set_params,
-    gen_set_simpler_params, gen_set_tempo, gen_tile_session_to_arrangement,
+    Step,
+    gen_configure_eq8,
+    gen_configure_rack_chain,
+    gen_create_tracks,
+    gen_load_device,
+    gen_load_device_to_pad,
+    gen_load_sample_to_pad,
+    gen_manual_rack_setup,
+    gen_midi_clip,
+    gen_rename_tracks,
+    gen_set_arrangement_loop,
+    gen_set_pad_chain_device_params,
+    gen_set_params,
+    gen_set_simpler_params,
+    gen_set_tempo,
+    gen_tile_session_to_arrangement,
 )
 from hands.models import (
-    DeviceSource, DeviceSpec, EQ8Spec, MidiPattern, PercConfig, ProjectConfig,
-    SamplePad, SongStructure,
+    DeviceSource,
+    DeviceSpec,
+    EQ8Spec,
+    MidiPattern,
+    PercConfig,
+    ProjectConfig,
+    SamplePad,
+    SongStructure,
 )
 
 _EQ8 = DeviceSpec(name="EQ Eight")
@@ -80,7 +98,10 @@ class ProjectBuilder:
 
     @staticmethod
     def _pad_setup_steps(
-        track_idx: int, drum_rack_idx: int, pad: SamplePad, extra_devices: tuple,
+        track_idx: int,
+        drum_rack_idx: int,
+        pad: SamplePad,
+        extra_devices: tuple,
     ) -> list[Step]:
         steps: list[Step] = [
             gen_load_sample_to_pad(track_idx, drum_rack_idx, pad.note, pad.name),
@@ -90,10 +111,16 @@ class ProjectBuilder:
         for chain_device_idx, device in enumerate(extra_devices, start=1):
             steps.append(gen_load_device_to_pad(track_idx, drum_rack_idx, pad.note, device))
             if device.params:
-                steps.append(gen_set_pad_chain_device_params(
-                    track_idx, drum_rack_idx, pad.note,
-                    chain_device_idx, device.params, device.name,
-                ))
+                steps.append(
+                    gen_set_pad_chain_device_params(
+                        track_idx,
+                        drum_rack_idx,
+                        pad.note,
+                        chain_device_idx,
+                        device.params,
+                        device.name,
+                    )
+                )
         return steps
 
     # ------------------------------------------------------------------
@@ -116,9 +143,14 @@ class ProjectBuilder:
         steps: list[Step] = [gen_load_device(ti, _DRUM_RACK)]
         for group in perc.groups:
             if group.main is not None:
-                steps.extend(self._pad_setup_steps(
-                    ti, 0, group.main, group.main.devices + group.main_devices,
-                ))
+                steps.extend(
+                    self._pad_setup_steps(
+                        ti,
+                        0,
+                        group.main,
+                        group.main.devices + group.main_devices,
+                    )
+                )
         bus_devices = self._collect_bus_devices(perc)
         for dev in bus_devices:
             steps.append(gen_load_device(ti, dev))
@@ -175,9 +207,14 @@ class ProjectBuilder:
         if kick.main_distortion is not None:
             steps.append(gen_load_device(ti, kick.main_distortion))
             if kick.main_distortion.params:
-                steps.append(gen_set_params(
-                    ti, track_dev_idx, kick.main_distortion.params, kick.main_distortion.name,
-                ))
+                steps.append(
+                    gen_set_params(
+                        ti,
+                        track_dev_idx,
+                        kick.main_distortion.params,
+                        kick.main_distortion.name,
+                    )
+                )
             track_dev_idx += 1
         if kick.track_eq is not None:
             steps.append(gen_load_device(ti, _EQ8))
@@ -234,13 +271,15 @@ class ProjectBuilder:
             for st in section.tracks:
                 if not st.enabled:
                     continue
-                steps.append(gen_tile_session_to_arrangement(
-                    track_idx=self._track_index(st.track_prefix),
-                    session_slot=st.session_slot,
-                    start_beat=beat_offset,
-                    end_beat=beat_offset + section_beats,
-                    clip_length=self._clip_length(st.track_prefix),
-                ))
+                steps.append(
+                    gen_tile_session_to_arrangement(
+                        track_idx=self._track_index(st.track_prefix),
+                        session_slot=st.session_slot,
+                        start_beat=beat_offset,
+                        end_beat=beat_offset + section_beats,
+                        clip_length=self._clip_length(st.track_prefix),
+                    )
+                )
             beat_offset += section_beats
         return steps
 
@@ -253,12 +292,14 @@ class ProjectBuilder:
             steps.extend(self._flatten_structure(arr.structure))
         else:
             for clip_spec in arr.clips:
-                steps.append(gen_tile_session_to_arrangement(
-                    track_idx=self._track_index(clip_spec.track_prefix),
-                    session_slot=clip_spec.source_session_slot,
-                    start_beat=clip_spec.start_beat,
-                    end_beat=clip_spec.start_beat + clip_spec.length_beats,
-                    clip_length=self._clip_length(clip_spec.track_prefix),
-                ))
+                steps.append(
+                    gen_tile_session_to_arrangement(
+                        track_idx=self._track_index(clip_spec.track_prefix),
+                        session_slot=clip_spec.source_session_slot,
+                        start_beat=clip_spec.start_beat,
+                        end_beat=clip_spec.start_beat + clip_spec.length_beats,
+                        clip_length=self._clip_length(clip_spec.track_prefix),
+                    )
+                )
         steps.append(gen_set_arrangement_loop(arr.loop, arr.loop_start, arr.loop_length))
         return steps

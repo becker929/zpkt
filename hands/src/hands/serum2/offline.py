@@ -69,9 +69,11 @@ class Serum:
         import struct
 
         ctl = controller if controller is not None else self.state()[1]
-        xml = ('<?xml version="1.0" encoding="UTF-8"?> <VST3PluginState><IComponent>%s</IComponent>'
-               '<IEditController>%s</IEditController></VST3PluginState>'
-               % (_juce_b64_encode(processor), _juce_b64_encode(ctl))).encode() + b"\x00"
+        xml = (
+            '<?xml version="1.0" encoding="UTF-8"?> <VST3PluginState><IComponent>%s</IComponent>'
+            "<IEditController>%s</IEditController></VST3PluginState>"
+            % (_juce_b64_encode(processor), _juce_b64_encode(ctl))
+        ).encode() + b"\x00"
         self.p.raw_state = b"VC2!" + struct.pack("<I", len(xml)) + xml
         self._commit()
 
@@ -90,8 +92,10 @@ class Serum:
 
         msgs = []
         for pitch, start, length in notes:
-            msgs += [Message("note_on", note=pitch, velocity=vel, time=start),
-                     Message("note_off", note=pitch, velocity=0, time=start + length)]
+            msgs += [
+                Message("note_on", note=pitch, velocity=vel, time=start),
+                Message("note_off", note=pitch, velocity=0, time=start + length),
+            ]
         msgs.sort(key=lambda m: m.time)
         self.p.reset()
         return self.p(msgs, duration=dur, sample_rate=SR, buffer_size=512)
@@ -101,6 +105,8 @@ def check(audio: np.ndarray) -> Check:
     m = audio.mean(axis=0)
     f = np.abs(np.fft.rfft(m * np.hanning(len(m))))
     hz = np.fft.rfftfreq(len(m), 1 / SR)
-    return Check(round(float(np.abs(audio).max()), 3),
-                 round(float(20 * np.log10(np.sqrt((audio ** 2).mean()) + 1e-9)), 1),
-                 int((f * hz).sum() / max(f.sum(), 1e-12)))
+    return Check(
+        round(float(np.abs(audio).max()), 3),
+        round(float(20 * np.log10(np.sqrt((audio**2).mean()) + 1e-9)), 1),
+        int((f * hz).sum() / max(f.sum(), 1e-12)),
+    )

@@ -26,7 +26,7 @@ def create_instance(c_instance):
     return ZpktMiniLabTempo(c_instance)
 
 
-class _Grabber(object):
+class _Grabber:
     def __init__(self, control, on_value):
         self.control = control
         self.on_value = on_value
@@ -87,9 +87,11 @@ class ZpktMiniLabTempo(ControlSurface):
     def _attach(self, cs):
         e = cs.elements
         pads = getattr(e, PAD_BANK)
-        self._grabbers = [_Grabber(getattr(e, FADER), self._on_fader),
-                          _Grabber(pads[HALF_PAD], self._on_half),
-                          _Grabber(pads[DOUBLE_PAD], self._on_double)]
+        self._grabbers = [
+            _Grabber(getattr(e, FADER), self._on_fader),
+            _Grabber(pads[HALF_PAD], self._on_half),
+            _Grabber(pads[DOUBLE_PAD], self._on_double),
+        ]
         for g in self._grabbers:
             g.grab()
         self._target = cs
@@ -101,6 +103,7 @@ class ZpktMiniLabTempo(ControlSurface):
 
         def apply():
             self.song().tempo = bpm
+
         try:
             apply()
         except RuntimeError:  # changes can't be triggered by notifications: defer a tick

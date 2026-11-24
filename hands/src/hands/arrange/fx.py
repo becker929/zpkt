@@ -26,6 +26,7 @@ TEMP = 8000.0  # far past the music, for a temporary copy
 class Phrase:
     """A phrase inside a linearly warped clip, in clip beats: where it starts, where its held
     end starts, where it ends; and the clip's seconds per clip beat."""
+
     start: float
     hold: float
     end: float
@@ -37,8 +38,10 @@ BEATBOX = Phrase(start=55.5, hold=61.6, end=64.056, sec_per_beat=0.1875)  # HW00
 
 def clips_near(client: McpTransport, track: int, lo: float, hi: float) -> list:
     """[start, end, loop_start] of the arrangement clips on `track` that overlap [lo, hi)."""
-    return client.run(f"result = [[c.start_time, c.end_time, c.loop_start] for c in song.tracks[{track}].arrangement_clips "
-                      f"if c.start_time < {hi} and c.end_time > {lo}]")
+    return client.run(
+        f"result = [[c.start_time, c.end_time, c.loop_start] for c in song.tracks[{track}].arrangement_clips "
+        f"if c.start_time < {hi} and c.end_time > {lo}]"
+    )
 
 
 def splash(client: McpTransport, track: int, at: float, beats: float) -> list:
@@ -55,7 +58,8 @@ def splash_copies(client: McpTransport, track: int, src_at: float, times: list[f
     """Copy the clip at `src_at` to each time, unlooped and `beats` long."""
     out = []
     for t in times:
-        out.append(client.run(f"""
+        out.append(
+            client.run(f"""
 tr = song.tracks[{track}]
 src = [c for c in tr.arrangement_clips if abs(c.start_time - {src_at}) < 1e-6][0]
 tr.duplicate_clip_to_arrangement(src, {float(t)})
@@ -63,12 +67,14 @@ n = [c for c in tr.arrangement_clips if abs(c.start_time - {float(t)}) < 1e-6][0
 n.looping = False
 n.loop_start = 0.0
 n.loop_end = {float(beats)}
-result = [n.start_time, n.end_time]"""))
+result = [n.start_time, n.end_time]""")
+        )
     return out
 
 
-def place_phrase(client: McpTransport, track: int, end_at: float, stretch: float, lo: float, hi: float,
-                 phrase: Phrase = BEATBOX) -> list:
+def place_phrase(
+    client: McpTransport, track: int, end_at: float, stretch: float, lo: float, hi: float, phrase: Phrase = BEATBOX
+) -> list:
     """Replace the clips on `track` in [lo, hi) with one copy of `phrase` ending at `end_at`, its
     held end stretched by `stretch`."""
     end_beat = phrase.hold + (phrase.end - phrase.hold) * stretch
@@ -91,8 +97,15 @@ if {stretch} != 1.0:
 result = [n.start_time, n.end_time, n.loop_start, n.loop_end, [[w.beat_time, w.sample_time] for w in n.warp_markers]]""")
 
 
-def phrase_at(client: McpTransport, track: int, hold_start: float, hold_beats: float, lo: float, hi: float,
-              phrase: Phrase = BEATBOX) -> tuple[float, float, float]:
+def phrase_at(
+    client: McpTransport,
+    track: int,
+    hold_start: float,
+    hold_beats: float,
+    lo: float,
+    hi: float,
+    phrase: Phrase = BEATBOX,
+) -> tuple[float, float, float]:
     """Place the phrase so its held end starts on `hold_start` (a grid point) and lasts
     `hold_beats`; returns (clip start, clip end, end clip-beat)."""
     stretch = hold_beats / (phrase.end - phrase.hold)
@@ -100,18 +113,21 @@ def phrase_at(client: McpTransport, track: int, hold_start: float, hold_beats: f
     return info[0], info[1], phrase.hold + (phrase.end - phrase.hold) * stretch
 
 
-def tail_slices(client: McpTransport, track: int, phrase_start: float, end_beat: float, times: list[float],
-                slice_beats: float) -> list:
+def tail_slices(
+    client: McpTransport, track: int, phrase_start: float, end_beat: float, times: list[float], slice_beats: float
+) -> list:
     """Copy the last `slice_beats` of the placed phrase onto each grid time (the "chops")."""
     out = []
     for t in times:
-        out.append(client.run(f"""
+        out.append(
+            client.run(f"""
 tr = song.tracks[{track}]
 src = [c for c in tr.arrangement_clips if abs(c.start_time - {phrase_start}) < 1e-6][0]
 tr.duplicate_clip_to_arrangement(src, {float(t)})
 n = [c for c in tr.arrangement_clips if abs(c.start_time - {float(t)}) < 1e-6][0]
 n.loop_start = {end_beat - slice_beats}
-result = [n.start_time, n.end_time]"""))
+result = [n.start_time, n.end_time]""")
+        )
     return out
 
 

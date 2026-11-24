@@ -91,8 +91,10 @@ def _save_front(front: str, where: str) -> None:
         save(front)
         return
     if ui.menu_enabled("File", "Save Live Set"):
-        stop(f"{where}: {front}.als changed on disk since Live loaded it and Live has unsaved changes; "
-             "saving would overwrite the file, not saving would leave Live's prompt open")
+        stop(
+            f"{where}: {front}.als changed on disk since Live loaded it and Live has unsaved changes; "
+            "saving would overwrite the file, not saving would leave Live's prompt open"
+        )
     steps.report(f"{where}: not saving {front}, its file changed on disk since Live loaded it", "minor")
 
 
@@ -268,15 +270,20 @@ def memory() -> dict:
         line = next(line for line in vm.splitlines() if line.startswith(label))
         return int(line.split(":")[1].strip().rstrip(".")) * page / 2**30
 
-    out = {"swap_used_gb": round(float(swap.split("used = ")[1].split("M")[0]) / 1024, 2),
-           "compressed_gb": round(pages("Pages occupied by compressor"), 2),
-           "free_gb": round(pages("Pages free"), 2),
-           "live_rss_gb": None, "live_mem_gb": None, "live_compressed_gb": None}
+    out = {
+        "swap_used_gb": round(float(swap.split("used = ")[1].split("M")[0]) / 1024, 2),
+        "compressed_gb": round(pages("Pages occupied by compressor"), 2),
+        "free_gb": round(pages("Pages free"), 2),
+        "live_rss_gb": None,
+        "live_mem_gb": None,
+        "live_compressed_gb": None,
+    }
     pid = subprocess.run(["pgrep", "-x", "Live"], capture_output=True, text=True).stdout.split()
     if pid:
         rss_kb = int(subprocess.run(["ps", "-o", "rss=", "-p", pid[0]], capture_output=True, text=True).stdout)
-        top = subprocess.run(["top", "-l", "1", "-pid", pid[0], "-stats", "mem,cmprs"],
-                             capture_output=True, text=True).stdout
+        top = subprocess.run(
+            ["top", "-l", "1", "-pid", pid[0], "-stats", "mem,cmprs"], capture_output=True, text=True
+        ).stdout
         mem, cmprs = top.strip().splitlines()[-1].split()[:2]
         out.update(live_rss_gb=round(rss_kb / 2**20, 3), live_mem_gb=_gb(mem), live_compressed_gb=_gb(cmprs))
     return out

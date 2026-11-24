@@ -4,6 +4,7 @@ The rules are points with caps, so every percent can be read back from its evide
 files, not sound: kick, mix and master stop at 80 %, arrange at 90 %, release at 60 %
 (workflow.STEPS caps). The rest takes a record (hands.library.records).
 """
+
 from __future__ import annotations
 
 import re
@@ -18,8 +19,9 @@ RUMBLE = re.compile(r"rumble|rmbl|\bsub\b", re.I)
 HATS = re.compile(r"hi-?hats?|\bhats?\b|\bhh\b|\b[oc]hh?\b|\bride\b|cymbal|crash|splash|shaker", re.I)
 PERC = re.compile(r"perc|clap|snare|\brim|\btoms?\b|conga|bongo|clave|cowbell|snap", re.I)
 PROCESSED = re.compile(r"/Samples/(Processed|Recorded)/|consolidat|freeze|resampl|/crop/|/reverse/", re.I)
-LIMITER = re.compile(r"^(Limiter|GlueCompressor|Compressor2|MultibandDynamics)$|limit|clip|maxim|pro-l|ozone|\bl2\b|smash",
-                     re.I)
+LIMITER = re.compile(
+    r"^(Limiter|GlueCompressor|Compressor2|MultibandDynamics)$|limit|clip|maxim|pro-l|ozone|\bl2\b|smash", re.I
+)
 METER = re.compile(r"span|spectrum|meter|tuner|youlean|insight|reastream|stream send|^StereoGain$|^Tuner$", re.I)
 SILENT_SEND = 0.001  # Live stores a send at -inf as about 0.0003
 
@@ -27,6 +29,7 @@ SILENT_SEND = 0.001  # Live stores a send at -inf as about 0.0003
 @dataclass
 class Export:
     """An audio or video file that looks like a render of the track."""
+
     path: Path
     size: int
     mtime: float
@@ -42,7 +45,7 @@ class Project:
     folder: Path | None
     sets: list[SetFacts] = field(default_factory=list)  # newest first
     exports: list[Export] = field(default_factory=list)
-    browser: dict | None = None    # its audio-browser project document, if any
+    browser: dict | None = None  # its audio-browser project document, if any
     forked_from: dict[str, int] = field(default_factory=dict)  # other project -> samples used from its folder
 
     @property
@@ -75,6 +78,7 @@ def pct(points: float, cap: int) -> int:
 
 # --------------------------------------------------------------------------- I. collage
 
+
 def collage(p: Project) -> tuple[int, list[str]]:
     """Sounds from the library cut, resampled and laid out: distinct audio files in clips on the music's
     non-drum tracks (10 each, up to 50), any resampled or consolidated file 20, audio clips on the timeline
@@ -91,11 +95,20 @@ def collage(p: Project) -> tuple[int, list[str]]:
         if sessions := sum(t.session_clips for t in tracks):
             ev.append(f"{sessions} audio clips in session slots")
         bars = (max((c.end for c in clips), default=0) - min((c.start for c in clips), default=0)) / 4
-        points = min(50, 10 * len(sources)) + (20 if processed else 0) + min(20, 2.5 * len(clips)) + (10 if bars >= 16 else 0)
-        ev.append(f"{len(sources)} distinct audio files in {len(clips)} timeline clips over {bars:.0f} bars "
-                  f"on {len(tracks)} non-drum audio tracks")
+        points = (
+            min(50, 10 * len(sources))
+            + (20 if processed else 0)
+            + min(20, 2.5 * len(clips))
+            + (10 if bars >= 16 else 0)
+        )
+        ev.append(
+            f"{len(sources)} distinct audio files in {len(clips)} timeline clips over {bars:.0f} bars "
+            f"on {len(tracks)} non-drum audio tracks"
+        )
         if processed:
-            ev.append(f"{len(processed)} resampled or consolidated: " + ", ".join(sorted(Path(x).name for x in processed)[:3]))
+            ev.append(
+                f"{len(processed)} resampled or consolidated: " + ", ".join(sorted(Path(x).name for x in processed)[:3])
+            )
         if not sources:
             ev.append("no audio clips outside the drums: nothing collaged yet")
     if p.browser:
@@ -106,13 +119,16 @@ def collage(p: Project) -> tuple[int, list[str]]:
             browser_points = 40 + min(40, 10 * regions)
         else:
             browser_points = 10 + min(20, 2 * sounds)
-        ev.append(f"audio-browser project {b.get('id')}: column {b.get('column')}, {sounds} sounds taken, "
-                  f"{regions} collage regions" + (", abandoned" if b.get("abandoned") else ""))
+        ev.append(
+            f"audio-browser project {b.get('id')}: column {b.get('column')}, {sounds} sounds taken, "
+            f"{regions} collage regions" + (", abandoned" if b.get("abandoned") else "")
+        )
         points = max(points, browser_points)
     return pct(points, workflow.BY_KEY["collage"].cap), ev
 
 
 # --------------------------------------------------------------------------- II. drums
+
 
 def drums(p: Project) -> tuple[int, list[str]]:
     """Kick 30, rumble 15, hats 25, other percussion 15, and drum tracks playing across at least 16 bars of
@@ -134,7 +150,8 @@ def drums(p: Project) -> tuple[int, list[str]]:
             points += weight
     ev = [f"{role}: " + (", ".join(sorted(set(names))[:4]) if names else "none found") for role, names in found.items()]
     beats = max((c.end for t in drum_tracks for c in t.clips), default=0) - min(
-        (c.start for t in drum_tracks for c in t.clips), default=0)
+        (c.start for t in drum_tracks for c in t.clips), default=0
+    )
     if beats >= 64:
         points += 15
         ev.append(f"drums play across {beats / 4:.0f} bars of the timeline")
@@ -145,6 +162,7 @@ def drums(p: Project) -> tuple[int, list[str]]:
 
 
 # --------------------------------------------------------------------------- III. arrange
+
 
 def sections(s: SetFacts, block: float = 16.0) -> int:
     """Sections on the timeline: runs of 4-bar blocks that play the same tracks, or the named locators
@@ -171,8 +189,11 @@ def arrange_one(s: SetFacts) -> tuple[int, str]:
     secs = s.seconds(beats)
     if beats <= 0:
         sess = sum(t.session_clips for t in s.content_tracks())
-        return (10, f"{s.path.name}: {sess} session clips, nothing on the timeline") if sess else (
-            0, f"{s.path.name}: no clips")
+        return (
+            (10, f"{s.path.name}: {sess} session clips, nothing on the timeline")
+            if sess
+            else (0, f"{s.path.name}: no clips")
+        )
     n = sections(s)
     head = f"{s.path.name}: {beats / 4:.0f} bars, {secs:.0f} s at {s.tempo:g} BPM, {n} sections"
     if beats < 64:
@@ -202,6 +223,7 @@ def arrange(p: Project) -> tuple[int, list[str]]:
 
 
 # --------------------------------------------------------------------------- IV. kick
+
 
 def kick(p: Project) -> tuple[int, list[str]]:
     """A dedicated kick track or kick group 20 (kick only inside a shared drum rack: 10), processing devices on
@@ -240,6 +262,7 @@ def kick(p: Project) -> tuple[int, list[str]]:
 
 # --------------------------------------------------------------------------- V. mix
 
+
 def mix(p: Project) -> tuple[int, list[str]]:
     """Groups with processing 10 each up to 30, returns fed by sends 15, levels set on the music's tracks up to
     20 (a Utility, a moved fader or automation), automation 2 per envelope up to 10, a mix render 15."""
@@ -249,7 +272,9 @@ def mix(p: Project) -> tuple[int, list[str]]:
     if s is not None:
         groups = [t for t in s.tracks if t.kind == "group" and not t.reference and t.effects]
         points += min(30, 10 * len(groups))
-        ev.append(f"{len(groups)} groups with processing" + (": " + ", ".join(g.name for g in groups[:5]) if groups else ""))
+        ev.append(
+            f"{len(groups)} groups with processing" + (": " + ", ".join(g.name for g in groups[:5]) if groups else "")
+        )
         returns = [t for t in s.tracks if t.kind == "return" and t.effects]
         content = s.content_tracks()
         sending = [t for t in content + groups if any(v > SILENT_SEND for v in t.sends)]
@@ -276,6 +301,7 @@ def mix(p: Project) -> tuple[int, list[str]]:
 
 
 # --------------------------------------------------------------------------- VI. master
+
 
 def master(p: Project) -> tuple[int, list[str]]:
     """A limiter, clipper or bus compressor on Main 30, other processing on Main 10, a mastered export 30, and
@@ -304,14 +330,21 @@ def master(p: Project) -> tuple[int, list[str]]:
             inside = lo <= lufs <= hi and (e.true_peak is None or e.true_peak <= workflow.MASTER_TP)
             if inside:
                 points += 20
-            ev.append(f"{e.path.name}: {lufs:.1f} LUFS, {e.true_peak or 0.0:.1f} dBTP "
-                      + ("(inside the target)" if inside else f"(target {lo:g} to {hi:g} LUFS, <= {workflow.MASTER_TP:g} dBTP)"))
+            ev.append(
+                f"{e.path.name}: {lufs:.1f} LUFS, {e.true_peak or 0.0:.1f} dBTP "
+                + (
+                    "(inside the target)"
+                    if inside
+                    else f"(target {lo:g} to {hi:g} LUFS, <= {workflow.MASTER_TP:g} dBTP)"
+                )
+            )
     else:
         ev.append("no mastered export found")
     return pct(points, workflow.BY_KEY["master"].cap), ev
 
 
 # --------------------------------------------------------------------------- VII. release
+
 
 def release(p: Project) -> tuple[int, list[str]]:
     """A release candidate (final, release, short or youtube in its name, or a video) 30, and a mastered
@@ -329,5 +362,12 @@ def release(p: Project) -> tuple[int, list[str]]:
     return pct(points, workflow.BY_KEY["release"].cap), ev
 
 
-SCORERS = {"collage": collage, "drums": drums, "arrange": arrange, "kick": kick,
-           "mix": mix, "master": master, "release": release}
+SCORERS = {
+    "collage": collage,
+    "drums": drums,
+    "arrange": arrange,
+    "kick": kick,
+    "mix": mix,
+    "master": master,
+    "release": release,
+}

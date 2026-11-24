@@ -63,13 +63,18 @@ def values_at(client: McpTransport, params: list[dict], beats: list[float]) -> d
 
 def set_static(client: McpTransport, path: list, value: float) -> None:
     """Set a parameter's static value, if it is not automated."""
-    client.run(f"PATH = {json.dumps(path)}\n" + GET +
-               f"p = get(PATH)\nif p.automation_state == 0:\n    p.value = {value}\nresult = p.automation_state")
+    client.run(
+        f"PATH = {json.dumps(path)}\n"
+        + GET
+        + f"p = get(PATH)\nif p.automation_state == 0:\n    p.value = {value}\nresult = p.automation_state"
+    )
 
 
 def state(client: McpTransport, path: list) -> list:
     """[automation_state, value] of one parameter."""
-    return client.run(f"PATH = {json.dumps(path)}\n" + GET + "p = get(PATH)\nresult = [p.automation_state, round(p.value, 4)]")
+    return client.run(
+        f"PATH = {json.dumps(path)}\n" + GET + "p = get(PATH)\nresult = [p.automation_state, round(p.value, 4)]"
+    )
 
 
 def restore(client: McpTransport, segs: list[tuple[int, int]], ref: dict, tol: float = 1e-3) -> list[tuple]:
@@ -86,10 +91,15 @@ def restore(client: McpTransport, segs: list[tuple[int, int]], ref: dict, tol: f
     for a, b in segs:
         starts.append((a, pos * 4.0))
         pos += b - a + 1
+
     def mismatches() -> list[tuple[int, int]]:
         cur = values_at(client, ref["params"], [beat for _, beat in starts])
-        return [(src, i) for src, beat in starts for i in range(len(names))
-                if abs(cur[beat][i] - ref["values"][str(src)][i]) > tol]
+        return [
+            (src, i)
+            for src, beat in starts
+            for i in range(len(names))
+            if abs(cur[beat][i] - ref["values"][str(src)][i]) > tol
+        ]
 
     fixes = []
     bad = mismatches()

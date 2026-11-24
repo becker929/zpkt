@@ -107,7 +107,9 @@ def load(env: Mapping[str, str] = os.environ, path: str | Path | None = None) ->
         data_dir=Path(values["data_dir"]).expanduser(),
         renders_dir=Path(values["renders_dir"]).expanduser(),
         set_prefixes=prefixes,
-        live_prefs_dir=Path(values["live_prefs_dir"]).expanduser() if values["live_prefs_dir"] else _newest_live_prefs(),
+        live_prefs_dir=Path(values["live_prefs_dir"]).expanduser()
+        if values["live_prefs_dir"]
+        else _newest_live_prefs(),
         library_dir=Path(values["library_dir"]).expanduser(),
         plans_dir=Path(values["plans_dir"]).expanduser(),
         records_file=Path(values["records_file"] or Path(values["library_dir"]) / "records.toml").expanduser(),
@@ -133,7 +135,9 @@ def rig() -> Rig:
 
 def _newest_live_prefs(root: Path = Path("~/Library/Preferences/Ableton").expanduser()) -> Path | None:
     """The preferences folder of the newest Live installed ("Live 12.4.6" beats "Live 12.4.5")."""
+
     def version(p: Path) -> tuple[int, ...]:
         return tuple(int(n) for n in re.findall(r"\d+", p.name))
+
     folders = [p for p in root.glob("Live *") if p.is_dir()] if root.is_dir() else []
     return max(folders, key=version, default=None)

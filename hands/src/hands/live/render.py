@@ -24,8 +24,17 @@ SCRIPT = Path(__file__).with_name("export_audio.applescript")
 FILE_TYPES = {".wav": "WAV", ".aif": "AIFF", ".aiff": "AIFF", ".flac": "FLAC"}
 
 
-def export(client: McpTransport, out: Path, start_beat: float | None = None, length_beats: float | None = None,
-           *, mode: str = "Main", bits: int = 32, sample_rate: int = 44100, tries: int = 2) -> list[Path]:
+def export(
+    client: McpTransport,
+    out: Path,
+    start_beat: float | None = None,
+    length_beats: float | None = None,
+    *,
+    mode: str = "Main",
+    bits: int = 32,
+    sample_rate: int = 44100,
+    tries: int = 2,
+) -> list[Path]:
     """Export [start_beat, start_beat + length_beats) and return the files Live wrote.
 
     Without a range the dialog keeps Live's own: the loop brace if set, else the whole song.

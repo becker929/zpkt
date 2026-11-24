@@ -10,8 +10,10 @@ import typer
 
 from hands.live import rig
 
-app = typer.Typer(help="Check the Live rig (Live, its audio, macOS audio) and reset it when its state gets weird.",
-                  no_args_is_help=True)
+app = typer.Typer(
+    help="Check the Live rig (Live, its audio, macOS audio) and reset it when its state gets weird.",
+    no_args_is_help=True,
+)
 
 
 @app.command()
@@ -34,7 +36,9 @@ def check(
 
 @app.command()
 def reset(
-    set_path: str = typer.Option(None, "--set", help="The .als to open again (default: the set in front, else the last one)."),
+    set_path: str = typer.Option(
+        None, "--set", help="The .als to open again (default: the set in front, else the last one)."
+    ),
     level: str = typer.Option("auto", help="auto (the mildest step that works), soft, or restart."),
     discard: bool = typer.Option(False, help="Throw away unsaved changes instead of saving them (after a backup)."),
     as_json: bool = typer.Option(False, "--json", help="Print the report as JSON at the end."),
@@ -44,6 +48,7 @@ def reset(
         print("--level is auto, soft or restart", file=sys.stderr)
         raise typer.Exit(2)
     from pathlib import Path
+
     report = rig.reset(set_path=Path(set_path).expanduser() if set_path else None, level=level, keep=not discard)
     if as_json:
         print(json.dumps(report.__dict__))
@@ -61,6 +66,7 @@ def output(
 ) -> None:
     """Show Live's audio output device, or choose one (Live's Settings window, through Accessibility)."""
     from hands.live import ui
+
     if not name:
         print(ui.osa_file(rig.DEVICE_SCRIPT, "read", timeout=40))
         return

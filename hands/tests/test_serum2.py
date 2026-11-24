@@ -1,4 +1,5 @@
 """Serum 2 state codec: round trip, preset conversion, mod slots (no plug-in needed)."""
+
 import pytest
 
 cbor2 = pytest.importorskip("cbor2")
@@ -17,6 +18,7 @@ def test_round_trip_and_hash():
     assert b.data["Global0"]["plainParams"]["kParamMasterVolume"] == 0.5
     assert st.encode(b) == raw  # same data -> same bytes, hash recomputed identically
     import hashlib
+
     comp_start = raw.index(b"\x28\xb5\x2f\xfd")
     assert b.header["hash"] == hashlib.md5(raw[comp_start:]).hexdigest()
 

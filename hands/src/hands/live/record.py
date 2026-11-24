@@ -16,10 +16,10 @@ from typing import Any
 
 from hands.live.transport import McpTransport
 
-
-
-AUDIO_STALLED = ("Live's playhead did not move, so its audio engine is not running and nothing can be recorded. "
-                 "Run `hands rig reset`: it gives Live an audio device again, or restarts Live and macOS audio.")
+AUDIO_STALLED = (
+    "Live's playhead did not move, so its audio engine is not running and nothing can be recorded. "
+    "Run `hands rig reset`: it gives Live an audio device again, or restarts Live and macOS audio."
+)
 
 
 def playhead_moves(transport, start_beat: float, seconds: float = 1.5) -> bool:
@@ -32,8 +32,9 @@ def playhead_moves(transport, start_beat: float, seconds: float = 1.5) -> bool:
             if float(transport.run("song.current_song_time")) > float(start_beat) + 0.01:
                 return True
         except Exception:
-            return True   # cannot tell: let the recording go ahead as before
+            return True  # cannot tell: let the recording go ahead as before
     return False
+
 
 def record_via_resampling(
     transport: McpTransport,
@@ -61,10 +62,13 @@ def record_via_resampling(
     Returns:
         Absolute path to the exported file, or None on failure.
     """
-    existing = transport.run(
-        # Group tracks raise on arrangement_clips; only leaf tracks hold clips.
-        "sum(len(t.arrangement_clips) for t in song.tracks if not t.is_foldable)",
-    ) or 0
+    existing = (
+        transport.run(
+            # Group tracks raise on arrangement_clips; only leaf tracks hold clips.
+            "sum(len(t.arrangement_clips) for t in song.tracks if not t.is_foldable)",
+        )
+        or 0
+    )
     if existing and not allow_clearing_arrangement:
         raise RuntimeError(
             f"The set already has {existing} arrangement clip(s); record_via_resampling "
@@ -99,8 +103,7 @@ def record_via_resampling(
         )
         time.sleep(0.1)
         transport.run(
-            f"song.tracks[{i}].duplicate_clip_to_arrangement("
-            f"song.tracks[{i}].clip_slots[0].clip, 0.0)",
+            f"song.tracks[{i}].duplicate_clip_to_arrangement(song.tracks[{i}].clip_slots[0].clip, 0.0)",
         )
         time.sleep(0.2)
 
@@ -122,9 +125,12 @@ def record_via_resampling(
     # Disarm source tracks. trigger_session_record() records on every armed
     # track, so an armed source (Live auto-arms the selected MIDI track) gets a
     # new empty clip that silences it, and the bounce comes out silent.
-    armed = transport.run(
-        f"[i for i in range({num_tracks_now}) if song.tracks[i].can_be_armed and song.tracks[i].arm]",
-    ) or []
+    armed = (
+        transport.run(
+            f"[i for i in range({num_tracks_now}) if song.tracks[i].can_be_armed and song.tracks[i].arm]",
+        )
+        or []
+    )
     for i in armed:
         transport.run(f"song.tracks[{i}].arm = 0")
     if armed:
@@ -143,9 +149,9 @@ def record_via_resampling(
 
     # Must find and assign the actual RoutingType object in a single LOM call.
     transport.run(
-        f'_rt = next((rt for rt in song.tracks[{resample_idx}].available_input_routing_types'
+        f"_rt = next((rt for rt in song.tracks[{resample_idx}].available_input_routing_types"
         f' if "Resampling" in rt.display_name), None);'
-        f' song.tracks[{resample_idx}].input_routing_type = _rt',
+        f" song.tracks[{resample_idx}].input_routing_type = _rt",
     )
     time.sleep(0.2)
 
@@ -252,9 +258,12 @@ def record_arrangement(
 
     # Same silent-take causes as record_via_resampling: armed sources get
     # recorded over, and a lit "Back to Arrangement" ignores arrangement clips.
-    armed = transport.run(
-        "[i for i, t in enumerate(song.tracks) if t.can_be_armed and t.arm]",
-    ) or []
+    armed = (
+        transport.run(
+            "[i for i, t in enumerate(song.tracks) if t.can_be_armed and t.arm]",
+        )
+        or []
+    )
     for i in armed:
         transport.run(f"song.tracks[{i}].arm = 0")
     transport.run("song.back_to_arranger = False")
@@ -265,9 +274,9 @@ def record_arrangement(
     transport.run(f'song.tracks[{idx}].name = "Render"')
     _wait_for_resampling(transport, idx)
     transport.run(
-        f'_rt = next((rt for rt in song.tracks[{idx}].available_input_routing_types'
+        f"_rt = next((rt for rt in song.tracks[{idx}].available_input_routing_types"
         f' if "Resampling" in rt.display_name), None);'
-        f' song.tracks[{idx}].input_routing_type = _rt',
+        f" song.tracks[{idx}].input_routing_type = _rt",
     )
     time.sleep(0.2)
     routing = transport.run(f"song.tracks[{idx}].input_routing_type.display_name")
@@ -304,10 +313,14 @@ def record_arrangement(
     )
     # Where song beat 0 sits in the take: the clip starts at its start_marker
     # (clip beats), which its warp markers map to seconds in the file.
-    timing = transport.run(
-        f"c = song.tracks[{idx}].arrangement_clips[0]; result = {{'start_marker': c.start_marker, "
-        f"'warp_markers': [[w.beat_time, w.sample_time] for w in c.warp_markers], 'clip_start': c.start_time}}",
-    ) if file_path else None
+    timing = (
+        transport.run(
+            f"c = song.tracks[{idx}].arrangement_clips[0]; result = {{'start_marker': c.start_marker, "
+            f"'warp_markers': [[w.beat_time, w.sample_time] for w in c.warp_markers], 'clip_start': c.start_time}}",
+        )
+        if file_path
+        else None
+    )
     result = None
     if file_path:
         print(f"  Recorded audio file: {file_path[0]}")
@@ -339,9 +352,12 @@ def _wait_for_resampling(transport: McpTransport, idx: int, attempts: int = 10) 
     """
     types: list = []
     for _ in range(attempts):
-        types = transport.run(
-            f"[t.display_name for t in song.tracks[{idx}].available_input_routing_types]",
-        ) or []
+        types = (
+            transport.run(
+                f"[t.display_name for t in song.tracks[{idx}].available_input_routing_types]",
+            )
+            or []
+        )
         if any("Resamp" in str(t) for t in types):
             break
         time.sleep(0.3)
@@ -353,9 +369,7 @@ def _restore_arm(transport: McpTransport, armed: list[int]) -> None:
         transport.run(f"song.tracks[{i}].arm = 1")
 
 
-def _cleanup_arrangement_clips(
-    transport: McpTransport, num_tracks: int, armed: list[int] = ()
-) -> None:
+def _cleanup_arrangement_clips(transport: McpTransport, num_tracks: int, armed: list[int] = ()) -> None:
     """Remove arrangement clips placed by record_via_resampling on source tracks,
     and re-arm the source tracks that were disarmed for the bounce."""
     for i in range(num_tracks):
@@ -370,6 +384,7 @@ def _log_audio_stats(path: str) -> None:
     """Log codec, channels, sample rate, duration and peak dBFS via ffprobe."""
     import json as _json
     import shutil
+
     if not shutil.which("ffprobe"):
         size_kb = os.path.getsize(path) / 1024 if os.path.exists(path) else 0
         print(f"  Audio: {Path(path).name} ({size_kb:.0f} KB) — ffprobe unavailable")
@@ -377,12 +392,18 @@ def _log_audio_stats(path: str) -> None:
     try:
         probe = subprocess.run(
             [
-                "ffprobe", "-v", "quiet",
-                "-print_format", "json",
-                "-show_streams", "-show_format",
+                "ffprobe",
+                "-v",
+                "quiet",
+                "-print_format",
+                "json",
+                "-show_streams",
+                "-show_format",
                 path,
             ],
-            capture_output=True, text=True, timeout=15,
+            capture_output=True,
+            text=True,
+            timeout=15,
         )
         info = _json.loads(probe.stdout)
         stream: dict[str, Any] = next((s for s in info.get("streams", []) if s.get("codec_type") == "audio"), {})
@@ -396,17 +417,14 @@ def _log_audio_stats(path: str) -> None:
         # Peak dBFS via volumedetect filter
         peak_result = subprocess.run(
             ["ffmpeg", "-y", "-i", path, "-af", "volumedetect", "-f", "null", "/dev/null"],
-            capture_output=True, text=True, timeout=30,
+            capture_output=True,
+            text=True,
+            timeout=30,
         )
-        peak_line = next(
-            (ln for ln in peak_result.stderr.splitlines() if "max_volume" in ln), ""
-        )
+        peak_line = next((ln for ln in peak_result.stderr.splitlines() if "max_volume" in ln), "")
         peak_db = peak_line.split("max_volume:")[-1].strip() if peak_line else "unknown"
 
-        print(
-            f"  Audio: {codec} {channels}ch {rate}Hz {duration:.1f}s {size_kb:.0f}KB"
-            f" — peak {peak_db}"
-        )
+        print(f"  Audio: {codec} {channels}ch {rate}Hz {duration:.1f}s {size_kb:.0f}KB — peak {peak_db}")
     except Exception as exc:
         print(f"  Audio stats: could not probe {path}: {exc}")
 
@@ -454,6 +472,7 @@ def _export(
 
     if want_wav:
         import shutil
+
         shutil.copy2(source_path, out_path)
         size_kb = os.path.getsize(out_path) / 1024
         # The WAV is copied untrimmed, so report its real length, not the
@@ -465,11 +484,16 @@ def _export(
 
     subprocess.run(
         [
-            "ffmpeg", "-y",
-            "-i", source_path,
-            "-t", str(duration_secs),
-            "-b:a", "192k",
-            "-ar", "44100",
+            "ffmpeg",
+            "-y",
+            "-i",
+            source_path,
+            "-t",
+            str(duration_secs),
+            "-b:a",
+            "192k",
+            "-ar",
+            "44100",
             out_path,
         ],
         capture_output=True,

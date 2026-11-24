@@ -11,7 +11,6 @@ sys.path.insert(0, str(Path(__file__).parent))
 from test_transport import FakeRemoteScript
 
 from hands.cli import app
-from hands.live.transport import McpResult, MockTransport
 
 
 @pytest.fixture
@@ -37,7 +36,9 @@ def test_cli_live_reset(remote):
     done = {"status": "ok", "track": "Operator", "tempo": 124.0, "clips_count": 0}
     live = remote(lambda m: {"status": "ok", "result": [1, 0] if "arrangement_clips) for" in json.dumps(m) else done})
     runner = CliRunner()
-    res = runner.invoke(app, ["live", "reset", "--track-name", "Operator", "--tempo", "124.0", "--port", str(live.port)])
+    res = runner.invoke(
+        app, ["live", "reset", "--track-name", "Operator", "--tempo", "124.0", "--port", str(live.port)]
+    )
     assert res.exit_code == 0
     data = json.loads(res.stdout)
     assert data["track"] == "Operator"
@@ -47,13 +48,23 @@ def test_cli_live_reset(remote):
 def test_cli_live_clip_create(remote):
     live = remote(lambda m: {"status": "ok", "result": {"track": "Operator", "clip": "Pattern", "notes_count": 60}})
     runner = CliRunner()
-    res = runner.invoke(app, [
-        "live", "clip", "create", "Operator",
-        "--chords", "Dm9,Bbmaj9,Gm9,C9",
-        "--beats", "32",
-        "--name", "Pattern",
-        "--port", str(live.port)
-    ])
+    res = runner.invoke(
+        app,
+        [
+            "live",
+            "clip",
+            "create",
+            "Operator",
+            "--chords",
+            "Dm9,Bbmaj9,Gm9,C9",
+            "--beats",
+            "32",
+            "--name",
+            "Pattern",
+            "--port",
+            str(live.port),
+        ],
+    )
     assert res.exit_code == 0
     data = json.loads(res.stdout)
     assert data["clip"] == "Pattern"
@@ -66,8 +77,14 @@ def test_cli_live_device_commands(remote):
         if "browser.load_item" in code:
             return {"status": "ok", "result": {"track": "Operator", "device": "Operator", "device_index": 0}}
         if "_d.parameters" in code and "_applied" in code:
-            return {"status": "ok", "result": {"track": "Operator", "device": "Operator", "applied": ["Filter Freq"], "count": 1}}
-        return {"status": "ok", "result": [{"name": "Filter Freq", "min": 0.0, "max": 1.0, "value": 0.76, "is_quantized": False}]}
+            return {
+                "status": "ok",
+                "result": {"track": "Operator", "device": "Operator", "applied": ["Filter Freq"], "count": 1},
+            }
+        return {
+            "status": "ok",
+            "result": [{"name": "Filter Freq", "min": 0.0, "max": 1.0, "value": 0.76, "is_quantized": False}],
+        }
 
     live = remote(handle)
     port = ["--port", str(live.port)]
@@ -87,7 +104,12 @@ def test_cli_live_device_commands(remote):
 
 
 def test_cli_live_surface_apply(remote):
-    live = remote(lambda m: {"status": "ok", "result": {"track": "Operator", "device": "Operator", "applied": ["Filter Freq", "Spread"], "count": 2}})
+    live = remote(
+        lambda m: {
+            "status": "ok",
+            "result": {"track": "Operator", "device": "Operator", "applied": ["Filter Freq", "Spread"], "count": 2},
+        }
+    )
     runner = CliRunner()
     state = json.dumps({"values": {"cutoff": 3800, "spread": 65}})
     res = runner.invoke(app, ["live", "surface", "apply", state, "--track", "Operator", "--port", str(live.port)])

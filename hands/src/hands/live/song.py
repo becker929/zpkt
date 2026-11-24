@@ -8,12 +8,12 @@ The clips go past the end of whatever is already in the set, stay there (so mix 
 song: {"song": "night-drive", "bars": [9, 8], ...}), and are deleted by `hands song drop`. Rendered in Live,
 through Main, in real time.
 """
+
 from __future__ import annotations
 
-import json
 import math
+from collections.abc import Callable
 from pathlib import Path
-from typing import Callable
 
 from hands.live import hold
 from hands.live import panel as P
@@ -33,11 +33,13 @@ def layout(spec: dict, panels: dict[str, dict]) -> tuple[list[dict], dict[str, l
     for i, s in enumerate(spec.get("sections") or []):
         bars = int(s.get("bars") or 0)
         if bars < 1:
-            raise P.PanelError(f"section {i + 1} needs \"bars\" (1 or more)")
+            raise P.PanelError(f'section {i + 1} needs "bars" (1 or more)')
         parts = [str(p) for p in s.get("parts") or []]
         for p in parts:
             if p not in panels:
-                raise P.PanelError(f"section {i + 1} plays {p!r}, which is not an instrument panel here; panels: {', '.join(panels) or 'none'}")
+                raise P.PanelError(
+                    f"section {i + 1} plays {p!r}, which is not an instrument panel here; panels: {', '.join(panels) or 'none'}"
+                )
         sections.append({"name": str(s.get("name") or f"part {i + 1}"), "bars": bars, "start": at, "parts": parts})
         at += bars * 4.0
     if not sections:
@@ -46,7 +48,7 @@ def layout(spec: dict, panels: dict[str, dict]) -> tuple[list[dict], dict[str, l
         raise P.PanelError(f"a song is at most {BARS_MAX} bars (it renders in real time); this one is {at / 4:g}")
     runs: dict[str, list[tuple[float, float, list]]] = {}
     for name, panel in panels.items():
-        spans: list[list[float]] = []            # runs of sections next to each other, so a riff carries across them
+        spans: list[list[float]] = []  # runs of sections next to each other, so a riff carries across them
         for s in sections:
             if name in s["parts"]:
                 if spans and abs(spans[-1][1] - s["start"]) < 1e-9:
@@ -73,7 +75,9 @@ def _clear(client: McpTransport, name: str) -> None:
     client.run(_clear_code(name))
 
 
-def _record(client: McpTransport, song: dict, state: dict, out: Path, recorder, start_bar: int = 1, bars: int | None = None) -> dict:
+def _record(
+    client: McpTransport, song: dict, state: dict, out: Path, recorder, start_bar: int = 1, bars: int | None = None
+) -> dict:
     tempo, lead = float(song["tempo"]), P.lead_beats(float(song["tempo"]))
     start = song["start"] + (start_bar - 1) * 4.0
     beats = (bars * 4.0) if bars else song["beats"] - (start_bar - 1) * 4.0
@@ -81,13 +85,25 @@ def _record(client: McpTransport, song: dict, state: dict, out: Path, recorder, 
     take = out.with_name(f".{out.stem}.take.wav")
     out.parent.mkdir(parents=True, exist_ok=True)
     sel = state.get("selected")
-    after = (f"song.tempo = {state['tempo']!r}\nsong.loop = {state['loop']!r}\nsong.start_time = {state['start_time']!r}\n"
-             f"song.current_song_time = {state['pos']!r}\n"
-             + (f"select_track(song.tracks[{sel}])\n" if sel is not None and sel < len(state["names"]) else ""))
+    after = (
+        f"song.tempo = {state['tempo']!r}\nsong.loop = {state['loop']!r}\nsong.start_time = {state['start_time']!r}\n"
+        f"song.current_song_time = {state['pos']!r}\n"
+        + (f"select_track(song.tracks[{sel}])\n" if sel is not None and sel < len(state["names"]) else "")
+    )
     try:
-        path = recorder(transport=client, filename=take.name, output_dir=str(out.parent), start_beat=start - lead,
-                        duration_beats=lead + beats, tail_beats=tail, tempo=tempo, n_tracks=len(state["names"]),
-                        armed=state["armed"], before=f"song.tempo = {tempo!r}\n", after=after)
+        path = recorder(
+            transport=client,
+            filename=take.name,
+            output_dir=str(out.parent),
+            start_beat=start - lead,
+            duration_beats=lead + beats,
+            tail_beats=tail,
+            tempo=tempo,
+            n_tracks=len(state["names"]),
+            armed=state["armed"],
+            before=f"song.tempo = {tempo!r}\n",
+            after=after,
+        )
         if not path:
             raise P.PanelError("Live recorded nothing; check its audio output (`hands live check`)")
         return P.cut_take(path, out, start, beats + tail, lead, fade_s=0.5)
@@ -97,20 +113,42 @@ def _record(client: McpTransport, song: dict, state: dict, out: Path, recorder, 
 
 
 def _text(song: dict, result: dict) -> str:
-    lines = [f"song {song['name']} v{song['version']}: {song['beats'] / 4:g} bars at {song['tempo']:g} BPM, "
-             f"peak {result['peak_dbfs']:g} dBFS, RMS {result['rms_dbfs']:g} dBFS, {result['seconds']:g} s",
-             "  " + " | ".join(f"{s['name']} {int(s['start'] / 4) + 1}-{int(s['start'] / 4) + s['bars']}" for s in song["sections"])]
+    lines = [
+        f"song {song['name']} v{song['version']}: {song['beats'] / 4:g} bars at {song['tempo']:g} BPM, "
+        f"peak {result['peak_dbfs']:g} dBFS, RMS {result['rms_dbfs']:g} dBFS, {result['seconds']:g} s",
+        "  "
+        + " | ".join(
+            f"{s['name']} {int(s['start'] / 4) + 1}-{int(s['start'] / 4) + s['bars']}" for s in song["sections"]
+        ),
+    ]
     if result["peak_dbfs"] > -0.3:
-        lines.append("WARNING: the render reaches full scale. Turn the parts down (a mix panel with their faders) and render again.")
-    lines += ["Paste this block into your answer as it is:", "", "```audio", song["renders"][-1], "```", "",
-              f"To balance it: hands panel make --spec '{{\"name\": \"{song['name']}-mix\", \"song\": \"{song['name']}\", \"bars\": [1, 8], "
-              f"\"faders\": [\"panel NAME\", ...]}}', then `hands song render {song['name']}`."]
+        lines.append(
+            "WARNING: the render reaches full scale. Turn the parts down (a mix panel with their faders) and render again."
+        )
+    lines += [
+        "Paste this block into your answer as it is:",
+        "",
+        "```audio",
+        song["renders"][-1],
+        "```",
+        "",
+        f'To balance it: hands panel make --spec \'{{"name": "{song["name"]}-mix", "song": "{song["name"]}", "bars": [1, 8], '
+        f'"faders": ["panel NAME", ...]}}\', then `hands song render {song["name"]}`.',
+    ]
     return "\n".join(lines)
 
 
-def make(client: McpTransport, spec: dict, out_dir: Path, *, force: bool = False, recorder: Callable[..., str | None] | None = None) -> str:
+def make(
+    client: McpTransport,
+    spec: dict,
+    out_dir: Path,
+    *,
+    force: bool = False,
+    recorder: Callable[..., str | None] | None = None,
+) -> str:
     """Lay the song out in the arrangement and render it; return the text to print."""
     from hands.live import shape
+
     spec = shape.clean(spec, shape.SONG, "the spec")
     name = P._name(spec)
     wanted = sorted({str(p) for s in spec.get("sections") or [] for p in s.get("parts") or []})
@@ -136,16 +174,27 @@ def make(client: McpTransport, spec: dict, out_dir: Path, *, force: bool = False
     for pname, spans in runs.items():
         code = f"_t = {P._track(panels[pname]['track'])}\n"
         for a, length, notes in spans:
-            code += (f"_c = _t.create_midi_clip({start + a!r}, {float(length)!r})\n_c.name = {CLIP + name!r}\n"
-                     "_c.add_new_notes(tuple(Live.Clip.MidiNoteSpecification(pitch=p, start_time=s, duration=d, velocity=v)"
-                     f" for p, s, d, v in {notes!r}))\n")
+            code += (
+                f"_c = _t.create_midi_clip({start + a!r}, {float(length)!r})\n_c.name = {CLIP + name!r}\n"
+                "_c.add_new_notes(tuple(Live.Clip.MidiNoteSpecification(pitch=p, start_time=s, duration=d, velocity=v)"
+                f" for p, s, d, v in {notes!r}))\n"
+            )
         client.run(code + "result = 'ok'")
     try:
         old = P.read_file(_file(out_dir, name), f"song {name!r}") if _file(out_dir, name).exists() else {}
     except P.PanelError:
         old = {}
-    song = {"name": name, "tempo": tempo, "start": start, "beats": total, "tail": float(spec.get("tail", 4.0)), "sections": sections,
-            "parts": sorted(runs), "version": int(old.get("version", 0)) + 1, "renders": list(old.get("renders") or [])}
+    song = {
+        "name": name,
+        "tempo": tempo,
+        "start": start,
+        "beats": total,
+        "tail": float(spec.get("tail", 4.0)),
+        "sections": sections,
+        "parts": sorted(runs),
+        "version": int(old.get("version", 0)) + 1,
+        "renders": list(old.get("renders") or []),
+    }
     out = out_dir / (f"{name}.wav" if song["version"] == 1 else f"{name}-{song['version']}.wav")
     try:
         result = _record(client, song, {**state, "end": start + total}, out, recorder or P._recorder())
@@ -158,9 +207,17 @@ def make(client: McpTransport, spec: dict, out_dir: Path, *, force: bool = False
     return _text(song, result)
 
 
-def render(client: McpTransport, name: str, out_dir: Path, *, force: bool = False, recorder: Callable[..., str | None] | None = None) -> str:
+def render(
+    client: McpTransport,
+    name: str,
+    out_dir: Path,
+    *,
+    force: bool = False,
+    recorder: Callable[..., str | None] | None = None,
+) -> str:
     """Render the song again as it now stands in the set (after its panels or its mix changed)."""
     from hands.live.mix import song_of
+
     song = song_of(out_dir, name)
     state = P._state(client)
     if state["playing"] and not force:
@@ -178,4 +235,3 @@ def drop(client: McpTransport, name: str, out_dir: Path) -> str:
     _clear(client, name)
     _file(out_dir, name).unlink(missing_ok=True)
     return f"deleted the clips of the song {name!r}; its renders stay"
-

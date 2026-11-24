@@ -1,4 +1,5 @@
 """hands.probe_kit: merging pattern settings, writing batches on the fixture set, and the Live side faked."""
+
 from __future__ import annotations
 
 import json
@@ -27,7 +28,7 @@ def test_merge_patterns_fills_the_baseline_in_first_seen_order():
     base = {DRIVE: 0.27, WIDTH: 0.877}
     assert PK.merge_patterns(patterns, 6, base.__getitem__) == [
         (DRIVE, [0.27, 0.4, 0.5, 0.27, 0.27, 0.27]),
-        (WIDTH, [0.877, 0.877, 1.5, 3.0, 0.877, 0.877]),     # the last setting in a pattern wins
+        (WIDTH, [0.877, 0.877, 1.5, 3.0, 0.877, 0.877]),  # the last setting in a pattern wins
     ]
 
 
@@ -39,13 +40,16 @@ def test_merge_patterns_refuses_conflicts():
     assert PK.constant({SPEAKER: False}, 3) == [(SPEAKER, [False, False, False])]
 
 
-@pytest.mark.parametrize("v, lo, hi, kind", [(0.3, 0.0, 0.6, "lin"), (120.0, 50.0, 500.0, "log"), (3.0, 1.5, 12.0, "log")])
+@pytest.mark.parametrize(
+    "v, lo, hi, kind", [(0.3, 0.0, 0.6, "lin"), (120.0, 50.0, 500.0, "log"), (3.0, 1.5, 12.0, "log")]
+)
 def test_scale_and_unscale_invert(v, lo, hi, kind):
     assert PK.scale(PK.unscale(v, lo, hi, kind), lo, hi, kind) == pytest.approx(v)
 
 
 def test_scale_uses_the_knob_units():
     from hands.live.knobs import Lin, Log
+
     assert PK.scale(0.3, 50.0, 500.0, "log") == Log(50.0, 500.0).from_lom(0.3)
     assert PK.unscale(0.45, 0.0, 0.6, "lin") == Lin(0.0, 0.6).to_lom(0.45)
     with pytest.raises(ValueError, match="unknown scale"):
@@ -105,6 +109,7 @@ def fake_live(monkeypatch):
         seconds = length * 60 / 160 if export.seconds is None else export.seconds
         sf.write(out, np.full((int(seconds * 44100), 2), export.level), 44100, subtype="FLOAT")
         return [out]
+
     export.level, export.seconds = 0.1, None
     monkeypatch.setattr(live_render, "export", export)
     return calls, export
@@ -116,7 +121,7 @@ def test_render_exports_once_checks_and_slices(kit, tmp_path, fake_live):
     assert calls[:3] == [("check", "render:start"), ("open", "test_x_t4_demo"), ("check", "render:loaded")]
     assert ("export", 0.0, 136.0, "Main") in calls
     assert [f.rsplit("/", 1)[1] for f in man["files"]] == [f"pattern_{k:02d}.wav" for k in range(4)]
-    assert sf.info(man["files"][0]).duration == pytest.approx(12.0)   # 32 beats at 160 BPM
+    assert sf.info(man["files"][0]).duration == pytest.approx(12.0)  # 32 beats at 160 BPM
     assert json.loads((tmp_path / "out" / "manifest.json").read_text())["kit"]["P"] == 4
 
 
@@ -138,11 +143,21 @@ def test_template_trims_and_doubles(rig, monkeypatch):
     monkeypatch.setattr(session, "save", lambda name=None, **kw: edits.append(("save", name)) or True)
     monkeypatch.setattr(timeops, "song_end", lambda client: next(ends))
     monkeypatch.setattr(timeops, "delete", lambda client, start, length, tol: edits.append(("delete", start, length)))
-    monkeypatch.setattr(timeops, "duplicate", lambda client, start, length, end, clips_from, tol=1e-6:
-                        edits.append(("duplicate", start, length, round(end - tol, 3), round(end + tol, 3))))
+    monkeypatch.setattr(
+        timeops,
+        "duplicate",
+        lambda client, start, length, end, clips_from, tol=1e-6: edits.append(
+            ("duplicate", start, length, round(end - tol, 3), round(end + tol, 3))
+        ),
+    )
     made = PK.template(MockTransport(), "t4", "test_src", 24.0, 56.0, 4)
-    assert edits == [("delete", 56.0, 144.0), ("delete", 8.0, 16.0),
-                     ("duplicate", 8.0, 32.0, 72.0, 72.0), ("duplicate", 8.0, 64.0, 136.0, 136.0), ("save", "test_kit_t4")]
+    assert edits == [
+        ("delete", 56.0, 144.0),
+        ("delete", 8.0, 16.0),
+        ("duplicate", 8.0, 32.0, 72.0, 72.0),
+        ("duplicate", 8.0, 64.0, 136.0, 136.0),
+        ("save", "test_kit_t4"),
+    ]
     assert made == PK.Kit.load("t4") and made.set == "test_kit_t4" and rig.set_path("test_kit_t4").exists()
 
 
@@ -153,8 +168,13 @@ def _fake_template_live(monkeypatch, ends, saves=(True,)):
     monkeypatch.setattr(session, "save", lambda name=None, **kw: edits.append(("save", name)) or next(saves))
     monkeypatch.setattr(timeops, "song_end", lambda client: next(ends))
     monkeypatch.setattr(timeops, "delete", lambda client, start, length, tol: edits.append(("delete", start, length)))
-    monkeypatch.setattr(timeops, "duplicate", lambda client, start, length, end, clips_from, tol=1e-6:
-                        edits.append(("duplicate", start, length, round(end - tol, 3), round(end + tol, 3))))
+    monkeypatch.setattr(
+        timeops,
+        "duplicate",
+        lambda client, start, length, end, clips_from, tol=1e-6: edits.append(
+            ("duplicate", start, length, round(end - tol, 3), round(end + tol, 3))
+        ),
+    )
     monkeypatch.setattr(PK.time, "sleep", lambda s: None)
     return edits
 
@@ -164,8 +184,10 @@ def test_template_carries_a_trailing_breakpoint_through_the_doublings(rig, monke
     edits = _fake_template_live(monkeypatch, [200.0, 41.5])  # a breakpoint 1.5 beats past the section
     PK.template(MockTransport(), "t4", "test_src", 24.0, 56.0, 4)
     # each doubling may carry the breakpoint along or drop it (a set with no automation drops it): both ends pass
-    assert [e for e in edits if e[0] == "duplicate"] == [("duplicate", 8.0, 32.0, 72.0, 73.5),
-                                                         ("duplicate", 8.0, 64.0, 136.0, 137.5)]
+    assert [e for e in edits if e[0] == "duplicate"] == [
+        ("duplicate", 8.0, 32.0, 72.0, 73.5),
+        ("duplicate", 8.0, 64.0, 136.0, 137.5),
+    ]
 
 
 def test_template_retries_a_greyed_out_save_once_then_stops(rig, monkeypatch):

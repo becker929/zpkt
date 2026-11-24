@@ -1,4 +1,5 @@
 """playhead_moves: a render stops early when Live's audio engine is not running."""
+
 from hands.live import record
 
 
@@ -27,5 +28,6 @@ def test_unreadable_playhead_lets_the_take_go_ahead(monkeypatch):
     class Broken:
         def run(self, code):
             raise RuntimeError("no answer")
+
     monkeypatch.setattr(record.time, "sleep", lambda s: None)
     assert record.playhead_moves(Broken(), 0.0)

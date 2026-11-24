@@ -1,4 +1,5 @@
 """Tests for hands.codegen — Step, gen_* functions, and hz_to_eq8_norm."""
+
 from __future__ import annotations
 
 import pytest

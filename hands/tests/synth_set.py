@@ -1,5 +1,6 @@
 """Small synthetic Live sets for the library tests: only the elements hands.library reads, laid out the way
 Live 12 writes them. No real project goes into the tests."""
+
 from __future__ import annotations
 
 import gzip
@@ -15,6 +16,7 @@ PLUGINS = {"Dist COLDFIRE", "Pro-L 2", "SPAN", "Decapitator", "ValhallaSupermass
 class T:
     """A track: name, kind (audio|midi|group|return), devices (Live tags or plugin names; a list inside the list
     is a rack holding those devices), clips as (start_beat, end_beat, sample_path_or_None)."""
+
     name: str
     kind: str = "audio"
     devices: list = field(default_factory=list)
@@ -69,8 +71,13 @@ def _clip(events: ET.Element, kind: str, start, end, sample, disabled=False) -> 
 
 
 def _track(parent: ET.Element, t: T, tid: int) -> None:
-    tag = {"audio": "AudioTrack", "midi": "MidiTrack", "group": "GroupTrack", "return": "ReturnTrack",
-           "main": "MainTrack"}[t.kind]
+    tag = {
+        "audio": "AudioTrack",
+        "midi": "MidiTrack",
+        "group": "GroupTrack",
+        "return": "ReturnTrack",
+        "main": "MainTrack",
+    }[t.kind]
     el = ET.SubElement(parent, tag, Id=str(tid)) if t.kind != "main" else ET.SubElement(parent, tag)
     _v(ET.SubElement(el, "Name"), "EffectiveName", t.name)
     _v(el, "TrackGroupId", t.group)
@@ -106,8 +113,15 @@ def _track(parent: ET.Element, t: T, tid: int) -> None:
         ET.SubElement(value, "AudioClip" if t.kind == "audio" else "MidiClip")
 
 
-def write_set(path: Path, tracks: list[T], *, tempo: float = 160.0, main: list | None = None,
-              locators: list[tuple[float, str]] = (), mtime: float | None = None) -> Path:
+def write_set(
+    path: Path,
+    tracks: list[T],
+    *,
+    tempo: float = 160.0,
+    main: list | None = None,
+    locators: list[tuple[float, str]] = (),
+    mtime: float | None = None,
+) -> Path:
     """Write a gzipped .als. Track Ids are 10, 11, ... in order, so a group's Id is 10 + its index."""
     root = ET.Element("Ableton", Creator="Ableton Live 12.4.6", MajorVersion="5")
     ls = ET.SubElement(root, "LiveSet")
@@ -134,22 +148,45 @@ def finished_short(folder: Path, name: str = "HW900", mtime: float | None = None
     lib = "/lib/sounds"
     proc = f"/x/{name}/Samples/Processed/Consolidate"
     tracks = [
-        T("kick group", "group", devices=["Eq8", "Roar", "Dist COLDFIRE", "Compressor2"], envelopes=1),   # 10
+        T("kick group", "group", devices=["Eq8", "Roar", "Dist COLDFIRE", "Compressor2"], envelopes=1),  # 10
         T("kick", "midi", devices=["Eq8"], clips=[(0, 96, None)], group=10, rack_samples=[f"{lib}/Kicks/k1.wav"]),
         T("rumble", "audio", devices=["Decapitator", "StereoGain"], clips=[(0, 96, f"{lib}/rumble.wav")], group=10),
-        T("hats", "midi", devices=["Eq8"], clips=[(32, 96, None)], rack_samples=[f"{lib}/Cymbals/ch1.wav"],
-          sends=[0.3]),
+        T(
+            "hats",
+            "midi",
+            devices=["Eq8"],
+            clips=[(32, 96, None)],
+            rack_samples=[f"{lib}/Cymbals/ch1.wav"],
+            sends=[0.3],
+        ),
         T("perc", "midi", devices=["StereoGain"], clips=[(32, 96, None)], rack_samples=[f"{lib}/Perc/clap.wav"]),
-        T("FX group", "group", devices=["Eq8", "Compressor2"]),                                            # 15
-        T("drone", "audio", devices=["StereoGain"], group=15, envelopes=2,
-          clips=[(0, 32, f"{lib}/field/drone.wav"), (64, 96, f"{proc}/drone-resampled.wav")]),
-        T("voice", "audio", group=15, volume=0.7, clips=[(64, 72, f"{lib}/spoken/voice.wav"),
-                                                       (80, 88, f"{lib}/spoken/voice.wav")]),
-        T("metal", "audio", group=15, envelopes=2, clips=[(16, 24, f"{lib}/foley/metal.wav"),
-                                                        (40, 48, f"{lib}/foley/metal2.wav")]),
+        T("FX group", "group", devices=["Eq8", "Compressor2"]),  # 15
+        T(
+            "drone",
+            "audio",
+            devices=["StereoGain"],
+            group=15,
+            envelopes=2,
+            clips=[(0, 32, f"{lib}/field/drone.wav"), (64, 96, f"{proc}/drone-resampled.wav")],
+        ),
+        T(
+            "voice",
+            "audio",
+            group=15,
+            volume=0.7,
+            clips=[(64, 72, f"{lib}/spoken/voice.wav"), (80, 88, f"{lib}/spoken/voice.wav")],
+        ),
+        T(
+            "metal",
+            "audio",
+            group=15,
+            envelopes=2,
+            clips=[(16, 24, f"{lib}/foley/metal.wav"), (40, 48, f"{lib}/foley/metal2.wav")],
+        ),
         T("game", "audio", group=15, clips=[(0, 8, f"{lib}/game/robot.wav"), (88, 96, f"{lib}/game/robot.wav")]),
         T("ref", "audio", muted=True, clips=[(0, 400, f"{lib}/refs/reference.wav")]),
         T("A-Return", "return", devices=["Reverb"]),
     ]
-    return write_set(folder / f"{name}_kick-final.als", tracks, main=["Eq8", ["GlueCompressor", "Limiter"], "SPAN"],
-                     mtime=mtime)
+    return write_set(
+        folder / f"{name}_kick-final.als", tracks, main=["Eq8", ["GlueCompressor", "Limiter"], "SPAN"], mtime=mtime
+    )

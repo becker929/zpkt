@@ -1,4 +1,5 @@
 """hands.live.record against a small fake Live — offline, no Ableton required."""
+
 from __future__ import annotations
 
 import wave
@@ -12,8 +13,9 @@ from hands.live.transport import McpResult, Transport
 class FakeLive(Transport):
     """Answers the recorder's LOM snippets by pattern; records every call."""
 
-    def __init__(self, arrangement_clips: int = 0, armed: list[int] | None = None,
-                 take_path: str | None = None) -> None:
+    def __init__(
+        self, arrangement_clips: int = 0, armed: list[int] | None = None, take_path: str | None = None
+    ) -> None:
         self.arrangement_clips = arrangement_clips
         self.armed = armed or []
         self.take_path = take_path
@@ -111,6 +113,7 @@ def test_waits_for_resampling_input_to_appear(tmp_path) -> None:
 
 def test_beat_to_seconds_extrapolates_past_last_marker():
     from hands.live.record import _beat_to_seconds
+
     # Live's recorded clip: two markers 1/32 beat apart at 160 BPM (0.375 s per beat)
     marks = [[0.0, 0.0], [0.03125, 0.01171875]]
     assert abs(_beat_to_seconds(marks, 2.3839153) - 0.8939682) < 1e-6

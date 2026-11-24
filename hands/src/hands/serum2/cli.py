@@ -30,8 +30,11 @@ def find_preset(query: str) -> Path:
     p = Path(query).expanduser()
     if p.is_file():
         return p
-    hits = sorted(f for f in glob.glob(PRESETS + "/**/*.SerumPreset", recursive=True)
-                  if query.lower() in os.path.relpath(f, PRESETS).lower())
+    hits = sorted(
+        f
+        for f in glob.glob(PRESETS + "/**/*.SerumPreset", recursive=True)
+        if query.lower() in os.path.relpath(f, PRESETS).lower()
+    )
     if not hits:
         raise typer.BadParameter(f"no factory preset matches {query!r}")
     return Path(hits[0])
@@ -56,8 +59,11 @@ def _patched(preset: Path, mods: list[str], params: list[str]):
     if mods:
         blob = st.decode(proc)
         ids = mod_dest_ids()
-        free = [k for k in sorted(blob.data, key=lambda k: int(k[7:]) if k[7:].isdigit() else 999)
-                if k.startswith("ModSlot") and "source" not in blob.data[k]]
+        free = [
+            k
+            for k in sorted(blob.data, key=lambda k: int(k[7:]) if k[7:].isdigit() else 999)
+            if k.startswith("ModSlot") and "source" not in blob.data[k]
+        ]
         for spec in mods:
             m = MOD_RE.match(spec.replace(" ", ""))
             if not m:
@@ -76,10 +82,13 @@ def _patched(preset: Path, mods: list[str], params: list[str]):
 
 
 @app.command()
-def render(preset: str, notes: str = typer.Option("69,72", help="Comma-separated MIDI notes (a chord)."),
-           wav: Path = typer.Option(None, help="Write the render here."),
-           mod: list[str] = typer.Option([], help="Mod routing SPEC (repeatable)."),
-           param: list[str] = typer.Option([], help="NAME=RAW (repeatable).")) -> None:
+def render(
+    preset: str,
+    notes: str = typer.Option("69,72", help="Comma-separated MIDI notes (a chord)."),
+    wav: Path = typer.Option(None, help="Write the render here."),
+    mod: list[str] = typer.Option([], help="Mod routing SPEC (repeatable)."),
+    param: list[str] = typer.Option([], help="NAME=RAW (repeatable)."),
+) -> None:
     """Render a preset offline and print peak / RMS / spectral centroid."""
     from hands.serum2.offline import SR, check
 
@@ -89,14 +98,19 @@ def render(preset: str, notes: str = typer.Option("69,72", help="Comma-separated
     print(path.name, check(a))
     if wav:
         import soundfile as sf
+
         sf.write(wav, a.T, SR)
 
 
 @app.command()
-def apply(set_path: Path, track: str, preset: str = typer.Option(..., help="Factory preset name or a .SerumPreset path."),
-          knob: list[str] = typer.Option([], help="Serum parameter for encoder 1, 2, ... (repeatable)."),
-          mod: list[str] = typer.Option([], help="Mod routing SPEC (repeatable)."),
-          param: list[str] = typer.Option([], help="NAME=RAW (repeatable).")) -> None:
+def apply(
+    set_path: Path,
+    track: str,
+    preset: str = typer.Option(..., help="Factory preset name or a .SerumPreset path."),
+    knob: list[str] = typer.Option([], help="Serum parameter for encoder 1, 2, ... (repeatable)."),
+    mod: list[str] = typer.Option([], help="Mod routing SPEC (repeatable)."),
+    param: list[str] = typer.Option([], help="NAME=RAW (repeatable)."),
+) -> None:
     """Write a preset (+ edits, + configured knobs) into TRACK's Serum 2, after a backup."""
     from hands import als
     from hands.serum2.als import configure, find_serum, set_state

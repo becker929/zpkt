@@ -1,6 +1,5 @@
 """Tests for hands.live.midi chord parsing, rhythm generation, and clip note synthesis."""
 
-import pytest
 from hands.live import midi
 
 

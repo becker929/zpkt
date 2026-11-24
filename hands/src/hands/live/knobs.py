@@ -83,6 +83,7 @@ class Knob:
 
 # --------------------------------------------------------------------------- units
 
+
 class Unit:
     """How a parameter's .als value maps onto its LOM value."""
 
@@ -201,8 +202,13 @@ UNITS: dict[tuple[str, str], tuple[str, Unit]] = {
     ("Reverb", "MixDirect"): ("Dry/Wet", SAME),
 }
 EQ8_FREQ = Log(10.0, 22000.0)
-EQ8_BAND = {"Freq": ("Frequency", EQ8_FREQ), "Gain": ("Gain", SAME), "Q": ("Q", Log(0.1, 18.0)),
-            "IsOn": ("Filter On", BOOL), "Mode": ("Filter Type", SAME)}
+EQ8_BAND = {
+    "Freq": ("Frequency", EQ8_FREQ),
+    "Gain": ("Gain", SAME),
+    "Q": ("Q", Log(0.1, 18.0)),
+    "IsOn": ("Filter On", BOOL),
+    "Mode": ("Filter Type", SAME),
+}
 _BAND_PATH = re.compile(r"Bands\.(\d)/Parameter([AB])/(\w+)")
 MIXER = {"Volume": ("volume", FADER), "Pan": ("pan", SAME), "Speaker": ("mute", MUTE)}
 
@@ -222,13 +228,15 @@ def lom_target(knob: Knob) -> tuple[str, str | None, Unit]:
         return "param", f"{int(m[1]) + 1} {name} {m[2]}", unit
     elif (knob.device[0], knob.param) in UNITS:
         return "param", *UNITS[(knob.device[0], knob.param)]
-    raise KeyError(f"{knob}: no measured LOM conversion; add one to knobs.UNITS after reading the "
-                   f".als and LOM values of the same parameter in Live")
+    raise KeyError(
+        f"{knob}: no measured LOM conversion; add one to knobs.UNITS after reading the "
+        f".als and LOM values of the same parameter in Live"
+    )
 
 
 # --------------------------------------------------------------------------- LOM code
 
-_FIND = '''
+_FIND = """
 def _track(name):
     found = [(t.name, t) for t in list(song.tracks) + list(song.return_tracks)] + [("Main", song.master_track)]
     hits = [t for n, t in found if n == name]
@@ -256,9 +264,11 @@ def _param(track, s):
     if len(hits) != 1:
         raise LookupError("%s has %d parameters named %r" % (dev.name, len(hits), s["name"]))
     return hits[0]
-'''
+"""
 
-_SET = _FIND + '''
+_SET = (
+    _FIND
+    + '''
 def _gate(t, s):
     """The DeviceParameter whose automation a write would override (a mute's is the track activator)."""
     if s["where"] == "mute":
@@ -336,8 +346,11 @@ if not problems:
         written = {}
 result = {"problems": problems, "written": written, "failed": failed, "restored": len(done) if failed else 0}
 '''
+)
 
-_READ = _FIND + '''
+_READ = (
+    _FIND
+    + """
 result = {}
 for s in SPEC:
     t = _track(s["track"])
@@ -347,15 +360,21 @@ for s in SPEC:
         result[s["id"]] = [not t.mute, "on" if not t.mute else "off", gate.automation_state if gate else 0]
     else:
         result[s["id"]] = [p.value, p.str_for_value(p.value), p.automation_state]
-'''
+"""
+)
 
 
 def _specs(knobs: Iterable[Knob], values: Mapping[Knob, object] | None = None) -> list[dict]:
     specs = []
     for k in knobs:
         where, name, unit = lom_target(k)
-        s: dict[str, Any] = {"id": k.id, "track": k.track, "where": where, "name": name,
-                             "device": None if k.device == "Mixer" else tuple(k.device)}
+        s: dict[str, Any] = {
+            "id": k.id,
+            "track": k.track,
+            "where": where,
+            "name": name,
+            "device": None if k.device == "Mixer" else tuple(k.device),
+        }
         if values is not None:
             s["value"] = unit.to_lom(values[k])
         specs.append(s)
@@ -368,9 +387,9 @@ def _specs(knobs: Iterable[Knob], values: Mapping[Knob, object] | None = None) -
 
 @dataclass(frozen=True)
 class Reading:
-    value: Any         # in .als units
-    lom: Any           # the LOM's own value (bool for a track's activator)
-    display: str       # what Live shows, e.g. "-7.8 dB"
+    value: Any  # in .als units
+    lom: Any  # the LOM's own value (bool for a track's activator)
+    display: str  # what Live shows, e.g. "-7.8 dB"
     automated: bool
 
 
@@ -407,16 +426,20 @@ def read_many(client: McpTransport, knobs: Iterable[Knob]) -> dict[Knob, Reading
     return out
 
 
-def apply(client: McpTransport, values: Mapping[Knob, object], *, verify: bool = True,
-          tol: float = 1e-4) -> dict[Knob, Reading]:
+def apply(
+    client: McpTransport, values: Mapping[Knob, object], *, verify: bool = True, tol: float = 1e-4
+) -> dict[Knob, Reading]:
     """set_many, then (with verify) read_many in a separate call and check each LOM value is the
     one written, within tol. Returns the readings ({} without verify)."""
     written = set_many(client, values)
     if not verify:
         return {}
     got = read_many(client, values)
-    off = [f"{k}: wrote {written[k]!r}, reads {got[k].lom!r} ({got[k].display})" for k in values
-           if not (got[k].lom == written[k] if isinstance(written[k], bool) else abs(got[k].lom - written[k]) <= tol)]
+    off = [
+        f"{k}: wrote {written[k]!r}, reads {got[k].lom!r} ({got[k].display})"
+        for k in values
+        if not (got[k].lom == written[k] if isinstance(written[k], bool) else abs(got[k].lom - written[k]) <= tol)
+    ]
     if off:
         raise KnobError("read back differs: " + "; ".join(off))
     return got

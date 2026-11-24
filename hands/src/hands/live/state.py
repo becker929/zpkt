@@ -12,6 +12,7 @@ raw value, which round-trips exactly on the same Live version. Reading is one LO
 
 NAME may also be a path to a state file, or to any JSON whose "desk" key or top level has this shape.
 """
+
 from __future__ import annotations
 
 import json
@@ -26,7 +27,7 @@ from hands.live.transport import Transport
 WRITE_CHUNK = 16
 Value = list  # [shown, raw]
 
-READ_CHUNK = 8   # tracks per read call: one call per track cost about 0.4 s each in round trips
+READ_CHUNK = 8  # tracks per read call: one call per track cost about 0.4 s each in round trips
 
 _READ_MANY = """rets = [r.name for r in song.return_tracks]
 by = {{}}
@@ -49,8 +50,10 @@ def track_expr(name: str) -> str:
     """The LOM expression for a track, return or Main by name."""
     if name.strip().lower() in ("main", "master"):
         return "song.master_track"
-    return (f"next(t for t in list(song.tracks) + list(song.return_tracks) "
-            f"if t.name == {name!r} or (t.name[1:2] == '-' and t.name[2:] == {name!r}))")
+    return (
+        f"next(t for t in list(song.tracks) + list(song.return_tracks) "
+        f"if t.name == {name!r} or (t.name[1:2] == '-' and t.name[2:] == {name!r}))"
+    )
 
 
 def short(name: str, returns: list[str]) -> str:
@@ -65,8 +68,8 @@ def take(client: Transport, only: list[str] | None = None) -> dict:
         names = [n for n in names if n in only or short(n, rets) in only]
     state: dict[str, Any] = {"at": time.strftime("%Y-%m-%d %H:%M:%S"), "returns": rets, "tracks": {}}
     for i in range(0, len(names), READ_CHUNK):
-        part = client.run(_READ_MANY.format(names=names[i:i + READ_CHUNK]))
-        for n in names[i:i + READ_CHUNK]:
+        part = client.run(_READ_MANY.format(names=names[i : i + READ_CHUNK]))
+        for n in names[i : i + READ_CHUNK]:
             state["tracks"][n] = _numbers(part[n])
     return state
 
@@ -87,6 +90,7 @@ def _pair(v: Any) -> list:
     """[shown, raw] as the bridge may send it: a list, or (deep in a reply) the list's repr as text."""
     if isinstance(v, str) and v.startswith("["):
         import ast
+
         v = ast.literal_eval(v)
     return [v[0], _raw(v[1])]
 
@@ -140,8 +144,11 @@ def diff(a: dict, b: dict, ignore: tuple[str, ...] = ()) -> list[tuple[str, str 
     "partial" (a recipe holds only some devices) is compared on its own keys alone."""
     fa, fb = flatten(a), flatten(b)
     keys = sorted(set(fa) if a.get("partial") else set(fa) | set(fb))
-    return [(k, fa[k][0] if k in fa else None, fb[k][0] if k in fb else None)
-            for k in keys if not k.startswith(ignore) and not _same(fa.get(k), fb.get(k))]
+    return [
+        (k, fa[k][0] if k in fa else None, fb[k][0] if k in fb else None)
+        for k in keys
+        if not k.startswith(ignore) and not _same(fa.get(k), fb.get(k))
+    ]
 
 
 def summarize(rows: list[tuple[str, str | None, str | None]], limit: int = 60) -> str:
@@ -164,14 +171,16 @@ def summarize(rows: list[tuple[str, str | None, str | None]], limit: int = 60) -
 
 
 def _set_code(expr: str, values: list[tuple[str, Any]]) -> str:
-    return (f"d = {expr}\nps = {{p.name: p for p in d.parameters}}\nbad = []\n"
-            f"for n, v in {values!r}:\n"
-            "    p = ps.get(n)\n"
-            "    if p is None or not p.is_enabled:\n"
-            "        bad.append(n)\n"
-            "    else:\n"
-            "        p.value = max(p.min, min(p.max, v))\n"
-            "result = bad")
+    return (
+        f"d = {expr}\nps = {{p.name: p for p in d.parameters}}\nbad = []\n"
+        f"for n, v in {values!r}:\n"
+        "    p = ps.get(n)\n"
+        "    if p is None or not p.is_enabled:\n"
+        "        bad.append(n)\n"
+        "    else:\n"
+        "        p.value = max(p.min, min(p.max, v))\n"
+        "result = bad"
+    )
 
 
 def put(client: Transport, state: dict, only: list[str] | None = None) -> list[tuple[str, str | None, str | None]]:
@@ -205,7 +214,7 @@ def put(client: Transport, state: dict, only: list[str] | None = None) -> list[t
             dn = d["name"] if k == 1 else f"{d['name']}#{k}"
             items = [(p, v[1]) for p, v in d["params"].items() if not _same(v, live.get(f"{t}/{dn}/{p}"))]
             for a in range(0, len(items), WRITE_CHUNK):
-                client.run(_set_code(f"{expr}.devices[{idxs[k - 1]}]", items[a:a + WRITE_CHUNK]))
+                client.run(_set_code(f"{expr}.devices[{idxs[k - 1]}]", items[a : a + WRITE_CHUNK]))
                 wrote = True
         mix = body["mixer"]
         lines = []
@@ -232,11 +241,12 @@ def put(client: Transport, state: dict, only: list[str] | None = None) -> list[t
         now = {**before, "tracks": {**before["tracks"], **again["tracks"]}}
     want = {**state, "tracks": {n: state["tracks"][n] for n in names if short(n, srets) in by_short}}
     if not state.get("partial"):
-        want["partial"] = True   # Live's tracks outside `names` are not ours to judge here
+        want["partial"] = True  # Live's tracks outside `names` are not ours to judge here
     return missing + diff(want, now)
 
 
 # --- files -------------------------------------------------------------------------------------------------------
+
 
 def folder(set_name: str) -> Path:
     return config.rig().sets_dir / "state" / set_name
@@ -268,13 +278,16 @@ def from_desk(desk: dict) -> dict:
         tracks[name] = {"mixer": mix, "devices": []}
     for r in desk.get("returns", []):
         tracks.setdefault(r["name"], {"mixer": {}, "devices": []})["devices"] = [
-            {"name": d["name"], "class": d.get("class"), "params": d["values"]} for d in r["devices"]]
+            {"name": d["name"], "class": d.get("class"), "params": d["values"]} for d in r["devices"]
+        ]
     for name, chain in desk.get("chains", {}).items():
         tracks.setdefault(name, {"mixer": {}, "devices": []})["devices"] += [
-            {"name": d["name"], "class": d.get("class"), "params": d["values"]} for d in chain]
+            {"name": d["name"], "class": d.get("class"), "params": d["values"]} for d in chain
+        ]
     for o in desk.get("owned", []):
         tracks.setdefault(o["track"], {"mixer": {}, "devices": []})["devices"].append(
-            {"name": o["device"], "class": None, "params": o["values"]})
+            {"name": o["device"], "class": None, "params": o["values"]}
+        )
     return {"tracks": tracks, "partial": True}
 
 

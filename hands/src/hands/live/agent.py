@@ -16,7 +16,7 @@ import time
 
 from hands.live.transport import LiveClient
 
-PRELUDE = '''
+PRELUDE = """
 def param(dev, name):
     for _p in dev.parameters:
         if _p.name == name:
@@ -35,7 +35,7 @@ def select_track(t):
     for x in song.tracks:
         if x.can_be_armed and x.arm != (x in _armed):
             x.arm = x in _armed
-'''
+"""
 
 
 def with_prelude(code: str) -> str:
@@ -48,10 +48,11 @@ def with_prelude(code: str) -> str:
     return PRELUDE + "\n" + code
 
 
-def audition(live: LiveClient, track: str, notes: list[int], beats: float = 2.0,
-             listen_s: float = 2.0, force: bool = False) -> dict:
+def audition(
+    live: LiveClient, track: str, notes: list[int], beats: float = 2.0, listen_s: float = 2.0, force: bool = False
+) -> dict:
     """Play a chord on TRACK from a temporary arrangement clip past the end; return meter peaks."""
-    setup = f'''
+    setup = f"""
 _t = next(x for x in song.tracks if x.name == {track!r})
 if song.is_playing and not {force!r}:
     raise RuntimeError("Live is playing (maybe the user): not auditioning; pass --force")
@@ -68,15 +69,19 @@ song.loop = False
 song.start_time = _start
 song.current_song_time = _start
 song.start_playing()
-'''
+"""
     before = live.run(setup)
     peaks: list[float] = []
     t0 = time.time()
     while time.time() - t0 < listen_s:
         time.sleep(0.25)
-        peaks.append(live.run(f"_t = next(x for x in song.tracks if x.name == {track!r}); "
-                              "result = max(_t.output_meter_left, _t.output_meter_right)"))
-    live.run(f'''
+        peaks.append(
+            live.run(
+                f"_t = next(x for x in song.tracks if x.name == {track!r}); "
+                "result = max(_t.output_meter_left, _t.output_meter_right)"
+            )
+        )
+    live.run(f"""
 song.stop_playing()
 _t = next(x for x in song.tracks if x.name == {track!r})
 for _c in list(_t.arrangement_clips):
@@ -87,6 +92,9 @@ song.loop = {before["loop"]!r}
 song.start_time = {before["start_time"]!r}
 song.current_song_time = {before["pos"]!r}
 result = "ok"
-''')
-    return {"peak": round(max(peaks, default=0.0), 3), "series": [round(p, 2) for p in peaks],
-            "sound": max(peaks, default=0.0) > 0.05}
+""")
+    return {
+        "peak": round(max(peaks, default=0.0), 3),
+        "series": [round(p, 2) for p in peaks],
+        "sound": max(peaks, default=0.0) > 0.05,
+    }

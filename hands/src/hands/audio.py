@@ -36,10 +36,14 @@ def stats(path: str | Path) -> dict:
     x, sr = sf.read(path, always_2d=True, dtype="float64")
     finite = bool(np.isfinite(x).all())
     level = x if finite else np.nan_to_num(x)
-    return {"seconds": len(x) / sr, "sample_rate": sr, "channels": x.shape[1],
-            "peak_dbfs": _db(float(np.max(np.abs(level), initial=0.0))),
-            "rms_dbfs": _db(float(np.sqrt(np.mean(level ** 2)))) if len(x) else SILENCE_DB,
-            "finite": finite}
+    return {
+        "seconds": len(x) / sr,
+        "sample_rate": sr,
+        "channels": x.shape[1],
+        "peak_dbfs": _db(float(np.max(np.abs(level), initial=0.0))),
+        "rms_dbfs": _db(float(np.sqrt(np.mean(level**2)))) if len(x) else SILENCE_DB,
+        "finite": finite,
+    }
 
 
 def check_audio(path: str | Path, *, seconds: float, tol_s: float = 0.05, min_rms_dbfs: float = -60.0) -> dict:
@@ -58,8 +62,14 @@ def check_audio(path: str | Path, *, seconds: float, tol_s: float = 0.05, min_rm
     return s
 
 
-def slice_render(path: str | Path, cuts_s: Sequence[float], out_dir: str | Path, *,
-                 pattern: str = "pattern_{:02d}.wav", short_s: float = 0.01) -> list[Path]:
+def slice_render(
+    path: str | Path,
+    cuts_s: Sequence[float],
+    out_dir: str | Path,
+    *,
+    pattern: str = "pattern_{:02d}.wav",
+    short_s: float = 0.01,
+) -> list[Path]:
     """Cut a render into the pieces [cuts_s[k], cuts_s[k + 1]) and write each as 32-bit float WAV.
 
     The render may end up to `short_s` before the last cut (the last piece is then that much
@@ -80,8 +90,9 @@ def slice_render(path: str | Path, cuts_s: Sequence[float], out_dir: str | Path,
     return files
 
 
-def trim_take(take: str | Path, *, lead_beats: float, length_beats: float,
-              fade_in_s: float = 0.01, fade_out_s: float = 0.03) -> tuple[np.ndarray, int]:
+def trim_take(
+    take: str | Path, *, lead_beats: float, length_beats: float, fade_in_s: float = 0.01, fade_out_s: float = 0.03
+) -> tuple[np.ndarray, int]:
     """The part of a real-time take from song beat `lead_beats` for `length_beats`, with short fades.
 
     Where song beat 0 sits in the take comes from <take>.timing.json, which record_arrangement
@@ -92,10 +103,10 @@ def trim_take(take: str | Path, *, lead_beats: float, length_beats: float,
     x, sr = sf.read(take, always_2d=True, dtype="float64")
     spb = 60.0 / timing["tempo"]
     start = int(round(timing["song_zero_seconds"] * sr)) + int(lead_beats * spb * sr)
-    y = x[start:start + int(round(length_beats * spb * sr))].copy()
+    y = x[start : start + int(round(length_beats * spb * sr))].copy()
     fi, fo = int(fade_in_s * sr), int(fade_out_s * sr)
     y[:fi] *= np.linspace(0, 1, fi)[:, None]
-    y[len(y) - fo:] *= np.linspace(1, 0, fo)[:, None]
+    y[len(y) - fo :] *= np.linspace(1, 0, fo)[:, None]
     return y, sr
 
 
@@ -103,12 +114,12 @@ def best_lag(a: np.ndarray, b: np.ndarray, center: int, span: int) -> tuple[int,
     """Where `a` best matches `b` near `center` (within ±span samples): (lag in samples,
     normalised correlation). Mono arrays; b must reach center + span + len(a)."""
     lo = max(0, center - span)
-    seg = b[lo:center + span + len(a)]
+    seg = b[lo : center + span + len(a)]
     n = len(seg) - len(a) + 1
     size = 1 << (len(seg) + len(a)).bit_length()
     corr = np.fft.irfft(np.fft.rfft(seg, size) * np.conj(np.fft.rfft(a, size)), size)[:n]
     energy = np.concatenate([[0.0], np.cumsum(seg * seg)])
-    norm = np.sqrt(np.sum(a * a)) * np.sqrt(np.maximum(energy[len(a):] - energy[:n], 0.0))
+    norm = np.sqrt(np.sum(a * a)) * np.sqrt(np.maximum(energy[len(a) :] - energy[:n], 0.0))
     r = corr / (norm + 1e-12)
     k = int(np.argmax(r))
     return lo + k - center, float(r[k])
@@ -123,9 +134,17 @@ def low_band(x: np.ndarray, sr: int, hz: float = 150.0) -> np.ndarray:
     return np.fft.irfft(spectrum, len(mono))
 
 
-def timeline_check(take: np.ndarray, reference: np.ndarray, sr: int, *, window_s: float = 0.25,
-                   span_s: float = 0.15, jump_s: float = 0.035, min_corr: float = 0.6,
-                   skip: Callable[[float], bool] | None = None) -> dict:
+def timeline_check(
+    take: np.ndarray,
+    reference: np.ndarray,
+    sr: int,
+    *,
+    window_s: float = 0.25,
+    span_s: float = 0.15,
+    jump_s: float = 0.035,
+    min_corr: float = 0.6,
+    skip: Callable[[float], bool] | None = None,
+) -> dict:
     """Does a take stay on its reference's timeline? Lags of consecutive windows against it.
 
     `take` and `reference` are mono and aligned at sample 0. Each window of the take is matched
@@ -135,7 +154,7 @@ def timeline_check(take: np.ndarray, reference: np.ndarray, sr: int, *, window_s
     seconds (cuts, breakdowns). ok: no jumps and the median lag within 5 ms.
     """
     win, span = int(window_s * sr), int(span_s * sr)
-    found = [best_lag(take[s:s + win], reference, s, span) for s in range(0, len(take) - 2 * win, win)]
+    found = [best_lag(take[s : s + win], reference, s, span) for s in range(0, len(take) - 2 * win, win)]
     lags = np.array([lag / sr for lag, _ in found])
     corrs = np.array([c for _, c in found])
     median = float(np.median(lags))

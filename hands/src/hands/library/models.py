@@ -1,4 +1,5 @@
 """The inventory as data: `hands library inventory --json`. Source of lib/contracts/inventory.schema.json."""
+
 from __future__ import annotations
 
 from typing import Literal
@@ -10,13 +11,17 @@ StepKey = Literal["collage", "drums", "arrange", "kick", "mix", "master", "relea
 
 class Record(BaseModel):
     """A step's state on someone's word. It beats the heuristic."""
+
     model_config = ConfigDict(extra="forbid")
 
     percent: int = Field(ge=0, le=100)
     by: Literal["owner", "docs", "agent"] = Field(
-        "owner", description="owner: the producer's word; docs: a decision recorded in docs; agent: an agent's judgment")
+        "owner", description="owner: the producer's word; docs: a decision recorded in docs; agent: an agent's judgment"
+    )
     note: str = ""
-    source: str = Field("", description="where it is written down, e.g. contrib/docs/journal/hw002/batch-6-7-decisions.md")
+    source: str = Field(
+        "", description="where it is written down, e.g. contrib/docs/journal/hw002/batch-6-7-decisions.md"
+    )
     date: str = Field("", description="YYYY-MM-DD")
     url: str = Field("", description="release: the published link")
 

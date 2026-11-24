@@ -9,7 +9,7 @@ No imports from ears or taste — JSON is the cross-repo interface.
 from __future__ import annotations
 
 from enum import Enum
-from typing import Annotated, Any, Literal, Union
+from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, Field, model_validator
 
@@ -20,8 +20,10 @@ _FROZEN: dict[str, Any] = {"frozen": True}
 # Primitives
 # ---------------------------------------------------------------------------
 
+
 class DeviceSource(str, Enum):
     """Browser subtree where Live finds a device."""
+
     BUILTIN = "audio_effects"
     PLUGINS = "plugins"
     DRUMS = "drums"
@@ -62,7 +64,7 @@ class EQ8Spec(BaseModel):
 
 
 TrackDevice = Annotated[
-    Union[DeviceSpec, EQ8Spec],
+    DeviceSpec | EQ8Spec,
     Field(discriminator="kind"),
 ]
 
@@ -89,6 +91,7 @@ class ParallelRack(BaseModel):
 # Sample / pad layer
 # ---------------------------------------------------------------------------
 
+
 class SamplePad(BaseModel):
     """A single drum pad: MIDI note, sample name, optional Simpler trim.
 
@@ -107,7 +110,7 @@ class SamplePad(BaseModel):
     devices: tuple[DeviceSpec, ...] = ()
 
     @model_validator(mode="after")
-    def _validate_start_end(self) -> "SamplePad":
+    def _validate_start_end(self) -> SamplePad:
         if self.end is not None and self.end <= self.start:
             raise ValueError(f"end ({self.end}) must be greater than start ({self.start})")
         return self
@@ -149,6 +152,7 @@ class PercGroup(BaseModel):
 # ---------------------------------------------------------------------------
 # Track-level configs
 # ---------------------------------------------------------------------------
+
 
 class PercConfig(BaseModel):
     """Full percussion section: groups, bus chain, MIDI pattern."""
@@ -204,6 +208,7 @@ class MidLayerConfig(BaseModel):
 # ---------------------------------------------------------------------------
 # Arrangement
 # ---------------------------------------------------------------------------
+
 
 class ArrangementClip(BaseModel):
     """One clip placed in the arrangement view."""
@@ -264,6 +269,7 @@ class ArrangementConfig(BaseModel):
 # ---------------------------------------------------------------------------
 # Top-level project
 # ---------------------------------------------------------------------------
+
 
 class ProjectConfig(BaseModel):
     """Top-level declarative project configuration.

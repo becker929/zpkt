@@ -21,11 +21,14 @@ def reset_set(
     """
     if not force:
         tracks, clips = client.run(
-            "result = [len(song.tracks), sum(len(t.arrangement_clips) for t in song.tracks if not t.is_foldable)]")
+            "result = [len(song.tracks), sum(len(t.arrangement_clips) for t in song.tracks if not t.is_foldable)]"
+        )
         if tracks > 2 or clips:
-            raise RuntimeError(f"the open set has {tracks} tracks and {clips} arrangement clips; a reset would delete them. "
-                               "Use `hands panel make` to add an instrument beside them, or pass --force.")
-    code = f'''
+            raise RuntimeError(
+                f"the open set has {tracks} tracks and {clips} arrangement clips; a reset would delete them. "
+                "Use `hands panel make` to add an instrument beside them, or pass --force."
+            )
+    code = f"""
 song.stop_playing()
 song.loop = False
 song.start_time = 0.0
@@ -64,5 +67,5 @@ result = {{
     "clips_count": len(_t.arrangement_clips),
     "devices_count": len(_t.devices),
 }}
-'''
+"""
     return client.run(code)

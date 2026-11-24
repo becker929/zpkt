@@ -1,4 +1,5 @@
 """hands.audio on synthetic audio: silence and length checks, slicing, trimming, timeline checks."""
+
 from __future__ import annotations
 
 import json
@@ -61,29 +62,29 @@ def test_slice_render_cuts_at_the_pattern_starts(tmp_path):
 
 def test_slice_render_refuses_a_render_that_ends_early(tmp_path):
     path = write(tmp_path / "all.wav", tone(4.995))
-    assert len(audio.slice_render(path, [0.0, 2.5, 5.0], tmp_path / "a")) == 2   # 5 ms short: fine
+    assert len(audio.slice_render(path, [0.0, 2.5, 5.0], tmp_path / "a")) == 2  # 5 ms short: fine
     with pytest.raises(AudioError, match="before the last cut"):
         audio.slice_render(path, [0.0, 2.5, 5.1], tmp_path / "b")
 
 
 def test_trim_take_cuts_at_song_beat_zero_plus_the_lead(tmp_path):
-    zero_s, tempo = 0.9, 160.0            # song beat 0 sits 0.9 s into the take
+    zero_s, tempo = 0.9, 160.0  # song beat 0 sits 0.9 s into the take
     x = np.full((int(6 * SR), 2), 0.5)
-    beat8 = int(round(zero_s * SR)) + int(8 * 60 / tempo * SR)   # song beat 8: the end of a 2-bar lead
-    x[beat8 + 4410] = 1.0                                         # a click 0.1 s after it
+    beat8 = int(round(zero_s * SR)) + int(8 * 60 / tempo * SR)  # song beat 8: the end of a 2-bar lead
+    x[beat8 + 4410] = 1.0  # a click 0.1 s after it
     take = write(tmp_path / "take.wav", x)
     (tmp_path / "take.wav.timing.json").write_text(json.dumps({"song_zero_seconds": zero_s, "tempo": tempo}))
     y, sr = audio.trim_take(take, lead_beats=8, length_beats=4)
     assert sr == SR and len(y) == int(round(4 * 60 / tempo * SR))
-    assert y[0, 0] == 0.0 and y[-1, 0] == 0.0               # faded in and out
-    assert np.argmax(y[:, 0]) == 4410                        # cut exactly at song beat 8
+    assert y[0, 0] == 0.0 and y[-1, 0] == 0.0  # faded in and out
+    assert np.argmax(y[:, 0]) == 4410  # cut exactly at song beat 8
     assert y[int(0.02 * SR), 0] == pytest.approx(0.5)
 
 
 def test_best_lag_finds_a_known_shift():
     rng = np.random.default_rng(7)
     b = rng.standard_normal(SR)
-    a = b[20_000 + 300:20_000 + 300 + 4000]
+    a = b[20_000 + 300 : 20_000 + 300 + 4000]
     lag, corr = audio.best_lag(a, b, 20_000, 1000)
     assert lag == 300 and corr == pytest.approx(1.0, abs=1e-6)
 
@@ -98,8 +99,8 @@ def test_low_band_keeps_the_kick_and_drops_the_hats():
 def test_timeline_check_finds_a_slip():
     rng = np.random.default_rng(3)
     ref = rng.standard_normal(4 * SR)
-    assert audio.timeline_check(ref[:3 * SR], ref, SR) == {"median_lag_s": 0.0, "jumps_s": [], "ok": True}
-    slipped = np.concatenate([ref[:2 * SR], ref[2 * SR + int(0.05 * SR):]])[:3 * SR]   # 50 ms lost at 2 s
+    assert audio.timeline_check(ref[: 3 * SR], ref, SR) == {"median_lag_s": 0.0, "jumps_s": [], "ok": True}
+    slipped = np.concatenate([ref[: 2 * SR], ref[2 * SR + int(0.05 * SR) :]])[: 3 * SR]  # 50 ms lost at 2 s
     res = audio.timeline_check(slipped, ref, SR)
     assert not res["ok"] and res["jumps_s"][0] == 2.0
     assert audio.timeline_check(slipped, ref, SR, skip=lambda t: t >= 2.0)["ok"]

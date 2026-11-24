@@ -8,18 +8,27 @@ from typing import Any
 from hands.live.transport import McpTransport
 
 NOTE_NAMES = {
-    "C": 0, "B#": 0,
-    "C#": 1, "DB": 1,
+    "C": 0,
+    "B#": 0,
+    "C#": 1,
+    "DB": 1,
     "D": 2,
-    "D#": 3, "EB": 3,
-    "E": 4, "FB": 4,
-    "F": 5, "E#": 5,
-    "F#": 6, "GB": 6,
+    "D#": 3,
+    "EB": 3,
+    "E": 4,
+    "FB": 4,
+    "F": 5,
+    "E#": 5,
+    "F#": 6,
+    "GB": 6,
     "G": 7,
-    "G#": 8, "AB": 8,
+    "G#": 8,
+    "AB": 8,
     "A": 9,
-    "A#": 10, "BB": 10,
-    "B": 11, "CB": 11,
+    "A#": 10,
+    "BB": 10,
+    "B": 11,
+    "CB": 11,
 }
 
 CHORD_INTERVALS = {
@@ -153,8 +162,10 @@ def parse_chord(spec: str, bass_octave: int = 2, upper_octave: int = 3) -> list[
         elif q_key in ("o", "dim7"):
             q_key = "dim7"
         else:
-            raise ValueError(f"cannot read the chord {spec!r}: {quality!r} is not a chord kind. Kinds: {', '.join(sorted(CHORD_INTERVALS))} "
-                             '(nothing for major). Separate chords with commas ("Dm9,Bbmaj7,D#m/A"), or give "notes" instead')
+            raise ValueError(
+                f"cannot read the chord {spec!r}: {quality!r} is not a chord kind. Kinds: {', '.join(sorted(CHORD_INTERVALS))} "
+                '(nothing for major). Separate chords with commas ("Dm9,Bbmaj7,D#m/A"), or give "notes" instead'
+            )
 
     intervals = CHORD_INTERVALS[q_key]
 
@@ -175,12 +186,16 @@ def parse_chord(spec: str, bass_octave: int = 2, upper_octave: int = 3) -> list[
 
 def parse_progression(prog_str: str) -> list[list[int]]:
     """Parse comma, semicolon, pipe, or slash separated chord progression."""
-    bare = r"[A-Ga-g][#b]?"                                   # after a slash, a bare note is a bass note: D#m/A
+    bare = r"[A-Ga-g][#b]?"  # after a slash, a bare note is a bass note: D#m/A
     if ";" in prog_str:
         chunks = [c.strip() for c in prog_str.split(";") if c.strip()]
     elif "," in prog_str and not re.fullmatch(r"[\d,\s/|]+", prog_str):
         chunks = [c.strip() for c in prog_str.split(",") if c.strip()]
-    elif "/" in prog_str and not re.search(r"\d+/\d+", prog_str) and not all(re.fullmatch(bare, c.strip()) for c in prog_str.split("/")[1:]):
+    elif (
+        "/" in prog_str
+        and not re.search(r"\d+/\d+", prog_str)
+        and not all(re.fullmatch(bare, c.strip()) for c in prog_str.split("/")[1:])
+    ):
         chunks = [c.strip() for c in prog_str.split("/") if c.strip()]
     elif "|" in prog_str:
         chunks = [c.strip() for c in prog_str.split("|") if c.strip()]
@@ -250,9 +265,11 @@ def create_arrangement_clip(
     notes: list[tuple[int, float, float, int]],
 ) -> dict[str, Any]:
     """Create an arrangement clip and populate it with notes in a single LOM execution."""
-    t_expr = f"song.tracks[{track}]" if isinstance(track, int) else f"next(x for x in song.tracks if x.name == {track!r})"
+    t_expr = (
+        f"song.tracks[{track}]" if isinstance(track, int) else f"next(x for x in song.tracks if x.name == {track!r})"
+    )
 
-    code = f'''
+    code = f"""
 _t = {t_expr}
 _c = _t.create_midi_clip({float(start)!r}, {float(length)!r})
 _c.name = {name!r}
@@ -260,5 +277,5 @@ _notes = tuple(Live.Clip.MidiNoteSpecification(pitch=p, start_time=s, duration=d
                for p, s, d, v in {notes!r})
 _c.add_new_notes(_notes)
 result = {{"track": _t.name, "clip": _c.name, "start": _c.start_time, "length": _c.length, "notes_count": len(_notes)}}
-'''
+"""
     return client.run(code)

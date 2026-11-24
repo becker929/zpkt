@@ -1,4 +1,5 @@
 """Tests for StepRunner with MockTransport — all offline, no Ableton required."""
+
 from __future__ import annotations
 
 import pytest
@@ -70,8 +71,9 @@ def test_a_lost_reply_is_not_resent() -> None:
 
 
 def test_a_live_timeout_still_running_is_not_resent() -> None:
-    timed_out = McpResult(status="error", error="Timed out after 12s",
-                          warning="Code may still be running on the main thread.")
+    timed_out = McpResult(
+        status="error", error="Timed out after 12s", warning="Code may still be running on the main thread."
+    )
     transport = MockTransport(responses=[timed_out])
     results = StepRunner(transport, retry_count=2, retry_delay=0.0).execute(_steps(1))
     assert results[0].status == "aborted"

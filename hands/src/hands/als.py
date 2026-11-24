@@ -42,6 +42,7 @@ Id rules (checked on every HW002_121_pp_*.als and 80 sets in the Live bundle)
 * Every other Id attribute is a list index, unique only among its siblings: the device Id in its
   Devices list, the AutomationEnvelope Id in Envelopes, the event Id in Events, and so on.
 """
+
 from __future__ import annotations
 
 import collections
@@ -61,6 +62,7 @@ PLUGIN_TAGS = ("PluginDevice", "AuPluginDevice")
 
 
 # --------------------------------------------------------------------------- load / save
+
 
 def load(path: str | os.PathLike) -> ET.ElementTree:
     """Read a .als (gzip XML). Comments/declaration are not kept; save() writes Live's declaration."""
@@ -96,6 +98,7 @@ def xml_hash(path: str | os.PathLike) -> str:
 
 
 # --------------------------------------------------------------------------- navigation
+
 
 def all_tracks(tree: ET.ElementTree) -> list[ET.Element]:
     ls = tree.getroot().find("LiveSet")
@@ -147,8 +150,11 @@ def depth(root: ET.Element, elem: ET.Element) -> int:
 
 def is_pointee_tag(tag: str) -> bool:
     """Tags whose Id is a set-global "pointee" id (see module docstring)."""
-    return (tag in ("AutomationTarget", "ModulationTarget", "Pointee")
-            or tag.endswith("ModulationTarget") or tag.startswith("ControllerTargets."))
+    return (
+        tag in ("AutomationTarget", "ModulationTarget", "Pointee")
+        or tag.endswith("ModulationTarget")
+        or tag.startswith("ControllerTargets.")
+    )
 
 
 def pointee_elements(elem: ET.Element) -> list[ET.Element]:
@@ -169,6 +175,7 @@ def _append(parent: ET.Element, child: ET.Element, parent_depth: int) -> None:
 
 # --------------------------------------------------------------------------- knobs
 
+
 def resolve(tree: ET.ElementTree, track: str, device, param: str) -> tuple[ET.Element, ET.Element, str]:
     """(track element, device element, parameter path inside the device) for a knob.
 
@@ -184,8 +191,12 @@ def resolve(tree: ET.ElementTree, track: str, device, param: str) -> tuple[ET.El
     if isinstance(device, str):
         device = (device, -1)
     if device[0] == "plugin":
-        plugs = [d for d in devices(tr) if d.tag in PLUGIN_TAGS
-                 and any(e.get("Value") == device[1] for e in d.find("./PluginDesc").iter() if e.tag in ("PlugName", "Name"))]
+        plugs = [
+            d
+            for d in devices(tr)
+            if d.tag in PLUGIN_TAGS
+            and any(e.get("Value") == device[1] for e in d.find("./PluginDesc").iter() if e.tag in ("PlugName", "Name"))
+        ]
         if len(plugs) != 1:
             raise KeyError(f"{track}: {len(plugs)} plugins named {device[1]!r}")
         params = plugs[0].findall("./ParameterList/PluginFloatParameter")
@@ -239,6 +250,7 @@ def rename_track(tree: ET.ElementTree, old: str, new: str) -> ET.Element:
 
 
 # --------------------------------------------------------------------------- devices
+
 
 def add_device_from_donor(tree: ET.ElementTree, track: ET.Element, donor) -> ET.Element:
     """Append a copy of `donor` (a device Element, e.g. a Reverb taken from another set, or its XML
@@ -318,6 +330,7 @@ def _value(kind: str, v, param: ET.Element) -> str:
 
 # --------------------------------------------------------------------------- automation
 
+
 def _envelope(track: ET.Element, param: ET.Element) -> ET.Element | None:
     """The track's arrangement envelope that targets `param`, if any."""
     target = param.find("AutomationTarget").get("Id")
@@ -325,8 +338,9 @@ def _envelope(track: ET.Element, param: ET.Element) -> ET.Element | None:
     return next((e for e in envs if e.find("EnvelopeTarget/PointeeId").get("Value") == target), None)
 
 
-def set_steps(tree: ET.ElementTree, track: ET.Element, device: ET.Element, param_name: str,
-              steps, kind: str | None = None) -> ET.Element:
+def set_steps(
+    tree: ET.ElementTree, track: ET.Element, device: ET.Element, param_name: str, steps, kind: str | None = None
+) -> ET.Element:
     """Write (or replace) the arrangement envelope of one device parameter as a step function.
 
     steps: [(start_beat, value), ...], start beats strictly increasing. Each value holds until the
@@ -376,8 +390,9 @@ def set_steps(tree: ET.ElementTree, track: ET.Element, device: ET.Element, param
     return env
 
 
-def add_points(tree: ET.ElementTree, track: ET.Element, device: ET.Element, param_name: str,
-               points, kind: str | None = None) -> ET.Element:
+def add_points(
+    tree: ET.ElementTree, track: ET.Element, device: ET.Element, param_name: str, points, kind: str | None = None
+) -> ET.Element:
     """Append breakpoints to the arrangement envelope of one device parameter, creating it if there is none.
 
     points: [(beat, value), ...], beats non-decreasing and not before the envelope's last event. Live ramps a float
@@ -393,7 +408,7 @@ def add_points(tree: ET.ElementTree, track: ET.Element, device: ET.Element, para
     if any(t < 0 for t, _ in points) or any(b[0] < a[0] for a, b in itertools.pairwise(points)):
         raise ValueError(f"point times must be >= 0 and non-decreasing: {points[:4]} ...")
     if _envelope(track, param) is None:
-        set_steps(tree, track, device, param_name, [points[0]], kind)   # just the default event, then the points
+        set_steps(tree, track, device, param_name, [points[0]], kind)  # just the default event, then the points
         evs = _envelope(track, param).find("Automation/Events")
         for e in list(evs)[1:]:
             evs.remove(e)
@@ -425,6 +440,7 @@ def value_at(track: ET.Element, device: ET.Element, param_name: str, beat: float
 
 
 # --------------------------------------------------------------------------- self-checks
+
 
 def _describe(pm: dict, target: ET.Element) -> tuple[ET.Element | None, str]:
     """(owning track, 'Track > Device > param') for an AutomationTarget/ModulationTarget element."""
@@ -470,6 +486,7 @@ def envelopes(tree: ET.ElementTree) -> dict:
 @dataclass
 class Report:
     """What `check` looked at (and, with a source, what changed), and what is wrong."""
+
     lines: list[str] = field(default_factory=list)
     problems: list[str] = field(default_factory=list)
 
@@ -497,14 +514,20 @@ def check(path: str | os.PathLike, against: str | os.PathLike | None = None) -> 
         problem(f"{len(dup)} duplicated pointee ids, e.g. {dup[:5]}")
     if high:
         problem(f"{len(high)} pointee ids >= NextPointeeId {npi}, e.g. {high[:5]}")
-    say(f"  pointee ids: {len(pts)} unique={not dup}, max={max(int(i) for i in count)} "
-        f"< NextPointeeId={npi}: {not high}")
+    say(
+        f"  pointee ids: {len(pts)} unique={not dup}, max={max(int(i) for i in count)} "
+        f"< NextPointeeId={npi}: {not high}"
+    )
 
     # 2b. list ids: unique among siblings
-    bad = [(p.tag, i) for p in root.iter()
-           for i, n in collections.Counter(c.get("Id") for c in p
-                                           if "Id" in c.attrib and not is_pointee_tag(c.tag)).items()
-           if n > 1]
+    bad = [
+        (p.tag, i)
+        for p in root.iter()
+        for i, n in collections.Counter(
+            c.get("Id") for c in p if "Id" in c.attrib and not is_pointee_tag(c.tag)
+        ).items()
+        if n > 1
+    ]
     if bad:
         problem(f"{len(bad)} sibling Id clashes, e.g. {bad[:5]}")
     say(f"  sibling (list) ids unique: {not bad}")
@@ -554,10 +577,15 @@ def check(path: str | os.PathLike, against: str | os.PathLike | None = None) -> 
         a = collections.Counter(e.tag for e in sroot.iter())
         b = collections.Counter(e.tag for e in root.iter())
         delta = {t: b[t] - a[t] for t in set(a) | set(b) if b[t] != a[t]}
-        keep = [t for t in sorted(delta) if is_pointee_tag(t) or t.endswith("Event")
-                or t in ("AutomationEnvelope", "PointeeId")]
-        say(f"    elements {sum(b.values()) - sum(a.values()):+d} in all; "
-            + ", ".join(f"{t} {delta[t]:+d}" for t in keep))
+        keep = [
+            t
+            for t in sorted(delta)
+            if is_pointee_tag(t) or t.endswith("Event") or t in ("AutomationEnvelope", "PointeeId")
+        ]
+        say(
+            f"    elements {sum(b.values()) - sum(a.values()):+d} in all; "
+            + ", ".join(f"{t} {delta[t]:+d}" for t in keep)
+        )
         sd = {track_name(t): [d.tag for d in devices(t)] for t in all_tracks(src)}
         for t in all_tracks(tree):
             before, now = sd.get(track_name(t)), [d.tag for d in devices(t)]
@@ -566,8 +594,7 @@ def check(path: str | os.PathLike, against: str | os.PathLike | None = None) -> 
         old = envelopes(src)
         for desc, (_, _, evs) in envs.items():
             new_steps = _steps_of(evs)
-            shown = ", ".join(("default" if t == DEFAULT_TIME else _num(t)) + f"={v}"
-                              for t, v in new_steps)
+            shown = ", ".join(("default" if t == DEFAULT_TIME else _num(t)) + f"={v}" for t, v in new_steps)
             if desc not in old:
                 kind = evs[0].tag if evs else "no event"
                 say(f"    + envelope {desc}: {len(evs)} x {kind}; beat=value from then on: {shown}")
@@ -593,11 +620,12 @@ def list_params(path: str | os.PathLike, track: str, device: str, index: int = 0
 
 # --------------------------------------------------------------------------- the mix, offline
 
-SILENT = 0.0003162277571   # Live's fader and send floor (-70 dB), shown as -inf dB
+SILENT = 0.0003162277571  # Live's fader and send floor (-70 dB), shown as -inf dB
 
 
 def _db(v: float) -> str:
     import math
+
     return "-inf dB" if v <= SILENT * 1.0001 else f"{20 * math.log10(v) + 0.0:.2f} dB".replace("-0.00", "0.00")
 
 
@@ -634,6 +662,7 @@ def _device_params(d: ET.Element) -> dict[str, list]:
                 out[here] = [str(v), v]
             elif len(c):
                 walk(c, here)
+
     walk(d, "")
     return out
 
@@ -657,8 +686,7 @@ def mix_state(path: str | os.PathLike) -> dict:
         if t is not main:
             mix["mute"] = [str(on == 0.0), on == 0.0]
             holders = m.findall("Sends/TrackSendHolder")
-            mix["sends"] = {r: [_db(v), v] for r, h in zip(rets, holders)
-                            if (v := _manual(h.find("Send"))) is not None}
+            mix["sends"] = {r: [_db(v), v] for r, h in zip(rets, holders) if (v := _manual(h.find("Send"))) is not None}
         devs = [{"name": _device_name(d), "class": d.tag, "params": _device_params(d)} for d in devices(t)]
         out["tracks"][name] = {"mixer": mix, "devices": devs}
     return out

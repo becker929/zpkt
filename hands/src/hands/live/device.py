@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 from typing import Any
 
 from hands.live.transport import McpTransport
@@ -30,7 +29,7 @@ def load_device(
     t_expr = _track_expr(track)
     folder_expr = "browser.instruments" if category == "instruments" else "browser.audio_effects"
 
-    code = f'''
+    code = f"""
 import time
 _t = {t_expr}
 song.view.selected_track = _t
@@ -58,7 +57,7 @@ result = {{
     "device": _dev.name if _dev else None,
     "device_index": len(_t.devices) - 1,
 }}
-'''
+"""
     return client.run(code)
 
 
@@ -75,7 +74,7 @@ def set_parameters(
     t_expr = _track_expr(track)
     d_expr = _device_expr(t_expr, device)
 
-    code = f'''
+    code = f"""
 _t = {t_expr}
 _d = {d_expr}
 _by_name = {{p.name: p for p in _d.parameters}}
@@ -96,7 +95,7 @@ result = {{
     "applied": _applied,
     "count": len(_applied),
 }}
-'''
+"""
     return client.run(code)
 
 
@@ -109,7 +108,7 @@ def list_parameters(
     t_expr = _track_expr(track)
     d_expr = _device_expr(t_expr, device)
 
-    code = f'''
+    code = f"""
 _t = {t_expr}
 _d = {d_expr}
 result = [
@@ -122,5 +121,5 @@ result = [
     }}
     for p in _d.parameters
 ]
-'''
+"""
     return client.run(code)

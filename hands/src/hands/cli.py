@@ -33,18 +33,23 @@ app.add_typer(live_app, name="live")
 app.add_typer(plan_app, name="plan")
 app.add_typer(library_app, name="library")
 from hands.serum2.cli import app as serum2_app  # noqa: E402
+
 app.add_typer(serum2_app, name="serum2")
 als_app = typer.Typer(help="Check Live set files offline.", no_args_is_help=True)
 app.add_typer(als_app, name="als")
 kit_app = typer.Typer(help="Probe kits: P variants of a section in one load and one export.", no_args_is_help=True)
 app.add_typer(kit_app, name="kit")
 from hands.live.panel_cli import app as panel_app  # noqa: E402
+
 app.add_typer(panel_app, name="panel")
 from hands.live.panel_cli import song_app  # noqa: E402
+
 app.add_typer(song_app, name="song")
 from hands.live.panel_cli import sweep_command  # noqa: E402
+
 app.command("sweep")(sweep_command)
 from hands.live.rig_cli import app as rig_app  # noqa: E402
+
 app.add_typer(rig_app, name="rig")
 console = Console()
 
@@ -101,7 +106,9 @@ def execute(
     config: str = typer.Option(..., "--config", help="Path to ProjectConfig JSON."),
     resume: int = typer.Option(0, "--resume", help="Resume from step index."),
     host: str = typer.Option("127.0.0.1", "--host", help="Ableton MCP server host."),
-    port: int | None = typer.Option(None, "--port", help="Ableton MCP server port (default: the rig's live_port, 16619)."),
+    port: int | None = typer.Option(
+        None, "--port", help="Ableton MCP server port (default: the rig's live_port, 16619)."
+    ),
 ) -> None:
     """Execute Steps against a live Ableton session."""
     from hands.builder import ProjectBuilder
@@ -132,12 +139,15 @@ def record(
     beats: int = typer.Option(64, "--beats", help="Number of beats to record."),
     output: str = typer.Option("render.mp3", "--output", help="Output file path (wav or mp3)."),
     arrangement: bool = typer.Option(
-        False, "--arrangement",
+        False,
+        "--arrangement",
         help="Render the set's existing arrangement from beat 0 instead of bouncing session slot-0 clips.",
     ),
     tail: float = typer.Option(4.0, "--tail", help="Extra beats recorded after --beats (arrangement mode)."),
     host: str = typer.Option("127.0.0.1", "--host", help="Ableton MCP server host."),
-    port: int | None = typer.Option(None, "--port", help="Ableton MCP server port (default: the rig's live_port, 16619)."),
+    port: int | None = typer.Option(
+        None, "--port", help="Ableton MCP server port (default: the rig's live_port, 16619)."
+    ),
 ) -> None:
     """Record Ableton output via resampling track and export."""
     from hands.live.record import record_arrangement, record_via_resampling
@@ -180,7 +190,9 @@ def ab(
     action: str = typer.Argument("toggle", help="toggle | next | status"),
     spectrum: bool = typer.Option(False, "--spectrum", help="Also show the master Spectrum."),
     host: str = typer.Option("127.0.0.1", "--host", help="Ableton MCP server host."),
-    port: int | None = typer.Option(None, "--port", help="Ableton MCP server port (default: the rig's live_port, 16619)."),
+    port: int | None = typer.Option(
+        None, "--port", help="Ableton MCP server port (default: the rig's live_port, 16619)."
+    ),
 ) -> None:
     """A/B the mix against the current reference track (tracks named "REF ...")."""
     from hands import ab as ab_mod
@@ -206,7 +218,9 @@ def ab(
 def spectrum_cmd(
     show: bool = typer.Option(False, "--show", help="Always show; never hide."),
     host: str = typer.Option("127.0.0.1", "--host", help="Ableton MCP server host."),
-    port: int | None = typer.Option(None, "--port", help="Ableton MCP server port (default: the rig's live_port, 16619)."),
+    port: int | None = typer.Option(
+        None, "--port", help="Ableton MCP server port (default: the rig's live_port, 16619)."
+    ),
 ) -> None:
     """Toggle the master Spectrum analyzer in Live's detail view."""
     from hands import ab as ab_mod
@@ -267,8 +281,10 @@ def als_mix(
             m = t["mixer"]
             sends = {r: v[0] for r, v in m.get("sends", {}).items() if not v[0].startswith("-inf")}
             devs = ", ".join(d["name"] + ("" if d["params"].get("On", [0, 1.0])[1] else " (off)") for d in t["devices"])
-            print(f"{name:24s} {m['volume'][0]:>10s} pan {m['pan'][0]:>5s}{'  MUTED' if m.get('mute', [0, False])[1] else ''}"
-                  f"{'  sends ' + str(sends) if sends else ''}{'  | ' + devs if devs else ''}")
+            print(
+                f"{name:24s} {m['volume'][0]:>10s} pan {m['pan'][0]:>5s}{'  MUTED' if m.get('mute', [0, False])[1] else ''}"
+                f"{'  sends ' + str(sends) if sends else ''}{'  | ' + devs if devs else ''}"
+            )
         return
     a = als.mix_state(resolve(against))
     rows = S.diff(a, b, tuple(ignore or ()))
@@ -287,7 +303,9 @@ def kit_template(
     patterns: int = typer.Argument(..., help="P, a power of two."),
     lead: float = typer.Option(8.0, "--lead", help="Beats of lead-in kept before the first pattern."),
     host: str = typer.Option("127.0.0.1", "--host"),
-    port: int | None = typer.Option(None, "--port", help="Ableton MCP server port (default: the rig's live_port, 16619)."),
+    port: int | None = typer.Option(
+        None, "--port", help="Ableton MCP server port (default: the rig's live_port, 16619)."
+    ),
 ) -> None:
     """Build a kit in Live (copy, Delete Time, Duplicate Time, save) and print its description."""
     from dataclasses import asdict
@@ -308,9 +326,13 @@ def kit_template(
 def kit_render(
     batch_set: str = typer.Argument(..., help="The batch set written by probe_kit.write_batch."),
     kit: str = typer.Argument(..., help="The kit it was made from."),
-    out: Path = typer.Option(None, "--out", help="Folder for all.wav and pattern_XX.wav (default <data_dir>/kit_out/BATCH_SET)."),
+    out: Path = typer.Option(
+        None, "--out", help="Folder for all.wav and pattern_XX.wav (default <data_dir>/kit_out/BATCH_SET)."
+    ),
     host: str = typer.Option("127.0.0.1", "--host"),
-    port: int | None = typer.Option(None, "--port", help="Ableton MCP server port (default: the rig's live_port, 16619)."),
+    port: int | None = typer.Option(
+        None, "--port", help="Ableton MCP server port (default: the rig's live_port, 16619)."
+    ),
 ) -> None:
     """Load a batch set, export it once, check it and slice one WAV per pattern; print the manifest."""
     from hands import config, probe_kit
@@ -319,8 +341,9 @@ def kit_render(
     from hands.live.transport import LiveClient
 
     try:
-        manifest = probe_kit.render(LiveClient(host, port), batch_set, kit,
-                                    out or config.rig().data_dir / "kit_out" / batch_set)
+        manifest = probe_kit.render(
+            LiveClient(host, port), batch_set, kit, out or config.rig().data_dir / "kit_out" / batch_set
+        )
     except (Guard, AudioError) as exc:
         console.print(f"[red]{exc}[/red]")
         raise typer.Exit(1)
@@ -335,9 +358,10 @@ def main() -> None:
 
     try:
         app()
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         if os.environ.get("HANDS_TRACEBACK"):
             raise
         from hands.live.panel_cli import inside
+
         print(f"ERROR: {inside(exc)}", file=sys.stderr)
         sys.exit(1)

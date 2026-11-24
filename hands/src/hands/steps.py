@@ -36,11 +36,15 @@ def report(caption: str, level: str = "minor", x: float | None = None, y: float 
         body: dict[str, object] = {"caption": caption, "level": level}
         if x is not None and y is not None:
             body.update(x=x, y=y)
-        request = urllib.request.Request(url, data=json.dumps(body).encode(), method="POST", headers={
-            "Content-Type": "application/json", "Authorization": f"Bearer {token}"})
+        request = urllib.request.Request(
+            url,
+            data=json.dumps(body).encode(),
+            method="POST",
+            headers={"Content-Type": "application/json", "Authorization": f"Bearer {token}"},
+        )
         with _opener.open(request, timeout=TIMEOUT_S) as reply:
             return 200 <= reply.status < 300
-    except Exception:  # noqa: BLE001 - a report must never stop the work it describes
+    except Exception:
         return False
 
 
