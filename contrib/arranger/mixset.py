@@ -21,81 +21,95 @@ from __future__ import annotations
 import itertools
 import json
 import math
-import os
 import subprocess
 import sys
 import time
 from pathlib import Path
+from typing import Any
+
+import hw002
 
 ROOT = Path(__file__).resolve().parents[2]
-DATA = Path(os.environ.get("ARRANGER_DATA", "~/_agent_scratch/arranger")).expanduser()
+DATA = hw002.DATA
 MIX2 = DATA / "mix2"
-SETS = Path("~/_agent_scratch/HW002").expanduser()
-SET = "HW002_121_pp_mix"
-ARR_ID = "short-8d2a2"
-BAR = 4.0
-HEADROOM = -6.0   # a Utility on the mix set's Main: the loops summed with mix 1 reach full scale, so renders leave room
+SET = hw002.MIX_SET
+ARR_ID = hw002.CANONICAL
+BAR = hw002.BEATS_PER_BAR
+HEADROOM = -6.0  # a Utility on the mix set's Main: the loops summed with mix 1 reach full scale, so renders leave room
 FX_KINDS = {"riser": "Risers", "reverse": "Reverse reverbs", "fill": "Fills", "downlifter": "Downlifters"}
-BUSES = {"kick": "Kick bus", "hats": "Hats bus", "perc": "Perc bus", "sfx": "Chord and splash bus", "break": "Break bus",
-         "fx": "Transitions bus"}
+BUSES = {
+    "kick": "Kick bus",
+    "hats": "Hats bus",
+    "perc": "Perc bus",
+    "sfx": "Chord and splash bus",
+    "break": "Break bus",
+    "fx": "Transitions bus",
+}
+CLIPS_PER_CALL = 12  # audio clips made in one LOM call, well under the Remote Script's 12 s
 
 # The devices the page offers, and the parameters a grid may move: (name in Live, unit, lo, hi) or (name, values).
-DEVICES = {
-    "Saturator": {"what": "distortion", "params": [("Drive", "dB", 0, 36), ("Type", ["Analog Clip", "Soft Sine", "Medium Curve", "Hard Curve", "Digital Clip"]),
-                                                    ("Dry/Wet", "%", 0, 100), ("Output", "dB", -36, 0)]},
-    "Drum Buss": {"what": "distortion and bus", "params": [("Drive", "%", 0, 100), ("Crunch", "%", 0, 100), ("Boom Amt", "%", 0, 100),
-                                                            ("Transients", "", -1, 1), ("Drive Type", ["Soft", "Medium", "Hard"]), ("Dry/Wet", "%", 0, 100)]},
-    "EQ Eight": {"what": "EQ boost", "params": [("4 Frequency A", "Hz", 30, 16000), ("4 Gain A", "dB", 0, 15), ("4 Q A", "", 0.1, 4)],
-                 "fixed": {"4 Filter Type A": "Bell", "4 Filter On A": "On", "1 Filter On A": "Off", "2 Filter On A": "Off",
-                           "3 Filter On A": "Off", "5 Filter On A": "Off", "6 Filter On A": "Off", "7 Filter On A": "Off", "8 Filter On A": "Off"}},
-    "Compressor": {"what": "compression", "params": [("Threshold", "dB", -40, 0), ("Ratio", ":1", 1, 20), ("Attack", "ms", 0.1, 100),
-                                                      ("Release", "ms", 10, 1000), ("Output", "dB", 0, 24), ("Dry/Wet", "%", 0, 100)]},
-    "Glue Compressor": {"what": "bus compression", "params": [("Threshold", "dB", -40, 0), ("Ratio", ["2", "4", "10"]),
-                                                               ("Attack", [".01", ".1", ".3", "1", "3", "10", "30"]),
-                                                               ("Release", [".1", ".2", ".4", ".6", "1.2"]), ("Output", "dB", 0, 20),
-                                                               ("Dry/Wet", "%", 0, 100)]},
+DEVICES: dict[str, dict[str, Any]] = {
+    "Saturator": {
+        "what": "distortion",
+        "params": [
+            ("Drive", "dB", 0, 36),
+            ("Type", ["Analog Clip", "Soft Sine", "Medium Curve", "Hard Curve", "Digital Clip"]),
+            ("Dry/Wet", "%", 0, 100),
+            ("Output", "dB", -36, 0),
+        ],
+    },
+    "Drum Buss": {
+        "what": "distortion and bus",
+        "params": [
+            ("Drive", "%", 0, 100),
+            ("Crunch", "%", 0, 100),
+            ("Boom Amt", "%", 0, 100),
+            ("Transients", "", -1, 1),
+            ("Drive Type", ["Soft", "Medium", "Hard"]),
+            ("Dry/Wet", "%", 0, 100),
+        ],
+    },
+    "EQ Eight": {
+        "what": "EQ boost",
+        "params": [("4 Frequency A", "Hz", 30, 16000), ("4 Gain A", "dB", 0, 15), ("4 Q A", "", 0.1, 4)],
+        "fixed": {
+            "4 Filter Type A": "Bell",
+            "4 Filter On A": "On",
+            **{f"{k} Filter On A": "Off" for k in (1, 2, 3, 5, 6, 7, 8)},
+        },
+    },
+    "Compressor": {
+        "what": "compression",
+        "params": [
+            ("Threshold", "dB", -40, 0),
+            ("Ratio", ":1", 1, 20),
+            ("Attack", "ms", 0.1, 100),
+            ("Release", "ms", 10, 1000),
+            ("Output", "dB", 0, 24),
+            ("Dry/Wet", "%", 0, 100),
+        ],
+    },
+    "Glue Compressor": {
+        "what": "bus compression",
+        "params": [
+            ("Threshold", "dB", -40, 0),
+            ("Ratio", ["2", "4", "10"]),
+            ("Attack", [".01", ".1", ".3", "1", "3", "10", "30"]),
+            ("Release", [".1", ".2", ".4", ".6", "1.2"]),
+            ("Output", "dB", 0, 20),
+            ("Dry/Wet", "%", 0, 100),
+        ],
+    },
 }
 
 
-def _front_app() -> str:
-    return subprocess.run(["osascript", "-e", 'tell application "System Events" to get name of first application process whose frontmost is true'],
-                          capture_output=True, text=True).stdout.strip()
-
-
-_FOCUS_ARMED = False
-
-
-def give_back_focus() -> None:
-    """Anthony uses this Mac while Live works (13 Nov 2026: "Refocus whatever is on top when you're done in case you
-    take focus"). Remember the front app now, and at exit, if Live has taken the front, hand it back."""
-    global _FOCUS_ARMED
-    if _FOCUS_ARMED:
-        return
-    _FOCUS_ARMED = True
-    was = _front_app()
-    if not was or was == "Live":
-        return
-
-    def back() -> None:
-        if _front_app() == "Live":
-            subprocess.run(["osascript", "-e", f'tell application "{was}" to activate'], capture_output=True)
-    import atexit
-    atexit.register(back)
-
-
-def lo():
-    give_back_focus()
-    os.environ["ZPKT_SETS_DIR"] = str(SETS)
-    os.environ["ZPKT_SET_PREFIXES"] = "HW002_121_pp_"
-    os.environ["ZPKT_DATA_DIR"] = str(MIX2 / "data")
-    os.environ["ZPKT_RENDERS_DIR"] = str(MIX2 / "raw")
-    from hands.live.ops import LiveOps
-    from hands.live.transport import LiveClient
-    # a folder the Save panel already knows (export() moves the file to its target), whatever ARRANGER_DATA says
-    return LiveOps(LiveClient(), staging=Path("~/_agent_scratch/arranger/raw").expanduser())
+def lo() -> Any:
+    """hands' LiveOps for the mix set (hands' own data and renders under DATA/mix2)."""
+    return hw002.live_ops(MIX2)
 
 
 def load() -> tuple[dict, dict, dict]:
+    """The loops index, the transition sounds and the canonical arrangement, from DATA."""
     loops = json.loads((DATA / "loops.json").read_text())
     fx = json.loads((DATA / "fx" / "fx.json").read_text())
     arr = json.loads((DATA / "arrangements" / f"{ARR_ID}.json").read_text())
@@ -104,62 +118,97 @@ def load() -> tuple[dict, dict, dict]:
 
 def channels(loops: dict, arr: dict) -> list[dict]:
     """The mix channels, as the mix pages make them: a lane of the arrangement, or a kind of transition laid over it."""
-    used = {r["lane"] for r in arr["regions"]} | {t["lane"] for t in arr.get("transitions", []) if t.get("mode") == "replace"}
-    out = [{"id": l["id"], "title": l["title"], "group": l["group"]} for l in loops["lanes"] if l["id"] in used]
+    used = {r["lane"] for r in arr["regions"]} | {
+        t["lane"] for t in arr.get("transitions", []) if t.get("mode") == "replace"
+    }
+    out = [{"id": lane["id"], "title": lane["title"], "group": lane["group"]} for lane in loops["lanes"] if lane["id"] in used]
     kinds = {t["kind"] for t in arr.get("transitions", []) if t.get("mode") != "replace"}
     out += [{"id": f"fx-{k}", "title": v, "group": "fx"} for k, v in FX_KINDS.items() if k in kinds]
     return out
 
 
-def guard(L) -> None:
-    if L.guard("mix set") != SET:
-        sys.exit(f"STOP: {SET} is not in front")
+def guard(L: Any) -> None:
+    hw002.stop_unless_front(L, "mix set", SET)
 
 
-def tracks(L) -> dict:
+def tracks(L: Any) -> dict[str, int]:
+    """Track name -> index in the set."""
     return {n: i for i, n in enumerate(L.run("result = [t.name for t in song.tracks]"))}
+
+
+def bell_eq_values(bells: list) -> dict[str, Any]:
+    """EQ Eight's values for up to six bells [(Hz, dB, Q)] on bands 2-7, every other band off."""
+    v: dict[str, Any] = {f"{k} Filter On A": "Off" for k in range(1, 9)}
+    for k, (f, g, q) in enumerate(bells, start=2):
+        v.update(
+            {
+                f"{k} Filter On A": "On",
+                f"{k} Filter Type A": "Bell",
+                f"{k} Frequency A": f"{f} Hz",
+                f"{k} Gain A": f"{g} dB",
+                f"{k} Q A": float(q),
+            }
+        )
+    return v
+
+
+def cuts_eq_values(eq: dict) -> dict[str, Any] | None:
+    """Mix 1's cuts on one channel as EQ Eight's values (a high-pass on band 1, up to three bell cuts, never a boost,
+    a low-pass on band 8), or None when nothing is on."""
+    hp, lp = eq.get("hp") or {}, eq.get("lp") or {}
+    cuts = [x for x in eq.get("cuts", []) if x.get("on")]
+    if not (cuts or hp.get("on") or lp.get("on")):
+        return None
+    p: dict[str, Any] = {f"{k} Filter On A": "Off" for k in range(1, 9)}
+    if hp.get("on"):
+        p.update({"1 Filter On A": "On", "1 Filter Type A": "High Pass 12dB", "1 Frequency A": f"{hp['freq']} Hz"})
+    for k, x in enumerate(cuts[:3], start=2):
+        p.update(
+            {
+                f"{k} Filter On A": "On",
+                f"{k} Filter Type A": "Bell",
+                f"{k} Frequency A": f"{x['freq']} Hz",
+                f"{k} Gain A": f"{min(0.0, x['gainDb'])} dB",
+                f"{k} Q A": float(x["q"]),
+            }
+        )
+    if lp.get("on"):
+        p.update({"8 Filter On A": "On", "8 Filter Type A": "Low Pass 12dB", "8 Frequency A": f"{lp['freq']} Hz"})
+    return p
+
+
+def swap_clips(L: Any, track: str, path: str, *, check: bool = False) -> None:
+    """Point every arrangement clip of `track` at another audio file: the same places, warping off. With `check`,
+    read the clips back (a separate call) and stop if any differs."""
+    starts = L.run(f"result = [c.start_time for c in {track}.arrangement_clips]")
+    L.run(f"t = {track}\nfor c in list(t.arrangement_clips):\n    t.delete_clip(c)\nresult = 'ok'")
+    for k in range(0, len(starts), CLIPS_PER_CALL):
+        L.run(
+            "".join(
+                f"c = {track}.create_audio_clip({path!r}, {s})\nc.warping = False\n"
+                for s in starts[k : k + CLIPS_PER_CALL]
+            )
+            + "result = 'ok'"
+        )
+    if check:
+        got = L.run(f"result = [(c.start_time, c.file_path) for c in {track}.arrangement_clips]")
+        if [g[0] for g in got] != starts or any(g[1] != path for g in got):
+            sys.exit(f"STOP: kick clips are {got}")
 
 
 # ---- build: the mix set from the arrangement -------------------------------------------------------------------------
 
-def build() -> None:
-    L = lo()
-    guard(L)
-    loops, fx, arr = load()
-    chans = channels(loops, arr)
-    clips = {c["id"]: c for c in loops["clips"]}
-    cands = {c["id"]: c for c in fx["candidates"]}
-    L.run("song.tempo = 160.0\nresult = 'ok'")
-    # empty the set: new tracks first (a set keeps at least one), then the old ones go
-    old = len(L.run("result = [t.name for t in song.tracks]"))
-    groups = [g for g in BUSES if any(c["group"] == g for c in chans)]
-    for name in [BUSES[g] for g in groups] + [c["id"] for c in chans]:
-        L.run(f"t = song.create_audio_track(-1)\nt.name = {name!r}\nresult = 'ok'")
-    L.run(f"for _ in range({old}):\n    song.delete_track(0)\nresult = 'ok'")
-    L.run("while len(song.return_tracks):\n    song.delete_return_track(0)\nresult = 'ok'")
-    idx = tracks(L)
-    # each channel into its bus; buses into Main. A bus monitors In with no input of its own: it hears only the
-    # channels routed to it.
-    for g in groups:
-        got = L.run(f"""t = song.tracks[{idx[BUSES[g]]}]
-r = [x for x in t.available_input_routing_types if x.display_name == 'No Input']
-t.input_routing_type = r[0]
-t.current_monitoring_state = 0
-result = [t.input_routing_type.display_name, t.current_monitoring_state]""")
-        if got != ["No Input", 0]:
-            sys.exit(f"STOP: bus {g}: {got}")
-    for c in chans:
-        bus = BUSES[c["group"]]
-        got = L.run(f"""t = song.tracks[{idx[c['id']]}]
-r = [x for x in t.available_output_routing_types if x.display_name == {bus!r}]
-if r:
-    t.output_routing_type = r[0]
-result = t.output_routing_type.display_name""")
-        if got != bus:
-            sys.exit(f"STOP: {c['id']} routes to {got!r}, wanted {bus!r}")
-    # the loops where the arrangement puts them (whole passes; a scoop or kick fill takes the kick's pass instead)
-    replaced = [(t["lane"], t["startBeat"], t["startBeat"] + t["beats"]) for t in arr.get("transitions", []) if t.get("mode") == "replace"]
-    calls = []
+
+def clip_placements(arr: dict, clips: dict, cands: dict) -> list[tuple[str, str, float, float | None]]:
+    """Every audio clip the mix set holds: (channel, file, start beat, clip gain in dB or None). The loops in whole
+    passes where the arrangement puts them (a scoop or kick fill takes the kick's pass instead), a loop's tail where
+    nothing follows it, and each picked transition with its level from the transitions page."""
+    replaced = [
+        (t["lane"], t["startBeat"], t["startBeat"] + t["beats"])
+        for t in arr.get("transitions", [])
+        if t.get("mode") == "replace"
+    ]
+    calls: list[tuple[str, str, float, float | None]] = []
     for r in arr["regions"]:
         c = clips[r["clip"]]
         path = str(DATA / "audio" / c["file"])
@@ -174,22 +223,52 @@ result = t.output_routing_type.display_name""")
                 sys.exit(f"STOP: {r['clip']} does not fill whole passes in {r}")
             calls.append((r["lane"], path, at, None))
         end = r["start"] + r["len"]
-        if c.get("tail") and not any(o["lane"] == r["lane"] and o["start"] == end for o in arr["regions"]) and end < arr["bars"]:
+        follows = any(o["lane"] == r["lane"] and o["start"] == end for o in arr["regions"])
+        if c.get("tail") and not follows and end < arr["bars"]:
             calls.append((r["lane"], str(DATA / "audio" / c["tail"]), end * BAR, None))
     for t in arr.get("transitions", []):
         lane = t["lane"] if t.get("mode") == "replace" else f"fx-{t['kind']}"
-        calls.append((lane, str(DATA / "fx" / "audio" / cands[t["id"]]["file"]), float(t["startBeat"]), t.get("gainDb", 0.0)))
-    for k in range(0, len(calls), 12):
-        code = "out = []\n"
-        for lane, path, at, gain in calls[k:k + 12]:
-            code += (f"t = song.tracks[{idx[lane]}]\nc = t.create_audio_clip({path!r}, {float(at)})\nc.warping = False\n"
-                     f"out.append(c.end_time - c.start_time)\n")
-        L.run(code + "result = out")
-    for lane, path, at, gain in calls:   # a transition's level from its page, as the clip's gain
-        if gain:
-            L.run(f"""t = song.tracks[{idx[lane]}]
+        path = str(DATA / "fx" / "audio" / cands[t["id"]]["file"])
+        calls.append((lane, path, float(t["startBeat"]), t.get("gainDb", 0.0)))
+    return calls
+
+
+def _empty_set(L: Any, names: list[str]) -> None:
+    """New audio tracks named `names` first (a set keeps at least one track), then every old track and return goes."""
+    old = len(L.run("result = [t.name for t in song.tracks]"))
+    for name in names:
+        L.run(f"t = song.create_audio_track(-1)\nt.name = {name!r}\nresult = 'ok'")
+    L.run(f"for _ in range({old}):\n    song.delete_track(0)\nresult = 'ok'")
+    L.run("while len(song.return_tracks):\n    song.delete_return_track(0)\nresult = 'ok'")
+
+
+def _route(L: Any, idx: dict[str, int], groups: list[str], chans: list[dict]) -> None:
+    """Each channel into its bus; buses into Main. A bus monitors In with no input of its own: it hears only the
+    channels routed to it."""
+    for g in groups:
+        got = L.run(f"""t = song.tracks[{idx[BUSES[g]]}]
+r = [x for x in t.available_input_routing_types if x.display_name == 'No Input']
+t.input_routing_type = r[0]
+t.current_monitoring_state = 0
+result = [t.input_routing_type.display_name, t.current_monitoring_state]""")
+        if got != ["No Input", 0]:
+            sys.exit(f"STOP: bus {g}: {got}")
+    for c in chans:
+        bus = BUSES[c["group"]]
+        got = L.run(f"""t = song.tracks[{idx[c["id"]]}]
+r = [x for x in t.available_output_routing_types if x.display_name == {bus!r}]
+if r:
+    t.output_routing_type = r[0]
+result = t.output_routing_type.display_name""")
+        if got != bus:
+            sys.exit(f"STOP: {c['id']} routes to {got!r}, wanted {bus!r}")
+
+
+def _clip_gain(L: Any, track: int, path: str, at: float, gain_db: float) -> None:
+    """Set one clip's gain to `gain_db` by bisection on its display text: Live does not publish the gain law."""
+    L.run(f"""t = song.tracks[{track}]
 c = [c for c in t.arrangement_clips if abs(c.start_time - {float(at)}) < 1e-6 and c.file_path == {path!r}][0]
-want = {float(gain)}
+want = {float(gain_db)}
 lo_, hi_ = 0.0, 1.0
 for _ in range(40):
     mid = (lo_ + hi_) / 2
@@ -200,101 +279,120 @@ for _ in range(40):
     else: hi_ = mid
 c.gain = hi_
 result = c.gain_display_string""")
+
+
+def build() -> None:
+    """Empty the mix set in front and build it from the arrangement: tracks, routing, clips, mix 1 and the kept
+    choices."""
+    L = lo()
+    guard(L)
+    loops, fx, arr = load()
+    chans = channels(loops, arr)
+    clips = {c["id"]: c for c in loops["clips"]}
+    cands = {c["id"]: c for c in fx["candidates"]}
+    L.run(f"song.tempo = {hw002.TEMPO_BPM}\nresult = 'ok'")
+    groups = [g for g in BUSES if any(c["group"] == g for c in chans)]
+    _empty_set(L, [BUSES[g] for g in groups] + [c["id"] for c in chans])
+    idx = tracks(L)
+    _route(L, idx, groups, chans)
+    calls = clip_placements(arr, clips, cands)
+    for k in range(0, len(calls), CLIPS_PER_CALL):
+        code = "out = []\n"
+        for lane, path, at, _ in calls[k : k + CLIPS_PER_CALL]:
+            code += (
+                f"t = song.tracks[{idx[lane]}]\nc = t.create_audio_clip({path!r}, {float(at)})\nc.warping = False\n"
+                "out.append(c.end_time - c.start_time)\n"
+            )
+        L.run(code + "result = out")
+    for lane, path, at, gain in calls:
+        if gain:
+            _clip_gain(L, idx[lane], path, at, gain)
     print(f"{len(chans)} channels on {len(groups)} buses, {len(calls)} clips", flush=True)
     main_gain(L, HEADROOM)
     apply_mix(L, arr, chans)
 
 
-def main_gain(L, db: float) -> None:
+def main_gain(L: Any, db: float) -> None:
     """The Utility at the end of Main: the renders' headroom, and the loudness match for comparing."""
     if L.run("result = [d.class_name for d in song.master_track.devices][-1:]") != ["StereoGain"]:
         L.load_item("song.master_track", "audio_effects", None, "Utility")
     L.setp("song.master_track.devices[-1]", {"Output": f"{round(db, 2)} dB"})
 
 
-def apply_mix(L, arr: dict, chans: list[dict]) -> None:
-    """Mix 1 (gain, pan and cuts) on each channel: the mixer, and an EQ Eight for the cuts. Then the kept mix-2
-    devices, in the order they were kept. Everything after the mixer is rebuilt from the structure each time."""
+def add_at_end(L: Any, track: str, device: str, values: dict[str, Any]) -> str:
+    """Load `device` at the end of `track`'s chain and set its values; returns its LOM path."""
+    L.load_item(track, "audio_effects", None, device)
+    dev = f"{track}.devices[{len(L.devices(track)) - 1}]"
+    L.setp(dev, values)
+    return dev
+
+
+def apply_mix(L: Any, arr: dict, chans: list[dict]) -> None:
+    """Mix 1 (gain, pan and cuts) on each channel: the mixer, and an EQ Eight for the cuts. Then the kept kick
+    option, the kept mix-2 devices in the order they were kept, and the kept spectral fixes. Everything after the
+    mixer is rebuilt from the structure each time."""
     idx = tracks(L)
     mix = (arr.get("mix") or {}).get("channels", {})
     for name in [c["id"] for c in chans] + list(BUSES.values()):
         if name in idx:
             L.run(f"t = song.tracks[{idx[name]}]\nwhile len(t.devices):\n    t.delete_device(0)\nresult = 'ok'")
-    kf = arr.get("kickFuzz")   # a kick option kept on the spectral page (kickfuzz.py): its loop, and the kick turned to match
-    if kf and "kick" in idx:
-        t = f"song.tracks[{idx['kick']}]"
-        path = str(DATA / "kickfuzz" / kf["loop"])
-        starts = L.run(f"result = [c.start_time for c in {t}.arrangement_clips]")
-        L.run(f"t = {t}\nfor c in list(t.arrangement_clips):\n    t.delete_clip(c)\nresult = 'ok'")
-        for k in range(0, len(starts), 12):
-            L.run("".join(f"c = {t}.create_audio_clip({path!r}, {s_})\nc.warping = False\n" for s_ in starts[k:k + 12]) + "result = 'ok'")
+    kick_option = arr.get("kickFuzz")  # kept on the kick or spectral page (kickfuzz.py): its loop, the kick turned
+    if kick_option and "kick" in idx:
+        swap_clips(L, f"song.tracks[{idx['kick']}]", str(DATA / "kickfuzz" / kick_option["loop"]))
     for c in chans:
         m = mix.get(c["id"], {})
         t = f"song.tracks[{idx[c['id']]}]"
-        g = float(m.get("gainDb", 0.0)) + (float(kf["kickTurnedDb"]) if kf and c["id"] == "kick" else 0.0)
-        L.mixer(t, g, (), float(m.get("pan", 0.0)))
-        eq = m.get("eq") or {}
-        cuts = [x for x in eq.get("cuts", []) if x.get("on")]
-        if not (cuts or (eq.get("hp") or {}).get("on") or (eq.get("lp") or {}).get("on")):
-            continue
-        L.load_item(t, "audio_effects", None, "EQ Eight")
-        p = {f"{k} Filter On A": "Off" for k in range(1, 9)}
-        if (eq.get("hp") or {}).get("on"):
-            p.update({"1 Filter On A": "On", "1 Filter Type A": "High Pass 12dB", "1 Frequency A": f"{eq['hp']['freq']} Hz"})
-        for k, x in enumerate(cuts[:3], start=2):
-            p.update({f"{k} Filter On A": "On", f"{k} Filter Type A": "Bell", f"{k} Frequency A": f"{x['freq']} Hz",
-                      f"{k} Gain A": f"{min(0.0, x['gainDb'])} dB", f"{k} Q A": float(x["q"])})
-        if (eq.get("lp") or {}).get("on"):
-            p.update({"8 Filter On A": "On", "8 Filter Type A": "Low Pass 12dB", "8 Frequency A": f"{eq['lp']['freq']} Hz"})
-        L.setp(f"{t}.devices[0]", p)
-    if kf and kf.get("bells"):   # the kept kick's match EQ (kickiso.py), after mix 1's cuts
-        t = f"song.tracks[{idx['kick']}]"
-        L.load_item(t, "audio_effects", None, "EQ Eight")
-        v = {f"{k} Filter On A": "Off" for k in range(1, 9)}
-        for k, (f, g_, q) in enumerate(kf["bells"], start=2):
-            v.update({f"{k} Filter On A": "On", f"{k} Filter Type A": "Bell", f"{k} Frequency A": f"{f} Hz", f"{k} Gain A": f"{g_} dB", f"{k} Q A": float(q)})
-        L.setp(f"{t}.devices[{len(L.devices(t)) - 1}]", v)
+        turned = float(kick_option["kickTurnedDb"]) if kick_option and c["id"] == "kick" else 0.0
+        L.mixer(t, float(m.get("gainDb", 0.0)) + turned, (), float(m.get("pan", 0.0)))
+        cut = cuts_eq_values(m.get("eq") or {})
+        if cut is not None:
+            L.load_item(t, "audio_effects", None, "EQ Eight")
+            L.setp(f"{t}.devices[0]", cut)
+    if kick_option and kick_option.get("bells"):  # the kept kick's match EQ (kickiso.py), after mix 1's cuts
+        add_at_end(L, f"song.tracks[{idx['kick']}]", "EQ Eight", bell_eq_values(kick_option["bells"]))
     for k in arr.get("mix2") or []:
         add_device(L, idx, k["target"], k["device"], k["values"])
-    for f in arr.get("spectral") or []:   # the spectral fixes kept (spectral.py): a gain move or a device
+    for f in arr.get("spectral") or []:  # the spectral fixes kept (spectral.py): a gain move or a device
         for p in f["parts"]:
             if p["device"] == "gain":
                 c = next(c for c in chans if c["id"] == p["target"])
                 m = mix.get(c["id"], {})
-                L.mixer(f"song.tracks[{idx[c['id']]}]", float(m.get("gainDb", 0.0)) + p["values"]["dB"], (), float(m.get("pan", 0.0)))
+                gain = float(m.get("gainDb", 0.0)) + p["values"]["dB"]
+                L.mixer(f"song.tracks[{idx[c['id']]}]", gain, (), float(m.get("pan", 0.0)))
             else:
                 t = "song.master_track" if p["target"] == "main" else target_track(idx, p["target"])
-                L.load_item(t, "audio_effects", None, p["device"])
-                L.setp(f"{t}.devices[{len(L.devices(t)) - 1}]", p["values"])
+                add_at_end(L, t, p["device"], p["values"])
     print("mix applied", flush=True)
 
 
-def target_track(idx: dict, target: str) -> str:
+def target_track(idx: dict[str, int], target: str) -> str:
+    """The LOM path of a channel ("kick") or a bus ("bus-kick")."""
     name = BUSES.get(target.removeprefix("bus-"), target) if target.startswith("bus-") else target
     if name not in idx:
         sys.exit(f"STOP: no track for {target!r}")
     return f"song.tracks[{idx[name]}]"
 
 
-def add_device(L, idx: dict, target: str, device: str, values: dict) -> str:
-    t = target_track(idx, target)
-    L.load_item(t, "audio_effects", None, device)
-    dev = f"{t}.devices[{len(L.devices(t)) - 1}]"
-    L.setp(dev, {**DEVICES[device].get("fixed", {}), **values})
-    return dev
+def add_device(L: Any, idx: dict[str, int], target: str, device: str, values: dict[str, Any]) -> str:
+    """A mix-2 device at the end of a channel's or bus's chain, with its fixed settings and `values`."""
+    return add_at_end(L, target_track(idx, target), device, {**DEVICES[device].get("fixed", {}), **values})
 
 
 # ---- renders ------------------------------------------------------------------------------------------------------------
 
+
 def to_flac(wav: Path, flac: Path, skip_beats: float = 0.0) -> None:
-    """The render as 16-bit FLAC, its preroll bar cut off. Only cut: no gain or processing."""
-    code = ("import soundfile as sf, sys\nx, r = sf.read(sys.argv[1], always_2d=True)\nn = round(float(sys.argv[3]) * r * 60 / 160)\n"
-            "sf.write(sys.argv[2], x[n:], r, subtype='PCM_16')")
+    """The render as 16-bit FLAC, its preroll cut off, in ears' environment. Only cut: no gain or processing."""
+    code = (
+        "import soundfile as sf, sys\nx, r = sf.read(sys.argv[1], always_2d=True)\n"
+        f"n = round(float(sys.argv[3]) * r * 60 / {hw002.TEMPO_BPM:g})\n"
+        "sf.write(sys.argv[2], x[n:], r, subtype='PCM_16')"
+    )
     subprocess.run(["uv", "run", "--project", str(ROOT / "ears"), "python", "-c", code, str(wav), str(flac), str(skip_beats)], check=True)
     wav.unlink()
 
 
-def render(L, out: Path, bars: tuple[int, int]) -> Path:
+def render(L: Any, out: Path, bars: tuple[int, int]) -> Path:
     """Bars (1-based, inclusive) of the mix set, with a bar of preroll before them (cut off) so devices with memory
     (compressors) are settled when the stretch starts."""
     a, b = bars
@@ -309,46 +407,54 @@ def render(L, out: Path, bars: tuple[int, int]) -> Path:
 
 
 def lufs(path: Path) -> float:
+    """Integrated loudness of a file, measured in ears' environment."""
     code = "import soundfile as sf, pyloudnorm as pl, sys\nx, r = sf.read(sys.argv[1])\nprint(pl.Meter(r).integrated_loudness(x))"
-    out = subprocess.run(["uv", "run", "--project", str(ROOT / "ears"), "python", "-c", code, str(path)], check=True,
-                         capture_output=True, text=True).stdout
+    out = subprocess.run(
+        ["uv", "run", "--project", str(ROOT / "ears"), "python", "-c", code, str(path)],
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout
     return float(out.strip().splitlines()[-1])
 
 
 def base() -> None:
+    """Render the whole arrangement as the mix stands (the reference for mix 2)."""
     L = lo()
     guard(L)
     MIX2.mkdir(parents=True, exist_ok=True)
-    out = render(L, MIX2 / "base-full.flac", (1, 40))
-    print(out)
+    print(render(L, MIX2 / "base-full.flac", hw002.SPAN))
 
 
 def points(req: dict) -> list[dict]:
+    """A batch's grid: every combination of its parameters' values, in the units Live shows (LiveOps.setp)."""
     axes = []
     for p in req["params"]:
         if p.get("values"):
             axes.append([(p["name"], v) for v in p["values"]])
+            continue
+        n = max(2, min(6, int(p["steps"])))
+        lo_, hi_ = float(p["min"]), float(p["max"])
+        if p.get("unit") == "Hz" or (p.get("log") and lo_ > 0):
+            vals = [lo_ * (hi_ / lo_) ** (k / (n - 1)) for k in range(n)]
         else:
-            n = max(2, min(6, int(p["steps"])))
-            lo_, hi_ = float(p["min"]), float(p["max"])
-            if p.get("unit") == "Hz" or (p.get("log") and lo_ > 0):
-                vals = [lo_ * (hi_ / lo_) ** (k / (n - 1)) for k in range(n)]
-            else:
-                vals = [lo_ + (hi_ - lo_) * k / (n - 1) for k in range(n)]
-            unit = p.get("unit", "")   # in the parameter's display units, as LiveOps.setp takes them
-            axes.append([(p["name"], f"{round(v, 2)} {unit}" if unit and unit != ":1" else f"{round(v, 3)}") for v in vals])
+            vals = [lo_ + (hi_ - lo_) * k / (n - 1) for k in range(n)]
+        unit = p.get("unit", "")
+        axes.append([(p["name"], f"{round(v, 2)} {unit}" if unit and unit != ":1" else f"{round(v, 3)}") for v in vals])
     return [dict(c) for c in itertools.product(*axes)]
 
 
-def run_request(L, path: Path) -> None:
+def run_request(L: Any, path: Path) -> None:
+    """Render one batch: the mix as kept so far, then each grid point as it comes out and again with Main turned to
+    the first render's loudness. The request file carries the progress the page shows."""
     req = json.loads(path.read_text())
-    loops, fx, arr = load()
+    loops, _, arr = load()
     chans = channels(loops, arr)
     folder = MIX2 / req["id"]
     folder.mkdir(parents=True, exist_ok=True)
     bars = tuple(req.get("bars", (17, 32)))
 
-    def status(**kw):
+    def status(**kw: Any) -> None:
         req.update(kw)
         tmp = path.with_suffix(".tmp")
         tmp.write_text(json.dumps(req, indent=1))
@@ -357,7 +463,7 @@ def run_request(L, path: Path) -> None:
     pts = points(req)
     status(status="rendering", total=2 * len(pts) + 1, done=0, started=time.time())
     main_gain(L, HEADROOM)
-    apply_mix(L, arr, chans)                     # the mix as kept so far, without this request's device
+    apply_mix(L, arr, chans)  # the mix as kept so far, without this request's device
     render(L, folder / "base.flac", bars)
     ref = lufs(folder / "base.flac")
     status(done=1, base="base.flac", baseLufs=round(ref, 2))
@@ -380,13 +486,19 @@ def run_request(L, path: Path) -> None:
     print(f"{req['id']}: {len(pts)} points", flush=True)
 
 
+def queued_requests() -> list[Path]:
+    """The batches waiting to render, oldest first."""
+    rows = [(p, json.loads(p.read_text())) for p in (MIX2 / "requests").glob("*.json")]
+    return [p for p, r in sorted(rows, key=lambda pr: pr[1].get("made", 0)) if r.get("status") == "queued"]
+
+
 def worker() -> None:
-    """Render queued requests oldest first, until none are left. Stops at the first surprise."""
+    """Render queued requests oldest first, until none are left. Stops at the first surprise, and marks that batch
+    failed with the reason for the page."""
     L = lo()
     guard(L)
     while True:
-        queued = sorted((p for p in (MIX2 / "requests").glob("*.json") if json.loads(p.read_text()).get("status") == "queued"),
-                        key=lambda p: json.loads(p.read_text()).get("made", 0))
+        queued = queued_requests()
         if not queued:
             print("queue empty", flush=True)
             return
@@ -404,17 +516,35 @@ def catalog() -> dict:
     loops, _, arr = load()
     chans = channels(loops, arr)
     buses = [{"id": f"bus-{g}", "title": BUSES[g]} for g in BUSES if any(c["group"] == g for c in chans)]
-    return {"channels": chans, "buses": buses,
-            "devices": {k: {"what": v["what"], "params": [{"name": p[0], "values": p[1]} if isinstance(p[1], list)
-                                                          else {"name": p[0], "unit": p[1], "min": p[2], "max": p[3]} for p in v["params"]]}
-                        for k, v in DEVICES.items()}}
+    devices = {
+        k: {
+            "what": v["what"],
+            "params": [
+                {"name": p[0], "values": p[1]}
+                if isinstance(p[1], list)
+                else {"name": p[0], "unit": p[1], "min": p[2], "max": p[3]}
+                for p in v["params"]
+            ],
+        }
+        for k, v in DEVICES.items()
+    }
+    return {"channels": chans, "buses": buses, "devices": devices}
+
+
+def write_catalog() -> None:
+    MIX2.mkdir(parents=True, exist_ok=True)
+    (MIX2 / "catalog.json").write_text(json.dumps(catalog(), indent=1))
+    print(MIX2 / "catalog.json")
+
+
+COMMANDS = {"build": build, "base": base, "worker": worker, "catalog": write_catalog}
+
+
+def main(argv: list[str]) -> None:
+    if len(argv) != 1 or argv[0] not in COMMANDS:
+        sys.exit(f"usage: mixset.py {{{'|'.join(COMMANDS)}}}")
+    COMMANDS[argv[0]]()
 
 
 if __name__ == "__main__":
-    cmd = sys.argv[1]
-    if cmd == "catalog":
-        MIX2.mkdir(parents=True, exist_ok=True)
-        (MIX2 / "catalog.json").write_text(json.dumps(catalog(), indent=1))
-        print(MIX2 / "catalog.json")
-    else:
-        {"build": build, "base": base, "worker": worker}[cmd]()
+    main(sys.argv[1:])

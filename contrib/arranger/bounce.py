@@ -1,4 +1,4 @@
-"""Bounce HW002's loops from Live: one Main export per solo state, to ~/_agent_scratch/arranger/raw/stems.
+"""Bounce HW002's loops from Live: one Main export per solo state, to DATA/raw/stems.
 
 Each state solos one or more tracks, so the file is what the set plays when only they sound: through their own
 devices, their group's devices and Main. Run from hands' environment, one state at a time or all:
@@ -8,29 +8,21 @@ devices, their group's devices and Main. Run from hands' environment, one state 
 Exports go through hands.live.ops (menu clicks and accessibility, no keystrokes: a macOS
 permission prompt on screen takes every key). Stops at the first surprise.
 """
+
 from __future__ import annotations
 
-import os
 import sys
 import time
-from pathlib import Path
+from typing import Any
 
-ROOT = Path(__file__).resolve().parents[2]
-OUT = Path("~/_agent_scratch/arranger/raw").expanduser()
-SET = "HW002_121_pp_loops"
-os.environ["ZPKT_SETS_DIR"] = str(Path("~/_agent_scratch/HW002").expanduser())
-os.environ["ZPKT_SET_PREFIXES"] = "HW002_121_pp_"
-os.environ["ZPKT_DATA_DIR"] = str(OUT / "data")
-os.environ["ZPKT_RENDERS_DIR"] = str(OUT)
-from hands.live.ops import LiveOps  # noqa: E402
-from hands.live.transport import LiveClient  # noqa: E402
+import hw002
 
-liveops = LiveOps(LiveClient(), staging=OUT)
+OUT = hw002.DATA / "raw"
 
-SONG = (0.0, 720.0)      # beats: the 176 bars and a 4-bar tail
-BREAK = (320.0, 80.0)    # the break (bars 81-96) and a 4-bar tail
+SONG = (0.0, 720.0)  # beats: the 176 bars and a 4-bar tail
+BREAK = (320.0, 80.0)  # the break (bars 81-96) and a 4-bar tail
 # state -> (track indices soloed, (start beat, length in beats)); no solo = the mix
-STATES = {
+STATES: dict[str, tuple[tuple[int, ...], tuple[float, float]]] = {
     "mix": ((), SONG),
     "kick-rumble": ((2, 3), SONG),
     "kick": ((2,), SONG),
@@ -49,52 +41,59 @@ STATES = {
 }
 # one drum-rack pad alone: state -> (track index, chain index in its Drum Rack). The hat layers.
 PADS = {
-    "p1-oh": (6, 0), "p1-ch": (6, 1), "p1-rd": (6, 2), "p1-oh66": (6, 3),
-    "p2-rd2": (7, 0), "p2-rd1": (7, 1), "p2-oh": (7, 3), "p2-ch27": (7, 4), "p2-ch1": (7, 5),   # chain 2, "OH layer", is muted in the set
+    "p1-oh": (6, 0),
+    "p1-ch": (6, 1),
+    "p1-rd": (6, 2),
+    "p1-oh66": (6, 3),
+    "p2-rd2": (7, 0),
+    "p2-rd1": (7, 1),
+    "p2-oh": (7, 3),
+    "p2-ch27": (7, 4),
+    "p2-ch1": (7, 5),  # chain 2, "OH layer", is muted in the set
 }
-for _name, (_track, _chain) in PADS.items():
-    STATES[_name] = ((_track,), SONG)
+STATES.update({name: ((track,), SONG) for name, (track, _) in PADS.items()})
 
 
-def solo_chain(track: int | None, chain: int | None) -> None:
+def solo_chain(live: Any, track: int | None, chain: int | None) -> None:
     """Solo one chain of a track's Drum Rack, or clear every chain solo on the racks in PADS."""
     for t in sorted({t for t, _ in PADS.values()}):
         want = chain if t == track else None
-        liveops.run(f"for i, c in enumerate(song.tracks[{t}].devices[0].chains):\n    c.solo = i == {want!r}\nresult = 'ok'")
+        live.run(f"for i, c in enumerate(song.tracks[{t}].devices[0].chains):\n    c.solo = i == {want!r}\nresult = 'ok'")
         time.sleep(0.2)
-        got = liveops.run(f"result = [i for i, c in enumerate(song.tracks[{t}].devices[0].chains) if c.solo]")
+        got = live.run(f"result = [i for i, c in enumerate(song.tracks[{t}].devices[0].chains) if c.solo]")
         if list(got) != ([] if want is None else [want]):
             sys.exit(f"STOP: track {t} has chains {got} soloed, wanted {want}")
 
 
-def solo(indices: tuple[int, ...]) -> None:
-    liveops.run(f"for i, t in enumerate(song.tracks):\n    t.solo = i in {set(indices) or set()!r}\nresult = 'ok'"
-                .replace("set()", "()"))
+def solo(live: Any, indices: tuple[int, ...]) -> None:
+    """Solo exactly these tracks (none: clear every solo), and check."""
+    wanted = repr(set(indices)) if indices else "()"
+    live.run(f"for i, t in enumerate(song.tracks):\n    t.solo = i in {wanted}\nresult = 'ok'")
     time.sleep(0.3)
-    got = tuple(liveops.run("result = [i for i, t in enumerate(song.tracks) if t.solo]"))
+    got = tuple(live.run("result = [i for i, t in enumerate(song.tracks) if t.solo]"))
     if got != tuple(indices):
         sys.exit(f"STOP: soloed {got}, wanted {indices}")
 
 
 def main(names: list[str]) -> None:
-    sys.path.insert(0, str(Path(__file__).resolve().parent))
-    from mixset import give_back_focus
-    give_back_focus()   # hand the front back to whatever Anthony was using, if Live takes it
+    unknown = [n for n in names if n not in STATES]
+    if unknown:
+        sys.exit(f"no such state {unknown}; states: {', '.join(STATES)}")
+    live = hw002.live_ops(OUT, renders=OUT)
     for name in names or list(STATES):
         indices, (start, length) = STATES[name]
         out = OUT / "stems" / f"{name}.wav"
         if out.exists():
             print(f"{name}: already there", flush=True)
             continue
-        if liveops.guard(f"bounce {name}") != SET:
-            sys.exit(f"STOP: {SET} is not in front")
-        solo(indices)
-        solo_chain(*PADS.get(name, (None, None)))
+        hw002.stop_unless_front(live, f"bounce {name}", hw002.LOOPS_SET)
+        solo(live, indices)
+        solo_chain(live, *PADS.get(name, (None, None)))
         t0 = time.time()
-        liveops.export(out, start, length, bits=24, timeout_s=600)
+        live.export(out, start, length, bits=24, timeout_s=600)
         print(f"{name}: {out.stat().st_size / 1e6:.1f} MB in {time.time() - t0:.0f} s", flush=True)
-    solo(())
-    solo_chain(None, None)
+    solo(live, ())
+    solo_chain(live, None, None)
 
 
 if __name__ == "__main__":

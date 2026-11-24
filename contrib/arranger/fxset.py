@@ -24,26 +24,25 @@ splash) where the song plays it, let through a Utility into a Reverb at 100% wet
 from __future__ import annotations
 
 import json
-import os
 import sys
 import time
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass, field
-from pathlib import Path
+from typing import Any
 
-ROOT = Path(__file__).resolve().parents[2]
-DATA = Path("~/_agent_scratch/arranger").expanduser()
+import hw002
+
+DATA = hw002.DATA
 FX = DATA / "fx"
-SETS = Path("~/_agent_scratch/HW002").expanduser()
-SET = "HW002_121_pp_fx"           # built through the LOM (build, notes, save)
-ALS = SETS / f"{SET}.als"
-RSET = "HW002_121_pp_fxa"         # the same with the automation written in (automate); rendered from (render)
-RALS = SETS / f"{RSET}.als"
+SET = hw002.FX_SET  # built through the LOM (build, notes, save)
+ALS = hw002.SETS_DIR / f"{SET}.als"
+RSET = hw002.FX_AUTOMATED_SET  # the same with the automation written in (automate); rendered from (render)
+RALS = hw002.SETS_DIR / f"{RSET}.als"
 
 FX0 = 1200.0        # first beat of the candidate slots, past the end of the song (1168 beats)
 SLOT = 56.0         # 14 bars a slot
 SEAM = 32.0         # the section change, 8 bars into the slot
-BAR = 4.0
+BAR = hw002.BEATS_PER_BAR
 
 # The set's tracks by index (see bounce.py) and the ones added here, by name.
 KICK_GROUP, KICK, RUMBLE, CRASH, PERC1, PERC2, SPLASH, CHORD, HORN = 1, 2, 3, 5, 6, 7, 9, 11, 15
@@ -270,21 +269,9 @@ def candidates() -> list[Cand]:
     return C
 
 
-def env(path: str = "") -> None:
-    os.environ["ZPKT_SETS_DIR"] = str(SETS)
-    os.environ["ZPKT_SET_PREFIXES"] = "HW002_121_pp_"
-    os.environ["ZPKT_DATA_DIR"] = str(FX / "data")
-    os.environ["ZPKT_RENDERS_DIR"] = str(FX / "raw")
-
-
-def lo():
-    sys.path.insert(0, str(Path(__file__).resolve().parent))
-    from mixset import give_back_focus
-    give_back_focus()   # hand the front back to whatever Anthony was using, if Live takes it
-    env()
-    from hands.live.ops import LiveOps
-    from hands.live.transport import LiveClient
-    return LiveOps(LiveClient(), staging=DATA / "raw")   # a folder the Save panel already knows; export() moves the file
+def lo() -> Any:
+    """hands' LiveOps for the transition sets (hands' own data and renders under DATA/fx)."""
+    return hw002.live_ops(FX)
 
 
 def track_index(L, name: str) -> int:
@@ -298,8 +285,7 @@ def track_index(L, name: str) -> int:
 
 def build() -> None:
     L = lo()
-    if L.guard("fx build") != SET:
-        sys.exit(f"STOP: {SET} is not in front")
+    hw002.stop_unless_front(L, "fx build", SET)
     L.run("for t in song.tracks:\n    if t.is_foldable:\n        t.fold_state = False\nresult = 'ok'")   # a folded group hides its tracks
     names = L.run("result = [t.name for t in song.tracks]")
     for name, instrument in NEW.items():
@@ -367,8 +353,7 @@ result = sorted((round(n.start_time, 4), n.pitch, round(n.duration, 4), n.veloci
 
 def notes() -> None:
     L = lo()
-    if L.guard("fx notes") != SET:
-        sys.exit(f"STOP: {SET} is not in front")
+    hw002.stop_unless_front(L, "fx notes", SET)
     idx = {name: track_index(L, name) for name in NEW}
     for (name, dev), params in STATIC.items():
         L.setp(f"song.tracks[{idx[name]}].devices[{dev}]", params)
@@ -513,8 +498,7 @@ def states(L) -> dict:
 
 def render(only: list[str]) -> None:
     L = lo()
-    if L.guard("fx render") != RSET:
-        sys.exit(f"STOP: {RSET} is not in front")
+    hw002.stop_unless_front(L, "fx render", RSET)
     for name, (tracks, start, length, verb) in states(L).items():
         if only and name not in only:
             continue
@@ -559,7 +543,7 @@ def recipe(c: Cand) -> dict:
 def cut() -> None:
     import numpy as np
     import soundfile as sf
-    rate, beat = 44100, 44100 * 60 / 160
+    rate, beat = hw002.RATE, hw002.RATE * 60 / hw002.TEMPO_BPM
     raw = {}
 
     def take(state: str, b0: float, b1: float, start: float) -> np.ndarray:
@@ -568,10 +552,7 @@ def cut() -> None:
         x = raw[state]
         return x[round((b0 - start) * beat):round((b1 - start) * beat)]
 
-    L = None
-    st = {}
-    for name in ["fx-noise", "fx-tone", "fx-kit", "perc1", "perc2", "kick"]:
-        st[name] = FX0 - 4.0
+    st = dict.fromkeys(["fx-noise", "fx-tone", "fx-kit", "perc1", "perc2", "kick"], FX0 - 4.0)   # where each render starts
     out_dir = FX / "audio"
     out_dir.mkdir(parents=True, exist_ok=True)
     rows = []
@@ -618,16 +599,24 @@ def cut() -> None:
 def save() -> None:
     L = lo()
     from hands.live import ui
-    if L.guard("fx save") != SET:
-        sys.exit(f"STOP: {SET} is not in front")
+    hw002.stop_unless_front(L, "fx save", SET)
     if ui.menu_enabled("File", "Save Live Set"):
         ui.menu("File", "Save Live Set")
         time.sleep(2.0)
     print("saved", time.ctime(ALS.stat().st_mtime))
 
 
-if __name__ == "__main__":
-    if sys.argv[1] == "render":
-        render(sys.argv[2:])
+COMMANDS = {"build": build, "notes": notes, "save": save, "automate": automate, "cut": cut}
+
+
+def main(argv: list[str]) -> None:
+    if argv[:1] == ["render"]:
+        render(argv[1:])
+    elif len(argv) == 1 and argv[0] in COMMANDS:
+        COMMANDS[argv[0]]()
     else:
-        {"build": build, "notes": notes, "save": save, "automate": automate, "cut": cut}[sys.argv[1]]()
+        sys.exit(f"usage: fxset.py {{{'|'.join(COMMANDS)}|render [state ...]}}")
+
+
+if __name__ == "__main__":
+    main(sys.argv[1:])

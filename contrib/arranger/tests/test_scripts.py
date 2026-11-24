@@ -49,13 +49,15 @@ def test_fx_clip_notes_merges_same_pitch_and_start():
 
 @pytest.fixture
 def bounce_module():
-    """bounce.py, imported with the environment put back afterwards (it used to set rig variables at import)."""
-    saved = dict(os.environ)
+    """bounce.py, imported; importing it leaves the environment as it was."""
+    def rig_env() -> dict[str, str]:
+        return {k: v for k, v in os.environ.items() if k.startswith("ZPKT_")}
+
+    saved = rig_env()
     import bounce
 
     yield bounce
-    os.environ.clear()
-    os.environ.update(saved)
+    assert rig_env() == saved
 
 
 def test_bounce_states(bounce_module):
@@ -86,11 +88,10 @@ class SoloLive(RecordingLive):
 def test_bounce_solo_steps(bounce_module, monkeypatch):
     live = SoloLive()
     monkeypatch.setattr(bounce_module.time, "sleep", lambda s: None)
-    monkeypatch.setattr(bounce_module, "liveops", live)
-    bounce_module.solo((2, 3))
-    bounce_module.solo_chain(7, 4)
-    bounce_module.solo(())
-    bounce_module.solo_chain(None, None)
+    bounce_module.solo(live, (2, 3))
+    bounce_module.solo_chain(live, 7, 4)
+    bounce_module.solo(live, ())
+    bounce_module.solo_chain(live, None, None)
     assert_golden("bounce-solo", live.calls)
 
 
