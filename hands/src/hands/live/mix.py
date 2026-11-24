@@ -10,6 +10,7 @@ out only the devices the panel added. The rest (apply, grid, pick, the blocks) i
 
 from __future__ import annotations
 
+import contextlib
 import math
 import time
 from collections.abc import Callable
@@ -297,101 +298,31 @@ def make(
     if state["playing"] and not force:
         raise P.PanelError("Live is playing (maybe the user): not rendering; pass --force to stop it")
     song = song_of(out_dir, str(spec["song"])) if spec.get("song") else None
-    everything = client.run("result = [t.name for t in list(song.tracks) + list(song.return_tracks)]") + [
-        "Main",
-        "Master",
-    ]
     faders = [str(t) for t in spec.get("faders") or []]
     pans = [str(t) for t in spec.get("pans") or []]
     devices = [d for d in spec.get("devices") or [] if isinstance(d, dict)]
-    for t in [*faders, *pans, *[str(d.get("track")) for d in devices]]:
-        if t not in everything:
-            near = [n for n in everything if t.lower() in n.lower() or n.lower() in t.lower()][:6]
-            raise P.PanelError(
-                f"no track {t!r} in the open set; close names: {', '.join(near) or 'none'}. Tracks: {', '.join(everything[:40])}"
-            )
-    if not faders and not pans and not devices:
-        raise P.PanelError('a mix panel needs something to turn: "faders" (track names), "pans" or "devices"')
-    quiet = quiet_tracks(
-        client,
-        [*faders, *pans, *[str(d.get("track")) for d in devices]],
-        (float(song["start"]) if song else 0.0) + (first - 1) * 4.0,
-        count * 4.0,
-    )
+    tracks = [*faders, *pans, *[str(d.get("track")) for d in devices]]
+    _check_tracks(client, tracks, bool(faders or pans or devices))
+    start = (float(song["start"]) if song else 0.0) + (first - 1) * 4.0
+    quiet = quiet_tracks(client, tracks, start, count * 4.0)
     ours = [f"{DEVICE_PREFIX}{name} {str(d.get('device') or '').strip()}" for d in devices]
-    if len({(str(d.get("track")), n) for d, n in zip(devices, ours)}) < len(devices):
+    if len({(str(d.get("track")), n) for d, n in zip(devices, ours, strict=True)}) < len(devices):
         raise P.PanelError(
             "a mix panel takes one of each device per track; give each device once and all its params together"
         )
-    old_devices: list[str] = []
-    if f.exists():  # the panel this one replaces keeps its devices, switched off, until
-        try:  # the new one has rendered: a spec with a mistake must not cost them
-            old_devices = [str(a["device"]) for a in P.read_file(f, f"panel {name!r}").get("added") or []]
-        except (P.PanelError, KeyError, TypeError):
-            pass  # a damaged file: nothing in it to find in Live
-    added: list[dict] = []
+    old_devices = _devices_of_the_panel_replaced(f, name)
     unfinished = hold.note(
         f"the devices of a mix panel that was not finished ({name})", _DELETE.format(names=ours) + _UNPARK
     )
     if old_devices:
         client.run(_PARK.format(names=old_devices))
     try:
-        picks: list[tuple[str, str, str, str, str]] = []  # key, label, expr, kind, track
-        picks += [(f"{t} volume", t, f"{tr(t)}.mixer_device.volume", "fader", t) for t in faders]
+        picks: list[Pick] = [(f"{t} volume", t, f"{tr(t)}.mixer_device.volume", "fader", t) for t in faders]
         picks += [(f"{t} pan", f"{t} pan", f"{tr(t)}.mixer_device.panning", "knob", t) for t in pans]
         values: dict[str, float] = {}
         exprs: dict[str, str] = {}
-        warnings: list[str] = []
-        for d in devices:
-            track, device = str(d["track"]), str(d.get("device") or "").strip()
-            if not device:
-                raise P.PanelError(
-                    'a device needs a "device": an audio effect from Live\'s browser ("Saturator", "EQ Eight", "Glue Compressor")'
-                )
-            dname = f"{DEVICE_PREFIX}{name} {device}"
-            _add_device(client, track, device, dname)
-            added.append({"track": track, "device": dname})
-            where = P.Loc(_dev(track, dname))
-            catalog = P._catalog(client, where, device)
-            got, warn = P.resolve(client, where, catalog, dict(d.get("params") or {}), device)
-            warnings += warn
-            for pname, v in got.items():
-                key = f"{track} {device} {pname}"
-                values[key], exprs[key] = v, _par(where, pname)
-            for c in (
-                d["controls"] if "controls" in d else list(got)[:4]
-            ):  # "controls": [] means no knobs for this device
-                c = c if isinstance(c, dict) else {"param": c}
-                pname = P._param(catalog, str(c.get("param") or ""))["name"]
-                key = f"{track} {device} {pname}"
-                exprs[key] = _par(where, pname)
-                picks.append((key, str(c.get("label") or f"{track} {pname}")[:30], exprs[key], "knob", track))
-        picks = picks[: P.MAX_CONTROLS]
-        rows = read_params(client, [e for _, _, e, _, _ in picks])
-        taken: set[str] = set()
-        controls = []
-        for slot, ((key, label, expr, kind, track), r) in enumerate(zip(picks, rows)):
-            c = {
-                "id": P._slug(key, taken),
-                "param": key,
-                "label": label,
-                "track": track,
-                "min": r["min"],
-                "max": r["max"],
-                "midiSlot": slot,
-                "kind": kind,
-            }
-            if r["quantized"] and r["max"] - r["min"] == 1:
-                c["kind"] = "toggle"
-            elif r["quantized"]:
-                c["step"] = 1
-                if r["items"] and len(r["items"]) <= 24:
-                    c["display"] = r["items"]
-            else:
-                c["display"] = r["table"][:: (P.SAMPLES - 1) // (P.ANCHORS - 1)]
-            controls.append(c)
-            exprs[key] = expr
-            values.setdefault(key, r["value"])
+        added, warnings = _add_devices(client, name, devices, picks, values, exprs)
+        controls = _controls(client, picks[: P.MAX_CONTROLS], values, exprs)
         panel = {
             "kind": "mix",
             "name": name,
@@ -418,13 +349,106 @@ def make(
         raise
     hold.forget(unfinished)
     if old_devices:
-        try:
+        # Best effort: the replaced panel's devices are already switched off, so one left behind changes no sound;
+        # the next make or drop of this panel finds and deletes it.
+        with contextlib.suppress(Exception):
             client.run(_DELETE_PARKED)
-        except Exception:
-            pass
     panel["renders"].append(P._shown_path(out))
     hold.save_json(f, panel)
     return P.blocks(panel, result, warnings + opened_note(result.pop("opened", [])) + quiet)
+
+
+Pick = tuple[str, str, str, str, str]  # key, label, LOM expression, kind, track
+
+
+def _check_tracks(client: McpTransport, tracks: list[str], anything: bool) -> None:
+    """Every track the spec names is in the open set, and it names something to turn; else PanelError."""
+    everything = client.run("result = [t.name for t in list(song.tracks) + list(song.return_tracks)]") + [
+        "Main",
+        "Master",
+    ]
+    for t in tracks:
+        if t not in everything:
+            near = [n for n in everything if t.lower() in n.lower() or n.lower() in t.lower()][:6]
+            raise P.PanelError(
+                f"no track {t!r} in the open set; close names: {', '.join(near) or 'none'}. Tracks: {', '.join(everything[:40])}"
+            )
+    if not anything:
+        raise P.PanelError('a mix panel needs something to turn: "faders" (track names), "pans" or "devices"')
+
+
+def _devices_of_the_panel_replaced(f: Path, name: str) -> list[str]:
+    """The devices the panel being replaced added. They stay, switched off, until the new one has rendered: a spec
+    with a mistake must not cost them."""
+    if not f.exists():
+        return []
+    try:
+        return [str(a["device"]) for a in P.read_file(f, f"panel {name!r}").get("added") or []]
+    except (P.PanelError, KeyError, TypeError):
+        return []  # a damaged file: nothing in it to find in Live
+
+
+def _add_devices(
+    client: McpTransport, name: str, devices: list[dict], picks: list[Pick], values: dict[str, float],
+    exprs: dict[str, str],
+) -> tuple[list[dict], list[str]]:  # fmt: skip
+    """Load each spec device onto its track as "mix NAME DEVICE", set its params, and add its knobs to `picks`.
+    Returns the devices added and the warnings about values."""
+    added: list[dict] = []
+    warnings: list[str] = []
+    for d in devices:
+        track, device = str(d["track"]), str(d.get("device") or "").strip()
+        if not device:
+            raise P.PanelError(
+                'a device needs a "device": an audio effect from Live\'s browser ("Saturator", "EQ Eight", "Glue Compressor")'
+            )
+        dname = f"{DEVICE_PREFIX}{name} {device}"
+        _add_device(client, track, device, dname)
+        added.append({"track": track, "device": dname})
+        where = P.Loc(_dev(track, dname))
+        catalog = P._catalog(client, where, device)
+        got, warn = P.resolve(client, where, catalog, dict(d.get("params") or {}), device)
+        warnings += warn
+        for pname, v in got.items():
+            key = f"{track} {device} {pname}"
+            values[key], exprs[key] = v, _par(where, pname)
+        for c in d["controls"] if "controls" in d else list(got)[:4]:  # "controls": [] means no knobs for it
+            c = c if isinstance(c, dict) else {"param": c}
+            pname = P._param(catalog, str(c.get("param") or ""))["name"]
+            key = f"{track} {device} {pname}"
+            exprs[key] = _par(where, pname)
+            picks.append((key, str(c.get("label") or f"{track} {pname}")[:30], exprs[key], "knob", track))
+    return added, warnings
+
+
+def _controls(client: McpTransport, picks: list[Pick], values: dict[str, float], exprs: dict[str, str]) -> list[dict]:
+    """One control per pick, with its range and what Live shows across it; values not set yet are read."""
+    rows = read_params(client, [e for _, _, e, _, _ in picks])
+    taken: set[str] = set()
+    controls = []
+    for slot, ((key, label, expr, kind, track), r) in enumerate(zip(picks, rows, strict=False)):
+        c = {
+            "id": P._slug(key, taken),
+            "param": key,
+            "label": label,
+            "track": track,
+            "min": r["min"],
+            "max": r["max"],
+            "midiSlot": slot,
+            "kind": kind,
+        }
+        if r["quantized"] and r["max"] - r["min"] == 1:
+            c["kind"] = "toggle"
+        elif r["quantized"]:
+            c["step"] = 1
+            if r["items"] and len(r["items"]) <= 24:
+                c["display"] = r["items"]
+        else:
+            c["display"] = r["table"][:: (P.SAMPLES - 1) // (P.ANCHORS - 1)]
+        controls.append(c)
+        exprs[key] = expr
+        values.setdefault(key, r["value"])
+    return controls
 
 
 def apply(
