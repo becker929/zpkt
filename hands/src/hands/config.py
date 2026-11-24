@@ -17,13 +17,11 @@ default:
     live_prefs_dir  ZPKT_LIVE_PREFS_DIR  the newest ~/Library/Preferences/Ableton/Live */ (Log.txt)
     library_dir     ZPKT_LIBRARY_DIR     ~/Music/zpkt/library   work-in-progress Live projects, one folder per
                                                                 track; read-only (hands library inventory)
-    plans_dir       ZPKT_PLANS_DIR       ~/Music/zpkt/plans     the plan render cache (hands plan); HANDS_PLANS
-                                                                overrides it for one run
     records_file    ZPKT_RECORDS_FILE    <library_dir>/records.toml   what you have declared done per track,
                                                                 which beats the inventory's guess
 
 A front set without one of the prefixes means someone else is using Live, so the session guards
-stop rather than act on it.
+stop rather than act on it. A key that is retired (RETIRED) is still accepted in the file, and ignored.
 """
 
 from __future__ import annotations
@@ -47,9 +45,9 @@ DEFAULTS = {
     "set_prefixes": ["zpkt_"],
     "live_prefs_dir": "",
     "library_dir": "~/Music/zpkt/library",
-    "plans_dir": "~/Music/zpkt/plans",
     "records_file": "",
 }
+RETIRED = {"plans_dir": "the plan render cache; hands plan was archived on 24 Nov 2026 (zpkt-archive)"}
 
 
 @dataclass(frozen=True)
@@ -62,7 +60,6 @@ class Rig:
     set_prefixes: tuple[str, ...]
     live_prefs_dir: Path | None
     library_dir: Path
-    plans_dir: Path
     records_file: Path
 
     def set_path(self, name: str) -> Path:
@@ -87,10 +84,10 @@ def load(env: Mapping[str, str] = os.environ, path: str | Path | None = None) ->
     values: dict[str, Any] = dict(DEFAULTS)
     if file.exists():
         loaded = tomllib.loads(file.read_text())
-        unknown = loaded.keys() - DEFAULTS.keys()
+        unknown = loaded.keys() - DEFAULTS.keys() - RETIRED.keys()
         if unknown:
             raise ValueError(f"{file}: unknown keys {sorted(unknown)}; known: {sorted(DEFAULTS)}")
-        values.update(loaded)
+        values.update({k: v for k, v in loaded.items() if k not in RETIRED})
     for key in DEFAULTS:
         if env.get(f"ZPKT_{key.upper()}"):
             values[key] = env[f"ZPKT_{key.upper()}"]
@@ -111,7 +108,6 @@ def load(env: Mapping[str, str] = os.environ, path: str | Path | None = None) ->
         if values["live_prefs_dir"]
         else _newest_live_prefs(),
         library_dir=Path(values["library_dir"]).expanduser(),
-        plans_dir=Path(values["plans_dir"]).expanduser(),
         records_file=Path(values["records_file"] or Path(values["library_dir"]) / "records.toml").expanduser(),
     )
 

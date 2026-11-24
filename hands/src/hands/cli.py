@@ -9,7 +9,6 @@ Commands:
     live     — one-shot LOM commands (ping, exec)
     als      — check a Live set file, list a device's parameters (offline)
     kit      — build a probe kit in Live, render a batch
-    plan     — plans to renders to A/B files, for the voice loop (hands.plans)
     panel    — an instrument, a riff, a render and its control panel for Zpkt web (hands.live.panel)
     rig      — check the Live rig, and reset it when its state gets weird (hands.live.rig)
     library  — the WIP library: each track's place in the seven steps (hands.library, read-only)
@@ -26,11 +25,9 @@ from rich.table import Table
 
 from hands.library.cli import app as library_app
 from hands.live.cli import app as live_app
-from hands.plans.cli import app as plan_app
 
 app = typer.Typer(name="hands", help="DAW control layer for Ableton Live.")
 app.add_typer(live_app, name="live")
-app.add_typer(plan_app, name="plan")
 app.add_typer(library_app, name="library")
 from hands.serum2.cli import app as serum2_app  # noqa: E402
 

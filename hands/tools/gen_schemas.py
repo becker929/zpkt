@@ -4,7 +4,7 @@ The committed schemas were hand-written and had drifted (ProjectConfig was
 missing sample_base, mid_layer and arrangement). The models are the source
 of truth; tests/test_contract.py fails if a committed file is stale.
 
-    uv run python scripts/gen_schemas.py
+    uv run python tools/gen_schemas.py
 """
 from __future__ import annotations
 

@@ -1,6 +1,6 @@
 """What Live shows for a parameter's value: the text laws behind the fake LOM's `str(parameter)` and `str_for_value`.
 
-Formats follow a dump of a real set made over the LOM (hands/scripts/industrial/set-v8.json): three significant
+Formats follow a dump of a real set made over the LOM (the industrial short's set-v8.json, now in zpkt-archive): three significant
 digits ("0.00 dB", "-14.8 dB", "121 ms", "1.14 kHz", even Live's own "100.0 Hz"), mixer volume with one decimal and
 "-inf dB" at the bottom, pan as "C", "25L", "50R". Live does not publish its fader law or every unit; those spots say
 GUESS, and stay monotonic and consistent so that zpkt's bisections over the text find what they look for.

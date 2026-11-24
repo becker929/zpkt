@@ -41,6 +41,13 @@ def test_unknown_keys_and_empty_prefixes_are_refused(tmp_path):
         config.load(env={"ZPKT_SET_PREFIXES": " , "}, path=tmp_path / "none.toml")
 
 
+def test_a_retired_key_in_the_file_is_still_read_and_ignored(tmp_path):
+    file = tmp_path / "rig.toml"
+    file.write_text('plans_dir = "~/plans"\nsets_dir = "/sets"\n')
+    rig = config.load(env={"ZPKT_PLANS_DIR": "/elsewhere"}, path=file)
+    assert rig.sets_dir == Path("/sets") and not hasattr(rig, "plans_dir")
+
+
 def test_live_port_comes_from_the_file_or_the_environment(tmp_path):
     assert config.load(env={}, path=tmp_path / "missing.toml").live_port == 16619
     file = tmp_path / "rig.toml"

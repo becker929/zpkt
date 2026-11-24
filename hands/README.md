@@ -52,7 +52,7 @@ the command and a row.
 | `library/` | the WIP library, read-only: `inventory(roots, exports=, records_file=, measure=) -> Inventory` scores each track's seven steps (`../contrib/docs/workflow.md`); `facts.read_set` (what a .als shows), `score` (one scorer per step), `records` (the producer's word beats the heuristic), `markdown` |
 | `steps.py` | `report(caption, level="minor", x=None, y=None)` to the studio app; `timing(step, seconds, **fields)` to `bench.jsonl` |
 | `config.py` | `rig()`: the private rig settings below |
-| `models.py`, `codegen.py`, `builder.py`, `runner.py` | `ProjectConfig` → LOM steps → `StepRunner` (`hands build / execute`); `models.py` is the source of the `lib/contracts` schemas (`scripts/gen_schemas.py`) |
+| `models.py`, `codegen.py`, `builder.py`, `runner.py` | `ProjectConfig` → LOM steps → `StepRunner` (`hands build / execute`); `models.py` is the source of the `lib/contracts` schemas (`tools/gen_schemas.py`) |
 | `ab.py` | A/B against "REF …" tracks and the master Spectrum (Hammerspoon hotkeys) |
 | `testing/` | for tests: `FakeLive(song)`, an offline Live that runs the Remote Script's own code over a fake set (an `McpTransport`; `.serve()` for other processes); `fake_set(spec)`, `hw002_like()`, `MiniLab_3` ([README](src/hands/testing/README.md)) |
 
@@ -93,7 +93,6 @@ Unknown keys are refused.
 | `set_prefixes` | `ZPKT_SET_PREFIXES` (comma-separated) | `["zpkt_"]` | sets the guards accept as ours; new kit and batch sets get the first |
 | `live_prefs_dir` | `ZPKT_LIVE_PREFS_DIR` | the newest `~/Library/Preferences/Ableton/Live *` | `Log.txt`, for `other_agent_active` |
 | `library_dir` | `ZPKT_LIBRARY_DIR` | `~/Music/zpkt/library` | work-in-progress Live projects, one folder per track, read-only (`hands library inventory`) |
-| `plans_dir` | `ZPKT_PLANS_DIR` | `~/Music/zpkt/plans` | the plan render cache (`hands plan`); `HANDS_PLANS` overrides it for one run |
 | `records_file` | `ZPKT_RECORDS_FILE` | `<library_dir>/records.toml` | what you have declared done per track; it beats the inventory's guess (`contrib/docs/workflow.md`) |
 
 ```toml
@@ -157,18 +156,11 @@ Live is playing. Parameter values are raw numbers, `"50%"` of the range, or the 
 
 ## Scripts from real tracks
 
-`scripts/` holds the batch scripts I wrote for particular pieces. They are not part of the
-library, and they name my sets and samples, but each is a worked example of `hands` on a real
-job:
-
-| Folder | What it did |
-|---|---|
-| `probe_pack/` | The HW002 mix experiments: sweeps and A/B batches packed into one render (`sweep8.py`, `ab_live.py`), and a hill climber (`climb_live.py`). The pipeline is in `../contrib/docs/journal/hw002/batch-8-chord-and-break.md`; the measurements behind probe packing are in `docs/probe-packing-findings.md`. |
-| `industrial/`, `proptest/` | Short pieces composed in code and rendered in Live with stock instruments. |
-| `rummage/`, `juice_box/`, `ui_sounds/` | Sound sets for games and interfaces, built in Live from samples. |
-
-The older batch, bench and sweep scripts were in `prototypes/archive/`, removed on 24 November 2026 (git tag
-`pre-upgrade-2026-11-24` has them).
+The batch scripts I wrote for particular pieces (HW002's probe packs, the industrial short, proptest, Marrow, the
+Rummage, Juice Box, the checklist's sounds), and `hands plan` with its skills, are in a separate local repo,
+zpkt-archive, since 24 November 2026; each needs the zpkt of git tag `pre-upgrade-2026-11-24` to run. What they still
+had in common moved into the library: the menu export and Save As (`hands.live.export`) and the recipe steps
+(`hands.live.ops`).
 
 ## Around hands
 
@@ -185,7 +177,7 @@ The older batch, bench and sweep scripts were in `prototypes/archive/`, removed 
 uv run --all-extras pytest -q -p no:cacheprovider
 ```
 
-Without `--all-extras` the plan and Serum 2 tests are skipped, since their packages are optional.
+Without `--all-extras` the Serum 2 tests are skipped, since their packages are optional.
 
 Everything runs offline: `hands.testing.FakeLive`, which runs the Remote Script's own code over a fake
 Live set (`src/hands/testing/README.md`), a fake Remote Script on a free port, fakes for osascript and the GUI, the
