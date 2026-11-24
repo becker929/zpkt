@@ -94,12 +94,9 @@ gets work, and never copied.
 | Where | What it does | Status |
 |---|---|---|
 | `studio/static/lab/` (the HW002 lab) | Stems through channel strips, sketches of every kick and mix param, a kick synth, granular and slice players | Breaks the rule. Its sound is replaced by the player engine; its surfaces stay. |
-| `studio/static/js/audio.js`, `clip.js`, `buffers.js` | Plays speech and renders on the audio clock | Allowed: this is the player engine's seed. |
-| `studio/static/js/cue.js` | The ready sound: two notes made with oscillators | Allowed: an interface sound, not music. |
 | `studio/static/checklist/flow/sound.js` | The check's click: a filtered noise tick and a short tone, about 60 ms | Allowed: an interface sound, not music. |
 | `studio/static/checklist/map/sounds.js` | The check's sounds: six layered hits rendered in Live (`hands/scripts/ui_sounds/`), each with a heavier and a soft version, kept in R2 and decoded and started as rendered | Allowed: playing rendered files. |
 | `studio/static/checklist/rummage/sounds.js` | The Rummage's interface sounds (steps, pickup, place, a machine's open, tick, lever and stamp, the finish, the tear), rendered in Live from found objects (`hands/scripts/rummage/sounds.py`), decoded once and started as rendered | Allowed: playing rendered files. |
-| `studio/static/js/mic.js` | Captures the mic through an AudioWorklet | Allowed: the mic. |
 | `contrib/arranger/static/index.html` (the HW002 arranger) | Starts loops bounced from Live together on the bar clock, as rendered; saves arrangements as structures | Allowed: playing rendered files. |
 | `contrib/arranger/static/transitions.html` (the arranger's transitions page) | Starts transition sounds made in Live on the beat over the loops; a gain fader per kind of transition at each section change; writes the picks and their levels into the arrangement's structure | Playing rendered files; the faders are a named exception above. |
 | `contrib/arranger/static/mix.html` (the first mix page) | Plays the arrangement's loops and transitions through a gain, a pan and EQ cuts per channel; writes the arrangement's `mix` | The second named exception above, for this page only. |
