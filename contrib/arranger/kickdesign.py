@@ -19,6 +19,7 @@ from __future__ import annotations
 import base64
 import json
 from pathlib import Path
+from typing import Any
 
 import hw002
 import kickiso  # its onset finder
@@ -117,13 +118,13 @@ def ref_kick_bars(path: Path, t_drop: float, bpm: float, bars: int = 2) -> tuple
             break
         lo_db.append(10 * np.log10(np.mean(low[a:b] ** 2) + 1e-20))
         gap_db.append(10 * np.log10(np.mean(high[c:d] ** 2) + 1e-20))
-    lo_db, gap_db = np.array(lo_db), np.array(gap_db)
-    kick_on = lo_db > np.percentile(lo_db, 60) - 6  # a kick at this onset
+    low_db, high_db = np.array(lo_db), np.array(gap_db)
+    kick_on = low_db > np.percentile(low_db, 60) - 6  # a kick at this onset
     n, best, at = bars * 4, -1e9, 0
-    for k in range(0, len(lo_db) - n, 4):  # windows on the bar line, as far as the grid tells
+    for k in range(0, len(low_db) - n, 4):  # windows on the bar line, as far as the grid tells
         if not kick_on[k : k + n].all():
             continue
-        score = np.mean(lo_db[k : k + n]) - np.mean(gap_db[k : k + n])
+        score = np.mean(low_db[k : k + n]) - np.mean(high_db[k : k + n])
         if score > best:
             best, at = score, k
     a = max(0, int((grid[at] - 0.003) * r))
@@ -134,7 +135,7 @@ def main() -> None:
     OUT.mkdir(parents=True, exist_ok=True)
     (OUT / "frames").mkdir(exist_ok=True)
     kicks = []
-    meter = {}
+    meter: dict[int, Any] = {}
 
     def add(kid, title, group, path: Path, url: str, bpm: float, what: str, extra: dict | None = None):
         x, r = sf.read(path, always_2d=True)
@@ -171,14 +172,14 @@ def main() -> None:
             print("no", wav)
             continue
         y, r, t = ref_kick_bars(wav, x["start"] + x["drop"], x["bpm"])
-        out = OUT / f"ref-{x['id']}.flac"
-        sf.write(out, y, r, subtype="PCM_16")
+        cut = OUT / f"ref-{x['id']}.flac"
+        sf.write(cut, y, r, subtype="PCM_16")
         short = x["title"].split(" - ")[0]
         add(
             "ref-" + x["id"][:24],
             short,
             "Reference",
-            out,
+            cut,
             f"/kickdesign/ref-{x['id']}.flac",
             x["bpm"],
             f"{x['title']}: two bars from {int(t // 60)}:{t % 60:04.1f} where its kick plays most nearly alone, as released",
@@ -189,7 +190,7 @@ def main() -> None:
     R = np.array([k["avg"] for k in kicks if k["group"] == "Reference"])
     tgt = np.array(next(k["avg"] for k in kicks if k["id"].startswith("ref-ksms")))
     tlo, thi = R.min(axis=0), R.max(axis=0)
-    out = {
+    index = {
         "bands": {"n": NB, "f0": F0, "f1": F1, "centres": [round(float(c), 1) for c in CENTRES]},
         "floor": FLOOR,
         "fps": FPS,
@@ -199,7 +200,7 @@ def main() -> None:
         "kicks": kicks,
         "kept": None,
     }
-    (OUT / "kicks.json").write_text(json.dumps(out))
+    (OUT / "kicks.json").write_text(json.dumps(index))
     print(OUT / "kicks.json")
 
 

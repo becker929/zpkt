@@ -88,7 +88,7 @@ def regions_of(key: str, clips: dict) -> tuple[str, list[dict]]:
     name, rows = SHORTS[key]
     drop = min(a for _, clip, a, _ in rows if clip == "splash-d")  # the drop is where the long splash lands
     assert all(a >= drop for lane, _, a, _ in rows if lane == "kick"), f"{name}: the kick comes in before the drop"
-    regions = []
+    regions: list[dict] = []
     for lane, clip, a, b in rows:
         assert clips[clip]["lane"] == lane and 1 <= a <= b <= BARS, (name, lane, clip, a, b)
         for r in regions:  # one clip at a time on a lane

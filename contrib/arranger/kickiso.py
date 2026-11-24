@@ -81,8 +81,8 @@ def thirds(f: np.ndarray, p: np.ndarray) -> np.ndarray:
             out.append(10 * np.log10(p[k] * (c * (2 ** (1 / 6) - 2 ** (-1 / 6))) / (f[1] - f[0]) + 1e-20))
             continue
         out.append(10 * np.log10(p[sel].sum() + 1e-20))
-    out = np.array(out)
-    return out - 10 * np.log10((10 ** (out / 10)).sum())  # dB of its own total: shape, not level
+    levels = np.array(out)
+    return levels - 10 * np.log10((10 ** (levels / 10)).sum())  # dB of its own total: shape, not level
 
 
 def shape_of(path: Path, drop: float, bpm: float, beats: int = 64) -> tuple[np.ndarray, int]:
@@ -130,10 +130,10 @@ def main() -> None:
     }
     clean = (np.array(THIRDS) >= 40) & (np.array(THIRDS) <= 4100)
     print("distance to the references' average, 40 Hz-4 kHz (RMS dB), and the gap at 2-4 kHz:")
-    for k, s_ in sorted(opts.items(), key=lambda kv: np.sqrt(np.mean((kv[1] - mean)[clean] ** 2))):
+    for name, s_ in sorted(opts.items(), key=lambda kv: np.sqrt(np.mean((kv[1] - mean)[clean] ** 2))):
         d = s_ - mean
         print(
-            f"  {k:5s} {np.sqrt(np.mean(d[clean] ** 2)):5.2f}  2-4k {np.mean(d[(np.array(THIRDS) >= 2000) & (np.array(THIRDS) <= 4100)]):+5.1f}"
+            f"  {name:5s} {np.sqrt(np.mean(d[clean] ** 2)):5.2f}  2-4k {np.mean(d[(np.array(THIRDS) >= 2000) & (np.array(THIRDS) <= 4100)]):+5.1f}"
             f"  80-200 {np.mean(d[(np.array(THIRDS) >= 79) & (np.array(THIRDS) <= 200)]):+5.1f}"
         )
     (OUT / "kickiso.json").write_text(json.dumps(res))

@@ -131,8 +131,8 @@ def spectrum(x, r, a: float, b: float):
         sel = (f >= EDGES[k]) & (f < EDGES[k + 1])
         p = acc[sel].sum() if sel.any() else acc[np.argmin(abs(f - CENTRES[k]))]
         bands.append(10 * np.log10(p + 1e-20))
-    bands = np.array(bands)
-    return bands - lufs, lufs
+    levels = np.array(bands)
+    return levels - lufs, lufs
 
 
 def side_ratio(x, r, a: float, b: float):
@@ -207,7 +207,7 @@ def analyze() -> None:
     refs = [r for r in json.loads((REFS / "refs.json").read_text())["refs"] if r["set"] == "hw002"]
     mine = measure_file(OUT / "before.flac", hw002.DROP_SECONDS, hw002.BAR_SECONDS)
     theirs = {r["id"]: measure_file(REFS / r["file"], r["drop"], r["barSeconds"]) for r in refs}
-    res = {
+    res: dict[str, Any] = {
         "bands": {"n": NB, "centres": [round(c, 1) for c in CENTRES]},
         "regions": REGIONS,
         "mix": mine,
@@ -254,7 +254,7 @@ def measure() -> None:
 
     fixes = json.loads((OUT / "fixes.json").read_text())["fixes"]
     an = json.loads((OUT / "analysis.json").read_text())
-    items = [{"id": "before", "title": "Before", "file": "before.flac"}]
+    items: list[dict[str, Any]] = [{"id": "before", "title": "Before", "file": "before.flac"}]
     items += [
         {"id": f"fix-{f['id']}", "title": f["title"], "file": f"fix-{f['id']}.flac", "fix": f["id"]}
         for f in fixes
@@ -284,14 +284,14 @@ def measure() -> None:
         )
     # each fix's result, measured: the gap to the references' average in its band, before and with the fix alone
     before_m = next(it for it in items if it["id"] == "before")
-    after_m = next((it for it in items if it["id"] == "after"), None)
+    after_m: dict[str, Any] | None = next((it for it in items if it["id"] == "after"), None)
     for f in fixes:
-        it = next((x for x in items if x.get("fix") == f["id"]), None)
-        if not it or "band" not in f:
+        fixed = next((x for x in items if x.get("fix") == f["id"]), None)
+        if not fixed or "band" not in f:
             continue
         part = f.get("part", "drop")
         if f.get("measureBy") == "side":
-            got = [m[part]["side"][f["region"]] for m in (before_m, it, after_m) if m]
+            got = [m[part]["side"][f["region"]] for m in (before_m, fixed, after_m) if m]
             refs_side = [an["refs"][k][part]["side"][f["region"]] for k in an["refs"]]
             f["result"] = (
                 f"side/mid in the {f['region']}: {got[0]:+.1f} dB before, {got[1]:+.1f} with this fix"
@@ -300,7 +300,7 @@ def measure() -> None:
             )
             continue
         ref = band_db(an[part]["refMean"], *f["band"])
-        got = [band_db(m[part]["spectrum"], *f["band"]) - ref for m in (before_m, it, after_m) if m]
+        got = [band_db(m[part]["spectrum"], *f["band"]) - ref for m in (before_m, fixed, after_m) if m]
         f["result"] = (
             f"{part}, {f['band'][0]:g}–{f['band'][1]:g} Hz against the references' average: {got[0]:+.1f} dB before, "
             f"{got[1]:+.1f} with this fix" + (f", {got[2]:+.1f} with all fixes" if len(got) > 2 else "")

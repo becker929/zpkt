@@ -85,7 +85,7 @@ def texture(path: Path, bpm: float, t0: float | None = None, exact: bool = False
     segs = median_beat(m, r, starts, beat)
     mh_f = butter(6, MH, btype="band", fs=r, output="sos")
     bo_f = butter(4, BODY, btype="band", fs=r, output="sos")
-    out = {k: [] for k in ("holdMh", "holdBody", "lock", "flatness", "crest", "level")}
+    out: dict[str, list[float]] = {k: [] for k in ("holdMh", "holdBody", "lock", "flatness", "crest", "level")}
     for s in segs:
         mh, bo = sosfiltfilt(mh_f, s), sosfiltfilt(bo_f, s)
         emh, ebo = env(mh, r, 1.0), env(bo, r, 4.0)

@@ -12,7 +12,7 @@ from __future__ import annotations
 import re
 import time
 from collections.abc import Callable
-from typing import Any, NotRequired, TypedDict
+from typing import Any, NotRequired, TypedDict, cast
 
 ID = re.compile(r"^[a-z0-9][a-z0-9-]{0,63}$")
 LOOP_FILE = re.compile(r"[a-z0-9-]{1,32}\.flac")
@@ -65,7 +65,7 @@ def _check(ok: bool, error: str) -> None:
 def parse_page_save(body: Any) -> Arrangement:
     """The arranger page's save: an object with a list of regions."""
     _check(isinstance(body, dict) and isinstance(body.get("regions"), list), "bad arrangement")
-    return body  # type: ignore[no-any-return]
+    return cast(Arrangement, body)
 
 
 def merge_page_save(new: Arrangement, old: dict[str, Any] | None, now: float | None = None) -> dict[str, Any]:
@@ -136,7 +136,7 @@ def parse_later_key(key: str, body: Any) -> Any:
 def parse_transitions_view(body: Any) -> dict[str, Any]:
     """The transitions page's own view (the change shown, hearts, stacks): an object with `picks`."""
     _check(isinstance(body, dict) and isinstance(body.get("picks"), dict), "bad picks")
-    return body  # type: ignore[no-any-return]
+    return cast(dict[str, Any], body)
 
 
 MIX2_LAST_BAR = 40
@@ -158,7 +158,7 @@ def parse_mix2_request(body: Any) -> dict[str, Any]:
     except TypeError:  # bars that are not numbers
         ok = False
     _check(ok, "bad request")
-    return body  # type: ignore[no-any-return]
+    return cast(dict[str, Any], body)
 
 
 def list_row(arrangement_id: str, a: dict[str, Any]) -> dict[str, Any]:

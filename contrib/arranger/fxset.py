@@ -28,6 +28,7 @@ import json
 import sys
 import time
 import xml.etree.ElementTree as ET
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -683,7 +684,7 @@ result = [(c.start_time, c.end_time, c.warping, c.looping) for c in t.arrangemen
 TYPES = {"Low-pass": 0, "High-pass": 1, "Band-pass": 2}
 WAVES = {"Sine": 0, "Saw D": 10}
 # key -> (track, device tag, which of that tag on the track, .als parameter, convert, default)
-PARAMS = {
+PARAMS: dict[str, tuple[str, str, int, str, Callable[[Any], Any], Any]] = {
     "type": ("{t}", "AutoFilter2", 0, "Filter_Type", TYPES.get, "Low-pass"),
     "res": ("{t}", "AutoFilter2", 0, "Filter_Resonance", lambda v: v / 100, 20.0),
     "freq": ("{t}", "AutoFilter2", 0, "Filter_Frequency", lambda v: min(19999.0, max(20.0, v)), 16000.0),
@@ -768,10 +769,10 @@ def solo(L, indices: tuple) -> None:
         sys.exit(f"STOP: soloed {got}, wanted {indices}")
 
 
-def states(L) -> dict:
+def states(L: Any) -> dict[str, tuple[tuple[int, ...], float, float, tuple[str, str] | None]]:
     """state -> (soloed track indices, start beat, length in beats, reverb setting or None)."""
     C = candidates()
-    out = {}
+    out: dict[str, tuple[tuple[int, ...], float, float, tuple[str, str] | None]] = {}
     for key, tracks in (
         ("fx noise", None),
         ("fx tone", None),
@@ -799,8 +800,8 @@ def render(only: list[str]) -> None:
             print(f"{name}: already there", flush=True)
             continue
         if verb:
-            verb, src = verb
-            L.setp(f"song.tracks[{tracks[0]}].devices[-1]", REVERBS[verb])
+            setting, src = verb
+            L.setp(f"song.tracks[{tracks[0]}].devices[-1]", REVERBS[setting])
             L.setp(f"song.tracks[{tracks[0]}].devices[-2]", {"Output": f"{SOURCE_GAIN[src]} dB"})
         solo(L, tracks)
         t0 = time.time()
@@ -879,8 +880,8 @@ def cut() -> None:
             x = take(state, c.seam_beat + c.start, c.seam_beat + c.end + tail, st[state])
             if tail:
                 quiet = np.abs(x).max(1) < 10 ** (-70 / 20)
-                keep = len(x) - int(np.argmax(~quiet[::-1])) if (~quiet).any() else 0
-                x = x[: max(keep, round((c.end - c.start) * beat))]
+                last = len(x) - int(np.argmax(~quiet[::-1])) if (~quiet).any() else 0
+                x = x[: max(last, round((c.end - c.start) * beat))]
         peak = float(np.abs(x).max()) if len(x) else 0.0
         f = f"{c.id}.flac"
         sf.write(out_dir / f, x, rate, subtype="PCM_16")

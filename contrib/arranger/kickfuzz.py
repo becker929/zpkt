@@ -47,7 +47,7 @@ UNHIDE = [  # what hides the fuzz HW002 already makes
 ]
 ROAR_ON = [(ROAR, "Device On", "On"), (ROAR, "Shaper 1 Amt", "0.0 %")]  # multiband: the low band stays clean
 
-OPTIONS = {
+OPTIONS: dict[str, dict[str, Any]] = {
     "base": {"title": "As it is", "set": []},
     "a": {
         "title": "A: unhide",
@@ -377,9 +377,9 @@ def param(L: Any, dev: str, name: str) -> str:
     return f"{dev}.parameters[{n[0]}]"
 
 
-def apply(L: Any, changes: list) -> list[tuple[str, float]]:
+def apply(L: Any, changes: list) -> list[tuple[Any, ...]]:
     """Set the option's values; return every touched parameter's raw value before, to put back."""
-    undo = []
+    undo: list[tuple[Any, ...]] = []
     for dev, name, want in changes:
         if dev == "load":  # ("load", track, device name): added at the end of the track's chain
             n = len(L.devices(name))
