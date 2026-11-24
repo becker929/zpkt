@@ -49,7 +49,10 @@ class Jobs:
         )
         (self.dir / jid).mkdir(exist_ok=True)
         (self.dir / jid / "score.json").write_text(json.dumps(score, indent=2) + "\n")
-        return self.get(jid), True
+        job = self.get(jid)
+        if job is None:
+            raise RuntimeError(f"job {jid} was written but cannot be read back from {self.home / 'booth.db'}")
+        return job, True
 
     def get(self, jid: str) -> dict | None:
         row = self.db.execute("SELECT * FROM jobs WHERE id = ?", (jid,)).fetchone()

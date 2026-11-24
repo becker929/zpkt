@@ -7,6 +7,8 @@ ears' (pyloudnorm's BS.1770, a 4x oversampled true peak), kept small here so the
 
 from __future__ import annotations
 
+from typing import Any
+
 import numpy as np
 import pyloudnorm as pyln
 import soundfile as sf
@@ -52,7 +54,7 @@ def measure(path, sections: list[tuple[str, float, float]]) -> dict:
     out["true_peak_db"] = round(true_peak_db(y), 1)
     phone = highpass(y, sr, 180.0)
     out["phone_db"] = round(10 * np.log10((np.mean(phone**2) + 1e-12) / (np.mean(y**2) + 1e-12)), 1)
-    secs = []
+    secs: list[dict[str, Any]] = []
     for label, a, b in sections:
         seg = y[int(a * sr) : int(b * sr)]
         level = float(meter.integrated_loudness(seg)) if len(seg) > sr * 0.5 else float("-inf")
@@ -70,7 +72,7 @@ def measure(path, sections: list[tuple[str, float, float]]) -> dict:
         flags.append("clipping")
     if lufs < -20:
         flags.append("too_quiet")
-    levels = [s["lufs"] for s in secs if s["lufs"] is not None]
+    levels: list[float] = [s["lufs"] for s in secs if s["lufs"] is not None]
     if len(levels) >= 2 and max(levels) - min(levels) < 1.5:
         flags.append("no_contrast")
     if out["phone_db"] < -10:
@@ -83,7 +85,7 @@ def levels(path, windows: list[tuple[float, float]]) -> list[tuple[float | None,
     """(LUFS, sample peak dBFS) of each (start s, end s) window; None for a silent one (`booth survey --listen`)."""
     y, sr = sf.read(str(path), always_2d=True)
     meter = pyln.Meter(sr)
-    out = []
+    out: list[tuple[float | None, float | None]] = []
     for a, b in windows:
         seg = y[int(a * sr) : int(b * sr)]
         peak = float(np.max(np.abs(seg))) if len(seg) else 0.0

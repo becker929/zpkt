@@ -46,7 +46,8 @@ def settings() -> Settings:
     path = HOME / "config.toml"
     raw = tomllib.loads(path.read_text()) if path.is_file() else {}
     s = Settings(**{k: v for k, v in raw.items() if k in Settings.__dataclass_fields__})
-    s.video_size = tuple(s.video_size)
+    width, height = s.video_size  # TOML gives a list
+    s.video_size = (int(width), int(height))
     return s
 
 

@@ -30,9 +30,27 @@ packages = ["src/booth"]
 testpaths = ["tests"]
 asyncio_mode = "auto"
 
+# mypy: `uv run mypy` from contrib/booth. Every module is checked; the messages with the bot (contract.py) and the
+# score model with pydantic's plugin.
+[tool.mypy]
+python_version = "3.12"
+files = ["src/booth"]
+plugins = ["pydantic.mypy"]
+ignore_missing_imports = true
+warn_unused_ignores = true
+warn_redundant_casts = true
+
+# Left as is: the compiler, the Live builder, the checker and the runner read a checked score's optional fields
+# (a part's sample or instrument, a pattern's owner) after check.py has proved them there, without narrowing each
+# one again (about 70 places). Optional checking is off there until they take a narrowed type.
+[[tool.mypy.overrides]]
+module = ["booth.compile", "booth.live", "booth.check", "booth.runner", "booth.cli"]
+strict_optional = false
+
 [dependency-groups]
 dev = [
     "jsonschema>=4.26.0",
+    "mypy>=1.18",
     "pytest>=9.0.2",
     "pytest-asyncio>=0.23",
 ]

@@ -16,12 +16,10 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from .jobs import FILES, STATES
-from .measure import FLAGS
-
-State = Literal[STATES]  # type: ignore[valid-type]
-FileName = Literal[FILES]  # type: ignore[valid-type]
-Flag = Literal[tuple(FLAGS)]  # type: ignore[valid-type]
+# Spelled out for the type checker; tests/test_api_contract.py checks they match jobs.STATES, jobs.FILES, measure.FLAGS.
+State = Literal["queued", "building", "rendering", "measuring", "done", "failed", "held"]
+FileName = Literal["render.m4a", "video.mp4", "still.jpg", "score.json", "measure.json", "loop.m4a"]
+Flag = Literal["silent", "clipping", "too_quiet", "no_contrast", "lost_on_phone"]
 
 MAX_KEY = 300  # the bot's keys are post URIs with a version (at://...#v2~1)
 

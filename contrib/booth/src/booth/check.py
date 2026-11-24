@@ -162,14 +162,14 @@ def check(raw: Any, *, samples: list[str] | tuple[str, ...] | None = None) -> Re
         length = pat.bars * BEATS_PER_BAR
         if not pat.notes:
             warn(f"patterns[{i}]", "empty_pattern", f"{pat.id!r} has no notes")
-        for k, n in enumerate(pat.notes):
-            if n.t >= length:
+        for k, note in enumerate(pat.notes):
+            if note.t >= length:
                 err(
                     f"patterns[{i}].notes[{k}].t",
                     "note_outside_pattern",
-                    f"starts at beat {n.t}; the pattern is {length} beats",
+                    f"starts at beat {note.t}; the pattern is {length} beats",
                 )
-            if rng and not rng[0] <= n.p <= rng[1]:
+            if rng and not rng[0] <= note.p <= rng[1]:
                 err(
                     f"patterns[{i}].notes[{k}].p",
                     "pitch_out_of_range",

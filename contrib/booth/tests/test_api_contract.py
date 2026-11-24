@@ -145,3 +145,13 @@ def test_parse_job_request_is_as_lenient_as_the_booth_was():
         with pytest.raises(BadRequest) as exc:
             parse_job_request(bad)
         assert exc.value.code == "bad_key"
+
+
+def test_the_contracts_literals_are_the_booths_own():
+    from typing import get_args
+
+    from booth import contract, jobs, measure
+
+    assert get_args(contract.State) == jobs.STATES
+    assert get_args(contract.FileName) == jobs.FILES
+    assert get_args(contract.Flag) == tuple(measure.FLAGS)
