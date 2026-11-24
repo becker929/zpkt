@@ -1,5 +1,6 @@
 # One style for every Python part of zpkt. `make format` applies it; `make lint` checks it.
 line-length = 120
+src = ["hands/src", "ears/src", "ears/mlab"]   # first-party packages, so imports sort as ours
 target-version = "py311"   # Live's own Python is 3.11: code loaded into Live (contrib/mixdesk/pager.py) must run there
 extend-exclude = [
     "hands/remote_scripts/AbletonLiveMCP",   # vendored, kept as upstream wrote it
