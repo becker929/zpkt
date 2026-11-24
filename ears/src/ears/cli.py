@@ -11,6 +11,8 @@ import typer
 from rich.console import Console
 from rich.table import Table
 
+from .models import AudioProfile, LoudnessFeatures, RhythmFeatures, SpectralFeatures
+
 app = typer.Typer(name="ears", help="ears: measure a render. Loudness, true peak, spectra, embeddings, your corpus.")
 corpus_app = typer.Typer(help="Your reference corpus: build it once from a folder, then place renders in it.")
 app.add_typer(corpus_app, name="corpus")
@@ -48,60 +50,7 @@ def analyze(
         print(json.dumps(dataclasses.asdict(profile), default=_json_default))
         return
 
-    # Human-readable rich output
-    console.print(f"\n[bold]AudioProfile[/bold] — {path.name}")
-    console.print(f"  Duration:  {profile.duration_seconds:.2f}s  |  SR: {profile.sample_rate} Hz")
-    console.print(f"  clip_id:   {profile.clip_id}")
-
-    if profile.loudness:
-        ld = profile.loudness
-        console.print("\n[bold]Loudness[/bold]")
-
-        def _row(label: str, value: float | None, unit: str) -> None:
-            text = f"{value:.2f} {unit}" if value is not None else "n/a"
-            console.print(f"  {label:<18} {text}")
-
-        _row("LUFS integrated:", ld.lufs_integrated, "LUFS")
-        _row("LUFS short-term:", ld.lufs_short_term_peak, "LUFS")
-        _row("LUFS momentary:", ld.lufs_momentary_max, "LUFS")
-        _row("True peak:", ld.true_peak_db, "dBTP")
-        if ld.camelot_key:
-            console.print(f"  Key (Camelot):     {ld.camelot_key}")
-        if ld.band_energy:
-            t = Table(show_header=True, header_style="dim", box=None, padding=(0, 1))
-            t.add_column("Band", style="dim")
-            t.add_column("Energy %", justify="right")
-            for band, energy in ld.band_energy.items():
-                t.add_row(band, f"{energy * 100:.1f}%")
-            console.print(t)
-
-    if profile.spectral:
-        sp = profile.spectral
-        console.print("\n[bold]Spectral[/bold]")
-        console.print(f"  Centroid:   {sp.spectral_centroid_mean:.1f} Hz")
-        console.print(f"  Rolloff:    {sp.spectral_rolloff_mean:.1f} Hz")
-        console.print(f"  Flatness:   {sp.spectral_flatness_mean:.4f}")
-        console.print(f"  Onset str:  {sp.onset_strength_mean:.3f}")
-        if sp.key:
-            console.print(f"  Key:        {sp.key} (strength {sp.key_strength:.2f})")
-        if sp.danceability is not None:
-            console.print(f"  Danceability: {sp.danceability:.3f}")
-
-    if profile.rhythm:
-        ry = profile.rhythm
-        console.print("\n[bold]Rhythm[/bold]")
-        console.print(f"  BPM:        {ry.bpm:.1f}" if ry.bpm else "  BPM:   n/a")
-        console.print(f"  Meter:      {ry.meter_numerator}/4")
-        if ry.swing_ratio is not None:
-            console.print(f"  Swing:      {ry.swing_ratio:.3f}")
-
-    if profile.embedding:
-        console.print(
-            f"\n[bold]Embedding[/bold]  {len(profile.embedding)}-dim DCLAP vector (first 4): {profile.embedding[:4]}"
-        )
-
-    if profile.errors:
-        console.print(f"\n[yellow]Errors:[/yellow] {', '.join(profile.errors)}")
+    _print_profile(path.name, profile)
 
 
 @app.command()
@@ -221,6 +170,66 @@ def corpus_distance(
         console.print("\n[dim]No embedding distance (set EARS_DCLAP_MODEL and rebuild the corpus to get it).[/dim]")
     if profile.errors:
         console.print(f"\n[yellow]Errors:[/yellow] {', '.join(profile.errors)}")
+
+
+def _print_profile(name: str, profile: AudioProfile) -> None:
+    """The profile as `ears analyze` prints it for people."""
+    console.print(f"\n[bold]AudioProfile[/bold] — {name}")
+    console.print(f"  Duration:  {profile.duration_seconds:.2f}s  |  SR: {profile.sample_rate} Hz")
+    console.print(f"  clip_id:   {profile.clip_id}")
+    if profile.loudness:
+        _print_loudness(profile.loudness)
+    if profile.spectral:
+        _print_spectral(profile.spectral)
+    if profile.rhythm:
+        _print_rhythm(profile.rhythm)
+    if profile.embedding:
+        console.print(
+            f"\n[bold]Embedding[/bold]  {len(profile.embedding)}-dim DCLAP vector (first 4): {profile.embedding[:4]}"
+        )
+    if profile.errors:
+        console.print(f"\n[yellow]Errors:[/yellow] {', '.join(profile.errors)}")
+
+
+def _print_loudness(ld: LoudnessFeatures) -> None:
+    console.print("\n[bold]Loudness[/bold]")
+    for label, value, unit in (
+        ("LUFS integrated:", ld.lufs_integrated, "LUFS"),
+        ("LUFS short-term:", ld.lufs_short_term_peak, "LUFS"),
+        ("LUFS momentary:", ld.lufs_momentary_max, "LUFS"),
+        ("True peak:", ld.true_peak_db, "dBTP"),
+    ):
+        text = f"{value:.2f} {unit}" if value is not None else "n/a"
+        console.print(f"  {label:<18} {text}")
+    if ld.camelot_key:
+        console.print(f"  Key (Camelot):     {ld.camelot_key}")
+    if ld.band_energy:
+        t = Table(show_header=True, header_style="dim", box=None, padding=(0, 1))
+        t.add_column("Band", style="dim")
+        t.add_column("Energy %", justify="right")
+        for band, energy in ld.band_energy.items():
+            t.add_row(band, f"{energy * 100:.1f}%")
+        console.print(t)
+
+
+def _print_spectral(sp: SpectralFeatures) -> None:
+    console.print("\n[bold]Spectral[/bold]")
+    console.print(f"  Centroid:   {sp.spectral_centroid_mean:.1f} Hz")
+    console.print(f"  Rolloff:    {sp.spectral_rolloff_mean:.1f} Hz")
+    console.print(f"  Flatness:   {sp.spectral_flatness_mean:.4f}")
+    console.print(f"  Onset str:  {sp.onset_strength_mean:.3f}")
+    if sp.key:
+        console.print(f"  Key:        {sp.key} (strength {sp.key_strength:.2f})")
+    if sp.danceability is not None:
+        console.print(f"  Danceability: {sp.danceability:.3f}")
+
+
+def _print_rhythm(ry: RhythmFeatures) -> None:
+    console.print("\n[bold]Rhythm[/bold]")
+    console.print(f"  BPM:        {ry.bpm:.1f}" if ry.bpm else "  BPM:   n/a")
+    console.print(f"  Meter:      {ry.meter_numerator}/4")
+    if ry.swing_ratio is not None:
+        console.print(f"  Swing:      {ry.swing_ratio:.3f}")
 
 
 def _json_default(obj):

@@ -189,3 +189,23 @@ def test_cli_corpus(tmp_path: Path, console_env: None) -> None:
 def test_profile_dict_is_json() -> None:
     p = AudioProfile(clip_id="x", embedding=[np.float32(0.5)])
     assert json.dumps(plain(p.to_dict()))
+
+
+def test_print_profile_every_section(capsys: pytest.CaptureFixture[str], console_env: None) -> None:
+    """The sections the synthetic files never fill: key, danceability, rhythm, embedding, errors."""
+    from ears.cli import _print_profile
+    from ears.models import LoudnessFeatures, RhythmFeatures, SpectralFeatures
+
+    profile = AudioProfile(
+        clip_id="abc",
+        duration_seconds=1.5,
+        sample_rate=48000,
+        loudness=LoudnessFeatures(lufs_integrated=-9.5, true_peak_db=-0.3, camelot_key="8A", band_energy={"sub": 0.5}),
+        spectral=SpectralFeatures(spectral_centroid_mean=1234.5, key="A minor", key_strength=0.8, danceability=1.25),
+        rhythm=RhythmFeatures(bpm=160.0, meter_numerator=4, swing_ratio=0.52),
+        embedding=[0.1, 0.2, 0.3, 0.4, 0.5],
+        errors=["one failed: why", "two failed: why"],
+    )
+    _print_profile("x.wav", profile)
+    _print_profile("y.wav", AudioProfile(rhythm=RhythmFeatures()))
+    text("print_profile", capsys.readouterr().out)

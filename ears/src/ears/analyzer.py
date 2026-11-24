@@ -90,17 +90,8 @@ def analyze(
         futures = {pool.submit(t): t.__name__ for t in tasks}
         for future in as_completed(futures):
             try:
-                key, result = future.result()
-                if key == "spectral":
-                    profile.spectral = result
-                elif key == "loudness":
-                    profile.loudness = result
-                elif key == "rhythm":
-                    profile.rhythm = result
-                elif key == "pitch":
-                    profile.pitch = result
-                elif key == "embedding":
-                    profile.embedding = [float(v) for v in result]
+                key, result = future.result()  # key is the AudioProfile field the extractor fills
+                setattr(profile, key, [float(v) for v in result] if key == "embedding" else result)
             except Exception as exc:
                 profile.errors.append(f"{futures[future]} failed: {exc}")
 

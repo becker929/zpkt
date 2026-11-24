@@ -27,40 +27,38 @@ def _p(path):
     return path if os.path.isabs(path) else os.path.join(LAB, path)
 
 
+def _platform(x, sr, op):
+    # same model as `mlab deliver` (turn-down only, or turn-up capped at -1 dBTP)
+    row = delivery.normalization(L.integrated(x, sr), L.true_peak(x, sr))[op.get("name", "youtube")]
+    return x * lin(row["gain_db"] or 0.0)
+
+
+# op name -> fn(x, sr, op), where op holds the YAML's other keys (hypotheses/TEMPLATE.yaml lists them)
+OPS_BY_NAME = {
+    "gain": lambda x, sr, op: dsp.gain(x, op["gain_db"]),
+    "eq": lambda x, sr, op: dsp.eq(x, sr, op["bands"]),
+    "compressor": lambda x, sr, op: dsp.compressor(x, sr, **op),
+    "limiter": lambda x, sr, op: dsp.limiter(x, sr, **op),
+    "master_to": lambda x, sr, op: dsp.master_to(x, sr, op.pop("target_lufs"), **op)[0],
+    "clip": lambda x, sr, op: dsp.clip(x, op.get("ceiling_db", 0.0), op.get("mode", "hard")),
+    "quantize": lambda x, sr, op: dsp.quantize(x, **op),
+    "truncate": lambda x, sr, op: dsp.truncate(x, op.get("bits", 16)),
+    "normalize_lufs": lambda x, sr, op: dsp.normalize_lufs(x, sr, op["target"]),
+    "mono": lambda x, sr, op: dsp.to_mono(x),
+    "ms_width": lambda x, sr, op: dsp.ms_width(x, op.get("side_gain_db", 0.0)),
+    "excerpt": lambda x, sr, op: dsp.excerpt(x, sr, op["start_s"], op["dur_s"], op.get("fade_ms", 10.0)),
+    "codec": lambda x, sr, op: delivery.roundtrip(x, sr, op.get("label", "aac128")),
+    "platform": _platform,
+}
+
+
 def apply_op(x, sr, op: dict):
+    """One step of a variant's chain: {"op": name, ...its settings} applied to x."""
     op = dict(op)
     name = op.pop("op")
-    if name == "gain":
-        return dsp.gain(x, op["gain_db"])
-    if name == "eq":
-        return dsp.eq(x, sr, op["bands"])
-    if name == "compressor":
-        return dsp.compressor(x, sr, **op)
-    if name == "limiter":
-        return dsp.limiter(x, sr, **op)
-    if name == "master_to":
-        return dsp.master_to(x, sr, op.pop("target_lufs"), **op)[0]
-    if name == "clip":
-        return dsp.clip(x, op.get("ceiling_db", 0.0), op.get("mode", "hard"))
-    if name == "quantize":
-        return dsp.quantize(x, **op)
-    if name == "truncate":
-        return dsp.truncate(x, op.get("bits", 16))
-    if name == "normalize_lufs":
-        return dsp.normalize_lufs(x, sr, op["target"])
-    if name == "mono":
-        return dsp.to_mono(x)
-    if name == "ms_width":
-        return dsp.ms_width(x, op.get("side_gain_db", 0.0))
-    if name == "excerpt":
-        return dsp.excerpt(x, sr, op["start_s"], op["dur_s"], op.get("fade_ms", 10.0))
-    if name == "codec":
-        return delivery.roundtrip(x, sr, op.get("label", "aac128"))
-    if name == "platform":
-        # same model as `mlab deliver` (turn-down only, or turn-up capped at -1 dBTP)
-        row = delivery.normalization(L.integrated(x, sr), L.true_peak(x, sr))[op.get("name", "youtube")]
-        return x * lin(row["gain_db"] or 0.0)
-    raise ValueError(f"unknown op {name}")
+    if name not in OPS_BY_NAME:
+        raise ValueError(f"unknown op {name}")
+    return OPS_BY_NAME[name](x, sr, op)
 
 
 def build_variants(spec):
