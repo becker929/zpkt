@@ -589,7 +589,6 @@ dependencies = [
     { name = "aiohttp" },
     { name = "claude-agent-sdk" },
     { name = "numpy" },
-    { name = "pillow" },
 ]
 
 [package.metadata]
@@ -597,7 +596,6 @@ requires-dist = [
     { name = "aiohttp", specifier = ">=3.14.4" },
     { name = "claude-agent-sdk", specifier = ">=0.2.165" },
     { name = "numpy", specifier = ">=2" },
-    { name = "pillow", specifier = ">=13.0.0" },
     { name = "playwright", marker = "extra == 'dev'", specifier = ">=1.48" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.0" },
     { name = "pytest-asyncio", marker = "extra == 'dev'", specifier = ">=0.23" },

@@ -9,10 +9,10 @@ import json
 import pytest
 from aiohttp import web
 from aiohttp.test_utils import TestClient, TestServer
-
-import server
 from harness.config import Config
 from harness.studio.artist import SEED
+
+import server
 
 SOUND = "anvil-hit-c242b349.m4a"
 
@@ -38,8 +38,14 @@ async def site():
 @pytest.fixture
 async def client(tmp_path, site, monkeypatch):
     url, _ = site
-    monkeypatch.setattr(server, "config", lambda data: (Config(site=url, studio_dir=data, site_audio=data / "site-audio",
-                                                               regions_audio=data / "regions"), data / "check-sounds"))
+    monkeypatch.setattr(
+        server,
+        "config",
+        lambda data: (
+            Config(site=url, studio_dir=data, site_audio=data / "site-audio", regions_audio=data / "regions"),
+            data / "check-sounds",
+        ),
+    )
     c = TestClient(TestServer(server.app(tmp_path)))
     await c.start_server()
     yield c

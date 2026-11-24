@@ -17,7 +17,6 @@ import re
 from pathlib import Path
 
 from aiohttp import web
-
 from harness.config import Config
 from harness.studio import Studio, routes
 from harness.studio.files import FOREVER, static_file
@@ -27,7 +26,7 @@ PORT = 8798
 # The map's check sounds (rendered in Live by hands/scripts/ui_sounds; map/sounds.json names them) live in R2, since
 # audio never goes in git, and come through a local copy. Names carry a hash of the content.
 CHECK_SOUND = re.compile(r"[a-z]+-(hit|strong|land)-[0-9a-f]{8}\.m4a")
-CHECK_SOUNDS_AT = "zpkt/check-sounds/"           # on the site (R2): public, but sent without CORS headers
+CHECK_SOUNDS_AT = "zpkt/check-sounds/"  # on the site (R2): public, but sent without CORS headers
 CHECK_SOUNDS = Path(os.environ.get("HARNESS_CHECK_SOUNDS", Path.home() / "_agent_scratch" / "studio" / "check-sounds"))
 CHECK_SOUNDS_KEY = web.AppKey("check_sounds", Path)
 
@@ -37,7 +36,9 @@ def config(data: Path | None) -> tuple[Config, Path]:
     if data is None:
         return Config(), CHECK_SOUNDS
     data = Path(data)
-    return Config(studio_dir=data, site_audio=data / "site-audio", regions_audio=data / "regions"), data / "check-sounds"
+    return Config(
+        studio_dir=data, site_audio=data / "site-audio", regions_audio=data / "regions"
+    ), data / "check-sounds"
 
 
 async def slash(_request: web.Request) -> web.Response:
