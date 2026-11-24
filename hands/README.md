@@ -24,7 +24,7 @@ the command and a row.
 | Open a set (saving the one in front) | `hands live open NAME` |
 | What mix does a saved set hold? What differs between two saved sets? | `hands als mix FILE [--against OTHER]` (offline, Live untouched) |
 | Save the set (an explicit save, not Live's backup) | `hands live save [--as NAME] [--state NAME]` |
-| Keep the whole mix (every fader, send, mute, device value) | `hands live state take NAME` |
+| Keep the whole mix (every fader, send, mute, device value) | `hands live state take NAME` (about 3 s) |
 | What changed since then? / Does Live match a recipe? | `hands live state diff NAME [OTHER]` (a recipe .json with a `"desk"` works) |
 | Put a kept mix (or a recipe's desk) back | `hands live state put NAME [--only TRACK]` |
 | Which mixes are kept for this set? | `hands live state ls` |
@@ -40,7 +40,7 @@ the command and a row.
 | `live/transport.py` | `LiveClient(host, port, timeout=15, retries=2)`: `.run(code) -> result` (raises `LiveError`), `.execute(code) -> McpResult` (keeps `warning`, `elapsed`, `traceback`), `.ping() -> seconds`. `McpTransport`, `DryRunTransport`, `MockTransport`. Retries only while connecting: a sent request is never resent. |
 | `live/ui.py` | `osa`, `osa_file` (rerun through Hammerspoon without an Accessibility grant), `menu`, `menu_enabled`, `front_title`, `windows`, `dialogs`, `close_dialogs`, `reap_modals`, `park_cursor` |
 | `live/session.py` | `Guard`, `stop`, `check(client, where, *, expect_front=None, ours=True) -> str`, `open_set(client, name, *, save_current=True, timeout_s=120) -> float`, `save(name=None) -> bool`, `copy_set`, `launch`, `restart`, `audio_clock_ok`, `memory`, `other_agent_active` |
-| `live/state.py` | `take(client, only=None) -> state` (one LOM call per track), `diff(a, b, ignore=()) -> [(key, a, b)]`, `summarize(rows)`, `put(client, state, only=None) -> rows still differing` (writes only what differs, reads back), `load`/`load_dict` (a state, or a mixdesk recipe's `"desk"`), `save`, `path_for` (`sets_dir/state/<set>/NAME.json`) |
+| `live/state.py` | `take(client, only=None) -> state` (one LOM call per 8 tracks, about 3 s), `diff(a, b, ignore=()) -> [(key, a, b)]`, `summarize(rows)`, `put(client, state, only=None) -> rows still differing` (writes only what differs, reads back), `load`/`load_dict` (a state, or a mixdesk recipe's `"desk"`), `save`, `path_for` (`sets_dir/state/<set>/NAME.json`) |
 | `live/timeops.py` | `select(client, start, length)` (one LOM call + Edit > Select Loop), `delete`, `duplicate(…, end=None, clips_from=None)`, `copy`, `paste`, each checked by where the song ends |
 | `live/knobs.py` | `Knob(track, device, param)` with `.id` / `Knob.parse`; `set_many(client, {knob: value})` (one write call), `read_many(client, knobs) -> {knob: Reading}` (a separate call), `apply(client, values, *, verify=True, tol=1e-4)`; `UNITS`, the measured .als-to-LOM conversions |
 | `live/render.py` | `export(client, out, start_beat=None, length_beats=None, *, mode="Main", bits=32, sample_rate=44100) -> [Path]`, the one export path (`export_audio.applescript`) |
