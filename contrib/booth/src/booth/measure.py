@@ -42,7 +42,7 @@ def measure(path, sections: list[tuple[str, float, float]]) -> dict:
     """`sections` are (label, start s, end s). Returns {lufs, true_peak_db, phone_db, sections: [...], flags: [...]}."""
     y, sr = sf.read(str(path), always_2d=True)
     meter = pyln.Meter(sr)
-    rms = float(np.sqrt(np.mean(y ** 2))) if len(y) else 0.0
+    rms = float(np.sqrt(np.mean(y**2))) if len(y) else 0.0
     out: dict = {"seconds": round(len(y) / sr, 2), "sample_rate": sr}
     if rms < 1e-5:
         out.update(lufs=None, true_peak_db=None, phone_db=None, sections=[], flags=["silent"])
@@ -51,13 +51,19 @@ def measure(path, sections: list[tuple[str, float, float]]) -> dict:
     out["lufs"] = round(lufs, 1)
     out["true_peak_db"] = round(true_peak_db(y), 1)
     phone = highpass(y, sr, 180.0)
-    out["phone_db"] = round(10 * np.log10((np.mean(phone ** 2) + 1e-12) / (np.mean(y ** 2) + 1e-12)), 1)
+    out["phone_db"] = round(10 * np.log10((np.mean(phone**2) + 1e-12) / (np.mean(y**2) + 1e-12)), 1)
     secs = []
     for label, a, b in sections:
-        seg = y[int(a * sr):int(b * sr)]
+        seg = y[int(a * sr) : int(b * sr)]
         level = float(meter.integrated_loudness(seg)) if len(seg) > sr * 0.5 else float("-inf")
-        secs.append({"label": label, "start_s": round(a, 2), "end_s": round(b, 2),
-                     "lufs": round(level, 1) if np.isfinite(level) else None})
+        secs.append(
+            {
+                "label": label,
+                "start_s": round(a, 2),
+                "end_s": round(b, 2),
+                "lufs": round(level, 1) if np.isfinite(level) else None,
+            }
+        )
     out["sections"] = secs
     flags = []
     if out["true_peak_db"] > -0.5:
@@ -79,7 +85,7 @@ def levels(path, windows: list[tuple[float, float]]) -> list[tuple[float | None,
     meter = pyln.Meter(sr)
     out = []
     for a, b in windows:
-        seg = y[int(a * sr):int(b * sr)]
+        seg = y[int(a * sr) : int(b * sr)]
         peak = float(np.max(np.abs(seg))) if len(seg) else 0.0
         if peak < 1e-4 or len(seg) < sr * 0.5:
             out.append((None, None))

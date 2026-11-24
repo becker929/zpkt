@@ -67,7 +67,12 @@ def parse_job_request(data: dict[str, Any]) -> tuple[str, Any, str | None, dict[
         raise BadRequest("bad_key", f"key is a string of 1-{MAX_KEY} characters")
     parent = data.get("parent")
     want = data.get("want")
-    return key, data.get("score"), parent[:MAX_KEY] if isinstance(parent, str) and parent else None, want if isinstance(want, dict) else {}
+    return (
+        key,
+        data.get("score"),
+        parent[:MAX_KEY] if isinstance(parent, str) and parent else None,
+        want if isinstance(want, dict) else {},
+    )
 
 
 # ---- what the booth answers ----------------------------------------------------------------------------------------
@@ -139,7 +144,9 @@ class Job(BaseModel):
     measure: Measure | None
     files: list[FileName] = Field(description="the files GET /v1/jobs/{id}/files/{name} serves; empty until done")
     error: JobError | None
-    eta_s: int | None = Field(None, description="only on POST /v1/jobs 202: seconds of Live time queued, this one included")
+    eta_s: int | None = Field(
+        None, description="only on POST /v1/jobs 202: seconds of Live time queued, this one included"
+    )
 
 
 class StatusLive(BaseModel):
@@ -165,7 +172,9 @@ class Status(BaseModel):
 class ErrorBody(_Open):
     """Every answer that is not a 2xx. 503 `closed` and 429 `queue_full` mean "not now" and carry `retry_in_s`."""
 
-    error: str = Field(description="a stable code: unauthorized, bad_json, bad_key, invalid_score, queue_full, closed, ...")
+    error: str = Field(
+        description="a stable code: unauthorized, bad_json, bad_key, invalid_score, queue_full, closed, ..."
+    )
     message: str
     reason: str | None = Field(None, description="with 503 closed")
     retry_in_s: int | None = Field(None, description="with 503 closed and 429 queue_full")

@@ -19,8 +19,8 @@ from .compile import PLAYBACK_MODES, WARP_MODES, Plan, TrackPlan
 from .gui import Stop, ops, stops
 
 NOTES_PER_CALL = 400
-COPIES_PER_CALL = 8          # duplicate_clip_to_arrangement calls in one LOM call
-SLICING_MANUAL = 3           # Sample.slicing_style: 0 Transient, 1 Beat, 2 Region, 3 Manual
+COPIES_PER_CALL = 8  # duplicate_clip_to_arrangement calls in one LOM call
+SLICING_MANUAL = 3  # Sample.slicing_style: 0 Transient, 1 Beat, 2 Region, 3 Manual
 
 
 def set_name(job: str) -> str:
@@ -30,7 +30,7 @@ def set_name(job: str) -> str:
 class Builder:
     def __init__(self, client, *, step: Callable[[str], None] = lambda s: None) -> None:
         self.live = client
-        self.step = step                     # reports the stage name ("load p3") to the job's record
+        self.step = step  # reports the stage name ("load p3") to the job's record
         self.L = ops(client)
 
     def run(self, code: str):
@@ -39,6 +39,7 @@ class Builder:
 
     def guard(self, where: str, front: str) -> None:
         from hands.live import session
+
         self.step(where)
         with stops(where):
             session.check(self.live, where, expect_front=front)
@@ -48,25 +49,29 @@ class Builder:
         """Copy the template to the job's set and open it (the set in front, the template or an old job, is saved
         first by open_set, so Live never asks about unsaved changes)."""
         from hands.live import session
+
         name = set_name(job)
         if not session.config.rig().set_path(TEMPLATE).exists():
             raise Stop(f"no template set {TEMPLATE} in {SETS_DIR}: run `booth template` once, watched")
         self.step("open")
         with stops("open"):
-            if session._front() == name:          # a held job run again: its half-built set is still in front
+            if session._front() == name:  # a held job run again: its half-built set is still in front
                 session.open_set(self.live, TEMPLATE)
             session.copy_set(TEMPLATE, name)
             session.open_set(self.live, name)
         self.guard("opened", name)
-        got = self.run("result = ([(t.name, t.has_midi_input, len(t.devices), len(t.arrangement_clips)) for t in song.tracks], "
-                       "[r.name for r in song.return_tracks])")
-        if [list(t) for t in got[0]] != [["p1", True, 0, 0]] or len(got[1]) < 2:      # the LOM answers lists
+        got = self.run(
+            "result = ([(t.name, t.has_midi_input, len(t.devices), len(t.arrangement_clips)) for t in song.tracks], "
+            "[r.name for r in song.return_tracks])"
+        )
+        if [list(t) for t in got[0]] != [["p1", True, 0, 0]] or len(got[1]) < 2:  # the LOM answers lists
             raise Stop(f"open: the template is not one empty MIDI track p1 and two returns: {got}")
         return name
 
     def close(self, job: str) -> None:
         """Back to the template (open_set saves the job's set first, so no prompt), then delete the job's file."""
         from hands.live import session
+
         self.step("close")
         with stops("close"):
             session.open_set(self.live, TEMPLATE)
@@ -76,7 +81,9 @@ class Builder:
     # ---- the build -----------------------------------------------------------------------------------------------
     def build(self, plan: Plan, front: str) -> None:
         self.guard("tempo", front)
-        self.run(f"song.tempo = {float(plan.bpm)!r}\nsong.signature_numerator = 4\nsong.signature_denominator = 4\nresult = 'ok'")
+        self.run(
+            f"song.tempo = {float(plan.bpm)!r}\nsong.signature_numerator = 4\nsong.signature_denominator = 4\nresult = 'ok'"
+        )
         got = self.run("result = (song.tempo, [d.name for d in song.master_track.devices])")
         if abs(got[0] - plan.bpm) > 1e-6:
             raise Stop(f"tempo: Live has {got[0]}, wanted {plan.bpm}")
@@ -84,9 +91,9 @@ class Builder:
             raise Stop(f"master: Main has {got[1]}, the palette's chain is {list(plan.master_devices)}")
 
         self.guard("tracks", front)
-        for k, t in enumerate(plan.tracks[1:], start=1):      # Live keeps at least one track: the template's is p1
+        for k, t in enumerate(plan.tracks[1:], start=1):  # Live keeps at least one track: the template's is p1
             self.run(f"song.create_{t.kind}_track(-1)\nsong.tracks[{k}].name = {t.name!r}\nresult = 'ok'")
-        if plan.tracks[0].kind == "audio":                   # the template's p1 is MIDI: an audio track takes its place
+        if plan.tracks[0].kind == "audio":  # the template's p1 is MIDI: an audio track takes its place
             self.run("song.create_audio_track(0)\nresult = 'ok'")
             self.run("song.delete_track(1)\nsong.tracks[0].name = 'p1'\nresult = 'ok'")
         got = self.run("result = [(t.name, t.has_midi_input) for t in song.tracks]")
@@ -130,8 +137,10 @@ class Builder:
         at0, len0 = sp.clips[0]
         first = f"[c for c in {path}.arrangement_clips if abs(c.start_time - {float(at0)!r}) < 1e-4][0]"
         self.guard(f"sample {t.name}", front)
-        self.run(f"t = {path}\nfor c in list(t.arrangement_clips):\n    t.delete_clip(c)\n"
-                 f"t.create_audio_clip({str(sp.path)!r}, {float(at0)!r})\nresult = 'ok'")
+        self.run(
+            f"t = {path}\nfor c in list(t.arrangement_clips):\n    t.delete_clip(c)\n"
+            f"t.create_audio_clip({str(sp.path)!r}, {float(at0)!r})\nresult = 'ok'"
+        )
         got = self.run(f"result = [(c.start_time, c.is_audio_clip, c.file_path) for c in {path}.arrangement_clips]")
         if len(got) != 1 or abs(got[0][0] - at0) > 1e-4 or not got[0][1] or Path(str(got[0][2])).name != sp.path.name:
             raise Stop(f"sample {t.name}: the track has {got}, wanted {sp.path.name} at beat {at0}")
@@ -149,21 +158,33 @@ class Builder:
             self.run(f"c = {first}\nc.pitch_coarse = {int(sp.transpose)}\nresult = 'ok'")
 
         end = sp.end_marker(len0, bpm) if sp.warp != "off" else min(sp.seconds, sp.end_marker(len0, bpm))
-        self.run(f"c = {first}\nc.loop_end = {end!r}\nc.end_marker = {end!r}\nresult = 'ok'")       # the end, then the start
+        self.run(f"c = {first}\nc.loop_end = {end!r}\nc.end_marker = {end!r}\nresult = 'ok'")  # the end, then the start
         self.run(f"c = {first}\nc.loop_start = 0.0\nc.start_marker = 0.0\nresult = 'ok'")
         got = self.run(f"c = {first}\nresult = (c.start_time, c.end_time, c.start_marker, c.pitch_coarse)")
-        if abs(got[0] - at0) > 1e-4 or abs(got[1] - got[0] - len0) > 0.02 or abs(got[2]) > 1e-4 or got[3] != sp.transpose:
+        if (
+            abs(got[0] - at0) > 1e-4
+            or abs(got[1] - got[0] - len0) > 0.02
+            or abs(got[2]) > 1e-4
+            or got[3] != sp.transpose
+        ):
             raise Stop(f"sample {t.name}: the clip is {got}, wanted {at0}+{len0} beats from 0, {sp.transpose} st")
 
         rest = sp.clips[1:]
-        for i in range(0, len(rest), COPIES_PER_CALL):     # the first clip is a whole play whenever copies follow it
-            self.run(f"t = {path}\nsrc = {first}\n" + "".join(
-                f"t.duplicate_clip_to_arrangement(src, {float(a)!r})\n" for a, _ in rest[i:i + COPIES_PER_CALL]) + "result = 'ok'")
+        for i in range(0, len(rest), COPIES_PER_CALL):  # the first clip is a whole play whenever copies follow it
+            self.run(
+                f"t = {path}\nsrc = {first}\n"
+                + "".join(
+                    f"t.duplicate_clip_to_arrangement(src, {float(a)!r})\n" for a, _ in rest[i : i + COPIES_PER_CALL]
+                )
+                + "result = 'ok'"
+            )
         if rest and rest[-1][1] < sp.natural_beats - 1e-6:
             a, length = rest[-1]
             end = sp.end_marker(length, bpm)
-            self.run(f"c = [c for c in {path}.arrangement_clips if abs(c.start_time - {float(a)!r}) < 1e-4][0]\n"
-                     f"c.loop_end = {end!r}\nc.end_marker = {end!r}\nresult = 'ok'")
+            self.run(
+                f"c = [c for c in {path}.arrangement_clips if abs(c.start_time - {float(a)!r}) < 1e-4][0]\n"
+                f"c.loop_end = {end!r}\nc.end_marker = {end!r}\nresult = 'ok'"
+            )
         got = self.run(f"result = sorted((c.start_time, c.end_time) for c in {path}.arrangement_clips)")
         want = [(a, a + n) for a, n in sp.clips]
         if len(got) != len(want) or any(abs(g[0] - w[0]) > 1e-3 or abs(g[1] - w[1]) > 0.02 for g, w in zip(got, want)):
@@ -186,7 +207,9 @@ class Builder:
         if len(got) != 1:
             raise Stop(f"sample {t.name}: warp markers {got} after removing all but the first")
         (s0, b0), s1 = got[0], round(max(sp.seconds - 0.005, sp.seconds * 0.99), 6)
-        self.run(f"import Live\nc = {first}\nc.add_warp_marker(Live.Clip.WarpMarker({s1!r}, {round(s1 * slope, 6)!r}))\nresult = 'ok'")
+        self.run(
+            f"import Live\nc = {first}\nc.add_warp_marker(Live.Clip.WarpMarker({s1!r}, {round(s1 * slope, 6)!r}))\nresult = 'ok'"
+        )
         if abs(b0 - s0 * slope) > 1e-6:
             self.run(f"c = {first}\nc.move_warp_marker({float(b0)!r}, {round(s0 * slope - b0, 6)!r})\nresult = 'ok'")
         got = self.markers(first)
@@ -219,22 +242,34 @@ class Builder:
         self.run(f"{dev}.sample.warping = False\nresult = 'ok'")
         if sp.mode == "slices":
             self.run(f"s = {dev}.sample\ns.slicing_style = {SLICING_MANUAL}\nresult = 'ok'")
-            self.run(f"s = {dev}.sample\ns.clear_slices()\nfor f in {[int(f) for f in sp.slices]!r}:\n    s.insert_slice(f)\nresult = 'ok'")
-        got = self.run(f"d = {dev}\nresult = (d.playback_mode, d.sample.warping, "
-                       f"sorted(int(x) for x in d.sample.slices if x > 0) if d.playback_mode == 2 else [])")
+            self.run(
+                f"s = {dev}.sample\ns.clear_slices()\nfor f in {[int(f) for f in sp.slices]!r}:\n    s.insert_slice(f)\nresult = 'ok'"
+            )
+        got = self.run(
+            f"d = {dev}\nresult = (d.playback_mode, d.sample.warping, "
+            f"sorted(int(x) for x in d.sample.slices if x > 0) if d.playback_mode == 2 else [])"
+        )
         if [got[0], bool(got[1]), list(got[2])] != [PLAYBACK_MODES[sp.mode], False, sp.slices]:
-            raise Stop(f"load {t.name}: Simpler's mode, warping, slices are {got}, wanted {sp.mode}, unwarped, {sp.slices}")
+            raise Stop(
+                f"load {t.name}: Simpler's mode, warping, slices are {got}, wanted {sp.mode}, unwarped, {sp.slices}"
+            )
 
     def notes(self, k: int, t: TrackPlan, beats: float, front: str) -> None:
         path = f"song.tracks[{k}]"
         self.guard(f"notes {t.name}", front)
-        self.run(f"t = {path}\nfor c in list(t.arrangement_clips):\n    t.delete_clip(c)\nt.create_midi_clip(0.0, {float(beats)!r})\nresult = 'ok'")
+        self.run(
+            f"t = {path}\nfor c in list(t.arrangement_clips):\n    t.delete_clip(c)\nt.create_midi_clip(0.0, {float(beats)!r})\nresult = 'ok'"
+        )
         for i in range(0, len(t.notes), NOTES_PER_CALL):
-            chunk = [(int(p), float(s), float(d), float(v)) for p, s, d, v in t.notes[i:i + NOTES_PER_CALL]]
-            self.run(f"import Live\nc = {path}.arrangement_clips[0]\n"
-                     "c.add_new_notes(tuple(Live.Clip.MidiNoteSpecification(pitch=p, start_time=s, duration=d, velocity=v) "
-                     f"for p, s, d, v in {chunk!r}))\nresult = 'ok'")
-        got = self.run(f"c = {path}.arrangement_clips[0]\nresult = (len(c.get_notes_extended(0, 128, 0.0, {float(beats)!r})), c.start_time, c.end_time)")
+            chunk = [(int(p), float(s), float(d), float(v)) for p, s, d, v in t.notes[i : i + NOTES_PER_CALL]]
+            self.run(
+                f"import Live\nc = {path}.arrangement_clips[0]\n"
+                "c.add_new_notes(tuple(Live.Clip.MidiNoteSpecification(pitch=p, start_time=s, duration=d, velocity=v) "
+                f"for p, s, d, v in {chunk!r}))\nresult = 'ok'"
+            )
+        got = self.run(
+            f"c = {path}.arrangement_clips[0]\nresult = (len(c.get_notes_extended(0, 128, 0.0, {float(beats)!r})), c.start_time, c.end_time)"
+        )
         if got[0] != len(t.notes) or got[1] != 0.0 or got[2] != float(beats):
             raise Stop(f"notes {t.name}: clip has {got}, wanted {len(t.notes)} notes over 0-{beats}")
 
@@ -245,7 +280,9 @@ class Builder:
                 self.L.mixer(f"song.tracks[{k}]", t.volume_db, (t.room_db, t.echo_db), t.pan)
             for r, values in sorted(plan.returns.items()):
                 self.L.setp(f"song.return_tracks[{r}].devices[0]", values)
-        got = self.run("result = [(round(t.mixer_device.panning.value, 3), len(t.mixer_device.sends)) for t in song.tracks]")
+        got = self.run(
+            "result = [(round(t.mixer_device.panning.value, 3), len(t.mixer_device.sends)) for t in song.tracks]"
+        )
         if [g[0] for g in got] != [round(t.pan, 3) for t in plan.tracks]:
             raise Stop(f"mix: pans are {got}")
 
@@ -258,7 +295,9 @@ class Builder:
         text = f"{round(db):.0f} dB" if abs(db) >= 10 else f"{float(db):.1f} dB"
         with stops("loudness"):
             self.L.setp(f"song.master_track.devices[{k}]", {"Input Gain": text})
-        got = self.run(f"p = [p for p in song.master_track.devices[{k}].parameters if p.name == 'Input Gain'][0]\nresult = p.str_for_value(p.value)")
+        got = self.run(
+            f"p = [p for p in song.master_track.devices[{k}].parameters if p.name == 'Input Gain'][0]\nresult = p.str_for_value(p.value)"
+        )
         read = float(str(got).split()[0])
         if abs(read - db) > 1.0:
             raise Stop(f"loudness: the Limiter's Input Gain reads {got}, wanted {db:.1f} dB")
@@ -267,6 +306,7 @@ class Builder:
     # ---- the render ----------------------------------------------------------------------------------------------
     def export(self, plan: Plan, out: Path, front: str) -> Path:
         from hands import audio
+
         self.guard("export", front)
         with stops("export"):
             self.L.export(out, 0.0, plan.render_beats, bits=24)
@@ -274,13 +314,13 @@ class Builder:
         seconds = plan.render_beats * 60.0 / plan.bpm
         try:
             audio.check_audio(out, seconds=seconds)
-        except Exception as exc:          # silent, wrong length or unreadable: Live's audio engine, most likely
+        except Exception as exc:  # silent, wrong length or unreadable: Live's audio engine, most likely
             raise Stop(f"render: {exc}") from None
         return out
 
 
 SURVEY_BPM = 120.0
-SLOT_BEATS = 12.0           # each instrument plays 8 beats, then 4 of silence for its tail
+SLOT_BEATS = 12.0  # each instrument plays 8 beats, then 4 of silence for its tail
 
 
 def audition(inst, slot: int) -> list[tuple[int, float, float, int]]:
@@ -288,9 +328,11 @@ def audition(inst, slot: int) -> list[tuple[int, float, float, int]]:
     load and to compare levels, not music."""
     t0 = slot * SLOT_BEATS
     lo, hi = inst.range
-    if inst.role == "drums":            # every pad once, then a plain beat on the first three
+    if inst.role == "drums":  # every pad once, then a plain beat on the first three
         hits = [(lo + k, k * 0.25) for k in range(min(16, hi - lo + 1))]
-        hits += [(lo, 4.0), (lo + 2, 5.0), (lo, 6.0), (lo + 2, 7.0)] + [(min(hi, lo + 6), 4.0 + k * 0.5) for k in range(8)]
+        hits += [(lo, 4.0), (lo + 2, 5.0), (lo, 6.0), (lo + 2, 7.0)] + [
+            (min(hi, lo + 6), 4.0 + k * 0.5) for k in range(8)
+        ]
         return [(p, t0 + t, 0.25, 100) for p, t in hits]
     root = max(lo, min(hi - 7, (lo + hi) // 2 - 6 if inst.role != "bass" else lo + 12))
     if inst.role in ("pad", "texture"):
@@ -301,34 +343,46 @@ def audition(inst, slot: int) -> list[tuple[int, float, float, int]]:
     return [(min(hi, root + d), t0 + k, 0.9, 100) for k, d in enumerate(steps)]
 
 
-def survey(client, palette, out: Path, *, only: list[str] | None = None, listen: bool = False,
-           render: Path | None = None) -> dict:
+def survey(
+    client, palette, out: Path, *, only: list[str] | None = None, listen: bool = False, render: Path | None = None
+) -> dict:
     """Load palette instruments into a copy of the template, the way a job does (preset, fx, settings, the device
     check), and record their devices, drum pad names and rack macros (name, value, min, max as Live shows them) for
     the guide (`booth survey`, watched). With `listen`, each also plays a short phrase at 0 dB with Main's chain
     switched off in that copy, and one export to `render` measures each (`lufs`, `peak_db`), so a silent instrument
     shows and trims can be set. `only` surveys some ids and keeps the rest of `out`. Returns what it found."""
     from . import measure as M
+
     insts = [palette.instruments[i] for i in only] if only else list(palette.instruments.values())
     b = Builder(client)
     front = b.open("survey")
     found = {}
     try:
-        tracks = [TrackPlan(name=f"s{k + 1}", instrument=inst, settings={d: dict(v) for d, v in inst.set.items()},
-                            notes=audition(inst, k) if listen else [])
-                  for k, inst in enumerate(insts)]
+        tracks = [
+            TrackPlan(
+                name=f"s{k + 1}",
+                instrument=inst,
+                settings={d: dict(v) for d, v in inst.set.items()},
+                notes=audition(inst, k) if listen else [],
+            )
+            for k, inst in enumerate(insts)
+        ]
         for k, t in enumerate(tracks):
             if k:
                 b.run(f"song.create_midi_track(-1)\nsong.tracks[{k}].name = {t.name!r}\nresult = 'ok'")
-            b.instrument(k, t, front)           # raises Stop if the devices are not what the palette says
+            b.instrument(k, t, front)  # raises Stop if the devices are not what the palette says
             # a kit preset is often an Instrument Rack around the Drum Rack (SH001's Perc Kitchen Kit): look one level in
-            pads = b.run(f"d = song.tracks[{k}].devices[0]\n"
-                         "if not d.can_have_drum_pads and d.can_have_chains and d.chains and d.chains[0].devices:\n"
-                         "    d = d.chains[0].devices[0]\n"
-                         "result = [(p.note, p.name) for p in d.drum_pads if len(p.chains)] if d.can_have_drum_pads else []")
-            macros = b.run(f"d = song.tracks[{k}].devices[0]\n"
-                           "result = [(p.name, p.str_for_value(p.value), p.str_for_value(p.min), p.str_for_value(p.max)) "
-                           "for p in list(d.parameters)[1:17] if not p.name.startswith('Macro ')] if d.can_have_chains else []")
+            pads = b.run(
+                f"d = song.tracks[{k}].devices[0]\n"
+                "if not d.can_have_drum_pads and d.can_have_chains and d.chains and d.chains[0].devices:\n"
+                "    d = d.chains[0].devices[0]\n"
+                "result = [(p.note, p.name) for p in d.drum_pads if len(p.chains)] if d.can_have_drum_pads else []"
+            )
+            macros = b.run(
+                f"d = song.tracks[{k}].devices[0]\n"
+                "result = [(p.name, p.str_for_value(p.value), p.str_for_value(p.min), p.str_for_value(p.max)) "
+                "for p in list(d.parameters)[1:17] if not p.name.startswith('Macro ')] if d.can_have_chains else []"
+            )
             found[t.instrument.id] = {"devices": b.L.devices(f"song.tracks[{k}]"), "pads": pads, "macros": macros}
             time.sleep(0.2)
         if listen:
@@ -341,13 +395,22 @@ def survey(client, palette, out: Path, *, only: list[str] | None = None, listen:
             with stops("survey mix"):
                 for k, _ in enumerate(tracks):
                     b.L.mixer(f"song.tracks[{k}]", 0.0, (None, None), 0.0)
-                for k, _ in enumerate(palette.master_devices):        # the instruments as they are, not as Main makes them
+                for k, _ in enumerate(palette.master_devices):  # the instruments as they are, not as Main makes them
                     b.L.setp(f"song.master_track.devices[{k}]", {"Device On": 0})
-            plan = Plan(bpm=SURVEY_BPM, beats=beats, render_beats=beats, tracks=tracks, returns={},
-                        master_devices=palette.master_devices, master_set={})
+            plan = Plan(
+                bpm=SURVEY_BPM,
+                beats=beats,
+                render_beats=beats,
+                tracks=tracks,
+                returns={},
+                master_devices=palette.master_devices,
+                master_set={},
+            )
             wav = b.export(plan, render or HOME / "survey" / f"{palette.version}.wav", front)
             beat_s = 60.0 / SURVEY_BPM
-            levels = M.levels(wav, [(k * SLOT_BEATS * beat_s, (k + 1) * SLOT_BEATS * beat_s) for k in range(len(tracks))])
+            levels = M.levels(
+                wav, [(k * SLOT_BEATS * beat_s, (k + 1) * SLOT_BEATS * beat_s) for k in range(len(tracks))]
+            )
             for t, (lufs, peak) in zip(tracks, levels):
                 found[t.instrument.id].update(lufs=lufs, peak_db=peak)
     finally:
@@ -363,6 +426,7 @@ def make_template(client, palette, seed_dir: Path) -> Path:
     the Save panel into `seed_dir` (a folder its Where popup reaches), copied into the booth's sets folder, then
     Main's chain from the palette loaded and set, and saved."""
     from hands.live import session, ui
+
     L = ops(client)
     if ui.menu_enabled("File", "Save Live Set"):
         raise Stop(f"template: {ui.front_title()} has unsaved changes; save it first")
@@ -394,6 +458,7 @@ def finish_template(client, palette) -> None:
     """The template's contents, with booth_template in front: one empty MIDI track p1 (Live won't delete a set's
     last track), Main's chain from the palette, the two returns checked; then saved."""
     from hands.live import session
+
     L = ops(client)
     b = Builder(client)
     b.guard("template", TEMPLATE)

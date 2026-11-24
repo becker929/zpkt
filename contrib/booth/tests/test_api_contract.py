@@ -41,7 +41,10 @@ async def client(tmp_path, fake):
 
 
 # what the bot sends (contrib/bot/booth.mjs submit)
-BOT_SUBMIT = {"key": "at://did:plc:x/app.bsky.feed.post/3k#v1", "want": {"video": {"size": [1080, 1920]}, "stems": False}}
+BOT_SUBMIT = {
+    "key": "at://did:plc:x/app.bsky.feed.post/3k#v1",
+    "want": {"video": {"size": [1080, 1920]}, "stems": False},
+}
 
 
 async def test_a_job_from_submit_to_done_matches_the_schemas(client):
@@ -65,7 +68,7 @@ async def test_a_job_from_submit_to_done_matches_the_schemas(client):
 
 async def test_held_and_cancelled_jobs_match_the_schema(client):
     rig = client.rig
-    rig.ops.export_silent = True                         # a silent render holds the job
+    rig.ops.export_silent = True  # a silent render holds the job
     held = await (await client.post("/v1/jobs", json={"key": "h", "score": example()}, headers=AUTH)).json()
     rig.runner.tick()
     view = await (await client.get(f"/v1/jobs/{held['job']}", headers=AUTH)).json()
@@ -105,19 +108,42 @@ async def test_status_check_and_errors_match_the_schemas(client):
 
 
 def test_the_schemas_refuse_what_the_bot_must_not_rely_on():
-    assert invalid("job-request", {"score": {}})                                   # no key
-    assert invalid("job", {"job": "x", "state": "building"})                       # fields missing
-    assert invalid("measure", {"seconds": 1, "sample_rate": 44100, "lufs": -14, "true_peak_db": -1, "phone_db": -3,
-                               "sections": [], "flags": ["bass_inaudible_on_phone"], "notes": []})   # not a flag
-    assert invalid("status", {"open": True, "reason": None, "running": None, "queue": 0, "live": {"front": None},
-                              "today": {"jobs": 0, "live_s": 0}})                  # reason is "" when open
+    assert invalid("job-request", {"score": {}})  # no key
+    assert invalid("job", {"job": "x", "state": "building"})  # fields missing
+    assert invalid(
+        "measure",
+        {
+            "seconds": 1,
+            "sample_rate": 44100,
+            "lufs": -14,
+            "true_peak_db": -1,
+            "phone_db": -3,
+            "sections": [],
+            "flags": ["bass_inaudible_on_phone"],
+            "notes": [],
+        },
+    )  # not a flag
+    assert invalid(
+        "status",
+        {
+            "open": True,
+            "reason": None,
+            "running": None,
+            "queue": 0,
+            "live": {"front": None},
+            "today": {"jobs": 0, "live_s": 0},
+        },
+    )  # reason is "" when open
 
 
 def test_parse_job_request_is_as_lenient_as_the_booth_was():
     key, score, parent, want = parse_job_request({"key": "k", "score": {"a": 1}, "parent": 7, "want": "loop"})
     assert (key, score, parent, want) == ("k", {"a": 1}, None, {})
     assert parse_job_request({"key": "k", "parent": ""})[2] is None
-    assert parse_job_request({"key": "k", "parent": "p" * 400, "want": {"loop": True}})[2:] == ("p" * 300, {"loop": True})
+    assert parse_job_request({"key": "k", "parent": "p" * 400, "want": {"loop": True}})[2:] == (
+        "p" * 300,
+        {"loop": True},
+    )
     for bad in ({}, {"key": ""}, {"key": 3}, {"key": "k" * 301}):
         with pytest.raises(BadRequest) as exc:
             parse_job_request(bad)

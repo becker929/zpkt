@@ -20,15 +20,15 @@ KEYCHAIN_SERVICE = "zpkt-booth-token"
 
 @dataclass
 class Settings:
-    port: int = 8794                     # clear of the harness (8787/8788), studio dev (8790/8791), Room World (8970)
-    hours: list[str] = field(default_factory=lambda: ["10:00-23:00"])   # local time; the booth starts jobs only inside
+    port: int = 8794  # clear of the harness (8787/8788), studio dev (8790/8791), Room World (8970)
+    hours: list[str] = field(default_factory=lambda: ["10:00-23:00"])  # local time; the booth starts jobs only inside
     queue_max: int = 10
     keep_days: int = 30
-    quiet_s: float = 300.0               # no job starts while something else used the LOM this recently
+    quiet_s: float = 300.0  # no job starts while something else used the LOM this recently
     video_size: tuple[int, int] = (1080, 1920)
-    palette: str = ""                    # the palette GET /v1/guide serves; "" is palette.SERVED
-    samples: list[str] = field(default_factory=list)   # the sample modes the booth takes ("clip", "one_shot",
-                                         # "slices"); none: no uploads, and the guide doesn't mention samples
+    palette: str = ""  # the palette GET /v1/guide serves; "" is palette.SERVED
+    samples: list[str] = field(default_factory=list)  # the sample modes the booth takes ("clip", "one_shot",
+    # "slices"); none: no uploads, and the guide doesn't mention samples
 
     def in_hours(self, now: datetime | None = None) -> bool:
         now = now or datetime.now()
@@ -54,8 +54,12 @@ def token() -> str | None:
     if os.environ.get("BOOTH_TOKEN"):
         return os.environ["BOOTH_TOKEN"]
     try:
-        out = subprocess.run(["security", "find-generic-password", "-s", KEYCHAIN_SERVICE, "-a", getpass.getuser(), "-w"],
-                             capture_output=True, text=True, timeout=10)
+        out = subprocess.run(
+            ["security", "find-generic-password", "-s", KEYCHAIN_SERVICE, "-a", getpass.getuser(), "-w"],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
     except (OSError, subprocess.TimeoutExpired):
         return None
     value = out.stdout.strip()

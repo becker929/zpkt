@@ -19,8 +19,14 @@ class Rig:
         self.gate = Gate(self.settings, front=lambda: self.front, last_lom=lambda: self.last)
         self.notes = []
         lv, self.ops = fake
-        self.runner = Runner(self.jobs, self.settings, self.gate, builder=lambda step: Builder(lv, step=step),
-                             notify=lambda t, b: self.notes.append((t, b)), encode=encode or self.fake_encode)
+        self.runner = Runner(
+            self.jobs,
+            self.settings,
+            self.gate,
+            builder=lambda step: Builder(lv, step=step),
+            notify=lambda t, b: self.notes.append((t, b)),
+            encode=encode or self.fake_encode,
+        )
         self.runner.open()
 
     @staticmethod
@@ -34,7 +40,13 @@ def test_a_job_runs_to_done(tmp_path, fake):
     job, created = r.jobs.add("at://m/1#v1", example(), {})
     assert created and r.runner.tick() == job["id"]
     done = r.jobs.public(r.jobs.get(job["id"]))
-    assert done["state"] == "done" and set(done["files"]) == {"render.m4a", "video.mp4", "still.jpg", "score.json", "measure.json"}
+    assert done["state"] == "done" and set(done["files"]) == {
+        "render.m4a",
+        "video.mp4",
+        "still.jpg",
+        "score.json",
+        "measure.json",
+    }
     assert {"open", "build", "export", "close", "encode", "total"} <= set(done["timings"])
     assert done["measure"]["lufs"] is not None and len(done["measure"]["sections"]) == 4
 
@@ -46,11 +58,14 @@ def test_the_same_key_is_the_same_job(tmp_path, fake):
     assert not created and a["id"] == b["id"]
 
 
-@pytest.mark.parametrize("front,last,why", [
-    ("HW002_121_v_9", None, "something else"),
-    (None, None, "something else"),
-    ("booth_template", datetime.now() - timedelta(seconds=30), "last few minutes"),
-])
+@pytest.mark.parametrize(
+    "front,last,why",
+    [
+        ("HW002_121_v_9", None, "something else"),
+        (None, None, "something else"),
+        ("booth_template", datetime.now() - timedelta(seconds=30), "last few minutes"),
+    ],
+)
 def test_the_gate(tmp_path, fake, front, last, why):
     r = Rig(tmp_path, fake, front=front, last=last)
     r.jobs.add("k", example(), {})
@@ -62,7 +77,7 @@ def test_our_own_lom_use_doesnt_block_the_next_job(tmp_path, fake):
     r = Rig(tmp_path, fake)
     r.jobs.add("a", example(), {})
     r.runner.tick()
-    r.last = datetime.now()                       # the job just finished talking to Live
+    r.last = datetime.now()  # the job just finished talking to Live
     r.jobs.add("b", example("lullaby"), {})
     assert r.gate.reason(r.jobs) is None
 
@@ -86,7 +101,7 @@ def test_a_surprise_holds_the_job_and_closes_the_booth(tmp_path, fake):
     held = r.jobs.get(a["id"])
     assert held["state"] == "held" and held["error"]["stage"] == "load p1"
     assert r.jobs.kv("open") == "0" and r.notes and "booth open" in r.notes[0][1]
-    assert r.runner.tick() is None and r.jobs.get(b["id"])["state"] == "queued"   # never the next job
+    assert r.runner.tick() is None and r.jobs.get(b["id"])["state"] == "queued"  # never the next job
     r.ops.devices_override = None
     assert r.runner.open() == 1
     r.runner.tick()
@@ -104,6 +119,7 @@ def test_a_silent_render_holds(tmp_path, fake):
 def test_an_encode_failure_fails_but_keeps_the_booth_open(tmp_path, fake):
     def boom(*a):
         raise RuntimeError("ffmpeg went away")
+
     r = Rig(tmp_path, fake, encode=boom)
     a, _ = r.jobs.add("a", example(), {})
     r.runner.tick()
@@ -162,15 +178,38 @@ def test_a_loop_is_made_only_when_asked(tmp_path, fake):
 def test_the_loop_folds_the_tail_onto_the_start_and_fits_room_worlds_limit(tmp_path):
     import json, subprocess
     from booth import video
+
     # 70 s of song and 2 s of tail: a tone that is silent for the song's last second, so only the tail sounds there
     wav = tmp_path / "render.wav"
-    subprocess.run(["ffmpeg", "-v", "error", "-f", "lavfi", "-i", "sine=f=440:d=72", "-af", "volume='if(between(t,69,70),0,1)':eval=frame",
-                    "-ar", "44100", "-ac", "2", str(wav)], check=True)
+    subprocess.run(
+        [
+            "ffmpeg",
+            "-v",
+            "error",
+            "-f",
+            "lavfi",
+            "-i",
+            "sine=f=440:d=72",
+            "-af",
+            "volume='if(between(t,69,70),0,1)':eval=frame",
+            "-ar",
+            "44100",
+            "-ac",
+            "2",
+            str(wav),
+        ],
+        check=True,
+    )
     m4a = tmp_path / "loop.m4a"
     kbps = video.loop(wav, 70.0, m4a)
     assert m4a.stat().st_size <= video.CLIP_BYTES and 48 <= kbps <= 192
-    d = json.loads(subprocess.run(["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "json", str(m4a)],
-                                  capture_output=True, check=True).stdout)["format"]["duration"]
+    d = json.loads(
+        subprocess.run(
+            ["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "json", str(m4a)],
+            capture_output=True,
+            check=True,
+        ).stdout
+    )["format"]["duration"]
     assert abs(float(d) - 70.0) < 0.1
 
 
@@ -181,7 +220,7 @@ def test_the_loudness_gain_is_sent_as_live_shows_it_and_its_rounding_is_no_surpr
     sent = []
     real = r.ops.setp
 
-    def like_live(dev, params):        # Live's text lookup: a decimal above 10 lands one step down
+    def like_live(dev, params):  # Live's text lookup: a decimal above 10 lands one step down
         text = params.get("Input Gain")
         if text:
             sent.append(text)
@@ -189,6 +228,7 @@ def test_the_loudness_gain_is_sent_as_live_shows_it_and_its_rounding_is_no_surpr
             if db >= 10 and "." in text:
                 params = {**params, "Input Gain": f"{db - 1:.0f} dB"}
         return real(dev, params)
+
     r.ops.setp = like_live
     a, _ = r.jobs.add("a", example(), {})
     r.runner.tick()

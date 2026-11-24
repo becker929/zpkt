@@ -46,7 +46,9 @@ def estimate(score: Score, notes: int, clips: int = 0) -> dict:
     # waits), export ~16 s, close and encode ~4 s; a quiet piece adds a second export (~18 s), counted at half. A clip
     # part loads nothing from the browser: about ten short calls, then a call for each 8 copies (not yet measured)
     loads = sum(1 for p in score.parts if not (p.sample and p.sample.mode == "clip"))
-    render = 4 + 15 * loads + 9 * (len(score.parts) - loads) + clips / 8 + 0.9 * notes / 400 + 16 + 0.1 * (audio + 2) + 4 + 9
+    render = (
+        4 + 15 * loads + 9 * (len(score.parts) - loads) + clips / 8 + 0.9 * notes / 400 + 16 + 0.1 * (audio + 2) + 4 + 9
+    )
     out = {"audio_s": round(audio, 1), "render_s": round(render), "notes": notes}
     return {**out, "clips": clips} if clips else out
 
@@ -92,7 +94,9 @@ def check(raw: Any, *, samples: list[str] | tuple[str, ...] | None = None) -> Re
     try:
         score = Score.model_validate(raw)
     except ValidationError as exc:
-        return Result(False, errors=[{"path": _path(e["loc"]), "code": "schema", "message": e["msg"]} for e in exc.errors()])
+        return Result(
+            False, errors=[{"path": _path(e["loc"]), "code": "schema", "message": e["msg"]} for e in exc.errors()]
+        )
     errors: list[dict] = []
     warnings: list[dict] = []
 
@@ -131,8 +135,11 @@ def check(raw: Any, *, samples: list[str] | tuple[str, ...] | None = None) -> Re
             continue
         for k, m in enumerate(part.macros):
             if m.name not in inst.macros:
-                err(f"parts[{i}].macros[{k}].name", "unknown_macro",
-                    f"{part.instrument} has macros {sorted(inst.macros) or 'none'}")
+                err(
+                    f"parts[{i}].macros[{k}].name",
+                    "unknown_macro",
+                    f"{part.instrument} has macros {sorted(inst.macros) or 'none'}",
+                )
         for name, n in Counter(m.name for m in part.macros).items():
             if n > 1:
                 err(f"parts[{i}].macros", "duplicate_macro", f"{name!r} is set {n} times")
@@ -145,16 +152,28 @@ def check(raw: Any, *, samples: list[str] | tuple[str, ...] | None = None) -> Re
         rng = inst.range if inst else None
         if owner and owner.sample:
             if owner.sample.mode == "clip":
-                err(f"patterns[{i}].part", "clip_part_pattern", f"{owner.id!r} places its sample as clips; it plays no patterns")
+                err(
+                    f"patterns[{i}].part",
+                    "clip_part_pattern",
+                    f"{owner.id!r} places its sample as clips; it plays no patterns",
+                )
             rng = C.pitch_range(owner.sample.mode, len(owner.sample.slices))
         length = pat.bars * BEATS_PER_BAR
         if not pat.notes:
             warn(f"patterns[{i}]", "empty_pattern", f"{pat.id!r} has no notes")
         for k, n in enumerate(pat.notes):
             if n.t >= length:
-                err(f"patterns[{i}].notes[{k}].t", "note_outside_pattern", f"starts at beat {n.t}; the pattern is {length} beats")
+                err(
+                    f"patterns[{i}].notes[{k}].t",
+                    "note_outside_pattern",
+                    f"starts at beat {n.t}; the pattern is {length} beats",
+                )
             if rng and not rng[0] <= n.p <= rng[1]:
-                err(f"patterns[{i}].notes[{k}].p", "pitch_out_of_range", f"{owner.instrument or 'its sample'} plays {rng[0]}-{rng[1]}")
+                err(
+                    f"patterns[{i}].notes[{k}].p",
+                    "pitch_out_of_range",
+                    f"{owner.instrument or 'its sample'} plays {rng[0]}-{rng[1]}",
+                )
 
     used_parts: set[str] = set()
     used_patterns: set[str] = set()
@@ -168,7 +187,11 @@ def check(raw: Any, *, samples: list[str] | tuple[str, ...] | None = None) -> Re
             if play.part not in parts:
                 err(f"song[{s}].play[{k}].part", "unknown_part", f"no part {play.part!r}")
             elif parts[play.part].sample and parts[play.part].sample.mode == "clip":
-                err(f"song[{s}].play[{k}].part", "clip_part_pattern", f"{play.part!r} places its sample as clips; leave it out of sections")
+                err(
+                    f"song[{s}].play[{k}].part",
+                    "clip_part_pattern",
+                    f"{play.part!r} places its sample as clips; leave it out of sections",
+                )
             pat = patterns.get(play.pattern)
             if not pat:
                 err(f"song[{s}].play[{k}].pattern", "unknown_pattern", f"no pattern {play.pattern!r}")
@@ -210,7 +233,17 @@ def check(raw: Any, *, samples: list[str] | tuple[str, ...] | None = None) -> Re
         if notes > MAX_NOTES:
             err("song", "too_many_notes", f"{notes} notes once patterns repeat; at most {MAX_NOTES}")
         if clips > MAX_CLIPS:
-            err("parts", "too_many_clips", f"looped samples make {clips} clips; at most {MAX_CLIPS} (loop a longer stretch)")
+            err(
+                "parts",
+                "too_many_clips",
+                f"looped samples make {clips} clips; at most {MAX_CLIPS} (loop a longer stretch)",
+            )
         if notes == 0 and clips == 0:
             err("song", "no_notes", "nothing plays")
-    return Result(not errors, errors, warnings, estimate(score, notes, clips) if not errors else None, score if not errors else None)
+    return Result(
+        not errors,
+        errors,
+        warnings,
+        estimate(score, notes, clips) if not errors else None,
+        score if not errors else None,
+    )

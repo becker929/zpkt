@@ -42,7 +42,7 @@ class MacroMap:
 class Instrument:
     id: str
     role: str
-    load: tuple[str, str, str]                    # browser root, folder ("" for the root's top), item
+    load: tuple[str, str, str]  # browser root, folder ("" for the root's top), item
     range: tuple[int, int]
     about: str
     trim: float = 0.0
@@ -76,13 +76,26 @@ class Palette:
         read from Live itself, those inside the kit's range only."""
         survey = PALETTES / f"{self.version}.survey.json"
         found = json.loads(survey.read_text()) if survey.is_file() else {}
-        pads = {k: [(n, name) for n, name in v.get("pads", []) if self.instruments[k].range[0] <= n <= self.instruments[k].range[1]]
-                for k, v in found.items() if k in self.instruments}
+        pads = {
+            k: [
+                (n, name)
+                for n, name in v.get("pads", [])
+                if self.instruments[k].range[0] <= n <= self.instruments[k].range[1]
+            ]
+            for k, v in found.items()
+            if k in self.instruments
+        }
         return {
             "palette": self.version,
             "instruments": [
-                {"id": i.id, "role": i.role, "range": list(i.range), "about": i.about, "macros": sorted(i.macros),
-                 **({"pads": [{"note": n, "name": name} for n, name in pads[i.id]]} if pads.get(i.id) else {})}
+                {
+                    "id": i.id,
+                    "role": i.role,
+                    "range": list(i.range),
+                    "about": i.about,
+                    "macros": sorted(i.macros),
+                    **({"pads": [{"note": n, "name": name} for n, name in pads[i.id]]} if pads.get(i.id) else {}),
+                }
                 for i in self.instruments.values()
             ],
             "returns": {name: sorted(r.settings) for name, r in self.returns.items()},
@@ -93,15 +106,27 @@ def _parse(raw: dict) -> Palette:
     instruments = {}
     for iid, d in raw["instrument"].items():
         instruments[iid] = Instrument(
-            id=iid, role=d["role"], load=tuple(d["load"]), range=tuple(d["range"]), about=d["about"],
-            trim=float(d.get("trim", 0.0)), fx=tuple(d.get("fx", ())),
+            id=iid,
+            role=d["role"],
+            load=tuple(d["load"]),
+            range=tuple(d["range"]),
+            about=d["about"],
+            trim=float(d.get("trim", 0.0)),
+            fx=tuple(d.get("fx", ())),
             set={int(k): v for k, v in d.get("set", {}).items()},
             macros={name: MacroMap(**m) for name, m in d.get("macros", {}).items()},
         )
-    returns = {name: Return(track=d["track"], device=d["device"], settings=d["settings"]) for name, d in raw["returns"].items()}
+    returns = {
+        name: Return(track=d["track"], device=d["device"], settings=d["settings"]) for name, d in raw["returns"].items()
+    }
     master = raw["master"]
-    return Palette(version=raw["version"], instruments=instruments, returns=returns,
-                   master_devices=tuple(master["devices"]), master_set={int(k): v for k, v in master["set"].items()})
+    return Palette(
+        version=raw["version"],
+        instruments=instruments,
+        returns=returns,
+        master_devices=tuple(master["devices"]),
+        master_set={int(k): v for k, v in master["set"].items()},
+    )
 
 
 @cache

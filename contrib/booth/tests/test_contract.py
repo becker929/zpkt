@@ -20,7 +20,10 @@ SCHEMA = Path(__file__).resolve().parents[3] / "lib" / "contracts" / "score.sche
 
 def test_schema_is_current():
     import importlib.util
-    spec = importlib.util.spec_from_file_location("gen", Path(__file__).resolve().parents[1] / "scripts" / "gen_schema.py")
+
+    spec = importlib.util.spec_from_file_location(
+        "gen", Path(__file__).resolve().parents[1] / "scripts" / "gen_schema.py"
+    )
     gen = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(gen)
     assert json.loads(SCHEMA.read_text()) == gen.build(), "run: uv run python scripts/gen_schema.py"
@@ -38,7 +41,7 @@ def test_palette_loads_and_hides_its_internals():
     assert len(g["instruments"]) == len(pal.instruments) >= 10
     assert set(g["instruments"][0]) == {"id", "role", "range", "about", "macros"}
     drums = [i for i in g["instruments"] if i["role"] == "drums"]
-    assert all(len(i["pads"]) == 16 and i["pads"][0]["note"] == 36 for i in drums)    # from booth survey, in git
+    assert all(len(i["pads"]) == 16 and i["pads"][0]["note"] == 36 for i in drums)  # from booth survey, in git
     for inst in pal.instruments.values():
         for m in inst.macros.values():
             assert m.display(0.0) and m.display(1.0)
@@ -68,9 +71,24 @@ def test_video(tmp_path):
     sf.write(tmp_path / "r.wav", np.stack([y, y], 1), sr)
     size = (540, 960)
     geom = video.roll(plan, r.score.title, "120 BPM", size, tmp_path / "still.jpg")
-    video.encode(tmp_path / "r.wav", tmp_path / "still.jpg", geom, size, seconds, tmp_path / "r.m4a", tmp_path / "v.mp4")
-    probe = subprocess.run(["ffprobe", "-v", "error", "-show_entries", "stream=codec_type,width,height", "-of", "json",
-                            str(tmp_path / "v.mp4")], capture_output=True, text=True, check=True)
+    video.encode(
+        tmp_path / "r.wav", tmp_path / "still.jpg", geom, size, seconds, tmp_path / "r.m4a", tmp_path / "v.mp4"
+    )
+    probe = subprocess.run(
+        [
+            "ffprobe",
+            "-v",
+            "error",
+            "-show_entries",
+            "stream=codec_type,width,height",
+            "-of",
+            "json",
+            str(tmp_path / "v.mp4"),
+        ],
+        capture_output=True,
+        text=True,
+        check=True,
+    )
     streams = json.loads(probe.stdout)["streams"]
     assert {s["codec_type"] for s in streams} == {"video", "audio"}
     assert [s for s in streams if s["codec_type"] == "video"][0]["width"] == 540
@@ -78,7 +96,7 @@ def test_video(tmp_path):
 
 def test_a_new_palette_keeps_the_old_one_and_was_surveyed():
     old, new = P.load("2026-11"), P.load("2026-12")
-    for iid, inst in old.instruments.items():               # an old score renders the same on either
+    for iid, inst in old.instruments.items():  # an old score renders the same on either
         assert new.instruments[iid] == inst
     assert len(new.instruments) - len(old.instruments) >= 25
     assert new.returns == old.returns and new.master_devices == old.master_devices and new.master_set == old.master_set
@@ -86,15 +104,15 @@ def test_a_new_palette_keeps_the_old_one_and_was_surveyed():
     assert list(survey) == list(new.instruments)
     for iid, inst in new.instruments.items():
         found = survey[iid]
-        assert found["devices"] == [inst.device_name, *inst.fx], iid       # it loaded as the palette says
-        assert found["lufs"] is not None and found["lufs"] > -40, iid      # and it played
+        assert found["devices"] == [inst.device_name, *inst.fx], iid  # it loaded as the palette says
+        assert found["lufs"] is not None and found["lufs"] > -40, iid  # and it played
         if inst.role == "drums":
             assert [n for n, _ in found["pads"]] == list(range(36, 52)), iid
         assert inst.range[0] < inst.range[1] and 0 <= inst.range[0] and inst.range[1] <= 127
         assert inst.role in {"bass", "lead", "keys", "pluck", "pad", "drums", "texture"}
         for m in inst.macros.values():
             assert m.display(0.0) and m.display(1.0)
-            if m.device == 0 and inst.load[2].endswith(".adg"):           # a rack macro the survey saw in Live
+            if m.device == 0 and inst.load[2].endswith(".adg"):  # a rack macro the survey saw in Live
                 assert m.param in [x[0] for x in found["macros"]], (iid, m.param)
 
 
@@ -118,7 +136,7 @@ def test_a_score_on_the_new_palette_checks_and_compiles():
 
 
 def test_the_served_palette_is_pinned():
-    assert P.SERVED == "2026-11" and P.served().version == "2026-11"         # a new file alone changes nothing
+    assert P.SERVED == "2026-11" and P.served().version == "2026-11"  # a new file alone changes nothing
     assert P.served("2026-12").version == "2026-12"
     with pytest.raises(KeyError):
         P.served("2027-01")
@@ -126,7 +144,10 @@ def test_the_served_palette_is_pinned():
 
 def _gen():
     import importlib.util
-    spec = importlib.util.spec_from_file_location("gen", Path(__file__).resolve().parents[1] / "scripts" / "gen_schema.py")
+
+    spec = importlib.util.spec_from_file_location(
+        "gen", Path(__file__).resolve().parents[1] / "scripts" / "gen_schema.py"
+    )
     gen = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(gen)
     return gen

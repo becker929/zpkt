@@ -46,7 +46,7 @@ def test_no_score_text_reaches_live(fake):
     lv, fo = fake
     s = example()
     s["title"] = "'); import os; os.system('say hi') #"
-    s["key"] = "\"; song.tracks = None"
+    s["key"] = '"; song.tracks = None'
     r = check(s)
     assert r.ok
     b = Builder(lv)
@@ -65,11 +65,13 @@ def test_wrong_devices_stop(fake, monkeypatch):
 def test_a_template_with_tracks_stops(fake, monkeypatch):
     from conftest import Song
     from hands.live import session
+
     lv, fo = fake
 
     def open_set(client, name, **k):
         lv.song = Song()
         lv.song.create_midi_track(-1)
+
     monkeypatch.setattr(session, "open_set", open_set)
     with pytest.raises(Stop, match="not one empty MIDI track"):
         Builder(lv).open("abc")
@@ -88,10 +90,12 @@ def test_silent_render_stops(fake, tmp_path):
 
 def test_a_guard_failure_is_a_stop(fake, monkeypatch):
     from hands.live import session
+
     lv, fo = fake
 
     def guard(client, where, **k):
         session.stop(f"{where}: 1 dialog(s) open in Live")
+
     monkeypatch.setattr(session, "check", guard)
     with pytest.raises(Stop, match="dialog"):
         Builder(lv).open("abc")
@@ -99,6 +103,7 @@ def test_a_guard_failure_is_a_stop(fake, monkeypatch):
 
 def test_sh001s_helpers_load_and_point_at_the_booth():
     from booth import gui
+
     L = gui.ops(object())
     for name in ("load_item", "devices", "setp", "mixer", "export", "save_as"):
         assert callable(getattr(L, name))
@@ -108,19 +113,21 @@ def test_sh001s_helpers_load_and_point_at_the_booth():
 def test_survey_listens_and_keeps_the_rest(fake, tmp_path):
     import json
     from booth.live import SLOT_BEATS, audition, survey
+
     lv, fo = fake
     pal = P.load("2026-12")
     out = tmp_path / "s.json"
     out.write_text(json.dumps({"keys.upright": {"devices": ["Childhood Home Piano"], "pads": []}}))
     got = survey(lv, pal, out, only=["bass.sub_mellow", "drums.909"], listen=True, render=tmp_path / "s.wav")
     assert set(got) == {"bass.sub_mellow", "drums.909"}
-    assert got["bass.sub_mellow"]["devices"] == ["Sub Mellow", "Saturator"]            # the preset, its fx, its settings
+    assert got["bass.sub_mellow"]["devices"] == ["Sub Mellow", "Saturator"]  # the preset, its fx, its settings
     assert ("song.tracks[0].devices[1]", pal.instruments["bass.sub_mellow"].set[1]) in fo.sets
     assert all(v["lufs"] is not None and v["peak_db"] < 0 for v in got.values())
     assert [s for s in fo.sets if s[0].startswith("song.master_track")] == [
-        (f"song.master_track.devices[{k}]", {"Device On": 0}) for k in range(3)]       # Main's chain off in the copy
-    assert list(json.loads(out.read_text())) == ["keys.upright", "bass.sub_mellow", "drums.909"]   # palette order
-    for k, inst in enumerate(pal.instruments.values()):                                    # every phrase in range, in its slot
+        (f"song.master_track.devices[{k}]", {"Device On": 0}) for k in range(3)
+    ]  # Main's chain off in the copy
+    assert list(json.loads(out.read_text())) == ["keys.upright", "bass.sub_mellow", "drums.909"]  # palette order
+    for k, inst in enumerate(pal.instruments.values()):  # every phrase in range, in its slot
         notes = audition(inst, k)
         assert notes and all(inst.range[0] <= p <= inst.range[1] for p, *_ in notes)
         assert all(k * SLOT_BEATS <= t and t + d <= (k + 1) * SLOT_BEATS for _, t, d, _ in notes)
@@ -129,14 +136,18 @@ def test_survey_listens_and_keeps_the_rest(fake, tmp_path):
 def test_importing_the_booth_leaves_the_environment_alone():
     import subprocess
     import sys
-    code = ("import os; before = dict(os.environ); import booth, booth.server, booth.live, booth.runner; "
-            "assert dict(os.environ) == before; booth.use_booth_rig(); "
-            "from hands import config; r = config.rig(); assert r.set_prefixes == ('booth_',), r; "
-            "assert r.sets_dir == booth.SETS_DIR, r")
+
+    code = (
+        "import os; before = dict(os.environ); import booth, booth.server, booth.live, booth.runner; "
+        "assert dict(os.environ) == before; booth.use_booth_rig(); "
+        "from hands import config; r = config.rig(); assert r.set_prefixes == ('booth_',), r; "
+        "assert r.sets_dir == booth.SETS_DIR, r"
+    )
     subprocess.run([sys.executable, "-c", code], check=True)
 
 
 def test_each_caller_gets_its_own_live_ops():
     from booth import gui
+
     a, b = gui.ops("client a"), gui.ops("client b")
     assert a is not b and (a.client, b.client) == ("client a", "client b")

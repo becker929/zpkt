@@ -48,10 +48,10 @@ def test_palette_lookups():
 
 def test_structure():
     s = example()
-    s["patterns"][3]["notes"][0]["p"] = 90            # bass line far out of the sub's range
+    s["patterns"][3]["notes"][0]["p"] = 90  # bass line far out of the sub's range
     assert "pitch_out_of_range" in codes(s)
     s = example()
-    s["patterns"][0]["notes"][0]["t"] = 4.0           # a one-bar pattern is beats 0-4
+    s["patterns"][0]["notes"][0]["t"] = 4.0  # a one-bar pattern is beats 0-4
     assert "note_outside_pattern" in codes(s)
     s = example()
     s["song"][1]["play"].append({"part": "drums", "pattern": "fill"})

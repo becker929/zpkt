@@ -61,7 +61,8 @@ SAMPLE_RULES = {
 - mode "slices": the sample is cut where `slices` says (seconds into it, rising, the first 0, at most %d; onsets_s is
   a good start, or even steps for a loop); pitch 36 plays the first slice, 37 the second, and so on, each from its
   start to the next. Write patterns that chop and reorder them.
-""" % MAX_SLICES,
+"""
+    % MAX_SLICES,
 }
 
 
@@ -87,12 +88,19 @@ def guide(version: str | None = None, samples: list[str] | tuple[str, ...] = ())
     samples, so the composer never writes a part the booth would refuse."""
     pal = P.load(version) if version else P.served()
     limits = {"parts": MAX_PARTS, "bars": [4, MAX_BARS], "audio_s": MAX_AUDIO_S, "notes": MAX_NOTES, "bpm": [60, 180]}
-    out = {**pal.guide(), "schema": Score.model_json_schema(), "rules": RULES + sample_rules(samples),
-           "examples": examples(pal), "limits": limits}
+    out = {
+        **pal.guide(),
+        "schema": Score.model_json_schema(),
+        "rules": RULES + sample_rules(samples),
+        "examples": examples(pal),
+        "limits": limits,
+    }
     if samples:
         limits.update(sample_clips=MAX_CLIPS, sample_slices=MAX_SLICES)
-        out["samples"] = {"modes": [m for m in ("clip", "one_shot", "slices") if m in samples],
-                          "upload": {"bytes": S.MAX_BYTES, "seconds": S.MAX_S, "formats": ["wav", "aiff", "flac", "mp3"]}}
+        out["samples"] = {
+            "modes": [m for m in ("clip", "one_shot", "slices") if m in samples],
+            "upload": {"bytes": S.MAX_BYTES, "seconds": S.MAX_S, "formats": ["wav", "aiff", "flac", "mp3"]},
+        }
     return out
 
 
@@ -110,7 +118,7 @@ def app(jobs: Jobs, runner: Runner, settings: Settings, token: str) -> web.Appli
             return await handler(request)
         except web.HTTPException:
             raise
-        except Exception as exc:          # answer JSON, and never leak a traceback to the bot
+        except Exception as exc:  # answer JSON, and never leak a traceback to the bot
             log.exception("request %s", request.path)
             return _err(500, "internal", type(exc).__name__)
 
@@ -118,11 +126,15 @@ def app(jobs: Jobs, runner: Runner, settings: Settings, token: str) -> web.Appli
         try:
             data = await request.json()
         except (json.JSONDecodeError, UnicodeDecodeError):
-            raise web.HTTPBadRequest(text=json.dumps({"error": "bad_json", "message": "the body is not JSON"}),
-                                     content_type="application/json")
+            raise web.HTTPBadRequest(
+                text=json.dumps({"error": "bad_json", "message": "the body is not JSON"}),
+                content_type="application/json",
+            )
         if not isinstance(data, dict):
-            raise web.HTTPBadRequest(text=json.dumps({"error": "bad_json", "message": "the body is not an object"}),
-                                     content_type="application/json")
+            raise web.HTTPBadRequest(
+                text=json.dumps({"error": "bad_json", "message": "the body is not an object"}),
+                content_type="application/json",
+            )
         return data
 
     async def get_guide(request):
@@ -150,7 +162,7 @@ def app(jobs: Jobs, runner: Runner, settings: Settings, token: str) -> web.Appli
         if len(jobs.queue()) >= settings.queue_max:
             return _err(429, "queue_full", f"{settings.queue_max} pieces are waiting", retry_in_s=300)
         reason = runner.gate.reason(jobs)
-        if reason and jobs.kv("open", "0") != "1":      # closed by Anthony or held: don't take more work
+        if reason and jobs.kv("open", "0") != "1":  # closed by Anthony or held: don't take more work
             return _err(503, "closed", reason, reason=reason, retry_in_s=600)
         job, _ = jobs.add(key, res.score.model_dump(), want, parent)
         out = jobs.public(job)
@@ -188,7 +200,7 @@ def app(jobs: Jobs, runner: Runner, settings: Settings, token: str) -> web.Appli
         if size is not None and size > S.MAX_BYTES:
             return _err(413, "too_large", f"{size} bytes; at most {S.MAX_BYTES}")
         data = bytearray()
-        async for chunk in request.content.iter_chunked(1 << 16):      # past the app's 1 MB body limit, to our own
+        async for chunk in request.content.iter_chunked(1 << 16):  # past the app's 1 MB body limit, to our own
             data += chunk
             if len(data) > S.MAX_BYTES:
                 return _err(413, "too_large", f"over {S.MAX_BYTES} bytes")
@@ -209,16 +221,31 @@ def app(jobs: Jobs, runner: Runner, settings: Settings, token: str) -> web.Appli
     async def get_status(_):
         reason = runner.gate.reason(jobs)
         front = await asyncio.to_thread(runner.gate.front)
-        return web.json_response({"open": jobs.kv("open", "0") == "1", "reason": reason or "", "running": runner.current,
-                                  "queue": len(jobs.queue()), "live": {"front": front}, "today": jobs.today()})
+        return web.json_response(
+            {
+                "open": jobs.kv("open", "0") == "1",
+                "reason": reason or "",
+                "running": runner.current,
+                "queue": len(jobs.queue()),
+                "live": {"front": front},
+                "today": jobs.today(),
+            }
+        )
 
     a = web.Application(middlewares=[auth], client_max_size=1 << 20)
-    a.add_routes([
-        web.get("/v1/guide", get_guide), web.post("/v1/check", post_check), web.post("/v1/jobs", post_job),
-        web.get("/v1/jobs/{job}", get_job), web.get("/v1/jobs/{job}/files/{name}", get_file),
-        web.delete("/v1/jobs/{job}", delete_job), web.get("/v1/status", get_status),
-        web.post("/v1/samples", post_sample), web.get("/v1/samples/{sample}", get_sample),
-    ])
+    a.add_routes(
+        [
+            web.get("/v1/guide", get_guide),
+            web.post("/v1/check", post_check),
+            web.post("/v1/jobs", post_job),
+            web.get("/v1/jobs/{job}", get_job),
+            web.get("/v1/jobs/{job}/files/{name}", get_file),
+            web.delete("/v1/jobs/{job}", delete_job),
+            web.get("/v1/status", get_status),
+            web.post("/v1/samples", post_sample),
+            web.get("/v1/samples/{sample}", get_sample),
+        ]
+    )
 
     async def worker(_app):
         async def loop():
@@ -228,6 +255,7 @@ def app(jobs: Jobs, runner: Runner, settings: Settings, token: str) -> web.Appli
                 except Exception:
                     log.exception("worker")
                 await asyncio.sleep(2)
+
         task = asyncio.create_task(loop())
         yield
         task.cancel()

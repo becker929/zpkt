@@ -71,8 +71,11 @@ class AudioClip:
         if not self._wm:
             return []
         last = self._wm[-1]
-        rate = ((last.beat_time - self._wm[-2].beat_time) / (last.sample_time - self._wm[-2].sample_time)
-                if len(self._wm) > 1 and last.sample_time > self._wm[-2].sample_time else self.GUESS_BPM / 60)
+        rate = (
+            (last.beat_time - self._wm[-2].beat_time) / (last.sample_time - self._wm[-2].sample_time)
+            if len(self._wm) > 1 and last.sample_time > self._wm[-2].sample_time
+            else self.GUESS_BPM / 60
+        )
         if rate <= 0:
             return list(self._wm)
         return [*self._wm, WarpMarker(last.sample_time + self.SHADOW / rate, last.beat_time + self.SHADOW)]
@@ -105,8 +108,11 @@ class AudioClip:
 
     def remove_warp_marker(self, beat):
         if not any(abs(m.beat_time - beat) < 1e-9 for m in self._wm):
-            raise RuntimeError("The shadow marker can't be deleted." if abs(self.warp_markers[-1].beat_time - beat) < 1e-9
-                               else "The specified warp marker doesn't exist")
+            raise RuntimeError(
+                "The shadow marker can't be deleted."
+                if abs(self.warp_markers[-1].beat_time - beat) < 1e-9
+                else "The specified warp marker doesn't exist"
+            )
         self._wm = [m for m in self._wm if abs(m.beat_time - beat) > 1e-9]
 
     def move_warp_marker(self, beat, distance):
@@ -116,7 +122,9 @@ class AudioClip:
 
     def copy(self, start):
         c = AudioClip.__new__(AudioClip)
-        c.__dict__.update(self.__dict__, start_time=float(start), _wm=[WarpMarker(m.sample_time, m.beat_time) for m in self._wm])
+        c.__dict__.update(
+            self.__dict__, start_time=float(start), _wm=[WarpMarker(m.sample_time, m.beat_time) for m in self._wm]
+        )
         return c
 
 
@@ -179,8 +187,9 @@ class Song:
     def __init__(self, master=("EQ Eight", "Glue Compressor", "Limiter")):
         self.tracks, self.tempo = [], 120.0
         self.signature_numerator = self.signature_denominator = 4
-        self.master_track = types.SimpleNamespace(devices=[types.SimpleNamespace(name=n, parameters=[Param(6.0, "Input Gain")])
-                                                           for n in master])
+        self.master_track = types.SimpleNamespace(
+            devices=[types.SimpleNamespace(name=n, parameters=[Param(6.0, "Input Gain")]) for n in master]
+        )
         self.return_tracks = [types.SimpleNamespace(name="A-Reverb"), types.SimpleNamespace(name="B-Delay")]
 
     def create_midi_track(self, index):
@@ -202,7 +211,9 @@ class FakeLive:
     def __init__(self, song=None):
         self.song = song or Song()
         self.calls: list[str] = []
-        self.live_mod = types.SimpleNamespace(Clip=types.SimpleNamespace(MidiNoteSpecification=lambda **k: k, WarpMarker=WarpMarker))
+        self.live_mod = types.SimpleNamespace(
+            Clip=types.SimpleNamespace(MidiNoteSpecification=lambda **k: k, WarpMarker=WarpMarker)
+        )
         sys.modules.setdefault("Live", self.live_mod)
 
     def run(self, code):
@@ -220,7 +231,7 @@ class FakeOps:
 
     def __init__(self, live: FakeLive, *, export_silent=False, devices_override=None, level=0.3):
         self.live, self.export_silent, self.devices_override = live, export_silent, devices_override
-        self.level = level                       # the render's sine amplitude
+        self.level = level  # the render's sine amplitude
         self.loads, self.sets, self.mixes, self.exports = [], [], [], []
 
     def _track(self, path):
@@ -231,8 +242,11 @@ class FakeOps:
         if (root, name) == ("instruments", "Simpler"):
             self._track(path).devices.append(Simpler())
             return
-        self._track(path).devices.append(types.SimpleNamespace(name=name.rsplit(".", 1)[0], can_have_drum_pads=False,
-                                                               can_have_chains=False, parameters=[]))
+        self._track(path).devices.append(
+            types.SimpleNamespace(
+                name=name.rsplit(".", 1)[0], can_have_drum_pads=False, can_have_chains=False, parameters=[]
+            )
+        )
 
     def devices(self, path):
         if self.devices_override:
@@ -255,7 +269,11 @@ class FakeOps:
         seconds = length_beats * 60 / self.live.song.tempo
         t = np.arange(int(sr * seconds)) / sr
         self.exports.append(Path(out).name)
-        y = np.zeros_like(t) if self.export_silent else self.level * np.sin(2 * np.pi * 110 * t) * (0.4 + 0.6 * (t > seconds / 2))
+        y = (
+            np.zeros_like(t)
+            if self.export_silent
+            else self.level * np.sin(2 * np.pi * 110 * t) * (0.4 + 0.6 * (t > seconds / 2))
+        )
         Path(out).parent.mkdir(parents=True, exist_ok=True)
         sf.write(out, np.stack([y, y], 1), sr, subtype="PCM_24")
         return Path(out)
@@ -264,13 +282,14 @@ class FakeOps:
 def make_sample(seconds: float = 2.0, *, hits: int = 4, sr: int = 44100, seed: int = 1) -> dict:
     """A sample in the booth's store without ffmpeg: decaying noise bursts, `hits` of them, evenly spaced."""
     from booth import samples as S
+
     rng = np.random.default_rng(seed)
     n = int(seconds * sr)
     y = np.zeros(n)
     for k in range(hits):
         a = int(k * n / hits)
         m = min(n - a, int(0.25 * sr))
-        y[a:a + m] += 0.5 * rng.standard_normal(m) * np.exp(-np.arange(m) / (0.04 * sr))
+        y[a : a + m] += 0.5 * rng.standard_normal(m) * np.exp(-np.arange(m) / (0.04 * sr))
     S.DIR.mkdir(parents=True, exist_ok=True)
     sid = f"{seed:04x}{int(seconds * 1000):06x}{hits:06x}"[:16]
     wav = S.DIR / f"{sid}.wav"
@@ -285,18 +304,21 @@ def fake(monkeypatch, tmp_path):
     """(live, ops): booth.live's Builder wired to the fakes, the guard always passing, sets in tmp_path."""
     from booth import live as booth_live
     from hands.live import session
+
     lv = FakeLive()
     fo = FakeOps(lv)
     monkeypatch.setattr(booth_live, "ops", lambda client=None: fo)
     monkeypatch.setattr(session, "check", lambda client, where, **k: k.get("expect_front") or "booth_x")
-    def open_set(client, name, **k):     # a set opens fresh from its file: the template's one empty track
+
+    def open_set(client, name, **k):  # a set opens fresh from its file: the template's one empty track
         lv.song = Song()
         lv.song.create_midi_track(-1)
         lv.song.tracks[0].name = "p1"
         return 1.0
+
     monkeypatch.setattr(session, "open_set", open_set)
     monkeypatch.setattr(session, "copy_set", lambda a, b: tmp_path / f"{b}.als")
-    monkeypatch.setattr(session, "_front", lambda *a, **k: None)   # asks macOS (osascript); CI runs on Linux
+    monkeypatch.setattr(session, "_front", lambda *a, **k: None)  # asks macOS (osascript); CI runs on Linux
     template = session.config.rig().set_path("booth_template")
     template.parent.mkdir(parents=True, exist_ok=True)
     template.write_text("")

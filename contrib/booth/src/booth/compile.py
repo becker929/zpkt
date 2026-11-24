@@ -18,17 +18,19 @@ from . import samples as S
 from .palette import Instrument, Palette
 from .score import BEATS_PER_BAR, Part, Score
 
-HEADROOM_DB = 0.0    # every track starts here; at -6 dB the first real render was -21.6 LUFS and never reached the limiter
-TAIL_BARS = 1        # rendered after the song so reverb and echo ring out
+HEADROOM_DB = (
+    0.0  # every track starts here; at -6 dB the first real render was -21.6 LUFS and never reached the limiter
+)
+TAIL_BARS = 1  # rendered after the song so reverb and echo ring out
 SEND_OFF = 0.0
 
 
-WARP_MODES = {"beats": 0, "complex": 4}     # Live's Clip.warp_mode: 0 Beats, 1 Tones, 2 Texture, 3 Re-Pitch, 4 Complex
-PLAYBACK_MODES = {"one_shot": 1, "slices": 2}   # SimplerDevice.playback_mode: 0 Classic, 1 One-Shot, 2 Slicing
-ONE_SHOT_ROOT = 60                          # Simpler plays its sample as recorded on C3
-ONE_SHOT_RANGE = (24, 96)                   # four octaves down and three up from the root is enough to be music
-SLICE_ROOT = 36                             # Simpler's first slice is on C1
-MIN_CLIP_BEATS = 1 / 64                     # a copy shorter than this after the cut is left out
+WARP_MODES = {"beats": 0, "complex": 4}  # Live's Clip.warp_mode: 0 Beats, 1 Tones, 2 Texture, 3 Re-Pitch, 4 Complex
+PLAYBACK_MODES = {"one_shot": 1, "slices": 2}  # SimplerDevice.playback_mode: 0 Classic, 1 One-Shot, 2 Slicing
+ONE_SHOT_ROOT = 60  # Simpler plays its sample as recorded on C3
+ONE_SHOT_RANGE = (24, 96)  # four octaves down and three up from the root is enough to be music
+SLICE_ROOT = 36  # Simpler's first slice is on C1
+MIN_CLIP_BEATS = 1 / 64  # a copy shorter than this after the cut is left out
 
 
 @dataclass
@@ -36,16 +38,16 @@ class SamplePlan:
     """A sample on a part's track: arrangement clips on an audio track (mode "clip"), or a Simpler on a MIDI track."""
 
     id: str
-    path: Path                               # the booth's own file; the only path that reaches Live
+    path: Path  # the booth's own file; the only path that reaches Live
     mode: str
     seconds: float
     frames: int
     warp: str = "off"
-    fit_beats: float | None = None           # warped: the whole file spans this many beats
+    fit_beats: float | None = None  # warped: the whole file spans this many beats
     transpose: int = 0
-    natural_beats: float = 0.0               # one whole play of the file, in song beats
-    clips: list[tuple[float, float]] = field(default_factory=list)   # (song beat, length in beats), one per copy
-    slices: list[int] = field(default_factory=list)                  # slice starts in frames, after the first at 0
+    natural_beats: float = 0.0  # one whole play of the file, in song beats
+    clips: list[tuple[float, float]] = field(default_factory=list)  # (song beat, length in beats), one per copy
+    slices: list[int] = field(default_factory=list)  # slice starts in frames, after the first at 0
 
     def end_marker(self, beats: float, bpm: float) -> float:
         """A clip `beats` long ends here, in the clip's own units: beats when warped, file seconds when not (and a
@@ -57,14 +59,14 @@ class SamplePlan:
 
 @dataclass
 class TrackPlan:
-    name: str                                # "p1".."p8": the booth's names
+    name: str  # "p1".."p8": the booth's names
     instrument: Instrument | None
-    notes: list[tuple[int, float, float, int]] = field(default_factory=list)   # (pitch, start, length, velocity)
+    notes: list[tuple[int, float, float, int]] = field(default_factory=list)  # (pitch, start, length, velocity)
     volume_db: float = HEADROOM_DB
     pan: float = 0.0
-    room_db: float | None = None             # None: send off
+    room_db: float | None = None  # None: send off
     echo_db: float | None = None
-    settings: dict[int, dict[str, Any]] = field(default_factory=dict)          # device index -> {param: display}
+    settings: dict[int, dict[str, Any]] = field(default_factory=dict)  # device index -> {param: display}
     sample: SamplePlan | None = None
 
     @property
@@ -89,10 +91,10 @@ class Plan:
     beats: float
     render_beats: float
     tracks: list[TrackPlan]
-    returns: dict[int, dict[str, Any]]      # return track index -> settings for its device 0
+    returns: dict[int, dict[str, Any]]  # return track index -> settings for its device 0
     master_devices: tuple[str, ...]
     master_set: dict[int, dict[str, Any]]
-    master_gain_db: float = 6.0              # the Limiter's Input Gain the template starts with
+    master_gain_db: float = 6.0  # the Limiter's Input Gain the template starts with
 
 
 def pitch_range(mode: str, slices: int = 0) -> tuple[int, int]:
@@ -101,7 +103,7 @@ def pitch_range(mode: str, slices: int = 0) -> tuple[int, int]:
         return ONE_SHOT_RANGE
     if mode == "slices":
         return SLICE_ROOT, SLICE_ROOT + max(0, slices - 1)
-    return 0, -1                             # clips play no notes
+    return 0, -1  # clips play no notes
 
 
 def natural_beats(meta: dict, sample, bpm: float) -> float:
@@ -109,7 +111,9 @@ def natural_beats(meta: dict, sample, bpm: float) -> float:
     one), else its seconds at the song's tempo, shorter or longer by the transpose."""
     beats = meta["seconds"] * bpm / 60.0
     if sample.warp != "off":
-        return float(sample.fit_beats) if sample.fit_beats else float(max(1, round(beats / BEATS_PER_BAR)) * BEATS_PER_BAR)
+        return (
+            float(sample.fit_beats) if sample.fit_beats else float(max(1, round(beats / BEATS_PER_BAR)) * BEATS_PER_BAR)
+        )
     return beats / 2 ** (sample.transpose / 12)
 
 
@@ -126,7 +130,7 @@ def clip_layout(meta: dict, sample, bpm: float, song_beats: float) -> list[tuple
         if not sample.loop:
             break
         at += nat
-        if len(out) > 4096:                  # check() refuses past MAX_CLIPS; this only bounds the loop
+        if len(out) > 4096:  # check() refuses past MAX_CLIPS; this only bounds the loop
             break
     return out
 
@@ -157,7 +161,7 @@ def _feel(notes: list[tuple[int, float, float, int]], score: Score, salt: int) -
     out = []
     for p, t, d, v in notes:
         frac = round((t % 1.0) * 4, 6)
-        if f.swing and frac in (1.0, 3.0):             # the off-beat 16ths
+        if f.swing and frac in (1.0, 3.0):  # the off-beat 16ths
             t += f.swing * 0.25
         if f.humanize_ms:
             t += rng.gauss(0.0, f.humanize_ms / 1000.0) / beat_s
@@ -209,16 +213,29 @@ def compile(score: Score, pal: Palette) -> Plan:
             for m in part.macros:
                 mm = inst.macros[m.name]
                 settings.setdefault(mm.device, {})[mm.param] = mm.display(m.value)
-        tracks.append(TrackPlan(
-            name=f"p{index[part.id] + 1}", instrument=inst,
-            notes=_dedupe(_feel(notes[part.id], score, index[part.id])),
-            volume_db=round(max(-70.0, min(6.0, HEADROOM_DB + trim + part.gain_db)), 2),
-            pan=part.pan, room_db=send_db(part.room), echo_db=send_db(part.echo), settings=settings, sample=sp,
-        ))
+        tracks.append(
+            TrackPlan(
+                name=f"p{index[part.id] + 1}",
+                instrument=inst,
+                notes=_dedupe(_feel(notes[part.id], score, index[part.id])),
+                volume_db=round(max(-70.0, min(6.0, HEADROOM_DB + trim + part.gain_db)), 2),
+                pan=part.pan,
+                room_db=send_db(part.room),
+                echo_db=send_db(part.echo),
+                settings=settings,
+                sample=sp,
+            )
+        )
     return Plan(
-        bpm=score.bpm, beats=score.beats, render_beats=score.beats + TAIL_BARS * BEATS_PER_BAR, tracks=tracks,
-        returns={pal.returns[name].track: pal.returns[name].settings[getattr(score.mix, name)] for name in ("room", "echo")},
-        master_devices=pal.master_devices, master_set=pal.master_set,
+        bpm=score.bpm,
+        beats=score.beats,
+        render_beats=score.beats + TAIL_BARS * BEATS_PER_BAR,
+        tracks=tracks,
+        returns={
+            pal.returns[name].track: pal.returns[name].settings[getattr(score.mix, name)] for name in ("room", "echo")
+        },
+        master_devices=pal.master_devices,
+        master_set=pal.master_set,
         master_gain_db=_limiter_gain(pal),
     )
 

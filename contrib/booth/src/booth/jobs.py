@@ -43,8 +43,10 @@ class Jobs:
         if old:
             return old, False
         jid = new_id()
-        self.db.execute("INSERT INTO jobs (id, key, parent, state, stage, score, want, created) VALUES (?, ?, ?, 'queued', '', ?, ?, ?)",
-                        (jid, key, parent, json.dumps(score), json.dumps(want), time.time()))
+        self.db.execute(
+            "INSERT INTO jobs (id, key, parent, state, stage, score, want, created) VALUES (?, ?, ?, 'queued', '', ?, ?, ?)",
+            (jid, key, parent, json.dumps(score), json.dumps(want), time.time()),
+        )
         (self.dir / jid).mkdir(exist_ok=True)
         (self.dir / jid / "score.json").write_text(json.dumps(score, indent=2) + "\n")
         return self.get(jid), True
@@ -88,15 +90,33 @@ class Jobs:
 
     def recover(self) -> None:
         """A job a crash left running is held: Live may be in any state, so a person looks first."""
-        self.db.execute("UPDATE jobs SET state = 'held', error = ? WHERE state IN ('building', 'rendering', 'measuring')",
-                        (json.dumps({"stage": "restart", "code": "booth_restarted", "message": "the booth restarted mid-job", "retryable": True}),))
+        self.db.execute(
+            "UPDATE jobs SET state = 'held', error = ? WHERE state IN ('building', 'rendering', 'measuring')",
+            (
+                json.dumps(
+                    {
+                        "stage": "restart",
+                        "code": "booth_restarted",
+                        "message": "the booth restarted mid-job",
+                        "retryable": True,
+                    }
+                ),
+            ),
+        )
 
     def requeue_held(self) -> int:
-        return self.db.execute("UPDATE jobs SET state = 'queued', stage = '', error = NULL WHERE state = 'held'").rowcount
+        return self.db.execute(
+            "UPDATE jobs SET state = 'queued', stage = '', error = NULL WHERE state = 'held'"
+        ).rowcount
 
     def cancel(self, jid: str) -> bool:
-        return self.db.execute("UPDATE jobs SET state = 'failed', error = ? WHERE id = ? AND state = 'queued'",
-                               (json.dumps({"stage": "queue", "code": "cancelled", "message": "cancelled", "retryable": False}), jid)).rowcount > 0
+        return (
+            self.db.execute(
+                "UPDATE jobs SET state = 'failed', error = ? WHERE id = ? AND state = 'queued'",
+                (json.dumps({"stage": "queue", "code": "cancelled", "message": "cancelled", "retryable": False}), jid),
+            ).rowcount
+            > 0
+        )
 
     def files(self, jid: str) -> list[str]:
         d = self.dir / jid
@@ -112,6 +132,15 @@ class Jobs:
 
     def public(self, job: dict) -> dict:
         """What GET /v1/jobs/{id} answers."""
-        return {"job": job["id"], "key": job["key"], "state": job["state"], "stage": job["stage"], "parent": job["parent"],
-                "position": self.position(job["id"]), "timings": job["timings"] or {}, "measure": job["measure"],
-                "files": self.files(job["id"]) if job["state"] == "done" else [], "error": job["error"]}
+        return {
+            "job": job["id"],
+            "key": job["key"],
+            "state": job["state"],
+            "stage": job["stage"],
+            "parent": job["parent"],
+            "position": self.position(job["id"]),
+            "timings": job["timings"] or {},
+            "measure": job["measure"],
+            "files": self.files(job["id"]) if job["state"] == "done" else [],
+            "error": job["error"],
+        }

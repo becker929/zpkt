@@ -30,16 +30,16 @@ import soundfile as sf
 from . import HOME
 
 DIR = HOME / "samples"
-SAMPLE_RATE = 44100          # what liveops.export renders at, so Live never resamples a sample
+SAMPLE_RATE = 44100  # what liveops.export renders at, so Live never resamples a sample
 MAX_BYTES = 20 * 1024 * 1024
 MAX_S = 60.0
 MIN_S = 0.05
-MAX_TOTAL_BYTES = 4 * 1024 ** 3   # all the converted files together; past it uploads are refused until some go
-REF_LUFS = -23.0             # where the palette's instruments sit once trimmed: the median of 2026-12's survey
+MAX_TOTAL_BYTES = 4 * 1024**3  # all the converted files together; past it uploads are refused until some go
+REF_LUFS = -23.0  # where the palette's instruments sit once trimmed: the median of 2026-12's survey
 TRIM_DB = (-30.0, 12.0)
 MAX_ONSETS = 32
 ID = re.compile(r"^[0-9a-f]{16}$")
-CONVERT_S = 60               # ffmpeg's time limit for one file
+CONVERT_S = 60  # ffmpeg's time limit for one file
 
 
 class SampleError(ValueError):
@@ -96,7 +96,7 @@ def onsets(y: np.ndarray, sr: int, limit: int = MAX_ONSETS) -> list[float]:
     if len(mono) < win:
         return [0.0]
     frames = np.lib.stride_tricks.sliding_window_view(mono, win)[::hop]
-    env = np.log10(np.mean(frames ** 2, axis=1) + 1e-10)
+    env = np.log10(np.mean(frames**2, axis=1) + 1e-10)
     rise = np.maximum(0.0, np.diff(env, prepend=env[0]))
     thresh = max(0.3, float(np.median(rise) + 3 * np.std(rise)))
     gap = max(1, int(0.06 * sr / hop))
@@ -104,7 +104,7 @@ def onsets(y: np.ndarray, sr: int, limit: int = MAX_ONSETS) -> list[float]:
     for i in range(1, len(rise) - 1):
         if rise[i] >= thresh and rise[i] >= rise[i - 1] and rise[i] >= rise[i + 1] and (not out or i - out[-1] >= gap):
             out.append(i)
-    strongest = sorted(sorted(out, key=lambda i: -rise[i])[:limit - 1])
+    strongest = sorted(sorted(out, key=lambda i: -rise[i])[: limit - 1])
     # a frame's energy jumps as soon as a hit enters its end, a window ahead of the hit: put it back, less a few ms,
     # so a slice cut here keeps its attack
     lead = (win - 2 * hop) / sr
@@ -122,15 +122,40 @@ def _measure(wav: Path) -> dict:
     reps = int(np.ceil(1.0 / seconds)) if seconds < 1.0 else 1
     lufs = float(pyln.Meter(sr).integrated_loudness(np.tile(y, (reps, 1))))
     lufs = lufs if np.isfinite(lufs) else -70.0
-    return {"seconds": round(seconds, 4), "frames": len(y), "sample_rate": sr, "channels": y.shape[1],
-            "peak_db": round(20 * np.log10(peak), 1), "lufs": round(lufs, 1),
-            "trim_db": round(min(TRIM_DB[1], max(TRIM_DB[0], REF_LUFS - lufs)), 1), "onsets_s": onsets(y, sr)}
+    return {
+        "seconds": round(seconds, 4),
+        "frames": len(y),
+        "sample_rate": sr,
+        "channels": y.shape[1],
+        "peak_db": round(20 * np.log10(peak), 1),
+        "lufs": round(lufs, 1),
+        "trim_db": round(min(TRIM_DB[1], max(TRIM_DB[0], REF_LUFS - lufs)), 1),
+        "onsets_s": onsets(y, sr),
+    }
 
 
 def _probe(src: Path, fmt: str) -> dict:
-    out = subprocess.run(["ffprobe", "-v", "error", "-protocol_whitelist", "file", "-f", fmt, "-select_streams", "a:0",
-                          "-show_entries", "stream=channels,sample_rate:format=duration", "-of", "json", str(src)],
-                         capture_output=True, text=True, timeout=CONVERT_S)
+    out = subprocess.run(
+        [
+            "ffprobe",
+            "-v",
+            "error",
+            "-protocol_whitelist",
+            "file",
+            "-f",
+            fmt,
+            "-select_streams",
+            "a:0",
+            "-show_entries",
+            "stream=channels,sample_rate:format=duration",
+            "-of",
+            "json",
+            str(src),
+        ],
+        capture_output=True,
+        text=True,
+        timeout=CONVERT_S,
+    )
     try:
         data = json.loads(out.stdout or "{}")
     except json.JSONDecodeError:
@@ -143,14 +168,48 @@ def _probe(src: Path, fmt: str) -> dict:
 def _convert(src: Path, fmt: str, channels: int, dst: Path) -> None:
     """WAV, 24-bit, SAMPLE_RATE, mono or stereo, the first audio stream only, at most a little over MAX_S decoded."""
     try:
-        subprocess.run(["ffmpeg", "-nostdin", "-y", "-v", "error", "-protocol_whitelist", "file", "-f", fmt, "-i", str(src),
-                        "-map", "0:a:0", "-vn", "-sn", "-dn", "-map_metadata", "-1", "-t", f"{MAX_S + 1:.0f}",
-                        "-ac", str(min(2, max(1, channels))), "-ar", str(SAMPLE_RATE), "-c:a", "pcm_s24le", "-f", "wav", str(dst)],
-                       check=True, capture_output=True, timeout=CONVERT_S)
+        subprocess.run(
+            [
+                "ffmpeg",
+                "-nostdin",
+                "-y",
+                "-v",
+                "error",
+                "-protocol_whitelist",
+                "file",
+                "-f",
+                fmt,
+                "-i",
+                str(src),
+                "-map",
+                "0:a:0",
+                "-vn",
+                "-sn",
+                "-dn",
+                "-map_metadata",
+                "-1",
+                "-t",
+                f"{MAX_S + 1:.0f}",
+                "-ac",
+                str(min(2, max(1, channels))),
+                "-ar",
+                str(SAMPLE_RATE),
+                "-c:a",
+                "pcm_s24le",
+                "-f",
+                "wav",
+                str(dst),
+            ],
+            check=True,
+            capture_output=True,
+            timeout=CONVERT_S,
+        )
     except subprocess.TimeoutExpired:
         raise SampleError("unreadable", f"ffmpeg took over {CONVERT_S} s") from None
     except subprocess.CalledProcessError as exc:
-        raise SampleError("unreadable", f"ffmpeg could not convert it: {exc.stderr.decode(errors='ignore')[-200:].strip()}") from None
+        raise SampleError(
+            "unreadable", f"ffmpeg could not convert it: {exc.stderr.decode(errors='ignore')[-200:].strip()}"
+        ) from None
 
 
 def _used() -> int:
@@ -184,7 +243,7 @@ def add(data: bytes) -> tuple[dict, bool]:
         wav = work / "out.wav"
         _convert(src, fmt, int(probe["streams"][0].get("channels") or 2), wav)
         meta = _measure(wav)
-        if meta["seconds"] > MAX_S + 0.01:            # the header lied: what decoded is what counts
+        if meta["seconds"] > MAX_S + 0.01:  # the header lied: what decoded is what counts
             raise SampleError("too_long", f"over {MAX_S:g} s once decoded")
         if meta["seconds"] < MIN_S:
             raise SampleError("too_short", f"{meta['seconds']:.3f} s; at least {MIN_S:g} s")
@@ -192,7 +251,7 @@ def add(data: bytes) -> tuple[dict, bool]:
         os.replace(wav, DIR / f"{sid}.wav")
         tmp = work / "meta.json"
         tmp.write_text(json.dumps(meta, indent=2) + "\n")
-        os.replace(tmp, DIR / f"{sid}.json")           # last: a sample exists once its measurements do
+        os.replace(tmp, DIR / f"{sid}.json")  # last: a sample exists once its measurements do
         return meta, True
     finally:
         shutil.rmtree(work, ignore_errors=True)

@@ -32,6 +32,7 @@ def stops(where: str):
     """Turn hands' stops into Stop, naming the step."""
     from hands.live.session import Guard
     from hands.live.transport import LiveError
+
     try:
         yield
     except SystemExit as exc:

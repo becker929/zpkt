@@ -14,7 +14,7 @@ async def client(tmp_path, fake):
     rig = Rig(tmp_path, fake)
     rig.runner.close("tests drive the worker themselves")
     a = app(rig.jobs, rig.runner, rig.settings, TOKEN)
-    a.cleanup_ctx.clear()                       # no background worker: tests call tick()
+    a.cleanup_ctx.clear()  # no background worker: tests call tick()
     async with TestClient(TestServer(a)) as c:
         c.rig = rig
         yield c
@@ -28,14 +28,16 @@ async def test_token_is_required(client):
 async def test_guide(client):
     g = await (await client.get("/v1/guide", headers=AUTH)).json()
     assert g["palette"] == "2026-11" and g["schema"]["title"] == "Score" and len(g["examples"]) == 2
-    assert all("load" not in i for i in g["instruments"])       # the booth's load paths never leave it
+    assert all("load" not in i for i in g["instruments"])  # the booth's load paths never leave it
     assert {"room", "echo"} == set(g["returns"])
 
 
 async def test_guide_for_another_palette(client):
     g = await (await client.get("/v1/guide?palette=2026-12", headers=AUTH)).json()
     assert g["palette"] == "2026-12" and len(g["instruments"]) > 40
-    assert all(e["palette"] == "2026-12" for e in g["examples"]) and len(g["examples"]) == 2   # old examples, new version
+    assert (
+        all(e["palette"] == "2026-12" for e in g["examples"]) and len(g["examples"]) == 2
+    )  # old examples, new version
     kit = [i for i in g["instruments"] if i["id"] == "drums.909"][0]
     assert kit["pads"][0] == {"note": 36, "name": "Bass Drum"} and len(kit["pads"]) == 16
     res = await client.get("/v1/guide?palette=2027-01", headers=AUTH)
@@ -90,7 +92,9 @@ async def test_invalid_scores_and_queue_full(client):
     assert r.status == 400 and (await r.json())["errors"][0]["code"] == "unknown_instrument"
     rig.settings.queue_max = 2
     for k in range(2):
-        assert (await client.post("/v1/jobs", json={"key": f"k{k + 1}", "score": example()}, headers=AUTH)).status == 202
+        assert (
+            await client.post("/v1/jobs", json={"key": f"k{k + 1}", "score": example()}, headers=AUTH)
+        ).status == 202
     r = await client.post("/v1/jobs", json={"key": "k9", "score": example()}, headers=AUTH)
     assert r.status == 429 and (await r.json())["error"] == "queue_full"
 
