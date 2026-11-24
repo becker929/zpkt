@@ -35,7 +35,30 @@ nav button .pad { font: 600 10px ui-monospace, Menlo, monospace; color: var(--mu
   border-radius: 4px; padding: 1px 4px; }
 nav button.on { border-color: var(--accent); background: var(--accent-dim); }
 nav button.on .pad { color: var(--accent); border-color: var(--accent); }
-main { flex: 1; display: grid; gap: 10px; padding: 10px 12px; grid-template-columns: repeat(2, minmax(0, 1fr)); grid-auto-rows: min-content; }
+main { flex: 1; display: block; padding: 10px 12px; }
+nav#tabs { display: none; }
+.pager { display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-bottom: 1px solid var(--line); }
+.pager select { flex: 1; min-width: 0; font: 600 14px/1.2 inherit; font-family: inherit; background: var(--panel2); color: var(--text);
+  border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px; }
+.pager .btn { font-size: 13px; padding: 6px 12px; }
+.pager .of { color: var(--muted); font: 11px ui-monospace, Menlo, monospace; white-space: nowrap; }
+.card:not(.on) { display: none; }
+.card.on { box-shadow: none; border-color: var(--line); }
+.card .what { font-size: 12px; min-height: 0; }
+.card h2 .chip { display: none; }
+.knobs { gap: 10px 6px; }
+.knob svg { width: 58px !important; height: 58px !important; }
+.lbl { font-size: 12px; }
+.val { font-size: 11px; color: var(--text); }
+.faders { grid-template-columns: repeat(4, 58px); gap: 6px; }
+.fader .lbl, .fader .val { max-width: 58px; }
+.track { width: 20px; height: clamp(120px, 24vh, 240px); }
+.padb { min-height: 52px; }
+.help { display: none; }
+body.showhelp .help { display: flex; }
+.qbtn { border: 1px solid var(--line); background: var(--panel2); color: var(--muted); border-radius: 50%; width: 22px; height: 22px; font: 700 12px/20px inherit; font-family: inherit; cursor: pointer; padding: 0; }
+.rpage { display: none; }
+.rpage.on { display: block; }
 .card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 10px; display: flex;
   flex-direction: column; gap: 8px; cursor: pointer; transition: border-color .15s, opacity .15s; min-width: 0; }
 .card:not(.on) { opacity: .72; }
@@ -77,9 +100,8 @@ footer { padding: 6px 16px 12px; color: var(--muted); display: flex; gap: 18px; 
 footer b { color: var(--text); font-weight: 600; }
 @media (max-width: 1000px) { .split { display: block; height: auto; } .pane { overflow: visible; } .left { border-right: 0; } }
 @media (max-width: 760px) {
-  main { grid-template-columns: 1fr; }
-  .card.on { order: -1; }
-  .knob svg { width: 36px; height: 36px; }
+  .knob svg { width: 44px !important; height: 44px !important; }
+  .faders { grid-template-columns: repeat(4, 44px); }
 }
 
 /* history, checkpoints and what changed */
@@ -158,25 +180,25 @@ table.params td .d { color: var(--muted); }
   <span class="armed" id="armed">–</span>
   <span class="what" id="what"></span>
   <span class="status"><span class="dot" id="dot"></span><span id="status">connecting</span></span>
+  <button class="qbtn" id="help" title="What the MiniLab's controls do">?</button>
 </header>
 <nav id="tabs"></nav>
+<div class="pager">
+  <button class="btn" id="prevpg" title="Previous page (also arms it on the MiniLab)">‹ Prev</button>
+  <select id="pagesel" title="Pick a page: it is armed on the MiniLab"></select>
+  <span class="of" id="pageof"></span>
+  <button class="btn" id="nextpg" title="Next page (also arms it on the MiniLab)">Next ›</button>
+</div>
 <div class="hbar">
   <button class="btn" id="undo" title="Undo (Z)">Undo</button>
   <button class="btn" id="redo" title="Redo (Shift+Z)">Redo</button>
   <span class="sep"></span>
-  <input id="cpname" placeholder="checkpoint name" maxlength="60">
-  <button class="btn" id="cp" title="Save the whole mix as a checkpoint">Checkpoint</button>
-  <span class="sep"></span>
-  <span class="seg" id="view"><button data-v="normal" class="on">Normal</button><button data-v="hl">Highlight</button><button data-v="only">Only changed</button></span>
-  <span class="n">from</span><select id="cmpA" title="The checkpoint to compare from"></select>
-  <span class="n">to</span><select id="cmpB" title="Now, or another checkpoint"></select>
+  <span class="n">Show</span>
+  <span class="seg" id="view"><button data-v="normal" class="on" title="Every control as it is">All</button><button data-v="hl" title="Light up what changed since the checkpoint, dim the rest">Changes lit</button><button data-v="only" title="Only the controls that changed; Prev/Next skip pages with none">Only changes</button></span>
   <span class="n" id="nchg"></span>
-  <button class="btn" id="revshown" title="Every highlighted control back to the 'from' checkpoint (one step, undoable)">Revert these</button>
-  <button class="btn" id="revall" title="The whole mix back to the 'from' checkpoint, controls outside the desk too">Whole mix</button>
 </div>
 <main id="cards"></main>
-<section class="hist"><h3>History <span class="n" id="histn"></span></h3><ol id="hist"></ol></section>
-<footer>
+<footer class="help">
   <span><b>Pads A1–A8</b> or the <b>big encoder</b>: arm a page; press the pad again for its second layer (A2·2)</span>
   <span><b>Knobs 1–8</b>: snap to the armed page's values</span>
   <span><b>Faders 1–4</b>: pick up once they pass the value (blue line = where the fader is)</span>
@@ -196,10 +218,15 @@ table.params td .d { color: var(--muted); }
     </div>
     <canvas id="wave" style="margin-top:8px"></canvas>
     <div class="row" id="refs" style="margin-top:6px"></div>
-    <div class="note">Everything you hear is Live: <b>Play</b> runs Live's transport. <b>W</b> is your working mix, live, with your controls; <b>A</b> (original), <b>B</b> (the recipe's reference match) and <b>C</b> (the reference) are renders, as audio in the arrangement. The curves are A, B and C; W has none (it is live). Keys: <b>A</b> <b>B</b> <b>W</b> <b>C</b> switch · <b>Space</b> play/pause · <b>←/→</b> one bar · <b>1–4</b> pick the reference. The reference clips start on the drop (ref 0 s = bar 17).</div>
+    <div class="note help">Everything you hear is Live: <b>Play</b> runs Live's transport. <b>W</b> is your working mix, live, with your controls; <b>A</b> (original), <b>B</b> (the recipe's reference match) and <b>C</b> (the reference) are renders, as audio in the arrangement. The curves are A, B and C; W has none (it is live). Keys: <b>A</b> <b>B</b> <b>W</b> <b>C</b> switch · <b>Space</b> play/pause · <b>←/→</b> one bar · <b>1–4</b> pick the reference. The reference clips start on the drop (ref 0 s = bar 17).</div>
   </div>
-  <div class="box">
-    <div class="row"><h3 style="margin:0">Spectrum, 1/6 octave</h3><span class="sp"></span>
+  <div class="pager" style="border:0;padding:0">
+    <button class="btn" id="prevv">‹ Prev</button>
+    <span class="seg" id="vtabs" style="flex:1;justify-content:center"><button data-v="spec" class="on">Spectrum</button><button data-v="time">Over time</button><button data-v="nums">Numbers</button><button data-v="chg">Changes</button></span>
+    <button class="btn" id="nextv">Next ›</button>
+  </div>
+  <div class="box rpage on" data-p="spec">
+    <div class="row"><h3 style="margin:0">Spectrum</h3><span class="sp"></span>
       <span class="seg" id="sec"><button data-v="build">Build</button><button data-v="drop" class="on">Drop</button></span>
       <span class="seg" id="mode"><button data-v="abs" class="on">Levels</button><button data-v="rel">vs reference</button><button data-v="chg">Moves</button></span>
       <label class="chk"><input type="checkbox" id="tilt" checked>+4.5 dB/oct tilt</label>
@@ -208,16 +235,32 @@ table.params td .d { color: var(--muted); }
     <div class="legend" id="specleg"></div>
     <div class="note" id="specnote"></div>
   </div>
-  <div class="box">
+  <div class="box rpage" data-p="time">
     <div class="row"><h3 style="margin:0">Over time</h3><span class="sp"></span>
       <span class="seg" id="metric"><button data-v="lufs" class="on">Loudness</button><button data-v="crest">Crest</button><button data-v="width">Width</button><button data-v="bass_corr">Bass mono</button><button data-v="low">Low</button><button data-v="mid">Mid</button><button data-v="high">High</button></span>
     </div>
     <canvas id="tl" style="margin-top:6px"></canvas>
     <div class="note" id="tlnote"></div>
   </div>
-  <div class="box">
+  <div class="box rpage" data-p="nums">
     <div class="row"><h3 style="margin:0">Numbers</h3><span class="sp"></span><span class="note" id="tabnote" style="margin:0"></span></div>
     <table class="params" id="params"></table>
+  </div>
+  <div class="box rpage" data-p="chg">
+    <div class="row"><h3 style="margin:0">Changes</h3><span class="sp"></span>
+      <input id="cpname" placeholder="name (optional)" maxlength="60" style="font:inherit;background:var(--panel2);color:var(--text);border:1px solid var(--line);border-radius:7px;padding:3px 6px;width:130px">
+      <button class="btn" id="cp" title="Save the whole mix as a checkpoint">Save checkpoint</button>
+    </div>
+    <div class="row" style="margin-top:8px">
+      <span class="note" style="margin:0">Compare from</span><select id="cmpA" class="chip2" title="The checkpoint to compare from"></select>
+      <span class="note" style="margin:0">to</span><select id="cmpB" class="chip2" title="Now, or another checkpoint"></select>
+    </div>
+    <div class="row" style="margin-top:8px">
+      <button class="btn" id="revshown" title="Every changed desk control back to the 'from' checkpoint (one step, undoable)">Revert the changed controls</button>
+      <button class="btn" id="revall" title="The whole mix back to the 'from' checkpoint, controls outside the desk too">Revert the whole mix</button>
+    </div>
+    <div class="note">The left side lights up what differs (Show: Changes lit). A checkpoint is the whole mix, saved as a file; every state in the set's state folder is one (B is the recipe).</div>
+    <section class="hist" style="margin:10px 0 0"><h3>History <span class="n" id="histn"></span></h3><ol id="hist"></ol></section>
   </div>
 </div>
 </div>
@@ -319,8 +362,37 @@ function paintFaders() {
   }));
 }
 
+// one page at a time: Prev/Next and the picker arm the page on the MiniLab too, so the screen and the controller agree.
+// With "Only changes" shown, Prev/Next skip pages where nothing differs.
+function pageStep(dir) {
+  const n = desk.pages.length, counts = H.perPage || {};
+  for (let k = 1; k <= n; k++) {
+    const i = (state.page + dir * k + n) % n;
+    if (H.view !== "only" || counts[i]) return arm(i);
+  }
+}
+function fillPagePicker() {
+  const sel = document.getElementById("pagesel"), counts = H.perPage || {};
+  const want = desk.pages.map((pg, i) => `<option value="${i}">${padLabel(i)} · ${pg.name}${H.view !== "normal" && counts[i] ? `  (${counts[i]} changed)` : ""}</option>`).join("");
+  if (sel.innerHTML !== want) sel.innerHTML = want;
+  sel.value = String(state.page);
+  document.getElementById("pageof").textContent = `${state.page + 1} / ${desk.pages.length}`;
+}
+function initPager() {
+  document.getElementById("prevpg").onclick = () => pageStep(-1);
+  document.getElementById("nextpg").onclick = () => pageStep(1);
+  document.getElementById("pagesel").onchange = (e) => arm(Number(e.target.value));
+  document.getElementById("help").onclick = () => document.body.classList.toggle("showhelp");
+  document.addEventListener("keydown", (e) => {
+    if (e.target.closest && e.target.closest("input,textarea,select")) return;
+    if (e.key === "PageUp" || e.key === "[") { e.preventDefault(); pageStep(-1); }
+    if (e.key === "PageDown" || e.key === "]") { e.preventDefault(); pageStep(1); }
+  });
+}
+
 function paintPage() {
   const pg = desk.pages[state.page] || {};
+  if (document.getElementById("pagesel")) fillPagePicker();
   document.getElementById("armed").textContent = pg.name ? `${padLabel(state.page)} · ${pg.name}` : "–";
   document.getElementById("what").textContent = pg.what || "";
   desk.pages.forEach((_, i) => {
@@ -407,7 +479,7 @@ function paintChanged() {
       }
     }
   }
-  H.changed = changed;
+  H.changed = changed; H.perPage = perPage;
   const mode = H.view;
   const nKeys = new Set(Object.keys(changed).map((k) => state.values[k].key)).size;
   desk.pages.forEach((pg, i) => {
@@ -426,7 +498,8 @@ function paintChanged() {
     if (!cnt) { cnt = document.createElement("span"); cnt.className = "cnt"; tab.appendChild(cnt); }
     cnt.textContent = perPage[i] || ""; cnt.style.display = mode !== "normal" && perPage[i] ? "" : "none";
   });
-  $id("nchg").innerHTML = H.va ? (H.va.error ? `no checkpoint ${H.a}` : `<b>${nKeys}</b> control${nKeys === 1 ? "" : "s"} differ`) : "";
+  $id("nchg").innerHTML = H.va ? (H.va.error ? `no checkpoint ${H.a}` : `<b>${nKeys}</b> changed since <b>${H.a}</b>${H.b !== "now" ? ` (to ${H.b})` : ""}`) : "";
+  fillPagePicker();
   $id("revshown").disabled = !(H.b === "now" && nKeys);
   $id("revall").disabled = !(H.b === "now" && H.a);
 }
@@ -512,7 +585,7 @@ function initHistory() {
   fetch("/api/history").then((r) => r.json()).then(paintHist);
 }
 
-fetch("/api/desk").then((r) => r.json()).then((d) => { desk = d; build(); connect(); initHistory(); });
+fetch("/api/desk").then((r) => r.json()).then((d) => { desk = d; build(); initPager(); connect(); initHistory(); });
 </script>
 <script>
 // ---- right half: a control surface for Live. All audio is Live's (the arrangement, and the monitor tracks that hold
@@ -600,7 +673,8 @@ function drawWave() {
   // section shading
   g.fillStyle = c.line + "55"; g.fillRect(x(AN.build_end_s), 0, W - x(AN.build_end_s), H);
   g.fillStyle = c.mut; g.font = "10px system-ui"; g.fillText("build", 4, 11); g.fillText("drop", x(AN.build_end_s) + 4, 11);
-  const s = src(S.sel), off = align(S.sel), env = s.env, col = COL[S.sel];
+  const ws = S.sel === "W" ? "B" : S.sel;     // W is live: its waveform is the arrangement's, as B rendered it
+  const s = src(ws), off = align(ws), env = s.env, col = COL[S.sel];
   g.fillStyle = col + "bb";
   const mx = Math.max(...env, 1e-6);
   env.forEach((v, i) => { const t = i / 20 + off, h = Math.max(1, (v / mx) * (H - 16)); g.fillRect(x(t), H / 2 - h / 2 + 5, Math.max(1, W / dur / 20), h); });
@@ -775,6 +849,20 @@ async function init() {
     else if (k === "arrowleft") seek(curPos() - BAR_S); else if (k === "arrowright") seek(curPos() + BAR_S);
     else if (/^[1-4]$/.test(k)) { const refs = Object.values(AN.sources).filter((x) => x.kind === "ref"); if (refs[k - 1]) pickRef(refs[k - 1].id); }
   });
+  // the right side's views, one at a time
+  const views = [...$("vtabs").children].map((b) => b.dataset.v);
+  const showView = (v) => {
+    [...$("vtabs").children].forEach((b) => b.classList.toggle("on", b.dataset.v === v));
+    document.querySelectorAll(".rpage").forEach((p) => p.classList.toggle("on", p.dataset.p === v));
+    try { localStorage.setItem("mixdesk.view", v); } catch (e) { /* private window: not remembered */ }
+    draw();
+  };
+  [...$("vtabs").children].forEach((b) => b.onclick = () => showView(b.dataset.v));
+  const cur = () => views.indexOf(($("vtabs").querySelector(".on") || {}).dataset?.v);
+  $("prevv").onclick = () => showView(views[(cur() - 1 + views.length) % views.length]);
+  $("nextv").onclick = () => showView(views[(cur() + 1) % views.length]);
+  let saved = null; try { saved = localStorage.getItem("mixdesk.view"); } catch (e) { /* none */ }
+  if (views.includes(saved)) showView(saved);
   new ResizeObserver(draw).observe($("viz"));
   matchMedia("(prefers-color-scheme: dark)").addEventListener("change", draw);
   draw(); requestAnimationFrame(frame);
