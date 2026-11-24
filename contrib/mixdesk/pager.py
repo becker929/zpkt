@@ -10,37 +10,42 @@ A page may name its pad ("pad": 2); pages that share a pad are layers: pressing 
 arms the next page on that pad. The big encoder steps through every page in order.
 
 Every change (a value moved in Live by anything, a control touched, a page armed) goes out as one small JSON UDP
-datagram to the server, which shows it on the surface. Live's Python is 3.11; keep this file free of newer syntax.
+datagram to the server (protocol.py has their shapes), which shows it on the surface.
+
+This file is the Live shell: listeners, grabs and LOM writes. Its decisions are in pagercore.py, and tracks, keys and
+shown values are hands' inlive helpers; all three are loaded by path, since Live's Python cannot import hands.
+Live's Python is 3.11; keep this file free of newer syntax.
 """
+import importlib.util
 import json
-import re
+import os
 import socket
 import time
 
 import Live
 
+_HERE = os.path.dirname(os.path.abspath(__file__))
+_INLIVE = os.path.join(_HERE, os.pardir, os.pardir, "hands", "src", "hands", "live", "inlive")
+
+
+def _load(name, path):
+    spec = importlib.util.spec_from_file_location(name, path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+core = _load("zpkt_mixdesk_pagercore", os.path.join(_HERE, "pagercore.py"))
+tracks = _load("zpkt_inlive_tracks", os.path.join(_INLIVE, "tracks.py"))
+shown = _load("zpkt_inlive_shown", os.path.join(_INLIVE, "shown.py"))
+keys = _load("zpkt_inlive_keys", os.path.join(_INLIVE, "keys.py"))
+
 PRIORITY = 20          # above ZpktMiniLabTempo (10): while the desk holds fader 4, the tempo script does not
 FADERS = ["volume_fader", "send_a_fader", "send_b_fader", "pan_fader"]   # CC 14, 15, 30, 31: left to right
-PICKUP = 0.03
-
 MAIN_DEVICES = ("desk headroom", "desk Glue", "desk Utility")   # bypassed while an audio-clip monitor track plays
-END_BEAT = 160.0
-SLOTS_V = 2          # slots A, B, W, C (v1 had B = the live mix); a reload maps a v1 "B" to "W"                                                 # the arrangement is 40 bars at 160 BPM
+END_BEAT = core.END_BEAT
+SLOTS_V = core.SLOTS_V   # the server hands this over on a reload (server.pager_start_code)
 DESK = None
-
-
-def _db_to_volume(param, db):
-    """The mixer volume value whose label reads db (bisection on Live's own fader law)."""
-    lo, hi = 0.0, 1.0
-    for _ in range(24):
-        mid = (lo + hi) / 2
-        txt = param.str_for_value(mid).split()[0]
-        val = float("-inf") if "inf" in txt else float(txt)
-        if val < db:
-            lo = mid
-        else:
-            hi = mid
-    return (lo + hi) / 2
 
 
 def _minilab():
@@ -80,30 +85,31 @@ class _Target(object):
         self.spec, self.param, self.track, self.flag, self.error = spec, None, None, None, None
         self.key = None
         try:
-            self.track = _track(song, spec["track"])
-            tn = "Main" if self.track == song.master_track else _short(self.track, song)
+            self.track = tracks.find_track(song, spec["track"])
+            tn = _key_name(self.track, song)
             p = spec["param"]
+            ret = keys.send_return(p) if p.startswith(keys.SEND_IN_PARAM) else None
             if "device" in spec:
                 dev = next(d for d in self.track.devices if d.name == spec["device"])
                 self.param = next(x for x in dev.parameters if x.name == p)
-                self.key = "%s/%s/%s" % (tn, spec["device"], p)
+                self.key = keys.device_key(tn, spec["device"], p)
             elif p == "volume":
                 self.param = self.track.mixer_device.volume
-                self.key = tn + "/volume"
+                self.key = keys.mixer_key(tn, p)
             elif p == "pan":
                 self.param = self.track.mixer_device.panning
-                self.key = tn + "/pan"
-            elif p.startswith("send:"):
+                self.key = keys.mixer_key(tn, p)
+            elif ret is not None:
                 rets = list(song.return_tracks)
-                i = next(k for k, r in enumerate(rets) if _named(r, p[5:]))
+                i = next(k for k, r in enumerate(rets) if r.name == ret or tracks.short_name(r.name, True) == ret)
                 self.param = self.track.mixer_device.sends[i]
-                self.key = "%s/send %s" % (tn, _short(rets[i], song))
+                self.key = keys.send_key(tn, tracks.short_name(rets[i].name, True))
             elif p in ("mute", "solo"):
                 self.flag = p
-                self.key = "%s/%s" % (tn, p)
+                self.key = keys.mixer_key(tn, p)
             else:
                 raise ValueError("unknown param %r" % p)
-        except StopIteration:
+        except (StopIteration, LookupError):
             self.error = "not in the set"
         except Exception as exc:
             self.error = str(exc)
@@ -112,9 +118,7 @@ class _Target(object):
         if self.flag:
             return 1.0 if getattr(self.track, self.flag) else 0.0
         p = self.param
-        if p is None or p.max == p.min:
-            return 0.0
-        return (p.value - p.min) / (p.max - p.min)
+        return 0.0 if p is None else core.norm(p.value, p.min, p.max)
 
     def text(self):
         if self.flag:
@@ -142,26 +146,19 @@ class _Target(object):
         return bool(self.flag) or bool(self.param is not None and self.param.is_quantized)
 
     def set_norm(self, n):
-        n = max(0.0, min(1.0, n))
         if self.flag:
-            setattr(self.track, self.flag, n >= 0.5)
+            setattr(self.track, self.flag, max(0.0, min(1.0, n)) >= 0.5)
             return
         p = self.param
-        v = p.min + (p.max - p.min) * n
-        if p.is_quantized:
-            v = round(v)
         if p.is_enabled:
-            p.value = v
+            p.value = core.value_at(n, p.min, p.max, p.is_quantized)
 
     def toggle(self):
         if self.flag:
             setattr(self.track, self.flag, not getattr(self.track, self.flag))
         elif self.param is not None and self.param.is_enabled:
             p = self.param
-            if p.is_quantized and p.max - p.min > 1:   # a list of more than two: step through it
-                p.value = p.min if p.value >= p.max else p.value + 1
-            else:
-                p.value = p.min if p.value > p.min else p.max
+            p.value = core.toggled(p.value, p.min, p.max, p.is_quantized)
 
     def listen(self, fn):
         if self.flag == "mute":
@@ -183,66 +180,20 @@ class _Target(object):
             pass
 
 
-_NUM = re.compile(r"\s*([+-]?(?:\d+\.?\d*|\.\d+|inf))\s*([a-zA-Z%]*)")
-_SCALE = {"khz": 1e3, "ms": 1e-3}
-
-
-def _num(text):
-    """A shown value as a number in its base unit ("1.73 kHz" -> 1730, "2.5 ms" -> 0.0025, "-inf dB" -> very low)."""
-    m = _NUM.match(str(text))
-    if not m:
-        return None
-    if "inf" in m.group(1):
-        return -1e9 if m.group(1).startswith("-") else 1e9
-    return float(m.group(1)) * _SCALE.get(m.group(2).lower(), 1.0)
-
-
-def _raw_for(p, want):
-    """The parameter value that shows as `want` ("200 Hz", "-6 dB", "35 %", a list item's name, or "min", "max",
-    "current"), found by bisecting what Live shows. None if it cannot be read."""
-    w = str(want).strip()
-    if w.lower() == "min":
-        return p.min
-    if w.lower() == "max":
-        return p.max
-    if w.lower() == "current":
-        return p.value
-    if p.is_quantized:
-        for v in range(int(p.min), int(p.max) + 1):
-            if p.str_for_value(v).strip().lower() == w.lower():
-                return float(v)
-    target = _num(w)
-    a, b = _num(p.str_for_value(p.min)), _num(p.str_for_value(p.max))
-    if target is None or a is None or b is None:
-        return None
-    lo, hi, rising = p.min, p.max, b >= a
-    for _ in range(40):
-        mid = (lo + hi) / 2.0
-        v = _num(p.str_for_value(mid))
-        if v is None:
-            return None
-        if (v < target) == rising:
-            lo = mid
-        else:
-            hi = mid
-    v = (lo + hi) / 2.0
-    return float(round(v)) if p.is_quantized else v
-
-
 class _Macro(object):
     """One control that moves several parameters together: each from its "from" to its "to" as the control goes
     from 0 to 1 ({"label": ..., "macro": [{"track", "device", "param", "from": "200 Hz", "to": "2 kHz"}, ...]}).
     Its value is its position; the first parameter is the one it is read from and listened to."""
 
-    def __init__(self, song, spec, desk):
-        self.spec, self.desk, self.error, self.flag, self.param = spec, desk, None, None, None
+    def __init__(self, song, spec):
+        self.spec, self.error, self.flag, self.param = spec, None, None, None
         self.key = None        # not a value of the mix: the history keeps the parameters it moves
         self.subs, self.skipped, self.own_until, self._wrapped = [], [], 0.0, {}
         for m in spec.get("macro", []):
             t = _Target(song, m)
             a = b = None
             if not t.error and t.param is not None:
-                a, b = _raw_for(t.param, m.get("from", "min")), _raw_for(t.param, m.get("to", "max"))
+                a, b = shown.raw_for(t.param, m.get("from", "min")), shown.raw_for(t.param, m.get("to", "max"))
             if a is None or b is None:
                 self.skipped.append("%s/%s/%s" % (m.get("track"), m.get("device", ""), m.get("param")))
             else:
@@ -255,7 +206,7 @@ class _Macro(object):
         if not self.subs:
             return 0.0
         t, a, b = self.subs[0]
-        return max(0.0, min(1.0, (t.param.value - a) / (b - a))) if b != a else 0.0
+        return core.macro_position(t.param.value, a, b)
 
     def norm(self):
         return self.pos
@@ -276,8 +227,7 @@ class _Macro(object):
         for t, a, b in self.subs:
             p = t.param
             if p.is_enabled:
-                v = a + (b - a) * n
-                v = max(p.min, min(p.max, round(v) if p.is_quantized else v))
+                v = core.macro_value(n, a, b, p.min, p.max, p.is_quantized)
                 if p.value != v:
                     p.value = v
 
@@ -303,29 +253,11 @@ class _Macro(object):
             pass
 
 
-def pad_of(cfg, i):
-    """The bank-A pad (1-8) that arms page i: its "pad", or its place among the first eight pages."""
-    page = cfg["pages"][i]
-    if "pad" in page:
-        return int(page["pad"])
-    return i + 1 if i < 8 else None
-
-
-def _named(track, name):
-    # a return shows as "A-Space": the letter is part of its name
-    return track.name == name or track.name[1:] == "-" + name
-
-
-def _short(track, song):
-    """A return's name without Live's letter ("A-Space" -> "Space"), as hands.live.state keys it."""
-    n = track.name
-    return n[2:] if track in list(song.return_tracks) and n[1:2] == "-" else n
-
-
-def _track(song, name):
-    if name.lower() in ("main", "master"):
-        return song.master_track
-    return next(t for t in list(song.tracks) + list(song.return_tracks) if _named(t, name))
+def _key_name(track, song):
+    """A track's name in a state key: "Main", a return without Live's letter, any other track as it is."""
+    if track == song.master_track:
+        return "Main"
+    return tracks.short_name(track.name, track in list(song.return_tracks))
 
 
 class Desk(object):
@@ -369,7 +301,7 @@ class Desk(object):
         s = self.song
         b, playing = s.current_song_time, s.is_playing
         self.emit({"t": "pos", "b": b, "p": bool(playing)})
-        if playing and not s.loop and b >= END_BEAT:
+        if core.ran_past_end(playing, s.loop, b):
             try:
                 s.stop_playing()
             except Exception:
@@ -383,13 +315,13 @@ class Desk(object):
                 s.back_to_arranger = False
             # start_playing begins at the start marker; continue_playing from a position set through the LOM jumped
             # to a stale spot in testing, so play from where the playhead is by moving the marker there first
-            pos = 0.0 if s.current_song_time >= END_BEAT else s.current_song_time
+            pos = core.play_from(s.current_song_time)
             s.start_time = pos
             s.start_playing()
         elif action == "pause":
             s.stop_playing()
         elif action == "seek":
-            pos = max(0.0, min(END_BEAT - 0.01, float(beat)))
+            pos = core.seek_position(beat)
             s.current_song_time = pos
             if not s.is_playing:
                 s.start_time = pos
@@ -397,7 +329,7 @@ class Desk(object):
             if loop == "off":
                 s.loop = False
             else:
-                a, n = (0.0, 64.0) if loop == "build" else (64.0, END_BEAT - 64.0)
+                a, n = core.LOOPS["build" if loop == "build" else "drop"]
                 s.loop_start = a
                 s.loop_length = n
                 s.loop = True
@@ -428,7 +360,10 @@ class Desk(object):
         if target is not None:
             if target.mute:
                 target.mute = False
-            target.mixer_device.volume.value = _db_to_volume(target.mixer_device.volume, gain_db)
+            volume = target.mixer_device.volume
+            value = shown.raw_for(volume, "%.2f dB" % gain_db)
+            if value is not None:
+                volume.value = value
             if not target.solo:
                 target.solo = True
         devs = [d for d in s.master_track.devices if d.name in MAIN_DEVICES]
@@ -452,7 +387,7 @@ class Desk(object):
         self.targets, self.by_key = {}, {}
         for i, page in enumerate(self.cfg["pages"]):
             for slot, spec in page["controls"].items():
-                t = _Macro(self.song, spec, self) if "macro" in spec else _Target(self.song, spec)
+                t = _Macro(self.song, spec) if "macro" in spec else _Target(self.song, spec)
                 self.targets[(i, slot)] = t
                 if t.key and not t.error:
                     self.by_key.setdefault(t.key, t)
@@ -536,10 +471,8 @@ class Desk(object):
             if t is None or t.error:
                 self.emit({"t": "hw", "page": self.page, "slot": slot, "hw": n, "picked": False})
                 return
-            if not self.picked.get(slot):
-                v = t.norm()
-                if abs(n - v) <= PICKUP or (last is not None and (last - v) * (n - v) <= 0):
-                    self.picked[slot] = True
+            if not self.picked.get(slot) and core.picks_up(n, last, t.norm()):
+                self.picked[slot] = True
             if self.picked.get(slot):
                 self._apply(t, n)
                 if isinstance(t, _Macro):
@@ -550,15 +483,9 @@ class Desk(object):
     def _page_pad(self, k):
         """Pad A(k+1) arms the first page on that pad; pressed again, the next page on the same pad (a layer)."""
         def on(value):
-            if not value:
-                return
-            on_pad = [i for i, _ in enumerate(self.cfg["pages"]) if pad_of(self.cfg, i) == k + 1]
-            if not on_pad:
-                return
-            if self.page in on_pad:
-                self.arm(on_pad[(on_pad.index(self.page) + 1) % len(on_pad)])
-            else:
-                self.arm(on_pad[0])
+            page = core.page_for_pad(self.cfg, k + 1, self.page) if value else None
+            if page is not None:
+                self.arm(page)
         return on
 
     def _toggle_pad(self, slot):
@@ -568,9 +495,9 @@ class Desk(object):
         return on
 
     def _page_encoder(self, value):
-        step = 1 if value > 64 else -1 if value < 64 else 0
-        if step:
-            self.arm((self.page + step) % len(self.cfg["pages"]))
+        page = core.page_for_encoder(value, self.page, len(self.cfg["pages"]))
+        if page is not None:
+            self.arm(page)
 
     def _apply(self, t, n):
         try:
@@ -614,10 +541,8 @@ class Desk(object):
         self.emit({"t": "hw", "page": page, "slot": slot, "hw": None, "picked": True})
 
     def send_value(self, page, slot):
-        t = self.targets[(page, slot)]
         # "sys": the desk itself moved it (a monitor switch bypassing Main's devices), so it is not a mix change
-        self.emit({"t": "v", "page": page, "slot": slot, "n": t.norm(), "s": t.text(), "r": t.raw(), "key": t.key,
-                   "sys": time.time() < self.sys_until})
+        self.emit(core.value_message(page, slot, self.targets[(page, slot)], time.time() < self.sys_until))
 
     def inventory(self):
         """Everything a surface can hold, one line each: track, device ("" for the mixer), parameter, what it shows
@@ -626,22 +551,25 @@ class Desk(object):
         s, out = self.song, []
         rets = list(s.return_tracks)
         for t in list(s.tracks) + rets + [s.master_track]:
-            name = "Main" if t == s.master_track else _short(t, s)
+            name = _key_name(t, s)
             if name.startswith("mon "):
                 continue
             m = t.mixer_device
-            mixer = [("volume", m.volume), ("pan", m.panning)] + [("send:" + _short(r, s), m.sends[k]) for k, r in enumerate(rets) if k < len(m.sends)]
+            mixer = [("volume", m.volume), ("pan", m.panning)] + [
+                (keys.send_param(_key_name(r, s)), m.sends[k]) for k, r in enumerate(rets) if k < len(m.sends)]
             for pn, p in mixer:
-                out.append("\t".join([name, "", pn, str(p), p.str_for_value(p.min), p.str_for_value(p.max), ""]))
+                out.append(core.inventory_line(name, "", pn, str(p), p.str_for_value(p.min), p.str_for_value(p.max), False))
             if t != s.master_track:
-                out.append("\t".join([name, "", "mute", "on" if t.mute else "off", "off", "on", "Q"]))
-                out.append("\t".join([name, "", "solo", "on" if t.solo else "off", "off", "on", "Q"]))
+                for flag in ("mute", "solo"):
+                    now = "on" if getattr(t, flag) else "off"
+                    out.append(core.inventory_line(name, "", flag, now, "off", "on", True))
             for d in t.devices:
                 bypassed = t == s.master_track and self.main_saved is not None and d.name in self.main_saved
                 for k, p in enumerate(d.parameters):
                     try:
                         now = p.str_for_value(self.main_saved[d.name]) if bypassed and k == 0 else str(p)
-                        out.append("\t".join([name, d.name, p.name, now, p.str_for_value(p.min), p.str_for_value(p.max), "Q" if p.is_quantized else ""]))
+                        out.append(core.inventory_line(name, d.name, p.name, now, p.str_for_value(p.min),
+                                                       p.str_for_value(p.max), p.is_quantized))
                     except Exception:
                         pass
         return "\n".join(out)
@@ -679,20 +607,10 @@ class Desk(object):
 
     def _loop_mode(self):
         s = self.song
-        if not s.loop:
-            return "off"
-        if abs(s.loop_start) < 0.5 and abs(s.loop_length - 64.0) < 0.5:
-            return "build"
-        if abs(s.loop_start - 64.0) < 0.5 and abs(s.loop_length - (END_BEAT - 64.0)) < 0.5:
-            return "drop"
-        return "on"
+        return core.loop_mode(s.loop, s.loop_start, s.loop_length)
 
     def snapshot(self):
-        vals = {}
-        for (page, slot), t in self.targets.items():
-            vals["%d:%s" % (page, slot)] = {"n": t.norm() if not t.error else None, "s": t.text() if not t.error else "",
-                                            "q": t.quantized() if not t.error else False, "err": t.error,
-                                            "r": t.raw() if not t.error else None, "key": t.key}
+        vals = dict(("%d:%s" % (page, slot), core.value_report(t)) for (page, slot), t in self.targets.items())
         return {"page": self.page, "attached": self.attached(), "values": vals, "hw": self.hw,
                 "picked": self.picked, "monitor": {"slot": self.monitor_slot, "ref": self.monitor_ref},
                 "pos": self.song.current_song_time, "playing": bool(self.song.is_playing), "loop": self._loop_mode(),
@@ -715,18 +633,14 @@ class Desk(object):
 
 
 def start(song, cfg, port):
-    """(Re)start the desk: drop the old one's grabs and listeners, resolve the pages, grab the MiniLab."""
+    """Start the desk: resolve the pages, grab the MiniLab. server.py loads this file afresh each time and hands the
+    old desk's monitor and page over in CARRY (after stopping that desk)."""
     global DESK
-    if DESK is not None:
-        page = DESK.page
-        carry = {"main_saved": DESK.main_saved, "slot": DESK.monitor_slot, "ref": DESK.monitor_ref}
-        DESK.stop()
-    else:
-        carry = globals().get("CARRY") or {}      # server.py hands over the old module's state when it reloads this file
-        page = carry.get("page", 0)
+    carry = globals().get("CARRY") or {}
+    page = carry.get("page", 0)
     DESK = Desk(song, cfg, port)
     DESK.page = page if 0 <= page < len(cfg["pages"]) else 0     # the page it was on may be gone (a surface removed)
     DESK.main_saved = carry.get("main_saved")
-    DESK.monitor_slot, DESK.monitor_ref = (lambda s: "W" if s == "B" and carry.get("v") != 2 else s)(carry.get("slot", "W")), carry.get("ref", "C1")
+    DESK.monitor_slot, DESK.monitor_ref = core.carried_slot(carry), carry.get("ref", "C1")
     DESK.attach()
     return DESK.snapshot()
