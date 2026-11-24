@@ -22,6 +22,7 @@ refuses, because Live crashes when it cannot write a recording.
 
 from __future__ import annotations
 
+import contextlib
 import gzip
 import json
 import re
@@ -63,10 +64,8 @@ def _read(out_dir: Path) -> dict[str, Any]:
 
 
 def _write(out_dir: Path, memo: dict[str, Any]) -> None:
-    try:
+    with contextlib.suppress(OSError):
         _memo(out_dir).write_text(json.dumps(memo))
-    except OSError:
-        pass
 
 
 def note_takes(out_dir: Path, folder: Path) -> None:
@@ -98,7 +97,8 @@ def used_by_sets(project: Path, memo: dict[str, Any]) -> set[str]:
         hit = seen.get(key)
         if not hit or hit[0] != stamp:
             try:
-                data = gzip.open(als).read()
+                with gzip.open(als) as fh:
+                    data = fh.read()
             except (OSError, EOFError):
                 try:
                     data = als.read_bytes()

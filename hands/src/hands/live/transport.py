@@ -21,6 +21,7 @@ could apply an edit twice, so that is an error for the caller to judge.
 
 from __future__ import annotations
 
+import contextlib
 import json
 import socket
 import time
@@ -117,10 +118,8 @@ class LiveClient(Transport):
 
     def close(self) -> None:
         if self._sock is not None:
-            try:
+            with contextlib.suppress(OSError):
                 self._sock.close()
-            except OSError:
-                pass
             self._sock = None
 
     def execute(self, code: str) -> McpResult:

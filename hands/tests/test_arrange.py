@@ -41,7 +41,7 @@ def test_fx_blocks_compile():
     live = Compiles([[0.0, 2.0], [[8.0, 11.0]], [100.0, 108.0, 55.5, 66.0, []], [64.0, 65.0], [0.7, "-6.0 dB"]])
     fx.splash(live, 5, 32.0, 3.0)
     fx.splash_copies(live, 5, 32.0, [8.0], 3.0)
-    start, end, end_beat = fx.phrase_at(live, 17, 104.0, 4.0, 96.0, 112.0)
+    start, _end, end_beat = fx.phrase_at(live, 17, 104.0, 4.0, 96.0, 112.0)
     assert end_beat == pytest.approx(fx.BEATBOX.hold + 4.0)
     fx.tail_slices(live, 17, start, end_beat, [64.0], 0.5)
     assert fx.fader_db(live, 12, -6.0) == [0.7, "-6.0 dB"]

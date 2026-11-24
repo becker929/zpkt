@@ -115,10 +115,7 @@ def collage(p: Project) -> tuple[int, list[str]]:
         b = p.browser
         regions = len((b.get("collage") or {}).get("regions") or [])
         sounds = len(b.get("sounds") or [])
-        if b.get("column") == "collage":
-            browser_points = 40 + min(40, 10 * regions)
-        else:
-            browser_points = 10 + min(20, 2 * sounds)
+        browser_points = 40 + min(40, 10 * regions) if b.get("column") == "collage" else 10 + min(20, 2 * sounds)
         ev.append(
             f"audio-browser project {b.get('id')}: column {b.get('column')}, {sounds} sounds taken, "
             f"{regions} collage regions" + (", abandoned" if b.get("abandoned") else "")

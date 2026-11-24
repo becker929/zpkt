@@ -31,7 +31,7 @@ def _load_config(config_path: str) -> Any:
         return ProjectConfig.model_validate_json(path.read_text())
     except Exception as exc:
         console.print(f"[red]Invalid config: {exc}[/red]")
-        raise typer.Exit(1)
+        raise typer.Exit(1) from None
 
 
 def build(

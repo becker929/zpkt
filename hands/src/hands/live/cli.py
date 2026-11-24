@@ -223,7 +223,7 @@ def save(
         print(f"state {p}")
 
 
-from hands.live import edit_cli, state_cli  # noqa: E402  (they register their commands on app)
+from hands.live import edit_cli, state_cli  # noqa: E402
 
 state_cli.register(app)
 edit_cli.register(app)

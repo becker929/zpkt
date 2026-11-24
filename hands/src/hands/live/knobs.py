@@ -30,24 +30,24 @@ from dataclasses import dataclass
 from typing import Any
 
 from hands.live.transport import McpTransport
-from hands.live.units import (  # noqa: F401  (Unit, Lin, Log and the tables are part of knobs' API)
+from hands.live.units import (
     _BAND_PATH,
     BOOL,
     EQ8_BAND,
-    EQ8_FREQ,
-    FADER,
+    EQ8_FREQ,  # noqa: F401
+    FADER,  # noqa: F401
     MIXER,
-    MUTE,
+    MUTE,  # noqa: F401
     SAME,
     UNITS,
-    Bool,
-    Db35,
-    Fader,
-    Lin,
-    Log,
-    Mute,
-    Ratio,
-    Sqrt,
+    Bool,  # noqa: F401
+    Db35,  # noqa: F401
+    Fader,  # noqa: F401
+    Lin,  # noqa: F401
+    Log,  # noqa: F401
+    Mute,  # noqa: F401
+    Ratio,  # noqa: F401
+    Sqrt,  # noqa: F401
     Unit,
 )
 

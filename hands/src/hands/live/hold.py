@@ -93,7 +93,7 @@ def using_live(what: str, *, wait_s: float = 300.0, client: McpTransport | None 
         finally:
             _depth -= 1
         return
-    f = open(_dir() / LOCK, "a+")
+    f = open(_dir() / LOCK, "a+")  # noqa: SIM115  (held open for the lock's whole life; closed in the finally)
     t0 = time.monotonic()
     try:
         while True:
@@ -179,18 +179,14 @@ def note(what: str, code: str) -> str:
         "at": time.time(),
         "set": _set,
     }
-    try:
+    with contextlib.suppress(OSError):  # a full disk must not stop the command; it only loses the safety net
         _write([*pending(), entry])
-    except OSError:
-        pass  # a full disk must not stop the command; it only loses the safety net
     return str(entry["id"])
 
 
 def forget(note_id: str) -> None:
-    try:
+    with contextlib.suppress(OSError):
         _write([e for e in pending() if e.get("id") != note_id])
-    except OSError:
-        pass
 
 
 @contextlib.contextmanager

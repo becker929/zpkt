@@ -136,7 +136,7 @@ def fader_db(v):
 class Device:
     def __init__(self, name, class_name, *params):
         self.name, self.class_name = name, class_name
-        self.parameters = [Param("Device On", 1.0)] + list(params)
+        self.parameters = [Param("Device On", 1.0), *list(params)]
 
 
 class Track:

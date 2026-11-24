@@ -23,7 +23,7 @@ class Param:
 
     def str_for_value(self, v):
         if self.value_items:
-            return self.value_items[int(round(v - self.min))]
+            return self.value_items[round(v - self.min)]
         return self._show(v) if self._show else f"{v:.2f}"
 
 
@@ -136,7 +136,7 @@ def recorder(seen):
                     "clips": len(transport.song.tracks[-1].arrangement_clips),
                 }
             )
-            n = lambda beats: int(round(beats * spb * sr))  # noqa: E731
+            n = lambda beats: round(beats * spb * sr)
             x = np.concatenate(
                 [np.full(sr // 2, 0.9), np.zeros(n(lead)), np.full(n(duration_beats - lead + tail_beats), 0.5)]
             )
@@ -442,7 +442,7 @@ def bars_recorder(seen):
             sr, spb, lead = 8000, 60.0 / tempo, panel.lead_beats(tempo)
             vol = next((t.mixer_device.volume.value for t in transport.song.tracks if t.name == "bus-kick"), 0.5)
             seen.append({"start": start_beat, "beats": duration_beats, "tempo": tempo, "vol": vol})
-            n = lambda beats: int(round(beats * spb * sr))  # noqa: E731
+            n = lambda beats: round(beats * spb * sr)
             x = np.concatenate([np.zeros(sr // 2 + n(lead)), np.full(n(duration_beats - lead + tail_beats), 0.5 * vol)])
             path = str(Path(output_dir) / filename)
             sf.write(path, np.column_stack([x, x]), sr, subtype="FLOAT")

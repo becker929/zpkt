@@ -37,7 +37,7 @@ def kit_template(
         made = probe_kit.template(LiveClient(host, port), kit, src, keep_start, keep_end, patterns, lead)
     except Guard as exc:
         console.print(f"[red]{exc}[/red]")
-        raise typer.Exit(1)
+        raise typer.Exit(1) from None
     print(json.dumps(asdict(made)))
 
 
@@ -65,5 +65,5 @@ def kit_render(
         )
     except (Guard, AudioError) as exc:
         console.print(f"[red]{exc}[/red]")
-        raise typer.Exit(1)
+        raise typer.Exit(1) from None
     print(json.dumps(manifest))

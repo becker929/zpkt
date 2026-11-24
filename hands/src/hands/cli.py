@@ -86,7 +86,7 @@ def record(
             )
     except RuntimeError as exc:
         console.print(f"[red]{exc}[/red]")
-        raise typer.Exit(1)
+        raise typer.Exit(1) from None
 
     if result:
         console.print(f"[green]Exported: {result}[/green]")
@@ -121,7 +121,7 @@ def ab(
         print(json.dumps(actions[action]()))
     except RuntimeError as exc:
         console.print(f"[red]{exc}[/red]")
-        raise typer.Exit(1)
+        raise typer.Exit(1) from None
 
 
 @app.command("spectrum")
@@ -140,7 +140,7 @@ def spectrum_cmd(
         print(json.dumps(ab_mod.spectrum(LiveClient(host=host, port=port), toggle=not show)))
     except RuntimeError as exc:
         console.print(f"[red]{exc}[/red]")
-        raise typer.Exit(1)
+        raise typer.Exit(1) from None
 
 
 def main() -> None:

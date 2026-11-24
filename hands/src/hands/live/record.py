@@ -7,6 +7,7 @@ copied as WAV, or converted to MP3 with ffmpeg. It runs at 1.56x real time, so o
 
 from __future__ import annotations
 
+import itertools
 import json
 import os
 import subprocess
@@ -437,7 +438,7 @@ def _beat_to_seconds(markers: list[Any], beat: float) -> float | None:
     pts = sorted((float(b), float(t)) for b, t in markers)
     if len(pts) == 1:
         return pts[0][1]
-    pairs = list(zip(pts, pts[1:]))
+    pairs = list(itertools.pairwise(pts))
     for k, ((b0, s0), (b1, s1)) in enumerate(pairs):
         if beat <= b1 or k == len(pairs) - 1:  # past the last marker: extrapolate the last segment
             return s0 + (beat - b0) * (s1 - s0) / (b1 - b0)

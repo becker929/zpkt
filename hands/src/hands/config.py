@@ -129,7 +129,10 @@ def rig() -> Rig:
     return load()
 
 
-def _newest_live_prefs(root: Path = Path("~/Library/Preferences/Ableton").expanduser()) -> Path | None:
+ABLETON_PREFS = Path("~/Library/Preferences/Ableton").expanduser()
+
+
+def _newest_live_prefs(root: Path = ABLETON_PREFS) -> Path | None:
     """The preferences folder of the newest Live installed ("Live 12.4.6" beats "Live 12.4.5")."""
 
     def version(p: Path) -> tuple[int, ...]:

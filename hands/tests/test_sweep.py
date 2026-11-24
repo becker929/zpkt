@@ -59,7 +59,7 @@ def test_takes_no_set_uses_go_and_everything_else_stays(tmp_path):
 
 
 def test_a_take_the_open_set_plays_stays(tmp_path):
-    proj, used, loose, fresh = project(tmp_path)
+    proj, _used, loose, _fresh = project(tmp_path)
     out = tmp_path / "renders"
     out.mkdir(exist_ok=True)
     r = sweep.sweep(out, [proj], in_use={str((proj / "Samples" / "Recorded" / loose).resolve())})
@@ -67,7 +67,7 @@ def test_a_take_the_open_set_plays_stays(tmp_path):
 
 
 def test_the_take_folder_is_remembered_from_renders(tmp_path):
-    proj, used, loose, fresh = project(tmp_path)
+    proj, _used, loose, _fresh = project(tmp_path)
     out = tmp_path / "renders"
     out.mkdir(exist_ok=True)
     sweep.note_takes(out, proj / "Samples" / "Recorded")

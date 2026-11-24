@@ -144,7 +144,7 @@ def write_batch(kit: Kit | str, tag: str, steps: Iterable[Step], devices: Iterab
         if len(values) != kit.P:
             raise ValueError(f"{knob}: {len(values)} values for {kit.P} patterns")
         track, device, path = als.resolve(tree, *knob.spec)
-        als.set_steps(tree, track, device, path, list(zip(times, values)))
+        als.set_steps(tree, track, device, path, list(zip(times, values, strict=False)))
     name = f"{rig.new_set_prefix}x_{kit.kit}_{tag}"
     problems = als.check(als.save(tree, rig.set_path(name), overwrite=True)).problems
     if problems:

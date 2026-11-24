@@ -55,7 +55,7 @@ def gen_create_tracks(names: list[tuple[str, str]]) -> Step:
         "for i in range(len(t0.devices) - 1, -1, -1):",
         "    t0.delete_device(i)",
     ]
-    for idx, (name, ttype) in enumerate(names[1:], start=1):
+    for idx, (_name, ttype) in enumerate(names[1:], start=1):
         method = "create_midi_track" if ttype == "midi" else "create_audio_track"
         lines.append(f"song.{method}({idx})")
         lines.append("time.sleep(0.3)")

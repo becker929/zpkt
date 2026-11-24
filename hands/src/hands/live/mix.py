@@ -50,7 +50,9 @@ def read_params(client: McpTransport, exprs: list[str]) -> list[dict[str, Any]]:
             f"           [str(p.str_for_value(p.min + (p.max - p.min) * k / {P.SAMPLES - 1})) for k in range({P.SAMPLES})]]\n"
             f"          for p in [{', '.join(exprs[a : a + 8])}]]"
         )
-        out += [dict(zip(("name", "min", "max", "value", "quantized", "items", "table"), r)) for r in rows]
+        out += [
+            dict(zip(("name", "min", "max", "value", "quantized", "items", "table"), r, strict=False)) for r in rows
+        ]
     return out
 
 
@@ -236,7 +238,7 @@ def render_bars(
     start = float(panel.get("offset", 0.0)) + (panel["bars"][0] - 1) * 4.0
     if start < lead:
         raise P.PanelError(
-            f"a render needs {lead:g} beats of run-up before it: start at bar {int(math.ceil(lead / 4)) + 1} or later"
+            f"a render needs {lead:g} beats of run-up before it: start at bar {math.ceil(lead / 4) + 1} or later"
         )
     beats = panel["bars"][1] * 4.0
     out.parent.mkdir(parents=True, exist_ok=True)
@@ -363,7 +365,8 @@ Pick = tuple[str, str, str, str, str]  # key, label, LOM expression, kind, track
 
 def _check_tracks(client: McpTransport, tracks: list[str], anything: bool) -> None:
     """Every track the spec names is in the open set, and it names something to turn; else PanelError."""
-    everything = client.run("result = [t.name for t in list(song.tracks) + list(song.return_tracks)]") + [
+    everything = [
+        *client.run("result = [t.name for t in list(song.tracks) + list(song.return_tracks)]"),
         "Main",
         "Master",
     ]

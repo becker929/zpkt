@@ -275,7 +275,7 @@ class Chaos(Transport):
 @pytest.fixture
 def chaos(monkeypatch, tmp_path):
     r = random.Random(SEED)
-    make = lambda *a, **k: Chaos(r)  # noqa: E731
+    make = lambda *a, **k: Chaos(r)
     for mod in (panel_cli, live_cli):
         monkeypatch.setattr(mod, "LiveClient", make)
     monkeypatch.setattr(rig, "LiveClient", make)
@@ -323,11 +323,11 @@ def clean(result, argv) -> None:
 
 
 def commands(r: random.Random) -> list[str]:
-    j = lambda: json.dumps(spec(r))  # noqa: E731
-    w = lambda: r.choice(WORDS + ["p", "buses", "s"])  # noqa: E731
+    j = lambda: json.dumps(spec(r))
+    w = lambda: r.choice([*WORDS, "p", "buses", "s"])
     return r.choice(
         [
-            lambda: ["panel", "make", "--spec", j()] + r.choice([[], ["--replace"], ["--force"]]),
+            lambda: ["panel", "make", "--spec", j(), *r.choice([[], ["--replace"], ["--force"]])],
             lambda: ["panel", "make", "--spec", r.choice(["", "{", "[1,2", "nul", '{"name": "x",}', w()])],
             lambda: ["panel", "apply", w(), "--spec", j()],
             lambda: ["panel", "apply", w(), "--state", j()],
@@ -358,17 +358,23 @@ def commands(r: random.Random) -> list[str]:
                             w(),
                         ]
                     ),
+                    *r.choice([[], ["--json"], ["--raw"]]),
                 ]
-                + r.choice([[], ["--json"], ["--raw"]])
             ),
-            lambda: ["live", "check"] + r.choice([[], ["--expect", w()], ["--any-set"]]),
+            lambda: ["live", "check", *r.choice([[], ["--expect", w()], ["--any-set"]])],
             lambda: ["live", "ping"],
-            lambda: ["rig", "check"] + r.choice([[], ["--json"], ["--no-play"]]),
+            lambda: ["rig", "check", *r.choice([[], ["--json"], ["--no-play"]])],
             lambda: (
-                ["rig", "reset", "--json"]
-                + r.choice([[], ["--level", r.choice(["soft", "restart", "auto", "x"])], ["--set", w()], ["--discard"]])
+                [
+                    "rig",
+                    "reset",
+                    "--json",
+                    *r.choice(
+                        [[], ["--level", r.choice(["soft", "restart", "auto", "x"])], ["--set", w()], ["--discard"]]
+                    ),
+                ]
             ),
-            lambda: ["sweep"] + r.choice([[], ["--json"], ["--days", "-1"], ["--pressure"]]),
+            lambda: ["sweep", *r.choice([[], ["--json"], ["--days", "-1"], ["--pressure"]])],
         ]
     )()
 
@@ -500,7 +506,7 @@ def test_a_bad_spec_is_an_error_to_act_on_and_leaves_the_set_as_it_was(tmp_path,
         rec_i, rec_m = (
             lambda seen, make=make: broken if r.random() < 0.15 else make(seen) for make in (recorder, bars_recorder)
         )
-        rec = lambda mixed: rec_m(seen) if mixed else rec_i(seen)  # noqa: E731
+        rec = lambda mixed: rec_m(seen) if mixed else rec_i(seen)
         name, kind, fn = r.choice(
             [
                 (

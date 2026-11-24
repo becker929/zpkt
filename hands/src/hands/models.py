@@ -21,7 +21,7 @@ _FROZEN: dict[str, Any] = {"frozen": True}
 # ---------------------------------------------------------------------------
 
 
-class DeviceSource(str, Enum):
+class DeviceSource(str, Enum):  # noqa: UP042  (StrEnum would change str(member), which the schema and codegen use)
     """Browser subtree where Live finds a device."""
 
     BUILTIN = "audio_effects"

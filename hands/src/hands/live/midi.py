@@ -173,13 +173,13 @@ def parse_chord(spec: str, bass_octave: int = 2, upper_octave: int = 3) -> list[
     if len(intervals) >= 4 and intervals[-1] >= 14:  # 9th chord
         upper_notes = [upper_root + iv for iv in intervals[1:]]
         # Keep upper notes in nice voicing register (48..76)
-        notes = [bass_pitch] + upper_notes
+        notes = [bass_pitch, *upper_notes]
     elif len(intervals) >= 4:  # 7th chord
         upper_notes = [upper_root + iv for iv in intervals[1:]]
-        notes = [bass_pitch] + upper_notes
+        notes = [bass_pitch, *upper_notes]
     else:  # triad or power chord
         upper_notes = [upper_root + iv for iv in intervals]
-        notes = [bass_pitch] + upper_notes
+        notes = [bass_pitch, *upper_notes]
 
     return sorted(set(notes))
 
@@ -248,7 +248,7 @@ def generate_clip_notes(
         for offset, dur, vel_scale in pattern:
             note_start = bar_start + offset
             note_dur = duration if duration is not None else dur
-            note_vel = max(1, min(127, int(round(base_velocity * vel_scale))))
+            note_vel = max(1, min(127, round(base_velocity * vel_scale)))
 
             for pitch in chord:
                 notes.append((pitch, note_start, note_dur, note_vel))

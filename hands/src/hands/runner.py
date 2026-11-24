@@ -71,10 +71,7 @@ class StepRunner:
 
             print(f"\n[{i:2d}/{len(steps) - 1}] {step.label}")
 
-            if step.note is not None:
-                result = self._handle_manual(i, step, on_manual)
-            else:
-                result = self._execute_step(i, step)
+            result = self._handle_manual(i, step, on_manual) if step.note is not None else self._execute_step(i, step)
 
             results.append(result)
 

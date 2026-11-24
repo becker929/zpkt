@@ -17,3 +17,10 @@ ignore = [
 
 [lint.per-file-ignores]
 "**/tests/**" = ["B011"]
+# hands' tests: fakes that close over loop variables and are called inside the loop, match= patterns written as
+# plain messages, small lambdas and nested with blocks that read in order.
+"hands/tests/**" = ["B011", "B017", "B023", "E731", "RUF043", "SIM115", "SIM117"]
+
+[lint.flake8-bugbear]
+# typer declares a command's options as default values; they are not evaluated per call.
+extend-immutable-calls = ["typer.Option", "typer.Argument"]

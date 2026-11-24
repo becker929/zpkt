@@ -161,7 +161,7 @@ def score_project(p: Project, central: dict, notes: dict) -> TrackReport:
             line = f"record ({rec.by}{', ' + rec.date if rec.date else ''}): {rec.note or 'no note'}"
             line += f" [{rec.source}]" if rec.source else ""
             line += f" {rec.url}" if rec.url else ""
-            ev = [line] + [f"heuristic {heuristic}%: " + "; ".join(ev)]
+            ev = [line, f"heuristic {heuristic}%: " + "; ".join(ev)]
         steps.append(
             StepScore(
                 step=cast(StepKey, s.key),

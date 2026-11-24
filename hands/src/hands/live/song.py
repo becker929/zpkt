@@ -62,7 +62,7 @@ def layout(
         period = float(panel["beats"])
         for a, b in spans:
             notes = []
-            for rep in range(int(math.ceil((b - a) / period))):
+            for rep in range(math.ceil((b - a) / period)):
                 for p, st, d, v in panel["notes"]:
                     t = rep * period + st
                     if t < b - a - 1e-9:

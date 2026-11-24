@@ -102,8 +102,8 @@ def trim_take(
     timing = json.loads(Path(f"{take}.timing.json").read_text())
     x, sr = sf.read(take, always_2d=True, dtype="float64")
     spb = 60.0 / timing["tempo"]
-    start = int(round(timing["song_zero_seconds"] * sr)) + int(lead_beats * spb * sr)
-    y = x[start : start + int(round(length_beats * spb * sr))].copy()
+    start = round(timing["song_zero_seconds"] * sr) + int(lead_beats * spb * sr)
+    y = x[start : start + round(length_beats * spb * sr)].copy()
     fi, fo = int(fade_in_s * sr), int(fade_out_s * sr)
     y[:fi] *= np.linspace(0, 1, fi)[:, None]
     y[len(y) - fo :] *= np.linspace(1, 0, fo)[:, None]

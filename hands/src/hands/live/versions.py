@@ -138,7 +138,7 @@ def _matched(files: list[Path], results: list[dict[str, Any]]) -> list[str | Non
 
     target = min(r["rms_dbfs"] for r in results)
     out: list[str | None] = []
-    for f, r in zip(files, results):
+    for f, r in zip(files, results, strict=False):
         if r["rms_dbfs"] - target < 0.2:
             out.append(None)
             continue
@@ -236,7 +236,7 @@ def grid(
         + ", ".join(f"[str({_where(panel, c)}.str_for_value(v)) for v in {vals!r}]" for c, vals in cols)
         + "]"
     )
-    text = [{v: s for v, s in zip(vals, row)} for (_, vals), row in zip(cols, shown)]
+    text = [{v: s for v, s in zip(vals, row, strict=False)} for (_, vals), row in zip(cols, shown, strict=False)]
     gid = len(panel.get("grids") or []) + 1
     rec = recorder or P._recorder()
     options, files, results = [], [], []
@@ -246,7 +246,7 @@ def grid(
         for k, combo in enumerate(combos):
             if progress:
                 progress(k, len(combos))
-            values = {**current, **{c["param"]: v for (c, _), v in zip(cols, combo)}}
+            values = {**current, **{c["param"]: v for (c, _), v in zip(cols, combo, strict=False)}}
             out = out_dir / f"{name}-g{gid}-{LETTERS[k].lower()}.wav"
             r = _render(client, panel, state, out, values, rec)
             files.append(out)
@@ -254,13 +254,15 @@ def grid(
             options.append(
                 {
                     "letter": LETTERS[k],
-                    "values": {c["param"]: v for (c, _), v in zip(cols, combo)},
-                    "label": " · ".join(f"{c['label']} {text[i][v]}" for i, ((c, _), v) in enumerate(zip(cols, combo))),
+                    "values": {c["param"]: v for (c, _), v in zip(cols, combo, strict=False)},
+                    "label": " · ".join(
+                        f"{c['label']} {text[i][v]}" for i, ((c, _), v) in enumerate(zip(cols, combo, strict=False))
+                    ),
                     "file": P._shown_path(out),
                     **r,
                 }
             )
-    for o, m in zip(options, _matched(files, results)):
+    for o, m in zip(options, _matched(files, results), strict=False):
         if m:
             o["matched"] = m
     g = {"id": gid, "axes": [{"id": c["id"], "label": c["label"]} for c, _ in cols], "options": options}

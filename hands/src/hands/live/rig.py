@@ -37,6 +37,7 @@ What the reset learned the hard way (2026-11-20):
 
 from __future__ import annotations
 
+import contextlib
 import json
 import os
 import re
@@ -46,7 +47,7 @@ import subprocess
 import tempfile
 import time
 import wave
-from contextlib import AbstractContextManager
+from contextlib import AbstractContextManager, suppress
 from dataclasses import asdict, dataclass, field
 from datetime import datetime
 from pathlib import Path
@@ -178,14 +179,12 @@ def playhead_moves(client: McpTransport, wait_s: float = 1.0) -> bool | None:
 def press(key: str) -> None:
     """Bring Live to the front and press a key: 'return', 'escape' or 'dont-save' (Command-D)."""
     stroke = {"return": "key code 36", "escape": "key code 53", "dont-save": 'keystroke "d" using command down'}[key]
-    try:
+    with contextlib.suppress(ui.UiError):  # the caller looks again and reports a dialog that stayed
         ui.osa(
             f'tell application "{config.rig().live_app}" to activate\ndelay 0.4\n'
             f'tell application "System Events" to {stroke}',
             timeout=15,
         )
-    except ui.UiError:
-        pass  # the caller looks again and reports a dialog that stayed
     time.sleep(0.8)
 
 
@@ -437,10 +436,8 @@ def _last_set_file() -> Path:
 
 
 def remember_set(path: Path) -> None:
-    try:
+    with suppress(OSError):
         hold.save_json(_last_set_file(), {"set": str(path)})
-    except OSError:
-        pass
 
 
 def last_set() -> Path | None:
@@ -502,14 +499,12 @@ def quit_live(report: Report, keep: bool, timeout_s: float = 45) -> None:
         )
         force = True
     if not force:
-        try:
+        with suppress(OSError):
             subprocess.Popen(
                 ["osascript", "-e", f'tell application "{config.rig().live_app}" to quit'],
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
             )
-        except OSError:
-            pass
         deadline = time.monotonic() + timeout_s
         pressed = False
         while live_running() and time.monotonic() < deadline:
@@ -524,10 +519,8 @@ def quit_live(report: Report, keep: bool, timeout_s: float = 45) -> None:
         except (OSError, subprocess.SubprocessError):
             pids = []
         for pid in pids:
-            try:
+            with suppress(ValueError, OSError):
                 os.kill(int(pid), signal.SIGKILL)
-            except (ValueError, OSError):
-                pass
         for _ in range(20):  # until it is gone: `open` on a dying Live opens nothing
             if not live_running():
                 break

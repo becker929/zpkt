@@ -77,7 +77,11 @@ def mix_state(path: str | os.PathLike) -> dict:
         if t is not main:
             mix["mute"] = [str(on == 0.0), on == 0.0]
             holders = m.findall("Sends/TrackSendHolder")
-            mix["sends"] = {r: [_db(v), v] for r, h in zip(rets, holders) if (v := _manual(h.find("Send"))) is not None}
+            mix["sends"] = {
+                r: [_db(v), v]
+                for r, h in zip(rets, holders, strict=False)
+                if (v := _manual(h.find("Send"))) is not None
+            }
         devs = [{"name": _device_name(d), "class": d.tag, "params": _device_params(d)} for d in devices(t)]
         out["tracks"][name] = {"mixer": mix, "devices": devs}
     return out

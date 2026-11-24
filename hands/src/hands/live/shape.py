@@ -235,7 +235,7 @@ def clean(value: Any, schema: Any, path: str) -> Any:
         ):
             raise _bad(path, schema, value)
         try:
-            return [clean(v, item, path) for v, item in zip(value, schema.items)]
+            return [clean(v, item, path) for v, item in zip(value, schema.items, strict=False)]
         except PanelError:
             raise _bad(path, schema, value) from None
     if isinstance(schema, list):

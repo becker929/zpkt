@@ -203,7 +203,9 @@ def grid(
     """
     from hands.live import versions
 
-    note = lambda k, n: print(f"rendering {k + 1} of {n}", file=sys.stderr, flush=True)  # noqa: E731
+    def note(k: int, n: int) -> None:
+        print(f"rendering {k + 1} of {n}", file=sys.stderr, flush=True)
+
     _run(
         versions.grid,
         LiveClient(host, port, keep=True),

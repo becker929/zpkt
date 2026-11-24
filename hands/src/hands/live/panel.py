@@ -26,34 +26,34 @@ from typing import Any
 from hands import config
 from hands.live import hold
 from hands.live.agent import with_prelude
-from hands.live.panel_base import (  # noqa: F401  (part of panel's API: mix, versions and song use them as P.*)
+from hands.live.panel_base import (
     ANCHORS,
     CHUNK,
     FINE,
-    LEAD_SECONDS,
-    MAX_BEATS,
+    LEAD_SECONDS,  # noqa: F401
+    MAX_BEATS,  # noqa: F401
     MAX_CONTROLS,
     ROUNDS,
     SAMPLES,
     TRACK_PREFIX,
-    Loc,
-    Note,
+    Loc,  # noqa: F401
+    Note,  # noqa: F401
     PanelError,
     _device,
     _track,
 )
 from hands.live.panel_blocks import _num, _shown_path, _slug, blocks, surface  # noqa: F401
 from hands.live.panel_render import _render, cut_take, lead_beats, levels, record_span, set_code  # noqa: F401
-from hands.live.riff import (  # noqa: F401
-    PRESET_CONTROLS,
-    PRESETS,
-    SOUND_CONTROLS,
-    SOUNDS,
-    _check_beats,
+from hands.live.riff import (
+    PRESET_CONTROLS,  # noqa: F401
+    PRESETS,  # noqa: F401
+    SOUND_CONTROLS,  # noqa: F401
+    SOUNDS,  # noqa: F401
+    _check_beats,  # noqa: F401
     expand,
-    pitch,
+    pitch,  # noqa: F401
     riff,
-    sequence,
+    sequence,  # noqa: F401
 )
 from hands.live.transport import McpTransport
 
@@ -78,7 +78,7 @@ def _between(target: float, xs: list[float], shown: list[str], unit: str) -> lis
     Live rounds what it shows, so a reading holds over a stretch of values: the first and last pair bound it."""
     reads = [reading(s) for s in shown]
     out = []
-    for (x0, r0), (x1, r1) in zip(zip(xs, reads), zip(xs[1:], reads[1:])):
+    for (x0, r0), (x1, r1) in zip(zip(xs, reads, strict=False), zip(xs[1:], reads[1:], strict=False), strict=False):
         if r0 is None or r1 is None or not (math.isfinite(r0[0]) and math.isfinite(r1[0])):
             continue
         if unit and (r0[1] != unit or r1[1] != unit):
@@ -158,7 +158,7 @@ def sample(
             f"_by = {{p.name: p for p in {_device(track)}.parameters}}\n"
             f"result = [[str(_by[n].str_for_value(lo + (hi - lo) * k / {n - 1})) for k in range({n})] for n, lo, hi in {part!r}]"
         )
-        out.update({ask[0]: row for ask, row in zip(part, rows)})
+        out.update({ask[0]: row for ask, row in zip(part, rows, strict=False)})
     return out
 
 

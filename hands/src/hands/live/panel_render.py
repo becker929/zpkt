@@ -181,8 +181,8 @@ def cut_take(
     timing = json.loads(Path(f"{path}.timing.json").read_text())
     x, sr = sf.read(path, always_2d=True, dtype="float64")
     spb = 60.0 / timing["tempo"]
-    a = int(round((timing["song_zero_seconds"] + (start - timing.get("clip_start", start - lead)) * spb) * sr))
-    y = x[max(0, a) : max(0, a) + int(round(length_beats * spb * sr))].copy()
+    a = round((timing["song_zero_seconds"] + (start - timing.get("clip_start", start - lead)) * spb) * sr)
+    y = x[max(0, a) : max(0, a) + round(length_beats * spb * sr)].copy()
     if not len(y):
         raise PanelError("the take ended before the part to keep began")
     fade = min(len(y), int(fade_s * sr))

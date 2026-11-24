@@ -38,7 +38,7 @@ def _describe(pm: dict, target: ET.Element) -> tuple[ET.Element | None, str]:
         if pm.get(e) is not None and pm[e].tag == "Devices":
             parts.insert(0, e.tag)
         e = pm.get(e)
-    return track, " > ".join([track_name(track) if track is not None else "?"] + parts)
+    return track, " > ".join([track_name(track) if track is not None else "?", *parts])
 
 
 def _steps_of(events: list[ET.Element]) -> list[tuple[float, str]]:

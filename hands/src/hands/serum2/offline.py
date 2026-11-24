@@ -38,7 +38,7 @@ def _juce_b64_encode(b: bytes) -> str:
     for i in range(0, nbits, 6):
         v = sum(1 << j for j in range(6) if i + j < nbits and b[(i + j) >> 3] & (1 << ((i + j) & 7)))
         chars.append(_B64[v])
-    return "%d.%s" % (len(b), "".join(chars))
+    return f"{len(b)}.{''.join(chars)}"
 
 
 @dataclass
@@ -70,9 +70,8 @@ class Serum:
 
         ctl = controller if controller is not None else self.state()[1]
         xml = (
-            '<?xml version="1.0" encoding="UTF-8"?> <VST3PluginState><IComponent>%s</IComponent>'
-            "<IEditController>%s</IEditController></VST3PluginState>"
-            % (_juce_b64_encode(processor), _juce_b64_encode(ctl))
+            f'<?xml version="1.0" encoding="UTF-8"?> <VST3PluginState><IComponent>{_juce_b64_encode(processor)}</IComponent>'
+            f"<IEditController>{_juce_b64_encode(ctl)}</IEditController></VST3PluginState>"
         ).encode() + b"\x00"
         self.p.raw_state = b"VC2!" + struct.pack("<I", len(xml)) + xml
         self._commit()
