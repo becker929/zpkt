@@ -19,6 +19,7 @@ from typing import Any
 from hands.live import hold
 from hands.live import panel as P
 from hands.live.agent import with_prelude
+from hands.live.inlive import tracks as named_tracks
 from hands.live.transport import McpTransport
 
 BARS_MAX = 64
@@ -26,10 +27,9 @@ DEVICE_PREFIX = "mix "
 
 
 def tr(name: str) -> str:
-    """The Live expression for a track by name; Main (or Master) is the master track."""
-    if name.strip().lower() in ("main", "master"):
-        return "song.master_track"
-    return f"next(x for x in list(song.tracks) + list(song.return_tracks) if x.name == {name!r})"
+    """The Live expression for a track by name; Main (or Master) is the master track, and a return answers to its
+    name without Live's letter (hands.live.inlive.tracks has the rule)."""
+    return named_tracks.track_expr(name)
 
 
 def _dev(track: str, device: str) -> str:

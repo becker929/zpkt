@@ -22,6 +22,7 @@ from pathlib import Path
 from typing import Any
 
 from hands import config
+from hands.live.inlive import tracks as named_tracks
 from hands.live.transport import Transport
 
 WRITE_CHUNK = 16
@@ -47,18 +48,13 @@ result = {{n: _one(song.master_track if n == 'Main' else by[n], n != 'Main') for
 
 
 def track_expr(name: str) -> str:
-    """The LOM expression for a track, return or Main by name."""
-    if name.strip().lower() in ("main", "master"):
-        return "song.master_track"
-    return (
-        f"next(t for t in list(song.tracks) + list(song.return_tracks) "
-        f"if t.name == {name!r} or (t.name[1:2] == '-' and t.name[2:] == {name!r}))"
-    )
+    """The LOM expression for a track, return or Main by name (hands.live.inlive.tracks has the rule)."""
+    return named_tracks.track_expr(name)
 
 
 def short(name: str, returns: list[str]) -> str:
     """A return's name without the letter Live puts in front ("A-Space" -> "Space"); other names as they are."""
-    return name[2:] if name in returns and len(name) > 2 and name[1] == "-" else name
+    return named_tracks.short_name(name, name in returns)
 
 
 def take(client: Transport, only: list[str] | None = None) -> dict:

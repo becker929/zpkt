@@ -4,13 +4,14 @@ from __future__ import annotations
 
 from typing import Any
 
+from hands.live.inlive import tracks as named_tracks
 from hands.live.transport import McpTransport
 
 
 def _track_expr(track: str | int) -> str:
     if isinstance(track, int) or (isinstance(track, str) and track.isdigit()):
         return f"song.tracks[{int(track)}]"
-    return f"next(x for x in song.tracks if x.name == {track!r})"
+    return named_tracks.track_expr(track)
 
 
 def _device_expr(track_expr: str, device: str | int) -> str:
