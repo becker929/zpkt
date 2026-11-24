@@ -42,8 +42,8 @@ import sys
 import time
 from pathlib import Path
 
-from hands.live import ui
-from hands.live.transport import LiveClient, LiveError
+from zpkt.live import ui
+from zpkt.live.transport import LiveClient, LiveError
 
 HERE = Path(__file__).resolve().parent
 LOG: Path = Path("live_steps.jsonl")
@@ -191,7 +191,7 @@ def save_as(folder: Path, name: str) -> None:
 def new_set(client: LiveClient) -> None:
     """File > New Live Set: a Live-native Untitled set (never an old template). Only from a clean
     front set; prints the set it replaced and its file, to reopen at the end of the practice."""
-    from hands import config
+    from zpkt.live import config
 
     front = pre(None, client)
     if dirty():

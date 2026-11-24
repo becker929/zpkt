@@ -18,7 +18,7 @@ import re
 import time
 from typing import Any
 
-from hands.live.transport import LiveClient
+from zpkt.live.transport import LiveClient
 
 PRELUDE = """
 def param(dev, name):

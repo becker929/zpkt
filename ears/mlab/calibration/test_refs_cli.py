@@ -9,7 +9,7 @@ import soundfile as sf
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.dirname(HERE))
 
-from mlab import cli, siggen  # noqa: E402
+from zpkt.audio.meters import cli, siggen  # noqa: E402
 
 
 def test_refs_peaks_cli(tmp_path, capsys):

@@ -703,7 +703,7 @@ TRACK_NAMES = {"kick": "kick", "perc1": "perc 1", "perc2": "perc 2"}
 
 
 def automate() -> None:
-    from hands import als
+    from zpkt.live import als
 
     tree = als.load(ALS)
 
@@ -945,7 +945,7 @@ def cut() -> None:
 
 def save() -> None:
     L = lo()
-    from hands.live import ui
+    from zpkt.live import ui
 
     hw002.stop_unless_front(L, "fx save", SET)
     if ui.menu_enabled("File", "Save Live Set"):

@@ -1,7 +1,7 @@
 """contrib/mixdesk/pager.py loaded into FakeLive the way contrib/mixdesk/server.py's start_pager loads it into Live.
 
 The pager runs inside Live: listeners on the set, a MiniLab it grabs, UDP datagrams to the desk's server. Here the
-datagrams go to a socket the test owns (never the running desk's 8986), and the MiniLab is hands.testing's fake.
+datagrams go to a socket the test owns (never the running desk's 8986), and the MiniLab is zpkt.live.testing's fake.
 """
 
 from __future__ import annotations
@@ -14,8 +14,8 @@ from pathlib import Path
 
 import pytest
 
-from hands.testing import FakeLive, MiniLab_3, hw002_like
-from hands.testing.display import fader_db
+from zpkt.live.testing import FakeLive, MiniLab_3, hw002_like
+from zpkt.live.testing.display import fader_db
 
 MIXDESK = Path(__file__).resolve().parents[2] / "contrib" / "mixdesk"
 MOD = "zpkt_mixdesk_pager"

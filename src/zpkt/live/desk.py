@@ -3,7 +3,7 @@
 contrib/mixdesk/recipe.py writes it into the arrangement recipe (the HW002 finishing chain): the returns with their
 devices, the desk's device chains ("desk EQ", "desk Sat", ...) on each track, every track's mixer, the switches it
 owns on devices it did not add, and the monitor tracks. `hands live state diff|put` take a recipe file because
-hands.live.state.from_desk reads this shape as a partial state. lib/contracts/desk.schema.json is generated from these
+zpkt.live.state.from_desk reads this shape as a partial state. lib/contracts/desk.schema.json is generated from these
 models (tools/gen_schemas.py); a test fails when the two drift. Unknown keys are kept, so the desk may grow.
 """
 

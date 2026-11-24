@@ -15,7 +15,7 @@ def als_check(
     against: Path = typer.Option(None, "--against", help="The set it was made from: also show what changed."),
 ) -> None:
     """Run the self-checks a .als must pass before Live loads it. Exit 1 on a problem."""
-    from hands import als
+    from zpkt.live import als
 
     report = als.check(file, against)
     print(report)
@@ -31,7 +31,7 @@ def als_params(
     index: int = typer.Option(0, "--index", help="Which device with that tag (-1: the last)."),
 ) -> None:
     """List a device's automatable parameters: tag, event kind, value and range."""
-    from hands import als
+    from zpkt.live import als
 
     print("\n".join(als.list_params(file, track, device, index)))
 
@@ -45,8 +45,8 @@ def als_mix(
 ) -> None:
     """The mix a saved set holds (faders, sends, mutes, devices), offline; with --against, what differs.
     Live is not touched. Exit 1 if --against finds a difference."""
-    from hands import als, config
-    from hands.live import state as S
+    from zpkt.live import als, config
+    from zpkt.live import state as S
 
     def resolve(p: Path) -> Path:
         return p if p.exists() else config.rig().set_path(str(p).removesuffix(".als"))

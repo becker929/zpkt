@@ -1,4 +1,4 @@
-"""hands.live.render.export with the AppleScript, the GUI and the time selection faked."""
+"""zpkt.live.render.export with the AppleScript, the GUI and the time selection faked."""
 
 from __future__ import annotations
 
@@ -8,10 +8,10 @@ from pathlib import Path
 import pytest
 from typer.testing import CliRunner
 
-from hands.cli import app
-from hands.live import render, session, timeops, ui
-from hands.live.session import Guard
-from hands.live.transport import MockTransport
+from zpkt.live.cli import app
+from zpkt.live import render, session, timeops, ui
+from zpkt.live.session import Guard
+from zpkt.live.transport import MockTransport
 
 
 class FakeExportDialog:

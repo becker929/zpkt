@@ -18,7 +18,7 @@ import json
 import math
 from typing import Any
 
-from hands.live.panel import PanelError
+from zpkt.live.panel import PanelError
 
 NUM, TEXT, FLAG, ANY = "a number", "text", "true or false", "anything"
 

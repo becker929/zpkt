@@ -1,4 +1,4 @@
-"""The mix desk's test rig: the server started in this process against hands.testing's FakeLive and fake MiniLab.
+"""The mix desk's test rig: the server started in this process against zpkt.live.testing's FakeLive and fake MiniLab.
 
 Everything is made up and on free ports: the history, checkpoints, surfaces and analysis live in tmp_path, the pager
 sends its datagrams to a UDP port the test picked, and Live is a FakeLive served on its own TCP port. Nothing here
@@ -24,7 +24,7 @@ import pytest
 HERE = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(HERE))
 
-from hands.testing import FakeLive, MiniLab_3, hw002_like  # noqa: E402
+from zpkt.live.testing import FakeLive, MiniLab_3, hw002_like  # noqa: E402
 
 MOD = "zpkt_mixdesk_pager"
 

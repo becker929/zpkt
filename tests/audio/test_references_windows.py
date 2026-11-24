@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 
 import pytest
-from mlab import references, target, windows
+from zpkt.audio.meters import references, target, windows
 
 
 def test_parse_refs_keeps_unknown_keys_and_filters_by_set() -> None:

@@ -10,10 +10,10 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-from hands import config
-from hands.live.export import SavePanel
-from hands.live.ops import LiveOps
-from hands.live.transport import LiveClient
+from zpkt.live import config
+from zpkt.live.export import SavePanel
+from zpkt.live.ops import LiveOps
+from zpkt.live.transport import LiveClient
 
 SETS_DIR = Path("~/_agent_scratch/HW002").expanduser()
 SET_PREFIX = "HW002_121_pp_"

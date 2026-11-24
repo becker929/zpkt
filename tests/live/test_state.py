@@ -1,4 +1,4 @@
-"""hands.live.state offline: comparing, recipe import, and `put` against a small fake Live."""
+"""zpkt.live.state offline: comparing, recipe import, and `put` against a small fake Live."""
 
 from __future__ import annotations
 
@@ -6,8 +6,8 @@ import copy
 import json
 import re
 
-from hands.live import state as S
-from hands.live.transport import McpResult, Transport
+from zpkt.live import state as S
+from zpkt.live.transport import McpResult, Transport
 
 
 def _track(vol: float, devices: dict | None = None, mute: bool = False) -> dict:
@@ -137,8 +137,8 @@ def test_put_reports_what_the_set_lacks():
 def test_live_open_command_calls_open_set(monkeypatch):
     from typer.testing import CliRunner
 
-    from hands.cli import app
-    from hands.live import session
+    from zpkt.live.cli import app
+    from zpkt.live import session
 
     seen = {}
     monkeypatch.setattr(

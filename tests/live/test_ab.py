@@ -1,12 +1,12 @@
-"""hands.ab builds one LOM code block per action; check each compiles and runs
+"""zpkt.live.ab builds one LOM code block per action; check each compiles and runs
 against a fake song, so a hotkey never ships a syntax error into Live."""
 
 from types import SimpleNamespace
 
 import pytest
 
-from hands import ab
-from hands.live.transport import McpResult, MockTransport, Transport
+from zpkt.live import ab
+from zpkt.live.transport import McpResult, MockTransport, Transport
 
 
 class FakeTrack(SimpleNamespace):

@@ -1,4 +1,4 @@
-"""hands.live.ui without running osascript: subprocess is replaced by a script of answers."""
+"""zpkt.live.ui without running osascript: subprocess is replaced by a script of answers."""
 
 from __future__ import annotations
 
@@ -6,7 +6,7 @@ import subprocess
 
 import pytest
 
-from hands.live import ui
+from zpkt.live import ui
 
 
 class FakeOsascript:

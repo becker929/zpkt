@@ -48,7 +48,7 @@ from common import (
 
 
 def loudness(x2: np.ndarray, sr: int) -> tuple[float, float]:
-    from mlab import loudness as L
+    from zpkt.audio.meters import loudness as L
 
     return float(L.integrated(x2, sr)), float(L.true_peak(x2, sr))
 

@@ -1,4 +1,4 @@
-"""StepRunner: runs a list of Steps against a transport (the first design; see hands.builder).
+"""StepRunner: runs a list of Steps against a transport (the first design; see zpkt.live.builder).
 
 Provides retry logic, rollback on error, and interactive prompts for manual steps.
 Tracks partial execution state so runs can be resumed from a specific step index.
@@ -11,8 +11,8 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Any, Literal
 
-from hands.codegen import Step
-from hands.live.transport import LOST, UNREACHABLE
+from zpkt.live.codegen import Step
+from zpkt.live.transport import LOST, UNREACHABLE
 
 
 @dataclass

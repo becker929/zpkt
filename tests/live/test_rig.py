@@ -1,10 +1,10 @@
-"""hands.live.rig against fakes: what the log says, what check concludes, what reset does in which order."""
+"""zpkt.live.rig against fakes: what the log says, what check concludes, what reset does in which order."""
 
 from __future__ import annotations
 
 import pytest
 
-from hands.live import rig
+from zpkt.live import rig
 
 LOG = """\
 2026-11-19T22:51:27.0: info: Live App: Begin Init
@@ -242,7 +242,7 @@ def test_asking_for_another_set_restarts_live_with_it(rigstate, monkeypatch, tmp
 
 
 def test_mix_renders_open_deaf_buses():
-    from hands.live import mix
+    from zpkt.live import mix
 
     class Bus:
         def run(self, code):
@@ -261,7 +261,7 @@ def test_mix_renders_open_deaf_buses():
 
 
 def test_live_exec_forgives_import_song_and_print():
-    from hands.live.cli import friendly
+    from zpkt.live.live_cli import friendly
 
     src, notes = friendly("import song\nfrom song import tracks\nprint(song.tempo)")
     assert "import song" not in src and "from song" not in src and notes
@@ -271,7 +271,7 @@ def test_live_exec_forgives_import_song_and_print():
 
 
 def test_grid_of_identical_versions_says_so():
-    from hands.live.versions import same_note
+    from zpkt.live.versions import same_note
 
     same = [{"rms_dbfs": -26.0}, {"rms_dbfs": -26.0}, {"rms_dbfs": -26.05}]
     assert (
@@ -282,7 +282,7 @@ def test_grid_of_identical_versions_says_so():
 
 
 def test_quiet_tracks_names_where_they_first_play():
-    from hands.live import mix
+    from zpkt.live import mix
 
     class Live:
         def run(self, code):
@@ -312,13 +312,13 @@ def test_quiet_tracks_names_where_they_first_play():
     ],
 )
 def test_live_exec_knows_what_changes_live(code, changes):
-    from hands.live.cli import writes
+    from zpkt.live.live_cli import writes
 
     assert writes(code) is changes
 
 
 def test_identical_grid_fails_with_where_to_move(monkeypatch):
-    from hands.live import mix, versions
+    from zpkt.live import mix, versions
 
     monkeypatch.setattr(
         mix,
@@ -334,7 +334,7 @@ def test_identical_grid_fails_with_where_to_move(monkeypatch):
 
 
 def test_a_level_grid_spans_six_db_below_the_fader(monkeypatch):
-    from hands.live import versions
+    from zpkt.live import versions
 
     class Live:
         def run(self, code):

@@ -2,7 +2,7 @@
 
 An audio track with the 'Resampling' input captures the main output inside Live; the take is
 copied as WAV, or converted to MP3 with ffmpeg. It runs at 1.56x real time, so offline export
-(hands.live.render) is the default; these remain for what export cannot do, such as session clips.
+(zpkt.live.render) is the default; these remain for what export cannot do, such as session clips.
 """
 
 from __future__ import annotations
@@ -16,7 +16,7 @@ from collections.abc import Sequence
 from pathlib import Path
 from typing import Any
 
-from hands.live.transport import McpTransport
+from zpkt.live.transport import McpTransport
 
 AUDIO_STALLED = (
     "Live's playhead did not move, so its audio engine is not running and nothing can be recorded. "
@@ -241,7 +241,7 @@ def record_arrangement(
     file time matches song time within a few 512-sample buffers. So render
     two or more bars of lead-in before the material you need and trim them:
     the take's ``.timing.json`` says where song beat 0 is in the file, and
-    hands.audio.trim_take cuts there. With a ``start_beat`` the take's first
+    zpkt.live.audio.trim_take cuts there. With a ``start_beat`` the take's first
     clip sits at about that beat: ``clip_start`` in the timing file is the
     song beat that ``song_zero_seconds`` belongs to. ``keep_take=False`` removes
     Live's own take file from the project once the export is written.

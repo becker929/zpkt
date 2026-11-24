@@ -13,10 +13,10 @@ import sys
 
 import pytest
 
-from hands.live import knobs, mix
-from hands.live import panel as P
-from hands.live import state as S
-from hands.testing import FakeLive, fake_set, hw002_like
+from zpkt.live import knobs, mix
+from zpkt.live import panel as P
+from zpkt.live import state as S
+from zpkt.live.testing import FakeLive, fake_set, hw002_like
 
 LIVE_PORT = 16619
 GUARD = """import socket
@@ -56,7 +56,7 @@ def no_readbacks(live: FakeLive) -> None:
     assert [(c.number, c.readbacks) for c in live.calls if c.readbacks] == []
 
 
-# --------------------------------------------------------------------------- hands.live.state
+# --------------------------------------------------------------------------- zpkt.live.state
 
 
 def test_state_take_reads_every_track_in_chunks_of_eight(live):
@@ -112,7 +112,7 @@ def test_state_put_reports_what_the_set_lacks_and_takes_a_desk_recipe(live):
     assert param(live, "A-Space", "Reverb", "Decay Time").value == 0.5
 
 
-# --------------------------------------------------------------------------- hands.live.knobs
+# --------------------------------------------------------------------------- zpkt.live.knobs
 
 
 def test_knobs_set_many_writes_in_one_call_and_apply_reads_back_in_another(live):
@@ -216,7 +216,7 @@ def test_open_buses_and_quiet_tracks():
 
 def _hands(args, env, cwd):
     return subprocess.run(
-        [sys.executable, "-c", "from hands.cli import main; main()", *args],
+        [sys.executable, "-c", "from zpkt.live.cli import main; main()", *args],
         env=env,
         cwd=cwd,
         capture_output=True,

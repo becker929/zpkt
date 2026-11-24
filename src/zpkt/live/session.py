@@ -19,9 +19,9 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, NoReturn
 
-from hands import config
-from hands.live import ui
-from hands.live.transport import LiveError, McpTransport
+from zpkt.live import config
+from zpkt.live import ui
+from zpkt.live.transport import LiveError, McpTransport
 
 _LOG_TAIL_BYTES = 4 << 20  # Log.txt grows by megabytes a day; the last connections are at its end
 
@@ -207,14 +207,14 @@ def front_set() -> tuple[str, bool]:
     return max(seen, key=seen.get), True
 
 
-CONFIRM = Path(__file__).resolve().parents[3] / "macros/hammerspoon/scripts/rig-confirm.sh"
+CONFIRM = Path(__file__).resolve().parents[3] / "hands/macros/hammerspoon/scripts/rig-confirm.sh"  # in the repo
 
 
 def reload_set(set_path: Path, *, save_first: bool = False, seconds: int = 10) -> None:
     """Reopen `set_path` in Live behind a countdown the person at the Mac can cancel (rig-confirm.sh), and wait until
     Live shows it and the LOM answers. For a set edited offline; with save_first, Live saves first (only when the
     file was not edited offline). Guard if the countdown is cancelled or Live does not come back with the set."""
-    from hands.live.transport import LiveClient
+    from zpkt.live.transport import LiveClient
 
     if save_first and not ui.menu("File", "Save Live Set"):
         stop("could not save Live")

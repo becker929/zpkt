@@ -1,6 +1,6 @@
 """A panel's riff: notes from names, chords, a sequence or a sound's preset, as (pitch, start, length, velocity).
 
-Pure functions over a panel spec; hands.live.panel writes the notes into Live. C3 is MIDI note 60, as Live shows it.
+Pure functions over a panel spec; zpkt.live.panel writes the notes into Live. C3 is MIDI note 60, as Live shows it.
 """
 
 from __future__ import annotations
@@ -9,7 +9,7 @@ import math
 import re
 from typing import Any
 
-from hands.live.panel_base import MAX_BEATS, Note, PanelError
+from zpkt.live.panel_base import MAX_BEATS, Note, PanelError
 
 _PITCH_CLASS = {"C": 0, "D": 2, "E": 4, "F": 5, "G": 7, "A": 9, "B": 11}
 
@@ -33,10 +33,10 @@ def riff(spec: dict[str, Any]) -> tuple[list[Note], float]:
 
     `notes` is one pattern ([[pitch, start, length, velocity], ...]), repeated to fill `beats`; the pattern
     is as long as `pattern_beats`, or runs to the end of the bar its last note starts in. `chords` with `rhythm` is the
-    other way in (hands.live.midi).
+    other way in (zpkt.live.midi).
     """
     if spec.get("chords"):
-        from hands.live import midi
+        from zpkt.live import midi
 
         try:
             chords = midi.parse_progression(str(spec["chords"]))

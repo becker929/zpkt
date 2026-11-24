@@ -26,7 +26,7 @@ What the reset learned the hard way (2026-11-20):
 - The Settings window is a window like the set's, so the set's name is read from the windows list,
   not from the front window.
 - A render that is killed half-way leaves Live changed (a Render track, record mode, a grid's fader
-  values). Every command writes what it will put back to a file first (hands.live.hold); the soft
+  values). Every command writes what it will put back to a file first (zpkt.live.hold); the soft
   step runs what is left there, before a restart saves the set and again after Live is back.
 - A reset holds the same lock as every command that drives Live. A person's reset stops a hands
   command that still holds it (nothing should, by then); the agent's reset waits and then says so.
@@ -53,9 +53,9 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from hands import config
-from hands.live import hold, ui
-from hands.live.transport import LiveClient, LiveError, McpTransport
+from zpkt.live import config
+from zpkt.live import hold, ui
+from zpkt.live.transport import LiveClient, LiveError, McpTransport
 
 AUDIO_RESTART = ["sudo", "-n", "/usr/bin/killall", "coreaudiod"]
 SUDOERS_HINT = (
@@ -259,7 +259,7 @@ class Health:
     playing: bool | None = None
     recording: bool | None = None
     render_tracks: int = 0
-    undone: int = 0  # notes of things an interrupted command did not put back (hands.live.hold)
+    undone: int = 0  # notes of things an interrupted command did not put back (zpkt.live.hold)
     problems: list[str] = field(default_factory=list)
     needs: str = "nothing"  # nothing | soft | restart | wait (another hands command is using Live)
 

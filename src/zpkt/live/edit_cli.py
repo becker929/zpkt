@@ -7,8 +7,8 @@ from pathlib import Path
 
 import typer
 
-from hands.live.cli_options import HOST, PORT, fail
-from hands.live.transport import LiveClient, LiveError
+from zpkt.live.cli_options import HOST, PORT, fail
+from zpkt.live.transport import LiveClient, LiveError
 
 clip_app = typer.Typer(help="Manage arrangement MIDI clips and chord progressions.", no_args_is_help=True)
 device_app = typer.Typer(help="Load, inspect, and configure devices on tracks.", no_args_is_help=True)
@@ -36,7 +36,7 @@ def reset(
 ) -> None:
     """Reset the running Live set to a single named MIDI track. Deletes everything else: refuses a set
     with an arrangement or more than two tracks unless --force."""
-    from hands.live.reset import reset_set
+    from zpkt.live.reset import reset_set
 
     try:
         res = reset_set(LiveClient(host, port), track_name=track_name, tempo=tempo, force=force)
@@ -59,7 +59,7 @@ def clip_create(
     port: int | None = PORT,
 ) -> None:
     """Create an arrangement MIDI clip with chords and rhythm in one atomic call."""
-    from hands.live import midi
+    from zpkt.live import midi
 
     try:
         prog = midi.parse_progression(chords)
@@ -81,7 +81,7 @@ def device_load(
     port: int | None = PORT,
 ) -> None:
     """Load a device onto a track from the Live browser."""
-    from hands.live import device
+    from zpkt.live import device
 
     try:
         res = device.load_device(LiveClient(host, port), track=track, device_name=device_name, category=category)
@@ -100,7 +100,7 @@ def device_set(
     port: int | None = PORT,
 ) -> None:
     """Batch-set parameters on a device in a single atomic call."""
-    from hands.live import device as dev_mod
+    from zpkt.live import device as dev_mod
 
     p_dict = {}
     if json_params:
@@ -131,7 +131,7 @@ def device_list(
     port: int | None = PORT,
 ) -> None:
     """List parameters on a device with their ranges and values."""
-    from hands.live import device as dev_mod
+    from zpkt.live import device as dev_mod
 
     try:
         res = dev_mod.list_parameters(LiveClient(host, port), track=track, device=device)
@@ -151,7 +151,7 @@ def surface_apply(
 ) -> None:
     """Apply a zpkt-surface state to a device. It guesses each parameter and its units (Hz, ms) from the control
     ids; `hands panel apply` sets values by what Live shows instead."""
-    from hands.live import surface
+    from zpkt.live import surface
 
     state_str = state
     p = Path(state)

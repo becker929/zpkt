@@ -9,8 +9,8 @@ from pathlib import Path
 
 import pytest
 
-from hands.live.ops import LiveOps
-from hands.testing import FakeLive, hw002_like
+from zpkt.live.ops import LiveOps
+from zpkt.live.testing import FakeLive, hw002_like
 
 DATA = Path(__file__).resolve().parent / "data"
 REGENERATE = os.environ.get("MIXDESK_REGENERATE") == "1"  # only to make the files from the code before the upgrade

@@ -12,8 +12,8 @@ import pytest
 import soundfile as sf
 from typer.testing import CliRunner
 
-from hands.live import panel
-from hands.live.transport import McpResult, Transport
+from zpkt.live import panel
+from zpkt.live.transport import McpResult, Transport
 
 
 class Param:
@@ -147,7 +147,7 @@ def recorder(seen):
             )
             return path
         finally:
-            from hands.live.agent import with_prelude
+            from zpkt.live.agent import with_prelude
 
             transport.run(with_prelude(after + "\nresult = 'ok'"))
 
@@ -317,10 +317,10 @@ def test_params_lists_from_the_cache_after_the_first_read(tmp_path):
 
 
 def test_cli_reads_the_spec_from_stdin(tmp_path, monkeypatch):
-    from hands.cli import app
+    from zpkt.live.cli import app
 
     live = FakeLive()
-    monkeypatch.setattr("hands.live.panel_cli.LiveClient", lambda host, port, keep=False: live)
+    monkeypatch.setattr("zpkt.live.panel_cli.LiveClient", lambda host, port, keep=False: live)
     monkeypatch.setattr(panel, "_recorder", lambda: recorder([]))
     res = CliRunner().invoke(app, ["panel", "make", "--spec", "-", "--out", str(tmp_path)], input=json.dumps(SPEC))
     assert res.exit_code == 0 and "```zpkt-surface" in res.stdout
@@ -381,7 +381,7 @@ def test_a_chord_that_cannot_be_read_says_what_can():
 # ---------------------------------------------------------------------------------------------
 # Mix panels, grids and songs
 
-from hands.live import mix, song, versions  # noqa: E402
+from zpkt.live import mix, song, versions  # noqa: E402
 
 
 def db(v):
@@ -451,7 +451,7 @@ def bars_recorder(seen):
             )
             return path
         finally:
-            from hands.live.agent import with_prelude
+            from zpkt.live.agent import with_prelude
 
             transport.run(with_prelude(after + "\nresult = 'ok'"))
 
@@ -663,11 +663,11 @@ def panel_output(stdout: str) -> dict | None:
 
 
 def test_every_panel_command_prints_what_zpkt_web_reads(tmp_path, monkeypatch):
-    from hands.cli import app
+    from zpkt.live.cli import app
 
     live = mix_live()
     monkeypatch.chdir(tmp_path)
-    monkeypatch.setattr("hands.live.panel_cli.LiveClient", lambda host, port, keep=False: live)
+    monkeypatch.setattr("zpkt.live.panel_cli.LiveClient", lambda host, port, keep=False: live)
     monkeypatch.setattr(panel, "_recorder", lambda: bars_recorder([]))
 
     def run(*argv, **kw):

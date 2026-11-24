@@ -7,8 +7,8 @@ import time
 
 import pytest
 
-from hands.live import sweep
-from hands.live.panel import PanelError
+from zpkt.live import sweep
+from zpkt.live.panel import PanelError
 
 HOUR, DAY = 3600.0, 86400.0
 
@@ -158,7 +158,7 @@ def test_a_render_is_refused_when_there_is_no_room(tmp_path):
 
 
 def test_a_swept_grid_cannot_be_picked(tmp_path):
-    from hands.live import versions
+    from zpkt.live import versions
 
     out = tmp_path / "renders"
     panel_files(out, age=8 * DAY)

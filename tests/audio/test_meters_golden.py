@@ -14,7 +14,7 @@ from pathlib import Path
 import numpy as np
 import soundfile as sf
 from golden_check import check, text
-from mlab import (
+from zpkt.audio.meters import (
     als,
     bitdepth,
     compare,
@@ -30,12 +30,13 @@ from mlab import (
     target,
     util,
 )
-from mlab import io as aio
-from mlab import loudness as L
-from mlab import spectrum as S
+from zpkt.audio.meters import io as aio
+from zpkt.audio.meters import loudness as L
+from zpkt.audio.meters import spectrum as S
 from signals import SR, mix, reference, write
 
-FIXTURES = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "mlab", "calibration", "fixtures")
+ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+FIXTURES = os.path.join(ROOT, "ears", "mlab", "calibration", "fixtures")
 
 
 def fingerprint(y: np.ndarray) -> dict:

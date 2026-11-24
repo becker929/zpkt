@@ -5,11 +5,11 @@ must pass before Live loads it, and the mix a saved set holds.
     check.py  `check` and `list_params` (`hands als check|params`)
     mix.py    `mix_state` and `mix_lines` (`hands als mix`)
 
-Everything is offered here as `hands.als.<name>`, as when this was one module.
+Everything is offered here as `zpkt.live.als.<name>`, as when this was one module.
 """
 
-from hands.als.check import Report, _describe, _steps_of, check, envelopes, list_params
-from hands.als.file import (
+from zpkt.live.als.check import Report, _describe, _steps_of, check, envelopes, list_params
+from zpkt.live.als.file import (
     DEFAULT_TIME,
     PLUGIN_TAGS,
     TRACK_TAGS,
@@ -44,7 +44,7 @@ from hands.als.file import (
     value_at,
     xml_hash,
 )
-from hands.als.mix import SILENT, mix_lines, mix_state
+from zpkt.live.als.mix import SILENT, mix_lines, mix_state
 
 __all__ = [
     "DEFAULT_TIME", "PLUGIN_TAGS", "SILENT", "TRACK_TAGS", "XML_DECL", "Report", "_append", "_describe", "_envelope",

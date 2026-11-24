@@ -1,11 +1,11 @@
-"""hands.arrange: hat tiling, automation repair logic, and that every generated LOM block compiles."""
+"""zpkt.live.arrange: hat tiling, automation repair logic, and that every generated LOM block compiles."""
 
 from __future__ import annotations
 
 import pytest
 
-from hands.arrange import autostate, fx, hats
-from hands.live.transport import McpResult, Transport
+from zpkt.live.arrange import autostate, fx, hats
+from zpkt.live.transport import McpResult, Transport
 
 
 class Compiles(Transport):

@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import json
 
-from hands.live.transport import McpTransport
+from zpkt.live.transport import McpTransport
 
 LAYERS = {
     "A": ("perc 2", [60, 61]),

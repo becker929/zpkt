@@ -46,7 +46,7 @@ REFERENCE_WAVS = Path("~/_agent_scratch/refs/HW002").expanduser()  # the four HW
 DEFAULT_DATA = "~/_agent_scratch/arranger"
 DATA = Path(os.environ.get("ARRANGER_DATA", DEFAULT_DATA)).expanduser()
 # The folder Live's Save panel writes exports into before they move to their target: one the panel already knows,
-# whatever ARRANGER_DATA says (hands.live.export.SavePanel).
+# whatever ARRANGER_DATA says (zpkt.live.export.SavePanel).
 STAGING = Path(DEFAULT_DATA).expanduser() / "raw"
 
 
@@ -99,9 +99,9 @@ def live_ops(work: Path, renders: Path | None = None, staging: Path = STAGING) -
     os.environ["ZPKT_SET_PREFIXES"] = SET_PREFIX
     os.environ["ZPKT_DATA_DIR"] = str(work / "data")
     os.environ["ZPKT_RENDERS_DIR"] = str(renders or work / "raw")
-    from hands import config
-    from hands.live.ops import LiveOps
-    from hands.live.transport import LiveClient
+    from zpkt.live import config
+    from zpkt.live.ops import LiveOps
+    from zpkt.live.transport import LiveClient
 
     config.rig.cache_clear()  # settings read before this call would name another rig's sets
     return LiveOps(LiveClient(), staging=staging)

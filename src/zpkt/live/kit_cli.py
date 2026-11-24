@@ -1,5 +1,5 @@
 """`hands kit ...`: probe kits, the fast way to render many variants: P versions of a section in one load and one
-export (hands.probe_kit)."""
+export (zpkt.live.probe_kit)."""
 
 from __future__ import annotations
 
@@ -29,9 +29,9 @@ def kit_template(
     """Build a kit in Live (copy, Delete Time, Duplicate Time, save) and print its description."""
     from dataclasses import asdict
 
-    from hands import probe_kit
-    from hands.live.session import Guard
-    from hands.live.transport import LiveClient
+    from zpkt.live import probe_kit
+    from zpkt.live.session import Guard
+    from zpkt.live.transport import LiveClient
 
     try:
         made = probe_kit.template(LiveClient(host, port), kit, src, keep_start, keep_end, patterns, lead)
@@ -54,10 +54,10 @@ def kit_render(
     ),
 ) -> None:
     """Load a batch set, export it once, check it and slice one WAV per pattern; print the manifest."""
-    from hands import config, probe_kit
-    from hands.audio import AudioError
-    from hands.live.session import Guard
-    from hands.live.transport import LiveClient
+    from zpkt.live import config, probe_kit
+    from zpkt.live.audio import AudioError
+    from zpkt.live.session import Guard
+    from zpkt.live.transport import LiveClient
 
     try:
         manifest = probe_kit.render(

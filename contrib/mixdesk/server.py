@@ -38,9 +38,9 @@ import monitor
 import protocol as P
 import surfaces
 
-from hands import config
-from hands.live import state as S
-from hands.live.transport import LiveClient, LiveError
+from zpkt.live import config
+from zpkt.live import state as S
+from zpkt.live.transport import LiveClient, LiveError
 
 HERE = Path(__file__).resolve().parent
 SOURCES = json.loads((HERE / "sources.json").read_text())

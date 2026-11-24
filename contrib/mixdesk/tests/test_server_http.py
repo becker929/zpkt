@@ -11,7 +11,7 @@ import jsonschema
 import pytest
 from conftest import wait_for
 
-from hands.testing.display import fader_db
+from zpkt.live.testing.display import fader_db
 
 # ---- pages and reads -----------------------------------------------------------------------------------------------
 

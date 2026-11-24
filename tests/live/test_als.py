@@ -1,4 +1,4 @@
-"""hands.als on the BSD fixture set, with devices planted the way Live 12 writes them."""
+"""zpkt.live.als on the BSD fixture set, with devices planted the way Live 12 writes them."""
 
 from __future__ import annotations
 
@@ -10,8 +10,8 @@ import pytest
 from planted import DECAPITATOR, FIXTURE, TRACK, planted_set, planted_tree, xml_text
 from typer.testing import CliRunner
 
-from hands import als
-from hands.cli import app
+from zpkt.live import als
+from zpkt.live.cli import app
 
 UTIL = ("StereoGain", 0)
 DECAP = ("plugin", "Decapitator")
@@ -202,7 +202,7 @@ def test_list_params_and_cli(tmp_path):
 
 
 def test_mix_state_reads_a_saved_mix_and_diffs_two_files(tmp_path):
-    from hands.live import state as S
+    from zpkt.live import state as S
 
     src = planted_set(tmp_path / "a.als")
     a = als.mix_state(src)

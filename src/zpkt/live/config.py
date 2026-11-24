@@ -7,7 +7,7 @@ default:
     key             env                  default
     live_app        ZPKT_LIVE_APP        Ableton Live 12 Suite
     live_port       ZPKT_LIVE_PORT       16619                  the AbletonLiveMCP Remote Script's port; a test
-                                                                points it at a FakeLive (hands.testing)
+                                                                points it at a FakeLive (zpkt.live.testing)
     sets_dir        ZPKT_SETS_DIR        ~/Music/zpkt/sets      the Live sets hands opens, copies, saves
     data_dir        ZPKT_DATA_DIR        ~/Music/zpkt/data      probe kits, renders, bench.jsonl
     renders_dir     ZPKT_RENDERS_DIR     ~/Music/zpkt/renders   where `hands live export NAME` writes

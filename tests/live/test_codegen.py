@@ -1,10 +1,10 @@
-"""Tests for hands.codegen — Step, gen_* functions, and hz_to_eq8_norm."""
+"""Tests for zpkt.live.codegen — Step, gen_* functions, and hz_to_eq8_norm."""
 
 from __future__ import annotations
 
 import pytest
 
-from hands.codegen import (
+from zpkt.live.codegen import (
     Step,
     gen_create_tracks,
     gen_load_sample_to_pad,
@@ -13,7 +13,7 @@ from hands.codegen import (
     gen_set_tempo,
     hz_to_eq8_norm,
 )
-from hands.models import MidiNote, MidiPattern, SamplePad
+from zpkt.live.models import MidiNote, MidiPattern, SamplePad
 
 
 def test_gen_set_tempo_label_contains_bpm() -> None:

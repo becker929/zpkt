@@ -38,7 +38,7 @@ class Builder:
             return self.live.run(code)
 
     def guard(self, where: str, front: str) -> None:
-        from hands.live import session
+        from zpkt.live import session
 
         self.step(where)
         with stops(where):
@@ -48,7 +48,7 @@ class Builder:
     def open(self, job: str) -> str:
         """Copy the template to the job's set and open it (the set in front, the template or an old job, is saved
         first by open_set, so Live never asks about unsaved changes)."""
-        from hands.live import session
+        from zpkt.live import session
 
         name = set_name(job)
         if not session.config.rig().set_path(TEMPLATE).exists():
@@ -70,7 +70,7 @@ class Builder:
 
     def close(self, job: str) -> None:
         """Back to the template (open_set saves the job's set first, so no prompt), then delete the job's file."""
-        from hands.live import session
+        from zpkt.live import session
 
         self.step("close")
         with stops("close"):
@@ -307,7 +307,7 @@ class Builder:
 
     # ---- the render ----------------------------------------------------------------------------------------------
     def export(self, plan: Plan, out: Path, front: str) -> Path:
-        from hands import audio
+        from zpkt.live import audio
 
         self.guard("export", front)
         with stops("export"):
@@ -427,7 +427,7 @@ def make_template(client, palette, seed_dir: Path) -> Path:
     """`booth template`, once and watched: File > New Live Set (Live 12-native, with A Reverb and B Delay), saved by
     the Save panel into `seed_dir` (a folder its Where popup reaches), copied into the booth's sets folder, then
     Main's chain from the palette loaded and set, and saved."""
-    from hands.live import session, ui
+    from zpkt.live import session, ui
 
     L = ops(client)
     if ui.menu_enabled("File", "Save Live Set"):
@@ -459,7 +459,7 @@ def make_template(client, palette, seed_dir: Path) -> Path:
 def finish_template(client, palette) -> None:
     """The template's contents, with booth_template in front: one empty MIDI track p1 (Live won't delete a set's
     last track), Main's chain from the palette, the two returns checked; then saved."""
-    from hands.live import session
+    from zpkt.live import session
 
     L = ops(client)
     b = Builder(client)

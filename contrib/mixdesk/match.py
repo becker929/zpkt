@@ -27,11 +27,11 @@ from typing import Any
 
 import finishing as F
 
-from hands.live import hold, ui
-from hands.live import state as S
-from hands.live.inlive import with_source
-from hands.live.inlive.tracks import track_expr
-from hands.live.ops import LiveOps
+from zpkt.live import hold, ui
+from zpkt.live import state as S
+from zpkt.live.inlive import with_source
+from zpkt.live.inlive.tracks import track_expr
+from zpkt.live.ops import LiveOps
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[1]
@@ -137,7 +137,7 @@ def snapshot_from_state(state: S.State, set_name: str, at: str) -> dict[str, Any
 
 def snapshot(live: LiveOps, name: str, set_name: str = SET, folder: Path = SNAPS) -> Path:
     """Every track's mixer (volume, pan, sends, mute, solo) and every device's parameters, as Live shows them,
-    read with hands.live.state (a few tracks to a call)."""
+    read with zpkt.live.state (a few tracks to a call)."""
     folder.mkdir(parents=True, exist_ok=True)
     snap = snapshot_from_state(S.take(live.client), set_name, time.strftime("%Y-%m-%d %H:%M:%S"))
     path = folder / f"{name}.json"

@@ -64,7 +64,7 @@ class Gate:
     def front(self) -> str | None:
         if self._front:
             return self._front()
-        from hands.live import ui
+        from zpkt.live import ui
 
         try:
             return ui.front_title()
@@ -74,7 +74,7 @@ class Gate:
     def last_lom(self) -> datetime | None:
         if self._last_lom:
             return self._last_lom()
-        from hands.live import session
+        from zpkt.live import session
 
         return session.last_lom_connection()
 

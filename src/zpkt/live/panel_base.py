@@ -1,4 +1,4 @@
-"""What the panel family (hands.live.panel, mix, versions, song) shares: its error and its limits."""
+"""What the panel family (zpkt.live.panel, mix, versions, song) shares: its error and its limits."""
 
 from __future__ import annotations
 
@@ -24,7 +24,7 @@ def _track(name: str) -> str:
 
 
 class Loc(str):
-    """Where a device is when it is not a panel track's instrument: the Live expression for it (hands.live.mix)."""
+    """Where a device is when it is not a panel track's instrument: the Live expression for it (zpkt.live.mix)."""
 
 
 def _device(name: str) -> str:

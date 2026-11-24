@@ -1,6 +1,6 @@
 """Knobs: one name for a parameter in the .als and in the running set, and setting them over the LOM.
 
-A Knob is (track, device, param) as the .als names it (hands.als.resolve):
+A Knob is (track, device, param) as the .als names it (zpkt.live.als.resolve):
 
     device  "Mixer" | ("plugin", <plugin name>) | (<device tag>, <index among that tag>)
     param   the XML path in the device ("Bands.1/ParameterA/Gain"), or a plugin parameter's name
@@ -8,11 +8,11 @@ A Knob is (track, device, param) as the .als names it (hands.als.resolve):
 Its id is "track/device/param", the device written "Mixer", "plugin:<name>" or "<tag>#<index>":
 "S01 kick group/Compressor2#0/Ratio", "Break group/plugin:Dist COLDFIRE/Color". The plan files and the studio
 lab spelled the same id with pipes, "track|Tag:index|param" (`pipe_id`); `Knob.parse` reads both. Values are in the
-.als's units (the parameter's Manual), as in hands.probe_kit steps.
+.als's units (the parameter's Manual), as in zpkt.live.probe_kit steps.
 
 The LOM shows the same parameter under another name and often in other units: EQ Eight's
 frequency is 0-1 on a log scale, Utility's gain is dB/35, its width the square root of the .als
-fraction. hands.live.units holds the conversions (UNITS) measured on HW002: the rumble chain's .als values against a
+fraction. zpkt.live.units holds the conversions (UNITS) measured on HW002: the rumble chain's .als values against a
 LOM dump of the same devices (prototypes/soundfunction/results/live_rumble_bypass_v1, 12 Sep; the prototype is
 in git tag pre-upgrade-2026-11-24) and the kick-group compressor's (knobmap_hw002_kickgroup_v1). A knob without a measured conversion is
 refused rather than written with a guess; add one after reading both values in Live.
@@ -29,8 +29,8 @@ from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from typing import Any
 
-from hands.live.transport import McpTransport
-from hands.live.units import (
+from zpkt.live.transport import McpTransport
+from zpkt.live.units import (
     _BAND_PATH,
     BOOL,
     EQ8_BAND,
@@ -114,7 +114,7 @@ class Knob:
 
     @property
     def spec(self) -> tuple[Any, ...]:
-        """(track, device, param), as hands.als takes them."""
+        """(track, device, param), as zpkt.live.als takes them."""
         return self.track, self.device, self.param
 
     def __str__(self) -> str:

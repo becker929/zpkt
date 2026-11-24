@@ -5,7 +5,7 @@ from __future__ import annotations
 import re
 from typing import Any
 
-from hands.live.transport import McpTransport
+from zpkt.live.transport import McpTransport
 
 NOTE_NAMES = {
     "C": 0,

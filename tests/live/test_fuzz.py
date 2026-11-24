@@ -17,10 +17,10 @@ import traceback
 import pytest
 from typer.testing import CliRunner
 
-from hands.cli import app
-from hands.live import cli as live_cli
-from hands.live import panel_cli, rig, ui
-from hands.live.transport import McpResult, Transport
+from zpkt.live.cli import app
+from zpkt.live import live_cli
+from zpkt.live import panel_cli, rig, ui
+from zpkt.live.transport import McpResult, Transport
 
 SEED = int(os.environ.get("HANDS_FUZZ_SEED", "1"))
 N = int(os.environ.get("HANDS_FUZZ_N", "250"))
@@ -457,8 +457,8 @@ def test_a_bad_spec_is_an_error_to_act_on_and_leaves_the_set_as_it_was(tmp_path,
     read), and a command that failed changed nothing in the set."""
     from test_panel import bars_recorder, mix_live, recorder
 
-    from hands.live import mix, panel, song, versions
-    from hands.live.transport import LiveError
+    from zpkt.live import mix, panel, song, versions
+    from zpkt.live.transport import LiveError
 
     monkeypatch.setattr(time, "sleep", lambda s: None)
     r = random.Random(SEED)
@@ -497,7 +497,7 @@ def test_a_bad_spec_is_an_error_to_act_on_and_leaves_the_set_as_it_was(tmp_path,
         before = snapshot(live)
 
         def broken(*, transport, before, after, **_):
-            from hands.live.agent import with_prelude
+            from zpkt.live.agent import with_prelude
 
             transport.run(before + "\nresult = 'ok'")
             transport.run(with_prelude(after + "\nresult = 'ok'"))

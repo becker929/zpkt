@@ -1,15 +1,15 @@
 """The `hands` command: drive Ableton Live from a shell.
 
-    live     — one-shot commands against the open set: exec, check, save, export, the mix state (hands.live.cli)
-    panel    — an instrument, a riff, a render and its control panel for Zpkt web; song, sweep (hands.live.panel_cli)
-    rig      — check the Live rig, and reset it when its state gets weird (hands.live.rig_cli)
+    live     — one-shot commands against the open set: exec, check, save, export, the mix state (zpkt.live.live_cli)
+    panel    — an instrument, a riff, a render and its control panel for Zpkt web; song, sweep (zpkt.live.panel_cli)
+    rig      — check the Live rig, and reset it when its state gets weird (zpkt.live.rig_cli)
     record   — record the output through a resampling track and export it
     ab       — A/B the mix against reference tracks; spectrum — show or hide the master Spectrum
-    kit      — probe kits: many variants of a section in one export (hands.kit_cli)
-    als      — a saved set offline: its checks, a device's parameters, its mix (hands.als_cli)
-    library  — the WIP library: each track's place in the seven steps (hands.library, read-only)
-    serum2   — Serum 2 presets: list, render offline, apply into a saved set (hands.serum2)
-    build, execute — the first design: a ProjectConfig into LOM steps (hands.project_cli)
+    kit      — probe kits: many variants of a section in one export (zpkt.live.kit_cli)
+    als      — a saved set offline: its checks, a device's parameters, its mix (zpkt.live.als_cli)
+    library  — the WIP library: each track's place in the seven steps (zpkt.live.library, read-only)
+    serum2   — Serum 2 presets: list, render offline, apply into a saved set (zpkt.live.serum2)
+    build, execute — the first design: a ProjectConfig into LOM steps (zpkt.live.project_cli)
 
 Each module named here parses its arguments and prints; the work is in the library.
 """
@@ -22,13 +22,13 @@ from pathlib import Path
 import typer
 from rich.console import Console
 
-from hands import als_cli, kit_cli, project_cli
-from hands.library.cli import app as library_app
-from hands.live.cli import app as live_app
-from hands.live.panel_cli import app as panel_app
-from hands.live.panel_cli import song_app, sweep_command
-from hands.live.rig_cli import app as rig_app
-from hands.serum2.cli import app as serum2_app
+from zpkt.live import als_cli, kit_cli, project_cli
+from zpkt.live.library.cli import app as library_app
+from zpkt.live.live_cli import app as live_app
+from zpkt.live.panel_cli import app as panel_app
+from zpkt.live.panel_cli import song_app, sweep_command
+from zpkt.live.rig_cli import app as rig_app
+from zpkt.live.serum2.cli import app as serum2_app
 
 app = typer.Typer(name="hands", help="DAW control layer for Ableton Live.")
 project_cli.register(app)
@@ -60,8 +60,8 @@ def record(
     ),
 ) -> None:
     """Record Ableton output via resampling track and export."""
-    from hands.live.record import record_arrangement, record_via_resampling
-    from hands.live.transport import LiveClient
+    from zpkt.live.record import record_arrangement, record_via_resampling
+    from zpkt.live.transport import LiveClient
 
     output_path = Path(output)
     transport = LiveClient(host=host, port=port)
@@ -105,8 +105,8 @@ def ab(
     ),
 ) -> None:
     """A/B the mix against the current reference track (tracks named "REF ...")."""
-    from hands import ab as ab_mod
-    from hands.live.transport import LiveClient
+    from zpkt.live import ab as ab_mod
+    from zpkt.live.transport import LiveClient
 
     transport = LiveClient(host=host, port=port)
     actions = {
@@ -133,8 +133,8 @@ def spectrum_cmd(
     ),
 ) -> None:
     """Toggle the master Spectrum analyzer in Live's detail view."""
-    from hands import ab as ab_mod
-    from hands.live.transport import LiveClient
+    from zpkt.live import ab as ab_mod
+    from zpkt.live.transport import LiveClient
 
     try:
         print(json.dumps(ab_mod.spectrum(LiveClient(host=host, port=port), toggle=not show)))
@@ -154,7 +154,7 @@ def main() -> None:
     except Exception as exc:
         if os.environ.get("HANDS_TRACEBACK"):
             raise
-        from hands.live.panel_cli import inside
+        from zpkt.live.panel_cli import inside
 
         print(f"ERROR: {inside(exc)}", file=sys.stderr)
         sys.exit(1)

@@ -32,7 +32,7 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
-from hands.live import hold
+from zpkt.live import hold
 
 TAKE = re.compile(r"Render \d{4} \[\d{4}-\d{2}-\d{2} \d{6}\]\.wav")
 _TAKE_B = re.compile(TAKE.pattern.encode())
@@ -277,7 +277,7 @@ def report(result: dict[str, Any], shown: int = 12) -> str:
 
 def make_room(out_dir: Path, seconds: float = 0.0, *, free: Callable[[Path], int] = free_bytes) -> None:
     """Before a recording of `seconds`: sweep if the disk is low, refuse if there is still not room for the take."""
-    from hands.live.panel import PanelError
+    from zpkt.live.panel import PanelError
 
     out_dir = Path(out_dir)
     need = FLOOR + int(seconds * TAKE_BYTES_PER_SECOND) * 2  # Live's take, and the copy hands cuts from

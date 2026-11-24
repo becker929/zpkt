@@ -9,10 +9,10 @@ moment" in zpkt: the mix desk's checkpoints are these files, and its history use
 A state (State) holds, for every track, return and Main: volume, pan, sends (by return name), mute and solo, and every
 device's parameters (in chain order). Each value is a ShownRaw pair, as Live shows it and its raw value; `put` writes
 the raw value, which round-trips exactly on the same Live version. Reading is one LOM call per 8 tracks (about 3 s for
-a 33-track set); writing is one device and at most 16 parameters per call (hands.live.writes).
+a 33-track set); writing is one device and at most 16 parameters per call (zpkt.live.writes).
 
 NAME may also be a path to a state file, or to a mix desk recipe: JSON whose "desk" key (or top level) is the desk
-contract (hands.live.desk), read as a partial state.
+contract (zpkt.live.desk), read as a partial state.
 """
 
 from __future__ import annotations
@@ -24,12 +24,12 @@ import time
 from pathlib import Path
 from typing import Any, TypedDict
 
-from hands import config
-from hands.live import desk as desk_contract
-from hands.live import writes
-from hands.live.inlive import keys
-from hands.live.inlive import tracks as named_tracks
-from hands.live.transport import McpTransport
+from zpkt.live import config
+from zpkt.live import desk as desk_contract
+from zpkt.live import writes
+from zpkt.live.inlive import keys
+from zpkt.live.inlive import tracks as named_tracks
+from zpkt.live.transport import McpTransport
 
 READ_CHUNK = 8  # tracks per read call: one call per track cost about 0.4 s each in round trips
 WRITE_CHUNK = writes.WRITE_CHUNK
@@ -95,7 +95,7 @@ result = {{n: _one(song.master_track if n == 'Main' else by[n], n != 'Main') for
 
 
 def track_expr(name: str) -> str:
-    """The LOM expression for a track, return or Main by name (hands.live.inlive.tracks has the rule)."""
+    """The LOM expression for a track, return or Main by name (zpkt.live.inlive.tracks has the rule)."""
     return named_tracks.track_expr(name)
 
 
@@ -166,7 +166,7 @@ def _same(a: list[Any] | None, b: list[Any] | None, tol: float = 1e-6) -> bool:
 
 
 def flatten(state: State) -> dict[str, ShownRaw]:
-    """Every value under its state key (hands.live.inlive.keys): {"Kick bus/volume": [shown, raw],
+    """Every value under its state key (zpkt.live.inlive.keys): {"Kick bus/volume": [shown, raw],
     "Kick bus/send Space": [...], "Kick bus/desk EQ/1 Gain A": [...]}, for comparing."""
     out: dict[str, ShownRaw] = {}
     rets = state.get("returns", [])
@@ -326,7 +326,7 @@ def _device(d: desk_contract.DeskDevice) -> DeviceState:
 
 def from_desk(data: Any) -> State:
     """A mix desk recipe's "desk" (returns, desk chains, mixer, owned switches) as a partial state. The desk is
-    checked against its contract (hands.live.desk) first."""
+    checked against its contract (zpkt.live.desk) first."""
     desk = desk_contract.parse(data)
     tracks: dict[str, TrackState] = {}
 

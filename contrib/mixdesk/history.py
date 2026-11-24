@@ -5,7 +5,7 @@ are one entry (a fader sweep is one step to undo), and controls that move at the
 macro) are one entry together. Undo writes the "from" values back; redo the "to" values. A
 revert to a checkpoint is one entry too, so it can be undone.
 
-A checkpoint is the whole mix (hands.live.state: every fader, send, mute and device value of the set), saved as
+A checkpoint is the whole mix (zpkt.live.state: every fader, send, mute and device value of the set), saved as
 <sets_dir>/state/<set>/<name>.json, so `hands live state put NAME` and `diff NAME` work on it as well. Every state
 file there is a checkpoint here, including ones made outside the desk (B, the recipe; working-0854). Keys are the
 state's keys ("Hats bus/desk EQ/1 Gain A", "Kick bus/volume"), which is what the pager reports for each control.
@@ -25,7 +25,7 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
-from hands.live import state as S
+from zpkt.live import state as S
 
 COALESCE_S = 2.0  # one control moved again within this long: the same step
 TOGETHER_S = 0.3  # another control moved within this long of the step: the same gesture (a macro's parameters)
@@ -58,7 +58,7 @@ class History:
         clock: Callable[[], float] = time.time,
     ) -> None:
         """`directory` holds <set>.json (default HISTORY_DIR); `checkpoints` the set's hands states (default
-        hands.live.state.folder(set_name)); `clock` gives seconds (tests pass their own)."""
+        zpkt.live.state.folder(set_name)); `clock` gives seconds (tests pass their own)."""
         self.clock = clock
         self.set_name, self.labels = set_name, labels
         self.directory = directory or HISTORY_DIR

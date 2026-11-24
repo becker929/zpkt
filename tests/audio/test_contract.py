@@ -20,7 +20,7 @@ def test_committed_schema_is_current() -> None:
     import gen_schema
 
     assert json.loads(SCHEMA.read_text()) == gen_schema.build(), (
-        "stale contract: run `uv run python scripts/gen_schema.py` in ears/"
+        "stale contract: run `uv run --extra audio python ears/scripts/gen_schema.py`"
     )
 
 
@@ -31,7 +31,7 @@ def test_cli_output_validates(tmp_path) -> None:
     wav = tmp_path / "tone.wav"
     sf.write(wav, np.stack([tone, tone], axis=1), sr)
     out = subprocess.run(
-        [sys.executable, "-m", "ears.cli", "analyze", str(wav), "--json", "--no-embeddings"],
+        [sys.executable, "-m", "zpkt.audio.cli", "analyze", str(wav), "--json", "--no-embeddings"],
         capture_output=True,
         text=True,
         check=True,

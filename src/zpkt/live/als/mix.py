@@ -1,4 +1,4 @@
-"""The mix a saved set holds, read offline in the shape of hands.live.state (`hands als mix`).
+"""The mix a saved set holds, read offline in the shape of zpkt.live.state (`hands als mix`).
 
 Values are the file's own numbers (marked "units": "als"), so a state read here compares with another read here, not
 with a state taken from Live.
@@ -9,7 +9,7 @@ from __future__ import annotations
 import os
 import xml.etree.ElementTree as ET
 
-from hands.als.file import devices, load, track_name
+from zpkt.live.als.file import devices, load, track_name
 
 SILENT = 0.0003162277571  # Live's fader and send floor (-70 dB), shown as -inf dB
 
@@ -59,7 +59,7 @@ def _device_params(d: ET.Element) -> dict[str, list]:
 
 
 def mix_state(path: str | os.PathLike) -> dict:
-    """The mix a saved set holds, in the shape of hands.live.state (so state.diff and summarize work on it):
+    """The mix a saved set holds, in the shape of zpkt.live.state (so state.diff and summarize work on it):
     each track's volume and sends (shown in dB), pan, mute (its Speaker off), and every device's parameters.
     Values are the file's own (a fader's raw value is its gain, not the LOM's 0..1), so compare a file with
     a file; to compare with Live, take a state in Live instead."""

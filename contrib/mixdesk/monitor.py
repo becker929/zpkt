@@ -15,7 +15,7 @@ import sys
 import time
 from pathlib import Path
 
-from hands.live.transport import LiveClient, McpTransport
+from zpkt.live.transport import LiveClient, McpTransport
 
 HERE = Path(__file__).resolve().parent
 CFG = json.loads((HERE / "sources.json").read_text())

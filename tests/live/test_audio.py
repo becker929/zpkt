@@ -1,4 +1,4 @@
-"""hands.audio on synthetic audio: silence and length checks, slicing, trimming, timeline checks."""
+"""zpkt.live.audio on synthetic audio: silence and length checks, slicing, trimming, timeline checks."""
 
 from __future__ import annotations
 
@@ -8,8 +8,8 @@ import numpy as np
 import pytest
 import soundfile as sf
 
-from hands import audio
-from hands.audio import AudioError
+from zpkt.live import audio
+from zpkt.live.audio import AudioError
 
 SR = 44100
 

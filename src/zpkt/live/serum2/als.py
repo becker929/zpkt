@@ -13,15 +13,15 @@ import re
 from importlib import resources
 from xml.etree import ElementTree as ET
 
-from hands import als
+from zpkt.live import als
 
 
 def param_names() -> list[str]:
-    return json.loads(resources.files("hands.serum2").joinpath("param_names.json").read_text())
+    return json.loads(resources.files("zpkt.live.serum2").joinpath("param_names.json").read_text())
 
 
 def mod_dest_ids() -> dict[str, int]:
-    return json.loads(resources.files("hands.serum2").joinpath("mod_dest_ids.json").read_text())
+    return json.loads(resources.files("zpkt.live.serum2").joinpath("mod_dest_ids.json").read_text())
 
 
 def serum_devices(track: ET.Element) -> list[ET.Element]:

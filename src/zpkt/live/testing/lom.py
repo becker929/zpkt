@@ -1,7 +1,7 @@
 """A fake Live Object Model: the parts of Live's Python API that zpkt's code strings use, offline.
 
-FakeLive (hands.testing.fakelive) runs the Remote Script's own code over a Song built here. The objects keep the
-rules of Live that zpkt depends on: `str(parameter)` is what Live shows (hands.testing.display); every listenable
+FakeLive (zpkt.live.testing.fakelive) runs the Remote Script's own code over a Song built here. The objects keep the
+rules of Live that zpkt depends on: `str(parameter)` is what Live shows (zpkt.live.testing.display); every listenable
 property has add_/remove_/_has_listener, fired when its value changes; a write from inside a notification raises
 as Live does; collections come back as snapshots (tuples, like Live's vectors, so a `tracks` alias goes stale);
 each LOM call's writes are one undo step. Where Live's exact behaviour is not known, a comment says GUESS.
@@ -17,7 +17,7 @@ import types
 from collections.abc import Callable, Iterable, Sequence
 from typing import Any, ClassVar, cast
 
-from hands.testing import display
+from zpkt.live.testing import display
 
 NOTIFICATION_REFUSED = "Changes cannot be triggered by notifications. You will need to defer your response."
 SCENES = 8  # session slots per track; zpkt works in the arrangement, so they stay empty
@@ -895,7 +895,7 @@ class Track(LiveObject):
 
     def insert_device(self, device_name: str, target_index: int = -1) -> Device:
         """Live 12's insert_device: a built-in device by the name the browser shows."""
-        from hands.testing import devices
+        from zpkt.live.testing import devices
 
         self._events().check_write()
         return self._add_device(devices.make(device_name), target_index)
@@ -1280,7 +1280,7 @@ class Browser(LiveObject):
 
     def load_item(self, item: BrowserItem) -> None:
         """Load onto the selected track. GUESS: an instrument goes first (replacing one there), an effect last."""
-        from hands.testing import devices
+        from zpkt.live.testing import devices
 
         self._song._events().check_write()
         track = self._song._view._values.get("selected_track")
@@ -1364,7 +1364,7 @@ class Application(LiveObject):
 
 def live_module(app: Application) -> types.ModuleType:
     """A `Live` module whose get_application() is this fake's: what the Remote Script and pager.py import."""
-    live = types.ModuleType("Live", "The fake Live module (hands.testing.lom).")
+    live = types.ModuleType("Live", "The fake Live module (zpkt.live.testing.lom).")
     names: dict[str, dict[str, Any]] = {
         "Application": {"get_application": lambda: app, "Application": Application},
         "Clip": {

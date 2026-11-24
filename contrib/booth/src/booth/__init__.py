@@ -23,7 +23,7 @@ RIG_ENV = {
 
 def use_booth_rig() -> None:
     """Point hands' rig settings at the booth's folders and prefix, for this process."""
-    from hands import config
+    from zpkt.live import config
 
     os.environ.update(RIG_ENV)
     config.rig.cache_clear()

@@ -1,4 +1,4 @@
-"""`hands live state ...`: the mix state of the open set as data (hands.live.state): take it, compare it, put it back."""
+"""`hands live state ...`: the mix state of the open set as data (zpkt.live.state): take it, compare it, put it back."""
 
 from __future__ import annotations
 
@@ -6,8 +6,8 @@ import time
 
 import typer
 
-from hands.live.cli_options import HOST, PORT, front_set
-from hands.live.transport import LiveClient
+from zpkt.live.cli_options import HOST, PORT, front_set
+from zpkt.live.transport import LiveClient
 
 state_app = typer.Typer(
     help="The mix state of the open set as data: take it, compare it, put it back.", no_args_is_help=True
@@ -26,7 +26,7 @@ def state_take(
     port: int | None = PORT,
 ) -> None:
     """Every mixer and device value of the front set -> sets_dir/state/<set>/NAME.json."""
-    from hands.live import state as S
+    from zpkt.live import state as S
 
     set_name = front_set()
     t0 = time.monotonic()
@@ -45,7 +45,7 @@ def state_diff(
     port: int | None = PORT,
 ) -> None:
     """What differs between A and B (or Live now). Only tracks A holds are read from Live. Exit 1 if anything does."""
-    from hands.live import state as S
+    from zpkt.live import state as S
 
     set_name = front_set() if b is None or not b.endswith(".json") or not a.endswith(".json") else ""
     sa = S.load(S.path_for(set_name, a))
@@ -69,8 +69,8 @@ def state_put(
     port: int | None = PORT,
 ) -> None:
     """Write a state's raw values into Live, read them back; exit 1 with what still differs."""
-    from hands.live import hold
-    from hands.live import state as S
+    from zpkt.live import hold
+    from zpkt.live import state as S
 
     set_name = front_set()
     st = S.load(S.path_for(set_name, name))
@@ -84,7 +84,7 @@ def state_put(
 @state_app.command("ls")
 def state_ls() -> None:
     """The states kept for the front set, newest first."""
-    from hands.live import state as S
+    from zpkt.live import state as S
 
     d = S.folder(front_set())
     files = sorted(d.glob("*.json"), key=lambda p: p.stat().st_mtime, reverse=True) if d.exists() else []

@@ -30,8 +30,8 @@ from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
 
-from hands import config
-from hands.live.transport import LOST, UNREACHABLE, LiveError, McpTransport
+from zpkt.live import config
+from zpkt.live.transport import LOST, UNREACHABLE, LiveError, McpTransport
 
 LOCK, UNDO = "live.lock", "live-undo.json"
 STALE_S = 24 * 3600.0  # an undo note this old is for a set that has moved on: dropped, with a word

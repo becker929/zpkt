@@ -17,7 +17,7 @@ import subprocess
 import sys
 import time
 
-from hands.transport import LiveMcpTransport
+from zpkt.live.transport import LiveMcpTransport
 
 PROJ = pathlib.Path.home() / "_agent_scratch/HW002"
 SRC = PROJ / "HW002_121_full.als"

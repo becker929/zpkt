@@ -1,5 +1,5 @@
-"""`python -m mlab ...`: the mastering lab's CLI (ears.meters.cli)."""
+"""`python -m mlab ...`: the mastering lab's CLI (zpkt.audio.meters.cli)."""
 
-from ears.meters.cli import main
+from zpkt.audio.meters.cli import main
 
 main()

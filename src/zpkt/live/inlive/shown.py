@@ -5,7 +5,7 @@ The LOM takes only raw values, but people and recipes think in what Live shows (
 laws are not published), and `set_shown` writes it. `shown_number` reads a shown text as a number in its base unit,
 so texts with different prefixes compare ("1.73 kHz" > "900 Hz", "2.5 ms" < "1 s").
 
-Stdlib only, Python 3.11: this file also runs inside Live (hands.live.inlive).
+Stdlib only, Python 3.11: this file also runs inside Live (zpkt.live.inlive).
 """
 
 import re

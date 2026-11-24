@@ -3,13 +3,13 @@
 Why: the LOM cannot write arrangement automation (Clip.automation_envelope refuses arrangement
 clips, and devices on group tracks have no envelope object). A .als file is gzip-compressed XML,
 so we edit the XML, load the set once and export once to render P parameter variants
-(hands.probe_kit). Nothing here opens Live; `save` writes only the file it is given.
+(zpkt.live.probe_kit). Nothing here opens Live; `save` writes only the file it is given.
 
     hands als check FILE [--against SRC]     # self-checks, and what changed against the source
     hands als params FILE TRACK DEVICE       # automatable element names of a device
 
 A knob is (track, device, param), named the way the .als names it (see `resolve`); values are in
-the parameter's Manual units, which are not always the LOM's (hands.live.knobs converts).
+the parameter's Manual units, which are not always the LOM's (zpkt.live.knobs converts).
 
 What the .als holds (Live 12.4.6, schema "12.0_12402")
 ------------------------------------------------------

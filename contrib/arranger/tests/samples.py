@@ -163,7 +163,7 @@ def assert_golden(name: str, got: Any) -> None:
 
 
 class RecordingLive:
-    """Stands in for hands.live.ops.LiveOps: records each step, answers LOM calls from a small model of the set
+    """Stands in for zpkt.live.ops.LiveOps: records each step, answers LOM calls from a small model of the set
     (track names, device lists, clip starts). The calls themselves are what the tests pin."""
 
     def __init__(self, tracks: list[str] | None = None, front: str = "HW002_121_pp_mix") -> None:

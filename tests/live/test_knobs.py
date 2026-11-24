@@ -1,4 +1,4 @@
-"""hands.live.knobs: canonical ids, measured unit conversions, and the LOM code run on a fake song."""
+"""zpkt.live.knobs: canonical ids, measured unit conversions, and the LOM code run on a fake song."""
 
 from __future__ import annotations
 
@@ -6,9 +6,9 @@ import math
 
 import pytest
 
-from hands.live import knobs
-from hands.live.knobs import Knob, KnobError
-from hands.live.transport import McpResult, Transport
+from zpkt.live import knobs
+from zpkt.live.knobs import Knob, KnobError
+from zpkt.live.transport import McpResult, Transport
 
 CHORD = "12-2022-06-02-001 [2026-05-25 092256]"
 

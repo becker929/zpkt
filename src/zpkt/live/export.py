@@ -2,7 +2,7 @@
 
 Two ways to drive the Export dialog, one function (`export`):
 
-- "keys" (hands.live.render.export): Cmd+Shift+R and typing into the Save panel, by export_audio.applescript. It
+- "keys" (zpkt.live.render.export): Cmd+Shift+R and typing into the Save panel, by export_audio.applescript. It
   renders Main, one track or every track, at any bit depth and rate.
 - "menu" (`export_by_menu` here): the menu bar and accessibility only, no keystrokes. On 2026-10-14 two macOS
   permission prompts (which an agent must never answer) sat over Live's dialogs and took every keystroke ("Export
@@ -12,8 +12,8 @@ Two ways to drive the Export dialog, one function (`export`):
   its target.
 
 `save_as` is File > Save Live Set As through the same Save panel. The range of an export is the arrangement's time
-selection, made by hands.live.timeops.select (a LOM call and a menu click). Everything that goes wrong raises
-hands.live.session.Guard with what was on screen, after cancelling the dialogs it left open.
+selection, made by zpkt.live.timeops.select (a LOM call and a menu click). Everything that goes wrong raises
+zpkt.live.session.Guard with what was on screen, after cancelling the dialogs it left open.
 """
 
 from __future__ import annotations
@@ -23,9 +23,9 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
 
-from hands.live import render, session, timeops, ui
-from hands.live.session import stop
-from hands.live.transport import McpTransport
+from zpkt.live import render, session, timeops, ui
+from zpkt.live.session import stop
+from zpkt.live.transport import McpTransport
 
 _IN_LIVE = 'tell application "System Events" to tell process "Live"\n{}\nend tell'
 _DIALOG = 'group 1 of window "Export Audio/Video"'
@@ -354,7 +354,7 @@ def export(
 ) -> list[Path]:
     """Render the arrangement through Live's Export dialog; return the files written.
 
-    method="keys" is hands.live.render.export: any `mode` (Main, a track, every track), bit depth and rate, and
+    method="keys" is zpkt.live.render.export: any `mode` (Main, a track, every track), bit depth and rate, and
     without a range Live's own (the loop brace or the whole song). method="menu" is `export_by_menu`: Main at
     44.1 kHz, a range, and a `staging` folder the Save panel can reach; use it when a stray system prompt could take
     keystrokes.

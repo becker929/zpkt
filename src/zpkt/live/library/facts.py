@@ -1,7 +1,7 @@
-"""What a Live set shows about a track, read offline from its XML (hands.als.load). Read-only.
+"""What a Live set shows about a track, read offline from its XML (zpkt.live.als.load). Read-only.
 
 Facts, not judgments: tracks with their devices, clips, automation and samples; the Main chain;
-tempo and locators. hands.library.score turns them into step percentages.
+tempo and locators. zpkt.live.library.score turns them into step percentages.
 """
 
 from __future__ import annotations
@@ -12,7 +12,7 @@ import xml.etree.ElementTree as ET
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from hands import als
+from zpkt.live import als
 
 RACKS = ("AudioEffectGroupDevice", "InstrumentGroupDevice", "DrumGroupDevice", "MidiEffectGroupDevice")
 INSTRUMENTS = (

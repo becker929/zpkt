@@ -1,4 +1,4 @@
-"""hands.live.hold: one user of Live at a time, and what an interrupted command left is put back by the next."""
+"""zpkt.live.hold: one user of Live at a time, and what an interrupted command left is put back by the next."""
 
 from __future__ import annotations
 
@@ -9,9 +9,9 @@ import signal
 
 import pytest
 
-from hands import config
-from hands.live import hold, mix, panel, rig
-from hands.live.transport import LiveError, McpResult, Transport
+from zpkt.live import config
+from zpkt.live import hold, mix, panel, rig
+from zpkt.live.transport import LiveError, McpResult, Transport
 
 
 class Live(Transport):

@@ -1,7 +1,7 @@
 """FakeLive: an offline Live that runs the same code strings the real Remote Script runs.
 
-It loads its own copy of hands/remote_scripts/AbletonLiveMCP and runs that script's `_dispatch`, `_execute` and
-`_build_scope` unchanged over a fake set (hands.testing.lom), so a call is evaluated, executed and serialized exactly
+It loads its own copy of zpkt/live/remote_scripts/AbletonLiveMCP and runs that script's `_dispatch`, `_execute` and
+`_build_scope` unchanged over a fake set (zpkt.live.testing.lom), so a call is evaluated, executed and serialized exactly
 as in Live. FakeLive is an McpTransport; `serve()` puts the script's own TCP server on a free port, so a CLI or a
 server in another process can be pointed at it (`--port`, or ZPKT_LIVE_PORT for the rig's live_port).
 
@@ -32,11 +32,11 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Literal
 
-from hands.live.transport import DEFAULT_PORT, LOST, McpResult, Transport
-from hands.testing import devices
-from hands.testing.lom import MAIN_THREAD, Application, Browser, Song, live_module
+from zpkt.live.transport import DEFAULT_PORT, LOST, McpResult, Transport
+from zpkt.live.testing import devices
+from zpkt.live.testing.lom import MAIN_THREAD, Application, Browser, Song, live_module
 
-REMOTE_SCRIPT = Path(__file__).resolve().parents[3] / "remote_scripts" / "AbletonLiveMCP" / "__init__.py"
+REMOTE_SCRIPT = Path(__file__).resolve().parents[1] / "remote_scripts" / "AbletonLiveMCP" / "__init__.py"
 _ABSENT = object()
 
 

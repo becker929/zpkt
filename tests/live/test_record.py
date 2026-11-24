@@ -1,4 +1,4 @@
-"""hands.live.record against a small fake Live — offline, no Ableton required."""
+"""zpkt.live.record against a small fake Live — offline, no Ableton required."""
 
 from __future__ import annotations
 
@@ -6,8 +6,8 @@ import wave
 
 import pytest
 
-import hands.live.record as recorder
-from hands.live.transport import McpResult, Transport
+import zpkt.live.record as recorder
+from zpkt.live.transport import McpResult, Transport
 
 
 class FakeLive(Transport):
@@ -112,7 +112,7 @@ def test_waits_for_resampling_input_to_appear(tmp_path) -> None:
 
 
 def test_beat_to_seconds_extrapolates_past_last_marker():
-    from hands.live.record import _beat_to_seconds
+    from zpkt.live.record import _beat_to_seconds
 
     # Live's recorded clip: two markers 1/32 beat apart at 160 BPM (0.375 s per beat)
     marks = [[0.0, 0.0], [0.03125, 0.01171875]]

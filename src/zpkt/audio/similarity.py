@@ -7,7 +7,7 @@ with per-dimension scores and an overall composite.
 
 from __future__ import annotations
 
-from ears.models import AudioProfile, SimilarityResult
+from zpkt.audio.models import AudioProfile, SimilarityResult
 
 
 def compare(a: AudioProfile, b: AudioProfile) -> SimilarityResult:

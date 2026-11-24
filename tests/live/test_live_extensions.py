@@ -10,7 +10,7 @@ from typer.testing import CliRunner
 sys.path.insert(0, str(Path(__file__).parent))
 from test_transport import FakeRemoteScript
 
-from hands.cli import app
+from zpkt.live.cli import app
 
 
 @pytest.fixture

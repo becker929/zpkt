@@ -5,7 +5,7 @@ devices, their group's devices and Main. Run from hands' environment, one state 
 
     uv run --project hands python contrib/arranger/bounce.py [state ...]
 
-Exports go through hands.live.ops (menu clicks and accessibility, no keystrokes: a macOS
+Exports go through zpkt.live.ops (menu clicks and accessibility, no keystrokes: a macOS
 permission prompt on screen takes every key). Stops at the first surprise.
 """
 

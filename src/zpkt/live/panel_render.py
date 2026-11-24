@@ -1,5 +1,5 @@
 """Rendering a panel: its riff or its bars recorded in real time through a resampling track (record_span), cut to
-the span (cut_take) and measured (levels). The set is put back after each render, however it ends (hands.live.hold).
+the span (cut_take) and measured (levels). The set is put back after each render, however it ends (zpkt.live.hold).
 """
 
 from __future__ import annotations
@@ -11,10 +11,10 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
-from hands.live import hold
-from hands.live.agent import with_prelude
-from hands.live.panel_base import LEAD_SECONDS, Note, PanelError, _device, _track
-from hands.live.transport import McpTransport
+from zpkt.live import hold
+from zpkt.live.agent import with_prelude
+from zpkt.live.panel_base import LEAD_SECONDS, Note, PanelError, _device, _track
+from zpkt.live.transport import McpTransport
 
 
 def lead_beats(tempo: float) -> float:
@@ -38,14 +38,14 @@ def record_span(
 ) -> str | None:
     """Record the arrangement from start_beat through a resampling track, in as few round trips as Live allows.
 
-    The same method as hands.live.record.record_arrangement (which see for why), batched: `before` (writes
+    The same method as zpkt.live.record.record_arrangement (which see for why), batched: `before` (writes
     only) runs in the first call and `after` in the last, which always runs and also removes the render track
     and puts the arm states back. Writes <output_dir>/<filename> and its .timing.json; returns the path.
     """
     import shutil
 
-    from hands.live import sweep
-    from hands.live.record import _beat_to_seconds
+    from zpkt.live import sweep
+    from zpkt.live.record import _beat_to_seconds
 
     idx, out, take = n_tracks, str(Path(output_dir) / filename), None
     sweep.make_room(Path(output_dir), (duration_beats + tail_beats) * 60.0 / tempo)
@@ -81,7 +81,7 @@ def record_span(
                 f"song.start_time = {float(start_beat)!r}\nsong.current_song_time = {float(start_beat)!r}\n"
                 "song.record_mode = True\nsong.start_playing()\nresult = 'ok'"
             )
-            from hands.live.record import AUDIO_STALLED, playhead_moves
+            from zpkt.live.record import AUDIO_STALLED, playhead_moves
 
             if not playhead_moves(transport, float(start_beat)):
                 raise PanelError(AUDIO_STALLED)

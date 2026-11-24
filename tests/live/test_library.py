@@ -1,4 +1,4 @@
-"""hands.library: set facts, the seven step scorers, records, and the inventory, on synthetic sets."""
+"""zpkt.live.library: set facts, the seven step scorers, records, and the inventory, on synthetic sets."""
 
 from __future__ import annotations
 
@@ -10,9 +10,9 @@ import pytest
 from synth_set import T, finished_short, write_set
 from typer.testing import CliRunner
 
-from hands.cli import app
-from hands.library import facts, inventory, records, score, workflow
-from hands.library.score import Export, Project
+from zpkt.live.cli import app
+from zpkt.live.library import facts, inventory, records, score, workflow
+from zpkt.live.library.score import Export, Project
 
 DAY = 86400.0
 
@@ -353,7 +353,7 @@ def test_inventory_is_read_only(tmp_path):
 def test_cli_json_and_table(tmp_path, monkeypatch):
     root, records_file = build_library(tmp_path)
     monkeypatch.setenv("ZPKT_LIBRARY_DIR", str(root))
-    from hands import config
+    from zpkt.live import config
 
     config.rig.cache_clear()
     runner = CliRunner()

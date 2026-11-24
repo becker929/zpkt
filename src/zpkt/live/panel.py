@@ -23,10 +23,10 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
-from hands import config
-from hands.live import hold
-from hands.live.agent import with_prelude
-from hands.live.panel_base import (
+from zpkt.live import config
+from zpkt.live import hold
+from zpkt.live.agent import with_prelude
+from zpkt.live.panel_base import (
     ANCHORS,
     CHUNK,
     FINE,
@@ -42,9 +42,9 @@ from hands.live.panel_base import (
     _device,
     _track,
 )
-from hands.live.panel_blocks import _num, _shown_path, _slug, blocks, surface  # noqa: F401
-from hands.live.panel_render import _render, cut_take, lead_beats, levels, record_span, set_code  # noqa: F401
-from hands.live.riff import (
+from zpkt.live.panel_blocks import _num, _shown_path, _slug, blocks, surface  # noqa: F401
+from zpkt.live.panel_render import _render, cut_take, lead_beats, levels, record_span, set_code  # noqa: F401
+from zpkt.live.riff import (
     PRESET_CONTROLS,  # noqa: F401
     PRESETS,  # noqa: F401
     SOUND_CONTROLS,  # noqa: F401
@@ -55,7 +55,7 @@ from hands.live.riff import (
     riff,
     sequence,  # noqa: F401
 )
-from hands.live.transport import McpTransport
+from zpkt.live.transport import McpTransport
 
 # ---------------------------------------------------------------------------------------------
 # What Live shows for a value, and the value for what it shows
@@ -248,7 +248,7 @@ def _state(client: McpTransport) -> dict[str, Any]:
         "          'set': str(getattr(song, 'file_path', '') or '')}"
     )
     if not isinstance(state, dict) or not isinstance(state.get("names"), list):
-        from hands.live.transport import LiveError
+        from zpkt.live.transport import LiveError
 
         raise LiveError(
             f"Live answered something that is not the set's state ({str(state)[:80]}); run `hands rig reset`"
@@ -465,7 +465,7 @@ def make(
     recorder: Callable[..., str | None] | None = None,
 ) -> str:
     """Make a panel from a spec and render it; return the text to print."""
-    from hands.live import shape
+    from zpkt.live import shape
 
     spec = expand(shape.clean(spec, shape.INSTRUMENT, "the spec"), new=True)
     state = _state(client)
@@ -561,7 +561,7 @@ def apply(
     f = _file(out_dir, name)
     if not f.exists():
         raise PanelError(f"no panel {name!r} in {out_dir} (expected {f.name}); make it with `hands panel make`")
-    from hands.live import shape
+    from zpkt.live import shape
 
     panel = read_file(f, f"panel {name!r}")
     spec = expand(shape.clean(spec or {}, shape.INSTRUMENT_CHANGE, "--spec"), new=False)
@@ -663,7 +663,7 @@ def params(client: McpTransport | None, instrument: str, grep: str = "") -> str:
             except Exception as exc:
                 if "no loadable" not in str(exc):
                     raise
-                from hands.live import (
+                from zpkt.live import (
                     mix,
                 )  # not an instrument: an audio effect ("EQ Eight", "Saturator"), for a mix panel's devices
 

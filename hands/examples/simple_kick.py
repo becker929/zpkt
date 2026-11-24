@@ -3,10 +3,10 @@
 Demonstrates ProjectConfig → builder → dry-run output.
 """
 
-from hands.builder import ProjectBuilder
-from hands.live.transport import DryRunTransport
-from hands.models import KickConfig, MidiNote, MidiPattern, ProjectConfig, SamplePad
-from hands.runner import ManualPolicy, StepRunner
+from zpkt.live.builder import ProjectBuilder
+from zpkt.live.transport import DryRunTransport
+from zpkt.live.models import KickConfig, MidiNote, MidiPattern, ProjectConfig, SamplePad
+from zpkt.live.runner import ManualPolicy, StepRunner
 
 config = ProjectConfig(
     name="Simple Kick",

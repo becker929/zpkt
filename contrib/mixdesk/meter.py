@@ -141,7 +141,7 @@ def parse(data: bytes) -> list[float] | None:
 
 def install() -> None:
     """Load the device last on Main through the Live browser (once: does nothing if Main has it)."""
-    from hands.live.transport import LiveClient
+    from zpkt.live.transport import LiveClient
 
     live = LiveClient(timeout=15.0, retries=1)
     if NAME in live.run("result = [d.name for d in song.master_track.devices]"):

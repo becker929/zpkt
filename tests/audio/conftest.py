@@ -10,13 +10,13 @@ from pathlib import Path
 import pytest
 
 HERE = Path(__file__).resolve().parent
-sys.path.insert(0, str(HERE.parent / "mlab" / "calibration"))  # checks.py: the known-answer signals
+sys.path.insert(0, str(HERE.parents[1] / "ears" / "mlab" / "calibration"))  # checks.py: the known-answer signals
 
 
 @pytest.fixture
 def lab(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     """The CLI's lab root (reports/, audio/renders/) moved to a temporary folder."""
-    from mlab import cli
+    from zpkt.audio.meters import cli
 
     root = tmp_path / "lab"
     root.mkdir()

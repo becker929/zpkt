@@ -10,10 +10,10 @@ import threading
 import pytest
 from typer.testing import CliRunner
 
-from hands import config
-from hands.cli import app
-from hands.live import transport as T
-from hands.live.transport import (
+from zpkt.live import config
+from zpkt.live.cli import app
+from zpkt.live import transport as T
+from zpkt.live.transport import (
     LOST,
     UNREACHABLE,
     LiveClient,

@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import pytest
 
-from hands import config
+from zpkt.live import config
 
 
 @pytest.fixture(autouse=True)

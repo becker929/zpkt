@@ -10,7 +10,7 @@ from pathlib import Path
 
 import pytest
 
-from hands import bench, config
+from zpkt.live import bench, config
 
 
 def test_defaults_are_neutral(tmp_path):

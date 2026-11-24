@@ -27,7 +27,7 @@ import time
 import Live
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
-_INLIVE = os.path.join(_HERE, os.pardir, os.pardir, "hands", "src", "hands", "live", "inlive")
+_INLIVE = os.path.join(_HERE, os.pardir, os.pardir, "src", "zpkt", "live", "inlive")
 
 
 def _load(name, path):

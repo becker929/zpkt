@@ -19,8 +19,8 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 from typing import Any
 
-from hands.testing import devices
-from hands.testing.lom import Chain, Clip, Device, MidiNoteSpecification, ReturnTrack, RoutingType, Song, Track
+from zpkt.live.testing import devices
+from zpkt.live.testing.lom import Chain, Clip, Device, MidiNoteSpecification, ReturnTrack, RoutingType, Song, Track
 
 SET_KEYS = {"tempo", "tracks", "returns", "main", "loop", "loop_start", "loop_length", "start_time"}
 TRACK_KEYS = {

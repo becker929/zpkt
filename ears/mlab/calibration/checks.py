@@ -27,11 +27,11 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 LAB = os.path.dirname(HERE)
 sys.path.insert(0, LAB)
 
-from mlab import als, bitdepth, compare, delivery, dsp, dynamics, premaster, siggen  # noqa: E402
-from mlab import io as aio  # noqa: E402
-from mlab import loudness as L  # noqa: E402
-from mlab import spectrum as S  # noqa: E402
-from mlab.util import db, lin  # noqa: E402
+from zpkt.audio.meters import als, bitdepth, compare, delivery, dsp, dynamics, premaster, siggen  # noqa: E402
+from zpkt.audio.meters import io as aio  # noqa: E402
+from zpkt.audio.meters import loudness as L  # noqa: E402
+from zpkt.audio.meters import spectrum as S  # noqa: E402
+from zpkt.audio.meters.util import db, lin  # noqa: E402
 
 FIX = os.path.join(HERE, "fixtures")
 HW = os.path.join(LAB, "audio", "hw002")
@@ -698,7 +698,7 @@ def check_edge_cases():
 
 def check_sections():
     """A synthetic song with known tempo, break, peak and drop (siggen.song_sections)."""
-    from mlab import sections as SE
+    from zpkt.audio.meters import sections as SE
 
     rows = []
     sr = 44100
@@ -759,7 +759,7 @@ def _region_gain(x, sr, lo, hi, gain_db, ramp_hz=6.0):
 def _boxcar_spectral(seg, sr, lufs):
     """Exact reference for target.spectral: one boxcar FFT of the whole window (every sample weighted
     the same), channel-averaged density, integrated per band and region; dB rel the given LUFS."""
-    from mlab import target as T
+    from zpkt.audio.meters import target as T
 
     x = np.asarray(seg, float)
     x = x[:, None] if x.ndim == 1 else x
@@ -808,7 +808,7 @@ def beat_loop(sr, bpm=160.0, dur=14.0, last_beat_db=0.0, last_beat_at=None):
 
 def check_target():
     """A mix against references per window (mlab/target.py). Windows of 8 s (bar 0.5 s) keep it fast."""
-    from mlab import target as T
+    from zpkt.audio.meters import target as T
     from scipy import signal as sps
 
     rows = []
@@ -1074,8 +1074,8 @@ def eqfit_stems(sr=44100, dur=16.0):
 
 def check_eqfit():
     """EQ moves on stems recovered from a target made with known RBJ moves (mlab/eqfit.py)."""
-    from mlab import eqfit as E
-    from mlab import target as T
+    from zpkt.audio.meters import eqfit as E
+    from zpkt.audio.meters import target as T
 
     rows = []
     sr, bar = 44100, 0.5

@@ -15,7 +15,7 @@ from collections.abc import Callable
 from types import SimpleNamespace
 from typing import Any
 
-from hands.testing.lom import MAIN_THREAD
+from zpkt.live.testing.lom import MAIN_THREAD
 
 
 class Resource:

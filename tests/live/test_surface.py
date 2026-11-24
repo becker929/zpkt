@@ -1,6 +1,6 @@
-"""Tests for hands.live.surface translation of zpkt-surface JSON values."""
+"""Tests for zpkt.live.surface translation of zpkt-surface JSON values."""
 
-from hands.live import surface
+from zpkt.live import surface
 
 
 def test_map_surface_values():

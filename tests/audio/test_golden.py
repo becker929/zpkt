@@ -12,13 +12,13 @@ from pathlib import Path
 import numpy as np
 import pytest
 import soundfile as sf
-from ears.analyzer import analyze
-from ears.cli import app
-from ears.models import AudioProfile
+from zpkt.audio.analyzer import analyze
+from zpkt.audio.cli import app
+from zpkt.audio.models import AudioProfile
 from golden_check import check, plain, text
 from typer.testing import CliRunner
 
-from ears import corpus, embeddings, features, loudness
+from zpkt.audio import corpus, embeddings, features, loudness
 
 SR = 44100
 
@@ -193,8 +193,8 @@ def test_profile_dict_is_json() -> None:
 
 def test_print_profile_every_section(capsys: pytest.CaptureFixture[str], console_env: None) -> None:
     """The sections the synthetic files never fill: key, danceability, rhythm, embedding, errors."""
-    from ears.cli import _print_profile
-    from ears.models import LoudnessFeatures, RhythmFeatures, SpectralFeatures
+    from zpkt.audio.cli import _print_profile
+    from zpkt.audio.models import LoudnessFeatures, RhythmFeatures, SpectralFeatures
 
     profile = AudioProfile(
         clip_id="abc",

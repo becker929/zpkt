@@ -13,10 +13,10 @@ from pathlib import Path
 
 import typer
 
-from hands import config
-from hands.live.agent import AGENT_READ_ONLY, friendly, writes
-from hands.live.cli_options import HOST, PORT, fail, front_set
-from hands.live.transport import LiveClient, LiveError
+from zpkt.live import config
+from zpkt.live.agent import AGENT_READ_ONLY, friendly, writes
+from zpkt.live.cli_options import HOST, PORT, fail, front_set
+from zpkt.live.transport import LiveClient, LiveError
 
 app = typer.Typer(help="Drive the open Live set through the AbletonLiveMCP Remote Script.", no_args_is_help=True)
 
@@ -31,7 +31,7 @@ def audition(
     port: int | None = PORT,
 ) -> None:
     """Play a chord on TRACK from a temporary arrangement clip, print meter peaks, clean up."""
-    from hands.live.agent import audition as run_audition
+    from zpkt.live.agent import audition as run_audition
 
     try:
         print(
@@ -54,7 +54,7 @@ def reload(
     seconds: int = typer.Option(10, help="Countdown length (the user can cancel)."),
 ) -> None:
     """Reopen SET_PATH in Live behind a cancellable countdown; wait for the bridge to answer."""
-    from hands.live import session
+    from zpkt.live import session
 
     try:
         session.reload_set(set_path, save_first=save_first, seconds=seconds)
@@ -101,7 +101,7 @@ def exec_(
     if os.environ.get("ZPKT_AGENT") and writes(source):
         fail(f"ERROR: {AGENT_READ_ONLY}")
     if not raw:
-        from hands.live.agent import with_prelude
+        from zpkt.live.agent import with_prelude
 
         source, notes = friendly(source)
         for note in notes:
@@ -124,7 +124,7 @@ def check(
 ) -> None:
     """Run the session guard: no dialog open, one of our sets in front, the LOM answering.
     Prints the front set; exit 1 with the reason if a check fails."""
-    from hands.live import session
+    from zpkt.live import session
 
     try:
         print(session.check(LiveClient(host, port), "hands live check", expect_front=expect, ours=not any_set))
@@ -150,8 +150,8 @@ def export(
     port: int | None = PORT,
 ) -> None:
     """Render through Live's Export dialog and print the files written. Drives the GUI."""
-    from hands.live import render, ui
-    from hands.live.session import Guard
+    from zpkt.live import render, ui
+    from zpkt.live.session import Guard
 
     if (start is None) != (length is None):
         fail("give both --start and --length, or neither", 2)
@@ -171,7 +171,7 @@ def modals(
 ) -> None:
     """List Live's modal dialogs (CLEAN if none, NO_LIVE if Live is not running); --reap dismisses
     the ones with a safe button and reports ABORT for any it will not touch."""
-    from hands.live import ui
+    from zpkt.live import ui
 
     try:
         found = ui.reap_modals(reap)
@@ -191,7 +191,7 @@ def open_(
     port: int | None = PORT,
 ) -> None:
     """Open a set and wait until it is in front and the LOM answers. The set in front is saved first."""
-    from hands.live import session
+    from zpkt.live import session
 
     try:
         seconds = session.open_set(LiveClient(host, port), name.removesuffix(".als"), save_current=not no_save)
@@ -208,8 +208,8 @@ def save(
     port: int | None = PORT,
 ) -> None:
     """File > Save Live Set on the front set and wait for its file; optionally keep a named copy and its state."""
-    from hands.live import session
-    from hands.live import state as S
+    from zpkt.live import session
+    from zpkt.live import state as S
 
     name = front_set()
     if as_ and config.rig().set_path(as_).exists():
@@ -223,7 +223,7 @@ def save(
         print(f"state {p}")
 
 
-from hands.live import edit_cli, state_cli  # noqa: E402
+from zpkt.live import edit_cli, state_cli  # noqa: E402
 
 state_cli.register(app)
 edit_cli.register(app)

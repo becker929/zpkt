@@ -7,8 +7,8 @@ from __future__ import annotations
 
 import json
 
-from hands.live.transport import MockTransport
-from hands.models import (
+from zpkt.live.transport import MockTransport
+from zpkt.live.models import (
     EQ8Band,
     EQ8Spec,
     Feedback,
@@ -68,7 +68,7 @@ def test_feedback_round_trip() -> None:
 
 
 def test_mock_transport() -> None:
-    from hands.live.transport import McpResult
+    from zpkt.live.transport import McpResult
 
     transport = MockTransport(responses=[McpResult(status="ok", result="ok")])
     result = transport.execute("song.tempo = 130.0")

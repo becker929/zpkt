@@ -5,7 +5,7 @@
 
 Where an instrument panel renders its own riff, a mix panel renders what the arrangement plays in those bars, in
 Live, every time: nothing is mixed in the browser. Its values stay in the set (that is the mix); `drop` takes
-out only the devices the panel added. The rest (apply, grid, pick, the blocks) is shared with hands.live.panel.
+out only the devices the panel added. The rest (apply, grid, pick, the blocks) is shared with zpkt.live.panel.
 """
 
 from __future__ import annotations
@@ -17,11 +17,11 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
-from hands.live import hold
-from hands.live import panel as P
-from hands.live.agent import with_prelude
-from hands.live.inlive import tracks as named_tracks
-from hands.live.transport import McpTransport
+from zpkt.live import hold
+from zpkt.live import panel as P
+from zpkt.live.agent import with_prelude
+from zpkt.live.inlive import tracks as named_tracks
+from zpkt.live.transport import McpTransport
 
 BARS_MAX = 64
 DEVICE_PREFIX = "mix "
@@ -29,7 +29,7 @@ DEVICE_PREFIX = "mix "
 
 def tr(name: str) -> str:
     """The Live expression for a track by name; Main (or Master) is the master track, and a return answers to its
-    name without Live's letter (hands.live.inlive.tracks has the rule)."""
+    name without Live's letter (zpkt.live.inlive.tracks has the rule)."""
     return named_tracks.track_expr(name)
 
 
@@ -286,7 +286,7 @@ def make(
     recorder: Callable[..., str | None] | None = None,
 ) -> str:
     """Make a mix panel over tracks of the open set and render its bars; return the text to print."""
-    from hands.live import shape
+    from zpkt.live import shape
 
     spec = shape.clean(spec, shape.MIX, "the spec")
     name = P._name(spec)
@@ -467,7 +467,7 @@ def apply(
     recorder: Callable[..., str | None] | None = None,
 ) -> str:
     """Set a mix panel's values from the page's Surface state, render the next version."""
-    from hands.live import shape
+    from zpkt.live import shape
 
     spec = shape.clean(spec or {}, shape.MIX_CHANGE, "--spec")
     state_values = shape.state(state_values)
@@ -476,7 +476,7 @@ def apply(
         raise P.PanelError("Live is playing (maybe the user): not rendering; pass --force to stop it")
     values = values_from(panel, state_values)
     if spec and isinstance(spec.get("values"), dict):  # by control, as Live shows it: {"bus-kick": "-3 dB"}
-        from hands.live import versions as V
+        from zpkt.live import versions as V
 
         for key, want in spec["values"].items():
             c = V._control(panel, key)
@@ -506,7 +506,7 @@ def apply(
 
 def values_from(panel: dict[str, Any], state_values: dict[str, Any] | None) -> dict[str, float]:
     """Raw values by parameter from the page's Surface state (by control id)."""
-    from hands.live import shape
+    from zpkt.live import shape
 
     by_id = {c["id"]: c for c in panel["controls"]}
     values: dict[str, float] = {}

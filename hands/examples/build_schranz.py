@@ -4,7 +4,7 @@ Migrated from:
   ableton-live-vm/recipe-experiment_2026-03-26/configs/schranz_snts.py
 
 NOTE: Some fields used in the original config reference models not yet
-migrated to hands.models (DeviceSource, ParallelRack, RackChain,
+migrated to zpkt.live.models (DeviceSource, ParallelRack, RackChain,
 ArrangementConfig, SongStructure, Section, SectionTrack, sidechain on
 RumbleConfig/PercConfig). Those sections are stubbed with TODO comments.
 Run `uv run python examples/build_schranz.py` for a dry-run step listing.
@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import os
 
-from hands.models import (
+from zpkt.live.models import (
     DeviceSpec,
     EQ8Band,
     EQ8Spec,
@@ -60,7 +60,7 @@ def _rides() -> PercGroup:
         samples=pads,
         main=SamplePad(note=45, name="VEC1 Cymbals RD 12"),
         main_devices=(
-            # TODO: DeviceSource.PLUGINS not yet in hands.models
+            # TODO: DeviceSource.PLUGINS not yet in zpkt.live.models
             DeviceSpec(name="GClip", params={"Gain": 0, "Clip": 1, "Softness": 0}),
         ),
     )
@@ -238,7 +238,7 @@ def schranz_config() -> ProjectConfig:
         # TODO: sample_base not yet in ProjectConfig — add when migrating models
         percussion=PercConfig(
             groups=(_rides(), _closed_hh(), _open_hh()),
-            # TODO: bus_rack (ParallelRack) not yet in hands.models
+            # TODO: bus_rack (ParallelRack) not yet in zpkt.live.models
             bus_distortion=DeviceSpec(
                 name="Decapitator",
                 params={
@@ -265,7 +265,7 @@ def schranz_config() -> ProjectConfig:
             main=SamplePad(note=84, name="VEC2 Bassdrums Clubby 059"),
             main_distortion=DeviceSpec(
                 name="Dist COLDFIRE",
-                # TODO: DeviceSource.PLUGINS not yet in hands.models
+                # TODO: DeviceSource.PLUGINS not yet in zpkt.live.models
                 params={"Distortion B Drive": 0.408},
             ),
             track_eq=EQ8Spec(
@@ -289,9 +289,9 @@ def schranz_config() -> ProjectConfig:
 
 
 if __name__ == "__main__":
-    from hands.builder import ProjectBuilder
-    from hands.live.transport import DryRunTransport
-    from hands.runner import ManualPolicy, StepRunner
+    from zpkt.live.builder import ProjectBuilder
+    from zpkt.live.transport import DryRunTransport
+    from zpkt.live.runner import ManualPolicy, StepRunner
 
     config = schranz_config()
     builder = ProjectBuilder(config)

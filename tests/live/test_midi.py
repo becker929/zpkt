@@ -1,6 +1,6 @@
-"""Tests for hands.live.midi chord parsing, rhythm generation, and clip note synthesis."""
+"""Tests for zpkt.live.midi chord parsing, rhythm generation, and clip note synthesis."""
 
-from hands.live import midi
+from zpkt.live import midi
 
 
 def test_parse_chord_explicit_notes():

@@ -13,16 +13,16 @@ import json
 import sys
 from pathlib import Path
 
-from hands.library.models import Inventory
-from hands.live.desk import Desk
-from hands.models import Feedback, ProjectConfig
+from zpkt.live.library.models import Inventory
+from zpkt.live.desk import Desk
+from zpkt.live.models import Feedback, ProjectConfig
 
 CONTRACTS = Path(__file__).resolve().parents[2] / "lib" / "contracts"
 DESCRIPTIONS = {
-    "project-config": "A declarative Live project for hands to build. Generated from hands/src/hands/models.py — do not edit by hand.",
-    "feedback": "A listener's comment on a render, captured by hands' vibe server. Generated from hands/src/hands/models.py — do not edit by hand.",
-    "desk": "The mix desk recipe's desk (contrib/mixdesk/recipe.py writes it; `hands live state diff|put` read it as a partial state). Generated from hands/src/hands/live/desk.py — do not edit by hand.",
-    "inventory": "Each WIP track's place in the seven workflow steps (contrib/docs/workflow.md), from `hands library inventory --json`. Generated from hands/src/hands/library/models.py — do not edit by hand.",
+    "project-config": "A declarative Live project for hands to build. Generated from src/zpkt/live/models.py — do not edit by hand.",
+    "feedback": "A listener's comment on a render, captured by hands' vibe server. Generated from src/zpkt/live/models.py — do not edit by hand.",
+    "desk": "The mix desk recipe's desk (contrib/mixdesk/recipe.py writes it; `hands live state diff|put` read it as a partial state). Generated from src/zpkt/live/desk.py — do not edit by hand.",
+    "inventory": "Each WIP track's place in the seven workflow steps (contrib/docs/workflow.md), from `hands library inventory --json`. Generated from src/zpkt/live/library/models.py — do not edit by hand.",
 }
 
 

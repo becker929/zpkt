@@ -64,7 +64,7 @@ def test_wrong_devices_stop(fake, monkeypatch):
 def test_a_template_with_tracks_stops(fake, monkeypatch):
     from conftest import Song
 
-    from hands.live import session
+    from zpkt.live import session
 
     lv, _fo = fake
 
@@ -89,7 +89,7 @@ def test_silent_render_stops(fake, tmp_path):
 
 
 def test_a_guard_failure_is_a_stop(fake, monkeypatch):
-    from hands.live import session
+    from zpkt.live import session
 
     lv, _fo = fake
 
@@ -141,7 +141,7 @@ def test_importing_the_booth_leaves_the_environment_alone():
     code = (
         "import os; before = dict(os.environ); import booth, booth.server, booth.live, booth.runner; "
         "assert dict(os.environ) == before; booth.use_booth_rig(); "
-        "from hands import config; r = config.rig(); assert r.set_prefixes == ('booth_',), r; "
+        "from zpkt.live import config; r = config.rig(); assert r.set_prefixes == ('booth_',), r; "
         "assert r.sets_dir == booth.SETS_DIR, r"
     )
     subprocess.run([sys.executable, "-c", code], check=True)

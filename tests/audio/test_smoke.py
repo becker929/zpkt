@@ -11,14 +11,14 @@ import json
 import numpy as np
 import pytest
 import soundfile as sf
-from ears.models import (
+from zpkt.audio.models import (
     AudioProfile,
     LoudnessFeatures,
     RhythmFeatures,
     SimilarityResult,
     SpectralFeatures,
 )
-from ears.similarity import compare, cosine
+from zpkt.audio.similarity import compare, cosine
 
 SR = 48000
 
@@ -84,7 +84,7 @@ def test_compare_with_embeddings_and_spectral() -> None:
 
 
 def test_true_peak_is_dbtp() -> None:
-    from ears.loudness import true_peak_dbtp
+    from zpkt.audio.loudness import true_peak_dbtp
 
     # Full-scale-ish sine at 0.5 amplitude → about -6.02 dBTP.
     assert true_peak_dbtp(_sine(997.0, 1.0, 0.5), SR) == pytest.approx(-6.02, abs=0.05)
@@ -92,7 +92,7 @@ def test_true_peak_is_dbtp() -> None:
 
 
 def test_true_peak_catches_intersample_peak() -> None:
-    from ears.loudness import true_peak_dbtp
+    from zpkt.audio.loudness import true_peak_dbtp
 
     # fs/4 sine phased so every sample lands at ±0.707 of the true amplitude.
     n = np.arange(SR)
@@ -103,7 +103,7 @@ def test_true_peak_catches_intersample_peak() -> None:
 
 
 def test_loudness_uses_real_channels() -> None:
-    from ears.loudness import extract
+    from zpkt.audio.loudness import extract
 
     tone = _sine(1000.0, 5.0, 0.25)
     silent = np.zeros_like(tone)
@@ -119,7 +119,7 @@ def test_loudness_uses_real_channels() -> None:
 
 
 def test_analyzer_on_stereo_file(tmp_path) -> None:
-    from ears.analyzer import analyze
+    from zpkt.audio.analyzer import analyze
 
     path = tmp_path / "tone.wav"
     tone = _sine(220.0, 3.0, 0.5)
@@ -132,7 +132,7 @@ def test_analyzer_on_stereo_file(tmp_path) -> None:
 
 
 def test_analyzer_missing_model_records_error(tmp_path, monkeypatch) -> None:
-    from ears.analyzer import analyze
+    from zpkt.audio.analyzer import analyze
 
     path = tmp_path / "tone.wav"
     sf.write(path, _sine(220.0, 1.0, 0.5), SR)
@@ -143,7 +143,7 @@ def test_analyzer_missing_model_records_error(tmp_path, monkeypatch) -> None:
 
 
 def test_analyzer_missing_file() -> None:
-    from ears.analyzer import analyze
+    from zpkt.audio.analyzer import analyze
 
     profile = analyze("/nonexistent/path/to/audio.mp3")
     assert len(profile.errors) > 0

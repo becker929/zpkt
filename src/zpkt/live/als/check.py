@@ -10,7 +10,7 @@ import os
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass, field
 
-from hands.als.file import (
+from zpkt.live.als.file import (
     DEFAULT_TIME,
     TRACK_TAGS,
     _num,

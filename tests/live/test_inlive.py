@@ -1,4 +1,4 @@
-"""hands.live.inlive: the helpers that run in hands and inside Live. Each is tested three ways: imported, loaded by
+"""zpkt.live.inlive: the helpers that run in hands and inside Live. Each is tested three ways: imported, loaded by
 file path with nothing but the stdlib (as the mix desk's pager loads it in Live), and sent as source in a code string
 to FakeLive (as hands sends it)."""
 
@@ -8,12 +8,13 @@ import ast
 import importlib.util
 import math
 import sys
+from pathlib import Path
 
 import pytest
 
-from hands.live import inlive
-from hands.live.inlive import shown, tracks
-from hands.testing import FakeLive, fake_set, hw002_like
+from zpkt.live import inlive
+from zpkt.live.inlive import shown, tracks
+from zpkt.live.testing import FakeLive, fake_set, hw002_like
 
 SET = {
     "tracks": [{"name": "Kick bus"}, {"name": "X-Ray"}, {"name": "Space"}],
@@ -29,7 +30,7 @@ def test_each_module_is_stdlib_python_311_and_loads_by_path_alone(module, monkey
     imported |= {n.module.split(".")[0] for n in ast.walk(tree) if isinstance(n, ast.ImportFrom) and n.module}
     assert imported <= set(sys.stdlib_module_names), imported
     assert "__future__" not in text  # it is pasted above other code in a code string
-    monkeypatch.setattr(sys, "path", [p for p in sys.path if "hands" not in p])
+    monkeypatch.setattr(sys, "path", [p for p in sys.path if not Path(p, "zpkt").is_dir()])
     spec = importlib.util.spec_from_file_location(f"inlive_{module}", inlive.path(module))
     loaded = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(loaded)

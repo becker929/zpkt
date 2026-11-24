@@ -9,7 +9,7 @@ import json
 import time
 from typing import Any
 
-from hands import config
+from zpkt.live import config
 
 
 def timing(step: str, seconds: float, **fields: Any) -> dict[str, Any]:

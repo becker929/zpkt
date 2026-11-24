@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from hands.live.transport import McpTransport
+from zpkt.live.transport import McpTransport
 
 TEMP = 8000.0  # far past the music, for a temporary copy
 

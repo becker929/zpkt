@@ -1,6 +1,6 @@
 """Render the arrangement to files through Live's Export Audio/Video dialog, by keystrokes.
 
-This is the "keys" method of hands.live.export.export, which also has the "menu" method (no keystrokes, Main only),
+This is the "keys" method of zpkt.live.export.export, which also has the "menu" method (no keystrokes, Main only),
 for when a macOS prompt could take the keys. export_audio.applescript (package data) drives the dialog and the Save
 panel: it opens the dialog with Cmd+Shift+R, sets the rendered
 track, file type, bit depth and sample rate, turns MP3 off, types the file name and waits for the
@@ -8,8 +8,8 @@ file. The range is the arrangement's time selection, made by timeops.select, so 
 types into the range sliders. An export costs about 13 s plus 0.1 s per second of audio, most of
 the fixed part the dialog's own waiting (docs/probe-packing-findings.md).
 
-Real-time takes through a resampling track are in hands.live.record; checks on the written audio
-are in hands.audio.
+Real-time takes through a resampling track are in zpkt.live.record; checks on the written audio
+are in zpkt.live.audio.
 """
 
 from __future__ import annotations
@@ -17,10 +17,10 @@ from __future__ import annotations
 import time
 from pathlib import Path
 
-from hands import bench
-from hands.live import timeops, ui
-from hands.live.session import stop
-from hands.live.transport import McpTransport
+from zpkt.live import bench
+from zpkt.live import timeops, ui
+from zpkt.live.session import stop
+from zpkt.live.transport import McpTransport
 
 SCRIPT = Path(__file__).with_name("export_audio.applescript")
 FILE_TYPES = {".wav": "WAV", ".aif": "AIFF", ".aiff": "AIFF", ".flac": "FLAC"}

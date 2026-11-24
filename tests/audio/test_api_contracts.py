@@ -14,17 +14,17 @@ import subprocess
 import sys
 
 import numpy as np
-from mlab import dsp, eqfit, target
-from mlab import dynamics as D
-from mlab import io as aio
-from mlab import loudness as L
-from mlab import sections as SEC
-from mlab import spectrum as S
+from zpkt.audio.meters import dsp, eqfit, target
+from zpkt.audio.meters import dynamics as D
+from zpkt.audio.meters import io as aio
+from zpkt.audio.meters import loudness as L
+from zpkt.audio.meters import sections as SEC
+from zpkt.audio.meters import spectrum as S
 from signals import SR, mix, write
 
 # Copied from hands/src/hands/library/inventory.py (measure_mlab). If this has to change, hands has to change too.
 HANDS_CODE = (
-    "import json,sys;from mlab import io,loudness as L;a=io.load(sys.argv[1]);r=L.analyze(a.x,a.sr);"
+    "import json,sys;from zpkt.audio.meters import io,loudness as L;a=io.load(sys.argv[1]);r=L.analyze(a.x,a.sr);"
     "print(json.dumps({'lufs':r.integrated,'true_peak':r.true_peak,'seconds':a.duration}))"
 )
 

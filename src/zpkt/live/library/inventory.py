@@ -18,10 +18,10 @@ from datetime import UTC, date, datetime
 from pathlib import Path
 from typing import cast
 
-from hands.library import records, score, workflow
-from hands.library.facts import read_set
-from hands.library.models import Inventory, StepKey, StepScore, TrackReport
-from hands.library.score import Export, Project
+from zpkt.live.library import records, score, workflow
+from zpkt.live.library.facts import read_set
+from zpkt.live.library.models import Inventory, StepKey, StepScore, TrackReport
+from zpkt.live.library.score import Export, Project
 
 ZPKT = Path(__file__).resolve().parents[4]
 BROWSER_PROJECTS = ZPKT / "prototypes" / "audio-browser" / "projects"
@@ -94,18 +94,17 @@ def find_exports(
 
 
 def measure_mlab(path: Path) -> dict | None:
-    """Integrated loudness, true peak and length of one file with ears/mlab's calibrated meter (a subprocess, so
-    hands does not depend on mlab). None when mlab or uv is not there."""
+    """Integrated loudness, true peak and length of one file with zpkt.audio's calibrated meter (a subprocess in the
+    repo's environment with the audio extra, so zpkt.live does not depend on it). None when it or uv is not there."""
     code = (
-        "import json,sys;from mlab import io,loudness as L;a=io.load(sys.argv[1]);r=L.analyze(a.x,a.sr);"
+        "import json,sys;from zpkt.audio.meters import io,loudness as L;a=io.load(sys.argv[1]);r=L.analyze(a.x,a.sr);"
         "print(json.dumps({'lufs':r.integrated,'true_peak':r.true_peak,'seconds':a.duration}))"
     )
-    mlab = ZPKT / "ears" / "mlab"
-    if not mlab.is_dir():
+    if not (ZPKT / "src" / "zpkt" / "audio").is_dir():
         return None
     try:
         out = subprocess.run(
-            ["uv", "run", "--quiet", "--project", str(mlab), "python", "-c", code, str(path)],
+            ["uv", "run", "--quiet", "--project", str(ZPKT), "--extra", "audio", "python", "-c", code, str(path)],
             capture_output=True,
             text=True,
             timeout=600,

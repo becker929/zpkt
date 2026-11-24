@@ -1,4 +1,4 @@
-"""hands.probe_kit: merging pattern settings, writing batches on the fixture set, and the Live side faked."""
+"""zpkt.live.probe_kit: merging pattern settings, writing batches on the fixture set, and the Live side faked."""
 
 from __future__ import annotations
 
@@ -9,13 +9,13 @@ import pytest
 import soundfile as sf
 from planted import TRACK, planted_set
 
-from hands import als, audio
-from hands import probe_kit as PK
-from hands.live import render as live_render
-from hands.live import session, timeops
-from hands.live.knobs import Knob
-from hands.live.session import Guard
-from hands.live.transport import McpResult, MockTransport
+from zpkt.live import als, audio
+from zpkt.live import probe_kit as PK
+from zpkt.live import render as live_render
+from zpkt.live import session, timeops
+from zpkt.live.knobs import Knob
+from zpkt.live.session import Guard
+from zpkt.live.transport import McpResult, MockTransport
 
 GAIN = Knob(TRACK, ("StereoGain", 0), "Gain")
 WIDTH = Knob(TRACK, ("StereoGain", 0), "StereoWidth")
@@ -48,7 +48,7 @@ def test_scale_and_unscale_invert(v, lo, hi, kind):
 
 
 def test_scale_uses_the_knob_units():
-    from hands.live.knobs import Lin, Log
+    from zpkt.live.knobs import Lin, Log
 
     assert PK.scale(0.3, 50.0, 500.0, "log") == Log(50.0, 500.0).from_lom(0.3)
     assert PK.unscale(0.45, 0.0, 0.6, "lin") == Lin(0.0, 0.6).to_lom(0.45)

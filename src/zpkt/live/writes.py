@@ -10,7 +10,7 @@ from __future__ import annotations
 from collections.abc import Sequence
 from typing import Any
 
-from hands.live.transport import McpTransport
+from zpkt.live.transport import McpTransport
 
 WRITE_CHUNK = 16  # parameters written per call
 READ_CHUNK = 20  # parameters read per call

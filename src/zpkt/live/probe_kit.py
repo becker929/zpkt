@@ -4,7 +4,7 @@
             patterns, save. A kit is "<new_set_prefix>kit_<name>" in sets_dir, described by
             <data_dir>/kits/<name>.json.
   batch     per batch, offline: add donor devices and step any knob per pattern, written into a
-            copy of the kit (.als XML, hands.als). Pattern k starts at lead + k * pattern_beats.
+            copy of the kit (.als XML, zpkt.live.als). Pattern k starts at lead + k * pattern_beats.
   render    load the batch set, export Main once, check the render, slice one WAV per pattern.
 
 Measured on HW002 (docs/probe-packing-findings.md): about 4 s per 20-bar probe at P = 16 and
@@ -24,14 +24,14 @@ from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
-from hands import als, audio, config
-from hands.bench import timing
-from hands.live import render as live_render
-from hands.live import session, timeops
-from hands.live.knobs import Knob
-from hands.live.session import stop
-from hands.live.transport import McpTransport
-from hands.live.units import Lin, Log
+from zpkt.live import als, audio, config
+from zpkt.live.bench import timing
+from zpkt.live import render as live_render
+from zpkt.live import session, timeops
+from zpkt.live.knobs import Knob
+from zpkt.live.session import stop
+from zpkt.live.transport import McpTransport
+from zpkt.live.units import Lin, Log
 
 Step = tuple[Knob, Sequence]  # one value per pattern, in the knob's .als units
 

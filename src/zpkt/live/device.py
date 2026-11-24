@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from typing import Any
 
-from hands.live.inlive import tracks as named_tracks
-from hands.live.transport import McpTransport
+from zpkt.live.inlive import tracks as named_tracks
+from zpkt.live.transport import McpTransport
 
 
 def _track_expr(track: str | int) -> str:

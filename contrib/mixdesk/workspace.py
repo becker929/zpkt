@@ -20,9 +20,9 @@ from pathlib import Path
 
 import finishing as F
 
-from hands.live import hold, ui
-from hands.live.inlive.tracks import track_expr
-from hands.live.ops import LiveOps
+from zpkt.live import hold, ui
+from zpkt.live.inlive.tracks import track_expr
+from zpkt.live.ops import LiveOps
 
 SETS = F.SETS_DIR
 SRC, SET = F.MIX_SET, F.SET

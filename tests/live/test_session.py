@@ -1,4 +1,4 @@
-"""hands.live.session against a fake GUI (ui) and a mock LOM; nothing here touches Live."""
+"""zpkt.live.session against a fake GUI (ui) and a mock LOM; nothing here touches Live."""
 
 from __future__ import annotations
 
@@ -8,9 +8,9 @@ from datetime import datetime
 
 import pytest
 
-from hands.live import session, ui
-from hands.live.session import Guard
-from hands.live.transport import McpResult, MockTransport, Transport
+from zpkt.live import session, ui
+from zpkt.live.session import Guard
+from zpkt.live.transport import McpResult, MockTransport, Transport
 
 DOWN = McpResult(status="error", error="Cannot reach Ableton: refused")
 

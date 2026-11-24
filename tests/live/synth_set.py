@@ -1,4 +1,4 @@
-"""Small synthetic Live sets for the library tests: only the elements hands.library reads, laid out the way
+"""Small synthetic Live sets for the library tests: only the elements zpkt.live.library reads, laid out the way
 Live 12 writes them. No real project goes into the tests."""
 
 from __future__ import annotations

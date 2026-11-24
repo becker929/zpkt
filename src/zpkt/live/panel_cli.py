@@ -11,9 +11,9 @@ from typing import Any
 
 import typer
 
-from hands.live import panel
-from hands.live.cli_options import HOST, PORT, fail
-from hands.live.transport import LiveClient, LiveError, McpTransport
+from zpkt.live import panel
+from zpkt.live.cli_options import HOST, PORT, fail
+from zpkt.live.transport import LiveClient, LiveError, McpTransport
 
 app = typer.Typer(
     no_args_is_help=True,
@@ -57,9 +57,9 @@ def _json(arg: str | None, what: str) -> Any:
 
 
 def _run(fn: Callable[..., Any], client: McpTransport, *args: Any, what: str = "", **kwargs: Any) -> None:
-    """Run one command with Live held for it (hands.live.hold): one command at a time, and what an interrupted
+    """Run one command with Live held for it (zpkt.live.hold): one command at a time, and what an interrupted
     one left is put back first."""
-    from hands.live import hold
+    from zpkt.live import hold
 
     what = what or f"hands {fn.__module__.rsplit('.', 1)[-1]} {fn.__name__}".replace(
         "hands versions", "hands panel"
@@ -129,7 +129,7 @@ def make(
     data = _json(spec, "--spec")
     if not isinstance(data, dict):
         fail("--spec must be a JSON object", 2)
-    from hands.live import mix
+    from zpkt.live import mix
 
     _run(
         mix.make if mix.is_mix(data) else panel.make,
@@ -156,7 +156,7 @@ def apply(
     port: int | None = PORT,
 ) -> None:
     """Set the panel's values, render the next version, print it with a before/after deck."""
-    from hands.live import mix
+    from zpkt.live import mix
 
     values, changes = _json(state, "--state"), _json(spec, "--spec")
 
@@ -201,7 +201,7 @@ def grid(
     One or two controls, by id, label or parameter name. A number is the raw value; text is what Live shows.
     Without from/to, the whole range. The panel's own values do not move until `hands panel pick`.
     """
-    from hands.live import versions
+    from zpkt.live import versions
 
     def note(k: int, n: int) -> None:
         print(f"rendering {k + 1} of {n}", file=sys.stderr, flush=True)
@@ -229,7 +229,7 @@ def pick(
     port: int | None = PORT,
 ) -> None:
     """Make one version of a grid the panel's values, in Live too. Nothing is rendered again."""
-    from hands.live import versions
+    from zpkt.live import versions
 
     _run(versions.pick, LiveClient(host, port, keep=True), name, out, grid_id, letter, force=force)
 
@@ -253,7 +253,7 @@ def drop(
     port: int | None = PORT,
 ) -> None:
     """Delete the panel's track from the open set. Its renders stay."""
-    from hands.live import mix
+    from zpkt.live import mix
 
     def drop(client: McpTransport) -> str:
         made = _made(out, name)
@@ -287,7 +287,7 @@ def song_make(
     port: int | None = PORT,
 ) -> None:
     """Lay the song out in the arrangement and render it (real time). Making it again replaces its clips."""
-    from hands.live import song
+    from zpkt.live import song
 
     data = _json(spec, "--spec")
     if not isinstance(data, dict):
@@ -304,7 +304,7 @@ def song_render(
     port: int | None = PORT,
 ) -> None:
     """Render the song again as it now stands (after its panels or its mix changed)."""
-    from hands.live import song
+    from zpkt.live import song
 
     _run(song.render, LiveClient(host, port, keep=True), name, out, force=force)
 
@@ -314,7 +314,7 @@ def song_drop(
     name: str = typer.Argument(..., help="The song's name."), out: Path = OUT, host: str = HOST, port: int | None = PORT
 ) -> None:
     """Delete the song's clips from the arrangement. Its panels' tracks and its renders stay."""
-    from hands.live import song
+    from zpkt.live import song
 
     _run(song.drop, LiveClient(host, port, keep=True), name, out)
 
@@ -334,7 +334,7 @@ def sweep_command(
     port: int | None = PORT,
 ) -> None:
     """Delete the files hands made that nothing can need again: leftover takes, old versions, old grids."""
-    from hands.live import sweep
+    from zpkt.live import sweep
 
     projects, in_use = list(project), set()
     try:  # the open set: its project, and the audio it plays (which a set not saved yet would not show on disk)

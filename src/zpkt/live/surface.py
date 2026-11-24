@@ -10,7 +10,7 @@ from __future__ import annotations
 import math
 from typing import Any
 
-from hands.live.transport import McpTransport
+from zpkt.live.transport import McpTransport
 
 
 def hz_to_norm(hz: float) -> float:

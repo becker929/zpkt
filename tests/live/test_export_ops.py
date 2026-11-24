@@ -1,4 +1,4 @@
-"""hands.live.export and hands.live.ops: the export and Save As by the menu, with the GUI scripted (no osascript runs),
+"""zpkt.live.export and zpkt.live.ops: the export and Save As by the menu, with the GUI scripted (no osascript runs),
 and the display-unit steps against FakeLive."""
 
 from __future__ import annotations
@@ -8,14 +8,14 @@ from pathlib import Path
 
 import pytest
 
-from hands.live import export as X
-from hands.live import session, timeops, ui
-from hands.live.ops import LiveOps
-from hands.testing import FakeLive, fake_set, hw002_like
+from zpkt.live import export as X
+from zpkt.live import session, timeops, ui
+from zpkt.live.ops import LiveOps
+from zpkt.live.testing import FakeLive, fake_set, hw002_like
 
 
 class Gui:
-    """Live's dialogs and the Save panel, answering the AppleScript hands.live.export sends."""
+    """Live's dialogs and the Save panel, answering the AppleScript zpkt.live.export sends."""
 
     def __init__(self, panel_path: list[str], recent: list[list[str]] = ()):
         self.windows: list[str] = []
@@ -199,7 +199,7 @@ def test_save_as_makes_a_project_folder_or_saves_inside_one(gui, tmp_path):
 
 
 def test_export_chooses_the_method(monkeypatch, tmp_path):
-    from hands.live import render
+    from zpkt.live import render
 
     seen = []
     monkeypatch.setattr(render, "export", lambda *a, **k: seen.append(("keys", a, k)) or [tmp_path / "a.wav"])
@@ -222,7 +222,7 @@ def kick_eq(live: FakeLive):
 
 
 def test_setp_sets_shown_values_and_stops_on_what_the_device_lacks(live):
-    from hands.live.inlive.tracks import track_expr
+    from zpkt.live.inlive.tracks import track_expr
 
     ops = LiveOps(live)
     dev = f"next(d for d in {track_expr('Kick bus')}.devices if d.name == 'desk EQ')"

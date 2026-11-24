@@ -30,8 +30,8 @@ import tomllib
 from pathlib import Path
 from typing import Any
 
-from hands.library import workflow
-from hands.library.models import Record
+from zpkt.live.library import workflow
+from zpkt.live.library.models import Record
 
 PROJECT_FILE = "zpkt-workflow.toml"
 STATUSES = ("canceled",)  # a track's status; without one it is in progress

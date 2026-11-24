@@ -1,4 +1,4 @@
-"""hands.testing.FakeLive itself: it answers as the Remote Script does, over its own fake set, in process and on TCP."""
+"""zpkt.live.testing.FakeLive itself: it answers as the Remote Script does, over its own fake set, in process and on TCP."""
 
 from __future__ import annotations
 
@@ -10,10 +10,10 @@ import types
 
 import pytest
 
-from hands.live.transport import LOST, LiveClient, LiveError
-from hands.testing import FakeLive, fake_set, hw002_like
-from hands.testing.fakelive import REMOTE_SCRIPT
-from hands.testing.lom import NOTIFICATION_REFUSED, MidiNoteSpecification
+from zpkt.live.transport import LOST, LiveClient, LiveError
+from zpkt.live.testing import FakeLive, fake_set, hw002_like
+from zpkt.live.testing.fakelive import REMOTE_SCRIPT
+from zpkt.live.testing.lom import NOTIFICATION_REFUSED, MidiNoteSpecification
 
 LIVE_PORT = 16619
 
@@ -270,7 +270,7 @@ def test_what_parameters_show(live):
     assert [p["Device On"].str_for_value(v) for v in (0, 1)] == ["Off", "On"]
     assert [p["1 Filter Type A"].str_for_value(v) for v in (0, 3, 7)] == ["High Pass 48dB", "Bell", "Low Pass 48dB"]
     assert p["1 Filter Type A"].value_items[3] == "Bell" and p["1 Filter Type A"].is_quantized
-    # measured pairs from hands.live.knobs: raw LOM value -> what a dump of the real Live showed
+    # measured pairs from zpkt.live.knobs: raw LOM value -> what a dump of the real Live showed
     assert p["1 Frequency A"].str_for_value(0.8074892) == "5.00 kHz"
     assert p["1 Gain A"].str_for_value(-14.8) == "-14.8 dB" and p["1 Gain A"].str_for_value(0) == "0.00 dB"
     assert p["1 Q A"].str_for_value(0.37803) == "0.71"

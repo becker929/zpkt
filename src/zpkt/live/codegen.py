@@ -1,4 +1,4 @@
-"""LOM code for the first design's steps: each `gen_*` returns a Step (label, code, optional note) for hands.runner.
+"""LOM code for the first design's steps: each `gen_*` returns a Step (label, code, optional note) for zpkt.live.runner.
 
 The first design (Oct 2026): a declarative ProjectConfig -> codegen steps -> builder -> StepRunner, behind `hands build`
 and `hands execute`. Its user (prototypes/engineer) was removed on 24 Nov 2026; Anthony keeps it to see whether it
@@ -11,8 +11,8 @@ import math
 
 from pydantic import BaseModel, ConfigDict
 
-from hands.live.units import EQ8_FREQ
-from hands.models import (
+from zpkt.live.units import EQ8_FREQ
+from zpkt.live.models import (
     DeviceSource,
     DeviceSpec,
     EQ8Spec,
@@ -35,7 +35,7 @@ class Step(BaseModel):
 
 def hz_to_eq8_norm(hz: float) -> float:
     """EQ Eight's LOM frequency (0-1): log scale over 10 Hz-22 kHz, as measured in Live 12
-    (hands.live.knobs). The old 20 Hz-20 kHz formula put a 31 Hz band at 0.063 instead of 0.147."""
+    (zpkt.live.knobs). The old 20 Hz-20 kHz formula put a 31 Hz band at 0.063 instead of 0.147."""
     return EQ8_FREQ.to_lom(hz)
 
 

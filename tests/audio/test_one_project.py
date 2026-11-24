@@ -8,8 +8,8 @@ import subprocess
 import sys
 from pathlib import Path
 
-from ears.cli import app
-from ears.meters import cli as meters_cli
+from zpkt.audio.cli import app
+from zpkt.audio.meters import cli as meters_cli
 from signals import SR, mix, write
 from typer.testing import CliRunner
 
@@ -17,15 +17,15 @@ BIN = Path(sys.executable).parent
 
 
 def test_mlab_names_are_the_meters_modules() -> None:
-    import ears.meters.loudness
+    import zpkt.audio.meters.loudness
     import mlab
     import mlab.loudness
     from mlab import target
     from mlab.util import db
 
-    assert mlab.loudness is ears.meters.loudness and target is importlib.import_module("ears.meters.target")
-    assert db is importlib.import_module("ears.meters.util").db
-    assert mlab.loudness.__spec__.name == "ears.meters.loudness"  # the module keeps its own spec
+    assert mlab.loudness is zpkt.audio.meters.loudness and target is importlib.import_module("zpkt.audio.meters.target")
+    assert db is importlib.import_module("zpkt.audio.meters.util").db
+    assert mlab.loudness.__spec__.name == "zpkt.audio.meters.loudness"  # the module keeps its own spec
     assert mlab.__version__ == "0.1.0"
 
 

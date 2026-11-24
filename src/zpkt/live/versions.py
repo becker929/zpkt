@@ -17,10 +17,10 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
-from hands.live import hold
-from hands.live import mix as M
-from hands.live import panel as P
-from hands.live.transport import McpTransport
+from zpkt.live import hold
+from zpkt.live import mix as M
+from zpkt.live import panel as P
+from zpkt.live.transport import McpTransport
 
 MAX_OPTIONS = 16
 LETTERS = "ABCDEFGHIJKLMNOP"
@@ -207,7 +207,7 @@ def grid(
     progress: Callable[[int, int], None] | None = None,
 ) -> str:
     """Render every combination of the axes' values; return the text to print (a deck of the options)."""
-    from hands.live import shape
+    from zpkt.live import shape
 
     panel = load(out_dir, name)
     axes = shape.clean(axes, shape.AXES, "--axes") if isinstance(axes, dict) else axes

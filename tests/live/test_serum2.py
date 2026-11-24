@@ -5,7 +5,7 @@ import pytest
 cbor2 = pytest.importorskip("cbor2")
 pytest.importorskip("zstandard")
 
-from hands.serum2 import state as st  # noqa: E402
+from zpkt.live.serum2 import state as st  # noqa: E402
 
 
 def _blob(data, **header):

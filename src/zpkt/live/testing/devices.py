@@ -1,7 +1,7 @@
 """Live's built-in devices as the fake LOM makes them: parameter names, ranges, choices and what each one shows.
 
 Names and order follow a dump of a real set (the industrial short's set-v8.json, now in zpkt-archive) for EQ Eight, Utility, Glue
-Compressor, Compressor, Reverb and Limiter; raw ranges follow hands.live.knobs' measured conversions (EQ Eight's
+Compressor, Compressor, Reverb and Limiter; raw ranges follow zpkt.live.knobs' measured conversions (EQ Eight's
 frequency 0-1 on a log scale from 10 Hz to 22 kHz, Utility's gain dB/35, its width the square root of the fraction).
 Saturator, Echo, Spectrum, Operator, Simpler and the racks are smaller: the parameters zpkt names, with GUESS ranges.
 `browser_roots()` lays the same devices out as Live's browser does, so find_item and load_item work.
@@ -12,8 +12,8 @@ from __future__ import annotations
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 
-from hands.testing import display
-from hands.testing.lom import BrowserItem, Device, DeviceParameter, DeviceType, RackDevice, SimplerDevice
+from zpkt.live.testing import display
+from zpkt.live.testing.lom import BrowserItem, Device, DeviceParameter, DeviceType, RackDevice, SimplerDevice
 
 
 @dataclass(frozen=True)

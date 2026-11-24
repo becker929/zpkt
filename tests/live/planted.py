@@ -12,7 +12,7 @@ import gzip
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
-from hands import als
+from zpkt.live import als
 
 FIXTURE = Path(__file__).parent / "fixtures" / "L12-automation.als"
 TRACK = "1-Audio"

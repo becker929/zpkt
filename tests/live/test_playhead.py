@@ -1,6 +1,6 @@
 """playhead_moves: a render stops early when Live's audio engine is not running."""
 
-from hands.live import record
+from zpkt.live import record
 
 
 class Fake:

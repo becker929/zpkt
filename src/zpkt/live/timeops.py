@@ -15,9 +15,9 @@ from __future__ import annotations
 
 import time
 
-from hands.live import ui
-from hands.live.session import stop
-from hands.live.transport import McpTransport
+from zpkt.live import ui
+from zpkt.live.session import stop
+from zpkt.live.transport import McpTransport
 
 _SELECT = """song.stop_playing()
 view = Live.Application.get_application().view

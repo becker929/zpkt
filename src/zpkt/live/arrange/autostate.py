@@ -12,7 +12,7 @@ from __future__ import annotations
 import json
 import time
 
-from hands.live.transport import McpTransport
+from zpkt.live.transport import McpTransport
 
 FIND = """
 out = []

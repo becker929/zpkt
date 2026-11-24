@@ -12,9 +12,9 @@ original render and the references, as audio clips in the Arrangement, with thei
 its raw value; `apply` sets the raw value, which round-trips exactly on the same Live version.
 
 `apply` works on the finishing set or on a mix set freshly built by contrib/arranger/mixset.py: it adds what is
-missing (workspace.py's returns and desk devices), then puts the desk back with hands.live.state (only values that
+missing (workspace.py's returns and desk devices), then puts the desk back with zpkt.live.state (only values that
 differ, one device and at most 16 parameters per LOM call, ableton-guide Rule 2) and reads them back. `write` reads
-the set with hands.live.state too; the "desk" it writes has the shape of lib/contracts/desk.schema.json.
+the set with zpkt.live.state too; the "desk" it writes has the shape of lib/contracts/desk.schema.json.
 """
 
 from __future__ import annotations
@@ -32,9 +32,9 @@ import match as M
 import monitor as MON
 import workspace as W
 
-from hands.live import hold
-from hands.live import state as S
-from hands.live.ops import LiveOps
+from zpkt.live import hold
+from zpkt.live import state as S
+from zpkt.live.ops import LiveOps
 
 DATA = Path(os.environ.get("ARRANGER_DATA", "~/_agent_scratch/arranger")).expanduser()
 ARR = DATA / "arrangements" / "short-8d2a2.json"
@@ -134,7 +134,7 @@ def show() -> None:
 
 def apply_desk(live: LiveOps, desk: dict[str, Any], log: Any = print) -> list[S.Row]:
     """Put `desk` into the set in front: workspace.py's returns and desk devices and the monitor tracks where
-    missing, then every value (hands.live.state.put). Returns what still differs after the read-back."""
+    missing, then every value (zpkt.live.state.put). Returns what still differs after the read-back."""
     W.devices(live)  # returns and desk devices, added where missing, at neutral values
     if desk.get("monitor"):  # the monitor tracks and their clips, added where missing (muted), before their mixers
         MON.ensure(

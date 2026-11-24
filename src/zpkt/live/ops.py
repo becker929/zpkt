@@ -1,5 +1,5 @@
 """Short, checked Live steps for scripts that build and render sets: parameters in the units Live shows, a track's
-mixer, browser loads, and Save As and the export by the menu (hands.live.export).
+mixer, browser loads, and Save As and the export by the menu (zpkt.live.export).
 
     live = LiveOps(LiveClient(), staging=Path("~/renders/staging").expanduser())
     live.load_item("song.tracks[0]", "instruments", None, "Operator")
@@ -10,7 +10,7 @@ Everything a step needs is on the object (the client, the folder exports are sta
 a folder), so two scripts in one process never change each other's settings. Each LOM call stays short (well under
 the Remote Script's 12 s) and never reads back what it wrote in the same call, which crashes Live (ableton-guide
 rule 1): the read-backs here are separate calls. A step that finds Live other than it expects raises
-hands.live.session.Guard saying what it found.
+zpkt.live.session.Guard saying what it found.
 
 These came from the SH001 recipe's liveops.py (Oct 2026), which the booth, the arranger and the mix desk loaded by
 path; that script is archived with the other piece scripts (zpkt-archive).
@@ -23,11 +23,11 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from hands.live import export as gui_export
-from hands.live import session
-from hands.live.inlive import with_source
-from hands.live.session import stop
-from hands.live.transport import McpTransport
+from zpkt.live import export as gui_export
+from zpkt.live import session
+from zpkt.live.inlive import with_source
+from zpkt.live.session import stop
+from zpkt.live.transport import McpTransport
 
 PER_CALL = 16  # parameters set in one call (ableton-guide rule 2)
 READ_PER_CALL = 20
@@ -36,7 +36,7 @@ READ_PER_CALL = 20
 @dataclass
 class LiveOps:
     """Steps against one Live. `staging` is the folder the Save panel writes exports into before they move to their
-    target: one the panel can reach (hands.live.export.SavePanel). Without it, `export` refuses."""
+    target: one the panel can reach (zpkt.live.export.SavePanel). Without it, `export` refuses."""
 
     client: McpTransport
     staging: Path | None = None
@@ -130,7 +130,7 @@ class LiveOps:
     def export(
         self, out: Path, start_beat: float, length_beats: float, *, bits: int = 24, timeout_s: float = 300
     ) -> Path:
-        """Render Main for [start_beat, start_beat + length_beats) to `out` by the menu (hands.live.export)."""
+        """Render Main for [start_beat, start_beat + length_beats) to `out` by the menu (zpkt.live.export)."""
         if self.staging is None:
             raise ValueError("this LiveOps has no staging folder for exports; give it one the Save panel can reach")
         return gui_export.export_by_menu(
@@ -145,5 +145,5 @@ class LiveOps:
         )
 
     def save_as(self, folder: Path, name: str, *, project: bool = True, timeout_s: float = 60) -> Path:
-        """File > Save Live Set As (hands.live.export.save_as)."""
+        """File > Save Live Set As (zpkt.live.export.save_as)."""
         return gui_export.save_as(folder, name, project=project, panel=self.save_panel, timeout_s=timeout_s)

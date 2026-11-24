@@ -7,9 +7,9 @@ import json
 import match
 import pytest
 
-from hands.live.ops import LiveOps
-from hands.testing import FakeLive, hw002_like
-from hands.testing.display import fader_db
+from zpkt.live.ops import LiveOps
+from zpkt.live.testing import FakeLive, hw002_like
+from zpkt.live.testing.display import fader_db
 
 
 def test_eqfit_moves_has_every_stem_and_band_in_fit_json_order():

@@ -7,8 +7,8 @@ from pathlib import Path
 
 import numpy as np
 import soundfile as sf
-from mlab import dsp, siggen
-from mlab.util import lin
+from zpkt.audio.meters import dsp, siggen
+from zpkt.audio.meters.util import lin
 
 SR = 44100
 BEAT_S = 0.375  # 160 BPM; the target windows below use one beat as their "bar" to keep files short

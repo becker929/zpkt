@@ -304,7 +304,7 @@ def fake(monkeypatch, tmp_path):
     """(live, ops): booth.live's Builder wired to the fakes, the guard always passing, sets in tmp_path."""
     from booth import live as booth_live
 
-    from hands.live import session
+    from zpkt.live import session
 
     lv = FakeLive()
     fo = FakeOps(lv)

@@ -8,7 +8,7 @@ import time
 
 import typer
 
-from hands.live import rig
+from zpkt.live import rig
 
 app = typer.Typer(
     help="Check the Live rig (Live, its audio, macOS audio) and reset it when its state gets weird.",
@@ -65,7 +65,7 @@ def output(
     name: str = typer.Argument(None, help="Start of the device's name as Live lists it (e.g. 'Yeti'); none: show it."),
 ) -> None:
     """Show Live's audio output device, or choose one (Live's Settings window, through Accessibility)."""
-    from hands.live import ui
+    from zpkt.live import ui
 
     if not name:
         print(ui.osa_file(rig.DEVICE_SCRIPT, "read", timeout=40))

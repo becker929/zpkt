@@ -3,7 +3,7 @@
 The LOM shows a parameter under another name and often in other units than the .als: EQ Eight's frequency is 0-1 on
 a log scale, Utility's gain is dB/35, its width the square root of the .als fraction. Each Unit converts one way and
 back; UNITS, EQ8_BAND and MIXER say which unit and LOM name a parameter has. They were measured on HW002 (the
-evidence pairs are by UNITS). hands.live.knobs uses them to write knobs given in .als units.
+evidence pairs are by UNITS). zpkt.live.knobs uses them to write knobs given in .als units.
 """
 
 from __future__ import annotations

@@ -1,9 +1,9 @@
 # One style for every Python part of zpkt. `make format` applies it; `make lint` checks it.
 line-length = 120
-src = ["hands/src", "ears/src", "ears/mlab"]   # first-party packages, so imports sort as ours
+src = ["src", "tests/live", "tests/audio", "ears/mlab/calibration"]   # first-party code, so imports sort as ours
 target-version = "py311"   # Live's own Python is 3.11: code loaded into Live (contrib/mixdesk/pager.py) must run there
 extend-exclude = [
-    "hands/remote_scripts/AbletonLiveMCP",   # vendored, kept as upstream wrote it
+    "src/zpkt/live/remote_scripts/AbletonLiveMCP",   # vendored, kept as upstream wrote it
 ]
 
 [lint]
@@ -17,9 +17,9 @@ ignore = [
 
 [lint.per-file-ignores]
 "**/tests/**" = ["B011"]
-# hands' tests: fakes that close over loop variables and are called inside the loop, match= patterns written as
+# zpkt.live's tests: fakes that close over loop variables and are called inside the loop, match= patterns written as
 # plain messages, small lambdas and nested with blocks that read in order.
-"hands/tests/**" = ["B011", "B017", "B023", "E731", "RUF043", "SIM115", "SIM117"]
+"tests/live/**" = ["B011", "B017", "B023", "E731", "RUF043", "SIM115", "SIM117"]
 
 [lint.flake8-bugbear]
 # typer declares a command's options as default values; they are not evaluated per call.

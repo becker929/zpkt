@@ -8,8 +8,8 @@ from pathlib import Path
 
 import jsonschema
 
-from hands.library.models import Inventory, StepScore, TrackReport
-from hands.models import Feedback, ProjectConfig
+from zpkt.live.library.models import Inventory, StepScore, TrackReport
+from zpkt.live.models import Feedback, ProjectConfig
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "hands" / "tools"))
@@ -20,7 +20,7 @@ def test_committed_schemas_are_current() -> None:
     for name, model in gen_schemas.MODELS.items():
         committed = json.loads((ROOT / "lib" / "contracts" / f"{name}.schema.json").read_text())
         assert committed == gen_schemas.build(name, model), (
-            f"stale {name} contract: run `uv run python tools/gen_schemas.py` in hands/"
+            f"stale {name} contract: run `uv run python hands/tools/gen_schemas.py`"
         )
 
 

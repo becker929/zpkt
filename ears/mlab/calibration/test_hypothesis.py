@@ -5,7 +5,7 @@ import textwrap
 
 import numpy as np
 import soundfile as sf
-from mlab import cli, hypothesis
+from zpkt.audio.meters import cli, hypothesis
 
 SR = 44100
 SPEC = textwrap.dedent("""\

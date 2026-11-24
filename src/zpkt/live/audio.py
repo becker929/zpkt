@@ -2,8 +2,8 @@
 
 - check_audio: is a render there, finite, the right length and not silent? A Live with no audio
   clock, or a muted range, renders silence without any error, so every render is checked.
-- slice_render: cut a packed render (hands.probe_kit) into one file per pattern.
-- trim_take, best_lag, low_band, timeline_check: real-time takes (hands.live.record) start
+- slice_render: cut a packed render (zpkt.live.probe_kit) into one file per pattern.
+- trim_take, best_lag, low_band, timeline_check: real-time takes (zpkt.live.record) start
   ~0.9 s off the song timeline; trim them at song beat 0 and check they stay on it.
 
 Silence is judged by RMS, not loudness: loudness decisions use mlab.loudness (ears/mlab), the one

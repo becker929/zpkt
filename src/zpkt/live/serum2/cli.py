@@ -49,9 +49,9 @@ def presets(query: str = typer.Argument("", help="Substring of the preset file n
 
 
 def _patched(preset: Path, mods: list[str], params: list[str]):
-    from hands.serum2 import state as st
-    from hands.serum2.als import mod_dest_ids
-    from hands.serum2.offline import Serum
+    from zpkt.live.serum2 import state as st
+    from zpkt.live.serum2.als import mod_dest_ids
+    from zpkt.live.serum2.offline import Serum
 
     s = Serum()
     template, _ = s.state()
@@ -90,7 +90,7 @@ def render(
     param: list[str] = typer.Option([], help="NAME=RAW (repeatable)."),
 ) -> None:
     """Render a preset offline and print peak / RMS / spectral centroid."""
-    from hands.serum2.offline import SR, check
+    from zpkt.live.serum2.offline import SR, check
 
     path = find_preset(preset)
     s = _patched(path, mod, param)
@@ -112,8 +112,8 @@ def apply(
     param: list[str] = typer.Option([], help="NAME=RAW (repeatable)."),
 ) -> None:
     """Write a preset (+ edits, + configured knobs) into TRACK's Serum 2, after a backup."""
-    from hands import als
-    from hands.serum2.als import configure, find_serum, set_state
+    from zpkt.live import als
+    from zpkt.live.serum2.als import configure, find_serum, set_state
 
     path = find_preset(preset)
     s = _patched(path, mod, param)

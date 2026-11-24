@@ -16,9 +16,9 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
-from hands.live import hold
-from hands.live import panel as P
-from hands.live.transport import McpTransport
+from zpkt.live import hold
+from zpkt.live import panel as P
+from zpkt.live.transport import McpTransport
 
 BARS_MAX = 200
 CLIP = "song "
@@ -157,7 +157,7 @@ def make(
     recorder: Callable[..., str | None] | None = None,
 ) -> str:
     """Lay the song out in the arrangement and render it; return the text to print."""
-    from hands.live import shape
+    from zpkt.live import shape
 
     spec = shape.clean(spec, shape.SONG, "the spec")
     name = P._name(spec)
@@ -226,7 +226,7 @@ def render(
     recorder: Callable[..., str | None] | None = None,
 ) -> str:
     """Render the song again as it now stands in the set (after its panels or its mix changed)."""
-    from hands.live.mix import song_of
+    from zpkt.live.mix import song_of
 
     song = song_of(out_dir, name)
     state = P._state(client)

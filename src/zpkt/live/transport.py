@@ -1,6 +1,6 @@
 """One client for the AbletonLiveMCP Remote Script, plus the doubles tests use.
 
-The Remote Script runs inside Live on 127.0.0.1:16619 (the rig's live_port: hands.config) and speaks one JSON
+The Remote Script runs inside Live on 127.0.0.1:16619 (the rig's live_port: zpkt.live.config) and speaks one JSON
 object per line:
 
     -> {"id": "cmd-1", "code": "<python>"}          or  {"ping": true}
@@ -29,7 +29,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Any, Literal, Protocol, runtime_checkable
 
-from hands import config
+from zpkt.live import config
 
 DEFAULT_HOST = "127.0.0.1"
 DEFAULT_PORT = 16619  # the Remote Script's own port; clients default to the rig's live_port, which is this unless set

@@ -1,12 +1,12 @@
 """Tracks by name, as Live names them: Main, and returns with Live's letter in front ("A-Space").
 
-The one rule, used by hands' code strings, hands.live.state and the mix desk's pager: "Main" or "Master" (any case)
+The one rule, used by hands' code strings, zpkt.live.state and the mix desk's pager: "Main" or "Master" (any case)
 is the master track; otherwise the first track or return with exactly that name; otherwise a return whose name
 without its letter is that name. So "Space" finds the return "A-Space", and a state keyed by "Space" still fits after
 returns are added or reordered. `find_track` runs where `song` is; `track_expr` is the same rule as one LOM
 expression, for code strings and panel files that hold an expression rather than this module.
 
-Stdlib only, Python 3.11: this file also runs inside Live (hands.live.inlive).
+Stdlib only, Python 3.11: this file also runs inside Live (zpkt.live.inlive).
 """
 
 MAIN_NAMES = ("main", "master")

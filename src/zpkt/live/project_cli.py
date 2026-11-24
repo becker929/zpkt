@@ -1,5 +1,5 @@
 """`hands build` and `hands execute`: the first design, a declarative ProjectConfig turned into LOM steps
-(hands.models -> hands.builder -> hands.runner). Kept while Anthony decides whether it folds into something else."""
+(zpkt.live.models -> zpkt.live.builder -> zpkt.live.runner). Kept while Anthony decides whether it folds into something else."""
 
 from __future__ import annotations
 
@@ -20,7 +20,7 @@ def register(app: typer.Typer) -> None:
 
 def _load_config(config_path: str) -> Any:
     """Load and validate a ProjectConfig from a JSON file."""
-    from hands.models import ProjectConfig
+    from zpkt.live.models import ProjectConfig
 
     path = Path(config_path)
     if not path.exists():
@@ -39,9 +39,9 @@ def build(
     dry_run: bool = typer.Option(True, "--dry-run/--no-dry-run", help="Print steps without executing."),
 ) -> None:
     """Render a ProjectConfig to Step list and print or execute."""
-    from hands.builder import ProjectBuilder
-    from hands.live.transport import DryRunTransport
-    from hands.runner import ManualPolicy, StepRunner
+    from zpkt.live.builder import ProjectBuilder
+    from zpkt.live.transport import DryRunTransport
+    from zpkt.live.runner import ManualPolicy, StepRunner
 
     cfg = _load_config(config)
     builder = ProjectBuilder(cfg)
@@ -73,9 +73,9 @@ def execute(
     ),
 ) -> None:
     """Execute Steps against a live Ableton session."""
-    from hands.builder import ProjectBuilder
-    from hands.live.transport import LiveClient
-    from hands.runner import ManualPolicy, StepRunner
+    from zpkt.live.builder import ProjectBuilder
+    from zpkt.live.transport import LiveClient
+    from zpkt.live.runner import ManualPolicy, StepRunner
 
     cfg = _load_config(config)
     builder = ProjectBuilder(cfg)

@@ -48,7 +48,7 @@ WRANGLER = "wrangler@4.145.0"
 
 
 def meter(x2: np.ndarray, sr: int) -> dict:
-    from mlab import loudness as L
+    from zpkt.audio.meters import loudness as L
 
     return {"lufs": round(float(L.integrated(x2, sr)), 2), "true_peak_dbtp": round(float(L.true_peak(x2, sr)), 2),
             "sample_peak_dbfs": round(float(20 * np.log10(np.abs(x2).max() + 1e-15)), 2)}

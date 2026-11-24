@@ -12,9 +12,9 @@ import socket
 import pytest
 from typer.testing import CliRunner
 
-from hands.cli import app
-from hands.live import session, ui
-from hands.testing import FakeLive, fake_set
+from zpkt.live.cli import app
+from zpkt.live import session, ui
+from zpkt.live.testing import FakeLive, fake_set
 
 LIVE_PORT = 16619
 
@@ -223,7 +223,7 @@ def test_spectrum_adds_and_shows_the_master_spectrum(live, port):
 
 
 def test_record_passes_its_options_to_the_recorder(monkeypatch, tmp_path):
-    from hands.live import record
+    from zpkt.live import record
 
     calls = []
 
@@ -256,7 +256,7 @@ def test_record_passes_its_options_to_the_recorder(monkeypatch, tmp_path):
 
 
 def test_kit_commands_print_json_and_stop_on_a_guard(monkeypatch, tmp_path, rig):
-    from hands import probe_kit
+    from zpkt.live import probe_kit
 
     made = probe_kit.Kit(
         kit="c8x4", set="test_c8x4", src="test_src", keep=(8.0, 40.0), lead=8.0, pattern_beats=32.0, P=4
@@ -281,7 +281,7 @@ def test_kit_commands_print_json_and_stop_on_a_guard(monkeypatch, tmp_path, rig)
 
 
 def test_rig_check_and_reset_report_and_exit_by_readiness(monkeypatch):
-    from hands.live import rig
+    from zpkt.live import rig
 
     health = rig.Health(live_running=True, lom=True, device="Yeti", playhead=True)
     monkeypatch.setattr(rig, "check", lambda play=True: health)
@@ -297,7 +297,7 @@ def test_rig_check_and_reset_report_and_exit_by_readiness(monkeypatch):
 
 
 def test_rig_output_reads_and_chooses_the_device(monkeypatch):
-    from hands.live import rig
+    from zpkt.live import rig
 
     asked = []
     monkeypatch.setattr(ui, "osa_file", lambda path, *args, timeout: asked.append(args) or "Yeti Stereo")
@@ -318,7 +318,7 @@ def test_rig_output_reads_and_chooses_the_device(monkeypatch):
 def test_live_reload_counts_down_opens_and_waits_for_the_set(monkeypatch, tmp_path, live, rig):
     import subprocess
 
-    from hands.live import transport
+    from zpkt.live import transport
 
     ran = []
     monkeypatch.setattr(subprocess, "run", lambda argv, **kw: ran.append(argv) or subprocess.CompletedProcess(argv, 0))

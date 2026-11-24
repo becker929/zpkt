@@ -14,7 +14,7 @@ from collections.abc import Callable, Sequence
 Show = Callable[[float], str]
 
 MINUS_INF = "-inf dB"
-FLOOR_DB = -70.0  # Live shows anything quieter as -inf (hands.als.SILENT is the same floor in linear gain)
+FLOOR_DB = -70.0  # Live shows anything quieter as -inf (zpkt.live.als.SILENT is the same floor in linear gain)
 
 
 def _no_minus_zero(text: str) -> str:

@@ -15,8 +15,8 @@ from pathlib import Path
 import numpy as np
 import pytest
 from golden_check import check, text
-from mlab import cli, dsp, siggen
-from mlab.util import lin
+from zpkt.audio.meters import cli, dsp, siggen
+from zpkt.audio.meters.util import lin
 from signals import BEAT_S, SR, mix, reference, refs_json, write
 
 
@@ -117,7 +117,7 @@ def test_match_and_abx(lab, files, capsys, masked, monkeypatch) -> None:
 
 
 def test_als(lab, capsys, masked) -> None:
-    fixtures = Path(__file__).resolve().parents[1] / "mlab" / "calibration" / "fixtures"
+    fixtures = Path(__file__).resolve().parents[2] / "ears" / "mlab" / "calibration" / "fixtures"
     text("cli_als", run(capsys, masked, "als", str(fixtures / "L12-automation.als")))
     check("cli_als_json", json.loads(run(capsys, masked, "als", str(fixtures / "example-140.als"), "--json")))
 
@@ -205,7 +205,7 @@ def test_eqfit(lab, tmp_path, capsys, masked) -> None:
 
 
 def test_hyp_report(lab, tmp_path, capsys, masked, monkeypatch) -> None:
-    from mlab import hypothesis
+    from zpkt.audio.meters import hypothesis
 
     write(tmp_path / "tone.wav", siggen.sine(440, -12, 3.0, SR))
     monkeypatch.setattr(hypothesis, "LAB", str(tmp_path))
@@ -248,7 +248,7 @@ def test_calibrate_writes_the_report(lab, monkeypatch, capsys) -> None:
 
 
 def test_python_dash_m_and_usage(files) -> None:
-    lab_root = Path(__file__).resolve().parents[1] / "mlab"  # where people run `python3 -m mlab`
+    lab_root = Path(__file__).resolve().parents[2] / "ears" / "mlab"  # where people run `python3 -m mlab`
     res = subprocess.run(
         [sys.executable, "-m", "mlab", "bitdepth", str(files["mix16"])], capture_output=True, text=True, cwd=lab_root
     )

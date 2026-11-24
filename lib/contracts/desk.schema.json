@@ -245,7 +245,7 @@
     }
   },
   "additionalProperties": true,
-  "description": "The mix desk recipe's desk (contrib/mixdesk/recipe.py writes it; `hands live state diff|put` read it as a partial state). Generated from hands/src/hands/live/desk.py \u2014 do not edit by hand.",
+  "description": "The mix desk recipe's desk (contrib/mixdesk/recipe.py writes it; `hands live state diff|put` read it as a partial state). Generated from src/zpkt/live/desk.py \u2014 do not edit by hand.",
   "properties": {
     "made": {
       "anyOf": [

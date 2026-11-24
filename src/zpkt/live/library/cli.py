@@ -43,9 +43,9 @@ def inventory_cmd(
 ) -> None:
     """Score every track's seven steps (collage, drums, arrange, kick, mix, master, release) from its sets and
     exports; records beat the heuristics. The headline is the lowest incomplete step."""
-    from hands import config
-    from hands.library import inventory as inv_mod
-    from hands.library import workflow
+    from zpkt.live import config
+    from zpkt.live.library import inventory as inv_mod
+    from zpkt.live.library import workflow
 
     rig = config.rig()
     inv = inv_mod.inventory(

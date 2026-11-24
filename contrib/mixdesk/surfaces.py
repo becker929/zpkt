@@ -32,8 +32,8 @@ import time
 from pathlib import Path
 from typing import NotRequired, TypedDict
 
-from hands import config
-from hands.live.inlive.shown import shown_number
+from zpkt.live import config
+from zpkt.live.inlive.shown import shown_number
 
 SLOTS = [f"k{i}" for i in range(1, 9)] + [f"f{i}" for i in range(1, 5)] + [f"b{i}" for i in range(1, 9)]
 MODEL = os.environ.get("MIXDESK_MODEL", "sonnet")

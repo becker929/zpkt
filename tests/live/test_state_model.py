@@ -1,5 +1,5 @@
-"""The whole-mix state as typed data: its keys (hands.live.inlive.keys), the [shown, raw] pair, the desk contract a
-recipe is read by (hands.live.desk, lib/contracts/desk.schema.json), and raw writes in chunks (hands.live.writes)."""
+"""The whole-mix state as typed data: its keys (zpkt.live.inlive.keys), the [shown, raw] pair, the desk contract a
+recipe is read by (zpkt.live.desk, lib/contracts/desk.schema.json), and raw writes in chunks (zpkt.live.writes)."""
 
 from __future__ import annotations
 
@@ -9,10 +9,10 @@ from pathlib import Path
 import jsonschema
 import pytest
 
-from hands.live import desk, writes
-from hands.live import state as S
-from hands.live.inlive import keys
-from hands.testing import FakeLive, hw002_like
+from zpkt.live import desk, writes
+from zpkt.live import state as S
+from zpkt.live.inlive import keys
+from zpkt.live.testing import FakeLive, hw002_like
 
 ROOT = Path(__file__).resolve().parents[2]
 

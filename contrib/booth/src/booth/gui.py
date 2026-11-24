@@ -1,5 +1,5 @@
 """Live's GUI steps without keystrokes: browser loads, parameters in display units, the mixer, Save As and the
-export. They are hands.live.ops (SH001's liveops.py, moved into hands), pointed at the booth's client and folders.
+export. They are zpkt.live.ops (SH001's liveops.py, moved into hands), pointed at the booth's client and folders.
 
 hands stops with Guard (and older steps with sys.exit("STOP: ...")); here that becomes Stop, so the runner can hold
 the job instead of exiting.
@@ -22,7 +22,7 @@ class Stop(RuntimeError):
 def ops(client):
     """hands' LiveOps for `client`, staging its exports in STAGING. A new one for each caller, so a job, the
     template and the survey never share one."""
-    from hands.live.ops import LiveOps
+    from zpkt.live.ops import LiveOps
 
     return LiveOps(client, staging=STAGING)
 
@@ -30,8 +30,8 @@ def ops(client):
 @contextmanager
 def stops(where: str):
     """Turn hands' stops into Stop, naming the step."""
-    from hands.live.session import Guard
-    from hands.live.transport import LiveError
+    from zpkt.live.session import Guard
+    from zpkt.live.transport import LiveError
 
     try:
         yield

@@ -1,12 +1,12 @@
-"""hands.live.timeops: the selection call and the song-end checks, against a fake Live."""
+"""zpkt.live.timeops: the selection call and the song-end checks, against a fake Live."""
 
 from __future__ import annotations
 
 import pytest
 
-from hands.live import session, timeops, ui
-from hands.live.session import Guard
-from hands.live.transport import McpResult, Transport
+from zpkt.live import session, timeops, ui
+from zpkt.live.session import Guard
+from zpkt.live.transport import McpResult, Transport
 
 
 class FakeArrangement(Transport):

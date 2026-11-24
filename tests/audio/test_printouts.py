@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from mlab import printouts
+from zpkt.audio.meters import printouts
 
 
 def test_number_never_prints_minus_zero() -> None:

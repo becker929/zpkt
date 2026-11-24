@@ -1,4 +1,4 @@
-"""ProjectBuilder: a ProjectConfig as ordered LOM steps (hands.codegen).
+"""ProjectBuilder: a ProjectConfig as ordered LOM steps (zpkt.live.codegen).
 
 The first design (Oct 2026): a declarative ProjectConfig -> codegen steps -> builder -> StepRunner, behind `hands build`
 and `hands execute`. Its user (prototypes/engineer) was removed on 24 Nov 2026; Anthony keeps it to see whether it
@@ -7,7 +7,7 @@ folds into something later.
 
 from __future__ import annotations
 
-from hands.codegen import (
+from zpkt.live.codegen import (
     Step,
     gen_configure_eq8,
     gen_configure_rack_chain,
@@ -25,7 +25,7 @@ from hands.codegen import (
     gen_set_tempo,
     gen_tile_session_to_arrangement,
 )
-from hands.models import (
+from zpkt.live.models import (
     DeviceSource,
     DeviceSpec,
     EQ8Spec,

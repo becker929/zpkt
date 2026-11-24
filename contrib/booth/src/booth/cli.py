@@ -29,7 +29,7 @@ from . import HOME, PREFIX, use_booth_rig
 
 
 def _runner(jobs, settings):
-    from hands.live.transport import LiveClient
+    from zpkt.live.transport import LiveClient
 
     from .live import Builder
     from .runner import Gate, Runner
@@ -213,7 +213,7 @@ def main(argv: list[str] | None = None) -> int:
         print(json.dumps(jobs.public(jobs.get(job["id"])), indent=2))
         return 0
     if a.cmd in ("template", "survey"):
-        from hands.live.transport import LiveClient
+        from zpkt.live.transport import LiveClient
 
         from . import palette as P
         from .live import finish_template, make_template, survey

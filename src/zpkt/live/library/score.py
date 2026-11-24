@@ -2,7 +2,7 @@
 
 The rules are points with caps, so every percent can be read back from its evidence lines. They see
 files, not sound: kick, mix and master stop at 80 %, arrange at 90 %, release at 60 %
-(workflow.STEPS caps). The rest takes a record (hands.library.records).
+(workflow.STEPS caps). The rest takes a record (zpkt.live.library.records).
 """
 
 from __future__ import annotations
@@ -11,8 +11,8 @@ import re
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from hands.library import workflow
-from hands.library.facts import SetFacts, Track
+from zpkt.live.library import workflow
+from zpkt.live.library.facts import SetFacts, Track
 
 KICK = re.compile(r"kick|\bkik\b|\bbd\b|bassdrum|bass ?drum", re.I)
 RUMBLE = re.compile(r"rumble|rmbl|\bsub\b", re.I)
