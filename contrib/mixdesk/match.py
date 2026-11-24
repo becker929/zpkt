@@ -207,7 +207,7 @@ def plan_from_fit(fit_out: dict) -> dict:
         got = fit_out["plan"].get(stem)
         if not got:
             continue
-        for b, g in zip(c["bands"], got["eq"]):
+        for b, g in zip(c["bands"], got["eq"], strict=False):
             if abs(g["gain_db"]) < MIN_GAIN_DB:
                 continue
             n = b["band"]

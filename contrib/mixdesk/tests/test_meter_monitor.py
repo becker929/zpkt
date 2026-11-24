@@ -24,7 +24,7 @@ def test_the_meter_sends_31_bands_and_the_page_gets_them_in_db():
     assert levels == pytest.approx([0.5] * 31)
     hz = [round(f, 2) for f in meter.centers()]
     assert hz[0] == 20.0 and len(hz) == 31
-    msg = server.meter_message(levels + [], hz)
+    msg = server.meter_message([*levels], hz)
     assert msg["t"] == "meter" and msg["db"][0] == pytest.approx(-6.02, abs=0.01)
     assert server.meter_message([0.0] * 31, hz)["db"][0] == -140.0
     assert server.meter_message([0.5] * 30, hz) is None

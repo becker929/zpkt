@@ -17,6 +17,7 @@ shown values are hands' inlive helpers; all three are loaded by path, since Live
 Live's Python is 3.11; keep this file free of newer syntax.
 """
 
+import contextlib
 import importlib.util
 import json
 import os
@@ -56,7 +57,7 @@ def _minilab():
     return None
 
 
-class _Grab(object):
+class _Grab:
     """One MiniLab control held by the desk; on_value(value) gets its MIDI values while held."""
 
     def __init__(self, control, on_value):
@@ -73,13 +74,11 @@ class _Grab(object):
         self.control.resource.grab(self, PRIORITY)
 
     def release(self):
-        try:
+        with contextlib.suppress(Exception):
             self.control.resource.release(self)
-        except Exception:
-            pass
 
 
-class _Target(object):
+class _Target:
     """A control's target in the set: a parameter, or a track's mute or solo."""
 
     def __init__(self, song, spec):
@@ -109,7 +108,7 @@ class _Target(object):
                 self.flag = p
                 self.key = keys.mixer_key(tn, p)
             else:
-                raise ValueError("unknown param %r" % p)
+                raise ValueError(f"unknown param {p!r}")
         except (StopIteration, LookupError):
             self.error = "not in the set"
         except Exception as exc:
@@ -181,7 +180,7 @@ class _Target(object):
             pass
 
 
-class _Macro(object):
+class _Macro:
     """One control that moves several parameters together: each from its "from" to its "to" as the control goes
     from 0 to 1 ({"label": ..., "macro": [{"track", "device", "param", "from": "200 Hz", "to": "2 kHz"}, ...]}).
     Its value is its position; the first parameter is the one it is read from and listened to."""
@@ -196,7 +195,7 @@ class _Macro(object):
             if not t.error and t.param is not None:
                 a, b = shown.raw_for(t.param, m.get("from", "min")), shown.raw_for(t.param, m.get("to", "max"))
             if a is None or b is None:
-                self.skipped.append("%s/%s/%s" % (m.get("track"), m.get("device", ""), m.get("param")))
+                self.skipped.append(f"{m.get('track')}/{m.get('device', '')}/{m.get('param')}")
             else:
                 self.subs.append((t, a, b))
         if not self.subs:
@@ -216,7 +215,7 @@ class _Macro(object):
         return self.pos
 
     def text(self):
-        return "%d %%" % round(100 * self.pos)  # its own position; its parameters show on their own controls
+        return f"{round(100 * self.pos)} %"  # its own position; its parameters show on their own controls
 
     def quantized(self):
         return False
@@ -250,10 +249,8 @@ class _Macro(object):
         self.subs[0][0].param.add_value_listener(changed)
 
     def unlisten(self, fn):
-        try:
+        with contextlib.suppress(Exception):
             self.subs[0][0].param.remove_value_listener(self._wrapped.pop(fn))
-        except Exception:
-            pass
 
 
 def _key_name(track, song):
@@ -263,7 +260,7 @@ def _key_name(track, song):
     return tracks.short_name(track.name, track in list(song.return_tracks))
 
 
-class Desk(object):
+class Desk:
     def __init__(self, song, cfg, port):
         self.song, self.cfg, self.port = song, cfg, port
         self.page = 0
@@ -370,7 +367,7 @@ class Desk(object):
             if target.mute:
                 target.mute = False
             volume = target.mixer_device.volume
-            value = shown.raw_for(volume, "%.2f dB" % gain_db)
+            value = shown.raw_for(volume, f"{gain_db:.2f} dB")
             if value is not None:
                 volume.value = value
             if not target.solo:
@@ -402,7 +399,7 @@ class Desk(object):
                     self.by_key.setdefault(t.key, t)
                 if isinstance(t, _Macro):  # the parameters a macro moves report (and can be set) like any control
                     for j, (sub, _a, _b) in enumerate(t.subs):
-                        sslot = "%s/%d" % (slot, j)
+                        sslot = f"{slot}/{j}"
                         self.targets[(i, sslot)] = sub
                         self.by_key.setdefault(sub.key, sub)
                         fn = self._watcher(i, sslot)
@@ -433,13 +430,13 @@ class Desk(object):
         e = cs.elements
         g = []
         for k, enc in enumerate(list(e.encoders_raw)[:8]):
-            g.append(_Grab(enc, self._knob("k%d" % (k + 1))))
+            g.append(_Grab(enc, self._knob(f"k{k + 1}")))
         for k, name in enumerate(FADERS):
-            g.append(_Grab(getattr(e, name), self._fader("f%d" % (k + 1))))
+            g.append(_Grab(getattr(e, name), self._fader(f"f{k + 1}")))
         for k, pad in enumerate(list(e.pad_bank_a_raw)[:8]):
             g.append(_Grab(pad, self._page_pad(k)))
         for k, pad in enumerate(list(e.pad_bank_b_raw)[:8]):
-            g.append(_Grab(pad, self._toggle_pad("b%d" % (k + 1))))
+            g.append(_Grab(pad, self._toggle_pad(f"b{k + 1}")))
         g.append(_Grab(e.display_encoder, self._page_encoder))
         for x in g:
             x.grab()
@@ -453,10 +450,8 @@ class Desk(object):
             x.release()
         self.grabs = []
         if self.cs is not None:
-            try:
+            with contextlib.suppress(Exception):
                 self.cs.request_rebuild_midi_map()
-            except Exception:
-                pass
         self.cs = None
 
     def attached(self):
@@ -518,10 +513,8 @@ class Desk(object):
         try:
             t.set_norm(n)
         except RuntimeError:  # a change asked for while Live notifies: try again on the next tick
-            try:
+            with contextlib.suppress(Exception):
                 self.cs.schedule_message(1, lambda: t.set_norm(n))
-            except Exception:
-                pass
 
     # ---- what the server asks ------------------------------------------------------------------------------------
     def arm(self, page):
@@ -532,25 +525,21 @@ class Desk(object):
         if self.cs is not None:
             encs = list(self.cs.elements.encoders_raw)[:8]
             for k, enc in enumerate(encs):
-                t = self.targets.get((page, "k%d" % (k + 1)))
-                v = int(round(127 * t.norm())) if t is not None and not t.error else 0
+                t = self.targets.get((page, f"k{k + 1}"))
+                v = round(127 * t.norm()) if t is not None and not t.error else 0
                 try:
                     enc.realign_value(v)
                 except Exception:
-                    try:
+                    with contextlib.suppress(Exception):
                         enc.send_value(v, force=True)
-                    except Exception:
-                        pass
         self.emit({"t": "page", "page": page, "picked": {}})
 
     def toggle(self, slot, page=None):
         page = self.page if page is None else page
         t = self.targets.get((page, slot))
         if t is not None and not t.error:
-            try:
+            with contextlib.suppress(RuntimeError):
                 t.toggle()
-            except RuntimeError:
-                pass
             if isinstance(t, _Macro):
                 self.send_value(page, slot)
         self.emit({"t": "hw", "page": page, "slot": slot, "hw": None, "picked": True})
@@ -606,7 +595,7 @@ class Desk(object):
         out = []
         for (pg, slot), t in self.targets.items():
             if pg == page and isinstance(t, _Macro):
-                out += ["%s: %s" % (slot, x) for x in t.skipped]
+                out += [f"{slot}: {x}" for x in t.skipped]
         return out
 
     def set_raw(self, pairs):
@@ -627,17 +616,15 @@ class Desk(object):
         return missing
 
     def emit(self, msg):
-        try:
+        with contextlib.suppress(Exception):
             self.sock.sendto(json.dumps(msg).encode("utf-8"), ("127.0.0.1", self.port))
-        except Exception:
-            pass
 
     def _loop_mode(self):
         s = self.song
         return core.loop_mode(s.loop, s.loop_start, s.loop_length)
 
     def snapshot(self):
-        vals = dict(("%d:%s" % (page, slot), core.value_report(t)) for (page, slot), t in self.targets.items())
+        vals = {f"{page}:{slot}": core.value_report(t) for (page, slot), t in self.targets.items()}
         return {
             "page": self.page,
             "attached": self.attached(),
@@ -655,17 +642,13 @@ class Desk(object):
     def stop(self):
         for fn in self._song_listeners:
             for rm in (self.song.remove_current_song_time_listener, self.song.remove_is_playing_listener):
-                try:
+                with contextlib.suppress(Exception):
                     rm(fn)
-                except Exception:
-                    pass
         self._song_listeners = []
         self.unlisten()
         self.release()
-        try:
+        with contextlib.suppress(Exception):
             self.sock.close()
-        except Exception:
-            pass
 
 
 def start(song, cfg, port):

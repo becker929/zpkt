@@ -25,7 +25,6 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
-from hands import config
 from hands.live import state as S
 
 COALESCE_S = 2.0  # one control moved again within this long: the same step

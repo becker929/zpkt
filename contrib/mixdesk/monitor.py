@@ -38,9 +38,9 @@ def ensure(live: LiveClient | None = None, log=print, want: dict[str, tuple[Path
     for name, (wav, beat) in (want or wanted()).items():
         if not wav.exists():
             raise SystemExit(f"missing {wav}: run analyze.py")
-        have = live.run(f"result = [t.name for t in song.tracks]")
+        have = live.run("result = [t.name for t in song.tracks]")
         if name not in have:
-            live.run(f"song.create_audio_track(-1)\nresult = 'ok'")
+            live.run("song.create_audio_track(-1)\nresult = 'ok'")
             time.sleep(0.3)
             n = live.run("result = len(song.tracks)") - 1
             live.run(f"song.tracks[{n}].name = {name!r}\nresult = 'ok'")

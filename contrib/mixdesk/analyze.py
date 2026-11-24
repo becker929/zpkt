@@ -37,7 +37,7 @@ def band_db(x: np.ndarray, sr: int) -> list[float]:
         return [-120.0] * len(CENTERS)
     f, p = welch(x, fs=sr, nperseg=16384, noverlap=8192, window="hann", scaling="spectrum")
     out = []
-    for lo, hi in zip(EDGES_LO, EDGES_HI):
+    for lo, hi in zip(EDGES_LO, EDGES_HI, strict=False):
         m = (f >= lo) & (f < hi)
         out.append(float(10 * np.log10(p[m].sum() + 1e-12)) if m.any() else -120.0)
     return out
@@ -87,9 +87,9 @@ def measure(path: Path, is_ref: bool) -> tuple[dict, np.ndarray, int]:
         w = x[a:b]
         if len(w) < int(0.5 * sr):
             continue
-        l = meter.integrated_loudness(w) if len(w) >= int(0.4 * sr) else -70.0
+        loud = meter.integrated_loudness(w) if len(w) >= int(0.4 * sr) else -70.0
         tl["t"].append(float(t + 1.5))
-        tl["lufs"].append(float(max(l, -70.0)))
+        tl["lufs"].append(float(max(loud, -70.0)))
         tl["crest"].append(float(20 * np.log10(np.abs(w).max() + 1e-12) - 10 * np.log10((w**2).mean() + 1e-12)))
         m, s = w.sum(1) / 2, (w[:, 0] - w[:, 1]) / 2
         tl["width"].append(float(10 * np.log10((s**2).sum() / ((m**2).sum() + 1e-12) + 1e-12)))

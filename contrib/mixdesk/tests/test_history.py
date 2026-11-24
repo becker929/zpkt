@@ -11,7 +11,7 @@ from pathlib import Path
 import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-import history  # noqa: E402
+import history
 
 
 @pytest.fixture()
@@ -62,7 +62,7 @@ def test_a_sweep_is_one_step_and_undo_redo_write_the_ends(h):
     h.seen("Hats bus/desk EQ/1 Gain A", "-3 dB", 0.4)
     assert len(h.entries) == 2
 
-    pairs, e = h.undo()
+    pairs, _e = h.undo()
     assert pairs == [["Hats bus/desk EQ/1 Gain A", 0.5]]
     assert not h.seen("Hats bus/desk EQ/1 Gain A", "0.00 dB", 0.5)  # the echo of our own write is not a move
     pairs, _ = h.undo()

@@ -15,6 +15,7 @@ the messages. Nothing here makes or plays sound: the page shows and arms control
 
 from __future__ import annotations
 
+import contextlib
 import json
 import math
 import os
@@ -27,7 +28,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from typing import Any
+from typing import Any, ClassVar
 from urllib.parse import parse_qs, urlparse
 
 import deskstate as D
@@ -173,10 +174,8 @@ class Desk:
     # ---- changing the state ----------------------------------------------------------------------------------------
     def push(self, msg: dict[str, Any]) -> None:
         for q in list(self.clients):
-            try:
+            with contextlib.suppress(queue.Full):
                 q.put_nowait(msg)
-            except queue.Full:
-                pass
 
     def push_full(self) -> None:
         self.push({"t": "full", "state": self.page_state()})
@@ -670,7 +669,7 @@ class Handler(BaseHTTPRequestHandler):
         finally:
             self.desk.clients.remove(q)
 
-    GET_ROUTES: dict[str, Callable[[Handler, dict[str, str]], None]] = {
+    GET_ROUTES: ClassVar[dict[str, Callable[[Handler, dict[str, str]], None]]] = {
         "/": get_index,
         "/index.html": get_index,
         "/api/analysis": get_analysis,

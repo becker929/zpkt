@@ -9,7 +9,7 @@ from pathlib import Path
 import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-import surfaces  # noqa: E402
+import surfaces
 
 INV = surfaces.parse_inventory(
     "\n".join(
@@ -88,7 +88,7 @@ def test_make_asks_checks_saves_and_lists_the_page():
             + "\n```"
         )
 
-    path, s = surfaces.make("air on the hats", INV, "SET", ["Buses"], ask=fake)
+    path, _s = surfaces.make("air on the hats", INV, "SET", ["Buses"], ask=fake)
     assert (
         "air on the hats" in seen["prompt"] and "7 Gain A: now -6.50 dB (range -15.0 dB .. 15.0 dB)" in seen["prompt"]
     )

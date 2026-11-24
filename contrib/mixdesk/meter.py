@@ -184,7 +184,7 @@ def listen(seconds: float = 3.0) -> None:
     s.settimeout(seconds)
     try:
         data, _ = s.recvfrom(4096)
-    except socket.timeout:
+    except TimeoutError:
         sys.exit(f"nothing on {METER_PORT} in {seconds} s")
     vals = parse(data)
     print(len(vals or []), "bands", [round(v, 5) for v in (vals or [])][:8], "...")
