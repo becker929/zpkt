@@ -3,7 +3,7 @@
 # UNEXPECTED dialog/menu is on screen (launch nags, "save changes?", overwrite
 # prompts, plugin windows, alerts). This enumerates every window + sheet of the
 # Live process (via `hands live modals`, whose AppleScript is
-# hands/src/hands/live/reap_modals.applescript) and:
+# src/zpkt/live/reap_modals.applescript) and:
 #   * CHECK mode (default): reports what modal(s) are present and their buttons,
 #     without touching anything.
 #   * REAP mode (--reap): auto-dismisses ONLY recognized, NON-destructive modals
@@ -27,7 +27,7 @@
 # stalled accessibility tree fails fast. Still: prepend `timeout` at the CLI.
 set -uo pipefail
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-HANDS="$(cd "$DIR/../../../../hands" && pwd)"
+HANDS="$(cd "$DIR/../../../.." && pwd)"  # the zpkt project (the hands command is in it)
 MODE="check"
 FLAG=""   # a string, not an array: macOS bash 3.2 calls an empty array unbound under set -u
 [ "${1:-}" = "--reap" ] && MODE="reap" && FLAG="--reap"

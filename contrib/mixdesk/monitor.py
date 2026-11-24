@@ -1,7 +1,7 @@
 """The desk's monitor tracks in Live: the original render and the four references, as audio in the Arrangement.
 
-    uv run --project hands python contrib/mixdesk/monitor.py ensure     # add what is missing (idempotent)
-    uv run --project hands python contrib/mixdesk/monitor.py remove     # delete them again (do this before a render you keep)
+    uv run python contrib/mixdesk/monitor.py ensure     # add what is missing (idempotent)
+    uv run python contrib/mixdesk/monitor.py remove     # delete them again (do this before a render you keep)
 
 "mon A" holds the original render (A.wav) and "mon B" the recipe's render (B.wav) at beat 0; "mon C1".."mon C4" hold the reference clips at the drop (beat 64 =
 bar 17), warping off. All of them stay MUTED unless the desk is monitoring them (pager.monitor), so a render of the set

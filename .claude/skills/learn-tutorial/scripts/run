@@ -2,14 +2,14 @@
 # Run a learn-tutorial script (or any helper) in the uv project it needs, at low priority.
 #
 #   $S/run onsets.py WAV --bpm 123 ...          # a script in this folder
-#   $S/run W/tools/verify_x.py ARGS             # any other file (a path with a /): ears/mlab
+#   $S/run W/tools/verify_x.py ARGS             # any other file (a path with a /): the zpkt project
 #   $S/run --in hands W/practice/tools/x.py     # any file, in a chosen project: mlab | hands | voice
 #   $S/run --hands live modals                  # the hands CLI
 #   $S/run --which transcribe.py                # print the project only
 #
 # transcribe.py      -> contrib/voice  (parakeet-mlx; HF_HUB_OFFLINE=1, the model is cached)
-# preflight.py, live_step.py, render.py -> hands  (Live's GUI and LOM)
-# everything else    -> ears/mlab  (numpy, scipy, soundfile, the calibrated meters)
+# everything else    -> the zpkt project at the repo root (zpkt.live for Live's GUI and LOM; zpkt.audio's
+#                       calibrated meters, numpy, scipy, soundfile; `--in mlab` and `--in hands` name it too)
 #
 # --no-sync is deliberate: a plain `uv run` would sync contrib/voice without its `engines` extra and
 # remove parakeet-mlx, and in a fresh worktree it would build new venvs on a nearly full disk.
@@ -21,7 +21,7 @@ pick_root() {
   if [[ -n "${ZPKT_ROOT:-}" ]]; then echo "$ZPKT_ROOT"; return; fi
   local top common
   top="$(git -C "$here" rev-parse --show-toplevel)"
-  if [[ -d "$top/ears/mlab/.venv" ]]; then echo "$top"; return; fi
+  if [[ -d "$top/.venv" ]]; then echo "$top"; return; fi
   common="$(git -C "$here" rev-parse --path-format=absolute --git-common-dir)"
   dirname "$common"
 }
@@ -32,16 +32,15 @@ case "${1:-}" in
   --hands) hands_cli=1; shift ;;
   --in)
     case "${2:-}" in
-      mlab) project="$root/ears/mlab" ;;
-      hands) project="$root/hands" ;;
+      mlab|hands) project="$root" ;;
       voice) project="$root/contrib/voice"; export HF_HUB_OFFLINE=1 ;;
       *) echo "--in takes mlab, hands or voice" >&2; exit 2 ;;
     esac
     shift 2 ;;
 esac
 if [[ $hands_cli == 1 ]]; then
-  [[ -d "$root/hands/.venv" ]] || { echo "no venv in $root/hands: set ZPKT_ROOT to a checkout that has one" >&2; exit 2; }
-  exec nice -n 10 uv run -q --project "$root/hands" --no-sync hands "$@"
+  [[ -d "$root/.venv" ]] || { echo "no venv in $root: set ZPKT_ROOT to a checkout that has one" >&2; exit 2; }
+  exec nice -n 10 uv run -q --project "$root" --no-sync hands "$@"
 fi
 script="${1:?usage: run [--in PROJECT] SCRIPT.py|PATH [ARGS...]  or  run --hands ARGS}"
 shift
@@ -49,8 +48,7 @@ if [[ "$script" == */* ]]; then file="$script"; else file="$here/$script"; fi
 if [[ -z "$project" ]]; then
   case "$script" in
     transcribe.py) project="$root/contrib/voice"; export HF_HUB_OFFLINE=1 ;;
-    preflight.py|live_step.py|render.py) project="$root/hands" ;;
-    *) project="$root/ears/mlab" ;;
+    *) project="$root" ;;
   esac
 fi
 if [[ $which == 1 ]]; then echo "$project"; exit 0; fi

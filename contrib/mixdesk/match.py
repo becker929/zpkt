@@ -1,11 +1,11 @@
 """Matching the finishing set to the HW002 references, in Live: renders, bus solo renders, snapshots, and plans.
 
-    uv run --project hands python contrib/mixdesk/match.py render NAME            # bars 1-40 of HW002_121_pp_finish
-    uv run --project hands python contrib/mixdesk/match.py stems [--as P] [BUS..] # each bus soloed, same bars -> P-<bus>.flac
-    uv run --project hands python contrib/mixdesk/match.py snapshot NAME          # every value the desk could touch
-    uv run --project hands python contrib/mixdesk/match.py apply PLAN.json        # set a plan's values, read them back
-    uv run --project hands python contrib/mixdesk/match.py eqfit-moves OUT.json   # fit.json as an mlab eqfit moves spec
-    uv run --project hands python contrib/mixdesk/match.py plan-from-fit FIT_OUT.json PLAN.json   # eqfit result -> plan
+    uv run python contrib/mixdesk/match.py render NAME            # bars 1-40 of HW002_121_pp_finish
+    uv run python contrib/mixdesk/match.py stems [--as P] [BUS..] # each bus soloed, same bars -> P-<bus>.flac
+    uv run python contrib/mixdesk/match.py snapshot NAME          # every value the desk could touch
+    uv run python contrib/mixdesk/match.py apply PLAN.json        # set a plan's values, read them back
+    uv run python contrib/mixdesk/match.py eqfit-moves OUT.json   # fit.json as an mlab eqfit moves spec
+    uv run python contrib/mixdesk/match.py plan-from-fit FIT_OUT.json PLAN.json   # eqfit result -> plan
 
 Renders land in ~/_agent_scratch/mixdesk/renders as FLAC; measure.py (ears) reads them. A plan is a list of moves,
 each a track and either a device parameter or a mixer value, in Live's own units:
@@ -68,7 +68,9 @@ def to_flac(wav: Path, flac: Path) -> None:
             str(Path("~/.local/bin/uv").expanduser()),
             "run",
             "--project",
-            str(ROOT / "ears"),
+            str(ROOT),
+            "--extra",
+            "audio",
             "python",
             "-c",
             code,

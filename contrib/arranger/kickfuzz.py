@@ -7,9 +7,9 @@ every value is put back before the set is left), bounces kick + rumble the way b
 are the arranger's `kick-rumble-a`. In the mix set the kick channel's clips are swapped for that loop and the kick
 channel is turned by the loop's loudness change, so the kick is as loud as before, and the whole mix is rendered.
 
-    uv run --project hands python contrib/arranger/kickfuzz.py bounce [option ...]   # loops set: the kick loops
-    uv run --project hands python contrib/arranger/kickfuzz.py render [option ...]   # mix set: the mixes
-    uv run --project ears  python contrib/arranger/kickfuzz.py measure               # fuzz against the references
+    uv run python contrib/arranger/kickfuzz.py bounce [option ...]   # loops set: the kick loops
+    uv run python contrib/arranger/kickfuzz.py render [option ...]   # mix set: the mixes
+    uv run --extra audio python contrib/arranger/kickfuzz.py measure               # fuzz against the references
 
 Files in DATA/kickfuzz: <option>.flac (the kick loop), mix-<option>.flac (the mix), kickfuzz.json.
 """
@@ -456,7 +456,8 @@ def cut(wav: Path, flac: Path) -> None:
         f"sf.write(sys.argv[2], x[{a}:{b}], r, subtype='PCM_16')"
     )
     subprocess.run(
-        ["uv", "run", "--project", str(mixset.ROOT / "ears"), "python", "-c", code, str(wav), str(flac)], check=True
+        ["uv", "run", "--project", str(mixset.ROOT), "--extra", "audio", "python", "-c", code, str(wav), str(flac)],
+        check=True,
     )
     wav.unlink()
 

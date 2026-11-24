@@ -17,7 +17,7 @@ Per kick, over the median beat (every beat lined up on its kick onset, as kickis
 - crest: peak over RMS of the band's envelope across the beat, in dB. Compressed is low.
 - level: the band's share of the kick's energy, in dB.
 
-    uv run --project ears python contrib/arranger/kicktexture.py [file ...]
+    uv run --extra audio python contrib/arranger/kicktexture.py [file ...]
 """
 
 from __future__ import annotations

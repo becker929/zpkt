@@ -1,6 +1,6 @@
 """Cut the bounced stems (bounce.py) into the arranger's loops and write loops.json.
 
-    uv run --project ears python contrib/arranger/mine.py   # numpy, soundfile and pyloudnorm: ears has them
+    uv run --extra audio python contrib/arranger/mine.py   # numpy, soundfile and pyloudnorm: ears has them
 
 Each stem is one part of the set, soloed, for the whole song. Bars are compared by a spectrogram feature; a stretch
 whose bars repeat every p bars (p = 1, 2, 4 ... 32) becomes one loop of p bars, cut from its second pass so the

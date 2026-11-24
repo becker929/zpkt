@@ -46,7 +46,7 @@ def tools(stage: str) -> None:
     if not os.path.exists(ytdlp):
         missing.append("yt-dlp")
     report("STOP" if missing else "PASS", "tools", f"missing {missing}" if missing else "ffmpeg, yt-dlp, node present")
-    venvs = {"onsets.py": "numpy", "transcribe.py": "parakeet_mlx", "live_step.py": "hands"}
+    venvs = {"onsets.py": "numpy", "transcribe.py": "parakeet_mlx", "live_step.py": "zpkt"}
     bad, where = [], []
     for script, mod in venvs.items():  # the projects scripts/run would use, worktree fallback included
         proj = Path(subprocess.run([str(HERE / "run"), "--which", script], capture_output=True, text=True).stdout.strip())

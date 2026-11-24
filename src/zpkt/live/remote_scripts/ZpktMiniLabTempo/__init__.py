@@ -8,7 +8,7 @@
 # script's own layers (priority 0) makes the script let go, and a value listener does the work.
 # This surface has no MIDI ports of its own; it finds the MiniLab_3 instance and re-grabs whenever
 # that instance is rebuilt (set load, re-selection). Select it in a free Control Surface row,
-# Input/Output None. Install: hands/remote_scripts/install.sh, then restart Live once.
+# Input/Output None. Install: src/zpkt/live/remote_scripts/install.sh, then restart Live once.
 from __future__ import annotations
 
 import Live

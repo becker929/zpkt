@@ -1,8 +1,8 @@
 """The HW002 finishing workspace in Live: a copy of the arranger's mix set with the devices the desk controls.
 
-    uv run --project hands python contrib/mixdesk/workspace.py save     # HW002_121_pp_mix in front -> HW002_121_pp_finish
-    uv run --project hands python contrib/mixdesk/workspace.py clean    # drop the stray panel tracks, tempo 160
-    uv run --project hands python contrib/mixdesk/workspace.py devices  # add the desk's devices (once; skips what is there)
+    uv run python contrib/mixdesk/workspace.py save     # HW002_121_pp_mix in front -> HW002_121_pp_finish
+    uv run python contrib/mixdesk/workspace.py clean    # drop the stray panel tracks, tempo 160
+    uv run python contrib/mixdesk/workspace.py devices  # add the desk's devices (once; skips what is there)
 
 The mix set (contrib/arranger/mixset.py) holds the canonical arrangement 8d2a2 as one track per mix channel, routed to
 a bus per group, with mix 1 and the kept kick on it. The desk adds, all at settings that change nothing until moved:

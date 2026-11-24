@@ -1,6 +1,6 @@
 """Write the mix desk's contracts in lib/contracts: its messages (protocol.py) and its made surfaces (surfaces.py).
 
-hands/.venv/bin/python contrib/mixdesk/gen_schema.py
+.venv/bin/python contrib/mixdesk/gen_schema.py
 """
 
 from __future__ import annotations

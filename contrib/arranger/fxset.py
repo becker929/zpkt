@@ -5,13 +5,13 @@ it writes is a structure (the picks, with each one's recipe from fx.json), which
 
 With HW002_121_pp_fx (a Save As of HW002_121_pp_loops) in front in Live:
 
-    uv run --project hands python contrib/arranger/fxset.py build       # tracks and devices
-    uv run --project hands python contrib/arranger/fxset.py notes       # MIDI and audio clips, one slot per candidate
-    uv run --project hands python contrib/arranger/fxset.py save        # File > Save Live Set
-    uv run --project hands python contrib/arranger/fxset.py automate    # the .als plus automation, as HW002_121_pp_fxa.als
+    uv run python contrib/arranger/fxset.py build       # tracks and devices
+    uv run python contrib/arranger/fxset.py notes       # MIDI and audio clips, one slot per candidate
+    uv run python contrib/arranger/fxset.py save        # File > Save Live Set
+    uv run python contrib/arranger/fxset.py automate    # the .als plus automation, as HW002_121_pp_fxa.als
     open -a "Ableton Live 12 Suite" ~/_agent_scratch/HW002/HW002_121_pp_fxa.als
-    uv run --project hands python contrib/arranger/fxset.py render      # one export per solo state (about 10 minutes)
-    uv run --project ears python contrib/arranger/fxset.py cut          # one file per candidate, and fx.json
+    uv run python contrib/arranger/fxset.py render      # one export per solo state (about 10 minutes)
+    uv run --extra audio python contrib/arranger/fxset.py cut          # one file per candidate, and fx.json
 
 Everything is made in Live, in HW002_121_pp_fx.als (a copy of HW002_121_pp_loops), through the set's own tracks,
 groups and Main. The candidates sit one after another past the end of the song, from beat FX0, each in a slot of

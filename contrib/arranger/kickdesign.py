@@ -9,7 +9,7 @@ HW002 reference two bars where its kick plays nearly alone, cut on its own beat 
 are found by the beat: every beat must start with a kick (40-150 Hz at the onset), and the score is how quiet the
 rest of each beat is above 300 Hz (hats, synths between the kicks), so the kick's own fuzz is not held against it.
 
-    uv run --project ears python contrib/arranger/kickdesign.py
+    uv run --extra audio python contrib/arranger/kickdesign.py
 
 Writes DATA/kickdesign/kicks.json, frames/<id>.json and ref-<id>.flac.
 """

@@ -3,7 +3,7 @@
 Each state solos one or more tracks, so the file is what the set plays when only they sound: through their own
 devices, their group's devices and Main. Run from hands' environment, one state at a time or all:
 
-    uv run --project hands python contrib/arranger/bounce.py [state ...]
+    uv run python contrib/arranger/bounce.py [state ...]
 
 Exports go through zpkt.live.ops (menu clicks and accessibility, no keystrokes: a macOS
 permission prompt on screen takes every key). Stops at the first surprise.

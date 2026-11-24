@@ -1,6 +1,6 @@
 """What the mix page needs to compare against: the reference tracks, and the spectra of the arrangement's own sounds.
 
-    uv run --project ears python contrib/arranger/refs.py          # writes ~/_agent_scratch/arranger/refs/
+    uv run --extra audio python contrib/arranger/refs.py          # writes ~/_agent_scratch/arranger/refs/
 
 For each reference (the four HW002 references and the Klangkuenstler shorts): its tempo, its drop (the bar where
 the low end comes back after the longest quiet stretch), the 16 bars before the drop and 24 after it as a FLAC (cut

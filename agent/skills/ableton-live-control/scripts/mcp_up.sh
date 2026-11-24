@@ -7,7 +7,7 @@
 # Usage: bash mcp_up.sh
 set -euo pipefail
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-HANDS="$(cd "$DIR/../../../../hands" && pwd)"
+HANDS="$(cd "$DIR/../../../.." && pwd)"  # the zpkt project (the hands command is in it)
 HOST="${MCP_HOST:-127.0.0.1}"
 PORT="${MCP_PORT:-16619}"
 

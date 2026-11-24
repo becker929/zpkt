@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from harness.config import Config, claude_env
+from harness.config import ZPKT, Config, claude_env
 
 
 def test_claude_sessions_find_uv_and_ears(monkeypatch):
@@ -10,7 +10,7 @@ def test_claude_sessions_find_uv_and_ears(monkeypatch):
     env = claude_env(Config(extra_env={"PATH": "/usr/bin:/bin", "X": "1"}))
     path = env["PATH"].split(":")
     assert any(p.endswith("/.local/bin") for p in path)
-    assert any(p.endswith("/ears/.venv/bin") for p in path)
+    assert str(ZPKT / ".venv" / "bin") in path  # zpkt's commands, ears and mlab among them
     assert path[-2:] == ["/usr/bin", "/bin"] and env["X"] == "1" and "CLAUDE_CODE_OAUTH_TOKEN" not in env
 
 

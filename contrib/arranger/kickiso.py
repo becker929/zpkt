@@ -8,7 +8,7 @@ the beats keeps what repeats every beat at that place (the kick and what rides w
 off-grid hat would start. The same method runs on our mix, so both sides carry the same leftovers (rumble, an on-beat
 hat), and on our kick loop alone, where the answer is known: the difference is the method's own error.
 
-    uv run --project ears python contrib/arranger/kickiso.py            # shapes, and the match curve
+    uv run --extra audio python contrib/arranger/kickiso.py            # shapes, and the match curve
 """
 
 from __future__ import annotations

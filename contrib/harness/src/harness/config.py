@@ -17,10 +17,10 @@ ZPKT = Path(__file__).resolve().parents[4]  # contrib/harness/src/harness/config
 
 
 def agent_path(base: str | None = None) -> str:
-    """PATH for agent sessions (Claude Code and Gemini CLI), with uv and ears' venv in front."""
+    """PATH for agent sessions (Claude Code and Gemini CLI), with uv and zpkt's venv (zpkt, hands, ears, mlab) in front."""
     cur = base or os.environ.get("PATH", "/usr/bin:/bin:/usr/sbin:/sbin")
     items = cur.split(":") if cur else []
-    extra = [str(Path.home() / ".local" / "bin"), str(ZPKT / "ears" / ".venv" / "bin")]
+    extra = [str(Path.home() / ".local" / "bin"), str(ZPKT / ".venv" / "bin")]
     return ":".join([*(p for p in extra if p not in items), *items])
 
 

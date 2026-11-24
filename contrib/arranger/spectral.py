@@ -4,11 +4,11 @@ Anthony (12 Nov 2026): "analyze the spectra of the references and the track, not
 and then propose and execute fixes, and give me an A/B listening interface". The fixes are structure (a device and its
 values on a channel or bus of the mix set), applied by Live and heard only as Live's renders, like mix 2.
 
-    uv run --project hands python contrib/arranger/spectral.py before    # render the mix as the recipe stands (mix set in front)
-    uv run --project ears  python contrib/arranger/spectral.py analyze   # spectra: the mix against the four HW002 references
-    uv run --project hands python contrib/arranger/spectral.py after     # render each fix alone, then all of them together
-    uv run --project ears  python contrib/arranger/spectral.py measure   # loudness and spectra of the renders, for the page
-    uv run --project ears  python contrib/arranger/spectral.py compare [file.wav ...]  # fast read-only report against cached refs
+    uv run python contrib/arranger/spectral.py before    # render the mix as the recipe stands (mix set in front)
+    uv run --extra audio python contrib/arranger/spectral.py analyze   # spectra: the mix against the four HW002 references
+    uv run python contrib/arranger/spectral.py after     # render each fix alone, then all of them together
+    uv run --extra audio python contrib/arranger/spectral.py measure   # loudness and spectra of the renders, for the page
+    uv run --extra audio python contrib/arranger/spectral.py compare [file.wav ...]  # fast read-only report against cached refs
 
 Files in DATA/spectral: before.flac, fix-<id>.flac, after.flac, analysis.json (the comparison), fixes.json (the
 proposed fixes, written by hand from the analysis), renders.json (what the page plays).

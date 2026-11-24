@@ -64,7 +64,7 @@ class Mix2Worker:
             (self.data / "mix2").mkdir(parents=True, exist_ok=True)
             with open(self.data / "mix2" / "worker.log", "a") as log:
                 self._process = subprocess.Popen(
-                    [uv, "run", "--project", str(root / "hands"), "python", str(HERE / "mixset.py"), "worker"],
+                    [uv, "run", "--project", str(root), "python", str(HERE / "mixset.py"), "worker"],
                     cwd=root,
                     stdout=log,
                     stderr=subprocess.STDOUT,

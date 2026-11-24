@@ -1,8 +1,8 @@
 """The desk's live meter: a Max for Live audio effect on Main that measures what Live plays, inside Live.
 
-    hands/.venv/bin/python contrib/mixdesk/meter.py make       # write the device into Live's User Library
-    hands/.venv/bin/python contrib/mixdesk/meter.py install    # ... and load it last on Main (once)
-    hands/.venv/bin/python contrib/mixdesk/meter.py listen     # print what it sends (a check)
+    .venv/bin/python contrib/mixdesk/meter.py make       # write the device into Live's User Library
+    .venv/bin/python contrib/mixdesk/meter.py install    # ... and load it last on Main (once)
+    .venv/bin/python contrib/mixdesk/meter.py listen     # print what it sends (a check)
 
 The device ("zpkt desk meter") passes the audio through untouched. Beside it, the mid signal goes through a fixed
 filter bank (Max's fffb~: 31 bands, a third of an octave each, 20 Hz to 20 kHz), each band's RMS is read 10 times a

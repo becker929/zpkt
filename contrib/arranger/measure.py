@@ -1,8 +1,8 @@
 """Sum saved arrangements the way the page plays them and print the level above 6 kHz and 10 kHz for each 4 bars (the median bar
 of the four).
 
-    uv run --project ears python contrib/arranger/measure.py short-8 short-8a ...     # arrangements by id
-    uv run --project ears python contrib/arranger/measure.py --clips                  # every clip on its own
+    uv run --extra audio python contrib/arranger/measure.py short-8 short-8a ...     # arrangements by id
+    uv run --extra audio python contrib/arranger/measure.py --clips                  # every clip on its own
 
 Measured, not heard: it says where the top end rises, not whether the rise is the right one.
 """

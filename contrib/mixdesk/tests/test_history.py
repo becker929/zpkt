@@ -1,6 +1,6 @@
 """history.py offline: moves, coalescing, undo/redo, checkpoints, compare, revert.
 
-hands/.venv/bin/python -m pytest contrib/mixdesk/tests
+.venv/bin/python -m pytest contrib/mixdesk/tests
 """
 
 from __future__ import annotations

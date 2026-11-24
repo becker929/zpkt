@@ -1,6 +1,6 @@
 """The mix desk's pager, running inside Live (loaded by server.py through hands' Remote Script, never imported here).
 
-It rides on Live's factory MiniLab_3 control surface the way hands/remote_scripts/ZpktMiniLabTempo does: every
+It rides on Live's factory MiniLab_3 control surface the way zpkt.live's remote_scripts/ZpktMiniLabTempo does: every
 MiniLab control is a StackingResource, and grabbing it above the factory script's own layers makes the script let
 go of it while we hold it. Bank-A pads (and the big encoder) arm one of desk.json's pages; the 4 faders, 8 knobs and
 8 bank-B pads then drive what that page lists. Knobs are realigned to the parameter when a page is armed; faders

@@ -1,8 +1,8 @@
 """The desk's settings as structure in the arrangement (the recipe), and back into a set.
 
-    uv run --project hands python contrib/mixdesk/recipe.py write    # Live -> "desk" in arrangements/short-8d2a2.json
-    uv run --project hands python contrib/mixdesk/recipe.py show     # what the recipe's "desk" holds, in Live's units
-    uv run --project hands python contrib/mixdesk/recipe.py apply [--set NAME]  # "desk" -> the set in front
+    uv run python contrib/mixdesk/recipe.py write    # Live -> "desk" in arrangements/short-8d2a2.json
+    uv run python contrib/mixdesk/recipe.py show     # what the recipe's "desk" holds, in Live's units
+    uv run python contrib/mixdesk/recipe.py apply [--set NAME]  # "desk" -> the set in front
 
 Anthony (12 Nov 2026): every page stores structure, and it all accumulates into a recipe the mastering step runs in
 Live. The desk's part of it is "desk": the two returns and their devices, every desk device on the buses and Main

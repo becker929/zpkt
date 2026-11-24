@@ -1,7 +1,7 @@
 """The HW002 mix desk: one screen showing every control of desk.json's pages, which MiniLab 3 control each sits on,
 and which page the controller has armed.
 
-    uv run --project hands python contrib/mixdesk/server.py      # http://127.0.0.1:8985, needs HW002_121_pp_finish in Live
+    uv run python contrib/mixdesk/server.py      # http://127.0.0.1:8985, needs HW002_121_pp_finish in Live
 
 The server loads pager.py into Live's Python through hands' Remote Script (AbletonLiveMCP) and starts it; from then
 on the MiniLab drives Live directly, inside Live, with no round trip through here. The pager sends every change as a

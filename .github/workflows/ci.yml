@@ -15,9 +15,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # Each part is its own uv project. Contract tests inside each part
-        # fail if its output drifts from lib/contracts/.
-        part: [hands, ears, contrib/booth]
+        # "." is the core (zpkt.live and zpkt.audio, one uv project); booth is its own. Contract tests
+        # fail if output drifts from lib/contracts/.
+        part: [".", contrib/booth]
     steps:
       # Actions are pinned to commit SHAs (tags can be moved).
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -26,7 +26,7 @@ jobs:
       - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
       - name: Test ${{ matrix.part }}
         working-directory: ${{ matrix.part }}
-        run: uv run pytest -q -p no:cacheprovider
+        run: uv run --all-extras pytest -q -p no:cacheprovider
 
   audio-browser:
     runs-on: ubuntu-latest

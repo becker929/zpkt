@@ -12,9 +12,9 @@ mix-1 gain and pan on its mixer and its cuts on an EQ Eight, and the mix-2 choic
 The loops are Live's bounces of each part through its own track, group and Main, so a device on a bus here works on
 the parts summed after their own groups: close to, not the same as, the same device in HW002's own group.
 
-    uv run --project hands python contrib/arranger/mixset.py build      # the mix set from the arrangement (HW002_121_pp_mix in front)
-    uv run --project hands python contrib/arranger/mixset.py base       # render the mix as it stands (the reference)
-    uv run --project hands python contrib/arranger/mixset.py worker     # render queued requests, one after another
+    uv run python contrib/arranger/mixset.py build      # the mix set from the arrangement (HW002_121_pp_mix in front)
+    uv run python contrib/arranger/mixset.py base       # render the mix as it stands (the reference)
+    uv run python contrib/arranger/mixset.py worker     # render queued requests, one after another
 """
 
 from __future__ import annotations
@@ -387,14 +387,27 @@ def add_device(L: Any, idx: dict[str, int], target: str, device: str, values: di
 
 
 def to_flac(wav: Path, flac: Path, skip_beats: float = 0.0) -> None:
-    """The render as 16-bit FLAC, its preroll cut off, in ears' environment. Only cut: no gain or processing."""
+    """The render as 16-bit FLAC, its preroll cut off, in the repo's environment (audio extra). Only cut: no gain or processing."""
     code = (
         "import soundfile as sf, sys\nx, r = sf.read(sys.argv[1], always_2d=True)\n"
         f"n = round(float(sys.argv[3]) * r * 60 / {hw002.TEMPO_BPM:g})\n"
         "sf.write(sys.argv[2], x[n:], r, subtype='PCM_16')"
     )
     subprocess.run(
-        ["uv", "run", "--project", str(ROOT / "ears"), "python", "-c", code, str(wav), str(flac), str(skip_beats)],
+        [
+            "uv",
+            "run",
+            "--project",
+            str(ROOT),
+            "--extra",
+            "audio",
+            "python",
+            "-c",
+            code,
+            str(wav),
+            str(flac),
+            str(skip_beats),
+        ],
         check=True,
     )
     wav.unlink()
@@ -415,10 +428,10 @@ def render(L: Any, out: Path, bars: tuple[int, int]) -> Path:
 
 
 def lufs(path: Path) -> float:
-    """Integrated loudness of a file, measured in ears' environment."""
+    """Integrated loudness of a file, measured in the repo's environment (audio extra)."""
     code = "import soundfile as sf, pyloudnorm as pl, sys\nx, r = sf.read(sys.argv[1])\nprint(pl.Meter(r).integrated_loudness(x))"
     out = subprocess.run(
-        ["uv", "run", "--project", str(ROOT / "ears"), "python", "-c", code, str(path)],
+        ["uv", "run", "--project", str(ROOT), "--extra", "audio", "python", "-c", code, str(path)],
         check=True,
         capture_output=True,
         text=True,
