@@ -16,7 +16,7 @@ import soundfile as sf
 
 os.environ.setdefault("BOOTH_HOME", tempfile.mkdtemp(prefix="booth-test-"))
 
-import booth  # noqa: E402  (after BOOTH_HOME, which it reads)
+import booth
 
 booth.use_booth_rig()
 
@@ -303,6 +303,7 @@ def make_sample(seconds: float = 2.0, *, hits: int = 4, sr: int = 44100, seed: i
 def fake(monkeypatch, tmp_path):
     """(live, ops): booth.live's Builder wired to the fakes, the guard always passing, sets in tmp_path."""
     from booth import live as booth_live
+
     from hands.live import session
 
     lv = FakeLive()

@@ -10,9 +10,8 @@ from __future__ import annotations
 
 import random
 from dataclasses import dataclass, field
-from typing import Any
-
 from pathlib import Path
+from typing import Any
 
 from . import samples as S
 from .palette import Instrument, Palette

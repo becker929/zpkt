@@ -6,7 +6,6 @@ import subprocess
 import numpy as np
 import pytest
 import soundfile as sf
-
 from booth import compile as C
 from booth import palette as P
 from booth import samples as S
@@ -108,7 +107,7 @@ def test_uploads_it_refuses(tmp_path):
     assert code(wav_bytes(tmp_path, seconds=1.0, level=0.0, name="silent.wav")) == ("silent", 400)
     assert code(wav_bytes(tmp_path, seconds=0.02, name="blip.wav")) == ("too_short", 400)
     long = tmp_path / "long.wav"
-    sf.write(long, np.full((int(61 * 8000), 1), 0.1), 8000)
+    sf.write(long, np.full(((61 * 8000), 1), 0.1), 8000)
     assert code(long.read_bytes()) == ("too_long", 400)
     assert S.info("0" * 16) is None and S.info("../booth.db") is None
 

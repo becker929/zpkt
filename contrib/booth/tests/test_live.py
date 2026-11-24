@@ -1,5 +1,4 @@
 import pytest
-
 from booth import compile as C
 from booth import palette as P
 from booth.check import check
@@ -64,6 +63,7 @@ def test_wrong_devices_stop(fake, monkeypatch):
 
 def test_a_template_with_tracks_stops(fake, monkeypatch):
     from conftest import Song
+
     from hands.live import session
 
     lv, fo = fake
@@ -112,6 +112,7 @@ def test_sh001s_helpers_load_and_point_at_the_booth():
 
 def test_survey_listens_and_keeps_the_rest(fake, tmp_path):
     import json
+
     from booth.live import SLOT_BEATS, audition, survey
 
     lv, fo = fake

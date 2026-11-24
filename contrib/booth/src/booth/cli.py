@@ -29,9 +29,10 @@ from . import HOME, PREFIX, use_booth_rig
 
 
 def _runner(jobs, settings):
+    from hands.live.transport import LiveClient
+
     from .live import Builder
     from .runner import Gate, Runner
-    from hands.live.transport import LiveClient
 
     live = LiveClient()
 
@@ -182,6 +183,7 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     if a.cmd == "serve":
         from aiohttp import web
+
         from .server import app
 
         tok = token()
@@ -211,9 +213,10 @@ def main(argv: list[str] | None = None) -> int:
         print(json.dumps(jobs.public(jobs.get(job["id"])), indent=2))
         return 0
     if a.cmd in ("template", "survey"):
+        from hands.live.transport import LiveClient
+
         from . import palette as P
         from .live import finish_template, make_template, survey
-        from hands.live.transport import LiveClient
 
         pal = P.load(a.palette) if a.cmd == "survey" and a.palette else P.served(s.palette)
         if a.cmd == "template" and a.finish:

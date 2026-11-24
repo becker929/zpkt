@@ -1,6 +1,5 @@
 import pytest
 from aiohttp.test_utils import TestClient, TestServer
-
 from booth.server import app
 from conftest import example
 from test_runner import Rig

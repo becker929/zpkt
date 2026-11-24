@@ -7,7 +7,6 @@ import jsonschema
 import numpy as np
 import pytest
 import soundfile as sf
-
 from booth import compile as C
 from booth import measure as M
 from booth import palette as P
@@ -108,7 +107,7 @@ def test_a_new_palette_keeps_the_old_one_and_was_surveyed():
         assert found["lufs"] is not None and found["lufs"] > -40, iid  # and it played
         if inst.role == "drums":
             assert [n for n, _ in found["pads"]] == list(range(36, 52)), iid
-        assert inst.range[0] < inst.range[1] and 0 <= inst.range[0] and inst.range[1] <= 127
+        assert inst.range[0] < inst.range[1] and inst.range[0] >= 0 and inst.range[1] <= 127
         assert inst.role in {"bass", "lead", "keys", "pluck", "pad", "drums", "texture"}
         for m in inst.macros.values():
             assert m.display(0.0) and m.display(1.0)

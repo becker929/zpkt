@@ -7,7 +7,6 @@ from pathlib import Path
 import jsonschema
 import pytest
 from aiohttp.test_utils import TestClient, TestServer
-
 from booth.contract import BadRequest, parse_job_request
 from booth.server import app
 from conftest import example

@@ -1,9 +1,7 @@
 from datetime import datetime, timedelta
 
 import pytest
-
 from booth.config import Settings
-from booth.gui import Stop
 from booth.jobs import Jobs
 from booth.live import Builder
 from booth.runner import Gate, Runner, loudness_gain
@@ -176,7 +174,9 @@ def test_a_loop_is_made_only_when_asked(tmp_path, fake):
 
 @pytest.mark.skipif(not __import__("shutil").which("ffmpeg"), reason="needs ffmpeg (the booth Mac has it; CI may not)")
 def test_the_loop_folds_the_tail_onto_the_start_and_fits_room_worlds_limit(tmp_path):
-    import json, subprocess
+    import json
+    import subprocess
+
     from booth import video
 
     # 70 s of song and 2 s of tail: a tone that is silent for the song's last second, so only the tail sounds there
