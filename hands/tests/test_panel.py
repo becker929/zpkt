@@ -640,3 +640,49 @@ def test_a_song_lays_riffs_over_sections_and_a_mix_panel_hears_its_bars(tmp_path
         )
     song.drop(live, "tune", tmp_path)
     assert bass.arrangement_clips == [] and lead.arrangement_clips == [] and len(live.song.tracks) == 5
+
+
+# ---------------------------------------------------------------------------------------------
+# What Zpkt web reads from `hands panel ...` (~/zpkt-web/lib/panels.mjs, panelOutput)
+
+
+def panel_output(stdout: str) -> dict | None:
+    """panelOutput, line for line: the fenced audio and zpkt-surface blocks, and the facts line."""
+    import re
+
+    blocks = re.findall(r"```(?:audio|zpkt-surface)\n[\s\S]*?\n```", stdout)
+    lines = stdout.split("\n")
+    grid = next((line for line in lines if line.startswith("grid ")), None)
+    if not any(b.startswith("```zpkt-surface") for b in blocks) or (
+        not grid and not any(b.startswith("```audio") for b in blocks)
+    ):
+        return None
+    picked = next((line for line in lines if line.startswith("picked ")), None)
+    panel_line = next((line for line in lines if line.startswith("panel ")), "")
+    return {"facts": picked or grid or panel_line, "text": "\n\n".join(blocks) + "\n"}
+
+
+def test_every_panel_command_prints_what_zpkt_web_reads(tmp_path, monkeypatch):
+    from hands.cli import app
+
+    live = mix_live()
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr("hands.live.panel_cli.LiveClient", lambda host, port, keep=False: live)
+    monkeypatch.setattr(panel, "_recorder", lambda: bars_recorder([]))
+
+    def run(*argv, **kw):
+        res = CliRunner().invoke(app, ["panel", *argv, "--out", "renders"], **kw)
+        assert res.exit_code == 0, res.output
+        return res.stdout
+
+    made = panel_output(run("make", "--spec", "-", input=json.dumps(MIX)))
+    assert made and made["facts"].startswith("panel buses") and "renders/buses.wav" in made["text"]
+    applied = panel_output(run("apply", "buses", "--state", json.dumps({"values": {"bus_kick_volume": 0.4}})))
+    assert applied and applied["facts"].startswith("panel buses v2")
+    gridded = panel_output(run("grid", "buses", "--axes", json.dumps({"bus-kick": ["-6 dB", "0 dB"]})))
+    assert gridded and gridded["facts"].startswith("grid ")
+    grid_id = gridded["facts"].split()[1]
+    picked = panel_output(run("pick", "buses", grid_id, "B"))
+    assert picked and picked["facts"].startswith("picked ")
+    res = CliRunner().invoke(app, ["panel", "apply", "nothing-here", "--out", "renders"])
+    assert res.exit_code == 1 and res.stderr.splitlines()[-1].startswith("ERROR:")
