@@ -17,7 +17,7 @@ BIN = Path(sys.executable).parent
     [
         ("zpkt", "zpkt COMMAND"),
         ("hands", "DAW control layer for Ableton Live."),
-        ("ears", "ears: measure a render."),
+        ("ears", "Measure a render."),
         ("mlab", "usage: mlab"),
     ],
 )
@@ -144,7 +144,8 @@ def test_zpkt_live_ping_help_is_hands_live_ping_help() -> None:
         [str(BIN / "zpkt"), "live", "live", "ping", "--help"], capture_output=True, text=True, env=env
     )
     assert short.returncode == 0, short.stderr
-    assert short.stdout == long.stdout
+    assert "Usage: zpkt live ping" in short.stdout and "zpkt live live" not in short.stdout
+    assert short.stdout == long.stdout.replace("zpkt live live ping", "zpkt live ping")
 
 
 def test_no_live_command_shares_a_name_with_a_hands_command() -> None:

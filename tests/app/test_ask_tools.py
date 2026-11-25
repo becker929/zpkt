@@ -55,7 +55,7 @@ def test_read_state_and_read_measurement(asked):
     code, state = call(asked, "read_state")
     assert code == 200 and state["set"] == "HW002_121_pp_finish" and "monitor" in state and "values" in state
     code, m = call(asked, "read_measurement")
-    assert code == 200 and "analysis" in m and "sources" in m["analysis"]
+    assert code == 200 and "sources" in (m.get("analysis") or m)  # whole, or a summary when long
     assert {row["who"] for row in asked.rig.desk.bus.log} == {"agent"}
     assert {row["group"] for row in asked.rig.desk.bus.log} == {"ask-s1"}
 

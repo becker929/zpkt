@@ -14,6 +14,7 @@ import math
 import os
 import random
 from collections.abc import Mapping, Sequence
+from pathlib import Path
 from typing import Any
 
 import numpy as np
@@ -52,7 +53,7 @@ def abx_kit(
     seed: int | None = None,
 ) -> str:
     """Level-match A and B, cut the same excerpt, write the kit. Returns key path."""
-    os.makedirs(outdir, exist_ok=True)
+    Path(outdir).mkdir(parents=True, exist_ok=True)
     (xa, ga), (xb, gb) = match([a, b])[0]
     if start is not None:
         xa = dsp.excerpt(xa, a.sr, start, dur or 15)

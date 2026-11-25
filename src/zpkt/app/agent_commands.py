@@ -19,7 +19,7 @@ from zpkt.live import page as pages  # the page spec; `zpkt.app.pages` is the fu
 if TYPE_CHECKING:
     from zpkt.app.desk import Desk
 
-MAX_MEASUREMENT_BYTES = 60000
+MAX_MEASUREMENT_BYTES = 16000  # about 4,000 tokens in one reply; a longer one is sent as a summary
 
 
 def page_make(desk: Desk, cmd: Command) -> Reply:
@@ -63,12 +63,21 @@ def state_read(desk: Desk, cmd: Command) -> Reply:
 def measurement_read(desk: Desk, cmd: Command) -> Reply:
     """The last measurement of the renders (analysis.json), as the desk has it."""
     analysis = desk.analysis()
+    return 200, measurement_view(analysis)
+
+
+def measurement_view(analysis: dict[str, Any]) -> dict[str, Any]:
+    """The analysis whole when it is short; otherwise a summary: the sources and what each section holds."""
     import json
 
-    text = json.dumps(analysis)
-    if len(text) > MAX_MEASUREMENT_BYTES:
-        return 200, {"sources": sorted(analysis.get("sources", {})), "cut": True, "note": "too long to send whole"}
-    return 200, {"analysis": analysis}
+    if len(json.dumps(analysis)) <= MAX_MEASUREMENT_BYTES:
+        return {"analysis": analysis}
+    return {
+        "sources": sorted(analysis.get("sources", {})),
+        "sections": {k: sorted(v) if isinstance(v, dict) else type(v).__name__ for k, v in sorted(analysis.items())},
+        "cut": True,
+        "note": "too long to send whole; this lists the sources and what each section holds",
+    }
 
 
 def option_propose(desk: Desk, cmd: Command) -> Reply:

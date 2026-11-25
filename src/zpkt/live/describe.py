@@ -37,6 +37,11 @@ class Description(TypedDict):
     plain: bool  # continuous, but what Live shows is not a number: a control shows the raw value
 
 
+def brief(d: Description) -> dict[str, Any]:
+    """The description without its `stops` (the long part: each continuous value carries a spread of shown texts)."""
+    return {k: v for k, v in d.items() if k != "stops"}
+
+
 class Selection(TypedDict):
     track: str | None
     device: str | None

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import typer
@@ -13,12 +14,17 @@ app = typer.Typer(help="Check Live set files offline.", no_args_is_help=True)
 def als_check(
     file: Path = typer.Argument(..., help="The .als to check."),
     against: Path = typer.Option(None, "--against", help="The set it was made from: also show what changed."),
+    as_json: bool = typer.Option(False, "--json", help="Print the result as JSON."),
 ) -> None:
     """Run the self-checks a .als must pass before Live loads it. Exit 1 on a problem."""
     from zpkt.live import als
 
     report = als.check(file, against)
-    print(report)
+    print(
+        json.dumps({"ok": not report.problems, "lines": report.lines, "problems": report.problems})
+        if as_json
+        else report
+    )
     if report.problems:
         raise typer.Exit(1)
 
@@ -29,11 +35,13 @@ def als_params(
     track: str = typer.Argument(..., help="Track name."),
     device: str = typer.Argument(..., help="Device XML tag, e.g. Reverb or StereoGain."),
     index: int = typer.Option(0, "--index", help="Which device with that tag (-1: the last)."),
+    as_json: bool = typer.Option(False, "--json", help="Print the result as JSON."),
 ) -> None:
     """List a device's automatable parameters: tag, event kind, value and range."""
     from zpkt.live import als
 
-    print("\n".join(als.list_params(file, track, device, index)))
+    rows = als.list_params(file, track, device, index)
+    print(json.dumps(rows) if as_json else "\n".join(rows))
 
 
 @app.command("mix")
@@ -42,6 +50,7 @@ def als_mix(
     against: Path = typer.Option(None, "--against", help="Another saved set: show only what differs (B = FILE)."),
     ignore: list[str] = typer.Option(None, "--ignore", help="Skip keys starting with this (e.g. 'mon '), repeatable."),
     full: bool = typer.Option(False, "--full", help="Every row, not the collapsed summary."),
+    as_json: bool = typer.Option(False, "--json", help="Print the result as JSON."),
 ) -> None:
     """The mix a saved set holds (faders, sends, mutes, devices), offline; with --against, what differs.
     Live is not touched. Exit 1 if --against finds a difference."""
@@ -53,11 +62,19 @@ def als_mix(
 
     b: S.State = als.mix_state(resolve(file))  # type: ignore[assignment]  # the state's shape, in .als units
     if against is None:
-        print("\n".join(als.mix_lines(b)))
+        lines = als.mix_lines(b)
+        print(json.dumps(lines) if as_json else "\n".join(lines))
         return
     a: S.State = als.mix_state(resolve(against))  # type: ignore[assignment]
     rows = S.diff(a, b, tuple(ignore or ()))
-    print(f"{len(S.flatten(a))} values in A ({resolve(against).name}), {len(rows)} differ in B ({resolve(file).name})")
-    print(S.summarize(rows, limit=10**6 if full else 60))
+    if as_json:
+        print(
+            json.dumps({"values": len(S.flatten(a)), "differ": len(rows), "rows": [list(r) for r in rows]}, default=str)
+        )
+    else:
+        print(
+            f"{len(S.flatten(a))} values in A ({resolve(against).name}), {len(rows)} differ in B ({resolve(file).name})"
+        )
+        print(S.summarize(rows, limit=10**6 if full else 60))
     if rows:
         raise typer.Exit(1)

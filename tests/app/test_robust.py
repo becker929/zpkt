@@ -8,7 +8,7 @@ from tests.app.conftest import osc_spec, wait_for
 from zpkt.app import history as H
 
 
-def test_a_datagram_that_fails_inside_does_not_end_the_udp_thread(rig, monkeypatch, capsys):
+def test_a_datagram_that_fails_inside_does_not_end_the_udp_thread(rig, monkeypatch, caplog):
     real = rig.desk.history.seen
     calls = []
 
@@ -22,7 +22,7 @@ def test_a_datagram_that_fails_inside_does_not_end_the_udp_thread(rig, monkeypat
     value = rig.state()["values"]["0:f1"]
     move = {"t": "v", "page": 0, "slot": "f1", "n": 0.1, "s": "-30 dB", "key": value["key"]}
     rig.send({**move, "r": 0.11})  # this one hits the failure
-    assert wait_for(lambda: "disk full" in capsys.readouterr().out)
+    assert wait_for(lambda: "disk full" in caplog.text)
     rig.send({"t": "pos", "b": 7.5, "p": True})
     assert wait_for(lambda: rig.state()["pos"] == 7.5)  # the thread is still serving
 

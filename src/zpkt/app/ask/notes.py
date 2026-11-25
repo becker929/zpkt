@@ -9,6 +9,7 @@ A project is a name that already has a notes file, or a word shaped like a set n
 from __future__ import annotations
 
 import json
+import logging
 import re
 import time
 from collections.abc import Callable, Iterable
@@ -52,6 +53,9 @@ INSTRUCTIONS = (
     'Answer with JSON only: {"notes": ["...", "..."]}'
 )
 Writer = Callable[[str], str]  # a prompt -> the model's text
+
+
+log = logging.getLogger(__name__)
 
 
 def one_line(text: Any, n: int) -> str:
@@ -186,7 +190,7 @@ class Notes:
         try:
             lines = check_notes(self.write(prompt))
         except Exception as exc:  # the notes are a courtesy: a failed model call never fails the turn
-            print(f"ask: notes: {exc}")
+            log.warning(f"ask: notes: {exc}")
             return []
         if not lines:
             return []

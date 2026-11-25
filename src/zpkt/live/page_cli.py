@@ -23,6 +23,7 @@ def register(app: typer.Typer) -> None:
 def describe(
     keys: list[str] = typer.Argument(..., help='State keys, e.g. "Kick bus/desk EQ/1 Gain A" "Kick bus/volume".'),
     as_json: bool = typer.Option(False, "--json", help="Print the descriptions as JSON."),
+    brief: bool = typer.Option(False, "--brief", help="Leave out each value's stops (far fewer tokens)."),
     host: str = HOST,
     port: int | None = PORT,
     direct: bool = DIRECT,
@@ -35,11 +36,16 @@ def describe(
     except LiveError as exc:
         fail(str(exc))
     if as_json:
-        print(json.dumps({"found": found, "missing": missing}, indent=1))
+        shown = {k: D.brief(d) for k, d in found.items()} if brief else found
+        print(json.dumps({"found": shown, "missing": missing}, indent=1))
     else:
         for key, d in found.items():
             if d["kind"] == "continuous":
-                span = f"{d['stops'][0].shown} to {d['stops'][-1].shown}" if d["stops"] else f"{d['min']} to {d['max']}"
+                span = (
+                    f"{d['stops'][0].shown} to {d['stops'][-1].shown}"
+                    if d["stops"] and not brief
+                    else f"{d['min']} to {d['max']}"
+                )
             else:
                 span = " | ".join(d["items"])
             print(f"{key}: {d['now'].shown}  ({d['kind']}; {span})")

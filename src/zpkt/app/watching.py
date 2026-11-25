@@ -11,12 +11,15 @@ pager retires (CHANGE-app-gateway.md), and a pushing connection must be held ope
 
 from __future__ import annotations
 
+import logging
 import threading
 from collections.abc import Callable, Iterable
 from typing import Any
 
 from zpkt.app.connections import LiveConnections
 from zpkt.live import watch
+
+log = logging.getLogger(__name__)
 
 
 class PageWatcher:
@@ -63,5 +66,5 @@ class PageWatcher:
                 self.conn.pump_pushes(wait_s)
                 self.ensure()
             except Exception as exc:  # one bad read or a lost connection never ends the watching
-                print(f"app: watching Live failed ({type(exc).__name__}: {exc}); trying again", flush=True)
+                log.warning(f"app: watching Live failed ({type(exc).__name__}: {exc}); trying again")
                 stop.wait(0.5)

@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import dataclasses
 import json
+import sys
 from pathlib import Path
 from typing import Annotated, Any
 
@@ -19,9 +20,16 @@ from rich.table import Table
 from .meters import cli as meters_cli
 from .models import AudioProfile, LoudnessFeatures, RhythmFeatures, SpectralFeatures
 
+
+def program() -> str:
+    """The name to show in help: `zpkt audio`, or `ears` when it was started through the old alias."""
+    return "ears" if Path(sys.argv[0]).name == "ears" else "zpkt audio"
+
+
+PROG = program()
 app = typer.Typer(
-    name="ears",
-    help="ears: measure a render. Calibrated meters, a profile with an embedding, and your reference corpus.",
+    name=PROG,
+    help="Measure a render. Calibrated meters, a profile with an embedding, and your reference corpus.",
 )
 corpus_app = typer.Typer(help="Your reference corpus: build it once from a folder, then place renders in it.")
 app.add_typer(corpus_app, name="corpus")
@@ -182,7 +190,7 @@ def corpus_distance(
 
 
 def _print_profile(name: str, profile: AudioProfile) -> None:
-    """The profile as `ears analyze` prints it for people."""
+    """The profile as `zpkt audio analyze` prints it for people."""
     console.print(f"\n[bold]AudioProfile[/bold] — {name}")
     console.print(f"  Duration:  {profile.duration_seconds:.2f}s  |  SR: {profile.sample_rate} Hz")
     console.print(f"  clip_id:   {profile.clip_id}")
@@ -253,13 +261,13 @@ def _add_meter_command(name: str, help_text: str) -> None:
 
     @app.command(
         name,
-        help=f"{help_text}; `ears {name} --help` for its flags",
+        help=f"{help_text}; `{name} --help` for its flags",
         rich_help_panel="Calibrated meters (also `mlab COMMAND`)",
         add_help_option=False,
         context_settings={"allow_extra_args": True, "ignore_unknown_options": True},
     )
     def run(ctx: typer.Context) -> None:
-        meters_cli.main([name, *ctx.args], prog="ears")
+        meters_cli.main([name, *ctx.args], prog=program())
 
 
 for _name, _help in meters_cli.commands().items():
@@ -267,6 +275,9 @@ for _name, _help in meters_cli.commands().items():
 
 
 def main() -> None:
+    from zpkt.cli import use_plain_help
+
+    use_plain_help()
     app()
 
 
