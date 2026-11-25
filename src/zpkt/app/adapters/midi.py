@@ -19,6 +19,7 @@ import os
 import queue
 import threading
 import time
+from collections import deque
 from collections.abc import Callable
 from typing import Any
 
@@ -64,7 +65,7 @@ class MidiAdapter:
             probe,
         )
         self.profile = profile or load_profile()
-        self.refused: list[tuple[str, int, str]] = []  # (kind, status, why): what the bus would not do
+        self.refused: deque[tuple[str, int, str]] = deque(maxlen=50)  # (kind, status, why): the last the bus refused
         self._inbox: queue.Queue[tuple[str, Any, float]] = queue.Queue()
         self._desk_q: queue.Queue[dict[str, Any]] | None = None
         self._thread: threading.Thread | None = None
