@@ -94,7 +94,7 @@ class History:
         self.checkpoints_dir = checkpoints
         self.lock = threading.RLock()
         self.cur: dict[str, list] = {}  # key -> [shown, raw], as Live has it now
-        self.expect: dict[str, tuple[float, float]] = {}  # key -> (raw the desk wrote, until)
+        self.expect: dict[str, list[tuple[float, float]]] = {}  # key -> [(raw the desk wrote, until)]: due back
         self.file = self.directory / f"{set_name}.json"
         try:
             d = json.loads(self.file.read_text())
@@ -129,12 +129,12 @@ class History:
             shown = str(shown).strip()
             before = self.cur.get(key)
             self.cur[key] = [shown, raw]
+            if before is not None and same(before[1], raw) and self._due(key, raw, consume=True):
+                self._show(key, raw, shown)  # the echo of a write the desk made: it names the value
             if before is None or same(before[1], raw):
                 return False
-            exp = self.expect.get(key)
-            if exp and self.clock() < exp[1]:
-                if same(exp[0], raw):
-                    self.expect.pop(key, None)
+            if self.awaiting(key):  # the desk wrote this control a moment ago: what comes back is its echo
+                if self._due(key, raw, consume=True):
                     self._show(key, raw, shown)
                 return False
             if mover == "sys":
@@ -174,6 +174,20 @@ class History:
             self._save()
             return True
 
+    def _due(self, key: str, raw: Any, consume: bool = False) -> bool:
+        """True while a value the desk wrote for `key` (this raw value) is still due back from Live. Writes in a row
+        are all due, since Live's echoes come late and in their own time."""
+        waiting = self.expect.get(key, [])
+        hit = next((w for w in waiting if raw is not None and same(w[0], raw)), None)
+        if hit is not None and consume:
+            waiting.remove(hit)
+            if not waiting:
+                self.expect.pop(key, None)
+        return hit is not None
+
+    def _expect(self, key: str, raw: Any, until: float) -> None:
+        self.expect.setdefault(key, []).append((raw, until))
+
     def _show(self, key: str, raw: Any, shown: str) -> None:
         """Live reported what `shown` text a value the desk wrote has: put it in the entry that wrote it."""
         for e in reversed(self.entries[-5:]):
@@ -189,7 +203,7 @@ class History:
         with self.lock:
             until = self.clock() + EXPECT_S
             for key, raw, *_ in pairs:
-                self.expect[key] = (raw, until)
+                self._expect(key, raw, until)
 
     def record(self, pairs: list[list], who: P.Who | str, group: str | None = None) -> dict | None:
         """Moves the desk is writing for `who`: [[key, raw] or [key, raw, shown], ...] from what Live has now. One
@@ -248,11 +262,16 @@ class History:
                     self.expect.pop(m["key"], None)
                 self._save()
 
-    def is_expected(self, key: str, raw: Any) -> bool:
+    def awaiting(self, key: str) -> bool:
         """True while a value the desk wrote itself is still due back from Live for `key`."""
         with self.lock:
-            exp = self.expect.get(key)
-            return bool(exp and self.clock() < exp[1] and raw is not None and same(exp[0], raw))
+            now = self.clock()
+            waiting = [w for w in self.expect.get(key, []) if now < w[1]]
+            if waiting:
+                self.expect[key] = waiting
+            else:
+                self.expect.pop(key, None)
+            return bool(waiting)
 
     def rebase(self, key: str, value: list) -> None:
         """Say a control was at `value` (not what it reads now) before its next move: a move made while the pinned
@@ -318,7 +337,7 @@ class History:
         out = []
         for m in moves:
             raw = m[side][1]
-            self.expect[m["key"]] = (raw, until)
+            self._expect(m["key"], raw, until)
             out.append([m["key"], raw])
         return out
 

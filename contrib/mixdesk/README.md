@@ -1,5 +1,11 @@
 # The HW002 mix desk
 
+> **The server is now `zpkt.app`** (24 Nov 2026). `contrib/mixdesk/server.py` starts it, so the same command still works.
+> The old page is still at `/`; the new shell is at `/app/`. The history, protocol, desk state and surfaces code moved
+> to `src/zpkt/app/` (the old module names here are aliases). `pager.py`, `desk.json`, `sources.json` and the page stay
+> here. See `src/zpkt/app/README.md`.
+
+
 One screen for finishing HW002's mix in Live with an Arturia MiniLab 3. It shows every control that matters for the
 mix, grouped into eight pages, with the MiniLab control each one sits on, and which page the MiniLab has armed. The
 MiniLab has 8 knobs, 4 faders and 2 banks of 8 pads, far fewer than the mix needs, so a page arms a group of related

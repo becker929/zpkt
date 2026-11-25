@@ -16,7 +16,9 @@ from typing import TYPE_CHECKING, Any
 from zpkt.app import deskstate as D
 from zpkt.app import monitor, surfaces
 from zpkt.app.bus import OK, BadRequest, Bus, Command, Effect, Reply, Spec
+from zpkt.live import describe
 from zpkt.live import state as S
+from zpkt.live.describe import Description
 
 if TYPE_CHECKING:
     from zpkt.app.desk import Desk
@@ -72,8 +74,36 @@ def _str(body: Any, name: str, default: str | None = None) -> str:
     return str(body[name])
 
 
-def _pairs(body: Any) -> list[list[Any]]:
-    """`writes`: [[state key, raw], ...] or [[state key, raw, shown], ...]."""
+def raw_from_norm(d: Description, n: float) -> float:
+    """The raw value for a position 0..1 on a control, as the pager's set_norm gives it: linear between the
+    parameter's min and max; a switch or list lands on a step."""
+    n = max(0.0, min(1.0, n))
+    if d["kind"] == "switch":
+        return d["max"] if n >= 0.5 else d["min"]
+    value = d["min"] + n * (d["max"] - d["min"])
+    steps = d["steps"]
+    if d["kind"] == "choice" and steps and steps > 1:
+        value = d["min"] + round(n * (steps - 1)) * (d["max"] - d["min"]) / (steps - 1)
+    return value
+
+
+def _norms(desk: Desk, body: Any) -> list[list[Any]]:
+    """`norms`: [[state key, position 0..1], ...] as writes (the shell drags positions, Live takes raw values)."""
+    norms = body["norms"]
+    if not (isinstance(norms, list) and norms and all(isinstance(x, list) and len(x) == 2 for x in norms)):
+        raise BadRequest("'norms' is a list of [state key, position from 0 to 1]")
+    keys = [str(x[0]) for x in norms]
+    try:
+        found = describe.describe(desk.conn, keys)
+    except describe.Missing as exc:
+        raise BadRequest(f"the set does not have: {'; '.join(exc.missing)}") from None
+    return [[str(k), raw_from_norm(found[str(k)], _float({"n": n}, "n"))] for k, n in norms]
+
+
+def _pairs(desk: Desk, body: Any) -> list[list[Any]]:
+    """`writes`: [[state key, raw], ...] or [[state key, raw, shown], ...]; or `norms` (see _norms)."""
+    if "norms" in body:
+        return _norms(desk, body)
     writes = body.get("writes")
     if not isinstance(writes, list) or not writes:
         raise BadRequest("the body needs 'writes', a list of [state key, raw value]")
@@ -105,7 +135,7 @@ def mix_toggle(desk: Desk, cmd: Command) -> Reply:
 
 def mix_set(desk: Desk, cmd: Command) -> Reply:
     """Move controls: [[state key, raw], ...] from you or an agent. One history entry (an agent's group is one)."""
-    pairs = _pairs(cmd.args)
+    pairs = _pairs(desk, cmd.args)
     desk.monitor.leave_pin()  # moving a control while the Pin is heard starts from Now
     entry = desk.history.record(pairs, cmd.who, cmd.group)
     try:

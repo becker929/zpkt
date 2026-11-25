@@ -174,8 +174,11 @@ class Monitor:
         key = msg.get("key")
         with self._lock:
             pinned = self._now is not None
-        if not pinned or not key or P.who_moved(msg) == "sys" or self.desk.history.is_expected(key, msg.get("r")):
+        if not pinned or not key or P.who_moved(msg) == "sys" or self.desk.history.awaiting(key):
             return
+        known = self.desk.history.value(key)
+        if known is not None and history.same(known[1], msg.get("r")):
+            return  # the value the desk already has: a report, not a touch
         with self._lock:
             before = (self._now or {}).get(key)
         if before is not None:
@@ -199,6 +202,7 @@ class Monitor:
             "hearing": "ref" if choice["slot"] == "C" and hearing == "now" else hearing,
             "monitor": choice,
             "match": self.desk.snapshot()["match"],
-            "changed": len(self.changed()),
+            "changed": len(changed := self.changed()),
+            "keys": changed,
             "pin": PIN_NAME if pinned else "start",
         }

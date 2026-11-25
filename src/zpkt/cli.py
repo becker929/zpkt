@@ -1,4 +1,4 @@
-"""The `zpkt` command: `zpkt live ...` is `hands ...`, `zpkt audio ...` is `ears ...`; `zpkt app` is reserved.
+"""The `zpkt` command: `zpkt live ...` is `hands ...`, `zpkt audio ...` is `ears ...`; `zpkt app` starts the app.
 
 Each half is imported only when asked for, so `zpkt live` runs where only zpkt[live] is installed.
 """
@@ -11,7 +11,7 @@ USAGE = """usage: zpkt COMMAND [ARGS]...
 
   live    drive Ableton Live (the same commands as `hands`)
   audio   measure renders (the same commands as `ears`; the meters also as `mlab`)
-  app     the one interface (reserved: not built yet)
+  app     the one interface: the mix desk and the /app/ shell, the only door to Live
 
 `zpkt live --help` and `zpkt audio --help` list each one's commands."""
 
