@@ -4,6 +4,10 @@ Standard library only, and no Live code: it sends JSON to the API (zpkt.app.adap
 back. The `zpkt` command, music-bot's booth and zpkt-demo use it (docs/app-clients.md). Where the app is comes from
 `ZPKT_APP_URL` (default http://127.0.0.1:8984); the token from the caller's own token file (zpkt.app.token). The
 app stamps each call by the token, so a caller is who its token file says.
+
+A coding agent in a terminal runs with `ZPKT_AGENT=1` (Ask sets it for the engines it starts). Then the `zpkt`
+command is not `cli` but `agent`: it sends the agent's token, and the app holds it to the agent rule (a change to
+Live needs an Option you picked). `ZPKT_OPTION=<id>` names that Option; the app checks that you picked it.
 """
 
 from __future__ import annotations
@@ -28,6 +32,20 @@ class AppDown(OSError):
 
 
 LOCAL_HOSTS = ("127.0.0.1", "localhost", "::1")
+AGENT_ENV = "ZPKT_AGENT"  # set for an agent's shell: the cli is then the agent
+OPTION_ENV = "ZPKT_OPTION"  # the Option the user picked, which lets the agent's change pass
+
+
+def caller(who: str = "cli") -> str:
+    """Who this process is to the app. The `zpkt` command is `cli`, unless an agent is driving it (ZPKT_AGENT):
+    then it is `agent`. A program that names itself (booth, demo) stays that."""
+    return "agent" if who == "cli" and os.environ.get(AGENT_ENV) else who
+
+
+def picked_option() -> str | None:
+    """The approval an agent sends: "option:<id>" for the Option named by ZPKT_OPTION, or None."""
+    option = os.environ.get(OPTION_ENV, "").strip()
+    return f"option:{option}" if option else None
 
 
 def app_url() -> str:
@@ -36,7 +54,7 @@ def app_url() -> str:
 
 class AppClient:
     """One caller of the app. `who` is cli, booth, demo or agent; it picks the token file, and the token is what
-    the app stamps every change by."""
+    the app stamps every change by. `cli` becomes `agent` when an agent drives the command (`caller`)."""
 
     def __init__(
         self,
@@ -47,7 +65,7 @@ class AppClient:
         timeout: float = 130.0,
     ) -> None:
         """`timeout` is above the longest job (opening a set waits up to 120 s)."""
-        self.who, self.url, self.timeout = who, (url or app_url()).rstrip("/"), timeout
+        self.who, self.url, self.timeout = caller(who), (url or app_url()).rstrip("/"), timeout
         self._token, self._config_dir = token, config_dir
 
     def token(self) -> str:
@@ -98,6 +116,8 @@ class AppClient:
     ) -> Reply:
         """Any command by kind. Returns (status, reply); a refusal is a status, not an exception."""
         body: dict[str, Any] = {"kind": kind, "who": self.who, "args": args or {}}
+        if approval is None and self.who == "agent":
+            approval = picked_option()
         if approval:
             body["approval"] = approval
         if group:
