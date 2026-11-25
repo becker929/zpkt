@@ -190,6 +190,17 @@ PAGES: dict[str, Path] = {"/": HERE / "static" / "index.html", "/index.html": HE
 SHELL_PAGES: dict[str, Path] = {"/app/": SHELL_DIR / "app.html", "/app": SHELL_DIR / "app.html"}
 
 
+def cross_site(origin: str | None, host: str | None) -> bool:
+    """True when a browser says the request comes from a page on another site (its Origin names another host than
+    the one asked). Any web page could otherwise post to this server on 127.0.0.1 as a "simple" request. A caller
+    that sends no Origin (curl, the CLI, the tests) is not a browser page and passes."""
+    if not origin:
+        return False
+    if origin == "null":
+        return True
+    return urlparse(origin).netloc.lower() != (host or "").lower()
+
+
 def parse_body(raw: bytes) -> dict[str, Any]:
     """A POST body: a JSON object, or nothing (an empty object)."""
     try:
@@ -363,16 +374,28 @@ class Handler(BaseHTTPRequestHandler):
         if not (self.extension(method) or self._mounted(urlparse(self.path).path)):
             self._json({"error": "not found"}, 404)
 
+    def _refuse_cross_site(self) -> bool:
+        """Answer 403 to a write that a page on another site sent; True when it did."""
+        if not cross_site(self.headers.get("Origin"), self.headers.get("Host")):
+            return False
+        self._json({"error": "this server takes writes from its own pages only"}, 403)
+        return True
+
     def do_PUT(self) -> None:
-        self._other("PUT")
+        if not self._refuse_cross_site():
+            self._other("PUT")
 
     def do_PATCH(self) -> None:
-        self._other("PATCH")
+        if not self._refuse_cross_site():
+            self._other("PATCH")
 
     def do_DELETE(self) -> None:
-        self._other("DELETE")
+        if not self._refuse_cross_site():
+            self._other("DELETE")
 
     def do_POST(self) -> None:
+        if self._refuse_cross_site():
+            return
         if self.extension("POST") or self._mounted(urlparse(self.path).path):
             return
         kind = POST_ROUTES.get(self.path)
