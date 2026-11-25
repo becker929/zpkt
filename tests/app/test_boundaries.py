@@ -99,9 +99,10 @@ def test_the_allowed_list_is_short_and_every_entry_exists():
 
 
 def test_the_app_owns_the_connections():
-    """The two places that build a LiveClient or bind a socket outside the libraries are the app's connections."""
+    """Outside the libraries, only the app's connections build a LiveClient or bind a socket. The one other place is
+    page_cli.py, which is an HTTP client of the app and never reaches Live."""
     owners = {p.relative_to(SRC).as_posix() for p in (SRC / "app").rglob("*.py") if violations(p)}
-    assert owners == {"app/connections.py"}
+    assert owners == {"app/connections.py", "app/page_cli.py"}
 
 
 def test_adapters_do_not_import_zpkt_live_to_change_it():

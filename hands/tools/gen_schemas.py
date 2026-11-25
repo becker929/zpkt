@@ -38,7 +38,14 @@ def build(name: str, model) -> dict:
     }
 
 
-MODELS = {"project-config": ProjectConfig, "feedback": Feedback, "inventory": Inventory, "desk": Desk, "page": Page, "page-layout": Layout}
+MODELS = {
+    "project-config": ProjectConfig,
+    "feedback": Feedback,
+    "inventory": Inventory,
+    "desk": Desk,
+    "page": Page,
+    "page-layout": Layout,
+}
 
 if __name__ == "__main__":
     for name, model in MODELS.items():
