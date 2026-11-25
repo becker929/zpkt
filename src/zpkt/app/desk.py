@@ -27,6 +27,7 @@ from zpkt.app import protocol as P
 from zpkt.app.bus import Bus, SetGuard
 from zpkt.app.connections import LiveConnections, bind_udp, open_connections
 from zpkt.app.monitor import Monitor
+from zpkt.app.mounts import Mounts
 from zpkt.audio.levels import rms_to_db
 from zpkt.live import changes, config, desk_pager, meter, monitor_tracks, openset
 from zpkt.live import state as S
@@ -126,6 +127,7 @@ class Desk:
         self.making = threading.Lock()  # one "Make a surface" job at a time
         self._analysis: tuple[float | None, dict[str, Any]] = (None, {"sources": {}})
         self.monitor = Monitor(self)
+        self.mounts = Mounts()  # route sets other areas put under a path prefix (the Song at /app/song)
         self.bus = self._make_bus()
 
     def _make_bus(self) -> Bus:

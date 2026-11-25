@@ -21,7 +21,7 @@ def parse_args(argv: Sequence[str]) -> argparse.Namespace:
         prog="zpkt app", description="Start the one interface: the mix desk and the /app/ shell."
     )
     p.add_argument("--port", type=int, help="the HTTP port (default: MIXDESK_PORT or 8985)")
-    p.add_argument("--adapters", default="web", help="adapters to start, comma separated (default: web)")
+    p.add_argument("--adapters", default="web,song", help="adapters to start, comma separated (default: web,song)")
     p.add_argument("--no-supervise", action="store_true", help="do not start or watch the pager in Live")
     return p.parse_args(list(argv))
 
