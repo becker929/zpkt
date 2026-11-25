@@ -147,10 +147,7 @@ class Desk:
         self._analysis: tuple[float | None, dict[str, Any]] = (None, {"sources": {}})
         self.monitor = Monitor(self)
         self.options = Options(self)
-        self.mounts = Mounts()  # route sets other areas put under a path prefix (the Song at /app/song)
-        self.extensions: list[
-            Any
-        ] = []  # routes an adapter adds to the web server: handles(path) and serve(handler, method, path, query)
+        self.mounts = Mounts()  # the one seam for an adapter's pages: route sets under a path prefix (Ask, the Song)
         self.bus = self._make_bus()
 
     def _make_bus(self) -> Bus:

@@ -1,7 +1,7 @@
 """The Agents adapter: Ask, the chat with Claude and Gemini, and the tools they may use.
 
 It makes the Ask service (zpkt.app.ask), puts the four agent commands on the bus (zpkt.app.agent_commands) and gives
-the web server the /app/ask/ routes. Agents reach the app only through those four commands, tagged `agent` by the
+the web server the /app/ask/ routes, as a mount (zpkt.app.mounts). Agents reach the app only through those four commands, tagged `agent` by the
 bus. This module changes nothing in Live and imports nothing from zpkt.live.
 
 Data lives in ZPKT_ASK_DIR (default ~/_agent_scratch/zpkt-app/ask), in Zpkt web's file forms: point it at a copy of
@@ -19,7 +19,7 @@ from zpkt.app.adapters import AdapterSpec, AppContext
 from zpkt.app.ask.claude import ClaudeProvider
 from zpkt.app.ask.gemini import GeminiProvider
 from zpkt.app.ask.provider import Provider
-from zpkt.app.ask.routes import AskRoutes
+from zpkt.app.ask.routes import PREFIX, AskRoutes
 from zpkt.app.ask.service import Ask
 from zpkt.app.ask.tools import ToolGate
 from zpkt.app.proposals import OptionStore
@@ -70,7 +70,7 @@ class AgentsAdapter:
         guide = GUIDE.read_text() if GUIDE.exists() else ""
         self.ask = Ask(self.data_dir, providers, ToolGate(bus), guide, home=self.home)
         self.routes = AskRoutes(self.ask, self.home)
-        self.context.desk.extensions.append(self.routes)
+        self.context.desk.mounts.add(PREFIX, self.routes)
 
     def default_providers(self) -> dict[str, Provider]:
         return {
@@ -79,8 +79,8 @@ class AgentsAdapter:
         }
 
     def stop(self) -> None:
-        if self.routes is not None and self.routes in self.context.desk.extensions:
-            self.context.desk.extensions.remove(self.routes)
+        if self.routes is not None:
+            self.context.desk.mounts.remove(PREFIX)
         for p in self.ask.providers.values() if self.ask else ():
             close = getattr(p, "close", None)
             if close is not None:

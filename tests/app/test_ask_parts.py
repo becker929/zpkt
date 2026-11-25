@@ -217,4 +217,4 @@ def test_the_app_starts_web_and_agents_by_name_and_ask_data_goes_where_the_envir
     finally:
         agents.stop()
         web.stop()
-    assert desk.extensions == []
+    assert desk.mounts.find("/app/ask") is None  # the adapter took its routes off the one seam

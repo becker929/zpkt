@@ -1,8 +1,9 @@
-"""Mounts: whole sets of web routes that an adapter or service puts under one path prefix of the web server.
+"""Mounts: the one seam by which an adapter puts its pages and routes on the web server, under a path prefix.
 
-The Song mounts the arranger's pages and routes under /app/song/. The web server knows only this table: it hands a
-request whose path starts with a prefix to that mount, with the prefix cut off, and sends back what the mount answers.
-So a new area is added without editing the server's own routes.
+Ask is mounted at /app/ask and the Song at /app/song. The web server knows only this table: it hands a request whose
+path starts with a prefix to that mount, as a Request, and sends back the MountReply the mount answers. A mount that
+answers as it goes (a server-sent stream) writes on the request's connection and returns None. So a new area is
+added without editing the server's own routes: `desk.mounts.add("/app/notes", NotesRoutes())`.
 """
 
 from __future__ import annotations
@@ -10,7 +11,7 @@ from __future__ import annotations
 import threading
 from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Protocol
+from typing import Any, Protocol
 
 NO_STORE = "no-store"
 
@@ -28,10 +29,24 @@ class MountReply:
 ReadBody = Callable[[int], bytes | None]  # the request body if its length is within the limit given, else None
 
 
-class Mount(Protocol):
-    """A set of routes. `path` begins with "/" and has the mount's prefix cut off; `read_body(limit)` reads the body."""
+@dataclass(frozen=True)
+class Request:
+    """One request for a mount."""
 
-    def handle(self, method: str, path: str, read_body: ReadBody) -> MountReply: ...
+    method: str  # GET, HEAD, POST, PUT, PATCH or DELETE
+    path: str  # the whole path asked, without the query
+    rest: str  # the path with the mount's prefix cut off; it begins with "/"
+    query: dict[str, str]
+    read_body: ReadBody
+    connection: Any  # the web server's handler: the request's headers, and the socket for a mount that streams
+
+
+class Mount(Protocol):
+    """A set of routes under one prefix."""
+
+    def handle(self, request: Request) -> MountReply | None:
+        """The answer; or None when the mount wrote its own answer on `request.connection` (a stream)."""
+        ...
 
 
 class Mounts:
@@ -52,6 +67,10 @@ class Mounts:
     def remove(self, prefix: str) -> None:
         with self._lock:
             self._table.pop(prefix, None)
+
+    def prefixes(self) -> list[str]:
+        with self._lock:
+            return sorted(self._table)
 
     def find(self, path: str) -> tuple[str, Mount, str] | None:
         """(prefix, mount, the path after the prefix) for a request path, or None. "/app/song" itself gives "/"."""

@@ -11,7 +11,6 @@ and POST /api/command takes any kind. The server holds no state of its own; the 
 
 from __future__ import annotations
 
-import contextlib
 import json
 import queue
 import sys
@@ -29,6 +28,7 @@ from zpkt.app import protocol as P  # noqa: F401
 from zpkt.app.bus import BadRequest, Command, Reply
 from zpkt.app.commands import POST_PATHS
 from zpkt.app.desk import HOSTS_ENV, Desk, Settings, hosts_from_env, meter_message, mixdesk_dir, start_threads
+from zpkt.app.mounts import Request
 from zpkt.app.options import BadOption
 from zpkt.live import desk_pager
 from zpkt.live.changes import Who
@@ -331,22 +331,26 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
-    # ---- mounted routes (the Song at /app/song): the mount answers, whatever the method ----------------------------
+    # ---- mounted routes (Ask at /app/ask, the Song at /app/song): the mount answers, whatever the method ---------
     def _read_limited(self, limit: int) -> bytes | None:
         """The request body if its length is above 0 and below `limit`, else None (what a mount's routes expect)."""
         n = int(self.headers.get("Content-Length") or 0)
         return self.rfile.read(n) if 0 < n < limit else None
 
-    def _mounted(self, path: str) -> bool:
-        """Hand the request to the mount whose prefix starts `path`; True when one answered."""
-        found = self.desk.mounts.find(path)
+    def _mounted(self) -> bool:
+        """Hand the request to the mount whose prefix starts its path; True when one answered."""
+        url = urlparse(self.path)
+        found = self.desk.mounts.find(url.path)
         if found is None:
             return False
         _, mount, rest = found
+        query = {k: v[0] for k, v in parse_qs(url.query).items()}
         try:
-            reply = mount.handle(self.command, rest, self._read_limited)
+            reply = mount.handle(Request(self.command, url.path, rest, query, self._read_limited, self))
         except (LiveError, OSError) as exc:
             self._json({"error": str(exc)}, 503)
+            return True
+        if reply is None:  # the mount answered on the connection itself (a stream)
             return True
         self.send_response(reply.code)
         self.send_header("Content-Type", reply.ctype)
@@ -388,23 +392,12 @@ class Handler(BaseHTTPRequestHandler):
     # routes that write as they go (server-sent events), so they need the connection itself
     STREAMS: ClassVar[dict[str, Callable[[Handler, dict[str, str]], None]]] = {"/events": get_events}
 
-    def extension(self, method: str) -> bool:
-        """Give the request to the first extension that wants its path (an adapter's routes, e.g. Ask). True if one did."""
-        url = urlparse(self.path)
-        for ext in list(self.desk.extensions):
-            if ext.handles(url.path):
-                query = {k: v[0] for k, v in parse_qs(url.query).items()}
-                with contextlib.suppress(OSError):  # the page went away mid-answer
-                    ext.serve(self, method, url.path, query)
-                return True
-        return False
-
     def do_GET(self) -> None:
         if self._refuse_host():
             return
-        url = urlparse(self.path)
-        if self.extension("GET") or self._mounted(url.path):
+        if self._mounted():
             return
+        url = urlparse(self.path)
         query = {k: v[0] for k, v in parse_qs(url.query).items()}
         page = self.server.pages.get(url.path) or SHELL_PAGES.get(url.path)
         if page is not None:
@@ -426,12 +419,12 @@ class Handler(BaseHTTPRequestHandler):
     def do_HEAD(self) -> None:
         if self._refuse_host():
             return
-        if not self._mounted(urlparse(self.path).path):
+        if not self._mounted():
             self._send(404, b"", "text/plain")
 
     def _other(self, method: str) -> None:
-        """PUT, PATCH and DELETE belong to an extension (Ask) or a mount (the Song); the old routes have none."""
-        if not (self.extension(method) or self._mounted(urlparse(self.path).path)):
+        """PUT, PATCH and DELETE belong to a mount (Ask, the Song); the old routes have none."""
+        if not self._mounted():
             self._json({"error": "not found"}, 404)
 
     def _refuse_host(self) -> bool:
@@ -477,7 +470,7 @@ class Handler(BaseHTTPRequestHandler):
     def do_POST(self) -> None:
         if self._refuse_cross_site():
             return
-        if self.extension("POST") or self._mounted(urlparse(self.path).path):
+        if self._mounted():
             return
         kind = POST_ROUTES.get(self.path)
         try:

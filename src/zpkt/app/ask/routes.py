@@ -3,12 +3,14 @@
 The names are Zpkt web's, under a prefix, so its page code works here with the prefix changed: sessions (with a
 server-sent stream that replays then follows), messages, stop, rename, delete and undo of a delete, workspaces,
 engines, files an agent points at, attachments, card state and the preset library. Two routes are new: `permission`
-(answer an agent's question) and `tool` (an agent's tool call, from its MCP server). `web.Handler` hands every
-request under the prefix to `AskRoutes.serve`.
+(answer an agent's question) and `tool` (an agent's tool call, from its MCP server). `AskRoutes` is a mount
+(zpkt.app.mounts): the web server hands it every request under the prefix. It writes its answers on the connection
+itself, since some are streams.
 """
 
 from __future__ import annotations
 
+import contextlib
 import json
 import queue
 import re
@@ -19,6 +21,7 @@ from zpkt.app.ask.media import byte_range, resolve_media, save_attachment
 from zpkt.app.ask.service import Ask
 from zpkt.app.ask.store import NoSuchSession, Refused
 from zpkt.app.ask.tools import TOOLS
+from zpkt.app.mounts import MountReply, Request
 
 if TYPE_CHECKING:
     from zpkt.app.web import Handler
@@ -37,14 +40,19 @@ def text(v: Any, limit: int = 100000) -> str:
 
 
 class AskRoutes:
-    """The extension `web.Handler` asks first about every request."""
+    """The mount at /app/ask."""
 
     def __init__(self, ask: Ask, home: Path | None = None) -> None:
         self.ask = ask
         self.home = (home or Path.home()).resolve()
 
-    def handles(self, path: str) -> bool:
-        return path == PREFIX or path.startswith(PREFIX + "/")
+    def handle(self, request: Request) -> MountReply | None:
+        """Answer on the connection (None says so to the web server). A HEAD has no route here."""
+        if request.method == "HEAD":
+            return MountReply(404, b"", "text/plain")
+        with contextlib.suppress(OSError):  # the page went away mid-answer
+            self.serve(request.connection, request.method, request.path, request.query)
+        return None
 
     # ---- entry ------------------------------------------------------------------------------------------------
     def serve(self, h: Handler, method: str, path: str, query: dict[str, str]) -> None:

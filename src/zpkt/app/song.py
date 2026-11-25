@@ -31,7 +31,7 @@ from typing import TYPE_CHECKING, Any
 
 from zpkt.app import effects
 from zpkt.app.bus import BadRequest, Bus, Command, Reply
-from zpkt.app.mounts import MountReply, ReadBody
+from zpkt.app.mounts import MountReply, ReadBody, Request
 from zpkt.live import openset
 from zpkt.live import recipe_build as rb
 from zpkt.live.ops import LiveOps
@@ -311,7 +311,8 @@ class SongMount:
     def __init__(self, song: Song, bus: Bus) -> None:
         self.song, self.bus = song, bus
 
-    def handle(self, method: str, path: str, read_body: ReadBody) -> MountReply:
+    def handle(self, request: Request) -> MountReply:
+        method, path, read_body = request.method, request.rest, request.read_body
         if path == "/index.html":
             path = "/"
         if method in ("GET", "HEAD"):

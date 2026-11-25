@@ -217,9 +217,11 @@ the old page. `ZPKT_MIXDESK_DIR` names another folder. The old module names ther
 
 ## How to add an adapter
 
-Two seams put routes on the web server, and they overlap: `desk.extensions` (Ask: objects with `handles(path)` and
-`serve(handler, method, path, query)`, asked first) and `desk.mounts` (the Song: a route set under a prefix, asked
-second). Both get GET, POST, PUT, PATCH and DELETE. Pick `extensions` for a new adapter; joining the two is later work.
+One seam puts an adapter's pages and routes on the web server: `desk.mounts` (`mounts.py`). A mount is a route set
+under a path prefix, with one method, `handle(request)`. It gets GET, HEAD, POST, PUT, PATCH and DELETE as a `Request`
+(method, path, the path after the prefix, query, a body reader, the connection) and answers a `MountReply`; a mount
+that streams writes on the connection and returns None. Ask is mounted at `/app/ask` and the Song at `/app/song`. The
+server's own checks (the Host name, writes from its own pages only) come before any mount.
 
 1. Add a module to `zpkt/app/adapters/`, say `midi.py`.
 2. In it, write a class with `name`, `start()` and `stop()`. Its constructor takes an `AppContext` (the bus, the desk
