@@ -68,7 +68,8 @@
     },
     "state": {
       "enum": [
-        "proposed"
+        "proposed",
+        "picked"
       ]
     }
   }

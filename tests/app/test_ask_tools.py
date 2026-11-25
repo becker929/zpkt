@@ -122,3 +122,30 @@ def test_an_agents_move_command_would_still_need_an_option_or_a_word(asked):
 def test_every_tool_has_a_description_a_schema_and_a_unique_name(name):
     tool = BY_NAME[name]
     assert tool.description and tool.schema["type"] == "object"
+
+
+def test_an_agent_cannot_pick_its_own_option_and_only_your_pick_lets_its_move_pass(asked):
+    from zpkt.app.bus import Command
+
+    bus = asked.rig.desk.bus
+    move = {"norms": [["Kick bus/volume", 0.3]]}
+    _, ok = call(
+        asked,
+        "propose_option",
+        {
+            "option": {
+                "title": "Kick down",
+                "why": "It masks the bass.",
+                "moves": [{"target": "Kick bus/volume", "to": 0.3}],
+            }
+        },
+    )
+    oid = ok["option"]["id"]
+    assert bus.submit(Command("mix.set", "agent", move, approval=f"option:{oid}"))[0] == 403  # proposed, not picked
+    assert bus.submit(Command("option.pick", "agent", {"option": oid}))[0] == 403  # an agent cannot pick
+    assert bus.submit(Command("option.pick", "you", {"option": "nope"}))[0] == 400
+    code, picked = bus.submit(Command("option.pick", "you", {"option": oid}))
+    assert code == 200 and picked["option"]["state"] == "picked"
+    stored = json.loads((asked.adapter.data_dir / "options.json").read_text())
+    jsonschema.validate(stored[0], json.loads((SCHEMAS / "proposal.schema.json").read_text()))
+    assert bus.submit(Command("mix.set", "agent", move, approval=f"option:{oid}", group="g"))[0] == 200

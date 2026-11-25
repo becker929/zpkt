@@ -160,6 +160,9 @@ def test_an_agent_needs_an_option_or_the_users_word_to_run_code(api, rig):
     assert code == 403 and "cannot change Live" in body["error"]
     assert api.run("song.tempo = 91.0", who="agent", approval="user")[0] == 400
     assert rig.live.song.tempo != 91.0
+    assert api.run("song.tempo = 91.0", who="agent", approval="option:3")[0] == 403  # an id no one picked
+    assert rig.live.song.tempo != 91.0
+    rig.desk.bus.option_picked = lambda option: option == "3"
     code, body = api.run("song.tempo = 91.0", who="agent", approval="option:3", group="ask-1")
     assert code == 200 and rig.live.song.tempo == 91.0
 

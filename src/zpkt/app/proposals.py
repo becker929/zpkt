@@ -31,7 +31,7 @@ class Option(TypedDict, total=False):
     made_by: Who
     at: str
     session: str | None
-    state: str  # "proposed" (picked and dropped come with Options proper)
+    state: str  # "proposed", or "picked" once you picked it
 
 
 MAX_TITLE, MAX_WHY, MAX_MOVES = 80, 1000, 24
@@ -90,9 +90,26 @@ class OptionStore:
         stamp = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(self.clock()))
         option = parse(data, made_by, session, stamp)
         with self.lock:
-            options = [*self.all(), option]
-            self.file.parent.mkdir(parents=True, exist_ok=True)
-            tmp = self.file.with_name(self.file.name + ".tmp")
-            tmp.write_text(json.dumps(options, indent=1))
-            tmp.replace(self.file)
+            self._write([*self.all(), option])
         return option
+
+    def _write(self, options: list[Option]) -> None:
+        """Atomic: the caller holds the lock."""
+        self.file.parent.mkdir(parents=True, exist_ok=True)
+        tmp = self.file.with_name(self.file.name + ".tmp")
+        tmp.write_text(json.dumps(options, indent=1))
+        tmp.replace(self.file)
+
+    def pick(self, option_id: str) -> Option:
+        """You picked this proposal: it is "picked" from now on, which is what lets an agent's move name it."""
+        with self.lock:
+            options = self.all()
+            for option in options:
+                if option.get("id") == option_id:
+                    option["state"] = "picked"
+                    self._write(options)
+                    return option
+        raise ValueError(f"there is no proposal {option_id!r}; the proposals are in options.json")
+
+    def is_picked(self, option_id: str) -> bool:
+        return any(o.get("id") == option_id and o.get("state") == "picked" for o in self.all())

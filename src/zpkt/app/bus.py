@@ -77,9 +77,20 @@ class Spec:
     for_set: str | None = None  # a move for another set than the page's (the Song builds the mix set): that one
 
 
-def approved(cmd: Command) -> bool:
-    """True when the command carries your word or an Option pick."""
-    return cmd.approval == APPROVED_BY_USER or bool(cmd.approval and cmd.approval.startswith(OPTION_PREFIX))
+def option_id(cmd: Command) -> str | None:
+    """The Option an approval names ("option:<id>"), or None."""
+    if cmd.approval and cmd.approval.startswith(OPTION_PREFIX):
+        return cmd.approval[len(OPTION_PREFIX) :] or None
+    return None
+
+
+def approved(cmd: Command, picked: Callable[[str], bool] | None = None) -> bool:
+    """True when the command carries your word, or names an Option that you picked. `picked` says whether an Option
+    id was picked; without it no Option pick counts, so a made-up id gives an agent nothing."""
+    if cmd.approval == APPROVED_BY_USER:
+        return True
+    chosen = option_id(cmd)
+    return chosen is not None and picked is not None and picked(chosen)
 
 
 def check_who(cmd: Command) -> None:
@@ -93,12 +104,12 @@ def check_caller(cmd: Command, spec: Spec) -> None:
         raise Refused(f"{cmd.kind!r} is not open to {cmd.who!r}; it is for {', '.join(spec.callers)}")
 
 
-def check_agent(cmd: Command, spec: Spec) -> None:
+def check_agent(cmd: Command, spec: Spec, picked: Callable[[str], bool] | None = None) -> None:
     """The agent rule."""
-    if cmd.who == "agent" and spec.effect == "move" and not approved(cmd):
+    if cmd.who == "agent" and spec.effect == "move" and not approved(cmd, picked):
         raise Refused(
-            f"An agent cannot change Live with {cmd.kind!r} on its own. Propose it as an Option, or ask the user "
-            f"to approve it."
+            f"An agent cannot change Live with {cmd.kind!r} on its own. Propose it as an Option and wait for the user "
+            f"to pick it."
         )
 
 
@@ -158,6 +169,7 @@ class Bus:
         `version_before(group)` saves an automatic version before an agent's first change of a group."""
         self.table: dict[str, Spec] = {}
         self.guard, self._lock, self.version_before, self.clock = guard, lock, version_before, clock
+        self.option_picked: Callable[[str], bool] | None = None  # set by whoever keeps the Options you pick from
         self.log: deque[dict[str, Any]] = deque(maxlen=KEEP_LOG)
         self._versioned: set[str] = set()
         self._mutex = threading.Lock()
@@ -187,7 +199,7 @@ class Bus:
         try:
             check_who(cmd)
             check_caller(cmd, spec)
-            check_agent(cmd, spec)
+            check_agent(cmd, spec, self.option_picked)
             if spec.effect == "move" and spec.guarded and self.guard is not None:
                 self.guard.check(spec.for_set)
             with self._held(spec):

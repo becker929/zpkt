@@ -80,8 +80,24 @@ def option_propose(options: OptionStore) -> Any:
     return handler
 
 
+def option_pick(options: OptionStore) -> Any:
+    def handler(desk: Desk, cmd: Command) -> Reply:
+        chosen = cmd.args.get("option")
+        if not isinstance(chosen, str):
+            raise BadRequest("the body needs 'option', the id of the proposal you pick")
+        try:
+            return 200, {"ok": True, "option": options.pick(chosen)}
+        except ValueError as exc:
+            raise BadRequest(str(exc)) from None
+
+    return handler
+
+
 def register(bus: Bus, desk: Desk, options: OptionStore) -> None:
-    """Put the agent commands on the bus."""
+    """Put the agent commands on the bus, and `option.pick` for you: only a pick by you lets an agent's move pass."""
+    bus.option_picked = options.is_picked
+    pick = option_pick(options)
+    bus.register("option.pick", Spec(lambda cmd: pick(desk, cmd), "make", callers=("you",)))
     table: dict[str, tuple[Any, Effect, bool]] = {
         "page.draft": (page_make, "make", True),
         "state.read": (state_read, "read", False),

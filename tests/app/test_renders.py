@@ -190,6 +190,7 @@ def test_an_agent_proposes_an_option_but_needs_a_word_to_make_one_now(desk_optio
     assert wait_for(lambda: opts.get(oid)["status"] == "ready")
     refused = rig.desk.bus.submit(Command("options.pick", "agent", {"option": oid, "version": "v1"}))
     assert refused[0] == 403
+    rig.desk.bus.option_picked = lambda option: option == oid  # you picked it
     ok = rig.desk.bus.submit(
         Command("options.pick", "agent", {"option": oid, "version": "v1"}, approval=f"option:{oid}", group="g")
     )
