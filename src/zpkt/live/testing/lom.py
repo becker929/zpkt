@@ -646,7 +646,9 @@ class Clip(LiveObject):
     def _drop_notes(self, ids: set[int]) -> None:
         self._notes = [n for n in self._notes if n.note_id not in ids]
 
-    def get_notes_extended(self, from_pitch: int, pitch_span: int, from_time: float, time_span: float) -> tuple:
+    def get_notes_extended(
+        self, from_pitch: int, pitch_span: int, from_time: float, time_span: float
+    ) -> tuple[MidiNote, ...]:
         self._midi_only()
         return tuple(
             n.copy()
@@ -654,7 +656,7 @@ class Clip(LiveObject):
             if from_pitch <= n.pitch < from_pitch + pitch_span and from_time <= n.start_time < from_time + time_span
         )
 
-    def get_all_notes_extended(self) -> tuple:
+    def get_all_notes_extended(self) -> tuple[MidiNote, ...]:
         return self.get_notes_extended(0, 128, -1e9, 2e9)
 
     def remove_notes_extended(self, from_pitch: int, pitch_span: int, from_time: float, time_span: float) -> None:

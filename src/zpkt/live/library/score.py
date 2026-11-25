@@ -45,7 +45,7 @@ class Project:
     folder: Path | None
     sets: list[SetFacts] = field(default_factory=list)  # newest first
     exports: list[Export] = field(default_factory=list)
-    browser: dict | None = None  # its audio-browser project document, if any
+    browser: dict[str, object] | None = None  # its audio-browser project document, if any
     forked_from: dict[str, int] = field(default_factory=dict)  # other project -> samples used from its folder
 
     @property
@@ -113,8 +113,11 @@ def collage(p: Project) -> tuple[int, list[str]]:
             ev.append("no audio clips outside the drums: nothing collaged yet")
     if p.browser:
         b = p.browser
-        regions = len((b.get("collage") or {}).get("regions") or [])
-        sounds = len(b.get("sounds") or [])
+        collage = b.get("collage")
+        regions_found = collage.get("regions") if isinstance(collage, dict) else None
+        regions = len(regions_found) if isinstance(regions_found, list) else 0
+        sounds_found = b.get("sounds")
+        sounds = len(sounds_found) if isinstance(sounds_found, list) else 0
         browser_points = 40 + min(40, 10 * regions) if b.get("column") == "collage" else 10 + min(20, 2 * sounds)
         ev.append(
             f"audio-browser project {b.get('id')}: column {b.get('column')}, {sounds} sounds taken, "

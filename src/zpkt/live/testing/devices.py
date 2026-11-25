@@ -9,7 +9,7 @@ Saturator, Echo, Spectrum, Operator, Simpler and the racks are smaller: the para
 
 from __future__ import annotations
 
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 
 from zpkt.live.testing import display
@@ -438,14 +438,36 @@ def make(device: str, *, name: str | None = None, on: bool = True) -> Device:
     return spec.factory(label, spec.class_name, params, class_display_name=spec.name, kind=spec.kind)
 
 
-def custom(name: str, class_name: str, params: Sequence[dict], *, kind: int = DeviceType.audio_effect) -> Device:
+def _param_from_fields(p: Mapping[str, object]) -> Param:
+    """Param from a dict of its fields (a JSON set description, so no `show`); "value" is not one of them."""
+    unknown = set(p) - {"name", "min", "max", "default", "items", "value"}
+    if unknown:
+        raise TypeError(f"Param got unexpected fields {sorted(unknown)}")
+    items = p.get("items", ())
+    if not isinstance(items, Iterable) or isinstance(items, str):
+        raise TypeError(f"Param items must be a list of names, not {items!r}")
+    return Param(
+        name=str(p["name"]),
+        min=_number(p.get("min", 0.0)),
+        max=_number(p.get("max", 1.0)),
+        default=_number(p.get("default", 0.0)),
+        items=tuple(str(i) for i in items),
+    )
+
+
+def _number(v: object) -> float:
+    if isinstance(v, bool) or not isinstance(v, int | float):
+        raise TypeError(f"expected a number, got {v!r}")
+    return float(v)
+
+
+def custom(
+    name: str, class_name: str, params: Sequence[Mapping[str, object]], *, kind: int = DeviceType.audio_effect
+) -> Device:
     """A device the catalog lacks (a plug-in): each param a dict of Param's fields, "value" for where it starts."""
     made = [switch("Device On", True).make()]
     for p in params:
-        fields = {k: v for k, v in p.items() if k != "value"}
-        if "items" in fields:
-            fields["items"] = tuple(fields["items"])
-        param = Param(**fields).make()
+        param = _param_from_fields(p).make()
         if "value" in p:
             param._values["value"] = param._check(p["value"])
         made.append(param)

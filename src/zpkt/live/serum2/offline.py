@@ -8,6 +8,7 @@ Serum processes audio, so `set` renders a short silent block. The stderr noise
 from __future__ import annotations
 
 import re
+from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Any
 
@@ -86,7 +87,12 @@ class Serum:
         self.by_name[name].raw_value = min(1.0, max(0.0, raw))
         self._commit()
 
-    def render(self, notes=((69, 0.0, 0.6), (72, 0.0, 0.6)), dur: float = 2.0, vel: int = 110) -> np.ndarray:
+    def render(
+        self,
+        notes: Sequence[tuple[int, float, float]] = ((69, 0.0, 0.6), (72, 0.0, 0.6)),
+        dur: float = 2.0,
+        vel: int = 110,
+    ) -> np.ndarray:
         from mido import Message
 
         msgs = []
