@@ -20,7 +20,7 @@ are libraries and never open one.
 | The MiniLab 3 | `--adapters web,midi` | The MiniLab |
 | The `zpkt` command, the booth, the demos | `127.0.0.1:8984`, `/api/v1/` | The API and its clients |
 
-The Ask page is not yet linked from the `/app/` shell: open `/app/ask/` directly.
+The `/app/` shell links to Ask: the Ask tab on a phone or tablet, the Ask button under Versions on a wide screen.
 
 ## How it fits
 

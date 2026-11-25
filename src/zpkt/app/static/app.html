@@ -50,6 +50,7 @@ svg{display:block}
 #song>*{flex:none}
 #tabs{display:flex;border-top:1.5px solid var(--line);background:var(--panel);flex:none}
 #tabs button{flex:1;height:48px;background:none;border:0;display:flex;align-items:center;justify-content:center;gap:6px;font-size:12px;color:var(--mute)}
+#tabs a{flex:1;height:48px;display:flex;align-items:center;justify-content:center;gap:6px;font-size:12px;color:var(--mute);text-decoration:none}
 #tabs button.on{color:var(--ink);box-shadow:inset 0 3px 0 var(--acc)}
 .ph2{display:flex;align-items:center;gap:8px;min-height:26px;flex-wrap:wrap}
 .ph2 b{font-size:17px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -146,6 +147,7 @@ select{font:inherit;color:inherit;background:var(--panel);border:1px solid var(-
 .pl{display:flex;flex-direction:column;gap:6px}
 .pl .key{justify-content:flex-start;width:100%;overflow:hidden;text-overflow:ellipsis}
 #side .vg{grid-template-columns:1fr}
+#side>.key{flex:none}
 /* One breakpoint system: phone is one column; tablet (700) puts the Hear bar beside the Desk; desktop (1100) adds Pages and Versions. */
 @media (max-width:380px){#hbot{gap:6px}#hbot .seg .key{padding:0 8px}}
 @media (min-width:700px){
@@ -179,6 +181,7 @@ select{font:inherit;color:inherit;background:var(--panel);border:1px solid var(-
 <symbol id="i-hist" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="2.2"/><path d="M12 7v5l3 2" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></symbol>
 <symbol id="i-desk" viewBox="0 0 24 24"><circle cx="8" cy="8" r="3.5" fill="none" stroke="currentColor" stroke-width="2.2"/><circle cx="16" cy="16" r="3.5" fill="none" stroke="currentColor" stroke-width="2.2"/><path d="M13 7h7M4 17h5" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></symbol>
 <symbol id="i-song" viewBox="0 0 24 24"><path d="M4 7h9M4 12h16M4 17h11" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></symbol>
+<symbol id="i-ask" viewBox="0 0 24 24"><path d="M4 5h16v11H10l-5 4v-4H4z" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"/></symbol>
 <symbol id="i-pin" viewBox="0 0 24 24"><path d="M9 3h6l-1 6 3 3v2H7v-2l3-3zM12 14v7" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
 <symbol id="i-pick" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></symbol>
 <symbol id="i-opts" viewBox="0 0 24 24"><rect x="4" y="4" width="7" height="7" rx="1.5" fill="none" stroke="currentColor" stroke-width="2.2"/><rect x="13" y="4" width="7" height="7" rx="1.5" fill="none" stroke="currentColor" stroke-width="2.2"/><rect x="4" y="13" width="7" height="7" rx="1.5" fill="none" stroke="currentColor" stroke-width="2.2"/><rect x="13" y="13" width="7" height="7" rx="1.5" fill="currentColor" stroke="currentColor" stroke-width="2.2"/></symbol>
@@ -191,7 +194,7 @@ select{font:inherit;color:inherit;background:var(--panel);border:1px solid var(-
   <div id="main"><div id="song" hidden></div><div id="desk"></div><div id="scrim"></div><div class="sheet" id="sheet"></div><div class="sheet tall" id="psheet"></div></div>
   <div id="hear"><div class="hear" id="htop"></div><div class="hear" id="hbot"></div></div>
  </div>
- <div id="tabs"><button class="on" data-t="desk"><svg width="20" height="20"><use href="#i-desk"/></svg>Desk</button><button data-t="song"><svg width="20" height="20"><use href="#i-song"/></svg>Song</button><button id="topts"><svg width="20" height="20"><use href="#i-opts"/></svg>Options</button></div>
+ <div id="tabs"><button class="on" data-t="desk"><svg width="20" height="20"><use href="#i-desk"/></svg>Desk</button><button data-t="song"><svg width="20" height="20"><use href="#i-song"/></svg>Song</button><button id="topts"><svg width="20" height="20"><use href="#i-opts"/></svg>Options</button><a id="task" href="/app/ask/"><svg width="20" height="20"><use href="#i-ask"/></svg>Ask</a></div>
  <div id="toast" role="status"></div><div id="bubble"></div>
 </div>
 <script>
@@ -397,7 +400,8 @@ function renderSide() {
   side.innerHTML = `<span class="tag">Pages</span><div class="pl" role="group" aria-label="Pages">${pages.map(p =>
     `<button class="key ${p === cur ? "on" : ""}" data-page="${p.hw[0]}">${esc(p.name)}</button>`).join("")}</div>
     <span class="tag">Versions</span>${sel ? `<div class="vg">${sel.versions.map(v => versionCard(v, sel, shownId)).join("") || '<div class="sketch">No Versions yet.</div>'}</div>` : '<div class="sketch">No Options yet.</div>'}
-    <button class="key sm" id="sopts">Options</button>`;
+    <button class="key sm" id="sopts">Options</button>
+    <a class="key sm" id="sask" href="/app/ask/">Ask</a>`;
 }
 function renderHist() {
   const sh = $("#sheet");
