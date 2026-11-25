@@ -19,6 +19,13 @@ from typing import Any
 STATUSES = ("queued", "rendering", "ready", "failed")
 
 
+def _file_whole(path: Path, row: dict[str, Any]) -> None:
+    """Write a job's file so that a reader (the worker is another process) never sees half of it."""
+    tmp = path.with_suffix(".tmp")
+    tmp.write_text(json.dumps(row, indent=1))
+    tmp.replace(path)
+
+
 class RenderQueue:
     """The request files in `folder` (<data>/mix2/requests)."""
 
@@ -37,7 +44,7 @@ class RenderQueue:
                 n += 1
                 job_id = f"{base}-{n}"
             batch.update(id=job_id, status="queued", made=time.time())
-            (self.folder / f"{job_id}.json").write_text(json.dumps(batch, indent=1))
+            _file_whole(self.folder / f"{job_id}.json", batch)
         return batch
 
     def path_of(self, job_id: str) -> Path:
@@ -59,9 +66,7 @@ class RenderQueue:
             path = self.path_of(job_id)
             row = json.loads(path.read_text())
             row.update(fields)
-            tmp = path.with_suffix(".tmp")
-            tmp.write_text(json.dumps(row, indent=1))
-            tmp.replace(path)
+            _file_whole(path, row)
             return row
 
     def _read(self, strict: bool) -> list[tuple[Path, dict[str, Any]]]:
@@ -86,9 +91,10 @@ class RenderQueue:
 
     def fail(self, path: Path, reason: str) -> None:
         """Mark a batch failed, with the reason the page shows."""
-        row = json.loads(path.read_text())
-        row.update(status="failed", error=reason)
-        path.write_text(json.dumps(row, indent=1))
+        with self._write:
+            row = json.loads(path.read_text())
+            row.update(status="failed", error=reason)
+            _file_whole(path, row)
 
     def status(self, worker_running: bool | None) -> dict[str, Any]:
         """Where the queue stands: whether the worker runs (None: not known), the batches rendering and waiting

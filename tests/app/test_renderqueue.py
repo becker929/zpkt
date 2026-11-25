@@ -56,3 +56,31 @@ def test_the_old_status_shape_is_unchanged(tmp_path):
         "queued": [q.rows()[0]["id"]],
         "counts": {"queued": 1, "rendering": 0, "ready": 0, "failed": 0},
     }
+
+
+def test_a_reader_never_sees_half_a_job_file(tmp_path):
+    """The worker reads the folder strictly from another process: a file that is not whole would stop it."""
+    import threading
+
+    q = RenderQueue(tmp_path)
+    stop = threading.Event()
+    seen: list[Exception] = []
+
+    def read() -> None:
+        while not stop.is_set():
+            try:
+                q.queued(strict=True)
+            except Exception as exc:  # the point is that nothing may be raised
+                seen.append(exc)
+
+    t = threading.Thread(target=read)
+    t.start()
+    try:
+        for i in range(150):
+            job = q.add({"title": "x" * 20000, "i": i})
+            q.update(job["id"], status="rendering")
+            q.fail(q.path_of(job["id"]), "no")
+    finally:
+        stop.set()
+        t.join()
+    assert seen == []
