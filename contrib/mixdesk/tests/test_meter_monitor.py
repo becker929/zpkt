@@ -4,9 +4,10 @@ from __future__ import annotations
 
 import struct
 
+import pytest
+
 import meter
 import monitor
-import pytest
 import server
 
 

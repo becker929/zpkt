@@ -6,11 +6,11 @@ import json
 import queue
 import urllib.request
 
-import gen_schema
 import jsonschema
 import pytest
 from conftest import wait_for
 
+import gen_schema
 from zpkt.live.testing.display import fader_db
 
 # ---- pages and reads -----------------------------------------------------------------------------------------------

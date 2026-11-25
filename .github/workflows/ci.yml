@@ -28,6 +28,34 @@ jobs:
         working-directory: ${{ matrix.part }}
         run: uv run --all-extras pytest -q -p no:cacheprovider
 
+  lint-and-types:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+      - name: Lint and format
+        run: uvx ruff@0.14.6 check . && uvx ruff@0.14.6 format --check .
+      - name: Types
+        run: uv run --all-extras mypy && uv run --all-extras mypy --config-file contrib/mixdesk/mypy.ini
+
+  contrib:
+    # The mix desk and the arranger run on the core's environment; the harness is its own uv project.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+      - name: Mix desk
+        run: uv run --all-extras pytest -q -p no:cacheprovider contrib/mixdesk/tests
+      - name: Arranger
+        run: uv run --all-extras pytest -q -p no:cacheprovider contrib/arranger/tests
+      - name: Harness (without the browser tests)
+        working-directory: contrib/harness
+        run: uv run --extra dev pytest -q -p no:cacheprovider --ignore tests/ui
+
   audio-browser:
     runs-on: ubuntu-latest
     steps:

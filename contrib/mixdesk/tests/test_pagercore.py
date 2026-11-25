@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
-import pagercore as C
 import pytest
+
+import pagercore as C
 
 CFG = {
     "pages": [

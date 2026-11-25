@@ -9,9 +9,10 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import hw002
 import numpy as np
 import soundfile as sf
+
+import hw002
 
 REFS = hw002.REFERENCE_WAVS
 THIRDS = [25 * 2 ** (k / 3) for k in range(28)]  # 25 Hz .. ~16 kHz

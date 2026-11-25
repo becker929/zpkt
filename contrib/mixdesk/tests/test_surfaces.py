@@ -135,8 +135,9 @@ def test_macro_ends_are_fixed_checked_and_clamped():
 
 
 def test_a_saved_surface_fits_its_schema_and_a_file_in_that_shape_is_a_page():
-    import gen_schema
     import jsonschema
+
+    import gen_schema
 
     assert gen_schema.SURFACE_OUT.read_text() == gen_schema.text(gen_schema.SURFACE_OUT), "run gen_schema.py"
     validator = jsonschema.Draft202012Validator(json.loads(gen_schema.SURFACE_OUT.read_text()))
@@ -216,8 +217,9 @@ def test_a_saved_surface_names_its_version():
 
 
 def test_keys_a_later_version_adds_are_kept_on_read_and_write(tmp_path):
-    import gen_schema
     import jsonschema
+
+    import gen_schema
 
     later = {**V1, "schema": 2, "groups": [{"name": "Low", "slots": ["f1"]}], "role": "mix"}
     folder = tmp_path / "surfaces" / "SET"

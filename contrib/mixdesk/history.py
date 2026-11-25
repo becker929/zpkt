@@ -30,7 +30,6 @@ from pathlib import Path
 from typing import Any
 
 import protocol as P
-
 from zpkt.live import state as S
 
 COALESCE_S = 2.0  # one control moved again within this long: the same step

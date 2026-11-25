@@ -13,9 +13,10 @@ import json
 import sys
 from pathlib import Path
 
-import hw002
 import numpy as np
 import soundfile as sf
+
+import hw002
 
 DATA = hw002.DATA
 

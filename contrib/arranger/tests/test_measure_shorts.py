@@ -5,11 +5,12 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-import measure
 import numpy as np
 import pytest
-import shorts
 import soundfile as sf
+
+import measure
+import shorts
 
 RATE = 100  # a tiny rate keeps the made-up audio small: one bar is 150 samples
 BAR = 150

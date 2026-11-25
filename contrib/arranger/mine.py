@@ -18,10 +18,11 @@ import itertools
 import json
 import time
 
-import hw002
 import numpy as np
 import pyloudnorm
 import soundfile as sf
+
+import hw002
 
 DATA = hw002.DATA
 STEMS = DATA / "raw" / "stems"

@@ -19,10 +19,11 @@ import subprocess
 import tempfile
 from pathlib import Path
 
-import hw002
 import numpy as np
 import pyloudnorm as pl
 import soundfile as sf
+
+import hw002
 
 DATA = hw002.DATA
 OUT = DATA / "refs"

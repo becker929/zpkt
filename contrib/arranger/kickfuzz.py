@@ -565,8 +565,9 @@ GROUPS = [
 def measure(_names: list[str]) -> None:
     """Each kick loop's shape (third-octave energy per group, dB of its total) against the references' kick-alone
     bars (kickshape.py); and each mix's drop for the page."""
-    import kickshape
     import numpy as np
+
+    import kickshape
 
     def shape(x, sr):
         lin = 10 ** (kickshape.third_octaves(x, sr) / 10)

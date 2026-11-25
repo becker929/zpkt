@@ -6,10 +6,11 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-import mixset
 import pytest
-import spectral
 from samples import ARRANGEMENT, LOOPS, RecordingLive, assert_golden, relative, write_data
+
+import mixset
+import spectral
 
 
 @pytest.fixture

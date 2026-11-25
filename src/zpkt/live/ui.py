@@ -173,11 +173,11 @@ def reap_modals(reap: bool = False) -> str:
 
 
 class _Point(ctypes.Structure):
-    _fields_ = [("x", ctypes.c_double), ("y", ctypes.c_double)]
+    _fields_ = (("x", ctypes.c_double), ("y", ctypes.c_double))
 
 
 class _Rect(ctypes.Structure):
-    _fields_ = [("origin", _Point), ("size", _Point)]
+    _fields_ = (("origin", _Point), ("size", _Point))
 
 
 def park_cursor() -> None:

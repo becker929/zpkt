@@ -26,10 +26,11 @@ import json
 import sys
 from pathlib import Path
 
-import hw002
 import numpy as np
 import soundfile as sf
 from scipy.signal import butter, hilbert, sosfiltfilt
+
+import hw002
 
 DATA = hw002.DATA
 MH = (1000, 6000)

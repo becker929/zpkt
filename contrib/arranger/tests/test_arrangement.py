@@ -9,9 +9,10 @@ import subprocess
 import sys
 import time
 
-import arrangement as A
 import pytest
 from conftest import HERE, OPENER
+
+import arrangement as A
 
 
 def test_page_save_keeps_every_key_it_does_not_own():

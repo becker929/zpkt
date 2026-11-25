@@ -6,13 +6,14 @@ from __future__ import annotations
 import dataclasses
 import os
 
+import numpy as np
+import pytest
+from samples import RecordingLive, assert_golden
+
 import fxset
 import kickfuzz
 import mixset
-import numpy as np
-import pytest
 import shorts
-from samples import RecordingLive, assert_golden
 
 
 def test_fx_candidates():

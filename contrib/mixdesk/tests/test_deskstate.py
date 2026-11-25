@@ -4,8 +4,9 @@ from __future__ import annotations
 
 import copy
 
-import deskstate as D
 import pytest
+
+import deskstate as D
 
 
 def test_reduce_folds_each_pager_message_into_a_new_state():

@@ -21,11 +21,12 @@ import json
 from pathlib import Path
 from typing import Any
 
-import hw002
-import kickiso  # its onset finder
 import numpy as np
 import pyloudnorm as pl
 import soundfile as sf
+
+import hw002
+import kickiso  # its onset finder
 
 DATA = hw002.DATA
 OUT = DATA / "kickdesign"

@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
-import protocol as P
 import pytest
+
+import protocol as P
 
 GOOD = [
     {"t": "v", "page": 0, "slot": "f1", "n": 0.5, "s": "-6.0 dB", "r": 0.5, "key": "Kick bus/volume", "sys": False},

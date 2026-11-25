@@ -1,8 +1,12 @@
 # One style for every Python part of zpkt. `make format` applies it; `make lint` checks it.
 line-length = 120
-src = ["src", "ears/mlab"]   # first-party packages, so imports sort as ours
+src = ["src", "ears/mlab", "contrib/harness/src", "contrib/mixdesk", "contrib/arranger"]   # first-party packages, so imports sort as ours
 target-version = "py311"   # Live's own Python is 3.11: code loaded into Live (contrib/mixdesk/pager.py) must run there
 extend-exclude = [
+    "agent/skills",                          # imported skills, kept as their authors wrote them
+    ".claude/skills/learn-tutorial/scripts", # house skill scripts: checked by running them, not linted
+    "prototypes",                            # experiments: frozen, not upgraded (Anthony, 24 Nov 2026)
+    "contrib/humming",                       # research code, kept as it was
     "src/zpkt/live/remote_scripts/AbletonLiveMCP",   # vendored, kept as upstream wrote it
 ]
 
@@ -16,6 +20,7 @@ ignore = [
 ]
 
 [lint.per-file-ignores]
+"src/zpkt/live/remote_scripts/**" = ["SIM105", "UP031"]   # runs inside Live: kept in the plain style Live's own scripts use
 "**/tests/**" = ["B011"]
 # zpkt.live's tests: fakes that close over loop variables and are called inside the loop, match= patterns written as
 # plain messages, small lambdas and nested with blocks that read in order.

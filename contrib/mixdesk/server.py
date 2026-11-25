@@ -37,7 +37,6 @@ import meter
 import monitor
 import protocol as P
 import surfaces
-
 from zpkt.live import config
 from zpkt.live import state as S
 from zpkt.live.transport import LiveClient, LiveError
