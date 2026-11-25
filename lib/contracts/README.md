@@ -14,6 +14,10 @@ output against these files in its tests, so a join cannot drift silently.
 | `page.schema.json` | an agent or a person asking for a page of controls (`<sets_dir>/pages/<set>/*.json`) | hands (`hands live page lint`), later the one interface (`zpkt.app`) | generated from `src/zpkt/live/page.py` by `hands/tools/gen_schemas.py` |
 | `inventory.schema.json` | hands (`hands library inventory --json`) | a person, agents planning work | generated from `src/zpkt/live/library/models.py` by `hands/tools/gen_schemas.py` |
 | `arrangement.schema.json` | the HW002 arranger's pages (`contrib/arranger/server.py`) and the mix desk (`desk`) | the arranger's scripts (`mixset.py`, `spectral.py`, `kickfuzz.py`), the mix desk, hands (`hands live state ... RECIPE.json`) | written by hand to match `contrib/arranger/arrangement.py`; its tests check both agree |
+| `ask-event.schema.json` | Ask (`zpkt.app.ask`): every line of a session's events file and every event of its stream | the Ask page, the notes, the failure budget | written by hand to match `src/zpkt/app/ask/events.py` and the engines; its tests check both agree |
+| `ask-session.schema.json` | Ask's sessions index (`sessions.json`) | the Ask page and service | written by hand; Zpkt web's entries pass too |
+| `ask-tool.schema.json` | an agent's MCP server (`zpkt.app.ask.mcp`) | `POST /app/ask/api/tool` | written by hand to match `src/zpkt/app/ask/tools.py` |
+| `option.schema.json` | an agent's `propose_option` (`options.json`) | the person, later Options | written by hand to match `src/zpkt/app/options.py` |
 
 The music bot's and booth's contracts (`score.schema.json`, `booth-*.schema.json`) moved with them to the private
 repo `becker929/music-bot` (its `contracts/`) on 24 November 2026.

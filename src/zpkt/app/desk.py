@@ -126,6 +126,9 @@ class Desk:
         self.making = threading.Lock()  # one "Make a surface" job at a time
         self._analysis: tuple[float | None, dict[str, Any]] = (None, {"sources": {}})
         self.monitor = Monitor(self)
+        self.extensions: list[
+            Any
+        ] = []  # routes an adapter adds to the web server: handles(path) and serve(handler, method, path, query)
         self.bus = self._make_bus()
 
     def _make_bus(self) -> Bus:

@@ -1,0 +1,561 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/becker929/zpkt/lib/contracts/ask-event.schema.json",
+  "title": "Ask session event",
+  "description": "One line of a session's events file (<dir>/sessions/<id>.jsonl) and one server-sent event of its stream. Zpkt web's events read as they are.",
+  "oneOf": [
+    {
+      "title": "prompt",
+      "description": "What the person wrote. The agent may get more (notes, card state); this is what the thread shows.",
+      "type": "object",
+      "properties": {
+        "type": {
+          "const": "prompt"
+        },
+        "seq": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "t": {
+          "type": "integer",
+          "description": "When it happened, milliseconds."
+        },
+        "text": {
+          "type": "string"
+        },
+        "mode": {
+          "enum": [
+            "plan",
+            "auto_edit",
+            "yolo",
+            "ask"
+          ]
+        },
+        "engine": {
+          "type": "string"
+        },
+        "model": {
+          "type": "string"
+        },
+        "auto": {
+          "type": "boolean"
+        },
+        "attachments": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "extra": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "type",
+        "text"
+      ],
+      "additionalProperties": true
+    },
+    {
+      "title": "message",
+      "description": "",
+      "type": "object",
+      "properties": {
+        "type": {
+          "const": "message"
+        },
+        "seq": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "t": {
+          "type": "integer",
+          "description": "When it happened, milliseconds."
+        },
+        "role": {
+          "const": "assistant"
+        },
+        "content": {
+          "type": "string"
+        },
+        "delta": {
+          "type": "boolean"
+        },
+        "parent": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "type",
+        "content"
+      ],
+      "additionalProperties": true
+    },
+    {
+      "title": "tool_use",
+      "description": "",
+      "type": "object",
+      "properties": {
+        "type": {
+          "const": "tool_use"
+        },
+        "seq": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "t": {
+          "type": "integer",
+          "description": "When it happened, milliseconds."
+        },
+        "tool_name": {
+          "type": "string"
+        },
+        "tool_id": {
+          "type": "string"
+        },
+        "parameters": {
+          "type": "object"
+        },
+        "parent": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "type",
+        "tool_name",
+        "tool_id"
+      ],
+      "additionalProperties": true
+    },
+    {
+      "title": "tool_result",
+      "description": "",
+      "type": "object",
+      "properties": {
+        "type": {
+          "const": "tool_result"
+        },
+        "seq": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "t": {
+          "type": "integer",
+          "description": "When it happened, milliseconds."
+        },
+        "tool_id": {
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "success",
+            "error"
+          ]
+        },
+        "output": {
+          "type": [
+            "string",
+            "object",
+            "array",
+            "null"
+          ]
+        },
+        "parent": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "type",
+        "tool_id",
+        "status"
+      ],
+      "additionalProperties": true
+    },
+    {
+      "title": "result",
+      "description": "One turn's end: tokens and, when known, dollars.",
+      "type": "object",
+      "properties": {
+        "type": {
+          "const": "result"
+        },
+        "seq": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "t": {
+          "type": "integer",
+          "description": "When it happened, milliseconds."
+        },
+        "status": {
+          "enum": [
+            "success",
+            "error"
+          ]
+        },
+        "stats": {
+          "type": "object"
+        },
+        "cost_usd": {
+          "type": "number",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "type",
+        "status"
+      ],
+      "additionalProperties": true
+    },
+    {
+      "title": "error",
+      "description": "",
+      "type": "object",
+      "properties": {
+        "type": {
+          "const": "error"
+        },
+        "seq": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "t": {
+          "type": "integer",
+          "description": "When it happened, milliseconds."
+        },
+        "message": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "type",
+        "message"
+      ],
+      "additionalProperties": true
+    },
+    {
+      "title": "log",
+      "description": "",
+      "type": "object",
+      "properties": {
+        "type": {
+          "const": "log"
+        },
+        "seq": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "t": {
+          "type": "integer",
+          "description": "When it happened, milliseconds."
+        },
+        "text": {
+          "type": "string"
+        },
+        "stream": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "type",
+        "text"
+      ],
+      "additionalProperties": true
+    },
+    {
+      "title": "run_end",
+      "description": "",
+      "type": "object",
+      "properties": {
+        "type": {
+          "const": "run_end"
+        },
+        "seq": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "t": {
+          "type": "integer",
+          "description": "When it happened, milliseconds."
+        },
+        "code": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "signal": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "error": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "engine": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "type",
+        "engine"
+      ],
+      "additionalProperties": true
+    },
+    {
+      "title": "init",
+      "description": "",
+      "type": "object",
+      "properties": {
+        "type": {
+          "const": "init"
+        },
+        "seq": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "t": {
+          "type": "integer",
+          "description": "When it happened, milliseconds."
+        },
+        "session_id": {
+          "type": "string"
+        },
+        "model": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "type"
+      ],
+      "additionalProperties": true
+    },
+    {
+      "title": "compact",
+      "description": "",
+      "type": "object",
+      "properties": {
+        "type": {
+          "const": "compact"
+        },
+        "seq": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "t": {
+          "type": "integer",
+          "description": "When it happened, milliseconds."
+        }
+      },
+      "required": [
+        "type"
+      ],
+      "additionalProperties": true
+    },
+    {
+      "title": "notes",
+      "description": "",
+      "type": "object",
+      "properties": {
+        "type": {
+          "const": "notes"
+        },
+        "seq": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "t": {
+          "type": "integer",
+          "description": "When it happened, milliseconds."
+        },
+        "status": {
+          "enum": [
+            "loaded",
+            "saved"
+          ]
+        },
+        "project": {
+          "type": "string"
+        },
+        "lines": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "type",
+        "status",
+        "project"
+      ],
+      "additionalProperties": true
+    },
+    {
+      "title": "summary",
+      "description": "",
+      "type": "object",
+      "properties": {
+        "type": {
+          "const": "summary"
+        },
+        "seq": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "t": {
+          "type": "integer",
+          "description": "When it happened, milliseconds."
+        },
+        "level": {
+          "enum": [
+            "step",
+            "agent",
+            "turn"
+          ]
+        },
+        "turn": {
+          "type": "integer"
+        },
+        "ref": {
+          "type": "string"
+        },
+        "wrong": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "type",
+        "level",
+        "turn"
+      ],
+      "additionalProperties": true
+    },
+    {
+      "title": "surface",
+      "description": "",
+      "type": "object",
+      "properties": {
+        "type": {
+          "const": "surface"
+        },
+        "seq": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "t": {
+          "type": "integer",
+          "description": "When it happened, milliseconds."
+        },
+        "spec": {
+          "type": "object",
+          "required": [
+            "controls"
+          ]
+        },
+        "values": {
+          "type": [
+            "object",
+            "null"
+          ]
+        },
+        "from": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "type",
+        "spec"
+      ],
+      "additionalProperties": true
+    },
+    {
+      "title": "permission",
+      "description": "An agent in Ask-first mode waits for one of these options.",
+      "type": "object",
+      "properties": {
+        "type": {
+          "const": "permission"
+        },
+        "seq": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "t": {
+          "type": "integer",
+          "description": "When it happened, milliseconds."
+        },
+        "id": {
+          "type": "string"
+        },
+        "tool": {
+          "type": "object"
+        },
+        "options": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "id"
+            ],
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              },
+              "kind": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      },
+      "required": [
+        "type",
+        "id",
+        "tool",
+        "options"
+      ],
+      "additionalProperties": true
+    },
+    {
+      "title": "permission_answer",
+      "description": "",
+      "type": "object",
+      "properties": {
+        "type": {
+          "const": "permission_answer"
+        },
+        "seq": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "t": {
+          "type": "integer",
+          "description": "When it happened, milliseconds."
+        },
+        "id": {
+          "type": "string"
+        },
+        "answered": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "type",
+        "id",
+        "answered"
+      ],
+      "additionalProperties": true
+    }
+  ]
+}

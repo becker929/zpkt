@@ -10,6 +10,7 @@ and POST /api/command takes any kind. The server holds no state of its own; the 
 
 from __future__ import annotations
 
+import contextlib
 import json
 import queue
 import sys
@@ -260,7 +261,32 @@ class Handler(BaseHTTPRequestHandler):
     # routes that write as they go (server-sent events), so they need the connection itself
     STREAMS: ClassVar[dict[str, Callable[[Handler, dict[str, str]], None]]] = {"/events": get_events}
 
+    def extension(self, method: str) -> bool:
+        """Give the request to the first extension that wants its path (an adapter's routes, e.g. Ask). True if one did."""
+        url = urlparse(self.path)
+        for ext in list(self.desk.extensions):
+            if ext.handles(url.path):
+                query = {k: v[0] for k, v in parse_qs(url.query).items()}
+                with contextlib.suppress(OSError):  # the page went away mid-answer
+                    ext.serve(self, method, url.path, query)
+                return True
+        return False
+
+    def do_PUT(self) -> None:
+        if not self.extension("PUT"):
+            self._json({"error": "not found"}, 404)
+
+    def do_PATCH(self) -> None:
+        if not self.extension("PATCH"):
+            self._json({"error": "not found"}, 404)
+
+    def do_DELETE(self) -> None:
+        if not self.extension("DELETE"):
+            self._json({"error": "not found"}, 404)
+
     def do_GET(self) -> None:
+        if self.extension("GET"):
+            return
         url = urlparse(self.path)
         query = {k: v[0] for k, v in parse_qs(url.query).items()}
         page = self.server.pages.get(url.path) or SHELL_PAGES.get(url.path)
@@ -279,6 +305,8 @@ class Handler(BaseHTTPRequestHandler):
 
     # ---- POST ----------------------------------------------------------------------------------------------------
     def do_POST(self) -> None:
+        if self.extension("POST"):
+            return
         kind = POST_ROUTES.get(self.path)
         try:
             n = int(self.headers.get("Content-Length") or 0)
