@@ -4,8 +4,26 @@ The November 2026 upgrade (branch `upgrade/integrate`) kept every capability, an
 This walkthrough covers the rest: whatever needs Live, the MiniLab, the network, a real model, or ears.
 Each step has the command or the click, and what you should see.
 
-- **[auto]**: an agent can do it with the shell, a browser or Live's window. You read the result.
-- **[you]**: it needs your ears or your hands on the MiniLab.
+**An agent runs this walkthrough first, before handing it to Anthony.** The agent does every [auto] and [gui] step
+itself, fills the checklist at the end, fixes what fails or reports it, and only then hands Anthony the few [you]
+steps in one short session. Anthony should never be the first to find a failure.
+
+- **[auto]**: the agent does it with the shell, HTTP or Live, and reads the result.
+- **[gui]**: the agent does it in a browser (the in-app browser pane) or by driving the screen (computer use). It
+  checks what it sees with the page's text and state first, and with small screenshots only where the look matters.
+  If the step also says "hear", the agent checks what it can measure (playback position, meter levels, loudness),
+  and lists the listening part for Anthony.
+- **[you]**: it needs Anthony's hands on the MiniLab, his ears, or his decision. The agent prepares it (Live, the
+  page and the set ready) and asks.
+
+Rules for the agent:
+- Live plays through the Mac's speakers, so Anthony may hear it. Live steps go one checked step at a time, never as
+  an unattended chain.
+- Never press a thumb, heart, vote or rating on Anthony's real data (the artist's feedback, the image wall's votes).
+  Check that the control is there and works with test data or a temporary folder. Taste data is his.
+- Steps that cost money (Gemini sessions, one generated image) are fine once each. Say what they cost in the
+  handoff.
+- At most 6 screenshots per thread, captured small (AGENTS.md).
 
 Do the parts in order. The table at the end is for ticking them off.
 
@@ -66,7 +84,7 @@ You should see: sections Checkout, uv environment, Ports, Supervisors, Live, Fil
 line is `ok`. It names the set in front and says whether it has unsaved changes. It ends with
 `preflight: nothing needs attention`, or lists WARN lines. It changes nothing. (`--no-ui` skips reading Live's window.)
 
-**4. [you] Decide about HW002_121_pp_finish's unsaved changes.**
+**4. [you] Decide about HW002_121_pp_finish's unsaved changes.** (Agent: never decide this. Ask Anthony, and wait.)
 Only if the preflight says it is in front with unsaved changes. In Live, either press Cmd+S to keep them in the set,
 or use File > Save Live Set As… with a new name such as `HW002_121_pp_finish_keep-<date>`. Save As leaves
 `HW002_121_pp_finish.als` as it was last saved, and your changes go into the new file.
@@ -258,7 +276,7 @@ You should see: a `grid …` line and one audio deck with versions A, B, C and D
 **40. [auto] Pick one.** `$H panel pick walk-bass 1 C`
 You should see: `picked …`. Live's Filter Freq takes version C's value. Nothing renders again.
 
-**41. [you] In Zpkt web, with the upgraded `hands`.**
+**41. [gui] In Zpkt web, with the upgraded `hands`.**
 Zpkt web runs `~/.local/bin/hands`, which points at zpkt-main. To try the upgrade there:
 `ln -sfn ~/Desktop/zpkt-upgrade/hands/bin/hands ~/.local/bin/hands`.
 In Zpkt web on the phone, ask for a short saw bass with a cutoff knob.
@@ -348,12 +366,12 @@ where the fader is. After that the fader drives the kick bus.
 Turn K1. Press B1.
 You should see: Live and the tile move together, and the value eases. B1 flips its switch in Live and on the tile.
 
-**60. [you] Monitor A / B / W / C.**
+**60. [gui] Monitor A / B / W / C.** (Agent: switch, check the state and the level match. Anthony: listen.)
 Press Play (or space). Switch A, B, W, C (keys A B W C; 1–4 pick the reference while C plays).
 You should see and hear: A is the original render, B the recipe's render, W the working mix live, C the chosen
 reference from the drop. The switches are level-matched: no jump in loudness. On W, a knob changes what you hear.
 
-**61. [you] History and undo.**
+**61. [gui] History and undo.**
 Turn a knob, wait 3 s, turn it again. Press Z, then Shift+Z.
 You should see: two steps in the bar under the tabs. Z puts Live back one step, Shift+Z redoes it.
 `curl -s http://127.0.0.1:8985/api/history | python3 -m json.tool | tail -20` shows the steps.
@@ -361,20 +379,20 @@ You should see: two steps in the bar under the tabs. Z puts Live back one step, 
 **62. [auto] A checkpoint.** `curl -s -X POST -d '{"name": "walk-1"}' http://127.0.0.1:8985/api/checkpoint`
 You should see: `{"ok": true, "name": "walk-1"}` and `~/Music/zpkt/sets/state/HW002_121_pp_finish/walk-1.json` exists.
 
-**63. [you] Compare and revert.**
+**63. [gui] Compare and revert.**
 Move two knobs. Under Changes, compare from `walk-1` to now. Try Highlight, then Only changed. Press revert on one
 control, then Revert these.
 You should see: the moved controls lit, with what they were; the page tabs count them. Revert puts each back as one
 undoable step. Whole mix first saves a `before-revert-…` checkpoint, then puts everything back.
 
-**64. [you] Make a surface.**
+**64. [gui] Make a surface.**
 Claude must be signed in on the Mac (`claude`, then `/login`). Go to the last page, ＋ Make a surface. Type
 "kick drive and hats air on two knobs" and press Make surface.
 You should see: within a minute a new page, armed on the MiniLab. Its tiles name real controls; anything not in the
 set is listed as dropped. Its file in `~/Music/zpkt/sets/surfaces/HW002_121_pp_finish/` has `"schema": 1`. A macro
 knob moves its parameters together. Press Remove: the file moves to `removed/`.
 
-**65. [you] The live meter.**
+**65. [gui] The live meter.**
 If Main has no "zpkt desk meter", run `.venv/bin/python contrib/mixdesk/meter.py install` (step 5 kept a copy of the
 preset). Play, on W.
 You should see: the blue spectrum curve moves with the music and sits on the renders' scale.
@@ -448,12 +466,12 @@ You should see: `arranger on http://127.0.0.1:8976 (data /Users/…/arranger-wal
 **75. [auto] Its API.** `curl -s http://127.0.0.1:8976/api/arrangements | head -c 300`
 You should see: a JSON list that includes `short-8d2a2`.
 
-**76. [you] Every page plays.**
+**76. [gui] Every page plays.** (Agent: each loads and its playback moves on the bar. Anthony: listen.)
 Open `/`, `/transitions/`, `/mix/`, `/mix2/`, `/spectral/`, `/kick/` on the phone.
 You should hear and see: each loads and plays rendered files, in time on the bar. The transitions faders and the
 mix-1 gain, pan and cuts work. Nothing else makes sound.
 
-**77. [you] Save from the arrangement page.**
+**77. [gui] Save from the arrangement page.**
 On `/`, mute one region and save. On `/transitions/`, move one fader. On `/mix/`, set one card's level.
 
 **78. [auto] The save kept the desk.**
@@ -469,7 +487,7 @@ PY
 ```
 You should see: the keys include `desk`, `mix`, `mix2`, `regions`, `transitions`; `desk kept: True`; a new `saved` stamp.
 
-**79. [you] One mix-2 batch.**
+**79. [gui] One mix-2 batch.**
 Live shows `HW002_121_pp_mix` (step 72 left `…_unsaved_<today>` in front: `uv run zpkt live open HW002_121_pp_mix` saves
 that snapshot and opens the mix set). On `/mix2/`, queue a batch of two points (one channel, Saturator, Drive, 2
 steps, 4 bars).
@@ -518,17 +536,17 @@ You should see: it keeps running, and the preflight shows 8877 held from zpkt-up
 `curl -s -o /dev/null -w '%{http_code} %{redirect_url}\n' http://127.0.0.1:8877/studio/lab/`
 You should see: `401`, then `302 http://127.0.0.1:8877/login?next=…`.
 
-**86. [you] First visit and the home page.**
+**86. [gui] First visit and the home page.**
 Open http://127.0.0.1:8877/. Set a password (it is only for this check's folder).
 You should see: `/studio/`, a home page linking Gemini, the lab and /skrng. No chat, no jobs.
 
-**87. [you] /skrng through the proxy.** Follow the /skrng link.
+**87. [gui] /skrng through the proxy.** Follow the /skrng link.
 You should see: the site's /skrng pages, for listening only (no feedback buttons).
 
-**88. [you] The lab.** Open `/studio/lab/`.
+**88. [gui] The lab.** Open `/studio/lab/`.
 You should see: HW002's controls as surfaces, and the arrange surface's bars. The page makes no sound of its own.
 
-**89. [you] Gemini sessions.**
+**89. [gui] Gemini sessions.**
 Open `/studio/gemini/` (on the phone through the tailnet link). Start a session and write "hello". Then ask it to run
 `git status`.
 You should see: a streamed answer to hello. For `git status` a permission request; an ntfy notification reaches the
@@ -554,11 +572,11 @@ You should see: it serves http://127.0.0.1:8798/studio/checklist/ on loopback, w
 **95. [auto] The harness routes it mounts.** `curl -s http://127.0.0.1:8798/studio/api/artist/repertoire | head -c 200`
 You should see: JSON, not a login page.
 
-**96. [you] The pages.**
+**96. [gui] The pages.**
 Open `/studio/checklist/`, then `map/`, `rummage/`, `wasteland/`, `flow/`, `concepts/`.
 You should see: each loads. On the map, a stamp plays its check sound.
 
-**97. [you] The artist's quick question.**
+**97. [gui] The artist's quick question.** (Agent: run it with `--no-model` and a temporary data folder, so no real feedback is kept.)
 On the map, press a thumb. (It is kept as real feedback in the artist's data.)
 You should see: a short question that names what was on screen. With `--no-model` it comes from rules instead.
 Stop the server with Ctrl-C afterwards.
@@ -568,11 +586,11 @@ Stop the server with Ctrl-C afterwards.
 **98. [auto] List.** `cd ~/Desktop/image-wall && uv run images list | tail -5`
 You should see: the latest images, with batch and title.
 
-**99. [you] The wall.** In its own tab: `uv run images serve`. Open http://127.0.0.1:8796/. Press a thumb on one image.
+**99. [gui] The wall.** (Agent: check a thumb works against a copy of the votes file, not the real one.) In its own tab: `uv run images serve`. Open http://127.0.0.1:8796/. Press a thumb on one image.
 You should see: every image with its context and prompt. `tail -1 ~/_agent_scratch/studio/images/votes.jsonl` shows
 your vote. Stop it with Ctrl-C.
 
-**100. [you] Optional, costs one image.**
+**100. [gui] Optional, costs one image.**
 `uv run images gen "a brass lamp on a desk" --context "walkthrough check" --batch walk-check`
 You should see: the file's path, and the image on the wall.
 
@@ -589,7 +607,7 @@ You should see: booth 86 passed, bot 27 of 27.
 `cd booth && uv run booth check palettes/examples/clockwork.json && uv run booth plan palettes/examples/clockwork.json`
 You should see: `ok` with an estimate, then the tracks, note counts and mixer.
 
-**103. [you] One watched booth export.**
+**103. [gui] One watched booth export.**
 The booth's home, `~/_agent_scratch/booth`, is a link to the offload disk and is not there now. Restore it first.
 Then, with no booth serving (8794 free) and `booth_template` in front of Live:
 `uv run booth status`, `uv run booth close "watched run"` (only if nothing runs or waits),
@@ -619,7 +637,7 @@ diff -rq "$B/state" ~/Music/zpkt/sets/state/HW002_121_pp_finish
 You should see: `diff` lists only files the walkthrough added (`start-…`, `walk-1`, `before-revert-…`). Move them into
 `~/_agent_scratch/walk/` if you do not want them.
 
-**107. [you] Open the finishing set and choose the desk.**
+**107. [gui] Open the finishing set and choose the desk.** (Agent: keep the desk Anthony last chose; ask if unsure.)
 Open HW002_121_pp_finish in Live yourself. Start one desk from the table at the top: zpkt-main's to go back, or
 zpkt-upgrade's to keep the upgrade. Then `curl -s -X POST http://127.0.0.1:8985/api/restart`.
 You should see: the page at :8985 says attached, and the MiniLab drives the finishing set again.
@@ -632,6 +650,9 @@ pointing where you want it.
 
 ## Checklist
 
+The agent fills this first, with a note per failure. Then Anthony does the [you] rows: 4 if it comes up,
+57–59 at the MiniLab, the listening parts of 60 and 76, and 71 if he wants it.
+
 | Step | What | Pass / fail |
 |---|---|---|
 | 1–9 | Setup, copy, preflight | |
@@ -642,7 +663,7 @@ pointing where you want it.
 | 43–52 | zpkt audio: measure, analyze, deliver, target, calibrate, inventory | |
 | 53–56 | Desk starts from the upgrade, pager attached, page | |
 | 57–59 | MiniLab: pages, pickup, knobs, switches | |
-| 60 | Monitor A / B / W / C, by ear | |
+| 60 | Monitor A / B / W / C (agent switches; Anthony listens) | |
 | 61–63 | History, undo, checkpoints, revert | |
 | 64 | Make a surface | |
 | 65, 67 | Live meter | |
