@@ -15,9 +15,9 @@ from collections.abc import Callable
 from typing import TYPE_CHECKING, Any
 
 from zpkt.app import deskstate as D
-from zpkt.app import monitor, pages, surfaces
+from zpkt.app import effects, monitor, pages, surfaces
 from zpkt.app import options as O
-from zpkt.app.bus import OK, BadRequest, Bus, Command, Effect, Reply, Spec
+from zpkt.app.bus import OK, BadRequest, Bus, Command, Reply
 from zpkt.live import describe, tempo
 from zpkt.live import state as S
 from zpkt.live.describe import Description
@@ -428,43 +428,43 @@ def options_pick(desk: Desk, cmd: Command) -> Reply:
 
 # ---- the table -----------------------------------------------------------------------------------------------------
 
-# kind -> (handler, effect, touches Live). "make" commands are open to agents; "move" ones need an Option or your word.
-COMMANDS: dict[str, tuple[Handler, Effect, bool]] = {
-    "page.arm": (page_arm, "make", True),
-    "mix.toggle": (mix_toggle, "move", True),
-    "mix.set": (mix_set, "move", True),
-    "page.set": (page_set, "move", True),
-    "mix.reset": (mix_reset, "move", True),
-    "tempo.set": (tempo_set, "move", True),
-    "tempo.scale": (tempo_scale, "move", True),
-    "transport": (transport, "move", True),
-    "monitor.choose": (monitor_choose, "move", True),
-    "monitor.hear": (monitor_hear, "move", True),
-    "monitor.pin": (monitor_pin, "make", True),
-    "pager.restart": (pager_restart, "make", True),
-    "page.lint": (pages.lint, "read", True),
-    "page.make": (pages.make, "make", True),
-    "page.layout": (pages.layout_of, "read", True),
-    "surface.make": (surface_make, "make", False),
-    "surface.save": (surface_save, "make", True),
-    "surface.remove": (surface_remove, "move", True),
-    "history.undo": (history_undo, "move", True),
-    "history.redo": (history_redo, "move", True),
-    "history.checkpoint": (history_checkpoint, "make", True),
-    "history.revert": (history_revert, "move", True),
-    "options.list": (options_list, "read", False),
-    "options.get": (options_get, "read", False),
-    "options.make": (options_make, "make", False),
-    "options.show": (options_show, "read", False),
-    "options.pick": (options_pick, "move", True),
+# kind -> (handler, touches Live). Whether a command is a read, a make or a move is in zpkt.app.effects.
+COMMANDS: dict[str, tuple[Handler, bool]] = {
+    "page.arm": (page_arm, True),
+    "mix.toggle": (mix_toggle, True),
+    "mix.set": (mix_set, True),
+    "page.set": (page_set, True),
+    "mix.reset": (mix_reset, True),
+    "tempo.set": (tempo_set, True),
+    "tempo.scale": (tempo_scale, True),
+    "transport": (transport, True),
+    "monitor.choose": (monitor_choose, True),
+    "monitor.hear": (monitor_hear, True),
+    "monitor.pin": (monitor_pin, True),
+    "pager.restart": (pager_restart, True),
+    "page.lint": (pages.lint, True),
+    "page.make": (pages.make, True),
+    "page.layout": (pages.layout_of, True),
+    "surface.make": (surface_make, False),
+    "surface.save": (surface_save, True),
+    "surface.remove": (surface_remove, True),
+    "history.undo": (history_undo, True),
+    "history.redo": (history_redo, True),
+    "history.checkpoint": (history_checkpoint, True),
+    "history.revert": (history_revert, True),
+    "options.list": (options_list, False),
+    "options.get": (options_get, False),
+    "options.make": (options_make, False),
+    "options.show": (options_show, False),
+    "options.pick": (options_pick, True),
 }
 
 
 def register_all(bus: Bus, desk: Desk) -> None:
     """Put every desk command on the bus."""
-    for kind, (handler, effect, touches) in COMMANDS.items():
+    for kind, (handler, touches) in COMMANDS.items():
 
         def run(cmd: Command, handler: Handler = handler) -> Reply:
             return handler(desk, cmd)
 
-        bus.register(kind, Spec(run, effect, touches))
+        effects.register(bus, kind, run, touches_live=touches)

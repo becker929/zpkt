@@ -18,7 +18,8 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
-from zpkt.app.bus import OK, BadRequest, Bus, Command, Effect, Refused, Reply, Spec
+from zpkt.app import effects
+from zpkt.app.bus import OK, BadRequest, Bus, Command, Refused, Reply
 from zpkt.app.connections import LiveConnections
 from zpkt.live import codegen, config, describe, openset, session
 from zpkt.live import state as S
@@ -237,34 +238,34 @@ def page_apply(conn: LiveConnections, cmd: Command) -> Reply:
 
 # ---- the table -----------------------------------------------------------------------------------------------------
 
-# kind -> (job, effect, guarded). Every job touches Live and is for the API's callers.
-JOBS: dict[str, tuple[Job, Effect]] = {
-    "live.run": (live_run, "move"),
-    "live.read": (live_read, "read"),
-    "live.render_loop": (render_loop, "move"),
-    "live.set_tempo": (set_tempo, "move"),
-    "live.transport": (transport, "move"),
-    "state.take": (state_take, "read"),
-    "state.put": (state_put, "move"),
-    "page.apply": (page_apply, "move"),
-    "describe": (describe_keys, "read"),
+# kind -> job. Every job touches Live and is for the API's callers; its class is in zpkt.app.effects.
+JOBS: dict[str, Job] = {
+    "live.run": live_run,
+    "live.read": live_read,
+    "live.render_loop": render_loop,
+    "live.set_tempo": set_tempo,
+    "live.transport": transport,
+    "state.take": state_take,
+    "state.put": state_put,
+    "page.apply": page_apply,
+    "describe": describe_keys,
 }
 
 
 def register(bus: Bus, conn: LiveConnections) -> None:
     """Put the jobs on the bus. They name their own set (`expect_set`), so the bus's guard (for the desk's page) is
     off for them."""
-    for kind, (job, effect) in JOBS.items():
+    for kind, job in JOBS.items():
 
         def run(cmd: Command, job: Job = job) -> Reply:
             return job(conn, cmd)
 
-        bus.register(kind, Spec(run, effect, touches_live=True, guarded=False, callers=API_CALLERS))
+        effects.register(bus, kind, run, touches_live=True, guarded=False, callers=API_CALLERS)
 
     def opened(cmd: Command) -> Reply:
         return open_set(conn, cmd, lambda: bus.guard.forget() if bus.guard else None)
 
-    bus.register("live.open_set", Spec(opened, "move", touches_live=True, guarded=False, callers=API_CALLERS))
+    effects.register(bus, "live.open_set", opened, touches_live=True, guarded=False, callers=API_CALLERS)
 
 
 __all__ = ["API_CALLERS", "JOBS", "OK", "register"]

@@ -9,7 +9,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from zpkt.app.bus import BadRequest, Bus, Command, Effect, Reply, Spec
+from zpkt.app import effects
+from zpkt.app.bus import BadRequest, Bus, Command, Reply
 from zpkt.app.proposals import OptionStore
 from zpkt.live import describe as describe_live
 from zpkt.live import page as pages  # the page spec; `zpkt.app.pages` is the fuller `page.make`
@@ -97,17 +98,17 @@ def register(bus: Bus, desk: Desk, options: OptionStore) -> None:
     """Put the agent commands on the bus, and `option.pick` for you: only a pick by you lets an agent's move pass."""
     bus.option_picked = options.is_picked
     pick = option_pick(options)
-    bus.register("option.pick", Spec(lambda cmd: pick(desk, cmd), "make", callers=("you",)))
-    table: dict[str, tuple[Any, Effect, bool]] = {
-        "page.draft": (page_make, "make", True),
-        "state.read": (state_read, "read", False),
-        "measurement.read": (measurement_read, "read", False),
-        "option.propose": (option_propose(options), "make", False),
+    effects.register(bus, "option.pick", lambda cmd: pick(desk, cmd), callers=("you",))
+    table: dict[str, tuple[Any, bool]] = {  # kind -> (handler, touches Live)
+        "page.draft": (page_make, True),
+        "state.read": (state_read, False),
+        "measurement.read": (measurement_read, False),
+        "option.propose": (option_propose(options), False),
     }
-    for kind, (handler, effect, touches) in table.items():
+    for kind, (handler, touches) in table.items():
 
         def run(cmd: Command, handler: Any = handler) -> Reply:
             reply: Reply = handler(desk, cmd)
             return reply
 
-        bus.register(kind, Spec(run, effect, touches))
+        effects.register(bus, kind, run, touches_live=touches)

@@ -29,7 +29,8 @@ from pathlib import Path
 from types import ModuleType
 from typing import TYPE_CHECKING, Any
 
-from zpkt.app.bus import BadRequest, Bus, Command, Reply, Spec
+from zpkt.app import effects
+from zpkt.app.bus import BadRequest, Bus, Command, Reply
 from zpkt.app.mounts import MountReply, ReadBody
 from zpkt.live import openset
 from zpkt.live import recipe_build as rb
@@ -326,12 +327,11 @@ class SongMount:
 def register(bus: Bus, song: Song, live: McpTransport) -> None:
     """Put the Song's commands on the bus: reads, the writes to the arranger's data, and the build. `live` is the
     app's connection; the build gets it, and holds Live while it runs."""
-    bus.register("song.list", Spec(song.listing, "read"))
-    bus.register("song.show", Spec(song.show, "read"))
-    bus.register("song.recipe", Spec(song.recipe, "read"))
+    effects.register(bus, "song.list", song.listing)
+    effects.register(bus, "song.show", song.show)
+    effects.register(bus, "song.recipe", song.recipe)
     for kind in WRITES:
-        bus.register(kind, Spec(song.write, "make"))
-    bus.register(
-        "song.build",
-        Spec(lambda cmd: song.build(live, cmd), "move", touches_live=True, for_set=song.settings.mix_set),
+        effects.register(bus, kind, song.write)
+    effects.register(
+        bus, "song.build", lambda cmd: song.build(live, cmd), touches_live=True, for_set=song.settings.mix_set
     )
