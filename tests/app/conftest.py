@@ -115,7 +115,7 @@ def free_port(kind: int = socket.SOCK_STREAM) -> int:
     return port
 
 
-def wait_for(check: Callable[[], Any], seconds: float = 3.0) -> Any:
+def wait_for(check: Callable[[], Any], seconds: float = 10.0) -> Any:  # long: tests run in parallel (make quick)
     end = time.time() + seconds
     while time.time() < end:
         got = check()

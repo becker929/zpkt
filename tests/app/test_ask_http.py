@@ -95,7 +95,8 @@ def test_a_session_runs_streams_and_replays(asked):
         assert r.readline().decode().strip() == "id: 4"
     schema = json.loads((CONTRACTS / "ask-event.schema.json").read_text())
     for e in events:
-        jsonschema.validate(e, schema)
+        if e["type"] != "__state":  # the stream's own marker (a late reader gets it after the replay), not an event
+            jsonschema.validate(e, schema)
     jsonschema.validate(asked.ask.store.get(s["id"]), json.loads((CONTRACTS / "ask-session.schema.json").read_text()))
 
 

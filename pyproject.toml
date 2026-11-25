@@ -39,6 +39,9 @@ serum = [
     "pedalboard>=0.9",
     "mido>=1.3",
 ]
+dev = [
+    "pytest-xdist>=3.6",
+]
 
 [project.scripts]
 zpkt = "zpkt.cli:main"                # zpkt live ..., zpkt audio ...
