@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import contextlib
 import json
+import logging
 import re
 import threading
 import time
@@ -25,6 +26,9 @@ from zpkt.app.ask.events import Event
 Record = dict[str, Any]
 ID = re.compile(r"^[0-9a-f-]{36}$")
 KEEP_DELETED_S = 7 * 86400
+
+
+log = logging.getLogger(__name__)
 
 
 class NoSuchSession(KeyError):
@@ -108,7 +112,7 @@ class SessionStore:
             try:
                 write_json(self.index_file, self.index)
             except OSError as exc:  # a full disk must not take the app down
-                print(f"ask: sessions.json not saved: {exc}")
+                log.warning(f"ask: sessions.json not saved: {exc}")
 
     def _purge(self) -> None:
         cut = self.now_ms() - KEEP_DELETED_S * 1000
@@ -215,7 +219,7 @@ class SessionStore:
                 with self.file(sid).open("a") as fh:
                     fh.write(json.dumps(e) + "\n")
             except OSError as exc:  # the event still reaches the page; it is logged as lost
-                print(f"ask: session {sid}: event {e['seq']} not saved: {exc}")
+                log.warning(f"ask: session {sid}: event {e['seq']} not saved: {exc}")
             for fn in list(self.subs.get(sid, ())):
                 with contextlib.suppress(Exception):
                     fn(e)
@@ -223,7 +227,7 @@ class SessionStore:
                 try:
                     tap(sid, e)
                 except Exception as exc:  # a tap must not break the run
-                    print(f"ask: tap failed: {exc}")
+                    log.warning(f"ask: tap failed: {exc}")
         return e
 
     def replay(self, sid: str, start: int = 0) -> list[Event]:

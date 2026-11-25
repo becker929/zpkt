@@ -328,7 +328,7 @@ def test_the_probe_sees_the_knobs_batches_and_live_reporting_them_back(rig):
     assert result["echo"].get("count", 0) >= 1 and result["total"]["max_ms"] > 0
 
 
-def test_a_bad_message_does_not_end_the_adapter(rig, capsys, monkeypatch):
+def test_a_bad_message_does_not_end_the_adapter(rig, caplog, monkeypatch):
     key = key_of(rig, "k3")
     with Hands(rig) as hands:
         original = hands.adapter._on_event
@@ -344,7 +344,7 @@ def test_a_bad_message_does_not_end_the_adapter(rig, capsys, monkeypatch):
         hands.knob("k3", 5)
         hands.knob("k3", 127)
         assert wait_for(lambda: raw(rig, key) == pytest.approx(1.0))
-    assert "one bad message" in capsys.readouterr().out
+    assert "one bad message" in caplog.text
 
 
 def test_the_tempo_choice_must_be_one_of_the_modes(rig):

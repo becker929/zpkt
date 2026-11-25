@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import contextlib
 import dataclasses
+import logging
 import threading
 import time
 import traceback
@@ -43,6 +44,9 @@ OK: Reply = (200, {"ok": True})
 APPROVED_BY_USER = "user"
 OPTION_PREFIX = "option:"
 KEEP_LOG = 200
+
+
+log = logging.getLogger(__name__)
 
 
 class BadRequest(ValueError):
@@ -253,9 +257,8 @@ class Bus:
             return 503, {"error": str(exc)}
         except Exception as exc:  # a handler's own bug: the caller still gets an answer, and the log has the type
             where = traceback.extract_tb(exc.__traceback__)[-1]  # the place, never the message: it may hold arguments
-            print(
-                f"app: command {cmd.kind!r} failed with {type(exc).__name__} at {where.filename}:{where.lineno}",
-                flush=True,
+            log.error(
+                "app: command %r failed with %s at %s:%s", cmd.kind, type(exc).__name__, where.filename, where.lineno
             )
             return 500, {"error": f"{cmd.kind} failed inside the app ({type(exc).__name__}); see the app's log"}
 

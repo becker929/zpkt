@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import os
 from collections.abc import Mapping
+from pathlib import Path
 from typing import Any
 
 import numpy as np
@@ -111,7 +112,7 @@ def run(
         cs = [c for c, _ in S.third_octave(a.x, a.sr)][:n]
         tonal_diff = [(r(c, 0), r(d)) for c, d in zip(cs, norm(mine) - med, strict=True)]
     fb = feedback(pm, fl, peaks, refs)
-    name = os.path.splitext(os.path.basename(path))[0]
+    name = Path(path).stem
     base = os.path.join(reports_dir or os.path.join(lab.ROOT, "reports"), f"review-{name}")
     md = [
         f"# Premaster review — {name}",

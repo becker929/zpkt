@@ -8,8 +8,9 @@ Each half is imported only when asked for, so `zpkt live` runs where only zpkt[l
 
 from __future__ import annotations
 
+import os
 import sys
-from collections.abc import Collection
+from collections.abc import Collection, Mapping
 
 USAGE = """usage: zpkt COMMAND [ARGS]...
 
@@ -29,6 +30,31 @@ def live_args(args: list[str], commands: Collection[str], live_commands: Collect
     return args
 
 
+def plain_help(stdout_is_tty: bool, env: Mapping[str, str]) -> bool:
+    """True when --help should be plain text: Rich's boxed panels are token padding for a pipe or NO_COLOR."""
+    return not stdout_is_tty or bool(env.get("NO_COLOR"))
+
+
+def use_plain_help() -> None:
+    """Turn Rich help off for this process when output is piped or NO_COLOR is set. Call before the CLI runs."""
+    if not plain_help(sys.stdout.isatty(), os.environ):
+        return
+    os.environ.setdefault("TYPER_USE_RICH", "0")
+    import typer.core
+
+    typer.core.HAS_RICH = False
+
+
+def live_invocation(
+    args: list[str], commands: Collection[str], live_commands: Collection[str]
+) -> tuple[list[str], str]:
+    """The arguments `hands` gets for `zpkt live ARGS`, and the program name to show in usage. A command of hands'
+    `live` group gets `live` put before it and the name `zpkt`, so its usage reads `zpkt live state`, not
+    `zpkt live live state`; any other command is shown as `zpkt live ...`."""
+    full = live_args(args, commands, live_commands)
+    return (full, "zpkt") if full != args else (full, "zpkt live")
+
+
 def main() -> None:
     args = sys.argv[1:]
     part = args[0] if args else ""
@@ -36,6 +62,7 @@ def main() -> None:
         print(USAGE)
         sys.exit(0 if part in ("", "-h", "--help") else 2)
     sys.argv = [f"zpkt {part}", *args[1:]]
+    use_plain_help()
     if part == "app":
         from zpkt.app import main as app_main
 
@@ -54,8 +81,8 @@ def main() -> None:
 
         hands = typer.main.get_group(live_app)
         live_group = hands.commands["live"]
-        sys.argv[1:] = live_args(sys.argv[1:], list(hands.commands), list(getattr(live_group, "commands", {})))
-        live_main()
+        rest, prog = live_invocation(args[1:], list(hands.commands), list(getattr(live_group, "commands", {})))
+        live_main(rest, prog)
         return
     try:
         from zpkt.audio.cli import main as audio_main

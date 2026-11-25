@@ -15,6 +15,7 @@ items in a queue. This module imports nothing from zpkt.live; Live is reached th
 
 from __future__ import annotations
 
+import logging
 import os
 import queue
 import threading
@@ -37,6 +38,9 @@ WHO = "minilab"
 TICK_S = 0.02  # a stream is sent at most this often
 VIEW_MESSAGES = ("full", "page", "v", "pos", "mon", "loop", "hear", "desk")  # desk messages that change the View
 TEMPO_MODES = ("auto", "on", "off")
+
+
+log = logging.getLogger(__name__)
 
 
 class MidiAdapter:
@@ -122,7 +126,7 @@ class MidiAdapter:
                 try:
                     self._handle(kind, payload, at)
                 except Exception as exc:  # one bad message never ends the adapter
-                    print(f"midi: {kind} failed ({type(exc).__name__}: {exc}); dropped", flush=True)
+                    log.warning(f"midi: {kind} failed ({type(exc).__name__}: {exc}); dropped")
             self._drain_desk()
             self._flush()
 

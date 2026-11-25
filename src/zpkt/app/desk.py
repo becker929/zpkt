@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import contextlib
 import json
+import logging
 import os
 import queue
 import socket
@@ -43,6 +44,9 @@ BEATS_PER_S = 160.0 / 60.0  # the HW002 set's tempo; the references line up on t
 
 
 HOSTS_ENV = "ZPKT_APP_HOSTS"
+
+
+log = logging.getLogger(__name__)
 
 
 def hosts_from_env() -> tuple[str, ...]:
@@ -266,7 +270,7 @@ class Desk:
         try:
             msg = P.parse_datagram(data)
         except P.BadMessage as exc:
-            print(f"app: dropped a datagram from the pager: {exc}", flush=True)
+            log.warning(f"app: dropped a datagram from the pager: {exc}")
             return
         self.ingest(msg)
 
@@ -283,13 +287,13 @@ class Desk:
             except OSError:
                 if sock.fileno() == -1:  # closed: the app is stopping
                     return
-                print("app: reading the pager's socket failed; trying again", flush=True)
+                log.warning("app: reading the pager's socket failed; trying again")
                 time.sleep(0.1)
                 continue
             try:
                 self.receive(data)
             except Exception as exc:
-                print(f"app: a datagram from the pager failed ({type(exc).__name__}: {exc}); dropped", flush=True)
+                log.warning(f"app: a datagram from the pager failed ({type(exc).__name__}: {exc}); dropped")
 
     def serve_meter(self) -> None:
         """The live meter on Main (zpkt.live.meter), read from the app's socket: bands as dB to the page."""
@@ -332,7 +336,7 @@ class Desk:
                 return
             self._stale_reload_at = now()
             self._ensured = False  # another set came in under the pager: its monitor tracks are checked again
-            print(f"app: Live raised from the pager ({str(exc)[:80]}); loading the pager again", flush=True)
+            log.warning(f"app: Live raised from the pager ({str(exc)[:80]}); loading the pager again")
             try:
                 self.restart_pager()
             except (LiveError, OSError) as again:
@@ -340,7 +344,7 @@ class Desk:
         except OSError as exc:
             self.set_state(None, f"Live does not answer ({str(exc)[:80]})")
         except Exception as exc:
-            print(f"app: supervising failed ({type(exc).__name__}: {exc})", flush=True)
+            log.warning(f"app: supervising failed ({type(exc).__name__}: {exc})")
 
     def _ensure_monitor_tracks(self) -> bool:
         if self.snapshot()["live"] == "starting":

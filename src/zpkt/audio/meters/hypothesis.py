@@ -11,6 +11,7 @@ from __future__ import annotations
 import datetime as dt
 import os
 from collections.abc import Callable, Mapping, Sequence
+from pathlib import Path
 from typing import Any
 
 import numpy as np
@@ -117,9 +118,9 @@ def run(path: str, outroot: str | None = None, codecs: bool | None = None) -> tu
     with open(path) as f:
         spec = yaml.safe_load(f)
     hid = spec["id"]
-    slug = os.path.splitext(os.path.basename(path))[0]
+    slug = Path(path).stem
     outdir = os.path.join(outroot or os.path.join(ROOT, "hypotheses", "results"), slug)
-    os.makedirs(outdir, exist_ok=True)
+    Path(outdir).mkdir(parents=True, exist_ok=True)
     variants = build_variants(spec)
     want_codecs = spec.get("codecs", False) if codecs is None else codecs
     rows: dict[str, dict[str, Any]] = {}

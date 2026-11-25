@@ -7,6 +7,7 @@ import json
 import os
 import sys
 from collections.abc import Callable, Sequence
+from pathlib import Path
 from typing import Any
 
 from . import io as aio
@@ -27,7 +28,7 @@ def _out(obj: Any, as_json: bool) -> Any:
 
 
 def _stem(p: str) -> str:
-    return os.path.splitext(os.path.basename(p))[0]
+    return Path(p).stem
 
 
 def cmd_measure(a: argparse.Namespace) -> None:
@@ -229,7 +230,7 @@ def _refs_peaks(a: argparse.Namespace) -> None:
     out, lines = printouts.peaks_report(target_name, tgt[1:], {k: v[1:] for k, v in refs.items()})
     print("\n".join(lines))
     if a.excerpts:
-        os.makedirs(a.excerpts, exist_ok=True)
+        Path(a.excerpts).mkdir(parents=True, exist_ok=True)
         for k, (au, an, _) in {target_name: tgt, **refs}.items():
             if not an["peak_bars"]:
                 continue
