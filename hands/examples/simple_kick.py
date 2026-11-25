@@ -2,10 +2,11 @@
 
 Demonstrates ProjectConfig → builder → dry-run output.
 """
-from hands.models import KickConfig, MidiNote, MidiPattern, ProjectConfig, SamplePad
-from hands.builder import ProjectBuilder
-from hands.live.transport import DryRunTransport
-from hands.runner import StepRunner, ManualPolicy
+
+from zpkt.live.builder import ProjectBuilder
+from zpkt.live.models import KickConfig, MidiNote, MidiPattern, ProjectConfig, SamplePad
+from zpkt.live.runner import ManualPolicy, StepRunner
+from zpkt.live.transport import DryRunTransport
 
 config = ProjectConfig(
     name="Simple Kick",
@@ -15,10 +16,7 @@ config = ProjectConfig(
         midi=MidiPattern(
             name="kick_4on4",
             length_beats=4.0,
-            notes=tuple(
-                MidiNote(pitch=36, time=float(i), duration=0.25, velocity=100)
-                for i in range(4)
-            ),
+            notes=tuple(MidiNote(pitch=36, time=float(i), duration=0.25, velocity=100) for i in range(4)),
         ),
     ),
 )

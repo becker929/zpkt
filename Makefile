@@ -1,26 +1,37 @@
-# zpkt: each part is its own uv project. These targets run them from the repo root.
-CORE     := hands ears ears/mlab
-CONTRIB  := contrib/booth contrib/letta-vibe
-PROTO    := prototypes/taste prototypes/engineer
+# zpkt: the core (zpkt.live, zpkt.audio) is one uv project at the repo root; contrib and prototypes are their own.
 PYTEST   := uv run pytest -q -p no:cacheprovider
 
-.PHONY: setup remote-script test test-all
+.PHONY: setup remote-script format lint types test test-all check
 
-setup: remote-script  ## install each core part's environment and the Live Remote Script
-	@for p in $(CORE); do (cd $$p && uv sync -q) || exit 1; done
+setup: remote-script  ## install the core's environment (every extra) and the Live Remote Script
+	uv sync -q --all-extras
 	@echo "Now restart Live and pick AbletonLiveMCP as a Control Surface (docs/getting-started.md)."
 
 remote-script:
-	hands/remote_scripts/install.sh
+	src/zpkt/live/remote_scripts/install.sh
+
+RUFF     := uvx ruff@0.14.6
+
+format:  ## apply the one style (ruff.toml) to every maintained Python part
+	$(RUFF) check --fix -q .
+	$(RUFF) format -q .
+
+lint:  ## check style without changing anything
+	$(RUFF) check -q .
+	$(RUFF) format --check -q .
+
+types:  ## mypy on the core and the mix desk
+	uv run --all-extras mypy
+	uv run --all-extras mypy --config-file contrib/mixdesk/mypy.ini
+
+check: lint types test-all  ## everything CI runs, before a commit
 
 test:  ## the supported parts: offline, no Live
-	cd hands && uv run --all-extras pytest -q -p no:cacheprovider
-	cd ears && $(PYTEST)
-	cd ears/mlab && $(PYTEST)
+	uv run --all-extras pytest -q -p no:cacheprovider
 
 test-all: test  ## contrib and prototypes too
-	@for p in $(CONTRIB) $(PROTO); do echo "== $$p"; (cd $$p && $(PYTEST)) || exit 1; done
-	cd contrib/voice && uv run --extra dev pytest -q -p no:cacheprovider
 	cd contrib/harness && uv run --extra dev pytest -q -p no:cacheprovider
+	uv run --all-extras pytest -q -p no:cacheprovider contrib/arranger/tests
+	uv run --all-extras pytest -q -p no:cacheprovider contrib/mixdesk/tests
 	cd prototypes/audio-browser && $(PYTEST) --ignore tests/test_segment.py
-	cd contrib/bot && npm ci --ignore-scripts --no-audit --no-fund && npm test
+	cd prototypes/checklist && uv run --extra dev pytest -q -p no:cacheprovider

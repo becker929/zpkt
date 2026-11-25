@@ -1,7 +1,7 @@
 """pytest wrapper: one test per known-answer row."""
-import pytest
 
 import checks
+import pytest
 
 ROWS = checks.run_all(crosscheck=False)
 

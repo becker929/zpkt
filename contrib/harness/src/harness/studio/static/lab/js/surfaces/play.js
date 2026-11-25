@@ -21,9 +21,17 @@ import { flip } from '../play/flip.js';
 import { mountBench } from '../play/bench.js';
 
 const MACHINES = [
-  ['furnace', 'Furnace', furnace], ['tunnel', 'Tunnel', tunnel], ['cube', 'Cube', cube], ['crystal', 'Crystal', crystal],
-  ['tilt', 'Tilt', tilt], ['balls', 'Kick box', balls], ['lorenz', 'Lorenz', attractor], ['loop', 'Loop', looper],
-  ['gyro', 'Gyro', gyro], ['steps', 'Steps', steps], ['flip', 'Flip', flip],
+  ['furnace', 'Furnace', furnace],
+  ['tunnel', 'Tunnel', tunnel],
+  ['cube', 'Cube', cube],
+  ['crystal', 'Crystal', crystal],
+  ['tilt', 'Tilt', tilt],
+  ['balls', 'Kick box', balls],
+  ['lorenz', 'Lorenz', attractor],
+  ['loop', 'Loop', looper],
+  ['gyro', 'Gyro', gyro],
+  ['steps', 'Steps', steps],
+  ['flip', 'Flip', flip],
 ];
 
 export default {
@@ -36,61 +44,95 @@ export default {
     ctx.own(() => room.destroy());
     if (window.lab) window.lab.play = room;
 
-    const head = stageHead('Play', 'strange machines',
-      'Shader instruments, 3D doohickeys and modulators on HW002\'s knobs. Blue is a machine moving knobs by itself; it lets go when it stops.');
+    const head = stageHead(
+      'Play',
+      'strange machines',
+      "Shader instruments, 3D doohickeys and modulators on HW002's knobs. Blue is a machine moving knobs by itself; it lets go when it stops.",
+    );
     const jump = h('nav', { class: 'pl-jump', 'aria-label': 'Machines' });
     root.append(head, jump);
 
     for (const [key, label, make] of MACHINES) {
       let m;
-      try { m = make(room); } catch (err) {
+      try {
+        m = make(room);
+      } catch (err) {
         console.error(`play/${key}`, err);
         root.append(rack(label, { note: `This machine broke: ${err.message}` }));
         continue;
       }
       root.append(m.el);
-      jump.append(h('button', {
-        type: 'button', class: 'pl-jump-b', text: label,
-        onclick: () => { haptic(); m.el.scrollIntoView({ behavior: 'smooth', block: 'start' }); },
-      }));
+      jump.append(
+        h('button', {
+          type: 'button',
+          class: 'pl-jump-b',
+          text: label,
+          onclick: () => {
+            haptic();
+            m.el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          },
+        }),
+      );
     }
 
     const bench = h('div', { class: 'pl-bench' });
-    const benchRack = rack('Bench', { sub: 'a patcher of the lab\'s widgets', cls: 'pl-bench-rack' }, bench);
+    const benchRack = rack('Bench', { sub: "a patcher of the lab's widgets", cls: 'pl-bench-rack' }, bench);
     benchRack.id = 'pl-bench';
     root.append(benchRack);
-    jump.append(h('button', { type: 'button', class: 'pl-jump-b', text: 'Bench', onclick: () => benchRack.scrollIntoView({ behavior: 'smooth', block: 'start' }) }));
-    try { mountBench(bench, ctx); } catch (err) {
+    jump.append(
+      h('button', {
+        type: 'button',
+        class: 'pl-jump-b',
+        text: 'Bench',
+        onclick: () => benchRack.scrollIntoView({ behavior: 'smooth', block: 'start' }),
+      }),
+    );
+    try {
+      mountBench(bench, ctx);
+    } catch (err) {
       console.error('play/bench', err);
       bench.append(h('p', { class: 'rack-note', text: `The bench broke: ${err.message}` }));
     }
 
     // The dock: which machines are moving knobs now, and one button to stop them all.
     const count = h('span', { class: 'pl-dock-t' });
-    const dock = h('div', { class: 'pl-dock', hidden: true },
-      h('i', { class: 'pl-led is-on' }), count,
+    const dock = h(
+      'div',
+      { class: 'pl-dock', hidden: true },
+      h('i', { class: 'pl-led is-on' }),
+      count,
       h('button', {
-        type: 'button', class: 'pl-btn', text: 'Keep', 'aria-label': 'Keep what you hear: write it into the knobs',
+        type: 'button',
+        class: 'pl-btn',
+        text: 'Keep',
+        'aria-label': 'Keep what you hear: write it into the knobs',
         onclick: () => {
-          const ids = new Set(room.machines.flatMap((m) => (m.running?.() ? m.output?.ids() ?? [] : [])));
+          const ids = new Set(room.machines.flatMap((m) => (m.running?.() ? (m.output?.ids() ?? []) : [])));
           const live = [...ids].map((id) => [id, ctx.store.live(id)]);
           for (const m of room.machines) m.setOn?.(false);
           ctx.store.begin();
           for (const [id, v] of live) ctx.store.set(id, v, { source: 'keep' });
           ctx.store.end();
           haptic(true);
-          toast(live.length === 1 ? 'Kept: 1 knob now holds what you heard' : `Kept: ${live.length} knobs now hold what you heard`);
+          toast(
+            live.length === 1
+              ? 'Kept: 1 knob now holds what you heard'
+              : `Kept: ${live.length} knobs now hold what you heard`,
+          );
         },
       }),
       h('button', {
-        type: 'button', class: 'pl-btn is-alarm', text: 'Stop all',
+        type: 'button',
+        class: 'pl-btn is-alarm',
+        text: 'Stop all',
         onclick: () => {
           for (const m of room.machines) m.setOn?.(false);
-          bench.bench?.stop?.();                                    // the Bench's modulators too
+          bench.bench?.stop?.(); // the Bench's modulators too
           haptic(true);
           toast('Every machine off: the knobs are where they were');
         },
-      }));
+      }),
+    );
     root.append(dock);
     const renderDock = () => {
       const on = room.machines.filter((m) => m.running?.()).map((m) => m.title);

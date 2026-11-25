@@ -9,22 +9,21 @@ that can reach a control surface can run code on the Mac. The rule is simple:
 | Service | Default bind | Guard | Secret |
 |---|---|---|---|
 | AbletonLiveMCP remote script (in Live) | 127.0.0.1:16619 | raw TCP, loopback only | — |
-| MCP bridge (`letta-vibe ableton-mcp`, `contrib/letta-vibe`) | 127.0.0.1:9010 | bearer token, DNS-rebinding host/origin allow-list; refuses to start without a token | `MCP_BRIDGE_TOKEN` |
-| Letta (Docker, `make start-letta` in `contrib/letta-vibe`) | 127.0.0.1:8283 | server password; keys passed via a private env file | `LETTA_API_KEY` |
-| vibe server (`letta-vibe vibe`) | 127.0.0.1:8080 | Host and Origin allow-lists, JSON-only POSTs, 1 MB body cap; `/self-improve` and `/restart` need the token; with `--tunnel`, every endpoint does | `VIBE_TOKEN` |
-| letta-vibe frontend (Next.js) | 127.0.0.1:3000 | Host allow-list in middleware; agent PATCH limited to `name` | — |
 | audio-browser API (`prototypes/audio-browser`) | 127.0.0.1:8090 | CORS limited to localhost, tailnet and `*.ts.net` origins | — |
-| taste annotation app (`prototypes/taste`) | 127.0.0.1 | file serving confined to the clips folder | — |
-| harness (`contrib/harness`) | listens on nothing; dials out to anthonybecker.me | the site forwards six RPC methods, and only with the owner's key; ask sessions are read-only | `RIG_TOKEN`, `SKRNG_TOKEN` |
+| checklist prototype (`prototypes/checklist/server.py`) | 127.0.0.1:8798 | loopback only, no secret: it serves pages and writes only the artist's and the regions' records | — |
+| harness (`contrib/harness`) | 127.0.0.1:8787, on the tailnet through `tailscale serve` | a password per browser (scrypt hashes only, `auth.json` mode 600); every route but `/login` needs the session cookie | the password |
+
+The music bot's booth (127.0.0.1:8794, a token on every request) left with the bot for the private repo
+`becker929/music-bot` on 24 November 2026; its guard is documented there.
 
 To reach a service from another device, bind it to the machine's Tailscale
 address, not `0.0.0.0`, and add that host to the relevant allow-list
-(`VIBE_ALLOWED_HOSTS`, `FRONTEND_ALLOWED_HOSTS`, `DEV_ORIGINS`).
+(`DEV_ORIGINS`).
 
 ## Agents
 
 - Agents that act on outside input run with least privilege: no blanket
-  `bypassPermissions`. Self-improve may edit `contrib/letta-vibe/` and run tests only.
+  `bypassPermissions`.
 - Text from logs, comments or messages is untrusted data. The watchdog wraps
   logs as such; the mailbox poller only accepts comments from allow-listed
   accounts (`MAILBOX_ALLOWED_AUTHORS`).

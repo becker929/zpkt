@@ -11,8 +11,8 @@ make setup    # each core part's environment, and the Live Remote Script
 make test     # hands, ears, mlab
 ```
 
-Each part is its own uv project with its own lockfile. Run one part's tests from its folder:
-`cd hands && uv run --all-extras pytest`.
+The core (`zpkt.live`, `zpkt.audio`) is one uv project with one lockfile at the repo root:
+`uv run --all-extras pytest tests/live` runs one half. contrib parts with their own pyproject run from their folder.
 
 ## What a change needs
 
@@ -20,10 +20,10 @@ Each part is its own uv project with its own lockfile. Run one part's tests from
   needs audio files or models. `hands` tests use a fake Remote Script and fake GUI; `ears`
   tests synthesise their audio.
 - **Contracts stay current.** The schemas in `lib/contracts/` are generated from each part's
-  models (`hands/scripts/gen_schemas.py`, `ears/scripts/gen_schema.py`). A test fails if a
+  models (`hands/tools/gen_schemas.py`, `ears/scripts/gen_schema.py`). A test fails if a
   committed schema is stale.
 - **No personal paths.** What differs per Mac goes in `~/.config/zpkt/rig.toml`
-  (`hands/src/hands/config.py`), not in code.
+  (`src/zpkt/live/config.py`), not in code.
 - **No audio, models, databases or `.als` files** in git, apart from the tiny synthetic fixtures
   already there.
 - **A measure is calibrated before it is used.** New meters in `mlab` come with a known-answer

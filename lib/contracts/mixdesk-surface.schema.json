@@ -1,0 +1,146 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/becker929/zpkt/lib/contracts/mixdesk-surface.schema.json",
+  "description": "<sets_dir>/surfaces/<set>/<name>.json: a desk.json page plus where it came from. \"schema\" is the file's\nversion (absent: 1). The object is open: keys a later version adds are kept by every reader and writer.",
+  "$defs": {
+    "Control": {
+      "description": "One parameter on a slot: a mixer value (volume, pan, send:<return>, mute, solo) or a device's parameter.",
+      "properties": {
+        "track": {
+          "title": "Track",
+          "type": "string"
+        },
+        "param": {
+          "title": "Param",
+          "type": "string"
+        },
+        "device": {
+          "title": "Device",
+          "type": "string"
+        },
+        "label": {
+          "title": "Label",
+          "type": "string"
+        }
+      },
+      "required": [
+        "track",
+        "param"
+      ],
+      "title": "Control",
+      "type": "object"
+    },
+    "Macro": {
+      "properties": {
+        "label": {
+          "title": "Label",
+          "type": "string"
+        },
+        "macro": {
+          "items": {
+            "$ref": "#/$defs/MacroPart"
+          },
+          "title": "Macro",
+          "type": "array"
+        }
+      },
+      "required": [
+        "label",
+        "macro"
+      ],
+      "title": "Macro",
+      "type": "object"
+    },
+    "MacroPart": {
+      "properties": {
+        "track": {
+          "title": "Track",
+          "type": "string"
+        },
+        "param": {
+          "title": "Param",
+          "type": "string"
+        },
+        "device": {
+          "title": "Device",
+          "type": "string"
+        },
+        "from": {
+          "title": "From",
+          "type": "string"
+        },
+        "to": {
+          "title": "To",
+          "type": "string"
+        }
+      },
+      "required": [
+        "track",
+        "param",
+        "from",
+        "to"
+      ],
+      "title": "MacroPart",
+      "type": "object"
+    }
+  },
+  "properties": {
+    "schema": {
+      "title": "Schema",
+      "type": "integer"
+    },
+    "name": {
+      "title": "Name",
+      "type": "string"
+    },
+    "what": {
+      "title": "What",
+      "type": "string"
+    },
+    "controls": {
+      "additionalProperties": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/Control"
+          },
+          {
+            "$ref": "#/$defs/Macro"
+          }
+        ]
+      },
+      "title": "Controls",
+      "type": "object"
+    },
+    "notes": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Notes",
+      "type": "array"
+    },
+    "prompt": {
+      "title": "Prompt",
+      "type": "string"
+    },
+    "made": {
+      "title": "Made",
+      "type": "string"
+    },
+    "set": {
+      "title": "Set",
+      "type": "string"
+    }
+  },
+  "required": [
+    "name",
+    "what",
+    "controls",
+    "notes",
+    "prompt",
+    "made",
+    "set"
+  ],
+  "title": "SurfaceFile",
+  "type": "object",
+  "additionalProperties": true
+}

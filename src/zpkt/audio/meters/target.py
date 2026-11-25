@@ -1,0 +1,295 @@
+"""A mix against references, section by section.
+
+HW002 is compared with purchased reference tracks in two windows: the BUILD
+(16 bars before the drop) and the DROP (16 bars from it). The references are
+mastered and the mix is not, so every spectral value here is shape, not
+level: band power in dB minus the window's own integrated loudness
+("dB rel LUFS"). That is the normalisation of the earlier one-off analysis
+(contrib/arranger/spectral.py); keep it so the numbers stay comparable.
+
+- `windows`: build/drop spans in seconds from the drop time and the bar length.
+- `profile`: per window LUFS, true peak, PLR, 1/3-octave bands and named
+  regions (dB rel LUFS), side-minus-mid per region, block crest and punch;
+  plus the section contrast, LUFS(drop) - LUFS(build).
+- `ref_stats`, `gaps`: the references' mean (of dB values), min and max for
+  every value, and the mix's diff (mix - mean) and outside (0 inside the
+  references' range, else the signed distance to the nearest edge).
+- `load_refs`: the arranger's refs.json (id, file, drop, barSeconds, set); read in references.py.
+
+Band power integrates the PSD exactly: each bin is a constant density
+over its own width, so a band edge may cut a bin. The PSD weights every
+sample of a window equally (see psd), so a beat-locked hop cannot tilt it. spectrum.third_octave
+sums with a trapezoid over the bins inside a band, which reads the 25-50 Hz
+bands 1-3 dB low, and differently at 44.1 and 48 kHz (LEARNINGS L-019).
+Mix and references may have different sample rates: the PSD is a density
+per Hz and loudness builds its K-weighting per rate.
+
+A one-channel file is measured as dual mono (as it plays on two speakers),
+so its dB rel LUFS match the same audio in a stereo file.
+
+Known answers: calibration/checks.py (check_target).
+"""
+
+from __future__ import annotations
+
+from collections.abc import Mapping, Sequence
+from typing import Any
+
+import numpy as np
+
+from . import bands as B
+from . import dynamics as D
+from . import loudness as L
+from . import references
+from . import spectrum as S
+from . import windows as W
+from .arrays import FloatArray, Json
+from .util import pdb
+
+# Windows live in windows.py; these names stay for callers.
+BARS, MIN_BARS, LAYOUT = W.BARS, W.MIN_BARS, W.LAYOUT
+DEFAULT_DROP_S, DEFAULT_BAR_S = W.DEFAULT_DROP_S, W.DEFAULT_BAR_S
+windows, segments = W.windows, W.segments
+SM_FLOOR = -99.0  # side-minus-mid floor (a mono file has no side)
+SCALARS = ("lufs", "true_peak_db", "plr_db", "block_crest_median_db", "transient_contrast_median_db")
+
+# The band tables live in bands.py; these names stay for callers (eqfit, the CLI, the calibration checks).
+SCORE_HZ = B.SCORE_HZ
+REGIONS = B.REGIONS
+REGION_KEYS = B.REGION_KEYS
+LABELS = B.REGION_LABELS
+SM_EDGES = B.SIDE_MID_EDGES
+SM_KEYS = B.SIDE_MID_KEYS
+NOMINAL = B.NOMINAL
+nominal = B.nominal
+hz_text = B.hz_text
+band_grid = B.third_octave_grid
+region_edges = B.region_edges
+in_score = B.in_score
+
+
+def _stereo(x: Any) -> FloatArray:
+    x = np.asarray(x, dtype=float)
+    x = x[:, None] if x.ndim == 1 else x
+    return np.repeat(x, 2, axis=1) if x.shape[1] == 1 else x
+
+
+TP_CONTEXT = 512  # samples of real context each side for true peak
+
+
+def window_true_peak(x: FloatArray, sr: int, a: int, b: int) -> float:
+    """True peak (dBTP) of samples [a, b) oversampled with up to TP_CONTEXT samples of real
+    context each side, so a window edge cut through a loud sample is not read as a step."""
+    lo, hi = max(0, a - TP_CONTEXT), min(len(x), b + TP_CONTEXT)
+    env = L.true_peak_envelope(x[lo:hi], sr)[a - lo : b - lo]
+    return float(20 * np.log10(np.max(env))) if env.size and np.max(env) > 0 else float("-inf")
+
+
+# ------------------------------------------------------------------ spectrum
+SEG_S = 0.75  # Hann segment length in seconds, at every rate
+
+
+def nperseg(sr: int) -> int:
+    """Segment length: 0.75 s at any rate, rounded to a multiple of 4 samples so the
+    75 % overlap hop is exact. 44.1 and 48 kHz share one grid of ~1.33 Hz bins."""
+    return 4 * round(SEG_S * sr / 4)
+
+
+def psd(seg: FloatArray, sr: int) -> tuple[FloatArray, FloatArray]:
+    """Channel-averaged PSD that weights every sample of the window equally.
+
+    Hann segments at 75 % overlap: squared Hann windows then sum to a constant,
+    so no moment counts more than another. The window is zero-padded by one
+    segment at each end, so its first and last samples are covered like the
+    rest, and rescaled by that coverage: the PSD integrates to the window's mean
+    square (Parseval). Plain Welch at 50 % overlap swings its time weight by
+    2:1 every hop; a 0.375 s hop is one beat at 160 BPM, so it locked to the
+    beat. It also dropped the tail after the last full segment (LEARNINGS L-023)."""
+    from scipy import signal as sps
+
+    x = np.asarray(seg, dtype=float)
+    x = x[:, None] if x.ndim == 1 else x
+    x = x - x.mean(axis=0)  # constant detrend over the whole window
+    n = nperseg(sr)
+    hop = n // 4
+    z = np.zeros((n, x.shape[1]))
+    xp = np.concatenate([z, x, z])
+    f, p = sps.welch(xp, sr, window="hann", nperseg=n, noverlap=n - hop, detrend=False, axis=0, scaling="density")
+    k = (len(xp) - n) // hop + 1  # segments welch averaged
+    # mean over k segments of sum(w^2 x^2) / sum(w^2): coverage sum_k w^2 = 1.5 on the window,
+    # sum(w^2) = 3n/8, so the mean is 4 * sum(x^2) / (k n); the window's mean square is sum(x^2) / L
+    return f, p.mean(axis=1) * k * n / (4.0 * len(x))
+
+
+def band_power(f: FloatArray, p: FloatArray, lo: Any, hi: Any) -> Any:
+    """Integral of the PSD over [lo, hi) Hz (scalars or arrays).
+
+    Each bin is a constant density over its own width (f[k] +/- df/2), so the
+    running integral is piecewise linear in f and interpolates exactly."""
+    e = np.concatenate([[0.0], (f[:-1] + f[1:]) / 2, [f[-1]]])
+    c = np.concatenate([[0.0], np.cumsum(p * np.diff(e))])
+    return np.interp(hi, e, c) - np.interp(lo, e, c)
+
+
+def spectral(seg: FloatArray, sr: int, lufs: float) -> tuple[list[list[float]], dict[str, float]]:
+    """1/3-octave bands [[hz, dB rel LUFS], ...] and regions {key: dB rel LUFS}."""
+    f, p = psd(seg, sr)
+    c, lo, hi = band_grid(sr)
+    bands = [[float(cc), float(pdb(v) - lufs)] for cc, v in zip(c, band_power(f, p, lo, hi), strict=True)]
+    rp = band_power(f, p, *region_edges(sr))
+    return bands, {k: float(pdb(v) - lufs) for k, v in zip(REGION_KEYS, rp, strict=True)}
+
+
+def side_minus_mid(seg: FloatArray, sr: int) -> dict[str, float]:
+    """Side energy minus mid energy per region (dB), spectrum.stereo_by_band's method.
+    A mono file has no side: it reads SM_FLOOR."""
+    seg = _stereo(seg)
+    st = S.stereo_by_band(seg, sr, SM_EDGES)
+    return {k: max(SM_FLOOR, float(b["side_minus_mid_db"])) for k, b in zip(SM_KEYS, st, strict=True)}
+
+
+# ------------------------------------------------------------------ profile
+def profile(x: Any, sr: int, wins: Mapping[str, W.Span], bar_s: float | None = None) -> Json:
+    """Measures of one file per window. Pass bar_s so windows clipped to under
+    MIN_BARS bars are skipped (a silent window is skipped too).
+
+    Per window: lufs, true_peak_db, plr_db, bands [[hz, dB rel LUFS]], regions,
+    side_minus_mid_db (per region of SM_KEYS), block_crest_median_db,
+    transient_contrast_median_db (punch). Top level: contrast_lu = LUFS(drop) - LUFS(build)."""
+    x = np.asarray(x, dtype=float)
+    chans = 1 if x.ndim == 1 else int(x.shape[1])
+    x = _stereo(x)
+    keep, skipped = segments(x, sr, wins, bar_s)
+    out: Json = {"sr": int(sr), "duration_s": len(x) / sr, "bar_s": bar_s, "windows": {}, "skipped": skipped}
+    for name, ((a, b), seg) in keep.items():
+        lufs = L.integrated(seg, sr)
+        if not np.isfinite(lufs):
+            skipped[name] = "silent (below the -70 LUFS gate)"
+            continue
+        tp = window_true_peak(x, sr, round(a * sr), round(a * sr) + len(seg))
+        bands, regions = spectral(seg, sr, lufs)
+        tc = D.transient_contrast(seg, sr)
+        out["windows"][name] = {
+            "span_s": [a, b],
+            "clipped": bool(abs(a - wins[name][0]) > 1e-6 or abs(b - wins[name][1]) > 1e-6),
+            "lufs": float(lufs),
+            "true_peak_db": float(tp),
+            "plr_db": float(tp - lufs),
+            "bands": bands,
+            "regions": regions,
+            "side_minus_mid_db": side_minus_mid(seg, sr),
+            "block_crest_median_db": D.micro(seg, sr).get("block_crest_median_db"),
+            "transient_contrast_median_db": tc.get("transient_contrast_median_db"),
+            "onsets": tc.get("onsets"),
+        }
+    w = out["windows"]
+    out["contrast_lu"] = float(w["drop"]["lufs"] - w["build"]["lufs"]) if "drop" in w and "build" in w else None
+    out["channels"] = chans
+    return out
+
+
+# ------------------------------------------------------------------ references
+load_refs = references.load_refs  # read refs.json (references.py); kept here for callers
+
+
+def profile_ref(ref: Mapping[str, Any], layout: Mapping[str, tuple[float, float] | None] | None = None) -> Json:
+    """profile() of one load_refs() entry, on its own drop and bar."""
+    from . import io as aio
+
+    au = aio.load(ref["path"])
+    return profile(au.x, au.sr, windows(ref["drop"], ref["bar_s"], layout), ref["bar_s"])
+
+
+def _stats(values: Mapping[str, Any]) -> Json | None:
+    v = {k: float(x) for k, x in values.items() if x is not None and np.isfinite(x)}
+    if not v:
+        return None
+    a = np.array(list(v.values()))
+    return {"mean": float(a.mean()), "min": float(a.min()), "max": float(a.max()), "n": len(v), "values": v}
+
+
+def _hz(c: float) -> float:
+    return round(float(c), 1)
+
+
+def ref_stats(ref_profs: Mapping[str, Json]) -> Json:
+    """The references' mean (of dB values), min, max and values for everything profile() reports."""
+    names: list[str] = []
+    for p in ref_profs.values():
+        names += [w for w in p["windows"] if w not in names]
+    out: Json = {"refs": list(ref_profs), "windows": {}}
+    for w in names:
+        have = {i: p["windows"][w] for i, p in ref_profs.items() if w in p["windows"]}
+        per = {i: {_hz(c): v for c, v in pw["bands"]} for i, pw in have.items()}
+        hz = sorted({c for d in per.values() for c in d})
+        bands: list[Json] = []
+        for c in hz:
+            st = _stats({i: d.get(c) for i, d in per.items()})
+            if st:
+                bands.append({"hz": c, **st})
+        out["windows"][w] = {
+            "n_refs": len(have),
+            "bands": bands,
+            "regions": {k: _stats({i: pw["regions"].get(k) for i, pw in have.items()}) for k in REGION_KEYS},
+            "side_minus_mid_db": {
+                k: _stats({i: pw["side_minus_mid_db"].get(k) for i, pw in have.items()}) for k in SM_KEYS
+            },
+            "scalars": {k: _stats({i: pw.get(k) for i, pw in have.items()}) for k in SCALARS},
+        }
+    out["contrast_lu"] = _stats({i: p.get("contrast_lu") for i, p in ref_profs.items()})
+    return out
+
+
+def gap(mix: float | None, st: Json | None) -> Json | None:
+    """mix vs one statistic: diff = mix - mean; outside = 0 inside [min, max], else the signed
+    distance to the nearest edge (negative = under the references)."""
+    if mix is None or st is None or not np.isfinite(mix):
+        return None
+    lo, hi = st["min"], st["max"]
+    out = mix - hi if mix > hi else (mix - lo if mix < lo else 0.0)
+    return {
+        "mix": float(mix),
+        "mean": st["mean"],
+        "min": lo,
+        "max": hi,
+        "diff": float(mix - st["mean"]),
+        "outside": float(out),
+        "n": st["n"],
+        "values": st["values"],
+    }
+
+
+def score(bands: Sequence[Json]) -> Json:
+    """RMS of outside and of diff over the bands of SCORE_HZ (31.5 Hz-16 kHz)."""
+    sc = [b for b in bands if in_score(b["hz"])]
+    if not sc:
+        return {"rms_outside_db": None, "rms_diff_db": None, "bands": 0}
+    o = np.array([b["outside"] for b in sc])
+    d = np.array([b["diff"] for b in sc])
+    return {
+        "rms_outside_db": float(np.sqrt(np.mean(o**2))),
+        "rms_diff_db": float(np.sqrt(np.mean(d**2))),
+        "bands": len(sc),
+    }
+
+
+def gaps(mix_prof: Json, ref_profs: Mapping[str, Json]) -> Json:
+    """The mix against the references, per window present in both (see gap())."""
+    rs = ref_stats(ref_profs)
+    res: Json = {"refs": rs["refs"], "windows": {}}
+    for w, mw in mix_prof["windows"].items():
+        R = rs["windows"].get(w)
+        if not R:
+            continue
+        rb = {b["hz"]: b for b in R["bands"]}
+        bands = [{"hz": _hz(c), **g} for c, v in mw["bands"] if (g := gap(v, rb.get(_hz(c))))]
+        res["windows"][w] = {
+            "n_refs": R["n_refs"],
+            "bands": bands,
+            "regions": {k: gap(mw["regions"].get(k), R["regions"][k]) for k in REGION_KEYS},
+            "side_minus_mid_db": {k: gap(mw["side_minus_mid_db"].get(k), R["side_minus_mid_db"][k]) for k in SM_KEYS},
+            "scalars": {k: gap(mw.get(k), R["scalars"][k]) for k in SCALARS},
+            "score": score(bands),
+        }
+    res["contrast_lu"] = gap(mix_prof.get("contrast_lu"), rs["contrast_lu"])
+    return res

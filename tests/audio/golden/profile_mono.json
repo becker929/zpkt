@@ -1,0 +1,84 @@
+{
+ "duration_seconds": 3.0,
+ "sample_rate": 44100,
+ "spectral": {
+  "spectral_centroid_mean": 8886.057845867163,
+  "spectral_centroid_std": 146.401547059917,
+  "spectral_rolloff_mean": 17910.969172297297,
+  "spectral_bandwidth_mean": 7166.086553540574,
+  "spectral_flatness_mean": 0.030329670757055283,
+  "zero_crossing_rate_mean": 0.060316873793436296,
+  "harmonic_ratio_mean": 0.9585990828252813,
+  "onset_strength_mean": 0.9390990734100342,
+  "onset_strength_std": 0.28165560960769653,
+  "mfcc_means": [
+   -115.89427185058594,
+   10.764636039733887,
+   16.286670684814453,
+   16.608108520507812,
+   16.386459350585938,
+   15.663768768310547,
+   14.709283828735352,
+   14.826644897460938,
+   14.004654884338379,
+   13.081916809082031,
+   11.89428424835205,
+   11.268280029296875,
+   10.504447937011719
+  ],
+  "mfcc_stds": [
+   4.255171298980713,
+   3.9456708431243896,
+   3.669976234436035,
+   3.600032091140747,
+   3.849303960800171,
+   3.8023622035980225,
+   3.455141544342041,
+   3.2278988361358643,
+   3.214573383331299,
+   3.321444511413574,
+   3.468111991882324,
+   3.438526153564453,
+   3.688877582550049
+  ],
+  "chroma_means": [
+   0.5450952649116516,
+   0.3408281207084656,
+   0.17299596965312958,
+   0.12238611280918121,
+   0.14417597651481628,
+   0.20287717878818512,
+   0.3505788743495941,
+   0.6356209516525269,
+   0.9308575987815857,
+   1.0,
+   0.8466662764549255,
+   0.6875512003898621
+  ],
+  "key": null,
+  "key_strength": 0.0,
+  "danceability": null
+ },
+ "loudness": {
+  "lufs_integrated": -14.464842650472084,
+  "lufs_short_term_peak": null,
+  "lufs_momentary_max": -14.454380073039998,
+  "true_peak_db": -5.779210808507857,
+  "band_energy": {
+   "sub": 0.9526069816349223,
+   "low": 0.0010305794519859853,
+   "mid": 0.008016389310252418,
+   "high": 0.019011237520542443,
+   "air": 0.01933481208229681
+  },
+  "camelot_key": null
+ },
+ "rhythm": null,
+ "pitch": null,
+ "embedding": null,
+ "description": "",
+ "errors": [
+  "run_pitch_task failed: basic-pitch is not installed: run `uv pip install basic-pitch` in ears/",
+  "run_rhythm_task failed: madmom is not installed: run `uv pip install madmom` in ears/ (it needs Cython)"
+ ]
+}

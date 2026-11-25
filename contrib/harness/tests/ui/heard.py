@@ -1,5 +1,5 @@
 """What the page actually played: a shim that records everything it sends to its speakers, and the arithmetic to
-check it (silence, pitch, where a file sits in the recording, words).
+check it (silence, pitch).
 
 The shim (`MUTE`, added to every test page) replaces `AudioContext.destination` with a gain (the "tap"). The tap
 feeds an AudioWorklet (the "ear") that copies each render quantum, downmixed to mono, with the audio-clock time of
@@ -7,16 +7,11 @@ its first sample; the ear outputs silence to the real destination, so nothing re
 keeps running. Each context gets its own ear the first time the page asks for its destination, so a context made
 after the page was in the background is heard too; one that never touches its destination (the stand-in mic's) is
 not recorded. `window.__ears` holds them; `heard(page)` fetches them as `Ear`s.
-
-The mic's open spans come from the getUserMedia shim (`window.__micSpans`, performance-clock ms), and an ear maps
-its audio clock to the performance clock (`Ear.perf`), so "was anything heard while the mic was open" is a
-comparison of two lists of intervals.
 """
 
 from __future__ import annotations
 
 import base64
-import re
 from dataclasses import dataclass, field
 
 import numpy as np
@@ -115,7 +110,7 @@ MUTE = """
 })();
 """
 
-SILENT = 1e-3          # below this (-60 dBFS) a sample is silence
+SILENT = 1e-3  # below this (-60 dBFS) a sample is silence
 
 
 @dataclass
@@ -126,7 +121,7 @@ class Ear:
     rate: int
     t0: float
     samples: np.ndarray
-    clock: np.ndarray               # rows of (audio-clock s, performance-clock s when that sample is heard)
+    clock: np.ndarray  # rows of (audio-clock s, performance-clock s when that sample is heard)
     state: str = ""
     # Where a chunk did not follow on from the one before: (audio-clock time, samples missing). Chromium skips a
     # quantum or two while a context first starts its worklet thread, before anything plays; nothing else should.
@@ -136,10 +131,10 @@ class Ear:
         return self.t0 + i / self.rate
 
     def index(self, t: float) -> int:
-        return int(round((t - self.t0) * self.rate))
+        return round((t - self.t0) * self.rate)
 
     def between(self, t1: float, t2: float) -> np.ndarray:
-        return self.samples[max(0, self.index(t1)):max(0, self.index(t2))]
+        return self.samples[max(0, self.index(t1)) : max(0, self.index(t2))]
 
     def perf(self, t: float) -> float:
         """When the sample at audio-clock time `t` reached the speakers, on the page's performance clock (s). The
@@ -156,7 +151,7 @@ class Ear:
         cuts = np.flatnonzero(np.diff(idx) > hold * self.rate)
         starts = np.concatenate([[idx[0]], idx[cuts + 1]])
         ends = np.concatenate([idx[cuts], [idx[-1]]])
-        return [(self.time(a), self.time(b + 1)) for a, b in zip(starts, ends)]
+        return [(self.time(a), self.time(b + 1)) for a, b in zip(starts, ends, strict=True)]
 
 
 async def heard(page) -> list[Ear]:
@@ -172,94 +167,23 @@ async def heard(page) -> list[Ear]:
             continue
         # Place every chunk at its own time (they follow on exactly unless the context stopped running).
         t0 = times[0]
-        end = int(round((times[-1] - t0) * rate)) + sizes[-1]
+        end = round((times[-1] - t0) * rate) + sizes[-1]
         samples = np.zeros(end, np.float32)
         at, expected, gaps = 0, 0, []
-        for i, (t, n) in enumerate(zip(times, sizes)):
-            pos = int(round((t - t0) * rate))
+        for i, (t, n) in enumerate(zip(times, sizes, strict=True)):
+            pos = round((t - t0) * rate)
             if i and pos != expected:
                 gaps.append((t, pos - expected))
-            samples[pos:pos + n] = chunk[at:at + n]
+            samples[pos : pos + n] = chunk[at : at + n]
             at += n
             expected = pos + n
-        if raw["heardAt"]:
-            clock = np.array(raw["heardAt"])
-        else:                                    # no output timestamps: now, plus the output's latency
-            clock = np.array(raw["now"]) + [0.0, raw["outputLatency"]]
+        # Without output timestamps: now, plus the output's latency.
+        latency = np.array([0.0, raw["outputLatency"]])
+        clock = np.array(raw["heardAt"]) if raw["heardAt"] else np.array(raw["now"]) + latency
         out.append(Ear(raw["id"], rate, t0, samples, clock, raw["state"], gaps))
     return out
-
-
-async def mic_spans(page) -> list[tuple[float, float]]:
-    """When the page's mic was open (performance-clock seconds); a mic still open ends at infinity."""
-    spans = await page.evaluate("window.__micSpans")
-    return [(s["open"] / 1000, s["close"] / 1000 if s["close"] is not None else float("inf")) for s in spans]
-
-
-def overlaps(a: list[tuple[float, float]], b: list[tuple[float, float]]) -> list[tuple[float, float]]:
-    return [(max(x1, y1), min(x2, y2)) for x1, x2 in a for y1, y2 in b if max(x1, y1) < min(x2, y2)]
 
 
 def dominant_hz(samples: np.ndarray, rate: int) -> float:
     spectrum = np.abs(np.fft.rfft(samples * np.hanning(len(samples))))
     return float(np.fft.rfftfreq(len(samples), 1 / rate)[np.argmax(spectrum[1:]) + 1])
-
-
-def resample(x: np.ndarray, src: int, dst: int) -> np.ndarray:
-    """Band-limited resampling by FFT (fine for the few seconds a test hears)."""
-    if src == dst:
-        return np.asarray(x, np.float64)
-    n = int(round(len(x) * dst / src))
-    spectrum = np.fft.rfft(x)
-    keep = min(len(spectrum), n // 2 + 1)
-    out = np.zeros(n // 2 + 1, complex)
-    out[:keep] = spectrum[:keep]
-    return np.fft.irfft(out, n) * (n / len(x))
-
-
-def correlate(signal: np.ndarray, ref: np.ndarray) -> np.ndarray:
-    """Normalised cross-correlation of `ref` at every offset into `signal` (1.0: an exact copy)."""
-    n = len(signal) + len(ref)
-    size = 1 << (n - 1).bit_length()
-    raw = np.fft.irfft(np.fft.rfft(signal, size) * np.conj(np.fft.rfft(ref, size)), size)[:len(signal) - len(ref) + 1]
-    energy = np.concatenate([[0.0], np.cumsum(signal.astype(np.float64) ** 2)])
-    local = energy[len(ref):] - energy[:-len(ref)]
-    return raw / (np.sqrt(np.maximum(local, 1e-12)) * np.sqrt(np.sum(ref.astype(np.float64) ** 2)))
-
-
-@dataclass
-class Passes:
-    starts: list[int] = field(default_factory=list)      # sample index of each pass in the recording
-    scores: list[float] = field(default_factory=list)
-
-
-def find_passes(signal: np.ndarray, ref: np.ndarray, threshold: float = 0.9) -> Passes:
-    """Every place `ref` plays, whole, in `signal`: peaks of the correlation at least one file length apart."""
-    c = correlate(signal, ref)
-    found = Passes()
-    order = np.argsort(c)[::-1]
-    for i in order:
-        if c[i] < threshold:
-            break
-        if all(abs(int(i) - s) >= len(ref) * 0.9 for s in found.starts):
-            found.starts.append(int(i))
-            found.scores.append(float(c[i]))
-        if len(found.starts) > 16:
-            break
-    pairs = sorted(zip(found.starts, found.scores))
-    return Passes([p for p, _ in pairs], [s for _, s in pairs])
-
-
-def words(text: str) -> list[str]:
-    return re.sub(r"[^a-z0-9' ]+", " ", text.lower().replace("-", " ")).split()
-
-
-def wer(reference: str, hypothesis: str) -> float:
-    """Word error rate: edits (substitutions, insertions, deletions) per reference word."""
-    ref, hyp = words(reference), words(hypothesis)
-    d = list(range(len(hyp) + 1))
-    for i, r in enumerate(ref, 1):
-        prev, d[0] = d[0], i
-        for j, h in enumerate(hyp, 1):
-            prev, d[j] = d[j], min(d[j] + 1, d[j - 1] + 1, prev + (r != h))
-    return d[len(hyp)] / max(1, len(ref))

@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://github.com/becker929/zpkt/lib/contracts/audio-profile.schema.json",
   "title": "AudioProfile",
-  "description": "What ears measured about one audio file. Produced by `ears analyze --json`; generated from ears/src/ears/models.py \u2014 do not edit by hand.",
+  "description": "What ears measured about one audio file. Produced by `ears analyze --json`; generated from src/zpkt/audio/models.py \u2014 do not edit by hand.",
   "required": [
     "clip_id",
     "audio_path"

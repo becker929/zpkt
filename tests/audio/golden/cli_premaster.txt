@@ -1,0 +1,17 @@
+Premaster check: mix16.wav -> WARN
+
+  [WARN] format                             PCM_16   export 24-bit or 32-bit float; dither once, at the very end
+  [INFO] sample_rate                         44100   keep the project rate; convert only at delivery
+  [PASS] sample_peak_dbfs                   -10.93   leave headroom; -3.0 dBFS or lower is comfortable
+  [PASS] true_peak_dbtp                     -10.85   above 0 dBTP the premaster already has inter-sample overs
+  [PASS] clipped_runs                            0   runs of >= 3 full-scale samples
+  [PASS] plr_db                              17.53   low PLR = limiter/clipper already on the main bus; bypass it for the premaster
+  [INFO] integrated_lufs                    -28.37   premaster loudness is not a target; headroom matters more
+  [PASS] dc_offset_dbfs                     -66.29   DC wastes headroom and thumps at edits (mean is bass wander, not a steady offset)
+  [WARN] head_first_10ms_dbfs               -24.14   loud first samples = clipped start / missing pre-roll; also causes inter-sample overs
+  [WARN] tail_last_10ms_dbfs                -34.46   loud last samples = reverb/delay tail cut off; extend the export length
+  [PASS] correlation                         0.759   negative overall correlation = polarity problem
+  [PASS] low_end_correlation_20_120hz        0.952   club systems and phones sum bass to mono; keep it near 1
+  [PASS] mono_sum_loss_lu                     0.59   loudness lost when summed to mono (phone speaker, club)
+  [PASS] lr_balance_db                       -0.08   L minus R RMS
+  [INFO] duration_s                           12.0   YouTube Shorts: up to 180 s

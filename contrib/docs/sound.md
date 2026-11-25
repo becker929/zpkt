@@ -11,10 +11,13 @@ like), as long as the library only plays the rendered files.
 **The browser never does the DAW's job.** No page, demo, prototype, mock-up or test page may synthesize or change
 audio in a way that belongs in the DAW: no synths or drum machines, no EQ or filters, no compression, distortion or
 clipping, no reverb or delay, no panning or width, no gain moves standing in for a mix move, no granular, slicing,
-time-stretch or pitch-shift, no collage or arrangement assembled from pieces. Nothing that sketches what a change
-"would" sound like. Anthony decided this on 14 October 2026 after the HW002 lab (`contrib/docs/design/lab.md`): its stand-ins for
+time-stretch or pitch-shift. Nothing that sketches what a change "would" sound like. Anthony decided this on 14 October 2026 after the HW002 lab (`contrib/docs/design/lab.md`): its stand-ins for
 COLDFIRE, the Decapitator, Supermassive and the rest sounded plausible and were wrong, and a sound that is plausible
 and wrong fools him. That is worse than no sound at all.
+
+**The rule is about making sound, not playing it** (Anthony, 12 November 2026: "The sound rule isn't 'don't play
+sound' it's 'don't generate sounds'."). Starting rendered files, alone or several together on the beat, is playing
+them.
 
 **Music in zpkt's demos comes only from the player engine** (below). It plays files that were rendered, as they were
 rendered. Every change you hear is a different file, or a different place in one file.
@@ -22,9 +25,10 @@ rendered. Every change you hear is a different file, or a different place in one
 **What Web Audio is for.** Web Audio is the player engine's way to the speaker (not `<audio>` elements, which cannot
 switch on the bar). These uses are allowed, because none of them does the DAW's job:
 
-- **Playing rendered files**: decoding, starting, stopping and jumping on the audio clock, and the few-millisecond
-  fades a switch needs so it does not click. A playback library may do this work (17 November 2026), and may draw the
-  waveform; its instruments, synths and effects stay unused.
+- **Playing rendered files**: decoding, starting, stopping and jumping on the audio clock, several at once on the
+  beat (loops, transition sounds), at their rendered level, and the few-millisecond fades a switch needs so it does
+  not click. A playback library may do this work (17 November 2026), and may draw the waveform; its instruments,
+  synths and effects stay unused.
 - **A loudness match for comparing** two renders (studio's Match loudness): a listening aid, not a mix move.
 - **The mic**: capture, levels and sending it to the Mac.
 - **Interface sounds** that are not music, such as studio's ready sound.
@@ -34,16 +38,42 @@ this document and every document that repeats the rule, as narrowly as the reque
 one page, with its reason and date. Then it builds what was asked, and nothing beyond that exception. A request is
 never read as lifting the rule in general.
 
-### The one exception: the HW002 arranger (11 November 2026)
+### Arrangement pages output structures (12 November 2026)
 
-Anthony asked for it: "Bounce loops from HW002 and build an arrangement app". `contrib/arranger/` may do one thing the
-rule above forbids: **start loops bounced from Live together on the bar clock**, so an arrangement can be tried in
-the time it takes to tap it in. Nothing else is lifted. The loops are Live's own bounces of the set (one part soloed,
-through its devices, its group's and Main), cut on the bar and played at their rendered level: no gain, EQ, effect,
-stretch or synthesis in the browser, only the few-millisecond fade a cut needs. The page says on its face that it is
-a sketch and not a render of the set, and `mine.py` measures how far the song's own arrangement, summed this way, is
-from Live's bounce of the mix. An arrangement that matters is still heard as a render from Live. The exception is
-for this page only and is not a pattern to copy.
+Anthony: "The arrangement pages should be outputting structures, not audio files." The HW002 arranger
+(`contrib/arranger/`) and its transitions page play loops and transition sounds rendered in Live, started together
+on the beat, so an arrangement can be tried in the time it takes to tap it in. What they produce is a structure:
+which loop plays on which lane in which bars, and which transition lands at which section change with the Live recipe
+that made it. Live turns that structure into the sound; the page never renders, bounces or exports audio of its own.
+The loops are Live's own bounces of the set (one part soloed, through its devices, its group's and Main), cut on the
+bar; the transition sounds are made in a copy of the set (`contrib/arranger/fxset.py`). Each page says on its face
+that it is a sketch and not a render of the set, and `mine.py` measures how far the song's own arrangement, summed
+this way, is from Live's bounce of the mix. An arrangement that matters is heard as a render from Live.
+
+### Named exceptions
+
+#### Gain faders on the transitions page (12 November 2026)
+
+Anthony asked for it: "boost them and then add a gain fader for each type per transition". Offered rendered level
+stops instead, he chose a gain in the browser. `contrib/arranger/static/transitions.html` may do one thing the rule
+above forbids: **set the level of each kind of transition sound (risers, reverse reverbs, fills, scoops,
+downlifters) at each section change with a Web Audio gain**, so a riser's level can be found against the music by ear.
+Nothing else is lifted: one plain gain per kind, no EQ, filter, effect or automation. The level is part of the
+structure the page writes (each pick's `gainDb`), so Live applies it when the transitions are built into the set; an
+arrangement that matters is still heard as a render from Live. The exception is for this page only and is not a
+pattern to copy.
+
+#### The first mix page: gain, pan and EQ cuts (12 November 2026)
+
+Anthony asked for it: "Mixing should be another app that stores structure ... Gain balance, Pan, EQ cuts ... Start
+with the online browser audio for initial mixing." `contrib/arranger/static/mix.html` may do three things the rule
+above forbids, on each channel (a lane of the arrangement, or a kind of transition): **a gain, a pan, and EQ cuts**
+(a high-pass, a low-pass and up to three bell cuts, each Web Audio's plain biquad, never a boost). Nothing else is
+lifted: no boosts, distortion, compression, bus processing, sends or automation; those are the second mixing step,
+heard only as small batches rendered in Live. What the page produces is a structure (the arrangement's `mix`: each
+channel's gain, pan and cuts), which Live applies when the recipe is run. Web Audio's filters are not Live's EQ Eight,
+so the cuts are a sketch of where to cut, and the page says so. The exception is for this page only and is not a
+pattern to copy.
 
 Where the files come from: a change to a set is heard only as a render of that set from Live. Other material is
 played as the file it is: library sounds, collages made on the Mac, and the background work in The Wasteland
@@ -64,14 +94,16 @@ gets work, and never copied.
 | Where | What it does | Status |
 |---|---|---|
 | `studio/static/lab/` (the HW002 lab) | Stems through channel strips, sketches of every kick and mix param, a kick synth, granular and slice players | Breaks the rule. Its sound is replaced by the player engine; its surfaces stay. |
-| `studio/static/js/audio.js`, `clip.js`, `buffers.js` | Plays speech and renders on the audio clock | Allowed: this is the player engine's seed. |
-| `studio/static/js/cue.js` | The ready sound: two notes made with oscillators | Allowed: an interface sound, not music. |
-| `studio/static/checklist/flow/sound.js` | The check's click: a filtered noise tick and a short tone, about 60 ms | Allowed: an interface sound, not music. |
-| `studio/static/checklist/map/sounds.js` | The check's sounds: six layered hits rendered in Live (`hands/scripts/ui_sounds/`), each with a heavier and a soft version, kept in R2 and decoded and started as rendered | Allowed: playing rendered files. |
-| `studio/static/checklist/rummage/sounds.js` | The Rummage's interface sounds (steps, pickup, place, a machine's open, tick, lever and stamp, the finish, the tear), rendered in Live from found objects (`hands/scripts/rummage/sounds.py`), decoded once and started as rendered | Allowed: playing rendered files. |
-| `studio/static/js/mic.js` | Captures the mic through an AudioWorklet | Allowed: the mic. |
-| `contrib/arranger/static/index.html` (the HW002 arranger) | Starts loops bounced from Live together on the bar clock, as rendered | Allowed by the one named exception above, for this page only. |
-| `prototypes/audio-browser/frontend/lib/` (`collagePlayer.ts`, `slicePlayer.ts`, `softClip.ts`) | Assembles a collage from slices and soft-clips it | Breaks the rule (assembly and clipping); to be replaced if the prototype is revived. |
+| `prototypes/checklist/static/flow/sound.js` | The check's click: a filtered noise tick and a short tone, about 60 ms | Allowed: an interface sound, not music. |
+| `prototypes/checklist/static/map/sounds.js` | The check's sounds: six layered hits rendered in Live (`hands/scripts/ui_sounds/`), each with a heavier and a soft version, kept in R2 and decoded and started as rendered | Allowed: playing rendered files. |
+| `prototypes/checklist/static/rummage/sounds.js` | The Rummage's interface sounds (steps, pickup, place, a machine's open, tick, lever and stamp, the finish, the tear), rendered in Live from found objects (`hands/scripts/rummage/sounds.py`), decoded once and started as rendered | Allowed: playing rendered files. |
+| `contrib/arranger/static/index.html` (the HW002 arranger) | Starts loops bounced from Live together on the bar clock, as rendered; saves arrangements as structures | Allowed: playing rendered files. |
+| `contrib/arranger/static/transitions.html` (the arranger's transitions page) | Starts transition sounds made in Live on the beat over the loops; a gain fader per kind of transition at each section change; writes the picks and their levels into the arrangement's structure | Playing rendered files; the faders are a named exception above. |
+| `contrib/arranger/static/mix.html` (the first mix page) | Plays the arrangement's loops and transitions through a gain, a pan and EQ cuts per channel; writes the arrangement's `mix` | The second named exception above, for this page only. |
+| `contrib/arranger/static/mix2.html` (the second mix page) | Plays renders of the mix set made in Live (`mixset.py`), switched on the bar; its loudness match is a second render made in Live | Allowed: playing rendered files. |
+| `contrib/arranger/static/spectral.html` (the spectrum A/B) | Plays renders of the mix set made in Live (`spectral.py`) and the reference tracks, switched on the beat; a loudness match for comparing | Allowed: playing rendered files, and the loudness match. |
+| `contrib/arranger/static/kick.html` (the kick design page) | Plays kick loops rendered in Live (`kickfuzz.py`) and bars cut from the reference tracks where their kick plays nearly alone, A/B/C on the beat; a loudness match for comparing; draws each kick's spectrum frame by frame from numbers worked out on the Mac (`kickdesign.py`) | Allowed: playing rendered files, the loudness match, and measuring. |
+| `prototypes/audio-browser/frontend/lib/` (`collagePlayer.ts`, `slicePlayer.ts`, `softClip.ts`) | Assembles a collage from slices and soft-clips it | Breaks the rule (slicing and clipping); to be replaced if the prototype is revived. |
 
 ## The player engine
 

@@ -1,0 +1,147 @@
+# zpkt: one installable package. zpkt.live drives Ableton Live (was `hands`); zpkt.audio measures renders (was
+# `ears`, with the mastering lab's meters, once `mlab`). Install a half with its extra: zpkt[live], zpkt[audio].
+[project]
+name = "zpkt"
+version = "0.1.0"
+description = "Making music with Ableton Live from code: drive Live (zpkt.live) and measure renders (zpkt.audio)"
+requires-python = ">=3.12"
+# What both halves need. zpkt.live needs nothing more, so zpkt[live] is these alone.
+dependencies = [
+    "numpy>=2.5.5",
+    "pydantic>=2.14.3",
+    "rich>=13.0.0",
+    "soundfile>=0.12",
+    "typer>=0.29.1",
+]
+
+[project.optional-dependencies]
+live = []
+audio = [
+    "librosa>=0.11.0",
+    "onnxruntime>=1.20.0",
+    "pyloudnorm>=0.1.1",
+    "pyyaml>=6.0",
+    "scipy>=1.11.0",
+]
+# Heavy extractors for zpkt.audio, installed by hand: madmom (rhythm, needs Cython), basic-pitch (pitch),
+# demucs (stems), essentia (conda only on some platforms).
+gemini = ["google-generativeai>=0.8.6"]
+# `hands serum2` (Serum 2 state codec; pedalboard/mido for offline renders and knob values).
+serum = [
+    "cbor2>=6.3.0",
+    "zstandard>=0.23",
+    "pedalboard>=0.9",
+    "mido>=1.3",
+]
+
+[project.scripts]
+zpkt = "zpkt.cli:main"                # zpkt live ..., zpkt audio ...
+hands = "zpkt.live.cli:main"          # the old name of `zpkt live`
+ears = "zpkt.audio.cli:main"          # the old name of `zpkt audio`: profiles, the corpus and every meter
+mlab = "zpkt.audio.meters.cli:main"   # the mastering lab's commands, as they were when mlab was its own project
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+# hands, ears and mlab: the old import names, kept as aliases (zpkt._aliases).
+packages = ["src/zpkt", "src/hands", "src/ears", "src/mlab"]
+
+[dependency-groups]
+dev = [
+    "jsonschema>=4.26.0",
+    "mypy>=2.4.1",
+    "pytest>=9.2.0",
+]
+
+[tool.pytest.ini_options]
+# tests/live and tests/audio: each half's tests; ears/mlab/calibration: the meters' known-answer checks, kept with
+# the lab. The helper modules (planted, signals, checks ...) import by their plain names.
+testpaths = ["tests", "ears/mlab/calibration"]
+pythonpath = ["tests/live", "tests/audio", "ears/mlab/calibration"]
+
+# mypy: `uv run --all-extras mypy` from the repo root. Every module is checked. zpkt.audio is strict throughout;
+# zpkt.live's library that drives Live and the modules written in the 2026-11 upgrade are strict, except that a reply
+# from Live may be returned as Any: the LOM answers dynamic data, and each reply is parsed where its shape matters
+# (zpkt.live.state, zpkt.live.desk).
+[tool.mypy]
+python_version = "3.12"
+files = ["src"]
+mypy_path = "src"
+exclude = ["src/zpkt/live/remote_scripts/"]   # they run inside Live; AbletonLiveMCP is vendored as upstream wrote it
+ignore_missing_imports = true
+warn_unused_ignores = true
+warn_redundant_casts = true
+
+# Left as is: zpkt.live.als reads ElementTree's find() without checking for None (about 75 places), so a file that is
+# not a set Live wrote fails with an AttributeError rather than a message. Optional checking is off there until it
+# reads through one checked helper.
+[[tool.mypy.overrides]]
+module = ["zpkt.live.als.*"]
+strict_optional = false
+
+# The duck-typed helpers that also run inside Live take Live's objects (song, a parameter) unannotated; otherwise
+# they are as strict as the modules below.
+[[tool.mypy.overrides]]
+module = ["zpkt.live.inlive.*"]
+disallow_untyped_defs = false
+disallow_incomplete_defs = false
+disallow_untyped_calls = true
+disallow_any_generics = true
+check_untyped_defs = true
+no_implicit_reexport = false
+strict_equality = true
+warn_return_any = false
+
+# Once hands.live, and hands' modules written in the upgrade.
+[[tool.mypy.overrides]]
+module = [
+    "zpkt.live.agent", "zpkt.live.cli_options", "zpkt.live.desk", "zpkt.live.device", "zpkt.live.edit_cli",
+    "zpkt.live.export", "zpkt.live.hold", "zpkt.live.knobs", "zpkt.live.live_cli", "zpkt.live.midi", "zpkt.live.mix",
+    "zpkt.live.ops", "zpkt.live.panel", "zpkt.live.panel_base", "zpkt.live.panel_blocks", "zpkt.live.panel_cli",
+    "zpkt.live.panel_render", "zpkt.live.record", "zpkt.live.render", "zpkt.live.reset", "zpkt.live.riff",
+    "zpkt.live.rig", "zpkt.live.rig_cli", "zpkt.live.session", "zpkt.live.shape", "zpkt.live.song", "zpkt.live.state",
+    "zpkt.live.state_cli", "zpkt.live.surface", "zpkt.live.sweep", "zpkt.live.timeops", "zpkt.live.transport",
+    "zpkt.live.ui", "zpkt.live.units", "zpkt.live.versions", "zpkt.live.writes",
+    "zpkt.live.bench", "zpkt.live.config", "zpkt.live.als_cli", "zpkt.live.kit_cli", "zpkt.live.project_cli",
+    "zpkt", "zpkt.cli", "zpkt._aliases", "zpkt.app", "hands", "hands.*", "ears", "mlab", "mlab.*",
+]
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+disallow_untyped_calls = true
+disallow_any_generics = true
+check_untyped_defs = true
+no_implicit_reexport = false
+strict_equality = true
+warn_return_any = false
+
+# zpkt.audio: what `strict = true` turns on, per module. numpy's stubs type most reductions and many ufuncs as Any;
+# wrapping each in float() would change what some reports print (repr of np.float64), so returning those is allowed.
+[[tool.mypy.overrides]]
+module = ["zpkt.audio", "zpkt.audio.*"]
+ignore_missing_imports = false
+disallow_any_generics = true
+disallow_subclassing_any = true
+disallow_untyped_calls = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+disallow_untyped_decorators = true
+warn_unused_ignores = true
+warn_return_any = false
+no_implicit_reexport = true
+strict_equality = true
+extra_checks = true
+
+[[tool.mypy.overrides]]
+# The lab's calibration checks, which `mlab calibrate` puts on the path at run time: reported, then ignored where
+# imported, as when zpkt.audio was its own strict project.
+module = ["checks"]
+ignore_missing_imports = false
+
+[[tool.mypy.overrides]]
+# Libraries without type information (zpkt.audio's).
+module = ["scipy", "scipy.*", "soundfile", "pyloudnorm", "librosa", "librosa.*", "yaml", "onnxruntime",
+          "madmom", "madmom.*", "basic_pitch", "basic_pitch.*", "essentia", "essentia.*"]
+ignore_missing_imports = true

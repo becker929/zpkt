@@ -8,19 +8,19 @@ original and five spread along the sweep, one of them the closest to the referen
 version, 7 bars (first bar dropped), at -14 LUFS. Each title places the aspect's two main features against
 the references' range (min to max over the four Bandcamp references, measured the same way).
 """
+
 import hashlib
 import json
 import os
 import subprocess
 import sys
 
-import numpy as np
-import soundfile as sf
-
 import climb as K  # the spike's own modules, beside this script
 import features as F
+import numpy as np
 import publish as P5  # at, announce, SHOW
 import publish6 as P6  # human, changes, upload, NAME, SLUG, ORDER
+import soundfile as sf
 
 DATA = P6.DATA
 SITE = P6.SITE
@@ -34,20 +34,46 @@ TITLE = {  # aspect: the two features its titles report
     "deep_sub": ["third_octave_rel.31.6", "third_octave_rel.39.8"],
     "mono_low": ["corr.20-120", "side_mid.20-120"],
     "colour": ["third_octave_rel.1995.3", "ears.centroid_hz"],
-    "space": ["side_mid.500-2000", "side_mid.8000-20000"],   # in the drop, 2-8 kHz is already in range
+    "space": ["side_mid.500-2000", "side_mid.8000-20000"],  # in the drop, 2-8 kHz is already in range
 }
-SHORT = {"third_octave_rel.1995.3": "2 kHz", "block_crest_median_db": "crest", "transient_contrast_db": "transients",
-         "third_octave_rel.31.6": "31.5 Hz", "third_octave_rel.39.8": "40 Hz", "corr.20-120": "low-end correlation",
-         "side_mid.20-120": "low-end side", "ears.centroid_hz": "centroid", "third_octave_rel.10000.0": "10 kHz",
-         "corr.2000-8000": "2-8 kHz correlation", "side_mid.2000-8000": "2-8 kHz side",
-         "side_mid.500-2000": "0.5-2 kHz side", "side_mid.8000-20000": "8-20 kHz side"}
-SPOKEN = {"third_octave_rel.1995.3": "two kilohertz", "block_crest_median_db": "crest", "transient_contrast_db": "transients",
-          "third_octave_rel.31.6": "thirty one hertz", "third_octave_rel.39.8": "forty hertz", "corr.20-120": "low end correlation",
-          "side_mid.20-120": "low end side", "ears.centroid_hz": "centroid", "third_octave_rel.10000.0": "ten kilohertz",
-          "corr.2000-8000": "high correlation", "side_mid.2000-8000": "high side",
-          "side_mid.500-2000": "mid side", "side_mid.8000-20000": "air side"}
-FMT = {k: fmt for fs in P5.SHOW.values() for k, _, fmt in fs} | {"side_mid.500-2000": "{:.1f} dB", "side_mid.8000-20000": "{:.1f} dB"}
-LABEL = {k: lab for fs in P5.SHOW.values() for k, lab, _ in fs} | {"side_mid.500-2000": "0.5-2 kHz side", "side_mid.8000-20000": "8-20 kHz side"}
+SHORT = {
+    "third_octave_rel.1995.3": "2 kHz",
+    "block_crest_median_db": "crest",
+    "transient_contrast_db": "transients",
+    "third_octave_rel.31.6": "31.5 Hz",
+    "third_octave_rel.39.8": "40 Hz",
+    "corr.20-120": "low-end correlation",
+    "side_mid.20-120": "low-end side",
+    "ears.centroid_hz": "centroid",
+    "third_octave_rel.10000.0": "10 kHz",
+    "corr.2000-8000": "2-8 kHz correlation",
+    "side_mid.2000-8000": "2-8 kHz side",
+    "side_mid.500-2000": "0.5-2 kHz side",
+    "side_mid.8000-20000": "8-20 kHz side",
+}
+SPOKEN = {
+    "third_octave_rel.1995.3": "two kilohertz",
+    "block_crest_median_db": "crest",
+    "transient_contrast_db": "transients",
+    "third_octave_rel.31.6": "thirty one hertz",
+    "third_octave_rel.39.8": "forty hertz",
+    "corr.20-120": "low end correlation",
+    "side_mid.20-120": "low end side",
+    "ears.centroid_hz": "centroid",
+    "third_octave_rel.10000.0": "ten kilohertz",
+    "corr.2000-8000": "high correlation",
+    "side_mid.2000-8000": "high side",
+    "side_mid.500-2000": "mid side",
+    "side_mid.8000-20000": "air side",
+}
+FMT = {k: fmt for fs in P5.SHOW.values() for k, _, fmt in fs} | {
+    "side_mid.500-2000": "{:.1f} dB",
+    "side_mid.8000-20000": "{:.1f} dB",
+}
+LABEL = {k: lab for fs in P5.SHOW.values() for k, lab, _ in fs} | {
+    "side_mid.500-2000": "0.5-2 kHz side",
+    "side_mid.8000-20000": "8-20 kHz side",
+}
 SWEEP = {  # what sweep_live.py turns when the aspect's climb found nothing (its "primary" mode)
     "kick_distortion": "Decapitator drive on rumble and COLDFIRE drive on the kick group, together from 0 to 100%",
     "density": "the kick group Compressor, threshold from 0 to -30 dB while the ratio goes from 1.5:1 to 12:1",
@@ -87,8 +113,8 @@ def single_file(x, sr, path):
     if peak > 0.89:
         x = x * 0.89 / peak
     fade = np.linspace(0, 1, int(0.01 * sr))[:, None]
-    x[:len(fade)] *= fade
-    x[-len(fade):] *= fade[::-1]
+    x[: len(fade)] *= fade
+    x[-len(fade) :] *= fade[::-1]
     wav = path[:-4] + ".wav"
     sf.write(wav, x.astype(np.float32), sr, subtype="FLOAT")
     subprocess.run(["ffmpeg", "-v", "error", "-y", "-i", wav, "-b:a", "192k", path], check=True)
@@ -130,42 +156,73 @@ def main():
             if orig:
                 what = "The set as mixed."
             elif sw["mode"] == "path":
-                what = (f"{sw['t'][j]:.2f} times the change the batch 6 climb found (1.00 is its best): "
-                        + "; ".join(P6.changes(a, sw["params"][j])) + ".")
+                what = (
+                    f"{sw['t'][j]:.2f} times the change the batch 6 climb found (1.00 is its best): "
+                    + "; ".join(P6.changes(a, sw["params"][j]))
+                    + "."
+                )
             else:
                 what = "Changed: " + "; ".join(P6.changes(a, sw["params"][j])) + "."
-            meas = " ".join(f"{LABEL[k][0].upper() + LABEL[k][1:]} {FMT[k].format(f[k])} (references {FMT[k].format(tg[k]['min'])} to {FMT[k].format(tg[k]['max'])})."
-                            for k in TITLE[a] + [k for k, _, _ in P5.SHOW[a] if k not in TITLE[a]] if f.get(k) is not None)
+            meas = " ".join(
+                f"{LABEL[k][0].upper() + LABEL[k][1:]} {FMT[k].format(f[k])} (references {FMT[k].format(tg[k]['min'])} to {FMT[k].format(tg[k]['max'])})."
+                for k in TITLE[a] + [k for k, _, _ in P5.SHOW[a] if k not in TITLE[a]]
+                if f.get(k) is not None
+            )
             close = " Closest of the sweep to the references." if j == closest else ""
-            e = {"id": eid, "batch": n,
-                 "title": f"HW002 — {P6.NAME[a]} {v}{' (original)' if orig else ''}: {rel(k1, f[k1], tg)}, {rel(k2, f[k2], tg, first=False)}",
-                 "date": DATE, "file": f"/audio/skrng/{eid}.mp3", "duration_s": dur, "bpm": 160,
-                 "notes": f"{what}{close} Measured at -14 LUFS: {meas} 7 bars of the drop, rendered in Live (sweep pattern {j}). Unmastered.",
-                 "announce": None}
+            e = {
+                "id": eid,
+                "batch": n,
+                "title": f"HW002 — {P6.NAME[a]} {v}{' (original)' if orig else ''}: {rel(k1, f[k1], tg)}, {rel(k2, f[k2], tg, first=False)}",
+                "date": DATE,
+                "file": f"/audio/skrng/{eid}.mp3",
+                "duration_s": dur,
+                "bpm": 160,
+                "notes": f"{what}{close} Measured at -14 LUFS: {meas} 7 bars of the drop, rendered in Live (sweep pattern {j}). Unmastered.",
+                "announce": None,
+            }
             say = f"{P6.NAME[a]}, {P6.NUM[v - 1]}{', the original' if orig else ''}. {spoken(k1, f[k1], tg)}"
-            e["announce"] = f"/audio/skrng/tts/{eid}-{hashlib.md5(say.encode()).hexdigest()[:6]}.mp3"   # new words, new URL
+            e["announce"] = (
+                f"/audio/skrng/tts/{eid}-{hashlib.md5(say.encode()).hexdigest()[:6]}.mp3"  # new words, new URL
+            )
             uploads += [(e["file"], mp3), (e["announce"], P5.announce(eid, say))]
             entries.append(e)
-        ranges = "; ".join(f"{LABEL[k]} {FMT[k].format(tg[k]['min'])} to {FMT[k].format(tg[k]['max'])}" for k in TITLE[a])
-        how = (SWEEP[a] if sw["mode"] == "primary" else
-               "the original moved along the change the batch 6 climb found, past its best to 2.5 times the change")
+        ranges = "; ".join(
+            f"{LABEL[k]} {FMT[k].format(tg[k]['min'])} to {FMT[k].format(tg[k]['max'])}" for k in TITLE[a]
+        )
+        how = (
+            SWEEP[a]
+            if sw["mode"] == "primary"
+            else "the original moved along the change the batch 6 climb found, past its best to 2.5 times the change"
+        )
         lo, hi = chosen[1], chosen[-1]
-        trend = "; ".join(f"{LABEL[k]} {FMT[k].format(feats[lo][k])} to {FMT[k].format(feats[hi][k])}"
-                          for k in TITLE[a] if feats[lo].get(k) is not None and feats[hi].get(k) is not None)
+        trend = "; ".join(
+            f"{LABEL[k]} {FMT[k].format(feats[lo][k])} to {FMT[k].format(feats[hi][k])}"
+            for k in TITLE[a]
+            if feats[lo].get(k) is not None and feats[hi].get(k) is not None
+        )
         c = P6.climb(a)
         if c and c["win"]:
             climbed = " The batch 6 climb's best version is in batch 6."
         elif c and c["done"]:
-            climbed = (f" The batch 6 climb ({c['state']['attempt']} rounds of 31 settings) found no setting "
-                       "nearer the references than the original, beyond the measurement noise.")
+            climbed = (
+                f" The batch 6 climb ({c['state']['attempt']} rounds of 31 settings) found no setting "
+                "nearer the references than the original, beyond the measurement noise."
+            )
         else:
             climbed = ""
-        batches.append({"n": n, "title": f"Batch 7.{i} — {P6.NAME[a]}: {len(chosen)} versions against the references (6 Oct)",
-                        "notes": (f"{len(chosen)} versions of the drop, rendered in Live: the original, then {how}. "
-                                  f"Titles place each version against the four Bandcamp references, measured the same way at -14 LUFS "
-                                  f"({ranges}). Under and over are distances outside that range. Each version is at -14 LUFS. "
-                                  f"From the first to the last version of the sweep: {trend}.{climbed}"),
-                        "ordered": True})
+        batches.append(
+            {
+                "n": n,
+                "title": f"Batch 7.{i} — {P6.NAME[a]}: {len(chosen)} versions against the references (6 Oct)",
+                "notes": (
+                    f"{len(chosen)} versions of the drop, rendered in Live: the original, then {how}. "
+                    f"Titles place each version against the four Bandcamp references, measured the same way at -14 LUFS "
+                    f"({ranges}). Under and over are distances outside that range. Each version is at -14 LUFS. "
+                    f"From the first to the last version of the sweep: {trend}.{climbed}"
+                ),
+                "ordered": True,
+            }
+        )
     if UP:
         P6.upload(uploads, OUT)
     ns = {b["n"] for b in batches}
@@ -175,7 +232,13 @@ def main():
     bt = [x for x in json.load(open(SITE + "batches.json")) if x["n"] not in ns] + batches
     json.dump(sorted(bt, key=lambda x: x["n"]), open(SITE + "batches.json", "w"), indent=2, ensure_ascii=False)
     open(SITE + "batches.json", "a").write("\n")
-    print(json.dumps({"batches": sorted(ns), "entries": [e["title"] for e in entries], "uploaded": UP}, ensure_ascii=False, indent=1))
+    print(
+        json.dumps(
+            {"batches": sorted(ns), "entries": [e["title"] for e in entries], "uploaded": UP},
+            ensure_ascii=False,
+            indent=1,
+        )
+    )
 
 
 if __name__ == "__main__":

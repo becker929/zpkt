@@ -1,0 +1,167 @@
+{
+ "set": "HW002_121_full.als",
+ "bpm": 160,
+ "rate": 44100,
+ "barSeconds": 1.5,
+ "lanes": [
+  {
+   "id": "kick",
+   "title": "Kick",
+   "group": "kick",
+   "color": "#ff6b5e"
+  },
+  {
+   "id": "chord",
+   "title": "Chord",
+   "group": "sfx",
+   "color": "#8aa4ff"
+  }
+ ],
+ "clips": [
+  {
+   "id": "kick-a",
+   "lane": "kick",
+   "title": "Kick alone A",
+   "kind": "loop",
+   "bars": 1,
+   "fileBars": 1,
+   "file": "38308bd310ed2281.flac",
+   "peaks": [
+    0.997,
+    0.485,
+    0.286,
+    0.185,
+    0.124,
+    0.082,
+    0.998,
+    0.491,
+    0.296,
+    0.185,
+    0.126,
+    0.087,
+    0.968,
+    0.478,
+    0.296,
+    0.182,
+    0.122,
+    0.093,
+    1.0,
+    0.483,
+    0.306,
+    0.184,
+    0.12,
+    0.085
+   ],
+   "src": {
+    "stem": "kick",
+    "bar": 5
+   }
+  },
+  {
+   "id": "chord-a",
+   "lane": "chord",
+   "title": "Chord A",
+   "kind": "loop",
+   "bars": 2,
+   "fileBars": 2,
+   "file": "56a6babb053b09c6.flac",
+   "peaks": [
+    1.0,
+    1.0,
+    1.0,
+    1.0,
+    1.0,
+    1.0,
+    1.0,
+    1.0,
+    1.0,
+    1.0,
+    1.0,
+    1.0,
+    1.0,
+    1.0,
+    1.0,
+    1.0,
+    1.0,
+    1.0,
+    1.0,
+    1.0,
+    1.0,
+    1.0,
+    1.0,
+    1.0,
+    0.5,
+    0.5,
+    0.5,
+    0.5,
+    0.5,
+    0.5,
+    0.5,
+    0.5,
+    0.5,
+    0.5,
+    0.5,
+    0.5,
+    0.5,
+    0.5,
+    0.5,
+    0.5,
+    0.5,
+    0.5,
+    0.5,
+    0.5,
+    0.5,
+    0.5,
+    0.5,
+    0.5
+   ],
+   "src": {
+    "stem": "chord",
+    "bar": 14
+   }
+  }
+ ],
+ "check": "Check: the song preset, summed as this page plays it, is -0.0 LU from Live's own bounce of the mix; bar by bar the level differs by 0.0 dB (median) and 0.0 dB (worst bar).",
+ "presets": [
+  {
+   "name": "The song",
+   "bars": 180,
+   "regions": [
+    {
+     "lane": "kick",
+     "clip": "kick-a",
+     "start": 4,
+     "len": 16,
+     "off": 0
+    },
+    {
+     "lane": "chord",
+     "clip": "chord-a",
+     "start": 12,
+     "len": 8,
+     "off": 0
+    }
+   ]
+  },
+  {
+   "name": "First drop",
+   "bars": 32,
+   "regions": [
+    {
+     "lane": "kick",
+     "clip": "kick-a",
+     "start": 4,
+     "len": 16,
+     "off": 0
+    },
+    {
+     "lane": "chord",
+     "clip": "chord-a",
+     "start": 12,
+     "len": 8,
+     "off": 0
+    }
+   ]
+  }
+ ]
+}

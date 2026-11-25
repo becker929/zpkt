@@ -28,15 +28,15 @@ from typing import Any
 
 log = logging.getLogger(__name__)
 
-REGIONS = ("rummage",)                   # the allowlist: a region id the page may read and write
-PARTS = ("bed", "drums", "bass")         # the machines, in the order a combo names them
+REGIONS = ("rummage",)  # the allowlist: a region id the page may read and write
+PARTS = ("bed", "drums", "bass")  # the machines, in the order a combo names them
 OPTIONS = (1, 2, 3)
 ARTIFACT = re.compile(r"(bed|drums|bass)-([1-3])")
 COMBO = re.compile(r"[1-3]-[1-3]-[1-3]")
 KEYS = {"region", "updated", "committed", "carrying", "plinths", "completions", "page"}
 COMPLETION_KEYS = {"at", "combo", "plate"}
-COMPLETIONS_MAX = 1000                   # the newest are kept
-PAGE_MAX = 4096                          # bytes of the page's own JSON
+COMPLETIONS_MAX = 1000  # the newest are kept
+PAGE_MAX = 4096  # bytes of the page's own JSON
 
 
 class Invalid(ValueError):
@@ -44,8 +44,15 @@ class Invalid(ValueError):
 
 
 def empty(region: str) -> dict[str, Any]:
-    return {"region": region, "updated": None, "committed": dict.fromkeys(PARTS), "carrying": None,
-            "plinths": dict.fromkeys(PARTS), "completions": [], "page": {}}
+    return {
+        "region": region,
+        "updated": None,
+        "committed": dict.fromkeys(PARTS),
+        "carrying": None,
+        "plinths": dict.fromkeys(PARTS),
+        "completions": [],
+        "page": {},
+    }
 
 
 def _option(value: Any, where: str) -> int | None:
@@ -114,8 +121,15 @@ def validate(state: Any) -> dict[str, Any]:
         raise Invalid("page: expected an object")
     if len(json.dumps(page, separators=(",", ":")).encode()) > PAGE_MAX:
         raise Invalid(f"page: more than {PAGE_MAX} bytes")
-    return {"region": None, "updated": None, "committed": committed, "carrying": carrying, "plinths": plinths,
-            "completions": done[-COMPLETIONS_MAX:], "page": page}
+    return {
+        "region": None,
+        "updated": None,
+        "committed": committed,
+        "carrying": carrying,
+        "plinths": plinths,
+        "completions": done[-COMPLETIONS_MAX:],
+        "page": page,
+    }
 
 
 class RegionStore:

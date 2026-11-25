@@ -11,7 +11,7 @@ beside Claude Code, and he can reach it two ways:
 ## How zpkt is set up for it
 
 - **Rules:** `.gemini/settings.json` makes Gemini CLI read `AGENTS.md`, which links to `CLAUDE.md`. Both agents get
-  the same rules: Live through `hands`, images only through `harness images`, and nothing personal in the core.
+  the same rules: Live through `hands`, images only through the image wall's `images` command (becker929/image-wall), and nothing personal in the core.
 - **Skills:** `.agents/skills/` links to the skills in `agent/skills/`, as `.claude/skills/` does for Claude Code.
 - **Key:** `harness gemini` and the page both take the key from the Keychain's `zpkt-gemini-api-key` (or
   `HARNESS_GEMINI`), the same key the images use. They put it only in Gemini CLI's environment, and never write it
@@ -38,19 +38,19 @@ from, with its own tools: it reads, edits, runs shell commands and drives Live t
 - **A turn runs on the Mac.** Closing the page doesn't stop it. Opening the page again shows everything so far and
   follows what comes next. The stop button cancels the turn.
 - **On screen:** the answer as it streams, Gemini's thinking (folded away), each tool call with its status and its
-  diff or output, and its plan. **Send to Claude** under each answer starts a Claude Code job with the question and
-  the answer.
+  diff or output, and its plan. **Copy** under each answer copies it.
 - **Sessions last across restarts.** Gemini CLI keeps each session in `~/.gemini`. After the harness restarts, the
   first message in an old session loads it into the new process. Gemini CLI deletes sessions after 30 days by
   default (`general.sessionRetention`). An older session still shows on the page but can no longer go on.
 - **Costs:** each turn's tokens are logged with an estimate in dollars, at the standard rates in
-  `harness/gemini.py`. Each answer shows its cost. The side panel shows the month's total for Gemini CLI and for
+  `harness/gemini/cost.py`. Each answer shows its cost. The side panel shows the month's total for Gemini CLI and for
   images (every image in `images.jsonl`, whoever made it). The real bill is on the AI Studio and Cloud Billing
   pages, because the key cannot read billing.
 
 ## Where things are
 
-- **Code:** `contrib/harness/src/harness/gemini.py` (the wrapper, the ACP client, the sessions, the estimate) and
+- **Code:** `contrib/harness/src/harness/gemini/` (`terminal.py` the wrapper, `acp.py` the ACP client, `sessions.py`
+  the sessions, `cost.py` the estimate) and
   `contrib/harness/src/harness/studio/gemini_routes.py` (the routes, listed at its top).
 - **Page:** `contrib/harness/src/harness/studio/static/gemini/`.
 - **Tests:** `contrib/harness/tests/test_gemini.py`, against a fake Gemini CLI that speaks ACP

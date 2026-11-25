@@ -10,7 +10,7 @@ control surfaces, organised by the steps of the workflow (`contrib/docs/workflow
 and mix, plus a fifth tab of stranger instruments. HW002's own stems play under every control, so each move is
 heard at once.
 
-It runs inside `harness serve`, behind the harness password, at `/studio/lab/` (studio's menu has a row for it).
+It runs inside `harness serve`, behind the harness password, at `/studio/lab/` (the home page at `/studio/` links it).
 Nothing it does reaches Live: it is a sketch of the set on the phone, made to find what to try in Live next. "Copy
 changes" in its menu gives every moved knob in Live's terms, ready to become a plan (`hands plan`).
 

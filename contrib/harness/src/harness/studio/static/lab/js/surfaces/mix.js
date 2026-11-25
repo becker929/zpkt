@@ -38,14 +38,26 @@ export default {
     const loop = frameLoop();
     const rt = { ctx, C: colours(), loop, taps: null, meter: null, meterFns: new Set(), dead: false, lastClimb: null };
     const parts = {};
-    if (window.lab) window.lab.mix = rt;                  // for tests and the console
+    if (window.lab) window.lab.mix = rt; // for tests and the console
 
     // teardown first, so it runs first: the A/B lets go, the desk clears its solos, then the taps come off
     ctx.own(() => {
       rt.dead = true;
-      try { parts.ab?.stop(); } catch (err) { console.error(err); }
-      try { parts.desk?.clear(); } catch (err) { console.error(err); }
-      try { parts.space?.stop?.(); } catch (err) { console.error(err); }
+      try {
+        parts.ab?.stop();
+      } catch (err) {
+        console.error(err);
+      }
+      try {
+        parts.desk?.clear();
+      } catch (err) {
+        console.error(err);
+      }
+      try {
+        parts.space?.stop?.();
+      } catch (err) {
+        console.error(err);
+      }
       rt.taps?.detach();
       rt.taps = null;
       rt.meterFns.clear();
@@ -58,7 +70,10 @@ export default {
     parts.bridge = bridge(rt, { onTap: () => jump('loud') });
     parts.desk = desk(rt, {
       onSelect: (strip) => {
-        if (strip.ret) { jump('space'); return; }
+        if (strip.ret) {
+          jump('space');
+          return;
+        }
         parts.tone.select(strip.bus);
         parts.tone.el.querySelector('.mx-eq-head')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
       },
@@ -71,14 +86,24 @@ export default {
     parts.space = space(rt);
     parts.loud = loudness(rt);
 
-    const chips = [['aspects', 'Aspects'], ['tone', 'Tone'], ['low', 'Low end'], ['drop', 'Drop'], ['space', 'Space'], ['loud', 'Loudness']]
-      .map(([key, text]) => h('button', { type: 'button', class: 'mx-chip', text, onclick: () => jump(key) }));
+    const chips = [
+      ['aspects', 'Aspects'],
+      ['tone', 'Tone'],
+      ['low', 'Low end'],
+      ['drop', 'Drop'],
+      ['space', 'Space'],
+      ['loud', 'Loudness'],
+    ].map(([key, text]) => h('button', { type: 'button', class: 'mx-chip', text, onclick: () => jump(key) }));
 
     root.append(
       parts.bridge.el,
       parts.desk.el,
       parts.ab.el,
-      stageHead('Mix', 'colour and space', 'The gaps to the references are in the mix: scooped mids, missing deep sub, too much air, a wide low end, a sparse peak. Close them here, by ear and by meter.'),
+      stageHead(
+        'Mix',
+        'colour and space',
+        'The gaps to the references are in the mix: scooped mids, missing deep sub, too much air, a wide low end, a sparse peak. Close them here, by ear and by meter.',
+      ),
       h('nav', { class: 'mx-jump', 'aria-label': 'Mix sections' }, ...chips),
       parts.aspects.el,
       parts.tone.el,
@@ -89,14 +114,22 @@ export default {
     );
 
     // the ears, once the engine has a context (the gate's tap)
-    ctx.own(ctx.engine.onReady((engine) => {
-      if (rt.dead || rt.taps) return;
-      rt.taps = attachTaps(engine, (msg) => {
-        rt.meter = msg;
-        for (const fn of rt.meterFns) { try { fn(msg); } catch (err) { console.error(err); } }
-      });
-      parts.desk.apply();
-      parts.tone.attach?.();
-    }));
+    ctx.own(
+      ctx.engine.onReady((engine) => {
+        if (rt.dead || rt.taps) return;
+        rt.taps = attachTaps(engine, (msg) => {
+          rt.meter = msg;
+          for (const fn of rt.meterFns) {
+            try {
+              fn(msg);
+            } catch (err) {
+              console.error(err);
+            }
+          }
+        });
+        parts.desk.apply();
+        parts.tone.attach?.();
+      }),
+    );
   },
 };

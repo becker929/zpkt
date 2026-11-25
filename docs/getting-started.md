@@ -13,7 +13,7 @@ From a fresh clone to a measured render. About ten minutes if Live is already in
 
 ```bash
 git clone https://github.com/becker929/zpkt && cd zpkt
-hands/remote_scripts/install.sh
+src/zpkt/live/remote_scripts/install.sh
 ```
 
 This copies two Control Surface scripts into `~/Music/Ableton/User Library/Remote Scripts/`:
@@ -35,8 +35,9 @@ Do not put it on a row that already has a controller.
 
 ## 3. Check the connection
 
+From the repo root (`uv sync --all-extras` once; `zpkt live` and its old name `hands` are the same command):
+
 ```bash
-cd hands
 uv run hands live ping
 ```
 
@@ -80,7 +81,6 @@ Settings → Privacy & Security). The pointer moves during the export and is par
 ## 6. Measure the render
 
 ```bash
-cd ../ears
 uv run ears analyze ~/Music/zpkt/renders/take.wav
 ```
 
@@ -128,7 +128,7 @@ tracks are muted?"* See [`agent/README.md`](../agent/README.md).
 
 What differs per Mac is read from `~/.config/zpkt/rig.toml` or the environment; nothing personal
 is in the repo. The defaults put everything under `~/Music/zpkt/`. The keys are listed in
-[`hands/README.md`](../hands/README.md#rig-settings).
+[`src/zpkt/live/README.md`](../src/zpkt/live/README.md#rig-settings).
 
 `hands` commands that change a set on their own (probe kits, plans, time edits) first check that
 the front set is "one of ours": its name starts with one of `set_prefixes` (default `zpkt_`). It

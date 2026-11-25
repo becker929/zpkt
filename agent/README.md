@@ -27,7 +27,7 @@ Nothing to install either. `.agents/skills/` links to the same folders, and `.ge
 makes Gemini CLI read `AGENTS.md` as its context file. Run `gemini` from the repo root (on
 Anthony's Mac, `harness gemini` adds the API key from the Keychain).
 
-The skills call `hands` by its path in this repo (`cd hands && uv run hands …`), so keep the
+The skills call `hands` by its path in this repo (`uv run --project <repo> hands …`), so keep the
 clone.
 
 ## The loop the skills assume
@@ -42,10 +42,9 @@ clone.
 
 ## Rules for agents in this repo
 
-[`CLAUDE.md`](../CLAUDE.md) holds the repo's standing rules. The four other skills in
-`.claude/skills/` (`render-plan`, `plan-cache`, `ab-1bar`, `studio-e2e`)
-belong to my voice app in [`contrib/harness`](../contrib/harness/); they show how a larger
-workflow is built on `hands plan`, and they assume my setup.
+[`CLAUDE.md`](../CLAUDE.md) holds the repo's standing rules. The other skill in `.claude/skills/`
+(`learn-tutorial`) is my own and assumes my setup. The skills that taught `hands plan` (`render-plan`, `plan-cache`,
+`ab-1bar`) were archived with it on 24 November 2026.
 
 ## Prefer MCP?
 

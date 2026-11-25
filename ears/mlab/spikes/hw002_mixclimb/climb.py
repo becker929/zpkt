@@ -9,6 +9,7 @@ high score. Score: distance to the reference range and mean on the aspect's own
 features, minus a penalty for every other feature that ends up further from the
 references than the original mix was.
 """
+
 import argparse
 import json
 import os
@@ -19,38 +20,91 @@ import numpy as np
 import soundfile as sf
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-import chains as C  # noqa: E402
-import features as F  # noqa: E402
+import chains as C
+import features as F
 
 W = os.environ.get("MIXCLIMB_DIR", os.path.expanduser("~/_agent_scratch/mixclimb/"))
-BAR = 1.5            # seconds per bar at 160 BPM
+BAR = 1.5  # seconds per bar at 160 BPM
 # Bar layout of the stems (stems/layout.json). start_bar: bar number at sample 0;
 # proc: processed span with two bars of pre-roll; meas: measured span; ab: the A/B excerpt.
-LAYOUT = {"source": "HW002_121 full arrangement", "start_bar": 121, "proc": [123, 144], "meas": [125, 144], "ab": [125, 132],
-          "ab_label": "The drop, bars 125 to 132"}
+LAYOUT = {
+    "source": "HW002_121 full arrangement",
+    "start_bar": 121,
+    "proc": [123, 144],
+    "meas": [125, 144],
+    "ab": [125, 132],
+    "ab_label": "The drop, bars 125 to 132",
+}
 if os.path.exists(W + "stems/layout.json"):
     LAYOUT.update(json.load(open(W + "stems/layout.json")))
 STEM_START, PROC, MEAS = LAYOUT["start_bar"], tuple(LAYOUT["proc"]), tuple(LAYOUT["meas"])
 EPS = 1e-4
 
-TOL = [("third_octave_rel.", 3.0), ("corr.", 0.05), ("side_mid.20-120", 6.0), ("side_mid.", 3.0),
-       ("block_crest_median_db", 1.0), ("transient_contrast_db", 1.0), ("ears.centroid_hz", 400.0),
-       ("ears.rolloff_hz", 800.0), ("ears.flatness", 0.004), ("ears.harmonic_ratio", 0.08),
-       ("ears.onset_strength", 0.05)]
+TOL = [
+    ("third_octave_rel.", 3.0),
+    ("corr.", 0.05),
+    ("side_mid.20-120", 6.0),
+    ("side_mid.", 3.0),
+    ("block_crest_median_db", 1.0),
+    ("transient_contrast_db", 1.0),
+    ("ears.centroid_hz", 400.0),
+    ("ears.rolloff_hz", 800.0),
+    ("ears.flatness", 0.004),
+    ("ears.harmonic_ratio", 0.08),
+    ("ears.onset_strength", 0.05),
+]
 
 
 def bands(lo, hi):
-    return [f"third_octave_rel.{c}" for c in ("25.1", "31.6", "39.8", "50.1", "63.1", "79.4", "100.0", "125.9",
-                                               "158.5", "199.5", "251.2", "316.2", "398.1", "501.2", "631.0",
-                                               "794.3", "1000.0", "1258.9", "1584.9", "1995.3", "2511.9",
-                                               "3162.3", "3981.1", "5011.9", "6309.6", "7943.3", "10000.0",
-                                               "12589.3", "15848.9") if lo <= float(c) <= hi]
+    return [
+        f"third_octave_rel.{c}"
+        for c in (
+            "25.1",
+            "31.6",
+            "39.8",
+            "50.1",
+            "63.1",
+            "79.4",
+            "100.0",
+            "125.9",
+            "158.5",
+            "199.5",
+            "251.2",
+            "316.2",
+            "398.1",
+            "501.2",
+            "631.0",
+            "794.3",
+            "1000.0",
+            "1258.9",
+            "1584.9",
+            "1995.3",
+            "2511.9",
+            "3162.3",
+            "3981.1",
+            "5011.9",
+            "6309.6",
+            "7943.3",
+            "10000.0",
+            "12589.3",
+            "15848.9",
+        )
+        if lo <= float(c) <= hi
+    ]
 
 
 TARGETS = {  # aspect: {feature: weight}
-    "kick_distortion": {**{b: 1.0 for b in bands(600, 3200)}, "block_crest_median_db": 2.0, "transient_contrast_db": 1.0},
-    "colour": {**{b: 1.0 for b in bands(600, 3200) + bands(6000, 13000)}, **{b: 0.7 for b in bands(75, 210)},
-               "ears.centroid_hz": 1.0, "ears.rolloff_hz": 0.5},
+    "kick_distortion": {
+        **{b: 1.0 for b in bands(600, 3200)},
+        "block_crest_median_db": 2.0,
+        "transient_contrast_db": 1.0,
+    },
+    "colour": {
+        **{b: 1.0 for b in bands(600, 3200) + bands(6000, 13000)},
+        **{b: 0.7 for b in bands(75, 210)},
+        "ears.centroid_hz": 1.0,
+        "ears.rolloff_hz": 0.5,
+    },
     "deep_sub": {b: 1.0 for b in bands(24, 52)},
     "mono_low": {"corr.20-120": 2.0, "side_mid.20-120": 1.0},
     "density": {"block_crest_median_db": 2.0, "transient_contrast_db": 1.5, "ears.onset_strength": 0.5},
@@ -70,7 +124,7 @@ def tol(k):
 
 
 def dist(k, v, tg):
-    if v is None:          # e.g. transient contrast finds < 3 hits once the drum bus is crushed
+    if v is None:  # e.g. transient contrast finds < 3 hits once the drum bus is crushed
         return 5.0
     t = tg[k]
     out = max(0.0, t["min"] - v, v - t["max"])
@@ -81,8 +135,11 @@ def score(feat, aspect, tg, base_d):
     tw = TARGETS[aspect]
     main = sum(w * dist(k, feat[k], tg) for k, w in tw.items()) / sum(tw.values())
     skip = GUARD_SKIP.get(aspect, lambda k: False)
-    guard = sum(max(0.0, dist(k, feat[k], tg) - base_d[k]) for k in base_d
-                if k not in tw and not skip(k) and feat.get(k) is not None)
+    guard = sum(
+        max(0.0, dist(k, feat[k], tg) - base_d[k])
+        for k in base_d
+        if k not in tw and not skip(k) and feat.get(k) is not None
+    )
     return -(main + 0.5 * guard), main, guard
 
 
@@ -98,7 +155,7 @@ def load_stems(span):
 def measure_render(stems, sr, choices):
     y = C.render(stems, sr, choices)
     off = int((MEAS[0] - PROC[0]) * BAR * sr)
-    return F.flat(F.measure(y[off:off + int((MEAS[1] - MEAS[0] + 1) * BAR * sr)], sr)), y
+    return F.flat(F.measure(y[off : off + int((MEAS[1] - MEAS[0] + 1) * BAR * sr)], sr)), y
 
 
 def main():
@@ -126,10 +183,22 @@ def main():
     print(f"{a.aspect}: baseline score {best:.4f}", flush=True)
 
     def save(attempt):
-        json.dump({"aspect": a.aspect, "attempt": attempt, "score": best, "main": bm, "guard": bg,
-                   "u": best_u.tolist(), "params": C.describe(a.aspect, best_u),
-                   "features": best_feat, "baseline_features": base_feat, "time": time.strftime("%FT%T")},
-                  open(out + "best.json", "w"), indent=1)
+        json.dump(
+            {
+                "aspect": a.aspect,
+                "attempt": attempt,
+                "score": best,
+                "main": bm,
+                "guard": bg,
+                "u": best_u.tolist(),
+                "params": C.describe(a.aspect, best_u),
+                "features": best_feat,
+                "baseline_features": base_feat,
+                "time": time.strftime("%FT%T"),
+            },
+            open(out + "best.json", "w"),
+            indent=1,
+        )
 
     save(0)
     log.write(json.dumps({"attempt": 0, "best": best, "time": time.strftime("%FT%T")}) + "\n")
@@ -148,13 +217,30 @@ def main():
             save(attempt)
         else:
             sigma, misses = max(sigma * 0.8, 0.01), misses + 1
-        log.write(json.dumps({"attempt": attempt, "best": best, "cand_best": s, "improved": improved,
-                              "sigma": round(sigma, 4), "misses": misses, "time": time.strftime("%FT%T")}) + "\n")
+        log.write(
+            json.dumps(
+                {
+                    "attempt": attempt,
+                    "best": best,
+                    "cand_best": s,
+                    "improved": improved,
+                    "sigma": round(sigma, 4),
+                    "misses": misses,
+                    "time": time.strftime("%FT%T"),
+                }
+            )
+            + "\n"
+        )
         log.flush()
-        print(f"{a.aspect} #{attempt}: best {best:.4f} (cand {s:.4f}) {'NEW' if improved else ''} "
-              f"sigma {sigma:.3f} misses {misses}", flush=True)
-    json.dump({"aspect": a.aspect, "plateaued": misses >= a.patience, "attempts": attempt, "best": best},
-              open(out + "done.json", "w"))
+        print(
+            f"{a.aspect} #{attempt}: best {best:.4f} (cand {s:.4f}) {'NEW' if improved else ''} "
+            f"sigma {sigma:.3f} misses {misses}",
+            flush=True,
+        )
+    json.dump(
+        {"aspect": a.aspect, "plateaued": misses >= a.patience, "attempts": attempt, "best": best},
+        open(out + "done.json", "w"),
+    )
     print(f"{a.aspect}: done after {attempt} attempts, best {best:.4f}, plateaued={misses >= a.patience}", flush=True)
 
 

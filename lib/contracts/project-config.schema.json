@@ -767,7 +767,7 @@
       "type": "object"
     }
   },
-  "description": "A declarative Live project for hands to build. Generated from hands/src/hands/models.py \u2014 do not edit by hand.",
+  "description": "A declarative Live project for hands to build. Generated from src/zpkt/live/models.py \u2014 do not edit by hand.",
   "properties": {
     "name": {
       "title": "Name",

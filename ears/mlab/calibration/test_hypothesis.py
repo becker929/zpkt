@@ -1,11 +1,12 @@
 """`mlab hyp run` end to end on a tone with a known answer: +6 dB of gain is 6 LU louder."""
+
 import json
 import textwrap
 
 import numpy as np
 import soundfile as sf
 
-from mlab import cli, hypothesis
+from zpkt.audio.meters import cli, hypothesis
 
 SR = 44100
 SPEC = textwrap.dedent("""\
@@ -39,7 +40,7 @@ def _lab(tmp_path, monkeypatch, spec=SPEC):
 
 def test_hypothesis_runs_on_the_meters(tmp_path, monkeypatch):
     spec = _lab(tmp_path, monkeypatch)
-    outdir, verdict = hypothesis.run(str(spec), outroot=str(tmp_path / "out"))
+    _, verdict = hypothesis.run(str(spec), outroot=str(tmp_path / "out"))
     result = json.loads((tmp_path / "out" / "H900-gain" / "result.json").read_text())
     assert verdict == result["verdict"] == "SUPPORTED"
     assert result["predictions"][0]["status"] == "PASS"

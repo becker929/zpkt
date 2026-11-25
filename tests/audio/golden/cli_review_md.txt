@@ -1,0 +1,154 @@
+# Premaster review — mix
+
+Premaster checklist: **WARN**
+
+## Feedback
+
+- [WARN] head_first_10ms_dbfs = -18.14: loud first samples = clipped start / missing pre-roll; also causes inter-sample overs
+- [WARN] tail_last_10ms_dbfs = -28.46: loud last samples = reverb/delay tail cut off; extend the export length
+
+## Checklist
+
+| check | status | value | why |
+|---|---|---|---|
+| format | PASS | FLOAT | 24-bit or float keeps the noise floor out of the way |
+| sample_rate | INFO | 44100 | keep the project rate; convert only at delivery |
+| sample_peak_dbfs | PASS | -4.93 | leave headroom; -3.0 dBFS or lower is comfortable |
+| true_peak_dbtp | PASS | -4.85 | above 0 dBTP the premaster already has inter-sample overs |
+| clipped_runs | PASS | 0 | runs of >= 3 full-scale samples |
+| plr_db | PASS | 17.52 | low PLR = limiter/clipper already on the main bus; bypass it for the premaster |
+| integrated_lufs | INFO | -22.37 | premaster loudness is not a target; headroom matters more |
+| dc_offset_dbfs | PASS | -60.29 | DC wastes headroom and thumps at edits (mean is bass wander, not a steady offset) |
+| head_first_10ms_dbfs | WARN | -18.14 | loud first samples = clipped start / missing pre-roll; also causes inter-sample overs |
+| tail_last_10ms_dbfs | WARN | -28.46 | loud last samples = reverb/delay tail cut off; extend the export length |
+| correlation | PASS | 0.759 | negative overall correlation = polarity problem |
+| low_end_correlation_20_120hz | PASS | 0.952 | club systems and phones sum bass to mono; keep it near 1 |
+| mono_sum_loss_lu | PASS | 0.59 | loudness lost when summed to mono (phone speaker, club) |
+| lr_balance_db | PASS | -0.08 | L minus R RMS |
+| duration_s | INFO | 12.0 | YouTube Shorts: up to 180 s |
+
+## Loudest beats
+
+Median beat peak -7.93 dBFS; 90th percentile -5.62 dBFS.
+
+| time s | peak dBFS | above median dB |
+|---|---|---|
+| 11.25 | -4.93 | 3.0 |
+| 10.12 | -5.14 | 2.79 |
+| 8.62 | -5.59 | 2.34 |
+| 10.87 | -5.62 | 2.32 |
+| 11.62 | -5.66 | 2.27 |
+
+## Against the references
+
+| measure | this | bright | dark | ref median | this − median |
+|---|---|---|---|---|---|
+| loudness.integrated | -22.37 | -21.8 | -27.62 | -24.71 | 2.34 |
+| loudness.short_term_max | -20.82 | -20.25 | -26.06 | -23.16 | 2.34 |
+| loudness.lra | 4.05 | 4.04 | 4.05 | 4.04 | 0.0 |
+| loudness.true_peak | -4.85 | -3.73 | -10.37 | -7.05 | 2.2 |
+| loudness.plr | 17.52 | 18.08 | 17.25 | 17.66 | -0.14 |
+| loudness.psr_min | 15.71 | 16.32 | 15.34 | 15.83 | -0.12 |
+| dynamics.crest_db | 18.14 | 18.74 | 17.75 | 18.24 | -0.1 |
+| dynamics.block_crest_median_db | 15.69 | 16.58 | 15.3 | 15.94 | -0.25 |
+| dynamics.transient_contrast_median_db | 11.3 | 12.09 | 10.98 | 11.54 | -0.23 |
+| tonal.slope_db_per_oct | -4.37 | -3.95 | -4.64 | -4.29 | -0.08 |
+| tonal.centroid_hz | 591.0 | 963.0 | 440.0 | 701.5 | -110.5 |
+| tonal.group.sub | -3.85 | -4.02 | -3.78 | -3.9 | 0.05 |
+| tonal.group.bass | -3.49 | -3.66 | -3.42 | -3.54 | 0.05 |
+| tonal.group.low_mid | -17.29 | -17.46 | -17.22 | -17.34 | 0.05 |
+| tonal.group.mid | -15.1 | -15.23 | -15.05 | -15.14 | 0.04 |
+| tonal.group.upper_mid | -17.75 | -17.24 | -18.11 | -17.67 | -0.08 |
+| tonal.group.presence | -17.84 | -15.62 | -19.35 | -17.48 | -0.36 |
+| tonal.group.air | -15.96 | -13.16 | -17.88 | -15.52 | -0.44 |
+| stereo.corr_20_120 | 0.952 | 0.952 | 0.952 | 0.95 | 0.0 |
+
+## Tonal difference vs reference median (1/3 octave, dB, shape only)
+
+25:+0.05 32:+0.05 40:+0.05 50:+0.05 63:+0.05 79:+0.05 100:+0.05 126:+0.05 158:+0.05 200:+0.05 251:+0.05 316:+0.05 398:+0.05 501:+0.05 631:+0.05 794:+0.05 1000:+0.05 1259:+0.05 1585:+0.04 1995:+0.03 2512:-0.01 3162:-0.09 3981:-0.2 5012:-0.31 6310:-0.38 7943:-0.42 10000:-0.44 12589:-0.44 15849:-0.45
+
+## Full sheet
+
+# Measurement sheet — mix
+
+12.0 s · 44100 Hz · 2 ch · FLOAT
+
+## Loudness (Ch. 17-19)
+
+| measure | value |
+|---|---|
+| integrated | -22.37 |
+| momentary_max | -19.69 |
+| short_term_max | -20.82 |
+| lra | 4.05 |
+| lra_low | -24.88 |
+| lra_high | -20.83 |
+| sample_peak | -4.93 |
+| true_peak | -4.85 |
+| plr | 17.52 |
+| psr_min | 15.71 |
+
+## Dynamics (Ch. 5-7)
+
+| measure | value |
+|---|---|
+| crest_db | 18.14 |
+| plr_db | 17.52 |
+| psr_min_db | 15.71 |
+| k20_rms_db | -0.06 |
+| k14_rms_db | -6.06 |
+| lra_lu | 4.05 |
+| short_term_p95_minus_p10 | 4.05 |
+| short_term_max_minus_integrated | 1.56 |
+| block_crest_median_db | 15.69 |
+| block_crest_p10_db | 14.95 |
+| block_crest_p90_db | 16.37 |
+| onsets | 37 |
+| transient_contrast_median_db | 11.3 |
+
+## Tonal balance (Ch. 4)
+
+| measure | value |
+|---|---|
+| slope_db_per_oct | -4.37 |
+| centroid_hz | 591.0 |
+| group.sub | -3.85 |
+| group.bass | -3.49 |
+| group.low_mid | -17.29 |
+| group.mid | -15.1 |
+| group.upper_mid | -17.75 |
+| group.presence | -17.84 |
+| group.air | -15.96 |
+
+1/3-octave levels (dB, relative):
+
+25:-50.15 31:-47.74 39:-45.63 50:-29.6 63:-32.49 79:-34.14 100:-36.42 125:-34.23 158:-35.23 199:-40.21 251:-44.22 316:-46.04 398:-46.5 501:-46.57 631:-46.88 794:-46.81 1000:-46.86 1258:-46.91 1584:-46.8 1995:-46.17 2511:-46.36 3162:-46.2 3981:-46.73 5011:-46.59 6309:-46.35 7943:-46.24 10000:-45.53 12589:-45.97 15848:-45.5
+
+## Stereo
+
+| band Hz | correlation | side−mid dB |
+|---|---|---|
+| 20–120 | 0.952 | -16.08 |
+| 120–500 | 0.86 | -11.24 |
+| 500–2000 | 0.058 | -0.51 |
+| 2000–8000 | 0.136 | -1.19 |
+| 8000–20000 | 0.274 | -2.44 |
+
+## Word length (Ch. 15)
+
+- container: FLOAT
+- effective bits: 32
+- verdict: nothing notable
+
+## Delivery (YouTube and others)
+
+| platform | gain dB | plays at LUFS | plays at dBTP | note |
+|---|---|---|---|---|
+| youtube | 0.0 | -22.37 | -4.85 | observed; applies to uploads incl. Shorts (assumed) |
+| spotify | 3.85 | -18.52 | -1.0 | documented by Spotify; up-gain limited by peak headroom |
+| apple_music | 3.85 | -18.52 | -1.0 | Sound Check; reported |
+| tidal | 0.0 | -22.37 | -4.85 | reported |
+| amazon_music | 0.0 | -22.37 | -4.85 | reported, varies |
+| soundcloud | 0.0 | -22.37 | -4.85 | no normalisation reported |
+| instagram | 0.0 | -22.37 | -4.85 | undocumented; measure a real upload |
+| tiktok | 0.0 | -22.37 | -4.85 | undocumented; measure a real upload |

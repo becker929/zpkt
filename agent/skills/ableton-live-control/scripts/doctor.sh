@@ -11,7 +11,7 @@ set -uo pipefail
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # macOS has no `timeout` unless coreutils is installed.
 timeout() { if type -P timeout >/dev/null 2>&1; then command timeout "$@"; else perl -e 'alarm shift; exec @ARGV' "$@"; fi; }
-HANDS="$(cd "$DIR/../../../../hands" && pwd)"
+HANDS="$(cd "$DIR/../../../.." && pwd)"  # the zpkt project (the hands command is in it)
 OK="  [ok]  "; NO="  [--]  "; WARN="  [??]  "
 
 pass_osc=0; pass_mcp=0

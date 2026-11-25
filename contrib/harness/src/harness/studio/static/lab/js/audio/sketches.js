@@ -6,7 +6,7 @@
 // does what it can and says so in a comment. The kick group stem holds the kick and the rumble; the surfaces' own
 // instruments (the kick synth, the collage) add their own sketches to the same keys.
 
-const DECAP = ['tanh', 'tube', 'tube', 'hard', 'fold'];          // A, E, N, T, P: what each style leans towards
+const DECAP = ['tanh', 'tube', 'tube', 'hard', 'fold']; // A, E, N, T, P: what each style leans towards
 
 export function installSketches(engine) {
   const st = { drive: {}, colour: { freq: null, gain: 0 } };
@@ -22,34 +22,66 @@ export function installSketches(engine) {
 
   // Colour: the set boosts 484 Hz. Moving the frequency takes that boost out and puts it where the knob is.
   const colour = () => {
-    const k = bus('kick'), c = st.colour;
+    const k = bus('kick'),
+      c = st.colour;
     if (c.freq == null || c.setFreq == null) return;
     const moved = Math.abs(Math.log(c.freq / c.setFreq)) > 0.02;
     k.bandGain('colourUndo', moved ? -c.setGain : 0, 'peaking', c.setFreq, 1.2);
     k.bandGain('colour', moved ? c.setGain + c.gain : c.gain, 'peaking', c.freq, 1.2);
     k.bandFreq('colour', c.freq);
   };
-  on('kick.colourFreq', (_d, i) => { st.colour.freq = i.real; st.colour.setFreq = i.set; colour(); });
-  on('kick.colour', (d, i) => { st.colour.gain = d; st.colour.setGain = i.set; colour(); });
+  on('kick.colourFreq', (_d, i) => {
+    st.colour.freq = i.real;
+    st.colour.setFreq = i.set;
+    colour();
+  });
+  on('kick.colour', (d, i) => {
+    st.colour.gain = d;
+    st.colour.setGain = i.set;
+    colour();
+  });
 
   // Distortion: COLDFIRE on the kick bus and the Decapitator on the rumble, one shaper on the kick stem. Less drive
   // than the set cannot be heard (it is in the stem); more is.
   const drive = () => {
-    const k = bus('kick'), d = st.drive;
-    const amount = Math.max(0, d.coldfire ?? 0) + Math.max(0, d.decap ?? 0) * 0.7 + (d.punish ? 0.45 : 0) + (d.roar ? 0.25 : 0);
+    const k = bus('kick'),
+      d = st.drive;
+    const amount =
+      Math.max(0, d.coldfire ?? 0) + Math.max(0, d.decap ?? 0) * 0.7 + (d.punish ? 0.45 : 0) + (d.roar ? 0.25 : 0);
     k.set('drive', Math.min(1, amount));
     k.set('driveType', d.roar && !(d.decap > 0) ? 'tube' : DECAP[d.style ?? 0]);
     k.set('driveMix', amount > 0.001 ? (d.mix ?? 1) : 0);
     k.bandGain('tone', (d.tone ?? 0) * 12, 'highshelf', 2500);
-    k.bandGain('roarSub', d.roar ? -2.5 : 0, 'lowshelf', 60);       // Roar on: the sub's share drops (0.90 to 0.77)
+    k.bandGain('roarSub', d.roar ? -2.5 : 0, 'lowshelf', 60); // Roar on: the sub's share drops (0.90 to 0.77)
   };
-  on('kick.drive', (_d, i) => { st.drive.coldfire = i.dnorm; drive(); });
-  on('rumble.drive', (_d, i) => { st.drive.decap = i.dnorm; drive(); });
-  on('rumble.style', (_d, i) => { st.drive.style = i.real; drive(); });
-  on('rumble.tone', (_d, i) => { st.drive.tone = i.dnorm; drive(); });
-  on('rumble.punish', (_d, i) => { st.drive.punish = i.real > 0.5; drive(); });
-  on('rumble.mix', (_d, i) => { st.drive.mix = i.norm; drive(); });
-  on('kick.roar', (_d, i) => { st.drive.roar = i.real > 0.5; drive(); });
+  on('kick.drive', (_d, i) => {
+    st.drive.coldfire = i.dnorm;
+    drive();
+  });
+  on('rumble.drive', (_d, i) => {
+    st.drive.decap = i.dnorm;
+    drive();
+  });
+  on('rumble.style', (_d, i) => {
+    st.drive.style = i.real;
+    drive();
+  });
+  on('rumble.tone', (_d, i) => {
+    st.drive.tone = i.dnorm;
+    drive();
+  });
+  on('rumble.punish', (_d, i) => {
+    st.drive.punish = i.real > 0.5;
+    drive();
+  });
+  on('rumble.mix', (_d, i) => {
+    st.drive.mix = i.norm;
+    drive();
+  });
+  on('kick.roar', (_d, i) => {
+    st.drive.roar = i.real > 0.5;
+    drive();
+  });
 
   // The drum rack's layers live inside the kick group stem: a level change moves the stem, weighted by how much of
   // it the layer is. The transient shaper is sketched as bands where its attack and sustain act.
@@ -74,7 +106,7 @@ export function installSketches(engine) {
   on('rumble.level', (d) => bus('kick').bandGain('rlevel', d * 0.8, 'lowshelf', 100));
   on('rumble.mono', (_d, i) => bus('kick').set('bassMono', i.real > 0.5));
   on('rumble.width', (_d, i) => bus('kick').set('width', i.real / Math.max(1, i.set)));
-  on('rumble.pitch', () => {});                                       // a stem cannot be re-pitched in part
+  on('rumble.pitch', () => {}); // a stem cannot be re-pitched in part
 
   // ---- the mix ----------------------------------------------------------------------------------------------------
   on('mix.kick', (d) => bus('kick').set('gain', d));
@@ -86,15 +118,25 @@ export function installSketches(engine) {
   const applyMono = () => {
     for (const name of ['kick', 'perc', 'sfx']) {
       const b = bus(name);
-      if (name !== 'kick' || mono.on) b.set('bassMono', mono.on);   // the rumble's own toggle also drives the kick bus
+      if (name !== 'kick' || mono.on) b.set('bassMono', mono.on); // the rumble's own toggle also drives the kick bus
       b.set('bassMonoFreq', mono.freq);
     }
   };
-  on('mix.bassMono', (_d, i) => { mono.on = i.real > 0.5; applyMono(); });
-  on('mix.monoFreq', (_d, i) => { mono.freq = i.real; applyMono(); });
+  on('mix.bassMono', (_d, i) => {
+    mono.on = i.real > 0.5;
+    applyMono();
+  });
+  on('mix.monoFreq', (_d, i) => {
+    mono.freq = i.real;
+    applyMono();
+  });
 
   // Space: Supermassive on perc 2 is a delay-reverb. More mix than the set sends the perc stem to both returns.
-  on('mix.spaceMix', (_d, i) => { const m = Math.max(0, i.dnorm); bus('perc').set('sendA', m * 1.4); bus('perc').set('sendB', m * 0.9); });
+  on('mix.spaceMix', (_d, i) => {
+    const m = Math.max(0, i.dnorm);
+    bus('perc').set('sendA', m * 1.4);
+    bus('perc').set('sendB', m * 0.9);
+  });
   on('mix.spaceFeedback', (_d, i) => engine.setMaster('delayFeedback', Math.min(0.92, i.norm * 0.9)));
   on('mix.spaceDelay', (_d, i) => engine.setMaster('delayTime', 0.25 + i.norm * 1.75));
   on('mix.spaceDensity', (_d, i) => engine.setMaster('reverbSize', 0.8 + i.norm * 4.5));
@@ -108,8 +150,14 @@ export function installSketches(engine) {
     bus('perc').set('drive', Math.min(1, amount));
     bus('perc').set('driveMix', amount > 0.001 ? 1 : 0);
   };
-  on('mix.hatsDrive', (_d, i) => { percDrive.a = i.dnorm; applyPerc(); });
-  on('mix.perc1Drive', (_d, i) => { percDrive.b = i.dnorm; applyPerc(); });
+  on('mix.hatsDrive', (_d, i) => {
+    percDrive.a = i.dnorm;
+    applyPerc();
+  });
+  on('mix.perc1Drive', (_d, i) => {
+    percDrive.b = i.dnorm;
+    applyPerc();
+  });
 
   // The Main's glue rack is off in the set: turning it on makes the master's glue act.
   const glue = { on: false, thr: 0, ratio: 4 };
@@ -117,9 +165,18 @@ export function installSketches(engine) {
     engine.setMaster('glueThreshold', glue.on ? glue.thr : 0);
     engine.setMaster('glueRatio', glue.on ? glue.ratio : 1);
   };
-  on('mix.mainRack', (_d, i) => { glue.on = i.real > 0.5; applyGlue(); });
-  on('mix.glueThresh', (_d, i) => { glue.thr = i.real; applyGlue(); });
-  on('mix.glueRatio', (_d, i) => { glue.ratio = [2, 4, 10][i.real] ?? 4; applyGlue(); });
+  on('mix.mainRack', (_d, i) => {
+    glue.on = i.real > 0.5;
+    applyGlue();
+  });
+  on('mix.glueThresh', (_d, i) => {
+    glue.thr = i.real;
+    applyGlue();
+  });
+  on('mix.glueRatio', (_d, i) => {
+    glue.ratio = [2, 4, 10][i.real] ?? 4;
+    applyGlue();
+  });
 
   // The returns' levels (phone-only knobs, data/extras-mix.json): heard on every tab, not only Mix's.
   on('mixx.ret', (_d, i) => {
@@ -130,6 +187,10 @@ export function installSketches(engine) {
 
   on('mix.sfxVerb', (_d, i) => bus('sfx').set('sendA', Math.max(0, i.dnorm) * 1.2));
   on('mix.sfxDecay', (_d, i) => engine.setMaster('reverbSize', i.real));
-  on('mix.sfxThresh', (d) => { bus('sfx').set('compThreshold', Math.min(0, d)); bus('sfx').set('compRatio', 3); bus('sfx').set('compMix', d < 0 ? 1 : 0); });
+  on('mix.sfxThresh', (d) => {
+    bus('sfx').set('compThreshold', Math.min(0, d));
+    bus('sfx').set('compRatio', 3);
+    bus('sfx').set('compMix', d < 0 ? 1 : 0);
+  });
   on('mix.sfxLowCut', (_d, i) => bus('sfx').set('lowCut', i.real > i.set * 1.02 ? i.real : 10));
 }

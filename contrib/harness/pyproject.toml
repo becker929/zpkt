@@ -1,20 +1,17 @@
 [project]
 name = "harness"
 version = "0.1.0"
-description = "The Mac end: /skrng and the studio voice app over the tailnet, Claude Code jobs through the Agent SDK"
+description = "The Mac end: /skrng and the pages under /studio/ over the tailnet"
 requires-python = ">=3.12"
 dependencies = [
     "aiohttp>=3.14.4",
     "claude-agent-sdk>=0.2.165",
     "numpy>=2",
-    "pillow>=11",
-    "voice",
-    "websockets>=13.0",
 ]
 
 [project.optional-dependencies]
-# tests/ui drives the studio page in a browser; it also needs `uv run --extra dev playwright install chromium webkit`.
-dev = ["pytest>=8.0", "pytest-asyncio>=0.23", "playwright>=1.48", "soundfile>=0.12"]
+# tests/ui drives the pages in a browser; it also needs `uv run --extra dev playwright install chromium webkit`.
+dev = ["pytest>=8.0", "pytest-asyncio>=0.23", "playwright>=1.48"]
 
 [project.scripts]
 harness = "harness.cli:main"
@@ -23,12 +20,9 @@ harness = "harness.cli:main"
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
-[tool.uv.sources]
-voice = { path = "../voice", editable = true }
-
 [tool.hatch.build.targets.wheel]
 packages = ["src/harness"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
-markers = ["ui: browser tests of the studio page (Playwright); skipped when no browser is installed"]
+markers = ["ui: browser tests of the pages (Playwright); skipped when no browser is installed"]

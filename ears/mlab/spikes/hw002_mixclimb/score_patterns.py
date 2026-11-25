@@ -10,6 +10,7 @@ NOISE_JSON (from `calibrate` on identical-setting patterns) holds the baseline f
 each feature's spread across timeline positions; the guard ignores worsening within that spread.
 Prints one JSON line: [{"pattern": k, "score": s, "main": m, "guard": g, "features": {...}}, ...]
 """
+
 import glob
 import json
 import os
@@ -19,15 +20,15 @@ from concurrent.futures import ProcessPoolExecutor
 import soundfile as sf
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-import climb as K  # noqa: E402
-import features as F  # noqa: E402
+import climb as K
+import features as F
 
 BAR = 1.5
 
 
 def measure(path):
     x, sr = sf.read(path, always_2d=True, dtype="float64")
-    return F.flat(F.measure(x[int(BAR * sr):], sr))
+    return F.flat(F.measure(x[int(BAR * sr) :], sr))
 
 
 def score(f, aspect, tg, noise):
@@ -35,8 +36,11 @@ def score(f, aspect, tg, noise):
     that identical settings show across timeline positions (noise["delta"], in distance units)."""
     tw = K.TARGETS[aspect]
     main = sum(w * K.dist(k, f[k], tg) for k, w in tw.items()) / sum(tw.values())
-    guard = sum(max(0.0, K.dist(k, f[k], tg) - noise["base_d"][k] - noise["delta"].get(k, 0.0))
-                for k in noise["base_d"] if k not in tw and f.get(k) is not None)
+    guard = sum(
+        max(0.0, K.dist(k, f[k], tg) - noise["base_d"][k] - noise["delta"].get(k, 0.0))
+        for k in noise["base_d"]
+        if k not in tw and f.get(k) is not None
+    )
     return -(main + 0.5 * guard), main, guard
 
 
@@ -50,8 +54,12 @@ def calibrate(d, out, step=1):
     keys = [k for k in feats[0] if k in tg and all(f.get(k) is not None for f in feats)]
     base = {k: sum(f[k] for f in feats) / len(feats) for k in keys}
     dists = {k: [K.dist(k, f[k], tg) for f in feats] for k in keys}
-    noise = {"n": len(feats), "base": base, "base_d": {k: K.dist(k, base[k], tg) for k in keys},
-             "delta": {k: 1.5 * (max(v) - min(v)) for k, v in dists.items()}}
+    noise = {
+        "n": len(feats),
+        "base": base,
+        "base_d": {k: K.dist(k, base[k], tg) for k in keys},
+        "delta": {k: 1.5 * (max(v) - min(v)) for k, v in dists.items()},
+    }
     scores = {a: [score(f, a, tg, noise)[0] for f in feats] for a in K.TARGETS}
     noise["score_spread"] = {a: max(v) - min(v) for a, v in scores.items()}
     json.dump(noise, open(out, "w"), indent=1)

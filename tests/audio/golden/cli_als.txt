@@ -1,0 +1,3 @@
+L12-automation.als — Ableton Live 12.0b16 — 120.0 BPM — main fader 0.0 dB
+Main chain: (empty)
+  Audio 1-Audio                                      0.0 dB   

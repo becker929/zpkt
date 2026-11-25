@@ -7,6 +7,7 @@ tests/test_contract.py fails if the committed file is stale.
 
     uv run python scripts/gen_schema.py
 """
+
 from __future__ import annotations
 
 import dataclasses
@@ -16,7 +17,7 @@ import types
 import typing
 from pathlib import Path
 
-from ears.models import AudioProfile
+from zpkt.audio.models import AudioProfile
 
 OUT = Path(__file__).resolve().parents[2] / "lib" / "contracts" / "audio-profile.schema.json"
 
@@ -39,8 +40,12 @@ def _schema(tp) -> dict:
             "properties": {f.name: _schema(hints[f.name]) for f in dataclasses.fields(tp)},
             "additionalProperties": False,
         }
-    return {str: {"type": "string"}, int: {"type": "integer"}, float: {"type": "number"},
-            bool: {"type": "boolean"}}.get(tp, {})
+    return {
+        str: {"type": "string"},
+        int: {"type": "integer"},
+        float: {"type": "number"},
+        bool: {"type": "boolean"},
+    }.get(tp, {})
 
 
 def build() -> dict:
@@ -50,7 +55,7 @@ def build() -> dict:
         "$id": "https://github.com/becker929/zpkt/lib/contracts/audio-profile.schema.json",
         "title": "AudioProfile",
         "description": "What ears measured about one audio file. Produced by `ears analyze --json`; "
-                       "generated from ears/src/ears/models.py — do not edit by hand.",
+        "generated from src/zpkt/audio/models.py — do not edit by hand.",
         "required": ["clip_id", "audio_path"],
         **body,
     }

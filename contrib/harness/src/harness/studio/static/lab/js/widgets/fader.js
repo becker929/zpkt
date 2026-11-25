@@ -13,16 +13,28 @@ export function fader(ctx, id, { length = 180, horizontal = false, label, thin =
   const w = writer(ctx, id, 'fader');
   const pos = (v) => `${(v * 100).toFixed(2)}%`;
   const marks = Array.from({ length: 9 }, (_, i) => h('i', { class: 'f-mark', style: { '--at': pos(i / 8) } }));
-  const tried = p.tried ? h('i', { class: 'f-tried', style: { '--lo': pos(normOf(p, p.tried[0])), '--hi': pos(normOf(p, p.tried[1])) } }) : null;
+  const tried = p.tried
+    ? h('i', { class: 'f-tried', style: { '--lo': pos(normOf(p, p.tried[0])), '--hi': pos(normOf(p, p.tried[1])) } })
+    : null;
   const set = h('i', { class: 'f-set', style: { '--at': pos(setNorm(p)) } });
   const fill = h('i', { class: 'f-fill' });
   const cap = h('i', { class: 'f-cap' });
   const groove = h('div', { class: 'f-groove' }, ...marks, tried, fill, set, cap);
   const readout = h('div', { class: 'f-read lcd-s' });
-  const el = h('div', {
-    class: `w-fader${horizontal ? ' is-h' : ''}${thin ? ' is-thin' : ''}`, role: 'slider', tabindex: '0', 'aria-label': p.label,
-    dataset: { param: id }, style: { '--len': `${length}px`, '--c': stageColor(p) },
-  }, h('div', { class: 'w-label', text: label ?? shortLabel(p) }), groove, readout);
+  const el = h(
+    'div',
+    {
+      class: `w-fader${horizontal ? ' is-h' : ''}${thin ? ' is-thin' : ''}`,
+      role: 'slider',
+      tabindex: '0',
+      'aria-label': p.label,
+      dataset: { param: id },
+      style: { '--len': `${length}px`, '--c': stageColor(p) },
+    },
+    h('div', { class: 'w-label', text: label ?? shortLabel(p) }),
+    groove,
+    readout,
+  );
 
   follow(ctx, id, (v, _real, text) => {
     el.style.setProperty('--v', pos(v));
@@ -31,14 +43,25 @@ export function fader(ctx, id, { length = 180, horizontal = false, label, thin =
     el.classList.toggle('is-set', ctx.store.isSet(id));
   });
   drag(groove, {
-    onStart: () => { w.begin(); el.classList.add('is-touched'); },
+    onStart: () => {
+      w.begin();
+      el.classList.add('is-touched');
+    },
     onMove: (dx, dy) => w.add((horizontal ? dx : -dy) / length),
-    onEnd: () => { w.end(); el.classList.remove('is-touched'); },
+    onEnd: () => {
+      w.end();
+      el.classList.remove('is-touched');
+    },
   });
   standard(groove, ctx.store, id);
   el.addEventListener('keydown', (e) => {
     const d = { ArrowUp: 1, ArrowRight: 1, ArrowDown: -1, ArrowLeft: -1 }[e.key];
-    if (d) { w.begin(); w.add(d * (e.shiftKey ? 0.1 : 0.01)); w.end(); e.preventDefault(); }
+    if (d) {
+      w.begin();
+      w.add(d * (e.shiftKey ? 0.1 : 0.01));
+      w.end();
+      e.preventDefault();
+    }
   });
   return el;
 }
@@ -48,9 +71,18 @@ export function toggle(ctx, id, { label, wide = false } = {}) {
   const w = writer(ctx, id, 'toggle');
   const led = h('i', { class: 't-led' });
   const text = h('span', { class: 't-text' });
-  const el = h('button', {
-    type: 'button', class: `w-toggle${wide ? ' is-wide' : ''}`, dataset: { param: id }, style: { '--c': stageColor(p) },
-  }, led, h('span', { class: 't-label', text: label ?? shortLabel(p) }), text);
+  const el = h(
+    'button',
+    {
+      type: 'button',
+      class: `w-toggle${wide ? ' is-wide' : ''}`,
+      dataset: { param: id },
+      style: { '--c': stageColor(p) },
+    },
+    led,
+    h('span', { class: 't-label', text: label ?? shortLabel(p) }),
+    text,
+  );
   follow(ctx, id, (v, real, t) => {
     const on = p.scale === 'toggle' ? real === 1 : v > 0;
     el.classList.toggle('is-on', on);
@@ -62,7 +94,7 @@ export function toggle(ctx, id, { label, wide = false } = {}) {
     const steps = p.scale === 'enum' ? p.options.length - 1 : 1;
     const v = ctx.store.get(id);
     w.begin();
-    w.set(p.scale === 'enum' ? (Math.round(v * steps) + 1) % (steps + 1) / steps : (v >= 0.5 ? 0 : 1));
+    w.set(p.scale === 'enum' ? ((Math.round(v * steps) + 1) % (steps + 1)) / steps : v >= 0.5 ? 0 : 1);
     w.end();
     haptic();
   });

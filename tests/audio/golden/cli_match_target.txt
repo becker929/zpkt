@@ -1,0 +1,2 @@
+mix.wav: +2.37 dB -> audio/renders/matched/mix_@-20.0LUFS.wav
+bright.wav: +1.8 dB -> audio/renders/matched/bright_@-20.0LUFS.wav

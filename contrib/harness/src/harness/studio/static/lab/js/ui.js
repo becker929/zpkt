@@ -24,9 +24,10 @@ function fill(el, props, children) {
     else if (key === 'text') el.textContent = value;
     else if (key === 'dataset') Object.assign(el.dataset, value);
     else if (key === 'style' && typeof value === 'object') {
-      for (const [k, v] of Object.entries(value)) if (k.startsWith('--')) el.style.setProperty(k, v); else el.style[k] = v;
-    }
-    else if (key.startsWith('on')) el.addEventListener(key.slice(2), value);
+      for (const [k, v] of Object.entries(value))
+        if (k.startsWith('--')) el.style.setProperty(k, v);
+        else el.style[k] = v;
+    } else if (key.startsWith('on')) el.addEventListener(key.slice(2), value);
     else el.setAttribute(key, value === true ? '' : value);
   }
   for (const child of children.flat()) if (child != null && child !== false) el.append(child);
@@ -43,7 +44,10 @@ export function haptic(strong = false) {
   const now = performance.now();
   if (now - lastTick < 35) return;
   lastTick = now;
-  if (navigator.vibrate) { navigator.vibrate(strong ? 18 : 6); return; }
+  if (navigator.vibrate) {
+    navigator.vibrate(strong ? 18 : 6);
+    return;
+  }
   document.querySelector('label.haptic')?.click();
 }
 
@@ -54,22 +58,45 @@ export function haptic(strong = false) {
  */
 export function drag(el, { onStart, onMove, onEnd, onTap, slop = 4 } = {}) {
   el.style.touchAction = 'none';
-  let id = null, x0 = 0, y0 = 0, lx = 0, ly = 0, moved = false, t0 = 0, fine = false;
+  let id = null,
+    x0 = 0,
+    y0 = 0,
+    lx = 0,
+    ly = 0,
+    moved = false,
+    t0 = 0,
+    fine = false;
   const fingers = new Set();
   el.addEventListener('pointerdown', (e) => {
     fingers.add(e.pointerId);
-    if (fingers.size > 1) { fine = true; return; }
-    id = e.pointerId; x0 = lx = e.clientX; y0 = ly = e.clientY; moved = false; t0 = performance.now(); fine = false;
-    try { el.setPointerCapture?.(e.pointerId); } catch { /* a synthetic pointer (tests) has nothing to capture */ }
+    if (fingers.size > 1) {
+      fine = true;
+      return;
+    }
+    id = e.pointerId;
+    x0 = lx = e.clientX;
+    y0 = ly = e.clientY;
+    moved = false;
+    t0 = performance.now();
+    fine = false;
+    try {
+      el.setPointerCapture?.(e.pointerId);
+    } catch {
+      /* a synthetic pointer (tests) has nothing to capture */
+    }
     onStart?.(e);
   });
   el.addEventListener('pointermove', (e) => {
     if (e.pointerId !== id) return;
     if (!moved && Math.hypot(e.clientX - x0, e.clientY - y0) < slop) return;
-    if (!moved) { moved = true; if (performance.now() - t0 > 350) fine = true; }
+    if (!moved) {
+      moved = true;
+      if (performance.now() - t0 > 350) fine = true;
+    }
     const k = fine || e.altKey ? 0.25 : 1;
     onMove?.((e.clientX - lx) * k, (e.clientY - ly) * k, { fine: k < 1, x: e.clientX, y: e.clientY, e });
-    lx = e.clientX; ly = e.clientY;
+    lx = e.clientX;
+    ly = e.clientY;
   });
   const up = (e) => {
     fingers.delete(e.pointerId);
@@ -84,14 +111,22 @@ export function drag(el, { onStart, onMove, onEnd, onTap, slop = 4 } = {}) {
 
 /** fn(e) after a press held still for `ms`. */
 export function longPress(el, fn, ms = 480) {
-  let timer = 0, x = 0, y = 0;
+  let timer = 0,
+    x = 0,
+    y = 0;
   const clear = () => clearTimeout(timer);
   el.addEventListener('pointerdown', (e) => {
-    x = e.clientX; y = e.clientY;
+    x = e.clientX;
+    y = e.clientY;
     clear();
-    timer = setTimeout(() => { haptic(true); fn(e); }, ms);
+    timer = setTimeout(() => {
+      haptic(true);
+      fn(e);
+    }, ms);
   });
-  el.addEventListener('pointermove', (e) => { if (Math.hypot(e.clientX - x, e.clientY - y) > 8) clear(); });
+  el.addEventListener('pointermove', (e) => {
+    if (Math.hypot(e.clientX - x, e.clientY - y) > 8) clear();
+  });
   el.addEventListener('pointerup', clear);
   el.addEventListener('pointercancel', clear);
   el.addEventListener('contextmenu', (e) => e.preventDefault());
@@ -99,12 +134,23 @@ export function longPress(el, fn, ms = 480) {
 
 /** fn(e) on a second tap within 300 ms (a press that moved, a drag, is not a tap). */
 export function doubleTap(el, fn) {
-  let last = -Infinity, x = 0, y = 0;
-  el.addEventListener('pointerdown', (e) => { x = e.clientX; y = e.clientY; });
+  let last = -Infinity,
+    x = 0,
+    y = 0;
+  el.addEventListener('pointerdown', (e) => {
+    x = e.clientX;
+    y = e.clientY;
+  });
   el.addEventListener('pointerup', (e) => {
-    if (Math.hypot(e.clientX - x, e.clientY - y) > 10) { last = -Infinity; return; }
+    if (Math.hypot(e.clientX - x, e.clientY - y) > 10) {
+      last = -Infinity;
+      return;
+    }
     const now = performance.now();
-    if (now - last < 300) { last = -Infinity; fn(e); } else last = now;
+    if (now - last < 300) {
+      last = -Infinity;
+      fn(e);
+    } else last = now;
   });
 }
 
@@ -118,36 +164,72 @@ export function toast(text, ms = 1600) {
 }
 
 let sheetStore = null;
-export function initInspector(store) { sheetStore = store; }
+export function initInspector(store) {
+  sheetStore = store;
+}
 
 /** The bottom sheet for one param: Live's knob id, the set's value and now, what experiments found, reset. */
 export function inspect(id) {
   const store = sheetStore;
   const sheet = document.getElementById('inspector');
-  if (!store || !sheet || !store.params.has(id)) return;        // a widget's own setting, not one of the lab's params
+  if (!store || !sheet || !store.params.has(id)) return; // a widget's own setting, not one of the lab's params
   const p = store.params.get(id);
   const now = toReal(p, store.get(id));
-  const close = () => { sheet.hidden = true; document.removeEventListener('pointerdown', outside, true); };
-  const outside = (e) => { if (!sheet.contains(e.target)) close(); };
-  sheet.replaceChildren(...[
-    h('div', { class: 'sheet-grip' }),
-    h('h2', { text: p.label }),
-    h('div', { class: 'live', text: p.live ? `Live: ${p.live}` : 'An arrangement choice (no single knob in Live)' }),
-    h('div', { class: 'vals' },
-      h('div', { class: 'val is-set' }, h('span', { text: 'In the set' }), h('b', { text: format(p, p.set ?? toReal(p, setNorm(p))) })),
-      h('div', { class: 'val' }, h('span', { text: 'Here now' }), h('b', { text: format(p, now) }))),
-    p.tried ? h('p', { class: 'finding', text: `Tried: ${format(p, p.tried[0])} to ${format(p, p.tried[1])}.` }) : null,
-    p.note ? h('p', { class: 'finding', text: p.note }) : null,
-    h('div', { class: 'acts' },
-      h('button', { type: 'button', text: 'Close', onclick: close }),
-      h('button', { type: 'button', class: 'primary', text: 'Back to the set', onclick: () => { store.reset(id, { source: 'inspector' }); haptic(true); close(); } })),
-  ].filter(Boolean));
+  const close = () => {
+    sheet.hidden = true;
+    document.removeEventListener('pointerdown', outside, true);
+  };
+  const outside = (e) => {
+    if (!sheet.contains(e.target)) close();
+  };
+  sheet.replaceChildren(
+    ...[
+      h('div', { class: 'sheet-grip' }),
+      h('h2', { text: p.label }),
+      h('div', { class: 'live', text: p.live ? `Live: ${p.live}` : 'An arrangement choice (no single knob in Live)' }),
+      h(
+        'div',
+        { class: 'vals' },
+        h(
+          'div',
+          { class: 'val is-set' },
+          h('span', { text: 'In the set' }),
+          h('b', { text: format(p, p.set ?? toReal(p, setNorm(p))) }),
+        ),
+        h('div', { class: 'val' }, h('span', { text: 'Here now' }), h('b', { text: format(p, now) })),
+      ),
+      p.tried
+        ? h('p', { class: 'finding', text: `Tried: ${format(p, p.tried[0])} to ${format(p, p.tried[1])}.` })
+        : null,
+      p.note ? h('p', { class: 'finding', text: p.note }) : null,
+      h(
+        'div',
+        { class: 'acts' },
+        h('button', { type: 'button', text: 'Close', onclick: close }),
+        h('button', {
+          type: 'button',
+          class: 'primary',
+          text: 'Back to the set',
+          onclick: () => {
+            store.reset(id, { source: 'inspector' });
+            haptic(true);
+            close();
+          },
+        }),
+      ),
+    ].filter(Boolean),
+  );
   sheet.hidden = false;
   setTimeout(() => document.addEventListener('pointerdown', outside, true), 0);
 }
 
 /** Wire the lab's standard touches onto a control: double tap resets to the set, long press inspects. */
 export function standard(el, store, id, { double = true } = {}) {
-  if (double) doubleTap(el, () => { store.reset(id, { source: 'doubletap' }); haptic(true); toast(`${store.params.get(id).label}: the set's value`); });
+  if (double)
+    doubleTap(el, () => {
+      store.reset(id, { source: 'doubletap' });
+      haptic(true);
+      toast(`${store.params.get(id).label}: the set's value`);
+    });
   longPress(el, () => inspect(id));
 }

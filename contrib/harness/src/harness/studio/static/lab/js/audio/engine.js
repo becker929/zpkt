@@ -20,9 +20,9 @@
 import { Channel } from './channel.js';
 import { setNorm as setNormOf } from '../params.js';
 
-const LOOKAHEAD = 0.12;           // s scheduled ahead
+const LOOKAHEAD = 0.12; // s scheduled ahead
 const TICK_MS = 25;
-const XF = 0.004;                 // s crossfade between bar segments
+const XF = 0.004; // s crossfade between bar segments
 
 export class Engine {
   constructor({ audioBase = './audio/' } = {}) {
@@ -62,13 +62,16 @@ export class Engine {
 
   _master() {
     const ctx = this.ctx;
-    const m = this.master = {};
+    const m = (this.master = {});
     m.input = ctx.createGain();
     // the returns: A a reverb, B a tempo delay
     // two rooms, so a new size crossfades in instead of cutting the tail off
-    m.reverbIn = ctx.createGain(); m.reverbOut = ctx.createGain(); m.reverbOut.gain.value = 0.9;
+    m.reverbIn = ctx.createGain();
+    m.reverbOut = ctx.createGain();
+    m.reverbOut.gain.value = 0.9;
     m.rooms = [0, 1].map((i) => {
-      const conv = ctx.createConvolver(), gain = ctx.createGain();
+      const conv = ctx.createConvolver(),
+        gain = ctx.createGain();
       gain.gain.value = i === 0 ? 1 : 0;
       m.reverbIn.connect(conv).connect(gain).connect(m.reverbOut);
       return { conv, gain };
@@ -78,25 +81,50 @@ export class Engine {
     m.reverbOut.connect(m.input);
     this.setReverb(2.2, 0.5);
     m.delayIn = ctx.createGain();
-    m.delay = ctx.createDelay(4); m.delay.delayTime.value = (60 / this.bpm) * 0.75;
-    m.feedback = ctx.createGain(); m.feedback.gain.value = 0.35;
-    m.delayTone = ctx.createBiquadFilter(); m.delayTone.type = 'bandpass'; m.delayTone.frequency.value = 1800; m.delayTone.Q.value = 0.6;
+    m.delay = ctx.createDelay(4);
+    m.delay.delayTime.value = (60 / this.bpm) * 0.75;
+    m.feedback = ctx.createGain();
+    m.feedback.gain.value = 0.35;
+    m.delayTone = ctx.createBiquadFilter();
+    m.delayTone.type = 'bandpass';
+    m.delayTone.frequency.value = 1800;
+    m.delayTone.Q.value = 0.6;
     m.delayIn.connect(m.delay).connect(m.delayTone).connect(m.feedback).connect(m.delay);
-    m.delayOut = ctx.createGain();                       // return B's level
+    m.delayOut = ctx.createGain(); // return B's level
     m.delayTone.connect(m.delayOut).connect(m.input);
     // the bus: glue, a clipper, a ceiling
     m.glue = ctx.createDynamicsCompressor();
-    m.glue.threshold.value = 0; m.glue.ratio.value = 1; m.glue.attack.value = 0.01; m.glue.release.value = 0.2; m.glue.knee.value = 6;
-    m.clipPre = ctx.createGain(); m.clip = ctx.createWaveShaper(); m.clipPost = ctx.createGain();
-    m.clip.curve = softClip(0.92); m.clip.oversample = '4x';
+    m.glue.threshold.value = 0;
+    m.glue.ratio.value = 1;
+    m.glue.attack.value = 0.01;
+    m.glue.release.value = 0.2;
+    m.glue.knee.value = 6;
+    m.clipPre = ctx.createGain();
+    m.clip = ctx.createWaveShaper();
+    m.clipPost = ctx.createGain();
+    m.clip.curve = softClip(0.92);
+    m.clip.oversample = '4x';
     m.limiter = ctx.createDynamicsCompressor();
-    m.limiter.threshold.value = -0.3; m.limiter.ratio.value = 20; m.limiter.attack.value = 0.001; m.limiter.release.value = 0.05; m.limiter.knee.value = 0;
+    m.limiter.threshold.value = -0.3;
+    m.limiter.ratio.value = 20;
+    m.limiter.attack.value = 0.001;
+    m.limiter.release.value = 0.05;
+    m.limiter.knee.value = 0;
     m.out = ctx.createGain();
-    m.analyser = ctx.createAnalyser(); m.analyser.fftSize = 4096; m.analyser.smoothingTimeConstant = 0.7;
+    m.analyser = ctx.createAnalyser();
+    m.analyser.fftSize = 4096;
+    m.analyser.smoothingTimeConstant = 0.7;
     // loudness: K-weighting into its own analyser
-    const shelf = ctx.createBiquadFilter(); shelf.type = 'highshelf'; shelf.frequency.value = 1681; shelf.gain.value = 4;
-    const rlb = ctx.createBiquadFilter(); rlb.type = 'highpass'; rlb.frequency.value = 38; rlb.Q.value = 20 * Math.log10(0.5);   // Q 0.5 (dB here)
-    m.k = ctx.createAnalyser(); m.k.fftSize = 4096;
+    const shelf = ctx.createBiquadFilter();
+    shelf.type = 'highshelf';
+    shelf.frequency.value = 1681;
+    shelf.gain.value = 4;
+    const rlb = ctx.createBiquadFilter();
+    rlb.type = 'highpass';
+    rlb.frequency.value = 38;
+    rlb.Q.value = 20 * Math.log10(0.5); // Q 0.5 (dB here)
+    m.k = ctx.createAnalyser();
+    m.k.fftSize = 4096;
     m.input.connect(m.glue).connect(m.clipPre).connect(m.clip).connect(m.clipPost).connect(m.limiter).connect(m.out);
     m.out.connect(ctx.destination);
     m.out.connect(m.analyser);
@@ -117,22 +145,29 @@ export class Engine {
     const ir = ctx.createBuffer(2, len, sr);
     for (let c = 0; c < 2; c++) {
       const d = ir.getChannelData(c);
-      let lp = 0, env = 1;
+      let lp = 0,
+        env = 1;
       for (let i = 0; i < len; i++) {
         lp += (Math.random() * 2 - 1 - lp) * smooth;
         d[i] = lp * env * (i < 64 ? i / 64 : 1);
         env *= k;
       }
-      for (let i = Math.max(0, len - 2048); i < len; i++) d[i] *= (len - i) / 2048;     // no click at the end
+      for (let i = Math.max(0, len - 2048); i < len; i++) d[i] *= (len - i) / 2048; // no click at the end
     }
     const m = this.master;
-    if (!m.rooms[m.room].conv.buffer) { m.rooms[m.room].conv.buffer = ir; return; }
-    const from = m.rooms[m.room], to = m.rooms[1 - m.room];
+    if (!m.rooms[m.room].conv.buffer) {
+      m.rooms[m.room].conv.buffer = ir;
+      return;
+    }
+    const from = m.rooms[m.room],
+      to = m.rooms[1 - m.room];
     to.conv.buffer = ir;
     const t = ctx.currentTime;
-    from.gain.gain.cancelScheduledValues(t); from.gain.gain.setValueAtTime(from.gain.gain.value, t);
+    from.gain.gain.cancelScheduledValues(t);
+    from.gain.gain.setValueAtTime(from.gain.gain.value, t);
     from.gain.gain.linearRampToValueAtTime(0, t + 0.15);
-    to.gain.gain.cancelScheduledValues(t); to.gain.gain.setValueAtTime(to.gain.gain.value, t);
+    to.gain.gain.cancelScheduledValues(t);
+    to.gain.gain.setValueAtTime(to.gain.gain.value, t);
     to.gain.gain.linearRampToValueAtTime(1, t + 0.15);
     m.room = 1 - m.room;
     m.reverb = to.conv;
@@ -194,7 +229,9 @@ export class Engine {
   }
 
   // --- the clock -----------------------------------------------------------------------------------------------
-  get stepSeconds() { return this.barSeconds / 16; }
+  get stepSeconds() {
+    return this.barSeconds / 16;
+  }
 
   async start(fromBar = 0) {
     await this.unlock();
@@ -218,16 +255,37 @@ export class Engine {
   }
 
   /** fn(engine) once the context and buses exist (now, if they do). */
-  onReady(fn) { (this.readyFns ??= new Set()).add(fn); if (this.ctx) safe(fn, this); return () => this.readyFns.delete(fn); }
+  onReady(fn) {
+    (this.readyFns ??= new Set()).add(fn);
+    if (this.ctx) safe(fn, this);
+    return () => this.readyFns.delete(fn);
+  }
 
-  onStop(fn) { (this.stopFns ??= new Set()).add(fn); return () => this.stopFns.delete(fn); }
-  onState(fn) { (this.stateFns ??= new Set()).add(fn); return () => this.stateFns.delete(fn); }
-  _emitState() { for (const fn of this.stateFns ?? []) fn(this.playing); }
+  onStop(fn) {
+    (this.stopFns ??= new Set()).add(fn);
+    return () => this.stopFns.delete(fn);
+  }
+  onState(fn) {
+    (this.stateFns ??= new Set()).add(fn);
+    return () => this.stateFns.delete(fn);
+  }
+  _emitState() {
+    for (const fn of this.stateFns ?? []) fn(this.playing);
+  }
 
-  onStep(fn) { this.stepFns.add(fn); return () => this.stepFns.delete(fn); }
+  onStep(fn) {
+    this.stepFns.add(fn);
+    return () => this.stepFns.delete(fn);
+  }
   /** fn(bar, when) just before the stems schedule `bar`: change the sequence or a bus for that bar here. */
-  onBeforeBar(fn) { (this.beforeBarFns ??= new Set()).add(fn); return () => this.beforeBarFns.delete(fn); }
-  onBar(fn) { this.barFns.add(fn); return () => this.barFns.delete(fn); }
+  onBeforeBar(fn) {
+    (this.beforeBarFns ??= new Set()).add(fn);
+    return () => this.beforeBarFns.delete(fn);
+  }
+  onBar(fn) {
+    this.barFns.add(fn);
+    return () => this.barFns.delete(fn);
+  }
 
   /** {bar, beat, step, phase (0..1 in the bar), time} now; bar counts from 0 and keeps counting. */
   position() {
@@ -239,7 +297,9 @@ export class Engine {
   }
 
   /** The audio-clock time of 16th `step` (counted from bar 0). */
-  timeOf(step) { return this.t0 + step * this.stepSeconds; }
+  timeOf(step) {
+    return this.t0 + step * this.stepSeconds;
+  }
 
   _tick() {
     const until = this.ctx.currentTime + LOOKAHEAD;
@@ -290,10 +350,13 @@ export class Engine {
   }
 
   _applyKey(key) {
-    for (const p of this.store.params.list) if ([].concat(p.sketch ?? []).some((k) => k.split('@')[0] === key)) this._apply(p.id);
+    for (const p of this.store.params.list)
+      if ([].concat(p.sketch ?? []).some((k) => k.split('@')[0] === key)) this._apply(p.id);
   }
 
-  _applyAll() { for (const p of this.store.params.list) this._apply(p.id); }
+  _applyAll() {
+    for (const p of this.store.params.list) this._apply(p.id);
+  }
 
   /** 'ch.<bus>.<prop>' and 'master.<prop>' need no registration. */
   _busSketch(name) {
@@ -304,23 +367,41 @@ export class Engine {
   }
 
   setMaster(prop, v) {
-    const m = this.master, t = this.ctx.currentTime;
+    const m = this.master,
+      t = this.ctx.currentTime;
     const r = (param, x) => param.setTargetAtTime(x, t, 0.02);
     switch (prop) {
-      case 'glueThreshold': return r(m.glue.threshold, v);
-      case 'glueRatio': return r(m.glue.ratio, v);
-      case 'glueAttack': return r(m.glue.attack, v / 1000);
-      case 'glueRelease': return r(m.glue.release, v / 1000);
-      case 'clipDrive': r(m.clipPre.gain, Math.pow(10, v / 20)); return r(m.clipPost.gain, Math.pow(10, -v / 40));
-      case 'ceiling': return r(m.limiter.threshold, v);
-      case 'volume': return r(m.out.gain, Math.pow(10, v / 20));
-      case 'reverbSize': this._size = v; return this._throttled('rv', () => this.setReverb(this._size, this._damp ?? 0.5));
-      case 'reverbDamp': this._damp = v; return this._throttled('rv', () => this.setReverb(this._size ?? 2.2, this._damp));
-      case 'reverbLevel': return r(m.reverbOut.gain, v);                      // linear
-      case 'delayLevel': return r(m.delayOut.gain, v);                        // linear
-      case 'delayTime': return r(m.delay.delayTime, v * 60 / this.bpm);          // beats
-      case 'delayFeedback': return r(m.feedback.gain, v);
-      default: return undefined;
+      case 'glueThreshold':
+        return r(m.glue.threshold, v);
+      case 'glueRatio':
+        return r(m.glue.ratio, v);
+      case 'glueAttack':
+        return r(m.glue.attack, v / 1000);
+      case 'glueRelease':
+        return r(m.glue.release, v / 1000);
+      case 'clipDrive':
+        r(m.clipPre.gain, Math.pow(10, v / 20));
+        return r(m.clipPost.gain, Math.pow(10, -v / 40));
+      case 'ceiling':
+        return r(m.limiter.threshold, v);
+      case 'volume':
+        return r(m.out.gain, Math.pow(10, v / 20));
+      case 'reverbSize':
+        this._size = v;
+        return this._throttled('rv', () => this.setReverb(this._size, this._damp ?? 0.5));
+      case 'reverbDamp':
+        this._damp = v;
+        return this._throttled('rv', () => this.setReverb(this._size ?? 2.2, this._damp));
+      case 'reverbLevel':
+        return r(m.reverbOut.gain, v); // linear
+      case 'delayLevel':
+        return r(m.delayOut.gain, v); // linear
+      case 'delayTime':
+        return r(m.delay.delayTime, (v * 60) / this.bpm); // beats
+      case 'delayFeedback':
+        return r(m.feedback.gain, v);
+      default:
+        return undefined;
     }
   }
 
@@ -332,8 +413,13 @@ export class Engine {
     s.fn = fn;
     const now = performance.now();
     if (s.timer) return;
-    const run = () => { s.timer = 0; s.last = performance.now(); s.fn(); };
-    if (now - s.last >= ms) run(); else s.timer = setTimeout(run, ms - (now - s.last));
+    const run = () => {
+      s.timer = 0;
+      s.last = performance.now();
+      s.fn();
+    };
+    if (now - s.last >= ms) run();
+    else s.timer = setTimeout(run, ms - (now - s.last));
   }
 
   // --- meters ------------------------------------------------------------------------------------------------
@@ -341,7 +427,7 @@ export class Engine {
   loudness() {
     if (!this.ctx) return { lufs: -70, peak: -70 };
     const m = this.master;
-    const buf = this._kbuf ??= new Float32Array(m.k.fftSize);
+    const buf = (this._kbuf ??= new Float32Array(m.k.fftSize));
     m.k.getFloatTimeDomainData(buf);
     let sum = 0;
     for (const x of buf) sum += x * x;
@@ -349,16 +435,22 @@ export class Engine {
     L.blocks.push(sum / buf.length);
     if (L.blocks.length > 5) L.blocks.shift();
     const ms = L.blocks.reduce((a, b) => a + b, 0) / L.blocks.length;
-    const lufs = -0.691 + 10 * Math.log10(ms * 2 + 1e-12);        // two channels summed; the analyser sees a downmix
-    const pbuf = this._pbuf ??= new Float32Array(m.analyser.fftSize);
+    const lufs = -0.691 + 10 * Math.log10(ms * 2 + 1e-12); // two channels summed; the analyser sees a downmix
+    const pbuf = (this._pbuf ??= new Float32Array(m.analyser.fftSize));
     m.analyser.getFloatTimeDomainData(pbuf);
     let peak = 0;
-    for (const x of pbuf) { const a = Math.abs(x); if (a > peak) peak = a; }
+    for (const x of pbuf) {
+      const a = Math.abs(x);
+      if (a > peak) peak = a;
+    }
     return { lufs: Math.max(-70, lufs), peak: 20 * Math.log10(peak + 1e-9) };
   }
 
   /** The master's spectrum (dB per bin), into `out` (Float32Array of analyser.frequencyBinCount). */
-  spectrum(out) { this.master?.analyser.getFloatFrequencyData(out); return out; }
+  spectrum(out) {
+    this.master?.analyser.getFloatFrequencyData(out);
+    return out;
+  }
 }
 
 /** The stems on the bar clock: each bar of each stem is played from the source bar `sequence` names. */
@@ -366,10 +458,10 @@ class Stems {
   constructor(engine) {
     this.e = engine;
     this.names = [];
-    this.sequence = [];            // per output bar: {stemName: srcBar or -1}
+    this.sequence = []; // per output bar: {stemName: srcBar or -1}
     this.loop = true;
-    this.useMix = false;           // play the set's own mix stem instead (A/B against the sketch)
-    this.enabled = true;           // false: the stems stay silent (the arranger's whole-song player, a solo synth)
+    this.useMix = false; // play the set's own mix stem instead (A/B against the sketch)
+    this.enabled = true; // false: the stems stay silent (the arranger's whole-song player, a solo synth)
     this.voices = new Set();
     this.fns = new Set();
   }
@@ -387,19 +479,28 @@ class Stems {
   }
 
   /** Called when the sequence changes, so views can redraw. */
-  onChange(fn) { this.fns.add(fn); return () => this.fns.delete(fn); }
-  changed() { for (const fn of this.fns) fn(this.sequence); }
+  onChange(fn) {
+    this.fns.add(fn);
+    return () => this.fns.delete(fn);
+  }
+  changed() {
+    for (const fn of this.fns) fn(this.sequence);
+  }
 
-  setSequence(seq) { this.sequence = seq; this.changed(); }
+  setSequence(seq) {
+    this.sequence = seq;
+    this.changed();
+  }
 
   scheduleBar(bar, when) {
     const seq = this.sequence;
-    if (!seq.length || this.enabled === false) return;      // a surface playing something else turns the stems off
+    if (!seq.length || this.enabled === false) return; // a surface playing something else turns the stems off
     if (!this.loop && bar >= seq.length) return;
-    const index = ((bar % seq.length) + seq.length) % seq.length;      // a count-in starts on a negative bar
+    const index = ((bar % seq.length) + seq.length) % seq.length; // a count-in starts on a negative bar
     const entry = seq[index];
     this.current = { bar, index, when };
-    const e = this.e, bs = e.barSeconds;
+    const e = this.e,
+      bs = e.barSeconds;
     const play = (bufName, src, busName, gain = 1) => {
       const buf = e.buffers.get(bufName);
       if (!buf || src < 0) return;
@@ -417,12 +518,21 @@ class Stems {
       this.voices.add(node);
       node.onended = () => this.voices.delete(node);
     };
-    if (this.useMix) { play('mix', entry.kick ?? index % this.bars, 'set'); return; }
+    if (this.useMix) {
+      play('mix', entry.kick ?? index % this.bars, 'set');
+      return;
+    }
     for (const name of this.names) play(name, entry[name] ?? -1, name);
   }
 
   stopAll() {
-    for (const v of this.voices) { try { v.stop(); } catch { /* already ended */ } }
+    for (const v of this.voices) {
+      try {
+        v.stop();
+      } catch {
+        /* already ended */
+      }
+    }
     this.voices.clear();
   }
 }
@@ -442,24 +552,37 @@ function align(ctx, buf, head, frames) {
   const ref = new Int16Array(Uint8Array.from(atob(head.pcm), (c) => c.charCodeAt(0)).buffer);
   const n = Math.min(ref.length, 1024);
   if (!n) return buf;
-  const L = buf.getChannelData(0), R = buf.numberOfChannels > 1 ? buf.getChannelData(1) : L;
-  let best = 0, bestScore = -Infinity;
+  const L = buf.getChannelData(0),
+    R = buf.numberOfChannels > 1 ? buf.getChannelData(1) : L;
+  let best = 0,
+    bestScore = -Infinity;
   for (let lag = -2400; lag <= 2400; lag += 1) {
     const at = head.at + lag;
     if (at < 0 || at + n > L.length) continue;
     let dot = 0;
-    for (let i = 0; i < n; i += 2) dot += ((L[at + i] + R[at + i]) * 0.5) * ref[i];
-    if (dot > bestScore) { bestScore = dot; best = lag; }
+    for (let i = 0; i < n; i += 2) dot += (L[at + i] + R[at + i]) * 0.5 * ref[i];
+    if (dot > bestScore) {
+      bestScore = dot;
+      best = lag;
+    }
   }
   if (!best && buf.length === frames) return buf;
   const out = ctx.createBuffer(buf.numberOfChannels, frames || buf.length, buf.sampleRate);
   for (let c = 0; c < buf.numberOfChannels; c++) {
-    const src = buf.getChannelData(c), dst = out.getChannelData(c);
-    for (let i = 0; i < dst.length; i++) { const j = i + best; dst[i] = j >= 0 && j < src.length ? src[j] : 0; }
+    const src = buf.getChannelData(c),
+      dst = out.getChannelData(c);
+    for (let i = 0; i < dst.length; i++) {
+      const j = i + best;
+      dst[i] = j >= 0 && j < src.length ? src[j] : 0;
+    }
   }
   return out;
 }
 
 function safe(fn, ...args) {
-  try { fn(...args); } catch (err) { console.error(err); }
+  try {
+    fn(...args);
+  } catch (err) {
+    console.error(err);
+  }
 }

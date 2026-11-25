@@ -32,10 +32,8 @@ import tempfile
 import time
 from pathlib import Path
 
-from hands.live import render, ui
-from hands.live.transport import LiveClient
-
-from hands import audio
+from zpkt.live import audio, render, ui
+from zpkt.live.transport import LiveClient
 
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))

@@ -15,31 +15,46 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # Each part is its own uv project. Contract tests inside each part
-        # fail if its output drifts from lib/contracts/.
-        part: [hands, ears, ears/mlab, contrib/booth, prototypes/taste, prototypes/engineer, contrib/letta-vibe]
+        # "." is the core (zpkt.live and zpkt.audio, one uv project). Contract tests fail if output drifts from
+        # lib/contracts/. The booth left for becker929/music-bot (24 Nov 2026); the check keeps its name ".".
+        part: ["."]
     steps:
       # Actions are pinned to commit SHAs (tags can be moved).
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
       - name: Test ${{ matrix.part }}
         working-directory: ${{ matrix.part }}
-        run: uv run pytest -q -p no:cacheprovider
+        run: uv run --all-extras pytest -q -p no:cacheprovider
 
-  letta-vibe-bridge-security:
-    # The MCP bridge tests need the optional mcp stack, which the default
-    # letta-vibe environment does not install.
+  lint-and-types:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
-      - name: MCP bridge security tests
-        working-directory: contrib/letta-vibe
-        run: uv run --with "mcp>=1.26,<2" --with uvicorn --with starlette --with httpx pytest -q -p no:cacheprovider tests/test_mcp_bridge_security.py
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+      - name: Lint and format
+        run: uvx ruff@0.14.6 check . && uvx ruff@0.14.6 format --check .
+      - name: Types
+        run: uv run --all-extras mypy && uv run --all-extras mypy --config-file contrib/mixdesk/mypy.ini
+
+  contrib:
+    # The mix desk and the arranger run on the core's environment; the harness is its own uv project.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+      - name: Mix desk
+        run: uv run --all-extras pytest -q -p no:cacheprovider contrib/mixdesk/tests
+      - name: Arranger
+        run: uv run --all-extras pytest -q -p no:cacheprovider contrib/arranger/tests
+      - name: Harness (without the browser tests)
+        working-directory: contrib/harness
+        run: uv run --extra dev pytest -q -p no:cacheprovider --ignore tests/ui
 
   audio-browser:
     runs-on: ubuntu-latest
@@ -47,7 +62,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
       - name: Test (without the 3 GB segment extra)
         working-directory: prototypes/audio-browser
         run: uv run pytest -q -p no:cacheprovider --ignore tests/test_segment.py

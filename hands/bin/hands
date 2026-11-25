@@ -1,5 +1,5 @@
 #!/bin/sh
-# `hands` from any folder: runs the project this script lives in, and keeps the caller's working folder
-# (so relative paths such as renders/ mean the caller's). Link it into a folder on PATH.
+# `hands` from any folder: runs the zpkt project this script lives in (two folders up), and keeps the caller's
+# working folder (so relative paths such as renders/ mean the caller's). Link it into a folder on PATH.
 self=$(readlink "$0" 2>/dev/null || echo "$0")
-exec uv run --quiet --project "$(cd "$(dirname "$self")/.." && pwd)" hands "$@"
+exec uv run --quiet --project "$(cd "$(dirname "$self")/../.." && pwd)" hands "$@"

@@ -1,0 +1,10 @@
+# ABX session
+
+A.wav and B.wav are level-matched (equal integrated LUFS).
+For each X01..X04, decide whether it is A or B. Loop freely.
+Write your answers as one string, e.g. `ABBA...`, then run:
+
+    python3 -m mlab abx-score <this folder> <answers>
+
+Do not open `.answer_key.json` first.
+4 trials: 10 or more of 12 right (p = 0.019) means you really hear a difference.

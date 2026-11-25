@@ -1,0 +1,68 @@
+{
+ "id": "H901",
+ "verdict": "SUPPORTED",
+ "predictions": [
+  {
+   "metric": "loudness.integrated",
+   "left": "mono",
+   "right": "as_is",
+   "op": "abs<",
+   "value": 1.5,
+   "why": "gain",
+   "status": "PASS",
+   "observed": -1.0
+  },
+  {
+   "metric": "loudness.true_peak",
+   "left": "mono",
+   "op": "<",
+   "value": -12,
+   "status": "PASS",
+   "observed": -13.0
+  }
+ ],
+ "rows": {
+  "as_is": {
+   "loudness.integrated": -12.68,
+   "loudness.short_term_max": -12.68,
+   "loudness.lra": null,
+   "loudness.true_peak": -12.0,
+   "loudness.plr": 0.68,
+   "loudness.psr_min": 0.68,
+   "dynamics.crest_db": 3.01,
+   "dynamics.block_crest_median_db": 3.01,
+   "dynamics.transient_contrast_median_db": null,
+   "tonal.slope_db_per_oct": -15.35,
+   "tonal.centroid_hz": 440.0,
+   "tonal.group.sub": -129.28,
+   "tonal.group.bass": -111.56,
+   "tonal.group.low_mid": -0.0,
+   "tonal.group.mid": -86.34,
+   "tonal.group.upper_mid": -155.74,
+   "tonal.group.presence": -160.16,
+   "tonal.group.air": -155.06,
+   "stereo.corr_20_120": 1.0
+  },
+  "mono": {
+   "loudness.integrated": -13.68,
+   "loudness.short_term_max": -13.68,
+   "loudness.lra": null,
+   "loudness.true_peak": -13.0,
+   "loudness.plr": 0.68,
+   "loudness.psr_min": 0.68,
+   "dynamics.crest_db": 3.01,
+   "dynamics.block_crest_median_db": 3.01,
+   "dynamics.transient_contrast_median_db": null,
+   "tonal.slope_db_per_oct": -15.35,
+   "tonal.centroid_hz": 440.0,
+   "tonal.group.sub": -129.28,
+   "tonal.group.bass": -111.56,
+   "tonal.group.low_mid": -0.0,
+   "tonal.group.mid": -86.34,
+   "tonal.group.upper_mid": -155.74,
+   "tonal.group.presence": -160.16,
+   "tonal.group.air": -155.06,
+   "stereo.corr_20_120": 1.0
+  }
+ }
+}

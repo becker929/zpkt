@@ -1,0 +1,418 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/becker929/zpkt/lib/contracts/mixdesk-message.schema.json",
+  "description": "The mix desk's messages: what the pager (inside Live) sends the server as UDP datagrams, and what the server streams to the page as server-sent events. Generated from contrib/mixdesk/protocol.py by contrib/mixdesk/gen_schema.py; do not edit by hand.",
+  "$defs": {
+    "DeskMessage": {
+      "description": "The pages changed (a surface made or removed): load /api/desk again and open page `open`.",
+      "properties": {
+        "t": {
+          "const": "desk",
+          "title": "T",
+          "type": "string"
+        },
+        "open": {
+          "title": "Open",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "t",
+        "open"
+      ],
+      "title": "DeskMessage",
+      "type": "object"
+    },
+    "FullMessage": {
+      "description": "Everything at once (deskstate.DeskState): on connect, after a pager start, after a monitor change.",
+      "properties": {
+        "t": {
+          "const": "full",
+          "title": "T",
+          "type": "string"
+        },
+        "state": {
+          "additionalProperties": true,
+          "title": "State",
+          "type": "object"
+        }
+      },
+      "required": [
+        "t",
+        "state"
+      ],
+      "title": "FullMessage",
+      "type": "object"
+    },
+    "HardwareMessage": {
+      "description": "A MiniLab control touched: where it physically is (None for a pad) and whether a fader has picked up.",
+      "properties": {
+        "t": {
+          "const": "hw",
+          "title": "T",
+          "type": "string"
+        },
+        "page": {
+          "title": "Page",
+          "type": "integer"
+        },
+        "slot": {
+          "title": "Slot",
+          "type": "string"
+        },
+        "hw": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Hw"
+        },
+        "picked": {
+          "title": "Picked",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "t",
+        "page",
+        "slot",
+        "hw",
+        "picked"
+      ],
+      "title": "HardwareMessage",
+      "type": "object"
+    },
+    "HistoryMessage": {
+      "description": "The history's last entries (history.History.view): moves, reverts and checkpoints, and where undo stands.",
+      "properties": {
+        "t": {
+          "const": "hist",
+          "title": "T",
+          "type": "string"
+        },
+        "entries": {
+          "items": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "title": "Entries",
+          "type": "array"
+        },
+        "pos": {
+          "title": "Pos",
+          "type": "integer"
+        },
+        "can_undo": {
+          "title": "Can Undo",
+          "type": "boolean"
+        },
+        "can_redo": {
+          "title": "Can Redo",
+          "type": "boolean"
+        },
+        "checkpoints": {
+          "items": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "title": "Checkpoints",
+          "type": "array"
+        }
+      },
+      "required": [
+        "t",
+        "entries",
+        "pos",
+        "can_undo",
+        "can_redo",
+        "checkpoints"
+      ],
+      "title": "HistoryMessage",
+      "type": "object"
+    },
+    "LoopMessage": {
+      "properties": {
+        "t": {
+          "const": "loop",
+          "title": "T",
+          "type": "string"
+        },
+        "loop": {
+          "title": "Loop",
+          "type": "string"
+        }
+      },
+      "required": [
+        "t",
+        "loop"
+      ],
+      "title": "LoopMessage",
+      "type": "object"
+    },
+    "MeterMessage": {
+      "description": "The live meter on Main: third-octave band centres and their levels in dB.",
+      "properties": {
+        "t": {
+          "const": "meter",
+          "title": "T",
+          "type": "string"
+        },
+        "hz": {
+          "items": {
+            "type": "number"
+          },
+          "title": "Hz",
+          "type": "array"
+        },
+        "db": {
+          "items": {
+            "type": "number"
+          },
+          "title": "Db",
+          "type": "array"
+        }
+      },
+      "required": [
+        "t",
+        "hz",
+        "db"
+      ],
+      "title": "MeterMessage",
+      "type": "object"
+    },
+    "MonitorMessage": {
+      "description": "What is heard: slot A, B, W or C, and the reference C plays.",
+      "properties": {
+        "t": {
+          "const": "mon",
+          "title": "T",
+          "type": "string"
+        },
+        "slot": {
+          "title": "Slot",
+          "type": "string"
+        },
+        "ref": {
+          "title": "Ref",
+          "type": "string"
+        },
+        "err": {
+          "title": "Err",
+          "type": "string"
+        }
+      },
+      "required": [
+        "t",
+        "slot",
+        "ref"
+      ],
+      "title": "MonitorMessage",
+      "type": "object"
+    },
+    "PageMessage": {
+      "description": "A page armed on the MiniLab.",
+      "properties": {
+        "t": {
+          "const": "page",
+          "title": "T",
+          "type": "string"
+        },
+        "page": {
+          "title": "Page",
+          "type": "integer"
+        },
+        "picked": {
+          "additionalProperties": {
+            "type": "boolean"
+          },
+          "title": "Picked",
+          "type": "object"
+        }
+      },
+      "required": [
+        "t",
+        "page",
+        "picked"
+      ],
+      "title": "PageMessage",
+      "type": "object"
+    },
+    "PositionMessage": {
+      "description": "The playhead: beat and whether Live plays.",
+      "properties": {
+        "t": {
+          "const": "pos",
+          "title": "T",
+          "type": "string"
+        },
+        "b": {
+          "title": "B",
+          "type": "number"
+        },
+        "p": {
+          "title": "P",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "t",
+        "b",
+        "p"
+      ],
+      "title": "PositionMessage",
+      "type": "object"
+    },
+    "SurfaceMessage": {
+      "description": "How the \"Make a surface\" job is going.",
+      "properties": {
+        "t": {
+          "const": "surface",
+          "title": "T",
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "working",
+            "done",
+            "error"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "msg": {
+          "title": "Msg",
+          "type": "string"
+        }
+      },
+      "required": [
+        "t",
+        "status",
+        "msg"
+      ],
+      "title": "SurfaceMessage",
+      "type": "object"
+    },
+    "ValueMessage": {
+      "description": "A control's value moved in Live (by anything): page:slot, its 0..1 position, what Live shows, the raw value.",
+      "properties": {
+        "t": {
+          "const": "v",
+          "title": "T",
+          "type": "string"
+        },
+        "page": {
+          "title": "Page",
+          "type": "integer"
+        },
+        "slot": {
+          "title": "Slot",
+          "type": "string"
+        },
+        "n": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "N"
+        },
+        "s": {
+          "title": "S",
+          "type": "string"
+        },
+        "r": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "R"
+        },
+        "key": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Key"
+        },
+        "sys": {
+          "title": "Sys",
+          "type": "boolean"
+        },
+        "who": {
+          "enum": [
+            "you",
+            "minilab",
+            "agent",
+            "sys"
+          ],
+          "title": "Who",
+          "type": "string"
+        }
+      },
+      "required": [
+        "t",
+        "page",
+        "slot",
+        "n",
+        "s",
+        "r",
+        "key"
+      ],
+      "title": "ValueMessage",
+      "type": "object"
+    }
+  },
+  "anyOf": [
+    {
+      "$ref": "#/$defs/ValueMessage"
+    },
+    {
+      "$ref": "#/$defs/PositionMessage"
+    },
+    {
+      "$ref": "#/$defs/MonitorMessage"
+    },
+    {
+      "$ref": "#/$defs/LoopMessage"
+    },
+    {
+      "$ref": "#/$defs/PageMessage"
+    },
+    {
+      "$ref": "#/$defs/HardwareMessage"
+    },
+    {
+      "$ref": "#/$defs/FullMessage"
+    },
+    {
+      "$ref": "#/$defs/HistoryMessage"
+    },
+    {
+      "$ref": "#/$defs/MeterMessage"
+    },
+    {
+      "$ref": "#/$defs/SurfaceMessage"
+    },
+    {
+      "$ref": "#/$defs/DeskMessage"
+    }
+  ]
+}

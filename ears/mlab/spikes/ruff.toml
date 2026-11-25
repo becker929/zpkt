@@ -1,0 +1,12 @@
+# The spikes are a record of experiments, kept as they ran (some still run from hands/scripts/probe_pack).
+# They follow the root style; these style-only rules are off so the record is not rewritten for them.
+extend = "../../../ruff.toml"
+
+[lint]
+extend-ignore = [
+    "SIM115",   # open() without a context manager in one-shot scripts
+    "B905",     # zip() without strict=
+    "RUF005",   # list concatenation
+    "E731",     # lambda assigned to a name
+    "RUF059",   # unused unpacked variable
+]

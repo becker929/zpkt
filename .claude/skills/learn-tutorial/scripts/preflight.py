@@ -46,7 +46,7 @@ def tools(stage: str) -> None:
     if not os.path.exists(ytdlp):
         missing.append("yt-dlp")
     report("STOP" if missing else "PASS", "tools", f"missing {missing}" if missing else "ffmpeg, yt-dlp, node present")
-    venvs = {"onsets.py": "numpy", "transcribe.py": "parakeet_mlx", "live_step.py": "hands"}
+    venvs = {"onsets.py": "numpy", "transcribe.py": "parakeet_mlx", "live_step.py": "zpkt"}
     bad, where = [], []
     for script, mod in venvs.items():  # the projects scripts/run would use, worktree fallback included
         proj = Path(subprocess.run([str(HERE / "run"), "--which", script], capture_output=True, text=True).stdout.strip())
@@ -101,7 +101,7 @@ def orphans() -> None:
 
 
 def audio_log(minutes: float) -> None:
-    from hands import config
+    from zpkt.live import config
 
     log = config.rig().live_log
     if not log or not log.exists():
@@ -124,8 +124,8 @@ def audio_log(minutes: float) -> None:
 
 
 def live(a) -> None:
-    from hands.live import session, ui
-    from hands.live.transport import LiveClient, LiveError
+    from zpkt.live import session, ui
+    from zpkt.live.transport import LiveClient, LiveError
 
     if subprocess.run(["pgrep", "-x", "Live"], capture_output=True).returncode:
         report("STOP", "Live", "not running; start it (lib/rig/start_headless.sh) and rerun", "live-down")

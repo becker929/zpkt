@@ -105,7 +105,6 @@ An unknown status is an error too.
 ## Running it
 
 ```bash
-cd hands
 uv run hands library inventory                       # the rig's library_dir; a table
 uv run hands library inventory --markdown            # a table and each track's evidence
 uv run hands library inventory --json                # lib/contracts/inventory.schema.json
@@ -113,7 +112,7 @@ uv run hands library inventory --root DIR --root DIR2 --exports DIR3 --measure
 ```
 
 The library root comes from the rig settings: `library_dir` in `~/.config/zpkt/rig.toml`, or
-`ZPKT_LIBRARY_DIR` (see `hands/README.md`). The scan is read-only.
+`ZPKT_LIBRARY_DIR` (see `src/zpkt/live/README.md`). The scan is read-only.
 It lists folders and reads `.als` files.
 With `--measure` it decodes at most three files per track.
 Reports are dated in `contrib/docs/journal/inventory/`.

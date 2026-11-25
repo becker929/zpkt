@@ -10,9 +10,21 @@ import { writer } from './core.js';
 
 /** Hex colours for canvas drawing (the CSS tokens, which a canvas cannot read as var()). */
 export const HEX = {
-  acid: '#c6ff3d', lcd: '#ffb547', cold: '#59c7ff', hazard: '#ff5a1f', alarm: '#ff2e4d', text: '#e9e7e2',
-  text2: '#a4a19a', text3: '#6d6a65', steel: '#2c3036', bg: '#0a0a0b',
-  collage: '#e0b7ff', arrange: '#59c7ff', kick: '#ff5a1f', mix: '#c6ff3d', play: '#ff3df2',
+  acid: '#c6ff3d',
+  lcd: '#ffb547',
+  cold: '#59c7ff',
+  hazard: '#ff5a1f',
+  alarm: '#ff2e4d',
+  text: '#e9e7e2',
+  text2: '#a4a19a',
+  text3: '#6d6a65',
+  steel: '#2c3036',
+  bg: '#0a0a0b',
+  collage: '#e0b7ff',
+  arrange: '#59c7ff',
+  kick: '#ff5a1f',
+  mix: '#c6ff3d',
+  play: '#ff3df2',
 };
 export const hexOf = (p) => HEX[p?.stage] ?? HEX.play;
 
@@ -35,28 +47,60 @@ export function touches(el, ctx, ids, { double = true, long = true, name } = {})
       for (const id of ids) ctx.store.reset(id, { source: 'doubletap' });
       ctx.store.end();
       haptic(true);
-      if (!ctx.local) toast(ids.length === 1 ? `${ctx.params.get(ids[0]).label}: the set's value` : `${name ?? 'These controls'}: the set's values`);
+      if (!ctx.local)
+        toast(
+          ids.length === 1
+            ? `${ctx.params.get(ids[0]).label}: the set's value`
+            : `${name ?? 'These controls'}: the set's values`,
+        );
     });
   }
-  if (long) longPress(el, () => { if (!ctx.local) (ids.length === 1 ? inspect(ids[0]) : chooser(ctx, ids, name)); });
+  if (long)
+    longPress(el, () => {
+      if (!ctx.local) ids.length === 1 ? inspect(ids[0]) : chooser(ctx, ids, name);
+    });
 }
 
 /** A bottom sheet listing `ids`: tap one to open its inspector. */
 export function chooser(ctx, ids, title = 'Which control?') {
   const sheet = document.getElementById('inspector');
   if (!sheet) return;
-  const close = () => { sheet.hidden = true; document.removeEventListener('pointerdown', outside, true); };
-  const outside = (e) => { if (!sheet.contains(e.target)) close(); };
+  const close = () => {
+    sheet.hidden = true;
+    document.removeEventListener('pointerdown', outside, true);
+  };
+  const outside = (e) => {
+    if (!sheet.contains(e.target)) close();
+  };
   sheet.replaceChildren(
     h('div', { class: 'sheet-grip' }),
     h('h2', { text: title }),
-    h('div', { class: 'live', text: `${ids.length} controls. Tap one: its knob in Live, the set's value, what was tried.` }),
-    h('div', { class: 'w-choose' }, ...ids.map((id) => {
-      const p = ctx.params.get(id);
-      return h('button', { type: 'button', class: 'w-choose-item', onclick: () => { close(); inspect(id); } },
-        h('b', { text: p.label }), h('span', { text: format(p, ctx.store.real(id)) }));
-    })),
-    h('div', { class: 'acts' }, h('button', { type: 'button', text: 'Close', onclick: close })));
+    h('div', {
+      class: 'live',
+      text: `${ids.length} controls. Tap one: its knob in Live, the set's value, what was tried.`,
+    }),
+    h(
+      'div',
+      { class: 'w-choose' },
+      ...ids.map((id) => {
+        const p = ctx.params.get(id);
+        return h(
+          'button',
+          {
+            type: 'button',
+            class: 'w-choose-item',
+            onclick: () => {
+              close();
+              inspect(id);
+            },
+          },
+          h('b', { text: p.label }),
+          h('span', { text: format(p, ctx.store.real(id)) }),
+        );
+      }),
+    ),
+    h('div', { class: 'acts' }, h('button', { type: 'button', text: 'Close', onclick: close })),
+  );
   sheet.hidden = false;
   setTimeout(() => document.addEventListener('pointerdown', outside, true), 0);
 }
@@ -67,10 +111,22 @@ export function writers(ctx, ids, source) {
   let open = false;
   return {
     ws,
-    begin() { if (open) return; open = true; for (const w of ws) w.begin(); },
-    set(i, v) { ws[i].set(v); },
-    add(i, d) { ws[i].add(d); },
-    end() { if (!open) return; open = false; ctx.store.end(); },
+    begin() {
+      if (open) return;
+      open = true;
+      for (const w of ws) w.begin();
+    },
+    set(i, v) {
+      ws[i].set(v);
+    },
+    add(i, d) {
+      ws[i].add(d);
+    },
+    end() {
+      if (!open) return;
+      open = false;
+      ctx.store.end();
+    },
   };
 }
 
@@ -80,7 +136,12 @@ let raf = 0;
 function frame(t) {
   raf = 0;
   for (const fn of [...frameFns]) {
-    try { fn(t); } catch (err) { console.error(err); frameFns.delete(fn); }
+    try {
+      fn(t);
+    } catch (err) {
+      console.error(err);
+      frameFns.delete(fn);
+    }
   }
   if (frameFns.size) raf = requestAnimationFrame(frame);
 }
@@ -90,9 +151,13 @@ function frame(t) {
  * only while el is on screen. All widgets share one requestAnimationFrame; it stops when nothing listens.
  */
 export function tick(ctx, fn, el = null) {
-  let visible = true, io = null, last = 0;
+  let visible = true,
+    io = null,
+    last = 0;
   if (el && 'IntersectionObserver' in window) {
-    io = new IntersectionObserver((es) => { visible = es.some((x) => x.isIntersecting); });
+    io = new IntersectionObserver((es) => {
+      visible = es.some((x) => x.isIntersecting);
+    });
     io.observe(el);
   }
   const f = (t) => {
@@ -102,7 +167,10 @@ export function tick(ctx, fn, el = null) {
   };
   frameFns.add(f);
   if (!raf) raf = requestAnimationFrame(frame);
-  const off = () => { frameFns.delete(f); io?.disconnect(); };
+  const off = () => {
+    frameFns.delete(f);
+    io?.disconnect();
+  };
   ctx.own(off);
   return off;
 }
@@ -119,19 +187,27 @@ let sources = 0;
 export function modSource(ctx, name = 'mod') {
   const store = ctx.store;
   const key = `${name}#${++sources}`;
-  const mine = new Map();                        // id -> this source's offset
+  const mine = new Map(); // id -> this source's offset
   const src = {
     set(id, offset) {
       if (!Number.isFinite(offset)) offset = 0;
       offset = clamp(offset, -1, 1);
       if (Math.abs((mine.get(id) ?? 0) - offset) < 1e-6) return;
-      if (Math.abs(offset) < 1e-5) mine.delete(id); else mine.set(id, offset);
+      if (Math.abs(offset) < 1e-5) mine.delete(id);
+      else mine.set(id, offset);
       store.modulate(id, mine.get(id) ?? 0, key);
     },
-    get(id) { return mine.get(id) ?? 0; },
-    ids() { return [...mine.keys()]; },
+    get(id) {
+      return mine.get(id) ?? 0;
+    },
+    ids() {
+      return [...mine.keys()];
+    },
     clear(id) {
-      if (id != null) { src.set(id, 0); return; }
+      if (id != null) {
+        src.set(id, 0);
+        return;
+      }
       for (const i of [...mine.keys()]) src.set(i, 0);
     },
   };
@@ -149,10 +225,18 @@ export class LocalStore {
     this.onChange = onChange;
   }
 
-  get(id) { return this.values.get(id) ?? 0; }
-  live(id) { return this.get(id); }
-  real(id) { return toReal(this.params.get(id), this.get(id)); }
-  isSet(id) { return Math.abs(this.get(id) - setNorm(this.params.get(id))) < 1e-4; }
+  get(id) {
+    return this.values.get(id) ?? 0;
+  }
+  live(id) {
+    return this.get(id);
+  }
+  real(id) {
+    return toReal(this.params.get(id), this.get(id));
+  }
+  isSet(id) {
+    return Math.abs(this.get(id) - setNorm(this.params.get(id))) < 1e-4;
+  }
   set(id, value, { source = null } = {}) {
     if (!this.values.has(id)) return;
     const v = clamp(value);
@@ -161,9 +245,15 @@ export class LocalStore {
     for (const fn of this.subs.get(id) ?? []) fn(v, id, source);
     this.onChange?.(id, v, this.real(id));
   }
-  setReal(id, real, opts) { this.set(id, toNormLocal(this.params.get(id), real), opts); }
-  nudge(id, d, opts) { this.set(id, this.get(id) + d, opts); }
-  reset(id, opts) { this.set(id, setNorm(this.params.get(id)), opts); }
+  setReal(id, real, opts) {
+    this.set(id, toNormLocal(this.params.get(id), real), opts);
+  }
+  nudge(id, d, opts) {
+    this.set(id, this.get(id) + d, opts);
+  }
+  reset(id, opts) {
+    this.set(id, setNorm(this.params.get(id)), opts);
+  }
   begin() {}
   end() {}
   modulate() {}
@@ -173,8 +263,12 @@ export class LocalStore {
     if (now && this.values.has(id)) fn(this.get(id), id, 'init');
     return () => this.subs.get(id)?.delete(fn);
   }
-  onAny() { return () => {}; }
-  toJSON() { return Object.fromEntries(this.values); }
+  onAny() {
+    return () => {};
+  }
+  toJSON() {
+    return Object.fromEntries(this.values);
+  }
 }
 
 function toNormLocal(p, v) {
@@ -194,18 +288,25 @@ export function localCtx(ctx, defs, values, onChange) {
 /** A scheduler: at(when, fn) runs fn when the audio clock reaches `when` (an engine onStep/onBar time). */
 export function later(ctx) {
   const timers = new Set();
-  ctx.own(() => { for (const t of timers) clearTimeout(t); timers.clear(); });
+  ctx.own(() => {
+    for (const t of timers) clearTimeout(t);
+    timers.clear();
+  });
   return (when, fn) => {
     const ac = ctx.engine?.ctx;
     const ms = ac ? Math.max(0, (when - ac.currentTime) * 1000) : 0;
-    const t = setTimeout(() => { timers.delete(t); fn(); }, ms);
+    const t = setTimeout(() => {
+      timers.delete(t);
+      fn();
+    }, ms);
     timers.add(t);
   };
 }
 
 /** Bars since the start, smooth: the engine's clock while it plays, a free-running one at the tempo when not. */
 export function barClock(engine) {
-  let t = 0, lastNow = 0;
+  let t = 0,
+    lastNow = 0;
   return () => {
     const now = performance.now() / 1000;
     const dt = lastNow ? Math.min(0.1, now - lastNow) : 0;
@@ -225,7 +326,13 @@ export function barClock(engine) {
 export function keep(opts, def) {
   const key = opts.key ? `hw002-lab:w:${opts.key}` : null;
   let saved = opts.state ?? null;
-  if (!saved && key) { try { saved = JSON.parse(localStorage.getItem(key) || 'null'); } catch { saved = null; } }
+  if (!saved && key) {
+    try {
+      saved = JSON.parse(localStorage.getItem(key) || 'null');
+    } catch {
+      saved = null;
+    }
+  }
   const state = { ...structuredClone(def), ...(saved ?? {}) };
   let timer = 0;
   return {
@@ -234,7 +341,13 @@ export function keep(opts, def) {
       clearTimeout(timer);
       timer = setTimeout(() => {
         if (opts.onState) opts.onState(state);
-        else if (key) { try { localStorage.setItem(key, JSON.stringify(state)); } catch { /* private mode */ } }
+        else if (key) {
+          try {
+            localStorage.setItem(key, JSON.stringify(state));
+          } catch {
+            /* private mode */
+          }
+        }
       }, 150);
     },
   };
@@ -244,8 +357,12 @@ export function keep(opts, def) {
 /** Size a canvas's backing store to its layout box (times the pixel ratio). Returns {g, W, H, d}. */
 export function fitCanvas(cv) {
   const d = Math.min(3, devicePixelRatio || 1);
-  const W = Math.max(1, Math.round(cv.clientWidth * d)), H = Math.max(1, Math.round(cv.clientHeight * d));
-  if (cv.width !== W || cv.height !== H) { cv.width = W; cv.height = H; }
+  const W = Math.max(1, Math.round(cv.clientWidth * d)),
+    H = Math.max(1, Math.round(cv.clientHeight * d));
+  if (cv.width !== W || cv.height !== H) {
+    cv.width = W;
+    cv.height = H;
+  }
   return { g: cv.getContext('2d'), W, H, d };
 }
 

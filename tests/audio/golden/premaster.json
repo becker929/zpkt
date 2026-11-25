@@ -1,0 +1,359 @@
+{
+ "float_mix": {
+  "overall": "WARN",
+  "checks": [
+   {
+    "check": "format",
+    "status": "PASS",
+    "value": "FLOAT",
+    "why": "24-bit or float keeps the noise floor out of the way"
+   },
+   {
+    "check": "sample_rate",
+    "status": "INFO",
+    "value": 44100,
+    "why": "keep the project rate; convert only at delivery"
+   },
+   {
+    "check": "sample_peak_dbfs",
+    "status": "PASS",
+    "value": -12.93,
+    "why": "leave headroom; -3.0 dBFS or lower is comfortable"
+   },
+   {
+    "check": "true_peak_dbtp",
+    "status": "PASS",
+    "value": -12.85,
+    "why": "above 0 dBTP the premaster already has inter-sample overs"
+   },
+   {
+    "check": "clipped_runs",
+    "status": "PASS",
+    "value": 0,
+    "why": "runs of >= 3 full-scale samples"
+   },
+   {
+    "check": "plr_db",
+    "status": "PASS",
+    "value": 17.52,
+    "why": "low PLR = limiter/clipper already on the main bus; bypass it for the premaster"
+   },
+   {
+    "check": "integrated_lufs",
+    "status": "INFO",
+    "value": -30.37,
+    "why": "premaster loudness is not a target; headroom matters more"
+   },
+   {
+    "check": "dc_offset_dbfs",
+    "status": "PASS",
+    "value": -68.29,
+    "why": "DC wastes headroom and thumps at edits (mean is bass wander, not a steady offset)"
+   },
+   {
+    "check": "head_first_10ms_dbfs",
+    "status": "WARN",
+    "value": -26.14,
+    "why": "loud first samples = clipped start / missing pre-roll; also causes inter-sample overs"
+   },
+   {
+    "check": "tail_last_10ms_dbfs",
+    "status": "WARN",
+    "value": -36.46,
+    "why": "loud last samples = reverb/delay tail cut off; extend the export length"
+   },
+   {
+    "check": "correlation",
+    "status": "PASS",
+    "value": 0.759,
+    "why": "negative overall correlation = polarity problem"
+   },
+   {
+    "check": "low_end_correlation_20_120hz",
+    "status": "PASS",
+    "value": 0.952,
+    "why": "club systems and phones sum bass to mono; keep it near 1"
+   },
+   {
+    "check": "mono_sum_loss_lu",
+    "status": "PASS",
+    "value": 0.59,
+    "why": "loudness lost when summed to mono (phone speaker, club)"
+   },
+   {
+    "check": "lr_balance_db",
+    "status": "PASS",
+    "value": -0.08,
+    "why": "L minus R RMS"
+   },
+   {
+    "check": "duration_s",
+    "status": "INFO",
+    "value": 12.0,
+    "why": "YouTube Shorts: up to 180 s"
+   }
+  ]
+ },
+ "clipped_16bit": {
+  "overall": "FAIL",
+  "checks": [
+   {
+    "check": "format",
+    "status": "WARN",
+    "value": "PCM_16",
+    "why": "export 24-bit or 32-bit float; dither once, at the very end"
+   },
+   {
+    "check": "sample_rate",
+    "status": "INFO",
+    "value": 44100,
+    "why": "keep the project rate; convert only at delivery"
+   },
+   {
+    "check": "sample_peak_dbfs",
+    "status": "FAIL",
+    "value": 0.0,
+    "why": "leave headroom; -3.0 dBFS or lower is comfortable"
+   },
+   {
+    "check": "true_peak_dbtp",
+    "status": "WARN",
+    "value": 1.05,
+    "why": "above 0 dBTP the premaster already has inter-sample overs"
+   },
+   {
+    "check": "clipped_runs",
+    "status": "FAIL",
+    "value": 2,
+    "why": "runs of >= 3 full-scale samples"
+   },
+   {
+    "check": "plr_db",
+    "status": "PASS",
+    "value": 31.37,
+    "why": "low PLR = limiter/clipper already on the main bus; bypass it for the premaster"
+   },
+   {
+    "check": "integrated_lufs",
+    "status": "INFO",
+    "value": -30.32,
+    "why": "premaster loudness is not a target; headroom matters more"
+   },
+   {
+    "check": "dc_offset_dbfs",
+    "status": "PASS",
+    "value": -68.7,
+    "why": "DC wastes headroom and thumps at edits (mean is bass wander, not a steady offset)"
+   },
+   {
+    "check": "head_first_10ms_dbfs",
+    "status": "WARN",
+    "value": -26.14,
+    "why": "loud first samples = clipped start / missing pre-roll; also causes inter-sample overs"
+   },
+   {
+    "check": "tail_last_10ms_dbfs",
+    "status": "WARN",
+    "value": -36.46,
+    "why": "loud last samples = reverb/delay tail cut off; extend the export length"
+   },
+   {
+    "check": "correlation",
+    "status": "PASS",
+    "value": 0.765,
+    "why": "negative overall correlation = polarity problem"
+   },
+   {
+    "check": "low_end_correlation_20_120hz",
+    "status": "PASS",
+    "value": 0.952,
+    "why": "club systems and phones sum bass to mono; keep it near 1"
+   },
+   {
+    "check": "mono_sum_loss_lu",
+    "status": "PASS",
+    "value": 0.58,
+    "why": "loudness lost when summed to mono (phone speaker, club)"
+   },
+   {
+    "check": "lr_balance_db",
+    "status": "PASS",
+    "value": -0.08,
+    "why": "L minus R RMS"
+   },
+   {
+    "check": "duration_s",
+    "status": "INFO",
+    "value": 12.0,
+    "why": "YouTube Shorts: up to 180 s"
+   }
+  ]
+ },
+ "mono": {
+  "overall": "WARN",
+  "checks": [
+   {
+    "check": "format",
+    "status": "PASS",
+    "value": "PCM_24",
+    "why": "24-bit or float keeps the noise floor out of the way"
+   },
+   {
+    "check": "sample_rate",
+    "status": "INFO",
+    "value": 44100,
+    "why": "keep the project rate; convert only at delivery"
+   },
+   {
+    "check": "sample_peak_dbfs",
+    "status": "PASS",
+    "value": -12.93,
+    "why": "leave headroom; -3.0 dBFS or lower is comfortable"
+   },
+   {
+    "check": "true_peak_dbtp",
+    "status": "PASS",
+    "value": -12.85,
+    "why": "above 0 dBTP the premaster already has inter-sample overs"
+   },
+   {
+    "check": "clipped_runs",
+    "status": "PASS",
+    "value": 0,
+    "why": "runs of >= 3 full-scale samples"
+   },
+   {
+    "check": "plr_db",
+    "status": "PASS",
+    "value": 20.54,
+    "why": "low PLR = limiter/clipper already on the main bus; bypass it for the premaster"
+   },
+   {
+    "check": "integrated_lufs",
+    "status": "INFO",
+    "value": -33.39,
+    "why": "premaster loudness is not a target; headroom matters more"
+   },
+   {
+    "check": "dc_offset_dbfs",
+    "status": "PASS",
+    "value": -68.29,
+    "why": "DC wastes headroom and thumps at edits (mean is bass wander, not a steady offset)"
+   },
+   {
+    "check": "head_first_10ms_dbfs",
+    "status": "WARN",
+    "value": -26.07,
+    "why": "loud first samples = clipped start / missing pre-roll; also causes inter-sample overs"
+   },
+   {
+    "check": "tail_last_10ms_dbfs",
+    "status": "WARN",
+    "value": -37.05,
+    "why": "loud last samples = reverb/delay tail cut off; extend the export length"
+   },
+   {
+    "check": "duration_s",
+    "status": "INFO",
+    "value": 12.0,
+    "why": "YouTube Shorts: up to 180 s"
+   }
+  ]
+ },
+ "lossy": {
+  "overall": "FAIL",
+  "checks": [
+   {
+    "check": "format",
+    "status": "FAIL",
+    "value": "lossy:mp3",
+    "why": "lossy file; premaster must be PCM or float"
+   },
+   {
+    "check": "sample_rate",
+    "status": "INFO",
+    "value": 44100,
+    "why": "keep the project rate; convert only at delivery"
+   },
+   {
+    "check": "sample_peak_dbfs",
+    "status": "PASS",
+    "value": -12.93,
+    "why": "leave headroom; -3.0 dBFS or lower is comfortable"
+   },
+   {
+    "check": "true_peak_dbtp",
+    "status": "PASS",
+    "value": -12.85,
+    "why": "above 0 dBTP the premaster already has inter-sample overs"
+   },
+   {
+    "check": "clipped_runs",
+    "status": "PASS",
+    "value": 0,
+    "why": "runs of >= 3 full-scale samples"
+   },
+   {
+    "check": "plr_db",
+    "status": "PASS",
+    "value": 17.52,
+    "why": "low PLR = limiter/clipper already on the main bus; bypass it for the premaster"
+   },
+   {
+    "check": "integrated_lufs",
+    "status": "INFO",
+    "value": -30.37,
+    "why": "premaster loudness is not a target; headroom matters more"
+   },
+   {
+    "check": "dc_offset_dbfs",
+    "status": "PASS",
+    "value": -68.29,
+    "why": "DC wastes headroom and thumps at edits (mean is bass wander, not a steady offset)"
+   },
+   {
+    "check": "head_first_10ms_dbfs",
+    "status": "WARN",
+    "value": -26.14,
+    "why": "loud first samples = clipped start / missing pre-roll; also causes inter-sample overs"
+   },
+   {
+    "check": "tail_last_10ms_dbfs",
+    "status": "WARN",
+    "value": -36.46,
+    "why": "loud last samples = reverb/delay tail cut off; extend the export length"
+   },
+   {
+    "check": "correlation",
+    "status": "PASS",
+    "value": 0.759,
+    "why": "negative overall correlation = polarity problem"
+   },
+   {
+    "check": "low_end_correlation_20_120hz",
+    "status": "PASS",
+    "value": 0.952,
+    "why": "club systems and phones sum bass to mono; keep it near 1"
+   },
+   {
+    "check": "mono_sum_loss_lu",
+    "status": "PASS",
+    "value": 0.59,
+    "why": "loudness lost when summed to mono (phone speaker, club)"
+   },
+   {
+    "check": "lr_balance_db",
+    "status": "PASS",
+    "value": -0.08,
+    "why": "L minus R RMS"
+   },
+   {
+    "check": "duration_s",
+    "status": "INFO",
+    "value": 12.0,
+    "why": "YouTube Shorts: up to 180 s"
+   }
+  ]
+ },
+ "clip_runs": 2
+}

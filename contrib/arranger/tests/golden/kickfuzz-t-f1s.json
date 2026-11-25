@@ -1,0 +1,438 @@
+{
+ "undo": [
+  [
+   "song.tracks[1].devices[1].parameters[3]",
+   0.25
+  ],
+  [
+   "song.tracks[1].devices[1].parameters[3]",
+   0.25
+  ],
+  [
+   "song.tracks[1].devices[1].parameters[3]",
+   0.25
+  ],
+  [
+   "song.tracks[1].devices[1].parameters[3]",
+   0.25
+  ],
+  [
+   "song.tracks[1].devices[1].parameters[3]",
+   0.25
+  ],
+  [
+   "song.tracks[1].devices[1].parameters[3]",
+   0.25
+  ],
+  [
+   "song.tracks[1].devices[1].parameters[3]",
+   0.25
+  ],
+  [
+   "song.tracks[1].devices[1].parameters[3]",
+   0.25
+  ],
+  [
+   "song.tracks[1].devices[1].parameters[3]",
+   0.25
+  ],
+  [
+   "song.tracks[1].devices[1].parameters[3]",
+   0.25
+  ],
+  [
+   "song.tracks[1].devices[1].parameters[3]",
+   0.25
+  ],
+  [
+   "song.tracks[1].devices[1].parameters[3]",
+   0.25
+  ],
+  [
+   "song.tracks[1].devices[1].parameters[3]",
+   0.25
+  ],
+  [
+   "song.tracks[1].devices[1].parameters[3]",
+   0.25
+  ],
+  [
+   "song.tracks[1].devices[0].parameters[3]",
+   0.25
+  ],
+  [
+   "song.tracks[3].devices[3].parameters[3]",
+   0.25
+  ]
+ ],
+ "calls": [
+  [
+   "run",
+   "result = [i for i, p in enumerate(song.tracks[1].devices[1].parameters) if p.name == 'Device On']"
+  ],
+  [
+   "run",
+   "result = song.tracks[1].devices[1].parameters[3].value"
+  ],
+  [
+   "setp",
+   "song.tracks[1].devices[1]",
+   {
+    "Device On": "On"
+   }
+  ],
+  [
+   "run",
+   "result = [i for i, p in enumerate(song.tracks[1].devices[1].parameters) if p.name == 'Shaper 1 On']"
+  ],
+  [
+   "run",
+   "result = song.tracks[1].devices[1].parameters[3].value"
+  ],
+  [
+   "setp",
+   "song.tracks[1].devices[1]",
+   {
+    "Shaper 1 On": "On"
+   }
+  ],
+  [
+   "run",
+   "result = [i for i, p in enumerate(song.tracks[1].devices[1].parameters) if p.name == 'Shaper 1 Type']"
+  ],
+  [
+   "run",
+   "result = song.tracks[1].devices[1].parameters[3].value"
+  ],
+  [
+   "setp",
+   "song.tracks[1].devices[1]",
+   {
+    "Shaper 1 Type": "Tri Fold"
+   }
+  ],
+  [
+   "run",
+   "result = [i for i, p in enumerate(song.tracks[1].devices[1].parameters) if p.name == 'Shaper 1 Amt']"
+  ],
+  [
+   "run",
+   "result = song.tracks[1].devices[1].parameters[3].value"
+  ],
+  [
+   "setp",
+   "song.tracks[1].devices[1]",
+   {
+    "Shaper 1 Amt": "100 %"
+   }
+  ],
+  [
+   "run",
+   "result = [i for i, p in enumerate(song.tracks[1].devices[1].parameters) if p.name == 'Flt 1 On']"
+  ],
+  [
+   "run",
+   "result = song.tracks[1].devices[1].parameters[3].value"
+  ],
+  [
+   "setp",
+   "song.tracks[1].devices[1]",
+   {
+    "Flt 1 On": "On"
+   }
+  ],
+  [
+   "run",
+   "result = [i for i, p in enumerate(song.tracks[1].devices[1].parameters) if p.name == 'Flt 1 Type']"
+  ],
+  [
+   "run",
+   "result = song.tracks[1].devices[1].parameters[3].value"
+  ],
+  [
+   "setp",
+   "song.tracks[1].devices[1]",
+   {
+    "Flt 1 Type": "HP"
+   }
+  ],
+  [
+   "run",
+   "result = [i for i, p in enumerate(song.tracks[1].devices[1].parameters) if p.name == 'Flt 1 Freq']"
+  ],
+  [
+   "run",
+   "result = song.tracks[1].devices[1].parameters[3].value"
+  ],
+  [
+   "setp",
+   "song.tracks[1].devices[1]",
+   {
+    "Flt 1 Freq": "600 Hz"
+   }
+  ],
+  [
+   "run",
+   "result = [i for i, p in enumerate(song.tracks[1].devices[1].parameters) if p.name == 'Flt 1 Pre On']"
+  ],
+  [
+   "run",
+   "result = song.tracks[1].devices[1].parameters[3].value"
+  ],
+  [
+   "setp",
+   "song.tracks[1].devices[1]",
+   {
+    "Flt 1 Pre On": "Off"
+   }
+  ],
+  [
+   "run",
+   "result = [i for i, p in enumerate(song.tracks[1].devices[1].parameters) if p.name == 'Shaper 2 Amt']"
+  ],
+  [
+   "run",
+   "result = song.tracks[1].devices[1].parameters[3].value"
+  ],
+  [
+   "setp",
+   "song.tracks[1].devices[1]",
+   {
+    "Shaper 2 Amt": "0.0 %"
+   }
+  ],
+  [
+   "run",
+   "result = [i for i, p in enumerate(song.tracks[1].devices[1].parameters) if p.name == 'Shaper 3 Amt']"
+  ],
+  [
+   "run",
+   "result = song.tracks[1].devices[1].parameters[3].value"
+  ],
+  [
+   "setp",
+   "song.tracks[1].devices[1]",
+   {
+    "Shaper 3 Amt": "0.0 %"
+   }
+  ],
+  [
+   "run",
+   "result = [i for i, p in enumerate(song.tracks[1].devices[1].parameters) if p.name == 'Comp Amt']"
+  ],
+  [
+   "run",
+   "result = song.tracks[1].devices[1].parameters[3].value"
+  ],
+  [
+   "setp",
+   "song.tracks[1].devices[1]",
+   {
+    "Comp Amt": "60 %"
+   }
+  ],
+  [
+   "run",
+   "result = [i for i, p in enumerate(song.tracks[1].devices[1].parameters) if p.name == 'Dry/Wet']"
+  ],
+  [
+   "run",
+   "result = song.tracks[1].devices[1].parameters[3].value"
+  ],
+  [
+   "setp",
+   "song.tracks[1].devices[1]",
+   {
+    "Dry/Wet": "35 %"
+   }
+  ],
+  [
+   "run",
+   "result = [i for i, p in enumerate(song.tracks[1].devices[1].parameters) if p.name == 'Drive']"
+  ],
+  [
+   "run",
+   "result = song.tracks[1].devices[1].parameters[3].value"
+  ],
+  [
+   "setp",
+   "song.tracks[1].devices[1]",
+   {
+    "Drive": "24 dB"
+   }
+  ],
+  [
+   "run",
+   "result = [i for i, p in enumerate(song.tracks[1].devices[1].parameters) if p.name == 'Shaper 1 Level']"
+  ],
+  [
+   "run",
+   "result = song.tracks[1].devices[1].parameters[3].value"
+  ],
+  [
+   "setp",
+   "song.tracks[1].devices[1]",
+   {
+    "Shaper 1 Level": "6.0 dB"
+   }
+  ],
+  [
+   "run",
+   "result = [i for i, p in enumerate(song.tracks[1].devices[0].parameters) if p.name == '1 Gain A']"
+  ],
+  [
+   "run",
+   "result = song.tracks[1].devices[0].parameters[3].value"
+  ],
+  [
+   "setp",
+   "song.tracks[1].devices[0]",
+   {
+    "1 Gain A": "-6.0 dB"
+   }
+  ],
+  [
+   "run",
+   "result = [i for i, p in enumerate(song.tracks[3].devices[3].parameters) if p.name == '1 Gain A']"
+  ],
+  [
+   "run",
+   "result = song.tracks[3].devices[3].parameters[3].value"
+  ],
+  [
+   "setp",
+   "song.tracks[3].devices[3]",
+   {
+    "1 Gain A": "-6.0 dB"
+   }
+  ],
+  [
+   "run",
+   "song.tracks[3].devices[3].parameters[3].value = 0.25\nresult = 'ok'"
+  ],
+  [
+   "run",
+   "song.tracks[1].devices[0].parameters[3].value = 0.25\nresult = 'ok'"
+  ],
+  [
+   "run",
+   "song.tracks[1].devices[1].parameters[3].value = 0.25\nresult = 'ok'"
+  ],
+  [
+   "run",
+   "song.tracks[1].devices[1].parameters[3].value = 0.25\nresult = 'ok'"
+  ],
+  [
+   "run",
+   "song.tracks[1].devices[1].parameters[3].value = 0.25\nresult = 'ok'"
+  ],
+  [
+   "run",
+   "song.tracks[1].devices[1].parameters[3].value = 0.25\nresult = 'ok'"
+  ],
+  [
+   "run",
+   "song.tracks[1].devices[1].parameters[3].value = 0.25\nresult = 'ok'"
+  ],
+  [
+   "run",
+   "song.tracks[1].devices[1].parameters[3].value = 0.25\nresult = 'ok'"
+  ],
+  [
+   "run",
+   "song.tracks[1].devices[1].parameters[3].value = 0.25\nresult = 'ok'"
+  ],
+  [
+   "run",
+   "song.tracks[1].devices[1].parameters[3].value = 0.25\nresult = 'ok'"
+  ],
+  [
+   "run",
+   "song.tracks[1].devices[1].parameters[3].value = 0.25\nresult = 'ok'"
+  ],
+  [
+   "run",
+   "song.tracks[1].devices[1].parameters[3].value = 0.25\nresult = 'ok'"
+  ],
+  [
+   "run",
+   "song.tracks[1].devices[1].parameters[3].value = 0.25\nresult = 'ok'"
+  ],
+  [
+   "run",
+   "song.tracks[1].devices[1].parameters[3].value = 0.25\nresult = 'ok'"
+  ],
+  [
+   "run",
+   "song.tracks[1].devices[1].parameters[3].value = 0.25\nresult = 'ok'"
+  ],
+  [
+   "run",
+   "song.tracks[1].devices[1].parameters[3].value = 0.25\nresult = 'ok'"
+  ],
+  [
+   "run",
+   "result = song.tracks[1].devices[1].parameters[3].value"
+  ],
+  [
+   "run",
+   "result = song.tracks[1].devices[1].parameters[3].value"
+  ],
+  [
+   "run",
+   "result = song.tracks[1].devices[1].parameters[3].value"
+  ],
+  [
+   "run",
+   "result = song.tracks[1].devices[1].parameters[3].value"
+  ],
+  [
+   "run",
+   "result = song.tracks[1].devices[1].parameters[3].value"
+  ],
+  [
+   "run",
+   "result = song.tracks[1].devices[1].parameters[3].value"
+  ],
+  [
+   "run",
+   "result = song.tracks[1].devices[1].parameters[3].value"
+  ],
+  [
+   "run",
+   "result = song.tracks[1].devices[1].parameters[3].value"
+  ],
+  [
+   "run",
+   "result = song.tracks[1].devices[1].parameters[3].value"
+  ],
+  [
+   "run",
+   "result = song.tracks[1].devices[1].parameters[3].value"
+  ],
+  [
+   "run",
+   "result = song.tracks[1].devices[1].parameters[3].value"
+  ],
+  [
+   "run",
+   "result = song.tracks[1].devices[1].parameters[3].value"
+  ],
+  [
+   "run",
+   "result = song.tracks[1].devices[1].parameters[3].value"
+  ],
+  [
+   "run",
+   "result = song.tracks[1].devices[1].parameters[3].value"
+  ],
+  [
+   "run",
+   "result = song.tracks[1].devices[0].parameters[3].value"
+  ],
+  [
+   "run",
+   "result = song.tracks[3].devices[3].parameters[3].value"
+  ]
+ ]
+}

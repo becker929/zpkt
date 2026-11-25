@@ -178,7 +178,7 @@ def check_anchor(rng: np.random.Generator) -> dict:
 
 def info_mlab(rng: np.random.Generator) -> dict:
     try:
-        from mlab.sections import onset_envelope
+        from zpkt.audio.meters.sections import onset_envelope
     except ImportError:
         return {"check": "info", "mlab_onset_envelope_frame_offset_ms": None, "note": "mlab not importable here"}
     sr = 44100

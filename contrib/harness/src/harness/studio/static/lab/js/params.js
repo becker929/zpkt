@@ -24,14 +24,18 @@ export async function loadParams(base = './data/') {
   const res = await fetch(`${base}params.json`, { cache: 'no-cache' });
   if (!res.ok) throw new Error(`params: ${res.status}`);
   const data = await res.json();
-  const extras = await Promise.all(STAGES.map(async (stage) => {
-    try {
-      const r = await fetch(`${base}extras-${stage}.json`, { cache: 'no-cache' });
-      if (!r.ok) return [];
-      const list = (await r.json()).params ?? [];
-      return list.map((p) => ({ stage, origin: 'phone', live: null, ...p }));
-    } catch { return []; }
-  }));
+  const extras = await Promise.all(
+    STAGES.map(async (stage) => {
+      try {
+        const r = await fetch(`${base}extras-${stage}.json`, { cache: 'no-cache' });
+        if (!r.ok) return [];
+        const list = (await r.json()).params ?? [];
+        return list.map((p) => ({ stage, origin: 'phone', live: null, ...p }));
+      } catch {
+        return [];
+      }
+    }),
+  );
   return new Params([...(data.params ?? data), ...extras.flat()]);
 }
 
@@ -47,10 +51,18 @@ export class Params {
     return p;
   }
 
-  has(id) { return this.byId.has(id); }
-  stage(stage) { return this.list.filter((p) => p.stage === stage); }
-  group(stage, group) { return this.list.filter((p) => p.stage === stage && p.group === group); }
-  groups(stage) { return [...new Set(this.stage(stage).map((p) => p.group))]; }
+  has(id) {
+    return this.byId.has(id);
+  }
+  stage(stage) {
+    return this.list.filter((p) => p.stage === stage);
+  }
+  group(stage, group) {
+    return this.list.filter((p) => p.stage === stage && p.group === group);
+  }
+  groups(stage) {
+    return [...new Set(this.stage(stage).map((p) => p.group))];
+  }
 }
 
 const clamp = (x, lo = 0, hi = 1) => Math.min(hi, Math.max(lo, x));
@@ -59,10 +71,13 @@ const clamp = (x, lo = 0, hi = 1) => Math.min(hi, Math.max(lo, x));
 export function toReal(p, n) {
   n = clamp(n);
   switch (p.scale) {
-    case 'log': return p.min * Math.pow(p.max / p.min, n);
-    case 'toggle': return n >= 0.5 ? 1 : 0;
-    case 'enum': return Math.round(n * (p.options.length - 1));
-    case 'db':                                  // dB faders: more travel near 0 dB, like a console
+    case 'log':
+      return p.min * Math.pow(p.max / p.min, n);
+    case 'toggle':
+      return n >= 0.5 ? 1 : 0;
+    case 'enum':
+      return Math.round(n * (p.options.length - 1));
+    case 'db': // dB faders: more travel near 0 dB, like a console
     default: {
       const v = p.min + (p.max - p.min) * n;
       return p.step ? Math.round(v / p.step) * p.step : v;
@@ -73,10 +88,14 @@ export function toReal(p, n) {
 /** The param's unit -> 0..1. */
 export function toNorm(p, v) {
   switch (p.scale) {
-    case 'log': return clamp(Math.log(v / p.min) / Math.log(p.max / p.min));
-    case 'toggle': return v ? 1 : 0;
-    case 'enum': return p.options.length > 1 ? clamp(v / (p.options.length - 1)) : 0;
-    default: return p.max === p.min ? 0 : clamp((v - p.min) / (p.max - p.min));
+    case 'log':
+      return clamp(Math.log(v / p.min) / Math.log(p.max / p.min));
+    case 'toggle':
+      return v ? 1 : 0;
+    case 'enum':
+      return p.options.length > 1 ? clamp(v / (p.options.length - 1)) : 0;
+    default:
+      return p.max === p.min ? 0 : clamp((v - p.min) / (p.max - p.min));
   }
 }
 

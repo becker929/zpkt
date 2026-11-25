@@ -30,13 +30,18 @@ export default {
   mount(root, ctx) {
     const rig = createRig(ctx);
     const painter = new Painter(ctx);
-    const deck = h('div', { class: 'kx-deck' },
+    const deck = h(
+      'div',
+      { class: 'kx-deck' },
       header(ctx, rig, painter),
       sourceSwitch(ctx, rig),
       heatFader(ctx, rig, painter),
       abcTapper(ctx, rig, painter),
-      scoopBlock(ctx, rig, painter));
-    const below = h('div', { class: 'kx-below' },
+      scoopBlock(ctx, rig, painter),
+    );
+    const below = h(
+      'div',
+      { class: 'kx-below' },
       h('div', { class: 'kx-divider' }, h('span', { text: 'DESIGN THE KICK' }), h('i', {})),
       hitScope(ctx, rig, painter),
       envelopes(ctx, rig, painter),
@@ -46,7 +51,8 @@ export default {
       transient(ctx, rig, painter),
       compressor(ctx, rig, painter),
       rumbleRack(ctx, rig, painter),
-      scoopMap(ctx, rig, painter));
+      scoopMap(ctx, rig, painter),
+    );
     root.append(h('div', { class: 'kx' }, deck, below));
 
     // the deck fills the first screen, whatever the phone

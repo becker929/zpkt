@@ -1,0 +1,21 @@
+{
+ "container": "PCM_16",
+ "sample_rate": 44100,
+ "lossy": false,
+ "effective_bits": 16,
+ "dc_offset_dbfs": [
+  -66.29,
+  -72.01
+ ],
+ "dc_steady": false,
+ "dc_max_dbfs": -66.29,
+ "digital_zero_blocks_100ms": 0,
+ "quietest_blocks_dbfs": -36.41,
+ "reference_floors_dbfs_at_16_bits": {
+  "none": -101.1,
+  "rpdf": -98.09,
+  "tpdf": -96.33
+ },
+ "quiet_region_tilt_db": -8.47,
+ "verdict": "programme never gets quiet enough to see the floor: dither not observable (masked)"
+}

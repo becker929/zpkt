@@ -1,0 +1,5 @@
+| measure | this | r1 | r2 | ref median | this − median |
+|---|---|---|---|---|---|
+| loudness.integrated | -12.5 | -8.0 | -9.5 | -8.75 | -3.75 |
+| dynamics.crest_db | 9.1 | 7.0 | None | 7.0 | 2.1 |
+| missing | None | None | None | None |  |

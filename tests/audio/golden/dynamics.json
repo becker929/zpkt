@@ -1,0 +1,108 @@
+{
+ "analyze": {
+  "crest_db": 18.14,
+  "plr_db": 17.52,
+  "psr_min_db": 15.71,
+  "k20_rms_db": -0.06,
+  "k14_rms_db": -6.06,
+  "lra_lu": 4.05,
+  "short_term_p95_minus_p10": 4.05,
+  "short_term_max_minus_integrated": 1.56,
+  "block_crest_median_db": 15.69,
+  "block_crest_p10_db": 14.95,
+  "block_crest_p90_db": 16.37,
+  "onsets": 37,
+  "transient_contrast_median_db": 11.3
+ },
+ "crest": 18.135229908749317,
+ "micro": {
+  "block_crest_median_db": 15.69,
+  "block_crest_p10_db": 14.95,
+  "block_crest_p90_db": 16.37
+ },
+ "transient_contrast": {
+  "onsets": 37,
+  "transient_contrast_median_db": 11.3
+ },
+ "envelope": {
+  "shape": [
+   529200
+  ],
+  "sum": -10471086.077007882,
+  "sum_sq": 215313333.63785893,
+  "max_abs": 57.455596627659205,
+  "samples": [
+   -57.455596627659205,
+   -19.499685088871583,
+   -24.678217219388955,
+   -26.393942059020212,
+   -16.457441640126472,
+   -20.955620043021245,
+   -21.610553019470068
+  ]
+ },
+ "gain_curve": [
+  {
+   "shape": [
+    16788
+   ],
+   "sum": 281197.85795918363,
+   "sum_sq": 6280059.983376473,
+   "max_abs": 33.49886621315193,
+   "samples": [
+    0.000997732426303855,
+    5.582312925170068,
+    11.16562358276644,
+    16.74893424036281,
+    22.332244897959185,
+    27.915555555555557,
+    33.49886621315193
+   ]
+  },
+  {
+   "shape": [
+    16788
+   ],
+   "sum": NaN,
+   "sum_sq": NaN,
+   "max_abs": NaN,
+   "samples": [
+    NaN,
+    2.000000000000007,
+    2.0,
+    -6.482967918494044,
+    -7.333236383879582,
+    1.995275664641241,
+    NaN
+   ]
+  },
+  {
+   "shape": [
+    16788
+   ],
+   "sum": -571543.2915750087,
+   "sum_sq": 28026405.808707476,
+   "max_abs": 123.02021347317157,
+   "samples": [
+    -123.00055281881129,
+    -47.77115043245892,
+    -31.012119565160575,
+    -14.257729623220907,
+    -13.020002683733141,
+    -43.00189541163135,
+    -123.0127783346485
+   ]
+  }
+ ],
+ "comp_probe": {
+  "makeup_db": 2.0,
+  "threshold_db": -24.0,
+  "knee_db": 6.0,
+  "ratio": 2.99,
+  "static_fit_rms_err_db": 0.005,
+  "attack_ms": 5.6,
+  "release_ms": 124.9,
+  "note": "attack/release = time to 63 % of the gain change after a 30 dB step; compare devices with the same probe, not with their knob labels"
+ },
+ "probe_align_lag": 300
+}

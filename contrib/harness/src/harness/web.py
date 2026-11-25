@@ -3,7 +3,7 @@
     phone (Tailscale on) --https--> tailscale serve (tailnet only) --> 127.0.0.1:8787 (this)
 
 This server listens on loopback only; `tailscale serve` puts it on the tailnet
-with an HTTPS certificate (the mic needs a secure page). Nothing reaches it
+with an HTTPS certificate. Nothing reaches it
 from the public internet. On top of that it asks for a password once per
 browser: the first visit sets it (the tailnet is already private), later
 visits sign in with it. Only scrypt hashes of the password and of each
@@ -11,11 +11,9 @@ browser's session are stored (auth.json, mode 600), so nobody else, the
 agent included, ever sees the password.
 
 Routes, all behind the password except /login:
-    /studio/...               the voice production app (studio/, contrib/docs/design/studio.md); / opens it
+    /studio/...               the pages under /studio/ (studio/routes.py); / opens its home page
     /skrng/..., /style.css    the public site's pages, fetched from it (they are public anyway)
     /audio/...                redirect to the public site's audio
-    /api/skrng/feedback       the voice review's answers, kept on the Mac (feedback.jsonl)
-    /api/rpc                  the harness methods (rpc.Methods), called in-process
 The pages see they are on a .ts.net host and drop their key: the cookie is the key here.
 """
 
@@ -35,7 +33,6 @@ from typing import TYPE_CHECKING, Any
 from aiohttp import ClientSession, ClientTimeout, web
 
 from .config import Config
-from .rpc import Methods
 
 if TYPE_CHECKING:
     from .studio import Studio
@@ -45,10 +42,8 @@ log = logging.getLogger(__name__)
 COOKIE = "skrng_session"
 SESSION_DAYS = 400
 MAX_BODY = 64 * 1024
-RPC_TIMEOUT = {"ask": 125.0}
-DEFAULT_RPC_TIMEOUT = 20.0
 PROXIED = ("/skrng/", "/style.css", "/favicon.ico", "/favicon.svg")
-API = ("/api/", "/studio/api/", "/studio/ws")    # answered with 401 JSON rather than a sign-in redirect
+API = ("/api/", "/studio/api/")  # answered with 401 JSON rather than a sign-in redirect
 
 
 def _scrypt(text: str, salt: bytes) -> str:
@@ -111,9 +106,11 @@ LOGIN = """<!doctype html><html lang="en"><head><meta charset="utf-8">
 {confirm}<button>{button}</button></form></body></html>"""
 
 
-CSS = (":root{color-scheme:light dark}body{font:17px/1.4 -apple-system,system-ui,sans-serif;max-width:26rem;"
-       "margin:15vh auto;padding:0 16px}input,button{font:inherit;width:100%;box-sizing:border-box;padding:.7rem;"
-       "margin:.35rem 0;border-radius:6px;border:1px solid #888}button{font-weight:600}.err{color:#c33}")
+CSS = (
+    ":root{color-scheme:light dark}body{font:17px/1.4 -apple-system,system-ui,sans-serif;max-width:26rem;"
+    "margin:15vh auto;padding:0 16px}input,button{font:inherit;width:100%;box-sizing:border-box;padding:.7rem;"
+    "margin:.35rem 0;border-radius:6px;border:1px solid #888}button{font-weight:600}.err{color:#c33}"
+)
 
 
 def redirect(location: str) -> web.Response:
@@ -125,9 +122,14 @@ def login_page(auth: Auth, next_: str, error: str = "") -> web.Response:
     html = LOGIN.format(
         css=CSS,
         lede="Choose a password for this Mac's skrng. Only you will know it." if first else "Sign in.",
-        error=error, next=_safe_next(next_).replace('"', ""), ac="new-password" if first else "current-password",
-        confirm='<input type="password" name="confirm" placeholder="The same again" autocomplete="new-password" required>' if first else "",
-        button="Set password" if first else "Sign in")
+        error=error,
+        next=_safe_next(next_).replace('"', ""),
+        ac="new-password" if first else "current-password",
+        confirm='<input type="password" name="confirm" placeholder="The same again" autocomplete="new-password" required>'
+        if first
+        else "",
+        button="Set password" if first else "Sign in",
+    )
     return web.Response(text=html, content_type="text/html", status=401 if error else 200)
 
 
@@ -136,11 +138,9 @@ def _safe_next(n: str | None) -> str:
 
 
 class App:
-    def __init__(self, cfg: Config, methods: Methods, data_dir: Path, secure_cookie: bool = True,
-                 studio: "Studio | None" = None):
-        self.cfg, self.methods, self.secure_cookie, self.studio = cfg, methods, secure_cookie, studio
+    def __init__(self, cfg: Config, data_dir: Path, secure_cookie: bool = True, studio: Studio | None = None):
+        self.cfg, self.secure_cookie, self.studio = cfg, secure_cookie, studio
         self.auth = Auth(data_dir / "auth.json")
-        self.feedback_path = data_dir / "feedback.jsonl"
         self.http: ClientSession | None = None
         self.cache: dict[str, tuple[float, bytes, str]] = {}
 
@@ -149,12 +149,10 @@ class App:
         app.router.add_get("/login", self.login_get)
         app.router.add_post("/login", self.login_post)
         app.router.add_get("/", self.home)
-        app.router.add_route("*", "/api/skrng/feedback", self.feedback)
-        app.router.add_post("/api/rpc", self.rpc)
         app.router.add_get("/audio/{tail:.*}", self.audio)
         if self.studio is not None:
+            app.router.add_get("/studio", self.studio_slash)  # before the sub-app, whose prefix would take it
             app.add_subapp("/studio", self.studio.app())
-            app.router.add_get("/studio", self.studio_slash)
         app.router.add_get("/{tail:.*}", self.proxy)
         app.on_cleanup.append(self._close)
         return app
@@ -166,7 +164,7 @@ class App:
         return redirect("/studio/")
 
     async def audio(self, request: web.Request) -> web.Response:
-        return redirect(self.cfg.site + request.path_qs)   # the audio is public; the browser fetches it there
+        return redirect(self.cfg.site + request.path_qs)  # the audio is public; the browser fetches it there
 
     async def _close(self, _app: web.Application) -> None:
         if self.http:
@@ -197,48 +195,16 @@ class App:
             await asyncio.sleep(1.5)  # slow down guessing
             return login_page(self.auth, next_, "Wrong password.")
         resp = redirect(_safe_next(next_))
-        resp.set_cookie(COOKIE, self.auth.new_session(), max_age=SESSION_DAYS * 86400, secure=self.secure_cookie,
-                        httponly=True, samesite="Lax", path="/")
+        resp.set_cookie(
+            COOKIE,
+            self.auth.new_session(),
+            max_age=SESSION_DAYS * 86400,
+            secure=self.secure_cookie,
+            httponly=True,
+            samesite="Lax",
+            path="/",
+        )
         return resp
-
-    # --- the voice review's answers ------------------------------------------
-    async def feedback(self, request: web.Request) -> web.Response:
-        if request.method == "POST":
-            try:
-                body = await request.json()
-            except ValueError:
-                return web.json_response({"error": "Invalid JSON body."}, status=400)
-            if not isinstance(body, dict) or not isinstance(body.get("batch"), (int, float)):
-                return web.json_response({"error": "A record needs a batch number."}, status=400)
-            body["server_time"] = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
-            self.feedback_path.parent.mkdir(parents=True, exist_ok=True)
-            with self.feedback_path.open("a") as f:
-                f.write(json.dumps(body) + "\n")
-            return web.json_response({"ok": True})
-        if request.method == "GET":
-            batch = request.query.get("batch")
-            rows = read_feedback(self.feedback_path, float(batch) if batch not in (None, "") else None)
-            return web.json_response(rows, headers={"Cache-Control": "no-store"})
-        raise web.HTTPMethodNotAllowed(request.method, ["GET", "POST"])
-
-    # --- the harness, in-process ---------------------------------------------
-    async def rpc(self, request: web.Request) -> web.Response:
-        try:
-            body = await request.json()
-        except ValueError:
-            return web.json_response({"error": "Body must be JSON."}, status=400)
-        method = str(body.get("method"))
-        timeout = RPC_TIMEOUT.get(method, DEFAULT_RPC_TIMEOUT)
-        try:
-            result = await asyncio.wait_for(self.methods.call(method, body.get("params") or {}), timeout)
-        except asyncio.TimeoutError:
-            return web.json_response({"error": f"The Mac did not answer {method} within {timeout:.0f} s."}, status=504)
-        except ValueError as exc:
-            return web.json_response({"error": str(exc)}, status=400)
-        except Exception as exc:  # noqa: BLE001 - report, don't crash the server
-            log.exception("rpc %s", method)
-            return web.json_response({"error": f"{type(exc).__name__}: {exc}"}, status=500)
-        return web.json_response(result)
 
     # --- the pages, from the public site --------------------------------------
     async def proxy(self, request: web.Request) -> web.Response:
@@ -259,22 +225,8 @@ class App:
         return web.Response(body=body, content_type=ctype)
 
 
-def read_feedback(path: Path, batch: float | None = None) -> list[dict[str, Any]]:
-    if not path.exists():
-        return []
-    rows = []
-    for line in path.read_text().splitlines():
-        try:
-            r = json.loads(line)
-        except ValueError:
-            continue
-        if batch is None or r.get("batch") == batch:
-            rows.append(r)
-    return rows
-
-
-async def run(cfg: Config, methods: Methods, studio: "Studio | None" = None) -> None:
-    app = App(cfg, methods, cfg.skrng_dir, studio=studio).build()
+async def run(cfg: Config, studio: Studio | None = None) -> None:
+    app = App(cfg, cfg.skrng_dir, studio=studio).build()
     runner = web.AppRunner(app, access_log=None)
     await runner.setup()
     await web.TCPSite(runner, "127.0.0.1", cfg.web_port).start()
