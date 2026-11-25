@@ -27,7 +27,7 @@ audio = [
 # demucs (stems), essentia (conda only on some platforms).
 gemini = ["google-generativeai>=0.8.6"]
 # Browser flows of zpkt.app (tests/app/test_flows.py): run in WebKit; they skip when the browser is not installed.
-e2e = ["playwright==1.63.0"]
+e2e = ["playwright==1.65.2"]
 # The MiniLab 3 through raw MIDI (zpkt.app.adapters.midi): mido over python-rtmidi. Imported only when a real port is
 # opened, so the app and every test run without them. rtmidi only on macOS: the MiniLab is on the Mac, and Linux (CI)
 # cannot build it without the ALSA headers.
