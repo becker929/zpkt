@@ -1,9 +1,10 @@
-# zpkt: one installable package. zpkt.live drives Ableton Live (was `hands`); zpkt.audio measures renders (was
-# `ears`, with the mastering lab's meters, once `mlab`). Install a half with its extra: zpkt[live], zpkt[audio].
+# zpkt: one installable package. zpkt.app is the one door to Live (the mix desk's server, the bus, the API, Ask);
+# zpkt.live drives Ableton Live (was `hands`); zpkt.audio measures renders (was `ears`, with the mastering lab's
+# meters, once `mlab`). Install a half with its extra: zpkt[live], zpkt[audio].
 [project]
 name = "zpkt"
 version = "0.1.0"
-description = "Making music with Ableton Live from code: drive Live (zpkt.live) and measure renders (zpkt.audio)"
+description = "Making music with Ableton Live from code: one door to Live (zpkt.app), drive Live (zpkt.live) and measure renders (zpkt.audio)"
 requires-python = ">=3.12"
 # What both halves need. zpkt.live needs nothing more, so zpkt[live] is these alone.
 dependencies = [
@@ -44,7 +45,7 @@ dev = [
 ]
 
 [project.scripts]
-zpkt = "zpkt.cli:main"                # zpkt live ..., zpkt audio ...
+zpkt = "zpkt.cli:main"                # zpkt app, zpkt live ..., zpkt audio ...
 hands = "zpkt.live.cli:main"          # the old name of `zpkt live`
 ears = "zpkt.audio.cli:main"          # the old name of `zpkt audio`: profiles, the corpus and every meter
 mlab = "zpkt.audio.meters.cli:main"   # the mastering lab's commands, as they were when mlab was its own project

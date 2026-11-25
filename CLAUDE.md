@@ -1,5 +1,7 @@
 # zpkt: rules for agents
 
+A terminal agent can start with the one-page [`docs/agent-quickstart.md`](docs/agent-quickstart.md) instead of the long docs below.
+
 Where things are: one package, `zpkt` (`src/zpkt/`): `zpkt.app` is the one interface and the only door to Live (the mix desk's server, the command bus, the monitor, the MIDI adapter for the MiniLab, off by default; read `src/zpkt/app/README.md`; `zpkt.live` and `zpkt.audio` never open a connection, the app hands one in); `zpkt.live` drives Live (once `hands`), `zpkt.audio` measures
 renders (once `ears`; the lab with `ears/mlab/reports/`, the mastering and reference sheets, stays in `ears/mlab/`). The
 commands `zpkt live` and `zpkt audio` have the old names `hands`, `ears` and `mlab` as aliases, and so do the imports;
