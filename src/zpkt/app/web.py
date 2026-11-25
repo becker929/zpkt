@@ -495,6 +495,9 @@ class DeskHTTPServer(ThreadingHTTPServer):
     """The desk's HTTP server: the routes above for `desk`, and the HTML `pages` (path -> file; default PAGES)."""
 
     daemon_threads = True
+    # Ask loads about 20 modules at once. With the default backlog of 5 the rest are refused, and tailscale serve
+    # answers them 502, which left Ask without its scripts (25 Nov 2026).
+    request_queue_size = 128
 
     def __init__(self, address: tuple[str, int], desk: Desk, pages: Mapping[str, Path] | None = None) -> None:
         super().__init__(address, Handler)

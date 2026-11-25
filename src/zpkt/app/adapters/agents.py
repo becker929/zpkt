@@ -10,9 +10,12 @@ Zpkt web's data folder to carry its sessions over. Keys come only from the harne
 
 from __future__ import annotations
 
+import getpass
 import os
+import subprocess
 from collections.abc import Callable
 from pathlib import Path
+from typing import Any
 
 from zpkt.app import agent_commands
 from zpkt.app.adapters import AdapterSpec, AppContext
@@ -33,12 +36,38 @@ def ask_dir() -> Path:
     return Path(env).expanduser() if env else Path.home() / "_agent_scratch" / "zpkt-app" / "ask"
 
 
+# The harness's Keychain items (contrib/harness/src/harness/config.py KEYCHAIN), for when the harness is not
+# installed in the app's environment (it is not in the root .venv).
+KEYCHAIN = {"oauth": "zpkt-claude-oauth", "gemini": "zpkt-gemini-api-key"}
+
+
+def keychain_secret(name: str, run: Callable[..., Any] = subprocess.run) -> str | None:
+    """HARNESS_<NAME> from the environment, then the Keychain item for `name`; None when neither has it."""
+    if value := os.environ.get(f"HARNESS_{name.upper()}"):
+        return value
+    service = KEYCHAIN.get(name)
+    if not service:
+        return None
+    try:
+        out = run(
+            ["security", "find-generic-password", "-s", service, "-a", getpass.getuser(), "-w"],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+    value = out.stdout.strip()
+    return value if out.returncode == 0 and value else None
+
+
 def default_secret() -> Secret:
-    """The existing secret lookup (the harness's: HARNESS_<NAME>, then the Keychain). None found: no keys."""
+    """The existing secret lookup (the harness's: HARNESS_<NAME>, then the Keychain), or the same lookup here when
+    the harness is not installed."""
     try:
         from harness.config import secret
     except ImportError:
-        return lambda name: None
+        return keychain_secret
     return secret
 
 
