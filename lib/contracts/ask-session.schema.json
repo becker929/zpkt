@@ -1,0 +1,66 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/becker929/zpkt/lib/contracts/ask-session.schema.json",
+  "title": "Ask session",
+  "description": "One entry of the sessions index (<dir>/sessions.json). Zpkt web's entries read as they are.",
+  "type": "object",
+  "required": [
+    "id",
+    "title",
+    "cwd"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^[0-9a-f-]{36}$"
+    },
+    "title": {
+      "type": "string"
+    },
+    "workspace": {
+      "type": "string"
+    },
+    "cwd": {
+      "type": "string"
+    },
+    "kind": {
+      "type": "string"
+    },
+    "started": {
+      "type": "boolean"
+    },
+    "created": {
+      "type": "integer"
+    },
+    "updated": {
+      "type": "integer"
+    },
+    "deleted": {
+      "type": "integer"
+    },
+    "engine": {
+      "type": "string"
+    },
+    "engines": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "started": {
+            "type": "boolean"
+          },
+          "acp": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "project": {
+      "type": "string"
+    },
+    "notesSeen": {
+      "type": "object"
+    }
+  },
+  "additionalProperties": true
+}

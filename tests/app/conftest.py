@@ -302,5 +302,64 @@ def api(rig: Rig, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[A
     try:
         assert adapter.server is not None
         yield Api(f"http://127.0.0.1:{adapter.port}", adapter.server.token, config_dir, adapter)
+
+    finally:
+        adapter.stop()
+
+
+# ---- Ask ---------------------------------------------------------------------------------------------------------
+
+
+@dataclass
+class Asked:
+    """The app with the Agents adapter on it: the same Rig plus the Ask service and its scripted providers."""
+
+    rig: Rig
+    ask: Any
+    adapter: Any
+    providers: dict[str, Any]
+
+    def stream(self, sid: str, until: Callable[[dict], bool], start: int = 0, seconds: float = 10.0) -> list[dict]:
+        """Read the session's server-sent stream until `until(event)` is true; returns the events seen."""
+        out: list[dict] = []
+        req = urllib.request.Request(f"{self.rig.url}/app/ask/api/sessions/{sid}/stream?from={start}")
+        end = time.time() + seconds
+        with urllib.request.urlopen(req, timeout=seconds) as r:
+            event = ""
+            while time.time() < end:
+                line = r.readline().decode().rstrip("\n")
+                if line.startswith("event:"):
+                    event = line[6:].strip()
+                elif line.startswith("data:"):
+                    data = json.loads(line[5:])
+                    if event == "state":
+                        out.append({"type": "__state", **data})
+                    else:
+                        out.append(data)
+                    if until(out[-1]):
+                        return out
+                    event = ""
+        return out
+
+
+@pytest.fixture()
+def asked(rig: Rig, tmp_path: Path) -> Iterator[Asked]:
+    from zpkt.app.adapters import AppContext
+    from zpkt.app.adapters.agents import AgentsAdapter
+    from zpkt.app.ask.testing import ScriptedProvider
+
+    providers = {"claude": ScriptedProvider("claude", []), "gemini": ScriptedProvider("gemini", [])}
+    context = AppContext(rig.desk.bus, rig.desk, rig.desk.settings)
+    adapter = AgentsAdapter(
+        context, data_dir=tmp_path / "ask", secret=lambda name: None, providers=providers, home=tmp_path
+    )
+    adapter.start()
+    assert adapter.ask is not None
+    for p in providers.values():
+        p.gate = adapter.ask.gate
+    (tmp_path / "work").mkdir()
+    adapter.ask.workspaces.list.append({"id": "work", "name": "Work", "path": str(tmp_path / "work")})
+    try:
+        yield Asked(rig, adapter.ask, adapter, providers)
     finally:
         adapter.stop()

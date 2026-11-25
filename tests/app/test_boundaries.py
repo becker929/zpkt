@@ -102,7 +102,11 @@ def test_the_app_owns_the_connections():
     """Outside the libraries, only the app's connections build a LiveClient or bind a socket. The other places are the
     HTTP clients of the app (client.py, page_cli.py): they open HTTP to the app and never reach Live."""
     owners = {p.relative_to(SRC).as_posix() for p in (SRC / "app").rglob("*.py") if violations(p)}
-    assert owners == {"app/connections.py", "app/client.py", "app/page_cli.py"}
+    # ask/mcp.py is the agents' tool server: a client of the app over HTTP (urlopen to the app), never of Live.
+    assert owners == {"app/connections.py", "app/client.py", "app/page_cli.py", "app/ask/mcp.py"}
+    assert violations(SRC / "app" / "ask" / "mcp.py") and all(
+        "urlopen" in v for v in violations(SRC / "app" / "ask" / "mcp.py")
+    )
 
 
 def test_adapters_do_not_import_zpkt_live_to_change_it():

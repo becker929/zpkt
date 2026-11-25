@@ -9,7 +9,7 @@ are libraries and never open one.
 ## How it fits
 
 ```
-adapters        web · API (now) · MiniLab · agents (later)      turn what they hear into Commands
+adapters        web · API · Ask (agents) · Song · MiniLab (off unless named)   turn what they hear into Commands
    |
 the bus         bus.py       who, the checks, one dispatch table, a log
    |
@@ -151,8 +151,35 @@ routes from the same code (`contrib/arranger/server.py`'s route table), so nothi
   That is a known debt: it takes its turn only by Live's own limits, not by the app's lock. The render queue (INTEGRATION
   step 5) moves it into the app.
 
-`zpkt app` starts the Song with the web adapter (`--adapters web,song`). `ZPKT_ARRANGER_DIR` names another arranger
+`zpkt app` starts the Song with the web adapter (the default is `--adapters web,api,song,agents`). `ZPKT_ARRANGER_DIR` names another arranger
 folder; `ARRANGER_DATA` the data, as before.
+
+## Ask
+
+Ask is the chat with Claude and Gemini, ported from Zpkt web (Node, :8789, which keeps running untouched). It is the
+`agents` adapter, so it starts with `zpkt app` (it is in the default `--adapters web,api,song,agents`). The page is at `/app/ask/`.
+
+- **Engines.** Claude Code runs as one `claude -p` process per turn. Gemini runs over ACP: one `gemini --acp`
+  process, permission prompts you answer on the page (mode "Ask first"), and an estimated dollar cost for each turn.
+  A session can change engine between turns: the other engine gets the turns it missed. Keys come only from the
+  harness's secret lookup; nothing in Ask reads a key or a key file.
+- **Sessions.** Every event is appended to a file as it happens, so a run goes on when the page closes, and any
+  device can open the session and follow. Files are in Zpkt web's forms (`sessions.json`, `sessions/<id>.jsonl`,
+  `library.json`, `surface-state.json`, `workspaces.json`) in `ZPKT_ASK_DIR` (default
+  `~/_agent_scratch/zpkt-app/ask`). Point it at a copy of Zpkt web's data folder to carry its sessions over; old
+  `zpkt-surface` blocks still draw.
+- **Tools.** An agent has four tools and no others: make a page (checked against Live, saved only when clean), read
+  the state, read the last measurement, propose an Option. They are app commands behind a small MCP server
+  (`python -m zpkt.app.ask.mcp`) that calls `POST /app/ask/api/tool` with the session's token. The bus tags them
+  `agent` and groups them by session. None moves Live, and an agent cannot name any other command.
+- **Also ported.** The work view, cards and the preset library, the failure budget (it stops a run that keeps
+  failing), project notes read to the agent and written after a turn (given a model to write with), attachments,
+  and files an agent points at.
+- **Not ported.** A card's Render, Grid and Pick buttons (`hands panel`), the fast path, purpose lines, "Improve this
+  app", Reset Live, the password gate. The page hides what it cannot do.
+
+`tests/app/test_ask_*.py` run it with a scripted provider and stand-ins for `claude` and `gemini --acp`. No model,
+no key, no Live.
 
 ## Files that stay where they were
 

@@ -10,6 +10,7 @@ and POST /api/command takes any kind. The server holds no state of its own; the 
 
 from __future__ import annotations
 
+import contextlib
 import json
 import queue
 import sys
@@ -320,9 +321,20 @@ class Handler(BaseHTTPRequestHandler):
     # routes that write as they go (server-sent events), so they need the connection itself
     STREAMS: ClassVar[dict[str, Callable[[Handler, dict[str, str]], None]]] = {"/events": get_events}
 
+    def extension(self, method: str) -> bool:
+        """Give the request to the first extension that wants its path (an adapter's routes, e.g. Ask). True if one did."""
+        url = urlparse(self.path)
+        for ext in list(self.desk.extensions):
+            if ext.handles(url.path):
+                query = {k: v[0] for k, v in parse_qs(url.query).items()}
+                with contextlib.suppress(OSError):  # the page went away mid-answer
+                    ext.serve(self, method, url.path, query)
+                return True
+        return False
+
     def do_GET(self) -> None:
         url = urlparse(self.path)
-        if self._mounted(url.path):
+        if self.extension("GET") or self._mounted(url.path):
             return
         query = {k: v[0] for k, v in parse_qs(url.query).items()}
         page = self.server.pages.get(url.path) or SHELL_PAGES.get(url.path)
@@ -346,14 +358,22 @@ class Handler(BaseHTTPRequestHandler):
         if not self._mounted(urlparse(self.path).path):
             self._send(404, b"", "text/plain")
 
-    def do_PUT(self) -> None:
-        if not self._mounted(urlparse(self.path).path):
+    def _other(self, method: str) -> None:
+        """PUT, PATCH and DELETE belong to an extension (Ask) or a mount (the Song); the old routes have none."""
+        if not (self.extension(method) or self._mounted(urlparse(self.path).path)):
             self._json({"error": "not found"}, 404)
 
-    do_DELETE = do_PUT
+    def do_PUT(self) -> None:
+        self._other("PUT")
+
+    def do_PATCH(self) -> None:
+        self._other("PATCH")
+
+    def do_DELETE(self) -> None:
+        self._other("DELETE")
 
     def do_POST(self) -> None:
-        if self._mounted(urlparse(self.path).path):
+        if self.extension("POST") or self._mounted(urlparse(self.path).path):
             return
         kind = POST_ROUTES.get(self.path)
         try:

@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/becker929/zpkt/lib/contracts/ask-tool.schema.json",
+  "title": "Ask tool call",
+  "description": "What an agent's MCP server sends to POST /app/ask/api/tool, and what the app answers.",
+  "$defs": {
+    "request": {
+      "type": "object",
+      "required": [
+        "session",
+        "token",
+        "tool"
+      ],
+      "properties": {
+        "session": {
+          "type": "string"
+        },
+        "token": {
+          "type": "string"
+        },
+        "tool": {
+          "enum": [
+            "make_page",
+            "read_state",
+            "read_measurement",
+            "propose_option"
+          ]
+        },
+        "args": {
+          "type": "object"
+        }
+      }
+    },
+    "reply": {
+      "type": "object",
+      "description": "The bus's reply: the command's JSON, or an error.",
+      "properties": {
+        "error": {
+          "type": "string"
+        },
+        "ok": {
+          "type": "boolean"
+        },
+        "problems": {
+          "type": "array"
+        }
+      }
+    }
+  }
+}

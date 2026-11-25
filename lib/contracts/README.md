@@ -19,6 +19,10 @@ output against these files in its tests, so a join cannot drift silently.
 | `minilab3-profile.json` (with `.schema.json`) | a person, at the MiniLab (`zpkt app midi learn`) | the app's MIDI adapter (`zpkt.app.minilab.profile`) | written by hand; every item marked unverified, and its `basis` says where it came from (Live's installed MiniLab_3 script, the MIDI standard, a guess, or unknown) |
 | `live-watch.schema.json` | the Remote Script's watch (`AbletonLiveMCP`) and `zpkt.live.watch` | the app (`zpkt.app.watching`) | written by hand; `tests/live/test_watch.py` checks the messages both sides send against it |
 | `song.schema.json` | the app's `song.*` commands (`zpkt.app.song`) | the `/app/` shell's Song tab, agents, the API | written by hand; `tests/app/test_song_contract.py` validates real answers against it |
+| `ask-event.schema.json` | Ask (`zpkt.app.ask`): every line of a session's events file and every event of its stream | the Ask page, the notes, the failure budget | written by hand to match `src/zpkt/app/ask/events.py` and the engines; its tests check both agree |
+| `ask-session.schema.json` | Ask's sessions index (`sessions.json`) | the Ask page and service | written by hand; Zpkt web's entries pass too |
+| `ask-tool.schema.json` | an agent's MCP server (`zpkt.app.ask.mcp`) | `POST /app/ask/api/tool` | written by hand to match `src/zpkt/app/ask/tools.py` |
+| `proposal.schema.json` | an agent's `propose_option` (`options.json` in the Ask folder) | the person, later Options | written by hand to match `src/zpkt/app/proposals.py` |
 
 The music bot's and booth's contracts (`score.schema.json`, `booth-*.schema.json`) moved with them to the private
 repo `becker929/music-bot` (its `contracts/`) on 24 November 2026.

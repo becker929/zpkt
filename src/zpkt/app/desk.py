@@ -137,6 +137,9 @@ class Desk:
         self.monitor = Monitor(self)
         self.options = Options(self)
         self.mounts = Mounts()  # route sets other areas put under a path prefix (the Song at /app/song)
+        self.extensions: list[
+            Any
+        ] = []  # routes an adapter adds to the web server: handles(path) and serve(handler, method, path, query)
         self.bus = self._make_bus()
 
     def _make_bus(self) -> Bus:
