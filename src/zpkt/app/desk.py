@@ -331,6 +331,7 @@ class Desk:
                 self.set_state(None, f"Live does not answer ({str(exc)[:80]})")
                 return
             self._stale_reload_at = now()
+            self._ensured = False  # another set came in under the pager: its monitor tracks are checked again
             print(f"app: Live raised from the pager ({str(exc)[:80]}); loading the pager again", flush=True)
             try:
                 self.restart_pager()
