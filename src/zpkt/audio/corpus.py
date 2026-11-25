@@ -171,7 +171,8 @@ def distance(profile: AudioProfile, corpus: dict[str, Any], *, nearest: int = 3)
         mine = _unit(np.asarray(profile.embedding, dtype=float))
         own = vectors @ centre
         sims = vectors @ mine
-        order = np.argsort(-sims)[:nearest]
+        # Tracks equally near (to 12 places) keep the corpus's order, so the list is the same on every platform.
+        order = sorted(range(len(sims)), key=lambda i: (-round(float(sims[i]), 12), i))[:nearest]
         embedding = {
             "to_centre": float(mine @ centre),
             "corpus_median": float(np.median(own)),
