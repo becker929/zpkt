@@ -41,6 +41,8 @@ header { display:flex; align-items:center; gap:8px; padding:8px 10px; padding-to
 .label span { flex:1; overflow:hidden; }
 .label .mute { min-width:22px; width:22px; height:22px; border-radius:5px; font-size:10px; color:var(--dim); }
 .lane.muted .mute { background:#b33; color:#fff; border-color:#b33; }
+/* On a phone, a bigger hit area around the 22 px button (lanes sit close, so mostly sideways). */
+@media (pointer:coarse) { .label .mute { position:relative; } .label .mute::after { content:""; position:absolute; inset:-5px -11px; } }
 .lane.muted .track { opacity:.35; }
 .lane.sel .label { background:#2b2f37; }
 .track { position:relative; height:100%; background-image:linear-gradient(to right, #23262b 1px, transparent 1px), linear-gradient(to right, #3a3e46 1px, transparent 1px); background-size:calc(var(--w) * 4) 100%, calc(var(--w) * 16) 100%; }
