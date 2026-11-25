@@ -33,7 +33,7 @@ quick: lint types  ## the everyday local check (about 2 min): the core in parall
 	$(PARALLEL) contrib/arranger/tests
 	$(PARALLEL) contrib/mixdesk/tests
 
-check: lint types test-all  ## everything, including the slow prototypes: before touching harness or prototypes
+check: lint types test-all  ## everything, contrib and prototypes too: before touching the harness or a prototype
 
 test:  ## the supported parts: offline, no Live (in parallel, then the timed tests alone)
 	$(PARALLEL) $(addprefix --ignore=,$(TIMED))
@@ -44,4 +44,3 @@ test-all: test  ## contrib and prototypes too
 	uv run --all-extras pytest -q -p no:cacheprovider contrib/arranger/tests
 	uv run --all-extras pytest -q -p no:cacheprovider contrib/mixdesk/tests
 	cd prototypes/audio-browser && $(PYTEST) --ignore tests/test_segment.py
-	cd prototypes/checklist && uv run --extra dev pytest -q -p no:cacheprovider

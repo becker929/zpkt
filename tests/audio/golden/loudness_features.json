@@ -57,10 +57,10 @@
   ]
  },
  "spectral": {
-  "spectral_centroid_mean": 8851.714514280144,
-  "spectral_centroid_std": 148.41027582391592,
-  "spectral_rolloff_mean": 17805.02547554348,
-  "spectral_bandwidth_mean": 6960.119997810266,
+  "spectral_centroid_mean": 8851.71484375,
+  "spectral_centroid_std": 148.4102783203125,
+  "spectral_rolloff_mean": 17805.025390625,
+  "spectral_bandwidth_mean": 6960.1201171875,
   "spectral_flatness_mean": 0.04249945282936096,
   "zero_crossing_rate_mean": 0.12090409873188405,
   "harmonic_ratio_mean": 0.9443615926580935,

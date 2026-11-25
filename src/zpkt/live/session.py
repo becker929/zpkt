@@ -153,6 +153,8 @@ def open_set(client: McpTransport, name: str, *, save_current: bool = True, time
     while _front() != name:
         if time.monotonic() > deadline:
             stop(f"open: Live did not show {name} in {timeout_s:g} s; front window is {_front()!r}")
+        if not save_current:
+            _discard_prompt()
         time.sleep(0.1)
     while not _answers(client):
         if time.monotonic() > deadline:
@@ -162,6 +164,49 @@ def open_set(client: McpTransport, name: str, *, save_current: bool = True, time
     _remember(name)
     tell_opened(client, name)
     return seconds
+
+
+def _discard_prompt() -> bool:
+    """Answer Live's "save changes?" prompt with Don't Save (Command-D), if one is open. True if it pressed.
+
+    Live draws that prompt itself, so it has no buttons to press through accessibility; Command-D is its Don't Save.
+    Only for a caller that asked to discard the set in front."""
+    try:
+        if not ui.dialogs():
+            return False
+        ui.osa(
+            f'tell application "{config.rig().live_app}" to activate\ndelay 0.4\n'
+            'tell application "System Events" to keystroke "d" using command down',
+            timeout=15,
+        )
+    except ui.UiError:
+        return False
+    time.sleep(0.8)
+    return True
+
+
+def reopen(client: McpTransport, name: str | None = None, *, timeout_s: float = 180.0) -> float:
+    """Open sets_dir/<name>.als (default: the set in front) from its file, discarding unsaved changes; return seconds.
+
+    Live will not reload the set it has open, so a set already in front is first swapped for a new empty one
+    (File > New Live Set, its prompt answered Don't Save). Another set in front is discarded the same way."""
+    front = _front()
+    name = (name or front or "").removesuffix(".als")
+    if not name:
+        stop("reopen: Live shows no set; name one")
+    if not config.rig().set_path(name).exists():
+        stop(f"reopen: no set {config.rig().set_path(name)}")
+    t0 = time.monotonic()
+    if front == name:
+        if not ui.menu("File", "New Live Set"):
+            stop("reopen: File > New Live Set stayed disabled")
+        deadline = t0 + 60
+        while _front() == name or _discard_prompt():
+            if time.monotonic() > deadline:
+                stop(f"reopen: Live still shows {name} (or a prompt) after New Live Set")
+            time.sleep(0.2)
+    open_set(client, name, save_current=False, timeout_s=max(timeout_s - (time.monotonic() - t0), 30.0))
+    return time.monotonic() - t0
 
 
 def save(name: str | None = None, *, timeout_s: float = 30.0) -> bool:

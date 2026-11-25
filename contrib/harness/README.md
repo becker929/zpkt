@@ -6,7 +6,7 @@ folded into zpkt's one interface, and the harness will go.
 
 On 24 November 2026 I took out what I no longer use: the spoken studio chat (and `contrib/voice`), Claude Code jobs
 and their RPC, and the render feedback. The checklist and its worlds moved to
-[`prototypes/checklist`](../../prototypes/checklist/), and the images tool to its own repo,
+`prototypes/checklist` (deleted 25 November 2026; the tag has it), and the images tool to its own repo,
 [becker929/image-wall](https://github.com/becker929/image-wall). Git tag `pre-upgrade-2026-11-24` has it all.
 
 ```
@@ -33,8 +33,7 @@ phone (Tailscale on) --https--> tailscale serve (tailnet only) --> 127.0.0.1:878
 | `/skrng/...`, `/style.css`, `/favicon.*` | The site's pages, fetched from it and cached 30 s. They see the tailnet host and drop their key. |
 | `/audio/...` | Redirects to the site's audio. |
 
-The checklist prototype's pages call the artist, regions and site-audio routes; its own server mounts them from this
-package.
+The checklist prototype (deleted 25 November 2026) called the artist, regions and site-audio routes.
 
 ## Commands
 

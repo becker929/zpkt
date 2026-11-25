@@ -192,3 +192,28 @@ def test_other_agent_active_reads_the_live_log(rig):
 
 def test_top_values():
     assert [session._gb(v) for v in ("1536M", "2G+", "512K", "0B")] == [1.5, 2.0, 0.0, 0.0]
+
+
+def test_reopen_swaps_in_an_empty_set_answers_dont_save_then_opens_the_file(monkeypatch, rig):
+    rig.set_path("test_batch").write_bytes(b"als")
+    # In front, then the prompt (no title while a dialog is in front), then Untitled, then the set again.
+    gui = FakeGui(monkeypatch, ["test_batch", "test_batch", "", "Untitled", "Untitled", "test_batch"])
+    prompts = iter([1, 0, 0, 0, 0, 0, 0, 0])
+    monkeypatch.setattr(ui, "dialogs", lambda: next(prompts, 0))
+    keys = []
+    monkeypatch.setattr(ui, "osa", lambda script, timeout=None: keys.append(script) or "")
+    assert session.reopen(MockTransport(), None) >= 0.0
+    assert gui.clicks == ["File > New Live Set"]  # never Save
+    assert len(keys) == 1 and 'keystroke "d" using command down' in keys[0]  # Don't Save
+    assert gui.opened == [["open", "-a", rig.live_app, str(rig.set_path("test_batch"))]]
+
+
+def test_reopen_of_another_set_discards_the_front_one_without_saving(monkeypatch, rig):
+    for name in ("test_a", "test_b"):
+        rig.set_path(name).write_bytes(b"als")
+    gui = FakeGui(monkeypatch, ["test_a", "test_a", "", "test_b"])
+    prompts = iter([1, 0])
+    monkeypatch.setattr(ui, "dialogs", lambda: next(prompts, 0))
+    monkeypatch.setattr(ui, "osa", lambda script, timeout=None: "")
+    session.reopen(MockTransport(), "test_b")
+    assert gui.clicks == [] and len(gui.opened) == 1
