@@ -54,6 +54,34 @@ always did, with the pager's datagrams on 8986 and the meter on 8987.
 - `POST /api/command` takes any command: `{"kind": "mix.set", "args": {"norms": [["Kick bus/volume", 0.4]]}}`.
   `GET /api/commands` lists them. The old `POST /api/...` paths are these commands under their old names.
 
+## The MiniLab (the MIDI adapter)
+
+`zpkt app --adapters web,midi` adds the MiniLab 3 as a hand of the app. It is off unless you name it. The old pager in
+Live and ZpktMiniLabTempo stay the default until my gate (below), and the two must not run on one controller: to try
+the adapter, set Live's MiniLab 3 control surface to None (so Live lets go of the ports) and stop the pager's hold.
+
+It reads raw MIDI through mido (`uv sync --extra midi`), asks `zpkt.app.minilab.mapper` what each move means, and sends
+the answer to the bus as `who = "minilab"`, so history, undo and the change stream cover it like the web. It sends
+SysEx back: the display, the pad LEDs and the knob rings.
+
+- **The map** is data in `contrib/mixdesk/pagercore.py` (`MINILAB_MAP`), the same file the pager loads in Live, so
+  pickup, realign and the pages are one copy of the rules. The old `HARDWARE` table is as it was. The map is DESIGN 3b:
+  Shift layer, octave buttons for pages (Shift: loop window), the data knob (turn for focus, push to reset, Shift to
+  scrub the bar), Hold for latch, the mod strip and the keys for the focused control, pitch bend as hold-to-hear (up for
+  Pin, down for Ref), and the transport buttons (Live no longer reads them). ZpktMiniLabTempo's job is the "tempo"
+  layer: fader 4 as tempo, pads 7 and 8 halve and double it. It applies when the desk is not driving the MiniLab
+  (`ZPKT_MIDI_TEMPO=auto`, the default; `on` and `off` force it).
+- **The profile** is `lib/contracts/minilab3-profile.json`: every control, its message and its source. **Every item is
+  unverified.** Some numbers were read from Live's installed MiniLab_3 script; the strips, Hold and the keys are the
+  usual MIDI messages, assumed; the octave buttons have no known message, so they do nothing until you learn them with
+  `zpkt app midi learn octave_up`. `ZPKT_MINILAB_PROFILE` names a corrected file, `ZPKT_MINILAB_PORT` the port.
+- **Feel.** A knob's stream is coalesced: the latest place per control is kept and one `page.set` batch goes out per
+  tick. `zpkt app midi latency` runs the adapter with a probe and prints the knob-to-Live timings. Run it only on the
+  rig; it is the gate before the pager retires.
+- **Live's changes** still reach the app through the pager's reports. The Remote Script also has a generic watch now
+  (`zpkt.live.watch`, `zpkt.app.watching`): the app registers a page's keys and Live pushes each change on the same
+  socket. It is built and tested on FakeLive and not turned on in `zpkt app` yet.
+
 ## Files that stay where they were
 
 The desk's own files stay in `contrib/mixdesk/`: `desk.json`, `sources.json`, `pager.py` (it runs inside Live) and

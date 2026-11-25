@@ -14,6 +14,8 @@ output against these files in its tests, so a join cannot drift silently.
 | `page.schema.json` | an agent or a person asking for a page of controls (`<sets_dir>/pages/<set>/*.json`) | hands (`hands live page lint`), later the one interface (`zpkt.app`) | generated from `src/zpkt/live/page.py` by `hands/tools/gen_schemas.py` |
 | `inventory.schema.json` | hands (`hands library inventory --json`) | a person, agents planning work | generated from `src/zpkt/live/library/models.py` by `hands/tools/gen_schemas.py` |
 | `arrangement.schema.json` | the HW002 arranger's pages (`contrib/arranger/server.py`) and the mix desk (`desk`) | the arranger's scripts (`mixset.py`, `spectral.py`, `kickfuzz.py`), the mix desk, hands (`hands live state ... RECIPE.json`) | written by hand to match `contrib/arranger/arrangement.py`; its tests check both agree |
+| `minilab3-profile.json` (with `.schema.json`) | a person, at the MiniLab (`zpkt app midi learn`) | the app's MIDI adapter (`zpkt.app.minilab.profile`) | written by hand; every item marked unverified, and its `basis` says where it came from (Live's installed MiniLab_3 script, the MIDI standard, a guess, or unknown) |
+| `live-watch.schema.json` | the Remote Script's watch (`AbletonLiveMCP`) and `zpkt.live.watch` | the app (`zpkt.app.watching`) | written by hand; `tests/live/test_watch.py` checks the messages both sides send against it |
 
 The music bot's and booth's contracts (`score.schema.json`, `booth-*.schema.json`) moved with them to the private
 repo `becker929/music-bot` (its `contracts/`) on 24 November 2026.
