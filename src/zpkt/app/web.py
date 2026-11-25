@@ -1,7 +1,7 @@
 """The Web adapter's server: the mix desk's HTTP server, moved into the app.
 
 It answers only for its own names (localhost, the tailnet proxy's name, the names in ZPKT_APP_HOSTS), and takes
-writes only from its own pages (`host_allowed`, `cross_site`). It serves the old desk page at / (same routes, same server-sent events, same ports: 8985, 8986 for the pager's
+writes only from its own pages (`host_allowed`, `cross_site`). It serves the old desk page at /desk/ (/ redirects to /app/; same routes, same server-sent events, same ports: 8985, 8986 for the pager's
 datagrams, 8987 for the meter) and the new shell at /app/ (the Hear bar and the Desk), both from the same state. Every
 POST is a Command on the bus (zpkt.app.bus), stamped who="you": the old paths are the commands under their old names,
 and POST /api/command takes any kind. The server holds no state of its own; the Desk does.
@@ -188,7 +188,14 @@ def post_command(desk: Desk, body: dict[str, Any], who: Who = "you") -> Reply:
 
 
 # The HTML pages served, by path. The routes above serve any page; a second page is one more entry here.
-PAGES: dict[str, Path] = {"/": HERE / "static" / "index.html", "/index.html": HERE / "static" / "index.html"}
+# The old desk page moved from / to /desk/ when the app took the front door (Anthony, 25 Nov 2026: "We can retire the
+# old pages"). / now sends you to /app/; /index.html stays for old bookmarks.
+PAGES: dict[str, Path] = {
+    "/desk/": HERE / "static" / "index.html",
+    "/desk": HERE / "static" / "index.html",
+    "/index.html": HERE / "static" / "index.html",
+}
+FRONT_DOOR = "/app/"
 SHELL_PAGES: dict[str, Path] = {"/app/": SHELL_DIR / "app.html", "/app": SHELL_DIR / "app.html"}
 
 
@@ -285,6 +292,13 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header("Cache-Control", "no-store")
         self.end_headers()
         self.wfile.write(body)
+
+    def _redirect(self, location: str) -> None:
+        self.send_response(302)
+        self.send_header("Location", location)
+        self.send_header("Content-Length", "0")
+        self.send_header("Cache-Control", "no-store")
+        self.end_headers()
 
     def _json(self, obj: Any, code: int = 200) -> None:
         self._send(code, json.dumps(obj).encode(), "application/json")
@@ -402,6 +416,8 @@ class Handler(BaseHTTPRequestHandler):
         page = self.server.pages.get(url.path) or SHELL_PAGES.get(url.path)
         if page is not None:
             return self._send(200, page.read_bytes(), "text/html; charset=utf-8")
+        if url.path == "/":
+            return self._redirect(FRONT_DOOR)
         if url.path == "/api/options/file":
             return self._version_file(query)
         if url.path.startswith("/media/"):

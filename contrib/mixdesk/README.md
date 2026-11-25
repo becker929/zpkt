@@ -1,7 +1,7 @@
 # The HW002 mix desk
 
 > **The server is now `zpkt.app`** (24 Nov 2026). `contrib/mixdesk/server.py` starts it, so the same command still works.
-> The old page is still at `/`; the new shell is at `/app/`. The history, protocol, desk state and surfaces code moved
+> The old page is at `/desk/` (since 25 Nov 2026); `/` sends you to the new shell at `/app/`. The history, protocol, desk state and surfaces code moved
 > to `src/zpkt/app/` (the old module names here are aliases). `pager.py`, `desk.json`, `sources.json` and the page stay
 > here. See `src/zpkt/app/README.md`.
 >

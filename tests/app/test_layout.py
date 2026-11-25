@@ -118,7 +118,7 @@ def test_app_tablet_has_two_columns(browser, rig):
 
 @pytest.mark.parametrize("width", WIDTHS)
 def test_old_desk_controls_are_44_px_wide_and_nothing_overflows(browser, rig, width):
-    pg, errors = open_app(browser, rig, width, "/", ".ctl")
+    pg, errors = open_app(browser, rig, width, "/desk/", ".ctl")
     got = pg.evaluate(OLD_MEASURE)
     assert got["narrow"] == [], got["narrow"]
     assert got["over"] == 0

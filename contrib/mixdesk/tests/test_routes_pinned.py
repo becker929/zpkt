@@ -34,7 +34,7 @@ def test_the_routes_and_pages_are_the_ones_the_old_desk_had():
         "/api/history",
         "/api/state",
     ]
-    assert sorted(server.PAGES) == ["/", "/index.html"]
+    assert sorted(server.PAGES) == ["/desk", "/desk/", "/index.html"]
     assert sorted(server.Handler.STREAMS) == ["/events"]
 
 

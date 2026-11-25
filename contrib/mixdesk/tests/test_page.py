@@ -24,7 +24,7 @@ def page(rig):
         errors: list[str] = []
         pg.on("pageerror", lambda e: errors.append(f"{e} {e.stack}"))
         pg.on("console", lambda m: errors.append(m.text) if m.type == "error" else None)
-        pg.goto(rig.url)
+        pg.goto(rig.url + "/desk/")
         yield pg, errors
         browser.close()
 

@@ -2,7 +2,7 @@
 
     uv run python contrib/mixdesk/server.py      # http://127.0.0.1:8985, needs HW002_121_pp_finish in Live
 
-It starts the app (zpkt.app): the old desk page at / and the new shell at /app/. Imported, it is that module itself
+It starts the app (zpkt.app): the old desk page at /desk/ and the new shell at /app/ (/ sends you there). Imported, it is that module itself
 (so the old tests and scripts that import `server` see the same names).
 """
 
