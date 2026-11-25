@@ -1,0 +1,76 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "option.schema.json",
+  "title": "Option",
+  "description": "One Option of zpkt.app: Versions of the mix made to be heard side by side. It is also a job on the render queue (a job file under <data>/options/jobs), the reply of options.get and one entry of GET /api/options. Written by hand to match src/zpkt/app/options.py; tests/app/test_options.py checks both agree.",
+  "type": "object",
+  "required": ["id", "kind", "title", "status", "made", "done", "total", "progress", "base", "now", "versions"],
+  "additionalProperties": true,
+  "properties": {
+    "id": {"type": "string"},
+    "kind": {"enum": ["grid", "mix2", "spectral", "kick", "panel"]},
+    "title": {"type": "string"},
+    "status": {"enum": ["queued", "rendering", "ready", "failed"]},
+    "made": {"type": "number"},
+    "done": {"type": "integer", "minimum": 0},
+    "total": {"type": "integer", "minimum": 0},
+    "progress": {"type": "string", "description": "\"rendering 2 of 3\", \"queued\", \"ready\", or the reason it failed"},
+    "base": {"type": ["string", "null"], "description": "the Version the gaps are measured from"},
+    "now": {"type": ["string", "null"], "description": "the Version that was made Now"},
+    "note": {"type": "string"},
+    "error": {"type": "string"},
+    "range": {
+      "type": "object",
+      "required": ["start_beat", "length_beats"],
+      "properties": {
+        "start_beat": {"type": ["number", "null"]},
+        "length_beats": {"type": ["number", "null"]}
+      }
+    },
+    "versions": {"type": "array", "items": {"$ref": "#/$defs/version"}}
+  },
+  "$defs": {
+    "measure": {
+      "type": "object",
+      "required": ["seconds", "rate", "peak_db", "rms_db", "lufs", "bands_db"],
+      "properties": {
+        "seconds": {"type": "number"},
+        "rate": {"type": "integer"},
+        "peak_db": {"type": "number"},
+        "rms_db": {"type": "number"},
+        "lufs": {"type": ["number", "null"]},
+        "bands_db": {"type": "array", "items": {"type": "number"}, "minItems": 31, "maxItems": 31}
+      }
+    },
+    "gap": {
+      "type": "object",
+      "required": ["lufs", "peak_db", "rms_db", "bands_db"],
+      "properties": {
+        "lufs": {"type": ["number", "null"]},
+        "peak_db": {"type": "number"},
+        "rms_db": {"type": "number"},
+        "bands_db": {"type": "array", "items": {"type": "number"}, "minItems": 31, "maxItems": 31}
+      }
+    },
+    "version": {
+      "type": "object",
+      "required": ["id", "label", "status", "file", "writes", "measure", "gap"],
+      "properties": {
+        "id": {"type": "string"},
+        "label": {"type": "string"},
+        "status": {"enum": ["queued", "rendering", "ready", "failed", "gone"]},
+        "file": {"type": ["string", "null"], "description": "the audio file, an absolute path"},
+        "writes": {
+          "type": ["array", "null"],
+          "description": "[[state key, raw value], ...] that make this Version Now; null when it is not a move of the mix",
+          "items": {"type": "array", "prefixItems": [{"type": "string"}, {"type": "number"}], "minItems": 2, "maxItems": 2}
+        },
+        "measure": {"oneOf": [{"type": "null"}, {"$ref": "#/$defs/measure"}]},
+        "gap": {"oneOf": [{"type": "null"}, {"$ref": "#/$defs/gap"}]},
+        "known": {"type": "object", "additionalProperties": {"type": "number"}},
+        "matched_file": {"type": "string"},
+        "error": {"type": "string"}
+      }
+    }
+  }
+}

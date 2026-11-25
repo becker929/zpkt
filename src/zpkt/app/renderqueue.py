@@ -49,7 +49,7 @@ class RenderQueue:
     def get(self, job_id: str) -> dict[str, Any] | None:
         """One job, or None when there is none (or its file is not JSON)."""
         try:
-            return json.loads(self.path_of(job_id).read_text())  # type: ignore[no-any-return]
+            return json.loads(self.path_of(job_id).read_text())
         except (OSError, ValueError):
             return None
 
@@ -62,7 +62,7 @@ class RenderQueue:
             tmp = path.with_suffix(".tmp")
             tmp.write_text(json.dumps(row, indent=1))
             tmp.replace(path)
-            return row  # type: ignore[no-any-return]
+            return row
 
     def _read(self, strict: bool) -> list[tuple[Path, dict[str, Any]]]:
         out = []

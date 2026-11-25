@@ -7,6 +7,7 @@ the API all pass one door. A bad body raises BadRequest; the bus turns it into a
 
 from __future__ import annotations
 
+import dataclasses
 import math
 import threading
 import time
@@ -15,6 +16,7 @@ from typing import TYPE_CHECKING, Any
 
 from zpkt.app import deskstate as D
 from zpkt.app import monitor, surfaces
+from zpkt.app import options as O
 from zpkt.app.bus import OK, BadRequest, Bus, Command, Effect, Reply, Spec
 from zpkt.live import describe
 from zpkt.live import state as S
@@ -300,6 +302,63 @@ def history_revert(desk: Desk, cmd: Command) -> Reply:
     return 200, {"ok": True, "moved": len(pairs), "missing": missing}
 
 
+# ---- Options -------------------------------------------------------------------------------------------------------
+
+
+def _option_args(cmd: Command) -> tuple[str, str]:
+    return _str(cmd.args, "option"), _str(cmd.args, "version")
+
+
+def options_list(desk: Desk, cmd: Command) -> Reply:
+    """Every Option, with its Versions and numbers, and the Version on the Hear bar."""
+    return 200, {"ok": True, **desk.options.message()}
+
+
+def options_get(desk: Desk, cmd: Command) -> Reply:
+    try:
+        return 200, {"ok": True, "option": desk.options.get(_str(cmd.args, "option"))}
+    except O.BadOption as exc:
+        raise BadRequest(str(exc)) from None
+
+
+def options_make(desk: Desk, cmd: Command) -> Reply:
+    """Ask for an Option: {title, versions: [{label, writes}], range?}. It is queued and rendered one Version at a time."""
+    try:
+        return 200, {"ok": True, "option": desk.options.make(dict(cmd.args))}
+    except O.BadOption as exc:
+        raise BadRequest(str(exc)) from None
+
+
+def options_show(desk: Desk, cmd: Command) -> Reply:
+    """Put a Version on the Hear bar: its loudness, peak, spectrum and gap to the base."""
+    option, version = _option_args(cmd)
+    try:
+        return 200, {"ok": True, **desk.options.show(option, version)}
+    except (O.BadOption, ValueError) as exc:
+        raise BadRequest(str(exc)) from None
+
+
+def options_pick(desk: Desk, cmd: Command) -> Reply:
+    """Make a Version Now: its values go onto the mix as one move (one undo), as if you had set them."""
+    option_id, version_id = _option_args(cmd)
+    try:
+        version = O.find_version(desk.options.get(option_id), version_id)
+    except O.BadOption as exc:
+        raise BadRequest(str(exc)) from None
+    if version["status"] != "ready":
+        raise BadRequest(f"Version {version_id} is {version['status']}; pick one that is ready")
+    if not version["writes"]:
+        raise BadRequest(
+            f"Version {version['label']!r} is not a set of values on the mix, so there is nothing to put on Now. "
+            "Hear it, or make its settings by hand."
+        )
+    reply = mix_set(desk, dataclasses.replace(cmd, kind="mix.set", args={"writes": version["writes"]}))
+    if reply[0] == 200:
+        desk.options.keep_now(option_id, version_id)
+        desk.push_app(desk.options.message())
+    return reply
+
+
 # ---- the table -----------------------------------------------------------------------------------------------------
 
 # kind -> (handler, effect, touches Live). "make" commands are open to agents; "move" ones need an Option or your word.
@@ -319,6 +378,11 @@ COMMANDS: dict[str, tuple[Handler, Effect, bool]] = {
     "history.redo": (history_redo, "move", True),
     "history.checkpoint": (history_checkpoint, "make", True),
     "history.revert": (history_revert, "move", True),
+    "options.list": (options_list, "read", False),
+    "options.get": (options_get, "read", False),
+    "options.make": (options_make, "make", False),
+    "options.show": (options_show, "read", False),
+    "options.pick": (options_pick, "move", True),
 }
 
 
