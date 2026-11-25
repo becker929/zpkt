@@ -169,7 +169,9 @@ def _need(data: Mapping[str, Any], key: str, where: str) -> Any:
 
 
 def _bytes(value: Any, where: str) -> tuple[int, ...]:
-    if not (isinstance(value, list) and all(isinstance(b, int) and not isinstance(b, bool) and 0 <= b <= 255 for b in value)):
+    if not (
+        isinstance(value, list) and all(isinstance(b, int) and not isinstance(b, bool) and 0 <= b <= 255 for b in value)
+    ):
         raise ProfileError(f"{where} must be a list of bytes (0 to 255)")
     return tuple(value)
 
