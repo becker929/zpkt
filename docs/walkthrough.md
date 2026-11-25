@@ -326,7 +326,10 @@ You should see: `ok`.
 
 **52. [auto] The library inventory measures masters.** `uv run zpkt live library inventory --measure --json | head -c 800`
 You should see: JSON in which a track with a master WAV has numbers for `lufs` and `true_peak`, not `null`. It can
-take a few minutes (the library is in iCloud).
+take a few minutes (the library is in iCloud). No track has a master WAV yet, so also measure one file the way the
+inventory does:
+`uv run python -c "from pathlib import Path; from zpkt.live.library.inventory import measure_mlab; print(measure_mlab(Path.home() / '_agent_scratch/mixdesk/renders/match.flac'))"`
+prints `lufs`, `true_peak` and `seconds` as numbers.
 
 ## Part 7. The mix desk
 
@@ -544,13 +547,15 @@ You should see: `/studio/`, a home page linking Gemini, the lab and /skrng. No c
 You should see: the site's /skrng pages, for listening only (no feedback buttons).
 
 **88. [gui] The lab.** Open `/studio/lab/`.
-You should see: HW002's controls as surfaces, and the arrange surface's bars. The page makes no sound of its own.
+You should see: HW002's controls as surfaces, and the arrange surface's bars. Do not press its pads: the lab still
+carries its old browser sound, which `contrib/docs/sound.md` lists as breaking the rule and waiting to be replaced.
 
 **89. [gui] Gemini sessions.**
 Open `/studio/gemini/` (on the phone through the tailnet link). Start a session and write "hello". Then ask it to run
-`git status`.
-You should see: a streamed answer to hello. For `git status` a permission request; an ntfy notification reaches the
-phone; after your yes, the output. The page shows this month's spend. It costs a few cents.
+`touch ~/_agent_scratch/walk/gemini-permission-check.txt`.
+You should see: a streamed answer to hello. For the `touch` a permission request; an ntfy notification reaches the
+phone; after your yes, the file exists. The page shows the session's cost. It costs a few cents. (Gemini CLI runs
+commands that only read, such as `git status`, without asking.)
 
 **90. [auto] Gemini CLI.** `uv run harness gemini -p "say hello in five words"`
 You should see: a five-word answer from Gemini CLI.
@@ -573,7 +578,8 @@ You should see: it serves http://127.0.0.1:8798/studio/checklist/ on loopback, w
 You should see: JSON, not a login page.
 
 **96. [gui] The pages.**
-Open `/studio/checklist/`, then `map/`, `rummage/`, `wasteland/`, `flow/`, `concepts/`.
+Open `/studio/checklist/`, then `map/`, `rummage/`, `wasteland/`, `flow/`, and `concepts/crystal.html`,
+`concepts/repair.html` and `concepts/stamps.html` (`concepts/` has no page of its own).
 You should see: each loads. On the map, a stamp plays its check sound.
 
 **97. [gui] The artist's quick question.** (Agent: run it with `--no-model` and a temporary data folder, so no real feedback is kept.)
@@ -605,7 +611,9 @@ You should see: booth 86 passed, bot 27 of 27.
 
 **102. [auto] The booth without Live.**
 `cd booth && uv run booth check palettes/examples/clockwork.json && uv run booth plan palettes/examples/clockwork.json`
-You should see: `ok` with an estimate, then the tracks, note counts and mixer.
+You should see: `ok` with an estimate, then the tracks, note counts and mixer. While the booth's home is a link to
+the offload disk that is not there, both stop with `FileExistsError`: put `BOOTH_HOME=~/_agent_scratch/walk/booth-home`
+before each.
 
 **103. [gui] One watched booth export.**
 The booth's home, `~/_agent_scratch/booth`, is a link to the offload disk and is not there now. Restore it first.
