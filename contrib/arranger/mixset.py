@@ -21,15 +21,16 @@ from __future__ import annotations
 
 import itertools
 import json
-import math
 import subprocess
 import sys
 import time
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
 import hw002
 from renderqueue import RenderQueue
+from zpkt.live import recipe_build as rb
 
 ROOT = Path(__file__).resolve().parents[2]
 DATA = hw002.DATA
@@ -37,17 +38,11 @@ MIX2 = DATA / "mix2"
 SET = hw002.MIX_SET
 ARR_ID = hw002.CANONICAL
 BAR = hw002.BEATS_PER_BAR
-HEADROOM = -6.0  # a Utility on the mix set's Main: the loops summed with mix 1 reach full scale, so renders leave room
-FX_KINDS = {"riser": "Risers", "reverse": "Reverse reverbs", "fill": "Fills", "downlifter": "Downlifters"}
-BUSES = {
-    "kick": "Kick bus",
-    "hats": "Hats bus",
-    "perc": "Perc bus",
-    "sfx": "Chord and splash bus",
-    "break": "Break bus",
-    "fx": "Transitions bus",
-}
-CLIPS_PER_CALL = 12  # audio clips made in one LOM call, well under the Remote Script's 12 s
+HEADROOM = (
+    rb.HEADROOM_DB
+)  # a Utility on the mix set's Main: the loops summed with mix 1 reach full scale, so renders leave room
+FX_KINDS = rb.FX_KINDS
+BUSES = rb.BUSES
 
 # The devices the page offers, and the parameters a grid may move: (name in Live, unit, lo, hi) or (name, values).
 DEVICES: dict[str, dict[str, Any]] = {
@@ -120,17 +115,7 @@ def load() -> tuple[dict, dict, dict]:
 
 def channels(loops: dict, arr: dict) -> list[dict]:
     """The mix channels, as the mix pages make them: a lane of the arrangement, or a kind of transition laid over it."""
-    used = {r["lane"] for r in arr["regions"]} | {
-        t["lane"] for t in arr.get("transitions", []) if t.get("mode") == "replace"
-    }
-    out = [
-        {"id": lane["id"], "title": lane["title"], "group": lane["group"]}
-        for lane in loops["lanes"]
-        if lane["id"] in used
-    ]
-    kinds = {t["kind"] for t in arr.get("transitions", []) if t.get("mode") != "replace"}
-    out += [{"id": f"fx-{k}", "title": v, "group": "fx"} for k, v in FX_KINDS.items() if k in kinds]
-    return out
+    return rb.channels(loops, arr)
 
 
 def guard(L: Any) -> None:
@@ -139,152 +124,29 @@ def guard(L: Any) -> None:
 
 def tracks(L: Any) -> dict[str, int]:
     """Track name -> index in the set."""
-    return {n: i for i, n in enumerate(L.run("result = [t.name for t in song.tracks]"))}
+    return rb.tracks(L)
 
 
-def bell_eq_values(bells: list) -> dict[str, Any]:
-    """EQ Eight's values for up to six bells [(Hz, dB, Q)] on bands 2-7, every other band off."""
-    v: dict[str, Any] = {f"{k} Filter On A": "Off" for k in range(1, 9)}
-    for k, (f, g, q) in enumerate(bells, start=2):
-        v.update(
-            {
-                f"{k} Filter On A": "On",
-                f"{k} Filter Type A": "Bell",
-                f"{k} Frequency A": f"{f} Hz",
-                f"{k} Gain A": f"{g} dB",
-                f"{k} Q A": float(q),
-            }
-        )
-    return v
+bell_eq_values = rb.bell_eq_values
+cuts_eq_values = rb.cuts_eq_values
 
 
-def cuts_eq_values(eq: dict) -> dict[str, Any] | None:
-    """Mix 1's cuts on one channel as EQ Eight's values (a high-pass on band 1, up to three bell cuts, never a boost,
-    a low-pass on band 8), or None when nothing is on."""
-    hp, lp = eq.get("hp") or {}, eq.get("lp") or {}
-    cuts = [x for x in eq.get("cuts", []) if x.get("on")]
-    if not (cuts or hp.get("on") or lp.get("on")):
-        return None
-    p: dict[str, Any] = {f"{k} Filter On A": "Off" for k in range(1, 9)}
-    if hp.get("on"):
-        p.update({"1 Filter On A": "On", "1 Filter Type A": "High Pass 12dB", "1 Frequency A": f"{hp['freq']} Hz"})
-    for k, x in enumerate(cuts[:3], start=2):
-        p.update(
-            {
-                f"{k} Filter On A": "On",
-                f"{k} Filter Type A": "Bell",
-                f"{k} Frequency A": f"{x['freq']} Hz",
-                f"{k} Gain A": f"{min(0.0, x['gainDb'])} dB",
-                f"{k} Q A": float(x["q"]),
-            }
-        )
-    if lp.get("on"):
-        p.update({"8 Filter On A": "On", "8 Filter Type A": "Low Pass 12dB", "8 Frequency A": f"{lp['freq']} Hz"})
-    return p
+def _stopping(step: Callable[..., Any], *args: Any, **kw: Any) -> Any:
+    """Run a recipe_build step; Live not being as it expects stops the script with the same "STOP:" line."""
+    try:
+        return step(*args, **kw)
+    except rb.Stopped as e:
+        sys.exit(f"STOP: {e}")
 
 
 def swap_clips(L: Any, track: str, path: str, *, check: bool = False) -> None:
-    """Point every arrangement clip of `track` at another audio file: the same places, warping off. With `check`,
-    read the clips back (a separate call) and stop if any differs."""
-    starts = L.run(f"result = [c.start_time for c in {track}.arrangement_clips]")
-    L.run(f"t = {track}\nfor c in list(t.arrangement_clips):\n    t.delete_clip(c)\nresult = 'ok'")
-    for k in range(0, len(starts), CLIPS_PER_CALL):
-        L.run(
-            "".join(
-                f"c = {track}.create_audio_clip({path!r}, {s})\nc.warping = False\n"
-                for s in starts[k : k + CLIPS_PER_CALL]
-            )
-            + "result = 'ok'"
-        )
-    if check:
-        got = L.run(f"result = [(c.start_time, c.file_path) for c in {track}.arrangement_clips]")
-        if [g[0] for g in got] != starts or any(g[1] != path for g in got):
-            sys.exit(f"STOP: kick clips are {got}")
-
-
-# ---- build: the mix set from the arrangement -------------------------------------------------------------------------
+    """Point every arrangement clip of `track` at another audio file (zpkt.live.recipe_build.swap_clips)."""
+    _stopping(rb.swap_clips, L, track, path, check=check)
 
 
 def clip_placements(arr: dict, clips: dict, cands: dict) -> list[tuple[str, str, float, float | None]]:
-    """Every audio clip the mix set holds: (channel, file, start beat, clip gain in dB or None). The loops in whole
-    passes where the arrangement puts them (a scoop or kick fill takes the kick's pass instead), a loop's tail where
-    nothing follows it, and each picked transition with its level from the transitions page."""
-    replaced = [
-        (t["lane"], t["startBeat"], t["startBeat"] + t["beats"])
-        for t in arr.get("transitions", [])
-        if t.get("mode") == "replace"
-    ]
-    calls: list[tuple[str, str, float, float | None]] = []
-    for r in arr["regions"]:
-        c = clips[r["clip"]]
-        path = str(DATA / "audio" / c["file"])
-        if c["kind"] == "once":
-            calls.append((r["lane"], path, r["start"] * BAR, None))
-            continue
-        for p in range(math.ceil(r["len"] / c["bars"])):
-            at = (r["start"] + p * c["bars"]) * BAR
-            if any(lane == r["lane"] and a <= at < b for lane, a, b in replaced):
-                continue
-            if (p + 1) * c["bars"] > r["len"]:
-                sys.exit(f"STOP: {r['clip']} does not fill whole passes in {r}")
-            calls.append((r["lane"], path, at, None))
-        end = r["start"] + r["len"]
-        follows = any(o["lane"] == r["lane"] and o["start"] == end for o in arr["regions"])
-        if c.get("tail") and not follows and end < arr["bars"]:
-            calls.append((r["lane"], str(DATA / "audio" / c["tail"]), end * BAR, None))
-    for t in arr.get("transitions", []):
-        lane = t["lane"] if t.get("mode") == "replace" else f"fx-{t['kind']}"
-        path = str(DATA / "fx" / "audio" / cands[t["id"]]["file"])
-        calls.append((lane, path, float(t["startBeat"]), t.get("gainDb", 0.0)))
-    return calls
-
-
-def _empty_set(L: Any, names: list[str]) -> None:
-    """New audio tracks named `names` first (a set keeps at least one track), then every old track and return goes."""
-    old = len(L.run("result = [t.name for t in song.tracks]"))
-    for name in names:
-        L.run(f"t = song.create_audio_track(-1)\nt.name = {name!r}\nresult = 'ok'")
-    L.run(f"for _ in range({old}):\n    song.delete_track(0)\nresult = 'ok'")
-    L.run("while len(song.return_tracks):\n    song.delete_return_track(0)\nresult = 'ok'")
-
-
-def _route(L: Any, idx: dict[str, int], groups: list[str], chans: list[dict]) -> None:
-    """Each channel into its bus; buses into Main. A bus monitors In with no input of its own: it hears only the
-    channels routed to it."""
-    for g in groups:
-        got = L.run(f"""t = song.tracks[{idx[BUSES[g]]}]
-r = [x for x in t.available_input_routing_types if x.display_name == 'No Input']
-t.input_routing_type = r[0]
-t.current_monitoring_state = 0
-result = [t.input_routing_type.display_name, t.current_monitoring_state]""")
-        if got != ["No Input", 0]:
-            sys.exit(f"STOP: bus {g}: {got}")
-    for c in chans:
-        bus = BUSES[c["group"]]
-        got = L.run(f"""t = song.tracks[{idx[c["id"]]}]
-r = [x for x in t.available_output_routing_types if x.display_name == {bus!r}]
-if r:
-    t.output_routing_type = r[0]
-result = t.output_routing_type.display_name""")
-        if got != bus:
-            sys.exit(f"STOP: {c['id']} routes to {got!r}, wanted {bus!r}")
-
-
-def _clip_gain(L: Any, track: int, path: str, at: float, gain_db: float) -> None:
-    """Set one clip's gain to `gain_db` by bisection on its display text: Live does not publish the gain law."""
-    L.run(f"""t = song.tracks[{track}]
-c = [c for c in t.arrangement_clips if abs(c.start_time - {float(at)}) < 1e-6 and c.file_path == {path!r}][0]
-want = {float(gain_db)}
-lo_, hi_ = 0.0, 1.0
-for _ in range(40):
-    mid = (lo_ + hi_) / 2
-    c.gain = mid
-    s = c.gain_display_string.replace(' dB', '')
-    v = -999.0 if 'inf' in s else float(s)
-    if v < want: lo_ = mid
-    else: hi_ = mid
-c.gain = hi_
-result = c.gain_display_string""")
+    """Every audio clip the mix set holds (zpkt.live.recipe_build.clip_placements), from DATA."""
+    return _stopping(rb.clip_placements, arr, clips, cands, DATA)  # type: ignore[no-any-return]
 
 
 def build() -> None:
@@ -293,95 +155,35 @@ def build() -> None:
     L = lo()
     guard(L)
     loops, fx, arr = load()
-    chans = channels(loops, arr)
-    clips = {c["id"]: c for c in loops["clips"]}
-    cands = {c["id"]: c for c in fx["candidates"]}
-    L.run(f"song.tempo = {hw002.TEMPO_BPM}\nresult = 'ok'")
-    groups = [g for g in BUSES if any(c["group"] == g for c in chans)]
-    _empty_set(L, [BUSES[g] for g in groups] + [c["id"] for c in chans])
-    idx = tracks(L)
-    _route(L, idx, groups, chans)
-    calls = clip_placements(arr, clips, cands)
-    for k in range(0, len(calls), CLIPS_PER_CALL):
-        code = "out = []\n"
-        for lane, path, at, _ in calls[k : k + CLIPS_PER_CALL]:
-            code += (
-                f"t = song.tracks[{idx[lane]}]\nc = t.create_audio_clip({path!r}, {float(at)})\nc.warping = False\n"
-                "out.append(c.end_time - c.start_time)\n"
-            )
-        L.run(code + "result = out")
-    for lane, path, at, gain in calls:
-        if gain:
-            _clip_gain(L, idx[lane], path, at, gain)
-    print(f"{len(chans)} channels on {len(groups)} buses, {len(calls)} clips", flush=True)
-    main_gain(L, HEADROOM)
-    apply_mix(L, arr, chans)
+    built = _stopping(rb.build, L, loops, fx, arr, DATA, hw002.TEMPO_BPM)
+    print(f"{built.channels} channels on {built.buses} buses, {built.clips} clips", flush=True)
+    apply_mix(L, arr, channels(loops, arr))
 
 
 def main_gain(L: Any, db: float) -> None:
     """The Utility at the end of Main: the renders' headroom, and the loudness match for comparing."""
-    if L.run("result = [d.class_name for d in song.master_track.devices][-1:]") != ["StereoGain"]:
-        L.load_item("song.master_track", "audio_effects", None, "Utility")
-    L.setp("song.master_track.devices[-1]", {"Output": f"{round(db, 2)} dB"})
+    rb.main_gain(L, db)
 
 
 def add_at_end(L: Any, track: str, device: str, values: dict[str, Any]) -> str:
     """Load `device` at the end of `track`'s chain and set its values; returns its LOM path."""
-    L.load_item(track, "audio_effects", None, device)
-    dev = f"{track}.devices[{len(L.devices(track)) - 1}]"
-    L.setp(dev, values)
-    return dev
+    return rb.add_at_end(L, track, device, values)
 
 
 def apply_mix(L: Any, arr: dict, chans: list[dict]) -> None:
-    """Mix 1 (gain, pan and cuts) on each channel: the mixer, and an EQ Eight for the cuts. Then the kept kick
-    option, the kept mix-2 devices in the order they were kept, and the kept spectral fixes. Everything after the
-    mixer is rebuilt from the structure each time."""
-    idx = tracks(L)
-    mix = (arr.get("mix") or {}).get("channels", {})
-    for name in [c["id"] for c in chans] + list(BUSES.values()):
-        if name in idx:
-            L.run(f"t = song.tracks[{idx[name]}]\nwhile len(t.devices):\n    t.delete_device(0)\nresult = 'ok'")
-    kick_option = arr.get("kickFuzz")  # kept on the kick or spectral page (kickfuzz.py): its loop, the kick turned
-    if kick_option and "kick" in idx:
-        swap_clips(L, f"song.tracks[{idx['kick']}]", str(DATA / "kickfuzz" / kick_option["loop"]))
-    for c in chans:
-        m = mix.get(c["id"], {})
-        t = f"song.tracks[{idx[c['id']]}]"
-        turned = float(kick_option["kickTurnedDb"]) if kick_option and c["id"] == "kick" else 0.0
-        L.mixer(t, float(m.get("gainDb", 0.0)) + turned, (), float(m.get("pan", 0.0)))
-        cut = cuts_eq_values(m.get("eq") or {})
-        if cut is not None:
-            L.load_item(t, "audio_effects", None, "EQ Eight")
-            L.setp(f"{t}.devices[0]", cut)
-    if kick_option and kick_option.get("bells"):  # the kept kick's match EQ (kickiso.py), after mix 1's cuts
-        add_at_end(L, f"song.tracks[{idx['kick']}]", "EQ Eight", bell_eq_values(kick_option["bells"]))
-    for k in arr.get("mix2") or []:
-        add_device(L, idx, k["target"], k["device"], k["values"])
-    for f in arr.get("spectral") or []:  # the spectral fixes kept (spectral.py): a gain move or a device
-        for p in f["parts"]:
-            if p["device"] == "gain":
-                c = next(c for c in chans if c["id"] == p["target"])
-                m = mix.get(c["id"], {})
-                gain = float(m.get("gainDb", 0.0)) + p["values"]["dB"]
-                L.mixer(f"song.tracks[{idx[c['id']]}]", gain, (), float(m.get("pan", 0.0)))
-            else:
-                t = "song.master_track" if p["target"] == "main" else target_track(idx, p["target"])
-                add_at_end(L, t, p["device"], p["values"])
+    """Mix 1 and the kept choices on the mix set (zpkt.live.recipe_build.apply_mix)."""
+    _stopping(rb.apply_mix, L, arr, chans, DATA, DEVICES)
     print("mix applied", flush=True)
 
 
 def target_track(idx: dict[str, int], target: str) -> str:
     """The LOM path of a channel ("kick") or a bus ("bus-kick")."""
-    name = BUSES.get(target.removeprefix("bus-"), target) if target.startswith("bus-") else target
-    if name not in idx:
-        sys.exit(f"STOP: no track for {target!r}")
-    return f"song.tracks[{idx[name]}]"
+    return _stopping(rb.target_track, idx, target)  # type: ignore[no-any-return]
 
 
 def add_device(L: Any, idx: dict[str, int], target: str, device: str, values: dict[str, Any]) -> str:
     """A mix-2 device at the end of a channel's or bus's chain, with its fixed settings and `values`."""
-    return add_at_end(L, target_track(idx, target), device, {**DEVICES[device].get("fixed", {}), **values})
+    return _stopping(rb.add_device, L, idx, target, device, values, DEVICES[device].get("fixed", {}))  # type: ignore[no-any-return]
 
 
 # ---- renders ------------------------------------------------------------------------------------------------------------
