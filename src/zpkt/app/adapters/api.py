@@ -28,9 +28,8 @@ from typing import Any, cast
 
 from zpkt.app import token as tokens
 from zpkt.app.adapters import AdapterSpec, AppContext
-from zpkt.app.bus import APPROVED_BY_USER, BadRequest, Bus, Command, Refused
+from zpkt.app.bus import APPROVED_BY_USER, BadRequest, Bus, Command, Refused, Who
 from zpkt.app.jobs import API_CALLERS
-from zpkt.live.changes import Who
 
 DEFAULT_PORT = 8984  # beside the desk's 8985-8987; not the one the tailnet serves
 PREFIX = "/api/v1"
