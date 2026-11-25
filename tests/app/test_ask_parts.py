@@ -188,3 +188,31 @@ def test_no_ask_module_reads_a_key_itself():
                     assert not is_variable, f"{path.name}:{node.lineno} reads {first.value}"
             if isinstance(node, ast.Constant) and isinstance(node.value, str):
                 assert node.value not in ("security", ".env"), f"{path.name}:{node.lineno}"
+
+
+def test_the_app_starts_web_and_agents_by_name_and_ask_data_goes_where_the_environment_says(tmp_path, monkeypatch):
+    import urllib.request
+
+    from tests.app.conftest import FakeMeter, make_settings
+    from zpkt.app import adapters, parse_args
+    from zpkt.app.adapters import AppContext
+    from zpkt.app.connections import LiveConnections
+    from zpkt.app.desk import Desk
+    from zpkt.live.testing import FakeLive, hw002_like
+
+    assert parse_args([]).adapters == "web,agents"
+    monkeypatch.setenv("ZPKT_ASK_DIR", str(tmp_path / "ask-data"))
+    desk = Desk(make_settings(tmp_path), connections=LiveConnections(FakeLive(hw002_like()), FakeMeter()))
+    web, agents = adapters.create(["web", "agents"], AppContext(desk.bus, desk, desk.settings))
+    web.supervise = False
+    web.start()
+    agents.start()
+    try:
+        assert (tmp_path / "ask-data" / "workspaces.json").exists()
+        with urllib.request.urlopen(f"http://127.0.0.1:{web.port}/app/ask/api/engines", timeout=10) as r:
+            assert [e["id"] for e in json.loads(r.read())["engines"]] == ["claude", "gemini"]
+        assert {"page.make", "state.read", "measurement.read", "option.propose"} <= set(desk.bus.kinds())
+    finally:
+        agents.stop()
+        web.stop()
+    assert desk.extensions == []
