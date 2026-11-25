@@ -349,6 +349,7 @@ def sweep_command(
     apply: bool = typer.Option(False, "--apply", help="Delete. Without it, only say what would go."),
     pressure: bool = typer.Option(False, "--pressure", help="Do not wait --days: sweep everything superseded now."),
     as_json: bool = typer.Option(False, "--json", help="Print the result as JSON."),
+    force: bool = typer.Option(False, "--force", help="Delete even when Live could not say which audio is in use."),
     host: str = HOST,
     port: int | None = PORT,
 ) -> None:
@@ -365,8 +366,12 @@ def sweep_command(
         in_use = set(clips)
         if path:
             projects.append(Path(path).parent)
-    except Exception:
-        pass
+    except Exception as exc:
+        if apply and not force:
+            fail(
+                f"ERROR: could not ask Live which audio is in use ({inside(exc)}); nothing deleted. Use --force to delete anyway."
+            )
+        print(f"warning: could not ask Live which audio is in use ({inside(exc)})", file=sys.stderr)
     try:
         result = sweep.sweep(out, projects, apply=apply, keep_days=days, pressure=pressure, in_use=in_use)
     except Exception as exc:

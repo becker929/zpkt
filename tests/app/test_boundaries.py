@@ -100,10 +100,10 @@ def test_the_allowed_list_is_short_and_every_entry_exists():
 
 def test_the_app_owns_the_connections():
     """Outside the libraries, only the app's connections build a LiveClient or bind a socket. The other places are the
-    HTTP clients of the app (client.py, page_cli.py): they open HTTP to the app and never reach Live."""
+    HTTP clients of the app (client.py; page_cli.py goes through it): they open HTTP to the app and never reach Live."""
     owners = {p.relative_to(SRC).as_posix() for p in (SRC / "app").rglob("*.py") if violations(p)}
     # ask/mcp.py is the agents' tool server: a client of the app over HTTP (urlopen to the app), never of Live.
-    assert owners == {"app/connections.py", "app/client.py", "app/page_cli.py", "app/ask/mcp.py"}
+    assert owners == {"app/connections.py", "app/client.py", "app/ask/mcp.py"}
     assert violations(SRC / "app" / "ask" / "mcp.py") and all(
         "urlopen" in v for v in violations(SRC / "app" / "ask" / "mcp.py")
     )

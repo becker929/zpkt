@@ -163,7 +163,7 @@ class Desk:
         guard = SetGuard(self.settings.set_name, open_set)
         bus = Bus(guard=guard, lock=lambda: self.conn.exclusive(wait_s=5.0), version_before=self.version_before)
         register_all(bus, self)
-        jobs.register(bus, self.conn)
+        jobs.register(bus, self.conn, self.descriptions.clear)
         return bus
 
     # ---- reading the state -----------------------------------------------------------------------------------------
@@ -199,6 +199,7 @@ class Desk:
         return snap
 
     def restart_pager(self) -> None:
+        self.descriptions.clear()  # the pager loads again: the set may hold other devices now
         snap = self.start_pager()
         self.monitor.adopt(snap)
         self.set_state(snap, "attached")

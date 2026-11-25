@@ -2,9 +2,13 @@
 
 from __future__ import annotations
 
+import logging
+
 import numpy as np
 
 from .models import RhythmFeatures
+
+log = logging.getLogger(__name__)
 
 
 def extract(audio_path: str) -> RhythmFeatures:
@@ -31,7 +35,7 @@ def extract(audio_path: str) -> RhythmFeatures:
                 nums = [int(r[1]) for r in db_raw]
                 feats.meter_numerator = int(max(set(nums), key=nums.count))
         except Exception:
-            pass
+            log.debug("downbeat tracking skipped", exc_info=True)  # best effort: the field stays empty
     except Exception:
-        pass
+        log.debug("beat tracking skipped", exc_info=True)  # best effort: the field stays empty
     return feats

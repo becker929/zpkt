@@ -25,6 +25,7 @@ from urllib.parse import parse_qs, urlparse
 from zpkt.app import deskstate as D  # noqa: F401  (kept importable as server.D)
 from zpkt.app import pages
 from zpkt.app import protocol as P  # noqa: F401
+from zpkt.app import token as tokens
 from zpkt.app.bus import BadRequest, Command, Reply
 from zpkt.app.commands import POST_PATHS
 from zpkt.app.desk import HOSTS_ENV, Desk, Settings, hosts_from_env, meter_message, mixdesk_dir, start_threads
@@ -53,6 +54,7 @@ __all__ = [
 ]
 
 HERE = mixdesk_dir()  # the desk's own files (the old page, desk.json, sources.json, pager.py)
+MAX_BODY = 16 * 2**20  # the API adapter's cap
 AUDIO_TYPES = {".wav": "audio/wav", ".flac": "audio/flac", ".mp3": "audio/mpeg"}
 SHELL_DIR = Path(__file__).resolve().parent / "static"
 
@@ -264,6 +266,15 @@ def cross_site(
     return True
 
 
+def has_token(authorization: str | None) -> bool:
+    """Does an Authorization header carry one of the app's own caller tokens (zpkt.app.token)?"""
+    scheme, _, sent = (authorization or "").partition(" ")
+    if scheme.lower() != "bearer" or not sent.strip():
+        return False
+    held = {who: found for who in tokens.CALLERS if (found := tokens.read_token(None, who))}
+    return tokens.who_holds(held, sent.strip()) is not None
+
+
 def parse_body(raw: bytes) -> dict[str, Any]:
     """A POST body: a JSON object, or nothing (an empty object)."""
     try:
@@ -273,6 +284,23 @@ def parse_body(raw: bytes) -> dict[str, Any]:
     if not isinstance(body, dict):
         raise BadRequest("the body must be a JSON object")
     return body
+
+
+class TooBig(Exception):
+    """A body over MAX_BODY."""
+
+
+def body_length(header: str | None) -> int:
+    """A Content-Length as a number of bytes; BadRequest when it is not one, TooBig when over MAX_BODY."""
+    try:
+        n = int(header or 0)
+    except ValueError:
+        raise BadRequest("Content-Length is not a number") from None
+    if n < 0:
+        raise BadRequest("Content-Length is below zero")
+    if n > MAX_BODY:
+        raise TooBig
+    return n
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -487,10 +515,14 @@ class Handler(BaseHTTPRequestHandler):
         if self._refuse_cross_site():
             return
         if self._mounted():
-            return
+            return  # a mount (Ask, the Song) holds its own session token
+        if not self.headers.get("Origin") and not has_token(self.headers.get("Authorization")):
+            return self._json(
+                {"error": "a write needs a page of this site (Origin) or a Bearer token: use the API"}, 401
+            )
         kind = POST_ROUTES.get(self.path)
         try:
-            n = int(self.headers.get("Content-Length") or 0)
+            n = body_length(self.headers.get("Content-Length"))
             body = parse_body(self.rfile.read(n))
             if self.path == "/api/command":
                 code, reply = post_command(self.desk, body)
@@ -502,6 +534,8 @@ class Handler(BaseHTTPRequestHandler):
                 code, reply = self.desk.bus.submit(Command(kind, "you", body))
         except BadRequest as exc:
             code, reply = 400, {"error": str(exc)}
+        except TooBig:
+            code, reply = 413, {"error": f"the body is over {MAX_BODY // 2**20} MB"}
         except (LiveError, OSError) as exc:
             code, reply = 503, {"error": str(exc)}
         self._json(reply, code)

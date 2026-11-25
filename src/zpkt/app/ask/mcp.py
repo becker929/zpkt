@@ -1,7 +1,7 @@
 """The tools as an MCP server on stdio: `python -m zpkt.app.ask.mcp`.
 
 Claude Code and Gemini CLI start it for a session. It lists the four tools of tools.py and sends each call to the app
-(`POST /app/ask/api/tool`) with the session's id and token, which come in the environment: ZPKT_APP_URL,
+(`POST /app/ask/api/tool`) with the session's id and token, which come in the environment: ZPKT_DESK_URL,
 ZPKT_APP_SESSION, ZPKT_APP_TOKEN. It holds no Live connection and imports nothing from zpkt.live: it is a client of
 the app, like any other.
 """
@@ -88,9 +88,9 @@ def serve(stdin: TextIO, stdout: TextIO, post: Post, session: str, token: str) -
 
 
 def main() -> None:
-    url = os.environ.get("ZPKT_APP_URL", "").rstrip("/")
+    url = (os.environ.get("ZPKT_DESK_URL") or os.environ.get("ZPKT_APP_URL", "")).rstrip("/")  # APP_URL: the old name
     if not url:
-        sys.exit("ZPKT_APP_URL is not set: this server is started by the app for a session.")
+        sys.exit("ZPKT_DESK_URL is not set: this server is started by the app for a session.")
     serve(
         sys.stdin,
         sys.stdout,
