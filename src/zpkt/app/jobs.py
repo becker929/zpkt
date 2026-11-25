@@ -200,7 +200,7 @@ def describe_keys(conn: LiveConnections, cmd: Command) -> Reply:
     return 200, {"ok": not missing, "found": found, "missing": missing}
 
 
-def page_apply(conn: LiveConnections, cmd: Command) -> Reply:
+def panel_apply(conn: LiveConnections, cmd: Command) -> Reply:
     """Set a panel's values and render its next version (`hands panel apply`)."""
     import json
 
@@ -239,7 +239,8 @@ JOBS: dict[str, Job] = {
     "live.transport": transport,
     "state.take": state_take,
     "state.put": state_put,
-    "page.apply": page_apply,
+    "panel.apply": panel_apply,
+    "page.apply": panel_apply,  # the older name of panel.apply
     "describe": describe_keys,
 }
 

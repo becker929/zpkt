@@ -22,10 +22,18 @@ from pathlib import Path
 from typing import Any, ClassVar
 from urllib.parse import parse_qs, urlparse
 
+<<<<<<< HEAD
 from zpkt.app import deskstate as D  # noqa: F401  (kept importable as server.D)
 from zpkt.app import pages
 from zpkt.app import protocol as P  # noqa: F401
 from zpkt.app import token as tokens
+=======
+from zpkt.app import (
+    deskstate,  # noqa: F401
+    pages,
+    protocol,  # noqa: F401
+)
+>>>>>>> origin/audit/b6-naming
 from zpkt.app.bus import BadRequest, Command, Reply
 from zpkt.app.commands import POST_PATHS
 from zpkt.app.desk import HOSTS_ENV, Desk, Settings, hosts_from_env, meter_message, mixdesk_dir, start_threads

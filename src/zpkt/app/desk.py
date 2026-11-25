@@ -22,9 +22,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from zpkt.app import deskstate as D
-from zpkt.app import history, jobs, pages, surfaces
-from zpkt.app import protocol as P
+from zpkt.app import deskstate, history, jobs, pages, protocol, surfaces
 from zpkt.app.bus import Bus, Command, SetGuard
 from zpkt.app.connections import BUSY_WAIT_S, LiveConnections, bind_udp, open_connections
 from zpkt.app.monitor import Monitor
@@ -32,7 +30,7 @@ from zpkt.app.mounts import Mounts
 from zpkt.app.renders import Options
 from zpkt.audio.levels import rms_to_db
 from zpkt.live import changes, config, desk_pager, meter, monitor_tracks, openset
-from zpkt.live import state as S
+from zpkt.live import state as live_state
 from zpkt.live.describe import Description
 from zpkt.live.transport import LiveError
 
@@ -130,7 +128,7 @@ class Settings:
             meter_port=meter.METER_PORT,
             live_port=None,
             history_dir=history.HISTORY_DIR,
-            checkpoints_dir=S.folder(set_name),
+            checkpoints_dir=live_state.folder(set_name),
             surfaces_dir=config.rig().sets_dir / "surfaces" / set_name,
             pages_dir=config.rig().sets_dir / "pages" / set_name,
             changes_file=changes.path_for(set_name),
@@ -154,7 +152,7 @@ class Desk:
         self.settings = settings
         self.conn = connections or open_connections(settings.live_port, settings.meter_port)
         self.lock = threading.Lock()
-        self.state: D.DeskState = D.initial()
+        self.state: deskstate.DeskState = deskstate.initial()
         self.clients: list[queue.Queue[dict[str, Any]]] = []  # the old page's event queues
         self.app_clients: list[queue.Queue[dict[str, Any]]] = []  # the /app/ shell's: they also get "hear" messages
         self._clients_lock = threading.Lock()
@@ -187,17 +185,17 @@ class Desk:
         return bus
 
     # ---- reading the state -----------------------------------------------------------------------------------------
-    def snapshot(self) -> D.DeskState:
+    def snapshot(self) -> deskstate.DeskState:
         """A deep copy of the state: the UDP thread keeps changing it after a copy is queued or sent."""
         with self.lock:
-            copy: D.DeskState = json.loads(json.dumps(self.state))
+            copy: deskstate.DeskState = json.loads(json.dumps(self.state))
         return copy
 
     def page_state(self) -> dict[str, Any]:
         """The state as the page gets it: a copy, with the loudness match's gains for every reference."""
-        return {**self.snapshot(), "gains": D.matched_gains(self.analysis()["sources"])}
+        return {**self.snapshot(), "gains": deskstate.matched_gains(self.analysis()["sources"])}
 
-    def monitor_choice(self) -> D.MonitorChoice:
+    def monitor_choice(self) -> deskstate.MonitorChoice:
         return self.snapshot()["monitor"]
 
     # ---- Live ------------------------------------------------------------------------------------------------------
@@ -262,32 +260,38 @@ class Desk:
         if snap and snap.get("values"):
             self.learn(snap["values"])
         with self.lock:
-            self.state = D.with_snapshot(self.state, snap, status)
+            self.state = deskstate.with_snapshot(self.state, snap, status)
         self.push_full()
 
     def learn(self, values: dict[str, Any]) -> None:
         """The snapshot's keys and labels, and its values as the history's starting point (not moves)."""
-        self.history.add_labels(D.labels(self.cfg()["pages"], values))
+        self.history.add_labels(deskstate.labels(self.cfg()["pages"], values))
         self.history.baseline(values)
 
-    def ingest(self, msg: P.PagerMessage) -> None:
+    def ingest(self, msg: protocol.PagerMessage) -> None:
         """One message from the pager (or the app itself): into the state, out to the page, and into the history if
         it moved a value."""
         if msg["t"] == "v":
             self.monitor.before_move(msg)
         with self.lock:
-            self.state = D.reduce(self.state, msg, time.time())
+            self.state = deskstate.reduce(self.state, msg, time.time())
         self.push(dict(msg))
-        if msg["t"] == "v" and self.history.seen(msg["key"], msg["s"], msg["r"], who=P.who_moved(msg)):
+        if msg["t"] == "v" and self.history.seen(msg["key"], msg["s"], msg["r"], who=protocol.who_moved(msg)):
             self.push(self.history.view())
             self.push_app(self.monitor.message())
 
     def receive(self, data: bytes) -> None:
         """One datagram from the pager. A datagram that is not one of the pager's messages is dropped and said so."""
         try:
+<<<<<<< HEAD
             msg = P.parse_datagram(data)
         except P.BadMessage as exc:
             log.warning(f"app: dropped a datagram from the pager: {exc}")
+=======
+            msg = protocol.parse_datagram(data)
+        except protocol.BadMessage as exc:
+            print(f"app: dropped a datagram from the pager: {exc}", flush=True)
+>>>>>>> origin/audit/b6-naming
             return
         self.ingest(msg)
 
@@ -465,11 +469,11 @@ class Desk:
         missing: list[str] = self.call(f"m.DESK.set_raw({[p[:2] for p in pairs]!r})") if pairs else []
         return missing
 
-    def make_checkpoint(self, name: str, who: P.Who | str = P.DEFAULT_WHO) -> dict[str, Any]:
+    def make_checkpoint(self, name: str, who: protocol.Who | str = protocol.DEFAULT_WHO) -> dict[str, Any]:
         """Checkpoint `name`: the whole mix as Live has it now. `who` made it: "sys" when the desk did on its own."""
         history.check_name(name)
         with self.conn.exclusive():  # one hold of Live for the whole read
-            full = S.take(self.conn)
+            full = live_state.take(self.conn)
         saved = self.monitor.main_saved if self.monitor_choice()["slot"] != "W" else None
         return self.history.checkpoint(name, full, saved, who)  # type: ignore[arg-type]
 

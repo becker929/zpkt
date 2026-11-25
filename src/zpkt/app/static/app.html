@@ -273,7 +273,7 @@ function renderBottom() {
 function renderBanner() {
   const h = S.hear, banner = $("#banner");
   banner.classList.toggle("on", h.hearing === "pin" || h.hearing === "ref");
-  banner.textContent = h.hearing === "pin" ? "You hear the pinned version. Touch any control to go back to Now." : h.hearing === "ref" ? "You hear the reference." : "";
+  banner.textContent = h.hearing === "pin" ? "You hear the pinned checkpoint. Touch any control to go back to Now." : h.hearing === "ref" ? "You hear the reference." : "";
   const lock = $("#lock");
   lock.classList.toggle("on", !!S.lockReason);
   lock.textContent = S.lockReason || "";
@@ -428,10 +428,10 @@ function renderHist() {
   if (S.sheet === "options") return renderOptions();
   const es = S.hist.entries.slice().reverse().slice(0, 12);
   const when = at => new Date(at * 1000).toTimeString().slice(0, 8);
-  const text = e => e.k === "checkpoint" ? `version ${e.name}` : e.k === "revert" ? `back to ${e.to}` :
+  const text = e => e.k === "checkpoint" ? `checkpoint ${e.name}` : e.k === "revert" ? `back to ${e.to}` :
     e.moves.length === 1 ? e.moves[0].label : `${e.moves[0].label} and ${e.moves.length - 1} more` + (e.group ? ` (${e.group})` : "");
   sh.innerHTML = `<h3>History</h3><div class="hl">${es.map(e => `<div class="he"><span class="w2">${when(e.at)}</span><span class="who ${e.who || "you"}">${e.who || "you"}</span><span>${text(e)}</span></div>`).join("") || '<div class="he">No changes yet.</div>'}</div>
-    <div class="hr"><button class="key sm ${S.hist.can_undo ? "" : "off"}" id="hundo">${I("undo")}Undo</button><button class="key sm" id="hver">Make a version</button><button class="key sm" id="hclose">Close</button></div>`;
+    <div class="hr"><button class="key sm ${S.hist.can_undo ? "" : "off"}" id="hundo">${I("undo")}Undo</button><button class="key sm" id="hver">Make a checkpoint</button><button class="key sm" id="hclose">Close</button></div>`;
 }
 function render() { renderHear(); renderDesk(); renderSide(); renderHist(); }
 
@@ -557,7 +557,7 @@ document.addEventListener("click", async e => {
     return;
   }
   if (t.id === "hclose") { S.sheet = false; return renderHist(); }
-  if (t.id === "hver") { const r = await command("history.checkpoint", {name: "v" + new Date().toTimeString().slice(0, 8).replace(/:/g, "")}); if (r.ok) toast("Made a version."); }
+  if (t.id === "hver") { const r = await command("history.checkpoint", {name: "v" + new Date().toTimeString().slice(0, 8).replace(/:/g, "")}); if (r.ok) toast("Made a checkpoint."); }
 });
 document.addEventListener("change", e => {
   const t = e.target;

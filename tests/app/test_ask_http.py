@@ -258,7 +258,7 @@ def test_a_scripted_agent_makes_a_page_through_the_bus_and_the_set_is_unmoved(as
     assert [code for code, _ in p.replies] == [200, 200]
     assert asked.rig.desk.history.entries == before
     log = [row for row in asked.rig.desk.bus.log if row["who"] == "agent"]
-    assert [row["kind"] for row in log] == ["page.draft", "state.read"] and {row["group"] for row in log} == {
+    assert [row["kind"] for row in log] == ["page.draft", "desk.state"] and {row["group"] for row in log} == {
         f"ask-{s['id']}"
     }
 
@@ -267,7 +267,7 @@ def test_the_old_desk_still_answers_beside_ask(asked):
     assert asked.rig.get("/api/state")[0] == 200
     assert raw(asked, "GET", "/desk/")[0] == 200 and raw(asked, "GET", "/app/")[0] == 200
     assert "page.draft" in asked.rig.get("/api/commands")[1]["commands"]
-    code, _ = asked.rig.command("page.draft", {"page": {}})  # the web is "you": the same command works for it too
+    code, _ = asked.rig.command("page.draft", {"spec": {}})  # the web is "you": the same command works for it too
     assert code == 400
 
 
@@ -289,4 +289,4 @@ def test_a_real_claude_process_reaches_the_tools_through_the_mcp_server_and_the_
     assert "tools: make_page,read_state,read_measurement,propose_option" in "".join(
         e.get("content", "") for e in events if e["type"] == "message"
     )
-    assert [r["who"] for r in asked.rig.desk.bus.log if r["kind"] == "state.read"] == ["agent"]
+    assert [r["who"] for r in asked.rig.desk.bus.log if r["kind"] == "desk.state"] == ["agent"]

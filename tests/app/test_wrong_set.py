@@ -32,6 +32,7 @@ MOVES = {
     "live.render_loop": {"out": "x.wav"},
     "state.put": {"state": {}},
     "page.apply": {"name": "ghost"},
+    "panel.apply": {"name": "ghost"},
 }
 
 

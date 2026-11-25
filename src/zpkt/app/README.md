@@ -98,7 +98,7 @@ An Option is a set of Versions of the mix, made to be heard side by side. I look
 numbers and spectrum on the Hear bar. "Pick" puts a Version's values on the mix as one move, stamped `you`, which one
 undo takes back.
 
-There is one store of Options, `renders.py`'s. What an agent proposes (`option.propose`: a title, a reason and its
+There is one store of Options, `renders.py`'s. What an agent proposes (`options.propose`, once `option.propose`: a title, a reason and its
 moves, kept in `options.json` in the Ask folder) is listed there with the rendered ones, as an Option with one
 Version. I pick it with the same button and the same command. My pick puts its moves on Now and marks it picked,
 and only then may the agent's own command name it (`approval: "option:<id>"`). A proposal's values are raw numbers;
@@ -209,7 +209,7 @@ Ask is the chat with Claude and Gemini, ported from Zpkt web (Node, :8789, which
   `library.json`, `surface-state.json`, `workspaces.json`) in `ZPKT_ASK_DIR` (default
   `~/_agent_scratch/zpkt-app/ask`). Point it at a copy of Zpkt web's data folder to carry its sessions over; old
   `zpkt-surface` blocks still draw.
-- **Tools.** An agent has four tools and no others: make a page (the `page.draft` command: checked against Live,
+- **Tools.** An agent has four tools and no others: make a page (the `page.draft` command, taking `spec`: checked against Live,
   saved only when clean, not put on the desk; the fuller `page.make` is for you and the CLI), read
   the state, read the last measurement, propose an Option (a record in the Ask folder, `proposals.py`, held by the app's one
   store of Options and listed in the Options sheet, where I pick it). They are app commands behind a small MCP server

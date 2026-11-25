@@ -65,13 +65,16 @@ EFFECTS: dict[str, Effect] = {
     "live.transport": "move",
     "state.take": "read",
     "state.put": "move",
-    "page.apply": "move",
+    "panel.apply": "move",
+    "page.apply": "move",  # the older name of panel.apply
     "describe": "read",
     # the agents' commands (zpkt.app.agent_commands)
     "page.draft": "make",
-    "state.read": "read",
+    "desk.state": "read",
+    "state.read": "read",  # the older name of desk.state
     "measurement.read": "read",
-    "option.propose": "make",
+    "options.propose": "make",
+    "option.propose": "make",  # the older name of options.propose
     "option.pick": "move",  # the older name of options.pick
     # the Song (zpkt.app.song)
     "song.list": "read",

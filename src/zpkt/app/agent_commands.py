@@ -24,9 +24,9 @@ MAX_MEASUREMENT_BYTES = 16000  # about 4,000 tokens in one reply; a longer one i
 
 def page_make(desk: Desk, cmd: Command) -> Reply:
     """Parse the spec, check it against the open set, and save it only when it has no error."""
-    spec = cmd.args.get("page")
+    spec = cmd.args.get("spec", cmd.args.get("page"))  # `page` is the older key
     if not isinstance(spec, dict):
-        raise BadRequest("the body needs 'page', a page spec (title and groups of controls)")
+        raise BadRequest("the body needs 'spec', a page spec (title and groups of controls)")
     try:
         page = pages.parse({**spec, "made_by": cmd.who})
     except ValueError as exc:
@@ -96,9 +96,11 @@ def register(bus: Bus, desk: Desk) -> None:
     effects.register(bus, "option.pick", lambda cmd: options_pick(desk, cmd), touches_live=True, callers=("you",))
     table: dict[str, tuple[Any, bool]] = {  # kind -> (handler, touches Live)
         "page.draft": (page_make, True),
-        "state.read": (state_read, False),
+        "desk.state": (state_read, False),
+        "state.read": (state_read, False),  # the older name of desk.state
         "measurement.read": (measurement_read, False),
-        "option.propose": (option_propose, False),
+        "options.propose": (option_propose, False),
+        "option.propose": (option_propose, False),  # the older name of options.propose
     }
     for kind, (handler, touches) in table.items():
 
