@@ -15,6 +15,8 @@ output against these files in its tests, so a join cannot drift silently.
 | `inventory.schema.json` | hands (`hands library inventory --json`) | a person, agents planning work | generated from `src/zpkt/live/library/models.py` by `hands/tools/gen_schemas.py` |
 | `arrangement.schema.json` | the HW002 arranger's pages (`contrib/arranger/server.py`) and the mix desk (`desk`) | the arranger's scripts (`mixset.py`, `spectral.py`, `kickfuzz.py`), the mix desk, hands (`hands live state ... RECIPE.json`) | written by hand to match `contrib/arranger/arrangement.py`; its tests check both agree |
 
+| `option.schema.json` | the app (`zpkt.app.options`: a job on the render queue, `options.get`, `GET /api/options`) | the /app/ shell, agents | written by hand to match `src/zpkt/app/options.py`; `tests/app/test_options.py` checks both agree |
+
 The music bot's and booth's contracts (`score.schema.json`, `booth-*.schema.json`) moved with them to the private
 repo `becker929/music-bot` (its `contracts/`) on 24 November 2026.
 

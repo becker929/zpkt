@@ -70,6 +70,20 @@ svg{display:block}
 .he .who{font:10.5px ui-monospace,Menlo,monospace;border:1px solid var(--line);padding:1px 5px;flex:none}
 .he .who.agent{background:var(--acc);color:#111}
 .he .who.minilab{background:var(--pin);color:#fff;border-color:var(--pind)}
+.spc.ver{height:24px;margin-top:-2px}
+.spc.ver i{background:var(--pin);opacity:.9}
+.vline{font:12px ui-monospace,Menlo,monospace;display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.ol{display:flex;gap:6px;overflow-x:auto;padding-bottom:2px;flex:none}
+.ol .key{height:44px;font-size:13px;flex:none;max-width:70vw;overflow:hidden;text-overflow:ellipsis}
+.vg{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;overflow:auto;min-height:0}
+.vc{border:1px solid var(--cl);border-radius:12px;padding:8px 10px;background:linear-gradient(var(--c1),var(--c2));text-align:left;display:flex;flex-direction:column;gap:2px;cursor:pointer;min-height:64px}
+.vc.on{border-color:var(--pind);box-shadow:inset 0 0 0 2px var(--pin)}
+.vc.now{background:var(--acc);color:#111}
+.vc.off{opacity:.45;cursor:default}
+.vc b{font-size:13px;line-height:1.2}
+.vc span{font:11.5px ui-monospace,Menlo,monospace;color:var(--mute)}
+.vc.now span{color:#111}
+.gp{color:var(--pind)}.gn{color:var(--bad)}
 #toast{position:absolute;left:50%;top:150px;transform:translate(-50%,-10px);background:var(--ink);color:var(--bg);padding:8px 14px;border-radius:12px;font-size:13px;z-index:50;opacity:0;transition:all .2s;pointer-events:none;max-width:92%}
 #toast.on{opacity:1;transform:translate(-50%,0)}
 #bubble{position:fixed;z-index:60;pointer-events:none;background:var(--ink);color:var(--bg);font:600 20px ui-monospace,Menlo,monospace;padding:6px 12px;border-radius:12px;opacity:0;white-space:nowrap}
@@ -85,6 +99,7 @@ svg{display:block}
 <symbol id="i-hist" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="2.2"/><path d="M12 7v5l3 2" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></symbol>
 <symbol id="i-desk" viewBox="0 0 24 24"><circle cx="8" cy="8" r="3.5" fill="none" stroke="currentColor" stroke-width="2.2"/><circle cx="16" cy="16" r="3.5" fill="none" stroke="currentColor" stroke-width="2.2"/><path d="M13 7h7M4 17h5" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></symbol>
 <symbol id="i-pin" viewBox="0 0 24 24"><path d="M9 3h6l-1 6 3 3v2H7v-2l3-3zM12 14v7" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+<symbol id="i-opts" viewBox="0 0 24 24"><rect x="4" y="4" width="7" height="7" rx="1.5" fill="none" stroke="currentColor" stroke-width="2.2"/><rect x="13" y="4" width="7" height="7" rx="1.5" fill="none" stroke="currentColor" stroke-width="2.2"/><rect x="4" y="13" width="7" height="7" rx="1.5" fill="none" stroke="currentColor" stroke-width="2.2"/><rect x="13" y="13" width="7" height="7" rx="1.5" fill="currentColor" stroke="currentColor" stroke-width="2.2"/></symbol>
 </svg>
 <div id="app">
  <div class="hear" id="htop"></div>
@@ -92,7 +107,7 @@ svg{display:block}
  <div id="banner" role="status"></div>
  <div id="main"><div id="desk"></div><div id="scrim"></div><div class="sheet" id="sheet"></div></div>
  <div class="hear" id="hbot"></div>
- <div id="tabs"><button class="on" data-t="desk"><svg width="20" height="20"><use href="#i-desk"/></svg>Desk</button></div>
+ <div id="tabs"><button class="on" data-t="desk"><svg width="20" height="20"><use href="#i-desk"/></svg>Desk</button><button data-t="opts" id="topts"><svg width="20" height="20"><use href="#i-opts"/></svg>Options</button></div>
  <div id="toast" role="status"></div><div id="bubble"></div>
 </div>
 <script>
@@ -100,7 +115,8 @@ svg{display:block}
 const $ = s => document.querySelector(s);
 const I = n => `<svg width="22" height="22"><use href="#i-${n}"/></svg>`;
 const S = {state: null, desk: null, hear: {hearing: "now", changed: 0, keys: [], match: true, monitor: {slot: "W", ref: "C1"}, pin: "start"},
-           hist: {entries: [], can_undo: false, can_redo: false}, meter: null, sheet: false, flash: {}};
+           hist: {entries: [], can_undo: false, can_redo: false}, meter: null, sheet: false, flash: {},
+           options: {options: [], shown: null}, optSel: null};
 let toastTimer = 0;
 
 function toast(msg) { const t = $("#toast"); t.textContent = msg; t.classList.add("on"); clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove("on"), 2200); }
@@ -121,10 +137,23 @@ function renderTop() {
   $("#htop").innerHTML = `<div class="hr"><span class="nm" id="barno">bar ${bar}</span><span class="sp"></span>
     <span class="pill ${st.live === "attached" ? "" : "warn"}" id="livepill">${st.live === "attached" ? "Live" : st.live}</span></div>
     <div class="tl"><div class="ph" style="left:${Math.min(100, (st.pos % total) / total * 100)}%"></div></div>
-    <div class="spc" aria-label="Spectrum">${bands.map(b => `<i style="height:${b}%"></i>`).join("")}</div>
+    <div class="spc" aria-label="Spectrum">${bands.map(b => `<i style="height:${b}%"></i>`).join("")}</div>${versionStrip()}
     <div class="hr"><span class="pill ${h.changed ? "acc" : ""}" id="chgpill">${h.changed} changed</span>
     ${h.match ? '<span class="pill">matched</span>' : ""}
     ${h.hearing === "pin" ? '<span class="pill pin" id="hearpill">hearing Pin</span>' : h.hearing === "ref" ? '<span class="pill pin" id="hearpill">hearing Ref</span>' : ""}</div>`;
+}
+const dB = x => x == null ? "–" : (x > 0 ? "+" : "") + x.toFixed(1);
+function loud(v) { return v.measure && v.measure.lufs != null ? v.measure.lufs : (v.known && v.known.lufs != null ? v.known.lufs : null); }
+function versionStrip() {
+  const sh = S.options.shown;
+  if (!sh) return "";
+  const v = sh.version, m = v.measure, g = v.gap;
+  const bands = m ? m.bands_db.map(d => Math.max(2, Math.min(100, (d + 90) / 90 * 100))) : [];
+  const lufs = loud(v);
+  return `<div class="vline" id="vstrip"><span class="pill pin">${sh.title.replace(/</g, "&lt;")}</span><b>${v.label.replace(/</g, "&lt;")}</b>
+    <span>${lufs == null ? "not measured" : lufs.toFixed(1) + " LUFS"}</span>${m ? `<span>peak ${m.peak_db.toFixed(1)}</span>` : ""}
+    ${g ? `<span class="${g.peak_db >= 0 ? "gp" : "gn"}">gap ${dB(g.lufs != null ? g.lufs : g.rms_db)} ${g.lufs != null ? "LU" : "dB"}</span>` : ""}</div>
+    ${m ? `<div class="spc ver" aria-label="Spectrum of this Version">${bands.map(b => `<i style="height:${b}%"></i>`).join("")}</div>` : ""}`;
 }
 function renderBottom() {
   const st = S.state, h = S.hear;
@@ -171,11 +200,29 @@ function renderDesk() {
     ${row(KNOBS.slice(0, 4))}${row(KNOBS.slice(4))}${row(FADERS)}${row(PADS.slice(0, 4))}${row(PADS.slice(4))}
     <div class="dots" role="group" aria-label="Pages">${pages.map((p, k) => `<button data-page="${k}" class="${k === i ? "c" : ""}" aria-label="${p.name}"></button>`).join("")}</div>`;
 }
+function renderOptions() {
+  const sh = $("#sheet"), os = S.options.options;
+  const sel = os.find(o => o.id === S.optSel) || os[0];
+  const shownId = S.options.shown && S.options.shown.option === (sel && sel.id) ? S.options.shown.version.id : null;
+  const esc = t => String(t).replace(/</g, "&lt;");
+  const card = v => {
+    const l = loud(v), g = v.gap, ok = v.status === "ready";
+    const sub = ok ? `${l == null ? "not measured" : l.toFixed(1) + " LUFS"}${g ? " · " + dB(g.lufs != null ? g.lufs : g.rms_db) : ""}` : v.status === "gone" ? "file is gone" : v.status;
+    return `<button class="vc ${shownId === v.id ? "on" : ""} ${sel.now === v.id ? "now" : ""} ${ok ? "" : "off"}" data-opt="${esc(sel.id)}" data-ver="${esc(v.id)}"><b>${esc(v.label)}</b><span>${sub}</span>${sel.now === v.id ? "<span>Now</span>" : ""}</button>`;
+  };
+  const cur = sel && shownId ? sel.versions.find(v => v.id === shownId) : null;
+  sh.innerHTML = `<h3>Options</h3>${os.length ? `<div class="ol" role="group" aria-label="Options">${os.map(o => `<button class="key ${o.id === sel.id ? "on" : ""}" data-optsel="${esc(o.id)}">${esc(o.title)} <span class="tag">${esc(o.progress)}</span></button>`).join("")}</div>
+    <div class="vg" id="vgrid">${sel.versions.map(card).join("") || '<div class="he">No Versions yet.</div>'}</div>
+    ${sel.note ? `<div class="tag">${esc(sel.note)}</div>` : ""}` : '<div class="he">No Options yet. Ask for one with the options.make command, or run a mix 2 batch.</div>'}
+    <div class="hr"><button class="key sm ${cur && cur.writes ? "" : "off"}" id="onow">Make it Now</button><span class="sp"></span><button class="key sm" id="hclose">Close</button></div>`;
+}
 function renderHist() {
   const sh = $("#sheet");
-  $("#scrim").classList.toggle("on", S.sheet);
-  sh.classList.toggle("on", S.sheet);
+  $("#scrim").classList.toggle("on", !!S.sheet);
+  sh.classList.toggle("on", !!S.sheet);
+  $("#topts").classList.toggle("on", S.sheet === "options");
   if (!S.sheet) return;
+  if (S.sheet === "options") return renderOptions();
   const es = S.hist.entries.slice().reverse().slice(0, 12);
   const when = at => new Date(at * 1000).toTimeString().slice(0, 8);
   const text = e => e.k === "checkpoint" ? `version ${e.name}` : e.k === "revert" ? `back to ${e.to}` :
@@ -223,7 +270,17 @@ document.addEventListener("click", async e => {
   if (t.id === "kmkpin") { const r = await command("monitor.pin"); if (r.ok) toast("Pinned the mix as it is now."); return; }
   if (t.id === "kundo" || t.id === "hundo") return command("history.undo");
   if (t.id === "kredo") return command("history.redo");
-  if (t.id === "khist") { S.sheet = true; return renderHist(); }
+  if (t.id === "khist") { S.sheet = "hist"; return renderHist(); }
+  if (t.id === "topts") { S.sheet = S.sheet === "options" ? false : "options"; return renderHist(); }
+  if (t.dataset.optsel) { S.optSel = t.dataset.optsel; return renderHist(); }
+  if (t.dataset.opt) { await command("options.show", {option: t.dataset.opt, version: t.dataset.ver}); return; }
+  if (t.id === "onow") {
+    const sh = S.options.shown;
+    if (!sh || !sh.version.writes) return toast("Pick a Version that has values for the mix.");
+    const r = await command("options.pick", {option: sh.option, version: sh.version.id});
+    if (r.ok) toast("Made " + sh.version.label + " Now.");
+    return;
+  }
   if (t.id === "hclose") { S.sheet = false; return renderHist(); }
   if (t.id === "hver") { const r = await command("history.checkpoint", {name: "v" + new Date().toTimeString().slice(0, 8).replace(/:/g, "")}); if (r.ok) toast("Made a version."); }
 });
@@ -235,6 +292,16 @@ function apply(m) {
   if (m.t === "full") S.state = m.state;
   else if (m.t === "hear") { S.hear = m; if (m.why === "touched") toast("Back on Now."); }
   else if (m.t === "hist") S.hist = m;
+  else if (m.t === "options") { S.options = m; if (!S.optSel && m.options.length) S.optSel = m.options[0].id; }
+  else if (m.t === "option") {
+    const os = S.options.options, at = os.findIndex(o => o.id === m.option.id);
+    if (at >= 0) os[at] = m.option; else os.unshift(m.option);
+    if (!S.optSel) S.optSel = m.option.id;
+    if (S.options.shown && S.options.shown.option === m.option.id) {
+      const v = m.option.versions.find(x => x.id === S.options.shown.version.id);
+      if (v) S.options.shown.version = v;
+    }
+  }
   else if (m.t === "meter") { S.meter = m; return renderTop(); }
   else if (m.t === "v" && S.state) {
     S.state.values[`${m.page}:${m.slot}`] = {...(S.state.values[`${m.page}:${m.slot}`] || {}), n: m.n, s: m.s, r: m.r, key: m.key};

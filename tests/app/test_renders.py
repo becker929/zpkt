@@ -345,3 +345,22 @@ def test_the_queue_is_one_lock_with_the_bus(desk_options):
     assert "busy" in q.get()
     release.set()
     assert wait_for(lambda: opts.all()[0]["status"] == "ready", 10)
+
+
+def test_the_real_export_is_zpkt_live_export_with_the_apps_connection(rig, tmp_path, monkeypatch):
+    from zpkt.live import export
+
+    seen = {}
+
+    def fake(client, out, start, length, **kw):
+        seen.update(client=client, out=out, start=start, length=length, kw=kw)
+        return [out]
+
+    monkeypatch.setattr(export, "export", fake)
+    got = renders.export_main(rig.conn, tmp_path / "a.wav", 32.0, 16.0)
+    assert got == tmp_path / "a.wav"
+    assert seen["client"] is rig.conn and (seen["start"], seen["length"]) == (32.0, 16.0)
+    assert seen["kw"] == {"method": "keys"}
+    monkeypatch.setattr(export, "export", lambda *a, **k: [])
+    with pytest.raises(RuntimeError, match="exported nothing"):
+        renders.export_main(rig.conn, tmp_path / "b.wav", None, None)
