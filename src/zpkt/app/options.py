@@ -6,13 +6,15 @@ set of values on the mix, the writes that make it Now. An Option is also a job o
 JSON on disk and on the wire (lib/contracts/option.schema.json).
 
 Four older tools made Options before the app did, and each keeps its own files. `from_mix2`, `from_spectral`,
-`from_kick` and `from_panel` read what they wrote and show it as Options; nothing is copied or changed. Everything
+`from_kick` and `from_panel` read what they wrote and show it as Options; nothing is copied or changed. What an agent
+proposes (zpkt.app.proposals) is an Option too, by `from_proposal`: one Version, its moves, not rendered. Everything
 here is plain data in and out. Reading folders, rendering and the HTTP routes are in zpkt.app.renders and zpkt.app.web.
 """
 
 from __future__ import annotations
 
 import math
+import time
 from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any, Literal, NotRequired, TypedDict, cast
@@ -20,14 +22,17 @@ from typing import Any, Literal, NotRequired, TypedDict, cast
 from zpkt.audio import measure as audio_measure
 from zpkt.audio.measure import Gap, Measure
 
-Kind = Literal["grid", "mix2", "spectral", "kick", "panel"]
+Kind = Literal["grid", "mix2", "spectral", "kick", "panel", "proposal"]
 Status = Literal["queued", "rendering", "ready", "failed"]
 VersionStatus = Literal["queued", "rendering", "ready", "failed", "gone"]
 
 MAX_VERSIONS = 16  # one Option's Versions, as a panel grid's
 BASE_ID = "base"
 STATUSES: tuple[str, ...] = ("queued", "rendering", "ready", "failed")
-KINDS: tuple[str, ...] = ("grid", "mix2", "spectral", "kick", "panel")
+KINDS: tuple[str, ...] = ("grid", "mix2", "spectral", "kick", "panel", "proposal")
+RENDERED_KINDS: tuple[str, ...] = ("grid",)  # the kinds the app's own queue renders
+PROPOSAL_VERSION = "v1"  # a proposal has one Version
+TEXT_VALUE_NOTE = "It gives a value as text, so it cannot be put on Now from here: ask for the raw numbers."
 
 
 class Version(TypedDict):
@@ -62,6 +67,7 @@ class Option(TypedDict):
     note: NotRequired[str]
     error: NotRequired[str]
     range: NotRequired[dict[str, float | None]]  # a job's bars: start_beat and length_beats (None: Live's own)
+    made_by: NotRequired[str | None]  # who proposed it, for a proposal
 
 
 class BadOption(ValueError):
@@ -311,6 +317,42 @@ def from_panel(name: str, panel: Mapping[str, Any], made: float = 0.0) -> list[O
         ]
         found.append(_imported(f"panel-{name}-g{g['id']}", "panel", f"Panel {name}, grid {g['id']}", versions, made))
     return found
+
+
+def proposal_time(at: Any) -> float:
+    """A proposal's "2026-11-24 10:00:00" as seconds; 0.0 when it is not that."""
+    try:
+        return time.mktime(time.strptime(str(at), "%Y-%m-%d %H:%M:%S"))
+    except (ValueError, OverflowError):
+        return 0.0
+
+
+def from_proposal(proposal: Mapping[str, Any]) -> Option:
+    """What an agent proposed, as an Option: one Version that holds its moves, with the reason as the note. It is
+    not rendered. A move whose value is text cannot be written, so such a proposal has no writes."""
+    moves = proposal.get("moves") or []
+    numbers = all(_finite(m.get("to")) for m in moves)
+    writes = [[str(m["target"]), float(m["to"])] for m in moves] if numbers else None
+    picked = proposal.get("state") == "picked"
+    version = _queued(PROPOSAL_VERSION, str(proposal.get("title", ""))[:60], writes)
+    version["status"] = "ready"
+    why = str(proposal.get("why", ""))
+    option: dict[str, Any] = {
+        "id": str(proposal["id"]),
+        "kind": "proposal",
+        "title": str(proposal.get("title", "")),
+        "status": "ready",
+        "made": proposal_time(proposal.get("at")),
+        "done": 1,
+        "total": 1,
+        "progress": "picked" if picked else "proposed",
+        "base": None,
+        "now": PROPOSAL_VERSION if picked else None,
+        "versions": [version],
+        "note": why if numbers else f"{why} {TEXT_VALUE_NOTE}".strip(),
+        "made_by": proposal.get("made_by"),
+    }
+    return cast(Option, option)
 
 
 def ordered(options: Sequence[Option]) -> list[Option]:

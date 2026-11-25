@@ -1,10 +1,14 @@
-"""The Options service: the one render queue's worker, the folders of older Options, and what is shown on the Hear bar.
+"""The Options service: the one store of Options. It holds the render queue's worker, the folders of older Options,
+what agents propose, and what is shown on the Hear bar.
 
 A request for an Option (`make`) is filed on the queue (zpkt.app.renderqueue) and rendered one Version at a time:
 the Version's values are written to the mix, Live exports the arrangement through zpkt.live.export (the app's one
 connection is handed in and held for that Version only), the values go back, and the WAV goes to zpkt.audio.measure.
 Each step is streamed to the shell ("rendering 2 of 3"). Live is held per Version, never for the whole job, so a move
 from you waits at most one render and is then answered "Live is busy" if it waited too long; it is not dropped.
+
+What an agent proposes is kept here too (zpkt.app.proposals: a record, not a render) and listed with the rest. You
+pick any Option with one command, `options.pick`, which puts it on Now.
 
 Mix 2, the spectral fixes, the kick options and panel grids are rendered by their own tools. They are read here (never
 changed) and listed as Options, so the old pages keep working on the same files. The export and the measurement are
@@ -25,9 +29,11 @@ from typing import TYPE_CHECKING, Any, cast
 from zpkt.app import options as O
 from zpkt.app.bus import Refused
 from zpkt.app.connections import LiveConnections
+from zpkt.app.proposals import OptionStore
 from zpkt.app.renderqueue import RenderQueue
 from zpkt.audio.measure import Measure, measure_wav
 from zpkt.live import config
+from zpkt.live.changes import Who
 
 if TYPE_CHECKING:
     from zpkt.app.desk import Desk
@@ -80,6 +86,7 @@ class Options:
         self.arranger = s.arranger_dir or arranger_dir()
         self.panels = s.panels_dir or config.rig().renders_dir
         self.queue = RenderQueue(self.folder / "jobs")
+        self.proposals = OptionStore(self.folder)  # what agents propose; Ask keeps the file in its own folder
         self.skipped: list[str] = []  # files of older tools that could not be read, said in the list
         self._shown: tuple[str, str] | None = None
         self._lock = threading.Lock()  # the measures and picks files, and the worker's start
@@ -151,8 +158,9 @@ class Options:
         """Every Option: the app's own jobs and the older tools', running ones first, then newest first."""
         with self._lock:
             picks, measures = self._read_json("picks.json"), self._read_json("measures.json")
-        own = [cast(O.Option, row) for row in self.queue.rows() if row.get("kind") in O.KINDS]
-        return O.ordered([self._finish(o, picks, measures) for o in [*own, *self._imported()]])
+        own = [cast(O.Option, row) for row in self.queue.rows() if row.get("kind") in O.RENDERED_KINDS]
+        proposed = [O.from_proposal(p) for p in self.proposals.all() if p.get("id")]
+        return O.ordered([self._finish(o, picks, measures) for o in [*own, *self._imported()]] + proposed)
 
     def get(self, option_id: str) -> O.Option:
         for o in self.all():
@@ -217,7 +225,7 @@ class Options:
 
     def _next_job(self) -> str | None:
         for path in self.queue.queued():
-            if (self.queue.get(path.stem) or {}).get("kind") in O.KINDS:
+            if (self.queue.get(path.stem) or {}).get("kind") in O.RENDERED_KINDS:
                 return path.stem
         return None
 
@@ -309,9 +317,33 @@ class Options:
         self.desk.history.expect_writes(pairs)
         self.desk.write(pairs)
 
+    # ---- what agents propose ---------------------------------------------------------------------------------------
+    def keep_proposals_in(self, folder: Path) -> None:
+        """Keep the proposals' file (options.json) in `folder`: Ask's data folder, where the file has always been."""
+        self.proposals = OptionStore(folder)
+
+    def propose(self, data: Any, made_by: Who, session: str | None = None) -> dict[str, Any]:
+        """File a proposal (ValueError says what is wrong with it) and show it in the shell. Nothing moves."""
+        proposal = dict(self.proposals.propose(data, made_by, session))
+        self.desk.push_app(self.message())
+        return proposal
+
+    def proposal(self, option_id: str) -> dict[str, Any] | None:
+        """The proposal with this id as it is on file, or None when the Option is not a proposal."""
+        return next((dict(p) for p in self.proposals.all() if p.get("id") == option_id), None)
+
+    def is_picked(self, option_id: str) -> bool:
+        """Did you pick this proposal? Only that lets an agent's move name it (the bus's agent rule)."""
+        return self.proposals.is_picked(option_id)
+
     # ---- Now -------------------------------------------------------------------------------------------------------
-    def keep_now(self, option_id: str, vid: str) -> None:
-        """Remember which Version of an Option was made Now."""
+    def keep_now(self, option_id: str, vid: str, who: str = "you") -> None:
+        """Remember which Version of an Option was made Now. A proposal becomes "picked", and only by you: an
+        agent that uses one Option you picked does not pick another for itself."""
+        if self.proposal(option_id) is not None:
+            if who == "you":
+                self.proposals.pick(option_id)
+            return
         with self._lock:
             picks = self._read_json("picks.json")
             picks[option_id] = vid

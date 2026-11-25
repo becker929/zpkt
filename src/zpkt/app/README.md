@@ -92,8 +92,14 @@ need an Option you picked (`ZPKT_OPTION=<id>`). Which set a job is for, and the 
 
 An Option is a set of Versions of the mix, made to be heard side by side. I look at them in the Options sheet of
 `/app/` (the Options tab): a grid of Versions with their loudness and their gap to the base. Tapping one puts its
-numbers and spectrum on the Hear bar. "Make it Now" puts a Version's values on the mix as one move, which one undo
-takes back.
+numbers and spectrum on the Hear bar. "Pick" puts a Version's values on the mix as one move, stamped `you`, which one
+undo takes back.
+
+There is one store of Options, `renders.py`'s. What an agent proposes (`option.propose`: a title, a reason and its
+moves, kept in `options.json` in the Ask folder) is listed there with the rendered ones, as an Option with one
+Version. I pick it with the same button and the same command. My pick puts its moves on Now and marks it picked,
+and only then may the agent's own command name it (`approval: "option:<id>"`). A proposal's values are raw numbers;
+one given as text is listed but cannot be picked.
 
 - `options.make` asks for one: `{"title": "Kick up", "versions": [{"label": "+3 dB", "writes": [["Kick bus/volume",
   0.8]]}], "range": {"start_beat": 64, "length_beats": 32}}`. The first Version is the mix as it stands (the base).
@@ -104,8 +110,9 @@ takes back.
   are files under `<data>/options/jobs`, in the shape of `lib/contracts/option.schema.json`.
 - Mix 2, the spectral fixes, the kick options and `hands panel grid` still render in their own tools, into their own
   folders. The app reads those and lists them as Options. It changes none of them, so the old pages work as before.
-- `options.list`, `options.get`, `options.show` (reads) and `options.pick` (a move) are commands on the bus. An agent
-  may make an Option. It needs your word or an Option pick to make a Version Now.
+- `options.list`, `options.get`, `options.show` (reads) and `options.pick` (a move) are commands on the bus
+  (`option.pick` is its older name, for you only). An agent may make an Option. It needs your word or an Option pick
+  to make a Version Now, and its use of one picked Option never picks another.
 
 ## The MiniLab (the MIDI adapter)
 
@@ -196,8 +203,8 @@ Ask is the chat with Claude and Gemini, ported from Zpkt web (Node, :8789, which
   `zpkt-surface` blocks still draw.
 - **Tools.** An agent has four tools and no others: make a page (the `page.draft` command: checked against Live,
   saved only when clean, not put on the desk; the fuller `page.make` is for you and the CLI), read
-  the state, read the last measurement, propose an Option (a record in the Ask folder, `proposals.py`; the app's real
-  Options are `options.py`). They are app commands behind a small MCP server
+  the state, read the last measurement, propose an Option (a record in the Ask folder, `proposals.py`, held by the app's one
+  store of Options and listed in the Options sheet, where I pick it). They are app commands behind a small MCP server
   (`python -m zpkt.app.ask.mcp`) that calls `POST /app/ask/api/tool` with the session's token. The bus tags them
   `agent` and groups them by session. None moves Live, and an agent cannot name any other command.
 - **Also ported.** The work view, cards and the preset library, the failure budget (it stops a run that keeps

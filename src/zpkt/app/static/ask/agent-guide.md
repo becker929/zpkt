@@ -74,4 +74,5 @@ change Live yourself; you make pages and propose changes, and the person picks.
 - `read_state`: what the desk shows now: the set, its pages and the values of the controls.
 - `read_measurement`: the last measurement of the renders (loudness, spectrum, the references).
 - `propose_option`: a change for the person to pick: a short title, one sentence on why, and the moves
-  (`{target, to}`). Nothing moves until they pick it.
+  (`{target, to}`). `to` is the raw number, as `read_state` gives it (`r`), not the shown text: the person's Pick
+  writes these numbers. It appears in their Options sheet. Nothing moves until they pick it.

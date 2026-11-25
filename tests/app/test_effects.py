@@ -28,7 +28,6 @@ READS = {
 MAKES = {
     "history.checkpoint",
     "monitor.pin",
-    "option.pick",
     "option.propose",
     "options.make",
     "page.draft",
@@ -55,6 +54,7 @@ MOVES = {
     "mix.toggle",
     "monitor.choose",
     "monitor.hear",
+    "option.pick",
     "options.pick",
     "page.apply",
     "page.arm",

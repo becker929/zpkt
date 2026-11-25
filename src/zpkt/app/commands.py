@@ -405,24 +405,44 @@ def options_show(desk: Desk, cmd: Command) -> Reply:
         raise BadRequest(str(exc)) from None
 
 
+def _version_to_pick(option: O.Option, version_id: str) -> O.Version:
+    """The Version a pick means: the one named, or the only one (a proposal has one)."""
+    if not version_id:
+        if len(option["versions"]) != 1:
+            raise BadRequest(f"the body needs 'version': {option['id']} has {len(option['versions'])} Versions")
+        return option["versions"][0]
+    return O.find_version(option, version_id)
+
+
 def options_pick(desk: Desk, cmd: Command) -> Reply:
-    """Make a Version Now: its values go onto the mix as one move (one undo), as if you had set them."""
-    option_id, version_id = _option_args(cmd)
+    """Pick an Option: make a Version Now. Its values go onto the mix as one move (one undo), stamped with who
+    picked. A proposal has one Version, so its id is enough; your pick of it is also what lets the agent that
+    proposed it act on it (`approval: option:<id>`)."""
+    option_id = _str(cmd.args, "option")
     try:
-        version = O.find_version(desk.options.get(option_id), version_id)
+        option = desk.options.get(option_id)
+        version = _version_to_pick(option, _str(cmd.args, "version", ""))
     except O.BadOption as exc:
         raise BadRequest(str(exc)) from None
+    proposal = desk.options.proposal(option_id)
     if version["status"] != "ready":
-        raise BadRequest(f"Version {version_id} is {version['status']}; pick one that is ready")
-    if not version["writes"]:
+        raise BadRequest(f"Version {version['id']} is {version['status']}; pick one that is ready")
+    if proposal is not None and not proposal.get("moves"):
+        reply: Reply = (200, {"ok": True, "entry": None, "missing": []})  # nothing to move: the pick is the word
+    elif not version["writes"]:
         raise BadRequest(
-            f"Version {version['label']!r} is not a set of values on the mix, so there is nothing to put on Now. "
-            "Hear it, or make its settings by hand."
+            f"{option['title']!r}: {O.TEXT_VALUE_NOTE}"
+            if proposal is not None
+            else f"Version {version['label']!r} is not a set of values on the mix, so there is nothing to put on "
+            "Now. Hear it, or make its settings by hand."
         )
-    reply = mix_set(desk, dataclasses.replace(cmd, kind="mix.set", args={"writes": version["writes"]}))
+    else:
+        reply = mix_set(desk, dataclasses.replace(cmd, kind="mix.set", args={"writes": version["writes"]}))
     if reply[0] == 200:
-        desk.options.keep_now(option_id, version_id)
+        desk.options.keep_now(option_id, version["id"], cmd.who)
         desk.push_app(desk.options.message())
+        if proposal is not None:
+            reply = (200, {**reply[1], "option": desk.options.proposal(option_id)})
     return reply
 
 

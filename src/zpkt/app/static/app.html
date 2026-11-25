@@ -84,6 +84,7 @@ svg{display:block}
 .vline{font:12px ui-monospace,Menlo,monospace;display:flex;gap:8px;flex-wrap:wrap;align-items:center}
 .ol{display:flex;gap:6px;overflow-x:auto;padding-bottom:2px;flex:none}
 .ol .key{height:44px;font-size:13px;flex:none;max-width:70vw;overflow:hidden;text-overflow:ellipsis}
+.why{font-size:13px;line-height:1.4;color:var(--mute);overflow-wrap:anywhere;max-height:7.2em;overflow-y:auto;flex:none}
 .vg{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;overflow:auto;min-height:0}
 .vc{border:1px solid var(--cl);border-radius:12px;padding:8px 10px;background:linear-gradient(var(--c1),var(--c2));text-align:left;display:flex;flex-direction:column;gap:2px;cursor:pointer;min-height:64px}
 .vc.on{border-color:var(--pind);box-shadow:inset 0 0 0 2px var(--pin)}
@@ -179,6 +180,7 @@ select{font:inherit;color:inherit;background:var(--panel);border:1px solid var(-
 <symbol id="i-desk" viewBox="0 0 24 24"><circle cx="8" cy="8" r="3.5" fill="none" stroke="currentColor" stroke-width="2.2"/><circle cx="16" cy="16" r="3.5" fill="none" stroke="currentColor" stroke-width="2.2"/><path d="M13 7h7M4 17h5" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></symbol>
 <symbol id="i-song" viewBox="0 0 24 24"><path d="M4 7h9M4 12h16M4 17h11" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></symbol>
 <symbol id="i-pin" viewBox="0 0 24 24"><path d="M9 3h6l-1 6 3 3v2H7v-2l3-3zM12 14v7" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+<symbol id="i-pick" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></symbol>
 <symbol id="i-opts" viewBox="0 0 24 24"><rect x="4" y="4" width="7" height="7" rx="1.5" fill="none" stroke="currentColor" stroke-width="2.2"/><rect x="13" y="4" width="7" height="7" rx="1.5" fill="none" stroke="currentColor" stroke-width="2.2"/><rect x="4" y="13" width="7" height="7" rx="1.5" fill="none" stroke="currentColor" stroke-width="2.2"/><rect x="13" y="13" width="7" height="7" rx="1.5" fill="currentColor" stroke="currentColor" stroke-width="2.2"/></symbol>
 </svg>
 <div id="app">
@@ -364,15 +366,25 @@ function renderOptions() {
   const shownId = S.options.shown && S.options.shown.option === (sel && sel.id) ? S.options.shown.version.id : null;
   const esc = t => String(t).replace(/</g, "&lt;");
   const card = v => versionCard(v, sel, shownId);
-  const cur = sel && shownId ? sel.versions.find(v => v.id === shownId) : null;
+  const cur = toPick(sel);
+  const can = cur && cur.status === "ready" && (cur.writes || sel.kind === "proposal");
+  const from = sel && sel.kind === "proposal" ? `<div class="why">Proposed by ${esc(sel.made_by === "agent" || !sel.made_by ? "an agent" : sel.made_by)}. Pick puts it on Now.</div>` : "";
   sh.innerHTML = `<h3>Options</h3>${os.length ? `<div class="ol" role="group" aria-label="Options">${os.map(o => `<button class="key ${o.id === sel.id ? "on" : ""}" data-optsel="${esc(o.id)}">${esc(o.title)} <span class="tag">${esc(o.progress)}</span></button>`).join("")}</div>
     <div class="vg" id="vgrid">${sel.versions.map(card).join("") || '<div class="he">No Versions yet.</div>'}</div>
-    ${sel.note ? `<div class="tag">${esc(sel.note)}</div>` : ""}` : '<div class="he">No Options yet. Ask for one with the options.make command, or run a mix 2 batch.</div>'}
-    <div class="hr"><button class="key sm ${cur && cur.writes ? "" : "off"}" id="onow">Make it Now</button><span class="sp"></span><button class="key sm" id="hclose">Close</button></div>`;
+    ${from}${sel.note ? `<div class="${sel.kind === "proposal" ? "why" : "tag"}">${esc(sel.note)}</div>` : ""}` : '<div class="he">No Options yet. Ask for one with the options.make command, run a mix 2 batch, or let an agent propose one.</div>'}
+    <div class="hr"><button class="key sm ${can ? "" : "off"}" id="onow" aria-label="Pick: make it Now"><svg width="18" height="18"><use href="#i-pick"/></svg>Pick</button><span class="sp"></span><button class="key sm" id="hclose">Close</button></div>`;
+}
+// The Version a Pick means: the one on the Hear bar, or the only one (what an agent proposed has one).
+function toPick(sel) {
+  if (!sel) return null;
+  const sh = S.options.shown;
+  if (sh && sh.option === sel.id) return sel.versions.find(v => v.id === sh.version.id) || null;
+  return sel.versions.length === 1 ? sel.versions[0] : null;
 }
 function versionCard(v, sel, shownId) {
   const l = loud(v), g = v.gap, ok = v.status === "ready";
-  const sub = ok ? `${l == null ? "not measured" : l.toFixed(1) + " LUFS"}${g ? " · " + dB(g.lufs != null ? g.lufs : g.rms_db) : ""}` : v.status === "gone" ? "file is gone" : v.status;
+  const moves = v.writes ? v.writes.length : 0;
+  const sub = sel.kind === "proposal" ? (v.writes ? `${moves} ${moves === 1 ? "move" : "moves"}` : "no values") : ok ? `${l == null ? "not measured" : l.toFixed(1) + " LUFS"}${g ? " · " + dB(g.lufs != null ? g.lufs : g.rms_db) : ""}` : v.status === "gone" ? "file is gone" : v.status;
   return `<button class="vc ${shownId === v.id ? "on" : ""} ${sel.now === v.id ? "now" : ""} ${ok ? "" : "off"}" data-opt="${escHtml(sel.id)}" data-ver="${escHtml(v.id)}"><b>${escHtml(v.label)}</b><span>${sub}</span>${sel.now === v.id ? "<span>Now</span>" : ""}</button>`;
 }
 const escHtml = t => String(t).replace(/</g, "&lt;");
@@ -517,10 +529,11 @@ document.addEventListener("click", async e => {
   if (t.dataset.optsel) { S.optSel = t.dataset.optsel; return renderHist(); }
   if (t.dataset.opt) { await command("options.show", {option: t.dataset.opt, version: t.dataset.ver}); return; }
   if (t.id === "onow") {
-    const sh = S.options.shown;
-    if (!sh || !sh.version.writes) return toast("Pick a Version that has values for the mix.");
-    const r = await command("options.pick", {option: sh.option, version: sh.version.id});
-    if (r.ok) toast("Made " + sh.version.label + " Now.");
+    const os = S.options.options, sel = os.find(o => o.id === S.optSel) || os[0], v = toPick(sel);
+    if (!v) return toast("Tap a Version first, then Pick.");
+    if (!v.writes && sel.kind !== "proposal") return toast("Pick a Version that has values for the mix.");
+    const r = await command("options.pick", {option: sel.id, version: v.id});
+    if (r.ok) toast("Picked " + v.label + ". It is Now.");
     return;
   }
   if (t.id === "hclose") { S.sheet = false; return renderHist(); }

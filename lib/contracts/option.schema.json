@@ -8,7 +8,7 @@
   "additionalProperties": true,
   "properties": {
     "id": {"type": "string"},
-    "kind": {"enum": ["grid", "mix2", "spectral", "kick", "panel"]},
+    "kind": {"enum": ["grid", "mix2", "spectral", "kick", "panel", "proposal"]},
     "title": {"type": "string"},
     "status": {"enum": ["queued", "rendering", "ready", "failed"]},
     "made": {"type": "number"},

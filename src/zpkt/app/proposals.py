@@ -1,8 +1,10 @@
 """Options an agent proposes: a named change with a reason, kept until you pick it.
 
-This is the first piece of Options (INTEGRATION step 5): a proposal is a record in a file, nothing more. It moves
-nothing in Live. Picking one later gives a command `approval="option:<id>"`, which is what lets an agent's move pass
-the bus. lib/contracts/proposal.schema.json is the file's shape.
+A proposal is a record in a file, nothing more: it moves nothing in Live. The app's one store of Options
+(zpkt.app.renders.Options) holds this file and lists each proposal as an Option (zpkt.app.options.from_proposal).
+You pick it there with `options.pick`: its moves go on Now, stamped `you`, and it is "picked" from then on, which is
+what lets the agent's own command carry `approval="option:<id>"` past the bus. lib/contracts/proposal.schema.json is
+the file's shape.
 """
 
 from __future__ import annotations

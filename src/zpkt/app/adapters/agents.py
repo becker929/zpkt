@@ -22,7 +22,6 @@ from zpkt.app.ask.provider import Provider
 from zpkt.app.ask.routes import PREFIX, AskRoutes
 from zpkt.app.ask.service import Ask
 from zpkt.app.ask.tools import ToolGate
-from zpkt.app.proposals import OptionStore
 
 GUIDE = Path(__file__).resolve().parents[1] / "static" / "ask" / "agent-guide.md"
 
@@ -64,8 +63,8 @@ class AgentsAdapter:
 
     def start(self) -> None:
         bus = self.context.bus
-        options = OptionStore(self.data_dir)
-        agent_commands.register(bus, self.context.desk, options)
+        self.context.desk.options.keep_proposals_in(self.data_dir)  # options.json stays in Ask's folder
+        agent_commands.register(bus, self.context.desk)
         providers = self.providers or self.default_providers()
         guide = GUIDE.read_text() if GUIDE.exists() else ""
         self.ask = Ask(self.data_dir, providers, ToolGate(bus), guide, home=self.home)

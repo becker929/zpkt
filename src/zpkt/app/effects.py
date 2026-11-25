@@ -10,7 +10,7 @@ The class decides the bus's checks (zpkt.app.bus):
 Every module that puts commands on the bus takes the class from here (`register`), so a command without a line in
 this table cannot start. tests/app/test_effects.py writes the whole list out again: a change here is a decision.
 
-Three lines are decisions worth their reason:
+These lines are decisions worth their reason:
 
 - `pager.restart` and `page.arm` are moves. They reload code into Live and change which page the MiniLab's controls
   work, under your hands.
@@ -72,7 +72,7 @@ EFFECTS: dict[str, Effect] = {
     "state.read": "read",
     "measurement.read": "read",
     "option.propose": "make",
-    "option.pick": "make",
+    "option.pick": "move",  # the older name of options.pick
     # the Song (zpkt.app.song)
     "song.list": "read",
     "song.show": "read",

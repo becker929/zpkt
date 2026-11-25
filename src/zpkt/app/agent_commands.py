@@ -1,4 +1,5 @@
-"""The commands an agent may use: draft a page (linted and saved, not put on the desk), read the state, read the last measurement, propose an Option.
+"""The commands an agent may use: draft a page (linted and saved, not put on the desk), read the state, read the last
+measurement, propose an Option (filed in the app's one store of Options, zpkt.app.renders).
 
 They are ordinary commands on the bus, so a person or the API may use them too. An agent gets exactly these four,
 by `zpkt.app.ask.tools`, and the bus tags its calls `agent`. None of them moves Live. `page.draft` reads Live to
@@ -11,7 +12,7 @@ from typing import TYPE_CHECKING, Any
 
 from zpkt.app import effects
 from zpkt.app.bus import BadRequest, Bus, Command, Reply
-from zpkt.app.proposals import OptionStore
+from zpkt.app.commands import options_pick
 from zpkt.live import describe as describe_live
 from zpkt.live import page as pages  # the page spec; `zpkt.app.pages` is the fuller `page.make`
 
@@ -70,40 +71,25 @@ def measurement_read(desk: Desk, cmd: Command) -> Reply:
     return 200, {"analysis": analysis}
 
 
-def option_propose(options: OptionStore) -> Any:
-    def handler(desk: Desk, cmd: Command) -> Reply:
-        try:
-            option = options.propose(cmd.args.get("option"), cmd.who, cmd.group)
-        except ValueError as exc:
-            raise BadRequest(str(exc)) from None
-        return 200, {"ok": True, "option": option}
-
-    return handler
+def option_propose(desk: Desk, cmd: Command) -> Reply:
+    """File a proposal in the app's one store of Options. Nothing moves until you pick it."""
+    try:
+        option = desk.options.propose(cmd.args.get("option"), cmd.who, cmd.group)
+    except ValueError as exc:
+        raise BadRequest(str(exc)) from None
+    return 200, {"ok": True, "option": option}
 
 
-def option_pick(options: OptionStore) -> Any:
-    def handler(desk: Desk, cmd: Command) -> Reply:
-        chosen = cmd.args.get("option")
-        if not isinstance(chosen, str):
-            raise BadRequest("the body needs 'option', the id of the proposal you pick")
-        try:
-            return 200, {"ok": True, "option": options.pick(chosen)}
-        except ValueError as exc:
-            raise BadRequest(str(exc)) from None
-
-    return handler
-
-
-def register(bus: Bus, desk: Desk, options: OptionStore) -> None:
-    """Put the agent commands on the bus, and `option.pick` for you: only a pick by you lets an agent's move pass."""
-    bus.option_picked = options.is_picked
-    pick = option_pick(options)
-    effects.register(bus, "option.pick", lambda cmd: pick(desk, cmd), callers=("you",))
+def register(bus: Bus, desk: Desk) -> None:
+    """Put the agent commands on the bus. `option.pick` is the older name of `options.pick`, for you only: only a
+    pick by you lets an agent's move pass."""
+    bus.option_picked = desk.options.is_picked
+    effects.register(bus, "option.pick", lambda cmd: options_pick(desk, cmd), touches_live=True, callers=("you",))
     table: dict[str, tuple[Any, bool]] = {  # kind -> (handler, touches Live)
         "page.draft": (page_make, True),
         "state.read": (state_read, False),
         "measurement.read": (measurement_read, False),
-        "option.propose": (option_propose(options), False),
+        "option.propose": (option_propose, False),
     }
     for kind, (handler, touches) in table.items():
 
