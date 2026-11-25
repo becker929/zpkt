@@ -37,6 +37,7 @@ from zpkt.live.transport import LiveError
 
 START_CHECKPOINT_H = 12  # a start makes a "start-..." checkpoint unless the desk made one this recently
 SUPERVISE_S = 5.0
+STALE_RETRY_S = 30.0  # after a pager reload that did not help, wait this long before trying again
 NO_MINILAB = "no MiniLab 3 in Live"
 BEATS_PER_S = 160.0 / 60.0  # the HW002 set's tempo; the references line up on the drop in beats
 
@@ -144,6 +145,8 @@ class Desk:
             settings.set_name, self.labels, settings.history_dir, checkpoints=settings.checkpoints_dir, changes=stream
         )
         self.making = threading.Lock()  # one "Make a surface" job at a time
+        self._ensured = self._started = False  # the supervisor's: monitor tracks made, start checkpoint taken
+        self._stale_reload_at = 0.0  # when the supervisor last reloaded a pager Live raised from
         self._analysis: tuple[float | None, dict[str, Any]] = (None, {"sources": {}})
         self.monitor = Monitor(self)
         self.options = Options(self)
@@ -306,21 +309,37 @@ class Desk:
 
     def supervise(self) -> None:
         """Keep the pager in Live and holding the MiniLab; write the settled changes to the stream."""
-        ensured = started = False
         while True:
-            try:
-                ensured = ensured or self._ensure_monitor_tracks()
-                if not started and self.history.cur:  # the pager reports keys (a pager from before history has none)
-                    self.start_checkpoint()
-                    started = True
-                self.check_pager()
-            except (LiveError, OSError) as exc:
-                self.set_state(None, f"Live does not answer ({str(exc)[:80]})")
-            except Exception as exc:
-                print(f"app: supervising failed ({type(exc).__name__}: {exc})", flush=True)
+            self.supervise_once()
             with contextlib.suppress(OSError):
                 self.history.flush_changes()
             time.sleep(SUPERVISE_S)
+
+    def supervise_once(self, now: Callable[[], float] = time.time) -> None:
+        """One supervisor step. When Live answers but raises from the pager, the pager is stale: it outlives the set,
+        and after another set is opened under it its parameters belong to a set that is gone ("Python argument types
+        in None.None(DeviceParameter) did not match C++ signature", 25 Nov 2026). Then it is loaded again, at most
+        once every STALE_RETRY_S. When Live cannot be reached at all, the state says so and nothing is reloaded."""
+        try:
+            self._ensured = self._ensured or self._ensure_monitor_tracks()
+            if not self._started and self.history.cur:  # the pager reports keys (one from before history has none)
+                self.start_checkpoint()
+                self._started = True
+            self.check_pager()
+        except LiveError as exc:
+            if exc.result is None or now() - self._stale_reload_at < STALE_RETRY_S:
+                self.set_state(None, f"Live does not answer ({str(exc)[:80]})")
+                return
+            self._stale_reload_at = now()
+            print(f"app: Live raised from the pager ({str(exc)[:80]}); loading the pager again", flush=True)
+            try:
+                self.restart_pager()
+            except (LiveError, OSError) as again:
+                self.set_state(None, f"Live does not answer ({str(again)[:80]})")
+        except OSError as exc:
+            self.set_state(None, f"Live does not answer ({str(exc)[:80]})")
+        except Exception as exc:
+            print(f"app: supervising failed ({type(exc).__name__}: {exc})", flush=True)
 
     def _ensure_monitor_tracks(self) -> bool:
         if self.snapshot()["live"] == "starting":
