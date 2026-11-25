@@ -74,6 +74,39 @@ svg{display:block}
 #toast.on{opacity:1;transform:translate(-50%,0)}
 #bubble{position:fixed;z-index:60;pointer-events:none;background:var(--ink);color:var(--bg);font:600 20px ui-monospace,Menlo,monospace;padding:6px 12px;border-radius:12px;opacity:0;white-space:nowrap}
 #bubble.on{opacity:1}
+.pcs{display:flex;flex-direction:column;gap:10px}
+.card{border:1px solid var(--cl);border-radius:16px;padding:8px 10px 10px;background:var(--panel);min-width:0}
+.card.t1{background:var(--c2)}
+.card h4{margin:0 0 6px;font:600 11px ui-monospace,Menlo,monospace;text-transform:uppercase;letter-spacing:.08em;color:var(--mute);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cg{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+.pc{display:flex;flex-direction:column;align-items:center;min-width:0;position:relative;touch-action:none;grid-column:span 1}
+.pc.big{grid-column:span 2}
+.pc.w-segmented,.pc.w-list{grid-column:1/-1;align-items:stretch}
+.pc .w{width:56px;height:56px;border:1px solid var(--cl);border-radius:50%;background:var(--well);position:relative;overflow:hidden;cursor:ns-resize;touch-action:none}
+.pc.w-fader .w,.pc.w-macro .w{border-radius:12px;width:44px;height:96px}
+.pc.big .w{width:72px;height:72px}
+.pc.big.w-fader .w{height:120px;width:56px}
+.pc.small .w{width:44px;height:44px}
+.pc.small.w-fader .w{height:72px;width:36px}
+.pc .w i{position:absolute;left:0;right:0;bottom:0;background:var(--ink);opacity:.8}
+.pc .w b.rg{position:absolute;left:0;right:0;border-top:2px solid var(--acc);border-bottom:2px solid var(--acc);background:rgba(198,244,50,.28);pointer-events:none}
+.pc .v{font:12.5px ui-monospace,Menlo,monospace;margin-top:2px;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pc .l{color:var(--mute);font-size:11px;line-height:1.15;text-align:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%}
+.pc.missing{opacity:.35}
+.pc.missing .w{cursor:not-allowed}
+.pc.chg::after{content:"";position:absolute;top:0;right:4px;width:9px;height:9px;border-radius:50%;background:var(--acc);border:1px solid var(--line)}
+.pc .seg{width:100%}.pc .seg .key{flex:1;min-width:0;padding:0 4px;font-size:12px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;display:block;line-height:46px}
+.pc select{width:100%;height:44px;border-radius:12px;border:1px solid var(--cl);background:var(--c1);color:var(--ink);font:inherit;padding:0 8px;min-width:0}
+.pc.w-key .key{width:100%;max-width:72px;padding:0 4px;min-width:0}
+.pair{grid-column:span 2;display:flex;gap:6px;justify-content:center;border-radius:12px;background:var(--well);padding:4px;min-width:0}
+.pair .pc{flex:1;min-width:0}
+.ml{border-top:1px solid var(--cl);padding-top:6px;display:flex;flex-direction:column;gap:3px}
+.ml .row{display:grid;grid-template-columns:repeat(8,minmax(0,1fr));gap:3px}
+.ml .row.f{grid-template-columns:repeat(4,minmax(0,1fr))}
+.ml span.s{font:10px ui-monospace,Menlo,monospace;border:1px solid var(--cl);border-radius:6px;padding:2px 3px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;color:var(--mute);min-width:0;height:20px}
+.ml span.s.on{color:var(--ink);background:var(--c2)}
+.ml .hr .key{height:36px;min-width:36px}
+@media (min-width:900px){.pcs{flex-direction:row;flex-wrap:wrap;align-items:flex-start}.card{flex:1 1 280px;max-width:420px}}
 @media (max-width:380px){#hbot{gap:4px;padding:8px 6px}#hbot .key{min-width:36px;padding:0 6px}#hbot .seg .key{padding:0 8px}}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 </style></head><body>
@@ -100,7 +133,7 @@ svg{display:block}
 const $ = s => document.querySelector(s);
 const I = n => `<svg width="22" height="22"><use href="#i-${n}"/></svg>`;
 const S = {state: null, desk: null, hear: {hearing: "now", changed: 0, keys: [], match: true, monitor: {slot: "W", ref: "C1"}, pin: "start"},
-           hist: {entries: [], can_undo: false, can_redo: false}, meter: null, sheet: false, flash: {}};
+           hist: {entries: [], can_undo: false, can_redo: false}, meter: null, sheet: false, flash: {}, layouts: {}, phonePage: {}};
 let toastTimer = 0;
 
 function toast(msg) { const t = $("#toast"); t.textContent = msg; t.classList.add("on"); clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove("on"), 2200); }
@@ -162,14 +195,90 @@ function ctl(pg, slot, c) {
     <div class="w" data-slot="${slot}" role="slider" aria-label="${labelOf(c)}" aria-valuenow="${Math.round(n * 100)}"><i style="height:${Math.round(n * 100)}%"></i></div>
     <div class="v">${v.s ?? ""}</div><div class="l">${labelOf(c)}</div></div>`;
 }
+function entries() {
+  const out = [];
+  (S.desk ? S.desk.pages : []).forEach((p, i) => {
+    const same = p.page_id ? out.find(e => e.page_id === p.page_id) : null;
+    if (same) same.hw.push(i); else out.push({name: p.name, page_id: p.page_id || null, hw: [i], pg: p});
+  });
+  return out;
+}
+function ensureLayout(id) {
+  if (S.layouts[id]) return;
+  S.layouts[id] = "loading";
+  command("page.layout", {id}).then(r => { S.layouts[id] = r.ok ? r.body.layout : "failed"; renderDesk(); });
+}
+function valueMap() {
+  const m = {};
+  for (const v of Object.values((S.state || {}).values || {})) if (v.key) m[v.key] = v;
+  return m;
+}
+const wide = () => window.matchMedia("(min-width:900px)").matches;
+function pcontrol(c, vals) {
+  const v = (c.target && vals[c.target]) || {}, n = v.n == null ? 0 : v.n;
+  const chg = c.target && S.hear.keys.includes(c.target);
+  const cls = `pc w-${c.widget} ${c.size} ${c.missing ? "missing" : ""} ${chg ? "chg" : ""}`;
+  const dis = c.missing ? ` aria-disabled="true" title="${esc(c.missing)}"` : "";
+  const key = c.target || "";
+  let body;
+  if (c.widget === "key") body = `<button class="key ${n >= .5 ? "on" : ""}" data-pkey="${esc(key)}" data-n="${n}" aria-pressed="${n >= .5}"${c.missing ? " disabled" : ""}>${esc(c.label)}</button>`;
+  else if (c.widget === "segmented") {
+    const at = Math.round(n * (c.items.length - 1));
+    body = `<div class="seg" role="group" aria-label="${esc(c.label)}">${c.items.map((t, i) => `<button class="key ${i === at ? "on" : ""}" data-pkey="${esc(key)}" data-i="${i}" data-of="${c.items.length}">${esc(t)}</button>`).join("")}</div><div class="l">${esc(c.label)}</div>`;
+  } else if (c.widget === "list") {
+    const at = Math.round(n * (c.items.length - 1));
+    body = `<select aria-label="${esc(c.label)}" data-pkey="${esc(key)}" data-of="${c.items.length}"${c.missing ? " disabled" : ""}>${c.items.map((t, i) => `<option value="${i}" ${i === at ? "selected" : ""}>${esc(t)}</option>`).join("")}</select><div class="l">${esc(c.label)}</div>`;
+  } else {
+    const rg = c.range ? `<b class="rg" style="bottom:${Math.round(c.range[0] * 100)}%;height:${Math.max(2, Math.round((c.range[1] - c.range[0]) * 100))}%"></b>` : "";
+    body = `<div class="w" data-key="${esc(key)}" role="slider" aria-label="${esc(c.label)}" aria-valuenow="${Math.round(n * 100)}">${rg}<i style="height:${Math.round(n * 100)}%"></i></div><div class="v">${esc(v.s ?? "")}</div><div class="l">${esc(c.label)}</div>`;
+  }
+  return `<div class="${cls}" data-ref="${esc(c.ref)}" data-key="${esc(key)}" data-slot="${c.slot || ""}"${dis}>${body}</div>`;
+}
+function cardHtml(g, vals) {
+  const out = [];
+  for (let i = 0; i < g.controls.length; i++) {
+    const c = g.controls[i];
+    if (c.pair && g.controls[i + 1] && g.controls[i + 1].pair === c.pair) { out.push(`<div class="pair">${pcontrol(c, vals)}${pcontrol(g.controls[++i], vals)}</div>`); }
+    else out.push(pcontrol(c, vals));
+  }
+  return `<section class="card t${g.tint}" aria-label="${esc(g.name)}"><h4>${esc(g.name)}</h4><div class="cg">${out.join("")}</div></section>`;
+}
+function mlabHtml(L, entry) {
+  const at = Math.max(0, entry.hw.indexOf(S.state.page)), hw = L.minilab[at];
+  if (!hw) return "";
+  const by = {}, names = {};
+  for (const g of L.groups) for (const c of g.controls) names[c.ref] = c.label;
+  for (const sl of hw.slots) by[sl.slot] = names[sl.ref] || "";
+  const row = (ids, cls = "") => `<div class="row ${cls}">${ids.map(i => `<span class="s ${by[i] ? "on" : ""}" data-s="${i}">${esc(by[i] || i)}</span>`).join("")}</div>`;
+  const tabs = entry.hw.length > 1 ? `<div class="hr"><span class="tag">MiniLab page</span>${entry.hw.map((d, k) => `<button class="key sm ${k === at ? "on" : ""}" data-page="${d}">${k + 1}</button>`).join("")}</div>` : "";
+  return `<div class="ml" id="minilab" aria-label="MiniLab">${tabs}${row(KNOBS)}${row(FADERS, "f")}${row(PADS)}</div>`;
+}
+function renderPageV2(entry, pages, i) {
+  const L = S.layouts[entry.page_id];
+  const head = `<div class="ph2"><b id="pagename">${esc(L && L.title || entry.name)}</b><span class="tag">${L ? "made by " + esc(L.made_by) : ""}</span><span class="sp"></span>
+    <span class="pill acc" id="mlchip">${S.state.live === "attached" ? "on MiniLab" : "no MiniLab"}</span></div>`;
+  const dots = `<div class="dots" role="group" aria-label="Pages">${pages.map((p, k) => `<button data-page="${p.hw[0]}" class="${p === entry ? "c" : ""}" aria-label="${esc(p.name)}"></button>`).join("")}</div>`;
+  if (!L || L === "loading" || L === "failed") return head + `<div class="tag" id="plain">${L === "failed" ? "This page could not be drawn." : "Reading the page…"}</div>` + dots;
+  const vals = valueMap(), groups = L.groups;
+  const phone = !wide() && L.phone_pages.length > 1;
+  const at = Math.min(S.phonePage[entry.page_id] || 0, L.phone_pages.length - 1);
+  const shown = phone ? L.phone_pages[at].map(n => groups[n]) : groups;
+  const swipe = phone ? `<div class="hr" id="swipe"><button class="key sm" data-swipe="-1" ${at ? "" : "disabled"} aria-label="Earlier cards">&lsaquo;</button><span class="tag">cards ${at + 1} of ${L.phone_pages.length}</span><button class="key sm" data-swipe="1" ${at < L.phone_pages.length - 1 ? "" : "disabled"} aria-label="More cards">&rsaquo;</button></div>` : "";
+  return head + swipe + `<div class="pcs" id="pcs">${shown.map(g => cardHtml(g, vals)).join("")}</div>` + mlabHtml(L, entry) + dots;
+}
+function esc(t) { return String(t).replace(/[&<>"]/g, ch => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;"}[ch])); }
 function renderDesk() {
   if (!S.state || !S.desk) return;
-  const pages = S.desk.pages, i = Math.min(S.state.page, pages.length - 1), pg = pages[i], cs = pg.controls || {};
-  const row = slots => `<div class="g4">${slots.filter(s => cs[s]).map(s => ctl(pg, s, cs[s])).join("")}</div>`;
-  $("#desk").innerHTML = `<div class="ph2"><b id="pagename">${pg.name}</b><span class="tag">page ${i + 1} of ${pages.length}</span><span class="sp"></span>
+  const pages = entries(), pg = S.desk.pages;
+  const i = Math.min(S.state.page, pg.length - 1);
+  const entry = pages.find(e => e.hw.includes(i)) || pages[0];
+  if (entry.page_id) { ensureLayout(entry.page_id); $("#desk").innerHTML = renderPageV2(entry, pages, i); return; }
+  const cs = entry.pg.controls || {};
+  const row = slots => `<div class="g4">${slots.filter(s => cs[s]).map(s => ctl(entry.pg, s, cs[s])).join("")}</div>`;
+  $("#desk").innerHTML = `<div class="ph2"><b id="pagename">${esc(entry.name)}</b><span class="tag">page ${pages.indexOf(entry) + 1} of ${pages.length}</span><span class="sp"></span>
     <span class="pill acc" id="mlchip">${S.state.live === "attached" ? "on MiniLab" : "no MiniLab"}</span></div>
     ${row(KNOBS.slice(0, 4))}${row(KNOBS.slice(4))}${row(FADERS)}${row(PADS.slice(0, 4))}${row(PADS.slice(4))}
-    <div class="dots" role="group" aria-label="Pages">${pages.map((p, k) => `<button data-page="${k}" class="${k === i ? "c" : ""}" aria-label="${p.name}"></button>`).join("")}</div>`;
+    <div class="dots" role="group" aria-label="Pages">${pages.map(p => `<button data-page="${p.hw[0]}" class="${p === entry ? "c" : ""}" aria-label="${esc(p.name)}"></button>`).join("")}</div>`;
 }
 function renderHist() {
   const sh = $("#sheet");
@@ -188,12 +297,13 @@ function render() { renderHear(); renderDesk(); renderHist(); }
 // ---- touching controls ---------------------------------------------------------------------------------------------
 let drag = null, sendTimer = 0;
 document.addEventListener("pointerdown", e => {
-  const w = e.target.closest(".ctl .w");
+  const w = e.target.closest(".ctl .w, .pc .w");
   if (!w) return;
-  const el = w.closest(".ctl"), slot = el.dataset.slot, key = el.dataset.key;
-  if (slot[0] === "b") { command("mix.toggle", {slot, page: S.state.page}); return; }
+  const el = w.closest(".ctl, .pc"), slot = el.dataset.slot, key = el.dataset.key;
+  if (el.classList.contains("missing")) return;
+  if (el.classList.contains("ctl") && slot[0] === "b") { command("mix.toggle", {slot, page: S.state.page}); return; }
   if (!key) return;
-  const v = S.state.values[`${S.state.page}:${slot}`] || {};
+  const v = el.classList.contains("pc") ? valueMap()[key] || {} : S.state.values[`${S.state.page}:${slot}`] || {};
   drag = {key, slot, y: e.clientY, n0: v.n ?? 0, n: v.n ?? 0, el};
   w.setPointerCapture(e.pointerId);
   e.preventDefault();
@@ -217,6 +327,15 @@ document.addEventListener("pointerup", () => {
 document.addEventListener("click", async e => {
   const t = e.target.closest("button");
   if (!t) return;
+  if (t.dataset.pkey !== undefined) {
+    if (t.dataset.i === undefined) return command("mix.set", {norms: [[t.dataset.pkey, +t.dataset.n >= .5 ? 0 : 1]]});
+    return command("mix.set", {norms: [[t.dataset.pkey, +t.dataset.i / Math.max(1, +t.dataset.of - 1)]]});
+  }
+  if (t.dataset.swipe) {
+    const id = entries().find(en => en.hw.includes(S.state.page)).page_id;
+    S.phonePage[id] = Math.max(0, (S.phonePage[id] || 0) + +t.dataset.swipe);
+    return renderDesk();
+  }
   if (t.dataset.hear) return command("monitor.hear", {hearing: t.dataset.hear});
   if (t.dataset.page !== undefined) return command("page.arm", {page: +t.dataset.page});
   if (t.id === "kplay") return command("transport", {action: S.state.playing ? "pause" : "play"});
@@ -226,6 +345,10 @@ document.addEventListener("click", async e => {
   if (t.id === "khist") { S.sheet = true; return renderHist(); }
   if (t.id === "hclose") { S.sheet = false; return renderHist(); }
   if (t.id === "hver") { const r = await command("history.checkpoint", {name: "v" + new Date().toTimeString().slice(0, 8).replace(/:/g, "")}); if (r.ok) toast("Made a version."); }
+});
+document.addEventListener("change", e => {
+  const t = e.target;
+  if (t.tagName === "SELECT" && t.dataset.pkey) command("mix.set", {norms: [[t.dataset.pkey, +t.value / Math.max(1, +t.dataset.of - 1)]]});
 });
 $("#scrim").addEventListener("click", () => { S.sheet = false; renderHist(); });
 
@@ -247,7 +370,7 @@ function apply(m) {
   }
   else if (m.t === "page" && S.state) S.state.page = m.page;
   else if (m.t === "mon" && S.state) S.state.monitor = {slot: m.slot, ref: m.ref};
-  else if (m.t === "desk") { loadDesk(); return; }
+  else if (m.t === "desk") { S.layouts = {}; loadDesk(); return; }
   S.lockReason = S.state && S.state.live !== "attached" && S.state.live !== "starting" ? `Live: ${S.state.live}` : "";
   if (part === "top") renderTop();
   else if (drag) renderTop();

@@ -54,6 +54,24 @@ always did, with the pager's datagrams on 8986 and the meter on 8987.
 - `POST /api/command` takes any command: `{"kind": "mix.set", "args": {"norms": [["Kick bus/volume", 0.4]]}}`.
   `GET /api/commands` lists them. The old `POST /api/...` paths are these commands under their old names.
 
+## Pages
+
+A Page is what an agent writes for "I want to change this": groups of controls with a role and a weight, and no pixels
+(`zpkt.live.page`). One renderer draws it, and the same spec gives the MiniLab its assignment.
+
+- `zpkt page make SPEC.json` (or `-` for standard input) sends the spec to the running app. `zpkt page lint` only
+  checks it. The command goes to `POST /api/agent/command`, so the app stamps it `who=agent`; an agent can make pages
+  but cannot move Live without approval.
+- The linter is the gate. A rejected spec answers 422 with the reasons, nothing is saved, and the agent repairs it.
+- A good one is saved as `<sets_dir>/pages/<set>/<id>.json` and as one made surface per MiniLab page, so the pager in
+  Live and the old desk take it too. The commands are `page.make`, `page.lint` and `page.layout`; `GET /api/pages`
+  lists the saved pages.
+- "Make a surface" on the old desk calls `page.make`: it now asks Claude for a Page. An answer in the old slot form
+  is still accepted.
+- `/app/` draws a Page from `page.layout` (the layout rules are `zpkt.live.page_layout`): cards for groups,
+  heaviest first, widgets by the parameter's kind, a phone swiping cards when there are more than 12 controls, and
+  the MiniLab map under the cards. A target the open set lacks is drawn greyed.
+
 ## Files that stay where they were
 
 The desk's own files stay in `contrib/mixdesk/`: `desk.json`, `sources.json`, `pager.py` (it runs inside Live) and
