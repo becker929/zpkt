@@ -138,12 +138,26 @@ select{font:inherit;color:inherit;background:var(--panel);border:1px solid var(-
 .pair .pc{flex:1;min-width:0}
 .ml{border-top:1px solid var(--cl);padding-top:6px;display:flex;flex-direction:column;gap:3px}
 .ml .row{display:grid;grid-template-columns:repeat(8,minmax(0,1fr));gap:3px}
+/* The map mirrors the hardware: knobs 4 x 2 | faders | the pads' row under both. */
+.mlhw{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:3px 10px}
+.ml .row.k{grid-template-columns:repeat(4,minmax(0,1fr))}
 .ml .row.f{grid-template-columns:repeat(4,minmax(0,1fr))}
+.ml .row.f span.s{height:43px;writing-mode:vertical-rl;transform:rotate(180deg);padding:3px 2px}
+.ml .row.p{grid-column:1/-1}
 .ml span.s{font:10px ui-monospace,Menlo,monospace;border:1px solid var(--cl);border-radius:6px;padding:2px 3px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;color:var(--mute);min-width:0;height:20px}
 .ml span.s.on{color:var(--ink);background:var(--c2)}
 .ml .hr .key{height:44px;min-width:44px}
 #tabs:has(button:only-child){display:none}
 .legacy{display:flex;flex-direction:column;gap:8px}
+/* The desk as the MiniLab 3 sits on the table (feedback: pages match the controller); folded where 8 columns of 44 px do not fit. */
+#desk{container:desk/inline-size}
+.legacy.hw{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);grid-template-areas:"k f" "p1 p2";gap:10px 12px;max-width:1000px;margin:0 auto;width:100%}
+.hwk,.hwf,.hwp{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px 4px;justify-items:center}
+.hwk{grid-area:k}.hwf{grid-area:f}.hwp1{grid-area:p1}.hwp2{grid-area:p2}
+.hwf .ctl{height:100%}
+.hwf .ctl .w{aspect-ratio:auto;flex:1;min-height:96px;max-width:44px;border-radius:10px}
+@container desk (max-width:400px){.legacy.hw{grid-template-columns:minmax(0,1fr);grid-template-areas:"k" "p1" "f" "p2"}}
+.ctl.none{visibility:hidden}
 .pl{display:flex;flex-direction:column;gap:6px}
 .pl .key{justify-content:flex-start;width:100%;overflow:hidden;text-overflow:ellipsis}
 #side .vg{grid-template-columns:1fr}
@@ -166,8 +180,7 @@ select{font:inherit;color:inherit;background:var(--panel);border:1px solid var(-
  #song{flex:none;max-height:240px;border-bottom:1.5px solid var(--line)}
  #song .sketch{display:none}
  #htop .spc:not(.ver){min-height:220px}
- .legacy{display:grid;grid-template-columns:repeat(8,minmax(0,120px));justify-content:center;gap:10px 8px;align-content:start}
- .legacy .g4{display:contents}
+ .legacy.hw{column-gap:28px}
  .pcs{flex-direction:row;flex-wrap:wrap;align-items:flex-start}.card{flex:1 1 280px;max-width:420px}
 }
 @media (min-width:1400px){#cols{grid-template-columns:280px minmax(0,1fr) 420px}}
@@ -276,7 +289,7 @@ function ctl(pg, slot, c) {
   const missing = !v.key && c.param !== undefined && !c.macro && v.s === undefined;
   return `<div class="ctl ${isPad ? "pad" : ""} ${chg ? "chg" : ""} ${S.flash[v.key] ? "flash" : ""} ${missing ? "missing" : ""}" data-slot="${slot}" data-key="${v.key || ""}">
     <div class="w" data-slot="${slot}" role="slider" aria-label="${labelOf(c)}" aria-valuenow="${Math.round(n * 100)}"><i style="height:${Math.round(n * 100)}%"></i></div>
-    <div class="v">${v.s ?? ""}</div><div class="l">${labelOf(c)}</div></div>`;
+    <div class="v">${esc(v.s ?? "")}</div><div class="l">${labelOf(c)}</div></div>`;
 }
 function entries() {
   const out = [];
@@ -334,7 +347,7 @@ function mlabHtml(L, entry) {
   for (const sl of hw.slots) by[sl.slot] = names[sl.ref] || "";
   const row = (ids, cls = "") => `<div class="row ${cls}">${ids.map(i => `<span class="s ${by[i] ? "on" : ""}" data-s="${i}">${esc(by[i] || i)}</span>`).join("")}</div>`;
   const tabs = entry.hw.length > 1 ? `<div class="hr"><span class="tag">MiniLab page</span>${entry.hw.map((d, k) => `<button class="key sm ${k === at ? "on" : ""}" data-page="${d}">${k + 1}</button>`).join("")}</div>` : "";
-  return `<div class="ml" id="minilab" aria-label="MiniLab">${tabs}${row(KNOBS)}${row(FADERS, "f")}${row(PADS)}</div>`;
+  return `<div class="ml" id="minilab" aria-label="MiniLab">${tabs}<div class="mlhw">${row(KNOBS, "k")}${row(FADERS, "f")}${row(PADS, "p")}</div></div>`;
 }
 function renderPageV2(entry, pages, i) {
   const L = S.layouts[entry.page_id];
@@ -357,10 +370,13 @@ function renderDesk() {
   const entry = pages.find(e => e.hw.includes(i)) || pages[0];
   if (entry.page_id) { ensureLayout(entry.page_id); $("#desk").innerHTML = renderPageV2(entry, pages, i); return; }
   const cs = entry.pg.controls || {};
-  const row = slots => `<div class="g4">${slots.filter(s => cs[s]).map(s => ctl(entry.pg, s, cs[s])).join("")}</div>`;
+  // Laid out like the MiniLab 3 itself: knobs 1-4 over 5-8, the four faders to their right, the 8 pads in one row below.
+  // Where 8 touchable columns do not fit (a phone), it folds in half: knobs over pads 1-4, then faders over pads 5-8.
+  const cell = s => cs[s] ? ctl(entry.pg, s, cs[s]) : `<div class="ctl none" data-slot="${s}" aria-hidden="true"></div>`;
+  const block = (cls, slots) => `<div class="${cls}">${slots.map(cell).join("")}</div>`;
   $("#desk").innerHTML = `<div class="ph2"><b id="pagename">${esc(entry.name)}</b><span class="tag">page ${pages.indexOf(entry) + 1} of ${pages.length}</span>
     <span class="pill acc" id="mlchip">${S.state.live === "attached" ? "on MiniLab" : "no MiniLab"}</span></div>
-    <div class="legacy">${row(KNOBS.slice(0, 4))}${row(KNOBS.slice(4))}${row(FADERS)}${row(PADS.slice(0, 4))}${row(PADS.slice(4))}</div>
+    <div class="legacy hw" aria-label="MiniLab 3 layout">${block("hwk", KNOBS)}${block("hwf", FADERS)}${block("hwp hwp1", PADS.slice(0, 4))}${block("hwp hwp2", PADS.slice(4))}</div>
     <div class="dots" role="group" aria-label="Pages">${pages.map(p => `<button data-page="${p.hw[0]}" class="${p === entry ? "c" : ""}" aria-label="${esc(p.name)}"></button>`).join("")}</div>`;
 }
 function renderOptions() {
