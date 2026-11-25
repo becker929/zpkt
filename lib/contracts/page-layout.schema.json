@@ -1,0 +1,355 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/becker929/zpkt/lib/contracts/page-layout.schema.json",
+  "$defs": {
+    "HardwarePage": {
+      "additionalProperties": false,
+      "properties": {
+        "groups": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Groups",
+          "type": "array"
+        },
+        "slots": {
+          "items": {
+            "$ref": "#/$defs/Slot"
+          },
+          "title": "Slots",
+          "type": "array"
+        }
+      },
+      "required": [
+        "groups",
+        "slots"
+      ],
+      "title": "HardwarePage",
+      "type": "object"
+    },
+    "LayoutControl": {
+      "additionalProperties": false,
+      "description": "One control as it is drawn.",
+      "properties": {
+        "ref": {
+          "description": "The control's target, or macro:LABEL.",
+          "title": "Ref",
+          "type": "string"
+        },
+        "target": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Its state key; None for a macro.",
+          "title": "Target"
+        },
+        "label": {
+          "description": "At most 10 characters unless the spec set a longer one.",
+          "title": "Label",
+          "type": "string"
+        },
+        "widget": {
+          "enum": [
+            "key",
+            "segmented",
+            "list",
+            "fader",
+            "knob",
+            "macro"
+          ],
+          "title": "Widget",
+          "type": "string"
+        },
+        "role": {
+          "enum": [
+            "level",
+            "tone",
+            "amount",
+            "time",
+            "switch",
+            "choice"
+          ],
+          "title": "Role",
+          "type": "string"
+        },
+        "weight": {
+          "title": "Weight",
+          "type": "integer"
+        },
+        "size": {
+          "enum": [
+            "big",
+            "normal",
+            "small"
+          ],
+          "title": "Size",
+          "type": "string"
+        },
+        "pair": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Controls with the same pair name are drawn as one unit (an EQ band).",
+          "title": "Pair"
+        },
+        "missing": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Why the control is greyed: the open set lacks its target.",
+          "title": "Missing"
+        },
+        "items": {
+          "description": "The shown texts of a row of keys or a list, lowest first.",
+          "items": {
+            "type": "string"
+          },
+          "title": "Items",
+          "type": "array"
+        },
+        "range": {
+          "anyOf": [
+            {
+              "maxItems": 2,
+              "minItems": 2,
+              "prefixItems": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                }
+              ],
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "The stretch worth playing, as positions 0 to 1 along the control.",
+          "title": "Range"
+        },
+        "slot": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "The MiniLab slot that moves it: k1-k8, f1-f4 or b1-b8.",
+          "title": "Slot"
+        },
+        "hardware": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Which MiniLab page that slot is on, from 0.",
+          "title": "Hardware"
+        },
+        "macro": {
+          "description": "For a macro, the state keys it moves.",
+          "items": {
+            "type": "string"
+          },
+          "title": "Macro",
+          "type": "array"
+        },
+        "notes": {
+          "description": "What is told to the user about this control.",
+          "items": {
+            "type": "string"
+          },
+          "title": "Notes",
+          "type": "array"
+        }
+      },
+      "required": [
+        "ref",
+        "target",
+        "label",
+        "widget",
+        "role",
+        "weight",
+        "size",
+        "pair",
+        "missing",
+        "items",
+        "range",
+        "slot",
+        "hardware",
+        "macro",
+        "notes"
+      ],
+      "title": "LayoutControl",
+      "type": "object"
+    },
+    "LayoutGroup": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "tint": {
+          "description": "0 or 1: neighbouring cards alternate a faint tint.",
+          "title": "Tint",
+          "type": "integer"
+        },
+        "controls": {
+          "items": {
+            "$ref": "#/$defs/LayoutControl"
+          },
+          "title": "Controls",
+          "type": "array"
+        }
+      },
+      "required": [
+        "name",
+        "tint",
+        "controls"
+      ],
+      "title": "LayoutGroup",
+      "type": "object"
+    },
+    "Problem": {
+      "additionalProperties": false,
+      "properties": {
+        "level": {
+          "enum": [
+            "error",
+            "note"
+          ],
+          "title": "Level",
+          "type": "string"
+        },
+        "where": {
+          "title": "Where",
+          "type": "string"
+        },
+        "text": {
+          "title": "Text",
+          "type": "string"
+        }
+      },
+      "required": [
+        "level",
+        "where",
+        "text"
+      ],
+      "title": "Problem",
+      "type": "object"
+    },
+    "Slot": {
+      "additionalProperties": false,
+      "properties": {
+        "slot": {
+          "title": "Slot",
+          "type": "string"
+        },
+        "ref": {
+          "title": "Ref",
+          "type": "string"
+        },
+        "group": {
+          "title": "Group",
+          "type": "string"
+        }
+      },
+      "required": [
+        "slot",
+        "ref",
+        "group"
+      ],
+      "title": "Slot",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "A Page as the one interface draws it (the reply of the page.layout command): cards, widgets, sizes and the MiniLab slots. Generated from src/zpkt/live/page_layout.py \u2014 do not edit by hand.",
+  "properties": {
+    "id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Id"
+    },
+    "title": {
+      "title": "Title",
+      "type": "string"
+    },
+    "made_by": {
+      "title": "Made By",
+      "type": "string"
+    },
+    "groups": {
+      "items": {
+        "$ref": "#/$defs/LayoutGroup"
+      },
+      "title": "Groups",
+      "type": "array"
+    },
+    "phone_pages": {
+      "description": "Group numbers shown together on a phone, in swipe order.",
+      "items": {
+        "items": {
+          "type": "integer"
+        },
+        "type": "array"
+      },
+      "title": "Phone Pages",
+      "type": "array"
+    },
+    "minilab": {
+      "items": {
+        "$ref": "#/$defs/HardwarePage"
+      },
+      "title": "Minilab",
+      "type": "array"
+    },
+    "problems": {
+      "items": {
+        "$ref": "#/$defs/Problem"
+      },
+      "title": "Problems",
+      "type": "array"
+    }
+  },
+  "required": [
+    "id",
+    "title",
+    "made_by",
+    "groups",
+    "phone_pages",
+    "minilab",
+    "problems"
+  ],
+  "title": "Layout",
+  "type": "object"
+}

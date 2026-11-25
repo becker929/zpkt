@@ -15,7 +15,7 @@ from collections.abc import Callable
 from typing import TYPE_CHECKING, Any
 
 from zpkt.app import deskstate as D
-from zpkt.app import monitor, surfaces
+from zpkt.app import monitor, pages, surfaces
 from zpkt.app import options as O
 from zpkt.app.bus import OK, BadRequest, Bus, Command, Effect, Reply, Spec
 from zpkt.live import describe, tempo
@@ -442,6 +442,9 @@ COMMANDS: dict[str, tuple[Handler, Effect, bool]] = {
     "monitor.hear": (monitor_hear, "move", True),
     "monitor.pin": (monitor_pin, "make", True),
     "pager.restart": (pager_restart, "make", True),
+    "page.lint": (pages.lint, "read", True),
+    "page.make": (pages.make, "make", True),
+    "page.layout": (pages.layout_of, "read", True),
     "surface.make": (surface_make, "make", False),
     "surface.save": (surface_save, "make", True),
     "surface.remove": (surface_remove, "move", True),

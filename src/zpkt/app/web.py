@@ -22,12 +22,14 @@ from typing import Any, ClassVar
 from urllib.parse import parse_qs, urlparse
 
 from zpkt.app import deskstate as D  # noqa: F401  (kept importable as server.D)
+from zpkt.app import pages
 from zpkt.app import protocol as P  # noqa: F401
 from zpkt.app.bus import BadRequest, Command, Reply
 from zpkt.app.commands import POST_PATHS
 from zpkt.app.desk import Desk, Settings, meter_message, mixdesk_dir, start_threads
 from zpkt.app.options import BadOption
 from zpkt.live import desk_pager
+from zpkt.live.changes import Who
 from zpkt.live.transport import LiveError
 
 __all__ = [
@@ -156,7 +158,12 @@ def get_options(desk: Desk, query: dict[str, str]) -> Response:
     return json_response(desk.options.message())
 
 
+def get_pages(desk: Desk, query: dict[str, str]) -> Response:
+    return json_response({"pages": pages.listing(desk)})
+
+
 APP_GET_ROUTES: dict[str, Callable[[Desk, dict[str, str]], Response]] = {
+    "/api/pages": get_pages,
     "/api/hear": get_hear,
     "/api/commands": get_commands,
     "/api/changes": get_changes,
@@ -164,8 +171,9 @@ APP_GET_ROUTES: dict[str, Callable[[Desk, dict[str, str]], Response]] = {
 }
 
 
-def post_command(desk: Desk, body: dict[str, Any]) -> Reply:
-    """Any command by kind: {"kind": "mix.set", "args": {...}, "group": "..."}. The web is "you"."""
+def post_command(desk: Desk, body: dict[str, Any], who: Who = "you") -> Reply:
+    """Any command by kind: {"kind": "mix.set", "args": {...}, "group": "..."}. The web is "you"; the agents' route
+    (POST /api/agent/command) is "agent". The body can never say who, and never carries an approval."""
     kind = body.get("kind")
     if not isinstance(kind, str):
         raise BadRequest("the body needs 'kind', the command's name")
@@ -173,7 +181,7 @@ def post_command(desk: Desk, body: dict[str, Any]) -> Reply:
     if not isinstance(args, dict):
         raise BadRequest("'args' must be a JSON object")
     group = body.get("group")
-    return desk.bus.submit(Command(kind, "you", args, group=str(group) if group else None))
+    return desk.bus.submit(Command(kind, who, args, group=str(group) if group else None))
 
 
 # The HTML pages served, by path. The routes above serve any page; a second page is one more entry here.
@@ -313,6 +321,8 @@ class Handler(BaseHTTPRequestHandler):
             body = parse_body(self.rfile.read(n))
             if self.path == "/api/command":
                 code, reply = post_command(self.desk, body)
+            elif self.path == "/api/agent/command":
+                code, reply = post_command(self.desk, body, "agent")
             elif kind is None:
                 return self._json({"error": "not found"}, 404)
             else:

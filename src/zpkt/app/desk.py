@@ -22,9 +22,9 @@ from pathlib import Path
 from typing import Any
 
 from zpkt.app import deskstate as D
-from zpkt.app import history, jobs, surfaces
+from zpkt.app import history, jobs, pages, surfaces
 from zpkt.app import protocol as P
-from zpkt.app.bus import Bus, SetGuard
+from zpkt.app.bus import Bus, Command, SetGuard
 from zpkt.app.connections import LiveConnections, bind_udp, open_connections
 from zpkt.app.monitor import Monitor
 from zpkt.app.renders import Options
@@ -75,6 +75,7 @@ class Settings:
     history_dir: Path
     checkpoints_dir: Path  # hands states, <sets_dir>/state/<set>
     surfaces_dir: Path  # made surfaces, <sets_dir>/surfaces/<set>
+    pages_dir: Path | None = None  # Pages (zpkt.live.page), <sets_dir>/pages/<set>; None is that default
     align_beat: float = field(default_factory=default_align_beat)  # where the references start (the drop)
     desk_file: Path = field(default_factory=lambda: mixdesk_dir() / "desk.json")  # the set's own pages
     pager_file: Path = field(default_factory=lambda: mixdesk_dir() / "pager.py")
@@ -99,6 +100,7 @@ class Settings:
             history_dir=history.HISTORY_DIR,
             checkpoints_dir=S.folder(set_name),
             surfaces_dir=config.rig().sets_dir / "surfaces" / set_name,
+            pages_dir=config.rig().sets_dir / "pages" / set_name,
             changes_file=changes.path_for(set_name),
         )
 
@@ -344,13 +346,20 @@ class Desk:
     def adopt_surface(self, path: Path, surface: dict[str, Any]) -> int:
         """A surface just saved: reload the pager with it, arm its page, tell the page. Returns the page's index.
         What the pager could not use of its macros is added to the surface's notes."""
+        return self.adopt_surfaces([(path, surface)])[0]
+
+    def adopt_surfaces(self, made: list[tuple[Path, dict[str, Any]]]) -> list[int]:
+        """Several surfaces just saved (a Page with more than one MiniLab page): one pager reload, the first armed.
+        Returns their pages' indexes."""
         self.restart_pager()
-        idx = next(i for i, pg in enumerate(self.cfg()["pages"]) if pg.get("surface") == path.name)
-        self.call(f"m.DESK.arm({idx})")
-        for x in self.call(f"m.DESK.macro_skipped({idx})") or []:
-            surface["notes"].append(f"{x} could not be used in Live; that part of the macro does nothing.")
-        self.push({"t": "desk", "open": idx})
-        return idx
+        pages = self.cfg()["pages"]
+        found = [next(i for i, pg in enumerate(pages) if pg.get("surface") == path.name) for path, _ in made]
+        self.call(f"m.DESK.arm({found[0]})")
+        for idx, (_, surface) in zip(found, made, strict=True):
+            for x in self.call(f"m.DESK.macro_skipped({idx})") or []:
+                surface["notes"].append(f"{x} could not be used in Live; that part of the macro does nothing.")
+        self.push({"t": "desk", "open": found[0]})
+        return found
 
     def inventory(self) -> dict[str, Any]:
         return surfaces.parse_inventory(self.call("m.DESK.inventory()") or "")
@@ -370,14 +379,16 @@ class Desk:
             if not inv:
                 return say("error", "Live did not answer with the set's controls.")
             say("working", f"Asking Claude ({len(inv)} parameters in the set)…")
-            path, surface = surfaces.make(
-                text,
-                inv,
-                self.settings.set_name,
-                self.page_names(),
-                ask=ask or surfaces.ask_claude,
-                directory=self.settings.surfaces_dir,
-            )
+            answer = surfaces.extract_json((ask or surfaces.ask_claude)(pages.prompt_for(text, inv, self.page_names())))
+            if "groups" in answer:  # a Page: the same door as `zpkt page make`
+                code, reply = self.bus.submit(Command("page.make", "you", {"spec": answer, "prompt": text}))
+                if code != 200:
+                    return say("error", str(reply.get("error", "The page was not made.")))
+                notes = " ".join(reply["notes"])
+                done = f"Made “{reply['title']}” ({len(reply['pages'])} MiniLab page(s)), saved as {reply['file']}."
+                return say("done", done + (f" {notes}" if notes else ""))
+            surface = surfaces.validate(answer, inv, self.page_names())  # the old slot form is still taken
+            path = surfaces.save(surface, self.settings.set_name, text, self.settings.surfaces_dir)
             say("working", "Putting it on the MiniLab…")
             self.adopt_surface(path, surface)
             notes = " ".join(surface["notes"])
