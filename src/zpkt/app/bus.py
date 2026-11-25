@@ -74,6 +74,7 @@ class Spec:
     touches_live: bool = False  # it calls Live, so it takes the lock
     guarded: bool = True  # a move is held by the wrong-set guard; a job that names its own set turns this off
     callers: tuple[str, ...] | None = None  # who may ask for it; None is anyone (the web is "you", the API is not)
+    for_set: str | None = None  # a move for another set than the page's (the Song builds the mix set): that one
 
 
 def approved(cmd: Command) -> bool:
@@ -120,14 +121,16 @@ class SetGuard:
         with self._lock:
             self._seen = None
 
-    def check(self) -> None:
+    def check(self, for_set: str | None = None) -> None:
+        """Refuse when Live has another set open than the page's, or than `for_set` for a move that names its own."""
+        want = for_set or self.page_set
         with self._lock:
             now = self.clock()
             if self._seen is None or now - self._seen[0] >= self.ttl_s:
                 self._seen = (now, self.open_set())
             name = self._seen[1]
-        if name and name != self.page_set:
-            raise Refused(f"Live has {name} open; this page is for {self.page_set}. Open that set first.", 409)
+        if name and name != want:
+            raise Refused(f"Live has {name} open; this page is for {want}. Open that set first.", 409)
 
 
 class Bus:
@@ -175,7 +178,7 @@ class Bus:
             check_caller(cmd, spec)
             check_agent(cmd, spec)
             if spec.effect == "move" and spec.guarded and self.guard is not None:
-                self.guard.check()
+                self.guard.check(spec.for_set)
             with self._held(spec):
                 cmd = self._grouped(cmd, spec)
                 return spec.handler(cmd)

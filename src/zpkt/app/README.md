@@ -127,6 +127,33 @@ A Page is what an agent writes for "I want to change this": groups of controls w
   heaviest first, widgets by the parameter's kind, a phone swiping cards when there are more than 12 controls, and
   the MiniLab map under the cards. A target the open set lacks is drawn greyed.
 
+## The Song
+
+The arranger is mounted at `/app/song`. Its server stays as it is, on :8975, and the Song serves the same pages and
+routes from the same code (`contrib/arranger/server.py`'s route table), so nothing the arranger did changes.
+
+- `/app/song/` is the arranger page; `/app/song/mix/`, `/transitions/`, `/mix2/`, `/spectral/` and `/kick/` are the
+  others. Their absolute links gain the prefix on the way out; the files are not edited.
+- In the `/app/` shell the Song tab shows the arrangement as lanes of bars. Mix 1 and transitions open as sheets, still
+  labelled sketches: they play rendered loops in the browser, within the two named exceptions of
+  `contrib/docs/sound.md`. Closing the sheet takes the page, and its sound, away.
+- The arrangement file keeps its form. A save from the arranger page keeps every key it does not own, byte for byte
+  (`tests/app/test_song.py` checks it, and checks every route against the old server).
+- Song is the Structure, Recipe is the Structure and the Sound (`contrib/arranger/arrangement.py`'s types). Commands:
+  `song.list`, `song.show` (the Song), `song.recipe` (both halves), the writes `song.save`, `song.keep`,
+  `song.delete`, `song.transitions`, `song.queue` (the arranger's routes as commands, so a save is stamped who), and
+  `song.build`.
+- `song.build` makes the mix set in Live from the recipe (`zpkt.live.recipe_build`, which `mixset.py build` also
+  calls), with the app's connection. It is a move for the mix set, not the page's set: the bus checks Live has the mix
+  set open, and the build itself refuses a set Live does not name, because it empties the set. An agent needs an
+  Option pick or your word. It holds Live while it runs (many short calls, a minute or more on the real rig).
+- Mix 2's renders still start the arranger's own worker (`mixset.py worker`), which opens its own connection to Live.
+  That is a known debt: it takes its turn only by Live's own limits, not by the app's lock. The render queue (INTEGRATION
+  step 5) moves it into the app.
+
+`zpkt app` starts the Song with the web adapter (`--adapters web,song`). `ZPKT_ARRANGER_DIR` names another arranger
+folder; `ARRANGER_DATA` the data, as before.
+
 ## Files that stay where they were
 
 The desk's own files stay in `contrib/mixdesk/`: `desk.json`, `sources.json`, `pager.py` (it runs inside Live) and

@@ -28,6 +28,7 @@ from zpkt.app.bus import Bus, Command, SetGuard
 from zpkt.app.connections import LiveConnections, bind_udp, open_connections
 from zpkt.app.monitor import Monitor
 from zpkt.app.renders import Options
+from zpkt.app.mounts import Mounts
 from zpkt.audio.levels import rms_to_db
 from zpkt.live import changes, config, desk_pager, meter, monitor_tracks, openset
 from zpkt.live import state as S
@@ -135,6 +136,7 @@ class Desk:
         self._analysis: tuple[float | None, dict[str, Any]] = (None, {"sources": {}})
         self.monitor = Monitor(self)
         self.options = Options(self)
+        self.mounts = Mounts()  # route sets other areas put under a path prefix (the Song at /app/song)
         self.bus = self._make_bus()
 
     def _make_bus(self) -> Bus:

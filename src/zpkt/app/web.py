@@ -263,6 +263,32 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
+    # ---- mounted routes (the Song at /app/song): the mount answers, whatever the method ----------------------------
+    def _read_limited(self, limit: int) -> bytes | None:
+        """The request body if its length is above 0 and below `limit`, else None (what a mount's routes expect)."""
+        n = int(self.headers.get("Content-Length") or 0)
+        return self.rfile.read(n) if 0 < n < limit else None
+
+    def _mounted(self, path: str) -> bool:
+        """Hand the request to the mount whose prefix starts `path`; True when one answered."""
+        found = self.desk.mounts.find(path)
+        if found is None:
+            return False
+        _, mount, rest = found
+        try:
+            reply = mount.handle(self.command, rest, self._read_limited)
+        except (LiveError, OSError) as exc:
+            self._json({"error": str(exc)}, 503)
+            return True
+        self.send_response(reply.code)
+        self.send_header("Content-Type", reply.ctype)
+        self.send_header("Content-Length", str(len(reply.body)))
+        self.send_header("Cache-Control", reply.cache)
+        self.end_headers()
+        if self.command != "HEAD":
+            self.wfile.write(reply.body)
+        return True
+
     # ---- GET -----------------------------------------------------------------------------------------------------
     def get_events(self, query: dict[str, str]) -> None:
         """Server-sent events. The shell asks with ?app=1 and also gets the monitor's and the history's state."""
@@ -296,6 +322,8 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_GET(self) -> None:
         url = urlparse(self.path)
+        if self._mounted(url.path):
+            return
         query = {k: v[0] for k, v in parse_qs(url.query).items()}
         page = self.server.pages.get(url.path) or SHELL_PAGES.get(url.path)
         if page is not None:
@@ -314,7 +342,19 @@ class Handler(BaseHTTPRequestHandler):
         self._send(answer.code, answer.body, answer.ctype)
 
     # ---- POST ----------------------------------------------------------------------------------------------------
+    def do_HEAD(self) -> None:
+        if not self._mounted(urlparse(self.path).path):
+            self._send(404, b"", "text/plain")
+
+    def do_PUT(self) -> None:
+        if not self._mounted(urlparse(self.path).path):
+            self._json({"error": "not found"}, 404)
+
+    do_DELETE = do_PUT
+
     def do_POST(self) -> None:
+        if self._mounted(urlparse(self.path).path):
+            return
         kind = POST_ROUTES.get(self.path)
         try:
             n = int(self.headers.get("Content-Length") or 0)

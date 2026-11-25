@@ -18,7 +18,7 @@ def test_the_web_adapter_is_discovered_by_name():
 
 def test_an_unknown_adapter_is_an_error_that_lists_the_known_ones(rig):
     context = AppContext(rig.desk.bus, rig.desk, rig.desk.settings)
-    with pytest.raises(ValueError, match="no adapter nonesuch; the adapters are api, midi, web"):
+    with pytest.raises(ValueError, match="no adapter nonesuch; the adapters are api, midi, song, web"):
         adapters.create(["nonesuch"], context)
 
 

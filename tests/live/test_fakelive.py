@@ -408,3 +408,13 @@ def test_fake_set_refuses_what_it_does_not_know():
         }
     )
     assert [(p.name, p.value) for p in plugin.tracks[0].devices[0].parameters] == [("Device On", 1.0), ("Drive", 0.3)]
+
+
+def test_a_clip_shows_its_gain_so_a_build_can_find_a_level_by_bisection(live):
+    """GUESS (the fake's law, not Live's): the display falls to minus infinity at 0 and rises with the gain."""
+    clip = live.song.tracks[1].arrangement_clips[0]
+    shown = []
+    for gain in (0.0, 0.2, 0.4, 0.8):
+        clip.gain = gain
+        shown.append(clip.gain_display_string)
+    assert shown == ["-inf dB", "-6.02 dB", "0.00 dB", "6.02 dB"]
