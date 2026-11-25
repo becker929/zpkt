@@ -24,12 +24,13 @@ import os
 import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from zpkt.app import token as tokens
 from zpkt.app.adapters import AdapterSpec, AppContext
 from zpkt.app.bus import APPROVED_BY_USER, BadRequest, Bus, Command, Refused
 from zpkt.app.jobs import API_CALLERS
+from zpkt.live.changes import Who
 
 DEFAULT_PORT = 8984  # beside the desk's 8985-8987; not the one the tailnet serves
 PREFIX = "/api/v1"
@@ -65,7 +66,7 @@ def parse_request(body: Any, kind: str | None = None, who: str | None = None) ->
         raise Refused(
             f"this token is {who}'s: it cannot ask as {claimed}. Send {claimed}'s own token, or leave 'who' out."
         )
-    who = who or claimed or "cli"
+    stamp = cast(Who, who or claimed or "cli")  # the bus checks it is one of WHO
     args = body.get("args", {})
     if not isinstance(args, dict):
         raise BadRequest("'args' must be a JSON object")
@@ -73,9 +74,9 @@ def parse_request(body: Any, kind: str | None = None, who: str | None = None) ->
     for name, value in (("approval", approval), ("group", group)):
         if value is not None and not isinstance(value, str):
             raise BadRequest(f"{name!r} must be text")
-    if who == "agent" and approval == APPROVED_BY_USER:
+    if stamp == "agent" and approval == APPROVED_BY_USER:
         raise BadRequest("an agent cannot say the user approved; pick an Option and send approval 'option:<id>'")
-    return Command(kind, who, args, approval, group or None)
+    return Command(kind, stamp, args, approval, group or None)
 
 
 def listing(bus: Bus) -> list[dict[str, Any]]:
