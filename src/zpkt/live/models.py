@@ -1,5 +1,5 @@
-"""ProjectConfig and Feedback: the models of the first design, and the source of their schemas in lib/contracts
-(tools/gen_schemas.py). Frozen and JSON-clean.
+"""ProjectConfig: the model of the first design, and the source of its schema in lib/contracts
+(zpkt.live.schemas). Frozen and JSON-clean.
 
 The first design (Oct 2026): a declarative ProjectConfig -> codegen steps -> builder -> StepRunner, behind `hands build`
 and `hands execute`. Its user (prototypes/engineer) was removed on 24 Nov 2026; Anthony keeps it to see whether it
@@ -288,18 +288,3 @@ class ProjectConfig(BaseModel):
     rumble: RumbleConfig = Field(default_factory=RumbleConfig)
     mid_layer: MidLayerConfig | None = None
     arrangement: ArrangementConfig | None = None
-
-
-class Feedback(BaseModel):
-    """Human feedback captured by the vibe tool.
-
-    Produced by hands (vibe server) and consumed by taste.
-    """
-
-    model_config = _FROZEN  # type: ignore[assignment]
-
-    session_id: str
-    render_path: str
-    text: str
-    timestamp_utc: str
-    rating: int | None = Field(default=None, ge=1, le=5)

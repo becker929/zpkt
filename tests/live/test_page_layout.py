@@ -3,8 +3,6 @@
 from __future__ import annotations
 
 import json
-import sys
-from pathlib import Path
 
 import jsonschema
 import pytest
@@ -13,10 +11,8 @@ from tests.live.test_page import SPEC
 from zpkt.live import describe as D
 from zpkt.live import page as P
 from zpkt.live import page_layout as L
+from zpkt.live import schemas
 from zpkt.live.testing import FakeLive, hw002_like
-
-sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "hands" / "tools"))
-import gen_schemas
 
 
 @pytest.fixture
@@ -103,7 +99,7 @@ def test_a_big_page_is_swiped_in_whole_cards_on_a_phone():
 
 def test_the_layout_fits_its_contract(live):
     _, _, _, lay = laid(live, SPEC)
-    schema = gen_schemas.build("page-layout", L.Layout)
+    schema = schemas.build("page-layout", L.Layout)
     jsonschema.validate(json.loads(lay.model_dump_json()), schema)
 
 

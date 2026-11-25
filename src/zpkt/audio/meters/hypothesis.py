@@ -23,11 +23,15 @@ from .arrays import FloatArray, Json
 from .util import lin, r
 
 ROOT = lab.ROOT
-LAB = os.environ.get("MLAB_DATA", ROOT)
+LAB: str | None = None  # a test may set it; None: MLAB_DATA, read when used, else the lab root
+
+
+def lab_dir() -> str:
+    return LAB or os.environ.get("MLAB_DATA", ROOT)
 
 
 def _p(path: str) -> str:
-    return path if os.path.isabs(path) else os.path.join(LAB, path)
+    return path if os.path.isabs(path) else os.path.join(lab_dir(), path)
 
 
 def _platform(x: FloatArray, sr: int, op: Json) -> FloatArray:
@@ -216,7 +220,7 @@ def _report(
             "",
             "## Listening",
             "",
-            f"Blind ABX kit in `{os.path.relpath(abx_dir, LAB)}` (level-matched). "
+            f"Blind ABX kit in `{os.path.relpath(abx_dir, lab_dir())}` (level-matched). "
             "Score with `python3 -m mlab abx-score <folder> <answers>`.",
         ]
     L_ += [

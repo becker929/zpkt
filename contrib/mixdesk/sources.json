@@ -2,6 +2,7 @@
   "note": "Sources for the desk's A/B/C player. A and B are 60 s renders of the same set (bar 1 = 0 s, build = 0-24 s, drop = 24-60 s at 160 BPM). Refs are the 30 s peak cuts of the four Bandcamp references at -14 LUFS; they line up on the drop (ref 0 s = mix 24 s).",
   "set": "HW002_121_pp_finish",
   "dir": "~/_agent_scratch/mixdesk/viz",
+  "bpm": 160,
   "build_end_s": 24.0,
   "ref_align_s": 24.0,
   "mixes": [
