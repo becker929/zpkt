@@ -13,7 +13,7 @@ END_BEAT = 160.0  # the arrangement is 40 bars at 160 BPM
 DROP_BEAT = 64.0  # the build is bars 1-16, the drop starts at bar 17
 LOOPS = {"build": (0.0, DROP_BEAT), "drop": (DROP_BEAT, END_BEAT - DROP_BEAT)}  # mode -> (start, length) in beats
 SLOTS_V = 2  # slots A, B, W, C (v1 had B = the live mix); a reload maps a v1 "B" to "W"
-PAGE_PADS = 8  # bank-A pads
+PAGE_PADS = 8  # the pads; bank A and bank B do the same (Anthony, 25 Nov 2026: pages, never pad banks)
 
 
 # ---- the hardware: which MiniLab 3 control does what ---------------------------------------------------------------
@@ -29,7 +29,7 @@ HARDWARE = (
     tuple(("encoders_raw", k, "knob", f"k{k + 1}") for k in range(8))
     + tuple((name, None, "fader", f"f{k + 1}") for k, name in enumerate(FADER_ELEMENTS))
     + tuple(("pad_bank_a_raw", k, "page_pad", k + 1) for k in range(PAGE_PADS))
-    + tuple(("pad_bank_b_raw", k, "toggle_pad", f"b{k + 1}") for k in range(8))
+    + tuple(("pad_bank_b_raw", k, "page_pad", k + 1) for k in range(PAGE_PADS))
     + (("display_encoder", None, "page_encoder", None),)
 )
 ROLES = ("knob", "fader", "toggle_pad", "page_pad", "page_encoder")
@@ -202,24 +202,29 @@ BEND_RELEASE = 0.15  # ... and back inside this lets go (so a trembling strip do
 FINE_SCALE = 0.1  # a knob with Shift moves its control a tenth as far as the knob moved
 TEMPO_MIN, TEMPO_MAX = 60.0, 200.0  # fader 4 as tempo (ZpktMiniLabTempo's range)
 
+# Both pad banks do the same thing, with and without Shift: the desk uses pages, never the MiniLab's pad banks
+# (Anthony, 25 Nov 2026). Switches are flipped on the screen. Pin, drop and mark have no pad: they are on the screen.
+PAD_SHIFT_ACTIONS = (
+    "transport.toggle",
+    "hear.now",
+    "hear.pin",
+    "hear.ref",
+    "history.undo",
+    "history.redo",
+    "history.checkpoint",
+    "monitor.match",
+)
+
 MINILAB_MAP = (
     tuple((f"k{k}", "base", "knob", f"k{k}") for k in range(1, 9))
     + tuple((f"k{k}", "shift", "knob_fine", f"k{k}") for k in range(1, 9))
     + tuple((f"f{k}", "base", "fader", f"f{k}") for k in range(1, 5))
     + tuple((f"a{k}", "base", "page_pad", k) for k in range(1, 9))
-    + tuple((f"b{k}", "base", "toggle_pad", f"b{k}") for k in range(1, 9))
+    + tuple((f"b{k}", "base", "page_pad", k) for k in range(1, 9))
+    + tuple(
+        (f"{bank}{k}", "shift", "action", name) for bank in "ab" for k, name in enumerate(PAD_SHIFT_ACTIONS, start=1)
+    )
     + (
-        ("a1", "shift", "action", "transport.toggle"),
-        ("a2", "shift", "action", "hear.now"),
-        ("a3", "shift", "action", "hear.pin"),
-        ("a4", "shift", "action", "hear.ref"),
-        ("a5", "shift", "action", "history.undo"),
-        ("a6", "shift", "action", "history.redo"),
-        ("a7", "shift", "action", "history.checkpoint"),
-        ("a8", "shift", "action", "monitor.match"),
-        ("b1", "shift", "action", "pin.set"),
-        ("b2", "shift", "action", "pin.drop"),
-        ("b3", "shift", "action", "choice.mark"),
         ("data_turn", "base", "focus_step", None),
         ("data_turn", "shift", "scrub", SCRUB_BEATS),
         ("data_push", "base", "focus_reset", None),

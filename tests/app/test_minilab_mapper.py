@@ -99,9 +99,15 @@ def test_a_bank_a_pad_arms_a_page_and_pressing_it_again_flips_to_the_layer():
     assert run((hit("a6", 100), v))[1] == []  # no page on pad 6
 
 
-def test_a_bank_b_pad_toggles_the_pages_switch_on_press_only():
-    assert run(hit("b1", 100))[1] == [Submit("mix.toggle", {"slot": "b1", "page": 1})]
-    assert run(hit("b1", 0))[1] == [] and run(hit("b3", 100))[1] == []
+def test_a_bank_b_pad_does_what_the_same_bank_a_pad_does():
+    cfg_pages = tuple(PageView(f"P{i}", i + 1) for i in range(8))
+    for k in range(1, 9):
+        a = run((hit(f"a{k}", 100), view(pages=cfg_pages)))[1]
+        b = run((hit(f"b{k}", 100), view(pages=cfg_pages)))[1]
+        assert submits(a) == submits(b), k
+        a = run(hit("shift", 127), hit(f"a{k}", 100))[1]
+        b = run(hit("shift", 127), hit(f"b{k}", 100))[1]
+        assert submits(a) == submits(b), k
 
 
 def test_the_octave_buttons_step_the_pages_and_wrap():
@@ -224,19 +230,12 @@ def test_the_shift_pads_do_transport_hearing_history_and_pins():
         ("a6", Submit("history.redo")),
         ("a7", Submit("history.checkpoint")),
         ("a8", Submit("monitor.choose", {"match": False})),
-        ("b1", Submit("monitor.pin")),
     ]
     for pad, expected in shifted:
         _, actions = run(hit("shift", 127), hit(pad, 100))
         assert (submits(actions) or [None])[0] == expected, pad
     _, actions = run(hit("shift", 127), (hit("a1", 100), view(playing=True)))
     assert submits(actions) == [Submit("transport", {"action": "pause"})]
-
-
-def test_what_the_app_cannot_do_yet_says_so_on_the_display_and_asks_nothing():
-    for pad in ("b2", "b3"):
-        _, actions = run(hit("shift", 127), hit(pad, 100))
-        assert submits(actions) == [] and actions[0].line_1 == "Not built"
 
 
 def test_the_transport_buttons_do_what_lives_own_script_did_once_live_lets_go_of_the_minilab():

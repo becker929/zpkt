@@ -357,9 +357,10 @@ You should see: on the left one MiniLab page of tiles (slot, dial or fader, a la
 A / B / W / C, Play, the loop and the waveform. No scrollbar. The status has a green dot and says `MiniLab 3 → Live`. Press `?`: the keys list.
 
 **57. [you] Pages from the MiniLab.**
-Press pads A1 to A8 in turn. Then press A1 twice. Then turn the big encoder.
+Press pads 1 to 8 in turn. Then press pad 1 twice. Then turn the big encoder. Pad bank A or B does not matter: both
+arm pages.
 You should see: each pad arms its page on the screen (Buses, Kick, Hats, Break, Chord + perc, Transitions, Space,
-Main). A1 twice shows A1·2, Match A/B. The encoder steps through the pages.
+Main). Pad 1 twice shows A1·2, Match A/B. The encoder steps through the pages.
 
 **58. [you] Fader pickup.**
 On Buses, move fader 1 slowly from the bottom up.
@@ -367,8 +368,8 @@ You should see: nothing moves in Live until the fader passes Live's value. Until
 where the fader is. After that the fader drives the kick bus.
 
 **59. [you] Knobs and switches.**
-Turn K1. Press B1.
-You should see: Live and the tile move together, and the value eases. B1 flips its switch in Live and on the tile.
+Turn K1. Click a switch tile on the page.
+You should see: Live and the tile move together, and the value eases. The click flips the switch in Live and on the tile.
 
 **60. [gui] Monitor A / B / W / C.** (Agent: switch, check the state and the level match. Anthony: listen.)
 Press Play (or space). Switch A, B, W, C (keys A B W C; 1–4 pick the reference while C plays).

@@ -174,13 +174,10 @@ def test_octave_buttons_step_pages_once_their_numbers_are_learned(rig):
         assert wait_for(lambda: rig.state()["page"] == 1)
 
 
-def test_a_bank_b_pad_flips_its_switch(rig):
-    key = key_of(rig, "b1")
+def test_a_bank_b_pad_arms_the_same_page_as_bank_a(rig):
     with Hands(rig) as hands:
-        hands.pad("b1")
-        assert wait_for(lambda: raw(rig, key) == 1.0)
-        hands.pad("b1")
-        assert wait_for(lambda: raw(rig, key) == 0.0)
+        hands.pad("b2")  # desk.json: Kick is the first page on pad 2, as for A2
+        assert wait_for(lambda: rig.state()["page"] == 2)
 
 
 def test_shift_a5_undoes_and_shift_a6_redoes(rig):
@@ -200,13 +197,11 @@ def test_shift_a5_undoes_and_shift_a6_redoes(rig):
     assert {c["who"] for c in body["changes"]} == {"minilab"}  # the undo and the redo are the MiniLab's too
 
 
-def test_shift_a7_makes_a_version_and_shift_b1_pins_the_mix(rig):
+def test_shift_b7_makes_a_version_like_shift_a7(rig):
     with Hands(rig) as hands:
         hands.hold_shift()
-        hands.pad("a7")
+        hands.pad("b7")
         assert wait_for(lambda: any(e["k"] == "checkpoint" and e["who"] == "minilab" for e in rig.desk.history.entries))
-        hands.pad("b1")
-        assert wait_for(lambda: rig.desk.monitor.message()["pin"] == "pin")
 
 
 def test_pitch_bend_up_holds_the_pin_and_letting_go_brings_now_back(rig):
