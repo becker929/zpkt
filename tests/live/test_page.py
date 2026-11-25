@@ -4,18 +4,14 @@ from __future__ import annotations
 
 import copy
 import json
-import sys
-from pathlib import Path
 
 import jsonschema
 import pytest
 
 from zpkt.live import describe as D
 from zpkt.live import page as P
+from zpkt.live import schemas
 from zpkt.live.testing import FakeLive, hw002_like
-
-sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "hands" / "tools"))
-import gen_schemas
 
 SPEC = {
     "title": "Kick: sub and knock",
@@ -208,7 +204,7 @@ def test_save_load_keeps_unknown_keys_and_numbers_a_taken_name(rig):
 
 
 def test_the_contract_accepts_what_the_model_writes_and_refuses_a_bad_weight():
-    schema = gen_schemas.build("page", P.Page)
+    schema = schemas.build("page", P.Page)
     jsonschema.validate(P.to_json(P.parse(SPEC)), schema)
     bad = copy.deepcopy(SPEC)
     bad["groups"][0]["controls"][0]["weight"] = 9

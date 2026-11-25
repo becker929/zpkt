@@ -54,3 +54,15 @@ def test_forty_requests_at_once_all_get_answers(rig):
     for t in threads:
         t.join()
     assert codes == [200] * 40
+
+
+def test_keychain_item_can_be_renamed(monkeypatch):
+    monkeypatch.delenv("HARNESS_GEMINI", raising=False)
+    monkeypatch.setenv("ZPKT_KEYCHAIN_GEMINI", "other-item")
+    seen = []
+
+    def run(argv, **kw):
+        seen.append(argv)
+        return SimpleNamespace(returncode=0, stdout="k\n")
+
+    assert agents.keychain_secret("gemini", run=run) == "k" and "other-item" in seen[0]

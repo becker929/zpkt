@@ -4,8 +4,8 @@ It makes the Ask service (zpkt.app.ask), puts the four agent commands on the bus
 the web server the /app/ask/ routes, as a mount (zpkt.app.mounts). Agents reach the app only through those four commands, tagged `agent` by the
 bus. This module changes nothing in Live and imports nothing from zpkt.live.
 
-Data lives in ZPKT_ASK_DIR (default ~/_agent_scratch/zpkt-app/ask), in Zpkt web's file forms: point it at a copy of
-Zpkt web's data folder to carry its sessions over. Keys come only from the harness's secret lookup.
+Data lives in ZPKT_ASK_DIR (or the rig's ask_dir; Settings.ask_dir), in Zpkt web's file forms: point it at a copy of
+Zpkt web's data folder to carry its sessions over. Keys come only from the secret lookup (HARNESS_<NAME>, then the Keychain), or the `secret` given.
 """
 
 from __future__ import annotations
@@ -31,13 +31,7 @@ GUIDE = Path(__file__).resolve().parents[1] / "static" / "ask" / "agent-guide.md
 Secret = Callable[[str], str | None]
 
 
-def ask_dir() -> Path:
-    env = os.environ.get("ZPKT_ASK_DIR")
-    return Path(env).expanduser() if env else Path.home() / "_agent_scratch" / "zpkt-app" / "ask"
-
-
-# The harness's Keychain items (contrib/harness/src/harness/config.py KEYCHAIN), for when the harness is not
-# installed in the app's environment (it is not in the root .venv).
+# The Keychain items, by key name. ZPKT_KEYCHAIN_<NAME> names another item (a different login on another Mac).
 KEYCHAIN = {"oauth": "zpkt-claude-oauth", "gemini": "zpkt-gemini-api-key"}
 
 
@@ -45,7 +39,7 @@ def keychain_secret(name: str, run: Callable[..., Any] = subprocess.run) -> str 
     """HARNESS_<NAME> from the environment, then the Keychain item for `name`; None when neither has it."""
     if value := os.environ.get(f"HARNESS_{name.upper()}"):
         return value
-    service = KEYCHAIN.get(name)
+    service = os.environ.get(f"ZPKT_KEYCHAIN_{name.upper()}") or KEYCHAIN.get(name)
     if not service:
         return None
     try:
@@ -62,13 +56,9 @@ def keychain_secret(name: str, run: Callable[..., Any] = subprocess.run) -> str 
 
 
 def default_secret() -> Secret:
-    """The existing secret lookup (the harness's: HARNESS_<NAME>, then the Keychain), or the same lookup here when
-    the harness is not installed."""
-    try:
-        from harness.config import secret
-    except ImportError:
-        return keychain_secret
-    return secret
+    """The secret lookup: HARNESS_<NAME> from the environment, then the Keychain. A caller with another source (a
+    secret manager) passes its own `secret` to AgentsAdapter."""
+    return keychain_secret
 
 
 class AgentsAdapter:
@@ -83,7 +73,7 @@ class AgentsAdapter:
         home: Path | None = None,
     ) -> None:
         self.context = context
-        self.data_dir = data_dir or ask_dir()
+        self.data_dir = data_dir or context.settings.ask_dir
         self.secret = secret or default_secret()
         self.providers = providers
         self.home = home

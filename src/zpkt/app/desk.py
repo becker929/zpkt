@@ -39,7 +39,7 @@ START_CHECKPOINT_H = 12  # a start makes a "start-..." checkpoint unless the des
 SUPERVISE_S = 5.0
 STALE_RETRY_S = 30.0  # after a pager reload that did not help, wait this long before trying again
 NO_MINILAB = "no MiniLab 3 in Live"
-BEATS_PER_S = 160.0 / 60.0  # the HW002 set's tempo; the references line up on the drop in beats
+DEFAULT_BPM = 120.0  # a set whose sources.json names no "bpm" (or ZPKT_DESK_BPM) is taken to play at this tempo
 
 
 HOSTS_ENV = "ZPKT_APP_HOSTS"
@@ -52,10 +52,12 @@ def hosts_from_env() -> tuple[str, ...]:
 
 
 def mixdesk_dir() -> Path:
-    """The folder with the desk's own files (desk.json, sources.json, pager.py and the old page). ZPKT_MIXDESK_DIR
-    names another one; the default is contrib/mixdesk of this checkout."""
+    """The folder with the desk's own files (desk.json, sources.json, pager.py and the old page). ZPKT_MIXDESK_DIR or
+    the rig's `mixdesk_dir` names it; without either, contrib/mixdesk of a source checkout."""
     env = os.environ.get("ZPKT_MIXDESK_DIR")
-    return Path(env).expanduser() if env else Path(__file__).resolve().parents[3] / "contrib" / "mixdesk"
+    if env:
+        return Path(env).expanduser()
+    return config.rig().mixdesk_dir or Path(__file__).resolve().parents[3] / "contrib" / "mixdesk"
 
 
 def read_sources() -> dict[str, Any]:
@@ -64,9 +66,22 @@ def read_sources() -> dict[str, Any]:
     return sources
 
 
+def default_ask_dir() -> Path:
+    """Ask's data folder: ZPKT_ASK_DIR, else the rig's `ask_dir`."""
+    env = os.environ.get("ZPKT_ASK_DIR")
+    return Path(env).expanduser() if env else config.rig().ask_dir
+
+
+def beats_per_s(sources: dict[str, Any] | None = None) -> float:
+    """The set's tempo in beats per second: sources.json "bpm", else ZPKT_DESK_BPM, else DEFAULT_BPM."""
+    bpm = (read_sources() if sources is None else sources).get("bpm") or os.environ.get("ZPKT_DESK_BPM") or DEFAULT_BPM
+    return float(bpm) / 60.0
+
+
 def default_align_beat() -> float:
     """Where the references start (the drop), in beats."""
-    return float(read_sources()["ref_align_s"]) * BEATS_PER_S
+    sources = read_sources()
+    return float(sources["ref_align_s"]) * beats_per_s(sources)
 
 
 def reference_ids() -> tuple[str, ...]:
@@ -95,6 +110,7 @@ class Settings:
     options_dir: Path | None = None  # the queue's jobs, renders and measures (zpkt.app.renders); None: <data>/options
     arranger_dir: Path | None = None  # the HW002 arranger's data, read for Options; None: ARRANGER_DATA
     panels_dir: Path | None = None  # where `hands panel` keeps its panel files; None: the rig's renders folder
+    ask_dir: Path = field(default_factory=default_ask_dir)  # Ask's sessions and files (ZPKT_ASK_DIR)
     hosts: tuple[str, ...] = ()  # more Host names the web server answers for (ZPKT_APP_HOSTS); see web.host_allowed
 
     @classmethod

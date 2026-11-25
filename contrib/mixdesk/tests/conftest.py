@@ -90,6 +90,12 @@ def made_up_analysis() -> dict:
 ANALYSIS = made_up_analysis()
 
 
+@pytest.fixture(autouse=True)
+def throwaway_arranger(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Options read the arranger's folders; never the real scratch data (as tests/app/conftest.py does)."""
+    monkeypatch.setenv("ARRANGER_DATA", str(tmp_path / "arranger"))
+
+
 def free_port(kind: int = socket.SOCK_STREAM) -> int:
     s = socket.socket(socket.AF_INET, kind)
     s.bind(("127.0.0.1", 0))

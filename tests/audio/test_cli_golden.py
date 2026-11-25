@@ -261,3 +261,12 @@ def test_python_dash_m_and_usage(files) -> None:
     commands = "measure premaster deliver bitdepth spectrum eq-diff comp-probe probe match abx abx-score kcal als"
     for name in [*commands.split(), "review", "refs", "target", "eqfit", "hyp", "calibrate"]:
         assert re.search(rf"\b{name}\b", res.stdout), name
+
+
+def test_hypothesis_lab_dir_is_read_at_call_time(monkeypatch, tmp_path) -> None:
+    from zpkt.audio.meters import hypothesis
+
+    monkeypatch.setattr(hypothesis, "LAB", None)
+    monkeypatch.setenv("MLAB_DATA", str(tmp_path))
+    assert hypothesis.lab_dir() == str(tmp_path)
+    assert hypothesis._p("x.wav") == str(tmp_path / "x.wav")

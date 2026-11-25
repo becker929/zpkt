@@ -39,7 +39,13 @@ from zpkt.live import config
 from zpkt.live.inlive.shown import shown_number
 
 SLOTS = [f"k{i}" for i in range(1, 9)] + [f"f{i}" for i in range(1, 5)] + [f"b{i}" for i in range(1, 9)]
-MODEL = os.environ.get("MIXDESK_MODEL", "sonnet")
+
+
+def model() -> str:
+    """MIXDESK_MODEL (read at each call), else sonnet."""
+    return os.environ.get("MIXDESK_MODEL", "sonnet")
+
+
 TIMEOUT_S = 180
 KEYCHAIN_ITEM = "zpkt-claude-oauth"  # the harness's Claude login, if it has one (contrib/harness config.py)
 SCHEMA = 1  # the made-surface file's version this code writes; a file without "schema" is version 1
@@ -229,7 +235,7 @@ def ask_claude(prompt: str) -> str:
                 "--max-turns",
                 "1",
                 "--model",
-                MODEL,
+                model(),
                 "--setting-sources",
                 "",
                 "--tools",

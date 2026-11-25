@@ -365,3 +365,12 @@ def test_the_real_export_is_zpkt_live_export_with_the_apps_connection(rig, tmp_p
     monkeypatch.setattr(export, "export", lambda *a, **k: [])
     with pytest.raises(RuntimeError, match="exported nothing"):
         renders.export_main(rig.conn, tmp_path / "b.wav", None, None)
+
+
+def test_arranger_dir_is_read_at_call_time(monkeypatch, tmp_path):
+    from zpkt.app import renders
+
+    monkeypatch.setenv("ARRANGER_DATA", str(tmp_path / "one"))
+    assert renders.arranger_dir() == tmp_path / "one"
+    monkeypatch.setenv("ARRANGER_DATA", str(tmp_path / "two"))
+    assert renders.arranger_dir() == tmp_path / "two"

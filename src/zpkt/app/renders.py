@@ -44,7 +44,6 @@ Measurer = Callable[[Path], Measure]
 CLAIM_WAIT_S = 30.0  # how long a Version waits for Live before the job fails
 SETTLE_S = 0.4  # after writing values, before the export starts
 JOB_PREFIX = "o"
-DEFAULT_ARRANGER = "~/_agent_scratch/arranger"
 
 
 def export_main(conn: LiveConnections, out: Path, start_beat: float | None, length_beats: float | None) -> Path:
@@ -66,8 +65,10 @@ def _mtime(path: str | None) -> float | None:
 
 
 def arranger_dir() -> Path:
-    """The HW002 arranger's data folder (ARRANGER_DATA, as its scripts read it)."""
-    return Path(os.environ.get("ARRANGER_DATA", DEFAULT_ARRANGER)).expanduser()
+    """The arranger's data folder: ARRANGER_DATA (as its scripts read it) or ZPKT_ARRANGER_DIR, read now, else the
+    rig's `arranger_dir`."""
+    env = os.environ.get("ARRANGER_DATA") or os.environ.get("ZPKT_ARRANGER_DIR")
+    return Path(env).expanduser() if env else config.rig().arranger_dir
 
 
 class Options:
