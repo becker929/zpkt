@@ -84,12 +84,17 @@ ignore_missing_imports = true
 warn_unused_ignores = true
 warn_redundant_casts = true
 
+# zpkt.app.* and zpkt.live.* are strict (the list below); als and inlive keep their own looser settings.
 # Left as is: zpkt.live.als reads ElementTree's find() without checking for None (about 75 places), so a file that is
 # not a set Live wrote fails with an AttributeError rather than a message. Optional checking is off there until it
 # reads through one checked helper.
 [[tool.mypy.overrides]]
 module = ["zpkt.live.als.*"]
 strict_optional = false
+disallow_untyped_defs = false
+disallow_incomplete_defs = false
+disallow_untyped_calls = false
+disallow_any_generics = false
 
 # The duck-typed helpers that also run inside Live take Live's objects (song, a parameter) unannotated; otherwise
 # they are as strict as the modules below.
@@ -115,7 +120,8 @@ module = [
     "zpkt.live.state_cli", "zpkt.live.surface", "zpkt.live.sweep", "zpkt.live.timeops", "zpkt.live.transport",
     "zpkt.live.ui", "zpkt.live.units", "zpkt.live.versions", "zpkt.live.writes", "zpkt.live.tempo", "zpkt.live.watch",
     "zpkt.live.bench", "zpkt.live.config", "zpkt.live.als_cli", "zpkt.live.kit_cli", "zpkt.live.project_cli",
-    "zpkt", "zpkt.cli", "zpkt._aliases", "zpkt.app", "hands", "hands.*", "ears", "mlab", "mlab.*",
+    "zpkt", "zpkt.cli", "zpkt._aliases", "zpkt.app", "zpkt.app.*", "zpkt.live.*", "hands", "hands.*", "ears", "mlab",
+    "mlab.*",
 ]
 disallow_untyped_defs = true
 disallow_incomplete_defs = true

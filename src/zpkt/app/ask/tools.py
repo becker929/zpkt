@@ -55,7 +55,8 @@ TOOLS: tuple[Tool, ...] = (
         "propose_option",
         "option.propose",
         "Propose a change for the person to pick. Nothing moves until they do. Give a short title, one sentence on "
-        "why, and the moves: each {target, to}, where `to` is the raw number read_state gives (r), not the shown text.",
+        "why, and the moves: each {target, to}, where `to` is the raw number read_state gives (r). Text such as "
+        '"-6 dB" is kept as a note, but it cannot be put on Now, so give numbers.',
         {
             "type": "object",
             "properties": {

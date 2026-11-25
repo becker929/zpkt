@@ -20,7 +20,7 @@ from typing import cast
 
 from zpkt.live.library import records, score, workflow
 from zpkt.live.library.facts import read_set
-from zpkt.live.library.models import Inventory, StepKey, StepScore, TrackReport
+from zpkt.live.library.models import Inventory, Record, StepKey, StepScore, TrackReport
 from zpkt.live.library.score import Export, Project
 
 ZPKT = Path(__file__).resolve().parents[4]
@@ -35,14 +35,14 @@ RELEASE_WORDS = re.compile(r"final|release|youtube|yt[_\- ]?short|upload", re.I)
 MIX_WORDS = re.compile(r"mix|premaster|bounce|stem|full|demo", re.I)
 MAX_MEASURED = 3
 
-Measure = Callable[[Path], "dict | None"]
+Measure = Callable[[Path], "dict[str, float] | None"]
 
 
 def track_name(folder: Path) -> str:
     return re.sub(r"\s+Project$", "", folder.name)
 
 
-def token(name: str) -> re.Pattern:
+def token(name: str) -> re.Pattern[str]:
     """Matches the track's name inside a file name, not inside a longer id (HW002 is not HW0021)."""
     return re.compile(rf"(?<![a-z0-9]){re.escape(name.lower())}(?![0-9])")
 
@@ -93,7 +93,7 @@ def find_exports(
     return sorted(found.values(), key=lambda e: -e.mtime)
 
 
-def measure_mlab(path: Path) -> dict | None:
+def measure_mlab(path: Path) -> dict[str, float] | None:
     """Integrated loudness, true peak and length of one file with zpkt.audio's calibrated meter (a subprocess in the
     repo's environment with the audio extra, so zpkt.live does not depend on it). None when it or uv is not there."""
     code = (
@@ -115,7 +115,7 @@ def measure_mlab(path: Path) -> dict | None:
         return None
 
 
-def browser_projects(folder: Path | None) -> dict[str, dict]:
+def browser_projects(folder: Path | None) -> dict[str, dict[str, object]]:
     """audio-browser project documents by name (lower case)."""
     out = {}
     for f in sorted(folder.glob("*.json")) if folder and folder.is_dir() else []:
@@ -148,7 +148,7 @@ def load_project(folder: Path, others: set[str], skipped: list[str]) -> Project:
     return p
 
 
-def score_project(p: Project, central: dict, notes: dict) -> TrackReport:
+def score_project(p: Project, central: dict[str, dict[str, Record]], notes: dict[str, str]) -> TrackReport:
     recs = dict(central.get(p.name.lower(), {}))
     own, own_note = records.load_project(p.folder)
     recs.update(own)
@@ -193,7 +193,7 @@ def score_project(p: Project, central: dict, notes: dict) -> TrackReport:
     )
 
 
-def sort_key(t: TrackReport) -> tuple:
+def sort_key(t: TrackReport) -> tuple[int, int, int, str]:
     """Most advanced first: by lowest incomplete step, then by how far along that step is, then overall."""
     idx = workflow.KEYS.index(t.lowest_incomplete) if t.lowest_incomplete else len(workflow.KEYS)
     at = next((s.percent for s in t.steps if s.step == t.lowest_incomplete), 100)

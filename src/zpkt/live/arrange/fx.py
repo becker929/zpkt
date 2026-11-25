@@ -36,7 +36,7 @@ class Phrase:
 BEATBOX = Phrase(start=55.5, hold=61.6, end=64.056, sec_per_beat=0.1875)  # HW002's beatbox "wuh"
 
 
-def clips_near(client: McpTransport, track: int, lo: float, hi: float) -> list:
+def clips_near(client: McpTransport, track: int, lo: float, hi: float) -> list[list[float]]:
     """[start, end, loop_start] of the arrangement clips on `track` that overlap [lo, hi)."""
     return client.run(
         f"result = [[c.start_time, c.end_time, c.loop_start] for c in song.tracks[{track}].arrangement_clips "
@@ -44,7 +44,7 @@ def clips_near(client: McpTransport, track: int, lo: float, hi: float) -> list:
     )
 
 
-def splash(client: McpTransport, track: int, at: float, beats: float) -> list:
+def splash(client: McpTransport, track: int, at: float, beats: float) -> list[float]:
     """Lengthen the looped clip starting at `at` to `beats` beats, in place."""
     return client.run(f"""
 c = [c for c in song.tracks[{track}].arrangement_clips if abs(c.start_time - {at}) < 1e-6][0]
@@ -54,7 +54,9 @@ c.loop_end = {float(beats)}
 result = [c.start_time, c.end_time]""")
 
 
-def splash_copies(client: McpTransport, track: int, src_at: float, times: list[float], beats: float) -> list:
+def splash_copies(
+    client: McpTransport, track: int, src_at: float, times: list[float], beats: float
+) -> list[list[float]]:
     """Copy the clip at `src_at` to each time, unlooped and `beats` long."""
     out = []
     for t in times:
@@ -74,7 +76,7 @@ result = [n.start_time, n.end_time]""")
 
 def place_phrase(
     client: McpTransport, track: int, end_at: float, stretch: float, lo: float, hi: float, phrase: Phrase = BEATBOX
-) -> list:
+) -> list[float]:
     """Replace the clips on `track` in [lo, hi) with one copy of `phrase` ending at `end_at`, its
     held end stretched by `stretch`."""
     end_beat = phrase.hold + (phrase.end - phrase.hold) * stretch
@@ -115,7 +117,7 @@ def phrase_at(
 
 def tail_slices(
     client: McpTransport, track: int, phrase_start: float, end_beat: float, times: list[float], slice_beats: float
-) -> list:
+) -> list[list[float]]:
     """Copy the last `slice_beats` of the placed phrase onto each grid time (the "chops")."""
     out = []
     for t in times:
@@ -131,7 +133,7 @@ result = [n.start_time, n.end_time]""")
     return out
 
 
-def fader_db(client: McpTransport, track: int, db: float) -> list:
+def fader_db(client: McpTransport, track: int, db: float) -> list[float | str]:
     """Set an unautomated track's fader to `db` dB: Live alone knows the fader's dB curve, so
     bisect its display. Returns [position, display], computed before the write (reading the value
     back in the same call crashes Live)."""

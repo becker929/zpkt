@@ -218,3 +218,15 @@ def test_the_app_starts_web_and_agents_by_name_and_ask_data_goes_where_the_envir
         agents.stop()
         web.stop()
     assert desk.mounts.find("/app/ask") is None  # the adapter took its routes off the one seam
+
+
+def test_a_proposal_move_value_is_a_number_or_text_never_a_bool():
+    from zpkt.app import proposals
+
+    base = {"title": "Kick down", "why": "It masks the bass."}
+    for good in (0.3, 2, "-6 dB"):
+        option = proposals.parse({**base, "moves": [{"target": "Kick bus/volume", "to": good}]}, "agent")
+        assert option["moves"][0]["to"] == good
+    for bad in (True, False, None, [1]):
+        with pytest.raises(ValueError, match="each move"):
+            proposals.parse({**base, "moves": [{"target": "Kick bus/volume", "to": bad}]}, "agent")

@@ -146,7 +146,7 @@ def swap_clips(L: Any, track: str, path: str, *, check: bool = False) -> None:
 
 def clip_placements(arr: dict, clips: dict, cands: dict) -> list[tuple[str, str, float, float | None]]:
     """Every audio clip the mix set holds (zpkt.live.recipe_build.clip_placements), from DATA."""
-    return _stopping(rb.clip_placements, arr, clips, cands, DATA)  # type: ignore[no-any-return]
+    return _stopping(rb.clip_placements, arr, clips, cands, DATA)
 
 
 def build() -> None:
@@ -178,12 +178,12 @@ def apply_mix(L: Any, arr: dict, chans: list[dict]) -> None:
 
 def target_track(idx: dict[str, int], target: str) -> str:
     """The LOM path of a channel ("kick") or a bus ("bus-kick")."""
-    return _stopping(rb.target_track, idx, target)  # type: ignore[no-any-return]
+    return _stopping(rb.target_track, idx, target)
 
 
 def add_device(L: Any, idx: dict[str, int], target: str, device: str, values: dict[str, Any]) -> str:
     """A mix-2 device at the end of a channel's or bus's chain, with its fixed settings and `values`."""
-    return _stopping(rb.add_device, L, idx, target, device, values, DEVICES[device].get("fixed", {}))  # type: ignore[no-any-return]
+    return _stopping(rb.add_device, L, idx, target, device, values, DEVICES[device].get("fixed", {}))
 
 
 # ---- renders ------------------------------------------------------------------------------------------------------------

@@ -182,7 +182,7 @@ def read_track(t: ET.Element) -> Track:
     return tr
 
 
-def read_set(path: str | os.PathLike) -> SetFacts:
+def read_set(path: str | os.PathLike[str]) -> SetFacts:
     """Read one .als into SetFacts. Raises ValueError for a file that is not a Live set."""
     root = als.load(path).getroot()
     assert root is not None

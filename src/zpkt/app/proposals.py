@@ -57,6 +57,7 @@ def parse(data: Any, made_by: Who, session: str | None = None, now: str = "") ->
         if (
             not isinstance(m, dict)
             or not isinstance(m.get("target"), str)
+            or isinstance(m.get("to"), bool)
             or not isinstance(m.get("to"), str | int | float)
         ):
             raise ValueError("each move is {target: a state key, to: a value}")
