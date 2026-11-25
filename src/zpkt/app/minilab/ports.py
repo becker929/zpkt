@@ -11,6 +11,7 @@ import threading
 from collections.abc import Callable, Sequence
 from typing import Any, Protocol
 
+from zpkt.app.adapters import AdapterError
 from zpkt.app.minilab.profile import Event, EventKind, Profile
 
 PITCH_REST = 8192
@@ -32,7 +33,7 @@ class MidiPort(Protocol):
     def close(self) -> None: ...
 
 
-class PortUnavailable(RuntimeError):
+class PortUnavailable(AdapterError):
     """No MIDI port could be opened; the message says what to do."""
 
 

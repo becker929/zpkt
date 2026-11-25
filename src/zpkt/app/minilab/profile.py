@@ -15,12 +15,14 @@ from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any, Literal
 
+from zpkt.app.adapters import AdapterError
+
 PROFILE_FILE = "minilab3-profile.json"
 EventKind = Literal["cc", "note", "pitchbend"]
 KINDS: tuple[str, ...] = ("cc", "note", "pitchbend")
 
 
-class ProfileError(ValueError):
+class ProfileError(AdapterError, ValueError):
     """The profile file is not usable; the message says what to fix."""
 
 
