@@ -44,4 +44,4 @@ def use_rig() -> None:
 
 def ops(staging: Path | None = None) -> LiveOps:
     """The Live these scripts drive, with the Save panel reached by Go to Folder."""
-    return LiveOps(LiveClient(), staging=staging, save_panel=SavePanel(reach="go_to_folder"))
+    return LiveOps(LiveClient.via_app("cli"), staging=staging, save_panel=SavePanel(reach="go_to_folder"))

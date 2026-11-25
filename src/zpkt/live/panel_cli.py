@@ -252,9 +252,10 @@ def params(
     grep: str = typer.Option("", "--grep", help="Only names matching this (a regular expression, any case)."),
     host: str = HOST,
     port: int | None = PORT,
+    direct: bool = DIRECT,
 ) -> None:
     """List a device's parameters: name | range | default = what Live shows | choices."""
-    _run(panel.params, connect(LiveClient, host, port, changes=False, keep=True), instrument, grep)
+    _run(panel.params, connect(LiveClient, host, port, changes=False, direct=direct, keep=True), instrument, grep)
 
 
 @app.command()
@@ -351,13 +352,14 @@ def sweep_command(
     as_json: bool = typer.Option(False, "--json", help="Print the result as JSON."),
     host: str = HOST,
     port: int | None = PORT,
+    direct: bool = DIRECT,
 ) -> None:
     """Delete the files hands made that nothing can need again: leftover takes, old versions, old grids."""
     from zpkt.live import sweep
 
     projects, in_use = list(project), set()
     try:  # the open set: its project, and the audio it plays (which a set not saved yet would not show on disk)
-        live = connect(LiveClient, host, port, changes=False, timeout=4.0, retries=0, keep=True)
+        live = connect(LiveClient, host, port, changes=False, direct=direct, timeout=4.0, retries=0, keep=True)
         path, clips = live.run(
             "result = [str(getattr(song, 'file_path', '') or ''), sorted({str(c.file_path) for t in song.tracks "
             "for c in list(t.arrangement_clips) + [s.clip for s in t.clip_slots if s.has_clip] if c.is_audio_clip})]"

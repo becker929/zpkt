@@ -8,7 +8,7 @@ from pathlib import Path
 
 import typer
 
-from zpkt.live.cli_options import HOST, PORT, connect, fail
+from zpkt.live.cli_options import DIRECT, HOST, PORT, connect, fail
 from zpkt.live.transport import LiveClient, LiveError
 
 page_app = typer.Typer(help="Pages of controls for the one interface: check a spec against the open set.")
@@ -25,12 +25,13 @@ def describe(
     as_json: bool = typer.Option(False, "--json", help="Print the descriptions as JSON."),
     host: str = HOST,
     port: int | None = PORT,
+    direct: bool = DIRECT,
 ) -> None:
     """Kind, range, unit, steps, default and shown stops of each value. Exit 1 if the open set lacks one."""
     from zpkt.live import describe as D
 
     try:
-        found, missing = D.look(connect(LiveClient, host, port, changes=False, keep=True), keys)
+        found, missing = D.look(connect(LiveClient, host, port, changes=False, direct=direct, keep=True), keys)
     except LiveError as exc:
         fail(str(exc))
     if as_json:
@@ -52,12 +53,13 @@ def selection(
     as_json: bool = typer.Option(False, "--json", help="Print it as JSON."),
     host: str = HOST,
     port: int | None = PORT,
+    direct: bool = DIRECT,
 ) -> None:
     """The track, device and parameter selected in Live, as state keys spell them."""
     from zpkt.live import describe as D
 
     try:
-        sel = D.selection(connect(LiveClient, host, port, changes=False, keep=True))
+        sel = D.selection(connect(LiveClient, host, port, changes=False, direct=direct, keep=True))
     except LiveError as exc:
         fail(str(exc))
     if as_json:
@@ -72,6 +74,7 @@ def page_lint(
     as_json: bool = typer.Option(False, "--json", help="Print problems, labels, widgets and the MiniLab map as JSON."),
     host: str = HOST,
     port: int | None = PORT,
+    direct: bool = DIRECT,
 ) -> None:
     """Check a page spec against the open set, and say how it maps to the MiniLab. Exit 1 if it may not be shown."""
     from zpkt.live import describe as D
@@ -82,7 +85,9 @@ def page_lint(
     except (OSError, ValueError) as exc:
         fail(f"ERROR: {exc}", 2)
     try:
-        found, missing = D.look(connect(LiveClient, host, port, changes=False, keep=True), page.targets())
+        found, missing = D.look(
+            connect(LiveClient, host, port, changes=False, direct=direct, keep=True), page.targets()
+        )
     except LiveError as exc:
         fail(str(exc))
     problems = P.lint(page, found, missing)

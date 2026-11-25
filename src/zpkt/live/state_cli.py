@@ -24,13 +24,14 @@ def state_take(
     only: list[str] = typer.Option(None, "--only", help="Only these tracks (repeatable)."),
     host: str = HOST,
     port: int | None = PORT,
+    direct: bool = DIRECT,
 ) -> None:
     """Every mixer and device value of the front set -> sets_dir/state/<set>/NAME.json."""
     from zpkt.live import state as S
 
     set_name = front_set()
     t0 = time.monotonic()
-    st = S.take(connect(LiveClient, host, port, changes=False, keep=True), only)
+    st = S.take(connect(LiveClient, host, port, changes=False, direct=direct, keep=True), only)
     p = S.save(st, S.path_for(set_name, name), set_name)
     print(f"{p}  ({len(st['tracks'])} tracks, {len(S.flatten(st))} values, {time.monotonic() - t0:.1f} s)")
 
@@ -43,6 +44,7 @@ def state_diff(
     full: bool = typer.Option(False, "--full", help="Every row, not the collapsed summary."),
     host: str = HOST,
     port: int | None = PORT,
+    direct: bool = DIRECT,
 ) -> None:
     """What differs between A and B (or Live now). Only tracks A holds are read from Live. Exit 1 if anything does."""
     from zpkt.live import state as S
@@ -50,7 +52,7 @@ def state_diff(
     set_name = front_set() if b is None or not b.endswith(".json") or not a.endswith(".json") else ""
     sa = S.load(S.path_for(set_name, a))
     if b is None:
-        sb = S.take(connect(LiveClient, host, port, changes=False, keep=True), only=list(sa["tracks"]))
+        sb = S.take(connect(LiveClient, host, port, changes=False, direct=direct, keep=True), only=list(sa["tracks"]))
     else:
         sb = S.load(S.path_for(set_name, b))
     rows = S.diff(sa, sb, tuple(ignore or ()))
