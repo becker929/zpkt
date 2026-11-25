@@ -42,7 +42,7 @@ def test_analysis_and_media(rig):
     for bad in ("/media/B.wav", "/media/x.txt", "/media/..%2Fanalysis.json"):
         assert rig.get(bad)[0] == 404
     (rig.tmp / "viz" / "analysis.json").unlink()
-    assert rig.get("/api/analysis") == (404, {"error": "run analyze.py first"})
+    assert rig.get("/api/analysis") == (404, {"ok": False, "error": "run analyze.py first"})
 
 
 # ---- the MiniLab's pages and switches ------------------------------------------------------------------------------
@@ -247,7 +247,7 @@ def test_a_bad_body_is_a_400_that_says_what_is_wrong(rig, path, body):
 def test_a_body_that_is_not_a_json_object_is_a_400_and_an_unknown_route_a_404(rig):
     assert rig.post("/api/page", raw=b"{not json")[0] == 400
     assert rig.post("/api/page", raw=b"[1]")[0] == 400
-    assert rig.post("/api/nope") == (404, {"error": "not found"})
+    assert rig.post("/api/nope") == (404, {"ok": False, "error": "not found"})
 
 
 def test_revert_all_to_a_missing_checkpoint_changes_nothing(rig):

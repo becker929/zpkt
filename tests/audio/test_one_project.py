@@ -42,7 +42,10 @@ def test_ears_runs_every_meter_command(tmp_path, capsys) -> None:
     meters_cli.main(["bitdepth", str(path)])
     assert json.loads(via_ears.output) == json.loads(capsys.readouterr().out)
     usage = runner.invoke(app, ["target", str(path)])
-    assert usage.exit_code == 2 and "ears target: error: the following arguments are required: --refs" in usage.output
+    assert (
+        usage.exit_code == 2
+        and "zpkt audio target: error: the following arguments are required: --refs" in usage.output
+    )
 
 
 def test_both_entry_points_are_installed(tmp_path) -> None:

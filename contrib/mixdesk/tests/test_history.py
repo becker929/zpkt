@@ -17,7 +17,7 @@ import history
 @pytest.fixture()
 def h(tmp_path, monkeypatch):
     monkeypatch.setattr(history, "HISTORY_DIR", tmp_path / "hist")
-    monkeypatch.setattr(history.S, "folder", lambda set_name: tmp_path / "state" / set_name)
+    monkeypatch.setattr(history.live_state, "folder", lambda set_name: tmp_path / "state" / set_name)
     clock = [1000.0]
     x = history.History("SET", {"Kick bus/volume": "Kick bus volume"}, clock=lambda: clock[0])
     x.baseline(
@@ -93,7 +93,7 @@ def test_a_new_move_drops_the_redo_tail(h):
 def test_checkpoint_compare_and_revert(h):
     e = h.checkpoint("before", full(0.85, 0.5), None)
     assert e["k"] == "checkpoint"
-    saved = history.S.load(h.folder() / "before.json")
+    saved = history.live_state.load(h.folder() / "before.json")
     assert saved["tracks"]["mon A"]["mixer"]["solo"][1] is False  # monitor tracks as the desk leaves them
     h.now[0] += 5
     h.seen("Kick bus/volume", "-6 dB", 0.6)

@@ -84,7 +84,7 @@ def test_flow_6_undo_the_history_names_who_and_an_agent_group_undoes_as_one(rig,
     page.wait_for_selector(".he .who.agent")
     rows = page.locator(".he").all_inner_texts()
     assert any("agent" in r and "make the kick sit back" in r for r in rows)
-    assert any("sys" in r and "version" in r for r in rows)  # the automatic version before the agent's changes
+    assert any("sys" in r and "checkpoint" in r for r in rows)  # the automatic checkpoint before the agent's changes
     page.click("#hundo")
     page.wait_for_function("document.querySelector('#chgpill').textContent.startsWith('0')")  # all three at once
     assert page.locator("#chgpill").inner_text() == "0 changed"
