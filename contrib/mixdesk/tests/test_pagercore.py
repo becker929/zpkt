@@ -140,3 +140,90 @@ def test_another_timeline_is_passed_in():
     assert C.loop_mode(True, 32.0, 32.0, loops) == "drop" and C.loop_mode(True, 64.0, 96.0, loops) == "on"
     assert C.seek_position(500, end=64.0) == pytest.approx(63.99)
     assert C.play_from(64.0, end=64.0) == 0.0 and C.ran_past_end(True, False, 64.0, end=64.0)
+
+
+# ---- the full map (DESIGN 3b): data and the small decisions it needs --------------------------------------------------
+
+
+def test_the_pager_still_reads_the_old_table_and_it_is_unchanged():
+    assert len(C.HARDWARE) == 29 and C.ROLES == ("knob", "fader", "toggle_pad", "page_pad", "page_encoder")
+    assert C.step_page(0, -1, 12) == 11 and C.step_page(11, 1, 12) == 0 and C.step_page(3, 0, 12) is None
+
+
+def test_every_control_of_the_design_has_a_row_in_base_and_the_map_has_no_two_rows_for_one_place():
+    places = [(c, layer) for c, layer, *_ in C.MINILAB_MAP]
+    assert len(places) == len(set(places))
+    base = {c for c, layer, *_ in C.MINILAB_MAP if layer == "base"}
+    assert base >= {f"k{i}" for i in range(1, 9)} | {f"f{i}" for i in range(1, 5)}
+    assert base >= {f"a{i}" for i in range(1, 9)} | {f"b{i}" for i in range(1, 9)}
+    assert base >= {"data_turn", "data_push", "octave_down", "octave_up", "mod", "bend", "hold", "keys"}
+    assert {layer for _, layer, *_ in C.MINILAB_MAP} <= set(C.LAYERS)
+
+
+def test_every_named_action_in_the_map_is_known():
+    named = {arg for _, _, role, arg in C.MINILAB_MAP if role == "action"}
+    assert named <= set(C.ACTIONS) and set(C.ACTIONS) <= named | {"transport.stop"}
+
+
+def test_a_control_does_what_its_layer_says_and_shift_falls_back_to_base():
+    assert C.row_for("k1", shift=False, tempo=False)[2] == "knob"
+    assert C.row_for("k1", shift=True, tempo=False)[2] == "knob_fine"
+    assert C.row_for("f1", shift=True, tempo=False)[2] == "fader"  # unchanged with Shift
+    assert C.row_for("a3", shift=True, tempo=False) == ("a3", "shift", "action", "hear.pin")
+    assert C.row_for("a3", shift=False, tempo=False)[2] == "page_pad"
+    assert C.row_for("nothing", shift=False, tempo=False) is None
+
+
+def test_the_tempo_layer_takes_fader_4_and_pads_7_and_8_as_zpkt_minilab_tempo_did():
+    assert C.row_for("f4", False, tempo=True) == ("f4", "tempo", "tempo_fader", None)
+    assert C.row_for("a7", False, tempo=True)[3] == 0.5 and C.row_for("a8", False, tempo=True)[3] == 2.0
+    assert C.row_for("f3", False, tempo=True)[2] == "fader"  # the other controls are as they were
+    assert (
+        C.tempo_from_fader(0) == 60 and C.tempo_from_fader(127) == 200 and C.tempo_from_fader(64) == 131
+    )  # the script's own formula
+    assert C.tempo_scaled(160, 0.5) == 80 and C.tempo_scaled(600, 2) == 999 and C.tempo_scaled(30, 0.5) == 20
+
+
+@pytest.mark.parametrize(
+    ("mode", "driving", "on"), [("auto", True, False), ("auto", False, True), ("on", True, True), ("off", False, False)]
+)
+def test_the_tempo_layer_is_on_when_the_desk_is_not_driving_unless_told(mode, driving, on):
+    assert C.tempo_layer_on(mode, driving) is on
+
+
+def test_focus_walks_knobs_then_faders_then_switches_and_wraps():
+    order = C.focus_order(["b2", "f1", "k10", "k2", "k1", "f3"])
+    assert order == ["k1", "k2", "k10", "f1", "f3", "b2"]
+    assert C.step_focus(order, "k1", 1) == "k2" and C.step_focus(order, "b2", 1) == "k1"
+    assert C.step_focus(order, "k1", -1) == "b2" and C.step_focus(order, None, 1) == "k1"
+    assert C.step_focus(order, None, -1) == "b2" and C.step_focus([], None, 1) is None
+    assert C.next_group_focus(order, "k2") == "f1" and C.next_group_focus(order, "b2") == "k1"
+    assert C.next_group_focus(order, None) == "k1" and C.next_group_focus([], None) is None
+
+
+def test_pitch_bend_holds_past_a_third_of_its_throw_and_lets_go_near_the_middle():
+    assert C.bend_amount(8192) == 0 and C.bend_amount(16383) == pytest.approx(1, abs=1e-3) and C.bend_amount(0) == -1
+    assert C.bend_hold(0.5, None) == "pin" and C.bend_hold(-0.5, None) == "ref"
+    assert C.bend_hold(0.2, None) is None  # not enough to engage
+    assert C.bend_hold(0.2, "pin") == "pin"  # holding: only the middle lets go
+    assert C.bend_hold(0.1, "pin") is None
+    assert C.bend_hold(0.5, None, "a", "b") == "a"
+
+
+def test_keys_are_a_25_step_selector_and_the_ends_hold():
+    assert C.key_position(48) == 0 and C.key_position(72) == 1 and C.key_position(60) == 0.5
+    assert C.key_position(10) == 0 and C.key_position(100) == 1
+
+
+def test_fine_steps_move_a_tenth_as_far_and_the_first_report_moves_nothing():
+    assert C.fine_value(0.5, None, 100) == 0.5
+    assert C.fine_value(0.5, 50, 100) == pytest.approx(0.5 + 50 / 127 * 0.1)
+    assert C.fine_value(0.99, 0, 127) == 1.0 and C.fine_value(0.01, 127, 0) == 0.0
+
+
+def test_the_data_knob_is_relative_around_64_and_the_loop_window_cycles():
+    assert C.relative_step(65) == 1 and C.relative_step(62) == -2 and C.relative_step(64) == 0
+    assert (
+        C.loop_window("off", 1) == "build" and C.loop_window("drop", 1) == "off" and C.loop_window("off", -1) == "drop"
+    )
+    assert C.loop_window("on", 1) == "build"  # a loop the desk did not set counts as the first window

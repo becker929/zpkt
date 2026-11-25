@@ -22,6 +22,10 @@ if TYPE_CHECKING:
     from zpkt.app.desk import Desk, Settings
 
 
+class AdapterError(RuntimeError):
+    """An adapter could not be made or started; the message says what to do. `zpkt app` prints it and stops."""
+
+
 @dataclass(frozen=True)
 class AppContext:
     """What an adapter is given."""

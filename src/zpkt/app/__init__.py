@@ -21,15 +21,24 @@ def parse_args(argv: Sequence[str]) -> argparse.Namespace:
         prog="zpkt app", description="Start the one interface: the mix desk and the /app/ shell."
     )
     p.add_argument("--port", type=int, help="the HTTP port (default: MIXDESK_PORT or 8985)")
-    p.add_argument("--adapters", default="web,api", help="adapters to start, comma separated (default: web,api)")
+    p.add_argument(
+        "--adapters",
+        default="web,api",
+        help="adapters to start, comma separated (default: web,api; midi is off unless named)",
+    )
     p.add_argument("--no-supervise", action="store_true", help="do not start or watch the pager in Live")
     return p.parse_args(list(argv))
 
 
 def main(argv: Sequence[str] | None = None) -> None:
     """`zpkt app`: start the app and serve until interrupted."""
-    args = parse_args(sys.argv[1:] if argv is None else argv)
-    from zpkt.app.adapters import AppContext, create
+    argv = sys.argv[1:] if argv is None else list(argv)
+    if argv[:1] == ["midi"]:  # `zpkt app midi ...`: the MiniLab's tools (profile, learn, latency)
+        from zpkt.app.minilab.cli import main as midi_main
+
+        sys.exit(midi_main(argv[1:]))
+    args = parse_args(argv)
+    from zpkt.app.adapters import AdapterError, AppContext, create
     from zpkt.app.desk import Desk, Settings
 
     settings = Settings.from_env()
@@ -38,11 +47,17 @@ def main(argv: Sequence[str] | None = None) -> None:
 
         settings = replace(settings, http_port=args.port, udp_port=args.port + 1)
     desk = Desk(settings)
-    adapters = create([n for n in args.adapters.split(",") if n], AppContext(desk.bus, desk, settings))
+    try:
+        adapters = create([n for n in args.adapters.split(",") if n], AppContext(desk.bus, desk, settings))
+    except AdapterError as exc:
+        sys.exit(f"zpkt app: {exc}")
     for adapter in adapters:
         if args.no_supervise and hasattr(adapter, "supervise"):
             adapter.supervise = False
-        adapter.start()
+        try:
+            adapter.start()
+        except AdapterError as exc:
+            sys.exit(f"zpkt app: {adapter.name}: {exc}")
         port = getattr(adapter, "port", None)
         where = {"web": "/app/", "api": "/api/v1/"}.get(adapter.name, "/")
         print(

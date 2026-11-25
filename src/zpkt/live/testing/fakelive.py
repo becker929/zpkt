@@ -116,6 +116,21 @@ class _Done:
         return self._event.wait(timeout)
 
 
+# the script's methods for watching parameters (the bridge borrows them as they are)
+WATCH_METHODS = (
+    "_watch",
+    "_unwatch",
+    "_watch_register",
+    "_watch_unregister",
+    "_watch_eval",
+    "_watch_listener",
+    "_watch_note",
+    "_watch_flush",
+    "_watch_clear_now",
+    "_watch_clear",
+)
+
+
 class _Bridge:
     """Stands in for the script's AbletonLiveMCP instance: the script's own methods run on it, unchanged."""
 
@@ -123,13 +138,38 @@ class _Bridge:
         self._fake = fake
         self._active_conn: socket.socket | None = None
         script = fake._script.AbletonLiveMCP
+        self._write_lock = threading.Lock()
+        self._watches: dict[str, Any] = {}
+        self._watch_lock = threading.Lock()
+        self._watch_pending: dict[str, Any] = {}
+        self._watch_flush_queued = False
         self._log = types.MethodType(script._log, self)
         self._dispatch = types.MethodType(script._dispatch, self)
         self._build_scope = types.MethodType(script._build_scope, self)
         self._script_execute = types.MethodType(script._execute, self)
+        for name in WATCH_METHODS:  # the script's watching, unchanged (a script from before it has none)
+            if hasattr(script, name):
+                setattr(self, name, types.MethodType(getattr(script, name), self))
+        if hasattr(script, "_on_main"):
+            self._script_on_main = types.MethodType(script._on_main, self)
+            self._script_push = types.MethodType(script._push, self)
 
     def _execute(self, code: str) -> dict[str, Any]:
         return self._fake._call(code, lambda: self._script_execute(code))
+
+    def _on_main(self, label: str, fn: Callable[[], dict[str, Any]]) -> dict[str, Any]:
+        """The script's own helper, as one call on Live's main thread (kept in `calls` under its label)."""
+        return self._fake._call(label, lambda: self._script_on_main(label, fn))
+
+    def _push(self, message: dict[str, Any]) -> None:
+        """A push goes on the socket when a client is connected; without one (in process) it is kept and handed on."""
+        if self._active_conn is not None:
+            self._script_push(message)
+            return
+        wire = json.loads(json.dumps(message, default=str))
+        self._fake.pushes.append(wire)
+        if self._fake.on_push is not None:
+            self._fake.on_push(wire)
 
     # what the script asks of its ControlSurface
 
@@ -147,6 +187,9 @@ class _Bridge:
 
     def schedule_message(self, delay: int, callback: Callable[[], None]) -> None:
         """Run on Live's main thread now, unless the call's fault says the code never runs."""
+        if self._fake._deferred is not None and delay > 0:  # a call's own hop (delay 0) is not a tick's wait
+            self._fake._deferred.append(callback)
+            return
         fault = self._fake._fault
         if fault is None or fault.runs:
             callback()
@@ -166,7 +209,9 @@ class FakeLive(Transport):
         self._script = load_remote_script()
         # the script's threading (and, for a call told to fail, its eval) in this copy only: so a call can fail or
         # time out as in Live, with the script's own replies
-        self._script.__dict__["threading"] = types.SimpleNamespace(Event=lambda: _Done(self), Thread=threading.Thread)
+        self._script.__dict__["threading"] = types.SimpleNamespace(
+            Event=lambda: _Done(self), Thread=threading.Thread, Lock=threading.Lock
+        )
         self._bridge = _Bridge(self)
         self._faults: dict[int, Fault] = {}
         self._fault: Fault | None = None
@@ -175,6 +220,9 @@ class FakeLive(Transport):
         self._ids = 0
         self._count = 0  # code calls so far: what fail_on and the others count, whatever a test does to `calls`
         self._added_modules: set[str] = set()
+        self.pushes: list[dict[str, Any]] = []  # pushes made with no client connected (in process)
+        self.on_push: Callable[[dict[str, Any]], None] | None = None  # told of each of those
+        self._deferred: list[Callable[[], None]] | None = None
         self._server: Any = None
         self._thread: threading.Thread | None = None
 
@@ -203,6 +251,32 @@ class FakeLive(Transport):
             elapsed=reply.get("elapsed"),
             traceback=reply.get("traceback"),
         )
+
+    def send(self, message: dict[str, Any]) -> dict[str, Any]:
+        """One raw message (not code) as the Remote Script's dispatcher takes it, in process: {"watch": ...} and the
+        like. Returns the reply as the wire carries it."""
+        with MAIN_THREAD:
+            reply = self._bridge._dispatch(json.dumps(message).encode())
+        parsed: dict[str, Any] = json.loads(json.dumps(reply, default=str))
+        return parsed
+
+    @contextlib.contextmanager
+    def deferring(self) -> Iterator[None]:
+        """What the script gives schedule_message to run a tick later (delay above 0) waits for `run_scheduled`, as
+        Live's next tick would, so a burst of changes can be seen to arrive as one push."""
+        self._deferred = []
+        try:
+            yield
+        finally:
+            self._deferred = None
+
+    def run_scheduled(self) -> int:
+        """Run what was deferred, on Live's main thread; returns how many ran."""
+        with MAIN_THREAD:
+            queued, self._deferred = self._deferred or [], [] if self._deferred is not None else None
+            for callback in queued:
+                callback()
+        return len(queued)
 
     def _call(self, code: str, run: Callable[[], dict[str, Any]]) -> dict[str, Any]:
         """One call on Live's main thread, kept in `calls`; `run` is the script's own _execute."""
