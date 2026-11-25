@@ -121,3 +121,13 @@ def test_zpkt_live_via_chooses_for_default(app_env, monkeypatch):
     monkeypatch.setenv("ZPKT_LIVE_VIA", "maybe")
     with pytest.raises(ValueError, match="'app' or 'direct'"):
         configured_via()
+
+
+def test_the_token_is_never_sent_to_a_host_that_is_not_this_mac():
+    import pytest
+
+    from zpkt.app.client import AppClient, AppDown
+
+    c = AppClient("cli", url="http://evil.example:8984", token="secret")
+    with pytest.raises(AppDown, match="localhost only"):
+        c.submit("live.run", {"code": "1"})

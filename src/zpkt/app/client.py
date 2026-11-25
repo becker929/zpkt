@@ -13,6 +13,7 @@ import urllib.error
 import urllib.request
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlparse
 
 from zpkt.app import token as tokens
 
@@ -23,6 +24,9 @@ Reply = tuple[int, dict[str, Any]]
 
 class AppDown(OSError):
     """The app cannot be reached, or will not let this caller in. The message says what to do."""
+
+
+LOCAL_HOSTS = ("127.0.0.1", "localhost", "::1")
 
 
 def app_url() -> str:
@@ -53,6 +57,8 @@ class AppClient:
     def _send(self, method: str, path: str, body: dict[str, Any] | None, auth: bool = True) -> Reply:
         headers = {"Content-Type": "application/json"}
         if auth:
+            if urlparse(self.url).hostname not in LOCAL_HOSTS:
+                raise AppDown(f"{self.url} is not this Mac: the token goes to localhost only. Check ZPKT_APP_URL.")
             headers["Authorization"] = f"Bearer {self.token()}"
         data = None if body is None else json.dumps(body).encode()
         req = urllib.request.Request(self.url + API + path, data=data, method=method, headers=headers)
