@@ -213,7 +213,8 @@ You should see: `…/HW002_121_pp_walk3.als exists; pick another name`, exit 1.
 
 **27. [auto] A real-time take.**
 `uv run zpkt live record --arrangement --beats 8 --output ~/Music/zpkt/renders/walk-rec.wav`
-You should see: Live plays for about 3 s (out loud). `afinfo` on the file says about 3 s.
+You should see: Live plays for about 5 s (out loud: 8 beats and a 4-beat tail). The WAV is kept whole, with the
+pre-roll before beat 0, so `afinfo` says about 7 s; `walk-rec.wav.timing.json` beside it says where beat 0 is.
 
 ## Part 4. The whole mix as data: take, diff, put
 
@@ -353,7 +354,7 @@ You should see: JSON naming `mon A`, `mon B` and `mon C1` to `mon C4`.
 
 **56. [auto] The page.** Open http://127.0.0.1:8985/ on the Mac (on the phone: `https://<your-mac>.ts.net:8985/`).
 You should see: on the left one MiniLab page of tiles (slot, dial or fader, a large value, the name). On the right
-A / B / W / C, Play, the loop and the waveform. No scrollbar. The status says attached. Press `?`: the keys list.
+A / B / W / C, Play, the loop and the waveform. No scrollbar. The status has a green dot and says `MiniLab 3 → Live`. Press `?`: the keys list.
 
 **57. [you] Pages from the MiniLab.**
 Press pads A1 to A8 in turn. Then press A1 twice. Then turn the big encoder.
@@ -663,29 +664,29 @@ The agent fills this first, with a note per failure. Then Anthony does the [you]
 
 | Step | What | Pass / fail |
 |---|---|---|
-| 1–9 | Setup, copy, preflight | |
-| 10–20 | zpkt live basics | |
-| 21–27 | Export, Save As, record | |
-| 28–35 | State take, diff, put; als mix | |
-| 36–42 | Panels, grid, pick; Zpkt web | |
-| 43–52 | zpkt audio: measure, analyze, deliver, target, calibrate, inventory | |
-| 53–56 | Desk starts from the upgrade, pager attached, page | |
-| 57–59 | MiniLab: pages, pickup, knobs, switches | |
-| 60 | Monitor A / B / W / C (agent switches; Anthony listens) | |
-| 61–63 | History, undo, checkpoints, revert | |
-| 64 | Make a surface | |
-| 65, 67 | Live meter | |
-| 68–70 | Recipe show and apply, analyze | |
-| 71 | Render each way on the finishing set (optional) | |
-| 72 | Workspace Save As and its guard | |
-| 73–78 | Arranger pages; a save keeps the desk | |
-| 79–80 | Mix-2 batch and the queue route | |
-| 81 | Spectral before | |
-| 82 | One bounce | |
-| 84–88 | Harness: gate, home, /skrng, lab | |
-| 89–92 | Gemini sessions and CLI, artist, lab-params | |
-| 94–97 | Checklist prototype | |
-| 98–100 | Image wall | |
-| 101–103 | music-bot: tests, booth check, watched export | |
-| 104–105 | zpkt-demo: tests, livectl | |
-| 106–108 | Put things back | |
+| 1–9 | Setup, copy, preflight | Pass, but **step 8 is a coverage failure (permissions)**. `zpkt live open --no-save` timed out on Live's save dialog, and `rig reset --discard` left Live on "recover your work?". The rig's keys did not reach that dialog, and a direct keystroke was refused. It cleared only once Anthony let the agent use Live's window. Step 4: Anthony chose discard. |
+| 10–20 | zpkt live basics | Pass after ba5d11e (`zpkt live ping` and the other live-group commands did not exist). 20: the installed ZpktMiniLabTempo differs from the repo only in formatting and one comment |
+| 21–27 | Export, Save As, record | Pass. 27 keeps the take whole (7.5 s with pre-roll and tail): wording fixed |
+| 28–35 | State take, diff, put; als mix | Pass |
+| 36–42 | Panels, grid, pick; Zpkt web | 36–40 and 42 pass. **41 is a coverage failure (requests)**. http://127.0.0.1:8789/ answers 403 (Tailscale login only). On the tailnet URL the in-app browser blocks every API request, so the agent could not ask. Moved to Anthony (phone) |
+| 43–52 | zpkt audio: measure, analyze, deliver, target, calibrate, inventory | Pass. `measure` writes its sheet into ears/mlab/reports in the checkout (removed each time) |
+| 53–56 | Desk starts from the upgrade, pager attached, page | Pass. The status reads `MiniLab 3 → Live` with a green dot (wording fixed) |
+| 57–59 | MiniLab: pages, pickup, knobs, switches | Anthony |
+| 60 | Monitor A / B / W / C (agent switches; Anthony listens) | Agent part pass: each slot solos its own monitor track, C seeks to the drop, W clears all solos, level-match gains are set. Listening: Anthony |
+| 61–63 | History, undo, checkpoints, revert | Pass, with the moves made in Live (the page has no knob input). Desk checkpoints are always filed under HW002_121_pp_finish, even on the copy; moves made by scripts are stamped `you` |
+| 64 | Make a surface | Pass: made in 11 s, schema 1, real controls, armed, removed. Turning its macro knob is Anthony's (MiniLab) |
+| 65, 67 | Live meter | Pass (31 bands while playing). Whether the curve sits on the renders' scale was not checked by eye |
+| 68–70 | Recipe show and apply, analyze | Pass (apply 54 s; analysis.json byte-identical) |
+| 71 | Render each way on the finishing set (optional) | Anthony, if he wants |
+| 72 | Workspace Save As and its guard | Pass; the finishing set was untouched |
+| 73–78 | Arranger pages; a save keeps the desk | Pass. 76 listening: Anthony |
+| 79–80 | Mix-2 batch and the queue route | Pass on the second try. The first batch failed with silent renders because **HW002_121_pp_mix.als (saved 18 Nov) has its six buses' monitoring Off and its tempo at 124**. `mixset.py build` sets both, but the worker never checks them. That predates the upgrade. The buses were set to In for this run only, without saving |
+| 81 | Spectral before | Pass at 160 BPM: 60.00 s both, −16.78 against −16.81 LUFS. At the saved 124 BPM it was 77.4 s |
+| 82 | One bounce | Pass: 270 s both. Loudness −26.18 against −26.06 LUFS, but the splash chain is not deterministic (two new bounces differ as much as new against old) and the loops set changed after the old stem. Old stem put back |
+| 84–88 | Harness: gate, home, /skrng, lab | Pass. The lab still has its old browser sound (known, sound.md) |
+| 89–92 | Gemini sessions and CLI, artist, lab-params | Pass ($0.05). Gemini runs `git status` without asking (its own rule). ntfy: Anthony to confirm the phone got it |
+| 94–97 | Checklist prototype | Pass (temp data, --no-model). `concepts/` has no index, as before the upgrade |
+| 98–100 | Image wall | Pass (thumb on a copy; one image, batch walk-check) |
+| 101–103 | music-bot: tests, booth check, watched export | 101–102 pass with BOOTH_HOME set (`booth check` crashes on the dangling ~/_agent_scratch/booth link). 103 not run: booth home is on the unplugged offload disk |
+| 104–105 | zpkt-demo: tests, livectl | Pass |
+| 106–108 | Put things back | Pass: history restored, walkthrough checkpoints moved to ~/_agent_scratch/walk, finishing set in front with no unsaved changes, the upgraded desk attached on 8985, hands link on zpkt-main |
