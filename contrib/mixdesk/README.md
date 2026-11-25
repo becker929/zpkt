@@ -76,7 +76,8 @@ the finishing set its render nulls against the match render (-122 dB). The arran
    two returns (Space: Reverb, Echo: Echo) and a Glue and a Utility on Main. Every one starts where it changes nothing
    (EQ bands at 0 dB, Saturator and Glue at 0 % wet, sends down, bass mono off).
 2. With that set in Live, `uv run python contrib/mixdesk/server.py` serves the page on
-   127.0.0.1:8985 (`tailscale serve --bg --https=8985 http://127.0.0.1:8985` for the tailnet).
+   127.0.0.1:8985 (`tailscale serve --bg --https=8985 http://127.0.0.1:8985` for the tailnet). It answers for
+   `localhost` and `*.ts.net` names only; another proxy's name goes in `ZPKT_APP_HOSTS`.
 
 The server loads `pager.py` into Live's Python through hands' Remote Script. The pager grabs the MiniLab's controls
 from Live's factory MiniLab_3 script (as `src/zpkt/live/remote_scripts/ZpktMiniLabTempo` does, at a higher priority, so the

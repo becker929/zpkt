@@ -70,6 +70,12 @@ always did, with the pager's datagrams on 8986 and the meter on 8987.
 - `POST /api/command` takes any command: `{"kind": "mix.set", "args": {"norms": [["Kick bus/volume", 0.4]]}}`.
   `GET /api/commands` lists them. The old `POST /api/...` paths are these commands under their old names.
 
+The web server answers only for its own names: `localhost`, `127.0.0.1`, any `*.ts.net` name (the phone reaches the
+desk through `tailscale serve`, which keeps the name the phone asked for) and the names in `ZPKT_APP_HOSTS` (comma
+separated). Any other `Host` gets 403, reads included. That stops DNS rebinding: a page that points its own domain at
+127.0.0.1. A write must also come from the desk's own page: its `Origin` must be the site asked for, by `Host` or by
+the proxy's `X-Forwarded-Host` and `X-Forwarded-Proto` (`web.host_allowed`, `web.cross_site`).
+
 ## The API and its clients
 
 `zpkt app` also starts the API adapter on 127.0.0.1:8984 (`ZPKT_API_PORT`). It is how the `zpkt` command, the booth and

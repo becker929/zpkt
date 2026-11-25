@@ -41,6 +41,15 @@ NO_MINILAB = "no MiniLab 3 in Live"
 BEATS_PER_S = 160.0 / 60.0  # the HW002 set's tempo; the references line up on the drop in beats
 
 
+HOSTS_ENV = "ZPKT_APP_HOSTS"
+
+
+def hosts_from_env() -> tuple[str, ...]:
+    """ZPKT_APP_HOSTS: more Host names the web server answers for, comma separated (a proxy's name that is not a
+    tailnet's; see zpkt.app.web.host_allowed)."""
+    return tuple(name.strip() for name in os.environ.get(HOSTS_ENV, "").split(",") if name.strip())
+
+
 def mixdesk_dir() -> Path:
     """The folder with the desk's own files (desk.json, sources.json, pager.py and the old page). ZPKT_MIXDESK_DIR
     names another one; the default is contrib/mixdesk of this checkout."""
@@ -85,6 +94,7 @@ class Settings:
     options_dir: Path | None = None  # the queue's jobs, renders and measures (zpkt.app.renders); None: <data>/options
     arranger_dir: Path | None = None  # the HW002 arranger's data, read for Options; None: ARRANGER_DATA
     panels_dir: Path | None = None  # where `hands panel` keeps its panel files; None: the rig's renders folder
+    hosts: tuple[str, ...] = ()  # more Host names the web server answers for (ZPKT_APP_HOSTS); see web.host_allowed
 
     @classmethod
     def from_env(cls) -> Settings:
@@ -103,6 +113,7 @@ class Settings:
             surfaces_dir=config.rig().sets_dir / "surfaces" / set_name,
             pages_dir=config.rig().sets_dir / "pages" / set_name,
             changes_file=changes.path_for(set_name),
+            hosts=hosts_from_env(),
         )
 
 

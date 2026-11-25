@@ -1,6 +1,7 @@
 """The Web adapter's server: the mix desk's HTTP server, moved into the app.
 
-It serves the old desk page at / (same routes, same server-sent events, same ports: 8985, 8986 for the pager's
+It answers only for its own names (localhost, the tailnet proxy's name, the names in ZPKT_APP_HOSTS), and takes
+writes only from its own pages (`host_allowed`, `cross_site`). It serves the old desk page at / (same routes, same server-sent events, same ports: 8985, 8986 for the pager's
 datagrams, 8987 for the meter) and the new shell at /app/ (the Hear bar and the Desk), both from the same state. Every
 POST is a Command on the bus (zpkt.app.bus), stamped who="you": the old paths are the commands under their old names,
 and POST /api/command takes any kind. The server holds no state of its own; the Desk does.
@@ -15,7 +16,7 @@ import json
 import queue
 import sys
 import threading
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -27,7 +28,7 @@ from zpkt.app import pages
 from zpkt.app import protocol as P  # noqa: F401
 from zpkt.app.bus import BadRequest, Command, Reply
 from zpkt.app.commands import POST_PATHS
-from zpkt.app.desk import Desk, Settings, meter_message, mixdesk_dir, start_threads
+from zpkt.app.desk import HOSTS_ENV, Desk, Settings, hosts_from_env, meter_message, mixdesk_dir, start_threads
 from zpkt.app.options import BadOption
 from zpkt.live import desk_pager
 from zpkt.live.changes import Who
@@ -44,6 +45,7 @@ __all__ = [
     "Handler",
     "Response",
     "Settings",
+    "hosts_from_env",
     "main",
     "meter_message",
     "pager_start_code",
@@ -190,15 +192,69 @@ PAGES: dict[str, Path] = {"/": HERE / "static" / "index.html", "/index.html": HE
 SHELL_PAGES: dict[str, Path] = {"/app/": SHELL_DIR / "app.html", "/app": SHELL_DIR / "app.html"}
 
 
-def cross_site(origin: str | None, host: str | None) -> bool:
+LOOPBACK_NAMES = ("127.0.0.1", "localhost", "::1")
+TAILNET_SUFFIX = ".ts.net"  # a `tailscale serve` name; only Tailscale answers DNS for it, never with 127.0.0.1
+DEFAULT_PORTS = {"http": 80, "https": 443}
+
+
+def split_host(host: str | None) -> tuple[str, int | None] | None:
+    """A Host header as (name in lower case, port or None); None when it is not one name and one port."""
+    try:
+        parsed = urlparse(f"//{host or ''}")
+        name, port = parsed.hostname, parsed.port
+    except ValueError:
+        return None
+    if not name or parsed.path or parsed.username is not None or " " in (host or ""):
+        return None
+    return name.lower(), port
+
+
+def host_allowed(host: str | None, extra: Sequence[str] = ()) -> bool:
+    """Is `host` (a Host header) a name this server answers for: this Mac's loopback names, a tailnet name (the
+    `tailscale serve` proxy keeps the name the phone asked for), or one of `extra`. The port is not judged.
+
+    This is the check against DNS rebinding. A page on evil.example that points its name at 127.0.0.1 is the same
+    site as this server to the browser, so its Origin agrees with its Host; but the Host is still evil.example."""
+    found = split_host(host)
+    if found is None:
+        return False
+    name = found[0]
+    return name in LOOPBACK_NAMES or name.endswith(TAILNET_SUFFIX) or name in {e.lower() for e in extra}
+
+
+def _site(name: str, port: int | None, scheme: str | None) -> tuple[str, int | None]:
+    return name, port if port is not None else DEFAULT_PORTS.get(scheme or "")
+
+
+def cross_site(
+    origin: str | None, host: str | None, forwarded_host: str | None = None, forwarded_proto: str | None = None
+) -> bool:
     """True when a browser says the request comes from a page on another site (its Origin names another host than
     the one asked). Any web page could otherwise post to this server on 127.0.0.1 as a "simple" request. A caller
-    that sends no Origin (curl, the CLI, the tests) is not a browser page and passes."""
+    that sends no Origin (curl, the CLI, the tests) is not a browser page and passes.
+
+    Behind the tailnet proxy the name asked is the proxy's. The proxy hands it on as Host, and as X-Forwarded-Host
+    with X-Forwarded-Proto; the Origin may agree with either. A port left out is the scheme's own (443 for https),
+    so `https://name` and `name:443` are one site, and `https://name` and `name:8985` are two."""
     if not origin:
         return False
     if origin == "null":
         return True
-    return urlparse(origin).netloc.lower() != (host or "").lower()
+    try:
+        page = urlparse(origin)
+        page_site = _site((page.hostname or "").lower(), page.port, page.scheme)
+    except ValueError:
+        return True
+    if page.netloc.lower() == (host or "").lower() and not forwarded_proto:
+        return False  # the same text on both sides: the desk's own page, asked directly
+    scheme = (forwarded_proto or "http").split(",")[0].strip().lower()
+    if page.scheme != scheme:
+        return True
+    for asked in (host, forwarded_host):
+        found = split_host(asked)
+        if found is not None and _site(*found, scheme) == page_site:
+            return False
+    return True
 
 
 def parse_body(raw: bytes) -> dict[str, Any]:
@@ -344,6 +400,8 @@ class Handler(BaseHTTPRequestHandler):
         return False
 
     def do_GET(self) -> None:
+        if self._refuse_host():
+            return
         url = urlparse(self.path)
         if self.extension("GET") or self._mounted(url.path):
             return
@@ -366,6 +424,8 @@ class Handler(BaseHTTPRequestHandler):
 
     # ---- POST ----------------------------------------------------------------------------------------------------
     def do_HEAD(self) -> None:
+        if self._refuse_host():
+            return
         if not self._mounted(urlparse(self.path).path):
             self._send(404, b"", "text/plain")
 
@@ -374,9 +434,30 @@ class Handler(BaseHTTPRequestHandler):
         if not (self.extension(method) or self._mounted(urlparse(self.path).path)):
             self._json({"error": "not found"}, 404)
 
+    def _refuse_host(self) -> bool:
+        """Answer 403 to a request for a name this server does not answer for (DNS rebinding); True when it did."""
+        if host_allowed(self.headers.get("Host"), self.desk.settings.hosts):
+            return False
+        self._json(
+            {
+                "error": "this server answers for its own names only: localhost, its tailnet name, "
+                f"and the names in {HOSTS_ENV}"
+            },
+            403,
+        )
+        return True
+
     def _refuse_cross_site(self) -> bool:
-        """Answer 403 to a write that a page on another site sent; True when it did."""
-        if not cross_site(self.headers.get("Origin"), self.headers.get("Host")):
+        """Answer 403 to a request for a name that is not ours, or to a write that a page on another site sent;
+        True when it did."""
+        if self._refuse_host():
+            return True
+        forwarded = self.headers.get("X-Forwarded-Host")
+        if forwarded is not None and not host_allowed(forwarded, self.desk.settings.hosts):
+            forwarded = None  # a forwarded name we do not answer for counts for nothing
+        if not cross_site(
+            self.headers.get("Origin"), self.headers.get("Host"), forwarded, self.headers.get("X-Forwarded-Proto")
+        ):
             return False
         self._json({"error": "this server takes writes from its own pages only"}, 403)
         return True
