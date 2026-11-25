@@ -61,7 +61,7 @@ def test_psd_of_a_mono_signal_is_one_dimensional_and_of_stereo_is_averaged():
     mono = (np.sin(2 * math.pi * 1000 * np.arange(RATE) / RATE)).astype(np.float64)
     f, p = spectrum.psd(mono, RATE, nperseg=4096)
     assert p.ndim == 1 and len(p) == len(f)
-    f2, p2 = spectrum.psd(np.stack([mono, mono], axis=1), RATE, nperseg=4096)
+    _, p2 = spectrum.psd(np.stack([mono, mono], axis=1), RATE, nperseg=4096)
     assert p2.ndim == 1 and np.allclose(p, p2)
 
 

@@ -12,7 +12,9 @@ ports = st.one_of(st.none(), st.integers(1, 65535))
 text = st.one_of(st.none(), st.text(max_size=40))
 
 
-@given(host=text, origin=text, fwd=text, proto=st.one_of(st.none(), st.sampled_from(["http", "https", "https,http", ""])))
+@given(
+    host=text, origin=text, fwd=text, proto=st.one_of(st.none(), st.sampled_from(["http", "https", "https,http", ""]))
+)
 def test_the_checks_answer_for_any_text(host, origin, fwd, proto):
     assert isinstance(host_allowed(host), bool)
     assert isinstance(cross_site(origin, host, fwd, proto), bool)

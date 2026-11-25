@@ -17,4 +17,3 @@ def test_browser_skip_reasons_are_recognised():
 def test_switch_reads_the_environment(monkeypatch, value, expected):
     monkeypatch.setenv("ZPKT_REQUIRE_BROWSER", value)
     assert browser_required() is expected
-
