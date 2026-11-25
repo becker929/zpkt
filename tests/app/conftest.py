@@ -101,6 +101,7 @@ def throwaway_rig(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[N
     monkeypatch.setenv("ZPKT_LIVE_PREFS_DIR", str(tmp_path / "prefs"))
     monkeypatch.setenv("ZPKT_LIBRARY_DIR", str(tmp_path / "library"))
     monkeypatch.setenv("ZPKT_LIVE_PORT", "9")
+    monkeypatch.setenv("ARRANGER_DATA", str(tmp_path / "arranger"))  # Options read the arranger's folders
     config.rig.cache_clear()
     yield
     config.rig.cache_clear()

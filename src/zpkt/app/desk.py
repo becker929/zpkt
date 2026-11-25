@@ -27,6 +27,7 @@ from zpkt.app import protocol as P
 from zpkt.app.bus import Bus, SetGuard
 from zpkt.app.connections import LiveConnections, bind_udp, open_connections
 from zpkt.app.monitor import Monitor
+from zpkt.app.renders import Options
 from zpkt.audio.levels import rms_to_db
 from zpkt.live import changes, config, desk_pager, meter, monitor_tracks, openset
 from zpkt.live import state as S
@@ -78,6 +79,9 @@ class Settings:
     pager_file: Path = field(default_factory=lambda: mixdesk_dir() / "pager.py")
     changes_file: Path | None = None  # the set's change stream (zpkt.live.changes); None writes none
     references: tuple[str, ...] = field(default_factory=reference_ids)
+    options_dir: Path | None = None  # the queue's jobs, renders and measures (zpkt.app.renders); None: <data>/options
+    arranger_dir: Path | None = None  # the HW002 arranger's data, read for Options; None: ARRANGER_DATA
+    panels_dir: Path | None = None  # where `hands panel` keeps its panel files; None: the rig's renders folder
 
     @classmethod
     def from_env(cls) -> Settings:
@@ -126,6 +130,7 @@ class Desk:
         self.making = threading.Lock()  # one "Make a surface" job at a time
         self._analysis: tuple[float | None, dict[str, Any]] = (None, {"sources": {}})
         self.monitor = Monitor(self)
+        self.options = Options(self)
         self.bus = self._make_bus()
 
     def _make_bus(self) -> Bus:

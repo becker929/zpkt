@@ -62,6 +62,25 @@ the token in `~/.config/zpkt/app-token` (mode 0600, made at start). The jobs are
 `client.py` (standard library only, no Live code); the transport that lets a `LiveClient` caller switch in one line in
 `zpkt.live.app_transport`. The web page is `you` and cannot run them. The shapes are `lib/contracts/app-api.schema.json`.
 
+## Options and the one render queue
+
+An Option is a set of Versions of the mix, made to be heard side by side. I look at them in the Options sheet of
+`/app/` (the Options tab): a grid of Versions with their loudness and their gap to the base. Tapping one puts its
+numbers and spectrum on the Hear bar. "Make it Now" puts a Version's values on the mix as one move, which one undo
+takes back.
+
+- `options.make` asks for one: `{"title": "Kick up", "versions": [{"label": "+3 dB", "writes": [["Kick bus/volume",
+  0.8]]}], "range": {"start_beat": 64, "length_beats": 32}}`. The first Version is the mix as it stands (the base).
+- `renders.py` is the worker. For each Version it writes the values, has Live export through `zpkt.live.export` with
+  the app's connection, puts the values back (whatever happens), and hands the WAV to `zpkt.audio.measure`. Progress
+  streams as `{"t": "option"}` messages ("rendering 2 of 3"). Live is held for one Version at a time.
+- The queue is `renderqueue.py` (it came from `contrib/arranger/`, whose `renderqueue` is now an alias for it). Jobs
+  are files under `<data>/options/jobs`, in the shape of `lib/contracts/option.schema.json`.
+- Mix 2, the spectral fixes, the kick options and `hands panel grid` still render in their own tools, into their own
+  folders. The app reads those and lists them as Options. It changes none of them, so the old pages work as before.
+- `options.list`, `options.get`, `options.show` (reads) and `options.pick` (a move) are commands on the bus. An agent
+  may make an Option. It needs your word or an Option pick to make a Version Now.
+
 ## Files that stay where they were
 
 The desk's own files stay in `contrib/mixdesk/`: `desk.json`, `sources.json`, `pager.py` (it runs inside Live) and
