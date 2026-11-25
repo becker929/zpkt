@@ -1,0 +1,114 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "MiniLab 3 controller profile",
+  "description": "Every control of the Arturia MiniLab 3, its MIDI message and where that came from. Every item says whether anyone checked it at the hardware (none has yet).",
+  "type": "object",
+  "required": ["device", "status", "note", "ports", "sysex", "controls"],
+  "additionalProperties": false,
+  "properties": {
+    "device": {"type": "string"},
+    "status": {"const": "unverified"},
+    "note": {"type": "string"},
+    "ports": {
+      "type": "object",
+      "required": ["match", "basis", "source", "verified"],
+      "additionalProperties": false,
+      "properties": {
+        "match": {"type": "array", "items": {"type": "string"}, "minItems": 1},
+        "prefer": {"type": "array", "items": {"type": "string"}},
+        "basis": {"$ref": "#/$defs/basis"},
+        "source": {"type": "string"},
+        "verified": {"type": "boolean"}
+      }
+    },
+    "sysex": {
+      "type": "object",
+      "required": ["header", "end", "led", "display", "realign"],
+      "additionalProperties": false,
+      "properties": {
+        "header": {"$ref": "#/$defs/bytes"},
+        "end": {"$ref": "#/$defs/byte"},
+        "led": {
+          "type": "object",
+          "required": ["prefix", "layout", "basis", "source", "verified"],
+          "additionalProperties": false,
+          "properties": {
+            "prefix": {"$ref": "#/$defs/bytes"},
+            "layout": {"type": "string"},
+            "basis": {"$ref": "#/$defs/basis"},
+            "source": {"type": "string"},
+            "verified": {"type": "boolean"}
+          }
+        },
+        "display": {
+          "type": "object",
+          "required": ["prefix", "full_screen_options", "parameter_options", "line_1_width", "line_2_width", "basis", "source", "verified"],
+          "additionalProperties": false,
+          "properties": {
+            "prefix": {"$ref": "#/$defs/bytes"},
+            "full_screen_options": {"$ref": "#/$defs/bytes"},
+            "parameter_options": {"$ref": "#/$defs/bytes"},
+            "line_1_width": {"type": "integer", "minimum": 1},
+            "line_2_width": {"type": "integer", "minimum": 1},
+            "basis": {"$ref": "#/$defs/basis"},
+            "source": {"type": "string"},
+            "verified": {"type": "boolean"}
+          }
+        },
+        "realign": {
+          "type": "object",
+          "required": ["prefix", "layout", "basis", "source", "verified"],
+          "additionalProperties": false,
+          "properties": {
+            "prefix": {"$ref": "#/$defs/bytes"},
+            "layout": {"type": "string"},
+            "basis": {"$ref": "#/$defs/basis"},
+            "source": {"type": "string"},
+            "verified": {"type": "boolean"}
+          }
+        }
+      }
+    },
+    "controls": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"$ref": "#/$defs/control"}
+    }
+  },
+  "$defs": {
+    "byte": {"type": "integer", "minimum": 0, "maximum": 255},
+    "bytes": {"type": "array", "items": {"$ref": "#/$defs/byte"}},
+    "basis": {"enum": ["live-script", "midi-standard", "arturia-default", "guess", "unknown"]},
+    "message": {
+      "type": "object",
+      "required": ["type", "channel", "number"],
+      "additionalProperties": false,
+      "properties": {
+        "type": {"enum": ["cc", "note", "pitchbend"]},
+        "channel": {"type": "integer", "minimum": 1, "maximum": 16},
+        "number": {"type": ["integer", "null"], "minimum": 0, "maximum": 127},
+        "first": {"type": "integer", "minimum": 0, "maximum": 127},
+        "last": {"type": "integer", "minimum": 0, "maximum": 127}
+      }
+    },
+    "control": {
+      "type": "object",
+      "required": ["name", "label", "kind", "message", "basis", "source", "verified"],
+      "additionalProperties": false,
+      "properties": {
+        "name": {"type": "string", "pattern": "^[a-z][a-z0-9_]*$"},
+        "label": {"type": "string"},
+        "kind": {"enum": ["knob", "fader", "pad", "encoder", "button", "strip", "keys"]},
+        "message": {"$ref": "#/$defs/message"},
+        "encoding": {"enum": ["absolute", "relative-offset-64", "pitchbend-14bit"]},
+        "basis": {"$ref": "#/$defs/basis"},
+        "source": {"type": "string"},
+        "verified": {"type": "boolean"},
+        "shifted_of": {"type": "string"},
+        "realign_sysex_id": {"$ref": "#/$defs/byte"},
+        "led_sysex_id": {"$ref": "#/$defs/byte"},
+        "note": {"type": "string"}
+      }
+    }
+  }
+}
