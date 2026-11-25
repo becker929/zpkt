@@ -35,17 +35,17 @@ def ensure(live: McpTransport | None = None, log=print, want: dict[str, tuple[Pa
     """Add the monitor tracks that are missing. `want` ({name: (wav, beat)}) defaults to sources.json's; the
     recipe passes its own, so a rebuilt set gets the tracks the recipe was written with. The work is zpkt.live's."""
     try:
-        tracks.ensure(live or LiveClient(timeout=10.0, retries=1), want or wanted(), log)
+        tracks.ensure(live or LiveClient.via_app("cli"), want or wanted(), log)
     except FileNotFoundError as exc:
         raise SystemExit(str(exc)) from None
 
 
 def remove(live: McpTransport | None = None) -> None:
-    tracks.remove(live or LiveClient(timeout=10.0, retries=1))
+    tracks.remove(live or LiveClient.via_app("cli"))
 
 
 def status(live: McpTransport | None = None) -> list:
-    return tracks.status(live or LiveClient(timeout=10.0, retries=1))
+    return tracks.status(live or LiveClient.via_app("cli"))
 
 
 if __name__ == "__main__":

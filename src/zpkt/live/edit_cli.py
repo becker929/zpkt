@@ -142,12 +142,15 @@ def device_list(
     device: str = typer.Option("0", "--device", help="Device name or index on track."),
     host: str = HOST,
     port: int | None = PORT,
+    direct: bool = DIRECT,
 ) -> None:
     """List parameters on a device with their ranges and values."""
     from zpkt.live import device as dev_mod
 
     try:
-        res = dev_mod.list_parameters(connect(LiveClient, host, port, changes=False), track=track, device=device)
+        res = dev_mod.list_parameters(
+            connect(LiveClient, host, port, changes=False, direct=direct), track=track, device=device
+        )
         print(json.dumps(res))
     except LiveError as exc:
         fail(str(exc))

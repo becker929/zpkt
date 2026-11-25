@@ -4,7 +4,9 @@ and the name of the set in front.
 A command that changes Live goes through the zpkt app (it queues, locks and records who asked). When the app is down
 it refuses, unless given --direct: then it talks to Live itself and says the change is not recorded.
 ZPKT_LIVE_VIA=direct makes every command direct without a warning (the old way); ZPKT_LIVE_VIA=app is the default.
-A command that only reads may run direct.
+A command that only reads goes through the app too when it is running (so it waits its turn on the app's one
+connection to Live) and falls back to a direct connection when the app is down, with --direct, with ZPKT_LIVE_VIA=direct,
+or when --port names a Remote Script.
 """
 
 from __future__ import annotations
@@ -48,18 +50,22 @@ def connect(
 ) -> McpTransport:
     """The connection a command uses. `factory` is LiveClient (its module passes it, so a test can swap it).
 
-    A read goes straight to Live. A change goes through the app; with the app down it stops, unless `direct`."""
-    from zpkt.app.client import AppClient
-    from zpkt.live.app_transport import AppTransport, configured_via
+    A change goes through the app; with the app down it stops, unless `direct`. A read goes through the app when it
+    is running and otherwise straight to Live, silently. An explicit `port` means "that Remote Script": direct."""
+    from zpkt.live.app_transport import AppTransport, configured_via, make_client
 
+    forced_direct = direct or configured_via() == "direct"
     if not changes:
-        return factory(host, port, **kwargs)
+        if forced_direct or port is not None:
+            return factory(host, port, **kwargs)
+        client = make_client("cli")
+        return AppTransport(client=client) if client.up() else factory(host, port, **kwargs)
     if direct:
         print(NOT_RECORDED, file=sys.stderr)
         return factory(host, port, **kwargs)
-    if configured_via() == "direct":
+    if forced_direct:
         return factory(host, port, **kwargs)
-    client = AppClient("cli")
+    client = make_client("cli")
     if not client.up():
         fail(APP_NOT_RUNNING)
     return AppTransport(client=client)

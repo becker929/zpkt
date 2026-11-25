@@ -104,7 +104,7 @@ def live_ops(work: Path, renders: Path | None = None, staging: Path = STAGING) -
     from zpkt.live.transport import LiveClient
 
     config.rig.cache_clear()  # settings read before this call would name another rig's sets
-    return LiveOps(LiveClient(), staging=staging)
+    return LiveOps(LiveClient.via_app("cli"), staging=staging)  # through the app: its lock, its log
 
 
 def stop_unless_front(live: Any, where: str, want: str) -> None:
