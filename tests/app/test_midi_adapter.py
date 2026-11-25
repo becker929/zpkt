@@ -153,7 +153,14 @@ def test_pad_a2_arms_its_page_and_pad_a1_pressed_again_flips_to_the_layer_and_th
         count = len(hands.port.sent())
         hands.pad("a2")  # desk.json: Kick is the first page on pad 2
         assert wait_for(lambda: rig.state()["page"] == 2)
-        wait_for(lambda: len([m for m in hands.port.sent()[count:] if m[6:9] == [33, 16, 0]]) >= 8)
+
+        def shown():
+            new = hands.port.sent()[count:]
+            rings = [m for m in new if m[6:9] == [33, 16, 0]]
+            shows = [m for m in new if m[6:9] == [4, 2, 96]]
+            return len(rings) >= 8 and shows and bytes(shows[-1][17:21]) == b"Kick"
+
+        wait_for(shown)
         new = hands.port.sent()[count:]
         shows = [m for m in new if m[6:9] == [4, 2, 96]]
         assert shows and bytes(shows[-1][17:21]) == b"Kick"
