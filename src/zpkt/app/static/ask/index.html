@@ -708,6 +708,7 @@ async function send() {
     else if (V?.running) toast(`${V.turnEngine === 'instant' ? 'The fast path' : (ENGINE_NAME[V.engine] || ENGINE_NAME.gemini)} is still working. Send when it is done, or press Stop.`);
     return;
   }
+  if (!window.Zpkt || !window.Work) { toast('Ask did not load all its parts. Reload the page.', 8000); return; }
   if (Zpkt.isBusy()) { toast('Still attaching an image…'); return; }
   const mode = $('#mode').value, engine = cfg.engine, model = cfg.models[engine] || '';
   const extras = Zpkt.take(); // attachments + the armed surface's state

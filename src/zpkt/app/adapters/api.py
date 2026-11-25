@@ -87,6 +87,7 @@ def listing(bus: Bus) -> list[dict[str, Any]]:
 
 class ApiServer(ThreadingHTTPServer):
     daemon_threads = True
+    request_queue_size = 128  # as the desk's: a burst of requests waits instead of being refused
 
     def __init__(self, address: tuple[str, int], bus: Bus, tokens_by_who: dict[str, str]) -> None:
         """`tokens_by_who` is {who: token}: the token a request carries says who is asking."""
