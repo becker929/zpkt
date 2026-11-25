@@ -1,4 +1,4 @@
-# zpkt: the core (zpkt.live, zpkt.audio) is one uv project at the repo root; contrib and prototypes are their own.
+# zpkt: the core (zpkt.app, zpkt.live, zpkt.audio) is one uv project at the repo root; contrib and prototypes are their own.
 PYTEST   := uv run pytest -q -p no:cacheprovider
 
 .PHONY: setup remote-script format lint types test test-all check quick
@@ -23,9 +23,10 @@ lint:  ## check style without changing anything
 	$(RUFF) check -q .
 	$(RUFF) format --check -q .
 
-types:  ## mypy on the core and the mix desk
+types:  ## mypy on the core, the mix desk and the arranger
 	uv run --all-extras mypy
 	uv run --all-extras mypy --config-file contrib/mixdesk/mypy.ini
+	uv run --all-extras mypy --config-file contrib/arranger/mypy.ini
 
 quick: lint types  ## the everyday local check (about 2 min): the core in parallel, the mix desk and the arranger
 	$(PARALLEL) $(addprefix --ignore=,$(TIMED))

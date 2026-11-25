@@ -11,6 +11,7 @@ from __future__ import annotations
 import datetime as dt
 import os
 from collections.abc import Callable, Mapping, Sequence
+from pathlib import Path
 from typing import Any
 
 import numpy as np
@@ -23,11 +24,15 @@ from .arrays import FloatArray, Json
 from .util import lin, r
 
 ROOT = lab.ROOT
-LAB = os.environ.get("MLAB_DATA", ROOT)
+LAB: str | None = None  # a test may set it; None: MLAB_DATA, read when used, else the lab root
+
+
+def lab_dir() -> str:
+    return LAB or os.environ.get("MLAB_DATA", ROOT)
 
 
 def _p(path: str) -> str:
-    return path if os.path.isabs(path) else os.path.join(LAB, path)
+    return path if os.path.isabs(path) else os.path.join(lab_dir(), path)
 
 
 def _platform(x: FloatArray, sr: int, op: Json) -> FloatArray:
@@ -117,9 +122,9 @@ def run(path: str, outroot: str | None = None, codecs: bool | None = None) -> tu
     with open(path) as f:
         spec = yaml.safe_load(f)
     hid = spec["id"]
-    slug = os.path.splitext(os.path.basename(path))[0]
+    slug = Path(path).stem
     outdir = os.path.join(outroot or os.path.join(ROOT, "hypotheses", "results"), slug)
-    os.makedirs(outdir, exist_ok=True)
+    Path(outdir).mkdir(parents=True, exist_ok=True)
     variants = build_variants(spec)
     want_codecs = spec.get("codecs", False) if codecs is None else codecs
     rows: dict[str, dict[str, Any]] = {}
@@ -216,7 +221,7 @@ def _report(
             "",
             "## Listening",
             "",
-            f"Blind ABX kit in `{os.path.relpath(abx_dir, LAB)}` (level-matched). "
+            f"Blind ABX kit in `{os.path.relpath(abx_dir, lab_dir())}` (level-matched). "
             "Score with `python3 -m mlab abx-score <folder> <answers>`.",
         ]
     L_ += [

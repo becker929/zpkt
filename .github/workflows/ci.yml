@@ -16,6 +16,7 @@ jobs:
       core: ${{ steps.f.outputs.core }}
       harness: ${{ steps.f.outputs.harness }}
       audio_browser: ${{ steps.f.outputs.audio_browser }}
+      app_browser: ${{ steps.f.outputs.app_browser }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -27,7 +28,7 @@ jobs:
           BASE: ${{ github.event.pull_request.base.sha }}
         run: |
           if [ "$EVENT" != pull_request ]; then
-            printf 'core=true\nharness=true\naudio_browser=true\n' >> "$GITHUB_OUTPUT"; exit 0
+            printf 'core=true\nharness=true\naudio_browser=true\napp_browser=true\n' >> "$GITHUB_OUTPUT"; exit 0
           fi
           files=$(git diff --name-only "$BASE"...HEAD)
           has() { printf '%s\n' "$files" | grep -qE "$1" && echo true || echo false; }
@@ -35,6 +36,7 @@ jobs:
           core=$(printf '%s\n' "$files" | grep -vE '^(docs/|contrib/docs/|contrib/harness/|prototypes/)|\.md$' | grep -q . && echo true || echo false)
           echo "core=$core" >> "$GITHUB_OUTPUT"
           echo "harness=$(has '^(contrib/harness/|\.github/)')" >> "$GITHUB_OUTPUT"
+          echo "app_browser=$(has '^(src/zpkt/app/|tests/app/|tests/conftest\.py|pyproject\.toml|\.github/)')" >> "$GITHUB_OUTPUT"
           echo "audio_browser=$(has '^(prototypes/audio-browser/|\.github/)')" >> "$GITHUB_OUTPUT"
           printf '%s\n' "$files" | sed 's/^/  /'; cat "$GITHUB_OUTPUT"
 
@@ -62,6 +64,27 @@ jobs:
           T="tests/app/test_midi_adapter.py tests/app/test_ask_service.py tests/app/test_ask_http.py"
           uv run --all-extras pytest -q -p no:cacheprovider -n auto $(printf -- '--ignore=%s ' $T)
           uv run --all-extras pytest -q -p no:cacheprovider $T
+
+  app-browser:
+    # The Playwright (WebKit) tests of the app's pages. Own job, parallel to the others; a missing browser fails.
+    needs: changes
+    if: needs.changes.outputs.app_browser == 'true'
+    runs-on: ubuntu-latest
+    env:
+      ZPKT_REQUIRE_BROWSER: "1"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@1db35dd8eee11c5894872e0b383ae6c406cf738d # v10.4.0
+      - name: Install WebKit
+        run: uv run --all-extras playwright install --with-deps webkit
+      - name: Browser tests
+        run: >
+          uv run --all-extras pytest -q -p no:cacheprovider -n auto
+          tests/app/test_flows.py tests/app/test_flow_options.py tests/app/test_flow_pick.py
+          tests/app/test_layout.py tests/app/test_shell_fits.py tests/app/test_page_shell.py
+          tests/app/test_ask_flow.py tests/app/test_song_shell.py tests/app/test_flow_lock_banner.py
 
   lint-and-types:
     runs-on: ubuntu-latest

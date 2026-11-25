@@ -90,6 +90,12 @@ def made_up_analysis() -> dict:
 ANALYSIS = made_up_analysis()
 
 
+@pytest.fixture(autouse=True)
+def throwaway_arranger(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Options read the arranger's folders; never the real scratch data (as tests/app/conftest.py does)."""
+    monkeypatch.setenv("ARRANGER_DATA", str(tmp_path / "arranger"))
+
+
 def free_port(kind: int = socket.SOCK_STREAM) -> int:
     s = socket.socket(socket.AF_INET, kind)
     s.bind(("127.0.0.1", 0))
@@ -122,7 +128,9 @@ class Rig:
         self, method: str, path: str, body: Any = None, raw: bytes | None = None, headers: dict[str, str] | None = None
     ) -> tuple[int, Any]:
         data = raw if raw is not None else (json.dumps(body).encode() if body is not None else None)
-        req = urllib.request.Request(self.url + path, data=data, method=method, headers=headers or {})
+        req = urllib.request.Request(
+            self.url + path, data=data, method=method, headers={"Origin": self.url, **(headers or {})}
+        )
         try:
             with urllib.request.urlopen(req, timeout=20) as r:
                 code, payload, ctype = r.status, r.read(), r.headers.get("Content-Type", "")

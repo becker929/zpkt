@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import contextlib
 import dataclasses
+import logging
 import threading
 import time
 import traceback
@@ -43,6 +44,10 @@ OK: Reply = (200, {"ok": True})
 APPROVED_BY_USER = "user"
 OPTION_PREFIX = "option:"
 KEEP_LOG = 200
+VERSIONED_KEEP = 500  # groups remembered as already checkpointed
+
+
+log = logging.getLogger(__name__)
 
 
 class BadRequest(ValueError):
@@ -208,7 +213,7 @@ class Bus:
         self.guard, self._lock, self.version_before, self.clock = guard, lock, version_before, clock
         self.option_picked: Callable[[str], bool] | None = None  # set by whoever keeps the Options you pick from
         self.log: deque[dict[str, Any]] = deque(maxlen=KEEP_LOG)
-        self._versioned: set[str] = set()
+        self._versioned: dict[str, None] = {}  # recent groups, oldest first
         self._mutex = threading.Lock()
 
     def register(self, kind: str, spec: Spec) -> None:
@@ -253,9 +258,8 @@ class Bus:
             return 503, {"error": str(exc)}
         except Exception as exc:  # a handler's own bug: the caller still gets an answer, and the log has the type
             where = traceback.extract_tb(exc.__traceback__)[-1]  # the place, never the message: it may hold arguments
-            print(
-                f"app: command {cmd.kind!r} failed with {type(exc).__name__} at {where.filename}:{where.lineno}",
-                flush=True,
+            log.error(
+                "app: command %r failed with %s at %s:%s", cmd.kind, type(exc).__name__, where.filename, where.lineno
             )
             return 500, {"error": f"{cmd.kind} failed inside the app ({type(exc).__name__}); see the app's log"}
 
@@ -282,7 +286,10 @@ class Bus:
         group = cmd.group or f"agent-{cmd.kind}-{int(self.clock())}"
         with self._mutex:
             first = group not in self._versioned
-            self._versioned.add(group)
         if first and self.version_before is not None:
-            self.version_before(group)
+            self.version_before(group)  # marked only after it worked: a failed checkpoint is tried again
+        with self._mutex:
+            self._versioned[group] = None
+            while len(self._versioned) > VERSIONED_KEEP:
+                del self._versioned[next(iter(self._versioned))]
         return dataclasses.replace(cmd, group=group)

@@ -2,9 +2,13 @@
 
 from __future__ import annotations
 
+import logging
+
 import numpy as np
 
 from .models import SpectralFeatures
+
+log = logging.getLogger(__name__)
 
 
 def extract(audio: np.ndarray, sr: float) -> SpectralFeatures:
@@ -57,6 +61,6 @@ def extract(audio: np.ndarray, sr: float) -> SpectralFeatures:
         desc = rhythm_extractor(audio.astype(np.float32))
         feats.danceability = float(desc[6])
     except Exception:
-        pass
+        log.debug("key and danceability skipped", exc_info=True)  # best effort: the field stays empty
 
     return feats

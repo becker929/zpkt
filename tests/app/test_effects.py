@@ -22,6 +22,7 @@ READS = {
     "song.list",
     "song.recipe",
     "song.show",
+    "desk.state",
     "state.read",
     "state.take",
 }
@@ -29,6 +30,7 @@ MAKES = {
     "history.checkpoint",
     "monitor.pin",
     "option.propose",
+    "options.propose",
     "options.make",
     "page.draft",
     "page.make",
@@ -57,6 +59,7 @@ MOVES = {
     "option.pick",
     "options.pick",
     "page.apply",
+    "panel.apply",
     "page.arm",
     "page.set",
     "pager.restart",

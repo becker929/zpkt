@@ -12,6 +12,7 @@ Patterns are the set's own (one loop of each track's first arrangement clip), ti
 from __future__ import annotations
 
 import json
+from collections.abc import Mapping
 
 from zpkt.live.transport import McpTransport
 
@@ -31,16 +32,18 @@ result = [c.loop_end - c.loop_start, [[n.pitch, n.start_time - c.loop_start, n.d
 """
 
 
-def tracks(layers: dict = LAYERS) -> list[str]:
+def tracks(layers: Mapping[str, tuple[str, list[int]]] = LAYERS) -> list[str]:
     return sorted({track for track, _ in layers.values()})
 
 
-def patterns(client: McpTransport, layers: dict = LAYERS) -> dict[str, list]:
+def patterns(
+    client: McpTransport, layers: Mapping[str, tuple[str, list[int]]] = LAYERS
+) -> dict[str, tuple[float, list[list[float]]]]:
     """{track: [loop length, [[pitch, start, duration, velocity], ...]]} from each hat track."""
     return {name: client.run(f"NAME = {name!r}\n" + PATTERN) for name in tracks(layers)}
 
 
-def tile(loop: float, notes: list, length: float, pitches: set[int]) -> list[list]:
+def tile(loop: float, notes: list[list[float]], length: float, pitches: set[int]) -> list[list[float]]:
     """The notes of `pitches` from a `loop`-beat pattern, repeated to fill `length` beats; notes
     that would run past the end are shortened."""
     out, k = [], 0
@@ -54,8 +57,11 @@ def tile(loop: float, notes: list, length: float, pitches: set[int]) -> list[lis
 
 
 def rewrite(
-    client: McpTransport, sections: list[tuple[float, float, str]], pats: dict, layers: dict = LAYERS
-) -> list[tuple]:
+    client: McpTransport,
+    sections: list[tuple[float, float, str]],
+    pats: Mapping[str, tuple[float, list[list[float]]]],
+    layers: Mapping[str, tuple[str, list[int]]] = LAYERS,
+) -> list[tuple[str, float, float, str, int]]:
     """Clear the hat tracks, then write one MIDI clip per track and section.
 
     sections: [(start_beat, length_beats, "ABC"), ...] on the current timeline; a track gets a clip

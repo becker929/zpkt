@@ -201,3 +201,15 @@ def test_a_note_for_one_set_is_never_run_on_another():
     ]
     assert live.ran == [] and hold.pending() == []
     hold.on_set("")
+
+
+def test_settle_keeps_the_note_when_it_fails_in_a_way_it_does_not_understand():
+    class Odd(Live):
+        def execute(self, code):
+            raise RuntimeError("not a Live error")
+
+    note_id = hold.note("the tempo", "song.tempo = 119")
+    hold.settle(Odd(), note_id)
+    assert [e["id"] for e in hold.pending()] == [note_id]  # still there for the next replay
+    hold.settle(Live(), note_id)
+    assert hold.pending() == []

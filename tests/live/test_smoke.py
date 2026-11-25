@@ -10,7 +10,6 @@ import json
 from zpkt.live.models import (
     EQ8Band,
     EQ8Spec,
-    Feedback,
     KickConfig,
     MidiNote,
     MidiPattern,
@@ -53,18 +52,6 @@ def test_project_config_round_trip() -> None:
     json_str = config.model_dump_json()
     restored = ProjectConfig.model_validate_json(json_str)
     assert config == restored
-
-
-def test_feedback_round_trip() -> None:
-    fb = Feedback(
-        session_id="sess-001",
-        render_path="/tmp/render.mp3",
-        text="More punch in the kick",
-        timestamp_utc="2026-03-26T00:00:00Z",
-        rating=4,
-    )
-    restored = Feedback.model_validate_json(fb.model_dump_json())
-    assert restored == fb
 
 
 def test_mock_transport() -> None:

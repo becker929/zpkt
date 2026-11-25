@@ -100,10 +100,10 @@ def test_the_allowed_list_is_short_and_every_entry_exists():
 
 def test_the_app_owns_the_connections():
     """Outside the libraries, only the app's connections build a LiveClient or bind a socket. The other places are the
-    HTTP clients of the app (client.py, page_cli.py): they open HTTP to the app and never reach Live."""
+    HTTP clients of the app (client.py; page_cli.py goes through it): they open HTTP to the app and never reach Live."""
     owners = {p.relative_to(SRC).as_posix() for p in (SRC / "app").rglob("*.py") if violations(p)}
     # ask/mcp.py is the agents' tool server: a client of the app over HTTP (urlopen to the app), never of Live.
-    assert owners == {"app/connections.py", "app/client.py", "app/page_cli.py", "app/ask/mcp.py"}
+    assert owners == {"app/connections.py", "app/client.py", "app/ask/mcp.py"}
     assert violations(SRC / "app" / "ask" / "mcp.py") and all(
         "urlopen" in v for v in violations(SRC / "app" / "ask" / "mcp.py")
     )
@@ -114,6 +114,76 @@ def test_adapters_do_not_import_zpkt_live_to_change_it():
     for p in (SRC / "app" / "adapters").glob("*.py"):
         imported = {n.module for n in ast.walk(ast.parse(p.read_text())) if isinstance(n, ast.ImportFrom) and n.module}
         assert not [m for m in imported if m.startswith("zpkt.live")], f"{p.name} imports {imported}"
+
+
+ROOT = SRC.parents[1]
+# contrib's direct LiveClient() calls, file -> how many. It can only shrink: a new one goes through the app
+# (LiveClient.via_app / AppClient). meter.py stays: its levels read wants a plain connection with its own timeout.
+CONTRIB_DIRECT: dict[str, int] = {"contrib/mixdesk/meter.py": 1}
+
+
+def imported_modules(path: Path, top_level_only: bool = False) -> set[str]:
+    """Every module a file imports. With `top_level_only`, only imports that run at import time (not in a def)."""
+    tree = ast.parse(path.read_text())
+
+    def walk(nodes: list[ast.stmt]) -> set[str]:
+        found: set[str] = set()
+        for n in nodes:
+            if isinstance(n, ast.ImportFrom) and n.module and not n.level:
+                found.add(n.module)
+            elif isinstance(n, ast.Import):
+                found |= {a.name for a in n.names}
+            elif top_level_only and isinstance(n, ast.FunctionDef | ast.AsyncFunctionDef):
+                continue
+            else:
+                for child in ast.iter_child_nodes(n):
+                    if isinstance(child, ast.stmt):
+                        found |= walk([child])
+        return found
+
+    return walk(tree.body)
+
+
+def imports_of(modules: set[str], prefix: str) -> list[str]:
+    return sorted(m for m in modules if m == prefix or m.startswith(prefix + "."))
+
+
+@pytest.mark.parametrize("lib", LIBRARIES)
+def test_libraries_never_import_the_app(lib):
+    """The libraries sit under the app: even a lazy import of zpkt.app would make a cycle."""
+    bad = [
+        f"{p.relative_to(SRC)} imports {m}"
+        for p in (SRC / lib).rglob("*.py")
+        for m in imports_of(imported_modules(p), "zpkt.app")
+    ]
+    assert bad == []
+
+
+def test_src_never_imports_contrib_or_harness_at_module_top_level():
+    bad = []
+    for p in SRC.rglob("*.py"):
+        mods = imported_modules(p, top_level_only=True)
+        bad += [f"{p.relative_to(SRC)} imports {m}" for top in ("contrib", "harness") for m in imports_of(mods, top)]
+    assert bad == []
+
+
+def test_contrib_direct_liveclients_only_shrink():
+    found = {}
+    for p in (ROOT / "contrib").rglob("*.py"):
+        if "tests" in p.parts or ".venv" in p.parts:
+            continue
+        n = sum(
+            1
+            for node in ast.walk(ast.parse(p.read_text()))
+            if isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id == "LiveClient"
+        )
+        if n:
+            found[p.relative_to(ROOT).as_posix()] = n
+    for rel, n in found.items():
+        assert rel in CONTRIB_DIRECT, f"{rel} builds a LiveClient: go through the app (LiveClient.via_app)"
+        assert n <= CONTRIB_DIRECT[rel], f"{rel} builds {n} LiveClients; the list says {CONTRIB_DIRECT[rel]}"
+    for rel, n in CONTRIB_DIRECT.items():
+        assert found.get(rel, 0) == n, f"{rel} now builds {found.get(rel, 0)}: update CONTRIB_DIRECT (drop it at 0)"
 
 
 @pytest.mark.parametrize("lib", LIBRARIES)

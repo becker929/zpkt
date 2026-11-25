@@ -32,6 +32,7 @@ import re
 import shutil
 import subprocess
 import time
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any, NotRequired, TypedDict, cast
 
@@ -39,7 +40,13 @@ from zpkt.live import config
 from zpkt.live.inlive.shown import shown_number
 
 SLOTS = [f"k{i}" for i in range(1, 9)] + [f"f{i}" for i in range(1, 5)] + [f"b{i}" for i in range(1, 9)]
-MODEL = os.environ.get("MIXDESK_MODEL", "sonnet")
+
+
+def model() -> str:
+    """MIXDESK_MODEL (read at each call), else sonnet."""
+    return os.environ.get("MIXDESK_MODEL", "sonnet")
+
+
 TIMEOUT_S = 180
 KEYCHAIN_ITEM = "zpkt-claude-oauth"  # the harness's Claude login, if it has one (contrib/harness config.py)
 SCHEMA = 1  # the made-surface file's version this code writes; a file without "schema" is version 1
@@ -129,7 +136,7 @@ def as_page(s: SurfaceFile, file: str) -> dict[str, Any]:
     }
 
 
-def pages(set_name: str, directory: Path | None = None) -> list[dict]:
+def pages(set_name: str, directory: Path | None = None) -> list[dict[str, Any]]:
     """The saved surfaces as desk pages, oldest first; a file that is not a surface is passed over. `directory`
     defaults to folder(set_name)."""
     d = directory or folder(set_name)
@@ -142,9 +149,19 @@ def pages(set_name: str, directory: Path | None = None) -> list[dict]:
     return out
 
 
-def parse_inventory(text: str) -> dict:
+class Param(TypedDict):
+    now: str
+    min: str
+    max: str
+    q: bool  # a switch or list
+
+
+Inventory = dict[tuple[str, str, str], Param]  # (track, device, param) -> what the pager shows of it
+
+
+def parse_inventory(text: str) -> Inventory:
     """{(track, device, param): {"now", "min", "max", "q"}} from the pager's tab-separated lines."""
-    inv = {}
+    inv: Inventory = {}
     for line in text.splitlines():
         f = line.split("\t")
         if len(f) >= 7:
@@ -152,7 +169,7 @@ def parse_inventory(text: str) -> dict:
     return inv
 
 
-def _inventory_text(inv: dict) -> str:
+def _inventory_text(inv: Inventory) -> str:
     """The inventory for the prompt: grouped, one parameter a line."""
     out, last = [], None
     for (track, device, param), v in inv.items():
@@ -164,7 +181,7 @@ def _inventory_text(inv: dict) -> str:
     return "\n".join(out)
 
 
-def prompt_for(request: str, inv: dict, existing: list[str]) -> str:
+def prompt_for(request: str, inv: Inventory, existing: list[str]) -> str:
     return f"""You are building one control-surface page for a MIDI controller (Arturia MiniLab 3) that drives an Ableton Live set.
 
 The musician asked:
@@ -229,7 +246,7 @@ def ask_claude(prompt: str) -> str:
                 "--max-turns",
                 "1",
                 "--model",
-                MODEL,
+                model(),
                 "--setting-sources",
                 "",
                 "--tools",
@@ -258,7 +275,7 @@ def ask_claude(prompt: str) -> str:
     return str(d.get("result", ""))
 
 
-def extract_json(text: str) -> dict:
+def extract_json(text: str) -> dict[str, Any]:
     m = re.search(r"\{.*\}", text, re.S)
     if not m:
         raise SurfaceError("Claude's answer had no JSON in it")
@@ -268,7 +285,7 @@ def extract_json(text: str) -> dict:
         raise SurfaceError(f"Claude's JSON does not parse ({exc})") from None
 
 
-def _end(want: str, v: dict, where: str, notes: list[str]) -> str | None:
+def _end(want: str, v: Param, where: str, notes: list[str]) -> str | None:
     """One end of a macro's sweep, checked against the parameter: "current" becomes the value the set has now (so
     the sweep stays where it was made), a value outside the range becomes that end of the range, and one that
     cannot be read is None."""
@@ -292,7 +309,7 @@ def _end(want: str, v: dict, where: str, notes: list[str]) -> str | None:
     return w
 
 
-def _find(inv: dict, track: str, device: str, param: str) -> tuple | None:
+def _find(inv: Inventory, track: str, device: str, param: str) -> tuple[str, str, str] | None:
     """The inventory key for a control, forgiving case and a return's letter."""
     want = (str(track).lower(), str(device or "").lower(), str(param).lower())
     for k in inv:
@@ -301,12 +318,12 @@ def _find(inv: dict, track: str, device: str, param: str) -> tuple | None:
     return None
 
 
-def validate(surface: dict, inv: dict, taken: list[str]) -> dict:
+def validate(surface: dict[str, Any], inv: Inventory, taken: list[str]) -> dict[str, Any]:
     """The surface with only what the set holds, names spelled as the set spells them; `notes` says what went."""
     notes = [str(n) for n in surface.get("notes", []) if str(n).strip()]
     controls = {}
 
-    def one(c: dict, where: str) -> dict | None:
+    def one(c: dict[str, Any], where: str) -> dict[str, Any] | None:
         k = _find(inv, c.get("track", ""), c.get("device", ""), c.get("param", ""))
         if k is None:
             notes.append(
@@ -362,7 +379,7 @@ def validate(surface: dict, inv: dict, taken: list[str]) -> dict:
     return {"name": name, "what": str(surface.get("what", "")).strip()[:200], "controls": controls, "notes": notes}
 
 
-def save(surface: dict, set_name: str, prompt: str, directory: Path | None = None) -> Path:
+def save(surface: dict[str, Any], set_name: str, prompt: str, directory: Path | None = None) -> Path:
     d = directory or folder(set_name)
     d.mkdir(parents=True, exist_ok=True)
     slug = re.sub(r"[^a-z0-9]+", "-", surface["name"].lower()).strip("-") or "surface"
@@ -389,8 +406,13 @@ def remove(set_name: str, file: str, directory: Path | None = None) -> Path:
 
 
 def make(
-    request: str, inv: dict, set_name: str, taken: list[str], ask=ask_claude, directory: Path | None = None
-) -> tuple[Path, dict]:
+    request: str,
+    inv: Inventory,
+    set_name: str,
+    taken: list[str],
+    ask: Callable[[str], str] = ask_claude,
+    directory: Path | None = None,
+) -> tuple[Path, dict[str, Any]]:
     """The whole job: ask, check against the set, save. Returns the file and the surface."""
     surface = validate(extract_json(ask(prompt_for(request, inv, taken))), inv, taken)
     return save(surface, set_name, request, directory), surface

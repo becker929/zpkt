@@ -32,7 +32,7 @@ from zpkt.live.session import stop
 from zpkt.live.transport import McpTransport
 from zpkt.live.units import Lin, Log
 
-Step = tuple[Knob, Sequence]  # one value per pattern, in the knob's .als units
+Step = tuple[Knob, Sequence[object]]  # one value per pattern, in the knob's .als units
 
 
 @dataclass
@@ -126,7 +126,9 @@ def _save(name: str, wait_s: float = 2.0) -> None:
         stop(f"kit: File > Save Live Set stayed greyed out for {name}; the set on disk is not the kit")
 
 
-def write_batch(kit: Kit | str, tag: str, steps: Iterable[Step], devices: Iterable[tuple] = ()) -> str:
+def write_batch(
+    kit: Kit | str, tag: str, steps: Iterable[Step], devices: Iterable[tuple[str, str, str, str]] = ()
+) -> str:
     """Offline: a batch set from the kit, with devices added and knobs stepped per pattern.
 
     devices: (track, donor_set, donor_track, device_tag), each appended to `track`.
@@ -142,8 +144,8 @@ def write_batch(kit: Kit | str, tag: str, steps: Iterable[Step], devices: Iterab
     for knob, values in steps:
         if len(values) != kit.P:
             raise ValueError(f"{knob}: {len(values)} values for {kit.P} patterns")
-        track, device, path = als.resolve(tree, *knob.spec)
-        als.set_steps(tree, track, device, path, list(zip(times, values, strict=False)))
+        track_el, device_el, path = als.resolve(tree, *knob.spec)
+        als.set_steps(tree, track_el, device_el, path, list(zip(times, values, strict=False)))
     name = f"{rig.new_set_prefix}x_{kit.kit}_{tag}"
     problems = als.check(als.save(tree, rig.set_path(name), overwrite=True)).problems
     if problems:
@@ -151,7 +153,7 @@ def write_batch(kit: Kit | str, tag: str, steps: Iterable[Step], devices: Iterab
     return name
 
 
-def render(client: McpTransport, batch_set: str, kit: Kit | str, out_dir: str | Path) -> dict:
+def render(client: McpTransport, batch_set: str, kit: Kit | str, out_dir: str | Path) -> dict[str, object]:
     """Guarded load, one Main export, a silence and length check, and one WAV per pattern
     (pattern_XX.wav beside all.wav). Writes and returns manifest.json."""
     kit = _kit(kit)
@@ -198,7 +200,7 @@ def merge_patterns(
     if len(patterns) > P:
         raise ValueError(f"{len(patterns)} patterns for a {P}-pattern kit")
     taken = set(taken)
-    rows: dict[Knob, list] = {}
+    rows: dict[Knob, list[object]] = {}
     for j, sets in enumerate(patterns):
         for knob, value in sets:
             if knob in taken:

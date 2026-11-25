@@ -121,7 +121,7 @@ def test_a_hung_hammerspoon_rerun_is_a_ui_error(fake, monkeypatch):
 
 
 def test_custom_ui_timeout_is_honored(monkeypatch):
-    monkeypatch.setattr(ui, "DEFAULT_TIMEOUT", 2.5)
+    monkeypatch.setenv("ZPKT_UI_TIMEOUT", "2.5")
 
     def check_timeout(argv, **kw):
         assert kw["timeout"] == 2.5
@@ -129,3 +129,10 @@ def test_custom_ui_timeout_is_honored(monkeypatch):
 
     monkeypatch.setattr(ui.subprocess, "run", check_timeout)
     assert ui.front_title() == "SetTitle"
+
+
+def test_ui_timeout_is_read_at_call_time(monkeypatch):
+    monkeypatch.setenv("ZPKT_UI_TIMEOUT", "7")
+    assert ui.default_timeout() == 7.0
+    monkeypatch.delenv("ZPKT_UI_TIMEOUT")
+    assert ui.default_timeout() == 30.0

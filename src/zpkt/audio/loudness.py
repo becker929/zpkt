@@ -7,12 +7,14 @@ are not interchangeable.
 
 from __future__ import annotations
 
-import contextlib
+import logging
 from typing import Any
 
 import numpy as np
 
 from .models import LoudnessFeatures
+
+log = logging.getLogger(__name__)
 
 BANDS: dict[str, tuple[int, int]] = {  # name: (lo Hz, hi Hz), lo inclusive
     "sub": (20, 150),
@@ -87,7 +89,7 @@ def _windowed_max_lufs(meter: Any, channels: np.ndarray, sr: float, window_s: fl
             if np.isfinite(v):
                 vals.append(v)
         except Exception:
-            pass
+            log.debug("windowed LUFS window skipped", exc_info=True)  # best effort: the field stays empty
     return float(max(vals)) if vals else None
 
 
@@ -103,8 +105,10 @@ def extract(audio: np.ndarray, sr: float, channels: np.ndarray | None = None) ->
     chans = audio if channels is None else channels
 
     # A meter that fails leaves its field None, which the profile shows as n/a; the others still run.
-    with contextlib.suppress(Exception):
+    try:
         feats.true_peak_db = true_peak_dbtp(chans, sr)
+    except Exception:
+        log.debug("true peak skipped", exc_info=True)  # best effort: the field stays empty
 
     try:
         import pyloudnorm as pyln
@@ -115,7 +119,7 @@ def extract(audio: np.ndarray, sr: float, channels: np.ndarray | None = None) ->
         feats.lufs_short_term_peak = _windowed_max_lufs(meter, chans, sr, 3.0)
         feats.lufs_momentary_max = _windowed_max_lufs(meter, chans, sr, 0.4)
     except Exception:
-        pass
+        log.debug("LUFS skipped", exc_info=True)  # best effort: the field stays empty
 
     total = sum(_band_energy(audio, sr, lo, hi) for lo, hi in BANDS.values()) + 1e-10
     feats.band_energy = {name: _band_energy(audio, sr, lo, hi) / total for name, (lo, hi) in BANDS.items()}
@@ -126,6 +130,6 @@ def extract(audio: np.ndarray, sr: float, channels: np.ndarray | None = None) ->
         key, scale, _ = es.KeyExtractor()(audio.astype(np.float32))
         feats.camelot_key = _to_camelot(key, scale)
     except Exception:
-        pass
+        log.debug("camelot key skipped", exc_info=True)  # best effort: the field stays empty
 
     return feats

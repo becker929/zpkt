@@ -221,7 +221,7 @@ def settle(client: McpTransport, note_id: str) -> None:
         if _unreachable(exc):
             return
     except Exception:
-        pass
+        return  # not understood: the note stays, so a later replay can run it
     forget(note_id)
 
 

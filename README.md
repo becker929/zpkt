@@ -4,7 +4,7 @@ Tools for making techno in Ableton Live 12 with an agent at the controls. I buil
 finish my own tracks: an agent changes the set, renders it, measures the render and shows me
 the result, and I decide by ear.
 
-The core is one Python package, `zpkt`, in two halves you can use on their own:
+The core is one Python package, `zpkt`, in two halves you can use on their own (`zpkt.live`, `zpkt.audio`), with `zpkt.app` above them as the one door to Live:
 
 | Part | What it does | Start here |
 |---|---|---|
@@ -49,15 +49,17 @@ Start (or restart) Live. In Settings → Link, Tempo & MIDI, pick **AbletonLiveM
 Surface on a free row, with Input and Output set to None. Then:
 
 ```bash
+uv run zpkt app                                       # in a second terminal: the app, the one door to Live
 uv run zpkt live ping                                 # pong in 200 ms
 uv run zpkt live exec "result = song.tempo"           # any Python against Live's object model
-uv run zpkt live export take.wav --start 8 --length 32    # 32 beats through Live's Export dialog
+uv run zpkt live export take.wav --start 8 --length 32    # 32 beats through Live's Export dialog (needs the app)
 uv run zpkt audio measure ~/Music/zpkt/renders/take.wav   # calibrated loudness, true peak, dynamics, spectra
 uv run zpkt audio analyze ~/Music/zpkt/renders/take.wav   # a profile: band shares, spectra, an embedding
 ```
 
-[docs/getting-started.md](docs/getting-started.md) walks through each step, the permissions
-macOS asks for, and what to do when a step fails.
+Commands that change Live go through the app and refuse when it is not running; reads and `ping` do not need it.
+(`--direct` skips the app and is not recorded.) [docs/getting-started.md](docs/getting-started.md) walks through each
+step, the permissions macOS asks for, and what to do when a step fails.
 
 ## How the parts fit
 
@@ -91,7 +93,7 @@ projects and says where each track is in those steps.
 | [`lib/contracts/`](lib/contracts/) | The JSON schemas the parts exchange. | Supported. |
 | [`contrib/`](contrib/) | My own setup around the core: phone pages for Gemini and the HW002 lab, the HW002 mix desk and arranger. The Bluesky music bot and its render booth, and the demo video tools, moved to their own private repos ([`contrib/README.md`](contrib/README.md)). | Works on my Mac. Read it for ideas; expect to adapt it. |
 | [`prototypes/`](prototypes/) | Experiments beside the main path: a sound-library browser. | Runs; it says what state it is in. |
-| [`docs/`](docs/) | The getting-started guide. My workflow, design notes and dated journal are in [`contrib/docs/`](contrib/docs/). | |
+| [`docs/`](docs/) | The getting-started guide, [how clients reach the app](docs/app-clients.md) and a [hand-run walkthrough](docs/walkthrough.md). My workflow, design notes and dated journal are in [`contrib/docs/`](contrib/docs/). | |
 
 ## Working rules
 
@@ -106,7 +108,8 @@ projects and says where each track is in those steps.
 ## Tests
 
 ```bash
-make test        # zpkt.live and zpkt.audio (the calibrated meters too): no Live, no audio files, no network
+make test        # zpkt.live, zpkt.audio and zpkt.app (the calibrated meters too): no Live, no audio files, no network
+make quick       # lint, types and the tests the core and the mix desk need (about 2 minutes)
 make test-all    # every part, contrib and prototypes included
 ```
 

@@ -172,7 +172,7 @@ def test_the_prompt_names_every_key_and_the_rules():
     assert P.MAX_LABEL == 10 and "at most 10 characters" in text
 
 
-def test_zpkt_page_make_hands_a_spec_to_the_app_and_reads_the_answer(rig, tmp_path):
+def test_zpkt_page_make_hands_a_spec_to_the_app_and_reads_the_answer(rig, api, tmp_path):
     import io
 
     from zpkt.app import page_cli
@@ -180,16 +180,16 @@ def test_zpkt_page_make_hands_a_spec_to_the_app_and_reads_the_answer(rig, tmp_pa
     spec = tmp_path / "spec.json"
     spec.write_text(json.dumps(SPEC))
     out = io.StringIO()
-    assert page_cli.run(["make", str(spec), "--url", rig.url, "--prompt", "the kick"], out=out) == 0
+    assert page_cli.run(["make", str(spec), "--url", api.url, "--prompt", "the kick"], out=out) == 0
     assert "made 'Kick sub and knock' as kick-sub-and-knock, on the desk as page" in out.getvalue()
     saved = json.loads((rig.tmp / "sets" / "pages" / "HW002_121_pp_finish" / "kick-sub-and-knock.json").read_text())
     assert saved["made_by"] == "agent" and saved["prompt"] == "the kick"
     bad = io.StringIO(json.dumps({"title": "t", "groups": [{"name": "g", "controls": [{"target": "Nope/volume"}]}]}))
     out = io.StringIO()
-    assert page_cli.run(["make", "-", "--url", rig.url], stdin=bad, out=out) == 1
+    assert page_cli.run(["make", "-", "--url", api.url], stdin=bad, out=out) == 1
     assert "Nope/volume: not in the open set" in out.getvalue()
     out = io.StringIO()
-    assert page_cli.run(["lint", str(spec), "--url", rig.url], out=out) == 0 and out.getvalue().strip() == "ok"
+    assert page_cli.run(["lint", str(spec), "--url", api.url], out=out) == 0 and out.getvalue().strip() == "ok"
 
 
 def test_zpkt_page_says_what_to_do_when_the_app_is_not_running(tmp_path):

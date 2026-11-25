@@ -31,7 +31,7 @@ def _db(x: float) -> float:
     return float(20 * np.log10(x)) if x > 0 else SILENCE_DB
 
 
-def stats(path: str | Path) -> dict:
+def stats(path: str | Path) -> dict[str, float | bool]:
     """Seconds, sample rate, channels, sample peak and RMS (dBFS), and whether all samples are finite."""
     x, sr = sf.read(path, always_2d=True, dtype="float64")
     finite = bool(np.isfinite(x).all())
@@ -46,7 +46,9 @@ def stats(path: str | Path) -> dict:
     }
 
 
-def check_audio(path: str | Path, *, seconds: float, tol_s: float = 0.05, min_rms_dbfs: float = -60.0) -> dict:
+def check_audio(
+    path: str | Path, *, seconds: float, tol_s: float = 0.05, min_rms_dbfs: float = -60.0
+) -> dict[str, float | bool]:
     """Raise AudioError unless the file reads, is finite, lasts `seconds` (within tol_s) and its
     RMS is above min_rms_dbfs; return its stats."""
     try:
@@ -144,7 +146,7 @@ def timeline_check(
     jump_s: float = 0.035,
     min_corr: float = 0.6,
     skip: Callable[[float], bool] | None = None,
-) -> dict:
+) -> dict[str, float | bool | list[float]]:
     """Does a take stay on its reference's timeline? Lags of consecutive windows against it.
 
     `take` and `reference` are mono and aligned at sample 0. Each window of the take is matched
@@ -160,5 +162,5 @@ def timeline_check(
     median = float(np.median(lags))
     off = [i for i in np.flatnonzero(np.abs(lags - median) > jump_s) if not (skip and skip(i * window_s))]
     near = set(off)
-    jumps = [round(i * window_s, 2) for i in off if i - 1 in near or i + 1 in near or corrs[i] >= min_corr]
+    jumps = [float(round(i * window_s, 2)) for i in off if i - 1 in near or i + 1 in near or corrs[i] >= min_corr]
     return {"median_lag_s": median, "jumps_s": jumps, "ok": not jumps and abs(median) <= 0.005}

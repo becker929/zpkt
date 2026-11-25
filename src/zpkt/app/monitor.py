@@ -1,6 +1,6 @@
 """zpkt.app.monitor: what is heard, and how to compare it. Now, the Pin, the Reference, the level match, the transport.
 
-Now is the mix as Live has it. The Pin is a version you set aside (a checkpoint, or the mix as the desk first saw it
+Now is the mix as Live has it. The Pin is a checkpoint you set aside (a checkpoint, or the mix as the desk first saw it
 until you pin one). Hearing the Pin writes the pinned values into Live; Now comes back when you ask, or when you touch
 a control (the move then counts from where Now was). The Reference is one of the monitor tracks: audio clips that
 Live plays, soloed, with Main's desk devices bypassed (zpkt.live.monitor_tracks). The level match brings A, B and the
@@ -27,6 +27,17 @@ if TYPE_CHECKING:
 
 HEARINGS: tuple[str, ...] = ("now", "pin", "ref")
 PIN_NAME = "pin"  # the checkpoint a pin is saved as
+# The legacy slots that are a render, not the live mix: A the original render, B the recipe's render.
+RENDER_HEARINGS: dict[str, str] = {"A": "original", "B": "recipe"}
+
+
+def hearing_of(slot: str, pin_heard: bool) -> str:
+    """What the Hear bar says is heard: the Pin when it is, else the reference (slot C), a legacy render (A, B) or Now (W)."""
+    if pin_heard:
+        return "pin"
+    if slot == "C":
+        return "ref"
+    return RENDER_HEARINGS.get(slot, "now")
 
 
 class Monitor:
@@ -80,7 +91,7 @@ class Monitor:
         d.ingest({"t": "mon", "slot": slot, "ref": ref})
 
     def select(self, slot: str, ref: str) -> None:
-        """The old desk's A / B / W / C switch (a pinned version stops being heard first)."""
+        """The old desk's A / B / W / C switch (a pinned checkpoint stops being heard first)."""
         self._leave_pin()
         self.choose(slot, ref)
         self.desk.push_app(self.message())
@@ -197,12 +208,12 @@ class Monitor:
     def message(self) -> dict[str, Any]:
         """The monitor's state as the shell is sent it."""
         with self._lock:
-            hearing = "pin" if self._now is not None else "now"
+            pin_heard = self._now is not None
             pinned = self._pin is not None
         choice = self.desk.monitor_choice()
         return {
             "t": "hear",
-            "hearing": "ref" if choice["slot"] == "C" and hearing == "now" else hearing,
+            "hearing": hearing_of(choice["slot"], pin_heard),
             "monitor": choice,
             "match": self.desk.snapshot()["match"],
             "changed": len(changed := self.changed()),

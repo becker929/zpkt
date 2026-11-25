@@ -171,9 +171,12 @@ class Rig:
     meter: FakeMeter
     conn: LiveConnections
 
-    def request(self, method: str, path: str, body: Any = None, raw: bytes | None = None) -> tuple[int, Any]:
+    def request(
+        self, method: str, path: str, body: Any = None, raw: bytes | None = None, headers: dict[str, str] | None = None
+    ) -> tuple[int, Any]:
         data = raw if raw is not None else (json.dumps(body).encode() if body is not None else None)
-        req = urllib.request.Request(self.url + path, data=data, method=method)
+        headers = {"Origin": self.url, **(headers or {})}  # a write comes from the desk's own page, or has a token
+        req = urllib.request.Request(self.url + path, data=data, method=method, headers=headers)
         try:
             with urllib.request.urlopen(req, timeout=20) as r:
                 code, payload, ctype = r.status, r.read(), r.headers.get("Content-Type", "")

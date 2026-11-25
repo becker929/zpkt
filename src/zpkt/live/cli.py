@@ -147,14 +147,17 @@ def spectrum_cmd(
         raise typer.Exit(1) from None
 
 
-def main() -> None:
+def main(args: list[str] | None = None, prog_name: str | None = None) -> None:
     """The `hands` command. A failure nobody planned for ends in one line an agent can act on, not a traceback
-    (set HANDS_TRACEBACK=1 to see it)."""
+    (set HANDS_TRACEBACK=1 to see it). `zpkt live` passes its arguments and the name to show in usage."""
     import os
     import sys
 
+    from zpkt.cli import use_plain_help
+
+    use_plain_help()
     try:
-        app()
+        app(args=args, prog_name=prog_name)
     except Exception as exc:
         if os.environ.get("HANDS_TRACEBACK"):
             raise

@@ -1,9 +1,10 @@
-# zpkt: one installable package. zpkt.live drives Ableton Live (was `hands`); zpkt.audio measures renders (was
-# `ears`, with the mastering lab's meters, once `mlab`). Install a half with its extra: zpkt[live], zpkt[audio].
+# zpkt: one installable package. zpkt.app is the one door to Live (the mix desk's server, the bus, the API, Ask);
+# zpkt.live drives Ableton Live (was `hands`); zpkt.audio measures renders (was `ears`, with the mastering lab's
+# meters, once `mlab`). Install a half with its extra: zpkt[live], zpkt[audio].
 [project]
 name = "zpkt"
 version = "0.1.0"
-description = "Making music with Ableton Live from code: drive Live (zpkt.live) and measure renders (zpkt.audio)"
+description = "Making music with Ableton Live from code: one door to Live (zpkt.app), drive Live (zpkt.live) and measure renders (zpkt.audio)"
 requires-python = ">=3.12"
 # What both halves need. zpkt.live needs nothing more, so zpkt[live] is these alone.
 dependencies = [
@@ -44,7 +45,7 @@ dev = [
 ]
 
 [project.scripts]
-zpkt = "zpkt.cli:main"                # zpkt live ..., zpkt audio ...
+zpkt = "zpkt.cli:main"                # zpkt app, zpkt live ..., zpkt audio ...
 hands = "zpkt.live.cli:main"          # the old name of `zpkt live`
 ears = "zpkt.audio.cli:main"          # the old name of `zpkt audio`: profiles, the corpus and every meter
 mlab = "zpkt.audio.meters.cli:main"   # the mastering lab's commands, as they were when mlab was its own project
@@ -59,6 +60,7 @@ packages = ["src/zpkt", "src/hands", "src/ears", "src/mlab"]
 
 [dependency-groups]
 dev = [
+    "hypothesis>=6.170.17",
     "jsonschema>=4.26.0",
     "mypy>=2.4.1",
     "pytest>=9.2.0",
@@ -83,12 +85,17 @@ ignore_missing_imports = true
 warn_unused_ignores = true
 warn_redundant_casts = true
 
+# zpkt.app.* and zpkt.live.* are strict (the list below); als and inlive keep their own looser settings.
 # Left as is: zpkt.live.als reads ElementTree's find() without checking for None (about 75 places), so a file that is
 # not a set Live wrote fails with an AttributeError rather than a message. Optional checking is off there until it
 # reads through one checked helper.
 [[tool.mypy.overrides]]
 module = ["zpkt.live.als.*"]
 strict_optional = false
+disallow_untyped_defs = false
+disallow_incomplete_defs = false
+disallow_untyped_calls = false
+disallow_any_generics = false
 
 # The duck-typed helpers that also run inside Live take Live's objects (song, a parameter) unannotated; otherwise
 # they are as strict as the modules below.
@@ -114,7 +121,8 @@ module = [
     "zpkt.live.state_cli", "zpkt.live.surface", "zpkt.live.sweep", "zpkt.live.timeops", "zpkt.live.transport",
     "zpkt.live.ui", "zpkt.live.units", "zpkt.live.versions", "zpkt.live.writes", "zpkt.live.tempo", "zpkt.live.watch",
     "zpkt.live.bench", "zpkt.live.config", "zpkt.live.als_cli", "zpkt.live.kit_cli", "zpkt.live.project_cli",
-    "zpkt", "zpkt.cli", "zpkt._aliases", "zpkt.app", "hands", "hands.*", "ears", "mlab", "mlab.*",
+    "zpkt", "zpkt.cli", "zpkt._aliases", "zpkt.app", "zpkt.app.*", "zpkt.live.*", "hands", "hands.*", "ears", "mlab",
+    "mlab.*",
 ]
 disallow_untyped_defs = true
 disallow_incomplete_defs = true

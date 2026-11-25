@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import contextlib
 import json
+import logging
 import os
 import queue
 import socket
@@ -21,9 +22,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from zpkt.app import deskstate as D
-from zpkt.app import history, jobs, pages, surfaces
-from zpkt.app import protocol as P
+from zpkt.app import deskstate, history, jobs, pages, protocol, surfaces
 from zpkt.app.bus import Bus, Command, SetGuard
 from zpkt.app.connections import BUSY_WAIT_S, LiveConnections, bind_udp, open_connections
 from zpkt.app.monitor import Monitor
@@ -31,7 +30,7 @@ from zpkt.app.mounts import Mounts
 from zpkt.app.renders import Options
 from zpkt.audio.levels import rms_to_db
 from zpkt.live import changes, config, desk_pager, meter, monitor_tracks, openset
-from zpkt.live import state as S
+from zpkt.live import state as live_state
 from zpkt.live.describe import Description
 from zpkt.live.transport import LiveError
 
@@ -39,10 +38,13 @@ START_CHECKPOINT_H = 12  # a start makes a "start-..." checkpoint unless the des
 SUPERVISE_S = 5.0
 STALE_RETRY_S = 30.0  # after a pager reload that did not help, wait this long before trying again
 NO_MINILAB = "no MiniLab 3 in Live"
-BEATS_PER_S = 160.0 / 60.0  # the HW002 set's tempo; the references line up on the drop in beats
+DEFAULT_BPM = 120.0  # a set whose sources.json names no "bpm" (or ZPKT_DESK_BPM) is taken to play at this tempo
 
 
 HOSTS_ENV = "ZPKT_APP_HOSTS"
+
+
+log = logging.getLogger(__name__)
 
 
 def hosts_from_env() -> tuple[str, ...]:
@@ -52,10 +54,12 @@ def hosts_from_env() -> tuple[str, ...]:
 
 
 def mixdesk_dir() -> Path:
-    """The folder with the desk's own files (desk.json, sources.json, pager.py and the old page). ZPKT_MIXDESK_DIR
-    names another one; the default is contrib/mixdesk of this checkout."""
+    """The folder with the desk's own files (desk.json, sources.json, pager.py and the old page). ZPKT_MIXDESK_DIR or
+    the rig's `mixdesk_dir` names it; without either, contrib/mixdesk of a source checkout."""
     env = os.environ.get("ZPKT_MIXDESK_DIR")
-    return Path(env).expanduser() if env else Path(__file__).resolve().parents[3] / "contrib" / "mixdesk"
+    if env:
+        return Path(env).expanduser()
+    return config.rig().mixdesk_dir or Path(__file__).resolve().parents[3] / "contrib" / "mixdesk"
 
 
 def read_sources() -> dict[str, Any]:
@@ -64,9 +68,22 @@ def read_sources() -> dict[str, Any]:
     return sources
 
 
+def default_ask_dir() -> Path:
+    """Ask's data folder: ZPKT_ASK_DIR, else the rig's `ask_dir`."""
+    env = os.environ.get("ZPKT_ASK_DIR")
+    return Path(env).expanduser() if env else config.rig().ask_dir
+
+
+def beats_per_s(sources: dict[str, Any] | None = None) -> float:
+    """The set's tempo in beats per second: sources.json "bpm", else ZPKT_DESK_BPM, else DEFAULT_BPM."""
+    bpm = (read_sources() if sources is None else sources).get("bpm") or os.environ.get("ZPKT_DESK_BPM") or DEFAULT_BPM
+    return float(bpm) / 60.0
+
+
 def default_align_beat() -> float:
     """Where the references start (the drop), in beats."""
-    return float(read_sources()["ref_align_s"]) * BEATS_PER_S
+    sources = read_sources()
+    return float(sources["ref_align_s"]) * beats_per_s(sources)
 
 
 def reference_ids() -> tuple[str, ...]:
@@ -95,6 +112,7 @@ class Settings:
     options_dir: Path | None = None  # the queue's jobs, renders and measures (zpkt.app.renders); None: <data>/options
     arranger_dir: Path | None = None  # the HW002 arranger's data, read for Options; None: ARRANGER_DATA
     panels_dir: Path | None = None  # where `hands panel` keeps its panel files; None: the rig's renders folder
+    ask_dir: Path = field(default_factory=default_ask_dir)  # Ask's sessions and files (ZPKT_ASK_DIR)
     hosts: tuple[str, ...] = ()  # more Host names the web server answers for (ZPKT_APP_HOSTS); see web.host_allowed
 
     @classmethod
@@ -110,7 +128,7 @@ class Settings:
             meter_port=meter.METER_PORT,
             live_port=None,
             history_dir=history.HISTORY_DIR,
-            checkpoints_dir=S.folder(set_name),
+            checkpoints_dir=live_state.folder(set_name),
             surfaces_dir=config.rig().sets_dir / "surfaces" / set_name,
             pages_dir=config.rig().sets_dir / "pages" / set_name,
             changes_file=changes.path_for(set_name),
@@ -134,7 +152,7 @@ class Desk:
         self.settings = settings
         self.conn = connections or open_connections(settings.live_port, settings.meter_port)
         self.lock = threading.Lock()
-        self.state: D.DeskState = D.initial()
+        self.state: deskstate.DeskState = deskstate.initial()
         self.clients: list[queue.Queue[dict[str, Any]]] = []  # the old page's event queues
         self.app_clients: list[queue.Queue[dict[str, Any]]] = []  # the /app/ shell's: they also get "hear" messages
         self._clients_lock = threading.Lock()
@@ -163,21 +181,21 @@ class Desk:
         guard = SetGuard(self.settings.set_name, open_set)
         bus = Bus(guard=guard, lock=lambda: self.conn.exclusive(wait_s=5.0), version_before=self.version_before)
         register_all(bus, self)
-        jobs.register(bus, self.conn)
+        jobs.register(bus, self.conn, self.descriptions.clear)
         return bus
 
     # ---- reading the state -----------------------------------------------------------------------------------------
-    def snapshot(self) -> D.DeskState:
+    def snapshot(self) -> deskstate.DeskState:
         """A deep copy of the state: the UDP thread keeps changing it after a copy is queued or sent."""
         with self.lock:
-            copy: D.DeskState = json.loads(json.dumps(self.state))
+            copy: deskstate.DeskState = json.loads(json.dumps(self.state))
         return copy
 
     def page_state(self) -> dict[str, Any]:
         """The state as the page gets it: a copy, with the loudness match's gains for every reference."""
-        return {**self.snapshot(), "gains": D.matched_gains(self.analysis()["sources"])}
+        return {**self.snapshot(), "gains": deskstate.matched_gains(self.analysis()["sources"])}
 
-    def monitor_choice(self) -> D.MonitorChoice:
+    def monitor_choice(self) -> deskstate.MonitorChoice:
         return self.snapshot()["monitor"]
 
     # ---- Live ------------------------------------------------------------------------------------------------------
@@ -199,6 +217,7 @@ class Desk:
         return snap
 
     def restart_pager(self) -> None:
+        self.descriptions.clear()  # the pager loads again: the set may hold other devices now
         snap = self.start_pager()
         self.monitor.adopt(snap)
         self.set_state(snap, "attached")
@@ -241,32 +260,32 @@ class Desk:
         if snap and snap.get("values"):
             self.learn(snap["values"])
         with self.lock:
-            self.state = D.with_snapshot(self.state, snap, status)
+            self.state = deskstate.with_snapshot(self.state, snap, status)
         self.push_full()
 
     def learn(self, values: dict[str, Any]) -> None:
         """The snapshot's keys and labels, and its values as the history's starting point (not moves)."""
-        self.history.add_labels(D.labels(self.cfg()["pages"], values))
+        self.history.add_labels(deskstate.labels(self.cfg()["pages"], values))
         self.history.baseline(values)
 
-    def ingest(self, msg: P.PagerMessage) -> None:
+    def ingest(self, msg: protocol.PagerMessage) -> None:
         """One message from the pager (or the app itself): into the state, out to the page, and into the history if
         it moved a value."""
         if msg["t"] == "v":
             self.monitor.before_move(msg)
         with self.lock:
-            self.state = D.reduce(self.state, msg, time.time())
+            self.state = deskstate.reduce(self.state, msg, time.time())
         self.push(dict(msg))
-        if msg["t"] == "v" and self.history.seen(msg["key"], msg["s"], msg["r"], who=P.who_moved(msg)):
+        if msg["t"] == "v" and self.history.seen(msg["key"], msg["s"], msg["r"], who=protocol.who_moved(msg)):
             self.push(self.history.view())
             self.push_app(self.monitor.message())
 
     def receive(self, data: bytes) -> None:
         """One datagram from the pager. A datagram that is not one of the pager's messages is dropped and said so."""
         try:
-            msg = P.parse_datagram(data)
-        except P.BadMessage as exc:
-            print(f"app: dropped a datagram from the pager: {exc}", flush=True)
+            msg = protocol.parse_datagram(data)
+        except protocol.BadMessage as exc:
+            log.warning(f"app: dropped a datagram from the pager: {exc}")
             return
         self.ingest(msg)
 
@@ -283,13 +302,13 @@ class Desk:
             except OSError:
                 if sock.fileno() == -1:  # closed: the app is stopping
                     return
-                print("app: reading the pager's socket failed; trying again", flush=True)
+                log.warning("app: reading the pager's socket failed; trying again")
                 time.sleep(0.1)
                 continue
             try:
                 self.receive(data)
             except Exception as exc:
-                print(f"app: a datagram from the pager failed ({type(exc).__name__}: {exc}); dropped", flush=True)
+                log.warning(f"app: a datagram from the pager failed ({type(exc).__name__}: {exc}); dropped")
 
     def serve_meter(self) -> None:
         """The live meter on Main (zpkt.live.meter), read from the app's socket: bands as dB to the page."""
@@ -332,7 +351,7 @@ class Desk:
                 return
             self._stale_reload_at = now()
             self._ensured = False  # another set came in under the pager: its monitor tracks are checked again
-            print(f"app: Live raised from the pager ({str(exc)[:80]}); loading the pager again", flush=True)
+            log.warning(f"app: Live raised from the pager ({str(exc)[:80]}); loading the pager again")
             try:
                 self.restart_pager()
             except (LiveError, OSError) as again:
@@ -340,7 +359,7 @@ class Desk:
         except OSError as exc:
             self.set_state(None, f"Live does not answer ({str(exc)[:80]})")
         except Exception as exc:
-            print(f"app: supervising failed ({type(exc).__name__}: {exc})", flush=True)
+            log.warning(f"app: supervising failed ({type(exc).__name__}: {exc})")
 
     def _ensure_monitor_tracks(self) -> bool:
         if self.snapshot()["live"] == "starting":
@@ -398,7 +417,7 @@ class Desk:
         self.push({"t": "desk", "open": found[0]})
         return found
 
-    def inventory(self) -> dict[str, Any]:
+    def inventory(self) -> surfaces.Inventory:
         return surfaces.parse_inventory(self.call("m.DESK.inventory()") or "")
 
     def make_surface(self, text: str, ask: Callable[[str], str] | None = None) -> None:
@@ -444,11 +463,11 @@ class Desk:
         missing: list[str] = self.call(f"m.DESK.set_raw({[p[:2] for p in pairs]!r})") if pairs else []
         return missing
 
-    def make_checkpoint(self, name: str, who: P.Who | str = P.DEFAULT_WHO) -> dict[str, Any]:
+    def make_checkpoint(self, name: str, who: protocol.Who | str = protocol.DEFAULT_WHO) -> dict[str, Any]:
         """Checkpoint `name`: the whole mix as Live has it now. `who` made it: "sys" when the desk did on its own."""
         history.check_name(name)
         with self.conn.exclusive():  # one hold of Live for the whole read
-            full = S.take(self.conn)
+            full = live_state.take(self.conn)
         saved = self.monitor.main_saved if self.monitor_choice()["slot"] != "W" else None
         return self.history.checkpoint(name, full, saved, who)  # type: ignore[arg-type]
 

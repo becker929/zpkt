@@ -96,3 +96,13 @@ def test_timing_appends_to_the_bench_log(rig):
     rows = [json.loads(line) for line in (rig.data_dir / "bench.jsonl").read_text().splitlines()]
     assert [(r["step"], r["s"]) for r in rows] == [("kit_load", 7.234), ("kit_render", 25.0)]
     assert rows[0]["kit"] == "c8x4"
+
+
+def test_desk_folders_come_from_settings_and_env(tmp_path):
+    file = tmp_path / "rig.toml"
+    file.write_text('mixdesk_dir = "/desk"\narranger_dir = "/arr"\nask_dir = "/ask"\n')
+    rig = config.load(env={}, path=file)
+    assert (rig.mixdesk_dir, rig.arranger_dir, rig.ask_dir) == (Path("/desk"), Path("/arr"), Path("/ask"))
+    env = config.load(env={"ZPKT_ARRANGER_DIR": "/a2", "ZPKT_MIXDESK_DIR": "/d2"}, path=file)
+    assert (env.arranger_dir, env.mixdesk_dir) == (Path("/a2"), Path("/d2"))
+    assert config.load(env={"ARRANGER_DATA": "/old"}, path=tmp_path / "none.toml").arranger_dir == Path("/old")

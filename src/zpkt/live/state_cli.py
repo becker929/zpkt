@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import time
 
 import typer
@@ -22,17 +23,23 @@ def register(app: typer.Typer) -> None:
 def state_take(
     name: str = typer.Argument(..., help="State name (or a .json path)."),
     only: list[str] = typer.Option(None, "--only", help="Only these tracks (repeatable)."),
+    as_json: bool = typer.Option(False, "--json", help="Print the result as JSON."),
     host: str = HOST,
     port: int | None = PORT,
+    direct: bool = DIRECT,
 ) -> None:
     """Every mixer and device value of the front set -> sets_dir/state/<set>/NAME.json."""
     from zpkt.live import state as S
 
     set_name = front_set()
     t0 = time.monotonic()
-    st = S.take(connect(LiveClient, host, port, changes=False, keep=True), only)
+    st = S.take(connect(LiveClient, host, port, changes=False, direct=direct, keep=True), only)
     p = S.save(st, S.path_for(set_name, name), set_name)
-    print(f"{p}  ({len(st['tracks'])} tracks, {len(S.flatten(st))} values, {time.monotonic() - t0:.1f} s)")
+    tracks, values, seconds = len(st["tracks"]), len(S.flatten(st)), round(time.monotonic() - t0, 1)
+    if as_json:
+        print(json.dumps({"path": str(p), "tracks": tracks, "values": values, "seconds": seconds}))
+        return
+    print(f"{p}  ({tracks} tracks, {values} values, {seconds:.1f} s)")
 
 
 @state_app.command("diff")
@@ -41,8 +48,10 @@ def state_diff(
     b: str = typer.Argument(None, help="Another one; default: Live now."),
     ignore: list[str] = typer.Option(None, "--ignore", help="Skip keys starting with this (e.g. 'mon '), repeatable."),
     full: bool = typer.Option(False, "--full", help="Every row, not the collapsed summary."),
+    as_json: bool = typer.Option(False, "--json", help="Print the result as JSON."),
     host: str = HOST,
     port: int | None = PORT,
+    direct: bool = DIRECT,
 ) -> None:
     """What differs between A and B (or Live now). Only tracks A holds are read from Live. Exit 1 if anything does."""
     from zpkt.live import state as S
@@ -50,13 +59,16 @@ def state_diff(
     set_name = front_set() if b is None or not b.endswith(".json") or not a.endswith(".json") else ""
     sa = S.load(S.path_for(set_name, a))
     if b is None:
-        sb = S.take(connect(LiveClient, host, port, changes=False, keep=True), only=list(sa["tracks"]))
+        sb = S.take(connect(LiveClient, host, port, changes=False, direct=direct, keep=True), only=list(sa["tracks"]))
     else:
         sb = S.load(S.path_for(set_name, b))
     rows = S.diff(sa, sb, tuple(ignore or ()))
     n = len(S.flatten(sa))
-    print(f"{n} values in A, {len(rows)} differ")
-    print(S.summarize(rows, limit=10**6 if full else 60))
+    if as_json:
+        print(json.dumps({"values": n, "differ": len(rows), "rows": [list(r) for r in rows]}, default=str))
+    else:
+        print(f"{n} values in A, {len(rows)} differ")
+        print(S.summarize(rows, limit=10**6 if full else 60))
     if rows:
         raise typer.Exit(1)
 
@@ -83,12 +95,15 @@ def state_put(
 
 
 @state_app.command("ls")
-def state_ls() -> None:
+def state_ls(as_json: bool = typer.Option(False, "--json", help="Print the list as JSON.")) -> None:
     """The states kept for the front set, newest first."""
     from zpkt.live import state as S
 
     d = S.folder(front_set())
     files = sorted(d.glob("*.json"), key=lambda p: p.stat().st_mtime, reverse=True) if d.exists() else []
+    if as_json:
+        print(json.dumps([{"name": p.stem, "path": str(p), "modified": p.stat().st_mtime} for p in files]))
+        return
     print(
         "\n".join(f"{p.stem:30s} {time.strftime('%Y-%m-%d %H:%M', time.localtime(p.stat().st_mtime))}" for p in files)
         or f"none in {d}"

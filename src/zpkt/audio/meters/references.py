@@ -14,6 +14,7 @@ from __future__ import annotations
 import glob
 import json
 import os
+from pathlib import Path
 from typing import Any, TypedDict, cast
 
 AUDIO_EXTENSIONS = (".wav", ".aif", ".aiff", ".flac", ".mp3", ".m4a")
@@ -82,4 +83,4 @@ def reference_files(folder: str) -> list[str]:
 
 def reference_name(path: str, width: int) -> str:
     """A reference's name in a report: its file name without the extension, cut to `width` characters."""
-    return os.path.splitext(os.path.basename(path))[0][:width]
+    return Path(path).stem[:width]

@@ -2,7 +2,11 @@
 
 from __future__ import annotations
 
+import logging
+
 from .models import PitchFeatures
+
+log = logging.getLogger(__name__)
 
 
 def extract(audio_path: str) -> PitchFeatures:
@@ -32,5 +36,5 @@ def extract(audio_path: str) -> PitchFeatures:
             for n in (note_events or [])
         ]
     except Exception:
-        pass
+        log.debug("pitch and note events skipped", exc_info=True)  # best effort: the field stays empty
     return feats

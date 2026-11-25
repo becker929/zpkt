@@ -200,7 +200,7 @@ def describe_keys(conn: LiveConnections, cmd: Command) -> Reply:
     return 200, {"ok": not missing, "found": found, "missing": missing}
 
 
-def page_apply(conn: LiveConnections, cmd: Command) -> Reply:
+def panel_apply(conn: LiveConnections, cmd: Command) -> Reply:
     """Set a panel's values and render its next version (`hands panel apply`)."""
     import json
 
@@ -239,12 +239,13 @@ JOBS: dict[str, Job] = {
     "live.transport": transport,
     "state.take": state_take,
     "state.put": state_put,
-    "page.apply": page_apply,
+    "panel.apply": panel_apply,
+    "page.apply": panel_apply,  # the older name of panel.apply
     "describe": describe_keys,
 }
 
 
-def register(bus: Bus, conn: LiveConnections) -> None:
+def register(bus: Bus, conn: LiveConnections, on_open: Callable[[], None] = lambda: None) -> None:
     """Put the jobs on the bus. Each is held to the set its caller names, or to the one the app last saw open
     (`own_set`), not to the desk's page."""
     for kind, job in JOBS.items():
@@ -257,8 +258,13 @@ def register(bus: Bus, conn: LiveConnections) -> None:
     def opened(cmd: Command) -> Reply:
         guard = bus.guard
         if guard is None:
-            return open_set(conn, cmd, lambda: None)
-        return open_set(conn, cmd, guard.forget, guard.believe)
+            return open_set(conn, cmd, on_open)
+
+        def forget() -> None:
+            guard.forget()
+            on_open()  # a reopened set may hold other devices: what Live said of their ranges is stale
+
+        return open_set(conn, cmd, forget, guard.believe)
 
     effects.register(bus, "live.open_set", opened, touches_live=True, guarded=False, callers=API_CALLERS)
 

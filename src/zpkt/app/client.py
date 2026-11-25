@@ -147,7 +147,7 @@ class AppClient:
         return self.submit("state.put", {"state": state, **({"only": only} if only else {})})
 
     def page_apply(self, name: str, **args: Any) -> Reply:
-        return self.submit("page.apply", {"name": name, **args})
+        return self.submit("panel.apply", {"name": name, **args})
 
     def describe(self, keys: list[str]) -> Reply:
         return self.submit("describe", {"keys": keys})

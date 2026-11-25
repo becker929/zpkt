@@ -18,8 +18,12 @@ import re
 import shutil
 import time
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import typer
+
+if TYPE_CHECKING:
+    from zpkt.live.serum2.offline import Serum
 
 app = typer.Typer(help=__doc__, no_args_is_help=True)
 PRESETS = "/Library/Audio/Presets/Xfer Records/Serum 2 Presets/Presets"
@@ -48,7 +52,7 @@ def presets(query: str = typer.Argument("", help="Substring of the preset file n
             print(os.path.relpath(f, PRESETS))
 
 
-def _patched(preset: Path, mods: list[str], params: list[str]):
+def _patched(preset: Path, mods: list[str], params: list[str]) -> Serum:
     from zpkt.live.serum2 import state as st
     from zpkt.live.serum2.als import mod_dest_ids
     from zpkt.live.serum2.offline import Serum

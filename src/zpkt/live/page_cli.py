@@ -8,7 +8,7 @@ from pathlib import Path
 
 import typer
 
-from zpkt.live.cli_options import HOST, PORT, connect, fail
+from zpkt.live.cli_options import DIRECT, HOST, PORT, connect, fail
 from zpkt.live.transport import LiveClient, LiveError
 
 page_app = typer.Typer(help="Pages of controls for the one interface: check a spec against the open set.")
@@ -23,22 +23,29 @@ def register(app: typer.Typer) -> None:
 def describe(
     keys: list[str] = typer.Argument(..., help='State keys, e.g. "Kick bus/desk EQ/1 Gain A" "Kick bus/volume".'),
     as_json: bool = typer.Option(False, "--json", help="Print the descriptions as JSON."),
+    brief: bool = typer.Option(False, "--brief", help="Leave out each value's stops (far fewer tokens)."),
     host: str = HOST,
     port: int | None = PORT,
+    direct: bool = DIRECT,
 ) -> None:
     """Kind, range, unit, steps, default and shown stops of each value. Exit 1 if the open set lacks one."""
     from zpkt.live import describe as D
 
     try:
-        found, missing = D.look(connect(LiveClient, host, port, changes=False, keep=True), keys)
+        found, missing = D.look(connect(LiveClient, host, port, changes=False, direct=direct, keep=True), keys)
     except LiveError as exc:
         fail(str(exc))
     if as_json:
-        print(json.dumps({"found": found, "missing": missing}, indent=1))
+        shown = {k: D.brief(d) for k, d in found.items()} if brief else found
+        print(json.dumps({"found": shown, "missing": missing}, indent=1))
     else:
         for key, d in found.items():
             if d["kind"] == "continuous":
-                span = f"{d['stops'][0].shown} to {d['stops'][-1].shown}" if d["stops"] else f"{d['min']} to {d['max']}"
+                span = (
+                    f"{d['stops'][0].shown} to {d['stops'][-1].shown}"
+                    if d["stops"] and not brief
+                    else f"{d['min']} to {d['max']}"
+                )
             else:
                 span = " | ".join(d["items"])
             print(f"{key}: {d['now'].shown}  ({d['kind']}; {span})")
@@ -52,12 +59,13 @@ def selection(
     as_json: bool = typer.Option(False, "--json", help="Print it as JSON."),
     host: str = HOST,
     port: int | None = PORT,
+    direct: bool = DIRECT,
 ) -> None:
     """The track, device and parameter selected in Live, as state keys spell them."""
     from zpkt.live import describe as D
 
     try:
-        sel = D.selection(connect(LiveClient, host, port, changes=False, keep=True))
+        sel = D.selection(connect(LiveClient, host, port, changes=False, direct=direct, keep=True))
     except LiveError as exc:
         fail(str(exc))
     if as_json:
@@ -72,6 +80,7 @@ def page_lint(
     as_json: bool = typer.Option(False, "--json", help="Print problems, labels, widgets and the MiniLab map as JSON."),
     host: str = HOST,
     port: int | None = PORT,
+    direct: bool = DIRECT,
 ) -> None:
     """Check a page spec against the open set, and say how it maps to the MiniLab. Exit 1 if it may not be shown."""
     from zpkt.live import describe as D
@@ -82,7 +91,9 @@ def page_lint(
     except (OSError, ValueError) as exc:
         fail(f"ERROR: {exc}", 2)
     try:
-        found, missing = D.look(connect(LiveClient, host, port, changes=False, keep=True), page.targets())
+        found, missing = D.look(
+            connect(LiveClient, host, port, changes=False, direct=direct, keep=True), page.targets()
+        )
     except LiveError as exc:
         fail(str(exc))
     problems = P.lint(page, found, missing)

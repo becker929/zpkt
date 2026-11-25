@@ -132,6 +132,7 @@ def check(
     any_set: bool = typer.Option(False, "--any-set", help="Accept a set that is not one of ours (a desk session)."),
     host: str = HOST,
     port: int | None = PORT,
+    direct: bool = DIRECT,
 ) -> None:
     """Run the session guard: no dialog open, one of our sets in front, the LOM answering.
     Prints the front set; exit 1 with the reason if a check fails."""
@@ -140,7 +141,7 @@ def check(
     try:
         print(
             session.check(
-                connect(LiveClient, host, port, changes=False),
+                connect(LiveClient, host, port, changes=False, direct=direct),
                 "hands live check",
                 expect_front=expect,
                 ours=not any_set,
@@ -253,6 +254,7 @@ def save(
     state: str = typer.Option(None, "--state", help="Also take the mix state as NAME (see `hands live state`)."),
     host: str = HOST,
     port: int | None = PORT,
+    direct: bool = DIRECT,
 ) -> None:
     """File > Save Live Set on the front set and wait for its file; optionally keep a named copy and its state."""
     from zpkt.live import session
@@ -266,7 +268,11 @@ def save(
     if as_:
         print(f"copy {session.copy_set(name, as_)}")
     if state:
-        p = S.save(S.take(connect(LiveClient, host, port, changes=False, keep=True)), S.path_for(name, state), name)
+        p = S.save(
+            S.take(connect(LiveClient, host, port, changes=False, direct=direct, keep=True)),
+            S.path_for(name, state),
+            name,
+        )
         print(f"state {p}")
 
 

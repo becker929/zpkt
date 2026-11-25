@@ -34,6 +34,7 @@ from zpkt.live.models import (
     ProjectConfig,
     SamplePad,
     SongStructure,
+    TrackDevice,
 )
 
 _EQ8 = DeviceSpec(name="EQ Eight")
@@ -85,7 +86,7 @@ class ProjectBuilder:
         raise KeyError(f"No track with prefix {prefix!r}")
 
     @staticmethod
-    def _load_and_configure(track_idx: int, devices: tuple, label: str) -> list[Step]:
+    def _load_and_configure(track_idx: int, devices: tuple[TrackDevice, ...], label: str) -> list[Step]:
         steps: list[Step] = []
         for device_idx, dev in enumerate(devices):
             if isinstance(dev, EQ8Spec):
@@ -106,7 +107,7 @@ class ProjectBuilder:
         track_idx: int,
         drum_rack_idx: int,
         pad: SamplePad,
-        extra_devices: tuple,
+        extra_devices: tuple[DeviceSpec, ...],
     ) -> list[Step]:
         steps: list[Step] = [
             gen_load_sample_to_pad(track_idx, drum_rack_idx, pad.note, pad.name),

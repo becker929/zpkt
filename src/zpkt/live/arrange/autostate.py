@@ -11,8 +11,24 @@ from __future__ import annotations
 
 import json
 import time
+from typing import TypedDict
 
 from zpkt.live.transport import McpTransport
+
+Path = list[int | str]  # track index, device index, ("c", chain index, device index)..., parameter index
+
+
+class AutoParam(TypedDict):
+    track: str
+    device: str
+    param: str
+    path: Path
+
+
+class Reference(TypedDict):
+    params: list[AutoParam]
+    values: dict[str, list[float]]  # source bar -> value per param
+
 
 FIND = """
 out = []
@@ -41,12 +57,12 @@ def get(path):
 """
 
 
-def automated(client: McpTransport) -> list[dict]:
+def automated(client: McpTransport) -> list[AutoParam]:
     """Every automated parameter: {"track", "device", "param", "path"}. Walks racks too."""
     return client.run(FIND)
 
 
-def values_at(client: McpTransport, params: list[dict], beats: list[float]) -> dict[float, list[float]]:
+def values_at(client: McpTransport, params: list[AutoParam], beats: list[float]) -> dict[float, list[float]]:
     """{beat: [value per param]}, sampled one beat into each position. Plays the song (audio)."""
     out = {}
     paths = json.dumps([p["path"] for p in params])
@@ -61,7 +77,7 @@ def values_at(client: McpTransport, params: list[dict], beats: list[float]) -> d
     return out
 
 
-def set_static(client: McpTransport, path: list, value: float) -> None:
+def set_static(client: McpTransport, path: Path, value: float) -> None:
     """Set a parameter's static value, if it is not automated."""
     client.run(
         f"PATH = {json.dumps(path)}\n"
@@ -70,14 +86,16 @@ def set_static(client: McpTransport, path: list, value: float) -> None:
     )
 
 
-def state(client: McpTransport, path: list) -> list:
+def state(client: McpTransport, path: Path) -> list[float]:
     """[automation_state, value] of one parameter."""
     return client.run(
         f"PATH = {json.dumps(path)}\n" + GET + "p = get(PATH)\nresult = [p.automation_state, round(p.value, 4)]"
     )
 
 
-def restore(client: McpTransport, segs: list[tuple[int, int]], ref: dict, tol: float = 1e-3) -> list[tuple]:
+def restore(
+    client: McpTransport, segs: list[tuple[int, int]], ref: Reference, tol: float = 1e-3
+) -> list[tuple[str, str]]:
     """Make every automated parameter at each segment's start match the uncut set.
 
     segs: the kept source bars [(first, last), ...], 1-based, in timeline order. ref: the uncut

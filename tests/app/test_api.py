@@ -356,3 +356,13 @@ def test_the_command_object_is_what_the_bus_gets(api, rig):
     api.run("song.tempo", who="demo", group="g")
     assert rig.desk.bus.log[-1]["who"] == "demo"
     assert isinstance(Command("x"), Command)
+
+
+def test_a_bad_content_length_is_400_not_500(api):
+    conn = http.client.HTTPConnection("127.0.0.1", api.adapter.port, timeout=10)
+    conn.putrequest("POST", "/api/v1/command")
+    conn.putheader("Authorization", f"Bearer {api.token}")
+    conn.putheader("Content-Length", "abc")
+    conn.endheaders()
+    assert conn.getresponse().status == 400
+    conn.close()

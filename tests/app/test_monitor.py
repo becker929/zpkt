@@ -146,3 +146,13 @@ def test_play_and_loop_go_through_the_pager(rig):
     assert rig.command("transport", {"action": "play"})[0] == 200 and rig.live.song.is_playing
     assert rig.command("transport", {"action": "loop", "loop": "drop"})[0] == 200 and rig.live.song.loop
     assert rig.command("transport", {"action": "loop", "loop": "sideways"})[0] == 400
+
+
+def test_the_hearing_says_what_is_heard_for_every_slot():
+    from zpkt.app.monitor import hearing_of
+
+    assert hearing_of("W", False) == "now"
+    assert hearing_of("C", False) == "ref"
+    assert hearing_of("A", False) == "original"  # a legacy render is not Now
+    assert hearing_of("B", False) == "recipe"
+    assert [hearing_of(s, True) for s in "ABWC"] == ["pin"] * 4  # the Pin comes first

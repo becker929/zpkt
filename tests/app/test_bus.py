@@ -223,3 +223,26 @@ def test_a_handler_that_blows_up_is_a_500_that_answers_and_does_not_leak_the_arg
     code, reply = bus.submit(Command("x.boom", "you", {"token": "secret-token-in-args"}))
     assert code == 500 and "KeyError" in reply["error"] and "secret-token-in-args" not in reply["error"]
     assert bus.log[-1]["status"] == 500
+
+
+def test_a_group_is_marked_versioned_only_after_its_version_was_saved():
+    calls: list[str] = []
+
+    def version(group):
+        calls.append(group)
+        if len(calls) == 1:
+            raise LiveError("Live did not answer")
+
+    bus = bus_with("move", version=version)
+    assert bus.submit(Command("x.do", "agent", approval="user", group="g1"))[0] != 200  # the checkpoint failed
+    assert bus.submit(Command("x.do", "agent", approval="user", group="g1"))[0] == 200
+    assert bus.submit(Command("x.do", "agent", approval="user", group="g1"))[0] == 200
+    assert calls == ["g1", "g1"]  # the second try saved it; the third found it saved
+
+
+def test_the_versioned_groups_are_bounded(monkeypatch):
+    monkeypatch.setattr("zpkt.app.bus.VERSIONED_KEEP", 3)
+    bus = bus_with("move", version=lambda group: None)
+    for n in range(6):
+        bus.submit(Command("x.do", "agent", approval="user", group=f"g{n}"))
+    assert list(bus._versioned) == ["g3", "g4", "g5"]

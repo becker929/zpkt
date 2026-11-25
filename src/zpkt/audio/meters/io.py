@@ -13,6 +13,7 @@ import shutil
 import subprocess
 import tempfile
 from dataclasses import asdict, dataclass, field
+from pathlib import Path
 from typing import Any
 
 import numpy as np
@@ -67,7 +68,7 @@ def _as2d(x: Any) -> FloatArray:
 
 def load(path: str) -> Audio:
     """Read WAV/AIFF/FLAC natively; decode lossy formats through ffmpeg."""
-    ext = os.path.splitext(path)[1].lower()
+    ext = Path(path).suffix.lower()
     if ext in LOSSY_EXT:
         return _load_ffmpeg(path, ext)
     x, sr = sf.read(path, dtype="float64", always_2d=True)

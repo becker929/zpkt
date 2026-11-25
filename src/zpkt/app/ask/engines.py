@@ -25,7 +25,7 @@ class ToolServer:
 
     command: str  # the Python that runs it
     args: tuple[str, ...]
-    env: Mapping[str, str]  # ZPKT_APP_URL, ZPKT_APP_SESSION, ZPKT_APP_TOKEN
+    env: Mapping[str, str]  # ZPKT_DESK_URL, ZPKT_APP_SESSION, ZPKT_APP_TOKEN
 
     def claude_config(self) -> str:
         server = {"command": self.command, "args": list(self.args), "env": dict(self.env)}

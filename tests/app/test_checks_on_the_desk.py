@@ -79,3 +79,25 @@ def test_a_failed_write_leaves_no_entry_behind(rig, monkeypatch):
     assert code == 503 and "Live went away" in reply["error"]
     assert rig.desk.history.entries == []
     assert rig.desk.history.cur[key][1] == S.flatten(S.take(rig.conn))[key].raw
+
+
+def test_tempo_and_folders_are_settings_not_literals(monkeypatch, tmp_path):
+    from zpkt.app import desk
+
+    assert desk.beats_per_s({"bpm": 150}) == 2.5
+    monkeypatch.setenv("ZPKT_DESK_BPM", "90")
+    assert desk.beats_per_s({}) == 1.5
+    monkeypatch.setenv("ZPKT_MIXDESK_DIR", str(tmp_path))
+    (tmp_path / "sources.json").write_text('{"ref_align_s": 10, "bpm": 120, "set": "s", "dir": "d", "refs": []}')
+    assert desk.default_align_beat() == 20.0
+    monkeypatch.setenv("ZPKT_ASK_DIR", str(tmp_path / "ask"))
+    assert desk.default_ask_dir() == tmp_path / "ask"
+
+
+def test_surface_model_is_read_at_call_time(monkeypatch):
+    from zpkt.app import surfaces
+
+    monkeypatch.setenv("MIXDESK_MODEL", "opus")
+    assert surfaces.model() == "opus"
+    monkeypatch.delenv("MIXDESK_MODEL")
+    assert surfaces.model() == "sonnet"

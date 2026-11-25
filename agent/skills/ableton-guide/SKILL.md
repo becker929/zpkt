@@ -304,10 +304,10 @@ song.loop = True
 
 **Work on a copy of the whole project, never the original.** Copy the `.als` *plus* `Samples/`, `Ableton Project Info/`, and any audio the set keeps in the project root into one scratch folder. A lone `.als` loses its project-relative sample paths (silent bounce, cause 4 above), and Live refuses to save a set outside a Project folder ("Please choose a Project folder…").
 
-**Render an arrangement with `record_arrangement` / `hands record --arrangement`.** `record_via_resampling` bounces *session* slot-0 clips and deletes every arrangement clip on the source tracks when it cleans up, so it now refuses on a set that already has an arrangement. `record_arrangement` records the arrangement from beat 0 through a temporary Resampling track, leaves source clips alone, and deletes its track afterwards:
+**Render an arrangement with `record_arrangement` / `zpkt live record --arrangement`.** `record_via_resampling` bounces *session* slot-0 clips and deletes every arrangement clip on the source tracks when it cleans up, so it now refuses on a set that already has an arrangement. `record_arrangement` records the arrangement from beat 0 through a temporary Resampling track, leaves source clips alone, and deletes its track afterwards:
 
 ```bash
-hands record --arrangement --beats 80 --tail 4 --output take.wav
+zpkt live record --arrangement --beats 80 --tail 4 --output take.wav
 ```
 
 The take is untrimmed (pre-roll to the stop, plus `--tail`). **Its first ~0.9 s is not on the timeline:** the recorded clip starts ~2.4 beats into its file, and the head holds misplaced audio that sounds like the render plays a bar and restarts. Every render published before 1 Oct had it. Render two bars of lead-in and trim at **song beat 0 as Live reports it**: the recorded clip's `start_marker`, mapped through its `warp_markers`, gives the file second of beat 0 (0.7–0.94 s seen; `record_arrangement` now writes it to `<take>.timing.json`). Do not find it by cross-correlation against another render: that render has its own unknown head (the HW002 reference had 0.917 s), and periodic kicks fool low-band correlation. Then after the head, file time matches song time within a few 512-sample buffers (0–116 ms seen). Check the result with a lag-based timeline test: 250 ms windows searched within ±150 ms, so one-beat loop repeats (375 ms) cannot fake a match. A glitch shows as windows 49–112 ms off the median lag; clean renders stay within ~20 ms. Skip the second after each cut, where tails from the previous bar legitimately differ.

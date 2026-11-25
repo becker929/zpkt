@@ -165,3 +165,23 @@ def test_a_swept_grid_cannot_be_picked(tmp_path):
     sweep.sweep(out, apply=True)
     with pytest.raises(PanelError, match="was swept"):
         versions.pick(None, "bass", out, 1, "A")
+
+
+def test_the_sweep_command_deletes_nothing_when_live_cannot_say_what_is_in_use(tmp_path, monkeypatch):
+    from typer.testing import CliRunner
+
+    from zpkt.live import panel_cli
+    from zpkt.live.cli import app
+
+    old = put(tmp_path / "out" / "x" / "old.wav", age=30 * DAY)
+    called = []
+
+    def down(*a, **k):
+        raise OSError("Live is not there")
+
+    monkeypatch.setattr(panel_cli, "connect", down)
+    monkeypatch.setattr(sweep, "sweep", lambda *a, **k: called.append(k) or {"items": []})
+    res = CliRunner().invoke(app, ["sweep", "--out", str(tmp_path / "out"), "--apply"])
+    assert res.exit_code != 0 and "Use --force" in res.output and not called and old.exists()
+    res = CliRunner().invoke(app, ["sweep", "--out", str(tmp_path / "out"), "--apply", "--force", "--json"])
+    assert res.exit_code == 0 and called[-1]["in_use"] == set()

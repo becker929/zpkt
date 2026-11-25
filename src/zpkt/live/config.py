@@ -17,6 +17,11 @@ default:
     live_prefs_dir  ZPKT_LIVE_PREFS_DIR  the newest ~/Library/Preferences/Ableton/Live */ (Log.txt)
     library_dir     ZPKT_LIBRARY_DIR     ~/Music/zpkt/library   work-in-progress Live projects, one folder per
                                                                 track; read-only (hands library inventory)
+    mixdesk_dir     ZPKT_MIXDESK_DIR     (empty: contrib/mixdesk of a source checkout)   the desk's own files
+                                                                (desk.json, sources.json, pager.py)
+    arranger_dir    ZPKT_ARRANGER_DIR    ~/Music/zpkt/arranger  the arranger's data, read for Options
+                                                                (ARRANGER_DATA still works)
+    ask_dir         ZPKT_ASK_DIR         ~/Music/zpkt/ask       Ask's sessions and files
     records_file    ZPKT_RECORDS_FILE    <library_dir>/records.toml   what you have declared done per track,
                                                                 which beats the inventory's guess
 
@@ -46,6 +51,14 @@ DEFAULTS = {
     "live_prefs_dir": "",
     "library_dir": "~/Music/zpkt/library",
     "records_file": "",
+    "mixdesk_dir": "",
+    "arranger_dir": "~/Music/zpkt/arranger",
+    "ask_dir": "~/Music/zpkt/ask",
+}
+# Folders an older checkout of the app used when no setting names one; kept only so an existing rig carries on.
+LEGACY_DIRS = {
+    "arranger_dir": "~/_agent_scratch/arranger",
+    "ask_dir": "~/_agent_scratch/zpkt-app/ask",
 }
 RETIRED = {"plans_dir": "the plan render cache; hands plan was archived on 24 Nov 2026 (zpkt-archive)"}
 
@@ -61,6 +74,9 @@ class Rig:
     live_prefs_dir: Path | None
     library_dir: Path
     records_file: Path
+    arranger_dir: Path
+    ask_dir: Path
+    mixdesk_dir: Path | None = None  # None: contrib/mixdesk of a source checkout
 
     def set_path(self, name: str) -> Path:
         """The .als of a set named `name` in sets_dir."""
@@ -88,9 +104,15 @@ def load(env: Mapping[str, str] = os.environ, path: str | Path | None = None) ->
         if unknown:
             raise ValueError(f"{file}: unknown keys {sorted(unknown)}; known: {sorted(DEFAULTS)}")
         values.update({k: v for k, v in loaded.items() if k not in RETIRED})
+    if env.get("ARRANGER_DATA"):  # the arranger's own name for its folder
+        values["arranger_dir"] = env["ARRANGER_DATA"]
     for key in DEFAULTS:
         if env.get(f"ZPKT_{key.upper()}"):
             values[key] = env[f"ZPKT_{key.upper()}"]
+    for key, old in LEGACY_DIRS.items():
+        unset = values[key] == DEFAULTS[key]  # not set anywhere: an old folder that exists still wins
+        if unset and Path(old).expanduser().is_dir() and not Path(values[key]).expanduser().is_dir():
+            values[key] = old
     prefixes = values["set_prefixes"]
     if isinstance(prefixes, str):
         prefixes = [p.strip() for p in prefixes.split(",")]
@@ -109,6 +131,9 @@ def load(env: Mapping[str, str] = os.environ, path: str | Path | None = None) ->
         else _newest_live_prefs(),
         library_dir=Path(values["library_dir"]).expanduser(),
         records_file=Path(values["records_file"] or Path(values["library_dir"]) / "records.toml").expanduser(),
+        mixdesk_dir=Path(values["mixdesk_dir"]).expanduser() if values["mixdesk_dir"] else None,
+        arranger_dir=Path(values["arranger_dir"]).expanduser(),
+        ask_dir=Path(values["ask_dir"]).expanduser(),
     )
 
 

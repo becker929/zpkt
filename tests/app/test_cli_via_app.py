@@ -163,3 +163,25 @@ def test_every_command_that_can_change_live_takes_direct():
 def test_the_app_down_message_for_a_panel_command(app_down):
     res = invoke("panel", "drop", "x")
     assert res.exit_code == 1 and APP_NOT_RUNNING in res.stderr
+
+
+def test_a_read_goes_through_the_app_when_it_is_running(via, rig):
+    res = invoke("live", "exec", "result = song.tempo", "--raw")
+    assert res.exit_code == 0, res.output
+    assert [e["who"] for e in rig.desk.bus.log if e["kind"] == "live.read"] == ["cli"]
+
+
+def test_a_read_with_the_app_down_goes_direct_without_complaint(app_down, direct_live, monkeypatch):
+    fake, _ = direct_live
+    monkeypatch.setenv("ZPKT_LIVE_PORT", str(fake.port))
+    res = invoke("live", "exec", "result = song.tempo", "--raw")
+    assert res.exit_code == 0, res.output
+    assert NOT_RECORDED not in res.output and APP_NOT_RUNNING not in res.output
+
+
+def test_a_read_with_direct_skips_the_app(via, rig, direct_live):
+    _, port = direct_live
+    before = len(rig.desk.bus.log)
+    res = invoke("live", "exec", "result = song.tempo", "--raw", "--direct", *port)
+    assert res.exit_code == 0, res.output
+    assert len(rig.desk.bus.log) == before
