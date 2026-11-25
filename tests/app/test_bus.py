@@ -156,3 +156,50 @@ def test_a_command_that_cannot_get_live_in_time_is_refused_with_a_reason_not_dro
         release.set()
         t.join()
     assert bus.submit(Command("x.do"))[0] == 200  # free again
+
+
+def test_the_guard_asks_live_with_no_lock_held_so_a_job_that_holds_live_can_forget():
+    """A job holding Live (opening a set) calls forget(); a move asking Live must not hold the guard's lock meanwhile."""
+    import threading
+
+    asking, release = threading.Event(), threading.Event()
+
+    def slow_open_set() -> str:
+        asking.set()
+        release.wait(5)
+        return "S"
+
+    guard = SetGuard("S", slow_open_set)
+    asker = threading.Thread(target=guard.check)
+    asker.start()
+    assert asking.wait(5)
+    forgetter = threading.Thread(target=guard.forget)
+    forgetter.start()
+    forgetter.join(2)
+    stuck = forgetter.is_alive()
+    release.set()
+    asker.join(5)
+    assert not stuck, "forget() waited for the guard's lock while Live was being asked"
+
+
+def test_an_answer_asked_for_before_a_forget_is_not_kept_after_it():
+    import threading
+
+    started, release = threading.Event(), threading.Event()
+    answers = iter(["OLD", "S"])
+
+    def open_set() -> str:
+        name = next(answers)
+        started.set()
+        if name == "OLD":
+            release.wait(5)
+        return name
+
+    guard = SetGuard("S", open_set)
+    t = threading.Thread(target=guard._name)
+    t.start()
+    assert started.wait(5)
+    guard.forget()
+    release.set()
+    t.join(5)
+    assert guard._name() == "S"

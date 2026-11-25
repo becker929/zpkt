@@ -115,22 +115,33 @@ class SetGuard:
     ) -> None:
         self.page_set, self.open_set, self.ttl_s, self.clock = page_set, open_set, ttl_s, clock
         self._seen: tuple[float, str] | None = None
+        self._forgot = 0  # counts forget() calls, so an answer asked for before one is not kept after it
         self._lock = threading.Lock()
 
     def forget(self) -> None:
         with self._lock:
             self._seen = None
+            self._forgot += 1
 
     def check(self, for_set: str | None = None) -> None:
         """Refuse when Live has another set open than the page's, or than `for_set` for a move that names its own."""
         want = for_set or self.page_set
-        with self._lock:
-            now = self.clock()
-            if self._seen is None or now - self._seen[0] >= self.ttl_s:
-                self._seen = (now, self.open_set())
-            name = self._seen[1]
+        name = self._name()
         if name and name != want:
             raise Refused(f"Live has {name} open; this page is for {want}. Open that set first.", 409)
+
+    def _name(self) -> str:
+        """The open set's name, from the kept answer or from Live. Live is asked with no lock of ours held: a job
+        that holds Live (opening a set) calls `forget`, and would wait for that lock for ever."""
+        with self._lock:
+            seen, forgot = self._seen, self._forgot
+        if seen is not None and self.clock() - seen[0] < self.ttl_s:
+            return seen[1]
+        name = self.open_set()
+        with self._lock:
+            if self._forgot == forgot:
+                self._seen = (self.clock(), name)
+        return name
 
 
 class Bus:

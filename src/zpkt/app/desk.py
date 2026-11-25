@@ -25,7 +25,7 @@ from zpkt.app import deskstate as D
 from zpkt.app import history, jobs, pages, surfaces
 from zpkt.app import protocol as P
 from zpkt.app.bus import Bus, Command, SetGuard
-from zpkt.app.connections import LiveConnections, bind_udp, open_connections
+from zpkt.app.connections import BUSY_WAIT_S, LiveConnections, bind_udp, open_connections
 from zpkt.app.monitor import Monitor
 from zpkt.app.mounts import Mounts
 from zpkt.app.renders import Options
@@ -145,7 +145,11 @@ class Desk:
     def _make_bus(self) -> Bus:
         from zpkt.app.commands import register_all
 
-        guard = SetGuard(self.settings.set_name, lambda: openset.open_set_name(self.conn))
+        def open_set() -> str:
+            with self.conn.exclusive(wait_s=BUSY_WAIT_S):  # a render holds Live: say busy, do not hang the caller
+                return openset.open_set_name(self.conn)
+
+        guard = SetGuard(self.settings.set_name, open_set)
         bus = Bus(guard=guard, lock=lambda: self.conn.exclusive(wait_s=5.0), version_before=self.version_before)
         register_all(bus, self)
         jobs.register(bus, self.conn)
