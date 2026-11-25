@@ -73,8 +73,12 @@ always did, with the pager's datagrams on 8986 and the meter on 8987.
 ## The API and its clients
 
 `zpkt app` also starts the API adapter on 127.0.0.1:8984 (`ZPKT_API_PORT`). It is how the `zpkt` command, the booth and
-the demo reach Live (docs/app-clients.md). Every call is a Command stamped `cli`, `booth`, `demo` or `agent`, and needs
-the token in `~/.config/zpkt/app-token` (mode 0600, made at start). The jobs are in `jobs.py`; the client in
+the demo reach Live (docs/app-clients.md). Every call is a Command stamped `cli`, `booth`, `demo` or `agent`. The app
+stamps it by the token the call carries, never by what the request says: each caller has its own token file in
+`~/.config/zpkt/` (`app-token` for the cli, `app-token-booth`, `-demo`, `-agent`; mode 0600, made at start). `you` and
+`minilab` are never accepted from the API. A coding agent in a terminal (`ZPKT_AGENT=1`) is `agent`, so its changes
+need an Option you picked (`ZPKT_OPTION=<id>`). Which set a job is for, and the wrong-set check, are in `bus.py`
+(`SetGuard.check_job`); whether a command is a read, a make or a move is in `effects.py`. The jobs are in `jobs.py`; the client in
 `client.py` (standard library only, no Live code); the transport that lets a `LiveClient` caller switch in one line in
 `zpkt.live.app_transport`. The web page is `you` and cannot run them. The shapes are `lib/contracts/app-api.schema.json`.
 

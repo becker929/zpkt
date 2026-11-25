@@ -252,12 +252,14 @@ def rig(tmp_path: Path) -> Iterator[Rig]:
 
 @dataclass
 class Api:
-    """The API adapter started on the rig's bus: its URL, token and config folder."""
+    """The API adapter started on the rig's bus: its URL, the cli's token, the config folder, and every caller's
+    token. A request that says who it is goes with that caller's token, as a real client's would."""
 
     url: str
     token: str
     config_dir: Path
     adapter: Any
+    tokens: dict[str, str]
 
     def call(
         self,
@@ -269,7 +271,8 @@ class Api:
     ) -> tuple[int, Any]:
         sent = {"Content-Type": "application/json", **(headers or {})}
         if token == "default":
-            token = self.token
+            who = body.get("who") if isinstance(body, dict) else None
+            token = self.tokens.get(who, self.token) if isinstance(who, str) else self.token
         if token:
             sent["Authorization"] = f"Bearer {token}"
         data = None if body is None else json.dumps(body).encode()
@@ -301,7 +304,8 @@ def api(rig: Rig, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[A
     adapter.start()
     try:
         assert adapter.server is not None
-        yield Api(f"http://127.0.0.1:{adapter.port}", adapter.server.token, config_dir, adapter)
+        by_who = dict(adapter.server.tokens)
+        yield Api(f"http://127.0.0.1:{adapter.port}", by_who["cli"], config_dir, adapter, by_who)
 
     finally:
         adapter.stop()

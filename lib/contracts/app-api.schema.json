@@ -5,7 +5,7 @@
   "description": "What crosses between the app (src/zpkt/app/adapters/api.py) and its callers (src/zpkt/app/client.py): the request to run a command, the replies, the health answer and the command list. Written by hand; tests/app/test_api_contract.py checks the code and this file agree.",
   "$defs": {
     "who": {
-      "description": "Who is asking. The app stamps it on every change. The web page (you) and the MiniLab are not API callers.",
+      "description": "Who is asking. The app stamps every change with the name its token belongs to (one token file per caller); a request may repeat that name but cannot claim another. The web page (you) and the MiniLab are not API callers.",
       "enum": ["agent", "booth", "demo", "cli"]
     },
     "request": {

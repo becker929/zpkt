@@ -2,7 +2,8 @@
 
 Standard library only, and no Live code: it sends JSON to the API (zpkt.app.adapters.api) and returns what came
 back. The `zpkt` command, music-bot's booth and zpkt-demo use it (docs/app-clients.md). Where the app is comes from
-`ZPKT_APP_URL` (default http://127.0.0.1:8984); the token from the token file (zpkt.app.token).
+`ZPKT_APP_URL` (default http://127.0.0.1:8984); the token from the caller's own token file (zpkt.app.token). The
+app stamps each call by the token, so a caller is who its token file says.
 """
 
 from __future__ import annotations
@@ -34,7 +35,8 @@ def app_url() -> str:
 
 
 class AppClient:
-    """One caller of the app. `who` is what the app stamps on every change: cli, booth, demo or agent."""
+    """One caller of the app. `who` is cli, booth, demo or agent; it picks the token file, and the token is what
+    the app stamps every change by."""
 
     def __init__(
         self,
@@ -49,10 +51,13 @@ class AppClient:
         self._token, self._config_dir = token, config_dir
 
     def token(self) -> str:
-        found = self._token or tokens.read_token(self._config_dir)
+        found = self._token or tokens.read_token(self._config_dir, self.who)
         if not found:
-            raise AppDown(f"no token at {tokens.token_path(self._config_dir)}: start the app with `zpkt app`")
+            raise AppDown(f"no token at {self._token_file()}: start the app with `zpkt app`")
         return found
+
+    def _token_file(self) -> Path:
+        return tokens.token_path(self._config_dir, self.who)
 
     def _send(self, method: str, path: str, body: dict[str, Any] | None, auth: bool = True) -> Reply:
         headers = {"Content-Type": "application/json"}
@@ -74,7 +79,7 @@ class AppClient:
         except ValueError:
             reply = {"error": f"the app sent something that is not JSON ({raw[:60]!r})"}
         if code == 401:
-            raise AppDown(f"the app refused the token in {tokens.token_path(self._config_dir)}; restart `zpkt app`")
+            raise AppDown(f"the app refused the token in {self._token_file()}; restart `zpkt app`")
         return code, reply if isinstance(reply, dict) else {"error": "the app's reply is not an object"}
 
     def up(self) -> bool:

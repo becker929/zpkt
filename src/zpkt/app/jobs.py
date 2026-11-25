@@ -21,6 +21,7 @@ from pathlib import Path
 from typing import Any
 
 from zpkt.app import effects
+from zpkt.app import token as tokens
 from zpkt.app.bus import OK, BadRequest, Bus, Command, Reply
 from zpkt.app.connections import LiveConnections
 from zpkt.live import codegen, config, describe, openset, session
@@ -28,7 +29,7 @@ from zpkt.live import state as S
 from zpkt.live.agent import only_reads
 from zpkt.live.transport import McpResult
 
-API_CALLERS = ("agent", "booth", "demo", "cli")  # who may use the jobs; the web page ("you") may not
+API_CALLERS = tokens.CALLERS  # who may use the jobs: those with a token. The web page ("you") may not
 MIN_BPM, MAX_BPM = 20.0, 999.0  # Live's own range
 TRANSPORT_ACTIONS = ("play", "stop", "seek", "loop")
 

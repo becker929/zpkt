@@ -17,6 +17,7 @@ live = LiveClient.via_app("booth")        # or "demo"
 
 `via_app(who)` returns a transport with the same `run(code)` and `execute(code)`. Every other call stays. The code
 runs in the app's connection, under its lock, as a `live.run` command stamped `booth` (or `demo`, `cli`, `agent`).
+The name picks the token file the client sends, and the app stamps the call by that token.
 Each transport has a group, so what one program does in one run is one group in the app's history.
 
 To switch without touching the code, set `ZPKT_LIVE_VIA=app` and build the client with `LiveClient.default("booth")`.
@@ -63,12 +64,20 @@ app starts, then the set the app opened (`open_set`), or one a caller named and 
 ## Who may ask, and how
 
 - `who` is `cli`, `booth`, `demo` or `agent`. The web page is `you`, and cannot run these jobs.
+- The app decides who you are by your token, not by what the request says. Each caller has its own token file in
+  `~/.config/zpkt/` (mode 0600, made when the app starts; `ZPKT_CONFIG_DIR` names another folder): `app-token` for
+  the `zpkt` command, `app-token-booth`, `app-token-demo` and `app-token-agent`. `AppClient("booth")` reads
+  `app-token-booth`. A request may still say `who`, but only its own name: the cli's token asking as `booth` gets
+  403. `you` and `minilab` are never accepted. A token is never logged.
+- The files all belong to you, so this keeps callers apart; it is not a wall against a program that runs as you.
 - An agent may read. For a change it needs `approval` of `option:<id>` (an Option was picked). It cannot send
   `user`; that word is yours.
+- A coding agent in a terminal runs with `ZPKT_AGENT=1` (Ask sets it for the engines it starts). The `zpkt` command
+  is then `agent`, not `cli`: its changes are refused until you pick an Option, and `ZPKT_OPTION=<id>` names the one
+  you picked. Code that only reads still runs.
 - The API listens on `127.0.0.1:8984` (`ZPKT_API_PORT`; the client finds it with `ZPKT_APP_URL`). It turns away any
   other Host name.
-- Every call but `/health` carries the token in `~/.config/zpkt/app-token` (mode 0600, made when the app starts;
-  `ZPKT_CONFIG_DIR` names another folder). The client reads it. It is never logged.
+- Every call but `/health` carries the caller's token. The client reads the file and sends it.
 
 ## The `zpkt` command
 
