@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-MODULES = ("tracks", "shown", "keys")
+MODULES = ("tracks", "shown", "keys", "find")
 
 
 def path(module: str) -> Path:

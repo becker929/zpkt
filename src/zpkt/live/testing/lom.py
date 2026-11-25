@@ -982,6 +982,7 @@ class ReturnTrack(Track):
 class SongView(LiveObject):
     selected_scene = Prop(None)
     selected_chain = Prop(None)
+    selected_parameter = Prop(None)  # the parameter last clicked in Live; None when it is not a device's
     detail_clip = Prop(None)
     follow_song = Prop(False, check=_flag)
 

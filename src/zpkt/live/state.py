@@ -72,6 +72,8 @@ class State(TypedDict, total=False):
     returns: list[str]  # the returns' names as Live shows them ("A-Space")
     tracks: dict[str, TrackState]  # by track name; returns by their Live name; "Main"
     partial: bool  # holds only some values (a desk recipe): compared on its own keys alone
+    name: str  # what a person calls it ("before the glue"); the file's name says where it is, not this
+    made_by: str  # who took it: you, minilab, agent or sys (zpkt.live.changes.Who)
 
 
 Row = tuple[str, str | None, str | None]  # a difference: (key, shown in A, shown in B); None where absent

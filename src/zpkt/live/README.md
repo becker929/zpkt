@@ -28,6 +28,10 @@ the command and a row.
 | What changed since then? / Does Live match a recipe? | `hands live state diff NAME [OTHER]` (a recipe .json with a `"desk"` works) |
 | Put a kept mix (or a recipe's desk) back | `hands live state put NAME [--only TRACK]` |
 | Which mixes are kept for this set? | `hands live state ls` |
+| What is this value: its range, unit, steps, default? | `hands live describe "TRACK/DEVICE/PARAM" ...` (state keys; one call for up to 32) |
+| What is selected in Live? | `hands live selection` (track, device and parameter as a state key) |
+| Will this page of controls work, and how does it land on the MiniLab? | `hands live page lint PAGE.json` (`zpkt.live.page`; contract `lib/contracts/page.schema.json`) |
+| What changed between two mixes, and who moved it? | `zpkt.live.changes.between(a, b, who)`; one set's stream in `<sets_dir>/changes/<set>.jsonl` |
 | Render a span to a file | `hands live export FILE --start BEAT --length BEATS` |
 | Which output is Live playing through? / Play through another one | `hands rig output [NAME]` (e.g. `Yeti`) |
 | Render many variants of a section in one export | `hands kit template ...`, then `hands kit render BATCH KIT` (probe kits: the fast batch-render method) |
@@ -138,6 +142,7 @@ hands live exec --json "result = len(song.tracks)"   # LOM code (also --file, --
 hands live check [--expect SET] [--any-set]      # the session guard
 hands live save [--as NAME] [--state NAME]       # File > Save, wait for the file; a named copy; the mix state
 hands live state take|diff|put|ls NAME           # the mix state as data (README "Common asks")
+hands live describe KEY... | selection | page lint PAGE.json   # what the one interface's pages are built from
 hands live reset|clip create|device load/set/list   # build a set from the shell; `hands live surface apply` guesses units
 hands live export take.wav [--start 8 --length 32] [--mode Main] [--bits 24]
 hands live modals [--reap]                       # Live's modal dialogs; --reap presses only safe buttons

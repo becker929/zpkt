@@ -223,7 +223,8 @@ def save(
         print(f"state {p}")
 
 
-from zpkt.live import edit_cli, state_cli  # noqa: E402
+from zpkt.live import edit_cli, page_cli, state_cli  # noqa: E402
 
 state_cli.register(app)
 edit_cli.register(app)
+page_cli.register(app)

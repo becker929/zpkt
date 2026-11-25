@@ -11,6 +11,7 @@ output against these files in its tests, so a join cannot drift silently.
 | `desk.schema.json` | the mix desk (`contrib/mixdesk/recipe.py write`, the recipe's `desk`) | hands (`hands live state diff\|put RECIPE.json`) | generated from `src/zpkt/live/desk.py` by `hands/tools/gen_schemas.py` |
 | `mixdesk-message.schema.json` | the mix desk's pager (UDP datagrams) and server (server-sent events) | the desk's server and page | generated from `contrib/mixdesk/protocol.py` by `contrib/mixdesk/gen_schema.py` |
 | `mixdesk-surface.schema.json` | the mix desk's "Make a surface" (`<sets_dir>/surfaces/<set>/*.json`) | the desk's server and pager | generated from `contrib/mixdesk/surfaces.py` by `contrib/mixdesk/gen_schema.py` |
+| `page.schema.json` | an agent or a person asking for a page of controls (`<sets_dir>/pages/<set>/*.json`) | hands (`hands live page lint`), later the one interface (`zpkt.app`) | generated from `src/zpkt/live/page.py` by `hands/tools/gen_schemas.py` |
 | `inventory.schema.json` | hands (`hands library inventory --json`) | a person, agents planning work | generated from `src/zpkt/live/library/models.py` by `hands/tools/gen_schemas.py` |
 | `arrangement.schema.json` | the HW002 arranger's pages (`contrib/arranger/server.py`) and the mix desk (`desk`) | the arranger's scripts (`mixset.py`, `spectral.py`, `kickfuzz.py`), the mix desk, hands (`hands live state ... RECIPE.json`) | written by hand to match `contrib/arranger/arrangement.py`; its tests check both agree |
 

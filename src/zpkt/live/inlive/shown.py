@@ -78,3 +78,43 @@ def set_shown(p, want: str | float, name: str = "") -> str | None:
         return f"{name or p.name}={want}? {'|'.join(items) or 'not a value it shows'}"
     p.value = max(p.min, min(p.max, value))
     return None
+
+
+def describe(p, stops=5):  # p: a DeviceParameter
+    """What a control needs to know about `p`, as plain data: its kind ("switch": two steps, "choice": a list,
+    "continuous"), range, default (None where Live gives none), steps and items for a switch or list, the unit of
+    what it shows now ("dB", "Hz", "%", "" for none), `stops` shown texts spread over a continuous range (for a
+    scale's labels), what it shows now, and "plain": True when a continuous value shows no number to read."""
+    lo, hi = float(p.min), float(p.max)
+    quantized = bool(p.is_quantized)
+    count = round(hi - lo) + 1
+    items = []
+    if quantized:
+        items = [str(i) for i in getattr(p, "value_items", ())]
+        if not items and count <= 128:
+            items = [str(p.str_for_value(lo + k)) for k in range(count)]
+    try:
+        default = float(p.default_value)
+    except Exception:  # Live gives no default for a list or switch
+        default = None
+    now = str(p)
+    m = _NUMBER.match(now)
+    marks = []
+    if not quantized and stops > 1:
+        for k in range(stops):
+            raw = lo + (hi - lo) * k / (stops - 1)
+            marks.append([str(p.str_for_value(raw)), raw])
+    return {
+        "name": str(p.name),
+        "kind": ("switch" if count == 2 else "choice") if quantized else "continuous",
+        "min": lo,
+        "max": hi,
+        "default": default,
+        "steps": count if quantized else None,
+        "items": items,
+        "unit": m.group(2) if m else "",
+        "stops": marks,
+        "now": [now, p.value],
+        "enabled": bool(getattr(p, "is_enabled", True)),
+        "plain": not quantized and m is None,
+    }
