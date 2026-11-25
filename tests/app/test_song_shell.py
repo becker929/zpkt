@@ -89,7 +89,8 @@ def test_the_song_tab_does_not_overflow(song_rig, width):  # noqa: F811
         pg = browser.new_page(viewport={"width": width, "height": 800})
         pg.goto(song_rig.rig.url + "/app/")
         pg.wait_for_selector(".ctl .w")
-        pg.click('#tabs button[data-t="song"]')
+        if width < 1100:  # a desktop has no tab bar: the Song is a strip above the Desk
+            pg.click('#tabs button[data-t="song"]')
         pg.wait_for_selector("#lanes .lane")
         over = pg.evaluate(
             """() => {
@@ -102,7 +103,7 @@ def test_the_song_tab_does_not_overflow(song_rig, width):  # noqa: F811
             }"""
         )
         small = pg.evaluate(
-            "[...document.querySelectorAll('#song button, #tabs button')].map(b => b.getBoundingClientRect().height).filter(h => h < 40).length"
+            "[...document.querySelectorAll('#song button, #tabs button')].map(b => b.getBoundingClientRect().height).filter(h => h > 0 && h < 40).length"
         )
         browser.close()
     assert over == [0, []], over
