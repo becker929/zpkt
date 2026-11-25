@@ -59,6 +59,7 @@ packages = ["src/zpkt", "src/hands", "src/ears", "src/mlab"]
 
 [dependency-groups]
 dev = [
+    "hypothesis>=6.170.17",
     "jsonschema>=4.26.0",
     "mypy>=2.4.1",
     "pytest>=9.2.0",

@@ -11,6 +11,11 @@ from collections.abc import Generator
 from typing import Any
 
 import pytest
+from hypothesis import settings
+
+# One profile for every property test: few examples and no per-example deadline (the machine is shared and busy).
+settings.register_profile("zpkt", max_examples=50, deadline=None)
+settings.load_profile("zpkt")
 
 BROWSER_WORDS = ("webkit", "playwright")
 
