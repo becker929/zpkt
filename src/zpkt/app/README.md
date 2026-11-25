@@ -6,6 +6,22 @@ Only `zpkt.app` talks to Live. Everyone else is a client of it: the phone, the d
 `zpkt` command, the booth. The app opens the connections once and hands them to `zpkt.live` and `zpkt.audio`, which
 are libraries and never open one.
 
+## What is in it
+
+`zpkt app` starts four adapters by default (`web,api,song,agents`; `midi` is off unless named). Where to look:
+
+| Want | Where | Section |
+|---|---|---|
+| The Hear bar, the Desk, undo and history | `/app/` (the old desk page stays at `/`) | What it serves |
+| Pages of controls, drawn and mapped to the MiniLab | `/app/` Desk; `zpkt page make` | Pages |
+| Versions of the mix side by side | `/app/` Options tab | Options and the one render queue |
+| The arrangement as lanes, Mix 1, transitions, Build in Live | `/app/` Song tab; the arranger under `/app/song` | The Song |
+| Chat with Claude and Gemini | `/app/ask/` | Ask |
+| The MiniLab 3 | `--adapters web,midi` | The MiniLab |
+| The `zpkt` command, the booth, the demos | `127.0.0.1:8984`, `/api/v1/` | The API and its clients |
+
+The Ask page is not yet linked from the `/app/` shell: open `/app/ask/` directly.
+
 ## How it fits
 
 ```
@@ -190,6 +206,10 @@ the old page. `ZPKT_MIXDESK_DIR` names another folder. The old module names ther
 `surfaces`, `server`) are aliases for the modules here, so old imports and tests keep working.
 
 ## How to add an adapter
+
+Two seams put routes on the web server, and they overlap: `desk.extensions` (Ask: objects with `handles(path)` and
+`serve(handler, method, path, query)`, asked first) and `desk.mounts` (the Song: a route set under a prefix, asked
+second). Both get GET, POST, PUT, PATCH and DELETE. Pick `extensions` for a new adapter; joining the two is later work.
 
 1. Add a module to `zpkt/app/adapters/`, say `midi.py`.
 2. In it, write a class with `name`, `start()` and `stop()`. Its constructor takes an `AppContext` (the bus, the desk
