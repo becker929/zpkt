@@ -4,8 +4,10 @@ The API adapter (and the `zpkt` command, the booth, the demo) submit these as Co
 demo or cli. Each handler uses the app's one connection, so the job runs queued and under the lock. The web page is
 `you` and may not ask for them: running code in Live is for callers that hold the API's token.
 
-A job that names a set (`expect_set`) is refused with 409 when Live has another open. Opening a set is the one job
-that does not check, since it is how to get to the right one.
+The bus checks the set before a job runs (zpkt.app.bus.SetGuard.check_job). A job that names a set (`expect_set`) is
+refused with 409 when Live has another open. A job that moves Live and names none is held to the set the app last saw
+open. Opening a set is the one job that does not check, since it is how to get to the right one; it tells the guard
+which set is open now.
 
 Replies are (status, JSON). A bad argument raises BadRequest, which the bus makes a 400.
 """
@@ -19,7 +21,7 @@ from pathlib import Path
 from typing import Any
 
 from zpkt.app import effects
-from zpkt.app.bus import OK, BadRequest, Bus, Command, Refused, Reply
+from zpkt.app.bus import OK, BadRequest, Bus, Command, Reply
 from zpkt.app.connections import LiveConnections
 from zpkt.live import codegen, config, describe, openset, session
 from zpkt.live import state as S
@@ -78,23 +80,11 @@ def mcp_dict(res: McpResult) -> dict[str, Any]:
     return dataclasses.asdict(res)
 
 
-def expect_set(conn: LiveConnections, args: Any) -> None:
-    """The wrong-set guard for a caller that names its set: Live must have that one open (a set it does not name
-    passes, as in the bus)."""
-    want = args.get("expect_set")
-    if want is None:
-        return
-    have = openset.open_set_name(conn)
-    if have and have != str(want).removesuffix(".als"):
-        raise Refused(f"Live has {have} open; this call is for {want}. Open that set first.", 409)
-
-
 # ---- the jobs ------------------------------------------------------------------------------------------------------
 
 
 def live_run(conn: LiveConnections, cmd: Command) -> Reply:
     """Run a code string in Live (step A): the result as the Remote Script gave it."""
-    expect_set(conn, cmd.args)
     res = conn.execute(text(cmd.args, "code"))
     return 200, {"ok": res.status == "ok", "reply": mcp_dict(res)}
 
@@ -109,14 +99,20 @@ def live_read(conn: LiveConnections, cmd: Command) -> Reply:
     return live_run(conn, cmd)
 
 
-def open_set(conn: LiveConnections, cmd: Command, forget: Callable[[], None]) -> Reply:
+def open_set(
+    conn: LiveConnections, cmd: Command, forget: Callable[[], None], believe: Callable[[str], None] = lambda name: None
+) -> Reply:
+    """Open a set. `believe` is told the set Live has open afterwards: the one the app holds unnamed jobs to."""
     name = text(cmd.args, "name").removesuffix(".als")
     try:
         seconds = session.open_set(conn, name, save_current=flag(cmd.args, "save_current", True))
     except session.Guard as exc:
+        if openset.open_set_name(conn) == name:  # it was open already: Live would not reload it, but now we know
+            believe(name)
         return 409, {"error": str(exc)}
     finally:
         forget()  # the wrong-set guard asks Live again
+    believe(openset.open_set_name(conn) or name)
     return 200, {"ok": True, "name": name, "seconds": round(seconds, 2)}
 
 
@@ -131,7 +127,6 @@ def render_loop(conn: LiveConnections, cmd: Command) -> Reply:
         raise BadRequest("give both 'start' and 'length', or neither")
     out = Path(text(args, "out"))
     path = out if out.is_absolute() or len(out.parts) > 1 else config.rig().renders_dir / out
-    expect_set(conn, args)
     try:
         written = render.export(
             conn,
@@ -151,7 +146,6 @@ def set_tempo(conn: LiveConnections, cmd: Command) -> Reply:
     bpm = number(cmd.args, "bpm")
     if not MIN_BPM <= bpm <= MAX_BPM:
         raise BadRequest(f"'bpm' is from {MIN_BPM:g} to {MAX_BPM:g}")
-    expect_set(conn, cmd.args)
     return _ran(conn, codegen.gen_set_tempo(bpm).code)
 
 
@@ -171,7 +165,6 @@ def transport(conn: LiveConnections, cmd: Command) -> Reply:
         ).code
     else:
         raise BadRequest(f"'action' is one of {', '.join(TRANSPORT_ACTIONS)}")
-    expect_set(conn, args)
     return _ran(conn, code)
 
 
@@ -194,7 +187,6 @@ def state_put(conn: LiveConnections, cmd: Command) -> Reply:
         loaded = S.load_dict(dict(state))
     except (ValueError, KeyError, TypeError) as exc:
         raise BadRequest(f"'state' is not a state: {exc}") from None
-    expect_set(conn, cmd.args)
     rows = S.put(conn, loaded, names(cmd.args, "only"))
     return 200, {"ok": True, "left": [list(r) for r in rows]}
 
@@ -220,7 +212,6 @@ def page_apply(conn: LiveConnections, cmd: Command) -> Reply:
     for what, value in (("state", values), ("spec", changes)):
         if value is not None and not isinstance(value, dict):
             raise BadRequest(f"{what!r} must be a JSON object")
-    expect_set(conn, args)
     force = flag(args, "force", False)
     try:
         try:
@@ -253,17 +244,20 @@ JOBS: dict[str, Job] = {
 
 
 def register(bus: Bus, conn: LiveConnections) -> None:
-    """Put the jobs on the bus. They name their own set (`expect_set`), so the bus's guard (for the desk's page) is
-    off for them."""
+    """Put the jobs on the bus. Each is held to the set its caller names, or to the one the app last saw open
+    (`own_set`), not to the desk's page."""
     for kind, job in JOBS.items():
 
         def run(cmd: Command, job: Job = job) -> Reply:
             return job(conn, cmd)
 
-        effects.register(bus, kind, run, touches_live=True, guarded=False, callers=API_CALLERS)
+        effects.register(bus, kind, run, touches_live=True, own_set=True, callers=API_CALLERS)
 
     def opened(cmd: Command) -> Reply:
-        return open_set(conn, cmd, lambda: bus.guard.forget() if bus.guard else None)
+        guard = bus.guard
+        if guard is None:
+            return open_set(conn, cmd, lambda: None)
+        return open_set(conn, cmd, guard.forget, guard.believe)
 
     effects.register(bus, "live.open_set", opened, touches_live=True, guarded=False, callers=API_CALLERS)
 

@@ -55,7 +55,9 @@ status, reply = app.render_loop("loop.wav", start=0, length=32)
 | describe | `describe(keys)` | `/describe` | kind, range and unit of each control |
 
 Every job takes `expect_set` in its args: the set it is for. If Live has another open, the app answers 409 and sends
-nothing. A reply is `(status, JSON)`. A refusal is a status, never an exception; only an unreachable app raises
+nothing. A job that changes Live and names no set is held to the set the app last saw open: the desk's set when the
+app starts, then the set the app opened (`open_set`), or one a caller named and Live had. `zpkt live open` and
+`session.open_set` through `via_app` tell the app too. A read that names no set looks at whatever is open. A reply is `(status, JSON)`. A refusal is a status, never an exception; only an unreachable app raises
 `AppDown`. The shapes are in `lib/contracts/app-api.schema.json`.
 
 ## Who may ask, and how

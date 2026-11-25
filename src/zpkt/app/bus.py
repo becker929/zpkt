@@ -8,7 +8,9 @@ these checks first:
 - the agent rule: an agent may make pages and propose Options and may read; a change to Live from an agent needs an
   Option pick or your word (`approval`). An agent's changes always belong to a group, and the first change of a group
   makes an automatic version first, so one undo takes the whole group back.
-- the wrong-set guard: Live must have open the set the page is for. Nothing is sent otherwise.
+- the wrong-set guard: every move is held to a set, and nothing is sent when Live has another open. The desk's moves
+  are for the page's set. A job (zpkt.app.jobs) is for the set its caller names (`expect_set`), or else for the set
+  the app last saw open. Only opening a set is let through.
 - the lock: Live takes one job at a time. A command that cannot get it in time is refused with a reason.
 
 The bus holds no state about Live or the mix; the handlers and their services (zpkt.app.desk) do. It keeps a short log
@@ -73,7 +75,8 @@ class Spec:
     handler: Callable[[Command], Reply]
     effect: Effect = "read"
     touches_live: bool = False  # it calls Live, so it takes the lock
-    guarded: bool = True  # a move is held by the wrong-set guard; a job that names its own set turns this off
+    guarded: bool = True  # a move is held by the wrong-set guard; only opening a set turns this off
+    own_set: bool = False  # a job: held to the set its caller names (`expect_set`), or the one the app last saw open
     callers: tuple[str, ...] | None = None  # who may ask for it; None is anyone (the web is "you", the API is not)
     for_set: str | None = None  # a move for another set than the page's (the Song builds the mix set): that one
 
@@ -114,9 +117,17 @@ def check_agent(cmd: Command, spec: Spec, picked: Callable[[str], bool] | None =
         )
 
 
+EXPECT_SET = "expect_set"  # the argument in which a job's caller names the set the call is for
+
+
 class SetGuard:
-    """The wrong-set guard: Live must have open the set this app is for. The answer is kept for `ttl_s` seconds,
-    since asking Live costs a call; a set that Live does not name (an unsaved one) passes."""
+    """The wrong-set guard: Live must have open the set a move is for. A set that Live does not name (an unsaved
+    one) passes.
+
+    The desk's moves are for the page's set (`check`); that answer is kept for `ttl_s` seconds, since asking Live
+    costs a call and a knob sends many. A job is for the set its caller names, or for `believed`, the set the app
+    last saw open (`check_job`): the page's set at the start, then whatever set the app opened or a caller named
+    and Live had."""
 
     def __init__(
         self,
@@ -126,6 +137,7 @@ class SetGuard:
         clock: Callable[[], float] = time.monotonic,
     ) -> None:
         self.page_set, self.open_set, self.ttl_s, self.clock = page_set, open_set, ttl_s, clock
+        self.believed = page_set
         self._seen: tuple[float, str] | None = None
         self._forgot = 0  # counts forget() calls, so an answer asked for before one is not kept after it
         self._lock = threading.Lock()
@@ -141,6 +153,30 @@ class SetGuard:
         name = self._name()
         if name and name != want:
             raise Refused(f"Live has {name} open; this page is for {want}. Open that set first.", 409)
+
+    def believe(self, name: str) -> None:
+        """The app saw `name` open (it opened it, or a caller named it and Live had it)."""
+        if name:
+            with self._lock:
+                self.believed = name
+
+    def check_job(self, named: str | None) -> None:
+        """Refuse a job when Live has another set open than the one its caller names, or, for a caller that names
+        none, than the one the app last saw open. Live is asked afresh: a job may follow a change of set at once."""
+        have = self.open_set()
+        if not have:
+            return
+        if named is not None:
+            if have != named.removesuffix(".als"):
+                raise Refused(f"Live has {have} open; this call is for {named}. Open that set first.", 409)
+            self.believe(have)
+        elif have != self.believed:
+            raise Refused(
+                f"Live has {have} open, but the app last saw {self.believed} open, and this call names no set. "
+                f"If {have} is the set you mean, say so (`zpkt live open {have}`, or 'expect_set' in the call's "
+                f"args); otherwise open {self.believed} first.",
+                409,
+            )
 
     def _name(self) -> str:
         """The open set's name, from the kept answer or from Live. Live is asked with no lock of ours held: a job
@@ -201,9 +237,10 @@ class Bus:
             check_who(cmd)
             check_caller(cmd, spec)
             check_agent(cmd, spec, self.option_picked)
-            if spec.effect == "move" and spec.guarded and self.guard is not None:
+            if spec.effect == "move" and spec.guarded and not spec.own_set and self.guard is not None:
                 self.guard.check(spec.for_set)
             with self._held(spec):
+                self._check_job_set(cmd, spec)
                 cmd = self._grouped(cmd, spec)
                 return spec.handler(cmd)
         except BadRequest as exc:
@@ -221,6 +258,17 @@ class Bus:
                 flush=True,
             )
             return 500, {"error": f"{cmd.kind} failed inside the app ({type(exc).__name__}); see the app's log"}
+
+    def _check_job_set(self, cmd: Command, spec: Spec) -> None:
+        """The wrong-set guard for a job, asked while Live is held. A read that names no set looks at whatever is
+        open; a move never does."""
+        if self.guard is None or not (spec.own_set and spec.guarded):
+            return
+        named = cmd.args.get(EXPECT_SET)
+        if named is not None and not isinstance(named, str):
+            raise BadRequest(f"{EXPECT_SET!r} must be text: the name of the set this call is for")
+        if named is not None or spec.effect == "move":
+            self.guard.check_job(named)
 
     def _held(self, spec: Spec) -> AbstractContextManager[Any]:
         if spec.touches_live and self._lock is not None:

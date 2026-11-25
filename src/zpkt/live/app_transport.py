@@ -8,11 +8,13 @@ socket.
 
 from __future__ import annotations
 
+import contextlib
 import os
 import uuid
 from typing import Literal
 
 from zpkt.app.client import AppClient, AppDown
+from zpkt.live.agent import only_reads
 from zpkt.live.transport import McpResult, McpTransport, Transport
 
 APP_DOWN = "Cannot reach the zpkt app"  # unlike "Cannot reach Ableton", it names the app
@@ -27,8 +29,11 @@ class AppTransport(Transport):
         self.group = group or f"{self.client.who}-{uuid.uuid4().hex[:8]}"
 
     def execute(self, code: str) -> McpResult:
+        """Code that certainly only reads goes as live.read, anything else as live.run. A read is not a move: an
+        agent may ask it, and it is not held to a set, so a caller can wait for a set it has just opened."""
+        kind = "live.read" if only_reads(code) else "live.run"
         try:
-            status, reply = self.client.submit("live.run", {"code": code}, group=self.group)
+            status, reply = self.client.submit(kind, {"code": code}, group=self.group)
         except AppDown as exc:
             return McpResult(status="error", error=f"{APP_DOWN}: {exc}")
         if status == 200 and isinstance(reply.get("reply"), dict):
@@ -45,6 +50,12 @@ class AppTransport(Transport):
 
     def close(self) -> None:
         """Nothing is held open."""
+
+    def set_opened(self, name: str) -> None:
+        """Tell the app which set this caller has just opened in Live (zpkt.live.session.tell_opened): a read that
+        names it. When Live has that set, the app holds the calls that name no set to it from now on."""
+        with contextlib.suppress(AppDown):
+            self.client.submit("live.read", {"code": "result = 1", "expect_set": name}, group=self.group)
 
     def ping(self) -> float:
         """The app answers; Live's own answer comes with the next call."""

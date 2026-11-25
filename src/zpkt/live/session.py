@@ -50,6 +50,15 @@ def _answers(client: McpTransport) -> bool:
         return False
 
 
+def tell_opened(client: object, name: str) -> None:
+    """Tell a transport that keeps track of the open set (the app's, zpkt.live.app_transport) that `name` is open
+    now. The app holds calls that name no set to the set it last saw open, so it has to hear of this one. A direct
+    connection has nothing to tell."""
+    told = getattr(client, "set_opened", None)
+    if callable(told):
+        told(name)
+
+
 def _loaded_file() -> Path:
     return config.rig().data_dir / "live_loaded.json"
 
@@ -132,6 +141,7 @@ def open_set(client: McpTransport, name: str, *, save_current: bool = True, time
         stop(f"open: no set {path}")
     front = _front()
     if front == name:
+        tell_opened(client, name)
         stop(f"open: {name} is already open, and Live would not reload it; open another set first")
     if save_current and front and rig.set_path(front).exists():
         _save_front(front, "open")
@@ -150,6 +160,7 @@ def open_set(client: McpTransport, name: str, *, save_current: bool = True, time
         time.sleep(0.1)
     seconds = time.monotonic() - t0
     _remember(name)
+    tell_opened(client, name)
     return seconds
 
 
