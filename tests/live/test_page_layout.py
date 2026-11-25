@@ -87,7 +87,7 @@ def test_a_missing_target_is_drawn_greyed_with_the_reason(live):
         "title": "m",
         "groups": [{"name": "g", "controls": [{"target": "Nope/volume"}, {"target": "Kick bus/volume"}]}],
     }
-    _, _, missing, lay = laid(live, spec)
+    _, _, _, lay = laid(live, spec)
     gone, here = lay.groups[0].controls
     assert gone.missing and "Nope" in gone.missing and gone.widget == "knob"
     assert here.missing is None and here.widget == "fader"

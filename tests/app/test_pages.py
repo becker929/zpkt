@@ -58,12 +58,13 @@ def test_an_agent_may_not_move_live_with_the_same_door(rig):
     assert rig.desk.bus.submit(Command("mix.set", "agent", {"norms": [["Kick bus/volume", 0.1]]}))[0] == 403
 
 
-def test_the_web_may_say_it_is_an_agent_but_cannot_approve_itself(rig):
-    code, reply = rig.command("page.make", {"spec": SPEC}, who="agent")
+def test_the_agents_route_is_who_agent_and_cannot_approve_itself(rig):
+    code, reply = rig.post("/api/agent/command", {"kind": "page.make", "args": {"spec": SPEC}})
     assert code == 200 and reply["made_by"] == "agent"
-    assert rig.command("mix.set", {"norms": [["Kick bus/volume", 0.1]]}, who="agent", approval="user")[0] == 403
-    code, reply = rig.command("page.lint", {"spec": SPEC}, who="minilab")
-    assert code == 400 and "who may be" in reply["error"]
+    move = {"kind": "mix.set", "args": {"norms": [["Kick bus/volume", 0.1]]}, "approval": "user"}
+    assert rig.post("/api/agent/command", move)[0] == 403
+    assert rig.command("page.lint", {"spec": SPEC}, who="agent")[0] == 200  # the plain route ignores who
+    assert rig.desk.bus.log[-1]["who"] == "you"
 
 
 def test_lint_checks_and_saves_nothing(rig):
@@ -95,6 +96,7 @@ def test_a_page_wider_than_the_minilab_becomes_pages_in_order(rig):
 
 def test_layout_greys_a_target_the_set_lost(rig):
     path = rig.tmp / "sets" / "pages" / "HW002_121_pp_finish" / "gone.json"
+    path.parent.mkdir(parents=True)
     path.write_text(json.dumps({"schema": 2, "title": "Gone", "groups": [{"name": "g", "controls": [
         {"target": "Ghost/volume"}, {"target": "Kick bus/volume"}]}]}))  # fmt: skip
     code, reply = rig.command("page.layout", {"id": "gone"})
@@ -168,3 +170,35 @@ def test_the_prompt_names_every_key_and_the_rules():
         assert f"- {key}:" in text
     assert "more room" in text and "Never write widget" in text
     assert P.MAX_LABEL == 10 and "at most 10 characters" in text
+
+
+def test_zpkt_page_make_hands_a_spec_to_the_app_and_reads_the_answer(rig, tmp_path):
+    import io
+
+    from zpkt.app import page_cli
+
+    spec = tmp_path / "spec.json"
+    spec.write_text(json.dumps(SPEC))
+    out = io.StringIO()
+    assert page_cli.run(["make", str(spec), "--url", rig.url, "--prompt", "the kick"], out=out) == 0
+    assert "made 'Kick sub and knock' as kick-sub-and-knock, on the desk as page" in out.getvalue()
+    saved = json.loads((rig.tmp / "sets" / "pages" / "HW002_121_pp_finish" / "kick-sub-and-knock.json").read_text())
+    assert saved["made_by"] == "agent" and saved["prompt"] == "the kick"
+    bad = io.StringIO(json.dumps({"title": "t", "groups": [{"name": "g", "controls": [{"target": "Nope/volume"}]}]}))
+    out = io.StringIO()
+    assert page_cli.run(["make", "-", "--url", rig.url], stdin=bad, out=out) == 1
+    assert "Nope/volume: not in the open set" in out.getvalue()
+    out = io.StringIO()
+    assert page_cli.run(["lint", str(spec), "--url", rig.url], out=out) == 0 and out.getvalue().strip() == "ok"
+
+
+def test_zpkt_page_says_what_to_do_when_the_app_is_not_running(tmp_path):
+    import io
+
+    from zpkt.app import page_cli
+
+    spec = tmp_path / "s.json"
+    spec.write_text("{}")
+    out = io.StringIO()
+    assert page_cli.run(["lint", str(spec), "--url", "http://127.0.0.1:9"], out=out) == 2
+    assert "Start it with `zpkt app`" in out.getvalue()

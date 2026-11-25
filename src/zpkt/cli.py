@@ -12,6 +12,7 @@ USAGE = """usage: zpkt COMMAND [ARGS]...
   live    drive Ableton Live (the same commands as `hands`)
   audio   measure renders (the same commands as `ears`; the meters also as `mlab`)
   app     the one interface: the mix desk and the /app/ shell, the only door to Live
+  page    make or check a page of controls (an agent hands the running app a spec)
 
 `zpkt live --help` and `zpkt audio --help` list each one's commands."""
 
@@ -19,7 +20,7 @@ USAGE = """usage: zpkt COMMAND [ARGS]...
 def main() -> None:
     args = sys.argv[1:]
     part = args[0] if args else ""
-    if part not in ("live", "audio", "app"):
+    if part not in ("live", "audio", "app", "page"):
         print(USAGE)
         sys.exit(0 if part in ("", "-h", "--help") else 2)
     sys.argv = [f"zpkt {part}", *args[1:]]
@@ -27,6 +28,11 @@ def main() -> None:
         from zpkt.app import main as app_main
 
         app_main()
+        return
+    if part == "page":
+        from zpkt.app.page_cli import main as page_main
+
+        page_main()
         return
     if part == "live":
         from zpkt.live.cli import main as live_main

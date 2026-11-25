@@ -28,6 +28,7 @@ from zpkt.app.bus import BadRequest, Command, Reply
 from zpkt.app.commands import POST_PATHS
 from zpkt.app.desk import Desk, Settings, meter_message, mixdesk_dir, start_threads
 from zpkt.live import desk_pager
+from zpkt.live.changes import Who
 from zpkt.live.transport import LiveError
 
 __all__ = [
@@ -157,13 +158,9 @@ APP_GET_ROUTES: dict[str, Callable[[Desk, dict[str, str]], Response]] = {
 }
 
 
-# A caller on the web may say it is an agent, the command line, the booth or a demo: each has fewer rights than you,
-# or is the same. "you", "minilab" and "sys" are the app's own.
-CLAIMABLE_WHO = ("you", "agent", "cli", "booth", "demo")
-
-
-def post_command(desk: Desk, body: dict[str, Any]) -> Reply:
-    """Any command by kind: {"kind": "mix.set", "args": {...}, "group": "..."}. The web is "you"."""
+def post_command(desk: Desk, body: dict[str, Any], who: Who = "you") -> Reply:
+    """Any command by kind: {"kind": "mix.set", "args": {...}, "group": "..."}. The web is "you"; the agents' route
+    (POST /api/agent/command) is "agent". The body can never say who, and never carries an approval."""
     kind = body.get("kind")
     if not isinstance(kind, str):
         raise BadRequest("the body needs 'kind', the command's name")
@@ -171,10 +168,6 @@ def post_command(desk: Desk, body: dict[str, Any]) -> Reply:
     if not isinstance(args, dict):
         raise BadRequest("'args' must be a JSON object")
     group = body.get("group")
-    who = body.get("who", "you")
-    if who not in CLAIMABLE_WHO:
-        raise BadRequest(f"who may be {', '.join(CLAIMABLE_WHO)} here, not {who!r}")
-    # no `approval` is read from the body: an agent cannot approve its own move
     return desk.bus.submit(Command(kind, who, args, group=str(group) if group else None))
 
 
@@ -300,6 +293,8 @@ class Handler(BaseHTTPRequestHandler):
             body = parse_body(self.rfile.read(n))
             if self.path == "/api/command":
                 code, reply = post_command(self.desk, body)
+            elif self.path == "/api/agent/command":
+                code, reply = post_command(self.desk, body, "agent")
             elif kind is None:
                 return self._json({"error": "not found"}, 404)
             else:
