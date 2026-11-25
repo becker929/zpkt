@@ -26,6 +26,8 @@ audio = [
 # Heavy extractors for zpkt.audio, installed by hand: madmom (rhythm, needs Cython), basic-pitch (pitch),
 # demucs (stems), essentia (conda only on some platforms).
 gemini = ["google-generativeai>=0.8.6"]
+# Browser flows of zpkt.app (tests/app/test_flows.py): run in WebKit; they skip when the browser is not installed.
+e2e = ["playwright==1.63.0"]
 # `hands serum2` (Serum 2 state codec; pedalboard/mido for offline renders and knob values).
 serum = [
     "cbor2>=6.3.0",

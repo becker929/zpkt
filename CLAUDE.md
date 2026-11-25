@@ -1,6 +1,6 @@
 # zpkt: rules for agents
 
-Where things are: one package, `zpkt` (`src/zpkt/`): `zpkt.live` drives Live (once `hands`), `zpkt.audio` measures
+Where things are: one package, `zpkt` (`src/zpkt/`): `zpkt.app` is the one interface and the only door to Live (the mix desk's server, the command bus, the monitor; read `src/zpkt/app/README.md`; `zpkt.live` and `zpkt.audio` never open a connection, the app hands one in); `zpkt.live` drives Live (once `hands`), `zpkt.audio` measures
 renders (once `ears`; the lab with `ears/mlab/reports/`, the mastering and reference sheets, stays in `ears/mlab/`). The
 commands `zpkt live` and `zpkt audio` have the old names `hands`, `ears` and `mlab` as aliases, and so do the imports;
 new code imports `zpkt`. Tests are in `tests/live` and `tests/audio`. `hands/` keeps the rig macros and `hands/bin/hands`; `agent/skills/` holds the skills for driving Live (linked into `.claude/skills/` and `.agents/skills/`),

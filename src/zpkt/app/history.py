@@ -338,6 +338,7 @@ class History:
         for m in moves:
             raw = m[side][1]
             self._expect(m["key"], raw, until)
+            self.cur[m["key"]] = list(m[side])  # what Live will have: counts are right before its echo comes back
             out.append([m["key"], raw])
         return out
 

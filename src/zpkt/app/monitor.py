@@ -146,6 +146,9 @@ class Monitor:
         """Put `keys` of `values` into Live; the echo is not a new move."""
         pairs = [[k, values[k][1]] for k in keys if k in values]
         self.desk.history.expect_writes(pairs)
+        for k in keys:
+            if k in values:
+                self.desk.history.rebase(k, values[k])  # what Live will report back; counts are right at once
         self.desk.write(pairs)
 
     def _hear_pin(self) -> None:
