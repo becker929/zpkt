@@ -30,6 +30,7 @@ from zpkt.app.monitor import Monitor
 from zpkt.audio.levels import rms_to_db
 from zpkt.live import changes, config, desk_pager, meter, monitor_tracks, openset
 from zpkt.live import state as S
+from zpkt.live.describe import Description
 from zpkt.live.transport import LiveError
 
 START_CHECKPOINT_H = 12  # a start makes a "start-..." checkpoint unless the desk made one this recently
@@ -119,6 +120,7 @@ class Desk:
         self.app_clients: list[queue.Queue[dict[str, Any]]] = []  # the /app/ shell's: they also get "hear" messages
         self._clients_lock = threading.Lock()
         self.labels: dict[str, str] = {}  # shared with the history, which names its moves by them
+        self.descriptions: dict[str, Description] = {}  # what Live said of a control's range, by state key
         stream = changes.Stream(settings.changes_file) if settings.changes_file else None
         self.history = hist or history.History(
             settings.set_name, self.labels, settings.history_dir, checkpoints=settings.checkpoints_dir, changes=stream

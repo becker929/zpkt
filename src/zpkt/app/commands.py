@@ -16,7 +16,7 @@ from typing import TYPE_CHECKING, Any
 from zpkt.app import deskstate as D
 from zpkt.app import monitor, surfaces
 from zpkt.app.bus import OK, BadRequest, Bus, Command, Effect, Reply, Spec
-from zpkt.live import describe
+from zpkt.live import describe, tempo
 from zpkt.live import state as S
 from zpkt.live.describe import Description
 
@@ -135,7 +135,10 @@ def mix_toggle(desk: Desk, cmd: Command) -> Reply:
 
 def mix_set(desk: Desk, cmd: Command) -> Reply:
     """Move controls: [[state key, raw], ...] from you or an agent. One history entry (an agent's group is one)."""
-    pairs = _pairs(desk, cmd.args)
+    return _move(desk, cmd, _pairs(desk, cmd.args))
+
+
+def _move(desk: Desk, cmd: Command, pairs: list[list[Any]]) -> Reply:
     desk.monitor.leave_pin()  # moving a control while the Pin is heard starts from Now
     entry = desk.history.record(pairs, cmd.who, cmd.group)
     try:
@@ -147,6 +150,70 @@ def mix_set(desk: Desk, cmd: Command) -> Reply:
     desk.push(desk.history.view())
     desk.push_app(desk.monitor.message())
     return 200, {"ok": True, "entry": entry and entry["id"], "missing": missing}
+
+
+def _described(desk: Desk, keys: list[str]) -> dict[str, Description]:
+    """Descriptions of `keys`, asking Live only for those not seen yet: a knob's stream asks a few times a second, and
+    a parameter's range does not change while the set is open."""
+    with desk.lock:
+        known = {k: desk.descriptions[k] for k in keys if k in desk.descriptions}
+    missing = [k for k in keys if k not in known]
+    if missing:
+        found = describe.describe(desk.conn, missing)
+        with desk.lock:
+            desk.descriptions.update(found)
+        known.update(found)
+    return known
+
+
+def _page_keys(desk: Desk, page: int, slots: list[str]) -> dict[str, str]:
+    """{slot: state key} of the controls on `page` that work (the pager reports a key for each)."""
+    values = desk.snapshot()["values"]
+    return {s: str(v["key"]) for s in slots if (v := values.get(f"{page}:{s}")) and v.get("key") and not v.get("err")}
+
+
+def page_set(desk: Desk, cmd: Command) -> Reply:
+    """Put the page's controls at places 0..1: {"page": 0, "controls": [{"slot": "k1", "n": 0.4}, ...]}. What the
+    MiniLab sends, one batch for a tick of knobs."""
+    page = _int(cmd.args, "page")
+    controls = cmd.args.get("controls")
+    if not (isinstance(controls, list) and controls and all(isinstance(c, dict) and "slot" in c for c in controls)):
+        raise BadRequest("'controls' is a list of {slot, n}")
+    keys = _page_keys(desk, page, [str(c["slot"]) for c in controls])
+    wanted = [c for c in controls if str(c["slot"]) in keys]
+    if not wanted:
+        return 200, {"ok": True, "entry": None, "missing": [str(c["slot"]) for c in controls]}
+    found = _described(desk, [keys[str(c["slot"])] for c in wanted])
+    pairs = [[keys[str(c["slot"])], raw_from_norm(found[keys[str(c["slot"])]], _float(c, "n"))] for c in wanted]
+    return _move(desk, cmd, pairs)
+
+
+def mix_reset(desk: Desk, cmd: Command) -> Reply:
+    """Put controls back to their default: {"keys": [state key, ...]}. One history entry, so undo takes it back."""
+    keys = cmd.args.get("keys")
+    if not (isinstance(keys, list) and keys and all(isinstance(k, str) for k in keys)):
+        raise BadRequest("'keys' is a list of state keys")
+    try:
+        found = _described(desk, keys)
+    except describe.Missing as exc:
+        raise BadRequest(f"the set does not have: {'; '.join(exc.missing)}") from None
+    pairs = [[k, found[k]["default"]] for k in keys if found[k]["default"] is not None]
+    if not pairs:
+        return 200, {"ok": True, "entry": None, "missing": []}
+    return _move(desk, cmd, pairs)
+
+
+def tempo_set(desk: Desk, cmd: Command) -> Reply:
+    tempo.set_tempo(desk.conn, _float(cmd.args, "bpm"))
+    return OK
+
+
+def tempo_scale(desk: Desk, cmd: Command) -> Reply:
+    factor = _float(cmd.args, "factor")
+    if factor <= 0:
+        raise BadRequest("'factor' must be above 0")
+    tempo.scale_tempo(desk.conn, factor)
+    return OK
 
 
 def transport(desk: Desk, cmd: Command) -> Reply:
@@ -307,6 +374,10 @@ COMMANDS: dict[str, tuple[Handler, Effect, bool]] = {
     "page.arm": (page_arm, "make", True),
     "mix.toggle": (mix_toggle, "move", True),
     "mix.set": (mix_set, "move", True),
+    "page.set": (page_set, "move", True),
+    "mix.reset": (mix_reset, "move", True),
+    "tempo.set": (tempo_set, "move", True),
+    "tempo.scale": (tempo_scale, "move", True),
     "transport": (transport, "move", True),
     "monitor.choose": (monitor_choose, "move", True),
     "monitor.hear": (monitor_hear, "move", True),
