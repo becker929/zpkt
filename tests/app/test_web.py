@@ -4,7 +4,10 @@ bus's door (POST /api/command)."""
 from __future__ import annotations
 
 import json
+import urllib.error
 import urllib.request
+
+import pytest
 
 from tests.app.conftest import wait_for
 from zpkt.app.bus import Command
@@ -19,8 +22,21 @@ def first_control(rig, prefix="k"):
     raise AssertionError("no control with a key")
 
 
+def test_the_front_door_is_the_app_and_the_old_page_is_at_desk(rig):
+    req = urllib.request.Request(rig.url + "/")
+    opener = urllib.request.build_opener(NoRedirect)
+    with pytest.raises(urllib.error.HTTPError) as e:
+        opener.open(req, timeout=10)
+    assert e.value.code == 302 and e.value.headers["Location"] == "/app/"
+
+
+class NoRedirect(urllib.request.HTTPRedirectHandler):
+    def redirect_request(self, *a, **k):
+        return None
+
+
 def test_the_old_page_and_the_new_shell_are_served_from_one_app(rig):
-    old, shell = rig.get("/"), rig.get("/app/")
+    old, shell = rig.get("/desk/"), rig.get("/app/")
     assert old[0] == 200 and b"<script>" in old[1]
     assert shell[0] == 200 and b'id="htop"' in shell[1] and b"/events?app=1" in shell[1]
     assert rig.get("/app")[0] == 200

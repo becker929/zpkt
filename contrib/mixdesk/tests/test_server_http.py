@@ -17,7 +17,7 @@ from zpkt.live.testing.display import fader_db
 
 
 def test_the_page_and_the_desk(rig):
-    for path in ("/", "/index.html"):
+    for path in ("/desk/", "/index.html"):
         code, body = rig.get(path)
         assert code == 200 and b"<script>" in body
     code, desk = rig.get("/api/desk")
@@ -293,7 +293,7 @@ def test_a_second_page_shares_every_route(rig, tmp_path):
             assert r.read() == second.read_bytes() and r.headers["Content-Type"].startswith("text/html")
         with urllib.request.urlopen(url + "/api/state", timeout=10) as r:
             assert json.loads(r.read())["attached"] is True
-        with urllib.request.urlopen(url + "/", timeout=10) as r:
+        with urllib.request.urlopen(url + "/desk/", timeout=10) as r:
             assert b"<script>" in r.read()
     finally:
         http.shutdown()

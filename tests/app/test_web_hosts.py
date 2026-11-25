@@ -80,7 +80,7 @@ def test_the_settings_read_extra_names_from_the_environment(monkeypatch):
 @pytest.mark.parametrize(
     ("method", "path"),
     [
-        ("GET", "/"),
+        ("GET", "/desk/"),
         ("GET", "/app/"),
         ("GET", "/api/state"),
         ("GET", "/events"),

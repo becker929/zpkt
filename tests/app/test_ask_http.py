@@ -264,7 +264,7 @@ def test_a_scripted_agent_makes_a_page_through_the_bus_and_the_set_is_unmoved(as
 
 def test_the_old_desk_still_answers_beside_ask(asked):
     assert asked.rig.get("/api/state")[0] == 200
-    assert raw(asked, "GET", "/")[0] == 200 and raw(asked, "GET", "/app/")[0] == 200
+    assert raw(asked, "GET", "/desk/")[0] == 200 and raw(asked, "GET", "/app/")[0] == 200
     assert "page.draft" in asked.rig.get("/api/commands")[1]["commands"]
     code, _ = asked.rig.command("page.draft", {"page": {}})  # the web is "you": the same command works for it too
     assert code == 400

@@ -12,7 +12,7 @@ are libraries and never open one.
 
 | Want | Where | Section |
 |---|---|---|
-| The Hear bar, the Desk, undo and history | `/app/` (the old desk page stays at `/`) | What it serves |
+| The Hear bar, the Desk, undo and history | `/app/` (`/` sends you here; the old desk page is at `/desk/`) | What it serves |
 | Pages of controls, drawn and mapped to the MiniLab | `/app/` Desk; `zpkt page make` | Pages |
 | Versions of the mix side by side | `/app/` Options tab | Options and the one render queue |
 | The arrangement as lanes, Mix 1, transitions, Build in Live | `/app/` Song tab; the arranger under `/app/song` | The Song |
