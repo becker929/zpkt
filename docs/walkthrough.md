@@ -37,7 +37,7 @@ Do the parts in order. The table at the end is for ticking them off.
 3. **One Live step at a time.** After each Live step, run `uv run zpkt live modals`. It should say `CLEAN`. If a
    dialog is open, look at Live and answer it yourself.
 4. **These commands save the set in front:** `zpkt live open` (without `--no-save`), `zpkt live save`,
-   `zpkt rig reset` (without `--discard`), and the demo's `livectl.py open`. Never run them while
+   `zpkt live rig reset` (without `--discard`), and the demo's `livectl.py open`. Never run them while
    HW002_121_pp_finish is in front.
 5. **One mix desk at a time.** Only one desk can hold the MiniLab and UDP ports 8986 and 8987. Stop the running one
    before you start another (step 7). The desk also follows whatever set is in front, so stop it before you open
@@ -156,9 +156,9 @@ You should see: the usage, listing `live`, `panel`, `song`, `rig`, `kit` and the
 **18. [auto] The skill's doctor.** `bash agent/skills/ableton-live-control/scripts/doctor.sh`
 You should see: `[ok] Live process running` and `[ok] Path B MCP reachable (TCP 16619); LOM round-trip OK`, exit 0.
 
-**19. [auto] The rig check, without playing.** `uv run zpkt rig check --no-play`
+**19. [auto] The rig check, without playing.** `uv run zpkt live rig check --no-play`
 You should see: `ready: Live answers, plays and has an audio device`, or a short list of problems. Do not run
-`zpkt rig reset` as a fix while HW002_121_pp_finish is in front.
+`zpkt live rig reset` as a fix while HW002_121_pp_finish is in front.
 
 **20. [auto] The Remote Scripts Live loads are this checkout's.**
 ```bash
@@ -212,7 +212,7 @@ You should see: `saved …/HW002_121_pp_walk.als` or `nothing to save in …`, t
 You should see: `…/HW002_121_pp_walk3.als exists; pick another name`, exit 1.
 
 **27. [auto] A real-time take.**
-`uv run zpkt record --arrangement --beats 8 --output ~/Music/zpkt/renders/walk-rec.wav`
+`uv run zpkt live record --arrangement --beats 8 --output ~/Music/zpkt/renders/walk-rec.wav`
 You should see: Live plays for about 3 s (out loud). `afinfo` on the file says about 3 s.
 
 ## Part 4. The whole mix as data: take, diff, put
@@ -240,7 +240,7 @@ You should see: `walk-before` first.
 You should see: `N values in A, K differ` and rows: what moved since the recipe's desk was written.
 
 **35. [auto] Two saved sets, no Live.**
-`uv run zpkt als mix ~/Music/zpkt/sets/HW002_121_pp_walk3.als --against ~/Music/zpkt/sets/HW002_121_pp_walk.als`
+`uv run zpkt live als mix ~/Music/zpkt/sets/HW002_121_pp_walk3.als --against ~/Music/zpkt/sets/HW002_121_pp_walk.als`
 You should see: `N values in A (HW002_121_pp_walk.als), 0 differ in B (HW002_121_pp_walk3.als)`, exit 0.
 
 ## Part 5. Panels and grids, and Zpkt web

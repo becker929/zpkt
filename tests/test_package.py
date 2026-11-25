@@ -116,3 +116,40 @@ def test_zpkt_app_is_reserved_and_says_it_is_not_built_yet() -> None:
     usage = subprocess.run([str(BIN / "zpkt")], capture_output=True, text=True).stdout
     assert "app" in usage and "reserved" in usage
     assert zpkt.app.__doc__ and "mix desk" in zpkt.app.__doc__
+
+
+def test_zpkt_live_reaches_the_live_group_without_saying_live_twice() -> None:
+    from zpkt.cli import live_args
+
+    commands, live_commands = ["live", "rig", "record"], ["ping", "exec", "state"]
+    assert live_args(["ping"], commands, live_commands) == ["live", "ping"]
+    assert live_args(["exec", "--json", "result = 1"], commands, live_commands) == [
+        "live",
+        "exec",
+        "--json",
+        "result = 1",
+    ]
+    assert live_args(["live", "ping"], commands, live_commands) == ["live", "ping"]
+    assert live_args(["rig", "check"], commands, live_commands) == ["rig", "check"]
+    assert live_args(["--help"], commands, live_commands) == ["--help"]
+    assert live_args([], commands, live_commands) == []
+    assert live_args(["record"], commands, [*live_commands, "record"]) == ["record"]  # hands' own command wins
+
+
+def test_zpkt_live_ping_help_is_hands_live_ping_help() -> None:
+    env = {"COLUMNS": "200"}
+    short = subprocess.run([str(BIN / "zpkt"), "live", "ping", "--help"], capture_output=True, text=True, env=env)
+    long = subprocess.run(
+        [str(BIN / "zpkt"), "live", "live", "ping", "--help"], capture_output=True, text=True, env=env
+    )
+    assert short.returncode == 0, short.stderr
+    assert short.stdout == long.stdout
+
+
+def test_no_live_command_shares_a_name_with_a_hands_command() -> None:
+    import typer
+
+    from zpkt.live.cli import app
+
+    hands = typer.main.get_group(app)
+    assert not set(hands.commands) & set(hands.commands["live"].commands)  # type: ignore[attr-defined]
