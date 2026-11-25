@@ -12,9 +12,9 @@ from __future__ import annotations
 
 import json
 import sys
-import time
 from pathlib import Path
 
+from zpkt.live import monitor_tracks as tracks
 from zpkt.live.transport import LiveClient, McpTransport
 
 HERE = Path(__file__).resolve().parent
@@ -33,46 +33,19 @@ def wanted() -> dict[str, tuple[Path, float]]:
 
 def ensure(live: McpTransport | None = None, log=print, want: dict[str, tuple[Path, float]] | None = None) -> None:
     """Add the monitor tracks that are missing. `want` ({name: (wav, beat)}) defaults to sources.json's; the
-    recipe passes its own, so a rebuilt set gets the tracks the recipe was written with."""
-    live = live or LiveClient(timeout=10.0, retries=1)
-    for name, (wav, beat) in (want or wanted()).items():
-        if not wav.exists():
-            raise SystemExit(f"missing {wav}: run analyze.py")
-        have = live.run("result = [t.name for t in song.tracks]")
-        if name not in have:
-            live.run("song.create_audio_track(-1)\nresult = 'ok'")
-            time.sleep(0.3)
-            n = live.run("result = len(song.tracks)") - 1
-            live.run(f"song.tracks[{n}].name = {name!r}\nresult = 'ok'")
-            log("added", name)
-        i = live.run(f"result = [t.name for t in song.tracks].index({name!r})")
-        n_clips = live.run(f"result = len(list(song.tracks[{i}].arrangement_clips))")
-        if n_clips == 0:
-            live.run(f"song.tracks[{i}].create_audio_clip({str(wav)!r}, {beat})\nresult = 'ok'")
-            time.sleep(0.4)
-            log("clip", name)
-        # warping off (a file of its own length must not be stretched), muted unless monitored
-        live.run(f"for c in song.tracks[{i}].arrangement_clips:\n    c.warping = False\nresult = 'ok'")
-        live.run(f"song.tracks[{i}].mute = True\nresult = 'ok'")
-        time.sleep(0.2)
+    recipe passes its own, so a rebuilt set gets the tracks the recipe was written with. The work is zpkt.live's."""
+    try:
+        tracks.ensure(live or LiveClient(timeout=10.0, retries=1), want or wanted(), log)
+    except FileNotFoundError as exc:
+        raise SystemExit(str(exc)) from None
 
 
 def remove(live: McpTransport | None = None) -> None:
-    live = live or LiveClient(timeout=10.0, retries=1)
-    while True:
-        idx = [i for i, n in enumerate(live.run("result = [t.name for t in song.tracks]")) if n.startswith("mon ")]
-        if not idx:
-            return
-        live.run(f"song.delete_track({idx[-1]})\nresult = 'ok'")
-        time.sleep(0.3)
+    tracks.remove(live or LiveClient(timeout=10.0, retries=1))
 
 
 def status(live: McpTransport | None = None) -> list:
-    live = live or LiveClient(timeout=10.0, retries=1)
-    return live.run(
-        "result = [[t.name, t.mute, t.solo, [(c.file_path.split('/')[-1], c.start_time, c.end_time, c.warping) for c in t.arrangement_clips]] "
-        "for t in song.tracks if t.name.startswith('mon ')]"
-    )
+    return tracks.status(live or LiveClient(timeout=10.0, retries=1))
 
 
 if __name__ == "__main__":

@@ -21,9 +21,10 @@ from typing import Any, Literal, NotRequired, TypedDict, get_args
 from zpkt.live import config
 from zpkt.live import state as S
 
-# Who moved it: Anthony (on a page or in Live), the MiniLab, an agent, or the app itself ("sys": a monitor switch,
-# which is not a mix change). The mix desk's history uses the same four (contrib/mixdesk/protocol.py).
-Who = Literal["you", "minilab", "agent", "sys"]
+# Who moved it: Anthony (on a page or in Live), the MiniLab, an agent, the music bot's booth, the demo tools, the
+# `zpkt` command line, or the app itself ("sys": a monitor switch, which is not a mix change). The pager
+# reports you, minilab, agent and sys (zpkt.app.protocol); the app's command bus stamps all seven.
+Who = Literal["you", "minilab", "agent", "booth", "demo", "cli", "sys"]
 WHO: tuple[str, ...] = get_args(Who)
 
 
@@ -44,7 +45,7 @@ def stamp(t: float | None = None) -> str:
 def change(
     key: str, was: list[Any] | None, now: list[Any] | None, who: Who, at: str | None = None, group: str | None = None
 ) -> Change:
-    """One change; ValueError for a `who` that is not one of the four."""
+    """One change; ValueError for a `who` that is not one of WHO."""
     if who not in WHO:
         raise ValueError(f"who is one of {', '.join(WHO)}, not {who!r}")
     c: Change = {

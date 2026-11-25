@@ -1,0 +1,302 @@
+"""The desk's commands: one handler for each kind of thing asked of the app, registered on the bus.
+
+Each handler takes the desk and the Command and answers (status, JSON). The web adapter's old routes (POST /api/page,
+/api/undo, ...) are these same commands under their old paths (`POST_PATHS`), so the page, the MiniLab, an agent and
+the API all pass one door. A bad body raises BadRequest; the bus turns it into a 400.
+"""
+
+from __future__ import annotations
+
+import math
+import threading
+import time
+from collections.abc import Callable
+from typing import TYPE_CHECKING, Any
+
+from zpkt.app import deskstate as D
+from zpkt.app import monitor, surfaces
+from zpkt.app.bus import OK, BadRequest, Bus, Command, Effect, Reply, Spec
+from zpkt.live import state as S
+
+if TYPE_CHECKING:
+    from zpkt.app.desk import Desk
+
+Handler = Callable[["Desk", Command], Reply]
+
+# the old routes: path -> command kind (the web adapter serves each under its path)
+POST_PATHS: dict[str, str] = {
+    "/api/page": "page.arm",
+    "/api/toggle": "mix.toggle",
+    "/api/transport": "transport",
+    "/api/monitor": "monitor.choose",
+    "/api/restart": "pager.restart",
+    "/api/surface/make": "surface.make",
+    "/api/surface/save": "surface.save",
+    "/api/surface/remove": "surface.remove",
+    "/api/undo": "history.undo",
+    "/api/redo": "history.redo",
+    "/api/checkpoint": "history.checkpoint",
+    "/api/revert": "history.revert",
+}
+
+
+# ---- reading a body ------------------------------------------------------------------------------------------------
+
+
+def _int(body: Any, name: str) -> int:
+    try:
+        return int(body[name])
+    except KeyError:
+        raise BadRequest(f"the body needs {name!r}") from None
+    except (TypeError, ValueError):
+        raise BadRequest(f"{name!r} must be a whole number") from None
+
+
+def _float(body: Any, name: str) -> float:
+    try:
+        value = float(body[name])
+    except KeyError:
+        raise BadRequest(f"the body needs {name!r}") from None
+    except (TypeError, ValueError):
+        raise BadRequest(f"{name!r} must be a number") from None
+    if not math.isfinite(value):
+        raise BadRequest(f"{name!r} must be a finite number")
+    return value
+
+
+def _str(body: Any, name: str, default: str | None = None) -> str:
+    if name not in body or body[name] is None:
+        if default is None:
+            raise BadRequest(f"the body needs {name!r}")
+        return default
+    return str(body[name])
+
+
+def _pairs(body: Any) -> list[list[Any]]:
+    """`writes`: [[state key, raw], ...] or [[state key, raw, shown], ...]."""
+    writes = body.get("writes")
+    if not isinstance(writes, list) or not writes:
+        raise BadRequest("the body needs 'writes', a list of [state key, raw value]")
+    out: list[list[Any]] = []
+    for w in writes:
+        if not (isinstance(w, list) and len(w) in (2, 3) and isinstance(w[0], str)):
+            raise BadRequest("each write is [state key, raw value] or [state key, raw value, shown text]")
+        if isinstance(w[1], bool) or not isinstance(w[1], int | float) or not math.isfinite(float(w[1])):
+            raise BadRequest(f"the raw value of {w[0]!r} must be a finite number")
+        out.append(list(w))
+    return out
+
+
+# ---- the MiniLab's pages and switches ------------------------------------------------------------------------------
+
+
+def page_arm(desk: Desk, cmd: Command) -> Reply:
+    desk.call(f"m.DESK.arm({_int(cmd.args, 'page')})")
+    return OK
+
+
+def mix_toggle(desk: Desk, cmd: Command) -> Reply:
+    slot = _str(cmd.args, "slot")
+    if not (slot[:1] == "b" and slot[1:].isdigit()):
+        return 400, {"error": "bad slot"}
+    desk.call(f"m.DESK.toggle({slot!r}, {_int(cmd.args, 'page')})")
+    return OK
+
+
+def mix_set(desk: Desk, cmd: Command) -> Reply:
+    """Move controls: [[state key, raw], ...] from you or an agent. One history entry (an agent's group is one)."""
+    pairs = _pairs(cmd.args)
+    desk.monitor.leave_pin()  # moving a control while the Pin is heard starts from Now
+    entry = desk.history.record(pairs, cmd.who, cmd.group)
+    try:
+        missing = desk.write(pairs)
+    except Exception:
+        desk.history.forget(entry)
+        raise
+    desk.history.flush_changes()
+    desk.push(desk.history.view())
+    desk.push_app(desk.monitor.message())
+    return 200, {"ok": True, "entry": entry and entry["id"], "missing": missing}
+
+
+def transport(desk: Desk, cmd: Command) -> Reply:
+    action = _str(cmd.args, "action")
+    if action == "seek":
+        desk.monitor.transport("seek", beat=_float(cmd.args, "beat"))
+    elif action == "loop":
+        kind = _str(cmd.args, "loop")
+        if kind not in D.LOOPS:
+            return 400, {"error": "bad loop"}
+        desk.monitor.transport("loop", loop=kind)
+    elif action in ("play", "pause"):
+        desk.monitor.transport(action)
+    else:
+        return 400, {"error": "bad action"}
+    return OK
+
+
+def monitor_choose(desk: Desk, cmd: Command) -> Reply:
+    now = desk.monitor_choice()
+    slot, ref = _str(cmd.args, "slot", now["slot"]), _str(cmd.args, "ref", now["ref"])
+    if slot not in D.SLOTS or ref not in desk.analysis()["sources"]:
+        return 400, {"error": "bad slot or ref"}
+    if "match" in cmd.args:
+        desk.set_match(bool(cmd.args["match"]))
+    desk.monitor.select(slot, ref)
+    desk.push_full()
+    return OK
+
+
+def monitor_hear(desk: Desk, cmd: Command) -> Reply:
+    """Hear Now, the Pin or the Reference."""
+    what = _str(cmd.args, "hearing")
+    if what not in monitor.HEARINGS:
+        return 400, {"error": f"hearing is one of {', '.join(monitor.HEARINGS)}"}
+    if what == "ref" and desk.monitor_choice()["ref"] not in desk.analysis()["sources"]:
+        return 400, {"error": "there is no reference to hear: run analyze.py first"}
+    desk.monitor.hear(what)
+    return 200, {"ok": True, "hear": desk.monitor.message()}
+
+
+def monitor_pin(desk: Desk, cmd: Command) -> Reply:
+    """Set the mix as it is now aside as the Pin."""
+    desk.monitor.make_pin(cmd.who)
+    desk.push(desk.history.view())
+    return 200, {"ok": True, "hear": desk.monitor.message()}
+
+
+def pager_restart(desk: Desk, cmd: Command) -> Reply:
+    desk.restart_pager()
+    return OK
+
+
+# ---- surfaces ------------------------------------------------------------------------------------------------------
+
+
+def surface_make(desk: Desk, cmd: Command) -> Reply:
+    text = _str(cmd.args, "text", "").strip()
+    if not text:
+        return 400, {"error": "say what the surface is for"}
+    threading.Thread(target=desk.make_surface, args=(text[:2000],), daemon=True).start()
+    return OK
+
+
+def surface_save(desk: Desk, cmd: Command) -> Reply:
+    """A ready-made surface: the same checks as a made one, no model."""
+    if not isinstance(cmd.args.get("surface"), dict):
+        raise BadRequest("the body needs 'surface', a surface object")
+    try:
+        surface = surfaces.validate(cmd.args["surface"], desk.inventory(), desk.page_names())
+        path = surfaces.save(surface, desk.settings.set_name, _str(cmd.args, "prompt", ""), desk.settings.surfaces_dir)
+    except surfaces.SurfaceError as exc:
+        return 400, {"error": str(exc)}
+    idx = desk.adopt_surface(path, surface)
+    return 200, {"ok": True, "file": path.name, "page": idx, "notes": surface["notes"]}
+
+
+def surface_remove(desk: Desk, cmd: Command) -> Reply:
+    # stay on the page that was armed (by name: the indexes after the removed one shift)
+    was, old = desk.page_names(), desk.snapshot()["page"]
+    armed = was[old] if 0 <= old < len(was) else None
+    try:
+        surfaces.remove(desk.settings.set_name, _str(cmd.args, "file", ""), desk.settings.surfaces_dir)
+    except surfaces.SurfaceError as exc:
+        return 400, {"error": str(exc)}
+    desk.restart_pager()
+    names = desk.page_names()
+    idx = names.index(armed) if armed in names else max(0, min(old, len(names)) - 1)
+    desk.call(f"m.DESK.arm({idx})")
+    desk.push({"t": "desk", "open": idx})
+    return OK
+
+
+# ---- history -------------------------------------------------------------------------------------------------------
+
+
+def _step(desk: Desk, cmd: Command, undo: bool) -> Reply:
+    desk.monitor.leave_pin()
+    pairs, e = desk.history.undo(cmd.who) if undo else desk.history.redo(cmd.who)
+    missing = desk.write(pairs)
+    desk.push(desk.history.view())
+    desk.push_app(desk.monitor.message())
+    return 200, {"ok": True, "entry": e and e["id"], "missing": missing}
+
+
+def history_undo(desk: Desk, cmd: Command) -> Reply:
+    return _step(desk, cmd, undo=True)
+
+
+def history_redo(desk: Desk, cmd: Command) -> Reply:
+    return _step(desk, cmd, undo=False)
+
+
+def history_checkpoint(desk: Desk, cmd: Command) -> Reply:
+    name = str(cmd.args.get("name") or time.strftime("cp-%H%M%S")).strip()
+    try:
+        e = desk.make_checkpoint(name, cmd.who)
+    except ValueError as exc:
+        return 400, {"error": str(exc)}
+    desk.push(desk.history.view())
+    return 200, {"ok": True, "name": e["name"]}
+
+
+def history_revert(desk: Desk, cmd: Command) -> Reply:
+    to = _str(cmd.args, "to")
+    keys = cmd.args.get("keys")
+    if keys is not None and not (isinstance(keys, list) and all(isinstance(k, str) for k in keys)):
+        raise BadRequest("'keys' must be a list of state keys")
+    try:
+        desk.history.load(to)  # the name is checked before anything changes
+    except ValueError as exc:
+        raise BadRequest(str(exc)) from None
+    except FileNotFoundError:
+        raise BadRequest(f"there is no checkpoint named {to!r}") from None
+    desk.monitor.leave_pin()
+    if cmd.args.get("all"):
+        # the whole mix: the desk's controls as one undoable step, then everything else (not undoable, so a
+        # checkpoint of the mix as it was comes first), heard on W so the monitor tracks stay put
+        desk.make_checkpoint(time.strftime("before-revert-%H%M%S"), who="sys")
+        now = desk.monitor_choice()
+        if now["slot"] != "W":
+            desk.monitor.choose("W", now["ref"])
+        pairs, _ = desk.history.revert(to, who=cmd.who)  # type: ignore[arg-type]
+        desk.write(pairs)
+        rows = S.put(desk.conn, S.load(desk.history.folder() / f"{to}.json"))
+        desk.push(desk.history.view())
+        return 200, {"ok": True, "left": [list(r) for r in rows if not r[0].startswith("mon ")][:20]}
+    pairs, _ = desk.history.revert(to, keys, cmd.who)  # type: ignore[arg-type]
+    missing = desk.write(pairs)
+    desk.push(desk.history.view())
+    return 200, {"ok": True, "moved": len(pairs), "missing": missing}
+
+
+# ---- the table -----------------------------------------------------------------------------------------------------
+
+# kind -> (handler, effect, touches Live). "make" commands are open to agents; "move" ones need an Option or your word.
+COMMANDS: dict[str, tuple[Handler, Effect, bool]] = {
+    "page.arm": (page_arm, "make", True),
+    "mix.toggle": (mix_toggle, "move", True),
+    "mix.set": (mix_set, "move", True),
+    "transport": (transport, "move", True),
+    "monitor.choose": (monitor_choose, "move", True),
+    "monitor.hear": (monitor_hear, "move", True),
+    "monitor.pin": (monitor_pin, "make", True),
+    "pager.restart": (pager_restart, "make", True),
+    "surface.make": (surface_make, "make", False),
+    "surface.save": (surface_save, "make", True),
+    "surface.remove": (surface_remove, "move", True),
+    "history.undo": (history_undo, "move", True),
+    "history.redo": (history_redo, "move", True),
+    "history.checkpoint": (history_checkpoint, "make", True),
+    "history.revert": (history_revert, "move", True),
+}
+
+
+def register_all(bus: Bus, desk: Desk) -> None:
+    """Put every desk command on the bus."""
+    for kind, (handler, effect, touches) in COMMANDS.items():
+
+        def run(cmd: Command, handler: Handler = handler) -> Reply:
+            return handler(desk, cmd)
+
+        bus.register(kind, Spec(run, effect, touches))

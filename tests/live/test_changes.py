@@ -39,8 +39,8 @@ def test_a_value_on_one_side_only_has_none_on_the_other():
     assert gone and all(c["now"] is None and c["was"] is not None for c in gone)
 
 
-def test_who_is_one_of_four():
-    with pytest.raises(ValueError, match="who is one of you, minilab, agent, sys, not 'gemini'"):
+def test_who_is_one_of_the_seven():
+    with pytest.raises(ValueError, match="who is one of you, minilab, agent, booth, demo, cli, sys, not 'gemini'"):
         C.change("a/volume", ["0 dB", 0.85], ["-1 dB", 0.8], "gemini")  # type: ignore[arg-type]
 
 
