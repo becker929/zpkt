@@ -44,7 +44,8 @@ ROUTES: dict[str, str] = {
     "/live/transport": "live.transport",
     "/state/take": "state.take",
     "/state/put": "state.put",
-    "/page/apply": "page.apply",
+    "/panel/apply": "panel.apply",
+    "/page/apply": "panel.apply",  # the older path
     "/describe": "describe",
 }
 

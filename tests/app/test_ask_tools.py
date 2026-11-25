@@ -61,7 +61,7 @@ def test_read_state_and_read_measurement(asked):
 
 
 def test_make_page_checks_against_live_and_saves_only_a_clean_page(asked, tmp_path):
-    code, ok = call(asked, "make_page", {"page": PAGE})
+    code, ok = call(asked, "make_page", {"spec": PAGE})
     assert code == 200 and ok["ok"] and ok["id"] == "kick-level"
     saved = pages.folder("HW002_121_pp_finish") / ok["file"]
     page = json.loads(saved.read_text())
@@ -69,16 +69,16 @@ def test_make_page_checks_against_live_and_saves_only_a_clean_page(asked, tmp_pa
     code, bad = call(
         asked,
         "make_page",
-        {"page": {**PAGE, "title": "Bad", "groups": [{"name": "G", "controls": [{"target": "No such/volume"}]}]}},
+        {"spec": {**PAGE, "title": "Bad", "groups": [{"name": "G", "controls": [{"target": "No such/volume"}]}]}},
     )
     assert code == 422 and any(p["level"] == "error" for p in bad["problems"]) and "not saved" in bad["error"]
     assert not (pages.folder("HW002_121_pp_finish") / "bad.json").exists()
     assert call(asked, "make_page", {})[0] == 400
-    assert call(asked, "make_page", {"page": {"title": "x"}})[0] == 400
+    assert call(asked, "make_page", {"spec": {"title": "x"}})[0] == 400
 
 
 def test_make_page_says_agent_even_when_the_spec_claims_otherwise(asked):
-    code, ok = call(asked, "make_page", {"page": {**PAGE, "made_by": "you"}})
+    code, ok = call(asked, "make_page", {"spec": {**PAGE, "made_by": "you"}})
     assert code == 200
     assert json.loads((pages.folder("HW002_121_pp_finish") / ok["file"]).read_text())["made_by"] == "agent"
 
@@ -149,3 +149,16 @@ def test_an_agent_cannot_pick_its_own_option_and_only_your_pick_lets_its_move_pa
     stored = json.loads((asked.adapter.data_dir / "options.json").read_text())
     jsonschema.validate(stored[0], json.loads((SCHEMAS / "proposal.schema.json").read_text()))
     assert bus.submit(Command("mix.set", "agent", move, approval=f"option:{oid}", group="g"))[0] == 200
+
+
+def test_the_older_command_names_and_keys_still_work(asked):
+    from zpkt.app.bus import Command
+
+    bus = asked.rig.desk.bus
+    assert {"desk.state", "state.read", "options.propose", "option.propose", "panel.apply", "page.apply"} <= set(
+        bus.kinds()
+    )
+    assert bus.submit(Command("state.read", "agent", {}))[0] == 200
+    for key in ("spec", "page"):  # `page` is the older key of page.draft
+        code, reply = bus.submit(Command("page.draft", "agent", {key: PAGE}))
+        assert code in (200, 422), reply

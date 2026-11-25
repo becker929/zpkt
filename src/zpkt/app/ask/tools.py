@@ -30,18 +30,18 @@ TOOLS: tuple[Tool, ...] = (
         "make_page",
         "page.draft",
         "Make a page of controls for the open set. It is checked against Live's own names and ranges and saved only "
-        "when it has no error. `page` has a title and groups of controls; each control has a `target` (a state key "
+        "when it has no error. `spec` has a title and groups of controls; each control has a `target` (a state key "
         "such as 'Kick bus/volume') and may say its `role`, `weight` (1 to 3), `label` and `range`. It cannot say "
         "widget, colour, size or MIDI slot.",
         {
             "type": "object",
-            "properties": {"page": {"type": "object", "description": "The page spec."}},
-            "required": ["page"],
+            "properties": {"spec": {"type": "object", "description": "The page spec."}},
+            "required": ["spec"],
         },
     ),
     Tool(
         "read_state",
-        "state.read",
+        "desk.state",
         "What the desk shows now: the set, its pages, what is heard, and the values of the controls.",
         {"type": "object", "properties": {}},
     ),
@@ -53,7 +53,7 @@ TOOLS: tuple[Tool, ...] = (
     ),
     Tool(
         "propose_option",
-        "option.propose",
+        "options.propose",
         "Propose a change for the person to pick. Nothing moves until they do. Give a short title, one sentence on "
         "why, and the moves: each {target, to}, where `to` is the raw number read_state gives (r), not the shown text.",
         {

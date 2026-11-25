@@ -37,9 +37,9 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
-from zpkt.app import protocol as P
-from zpkt.live import changes as C
-from zpkt.live import state as S
+from zpkt.app import protocol
+from zpkt.live import changes as live_changes
+from zpkt.live import state as live_state
 
 COALESCE_S = 2.0  # one control moved again within this long: the same step
 TOGETHER_S = 0.3  # another control moved within this long of the step: the same gesture (a macro's parameters)
@@ -63,7 +63,7 @@ def group_of(entry: dict[str, Any]) -> str:
 
 def who_of(entry: dict[str, Any]) -> str:
     """Who made a history entry; an entry from before the field was "you"."""
-    return str(entry.get("who", P.DEFAULT_WHO))
+    return str(entry.get("who", protocol.DEFAULT_WHO))
 
 
 def same(a: Any, b: Any) -> bool:
@@ -80,7 +80,7 @@ class History:
         directory: Path | None = None,
         checkpoints: Path | None = None,
         clock: Callable[[], float] = time.time,
-        changes: C.Stream | None = None,
+        changes: live_changes.Stream | None = None,
     ) -> None:
         """`directory` holds <set>.json (default HISTORY_DIR); `checkpoints` the set's hands states (default
         zpkt.live.state.folder(set_name)); `clock` gives seconds (tests pass their own); `changes` is the set's change
@@ -119,12 +119,14 @@ class History:
                     self.cur[v["key"]] = [str(v.get("s", "")).strip(), v["r"]]
                     self.first.setdefault(v["key"], list(self.cur[v["key"]]))
 
-    def seen(self, key: str | None, shown: str, raw: Any, sys: bool = False, *, who: P.Who | None = None) -> bool:
+    def seen(
+        self, key: str | None, shown: str, raw: Any, sys: bool = False, *, who: protocol.Who | None = None
+    ) -> bool:
         """A control's value as Live reports it, moved by `who` (`sys=True` is who "sys", for older callers).
         Returns True if that made or extended a history entry."""
         if not key or raw is None:
             return False
-        mover = who or ("sys" if sys else P.DEFAULT_WHO)
+        mover = who or ("sys" if sys else protocol.DEFAULT_WHO)
         with self.lock:
             shown = str(shown).strip()
             before = self.cur.get(key)
@@ -205,12 +207,12 @@ class History:
             for key, raw, *_ in pairs:
                 self._expect(key, raw, until)
 
-    def record(self, pairs: list[list], who: P.Who | str, group: str | None = None) -> dict | None:
+    def record(self, pairs: list[list], who: protocol.Who | str, group: str | None = None) -> dict | None:
         """Moves the desk is writing for `who`: [[key, raw] or [key, raw, shown], ...] from what Live has now. One
         entry. Moves with the same `group` and `who` as the last entry join it, so an ask undoes as one. Returns the
         entry, or None when nothing moves."""
-        if who not in C.WHO:
-            raise ValueError(f"who is one of {', '.join(C.WHO)}, not {who!r}")
+        if who not in live_changes.WHO:
+            raise ValueError(f"who is one of {', '.join(live_changes.WHO)}, not {who!r}")
         with self.lock:
             now = self.clock()
             moves = []
@@ -287,7 +289,7 @@ class History:
             return 0
         with self.lock:
             now = self.clock()
-            written: list[C.Change] = []
+            written: list[live_changes.Change] = []
             for i, e in enumerate(self.entries):
                 if e["id"] in self._streamed or e["k"] == "checkpoint":
                     self._streamed.add(e["id"])
@@ -303,12 +305,19 @@ class History:
 
     def _changes_of(
         self, entry: dict[str, Any], undo: bool = False, who: str | None = None, step: str = ""
-    ) -> list[C.Change]:
-        at = C.stamp(entry["at"])
+    ) -> list[live_changes.Change]:
+        at = live_changes.stamp(entry["at"])
         mover = who or who_of(entry)
         group = f"{step}-of-{group_of(entry)}" if step else group_of(entry)
         return [
-            C.change(m["key"], m["to"] if undo else m["from"], m["from"] if undo else m["to"], mover, at, group)  # type: ignore[arg-type]
+            live_changes.change(
+                m["key"],
+                m["to"] if undo else m["from"],
+                m["from"] if undo else m["to"],
+                mover,  # type: ignore[arg-type]
+                at,
+                group,
+            )
             for m in entry["moves"]
         ]
 
@@ -342,7 +351,7 @@ class History:
             out.append([m["key"], raw])
         return out
 
-    def undo(self, who: P.Who | str = P.DEFAULT_WHO) -> tuple[list[list], dict | None]:
+    def undo(self, who: protocol.Who | str = protocol.DEFAULT_WHO) -> tuple[list[list], dict | None]:
         """[[key, raw], ...] to write, and the entry undone; checkpoints are passed over."""
         with self.lock:
             i = self.pos - 1
@@ -356,7 +365,7 @@ class History:
             self._stream_step(e, True, str(who))
             return self._writes(list(reversed(e["moves"])), "from"), e
 
-    def redo(self, who: P.Who | str = P.DEFAULT_WHO) -> tuple[list[list], dict | None]:
+    def redo(self, who: protocol.Who | str = protocol.DEFAULT_WHO) -> tuple[list[list], dict | None]:
         with self.lock:
             i = self.pos
             while i < len(self.entries) and self.entries[i]["k"] == "checkpoint":
@@ -370,7 +379,7 @@ class History:
             return self._writes(e["moves"], "to"), e
 
     def revert(
-        self, name: str, keys: list[str] | None = None, who: P.Who = P.DEFAULT_WHO
+        self, name: str, keys: list[str] | None = None, who: protocol.Who = protocol.DEFAULT_WHO
     ) -> tuple[list[list], dict | None]:
         """Every desk control (or only `keys`) back to checkpoint `name`, as one undoable entry."""
         with self.lock:
@@ -390,7 +399,7 @@ class History:
 
     # ---- checkpoints ----------------------------------------------------------------------------------------------
     def folder(self) -> Path:
-        return self.checkpoints_dir or S.folder(self.set_name)
+        return self.checkpoints_dir or live_state.folder(self.set_name)
 
     def checkpoints(self) -> list[dict]:
         d = self.folder()
@@ -399,13 +408,15 @@ class History:
             out.append({"name": p.stem, "at": p.stat().st_mtime})
         return out
 
-    def load(self, name: str) -> dict[str, S.ShownRaw]:
+    def load(self, name: str) -> dict[str, live_state.ShownRaw]:
         """A checkpoint's values for the desk's keys (all the keys it has)."""
         if not NAME_RE.match(name):
             raise ValueError(f"bad checkpoint name {name!r}")
-        return S.flatten(S.load(self.folder() / f"{name}.json"))
+        return live_state.flatten(live_state.load(self.folder() / f"{name}.json"))
 
-    def checkpoint(self, name: str, full: S.State, main_saved: dict | None, who: P.Who = P.DEFAULT_WHO) -> dict:
+    def checkpoint(
+        self, name: str, full: live_state.State, main_saved: dict | None, who: protocol.Who = protocol.DEFAULT_WHO
+    ) -> dict:
         """Save `full` (a state just taken) as checkpoint `name`, with the desk's own values on top (they are what
         the history knows), the monitor tracks as the desk leaves them (muted, not soloed) and Main's desk devices
         as they are when nothing is monitored. Adds a checkpoint entry to the history."""
@@ -414,15 +425,18 @@ class History:
             for tname, body in full["tracks"].items():
                 mix = body["mixer"]
                 if tname.startswith("mon "):
-                    mix["mute"], mix["solo"] = S.ShownRaw.of("True", True), S.ShownRaw.of("False", False)
+                    mix["mute"], mix["solo"] = (
+                        live_state.ShownRaw.of("True", True),
+                        live_state.ShownRaw.of("False", False),
+                    )
                 if tname == "Main" and main_saved:
                     for d in body["devices"]:
                         if d["name"] in main_saved and "Device On" in d["params"]:
                             on = main_saved[d["name"]]
-                            d["params"]["Device On"] = S.ShownRaw.of("On" if on else "Off", on)
+                            d["params"]["Device On"] = live_state.ShownRaw.of("On" if on else "Off", on)
             # hands' State does not list a checkpoint's "name" and "made_by"; its readers keep unknown keys
             marked: Any = {**full, "name": name, "made_by": "mixdesk"}
-            S.save(marked, self.folder() / f"{name}.json", self.set_name)
+            live_state.save(marked, self.folder() / f"{name}.json", self.set_name)
             e = self._push({"k": "checkpoint", "name": name, "moves": [], "who": who})
             self._save()
             return e

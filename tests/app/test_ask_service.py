@@ -173,7 +173,7 @@ def test_switching_engine_hands_over_the_conversation_both_ways(tmp_path):
 def test_an_agent_tool_call_goes_through_the_bus_as_agent_with_a_group(tmp_path):
     bus = Bus()
     bus.register(
-        "state.read",
+        "desk.state",
         __import__("zpkt.app.bus", fromlist=["Spec"]).Spec(lambda cmd: (200, {"who": cmd.who, "group": cmd.group})),
     )
     ask = make(tmp_path)
