@@ -573,21 +573,7 @@ since). Undo an unwanted diff with `git checkout -- contrib/harness`.
 
 ## Part 10. The checklist prototype
 
-**94. [auto] Start it.** In its own tab: `cd ~/Desktop/zpkt-upgrade/prototypes/checklist && uv run python server.py`
-You should see: it serves http://127.0.0.1:8798/studio/checklist/ on loopback, with no password.
-
-**95. [auto] The harness routes it mounts.** `curl -s http://127.0.0.1:8798/studio/api/artist/repertoire | head -c 200`
-You should see: JSON, not a login page.
-
-**96. [gui] The pages.**
-Open `/studio/checklist/`, then `map/`, `rummage/`, `wasteland/`, `flow/`, and `concepts/crystal.html`,
-`concepts/repair.html` and `concepts/stamps.html` (`concepts/` has no page of its own).
-You should see: each loads. On the map, a stamp plays its check sound.
-
-**97. [gui] The artist's quick question.** (Agent: run it with `--no-model` and a temporary data folder, so no real feedback is kept.)
-On the map, press a thumb. (It is kept as real feedback in the artist's data.)
-You should see: a short question that names what was on screen. With `--no-model` it comes from rules instead.
-Stop the server with Ctrl-C afterwards.
+Deleted on 25 November 2026 (Anthony: "turn those off"). Steps 94–97 are gone; git tag `pre-upgrade-2026-11-24` has it.
 
 ## Part 11. The image wall (its own repo)
 

@@ -9,8 +9,39 @@ permissions:
   contents: read
 
 jobs:
+  changes:
+    # On a PR, which parts its files touch; a push to main runs everything. Lint and types always run.
+    runs-on: ubuntu-latest
+    outputs:
+      core: ${{ steps.f.outputs.core }}
+      harness: ${{ steps.f.outputs.harness }}
+      audio_browser: ${{ steps.f.outputs.audio_browser }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - id: f
+        env:
+          EVENT: ${{ github.event_name }}
+          BASE: ${{ github.event.pull_request.base.sha }}
+        run: |
+          if [ "$EVENT" != pull_request ]; then
+            printf 'core=true\nharness=true\naudio_browser=true\n' >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          files=$(git diff --name-only "$BASE"...HEAD)
+          has() { printf '%s\n' "$files" | grep -qE "$1" && echo true || echo false; }
+          # The core: anything that is not docs, the harness or a prototype (the workflow itself counts).
+          core=$(printf '%s\n' "$files" | grep -vE '^(docs/|contrib/docs/|contrib/harness/|prototypes/)|\.md$' | grep -q . && echo true || echo false)
+          echo "core=$core" >> "$GITHUB_OUTPUT"
+          echo "harness=$(has '^(contrib/harness/|\.github/)')" >> "$GITHUB_OUTPUT"
+          echo "audio_browser=$(has '^(prototypes/audio-browser/|\.github/)')" >> "$GITHUB_OUTPUT"
+          printf '%s\n' "$files" | sed 's/^/  /'; cat "$GITHUB_OUTPUT"
+
   test:
     name: ${{ matrix.part }}
+    needs: changes
+    if: needs.changes.outputs.core == 'true'
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -46,6 +77,8 @@ jobs:
 
   contrib:
     # The mix desk and the arranger run on the core's environment; the harness is its own uv project.
+    needs: changes
+    if: needs.changes.outputs.core == 'true' || needs.changes.outputs.harness == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -53,14 +86,19 @@ jobs:
           persist-credentials: false
       - uses: astral-sh/setup-uv@1db35dd8eee11c5894872e0b383ae6c406cf738d # v10.4.0
       - name: Mix desk
+        if: needs.changes.outputs.core == 'true'
         run: uv run --all-extras pytest -q -p no:cacheprovider contrib/mixdesk/tests
       - name: Arranger
+        if: needs.changes.outputs.core == 'true'
         run: uv run --all-extras pytest -q -p no:cacheprovider contrib/arranger/tests
       - name: Harness (without the browser tests)
+        if: needs.changes.outputs.harness == 'true'
         working-directory: contrib/harness
         run: uv run --extra dev pytest -q -p no:cacheprovider --ignore tests/ui
 
   audio-browser:
+    needs: changes
+    if: needs.changes.outputs.audio_browser == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1

@@ -229,6 +229,25 @@ def open_(
 
 
 @app.command()
+def reopen(
+    name: str = typer.Argument(None, help="A set in the rig's sets folder, without .als (default: the one in front)."),
+    direct: bool = DIRECT,
+    host: str = HOST,
+    port: int | None = PORT,
+) -> None:
+    """Open a set from its file again, discarding unsaved changes (Live will not reload the set it has open, so
+    this swaps in a new empty set first and answers Don't Save). Waits until the set is in front and the LOM
+    answers."""
+    from zpkt.live import session
+
+    try:
+        seconds = session.reopen(connect(LiveClient, host, port, direct=direct), name)
+    except session.Guard as exc:
+        fail(str(exc))
+    print(f"reopened {name or 'the front set'} in {seconds:.1f} s (unsaved changes discarded)")
+
+
+@app.command()
 def save(
     as_: str = typer.Option(None, "--as", help="Also keep a copy as sets_dir/<AS>.als (refuses to replace one)."),
     state: str = typer.Option(None, "--state", help="Also take the mix state as NAME (see `hands live state`)."),

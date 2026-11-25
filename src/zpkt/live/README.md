@@ -21,7 +21,8 @@ the command and a row.
 | Ask | Command |
 |---|---|
 | Is Live there, which set is in front? | `hands live check` |
-| Open a set (saving the one in front) | `hands live open NAME` |
+| Open a set (saving the one in front) | `hands live open NAME` (`--no-save` discards it: answers Don't Save) |
+| Load a set from its file again, even the one in front (discards unsaved changes) | `hands live reopen [NAME]` |
 | What mix does a saved set hold? What differs between two saved sets? | `hands als mix FILE [--against OTHER]` (offline, Live untouched) |
 | Save the set (an explicit save, not Live's backup) | `hands live save [--as NAME] [--state NAME]` |
 | Keep the whole mix (every fader, send, mute, device value) | `hands live state take NAME` (about 3 s) |

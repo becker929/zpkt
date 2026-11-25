@@ -135,7 +135,6 @@ harness|tcp|8787
 harness, walkthrough copy|tcp|8877
 Zpkt web|tcp|8789
 Zpkt web (second port)|tcp|8797
-checklist prototype|tcp|8798
 image wall|tcp|8796
 booth (music-bot)|tcp|8794
 tailnet home page|tcp|8800
