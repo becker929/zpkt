@@ -1,4 +1,4 @@
-"""The `zpkt` command: `zpkt live ...` is `hands ...`, `zpkt audio ...` is `ears ...`; `zpkt app` is reserved.
+"""The `zpkt` command: `zpkt live ...` is `hands ...`, `zpkt audio ...` is `ears ...`; `zpkt app` starts the app.
 
 `zpkt live ping` is short for `zpkt live live ping`: hands keeps the commands that talk to the open set in a group
 of its own, also named `live`, and nobody should have to say the word twice.
@@ -15,7 +15,8 @@ USAGE = """usage: zpkt COMMAND [ARGS]...
 
   live    drive Ableton Live (the same commands as `hands`)
   audio   measure renders (the same commands as `ears`; the meters also as `mlab`)
-  app     the one interface (reserved: not built yet)
+  app     the one interface: the mix desk and the /app/ shell, the only door to Live
+  page    make or check a page of controls (an agent hands the running app a spec)
 
 `zpkt live --help` and `zpkt audio --help` list each one's commands."""
 
@@ -31,7 +32,7 @@ def live_args(args: list[str], commands: Collection[str], live_commands: Collect
 def main() -> None:
     args = sys.argv[1:]
     part = args[0] if args else ""
-    if part not in ("live", "audio", "app"):
+    if part not in ("live", "audio", "app", "page"):
         print(USAGE)
         sys.exit(0 if part in ("", "-h", "--help") else 2)
     sys.argv = [f"zpkt {part}", *args[1:]]
@@ -39,6 +40,11 @@ def main() -> None:
         from zpkt.app import main as app_main
 
         app_main()
+        return
+    if part == "page":
+        from zpkt.app.page_cli import main as page_main
+
+        page_main()
         return
     if part == "live":
         import typer

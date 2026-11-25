@@ -167,6 +167,10 @@ body.showhelp #helpbox { display: flex; }
   .left { border-right: 0; }
   .faders { grid-template-columns: repeat(4, clamp(44px, 11vw, 70px)); }
   .chead .what { display: none; }
+  /* Controls stay 44 px wide or more: faders go under the knobs, pads make two rows of four. */
+  .cbody { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 2fr) minmax(0, 1fr); }
+  .faders { grid-template-columns: repeat(4, minmax(44px, 1fr)); }
+  .pads { grid-template-columns: repeat(4, minmax(44px, 1fr)); height: clamp(120px, 20vh, 170px); }
 }
 </style>
 </head>

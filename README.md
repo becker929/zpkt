@@ -10,7 +10,7 @@ The core is one Python package, `zpkt`, in two halves you can use on their own:
 |---|---|---|
 | [`zpkt.live`](src/zpkt/live/) | Drives Live from Python or the shell: run code against the open set, set knobs, edit time, export audio, edit `.als` files offline. | `zpkt live ping` |
 | [`zpkt.audio`](src/zpkt/audio/) | Measures a render with calibrated meters (loudness, true peak, dynamics, spectra, a mix against references), and places it among your own reference tracks with a profile and an embedding. Its mastering lab is [`ears/mlab/`](ears/mlab/). | `zpkt audio measure take.wav` |
-| [`zpkt.app`](src/zpkt/app/) | Reserved for the one interface I will work in, grown from the mix desk's server. Not built yet. | `zpkt app` (says so) |
+| [`zpkt.app`](src/zpkt/app/) | The one interface and the one door to Live. It grew from the mix desk's server: the Hear bar, the Desk and Pages, the Song, Options, Ask (Claude and Gemini), the MiniLab, and an API for the `zpkt` command, the booth and the demos. Everything else is its client. | `zpkt app` |
 | [`agent/`](agent/) | Skills and rules that let Claude Code (or another agent) drive Live through `zpkt live` without crashing it. | open the repo in Claude Code |
 
 macOS only. You need Ableton Live 12 and [uv](https://docs.astral.sh/uv/). The repo is one uv
@@ -64,6 +64,12 @@ macOS asks for, and what to do when a step fails.
 `zpkt.live` acts and `zpkt.audio` measures. Neither imports the other; they exchange files and
 JSON, and the JSON is pinned by schemas in [`lib/contracts/`](lib/contracts/). An agent sits on
 top and calls both through their CLIs.
+
+`zpkt.app` sits above both and owns the connection to Live. Adapters (the web, the MiniLab, the agents, the API) turn
+what they hear into commands; one bus stamps who sent each, runs the checks (who, the agent rule, the wrong-set
+guard, the lock) and logs it. The libraries never open a connection. The changing `zpkt` commands go through the app
+and refuse when it is not running; `--direct` or `ZPKT_LIVE_VIA=direct` is the old way, and it is not recorded. Read
+[src/zpkt/app/README.md](src/zpkt/app/README.md) before changing it.
 
 Two rules keep the loop honest:
 

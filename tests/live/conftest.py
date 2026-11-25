@@ -21,6 +21,9 @@ def rig(tmp_path, monkeypatch):
     monkeypatch.setenv("ZPKT_SET_PREFIXES", "test_")
     monkeypatch.setenv("ZPKT_LIVE_PORT", "9")  # the discard port: closed on a Mac
     monkeypatch.delenv("ZPKT_LIVE_APP", raising=False)
+    # these tests drive the commands against a FakeLive port, as before the app: a command goes direct (the tests of
+    # the app's way, tests/app/test_cli_via_app.py, clear this)
+    monkeypatch.setenv("ZPKT_LIVE_VIA", "direct")
     config.rig.cache_clear()
     yield config.rig()
     config.rig.cache_clear()

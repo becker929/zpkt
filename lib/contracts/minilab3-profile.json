@@ -1,0 +1,697 @@
+{
+  "device": "Arturia MiniLab 3",
+  "status": "unverified",
+  "note": "Every item is unverified: nothing here was checked against the hardware. basis says where an item came from: live-script (a constant read from Live's installed MiniLab_3 script), midi-standard (the usual meaning of that message, assumed), arturia-default (assumed), unknown (no message known: learn it). The profile is for Anthony's session at the MiniLab.",
+  "ports": {
+    "match": [
+      "MiniLab3",
+      "MiniLab 3"
+    ],
+    "prefer": [
+      "MIDI"
+    ],
+    "basis": "guess",
+    "source": "the port name macOS gives a MiniLab 3, not read from a machine here; set ZPKT_MINILAB_PORT to override",
+    "verified": false
+  },
+  "sysex": {
+    "header": [
+      240,
+      0,
+      32,
+      107,
+      127,
+      66
+    ],
+    "end": 247,
+    "led": {
+      "prefix": [
+        2,
+        2,
+        22
+      ],
+      "layout": "id r g b, each 0-127",
+      "basis": "live-script",
+      "source": "MiniLab_3/midi.py in Live 12's MIDI Remote Scripts (read from the installed .pyc, read only): LED_HEADER; the colour layout is assumed from create_rgb_pad",
+      "verified": false
+    },
+    "display": {
+      "prefix": [
+        4,
+        2,
+        96
+      ],
+      "full_screen_options": [
+        31,
+        7,
+        1,
+        0,
+        0,
+        0,
+        0
+      ],
+      "parameter_options": [
+        31,
+        8,
+        2
+      ],
+      "line_1_width": 10,
+      "line_2_width": 18,
+      "basis": "live-script",
+      "source": "MiniLab_3/display_util.py: make_full_screen_message (read from the installed .pyc)",
+      "verified": false
+    },
+    "realign": {
+      "prefix": [
+        33,
+        16,
+        0
+      ],
+      "layout": "knob id, value 0-127",
+      "basis": "live-script",
+      "source": "MiniLab_3/midi.py in Live 12's MIDI Remote Scripts (read from the installed .pyc, read only): ENCODER_VALUE_HEADER and ENCODER_ID_TO_SYSEX_ID",
+      "verified": false
+    }
+  },
+  "controls": [
+    {
+      "name": "k1",
+      "label": "Knob 1",
+      "kind": "knob",
+      "message": {
+        "type": "cc",
+        "channel": 1,
+        "number": 86
+      },
+      "basis": "live-script",
+      "source": "MiniLab_3/elements.py in Live 12's MIDI Remote Scripts (read from the installed .pyc, read only): Encoders 86",
+      "verified": false,
+      "encoding": "absolute",
+      "realign_sysex_id": 7
+    },
+    {
+      "name": "k2",
+      "label": "Knob 2",
+      "kind": "knob",
+      "message": {
+        "type": "cc",
+        "channel": 1,
+        "number": 87
+      },
+      "basis": "live-script",
+      "source": "MiniLab_3/elements.py in Live 12's MIDI Remote Scripts (read from the installed .pyc, read only): Encoders 87",
+      "verified": false,
+      "encoding": "absolute",
+      "realign_sysex_id": 8
+    },
+    {
+      "name": "k3",
+      "label": "Knob 3",
+      "kind": "knob",
+      "message": {
+        "type": "cc",
+        "channel": 1,
+        "number": 89
+      },
+      "basis": "live-script",
+      "source": "MiniLab_3/elements.py in Live 12's MIDI Remote Scripts (read from the installed .pyc, read only): Encoders 89",
+      "verified": false,
+      "encoding": "absolute",
+      "realign_sysex_id": 9
+    },
+    {
+      "name": "k4",
+      "label": "Knob 4",
+      "kind": "knob",
+      "message": {
+        "type": "cc",
+        "channel": 1,
+        "number": 90
+      },
+      "basis": "live-script",
+      "source": "MiniLab_3/elements.py in Live 12's MIDI Remote Scripts (read from the installed .pyc, read only): Encoders 90",
+      "verified": false,
+      "encoding": "absolute",
+      "realign_sysex_id": 10
+    },
+    {
+      "name": "k5",
+      "label": "Knob 5",
+      "kind": "knob",
+      "message": {
+        "type": "cc",
+        "channel": 1,
+        "number": 110
+      },
+      "basis": "live-script",
+      "source": "MiniLab_3/elements.py in Live 12's MIDI Remote Scripts (read from the installed .pyc, read only): Encoders 110",
+      "verified": false,
+      "encoding": "absolute",
+      "realign_sysex_id": 11
+    },
+    {
+      "name": "k6",
+      "label": "Knob 6",
+      "kind": "knob",
+      "message": {
+        "type": "cc",
+        "channel": 1,
+        "number": 111
+      },
+      "basis": "live-script",
+      "source": "MiniLab_3/elements.py in Live 12's MIDI Remote Scripts (read from the installed .pyc, read only): Encoders 111",
+      "verified": false,
+      "encoding": "absolute",
+      "realign_sysex_id": 12
+    },
+    {
+      "name": "k7",
+      "label": "Knob 7",
+      "kind": "knob",
+      "message": {
+        "type": "cc",
+        "channel": 1,
+        "number": 116
+      },
+      "basis": "live-script",
+      "source": "MiniLab_3/elements.py in Live 12's MIDI Remote Scripts (read from the installed .pyc, read only): Encoders 116",
+      "verified": false,
+      "encoding": "absolute",
+      "realign_sysex_id": 13
+    },
+    {
+      "name": "k8",
+      "label": "Knob 8",
+      "kind": "knob",
+      "message": {
+        "type": "cc",
+        "channel": 1,
+        "number": 117
+      },
+      "basis": "live-script",
+      "source": "MiniLab_3/elements.py in Live 12's MIDI Remote Scripts (read from the installed .pyc, read only): Encoders 117",
+      "verified": false,
+      "encoding": "absolute",
+      "realign_sysex_id": 14
+    },
+    {
+      "name": "f1",
+      "label": "Fader 1",
+      "kind": "fader",
+      "message": {
+        "type": "cc",
+        "channel": 1,
+        "number": 14
+      },
+      "basis": "live-script",
+      "source": "MiniLab_3/elements.py in Live 12's MIDI Remote Scripts (read from the installed .pyc, read only): the faders (Volume, Send A, Send B, Pan)",
+      "verified": false,
+      "encoding": "absolute"
+    },
+    {
+      "name": "f2",
+      "label": "Fader 2",
+      "kind": "fader",
+      "message": {
+        "type": "cc",
+        "channel": 1,
+        "number": 15
+      },
+      "basis": "live-script",
+      "source": "MiniLab_3/elements.py in Live 12's MIDI Remote Scripts (read from the installed .pyc, read only): the faders (Volume, Send A, Send B, Pan)",
+      "verified": false,
+      "encoding": "absolute"
+    },
+    {
+      "name": "f3",
+      "label": "Fader 3",
+      "kind": "fader",
+      "message": {
+        "type": "cc",
+        "channel": 1,
+        "number": 30
+      },
+      "basis": "live-script",
+      "source": "MiniLab_3/elements.py in Live 12's MIDI Remote Scripts (read from the installed .pyc, read only): the faders (Volume, Send A, Send B, Pan)",
+      "verified": false,
+      "encoding": "absolute"
+    },
+    {
+      "name": "f4",
+      "label": "Fader 4",
+      "kind": "fader",
+      "message": {
+        "type": "cc",
+        "channel": 1,
+        "number": 31
+      },
+      "basis": "live-script",
+      "source": "MiniLab_3/elements.py in Live 12's MIDI Remote Scripts (read from the installed .pyc, read only): the faders (Volume, Send A, Send B, Pan)",
+      "verified": false,
+      "encoding": "absolute"
+    },
+    {
+      "name": "a1",
+      "label": "Pad A1",
+      "kind": "pad",
+      "message": {
+        "type": "note",
+        "channel": 10,
+        "number": 36
+      },
+      "basis": "live-script",
+      "source": "MiniLab_3/elements.py in Live 12's MIDI Remote Scripts (read from the installed .pyc, read only): Pad_Bank_A, channel 10 (9 counting from 0)",
+      "verified": false,
+      "led_sysex_id": 52
+    },
+    {
+      "name": "a2",
+      "label": "Pad A2",
+      "kind": "pad",
+      "message": {
+        "type": "note",
+        "channel": 10,
+        "number": 37
+      },
+      "basis": "live-script",
+      "source": "MiniLab_3/elements.py in Live 12's MIDI Remote Scripts (read from the installed .pyc, read only): Pad_Bank_A, channel 10 (9 counting from 0)",
+      "verified": false,
+      "led_sysex_id": 53
+    },
+    {
+      "name": "a3",
+      "label": "Pad A3",
+      "kind": "pad",
+      "message": {
+        "type": "note",
+        "channel": 10,
+        "number": 38
+      },
+      "basis": "live-script",
+      "source": "MiniLab_3/elements.py in Live 12's MIDI Remote Scripts (read from the installed .pyc, read only): Pad_Bank_A, channel 10 (9 counting from 0)",
+      "verified": false,
+      "led_sysex_id": 54
+    },
+    {
+      "name": "a4",
+      "label": "Pad A4",
+      "kind": "pad",
+      "message": {
+        "type": "note",
+        "channel": 10,
+        "number": 39
+      },
+      "basis": "live-script",
+      "source": "MiniLab_3/elements.py in Live 12's MIDI Remote Scripts (read from the installed .pyc, read only): Pad_Bank_A, channel 10 (9 counting from 0)",
+      "verified": false,
+      "led_sysex_id": 55
+    },
+    {
+      "name": "a5",
+      "label": "Pad A5",
+      "kind": "pad",
+      "message": {
+        "type": "note",
+        "channel": 10,
+        "number": 40
+      },
+      "basis": "live-script",
+      "source": "MiniLab_3/elements.py in Live 12's MIDI Remote Scripts (read from the installed .pyc, read only): Pad_Bank_A, channel 10 (9 counting from 0)",
+      "verified": false,
+      "led_sysex_id": 56
+    },
+    {
+      "name": "a6",
+      "label": "Pad A6",
+      "kind": "pad",
+      "message": {
+        "type": "note",
+        "channel": 10,
+        "number": 41
+      },
+      "basis": "live-script",
+      "source": "MiniLab_3/elements.py in Live 12's MIDI Remote Scripts (read from the installed .pyc, read only): Pad_Bank_A, channel 10 (9 counting from 0)",
+      "verified": false,
+      "led_sysex_id": 57
+    },
+    {
+      "name": "a7",
+      "label": "Pad A7",
+      "kind": "pad",
+      "message": {
+        "type": "note",
+        "channel": 10,
+        "number": 42
+      },
+      "basis": "live-script",
+      "source": "MiniLab_3/elements.py in Live 12's MIDI Remote Scripts (read from the installed .pyc, read only): Pad_Bank_A, channel 10 (9 counting from 0)",
+      "verified": false,
+      "led_sysex_id": 58
+    },
+    {
+      "name": "a8",
+      "label": "Pad A8",
+      "kind": "pad",
+      "message": {
+        "type": "note",
+        "channel": 10,
+        "number": 43
+      },
+      "basis": "live-script",
+      "source": "MiniLab_3/elements.py in Live 12's MIDI Remote Scripts (read from the installed .pyc, read only): Pad_Bank_A, channel 10 (9 counting from 0)",
+      "verified": false,
+      "led_sysex_id": 59
+    },
+    {
+      "name": "b1",
+      "label": "Pad B1",
+      "kind": "pad",
+      "message": {
+        "type": "note",
+        "channel": 10,
+        "number": 44
+      },
+      "basis": "live-script",
+      "source": "MiniLab_3/elements.py in Live 12's MIDI Remote Scripts (read from the installed .pyc, read only): Pad_Bank_B, channel 10",
+      "verified": false,
+      "led_sysex_id": 68
+    },
+    {
+      "name": "b2",
+      "label": "Pad B2",
+      "kind": "pad",
+      "message": {
+        "type": "note",
+        "channel": 10,
+        "number": 45
+      },
+      "basis": "live-script",
+      "source": "MiniLab_3/elements.py in Live 12's MIDI Remote Scripts (read from the installed .pyc, read only): Pad_Bank_B, channel 10",
+      "verified": false,
+      "led_sysex_id": 69
+    },
+    {
+      "name": "b3",
+      "label": "Pad B3",
+      "kind": "pad",
+      "message": {
+        "type": "note",
+        "channel": 10,
+        "number": 46
+      },
+      "basis": "live-script",
+      "source": "MiniLab_3/elements.py in Live 12's MIDI Remote Scripts (read from the installed .pyc, read only): Pad_Bank_B, channel 10",
+      "verified": false,
+      "led_sysex_id": 70
+    },
+    {
+      "name": "b4",
+      "label": "Pad B4",
+      "kind": "pad",
+      "message": {
+        "type": "note",
+        "channel": 10,
+        "number": 47
+      },
+      "basis": "live-script",
+      "source": "MiniLab_3/elements.py in Live 12's MIDI Remote Scripts (read from the installed .pyc, read only): Pad_Bank_B, channel 10",
+      "verified": false,
+      "led_sysex_id": 71
+    },
+    {
+      "name": "b5",
+      "label": "Pad B5",
+      "kind": "pad",
+      "message": {
+        "type": "note",
+        "channel": 10,
+        "number": 48
+      },
+      "basis": "live-script",
+      "source": "MiniLab_3/elements.py in Live 12's MIDI Remote Scripts (read from the installed .pyc, read only): Pad_Bank_B, channel 10",
+      "verified": false,
+      "led_sysex_id": 72
+    },
+    {
+      "name": "b6",
+      "label": "Pad B6",
+      "kind": "pad",
+      "message": {
+        "type": "note",
+        "channel": 10,
+        "number": 49
+      },
+      "basis": "live-script",
+      "source": "MiniLab_3/elements.py in Live 12's MIDI Remote Scripts (read from the installed .pyc, read only): Pad_Bank_B, channel 10",
+      "verified": false,
+      "led_sysex_id": 73
+    },
+    {
+      "name": "b7",
+      "label": "Pad B7",
+      "kind": "pad",
+      "message": {
+        "type": "note",
+        "channel": 10,
+        "number": 50
+      },
+      "basis": "live-script",
+      "source": "MiniLab_3/elements.py in Live 12's MIDI Remote Scripts (read from the installed .pyc, read only): Pad_Bank_B, channel 10",
+      "verified": false,
+      "led_sysex_id": 74
+    },
+    {
+      "name": "b8",
+      "label": "Pad B8",
+      "kind": "pad",
+      "message": {
+        "type": "note",
+        "channel": 10,
+        "number": 51
+      },
+      "basis": "live-script",
+      "source": "MiniLab_3/elements.py in Live 12's MIDI Remote Scripts (read from the installed .pyc, read only): Pad_Bank_B, channel 10",
+      "verified": false,
+      "led_sysex_id": 75
+    },
+    {
+      "name": "data_turn",
+      "label": "Data knob, turn",
+      "kind": "encoder",
+      "message": {
+        "type": "cc",
+        "channel": 1,
+        "number": 28
+      },
+      "basis": "live-script",
+      "source": "MiniLab_3/elements.py in Live 12's MIDI Remote Scripts (read from the installed .pyc, read only): Display_Encoder, LinearBinaryOffset",
+      "verified": false,
+      "encoding": "relative-offset-64"
+    },
+    {
+      "name": "data_turn_shifted",
+      "label": "Data knob, turn, Shift held",
+      "kind": "encoder",
+      "message": {
+        "type": "cc",
+        "channel": 1,
+        "number": 29
+      },
+      "basis": "live-script",
+      "source": "MiniLab_3/elements.py in Live 12's MIDI Remote Scripts (read from the installed .pyc, read only): Shifted_Display_Encoder (the controller sends its own number while Shift is held)",
+      "verified": false,
+      "encoding": "relative-offset-64",
+      "shifted_of": "data_turn"
+    },
+    {
+      "name": "data_push",
+      "label": "Data knob, push",
+      "kind": "button",
+      "message": {
+        "type": "cc",
+        "channel": 1,
+        "number": 118
+      },
+      "basis": "live-script",
+      "source": "MiniLab_3/elements.py in Live 12's MIDI Remote Scripts (read from the installed .pyc, read only): Display_Encoder_Button",
+      "verified": false
+    },
+    {
+      "name": "data_push_shifted",
+      "label": "Data knob, push, Shift held",
+      "kind": "button",
+      "message": {
+        "type": "cc",
+        "channel": 1,
+        "number": 119
+      },
+      "basis": "live-script",
+      "source": "MiniLab_3/elements.py in Live 12's MIDI Remote Scripts (read from the installed .pyc, read only): Shifted_Display_Encoder_Button",
+      "verified": false,
+      "shifted_of": "data_push"
+    },
+    {
+      "name": "shift",
+      "label": "Shift",
+      "kind": "button",
+      "message": {
+        "type": "cc",
+        "channel": 1,
+        "number": 27
+      },
+      "basis": "live-script",
+      "source": "MiniLab_3/elements.py in Live 12's MIDI Remote Scripts (read from the installed .pyc, read only): Shift_Button",
+      "verified": false
+    },
+    {
+      "name": "loop",
+      "label": "Loop",
+      "kind": "button",
+      "message": {
+        "type": "cc",
+        "channel": 1,
+        "number": 105
+      },
+      "basis": "live-script",
+      "source": "MiniLab_3/elements.py in Live 12's MIDI Remote Scripts (read from the installed .pyc, read only): Loop_Button",
+      "verified": false
+    },
+    {
+      "name": "stop",
+      "label": "Stop",
+      "kind": "button",
+      "message": {
+        "type": "cc",
+        "channel": 1,
+        "number": 106
+      },
+      "basis": "live-script",
+      "source": "MiniLab_3/elements.py in Live 12's MIDI Remote Scripts (read from the installed .pyc, read only): Stop_Button",
+      "verified": false
+    },
+    {
+      "name": "play",
+      "label": "Play",
+      "kind": "button",
+      "message": {
+        "type": "cc",
+        "channel": 1,
+        "number": 107
+      },
+      "basis": "live-script",
+      "source": "MiniLab_3/elements.py in Live 12's MIDI Remote Scripts (read from the installed .pyc, read only): Play_Button",
+      "verified": false
+    },
+    {
+      "name": "rec",
+      "label": "Record",
+      "kind": "button",
+      "message": {
+        "type": "cc",
+        "channel": 1,
+        "number": 108
+      },
+      "basis": "live-script",
+      "source": "MiniLab_3/elements.py in Live 12's MIDI Remote Scripts (read from the installed .pyc, read only): Record_Button",
+      "verified": false
+    },
+    {
+      "name": "tap",
+      "label": "Tap tempo",
+      "kind": "button",
+      "message": {
+        "type": "cc",
+        "channel": 1,
+        "number": 109
+      },
+      "basis": "live-script",
+      "source": "MiniLab_3/elements.py in Live 12's MIDI Remote Scripts (read from the installed .pyc, read only): Tap tempo_Button",
+      "verified": false
+    },
+    {
+      "name": "octave_down",
+      "label": "Octave -",
+      "kind": "button",
+      "message": {
+        "type": "cc",
+        "channel": 1,
+        "number": null
+      },
+      "basis": "unknown",
+      "source": "not in Live's MiniLab_3 script; the controller may transpose the keys itself and send nothing. Learn it at the hardware: zpkt app midi learn octave_down",
+      "verified": false,
+      "note": "no message known yet: the control is ignored until its number is learned"
+    },
+    {
+      "name": "octave_up",
+      "label": "Octave +",
+      "kind": "button",
+      "message": {
+        "type": "cc",
+        "channel": 1,
+        "number": null
+      },
+      "basis": "unknown",
+      "source": "not in Live's MiniLab_3 script; learn it at the hardware: zpkt app midi learn octave_up",
+      "verified": false,
+      "note": "no message known yet: the control is ignored until its number is learned"
+    },
+    {
+      "name": "hold",
+      "label": "Hold",
+      "kind": "button",
+      "message": {
+        "type": "cc",
+        "channel": 1,
+        "number": 64
+      },
+      "basis": "midi-standard",
+      "source": "assumed: Hold acts as the sustain pedal (CC 64) in Arturia's presets; not in Live's script",
+      "verified": false,
+      "note": "assumed"
+    },
+    {
+      "name": "mod",
+      "label": "Mod strip",
+      "kind": "strip",
+      "message": {
+        "type": "cc",
+        "channel": 1,
+        "number": 1
+      },
+      "basis": "midi-standard",
+      "source": "assumed: the mod strip sends the mod wheel (CC 1); not in Live's script",
+      "verified": false,
+      "encoding": "absolute"
+    },
+    {
+      "name": "bend",
+      "label": "Pitch bend strip",
+      "kind": "strip",
+      "message": {
+        "type": "pitchbend",
+        "channel": 1,
+        "number": null
+      },
+      "basis": "midi-standard",
+      "source": "assumed: the pitch strip sends pitch bend on channel 1, 8192 at rest; not in Live's script",
+      "verified": false,
+      "encoding": "pitchbend-14bit"
+    },
+    {
+      "name": "keys",
+      "label": "Keys (25)",
+      "kind": "keys",
+      "message": {
+        "type": "note",
+        "channel": 1,
+        "number": null,
+        "first": 48,
+        "last": 72
+      },
+      "basis": "arturia-default",
+      "source": "assumed: 25 keys on channel 1 from C3 (48) to C5 (72) at the controller's middle octave; not in Live's script. If the octave buttons shift the key numbers, learn them and edit first and last",
+      "verified": false
+    }
+  ]
+}

@@ -108,14 +108,15 @@ def test_python_m_runs_the_old_meters_command() -> None:
         assert res.returncode == 0 and "usage:" in res.stdout, (module, res.stderr)
 
 
-def test_zpkt_app_is_reserved_and_says_it_is_not_built_yet() -> None:
+def test_zpkt_app_starts_the_app() -> None:
+    """`zpkt app` was reserved ("not built yet") until the desk's server moved in (24 Nov 2026)."""
     import zpkt.app
 
-    res = subprocess.run([str(BIN / "zpkt"), "app"], capture_output=True, text=True)
-    assert res.returncode == 1 and "not built yet" in res.stderr and res.stderr.strip() == zpkt.app.NOT_BUILT
+    res = subprocess.run([str(BIN / "zpkt"), "app", "--help"], capture_output=True, text=True)
+    assert res.returncode == 0 and "--adapters" in res.stdout and "--port" in res.stdout
     usage = subprocess.run([str(BIN / "zpkt")], capture_output=True, text=True).stdout
-    assert "app" in usage and "reserved" in usage
-    assert zpkt.app.__doc__ and "mix desk" in zpkt.app.__doc__
+    assert "app" in usage and "reserved" not in usage and "not built" not in usage
+    assert zpkt.app.__doc__ and "only door to Live" in zpkt.app.__doc__
 
 
 def test_zpkt_live_reaches_the_live_group_without_saying_live_twice() -> None:

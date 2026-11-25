@@ -1,0 +1,918 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<title>Ask</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="/app/ask/zpkt/zpkt.css">
+<link rel="stylesheet" href="/app/ask/zpkt/work.css">
+<style>
+/* Flat, bone and black with one accent (acid lime). Text on the accent is always --acc-ink. */
+:root{--bg:#f1eee6;--panel:#fff;--ink:#111;--mute:#6a6963;--line:#111;--accent:#c6f432;--acc:#c6f432;--acc-ink:#111;--stop:#e5332a;--user:#fff;--code:#e8e4d9;--danger:#b3261e;--ok:#111;--warn:#111;--okbg:#f3fbd0;--warnbg:#fff;--badbg:#fff}
+@media (prefers-color-scheme:dark){:root{--bg:#121212;--panel:#1c1c1c;--ink:#f2f2ee;--mute:#9c9b95;--line:#4a4a4a;--accent:#c6f432;--acc:#c6f432;--user:#262626;--code:#1e1e1e;--danger:#ff7a70;--ok:#c6f432;--warn:#f2f2ee;--okbg:#232b0c;--warnbg:#1c1c1c;--badbg:#1c1c1c}}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{background:var(--bg);color:var(--ink);font:16px/1.5 'Helvetica Neue',Helvetica,Arial,sans-serif;display:flex;overflow:hidden}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer;padding:0}
+select,input,textarea{font:inherit;color:inherit}
+a{color:var(--ink);text-underline-offset:2px}
+#side{width:290px;flex:none;background:var(--panel);border-right:1px solid var(--line);display:flex;flex-direction:column;padding-top:env(safe-area-inset-top)}
+#side header{padding:12px;display:flex;gap:8px}
+#new{flex:1;background:var(--accent);color:var(--acc-ink);border:1.5px solid var(--line);border-radius:4px;padding:10px;font-weight:700}
+#list{flex:1;overflow:auto;padding:0 8px 12px}
+.item{display:flex;align-items:center;border:1.5px solid transparent;padding:2px 4px 2px 10px}
+.item:hover{background:var(--bg)}.item.on{background:var(--ink);color:var(--bg)}.item.on small{color:inherit;opacity:.7}
+.item .t{flex:1;min-width:0;text-align:left;padding:7px 0}
+.item .t b{display:block;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.item .t small{display:block;color:var(--mute);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.item .x{color:var(--mute);padding:8px;border-radius:6px}
+.live{display:inline-block;width:8px;height:8px;background:var(--acc);outline:1px solid var(--line);margin-right:6px;animation:b 1s infinite}
+#foot{border-top:1px solid var(--line);padding:8px 8px calc(8px + env(safe-area-inset-bottom));display:grid;gap:2px}
+#foot button,#foot a{display:flex;align-items:center;gap:8px;text-align:left;padding:9px 10px;border-radius:8px;text-decoration:none;color:var(--ink)}
+#foot button:hover,#foot a:hover{background:var(--bg)}
+.pill{margin-left:auto;font-size:12px;background:var(--accent);color:var(--acc-ink);font-weight:700;padding:0 7px}
+#main{flex:1;min-width:0;display:flex;flex-direction:column;height:100dvh}
+#top{display:flex;align-items:center;gap:4px;padding:calc(6px + env(safe-area-inset-top)) 8px 6px;border-bottom:1px solid var(--line);background:var(--panel)}
+#hd{flex:1;min-width:0;text-align:center}
+#hd h1{font-size:16px;margin:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#hd small{display:block;color:var(--mute);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ib{width:44px;height:44px;display:grid;place-items:center;border-radius:10px;font-size:20px;flex:none}
+.ib:active{background:var(--bg)}
+.ib[hidden]{display:none}
+#menu{display:none}
+#msgs{flex:1;overflow:auto;padding:16px 12px;-webkit-overflow-scrolling:touch}
+.wrap{max-width:780px;margin:0 auto}
+.m{margin:0 0 14px;display:flex;flex-direction:column}
+.m.user{align-items:flex-end}
+.bubble{max-width:100%;overflow-wrap:anywhere}
+.m.user .bubble{background:var(--user);border:1.5px solid var(--line);padding:8px 13px;border-radius:10px;max-width:88%;white-space:pre-wrap}
+.m.user .meta{font-size:12px;color:var(--mute);margin-top:3px}
+.m.user.pending .bubble{opacity:.75}
+.m.model .bubble>:first-child{margin-top:0}.m.model .bubble>:last-child{margin-bottom:0}
+.aud{margin:.7em 0}.aud audio{display:block;max-width:100%}.aud figcaption{font-size:12px;color:var(--mute);margin-top:2px;overflow-wrap:anywhere}
+.bubble p{margin:.6em 0}.bubble h1,.bubble h2,.bubble h3,.bubble h4{margin:1em 0 .4em;line-height:1.25}
+.bubble h1{font-size:1.35em}.bubble h2{font-size:1.2em}.bubble h3,.bubble h4{font-size:1.05em}
+.bubble ul,.bubble ol{padding-left:1.4em;margin:.5em 0}
+.bubble blockquote{margin:.6em 0;padding-left:12px;border-left:3px solid var(--line);color:var(--mute)}
+.bubble code,.mono{background:var(--code);padding:.1em .35em;border-radius:5px;font:0.88em ui-monospace,Menlo,Consolas,monospace}
+.bubble pre,pre.out{position:relative;background:var(--code);border:1px solid var(--line);border-radius:10px;padding:12px;overflow:auto;margin:.7em 0;font:12.5px/1.45 ui-monospace,Menlo,Consolas,monospace;white-space:pre}
+.bubble pre code{background:none;padding:0;font-size:13px;white-space:pre}
+pre.out{max-height:50vh;white-space:pre-wrap;overflow-wrap:anywhere}
+.cp{position:absolute;top:6px;right:6px;font-size:12px;color:var(--mute);background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:2px 8px}
+.tbl{overflow:auto;margin:.7em 0}
+table{border-collapse:collapse;font-size:14.5px}th,td{border:1px solid var(--line);padding:6px 10px;text-align:left}th{background:var(--code)}
+details.tool{margin:0 0 8px;border:1px solid var(--line);border-radius:10px;background:var(--panel);font-size:14px}
+details.tool summary{list-style:none;cursor:pointer;padding:7px 10px;display:flex;gap:8px;align-items:baseline;min-width:0}
+details summary::-webkit-details-marker{display:none}
+.tool .nm{font:13px ui-monospace,Menlo,monospace;font-weight:600;flex:none}
+.tool .arg{color:var(--mute);font:13px ui-monospace,Menlo,monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1;min-width:0}
+.tool .st{flex:none;font-size:12px}
+.tool .st.success{color:var(--ok)}.tool .st.error{color:var(--danger)}
+details.tool pre{margin:0 10px 10px}
+.stats{font-size:12px;color:var(--mute);margin:-4px 0 18px;display:flex;flex-wrap:wrap;gap:4px 12px;align-items:center}
+.stats button{color:var(--mute);text-decoration:underline;text-underline-offset:2px}
+.err{color:var(--danger);font-size:14px;margin:0 0 12px;white-space:pre-wrap}
+.note,.rnote{color:var(--mute);font-size:14px;margin:0 0 12px}
+.card{padding:10px 12px;margin:0 0 14px;font-size:14px;border:1.5px solid var(--line)}
+.card.ok{background:var(--okbg);border-color:color-mix(in srgb,var(--ok) 35%,transparent)}
+.card.warn{background:var(--warnbg);border-color:color-mix(in srgb,var(--warn) 35%,transparent)}
+.card.bad{background:var(--badbg);border-color:color-mix(in srgb,var(--danger) 35%,transparent)}
+.card b{display:block;margin-bottom:2px}
+.card details summary{cursor:pointer;color:var(--mute);margin-top:4px}
+.dots::after{content:"●";animation:b 1s infinite;color:var(--mute)}
+@keyframes b{50%{opacity:.2}}
+#empty{text-align:center;color:var(--mute);margin-top:12vh;padding:0 8px}
+#empty h2{color:var(--ink);font-size:22px;margin:0 0 6px}
+#empty p{max-width:460px;margin:8px auto}
+#bar{padding:8px 12px calc(10px + env(safe-area-inset-bottom));background:var(--bg)}
+#newp{display:flex;gap:8px;margin:0 0 8px;flex-wrap:wrap}
+#newp label{flex:1 1 180px;font-size:12px;color:var(--mute)}
+#newp select{display:block;width:100%;margin-top:2px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:8px}
+#box{display:flex;align-items:flex-end;gap:4px;background:var(--panel);border:1.5px solid var(--line);border-radius:8px;padding:4px}
+#mode{flex:none;max-width:118px;border:1px solid var(--line);background:var(--panel);border-radius:4px;padding:6px 8px;font-size:13px;margin:0 4px}
+#mode.yolo{border-color:var(--danger);color:var(--danger)}
+#in{flex:1;min-width:0;border:0;background:none;resize:none;outline:0;max-height:30vh;padding:10px 8px;min-height:44px}
+#send{width:44px;height:44px;border-radius:4px;background:var(--accent);color:var(--acc-ink);border:1.5px solid var(--line);display:grid;place-items:center;flex:none;transition:transform .08s}
+#send:active:not(:disabled){transform:scale(.88)}
+#send:disabled{opacity:.4}
+#hint{font-size:12px;color:var(--mute);text-align:center;margin-top:6px;min-height:1em}
+.sheet{position:fixed;inset:0;background:#0007;display:none;align-items:flex-end;justify-content:center;z-index:20}
+.sheet.open{display:flex}
+.sheet>div{background:var(--panel);width:100%;max-width:640px;border-radius:18px 18px 0 0;padding:18px 18px calc(18px + env(safe-area-inset-bottom));max-height:90dvh;overflow:auto}
+.sheet h3{margin:0 0 4px}
+.sheet p.sub{margin:0 0 12px;color:var(--mute);font-size:14px}
+.sheet label{display:block;font-size:13px;color:var(--mute);margin:12px 0 4px}
+.sheet textarea,.sheet select{width:100%;background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:10px}
+.sheet textarea{min-height:100px}
+.row{display:flex;gap:8px;margin-top:16px}
+.row button{flex:1;padding:12px;border-radius:10px;border:1px solid var(--line)}
+.row .pri{background:var(--accent);color:var(--acc-ink);border-color:var(--line);font-weight:700}
+.row .pri:disabled{opacity:.5}
+.fb{display:flex;gap:8px;align-items:flex-start;padding:8px 0;border-bottom:1px solid var(--line);font-size:14px}
+.fb input{margin-top:4px;flex:none}
+.fb span{flex:1;white-space:pre-wrap}
+.fb .done{color:var(--mute)}
+.fb button{color:var(--mute);padding:0 4px}
+.cm{padding:10px 0;border-bottom:1px solid var(--line);font-size:14px}
+.cm .s{font-weight:500}
+.cm .s .cur{font-size:11px;background:var(--accent);color:var(--acc-ink);font-weight:700;padding:1px 6px;margin-left:6px;vertical-align:2px}
+.cm small{color:var(--mute);display:block}
+.cm .acts{display:flex;gap:12px;margin-top:4px}
+.cm .acts button{color:var(--ink);text-decoration:underline;font-size:13px}
+.add{color:var(--ok);font-weight:600}.del{color:var(--danger)}.hh{color:var(--mute)}
+#storage{padding:7px 12px;font-size:14px;border-bottom:1px solid var(--line);background:var(--panel);color:var(--ink)}
+#storage.critical{background:var(--danger);color:#fff}
+#toast{pointer-events:none;position:fixed;left:50%;bottom:calc(90px + env(safe-area-inset-bottom));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:9px 14px;border-radius:10px;font-size:14px;z-index:30;display:none;max-width:90vw}
+#toast.act{pointer-events:auto}#toast button{font-weight:700;text-decoration:underline;margin-left:10px;color:var(--acc)}
+#title.can{cursor:pointer}#title.can::after{content:" ✎";color:var(--mute);font-weight:400;font-size:13px}
+#scrim{display:none}
+#bar{position:relative}
+#below{position:absolute;left:50%;transform:translateX(-50%);bottom:calc(100% + 10px);z-index:5;background:var(--ink);color:var(--bg);border-radius:999px;padding:6px 14px;font-size:13px;font-weight:600}
+#below[hidden]{display:none}
+@media (max-width:760px){
+  #side{position:fixed;z-index:10;top:0;bottom:0;left:0;transform:translateX(-100%);transition:transform .2s}
+  body.nav #side{transform:none}
+  body.nav #scrim{display:block;position:fixed;inset:0;background:#0006;z-index:9}
+  #menu{display:grid}
+}
+</style>
+<style>#improveBtn,#changesBtn,#rigBtn,#fbBtn,#side a[href='/chat']{display:none}.perm-options{display:flex;gap:8px;margin-top:8px}</style>
+</head>
+<body>
+<aside id="side">
+  <header><button id="new">+ New session</button></header>
+  <div id="list"></div>
+  <div id="foot">
+    <button id="improveBtn">Improve this app <span class="pill" id="fbCount" hidden></span></button>
+    <button id="changesBtn">Changes and restore</button>
+    <button id="rigBtn" title="Quits and reopens Live if it has to; your set is saved first">Reset Live</button>
+    <button id="fbBtn">Leave feedback</button>
+    <a href="/chat">Plain API chat</a>
+    <div id="version" style="font-size:12px;color:var(--mute);padding:2px 10px 0"></div>
+  </div>
+</aside>
+<div id="scrim"></div>
+<main id="main">
+  <div id="storage" role="status" hidden></div>
+  <div id="top">
+    <button class="ib" id="menu" aria-label="Sessions"><svg viewBox="0 0 20 20" width="20" height="20" aria-hidden="true"><path d="M3 5.5h14M3 10h14M3 14.5h14" fill="none" stroke="currentColor" stroke-width="2"/></svg></button>
+    <div id="hd"><h1 id="title">Zpkt web</h1><small id="sub"></small></div>
+    <button class="ib" id="del" aria-label="Delete session" hidden><svg viewBox="0 0 20 20" width="19" height="19" aria-hidden="true"><path d="M4 6h12M8 6V4h4v2M6 6l.7 10h6.6L14 6" fill="none" stroke="currentColor" stroke-width="1.8"/></svg></button>
+  </div>
+  <div id="msgs"><div class="wrap" id="thread"></div></div>
+  <div id="bar"><button id="below" hidden>New below ↓</button><div class="wrap">
+    <div id="dock"></div>
+    <div id="newp">
+      <label>Folder<select id="ws"></select></label>
+    </div>
+    <div id="tools">
+      <select id="engine" aria-label="Agent"><option value="claude">Claude Code</option><option value="gemini">Gemini CLI</option></select>
+      <select id="mode" aria-label="Permissions">
+        <option value="plan">Read-only</option>
+        <option value="auto_edit">Edit files</option>
+        <option value="yolo">Full (shell)</option>
+        <option value="ask">Ask first</option>
+      </select>
+      <span id="ztools"></span><span class="sp"></span>
+      <button type="button" id="libBtn" title="Surfaces and library" aria-label="Surfaces and library"></button>
+      <button type="button" id="midiBtn" title="MIDI controller" aria-label="MIDI controller"></button>
+    </div>
+    <div id="chips" hidden></div>
+    <div id="box">
+      <textarea id="in" rows="1" placeholder="Ask the agent" enterkeyhint="send"></textarea>
+      <button id="send" aria-label="Send"><svg viewBox="0 0 20 20" width="20" height="20" aria-hidden="true"><path d="M10 16V4.5M5 9l5-5 5 5" fill="none" stroke="currentColor" stroke-width="2.2"/></svg></button>
+    </div>
+    <div id="hint"></div>
+  </div></div>
+</main>
+<aside id="drawer" aria-label="Subagent" hidden></aside>
+
+<div class="sheet" id="improveSheet"><div>
+  <h3>Improve this app</h3>
+  <p class="sub">The agent (<span class="gemShort">Gemini</span>) edits this app's own code. The change is checked, committed and the app restarts into it. If the checks fail twice the change is thrown away. You can always restore an earlier version.</p>
+  <label for="impText">What should change?</label>
+  <textarea id="impText" placeholder="e.g. Show how long each tool call took"></textarea>
+  <label>Feedback to address</label>
+  <div id="fbList"></div>
+  <div class="row"><button data-close>Cancel</button><button class="pri" id="impGo">Improve</button></div>
+</div></div>
+
+<div class="sheet" id="changesSheet"><div>
+  <h3>Changes</h3>
+  <p class="sub">Every version of this app. Restoring makes a new version with the old files, so nothing is lost.</p>
+  <div id="cmList"></div>
+  <div class="row"><button data-close>Close</button></div>
+</div></div>
+
+<div class="sheet" id="fbSheet"><div>
+  <h3>Feedback</h3>
+  <p class="sub">Notes on what to fix or add. “Improve this app” turns them into changes.</p>
+  <textarea id="fbText" placeholder="What was wrong, missing or annoying?"></textarea>
+  <div class="row"><button data-close>Cancel</button><button class="pri" id="fbSave">Save</button></div>
+</div></div>
+<div class="sheet" id="libSheet"><div class="zp">
+  <h3>Surfaces</h3>
+  <p class="sub">Arm a surface to put it on your controller. Starred surfaces are kept in the library and can be recalled into any session.</p>
+  <div id="libList"></div>
+  <div class="row"><button data-close>Close</button></div>
+</div></div>
+
+<div class="sheet" id="midiSheet"><div class="zp">
+  <h3>MIDI controller</h3>
+  <div id="midiBody"></div>
+  <div class="row"><button data-close>Close</button></div>
+</div></div>
+<div id="toast"></div>
+
+<script type="module" src="/app/ask/zpkt/index.js"></script>
+<script type="module" src="/app/ask/zpkt/work-ui.js"></script>
+<script>
+'use strict';
+const $ = (s) => document.querySelector(s);
+const store = {
+  get(k, d) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch { return d; } },
+  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} },
+};
+// One agent and one model (chosen on the server); older saved choices of engine or model are ignored.
+const cfg = Object.assign({ ws: 'scratch', mode: 'plan', engine: 'claude' }, store.get('cli.cfg', {}), { model: '', models: {} });
+if (!['claude', 'gemini'].includes(cfg.engine)) cfg.engine = 'claude';   // the agent picker below
+const ENGINE_NAME = { gemini: 'Gemini CLI', claude: 'Claude Code', instant: 'Fast path' };
+// What the gemini engine runs on (server: geminiLabel). Gemma when it runs on a local model.
+const GEM = { short: 'Gemini', model: 'Gemini Flash' };
+// window.Zpkt (surfaces, MIDI, player, composer extras) is an ES module that loads after this script.
+const zpktReady = new Promise((r) => (window.Zpkt ? r() : window.addEventListener('zpkt-ready', r, { once: true })));
+// window.Work draws agent work: steps, tool rows, subagent cards and drawer, the todo bar (public/zpkt/work-ui.js).
+const workReady = new Promise((r) => (window.Work ? r() : window.addEventListener('work-ready', r, { once: true })));
+const saveCfg = () => store.set('cli.cfg', cfg);
+const LOADED = Date.now();
+let sessions = [], workspaces = [], feedback = [];
+let V = null;          // view of the open session
+let es = null;         // EventSource for it
+let fbContext = null;  // session id feedback refers to
+let pending = null;    // the bubble of a message on its way to the server
+
+/* ---------- markdown (escape first, then format) ---------- */
+const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+function inline(s) {
+  s = esc(s);
+  const codes = [];
+  s = s.replace(/`([^`]+)`/g, (_, c) => { codes.push(c); return '\u0000' + (codes.length - 1) + '\u0000'; });
+  s = s.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+       .replace(/(^|[^*])\*([^*\s][^*]*)\*/g, '$1<em>$2</em>')
+       .replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>');
+  return s.replace(/\u0000(\d+)\u0000/g, (_, i) => '<code>' + codes[i] + '</code>');
+}
+// The control-panel blocks hands printed, by title: small models retype a block they are told to paste and garble it
+// (a file name, a field), so a card is drawn from what hands printed before that message, when there is one.
+const handsBlocks = new Map();
+function rememberBlocks(e) {
+  const out = typeof e.output === 'string' ? e.output : '';
+  if (!out.includes('```zpkt-surface')) return;
+  for (const m of out.matchAll(/```zpkt-surface\n([\s\S]*?)\n```/g)) {
+    let title; try { title = JSON.parse(m[1]).title; } catch { continue; }
+    if (title) (handsBlocks.get(title) || handsBlocks.set(title, []).get(title)).push({ seq: e.seq ?? 0, text: m[1] });
+  }
+}
+function original(spec, seq) {
+  let title; try { title = JSON.parse(spec).title; } catch { title = (spec.match(/"title"\s*:\s*"([^"]+)"/) || [])[1]; }
+  const all = (title && handsBlocks.get(title)) || [];
+  const before = all.filter((b) => seq == null || b.seq < seq);
+  return before.length ? before[before.length - 1].text : spec;
+}
+function md(src, seq) {
+  md.surfaces = 0;
+  const L = src.replace(/\r\n/g, '\n').split('\n');
+  let out = '', i = 0;
+  const isRow = (l) => /^\s*\|.*\|\s*$/.test(l);
+  const cells = (l) => l.trim().replace(/^\||\|$/g, '').split('|').map((c) => c.trim());
+  while (i < L.length) {
+    const l = L[i];
+    let m;
+    if ((m = l.match(/^\s*```(\S*)/))) {
+      const buf = []; i++;
+      while (i < L.length && !/^\s*```/.test(L[i])) buf.push(L[i++]);
+      const closed = i < L.length;
+      i++;
+      if (m[1] === 'audio') {
+        const src = buf.join('').trim();
+        // Named under the player: two players in a row are otherwise two identical "0:00 / 0:00" bars.
+        if (src && closed) out += `<figure class="aud"><audio controls preload="none" src="${esc(window.Zpkt ? Zpkt.mediaUrl(src) : src)}"></audio><figcaption>${esc(src.split('/').pop().replace(/\.(wav|aiff?|mp3|m4a|flac|ogg)$/i, ''))}</figcaption></figure>`;
+      } else if (m[1] === 'zpkt-surface') {
+        // A controller surface: a placeholder the surface module turns into a card (see Zpkt.hydrate).
+        out += closed ? `<div class="zs-slot" data-k="${md.surfaces++}" data-spec="${esc(original(buf.join('\n'), seq))}"></div>` : '<p class="note">Drawing a surface…</p>';
+      } else {
+        out += `<pre><button class="cp">Copy</button><code>${esc(buf.join('\n'))}</code></pre>`;
+      }
+    } else if ((m = l.match(/^(#{1,4})\s+(.*)/))) {
+      out += `<h${m[1].length}>${inline(m[2])}</h${m[1].length}>`; i++;
+    } else if (isRow(l) && i + 1 < L.length && /^\s*\|?\s*:?-{2,}/.test(L[i + 1])) {
+      const head = cells(l); i += 2;
+      let rows = '';
+      while (i < L.length && isRow(L[i])) { rows += '<tr>' + cells(L[i]).map((c) => `<td>${inline(c)}</td>`).join('') + '</tr>'; i++; }
+      out += `<div class="tbl"><table><thead><tr>${head.map((c) => `<th>${inline(c)}</th>`).join('')}</tr></thead><tbody>${rows}</tbody></table></div>`;
+    } else if (/^\s*[-*]\s+/.test(l) || /^\s*\d+[.)]\s+/.test(l)) {
+      const ord = /^\s*\d+[.)]/.test(l); let items = '';
+      while (i < L.length && (ord ? /^\s*\d+[.)]\s+/ : /^\s*[-*]\s+/).test(L[i])) {
+        items += `<li>${inline(L[i].replace(/^\s*(?:[-*]|\d+[.)])\s+/, ''))}</li>`; i++;
+      }
+      out += ord ? `<ol>${items}</ol>` : `<ul>${items}</ul>`;
+    } else if (/^>\s?/.test(l)) {
+      const buf = [];
+      while (i < L.length && /^>\s?/.test(L[i])) buf.push(L[i++].replace(/^>\s?/, ''));
+      out += `<blockquote>${inline(buf.join(' '))}</blockquote>`;
+    } else if (!l.trim()) { i++; }
+    else {
+      const buf = [];
+      while (i < L.length && L[i].trim() && !/^(\s*```|#{1,4}\s|\s*[-*]\s+|\s*\d+[.)]\s+|>)/.test(L[i]) && !isRow(L[i])) buf.push(L[i++]);
+      if (!buf.length) buf.push(L[i++]);
+      out += `<p>${inline(buf.join('\n')).replace(/\n/g, '<br>')}</p>`;
+    }
+  }
+  return out;
+}
+
+/* ---------- api ---------- */
+async function api(path, opts = {}) {
+  const r = await fetch(path, {
+    ...opts,
+    headers: opts.body ? { 'content-type': 'application/json' } : {},
+    body: opts.body ? JSON.stringify(opts.body) : undefined,
+  });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(j.error || `HTTP ${r.status}`);
+  return j;
+}
+/** A short note at the bottom; with an action ({ label, fn }) it carries a button (Undo) and takes taps. */
+function toast(msg, ms = 2600, action = null) {
+  const t = $('#toast'); t.textContent = msg; t.style.display = 'block';
+  t.classList.toggle('act', !!action);
+  if (action) {
+    const b = document.createElement('button'); b.textContent = action.label;
+    b.onclick = () => { t.style.display = 'none'; action.fn(); };
+    t.append(' ', b);
+  }
+  clearTimeout(toast.h); toast.h = setTimeout(() => (t.style.display = 'none'), ms);
+}
+const MODE_NAME = { plan: 'Read-only', auto_edit: 'Edit files', yolo: 'Full (shell)', ask: 'Ask first' };
+const wsName = (id) => workspaces.find((w) => w.id === id)?.name || id;
+const ago = (t) => {
+  const s = (Date.now() - t) / 1000;
+  if (s < 60) return 'just now';
+  if (s < 3600) return `${Math.round(s / 60)} min ago`;
+  if (s < 86400) return `${Math.round(s / 3600)} h ago`;
+  return new Date(t).toLocaleDateString();
+};
+
+/* ---------- sidebar ---------- */
+// Disk space, from the server (lib/storage.mjs): a flat bar while it is low, a toast when it gets worse or a sweep ran.
+let storageSeen = { level: 'ok', swept: 0 };
+function showStorage(st) {
+  const b = $('#storage');
+  if (!st || st.level === 'ok') { b.hidden = true; if (st) storageSeen = { level: 'ok', swept: st.swept?.at || 0 }; return; }
+  b.hidden = false; b.textContent = st.text; b.className = st.level;
+  const worse = st.level !== storageSeen.level && (st.level === 'critical' || storageSeen.level === 'ok');
+  if (worse) toast(st.text, 8000);
+  storageSeen = { level: st.level, swept: st.swept?.at || 0 };
+}
+async function loadSessions() {
+  try { const r = await api('/app/ask/api/sessions'); sessions = r.sessions; showStorage(r.storage); } catch { return; }
+  renderList();
+  if (V) { const s = sessions.find((x) => x.id === V.id); if (s) { V.s = s; renderHead(); } }
+}
+function renderList() {
+  const l = $('#list'); l.innerHTML = '';
+  if (!sessions.length) l.innerHTML = '<p class="note" style="padding:8px 10px">No sessions yet.</p>';
+  sessions.forEach((s) => {
+    const d = document.createElement('div');
+    d.className = 'item' + (V?.id === s.id ? ' on' : '');
+    d.innerHTML = `<button class="t"><b>${s.running ? '<span class="live"></span>' : ''}${esc(s.title)}</b><small>${esc(wsName(s.workspace))} · ${ago(s.updated)}</small></button>`;
+    d.querySelector('.t').onclick = () => { location.hash = 's=' + s.id; document.body.classList.remove('nav'); };
+    l.append(d);
+  });
+}
+async function loadFeedback() {
+  try { feedback = (await api('/app/ask/api/feedback')).feedback; } catch { return; }
+  const open = feedback.filter((f) => f.status === 'open').length;
+  $('#fbCount').hidden = !open; $('#fbCount').textContent = open;
+}
+
+/* ---------- session view ---------- */
+async function openFromHash() {
+  const id = (location.hash.match(/s=([0-9a-f-]{36})/i) || [])[1]?.toLowerCase();
+  const agent = (location.hash.match(/agent=([\w-]{1,80})/) || [])[1] || null;   // an open subagent drawer has its own address
+  if (id && V?.id === id) { Work.route(agent); return; }
+  if (es) { es.close(); es = null; }
+  Work.reset();
+  V = null;
+  $('#thread').innerHTML = '';
+  if (pending && id && pending.dataset.sid === id) $('#thread').append(pending);   // a new session's first message stays on screen until its replay arrives
+  else if (pending) { pending.remove(); pending = null; }
+  $('#thread').style.visibility = ''; $('#thread').style.minHeight = ''; batch.length = 0;
+  if (!id) { await Zpkt.openSession(null); loadDraft(); return renderEmpty(); }
+  if (!sessions.some((x) => x.id === id)) {
+    await loadSessions();
+    if (!sessions.some((x) => x.id === id)) {   // deleted, or never was: say so instead of a page that cannot send
+      toast('That session is not here any more.', 4000);
+      history.replaceState(null, '', location.pathname);
+      return openFromHash();
+    }
+  }
+  handsBlocks.clear();
+  V = { id, s: sessions.find((x) => x.id === id), running: false, pipeline: false, turn: null, text: null, replaying: true };
+  // A replay is drawn from the top and then pinned to the bottom: hide it until then, so no frame shows the top.
+  if (!pending) { $('#thread').style.visibility = 'hidden'; setTimeout(() => { $('#thread').style.visibility = ''; }, 3000); }
+  renderHead(); renderList(); loadDraft();
+  const mine = V;
+  await Zpkt.openSession(id); // saved surface values first, so replayed cards come back as they were left
+  if (V !== mine) return;
+  es = new EventSource(`/app/ask/api/sessions/${id}/stream?from=0`);
+  es.onmessage = (m) => { try { queue(JSON.parse(m.data)); } catch (e) { console.error(e); } };
+  es.addEventListener('state', (m) => {
+    if (V?.id !== id) return;
+    flush();
+    const st = JSON.parse(m.data);
+    V.running = st.running;
+    if (!st.rendering && V.renders?.size) { for (const el of V.renders.values()) el.textContent = 'This render was interrupted.'; V.renders.clear(); }   // a restart mid-render leaves no outcome
+    Work.setRunning(V.running);
+    if (V.replaying) { V.replaying = false; setTimeout(() => { Zpkt.settle(); Work.settle(); Work.route(agent); scroll(true); $('#thread').style.visibility = ''; }, 0); } // the server sends state right after the replay
+    renderHead();
+  });
+  es.onerror = () => { if (es && es.readyState === 2) setTimeout(openFromHash, 3000); };
+}
+function renderEmpty() {
+  $('#thread').innerHTML = `<div id="empty"><h2>Zpkt web</h2>
+    <p>Ask for a sound: <b>“make a warm bass”</b>. It is made in Live and comes back as audio with knobs: turn them and press <b>Render</b> to hear the change, no agent needed. The newest panel is armed: your MIDI controller drives it and its values go with your next message.</p>
+    <p>The agent, <b>${esc(ENGINE_NAME.gemini)}</b>, runs on the Mac. <b>Read-only</b> only looks and answers. <b>Edit files</b> can write files. <b>Full</b> can also run commands, which making sounds needs.</p>
+    <p>Choose <b>This app</b> as the folder to make the agent improve this page itself.</p></div>`;
+  renderHead(); renderList();
+}
+function renderHead() {
+  const s = V?.s;
+  const busy = (V && (V.running || V.pipeline || V.renders?.size)) || !!pending;
+  $('#title').textContent = s?.title || 'Zpkt web';
+  $('#title').className = s ? 'can' : ''; $('#title').title = s ? 'Rename' : '';
+  document.title = s?.title ? `${s.title} · Zpkt web` : 'Zpkt web';
+  const now = s && window.Work ? Work.current() : '';   // the most recent action
+  $('#sub').textContent = s ? `${wsName(s.workspace)}${busy ? ' · working…' : ''}${now ? ' · ' + now : ''}` : 'New session';
+  $('#del').hidden = !s || busy;
+  $('#newp').style.display = V ? 'none' : '';
+  $('#send').disabled = !!busy;
+  const self = V ? s?.kind === 'self' : cfg.ws === 'self';
+  $('#mode').querySelector('[value=yolo]').disabled = self;
+  if (self && $('#mode').value === 'yolo') $('#mode').value = 'auto_edit';
+  $('#mode').className = $('#mode').value === 'yolo' ? 'yolo' : '';
+  const eng = ENGINE_NAME[cfg.engine];
+  $('#hint').textContent = busy ? (pending ? 'Sending…' : V.renders?.size ? 'Rendering in Live. You can send when it is done.' : V.running ? `${V.turnEngine === 'instant' ? 'The fast path' : (ENGINE_NAME[V.engine] || ENGINE_NAME.gemini)} is working. You can close this page; it keeps going.` : 'Checking the change…')
+    : V && V.engine && V.engine !== cfg.engine ? `Switching to ${eng}: it gets the conversation so far.`
+    : self && $('#mode').value !== 'plan' ? 'This edits the app itself: checked, committed, then the app restarts.'
+    : $('#mode').value === 'yolo' ? `Full: ${eng} can run any shell command on the Mac without asking.` : '';
+}
+// The thread follows the bottom while the person is at the bottom, decided before anything grows: a card that
+// replaces a one-line placeholder must not leave the view behind. Scrolled up, new things below show a pill instead.
+let stick = true;
+const atBottom = () => { const s = $('#msgs'); return s.scrollHeight - s.scrollTop - s.clientHeight < 80; };
+function scroll(force) {
+  const s = $('#msgs');
+  if (force) stick = true;
+  if (stick) { s.scrollTop = s.scrollHeight; $('#below').hidden = true; }
+}
+$('#msgs').addEventListener('scroll', () => { stick = atBottom(); if (stick) $('#below').hidden = true; }, { passive: true });
+const follow = new ResizeObserver(() => { if (stick) scroll(); else if (V && !V.replaying && !atBottom()) $('#below').hidden = false; });
+follow.observe($('#thread')); follow.observe($('#msgs'));   // the thread growing, or the view changing size (a turned phone, the keyboard)
+$('#below').onclick = () => { $('#msgs').scrollTo({ top: $('#msgs').scrollHeight, behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' }); stick = true; $('#below').hidden = true; };
+const add = (html) => { const t = document.createElement('template'); t.innerHTML = html.trim(); const el = t.content.firstChild; $('#thread').append(el); return el; };
+
+function endText() { const t = V.text; V.text = null; if (t?.raf) { cancelAnimationFrame(t.raf); t.draw(); } }   // drawn now, with whatever else this batch changes
+
+// Events that arrive within one frame are applied together, so a turn's end (the fold, the answer, the bar going)
+// is one change on screen instead of three in a row. A running step that folds may not shrink the thread while the
+// turn goes on (the view would drop by the fold under the reader's eyes); the turn's end lets it go.
+const batch = [];
+let batchRaf = 0, batchT = 0;
+function queue(e) {
+  batch.push(e);
+  if (!batchRaf) { batchRaf = requestAnimationFrame(flush); batchT = setTimeout(flush, 250); }   // rAF waits while the tab is hidden
+}
+function flush() {
+  cancelAnimationFrame(batchRaf); clearTimeout(batchT); batchRaf = 0;
+  if (!batch.length || !V) { batch.length = 0; return; }
+  const th = $('#thread'), h = th.offsetHeight;
+  for (const e of batch.splice(0)) apply(e);
+  if (V?.text?.raf) { cancelAnimationFrame(V.text.raf); V.text.draw(); }
+  if (V?.running && !V.replaying && stick && th.offsetHeight < h) th.style.minHeight = h + 'px';
+  else if (!V?.running) th.style.minHeight = '';
+}
+// Redraw a bubble from new markdown, keeping every leading block whose source is unchanged, so streaming does not
+// rebuild an audio player or a control panel on each chunk (it used to: players reset, cards re-armed, rows flashed).
+function patch(el, html) {
+  const t = document.createElement('template'); t.innerHTML = html;
+  const next = [...t.content.childNodes], cur = [...el.childNodes];
+  const key = (n) => n.outerHTML ?? n.textContent;
+  let i = 0;
+  while (i < next.length && i < cur.length && cur[i]._md === key(next[i])) i++;
+  for (const n of cur.slice(i)) n.remove();
+  for (const n of next.slice(i)) { n._md = key(n); el.append(n); }
+}
+function appendText(s, seq) {
+  if (!V.text) {
+    const el = add('<div class="m model"><div class="bubble"></div></div>');
+    V.text = { el: el.querySelector('.bubble'), src: '' };
+    V.text.el.dataset.seq = seq; // surface ids are session/seq/index, stable across replays
+  }
+  V.text.src += s;
+  const t = V.text;
+  const live = !V.replaying;
+  const draw = t.draw = () => { t.raf = 0; patch(t.el, md(t.src, Number(t.el.dataset.seq) || null)); if (window.Zpkt) Zpkt.hydrate(t.el, { live }); scroll(); };
+  if (V.replaying) { clearTimeout(t.rt); t.rt = setTimeout(draw, 0); } // replay: draw once per bubble
+  else if (!t.raf) t.raf = requestAnimationFrame(draw);
+}
+function keyArg(p = {}) {
+  for (const k of ['command', 'file_path', 'dir_path', 'absolute_path', 'path', 'pattern', 'url', 'query', 'agent_name', 'prompt']) if (typeof p[k] === 'string') return p[k];
+  const v = Object.values(p).find((x) => typeof x === 'string');
+  return v || '';
+}
+function addTool(e) {
+  const el = add(`<details class="tool"><summary><span class="nm">${esc(e.tool_name)}</span><span class="arg">${esc(keyArg(e.parameters).split('\n')[0])}</span><span class="dur" style="color:var(--mute);font-size:12px"></span><span class="st">…</span></summary><pre class="out">${esc(JSON.stringify(e.parameters, null, 2))}</pre></details>`);
+  if (e.t) el.dataset.start = e.t;
+  V.tools = V.tools || new Map(); V.tools.set(e.tool_id, el);
+}
+function updTool(e) {
+  const el = V.tools?.get(e.tool_id); if (!el) return;
+  const st = el.querySelector('.st'); st.textContent = e.status === 'success' ? '✓' : e.status || '?'; st.className = 'st ' + (e.status || '');
+  if (el.dataset.start && e.t) {
+    const ms = e.t - parseInt(el.dataset.start, 10);
+    const dur = el.querySelector('.dur');
+    if (dur) dur.textContent = (ms / 1000).toFixed(1) + 's';
+  }
+  const out = e.output ?? e.error?.message ?? e.error;
+  if (out) el.insertAdjacentHTML('beforeend', `<pre class="out">${esc(typeof out === 'string' ? out : JSON.stringify(out, null, 2)).slice(0, 20000)}</pre>`);
+}
+function addStats(e) {
+  const st = e.stats || {};
+  const parts = [];
+  if (st.duration_ms) parts.push(`${(st.duration_ms / 1000).toFixed(1)} s`);
+  if (st.total_tokens) parts.push(`${st.total_tokens.toLocaleString()} tokens`);
+  if (st.tool_calls) parts.push(`${st.tool_calls} tool call${st.tool_calls > 1 ? 's' : ''}`);
+  if (st.models) parts.push(Object.keys(st.models).join(', '));
+  if (e.cost_usd) parts.push(`$${e.cost_usd.toFixed(3)}`);
+  if (e.status && e.status !== 'success') parts.unshift(`<span class="del">${esc(e.status)}</span>`);
+  add(`<div class="stats">${parts.map((p) => `<span>${p.startsWith('<') ? p : esc(p)}</span>`).join('')}<button data-fb="1">Feedback</button></div>`);
+}
+function addSelf(e) {
+  const out = e.output ? `<details><summary>Check output</summary><pre class="out">${esc(e.output)}</pre></details>` : '';
+  const files = e.files ? `<pre class="out">${esc(e.files)}</pre>` : '';
+  switch (e.status) {
+    case 'checking': V.pipeline = true; add(`<div class="card"><b>Running checks on the change…</b>${files}</div>`); break;
+    case 'repairing': V.pipeline = true; add(`<div class="card warn"><b>Checks failed. Asking ${esc(GEM.short)} to fix it (attempt ${e.attempt}).</b>${out}</div>`); break;
+    case 'committed':
+      V.pipeline = true;
+      add(`<div class="card ok"><b>Committed ${esc(e.commit)}. The app is restarting into it.</b>${files}<button class="mono" data-diff="${esc(e.commit)}">View change</button> ${out}</div>`);
+      if (Date.now() - e.t < 5 * 60e3) waitForVersion(e.commit);
+      else V.pipeline = false;
+      break;
+    case 'restarting': add('<div class="note">Restarting…</div>'); break;
+    case 'rejected': V.pipeline = false; add(`<div class="card bad"><b>${esc(e.text)}</b>${e.patch ? `<small>Saved as ${esc(e.patch)}</small>` : ''}${out}</div>`); break;
+    case 'nochange': V.pipeline = false; add(`<div class="note">${esc(e.text)}</div>`); break;
+    default: V.pipeline = false; add(`<div class="err">${esc(e.text || JSON.stringify(e))}</div>`);
+  }
+  renderHead();
+}
+// The agent asks before an edit or a command (Ask first): the choices are buttons; every device sees the question.
+function addPermission(e) {
+  const tool = e.tool || {};
+  const el = add(`<div class="card warn" data-perm="${esc(e.id)}"><b>${esc(tool.title || 'The agent asks to continue')}</b>${(tool.paths || []).length ? `<small>${esc(tool.paths.join(', '))}</small>` : ''}<div class="perm-options"></div></div>`);
+  const box = el.querySelector('.perm-options');
+  for (const o of e.options || []) {
+    const b = document.createElement('button'); b.type = 'button'; b.textContent = o.name || o.id; b.dataset.option = o.id;
+    b.onclick = async () => { box.querySelectorAll('button').forEach((x) => { x.disabled = true; }); try { await api(`/app/ask/api/sessions/${V.id}/permission`, { method: 'POST', body: { id: e.id, option: o.id } }); } catch (err) { toast(err.message); box.querySelectorAll('button').forEach((x) => { x.disabled = false; }); } };
+    box.append(b);
+  }
+}
+function answerPermission(e) {
+  const el = document.querySelector(`[data-perm="${CSS.escape(e.id)}"]`);
+  if (!el) return;
+  el.querySelector('.perm-options').textContent = e.answered === 'cancelled' ? 'Cancelled.' : `Answered: ${e.answered}`;
+}
+function apply(e) {
+  if (!V) return;
+  const drawn = Work.apply(e, { replaying: V.replaying });   // steps, tool rows, subagents and todos draw themselves
+  switch (e.type) {
+    case 'prompt': {
+      endText(); V.running = true;
+      if (pending) { pending.remove(); pending = null; }
+      const atts = (e.attachments || []).map((f) => `<img src="/app/ask/api/attachments/${encodeURIComponent(f)}" alt="Attached image" loading="lazy">`).join('');
+      add(`<div class="m user"><div class="bubble"></div>${atts ? `<div class="atts">${atts}</div>` : ''}<div class="meta">${e.auto ? 'automatic · ' : ''}${esc((ENGINE_NAME[e.engine] || ENGINE_NAME.gemini))} · ${esc(MODE_NAME[e.mode] || e.mode)}${e.model && e.model !== 'auto' ? ' · ' + esc(e.model) : ''}${e.extra ? ' · with surface state' : ''}</div></div>`).querySelector('.bubble').textContent = e.text;
+      if (e.engine !== 'instant') V.engine = e.engine || 'gemini';   // a fast-path turn does not change which agent the session has
+      V.turnEngine = e.engine || 'gemini';
+      break;
+    }
+    case 'panel':   // a panel rendered again from its card (lib/panels.mjs): no agent, so no turn around it
+      endText();
+      window.Zpkt?.panelEvent?.(e);
+      if (e.status === 'rendering') {
+        // A second "rendering" for the same panel is the server resetting Live and trying again: the same line says so.
+        const line = `<span class="dots"></span> ${e.note ? `${esc(e.note)}: ` : ''}Rendering ${e.versions ? `${e.versions} versions of ` : ''}${esc(e.panel)} in Live…`;
+        const was = (V.renders ||= new Map()).get(e.panel);
+        if (was?.isConnected) was.innerHTML = line; else V.renders.set(e.panel, add(`<div class="rnote" data-versions="${e.versions || ''}">${line}</div>`));
+        break;
+      }
+      {
+        // The "Rendering…" line turns into the outcome in place, so nothing jumps and no stale "Rendering" stays.
+        const was = V.renders?.get(e.panel); V.renders?.delete(e.panel);
+        const from = V.running && V.turnEngine === 'instant' ? 'fast path, no agent' : 'from the card, no agent';
+        const html = e.status === 'failed' ? `<div class="err">Could not render ${esc(e.panel)}: ${esc(e.message || 'no reason given')}</div>`
+          : `<div class="rnote">${was?.dataset.versions ? `${was.dataset.versions} versions of ${esc(e.panel)} · ` : ''}${esc(e.facts || `Rendered ${e.panel}`)} · ${from}</div>`;
+        if (was) { const t = document.createElement('template'); t.innerHTML = html; was.replaceWith(t.content.firstChild); } else add(html);
+        if (e.status !== 'failed') { appendText(e.text || '', e.seq); endText(); }
+      }
+      break;
+    case 'surface': endText(); if (window.Zpkt) $('#thread').append(Zpkt.fromEvent(e, { live: !V.replaying })); break;
+    case 'init': break;
+    case 'message': if (e.role !== 'user' && !e.parent) appendText(e.content || '', e.seq); break;
+    case 'tool_use': if (!e.parent) endText(); if (!drawn) addTool(e); break;
+    case 'tool_result': rememberBlocks(e); if (!drawn) updTool(e); break;
+    case 'compact': break;
+    case 'summary': break;   // drawn by Work
+    case 'result': endText(); addStats(e); break;
+    case 'log': break;       // drawn by Work, inside the step it was printed during
+    case 'notes': endText(); add(`<div class="rnote">${esc(e.status === 'loaded' ? `Loaded the ${e.project} project notes for the agent` : `Added to the ${e.project} project notes`)}${e.lines?.length ? `<br>${e.lines.map(esc).join('<br>')}` : ''}</div>`); break;
+    case 'error': {
+      endText();
+      const msg = e.message || e.error?.message || JSON.stringify(e);
+      // The CLI's loop guard: say what it means, and what went wrong last, rather than its own words.
+      const fail = /Loop detected/i.test(msg) ? Work.lastFailure() : '';
+      add(`<div class="err">${/Loop detected/i.test(msg) ? `${esc(GEM.short)} kept repeating the same step, so it was stopped.${fail ? `\nLast error: ${esc(fail)}` : ''}` : esc(msg)}</div>`);
+      break;
+    }
+    case 'run_end':
+      endText(); V.running = false;
+      if (e.error) add(`<div class="err">Could not start ${esc((ENGINE_NAME[e.engine] || ENGINE_NAME.gemini))}: ${esc(e.error)}</div>`);
+      else if (e.signal) add('<div class="note">Stopped.</div>');
+      else if (e.code) { const last = Work.lastLog(); add(`<div class="err">${esc((ENGINE_NAME[e.engine] || ENGINE_NAME.gemini))} exited with code ${e.code}.${last.length ? `\n${esc(last.join('\n'))}` : ''}</div>`); }
+      setTimeout(loadSessions, 300);
+      break;
+    case 'permission': endText(); addPermission(e); break;
+    case 'permission_answer': answerPermission(e); break;
+    case 'self': addSelf(e); break;
+    default: Work.apply({ type: 'log', text: JSON.stringify(e) }, { replaying: V.replaying });   // an event the page does not know: kept with the CLI log
+  }
+  renderHead();
+  scroll(e.type === 'prompt');
+}
+
+// After a self-change: wait for the restarted server, then reload into the new page.
+async function waitForVersion(commit) {
+  for (let i = 0; i < 90; i++) {
+    await new Promise((r) => setTimeout(r, 2000));
+    try {
+      const h = await (await fetch('/app/ask/api/health', { cache: 'no-store' })).json();
+      if (h.commit === commit && h.started > LOADED) { toast('Updated. Reloading…'); setTimeout(() => location.reload(), 700); return; }
+      if (h.commit === commit && h.started <= LOADED) { if (V) { V.pipeline = false; renderHead(); } return; }
+    } catch {}
+  }
+  if (V) { V.pipeline = false; renderHead(); }
+}
+
+/* ---------- composer ---------- */
+function grow() { const t = $('#in'); t.style.height = 'auto'; t.style.height = t.scrollHeight + 'px'; }
+// What is typed and not sent is kept per session (and for a new one), so a reload or a switch loses nothing and
+// a draft never follows you into another session.
+const draftKey = () => 'draft.' + (V?.id || 'new');
+function loadDraft() { $('#in').value = store.get(draftKey(), ''); grow(); }
+$('#in').addEventListener('input', () => { grow(); store.set(draftKey(), $('#in').value); });
+$('#in').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && !e.shiftKey && !e.isComposing && matchMedia('(hover:hover)').matches) { e.preventDefault(); send(); }
+});
+$('#send').onclick = send;
+$('#mode').onchange = () => { cfg.mode = $('#mode').value; saveCfg(); renderHead(); };
+$('#engine').value = cfg.engine;
+$('#engine').onchange = () => { cfg.engine = $('#engine').value; saveCfg(); renderHead(); };
+$('#ws').onchange = async () => {
+  if ($('#ws').value === '+') {
+    const p = prompt('Folder path (inside your home folder), e.g. ~/code/my-project');
+    if (p) {
+      try { const { workspace } = await api('/app/ask/api/workspaces', { method: 'POST', body: { path: p } }); await loadWorkspaces(); cfg.ws = workspace.id; }
+      catch (e) { toast(e.message, 5000); }
+    }
+    $('#ws').value = cfg.ws;
+  } else cfg.ws = $('#ws').value;
+  saveCfg(); renderHead();
+};
+async function send() {
+  const text = $('#in').value.trim();
+  if (!text) return;
+  if ($('#send').disabled) {   // Enter while busy: say why nothing happened
+    if (V?.renders?.size) toast('Rendering in Live. Send when it is done.');
+    else if (V?.running) toast(`${V.turnEngine === 'instant' ? 'The fast path' : (ENGINE_NAME[V.engine] || ENGINE_NAME.gemini)} is still working. Send when it is done, or press Stop.`);
+    return;
+  }
+  if (Zpkt.isBusy()) { toast('Still attaching an image…'); return; }
+  const mode = $('#mode').value, engine = cfg.engine, model = cfg.models[engine] || '';
+  const extras = Zpkt.take(); // attachments + the armed surface's state
+  const view = V, dk = draftKey();   // where it was written: the person may have moved on by the time the server answers
+  $('#send').disabled = true;
+  // The server may first ask the fast path's model (a second or three): show the message as sent right away.
+  $('#in').value = ''; grow(); store.set(dk, '');
+  if (!V) $('#thread').innerHTML = '';
+  const mine = pending = add(`<div class="m user pending"><div class="bubble"></div><div class="meta">Sending…</div></div>`);
+  mine.querySelector('.bubble').textContent = text;
+  scroll(true);
+  const drop = () => { mine.remove(); if (pending === mine) pending = null; };
+  try {
+    if (!view) {
+      const { session } = await api('/app/ask/api/sessions', { method: 'POST', body: { workspace: cfg.ws, prompt: text, mode, model, engine, ...extras } });
+      if (!sessions.some((x) => x.id === session.id)) sessions.unshift({ ...session, running: true });   // a list refresh may have it already
+      if (V === view && pending === mine) { mine.dataset.sid = session.id; location.hash = 's=' + session.id; }
+      else { drop(); renderList(); toast(`Sent. “${session.title.slice(0, 30)}” is in your sessions.`); }   // never pull the person back
+    } else {
+      await api(`/app/ask/api/sessions/${view.id}/messages`, { method: 'POST', body: { prompt: text, mode, model, engine, ...extras } });
+    }
+  } catch (e) {
+    toast(e.message, 6000);
+    drop();
+    store.set(dk, text);   // nothing lost: back in the box it was written in
+    if (V === view && !$('#in').value) { $('#in').value = text; grow(); }
+    Zpkt.untake();
+    if (!V) renderEmpty();
+  } finally {
+    renderHead();
+  }
+}
+const stopRun = async () => { if (V) { try { await api(`/app/ask/api/sessions/${V.id}/stop`, { method: 'POST', body: {} }); } catch (e) { toast(e.message); } } };
+// The title only changes when the person changes it.
+$('#title').onclick = async () => {
+  if (!V?.s) return;
+  const t = prompt('Rename this session', V.s.title);
+  if (!t || t.trim() === V.s.title) return;
+  try { await api(`/app/ask/api/sessions/${V.id}`, { method: 'PATCH', body: { title: t } }); await loadSessions(); } catch (e) { toast(e.message); }
+};
+// Deleting hides the session for a week; Undo brings it back as it was.
+$('#del').onclick = async () => {
+  if (!V) return;
+  const id = V.id, title = V.s?.title || 'this session';
+  try {
+    await api(`/app/ask/api/sessions/${id}`, { method: 'DELETE' }); location.hash = ''; loadSessions();
+    toast(`Deleted “${title.slice(0, 40)}”`, 8000, { label: 'Undo', fn: async () => {
+      try { await api(`/app/ask/api/sessions/${id}/restore`, { method: 'POST', body: {} }); await loadSessions(); location.hash = 's=' + id; } catch (e) { toast(e.message); }
+    } });
+  } catch (e) { toast(e.message); }
+};
+
+/* ---------- thread clicks ---------- */
+$('#thread').addEventListener('click', async (e) => {
+  const cp = e.target.closest('.cp');
+  if (cp) { await navigator.clipboard?.writeText(cp.nextElementSibling.textContent); cp.textContent = 'Copied'; setTimeout(() => (cp.textContent = 'Copy'), 1200); return; }
+  if (e.target.closest('[data-fb]')) { fbContext = V?.id || null; openSheet('#fbSheet'); $('#fbText').focus(); return; }
+  const d = e.target.closest('[data-diff]');
+  if (d) { openChanges(d.dataset.diff); }
+});
+
+/* ---------- sheets ---------- */
+function openSheet(id) { document.body.classList.remove('nav'); $(id).classList.add('open'); }
+document.querySelectorAll('.sheet').forEach((s) => s.addEventListener('click', (e) => { if (e.target === s || e.target.closest('[data-close]')) s.classList.remove('open'); }));
+
+$('#fbBtn').onclick = () => { fbContext = V?.id || null; openSheet('#fbSheet'); $('#fbText').focus(); };
+$('#fbSave').onclick = async () => {
+  const text = $('#fbText').value.trim(); if (!text) return;
+  try { await api('/app/ask/api/feedback', { method: 'POST', body: { text, session: fbContext } }); $('#fbText').value = ''; $('#fbSheet').classList.remove('open'); toast('Saved. Use “Improve this app” to act on it.'); loadFeedback(); }
+  catch (e) { toast(e.message); }
+};
+
+// Reset Live (lib/rig.mjs): `hands rig reset` on the Mac; it can take a minute when Live has to restart.
+$('#rigBtn').onclick = async () => {
+  const b = $('#rigBtn');
+  if (b.disabled) return;
+  b.disabled = true; b.textContent = 'Resetting Live…';
+  toast('Resetting Live. This can take a minute if Live has to restart.', 6000);
+  try { const r = await api('/app/ask/api/rig/reset', { method: 'POST' }); toast(r.text, r.ok ? 8000 : 20000); }
+  catch (e) { toast(e.message || 'Could not reset Live', 10000); }
+  finally { b.disabled = false; b.textContent = 'Reset Live'; }
+};
+$('#improveBtn').onclick = async () => { await loadFeedback(); renderFb(); openSheet('#improveSheet'); };
+function renderFb() {
+  const open = feedback.filter((f) => f.status === 'open');
+  const done = feedback.filter((f) => f.status !== 'open').slice(-5).reverse();
+  $('#fbList').innerHTML = (open.length ? '' : '<p class="note">No open feedback.</p>') +
+    open.map((f) => `<label class="fb"><input type="checkbox" value="${esc(f.id)}" checked><span>${esc(f.text)}</span><button data-rm="${esc(f.id)}" aria-label="Delete">✕</button></label>`).join('') +
+    done.map((f) => `<div class="fb"><span class="done">✓ ${esc(f.text)}${f.commit ? ` <span class="mono">${esc(f.commit)}</span>` : ''}</span></div>`).join('');
+}
+$('#fbList').addEventListener('click', async (e) => {
+  const b = e.target.closest('[data-rm]'); if (!b) return;
+  e.preventDefault();
+  await api(`/app/ask/api/feedback/${b.dataset.rm}`, { method: 'DELETE' }).catch(() => {});
+  await loadFeedback(); renderFb();
+});
+$('#impGo').onclick = async () => {
+  const text = $('#impText').value.trim();
+  const feedbackIds = [...document.querySelectorAll('#fbList input:checked')].map((i) => i.value);
+  if (!text && !feedbackIds.length) { toast('Say what to change, or tick some feedback.'); return; }
+  $('#impGo').disabled = true;
+  try {
+    const { session } = await api('/app/ask/api/improve', { method: 'POST', body: { text, feedbackIds, model: cfg.models[cfg.engine] || '', engine: cfg.engine } });
+    $('#impText').value = ''; $('#improveSheet').classList.remove('open');
+    location.hash = 's=' + session.id; loadSessions();
+  } catch (e) { toast(e.message, 7000); }
+  finally { $('#impGo').disabled = false; }
+};
+
+$('#changesBtn').onclick = () => openChanges();
+async function openChanges(showHash) {
+  openSheet('#changesSheet');
+  $('#cmList').innerHTML = '<p class="note">Loading…</p>';
+  let commits;
+  try { commits = (await api('/app/ask/api/self/history')).commits; } catch (e) { $('#cmList').innerHTML = `<p class="err">${esc(e.message)}</p>`; return; }
+  $('#cmList').innerHTML = commits.map((c) => `<div class="cm" data-h="${esc(c.hash)}">
+      <div class="s">${esc(c.subject)}${c.current ? '<span class="cur">current</span>' : ''}</div>
+      <small>${esc(c.hash)} · ${esc(c.author)} · ${ago(c.time)}</small>
+      <div class="acts"><button data-act="diff">Show change</button>${c.current ? '' : '<button data-act="restore">Restore this version</button>'}</div>
+    </div>`).join('');
+  if (showHash) { const el = document.querySelector(`.cm[data-h="${CSS.escape(showHash)}"]`); if (el) showDiff(el); }
+}
+async function showDiff(row) {
+  const old = row.querySelector('pre'); if (old) { old.remove(); return; }
+  const r = await fetch(`/app/ask/api/self/diff/${row.dataset.h}`); const t = await r.text();
+  const html = t.split('\n').map((l) => {
+    const c = /^\+(?!\+\+)/.test(l) ? 'add' : /^-(?!--)/.test(l) ? 'del' : /^@@/.test(l) ? 'hh' : '';
+    return c ? `<span class="${c}">${esc(l)}</span>` : esc(l);
+  }).join('\n');
+  row.insertAdjacentHTML('beforeend', `<pre class="out" style="white-space:pre;overflow:auto">${html}</pre>`);
+  row.scrollIntoView({ block: 'nearest' });
+}
+$('#cmList').addEventListener('click', async (e) => {
+  const b = e.target.closest('[data-act]'); if (!b) return;
+  const row = b.closest('.cm');
+  if (b.dataset.act === 'diff') return showDiff(row);
+  if (!confirm(`Restore version ${row.dataset.h}? The app checks it, then restarts.`)) return;
+  b.textContent = 'Restoring…'; b.disabled = true;
+  try {
+    const { commit } = await api('/app/ask/api/self/restore', { method: 'POST', body: { commit: row.dataset.h } });
+    toast('Restored. Restarting…', 6000);
+    waitForVersion(commit);
+  } catch (err) { toast(err.message, 8000); b.textContent = 'Restore this version'; b.disabled = false; }
+});
+
+/* ---------- chrome ---------- */
+$('#new').onclick = () => { location.hash = ''; document.body.classList.remove('nav'); $('#in').focus(); };
+$('#menu').onclick = () => document.body.classList.add('nav');
+$('#scrim').onclick = () => document.body.classList.remove('nav');
+window.addEventListener('hashchange', openFromHash);
+document.addEventListener('keydown', (e) => {
+  if (e.key !== 'Escape') return;
+  const open = document.querySelector('.sheet.open');
+  if (open) { open.classList.remove('open'); if (open.id === 'midiSheet') { offMidi?.(); offMidi = null; } }
+  else document.body.classList.remove('nav');
+});
+document.addEventListener('visibilitychange', () => { if (!document.hidden) { loadSessions(); loadFeedback(); } });
+setInterval(() => { if (!document.hidden) loadSessions(); }, 6000);
+
+async function loadWorkspaces() {
+  try { workspaces = (await api('/app/ask/api/workspaces')).workspaces; } catch (e) { toast(e.message); }
+  if (!workspaces.some((w) => w.id === cfg.ws)) cfg.ws = workspaces.find((w) => !w.self)?.id || 'self';
+  $('#ws').innerHTML = workspaces.map((w) => `<option value="${esc(w.id)}">${esc(w.name)}</option>`).join('') + '<option value="+">+ Add folder…</option>';
+  $('#ws').value = cfg.ws;
+}
+async function loadModels() { await loadEngineNames(); }
+async function loadEngineNames() {
+  try {
+    const g = (await (await fetch('/app/ask/api/engines')).json()).engines?.find((x) => x.id === 'gemini');
+    if (!g?.short) return;
+    Object.assign(GEM, { short: g.short, model: g.model });
+    ENGINE_NAME.gemini = g.name;
+    document.querySelectorAll('.gemShort').forEach((n) => { n.textContent = g.short; });
+    if ($('#empty')) renderEmpty();
+  } catch {}
+}
+
+async function loadVersion() {
+  try { $('#version').textContent = (await api('/app/ask/api/health')).commit; } catch {}
+}
+
+/* ---------- surfaces: composer extras, library and MIDI sheets ---------- */
+function mountZpkt() {
+  Zpkt.init({ api, toast });
+  Work.init({
+    thread: $('#thread'), dock: $('#dock'), drawer: $('#drawer'), onStop: stopRun,
+    onRoute: (agent) => { if (V) location.hash = 's=' + V.id + (agent ? '&agent=' + agent : ''); },   // Back closes the drawer
+    onWrong: async (w) => { if (!V) return; try { await api(`/app/ask/api/sessions/${V.id}/summary`, { method: 'POST', body: w }); toast('Marked wrong. The line is gone.'); } catch (e) { toast(e.message); } },
+  });
+  Zpkt.mountComposer({ chipsEl: $('#chips'), toolsEl: $('#ztools'), inputEl: $('#in') });
+  $('#libBtn').innerHTML = Zpkt.ICON.library;
+  $('#midiBtn').innerHTML = Zpkt.ICON.midi;
+}
+let offMidi = null;
+$('#libBtn').onclick = () => { openSheet('#libSheet'); Zpkt.renderLibrary($('#libList'), { close: () => $('#libSheet').classList.remove('open') }); };
+$('#midiBtn').onclick = () => { openSheet('#midiSheet'); offMidi?.(); offMidi = Zpkt.renderMidi($('#midiBody')); };
+$('#midiSheet').addEventListener('click', (e) => { if (e.target === $('#midiSheet') || e.target.closest('[data-close]')) { offMidi?.(); offMidi = null; } });
+
+(async () => {
+  $('#mode').value = cfg.mode;
+  await Promise.all([zpktReady, workReady]);
+  mountZpkt();
+  await Promise.all([loadWorkspaces(), loadSessions(), loadModels(), loadFeedback(), loadVersion()]);
+  openFromHash();
+})();
+</script>
+</body>
+</html>

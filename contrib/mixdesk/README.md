@@ -1,5 +1,15 @@
 # The HW002 mix desk
 
+> **The server is now `zpkt.app`** (24 Nov 2026). `contrib/mixdesk/server.py` starts it, so the same command still works.
+> The old page is still at `/`; the new shell is at `/app/`. The history, protocol, desk state and surfaces code moved
+> to `src/zpkt/app/` (the old module names here are aliases). `pager.py`, `desk.json`, `sources.json` and the page stay
+> here. See `src/zpkt/app/README.md`.
+>
+> `pagercore.py` is shared: the pager loads it in Live, and the app's MIDI adapter (`zpkt app --adapters web,midi`, off by
+> default) loads the same file by path for the MiniLab's full map. Keep it free of imports and of syntax newer than
+> Live's Python 3.11. The pager and ZpktMiniLabTempo stay the default until my gate.
+
+
 One screen for finishing HW002's mix in Live with an Arturia MiniLab 3. It shows every control that matters for the
 mix, grouped into eight pages, with the MiniLab control each one sits on, and which page the MiniLab has armed. The
 MiniLab has 8 knobs, 4 faders and 2 banks of 8 pads, far fewer than the mix needs, so a page arms a group of related
@@ -66,7 +76,8 @@ the finishing set its render nulls against the match render (-122 dB). The arran
    two returns (Space: Reverb, Echo: Echo) and a Glue and a Utility on Main. Every one starts where it changes nothing
    (EQ bands at 0 dB, Saturator and Glue at 0 % wet, sends down, bass mono off).
 2. With that set in Live, `uv run python contrib/mixdesk/server.py` serves the page on
-   127.0.0.1:8985 (`tailscale serve --bg --https=8985 http://127.0.0.1:8985` for the tailnet).
+   127.0.0.1:8985 (`tailscale serve --bg --https=8985 http://127.0.0.1:8985` for the tailnet). It answers for
+   `localhost` and `*.ts.net` names only; another proxy's name goes in `ZPKT_APP_HOSTS`.
 
 The server loads `pager.py` into Live's Python through hands' Remote Script. The pager grabs the MiniLab's controls
 from Live's factory MiniLab_3 script (as `src/zpkt/live/remote_scripts/ZpktMiniLabTempo` does, at a higher priority, so the

@@ -50,6 +50,15 @@ def _answers(client: McpTransport) -> bool:
         return False
 
 
+def tell_opened(client: object, name: str) -> None:
+    """Tell a transport that keeps track of the open set (the app's, zpkt.live.app_transport) that `name` is open
+    now. The app holds calls that name no set to the set it last saw open, so it has to hear of this one. A direct
+    connection has nothing to tell."""
+    told = getattr(client, "set_opened", None)
+    if callable(told):
+        told(name)
+
+
 def _loaded_file() -> Path:
     return config.rig().data_dir / "live_loaded.json"
 
@@ -132,6 +141,7 @@ def open_set(client: McpTransport, name: str, *, save_current: bool = True, time
         stop(f"open: no set {path}")
     front = _front()
     if front == name:
+        tell_opened(client, name)
         stop(f"open: {name} is already open, and Live would not reload it; open another set first")
     if save_current and front and rig.set_path(front).exists():
         _save_front(front, "open")
@@ -150,6 +160,7 @@ def open_set(client: McpTransport, name: str, *, save_current: bool = True, time
         time.sleep(0.1)
     seconds = time.monotonic() - t0
     _remember(name)
+    tell_opened(client, name)
     return seconds
 
 
@@ -209,12 +220,11 @@ def front_set() -> tuple[str, bool]:
 CONFIRM = Path(__file__).resolve().parents[3] / "hands/macros/hammerspoon/scripts/rig-confirm.sh"  # in the repo
 
 
-def reload_set(set_path: Path, *, save_first: bool = False, seconds: int = 10) -> None:
+def reload_set(set_path: Path, *, live: McpTransport, save_first: bool = False, seconds: int = 10) -> None:
     """Reopen `set_path` in Live behind a countdown the person at the Mac can cancel (rig-confirm.sh), and wait until
     Live shows it and the LOM answers. For a set edited offline; with save_first, Live saves first (only when the
-    file was not edited offline). Guard if the countdown is cancelled or Live does not come back with the set."""
-    from zpkt.live.transport import LiveClient
-
+    file was not edited offline). `live` is the connection the caller hands in: it is asked "1" until Live answers.
+    Guard if the countdown is cancelled or Live does not come back with the set."""
     if save_first and not ui.menu("File", "Save Live Set"):
         stop("could not save Live")
     if subprocess.run(["bash", str(CONFIRM), f"Reloading the Live set {set_path.stem}", str(seconds)]).returncode:
@@ -226,7 +236,7 @@ def reload_set(set_path: Path, *, save_first: bool = False, seconds: int = 10) -
             if ui.dialogs():
                 time.sleep(2)  # the set may still be loading behind a progress window
                 continue
-            LiveClient(retries=0, timeout=3).run("1")
+            live.run("1")
             if ui.front_title() == set_path.stem:
                 return
         except (LiveError, ui.UiError):

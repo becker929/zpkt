@@ -23,21 +23,22 @@ import sys
 import time
 from pathlib import Path
 
+from zpkt.live.meter import (  # noqa: F401  (parsing lives in zpkt.live)
+    BANDS,
+    BASE_HZ,
+    METER_PORT,
+    RATIO,
+    centers,
+    parse,
+)
+
 HERE = Path(__file__).resolve().parent
 NAME = "zpkt desk meter"
-METER_PORT = 8987
-BANDS = 31
-BASE_HZ = 20.0
-RATIO = 2 ** (1 / 3)
 Q = 4.32  # a third-octave band's Q
 RMS_SAMPLES = 4410  # average~ window, about 0.1 s at 44.1 kHz
 INTERVAL_MS = 100
 TEMPLATE = Path("/Applications/Ableton Live 12 Suite.app/Contents/App-Resources/Misc/Max Devices/Max Audio Effect.amxd")
 USER_LIB = Path("~/Music/Ableton/User Library/Presets/Audio Effects/Max Audio Effect").expanduser()
-
-
-def centers() -> list[float]:
-    return [BASE_HZ * RATIO**k for k in range(BANDS)]
 
 
 def _read(path: Path) -> dict:
@@ -116,27 +117,6 @@ def make() -> Path:
     out = USER_LIB / f"{NAME}.amxd"
     _write(build(), out)
     return out
-
-
-def parse(data: bytes) -> list[float] | None:
-    """An OSC "/spec f f ..." message -> its floats (None for anything else)."""
-    if not data.startswith(b"/spec\x00"):
-        return None
-    i = 8  # "/spec" padded to 8 bytes
-    end = data.index(b"\x00", i)
-    tags = data[i + 1 : end].decode()
-    i = (end + 4) & ~3
-    vals = []
-    for t in tags:
-        if t == "f":
-            vals.append(struct.unpack(">f", data[i : i + 4])[0])
-            i += 4
-        elif t == "i":
-            vals.append(float(struct.unpack(">i", data[i : i + 4])[0]))
-            i += 4
-        else:
-            return None
-    return vals
 
 
 def install() -> None:

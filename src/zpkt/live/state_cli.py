@@ -6,7 +6,7 @@ import time
 
 import typer
 
-from zpkt.live.cli_options import HOST, PORT, front_set
+from zpkt.live.cli_options import DIRECT, HOST, PORT, connect, front_set
 from zpkt.live.transport import LiveClient
 
 state_app = typer.Typer(
@@ -30,7 +30,7 @@ def state_take(
 
     set_name = front_set()
     t0 = time.monotonic()
-    st = S.take(LiveClient(host, port, keep=True), only)
+    st = S.take(connect(LiveClient, host, port, changes=False, keep=True), only)
     p = S.save(st, S.path_for(set_name, name), set_name)
     print(f"{p}  ({len(st['tracks'])} tracks, {len(S.flatten(st))} values, {time.monotonic() - t0:.1f} s)")
 
@@ -50,7 +50,7 @@ def state_diff(
     set_name = front_set() if b is None or not b.endswith(".json") or not a.endswith(".json") else ""
     sa = S.load(S.path_for(set_name, a))
     if b is None:
-        sb = S.take(LiveClient(host, port, keep=True), only=list(sa["tracks"]))
+        sb = S.take(connect(LiveClient, host, port, changes=False, keep=True), only=list(sa["tracks"]))
     else:
         sb = S.load(S.path_for(set_name, b))
     rows = S.diff(sa, sb, tuple(ignore or ()))
@@ -65,6 +65,7 @@ def state_diff(
 def state_put(
     name: str = typer.Argument(..., help='A state name or .json (a recipe with a "desk" works too).'),
     only: list[str] = typer.Option(None, "--only", help="Only these tracks (repeatable)."),
+    direct: bool = DIRECT,
     host: str = HOST,
     port: int | None = PORT,
 ) -> None:
@@ -75,7 +76,7 @@ def state_put(
     set_name = front_set()
     st = S.load(S.path_for(set_name, name))
     with hold.using_live(f"hands live state put {name}"):
-        rows = S.put(LiveClient(host, port, keep=True), st, only)
+        rows = S.put(connect(LiveClient, host, port, direct=direct, keep=True), st, only)
     print("put, Live matches" if not rows else f"{len(rows)} differ after put:\n{S.summarize(rows)}")
     if rows:
         raise typer.Exit(1)

@@ -33,6 +33,10 @@ names its loops by stem and source bar, so it can be rebuilt in the set and rend
 steps included), and `uv run --extra audio python contrib/arranger/measure.py short-8d2a2` prints a tab's level
 above 6 and 10 kHz for each four bars, and its peak.
 
+The same pages and routes are also served by the app at `/app/song` (`zpkt app`, `src/zpkt/app/song.py`): this server
+and :8975 stay as they are, and `tests/app/test_song.py` checks that the two answer alike. The mix set's build steps
+now live in `zpkt.live.recipe_build`; `mixset.py` calls them.
+
 ### Where the data is, and what a save keeps
 
 I keep the audio, the renders and the saved arrangements outside the repo, in `$ARRANGER_DATA` (default
@@ -58,7 +62,7 @@ kickFuzz, desk); in the file their keys stay side by side, as they always were.
 | `bounce.py`, `mine.py`, `shorts.py`, `measure.py`, `refs.py` | The loops, the tabs, and the references for mix 1. |
 | `fxset.py` | The transition sounds, made in a copy of the set. |
 | `mixset.py`, `spectral.py` | The mix set, mix-2 batches, and the spectrum against the references. |
-| `renderqueue.py` | The mix-2 render queue: the request files, the worker's order, and where the queue stands (`GET /api/mix2/queue`). |
+| `renderqueue.py` | An alias for `zpkt.app.renderqueue`, the one render queue (it moved into the app on 24 Nov 2026): the request files, the worker's order, and where the queue stands (`GET /api/mix2/queue`). The app also lists mix-2 batches as Options. |
 | `kickfuzz.py`, `kickiso.py`, `kickdesign.py`, `kicktexture.py`, `kickshape.py` | The kick options and their measures. |
 
 Each script is a few library functions and a thin command at the bottom. Nothing changes the environment at import:

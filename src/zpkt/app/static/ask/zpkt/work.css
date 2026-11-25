@@ -1,0 +1,109 @@
+/* Agent work in the chat: steps, tool-call rows, subagent cards, the drawer and the pinned stack.
+   The rule of the look: everything is flat (flat fills, thin outlines, no shadows, nothing that keeps moving).
+   A problem is marked with the danger colour down its side and is never folded away. */
+
+.wk-chev{flex:none;transition:transform .15s}
+details[open]>summary .wk-chev,.wk-toggle[aria-expanded=true] .wk-chev{transform:rotate(90deg)}
+.wk-r{margin-left:auto;color:var(--mute);font-size:12.5px;flex:none;white-space:nowrap;padding-left:8px}
+.wk-lab{font-size:10.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--mute);margin-top:8px}
+.wk-dim{color:var(--mute)}
+
+/* ---------- steps and tool calls ---------- */
+.wk-step{border:1px solid var(--line);background:var(--panel);margin:0 0 8px;font-size:14.5px}
+.wk-step>summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:8px;padding:8px 10px;min-width:0}
+.wk-step>summary::-webkit-details-marker,.wk-tool>summary::-webkit-details-marker,.wk-trace>summary::-webkit-details-marker{display:none}
+.wk-title{min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.wk-step[open]>summary .wk-title{font-weight:600}
+.wk-rows{padding:0 10px 8px 12px}
+.wk-tool{border-left:2px solid var(--line);margin-left:6px}
+.wk-tool>summary{list-style:none;cursor:pointer;display:flex;gap:8px;padding:3px 0 3px 10px;min-width:0;font:12.5px/1.5 ui-monospace,Menlo,Consolas,monospace}
+.wk-line{min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.wk-tool .wk-r{font:inherit;font-size:11.5px}
+.wk-tool.bad>summary{font-weight:700}
+.wk-tool.bad .wk-r{color:var(--ink)}
+.wk-tool pre.out{margin:4px 0 6px 10px;border-radius:0;max-height:36vh}
+
+/* ---------- a finished turn: the trace line ---------- */
+.wk-trace{margin:-4px 0 12px}
+.wk-trace>summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:8px;color:var(--mute);font-size:12.5px}
+.wk-trace>summary::before{content:"";flex:0 0 18px;height:1px;background:var(--mute)}
+.wk-trace>summary::after{content:"";flex:1;height:1px;background:var(--mute);opacity:.5}
+.wk-trace.warn .wk-traceline{color:var(--ink);font-weight:600}
+.wk-folded{padding:10px 0 0 10px;border-left:2px solid var(--line);margin:8px 0 0 8px}
+.wk-memory{color:var(--mute);font-size:12.5px;text-align:center;border-top:1px dashed var(--mute);border-bottom:1px dashed var(--mute);padding:5px;margin:0 0 12px}
+
+/* ---------- subagent cards ---------- */
+.wk-agent{margin:0 0 12px;font-size:14.5px}
+.wk-face{border:1.5px solid var(--line);background:var(--panel);padding:10px 12px;display:flex;flex-direction:column}
+.wk-agent h4{margin:0;font-size:15.5px;display:flex;justify-content:space-between;gap:10px}
+.wk-status{font-size:12.5px;font-weight:600;white-space:nowrap}
+.wk-agent[data-status=running] .wk-status{background:var(--acc);color:var(--acc-ink);padding:0 6px}
+.wk-brief,.wk-report{white-space:pre-wrap;overflow-wrap:anywhere}
+.wk-agent .wk-brief{display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.wk-agent .wk-report{display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden}
+.wk-open{align-self:flex-end;margin-top:8px;border:1.5px solid var(--line);padding:4px 14px;font-weight:600;font-size:13.5px;background:var(--panel)}
+.wk-open:active,.wk-chip:active,.wk-toggle:active{transform:translateY(1px)}
+
+/* ---------- problems: always in view, drawn plainly (a rule down the side, the line in bold) ---------- */
+.wk-step.bad{border-left:4px solid var(--danger)}
+.wk-step.bad>summary .wk-title{font-weight:700;white-space:normal;overflow:visible;overflow-wrap:anywhere}
+.wk-agent[data-status=failed] .wk-face{border-left:4px solid var(--danger)}
+.wk-agent[data-status=failed] .wk-status{color:var(--danger)}
+.wk-report.wk-failed{border-left:4px solid var(--danger);padding-left:8px}
+.wk-chip.wk-failed{border-color:var(--danger);color:var(--danger);font-weight:700}
+.wk-log>summary{color:var(--mute)}
+
+/* ---------- the pinned stack: todo bar and subagent strip ---------- */
+#dock{display:grid;grid-template-columns:minmax(0,1fr);gap:7px;margin:0 0 7px}   /* one column no wider than the box: a long command line must not widen the page */
+#dock:empty,#dock:not(:has(>:not([hidden]))){display:none}
+.wk-todo{border:1.5px solid var(--line);background:var(--panel);font-size:14.5px}
+.wk-bar{display:flex;align-items:stretch}
+.wk-toggle{flex:1;min-width:0;display:flex;align-items:center;gap:10px;padding:8px 10px;text-align:left;font-weight:700}
+.wk-count{font-variant-numeric:tabular-nums;white-space:nowrap;display:inline-block}
+.wk-cur{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.wk-toggle .wk-chev{transform:rotate(-90deg)}
+.wk-toggle[aria-expanded=true] .wk-chev{transform:rotate(90deg)}
+.wk-none .wk-chev{display:none}
+.wk-none .wk-toggle{cursor:default}
+.wk-stop{flex:none;width:44px;display:grid;place-items:center;border-left:1.5px solid var(--line)}
+.wk-stop i{display:block;width:16px;height:16px;background:var(--stop)}
+.wk-stop:active i{transform:scale(.8)}
+.wk-todo ul{list-style:none;margin:0;padding:3px 0 5px;border-top:1px solid var(--line);max-height:24vh;overflow:auto}
+@media (max-height:520px){.wk-todo ul{max-height:16vh}#in{max-height:22vh}}
+.wk-todo li{display:flex;gap:9px;align-items:center;padding:4px 10px}
+.wk-todo li.current{background:var(--acc);color:var(--acc-ink);font-weight:700}
+.wk-todo li.done{color:var(--mute)}
+.wk-box{flex:none;width:13px;height:13px;border:1.5px solid currentColor;display:grid;place-items:center}
+.wk-todo li.current .wk-box{background:var(--acc-ink)}
+.wk-todo li.done .wk-box{border-color:transparent}
+.wk-strip{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.wk-chip{border:1.5px solid var(--line);background-color:var(--panel);padding:3px 10px;font-size:13.5px;max-width:46vw;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+/* ---------- the drawer ---------- */
+#drawer{flex:none;width:400px;max-width:42vw;border-left:1.5px solid var(--line);background:var(--bg);height:100dvh}
+#drawer[hidden]{display:none}
+.wk-drawer{display:flex;flex-direction:column;height:100%;padding-top:env(safe-area-inset-top)}
+.wk-parent{display:flex;align-items:center;gap:8px;padding:12px;border-bottom:1.5px solid var(--line);background:var(--panel);font-weight:700;font-size:14px;text-align:left;min-height:50px}
+.wk-parent span{min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.wk-dbody{flex:1;overflow:auto;padding:14px 12px;font-size:14.5px;-webkit-overflow-scrolling:touch}
+.wk-dbody h3{margin:0;font-size:19px;display:flex;justify-content:space-between;gap:10px;align-items:baseline}
+.wk-dsteps{margin-top:12px}
+.wk-dtext{color:var(--mute);white-space:pre-wrap;overflow-wrap:anywhere;font-size:13.5px}
+.wk-dfoot{border-top:1.5px solid var(--line);padding:8px 12px calc(10px + env(safe-area-inset-bottom));display:grid;gap:7px}
+.wk-ro{margin:0;text-align:center;color:var(--mute);font-size:12.5px;border:1px dashed var(--mute);padding:5px}
+@media (max-width:1180px){
+  #drawer{position:fixed;inset:0;width:auto;max-width:none;z-index:15;border-left:0}
+}
+
+/* ---------- purpose lines: the model-written line leads, the template line (the facts) sits under it ---------- */
+.wk-t{min-width:0;flex:0 1 auto;display:flex;flex-direction:column}
+.wk-step>summary .wk-t{flex:1}
+.wk-fact{min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--mute);font:11.5px/1.4 ui-monospace,Menlo,Consolas,monospace}
+.wk-fact:empty{display:none}
+.wk-trace .wk-fact{font-size:11px}
+.wk-trace>summary .wk-traceline[data-purpose]{color:var(--ink);font-size:13.5px}
+.wk-gist{font-size:14px;margin:2px 0 4px}
+.wk-nosum{margin:0 0 8px;color:var(--mute);font-size:12.5px}
+.wk-nosum:empty{display:none}
+[data-purpose]{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
+.wk-title[data-purpose],.wk-traceline[data-purpose]{white-space:normal;overflow:visible}

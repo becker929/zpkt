@@ -15,8 +15,8 @@ import typer
 
 from zpkt.live import config
 from zpkt.live.agent import AGENT_READ_ONLY, friendly, writes
-from zpkt.live.cli_options import HOST, PORT, fail, front_set
-from zpkt.live.transport import LiveClient, LiveError
+from zpkt.live.cli_options import DIRECT, HOST, PORT, connect, fail, front_set, reach
+from zpkt.live.transport import DEFAULT_HOST, LiveClient, LiveError
 
 app = typer.Typer(help="Drive the open Live set through the AbletonLiveMCP Remote Script.", no_args_is_help=True)
 
@@ -27,6 +27,7 @@ def audition(
     notes: str = typer.Option("69,72", help="Comma-separated MIDI notes."),
     listen: float = typer.Option(2.0, help="Seconds to read the meters."),
     force: bool = typer.Option(False, help="Audition even if Live is playing."),
+    direct: bool = DIRECT,
     host: str = HOST,
     port: int | None = PORT,
 ) -> None:
@@ -37,7 +38,11 @@ def audition(
         print(
             json.dumps(
                 run_audition(
-                    LiveClient(host, port), track, [int(n) for n in notes.split(",")], listen_s=listen, force=force
+                    connect(LiveClient, host, port, direct=direct),
+                    track,
+                    [int(n) for n in notes.split(",")],
+                    listen_s=listen,
+                    force=force,
                 )
             )
         )
@@ -52,12 +57,14 @@ def reload(
         False, "--save-first", help="Save Live before reopening (only if the file was NOT edited offline)."
     ),
     seconds: int = typer.Option(10, help="Countdown length (the user can cancel)."),
+    direct: bool = DIRECT,
 ) -> None:
     """Reopen SET_PATH in Live behind a cancellable countdown; wait for the bridge to answer."""
     from zpkt.live import session
 
     try:
-        session.reload_set(set_path, save_first=save_first, seconds=seconds)
+        live = connect(LiveClient, DEFAULT_HOST, None, direct=direct, retries=0, timeout=3)
+        session.reload_set(set_path, live=live, save_first=save_first, seconds=seconds)
     except session.Guard as exc:
         fail(str(exc))
     print(f"reloaded: {set_path.stem}")
@@ -71,7 +78,7 @@ def ping(
 ) -> None:
     """Check that the Remote Script is listening (it answers from its own thread, not Live's)."""
     try:
-        seconds = LiveClient(host, port, timeout=timeout, retries=0).ping()
+        seconds = reach(LiveClient, host, port, timeout=timeout, retries=0).ping()
     except LiveError as exc:
         fail(str(exc))
     print(f"pong in {seconds * 1000:.0f} ms")
@@ -88,6 +95,7 @@ def exec_(
     ),
     timeout: float = typer.Option(15.0, "--timeout", help="Seconds to wait for the reply."),
     retries: int = typer.Option(2, "--retries", help="Connection retries (a sent request is never resent)."),
+    direct: bool = DIRECT,
     host: str = HOST,
     port: int | None = PORT,
 ) -> None:
@@ -98,6 +106,7 @@ def exec_(
         fail(f"ERROR: cannot read the code ({exc})", 2)
     if not source or not source.strip():
         fail("give the code as an argument, --file or --stdin", 2)
+    changes = writes(source)  # code that only reads may run direct
     if os.environ.get("ZPKT_AGENT") and writes(source):
         fail(f"ERROR: {AGENT_READ_ONLY}")
     if not raw:
@@ -107,7 +116,9 @@ def exec_(
         for note in notes:
             print(f"note: {note}", file=sys.stderr)
         source = with_prelude(source)
-    res = LiveClient(host, port, timeout=timeout, retries=retries).execute(source)
+    res = connect(LiveClient, host, port, changes=changes, direct=direct, timeout=timeout, retries=retries).execute(
+        source
+    )
     if res.warning:
         print(f"warning: {res.warning}", file=sys.stderr)
     if res.status != "ok":
@@ -127,7 +138,14 @@ def check(
     from zpkt.live import session
 
     try:
-        print(session.check(LiveClient(host, port), "hands live check", expect_front=expect, ours=not any_set))
+        print(
+            session.check(
+                connect(LiveClient, host, port, changes=False),
+                "hands live check",
+                expect_front=expect,
+                ours=not any_set,
+            )
+        )
     except session.Guard as exc:
         fail(f"GUARD: {exc}")
 
@@ -146,6 +164,7 @@ def export(
     ),
     bits: int = typer.Option(32, "--bits", help="16, 24 or 32."),
     sample_rate: int = typer.Option(44100, "--sample-rate"),
+    direct: bool = DIRECT,
     host: str = HOST,
     port: int | None = PORT,
 ) -> None:
@@ -158,7 +177,13 @@ def export(
     path = out if out.is_absolute() or len(out.parts) > 1 else config.rig().renders_dir / out
     try:
         written = render.export(
-            LiveClient(host, port), path, start, length, mode=mode, bits=bits, sample_rate=sample_rate
+            connect(LiveClient, host, port, direct=direct),
+            path,
+            start,
+            length,
+            mode=mode,
+            bits=bits,
+            sample_rate=sample_rate,
         )
     except (Guard, ui.UiError, LiveError, ValueError) as exc:
         fail(f"export failed: {exc}")
@@ -187,6 +212,7 @@ def modals(
 def open_(
     name: str = typer.Argument(..., help="A set in the rig's sets folder, without .als."),
     no_save: bool = typer.Option(False, "--no-save", help="Do not save the set in front first."),
+    direct: bool = DIRECT,
     host: str = HOST,
     port: int | None = PORT,
 ) -> None:
@@ -194,7 +220,9 @@ def open_(
     from zpkt.live import session
 
     try:
-        seconds = session.open_set(LiveClient(host, port), name.removesuffix(".als"), save_current=not no_save)
+        seconds = session.open_set(
+            connect(LiveClient, host, port, direct=direct), name.removesuffix(".als"), save_current=not no_save
+        )
     except session.Guard as exc:
         fail(str(exc))
     print(f"opened {name} in {seconds:.1f} s")
@@ -219,11 +247,12 @@ def save(
     if as_:
         print(f"copy {session.copy_set(name, as_)}")
     if state:
-        p = S.save(S.take(LiveClient(host, port, keep=True)), S.path_for(name, state), name)
+        p = S.save(S.take(connect(LiveClient, host, port, changes=False, keep=True)), S.path_for(name, state), name)
         print(f"state {p}")
 
 
-from zpkt.live import edit_cli, state_cli  # noqa: E402
+from zpkt.live import edit_cli, page_cli, state_cli  # noqa: E402
 
 state_cli.register(app)
 edit_cli.register(app)
+page_cli.register(app)

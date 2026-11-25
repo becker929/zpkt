@@ -1,0 +1,279 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/becker929/zpkt/lib/contracts/page.schema.json",
+  "$defs": {
+    "Control": {
+      "additionalProperties": true,
+      "properties": {
+        "target": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "A state key. Left out only for a macro.",
+          "title": "Target"
+        },
+        "macro": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/MacroPart"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Several values moved together by one knob.",
+          "title": "Macro"
+        },
+        "role": {
+          "anyOf": [
+            {
+              "enum": [
+                "level",
+                "tone",
+                "amount",
+                "time",
+                "switch",
+                "choice"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "What it is for. Inferred from Live when left out.",
+          "title": "Role"
+        },
+        "weight": {
+          "default": 2,
+          "description": "How much it matters: 3 is drawn big and placed first.",
+          "maximum": 3,
+          "minimum": 1,
+          "title": "Weight",
+          "type": "integer"
+        },
+        "label": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "At most 10 characters. Live's name, shortened, if left out.",
+          "title": "Label"
+        },
+        "range": {
+          "anyOf": [
+            {
+              "maxItems": 2,
+              "minItems": 2,
+              "prefixItems": [
+                {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "number"
+                    }
+                  ]
+                },
+                {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "number"
+                    }
+                  ]
+                }
+              ],
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The stretch worth playing, as two shown texts (\"34 Hz\") or numbers.",
+          "title": "Range"
+        },
+        "steps": {
+          "anyOf": [
+            {
+              "maximum": 9,
+              "minimum": 2,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "With a range: make this many versions to hear.",
+          "title": "Steps"
+        }
+      },
+      "title": "Control",
+      "type": "object"
+    },
+    "Group": {
+      "additionalProperties": true,
+      "properties": {
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "controls": {
+          "items": {
+            "$ref": "#/$defs/Control"
+          },
+          "title": "Controls",
+          "type": "array"
+        }
+      },
+      "required": [
+        "name",
+        "controls"
+      ],
+      "title": "Group",
+      "type": "object"
+    },
+    "MacroPart": {
+      "additionalProperties": true,
+      "properties": {
+        "target": {
+          "description": "A state key.",
+          "title": "Target",
+          "type": "string"
+        },
+        "low": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "number"
+            }
+          ],
+          "description": "Where this value sits when the macro is at its bottom (shown text or raw).",
+          "title": "Low"
+        },
+        "high": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "number"
+            }
+          ],
+          "description": "Where it sits when the macro is at its top.",
+          "title": "High"
+        }
+      },
+      "required": [
+        "target",
+        "low",
+        "high"
+      ],
+      "title": "MacroPart",
+      "type": "object"
+    }
+  },
+  "additionalProperties": true,
+  "properties": {
+    "schema": {
+      "default": 2,
+      "description": "The file's version: 2.",
+      "title": "Schema",
+      "type": "integer"
+    },
+    "id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Its file name without .json; set when saved.",
+      "title": "Id"
+    },
+    "title": {
+      "title": "Title",
+      "type": "string"
+    },
+    "groups": {
+      "items": {
+        "$ref": "#/$defs/Group"
+      },
+      "title": "Groups",
+      "type": "array"
+    },
+    "made_by": {
+      "default": "you",
+      "enum": [
+        "you",
+        "minilab",
+        "agent",
+        "booth",
+        "demo",
+        "cli",
+        "sys"
+      ],
+      "title": "Made By",
+      "type": "string"
+    },
+    "at": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "When it was made, YYYY-MM-DD HH:MM:SS.",
+      "title": "At"
+    },
+    "prompt": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "What was asked for.",
+      "title": "Prompt"
+    }
+  },
+  "required": [
+    "title",
+    "groups"
+  ],
+  "title": "Page",
+  "type": "object",
+  "description": "A page of controls for the one interface (<sets_dir>/pages/<set>/<id>.json): what an agent writes for 'I want to change this'. Version 2 of the mix desk's made surface. Generated from src/zpkt/live/page.py \u2014 do not edit by hand."
+}

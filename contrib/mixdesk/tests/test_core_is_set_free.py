@@ -9,12 +9,15 @@ from pathlib import Path
 import pytest
 
 HERE = Path(__file__).resolve().parents[1]
-CORE = ("deskstate.py", "protocol.py", "history.py", "pagercore.py")
+APP = (
+    HERE.parents[1] / "src" / "zpkt" / "app"
+)  # deskstate, protocol and history moved into zpkt.app (the old names stay)
+CORE = {"deskstate.py": APP, "protocol.py": APP, "history.py": APP, "pagercore.py": HERE}
 
 
 @pytest.mark.parametrize("name", CORE)
 def test_a_core_module_names_no_set_and_reads_no_desk_file(name):
-    source = (HERE / name).read_text()
+    source = (CORE[name] / name).read_text()
     assert "desk.json" not in source and "HW002" not in source and "sources.json" not in source
     assert "__file__" not in source  # nothing found beside itself: what it reads is passed in
     imported = {

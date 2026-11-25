@@ -38,7 +38,7 @@ def test_each_module_is_stdlib_python_311_and_loads_by_path_alone(module, monkey
 
 
 def test_an_unknown_module_is_refused():
-    with pytest.raises(ValueError, match="no inlive module 'nope'; there are tracks, shown, keys"):
+    with pytest.raises(ValueError, match="no inlive module 'nope'; there are tracks, shown, keys, find"):
         inlive.path("nope")
 
 

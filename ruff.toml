@@ -8,6 +8,7 @@ extend-exclude = [
     "prototypes",                            # experiments: frozen, not upgraded (Anthony, 24 Nov 2026)
     "contrib/humming",                       # research code, kept as it was
     "src/zpkt/live/remote_scripts/AbletonLiveMCP",   # vendored, kept as upstream wrote it
+    "tests/live/data",                       # the Remote Script as it was before watch, kept as it was (a test compares)
 ]
 
 [lint]

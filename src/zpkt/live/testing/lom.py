@@ -10,6 +10,7 @@ each LOM call's writes are one undo step. Where Live's exact behaviour is not kn
 from __future__ import annotations
 
 import functools
+import math
 import re
 import threading
 import traceback
@@ -611,6 +612,12 @@ class Clip(LiveObject):
     file_path = property(lambda self: self._values["file_path"])
     warp_markers = property(lambda self: tuple(self._warp_markers))
 
+    @property
+    def gain_display_string(self) -> str:
+        """The clip gain as Live shows it. GUESS: dB against the 0.4 that Live shows as 0 dB; only the order matters."""
+        g = float(self._values.get("gain", 0.4))
+        return "-inf dB" if g <= 0 else f"{20 * math.log10(g / 0.4):.2f} dB"
+
     def _midi_only(self) -> None:
         if self._audio:
             raise RuntimeError("Not a MIDI clip")  # GUESS: Live's text
@@ -982,6 +989,7 @@ class ReturnTrack(Track):
 class SongView(LiveObject):
     selected_scene = Prop(None)
     selected_chain = Prop(None)
+    selected_parameter = Prop(None)  # the parameter last clicked in Live; None when it is not a device's
     detail_clip = Prop(None)
     follow_song = Prop(False, check=_flag)
 

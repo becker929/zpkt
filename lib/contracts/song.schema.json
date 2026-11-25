@@ -1,0 +1,128 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/becker929/zpkt/lib/contracts/song.schema.json",
+  "title": "Song commands",
+  "description": "What the app's song.* commands answer (zpkt.app.song): the Song (the arrangement's Structure as lanes), the Recipe (its Structure and its Sound apart), the list and the build. Written by hand; tests/app/test_song_contract.py validates real answers against it. The arrangement file itself is arrangement.schema.json.",
+  "$defs": {
+    "Region": {
+      "type": "object",
+      "required": ["lane", "clip", "start", "len"],
+      "properties": {
+        "lane": {"type": "string"},
+        "clip": {"type": "string"},
+        "start": {"type": "integer", "minimum": 0, "description": "0-based bar."},
+        "len": {"type": "integer", "minimum": 1},
+        "off": {"type": "integer", "minimum": 0}
+      }
+    },
+    "Song": {
+      "description": "song.show: the Structure as lanes of bars. Structure only: no mix, no desk.",
+      "type": "object",
+      "required": ["id", "name", "bars", "mutes", "lanes", "transitions"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {"type": "string"},
+        "name": {"type": "string"},
+        "bars": {"type": ["integer", "null"]},
+        "mutes": {"type": "array", "items": {"type": "string"}},
+        "lanes": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["lane", "title", "regions"],
+            "additionalProperties": false,
+            "properties": {
+              "lane": {"type": "string"},
+              "title": {"type": "string"},
+              "regions": {"type": "array", "items": {"$ref": "#/$defs/Region"}}
+            }
+          }
+        },
+        "transitions": {"type": "array", "items": {"type": "object"}}
+      }
+    },
+    "Recipe": {
+      "description": "song.recipe: the Structure and the Sound apart. Together, with `saved`, they are the file's keys.",
+      "type": "object",
+      "required": ["id", "saved", "structure", "sound"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {"type": "string"},
+        "saved": {"type": ["number", "null"]},
+        "structure": {
+          "type": "object",
+          "required": ["regions"],
+          "additionalProperties": false,
+          "properties": {
+            "name": {"type": "string"},
+            "bars": {"type": "integer"},
+            "regions": {"type": "array", "items": {"$ref": "#/$defs/Region"}},
+            "mutes": {"type": "array", "items": {"type": "string"}},
+            "transitions": {"type": "array", "items": {"type": "object"}}
+          }
+        },
+        "sound": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "mix": {"type": "object"},
+            "mix2": {"type": "array"},
+            "spectral": {"type": "array"},
+            "kickFuzz": {"type": ["object", "null"]},
+            "desk": {"type": "object"}
+          }
+        }
+      }
+    },
+    "List": {
+      "description": "song.list",
+      "type": "object",
+      "required": ["arrangements", "canonical"],
+      "additionalProperties": false,
+      "properties": {
+        "canonical": {"type": "string"},
+        "arrangements": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["id", "name", "bars", "saved"],
+            "properties": {
+              "id": {"type": "string"},
+              "name": {"type": "string"},
+              "bars": {"type": ["integer", "null"]},
+              "saved": {"type": ["number", "null"]}
+            }
+          }
+        }
+      }
+    },
+    "Built": {
+      "description": "song.build: what was made in the mix set.",
+      "type": "object",
+      "required": ["ok", "id", "channels", "buses", "clips"],
+      "additionalProperties": false,
+      "properties": {
+        "ok": {"const": true},
+        "id": {"type": "string"},
+        "channels": {"type": "integer", "minimum": 0},
+        "buses": {"type": "integer", "minimum": 0},
+        "clips": {"type": "integer", "minimum": 0}
+      }
+    },
+    "Args": {
+      "description": "The arguments of each song.* command. `body` is what the arranger page's route takes (arrangement.schema.json for song.save).",
+      "type": "object",
+      "properties": {
+        "song.list": {"type": "object", "additionalProperties": false},
+        "song.show": {"type": "object", "properties": {"id": {"type": "string"}}, "additionalProperties": false},
+        "song.recipe": {"type": "object", "properties": {"id": {"type": "string"}}, "additionalProperties": false},
+        "song.save": {"type": "object", "required": ["id", "body"], "properties": {"id": {"type": "string"}, "body": {"type": "object"}}, "additionalProperties": false},
+        "song.keep": {"type": "object", "required": ["id", "key", "body"], "properties": {"id": {"type": "string"}, "key": {"enum": ["transitions", "mix", "mix2", "spectral", "kickFuzz"]}, "body": {}}, "additionalProperties": false},
+        "song.delete": {"type": "object", "required": ["id"], "properties": {"id": {"type": "string"}}, "additionalProperties": false},
+        "song.transitions": {"type": "object", "required": ["body"], "properties": {"body": {"type": "object"}}, "additionalProperties": false},
+        "song.queue": {"type": "object", "required": ["body"], "properties": {"body": {"type": "object"}}, "additionalProperties": false},
+        "song.build": {"type": "object", "properties": {"id": {"type": "string"}}, "additionalProperties": false}
+      }
+    }
+  }
+}

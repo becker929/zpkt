@@ -9,6 +9,8 @@ from pathlib import Path
 import typer
 from rich.console import Console
 
+from zpkt.live.cli_options import DIRECT, connect
+
 app = typer.Typer(help="Probe kits: P variants of a section in one load and one export.", no_args_is_help=True)
 console = Console()
 
@@ -21,6 +23,7 @@ def kit_template(
     keep_end: float = typer.Argument(..., help="Beat after its end."),
     patterns: int = typer.Argument(..., help="P, a power of two."),
     lead: float = typer.Option(8.0, "--lead", help="Beats of lead-in kept before the first pattern."),
+    direct: bool = DIRECT,
     host: str = typer.Option("127.0.0.1", "--host"),
     port: int | None = typer.Option(
         None, "--port", help="Ableton MCP server port (default: the rig's live_port, 16619)."
@@ -34,7 +37,9 @@ def kit_template(
     from zpkt.live.transport import LiveClient
 
     try:
-        made = probe_kit.template(LiveClient(host, port), kit, src, keep_start, keep_end, patterns, lead)
+        made = probe_kit.template(
+            connect(LiveClient, host, port, direct=direct), kit, src, keep_start, keep_end, patterns, lead
+        )
     except Guard as exc:
         console.print(f"[red]{exc}[/red]")
         raise typer.Exit(1) from None
@@ -48,6 +53,7 @@ def kit_render(
     out: Path = typer.Option(
         None, "--out", help="Folder for all.wav and pattern_XX.wav (default <data_dir>/kit_out/BATCH_SET)."
     ),
+    direct: bool = DIRECT,
     host: str = typer.Option("127.0.0.1", "--host"),
     port: int | None = typer.Option(
         None, "--port", help="Ableton MCP server port (default: the rig's live_port, 16619)."
@@ -61,7 +67,10 @@ def kit_render(
 
     try:
         manifest = probe_kit.render(
-            LiveClient(host, port), batch_set, kit, out or config.rig().data_dir / "kit_out" / batch_set
+            connect(LiveClient, host, port, direct=direct),
+            batch_set,
+            kit,
+            out or config.rig().data_dir / "kit_out" / batch_set,
         )
     except (Guard, AudioError) as exc:
         console.print(f"[red]{exc}[/red]")
