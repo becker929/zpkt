@@ -50,8 +50,9 @@ def test_mix_1_opens_as_a_sheet_labelled_a_sketch_and_the_page_is_the_arrangers_
     assert song_page.locator("#psheet h3").inner_text() == "Sketch mix"
     assert song_page.locator("#sketchpill").inner_text() == "sketch"
     frame = song_page.frame_locator("#psheet iframe")
-    frame.locator(".sketch").wait_for()
-    assert "Not a render of the set" in frame.locator(".sketch").inner_text()
+    banner = frame.locator(".sketch").first  # the page adds more .sketch notes as its ladder loads
+    banner.wait_for()
+    assert "Not a render of the set" in banner.inner_text()
     assert song_page.locator("#psheet iframe").get_attribute("src") == "/app/song/mix/"
     song_page.click("#pclose")
     assert song_page.locator("#psheet iframe").count() == 0  # closing the sheet takes the page, and its sound, away
