@@ -14,7 +14,7 @@ from pathlib import Path
 
 import numpy as np
 import pytest
-from golden_check import check, text
+from golden_check import check, home_only, text
 from signals import BEAT_S, SR, mix, reference, refs_json, write
 
 from zpkt.audio.meters import cli, dsp, siggen
@@ -173,6 +173,7 @@ def test_target(lab, files, tmp_path, capsys, masked) -> None:
     assert e.value.code == f"no references in {p} with set 'none'"
 
 
+@home_only
 def test_eqfit(lab, tmp_path, capsys, masked) -> None:
     import checks
 
