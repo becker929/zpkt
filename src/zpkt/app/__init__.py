@@ -21,7 +21,7 @@ def parse_args(argv: Sequence[str]) -> argparse.Namespace:
         prog="zpkt app", description="Start the one interface: the mix desk and the /app/ shell."
     )
     p.add_argument("--port", type=int, help="the HTTP port (default: MIXDESK_PORT or 8985)")
-    p.add_argument("--adapters", default="web", help="adapters to start, comma separated (default: web)")
+    p.add_argument("--adapters", default="web,api", help="adapters to start, comma separated (default: web,api)")
     p.add_argument("--no-supervise", action="store_true", help="do not start or watch the pager in Live")
     return p.parse_args(list(argv))
 
@@ -44,8 +44,9 @@ def main(argv: Sequence[str] | None = None) -> None:
             adapter.supervise = False
         adapter.start()
         port = getattr(adapter, "port", None)
+        where = {"web": "/app/", "api": "/api/v1/"}.get(adapter.name, "/")
         print(
-            f"zpkt app: {adapter.name} on http://127.0.0.1:{port}/app/" if port else f"zpkt app: {adapter.name}",
+            f"zpkt app: {adapter.name} on http://127.0.0.1:{port}{where}" if port else f"zpkt app: {adapter.name}",
             flush=True,
         )
     try:

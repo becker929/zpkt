@@ -126,7 +126,7 @@ def get_hear(desk: Desk, query: dict[str, str]) -> Response:
 
 
 def get_commands(desk: Desk, query: dict[str, str]) -> Response:
-    return json_response({"commands": desk.bus.kinds()})
+    return json_response({"commands": desk.bus.kinds("you")})
 
 
 def get_changes(desk: Desk, query: dict[str, str]) -> Response:

@@ -9,7 +9,7 @@ are libraries and never open one.
 ## How it fits
 
 ```
-adapters        web (now) · MiniLab · API · agents (later)      turn what they hear into Commands
+adapters        web · API (now) · MiniLab · agents (later)      turn what they hear into Commands
    |
 the bus         bus.py       who, the checks, one dispatch table, a log
    |
@@ -53,6 +53,14 @@ always did, with the pager's datagrams on 8986 and the meter on 8987.
   Ref, undo, redo, history) and the Desk. It reads the same state through `/events?app=1`.
 - `POST /api/command` takes any command: `{"kind": "mix.set", "args": {"norms": [["Kick bus/volume", 0.4]]}}`.
   `GET /api/commands` lists them. The old `POST /api/...` paths are these commands under their old names.
+
+## The API and its clients
+
+`zpkt app` also starts the API adapter on 127.0.0.1:8984 (`ZPKT_API_PORT`). It is how the `zpkt` command, the booth and
+the demo reach Live (docs/app-clients.md). Every call is a Command stamped `cli`, `booth`, `demo` or `agent`, and needs
+the token in `~/.config/zpkt/app-token` (mode 0600, made at start). The jobs are in `jobs.py`; the client in
+`client.py` (standard library only, no Live code); the transport that lets a `LiveClient` caller switch in one line in
+`zpkt.live.app_transport`. The web page is `you` and cannot run them. The shapes are `lib/contracts/app-api.schema.json`.
 
 ## Files that stay where they were
 

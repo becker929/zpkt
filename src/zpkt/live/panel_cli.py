@@ -12,7 +12,7 @@ from typing import Any
 import typer
 
 from zpkt.live import panel
-from zpkt.live.cli_options import HOST, PORT, fail
+from zpkt.live.cli_options import DIRECT, HOST, PORT, connect, fail
 from zpkt.live.transport import LiveClient, LiveError, McpTransport
 
 app = typer.Typer(
@@ -107,6 +107,7 @@ def make(
     replace: bool = typer.Option(False, "--replace", help="Replace the panel of the same name."),
     out: Path = OUT,
     force: bool = FORCE,
+    direct: bool = DIRECT,
     host: str = HOST,
     port: int | None = PORT,
 ) -> None:
@@ -133,7 +134,7 @@ def make(
 
     _run(
         mix.make if mix.is_mix(data) else panel.make,
-        LiveClient(host, port, keep=True),
+        connect(LiveClient, host, port, direct=direct, keep=True),
         data,
         out,
         replace=replace,
@@ -152,6 +153,7 @@ def apply(
     ),
     out: Path = OUT,
     force: bool = FORCE,
+    direct: bool = DIRECT,
     host: str = HOST,
     port: int | None = PORT,
 ) -> None:
@@ -168,7 +170,7 @@ def apply(
             return mix.apply(client, made, out, state_values=values, spec=changes, force=force)
         return panel.apply(client, name, out, state_values=values, spec=changes, force=force)
 
-    _run(apply, LiveClient(host, port, keep=True), what="hands panel apply")
+    _run(apply, connect(LiveClient, host, port, direct=direct, keep=True), what="hands panel apply")
 
 
 def _made(out: Path, name: str) -> dict[str, Any] | None:
@@ -193,6 +195,7 @@ def grid(
     ),
     out: Path = OUT,
     force: bool = FORCE,
+    direct: bool = DIRECT,
     host: str = HOST,
     port: int | None = PORT,
 ) -> None:
@@ -208,7 +211,7 @@ def grid(
 
     _run(
         versions.grid,
-        LiveClient(host, port, keep=True),
+        connect(LiveClient, host, port, direct=direct, keep=True),
         name,
         out,
         _json(axes, "--axes"),
@@ -225,13 +228,22 @@ def pick(
     letter: str = typer.Argument(..., help="Which version: A, B, C, ..."),
     out: Path = OUT,
     force: bool = FORCE,
+    direct: bool = DIRECT,
     host: str = HOST,
     port: int | None = PORT,
 ) -> None:
     """Make one version of a grid the panel's values, in Live too. Nothing is rendered again."""
     from zpkt.live import versions
 
-    _run(versions.pick, LiveClient(host, port, keep=True), name, out, grid_id, letter, force=force)
+    _run(
+        versions.pick,
+        connect(LiveClient, host, port, direct=direct, keep=True),
+        name,
+        out,
+        grid_id,
+        letter,
+        force=force,
+    )
 
 
 @app.command()
@@ -242,13 +254,14 @@ def params(
     port: int | None = PORT,
 ) -> None:
     """List a device's parameters: name | range | default = what Live shows | choices."""
-    _run(panel.params, LiveClient(host, port, keep=True), instrument, grep)
+    _run(panel.params, connect(LiveClient, host, port, changes=False, keep=True), instrument, grep)
 
 
 @app.command()
 def drop(
     name: str = typer.Argument(..., help="The panel's name."),
     out: Path = OUT,
+    direct: bool = DIRECT,
     host: str = HOST,
     port: int | None = PORT,
 ) -> None:
@@ -259,7 +272,7 @@ def drop(
         made = _made(out, name)
         return mix.drop(client, made, out) if made and made.get("kind") == "mix" else panel.drop(client, name, out)
 
-    _run(drop, LiveClient(host, port, keep=True), what="hands panel drop")
+    _run(drop, connect(LiveClient, host, port, direct=direct, keep=True), what="hands panel drop")
 
 
 song_app = typer.Typer(
@@ -283,6 +296,7 @@ def song_make(
     ),
     out: Path = OUT,
     force: bool = FORCE,
+    direct: bool = DIRECT,
     host: str = HOST,
     port: int | None = PORT,
 ) -> None:
@@ -292,7 +306,7 @@ def song_make(
     data = _json(spec, "--spec")
     if not isinstance(data, dict):
         fail("--spec must be a JSON object", 2)
-    _run(song.make, LiveClient(host, port, keep=True, timeout=30.0), data, out, force=force)
+    _run(song.make, connect(LiveClient, host, port, direct=direct, keep=True, timeout=30.0), data, out, force=force)
 
 
 @song_app.command("render")
@@ -300,23 +314,28 @@ def song_render(
     name: str = typer.Argument(..., help="The song's name."),
     out: Path = OUT,
     force: bool = FORCE,
+    direct: bool = DIRECT,
     host: str = HOST,
     port: int | None = PORT,
 ) -> None:
     """Render the song again as it now stands (after its panels or its mix changed)."""
     from zpkt.live import song
 
-    _run(song.render, LiveClient(host, port, keep=True), name, out, force=force)
+    _run(song.render, connect(LiveClient, host, port, direct=direct, keep=True), name, out, force=force)
 
 
 @song_app.command("drop")
 def song_drop(
-    name: str = typer.Argument(..., help="The song's name."), out: Path = OUT, host: str = HOST, port: int | None = PORT
+    name: str = typer.Argument(..., help="The song's name."),
+    out: Path = OUT,
+    direct: bool = DIRECT,
+    host: str = HOST,
+    port: int | None = PORT,
 ) -> None:
     """Delete the song's clips from the arrangement. Its panels' tracks and its renders stay."""
     from zpkt.live import song
 
-    _run(song.drop, LiveClient(host, port, keep=True), name, out)
+    _run(song.drop, connect(LiveClient, host, port, direct=direct, keep=True), name, out)
 
 
 def sweep_command(
@@ -338,7 +357,7 @@ def sweep_command(
 
     projects, in_use = list(project), set()
     try:  # the open set: its project, and the audio it plays (which a set not saved yet would not show on disk)
-        live = LiveClient(host, port, timeout=4.0, retries=0, keep=True)
+        live = connect(LiveClient, host, port, changes=False, timeout=4.0, retries=0, keep=True)
         path, clips = live.run(
             "result = [str(getattr(song, 'file_path', '') or ''), sorted({str(c.file_path) for t in song.tracks "
             "for c in list(t.arrangement_clips) + [s.clip for s in t.clip_slots if s.has_clip] if c.is_audio_clip})]"

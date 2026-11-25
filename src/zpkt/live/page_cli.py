@@ -8,7 +8,7 @@ from pathlib import Path
 
 import typer
 
-from zpkt.live.cli_options import HOST, PORT, fail
+from zpkt.live.cli_options import HOST, PORT, connect, fail
 from zpkt.live.transport import LiveClient, LiveError
 
 page_app = typer.Typer(help="Pages of controls for the one interface: check a spec against the open set.")
@@ -30,7 +30,7 @@ def describe(
     from zpkt.live import describe as D
 
     try:
-        found, missing = D.look(LiveClient(host, port, keep=True), keys)
+        found, missing = D.look(connect(LiveClient, host, port, changes=False, keep=True), keys)
     except LiveError as exc:
         fail(str(exc))
     if as_json:
@@ -57,7 +57,7 @@ def selection(
     from zpkt.live import describe as D
 
     try:
-        sel = D.selection(LiveClient(host, port, keep=True))
+        sel = D.selection(connect(LiveClient, host, port, changes=False, keep=True))
     except LiveError as exc:
         fail(str(exc))
     if as_json:
@@ -82,7 +82,7 @@ def page_lint(
     except (OSError, ValueError) as exc:
         fail(f"ERROR: {exc}", 2)
     try:
-        found, missing = D.look(LiveClient(host, port, keep=True), page.targets())
+        found, missing = D.look(connect(LiveClient, host, port, changes=False, keep=True), page.targets())
     except LiveError as exc:
         fail(str(exc))
     problems = P.lint(page, found, missing)

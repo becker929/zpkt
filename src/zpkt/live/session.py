@@ -209,12 +209,11 @@ def front_set() -> tuple[str, bool]:
 CONFIRM = Path(__file__).resolve().parents[3] / "hands/macros/hammerspoon/scripts/rig-confirm.sh"  # in the repo
 
 
-def reload_set(set_path: Path, *, save_first: bool = False, seconds: int = 10) -> None:
+def reload_set(set_path: Path, *, live: McpTransport, save_first: bool = False, seconds: int = 10) -> None:
     """Reopen `set_path` in Live behind a countdown the person at the Mac can cancel (rig-confirm.sh), and wait until
     Live shows it and the LOM answers. For a set edited offline; with save_first, Live saves first (only when the
-    file was not edited offline). Guard if the countdown is cancelled or Live does not come back with the set."""
-    from zpkt.live.transport import LiveClient
-
+    file was not edited offline). `live` is the connection the caller hands in: it is asked "1" until Live answers.
+    Guard if the countdown is cancelled or Live does not come back with the set."""
     if save_first and not ui.menu("File", "Save Live Set"):
         stop("could not save Live")
     if subprocess.run(["bash", str(CONFIRM), f"Reloading the Live set {set_path.stem}", str(seconds)]).returncode:
@@ -226,7 +225,7 @@ def reload_set(set_path: Path, *, save_first: bool = False, seconds: int = 10) -
             if ui.dialogs():
                 time.sleep(2)  # the set may still be loading behind a progress window
                 continue
-            LiveClient(retries=0, timeout=3).run("1")
+            live.run("1")
             if ui.front_title() == set_path.stem:
                 return
         except (LiveError, ui.UiError):

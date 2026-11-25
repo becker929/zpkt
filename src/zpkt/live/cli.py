@@ -23,6 +23,7 @@ import typer
 from rich.console import Console
 
 from zpkt.live import als_cli, kit_cli, project_cli
+from zpkt.live.cli_options import DIRECT, connect
 from zpkt.live.library.cli import app as library_app
 from zpkt.live.live_cli import app as live_app
 from zpkt.live.panel_cli import app as panel_app
@@ -54,6 +55,7 @@ def record(
         help="Render the set's existing arrangement from beat 0 instead of bouncing session slot-0 clips.",
     ),
     tail: float = typer.Option(4.0, "--tail", help="Extra beats recorded after --beats (arrangement mode)."),
+    direct: bool = DIRECT,
     host: str = typer.Option("127.0.0.1", "--host", help="Ableton MCP server host."),
     port: int | None = typer.Option(
         None, "--port", help="Ableton MCP server port (default: the rig's live_port, 16619)."
@@ -64,7 +66,7 @@ def record(
     from zpkt.live.transport import LiveClient
 
     output_path = Path(output)
-    transport = LiveClient(host=host, port=port)
+    transport = connect(LiveClient, host, port, direct=direct)
 
     console.print(f"[bold]Recording {beats} beats → {output}[/bold]")
     # Pass the full name: the recorder picks WAV vs MP3 from the extension.
@@ -99,6 +101,7 @@ def record(
 def ab(
     action: str = typer.Argument("toggle", help="toggle | next | status"),
     spectrum: bool = typer.Option(False, "--spectrum", help="Also show the master Spectrum."),
+    direct: bool = DIRECT,
     host: str = typer.Option("127.0.0.1", "--host", help="Ableton MCP server host."),
     port: int | None = typer.Option(
         None, "--port", help="Ableton MCP server port (default: the rig's live_port, 16619)."
@@ -108,7 +111,7 @@ def ab(
     from zpkt.live import ab as ab_mod
     from zpkt.live.transport import LiveClient
 
-    transport = LiveClient(host=host, port=port)
+    transport = connect(LiveClient, host, port, changes=action != "status", direct=direct)
     actions = {
         "toggle": lambda: ab_mod.toggle(transport, spectrum=spectrum),
         "next": lambda: ab_mod.next_ref(transport),
@@ -127,6 +130,7 @@ def ab(
 @app.command("spectrum")
 def spectrum_cmd(
     show: bool = typer.Option(False, "--show", help="Always show; never hide."),
+    direct: bool = DIRECT,
     host: str = typer.Option("127.0.0.1", "--host", help="Ableton MCP server host."),
     port: int | None = typer.Option(
         None, "--port", help="Ableton MCP server port (default: the rig's live_port, 16619)."
@@ -137,7 +141,7 @@ def spectrum_cmd(
     from zpkt.live.transport import LiveClient
 
     try:
-        print(json.dumps(ab_mod.spectrum(LiveClient(host=host, port=port), toggle=not show)))
+        print(json.dumps(ab_mod.spectrum(connect(LiveClient, host, port, direct=direct), toggle=not show)))
     except RuntimeError as exc:
         console.print(f"[red]{exc}[/red]")
         raise typer.Exit(1) from None

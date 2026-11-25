@@ -22,7 +22,7 @@ from pathlib import Path
 from typing import Any
 
 from zpkt.app import deskstate as D
-from zpkt.app import history, surfaces
+from zpkt.app import history, jobs, surfaces
 from zpkt.app import protocol as P
 from zpkt.app.bus import Bus, SetGuard
 from zpkt.app.connections import LiveConnections, bind_udp, open_connections
@@ -134,6 +134,7 @@ class Desk:
         guard = SetGuard(self.settings.set_name, lambda: openset.open_set_name(self.conn))
         bus = Bus(guard=guard, lock=lambda: self.conn.exclusive(wait_s=5.0), version_before=self.version_before)
         register_all(bus, self)
+        jobs.register(bus, self.conn)
         return bus
 
     # ---- reading the state -----------------------------------------------------------------------------------------

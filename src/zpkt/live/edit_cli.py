@@ -7,7 +7,7 @@ from pathlib import Path
 
 import typer
 
-from zpkt.live.cli_options import HOST, PORT, fail
+from zpkt.live.cli_options import DIRECT, HOST, PORT, connect, fail
 from zpkt.live.transport import LiveClient, LiveError
 
 clip_app = typer.Typer(help="Manage arrangement MIDI clips and chord progressions.", no_args_is_help=True)
@@ -31,6 +31,7 @@ def reset(
     force: bool = typer.Option(
         False, "--force", help="Reset even a set that has an arrangement or more than two tracks."
     ),
+    direct: bool = DIRECT,
     host: str = HOST,
     port: int | None = PORT,
 ) -> None:
@@ -39,7 +40,7 @@ def reset(
     from zpkt.live.reset import reset_set
 
     try:
-        res = reset_set(LiveClient(host, port), track_name=track_name, tempo=tempo, force=force)
+        res = reset_set(connect(LiveClient, host, port, direct=direct), track_name=track_name, tempo=tempo, force=force)
         print(json.dumps(res))
     except (LiveError, RuntimeError) as exc:
         fail(str(exc))
@@ -55,6 +56,7 @@ def clip_create(
     rhythm: str = typer.Option("staccato-16ths", "--rhythm", help="Rhythm preset or comma-separated beat offsets."),
     velocity: int = typer.Option(110, "--velocity", help="Base velocity (1-127)."),
     duration: float = typer.Option(None, "--duration", help="Note duration in beats."),
+    direct: bool = DIRECT,
     host: str = HOST,
     port: int | None = PORT,
 ) -> None:
@@ -65,7 +67,12 @@ def clip_create(
         prog = midi.parse_progression(chords)
         notes = midi.generate_clip_notes(prog, beats=beats, rhythm=rhythm, base_velocity=velocity, duration=duration)
         res = midi.create_arrangement_clip(
-            LiveClient(host, port), track=track, start=start, length=beats, name=name, notes=notes
+            connect(LiveClient, host, port, direct=direct),
+            track=track,
+            start=start,
+            length=beats,
+            name=name,
+            notes=notes,
         )
         print(json.dumps(res))
     except (ValueError, LiveError) as exc:
@@ -77,6 +84,7 @@ def device_load(
     track: str = typer.Argument(..., help="Track name or index."),
     device_name: str = typer.Argument(..., help="Device name from Live browser (e.g. 'Operator')."),
     category: str = typer.Option("instruments", "--category", help="'instruments' or 'audio_effects'."),
+    direct: bool = DIRECT,
     host: str = HOST,
     port: int | None = PORT,
 ) -> None:
@@ -84,7 +92,9 @@ def device_load(
     from zpkt.live import device
 
     try:
-        res = device.load_device(LiveClient(host, port), track=track, device_name=device_name, category=category)
+        res = device.load_device(
+            connect(LiveClient, host, port, direct=direct), track=track, device_name=device_name, category=category
+        )
         print(json.dumps(res))
     except (ValueError, LiveError) as exc:
         fail(str(exc))
@@ -96,6 +106,7 @@ def device_set(
     device: str = typer.Option("0", "--device", help="Device name or index on track."),
     param: list[str] = typer.Option([], "--param", help="NAME=VALUE parameter pairs (repeatable)."),
     json_params: str = typer.Option(None, "--json", help="JSON dictionary of parameter name/value pairs."),
+    direct: bool = DIRECT,
     host: str = HOST,
     port: int | None = PORT,
 ) -> None:
@@ -117,7 +128,9 @@ def device_set(
         except ValueError:
             p_dict[k.strip()] = v.strip()
     try:
-        res = dev_mod.set_parameters(LiveClient(host, port), track=track, device=device, params=p_dict)
+        res = dev_mod.set_parameters(
+            connect(LiveClient, host, port, direct=direct), track=track, device=device, params=p_dict
+        )
         print(json.dumps(res))
     except LiveError as exc:
         fail(str(exc))
@@ -134,7 +147,7 @@ def device_list(
     from zpkt.live import device as dev_mod
 
     try:
-        res = dev_mod.list_parameters(LiveClient(host, port), track=track, device=device)
+        res = dev_mod.list_parameters(connect(LiveClient, host, port, changes=False), track=track, device=device)
         print(json.dumps(res))
     except LiveError as exc:
         fail(str(exc))
@@ -146,6 +159,7 @@ def surface_apply(
     track: str = typer.Option("0", "--track", help="Track name or index."),
     device: str = typer.Option("0", "--device", help="Device name or index."),
     map_json: str = typer.Option(None, "--map", help="Optional JSON mapping surface IDs to device parameter names."),
+    direct: bool = DIRECT,
     host: str = HOST,
     port: int | None = PORT,
 ) -> None:
@@ -164,7 +178,11 @@ def surface_apply(
     custom_map = json.loads(map_json) if map_json else None
     try:
         res = surface.apply_surface_state(
-            LiveClient(host, port), state=state_dict, track=track, device=device, mapping=custom_map
+            connect(LiveClient, host, port, direct=direct),
+            state=state_dict,
+            track=track,
+            device=device,
+            mapping=custom_map,
         )
         print(json.dumps(res))
     except LiveError as exc:
