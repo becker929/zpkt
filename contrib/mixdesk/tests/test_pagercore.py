@@ -126,11 +126,14 @@ def test_pagercore_imports_nothing():
 def test_the_hardware_table_says_which_minilab_control_does_what():
     import surfaces
 
-    assert len(C.HARDWARE) == 29 and {row[2] for row in C.HARDWARE} == set(C.ROLES)
-    slots = [row[3] for row in C.HARDWARE if row[2] in ("knob", "fader", "toggle_pad")]
-    assert sorted(slots) == sorted(surfaces.SLOTS)  # every slot a surface may fill has a control, and only those
+    assert len(C.HARDWARE) == 29 and {row[2] for row in C.HARDWARE} == set(C.ROLES) - {"toggle_pad"}
+    slots = [row[3] for row in C.HARDWARE if row[2] in ("knob", "fader")]
+    switches = [s for s in surfaces.SLOTS if s.startswith("b")]  # flipped on the screen, not on a pad
+    assert sorted(slots + switches) == sorted(surfaces.SLOTS)
     assert [row[0] for row in C.hardware_rows("fader")] == list(C.FADER_ELEMENTS)
-    assert [row[3] for row in C.hardware_rows("page_pad")] == list(range(1, 9))
+    pads = C.hardware_rows("page_pad")
+    assert [row[3] for row in pads] == list(range(1, 9)) * 2  # bank A and bank B arm the same pages
+    assert [row[0] for row in pads] == ["pad_bank_a_raw"] * 8 + ["pad_bank_b_raw"] * 8
     assert C.hardware_rows("knob")[0] == ("encoders_raw", 0, "knob", "k1")
     assert C.hardware_rows("page_encoder") == [("display_encoder", None, "page_encoder", None)]
 
@@ -162,7 +165,8 @@ def test_every_control_of_the_design_has_a_row_in_base_and_the_map_has_no_two_ro
 
 def test_every_named_action_in_the_map_is_known():
     named = {arg for _, _, role, arg in C.MINILAB_MAP if role == "action"}
-    assert named <= set(C.ACTIONS) and set(C.ACTIONS) <= named | {"transport.stop"}
+    assert named <= set(C.ACTIONS)
+    assert set(C.ACTIONS) <= named | {"transport.stop", "pin.set", "pin.drop", "choice.mark"}  # on the screen
 
 
 def test_a_control_does_what_its_layer_says_and_shift_falls_back_to_base():

@@ -15,7 +15,7 @@ mix, grouped into eight pages, with the MiniLab control each one sits on, and wh
 MiniLab has 8 knobs, 4 faders and 2 banks of 8 pads, far fewer than the mix needs, so a page arms a group of related
 controls on it at once.
 
-| Pad | Page | Faders | Knobs | Bank-B pads |
+| Pad | Page | Faders | Knobs | Switches (on the screen) |
 |---|---|---|---|---|
 | A1 | Buses | kick, hats, break, chord buses | perc and transitions buses, sends to Space and Echo, headroom | bus and return mutes |
 | A2 | Kick | kick, kick bus, saturator and glue wet | saturator drive/out, sub and knock EQ, glue | low cut, saturator, glue, KSMS match EQ, clip mode, solo |
@@ -41,7 +41,9 @@ re-reads it when it restarts the pager).
 - **Knobs** snap to the armed page's values (the MiniLab's knobs are realigned when a page is armed).
 - **Faders pick up**: after a page change a fader does nothing until it passes the value Live has. The page draws a
   blue line where the fader is until then.
-- **Pads B1-B8** flip the page's switches (device on, filter on, mute, solo).
+- **Pads** arm pages in either of the MiniLab's pad banks: bank B does exactly what bank A does, with and without
+  Shift (Anthony, 25 Nov 2026: "we should never use those. We use pages instead"). The page's switches (device on,
+  filter on, mute, solo) are flipped on the screen.
 
 ## Matching the references (22 Nov 2026)
 
