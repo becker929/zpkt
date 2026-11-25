@@ -72,7 +72,8 @@ class MapState:
     focus_latched: bool = False
     zone: str | None = None  # what pitch bend holds now: pin, ref or None
     latched: bool = False  # Hold: keep the compare after the strip lets go
-    hearing: str = "now"  # what we last asked to hear
+    hearing: str = "now"  # what we last asked to hear, or what the desk last said it hears
+    desk_hearing: str = "now"  # what the desk last said it hears: only a change in it overrides `hearing`
     scrub_to: float | None = None
 
 
@@ -107,8 +108,10 @@ def sync(state: MapState, view: View) -> MapState:
     sent = {s: n for s, n in state.sent.items() if s in view.controls and abs(view.controls[s].n - n) > ECHO_NEAR}
     scrub = state.scrub_to if state.scrub_to is not None and abs(view.pos - state.scrub_to) > SEEK_NEAR else None
     focus = state.focus if state.focus in view.controls else None
-    hearing = state.hearing if state.zone else view.hearing
-    return replace(state, sent=sent, scrub_to=scrub, focus=focus, hearing=hearing)
+    hearing, desk_hearing = state.hearing, state.desk_hearing
+    if view.hearing != desk_hearing:  # someone else (the web) changed it; Live's echo of our own ask is not news
+        hearing, desk_hearing = view.hearing, view.hearing
+    return replace(state, sent=sent, scrub_to=scrub, focus=focus, hearing=hearing, desk_hearing=desk_hearing)
 
 
 def _place(state: MapState, view: View, slot: str) -> float:
