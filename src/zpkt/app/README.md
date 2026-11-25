@@ -45,14 +45,17 @@ asks a service, and the service calls a `zpkt.live` function with the app's conn
 ## The bus
 
 `who` is one of `you`, `minilab`, `agent`, `booth`, `demo`, `cli`, `sys`. The web is always `you`. Each command has an
-effect: `read`, `make` (pages, files, versions) or `move` (changes Live). The checks, in order:
+effect: `read`, `make` (pages, files, versions) or `move` (changes Live). One table, `effects.py`, says which, and
+a command without a line there cannot be registered. The checks, in order:
 
 - **who** must be one of the seven.
 - **The agent rule.** An agent may read, make pages and propose Options. A `move` from an agent needs `approval`:
   `"user"` (you said so) or `"option:<id>"` (an Option was picked). Its changes always have a group, and the first
   change of a group saves a version first, so one undo takes the group back.
-- **The wrong-set guard.** A `move` is refused when Live has another set open than the one the page is for. Nothing is
-  sent. A set Live does not name (unsaved) passes. The answer is kept for five seconds.
+- **The wrong-set guard.** Every `move` is held to a set, and nothing is sent when Live has another open. The desk's
+  moves are for the page's set; that answer is kept for five seconds. A job from the API is for the set its caller
+  names (`expect_set`), or else for the set the app last saw open: the desk's at the start, then one the app opened
+  or a caller named and Live had. Only opening a set is let through. A set Live does not name (unsaved) passes.
 - **The lock.** Live takes one job at a time. A command that cannot get it in five seconds answers 503 and says Live
   is busy. It is never dropped silently.
 
