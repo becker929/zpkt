@@ -257,7 +257,7 @@ def test_a_scripted_agent_makes_a_page_through_the_bus_and_the_set_is_unmoved(as
     assert [code for code, _ in p.replies] == [200, 200]
     assert asked.rig.desk.history.entries == before
     log = [row for row in asked.rig.desk.bus.log if row["who"] == "agent"]
-    assert [row["kind"] for row in log] == ["page.make", "state.read"] and {row["group"] for row in log} == {
+    assert [row["kind"] for row in log] == ["page.draft", "state.read"] and {row["group"] for row in log} == {
         f"ask-{s['id']}"
     }
 
@@ -265,8 +265,8 @@ def test_a_scripted_agent_makes_a_page_through_the_bus_and_the_set_is_unmoved(as
 def test_the_old_desk_still_answers_beside_ask(asked):
     assert asked.rig.get("/api/state")[0] == 200
     assert raw(asked, "GET", "/")[0] == 200 and raw(asked, "GET", "/app/")[0] == 200
-    assert "page.make" in asked.rig.get("/api/commands")[1]["commands"]
-    code, _ = asked.rig.command("page.make", {"page": {}})  # the web is "you": the same command works for it too
+    assert "page.draft" in asked.rig.get("/api/commands")[1]["commands"]
+    code, _ = asked.rig.command("page.draft", {"page": {}})  # the web is "you": the same command works for it too
     assert code == 400
 
 

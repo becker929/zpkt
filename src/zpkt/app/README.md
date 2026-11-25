@@ -168,8 +168,10 @@ Ask is the chat with Claude and Gemini, ported from Zpkt web (Node, :8789, which
   `library.json`, `surface-state.json`, `workspaces.json`) in `ZPKT_ASK_DIR` (default
   `~/_agent_scratch/zpkt-app/ask`). Point it at a copy of Zpkt web's data folder to carry its sessions over; old
   `zpkt-surface` blocks still draw.
-- **Tools.** An agent has four tools and no others: make a page (checked against Live, saved only when clean), read
-  the state, read the last measurement, propose an Option. They are app commands behind a small MCP server
+- **Tools.** An agent has four tools and no others: make a page (the `page.draft` command: checked against Live,
+  saved only when clean, not put on the desk; the fuller `page.make` is for you and the CLI), read
+  the state, read the last measurement, propose an Option (a record in the Ask folder, `proposals.py`; the app's real
+  Options are `options.py`). They are app commands behind a small MCP server
   (`python -m zpkt.app.ask.mcp`) that calls `POST /app/ask/api/tool` with the session's token. The bus tags them
   `agent` and groups them by session. None moves Live, and an agent cannot name any other command.
 - **Also ported.** The work view, cards and the preset library, the failure budget (it stops a run that keeps

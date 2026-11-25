@@ -1,7 +1,7 @@
-"""The commands an agent may use: make a page (linted), read the state, read the last measurement, propose an Option.
+"""The commands an agent may use: draft a page (linted and saved, not put on the desk), read the state, read the last measurement, propose an Option.
 
 They are ordinary commands on the bus, so a person or the API may use them too. An agent gets exactly these four,
-by `zpkt.app.ask.tools`, and the bus tags its calls `agent`. None of them moves Live. `page.make` reads Live to
+by `zpkt.app.ask.tools`, and the bus tags its calls `agent`. None of them moves Live. `page.draft` reads Live to
 check the page against the open set; that goes through the app's connection and its lock like any other command.
 """
 
@@ -12,7 +12,7 @@ from typing import TYPE_CHECKING, Any
 from zpkt.app.bus import BadRequest, Bus, Command, Effect, Reply, Spec
 from zpkt.app.proposals import OptionStore
 from zpkt.live import describe as describe_live
-from zpkt.live import page as pages
+from zpkt.live import page as pages  # the page spec; `zpkt.app.pages` is the fuller `page.make`
 
 if TYPE_CHECKING:
     from zpkt.app.desk import Desk
@@ -83,7 +83,7 @@ def option_propose(options: OptionStore) -> Any:
 def register(bus: Bus, desk: Desk, options: OptionStore) -> None:
     """Put the agent commands on the bus."""
     table: dict[str, tuple[Any, Effect, bool]] = {
-        "page.make": (page_make, "make", True),
+        "page.draft": (page_make, "make", True),
         "state.read": (state_read, "read", False),
         "measurement.read": (measurement_read, "read", False),
         "option.propose": (option_propose(options), "make", False),

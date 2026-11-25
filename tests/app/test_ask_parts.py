@@ -213,7 +213,7 @@ def test_the_app_starts_web_and_agents_by_name_and_ask_data_goes_where_the_envir
         assert (tmp_path / "ask-data" / "workspaces.json").exists()
         with urllib.request.urlopen(f"http://127.0.0.1:{web.port}/app/ask/api/engines", timeout=10) as r:
             assert [e["id"] for e in json.loads(r.read())["engines"]] == ["claude", "gemini"]
-        assert {"page.make", "state.read", "measurement.read", "option.propose"} <= set(desk.bus.kinds())
+        assert {"page.draft", "state.read", "measurement.read", "option.propose"} <= set(desk.bus.kinds())
     finally:
         agents.stop()
         web.stop()

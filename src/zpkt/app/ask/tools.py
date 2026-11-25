@@ -28,7 +28,7 @@ class Tool:
 TOOLS: tuple[Tool, ...] = (
     Tool(
         "make_page",
-        "page.make",
+        "page.draft",
         "Make a page of controls for the open set. It is checked against Live's own names and ranges and saved only "
         "when it has no error. `page` has a title and groups of controls; each control has a `target` (a state key "
         "such as 'Kick bus/volume') and may say its `role`, `weight` (1 to 3), `label` and `range`. It cannot say "
