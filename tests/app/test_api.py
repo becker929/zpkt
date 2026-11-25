@@ -171,6 +171,14 @@ def test_an_agent_may_read_and_read_refuses_code_that_changes(api, rig):
     assert code == 400 and "live.run" in body["error"]
 
 
+def test_read_cannot_be_used_to_change_live_by_a_route_the_write_check_misses(api, rig):
+    before = rig.live.song.tempo
+    for code_text in ("setattr(song, 'tempo', 80.0)", "f = song.stop_playing\nf()", "exec('song.tempo = 80.0')"):
+        code, _ = api.post("/live/read", {"who": "agent", "args": {"code": code_text}})
+        assert code == 400, code_text
+    assert rig.live.song.tempo == before
+
+
 def test_a_missing_code_is_a_400(api):
     assert api.post("/live/run", {"args": {}})[0] == 400
 

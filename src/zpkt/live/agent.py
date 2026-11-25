@@ -93,6 +93,39 @@ def writes(source: str) -> bool:
     return False
 
 
+# Names that run or change code by a route `writes` cannot follow.
+_OPAQUE_CALLS = frozenset(
+    {"setattr", "delattr", "getattr", "exec", "eval", "compile", "__import__", "open", "vars", "globals", "locals"}
+)
+
+
+_READ_PROPERTIES = ("playing_", "selected_", "record_mode")  # properties whose names look like write methods
+
+
+def _is_write_method(name: str) -> bool:
+    return bool(_WRITES.match(name)) and name != "select_track" and not name.startswith(_READ_PROPERTIES)
+
+
+def only_reads(source: str) -> bool:
+    """Is this code certainly read-only? Stricter than `not writes(source)`, for a caller that must not be fooled
+    (the app's live.read): code that does not parse, runs code by name (exec, setattr, getattr, ...), touches a
+    dunder, or mentions a write method without calling it (`f = song.stop_playing; f()`) is not."""
+    try:
+        tree = ast.parse(source)
+    except SyntaxError:
+        return False
+    if writes(source):
+        return False
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Attribute) and (node.attr.startswith("__") or _is_write_method(node.attr)):
+            return False
+        if isinstance(node, ast.Name) and (node.id in _OPAQUE_CALLS or node.id.startswith("__")):
+            return False
+        if isinstance(node, (ast.Import, ast.ImportFrom)):
+            return False
+    return True
+
+
 def friendly(source: str) -> tuple[str, list[str]]:
     """Forgive the two mistakes agents make most in Live code (2026-11-20, a 32-call loop): `import song`
     (song is already defined) and `print` (it shows nothing in Live; here it becomes the result)."""

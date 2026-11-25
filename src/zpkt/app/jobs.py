@@ -22,7 +22,7 @@ from zpkt.app.bus import OK, BadRequest, Bus, Command, Effect, Refused, Reply, S
 from zpkt.app.connections import LiveConnections
 from zpkt.live import codegen, config, describe, openset, session
 from zpkt.live import state as S
-from zpkt.live.agent import writes
+from zpkt.live.agent import only_reads
 from zpkt.live.transport import McpResult
 
 API_CALLERS = ("agent", "booth", "demo", "cli")  # who may use the jobs; the web page ("you") may not
@@ -101,8 +101,10 @@ def live_run(conn: LiveConnections, cmd: Command) -> Reply:
 def live_read(conn: LiveConnections, cmd: Command) -> Reply:
     """Run code that only reads. Code that changes anything is refused: use live.run for that."""
     code = text(cmd.args, "code")
-    if writes(code):
-        raise BadRequest("that code changes Live; send it as live.run, which an agent needs your word for")
+    if not only_reads(code):
+        raise BadRequest(
+            "that code may change Live, or hides what it does; send it as live.run, which an agent needs your word for"
+        )
     return live_run(conn, cmd)
 
 
