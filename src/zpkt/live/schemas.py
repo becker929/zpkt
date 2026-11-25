@@ -12,6 +12,9 @@ from __future__ import annotations
 import json
 import sys
 from pathlib import Path
+from typing import Any
+
+from pydantic import BaseModel
 
 from zpkt.live.desk import Desk
 from zpkt.live.library.models import Inventory
@@ -29,7 +32,7 @@ DESCRIPTIONS = {
 }
 
 
-def build(name: str, model) -> dict:
+def build(name: str, model: type[BaseModel]) -> dict[str, Any]:
     return {
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "$id": f"https://github.com/becker929/zpkt/lib/contracts/{name}.schema.json",
@@ -37,7 +40,7 @@ def build(name: str, model) -> dict:
     }
 
 
-MODELS = {
+MODELS: dict[str, type[BaseModel]] = {
     "project-config": ProjectConfig,
     "inventory": Inventory,
     "desk": Desk,

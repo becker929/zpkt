@@ -209,11 +209,9 @@ class History:
             for key, raw, *_ in pairs:
                 self._expect(key, raw, until)
 
-<<<<<<< HEAD
-    def record(self, pairs: list[list[Any]], who: P.Who | str, group: str | None = None) -> dict[str, Any] | None:
-=======
-    def record(self, pairs: list[list], who: protocol.Who | str, group: str | None = None) -> dict | None:
->>>>>>> origin/audit/b6-naming
+    def record(
+        self, pairs: list[list[Any]], who: protocol.Who | str, group: str | None = None
+    ) -> dict[str, Any] | None:
         """Moves the desk is writing for `who`: [[key, raw] or [key, raw, shown], ...] from what Live has now. One
         entry. Moves with the same `group` and `who` as the last entry join it, so an ask undoes as one. Returns the
         entry, or None when nothing moves."""
@@ -357,11 +355,7 @@ class History:
             out.append([m["key"], raw])
         return out
 
-<<<<<<< HEAD
-    def undo(self, who: P.Who | str = P.DEFAULT_WHO) -> tuple[list[list[Any]], dict[str, Any] | None]:
-=======
-    def undo(self, who: protocol.Who | str = protocol.DEFAULT_WHO) -> tuple[list[list], dict | None]:
->>>>>>> origin/audit/b6-naming
+    def undo(self, who: protocol.Who | str = protocol.DEFAULT_WHO) -> tuple[list[list[Any]], dict[str, Any] | None]:
         """[[key, raw], ...] to write, and the entry undone; checkpoints are passed over."""
         with self.lock:
             i = self.pos - 1
@@ -375,11 +369,7 @@ class History:
             self._stream_step(e, True, str(who))
             return self._writes(list(reversed(e["moves"])), "from"), e
 
-<<<<<<< HEAD
-    def redo(self, who: P.Who | str = P.DEFAULT_WHO) -> tuple[list[list[Any]], dict[str, Any] | None]:
-=======
-    def redo(self, who: protocol.Who | str = protocol.DEFAULT_WHO) -> tuple[list[list], dict | None]:
->>>>>>> origin/audit/b6-naming
+    def redo(self, who: protocol.Who | str = protocol.DEFAULT_WHO) -> tuple[list[list[Any]], dict[str, Any] | None]:
         with self.lock:
             i = self.pos
             while i < len(self.entries) and self.entries[i]["k"] == "checkpoint":
@@ -393,13 +383,8 @@ class History:
             return self._writes(e["moves"], "to"), e
 
     def revert(
-<<<<<<< HEAD
-        self, name: str, keys: list[str] | None = None, who: P.Who = P.DEFAULT_WHO
-    ) -> tuple[list[list[Any]], dict[str, Any] | None]:
-=======
         self, name: str, keys: list[str] | None = None, who: protocol.Who = protocol.DEFAULT_WHO
-    ) -> tuple[list[list], dict | None]:
->>>>>>> origin/audit/b6-naming
+    ) -> tuple[list[list[Any]], dict[str, Any] | None]:
         """Every desk control (or only `keys`) back to checkpoint `name`, as one undoable entry."""
         with self.lock:
             moves = [
@@ -434,13 +419,12 @@ class History:
         return live_state.flatten(live_state.load(self.folder() / f"{name}.json"))
 
     def checkpoint(
-<<<<<<< HEAD
-        self, name: str, full: S.State, main_saved: dict[str, Any] | None, who: P.Who = P.DEFAULT_WHO
+        self,
+        name: str,
+        full: live_state.State,
+        main_saved: dict[str, Any] | None,
+        who: protocol.Who = protocol.DEFAULT_WHO,
     ) -> dict[str, Any]:
-=======
-        self, name: str, full: live_state.State, main_saved: dict | None, who: protocol.Who = protocol.DEFAULT_WHO
-    ) -> dict:
->>>>>>> origin/audit/b6-naming
         """Save `full` (a state just taken) as checkpoint `name`, with the desk's own values on top (they are what
         the history knows), the monitor tracks as the desk leaves them (muted, not soloed) and Main's desk devices
         as they are when nothing is monitored. Adds a checkpoint entry to the history."""

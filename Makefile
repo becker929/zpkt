@@ -1,4 +1,4 @@
-# zpkt: the core (zpkt.live, zpkt.audio) is one uv project at the repo root; contrib and prototypes are their own.
+# zpkt: the core (zpkt.app, zpkt.live, zpkt.audio) is one uv project at the repo root; contrib and prototypes are their own.
 PYTEST   := uv run pytest -q -p no:cacheprovider
 
 .PHONY: setup remote-script format lint types test test-all check quick

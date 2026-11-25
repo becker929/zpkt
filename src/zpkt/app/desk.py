@@ -283,15 +283,9 @@ class Desk:
     def receive(self, data: bytes) -> None:
         """One datagram from the pager. A datagram that is not one of the pager's messages is dropped and said so."""
         try:
-<<<<<<< HEAD
-            msg = P.parse_datagram(data)
-        except P.BadMessage as exc:
-            log.warning(f"app: dropped a datagram from the pager: {exc}")
-=======
             msg = protocol.parse_datagram(data)
         except protocol.BadMessage as exc:
-            print(f"app: dropped a datagram from the pager: {exc}", flush=True)
->>>>>>> origin/audit/b6-naming
+            log.warning(f"app: dropped a datagram from the pager: {exc}")
             return
         self.ingest(msg)
 

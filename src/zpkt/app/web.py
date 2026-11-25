@@ -22,18 +22,12 @@ from pathlib import Path
 from typing import Any, ClassVar
 from urllib.parse import parse_qs, urlparse
 
-<<<<<<< HEAD
-from zpkt.app import deskstate as D  # noqa: F401  (kept importable as server.D)
-from zpkt.app import pages
-from zpkt.app import protocol as P  # noqa: F401
-from zpkt.app import token as tokens
-=======
 from zpkt.app import (
-    deskstate,  # noqa: F401
+    deskstate,  # noqa: F401  (kept importable as server.D)
     pages,
     protocol,  # noqa: F401
 )
->>>>>>> origin/audit/b6-naming
+from zpkt.app import token as tokens
 from zpkt.app.bus import BadRequest, Command, Reply
 from zpkt.app.commands import POST_PATHS
 from zpkt.app.desk import HOSTS_ENV, Desk, Settings, hosts_from_env, meter_message, mixdesk_dir, start_threads
@@ -534,7 +528,7 @@ class Handler(BaseHTTPRequestHandler):
             return  # a mount (Ask, the Song) holds its own session token
         if not self.headers.get("Origin") and not has_token(self.headers.get("Authorization")):
             return self._json(
-                {"error": "a write needs a page of this site (Origin) or a Bearer token: use the API"}, 401
+                error_body("a write needs a page of this site (Origin) or a Bearer token: use the API"), 401
             )
         kind = POST_ROUTES.get(self.path)
         try:
