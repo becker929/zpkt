@@ -22,6 +22,7 @@ from typing import Any, ClassVar
 from urllib.parse import parse_qs, urlparse
 
 from zpkt.app import deskstate as D  # noqa: F401  (kept importable as server.D)
+from zpkt.app import pages
 from zpkt.app import protocol as P  # noqa: F401
 from zpkt.app.bus import BadRequest, Command, Reply
 from zpkt.app.commands import POST_PATHS
@@ -144,11 +145,21 @@ def get_changes(desk: Desk, query: dict[str, str]) -> Response:
     return json_response({"changes": found, "last": stream.last(), "skipped": stream.skipped})
 
 
+def get_pages(desk: Desk, query: dict[str, str]) -> Response:
+    return json_response({"pages": pages.listing(desk)})
+
+
 APP_GET_ROUTES: dict[str, Callable[[Desk, dict[str, str]], Response]] = {
+    "/api/pages": get_pages,
     "/api/hear": get_hear,
     "/api/commands": get_commands,
     "/api/changes": get_changes,
 }
+
+
+# A caller on the web may say it is an agent, the command line, the booth or a demo: each has fewer rights than you,
+# or is the same. "you", "minilab" and "sys" are the app's own.
+CLAIMABLE_WHO = ("you", "agent", "cli", "booth", "demo")
 
 
 def post_command(desk: Desk, body: dict[str, Any]) -> Reply:
@@ -160,7 +171,11 @@ def post_command(desk: Desk, body: dict[str, Any]) -> Reply:
     if not isinstance(args, dict):
         raise BadRequest("'args' must be a JSON object")
     group = body.get("group")
-    return desk.bus.submit(Command(kind, "you", args, group=str(group) if group else None))
+    who = body.get("who", "you")
+    if who not in CLAIMABLE_WHO:
+        raise BadRequest(f"who may be {', '.join(CLAIMABLE_WHO)} here, not {who!r}")
+    # no `approval` is read from the body: an agent cannot approve its own move
+    return desk.bus.submit(Command(kind, who, args, group=str(group) if group else None))
 
 
 # The HTML pages served, by path. The routes above serve any page; a second page is one more entry here.

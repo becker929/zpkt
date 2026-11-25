@@ -362,9 +362,10 @@ def to_json(page: Page) -> dict[str, Any]:
     return page.model_dump(mode="json", by_alias=True, exclude_none=True)
 
 
-def save(page: Page, set_name: str) -> Path:
-    """Write the page under its id (from its title if it has none, numbered if that name is taken by another)."""
-    d = folder(set_name)
+def save(page: Page, set_name: str, directory: Path | None = None) -> Path:
+    """Write the page under its id (from its title if it has none, numbered if that name is taken by another).
+    `directory` defaults to folder(set_name)."""
+    d = directory or folder(set_name)
     d.mkdir(parents=True, exist_ok=True)
     if not page.id:
         base, n = slug(page.title), 1
