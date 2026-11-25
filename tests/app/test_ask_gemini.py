@@ -72,7 +72,7 @@ def test_a_turn_makes_an_acp_session_streams_text_and_reports_dollars(tmp_path):
         assert new["params"]["cwd"] == str(tmp_path / "work")
         assert new["params"]["mcpServers"][0]["name"] == "zpkt"
         assert {e["name"] for e in new["params"]["mcpServers"][0]["env"]} == {
-            "ZPKT_APP_URL",
+            "ZPKT_DESK_URL",
             "ZPKT_APP_SESSION",
             "ZPKT_APP_TOKEN",
         }

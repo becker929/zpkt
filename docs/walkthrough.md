@@ -62,7 +62,7 @@ The repo's environment is now one `.venv` at the root, made by `uv sync --all-ex
 
 Each `pkill` stops the restart loop and the server together. If `pgrep -fl mixdesk/server.py` still shows one after
 3 s, run the `pkill` again. A desk that starts does not replace the pager already loaded in Live: after every start,
-run `curl -s -X POST http://127.0.0.1:8985/api/restart`. It loads the new checkout's `pager.py` into Live.
+run `curl -s -X POST -H "Origin: http://127.0.0.1:8985" http://127.0.0.1:8985/api/restart`. It loads the new checkout's `pager.py` into Live.
 
 The walkthrough copies of the arranger and the harness use their own ports, so the running ones keep serving.
 
@@ -345,7 +345,7 @@ You should see: `mix desk on http://127.0.0.1:8985`. The preflight shows 8985, 8
 If the copy lacks monitor tracks, the log lists them being added (`mon A`, `mon B`, `mon C1`–`mon C4`).
 
 **54. [auto] Load the upgraded pager into Live.**
-`curl -s -X POST http://127.0.0.1:8985/api/restart`, then
+`curl -s -X POST -H "Origin: http://127.0.0.1:8985" http://127.0.0.1:8985/api/restart`, then
 `curl -s http://127.0.0.1:8985/api/state | python3 -c "import json,sys; print(json.load(sys.stdin)['live'])"`
 You should see: `{"ok": true}`, then `attached`.
 
@@ -381,7 +381,7 @@ Turn a knob, wait 3 s, turn it again. Press Z, then Shift+Z.
 You should see: two steps in the bar under the tabs. Z puts Live back one step, Shift+Z redoes it.
 `curl -s http://127.0.0.1:8985/api/history | python3 -m json.tool | tail -20` shows the steps.
 
-**62. [auto] A checkpoint.** `curl -s -X POST -d '{"name": "walk-1"}' http://127.0.0.1:8985/api/checkpoint`
+**62. [auto] A checkpoint.** `curl -s -X POST -H "Origin: http://127.0.0.1:8985" -d '{"name": "walk-1"}' http://127.0.0.1:8985/api/checkpoint`
 You should see: `{"ok": true, "name": "walk-1"}` and `~/Music/zpkt/sets/state/HW002_121_pp_finish/walk-1.json` exists.
 
 **63. [gui] Compare and revert.**
@@ -635,7 +635,7 @@ You should see: `diff` lists only files the walkthrough added (`start-…`, `wal
 
 **107. [gui] Open the finishing set and choose the desk.** (Agent: keep the desk Anthony last chose; ask if unsure.)
 Open HW002_121_pp_finish in Live yourself. Start one desk from the table at the top: zpkt-main's to go back, or
-zpkt-upgrade's to keep the upgrade. Then `curl -s -X POST http://127.0.0.1:8985/api/restart`.
+zpkt-upgrade's to keep the upgrade. Then `curl -s -X POST -H "Origin: http://127.0.0.1:8985" http://127.0.0.1:8985/api/restart`.
 You should see: the page at :8985 says attached, and the MiniLab drives the finishing set again.
 
 **108. [auto] Final preflight.** `scripts/walkthrough_preflight.sh`

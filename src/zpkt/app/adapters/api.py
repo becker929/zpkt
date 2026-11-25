@@ -155,7 +155,12 @@ class ApiHandler(BaseHTTPRequestHandler):
         if route != "/command" and kind is None:
             return self._json({"error": f"no route {route}; see GET {PREFIX}/commands"}, 404)
         try:
-            length = int(self.headers.get("Content-Length") or 0)
+            try:
+                length = int(self.headers.get("Content-Length") or 0)
+            except ValueError:
+                raise BadRequest("Content-Length is not a number") from None
+            if length < 0:
+                raise BadRequest("Content-Length is below zero")
             if length > MAX_BODY:
                 return self._json({"error": f"the body is over {MAX_BODY // 2**20} MB"}, 413)
             try:

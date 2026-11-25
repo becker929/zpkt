@@ -76,7 +76,9 @@ app starts, then the set the app opened (`open_set`), or one a caller named and 
   is then `agent`, not `cli`: its changes are refused until you pick an Option, and `ZPKT_OPTION=<id>` names the one
   you picked. Code that only reads still runs.
 - The API listens on `127.0.0.1:8984` (`ZPKT_API_PORT`; the client finds it with `ZPKT_APP_URL`). It turns away any
-  other Host name.
+  other Host name. `ZPKT_APP_URL` names this API only; the pages server on 8985 is `ZPKT_DESK_URL`.
+- The pages server (8985) takes a write from its own pages (same-site Origin) or with a caller's Bearer token. A
+  script without either gets 401: use the API.
 - Every call but `/health` carries the caller's token. The client reads the file and sends it.
 
 ## The `zpkt` command

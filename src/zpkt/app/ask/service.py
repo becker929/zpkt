@@ -194,7 +194,7 @@ class Ask:
     def _tool_server(self, sid: str) -> ToolServer | None:
         if not self.app_url:
             return None
-        env = {"ZPKT_APP_URL": self.app_url, "ZPKT_APP_SESSION": sid, "ZPKT_APP_TOKEN": self.gate.token(sid)}
+        env = {"ZPKT_DESK_URL": self.app_url, "ZPKT_APP_SESSION": sid, "ZPKT_APP_TOKEN": self.gate.token(sid)}
         return ToolServer(self.tool_python, ("-m", "zpkt.app.ask.mcp"), env)
 
     def _run(self, s: dict[str, Any], turn: Turn, engine: str, run: Run) -> None:
