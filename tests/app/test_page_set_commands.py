@@ -66,3 +66,17 @@ def test_tempo_commands_are_guarded_like_every_move(rig):
     rig.live.song.file_path = "/Sets/Other Project/Other.als"
     rig.desk.bus.guard.forget()
     assert rig.command("tempo.set", {"bpm": 150})[0] == 409
+
+
+def test_what_live_said_of_a_range_is_forgotten_when_the_pager_loads_again(rig):
+    rig.command("page.set", {"page": 0, "controls": [{"slot": "k3", "n": 0.3}]})
+    assert rig.desk.descriptions
+    rig.desk.restart_pager()
+    assert rig.desk.descriptions == {}
+
+
+def test_what_live_said_of_a_range_is_forgotten_when_a_set_is_opened(rig):
+    rig.command("page.set", {"page": 0, "controls": [{"slot": "k3", "n": 0.3}]})
+    assert rig.desk.descriptions
+    rig.desk.bus.submit(Command("live.open_set", "cli", {"name": "HW002_121_pp_finish", "save_current": False}))
+    assert rig.desk.descriptions == {}
