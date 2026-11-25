@@ -398,7 +398,7 @@ class Desk:
         self.push({"t": "desk", "open": found[0]})
         return found
 
-    def inventory(self) -> dict[str, Any]:
+    def inventory(self) -> surfaces.Inventory:
         return surfaces.parse_inventory(self.call("m.DESK.inventory()") or "")
 
     def make_surface(self, text: str, ask: Callable[[str], str] | None = None) -> None:
