@@ -23,9 +23,10 @@ from __future__ import annotations
 
 import contextlib
 import json
+import select
 import socket
 import time
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from typing import Any, Literal, Protocol, runtime_checkable
 
@@ -105,18 +106,25 @@ class LiveClient(Transport):
         retries: int = 2,
         backoff: float = 0.5,
         keep: bool = False,
+        on_push: Callable[[dict[str, Any]], None] | None = None,
     ) -> None:
         """port: None is the rig's live_port. keep: hold one connection for every call (a new one costs about half
         a second on the Live rig). The Remote Script serves one client at a time, so only a short-lived command
-        should keep it."""
+        should keep it. on_push: told of each push line the server sends (a watch's changes); needs keep."""
         self.host, self.timeout = host, timeout
+        self.on_push = on_push
+        self._carry = b""  # bytes read past the end of a line
         self.port = config.rig().live_port if port is None else port
         self.retries, self.backoff = retries, backoff
         self.keep = keep
         self._sock: socket.socket | None = None
         self._cmd_id = 0
+        self.connections = (
+            0  # connections made so far: a watch lives as long as its connection, so a new one means ask again
+        )
 
     def close(self) -> None:
+        self._carry = b""
         if self._sock is not None:
             with contextlib.suppress(OSError):
                 self._sock.close()
@@ -138,6 +146,65 @@ class LiveClient(Transport):
             traceback=reply.get("traceback"),
         )
 
+    def send(self, message: dict[str, Any]) -> dict[str, Any]:
+        """One raw message that is not code ({"watch": [...]}, {"unwatch": true}); the reply as the server sent it.
+        Raises LiveError when the reply is lost."""
+        try:
+            return self._exchange(message)
+        except (_NotSent, _Lost) as exc:
+            raise LiveError(str(exc)) from exc
+
+    def readable(self, wait_s: float = 0.0) -> bool:
+        """Is something waiting on the kept connection (a push)? Waits up to `wait_s`. Needs no lock: it reads
+        nothing, so it can wait while other calls go on."""
+        sock = self._sock
+        if sock is None:
+            time.sleep(wait_s)
+            return False
+        if b"\n" in self._carry:
+            return True
+        try:
+            ready, _, _ = select.select([sock], [], [], wait_s)
+        except (OSError, ValueError):  # the socket was closed under us
+            return False
+        return bool(ready)
+
+    def pump(self, wait_s: float = 0.0) -> int:
+        """Read what the server pushed while no call was waiting, and give each push to `on_push`. Waits up to
+        `wait_s` for the first. Returns how many pushes it handled. Call it with the connection's lock held."""
+        sock = self._sock
+        if sock is None:
+            return 0
+        handled = 0
+        try:
+            while True:
+                if b"\n" not in self._carry:
+                    ready, _, _ = select.select([sock], [], [], wait_s if handled == 0 else 0.0)
+                    if not ready:
+                        break
+                    part = sock.recv(65536)
+                    if not part:  # the server closed
+                        self.close()
+                        break
+                    self._carry += part
+                line, _, self._carry = self._carry.partition(b"\n")
+                if line.strip():
+                    handled += self._deliver(line)
+        except OSError:
+            self.close()
+        return handled
+
+    def _deliver(self, line: bytes) -> int:
+        """A line read with no call waiting: a push goes to on_push (1); anything else is dropped (0)."""
+        try:
+            message = json.loads(line)
+        except ValueError:
+            return 0
+        if isinstance(message, dict) and "push" in message and self.on_push is not None:
+            self.on_push(message)
+            return 1
+        return 0
+
     def ping(self) -> float:
         """Round-trip seconds of the server's ping; raise LiveError without a pong.
 
@@ -158,7 +225,9 @@ class LiveClient(Transport):
         attempt = 0
         while True:
             try:
-                return socket.create_connection((self.host, self.port), timeout=self.timeout)
+                sock = socket.create_connection((self.host, self.port), timeout=self.timeout)
+                self.connections += 1
+                return sock
             except OSError as exc:
                 if attempt >= self.retries:
                     raise _NotSent(f"{UNREACHABLE}: {exc}") from exc
@@ -181,12 +250,17 @@ class LiveClient(Transport):
             if self._sock is None:
                 self._sock = self._connect()
                 line = self._ask(self._sock, data)
-        if not line.strip():
-            raise _Lost(f"{LOST}: Live closed the connection without a reply")
-        try:
-            return json.loads(line)
-        except ValueError as exc:
-            raise _Lost(f"{LOST}: unreadable reply {line[:80]!r}") from exc
+        while True:
+            if not line.strip():
+                raise _Lost(f"{LOST}: Live closed the connection without a reply")
+            try:
+                reply: dict[str, Any] = json.loads(line)
+            except ValueError as exc:
+                raise _Lost(f"{LOST}: unreadable reply {line[:80]!r}") from exc
+            if self.on_push is None or "push" not in reply or self._sock is None:
+                return reply
+            self.on_push(reply)  # a push that came before the reply: hand it on and go on waiting
+            line = self._read(self._sock)
 
     def _ask(self, sock: socket.socket, data: bytes) -> bytes:
         try:
@@ -197,14 +271,18 @@ class LiveClient(Transport):
         return self._read(sock)
 
     def _read(self, sock: socket.socket) -> bytes:
+        """One line (with its newline), or what came before the connection closed. Bytes past the line are kept for
+        the next read: a push may follow a reply in one packet."""
         try:
-            buf = b""
-            while not buf.endswith(b"\n"):
+            buf, self._carry = self._carry, b""
+            while b"\n" not in buf:
                 part = sock.recv(65536)
                 if not part:
                     break
                 buf += part
-            return buf
+            line, newline, rest = buf.partition(b"\n")
+            self._carry = rest
+            return line + newline
         except TimeoutError as exc:
             self.close()
             raise _Lost(f"{LOST}: no reply in {self.timeout:g} s; the code may still run") from exc

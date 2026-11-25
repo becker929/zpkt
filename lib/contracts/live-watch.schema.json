@@ -1,0 +1,66 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Live watch: the Remote Script's push stream",
+  "description": "Messages of the AbletonLiveMCP Remote Script's watch: a client asks to watch parameters and the changes come back as lines on the same socket. A client that never asks sees none of these.",
+  "oneOf": [
+    {"$ref": "#/$defs/watch_request"},
+    {"$ref": "#/$defs/unwatch_request"},
+    {"$ref": "#/$defs/reply"},
+    {"$ref": "#/$defs/push"}
+  ],
+  "$defs": {
+    "watch_request": {
+      "type": "object",
+      "required": ["watch"],
+      "additionalProperties": false,
+      "properties": {
+        "watch": {
+          "description": "Replaces this connection's watches. `code` runs like any code (an expression, or statements that set `result`) and gives a parameter, or an [object, attribute] pair.",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["id", "code"],
+            "additionalProperties": false,
+            "properties": {"id": {"type": "string", "minLength": 1}, "code": {"type": "string", "minLength": 1}}
+          }
+        }
+      }
+    },
+    "unwatch_request": {
+      "type": "object",
+      "required": ["unwatch"],
+      "additionalProperties": false,
+      "properties": {"unwatch": {"const": true}}
+    },
+    "reply": {
+      "type": "object",
+      "required": ["status"],
+      "properties": {
+        "status": {"enum": ["ok", "error"]},
+        "watching": {"type": "array", "items": {"type": "string"}},
+        "failed": {"type": "object", "additionalProperties": {"type": "string"}},
+        "error": {"type": "string"},
+        "traceback": {"type": "string"}
+      }
+    },
+    "push": {
+      "type": "object",
+      "required": ["push", "changes", "at"],
+      "additionalProperties": false,
+      "properties": {
+        "push": {"const": "watch"},
+        "changes": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": ["id", "value"],
+            "additionalProperties": false,
+            "properties": {"id": {"type": "string"}, "value": {}}
+          }
+        },
+        "at": {"type": "number", "description": "Seconds since the epoch, on Live's side."}
+      }
+    }
+  }
+}
