@@ -15,7 +15,7 @@ from __future__ import annotations
 import contextlib
 import socket
 import threading
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from typing import Any, Protocol
 
 from zpkt.live.meter import DatagramSource, read_levels
@@ -51,6 +51,15 @@ class LiveConnections:
         with self.lock:
             return self.live.run(code)
 
+    def send(self, message: dict[str, Any]) -> dict[str, Any]:
+        """One raw message that is not code ({"watch": ...}), under the lock (zpkt.live.watch.Sender)."""
+        send = getattr(self.live, "send", None)
+        if send is None:
+            raise RuntimeError("this connection to Live cannot carry a raw message")
+        with self.lock:
+            reply: dict[str, Any] = send(message)
+            return reply
+
     @contextlib.contextmanager
     def exclusive(self, wait_s: float | None = None) -> Iterator[LiveConnections]:
         """Hold Live for several calls. `wait_s` None waits for as long as it takes; a number gives up and raises
@@ -68,6 +77,29 @@ class LiveConnections:
         if self.meter is None:
             raise RuntimeError("this app has no meter socket")
         return read_levels(self.meter)
+
+    # ---- pushes: what Live's Remote Script sends unasked (zpkt.live.watch) ---------------------------------------------
+    @property
+    def connections(self) -> int:
+        """How many connections the Live client has made: a new one means the Remote Script forgot the watches."""
+        return int(getattr(self.live, "connections", 0))
+
+    def on_push(self, handler: Callable[[dict[str, Any]], None]) -> None:
+        """Hand each push line to `handler` (whichever thread reads it). A transport without pushes ignores this."""
+        if hasattr(self.live, "on_push"):
+            self.live.on_push = handler
+
+    def pump_pushes(self, wait_s: float = 0.05) -> int:
+        """Read the pushes Live has sent while no call waited, and give them to the handler. Waits up to `wait_s`
+        for one without holding the lock, then takes the lock only to read."""
+        readable = getattr(self.live, "readable", None)
+        pump = getattr(self.live, "pump", None)
+        if readable is None or pump is None:
+            return 0
+        if not readable(wait_s):
+            return 0
+        with self.lock:
+            return int(pump(0.0))
 
     def close(self) -> None:
         for c in self._closers:
@@ -112,9 +144,14 @@ class MeterSocket:
                 self._sock.close()
 
 
-def open_connections(live_port: int | None, meter_port: int | None) -> LiveConnections:
-    """The real connections: a LiveClient (live_port None is the rig's) and the meter's socket (None: no meter)."""
-    client = LiveClient(timeout=CALL_TIMEOUT_S, retries=1, port=live_port)
+def open_connections(live_port: int | None, meter_port: int | None, pushes: bool = False) -> LiveConnections:
+    """The real connections: a LiveClient (live_port None is the rig's) and the meter's socket (None: no meter).
+
+    `pushes` keeps one connection open for good, so the Remote Script can push watched changes on it; the Remote
+    Script serves one client at a time, so nothing else reaches Live while the app holds it. Off by default."""
+    client = LiveClient(
+        timeout=CALL_TIMEOUT_S, retries=1, port=live_port, keep=pushes, on_push=(lambda m: None) if pushes else None
+    )
     sock = None if meter_port is None else MeterSocket(meter_port)
     closers: tuple[Closable, ...] = (client,) if sock is None else (client, sock)
     return LiveConnections(client, sock, closers)
