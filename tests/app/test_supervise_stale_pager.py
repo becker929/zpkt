@@ -18,6 +18,7 @@ def a_desk(check):
     d.history = SimpleNamespace(cur=None)
     d.states, d.reloads = [], []
     d.check_pager = check
+    d._ensure_monitor_tracks = lambda: True
     d.restart_pager = lambda: d.reloads.append(1)
     d.set_state = lambda snap, live: d.states.append(live)
     return d
@@ -34,6 +35,7 @@ def test_a_pager_live_raises_from_is_loaded_again():
     d = a_desk(raises(LiveError(STALE, McpResult("error", error=STALE))))
     d.supervise_once(now=lambda: 100.0)
     assert d.reloads == [1] and d.states == []
+    assert d._ensured is False  # the new set's monitor tracks are checked on the next step
 
 
 def test_it_is_loaded_again_at_most_once_every_thirty_seconds():
