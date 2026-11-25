@@ -150,6 +150,11 @@ SysEx back: the display, the pad LEDs and the knob rings.
 A Page is what an agent writes for "I want to change this": groups of controls with a role and a weight, and no pixels
 (`zpkt.live.page`). One renderer draws it, and the same spec gives the MiniLab its assignment.
 
+**Controller pages look like the controller** (Anthony's rule, 25 November 2026). The desk's MiniLab pages and the
+small MiniLab map under a Page sit as the MiniLab 3 does: knobs 1–4 over 5–8, the four faders to their right, the 8
+pads in one row below. Where 8 columns of 44 px targets do not fit (the desk narrower than 400 px: a phone), the desk
+folds in half: knobs over pads 1–4, then faders over pads 5–8.
+
 - `zpkt page make SPEC.json` (or `-` for standard input) sends the spec to the running app. `zpkt page lint` only
   checks it. The command goes to `POST /api/agent/command`, so the app stamps it `who=agent`; an agent can make pages
   but cannot move Live without approval.
