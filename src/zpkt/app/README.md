@@ -80,6 +80,7 @@ takes back.
   folders. The app reads those and lists them as Options. It changes none of them, so the old pages work as before.
 - `options.list`, `options.get`, `options.show` (reads) and `options.pick` (a move) are commands on the bus. An agent
   may make an Option. It needs your word or an Option pick to make a Version Now.
+
 ## The MiniLab (the MIDI adapter)
 
 `zpkt app --adapters web,midi` adds the MiniLab 3 as a hand of the app. It is off unless you name it. The old pager in
