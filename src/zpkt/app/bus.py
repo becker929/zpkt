@@ -21,6 +21,7 @@ import contextlib
 import dataclasses
 import threading
 import time
+import traceback
 from collections import deque
 from collections.abc import Callable, Mapping
 from contextlib import AbstractContextManager
@@ -213,6 +214,13 @@ class Bus:
             return 503, {"error": str(exc)}
         except (LiveError, OSError) as exc:
             return 503, {"error": str(exc)}
+        except Exception as exc:  # a handler's own bug: the caller still gets an answer, and the log has the type
+            where = traceback.extract_tb(exc.__traceback__)[-1]  # the place, never the message: it may hold arguments
+            print(
+                f"app: command {cmd.kind!r} failed with {type(exc).__name__} at {where.filename}:{where.lineno}",
+                flush=True,
+            )
+            return 500, {"error": f"{cmd.kind} failed inside the app ({type(exc).__name__}); see the app's log"}
 
     def _held(self, spec: Spec) -> AbstractContextManager[Any]:
         if spec.touches_live and self._lock is not None:

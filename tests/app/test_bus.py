@@ -212,3 +212,14 @@ def test_an_option_approval_counts_for_nothing_when_nothing_keeps_the_picks():
     bus = bus_with("move")
     assert bus.option_picked is None
     assert bus.submit(Command("x.do", "agent", approval="option:kick-sub-38"))[0] == 403
+
+
+def test_a_handler_that_blows_up_is_a_500_that_answers_and_does_not_leak_the_arguments(capsys):
+    def boom(cmd):
+        raise KeyError("secret-token-in-args")
+
+    bus = Bus()
+    bus.register("x.boom", Spec(boom))
+    code, reply = bus.submit(Command("x.boom", "you", {"token": "secret-token-in-args"}))
+    assert code == 500 and "KeyError" in reply["error"] and "secret-token-in-args" not in reply["error"]
+    assert bus.log[-1]["status"] == 500
