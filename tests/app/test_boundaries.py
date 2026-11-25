@@ -103,7 +103,9 @@ def test_the_app_owns_the_connections():
     owners = {p.relative_to(SRC).as_posix() for p in (SRC / "app").rglob("*.py") if violations(p)}
     # ask/mcp.py is the agents' tool server: a client of the app over HTTP (urlopen to the app), never of Live.
     assert owners == {"app/connections.py", "app/ask/mcp.py"}
-    assert violations(SRC / "app" / "ask" / "mcp.py") and all("urlopen" in v for v in violations(SRC / "app" / "ask" / "mcp.py"))
+    assert violations(SRC / "app" / "ask" / "mcp.py") and all(
+        "urlopen" in v for v in violations(SRC / "app" / "ask" / "mcp.py")
+    )
 
 
 def test_adapters_do_not_import_zpkt_live_to_change_it():

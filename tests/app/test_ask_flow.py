@@ -31,7 +31,10 @@ def page(asked):
         pg.on("pageerror", lambda e: errors.append(str(e)))
         pg.on("requestfailed", lambda r: errors.append(f"failed: {r.url}"))
         responses: list[str] = []
-        pg.on("response", lambda r: responses.append(f"{r.status} {r.url}") if r.status >= 400 and "/favicon" not in r.url else None)
+        pg.on(
+            "response",
+            lambda r: responses.append(f"{r.status} {r.url}") if r.status >= 400 and "/favicon" not in r.url else None,
+        )
         pg.goto(asked.rig.url + "/app/ask/")
         pg.wait_for_selector("#box")
         pg.errors, pg.bad = errors, responses  # type: ignore[attr-defined]
