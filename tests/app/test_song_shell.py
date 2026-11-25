@@ -100,7 +100,9 @@ def test_the_song_tab_does_not_overflow(song_rig, width):  # noqa: F811
               return [document.documentElement.scrollWidth - innerWidth, out];
             }"""
         )
-        small = pg.evaluate("[...document.querySelectorAll('#song button, #tabs button')].map(b => b.getBoundingClientRect().height).filter(h => h < 40).length")
+        small = pg.evaluate(
+            "[...document.querySelectorAll('#song button, #tabs button')].map(b => b.getBoundingClientRect().height).filter(h => h < 40).length"
+        )
         browser.close()
     assert over == [0, []], over
     assert small == 0
