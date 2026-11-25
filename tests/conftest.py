@@ -40,3 +40,12 @@ def pytest_runtest_makereport(item: pytest.Item, call: pytest.CallInfo[None]) ->
     if is_browser_skip(reason):
         report.outcome = "failed"
         report.longrepr = f"ZPKT_REQUIRE_BROWSER is set, but the browser test was skipped: {reason}"
+
+
+@pytest.fixture(autouse=True)
+def plain_cli_help(monkeypatch: pytest.MonkeyPatch) -> None:
+    """--help as plain text in every test. Typer draws Rich panels with colour codes when GITHUB_ACTIONS is set,
+    so a help test that passes on a Mac would fail in CI."""
+    import typer.core
+
+    monkeypatch.setattr(typer.core, "HAS_RICH", False)
