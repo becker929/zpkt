@@ -10,6 +10,8 @@ import typer
 from rich.console import Console
 from rich.table import Table
 
+from zpkt.live.cli_options import DIRECT, connect
+
 console = Console()
 
 
@@ -67,6 +69,7 @@ def build(
 def execute(
     config: str = typer.Option(..., "--config", help="Path to ProjectConfig JSON."),
     resume: int = typer.Option(0, "--resume", help="Resume from step index."),
+    direct: bool = DIRECT,
     host: str = typer.Option("127.0.0.1", "--host", help="Ableton MCP server host."),
     port: int | None = typer.Option(
         None, "--port", help="Ableton MCP server port (default: the rig's live_port, 16619)."
@@ -81,8 +84,10 @@ def execute(
     builder = ProjectBuilder(cfg)
     steps = builder.build_steps()
 
-    transport = LiveClient(host=host, port=port)
-    console.print(f"[bold]Executing {len(steps)} steps against Ableton @ {transport.host}:{transport.port}[/bold]")
+    transport = connect(LiveClient, host, port, direct=direct)
+    console.print(
+        f"[bold]Executing {len(steps)} steps against Ableton @ {getattr(transport, 'host', 'the zpkt app')}:{getattr(transport, 'port', '')}[/bold]"
+    )
     if resume > 0:
         console.print(f"[yellow]Resuming from step {resume}[/yellow]")
 

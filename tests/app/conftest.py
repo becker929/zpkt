@@ -247,3 +247,59 @@ def rig(tmp_path: Path) -> Iterator[Rig]:
             )
         finally:
             live.close()
+
+
+@dataclass
+class Api:
+    """The API adapter started on the rig's bus: its URL, token and config folder."""
+
+    url: str
+    token: str
+    config_dir: Path
+    adapter: Any
+
+    def call(
+        self,
+        method: str,
+        path: str,
+        body: Any = None,
+        token: str | None = "default",
+        headers: dict[str, str] | None = None,
+    ) -> tuple[int, Any]:
+        sent = {"Content-Type": "application/json", **(headers or {})}
+        if token == "default":
+            token = self.token
+        if token:
+            sent["Authorization"] = f"Bearer {token}"
+        data = None if body is None else json.dumps(body).encode()
+        req = urllib.request.Request(self.url + path, data=data, method=method, headers=sent)
+        try:
+            with urllib.request.urlopen(req, timeout=20) as r:
+                return r.status, json.loads(r.read())
+        except urllib.error.HTTPError as exc:
+            return exc.code, json.loads(exc.read())
+
+    def post(self, path: str, body: Any = None, **kw: Any) -> tuple[int, Any]:
+        return self.call("POST", "/api/v1" + path, body if body is not None else {}, **kw)
+
+    def get(self, path: str, **kw: Any) -> tuple[int, Any]:
+        return self.call("GET", "/api/v1" + path, **kw)
+
+    def run(self, code: str, who: str = "booth", **extra: Any) -> tuple[int, Any]:
+        return self.post("/live/run", {"who": who, "args": {"code": code}, **extra})
+
+
+@pytest.fixture()
+def api(rig: Rig, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[Api]:
+    from zpkt.app.adapters import AppContext
+    from zpkt.app.adapters.api import ApiAdapter
+
+    config_dir = tmp_path / "config"
+    monkeypatch.setenv("ZPKT_CONFIG_DIR", str(config_dir))
+    adapter = ApiAdapter(AppContext(rig.desk.bus, rig.desk, rig.desk.settings), port=0)
+    adapter.start()
+    try:
+        assert adapter.server is not None
+        yield Api(f"http://127.0.0.1:{adapter.port}", adapter.server.token, config_dir, adapter)
+    finally:
+        adapter.stop()

@@ -1,8 +1,9 @@
 """The architecture, checked on the source: zpkt.live and zpkt.audio are libraries that never open a connection.
 
 Only zpkt.app opens connections, and hands them in. A static AST check, so a module that sneaks one in fails here.
-Allowed: the CLI modules (`*_cli.py`, `cli.py`, `cli_options.py`), the fakes in testing/, and transport.py (it is the
-LiveClient itself).
+Allowed: the fakes in testing/, transport.py (it is the LiveClient itself) and the audio command line. The `zpkt live`
+command modules no longer construct a LiveClient: they ask cli_options.connect, which goes through the app (or, with
+--direct, builds the client its caller passed in).
 """
 
 from __future__ import annotations
@@ -18,13 +19,12 @@ LIBRARIES = ("live", "audio")
 # Files in the libraries that may open a connection, with the reason.
 ALLOWED = {
     "live/transport.py": "it is the LiveClient: the one place a connection to Live is made",
-    "live/cli.py": "the `zpkt live` command line",
-    "live/cli_options.py": "the command line's options",
     "audio/cli.py": "the `zpkt audio` command line",
     "live/rig.py": "setup and doctor stay direct: the rig check and reset build a client when none is given",
 }
-# Known debt, listed so it cannot grow: file -> how many places still build a LiveClient. Each becomes an app client.
-DEBT = {"live/session.py": 1}  # the reload loop's probe, around line 229 (CHANGE-app-gateway.md)
+# Known debt, listed so it cannot grow: file -> how many places still build a LiveClient. None now: the reload loop's
+# probe in session.py uses the connection it is handed.
+DEBT: dict[str, int] = {}
 ALLOWED_PARTS = {"testing": "the fakes", "remote_scripts": "runs inside Live and is its server"}
 
 SOCKET_CALLS = {"socket", "create_connection", "create_server", "socketpair", "fromfd"}
@@ -36,7 +36,7 @@ def allowed(path: Path) -> bool:
     return (
         rel in ALLOWED
         or rel in DEBT
-        or path.name.endswith("_cli.py")
+        or (path.name == "cli.py" and path.parent.name == "audio")
         or any(part in ALLOWED_PARTS for part in path.relative_to(SRC).parts)
     )
 
@@ -99,9 +99,10 @@ def test_the_allowed_list_is_short_and_every_entry_exists():
 
 
 def test_the_app_owns_the_connections():
-    """The two places that build a LiveClient or bind a socket outside the libraries are the app's connections."""
+    """The places that build a LiveClient or bind a socket outside the libraries are the app's connections, and the
+    app's client (it opens HTTP to the app, never a socket to Live)."""
     owners = {p.relative_to(SRC).as_posix() for p in (SRC / "app").rglob("*.py") if violations(p)}
-    assert owners == {"app/connections.py"}
+    assert owners == {"app/connections.py", "app/client.py"}  # the client is how callers reach the app: HTTP only
 
 
 def test_adapters_do_not_import_zpkt_live_to_change_it():

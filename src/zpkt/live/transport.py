@@ -116,6 +116,21 @@ class LiveClient(Transport):
         self._sock: socket.socket | None = None
         self._cmd_id = 0
 
+    @staticmethod
+    def via_app(who: str = "cli") -> McpTransport:
+        """A transport that sends the code to the zpkt app instead of to Live: the app's one connection, its lock,
+        its log (who: cli, booth, demo or agent). One line to switch a caller; docs/app-clients.md."""
+        from zpkt.live.app_transport import AppTransport
+
+        return AppTransport(who)
+
+    @staticmethod
+    def default(who: str = "cli", **kwargs: Any) -> McpTransport:
+        """A LiveClient, or the app's transport when ZPKT_LIVE_VIA=app (`kwargs` are LiveClient's)."""
+        from zpkt.live.app_transport import configured_via
+
+        return LiveClient.via_app(who) if configured_via() == "app" else LiveClient(**kwargs)
+
     def close(self) -> None:
         if self._sock is not None:
             with contextlib.suppress(OSError):

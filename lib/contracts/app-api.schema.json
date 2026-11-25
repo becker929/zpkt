@@ -1,0 +1,82 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/becker929/zpkt/lib/contracts/app-api.schema.json",
+  "title": "The zpkt app's API (/api/v1/)",
+  "description": "What crosses between the app (src/zpkt/app/adapters/api.py) and its callers (src/zpkt/app/client.py): the request to run a command, the replies, the health answer and the command list. Written by hand; tests/app/test_api_contract.py checks the code and this file agree.",
+  "$defs": {
+    "who": {
+      "description": "Who is asking. The app stamps it on every change. The web page (you) and the MiniLab are not API callers.",
+      "enum": ["agent", "booth", "demo", "cli"]
+    },
+    "request": {
+      "description": "POST /api/v1/command takes all of it; a named route (POST /api/v1/live/run) takes the same without kind.",
+      "type": "object",
+      "properties": {
+        "kind": {"type": "string", "minLength": 1, "description": "The command, e.g. live.run."},
+        "who": {"$ref": "#/$defs/who", "default": "cli"},
+        "args": {"type": "object", "default": {}},
+        "approval": {
+          "type": ["string", "null"],
+          "description": "'user' (the user said so) or 'option:<id>'. An agent may not send 'user'."
+        },
+        "group": {"type": ["string", "null"], "description": "Changes made together; one undo takes the group back."}
+      },
+      "additionalProperties": true
+    },
+    "error": {
+      "description": "A refusal or a failure: 400 bad request, 401 token, 403 not allowed, 404 no such command, 409 wrong set or the job could not be done, 413 too big, 503 Live is busy or not answering.",
+      "type": "object",
+      "required": ["error"],
+      "properties": {"error": {"type": "string"}},
+      "additionalProperties": true
+    },
+    "live_reply": {
+      "description": "What the Remote Script answered (zpkt.live.transport.McpResult).",
+      "type": "object",
+      "required": ["status"],
+      "properties": {
+        "status": {"enum": ["ok", "error"]},
+        "result": {},
+        "error": {"type": ["string", "null"]},
+        "warning": {"type": ["string", "null"]},
+        "elapsed": {"type": ["number", "null"]},
+        "traceback": {"type": ["string", "null"]}
+      },
+      "additionalProperties": false
+    },
+    "run_reply": {
+      "description": "live.run and live.read: HTTP 200 when Live was asked, ok false when Live said no.",
+      "type": "object",
+      "required": ["ok", "reply"],
+      "properties": {"ok": {"type": "boolean"}, "reply": {"$ref": "#/$defs/live_reply"}},
+      "additionalProperties": false
+    },
+    "health": {
+      "type": "object",
+      "required": ["ok", "app", "api"],
+      "properties": {"ok": {"const": true}, "app": {"const": "zpkt"}, "api": {"const": 1}},
+      "additionalProperties": false
+    },
+    "commands": {
+      "type": "object",
+      "required": ["commands"],
+      "properties": {
+        "commands": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["kind", "effect", "touches_live", "callers"],
+            "properties": {
+              "kind": {"type": "string"},
+              "effect": {"enum": ["read", "make", "move"]},
+              "touches_live": {"type": "boolean"},
+              "callers": {"type": "array", "items": {"type": "string"}, "description": "Empty: anyone."}
+            },
+            "additionalProperties": false
+          }
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

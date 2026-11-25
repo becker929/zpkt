@@ -72,6 +72,8 @@ class Spec:
     handler: Callable[[Command], Reply]
     effect: Effect = "read"
     touches_live: bool = False  # it calls Live, so it takes the lock
+    guarded: bool = True  # a move is held by the wrong-set guard; a job that names its own set turns this off
+    callers: tuple[str, ...] | None = None  # who may ask for it; None is anyone (the web is "you", the API is not)
 
 
 def approved(cmd: Command) -> bool:
@@ -82,6 +84,12 @@ def approved(cmd: Command) -> bool:
 def check_who(cmd: Command) -> None:
     if cmd.who not in WHO:
         raise BadRequest(f"who is one of {', '.join(WHO)}, not {cmd.who!r}")
+
+
+def check_caller(cmd: Command, spec: Spec) -> None:
+    """Some commands are for the API's callers only: the web page may not run code in Live."""
+    if spec.callers is not None and cmd.who not in spec.callers:
+        raise Refused(f"{cmd.kind!r} is not open to {cmd.who!r}; it is for {', '.join(spec.callers)}")
 
 
 def check_agent(cmd: Command, spec: Spec) -> None:
@@ -145,8 +153,9 @@ class Bus:
             raise ValueError(f"the command {kind!r} is already registered")
         self.table[kind] = spec
 
-    def kinds(self) -> list[str]:
-        return sorted(self.table)
+    def kinds(self, who: str | None = None) -> list[str]:
+        """The command kinds, or those `who` may ask for."""
+        return sorted(k for k, s in self.table.items() if who is None or s.callers is None or who in s.callers)
 
     def submit(self, cmd: Command) -> Reply:
         """Check the command, run its handler, log it. Never raises for a refused or failed command: it answers."""
@@ -160,11 +169,12 @@ class Bus:
     def _run(self, cmd: Command) -> Reply:
         spec = self.table.get(cmd.kind)
         if spec is None:
-            return 404, {"error": f"no command {cmd.kind!r}; the commands are {', '.join(self.kinds())}"}
+            return 404, {"error": f"no command {cmd.kind!r}; the commands are {', '.join(self.kinds(cmd.who))}"}
         try:
             check_who(cmd)
+            check_caller(cmd, spec)
             check_agent(cmd, spec)
-            if spec.effect == "move" and self.guard is not None:
+            if spec.effect == "move" and spec.guarded and self.guard is not None:
                 self.guard.check()
             with self._held(spec):
                 cmd = self._grouped(cmd, spec)

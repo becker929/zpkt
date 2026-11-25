@@ -18,7 +18,7 @@ import re
 import time
 from typing import Any
 
-from zpkt.live.transport import LiveClient
+from zpkt.live.transport import McpTransport
 
 PRELUDE = """
 def param(dev, name):
@@ -118,7 +118,7 @@ def with_prelude(code: str) -> str:
 
 
 def audition(
-    live: LiveClient, track: str, notes: list[int], beats: float = 2.0, listen_s: float = 2.0, force: bool = False
+    live: McpTransport, track: str, notes: list[int], beats: float = 2.0, listen_s: float = 2.0, force: bool = False
 ) -> dict[str, Any]:
     """Play a chord on TRACK from a temporary arrangement clip past the end; return meter peaks."""
     setup = f"""
