@@ -5,7 +5,8 @@ never carries a range or a unit of its own.
     hands live describe "Kick bus/desk EQ/1 Gain A" "Kick bus/volume"
     hands live selection
 
-One LOM call describes up to 32 keys. A key the set lacks comes back as its reason, never as a guess.
+One LOM call describes up to 32 keys. A key the set lacks comes back as its reason, never as a guess. `shown_for`
+says what Live would show for a value that is not written yet (a batch that waits for a yes shows it that way).
 """
 
 from __future__ import annotations
@@ -70,6 +71,17 @@ result = json.dumps({{'found': out, 'missing': missing}})"""
 
 _SELECTION = "import json\nresult = json.dumps(selection_key(song))"
 
+_SHOWN = """import json
+out = []
+for key, v in {pairs!r}:
+    try:
+        found = find_value(song, key)
+    except (LookupError, ValueError):
+        out.append(None)
+        continue
+    out.append(str(bool(v)) if isinstance(found, tuple) else str(found.str_for_value(v)))
+result = json.dumps(out)"""
+
 
 class Missing(LookupError):
     """Keys the open set does not have: `.missing` is {key: why}."""
@@ -99,6 +111,16 @@ def look(client: McpTransport, keys: list[str], stops: int = 5) -> tuple[dict[st
         found.update({k: _typed(d) for k, d in reply["found"].items()})
         missing.update(reply["missing"])
     return found, missing
+
+
+def shown_for(client: McpTransport, pairs: list[tuple[str, float]]) -> list[str | None]:
+    """The text Live would show for each (key, raw value), in order, without writing anything: "-3.0 dB" for a
+    volume, "True" or "False" for a mute or a solo. None for a key the set lacks. One call for up to CHUNK pairs."""
+    out: list[str | None] = []
+    for i in range(0, len(pairs), CHUNK):
+        part = [[key, float(raw)] for key, raw in pairs[i : i + CHUNK]]
+        out += json.loads(client.run(inlive.with_source(_SHOWN.format(pairs=part), "find")))
+    return out
 
 
 def describe(client: McpTransport, keys: list[str], stops: int = 5) -> dict[str, Description]:

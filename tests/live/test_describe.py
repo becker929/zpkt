@@ -95,3 +95,22 @@ def test_a_selected_key_can_be_described(live):
         live.song.view.selected_parameter = bus.devices[0].parameters[3]
     key = D.selection(live)["key"]
     assert D.describe(live, [key])[key]["name"] == bus.devices[0].parameters[3].name
+
+
+def test_shown_for_says_what_live_would_show_for_a_value_without_writing_it(live):
+    vol = live.song.tracks[0].mixer_device.volume.value
+    calls = len(live.calls)
+    texts = D.shown_for(
+        live,
+        [
+            ("Kick bus/desk EQ/1 Gain A", 7.5),
+            ("Kick bus/mute", 1),
+            ("Kick bus/solo", 0),
+            ("Kick bus/desk EQ/1 Gain A", -15.0),  # the same key twice: each pair gets its own text
+            ("Nobody/volume", 0.5),
+        ],
+    )
+    assert texts == ["7.50 dB", "True", "False", "-15.0 dB", None]
+    assert len(live.calls) == calls + 1 and D.shown_for(live, []) == []
+    assert D.describe(live, ["Kick bus/desk EQ/1 Gain A"])["Kick bus/desk EQ/1 Gain A"]["now"].raw == 0.0
+    assert live.song.tracks[0].mixer_device.volume.value == vol
