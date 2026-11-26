@@ -173,9 +173,9 @@ def test_there_is_no_mode_menu_and_asking_for_controls_makes_a_page(asked, page)
     send(page, "give me the kick level")
     page.wait_for_selector("a.pcard svg")
     asked.ask.wait_idle()
-    assert asked.providers["claude"].seen[-1].mode == "build" and asked.providers["claude"].replies[-1][0] == 200
+    assert asked.providers["claude"].seen[-1].mode == "auto" and asked.providers["claude"].replies[-1][0] == 200
     meta = page.locator(".m.user .meta").inner_text()
-    assert "Surfaces" not in meta and "build" not in meta  # the mode is not a thing a producer reads about
+    assert "Full" not in meta and "auto" not in meta  # the mode is not a thing a producer reads about
     assert page.locator("a.pcard b").inner_text() == "Kick: level"  # the saved Page's title, not the link's words
     assert page.locator("#hint").inner_text() == ""
 
@@ -184,13 +184,14 @@ def test_there_is_no_mode_menu_and_asking_for_controls_makes_a_page(asked, page)
 def test_the_developer_modes_are_behind_a_flag(asked, browser, width):
     pg = open_page(browser, asked, width=width, query="?dev=1")
     assert [o.inner_text() for o in pg.locator("#mode option").all()] == [
+        "Full",
         "Surfaces",
         "Ask first",
         "Edit files",
-        "Full (shell)",
+        "No checks",
     ]
     assert pg.locator("#mode optgroup").get_attribute("label") == "Developer"
-    assert pg.locator("#mode").input_value() == "build"
+    assert pg.locator("#mode").input_value() == "auto"
     b = box(pg, "#mode")
     assert b["width"] >= 44 and b["height"] >= 44
     assert pg.evaluate("document.documentElement.scrollWidth <= innerWidth")
@@ -210,7 +211,7 @@ def test_the_developer_modes_are_behind_a_flag(asked, browser, width):
     send(pg, "as a producer")
     pg.wait_for_selector("text=plain again")
     asked.ask.wait_idle()
-    assert asked.providers["claude"].seen[-1].mode == "build"  # a developer mode does not stick without the flag
+    assert asked.providers["claude"].seen[-1].mode == "auto"  # a developer mode does not stick without the flag
     # Leaving the page while it follows the stream ends that request; WebKit reports the end as an error now and then.
     errors = [e for e in pg.errors if "access control checks" not in e]
     assert errors == [], errors

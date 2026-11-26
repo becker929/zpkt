@@ -296,7 +296,14 @@ def monitor_hear(desk: Desk, cmd: Command) -> Reply:
 
 
 def monitor_pin(desk: Desk, cmd: Command) -> Reply:
-    """Set the mix as it is now aside as the Pin."""
+    """Set the mix as it is now aside as the Pin, or with `name` choose that checkpoint as the Pin (B)."""
+    name = _str(cmd.args, "name", "")
+    if name:
+        try:
+            desk.monitor.pin_checkpoint(name)
+        except ValueError as exc:
+            return 404, {"error": str(exc)}
+        return 200, {"ok": True, "hear": desk.monitor.message()}
     desk.monitor.make_pin(cmd.who)
     desk.push(desk.history.view())
     return 200, {"ok": True, "hear": desk.monitor.message()}

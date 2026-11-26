@@ -29,13 +29,20 @@ from zpkt.app.ask.provider import AskPermission, Emit, Outcome, Turn
 from zpkt.app.ask.tools import TOOLS
 
 # our mode -> Gemini's mode. `build` is Gemini's default too: it asks, and `decide` answers for the person.
-GEMINI_MODE = {"build": "default", "ask": "default", "auto_edit": "autoEdit", "yolo": "yolo", "plan": "plan"}
+GEMINI_MODE = {
+    "auto": "yolo",
+    "build": "default",
+    "ask": "default",
+    "auto_edit": "autoEdit",
+    "yolo": "yolo",
+    "plan": "plan",
+}
 APP_TOOLS = re.compile(r"(?<![A-Za-z])(" + "|".join(re.escape(t.name) for t in TOOLS) + r")(?![A-Za-z_])")
 APP_SERVER = re.compile(rf"(?<![A-Za-z]){TOOL_SERVER}(?![A-Za-z])", re.I)
 OWN_KINDS = ("edit", "delete", "move", "execute")  # Gemini's own file and shell tools: never taken for the app's
 MODE_UPDATE = re.compile(r"\[MODE_UPDATE\] (\w+)")
 KEEP_TEXT = 6000
-DEFAULT_MODEL = "gemini-flash-latest"  # one model for a session: a switch mid-session loses the prompt cache
+DEFAULT_MODEL = "gemini-4-neon"  # one model for a session: a switch mid-session loses the prompt cache
 
 Secret = Callable[[str], str | None]
 
@@ -91,6 +98,8 @@ def decide(mode: str, tool_call: Mapping[str, Any], options: list[dict[str, Any]
         return yes
     if mode in ("build", "plan"):
         return option_of(options, "reject")
+    if mode == "auto":  # full power: a question Gemini still asks is answered yes
+        return option_of(options, "allow")
     return ask(tool_view(tool_call), options)
 
 

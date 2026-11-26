@@ -7,26 +7,25 @@ from __future__ import annotations
 
 import pytest
 
-from tests.app.conftest import osc_spec
-from zpkt.live import meter
-
 playwright_sync = pytest.importorskip("playwright.sync_api")
 
 WIDTHS = [360, 390, 768, 1200, 1600]
 
-# Every visible control of /app/, as {tag, w, h}; plus the page's own overflow and the widest control card.
+# Every visible control of /app/, as {tag, w, h, min}; plus the page's own overflow and the widest control card.
 APP_MEASURE = """() => {
   const vis = e => { const r = e.getBoundingClientRect(), s = getComputedStyle(e);
     return r.width > 0 && r.height > 0 && s.visibility !== 'hidden' && !e.closest('.sheet:not(.on)'); };
   const touch = [...document.querySelectorAll('#app button, #app select, #app [role=slider], #tabs a')].filter(vis).map(e => {
     const r = e.getBoundingClientRect();
-    return {n: (e.id || e.className || e.tagName) + '', w: Math.round(r.width), h: Math.round(r.height)}; });
+    // on a phone the transport, the pager and the tabs are smaller keys (26 November 2026): 36 px; the rest 44
+    const min = innerWidth < 700 && e.closest('#hbot, .dots, #tabs') ? 36 : 44;
+    return {n: (e.id || e.className || e.tagName) + '', w: Math.round(r.width), h: Math.round(r.height), min}; });
   const cards = [...document.querySelectorAll('#app .ctl, #app .pc, #app .pair')].filter(vis)
     .map(e => ({n: e.className + '', w: Math.round(e.getBoundingClientRect().width)}));
   return {over: document.documentElement.scrollWidth - innerWidth, touch, cards};
 }"""
 
-# The columns, the spectrum, and every gap between neighbours in a row (flex or grid containers that show a row).
+# The columns, the spectrum (off the page since 26 November 2026: no height), and every gap between neighbours in a row (flex or grid containers that show a row).
 DESKTOP_MEASURE = """() => {
   const vis = e => { const r = e.getBoundingClientRect(); return r.width > 0 && r.height > 0 && getComputedStyle(e).visibility !== 'hidden'; };
   const ids = ['#side', '#main', '#hear'];
@@ -82,7 +81,7 @@ def test_app_controls_are_touchable_and_fit(browser, rig, width):
     pg, errors = open_app(browser, rig, width)
     got = pg.evaluate(APP_MEASURE)
     assert got["over"] == 0, "the page scrolls sideways"
-    assert [t for t in got["touch"] if t["w"] < 44 or t["h"] < 44] == []
+    assert [t for t in got["touch"] if t["w"] < t["min"] or t["h"] < t["min"]] == []
     assert [c for c in got["cards"] if c["w"] > 220] == []
     assert errors == []
 
@@ -90,16 +89,12 @@ def test_app_controls_are_touchable_and_fit(browser, rig, width):
 @pytest.mark.parametrize("width", [1200, 1600])
 def test_app_desktop_uses_three_columns_and_the_width(browser, rig, width):
     pg, _ = open_app(browser, rig, width)
-    assert (
-        pg.evaluate(DESKTOP_MEASURE)["spectrum"] <= 60
-    )  # no meter sends: a short strip with the one action, not a blank well
-    rig.meter.send(osc_spec([0.1] * len(meter.centers())))
-    pg.wait_for_selector("#spec:not(.act) i")
     got = pg.evaluate(DESKTOP_MEASURE)
     assert got["columns"] == 3
     assert got["width"] >= 0.85
-    assert got["spectrum"] >= 90  # History is docked under it in the same column, so it no longer takes it all
-    dock = pg.locator("#histdock").bounding_box()
+    assert got["spectrum"] == 0 and not pg.locator("#specbox").is_visible()  # the spectrum is off the page
+    assert pg.locator("#setname").is_visible() and pg.locator("#lvl").is_visible()  # the set and the level are the top
+    dock = pg.locator("#histdock").bounding_box()  # History is docked under them in the same column
     assert dock["height"] >= 120 and dock["x"] >= pg.locator("#main").bounding_box()["x"] + 300
     assert got["gaps"] == []
     assert got["tabs"] == 3, "the same three tabs at every width"

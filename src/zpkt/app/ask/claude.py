@@ -17,7 +17,7 @@ from collections.abc import Callable, Mapping
 from pathlib import Path
 from typing import Any
 
-from zpkt.app.ask.engines import claude_command
+from zpkt.app.ask.engines import CLAUDE_DEFAULT_MODEL, claude_command
 from zpkt.app.ask.events import ClaudeStream
 from zpkt.app.ask.provider import Emit, Outcome, Turn
 
@@ -66,7 +66,7 @@ class ClaudeProvider:
         cmd = claude_command(
             prompt=turn.prompt,
             mode=turn.mode,
-            model=turn.model,
+            model=turn.model or self.environ.get("CLAUDE_AGENT_MODEL", CLAUDE_DEFAULT_MODEL),
             resume=turn.resume,
             session_id=turn.engine_session or turn.session["id"],
             claude_bin=self.bin,

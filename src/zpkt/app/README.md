@@ -83,10 +83,12 @@ port, 8984 (below). `ZPKT_DESK_URL` names the web server (pages, `/app/`), `ZPKT
 - `/app/` is the new shell: the Hear bar and three tabs in one document, Desk, Song and Ask. It reads the same
   state through `/events?app=1`. Changing tabs loads nothing again, so the Hear bar, the transport and Listen stay
   as they are. `/app/ask/` (the chat's own page) goes on to `/app/#ask`.
-- **The Hear bar** says which song is open and lets me play it and take changes back. From the top: the set's
-  name, its tempo and time signature; "bar N of M", the loop as the bars it spans ("17–40", also drawn on the
-  playhead's line; that is why the bar jumps back), "Live", and "N changed" with the checkpoint it counts from; the
-  playhead; the spectrum; the level meter. Then Play, solo and mute, the Listen button, undo, redo and History. The
+- **The Hear bar** says which song is open and lets me play it and take changes back. Its top is the set's name
+  and the level meter, and nothing else (Anthony, 26 November 2026: "bias toward removing unneeded things"). Then
+  Play, solo and mute, the Listen button, undo, redo and History. Off the page since then: "bar N of M", the loop's
+  bars, "Live", "N changed" with its checkpoint, the strip with the playhead, the spectrum, and the tempo and time
+  signature (those two are on the Song tab). Their elements stay in the page, hidden by CSS, and the page still
+  holds what they said (`S.state`, `S.hear`). The
   set, the tempo, the signature, the length, the loop's span and every track's solo and mute come with the pager's
   snapshot and its messages, so nothing asks Live for them. The level meter shows the peak of what Listen plays, in
   dB below full scale. `listen.js` sends it to the page as a `zpkt-listen` event. With Listen off the meter is
@@ -98,30 +100,32 @@ port, 8984 (below). `ZPKT_DESK_URL` names the web server (pages, `/app/`), `ZPKT
   looping on; the lit key again turns it off. Set while Live plays inside the span, nothing is interrupted;
   outside it, the playhead goes to the span's start. The spans are the desk's own for its set
   (`pagercore.LOOPS`: whole, build, drop) and come with the pager's snapshot as `loops`; a span the set does not
-  define is a key that cannot be pressed. The strip under the song's facts shows the whole length, the spans, the
-  one that loops and the playhead. All of it is the `transport` command (`play`, `pause`, `stop`, `seek`, `loop`
+  define is a key that cannot be pressed. The lit key says what loops; the Song tab draws the loop and the playhead.
+  All of it is the `transport` command (`play`, `pause`, `stop`, `seek`, `loop`
   with `off`, `whole`, `build` or `drop`): a move of the transport, never a History row.
 - **Solo and mute** are lit beside Play whenever a track is soloed or muted, by anyone, in Live or here. The pager
   listens to every track's solo and mute (never the monitor's own tracks) and sends the whole list on a change
   (`{"t": "flags"}`); the state holds it as `solo` and `mute`. Up to two tracks show by name, and a tap on a name
   clears it. More are a count that opens the list. Clearing is `mix.set` with the state key (`"Kick bus/solo"`):
   a History row and one undo, like any move. A solo thrown in Live is a History row too.
-- **The spectrum** is drawn from the "zpkt desk meter" device on Main. When no meter message has come for three
-  seconds and the pager says the device is not on Main, its place holds one action, "Turn on" (`meter.install`). It
+- **The spectrum** is off the page (26 November 2026), and so is its "Turn on" key. The command stays:
+  `meter.install` puts the "zpkt desk meter" device on Main. It
   runs the desk's own tool (`meter.py` in the mixdesk folder) with the app's connection, as a job of its own,
-  because Live's browser takes seconds to list a new device. The page shows "Turning on", then the bars, or
-  "Failed" with Retry. It is one History row ("Spectrum off → on"), and undo takes the device off Main again. It
-  never counts in "N changed". With no data and nothing to press (Live is not there), the place is empty.
-- **"N changed"** counts from the last checkpoint saved or gone back to (`history.base`), and says its name. It is
-  zero right after a save or a go back. At a start it is the last checkpoint on file. A tap on it brings History
-  forward. (The Pin and its commands are as they were; the count no longer follows it.)
-- **Undo says what it does.** The button carries the control's label and the value it goes back to, and Redo is
+  because Live's browser takes seconds to list a new device, and tells the page how it goes (`{"t": "meterjob"}`).
+  It is one History row ("Spectrum off → on"), and undo takes the device off Main again. It
+  never counts as a change.
+- **The count of changes** is off the page too. The app still keeps it: it counts from the last checkpoint saved
+  or gone back to (`history.base`), and is zero right after a save or a go back (`/api/hear`: `changed`, `base`).
+  At a start the base is the last checkpoint on file. History shows the checkpoints. (The Pin and its commands are
+  as they were; the count no longer follows it.)
+- **Undo is an icon.** Its label for a screen reader says the control and the value it goes back to; nothing is
+  written on the key. Redo is
   disabled when there is nothing to redo. The history's view has both steps (`undo`, `redo`: the id and, per
   control, its key, its place and Live's text). On the tap the page puts the controls there at once and the
   answer settles them, as for a control the hand moves. A going back (`history.revert`, `history.back`) tells the
   page where the controls go before Live is written (`{"t": "own"}`), for the same reason.
 - **Nothing is made anew on an event.** The Hear bar's parts, the transport's buttons and the panel's controls are
-  elements that stay: a value, the playhead, the spectrum and the level are moved in place (`controls.js`
+  elements that stay: a value, the playhead and the level are moved in place (`controls.js`
   `update`), and a part is drawn again only when its own markup changes. Focus, a screen reader's place and a
   reference to an element survive Live's events.
 - **Now, Pin and Ref are not on the page** (Anthony, 25 November 2026). The monitor's commands (`monitor.hear`,
@@ -199,7 +203,7 @@ A page links it and defines none of them itself.
 the waiting in WebKit; `tests/app/test_ask_tab.py` checks Ask in place (the Hear bar and Listen stay, the mark, a
 page link with no reload, the sizes). `tests/app/test_desk_touch.py` and `tests/app/test_desk_second_walk.py` are the two cold
 walkthroughs' findings in WebKit (the second: solo and mute, one undo, return points, the build's set, the
-spectrum's action, the base of "N changed", History docked, round steps, the loading Page, the Song's ruler, elements
+spectrum's command, the base of the count of changes, History docked, round steps, the loading Page, the Song's ruler, elements
 that stay); `tests/app/test_second_walk.py` holds the same rules below the page, with no browser.
 
 ## The API and its clients
@@ -269,13 +273,17 @@ A Page is what an agent writes for "I want to change this": groups of controls w
 controller pages look like the controller). One renderer draws them all: a saved Page, the mix desk's own MiniLab
 pages (`contrib/mixdesk/desk.json`) and a made surface.
 
+- **Compare is in the play bar** (26 November 2026): the keys A, B and C (`#abc`, `monitor.hear` now, pin, ref). A is
+  the mix now, B the pinned mix, C the reference. History has a B key on each checkpoint (`monitor.pin` with `name`)
+  that chooses it as the pinned mix; until one is chosen B is the mix as the desk first saw it.
 - **Labels are for a phone** (26 November 2026). A group's caption is written once over its run of slots, without
-  what every group of the panel starts with ("Before fuzz: "). The control in hand (touched on the page, or turned
-  on the MiniLab) says its target in Live, its name and its value in the page's head; a touch on that readout brings
-  the title back. A switch in the pager (`#viewsw`, kept in `localStorage` as `zpkt.view`) shows the same slots as
+  what every group of the panel starts with ("Before fuzz: "). The page's head is the surface's title and nothing
+  else: no readout of the control in hand, no caption, no "on MiniLab" chip, no count of surfaces ("Loading" shows
+  there while a page is on its way). A switch in the pager (`#viewsw`, kept in `localStorage` as `zpkt.view`) shows the same slots as
   a **list**: a row per mapped knob and fader with its number on the controller, its group and name in full and its
   value, moved sideways; unmapped slots are left out and the pads stay keys. The map is the default. Where the
-  larger text does not fit, the map shows one face at a time before it makes the text small (`.dense`).
+  larger text does not fit on a phone, the rows with nothing mapped give up their room (`.lean`), then the map shows
+  one face at a time, and only then is the text made small (`.dense`).
 - **All 20 slots are always drawn, each in its physical place**: knobs 1–4 over 5–8, the four faders to their right,
   the 8 pads in one row below. Where 8 columns of 44 px targets do not fit (the panel's own box is 440 px or less: a
   phone, and a 768 px tablet beside the Hear bar) it folds in half: knobs over pads 1–4, then faders over pads 5–8.
@@ -283,9 +291,10 @@ pages (`contrib/mixdesk/desk.json`) and a made surface.
   the title, the paging row and the whole map are on screen at every size from 360 x 640 up. The map takes the
   height that is left and its controls give way down to 44 px (`controls.css`); the page measures it (`fitPanel`)
   and, when the comfortable sizes do not fit, puts labels on one line (`.tight`). Where a folded map still does not
-  fit (a phone), it shows one face at a time: the knobs over pads 1 to 4, or the faders over pads 5 to 8, with a
-  two-key switch in the paging row. A page with compare states opens on the face with its pads. On a phone under
-  720 px tall the Hear bar keeps the song's facts and the playhead; the spectrum and the level give the Desk room.
+  fit (a phone), the rows and blocks with nothing mapped are left out (`.lean`), so a surface's knobs, pads and
+  faders share one screen whenever they can. Only if that does not fit either it shows one face at a time: the
+  knobs over pads 1 to 4, or the faders over pads 5 to 8, with a
+  two-key switch in the paging row. A page with compare states opens on the face with its pads.
 - **Lists that can grow are paged, never scrolled.** History shows as many rows as its box holds, newest first,
   with "newer" and "older" under it ("1–8 / 43"); a new change brings the newest rows back. The list of Pages in
   the side column shows the part with the page in view and has its own before and after. More than two soloed or
@@ -304,8 +313,9 @@ pages (`contrib/mixdesk/desk.json`) and a made surface.
   the title row holds the one way to a surface, a key that goes to Ask. The transport, History and the Song go on
   working.
 - **The paging row** (under 1100 px; wider, the list of Pages is the side column) is the last row of the Desk:
-  the page before, "13 / 15", the page after, and the face switch. The numbered buttons of a Page with more than
-  one MiniLab page are at the right of the title. `tests/app/test_zero_scroll.py` checks all of it at six sizes.
+  the page before, "13 / 15", the page after, and the face switch. One step is one MiniLab page, and the count is
+  of MiniLab pages: a surface that takes two is two steps under one title, and has no buttons of its own.
+  `tests/app/test_zero_scroll.py` checks all of it at six sizes.
 - **A mapped slot is a live control.** A pad is a key. A knob or a fader is dragged up and down. The drag is
   relative: the control moves from where it is, never jumps to the pointer, and 200 px take it across its range.
   A mouse moves it from the first pixel. A finger has 4 px to say whether it drags or swipes, and its travel
@@ -331,7 +341,8 @@ pages (`contrib/mixdesk/desk.json`) and a made surface.
 - **An unmapped slot is drawn in the same place, faint, with no caption.** It takes no touch. Its hardware name
   ("Knob 6: not mapped") is there for a screen reader and on hover. A target the open set lacks keeps its slot,
   greyed, and says "not in this set". A macro is drawn in its slot but is turned on the MiniLab only.
-- **A Page that needs more than one MiniLab page** has numbered buttons above the panel. On a phone (under 700 px) a
+- **A Page that needs more than one MiniLab page** is reached with the paging row's before and after. On a phone
+  (under 700 px) a
   sideways swipe on the panel goes to the next or the previous one. Both wait for Live like any page change (Waiting,
   above). The first 6 px of a touch decide whether it moves a control or is a swipe.
 - **The look is the chat's**: a ceramic card, a machined knob with a lime arc, a fader in a slot, pads as keys. The
@@ -405,9 +416,11 @@ page in WebKit.
 ## The Song
 
 - **The Song tab is the song in Live** (Anthony, 26 November 2026), read only: one lane per
-  track of the open set (never the monitor's own), its Arrangement clips as regions with Live's names and colours
+  track of the open set that has a region (never the monitor's own; a track with no regions is not drawn), its
+  Arrangement clips as regions with Live's names and colours
   (a muted clip or track is dimmed), under a bar ruler with the locators as named spans, Live's loop and its
-  bars, and Live's playhead. Session clips are never read. It has no buttons. `arrangement.read` is the one read
+  bars, and Live's playhead. The ruler's left cell says the tempo and the time signature ("160 · 4/4"). Session
+  clips are never read. It has no buttons. `arrangement.read` is the one read
   (`Desk.arrangement`: one short call into the pager, `m.DESK.arrangement()`): `{set, bars, beats_per_bar, tracks:
   [{id, name, color, muted, regions: [{id, start, end, name, color, muted}]}], locators: [{beat, name}]}`, starts
   and ends in beats. It is kept until the pager says a clip or a locator changed (`{"t": "arr"}`, from listeners
@@ -433,15 +446,16 @@ the Ask tab of `/app/` (`/app/#ask`); its page and API are under `/app/ask/`.
   are never taken for it. They are the archive: `GET /app/ask/api/archive` lists them and their streams still read.
   The main conversation cannot be deleted. (Until 26 November 2026 the most recent old session became the main one.
   On its next start the store puts such an adopted session back in the archive, once: `SessionStore._fresh_mains`.)
-- **Modes.** A producer has one mode, `build`, and no menu: the agent advises, uses its three tools and reads files.
-  It cannot edit a file or run a command, and nothing asks. For Claude Code that is `--permission-mode dontAsk`,
-  `--allowedTools mcp__zpkt,Read,Glob,Grep`, `--disallowedTools Bash,Edit,Write,NotebookEdit,EnterPlanMode,ExitPlanMode`
-  and `--strict-mcp-config` (never plan mode: there it described a page instead of making it). For Gemini it is
-  Gemini's default mode, and the app answers its permission questions itself: yes to the three tools, no to the rest.
-  The three tools run in every mode with no question. `/app/ask/?dev=1` shows a mode menu (remembered on the device;
-  `?dev=0` hides it again) with "Ask first" (Gemini asks on the page before an edit or a command; Claude Code has
-  nobody to ask there, so it is `build`), and under "Developer", "Edit files" and "Full (shell)". The table is in
-  `ask/engines.py`.
+- **Modes.** A producer has one mode, `auto`, and no menu: full power (Anthony, 26 November 2026). The agent has the
+  shell, file edits, every tool and the app's three tools. For Claude Code that is `--permission-mode auto` (Claude
+  Code decides what is safe; nothing is disallowed and the Mac's other MCP servers are there); for Gemini it is
+  `yolo`, and a question it still asks is answered yes. The default models are `claude-opus-5-5` and `gemini-4-neon`
+  (`CLAUDE_AGENT_MODEL` and `GEMINI_AGENT_MODEL` override them). The careful mode `build` is still there: the three
+  tools and reading files only (`--permission-mode dontAsk`, `--allowedTools mcp__zpkt,Read,Glob,Grep`,
+  `--disallowedTools Bash,Edit,Write,NotebookEdit,EnterPlanMode,ExitPlanMode`, `--strict-mcp-config`; never plan
+  mode: there it described a page instead of making it). `/app/ask/?dev=1` shows a mode menu (remembered on the
+  device; `?dev=0` hides it again): "Full", "Surfaces" (`build`), "Ask first" (Gemini asks on the page before an
+  edit or a command), and under "Developer", "Edit files" and "No checks". The table is in `ask/engines.py`.
 - **Paging.** `GET /app/ask/api/sessions/<id>/events?turns=20` gives the last 20 turns, `first`, `next` and `more`.
   Add `&before=<first>` for the turns before. Follow new events with the stream from `next`.
 - **Compaction.** Before a turn, the app estimates the conversation in tokens (characters / 4). Past the engine's

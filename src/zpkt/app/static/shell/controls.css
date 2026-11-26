@@ -143,10 +143,22 @@
 .mlp[data-view="list"] :is(.mk,.mf) .mc.flash{box-shadow:0 0 0 2px var(--zs)}
 .mlp[data-view="list"]{gap:6px;padding-top:6px;padding-bottom:6px}
 .mlp[data-view="list"] .mc.pad .w{height:32px}
-/* the control in hand (the page's head says what it is) */
-.mc.foc:not(.pad){box-shadow:0 0 0 2px var(--zs)}
 /* .dense (set by the page where nothing else fits, a very short screen): the text gives way before anything scrolls */
 .mlp.dense .mc .g{font-size:9.5px;line-height:12px;height:12px}
 .mlp.dense .mc .v{font-size:12px;line-height:16px;height:16px}
 .mlp.dense .mc .l{font-size:11px;line-height:13px;height:13px}
 .mlp.dense .mc.pad .w{font-size:11px}
+/* .lean (set by the page on a phone where the whole map does not fit): a row with nothing mapped in it is left out,
+   and the rest stand in the controller's order: knobs, pads 1-4, faders, pads 5-8. */
+.mlp.lean{display:flex;flex-direction:column}
+.mlp.lean .mk{order:1;flex:0 2 auto}.mlp.lean .mp1{order:2;flex:none}.mlp.lean .mf{order:3;flex:0 1 auto}.mlp.lean .mp2{order:4;flex:none}
+.mlp.lean :is(.mk,.mf,.mp):not(:has(.mc:not(.off))){display:none}
+.mlp.lean .mk:not(:has(.mc:nth-child(n+5):not(.off))){grid-template-rows:minmax(0,1fr)}
+.mlp.lean .mk:not(:has(.mc:nth-child(n+5):not(.off))) .mc:nth-child(n+5){display:none}
+/* The list is one column in the controller's order, and each row is as tall as the room allows (up to 46 px). A
+   live row takes the hand anywhere along it. */
+.mlp[data-view="list"]{display:flex;flex-direction:column}
+.mlp[data-view="list"] .mk{order:1;flex:0 2 auto}.mlp[data-view="list"] .mp1{order:2;flex:none}.mlp[data-view="list"] .mf{order:3;flex:0 1 auto}.mlp[data-view="list"] .mp2{order:4;flex:none}
+.mlp[data-view="list"] :is(.mk,.mf):not(:has(.mc:not(.off))){display:none}
+.mlp[data-view="list"] :is(.mk,.mf) .mc.live{touch-action:none;cursor:ew-resize}
+.mlp[data-view="list"] :is(.mk,.mf) .mc .g{pointer-events:none}

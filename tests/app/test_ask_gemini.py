@@ -126,10 +126,10 @@ def test_the_apps_tools_run_in_every_mode_with_no_question_to_the_person(tmp_pat
             provider.close()
 
 
-def test_the_default_mode_refuses_an_edit_at_once_and_asks_nobody(tmp_path):
+def test_the_build_mode_refuses_an_edit_at_once_and_asks_nobody(tmp_path):
     ask, provider, log = make(tmp_path)
     try:
-        s = ask.create("work", "edit the readme", engine="gemini")  # no mode named: the default
+        s = ask.create("work", "edit the readme", engine="gemini", mode="build")
         assert ask.wait_idle()
         events = ask.store.replay(s["id"])
         assert events[0]["mode"] == "build" and not any(e["type"] == "permission" for e in events)

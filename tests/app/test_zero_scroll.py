@@ -1,7 +1,8 @@
 """Nothing in /app/ scrolls (Anthony, 25 November 2026: "This app must have zero scrolling"): at every size from
 360 x 640 up the Hear bar, the page's title, the paging controls and the tab bar are on screen, and the whole map of
-the current page is visible at once, every control at 44 px or more. Where a phone cannot hold all 20 slots, the map
-shows one face at a time, and the switch is always there. WebKit; skipped when playwright or its WebKit is missing."""
+the current page is visible at once, every control of the map at 44 px or more (the pager's keys are 38 px high on a
+phone). Where a phone cannot hold all 20 slots, the rows with nothing mapped give up their room; if that is not
+enough the map shows one face at a time, and the switch is always there. WebKit; skipped when playwright or its WebKit is missing."""
 
 from __future__ import annotations
 
@@ -24,14 +25,16 @@ SCROLLERS = """root => [...document.querySelectorAll(root + ', ' + root + ' *')]
 DESK = """() => {
   const box = s => { const e = document.querySelector(s); if (!e || !e.getClientRects().length) return null; const r = e.getBoundingClientRect(); return {top: r.top, bottom: r.bottom, left: r.left, right: r.right}; };
   const p = document.querySelector('#panel'), pr = p.getBoundingClientRect();
+  const pager = innerWidth < 700 ? 35.5 : 43.5;  // on a phone the pager's keys are 38 px high (26 November 2026)
   const shown = [...p.querySelectorAll('.mc')].filter(e => e.getClientRects().length);
   const faces = shown.map(e => e.querySelector('.w').getBoundingClientRect());
   return {inner: [innerWidth, innerHeight], page: [document.documentElement.scrollWidth, document.documentElement.scrollHeight],
-    title: box('#pagename'), pager: box('#deskdots .dots'), nums: box('#mlpages'), tabs: box('#tabs'), hear: box('#htop'), keys: box('#hbot'), panel: box('#panel'),
-    slots: shown.length, faces: window.zpkt.S.faces,
+    title: box('#pagename'), pager: box('#deskdots .dots'), tabs: box('#tabs'), hear: box('#htop'), keys: box('#hbot'), panel: box('#panel'),
+    slots: shown.length, faces: window.zpkt.S.faces, lean: p.classList.contains('lean'),
+    hidden: [...p.querySelectorAll('.mc:not(.off)')].filter(e => !e.getClientRects().length).length,
     small: faces.filter(r => r.width < 43.5 || r.height < 43.5).length,
     spill: shown.filter(e => e.scrollHeight > e.clientHeight + 1 || e.getBoundingClientRect().bottom > pr.bottom + 1 || e.getBoundingClientRect().top < pr.top - 1).length,
-    buttons: [...document.querySelectorAll('#deskdots button, #mlpages button')].map(b => b.getBoundingClientRect()).filter(r => r.width && (r.width < 43.5 || r.height < 43.5)).length};
+    buttons: [...document.querySelectorAll('#deskdots button')].map(b => b.getBoundingClientRect()).filter(r => r.width && (r.width < pager || r.height < pager)).length};
 }"""
 
 
@@ -68,13 +71,17 @@ def test_the_desk_never_scrolls_and_its_paging_controls_stay_on_screen(browser, 
     assert pg.evaluate(SCROLLERS, "#app") == []  # the Desk, the Hear bar, History, the list of Pages: none scrolls
     got = pg.evaluate(DESK)
     assert got["page"] == got["inner"]  # the page itself has nowhere to scroll to
-    for part in ("title", "nums", "tabs", "hear", "keys", "panel"):
+    for part in ("title", "tabs", "hear", "keys", "panel"):
         on_screen(got, part)
     if width < 1100:
         on_screen(got, "pager")  # wider, the list of Pages is the side column
     assert (got["small"], got["spill"], got["buttons"]) == (0, 0, 0), got  # all of it visible, nothing under 44 px
     if got["faces"] == 1:
-        assert got["slots"] == 20  # the whole map at once
+        assert got["hidden"] == 0  # every mapped control at once
+        if got["lean"]:  # a phone: the rows with nothing mapped have given up their room
+            assert width < 700 and 1 <= got["slots"] < 20
+        else:
+            assert got["slots"] == 20  # the whole map
     else:  # a phone too short for 20 slots: two faces, switched in place, the switch always there
         assert width < 700 and got["slots"] == 12
         assert pg.locator("#faces [data-face=k]").get_attribute("aria-pressed") == "true"
@@ -106,19 +113,25 @@ def test_a_soloed_track_takes_a_row_and_the_desk_still_fits(browser, rig):
 
 
 def test_the_paging_row_steps_through_the_pages(browser, rig):
+    """One step is one MiniLab page: the biggest surface takes two, so it is two steps."""
     pg = open_big(browser, rig, 375, 667)
-    pages = pg.evaluate("window.zpkt.S.desk.pages.length")
-    count = pg.locator("#pgcount").inner_text()
-    assert (
-        count.endswith(f"/ {len(set(p.get('page_id') or i for i, p in enumerate(rig.get('/api/desk')[1]['pages'])))}")
-        and pages
-    )
+    pages = len(rig.get("/api/desk")[1]["pages"])
+    assert pages == pg.evaluate("window.zpkt.S.desk.pages.length") and pages >= 3
+    at = lambda: pg.evaluate("window.zpkt.S.state.page")  # noqa: E731
     nxt, prev = pg.locator(".dots button").nth(1), pg.locator(".dots button").nth(0)
-    assert nxt.is_disabled() and "Previous surface: " in prev.get_attribute("aria-label")  # the new Page is the last
-    name = prev.get_attribute("aria-label").split(": ", 1)[1]
+    assert at() == pages - 2 and pg.locator("#pgcount").inner_text() == f"{pages - 1} / {pages}"  # its first page
+    assert int(nxt.get_attribute("data-page")) == pages - 1 and int(prev.get_attribute("data-page")) == pages - 3
+    nxt.click()  # its second MiniLab page: the same surface, the last step
+    pg.wait_for_function(f"window.zpkt.S.state.page === {pages - 1} && !window.zpkt.S.pend")
+    assert pg.locator("#pgcount").inner_text() == f"{pages} / {pages}" and nxt.is_disabled()
+    assert pg.locator("#pagename").inner_text() == "Everything at once"
     prev.click()
+    pg.wait_for_function(f"window.zpkt.S.state.page === {pages - 2} && !window.zpkt.S.pend")
+    assert "Previous surface: " in prev.get_attribute("aria-label")
+    name = prev.get_attribute("aria-label").split(": ", 1)[1]
+    prev.click()  # the surface before
     pg.wait_for_function(f"document.querySelector('#pagename').textContent === {name!r} && !window.zpkt.S.pend")
-    assert not pg.locator(".dots button").nth(1).is_disabled()
+    assert pg.locator("#pgcount").inner_text() == f"{pages - 2} / {pages}" and not nxt.is_disabled()
     assert pg.evaluate(SCROLLERS, "#main") == []
 
 

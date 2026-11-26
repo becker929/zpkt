@@ -1,7 +1,7 @@
 """The second cold walkthrough's findings on /app/ (WebKit, on FakeLive, at her 1200 x 800 and on a phone): solo and
 mute are on the Hear bar and clear with one tap; one undo takes a control back to where it was; every History row is
-a place to go back to; a build is not offered on another set; the spectrum turns itself on; "N changed" names its
-checkpoint; History is docked on a desktop and a sheet that swallows no touch on a phone; a knob moves from the first
+a place to go back to; a build is not offered on another set; the spectrum's command puts its device on Main (the
+spectrum itself is off the page since 26 November 2026); the count of changes has a checkpoint as its base; History is docked on a desktop and a sheet that swallows no touch on a phone; a knob moves from the first
 pixel in round units and its number is typed where it stands; a link to a Page shows it loading; the Song has a bar
 ruler; controls are not made anew on every event. Skipped when playwright or its WebKit is missing."""
 
@@ -115,9 +115,9 @@ def test_a_drag_then_nudges_is_one_undo_and_the_button_says_where_it_goes(browse
         pg.wait_for_timeout(120)
     settled(pg, GAIN)
     assert len([e for e in rig.desk.history.entries[before:] if e["k"] == "move"]) == 1
-    said = pg.locator("#undowhat").inner_text()
-    assert "Tone" in said and was in said  # the control, and the value Undo returns it to
-    assert was in pg.locator("#kundo").get_attribute("aria-label")
+    said = pg.locator("#kundo").get_attribute("aria-label")
+    assert "Tone" in said and was in said  # the control, and the value Undo returns it to: said, not written
+    assert pg.locator("#undowhat").count() == 0 and pg.locator("#kundo").inner_text().strip() == ""  # an icon only
     go = slow_writes(rig, monkeypatch)
     pg.click("#kundo")
     pg.wait_for_function(
@@ -202,75 +202,68 @@ def fake_meter_tool(rig, monkeypatch, fail: str = ""):
     return tool
 
 
-def test_the_spectrum_has_one_action_that_puts_the_device_on_main(browser, rig, monkeypatch):
+def test_the_spectrum_is_off_the_page_and_its_command_still_puts_the_device_on_main(browser, rig, monkeypatch):
+    """The spectrum and its "Turn on" are off the page (26 November 2026); meter.install stays a command."""
     tool = fake_meter_tool(rig, monkeypatch)
     pg = open_lead(browser, rig)
-    assert (
-        "desk meter" not in pg.locator("#htop").inner_text() and "No spectrum" not in pg.locator("#htop").inner_text()
-    )
-    button = pg.locator("#meteron")
-    assert button.inner_text().strip() == "Turn on" and button.bounding_box()["height"] >= 44
+    assert not pg.locator("#specbox").is_visible() and not pg.locator("#meteron").is_visible()
+    assert "Spectrum" not in pg.locator("#htop").inner_text()
     before = len(rig.desk.history.entries)
-    button.click()
+    assert rig.command("meter.install")[0] == 200
     wait_for(lambda: tool.present(rig.conn))
     wait_for(lambda: len(rig.desk.history.entries) == before + 1)
-    rig.meter.send(osc_spec([0.1] * len(meter.centers())))  # the device is there: it sends
-    pg.wait_for_selector("#spec:not(.act) i")
-    assert pg.locator("#meteron").count() == 0
+    rig.meter.send(osc_spec([0.1] * len(meter.centers())))  # the device is there: it sends, and nothing is drawn
+    pg.wait_for_function("!!window.zpkt.S.meter")
+    assert not pg.locator("#spec").is_visible()
     entry = rig.desk.history.entries[-1]
     assert entry["who"] == "you" and entry["moves"][0]["label"] == "Spectrum"
     assert rig.get("/api/hear")[1]["changed"] == 0  # a device for measuring is no change to the mix
     assert rig.command("history.undo")[0] == 200  # a normal move: undo takes the device off again
     assert not tool.present(rig.conn) and rig.state()["meter"] is False
-    pg.evaluate("window.zpkt.S.meterAt = Date.now() - 60000")  # its bars stop
-    pg.wait_for_selector("#meteron")
     assert pg.errors == []  # type: ignore[attr-defined]
 
 
-def test_a_spectrum_that_will_not_turn_on_says_so_with_retry_and_no_device_no_live_shows_nothing(
-    browser, rig, monkeypatch
-):
+def test_a_spectrum_that_will_not_turn_on_tells_the_page_and_nothing_shows(browser, rig, monkeypatch):
     fake_meter_tool(rig, monkeypatch, fail="Live's browser does not show the meter yet")
     pg = open_lead(browser, rig)
-    pg.click("#meteron")
-    pg.wait_for_selector("#meterfail")
-    assert pg.locator("#meterfail").inner_text() == "Failed" and pg.locator("#meteron").inner_text().strip() == "Retry"
-    assert "browser" in pg.locator("#meterfail").get_attribute("title")
-    pg.evaluate("window.zpkt.S.mjob = null")
-    rig.desk.set_state(None, "Live does not answer (gone)")  # nothing to press when Live is not there
-    pg.wait_for_function("!document.querySelector('#spec')")
+    rig.command("meter.install")
+    pg.wait_for_function("window.zpkt.S.mjob?.status === 'error'")  # the page is told how it went
+    assert "browser" in pg.evaluate("window.zpkt.S.mjob.msg")
+    assert not pg.locator("#meterfail").is_visible() and not pg.locator("#meteron").is_visible()
+    assert pg.errors == []  # type: ignore[attr-defined]
 
 
 # ---- 5: "N changed" has a base, and it is named -------------------------------------------------------------------------
 
 
 def test_changed_counts_from_the_last_checkpoint_saved_or_gone_back_to(browser, rig):
+    """The count is off the top bar (26 November 2026); the page keeps it, and History is where a checkpoint is."""
     pg = open_lead(browser, rig)
+    changed = lambda n, base=None: pg.wait_for_function(  # noqa: E731
+        f"window.zpkt.S.hear.changed === {n}" + (f" && window.zpkt.S.hear.base === {base!r}" if base else "")
+    )
     rig.command("mix.set", {"norms": [[VOL, 0.3]]})
-    pg.wait_for_function("document.querySelector('#chgn').textContent === '1 changed'")
+    changed(1)
     assert rig.command("history.checkpoint", {"name": "mara clean kick", "new": True})[0] == 200
-    pg.wait_for_function("document.querySelector('#chgn').textContent === '0 changed'")  # zero right after a save
-    assert pg.locator("#chgbase").inner_text().strip() == "mara clean kick"  # and it says what it counts from
+    changed(0, "mara clean kick")  # zero right after a save, and it counts from that checkpoint
     rig.command("mix.set", {"norms": [[GAIN, 0.7]]})
-    pg.wait_for_function("document.querySelector('#chgn').textContent === '1 changed'")
+    changed(1)
     rig.command("history.checkpoint", {"name": "later", "new": True})
     rig.command("mix.set", {"norms": [[VOL, 0.6]]})
-    pg.wait_for_function("document.querySelector('#chgbase').textContent.trim() === 'later'")
+    changed(1, "later")
     back = pg.locator('#hrows [data-back="mara clean kick"]')
     if not back.count():  # the rows are paged: it is on the part after
         pg.click('#hpgs [data-histstep="1"]')
     back.click()
-    pg.wait_for_function("document.querySelector('#chgbase').textContent.trim() === 'mara clean kick'")
-    assert pg.locator("#chgn").inner_text() == "0 changed"  # the walkthrough's "1 changed" after going back
+    changed(0, "mara clean kick")  # the walkthrough's "1 changed" after going back
     hear = rig.get("/api/hear")[1]
     assert hear["changed"] == 0 and hear["base"] == "mara clean kick"
-    assert pg.locator("#chgpill").bounding_box()["height"] >= 44
-    pg.click("#chgpill")  # a tap on it brings History forward
-    assert "ping" in pg.locator("#histdock").get_attribute("class")
+    assert not pg.locator("#chgpill").is_visible()  # no count on the top bar; History is docked on a desktop
     phone = browser.new_page(viewport={"width": 390, "height": 800})
     phone.goto(rig.url + "/app/")
-    phone.wait_for_selector("#chgpill")
-    phone.click("#chgpill")
+    phone.wait_for_selector("#khist")
+    assert not phone.locator("#chgpill").is_visible()
+    phone.click("#khist")  # on a phone History is the key by Undo
     phone.wait_for_selector("#sheet.on #hrows")
 
 
