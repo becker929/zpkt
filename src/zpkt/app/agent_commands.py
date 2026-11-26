@@ -1,9 +1,9 @@
 """The commands an agent may use: draft a page (linted and saved; the reply has the link you open it by), read the
 state, read the last measurement.
 
-They are ordinary commands on the bus, so a person or the API may use them too. An agent gets these three and
-`live.change` (zpkt.app.change), by `zpkt.app.ask.tools`, and the bus tags its calls `agent`. None of these three
-moves Live. `page.draft` reads Live to
+They are ordinary commands on the bus, so a person or the API may use them too. An agent gets these three,
+`live.change` (zpkt.app.change) and `live.propose` (zpkt.app.propose, after the person's tap), by
+`zpkt.app.ask.tools`, and the bus tags its calls `agent`. None of these three moves Live. `page.draft` reads Live to
 check the page against the open set; that goes through the app's connection and its lock like any other command.
 
 When the person wants to try an alternative, the agent drafts a page with compare states (zpkt.live.page) and gives

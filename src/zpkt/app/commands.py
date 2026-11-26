@@ -367,6 +367,8 @@ def _step(desk: Desk, cmd: Command, undo: bool) -> Reply:
     reply: dict[str, Any] = {"ok": True, "entry": e and e["id"], "missing": missing}
     if notes:
         reply["notes"] = notes
+    if undo and (left := history.left_by(e)):
+        reply["left"] = left  # a removed device, a new track, code: undo does not take those back
     return 200, reply
 
 
@@ -435,10 +437,14 @@ def history_back(desk: Desk, cmd: Command) -> Reply:
     back together, as one new step, so one undo reverses it."""
     desk.monitor.leave_pin()
     try:
+        left = desk.history.stays_from(_int(cmd.args, "entry"))
         pairs, entry = desk.history.back(_int(cmd.args, "entry"), cmd.who)
     except KeyError:
         return 409, {"error": "That step is not in effect any more."}
-    return _gone_back(desk, pairs, entry)
+    code, reply = _gone_back(desk, pairs, entry)
+    if left:
+        reply["left"] = left  # a removed device, a new track, code: going back does not take those back
+    return code, reply
 
 
 # ---- the song in Live -----------------------------------------------------------------------------------------------

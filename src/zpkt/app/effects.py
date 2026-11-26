@@ -30,6 +30,12 @@ These lines are decisions worth their reason:
   changed, no code run. It checks the whole batch before anything moves (the set's own names and ranges, never a
   monitor track, never Main's desk devices), saves a version first, and is one History row that one undo takes
   back. Every other move (`mix.set`, `transport`, `live.run`, ...) still needs your word from an agent.
+- `live.propose` is a move that an agent may NOT ask for on its own, and the way it gets your word. Anthony,
+  26 November 2026: structure and code are "ask first". The batch may also remove a device, make a track and run
+  code. `live.propose.check` (a read) checks it whole and writes its card; the Ask tool gate shows the card in the
+  chat and waits for your tap; only after "Do it" does the gate send `live.propose` with your word
+  (zpkt.app.propose, zpkt.app.ask.tools). Like `live.run` it is for the API's callers, never the web page. Undo
+  takes back its values and its added or moved devices, and leaves a removed device, a new track and code.
 """
 
 from __future__ import annotations
@@ -73,6 +79,9 @@ EFFECTS: dict[str, Effect] = {
     "arrangement.read": "read",
     # a batch of changes, checked whole (zpkt.app.change)
     "live.change": "move",
+    # a batch that waits for your tap: structure and code (zpkt.app.propose)
+    "live.propose.check": "read",
+    "live.propose": "move",
     # the jobs (zpkt.app.jobs)
     "live.run": "move",
     "live.read": "read",

@@ -10,7 +10,10 @@
 This is the one move an agent may make with no word of yours (zpkt.app.effects, AGENT_MAY), and all it can do is
 this: set values (the state keys and raw numbers `desk.state` gives), add an audio effect to an existing track,
 switch a device on or off, and move a device along its chain. It cannot remove a device, make a track, change
-routing or clips, or run code.
+routing or clips, or run code: those are `live.propose` (zpkt.app.propose), which shows the batch to you and runs
+it only after your tap. That command is built on this one: its steps are read by its own reader, checked by `check`
+here (which also knows a removed device, a new track and a code step, the three kinds `read_step` never lets in),
+and run by `run` here with three more runners.
 
 The rules, in the order they act:
 
@@ -34,12 +37,13 @@ desk's own write. Nothing here opens a connection: the desk hands its own in.
 from __future__ import annotations
 
 import math
-from dataclasses import dataclass
+from collections.abc import Callable, Mapping
+from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
 from zpkt.app import effects
 from zpkt.app.bus import BadRequest, Bus, Command, Reply
-from zpkt.app.history import same
+from zpkt.app.history import left_by, same
 from zpkt.live import chain, describe, monitor_tracks, page_layout
 from zpkt.live.describe import Description
 from zpkt.live.inlive import keys as live_keys
@@ -68,16 +72,17 @@ class Step:
     """One step of a batch, as checked. `n` counts from 1, as the problems name it."""
 
     n: int
-    op: str  # "set", "add", "move"
-    track: str
+    op: str  # "set", "add", "move"; from live.propose only (zpkt.app.propose): "remove", "track", "code"
+    track: str  # the track the step is on; track: the new track's name; code: ""
     words: str  # the step as the reply names it: set "Kick bus/volume"
     key: str = ""  # set: the state key
     to: float = 0.0  # set: the raw value; move: the index
-    device: str = (
-        ""  # add: the browser's name; move: the device's label on the chain; set: its label, "" for a mixer value
-    )
+    device: str = ""  # add: the browser's name; move, remove: the device's label on the chain; set: its label, "" for a mixer value
     at: int | None = None  # add: the index asked for
-    later: bool = False  # set: on a device this batch adds, so it is checked when its step comes
+    later: bool = False  # set: on a device or a track this batch makes, so it is checked when its step comes
+    kind: str = ""  # track: audio, midi or return
+    code: str = ""  # code: the Python for Live
+    does: str = ""  # code: the sentence that says what it does
 
 
 # ---- reading the ask -----------------------------------------------------------------------------------------------
@@ -138,8 +143,9 @@ def read_step(n: int, step: Any) -> Step | str:
     return Step(n, "move", track, f'move "{name}" on "{track}"', device=name, to=to)
 
 
-def read(args: Any) -> tuple[str, list[Step], list[str]]:
-    """(why, the steps that have a shape, the problems so far). BadRequest when there is no batch to look at."""
+def read(args: Any, reader: Callable[[int, Any], Step | str] = read_step) -> tuple[str, list[Step], list[str]]:
+    """(why, the steps that have a shape, the problems so far). BadRequest when there is no batch to look at.
+    `reader` reads one step (live.propose has its own, which knows three more kinds)."""
     why = args.get("why")
     steps = args.get("steps")
     if not isinstance(steps, list) or not steps:
@@ -154,7 +160,7 @@ def read(args: Any) -> tuple[str, list[Step], list[str]]:
         problems.append(f"{len(steps)} steps is more than {MAX_STEPS}: send the rest as a second batch")
     out: list[Step] = []
     for n, raw in enumerate(steps[:MAX_STEPS], start=1):
-        got = read_step(n, raw)
+        got = reader(n, raw)
         if isinstance(got, str):
             problems.append(f"step {n}: {got}")
         else:
@@ -175,12 +181,20 @@ def base_name(label: str) -> str:
 
 
 def railed(step: Step) -> str | None:
-    """Why the rails hold this step, or None."""
+    """Why the rails hold this step, or None. A code step is not looked at here: zpkt.app.propose screens it."""
+    if step.op == "track":
+        if step.track.casefold().startswith(monitor_tracks.PREFIX):
+            return (
+                f'a new track cannot be named "{step.track}": "mon ..." names a monitor track, and those are the app\'s'
+            )
+        if live_tracks.is_main(step.track):
+            return f'a new track cannot be named "{step.track}": that names the master track'
+        return None
     if step.track.startswith(monitor_tracks.PREFIX):
         return f'"{step.track}" is a monitor track: the app never changes those'
     if live_tracks.is_main(step.track):
-        if step.op in ("add", "move"):
-            return "no device is added to or moved on Main: its chain is the desk's own"
+        if step.op in ("add", "move", "remove"):
+            return "no device is added to, moved on or removed from Main: its chain is the desk's own"
         if base_name(step.device) in RAILED_ON_MAIN:
             return f'"{step.device}" on Main is one of the desk\'s own devices: the app never changes those'
     return None
@@ -189,7 +203,7 @@ def railed(step: Step) -> str | None:
 # ---- checking against Live ----------------------------------------------------------------------------------------
 
 
-def _resolve(names: list[str], label: str) -> int | None:
+def resolve(names: list[str], label: str) -> int | None:
     """The index a device label names in a chain: the first of that name, or NAME#N the Nth (as state keys do)."""
     found = [k for k, n in enumerate(names) if n == label]
     if found:
@@ -202,7 +216,7 @@ def _resolve(names: list[str], label: str) -> int | None:
     return None
 
 
-def _label(names: list[str], index: int) -> str:
+def label_at(names: list[str], index: int) -> str:
     """The label state keys give the device at `index`: its name, with #N for the Nth of that name."""
     return live_keys.device_label(names[index], names[: index + 1].count(names[index]))
 
@@ -227,14 +241,17 @@ def value_problem(d: Description, to: float) -> str | None:
 
 def check(desk: Desk, steps: list[Step]) -> tuple[list[str], dict[str, Description]]:
     """The problems Live's own names and ranges give, and the descriptions of the values to be set. A few short
-    reads: the chains of the tracks named, the browser for each effect, the values' ranges."""
+    reads: the chains of the tracks named, the browser for each effect, the values' ranges. The steps are walked in
+    order on a picture of the chains, so a step may rely on a device or a track an earlier step makes, and may not
+    name a device an earlier step removes. A code step is passed over: nothing here can say what it will do, so no
+    later step may rely on it."""
     problems: list[str] = []
     live_steps = []
     for s in steps:
         why = railed(s)
         if why:
             problems.append(f"step {s.n} ({s.words}): {why}")
-        else:
+        elif s.op != "code":
             live_steps.append(s)
     with_chain = [s for s in live_steps if s.op != "set" or s.device]
     chains = chain.look(desk.conn, [s.track for s in with_chain])
@@ -242,21 +259,33 @@ def check(desk: Desk, steps: list[Step]) -> tuple[list[str], dict[str, Descripti
     sim: dict[str, list[tuple[str, bool]]] = {
         t: [(n, False) for n in names] for t, names in chains.items() if names is not None
     }
+    made: set[str] = set()  # the tracks this batch makes, once their step has come
     to_describe: list[Step] = []
     for s in live_steps:
 
         def bad(why: str, s: Step = s) -> None:
             problems.append(f"step {s.n} ({s.words}): {why}")
 
+        if s.op == "track":
+            if s.track in sim:
+                bad(f'the set already has a track or return named "{s.track}": a second one could not be told apart')
+            else:
+                sim[s.track] = []
+                made.add(s.track)
+            continue
         if s.op == "set" and not s.device:
-            to_describe.append(s)
+            to = live_keys.send_return(page_layout.key_parts(s.key)["param"])  # a send: the return it goes to
+            if s.track in made or to in made:
+                s.later = True  # on, or to, a track this batch makes: Live cannot say its range yet
+            else:
+                to_describe.append(s)
             continue
         if s.track not in sim:
             bad(f'the set has no track, return or Main named "{s.track}"')
             continue
         line = sim[s.track]
         names = [n for n, _ in line]
-        on_chain = ", ".join(_label(names, k) for k in range(len(names))) or "no devices"
+        on_chain = ", ".join(label_at(names, k) for k in range(len(names))) or "no devices"
         if s.op == "add":
             if not has.get(s.device):
                 bad(f'Live\'s browser has no audio effect called "{s.device}" (give the name as the browser shows it)')
@@ -267,9 +296,11 @@ def check(desk: Desk, steps: list[Step]) -> tuple[list[str], dict[str, Descripti
             else:
                 line.insert(len(line) if s.at is None else s.at, (s.device, True))
             continue
-        index = _resolve(names, s.device)
+        index = resolve(names, s.device)
         if index is None:
             bad(f'"{s.track}" has no device "{s.device}"; it has: {on_chain}')
+        elif s.op == "remove":
+            line.pop(index)
         elif s.op == "move":
             if s.to >= len(line):
                 bad(
@@ -294,8 +325,22 @@ def check(desk: Desk, steps: list[Step]) -> tuple[list[str], dict[str, Descripti
 # ---- running -------------------------------------------------------------------------------------------------------
 
 
-def _set(desk: Desk, entry: dict[str, Any], s: Step, d: Description | None) -> None:
-    if d is None:  # a value on a device this batch added
+@dataclass
+class Batch:
+    """A batch while it runs: its History entry, and what its reply will say."""
+
+    entry: dict[str, Any]
+    added: list[dict[str, Any]] = field(default_factory=list)  # the devices added: {"track", "device", "at"}
+    extra: dict[str, Any] = field(default_factory=dict)  # what another kind of step puts in the reply
+
+
+# How one kind of step is run: it does the step in Live and records it in the batch's entry, or raises StepFailed.
+Runner = Callable[["Desk", Batch, Step], None]
+
+
+def _set(desk: Desk, batch: Batch, s: Step, d: Description | None) -> None:
+    entry = batch.entry
+    if d is None:  # a value on a device or a track this batch made
         found, missing = describe.look(desk.conn, [s.key])
         if s.key in missing:
             raise StepFailed(missing[s.key])
@@ -314,12 +359,13 @@ def _set(desk: Desk, entry: dict[str, Any], s: Step, d: Description | None) -> N
     desk.history.change_value(entry, s.key, before, s.to)
 
 
-def _add(desk: Desk, entry: dict[str, Any], s: Step, added: list[dict[str, Any]]) -> None:
+def _add(desk: Desk, batch: Batch, s: Step) -> None:
+    entry, added = batch.entry, batch.added
     before, after = chain.load_effect(desk.conn, s.track, s.device)
     index = chain.landed(before, after)
     name = after[index]
     desk.history.change_device(entry, {"op": "add", "track": s.track, "device": name, "load": s.device, "at": index})
-    added.append({"track": s.track, "device": _label(after, index), "at": index})
+    added.append({"track": s.track, "device": label_at(after, index), "at": index})
     if s.at is not None and s.at != index:
         now = chain.move(desk.conn, s.track, index, s.at)
         if now != index:
@@ -327,27 +373,31 @@ def _add(desk: Desk, entry: dict[str, Any], s: Step, added: list[dict[str, Any]]
                 entry, {"op": "move", "track": s.track, "device": name, "from": index, "to": now}
             )
             names = chain.names(desk.conn, s.track)
-            added[-1].update(device=_label(names, now), at=now)
+            added[-1].update(device=label_at(names, now), at=now)
         if now != s.at:
             raise StepFailed(f"the device is on the track, but Live put it at index {now}, not {s.at}")
 
 
-def _move_step(desk: Desk, entry: dict[str, Any], s: Step) -> None:
+def _move_step(desk: Desk, batch: Batch, s: Step) -> None:
     names = chain.names(desk.conn, s.track)
-    index = _resolve(names, s.device)
+    index = resolve(names, s.device)
     if index is None:
         raise StepFailed(f'"{s.track}" has no device "{s.device}" any more')
     now = chain.move(desk.conn, s.track, index, int(s.to))
     if now != index:
         desk.history.change_device(
-            entry, {"op": "move", "track": s.track, "device": names[index], "from": index, "to": now}
+            batch.entry, {"op": "move", "track": s.track, "device": names[index], "from": index, "to": now}
         )
     if now != int(s.to):
         raise StepFailed(f"Live put the device at index {now}, not {int(s.to)}")
 
 
+RUNNERS: dict[str, Runner] = {"add": _add, "move": _move_step}
+
+
 def count_words(entry: dict[str, Any]) -> str:
-    """ "3 controls, 1 device": what a batch's entry holds. The page's History row says the same."""
+    """ "3 controls, 1 device": what a batch's entry holds that undo takes back. The page's History row says the
+    same."""
     controls = len(entry.get("moves", []))
     devices = len({(d["track"], d["device"]) for d in entry.get("devices", [])})
     parts = [f"{controls} control{'' if controls == 1 else 's'}"] if controls else []
@@ -355,32 +405,38 @@ def count_words(entry: dict[str, Any]) -> str:
     return ", ".join(parts) or "nothing"
 
 
-def live_change(desk: Desk, cmd: Command) -> Reply:
-    """Check the batch whole, save a version, run the steps in order, answer small."""
-    why, steps, problems = read(cmd.args)
-    found: dict[str, Description] = {}
-    if steps:
-        more, found = check(desk, steps)
-        problems += more
-    if problems:
-        return 400, {
-            "error": "the batch was not run: nothing changed. Fix every problem below and send the whole batch again",
-            "problems": problems,
-        }
+def refused(problems: list[str], what: str = "batch") -> Reply:
+    """The 400 of a batch that did not pass its checks: nothing has changed."""
+    return 400, {
+        "error": f"the {what} was not run: nothing changed. Fix every problem below and send the whole {what} again",
+        "problems": problems,
+    }
+
+
+def run(
+    desk: Desk,
+    cmd: Command,
+    why: str,
+    steps: list[Step],
+    found: dict[str, Description],
+    kind: str = KIND,
+    runners: Mapping[str, Runner] = RUNNERS,
+) -> Reply:
+    """Run a batch that passed its checks: save a version, run the steps in order (each its own short call, by its
+    kind's runner), stop at the first that fails, and answer small. One History entry, whatever was done."""
     todo = any(s.op != "set" or s.later or not same(found[s.key]["now"][1], s.to) for s in steps)
-    entry = desk.history.new_change(cmd.who, why, cmd.group)
-    done, failed, added = 0, None, []  # type: ignore[var-annotated]
+    batch = Batch(desk.history.new_change(cmd.who, why, cmd.group))
+    entry = batch.entry
+    done, failed = 0, None
     if todo:
         desk.monitor.leave_pin()  # a change made while the Pin is heard starts from Now
-        desk.version_before(cmd.group or KIND)
+        desk.version_before(cmd.group or kind)
         for s in steps:
             try:
                 if s.op == "set":
-                    _set(desk, entry, s, None if s.later else found[s.key])
-                elif s.op == "add":
-                    _add(desk, entry, s, added)
+                    _set(desk, batch, s, None if s.later else found[s.key])
                 else:
-                    _move_step(desk, entry, s)
+                    runners[s.op](desk, batch, s)
             except (StepFailed, chain.ChainError, LiveError, OSError) as exc:
                 failed = {"step": s.n, "what": s.words, "why": str(exc)[:300]}
                 break
@@ -397,7 +453,7 @@ def live_change(desk: Desk, cmd: Command) -> Reply:
     asked = {s.key for s in steps[:done] if s.op == "set"}
     now = {k: shown.get(k) or list(m["to"]) for m in entry["moves"] if (k := m["key"]) in asked}
     kept = desk.history.change_done(entry, shown)
-    if entry["devices"]:
+    if entry["devices"] or entry.get("stays"):
         with desk.lock:
             desk.descriptions.clear()  # a chain changed: a kept range may belong to another device now
     desk.history.flush_changes()
@@ -406,10 +462,13 @@ def live_change(desk: Desk, cmd: Command) -> Reply:
     reply: dict[str, Any] = {
         "ok": failed is None,
         "done": done,
-        "undo": f"{why} ({count_words(kept)})" if kept else None,
+        "undo": f"{why} ({count_words(kept)})" if kept and (kept["moves"] or kept["devices"]) else None,
         "now": now,
-        "added": added,
+        "added": batch.added,
+        **batch.extra,
     }
+    if left := left_by(kept):
+        reply["no_undo"] = left
     if failed is None:
         return 200, reply
     reply["error"] = (
@@ -420,6 +479,18 @@ def live_change(desk: Desk, cmd: Command) -> Reply:
     reply["failed"] = failed
     reply["not_done"] = [s.n for s in steps[done:]]
     return FAILED, reply
+
+
+def live_change(desk: Desk, cmd: Command) -> Reply:
+    """Check the batch whole, save a version, run the steps in order, answer small."""
+    why, steps, problems = read(cmd.args)
+    found: dict[str, Description] = {}
+    if steps:
+        more, found = check(desk, steps)
+        problems += more
+    if problems:
+        return refused(problems)
+    return run(desk, cmd, why, steps, found)
 
 
 # ---- undo, redo, going back ----------------------------------------------------------------------------------------

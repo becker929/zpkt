@@ -76,6 +76,30 @@ details.tool pre{margin:0 10px 10px}
 .card b{display:block;margin-bottom:2px}
 .perm-options{display:flex;gap:8px;margin-top:8px;flex-wrap:wrap}
 .perm-options button{min-height:44px;padding:0 16px;border:1.5px solid var(--line);border-radius:8px;background:var(--panel);font-weight:600}
+/* A change that waits for a tap (propose_live): why, each step on one line, two buttons, then what came of it. */
+.card.prop{padding:12px;border-radius:12px;background:var(--panel)}
+.card .prop-why{font-size:16px;line-height:1.25;margin:0 0 8px;overflow-wrap:anywhere}
+.prop-steps{list-style:none;margin:0;padding:0;border-top:1px solid var(--hair)}
+.prop-steps li{display:grid;grid-template-columns:20px minmax(0,1fr) auto;gap:2px 8px;align-items:start;padding:7px 0;border-bottom:1px solid var(--hair)}
+.prop-n{font:12px/20px ui-monospace,Menlo,monospace;color:var(--mute);text-align:right;min-height:20px}
+.prop-n svg{display:block;margin:3px 0 0 auto}
+.prop-text{overflow-wrap:anywhere;line-height:20px}
+.prop-keep{display:inline-flex;align-items:center;gap:4px;font-size:11.5px;line-height:18px;white-space:nowrap;color:var(--mute);border:1px solid var(--mute);border-radius:999px;padding:0 7px 0 5px}
+.prop-keep svg{flex:none}
+.prop-code{grid-column:2 / -1;min-width:0;margin:4px 0 0;max-height:132px;overflow:auto;background:var(--code);border:1px solid var(--hair);border-radius:8px;padding:8px;font:12px/1.45 ui-monospace,Menlo,Consolas,monospace;white-space:pre;-webkit-overflow-scrolling:touch;overscroll-behavior:contain}
+.prop li[data-step="done"] .prop-n{color:var(--ink)}
+.prop li[data-step="failed"] .prop-n,.prop li[data-step="failed"] .prop-text{color:var(--danger)}
+.prop li[data-step="skipped"] .prop-text{color:var(--mute)}
+.prop .perm-options{margin-top:10px;flex-wrap:nowrap}
+.prop .perm-options[hidden],.prop-state[hidden]{display:none}
+.prop .perm-options button{flex:1;min-width:0;display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:48px}
+.prop .perm-options button.do{background:var(--acc);color:var(--acc-ink)}
+.prop .perm-options button:disabled{opacity:.5}
+.prop .perm-options button:active:not(:disabled){transform:translateY(1px)}
+.prop-state{display:flex;align-items:flex-start;gap:8px;margin-top:10px;font-weight:700;line-height:20px}
+.prop-state svg{flex:none;margin-top:1px}
+.prop-state small{display:block;font-weight:400;font-size:13px;color:var(--mute);overflow-wrap:anywhere}
+.prop[data-state="failed"] .prop-state{color:var(--danger)}
 .dots::after{content:"";display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--mute);animation:b 1s infinite}
 @keyframes b{50%{opacity:.2}}
 @media (prefers-reduced-motion:reduce){.dots::after{animation:none}}
@@ -604,9 +628,81 @@ function addFailure(sentence, detail = '') {
   el.querySelector('span').textContent = sentence;
   if (detail) el.querySelector('pre').textContent = detail;
 }
+// A change to Live that waits for a tap (the agent's propose_live): the card says why, then each step on one line
+// in plain words, a code step with its code underneath, and a mark on what undo cannot take back. Two buttons. After
+// the answer the card stays and says what came of it: done, not done, or failed at a step (each step is marked).
+const PROP_ICON = {
+  yes: (n = 18) => `<svg viewBox="0 0 20 20" width="${n}" height="${n}" aria-hidden="true"><path d="M4 10.5l4 4 8-9" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
+  no: (n = 18) => `<svg viewBox="0 0 20 20" width="${n}" height="${n}" aria-hidden="true"><path d="M5 5l10 10M15 5L5 15" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg>`,
+  keep: '<svg viewBox="0 0 24 24" width="13" height="13" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14L4 9l5-5M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/><path d="M4 21L21 4"/></svg>',
+};
+// state -> [icon, what happened, a few words more]. `e` is the app's own word on it (a `proposal` event).
+const PROP_SAYS = {
+  doing: () => ['<span class="dots"></span>', 'Doing it'],
+  done: () => [PROP_ICON.yes(), 'Done'],
+  failed: (e) => [PROP_ICON.no(), `Failed at step ${e.step ?? '?'}`, e.note],
+  declined: () => [PROP_ICON.no(), 'Not done'],
+  unanswered: () => [PROP_ICON.no(), 'Not done', 'No answer in time'],
+  stopped: () => [PROP_ICON.no(), 'Not done', 'Stopped'],
+  refused: (e) => [PROP_ICON.no(), 'Not done', e.note],
+  gone: () => [PROP_ICON.no(), 'Not done', 'No longer waiting'],
+};
+function setProposal(el, state, e = {}) {
+  el.dataset.state = state;
+  el.querySelector('.perm-options').hidden = state !== 'waiting';
+  const st = el.querySelector('.prop-state');
+  st.hidden = state === 'waiting';
+  if (PROP_SAYS[state]) {
+    const [icon, words, more] = PROP_SAYS[state](e);
+    st.innerHTML = `${icon}<span><span class="prop-what"></span>${more ? '<small></small>' : ''}</span>`;
+    st.querySelector('.prop-what').textContent = words;
+    if (more) st.querySelector('small').textContent = more;
+  }
+  const done = +e.done || 0, over = !['waiting', 'doing'].includes(state);
+  for (const li of el.querySelectorAll('.prop-steps li')) {
+    const n = +li.dataset.n;
+    const mark = !over ? '' : state === 'done' || (state === 'failed' && n <= done) ? 'done' : state === 'failed' && n === e.step ? 'failed' : 'skipped';
+    li.dataset.step = mark;
+    li.querySelector('.prop-n').innerHTML = mark === 'done' ? PROP_ICON.yes(14) : mark === 'failed' ? PROP_ICON.no(14) : esc(n);
+  }
+}
+function addProposal(e) {
+  const tool = e.tool || {}, sid = V.id;
+  const el = add(`<div class="card prop" data-perm="${esc(e.id)}" data-state="waiting"><b class="prop-why"></b><ol class="prop-steps"></ol><div class="perm-options"></div><div class="prop-state" role="status" hidden></div></div>`);
+  el.querySelector('.prop-why').textContent = tool.title || 'A change to Live';
+  const list = el.querySelector('.prop-steps');
+  for (const s of Array.isArray(tool.steps) ? tool.steps : []) {
+    const li = document.createElement('li');
+    li.dataset.n = s.n;
+    const code = typeof s.code === 'string';
+    li.innerHTML = `<span class="prop-n">${esc(s.n)}</span><span class="prop-text"></span>${s.no_undo ? `<span class="prop-keep">${PROP_ICON.keep}No undo</span>` : '<span></span>'}${code ? '<pre class="prop-code" tabindex="0"></pre>' : ''}`;
+    li.querySelector('.prop-text').textContent = s.text;
+    if (code) li.querySelector('.prop-code').textContent = s.code;
+    list.append(li);
+  }
+  const box = el.querySelector('.perm-options');
+  for (const o of e.options || []) {
+    const yes = o.id === 'yes';
+    const b = document.createElement('button');
+    b.type = 'button'; b.dataset.option = o.id; b.className = yes ? 'do' : 'dont';
+    b.innerHTML = `${yes ? PROP_ICON.yes() : PROP_ICON.no()}<span></span>`;
+    b.querySelector('span').textContent = o.name || o.id;
+    b.disabled = !!V.readonly;
+    b.onclick = async () => {
+      box.querySelectorAll('button').forEach((x) => { x.disabled = true; });
+      try {
+        const r = await fetch(`${API}/sessions/${sid}/permission`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ id: e.id, option: o.id }) });
+        if (r.status === 409) { if (el.dataset.state === 'waiting') setProposal(el, 'gone'); return; }   // nothing waits for this card any more
+        if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || `HTTP ${r.status}`);
+      } catch (err) { toast(err.message); box.querySelectorAll('button').forEach((x) => { x.disabled = false; }); }
+    };
+    box.append(b);
+  }
+}
 // The agent asks before an edit or a command (Ask first): the choices are buttons; every device sees the question.
 function addPermission(e) {
   const tool = e.tool || {};
+  if (tool.kind === 'propose_live') return addProposal(e);
   const el = add(`<div class="card warn" data-perm="${esc(e.id)}"><b>${esc(tool.title || 'The agent asks to continue')}</b>${(tool.paths || []).length ? `<small>${esc(tool.paths.join(', '))}</small>` : ''}<div class="perm-options"></div></div>`);
   const box = el.querySelector('.perm-options');
   const sid = V.id;
@@ -620,7 +716,13 @@ function addPermission(e) {
 function answerPermission(e) {
   const el = document.querySelector(`[data-perm="${CSS.escape(e.id)}"]`);
   if (!el) return;
+  if (el.classList.contains('prop')) return setProposal(el, e.answered === 'yes' ? 'doing' : e.answered === 'no' ? 'declined' : 'unanswered');
   el.querySelector('.perm-options').textContent = e.answered === 'cancelled' ? 'Cancelled.' : `Answered: ${e.answered}`;
+}
+// What came of a proposal, from the app itself: done, failed at a step, refused, or not done.
+function proposalResult(e) {
+  const el = document.querySelector(`.prop[data-perm="${CSS.escape(e.id)}"]`);
+  if (el) setProposal(el, e.state, e);
 }
 // The app summarised the older turns so the conversation can go on (ask/compaction.py). Nothing is cut from what
 // the reader can scroll back to; this only marks where the agent's own memory starts again.
@@ -679,6 +781,7 @@ function apply(e) {
       break;
     case 'permission': endText(); addPermission(e); break;
     case 'permission_answer': answerPermission(e); break;
+    case 'proposal': proposalResult(e); break;
     default: Work.apply({ type: 'log', text: JSON.stringify(e) }, { replaying: V.replaying });   // an event the page does not know: kept with the CLI log
   }
   if (!V.replaying) { renderHead(); scroll(e.type === 'prompt'); }

@@ -3,12 +3,17 @@
 `ask` puts a `permission` event in the session (so every device shows it), then blocks until `answer` is called with
 one of the offered options, or the run is cancelled, or `timeout_s` passes. The answer is recorded as a
 `permission_answer` event. An optional `notify` is told when a question waits (the phone).
+
+`put` is the same wait and also returns the question's id. The tool gate uses it for a batch that waits for a tap
+(`propose_live`, tools.py): its `tool` is the card ({"kind": "propose_live", "title", "steps"}), it waits a shorter
+time of its own, and the id lets the gate say afterwards what came of it (a `proposal` event for the same card).
 """
 
 from __future__ import annotations
 
 import secrets
 import threading
+import time
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any
@@ -36,6 +41,18 @@ class Permissions:
     def ask(
         self, session: str, tool: dict[str, Any], options: list[dict[str, Any]], cancel: threading.Event
     ) -> str | None:
+        return self.put(session, tool, options, cancel)[1]
+
+    def put(
+        self,
+        session: str,
+        tool: dict[str, Any],
+        options: list[dict[str, Any]],
+        cancel: threading.Event,
+        timeout_s: float | None = None,
+    ) -> tuple[str, str | None]:
+        """Ask, and wait: (the question's id, the option chosen or None). `timeout_s` is this question's own wait
+        (default: the desk's)."""
         pid = secrets.token_hex(6)
         w = Waiting(session, {str(o["id"]) for o in options})
         with self.lock:
@@ -43,11 +60,11 @@ class Permissions:
         self.emit(session, {"type": "permission", "id": pid, "tool": tool, "options": options})
         if self.notify is not None:
             self.notify(str(tool.get("title") or "a tool"), session)
-        end = self.timeout_s
-        while end > 0 and not w.done.wait(0.05) and not cancel.is_set():
-            end -= 0.05
+        ends = time.monotonic() + (self.timeout_s if timeout_s is None else timeout_s)
+        while time.monotonic() < ends and not w.done.wait(0.05) and not cancel.is_set():
+            pass
         self._resolve(pid, None)  # cancelled or timed out; a no-op when it was already answered
-        return w.choice
+        return pid, w.choice
 
     def _resolve(self, pid: str, choice: str | None) -> bool:
         """End a question once: record the answer in the session, then wake the agent."""

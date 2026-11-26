@@ -7,8 +7,10 @@ these checks first:
 - who: it must be one of zpkt.live.changes.WHO.
 - the agent rule: an agent may make pages and may read; a change to Live from an agent needs your word
   (`approval`), except by a command the table lets an agent ask for on its own (`Spec.agent_may`: `live.change`
-  alone, zpkt.app.effects says why). An agent's changes always belong to a group, and the first change of a group
-  makes an automatic version first, so one undo takes the whole group back.
+  alone, zpkt.app.effects says why). Your word reaches the bus one way from an agent: its `propose_live` tool
+  shows you the batch in the chat, and after your tap the Ask gate sends `live.propose` with it
+  (zpkt.app.propose). An agent's changes always belong to a group, and the first change of a group makes an
+  automatic version first, so one undo takes the whole group back.
 - the wrong-set guard: every move is held to a set, and nothing is sent when Live has another open. The desk's moves
   are for the page's set. A job (zpkt.app.jobs) is for the set its caller names (`expect_set`), or else for the set
   the app last saw open. Only opening a set is let through.
@@ -110,8 +112,10 @@ def check_agent(cmd: Command, spec: Spec) -> None:
     if cmd.who == "agent" and spec.effect == "move" and not spec.agent_may and not approved(cmd):
         raise Refused(
             f"An agent cannot change Live with {cmd.kind!r} on its own. To set values, or add, bypass or reorder "
-            f"devices, use the app's change_live tool (the command live.change). To let the user hear an "
-            f"alternative, make a page with the change as a compare state (page.draft) and give them its link."
+            f"devices, use the app's change_live tool (the command live.change). To remove a device, make a track, "
+            f"or change routing or clips with code, use the app's propose_live tool: the user sees the steps in "
+            f"the chat and taps Do it, and only then does the app run them (live.propose). To let the user hear "
+            f"an alternative, make a page with the change as a compare state (page.draft) and give them its link."
         )
 
 

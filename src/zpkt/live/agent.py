@@ -65,9 +65,10 @@ AGENT_ENV = "ZPKT_AGENT"  # set in an agent's shell (the app's Ask sets it for t
 AGENT_NOT_FROM_SHELL = (
     "An agent changes Live only through the zpkt app, never from the shell, so this changed nothing. To set "
     "values, or add, bypass, enable or reorder devices, use the app's `change_live` tool (the app's command "
-    "live.change): all the steps of the request in one call. Anything else (a new track, routing, clips, code in "
-    "Live, saving, a reset) is the user's to do or to allow: say so in one sentence. Commands that only read "
-    "Live still work."
+    "live.change): all the steps of the request in one call. To remove a device, make a track, or change routing "
+    "or clips with code in Live, use the app's `propose_live` tool (live.propose): the user sees the steps in the "
+    "chat and taps Do it, and then the app runs them. Anything else (saving, opening a set, a reset, a render) "
+    "is the user's to do: say so in one sentence. Commands that only read Live still work."
 )
 AGENT_READ_ONLY = AGENT_NOT_FROM_SHELL  # the older name
 
