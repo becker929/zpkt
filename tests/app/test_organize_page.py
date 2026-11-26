@@ -67,6 +67,7 @@ def test_rows_show_the_map_and_reorder_rename_archive_restore_delete(browser, ri
     wait_for(lambda: [u["id"] for u in units(rig)][:2] == [before[1], before[0]])
     pg.wait_for_function(f"document.querySelector('#orows > .orgrow').dataset.uid === {before[1]!r}")
     # and back, by dragging its map up over the row before it
+    pg.wait_for_selector(f'#orows > .orgrow[data-uid="{before[0]}"] .ohandle')  # the list was just redrawn
     handle = pg.locator(f'#orows > .orgrow[data-uid="{before[0]}"] .ohandle').bounding_box()
     target = pg.locator("#orows > .orgrow").nth(0).bounding_box()
     pg.mouse.move(handle["x"] + 10, handle["y"] + 10)

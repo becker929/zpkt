@@ -282,8 +282,9 @@ def test_history_rows_say_the_label_and_the_values_and_grey_what_is_undone(brows
     assert shown(pg, VOL) == now
 
 
-@pytest.mark.skipif(
+@pytest.mark.xfail(
     sys.platform.startswith("linux"),
+    strict=False,
     reason="On GitHub's Linux WebKit the save shows the date stamp, not the typed name (the submit handler sees an "
     "empty field and an empty S.cpDraft), every time, though the test types until both hold the text. It passes on "
     "macOS WebKit. The cause in the submit path is not found yet.",
