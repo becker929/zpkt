@@ -163,6 +163,54 @@ def test_a_monitor_track_that_is_missing_leaves_the_choice_as_it_was(rig):
     assert rig.state()["monitor"]["slot"] == "W"
 
 
+def _reference_file(rig, ref, seconds):
+    wav = rig.desk.settings.viz_dir / f"{ref}.wav"
+    wav.parent.mkdir(parents=True, exist_ok=True)
+    sf.write(str(wav), np.zeros(int(44100 * seconds)), 44100)
+
+
+def test_the_reference_is_switched_to_and_from_on_the_beat_at_its_own_tempo(rig):
+    """Anthony, 26 November 2026: "switch on the beat to C (allowing for mismatched tempos)". C1 is at 155 BPM in a
+    160 BPM set and its cut holds 19 of its own bars (sources.json). Choosing it puts the playhead at the same bar
+    after the drop and the same place in the bar, counted in the reference's bars, and loops those 19 bars; leaving
+    it finds the same bar and place in the mix again and brings the mix's loop back. One call to Live each way."""
+    song, a = rig.live.song, rig.desk.settings.align_beat
+    assert rig.desk.settings.reference_grids["C1"] == (155.0, 19.0)
+    ref_bar = 4.0 * song.tempo / 155.0  # one bar of the reference, in the set's beats
+    _reference_file(rig, "C1", 19 * 4 * 60 / 155.0 + 0.002)
+    rig.command("transport", {"action": "loop", "loop": "drop"})
+    drop = (song.loop_start, song.loop_length)
+    song.current_song_time = a + 3 * 4.0 + 1.5  # the mix: bar 4 of the drop, a beat and a half in
+    assert rig.command("monitor.hear", {"hearing": "ref"})[0] == 200
+    assert song.current_song_time == pytest.approx(a + (3 + 1.5 / 4.0) * ref_bar, abs=1e-6)
+    assert song.loop and song.loop_start == a and song.loop_length == pytest.approx(19 * ref_bar, abs=1e-6)
+    song.current_song_time = a + (7 + 0.25) * ref_bar  # the reference played on: its bar 8, a quarter in
+    assert rig.command("monitor.hear", {"hearing": "now"})[0] == 200
+    assert song.current_song_time == pytest.approx(a + (7 + 0.25) * 4.0, abs=1e-6)
+    assert (song.loop_start, song.loop_length) == drop and rig.state()["loop"] == "drop"
+
+
+def test_a_switch_from_the_build_lands_inside_the_reference(rig):
+    """The reference has no build: a place before the drop is found among its own bars, the place in the bar kept."""
+    song, a = rig.live.song, rig.desk.settings.align_beat
+    ref_bar = 4.0 * song.tempo / 155.0
+    _reference_file(rig, "C1", 19 * 4 * 60 / 155.0 + 0.002)
+    song.current_song_time = 4.0 * 2 + 3.0  # bar 3 of the build, three beats in
+    rig.command("monitor.hear", {"hearing": "ref"})
+    bars = (song.current_song_time - a) / ref_bar
+    assert 0 <= bars < 19 and bars % 1 == pytest.approx(0.75, abs=1e-6)
+
+
+def test_a_reference_at_the_sets_tempo_keeps_its_place(rig):
+    """C2 is at the set's own 160 BPM: on the drop its bars are the mix's, so the playhead does not move."""
+    song, a = rig.live.song, rig.desk.settings.align_beat
+    _reference_file(rig, "C2", 20 * 1.5 + 0.01)
+    rig.command("monitor.choose", {"slot": "W", "ref": "C2"})
+    song.current_song_time = a + 9.25
+    rig.command("monitor.hear", {"hearing": "ref"})
+    assert song.current_song_time == pytest.approx(a + 9.25, abs=1e-6) and song.loop_length == pytest.approx(80.0)
+
+
 def test_play_and_loop_go_through_the_pager(rig):
     assert rig.command("transport", {"action": "play"})[0] == 200 and rig.live.song.is_playing
     assert rig.command("transport", {"action": "loop", "loop": "drop"})[0] == 200 and rig.live.song.loop

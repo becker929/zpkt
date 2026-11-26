@@ -1,5 +1,5 @@
 {
-  "note": "Sources for the desk's A/B/C player. A and B are 60 s renders of the same set (bar 1 = 0 s, build = 0-24 s, drop = 24-60 s at 160 BPM). Refs are the 30 s peak cuts of the four Bandcamp references at -14 LUFS; they line up on the drop (ref 0 s = mix 24 s).",
+  "note": "Sources for the desk's A/B/C player. A and B are 60 s renders of the same set (bar 1 = 0 s, build = 0-24 s, drop = 24-60 s at 160 BPM). Refs are the 30 s peak cuts of the four Bandcamp references at -14 LUFS; they line up on the drop (ref 0 s = mix 24 s). Each ref says its own tempo (bpm) and how many whole bars of its own its cut holds (bars), from a downbeat: the desk loops it over those bars and switches to and from it on the beat.",
   "set": "HW002_121_pp_finish",
   "dir": "~/_agent_scratch/mixdesk/viz",
   "bpm": 160,
@@ -10,9 +10,9 @@
     {"id": "B", "label": "Recipe", "what": "the reference match, as the recipe renders it", "file": "~/_agent_scratch/mixdesk/renders/match.flac"}
   ],
   "refs": [
-    {"id": "C1", "label": "KSMS", "what": "Roses Of Flesh And Blood (canonical)", "file": "~/_agent_scratch/refs/HW002/matched/KSMS - peak30 - -14LUFS.wav"},
-    {"id": "C2", "label": "BSLS", "what": "I Peed On You But You Were Never Mine", "file": "~/_agent_scratch/refs/HW002/matched/BSLS - peak30 - -14LUFS.wav"},
-    {"id": "C3", "label": "Hedon", "what": "DJ JS x RedLotus - Hedon", "file": "~/_agent_scratch/refs/HW002/matched/Hedon - peak30 - -14LUFS.wav"},
-    {"id": "C4", "label": "Patriotic", "what": "Remon Verhoeve - Patriotic", "file": "~/_agent_scratch/refs/HW002/matched/Patriotic - peak30 - -14LUFS.wav"}
+    {"id": "C1", "label": "KSMS", "bpm": 155, "bars": 19, "what": "Roses Of Flesh And Blood (canonical)", "file": "~/_agent_scratch/refs/HW002/matched/KSMS - peak30 - -14LUFS.wav"},
+    {"id": "C2", "label": "BSLS", "bpm": 160, "bars": 20, "what": "I Peed On You But You Were Never Mine", "file": "~/_agent_scratch/refs/HW002/matched/BSLS - peak30 - -14LUFS.wav"},
+    {"id": "C3", "label": "Hedon", "bpm": 158, "bars": 20, "what": "DJ JS x RedLotus - Hedon", "file": "~/_agent_scratch/refs/HW002/matched/Hedon - peak30 - -14LUFS.wav"},
+    {"id": "C4", "label": "Patriotic", "bpm": 155, "bars": 19, "what": "Remon Verhoeve - Patriotic", "file": "~/_agent_scratch/refs/HW002/matched/Patriotic - peak30 - -14LUFS.wav"}
   ]
 }
