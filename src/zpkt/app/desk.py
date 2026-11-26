@@ -22,7 +22,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from zpkt.app import change, deskstate, history, jobs, organize, pages, protocol, surfaces
+from zpkt.app import change, deskstate, history, jobs, organize, pages, propose, protocol, surfaces
 from zpkt.app.bus import Bus, Command, SetGuard
 from zpkt.app.connections import BUSY_WAIT_S, LiveConnections, bind_udp, open_connections
 from zpkt.app.monitor import Monitor
@@ -184,6 +184,7 @@ class Desk:
         bus = Bus(guard=guard, lock=lambda: self.conn.exclusive(wait_s=5.0), version_before=self.version_before)
         register_all(bus, self)
         change.register(bus, self)
+        propose.register(bus, self)
         jobs.register(bus, self.conn, self.descriptions.clear)
         return bus
 
