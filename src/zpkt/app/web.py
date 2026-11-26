@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import json
 import queue
+import re
 import sys
 import threading
 from collections.abc import Callable, Mapping, Sequence
@@ -59,6 +60,16 @@ HERE = mixdesk_dir()  # the desk's own files (the old page, desk.json, sources.j
 MAX_BODY = 16 * 2**20  # the API adapter's cap
 AUDIO_TYPES = {".wav": "audio/wav", ".flac": "audio/flac", ".mp3": "audio/mpeg"}
 SHELL_DIR = Path(__file__).resolve().parent / "static"
+# What every page of the app shares (the tokens, the tab bar, the Listen button): one flat folder, served at /app/shell/.
+SHARED_DIR = SHELL_DIR / "shell"
+SHARED_PREFIX = "/app/shell/"
+SHARED_TYPES = {
+    ".css": "text/css; charset=utf-8",
+    ".js": "text/javascript; charset=utf-8",
+    ".json": "application/json",
+    ".svg": "image/svg+xml",
+}
+SHARED_NAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9_.-]*\Z")
 
 
 def pager_start_code(cfg: dict[str, Any], udp_port: int) -> str:
@@ -349,6 +360,15 @@ class Handler(BaseHTTPRequestHandler):
             return self._send(404, b"not found", "text/plain")
         self._ranged(f, "audio/wav")
 
+    def _shared(self, name: str) -> None:
+        """Serve one file of the shared shell folder. A name is one plain file name of a type in SHARED_TYPES, so no
+        path can climb out of the folder; anything else is 404."""
+        ctype = SHARED_TYPES.get(Path(name).suffix.lower())
+        f = SHARED_DIR / name
+        if ctype is None or not SHARED_NAME.match(name) or not f.is_file() or f.is_symlink():
+            return self._send(404, b"not found", "text/plain")
+        self._send(200, f.read_bytes(), ctype)
+
     def _version_file(self, query: dict[str, str]) -> None:
         """Serve the audio of one Version of an Option (only a file an Option names), with Range."""
         try:
@@ -459,6 +479,8 @@ class Handler(BaseHTTPRequestHandler):
             return self._redirect(FRONT_DOOR)
         if url.path == "/api/options/file":
             return self._version_file(query)
+        if url.path.startswith(SHARED_PREFIX):
+            return self._shared(url.path[len(SHARED_PREFIX) :])
         if url.path.startswith("/media/"):
             return self._media(url.path[len("/media/") :])
         stream = self.STREAMS.get(url.path)

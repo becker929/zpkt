@@ -1,0 +1,47 @@
+/* What every page of the app shares: the tokens, the tab bar, the loading line. Served at /app/shell/shell.css.
+   The look is the chat's: bone and black with one accent (acid lime); a quiet ceramic card, and only the controls are
+   physical. Text on the accent is always --acc-ink. The names are the shell's and the chat's own, so both read them. */
+:root{
+  --bg:#f1eee6;--panel:#fff;--ink:#111;--mute:#6a6963;--line:#111;--hair:#d9d7d0;
+  --acc:#c6f432;--accent:#c6f432;--accd:#8aa31b;--acc-ink:#111;--accbg:#f3fbd0;
+  --pin:#2f6fed;--pind:#1f4fb5;--bad:#b3261e;--danger:#b3261e;
+  /* the card (ceramic) and the physical parts: keys, wells, edges */
+  --c1:#fff;--c2:#f8f7f3;--cl:#d9d7d0;--well:#dcdbd5;--edge:#c9c8c2;--k3:#bcbbb4;
+  --shadow:0 1px 0 #fff inset,0 8px 22px rgba(20,20,10,.08),0 1px 2px rgba(20,20,10,.07);
+  --tabs-h:52px;
+}
+@media (prefers-color-scheme:dark){:root{
+  --bg:#121212;--panel:#1c1c1c;--ink:#f2f2ee;--mute:#9c9b95;--line:#4a4a4a;--hair:#3d3d40;
+  --accd:#8aa31b;--accbg:#2a3310;
+  --pin:#6b9bff;--pind:#3a68d0;--bad:#ff7a70;--danger:#ff7a70;
+  --c1:#2a2a2c;--c2:#222224;--cl:#3d3d40;--well:#3b3c40;--edge:#141416;--k3:#0d0d0f;
+  --shadow:0 1px 0 rgba(255,255,255,.06) inset,0 10px 26px rgba(0,0,0,.45);
+}}
+
+/* ---- the one tab bar: <nav id="tabs" data-current="desk|song|options|ask">, drawn by nav.js ----
+   It sits last in its column on a phone (data-at="bottom") and first from 700 px up (data-at="top"); nav.js sets
+   data-at unless the page set it. Its parent is a flex column. */
+#tabs{display:flex;flex:none;background:var(--panel);border-top:1px solid var(--line);font:500 12px/1 'Helvetica Neue',Helvetica,Arial,sans-serif;user-select:none;-webkit-user-select:none;padding-bottom:env(safe-area-inset-bottom)}
+#tabs[data-at="top"]{order:-1;border-top:0;border-bottom:1px solid var(--line);padding-bottom:0;padding-top:env(safe-area-inset-top);justify-content:center}
+#tabs>a,#tabs>button{flex:1;min-width:44px;height:var(--tabs-h);margin:0;padding:0 6px;border:0;border-radius:0;background:none;font:inherit;color:var(--mute);text-decoration:none;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;white-space:nowrap;-webkit-tap-highlight-color:transparent}
+#tabs[data-at="top"]>a,#tabs[data-at="top"]>button{flex:0 1 160px;font-size:14px}
+#tabs svg{display:block;flex:none}
+#tabs>a:hover,#tabs>button:hover{color:var(--ink)}
+#tabs>a:focus-visible,#tabs>button:focus-visible{outline:2px solid var(--ink);outline-offset:-4px}
+#tabs>.on{color:var(--ink);font-weight:700;box-shadow:inset 0 3px 0 var(--acc)}
+
+/* ---- the loading line: a thin lime line across the top of any positioned box with class "loads" while it also
+   has "is-loading". With "is-pending" too, what is inside [data-stale] dims and takes no touch. ---- */
+.loads{position:relative}
+.loads::before{content:"";position:absolute;z-index:20;top:0;left:0;height:4px;width:40%;background:var(--acc);box-shadow:0 1px 0 var(--accd);transform:translateX(-100%);opacity:0;pointer-events:none}
+.loads.is-loading::before{opacity:1;animation:shell-load 1s linear infinite}
+@keyframes shell-load{to{transform:translateX(250%)}}
+.loads.is-pending [data-stale]{opacity:.45;pointer-events:none;transition:opacity .12s}
+/* a button waiting for its answer (a page being changed) */
+.is-waiting{outline:2px dashed var(--accd);outline-offset:-3px;animation:shell-wait .5s infinite alternate}
+@keyframes shell-wait{to{opacity:.55}}
+@media (prefers-reduced-motion:reduce){
+  .loads.is-loading::before{animation:none;transform:none;width:100%}
+  .is-waiting{animation:none}
+  .loads.is-pending [data-stale]{transition:none}
+}

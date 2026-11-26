@@ -20,7 +20,8 @@ are libraries and never open one.
 | The MiniLab 3 | `--adapters web,midi` | The MiniLab |
 | The `zpkt` command, the booth, the demos | `127.0.0.1:8984`, `/api/v1/` | The API and its clients |
 
-The `/app/` shell links to Ask: the Ask tab on a phone or tablet, the Ask button under Versions on a wide screen.
+Every page has the same tab bar: Desk, Song, Options, Ask. It is at the bottom on a phone and at the top from 700 px
+up. Ask is a tab like the others, at every width.
 
 ## How it fits
 
@@ -72,6 +73,9 @@ port, 8984 (below). `ZPKT_DESK_URL` names the web server (pages, `/app/`), `ZPKT
   were.
 - `/app/` is the new shell: the Hear bar (bar, spectrum from the meter, "N changed", what you hear, Play, Now / Pin /
   Ref, undo, redo, history) and the Desk. It reads the same state through `/events?app=1`.
+- `/app/shell/<file>` serves what every page shares, from `static/shell/`: `shell.css` (the tokens, the tab bar, the
+  loading line), `nav.js` (draws the tab bar) and `listen.js` (the Listen button, when it is there). The folder is
+  flat. Only `.css`, `.js`, `.json` and `.svg` files are served, and only by a plain file name.
 - `POST /api/command` takes any command: `{"kind": "mix.set", "args": {"norms": [["Kick bus/volume", 0.4]]}}`.
   `GET /api/commands` lists them. The old `POST /api/...` paths are these commands under their old names.
 
@@ -82,6 +86,31 @@ separated). Any other `Host` gets 403, reads included. That stops DNS rebinding:
 the proxy's `X-Forwarded-Host` and `X-Forwarded-Proto` (`web.host_allowed`, `web.cross_site`). A write with no `Origin`
 (curl, a script) needs a Bearer token from the app's token store, as on the API, or it gets 401. Programs should use
 the API on 8984. Mounted routes (Ask, the Song) hold their own session tokens.
+
+## The shell: one look, one tab bar, one way to wait
+
+The look is the chat's: bone and black, one lime accent, a quiet ceramic card, and only the controls are physical.
+`shell.css` holds the tokens under the names `app.html` and Ask already used (`--bg`, `--panel`, `--ink`, `--acc` ...).
+A page links it and defines none of them itself.
+
+- **The tab bar.** A page has `<nav id="tabs" data-current="desk|song|options|ask"></nav>` and loads `nav.js` right
+  after it. On `/app/` Desk, Song and Options are buttons (`data-t`) and switch in place; Options is a sheet over the
+  Desk or the Song. On any other page they are links to `/app/#desk`, `/app/#song` and `/app/#options`. Ask is always
+  a link to `/app/ask/`. `window.zpktNav.set(name)` marks the current tab. `nav.js` writes `data-at` (`top` from
+  700 px, else `bottom`) unless the page wrote it; the bar's parent must be a flex column.
+- **Addresses.** `/app/` opens on `#desk`, `#song` or `#options`, and keeps the address in step as I switch.
+  `/app/#page=<id>` opens the Desk on that saved Page. A Page that is saved but not on the desk gets a plain message.
+- **Waiting.** A page change takes about a second: the command waits its turn for Live, the pager swaps what the
+  MiniLab's controls mean, and only then does the `page` event come back. On the tap the button is marked
+  (`is-waiting`), a lime line runs across the top of the desk area (`.loads.is-loading`), and the old controls dim and
+  take no touch (anything with `data-stale` inside `.loads.is-pending`). The `page` event clears it. After 5 s, or when
+  the command is refused, a line says the page did not change, with Retry. The line also runs while the Song is read
+  and while it builds in Live. With reduced motion the line stands still.
+- **Listen.** The Hear bar's bottom row has `<span id="listen"></span>`, and the page loads `/app/shell/listen.js` as
+  a module. A missing file changes nothing.
+
+`tests/app/test_shell_static.py` checks the route; `tests/app/test_shell_nav.py` checks the tabs, the addresses and
+the waiting in WebKit.
 
 ## The API and its clients
 

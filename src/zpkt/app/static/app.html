@@ -2,9 +2,9 @@
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>zpkt</title>
+<link rel="stylesheet" href="/app/shell/shell.css">
 <style>
-:root{--bg:#f1eee6;--panel:#fff;--ink:#111;--mute:#6a6963;--line:#111;--acc:#c6f432;--accd:#8aa31b;--pin:#2f6fed;--pind:#1f4fb5;--bad:#b3261e;--c1:#fff;--c2:#f8f7f3;--cl:#d9d7d0;--well:#dcdbd5;--edge:#c9c8c2;--k3:#bcbbb4}
-@media (prefers-color-scheme:dark){:root{--bg:#121212;--panel:#1c1c1c;--ink:#f2f2ee;--mute:#9c9b95;--line:#4a4a4a;--pin:#6b9bff;--pind:#3a68d0;--bad:#ff7a70;--c1:#2a2a2c;--c2:#222224;--cl:#3d3d40;--well:#3b3c40;--edge:#141416;--k3:#0d0d0f}}
+/* The tokens (--bg, --panel, --ink, --acc ...), the tab bar and the loading line are in /app/shell/shell.css. */
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{height:100%;margin:0;background:var(--bg);color:var(--ink);font:15px/1.4 'Helvetica Neue',Helvetica,Arial,sans-serif;overflow:hidden;user-select:none;-webkit-user-select:none}
 button{font:inherit;color:inherit}
@@ -16,16 +16,18 @@ svg{display:block}
 #htop{order:0}#main{order:1}#hbot{order:2}
 #side{display:none}
 .hear{background:var(--panel);flex:none}
-#htop{border-bottom:1.5px solid var(--line);padding:8px 16px;display:flex;flex-direction:column;gap:6px}
-#hbot{border-top:1.5px solid var(--line);padding:6px 10px;display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:6px 10px}
+#htop{border-bottom:1px solid var(--line);padding:8px 16px;display:flex;flex-direction:column;gap:6px}
+#hkeys{display:contents}
+#listen{display:inline-flex;align-items:center}#listen:empty{display:none}
+#hbot{border-top:1px solid var(--line);padding:6px 10px;display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:6px 10px}
 #hbot .key{min-width:44px;padding:0 8px}
 #hbot .seg .key{padding:0 10px}
 .grp{display:flex;gap:6px;align-items:center}
 .hr{display:flex;align-items:center;gap:8px;min-width:0;flex-wrap:wrap}
 .sp{flex:1}
 .nm{font:600 14px ui-monospace,Menlo,monospace;white-space:nowrap}
-.pill{font:11.5px ui-monospace,Menlo,monospace;border:1px solid var(--line);padding:2px 7px;white-space:nowrap;background:var(--panel)}
-.pill.acc{background:var(--acc);color:#111;border-color:#6d8213}
+.pill{font:11.5px ui-monospace,Menlo,monospace;border:1px solid var(--cl);border-radius:20px;padding:2px 9px;white-space:nowrap;background:var(--panel)}
+.pill.acc{background:var(--acc);color:var(--acc-ink);border-color:var(--accd)}
 .pill.pin{background:var(--pin);color:#fff;border-color:var(--pind)}
 .pill.warn{border-color:var(--bad);color:var(--bad)}
 .tl{height:16px;border-radius:4px;background:var(--well);position:relative;overflow:hidden}
@@ -48,10 +50,6 @@ svg{display:block}
 #desk,#song{flex:1;min-height:0;padding:10px 16px;display:flex;flex-direction:column;gap:8px;overflow:auto}
 #desk[hidden],#song[hidden]{display:none}
 #song>*{flex:none}
-#tabs{display:flex;border-top:1.5px solid var(--line);background:var(--panel);flex:none}
-#tabs button{flex:1;height:48px;background:none;border:0;display:flex;align-items:center;justify-content:center;gap:6px;font-size:12px;color:var(--mute)}
-#tabs a{flex:1;height:48px;display:flex;align-items:center;justify-content:center;gap:6px;font-size:12px;color:var(--mute);text-decoration:none}
-#tabs button.on{color:var(--ink);box-shadow:inset 0 3px 0 var(--acc)}
 .ph2{display:flex;align-items:center;gap:8px;min-height:26px;flex-wrap:wrap}
 .ph2 b{font-size:17px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .tag{font:10.5px ui-monospace,Menlo,monospace;text-transform:uppercase;letter-spacing:.08em;color:var(--mute);white-space:nowrap}
@@ -71,7 +69,7 @@ svg{display:block}
 .dots button.c::after{background:var(--ink);left:9px;width:26px;border-radius:7px}
 #scrim{position:absolute;inset:0;background:rgba(0,0,0,.35);opacity:0;pointer-events:none;transition:opacity .2s;z-index:30}
 #scrim.on{opacity:1;pointer-events:auto}
-.sheet{position:absolute;left:0;right:0;bottom:0;z-index:31;background:var(--panel);border-top:1.5px solid var(--line);border-radius:20px 20px 0 0;padding:10px 16px 18px;transform:translateY(105%);visibility:hidden;transition:transform .28s,visibility 0s .28s;max-height:78%;display:flex;flex-direction:column;gap:8px}
+.sheet{position:absolute;left:0;right:0;bottom:0;z-index:31;background:var(--panel);border-top:1px solid var(--line);border-radius:20px 20px 0 0;padding:10px 16px 18px;transform:translateY(105%);visibility:hidden;transition:transform .28s,visibility 0s .28s;max-height:78%;display:flex;flex-direction:column;gap:8px}
 .sheet.on{transform:none;visibility:visible;transition-delay:0s}
 .sheet h3{margin:0;font-size:17px}
 .hl{display:flex;flex-direction:column;overflow:auto}
@@ -111,7 +109,7 @@ select{font:inherit;color:inherit;background:var(--panel);border:1px solid var(-
 #bubble{position:fixed;z-index:60;pointer-events:none;background:var(--ink);color:var(--bg);font:600 20px ui-monospace,Menlo,monospace;padding:6px 12px;border-radius:12px;opacity:0;white-space:nowrap}
 #bubble.on{opacity:1}
 .pcs{display:flex;flex-direction:column;gap:10px}
-.card{border:1px solid var(--cl);border-radius:16px;padding:8px 10px 10px;background:var(--panel);min-width:0}
+.card{border:1px solid var(--cl);border-radius:18px;padding:8px 10px 10px;background:linear-gradient(var(--c1),var(--c2));box-shadow:var(--shadow);min-width:0}
 .card.t1{background:var(--c2)}
 .card h4{margin:0 0 6px;font:600 11px ui-monospace,Menlo,monospace;text-transform:uppercase;letter-spacing:.08em;color:var(--mute);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .cg{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
@@ -147,7 +145,6 @@ select{font:inherit;color:inherit;background:var(--panel);border:1px solid var(-
 .ml span.s{font:10px ui-monospace,Menlo,monospace;border:1px solid var(--cl);border-radius:6px;padding:2px 3px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;color:var(--mute);min-width:0;height:20px}
 .ml span.s.on{color:var(--ink);background:var(--c2)}
 .ml .hr .key{height:44px;min-width:44px}
-#tabs:has(button:only-child){display:none}
 .legacy{display:flex;flex-direction:column;gap:8px}
 /* The desk as the MiniLab 3 sits on the table (feedback: pages match the controller); folded where 8 columns of 44 px do not fit. */
 #desk{container:desk/inline-size}
@@ -162,23 +159,25 @@ select{font:inherit;color:inherit;background:var(--panel);border:1px solid var(-
 .pl .key{justify-content:flex-start;width:100%;overflow:hidden;text-overflow:ellipsis}
 #side .vg{grid-template-columns:1fr}
 #side>.key{flex:none}
-/* One breakpoint system: phone is one column; tablet (700) puts the Hear bar beside the Desk; desktop (1100) adds Pages and Versions. */
+/* A page change that Live has not confirmed yet: the tapped button waits (.is-waiting, shell.css), the line runs, the old controls dim. */
+.dots button.is-waiting{outline:0}
+.dots button.is-waiting::after{background:var(--acc);box-shadow:0 0 0 1.5px var(--accd)}
+#slow{flex:none;display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:8px 16px;background:var(--panel);border-bottom:1px solid var(--line);font-size:14px}
+#slow[hidden]{display:none}
+#slow span{flex:1;min-width:140px}
+/* One breakpoint system: phone is one column; tablet (700) puts the Hear bar beside the Desk; desktop (1100) adds Pages and Versions. The tab bar is at the bottom on a phone and at the top from 700 px up (nav.js). */
 @media (max-width:380px){#hbot{gap:6px}#hbot .seg .key{padding:0 8px}}
 @media (min-width:700px){
  #cols{display:grid;grid-template-columns:minmax(0,1fr) 320px;grid-template-rows:minmax(0,1fr)}
- #hear{display:flex;flex-direction:column;min-height:0;overflow:auto;border-left:1.5px solid var(--line);background:var(--panel)}
+ #hear{display:flex;flex-direction:column;min-height:0;overflow:auto;border-left:1px solid var(--line);background:var(--panel)}
  #htop,#main,#hbot{order:0}
  #htop{flex:1 0 auto;border-bottom:0}
  #htop .spc:not(.ver){height:auto;min-height:140px;flex:1}
- #tabs{border-top:1.5px solid var(--line)}
 }
 @media (min-width:1100px){
  #cols{grid-template-columns:220px minmax(0,1fr) 320px}
- #side{display:flex;flex-direction:column;gap:8px;min-height:0;overflow:auto;padding:10px 12px;border-right:1.5px solid var(--line);background:var(--panel)}
- #tabs,.dots{display:none}
- #song[hidden]{display:flex}
- #song{flex:none;max-height:240px;border-bottom:1.5px solid var(--line)}
- #song .sketch{display:none}
+ #side{display:flex;flex-direction:column;gap:8px;min-height:0;overflow:auto;padding:10px 12px;border-right:1px solid var(--line);background:var(--panel)}
+ .dots{display:none}
  #htop .spc:not(.ver){min-height:220px}
  .legacy.hw{column-gap:28px}
  .pcs{flex-direction:row;flex-wrap:wrap;align-items:flex-start}.card{flex:1 1 280px;max-width:420px}
@@ -204,10 +203,10 @@ select{font:inherit;color:inherit;background:var(--panel);border:1px solid var(-
  <div id="banner" role="status"></div>
  <div id="cols">
   <aside id="side" aria-label="Pages and Versions"></aside>
-  <div id="main"><div id="song" hidden></div><div id="desk"></div><div id="scrim"></div><div class="sheet" id="sheet"></div><div class="sheet tall" id="psheet"></div></div>
-  <div id="hear"><div class="hear" id="htop"></div><div class="hear" id="hbot"></div></div>
+  <div id="main" class="loads"><div id="slow" role="alert" hidden></div><div id="song" hidden></div><div id="desk"></div><div id="scrim"></div><div class="sheet" id="sheet"></div><div class="sheet tall" id="psheet"></div></div>
+  <div id="hear"><div class="hear" id="htop"></div><div class="hear" id="hbot"><div id="hkeys"></div><span id="listen"></span></div></div>
  </div>
- <div id="tabs"><button class="on" data-t="desk"><svg width="20" height="20"><use href="#i-desk"/></svg>Desk</button><button data-t="song"><svg width="20" height="20"><use href="#i-song"/></svg>Song</button><button id="topts"><svg width="20" height="20"><use href="#i-opts"/></svg>Options</button><a id="task" href="/app/ask/"><svg width="20" height="20"><use href="#i-ask"/></svg>Ask</a></div>
+ <nav id="tabs" data-current="desk"></nav><script src="/app/shell/nav.js"></script>
  <div id="toast" role="status"></div><div id="bubble"></div>
 </div>
 <script>
@@ -217,7 +216,8 @@ const I = n => `<svg width="22" height="22"><use href="#i-${n}"/></svg>`;
 const S = {state: null, desk: null, hear: {hearing: "now", changed: 0, keys: [], match: true, monitor: {slot: "W", ref: "C1"}, pin: "start"},
            hist: {entries: [], can_undo: false, can_redo: false}, meter: null, sheet: false, flash: {},
            options: {options: [], shown: null}, optSel: null, layouts: {}, phonePage: {},
-           tab: "desk", song: {list: [], id: null, view: null, loaded: false, sure: false}, page: null};
+           tab: "desk", song: {list: [], id: null, view: null, loaded: false, sure: false}, page: null,
+           pend: null, busy: 0, want: null};
 let toastTimer = 0;
 
 function toast(msg) { const t = $("#toast"); t.textContent = msg; t.classList.add("on"); clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove("on"), 2200); }
@@ -259,7 +259,7 @@ function versionStrip() {
 function renderBottom() {
   const st = S.state, h = S.hear;
   if (!st) return;
-  $("#hbot").innerHTML = `<div class="grp" role="group" aria-label="Transport"><button class="key ${st.playing ? "on" : ""}" id="kplay" aria-label="Play or stop">${I(st.playing ? "stop" : "play")}</button>
+  $("#hkeys").innerHTML = `<div class="grp" role="group" aria-label="Transport"><button class="key ${st.playing ? "on" : ""}" id="kplay" aria-label="Play or stop">${I(st.playing ? "stop" : "play")}</button>
     <div class="seg" role="group" aria-label="What you hear">
       <button class="key ${h.hearing === "now" ? "on" : ""}" data-hear="now">Now</button>
       <button class="key ${h.hearing === "pin" ? "pin" : ""}" data-hear="pin">Pin</button>
@@ -347,7 +347,7 @@ function mlabHtml(L, entry) {
   for (const sl of hw.slots) by[sl.slot] = names[sl.ref] || "";
   const row = (ids, cls = "") => `<div class="row ${cls}">${ids.map(i => `<span class="s ${by[i] ? "on" : ""}" data-s="${i}">${esc(by[i] || i)}</span>`).join("")}</div>`;
   const tabs = entry.hw.length > 1 ? `<div class="hr"><span class="tag">MiniLab page</span>${entry.hw.map((d, k) => `<button class="key sm ${k === at ? "on" : ""}" data-page="${d}">${k + 1}</button>`).join("")}</div>` : "";
-  return `<div class="ml" id="minilab" aria-label="MiniLab">${tabs}<div class="mlhw">${row(KNOBS, "k")}${row(FADERS, "f")}${row(PADS, "p")}</div></div>`;
+  return `<div class="ml" id="minilab" aria-label="MiniLab">${tabs}<div class="mlhw" data-stale>${row(KNOBS, "k")}${row(FADERS, "f")}${row(PADS, "p")}</div></div>`;
 }
 function renderPageV2(entry, pages, i) {
   const L = S.layouts[entry.page_id];
@@ -360,10 +360,11 @@ function renderPageV2(entry, pages, i) {
   const at = Math.min(S.phonePage[entry.page_id] || 0, L.phone_pages.length - 1);
   const shown = phone ? L.phone_pages[at].map(n => groups[n]) : groups;
   const swipe = phone ? `<div class="hr" id="swipe"><button class="key sm" data-swipe="-1" ${at ? "" : "disabled"} aria-label="Earlier cards">&lsaquo;</button><span class="tag">cards ${at + 1} of ${L.phone_pages.length}</span><button class="key sm" data-swipe="1" ${at < L.phone_pages.length - 1 ? "" : "disabled"} aria-label="More cards">&rsaquo;</button></div>` : "";
-  return head + swipe + `<div class="pcs" id="pcs">${shown.map(g => cardHtml(g, vals)).join("")}</div>` + mlabHtml(L, entry) + dots;
+  return head + swipe + `<div class="pcs" id="pcs" data-stale>${shown.map(g => cardHtml(g, vals)).join("")}</div>` + mlabHtml(L, entry) + dots;
 }
 function esc(t) { return String(t).replace(/[&<>"]/g, ch => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;"}[ch])); }
-function renderDesk() {
+function renderDesk() { drawDesk(); markPending(); }
+function drawDesk() {
   if (!S.state || !S.desk) return;
   const pages = entries(), pg = S.desk.pages;
   const i = Math.min(S.state.page, pg.length - 1);
@@ -376,7 +377,7 @@ function renderDesk() {
   const block = (cls, slots) => `<div class="${cls}">${slots.map(cell).join("")}</div>`;
   $("#desk").innerHTML = `<div class="ph2"><b id="pagename">${esc(entry.name)}</b><span class="tag">page ${pages.indexOf(entry) + 1} of ${pages.length}</span>
     <span class="pill acc" id="mlchip">${S.state.live === "attached" ? "on MiniLab" : "no MiniLab"}</span></div>
-    <div class="legacy hw" aria-label="MiniLab 3 layout">${block("hwk", KNOBS)}${block("hwf", FADERS)}${block("hwp hwp1", PADS.slice(0, 4))}${block("hwp hwp2", PADS.slice(4))}</div>
+    <div class="legacy hw" data-stale aria-label="MiniLab 3 layout">${block("hwk", KNOBS)}${block("hwf", FADERS)}${block("hwp hwp1", PADS.slice(0, 4))}${block("hwp hwp2", PADS.slice(4))}</div>
     <div class="dots" role="group" aria-label="Pages">${pages.map(p => `<button data-page="${p.hw[0]}" class="${p === entry ? "c" : ""}" aria-label="${esc(p.name)}"></button>`).join("")}</div>`;
 }
 function renderOptions() {
@@ -416,14 +417,13 @@ function renderSide() {
   side.innerHTML = `<span class="tag">Pages</span><div class="pl" role="group" aria-label="Pages">${pages.map(p =>
     `<button class="key ${p === cur ? "on" : ""}" data-page="${p.hw[0]}">${esc(p.name)}</button>`).join("")}</div>
     <span class="tag">Versions</span>${sel ? `<div class="vg">${sel.versions.map(v => versionCard(v, sel, shownId)).join("") || '<div class="sketch">No Versions yet.</div>'}</div>` : '<div class="sketch">No Options yet.</div>'}
-    <button class="key sm" id="sopts">Options</button>
-    <a class="key sm" id="sask" href="/app/ask/">Ask</a>`;
+    <button class="key sm" id="sopts">Options</button>`;
 }
 function renderHist() {
   const sh = $("#sheet");
   $("#scrim").classList.toggle("on", !!S.sheet || !!S.page);
   sh.classList.toggle("on", !!S.sheet);
-  $("#topts").classList.toggle("on", S.sheet === "options");
+  navSync();
   if (!S.sheet) return;
   if (S.sheet === "options") return renderOptions();
   const es = S.hist.entries.slice().reverse().slice(0, 12);
@@ -433,7 +433,7 @@ function renderHist() {
   sh.innerHTML = `<h3>History</h3><div class="hl">${es.map(e => `<div class="he"><span class="w2">${when(e.at)}</span><span class="who ${e.who || "you"}">${e.who || "you"}</span><span>${text(e)}</span></div>`).join("") || '<div class="he">No changes yet.</div>'}</div>
     <div class="hr"><button class="key sm ${S.hist.can_undo ? "" : "off"}" id="hundo">${I("undo")}Undo</button><button class="key sm" id="hver">Make a checkpoint</button><button class="key sm" id="hclose">Close</button></div>`;
 }
-function render() { renderHear(); renderDesk(); renderSide(); renderHist(); }
+function render() { renderHear(); renderDesk(); renderSide(); renderHist(); markPending(); }
 
 // ---- touching controls ---------------------------------------------------------------------------------------------
 let drag = null, sendTimer = 0;
@@ -476,12 +476,87 @@ function esc(t) { return String(t).replace(/[&<>"]/g, c => ({"&": "&amp;", "<": 
 function showTab(t) {
   S.tab = t;
   $("#desk").hidden = t !== "desk"; $("#song").hidden = t !== "song";
-  document.querySelectorAll("#tabs button").forEach(b => b.classList.toggle("on", b.dataset.t === t));
-  if (t === "song" && !S.song.loaded) loadSong();
+  navSync();
+  if (t === "song" && !S.song.loaded) { if (!$("#song").innerHTML) $("#song").innerHTML = '<div class="tag" id="songwait">Reading the song…</div>'; loadSong(); }
 }
-async function loadSong(id) {
+// A tab was tapped (nav.js draws them): Desk and Song switch in place, Options is a sheet over either.
+function go(t) {
+  if (t === "options") S.sheet = S.sheet === "options" ? false : "options";
+  else { S.sheet = false; showTab(t); }
+  renderHist();
+}
+// The tab bar and the address say where you are: #desk, #song or #options.
+function navSync() {
+  const at = S.sheet === "options" ? "options" : S.tab;
+  if (window.zpktNav) window.zpktNav.set(at);
+  if (location.hash !== "#" + at && !S.want) history.replaceState(null, "", "#" + at);
+}
+// The address on load, or changed by hand or by a link: #desk, #song, #options, #page=<the id of a saved Page>.
+function route() {
+  const h = decodeURIComponent(location.hash.slice(1));
+  if (h.startsWith("page=")) { S.want = h.slice(5); S.sheet = false; showTab("desk"); wanted(); }
+  else if (h === "options") { S.sheet = "options"; }
+  else if (h === "song" || h === "desk") { S.sheet = false; showTab(h); }
+  renderHist();
+}
+// Open the Desk on the saved Page the address asked for, once the desk and the state are here.
+function wanted() {
+  if (!S.want || !S.desk || !S.state) return;
+  const id = S.want, entry = entries().find(e => e.page_id === id);
+  S.want = null;
+  if (!entry) slowSay("That Page is not on the desk.", null);
+  else if (!entry.hw.includes(S.state.page)) armPage(entry.hw[0]);
+  navSync();
+}
+window.addEventListener("hashchange", route);
+
+// ---- waiting for Live: the loading line, and a page change that is not confirmed yet ------------------------------
+// Changing the page takes about a second: the command waits its turn for Live, the pager in Live swaps what the
+// MiniLab's controls are mapped to, and only then does the "page" event come back. Until it does, show it.
+const WAIT = {page: 5000};  // ms before a page change is called failed
+function busySync() {
+  const m = $("#main");
+  m.classList.toggle("is-loading", S.busy > 0 || !!S.pend);
+  m.classList.toggle("is-pending", !!S.pend);
+  m.setAttribute("aria-busy", S.busy > 0 || !!S.pend ? "true" : "false");
+}
+async function slowly(work) { S.busy++; busySync(); try { return await work(); } finally { S.busy--; busySync(); } }
+function markPending() {
+  const p = S.pend ? String(S.pend.page) : null;
+  document.querySelectorAll("button[data-page]").forEach(b => {
+    const on = p !== null && b.dataset.page === p;
+    b.classList.toggle("is-waiting", on);
+    if (on) b.setAttribute("aria-busy", "true"); else b.removeAttribute("aria-busy");
+  });
+}
+function slowSay(text, retryPage) {
+  const el = $("#slow");
+  el.hidden = !text; if (!text) S.failed = null;
+  el.innerHTML = text ? `<span>${esc(text)}</span>${retryPage === null ? "" : `<button class="key sm" id="slowretry" data-retry="${retryPage}">Retry</button>`}<button class="key sm" id="slowclose">Close</button>` : "";
+}
+function donePending() { if (S.pend) clearTimeout(S.pend.timer); S.pend = null; busySync(); markPending(); }
+function armPage(page) {
+  if (S.pend && S.pend.page === page) return;
+  donePending(); slowSay("", null);
+  if (S.state && S.state.page === page) { command("page.arm", {page}); return; }
+  const mine = S.pend = {page, timer: setTimeout(() => { if (S.pend === mine) pageFailed(page, ""); }, WAIT.page)};
+  busySync(); markPending();
+  command("page.arm", {page}).then(r => { if (!r.ok && S.pend === mine) pageFailed(page, r.body.error || ""); },
+                                   () => { if (S.pend === mine) pageFailed(page, "The app did not answer."); });
+}
+function pageFailed(page, why) {
+  donePending(); S.failed = page;
+  slowSay("The page did not change." + (why ? " " + why : ""), page);
+}
+// The state says which page is on: that is the confirmation.
+function pageConfirmed() {
+  if (S.pend && S.state && S.state.page === S.pend.page) { donePending(); slowSay("", null); }
+  if (S.failed != null && S.state && S.state.page === S.failed) slowSay("", null);  // it came late
+}
+async function loadSong(id) { return slowly(() => readSong(id)); }
+async function readSong(id) {
   const listed = await command("song.list");
-  if (!listed.ok) return;
+  if (!listed.ok) { if (!S.song.loaded) $("#song").innerHTML = '<div class="tag">The song could not be read.</div>'; return; }
   S.song.list = listed.body.arrangements; S.song.loaded = true;
   S.song.id = id || S.song.id || listed.body.canonical;
   const shown = await command("song.show", {id: S.song.id});
@@ -517,7 +592,7 @@ function closeSheet() {
 async function buildSong() {
   if (!S.song.sure) { S.song.sure = true; renderSong(); setTimeout(() => { S.song.sure = false; if (S.tab === "song") renderSong(); }, 4000); return; }
   S.song.sure = false; renderSong(); toast("Building in Live. This takes a while.");
-  const r = await command("song.build", {id: S.song.id});
+  const r = await slowly(() => command("song.build", {id: S.song.id}));
   if (r.ok) toast(`Built ${r.body.channels} channels and ${r.body.clips} clips.`);
 }
 document.addEventListener("change", e => { if (e.target.id === "songsel") loadSong(e.target.value); });
@@ -525,7 +600,9 @@ document.addEventListener("change", e => { if (e.target.id === "songsel") loadSo
 document.addEventListener("click", async e => {
   const t = e.target.closest("button");
   if (!t) return;
-  if (t.dataset.t) return showTab(t.dataset.t);
+  if (t.dataset.t) return go(t.dataset.t);
+  if (t.id === "slowretry") return armPage(+t.dataset.retry);
+  if (t.id === "slowclose") return slowSay("", null);
   if (t.dataset.sheet) return openSheet(t.dataset.sheet);
   if (t.id === "pclose") return closeSheet();
   if (t.id === "songbuild") return buildSong();
@@ -539,7 +616,7 @@ document.addEventListener("click", async e => {
     return renderDesk();
   }
   if (t.dataset.hear) return command("monitor.hear", {hearing: t.dataset.hear});
-  if (t.dataset.page !== undefined) return command("page.arm", {page: +t.dataset.page});
+  if (t.dataset.page !== undefined) return armPage(+t.dataset.page);
   if (t.id === "kplay") return command("transport", {action: S.state.playing ? "pause" : "play"});
   if (t.id === "kmkpin") { const r = await command("monitor.pin"); if (r.ok) toast("Pinned the mix as it is now."); return; }
   if (t.id === "kundo" || t.id === "hundo") return command("history.undo");
@@ -594,23 +671,23 @@ function apply(m) {
   else if (m.t === "page" && S.state) S.state.page = m.page;
   else if (m.t === "mon" && S.state) S.state.monitor = {slot: m.slot, ref: m.ref};
   else if (m.t === "desk") { S.layouts = {}; loadDesk(); return; }
+  pageConfirmed(); wanted();
   S.lockReason = S.state && S.state.live !== "attached" && S.state.live !== "starting" ? `Live: ${S.state.live}` : "";
   if (part === "top") renderTop();
   else if (drag) renderTop();
   else if (part === "desk") renderDesk();
   else render();
 }
-async function loadDesk() { S.desk = await (await fetch("/api/desk")).json(); render(); }
+async function loadDesk() { S.desk = await (await fetch("/api/desk")).json(); wanted(); render(); }
 function connect() {
   const es = new EventSource("/events?app=1");
   es.onmessage = ev => apply(JSON.parse(ev.data));
   es.onerror = () => { S.lockReason = "Lost the connection. Trying again."; renderHear(); };
 }
 loadDesk().then(connect);
-// On a desktop the Song strip is always there; crossing the breakpoint draws the side column and the strip.
-const desktop = window.matchMedia("(min-width:1100px)");
-function onDesktop() { if (desktop.matches && !S.song.loaded) loadSong(); render(); }
-desktop.addEventListener("change", onDesktop);
-if (desktop.matches) loadSong();
-window.zpkt = {S, command};
-</script></body></html>
+// Crossing the desktop breakpoint draws or drops the side column.
+window.matchMedia("(min-width:1100px)").addEventListener("change", render);
+route();
+window.zpkt = {S, command, armPage, wait: WAIT};
+</script>
+<script type="module" src="/app/shell/listen.js"></script></body></html>
