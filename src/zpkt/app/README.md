@@ -277,7 +277,10 @@ pages (`contrib/mixdesk/desk.json`) and a made surface.
   to 20 kHz. While the song plays the page keeps a running mean (in power, about the last 40 meter messages) for
   whichever of A, B and C is heard, so each has a curve once it has been listened to; the one heard now is the
   thick one. Under it a table: each one's level and five bands (Sub, Low, Mid, High, Air), B and C as the difference
-  from A. The curves are kept in the page only: a reload starts them again. With the meter off it shows the one
+  from A. Three keys choose how the one heard now is drawn (`#monmode`, kept as `zpkt.mon`): Live (the newest
+  reading of every band, moved toward at the screen's rate; the meter sends ten readings a second), Smooth (about a
+  second) and Average (about four seconds, each band evened out against its neighbours). The others, and the table,
+  always use the four-second mean. The curves are kept in the page only: a reload starts them again. With the meter off it shows the one
   action that turns it on (`meter.install`).
 - **The reference loops over its own clip.** Hearing C sets Live's loop from the drop for as long as the reference's
   file lasts (its warping is off, so that is its seconds at the set's tempo) and the loop that was on comes back
