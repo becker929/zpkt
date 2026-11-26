@@ -1,4 +1,5 @@
-"""The agent's three tools: they are bus commands tagged `agent`, they reach nothing else, and none moves Live."""
+"""The agent's tools: they are bus commands tagged `agent` and reach nothing else. Three move nothing in Live; the
+fourth, change_live, is the one way an agent changes it (tests/app/test_live_change.py)."""
 
 from __future__ import annotations
 
@@ -22,8 +23,9 @@ def call(asked, tool, args=None, session="s1"):
     return gate.call(session, gate.token(session), tool, args or {})
 
 
-def test_there_are_exactly_three_tools_and_each_is_a_registered_command(asked):
-    assert [t.name for t in TOOLS] == ["make_page", "read_state", "read_measurement"]
+def test_there_are_exactly_four_tools_and_each_is_a_registered_command(asked):
+    assert [t.name for t in TOOLS] == ["make_page", "read_state", "read_measurement", "change_live"]
+    assert {t.name: t.kind for t in TOOLS}["change_live"] == "live.change"
     assert {t.kind for t in TOOLS} <= set(asked.rig.desk.bus.kinds())
     assert not {t.kind for t in TOOLS} & {
         "mix.set",

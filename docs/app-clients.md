@@ -70,11 +70,14 @@ app starts, then the set the app opened (`open_set`), or one a caller named and 
   `app-token-booth`. A request may still say `who`, but only its own name: the cli's token asking as `booth` gets
   403. `you` and `minilab` are never accepted. A token is never logged.
 - The files all belong to you, so this keeps callers apart; it is not a wall against a program that runs as you.
-- An agent may read and make pages. It cannot change Live: a change needs `approval: "user"`, and an agent cannot
-  send that word; it is yours. For a change it suggests, it makes a page with compare states and you press the pad.
+- An agent may read and make pages, and may send one move on its own: `live.change`, a batch of value and device
+  steps that the app checks whole and keeps as one History row (`src/zpkt/app/README.md`, "A batch of changes").
+  Every other change needs `approval: "user"`, and an agent cannot send that word; it is yours. For an alternative
+  to hear, it makes a page with compare states and you press the pad.
 - A coding agent in a terminal runs with `ZPKT_AGENT=1` (Ask sets it for the engines it starts). The `zpkt` command
-  is then `agent`, not `cli`: its changes are refused. Code that only reads still runs, and so does
-  `zpkt page make`.
+  is then `agent`, not `cli`, and a `zpkt live` command that changes Live stops before it starts, with or without
+  `--direct`, and names the app's `change_live` tool. Code that only reads still runs, and so does
+  `zpkt page make`. It is a guard against accidents, not a wall: the variable can be unset.
 - The API listens on `127.0.0.1:8984` (`ZPKT_API_PORT`; the client finds it with `ZPKT_APP_URL`). It turns away any
   other Host name. `ZPKT_APP_URL` names this API only; the pages server on 8985 is `ZPKT_DESK_URL`.
 - The pages server (8985) takes a write from its own pages (same-site Origin) or with a caller's Bearer token. A

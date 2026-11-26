@@ -5,7 +5,8 @@ The class decides the bus's checks (zpkt.app.bus):
 - read: it looks. Nothing changes in Live or on disk.
 - make: it makes or changes pages, files or checkpoints. Live's set stays as it is. An agent may.
 - move: it changes Live (the mix, the tempo, the transport, what is heard, the pager and what the MiniLab's controls
-  do) or runs code or a build there. An agent needs your word, and the wrong-set guard holds it.
+  do) or runs code or a build there. An agent needs your word, and the wrong-set guard holds it. The one move an
+  agent may ask for on its own is in AGENT_MAY, below.
 
 Every module that puts commands on the bus takes the class from here (`register`), so a command without a line in
 this table cannot start. tests/app/test_effects.py writes the whole list out again: a change here is a decision.
@@ -23,6 +24,12 @@ These lines are decisions worth their reason:
 - `meter.install` is a move: it loads a device on Main. It is one history entry, and undo takes the device off.
 - `page.compare` is a move: it writes a compare state's values into the mix. It is the press of a pad, on the screen
   or on the MiniLab. An agent makes the states; it never switches them.
+- `live.change` is a move, and the one move an agent may ask for with no word of yours (AGENT_MAY). Anthony,
+  26 November 2026: the agent may set values and add, bypass, enable and reorder devices on existing tracks itself:
+  act, then undo. The command can do nothing else: no device is removed, no track made, no routing or clip
+  changed, no code run. It checks the whole batch before anything moves (the set's own names and ranges, never a
+  monitor track, never Main's desk devices), saves a version first, and is one History row that one undo takes
+  back. Every other move (`mix.set`, `transport`, `live.run`, ...) still needs your word from an agent.
 """
 
 from __future__ import annotations
@@ -64,6 +71,8 @@ EFFECTS: dict[str, Effect] = {
     "history.back": "move",
     "meter.install": "move",
     "arrangement.read": "read",
+    # a batch of changes, checked whole (zpkt.app.change)
+    "live.change": "move",
     # the jobs (zpkt.app.jobs)
     "live.run": "move",
     "live.read": "read",
@@ -84,6 +93,11 @@ EFFECTS: dict[str, Effect] = {
 }
 
 
+# The moves an agent may ask for on its own. The docstring above has the reason for each; tests/app/test_effects.py
+# writes this set out again.
+AGENT_MAY: frozenset[str] = frozenset({"live.change"})
+
+
 def effect_of(kind: str) -> Effect:
     """The class of a command kind. A kind with no line is an error that says where to add it."""
     try:
@@ -96,4 +110,4 @@ def effect_of(kind: str) -> Effect:
 
 def register(bus: Bus, kind: str, handler: Callable[[Command], Reply], **spec: Any) -> None:
     """Put `handler` on the bus as `kind`, with the class the table gives. `spec` is the rest of the Spec."""
-    bus.register(kind, Spec(handler, effect_of(kind), **spec))
+    bus.register(kind, Spec(handler, effect_of(kind), agent_may=kind in AGENT_MAY, **spec))

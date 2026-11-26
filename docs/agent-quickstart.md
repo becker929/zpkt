@@ -23,9 +23,10 @@ Run them from the repo root with `uv run`.
 
 `zpkt live ping` tests the connection. Reads and `ping` work without the app.
 
-If `ZPKT_AGENT=1` is set, you are an agent: you may read and make pages (`zpkt page make`), and the app refuses
-your changes to Live. To suggest a change, make a page with compare states (`src/zpkt/app/README.md`, Pages,
-Compare): your user presses the pad.
+If `ZPKT_AGENT=1` is set, you are an agent: you may read and make pages (`zpkt page make`), and the `zpkt live`
+commands that change Live refuse you. To change values or devices, send the app one batch (`live.change`, the
+`change_live` tool in Ask: `src/zpkt/app/README.md`, "A batch of changes"). To suggest an alternative to hear, make
+a page with compare states (Pages, Compare): your user presses the pad.
 
 ## Never
 

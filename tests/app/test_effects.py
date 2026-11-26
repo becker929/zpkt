@@ -34,6 +34,7 @@ MOVES = {
     "history.redo",
     "history.revert",
     "history.undo",
+    "live.change",
     "live.open_set",
     "live.render_loop",
     "live.run",
@@ -59,6 +60,20 @@ MOVES = {
     "tempo.set",
     "transport",
 }
+
+
+# The moves an agent may ask for with no word of the user's. One, by Anthony's decision of 26 November 2026: a batch
+# of value and device steps, checked whole, undone as one (zpkt.app.change). Adding a kind here is a decision.
+AGENT_MAY = {"live.change"}
+
+
+def test_an_agent_may_make_exactly_these_moves_on_its_own(asked):
+    assert effects.AGENT_MAY == AGENT_MAY and AGENT_MAY <= MOVES
+    table = asked.rig.desk.bus.table
+    assert {kind for kind, spec in table.items() if spec.agent_may} == AGENT_MAY
+    for kind in sorted(MOVES - AGENT_MAY):
+        code, body = asked.rig.desk.bus.submit(Command(kind, "agent", {}))
+        assert code == 403 and "cannot change Live" in body["error"], kind
 
 
 def test_the_table_is_exactly_this_list():

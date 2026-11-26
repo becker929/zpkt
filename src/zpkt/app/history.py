@@ -26,6 +26,14 @@ zpkt.live.changes.WHO) and an optional "group": moves made together by one ask s
 undo as one. Every settled entry also goes to the set's change stream (zpkt.live.changes.Stream) as one Change per
 control, with the entry's group (or "gesture-<id>"), so "what did the agent touch" reads one file.
 
+A batch of changes made as one ask (the command `live.change`, zpkt.app.change) is one entry of kind "change". It
+holds the ask's words ("why"), its value moves ("moves", as any entry) and its device steps ("devices", in the order
+they ran): {"op": "add", "track", "device", "at"} for a device put on a track, {"op": "move", "track", "device",
+"from", "to"} for one moved along its chain. Undo writes the values back, then takes the device steps back last one
+first (an added device is deleted, a moved one goes back to its index); redo runs the device steps again, then
+writes the values. The history only keeps the steps: zpkt.app.change runs them in Live. Going back to before such an
+entry (`back`) carries the device steps turned round ("remove" is an add taken back), so it too undoes as one.
+
 The history is shared by the UDP thread, the web threads and the supervisor, so every method takes its one lock,
 including the label table it shares with the desk.
 """
@@ -72,6 +80,18 @@ def group_of(entry: dict[str, Any]) -> str:
 def who_of(entry: dict[str, Any]) -> str:
     """Who made a history entry; an entry from before the field was "you"."""
     return str(entry.get("who", protocol.DEFAULT_WHO))
+
+
+def turned(steps: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Device steps turned round: what takes `steps` back, last one first. An add becomes a remove (and back), a
+    move goes the other way."""
+    out = []
+    for s in reversed(steps):
+        if s["op"] == "move":
+            out.append({**s, "from": s["to"], "to": s["from"]})
+        else:
+            out.append({**s, "op": "remove" if s["op"] == "add" else "add"})
+    return out
 
 
 def same(a: Any, b: Any) -> bool:
@@ -351,6 +371,66 @@ class History:
             self._save()
             return entry
 
+    # ---- a batch of changes: values and device steps as one entry ------------------------------------------------
+    def new_change(self, who: protocol.Who | str, why: str, group: str | None = None) -> dict[str, Any]:
+        """An entry for a batch, not yet in the history: it goes in with its first value or device step, so a
+        batch that changes nothing leaves no row."""
+        if who not in live_changes.WHO:
+            raise ValueError(f"who is one of {', '.join(live_changes.WHO)}, not {who!r}")
+        entry: dict[str, Any] = {"k": "change", "why": why, "moves": [], "devices": [], "who": who}
+        if group:
+            entry["group"] = group
+        return entry
+
+    def _in(self, entry: dict[str, Any]) -> None:
+        if "id" not in entry:
+            self._push(entry)
+        entry["at"] = self.clock()
+
+    def change_value(self, entry: dict[str, Any], key: str, before: list[Any], raw: Any) -> None:
+        """The batch wrote `raw` to `key`, which Live had at `before` ([shown, raw]). The caller said so first
+        (`expect_writes`), so the value that comes back from Live is not a new move."""
+        with self.lock:
+            self._in(entry)
+            mine = next((m for m in entry["moves"] if m["key"] == key), None)
+            if mine is None:
+                entry["moves"].append(
+                    {"key": key, "label": self.labels.get(key, key), "from": list(before), "to": [str(raw), raw]}
+                )
+            else:
+                mine["to"] = [str(raw), raw]
+            self.cur[key] = [str(raw), raw]
+            self._save()
+
+    def change_device(self, entry: dict[str, Any], step: dict[str, Any]) -> None:
+        """A device step of the batch that Live has done."""
+        with self.lock:
+            self._in(entry)
+            entry["devices"].append(dict(step))
+            self._save()
+
+    def change_done(self, entry: dict[str, Any], shown: dict[str, list[Any]]) -> dict[str, Any] | None:
+        """The batch has ended (all of it, or up to a step that failed). `shown` is what Live shows now for the
+        keys it wrote ({key: [shown, raw]}). A value that ended where it began is no move; a batch that moved
+        nothing is no entry (None)."""
+        with self.lock:
+            for m in entry["moves"]:
+                if m["key"] in shown:
+                    m["to"] = list(shown[m["key"]])
+                    self.cur[m["key"]] = list(m["to"])
+            entry["moves"] = [m for m in entry["moves"] if not same(m["from"][1], m["to"][1])]
+            if "id" not in entry:
+                return None
+            if not entry["moves"] and not entry["devices"]:
+                if entry in self.entries:
+                    at = self.entries.index(entry)
+                    del self.entries[at]
+                    self.pos -= at < self.pos
+                self._save()
+                return None
+            self._save()
+            return entry
+
     def value(self, key: str) -> list[Any] | None:
         """[shown, raw] of a control as the desk last saw it."""
         with self.lock:
@@ -549,12 +629,20 @@ class History:
                 for k, v in target.items()
                 if k in self.cur and not same(self.cur[k][1], v[1])
             ]
-            if not moves:
+            steps = [s for e in self.entries[at : self.pos] for s in e.get("devices", [])]
+            if not moves and not steps:
                 return [], None
             first = self.entries[at]
-            named = first.get("compare", {}).get("name") or (first["moves"][0]["label"] if first["moves"] else "")
+            named = (
+                first.get("compare", {}).get("name")
+                or first.get("why")
+                or (first["moves"][0]["label"] if first["moves"] else "")
+            )
             what = {"id": entry_id, "label": named, "key": first["moves"][0]["key"] if first["moves"] else ""}
-            return self._go({"k": "revert", "before": what, "moves": moves, "who": who})
+            entry: dict[str, Any] = {"k": "revert", "before": what, "moves": moves, "who": who}
+            if steps:
+                entry["devices"] = turned(steps)
+            return self._go(entry)
 
     # ---- what "changed" counts from --------------------------------------------------------------------------------
     def _rebase(self, name: str) -> None:

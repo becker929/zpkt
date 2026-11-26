@@ -1,6 +1,6 @@
 """The tools as an MCP server on stdio: `python -m zpkt.app.ask.mcp`.
 
-Claude Code and Gemini CLI start it for a session. It lists the three tools of tools.py and sends each call to the app
+Claude Code and Gemini CLI start it for a session. It lists the four tools of tools.py and sends each call to the app
 (`POST /app/ask/api/tool`) with the session's id and token, which come in the environment: ZPKT_DESK_URL,
 ZPKT_APP_SESSION, ZPKT_APP_TOKEN. It holds no Live connection and imports nothing from zpkt.live: it is a client of
 the app, like any other.

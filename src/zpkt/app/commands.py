@@ -14,8 +14,8 @@ import time
 from collections.abc import Callable
 from typing import TYPE_CHECKING, Any
 
+from zpkt.app import change, effects, history, monitor, pages, surfaces
 from zpkt.app import deskstate as D
-from zpkt.app import effects, monitor, pages, surfaces
 from zpkt.app.bus import OK, BadRequest, Bus, Command, Reply
 from zpkt.live import describe, tempo
 from zpkt.live import page as P
@@ -360,10 +360,14 @@ def surface_remove(desk: Desk, cmd: Command) -> Reply:
 def _step(desk: Desk, cmd: Command, undo: bool) -> Reply:
     desk.monitor.leave_pin()
     pairs, e = desk.history.undo(cmd.who) if undo else desk.history.redo(cmd.who)
-    missing = desk.write(pairs)
+    steps = (e or {}).get("devices") or []  # a batch's device steps (zpkt.app.change): undo takes them back
+    missing, notes = change.replay(desk, pairs, history.turned(steps) if undo else steps)
     desk.push(desk.history.view())
     desk.push_app(desk.monitor.message())
-    return 200, {"ok": True, "entry": e and e["id"], "missing": missing}
+    reply: dict[str, Any] = {"ok": True, "entry": e and e["id"], "missing": missing}
+    if notes:
+        reply["notes"] = notes
+    return 200, reply
 
 
 def history_undo(desk: Desk, cmd: Command) -> Reply:
@@ -414,12 +418,13 @@ def history_revert(desk: Desk, cmd: Command) -> Reply:
     return _gone_back(desk, pairs)
 
 
-def _gone_back(desk: Desk, pairs: list[list[Any]]) -> Reply:
+def _gone_back(desk: Desk, pairs: list[list[Any]], entry: dict[str, Any] | None = None) -> Reply:
     """Write a going-back step. The page is told where the controls go before Live is asked, so it shows them at
-    once (as it does for a control it moves itself) and Live's reports then confirm them."""
+    once (as it does for a control it moves itself) and Live's reports then confirm them. Going back past a batch
+    that added or moved devices takes those steps back too (the entry's "devices")."""
     going = [[key, desk.place_of(key, raw), (desk.history.value(key) or [""])[0]] for key, raw in pairs]
     desk.push_app({"t": "own", "values": [g for g in going if g[1] is not None]})
-    missing = desk.write(pairs)
+    missing, _ = change.replay(desk, pairs, (entry or {}).get("devices") or [])
     desk.push(desk.history.view())
     desk.push_app(desk.monitor.message())
     return 200, {"ok": True, "moved": len(pairs), "missing": missing}
@@ -430,10 +435,10 @@ def history_back(desk: Desk, cmd: Command) -> Reply:
     back together, as one new step, so one undo reverses it."""
     desk.monitor.leave_pin()
     try:
-        pairs, _ = desk.history.back(_int(cmd.args, "entry"), cmd.who)
+        pairs, entry = desk.history.back(_int(cmd.args, "entry"), cmd.who)
     except KeyError:
         return 409, {"error": "That step is not in effect any more."}
-    return _gone_back(desk, pairs)
+    return _gone_back(desk, pairs, entry)
 
 
 # ---- the song in Live -----------------------------------------------------------------------------------------------

@@ -37,10 +37,11 @@ export function toolLine(name, params = {}) {
     case 'fetch': return `fetched ${first(p.url || p.prompt, 50)}`;
     default: {
       // The app's own tools, in the person's words rather than by their ids (propose_option: only in older chats).
-      const app = String(name || '').match(/(?:^|[^a-z])(make_page|read_state|read_measurement|propose_option)(?![a-z_])/i)?.[1].toLowerCase();
+      const app = String(name || '').match(/(?:^|[^a-z])(make_page|read_state|read_measurement|change_live|propose_option)(?![a-z_])/i)?.[1].toLowerCase();
       if (app === 'make_page') { const t = p.spec?.title || p.page?.title || p.title; return `${p.spec?.id ? 'changed' : 'made'} a surface${typeof t === 'string' && t ? ': ' + first(t, 50) : ''}`; }
       if (app === 'read_state') return 'looked at the desk';
       if (app === 'read_measurement') return 'read the last measurement';
+      if (app === 'change_live') return `changed Live${typeof p.why === 'string' && p.why ? ': ' + first(p.why, 50) : ''}`;
       if (app === 'propose_option') return `made a suggestion${typeof p.title === 'string' && p.title ? ': ' + first(p.title, 50) : ''}`;
       const v = ['command', 'file_path', 'path', 'pattern', 'url', 'query', 'prompt'].map((k) => p[k]).find((x) => typeof x === 'string')
         ?? Object.values(p).find((x) => typeof x === 'string');
