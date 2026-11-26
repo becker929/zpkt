@@ -8,7 +8,7 @@ from __future__ import annotations
 import pytest
 
 from tests.app.test_page_shell import big_spec, open_page
-from tests.app.test_song import MIX_SET, song_rig  # noqa: F401  (fixture)
+from tests.app.test_song import song_rig  # noqa: F401  (fixture)
 
 playwright_sync = pytest.importorskip("playwright.sync_api")
 
@@ -178,12 +178,9 @@ def many_lanes(song_rig, count: int) -> None:  # noqa: F811
 
 
 @pytest.mark.parametrize(("width", "height"), SIZES)
-@pytest.mark.parametrize("front", ["HW002_121_pp_finish", MIX_SET])
-def test_the_song_never_scrolls_and_its_lanes_fit_or_are_paged(browser, song_rig, width, height, front):  # noqa: F811
+def test_the_song_never_scrolls_and_its_lanes_fit_or_are_paged(browser, song_rig, width, height):  # noqa: F811
     rig = song_rig.rig
     many_lanes(song_rig, 30)
-    rig.live.song.file_path = f"/Sets/{front} Project/{front}.als"  # another set in front shows the two sets: taller
-    rig.desk.restart_pager()
     pg = browser.new_page(viewport={"width": width, "height": height})
     pg.goto(rig.url + "/app/#song")
     pg.wait_for_selector("#lanes .lane")
@@ -196,10 +193,7 @@ def test_the_song_never_scrolls_and_its_lanes_fit_or_are_paged(browser, song_rig
     main = pg.locator("#main").bounding_box()
     paged = pg.locator("#lanepgs").is_visible()
     parts = [
-        "#songsel",
         "#ruler",
-        "#song .acts >> nth=0",
-        "#song .acts >> nth=1",
         "#tabs",
         *(["#lanepgs"] if paged else []),
     ]
@@ -212,7 +206,7 @@ def test_the_song_never_scrolls_and_its_lanes_fit_or_are_paged(browser, song_rig
     total = pg.locator("#lanes .lane").count()
     assert all(b["height"] >= 13.5 for b in [shown.nth(i).bounding_box() for i in range(shown.count())])  # whole lanes
     if not paged:  # a tall screen holds them all
-        assert height >= 1000 and shown.count() == total
+        assert height >= 800 and shown.count() == total
     else:  # a part of the lanes, the ruler over every part
         assert 1 <= shown.count() < total
         last, box = shown.nth(shown.count() - 1).bounding_box(), pg.locator("#lanepgs").bounding_box()

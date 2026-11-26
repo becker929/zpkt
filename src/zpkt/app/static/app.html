@@ -58,7 +58,6 @@ svg{display:block}
 #chgbase:empty{display:none}
 #looppill{display:inline-flex;align-items:center;gap:4px}
 #specbox,#loopbox,#livebox,#tlloop,#tlparts{display:contents}
-#awaybox[hidden]{display:none}
 .tl{height:16px;border-radius:4px;background:var(--well);position:relative;overflow:hidden}
 .tl .ph{position:absolute;top:0;bottom:0;width:2px;background:var(--ink)}
 .tl .part{position:absolute;top:0;bottom:0;box-shadow:inset 2px 0 0 var(--k3)}
@@ -87,15 +86,7 @@ svg{display:block}
    that are shown a part at a time (fitSong). */
 #song{overflow:hidden}
 #song>#lanes{flex:1 1 auto;min-height:60px;overflow:hidden}
-#song .shd{display:flex;align-items:center;gap:8px;min-width:0}
-#song .shd b{font-size:17px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:0 1 auto;min-width:0}
-#song .shd select{flex:1 1 140px;min-width:0}
-#song .shd .tag{flex:none}
-#song .acts{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
-#song .acts .key{height:44px;font-size:13px;padding:0 10px;min-width:44px;flex:0 1 auto}
-#song .acts .key>span{overflow:hidden;text-overflow:ellipsis}
-#songlive,#songlive .btns{display:contents}
-@media (max-width:699px){#songname{display:none}#song{padding:8px 12px;gap:6px}}
+@media (max-width:699px){#song{padding:8px 12px;gap:6px}}
 #desk[hidden],#song[hidden]{display:none}
 #song>*{flex:none}
 .ph2{display:flex;align-items:center;gap:8px;min-height:26px;flex-wrap:wrap}
@@ -167,14 +158,7 @@ svg{display:block}
 .lvl .ln{font:11.5px ui-monospace,Menlo,monospace;flex:none;min-width:76px;text-align:right;white-space:nowrap}
 .lvl:not([data-state="on"]) .lb{background:repeating-linear-gradient(135deg,var(--well) 0 4px,transparent 4px 8px)}
 .lvl:not([data-state="on"]) .ln{color:var(--mute)}
-/* the Song's buttons by what they touch; the confirm that shows what a build replaces */
 .bgrp{display:flex;flex-direction:column;gap:4px}
-.swap{display:flex;align-items:stretch;gap:8px;flex-wrap:wrap}
-.swap>div{flex:1;min-width:130px;border:1px solid var(--cl);border-radius:12px;padding:8px 10px;background:var(--c2);display:flex;flex-direction:column;gap:2px;font-size:13px;overflow-wrap:anywhere}
-.swap>div b{font-size:15px}
-.swap .gone{border-color:var(--bad)}.swap .gone b{text-decoration:line-through;text-decoration-color:var(--bad)}
-.swap>.arr{flex:none;min-width:0;border:0;background:none;padding:0;justify-content:center}
-.key.danger{background:var(--bad);border-color:var(--bad);color:var(--bg);box-shadow:0 2px 0 var(--edge)}
 .he .w2{font:11px ui-monospace,Menlo,monospace;color:var(--mute);width:56px;flex:none}
 .he .who{font:10.5px ui-monospace,Menlo,monospace;border:1px solid var(--line);padding:1px 5px;flex:none}
 .he .who.agent{background:var(--acc);color:#111}
@@ -186,9 +170,6 @@ svg{display:block}
 .lane .tr{flex:1;min-width:0;border-radius:6px;background:var(--well);position:relative;overflow:hidden}
 .lane .tr i{position:absolute;top:2px;bottom:2px;background:var(--ink);opacity:.85;border-radius:3px}
 .lane .tr b{position:absolute;top:0;bottom:0;width:2px;background:var(--pin)}
-.sketch{font-size:12px;color:var(--mute);padding:6px 0}
-.sketch b{color:var(--ink)}
-.bdg{font:10px ui-monospace,Menlo,monospace;font-style:normal;text-transform:uppercase;letter-spacing:.06em;border:1px dashed var(--mute);border-radius:10px;padding:1px 6px;color:var(--mute)}
 /* the bar ruler over the lanes: bar numbers, the sections, the loop, and Live's playhead through ruler and lanes */
 #lanes{position:relative;display:flex;flex-direction:column;gap:3px;--lnw:72px}
 .ruler{display:flex;align-items:stretch;gap:8px;min-width:0;flex:none}
@@ -201,13 +182,7 @@ svg{display:block}
 .ruler .rt .lp{position:absolute;top:24px;height:8px;border-radius:2px;background:var(--acc);border:1px solid var(--accd);box-sizing:border-box}
 #songhead{position:absolute;top:0;bottom:0;width:2px;margin-left:-1px;background:var(--pin);pointer-events:none;z-index:2}
 #songhead[hidden]{display:none}
-.sets{display:flex;gap:8px;flex-wrap:nowrap;min-width:0}
-.sets>div{flex:0 1 auto;border:1px solid var(--cl);border-radius:12px;padding:4px 10px;background:var(--c2);display:flex;flex-direction:column;gap:1px;font-size:12px;min-width:0;overflow:hidden}
-.sets>div b{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.sets>div.need{border-style:dashed}
 .key:disabled{opacity:.4;cursor:default}
-.sheet.tall{height:94%;max-height:94%}
-.sheet.tall iframe{flex:1;min-height:0;width:100%;border:1px solid var(--cl);border-radius:12px;background:#0e0f11}
 .btns{display:flex;gap:8px;flex-wrap:wrap}
 select{font:inherit;color:inherit;background:var(--panel);border:1px solid var(--line);border-radius:8px;height:44px;max-width:100%}
 #toast{position:absolute;left:50%;top:150px;transform:translate(-50%,-10px);background:var(--ink);color:var(--bg);padding:8px 14px;border-radius:12px;font-size:13px;z-index:50;opacity:0;transition:all .2s;pointer-events:none;max-width:92%}
@@ -284,7 +259,7 @@ select{font:inherit;color:inherit;background:var(--panel);border:1px solid var(-
  <div id="lock" role="alert"></div>
  <div id="cols">
   <aside id="side" aria-label="Pages"></aside>
-  <div id="main" class="loads"><div id="slow" role="alert" hidden></div><div id="song" hidden></div><div id="desk"><div id="deskhead"></div><div id="mlnums"></div><div id="panelbox"></div><div id="deskdots"></div></div><div id="ask" hidden></div><div id="scrim"></div><div class="sheet" id="sheet"></div><div class="sheet tall" id="psheet"></div></div>
+  <div id="main" class="loads"><div id="slow" role="alert" hidden></div><div id="song" hidden></div><div id="desk"><div id="deskhead"></div><div id="mlnums"></div><div id="panelbox"></div><div id="deskdots"></div></div><div id="ask" hidden></div><div id="scrim"></div><div class="sheet" id="sheet"></div></div>
   <div id="hear"><div class="hear" id="htop"></div><section id="histdock" aria-label="History"></section><div class="hear" id="hbot"><div id="hkeys"></div><span id="listen"></span></div></div>
  </div>
  <nav id="tabs" data-current="desk"></nav><script src="/app/shell/nav.js"></script>
@@ -360,7 +335,7 @@ function specMode() {
 function renderTop() {
   const st = S.state, top = $("#htop");
   if (!st) return;
-  if (!$("#ident")) top.innerHTML = `<div class="hr" id="ident"></div><div class="hr" id="awaybox" hidden></div>
+  if (!$("#ident")) top.innerHTML = `<div class="hr" id="ident"></div>
     <div class="hr"><span class="nm" id="barno"></span><span id="loopbox"></span><span id="livebox"></span>
     <button class="ptap" id="chgpill" aria-label="History"><span class="pill" id="chgbox"><span id="chgn"></span><span id="chgbase"></span></span></button></div>
     <div class="tl" id="strip" role="img" aria-label="The song, its loop and the playhead"><span id="tlparts"></span><span id="tlloop"></span><div class="ph"></div></div>
@@ -369,10 +344,7 @@ function renderTop() {
   const sg = songOf();
   const facts = [sg.tempo ? `${+(+sg.tempo).toFixed(2)} BPM` : "", sg.sig ? `${sg.sig[0]}/${sg.sig[1]}` : ""].filter(Boolean).join(" · ");
   const live = liveOk(), lb = loopBars(), mode = specMode();
-  const away = !!st.desk_set && !!st.open_set && st.open_set !== st.desk_set;  // Live has another set in front than the desk's
   setHtml($("#ident"), `<b id="setname" title="The set open in Live">${esc(sg.name || "")}</b><span class="idf" id="songfacts">${facts}</span>`);
-  $("#awaybox").hidden = !away;
-  setHtml($("#awaybox"), away ? `<button class="key sm" id="opendesk" data-open="${esc(st.desk_set)}" aria-haspopup="dialog">Open ${esc(st.desk_set)}…</button>` : "");
   setHtml($("#loopbox"), !st.loop || st.loop === "off" ? "" : `<span class="pill" id="looppill" title="${esc(st.loop === "on" ? "loop" : st.loop)}" aria-label="Loop${lb ? `, bars ${lb[0]} to ${lb[1]}` : ""}${st.loop === "on" ? "" : ": " + esc(st.loop)}"><svg width="13" height="13"><use href="#i-loop"/></svg>${lb ? `${lb[0]}–${lb[1]}` : esc(st.loop === "on" ? "" : st.loop)}</span>`);
   setHtml($("#livebox"), `<span class="pill ${live ? "" : "warn"}" id="livepill">${live ? "Live" : esc(st.live)}</span>`);
   // the strip under the facts: the song's whole length, the spans that can loop, the one that does, the playhead
@@ -929,15 +901,10 @@ function renderSide() {
 function renderHist() {
   const sh = $("#sheet"), dock = $("#histdock"), docked = wide();
   if (docked && S.sheet === "hist") S.sheet = false;
-  const modal = (!!S.sheet && S.sheet !== "hist") || !!S.page;
-  $("#scrim").classList.toggle("on", modal);
+  $("#scrim").classList.remove("on");  // History's sheet takes no touch from the page; no other sheet is left
   sh.classList.toggle("on", !!S.sheet);
   navSync();
   sh.classList.toggle("hist", S.sheet === "hist");
-  if (S.sheet === "build" || S.sheet === "open") {
-    if (setHtml(dock, docked ? histHtml(true) : "")) fitHist();
-    return S.sheet === "build" ? renderBuild() : renderOpen();
-  }
   const host = docked ? dock : S.sheet === "hist" ? sh : null, other = docked ? sh : dock;
   if (other.querySelector("#hrows")) setHtml(other, "");
   if (!host) return;
@@ -1068,35 +1035,7 @@ async function goBefore(id) {
   S.histSel = null;
   return slowly(() => command("history.back", {entry: id}));
 }
-// The confirm for a build: what leaves Live, and what is built in its place.
-function renderBuild() {
-  const v = S.song.view, bars = (v && v.bars) || 40, lanes = v ? v.lanes.length : 0;
-  setHtml($("#sheet"), `<h3>Build in Live</h3>
-    <div class="swap" id="buildswap"><div class="gone"><span class="tag">Removed from Live</span><b>${esc(S.song.mixSet || "the mix set")}</b><span>every track, clip and device in it</span></div>
-    <div class="arr" aria-hidden="true"><svg width="22" height="22"><use href="#i-to"/></svg></div>
-    <div><span class="tag">Built in its place</span><b>${esc(v ? v.name : "this arrangement")}</b><span>${lanes} lanes, ${bars} bars</span></div></div>
-    <div class="hr"><span class="pill">a few minutes</span><span class="pill">Live busy meanwhile</span></div>
-    <div class="hr"><button class="key sm" id="hclose">Cancel</button><span class="sp"></span><button class="key sm danger" id="buildgo">Replace and build</button></div>`);
-}
-// The confirm for opening another set in Live: the set in front is saved first, then the other one opens.
-function renderOpen() {
-  const job = S.setJob, busy = job && job.status === "working";
-  setHtml($("#sheet"), `<h3>Open set</h3>
-    <div class="swap" id="openswap"><div><span class="tag">Saved first</span><b>${esc((S.state && S.state.open_set) || "the open set")}</b></div>
-    <div class="arr" aria-hidden="true"><svg width="22" height="22"><use href="#i-to"/></svg></div>
-    <div><span class="tag">Opened in Live</span><b>${esc(S.openName)}</b></div></div>
-    ${job && job.status === "error" ? `<div class="hr"><span class="pill warn" id="openfail">Not opened</span><span class="idf" style="white-space:normal">${esc(job.msg)}</span></div>` : ""}
-    <div class="hr"><button class="key sm" id="hclose">Cancel</button><span class="sp"></span><button class="key sm ${busy ? "spin" : ""}" id="opengo" ${busy ? "disabled" : ""}>${busy ? "Opening…" : "Save and open"}</button></div>`);
-}
-async function openSet() {
-  const name = S.openName;
-  S.setJob = {name, status: "working"}; renderHist();
-  const r = await slowly(() => command("set.open", {name}, undefined, true));
-  S.setJob = r.ok ? null : {name, status: "error", msg: r.body.error || "Live did not open it."};
-  if (r.ok) S.sheet = false;
-  render();
-}
-function render() { renderHear(); renderDesk(); renderSide(); renderHist(); renderSongLive(); markPending(); }
+function render() { renderHear(); renderDesk(); renderSide(); renderHist(); markPending(); }
 
 // ---- touching controls ---------------------------------------------------------------------------------------------
 // A knob or a fader is dragged up and down, and the drag is relative: the control moves from where it is by how far
@@ -1262,12 +1201,7 @@ document.addEventListener("dblclick", e => {
 });
 
 
-// ---- Song: the arrangement as lanes of bars; Mix 1 and transitions open as sheets (sketches) ----------------------------
-const SHEETS = {
-  mix: {title: "Sketch mix", path: "/app/song/mix/"},
-  transitions: {title: "Transitions", path: "/app/song/transitions/"},
-  arranger: {title: "Arranger", path: "/app/song/"},
-};
+// ---- Song: lanes of bars under a ruler, with Live's loop and playhead ------------------------------------------------
 function esc(t) { return String(t).replace(/[&<>"]/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;"}[c])); }
 function showTab(t) {
   S.tab = t;
@@ -1409,13 +1343,8 @@ function renderSong() {
   const ruler = v ? `<div class="ruler" id="ruler"><span class="ln"></span><div class="rt" role="img" aria-label="${esc(rulerWords(secs))}">${
     marks.map(b => `<i class="bn" style="left:${at(b)}%">${b + 1}</i>`).join("")}${
     secs.map((x, k) => `<i class="sec s${k % 2}" style="left:${at(x.start)}%;width:calc(${at(x.len)}% - 2px)" title="bars ${x.start + 1}–${x.start + x.len}"></i>`).join("")}<span id="songloop"></span></div></div>` : "";
-  const opts = S.song.list.map(a => `<option value="${esc(a.id)}" ${a.id === S.song.id ? "selected" : ""}>${esc(a.name)}</option>`).join("");
-  $("#song").innerHTML = `<div class="shd"><b id="songname">${v ? esc(v.name) : "Song"}</b><select id="songsel" aria-label="Arrangement">${opts}</select><span class="tag">${bars} bars</span></div>
-    <div id="lanes" data-bars="${bars}">${ruler}${lanes || '<div class="tag">No arrangement yet.</div>'}<div class="pgs" id="lanepgs" role="group" aria-label="More lanes" hidden><button class="key sm" type="button" data-songstep="-1" aria-label="Lanes before"><svg class="back" width="18" height="18"><use href="#i-more"/></svg></button><span class="pgn" id="lanepgn"></span><button class="key sm" type="button" data-songstep="1" aria-label="Lanes after"><svg width="18" height="18"><use href="#i-more"/></svg></button></div><div id="songhead" hidden></div></div>
-    <div class="acts" role="group" aria-label="Sketches, played in the browser"><button class="key" data-sheet="mix">Sketch mix<i class="bdg">sketch</i></button><button class="key" data-sheet="transitions">Transitions<i class="bdg">sketch</i></button><button class="key" data-sheet="arranger">Arranger</button></div>
-    <div class="acts" role="group" aria-label="Live"><div id="songlive"></div></div>`;
-  $("#songlive").__html = null;
-  renderSongLive(); updateSongMarks(); fitSong();
+  $("#song").innerHTML = `<div id="lanes" data-bars="${bars}">${ruler}${lanes || '<div class="tag">No arrangement yet.</div>'}<div class="pgs" id="lanepgs" role="group" aria-label="More lanes" hidden><button class="key sm" type="button" data-songstep="-1" aria-label="Lanes before"><svg class="back" width="18" height="18"><use href="#i-more"/></svg></button><span class="pgn" id="lanepgn"></span><button class="key sm" type="button" data-songstep="1" aria-label="Lanes after"><svg width="18" height="18"><use href="#i-more"/></svg></button></div><div id="songhead" hidden></div></div>`;
+  updateSongMarks(); fitSong();
 }
 // The lanes fit the height that is left; when 14 px each is still too much, they are shown a part at a time, with
 // the ruler above every part. Nothing scrolls.
@@ -1437,17 +1366,6 @@ function fitSong() {
 function rulerWords(secs) {
   return `Bars. Sections start at bar ${secs.map(x => x.start + 1).join(", ")}`;
 }
-// What the Song may do in Live. A build empties one set, the mix set. While Live has another set in front the build
-// is not offered: the two sets are shown, with the one action that makes sense, opening the mix set.
-function renderSongLive() {
-  const el = $("#songlive");
-  if (!el || !S.song.loaded) return;
-  const open = (S.state && S.state.open_set) || "", need = S.song.mixSet, ok = !need || !S.state || open === need;
-  setHtml(el, ok ? `<button class="key" id="songbuild" aria-haspopup="dialog">Build in Live…</button>`
-    : `<div class="btns" id="buildsets"><div class="sets"><div id="setopen"><span class="tag">Open in Live</span><b>${esc(open || "an unsaved set")}</b></div><div class="need" id="setneed"><span class="tag">Build needs</span><b>${esc(need)}</b></div></div>
-       ${open ? `<button class="key" id="openmix" data-open="${esc(need)}" aria-haspopup="dialog"><span>Open ${esc(need)}…</span></button>` : ""}</div>`);
-  fitSong();
-}
 // The loop and the playhead on the ruler: Live's own, moved in place as its events come.
 function updateSongMarks() {
   const lp = $("#songloop"), lanes = $("#lanes");
@@ -1463,26 +1381,6 @@ function updateSongHead() {
   head.hidden = !(frac >= 0 && frac <= 1);
   head.style.left = `calc(var(--lnw) + (100% - var(--lnw)) * ${Math.max(0, Math.min(1, frac)).toFixed(4)})`;
 }
-function openSheet(name) {
-  const sh = SHEETS[name];
-  if (!sh) return;
-  S.page = name;
-  $("#psheet").innerHTML = `<div class="hr"><h3>${sh.title}</h3><span class="pill" id="sketchpill">sketch</span><span class="sp"></span><button class="key sm" id="pclose">Close</button></div>
-    <iframe title="${sh.title}" src="${sh.path}"></iframe>`;
-  $("#psheet").classList.add("on"); $("#scrim").classList.add("on");
-}
-function closeSheet() {
-  S.page = null;
-  $("#psheet").classList.remove("on"); $("#psheet").innerHTML = ""; $("#scrim").classList.toggle("on", !!S.sheet && S.sheet !== "hist");
-}
-// "Build in Live…" opens the confirm (renderBuild): nothing is sent until "Replace and build" there.
-async function buildSong() {
-  S.sheet = false; renderHist(); toast("Building in Live");
-  const r = await slowly(() => command("song.build", {id: S.song.id}));
-  if (r.ok) toast(`Built ${r.body.channels} channels and ${r.body.clips} clips.`);
-}
-document.addEventListener("change", e => { if (e.target.id === "songsel") loadSong(e.target.value); });
-
 // History comes forward: the docked column flashes and shows its newest rows; on a narrower screen the sheet opens.
 function showHistory() {
   if (!wide()) { S.sheet = S.sheet === "hist" ? false : "hist"; return renderHist(); }
@@ -1500,10 +1398,6 @@ document.addEventListener("click", async e => {
   if (t.dataset.t) return go(t.dataset.t);
   if (t.id === "slowretry") return armPage(+t.dataset.retry);
   if (t.id === "slowclose") return slowSay("", null);
-  if (t.dataset.sheet) return openSheet(t.dataset.sheet);
-  if (t.id === "pclose") return closeSheet();
-  if (t.id === "songbuild") { S.sheet = "build"; return renderHist(); }
-  if (t.id === "buildgo") return buildSong();
   if (t.dataset.back) return goBack(t.dataset.back);
   if (t.dataset.before) return goBefore(+t.dataset.before);
   if (t.dataset.histstep) { S.histAt = Math.max(0, S.histAt + (+t.dataset.histstep) * Math.max(1, S.histFit)); return redrawHist(); }
@@ -1514,8 +1408,6 @@ document.addEventListener("click", async e => {
   if (t.dataset.flags) { S.flagOpen = S.flagOpen === t.dataset.flags ? null : t.dataset.flags; return renderBottom(); }
   if (t.dataset.flag) return clearFlag(t.dataset.flag, t.dataset.track);
   if (t.id === "meteron") { S.mjob = {status: "working"}; renderTop(); const r = await command("meter.install", {}, undefined, true); if (!r.ok) { S.mjob = {status: "error", msg: r.body.error || ""}; renderTop(); } return; }
-  if (t.dataset.open) { S.openName = t.dataset.open; S.setJob = null; S.sheet = "open"; return renderHist(); }
-  if (t.id === "opengo") return openSet();
   if (t.id === "chgpill") return showHistory();
   if (t.dataset.cmp !== undefined) return pressState(+t.dataset.cmp);
   if (t.dataset.mpad !== undefined) {
@@ -1542,7 +1434,7 @@ document.addEventListener("click", async e => {
 document.addEventListener("submit", e => { if (e.target.id === "cpform") { e.preventDefault(); saveCheckpoint($("#cpname").value || S.cpDraft); } });
 // The name being typed is kept in the state, so no redraw of the sheet (an event from Live, a tab change) can lose it.
 document.addEventListener("input", e => { if (e.target.id === "cpname") S.cpDraft = e.target.value; });
-$("#scrim").addEventListener("click", () => { S.sheet = false; renderHist(); closeSheet(); });
+$("#scrim").addEventListener("click", () => { S.sheet = false; renderHist(); });
 // The History sheet and the list of soloed or muted tracks take nothing from the page behind them: a press outside
 // closes them and goes on to whatever was pressed (the scrim is only for the sheets that ask a question).
 document.addEventListener("pointerdown", e => {

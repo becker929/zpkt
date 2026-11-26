@@ -194,38 +194,6 @@ def open_in_live(rig, name: str) -> None:
     rig.desk.restart_pager()  # as the supervisor does once another set is in front
 
 
-def test_the_build_is_not_offered_on_another_set_and_the_mix_set_opens_from_the_page(browser, song_rig, monkeypatch):  # noqa: F811
-    rig = song_rig.rig
-    open_in_live(rig, "HW002_121_pp_finish")
-    opened: list[tuple[str, bool]] = []
-
-    def fake_open(client, name, *, save_current=True, timeout_s=120.0):
-        opened.append((name, save_current))
-        rig.live.song.file_path = f"/Sets/{name} Project/{name}.als"
-        return 1.5
-
-    monkeypatch.setattr(jobs.session, "open_set", fake_open)
-    pg = browser.new_page(viewport={"width": 1200, "height": 800})
-    pg.goto(rig.url + "/app/#song")
-    pg.wait_for_selector("#buildsets")
-    assert pg.locator("#songbuild").count() == 0  # not offered: Live has another set in front
-    assert (
-        "HW002_121_pp_finish" in pg.locator("#setopen").inner_text() and MIX_SET in pg.locator("#setneed").inner_text()
-    )
-    pg.click("#openmix")
-    pg.wait_for_selector("#sheet.on #openswap")
-    said = pg.locator("#openswap").inner_text()
-    assert "SAVED FIRST" in said.upper() and "HW002_121_pp_finish" in said and MIX_SET in said  # the consequence
-    assert opened == []  # nothing before the press
-    pg.click("#opengo")
-    pg.wait_for_selector("#songbuild")  # the build is offered now, for the set it names
-    assert opened == [(MIX_SET, True)] and pg.locator("#buildsets").count() == 0
-    assert rig.state()["open_set"] == MIX_SET
-    assert pg.locator("#sheet.on").count() == 0
-    pg.click('#tabs button[data-t="desk"]')  # the desk is for another set now: the way back is on the Hear bar
-    assert "HW002_121_pp_finish" in pg.locator("#opendesk").inner_text()
-
-
 def test_set_open_opens_only_the_two_sets_and_never_an_unsaved_front_set(song_rig, monkeypatch):  # noqa: F811
     rig = song_rig.rig
     asked: list[str] = []
@@ -541,11 +509,7 @@ def test_the_song_has_a_ruler_with_sections_the_loop_and_the_playhead(browser, s
     pg.wait_for_function("document.querySelector('#barno').textContent.startsWith('bar 21')")
     head = pg.locator("#songhead").bounding_box()
     assert head["x"] + head["width"] / 2 == pytest.approx(ruler["x"] + ruler["width"] * 20 / 40, abs=2)
-    # the paragraph is gone: the buttons that play sketches in the browser carry a badge
-    assert "rendered loops" not in pg.locator("#song").inner_text()
-    assert pg.locator('#song [data-sheet="mix"] .bdg').inner_text().lower() == "sketch"
-    assert pg.locator('#song [data-sheet="transitions"] .bdg').count() == 1
-    assert pg.locator("#song .sketch").count() == 0
+    assert pg.locator("#song button[data-sheet], #song select, #songbuild, #psheet").count() == 0  # the lanes, no more
 
 
 # ---- 10: nothing is made anew on an event; the bubble holds no stale text ------------------------------------------------

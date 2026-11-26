@@ -279,8 +279,7 @@ pages (`contrib/mixdesk/desk.json`) and a made surface.
   the side column shows the part with the page in view and has its own before and after. More than two soloed or
   muted tracks open as a list of five at a time. The Hear column and the side column have no scroll of their own.
 - **The Song fits too.** Its lanes take the height that is left and give way down to 14 px each; past that they
-  show a part at a time ("1–6 / 15") with the ruler over every part (`fitSong`). The arrangement's menu is its
-  title on a phone.
+  show a part at a time ("1–6 / 15") with the ruler over every part (`fitSong`).
 - **The paging row** (under 1100 px; wider, the list of Pages is the side column) is the last row of the Desk:
   the page before, "13 / 15", the page after, and the face switch. The numbered buttons of a Page with more than
   one MiniLab page are at the right of the title. `tests/app/test_zero_scroll.py` checks all of it at six sizes.
@@ -383,29 +382,17 @@ routes from the same code (`contrib/arranger/server.py`'s route table), so nothi
 
 - `/app/song/` is the arranger page; `/app/song/mix/`, `/transitions/`, `/mix2/`, `/spectral/` and `/kick/` are the
   others. Their absolute links gain the prefix on the way out; the files are not edited.
-- In the `/app/` shell the Song tab shows the arrangement as lanes of bars under a bar ruler: bar numbers, the
-  sections as spans (`song.show` gives them as `sections`: one from bar 1 and one from every seam the transitions
-  name), Live's loop drawn on it with its bars, and Live's playhead through ruler and lanes, moved by the pager's
-  position messages. Mix 1 and transitions open as sheets; their buttons carry a "sketch" badge, and so does the
-  sheet: they play rendered loops in the browser, within the two named exceptions of `contrib/docs/sound.md`.
-  Closing the sheet takes the page, and its sound, away.
+- In the `/app/` shell the Song tab shows lanes of bars under a bar ruler: bar numbers, the sections as spans
+  (`song.show` gives them as `sections`), Live's loop drawn on it with its bars, and Live's playhead through ruler
+  and lanes. It has no buttons (Anthony, 26 November 2026: the arrangement's menu, the Arranger, Sketch mix,
+  Transitions and their sheets, and Build in Live with its set cards are off the page). The arranger's own pages are
+  still served under `/app/song/` for now.
 - The arrangement file keeps its form. A save from the arranger page keeps every key it does not own, byte for byte
   (`tests/app/test_song.py` checks it, and checks every route against the old server).
 - Song is the Structure, Recipe is the Structure and the Sound (`contrib/arranger/arrangement.py`'s types). Commands:
   `song.list`, `song.show` (the Song), `song.recipe` (both halves), the writes `song.save`, `song.keep`,
   `song.delete`, `song.transitions`, `song.queue` (the arranger's routes as commands, so a save is stamped who), and
   `song.build`.
-- "Build in Live…" on the Song tab opens a confirm that shows what leaves Live (the mix set, by name: `song.list`
-  gives it as `mix_set`) and what is built in its place. Nothing is sent before "Replace and build". While Live has
-  another set in front (the state's `open_set`, the open file's name as the pager reads it) the build is not
-  offered: the page shows the two sets, "Open in Live" and "Build needs", the build's button disabled, and the one
-  action that makes sense, "Open <mix set>…".
-- `set.open {name}` opens a set from the page: only the mix set or the desk's own set. It is the API's
-  `live.open_set` with `save_current` always on, so the set in front is saved first and nothing of it is discarded;
-  the confirm shows that ("Saved first" → "Opened in Live"). A front set with no file cannot be saved that way, so
-  it is refused (409) before Live's windows are touched, and the page offers no button then. The wrong-set guard
-  lets it through, and the desk loads its pager into the new set at once. With the mix set in front the Hear bar
-  shows "Open <the desk's set>…", the way back.
 - `song.build` makes the mix set in Live from the recipe (`zpkt.live.recipe_build`, which `mixset.py build` also
   calls), with the app's connection. It is a move for the mix set, not the page's set: the bus checks Live has the mix
   set open, and the build itself refuses a set Live does not name, because it empties the set. An agent cannot
