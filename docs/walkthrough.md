@@ -147,7 +147,7 @@ You should see: `160.0`.
 You should see: a JSON list of the first six track names.
 
 **16. [auto] The agent's read-only rule.** `ZPKT_AGENT=1 uv run zpkt live exec "song.tempo = 120"`
-You should see: an `ERROR:` line that says an agent changes Live only through the app (its `change_live` tool), exit 1. Step 14
+You should see: an `ERROR:` line that says an agent changes Live only through the app (its `change_live` and `propose_live` tools), exit 1. Step 14
 still prints `160.0`.
 
 **17. [auto] `hands` from any folder.** `cd /tmp && ~/Desktop/zpkt-upgrade/hands/bin/hands --help; cd -`

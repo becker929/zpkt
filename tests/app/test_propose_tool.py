@@ -57,8 +57,8 @@ def test_the_card_waits_and_nothing_moves_before_the_tap_then_do_it_runs_the_bat
     assert [o["id"] for o in card["options"]] == ["yes", "no"]
     assert [o["name"] for o in card["options"]] == ["Do it", "Don't"]
     steps = card["tool"]["steps"]
-    assert len(steps) == 9 and steps[6] == {"n": 7, "text": "Remove desk Sat from Hats bus", "no_undo": True}
-    assert steps[8] == {"n": 9, "text": "Sets the tempo to 91.", "no_undo": True, "code": CODE}
+    assert len(steps) == 10 and steps[7] == {"n": 8, "text": "Remove desk Sat from Hats bus", "no_undo": True}
+    assert steps[9] == {"n": 10, "text": "Sets the tempo to 91.", "no_undo": True, "code": CODE}
     time.sleep(0.2)  # the call is blocked: the agent has no reply, and nothing has moved or been saved
     assert p.replies == [] and asked.ask.permissions.asking(s["id"]) and asked.ask.is_live(s["id"])
     assert whole(rig) == before and rig.desk.history.entries == [] and rig.desk.history.checkpoints() == []
@@ -67,8 +67,8 @@ def test_the_card_waits_and_nothing_moves_before_the_tap_then_do_it_runs_the_bat
     assert tap(asked, s, card, "yes")[0] == 200
     assert asked.ask.wait_idle()
     ((code, reply),) = p.replies
-    assert code == 200 and reply["ok"] and reply["approved"] and reply["done"] == 9, reply
-    assert reply["undo"] == "parallel drive (3 controls, 3 devices)" and len(reply["no_undo"]) == 3
+    assert code == 200 and reply["ok"] and reply["approved"] and reply["done"] == 10, reply
+    assert reply["undo"] == "parallel drive (4 controls, 3 devices)" and len(reply["no_undo"]) == 3
     assert rig.live.song.tempo == 91.0 and "desk Sat" not in names(rig, HATS)
     assert kinds(asked) == [("live.propose.check", 200), ("live.propose", 200)]
     row = rig.desk.history.entries[-1]
@@ -76,7 +76,7 @@ def test_the_card_waits_and_nothing_moves_before_the_tap_then_do_it_runs_the_bat
     seen = [e for e in events(asked, s["id"]) if e["type"] in ("permission", "permission_answer", "proposal")]
     assert [e["type"] for e in seen] == ["permission", "permission_answer", "proposal"]
     assert seen[1]["answered"] == "yes" and {e["id"] for e in seen} == {card["id"]}
-    assert {"state": "done", "done": 9}.items() <= seen[2].items()
+    assert {"state": "done", "done": 10}.items() <= seen[2].items()
     assert tap(asked, s, card, "yes")[0] == 409  # answered once: a second tap finds nothing waiting
 
 

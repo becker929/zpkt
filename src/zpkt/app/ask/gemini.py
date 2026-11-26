@@ -4,9 +4,10 @@ One `gemini --acp` process serves every session (started on first use, restarted
 record of each session; the app keeps its ACP session id in the session's `engines.gemini.acp`, so a session resumes
 (`session/load`) after a restart and from any device. The key comes only from the secret lookup the app is given.
 
-Gemini asks before a tool it is not sure of, and `decide` answers: the app's own tools always run (they never move
-Live), without a question to the person. Anything else is refused at once in `build` (the default mode: advise and
-make pages), and waits for a yes from the page in the other modes.
+Gemini asks before a tool it is not sure of, and `decide` answers: the app's own tools always run, without a
+question from Gemini to the person (what they may do to Live is the app's own business: `change_live` can be undone,
+and `propose_live` shows its own card and waits for the person's tap, tools.py). Anything else is refused at once
+in `build` (the careful mode: advise and make pages), and waits for a yes from the page in the other modes.
 """
 
 from __future__ import annotations

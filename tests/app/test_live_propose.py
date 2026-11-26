@@ -23,6 +23,7 @@ MIXED = {
         {"add": "Saturator", "track": "Drive"},
         {"set": "Drive/Saturator/Drive", "to": 6.0},
         {"set": "Drive/volume", "to": 0.6},
+        {"set": "Hats bus/send Drive", "to": 0.25},
         {"add": "Saturator", "track": HATS, "at": 0},
         {"remove": "desk Sat", "track": HATS},
         {"move": "desk EQ", "track": HATS, "to": 0},
@@ -72,19 +73,20 @@ def test_the_check_answers_with_the_card_in_plain_words_and_changes_nothing(rig)
     assert code == 200 and reply["ok"] and reply["why"] == "parallel drive", reply
     texts = [s["text"] for s in reply["steps"]]
     assert texts[0].startswith("Set Kick bus volume to ") and texts[0].endswith(" dB")  # as Live shows it
-    assert texts[1:9] == [
+    assert texts[1:10] == [
         "New return track: Drive",
         "Add Saturator to Drive",
         "Set Saturator Drive on Drive to 6",  # on a device that is not there yet: the raw number
         "Set Drive volume to 0.6",
+        "Set Hats bus send Drive to 0.25",  # a send to a return that is not there yet
         "Add Saturator to Hats bus as the first device",
         "Remove desk Sat from Hats bus",
         "Move desk EQ on Hats bus to place 1",
         "Sets the tempo to 91.",
     ]
-    assert texts[9:12] == ["Turn off desk Glue on Kick bus", "Mute Kick bus", texts[11]]
-    assert texts[11].startswith("Set Kick bus send Space to ") and texts[12].startswith("Set desk EQ 1 Gain A on Kick")
-    assert [s["n"] for s in reply["steps"] if s.get("no_undo")] == [2, 7, 9]  # the track, the remove, the code
+    assert texts[10:13] == ["Turn off desk Glue on Kick bus", "Mute Kick bus", texts[12]]
+    assert texts[12].startswith("Set Kick bus send Space to ") and texts[13].startswith("Set desk EQ 1 Gain A on Kick")
+    assert [s["n"] for s in reply["steps"] if s.get("no_undo")] == [2, 8, 10]  # the track, the remove, the code
     assert [s.get("code") for s in reply["steps"] if "code" in s] == [CODE]
     assert whole(rig) == before and rig.desk.history.entries == [] and rig.desk.history.checkpoints() == []
     assert rig.desk.bus.log[-1]["status"] == 200 and rig.desk.bus.table["live.propose.check"].effect == "read"
@@ -221,20 +223,21 @@ def test_an_agent_cannot_run_it_without_the_persons_word_and_the_page_cannot_run
 
 def test_an_approved_batch_runs_in_order_and_is_one_row_with_a_version_before_it(rig):
     code, reply = run(rig, MIXED, group="ask-s1")
-    assert code == 200 and reply["ok"] and reply["done"] == 9, reply
+    assert code == 200 and reply["ok"] and reply["done"] == 10, reply
     song = rig.live.song
     assert [t.name for t in song.return_tracks] == ["A-Space", "B-Echo", "C-Drive"]
     assert names(rig, "C-Drive") == ["Saturator"] and param(rig, "C-Drive", "Saturator", "Drive").value == 6.0
     assert rig.track("C-Drive").mixer_device.volume.value == pytest.approx(0.6)
+    assert rig.track(HATS).mixer_device.sends[2].value == pytest.approx(0.25)  # the send to the new return
     assert names(rig, HATS) == ["desk EQ", "Saturator"]  # added first, desk Sat gone, desk EQ first again
     assert rig.track(KICK).mixer_device.volume.value == 0.5 and song.tempo == 91.0
-    assert reply["undo"] == "parallel drive (3 controls, 3 devices)"
+    assert reply["undo"] == "parallel drive (4 controls, 3 devices)"
     assert reply["no_undo"] == ["New return track: Drive", "Removed desk Sat from Hats bus", "Sets the tempo to 91."]
     assert reply["made"] == [{"track": "Drive", "kind": "return"}]
     assert reply["removed"] == [{"track": HATS, "device": "desk Sat"}]
-    assert reply["ran"] == [{"step": 9, "ok": True, "result": "tempo set"}]
+    assert reply["ran"] == [{"step": 10, "ok": True, "result": "tempo set"}]
     assert [a["track"] for a in reply["added"]] == ["Drive", HATS]
-    assert set(reply["now"]) == {VOL, "Drive/Saturator/Drive", "Drive/volume"}
+    assert set(reply["now"]) == {VOL, "Drive/Saturator/Drive", "Drive/volume", "Hats bus/send Drive"}
     entries = rig.desk.history.entries
     assert [e["k"] for e in entries] == ["checkpoint", "change"]
     cp, row = entries

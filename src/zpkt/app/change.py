@@ -274,8 +274,9 @@ def check(desk: Desk, steps: list[Step]) -> tuple[list[str], dict[str, Descripti
                 made.add(s.track)
             continue
         if s.op == "set" and not s.device:
-            if s.track in made:
-                s.later = True  # on a track this batch makes: Live cannot say its range yet
+            to = live_keys.send_return(page_layout.key_parts(s.key)["param"])  # a send: the return it goes to
+            if s.track in made or to in made:
+                s.later = True  # on, or to, a track this batch makes: Live cannot say its range yet
             else:
                 to_describe.append(s)
             continue
