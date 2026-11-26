@@ -1,13 +1,15 @@
-"""A Page as the shell draws it: cards of controls, each with its widget, size, label and MiniLab slot.
+"""A Page as the shell draws it: one panel per MiniLab page, each a map of the MiniLab 3 with every slot on it.
 
 `layout` is the one place the layout rules live (DESIGN 3a). It is pure: a Page and Live's descriptions of its
 targets go in, a plain model comes out, and the browser only draws it. The rules:
 
-- A group is a card, in the order given. Inside it, the heaviest control comes first and is drawn big.
-- An EQ band (a continuous tone and a continuous level of one device in one group) is a pair, drawn as one unit.
-- On a phone a page of more than 12 controls is swiped in pages of whole cards. A desktop shows every card.
-- A target the open set lacks is still drawn, greyed, with the reason.
-- The MiniLab assignment (zpkt.live.page.assign) is part of the model, so the screen shows what the hardware does.
+- A panel is one MiniLab page (zpkt.live.page.assign) and always has the same 20 slots in the hardware's order:
+  knobs k1-k8, faders f1-f4, pads b1-b8. The screen draws each where it sits on the controller.
+- A slot with a control names it by `ref`, with its group and the group's tint. A slot with none is still there, with
+  only its hardware name ("Knob 6"), and is drawn greyed.
+- A target the open set lacks keeps its slot and is drawn greyed, with the reason.
+- The groups keep their facts (widget, role, weight, size, pair) for whoever reads the model. The shell's place for
+  a control is its slot, so it does not use size or pair.
 
 `to_surfaces` turns a Page into the mix desk's made surfaces (one per MiniLab page), which is how the pager in Live
 takes a Page.
@@ -26,7 +28,13 @@ from zpkt.live import page as P
 from zpkt.live.describe import Description
 from zpkt.live.inlive import keys, shown
 
-PHONE_PAGE = 12  # controls a phone shows at once: two rows of four knobs and a row of faders
+SlotKind = Literal["knob", "fader", "pad"]
+# Every slot of the MiniLab 3 in the order it is drawn, with its kind and what the hardware calls it.
+HARDWARE_SLOTS: list[tuple[str, SlotKind, str]] = [
+    *[(f"k{i}", "knob", f"Knob {i}") for i in range(1, P.KNOBS + 1)],
+    *[(f"f{i}", "fader", f"Fader {i}") for i in range(1, P.FADERS + 1)],
+    *[(f"b{i}", "pad", f"Pad {i}") for i in range(1, P.PADS + 1)],
+]
 Size = Literal["big", "normal", "small"]
 SIZE_OF_WEIGHT: dict[int, Size] = {3: "big", 2: "normal", 1: "small"}
 
@@ -63,6 +71,28 @@ class LayoutGroup(BaseModel):
     controls: list[LayoutControl]
 
 
+class PanelSlot(BaseModel):
+    """One place on the MiniLab, mapped or not."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    slot: str = Field(description="k1-k8, f1-f4 or b1-b8.")
+    kind: SlotKind
+    name: str = Field(description='What the hardware calls it: "Knob 6", "Fader 2", "Pad 3".')
+    ref: str | None = Field(description="The control it moves (a ref in `groups`); None when nothing is mapped.")
+    group: str | None = Field(description="That control's group.")
+    tint: int | None = Field(description="That group's tint, 0 or 1.")
+
+
+class Panel(BaseModel):
+    """One MiniLab page as a map of the controller: all 20 slots, in the hardware's order."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    groups: list[str] = Field(description="The groups on this MiniLab page, in order.")
+    slots: list[PanelSlot] = Field(description="Always 20: the 8 knobs, the 4 faders, the 8 pads.")
+
+
 class Layout(BaseModel):
     """What GET of a page returns and the shell draws."""
 
@@ -72,7 +102,7 @@ class Layout(BaseModel):
     title: str
     made_by: str
     groups: list[LayoutGroup]
-    phone_pages: list[list[int]] = Field(description="Group numbers shown together on a phone, in swipe order.")
+    panels: list[Panel] = Field(description="One per MiniLab page: what the shell draws.")
     minilab: list[P.HardwarePage]
     problems: list[P.Problem]
 
@@ -138,18 +168,26 @@ def _ordered(group: P.Group, paired: dict[str, str]) -> list[P.Control]:
     return out
 
 
-def phone_pages(sizes: list[int], limit: int = PHONE_PAGE) -> list[list[int]]:
-    """Group numbers packed in order into phone pages of at most `limit` controls. A group is never split."""
-    pages: list[list[int]] = []
-    used = 0
-    for i, n in enumerate(sizes):
-        if pages and used + n <= limit:
-            pages[-1].append(i)
-            used += n
-        else:
-            pages.append([i])
-            used = n
-    return pages
+def panels(hardware: list[P.HardwarePage], tints: dict[str, int]) -> list[Panel]:
+    """Each MiniLab page as its full map: the assigned slots in their places, and every other slot named and empty."""
+    out: list[Panel] = []
+    for hw in hardware:
+        taken = {s["slot"]: s for s in hw["slots"]}
+        slots = []
+        for slot, kind, name in HARDWARE_SLOTS:
+            got = taken.get(slot)
+            slots.append(
+                PanelSlot(
+                    slot=slot,
+                    kind=kind,
+                    name=name,
+                    ref=got["ref"] if got else None,
+                    group=got["group"] if got else None,
+                    tint=tints.get(got["group"]) if got else None,
+                )
+            )
+        out.append(Panel(groups=list(hw["groups"]), slots=slots))
+    return out
 
 
 def _missing_reason(c: P.Control, missing: dict[str, str]) -> str | None:
@@ -204,7 +242,7 @@ def layout(
         title=page.title,
         made_by=page.made_by,
         groups=groups,
-        phone_pages=phone_pages([len(g.controls) for g in groups]),
+        panels=panels(hardware, {g.name: g.tint for g in groups}),
         minilab=hardware,
         problems=problems,
     )

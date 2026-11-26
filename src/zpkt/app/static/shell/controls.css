@@ -1,0 +1,88 @@
+/* A panel: one MiniLab 3 page drawn as the controller sits on the table. Served at /app/shell/controls.css; the
+   drawing is controls.js. The look is the chat's (static/ask/zpkt/zpkt.css): a quiet ceramic card, and only the
+   controls are physical. Machined knobs with a lime arc, a fader in a slot, pads as keys. The names below are the
+   chat's own, with the same values, so a page may load both. Needs shell.css for --ink, --mute, --acc and the card. */
+:root{
+  --zs:#c6f432;--zs-on:#111;--zs-ghost:#a9b876;
+  --zk-1:#f6f5f1;--zk-2:#e0dfd9;--zk-3:#bcbbb4;--zk-knurl:#c4c3bd;--zk-edge:#8f8e88;--zk-ptr:#111;--zk-shadow:.22;
+  --z-well:#dcdbd5;--z-slot:#161616;
+  --z-key1:#ffffff;--z-key2:#eeede8;--z-keyedge:#c9c8c2;
+  --zc-1:#ffffff;--zc-2:#f8f7f3;--zc-line:#d9d7d0;--zc-shadow:0 1px 0 #fff inset,0 8px 22px rgba(20,20,10,.08),0 1px 2px rgba(20,20,10,.07);
+  --z-tint:rgba(20,20,10,.045);
+}
+@media (prefers-color-scheme:dark){:root{
+  --zs-ghost:#6f8030;
+  --zk-1:#48494d;--zk-2:#242428;--zk-3:#0d0d0f;--zk-knurl:#3a3b40;--zk-edge:#000000;--zk-ptr:#f3f3ee;--zk-shadow:.6;
+  --z-well:#3b3c40;--z-slot:#09090b;
+  --z-key1:#3b3c41;--z-key2:#2a2b2f;--z-keyedge:#141416;
+  --zc-1:#2a2a2c;--zc-2:#222224;--zc-line:#3d3d40;--zc-shadow:0 1px 0 rgba(255,255,255,.06) inset,0 10px 26px rgba(0,0,0,.45);
+  --z-tint:rgba(255,255,255,.05);
+}}
+
+/* The map: knobs 1-4 over 5-8, the four faders to their right, the 8 pads in one row below. Where 8 columns of
+   44 px do not fit (the panel's box is 440 px or less: a phone) it folds in half: knobs over pads 1-4, then faders
+   over pads 5-8. */
+.mlpw{container:mlp/inline-size;width:100%;max-width:1000px;margin:0 auto;flex:none}
+.mlp{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);grid-template-areas:"k f" "p1 p2";gap:10px;
+  border:1px solid var(--zc-line);border-radius:18px;background:linear-gradient(var(--zc-1),var(--zc-2));box-shadow:var(--zc-shadow);
+  padding:10px 7px;touch-action:pan-y;user-select:none;-webkit-user-select:none}
+.mlp .mk,.mlp .mf,.mlp .mp{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px 4px;justify-items:center;min-width:0}
+.mlp .mk{grid-area:k}.mlp .mf{grid-area:f}.mlp .mp1{grid-area:p1}.mlp .mp2{grid-area:p2}
+@container mlp (max-width:440px){.mlp{grid-template-columns:minmax(0,1fr);grid-template-areas:"k" "p1" "f" "p2"}}
+@media (min-width:1100px){.mlp{column-gap:28px;padding:14px 16px}}
+
+/* One slot. .live takes touch; .macro is moved from the MiniLab only; .off (nothing mapped) and .missing (the open
+   set lacks the target) are greyed and take none. */
+.mc{display:flex;flex-direction:column;align-items:center;position:relative;min-width:0;width:100%;max-width:120px;border-radius:10px;padding:2px 1px}
+.mc.t1{background:var(--z-tint)}
+.mc .g{font:600 9.5px/12px ui-monospace,Menlo,monospace;text-transform:uppercase;letter-spacing:.06em;color:var(--mute);max-width:100%;height:12px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.mc .v{font:12px/16px ui-monospace,Menlo,monospace;color:var(--ink);max-width:100%;height:16px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.mc .l{font-size:11px;line-height:13px;height:26px;color:var(--mute);text-align:center;max-width:100%;overflow:hidden;overflow-wrap:anywhere;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2}
+.mc .w{position:relative;display:block;outline:0;border-radius:10px;-webkit-tap-highlight-color:transparent}
+.mc .w:focus-visible{box-shadow:0 0 0 2px var(--ink)}
+.mc.live:not(.pad) .w{touch-action:none;cursor:ns-resize}
+.mc.off,.mc.missing{opacity:.4}
+.mc.off .w,.mc.missing .w{cursor:not-allowed}
+.mc.off .l,.mc.off .v{font-family:ui-monospace,Menlo,monospace;font-size:10px}
+.mc.chg::after{content:"";position:absolute;top:1px;right:calc(50% - 34px);width:9px;height:9px;border-radius:50%;background:var(--zs);border:1px solid var(--ink)}
+.mc.flash .w{box-shadow:0 0 0 2px var(--zs)}
+
+/* the knob */
+.mc.knob .w{width:100%;max-width:68px;min-width:44px;min-height:44px}
+.mc.knob .w svg{display:block;width:100%;height:auto}
+.zk-well{fill:none;stroke:var(--z-well);stroke-width:5;stroke-linecap:round}
+.zk-arc{fill:none;stroke:var(--zs);stroke-width:5;stroke-linecap:round}
+.zk-rg{fill:none;stroke:var(--zs-ghost);stroke-width:2.5;stroke-linecap:round}
+.zk-sh{fill:#000;opacity:calc(var(--zk-shadow)*.55)}
+.zk-cap{fill:url(#zk-cap);stroke:var(--zk-edge);stroke-width:.6}
+.zk-knurl{fill:none;stroke:var(--zk-knurl);stroke-width:2.2;stroke-dasharray:1.1 1.5}
+.zk-face{fill:url(#zk-face);stroke:var(--zk-edge);stroke-width:.4;stroke-opacity:.5}
+.zk-top{fill:url(#zk-cap)}
+.zk-ptr{stroke:var(--zk-ptr);stroke-width:2.4;stroke-linecap:round}
+.zk-flat{fill:var(--z-well)}
+.zk-tick{stroke:var(--zk-edge);stroke-width:1.2;stroke-linecap:round;opacity:.6}
+
+/* the fader: a slot, a lime fill from the bottom, a cap */
+.mc.fader{height:100%}
+.mc.fader .w{width:44px;flex:1 0 auto;min-height:112px}
+.mc.fader .w .fx{position:absolute;left:0;right:0;top:12px;bottom:12px}
+.mc.fader .w .ft{position:absolute;left:50%;top:-3px;bottom:-3px;width:6px;margin-left:-3px;border-radius:3px;background:var(--z-slot)}
+.mc.fader .w .ff{position:absolute;left:50%;bottom:-2px;width:3px;margin-left:-1.5px;border-radius:2px;background:var(--zs)}
+.mc.fader .w .fk{position:absolute;left:5px;right:5px;border-top:1px solid var(--zc-line)}
+.mc.fader .w .fc{position:absolute;left:50%;width:30px;height:16px;margin:0 0 -8px -15px;border-radius:4px;background:linear-gradient(135deg,var(--zk-1),var(--zk-2) 50%,var(--zk-3));border:.6px solid var(--zk-edge);box-shadow:0 1.5px 2px rgba(0,0,0,var(--zk-shadow))}
+.mc.fader .w .fc::after{content:"";position:absolute;left:6px;right:6px;top:50%;height:2px;margin-top:-1px;border-radius:1px;background:var(--zs)}
+.mc.fader .w .rg{position:absolute;left:3px;width:3px;border-radius:2px;background:var(--zs-ghost)}
+.mc.fader.off .w .ff,.mc.fader.off .w .fc::after{background:transparent}
+.mc.fader.off .w .ft{background:var(--z-well)}
+.mc.fader.off .w .fc{background:var(--z-well);box-shadow:none}
+
+/* the pad: a key with its edge; lit lime when it is on */
+.mc.pad{justify-content:flex-start}
+.mc.pad .w{width:100%;height:52px;min-width:44px;margin:0;padding:2px 3px;border:1px solid var(--zc-line);border-radius:9px;background:linear-gradient(var(--z-key1),var(--z-key2));box-shadow:0 2px 0 var(--z-keyedge);color:var(--ink);font:500 11px/1.15 'Helvetica Neue',Helvetica,Arial,sans-serif;text-align:center;display:flex;align-items:center;justify-content:center;overflow:hidden;overflow-wrap:anywhere}
+.mc.pad .w span{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:3;overflow:hidden;max-height:100%}
+.mc.pad.live .w{cursor:pointer}
+.mc.pad.live .w:active{transform:translateY(1.5px);box-shadow:0 .5px 0 var(--z-keyedge)}
+.mc.pad.on .w{background:var(--zs);border-color:var(--zs);color:var(--zs-on);box-shadow:0 2px 0 color-mix(in srgb,var(--zs) 60%,#000)}
+.mc.pad.off .w,.mc.pad.missing .w{background:none;box-shadow:none;border-style:dashed;color:var(--mute);font-family:ui-monospace,Menlo,monospace;font-size:10px}
+.mc.pad.chg::after{top:-3px;right:-1px}
+@media (prefers-reduced-motion:reduce){.mc.pad.live .w:active{transform:none}}

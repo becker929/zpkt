@@ -37,7 +37,7 @@ def test_widgets_sizes_and_the_minilab_slot_come_from_the_rules(live):
     assert c["Threshold"].widget == "fader" and c["Dry/Wet"].widget == "knob"
     assert c["mute"].widget == "key" and c["mute"].slot == "b1" and c["Threshold"].slot == "f2"
     assert [g.name for g in lay.groups] == ["Sub", "Glue"] and [g.tint for g in lay.groups] == [0, 1]
-    assert lay.minilab[0]["groups"] == ["Sub", "Glue"] and lay.phone_pages == [[0, 1]]
+    assert lay.minilab[0]["groups"] == ["Sub", "Glue"]
 
 
 def test_the_heaviest_control_comes_first_and_is_big(live):
@@ -90,11 +90,40 @@ def test_a_missing_target_is_drawn_greyed_with_the_reason(live):
     assert [p["level"] for p in lay.problems].count("error") == 1  # the linter still says so
 
 
-def test_a_big_page_is_swiped_in_whole_cards_on_a_phone():
-    assert L.phone_pages([5, 5, 5]) == [[0, 1], [2]]
-    assert L.phone_pages([6, 6, 6, 6]) == [[0, 1], [2, 3]]
-    assert L.phone_pages([4]) == [[0]] and L.phone_pages([]) == []
-    assert L.phone_pages([2] * 7) == [[0, 1, 2, 3, 4, 5], [6]]
+def test_a_panel_is_the_whole_minilab_with_the_unmapped_slots_named(live):
+    spec = {"title": "three", "groups": [{"name": "g", "controls": [
+        {"target": "Kick bus/volume"}, {"target": "Kick bus/pan"}, {"target": "Kick bus/mute"}]}]}  # fmt: skip
+    _, _, _, lay = laid(live, spec)
+    (panel,) = lay.panels
+    assert [s.slot for s in panel.slots] == [s for s, _, _ in L.HARDWARE_SLOTS] and len(panel.slots) == 20
+    mapped = {s.slot: s for s in panel.slots if s.ref}
+    assert {k: v.ref for k, v in mapped.items()} == {
+        "f1": "Kick bus/volume",
+        "k1": "Kick bus/pan",
+        "b1": "Kick bus/mute",
+    }
+    assert all(s.group == "g" and s.tint == 0 for s in mapped.values())
+    empty = [s for s in panel.slots if not s.ref]
+    assert len(empty) == 17 and all(s.group is None and s.tint is None for s in empty)
+    by_slot = {s.slot: (s.kind, s.name) for s in panel.slots}
+    assert by_slot["k6"] == ("knob", "Knob 6") and by_slot["f2"] == ("fader", "Fader 2")
+    assert by_slot["b3"] == ("pad", "Pad 3")
+
+
+def test_a_page_too_big_for_one_minilab_page_gets_a_panel_each(live):
+    eq = "Kick bus/desk EQ/"
+
+    def group(n: int) -> dict:
+        names = ("Gain A", "Frequency A", "Q A", "Filter On A", "Filter Type A")
+        return {"name": f"band {n}", "controls": [{"target": f"{eq}{n} {name}"} for name in names]}
+
+    _, _, _, lay = laid(live, {"title": "bands", "groups": [group(n) for n in (1, 2, 3, 4)]})
+    assert len(lay.panels) == len(lay.minilab) >= 2
+    for panel, hw in zip(lay.panels, lay.minilab, strict=True):
+        assert panel.groups == hw["groups"] and len(panel.slots) == 20
+        assert {s.slot: s.ref for s in panel.slots if s.ref} == {s["slot"]: s["ref"] for s in hw["slots"]}
+    tints = {s.group: s.tint for p in lay.panels for s in p.slots if s.ref}
+    assert tints == {g.name: g.tint for g in lay.groups}
 
 
 def test_the_layout_fits_its_contract(live):
