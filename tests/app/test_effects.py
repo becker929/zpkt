@@ -26,7 +26,6 @@ MAKES = {
     "monitor.pin",
     "page.draft",
     "page.make",
-    "page.organize",
     "surface.make",
     "surface.save",
 }
@@ -51,6 +50,7 @@ MOVES = {
     "page.arm",
     "page.compare",
     "page.open",
+    "page.organize",
     "page.set",
     "pager.restart",
     "state.put",

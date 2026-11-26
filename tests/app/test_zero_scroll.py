@@ -224,3 +224,29 @@ def test_a_short_arrangement_shows_every_lane_with_no_paging(browser, rig):
         pg.locator("#lanepgs").is_hidden()
         and pg.locator("#lanes .lane:visible").count() == pg.locator("#lanes .lane").count()
     )
+
+
+# ---- an empty desk --------------------------------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(("width", "height"), [(360, 640), (1200, 800)])
+def test_an_empty_desk_is_the_quiet_map_and_one_way_to_a_surface(browser, rig, width, height):
+    pg = browser.new_page(viewport={"width": width, "height": height})
+    errors: list[str] = []
+    pg.on("pageerror", lambda e: errors.append(str(e)))
+    pg.goto(rig.url + "/app/")
+    pg.wait_for_selector("#panel .mc.live")
+    assert rig.command("page.organize", {"action": "archive_all"})[0] == 200  # while the page is open
+    pg.wait_for_selector("#asknew")
+    assert pg.locator("#panel .mc").count() == 20 and pg.locator("#panel .mc.off").count() == 20  # all 20, all quiet
+    assert pg.locator("#asknew").bounding_box()["height"] >= 44 and pg.locator("#desk").inner_text().count(".") == 0
+    assert pg.evaluate(SCROLLERS, "#app") == [] and errors == []
+    pg.reload()  # and from a cold start
+    pg.wait_for_selector("#asknew")
+    assert pg.locator("#kplay").is_visible() and pg.locator("#panel .mc.off").count() == 20
+    pg.click("#asknew")
+    pg.wait_for_function("location.hash === '#ask'")
+    assert rig.command("page.organize", {"action": "restore_all"})[0] == 200
+    pg.click('#tabs [data-t="desk"]')
+    pg.wait_for_selector("#panel .mc.live")
+    assert errors == []

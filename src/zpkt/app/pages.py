@@ -243,9 +243,32 @@ def list_units(desk: Desk, cmd: Command) -> Reply:
     return 200, {"ok": True, "units": units_listing(desk)}
 
 
+def _delete_unit(desk: Desk, raw: list[dict[str, Any]], org: organize.Organized, ident: str) -> organize.Organized:
+    """Take an archived page away: its surface files, and for a saved Page its page file, are moved to "removed"."""
+    uid = organize.resolve_id(raw, org, ident)
+    unit = next(u for u in organize.units(raw, org) if u["id"] == uid)
+    if not unit["archived"]:
+        raise ValueError("only an archived page can be deleted; archive it first")
+    if unit["kind"] == "desk":
+        raise ValueError("one of the desk's own pages can be archived but not deleted")
+    for pg in unit["pages"]:
+        if pg.get("surface"):
+            surfaces.remove(desk.settings.set_name, pg["surface"], desk.settings.surfaces_dir)
+    if unit["kind"] == "page":
+        src = pages_dir(desk) / f"{uid.split(':', 1)[1]}.json"
+        if src.is_file():
+            gone = pages_dir(desk) / "removed"
+            gone.mkdir(exist_ok=True)
+            src.rename(gone / f"{time.strftime('%Y%m%d-%H%M%S')}-{src.name}")
+    return organize.forget(org, uid)
+
+
 def organize_units(desk: Desk, cmd: Command) -> Reply:
-    """Rename, reorder, archive or restore pages on the desk (`_organize.json`), then reload the pager while
-    staying on the same page where possible. No mix value in Live moves."""
+    """Rename, reorder, archive, restore or delete pages on the desk (`_organize.json`), then reload the pager while
+    staying on the same page where possible. No mix value in Live moves, but what the MiniLab's pads arm does, so
+    it is the person's act (a move: zpkt.app.effects). `archive_all` empties the desk and `restore_all` brings every
+    archived page back. `delete` takes only an archived page, never one of the desk's own (desk.json's): its files
+    go to the folders' "removed" folder, so nothing is lost for good."""
     if desk.bus.guard is not None:
         desk.bus.guard.check()
     action = str(cmd.args.get("action") or "")
@@ -259,6 +282,11 @@ def organize_units(desk: Desk, cmd: Command) -> Reply:
             updated = organize.archive(raw, org, str(cmd.args.get("id") or ""), True)
         elif action == "restore":
             updated = organize.archive(raw, org, str(cmd.args.get("id") or ""), False)
+        elif action in ("archive_all", "restore_all"):
+            updated = organize.archive_all(raw, org, action == "archive_all")
+        elif action == "delete":
+            updated = _delete_unit(desk, raw, org, str(cmd.args.get("id") or ""))
+            raw = desk.raw_pages()
         elif action == "reorder":
             updated = organize.reorder(raw, org, cmd.args.get("order"))  # type: ignore[arg-type]
         elif action == "move":
@@ -269,8 +297,10 @@ def organize_units(desk: Desk, cmd: Command) -> Reply:
                 raise ValueError("'by' and 'to' must be whole numbers")
             updated = organize.move(raw, org, str(cmd.args.get("id") or ""), to=to, by=by)
         else:
-            raise BadRequest("action must be one of rename, archive, restore, reorder, move")
-    except (ValueError, TypeError) as exc:
+            raise BadRequest(
+                "action must be one of rename, archive, restore, archive_all, restore_all, delete, reorder, move"
+            )
+    except (ValueError, TypeError, surfaces.SurfaceError) as exc:
         raise BadRequest(str(exc)) from None
     organize.write(desk.pages_dir(), updated)
     shown = desk.apply_organize(before_unit)

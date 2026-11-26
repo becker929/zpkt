@@ -780,7 +780,7 @@ function litState(L) {
 // A press: the pad lights and the knobs move now; one command writes every value of the state, as one History row.
 const CMP = {seq: 0};
 async function pressState(i) {
-  const {entry} = current(), L = entry.page_id && S.layouts[entry.page_id], st = L && L.compare && L.compare.states[i];
+  const {entry} = current(), L = entry && entry.page_id && S.layouts[entry.page_id], st = L && L.compare && L.compare.states[i];
   if (!st || !st.writes.length) return;
   const vals = valueMap(), mine = ++CMP.seq;
   for (const w of st.writes) { const n0 = (vals[w.target] || {}).n; setOwn(w.target, w.n, n0 == null ? w.n : n0); }
@@ -813,11 +813,14 @@ function current() {
   const entry = pages.find(e => e.hw.includes(i)) || pages[0];
   // the page a tap asked for and Live has not confirmed: its name shows at once
   const next = S.pend ? pages.find(e => e.hw.includes(S.pend.page)) : null;
-  return {pages, entry, at: Math.max(0, entry.hw.indexOf(i)), next: next && next !== entry ? next : null};
+  // an empty desk (every surface archived) has no entry at all
+  return {pages, entry: entry || null, at: entry ? Math.max(0, entry.hw.indexOf(i)) : 0, next: next && next !== entry ? next : null};
 }
 function drawDesk() {
   if (!S.state || !S.desk) return;
-  const {pages, entry, at, next} = current(), hw = entry.hw[at];
+  const {pages, entry, at, next} = current();
+  if (!entry) return drawEmptyDesk();
+  const hw = entry.hw[at];
   let L = null;
   if (entry.page_id) { ensureLayout(entry.page_id); L = S.layouts[entry.page_id]; }
   const drawn = !entry.page_id || (L && typeof L === "object");
@@ -841,6 +844,17 @@ function drawDesk() {
   drawPanel(drawn, L);
   drawPager();
   if ($("#panel") && !$("#panel").__fit) { $("#panel").__fit = true; fitPanel(); }  // a new panel; later, when the Desk's box changes (FIT)
+}
+// An empty desk is a state of its own, not a fault: the map with all 20 slots quiet, and the one way to a surface.
+function drawEmptyDesk() {
+  S.slots = [];
+  const far = S.opening;
+  setHtml($("#deskhead"), `<div class="ph2">${far ? `<b id="pagename">${esc(far.title || "")}</b><span class="pill spin" id="pgwait">Loading</span>`
+    : `<b id="pagename"></b><button class="key sm on" id="asknew" data-t="ask"><svg width="18" height="18"><use href="#i-ask"/></svg>New surface</button>`}</div>`);
+  const box = $("#panelbox");
+  if (box.__shape !== "empty") { box.__html = null; box.__shape = "empty"; box.innerHTML = MC.panel([], 'id="panel" data-stale'); }
+  drawPager();
+  if ($("#panel") && !$("#panel").__fit) { $("#panel").__fit = true; fitPanel(); }
 }
 // The paging row (under 1100 px; wider, the list of Pages is the side column): the page before and the page after,
 // which page of how many this is, and the map's two faces where it shows one at a time. It is always on screen.
@@ -1198,7 +1212,7 @@ document.addEventListener("pointermove", e => {
 });
 function swiped(dx, dy) {
   if (!narrow() || Math.abs(dx) < 50 || Math.abs(dx) < Math.abs(dy) * 1.5 || !S.state || !S.desk) return;
-  const {entry, at} = current(), to = entry.hw[at + (dx < 0 ? 1 : -1)];
+  const {entry, at} = current(), to = entry ? entry.hw[at + (dx < 0 ? 1 : -1)] : undefined;
   swipedAt = Date.now();
   if (to !== undefined) armPage(to);
 }

@@ -280,6 +280,9 @@ pages (`contrib/mixdesk/desk.json`) and a made surface.
   muted tracks open as a list of five at a time. The Hear column and the side column have no scroll of their own.
 - **The Song fits too.** Its lanes take the height that is left and give way down to 14 px each; past that they
   show a part at a time ("1–6 / 15") with the ruler over every part (`fitSong`).
+- **An empty desk** (every page archived) is a state, not a fault: the map is drawn with all 20 slots quiet and
+  the title row holds the one way to a surface, a key that goes to Ask. The transport, History and the Song go on
+  working.
 - **The paging row** (under 1100 px; wider, the list of Pages is the side column) is the last row of the Desk:
   the page before, "13 / 15", the page after, and the face switch. The numbered buttons of a Page with more than
   one MiniLab page are at the right of the title. `tests/app/test_zero_scroll.py` checks all of it at six sizes.
@@ -322,8 +325,10 @@ pages (`contrib/mixdesk/desk.json`) and a made surface.
 - The linter is the gate. A rejected spec answers 422 with the reasons, nothing is saved, and the agent repairs it.
 - A good one is saved as `<sets_dir>/pages/<set>/<id>.json` and as one made surface per MiniLab page, so the pager in
   Live and the old desk take it too. The commands are `page.make`, `page.lint`, `page.layout`, `page.list`,
-  `page.organize` (rename, reorder, move, archive or restore pages in `_organize.json`, keeping the armed page where
-  possible; the Desk's Organize sheet drives it without scrolling) and `page.open` (open a saved page by id);
+  `page.organize` (rename, reorder, move, archive, restore, `archive_all`, `restore_all`, or delete an archived
+  made page; it writes `_organize.json` and reloads the pager, keeping the armed page where it can; a move, so the
+  person's act and never an agent's; an empty desk is allowed; a deleted page's files go to "removed" folders)
+  and `page.open` (open a saved page by id);
   `GET /api/pages` lists the saved pages and `GET /api/organize` lists every page unit (active and archived).
 - "Make a surface" on the old desk calls `page.make`: it now asks Claude for a Page. An answer in the old slot form
   is still accepted.
@@ -427,9 +432,9 @@ the Ask tab of `/app/` (`/app/#ask`); its page and API are under `/app/ask/`.
   event and then a `compacted` event with `summary`, `keep_from`, `turns`, `tokens` and `pages`. The file on disk is
   never cut. If the summary fails or takes over 3 minutes, the event says `failed` and the turn goes on with the
   last turns only. Your message is never lost. The rules are in `ask/compaction.py`.
-- **Tools.** An agent has four tools and no others: make or change a page (`page.draft`), organize pages
-  (`page.organize`: rename, reorder, archive or restore), read the state (`desk.state`, older name `state.read`,
-  which also lists `units` with their ids and pads) and read the last measurement. When I want to try an alternative it makes
+- **Tools.** An agent has three tools and no others: make or change a page (`page.draft`), read the state
+  (`desk.state`, older name `state.read`, which also lists `units` with their ids and pads) and read the last
+  measurement. It cannot organize pages: order and archive are the person's. When I want to try an alternative it makes
   a page with compare states, or changes the one it made (Pages, Compare), and links to it.
   They are app commands behind a small MCP server (`python -m zpkt.app.ask.mcp`) that calls
   `POST /app/ask/api/tool` with the session's token. The bus tags them `agent` and groups them by session. None

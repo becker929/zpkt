@@ -22,8 +22,8 @@ def call(asked, tool, args=None, session="s1"):
     return gate.call(session, gate.token(session), tool, args or {})
 
 
-def test_there_are_exactly_four_tools_and_each_is_a_registered_command(asked):
-    assert [t.name for t in TOOLS] == ["make_page", "organize_pages", "read_state", "read_measurement"]
+def test_there_are_exactly_three_tools_and_each_is_a_registered_command(asked):
+    assert [t.name for t in TOOLS] == ["make_page", "read_state", "read_measurement"]
     assert {t.kind for t in TOOLS} <= set(asked.rig.desk.bus.kinds())
     assert not {t.kind for t in TOOLS} & {
         "mix.set",

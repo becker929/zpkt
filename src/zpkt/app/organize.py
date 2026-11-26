@@ -167,15 +167,12 @@ def rename(raw: list[dict[str, Any]], org: Organized, ident: str, name: Any) -> 
 
 
 def archive(raw: list[dict[str, Any]], org: Organized, ident: str, archived: bool = True) -> Organized:
-    """Return a copy of `org` with unit `ident` archived or restored. At least one active page must stay."""
+    """Return a copy of `org` with unit `ident` archived or restored. The last page may be archived too: an empty
+    desk is a state the person may want (Anthony, 26 November 2026: "Remove all existing surfaces")."""
     uid = resolve_id(raw, org, ident)
-    all_units = units(raw, org)
-    active_ids = [u["id"] for u in all_units if not u["archived"]]
     arch = list(org["archived"])
     order = list(org["order"])
     if archived:
-        if uid in active_ids and len(active_ids) <= 1:
-            raise ValueError("at least one page must stay on the desk")
         if uid not in arch:
             arch.append(uid)
     else:
@@ -183,6 +180,23 @@ def archive(raw: list[dict[str, Any]], org: Organized, ident: str, archived: boo
         if order and uid not in order:
             order.append(uid)
     return {"order": order, "archived": arch, "names": dict(org["names"])}
+
+
+def archive_all(raw: list[dict[str, Any]], org: Organized, archived: bool = True) -> Organized:
+    """Return a copy of `org` with every unit archived (an empty desk), or every archived unit back on the desk."""
+    if not archived:
+        return {"order": list(org["order"]), "archived": [], "names": dict(org["names"])}
+    was = [u["id"] for u in units(raw, org)]  # on the desk in their order, then the ones archived before
+    return {"order": list(org["order"]), "archived": was, "names": dict(org["names"])}
+
+
+def forget(org: Organized, uid: str) -> Organized:
+    """Return a copy of `org` with nothing about unit `uid` (it was deleted)."""
+    return {
+        "order": [x for x in org["order"] if x != uid],
+        "archived": [x for x in org["archived"] if x != uid],
+        "names": {k: v for k, v in org["names"].items() if k != uid},
+    }
 
 
 def reorder(raw: list[dict[str, Any]], org: Organized, order: list[str]) -> Organized:
