@@ -231,3 +231,25 @@ def test_updates_for_no_running_turn_are_dropped(tmp_path):
     with pytest.raises(AcpError):
         provider._request("fs/read_text_file", {})
     assert threading.active_count() >= 1
+
+
+def test_geminis_process_is_marked_as_an_agents_shell(tmp_path, monkeypatch):
+    """ZPKT_AGENT=1 is in the engine's environment, as for Claude Code: the `zpkt live` commands that change Live
+    refuse it (tests/app/test_agent_shell_guard.py), so the agent changes Live through the app's tool only."""
+    from zpkt.app.ask import gemini
+
+    seen: list[dict] = []
+    real = gemini.Acp
+
+    def spy(cmd, cwd, env, *args, **kwargs):
+        seen.append(dict(env))
+        return real(cmd, cwd, env, *args, **kwargs)
+
+    monkeypatch.setattr(gemini, "Acp", spy)
+    ask, provider, _ = make(tmp_path)
+    try:
+        ask.create("work", "hello", engine="gemini")
+        assert ask.wait_idle()
+        assert seen and seen[0]["ZPKT_AGENT"] == "1"
+    finally:
+        provider.close()

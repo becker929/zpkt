@@ -4,6 +4,10 @@ and the name of the set in front.
 A command that changes Live goes through the zpkt app (it queues, locks and records who asked). When the app is down
 it refuses, unless given --direct: then it talks to Live itself and says the change is not recorded.
 ZPKT_LIVE_VIA=direct makes every command direct without a warning (the old way); ZPKT_LIVE_VIA=app is the default.
+In an agent's shell (ZPKT_AGENT is set) a command that changes Live stops before it does anything, by any route:
+through the app, with --direct, with ZPKT_LIVE_VIA=direct (`agent_stop`). An agent changes Live through the app's
+`change_live` tool only. Commands that only read still run. This guards against accidents; it is not a wall.
+
 A command that only reads goes through the app too when it is running (so it waits its turn on the app's one
 connection to Live) and falls back to a direct connection when the app is down, with --direct, with ZPKT_LIVE_VIA=direct,
 or when --port names a Remote Script.
@@ -11,6 +15,7 @@ or when --port names a Remote Script.
 
 from __future__ import annotations
 
+import os
 import sys
 from collections.abc import Callable
 from typing import Any, NoReturn, TypeVar
@@ -34,6 +39,14 @@ APP_NOT_RUNNING = (
 )
 
 
+def agent_stop() -> None:
+    """Stop here when an agent's shell runs a command that changes Live: say how an agent changes Live instead."""
+    from zpkt.live.agent import AGENT_ENV, AGENT_NOT_FROM_SHELL
+
+    if os.environ.get(AGENT_ENV):
+        fail(f"ERROR: {AGENT_NOT_FROM_SHELL}")
+
+
 def reach(factory: Callable[..., _T], host: str, port: int | None, **kwargs: Any) -> _T:
     """A direct connection, for the commands that look at the Remote Script itself (ping)."""
     return factory(host, port, **kwargs)
@@ -54,6 +67,8 @@ def connect(
     is running and otherwise straight to Live, silently. An explicit `port` means "that Remote Script": direct."""
     from zpkt.live.app_transport import AppTransport, configured_via, make_client
 
+    if changes:
+        agent_stop()
     forced_direct = direct or configured_via() == "direct"
     if not changes:
         if forced_direct or port is not None:
