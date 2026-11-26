@@ -51,6 +51,8 @@ def test_missing_keys_come_back_with_the_reason_and_describe_raises(live):
     assert missing["Nope/volume"] == "no track, return or Main named 'Nope'"
     assert missing["Kick bus/x/y"].startswith("'Kick bus' has no device 'x'; it has: desk EQ")
     assert missing["Main/mute"] == "Main has no mute" and "not a state key" in missing["volume"]
+    _, missing = D.look(live, ["Kick bus/desk EQ/Gian"])  # a parameter that is not there: the ones that are, named
+    assert missing["Kick bus/desk EQ/Gian"].startswith("Kick bus/desk EQ has no parameter 'Gian'; it has: Device On")
     with pytest.raises(D.Missing) as err:
         D.describe(live, ["Nope/volume"])
     assert err.value.missing == {"Nope/volume": "no track, return or Main named 'Nope'"}
