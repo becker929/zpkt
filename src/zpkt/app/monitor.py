@@ -48,6 +48,9 @@ class Monitor:
         self._lock = threading.Lock()
         self.main_saved: dict[str, float] | None = None  # Main's desk devices' On values while a monitor track plays
         self._pin: dict[str, list[Any]] | None = None  # the pinned values; None: the mix as first seen
+        self._pin_name: str | None = (
+            None  # the checkpoint chosen as the Pin (B) in History; None: the mix pinned as it was
+        )
         self._now: dict[str, list[Any]] | None = None  # Now's values while the Pin is heard
         self.last_meter: dict[str, Any] | None = None
 
@@ -130,7 +133,20 @@ class Monitor:
         self._leave_pin()
         with self._lock:
             self._pin = {k: list(v) for k, v in self.desk.history.cur.items()}
+            self._pin_name = None
         self.desk.make_checkpoint(PIN_NAME, who)
+        self.desk.push_app(self.message())
+
+    def pin_checkpoint(self, name: str) -> None:
+        """Choose the checkpoint `name` as the Pin (B): its values for the desk's controls. Nothing is written to Live
+        until the Pin is heard. Raises ValueError when there is no such checkpoint."""
+        if not self.desk.history.has_checkpoint(name):
+            raise ValueError(f"no checkpoint {name!r}")
+        saved = self.desk.history.load(name)
+        self._leave_pin()
+        with self._lock:
+            self._pin = {k: list(saved[k]) for k in self.desk.history.cur if k in saved}
+            self._pin_name = name
         self.desk.push_app(self.message())
 
     def hear(self, what: str) -> None:
@@ -210,6 +226,7 @@ class Monitor:
         with self._lock:
             pin_heard = self._now is not None
             pinned = self._pin is not None
+            pin_name = self._pin_name
         choice = self.desk.monitor_choice()
         return {
             "t": "hear",
@@ -220,5 +237,5 @@ class Monitor:
             "changed": len(changed := self.desk.history.changed(self.now_values())),
             "keys": changed,
             "base": self.desk.history.base_name,
-            "pin": PIN_NAME if pinned else "start",
+            "pin": pin_name or (PIN_NAME if pinned else "start"),
         }

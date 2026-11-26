@@ -32,12 +32,14 @@ svg{display:block}
  #hbot{padding:4px 6px;gap:4px 6px}
  #hbot .grp{gap:4px}
  #hbot .key,#hbot .key.sm{height:38px;min-width:36px;padding:0 4px;border-radius:10px}
- #hbot #loops .key{min-width:0;padding:0 6px;border-radius:0}
+ #hbot #loops .key,#hbot #abc .key{min-width:36px;padding:0 6px;border-radius:0}
+ #hbot #abc .key:first-child{border-radius:10px 0 0 10px}#hbot #abc .key:last-child{border-radius:0 10px 10px 0}
  #loops>span.key{display:none}  /* the loop mark: the three words say it */
  #hbot #loops>button.key:first-of-type{border-radius:10px 0 0 10px}
  #hbot #loops>button.key:last-child{border-radius:0 10px 10px 0} :root{--tabs-h:42px}
  .dots .key.sm{height:38px}
 }
+#abc .key{font:600 14px ui-monospace,Menlo,monospace;min-width:40px}
 #kundo .uw{display:flex;flex-direction:column;align-items:flex-start;line-height:1.15;max-width:104px;min-width:0;text-align:left}
 #kundo .uw b,#kundo .uw i{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-style:normal}
 #kundo .uw b{font-size:11.5px;font-weight:600}#kundo .uw i{font:11px ui-monospace,Menlo,monospace;color:var(--mute)}
@@ -509,7 +511,7 @@ async function clearFlag(flag, track) {
 function renderBottom() {
   const st = S.state, box = $("#hkeys");
   if (!st) return;
-  if (!$("#tgrp")) box.innerHTML = `<div class="grp" role="group" aria-label="Transport" id="tgrp"></div><div id="flags" role="group" aria-label="Solo and mute"></div><div class="grp" role="group" aria-label="History" id="hgrp"></div>`;
+  if (!$("#tgrp")) box.innerHTML = `<div class="grp" role="group" aria-label="Transport" id="tgrp"></div><div id="flags" role="group" aria-label="Solo and mute"></div><div class="grp" id="abgrp"></div><div class="grp" role="group" aria-label="History" id="hgrp"></div>`;
   const u = S.hist.can_undo ? stepWords(S.hist.undo) : null, r = S.hist.can_redo ? stepWords(S.hist.redo) : null;
   const said = w => w ? `: ${w.label}${w.value ? " to " + w.value : ""}` : "";
   // each group is drawn only when it changes, so Play is the same button while Undo's words come and go
@@ -518,7 +520,11 @@ function renderBottom() {
   setHtml($("#tgrp"), `<button class="key ${st.playing ? "on" : ""}" id="kplay" aria-label="${st.playing ? "Pause" : "Play"}">${I(st.playing ? "pause" : "play")}</button>
     <button class="key sm" id="kstop" aria-label="Stop and go back to the start">${I("stop")}</button>
     <div class="seg" id="loops" role="group" aria-label="Loop"><span class="key sm" aria-hidden="true" style="min-width:0;padding:0 6px;cursor:default"><svg width="15" height="15"><use href="#i-loop"/></svg></span>${key("whole", "All", "the whole song")}${key("build", "Start", "the beginning")}${key("drop", "Peak", "the peak")}</div>`);
-  setHtml($("#flags"), flagsHtml());
+  // Compare, in the play bar: A is the mix now, B the pinned mix (a checkpoint chosen in History, else the mix as the
+  // desk first saw it), C the reference. One of them is heard.
+  const hr = S.hear, pinName = hr.pin === "start" ? "the mix as it was first" : hr.pin === "pin" ? "the pinned mix" : cpLabel(hr.pin, baseAt(hr.pin));
+  const ab = (what, letter, words, ok) => `<button class="key sm ${hr.hearing === what ? "on" : ""}" data-hear="${what}" aria-pressed="${hr.hearing === what}" aria-label="${esc(words)}" ${ok ? "" : "disabled"}>${letter}</button>`;
+  setHtml($("#abgrp"), `<div class="seg" id="abc" role="group" aria-label="Compare">${ab("now", "A", "A: the mix now", true)}${ab("pin", "B", "B: " + pinName, true)}${ab("ref", "C", "C: the reference", Object.keys(st.gains || {}).length > 0)}</div>`);
   setHtml($("#hgrp"), `<button class="key sm ${S.hist.can_undo ? "" : "off"}" id="kundo" aria-label="Undo${esc(said(u))}" ${S.hist.can_undo ? "" : "disabled"}>${I("undo")}</button>
     <button class="key sm ${S.hist.can_redo ? "" : "off"}" id="kredo" aria-label="Redo${esc(said(r))}" title="${esc(r ? `${r.label} ${r.value}` : "")}" ${S.hist.can_redo ? "" : "disabled"}>${I("redo")}</button>
     <button class="key sm" id="khist" aria-label="History and checkpoints">${I("hist")}</button>`);
@@ -1162,6 +1168,7 @@ function histRows() {
       const can = files.has(e.name) && !listed.has(e.name);  // an older save under the same name was written over
       listed.add(e.name);
       return `<div class="he cp" data-cp="${esc(e.name)}"><svg width="18" height="18"><use href="#i-flag"/></svg><span class="ht">${esc(cpLabel(e.name, e.at))}</span>${head(e, mine)}
+        ${can ? `<button class="key sm ${S.hear.pin === e.name ? "on" : ""}" data-pinb="${esc(e.name)}" aria-pressed="${S.hear.pin === e.name}" aria-label="Pin ${esc(cpLabel(e.name, e.at))} as B">B</button>` : ""}
         ${can ? `<button class="key sm" data-back="${esc(e.name)}" data-label="${esc(cpLabel(e.name, e.at))}" aria-label="Go back to ${esc(cpLabel(e.name, e.at))}"><svg width="18" height="18"><use href="#i-back"/></svg>Go back</button>` : ""}</div>`;
     }
     const undone = i >= pos, moves = e.moves || [], n = `${moves.length} control${moves.length === 1 ? "" : "s"}`;
@@ -1659,6 +1666,8 @@ document.addEventListener("click", async e => {
     }
     return;
   }
+  if (t.dataset.hear) return command("monitor.hear", {hearing: t.dataset.hear});
+  if (t.dataset.pinb) return command("monitor.pin", {name: t.dataset.pinb});
   if (t.id === "kundo" || t.id === "hundo") return stepHistory("undo");
   if (t.id === "kredo" || t.id === "hredo") return stepHistory("redo");
   if (t.id === "khist") return showHistory();
@@ -1696,7 +1705,7 @@ document.addEventListener("pointerdown", e => {
 function apply(m) {
   let part = "all";
   if (m.t === "full") S.state = m.state;
-  else if (m.t === "hear") { S.hear = m; if (!S.state) return; renderTop(); return renderDesk(); }
+  else if (m.t === "hear") { S.hear = m; if (!S.state) return; renderTop(); renderBottom(); if (S.sheet === "hist" || wide()) redrawHist(); return renderDesk(); }
   else if (m.t === "hist") {
     const top = m.entries.reduce((x, e) => Math.max(x, e.id), 0);
     if (S.histTop !== undefined && top > S.histTop) S.histAt = 0;  // something new happened: the newest rows show

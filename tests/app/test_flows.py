@@ -96,22 +96,25 @@ def test_the_list_view_names_each_control_in_a_row_and_a_row_is_moved_sideways(r
     assert page.locator("#panel").get_attribute("data-view") == "map"
 
 
-def test_the_hear_bar_has_no_now_pin_or_ref(rig, page):
-    """Now, Pin and Ref are off the page (25 November 2026); the monitor's commands stay on the bus."""
-    assert page.locator("[data-hear], #kmkpin, #hearpill, #banner").count() == 0
-    assert "matched" not in page.locator("#htop").inner_text()
-    assert [b.get_attribute("id") for b in page.locator("#hkeys button").all()] == [
-        "kplay",
-        "kstop",
-        None,
-        None,
-        None,
-        "kundo",
-        "kredo",
-        "khist",
-    ]  # play, stop, the three loops, history
-    rig.desk.bus.submit(Command("monitor.hear", "minilab", {"hearing": "pin"}))  # still a command
+def test_compare_is_in_the_play_bar_and_history_chooses_the_pinned_b(rig, page):
+    """A, B and C are keys of the play bar (26 November 2026): the mix now, the pinned mix, the reference. A checkpoint
+    is chosen as B in History."""
+    assert [b.inner_text() for b in page.locator("#abc button").all()] == ["A", "B", "C"]
+    assert page.locator('#abc [data-hear="now"]').get_attribute("aria-pressed") == "true"
+    page.click('#abc [data-hear="pin"]')
+    page.wait_for_function("window.zpkt.S.hear.hearing === 'pin'")
     assert rig.desk.monitor.message()["hearing"] == "pin"
+    assert page.locator('#abc [data-hear="pin"]').get_attribute("aria-pressed") == "true"
+    page.click('#abc [data-hear="now"]')
+    page.wait_for_function("window.zpkt.S.hear.hearing === 'now'")
+    rig.desk.bus.submit(Command("history.checkpoint", "you", {"name": "before the hats", "new": True}))
+    page.click("#khist")
+    page.click('[data-pinb="before the hats"]')
+    page.wait_for_function("window.zpkt.S.hear.pin === 'before the hats'")
+    assert rig.desk.monitor.message()["pin"] == "before the hats"
+    assert page.locator('[data-pinb="before the hats"]').get_attribute("aria-pressed") == "true"
+    status, body = rig.desk.bus.submit(Command("monitor.pin", "you", {"name": "no such checkpoint"}))
+    assert status == 404, body
 
 
 def test_flow_6_undo_the_history_names_who_and_an_agent_group_undoes_as_one(rig, page):
