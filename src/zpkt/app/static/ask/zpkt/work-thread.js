@@ -105,7 +105,7 @@ export function foldTurn(thread, turn) {
   for (let n = start.nextElementSibling; n; n = n.nextElementSibling) after.push(n);
   const texts = after.filter((n) => n.matches('.m.model'));
   const answer = texts[texts.length - 1];
-  const fold = after.filter((n) => (n.matches('.wk-step') && !n.classList.contains('bad')) || (n.matches('.m.model') && n !== answer && !n.querySelector('.zs-card, .zs-slot')));
+  const fold = after.filter((n) => (n.matches('.wk-step') && !n.classList.contains('bad')) || (n.matches('.m.model') && n !== answer && !n.querySelector('a[href*="#page="], .oldpanel')));
   if (!turn.steps.length && !turn.agents.length) return null;
   const d = el(`<details class="wk-trace"><summary><span class="wk-t"><span class="wk-traceline"></span><span class="wk-fact"></span></span></summary><div class="wk-folded"></div></details>`);
   if (turn.problems) d.classList.add('warn');

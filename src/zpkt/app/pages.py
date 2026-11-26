@@ -29,6 +29,11 @@ def pages_dir(desk: Desk) -> Path:
     return desk.settings.pages_dir or page.folder(desk.settings.set_name)
 
 
+def link(page_id: str | None) -> str:
+    """Where a saved page opens: the Desk reads the hash and sends `page.open`."""
+    return f"/app/#page={page_id}"
+
+
 def reasons(problems: list[page.Problem]) -> str:
     """The errors of a lint, as one plain text for a person or an agent to act on."""
     return " ".join(f"{p['where']}: {p['text']}." for p in problems if p["level"] == "error")
@@ -108,6 +113,35 @@ def apply(desk: Desk, parsed: page.Page, found: dict[str, Description], prompt: 
     for i, (path, _) in enumerate(made):  # the hardware pages stay in order whatever the clock's grain
         os.utime(path, ns=(now + i * 1_000_000, now + i * 1_000_000))
     return desk.adopt_surfaces(made)
+
+
+def open_saved(desk: Desk, cmd: Command) -> Reply:
+    """Open a saved page by id (the link an agent gives, /app/#page=<id>): arm it when it is on the desk already,
+    else put it on the desk and the MiniLab first. It is your act: an agent drafts pages and cannot open one."""
+    page_id = str(cmd.args.get("id", ""))
+    path = pages_dir(desk) / f"{page_id}.json"
+    if not page_id or "/" in page_id or not path.is_file():
+        raise BadRequest(NO_LAYOUT)
+    try:
+        parsed = page.load(path)
+    except ValueError as exc:
+        raise BadRequest(str(exc)) from None
+    parsed.id = page_id
+    on_desk = [i for i, pg in enumerate(desk.cfg()["pages"]) if pg.get("page_id") == page_id]
+    if on_desk:
+        desk.call(f"m.DESK.arm({on_desk[0]})")
+        desk.push({"t": "desk", "open": on_desk[0]})
+        return 200, {"ok": True, "id": page_id, "title": parsed.title, "pages": on_desk, "added": False}
+    found, missing = describe.look(desk.conn, parsed.targets())
+    problems = page.lint(parsed, found, missing)
+    if any(p["level"] == "error" for p in problems):
+        return 422, {
+            "ok": False,
+            "error": f"The page cannot be opened on this set. {reasons(problems)}",
+            "problems": problems,
+        }
+    made = apply(desk, parsed, found, parsed.prompt or "")
+    return 200, {"ok": True, "id": page_id, "title": parsed.title, "pages": made, "added": True}
 
 
 def _unique(name: str, taken: list[str]) -> str:

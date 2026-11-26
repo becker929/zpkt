@@ -67,7 +67,10 @@ def handle(message: dict[str, Any], post: Post, session: str, token: str) -> dic
         status, reply = post(
             {"session": session, "token": token, "tool": params.get("name"), "args": params.get("arguments") or {}}
         )
-        result = {"content": [{"type": "text", "text": json.dumps(reply)}], "isError": status >= 400}
+        result = {
+            "content": [{"type": "text", "text": json.dumps(reply, ensure_ascii=False)}],
+            "isError": status >= 400,
+        }
     else:
         return {"jsonrpc": "2.0", "id": ident, "error": {"code": -32601, "message": f"no method {method}"}}
     return {"jsonrpc": "2.0", "id": ident, "result": result}

@@ -1,70 +1,7 @@
-/* Zpkt surfaces, composer chips and panels. Colours come from index.html's tokens, plus two of our own. */
-/* The look: a quiet ceramic card; only the controls are physical. Lime = accent, fader fill and lane A; lane B is neutral. Matte, not shiny.
-   Names are listed in palette.js. Light: aluminium on white. Dark: black-anodised on graphite. */
-:root{
-  --zs:#c6f432;--zs2:#e9e9e4;--zs-on:#111;--zs-ghost:#a9b876;--zs-bg:#f3fbd0;
-  --zk-arc-a:#b4e61e;--zk-arc-b:#b4e61e;
-  --zk-1:#f6f5f1;--zk-2:#e0dfd9;--zk-3:#bcbbb4;--zk-knurl:#c4c3bd;--zk-edge:#8f8e88;--zk-ptr:#111;--zk-shadow:.22;
-  --z-well:#dcdbd5;--z-slot:#161616;
-  --z-key1:#ffffff;--z-key2:#eeede8;--z-keyedge:#c9c8c2;
-  --zg-1:#232323;--zg-2:#0f0f0f;--zg-edge:#000;--zg-text:#f2f2ee;
-  --zc-1:#ffffff;--zc-2:#f8f7f3;--zc-line:#d9d7d0;--zc-shadow:0 1px 0 #fff inset,0 8px 22px rgba(20,20,10,.08),0 1px 2px rgba(20,20,10,.07);
-}
-@media (prefers-color-scheme:dark){:root{
-  --zs:#c6f432;--zs2:#e9e9e4;--zs-on:#111;--zs-ghost:#6f8030;--zs-bg:#2a3310;
-  --zk-arc-a:#c6f432;--zk-arc-b:#c6f432;
-  --zk-1:#48494d;--zk-2:#242428;--zk-3:#0d0d0f;--zk-knurl:#3a3b40;--zk-edge:#000000;--zk-ptr:#f3f3ee;--zk-shadow:.6;
-  --z-well:#3b3c40;--z-slot:#09090b;
-  --z-key1:#3b3c41;--z-key2:#2a2b2f;--z-keyedge:#141416;
-  --zg-1:#0d0d0f;--zg-2:#000000;--zg-edge:#000000;--zg-text:#f2f2ee;
-  --zc-1:#2a2a2c;--zc-2:#222224;--zc-line:#3d3d40;--zc-shadow:0 1px 0 rgba(255,255,255,.06) inset,0 10px 26px rgba(0,0,0,.45);
-}}
-
-/* ---------- cards ---------- */
-.zs-card{border:1px solid var(--zc-line);border-radius:18px;background:linear-gradient(var(--zc-1),var(--zc-2));box-shadow:var(--zc-shadow);padding:10px 12px 12px;width:fit-content;min-width:min(100%,320px);margin:.7em 0;max-width:100%;overflow:hidden;transition:border-color .2s,box-shadow .2s}
-.zs-card.armed{border-color:color-mix(in srgb,var(--zs) 40%,var(--zc-line))}
-.zs-card.frozen .zs-snap{opacity:.72}
-.zs-card.zs-bad{border-color:var(--danger);color:var(--danger);font-size:14px}
-.zs-card.zs-bad small{display:block;color:var(--mute)}
-.zs-head{display:flex;align-items:center;gap:8px;min-width:0}
-.zs-title{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:16px;font-weight:700;letter-spacing:-.01em}
-.zs-tag{font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--mute);border:1px solid var(--zc-line);border-radius:20px;padding:2px 9px}
-.armed .zs-tag{background:var(--zs);border-color:var(--zs);color:var(--zs-on)}
-.zs-dot{width:8px;height:8px;border-radius:50%;background:var(--line);flex:none;display:inline-block}
-.zs-dot.on,.armed .zs-dot{background:var(--zs);box-shadow:0 0 0 3px color-mix(in srgb,var(--zs) 25%,transparent)}
-.zs-ib{width:36px;height:36px;display:grid;place-items:center;border-radius:9px;color:var(--mute);flex:none}
-.zs-ib:hover{background:var(--bg);color:var(--ink)}
-.zs-arm{background:linear-gradient(var(--z-key1),var(--z-key2));border:1px solid var(--zc-line);box-shadow:0 2px 0 var(--z-keyedge);color:var(--ink);border-radius:10px;padding:6px 14px;font-weight:600;font-size:14px}
-.zs-arm:active{transform:translateY(1.5px);box-shadow:0 .5px 0 var(--z-keyedge)}
-.zs-render{flex:none;white-space:nowrap}.zs-render[disabled]{opacity:.55;box-shadow:none;transform:none}
-.zs-note{color:var(--mute);font-size:13px;margin:2px 0 0;overflow-wrap:anywhere}
-.zs-warn{color:var(--warn);font-size:12px;margin:4px 0 0;overflow-wrap:anywhere}
-.zs-snap,.zs-body{margin-top:8px}
-.zs-snap svg{max-width:100%;height:auto;display:block}
-.zs-body{position:relative;max-width:100%}
-.zs-w{position:absolute;touch-action:none;user-select:none;-webkit-user-select:none;border-radius:10px;outline:0}
-.zs-w:focus-visible{box-shadow:0 0 0 2px var(--ink)}
-.zs-w svg{display:block}
-.zs-knob,.zs-fader{cursor:ns-resize}
-.zs-toggle,.zs-pads{cursor:pointer}
-.zs-ab{max-width:100%}
-.zs-tr{display:flex;align-items:center;gap:6px;margin-top:6px}
-.zs-tr select{background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:5px 6px;font-size:13px}
-.zs-tr .zs-ab,.zs-tr .zs-ib{width:40px;height:34px;flex:none;border-radius:10px;border:1px solid var(--zc-line);font-weight:700;background:linear-gradient(var(--z-key1),var(--z-key2));box-shadow:0 2px 0 var(--z-keyedge);color:var(--ink)}
-.zs-tr .zs-ab:active,.zs-tr .zs-ib:active{transform:translateY(1.5px);box-shadow:0 .5px 0 var(--z-keyedge)}
-.zs-tr .zs-ab.on{background:var(--zs);border-color:var(--zs);color:var(--zs-on);box-shadow:0 2px 0 color-mix(in srgb,var(--zs) 60%,#000)}
-.zs-tr .zs-ab[data-s=b].on{background:var(--zs2);border-color:var(--zs2);color:#111;box-shadow:0 2px 0 color-mix(in srgb,var(--zs2) 60%,#000)}
-.zs-tr .zs-ab.pending{border:2px dashed var(--zs-ghost);color:var(--zs-ghost);animation:zs-pulse .5s infinite alternate}
-.zs-st{font:12px ui-monospace,Menlo,monospace;color:var(--mute);margin-left:auto;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
-@keyframes zs-pulse{to{opacity:.45}}
-/* the moment a change becomes audible */
-.zs-flash{animation:zs-flash .6s ease-out}
-@keyframes zs-flash{0%{box-shadow:0 0 0 0 #fff,0 0 0 2px var(--zs);background:var(--zs-bg)}100%{box-shadow:0 0 0 14px transparent,0 0 0 0 color-mix(in srgb,var(--zs) 14%,transparent)}}
-
-/* ---------- composer ---------- */
+/* The composer's tool row and chips, and a sent message's images. Colours come from the page's tokens. */
 #tools,#ztools{display:flex;gap:2px;align-items:center}
 #tools{margin:0 0 6px;flex-wrap:wrap;row-gap:4px}
-#tools button{flex:none;width:38px;height:38px;display:grid;place-items:center;border-radius:10px;color:var(--mute)}
+#tools button{flex:none;width:44px;height:44px;display:grid;place-items:center;border-radius:10px;color:var(--mute)}
 #tools button:hover:not(:disabled){background:var(--panel);color:var(--ink)}
 #tools button:disabled{opacity:.35}
 #tools .sp{flex:1}
@@ -72,47 +9,11 @@
 .zc-chip{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:var(--panel);border-radius:12px;font-size:13px;padding:4px 10px;max-width:100%}
 .zc-chip.img{padding:3px;position:relative}
 .zc-chip.img img{width:52px;height:40px;object-fit:cover;border-radius:8px;display:block}
-.zc-chip.img button{position:absolute;top:-6px;right:-6px;width:22px;height:22px;border-radius:50%;background:var(--ink);color:var(--bg);display:grid;place-items:center}
+.zc-chip.img button{position:absolute;top:-10px;right:-10px;width:28px;height:28px;border-radius:50%;background:var(--ink);color:var(--bg);display:grid;place-items:center}
 .zc-chip.img button svg{width:12px;height:12px}
-.zc-chip.sf{color:var(--mute)}
-.zc-chip.sf.on{border-color:color-mix(in srgb,var(--zs) 50%,var(--line));color:var(--ink)}
 .zc-chip.note{color:var(--mute)}
-#engine{flex:none;max-width:104px;border:1px solid var(--line);background:var(--panel);border-radius:16px;padding:6px 8px;font-size:13px}
-#engine.claude{border-color:var(--ink);font-weight:700}
+/* The two pickers are drawn by the page (a native one is 20 px tall on a phone): 44 px, with a caret. */
+#engine,#mode{flex:none;-webkit-appearance:none;appearance:none;min-height:44px;max-width:150px;margin:0;border:1px solid var(--line);border-radius:8px;padding:6px 26px 6px 10px;font-size:13px;text-overflow:ellipsis;background:var(--panel) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%23888' stroke-width='1.6'/%3E%3C/svg%3E") no-repeat right 9px center}
+#tools{gap:6px}
 .m.user .atts{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end;margin-top:4px}
 .m.user .atts img{width:88px;height:64px;object-fit:cover;border-radius:10px;border:1px solid var(--line)}
-
-/* ---------- panels ---------- */
-.zp h4{margin:16px 0 4px;font-size:13px;color:var(--mute);text-transform:uppercase;letter-spacing:.05em}
-.zl-row{display:flex;align-items:center;border-bottom:1px solid var(--line)}
-.zl-go{flex:1;min-width:0;text-align:left;padding:9px 0}
-.zl-go b{display:flex;align-items:center;gap:6px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.zl-go b svg{color:var(--ink);flex:none}
-.zl-go small{display:block;color:var(--mute);font-size:12px}
-.zm-row{display:flex;flex-wrap:wrap;gap:6px;align-items:center;padding:8px 0;border-bottom:1px solid var(--line);font-size:14px}
-.zm-row b{min-width:110px;font-weight:500}
-.zm-map{font:12px ui-monospace,Menlo,monospace;background:var(--code);border-radius:6px;padding:2px 6px}
-.zm-btn{border:1px solid var(--line);border-radius:9px;padding:6px 12px;font-size:14px}
-.zm-learn{color:var(--ink);font-weight:700;text-decoration:underline}
-
-/* small phones: give the card the whole width */
-@media (max-width:380px){#msgs{padding-left:6px;padding-right:6px}.zs-card{padding:10px 8px 12px}}
-
-/* a deck of versions, and the grid form that asks for one */
-.zs-vs{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px}
-.zs-vs .zs-ab{width:40px;height:34px;flex:none;border-radius:10px;border:1px solid var(--zc-line);font-weight:700;background:linear-gradient(var(--z-key1),var(--z-key2));box-shadow:0 2px 0 var(--z-keyedge);color:var(--ink)}
-.zs-vs .zs-ab:active{transform:translateY(1.5px);box-shadow:0 .5px 0 var(--z-keyedge)}
-.zs-vs .zs-ab.on{background:var(--zs);border-color:var(--zs);color:var(--zs-on);box-shadow:0 2px 0 color-mix(in srgb,var(--zs) 60%,#000)}
-.zs-vs .zs-ab.pending{border:2px dashed var(--zs-ghost);color:var(--zs-ghost);animation:zs-pulse .5s infinite alternate}
-.zs-vst{margin:4px 0 0;height:18px;text-align:left}
-.zs-tr .zs-vb{height:34px;padding:0 10px;border-radius:10px;border:1px solid var(--zc-line);font-weight:600;font-size:13px;background:linear-gradient(var(--z-key1),var(--z-key2));box-shadow:0 2px 0 var(--z-keyedge);color:var(--ink);white-space:nowrap}
-.zs-tr .zs-vb[aria-pressed=true]{background:var(--zs);border-color:var(--zs);color:var(--zs-on)}
-.zs-tr .zs-use{margin-left:auto}.zs-tr .zs-vb[disabled]{opacity:.55}
-.zs-grid{border:1px solid var(--zc-line);border-radius:10px;padding:8px 10px;margin:6px 0 8px;font-size:13.5px;max-width:328px}
-.zs-gh{color:var(--mute);font-size:12.5px;margin-bottom:4px}
-.zs-gr{display:flex;align-items:center;gap:8px;padding:3px 0;min-height:34px}
-.zs-gr span{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.zs-gr i{color:var(--mute);font-style:normal;font-size:12.5px}
-.zs-gr select{background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:4px 5px;font-size:13px}
-.zs-gf{display:flex;align-items:center;gap:8px;margin-top:6px}.zs-gn{flex:1;color:var(--mute);font-size:12.5px}
-.zs-gf .zs-arm[disabled]{opacity:.55;box-shadow:none}

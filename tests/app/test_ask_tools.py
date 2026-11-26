@@ -162,3 +162,46 @@ def test_the_older_command_names_and_keys_still_work(asked):
     for key in ("spec", "page"):  # `page` is the older key of page.draft
         code, reply = bus.submit(Command("page.draft", "agent", {key: PAGE}))
         assert code in (200, 422), reply
+
+
+def desk_pages(asked):
+    return asked.rig.get("/api/desk")[1]["pages"]
+
+
+def test_make_page_returns_a_link_and_the_page_is_listed_but_not_on_the_desk(asked):
+    before = desk_pages(asked)
+    code, ok = call(asked, "make_page", {"spec": PAGE})
+    assert code == 200 and ok["title"] == "Kick: level"
+    assert ok["link"] == "/app/#page=kick-level" and ok["markdown"] == "[Kick: level](/app/#page=kick-level)"
+    listed = asked.rig.get("/api/pages")[1]["pages"]
+    assert [(p["id"], p["made_by"]) for p in listed] == [("kick-level", "agent")]
+    assert desk_pages(asked) == before  # drafted, not opened: the agent moved nothing
+    assert asked.rig.command("page.layout", {"id": "kick-level"})[0] == 200
+
+
+def test_opening_the_link_is_the_persons_act_and_puts_the_page_on_the_desk(asked):
+    from zpkt.app.bus import Command
+
+    bus = asked.rig.desk.bus
+    _, ok = call(asked, "make_page", {"spec": PAGE})
+    before = len(desk_pages(asked))
+    code, _ = bus.submit(Command("page.open", "agent", {"id": ok["id"]}))
+    assert code == 403 and len(desk_pages(asked)) == before  # an agent cannot open its own page
+    assert call(asked, "page.open", {"id": ok["id"]})[0] == 404  # and it is not a tool
+    code, opened = asked.rig.command("page.open", {"id": ok["id"]})
+    assert code == 200 and opened["added"] is True and opened["pages"] == [before] and opened["title"] == "Kick: level"
+    mine = desk_pages(asked)[before]
+    assert mine["page_id"] == "kick-level" and mine["name"] == "Kick: level"
+    code, again = asked.rig.command("page.open", {"id": ok["id"]})  # a second click arms it; no second copy
+    assert code == 200 and again["added"] is False and again["pages"] == [before]
+    assert len(desk_pages(asked)) == before + 1
+    assert asked.rig.command("page.open", {"id": "nothing"})[0] == 400
+    assert asked.rig.command("page.open", {"id": "../x"})[0] == 400
+
+
+def test_the_guide_teaches_links_and_no_longer_the_surface_block():
+    from zpkt.app.adapters.agents import GUIDE
+
+    guide = GUIDE.read_text()
+    assert "/app/#page=" in guide and "make_page" in guide and "```audio" in guide
+    assert "```zpkt-surface" not in guide and "midiSlot" not in guide

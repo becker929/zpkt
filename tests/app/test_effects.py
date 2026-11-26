@@ -61,6 +61,7 @@ MOVES = {
     "page.apply",
     "panel.apply",
     "page.arm",
+    "page.open",
     "page.set",
     "pager.restart",
     "song.build",

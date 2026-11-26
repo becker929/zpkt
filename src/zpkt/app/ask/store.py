@@ -169,6 +169,8 @@ class SessionStore:
         if running:
             raise Refused("Session is running", 409)
         s = self.get(sid)
+        if s.get("main"):
+            raise Refused("The main conversation cannot be deleted", 409)
         s["deleted"] = self.now_ms()
         self.save()
 
@@ -188,6 +190,26 @@ class SessionStore:
                 return
             self.index = [s for s in self.index if s["id"] != sid]
             self.save()
+
+    def main(self, workspace: str, cwd: str, title: str = "Ask") -> Record:
+        """The workspace's one conversation. The first time, the most recent session there becomes it (the others
+        stay as the archive); with none, an empty one is made."""
+        with self.lock:
+            mine = [s for s in self.index if not s.get("deleted") and self._in(s, workspace, cwd)]
+            found = next((s for s in mine if s.get("main")), None)
+            if found is None:
+                found = max(mine, key=lambda s: s.get("updated", 0)) if mine else self.create(title, workspace, cwd)
+                found["main"] = True
+                self.save()
+            return found
+
+    def archive(self, workspace: str, cwd: str, running: Callable[[str], bool] = lambda sid: False) -> list[Record]:
+        """The workspace's sessions that are not its main conversation, newest first."""
+        return [s for s in self.all_sessions(running) if not s.get("main") and self._in(s, workspace, cwd)]
+
+    @staticmethod
+    def _in(s: Record, workspace: str, cwd: str) -> bool:
+        return s.get("workspace") == workspace or (not s.get("workspace") and s.get("cwd") == cwd)
 
     def engine_state(self, s: Record) -> dict[str, Any]:
         """Which engines have a conversation going here (older sessions only knew Gemini)."""
@@ -242,6 +264,23 @@ class SessionStore:
                 if isinstance(e, dict):
                     out.append(e)
         return out
+
+    def page(self, sid: str, turns: int = 20, before: int | None = None) -> dict[str, Any]:
+        """A page of a long transcript, in whole turns: the last `turns` turns, or the `turns` before the seq
+        `before`. `first` is the seq of the first event given (pass it as `before` for the older page), `next` the
+        seq to follow the stream from, `more` whether older events exist."""
+        events = self.replay(sid)
+        end = len(events) if before is None else sum(1 for e in events if e.get("seq", 0) < before)
+        starts = [i for i, e in enumerate(events[:end]) if e.get("type") == "prompt"]
+        begin = starts[-turns] if len(starts) > max(turns, 0) > 0 else 0
+        shown = events[begin:end]
+        first = shown[0].get("seq", begin) if shown else (before or 0)
+        return {
+            "events": shown,
+            "first": first,
+            "next": (events[-1].get("seq", len(events) - 1) + 1) if events else 0,
+            "more": begin > 0,
+        }
 
     def follow(self, sid: str, start: int, fn: Callable[[Event], None]) -> Callable[[], None]:
         """Replay from `start`, then call `fn` for each new event. Done under one lock, so none slips between."""

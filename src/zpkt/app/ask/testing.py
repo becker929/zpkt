@@ -11,6 +11,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass, field
 from typing import Any
 
+from zpkt.app.ask.compaction import INSTRUCTIONS
 from zpkt.app.ask.events import Event
 from zpkt.app.ask.provider import Emit, Outcome, Turn
 from zpkt.app.ask.tools import ToolGate
@@ -34,16 +35,33 @@ class Permit:
     title: str
 
 
-Step = Event | Call | Wait | Permit
+@dataclass(frozen=True)
+class Started:
+    """The engine now has a conversation of its own (a real one says so once it answers), under this id."""
+
+    engine_id: str = ""
+
+
+Step = Event | Call | Wait | Permit | Started
 
 
 class ScriptedProvider:
-    """Plays `script` for every turn. `seen` keeps each Turn it was given and `replies` what its calls got back."""
+    """Plays `script` for every turn. `seen` keeps each Turn it was given and `replies` what its calls got back.
+    A turn that asks for a compaction's summary plays `summary` instead and is kept in `summaries`; with
+    `summary_outcome` that turn ends so (a summary that fails)."""
 
     def __init__(
-        self, engine: str, script: Sequence[Step], gate: ToolGate | None = None, outcome: Outcome | None = None
+        self,
+        engine: str,
+        script: Sequence[Step],
+        gate: ToolGate | None = None,
+        outcome: Outcome | None = None,
+        summary: Sequence[Step] | None = None,
+        summary_outcome: Outcome | None = None,
     ) -> None:
         self.engine, self.script, self.gate, self.outcome = engine, list(script), gate, outcome or Outcome(0)
+        self.summary, self.summary_outcome = summary, summary_outcome
+        self.summaries: list[Turn] = []
         self.seen: list[Turn] = []
         self.replies: list[tuple[int, dict[str, Any]]] = []
         self.answers: list[str | None] = []
@@ -52,15 +70,18 @@ class ScriptedProvider:
         return {"id": self.engine, "name": self.engine}
 
     def run(self, turn: Turn, emit: Emit, cancel: threading.Event) -> Outcome:
-        self.seen.append(turn)
+        summing = self.summary is not None and turn.prompt.startswith(INSTRUCTIONS)
+        (self.summaries if summing else self.seen).append(turn)
         n = 0
-        for step in self.script:
+        for step in (self.summary or []) if summing else self.script:
             if cancel.is_set():
                 return Outcome(None, "SIGTERM")
             if isinstance(step, Wait):
                 cancel.wait(10)
                 return Outcome(None, "SIGTERM")
-            if isinstance(step, Permit):
+            if isinstance(step, Started):
+                turn.mark_started(step.engine_id)
+            elif isinstance(step, Permit):
                 self.answers.append(
                     turn.ask_permission(
                         {"title": step.title, "kind": "edit"},
@@ -88,4 +109,4 @@ class ScriptedProvider:
                 )
             else:
                 emit(dict(step))
-        return self.outcome
+        return (self.summary_outcome or Outcome(0)) if summing else self.outcome
