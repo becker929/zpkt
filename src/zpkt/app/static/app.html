@@ -393,6 +393,7 @@ function renderTop() {
   const facts = [sg.tempo ? `${+(+sg.tempo).toFixed(2)} BPM` : "", sg.sig ? `${sg.sig[0]}/${sg.sig[1]}` : ""].filter(Boolean).join(" · ");
   const live = liveOk(), lb = loopBars(), mode = specMode();
   setHtml($("#ident"), `<b id="setname" title="The set open in Live">${esc(sg.name || "")}</b><span class="idf" id="songfacts">${facts}</span>`);
+  if ($("#songtempo")) $("#songtempo").textContent = facts.replace(" BPM", "");  // the Song's own copy, drawn with the lanes: it follows too
   setHtml($("#loopbox"), !st.loop || st.loop === "off" ? "" : `<span class="pill" id="looppill" title="${esc(st.loop === "on" ? "loop" : st.loop)}" aria-label="Loop${lb ? `, bars ${lb[0]} to ${lb[1]}` : ""}${st.loop === "on" ? "" : ": " + esc(st.loop)}"><svg width="13" height="13"><use href="#i-loop"/></svg>${lb ? `${lb[0]}–${lb[1]}` : esc(st.loop === "on" ? "" : st.loop)}</span>`);
   setHtml($("#livebox"), `<span class="pill ${live ? "" : "warn"}" id="livepill">${live ? "Live" : esc(st.live)}</span>`);
   // the strip under the facts: the song's whole length, the spans that can loop, the one that does, the playhead
@@ -1249,7 +1250,9 @@ function place(el, n, group) {
 }
 document.addEventListener("pointerdown", e => {
   if (!e.target.closest || !e.target.closest(".mlp") || e.target.closest(".vt")) return;
-  const w = e.target.closest(".mc.live:not(.pad) .w"), el = w && w.closest(".mc");
+  // in the list the whole row is the handle: its name and its number take the hand too
+  const row = S.view === "list" ? e.target.closest(":is(.mk,.mf) .mc.live") : null;
+  const w = row ? row.querySelector(".w") : e.target.closest(".mc.live:not(.pad) .w"), el = w && w.closest(".mc");
   if (!el || !el.dataset.key) { swipe = {x: e.clientX, y: e.clientY}; return; }
   if (e.button > 0) return;
   w.focus({preventScroll: true});  // a click on a control gives it the keyboard
@@ -1268,7 +1271,7 @@ document.addEventListener("pointermove", e => {
   const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
   if (!drag.lock) {
     if (drag.finger && Math.max(Math.abs(dx), Math.abs(dy)) < SLOP) return;
-    drag.lock = drag.ax === "x" ? (Math.abs(dy) > Math.abs(dx) * 1.5 ? "x" : "y") : narrow() && Math.abs(dx) > Math.abs(dy) * 1.5 ? "x" : "y";
+    drag.lock = drag.ax === "x" ? (Math.abs(dy) > Math.abs(dx) * 2.5 ? "x" : "y") : narrow() && Math.abs(dx) > Math.abs(dy) * 1.5 ? "x" : "y";
     // drag.last is still where the pointer came down: the pixels that decided count as travel too
   }
   if (drag.lock === "x") return;
@@ -1281,7 +1284,7 @@ document.addEventListener("pointermove", e => {
   while (drag.seen.length > 2 && e.timeStamp - drag.seen[0][0] > 120) drag.seen.shift();
   const [t0, y0] = drag.seen[0], dt = Math.max(1, e.timeStamp - t0), speed = Math.abs(pos - y0) / dt * 1000;
   const slow = rested || speed >= SLOW.upTo ? 1 : speed <= SLOW.below ? SLOW.least : SLOW.least + (1 - SLOW.least) * (speed - SLOW.below) / (SLOW.upTo - SLOW.below);
-  const factor = e.shiftKey ? FINE : slow;
+  const factor = e.shiftKey ? FINE : drag.ax === "x" ? 1 : slow;  // a row's fill stays under the finger
   drag.at = Math.max(0, Math.min(1, drag.at + (drag.last - pos) / drag.travel * factor));
   drag.last = pos;
   const n = drag.steps > 1 ? snap(drag.at, drag.steps) : roundPlace(drag.key, drag.at);
@@ -1302,7 +1305,7 @@ function endTouch(e, cancelled) {
   if (d) {
     bubbleOff();
     if (d.lock === "x" && !cancelled) swiped(e.clientX - d.x, e.clientY - d.y);
-    else if (d.lock === "y") settle(d.key);  // the last place is sent or on its way: Live's report now counts
+    else if (d.lock === "y") { settle(d.key); if (d.ax === "x") swipedAt = Date.now(); }  // a row that was moved is not a tap on its number  // the last place is sent or on its way: Live's report now counts
     if (S.dirty) renderDesk();
   } else if (s && !cancelled) swiped(e.clientX - s.x, e.clientY - s.y);
 }

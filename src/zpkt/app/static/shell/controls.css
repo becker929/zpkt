@@ -155,3 +155,10 @@
 .mlp.lean :is(.mk,.mf,.mp):not(:has(.mc:not(.off))){display:none}
 .mlp.lean .mk:not(:has(.mc:nth-child(n+5):not(.off))){grid-template-rows:minmax(0,1fr)}
 .mlp.lean .mk:not(:has(.mc:nth-child(n+5):not(.off))) .mc:nth-child(n+5){display:none}
+/* The list is one column in the controller's order, and each row is as tall as the room allows (up to 46 px). A
+   live row takes the hand anywhere along it. */
+.mlp[data-view="list"]{display:flex;flex-direction:column}
+.mlp[data-view="list"] .mk{order:1;flex:0 2 auto}.mlp[data-view="list"] .mp1{order:2;flex:none}.mlp[data-view="list"] .mf{order:3;flex:0 1 auto}.mlp[data-view="list"] .mp2{order:4;flex:none}
+.mlp[data-view="list"] :is(.mk,.mf):not(:has(.mc:not(.off))){display:none}
+.mlp[data-view="list"] :is(.mk,.mf) .mc.live{touch-action:none;cursor:ew-resize}
+.mlp[data-view="list"] :is(.mk,.mf) .mc .g{pointer-events:none}

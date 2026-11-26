@@ -59,7 +59,7 @@ def test_flow_1_mix_drag_a_control_and_live_moves(rig, page):
 
 def test_the_list_view_names_each_control_in_a_row_and_a_row_is_moved_sideways(rig, page):
     """A phone away from the MiniLab reads the list (26 November 2026): a row per knob and fader, moved sideways. The
-    control in hand says what it is in the head; a touch on that readout brings the title back."""
+    head stays the surface's title while a control is in hand."""
     slot, key, _ = first_control(rig, "k")
     page.click("#viewsw")
     assert page.locator("#panel").get_attribute("data-view") == "list"
@@ -72,13 +72,26 @@ def test_the_list_view_names_each_control_in_a_row_and_a_row_is_moved_sideways(r
     x, y = box["x"] + box["width"] / 2, box["y"] + box["height"] / 2
     page.mouse.move(x, y)
     page.mouse.down()
-    assert page.locator("#readout #rdname").inner_text() and row.get_attribute("class").count("foc") == 1
+    assert page.locator("#pagename").count() == 1 and page.locator("#readout").count() == 0
     page.mouse.move(x + 60, y, steps=6)
     page.mouse.up()
     page.wait_for_function("window.zpkt.S.hear.changed === 1")
     assert rig.desk.history.cur[key][1] > before  # to the right is up
-    page.locator("#readout .rdn").click()
-    assert page.locator("#pagename").count() == 1 and page.locator("#readout").count() == 0
+    # The whole row is the handle (Anthony could not get hold of a row on his phone): a drag that starts on the value
+    # or on the group's name moves it too, and does not open the field for typing a value.
+    for spot in (".v", ".g"):
+        part = row.locator(spot)
+        if not part.is_visible():
+            continue
+        was, pb = rig.desk.history.cur[key][1], part.bounding_box()
+        px, py = pb["x"] + pb["width"] / 2, pb["y"] + pb["height"] / 2
+        page.mouse.move(px, py)
+        page.mouse.down()
+        page.mouse.move(px - 40, py + 3, steps=5)
+        page.mouse.up()
+        page.wait_for_timeout(300)
+        assert rig.desk.history.cur[key][1] < was, spot
+        assert page.locator(".vt").count() == 0, spot
     page.click("#viewsw")
     assert page.locator("#panel").get_attribute("data-view") == "map"
 
