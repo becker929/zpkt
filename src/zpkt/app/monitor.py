@@ -17,6 +17,8 @@ import threading
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+import soundfile as sf
+
 from zpkt.app import deskstate as D
 from zpkt.app import history
 from zpkt.app import protocol as P
@@ -48,6 +50,7 @@ class Monitor:
         self._lock = threading.Lock()
         self.main_saved: dict[str, float] | None = None  # Main's desk devices' On values while a monitor track plays
         self._pin: dict[str, list[Any]] | None = None  # the pinned values; None: the mix as first seen
+        self._loop_before: str | None = None  # the loop that was on when the reference was chosen
         self._pin_name: str | None = (
             None  # the checkpoint chosen as the Pin (B) in History; None: the mix pinned as it was
         )
@@ -69,6 +72,18 @@ class Monitor:
             with self._lock:
                 self.main_saved = snapshot["main_saved"]
 
+    def reference_beats(self, ref: str, st: dict[str, Any]) -> float:
+        """How long reference `ref`'s clip is in the set, in beats: its file's seconds at the set's tempo (its warping
+        is off). 0.0 when the file cannot be read."""
+        try:
+            seconds = sf.info(str(self.desk.settings.viz_dir / f"{ref}.wav")).duration
+        except Exception:  # no file, or not audio: the caller keeps the song's own loop
+            return 0.0
+        from zpkt.app.desk import beats_per_s  # here, not at the top: desk imports this module
+
+        tempo = float(st.get("tempo") or 0.0) or 60.0 * beats_per_s()
+        return round(float(seconds) * tempo / 60.0, 4)
+
     # ---- the level match -------------------------------------------------------------------------------------------
     def gain_db(self, slot: str, ref: str) -> float:
         d = self.desk
@@ -78,11 +93,29 @@ class Monitor:
         """Hear slot A, B, W (the working mix) or C (reference `ref`), at the matched level."""
         d = self.desk
         st = d.snapshot()
+        was_c = st["monitor"]["slot"] == "C"
         if slot == "C":
-            if st["loop"] == "build":
+            # The reference loops on its own timing (Anthony, 26 November 2026: it went silent where its file ended,
+            # before the song's loop did): Live loops over the reference's own clip, from the drop for as long as the
+            # file lasts. The loop that was on comes back when the reference is left.
+            a, n = d.settings.align_beat, self.reference_beats(ref, st)
+            if not was_c:
+                with self._lock:
+                    self._loop_before = st["loop"]
+            if n > 0:
+                d.call(
+                    f"[setattr(m.DESK.song, 'loop', True), setattr(m.DESK.song, 'loop_start', {a!r}), "
+                    f"setattr(m.DESK.song, 'loop_length', {n!r})]"
+                )
+            elif st["loop"] == "build":
                 d.call("m.DESK.transport('loop', None, 'drop')")
-            if st["pos"] < d.settings.align_beat:  # the reference only exists from the drop
-                d.call(f"m.DESK.transport('seek', {d.settings.align_beat})")
+            if st["pos"] < a or (n > 0 and st["pos"] >= a + n):  # the reference only exists inside its clip
+                d.call(f"m.DESK.transport('seek', {a})")
+        elif was_c:
+            with self._lock:
+                before, self._loop_before = self._loop_before, None
+            if before in D.LOOPS:
+                d.call(f"m.DESK.transport('loop', None, {before!r})")
         with self._lock:
             saved = self.main_saved
         out = monitor_tracks.switch(d.conn, slot, ref, self.gain_db(slot, ref), saved)
