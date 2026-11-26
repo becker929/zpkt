@@ -5,8 +5,8 @@ The modes, for both engines:
     auto       the default (Anthony, 26 November 2026: "full power again with shell and auto mode and everything"): the
                agent has every tool, the shell and file edits included, and the app's tools. Claude Code runs in its own
                `auto` permission mode, where it decides for itself what is safe to do; Gemini CLI runs in `yolo`.
-    build      the careful one: the agent advises and uses the app's three tools (make or
-               change a page, read the state, read the measurement). It reads files. It cannot edit a file
+    build      the careful one: the agent advises and uses the app's four tools (make or
+               change a page, read the state, read the measurement, change Live). It reads files. It cannot edit a file
                or run a command, and nothing asks.
     ask        the same, and with Gemini every edit and command waits for a yes from the page. Claude Code has nobody
                to ask on this page, so there it is `build`.
@@ -15,7 +15,9 @@ The modes, for both engines:
     plan       read-only with no tools: the summary of a compaction is written in it. The page never sends it; a turn
                that names it runs as `build` (service.py).
 
-The app's tools never move Live, so they run in every mode without a question.
+The app's tools run in every mode without a question. Three of them never move Live. The fourth, `change_live`,
+does (Anthony, 26 November 2026: act, then undo, no question asked): the app checks each batch whole and keeps it as
+one History row that one undo takes back (zpkt.app.change).
 """
 
 from __future__ import annotations

@@ -9,6 +9,7 @@ import time
 import typer
 
 from zpkt.live import rig
+from zpkt.live.cli_options import agent_stop
 
 app = typer.Typer(
     help="Check the Live rig (Live, its audio, macOS audio) and reset it when its state gets weird.",
@@ -44,6 +45,7 @@ def reset(
     as_json: bool = typer.Option(False, "--json", help="Print the report as JSON at the end."),
 ) -> None:
     """Put Live and macOS audio back into a working state. Exit 0 when the rig is ready again."""
+    agent_stop()  # a reset stops, saves and may restart Live: the user's, not an agent's
     if level not in ("auto", "soft", "restart"):
         print("--level is auto, soft or restart", file=sys.stderr)
         raise typer.Exit(2)
@@ -70,6 +72,7 @@ def output(
     if not name:
         print(ui.osa_file(rig.DEVICE_SCRIPT, "read", timeout=40))
         return
+    agent_stop()  # choosing the output changes Live's settings
     since = rig.log_size()
     chosen = ui.osa_file(rig.DEVICE_SCRIPT, "set", name, timeout=40)
     if chosen in ("NONE", "NO_LIVE", "NO_SETTINGS", "NO_POPUP"):

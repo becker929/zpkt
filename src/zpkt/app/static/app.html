@@ -491,6 +491,7 @@ function stepWords(pv) {
   if (!pv) return null;
   const e = S.hist.entries.find(x => x.id === pv.id), first = pv.values[0];
   if (e && e.compare) return {label: e.compare.name, value: e.compare.from || ""};
+  if (e && e.k === "change") return {label: e.why || "Change", value: changeCount(e)};
   if (e && e.k === "revert") return {label: "Going back", value: `${pv.count} control${pv.count === 1 ? "" : "s"}`};
   if (!first) return {label: "", value: ""};
   const label = labelFor(first[0], e && e.moves && e.moves[0] ? e.moves[0].label : first[0]);
@@ -1177,6 +1178,11 @@ function fitHist() {
   bar.querySelector('[data-histstep="-1"]').disabled = S.histAt === 0;
   bar.querySelector('[data-histstep="1"]').disabled = !more;
 }
+// A batch of changes made as one ask (live.change): "3 controls, 1 device".
+function changeCount(e) {
+  const c = (e.moves || []).length, d = new Set((e.devices || []).map(x => x.track + "/" + x.device)).size;
+  return [c ? `${c} control${c === 1 ? "" : "s"}` : "", d ? `${d} device${d === 1 ? "" : "s"}` : ""].filter(Boolean).join(", ");
+}
 const SITTING_GAP = 90 * 60;  // seconds without a change before the next one starts a new sitting
 function histRows() {
   const all = S.hist.entries, pos = S.hist.pos == null ? all.length : S.hist.pos, now = Date.now() / 1000;
@@ -1200,11 +1206,12 @@ function histRows() {
     const undone = i >= pos, moves = e.moves || [], n = `${moves.length} control${moves.length === 1 ? "" : "s"}`;
     const cmp = e.k === "move" && e.compare;
     const what = cmp ? `<span><b>${esc(cmp.name)}</b> <span class="hv">${cmp.from ? esc(cmp.from) + " → " : ""}<b>${esc(cmp.to)}</b> · ${n}</span></span>`
+      : e.k === "change" ? `<span><b>${esc(e.why || "Change")}</b> <span class="hv">${changeCount(e)}</span></span>`
       : e.k === "revert" && e.before ? `<span><b>Back before ${esc(labelFor(e.before.key, e.before.label))}</b> <span class="hv">${n}</span></span>`
       : e.k === "revert" ? `<span><b>Went back to “${esc(cpLabel(e.to))}”</b> <span class="hv">${n}</span></span>`
       : moves.slice(0, 3).map(histMove).join("") + (moves.length > 3 ? `<span class="hv">and ${moves.length - 3} more</span>` : "");
-    const group = e.group && !/^(touch|compare)-/.test(e.group) ? `<span class="hv">${esc(e.group)}</span>` : "";
-    const sel = !undone && S.histSel === e.id, name = cmp ? cmp.name : moves[0] ? labelFor(moves[0].key, moves[0].label) : "this";
+    const group = e.group && e.k !== "change" && !/^(touch|compare)-/.test(e.group) ? `<span class="hv">${esc(e.group)}</span>` : "";
+    const sel = !undone && S.histSel === e.id, name = cmp ? cmp.name : e.k === "change" && e.why ? e.why : moves[0] ? labelFor(moves[0].key, moves[0].label) : "this";
     // a step in effect is a return point: a tap on the row offers the way back to just before it
     return `<div class="he ${undone ? "undone" : "row"} ${sel ? "sel" : ""}" data-row="${e.id}" ${undone ? "" : `role="button" tabindex="0" aria-expanded="${sel}"`}>${head(e, mine)}<span class="ht">${what}${group}</span>${
       undone ? '<span class="tagu">undone</span>' : sel ? `<button class="key sm" data-before="${e.id}" aria-label="Go back to before ${esc(name)}"><svg width="18" height="18"><use href="#i-back"/></svg>Go back</button>` : ""}</div>`;

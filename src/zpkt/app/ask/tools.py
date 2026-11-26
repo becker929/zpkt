@@ -1,9 +1,13 @@
-"""The tools an agent has: three app commands, and the key that lets a session call them.
+"""The tools an agent has: four app commands, and the key that lets a session call them.
 
 An agent reaches the app through a small MCP server (mcp.py) that calls `POST /app/ask/api/tool`. Each call carries
-the session's id and its token. The gate checks the token, keeps only the three tools below, and submits the command
-to the bus as `agent`, grouped by the session, so one undo takes the whole ask back. An agent cannot name any other
-command: `mix.set`, `transport` and the rest are not here and are refused. Nothing in this package imports zpkt.live.
+the session's id and its token. The gate checks the token, keeps only the four tools below, and submits the command
+to the bus as `agent`, grouped by the session. Three of them change nothing in Live: make a page, read the state,
+read the measurement. The fourth, `change_live`, is the one way an agent changes Live: a batch of steps (set values;
+add, bypass, enable or reorder devices) in one call, which the app checks whole, runs one short step at a time and
+keeps as one History row that one undo takes back (zpkt.app.change; why an agent may: zpkt.app.effects). An agent
+cannot name any other command: `mix.set`, `transport`, `live.run` and the rest are not here and are refused.
+Nothing in this package imports zpkt.live.
 """
 
 from __future__ import annotations
@@ -56,6 +60,47 @@ TOOLS: tuple[Tool, ...] = (
         "measurement.read",
         "The last measurement of the renders: loudness, spectrum and the references, as the desk has them.",
         {"type": "object", "properties": {}},
+    ),
+    Tool(
+        "change_live",
+        "live.change",
+        "Change Live yourself: set values, and add, bypass, enable or reorder devices on existing tracks. Send ALL "
+        "the steps of one request in ONE call. `why` is a few words for the History row. Each step is one of: "
+        '{"set": "<state key>", "to": <raw number>} (keys and raw numbers as read_state gives them, e.g. '
+        '"Kick bus/volume", "Kick bus/desk EQ/1 Gain A", "Kick bus/mute"); {"add": "<audio effect, as the '
+        'browser in Live names it>", "track": "<track>", "at": <index, optional: last>}; {"device": "<device>", "track": '
+        '"<track>", "on": true|false}; {"move": "<device>", "track": "<track>", "to": <index>}. A value on a '
+        'device added earlier in the same call is "<track>/<device>/<parameter>". The whole batch is checked '
+        "before anything moves: if anything is wrong nothing changes, and `problems` lists every fault to fix. "
+        "Then the steps run in order; the reply has `done`, `now` (each key written: [shown, raw]), `added`, and "
+        "`undo`, the History row that one undo takes back. It cannot remove a device, make a track, change "
+        "routing or clips, or run code; monitor tracks (mon ...) and Main's desk devices are never changed; at "
+        "most 40 steps and 8 added devices per call.",
+        {
+            "type": "object",
+            "properties": {
+                "why": {"type": "string", "description": "A few words for the History row."},
+                "steps": {
+                    "type": "array",
+                    "minItems": 1,
+                    "maxItems": 40,
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "set": {"type": "string"},
+                            "to": {"type": "number"},
+                            "add": {"type": "string"},
+                            "device": {"type": "string"},
+                            "move": {"type": "string"},
+                            "track": {"type": "string"},
+                            "at": {"type": "integer", "minimum": 0},
+                            "on": {"type": "boolean"},
+                        },
+                    },
+                },
+            },
+            "required": ["why", "steps"],
+        },
     ),
 )
 BY_NAME = {t.name: t for t in TOOLS}

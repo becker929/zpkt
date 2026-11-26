@@ -22,7 +22,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from zpkt.app import deskstate, history, jobs, organize, pages, protocol, surfaces
+from zpkt.app import change, deskstate, history, jobs, organize, pages, protocol, surfaces
 from zpkt.app.bus import Bus, Command, SetGuard
 from zpkt.app.connections import BUSY_WAIT_S, LiveConnections, bind_udp, open_connections
 from zpkt.app.monitor import Monitor
@@ -30,6 +30,7 @@ from zpkt.app.mounts import Mounts
 from zpkt.audio.levels import rms_to_db
 from zpkt.live import changes, config, desk_pager, meter, monitor_tracks, openset
 from zpkt.live import state as live_state
+from zpkt.live import writes as live_writes
 from zpkt.live.describe import Description
 from zpkt.live.transport import LiveError
 
@@ -182,6 +183,7 @@ class Desk:
         guard = SetGuard(self.settings.set_name, open_set)
         bus = Bus(guard=guard, lock=lambda: self.conn.exclusive(wait_s=5.0), version_before=self.version_before)
         register_all(bus, self)
+        change.register(bus, self)
         jobs.register(bus, self.conn, self.descriptions.clear)
         return bus
 
@@ -591,6 +593,15 @@ class Desk:
             self.meter_set(bool(raw))
         rest = [p[:2] for p in pairs if p[0] != METER_KEY]
         missing: list[str] = self.call(f"m.DESK.set_raw({rest!r})") if rest else []
+        return missing
+
+    def write_anywhere(self, pairs: list[list[Any]]) -> list[str]:
+        """`write`, and a key the pager does not know (it knows the controls on the desk's pages) is then written
+        by its name in the set (zpkt.live.writes.set_keys): a batch and its undo reach values no page holds.
+        Returns the keys the set does not have."""
+        missing = self.write(pairs)
+        if missing:
+            missing = live_writes.set_keys(self.conn, [p[:2] for p in pairs if p[0] in missing])
         return missing
 
     # ---- the spectrum's device on Main -----------------------------------------------------------------------------

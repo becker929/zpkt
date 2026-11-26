@@ -6,8 +6,9 @@ these checks first:
 
 - who: it must be one of zpkt.live.changes.WHO.
 - the agent rule: an agent may make pages and may read; a change to Live from an agent needs your word
-  (`approval`). An agent's changes always belong to a group, and the first change of a group makes an automatic
-  version first, so one undo takes the whole group back.
+  (`approval`), except by a command the table lets an agent ask for on its own (`Spec.agent_may`: `live.change`
+  alone, zpkt.app.effects says why). An agent's changes always belong to a group, and the first change of a group
+  makes an automatic version first, so one undo takes the whole group back.
 - the wrong-set guard: every move is held to a set, and nothing is sent when Live has another open. The desk's moves
   are for the page's set. A job (zpkt.app.jobs) is for the set its caller names (`expect_set`), or else for the set
   the app last saw open. Only opening a set is let through.
@@ -83,6 +84,8 @@ class Spec:
     own_set: bool = False  # a job: held to the set its caller names (`expect_set`), or the one the app last saw open
     callers: tuple[str, ...] | None = None  # who may ask for it; None is anyone (the web is "you", the API is not)
     for_set: str | None = None  # a move for another set than the page's (the Song builds the mix set): that one
+    agent_may: bool = False  # an agent may ask for this move on its own (zpkt.app.effects.AGENT_MAY: the decision)
+    checks_first: bool = False  # the handler checks the whole ask, then saves the version itself (Bus.version)
 
 
 def approved(cmd: Command) -> bool:
@@ -103,11 +106,12 @@ def check_caller(cmd: Command, spec: Spec) -> None:
 
 
 def check_agent(cmd: Command, spec: Spec) -> None:
-    """The agent rule."""
-    if cmd.who == "agent" and spec.effect == "move" and not approved(cmd):
+    """The agent rule: an agent's move needs your word, unless the command is one an agent may ask for itself."""
+    if cmd.who == "agent" and spec.effect == "move" and not spec.agent_may and not approved(cmd):
         raise Refused(
-            f"An agent cannot change Live with {cmd.kind!r} on its own. Make a page with the change as a compare "
-            f"state (page.draft) and give the user its link: their press on the pad makes the change."
+            f"An agent cannot change Live with {cmd.kind!r} on its own. To set values, or add, bypass or reorder "
+            f"devices, use the app's change_live tool (the command live.change). To let the user hear an "
+            f"alternative, make a page with the change as a compare state (page.draft) and give them its link."
         )
 
 
@@ -268,10 +272,19 @@ class Bus:
         return contextlib.nullcontext()
 
     def _grouped(self, cmd: Command, spec: Spec) -> Command:
-        """An agent's change always has a group, and the group's first change saves a version first."""
+        """An agent's change always has a group, and the group's first change saves a version first. A command that
+        checks first gets a group whoever asks, and saves the version itself once its checks pass (`version`), so
+        an ask that is refused leaves nothing behind."""
+        if spec.checks_first and spec.effect == "move":
+            return dataclasses.replace(cmd, group=cmd.group or f"{cmd.who}-{cmd.kind}-{int(self.clock() * 1000)}")
         if cmd.who != "agent" or spec.effect != "move":
             return cmd
         group = cmd.group or f"agent-{cmd.kind}-{int(self.clock())}"
+        self.version(group)
+        return dataclasses.replace(cmd, group=group)
+
+    def version(self, group: str) -> None:
+        """Save the automatic version before a group's first change; a group that has one is left alone."""
         with self._mutex:
             first = group not in self._versioned
         if first and self.version_before is not None:
@@ -280,4 +293,3 @@ class Bus:
             self._versioned[group] = None
             while len(self._versioned) > VERSIONED_KEEP:
                 del self._versioned[next(iter(self._versioned))]
-        return dataclasses.replace(cmd, group=group)

@@ -61,8 +61,9 @@ def test_naming_an_option_gives_the_agent_nothing(app_env, rig, monkeypatch):
     assert "approval" not in sent[0]
 
 
-def test_a_command_of_the_zpkt_cli_run_by_an_agent_is_the_agents(app_env, rig, monkeypatch):
-    """`zpkt live tempo`-like commands (here: state put) connect as cli; under ZPKT_AGENT the app sees an agent."""
+def test_a_command_of_the_zpkt_cli_that_changes_live_stops_in_an_agents_shell(app_env, rig, monkeypatch):
+    """`zpkt live state put` changes Live: in an agent's shell (ZPKT_AGENT) it stops before it asks the app, and
+    says how an agent changes Live (the app's change_live tool). tests/app/test_agent_shell_guard.py has the rest."""
     from zpkt.live import ui
 
     monkeypatch.setattr(ui, "front_title", lambda: "HW002_121_pp_finish")
@@ -73,8 +74,8 @@ def test_a_command_of_the_zpkt_cli_run_by_an_agent_is_the_agents(app_env, rig, m
     assert taken.exit_code == 0, taken.output
     monkeypatch.setenv("ZPKT_AGENT", "1")
     rig.track("Kick bus").mixer_device.volume.value = 0.2  # so the put has something to change
-    put = runner.invoke(cli, ["live", "state", "put", "mine"])
-    moves = [e for e in rig.desk.bus.log if e["kind"] == "live.run"]
-    assert moves and {e["who"] for e in moves} == {"agent"} and {e["status"] for e in moves} == {403}
-    assert put.exit_code != 0
+    for route in ([], ["--direct"]):
+        put = runner.invoke(cli, ["live", "state", "put", "mine", *route])
+        assert put.exit_code == 1 and "change_live" in put.output
+    assert not [e for e in rig.desk.bus.log if e["kind"] == "live.run"]
     assert rig.track("Kick bus").mixer_device.volume.value == 0.2

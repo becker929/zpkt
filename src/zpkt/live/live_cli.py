@@ -14,8 +14,8 @@ from pathlib import Path
 import typer
 
 from zpkt.live import config
-from zpkt.live.agent import AGENT_READ_ONLY, friendly, writes
-from zpkt.live.cli_options import DIRECT, HOST, PORT, connect, fail, front_set, reach
+from zpkt.live.agent import AGENT_ENV, friendly, only_reads, writes
+from zpkt.live.cli_options import DIRECT, HOST, PORT, agent_stop, connect, fail, front_set, reach
 from zpkt.live.transport import DEFAULT_HOST, LiveClient, LiveError
 
 app = typer.Typer(help="Drive the open Live set through the AbletonLiveMCP Remote Script.", no_args_is_help=True)
@@ -107,8 +107,8 @@ def exec_(
     if not source or not source.strip():
         fail("give the code as an argument, --file or --stdin", 2)
     changes = writes(source)  # code that only reads may run direct
-    if os.environ.get("ZPKT_AGENT") and writes(source):
-        fail(f"ERROR: {AGENT_READ_ONLY}")
+    if os.environ.get(AGENT_ENV) and not only_reads(source):
+        agent_stop()  # the stricter test: code that might write by a route `writes` cannot follow is refused too
     if not raw:
         from zpkt.live.agent import with_prelude
 
@@ -199,6 +199,8 @@ def modals(
     the ones with a safe button and reports ABORT for any it will not touch."""
     from zpkt.live import ui
 
+    if reap:
+        agent_stop()  # pressing a dialog's button changes Live
     try:
         found = ui.reap_modals(reap)
         own = ui.dialogs() if found.strip() == "CLEAN" else 0
@@ -260,6 +262,7 @@ def save(
     from zpkt.live import session
     from zpkt.live import state as S
 
+    agent_stop()  # saving the set is the user's
     name = front_set()
     if as_ and config.rig().set_path(as_).exists():
         fail(f"{config.rig().set_path(as_)} exists; pick another name")

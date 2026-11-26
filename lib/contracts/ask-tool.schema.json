@@ -22,7 +22,8 @@
           "enum": [
             "make_page",
             "read_state",
-            "read_measurement"
+            "read_measurement",
+            "change_live"
           ]
         },
         "args": {
@@ -42,6 +43,30 @@
         },
         "problems": {
           "type": "array"
+        },
+        "done": {
+          "type": "integer",
+          "description": "change_live: how many steps of the batch ran."
+        },
+        "undo": {
+          "type": ["string", "null"],
+          "description": "change_live: the History row that one undo takes back; null when nothing changed."
+        },
+        "now": {
+          "type": "object",
+          "description": "change_live: each key written, as [shown text, raw value]."
+        },
+        "added": {
+          "type": "array",
+          "description": "change_live: the devices added, each {track, device, at}."
+        },
+        "failed": {
+          "type": "object",
+          "description": "change_live: the step that failed in Live, {step, what, why}; the steps before it are done."
+        },
+        "not_done": {
+          "type": "array",
+          "description": "change_live: the numbers of the steps that were not run."
         }
       }
     }

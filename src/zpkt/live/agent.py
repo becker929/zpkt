@@ -59,13 +59,17 @@ _WRITES = re.compile(
     r"load|move|add_|remove_|record|capture|quantize|clear|store|crop|paste|duplicate|append|"
     r"re_enable|trigger|scrub|play|select)"
 )
-AGENT_READ_ONLY = (
-    "`hands live exec` only reads Live when the Zpkt agent runs it, so this changed nothing. To change "
-    'levels, pans or devices, make a mix panel: hands panel make --spec \'{"name": "mix", '
-    '"bars": [17, 8], "faders": ["Kick bus"], "devices": [{"track": "Kick bus", '
-    '"device": "EQ Eight", "params": {...}}]}\'. It renders what it changed and `hands panel drop` '
-    "takes it out. For Live itself (a dialog, no sound): hands rig reset."
+AGENT_ENV = "ZPKT_AGENT"  # set in an agent's shell (the app's Ask sets it for the agents it starts)
+# What every command that would change Live says to an agent's shell (zpkt.live.cli_options.agent_stop). It is a
+# guard against accidents, not a wall: a program with a shell can unset a variable.
+AGENT_NOT_FROM_SHELL = (
+    "An agent changes Live only through the zpkt app, never from the shell, so this changed nothing. To set "
+    "values, or add, bypass, enable or reorder devices, use the app's `change_live` tool (the app's command "
+    "live.change): all the steps of the request in one call. Anything else (a new track, routing, clips, code in "
+    "Live, saving, a reset) is the user's to do or to allow: say so in one sentence. Commands that only read "
+    "Live still work."
 )
+AGENT_READ_ONLY = AGENT_NOT_FROM_SHELL  # the older name
 
 
 def writes(source: str) -> bool:

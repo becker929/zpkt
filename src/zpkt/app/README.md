@@ -56,6 +56,11 @@ a command without a line there cannot be registered. The checks, in order:
   suggests, it makes a page with compare states (Pages, below); the press is yours. A move that does carry your
   word always has a group, and the first change of a group saves a checkpoint first, so one undo takes the group
   back.
+- **The one move an agent makes itself: `live.change`** (Anthony, 26 November 2026: values and devices, "act, then
+  undo"). It is a move like any other, held by the wrong-set guard and the lock, and it is the only command with
+  `agent_may` in its `Spec` (`effects.AGENT_MAY`; `effects.py` has the reason, `tests/app/test_effects.py` writes
+  the set out again). `mix.set`, `transport`, `live.run` and every other move are refused for an agent as before.
+  The next section says what it does.
 - **The wrong-set guard.** Every `move` is held to a set, and nothing is sent when Live has another open. The desk's
   moves are for the page's set; that answer is kept for five seconds. A job from the API is for the set its caller
   names (`expect_set`), or else for the set the app last saw open: the desk's at the start, then one the app opened
@@ -71,6 +76,52 @@ before the first. The step ends when another control is touched, a checkpoint is
 seconds pass without a change (`history.SAME_CONTROL_S`). A switch (a solo, a mute) is a step each time it is
 thrown. An agent's changes join by group only. A step that grows after it reached the change stream gets the rest
 of it there as one more `Change`.
+
+## A batch of changes: `live.change`
+
+`change.py`. One command carries a whole batch, so an agent spends one tool call on a request:
+
+```json
+{"why": "warmer kick", "steps": [
+  {"set": "Kick bus/volume", "to": 0.8},
+  {"add": "Saturator", "track": "Kick bus", "at": 0},
+  {"set": "Kick bus/Saturator/Drive", "to": 6.0},
+  {"device": "desk Glue", "track": "Kick bus", "on": false},
+  {"move": "desk EQ", "track": "Kick bus", "to": 2}]}
+```
+
+- **Steps.** `set` writes a raw value to a state key (the keys and numbers `desk.state` gives; any key of the set,
+  on a page or not). `add` loads an audio effect from Live's browser onto a track that exists, last or at `at`.
+  `device` with `on` switches a device on or off (it is the value `<track>/<device>/Device On`). `move` puts a
+  device at another index of its chain. A second device of a name is `Saturator#2`, as in state keys. There is no
+  step that removes a device, makes a track, changes routing or clips, or runs code: those wait for your tap and
+  are not built.
+- **Checked whole, first.** Shape, limits (40 steps, 8 adds), the rails, then Live's own names and ranges: every
+  track, device, effect name, range and step of a list. Any problem refuses the whole batch with 400 and `problems`,
+  one plain sentence each, and nothing has changed: no value, no device, no checkpoint. A value on a device the
+  same batch adds cannot be checked before the device exists; it is checked when its step comes.
+- **The rails.** Never a monitor track (`mon ...`). Never Main's desk devices (`desk headroom`, `desk Glue`,
+  `desk Utility`, `zpkt listen`, `zpkt desk meter`: `change.RAILED_ON_MAIN`). No device is added to or moved on
+  Main: what sits there is heard under every monitor track too. Main's own volume and its other devices' values may
+  be set. Only in the set the desk was opened on (the wrong-set guard).
+- **Run in order, one short call each.** A checkpoint is saved first (`before-<group>-<time>`, by `sys`). Then each
+  step is its own call to Live (a load is a few: find, load, read the chain). A step that fails stops the batch:
+  the answer is 502 with `done`, `failed` (`step`, `what`, `why`) and `not_done`, and what was done is still one
+  History row. The app's lock is held for the whole batch, so another command waits up to five seconds and is then
+  told Live is busy; Live itself is never held longer than one step.
+- **One History row, one undo.** The row is an entry of kind `change`: `why`, the value `moves` and the device
+  steps in `devices` (`add` with the index it landed on, `move` with `from` and `to`). Undo writes the values
+  back, then takes the device steps back last one first: an added device is deleted, a moved one goes back. Redo
+  loads the device again and writes the values again. "Go back" to before such a row does the same as one step
+  (`history.back`). A device that is no longer there is passed over and named in the reply's `notes`. Going back to
+  a checkpoint (`history.revert`) puts values back only: a checkpoint holds no chain.
+- **The answer is small**: `{"ok", "done", "undo": "warmer kick (3 controls, 2 devices)", "now": {key: [shown,
+  raw]}, "added": [{"track", "device", "at"}]}`.
+- **Anyone may send it.** The person's page and the cli can; the row then says `you` or `cli`. The page has no
+  control for it.
+
+The Live calls are in `zpkt.live.chain` (the load is the one `zpkt.live.mix` has used since October 2026) and
+`zpkt.live.writes.set_keys`. Tests: `tests/app/test_live_change.py`.
 
 ## What it serves
 
@@ -139,7 +190,8 @@ port, 8984 (below). `ZPKT_DESK_URL` names the web server (pages, `/app/`), `ZPKT
   ones are folded under their day, and there a change carries no "you". Every step in effect is a place to go
   back to: a tap on its row offers "Go back", which takes that step and every later one back as one new step
   (`history.back {entry}`), so undo reverses it. A checkpoint is a row with a flag and a "Go back" button: it puts
-  the desk's controls back as one step (`history.revert`), so undo reverses it. "Save checkpoint" takes a name, or uses the date and time, and shows
+  the desk's controls back as one step (`history.revert`), so undo reverses it. A batch an agent made
+  (`live.change`) is one row: who, its `why` in bold, and a count ("3 controls, 1 device"). "Save checkpoint" takes a name, or uses the date and time, and shows
   "Saving" at once (`history.checkpoint` with `new: true`, which never overwrites: a taken name gets a number).
   Saving a checkpoint keeps what can be redone. Names a machine made ("start-20261125-1701") are shown as what they
   are ("Start of session, 25 Nov, 17:01").
@@ -213,7 +265,7 @@ the demo reach Live (docs/app-clients.md). Every call is a Command stamped `cli`
 stamps it by the token the call carries, never by what the request says: each caller has its own token file in
 `~/.config/zpkt/` (`app-token` for the cli, `app-token-booth`, `-demo`, `-agent`; mode 0600, made at start). `you` and
 `minilab` are never accepted from the API. A coding agent in a terminal (`ZPKT_AGENT=1`) is `agent`: it reads and
-makes pages (`zpkt page make`), and its changes to Live are refused. Which set a job is for, and the wrong-set check, are in `bus.py`
+makes pages (`zpkt page make`), may send `live.change`, and its other changes to Live are refused. Which set a job is for, and the wrong-set check, are in `bus.py`
 (`SetGuard.check_job`); whether a command is a read, a make or a move is in `effects.py`. The jobs are in `jobs.py`; the client in
 `client.py` (standard library only, no Live code); the transport that lets a `LiveClient` caller switch in one line in
 `zpkt.live.app_transport`. The web page is `you` and cannot run them. The shapes are `lib/contracts/app-api.schema.json`.
@@ -459,11 +511,11 @@ the Ask tab of `/app/` (`/app/#ask`); its page and API are under `/app/ask/`.
   The main conversation cannot be deleted. (Until 26 November 2026 the most recent old session became the main one.
   On its next start the store puts such an adopted session back in the archive, once: `SessionStore._fresh_mains`.)
 - **Modes.** A producer has one mode, `auto`, and no menu: full power (Anthony, 26 November 2026). The agent has the
-  shell, file edits, every tool and the app's three tools. For Claude Code that is `--permission-mode auto` (Claude
+  shell, file edits, every tool and the app's four tools. For Claude Code that is `--permission-mode auto` (Claude
   Code decides what is safe; nothing is disallowed and the Mac's other MCP servers are there); for Gemini it is
   `yolo`, and a question it still asks is answered yes. The default models are `claude-opus-5-5` and `gemini-4-neon`
-  (`CLAUDE_AGENT_MODEL` and `GEMINI_AGENT_MODEL` override them). The careful mode `build` is still there: the three
-  tools and reading files only (`--permission-mode dontAsk`, `--allowedTools mcp__zpkt,Read,Glob,Grep`,
+  (`CLAUDE_AGENT_MODEL` and `GEMINI_AGENT_MODEL` override them). The careful mode `build` is still there: the app's
+  tools (`change_live` too) and reading files only (`--permission-mode dontAsk`, `--allowedTools mcp__zpkt,Read,Glob,Grep`,
   `--disallowedTools Bash,Edit,Write,NotebookEdit,EnterPlanMode,ExitPlanMode`, `--strict-mcp-config`; never plan
   mode: there it described a page instead of making it). `/app/ask/?dev=1` shows a mode menu (remembered on the
   device; `?dev=0` hides it again): "Full", "Surfaces" (`build`), "Ask first" (Gemini asks on the page before an
@@ -478,13 +530,21 @@ the Ask tab of `/app/` (`/app/#ask`); its page and API are under `/app/ask/`.
   event and then a `compacted` event with `summary`, `keep_from`, `turns`, `tokens` and `pages`. The file on disk is
   never cut. If the summary fails or takes over 3 minutes, the event says `failed` and the turn goes on with the
   last turns only. Your message is never lost. The rules are in `ask/compaction.py`.
-- **Tools.** An agent has three tools and no others: make or change a page (`page.draft`), read the state
-  (`desk.state`, older name `state.read`, which also lists `units` with their ids and pads) and read the last
-  measurement. It cannot organize pages: order and archive are the person's. When I want to try an alternative it makes
+- **Tools.** An agent has four tools and no others: make or change a page (`page.draft`), read the state
+  (`desk.state`, older name `state.read`, which also lists `units` with their ids and pads), read the last
+  measurement, and change Live (`change_live`, the command `live.change`: a batch of value and device steps in one
+  call, above). It cannot organize pages: order and archive are the person's. When I want to try an alternative it makes
   a page with compare states, or changes the one it made (Pages, Compare), and links to it.
   They are app commands behind a small MCP server (`python -m zpkt.app.ask.mcp`) that calls
-  `POST /app/ask/api/tool` with the session's token. The bus tags them `agent` and groups them by session. None
-  moves Live, and an agent cannot name any other command.
+  `POST /app/ask/api/tool` with the session's token. The bus tags them `agent` and groups them by session. Only
+  `change_live` moves Live, and an agent cannot name any other command.
+- **Live only through the app.** Ask's agents have a shell, and `ZPKT_AGENT=1` is set in it. With that set, every
+  `zpkt live` (or `hands`) command that changes Live stops before it does anything and names `change_live`:
+  `exec` of code that is not certainly a read, `state put`, `device load`, `panel`, `open`, `save`, `export`,
+  `modals --reap`, `rig reset`, `rig output NAME`, with or without `--direct` or `ZPKT_LIVE_VIA=direct`
+  (`zpkt.live.cli_options.agent_stop`; `tests/app/test_agent_shell_guard.py`). Reads still run. This is a guard
+  against accidents, not a security boundary: an agent with a shell can unset the variable, write its own socket
+  client, or drive Live's window.
 - **Links, not widgets.** An agent does not draw controls in the chat. It calls `make_page` and puts the reply's
   link in its answer: `[Title](/app/#page=<id>)`. `page.draft` takes the spec as `spec` (and still `page`), checks
   it against Live, and saves it only when clean, where `GET /api/pages` lists it. It does not put a new page on
