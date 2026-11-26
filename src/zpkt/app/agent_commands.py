@@ -80,6 +80,7 @@ def state_read(desk: Desk, cmd: Command) -> Reply:
     return 200, {
         "set": desk.settings.set_name,
         "pages": desk.page_names(),
+        "units": app_pages.units_listing(desk),
         "page": state["page"],
         "attached": state["attached"],
         "playing": state["playing"],

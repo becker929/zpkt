@@ -321,8 +321,10 @@ pages (`contrib/mixdesk/desk.json`) and a made surface.
   but cannot move Live without approval.
 - The linter is the gate. A rejected spec answers 422 with the reasons, nothing is saved, and the agent repairs it.
 - A good one is saved as `<sets_dir>/pages/<set>/<id>.json` and as one made surface per MiniLab page, so the pager in
-  Live and the old desk take it too. The commands are `page.make`, `page.lint`, `page.layout` and `page.open` (open a saved page by id); `GET /api/pages`
-  lists the saved pages.
+  Live and the old desk take it too. The commands are `page.make`, `page.lint`, `page.layout`, `page.list`,
+  `page.organize` (rename, reorder, move, archive or restore pages in `_organize.json`, keeping the armed page where
+  possible; the Desk's Organize sheet drives it without scrolling) and `page.open` (open a saved page by id);
+  `GET /api/pages` lists the saved pages and `GET /api/organize` lists every page unit (active and archived).
 - "Make a surface" on the old desk calls `page.make`: it now asks Claude for a Page. An answer in the old slot form
   is still accepted.
 - `/app/` draws a saved Page from `page.layout` (the rules are `zpkt.live.page_layout`). Its `panels` list has one
@@ -425,8 +427,9 @@ the Ask tab of `/app/` (`/app/#ask`); its page and API are under `/app/ask/`.
   event and then a `compacted` event with `summary`, `keep_from`, `turns`, `tokens` and `pages`. The file on disk is
   never cut. If the summary fails or takes over 3 minutes, the event says `failed` and the turn goes on with the
   last turns only. Your message is never lost. The rules are in `ask/compaction.py`.
-- **Tools.** An agent has three tools and no others: make or change a page (`page.draft`), read the state
-  (`desk.state`, older name `state.read`) and read the last measurement. When I want to try an alternative it makes
+- **Tools.** An agent has four tools and no others: make or change a page (`page.draft`), organize pages
+  (`page.organize`: rename, reorder, archive or restore), read the state (`desk.state`, older name `state.read`,
+  which also lists `units` with their ids and pads) and read the last measurement. When I want to try an alternative it makes
   a page with compare states, or changes the one it made (Pages, Compare), and links to it.
   They are app commands behind a small MCP server (`python -m zpkt.app.ask.mcp`) that calls
   `POST /app/ask/api/tool` with the session's token. The bus tags them `agent` and groups them by session. None

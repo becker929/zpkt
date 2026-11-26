@@ -499,6 +499,8 @@ COMMANDS: dict[str, tuple[Handler, bool]] = {
     "page.lint": (pages.lint, True),
     "page.make": (pages.make, True),
     "page.layout": (pages.layout_of, True),
+    "page.list": (pages.list_units, False),
+    "page.organize": (pages.organize_units, True),
     "page.open": (pages.open_saved, True),
     "page.compare": (page_compare, True),
     "surface.make": (surface_make, False),

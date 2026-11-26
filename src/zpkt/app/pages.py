@@ -18,7 +18,7 @@ import time
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from zpkt.app import surfaces
+from zpkt.app import organize, surfaces
 from zpkt.app.bus import BadRequest, Command, Reply
 from zpkt.live import describe, page, page_layout
 from zpkt.live.describe import Description
@@ -213,16 +213,68 @@ def _unique(name: str, taken: list[str]) -> str:
 def listing(desk: Desk) -> list[dict[str, Any]]:
     """The set's saved pages: id, title, who made it, when, and how many controls. A file that is not a page is
     passed over."""
+    names = organize.read(desk.pages_dir())["names"]
     out = []
     for path in sorted(pages_dir(desk).glob("*.json")):
         try:
             p = page.load(path)
         except ValueError:
             continue
+        pid = p.id or path.stem
         out.append(
-            {"id": p.id or path.stem, "title": p.title, "made_by": p.made_by, "at": p.at, "controls": len(p.controls())}
+            {
+                "id": pid,
+                "title": names.get(f"page:{pid}") or p.title,
+                "made_by": p.made_by,
+                "at": p.at,
+                "controls": len(p.controls()),
+            }
         )
     return out
+
+
+def units_listing(desk: Desk) -> list[dict[str, Any]]:
+    """Every page unit on the desk (active in order, then archived), with its id, name, kind, pad and slots."""
+    return organize.listing(desk.raw_pages(), organize.read(desk.pages_dir()))
+
+
+def list_units(desk: Desk, cmd: Command) -> Reply:
+    """Read the desk's page units (active and archived), for the UI and agents."""
+    return 200, {"ok": True, "units": units_listing(desk)}
+
+
+def organize_units(desk: Desk, cmd: Command) -> Reply:
+    """Rename, reorder, archive or restore pages on the desk (`_organize.json`), then reload the pager while
+    staying on the same page where possible. No mix value in Live moves."""
+    if desk.bus.guard is not None:
+        desk.bus.guard.check()
+    action = str(cmd.args.get("action") or "")
+    raw = desk.raw_pages()
+    org = organize.read(desk.pages_dir())
+    before_unit = desk.current_unit_id()
+    try:
+        if action == "rename":
+            updated = organize.rename(raw, org, str(cmd.args.get("id") or ""), cmd.args.get("name"))
+        elif action == "archive":
+            updated = organize.archive(raw, org, str(cmd.args.get("id") or ""), True)
+        elif action == "restore":
+            updated = organize.archive(raw, org, str(cmd.args.get("id") or ""), False)
+        elif action == "reorder":
+            updated = organize.reorder(raw, org, cmd.args.get("order"))  # type: ignore[arg-type]
+        elif action == "move":
+            by_raw, to_raw = cmd.args.get("by"), cmd.args.get("to")
+            by = None if by_raw is None else int(by_raw)
+            to = None if to_raw is None else int(to_raw)
+            if isinstance(by_raw, bool) or isinstance(to_raw, bool):
+                raise ValueError("'by' and 'to' must be whole numbers")
+            updated = organize.move(raw, org, str(cmd.args.get("id") or ""), to=to, by=by)
+        else:
+            raise BadRequest("action must be one of rename, archive, restore, reorder, move")
+    except (ValueError, TypeError) as exc:
+        raise BadRequest(str(exc)) from None
+    organize.write(desk.pages_dir(), updated)
+    shown = desk.apply_organize(before_unit)
+    return 200, {"ok": True, "units": organize.listing(raw, updated), "open": shown}
 
 
 def layout_of(desk: Desk, cmd: Command) -> Reply:
@@ -236,6 +288,9 @@ def layout_of(desk: Desk, cmd: Command) -> Reply:
     except ValueError as exc:
         raise BadRequest(str(exc)) from None
     parsed.id = page_id
+    stored_name = organize.read(desk.pages_dir())["names"].get(f"page:{page_id}")
+    if stored_name:
+        parsed.title = stored_name
     found, missing = describe.look(desk.conn, parsed.targets())
     return 200, {"ok": True, "layout": page_layout.layout(parsed, found, missing).model_dump()}
 

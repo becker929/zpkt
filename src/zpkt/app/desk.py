@@ -516,6 +516,23 @@ class Desk:
         self.push({"t": "desk", "open": shown})
         return found
 
+    def current_unit_id(self) -> str | None:
+        """The unit id of the page currently armed on the desk (before a write to _organize.json)."""
+        pages = self.cfg()["pages"]
+        idx = self.snapshot()["page"]
+        return organize.unit_id(pages[idx]) if 0 <= idx < len(pages) else None
+
+    def apply_organize(self, before_unit: str | None = None) -> int:
+        """Reload the pager after _organize.json changed, staying on `before_unit` if it is still on the desk."""
+        self.restart_pager()
+        pages = self.cfg()["pages"]
+        shown = next((i for i, pg in enumerate(pages) if before_unit and organize.unit_id(pg) == before_unit), None)
+        if shown is None:
+            shown = max(0, min(self.snapshot()["page"], len(pages) - 1))
+        self.call(f"m.DESK.arm({shown})")
+        self.push({"t": "desk", "open": shown})
+        return shown
+
     def armed_page_name(self) -> str | None:
         """What names the armed page across a reload: its surface file, or its name for one of desk.json's. The
         surfaces on disk may have changed already, so the pager's own list is asked."""

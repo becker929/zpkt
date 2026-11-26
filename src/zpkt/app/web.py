@@ -178,8 +178,13 @@ def get_pages(desk: Desk, query: dict[str, str]) -> Response:
     return json_response({"pages": pages.listing(desk)})
 
 
+def get_organize(desk: Desk, query: dict[str, str]) -> Response:
+    return json_response({"units": pages.units_listing(desk)})
+
+
 APP_GET_ROUTES: dict[str, Callable[[Desk, dict[str, str]], Response]] = {
     "/api/pages": get_pages,
+    "/api/organize": get_organize,
     "/api/hear": get_hear,
     "/api/commands": get_commands,
     "/api/changes": get_changes,

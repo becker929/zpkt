@@ -16,6 +16,7 @@ READS = {
     "mix.describe",
     "page.layout",
     "page.lint",
+    "page.list",
     "desk.state",
     "state.read",
     "state.take",
@@ -25,6 +26,7 @@ MAKES = {
     "monitor.pin",
     "page.draft",
     "page.make",
+    "page.organize",
     "surface.make",
     "surface.save",
 }

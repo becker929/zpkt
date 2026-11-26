@@ -144,3 +144,111 @@ def slots_of(unit: Unit) -> list[list[str]]:
         pads = [s for s in ((page.get("compare") or {}).get("pads") or {}) if s not in mapped]
         out.append(sorted(mapped + pads))
     return out
+
+
+def resolve_id(raw: list[dict[str, Any]], org: Organized, ident: str) -> str:
+    """Resolve a unit id (or a bare saved page_id when `page:<id>` exists); ValueError if unknown."""
+    all_units = units(raw, org)
+    known = {u["id"] for u in all_units}
+    if ident in known:
+        return ident
+    if f"page:{ident}" in known:
+        return f"page:{ident}"
+    raise ValueError(f"no page with id {ident!r}")
+
+
+def rename(raw: list[dict[str, Any]], org: Organized, ident: str, name: Any) -> Organized:
+    """Return a copy of `org` with unit `ident` renamed to `name`."""
+    uid = resolve_id(raw, org, ident)
+    cleaned = clean_name(name)
+    names = dict(org["names"])
+    names[uid] = cleaned
+    return {"order": list(org["order"]), "archived": list(org["archived"]), "names": names}
+
+
+def archive(raw: list[dict[str, Any]], org: Organized, ident: str, archived: bool = True) -> Organized:
+    """Return a copy of `org` with unit `ident` archived or restored. At least one active page must stay."""
+    uid = resolve_id(raw, org, ident)
+    all_units = units(raw, org)
+    active_ids = [u["id"] for u in all_units if not u["archived"]]
+    arch = list(org["archived"])
+    order = list(org["order"])
+    if archived:
+        if uid in active_ids and len(active_ids) <= 1:
+            raise ValueError("at least one page must stay on the desk")
+        if uid not in arch:
+            arch.append(uid)
+    else:
+        arch = [x for x in arch if x != uid]
+        if order and uid not in order:
+            order.append(uid)
+    return {"order": order, "archived": arch, "names": dict(org["names"])}
+
+
+def reorder(raw: list[dict[str, Any]], org: Organized, order: list[str]) -> Organized:
+    """Return a copy of `org` with the given unit order. Unknown or duplicate ids raise ValueError."""
+    if not isinstance(order, list) or not all(isinstance(x, str) for x in order):
+        raise ValueError("'order' must be a list of page ids")
+    all_units = units(raw, org)
+    resolved: list[str] = []
+    seen: set[str] = set()
+    for ident in order:
+        uid = resolve_id(raw, org, ident)
+        if uid in seen:
+            raise ValueError(f"duplicate page id {uid!r} in order")
+        seen.add(uid)
+        resolved.append(uid)
+    for u in all_units:
+        if not u["archived"] and u["id"] not in seen:
+            resolved.append(u["id"])
+    return {"order": resolved, "archived": list(org["archived"]), "names": dict(org["names"])}
+
+
+def move(
+    raw: list[dict[str, Any]], org: Organized, ident: str, to: int | None = None, by: int | None = None
+) -> Organized:
+    """Move an active unit to index `to` or by offset `by` (-1 earlier, +1 later)."""
+    uid = resolve_id(raw, org, ident)
+    active = [u["id"] for u in units(raw, org) if not u["archived"]]
+    if uid not in active:
+        raise ValueError("archived pages cannot be reordered; restore the page first")
+    cur = active.index(uid)
+    if to is not None:
+        dest = max(0, min(len(active) - 1, to))
+    elif by is not None:
+        dest = max(0, min(len(active) - 1, cur + by))
+    else:
+        raise ValueError("move needs 'by' or 'to'")
+    active.pop(cur)
+    active.insert(dest, uid)
+    return reorder(raw, org, active)
+
+
+def listing(raw: list[dict[str, Any]], org: Organized) -> list[dict[str, Any]]:
+    """Every unit (active in order, then archived) as JSON for the Desk UI and agents."""
+    all_units = units(raw, org)
+    out: list[dict[str, Any]] = []
+    active_idx = 0
+    for u in all_units:
+        if u["archived"]:
+            pad = 0
+        elif org["order"]:
+            pad = active_idx + 1 if active_idx < PADS else 0
+            active_idx += 1
+        else:
+            pad = int(u["pages"][0].get("pad") or 0)
+            active_idx += 1
+        out.append(
+            {
+                "id": u["id"],
+                "name": u["name"],
+                "kind": u["kind"],
+                "archived": u["archived"],
+                "pages": len(u["pages"]),
+                "page_id": u["pages"][0].get("page_id") if u["kind"] == "page" else None,
+                "pad": pad,
+                "slots": slots_of(u),
+            }
+        )
+    return out
+

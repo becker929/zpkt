@@ -46,9 +46,41 @@ TOOLS: tuple[Tool, ...] = (
         },
     ),
     Tool(
+        "organize_pages",
+        "page.organize",
+        "Rename, reorder, archive or restore pages on the desk. Read `units` from read_state first to get each "
+        "page's `id` (such as 'page:kick-eq', 'desk:Mix', or 'surface:kick.json'). Actions: "
+        "`rename` (needs `id` and `name`, 1 to 40 chars), "
+        "`archive` (needs `id`; leaves at least one page on the desk), "
+        "`restore` (needs `id`, brings an archived page back), "
+        "`reorder` (needs `order`, a list of page ids in the new order; the first 8 take MiniLab pads 1 to 8), "
+        "`move` (needs `id` and `by` such as -1 or 1, or 0-based `to`). Nothing in the mix moves.",
+        {
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["rename", "archive", "restore", "reorder", "move"],
+                    "description": "What to do with the pages.",
+                },
+                "id": {"type": "string", "description": "The unit id (or saved page_id) to rename, archive, restore or move."},
+                "name": {"type": "string", "description": "The new name for 'rename' (1 to 40 characters)."},
+                "order": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "List of unit ids in the desired order for 'reorder'.",
+                },
+                "by": {"type": "integer", "description": "Relative step for 'move' (-1 earlier, +1 later)."},
+                "to": {"type": "integer", "description": "0-based destination index for 'move'."},
+            },
+            "required": ["action"],
+        },
+    ),
+    Tool(
         "read_state",
         "desk.state",
-        "What the desk shows now: the set, its pages, what is heard, and the values of the controls.",
+        "What the desk shows now: the set, its pages (and their `units` with ids, names, pads and archived status), "
+        "what is heard, and the values of the controls.",
         {"type": "object", "properties": {}},
     ),
     Tool(

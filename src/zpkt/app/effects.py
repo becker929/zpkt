@@ -50,6 +50,8 @@ EFFECTS: dict[str, Effect] = {
     "page.lint": "read",
     "page.make": "make",
     "page.layout": "read",
+    "page.list": "read",
+    "page.organize": "make",
     "page.open": "move",
     "page.compare": "move",
     "surface.make": "make",
