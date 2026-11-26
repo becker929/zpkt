@@ -240,3 +240,168 @@ def test_describe_selection_and_page_lint_commands(live, tmp_path):
     no = run.invoke(app, ["page", "lint", str(bad), "--port", port])
     assert no.exit_code == 1 and "error: Nope/volume: not in the open set" in no.output
     assert run.invoke(app, ["page", "lint", str(tmp_path / "none.json"), "--port", port]).exit_code == 2
+
+
+# ---- compare states --------------------------------------------------------------------------------------------------
+
+VOL, GAIN, MUTE, TYPE = (
+    "Kick bus/volume",
+    "Kick bus/desk EQ/1 Gain A",
+    "Kick bus/mute",
+    "Kick bus/desk EQ/1 Filter Type A",
+)
+
+
+def compare_spec(states, **more):
+    return {
+        "title": "Kick: hotter?",
+        "groups": [{"name": "Kick", "controls": [{"target": VOL}, {"target": GAIN}]}],
+        "compare": {"states": states, **more},
+    }
+
+
+def _filled(live, spec):
+    page, found, missing = _checked(live, spec)
+    P.fill(page, found)
+    return page, found, missing
+
+
+def test_a_state_with_no_writes_takes_the_values_the_controls_had(live):
+    spec = compare_spec([{"name": "as it is"}, {"name": "hotter", "writes": [{"target": VOL, "to": 0.8}]}])
+    page, found, missing = _filled(live, spec)
+    assert P.lint(page, found, missing) == []
+    cmp = page.compare
+    assert cmp.baseline == {VOL: found[VOL]["now"].raw}
+    assert [(w.target, w.to) for w in cmp.states[0].writes] == [(VOL, found[VOL]["now"].raw)]  # the way back
+    assert cmp.ranges[VOL] == (found[VOL]["min"], found[VOL]["max"], False)
+    assert page.targets() == [VOL, GAIN]  # the page's controls, then what only the states write
+
+
+def test_a_gap_between_states_is_filled_from_the_baseline(live):
+    spec = compare_spec(
+        [
+            {"name": "as it is"},
+            {"name": "hotter", "writes": [{"target": VOL, "to": 0.8}]},
+            {"name": "muted", "writes": [{"target": MUTE, "to": True}, {"target": TYPE, "to": 2}]},
+        ]
+    )
+    page, found, missing = _filled(live, spec)
+    assert P.lint(page, found, missing) == []
+    base = page.compare.baseline
+    assert set(base) == {VOL, MUTE, TYPE} and base[MUTE] is False
+    for state in page.compare.states:  # every state writes the same set of controls
+        assert [w.target for w in state.writes] == [VOL, MUTE, TYPE]
+    hotter = {w.target: w.to for w in page.compare.states[1].writes}
+    assert hotter == {VOL: 0.8, MUTE: base[MUTE], TYPE: base[TYPE]}
+    assert MUTE in page.targets() and TYPE in page.targets()  # they are looked up in Live like any control
+
+
+def test_a_baseline_kept_before_is_not_taken_again(live):
+    """A page made again under its id keeps the mix as it was when it was first made: that is the way back."""
+    spec = compare_spec([{"name": "as it is"}, {"name": "hotter", "writes": [{"target": VOL, "to": 0.8}]}])
+    page, found, _ = _checked(live, spec)
+    page.compare.baseline = {VOL: 0.25, "Gone/volume": 0.5}  # as the app hands over what the saved page kept
+    P.fill(page, found)
+    assert page.compare.baseline == {VOL: 0.25}  # kept; what no state writes any more is dropped
+    assert page.compare.states[0].writes[0].to == 0.25
+
+
+def test_a_gap_that_cannot_be_filled_is_an_error(live):
+    spec = compare_spec(
+        [
+            {"name": "one", "writes": [{"target": VOL, "to": 0.5}]},
+            {"name": "two", "writes": [{"target": "No such/volume", "to": 0.5}]},
+        ]
+    )
+    page, found, missing = _filled(live, spec)
+    errors = _errors(P.lint(page, found, missing))
+    assert ("compare:No such/volume", f"not in the open set: {missing['No such/volume']}") in errors
+    assert all(w.target != "No such/volume" for w in page.compare.states[0].writes)  # nothing was made up for it
+    # without the fill the linter says which state leaves what out
+    raw_page, found, missing = _checked(
+        live, compare_spec([{"name": "a"}, {"name": "b", "writes": [{"target": VOL, "to": 0.8}]}])
+    )
+    assert any("no value of it was kept" in text for _, text in _errors(P.lint(raw_page, found, missing)))
+
+
+@pytest.mark.parametrize(
+    ("states", "says"),
+    [
+        ([{"name": "only", "writes": [{"target": VOL, "to": 0.8}]}], "1 states; a compare has 2 to 8"),
+        ([{"name": f"s{i}", "writes": [{"target": VOL, "to": i / 10}]} for i in range(9)], "9 states"),
+        ([{"name": "a"}, {"name": "b"}], "no state writes anything"),
+        ([{"name": "a"}, {"name": "A", "writes": [{"target": VOL, "to": 0.8}]}], "two states have this name"),
+        ([{"name": "a"}, {"name": "much too long", "writes": [{"target": VOL, "to": 0.8}]}], "over 10 characters"),
+        ([{"name": "a"}, {"name": "b", "writes": [{"target": VOL, "to": 1.5}]}], "outside its raw range"),
+        ([{"name": "a"}, {"name": "b", "writes": [{"target": TYPE, "to": 1.5}]}], "a whole number"),
+        (
+            [{"name": "a"}, {"name": "b", "writes": [{"target": VOL, "to": 0.8}, {"target": VOL, "to": 0.7}]}],
+            "twice",
+        ),
+        (
+            [
+                {"name": "a", "writes": [{"target": VOL, "to": 0.8}]},
+                {"name": "b", "writes": [{"target": VOL, "to": 0.8}]},
+            ],
+            "is the same as 'a'",
+        ),
+    ],
+)
+def test_the_linter_holds_compare_states_to_their_limits(live, states, says):
+    page, found, missing = _filled(live, compare_spec(states))
+    assert any(says in text for _, text in _errors(P.lint(page, found, missing))), P.lint(page, found, missing)
+
+
+def test_a_state_that_is_the_mix_as_it_is_twice_is_caught(live):
+    now = D.look(live, [VOL])[0][VOL]["now"].raw
+    page, found, missing = _filled(
+        live, compare_spec([{"name": "a"}, {"name": "b", "writes": [{"target": VOL, "to": now}]}])
+    )
+    assert any("is the same as 'a'" in text for _, text in _errors(P.lint(page, found, missing)))
+
+
+def test_states_take_the_last_pads_on_every_minilab_page_and_switches_the_ones_before(live):
+    spec = compare_spec([{"name": "a"}, {"name": "b", "writes": [{"target": VOL, "to": 0.8}]}])
+    spec["groups"][0]["controls"].append({"target": MUTE})
+    page, found, _ = _filled(live, spec)
+    (hw,) = P.assign(page, found)
+    assert hw["compare"] == [{"slot": "b7", "state": 0, "name": "a"}, {"slot": "b8", "state": 1, "name": "b"}]
+    assert [s["slot"] for s in hw["slots"] if s["ref"] == MUTE] == ["b1"]
+    # 8 states leave no pad for a switch: the linter says the group does not fit
+    eight = compare_spec([{"name": f"s{i}", "writes": [{"target": VOL, "to": i / 10}]} for i in range(8)])
+    eight["groups"][0]["controls"].append({"target": MUTE})
+    page, found, missing = _filled(live, eight)
+    assert any("does not fit the MiniLab" in text for _, text in _errors(P.lint(page, found, missing)))
+    # a page of states alone is a page: one MiniLab page with only its pads
+    alone = {"title": "Only states", "groups": [], "compare": spec["compare"]}
+    page, found, missing = _filled(live, alone)
+    assert P.lint(page, found, missing) == []
+    assert P.assign(page, found) == [{"groups": [], "slots": [], "compare": hw["compare"]}]
+
+
+def test_the_lit_state_is_derived_from_the_values_within_a_step(live):
+    spec = compare_spec(
+        [
+            {"name": "as it is"},
+            {"name": "hotter", "writes": [{"target": VOL, "to": 0.8}, {"target": MUTE, "to": True}]},
+        ]
+    )
+    page, found, _ = _filled(live, spec)
+    cmp, base = page.compare, page.compare.baseline
+    assert P.lit(cmp, base) == 0
+    assert P.lit(cmp, {VOL: 0.8, MUTE: True}) == 1
+    assert P.lit(cmp, {VOL: 0.8004, MUTE: 1.0}) == 1  # within a thousandth of the range, and a switch as a number
+    assert P.lit(cmp, {VOL: 0.81, MUTE: True}) is None  # somebody turned the knob
+    assert P.lit(cmp, {VOL: 0.8, MUTE: False}) is None  # every target must hold, not most
+    assert P.lit(cmp, {VOL: 0.8}) is None and P.lit(cmp, {}) is None  # a value nobody reported holds nothing
+    assert P.tolerance(found[VOL]) == pytest.approx((found[VOL]["max"] - found[VOL]["min"]) * P.COMPARE_STEP)
+    assert P.tolerance(found[MUTE]) == 0.5
+
+
+def test_a_page_with_compare_states_fits_the_contract_and_goes_through_a_file(live, tmp_path):
+    spec = compare_spec([{"name": "as it is"}, {"name": "hotter", "writes": [{"target": VOL, "to": 0.8}]}], name="Kick")
+    page, _, _ = _filled(live, spec)
+    data = P.to_json(page)
+    jsonschema.validate(data, schemas.build("page", P.Page))
+    again = P.load(P.save(page, "set", tmp_path))
+    assert again.compare == page.compare and again.compare.name == "Kick"

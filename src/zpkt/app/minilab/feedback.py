@@ -32,7 +32,8 @@ def rings(profile: Profile, view: View) -> Out:
 
 
 def leds(profile: Profile, view: View) -> Out:
-    """Bank A shows which pages exist and which is armed; bank B shows the page's switches, lit when on."""
+    """Bank A shows which pages exist and which is armed; bank B shows the page's switches, lit when on. A pad that
+    holds a compare state of the armed page shows that instead, on both banks: lit when its state is on."""
     core = pagercore()
     cfg = view.cfg()
     out: Out = {}
@@ -45,6 +46,12 @@ def leds(profile: Profile, view: View) -> Out:
         control = view.controls.get(f"b{pad}")
         colour = OFF if control is None else ON if control.n >= 0.5 else IDLE
         out[f"led:b{pad}"] = sysex.led(profile, profile.by_name(f"b{pad}"), colour)
+    states = view.pages[view.page].compare if 0 <= view.page < len(view.pages) else {}
+    for slot in states:
+        colour = ON if slot == view.lit else IDLE
+        for bank in "ab":
+            name = f"{bank}{slot[1:]}"
+            out[f"led:{name}"] = sysex.led(profile, profile.by_name(name), colour)
     return out
 
 

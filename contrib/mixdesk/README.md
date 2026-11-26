@@ -43,7 +43,9 @@ re-reads it when it restarts the pager).
   blue line where the fader is until then.
 - **Pads** arm pages in either of the MiniLab's pad banks: bank B does exactly what bank A does, with and without
   Shift (Anthony, 25 Nov 2026: "we should never use those. We use pages instead"). The page's switches (device on,
-  filter on, mute, solo) are flipped on the screen.
+  filter on, mute, solo) are flipped on the screen. One exception: on a Page with compare states (the app's README,
+  Pages, Compare) the pads that hold a state switch the mix to it, in both banks, and the pad of the state that is
+  on is lit. The other pads of that page still arm pages. The light is untested on the real MiniLab 3.
 
 ## Matching the references (22 Nov 2026)
 

@@ -159,3 +159,59 @@ def test_a_macro_becomes_a_desk_macro(live):
     (s,) = L.to_surfaces(page, found)
     parts = s["controls"]["k1"]["macro"]
     assert parts[0] == {"track": "Kick bus", "device": "desk EQ", "param": "1 Gain A", "from": "0 dB", "to": "-6"}
+
+
+# ---- compare states --------------------------------------------------------------------------------------------------
+
+VOL, WET = "Kick bus/volume", "Kick bus/desk Glue/Dry/Wet"
+COMPARE = {
+    "title": "Kick: hotter?",
+    "groups": [{"name": "Kick", "controls": [{"target": VOL}]}],
+    "compare": {
+        "name": "Kick",
+        "states": [
+            {"name": "as it is"},
+            {"name": "hotter", "writes": [{"target": VOL, "to": 0.8}, {"target": WET, "to": 0.25}]},
+        ],
+    },
+}
+
+
+def filled(live, spec):
+    page = P.parse(spec)
+    found, missing = D.look(live, page.targets())
+    P.fill(page, found)
+    return page, found, L.layout(page, found, missing)
+
+
+def test_compare_states_are_pads_of_the_panel_with_what_the_shell_needs_to_light_them(live):
+    _, found, lay = filled(live, COMPARE)
+    assert lay.problems == []
+    (panel,) = lay.panels
+    pads = {s.slot: s.state for s in panel.slots if s.state is not None}
+    assert pads == {"b7": 0, "b8": 1} and all(s.ref is None for s in panel.slots if s.state is not None)
+    cmp = lay.compare
+    assert cmp.name == "Kick" and [(s.name, s.slot) for s in cmp.states] == [("as it is", "b7"), ("hotter", "b8")]
+    hotter = {w.target: w for w in cmp.states[1].writes}
+    span = found[VOL]["max"] - found[VOL]["min"]
+    assert hotter[VOL].to == 0.8 and hotter[VOL].n == pytest.approx((0.8 - found[VOL]["min"]) / span)
+    assert hotter[VOL].near == pytest.approx(P.COMPARE_STEP)  # how near a place must be to hold
+    assert set(hotter) == {VOL, WET} and {w.target for w in cmp.states[0].writes} == {VOL, WET}
+    jsonschema.validate(lay.model_dump(), schemas.build("page-layout", L.Layout))
+    assert L.layout(P.parse(SPEC), *D.look(live, P.parse(SPEC).targets())).compare is None  # a page without states
+
+
+def test_the_surfaces_hand_the_pager_the_states_and_where_their_targets_are(live):
+    page, found, _ = filled(live, COMPARE)
+    page.id = "kick-hotter"
+    (surface,) = L.to_surfaces(page, found)
+    cmp = surface["compare"]
+    assert cmp["pads"] == {"b7": 0, "b8": 1} and cmp["name"] == "Kick"
+    assert cmp["states"][1] == {"name": "hotter", "writes": [[VOL, 0.8], [WET, 0.25]]}
+    assert cmp["states"][0]["writes"] == [[VOL, page.compare.baseline[VOL]], [WET, page.compare.baseline[WET]]]
+    assert cmp["targets"] == {
+        VOL: {"track": "Kick bus", "param": "volume"},
+        WET: {"track": "Kick bus", "device": "desk Glue", "param": "Dry/Wet"},
+    }
+    assert cmp["ranges"][VOL] == [found[VOL]["min"], found[VOL]["max"], False]
+    assert "compare" not in L.to_surfaces(P.parse(SPEC), D.look(live, P.parse(SPEC).targets())[0])[0]

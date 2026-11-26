@@ -20,7 +20,7 @@ button{font:inherit;color:inherit;background:none;border:0;cursor:pointer;paddin
 select,input,textarea{font:inherit;color:inherit}
 a{color:var(--ink);text-underline-offset:2px}
 #main{flex:1;min-width:0;display:flex;flex-direction:column;height:100dvh}
-/* The tab bar when /app/shell/ did not load: four plain links, last in the column. */
+/* The tab bar when /app/shell/ did not load: three plain links, last in the column. */
 #tabs{display:flex;flex:none;background:var(--panel);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom);font-size:12px}
 #tabs.fallback a{flex:1;min-width:44px;height:var(--tabs-h);display:flex;align-items:center;justify-content:center;color:var(--mute);text-decoration:none;font-weight:500}
 #tabs.fallback a.on{color:var(--ink);font-weight:700;box-shadow:inset 0 3px 0 var(--acc)}
@@ -173,12 +173,12 @@ a.pcard:active{transform:translateY(1px)}
 <div id="toast" role="status"></div>
 
 <script>
-// The one tab bar is drawn by /app/shell/nav.js. Without it (the file is missing, or it threw), four plain links.
+// The one tab bar is drawn by /app/shell/nav.js. Without it (the file is missing, or it threw), three plain links.
 function navFallback() {
   const nav = document.getElementById('tabs');
   if (!nav || nav.children.length) return;
   nav.classList.add('fallback'); nav.setAttribute('aria-label', 'Tabs');
-  nav.innerHTML = '<a href="/app/#desk">Desk</a><a href="/app/#song">Song</a><a href="/app/#options">Options</a><a class="on" aria-current="page" href="/app/ask/">Ask</a>';
+  nav.innerHTML = '<a href="/app/#desk">Desk</a><a href="/app/#song">Song</a><a class="on" aria-current="page" href="/app/ask/">Ask</a>';
 }
 window.addEventListener('load', navFallback);
 </script>
@@ -314,6 +314,7 @@ const KNOBS = ['k1', 'k2', 'k3', 'k4', 'k5', 'k6', 'k7', 'k8'], FADERS = ['f1', 
 function thumbSvg(layout) {
   const lit = new Set();
   for (const g of layout?.groups || []) for (const c of g.controls || []) if (c.slot && !c.missing) lit.add(c.slot);
+  for (const st of layout?.compare?.states || []) if (st.slot) lit.add(st.slot);   // the pads that hold compare states
   if (!lit.size) return '';
   const cls = (s) => (lit.has(s) ? 'on' : 'off');
   const knobs = KNOBS.map((s, i) => `<circle class="${cls(s)}" cx="${9 + (i % 4) * 15}" cy="${8 + Math.floor(i / 4) * 15}" r="5.5"/>`).join('');

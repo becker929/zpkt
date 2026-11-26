@@ -146,7 +146,7 @@ def test_only_a_call_that_names_the_apps_server_and_tool_is_taken_for_one():
 
     assert is_app_tool({"toolCallId": "x1", "title": "make_page (zpkt MCP Server)", "kind": "other"})
     assert is_app_tool({"toolCallId": "mcp_zpkt_read_state-17", "title": "read_state"})
-    assert is_app_tool({"toolCallId": "t", "title": "propose_option (zpkt MCP Server)"})
+    assert is_app_tool({"toolCallId": "t", "title": "read_state (zpkt MCP Server)"})
     assert not is_app_tool({"toolCallId": "t", "title": "make_page (other MCP Server)"})
     assert not is_app_tool({"toolCallId": "t", "title": "Edit zpkt/make_page.py", "kind": "edit"})
     assert not is_app_tool({"toolCallId": "t", "title": "rm -rf zpkt", "kind": "execute"})

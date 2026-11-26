@@ -103,7 +103,7 @@ def throwaway_rig(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[N
     monkeypatch.setenv("ZPKT_LIVE_PORT", "9")
     # A Listen adapter made without a source would ask the real "zpkt listen" device on its real ports: never here.
     monkeypatch.setenv("ZPKT_LISTEN_SOURCE", "screen")
-    monkeypatch.setenv("ARRANGER_DATA", str(tmp_path / "arranger"))  # Options read the arranger's folders
+    monkeypatch.setenv("ARRANGER_DATA", str(tmp_path / "arranger"))  # the Song reads the arranger's folders
     config.rig.cache_clear()
     yield
     config.rig.cache_clear()

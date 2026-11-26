@@ -52,7 +52,7 @@ def test_the_requests_the_client_sends_validate(api):
     original = c._send
     c._send = lambda method, path, body, auth=True: sent.append(body) or original(method, path, body, auth)  # type: ignore[method-assign]
     c.submit("live.run", {"code": "1"}, group="g")
-    c.submit("live.run", {"code": "1"}, approval="option:1")
+    c.submit("live.run", {"code": "1"}, approval="user")
     bodies = [b for b in sent if b]
     assert bodies and all(not check("request", b) for b in bodies)
     assert bodies[0]["who"] == "booth" and bodies[0]["group"] == "g"

@@ -94,7 +94,6 @@ def test_who_is_one_of_the_api_callers_and_defaults_to_cli():
 def test_an_agent_cannot_say_the_user_approved():
     with pytest.raises(BadRequest, match="cannot say the user approved"):
         parse_request({"kind": "x", "who": "agent", "approval": "user"})
-    assert parse_request({"kind": "x", "who": "agent", "approval": "option:7"}).approval == "option:7"
     assert parse_request({"kind": "x", "who": "cli", "approval": "user"}).approval == "user"
 
 
@@ -155,16 +154,13 @@ def test_a_run_answers_what_live_said_when_live_refuses(api):
     assert code == 200 and not body["ok"] and body["reply"]["status"] == "error" and body["reply"]["error"]
 
 
-def test_an_agent_needs_an_option_or_the_users_word_to_run_code(api, rig):
+def test_an_agent_cannot_run_code_that_changes_live(api, rig):
     code, body = api.run("song.tempo = 91.0", who="agent")
     assert code == 403 and "cannot change Live" in body["error"]
     assert api.run("song.tempo = 91.0", who="agent", approval="user")[0] == 400
     assert rig.live.song.tempo != 91.0
-    assert api.run("song.tempo = 91.0", who="agent", approval="option:3")[0] == 403  # an id no one picked
+    assert api.run("song.tempo = 91.0", who="agent", approval="option:3", group="ask-1")[0] == 403  # Options are gone
     assert rig.live.song.tempo != 91.0
-    rig.desk.bus.option_picked = lambda option: option == "3"
-    code, body = api.run("song.tempo = 91.0", who="agent", approval="option:3", group="ask-1")
-    assert code == 200 and rig.live.song.tempo == 91.0
 
 
 def test_an_agent_may_read_and_read_refuses_code_that_changes(api, rig):

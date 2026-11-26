@@ -30,14 +30,14 @@ def test_the_right_set_passes(rig):
     assert rig.post("/api/transport", {"action": "play"})[0] == 200
 
 
-def test_an_agent_cannot_move_live_on_its_own_but_can_with_your_word_or_an_option(rig):
+def test_an_agent_cannot_move_live_on_its_own_but_can_with_your_word(rig):
     _, key, _ = first_control(rig, "f")
     ask = {"norms": [[key, 0.1]]}
     code, _ = rig.desk.bus.submit(Command("mix.set", "agent", ask))
     assert code == 403 and rig.desk.history.entries == []
     assert rig.desk.bus.submit(Command("mix.set", "agent", ask, approval="option:fader-10"))[0] == 403
-    rig.desk.bus.option_picked = lambda option: option == "fader-10"
-    assert rig.desk.bus.submit(Command("mix.set", "agent", ask, approval="option:fader-10"))[0] == 200
+    assert rig.desk.history.entries == []
+    assert rig.desk.bus.submit(Command("mix.set", "agent", ask, approval="user"))[0] == 200
 
 
 def test_an_agent_group_saves_a_version_first_and_undoes_as_one(rig):

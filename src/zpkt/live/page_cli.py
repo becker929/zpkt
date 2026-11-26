@@ -96,6 +96,7 @@ def page_lint(
         )
     except LiveError as exc:
         fail(str(exc))
+    P.fill(page, found)  # compare states take what they leave out from the mix as it is now
     problems = P.lint(page, found, missing)
     hardware = P.assign(page, found)
     names = P.labels(page, found)
@@ -108,6 +109,8 @@ def page_lint(
         for i, hw in enumerate(hardware, 1):
             print(f"MiniLab page {i} ({', '.join(hw['groups'])}):")
             print("  " + "  ".join(f"{s['slot']}={names[s['ref']]}" for s in hw["slots"]))
+            if hw["compare"]:
+                print("  compare: " + "  ".join(f"{s['slot']}={s['name']}" for s in hw["compare"]))
         print("ok" if not any(p["level"] == "error" for p in problems) else "not shown: fix the errors")
     if any(p["level"] == "error" for p in problems):
         raise typer.Exit(1)

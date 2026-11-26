@@ -5,9 +5,9 @@ Adapters (the web page, the MiniLab, an agent, the API) turn what they hear into
 these checks first:
 
 - who: it must be one of zpkt.live.changes.WHO.
-- the agent rule: an agent may make pages and propose Options and may read; a change to Live from an agent needs an
-  Option pick or your word (`approval`). An agent's changes always belong to a group, and the first change of a group
-  makes an automatic version first, so one undo takes the whole group back.
+- the agent rule: an agent may make pages and may read; a change to Live from an agent needs your word
+  (`approval`). An agent's changes always belong to a group, and the first change of a group makes an automatic
+  version first, so one undo takes the whole group back.
 - the wrong-set guard: every move is held to a set, and nothing is sent when Live has another open. The desk's moves
   are for the page's set. A job (zpkt.app.jobs) is for the set its caller names (`expect_set`), or else for the set
   the app last saw open. Only opening a set is let through.
@@ -42,7 +42,6 @@ Effect = Literal[
 OK: Reply = (200, {"ok": True})
 
 APPROVED_BY_USER = "user"
-OPTION_PREFIX = "option:"
 KEEP_LOG = 200
 VERSIONED_KEEP = 500  # groups remembered as already checkpointed
 
@@ -69,7 +68,7 @@ class Command:
     kind: str  # "mix.set", "history.undo", ...
     who: Who = "you"
     args: Mapping[str, Any] = field(default_factory=dict)
-    approval: str | None = None  # "user" (you said so) or "option:<id>" (an Option was picked)
+    approval: str | None = None  # "user": you said so
     group: str | None = None  # changes made together; an agent's changes always have one
 
 
@@ -86,20 +85,10 @@ class Spec:
     for_set: str | None = None  # a move for another set than the page's (the Song builds the mix set): that one
 
 
-def option_id(cmd: Command) -> str | None:
-    """The Option an approval names ("option:<id>"), or None."""
-    if cmd.approval and cmd.approval.startswith(OPTION_PREFIX):
-        return cmd.approval[len(OPTION_PREFIX) :] or None
-    return None
-
-
-def approved(cmd: Command, picked: Callable[[str], bool] | None = None) -> bool:
-    """True when the command carries your word, or names an Option that you picked. `picked` says whether an Option
-    id was picked; without it no Option pick counts, so a made-up id gives an agent nothing."""
-    if cmd.approval == APPROVED_BY_USER:
-        return True
-    chosen = option_id(cmd)
-    return chosen is not None and picked is not None and picked(chosen)
+def approved(cmd: Command) -> bool:
+    """True when the command carries your word. Nothing else approves: the API never takes that word from an agent
+    (zpkt.app.adapters.api), so an agent that reaches the app from outside cannot move Live."""
+    return cmd.approval == APPROVED_BY_USER
 
 
 def check_who(cmd: Command) -> None:
@@ -113,12 +102,12 @@ def check_caller(cmd: Command, spec: Spec) -> None:
         raise Refused(f"{cmd.kind!r} is not open to {cmd.who!r}; it is for {', '.join(spec.callers)}")
 
 
-def check_agent(cmd: Command, spec: Spec, picked: Callable[[str], bool] | None = None) -> None:
+def check_agent(cmd: Command, spec: Spec) -> None:
     """The agent rule."""
-    if cmd.who == "agent" and spec.effect == "move" and not approved(cmd, picked):
+    if cmd.who == "agent" and spec.effect == "move" and not approved(cmd):
         raise Refused(
-            f"An agent cannot change Live with {cmd.kind!r} on its own. Propose it as an Option and wait for the user "
-            f"to pick it."
+            f"An agent cannot change Live with {cmd.kind!r} on its own. Make a page with the change as a compare "
+            f"state (page.draft) and give the user its link: their press on the pad makes the change."
         )
 
 
@@ -211,7 +200,6 @@ class Bus:
         `version_before(group)` saves an automatic version before an agent's first change of a group."""
         self.table: dict[str, Spec] = {}
         self.guard, self._lock, self.version_before, self.clock = guard, lock, version_before, clock
-        self.option_picked: Callable[[str], bool] | None = None  # set by whoever keeps the Options you pick from
         self.log: deque[dict[str, Any]] = deque(maxlen=KEEP_LOG)
         self._versioned: dict[str, None] = {}  # recent groups, oldest first
         self._mutex = threading.Lock()
@@ -241,7 +229,7 @@ class Bus:
         try:
             check_who(cmd)
             check_caller(cmd, spec)
-            check_agent(cmd, spec, self.option_picked)
+            check_agent(cmd, spec)
             if spec.effect == "move" and spec.guarded and not spec.own_set and self.guard is not None:
                 self.guard.check(spec.for_set)
             with self._held(spec):

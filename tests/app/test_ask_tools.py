@@ -1,4 +1,4 @@
-"""The agent's four tools: they are bus commands tagged `agent`, they reach nothing else, and none moves Live."""
+"""The agent's three tools: they are bus commands tagged `agent`, they reach nothing else, and none moves Live."""
 
 from __future__ import annotations
 
@@ -22,8 +22,8 @@ def call(asked, tool, args=None, session="s1"):
     return gate.call(session, gate.token(session), tool, args or {})
 
 
-def test_there_are_exactly_four_tools_and_each_is_a_registered_command(asked):
-    assert [t.name for t in TOOLS] == ["make_page", "read_state", "read_measurement", "propose_option"]
+def test_there_are_exactly_three_tools_and_each_is_a_registered_command(asked):
+    assert [t.name for t in TOOLS] == ["make_page", "read_state", "read_measurement"]
     assert {t.kind for t in TOOLS} <= set(asked.rig.desk.bus.kinds())
     assert not {t.kind for t in TOOLS} & {
         "mix.set",
@@ -83,34 +83,13 @@ def test_make_page_says_agent_even_when_the_spec_claims_otherwise(asked):
     assert json.loads((pages.folder("HW002_121_pp_finish") / ok["file"]).read_text())["made_by"] == "agent"
 
 
-def test_propose_option_is_recorded_and_moves_nothing(asked):
-    before = asked.rig.desk.history.entries[:]
-    code, ok = call(
-        asked,
-        "propose_option",
-        {
-            "option": {
-                "title": "Kick down 2 dB",
-                "why": "It masks the bass.",
-                "moves": [{"target": "Kick bus/volume", "to": "-2 dB"}],
-            }
-        },
-    )
-    assert (
-        code == 200
-        and ok["option"]["state"] == "proposed"
-        and ok["option"]["made_by"] == "agent"
-        and ok["option"]["session"] == "ask-s1"
-    )
-    stored = json.loads((asked.adapter.data_dir / "options.json").read_text())
-    assert stored == [ok["option"]]
-    jsonschema.validate(stored[0], json.loads((SCHEMAS / "proposal.schema.json").read_text()))
-    assert asked.rig.desk.history.entries == before
-    for bad in ({}, {"option": {"title": "x"}}, {"option": {"title": "x", "why": "y", "moves": [{"target": 1}]}}):
-        assert call(asked, "propose_option", bad)[0] == 400
+def test_propose_option_is_gone(asked):
+    assert call(asked, "propose_option", {"option": {"title": "x", "why": "y"}})[0] == 404
+    assert not {"options.propose", "option.propose", "options.pick", "option.pick"} & set(asked.rig.desk.bus.kinds())
+    assert not (asked.adapter.data_dir / "options.json").exists()
 
 
-def test_an_agents_move_command_would_still_need_an_option_or_a_word(asked):
+def test_an_agents_move_command_would_still_need_your_word(asked):
     """Even if a tool were added by mistake, the bus's agent rule stands: the tools table is not the only guard."""
     from zpkt.app.bus import Command
 
@@ -124,40 +103,11 @@ def test_every_tool_has_a_description_a_schema_and_a_unique_name(name):
     assert tool.description and tool.schema["type"] == "object"
 
 
-def test_an_agent_cannot_pick_its_own_option_and_only_your_pick_lets_its_move_pass(asked):
-    from zpkt.app.bus import Command
-
-    bus = asked.rig.desk.bus
-    move = {"norms": [["Kick bus/volume", 0.3]]}
-    _, ok = call(
-        asked,
-        "propose_option",
-        {
-            "option": {
-                "title": "Kick down",
-                "why": "It masks the bass.",
-                "moves": [{"target": "Kick bus/volume", "to": 0.3}],
-            }
-        },
-    )
-    oid = ok["option"]["id"]
-    assert bus.submit(Command("mix.set", "agent", move, approval=f"option:{oid}"))[0] == 403  # proposed, not picked
-    assert bus.submit(Command("option.pick", "agent", {"option": oid}))[0] == 403  # an agent cannot pick
-    assert bus.submit(Command("option.pick", "you", {"option": "nope"}))[0] == 400
-    code, picked = bus.submit(Command("option.pick", "you", {"option": oid}))
-    assert code == 200 and picked["option"]["state"] == "picked"
-    stored = json.loads((asked.adapter.data_dir / "options.json").read_text())
-    jsonschema.validate(stored[0], json.loads((SCHEMAS / "proposal.schema.json").read_text()))
-    assert bus.submit(Command("mix.set", "agent", move, approval=f"option:{oid}", group="g"))[0] == 200
-
-
 def test_the_older_command_names_and_keys_still_work(asked):
     from zpkt.app.bus import Command
 
     bus = asked.rig.desk.bus
-    assert {"desk.state", "state.read", "options.propose", "option.propose", "panel.apply", "page.apply"} <= set(
-        bus.kinds()
-    )
+    assert {"desk.state", "state.read", "panel.apply", "page.apply"} <= set(bus.kinds())
     assert bus.submit(Command("state.read", "agent", {}))[0] == 200
     for key in ("spec", "page"):  # `page` is the older key of page.draft
         code, reply = bus.submit(Command("page.draft", "agent", {key: PAGE}))

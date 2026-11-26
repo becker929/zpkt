@@ -351,3 +351,29 @@ def test_the_tempo_choice_must_be_one_of_the_modes(rig):
     context = AppContext(rig.desk.bus, rig.desk, rig.desk.settings)
     with pytest.raises(ValueError, match="tempo is one of auto, on, off"):
         MidiAdapter(context, port=FakePort(), tempo="sometimes")
+
+
+def test_a_pad_that_holds_a_compare_state_switches_the_mix_as_the_minilab(rig):
+    from zpkt.app.bus import Command
+
+    vol = "Kick bus/volume"
+    spec = {
+        "title": "Kick: hotter?",
+        "groups": [{"name": "Kick", "controls": [{"target": vol}]}],
+        "compare": {"states": [{"name": "as it is"}, {"name": "hotter", "writes": [{"target": vol, "to": 0.8}]}]},
+    }
+    code, made = rig.desk.bus.submit(Command("page.make", "you", {"spec": spec}))
+    assert code == 200, made
+    base = raw(rig, vol)
+    with Hands(rig) as hands:
+        hands.settle()
+        hands.pad("a8")  # "hotter" is on the last pad
+        assert wait_for(lambda: abs(raw(rig, vol) - 0.8) < 1e-6)
+        entry = rig.desk.history.entries[-1]
+        assert entry["who"] == "minilab" and entry["compare"]["to"] == "hotter"
+        assert rig.state()["page"] == made["pages"][0]  # it did not arm another page
+        hands.settle()
+        lit = [m for m in hands.port.sent() if m[6:9] == [2, 2, 22] and m[10:13] == [0, 127, 30]]
+        assert lit, "the pad of the state that is on is lit"
+        hands.pad("b7")  # bank B, "as it is": the way back
+        assert wait_for(lambda: abs(raw(rig, vol) - base) < 1e-6)

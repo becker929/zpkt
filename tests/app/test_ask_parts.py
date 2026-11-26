@@ -156,9 +156,9 @@ def test_notes_lines_are_checked_before_they_are_written():
 
 
 def test_ask_modules_import_nothing_from_zpkt_live():
-    """An agent's way in is the app's commands. The ask package, the options and the tool table never touch zpkt.live;
+    """An agent's way in is the app's commands. The ask package and the tool table never touch zpkt.live;
     agent_commands.py is the one place that does, as the app's own service, through the app's connection."""
-    for path in [*(SRC / "app" / "ask").glob("*.py"), SRC / "app" / "proposals.py"]:
+    for path in (SRC / "app" / "ask").glob("*.py"):
         imported = {
             n.module for n in ast.walk(ast.parse(path.read_text())) if isinstance(n, ast.ImportFrom) and n.module
         }
@@ -166,9 +166,7 @@ def test_ask_modules_import_nothing_from_zpkt_live():
             a.name for n in ast.walk(ast.parse(path.read_text())) if isinstance(n, ast.Import) for a in n.names
         }
         live = {m for m in imported if m.startswith("zpkt.live") or m.startswith("hands")}
-        assert not live or (path.name == "proposals.py" and live <= {"zpkt.live.changes"}), (
-            f"{path.name} imports {live}"
-        )
+        assert not live, f"{path.name} imports {live}"
 
 
 def test_no_ask_module_reads_a_key_itself():
@@ -213,20 +211,8 @@ def test_the_app_starts_web_and_agents_by_name_and_ask_data_goes_where_the_envir
         assert (tmp_path / "ask-data" / "workspaces.json").exists()
         with urllib.request.urlopen(f"http://127.0.0.1:{web.port}/app/ask/api/engines", timeout=10) as r:
             assert [e["id"] for e in json.loads(r.read())["engines"]] == ["claude", "gemini"]
-        assert {"page.draft", "desk.state", "measurement.read", "options.propose"} <= set(desk.bus.kinds())
+        assert {"page.draft", "desk.state", "measurement.read"} <= set(desk.bus.kinds())
     finally:
         agents.stop()
         web.stop()
     assert desk.mounts.find("/app/ask") is None  # the adapter took its routes off the one seam
-
-
-def test_a_proposal_move_value_is_a_number_or_text_never_a_bool():
-    from zpkt.app import proposals
-
-    base = {"title": "Kick down", "why": "It masks the bass."}
-    for good in (0.3, 2, "-6 dB"):
-        option = proposals.parse({**base, "moves": [{"target": "Kick bus/volume", "to": good}]}, "agent")
-        assert option["moves"][0]["to"] == good
-    for bad in (True, False, None, [1]):
-        with pytest.raises(ValueError, match="each move"):
-            proposals.parse({**base, "moves": [{"target": "Kick bus/volume", "to": bad}]}, "agent")

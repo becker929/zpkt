@@ -14,14 +14,14 @@ are libraries and never open one.
 |---|---|---|
 | The Hear bar, the Desk, undo and history | `/app/` (`/` sends you here; the old desk page is at `/desk/`) | What it serves |
 | Pages of controls, drawn and mapped to the MiniLab | `/app/` Desk; `zpkt page make` | Pages |
-| Versions of the mix side by side | `/app/` Options tab | Options and the one render queue |
+| Two or more settings of the same controls, to switch between while Live plays | pads on a Page | Pages (Compare) |
 | The arrangement as lanes, Mix 1, transitions, Build in Live | `/app/` Song tab; the arranger under `/app/song` | The Song |
 | Chat with Claude and Gemini | `/app/ask/` | Ask |
 | Live's sound in the browser | the Listen button; `/app/listen` | Listen |
 | The MiniLab 3 | `--adapters web,midi` | The MiniLab |
 | The `zpkt` command, the booth, the demos | `127.0.0.1:8984`, `/api/v1/` | The API and its clients |
 
-Every page has the same tab bar: Desk, Song, Options, Ask. It is at the bottom on a phone and at the top from 700 px
+Every page has the same tab bar: Desk, Song, Ask. It is at the bottom on a phone and at the top from 700 px
 up. Ask is a tab like the others, at every width.
 
 ## How it fits
@@ -51,9 +51,11 @@ effect: `read`, `make` (pages, files, versions) or `move` (changes Live). One ta
 a command without a line there cannot be registered. The checks, in order:
 
 - **who** must be one of the seven.
-- **The agent rule.** An agent may read, make pages and propose Options. A `move` from an agent needs `approval`:
-  `"user"` (you said so) or `"option:<id>"` (an Option was picked). Its changes always have a group, and the first
-  change of a group saves a checkpoint first, so one undo takes the group back.
+- **The agent rule.** An agent may read and make pages. A `move` from an agent needs `approval: "user"` (you said
+  so), and the API never takes that word from an agent, so no call of an agent's moves Live. For a change it
+  suggests, it makes a page with compare states (Pages, below); the press is yours. A move that does carry your
+  word always has a group, and the first change of a group saves a checkpoint first, so one undo takes the group
+  back.
 - **The wrong-set guard.** Every `move` is held to a set, and nothing is sent when Live has another open. The desk's
   moves are for the page's set; that answer is kept for five seconds. A job from the API is for the set its caller
   names (`expect_set`), or else for the set the app last saw open: the desk's at the start, then one the app opened
@@ -113,12 +115,12 @@ The look is the chat's: bone and black, one lime accent, a quiet ceramic card, a
 `shell.css` holds the tokens under the names `app.html` and Ask already used (`--bg`, `--panel`, `--ink`, `--acc` ...).
 A page links it and defines none of them itself.
 
-- **The tab bar.** A page has `<nav id="tabs" data-current="desk|song|options|ask"></nav>` and loads `nav.js` right
-  after it. On `/app/` Desk, Song and Options are buttons (`data-t`) and switch in place; Options is a sheet over the
-  Desk or the Song. On any other page they are links to `/app/#desk`, `/app/#song` and `/app/#options`. Ask is always
-  a link to `/app/ask/`. `window.zpktNav.set(name)` marks the current tab. `nav.js` writes `data-at` (`top` from
+- **The tab bar.** A page has `<nav id="tabs" data-current="desk|song|ask"></nav>` and loads `nav.js` right
+  after it. On `/app/` Desk and Song are buttons (`data-t`) and switch in place. On any other page they are links
+  to `/app/#desk` and `/app/#song`. Ask is always a link to `/app/ask/`. `window.zpktNav.set(name)` marks the current tab. `nav.js` writes `data-at` (`top` from
   700 px, else `bottom`) unless the page wrote it; the bar's parent must be a flex column.
-- **Addresses.** `/app/` opens on `#desk`, `#song` or `#options`, and keeps the address in step as I switch.
+- **Addresses.** `/app/` opens on `#desk` or `#song`, and keeps the address in step as I switch. Any other address
+  (an old link to `#options`) lands on the Desk.
   `/app/#page=<id>` opens the Desk on that saved Page. A Page that is saved but not on the desk gets a plain message.
 - **Waiting.** A page change takes about a second: the command waits its turn for Live, the pager swaps what the
   MiniLab's controls mean, and only then does the `page` event come back. On the tap the button is marked
@@ -141,53 +143,24 @@ the waiting in WebKit.
 the demo reach Live (docs/app-clients.md). Every call is a Command stamped `cli`, `booth`, `demo` or `agent`. The app
 stamps it by the token the call carries, never by what the request says: each caller has its own token file in
 `~/.config/zpkt/` (`app-token` for the cli, `app-token-booth`, `-demo`, `-agent`; mode 0600, made at start). `you` and
-`minilab` are never accepted from the API. A coding agent in a terminal (`ZPKT_AGENT=1`) is `agent`, so its changes
-need an Option you picked (`ZPKT_OPTION=<id>`). Which set a job is for, and the wrong-set check, are in `bus.py`
+`minilab` are never accepted from the API. A coding agent in a terminal (`ZPKT_AGENT=1`) is `agent`: it reads and
+makes pages (`zpkt page make`), and its changes to Live are refused. Which set a job is for, and the wrong-set check, are in `bus.py`
 (`SetGuard.check_job`); whether a command is a read, a make or a move is in `effects.py`. The jobs are in `jobs.py`; the client in
 `client.py` (standard library only, no Live code); the transport that lets a `LiveClient` caller switch in one line in
 `zpkt.live.app_transport`. The web page is `you` and cannot run them. The shapes are `lib/contracts/app-api.schema.json`.
 
-## Options and the one render queue
+## The render queue
 
-An Option is a set of Versions of the mix, made to be heard side by side. I look at them in the Options sheet of
-`/app/` (the Options tab). The sheet says what it is in its own words, so nobody needs this page to read it:
+There is no Options tab and no list of rendered Versions any more (Anthony: "we don't want grid search"). Live's
+output streams to the browser (Listen), so two settings are compared by switching Live itself while it plays:
+compare states on a Page (Pages, Compare). The `options.*` commands, `/api/options` and the agent's
+`propose_option` are gone, and with them `approval: "option:<id>"` and `ZPKT_OPTION`.
 
-- A line under the title says what the sheet is for. With no Options it says what one is and the two ways to get one
-  from the desk (ask in the Ask tab for a suggestion; render a Mix 2 batch from the Song tab's Arranger).
-- A row of Options to choose from, each with its state in words ("Rendering version 2 of 3", "3 versions ready",
-  "Suggestion, not applied yet"). One sentence under it says where the chosen one came from. A suggestion shows who
-  made it and why.
-- The Versions of the chosen Option, each with its loudness and how much louder or quieter it is than the first.
-  Tapping one selects it: its numbers and spectrum go on the Hear bar, and the card says "Selected".
-- A panel for the selected Version. "Play this version" plays its rendered file in the page (not through Live);
-  tapping another Version while it plays switches at the same spot. Levels are not matched. Under it is what Pick
-  will set: each control, where it is now, where it goes. A Version with no settings says why it cannot be picked.
-- "Pick" puts the Version's values on the mix as one move, stamped `you`. The panel then says how many controls
-  changed and shows an Undo button, until something else changes the mix. One undo takes the pick back.
-- What an agent suggested has one Version and is not rendered, so the sheet shows its changes and no grid.
-
-The values in the list of changes are Live's raw numbers, with the control's current text beside them ("reads
-0.0 dB now"). The app does not yet know the text of a value a control is not at.
-
-There is one store of Options, `renders.py`'s. What an agent proposes (`options.propose`, older name `option.propose`: a title, a reason and its
-moves, kept in `options.json` in the Ask folder) is listed there with the rendered ones, as an Option with one
-Version. I pick it with the same button and the same command. My pick puts its moves on Now and marks it picked,
-and only then may the agent's own command name it (`approval: "option:<id>"`). A proposal's values are raw numbers;
-one given as text is listed but cannot be picked.
-
-- `options.make` asks for one: `{"title": "Kick up", "versions": [{"label": "+3 dB", "writes": [["Kick bus/volume",
-  0.8]]}], "range": {"start_beat": 64, "length_beats": 32}}`. The first Version is the mix as it stands (the base).
-- `renders.py` is the worker. For each Version it writes the values, has Live export through `zpkt.live.export` with
-  the app's connection, puts the values back (whatever happens), and hands the WAV to `zpkt.audio.measure`. Progress
-  streams as `{"t": "option"}` messages ("rendering 2 of 3"). Live is held for one Version at a time.
-- The queue is `renderqueue.py` (it came from `contrib/arranger/`, whose `renderqueue` is now an alias for it). Jobs
-  are files under `<data>/options/jobs`, in the shape of `lib/contracts/option.schema.json`.
-- Mix 2, the spectral fixes, the kick options and `zpkt live panel grid` (once `hands panel grid`) still render in
-  their own tools, into their own folders. The app reads those and lists them as Options. It changes none of them, so
-  the old pages work as before.
-- `options.list`, `options.get`, `options.show` (reads) and `options.pick` (a move) are commands on the bus
-  (`option.pick` is an older name for `options.pick`). An agent may make an Option. It needs your word or an Option pick
-  to make a Version Now, and its use of one picked Option never picks another.
+What is left is the queue itself, `renderqueue.py`: one request file per batch in a folder. It came from
+`contrib/arranger/`, whose `renderqueue` is an alias for it, and mix 2's worker (`mixset.py worker`) is its only
+user now. Mix 2, the spectral fixes, the kick options and `zpkt live panel grid` render in their own tools, into
+their own folders, and are heard on their own pages. Folders an older app wrote (`<data>/options`, `options.json`
+in the Ask folder) are left where they are; nothing reads them.
 
 ## The MiniLab (the MIDI adapter)
 
@@ -269,6 +242,51 @@ pages (`contrib/mixdesk/desk.json`) and a made surface.
   and tint, or only its hardware name. The desk's own pages have no layout: the shell builds the same slots from
   `/api/desk` and the values the pager reports.
 
+### Compare
+
+A Page can carry compare states: 2 to 8 named settings of the same controls, to switch between while Live plays and
+Listen is on. This is how alternatives are tried; there is no other feature for it.
+
+```json
+{"title": "Kick: hotter?",
+ "groups": [{"name": "Kick", "controls": [{"target": "Kick bus/volume"}, {"target": "Kick bus/desk EQ/1 Gain A"}]}],
+ "compare": {"name": "Kick", "states": [
+   {"name": "as it is"},
+   {"name": "hotter", "writes": [{"target": "Kick bus/volume", "to": 0.8},
+                                 {"target": "Kick bus/desk EQ/1 Gain A", "to": 0.7}]}]}}
+```
+
+- **A write** is `{target, to}`: a state key and the raw value, as `desk.state` gives it (`r`). A target need not be
+  a control of the page. A state that names no writes, or leaves a target out, takes the value that target had
+  when the page was first made. The app keeps those values in the saved page (`compare.baseline`, with each
+  target's range in `compare.ranges`), across every later version of the page, so there is always a way back.
+- **The linter** checks the targets and the raw ranges against the open set like any control: 2 to 8 states, names
+  of at most 10 characters and no two alike, at most 24 values, a switch or a list on a whole number, no two
+  states with the same values. A state that leaves a target out is an error only when no value of it was kept.
+- **One pad per state**, in the pads row of the map: the last pads, in order (three states are pads 6, 7 and 8), on
+  every MiniLab page of the Page. The page's switches take the pads before them. The pads of the set stand on one
+  rail and each has a small lamp. On a phone the pads are scrolled into sight when the page opens.
+- **A press** (`page.compare {id, state}`) writes every value of the state in one call to Live, as one move by
+  `you`: one History row ("Kick, as it is → hotter, 2 controls") and one undo. The page lights the pad and moves
+  the knobs for those targets on the press, before Live answers, by the same path as a dragged knob.
+- **The lit pad is derived, never stored.** A pad is lit exactly when every one of its targets holds its value: a
+  switch or a list exactly, a continuous value within a thousandth of its range (`zpkt.live.page.lit`; the page
+  and the pager hold the same rule). Turn one of those knobs and no pad is lit; turn it back and it is lit again.
+- **The MiniLab.** While such a page is armed, its state pads (both banks) do not arm pages: the pager reports the
+  press (`{"t": "pad"}`), the app does the same `page.compare` as `minilab`, and the pager lights the pad of the
+  state that is on from Live's own values. The other pads arm their pages as always, and so does the big encoder.
+  With the MIDI adapter the map sends `page.compare` itself and the LEDs are SysEx. Tested on the fake controller
+  only: whether the pad's light shows on the real MiniLab 3 is not known.
+- **An agent** makes such a page with `make_page`, and changes one it made by sending the whole spec again with its
+  `id`: the saved page is written over, and where it is on the desk it is redrawn in place (the surfaces keep their
+  files and their place, the pager loads once, the desk stays on the page it was on). No value of the mix moves and
+  no History row is written: `page.compare` is a move, so an agent cannot press. `desk.state` says, for each such
+  page on the desk, its states and which is on.
+
+`tests/live/test_page.py` holds the model and the linter, `tests/app/test_compare.py` the press, the undo, the
+derived state, the agent's make and update and the fake MiniLab's pad, and `tests/app/test_compare_page.py` the
+page in WebKit.
+
 ## The Song
 
 The arranger is mounted at `/app/song`. Its server stays as it is, on :8975, and the Song serves the same pages and
@@ -289,10 +307,10 @@ routes from the same code (`contrib/arranger/server.py`'s route table), so nothi
   gives it as `mix_set`) and what is built in its place. Nothing is sent before "Replace and build".
 - `song.build` makes the mix set in Live from the recipe (`zpkt.live.recipe_build`, which `mixset.py build` also
   calls), with the app's connection. It is a move for the mix set, not the page's set: the bus checks Live has the mix
-  set open, and the build itself refuses a set Live does not name, because it empties the set. An agent needs an
-  Option pick or your word. It holds Live while it runs (many short calls, a minute or more on the real rig).
+  set open, and the build itself refuses a set Live does not name, because it empties the set. An agent cannot
+  start it. It holds Live while it runs (many short calls, a minute or more on the real rig).
 - Mix 2's renders still start the arranger's own worker (`mixset.py worker`), which opens its own connection to Live.
-  That is a known debt: it takes its turn only by Live's own limits, not by the app's lock. Moving it onto the app's render queue is open work.
+  That is a known debt: it takes its turn only by Live's own limits, not by the app's lock.
 
 `zpkt app` starts the Song with the web adapter (the default is `--adapters web,api,song,agents,listen`). `ZPKT_ARRANGER_DIR` names another arranger
 folder; `ARRANGER_DATA` the data, as before.
@@ -311,12 +329,12 @@ Ask is the chat with Claude and Gemini, ported from Zpkt web (Node, :8789, which
   are never taken for it. They are the archive: `GET /app/ask/api/archive` lists them and their streams still read.
   The main conversation cannot be deleted. (Until 26 November 2026 the most recent old session became the main one.
   On its next start the store puts such an adopted session back in the archive, once: `SessionStore._fresh_mains`.)
-- **Modes.** A producer has one mode, `build`, and no menu: the agent advises, uses its four tools and reads files.
+- **Modes.** A producer has one mode, `build`, and no menu: the agent advises, uses its three tools and reads files.
   It cannot edit a file or run a command, and nothing asks. For Claude Code that is `--permission-mode dontAsk`,
   `--allowedTools mcp__zpkt,Read,Glob,Grep`, `--disallowedTools Bash,Edit,Write,NotebookEdit,EnterPlanMode,ExitPlanMode`
   and `--strict-mcp-config` (never plan mode: there it described a page instead of making it). For Gemini it is
-  Gemini's default mode, and the app answers its permission questions itself: yes to the four tools, no to the rest.
-  The four tools run in every mode with no question. `/app/ask/?dev=1` shows a mode menu (remembered on the device;
+  Gemini's default mode, and the app answers its permission questions itself: yes to the three tools, no to the rest.
+  The three tools run in every mode with no question. `/app/ask/?dev=1` shows a mode menu (remembered on the device;
   `?dev=0` hides it again) with "Ask first" (Gemini asks on the page before an edit or a command; Claude Code has
   nobody to ask there, so it is `build`), and under "Developer", "Edit files" and "Full (shell)". The table is in
   `ask/engines.py`.
@@ -330,20 +348,21 @@ Ask is the chat with Claude and Gemini, ported from Zpkt web (Node, :8789, which
   event and then a `compacted` event with `summary`, `keep_from`, `turns`, `tokens` and `pages`. The file on disk is
   never cut. If the summary fails or takes over 3 minutes, the event says `failed` and the turn goes on with the
   last turns only. Your message is never lost. The rules are in `ask/compaction.py`.
-- **Sessions.** Every event- **Tools.** An agent has four tools and no others: make a page (`page.draft`), read the state (`desk.state`, older
-  name `state.read`), read the last measurement, and propose an Option (`options.propose`; a record in the Ask
-  folder, `proposals.py`, held by the app's one store of Options and listed in the Options sheet, where I pick it).
+- **Tools.** An agent has three tools and no others: make or change a page (`page.draft`), read the state
+  (`desk.state`, older name `state.read`) and read the last measurement. When I want to try an alternative it makes
+  a page with compare states, or changes the one it made (Pages, Compare), and links to it.
   They are app commands behind a small MCP server (`python -m zpkt.app.ask.mcp`) that calls
   `POST /app/ask/api/tool` with the session's token. The bus tags them `agent` and groups them by session. None
   moves Live, and an agent cannot name any other command.
 - **Links, not widgets.** An agent does not draw controls in the chat. It calls `make_page` and puts the reply's
   link in its answer: `[Title](/app/#page=<id>)`. `page.draft` takes the spec as `spec` (and still `page`), checks
-  it against Live, and saves it only when clean, where `GET /api/pages` lists it. It does not put it on the desk.
+  it against Live, and saves it only when clean, where `GET /api/pages` lists it. It does not put a new page on
+  the desk; a page it changes (the spec has its `id`) is redrawn where it already is.
   Opening the link is my act: `/app/#page=<id>` sends the command `page.open {id}`, a move. That arms the page if it
   is on the desk already. Otherwise it first puts it on the desk and the MiniLab, as `page.make` does.
 - **The page.** `/app/ask/` is one tab of the app. It loads `/app/shell/shell.css` and `/app/shell/nav.js` for the
   one tab bar (last on a phone, under the composer), and `/app/shell/listen.js` for the Listen button in its header.
-  If the tab bar's file does not load, the page draws four plain links instead. It opens the folder's main
+  If the tab bar's file does not load, the page draws three plain links instead. It opens the folder's main
   conversation: the last 20 turns, then the stream. Reaching the top fetches the 20 turns before. Earlier chats and
   the folder choice are behind one button in the header. An earlier chat is read-only.
 - **Quiet by default.** While a turn runs, the bar above the box shows a pulse, what the agent is doing and the
@@ -353,7 +372,7 @@ Ask is the chat with Claude and Gemini, ported from Zpkt web (Node, :8789, which
 - **What the page draws.** A `compacted` event is a quiet divider, "Earlier conversation summarised", that opens to
   the summary. A link to `/app/#page=<id>` is a card: the saved Page's title (`GET /api/pages`; the link's words
   until it answers, or when there is no such page), a small still map of the MiniLab (the slots the
-  page uses are lit, the rest grey; it asks `page.layout`), and "Open on the Desk". With no such page it is the
+  page uses are lit, the pads of its compare states too, the rest grey; it asks `page.layout`), and "Open on the Desk". With no such page it is the
   title alone. An `audio` block is a player. An old `zpkt-surface` block or `surface` event is a stub that says to
   ask for a page; the rendered files of its A/B are plain players.
 - **Also ported.** The work view, the failure budget (it stops a run that keeps failing), project notes read to the

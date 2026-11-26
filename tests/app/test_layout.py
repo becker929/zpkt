@@ -107,7 +107,7 @@ def test_app_desktop_uses_three_columns_and_the_width(browser, rig, width):
     assert got["width"] >= 0.85
     assert got["spectrum"] >= 200
     assert got["gaps"] == []
-    assert got["tabs"] == 4, "the same four tabs at every width"
+    assert got["tabs"] == 3, "the same three tabs at every width"
 
 
 @pytest.mark.parametrize("width", [360, 390])
@@ -115,7 +115,7 @@ def test_app_phone_is_one_column_with_its_tabs(browser, rig, width):
     pg, _ = open_app(browser, rig, width)
     got = pg.evaluate(DESKTOP_MEASURE)
     assert got["columns"] == 1  # #main only
-    assert got["tabs"] == 4
+    assert got["tabs"] == 3
 
 
 def test_app_tablet_has_two_columns(browser, rig):

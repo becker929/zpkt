@@ -19,7 +19,7 @@ default:
                                                                 track; read-only (hands library inventory)
     mixdesk_dir     ZPKT_MIXDESK_DIR     (empty: contrib/mixdesk of a source checkout)   the desk's own files
                                                                 (desk.json, sources.json, pager.py)
-    arranger_dir    ZPKT_ARRANGER_DIR    ~/Music/zpkt/arranger  the arranger's data, read for Options
+    arranger_dir    ZPKT_ARRANGER_DIR    ~/Music/zpkt/arranger  the arranger's data, read for the Song
                                                                 (ARRANGER_DATA still works)
     ask_dir         ZPKT_ASK_DIR         ~/Music/zpkt/ask       Ask's sessions and files
     records_file    ZPKT_RECORDS_FILE    <library_dir>/records.toml   what you have declared done per track,

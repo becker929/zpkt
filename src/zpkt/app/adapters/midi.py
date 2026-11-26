@@ -81,6 +81,7 @@ class MidiAdapter:
         self._sent: dict[str, list[int]] = {}  # the last message sent to each target
         self._last_page: int | None = None
         self._cfg_pages: tuple[Any, ...] = ()
+        self._compares: list[Any] = []  # each desk page's "compare" block, or None
 
     # ---- lifecycle -------------------------------------------------------------------------------------------------
     def start(self) -> None:
@@ -140,7 +141,7 @@ class MidiAdapter:
         """The desk's messages: the View changes, and Live's echo of a knob is its latency's end."""
         if self._desk_q is None:
             return
-        changed = False
+        changed = pages = False
         while True:
             try:
                 msg = self._desk_q.get_nowait()
@@ -149,18 +150,23 @@ class MidiAdapter:
             if msg.get("t") not in VIEW_MESSAGES:
                 continue
             changed = True
+            pages = pages or msg.get("t") == "desk"  # a page was made, changed or removed: read the list again
             if msg.get("t") == "v" and self.probe is not None:
                 self.probe.echo(str(msg.get("slot")), self.clock())
         if changed:
-            self._refresh(reload_pages=False)
+            self._refresh(reload_pages=pages)
 
     # ---- the View and what is sent back ------------------------------------------------------------------------------
     def _refresh(self, reload_pages: bool) -> None:
         desk = self.context.desk
         if reload_pages or not self._cfg_pages:
-            self._cfg_pages = pages_from_cfg(desk.cfg()["pages"])
+            cfg = desk.cfg()["pages"]
+            self._cfg_pages = pages_from_cfg(cfg)
+            self._compares = [pg.get("compare") for pg in cfg]
         message = desk.monitor.message()
-        self._view = view_from(desk.snapshot(), self._cfg_pages, desk.labels, str(message.get("hearing", "now")))
+        state = desk.snapshot()
+        compare = self._compares[state["page"]] if 0 <= state["page"] < len(self._compares) else None
+        self._view = view_from(state, self._cfg_pages, desk.labels, str(message.get("hearing", "now")), compare)
         changed = self._view.page != self._last_page
         self._last_page = self._view.page
         self._send(feedback.feedback(self.profile, self._view, page_changed=changed))

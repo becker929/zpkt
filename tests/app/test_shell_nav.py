@@ -61,13 +61,14 @@ class SlowPager:
 
 
 @pytest.mark.parametrize("width", [375, 1280])
-def test_the_tab_bar_shows_all_four_tabs(browser, rig, width):
+def test_the_tab_bar_shows_its_three_tabs_and_no_options(browser, rig, width):
     pg, errors = open_app(browser, rig, width)
     tabs = pg.evaluate(TABS)
-    assert [t["text"] for t in tabs] == ["Desk", "Song", "Options", "Ask"]
+    assert [t["text"] for t in tabs] == ["Desk", "Song", "Ask"]
     assert all(t["inside"] and t["w"] >= 44 and t["h"] >= 44 for t in tabs), tabs
     assert [t["t"] for t in tabs if t["on"]] == ["desk"]
-    assert tabs[3]["tag"] == "A" and tabs[3]["href"] == "/app/ask/"
+    assert tabs[2]["tag"] == "A" and tabs[2]["href"] == "/app/ask/"
+    assert "Options" not in pg.inner_text("body") and pg.locator("#topts, #sopts, [data-t=options]").count() == 0
     assert pg.locator("#sask").count() == 0  # no stray Ask button
     assert pg.evaluate("document.documentElement.scrollWidth - innerWidth") == 0
     # the bar is at the bottom on a phone and at the top on a desktop
@@ -81,22 +82,19 @@ def test_the_tabs_switch_in_place_and_the_address_follows(browser, rig):
     pg.click("#tabs [data-t=song]")
     assert pg.locator("#song").is_visible() and pg.locator("#desk").is_hidden()
     assert pg.evaluate("location.hash") == "#song"
-    pg.click("#tabs [data-t=options]")
-    pg.wait_for_selector("#sheet.on")
-    assert pg.evaluate("location.hash") == "#options"
-    assert pg.evaluate(TABS)[2]["on"]
     pg.click("#tabs [data-t=desk]")
     assert pg.locator("#desk").is_visible() and pg.evaluate("location.hash") == "#desk"
     assert "on" not in (pg.locator("#sheet").get_attribute("class") or "").split()
     assert errors == []
 
 
-@pytest.mark.parametrize(("hash_", "want"), [("#song", "song"), ("#options", "options"), ("#desk", "desk")])
+@pytest.mark.parametrize(("hash_", "want"), [("#song", "song"), ("#options", "desk"), ("#desk", "desk")])
 def test_a_hash_opens_its_tab_on_load(browser, rig, hash_, want):
     pg, errors = open_app(browser, rig, 375, "/app/" + hash_)
     assert [t["t"] for t in pg.evaluate(TABS) if t["on"]] == [want]
     assert pg.locator("#song").is_visible() == (want == "song")
-    assert pg.locator("#sheet.on").count() == (1 if want == "options" else 0)
+    assert pg.locator("#sheet.on").count() == 0
+    assert pg.evaluate("location.hash") == "#" + want  # an old link to the Options tab lands on the Desk
     assert errors == []
 
 

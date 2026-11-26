@@ -23,8 +23,9 @@ Run them from the repo root with `uv run`.
 
 `zpkt live ping` tests the connection. Reads and `ping` work without the app.
 
-If `ZPKT_AGENT=1` is set, you are an agent: you may read, make pages and propose Options. A change to Live needs
-your user's word or an Option they picked.
+If `ZPKT_AGENT=1` is set, you are an agent: you may read and make pages (`zpkt page make`), and the app refuses
+your changes to Live. To suggest a change, make a page with compare states (`src/zpkt/app/README.md`, Pages,
+Compare): your user presses the pad.
 
 ## Never
 
@@ -39,7 +40,7 @@ your user's word or an Option they picked.
 |---|---|
 | Install and a first export | [getting-started.md](getting-started.md) |
 | Rules for editing this repo | [`../CLAUDE.md`](../CLAUDE.md) |
-| The app: bus, web, API, Options, Pages | [`../src/zpkt/app/README.md`](../src/zpkt/app/README.md) |
+| The app: bus, web, API, Pages and compare states | [`../src/zpkt/app/README.md`](../src/zpkt/app/README.md) |
 | Driving Live: modules, commands, settings | [`../src/zpkt/live/README.md`](../src/zpkt/live/README.md) |
 | What crashes Live from LOM code | [`../agent/skills/ableton-guide/SKILL.md`](../agent/skills/ableton-guide/SKILL.md) |
 | Measuring renders | [`../src/zpkt/audio/README.md`](../src/zpkt/audio/README.md) |

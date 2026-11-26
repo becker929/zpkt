@@ -18,7 +18,7 @@
   --shadow:0 1px 0 rgba(255,255,255,.06) inset,0 10px 26px rgba(0,0,0,.45);
 }}
 
-/* ---- the one tab bar: <nav id="tabs" data-current="desk|song|options|ask">, drawn by nav.js ----
+/* ---- the one tab bar: <nav id="tabs" data-current="desk|song|ask">, drawn by nav.js ----
    It sits last in its column on a phone (data-at="bottom") and first from 700 px up (data-at="top"); nav.js sets
    data-at unless the page set it. Its parent is a flex column. */
 #tabs{display:flex;flex:none;background:var(--panel);border-top:1px solid var(--line);font:500 12px/1 'Helvetica Neue',Helvetica,Arial,sans-serif;user-select:none;-webkit-user-select:none;padding-bottom:env(safe-area-inset-bottom)}

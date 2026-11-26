@@ -215,7 +215,7 @@ def test_the_tool_route_runs_a_command_as_agent_and_refuses_the_rest(asked):
     assert asked.rig.post(f"{API}/tool", {**body, "tool": "mix.set"})[0] == 404
     assert asked.rig.post(f"{API}/tool", {**body, "token": "x"})[0] == 403
     code, tools = asked.rig.get(f"{API}/tools")
-    assert [t["name"] for t in tools["tools"]] == ["make_page", "read_state", "read_measurement", "propose_option"]
+    assert [t["name"] for t in tools["tools"]] == ["make_page", "read_state", "read_measurement"]
     schema = json.loads((CONTRACTS / "ask-tool.schema.json").read_text())
     jsonschema.validate(body, {"$ref": "#/$defs/request", **schema})
 
@@ -257,7 +257,7 @@ def test_a_real_claude_process_reaches_the_tools_through_the_mcp_server_and_the_
     assert result["status"] == "success"
     inner = json.loads(json.loads(result["output"])["content"][0]["text"])
     assert inner["set"] == "HW002_121_pp_finish"
-    assert "tools: make_page,read_state,read_measurement,propose_option" in "".join(
+    assert "tools: make_page,read_state,read_measurement" in "".join(
         e.get("content", "") for e in events if e["type"] == "message"
     )
     assert [r["who"] for r in asked.rig.desk.bus.log if r["kind"] == "desk.state"] == ["agent"]

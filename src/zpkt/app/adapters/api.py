@@ -13,7 +13,8 @@ listens on 127.0.0.1 and turns away a request whose Host is not local. Only /hea
     ...                            live/render-loop, live/tempo, live/transport, state/take, state/put,
                                    page/apply, describe
 
-An agent cannot claim your word: approval "user" from who "agent" is refused here. Its Option picks pass.
+An agent cannot claim your word: approval "user" from who "agent" is refused here, so no call of an agent moves
+Live. It makes pages (page.draft), with compare states for a change it suggests; the press is yours.
 The shapes are in lib/contracts/app-api.schema.json.
 """
 
@@ -75,7 +76,10 @@ def parse_request(body: Any, kind: str | None = None, who: str | None = None) ->
         if value is not None and not isinstance(value, str):
             raise BadRequest(f"{name!r} must be text")
     if stamp == "agent" and approval == APPROVED_BY_USER:
-        raise BadRequest("an agent cannot say the user approved; pick an Option and send approval 'option:<id>'")
+        raise BadRequest(
+            "an agent cannot say the user approved. Make a page with the change as a compare state (page.draft): "
+            "the user's press on its pad makes the change"
+        )
     return Command(kind, stamp, args, approval, group or None)
 
 

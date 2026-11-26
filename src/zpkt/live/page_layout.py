@@ -8,6 +8,9 @@ targets go in, a plain model comes out, and the browser only draws it. The rules
 - A slot with a control names it by `ref`, with its group and the group's tint. A slot with none is still there, with
   only its hardware name ("Knob 6"), and is drawn greyed.
 - A target the open set lacks keeps its slot and is drawn greyed, with the reason.
+- A page's compare states sit on its last pads, one each, on every panel: a pad slot then names its state (`state`)
+  instead of a control. `compare` has what the shell needs to light the right pad and move the knobs at once: each
+  state's writes as raw values and as places, and how near a value must be to hold.
 - The groups keep their facts (widget, role, weight, size, pair) for whoever reads the model. The shell's place for
   a control is its slot, so it does not use size or pair.
 
@@ -82,6 +85,9 @@ class PanelSlot(BaseModel):
     ref: str | None = Field(description="The control it moves (a ref in `groups`); None when nothing is mapped.")
     group: str | None = Field(description="That control's group.")
     tint: int | None = Field(description="That group's tint, 0 or 1.")
+    state: int | None = Field(
+        default=None, description="The compare state this pad switches to (its place in `compare.states`)."
+    )
 
 
 class Panel(BaseModel):
@@ -91,6 +97,32 @@ class Panel(BaseModel):
 
     groups: list[str] = Field(description="The groups on this MiniLab page, in order.")
     slots: list[PanelSlot] = Field(description="Always 20: the 8 knobs, the 4 faders, the 8 pads.")
+
+
+class LayoutWrite(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    target: str
+    to: float = Field(description="The raw value the state writes.")
+    n: float = Field(description="That value as a place 0 to 1 along the control.")
+    near: float = Field(description="A place within this much of `n` holds the state.")
+
+
+class LayoutState(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    name: str
+    slot: str = Field(description="Its pad: b1-b8.")
+    writes: list[LayoutWrite]
+
+
+class LayoutCompare(BaseModel):
+    """The page's compare states as the shell draws and derives them."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    name: str = Field(description="What is compared: the spec's name, else the page's title.")
+    states: list[LayoutState]
 
 
 class Layout(BaseModel):
@@ -103,6 +135,9 @@ class Layout(BaseModel):
     made_by: str
     groups: list[LayoutGroup]
     panels: list[Panel] = Field(description="One per MiniLab page: what the shell draws.")
+    compare: LayoutCompare | None = Field(
+        default=None, description="The states on the pads; None when the page has none."
+    )
     minilab: list[P.HardwarePage]
     problems: list[P.Problem]
 
@@ -173,6 +208,7 @@ def panels(hardware: list[P.HardwarePage], tints: dict[str, int]) -> list[Panel]
     out: list[Panel] = []
     for hw in hardware:
         taken = {s["slot"]: s for s in hw["slots"]}
+        states = {s["slot"]: s["state"] for s in hw["compare"]}
         slots = []
         for slot, kind, name in HARDWARE_SLOTS:
             got = taken.get(slot)
@@ -184,6 +220,7 @@ def panels(hardware: list[P.HardwarePage], tints: dict[str, int]) -> list[Panel]
                     ref=got["ref"] if got else None,
                     group=got["group"] if got else None,
                     tint=tints.get(got["group"]) if got else None,
+                    state=states.get(slot),
                 )
             )
         out.append(Panel(groups=list(hw["groups"]), slots=slots))
@@ -195,6 +232,33 @@ def _missing_reason(c: P.Control, missing: dict[str, str]) -> str | None:
         if t in missing:
             return missing[t]
     return None
+
+
+def place(d: Description, raw: float | bool) -> float:
+    """A raw value as a place 0 to 1 along its control."""
+    span = d["max"] - d["min"]
+    return 0.0 if span == 0 else round((float(raw) - d["min"]) / span, 6)
+
+
+def compare_of(page: P.Page, described: dict[str, Description], hardware: list[P.HardwarePage]) -> LayoutCompare | None:
+    """The page's compare states for the shell. A write whose target Live does not describe is left out: its state
+    then can never be on, and its pad is drawn greyed."""
+    if page.compare is None or not hardware:
+        return None
+    pads = {s["state"]: s["slot"] for s in hardware[0]["compare"]}
+    states = []
+    for i, state in enumerate(page.compare.states):
+        if i not in pads:
+            continue
+        writes = []
+        for w in state.writes:
+            d = described.get(w.target)
+            if d is None:
+                continue
+            span = (d["max"] - d["min"]) or 1.0
+            writes.append(LayoutWrite(target=w.target, to=float(w.to), n=place(d, w.to), near=P.tolerance(d) / span))
+        states.append(LayoutState(name=state.name, slot=pads[i], writes=writes))
+    return LayoutCompare(name=page.compare.name or page.title, states=states)
 
 
 def layout(
@@ -243,6 +307,7 @@ def layout(
         made_by=page.made_by,
         groups=groups,
         panels=panels(hardware, {g.name: g.tint for g in groups}),
+        compare=compare_of(page, described, hardware),
         minilab=hardware,
         problems=problems,
     )
@@ -281,6 +346,7 @@ def to_surfaces(page: P.Page, described: dict[str, Description]) -> list[dict[st
     by_ref = {c.ref: c for c in page.controls()}
     names = P.labels(page, described)
     hardware = P.assign(page, described)
+    compare = surface_compare(page, hardware)
     out: list[dict[str, Any]] = []
     for i, hw in enumerate(hardware):
         title = page.title if len(hardware) == 1 else f"{page.title} {i + 1}"
@@ -292,6 +358,22 @@ def to_surfaces(page: P.Page, described: dict[str, Description]) -> list[dict[st
                 "notes": [],
                 "page_id": page.id,
                 "hardware": i,
+                **({"compare": compare} if compare else {}),
             }
         )
     return out
+
+
+def surface_compare(page: P.Page, hardware: list[P.HardwarePage]) -> dict[str, Any] | None:
+    """The page's compare states as the pager in Live takes them (contrib/mixdesk/pagercore.py compare_state): which
+    pad holds which state, each state's writes as [key, raw], and where each target is in the set. The ranges are for
+    whoever works out the lit pad outside Live (the app's MIDI adapter); the pager reads them from Live."""
+    if page.compare is None or not hardware:
+        return None
+    return {
+        "name": page.compare.name or page.title,
+        "pads": {s["slot"]: s["state"] for s in hardware[0]["compare"]},
+        "states": [{"name": s.name, "writes": [[w.target, w.to] for w in s.writes]} for s in page.compare.states],
+        "targets": {t: key_parts(t) for t in page.compare.targets()},
+        "ranges": {t: list(r) for t, r in page.compare.ranges.items()},
+    }

@@ -23,8 +23,9 @@ FADER_ELEMENTS = ("volume_fader", "send_a_fader", "send_b_fader", "pan_fader")
 
 # One row per control the desk holds: (the factory script's element, the index in it or None for the element itself,
 # its role, and what the role acts on). Roles: "knob" and "fader" drive the armed page's control on that slot (a
-# fader picks up first), "toggle_pad" flips it, "page_pad" arms the page on that pad number (1-8), "page_encoder"
-# steps through the pages. pager.py grabs the controls in this order. Another controller, or a layer, is another table.
+# fader picks up first), "toggle_pad" flips it, "page_pad" arms the page on that pad number (1-8), or, when the armed
+# page has a compare state on that pad (compare_state), asks the app to switch to it; "page_encoder" steps through
+# the pages. pager.py grabs the controls in this order. Another controller, or a layer, is another table.
 HARDWARE = (
     tuple(("encoders_raw", k, "knob", f"k{k + 1}") for k in range(8))
     + tuple((name, None, "fader", f"f{k + 1}") for k, name in enumerate(FADER_ELEMENTS))
@@ -76,6 +77,44 @@ def picks_up(n, last, value, tolerance=PICKUP):
     """Does a fader at n (coming from `last`, None at first) pick up a control at `value`? Close enough, or it
     passed the value since the last report. So arming a page never makes a value jump."""
     return abs(n - value) <= tolerance or (last is not None and (last - value) * (n - value) <= 0)
+
+
+# ---- compare states: a page's pads that switch between named settings of the same controls -------------------------
+
+COMPARE_STEP = 0.001  # a continuous value holds a state's value within this much of its range; a switch exactly
+
+
+def compare_state(cfg, page, pad):
+    """The compare state (its place in the page's list) on pad `pad` (1-8) of page `page`, or None: that pad then
+    arms a page as always. A page's "compare" is {"name", "pads": {"b7": 0, "b8": 1}, "states": [{"name", "writes":
+    [[key, raw], ...]}], "targets": {key: its track, device and param}} (zpkt.live.page_layout.to_surfaces)."""
+    if not 0 <= page < len(cfg["pages"]):
+        return None
+    return ((cfg["pages"][page].get("compare") or {}).get("pads") or {}).get(f"b{pad}")
+
+
+def holds(value, want, lo, hi, quantized):
+    """Does a control at `value` hold a state's `want`? The same rule as zpkt.live.page.holds."""
+    if value is None or want is None:
+        return False
+    gap = abs(float(value) - float(want))
+    return gap < 0.5 if quantized else gap <= (hi - lo) * COMPARE_STEP
+
+
+def lit_state(states, read):
+    """Which state is on: the first whose every write holds. `read(key)` gives (value, lo, hi, quantized) for a
+    key, or None when the set lacks it. None when no state is on: the lit pad is derived, never stored."""
+    for i, state in enumerate(states):
+        writes = state.get("writes") or []
+        if not writes:
+            continue
+        for key, want in writes:
+            got = read(key)
+            if got is None or not holds(got[0], want, got[1], got[2], got[3]):
+                break
+        else:
+            return i
+    return None
 
 
 # ---- transport -----------------------------------------------------------------------------------------------------
@@ -247,8 +286,8 @@ MINILAB_MAP = (
     )
 )
 
-# Named actions the map may use, and whether the app can do them yet. "later" ones need the Options and Choices of
-# the one interface; the adapter says so on the display and does nothing.
+# Named actions the map may use, and whether the app can do them yet. "later" ones are not built; the adapter says
+# so on the display and does nothing.
 ACTIONS = {
     "transport.toggle": "now",
     "transport.stop": "now",

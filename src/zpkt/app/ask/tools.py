@@ -1,7 +1,7 @@
-"""The tools an agent has: four app commands, and the key that lets a session call them.
+"""The tools an agent has: three app commands, and the key that lets a session call them.
 
 An agent reaches the app through a small MCP server (mcp.py) that calls `POST /app/ask/api/tool`. Each call carries
-the session's id and its token. The gate checks the token, keeps only the four tools below, and submits the command
+the session's id and its token. The gate checks the token, keeps only the three tools below, and submits the command
 to the bus as `agent`, grouped by the session, so one undo takes the whole ask back. An agent cannot name any other
 command: `mix.set`, `transport` and the rest are not here and are refused. Nothing in this package imports zpkt.live.
 """
@@ -29,11 +29,16 @@ TOOLS: tuple[Tool, ...] = (
     Tool(
         "make_page",
         "page.draft",
-        "Make a page of controls for the open set. It is checked against Live's own names and ranges and saved only "
-        "when it has no error. `spec` has a title and groups of controls; each control has a `target` (a state key "
-        "such as 'Kick bus/volume') and may say its `role`, `weight` (1 to 3), `label` and `range`. It cannot say "
-        "widget, colour, size or MIDI slot. The reply has `markdown`, a link to the page (/app/#page=<id>): put it in "
-        "your answer so the person can open the page on the Desk and the MiniLab.",
+        "Make a page of controls for the open set, or change one you made. It is checked against Live's own names "
+        "and ranges and saved only when it has no error. `spec` has a title and groups of controls; each control has "
+        "a `target` (a state key such as 'Kick bus/volume') and may say its `role`, `weight` (1 to 3), `label` and "
+        "`range`. It cannot say widget, colour, size or MIDI slot. To let the person try an alternative, add "
+        "`compare`: {name, states: [{name}, {name, writes: [{target, to}]}]} with 2 to 8 states, one pad each; `to` "
+        "is the raw number read_state gives (r); a state with no writes is the mix as it is now. To change a page "
+        "you made, send the whole spec again with its `id` (from the earlier reply): the page is replaced where it "
+        "is. Nothing in Live moves: the person's press on a pad switches the mix. The reply has `markdown`, a link "
+        "to the page (/app/#page=<id>): put it in your answer so the person can open the page on the Desk and the "
+        "MiniLab.",
         {
             "type": "object",
             "properties": {"spec": {"type": "object", "description": "The page spec."}},
@@ -51,35 +56,6 @@ TOOLS: tuple[Tool, ...] = (
         "measurement.read",
         "The last measurement of the renders: loudness, spectrum and the references, as the desk has them.",
         {"type": "object", "properties": {}},
-    ),
-    Tool(
-        "propose_option",
-        "options.propose",
-        "Propose a change for the person to pick. Nothing moves until they do. Give a short title, one sentence on "
-        "why, and the moves: each {target, to}, where `to` is the raw number read_state gives (r). Text such as "
-        '"-6 dB" is kept as a note, but it cannot be put on Now, so give numbers.',
-        {
-            "type": "object",
-            "properties": {
-                "option": {
-                    "type": "object",
-                    "properties": {
-                        "title": {"type": "string"},
-                        "why": {"type": "string"},
-                        "moves": {
-                            "type": "array",
-                            "items": {
-                                "type": "object",
-                                "properties": {"target": {"type": "string"}, "to": {"type": ["string", "number"]}},
-                                "required": ["target", "to"],
-                            },
-                        },
-                    },
-                    "required": ["title", "why"],
-                }
-            },
-            "required": ["option"],
-        },
     ),
 )
 BY_NAME = {t.name: t for t in TOOLS}

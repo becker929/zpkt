@@ -12,6 +12,18 @@ desktop and on the MiniLab. An agent writes it ("I want to change the kick's sub
 not say widget, size, colour, position or MIDI slot: `widget` and `assign` decide those by rule, so every page looks
 and maps the same way. `lint` is the gate: a page with an "error" is not shown, and the agent is told why.
 
+A page may also carry compare states: 2 to 8 named settings of the same controls, one pad each, to switch between
+while Live plays.
+
+    "compare": {"name": "Kick", "states": [
+        {"name": "as it is"},
+        {"name": "hotter", "writes": [{"target": "Kick bus/volume", "to": 0.8}]}]}
+
+A write's `to` is the raw value (what desk.state gives as `r`). A state that leaves a target out, or gives no writes
+at all, takes the value that target had when the page was made (`fill` keeps them in `baseline`), so there is always
+a way back; `fill` also keeps each target's range (`ranges`). Which pad is lit is never stored: a state is on exactly
+when every one of its targets holds its value (`lit`).
+
 lib/contracts/page.schema.json is generated from these models (hands/tools/gen_schemas.py). Unknown keys are kept, so
 the file can grow. Pages live in <sets_dir>/pages/<set>/<id>.json.
 """
@@ -19,7 +31,9 @@ the file can grow. Pages live in <sets_dir>/pages/<set>/<id>.json.
 from __future__ import annotations
 
 import json
+import math
 import re
+from collections.abc import Mapping
 from pathlib import Path
 from typing import Any, Literal, TypedDict
 
@@ -36,6 +50,9 @@ MAX_IN_GROUP = 6
 MAX_LABEL = 10  # characters that fit under a knob on a phone
 SEGMENTS = 5  # a choice of up to this many is a row of keys; more is a list
 KNOBS, FADERS, PADS = 8, 4, 8  # the MiniLab 3
+MIN_STATES, MAX_STATES = 2, PADS  # compare states: one pad each
+MAX_COMPARE_TARGETS = 24  # the values one compare may write
+COMPARE_STEP = 0.001  # a continuous value holds a state's value within this much of its range; a switch exactly
 
 Role = Literal["level", "tone", "amount", "time", "switch", "choice"]
 Widget = Literal["key", "segmented", "list", "fader", "knob", "macro"]
@@ -86,6 +103,38 @@ class Group(_Open):
     controls: list[Control]
 
 
+class Write(_Open):
+    target: str = Field(description="A state key.")
+    to: float | bool = Field(description="The raw value, as desk.state gives it (`r`).")
+
+
+class CompareState(_Open):
+    name: str = Field(description="At most 10 characters: it is written on a pad.")
+    writes: list[Write] = Field(
+        default_factory=list, description="Left out or short: the missing targets take the page's baseline."
+    )
+
+
+class Compare(_Open):
+    """Named settings of the same controls, one pad each. Pressing a pad writes its state as one move."""
+
+    name: str | None = Field(
+        default=None, description="What is compared, in a word or two; the page's title if left out."
+    )
+    states: list[CompareState]
+    baseline: dict[str, float | bool] = Field(
+        default_factory=dict, description="Each target's raw value when the page was made. The app fills it in."
+    )
+    ranges: dict[str, tuple[float, float, bool]] = Field(
+        default_factory=dict,
+        description="Each target's lowest and highest raw value and whether it is a switch or a list. The app fills it in.",
+    )
+
+    def targets(self) -> list[str]:
+        """Every state key a state writes, once each, in the order first named."""
+        return list(dict.fromkeys(w.target for s in self.states for w in s.writes))
+
+
 class Page(_Open):
     schema_: int = Field(default=SCHEMA, alias="schema", description="The file's version: 2.")
     id: str | None = Field(default=None, description="Its file name without .json; set when saved.")
@@ -94,13 +143,15 @@ class Page(_Open):
     made_by: Who = "you"
     at: str | None = Field(default=None, description="When it was made, YYYY-MM-DD HH:MM:SS.")
     prompt: str | None = Field(default=None, description="What was asked for.")
+    compare: Compare | None = Field(default=None, description="States to switch between, one pad each.")
 
     def controls(self) -> list[Control]:
         return [c for g in self.groups for c in g.controls]
 
     def targets(self) -> list[str]:
-        """Every state key the page moves, once each, in page order."""
-        return list(dict.fromkeys(t for c in self.controls() for t in c.targets()))
+        """Every state key the page moves, once each: its controls' in page order, then its compare states'."""
+        mine = [t for c in self.controls() for t in c.targets()]
+        return list(dict.fromkeys(mine + (self.compare.targets() if self.compare else [])))
 
 
 class Problem(TypedDict):
@@ -115,9 +166,16 @@ class Slot(TypedDict):
     group: str
 
 
+class StatePad(TypedDict):
+    slot: str  # b1-b8
+    state: int  # the compare state's place in the page's list, from 0
+    name: str
+
+
 class HardwarePage(TypedDict):
     groups: list[str]
     slots: list[Slot]
+    compare: list[StatePad]  # the pads that switch compare states: the same on every MiniLab page of the Page
 
 
 def parse(data: Any) -> Page:
@@ -244,7 +302,7 @@ def lint(page: Page, described: dict[str, Description], missing: dict[str, str] 
         out.append({"level": level, "where": where, "text": text})
 
     controls = page.controls()
-    if not controls:
+    if not controls and page.compare is None:
         say("error", "page", "the page has no controls")
     if len(controls) > MAX_CONTROLS:
         say("error", "page", f"{len(controls)} controls; a page holds at most {MAX_CONTROLS}: split it in two")
@@ -293,22 +351,147 @@ def lint(page: Page, described: dict[str, Description], missing: dict[str, str] 
             if text in in_group:
                 say("error", c.ref, f"its label {named[c.ref]!r} is the same as {in_group[text]}'s in {g.name!r}")
             in_group[text] = c.ref
+    out += _lint_compare(page, described, missing or {})
     assign(page, described, notes=out)  # adds its own: a fader given up for a knob, a group that does not fit
     return sorted(out, key=lambda p: p["level"] != "error")
+
+
+# ---- compare states ------------------------------------------------------------------------------------------------
+
+
+def tolerance(d: Description) -> float:
+    """How far a value may sit from a state's and still hold it: half a step of a switch or list, else COMPARE_STEP
+    of the range."""
+    return 0.5 if d["kind"] != "continuous" else (d["max"] - d["min"]) * COMPARE_STEP
+
+
+def holds(value: Any, want: Any, lo: float, hi: float, quantized: bool) -> bool:
+    """Does a control at `value` hold a state's `want`? contrib/mixdesk/pagercore.py has the same rule for the pager
+    in Live (tests/live/test_page.py holds the two together)."""
+    if value is None or want is None:
+        return False
+    gap = abs(float(value) - float(want))
+    return gap < 0.5 if quantized else gap <= (hi - lo) * COMPARE_STEP
+
+
+def fill(page: Page, described: dict[str, Description]) -> Page:
+    """The page with its compare states made whole: the baseline holds every target's value (the one already kept,
+    else what Live has now), and every state writes every target, the missing ones from the baseline. So a state
+    with no writes is the mix as it was when the page was made. A target Live does not describe is left as it is
+    (lint says so). The page itself is changed and returned."""
+    cmp = page.compare
+    if cmp is None:
+        return page
+    targets = cmp.targets()
+    kept = {t: v for t, v in cmp.baseline.items() if t in targets}
+    for t in targets:
+        if t not in kept and t in described and described[t]["now"].raw is not None:
+            raw = described[t]["now"].raw
+            kept[t] = raw if isinstance(raw, bool) else float(raw)
+    cmp.baseline = {t: kept[t] for t in targets if t in kept}
+    cmp.ranges = {
+        t: (float(d["min"]), float(d["max"]), d["kind"] != "continuous")
+        for t in targets
+        if (d := described.get(t)) is not None
+    }
+    for state in cmp.states:
+        given = {w.target for w in state.writes}
+        filled = [Write(target=t, to=kept[t]) for t in targets if t not in given and t in kept]
+        state.writes = sorted([*state.writes, *filled], key=lambda w: targets.index(w.target))  # one order for all
+    return page
+
+
+def lit(compare: Compare, values: Mapping[str, Any]) -> int | None:
+    """Which state is on: the first whose every target holds its value, given each target's raw value now (by state
+    key). None when no state is: somebody moved one of the controls. Derived, never stored. The ranges are the ones
+    `fill` kept."""
+    for i, state in enumerate(compare.states):
+        if state.writes and all(
+            (r := compare.ranges.get(w.target)) is not None and holds(values.get(w.target), w.to, *r)
+            for w in state.writes
+        ):
+            return i
+    return None
+
+
+def _lint_compare(page: Page, described: dict[str, Description], missing: dict[str, str]) -> list[Problem]:
+    """What is wrong with the page's compare states. It reads them as `fill` leaves them: a state may leave a target
+    out only when the baseline has it."""
+    cmp = page.compare
+    if cmp is None:
+        return []
+    out: list[Problem] = []
+
+    def say(where: str, text: str) -> None:
+        out.append({"level": "error", "where": where, "text": text})
+
+    n = len(cmp.states)
+    if not MIN_STATES <= n <= MAX_STATES:
+        say("compare", f"{n} states; a compare has {MIN_STATES} to {MAX_STATES}, one pad each")
+    if cmp.name is not None and len(cmp.name) > 24:
+        say("compare", "the compare's name is over 24 characters")
+    targets = cmp.targets()
+    if not targets:
+        say("compare", "no state writes anything: give at least one state its writes ({target, to})")
+    if len(targets) > MAX_COMPARE_TARGETS:
+        say("compare", f"the states write {len(targets)} values; a compare writes at most {MAX_COMPARE_TARGETS}")
+    for t in targets:
+        if t in missing:
+            say(f"compare:{t}", f"not in the open set: {missing[t]}")
+        elif t not in described:
+            say(f"compare:{t}", f"no description of {t}: it was not looked up in Live")
+    names: set[str] = set()
+    whole: dict[tuple[Any, ...], str] = {}
+    for state in cmp.states:
+        where = f"compare:{state.name}"
+        if not state.name.strip():
+            say("compare", "a state has no name")
+        if len(state.name) > MAX_LABEL:
+            say(where, f"the name {state.name!r} is over {MAX_LABEL} characters: it is written on a pad")
+        if state.name.lower() in names:
+            say(where, "two states have this name")
+        names.add(state.name.lower())
+        seen: set[str] = set()
+        for w in state.writes:
+            if w.target in seen:
+                say(where, f"it writes {w.target} twice")
+            seen.add(w.target)
+            d = described.get(w.target)
+            if d is None:
+                continue
+            value = float(w.to)
+            if not math.isfinite(value) or not d["min"] <= value <= d["max"]:
+                say(where, f"{w.target}: {w.to!r} is outside its raw range {d['min']:g} to {d['max']:g}")
+            elif d["kind"] != "continuous" and value != round(value):
+                say(where, f"{w.target} is a switch or a list: its raw value is a whole number, not {w.to!r}")
+        for t in targets:
+            if t not in seen and t in described and t not in cmp.baseline:
+                say(where, f"it does not write {t}, and no value of it was kept when the page was made")
+        if all(t in seen or t in cmp.baseline for t in targets) and all(t in described for t in targets):
+            given = {w.target: float(w.to) for w in state.writes}
+            values = {t: given.get(t, float(cmp.baseline.get(t, 0.0))) for t in targets}
+            key = tuple(round(values[t] / (tolerance(described[t]) or 1.0)) for t in targets)
+            if key in whole:
+                say(where, f"it is the same as {whole[key]!r}: two states must differ in at least one value")
+            whole.setdefault(key, state.name)
+    return out
 
 
 # ---- the MiniLab ---------------------------------------------------------------------------------------------------
 
 
-def _fits(levels: int, others: int, keys: int) -> bool:
-    return keys <= PADS and others + max(0, levels - FADERS) <= KNOBS
+def _fits(levels: int, others: int, keys: int, pads: int = PADS) -> bool:
+    return keys <= pads and others + max(0, levels - FADERS) <= KNOBS
 
 
 def assign(page: Page, described: dict[str, Description], notes: list[Problem] | None = None) -> list[HardwarePage]:
     """The page on the MiniLab 3: which knob, fader and pad moves what. Groups stay whole and in order; a hardware
     page takes as many as fit (8 knobs, 4 faders, 8 pads) and the next groups go to the next hardware page. Faders
     take the levels, heaviest first; a fifth level becomes a knob, and that is noted. Knobs take the rest in page
-    order. Pads take the switches."""
+    order. Pads take the switches from the left. The compare states take the last pads, one each, the same pads on
+    every MiniLab page of the Page; the switches of a MiniLab page get the pads before them."""
+    states = page.compare.states[:PADS] if page.compare else []
+    free = PADS - len(states)  # pads left for switches
     kinds = {c.ref: widget(c, described.get(c.ref)) for c in page.controls()}
 
     def count(groups: list[Group]) -> tuple[int, int, int]:
@@ -318,10 +501,12 @@ def assign(page: Page, described: dict[str, Description], notes: list[Problem] |
 
     batches: list[list[Group]] = []
     for g in page.groups:
-        if batches and _fits(*count([*batches[-1], g])):
+        if batches and _fits(*count([*batches[-1], g]), pads=free):
             batches[-1].append(g)
         else:
             batches.append([g])
+    if states and not batches:
+        batches.append([])  # states and no controls: one MiniLab page with only the pads
     out: list[HardwarePage] = []
     for batch in batches:
         flat = [(g.name, c) for g in batch for c in g.controls]
@@ -333,16 +518,17 @@ def assign(page: Page, described: dict[str, Description], notes: list[Problem] |
         knobs = [(g, c) for g, c in flat if kinds[c.ref] != "key" and c.ref not in fader_refs]
         slots += [{"slot": f"k{i + 1}", "ref": c.ref, "group": g} for i, (g, c) in enumerate(knobs[:KNOBS])]
         keys = [(g, c) for g, c in flat if kinds[c.ref] == "key"]
-        slots += [{"slot": f"b{i + 1}", "ref": c.ref, "group": g} for i, (g, c) in enumerate(keys[:PADS])]
+        slots += [{"slot": f"b{i + 1}", "ref": c.ref, "group": g} for i, (g, c) in enumerate(keys[:free])]
+        pads: list[StatePad] = [{"slot": f"b{free + i + 1}", "state": i, "name": s.name} for i, s in enumerate(states)]
         if notes is not None:
             for _, c in levels:
                 if c.ref not in fader_refs:
                     notes.append(
                         {"level": "note", "where": c.ref, "text": "the MiniLab has 4 faders; this level is on a knob"}
                     )
-            for name, c in knobs[KNOBS:] + keys[PADS:]:
+            for name, c in knobs[KNOBS:] + keys[free:]:
                 notes.append({"level": "error", "where": c.ref, "text": f"group {name!r} does not fit the MiniLab"})
-        out.append({"groups": [g.name for g in batch], "slots": slots})
+        out.append({"groups": [g.name for g in batch], "slots": slots, "compare": pads})
     return out
 
 

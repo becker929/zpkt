@@ -2,8 +2,8 @@
 
 The modes, for both engines:
 
-    build      the default, and the only one a producer sees: the agent advises and uses the app's four tools (make a
-               page, read the state, read the measurement, propose an Option). It reads files. It cannot edit a file
+    build      the default, and the only one a producer sees: the agent advises and uses the app's three tools (make or
+               change a page, read the state, read the measurement). It reads files. It cannot edit a file
                or run a command, and nothing asks.
     ask        the same, and with Gemini every edit and command waits for a yes from the page. Claude Code has nobody
                to ask on this page, so there it is `build`.

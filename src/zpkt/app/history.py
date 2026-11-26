@@ -230,11 +230,16 @@ class History:
                         waiting[i] = (w[0], until)
 
     def record(
-        self, pairs: list[list[Any]], who: protocol.Who | str, group: str | None = None
+        self,
+        pairs: list[list[Any]],
+        who: protocol.Who | str,
+        group: str | None = None,
+        compare: dict[str, Any] | None = None,
     ) -> dict[str, Any] | None:
         """Moves the desk is writing for `who`: [[key, raw] or [key, raw, shown], ...] from what Live has now. One
         entry. Moves with the same `group` and `who` as the last entry join it, so an ask undoes as one. Returns the
-        entry, or None when nothing moves."""
+        entry, or None when nothing moves. `compare` names a switch of compare states ({"name", "from", "to"}): the
+        entry keeps it, and it is always an entry of its own."""
         if who not in live_changes.WHO:
             raise ValueError(f"who is one of {', '.join(live_changes.WHO)}, not {who!r}")
         with self.lock:
@@ -251,7 +256,8 @@ class History:
                 return None
             self.expect_writes([[m["key"], m["to"][1]] for m in moves])
             top = self.entries[-1] if self.entries and self.pos == len(self.entries) else None
-            if group and top and top["k"] == "move" and top.get("group") == group and who_of(top) == who:
+            joins = group and top and top["k"] == "move" and top.get("group") == group and who_of(top) == who
+            if joins and top and not compare and not top.get("compare"):
                 known = {m["key"]: m for m in top["moves"]}
                 for m in moves:
                     if m["key"] in known:
@@ -272,6 +278,8 @@ class History:
             entry: dict[str, Any] = {"k": "move", "moves": moves, "who": who}
             if group:
                 entry["group"] = group
+            if compare:
+                entry["compare"] = dict(compare)
             self._push(entry)
             self._save()
             return entry

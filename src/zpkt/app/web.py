@@ -33,7 +33,6 @@ from zpkt.app.bus import BadRequest, Command, Reply
 from zpkt.app.commands import POST_PATHS
 from zpkt.app.desk import HOSTS_ENV, Desk, Settings, hosts_from_env, meter_message, mixdesk_dir, start_threads
 from zpkt.app.mounts import Request
-from zpkt.app.options import BadOption
 from zpkt.live import desk_pager
 from zpkt.live.changes import Who
 from zpkt.live.transport import LiveError
@@ -175,16 +174,6 @@ def get_changes(desk: Desk, query: dict[str, str]) -> Response:
     return json_response({"changes": found, "last": stream.last(), "skipped": stream.skipped})
 
 
-def get_options(desk: Desk, query: dict[str, str]) -> Response:
-    """Every Option; ?option=ID for one."""
-    if "option" in query:
-        try:
-            return json_response(desk.options.get(query["option"]))
-        except BadOption as exc:
-            return error_response(str(exc), 404)
-    return json_response(desk.options.message())
-
-
 def get_pages(desk: Desk, query: dict[str, str]) -> Response:
     return json_response({"pages": pages.listing(desk)})
 
@@ -194,7 +183,6 @@ APP_GET_ROUTES: dict[str, Callable[[Desk, dict[str, str]], Response]] = {
     "/api/hear": get_hear,
     "/api/commands": get_commands,
     "/api/changes": get_changes,
-    "/api/options": get_options,
 }
 
 
@@ -369,16 +357,6 @@ class Handler(BaseHTTPRequestHandler):
             return self._send(404, b"not found", "text/plain")
         self._send(200, f.read_bytes(), ctype)
 
-    def _version_file(self, query: dict[str, str]) -> None:
-        """Serve the audio of one Version of an Option (only a file an Option names), with Range."""
-        try:
-            f = self.desk.options.file_of(query.get("option", ""), query.get("version", ""))
-        except BadOption as exc:
-            return self._send(404, str(exc).encode(), "text/plain")
-        if f is None or not f.is_file():
-            return self._send(404, b"that Version has no audio file (it may have been swept)", "text/plain")
-        self._ranged(f, AUDIO_TYPES.get(f.suffix.lower(), "application/octet-stream"))
-
     def _ranged(self, f: Path, ctype: str) -> None:
         size = f.stat().st_size
         a, b, code = 0, size - 1, 200
@@ -446,7 +424,7 @@ class Handler(BaseHTTPRequestHandler):
         try:
             first = [{"t": "full", "state": self.desk.page_state()}]
             if app:
-                first += [self.desk.monitor.message(), self.desk.history.view(), self.desk.options.message()]
+                first += [self.desk.monitor.message(), self.desk.history.view()]
             for msg in first:
                 self.wfile.write(f"data: {json.dumps(msg)}\n\n".encode())
             self.wfile.flush()
@@ -477,8 +455,6 @@ class Handler(BaseHTTPRequestHandler):
             return self._send(200, page.read_bytes(), "text/html; charset=utf-8")
         if url.path == "/":
             return self._redirect(FRONT_DOOR)
-        if url.path == "/api/options/file":
-            return self._version_file(query)
         if url.path.startswith(SHARED_PREFIX):
             return self._shared(url.path[len(SHARED_PREFIX) :])
         if url.path.startswith("/media/"):
