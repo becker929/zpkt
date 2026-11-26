@@ -3,6 +3,9 @@
 The first listener starts the capture. When the last one leaves, the capture goes on for a few seconds (`linger`), so
 a page reload or a change of page does not restart it, and then stops. Each listener has a short queue. When a
 listener is slow (a phone on a bad network), its oldest sound is dropped: late sound is worth less than a gap.
+
+The sample rate is the open capture's. Each listener is told the rate of the capture it joined, and when a capture
+has to be started again and comes back at another rate, the listeners are ended so their pages connect anew.
 """
 
 from __future__ import annotations
@@ -12,7 +15,7 @@ import threading
 import time
 from typing import Any
 
-from zpkt.app.listen import FORMAT, FRAME
+from zpkt.app.listen import FRAME, audio_format
 from zpkt.app.listen.capture import Source, Stream, Unavailable
 
 QUEUE_CHUNKS = 24  # about half a second of sound, at the 20 ms pieces the capture gives
@@ -22,7 +25,9 @@ CHECK_KEPT_S = 10.0
 class Listener:
     """One listener's queue of PCM. `get` waits for the next piece; None means the capture has ended."""
 
-    def __init__(self) -> None:
+    def __init__(self, rate: int = 0, source: str = "") -> None:
+        self.rate = rate  # of the capture this listener joined; it does not change while the listener lives
+        self.source = source
         self.q: queue.Queue[bytes | None] = queue.Queue(maxsize=QUEUE_CHUNKS)
         self.dropped = 0
 
@@ -74,18 +79,22 @@ class Hub:
                 self._stream = stream
                 self.starts += 1
                 threading.Thread(target=self._pump, args=(stream,), daemon=True, name="listen-pump").start()
-            listener = Listener()
+            listener = Listener(self._stream.rate, self._stream.source)
             self._listeners.add(listener)
             return listener
 
     def leave(self, listener: Listener) -> None:
         with self._lock:
             self._listeners.discard(listener)
-            if self._listeners or self._stream is None or self._timer is not None:
-                return
-            self._timer = threading.Timer(self.linger, self._stop_if_alone)
-            self._timer.daemon = True
-            self._timer.start()
+            self._linger()
+
+    def _linger(self) -> None:
+        """With the lock held: when nobody listens, stop the capture a little later."""
+        if self._listeners or self._stream is None or self._timer is not None:
+            return
+        self._timer = threading.Timer(self.linger, self._stop_if_alone)
+        self._timer.daemon = True
+        self._timer.start()
 
     def _stop_if_alone(self) -> None:
         with self._lock:
@@ -97,7 +106,9 @@ class Hub:
 
     def _pump(self, stream: Stream) -> None:
         """Hand the capture's sound to every listener until it is stopped. A capture that ends by itself after
-        running a while (macOS cut it off) is started again, so listeners hear a gap and not an end."""
+        running a while (macOS cut it off, the device went away) is started again, so listeners hear a gap and not
+        an end. When it comes back at another sample rate (another capture, or Live's rate changed) the listeners
+        are ended instead: what they play at the old rate would be wrong, and their pages connect again."""
         while True:
             began = time.monotonic()
             self._copy(stream)
@@ -119,15 +130,20 @@ class Hub:
                         fresh.close()
                     return
                 self._stream = fresh
+                same = fresh is not None and fresh.rate == stream.rate
+                listeners = [] if same else list(self._listeners)
                 if fresh is not None:
                     self.starts += 1
-                    stream = fresh
-                    continue
-                self._checked = (time.monotonic(), reason) if reason else None
-                listeners = list(self._listeners)
-            for listener in listeners:  # it is over: their pages reconnect, or say why they cannot
+                    if not same:
+                        self._listeners.clear()
+                        self._linger()
+                else:
+                    self._checked = (time.monotonic(), reason) if reason else None
+            for listener in listeners:  # it is over for them: their pages reconnect, or say why they cannot
                 listener.put(None)
-            return
+            if fresh is None:
+                return
+            stream = fresh
 
     def _copy(self, stream: Stream) -> None:
         """One capture's sound, in whole frames, to every listener, until it ends."""
@@ -177,12 +193,17 @@ class Hub:
         return reason
 
     def status(self) -> dict[str, Any]:
+        """`format` and `source` are the running capture's. With none running they are what the last check or
+        capture found: the rate a new listener will most likely get, and which capture ("" when none can start)."""
         reason = self.reason()
         with self._lock:
+            stream = self._stream
+            source = stream.source if stream is not None else "" if reason else self.source.name
             return {
                 "available": not reason,
                 "reason": reason,
                 "listeners": len(self._listeners),
-                "capturing": self._stream is not None,
-                "format": dict(FORMAT),
+                "capturing": stream is not None,
+                "source": source,
+                "format": audio_format(stream.rate if stream is not None else self.source.rate),
             }

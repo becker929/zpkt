@@ -1,4 +1,7 @@
-"""The capture tool: built from capture.swift on first use, run as a process that writes PCM on its standard output.
+"""What a capture is (Source, Stream), the screen capture, and the chain that tries one source and then the next.
+
+The screen capture is a tool built from capture.swift on first use, run as a process that writes PCM on its standard
+output.
 
 The binary is never in the repo. It is compiled into the rig's cache folder (`<data_dir>/cache/listen`, or
 `ZPKT_LISTEN_DIR`) and named by the hash of its source, so an edit to the source builds a new one.
@@ -13,7 +16,7 @@ import shutil
 import subprocess
 import sys
 import threading
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from pathlib import Path
 from typing import Protocol
 
@@ -23,6 +26,7 @@ SOURCE = Path(__file__).resolve().parent / "capture.swift"
 EXIT_PERMISSION = 77
 EXIT_NO_APP = 78
 START_WAIT_S = 10.0  # the tool itself gives up after 6
+SCREEN_RATE = 48_000  # what capture.swift asks macOS for
 PERMISSION = (
     "The Mac has not allowed zpkt to record Live's sound. On the Mac, open System Settings, Privacy & Security, "
     "Screen & System Audio Recording, and turn it on for the app that starts zpkt ({app}). Then tap Listen again."
@@ -40,7 +44,10 @@ class Unavailable(Exception):
 
 
 class Stream(Protocol):
-    """A running capture."""
+    """A running capture: 16-bit little-endian stereo at `rate`, which stays the same for as long as it runs."""
+
+    rate: int
+    source: str  # which capture it is, for the status: "live device" or "screen capture"
 
     def read(self) -> bytes:
         """The next piece of PCM, waiting for it; b"" when the capture has ended."""
@@ -51,6 +58,9 @@ class Stream(Protocol):
 
 class Source(Protocol):
     """Where the sound comes from."""
+
+    name: str  # what the status calls it; a chain says which of its sources last worked, "" when none has
+    rate: int  # the sample rate its next capture is expected to have (a guess until one has run or been checked)
 
     def check(self) -> str:
         """ "" when capture can start, else the reason in plain words."""
@@ -85,6 +95,9 @@ def responsible_app() -> str:
 class ProcessStream:
     """The tool as a child process; its standard output is the sound."""
 
+    rate = SCREEN_RATE
+    source = "screen capture"
+
     def __init__(self, proc: subprocess.Popen[bytes]) -> None:
         self.proc = proc
         assert proc.stdout is not None
@@ -116,6 +129,9 @@ class SwiftCapture:
     macOS lets the app that started zpkt hold one such capture at a time: a second one cuts the first off, and two
     that start in the same moment can leave one waiting for ever. So starts are taken one at a time here, the tool
     gives up a start that does not come, and the hub starts a capture again when it is cut off."""
+
+    name = "screen capture"
+    rate = SCREEN_RATE
 
     def __init__(
         self,
@@ -225,3 +241,46 @@ class SwiftCapture:
             if code in (EXIT_PERMISSION, EXIT_NO_APP):
                 break
         raise Unavailable(reason)
+
+
+class Chain:
+    """Several sources in order of preference: the first that can start is the capture.
+
+    `name` and `rate` are those of the source that last worked (a check or a start), so the status can say which
+    capture a listener will get, and at what rate, before anything runs."""
+
+    def __init__(self, sources: Iterable[Source]) -> None:
+        self.sources = list(sources)
+        if not self.sources:
+            raise ValueError("a chain needs at least one source")
+        self.name = ""
+        self.rate = self.sources[0].rate
+
+    @staticmethod
+    def _why(reasons: Sequence[str]) -> str:
+        """Every source's reason, the preferred one first: each names its own fix."""
+        return " The other way to hear Live did not work either: ".join(reasons)
+
+    def check(self) -> str:
+        reasons = []
+        for source in self.sources:
+            reason = source.check()
+            if not reason:
+                self.name, self.rate = source.name, source.rate
+                return ""
+            reasons.append(reason)
+        self.name = ""
+        return self._why(reasons)
+
+    def open(self) -> Stream:
+        reasons = []
+        for source in self.sources:
+            try:
+                stream = source.open()
+            except Unavailable as exc:
+                reasons.append(str(exc))
+                continue
+            self.name, self.rate = stream.source, stream.rate
+            return stream
+        self.name = ""
+        raise Unavailable(self._why(reasons))

@@ -1,7 +1,9 @@
 """The mount at /app/listen: the status, the stream (raw PCM, or MP3 for a browser that cannot play PCM), the script.
 
-GET /app/listen/status      {"available", "reason", "listeners", "capturing", "format"}
-GET /app/listen/stream.pcm  16-bit little-endian stereo at 48 kHz, for as long as the page reads it
+GET /app/listen/status      {"available", "reason", "listeners", "capturing", "source", "format"}
+GET /app/listen/stream.pcm  16-bit little-endian stereo for as long as the page reads it; its sample rate is the
+                            capture's (44100 from the Live device on a 44.1 kHz set, 48000 from the screen capture)
+                            and is said in the X-Audio-Format header: "s16le;rate=44100;channels=2"
 GET /app/listen/stream.mp3  the same sound through ffmpeg, for an <audio> element (a second or more late)
 GET /app/listen/listen.js   the page's script (also served at /app/shell/listen.js by the shell)
 """
@@ -18,7 +20,7 @@ import threading
 from pathlib import Path
 from typing import Any
 
-from zpkt.app.listen import CHANNELS, RATE
+from zpkt.app.listen import CHANNELS, ENCODING, format_header
 from zpkt.app.listen.capture import Unavailable
 from zpkt.app.listen.hub import Hub, Listener
 from zpkt.app.mounts import MountReply, Request
@@ -66,7 +68,7 @@ class ListenMount:
             except Unavailable as exc:
                 return _json({"ok": False, "error": str(exc)}, 503)
             try:
-                self._begin(request.connection, ctype)
+                self._begin(request.connection, ctype, listener.rate)
                 (self._mp3 if mp3 else self._pcm)(request.connection, listener)
             except OSError:  # the page went away
                 pass
@@ -76,7 +78,7 @@ class ListenMount:
         return _json({"ok": False, "error": "not found"}, 404)
 
     @staticmethod
-    def _begin(h: Any, ctype: str) -> None:
+    def _begin(h: Any, ctype: str, rate: int) -> None:
         with contextlib.suppress(OSError):
             h.connection.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)  # small pieces, sent at once
         h.send_response(200)
@@ -84,7 +86,7 @@ class ListenMount:
             ("Content-Type", ctype),
             ("Cache-Control", "no-store"),
             ("X-Accel-Buffering", "no"),
-            ("X-Audio-Format", f"s16le;rate={RATE};channels={CHANNELS}"),
+            ("X-Audio-Format", format_header(rate)),  # of the PCM: the capture's own rate
         ):
             h.send_header(key, value)
         h.end_headers()  # no Content-Length: the answer ends when the connection closes
@@ -103,8 +105,9 @@ class ListenMount:
 
     def _mp3(self, h: Any, listener: Listener) -> None:
         """One ffmpeg per listener: PCM in from the listener's queue, MP3 out to the page."""
+        pcm = ["-f", ENCODING, "-ar", str(listener.rate), "-ac", str(CHANNELS), "-i", "pipe:0"]
         proc = subprocess.Popen(
-            [self.ffmpeg, "-v", "quiet", "-f", "s16le", "-ar", str(RATE), "-ac", str(CHANNELS), "-i", "pipe:0", *MP3],
+            [self.ffmpeg, "-v", "quiet", *pcm, *MP3],
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
             bufsize=0,

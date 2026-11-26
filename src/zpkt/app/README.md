@@ -325,30 +325,51 @@ adapter, mounted at `/app/listen`, and it starts with `zpkt app`. Starting it on
   The choice is kept in the browser. Moving between `/app/` and `/app/ask/` loads a new document, so the sound
   stops; the button then shows a dot and the first tap anywhere on the new page starts it again. Changing tabs
   inside `/app/` does not stop it.
-- **The capture.** `listen/capture.swift` records Live's own output with ScreenCaptureKit and writes raw PCM. No
-  audio driver is installed. It is compiled on first use (about a second) into `<data_dir>/cache/listen`
-  (`ZPKT_LISTEN_DIR` names another folder); no binary is in the repo. It runs only while somebody listens and stops
-  five seconds after the last listener leaves. It sends Live nothing.
-- **The permission.** macOS must allow Screen & System Audio Recording (System Settings, Privacy & Security) for the
-  app that started zpkt: the terminal, or the Claude app when an agent started it. Without it the button is greyed
-  and says so, naming the app.
-- **One capture at a time.** macOS gives the app that started zpkt one such capture. A second one (another copy of
-  `zpkt app`, a run of the tool by hand) cuts the first off. The hub starts its capture again when that happens, and
-  the page reconnects, so I hear a short gap.
-- **The streams.** `GET /app/listen/stream.pcm` is 16-bit little-endian stereo at 48 kHz. The page reads it with a
-  streamed `fetch` and plays it through an AudioWorklet that keeps about 70 ms in hand and throws away old sound
-  when it falls behind (more than 220 ms). Each time the buffer runs dry it keeps a little more, up to 250 ms.
+- **Where the sound comes from.** Two captures, tried in this order. `GET /app/listen/status` says which one is in
+  use as `source`: `live device` or `screen capture`. `ZPKT_LISTEN_SOURCE` chooses: `auto` (the default: the device,
+  then the screen capture), `device` or `screen`. Either runs only while somebody listens and stops five seconds
+  after the last listener leaves.
+- **First: the Live device.** A Max for Live device, "zpkt listen", sits last on Main and sends Live's own samples to
+  the app (`listen/device.py` reads it through `zpkt.live.listen`). Put it there once with
+  `.venv/bin/python contrib/mixdesk/listen.py install`. It passes the audio through untouched and sends only while
+  asked. It sends at Live's sample rate (44.1 kHz on the rig). It needs no macOS permission. The app listens on
+  localhost TCP 8988 for the device and sends it `/listen 1` and `/listen 0` on UDP 8989; the sockets are opened in
+  `connections.py` and only while a capture runs. When a capture starts, the device gets about 1.5 seconds to connect
+  and say its rate. If it does not (it is not on Main, Live is not running, or Live has no audio output device
+  selected, so its clock stands still), the ports are freed and the screen capture is tried. A capture ends when the
+  device has been gone for four seconds, and the hub starts a new one.
+- **Fallback: the screen capture.** `listen/capture.swift` records Live's output with ScreenCaptureKit and writes raw
+  PCM at 48 kHz. No audio driver is installed. It is compiled on first use (about a second) into
+  `<data_dir>/cache/listen` (`ZPKT_LISTEN_DIR` names another folder); no binary is in the repo. macOS must allow
+  Screen & System Audio Recording (System Settings, Privacy & Security) for the app that started zpkt: the terminal,
+  or the Claude app when an agent started it. macOS gives that app one such capture at a time. A second one (another
+  copy of `zpkt app`, a run of the tool by hand) cuts the first off; the hub starts its capture again and the page
+  reconnects, so I hear a short gap.
+- **When neither works** the button is greyed and a tap says why, with the fix for each: put the device on Main and
+  see that Live has an audio output device; or allow the recording, naming the app.
+- **The sample rate is the capture's.** Nothing is resampled. The status gives it as `format.rate`, and
+  `stream.pcm` gives it in its `X-Audio-Format` header (`s16le;rate=44100;channels=2`). The page reads it there and
+  opens its audio output at that rate. A browser that will not open at that rate plays the MP3 stream. When a capture
+  has to start again and comes back at another rate (the device left and the screen capture took over), the
+  listeners are ended and their pages connect again at the new rate.
+- **The streams.** `GET /app/listen/stream.pcm` is 16-bit little-endian stereo. The page reads it with a streamed
+  `fetch` and plays it through an AudioWorklet that keeps about 70 ms in hand and throws away old sound when it
+  falls behind (more than 220 ms). Each time the buffer runs dry it keeps a little more, up to 250 ms.
   `GET /app/listen/stream.mp3` is the same sound through ffmpeg for an `<audio>` element. The page uses it where the
   worklet cannot run (a page not served over HTTPS, an old browser). It is several seconds late.
-  `GET /app/listen/status` says `available`, the `reason` if not, `listeners`, `capturing` and the `format`.
+  `GET /app/listen/status` says `available`, the `reason` if not, `listeners`, `capturing`, the `source` and the
+  `format`.
 - **Nothing is processed.** The page plays Live's samples as they are: no EQ, no effects, no gain. Loudness is the
-  phone's own volume.
-- **Measured** on the rig (25 November 2026, headless WebKit on the Mac itself): the capture hands sound over about
-  50 ms after Live played it (68 ms at worst), the page holds 50 to 100 ms, so about 110 to 170 ms before the
-  device's own output delay and the network. The capture tool uses under 1 % of one core. On an iPhone over the
-  tailnet it is not measured yet.
+  phone's own volume. This is playback, within the sound rule (`contrib/docs/sound.md`).
+- **Measured** on the rig (25 November 2026). The Live device hands sound over about 12 ms after Live played it, at
+  44.1 kHz. The screen capture hands it over after about 50 ms (68 ms at worst) and its tool uses under 1 % of one
+  core. The page holds 50 to 100 ms on top of either (headless WebKit on the Mac itself), before the phone's own
+  output delay and the network. The device and the page have not been measured together, and an iPhone over the
+  tailnet is not measured yet.
 
-`tests/app/test_listen.py` runs the adapter with a made-up capture; `test_listen_page.py` taps the button in WebKit.
+`tests/app/test_listen.py` runs the adapter with a made-up capture, and the device's capture against a stand-in device
+on free ports; `test_listen_page.py` taps the button in WebKit, at 48 kHz and at 44.1 kHz. The reader of the device is tested
+in `tests/live/test_listen.py`.
 
 ## Files that stay where they were
 

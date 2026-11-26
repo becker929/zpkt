@@ -6,12 +6,16 @@
 // and throws away old sound when it falls behind. Where that cannot work (no AudioWorklet, no streamed fetch, a page
 // that is not served securely) it plays an MP3 stream in an <audio> element, which is a second or more late.
 //
+// The sample rate is the Mac's capture's, not a fixed one: 44100 from the Live device on a 44.1 kHz set, 48000 from
+// the screen capture. The stream says its rate in its X-Audio-Format header, and the sound is played at exactly that
+// rate, so nothing is resampled here. A browser that will not open its output at that rate gets the MP3 stream.
+//
 // The choice is remembered (localStorage "zpkt.listen"). After a move to another page the button shows "resume" and
 // the first tap anywhere on the page starts the sound again.
 
 const BASE = '/app/listen';
 const KEY = 'zpkt.listen';
-const RATE = 48000;
+const USUAL_RATE = 48000; // only a first guess, until the status or the stream has said the real rate
 const TARGET_MS = 70; // sound kept in hand before playing (it grows, up to 250, each time the buffer runs dry)
 const MAX_MS = 220; // more than this is late: drop back to the target
 
@@ -116,7 +120,8 @@ function mount(slot) {
   let state = 'off'; // off | connecting | on | unavailable
   let reason = '';
   let ctx = null, node = null, abort = null, audio = null, why = null, tries = 0, quiet = null;
-  const stats = { mode: '', ms: 0, under: 0, drops: 0, peak: 0, bytes: 0 };
+  let rate = 0; // the rate the Mac last said (status or stream); 0 until it has
+  const stats = { mode: '', ms: 0, under: 0, drops: 0, peak: 0, bytes: 0, rate: 0 };
   window.zpktListen = { stats, get state() { return state; }, get reason() { return reason; } };
 
   const LABEL = {
@@ -159,7 +164,17 @@ function mount(slot) {
   async function status() {
     const r = await fetch(BASE + '/status', { cache: 'no-store' });
     if (!r.ok) throw new Error('status ' + r.status);
-    return r.json();
+    const s = await r.json();
+    const said = s.format && Number(s.format.rate);
+    if (said > 0) rate = said;
+    return s;
+  }
+  // The rate of a stream: its header says it; failing that the status does.
+  async function rateOf(res) {
+    const m = /rate=(\d+)/.exec(res.headers.get('X-Audio-Format') || '');
+    if (m) return Number(m[1]);
+    try { await status(); } catch { /* keep what we have */ }
+    return rate || USUAL_RATE;
   }
 
   function hangUp() {
@@ -168,9 +183,12 @@ function mount(slot) {
   }
   function teardown() {
     hangUp();
+    dropContext();
+    if (audio) { audio.pause(); audio.removeAttribute('src'); audio.load(); audio = null; }
+  }
+  function dropContext() {
     if (node) { node.port.onmessage = null; node.disconnect(); node = null; }
     if (ctx) { ctx.close().catch(() => {}); ctx = null; }
-    if (audio) { audio.pause(); audio.removeAttribute('src'); audio.load(); audio = null; }
   }
   function stop(keep) {
     teardown();
@@ -198,6 +216,10 @@ function mount(slot) {
         else set('off');
       } catch (err) {
         if (err.plain) return fail(err.message);
+        if (err.rate && state === 'connecting') {
+          // The capture came back at a rate this browser will not play: the MP3 stream plays at any rate.
+          try { return await startMp3(); } catch { teardown(); }
+        }
         if (state === 'connecting') retry();
       }
     }, 500 * tries);
@@ -209,15 +231,26 @@ function mount(slot) {
   const within = (promise, ms) =>
     Promise.race([promise, new Promise((_, no) => setTimeout(() => no(new Error('timed out')), ms))]);
 
-  async function startPcm() {
+  // An AudioContext at exactly `hz`, and the worklet in it. The context is made before anything is awaited, so that
+  // a tap still counts. A browser that refuses the rate (it throws, or opens another rate) is an error with `.rate`.
+  async function prepare(hz) {
     const AC = window.AudioContext || window.webkitAudioContext;
-    ctx = new AC({ sampleRate: RATE, latencyHint: 'interactive' });
-    if (ctx.sampleRate !== RATE) throw new Error('this browser will not play 48 kHz directly');
+    try {
+      ctx = new AC({ sampleRate: hz, latencyHint: 'interactive' });
+      if (ctx.sampleRate !== hz) throw new Error('got ' + ctx.sampleRate);
+    } catch (cause) {
+      dropContext();
+      const err = new Error('this browser will not play ' + hz + ' Hz directly (' + cause.message + ')');
+      err.rate = true;
+      throw err;
+    }
+    const mine = ctx;
     const resumed = ctx.resume(); // inside the tap
     try { if (navigator.audioSession) navigator.audioSession.type = 'playback'; } catch { /* older Safari */ }
     const url = URL.createObjectURL(new Blob([WORKLET], { type: 'text/javascript' }));
     try { await ctx.audioWorklet.addModule(url); } finally { URL.revokeObjectURL(url); }
     await within(resumed, 3000); // without a tap the browser never starts it
+    if (ctx !== mine) { const err = new Error('stopped'); err.name = 'AbortError'; throw err; }
     node = new AudioWorkletNode(ctx, 'zpkt-listen', {
       numberOfInputs: 0, outputChannelCount: [2], processorOptions: { target: TARGET_MS, max: MAX_MS },
     });
@@ -228,7 +261,13 @@ function mount(slot) {
     };
     node.connect(ctx.destination);
     stats.mode = 'pcm';
+    stats.rate = hz;
     stats.out = Math.round(1000 * ((ctx.baseLatency || 0) + (ctx.outputLatency || 0)));
+  }
+  async function startPcm() {
+    // The status has usually said the rate by now (it is asked when the page loads), so the context made inside the
+    // tap is the right one. The stream then says the rate for certain, and connect() changes the context if not.
+    await prepare(rate || USUAL_RATE);
     await connect();
   }
   async function connect() {
@@ -242,6 +281,16 @@ function mount(slot) {
       err.plain = true;
       throw err;
     }
+    const hz = await rateOf(res);
+    rate = hz;
+    if (abort !== mine) return;
+    if (!ctx || ctx.sampleRate !== hz) {
+      // Another rate than the context was made for (the first guess was wrong, or the capture changed): the sound is
+      // never played at a wrong rate. Make the context again at the stream's rate, or give the stream up.
+      dropContext();
+      try { await prepare(hz); } catch (err) { mine.abort(); if (abort === mine) abort = null; dropContext(); throw err; }
+      if (abort !== mine) return;
+    }
     set('on');
     pump(res.body.getReader(), mine);
   }
@@ -252,7 +301,7 @@ function mount(slot) {
         const { value, done } = await reader.read();
         if (done) break;
         stats.bytes += value.length;
-        if (stats.bytes > RATE) tries = 0; // sound is really arriving
+        if (stats.bytes > USUAL_RATE) tries = 0; // sound is really arriving
         let buf = value;
         if (rest.length) { buf = new Uint8Array(rest.length + value.length); buf.set(rest); buf.set(value, rest.length); }
         const whole = buf.length - (buf.length % 4);

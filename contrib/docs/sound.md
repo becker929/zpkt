@@ -29,6 +29,8 @@ switch on the bar). These uses are allowed, because none of them does the DAW's 
   beat (loops, transition sounds), at their rendered level, and the few-millisecond fades a switch needs so it does
   not click. A playback library may do this work (17 November 2026), and may draw the waveform; its instruments,
   synths and effects stay unused.
+- **Listening to Live**: the app's Listen button streams Live's own output to the browser and plays it as it is, at
+  Live's sample rate, with no EQ, effects or gain. That is playback.
 - **A loudness match for comparing** two renders (studio's Match loudness): a listening aid, not a mix move.
 - **The mic**: capture, levels and sending it to the Mac.
 - **Interface sounds** that are not music, such as studio's ready sound.
