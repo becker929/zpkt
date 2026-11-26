@@ -168,7 +168,13 @@ svg{display:block}
 .lane .ln{line-height:14px;align-self:center}
 .lane .ln{font:11px ui-monospace,Menlo,monospace;color:var(--mute);width:64px;flex:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .lane .tr{flex:1;min-width:0;border-radius:6px;background:var(--well);position:relative;overflow:hidden}
-.lane .tr i{position:absolute;top:2px;bottom:2px;background:var(--ink);opacity:.85;border-radius:3px}
+.lane .tr .rg{position:absolute;top:1px;bottom:1px;box-sizing:border-box;border-radius:3px;overflow:hidden;font-style:normal;--c:var(--ink);
+  background:color-mix(in srgb,var(--c) 45%,var(--panel));border:1px solid color-mix(in srgb,var(--c) 70%,var(--ink));border-left:3px solid var(--c)}
+.lane .tr .rg span{display:block;font:9.5px/1 ui-monospace,Menlo,monospace;color:var(--ink);padding:2px 3px;white-space:nowrap;overflow:hidden}
+.lane .tr .rg.muted,.lane.muted .tr .rg{opacity:.35}
+.lane.muted .ln{text-decoration:line-through}
+.lane .ln .cd{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:4px;vertical-align:1px}
+.ruler .rt .sec span{position:absolute;left:4px;top:-13px;font:10px ui-monospace,Menlo,monospace;color:var(--ink);font-style:normal;white-space:nowrap}
 .lane .tr b{position:absolute;top:0;bottom:0;width:2px;background:var(--pin)}
 /* the bar ruler over the lanes: bar numbers, the sections, the loop, and Live's playhead through ruler and lanes */
 #lanes{position:relative;display:flex;flex-direction:column;gap:3px;--lnw:72px}
@@ -274,7 +280,7 @@ const I = n => `<svg width="22" height="22"><use href="#i-${n}"/></svg>`;
 const S = {state: null, desk: null, hear: {hearing: "now", changed: 0, keys: [], match: true, monitor: {slot: "W", ref: "C1"}, pin: "start"},
            hist: {entries: [], can_undo: false, can_redo: false}, meter: null, sheet: false, flash: {},
            layouts: {},
-           tab: "desk", song: {list: [], id: null, view: null, loaded: false, mixSet: ""}, page: null,
+           tab: "desk", song: {view: null, loaded: false}, page: null,
            pend: null, busy: 0, want: null,
            scales: {}, slots: [], fixed: {}, dirty: false, sideAt: null, saving: null, meterAt: 0, cmpAt: null,
            face: "k", faces: 1, songAt: 0, histAt: 0, histFit: 0, sideAt2: null, flagAt: 0, opening: null, histSel: null, daysOpen: {}, flagOpen: null, flagGone: {}, mjob: null, setJob: null, openName: "",
@@ -1320,30 +1326,31 @@ function pageConfirmed() {
   if (S.pend && S.state && S.state.page === S.pend.page) { donePending(); slowSay("", null); }
   if (S.failed != null && S.state && S.state.page === S.failed) slowSay("", null);  // it came late
 }
-async function loadSong(id) { return slowly(() => readSong(id)); }
-async function readSong(id) {
-  const listed = await command("song.list");
-  if (!listed.ok) { if (!S.song.loaded) $("#song").innerHTML = '<div class="tag">The song could not be read.</div>'; return; }
-  S.song.list = listed.body.arrangements; S.song.loaded = true; S.song.mixSet = listed.body.mix_set || "";
-  S.song.id = id || S.song.id || listed.body.canonical;
-  const shown = await command("song.show", {id: S.song.id});
-  S.song.view = shown.ok ? shown.body : null;
+async function loadSong() { return slowly(() => readSong()); }
+// The Song is the song in Live: one lane per track of the open set, its Arrangement clips as regions, the locators
+// on the ruler. One read (arrangement.read), again whenever Live says a clip or a locator changed. Read only for now;
+// a region is an element of its own with an id (data-region), so it can be edited later.
+async function readSong() {
+  const r = await command("arrangement.read", {}, undefined, true);
+  if (!r.ok) { if (!S.song.loaded) $("#song").innerHTML = '<div class="tag" id="songfail">The song could not be read.</div>'; return; }
+  S.song.loaded = true; S.song.view = r.body;
   renderSong();
 }
 function renderSong() {
-  const v = S.song.view, bars = (v && v.bars) || 40;
-  const at = x => (x / bars * 100).toFixed(2);
-  const lanes = v ? v.lanes.map(l => `<div class="lane"><span class="ln" title="${esc(l.title)}">${esc(l.title)}</span><div class="tr">${
-    l.regions.map(r => `<i style="left:${at(r.start)}%;width:${at(r.len)}%"></i>`).join("")}${
-    v.transitions.filter(t => t.lane === l.lane && t.mode === "replace").map(t => `<b style="left:${at(t.seam - 1)}%"></b>`).join("")}</div></div>`).join("") : "";
-  // The ruler: the sections as spans, a number at the first bar of each (and every 8 bars), the loop, the playhead.
-  const secs = (v && v.sections) || [], every = bars > 64 ? 16 : 8;
-  const marks = [...new Set([...secs.map(x => x.start), ...Array.from({length: Math.ceil(bars / every)}, (_, k) => k * every)])].sort((a, b) => a - b)
+  const v = S.song.view, per = (v && v.beats_per_bar) || 4, bars = Math.max((v && v.bars) || 0, songOf().bars || 0, 1), beats = bars * per;
+  const at = b => (b / beats * 100).toFixed(2);
+  const dot = c => c ? `<i class="cd" style="background:${esc(c)}"></i>` : "";
+  const lanes = v ? v.tracks.map(t => `<div class="lane ${t.muted ? "muted" : ""}" data-track="${esc(t.id)}"><span class="ln" title="${esc(t.name)}">${dot(t.color)}${esc(t.name)}</span><div class="tr">${
+    t.regions.map(r => `<i class="rg ${r.muted ? "muted" : ""}" data-region="${esc(r.id)}" title="${esc(r.name)}" style="left:${at(r.start)}%;width:${at(r.end - r.start)}%;${r.color ? `--c:${esc(r.color)}` : ""}"><span>${esc(r.name)}</span></i>`).join("")}</div></div>`).join("") : "";
+  // The ruler: a number every 8 bars and at every locator, the locators' names, the loop, the playhead.
+  const locs = (v && v.locators) || [], every = bars > 64 ? 16 : 8;
+  const numbered = [...new Set([...locs.map(x => Math.floor(x.beat / per)), ...Array.from({length: Math.ceil(bars / every)}, (_, k) => k * every)])].filter(b => b < bars).sort((a, b) => a - b)
     .filter((b, k, all) => k === 0 || b - all[k - 1] >= 2);
-  const ruler = v ? `<div class="ruler" id="ruler"><span class="ln"></span><div class="rt" role="img" aria-label="${esc(rulerWords(secs))}">${
-    marks.map(b => `<i class="bn" style="left:${at(b)}%">${b + 1}</i>`).join("")}${
-    secs.map((x, k) => `<i class="sec s${k % 2}" style="left:${at(x.start)}%;width:calc(${at(x.len)}% - 2px)" title="bars ${x.start + 1}–${x.start + x.len}"></i>`).join("")}<span id="songloop"></span></div></div>` : "";
-  $("#song").innerHTML = `<div id="lanes" data-bars="${bars}">${ruler}${lanes || '<div class="tag">No arrangement yet.</div>'}<div class="pgs" id="lanepgs" role="group" aria-label="More lanes" hidden><button class="key sm" type="button" data-songstep="-1" aria-label="Lanes before"><svg class="back" width="18" height="18"><use href="#i-more"/></svg></button><span class="pgn" id="lanepgn"></span><button class="key sm" type="button" data-songstep="1" aria-label="Lanes after"><svg width="18" height="18"><use href="#i-more"/></svg></button></div><div id="songhead" hidden></div></div>`;
+  const spans = locs.map((x, k) => ({from: x.beat, to: k + 1 < locs.length ? locs[k + 1].beat : beats, name: x.name})).filter(x => x.to > x.from && x.from < beats);
+  const ruler = v ? `<div class="ruler" id="ruler"><span class="ln"></span><div class="rt" role="img" aria-label="Bars 1 to ${bars}${locs.length ? ". " + locs.map(x => `${x.name || "Locator"} at bar ${Math.floor(x.beat / per) + 1}`).join(", ") : ""}">${
+    numbered.map(b => `<i class="bn" style="left:${at(b * per)}%">${b + 1}</i>`).join("")}${
+    spans.map((x, k) => `<i class="sec s${k % 2}" data-locator="${esc(x.name)}" style="left:${at(x.from)}%;width:calc(${at(Math.min(beats, x.to) - x.from)}% - 2px)" title="${esc(x.name)}"><span>${esc(x.name)}</span></i>`).join("")}<span id="songloop"></span></div></div>` : "";
+  $("#song").innerHTML = `<div id="lanes" data-bars="${bars}">${ruler}${lanes || '<div class="tag" id="nolanes">No tracks</div>'}<div class="pgs" id="lanepgs" role="group" aria-label="More tracks" hidden><button class="key sm" type="button" data-songstep="-1" aria-label="Tracks before"><svg class="back" width="18" height="18"><use href="#i-more"/></svg></button><span class="pgn" id="lanepgn"></span><button class="key sm" type="button" data-songstep="1" aria-label="Tracks after"><svg width="18" height="18"><use href="#i-more"/></svg></button></div><div id="songhead" hidden></div></div>`;
   updateSongMarks(); fitSong();
 }
 // The lanes fit the height that is left; when 14 px each is still too much, they are shown a part at a time, with
@@ -1362,9 +1369,6 @@ function fitSong() {
   $("#lanepgn").textContent = `${at * per + 1}–${Math.min(lanes.length, at * per + per)} / ${lanes.length}`;
   bar.querySelector('[data-songstep="-1"]').disabled = at === 0;
   bar.querySelector('[data-songstep="1"]').disabled = at >= parts - 1;
-}
-function rulerWords(secs) {
-  return `Bars. Sections start at bar ${secs.map(x => x.start + 1).join(", ")}`;
 }
 // The loop and the playhead on the ruler: Live's own, moved in place as its events come.
 function updateSongMarks() {
@@ -1487,11 +1491,15 @@ function apply(m) {
   }
   else if (m.t === "page" && S.state) S.state.page = m.page;
   else if (m.t === "mon" && S.state) S.state.monitor = {slot: m.slot, ref: m.ref};
+  else if (m.t === "arr") { if (S.song.loaded) readSong(); return; }  // a clip or a locator changed in Live
   else if (m.t === "desk") { S.layouts = {}; S.scales = {}; loadDesk(); return; }
   pageConfirmed(); wanted(); openingCheck();
   S.lockReason = S.state && !["attached", "starting", NO_MINILAB].includes(S.state.live) ? `Live: ${S.state.live}` : "";
   if (part === "desk") renderDesk();
-  else { render(); updateSongMarks(); }
+  else {
+    render(); updateSongMarks();
+    if (m.t === "full" && S.song.loaded && S.song.view && S.song.view.set !== (S.state.set || "")) readSong();  // another set is open
+  }
 }
 // A meter that stops sending (the device was taken off Main) is said so, not left showing its last bars.
 setInterval(() => { if (S.meter && !meterFresh() && $("#spec:not(.act)")) renderTop(); }, 1000);

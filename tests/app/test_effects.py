@@ -11,6 +11,7 @@ from zpkt.app.bus import Bus, Command, Spec
 from .test_song import song_rig  # noqa: F401  (the Song adapter on the rig)
 
 READS = {
+    "arrangement.read",
     "describe",
     "live.read",
     "measurement.read",

@@ -480,38 +480,6 @@ def test_a_link_to_a_page_shows_its_title_loading_and_keeps_the_address(browser,
     assert "is-loading" not in pg.locator("#main").get_attribute("class")
 
 
-# ---- 9: the Song has a bar ruler ----------------------------------------------------------------------------------------
-
-
-def test_the_song_has_a_ruler_with_sections_the_loop_and_the_playhead(browser, song_rig):  # noqa: F811
-    rig = song_rig.rig
-    pg = browser.new_page(viewport={"width": 1200, "height": 800})
-    pg.goto(rig.url + "/app/#song")
-    pg.wait_for_selector("#ruler .sec")
-    view = rig.command("song.show")[1]
-    assert [s["start"] for s in view["sections"]] == [0, 16, 24] and sum(s["len"] for s in view["sections"]) == view[
-        "bars"
-    ]
-    assert pg.locator("#ruler .sec").count() == 3
-    numbers = pg.locator("#ruler .rt > .bn").all_inner_texts()
-    assert numbers[0] == "1" and "17" in numbers and "25" in numbers  # bar numbers, one at every section's start
-    ruler, lane = pg.locator("#ruler .rt").bounding_box(), pg.locator("#lanes .lane .tr").first.bounding_box()
-    assert abs(ruler["x"] - lane["x"]) < 1 and abs(ruler["width"] - lane["width"]) < 1  # bar for bar over the lanes
-    rig.send({"t": "loop", "loop": "drop", "start": 64.0, "length": 96.0})
-    pg.wait_for_selector("#songlp")
-    assert "17–40" in pg.locator("#songloop").inner_text()
-    lp = pg.locator("#songlp").bounding_box()
-    assert lp["x"] == pytest.approx(ruler["x"] + ruler["width"] * 16 / 40, abs=2)
-    assert pg.locator("#looppill").inner_text().strip() == "17–40"  # the Hear bar says the span, not only the word
-    assert "17 to 40" in pg.locator("#looppill").get_attribute("aria-label")
-    rig.send({"t": "pos", "b": 80.0, "p": True})  # bar 21
-    pg.wait_for_function("!document.querySelector('#songhead').hidden")
-    pg.wait_for_function("document.querySelector('#barno').textContent.startsWith('bar 21')")
-    head = pg.locator("#songhead").bounding_box()
-    assert head["x"] + head["width"] / 2 == pytest.approx(ruler["x"] + ruler["width"] * 20 / 40, abs=2)
-    assert pg.locator("#song button[data-sheet], #song select, #songbuild, #psheet").count() == 0  # the lanes, no more
-
-
 # ---- 10: nothing is made anew on an event; the bubble holds no stale text ------------------------------------------------
 
 

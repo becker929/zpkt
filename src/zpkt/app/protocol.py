@@ -96,6 +96,12 @@ class PadMessage(TypedDict):
     slot: str
 
 
+class ArrangementMessage(TypedDict):
+    """The arrangement changed in Live (a clip or a locator came, went or moved): what the app read of it is stale."""
+
+    t: Literal["arr"]
+
+
 PagerMessage = (
     ValueMessage
     | PositionMessage
@@ -105,6 +111,7 @@ PagerMessage = (
     | HardwareMessage
     | PadMessage
     | FlagsMessage
+    | ArrangementMessage
 )
 
 
@@ -185,6 +192,7 @@ _KINDS: dict[str, tuple[type, dict[str, tuple[type, ...]]]] = {
     "hw": (HardwareMessage, {"page": (int,), "slot": (str,), "hw": (*_NUMBER, _NONE), "picked": (bool,)}),
     "pad": (PadMessage, {"page": (int,), "slot": (str,)}),
     "flags": (FlagsMessage, {"solo": (list,), "mute": (list,), "sys": (bool,)}),
+    "arr": (ArrangementMessage, {}),
 }
 PAGER_KINDS = tuple(_KINDS)
 

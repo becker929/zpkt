@@ -297,11 +297,14 @@ class Desk:
         self._song_listeners = []
         self._flag_listeners = []  # (remove function, callback) for every track's solo and mute
         self._extra_song_listeners = []  # (remove function, callback): the loop brace, the list of tracks
+        self._arr_listeners = []  # (remove function, callback): every track's arrangement clips, the locators
+        self._last_arr = 0.0
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.sock.setblocking(False)
         self.resolve()
         self._listen_song()
         self._listen_flags()
+        self._listen_arrangement()
 
     # ---- transport and monitor (the page is a control surface only: all audio is Live's) ---------------------------
     def _listen_song(self):
@@ -366,6 +369,57 @@ class Desk:
     def _on_tracks(self):
         self._listen_flags()
         self._on_flags()
+        self._listen_arrangement()
+        self._on_arrangement()
+
+    # ---- the arrangement: every track's clips in the Arrangement, and the locators (read only; never Session) ------
+    def arrangement(self):
+        """The song as it lies in the Arrangement, as one JSON string (a flat result: the bridge garbles deep
+        lists): {"tracks": [{"i", "name", "color", "mute", "clips": [[start, end, name, color, muted], ...]}],
+        "cues": [[beat, name], ...], "length": beats}. The monitor's own tracks are left out."""
+        s, out = self.song, []
+        for i, t in enumerate(s.tracks):
+            if t.name.startswith("mon "):
+                continue
+            clips = []
+            with contextlib.suppress(Exception):  # a group track has no clips of its own
+                for c in t.arrangement_clips:
+                    clips.append([float(c.start_time), float(c.end_time), str(c.name), int(c.color), bool(c.muted)])
+            row = {"i": i, "name": str(t.name), "color": 0, "mute": False, "clips": clips}
+            with contextlib.suppress(Exception):
+                row["color"], row["mute"] = int(t.color), bool(t.mute)
+            out.append(row)
+        cues = []
+        with contextlib.suppress(Exception):
+            cues = sorted([float(c.time), str(c.name)] for c in s.cue_points)
+        length = 0.0
+        with contextlib.suppress(Exception):
+            length = float(s.last_event_time)
+        return json.dumps({"tracks": out, "cues": cues, "length": length})
+
+    def _on_arrangement(self):
+        """A clip came, went or moved, or a locator did: say so (at most a few times a second); the app reads again."""
+        now = time.time()
+        if now - self._last_arr < 0.3:
+            return
+        self._last_arr = now
+        self.emit({"t": "arr"})
+
+    def _listen_arrangement(self):
+        self._unlisten_arrangement()
+        for t in self._flag_tracks():
+            with contextlib.suppress(Exception):
+                t.add_arrangement_clips_listener(self._on_arrangement)
+                self._arr_listeners.append((t.remove_arrangement_clips_listener, self._on_arrangement))
+        with contextlib.suppress(Exception):
+            self.song.add_cue_points_listener(self._on_arrangement)
+            self._arr_listeners.append((self.song.remove_cue_points_listener, self._on_arrangement))
+
+    def _unlisten_arrangement(self):
+        for rm, fn in self._arr_listeners:
+            with contextlib.suppress(Exception):
+                rm(fn)
+        self._arr_listeners = []
 
     def _on_loop(self):
         self.emit(self._loop_message(self._loop_mode()))
@@ -852,6 +906,7 @@ class Desk:
                 rm(fn)
         self._extra_song_listeners = []
         self._unlisten_flags()
+        self._unlisten_arrangement()
         self.unlisten()
         self.release()
         with contextlib.suppress(Exception):

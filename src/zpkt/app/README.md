@@ -382,11 +382,16 @@ routes from the same code (`contrib/arranger/server.py`'s route table), so nothi
 
 - `/app/song/` is the arranger page; `/app/song/mix/`, `/transitions/`, `/mix2/`, `/spectral/` and `/kick/` are the
   others. Their absolute links gain the prefix on the way out; the files are not edited.
-- In the `/app/` shell the Song tab shows lanes of bars under a bar ruler: bar numbers, the sections as spans
-  (`song.show` gives them as `sections`), Live's loop drawn on it with its bars, and Live's playhead through ruler
-  and lanes. It has no buttons (Anthony, 26 November 2026: the arrangement's menu, the Arranger, Sketch mix,
-  Transitions and their sheets, and Build in Live with its set cards are off the page). The arranger's own pages are
-  still served under `/app/song/` for now.
+- In the `/app/` shell **the Song tab is the song in Live** (Anthony, 26 November 2026), read only: one lane per
+  track of the open set (never the monitor's own), its Arrangement clips as regions with Live's names and colours
+  (a muted clip or track is dimmed), under a bar ruler with the locators as named spans, Live's loop and its
+  bars, and Live's playhead. Session clips are never read. It has no buttons. `arrangement.read` is the one read
+  (`Desk.arrangement`: one short call into the pager, `m.DESK.arrangement()`): `{set, bars, beats_per_bar, tracks:
+  [{id, name, color, muted, regions: [{id, start, end, name, color, muted}]}], locators: [{beat, name}]}`, starts
+  and ends in beats. It is kept until the pager says a clip or a locator changed (`{"t": "arr"}`, from listeners
+  on every track's arrangement clips and on the locators), and the page reads again then. A region is an element
+  of its own with an id that holds while it stays where it is (`t3@16`: track 3, from beat 16), so regions can be
+  edited later; nothing edits them now. `tests/app/test_song_live.py` checks the read and the page.
 - The arrangement file keeps its form. A save from the arranger page keeps every key it does not own, byte for byte
   (`tests/app/test_song.py` checks it, and checks every route against the old server).
 - Song is the Structure, Recipe is the Structure and the Sound (`contrib/arranger/arrangement.py`'s types). Commands:

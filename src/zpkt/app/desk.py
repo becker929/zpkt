@@ -163,6 +163,7 @@ class Desk:
         self.history.quiet.add(METER_KEY)
         self.making = threading.Lock()  # one "Make a surface" job at a time
         self.metering = threading.Lock()  # one "turn the spectrum on" job at a time
+        self._arrangement: dict[str, Any] | None = None  # the song in Live as last read; None: read it again
         self._meter_tool: Any = None
         self._ensured = self._started = False  # the supervisor's: monitor tracks made, start checkpoint taken
         self._stale_reload_at = 0.0  # when the supervisor last reloaded a pager Live raised from
@@ -240,8 +241,26 @@ class Desk:
         snap: dict[str, Any] = desk_pager.start(self.conn, self.settings.pager_file, self.cfg(), self.settings.udp_port)
         return snap
 
+    def arrangement(self, fresh: bool = False) -> dict[str, Any]:
+        """The song as it lies in Live's Arrangement: tracks, their clips as regions, the locators
+        (deskstate.arrangement_view). One short read through the pager, kept until Live says it changed, the pager
+        loads again, or `fresh` asks."""
+        with self.lock:
+            kept = None if fresh else self._arrangement
+        if kept is not None:
+            return kept
+        text = self.call("m.DESK.arrangement()")
+        state = self.snapshot()
+        per_bar = deskstate.song_facts(state)["beats_per_bar"]
+        view = deskstate.arrangement_view(json.loads(text) if text else {}, state.get("set") or "", per_bar)
+        with self.lock:
+            self._arrangement = view
+        return view
+
     def restart_pager(self) -> None:
         self.descriptions.clear()  # the pager loads again: the set may hold other devices now
+        with self.lock:
+            self._arrangement = None
         snap = self.start_pager()
         self.monitor.adopt(snap)
         self.set_state(snap, "attached")
@@ -328,6 +347,9 @@ class Desk:
             self.state = deskstate.reduce(self.state, msg, time.time())
             after = self.state
         self.push(dict(msg))
+        if msg["t"] == "arr":  # a clip or a locator changed in Live: what was read is stale
+            with self.lock:
+                self._arrangement = None
         if msg["t"] == "flags":  # a track soloed or muted (in Live, or by the app): each flag is a control that moved
             who: protocol.Who = "sys" if msg.get("sys") else protocol.DEFAULT_WHO
             flagged = [

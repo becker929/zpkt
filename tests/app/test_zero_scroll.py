@@ -8,7 +8,6 @@ from __future__ import annotations
 import pytest
 
 from tests.app.test_page_shell import big_spec, open_page
-from tests.app.test_song import song_rig  # noqa: F401  (fixture)
 
 playwright_sync = pytest.importorskip("playwright.sync_api")
 
@@ -166,21 +165,17 @@ def test_history_is_paged_newest_first_and_never_scrolls(browser, rig, width, he
 # ---- the Song -----------------------------------------------------------------------------------------------------------
 
 
-def many_lanes(song_rig, count: int) -> None:  # noqa: F811
-    """An arrangement with more lanes than a phone holds at 14 px each."""
-    import json
-
-    path = song_rig.data / "arrangements" / "short-8d2a2.json"
-    arr = json.loads(path.read_text())
-    first = arr["regions"][0]
-    arr["regions"] += [{**first, "lane": f"extra-{i:02d}", "start": i % 8, "len": 4} for i in range(count)]
-    path.write_text(json.dumps(arr))
+def many_tracks(rig, count: int) -> None:
+    """A set with more tracks than a phone holds at 14 px each, a clip on each."""
+    rig.conn.run(
+        f"for i in range({count}):\n    t = song.create_midi_track(-1)\n    t.name = 'extra %02d' % i\n"
+        "    t.create_midi_clip(float(4 * (i % 8)), 16.0)\nresult = 1"
+    )
 
 
 @pytest.mark.parametrize(("width", "height"), SIZES)
-def test_the_song_never_scrolls_and_its_lanes_fit_or_are_paged(browser, song_rig, width, height):  # noqa: F811
-    rig = song_rig.rig
-    many_lanes(song_rig, 30)
+def test_the_song_never_scrolls_and_its_lanes_fit_or_are_paged(browser, rig, width, height):
+    many_tracks(rig, 30)
     pg = browser.new_page(viewport={"width": width, "height": height})
     pg.goto(rig.url + "/app/#song")
     pg.wait_for_selector("#lanes .lane")
@@ -221,9 +216,9 @@ def test_the_song_never_scrolls_and_its_lanes_fit_or_are_paged(browser, song_rig
     assert small == 0 and pg.evaluate(SCROLLERS, "#app") == []
 
 
-def test_a_short_arrangement_shows_every_lane_with_no_paging(browser, song_rig):  # noqa: F811
-    pg = browser.new_page(viewport={"width": 390, "height": 844})
-    pg.goto(song_rig.rig.url + "/app/#song")
+def test_a_short_arrangement_shows_every_lane_with_no_paging(browser, rig):
+    pg = browser.new_page(viewport={"width": 1200, "height": 800})
+    pg.goto(rig.url + "/app/#song")
     pg.wait_for_selector("#lanes .lane")
     assert (
         pg.locator("#lanepgs").is_hidden()

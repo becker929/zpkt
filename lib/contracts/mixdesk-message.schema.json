@@ -3,6 +3,21 @@
   "$id": "https://github.com/becker929/zpkt/lib/contracts/mixdesk-message.schema.json",
   "description": "The mix desk's messages: what the pager (inside Live) sends the server as UDP datagrams, and what the server streams to the page as server-sent events. Generated from contrib/mixdesk/protocol.py by contrib/mixdesk/gen_schema.py; do not edit by hand.",
   "$defs": {
+    "ArrangementMessage": {
+      "description": "The arrangement changed in Live (a clip or a locator came, went or moved): what the app read of it is stale.",
+      "properties": {
+        "t": {
+          "const": "arr",
+          "title": "T",
+          "type": "string"
+        }
+      },
+      "required": [
+        "t"
+      ],
+      "title": "ArrangementMessage",
+      "type": "object"
+    },
     "DeskMessage": {
       "description": "The pages changed (a surface made or removed): load /api/desk again and open page `open`.",
       "properties": {
@@ -500,6 +515,9 @@
     },
     {
       "$ref": "#/$defs/FlagsMessage"
+    },
+    {
+      "$ref": "#/$defs/ArrangementMessage"
     },
     {
       "$ref": "#/$defs/FullMessage"

@@ -63,6 +63,7 @@ EFFECTS: dict[str, Effect] = {
     "history.revert": "move",
     "history.back": "move",
     "meter.install": "move",
+    "arrangement.read": "read",
     # the jobs (zpkt.app.jobs)
     "live.run": "move",
     "live.read": "read",

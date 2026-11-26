@@ -151,6 +151,7 @@ _REDUCERS: dict[str, Callable[[DeskState, Any, float], DeskState]] = {
     "hw": _hardware,
     "pad": _pad,
     "flags": _flags,
+    "arr": lambda state, m, now: state,  # nothing of the arrangement is in the state: the desk reads it when asked
 }
 assert set(_REDUCERS) == set(P.PAGER_KINDS), "every pager message kind has a reducer"
 
@@ -210,6 +211,54 @@ def flag_changes(before: Mapping[str, Any], after: Mapping[str, Any]) -> list[tu
         was, now = set(before.get(flag) or []), set(after.get(flag) or [])
         out += [(f"{name}/{flag}", name in now) for name in sorted(was ^ now)]
     return out
+
+
+def colour(value: Any) -> str:
+    """Live's colour (0xRRGGBB as a number) as "#rrggbb"; "" when Live gave none."""
+    try:
+        return f"#{int(value) & 0xFFFFFF:06x}" if int(value) else ""
+    except (TypeError, ValueError):
+        return ""
+
+
+def arrangement_view(read: Mapping[str, Any], set_name: str, per_bar: float) -> dict[str, Any]:
+    """The song in Live as the page draws it, from the pager's read: one lane per track, its arrangement clips as
+    regions in beats, the locators, and how many bars it all spans. A region has an id that holds while it stays
+    where it is ("t3@16": track 3, starting at beat 16), so it can be edited by id later."""
+    tracks = []
+    end = float(read.get("length") or 0.0)
+    for t in read.get("tracks", []):
+        regions = []
+        for start, stop, name, color, muted in t.get("clips", []):
+            regions.append(
+                {
+                    "id": f"t{t['i']}@{float(start):g}",
+                    "start": float(start),
+                    "end": float(stop),
+                    "name": str(name),
+                    "color": colour(color) or colour(t.get("color")),
+                    "muted": bool(muted),
+                }
+            )
+            end = max(end, float(stop))
+        tracks.append(
+            {
+                "id": f"t{t['i']}",
+                "name": str(t.get("name", "")),
+                "color": colour(t.get("color")),
+                "muted": bool(t.get("mute")),
+                "regions": regions,
+            }
+        )
+    locators = [{"beat": float(b), "name": str(n)} for b, n in read.get("cues", [])]
+    per = per_bar or 4.0
+    return {
+        "set": set_name,
+        "beats_per_bar": per,
+        "bars": max(1, -int(-end // per)) if end else 0,
+        "tracks": tracks,
+        "locators": locators,
+    }
 
 
 def song_facts(state: Mapping[str, Any]) -> dict[str, Any]:
