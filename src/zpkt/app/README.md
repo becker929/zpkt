@@ -409,6 +409,11 @@ pages (`contrib/mixdesk/desk.json`) and a made surface.
   `monitor_tracks.placed_beat`): a call takes Live a few hundred milliseconds to get to, so the switch is heard
   that much after the press, but nothing is heard in between. It does not wait for the next bar line: the app
   cannot time a call into Live that finely.
+- **After the phone walk** (26 November 2026): on the Song a tap on a lane chooses its track, and a strip under the
+  lanes names it with a Solo and a Mute key (`#songsel`, `mix.set` on `TRACK/solo` and `TRACK/mute`); a tap on the
+  lit B of a checkpoint lets the pin go (`monitor.pin` with `clear`); Play, Stop and the A / B / C keys pulse from
+  the press until Live has answered (`asked`); in the list one tap on a row's number types it; the version saved
+  before a batch reads "Before the assistant's change" or "Before a batch" (`cpLabel`).
 - **Compare is in the play bar** (26 November 2026): the keys A, B and C (`#abc`, `monitor.hear` now, pin, ref). A is
   the mix now, B the pinned mix, C the reference. History has a B key on each checkpoint (`monitor.pin` with `name`)
   that chooses it as the pinned mix; until one is chosen B is the mix as the desk first saw it.

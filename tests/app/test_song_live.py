@@ -130,3 +130,39 @@ def test_the_song_tab_shows_lives_tracks_and_regions_under_the_ruler(browser, ri
     rig.send({"t": "pos", "b": 80.0, "p": True, "bpm": 127.5})  # the tempo follows Live
     pg.wait_for_function("document.querySelector('#songtempo').textContent === '127.5 · 4/4'")
     assert errors == []
+
+
+def test_a_tap_on_a_lane_chooses_the_track_and_its_solo_and_mute_keys_work_on_a_phone(browser, rig):
+    """The cold-user walk, 26 November 2026: on the phone the Song had no way to mute a track. A tap on a lane chooses
+    its track; the strip under the lanes names it and has Solo and Mute keys a finger hits. Nothing scrolls."""
+    pg = browser.new_page(viewport={"width": 375, "height": 812})
+    errors: list[str] = []
+    pg.on("pageerror", lambda e: errors.append(str(e)))
+    pg.goto(rig.url + "/app/#song")
+    pg.wait_for_selector("#lanes .lane .rg")
+    assert pg.locator("#songsel").is_hidden()  # no track chosen: no strip
+    lane = pg.locator("#lanes .lane").first
+    name = lane.get_attribute("data-name")
+    track = next(t for t in rig.live.song.tracks if t.name == name)
+    lane.locator(".tr").click()  # anywhere on the lane
+    pg.wait_for_selector("#songsel [data-songflag]")
+    assert "sel" in lane.get_attribute("class") and pg.locator("#songsel .sn").inner_text() == name
+    for flag in ("solo", "mute"):
+        key = pg.locator(f'#songsel [data-songflag="{flag}"]')
+        box = key.bounding_box()
+        assert box["height"] >= 43.9 and box["width"] >= 43.9
+        key.click()
+        wait_for(lambda flag=flag: getattr(track, flag) is True)
+        pg.wait_for_selector(f'#songsel [data-songflag="{flag}"][aria-pressed="true"]')
+        pg.wait_for_selector(f"#flags .chip.{flag}")  # the play bar says it too
+        pg.locator(f'#songsel [data-songflag="{flag}"]').click()
+        wait_for(lambda flag=flag: getattr(track, flag) is False)
+        pg.wait_for_selector(f'#songsel [data-songflag="{flag}"][aria-pressed="false"]')
+    pg.locator('#songsel [data-songflag="mute"]').click()
+    pg.wait_for_selector("#lanes .lane.sel.muted")  # the lane shows it
+    pg.locator('#songsel [data-songflag="mute"]').click()
+    pg.wait_for_selector("#lanes .lane.sel:not(.muted)")
+    assert pg.evaluate("document.documentElement.scrollHeight <= innerHeight")  # still no scrolling
+    lane.locator(".tr").click()  # a second tap lets the track go
+    pg.wait_for_function("document.querySelector('#songsel').innerHTML === ''")
+    assert errors == []

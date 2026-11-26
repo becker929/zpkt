@@ -53,6 +53,9 @@ svg{display:block}
 .chip.solo{border-color:var(--pind)}.chip.solo>b{background:var(--pin);color:#fff}
 .chip.mute{border-color:var(--bad)}.chip.mute>b{background:var(--bad);color:var(--bg)}
 .chip.going{opacity:.4}
+.key.ask{animation:key-ask .5s ease-in-out infinite alternate}
+@keyframes key-ask{from{box-shadow:inset 0 0 0 2.5px var(--ink)}to{box-shadow:inset 0 0 0 2.5px transparent}}
+@media (prefers-reduced-motion:reduce){.key.ask{animation:none;box-shadow:inset 0 0 0 2.5px var(--ink)}}
 #flagpop{position:absolute;z-index:40;right:8px;bottom:120px;width:min(300px,calc(100% - 16px));background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:8px;display:flex;flex-direction:column;gap:6px;box-shadow:var(--shadow)}
 #flagpop[hidden]{display:none}
 #flagpop .chip{max-width:none;justify-content:flex-start}#flagpop .chip>span{flex:1;text-align:left}
@@ -237,6 +240,13 @@ svg{display:block}
 .lane .tr .rg span{display:block;font:9.5px/1 ui-monospace,Menlo,monospace;color:var(--ink);padding:2px 3px;white-space:nowrap;overflow:hidden}
 .lane .tr .rg.muted,.lane.muted .tr .rg{opacity:.35}
 .lane.muted .ln{text-decoration:line-through}
+.lane{cursor:pointer}.lane.sel .ln{color:var(--ink);font-weight:700}.lane.sel .tr{outline:1.5px solid var(--ink);outline-offset:-1.5px}
+.lane.soloed .ln{color:var(--pind)}
+#songsel{display:flex;align-items:center;gap:8px;min-height:44px}#songsel:empty{display:none}
+#songsel .sn{flex:1;min-width:0;display:flex;align-items:center;gap:6px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;font-size:14px}
+#songsel .sn .cd{display:inline-block;width:10px;height:10px;border-radius:50%;flex:none}
+#songsel .sf{height:44px;min-width:56px;font:700 15px ui-monospace,Menlo,monospace}
+#songsel .sf.solo.on{background:var(--pin);border-color:var(--pind);color:#fff}#songsel .sf.mute.on{background:var(--bad);border-color:var(--bad);color:var(--bg)}
 .lane .ln .cd{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:4px;vertical-align:1px}
 .ruler .rt .sec span{position:absolute;left:4px;top:-13px;font:10px ui-monospace,Menlo,monospace;color:var(--ink);font-style:normal;white-space:nowrap}
 .lane .tr b{position:absolute;top:0;bottom:0;width:2px;background:var(--pin)}
@@ -347,10 +357,10 @@ select{font:inherit;color:inherit;background:var(--panel);border:1px solid var(-
 "use strict";
 const $ = s => document.querySelector(s);
 const I = n => `<svg width="22" height="22"><use href="#i-${n}"/></svg>`;
-const S = {state: null, desk: null, hear: {hearing: "now", changed: 0, keys: [], match: true, monitor: {slot: "W", ref: "C1"}, pin: "start"},
+const S = {state: null, desk: null, asked: {}, hear: {hearing: "now", changed: 0, keys: [], match: true, monitor: {slot: "W", ref: "C1"}, pin: "start"},
            hist: {entries: [], can_undo: false, can_redo: false}, meter: null, sheet: false, flash: {},
            layouts: {},
-           tab: "desk", song: {view: null, loaded: false}, page: null,
+           tab: "desk", song: {view: null, loaded: false, sel: null}, page: null,
            pend: null, busy: 0, want: null,
            scales: {}, slots: [], fixed: {}, dirty: false, sideAt: null, saving: null, meterAt: 0, cmpAt: null,
            face: "k", faces: 1, songAt: 0, histAt: 0, histFit: 0, sideAt2: null, flagAt: 0, opening: null, histSel: null, daysOpen: {}, flagOpen: null, flagGone: {}, mjob: null, setJob: null, openName: "",
@@ -546,14 +556,14 @@ function renderBottom() {
   // each group is drawn only when it changes, so Play is the same button while Undo's words come and go
   // Play (from where the playhead is: the start, after Stop) or Pause; Stop goes back to the start; then what loops.
   const spans = st.loops || {}, key = (name, label, words) => `<button class="key sm ${st.loop === name ? "on" : ""}" data-loop="${name}" aria-pressed="${st.loop === name}" aria-label="Loop ${words}" ${spans[name] ? "" : "disabled"}>${label}</button>`;
-  setHtml($("#tgrp"), `<button class="key ${st.playing ? "on" : ""}" id="kplay" aria-label="${st.playing ? "Pause" : "Play"}">${I(st.playing ? "pause" : "play")}</button>
-    <button class="key sm" id="kstop" aria-label="Stop and go back to the start">${I("stop")}</button>
+  setHtml($("#tgrp"), `<button class="key ${st.playing ? "on" : ""} ${S.asked.play ? "ask" : ""}" id="kplay" aria-busy="${!!S.asked.play}" aria-label="${st.playing ? "Pause" : "Play"}">${I(st.playing ? "pause" : "play")}</button>
+    <button class="key sm ${S.asked.stop ? "ask" : ""}" id="kstop" aria-busy="${!!S.asked.stop}" aria-label="Stop and go back to the start">${I("stop")}</button>
     <div class="seg" id="loops" role="group" aria-label="Loop"><span class="key sm" aria-hidden="true" style="min-width:0;padding:0 6px;cursor:default"><svg width="15" height="15"><use href="#i-loop"/></svg></span>${key("whole", "All", "the whole song")}${key("build", "Start", "the beginning")}${key("drop", "Peak", "the peak")}</div>`);
   setHtml($("#flags"), flagsHtml());
   // Compare, in the play bar: A is the mix now, B the pinned mix (a checkpoint chosen in History, else the mix as the
   // desk first saw it), C the reference. One of them is heard.
   const hr = S.hear, pinName = hr.pin === "start" ? "the mix as it was first" : hr.pin === "pin" ? "the pinned mix" : cpLabel(hr.pin, baseAt(hr.pin));
-  const ab = (what, letter, words, ok) => `<button class="key sm ${hr.hearing === what ? "on" : ""}" data-hear="${what}" aria-pressed="${hr.hearing === what}" aria-label="${esc(words)}" ${ok ? "" : "disabled"}>${letter}</button>`;
+  const ab = (what, letter, words, ok) => `<button class="key sm ${hr.hearing === what ? "on" : ""} ${S.asked["hear:" + what] ? "ask" : ""}" data-hear="${what}" aria-pressed="${hr.hearing === what}" aria-busy="${!!S.asked["hear:" + what]}" aria-label="${esc(words)}" ${ok ? "" : "disabled"}>${letter}</button>`;
   setHtml($("#abgrp"), `<div class="seg" id="abc" role="group" aria-label="Compare">${ab("now", "A", "A: the mix now", true)}${ab("pin", "B", "B: " + pinName, true)}${ab("ref", "C", "C: the reference", Object.keys(st.gains || {}).length > 0)}</div>`);
   setHtml($("#hgrp"), `<button class="key sm ${S.hist.can_undo ? "" : "off"}" id="kundo" aria-label="Undo${esc(said(u))}" ${S.hist.can_undo ? "" : "disabled"}>${I("undo")}</button>
     <button class="key sm ${S.hist.can_redo ? "" : "off"}" id="kredo" aria-label="Redo${esc(said(r))}" title="${esc(r ? `${r.label} ${r.value}` : "")}" ${S.hist.can_redo ? "" : "disabled"}>${I("redo")}</button>
@@ -1157,6 +1167,9 @@ function cpLabel(name, at) {
   if (/^start-\d{8}-\d{4}$/.test(name)) return "Start of session" + (when ? ", " + when : "");
   if (/^(v|cp-)\d{6}$/.test(name) || name === "pin") return when || "Checkpoint";
   if (/^before-revert-\d{6}$/.test(name)) return "Before going back" + (when ? ", " + when : "");
+  // the version saved before a batch of changes (live.change, live.propose): by the assistant in a chat, or by a caller
+  if (/^before-ask-.+-\d{6}$/.test(name)) return "Before the assistant’s change" + (when ? ", " + when : "");
+  if (/^before-[a-z]+-live-[a-z]+-\d+-\d{6}$/.test(name)) return "Before a batch" + (when ? ", " + when : "");
   if ((m = /^before-(.+)-\d{6}$/.exec(name))) return `Before “${m[1].replace(/-+/g, " ")}”`;
   return name;
 }
@@ -1313,7 +1326,7 @@ document.addEventListener("pointerdown", e => {
   const n0 = +el.dataset.n || 0;
   if (!OWN[el.dataset.key]) el.dataset.n0 = n0;
   drag = {key: el.dataset.key, el, x: e.clientX, y: e.clientY, at: n0, n: n0, steps: +el.dataset.steps, lock: null,
-          finger: e.pointerType === "touch", group: gestureId(),
+          finger: e.pointerType === "touch", group: gestureId(), onValue: !!e.target.closest(".mc.live.ed .v"),
           // in the list a row is moved sideways, over its own width; on the map a control is moved up and down
           ax: S.view === "list" ? "x" : "y", travel: S.view === "list" ? Math.max(140, el.clientWidth) : TRAVEL};
   drag.last = along(e); drag.seen = [[e.timeStamp, drag.last]];
@@ -1358,7 +1371,8 @@ function endTouch(e, cancelled) {
   drag = swipe = null;
   if (d) {
     bubbleOff();
-    if (d.lock === "x" && !cancelled) swiped(e.clientX - d.x, e.clientY - d.y);
+    if (!d.lock && !cancelled && d.onValue) typeValue(d.el);  // a tap on a row's number, with no move: type it (the row took the press)
+    else if (d.lock === "x" && !cancelled) swiped(e.clientX - d.x, e.clientY - d.y);
     else if (d.lock === "y") { settle(d.key); if (d.ax === "x") swipedAt = Date.now(); }  // a row that was moved is not a tap on its number  // the last place is sent or on its way: Live's report now counts
     if (S.dirty) renderDesk();
   } else if (s && !cancelled) swiped(e.clientX - s.x, e.clientY - s.y);
@@ -1709,7 +1723,7 @@ function renderSong() {
   const at = b => (b / beats * 100).toFixed(2);
   const dot = c => c ? `<i class="cd" style="background:${esc(c)}"></i>` : "";
   const sg = songOf(), facts = [sg.tempo ? `${+(+sg.tempo).toFixed(2)}` : "", sg.sig ? `${sg.sig[0]}/${sg.sig[1]}` : ""].filter(Boolean).join(" · ");
-  const lanes = v ? v.tracks.filter(t => t.regions.length).map(t => `<div class="lane ${t.muted ? "muted" : ""}" data-track="${esc(t.id)}"><span class="ln" title="${esc(t.name)}">${dot(t.color)}${esc(t.name)}</span><div class="tr">${
+  const lanes = v ? v.tracks.filter(t => t.regions.length).map(t => `<div class="lane ${laneFlag(t, "mute") ? "muted" : ""} ${laneFlag(t, "solo") ? "soloed" : ""} ${S.song.sel === t.name ? "sel" : ""}" data-track="${esc(t.id)}" data-name="${esc(t.name)}"><span class="ln" title="${esc(t.name)}">${dot(t.color)}${esc(t.name)}</span><div class="tr">${
     t.regions.map(r => `<i class="rg ${r.muted ? "muted" : ""}" data-region="${esc(r.id)}" title="${esc(r.name)}" style="left:${at(r.start)}%;width:${at(r.end - r.start)}%;${r.color ? `--c:${esc(r.color)}` : ""}"><span>${esc(r.name)}</span></i>`).join("")}</div></div>`).join("") : "";
   // The ruler: a number every 8 bars and at every locator, the locators' names, the loop, the playhead.
   const locs = (v && v.locators) || [], every = bars > 64 ? 16 : 8;
@@ -1719,8 +1733,37 @@ function renderSong() {
   const ruler = v ? `<div class="ruler" id="ruler"><span class="ln" id="songtempo" title="Tempo (BPM) and time signature">${facts}</span><div class="rt" role="img" aria-label="Bars 1 to ${bars}${locs.length ? ". " + locs.map(x => `${x.name || "Locator"} at bar ${Math.floor(x.beat / per) + 1}`).join(", ") : ""}">${
     numbered.map(b => `<i class="bn" style="left:${at(b * per)}%">${b + 1}</i>`).join("")}${
     spans.map((x, k) => `<i class="sec s${k % 2}" data-locator="${esc(x.name)}" style="left:${at(x.from)}%;width:calc(${at(Math.min(beats, x.to) - x.from)}% - 2px)" title="${esc(x.name)}"><span>${esc(x.name)}</span></i>`).join("")}<span id="songloop"></span></div></div>` : "";
-  $("#song").innerHTML = `<div id="lanes" data-bars="${bars}">${ruler}${lanes || '<div class="tag" id="nolanes">No tracks</div>'}<div class="pgs" id="lanepgs" role="group" aria-label="More tracks" hidden><button class="key sm" type="button" data-songstep="-1" aria-label="Tracks before"><svg class="back" width="18" height="18"><use href="#i-more"/></svg></button><span class="pgn" id="lanepgn"></span><button class="key sm" type="button" data-songstep="1" aria-label="Tracks after"><svg width="18" height="18"><use href="#i-more"/></svg></button></div><div id="songhead" hidden></div></div>`;
-  updateSongMarks(); fitSong();
+  $("#song").innerHTML = `<div id="lanes" data-bars="${bars}">${ruler}${lanes || '<div class="tag" id="nolanes">No tracks</div>'}<div class="pgs" id="lanepgs" role="group" aria-label="More tracks" hidden><button class="key sm" type="button" data-songstep="-1" aria-label="Tracks before"><svg class="back" width="18" height="18"><use href="#i-more"/></svg></button><span class="pgn" id="lanepgn"></span><button class="key sm" type="button" data-songstep="1" aria-label="Tracks after"><svg width="18" height="18"><use href="#i-more"/></svg></button></div><div id="songhead" hidden></div></div><div id="songsel" role="group" aria-label="The chosen track"></div>`;
+  renderSongSel(); updateSongMarks(); fitSong();
+}
+// A track's solo or mute, as Live last reported it (the desk's flags); the song's own reading until then.
+function laneFlag(t, flag) {
+  const on = S.state && S.state[flag];
+  return on ? on.includes(t.name) : flag === "mute" && !!t.muted;
+}
+// A tap on a lane chooses its track: the strip under the lanes names it and holds its Solo and Mute keys, at a size
+// a finger hits (the lanes are too low for keys of their own). A second tap on the lane lets it go.
+function renderSongSel() {
+  const box = $("#songsel"), v = S.song.view, t = v && v.tracks.find(x => x.name === S.song.sel);
+  if (!box) return;
+  if (!t) { S.song.sel = null; return setHtml(box, ""); }
+  const key = (flag, letter, word) => `<button class="key sm sf ${flag} ${laneFlag(t, flag) ? "on" : ""}" type="button" data-songflag="${flag}" aria-pressed="${laneFlag(t, flag)}" aria-label="${word} ${esc(t.name)}">${letter}</button>`;
+  setHtml(box, `<span class="sn">${t.color ? `<i class="cd" style="background:${esc(t.color)}"></i>` : ""}<b>${esc(t.name)}</b></span>${key("solo", "S", "Solo")}${key("mute", "M", "Mute")}`);
+}
+function pickLane(name) {
+  S.song.sel = S.song.sel === name ? null : name;
+  document.querySelectorAll("#lanes .lane").forEach(el => el.classList.toggle("sel", el.dataset.name === S.song.sel));
+  renderSongSel(); fitSong();
+}
+// Solo or mute the chosen track. The key and the lane show it at once; Live's report (the flags) settles it.
+async function songFlag(flag) {
+  const name = S.song.sel, st = S.state;
+  if (!name || !st) return;
+  const was = (st[flag] || []).slice(), on = !was.includes(name);
+  st[flag] = on ? [...was, name] : was.filter(x => x !== name);
+  renderSong(); renderBottom();
+  const r = await command("mix.set", {writes: [[`${name}/${flag}`, on ? 1 : 0, on ? "on" : "off"]]});
+  if (!r.ok) { st[flag] = was; renderSong(); renderBottom(); }
 }
 // The lanes fit the height that is left; when 14 px each is still too much, they are shown a part at a time, with
 // the ruler above every part. Nothing scrolls.
@@ -1763,11 +1806,19 @@ function showHistory() {
 }
 // History drawn again though nothing in it changed (another part of it is asked for, or its box has another size).
 function redrawHist() { for (const id of ["#histdock", "#sheet"]) $(id).__html = null; renderHist(); }
+// A press on a transport or a compare key shows at once: the key pulses until Live has answered (a call takes Live
+// up to a second or two to get to, and until then nothing else on the page would move).
+async function asked(id, work) {
+  if (S.asked[id]) return;
+  S.asked[id] = true; renderBottom();
+  try { return await work(); } finally { delete S.asked[id]; renderBottom(); }
+}
 // A tap on a step of the history marks it as the point to go back to (and shows the button that does it).
 function pickRow(id) { S.histSel = S.histSel === id ? null : id; renderHist(); }
 document.addEventListener("click", async e => {
   const t = e.target.closest("button");
-  if (!t) { const row = e.target.closest(".he.row"); if (row) pickRow(+row.dataset.row); return; }
+  if (!t) { const row = e.target.closest(".he.row"), lane = e.target.closest("#lanes .lane"); if (row) pickRow(+row.dataset.row); else if (lane) pickLane(lane.dataset.name); return; }
+  if (t.dataset.songflag) return songFlag(t.dataset.songflag);
   if (t.dataset.t) return go(t.dataset.t);
   if (t.id === "slowretry") return armPage(+t.dataset.retry);
   if (t.id === "slowclose") return slowSay("", null);
@@ -1793,8 +1844,8 @@ document.addEventListener("click", async e => {
   if (t.dataset.face) { S.face = t.dataset.face; drawPager(); return fitPanel(); }
   if (t.id === "viewsw") { S.view = t.dataset.view; try { localStorage.setItem("zpkt.view", S.view); } catch (err) { /* private mode */ } drawPager(); return fitPanel(); }
   if (t.dataset.page !== undefined) return armPage(+t.dataset.page);
-  if (t.id === "kplay") return command("transport", {action: S.state.playing ? "pause" : "play"});
-  if (t.id === "kstop") return command("transport", {action: "stop"});
+  if (t.id === "kplay") return asked("play", () => command("transport", {action: S.state.playing ? "pause" : "play"}));
+  if (t.id === "kstop") return asked("stop", () => command("transport", {action: "stop"}));
   if (t.dataset.loop) {  // the lit key again turns looping off; shown at once, Live's report settles it
     const to = S.state.loop === t.dataset.loop ? "off" : t.dataset.loop, was = S.state.loop;
     // While the command is on its way Live reports each step of it (the brace's start, its length, the switch): the
@@ -1809,8 +1860,8 @@ document.addEventListener("click", async e => {
     }
     return;
   }
-  if (t.dataset.hear) return command("monitor.hear", {hearing: t.dataset.hear});
-  if (t.dataset.pinb) return command("monitor.pin", {name: t.dataset.pinb});
+  if (t.dataset.hear) return asked("hear:" + t.dataset.hear, () => command("monitor.hear", {hearing: t.dataset.hear}));
+  if (t.dataset.pinb) return command("monitor.pin", S.hear.pin === t.dataset.pinb ? {clear: true} : {name: t.dataset.pinb});  // a tap on the lit B lets it go
   if (t.id === "kundo" || t.id === "hundo") return stepHistory("undo");
   if (t.id === "kredo" || t.id === "hredo") return stepHistory("redo");
   if (t.id === "khist") return showHistory();
@@ -1864,6 +1915,7 @@ function apply(m) {
   else if (m.t === "flags" && S.state) {
     S.state.solo = m.solo; S.state.mute = m.mute;
     for (const key of Object.keys(S.flagGone)) { const [track, flag] = [key.slice(0, key.lastIndexOf("/")), key.slice(key.lastIndexOf("/") + 1)]; if (!(S.state[flag] || []).includes(track)) delete S.flagGone[key]; }
+    if (S.song.view && !$("#song").hidden) renderSong();
     return renderBottom();
   }
   else if (m.t === "v" && S.state) {

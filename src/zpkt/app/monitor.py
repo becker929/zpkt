@@ -221,6 +221,14 @@ class Monitor:
             self._pin_name = name
         self.desk.push_app(self.message())
 
+    def unpin(self) -> None:
+        """Let the Pin go: B is the mix as the desk first saw it again. Now comes back first if the Pin was heard."""
+        self._leave_pin()
+        with self._lock:
+            self._pin = None
+            self._pin_name = None
+        self.desk.push_app(self.message())
+
     def hear(self, what: str) -> None:
         """Hear Now, the Pin or the Reference (the last one is the monitor's slot C)."""
         if what not in HEARINGS:

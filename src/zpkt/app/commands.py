@@ -296,7 +296,11 @@ def monitor_hear(desk: Desk, cmd: Command) -> Reply:
 
 
 def monitor_pin(desk: Desk, cmd: Command) -> Reply:
-    """Set the mix as it is now aside as the Pin, or with `name` choose that checkpoint as the Pin (B)."""
+    """Set the mix as it is now aside as the Pin, or with `name` choose that checkpoint as the Pin (B); with `clear`
+    let the Pin go (B is the mix as first seen again)."""
+    if cmd.args.get("clear") is True:
+        desk.monitor.unpin()
+        return 200, {"ok": True, "hear": desk.monitor.message()}
     name = _str(cmd.args, "name", "")
     if name:
         try:
