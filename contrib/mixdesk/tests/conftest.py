@@ -182,6 +182,7 @@ def settings(tmp: Path, live_port: int | None) -> Any:
         history_dir=tmp / "hist",
         checkpoints_dir=tmp / "state",
         surfaces_dir=tmp / "surfaces",
+        pages_dir=tmp / "pages",  # never the rig's own folder: the desk reads the surfaces' order and archive there
     )
 
 
