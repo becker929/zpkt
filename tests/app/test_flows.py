@@ -35,6 +35,8 @@ def page(rig):
 
 
 def drag(pg, slot: str, dy: float) -> None:
+    if not pg.locator(f'.ctl[data-slot="{slot}"] .w').is_visible():  # a phone shows one face of the map at a time
+        pg.click(f'#faces [data-face="{"f" if slot[0] == "f" or slot in ("b5", "b6", "b7", "b8") else "k"}"]')
     box = pg.locator(f'.ctl[data-slot="{slot}"] .w').bounding_box()
     x, y = box["x"] + box["width"] / 2, box["y"] + box["height"] / 2
     pg.mouse.move(x, y)
@@ -53,6 +55,32 @@ def test_flow_1_mix_drag_a_control_and_live_moves(rig, page):
     assert rig.desk.history.cur[key][1] != before  # Live moved
     assert page.locator(f'.ctl[data-slot="{slot}"]').get_attribute("class").count("chg") == 1  # the lime dot
     assert rig.desk.history.entries[-1]["who"] == "you"
+
+
+def test_the_list_view_names_each_control_in_a_row_and_a_row_is_moved_sideways(rig, page):
+    """A phone away from the MiniLab reads the list (26 November 2026): a row per knob and fader, moved sideways. The
+    control in hand says what it is in the head; a touch on that readout brings the title back."""
+    slot, key, _ = first_control(rig, "k")
+    page.click("#viewsw")
+    assert page.locator("#panel").get_attribute("data-view") == "list"
+    row = page.locator(f'.ctl[data-slot="{slot}"]')
+    box = row.bounding_box()
+    assert (
+        box["width"] > 250 and row.locator(".num").inner_text() == slot[1:]
+    )  # a row as wide as the map, with its knob number
+    before = rig.desk.history.cur[key][1]
+    x, y = box["x"] + box["width"] / 2, box["y"] + box["height"] / 2
+    page.mouse.move(x, y)
+    page.mouse.down()
+    assert page.locator("#readout #rdname").inner_text() and row.get_attribute("class").count("foc") == 1
+    page.mouse.move(x + 60, y, steps=6)
+    page.mouse.up()
+    page.wait_for_function("window.zpkt.S.hear.changed === 1")
+    assert rig.desk.history.cur[key][1] > before  # to the right is up
+    page.locator("#readout .rdn").click()
+    assert page.locator("#pagename").count() == 1 and page.locator("#readout").count() == 0
+    page.click("#viewsw")
+    assert page.locator("#panel").get_attribute("data-view") == "map"
 
 
 def test_the_hear_bar_has_no_now_pin_or_ref(rig, page):

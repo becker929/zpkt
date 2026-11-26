@@ -269,6 +269,13 @@ A Page is what an agent writes for "I want to change this": groups of controls w
 controller pages look like the controller). One renderer draws them all: a saved Page, the mix desk's own MiniLab
 pages (`contrib/mixdesk/desk.json`) and a made surface.
 
+- **Labels are for a phone** (26 November 2026). A group's caption is written once over its run of slots, without
+  what every group of the panel starts with ("Before fuzz: "). The control in hand (touched on the page, or turned
+  on the MiniLab) says its target in Live, its name and its value in the page's head; a touch on that readout brings
+  the title back. A switch in the pager (`#viewsw`, kept in `localStorage` as `zpkt.view`) shows the same slots as
+  a **list**: a row per mapped knob and fader with its number on the controller, its group and name in full and its
+  value, moved sideways; unmapped slots are left out and the pads stay keys. The map is the default. Where the
+  larger text does not fit, the map shows one face at a time before it makes the text small (`.dense`).
 - **All 20 slots are always drawn, each in its physical place**: knobs 1–4 over 5–8, the four faders to their right,
   the 8 pads in one row below. Where 8 columns of 44 px targets do not fit (the panel's own box is 440 px or less: a
   phone, and a 768 px tablet beside the Hear bar) it folds in half: knobs over pads 1–4, then faders over pads 5–8.

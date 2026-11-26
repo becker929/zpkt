@@ -145,3 +145,8 @@
 .mlp[data-view="list"] .mc.pad .w{height:32px}
 /* the control in hand (the page's head says what it is) */
 .mc.foc:not(.pad){box-shadow:0 0 0 2px var(--zs)}
+/* .dense (set by the page where nothing else fits, a very short screen): the text gives way before anything scrolls */
+.mlp.dense .mc .g{font-size:9.5px;line-height:12px;height:12px}
+.mlp.dense .mc .v{font-size:12px;line-height:16px;height:16px}
+.mlp.dense .mc .l{font-size:11px;line-height:13px;height:13px}
+.mlp.dense .mc.pad .w{font-size:11px}

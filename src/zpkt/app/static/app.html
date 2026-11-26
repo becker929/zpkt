@@ -933,7 +933,9 @@ function fitPanel() {
   const folded = getComputedStyle(p).gridTemplateColumns.trim().split(/\s+/).length === 1;
   let faces = 1;
   set(false, 1);
+  p.classList.remove("dense");
   if (over()) { set(true, 1); if (over() && folded) { faces = 2; set(false, 2); if (over()) set(true, 2); } }
+  if (over()) p.classList.add("dense");  // the last resort, on a very short screen: small text
   if (S.faces !== faces) { S.faces = faces; drawPager(); }
 }
 const FIT = window.ResizeObserver ? new ResizeObserver(() => fitPanel()) : null;
