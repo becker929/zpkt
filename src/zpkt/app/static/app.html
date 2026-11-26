@@ -91,10 +91,17 @@ svg{display:block}
 #song>*{flex:none}
 .ph2{display:flex;align-items:center;gap:8px;min-height:26px;flex-wrap:wrap}
 .ph2 b{font-size:17px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-#desk .ph2{flex-wrap:nowrap}
+#desk .ph2{flex-wrap:nowrap;min-height:44px}
+#desk .ph2.rd{background:linear-gradient(to right,var(--acc) calc(var(--n,0)*100%),var(--hair) 0) left bottom/100% 3px no-repeat}
+.rd .rdn{flex:1 1 0;min-width:0;display:flex;flex-direction:column;justify-content:center}
+.rd .rdp{font:12px/15px ui-monospace,Menlo,monospace;color:var(--mute);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#desk .rd b{font-size:18px;line-height:23px;min-width:0}
+.rd #rdv{flex:none;font:600 22px/26px ui-monospace,Menlo,monospace;color:var(--ink);white-space:nowrap}
 #desk .ph2 b{flex:0 1 auto;min-width:48px}
 #desk .ph2 .tag{flex:0 10 auto;min-width:0;overflow:hidden;text-overflow:ellipsis}
 #desk .ph2 .pill{flex:none}
+#desk .ph2 .tag.pre{flex:none;color:var(--ink);font-size:13px}
+@media (max-width:699px){#desk .ph2 .tag.pre{display:none}}  /* a phone: the title keeps the room; a touched control says its whole name */
 #mlpages{margin-left:auto;flex:none;flex-wrap:nowrap;gap:4px}
 /* the paging row: the page before, which page of how many, the page after; and the map's face where it has two */
 .dots .pgn{font:600 13px ui-monospace,Menlo,monospace;min-width:52px;text-align:center;white-space:nowrap}
@@ -280,6 +287,8 @@ select{font:inherit;color:inherit;background:var(--panel);border:1px solid var(-
 <symbol id="i-power" viewBox="0 0 24 24"><path d="M12 3v9M6.3 6.8a8 8 0 1 0 11.4 0" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></symbol>
 <symbol id="i-knob" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="2.2"/><path d="M12 12l4-5" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></symbol>
 <symbol id="i-fader" viewBox="0 0 24 24"><path d="M12 3v18" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/><rect x="6" y="8" width="12" height="6" rx="2" fill="currentColor"/></symbol>
+<symbol id="i-list" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="4.4" rx="1.6" fill="currentColor"/><rect x="3" y="9.8" width="18" height="4.4" rx="1.6" fill="currentColor"/><rect x="3" y="15.6" width="18" height="4.4" rx="1.6" fill="currentColor"/></symbol>
+<symbol id="i-map" viewBox="0 0 24 24"><circle cx="7" cy="7" r="3.4" fill="currentColor"/><circle cx="17" cy="7" r="3.4" fill="currentColor"/><circle cx="7" cy="17" r="3.4" fill="currentColor"/><circle cx="17" cy="17" r="3.4" fill="currentColor"/></symbol>
 <symbol id="i-more" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></symbol>
 <symbol id="i-org" viewBox="0 0 24 24"><path d="M4 7h11M4 12h16M4 17h13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/><circle cx="18" cy="7" r="2" fill="currentColor"/></symbol>
 <symbol id="i-edit" viewBox="0 0 24 24"><path d="M4 20h4l10-10-4-4L4 16v4zM13 7l4 4" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"/></symbol>
@@ -326,6 +335,7 @@ function toast(msg) { const t = $("#toast"); t.textContent = msg; t.classList.ad
 // A command to the app. It always answers {ok, body}: a refusal or a lost connection is said in a toast (unless
 // `quiet`) and never thrown.
 async function command(kind, args = {}, group, quiet) {
+  if (/^(history\.|page\.compare)/.test(kind)) S.quietUntil = Date.now() + 2000;  // many values are about to move: none of them is a hand on a knob
   let r, body;
   try {
     r = await fetch("/api/command", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({kind, args, group})});
@@ -775,6 +785,29 @@ function slotsOfLayout(L, at, hw) {
             steps: s.kind !== "pad" && c.items.length > 1 ? c.items.length : 0, ...marks(c.target)});
   });
 }
+// Captions. What every group of a panel starts with ("Before fuzz: ") is said once, in the head; each caption is the
+// rest, written once over a run of neighbouring slots of one group.
+const RUNS = [MC.KNOBS.slice(0, 4), MC.KNOBS.slice(4), MC.FADERS, MC.PADS.slice(0, 4), MC.PADS.slice(4)];
+function captions(slots) {
+  const names = [...new Set(slots.map(m => m.group).filter(Boolean))], by = {};
+  let pre = "";
+  if (names.length > 1) {
+    const cut = names[0].indexOf(": "), p = cut > 0 ? names[0].slice(0, cut + 2) : "";
+    if (p && names.every(n => n.startsWith(p) && n.length > p.length)) pre = p;
+  }
+  for (const m of slots) by[m.slot] = m;
+  for (const run of RUNS) {
+    let head = null;
+    for (const id of run) {
+      const m = by[id];
+      if (!m || !m.group) { head = null; continue; }
+      const short = m.group.slice(pre.length);
+      m.cap = short[0].toUpperCase() + short.slice(1);
+      if (head && head.group === m.group) { head.span++; m.span = 0; } else { head = m; m.span = 1; }
+    }
+  }
+  return pre.replace(/: $/, "");
+}
 // ---- compare states: pads that switch the mix between named settings of the same controls --------------------------
 // Which pad is lit is never kept: a state is on exactly when every one of its values holds, read from what Live
 // reports and, for a value this page has just set, from the page's own number (OWN). So a press lights its pad at
@@ -837,6 +870,7 @@ function drawDesk() {
   if (entry.page_id) { ensureLayout(entry.page_id); L = S.layouts[entry.page_id]; }
   const drawn = !entry.page_id || (L && typeof L === "object");
   S.slots = !drawn ? [] : entry.page_id ? slotsOfLayout(L, at, hw) : slotsOfDesk(entry.pg, hw);
+  S.pre = captions(S.slots);
   wantScales(S.slots);
   // A Page that needs more than one MiniLab page: numbered buttons (on a phone, swipe the panel too).
   const nums = entry.hw.length > 1 && !next ? `<div class="hr" id="mlpages" role="group" aria-label="MiniLab pages of this surface">${
@@ -846,7 +880,14 @@ function drawDesk() {
   const far = S.opening && !next && entry.page_id !== S.opening.id ? S.opening : null;
   const title = far ? far.title || "Surface" : next ? (NL ? NL.title : next.name) : drawn && L ? L.title : entry.name;
   const by = far ? "" : next ? (NL ? " · made by " + esc(NL.made_by) : "") : drawn && L ? " · made by " + esc(L.made_by) : "";
-  setHtml($("#deskhead"), `<div class="ph2"><b id="pagename">${esc(title)}</b>${far ? "" : `<span class="tag">surface ${pages.indexOf(shown) + 1} / ${pages.length}${by}</span>`}
+  // The control in hand (touched here, or turned on the MiniLab) says what it is in the head, in large type: its place
+  // on the controller, what it moves in Live, its name in full and its value. Any other touch brings the title back.
+  const f = !next && !far && S.focus ? S.slots.find(m => m.key === S.focus && m.state !== "off" && m.state !== "missing") : null;
+  if (f) {
+    const parts = f.key.split("/"), same = (f.cap || "").toLowerCase() === (f.label || "").toLowerCase();
+    setHtml($("#deskhead"), `<div class="ph2 rd" id="readout" style="--n:${f.n || 0}"><div class="rdn" role="status" aria-label="${esc(MC.hwName(f.slot))}: ${esc(f.spoken || f.label || "")}"><span class="rdp">${esc(parts.join(" › "))}</span><b id="rdname">${esc((f.cap && !same ? f.cap + " · " : "") + (f.label || ""))}</b></div><span id="rdv">${esc(f.shown ?? "")}</span>${nums}</div>`);
+  } else
+  setHtml($("#deskhead"), `<div class="ph2"><b id="pagename">${esc(title)}</b>${far ? "" : `${S.pre && !next ? `<span class="tag pre" id="pre">${esc(S.pre)}</span>` : `<span class="tag">surface ${pages.indexOf(shown) + 1} / ${pages.length}${by}</span>`}`}
     ${next || far ? '<span class="pill spin" id="pgwait">Loading</span>' : `<span class="pill ${S.state.live === "attached" ? "acc" : "quiet"}" id="mlchip">${S.state.live === "attached" ? "on MiniLab" : "no MiniLab"}</span>`}${nums}</div>`);
   // A page with compare states, when it comes into view: its pads are in sight (where the map shows one face at a
   // time, that is the face with pads 5 to 8).
@@ -854,6 +895,7 @@ function drawDesk() {
   if (hasCmp && S.cmpAt !== hasCmp) S.face = "f";
   if (drawn) S.cmpAt = hasCmp;
   drawPanel(drawn, L);
+  for (const el of document.querySelectorAll("#panel .mc")) el.classList.toggle("foc", !!f && el.dataset.slot === f.slot);
   drawPager();
   if ($("#panel") && !$("#panel").__fit) { $("#panel").__fit = true; fitPanel(); }  // a new panel; later, when the Desk's box changes (FIT)
 }
@@ -876,7 +918,7 @@ function drawPager() {
   const c = current(), pages = c.pages, at = pages.indexOf(c.entry), i = pages.indexOf(c.next || c.entry), prev = pages[at - 1], next = pages[at + 1];
   const step = (p, way) => `<button class="key sm" ${p ? `data-page="${p.hw[0]}"` : "disabled"} aria-label="${way === "prev" ? "Previous" : "Next"} surface${p ? ": " + esc(p.name) : ""}"><svg class="${way === "prev" ? "back" : ""}" width="18" height="18"><use href="#i-more"/></svg></button>`;
   const face = (f, icon, words) => `<button class="key sm ${S.face === f ? "on" : ""}" data-face="${f}" aria-pressed="${S.face === f}" aria-label="${words}"><svg width="18" height="18"><use href="#i-${icon}"/></svg></button>`;
-  setHtml($("#deskdots"), `<div class="dots" role="group" aria-label="Surfaces">${step(prev, "prev")}<span class="pgn" id="pgcount" aria-label="Surface ${i + 1} of ${pages.length}">${i + 1} / ${pages.length}</span>${step(next, "next")}<span class="sp"></span><button class="key sm" data-org="open" aria-label="Organize surfaces"><svg width="18" height="18"><use href="#i-org"/></svg></button>${
+  setHtml($("#deskdots"), `<div class="dots" role="group" aria-label="Surfaces">${step(prev, "prev")}<span class="pgn" id="pgcount" aria-label="Surface ${i + 1} of ${pages.length}">${i + 1} / ${pages.length}</span>${step(next, "next")}<span class="sp"></span><button class="key sm" data-org="open" aria-label="Organize surfaces"><svg width="18" height="18"><use href="#i-org"/></svg></button><button class="key sm ${S.view === "list" ? "on" : ""}" id="viewsw" data-view="${S.view === "list" ? "map" : "list"}" aria-pressed="${S.view === "list"}" aria-label="Show the controls as a list"><svg width="18" height="18"><use href="#i-list"/></svg></button>${
     S.faces === 2 ? `<div class="seg" id="faces" role="group" aria-label="Face of the map">${face("k", "knob", "Knobs and pads 1 to 4")}${face("f", "fader", "Faders and pads 5 to 8")}</div>` : ""}</div>`);
 }
 // Fit the map to the height it has: the comfortable sizes, else the tight ones (labels on one line), else, on a
@@ -884,13 +926,16 @@ function drawPager() {
 function fitPanel() {
   const p = $("#panel");
   if (!p) return;
+  p.dataset.view = S.view;
   const set = (tight, faces) => { p.classList.toggle("tight", tight); if (faces === 2) p.dataset.face = S.face; else delete p.dataset.face; };
   // squeezed below what its controls need, a block's content spills over the next: that is "does not fit"
   const over = () => p.scrollHeight > p.clientHeight + 1 || [...p.querySelectorAll(".mk,.mf,.mp,.mc")].some(e => e.offsetParent && e.scrollHeight > e.clientHeight + 1);
   const folded = getComputedStyle(p).gridTemplateColumns.trim().split(/\s+/).length === 1;
   let faces = 1;
   set(false, 1);
+  p.classList.remove("dense");
   if (over()) { set(true, 1); if (over() && folded) { faces = 2; set(false, 2); if (over()) set(true, 2); } }
+  if (over()) p.classList.add("dense");  // the last resort, on a very short screen: small text
   if (S.faces !== faces) { S.faces = faces; drawPager(); }
 }
 const FIT = window.ResizeObserver ? new ResizeObserver(() => fitPanel()) : null;
@@ -1175,6 +1220,9 @@ function render() { renderHear(); renderDesk(); renderSide(); renderHist(); mark
 // down moves the control, sideways on a phone is a swipe to the Page's next MiniLab page), and its travel counts
 // from where it came down, so nothing is lost. The value lands on round units (roundPlace). A greyed slot takes no
 // touch. Changes to one control in a row are one undo step (the app's history joins them).
+try { S.view = localStorage.getItem("zpkt.view") === "list" ? "list" : "map"; } catch (err) { S.view = "map"; }
+// Where a pointer is along the way a control is moved: up the screen on the map, to the right in the list.
+const along = e => drag && drag.ax === "x" ? -e.clientX : e.clientY;
 const SLOP = 4;  // px a finger may move before the touch is read as a drag or a swipe; a mouse has none
 const TRAVEL = 200, FINE = 0.2, SLOW = {below: 40, upTo: 140, least: 0.35, gap: 100};  // px; factor; px per second, and ms
 const narrow = () => !window.matchMedia("(min-width:700px)").matches;
@@ -1194,19 +1242,25 @@ function place(el, n, group) {
   const key = el.dataset.key;
   if (!OWN[key]) setOwn(key, n, +el.dataset.n0 || 0); else setOwn(key, n);
   MC.set(el, n, textAt(key, n));
+  if (S.focus === key && $("#rdv")) { $("#rdv").textContent = textAt(key, n); $("#readout").style.setProperty("--n", n); }
   el.classList.add("chg");
   sendValue(key, n, group);
 }
 document.addEventListener("pointerdown", e => {
+  if (S.focus && e.target.closest && e.target.closest("#readout") && !e.target.closest("button")) { S.focus = null; return renderDesk(); }  // a touch on the readout: the title again
   if (!e.target.closest || !e.target.closest(".mlp") || e.target.closest(".vt")) return;
   const w = e.target.closest(".mc.live:not(.pad) .w"), el = w && w.closest(".mc");
-  if (!el || !el.dataset.key) { swipe = {x: e.clientX, y: e.clientY}; return; }
+  if (!el || !el.dataset.key) { swipe = {x: e.clientX, y: e.clientY}; if (S.focus && !e.target.closest(".mc")) { S.focus = null; renderDesk(); } return; }
   if (e.button > 0) return;
+  if (S.focus !== el.dataset.key) { S.focus = el.dataset.key; renderDesk(); }
   w.focus({preventScroll: true});  // a click on a control gives it the keyboard
   const n0 = +el.dataset.n || 0;
   if (!OWN[el.dataset.key]) el.dataset.n0 = n0;
   drag = {key: el.dataset.key, el, x: e.clientX, y: e.clientY, at: n0, n: n0, steps: +el.dataset.steps, lock: null,
-          finger: e.pointerType === "touch", last: e.clientY, seen: [[e.timeStamp, e.clientY]], group: gestureId()};
+          finger: e.pointerType === "touch", group: gestureId(),
+          // in the list a row is moved sideways, over its own width; on the map a control is moved up and down
+          ax: S.view === "list" ? "x" : "y", travel: S.view === "list" ? Math.max(140, el.clientWidth) : TRAVEL};
+  drag.last = along(e); drag.seen = [[e.timeStamp, drag.last]];
   if (w.setPointerCapture) try { w.setPointerCapture(e.pointerId); } catch (err) { /* a pointer that is already gone */ }
   e.preventDefault();
 });
@@ -1215,7 +1269,7 @@ document.addEventListener("pointermove", e => {
   const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
   if (!drag.lock) {
     if (drag.finger && Math.max(Math.abs(dx), Math.abs(dy)) < SLOP) return;
-    drag.lock = narrow() && Math.abs(dx) > Math.abs(dy) * 1.5 ? "x" : "y";
+    drag.lock = drag.ax === "x" ? (Math.abs(dy) > Math.abs(dx) * 1.5 ? "x" : "y") : narrow() && Math.abs(dx) > Math.abs(dy) * 1.5 ? "x" : "y";
     // drag.last is still where the pointer came down: the pixels that decided count as travel too
   }
   if (drag.lock === "x") return;
@@ -1223,13 +1277,14 @@ document.addEventListener("pointermove", e => {
   // hand rested, or the browser was busy) says nothing about speed, so it counts in full.
   const rested = e.timeStamp - drag.seen[drag.seen.length - 1][0] > SLOW.gap;
   if (rested) drag.seen = [];
-  drag.seen.push([e.timeStamp, e.clientY]);
+  const pos = along(e);
+  drag.seen.push([e.timeStamp, pos]);
   while (drag.seen.length > 2 && e.timeStamp - drag.seen[0][0] > 120) drag.seen.shift();
-  const [t0, y0] = drag.seen[0], dt = Math.max(1, e.timeStamp - t0), speed = Math.abs(e.clientY - y0) / dt * 1000;
+  const [t0, y0] = drag.seen[0], dt = Math.max(1, e.timeStamp - t0), speed = Math.abs(pos - y0) / dt * 1000;
   const slow = rested || speed >= SLOW.upTo ? 1 : speed <= SLOW.below ? SLOW.least : SLOW.least + (1 - SLOW.least) * (speed - SLOW.below) / (SLOW.upTo - SLOW.below);
   const factor = e.shiftKey ? FINE : slow;
-  drag.at = Math.max(0, Math.min(1, drag.at + (drag.last - e.clientY) / TRAVEL * factor));
-  drag.last = e.clientY;
+  drag.at = Math.max(0, Math.min(1, drag.at + (drag.last - pos) / drag.travel * factor));
+  drag.last = pos;
   const n = drag.steps > 1 ? snap(drag.at, drag.steps) : roundPlace(drag.key, drag.at);
   if (n === drag.n) return;
   drag.n = n;
@@ -1583,6 +1638,7 @@ document.addEventListener("click", async e => {
     return command("mix.set", {norms: [[el.dataset.key, +el.dataset.n >= .5 ? 0 : 1]]});
   }
   if (t.dataset.face) { S.face = t.dataset.face; drawPager(); return fitPanel(); }
+  if (t.id === "viewsw") { S.view = t.dataset.view; try { localStorage.setItem("zpkt.view", S.view); } catch (err) { /* private mode */ } drawPager(); return fitPanel(); }
   if (t.dataset.page !== undefined) return armPage(+t.dataset.page);
   if (t.id === "kplay") return command("transport", {action: S.state.playing ? "pause" : "play"});
   if (t.id === "kstop") return command("transport", {action: "stop"});
@@ -1656,6 +1712,9 @@ function apply(m) {
     return renderBottom();
   }
   else if (m.t === "v" && S.state) {
+    const was = S.state.values[`${m.page}:${m.slot}`];
+    // a control of the surface in view that moved and that this page is not moving: a hand on the MiniLab
+    if (m.key && !OWN[m.key] && was && was.n != null && Math.abs(was.n - m.n) > 1e-4 && Date.now() - (S.quietUntil || 0) > 0 && S.slots.some(x => x.key === m.key)) S.focus = m.key;
     S.state.values[`${m.page}:${m.slot}`] = {...(S.state.values[`${m.page}:${m.slot}`] || {}), n: m.n, s: m.s, r: m.r, key: m.key};
     // one parameter may sit on several pages: each of its slots reports in its own message, a moment apart. They are
     // one value, so all of them have it now (else a slot not yet heard from would show the old place for that moment).

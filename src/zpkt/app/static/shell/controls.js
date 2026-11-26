@@ -11,7 +11,8 @@
 //          "off" (nothing is mapped). Left out means "off".
 //   n      its place, 0 to 1; shown: the value as text; key: its state key; hw: the MiniLab page it is on
 //   by     "key" or "slot": how a pad is toggled (the page reads it back from data-by)
-//   group  a small caption over the control; tint 0 or 1; why: the reason it is greyed
+//   group  a small caption over the control (cap: its short form, shown instead; span: see slot()); tint 0 or 1;
+//          why: the reason it is greyed
 //   range  [low, high] places worth playing; steps: how many stops a knob has (a choice), 0 for a smooth one
 //   sending  its value is the page's own, on its way to Live (a small mark by the number until Live confirms it)
 //   fixed    Live settled somewhere else than the page showed: the number flashes once
@@ -76,8 +77,12 @@
     const n = clamp(m.n), on = kind === "pad" && state !== "off" && state !== "missing" && n >= 0.5;
     const isCmp = kind === "pad" && m.cmp !== undefined && m.cmp !== null;
     const cls = ["ctl", "mc", kind, state, isCmp ? "cmp" : "", m.tint ? "t1" : "t0", on ? "on" : "", m.chg ? "chg" : "", m.flash ? "flash" : "", m.sending ? "sending" : "", m.fixed ? "fixed" : ""].filter(Boolean).join(" ");
-    const data = `data-slot="${m.slot}" data-state="${state}" data-key="${esc(m.key || "")}" data-hw="${m.hw ?? ""}" data-by="${m.by || "key"}" data-n="${n}" data-steps="${m.steps || 0}" data-range="${m.range ? m.range.join(",") : ""}"`;
-    const cap = m.group || m.caps ? `<div class="g">${esc(m.group || "")}</div>` : "";  // caps: keep the row level
+    const sameCap = String(m.cap ?? m.group ?? "").toLowerCase() === String(m.label || "").toLowerCase();
+    const num = `<span class="num" aria-hidden="true">${kind === "fader" ? "F" : ""}${m.slot.slice(1)}</span>`;  // its place on the MiniLab, where the slots are rows
+    const data = `style="--n:${n}" data-slot="${m.slot}" data-state="${state}" data-key="${esc(m.key || "")}" data-hw="${m.hw ?? ""}" data-by="${m.by || "key"}" data-n="${n}" data-steps="${m.steps || 0}" data-range="${m.range ? m.range.join(",") : ""}"`;
+    // caps: keep the row level. A caption is written once for a run of slots of one group (span: how many slots it
+    // runs over; 0: a later slot of the run, whose own caption shows only where each slot is a row of its own).
+    const cap = m.group || m.caps ? `<div class="g${m.span === 0 ? " gr" : ""}${sameCap ? " same" : ""}" style="--span:${m.span || 1}">${esc(m.cap ?? m.group ?? "")}</div>` : "";
     const spoken = m.spoken || (m.group ? m.group + ": " : "") + (m.label || name);
     if (state === "off") {
       // An unmapped slot keeps its place and says its name to a screen reader and on hover; it shows no caption.
@@ -99,7 +104,7 @@
     }
     const draw = kind === "knob" ? knob(n, m) : fader(n, m);
     const aria = live ? `role="slider" tabindex="0" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct(n)}" aria-valuetext="${esc(m.shown ?? "")}"` : 'role="img"';
-    return `<div class="${cls}" ${data}${note}>${cap}<div class="w" ${aria} aria-label="${esc(spoken)}">${draw}</div><div class="v">${esc(m.shown ?? "")}</div><div class="l" title="${esc(m.label)}">${esc(m.label)}</div></div>`;
+    return `<div class="${cls}" ${data}${note}>${num}${cap}<div class="w" ${aria} aria-label="${esc(spoken)}">${draw}</div><div class="v">${esc(m.shown ?? "")}</div><div class="l" title="${esc(m.label)}">${esc(m.label)}</div></div>`;
   }
 
   /** The whole panel. `slots` is a list or a {slot: model} map; a slot it lacks is drawn unmapped. `attrs` goes on
@@ -119,6 +124,7 @@
     const w = el.querySelector(".w");
     if (!w) return;
     el.dataset.n = clamp(n);
+    el.style.setProperty("--n", clamp(n));
     if (text !== undefined) {
       const v = el.querySelector(".v");
       if (v) v.textContent = text;
@@ -138,7 +144,7 @@
   /** What decides a slot's markup, apart from its value: when this is the same for every slot, a panel is updated
       in place (update) and no element is made anew. */
   const shape = (m) => [m.slot, m.state || "off", m.key || "", m.label || "", m.group || "", m.tint ? 1 : 0, m.steps || 0,
-    m.cmp ?? "", m.why || "", m.range ? m.range.join(",") : "", m.by || "key", m.hw ?? "", m.spoken || ""].join("\u0001");
+    m.cmp ?? "", m.why || "", m.range ? m.range.join(",") : "", m.by || "key", m.hw ?? "", m.spoken || "", m.cap ?? "", m.span ?? ""].join("\u0001");
   /** Bring one drawn slot up to its model without making its elements anew: its place, its number, its marks. The
       element keeps its identity, so focus, a screen reader's place and a reference to it all survive. */
   function update(el, m) {
@@ -148,6 +154,7 @@
     for (const [cls, yes] of [["on", on], ["chg", !!m.chg], ["flash", !!m.flash], ["sending", !!m.sending], ["fixed", !!m.fixed]]) el.classList.toggle(cls, yes);
     const moved = +el.dataset.n !== n;
     el.dataset.n = n;
+    el.style.setProperty("--n", n);
     if (kind === "pad") { if (w.hasAttribute("aria-pressed")) w.setAttribute("aria-pressed", String(on)); return; }
     if (moved) {
       if (kind === "knob") w.innerHTML = knob(n, m);

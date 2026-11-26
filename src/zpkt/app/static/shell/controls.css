@@ -39,7 +39,7 @@
   .mlp[data-face="f"]{grid-template-rows:minmax(0,1fr) auto;grid-template-areas:"f" "p2"}
   .mlp[data-face="k"] :is(.mf,.mp2),.mlp[data-face="f"] :is(.mk,.mp1){display:none}
 }
-.mlp.tight .mc .l{height:13px;-webkit-line-clamp:1}
+.mlp.tight .mc .l{height:15px;-webkit-line-clamp:1}
 .mlp.tight{gap:8px;padding-top:8px;padding-bottom:8px}
 @media (min-width:1100px){.mlp{column-gap:28px;padding:14px 16px}}
 
@@ -48,9 +48,11 @@
 .mc{display:flex;flex-direction:column;align-items:center;position:relative;min-width:0;min-height:0;width:100%;max-width:120px;border-radius:10px;padding:2px 1px}
 .mc>*{flex:none}
 .mc.t1{background:var(--z-tint)}
-.mc .g{font:600 9.5px/12px ui-monospace,Menlo,monospace;text-transform:uppercase;letter-spacing:.06em;color:var(--mute);max-width:100%;height:12px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
-.mc .v{font:12px/16px ui-monospace,Menlo,monospace;color:var(--ink);max-width:100%;height:16px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
-.mc .l{font-size:11px;line-height:13px;height:26px;color:var(--mute);text-align:center;max-width:100%;overflow:hidden;overflow-wrap:anywhere;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2}
+/* The caption of a group stands once over its run of slots, as wide as the run. */
+.mc .g{font:600 11.5px/15px 'Helvetica Neue',Helvetica,Arial,sans-serif;color:var(--ink);opacity:.78;align-self:flex-start;position:relative;z-index:1;width:calc(var(--span,1)*100% + (var(--span,1) - 1)*6px);height:15px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;text-align:center}
+.mc .g.gr{visibility:hidden}
+.mc .v{font:14px/18px ui-monospace,Menlo,monospace;color:var(--ink);max-width:100%;height:18px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.mc .l{font-size:13px;line-height:15px;height:30px;color:var(--ink);opacity:.8;text-align:center;max-width:100%;overflow:hidden;overflow-wrap:anywhere;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2}
 .mc .w{position:relative;display:block;outline:0;border-radius:10px;-webkit-tap-highlight-color:transparent}
 .mc .w:focus-visible{box-shadow:0 0 0 2px var(--ink)}
 .mc.live:not(.pad) .w{touch-action:none;cursor:ns-resize}
@@ -105,7 +107,7 @@
 
 /* the pad: a key with its edge; lit lime when it is on */
 .mc.pad{justify-content:flex-start}
-.mc.pad .w{width:100%;height:52px;min-width:44px;margin:0;padding:2px 3px;border:1px solid var(--zc-line);border-radius:9px;background:linear-gradient(var(--z-key1),var(--z-key2));box-shadow:0 2px 0 var(--z-keyedge);color:var(--ink);font:500 11px/1.15 'Helvetica Neue',Helvetica,Arial,sans-serif;text-align:center;display:flex;align-items:center;justify-content:center;overflow:hidden;overflow-wrap:anywhere}
+.mc.pad .w{width:100%;height:52px;min-width:44px;margin:0;padding:2px 3px;border:1px solid var(--zc-line);border-radius:9px;background:linear-gradient(var(--z-key1),var(--z-key2));box-shadow:0 2px 0 var(--z-keyedge);color:var(--ink);font:500 13px/1.15 'Helvetica Neue',Helvetica,Arial,sans-serif;text-align:center;display:flex;align-items:center;justify-content:center;overflow:hidden;overflow-wrap:anywhere}
 .mc.pad .w span{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:3;overflow:hidden;max-height:100%}
 .mc.pad.live .w{cursor:pointer}
 .mc.pad.live .w:active{transform:translateY(1.5px);box-shadow:0 .5px 0 var(--z-keyedge)}
@@ -120,3 +122,31 @@
 .mc.pad.cmp.on .w::before{background:var(--zs-on);border-color:var(--zs-on)}
 .mc.pad.cmp.missing::before{opacity:.12}
 @media (prefers-reduced-motion:reduce){.mc.pad.live .w:active{transform:none}}
+
+/* The list: the same slots, each knob and fader a row of its own, for reading on a phone away from the MiniLab. A
+   row says its place on the controller, its group and its name in full, and its value; its fill is its place, and
+   a hand moves it sideways. Slots with nothing mapped are left out. The pads stay keys. */
+.mc .num{display:none}
+.mlp[data-view="list"] :is(.mk,.mf){grid-template-columns:minmax(0,1fr);grid-template-rows:none;grid-auto-rows:minmax(22px,46px);gap:3px;justify-items:stretch;align-content:start}
+.mlp[data-view="list"] :is(.mk,.mf) .mc{flex-direction:row;align-items:center;gap:7px;max-width:none;padding:0 9px 0 5px;border:1px solid var(--zc-line);border-radius:9px;overflow:hidden;
+  background:linear-gradient(to right,color-mix(in srgb,var(--zs) 38%,transparent) calc(var(--n,0)*100%),transparent 0)}
+.mlp[data-view="list"] :is(.mk,.mf) .mc.off{display:none}
+.mlp[data-view="list"] :is(.mk,.mf) .mc .w{position:absolute;inset:0;flex:none;width:auto;max-width:none;min-height:0;opacity:0;cursor:ew-resize}
+.mlp[data-view="list"] :is(.mk,.mf) .mc:has(.w:focus-visible){box-shadow:0 0 0 2px var(--ink)}
+.mlp[data-view="list"] :is(.mk,.mf) .mc .num{display:block;flex:none;min-width:24px;height:22px;padding:0 3px;box-sizing:border-box;border-radius:6px;background:var(--z-tint);color:var(--ink);opacity:.7;font:600 12px/22px ui-monospace,Menlo,monospace;text-align:center}
+.mlp[data-view="list"] :is(.mk,.mf) .mc .g{order:1;flex:0 1 auto;width:auto;height:auto;align-self:center;visibility:visible;font:500 14px/18px 'Helvetica Neue',Helvetica,Arial,sans-serif;opacity:.62;text-align:left}
+.mlp[data-view="list"] :is(.mk,.mf) .mc .g:is(.same,:empty){display:none}
+.mlp[data-view="list"] :is(.mk,.mf) .mc .l{order:2;flex:1 1 0;display:block;height:auto;font-size:16px;line-height:20px;opacity:1;text-align:left;white-space:nowrap;text-overflow:ellipsis;overflow-wrap:normal}
+.mlp[data-view="list"] :is(.mk,.mf) .mc .v{order:3;flex:none;max-width:48%;height:auto;font-size:16px;line-height:22px;position:relative;z-index:2}
+.mlp[data-view="list"] :is(.mk,.mf) .mc.chg::after{top:2px;right:auto;left:2px;width:7px;height:7px}
+.mlp[data-view="list"] :is(.mk,.mf) .mc .vt{left:auto;right:4px;top:50%;transform:translateY(-50%);height:100%;min-height:26px}
+.mlp[data-view="list"] :is(.mk,.mf) .mc.flash{box-shadow:0 0 0 2px var(--zs)}
+.mlp[data-view="list"]{gap:6px;padding-top:6px;padding-bottom:6px}
+.mlp[data-view="list"] .mc.pad .w{height:32px}
+/* the control in hand (the page's head says what it is) */
+.mc.foc:not(.pad){box-shadow:0 0 0 2px var(--zs)}
+/* .dense (set by the page where nothing else fits, a very short screen): the text gives way before anything scrolls */
+.mlp.dense .mc .g{font-size:9.5px;line-height:12px;height:12px}
+.mlp.dense .mc .v{font-size:12px;line-height:16px;height:16px}
+.mlp.dense .mc .l{font-size:11px;line-height:13px;height:13px}
+.mlp.dense .mc.pad .w{font-size:11px}
