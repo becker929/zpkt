@@ -76,7 +76,9 @@ port, 8984 (below). `ZPKT_DESK_URL` names the web server (pages, `/app/`), `ZPKT
 
 - `/` sends you to `/app/` (a 302). The old desk page is at `/desk/`; all its routes, event shapes and ports are as they
   were.
-- `/app/` is the new shell: the Hear bar and the Desk. It reads the same state through `/events?app=1`.
+- `/app/` is the new shell: the Hear bar and three tabs in one document, Desk, Song and Ask. It reads the same
+  state through `/events?app=1`. Changing tabs loads nothing again, so the Hear bar, the transport and Listen stay
+  as they are. `/app/ask/` (the chat's own page) goes on to `/app/#ask`.
 - **The Hear bar** says which song is open and lets me play it and take changes back. From the top: the set's
   name, its tempo and time signature; "bar N of M", a "loop" mark when Live loops (that is why the bar jumps back),
   "Live", and "N changed"; the playhead; the spectrum from the "zpkt desk meter" device on Main; the level meter.
@@ -96,7 +98,7 @@ port, 8984 (below). `ZPKT_DESK_URL` names the web server (pages, `/app/`), `ZPKT
   Saving a checkpoint keeps what can be redone. Names a machine made ("start-20261125-1701") are shown as what they
   are ("Start of session, 25 Nov, 17:01").
 - `/app/shell/<file>` serves what every page shares, from `static/shell/`: `shell.css` (the tokens, the tab bar, the
-  loading line), `nav.js` (draws the tab bar), `controls.css` and `controls.js` (the panel: a page of controls as a
+  loading line, the Ask tab's frame and mark), `nav.js` (draws the tab bar and shows Ask in place), `controls.css` and `controls.js` (the panel: a page of controls as a
   map of the MiniLab, see Pages) and `listen.js` (the Listen button, when it is there). The folder is flat. Only `.css`, `.js`, `.json` and `.svg` files are served, and only by a plain file name.
 - `POST /api/command` takes any command: `{"kind": "mix.set", "args": {"norms": [["Kick bus/volume", 0.4]]}}`.
   `GET /api/commands` lists them. The old `POST /api/...` paths are these commands under their old names.
@@ -116,11 +118,26 @@ The look is the chat's: bone and black, one lime accent, a quiet ceramic card, a
 A page links it and defines none of them itself.
 
 - **The tab bar.** A page has `<nav id="tabs" data-current="desk|song|ask"></nav>` and loads `nav.js` right
-  after it. On `/app/` Desk and Song are buttons (`data-t`) and switch in place. On any other page they are links
-  to `/app/#desk` and `/app/#song`. Ask is always a link to `/app/ask/`. `window.zpktNav.set(name)` marks the current tab. `nav.js` writes `data-at` (`top` from
-  700 px, else `bottom`) unless the page wrote it; the bar's parent must be a flex column.
-- **Addresses.** `/app/` opens on `#desk` or `#song`, and keeps the address in step as I switch. Any other address
-  (an old link to `#options`) lands on the Desk.
+  after it. On `/app/` the three tabs are buttons (`data-t`) and switch in place. On any other page they are links
+  to `/app/#desk`, `/app/#song` and `/app/#ask`. `window.zpktNav.set(name)` marks the current tab. `nav.js` writes
+  `data-at` (`top` from 700 px, else `bottom`) unless the page wrote it; the bar's parent must be a flex column.
+- **Ask in place.** `/app/` has `<div id="ask" hidden>` beside `#desk` and `#song`. The page's tab switch calls
+  `window.zpktNav.ask(true)` for Ask and `ask(false)` for any other tab; `nav.js` does the rest. It puts the page
+  `/app/ask/?embedded=1` in a frame there the first time Ask is shown and keeps it, so a running answer goes on
+  arriving while the Desk shows. Hidden, the frame is only not seen (`visibility`), so it keeps its place in the
+  conversation. The frame and `nav.js` talk with `postMessage` on the same origin: the chat says
+  `{zpktAsk: {state: "busy" | "done" | "idle"}}` and `{zpktAsk: {go: "#page=<id>"}}`; the app says
+  `{zpktAsk: "shown"}`. `go` sets the address in the app's own document, so a link in the chat opens the Desk, the
+  Song or a Page with no reload.
+- **The Ask tab's mark.** While another tab shows, the Ask tab carries `data-mark="busy"` (a grey ring) while the
+  agent works and `data-mark="new"` (a lime dot) once it has answered. Showing Ask clears it. The tab's
+  `aria-label` says the same.
+- **A short view.** With Ask showing on a phone, when the view is under 600 px tall (the keyboard is up), `#app`
+  gets the class `short` and the Hear bar keeps only its first row. Where the keyboard covers the page instead of
+  resizing it (iOS), `nav.js` sets `#app` to the visible height (`visualViewport`), so the composer stays above the
+  tab bar.
+- **Addresses.** `/app/` opens on `#desk`, `#song` or `#ask`, and keeps the address in step as I switch. Any other
+  address (an old link to `#options`) lands on the Desk.
   `/app/#page=<id>` opens the Desk on that saved Page. A Page that is saved but not on the desk gets a plain message.
 - **Waiting.** A page change takes about a second: the command waits its turn for Live, the pager swaps what the
   MiniLab's controls mean, and only then does the `page` event come back. On the tap the button is marked
@@ -135,7 +152,8 @@ A page links it and defines none of them itself.
   a module. A missing file changes nothing.
 
 `tests/app/test_shell_static.py` checks the route; `tests/app/test_shell_nav.py` checks the tabs, the addresses and
-the waiting in WebKit.
+the waiting in WebKit; `tests/app/test_ask_tab.py` checks Ask in place (the Hear bar and Listen stay, the mark, a
+page link with no reload, the sizes).
 
 ## The API and its clients
 
@@ -318,7 +336,8 @@ folder; `ARRANGER_DATA` the data, as before.
 ## Ask
 
 Ask is the chat with Claude and Gemini, ported from Zpkt web (Node, :8789, which keeps running untouched). It is the
-`agents` adapter, so it starts with `zpkt app` (it is in the default `--adapters web,api,song,agents,listen`). The page is at `/app/ask/`.
+`agents` adapter, so it starts with `zpkt app` (it is in the default `--adapters web,api,song,agents,listen`). It is
+the Ask tab of `/app/` (`/app/#ask`); its page and API are under `/app/ask/`.
 
 - **Engines.** Claude Code runs as one `claude -p` process per turn. Gemini runs over ACP: one `gemini --acp`
   process and an estimated dollar cost for each turn.
@@ -360,14 +379,21 @@ Ask is the chat with Claude and Gemini, ported from Zpkt web (Node, :8789, which
   the desk; a page it changes (the spec has its `id`) is redrawn where it already is.
   Opening the link is my act: `/app/#page=<id>` sends the command `page.open {id}`, a move. That arms the page if it
   is on the desk already. Otherwise it first puts it on the desk and the MiniLab, as `page.make` does.
-- **The page.** `/app/ask/` is one tab of the app. It loads `/app/shell/shell.css` and `/app/shell/nav.js` for the
-  one tab bar (last on a phone, under the composer), and `/app/shell/listen.js` for the Listen button in its header.
-  If the tab bar's file does not load, the page draws three plain links instead. It opens the folder's main
-  conversation: the last 20 turns, then the stream. Reaching the top fetches the 20 turns before. Earlier chats and
-  the folder choice are behind one button in the header. An earlier chat is read-only.
+- **The page.** Ask is a tab inside `/app/`: the app shows the page `/app/ask/` in a frame (The shell, Ask in
+  place). In the frame (`window.self !== window.top`, or `?embedded=1`) the page has no tab bar, title or Listen
+  button of its own: the app's are the only ones. The button for earlier chats and the folder sits with the
+  composer's tools. A link to `/app/` (`#page=<id>`, `#desk`, `#song`) is handed to the app, which changes tab with
+  no reload; a link to any other page of the app replaces the app, never the frame. Opened by itself, `/app/ask/`
+  goes on to `/app/#ask`. `/app/ask/?bare=1` is the page alone, with its own header, tab bar (three plain links if
+  the shell's file does not load) and Listen button: the tests use it, and it is the fallback. It opens the
+  folder's main conversation: the last 20 turns, then the stream. Reaching the top fetches the 20 turns before. An
+  earlier chat is read-only, and its title shows in a header.
+- **Before anything is said** the page shows four example requests and nothing else. A tap puts one in the box;
+  sending is my own act.
 - **Quiet by default.** While a turn runs, the bar above the box shows a pulse, what the agent is doing and the
   seconds so far. A finished turn's steps fold under one row, "Details": the counts of steps and tool calls and any
-  error the agent recovered from are inside it. Under the answer are the seconds and the cost. A turn that failed
+  error the agent recovered from are inside it. Under the answer are the seconds (a clock) and the cost (a price
+  tag and the amount, titled "Cost"). A turn that failed
   says so once, in one sentence with what to do; the engine's own words are behind "Details".
 - **What the page draws.** A `compacted` event is a quiet divider, "Earlier conversation summarised", that opens to
   the summary. A link to `/app/#page=<id>` is a card: the saved Page's title (`GET /api/pages`; the link's words
@@ -391,9 +417,9 @@ adapter, mounted at `/app/listen`, and it starts with `zpkt app`. Starting it on
 
 - **The button.** `/app/shell/listen.js` draws one button into `<span id="listen"></span>`: headphones, with a small
   tick that moves when sound arrives. Sound starts only from a tap. A tap on a greyed button says why it cannot play.
-  The choice is kept in the browser. Moving between `/app/` and `/app/ask/` loads a new document, so the sound
-  stops; the button then shows a dot and the first tap anywhere on the new page starts it again. Changing tabs
-  inside `/app/` does not stop it.
+  The choice is kept in the browser. Changing tabs inside `/app/` (Desk, Song, Ask) does not stop it. Loading
+  another document does (a reload, a sketch page): the button then shows a dot and the first tap anywhere on the
+  new page starts it again.
 - **Where the sound comes from.** Two captures, tried in this order. `GET /app/listen/status` says which one is in
   use as `source`: `live device` or `screen capture`. `ZPKT_LISTEN_SOURCE` chooses: `auto` (the default: the device,
   then the screen capture), `device` or `screen`. Either runs only while somebody listens and stops five seconds

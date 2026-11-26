@@ -63,6 +63,9 @@ details summary::-webkit-details-marker{display:none}
 .tool .st.success{color:var(--ok)}.tool .st.error{color:var(--danger)}
 details.tool pre{margin:0 10px 10px}
 .stats{font-size:12px;color:var(--mute);margin:-4px 0 18px;display:flex;flex-wrap:wrap;gap:4px 12px;align-items:center}
+.stats>span{display:inline-flex;align-items:center;gap:4px}
+.stats svg{flex:none;display:block}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
 .err{color:var(--danger);font-size:14px;margin:0 0 12px;white-space:pre-wrap;overflow-wrap:anywhere}
 .err details{color:var(--mute);font-size:12.5px}
 .err summary{display:inline-flex;align-items:center;min-height:44px;cursor:pointer;text-decoration:underline;text-underline-offset:2px}
@@ -76,9 +79,12 @@ details.tool pre{margin:0 10px 10px}
 .dots::after{content:"";display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--mute);animation:b 1s infinite}
 @keyframes b{50%{opacity:.2}}
 @media (prefers-reduced-motion:reduce){.dots::after{animation:none}}
-#empty{text-align:center;color:var(--mute);margin-top:10vh;padding:0 8px}
-#empty h2{color:var(--ink);font-size:22px;margin:0 0 6px}
-#empty p{max-width:460px;margin:8px auto}
+/* Nothing said yet: example requests. A tap puts one in the box. */
+#empty{display:flex;flex-wrap:wrap;justify-content:center;gap:8px;max-width:560px;margin:8vh auto 0;padding:0 4px}
+.eg{min-height:44px;padding:8px 16px;border:1.5px solid var(--line);border-radius:22px;background:var(--panel);text-align:left;line-height:1.3}
+.eg:hover{box-shadow:inset 0 -3px 0 var(--acc)}
+.eg:active{transform:translateY(1px)}
+.eg:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
 #older{display:block;margin:0 auto 14px;min-height:44px;padding:0 16px;color:var(--mute);font-size:13px;text-decoration:underline;text-underline-offset:2px}
 #older[hidden]{display:none}
 /* A page an agent made: a link, drawn as a card with a small map of the MiniLab (lit = mapped, grey = not). */
@@ -133,6 +139,11 @@ a.pcard:active{transform:translateY(1px)}
 #below{position:absolute;left:50%;transform:translateX(-50%);bottom:calc(100% + 10px);z-index:5;background:var(--ink);color:var(--bg);border-radius:999px;padding:6px 14px;font-size:13px;font-weight:600;display:flex;align-items:center;gap:6px}
 #below[hidden]{display:none}
 @media (max-width:380px){#msgs{padding-left:8px;padding-right:8px}}
+/* Inside /app/ (the Ask tab is this page in a frame): the app has the tab bar, the title and Listen. The header
+   shows only for an earlier chat, to name it; the earlier-chats button sits with the composer's tools. */
+.embedded #top{display:none}
+.embedded.ro #top{display:flex;min-height:44px;padding-top:4px}
+.embedded #toast{bottom:120px}
 </style>
 <link rel="stylesheet" href="/app/shell/shell.css">
 </head>
@@ -173,12 +184,32 @@ a.pcard:active{transform:translateY(1px)}
 <div id="toast" role="status"></div>
 
 <script>
+// Ask is a tab inside /app/: that page shows this one in a frame (EMBEDDED), which then has no tab bar, title or
+// Listen button of its own. Opened by itself it goes on to /app/#ask. /app/ask/?bare=1 stays: the page alone.
+const EMBEDDED = (() => {
+  const q = new URLSearchParams(location.search);
+  let framed = true;
+  try { framed = window.self !== window.top; } catch { /* another origin's frame */ }
+  if (framed || q.get('embedded') === '1') return true;
+  if (q.get('bare') !== '1') {
+    if (q.has('dev')) { try { localStorage.setItem('ask.dev', JSON.stringify(q.get('dev') !== '0' && q.get('dev') !== 'false')); } catch {} }
+    window.LEAVING = true;
+    location.replace('/app/#ask');
+  }
+  return false;
+})();
+if (EMBEDDED) {
+  document.documentElement.classList.add('embedded');
+  for (const id of ['listen', 'tabs']) document.getElementById(id).remove();
+}
+/** Say something to /app/ (shell/nav.js listens): {state: 'busy' | 'done' | 'idle'} or {go: '#page=<id>'}. */
+function tellApp(m) { if (EMBEDDED && window.parent !== window) window.parent.postMessage({ zpktAsk: m }, location.origin); }
 // The one tab bar is drawn by /app/shell/nav.js. Without it (the file is missing, or it threw), three plain links.
 function navFallback() {
   const nav = document.getElementById('tabs');
   if (!nav || nav.children.length) return;
   nav.classList.add('fallback'); nav.setAttribute('aria-label', 'Tabs');
-  nav.innerHTML = '<a href="/app/#desk">Desk</a><a href="/app/#song">Song</a><a class="on" aria-current="page" href="/app/ask/">Ask</a>';
+  nav.innerHTML = '<a href="/app/#desk">Desk</a><a href="/app/#song">Song</a><a class="on" aria-current="page" href="/app/#ask">Ask</a>';
 }
 window.addEventListener('load', navFallback);
 </script>
@@ -226,6 +257,7 @@ let ARCHIVE = [];      // its earlier chats, read-only
 let V = null;          // what is open: the main conversation, or an earlier chat
 let es = null;         // EventSource for it
 let pending = null;    // the bubble of a message on its way to the server
+let wasBusy = null;    // what /app/ was last told: a turn is running, or not
 
 /* ---------- markdown (escape first, then format) ---------- */
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -454,11 +486,11 @@ async function older() {
   finally { mine.loading = false; }
 }
 $('#older').onclick = older;
+// Before anything is said: example requests, and nothing else. A tap fills the box; sending is the person's own act.
+const EXAMPLES = ['Controls for the kick’s low end', 'What should I fix next in this mix?', 'Let me compare a brighter hat', 'Kick decay, drive and level on the knobs'];
 function renderEmpty() {
-  $('#thread').innerHTML = V?.readonly ? '<p class="note" style="text-align:center">Nothing was said in this chat.</p>' : `<div id="empty"><h2>Ask</h2>
-    <p>Say what you want to hear or to have under your hands: <b>“give me the kick’s decay, drive and level on the knobs”</b>.</p>
-    <p>The agent answers here. When it makes controls it makes a page and gives you a link. The page opens on the Desk and on the MiniLab.</p>
-    <p>This is one long conversation. It summarises its own past when it gets long.</p></div>`;
+  $('#thread').innerHTML = V?.readonly ? '<p class="note" style="text-align:center">Nothing was said in this chat.</p>'
+    : `<div id="empty" role="group" aria-label="Examples">${EXAMPLES.map((t) => `<button type="button" class="eg">${esc(t)}</button>`).join('')}</div>`;
 }
 function renderHead() {
   const ro = !!V?.readonly;
@@ -466,6 +498,8 @@ function renderHead() {
   $('#title').textContent = ro ? V.s?.title || 'An earlier chat' : 'Ask';
   $('#sub').textContent = !V ? '' : ro ? `Earlier chat · ${ago(V.s.updated)}` : V.s.workspace === workspaces[0]?.id ? '' : wsName(V.s.workspace);   // a folder's name only when it is not the usual one (it read as the chat's title)
   $('#bar').hidden = ro; $('#robar').hidden = !ro;
+  document.documentElement.classList.toggle('ro', ro);
+  if (V && !ro && !!busy !== wasBusy) { tellApp({ state: busy ? 'busy' : wasBusy ? 'done' : 'idle' }); wasBusy = !!busy; }
   $('#send').disabled = !!busy || !V;
   if ($('#mode')) $('#mode').className = cfg.mode === 'yolo' ? 'yolo' : '';
   const eng = ENGINE_NAME[cfg.engine];
@@ -554,12 +588,13 @@ function updTool(e) {
 function addStats(e) {
   const st = e.stats || {};
   const parts = [];
-  if (st.duration_ms) parts.push(`${(st.duration_ms / 1000).toFixed(1)} s`);
-  if (e.cost_usd) parts.push(`$${e.cost_usd.toFixed(3)}`);
-  if (DEV && st.total_tokens) parts.push(`${st.total_tokens.toLocaleString()} tokens`);
-  if (DEV && st.models) parts.push(Object.keys(st.models).join(', '));
+  const ic = (d) => `<svg viewBox="0 0 24 24" width="13" height="13" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">${d}</svg>`;
+  if (st.duration_ms) parts.push(`<span class="took" title="Time">${ic('<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/>')}<span class="sr">Time </span>${(st.duration_ms / 1000).toFixed(1)} s</span>`);
+  if (e.cost_usd) parts.push(`<span class="cost" title="Cost">${ic('<path d="M3.5 12.5V4.5h8l9 9-8 8z"/><circle cx="8" cy="9" r="1.2"/>')}<span class="sr">Cost </span>$${e.cost_usd.toFixed(3)}</span>`);
+  if (DEV && st.total_tokens) parts.push(`<span>${st.total_tokens.toLocaleString()} tokens</span>`);
+  if (DEV && st.models) parts.push(`<span>${esc(Object.keys(st.models).join(', '))}</span>`);
   if (e.status && e.status !== 'success') V.failed = true;   // said once, in words, when the run ends
-  if (parts.length) add(`<div class="stats">${parts.map((p) => `<span>${esc(p)}</span>`).join('')}</div>`);
+  if (parts.length) add(`<div class="stats">${parts.join('')}</div>`);
 }
 /** A turn that failed: one plain sentence with what to do. What the engine itself said is behind "Details". */
 function addFailure(sentence, detail = '') {
@@ -698,7 +733,27 @@ const stopRun = async () => { if (V && !V.readonly) { try { await api(`${API}/se
 $('#thread').addEventListener('click', async (e) => {
   const cp = e.target.closest('.cp');
   if (cp) { await navigator.clipboard?.writeText(cp.nextElementSibling.textContent); cp.textContent = 'Copied'; setTimeout(() => (cp.textContent = 'Copy'), 1200); }
+  const eg = e.target.closest('.eg');
+  if (eg) { const t = $('#in'); t.value = eg.textContent; grow(); store.set(draftKey(), t.value); t.focus(); t.setSelectionRange(t.value.length, t.value.length); }
 });
+// Inside /app/: a link to the Desk, the Song or a Page changes the app's tab in place (no reload, the sound goes on).
+// Any other page of the app replaces the app, never this frame.
+if (EMBEDDED) {
+  document.addEventListener('click', (e) => {
+    const a = e.target.closest('a[href]');
+    if (!a || e.defaultPrevented || e.button || e.metaKey || e.ctrlKey || e.shiftKey || a.target === '_blank') return;
+    let u;
+    try { u = new URL(a.getAttribute('href'), location.href); } catch { return; }
+    if (u.origin !== location.origin || !u.pathname.startsWith('/app/') || u.pathname.startsWith('/app/ask/')) return;
+    if (/^\/app\/?$/.test(u.pathname)) { e.preventDefault(); tellApp({ go: u.hash || '#desk' }); }
+    else a.target = '_top';
+  });
+  window.addEventListener('message', (e) => {
+    if (e.origin !== location.origin || e.source !== window.parent || e.data?.zpktAsk !== 'shown') return;
+    scroll();   // the tab is showing again: at the newest, if that is where the reader was
+    if (matchMedia('(hover:hover)').matches && !document.querySelector('.sheet.open')) $('#in').focus({ preventScroll: true });
+  });
+}
 
 /* ---------- earlier chats and the folder ---------- */
 function renderOld() {
@@ -748,6 +803,8 @@ async function loadEngineNames() {
 }
 
 (async () => {
+  if (window.LEAVING) return;   // on its way to /app/#ask
+  if (EMBEDDED) $('#tools').append($('#moreBtn'));   // no header in the app: earlier chats sit with the composer's tools
   await Promise.all([zpktReady, workReady]);
   Zpkt.init({ api, toast });
   Work.init({

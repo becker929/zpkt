@@ -168,7 +168,7 @@ select{font:inherit;color:inherit;background:var(--panel);border:1px solid var(-
  <div id="lock" role="alert"></div>
  <div id="cols">
   <aside id="side" aria-label="Pages"></aside>
-  <div id="main" class="loads"><div id="slow" role="alert" hidden></div><div id="song" hidden></div><div id="desk"></div><div id="scrim"></div><div class="sheet" id="sheet"></div><div class="sheet tall" id="psheet"></div></div>
+  <div id="main" class="loads"><div id="slow" role="alert" hidden></div><div id="song" hidden></div><div id="desk"></div><div id="ask" hidden></div><div id="scrim"></div><div class="sheet" id="sheet"></div><div class="sheet tall" id="psheet"></div></div>
   <div id="hear"><div class="hear" id="htop"></div><div class="hear" id="hbot"><div id="hkeys"></div><span id="listen"></span></div></div>
  </div>
  <nav id="tabs" data-current="desk"></nav><script src="/app/shell/nav.js"></script>
@@ -812,12 +812,13 @@ function esc(t) { return String(t).replace(/[&<>"]/g, c => ({"&": "&amp;", "<": 
 function showTab(t) {
   S.tab = t;
   $("#desk").hidden = t !== "desk"; $("#song").hidden = t !== "song";
+  if (window.zpktNav) window.zpktNav.ask(t === "ask");   // the chat's frame, in #ask (shell/nav.js)
   navSync();
   if (t === "song" && !S.song.loaded) { if (!$("#song").innerHTML) $("#song").innerHTML = '<div class="tag" id="songwait">Reading the song…</div>'; loadSong(); }
 }
 // A tab was tapped (nav.js draws them): Desk and Song switch in place.
 function go(t) {
-  S.sheet = false; showTab(t === "song" ? "song" : "desk");
+  S.sheet = false; showTab(t === "song" || t === "ask" ? t : "desk");
   renderHist();
 }
 // The tab bar and the address say where you are: #desk or #song.
@@ -831,7 +832,7 @@ function navSync() {
 function route() {
   const h = decodeURIComponent(location.hash.slice(1));
   if (h.startsWith("page=")) { S.want = h.slice(5); S.sheet = false; showTab("desk"); wanted(); }
-  else if (h) { S.sheet = false; showTab(h === "song" ? "song" : "desk"); }
+  else if (h) { S.sheet = false; showTab(h === "song" || h === "ask" ? h : "desk"); }
   renderHist();
 }
 // Open the Desk on the saved Page the address asked for, once the desk and the state are here.
