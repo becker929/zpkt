@@ -57,6 +57,10 @@ class DeskState(TypedDict):
     pos: float
     playing: bool
     loop: str
+    set: str  # the open set's name as the pager reads it ("" before it has, or from an older pager)
+    tempo: float | None  # Live's tempo in BPM; None until the pager says
+    sig: list[int] | None  # the time signature, [4, 4]
+    length: float | None  # the arrangement's length in beats (its last event)
 
 
 def initial() -> DeskState:
@@ -73,6 +77,10 @@ def initial() -> DeskState:
         "pos": 0.0,
         "playing": False,
         "loop": "off",
+        "set": "",
+        "tempo": None,
+        "sig": None,
+        "length": None,
     }
 
 
@@ -87,7 +95,10 @@ def _value(state: DeskState, m: Any, now: float) -> DeskState:
 
 
 def _position(state: DeskState, m: Any, now: float) -> DeskState:
-    return {**state, "pos": float(m["b"]), "playing": bool(m["p"])}
+    new: DeskState = {**state, "pos": float(m["b"]), "playing": bool(m["p"])}
+    if m.get("bpm"):  # the pager sends the tempo along with the playhead: no call of its own
+        new["tempo"] = float(m["bpm"])
+    return new
 
 
 def _monitor(state: DeskState, m: Any, now: float) -> DeskState:
@@ -128,7 +139,20 @@ def reduce(state: DeskState, message: P.PagerMessage, now: float) -> DeskState:
 
 # ---- a whole snapshot ----------------------------------------------------------------------------------------------
 
-SNAPSHOT_KEYS = ("page", "attached", "values", "hw", "picked", "monitor", "pos", "playing")
+SNAPSHOT_KEYS = (
+    "page",
+    "attached",
+    "values",
+    "hw",
+    "picked",
+    "monitor",
+    "pos",
+    "playing",
+    "set",
+    "tempo",
+    "sig",
+    "length",
+)
 
 
 def loop_from_snapshot(reported: Any, current: str) -> str:
@@ -148,6 +172,20 @@ def with_snapshot(state: DeskState, snapshot: Mapping[str, Any] | None, status: 
         if "loop" in snapshot:
             new["loop"] = loop_from_snapshot(snapshot["loop"], state["loop"])
     return new
+
+
+def song_facts(state: Mapping[str, Any]) -> dict[str, Any]:
+    """What the page's identity line says of the song: tempo, time signature, the bar the playhead is in and how many
+    bars the arrangement has. A fact Live has not given is None."""
+    sig = state.get("sig") or None
+    per_bar = sig[0] * 4.0 / sig[1] if sig and sig[1] else 4.0
+    length = state.get("length")
+    return {
+        "tempo": state.get("tempo"),
+        "sig": list(sig) if sig else None,
+        "beats_per_bar": per_bar,
+        "bars": max(1, -int(-float(length) // per_bar)) if length else None,
+    }
 
 
 # ---- what the server decides ---------------------------------------------------------------------------------------

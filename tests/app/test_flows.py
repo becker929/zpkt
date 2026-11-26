@@ -43,34 +43,25 @@ def drag(pg, slot: str, dy: float) -> None:
     pg.mouse.up()
 
 
-def test_flow_1_mix_drag_a_control_and_live_moves_then_pin_and_touch(rig, page):
+def test_flow_1_mix_drag_a_control_and_live_moves(rig, page):
     slot, key, _ = first_control(rig, "f")
     assert page.locator("#chgpill").inner_text() == "0 changed"
     before = rig.desk.history.cur[key][1]
     drag(page, slot, -60)  # up
     page.wait_for_function("document.querySelector('#chgpill').textContent.startsWith('1')")
+    page.wait_for_function("window.zpkt.S.hear.changed === 1")
     assert rig.desk.history.cur[key][1] != before  # Live moved
     assert page.locator(f'.ctl[data-slot="{slot}"]').get_attribute("class").count("chg") == 1  # the lime dot
-    page.click('[data-hear="pin"]')
-    page.wait_for_selector("#hearpill")
-    assert page.locator("#hearpill").inner_text() == "hearing Pin"
-    assert page.locator("#banner").is_visible()
-    drag(page, slot, 40)  # touch any control: back on Now, with the move counted from Now
-    page.wait_for_function("!document.querySelector('#hearpill')")
-    assert not page.locator("#banner").is_visible()
     assert rig.desk.history.entries[-1]["who"] == "you"
 
 
-def test_flow_5_compare_with_hardware_hold_the_pin_and_let_go(rig, page):
-    _, key, _ = first_control(rig, "f")
-    rig.desk.bus.submit(Command("mix.set", "you", {"norms": [[key, 0.2]]}))
-    page.wait_for_function("document.querySelector('#chgpill').textContent.startsWith('1')")
-    rig.desk.bus.submit(Command("monitor.hear", "minilab", {"hearing": "pin"}))  # bend up
-    page.wait_for_selector("#hearpill")
-    assert page.locator("#hearpill").inner_text() == "hearing Pin"
-    rig.desk.bus.submit(Command("monitor.hear", "minilab", {"hearing": "now"}))  # let go
-    page.wait_for_function("!document.querySelector('#hearpill')")
-    assert page.locator("#chgpill").inner_text() == "1 changed"
+def test_the_hear_bar_has_no_now_pin_or_ref(rig, page):
+    """Now, Pin and Ref are off the page (25 November 2026); the monitor's commands stay on the bus."""
+    assert page.locator("[data-hear], #kmkpin, #hearpill, #banner").count() == 0
+    assert "matched" not in page.locator("#htop").inner_text()
+    assert [b.get_attribute("id") for b in page.locator("#hkeys button").all()] == ["kplay", "kundo", "kredo", "khist"]
+    rig.desk.bus.submit(Command("monitor.hear", "minilab", {"hearing": "pin"}))  # still a command
+    assert rig.desk.monitor.message()["hearing"] == "pin"
 
 
 def test_flow_6_undo_the_history_names_who_and_an_agent_group_undoes_as_one(rig, page):
@@ -84,7 +75,7 @@ def test_flow_6_undo_the_history_names_who_and_an_agent_group_undoes_as_one(rig,
     page.wait_for_selector(".he .who.agent")
     rows = page.locator(".he").all_inner_texts()
     assert any("agent" in r and "make the kick sit back" in r for r in rows)
-    assert any("sys" in r and "checkpoint" in r for r in rows)  # the automatic checkpoint before the agent's changes
+    assert any("sys" in r and "Before “make the kick sit back”" in r for r in rows)  # the automatic checkpoint, by name
     page.click("#hundo")
     page.wait_for_function("document.querySelector('#chgpill').textContent.startsWith('0')")  # all three at once
     assert page.locator("#chgpill").inner_text() == "0 changed"

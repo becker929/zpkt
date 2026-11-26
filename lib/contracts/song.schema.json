@@ -81,6 +81,7 @@
       "additionalProperties": false,
       "properties": {
         "canonical": {"type": "string"},
+        "mix_set": {"type": "string", "description": "The Live set song.build empties and builds into."},
         "arrangements": {
           "type": "array",
           "items": {

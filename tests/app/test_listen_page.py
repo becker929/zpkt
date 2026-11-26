@@ -49,8 +49,14 @@ def test_a_tap_starts_the_sound_and_a_second_tap_stops_it(listening, page):  # n
     assert stats["rate"] == 48000, stats  # played at the capture's own rate
     assert page.evaluate("localStorage.getItem('zpkt.listen')") == "on"
     assert page.evaluate("document.querySelector('#listen .lsn-lv i').style.transform") != "scaleY(0)"
+    # the Hear bar's level meter reads the same peak: a bar and a number in dB
+    page.wait_for_selector("#lvl[data-state=on]")
+    assert page.locator("#lvl .ln").inner_text().endswith(" dB")
+    assert page.evaluate("parseFloat(document.querySelector('#lvl .lb i').style.width)") > 0
     page.click("#listen button")
     page.wait_for_selector("#listen button[data-state=off]")
+    page.wait_for_selector("#lvl[data-state=off]")
+    assert page.locator("#lvl .ln").inner_text() == "Listen off"
     assert page.evaluate("localStorage.getItem('zpkt.listen')") == "off"
     assert wait_for(lambda: listening.status()["listeners"] == 0)
 

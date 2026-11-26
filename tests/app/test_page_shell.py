@@ -8,6 +8,7 @@ import json
 
 import pytest
 
+from tests.app.conftest import wait_for
 from zpkt.app.bus import Command
 
 playwright_sync = pytest.importorskip("playwright.sync_api")
@@ -214,7 +215,9 @@ def test_touching_the_widgets_moves_live(browser, rig):
     assert int(ratio.get_attribute("data-steps")) >= 2  # a choice is a knob with stops
     drag(pg, '.mc.knob[data-key="Kick bus/desk Glue/Ratio"] .w', 0, -200)
     pg.wait_for_function("window.zpkt.S.hear.changed >= 3")
-    assert param["Ratio"].value == param["Ratio"].max
+    # the drag passes the middle stop on its way: the last place sent is the one that stays
+    assert wait_for(lambda: param["Ratio"].value == param["Ratio"].max)
+    pg.wait_for_function("!window.zpkt.own['Kick bus/desk Glue/Ratio']")
     attack = pg.locator('.mc.knob[data-key="Kick bus/desk Glue/Attack"] .w')  # the keyboard: one stop up
     was = param["Attack"].value
     attack.focus()

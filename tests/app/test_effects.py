@@ -14,6 +14,7 @@ READS = {
     "describe",
     "live.read",
     "measurement.read",
+    "mix.describe",
     "options.get",
     "options.list",
     "options.show",

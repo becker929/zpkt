@@ -139,9 +139,16 @@ function mount(slot) {
     btn.title = resume ? 'Listen was on. Tap to resume' : LABEL[next];
     btn.setAttribute('aria-label', btn.title);
     if (next !== 'on') bar.style.transform = 'scaleY(0)';
+    tell(0);
+  }
+  // Tell the page what the stream's level is (it draws a level meter): the state and the last peak, 0 to 1. This
+  // is a reading of the samples played, nothing more; no sound is changed.
+  function tell(peak) {
+    window.dispatchEvent(new CustomEvent('zpkt-listen', { detail: { state, peak } }));
   }
   function level(peak) {
     stats.peak = peak;
+    tell(peak);
     const db = peak > 0 ? 20 * Math.log10(peak) : -90;
     bar.style.transform = `scaleY(${Math.max(0, Math.min(1, (db + 54) / 54)).toFixed(3)})`;
   }
