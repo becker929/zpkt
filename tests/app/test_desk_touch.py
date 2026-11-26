@@ -289,7 +289,11 @@ def test_a_checkpoint_is_named_saved_at_once_and_can_be_gone_back_to(browser, ri
     pg.wait_for_selector("#cpname")
     said = pg.locator("#sheet").inner_text()
     assert "v171518" not in said and "start-2026" not in said and "Start of session" in said  # never a bare id
-    pg.fill("#cpname", "before the lead")
+    # A redraw between the driver's focus and its typing leaves the text on a field that is gone; type until it holds.
+    for _ in range(5):
+        pg.fill("#cpname", "before the lead")
+        if pg.evaluate("document.querySelector('#cpname').value === 'before the lead' && S.cpDraft === 'before the lead'"):
+            break
     pg.click("#hver")
     pg.wait_for_selector("#cpsaving")  # at once, though reading the mix out of Live takes seconds
     assert (
