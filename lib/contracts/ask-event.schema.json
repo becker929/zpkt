@@ -25,6 +25,7 @@
         },
         "mode": {
           "enum": [
+            "auto",
             "build",
             "ask",
             "auto_edit",

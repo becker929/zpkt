@@ -225,22 +225,22 @@ const store = {
   set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} },
 };
 const API = '/app/ask/api';
-const cfg = Object.assign({ ws: '', mode: 'build', engine: 'claude' }, store.get('cli.cfg', {}), { model: '', models: {} });
+const cfg = Object.assign({ ws: '', mode: 'auto', engine: 'claude' }, store.get('cli.cfg', {}), { model: '', models: {} });
 if (!['claude', 'gemini'].includes(cfg.engine)) cfg.engine = 'claude';
 const ENGINE_NAME = { gemini: 'Gemini CLI', claude: 'Claude Code' };
-// One mode for a producer, so no menu: the agent advises, makes pages and suggests ("build"). The other modes are a
+// One mode for a producer, so no menu: the agent has full power ("auto": the shell, file edits, the app's tools). The other modes are a
 // developer's and show only with /app/ask/?dev=1 (remembered on this device; ?dev=0 forgets it).
-const MODE_NAME = { build: 'Surfaces', ask: 'Ask first', auto_edit: 'Edit files', yolo: 'Full (shell)' };
+const MODE_NAME = { auto: 'Full', build: 'Surfaces', ask: 'Ask first', auto_edit: 'Edit files', yolo: 'No checks' };
 const DEV = (() => {
   const q = new URLSearchParams(location.search).get('dev');
   if (q !== null) store.set('ask.dev', q !== '0' && q !== 'false');
   return !!store.get('ask.dev', false);
 })();
-if (!DEV || !(cfg.mode in MODE_NAME)) cfg.mode = 'build';
+if (!DEV || !(cfg.mode in MODE_NAME)) cfg.mode = 'auto';
 if (DEV) {
   const sel = document.createElement('select');
   sel.id = 'mode'; sel.setAttribute('aria-label', 'Mode');
-  sel.innerHTML = `<option value="build">${MODE_NAME.build}</option><option value="ask">${MODE_NAME.ask}</option><optgroup label="Developer"><option value="auto_edit">${MODE_NAME.auto_edit}</option><option value="yolo">${MODE_NAME.yolo}</option></optgroup>`;
+  sel.innerHTML = `<option value="auto">${MODE_NAME.auto}</option><option value="build">${MODE_NAME.build}</option><option value="ask">${MODE_NAME.ask}</option><optgroup label="Developer"><option value="auto_edit">${MODE_NAME.auto_edit}</option><option value="yolo">${MODE_NAME.yolo}</option></optgroup>`;
   $('#engine').after(sel);
   sel.value = cfg.mode;
   sel.onchange = () => { cfg.mode = sel.value; saveCfg(); renderHead(); };

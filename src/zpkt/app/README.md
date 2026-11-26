@@ -433,15 +433,16 @@ the Ask tab of `/app/` (`/app/#ask`); its page and API are under `/app/ask/`.
   are never taken for it. They are the archive: `GET /app/ask/api/archive` lists them and their streams still read.
   The main conversation cannot be deleted. (Until 26 November 2026 the most recent old session became the main one.
   On its next start the store puts such an adopted session back in the archive, once: `SessionStore._fresh_mains`.)
-- **Modes.** A producer has one mode, `build`, and no menu: the agent advises, uses its three tools and reads files.
-  It cannot edit a file or run a command, and nothing asks. For Claude Code that is `--permission-mode dontAsk`,
-  `--allowedTools mcp__zpkt,Read,Glob,Grep`, `--disallowedTools Bash,Edit,Write,NotebookEdit,EnterPlanMode,ExitPlanMode`
-  and `--strict-mcp-config` (never plan mode: there it described a page instead of making it). For Gemini it is
-  Gemini's default mode, and the app answers its permission questions itself: yes to the three tools, no to the rest.
-  The three tools run in every mode with no question. `/app/ask/?dev=1` shows a mode menu (remembered on the device;
-  `?dev=0` hides it again) with "Ask first" (Gemini asks on the page before an edit or a command; Claude Code has
-  nobody to ask there, so it is `build`), and under "Developer", "Edit files" and "Full (shell)". The table is in
-  `ask/engines.py`.
+- **Modes.** A producer has one mode, `auto`, and no menu: full power (Anthony, 26 November 2026). The agent has the
+  shell, file edits, every tool and the app's three tools. For Claude Code that is `--permission-mode auto` (Claude
+  Code decides what is safe; nothing is disallowed and the Mac's other MCP servers are there); for Gemini it is
+  `yolo`, and a question it still asks is answered yes. The default models are `claude-opus-5-5` and `gemini-4-neon`
+  (`CLAUDE_AGENT_MODEL` and `GEMINI_AGENT_MODEL` override them). The careful mode `build` is still there: the three
+  tools and reading files only (`--permission-mode dontAsk`, `--allowedTools mcp__zpkt,Read,Glob,Grep`,
+  `--disallowedTools Bash,Edit,Write,NotebookEdit,EnterPlanMode,ExitPlanMode`, `--strict-mcp-config`; never plan
+  mode: there it described a page instead of making it). `/app/ask/?dev=1` shows a mode menu (remembered on the
+  device; `?dev=0` hides it again): "Full", "Surfaces" (`build`), "Ask first" (Gemini asks on the page before an
+  edit or a command), and under "Developer", "Edit files" and "No checks". The table is in `ask/engines.py`.
 - **Paging.** `GET /app/ask/api/sessions/<id>/events?turns=20` gives the last 20 turns, `first`, `next` and `more`.
   Add `&before=<first>` for the turns before. Follow new events with the stream from `next`.
 - **Compaction.** Before a turn, the app estimates the conversation in tokens (characters / 4). Past the engine's

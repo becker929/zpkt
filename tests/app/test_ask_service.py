@@ -39,7 +39,7 @@ def test_a_turn_runs_to_its_end_and_every_event_is_stored(tmp_path):
     assert ask.wait_idle()
     assert types(ask, s["id"]) == ["prompt", "init", "message", "result", "run_end"]
     prompt, *_, end = ask.store.replay(s["id"])
-    assert prompt["engine"] == "claude" and prompt["mode"] == "build" and prompt["text"] == "say hi"
+    assert prompt["engine"] == "claude" and prompt["mode"] == "auto" and prompt["text"] == "say hi"
     assert end["code"] == 0 and end["engine"] == "claude" and not end["signal"]
     assert s["title"] == "say hi" and not ask.is_live(s["id"])
     turn = claude.seen[0]
@@ -263,7 +263,7 @@ def test_notes_are_read_to_the_agent_and_written_after_the_turn(tmp_path):
     assert "kick is 60 Hz" not in claude.seen[1].prompt
 
 
-def test_the_default_mode_is_build_and_an_older_pages_plan_is_build_too(tmp_path):
+def test_the_default_mode_is_full_power_and_an_older_pages_plan_is_that_too(tmp_path):
     """The default is never Claude Code's plan mode (there the agent described a page instead of making it)."""
     provider = ScriptedProvider("claude", [text("ok")])
     ask = make(tmp_path, claude=provider)
@@ -271,8 +271,8 @@ def test_the_default_mode_is_build_and_an_older_pages_plan_is_build_too(tmp_path
     ask.wait_idle()
     ask.send(ask.store.get(s["id"]), "again", engine="claude", mode="plan")
     ask.wait_idle()
-    assert [t.mode for t in provider.seen] == ["build", "build"]
-    assert [e["mode"] for e in ask.store.replay(s["id"]) if e["type"] == "prompt"] == ["build", "build"]
+    assert [t.mode for t in provider.seen] == ["auto", "auto"]
+    assert [e["mode"] for e in ask.store.replay(s["id"]) if e["type"] == "prompt"] == ["auto", "auto"]
 
 
 def test_the_guide_tells_the_agent_what_the_person_must_never_hear_about():
@@ -281,5 +281,5 @@ def test_the_guide_tells_the_agent_what_the_person_must_never_hear_about():
     guide = " ".join(GUIDE.read_text().split())
     for words in ("plan mode", "plans folder", "file paths on the Mac", "how many tools", "internal id"):
         assert words in guide, words
-    assert "only window onto Ableton Live" in guide and "what they can tap instead" in guide
+    assert "only window onto Ableton Live" in guide and "what they can tap" in guide
     assert "make the page now" in guide and "always work" in guide

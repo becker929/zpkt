@@ -46,10 +46,14 @@ def after(c, flag: str) -> list[str]:
 
 
 def test_the_modes_map_to_claudes_and_unknown_is_the_default():
-    assert set(MODES) == set(CLAUDE_MODE) and DEFAULT_MODE == "build"
+    assert set(MODES) == set(CLAUDE_MODE) and DEFAULT_MODE == "auto"
     assert command(mode="yolo").args[6] == "bypassPermissions"
     assert command(mode="auto_edit").args[6] == "acceptEdits"
-    assert command(mode="nonsense").args[6] == command(mode="build").args[6] == "dontAsk"
+    assert command(mode="build").args[6] == "dontAsk"
+    # the default is full power (26 November 2026): Claude Code's own auto mode, with the shell and every tool
+    full = command(mode="nonsense")
+    assert full.args[6] == command(mode="auto").args[6] == "auto"
+    assert "--disallowedTools" not in full.args and "--strict-mcp-config" not in full.args
     assert "plan" not in [command(mode=m).args[6] for m in MODES if m != "plan"]  # plan mode builds nothing
 
 

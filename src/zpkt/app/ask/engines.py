@@ -2,7 +2,10 @@
 
 The modes, for both engines:
 
-    build      the default, and the only one a producer sees: the agent advises and uses the app's three tools (make or
+    auto       the default (Anthony, 26 November 2026: "full power again with shell and auto mode and everything"): the
+               agent has every tool, the shell and file edits included, and the app's tools. Claude Code runs in its own
+               `auto` permission mode, where it decides for itself what is safe to do; Gemini CLI runs in `yolo`.
+    build      the careful one: the agent advises and uses the app's three tools (make or
                change a page, read the state, read the measurement). It reads files. It cannot edit a file
                or run a command, and nothing asks.
     ask        the same, and with Gemini every edit and command waits for a yes from the page. Claude Code has nobody
@@ -23,10 +26,12 @@ from collections.abc import Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
 
-MODES = ("build", "ask", "auto_edit", "yolo", "plan")
-DEFAULT_MODE = "build"
+MODES = ("auto", "build", "ask", "auto_edit", "yolo", "plan")
+DEFAULT_MODE = "auto"
+CLAUDE_DEFAULT_MODEL = "claude-opus-5-5"  # CLAUDE_AGENT_MODEL overrides it
 # `dontAsk`: what is not allowed by a rule is refused without a question (`claude -p` has nobody to ask).
 CLAUDE_MODE = {
+    "auto": "auto",
     "build": "dontAsk",
     "ask": "dontAsk",
     "auto_edit": "acceptEdits",
@@ -107,7 +112,7 @@ def claude_command(
         "--permission-mode",
         CLAUDE_MODE.get(mode, CLAUDE_MODE[DEFAULT_MODE]),
     ]
-    guarded = CLAUDE_MODE.get(mode, "dontAsk") == "dontAsk"
+    guarded = CLAUDE_MODE.get(mode, CLAUDE_MODE[DEFAULT_MODE]) == "dontAsk"
     if model:
         args += ["--model", model]
     args += ["--resume", session_id] if resume else ["--session-id", session_id]
