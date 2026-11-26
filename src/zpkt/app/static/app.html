@@ -576,6 +576,7 @@ function renderHist() {
     <button class="key sm ${S.saving ? "spin" : ""}" id="hver" type="submit" ${S.saving ? "disabled" : ""}>${S.saving ? "Saving…" : `<svg width="18" height="18"><use href="#i-flag"/></svg>Save checkpoint`}</button></form>
     <div class="hr"><button class="key sm ${S.hist.can_undo ? "" : "off"}" id="hundo">${I("undo")}Undo</button><button class="key sm ${S.hist.can_redo ? "" : "off"}" id="hredo">${I("redo")}Redo</button><span class="sp"></span><button class="key sm" id="hclose">Close</button></div>`;
   $("#hrows").scrollTop = top;
+  if (!kept && S.cpDraft && $("#cpname")) $("#cpname").value = S.cpDraft;
   if (kept) { const f = $("#cpname"); f.value = kept.value; if (kept.focus) { f.focus({preventScroll: true}); f.setSelectionRange(kept.at, kept.at); } }
 }
 // ---- History: every change with its values, undone ones greyed, and checkpoints as places to go back to -------------
@@ -631,6 +632,7 @@ async function saveCheckpoint(typed) {
   let name = String(typed || "").trim().replace(/[^A-Za-z0-9 ._-]+/g, "-").replace(/^[^A-Za-z0-9]+/, "").slice(0, 56).trim();
   if (!name) name = stampName(now);
   S.saving = {name, at: now / 1000};
+  S.cpDraft = "";
   if ($("#cpname")) $("#cpname").value = "";
   renderHist();  // "Saving" shows at once: reading the whole mix out of Live takes seconds
   const r = await command("history.checkpoint", {name, new: true});
@@ -968,7 +970,9 @@ document.addEventListener("click", async e => {
   if (t.id === "khist") { S.sheet = "hist"; return renderHist(); }
   if (t.id === "hclose") { S.sheet = false; return renderHist(); }
 });
-document.addEventListener("submit", e => { if (e.target.id === "cpform") { e.preventDefault(); saveCheckpoint($("#cpname").value); } });
+document.addEventListener("submit", e => { if (e.target.id === "cpform") { e.preventDefault(); saveCheckpoint($("#cpname").value || S.cpDraft); } });
+// The name being typed is kept in the state, so no redraw of the sheet (an event from Live, a tab change) can lose it.
+document.addEventListener("input", e => { if (e.target.id === "cpname") S.cpDraft = e.target.value; });
 $("#scrim").addEventListener("click", () => { S.sheet = false; renderHist(); closeSheet(); });
 
 // ---- events ---------------------------------------------------------------------------------------------------------
