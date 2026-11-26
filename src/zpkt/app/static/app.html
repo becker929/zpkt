@@ -83,6 +83,32 @@ svg{display:block}
 .vc b{font-size:13px;line-height:1.2}
 .vc span{font:11.5px ui-monospace,Menlo,monospace;color:var(--mute)}
 .vc.now span{color:#111}
+/* options:start */
+.sheet:has(#osub){max-height:100%}
+#osub{font-size:13px;line-height:1.35;color:var(--mute);margin:-4px 0 0;flex:none}
+.ol .key{flex-direction:column;align-items:flex-start;justify-content:center;gap:1px;height:52px;max-width:74vw}
+.ol .key b{font-size:13px;max-width:100%;overflow:hidden;text-overflow:ellipsis}
+.ol .key .tag{text-transform:none;letter-spacing:0;max-width:100%;overflow:hidden;text-overflow:ellipsis}
+.ol .key.on .tag{color:#111}
+.oab{font-size:13px;line-height:1.4;overflow-wrap:anywhere}
+.oab .om,.od .om,.oe .om{color:var(--mute)}
+#obody{flex:1 1 auto;min-height:0;overflow-y:auto;display:flex;flex-direction:column;gap:8px}
+#obody>*{flex:none}
+#obody>.tag{white-space:normal}
+#vgrid{max-height:212px}
+.vc em{font:normal 10.5px ui-monospace,Menlo,monospace;border:1px solid var(--line);padding:1px 5px;align-self:flex-start;background:var(--panel);color:var(--ink)}
+.vc em.sel{background:var(--pin);color:#fff;border-color:var(--pind)}
+.od{border:1px solid var(--cl);border-radius:12px;padding:8px 10px;background:var(--c2);font-size:13px;line-height:1.4;display:flex;flex-direction:column;gap:6px;overflow-wrap:anywhere}
+.od ul{margin:0;padding-left:18px}
+.od .mono{white-space:nowrap}
+.od .orow{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.od .done{border-left:4px solid var(--acc);padding-left:8px}
+.oe{font-size:13.5px;line-height:1.45}
+.oe p{margin:0 0 6px}.oe ol{margin:0;padding-left:20px}.oe li{margin-bottom:6px}
+#onow{max-width:64%;min-width:0}
+#onow span{overflow:hidden;text-overflow:ellipsis}
+#side .sketch{overflow-wrap:anywhere}
+/* options:end */
 .gp{color:var(--pind)}.gn{color:var(--bad)}
 .lane{display:flex;align-items:center;gap:8px;min-width:0}
 .lane .ln{font:11px ui-monospace,Menlo,monospace;color:var(--mute);width:64px;flex:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -296,19 +322,57 @@ function drawDesk() {
     <span class="pill acc" id="mlchip">${S.state.live === "attached" ? "on MiniLab" : "no MiniLab"}</span></div>${nums}${body}
     <div class="dots" role="group" aria-label="Pages">${pages.map(p => `<button data-page="${p.hw[0]}" class="${p === entry ? "c" : ""}" aria-label="${esc(p.name)}"></button>`).join("")}</div>`;
 }
+// ---- the Options sheet: versions of the mix to compare, play and Pick ---------------------------------------------
+const escHtml = t => String(t).replace(/[&<>"]/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;"}[c]));
+const OPT = {audio: null, playing: null, picked: null, reveal: null};  // the player for rendered files; the last Pick made here
+const optNum = x => (Math.round(x * 100) / 100).toFixed(2);
+const optSel = () => S.options.options.find(o => o.id === S.optSel) || S.options.options[0];
+const optCount = (n, one) => `${n} ${one}${n === 1 ? "" : "s"}`;
+// Where an Option stands, in words.
+function optState(o) {
+  if (o.kind === "proposal") return o.progress === "picked" ? "Suggestion, picked" : "Suggestion, not applied yet";
+  if (o.status === "rendering") return `Rendering version ${Math.min(o.done + 1, o.total)} of ${o.total}`;
+  if (o.status === "queued") return "Waiting to render";
+  if (o.status === "failed") return "Render failed";
+  return `${optCount(o.versions.length, "version")} ready`;
+}
+// One sentence on where an Option came from and what can be done with it.
+function optAbout(o) {
+  const note = o.note ? escHtml(o.note) : "";
+  if (o.kind === "proposal") {
+    const who = !o.made_by || o.made_by === "agent" ? "the assistant in Ask" : o.made_by;
+    return `<b>Suggested by ${escHtml(who)}.</b> ${note ? "Why: " + note : ""} <span class="om">${o.progress === "picked" ? "You picked it." : "Nothing has changed on the mix yet. It waits here until you pick it."}</span>`;
+  }
+  if (o.kind === "grid") return `Rendered from Live: the mix as it is, then each variation. Pick sets Live's controls to the variation you selected. ${o.status === "failed" ? `<b>It stopped:</b> ${escHtml(o.error || o.progress)}` : o.status === "ready" ? "" : "Live is busy while each one renders. Versions appear as they finish, and you can close this sheet meanwhile."} ${note}`;
+  return `Renders made earlier by another tool. You can select and play them. They carry no settings, so Pick cannot put them on the mix. ${note}`;
+}
+function optGap(g, base) {
+  if (!g) return "";
+  const d = g.lufs != null ? g.lufs : g.rms_db, unit = g.lufs != null ? "LU" : "dB";
+  if (d == null) return "";
+  const than = base ? escHtml(base.label) : "the first";
+  return Math.abs(d) < 0.05 ? `same loudness as ${than}` : `${Math.abs(d).toFixed(1)} ${unit} ${d > 0 ? "louder" : "quieter"} than ${than}`;
+}
 function renderOptions() {
-  const sh = $("#sheet"), os = S.options.options;
-  const sel = os.find(o => o.id === S.optSel) || os[0];
+  const sh = $("#sheet"), os = S.options.options, sel = optSel();
   const shownId = S.options.shown && S.options.shown.option === (sel && sel.id) ? S.options.shown.version.id : null;
-  const esc = t => String(t).replace(/</g, "&lt;");
-  const card = v => versionCard(v, sel, shownId);
-  const cur = toPick(sel);
-  const can = cur && cur.status === "ready" && (cur.writes || sel.kind === "proposal");
-  const from = sel && sel.kind === "proposal" ? `<div class="why">Proposed by ${esc(sel.made_by === "agent" || !sel.made_by ? "an agent" : sel.made_by)}. Pick puts it on Now.</div>` : "";
-  sh.innerHTML = `<h3>Options</h3>${os.length ? `<div class="ol" role="group" aria-label="Options">${os.map(o => `<button class="key ${o.id === sel.id ? "on" : ""}" data-optsel="${esc(o.id)}">${esc(o.title)} <span class="tag">${esc(o.progress)}</span></button>`).join("")}</div>
-    <div class="vg" id="vgrid">${sel.versions.map(card).join("") || '<div class="he">No Versions yet.</div>'}</div>
-    ${from}${sel.note ? `<div class="${sel.kind === "proposal" ? "why" : "tag"}">${esc(sel.note)}</div>` : ""}` : '<div class="he">No Options yet. Ask for one with the options.make command, run a mix 2 batch, or let an agent propose one.</div>'}
-    <div class="hr"><button class="key sm ${can ? "" : "off"}" id="onow" aria-label="Pick: make it Now"><svg width="18" height="18"><use href="#i-pick"/></svg>Pick</button><span class="sp"></span><button class="key sm" id="hclose">Close</button></div>`;
+  const cur = toPick(sel), can = optCanPick(sel, cur);
+  const skipped = (S.options.skipped || []).length;
+  const prop = sel && sel.kind === "proposal";
+  const body = os.length ? `<span class="tag" id="ochoose">Options (${os.length}): choose one</span><div class="ol" role="group" aria-label="Comparisons and suggestions">${os.map(o => `<button class="key ${o.id === sel.id ? "on" : ""}" data-optsel="${escHtml(o.id)}"><b>${escHtml(o.title)}</b><span class="tag">${optState(o)}</span></button>`).join("")}</div>
+    <div class="oab" id="oabout">${optAbout(sel)}</div>
+    ${prop ? "" : `<span class="tag">Its versions: tap one to select it</span><div class="vg" id="vgrid" role="group" aria-label="Versions">${sel.versions.map(v => versionCard(v, sel, shownId)).join("") || '<div class="sketch">No versions in this one yet.</div>'}</div>`}
+    ${optDetail(sel, cur, can)}${skipped ? `<div class="sketch">${optCount(skipped, "older batch").replace("batchs", "batches")} could not be read and ${skipped === 1 ? "is" : "are"} not listed.</div>` : ""}`
+    : `<div class="oe" id="oempty"><p><b>Nothing to compare yet.</b></p>
+      <p>An Option is a set of versions of your mix. You select one, play it, and Pick the one to keep. Two ways to get one:</p>
+      <ol><li><b>Ask for a suggestion.</b> Open the Ask tab and say what bothers you, for example "the kick masks the bass". The assistant's suggestion appears here with its reason and the exact changes. Nothing moves until you Pick it.</li>
+      <li><b>Render a batch.</b> In the Song tab, tap Arranger. Its page called Mix 2 renders one device at several settings. Those renders appear here to play and compare.</li></ol></div>`;
+  const was = $("#obody"), grid = $("#vgrid"), at = was ? was.scrollTop : 0, gat = grid ? grid.scrollTop : 0;  // a redraw keeps the place
+  sh.innerHTML = `<h3>Options</h3><p id="osub">Versions of the mix to compare. Tap one to select it, play it, then Pick the one to keep.</p><div id="obody">${body}</div>
+    <div class="hr"><button class="key sm ${can ? "on" : "off"}" id="onow" aria-label="Pick: put the selected version's settings on the mix"><svg width="18" height="18"><use href="#i-pick"/></svg><span>${cur && can ? `Pick "${escHtml(cur.label)}"` : "Pick"}</span></button><span class="sp"></span><button class="key sm" id="hclose">Close</button></div>`;
+  $("#obody").scrollTop = at;
+  if ($("#vgrid")) $("#vgrid").scrollTop = gat;
+  if (OPT.reveal && shownId === OPT.reveal && $("#odetail")) { OPT.reveal = null; $("#odetail").scrollIntoView({block: "nearest"}); }  // a tap on a Version brings its panel into view
 }
 // The Version a Pick means: the one on the Hear bar, or the only one (what an agent proposed has one).
 function toPick(sel) {
@@ -317,13 +381,104 @@ function toPick(sel) {
   if (sh && sh.option === sel.id) return sel.versions.find(v => v.id === sh.version.id) || null;
   return sel.versions.length === 1 ? sel.versions[0] : null;
 }
-function versionCard(v, sel, shownId) {
-  const l = loud(v), g = v.gap, ok = v.status === "ready";
-  const moves = v.writes ? v.writes.length : 0;
-  const sub = sel.kind === "proposal" ? (v.writes ? `${moves} ${moves === 1 ? "move" : "moves"}` : "no values") : ok ? `${l == null ? "not measured" : l.toFixed(1) + " LUFS"}${g ? " · " + dB(g.lufs != null ? g.lufs : g.rms_db) : ""}` : v.status === "gone" ? "file is gone" : v.status;
-  return `<button class="vc ${shownId === v.id ? "on" : ""} ${sel.now === v.id ? "now" : ""} ${ok ? "" : "off"}" data-opt="${escHtml(sel.id)}" data-ver="${escHtml(v.id)}"><b>${escHtml(v.label)}</b><span>${sub}</span>${sel.now === v.id ? "<span>Now</span>" : ""}</button>`;
+// A Pick works on a ready Version that holds settings; a suggestion with no changes is picked as your word alone.
+function optCanPick(sel, v) { return !!(sel && v && v.status === "ready" && v.writes && (v.writes.length || sel.kind === "proposal")); }
+function optWhyNot(sel, v) {
+  if (!v) return "Tap a version to select it first.";
+  if (v.status !== "ready") return v.status === "gone" ? "This version's file is missing, so it cannot be picked." : "This version has not rendered yet. Pick works once it is ready.";
+  if (sel.kind === "proposal") return "This suggestion gives its values as text, not numbers, so Pick cannot apply it. Ask in the Ask tab for the same suggestion with numbers.";
+  if (v.id === sel.base) return "This is the mix without changes, here to compare against. There is nothing to pick.";
+  return "This is a finished render with no settings attached, so Pick cannot put it on the mix. To get this sound, set the controls by hand.";
 }
-const escHtml = t => String(t).replace(/</g, "&lt;");
+// What a Pick will set, one line per control: its name, where it is now, where it goes.
+function optMoves(v) {
+  const vals = valueMap();
+  return (v.writes || []).map(([key, to]) => {
+    const now = vals[key], from = now && now.r != null ? optNum(now.r) : null;
+    const change = from == null ? `to ${optNum(to)}` : from === optNum(to) ? `stays at ${from}` : `from ${from} to ${optNum(to)}`;
+    return `<li><b>${escHtml(String(key).replace(/\//g, ", "))}</b>: <span class="mono">${change}</span>${now && now.s ? ` <span class="om">(reads ${escHtml(now.s)} now)</span>` : ""}</li>`;
+  }).join("");
+}
+function optPlayable(v) { return !!(v && v.status === "ready" && v.file); }
+// The panel under the grid: the selected Version, its Play button, and what Pick will do (or what it just did).
+function optDetail(sel, v, can) {
+  if (!v) return `<div class="od" id="odetail"><b>No version selected.</b><span>Tap a version above. Its loudness and spectrum then show on the Hear bar at the top, and you can play it here.</span></div>`;
+  const id = sel.id + "|" + v.id, on = OPT.playing === id;
+  const play = optPlayable(v)
+    ? `<div class="orow"><button class="key sm ${on ? "on" : ""}" id="oplay" aria-pressed="${on}"><svg width="18" height="18"><use href="#i-${on ? "stop" : "play"}"/></svg>${on ? "Stop" : "Play this version"}</button><span class="om">Plays the render on this device, not through Live. While it plays, tap another version to switch at the same spot. Levels are not matched.</span></div>`
+    : `<span class="om">${sel.kind === "proposal" ? "A suggestion is not rendered, so there is nothing to play here. To hear it, Pick it and listen in Live; Undo puts the mix back." : v.status === "gone" ? "Its audio file is missing, so it cannot be played." : "Not rendered yet, so there is nothing to play."}</span>`;
+  const p = OPT.picked, last = S.hist.entries[(S.hist.pos == null ? S.hist.entries.length : S.hist.pos) - 1];  // the last change not undone
+  const justPicked = p && p.option === sel.id && p.version === v.id && (p.entry == null || (last && last.id === p.entry));
+  let pick;
+  if (justPicked) pick = p.entry == null ? `<div class="done" id="odone"><b>Picked.</b> It had no changes for the mix, so nothing moved. The assistant may now go ahead with it.</div>`
+    : `<div class="done" id="odone"><b>Picked. ${optCount(p.n, "control")} changed in Live.</b><div class="orow"><span>Undo takes it back in one step.</span><button class="key sm" id="hundo"><svg width="18" height="18"><use href="#i-undo"/></svg>Undo</button></div></div>`;
+  else if (!can && v.writes && v.writes.length && (v.status === "queued" || v.status === "rendering")) pick = `<div id="onot"><b>Not rendered yet. Once it is ready, Pick will set ${optCount(v.writes.length, "control")} in Live:</b><ul>${optMoves(v)}</ul></div>`;
+  else if (!can) pick = `<span id="onot">${optWhyNot(sel, v)}</span>`;
+  else if (!v.writes.length) pick = `<span id="owill">Pick changes nothing on the mix. It tells the assistant it may go ahead with this.</span>`;
+  else pick = `<div id="owill"><b>Pick will set ${optCount(v.writes.length, "control")} in Live, at once:</b><ul>${optMoves(v)}</ul><span class="om">Nothing changes until you tap Pick. Afterwards an Undo button here takes it back in one step.</span></div>`;
+  return `<div class="od" id="odetail"><b>${sel.kind === "proposal" ? "The suggestion" : "Selected"}: ${escHtml(v.label)}</b>${play}${pick}</div>`;
+}
+function versionCard(v, sel, shownId) {
+  const l = loud(v), ok = v.status === "ready", base = sel.versions.find(x => x.id === sel.base);
+  let sub;
+  if (sel.kind === "proposal") sub = v.writes ? `${optCount(v.writes.length, "change")}, not rendered` : "values given as text";
+  else if (ok) sub = [l == null ? "loudness not measured" : l.toFixed(1) + " LUFS", v.id === sel.base ? "the mix without changes" : optGap(v.gap, base)].filter(Boolean).join(" · ");
+  else sub = {rendering: "Rendering now", queued: "Waiting to render", failed: "Render failed", gone: "Audio file is missing"}[v.status] || v.status;
+  return `<button class="vc ${shownId === v.id ? "on" : ""} ${sel.now === v.id ? "now" : ""} ${ok ? "" : "off"}" data-opt="${escHtml(sel.id)}" data-ver="${escHtml(v.id)}" aria-pressed="${shownId === v.id}"><b>${escHtml(v.label)}</b><span>${sub}</span>${shownId === v.id ? '<em class="sel">Selected</em>' : ""}${sel.now === v.id ? "<em>Picked</em>" : ""}</button>`;
+}
+// Play the selected Version's rendered file here. While one plays, selecting another switches to it at the same spot.
+function optPlay(sel, v, toggle) {
+  const id = sel.id + "|" + v.id;
+  if (!OPT.audio) {
+    OPT.audio = new Audio();
+    const stop = () => { OPT.playing = null; if (S.sheet === "options") renderHist(); };
+    OPT.audio.addEventListener("ended", stop);
+    OPT.audio.addEventListener("error", () => { if (OPT.playing) { toast("That file could not be played here."); stop(); } });
+  }
+  const a = OPT.audio;
+  if (toggle && OPT.playing === id) { a.pause(); OPT.playing = null; return renderHist(); }
+  const at = OPT.playing && OPT.playing.split("|")[0] === sel.id ? a.currentTime : 0;
+  OPT.playing = id;
+  a.src = `/api/options/file?option=${encodeURIComponent(sel.id)}&version=${encodeURIComponent(v.id)}`;
+  if (at) a.addEventListener("loadedmetadata", () => { if (at < a.duration) a.currentTime = at; }, {once: true});
+  a.play().catch(() => {});
+  renderHist();
+}
+function optStop() { if (OPT.audio && OPT.playing) { OPT.audio.pause(); OPT.playing = null; } }
+// A tap in the sheet: choose a comparison, select a Version, play it, Pick it. True when the tap was one of these.
+async function optClick(t) {
+  if (t.dataset.optsel) { S.optSel = t.dataset.optsel; optStop(); renderHist(); return true; }
+  if (t.dataset.opt) {
+    OPT.reveal = t.dataset.ver;
+    const r = await command("options.show", {option: t.dataset.opt, version: t.dataset.ver});
+    if (r.ok && OPT.playing) {
+      const sel = S.options.options.find(o => o.id === t.dataset.opt), v = sel && sel.versions.find(x => x.id === t.dataset.ver);
+      if (optPlayable(v)) optPlay(sel, v, false); else { optStop(); renderHist(); }
+    }
+    return true;
+  }
+  if (t.id === "oplay") { const sel = optSel(), v = toPick(sel); if (optPlayable(v)) optPlay(sel, v, true); return true; }
+  if (t.id === "onow") {
+    const sel = optSel(), v = toPick(sel);
+    if (!optCanPick(sel, v)) { toast(sel ? optWhyNot(sel, v) : "There is nothing to pick yet."); return true; }
+    const r = await command("options.pick", {option: sel.id, version: v.id});
+    if (r.ok) {
+      OPT.picked = {option: sel.id, version: v.id, entry: r.body.entry == null ? null : r.body.entry, n: v.writes.length};
+      toast(r.body.entry == null ? `Picked "${v.label}". Nothing moved on the mix.` : `Picked "${v.label}": ${optCount(v.writes.length, "control")} changed. Undo takes it back.`);
+      renderHist();
+    }
+    return true;
+  }
+  return false;
+}
+// The side column's block (desktop): the chosen comparison's versions, to select without opening the sheet.
+function sideVersions() {
+  const sel = optSel();
+  if (!sel) return '<span class="tag">Versions to compare</span><div class="sketch">Nothing to compare yet. Open Options to see how to get some.</div>';
+  const shownId = S.options.shown && S.options.shown.option === sel.id ? S.options.shown.version.id : null;
+  return `<span class="tag">Versions to compare</span><div class="sketch"><b>${escHtml(sel.title)}</b><br>${optState(sel)}. Tap one to select it; open Options to play or Pick it.</div>
+    <div class="vg">${sel.versions.map(v => versionCard(v, sel, shownId)).join("") || '<div class="sketch">No versions in this one yet.</div>'}</div>`;
+}
 function renderSide() {
   const side = $("#side");
   if (!S.state || !S.desk || !wide()) return;
@@ -332,7 +487,7 @@ function renderSide() {
   const shownId = sel && S.options.shown && S.options.shown.option === sel.id ? S.options.shown.version.id : null;
   side.innerHTML = `<span class="tag">Pages</span><div class="pl" role="group" aria-label="Pages">${pages.map(p =>
     `<button class="key ${p === cur ? "on" : ""}" data-page="${p.hw[0]}">${esc(p.name)}</button>`).join("")}</div>
-    <span class="tag">Versions</span>${sel ? `<div class="vg">${sel.versions.map(v => versionCard(v, sel, shownId)).join("") || '<div class="sketch">No Versions yet.</div>'}</div>` : '<div class="sketch">No Options yet.</div>'}
+    ${sideVersions()}
     <button class="key sm" id="sopts">Options</button>`;
 }
 function renderHist() {
@@ -571,16 +726,7 @@ document.addEventListener("click", async e => {
   if (t.id === "kredo") return command("history.redo");
   if (t.id === "khist") { S.sheet = "hist"; return renderHist(); }
   if (t.id === "topts" || t.id === "sopts") { S.sheet = S.sheet === "options" ? false : "options"; return renderHist(); }
-  if (t.dataset.optsel) { S.optSel = t.dataset.optsel; return renderHist(); }
-  if (t.dataset.opt) { await command("options.show", {option: t.dataset.opt, version: t.dataset.ver}); return; }
-  if (t.id === "onow") {
-    const os = S.options.options, sel = os.find(o => o.id === S.optSel) || os[0], v = toPick(sel);
-    if (!v) return toast("Tap a Version first, then Pick.");
-    if (!v.writes && sel.kind !== "proposal") return toast("Pick a Version that has values for the mix.");
-    const r = await command("options.pick", {option: sel.id, version: v.id});
-    if (r.ok) toast("Picked " + v.label + ". It is Now.");
-    return;
-  }
+  if (await optClick(t)) return;
   if (t.id === "hclose") { S.sheet = false; return renderHist(); }
   if (t.id === "hver") { const r = await command("history.checkpoint", {name: "v" + new Date().toTimeString().slice(0, 8).replace(/:/g, "")}); if (r.ok) toast("Made a checkpoint."); }
 });

@@ -131,7 +131,7 @@ def new_job(body: Mapping[str, Any]) -> dict[str, Any]:
         raise BadOption("the body needs 'versions', a list of {label, writes}")
     versions: list[Version] = []
     if body.get("base", True):
-        versions.append(_queued(BASE_ID, "Now", None))
+        versions.append(_queued(BASE_ID, "As it is", None))
     for k, v in enumerate(asked):
         if not isinstance(v, Mapping):
             raise BadOption(f"version {k + 1} must be {{label, writes}}")

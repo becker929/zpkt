@@ -57,22 +57,22 @@ def test_pick_puts_what_the_agent_proposed_on_now_as_you(asked, browser):
     before = volume(rig)
     pg, errors = open_sheet(browser, rig, 390)
     text = pg.locator("#sheet").inner_text()
-    assert "Kick down" in text and "It masks the bass." in text and "Proposed by an agent" in text
-    assert pg.locator(".ol .key.on .tag").text_content() == "proposed"
+    assert "Kick down" in text and "It masks the bass." in text and "Suggested by the assistant in Ask." in text
+    assert pg.locator(".ol .key.on .tag").text_content() == "Suggestion, not applied yet"
     assert "off" not in (pg.get_attribute("#onow", "class") or "")
     pg.click("#onow")
-    pg.wait_for_selector("#vgrid .vc.now")
+    pg.wait_for_selector("#odone")
     assert volume(rig) == pytest.approx(0.3) and volume(rig) != before
     last = rig.desk.history.entries[-1]
     assert last["who"] == "you" and KEY in json.dumps(last)
     assert rig.desk.options.is_picked(oid)
-    pg.wait_for_function("document.querySelector('.ol .key.on .tag').textContent === 'picked'")
+    pg.wait_for_function("document.querySelector('.ol .key.on .tag').textContent === 'Suggestion, picked'")
     assert errors == []
 
 
 def test_a_proposal_made_while_the_sheet_is_open_appears_in_it(asked, browser):
     pg, errors = open_sheet(browser, asked.rig, 390)
-    assert "No Options yet" in pg.locator("#sheet").inner_text()
+    assert "Nothing to compare yet." in pg.locator("#sheet").inner_text()
     propose(asked)
     pg.wait_for_selector('.ol .key:has-text("Kick down")')
     assert errors == []
