@@ -22,7 +22,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from zpkt.app import deskstate, history, jobs, pages, protocol, surfaces
+from zpkt.app import deskstate, history, jobs, organize, pages, protocol, surfaces
 from zpkt.app.bus import Bus, Command, SetGuard
 from zpkt.app.connections import BUSY_WAIT_S, LiveConnections, bind_udp, open_connections
 from zpkt.app.monitor import Monitor
@@ -213,10 +213,24 @@ class Desk:
         """An expression on the pager's desk in Live (None when no pager runs)."""
         return desk_pager.call(self.conn, expr)
 
-    def cfg(self) -> dict[str, Any]:
-        """desk.json's pages, then the surfaces made for this set (surfaces.py), oldest first."""
+    def raw_pages(self) -> list[dict[str, Any]]:
+        """desk.json's pages, then the surfaces made for this set (surfaces.py), oldest first: every page there is,
+        archived or not, before the person's order."""
         d = json.loads(self.settings.desk_file.read_text())
-        d["pages"] = d["pages"] + surfaces.pages(self.settings.set_name, self.settings.surfaces_dir)
+        made: list[dict[str, Any]] = surfaces.pages(self.settings.set_name, self.settings.surfaces_dir)
+        return [*d["pages"], *made]
+
+    def pages_dir(self) -> Path:
+        """Where the set's saved Pages are, and beside them the pages' order and archive (organize.py)."""
+        from zpkt.live import page as live_page
+
+        return self.settings.pages_dir or live_page.folder(self.settings.set_name)
+
+    def cfg(self) -> dict[str, Any]:
+        """The desk's pages as the page, the pager in Live and the MiniLab use them: the raw pages in the person's
+        order, without the archived ones (organize.arrange)."""
+        d = json.loads(self.settings.desk_file.read_text())
+        d["pages"] = organize.arrange(self.raw_pages(), organize.read(self.pages_dir()))
         return d
 
     def page_names(self) -> list[str]:
