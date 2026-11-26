@@ -2,6 +2,7 @@
 
 A step is an event to emit, or a `Call(tool, args)` which goes through the same gate an agent's MCP call does, so a
 test sees the bus, the checks and the `agent` tag. `Wait` blocks until `cancel` is set (a long run to stop).
+`Hold(event)` pauses the turn until the test sets the event, then goes on (an answer that arrives in two parts).
 """
 
 from __future__ import annotations
@@ -29,6 +30,13 @@ class Wait:
 
 
 @dataclass(frozen=True)
+class Hold:
+    """Pause here until `go` is set (or the turn is stopped), then play the rest of the script."""
+
+    go: threading.Event
+
+
+@dataclass(frozen=True)
 class Permit:
     """Ask for a permission, then say what came of it."""
 
@@ -42,7 +50,7 @@ class Started:
     engine_id: str = ""
 
 
-Step = Event | Call | Wait | Permit | Started
+Step = Event | Call | Wait | Hold | Permit | Started
 
 
 class ScriptedProvider:
@@ -79,7 +87,11 @@ class ScriptedProvider:
             if isinstance(step, Wait):
                 cancel.wait(10)
                 return Outcome(None, "SIGTERM")
-            if isinstance(step, Started):
+            if isinstance(step, Hold):
+                while not step.go.wait(0.02):
+                    if cancel.is_set():
+                        return Outcome(None, "SIGTERM")
+            elif isinstance(step, Started):
                 turn.mark_started(step.engine_id)
             elif isinstance(step, Permit):
                 self.answers.append(

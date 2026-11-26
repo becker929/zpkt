@@ -67,7 +67,7 @@ def test_the_tab_bar_shows_its_three_tabs_and_no_options(browser, rig, width):
     assert [t["text"] for t in tabs] == ["Desk", "Song", "Ask"]
     assert all(t["inside"] and t["w"] >= 44 and t["h"] >= 44 for t in tabs), tabs
     assert [t["t"] for t in tabs if t["on"]] == ["desk"]
-    assert tabs[2]["tag"] == "A" and tabs[2]["href"] == "/app/ask/"
+    assert all(t["tag"] == "BUTTON" for t in tabs)  # all three switch in place, Ask too
     assert "Options" not in pg.inner_text("body") and pg.locator("#topts, #sopts, [data-t=options]").count() == 0
     assert pg.locator("#sask").count() == 0  # no stray Ask button
     assert pg.evaluate("document.documentElement.scrollWidth - innerWidth") == 0

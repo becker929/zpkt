@@ -23,7 +23,7 @@ PAGE = {
 NAV_JS = """
 const nav = document.getElementById('tabs');
 nav.innerHTML = ['desk', 'song'].map((t) => `<a data-t="${t}" href="/app/#${t}">${t}</a>`).join('')
-  + '<a data-t="ask" class="on" aria-current="page" href="/app/ask/">ask</a>';
+  + '<a data-t="ask" class="on" aria-current="page" href="/app/#ask">ask</a>';
 nav.dataset.at = matchMedia('(min-width:700px)').matches ? 'top' : 'bottom';
 """
 SHELL_CSS = (
@@ -65,7 +65,7 @@ def open_page(browser, asked, shell: bool = True, width: int = 390, height: int 
             pg.route(f"**/app/shell/{name}", stub(ctype, body))
     else:  # as if the shell's files were not there
         pg.route("**/app/shell/**", lambda route: route.abort())
-    pg.goto(asked.rig.url + "/app/ask/" + query)
+    pg.goto(asked.rig.url + "/app/ask/" + ("?bare=1&" + query[1:] if query else "?bare=1"))  # the page alone
     pg.wait_for_selector("#box")
     pg.wait_for_selector("#tabs a")
     return pg
@@ -101,7 +101,7 @@ def box(pg, selector: str) -> dict:
 # ---- one tab of the app ----------------------------------------------------------------------------------------------
 def test_the_tab_bar_is_the_shells_and_sits_under_the_composer_on_a_phone(asked, page):
     assert page.locator("#tabs a").count() == 3
-    assert page.locator("#tabs a.on").get_attribute("href") == "/app/ask/"
+    assert page.locator("#tabs a.on").get_attribute("href") == "/app/#ask"
     assert [a.get_attribute("href") for a in page.locator("#tabs a").all()[:2]] == ["/app/#desk", "/app/#song"]
     assert not page.locator("#tabs").evaluate("n => n.classList.contains('fallback')")
     bar, tabs, top = box(page, "#bar"), box(page, "#tabs"), box(page, "#top")
@@ -201,9 +201,9 @@ def test_the_developer_modes_are_behind_a_flag(asked, browser, width):
     asked.ask.wait_idle()
     assert asked.providers["claude"].seen[-1].mode == "auto_edit"
     assert "Edit files" in pg.locator(".m.user .meta").inner_text()
-    pg.goto(asked.rig.url + "/app/ask/")  # the flag is remembered on this device
+    pg.goto(asked.rig.url + "/app/ask/?bare=1")  # the flag is remembered on this device
     pg.wait_for_selector("#mode")
-    pg.goto(asked.rig.url + "/app/ask/?dev=0")  # and forgotten when told
+    pg.goto(asked.rig.url + "/app/ask/?bare=1&dev=0")  # and forgotten when told
     pg.wait_for_selector("#box")
     assert pg.locator("#mode").count() == 0
     asked.providers["claude"].script = [text("plain again")]
@@ -397,7 +397,7 @@ def test_a_recovered_error_and_the_tool_counts_stay_out_of_the_default_view(aske
     assert page.locator(".err").count() == 0 and page.locator("#thread > .wk-step").count() == 0
     assert page.locator(".wk-trace > summary").inner_text().strip() == "Details"
     assert box(page, ".wk-trace > summary")["height"] >= 44
-    assert page.locator(".stats").inner_text().strip() == "17.2 s"
+    assert page.locator(".stats > *").count() == 1 and page.locator(".stats .took").text_content() == "Time 17.2 s"
     page.click(".wk-trace > summary")  # the work view keeps all of it
     inside = page.locator(".wk-trace").text_content()
     assert "3 tool calls" in inside and "1 failed" in inside and "made a page: Kick: level" in inside

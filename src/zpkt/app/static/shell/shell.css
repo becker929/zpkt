@@ -45,3 +45,15 @@
   .is-waiting{animation:none}
   .loads.is-pending [data-stale]{transition:none}
 }
+
+/* ---- Ask in place on /app/: <div id="ask" hidden> beside #desk and #song holds the chat's frame (nav.js). Hidden,
+   it keeps its size and its scroll position: it is only not seen. ---- */
+#ask{flex:1;min-height:0;display:flex}
+#ask[hidden]{display:flex;visibility:hidden;position:absolute;inset:0;pointer-events:none}
+#ask>iframe{flex:1;min-width:0;width:100%;height:100%;border:0;display:block;background:var(--bg)}
+/* the Ask tab's mark: a ring while the agent works, a lime dot when it answered and Ask is not showing */
+#tabs>[data-mark]::after{content:"";flex:none;align-self:flex-start;width:9px;height:9px;margin:13px 0 0 -3px;border-radius:50%;box-sizing:border-box;background:var(--acc);border:1.5px solid var(--ink)}
+#tabs>[data-mark=busy]::after{background:none;border-color:var(--mute);animation:shell-wait .5s infinite alternate}
+/* a short view with Ask showing (a phone with its keyboard up): the Hear bar keeps its first row */
+#app.short #htop>:not(:first-child){display:none}
+@media (prefers-reduced-motion:reduce){#tabs>[data-mark=busy]::after{animation:none}}
