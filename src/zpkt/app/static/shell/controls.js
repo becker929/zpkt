@@ -77,10 +77,12 @@
     const n = clamp(m.n), on = kind === "pad" && state !== "off" && state !== "missing" && n >= 0.5;
     const isCmp = kind === "pad" && m.cmp !== undefined && m.cmp !== null;
     const cls = ["ctl", "mc", kind, state, isCmp ? "cmp" : "", m.tint ? "t1" : "t0", on ? "on" : "", m.chg ? "chg" : "", m.flash ? "flash" : "", m.sending ? "sending" : "", m.fixed ? "fixed" : ""].filter(Boolean).join(" ");
-    const data = `data-slot="${m.slot}" data-state="${state}" data-key="${esc(m.key || "")}" data-hw="${m.hw ?? ""}" data-by="${m.by || "key"}" data-n="${n}" data-steps="${m.steps || 0}" data-range="${m.range ? m.range.join(",") : ""}"`;
+    const sameCap = String(m.cap ?? m.group ?? "").toLowerCase() === String(m.label || "").toLowerCase();
+    const num = `<span class="num" aria-hidden="true">${kind === "fader" ? "F" : ""}${m.slot.slice(1)}</span>`;  // its place on the MiniLab, where the slots are rows
+    const data = `style="--n:${n}" data-slot="${m.slot}" data-state="${state}" data-key="${esc(m.key || "")}" data-hw="${m.hw ?? ""}" data-by="${m.by || "key"}" data-n="${n}" data-steps="${m.steps || 0}" data-range="${m.range ? m.range.join(",") : ""}"`;
     // caps: keep the row level. A caption is written once for a run of slots of one group (span: how many slots it
     // runs over; 0: a later slot of the run, whose own caption shows only where each slot is a row of its own).
-    const cap = m.group || m.caps ? `<div class="g${m.span === 0 ? " gr" : ""}" style="--span:${m.span || 1}">${esc(m.cap ?? m.group ?? "")}</div>` : "";
+    const cap = m.group || m.caps ? `<div class="g${m.span === 0 ? " gr" : ""}${sameCap ? " same" : ""}" style="--span:${m.span || 1}">${esc(m.cap ?? m.group ?? "")}</div>` : "";
     const spoken = m.spoken || (m.group ? m.group + ": " : "") + (m.label || name);
     if (state === "off") {
       // An unmapped slot keeps its place and says its name to a screen reader and on hover; it shows no caption.
@@ -102,7 +104,7 @@
     }
     const draw = kind === "knob" ? knob(n, m) : fader(n, m);
     const aria = live ? `role="slider" tabindex="0" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct(n)}" aria-valuetext="${esc(m.shown ?? "")}"` : 'role="img"';
-    return `<div class="${cls}" ${data}${note}>${cap}<div class="w" ${aria} aria-label="${esc(spoken)}">${draw}</div><div class="v">${esc(m.shown ?? "")}</div><div class="l" title="${esc(m.label)}">${esc(m.label)}</div></div>`;
+    return `<div class="${cls}" ${data}${note}>${num}${cap}<div class="w" ${aria} aria-label="${esc(spoken)}">${draw}</div><div class="v">${esc(m.shown ?? "")}</div><div class="l" title="${esc(m.label)}">${esc(m.label)}</div></div>`;
   }
 
   /** The whole panel. `slots` is a list or a {slot: model} map; a slot it lacks is drawn unmapped. `attrs` goes on
@@ -122,6 +124,7 @@
     const w = el.querySelector(".w");
     if (!w) return;
     el.dataset.n = clamp(n);
+    el.style.setProperty("--n", clamp(n));
     if (text !== undefined) {
       const v = el.querySelector(".v");
       if (v) v.textContent = text;
@@ -151,6 +154,7 @@
     for (const [cls, yes] of [["on", on], ["chg", !!m.chg], ["flash", !!m.flash], ["sending", !!m.sending], ["fixed", !!m.fixed]]) el.classList.toggle(cls, yes);
     const moved = +el.dataset.n !== n;
     el.dataset.n = n;
+    el.style.setProperty("--n", n);
     if (kind === "pad") { if (w.hasAttribute("aria-pressed")) w.setAttribute("aria-pressed", String(on)); return; }
     if (moved) {
       if (kind === "knob") w.innerHTML = knob(n, m);

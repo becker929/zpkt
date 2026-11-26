@@ -122,3 +122,24 @@
 .mc.pad.cmp.on .w::before{background:var(--zs-on);border-color:var(--zs-on)}
 .mc.pad.cmp.missing::before{opacity:.12}
 @media (prefers-reduced-motion:reduce){.mc.pad.live .w:active{transform:none}}
+
+/* The list: the same slots, each knob and fader a row of its own, for reading on a phone away from the MiniLab. A
+   row says its place on the controller, its group and its name in full, and its value; its fill is its place, and
+   a hand moves it sideways. Slots with nothing mapped are left out. The pads stay keys. */
+.mc .num{display:none}
+.mlp[data-view="list"] :is(.mk,.mf){grid-template-columns:minmax(0,1fr);grid-template-rows:none;grid-auto-rows:minmax(22px,46px);gap:3px;justify-items:stretch;align-content:start}
+.mlp[data-view="list"] :is(.mk,.mf) .mc{flex-direction:row;align-items:center;gap:7px;max-width:none;padding:0 9px 0 5px;border:1px solid var(--zc-line);border-radius:9px;overflow:hidden;
+  background:linear-gradient(to right,color-mix(in srgb,var(--zs) 38%,transparent) calc(var(--n,0)*100%),transparent 0)}
+.mlp[data-view="list"] :is(.mk,.mf) .mc.off{display:none}
+.mlp[data-view="list"] :is(.mk,.mf) .mc .w{position:absolute;inset:0;flex:none;width:auto;max-width:none;min-height:0;opacity:0;cursor:ew-resize}
+.mlp[data-view="list"] :is(.mk,.mf) .mc:has(.w:focus-visible){box-shadow:0 0 0 2px var(--ink)}
+.mlp[data-view="list"] :is(.mk,.mf) .mc .num{display:block;flex:none;min-width:24px;height:22px;padding:0 3px;box-sizing:border-box;border-radius:6px;background:var(--z-tint);color:var(--ink);opacity:.7;font:600 12px/22px ui-monospace,Menlo,monospace;text-align:center}
+.mlp[data-view="list"] :is(.mk,.mf) .mc .g{order:1;flex:0 1 auto;width:auto;height:auto;align-self:center;visibility:visible;font:500 14px/18px 'Helvetica Neue',Helvetica,Arial,sans-serif;opacity:.62;text-align:left}
+.mlp[data-view="list"] :is(.mk,.mf) .mc .g:is(.same,:empty){display:none}
+.mlp[data-view="list"] :is(.mk,.mf) .mc .l{order:2;flex:1 1 0;display:block;height:auto;font-size:16px;line-height:20px;opacity:1;text-align:left;white-space:nowrap;text-overflow:ellipsis;overflow-wrap:normal}
+.mlp[data-view="list"] :is(.mk,.mf) .mc .v{order:3;flex:none;max-width:48%;height:auto;font-size:16px;line-height:22px;position:relative;z-index:2}
+.mlp[data-view="list"] :is(.mk,.mf) .mc.chg::after{top:2px;right:auto;left:2px;width:7px;height:7px}
+.mlp[data-view="list"] :is(.mk,.mf) .mc .vt{left:auto;right:4px;top:50%;transform:translateY(-50%);height:100%;min-height:26px}
+.mlp[data-view="list"] :is(.mk,.mf) .mc.flash{box-shadow:0 0 0 2px var(--zs)}
+.mlp[data-view="list"]{gap:6px;padding-top:6px;padding-bottom:6px}
+.mlp[data-view="list"] .mc.pad .w{height:32px}
