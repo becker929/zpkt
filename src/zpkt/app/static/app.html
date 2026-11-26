@@ -237,6 +237,13 @@ svg{display:block}
 .lane .tr .rg span{display:block;font:9.5px/1 ui-monospace,Menlo,monospace;color:var(--ink);padding:2px 3px;white-space:nowrap;overflow:hidden}
 .lane .tr .rg.muted,.lane.muted .tr .rg{opacity:.35}
 .lane.muted .ln{text-decoration:line-through}
+.lane{cursor:pointer}.lane.sel .ln{color:var(--ink);font-weight:700}.lane.sel .tr{outline:1.5px solid var(--ink);outline-offset:-1.5px}
+.lane.soloed .ln{color:var(--pind)}
+#songsel{display:flex;align-items:center;gap:8px;min-height:44px}#songsel:empty{display:none}
+#songsel .sn{flex:1;min-width:0;display:flex;align-items:center;gap:6px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;font-size:14px}
+#songsel .sn .cd{display:inline-block;width:10px;height:10px;border-radius:50%;flex:none}
+#songsel .sf{height:44px;min-width:56px;font:700 15px ui-monospace,Menlo,monospace}
+#songsel .sf.solo.on{background:var(--pin);border-color:var(--pind);color:#fff}#songsel .sf.mute.on{background:var(--bad);border-color:var(--bad);color:var(--bg)}
 .lane .ln .cd{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:4px;vertical-align:1px}
 .ruler .rt .sec span{position:absolute;left:4px;top:-13px;font:10px ui-monospace,Menlo,monospace;color:var(--ink);font-style:normal;white-space:nowrap}
 .lane .tr b{position:absolute;top:0;bottom:0;width:2px;background:var(--pin)}
@@ -350,7 +357,7 @@ const I = n => `<svg width="22" height="22"><use href="#i-${n}"/></svg>`;
 const S = {state: null, desk: null, hear: {hearing: "now", changed: 0, keys: [], match: true, monitor: {slot: "W", ref: "C1"}, pin: "start"},
            hist: {entries: [], can_undo: false, can_redo: false}, meter: null, sheet: false, flash: {},
            layouts: {},
-           tab: "desk", song: {view: null, loaded: false}, page: null,
+           tab: "desk", song: {view: null, loaded: false, sel: null}, page: null,
            pend: null, busy: 0, want: null,
            scales: {}, slots: [], fixed: {}, dirty: false, sideAt: null, saving: null, meterAt: 0, cmpAt: null,
            face: "k", faces: 1, songAt: 0, histAt: 0, histFit: 0, sideAt2: null, flagAt: 0, opening: null, histSel: null, daysOpen: {}, flagOpen: null, flagGone: {}, mjob: null, setJob: null, openName: "",
@@ -1709,7 +1716,7 @@ function renderSong() {
   const at = b => (b / beats * 100).toFixed(2);
   const dot = c => c ? `<i class="cd" style="background:${esc(c)}"></i>` : "";
   const sg = songOf(), facts = [sg.tempo ? `${+(+sg.tempo).toFixed(2)}` : "", sg.sig ? `${sg.sig[0]}/${sg.sig[1]}` : ""].filter(Boolean).join(" · ");
-  const lanes = v ? v.tracks.filter(t => t.regions.length).map(t => `<div class="lane ${t.muted ? "muted" : ""}" data-track="${esc(t.id)}"><span class="ln" title="${esc(t.name)}">${dot(t.color)}${esc(t.name)}</span><div class="tr">${
+  const lanes = v ? v.tracks.filter(t => t.regions.length).map(t => `<div class="lane ${laneFlag(t, "mute") ? "muted" : ""} ${laneFlag(t, "solo") ? "soloed" : ""} ${S.song.sel === t.name ? "sel" : ""}" data-track="${esc(t.id)}" data-name="${esc(t.name)}"><span class="ln" title="${esc(t.name)}">${dot(t.color)}${esc(t.name)}</span><div class="tr">${
     t.regions.map(r => `<i class="rg ${r.muted ? "muted" : ""}" data-region="${esc(r.id)}" title="${esc(r.name)}" style="left:${at(r.start)}%;width:${at(r.end - r.start)}%;${r.color ? `--c:${esc(r.color)}` : ""}"><span>${esc(r.name)}</span></i>`).join("")}</div></div>`).join("") : "";
   // The ruler: a number every 8 bars and at every locator, the locators' names, the loop, the playhead.
   const locs = (v && v.locators) || [], every = bars > 64 ? 16 : 8;
@@ -1719,8 +1726,37 @@ function renderSong() {
   const ruler = v ? `<div class="ruler" id="ruler"><span class="ln" id="songtempo" title="Tempo (BPM) and time signature">${facts}</span><div class="rt" role="img" aria-label="Bars 1 to ${bars}${locs.length ? ". " + locs.map(x => `${x.name || "Locator"} at bar ${Math.floor(x.beat / per) + 1}`).join(", ") : ""}">${
     numbered.map(b => `<i class="bn" style="left:${at(b * per)}%">${b + 1}</i>`).join("")}${
     spans.map((x, k) => `<i class="sec s${k % 2}" data-locator="${esc(x.name)}" style="left:${at(x.from)}%;width:calc(${at(Math.min(beats, x.to) - x.from)}% - 2px)" title="${esc(x.name)}"><span>${esc(x.name)}</span></i>`).join("")}<span id="songloop"></span></div></div>` : "";
-  $("#song").innerHTML = `<div id="lanes" data-bars="${bars}">${ruler}${lanes || '<div class="tag" id="nolanes">No tracks</div>'}<div class="pgs" id="lanepgs" role="group" aria-label="More tracks" hidden><button class="key sm" type="button" data-songstep="-1" aria-label="Tracks before"><svg class="back" width="18" height="18"><use href="#i-more"/></svg></button><span class="pgn" id="lanepgn"></span><button class="key sm" type="button" data-songstep="1" aria-label="Tracks after"><svg width="18" height="18"><use href="#i-more"/></svg></button></div><div id="songhead" hidden></div></div>`;
-  updateSongMarks(); fitSong();
+  $("#song").innerHTML = `<div id="lanes" data-bars="${bars}">${ruler}${lanes || '<div class="tag" id="nolanes">No tracks</div>'}<div class="pgs" id="lanepgs" role="group" aria-label="More tracks" hidden><button class="key sm" type="button" data-songstep="-1" aria-label="Tracks before"><svg class="back" width="18" height="18"><use href="#i-more"/></svg></button><span class="pgn" id="lanepgn"></span><button class="key sm" type="button" data-songstep="1" aria-label="Tracks after"><svg width="18" height="18"><use href="#i-more"/></svg></button></div><div id="songhead" hidden></div></div><div id="songsel" role="group" aria-label="The chosen track"></div>`;
+  renderSongSel(); updateSongMarks(); fitSong();
+}
+// A track's solo or mute, as Live last reported it (the desk's flags); the song's own reading until then.
+function laneFlag(t, flag) {
+  const on = S.state && S.state[flag];
+  return on ? on.includes(t.name) : flag === "mute" && !!t.muted;
+}
+// A tap on a lane chooses its track: the strip under the lanes names it and holds its Solo and Mute keys, at a size
+// a finger hits (the lanes are too low for keys of their own). A second tap on the lane lets it go.
+function renderSongSel() {
+  const box = $("#songsel"), v = S.song.view, t = v && v.tracks.find(x => x.name === S.song.sel);
+  if (!box) return;
+  if (!t) { S.song.sel = null; return setHtml(box, ""); }
+  const key = (flag, letter, word) => `<button class="key sm sf ${flag} ${laneFlag(t, flag) ? "on" : ""}" type="button" data-songflag="${flag}" aria-pressed="${laneFlag(t, flag)}" aria-label="${word} ${esc(t.name)}">${letter}</button>`;
+  setHtml(box, `<span class="sn">${t.color ? `<i class="cd" style="background:${esc(t.color)}"></i>` : ""}<b>${esc(t.name)}</b></span>${key("solo", "S", "Solo")}${key("mute", "M", "Mute")}`);
+}
+function pickLane(name) {
+  S.song.sel = S.song.sel === name ? null : name;
+  document.querySelectorAll("#lanes .lane").forEach(el => el.classList.toggle("sel", el.dataset.name === S.song.sel));
+  renderSongSel(); fitSong();
+}
+// Solo or mute the chosen track. The key and the lane show it at once; Live's report (the flags) settles it.
+async function songFlag(flag) {
+  const name = S.song.sel, st = S.state;
+  if (!name || !st) return;
+  const was = (st[flag] || []).slice(), on = !was.includes(name);
+  st[flag] = on ? [...was, name] : was.filter(x => x !== name);
+  renderSong(); renderBottom();
+  const r = await command("mix.set", {writes: [[`${name}/${flag}`, on ? 1 : 0, on ? "on" : "off"]]});
+  if (!r.ok) { st[flag] = was; renderSong(); renderBottom(); }
 }
 // The lanes fit the height that is left; when 14 px each is still too much, they are shown a part at a time, with
 // the ruler above every part. Nothing scrolls.
@@ -1767,7 +1803,8 @@ function redrawHist() { for (const id of ["#histdock", "#sheet"]) $(id).__html =
 function pickRow(id) { S.histSel = S.histSel === id ? null : id; renderHist(); }
 document.addEventListener("click", async e => {
   const t = e.target.closest("button");
-  if (!t) { const row = e.target.closest(".he.row"); if (row) pickRow(+row.dataset.row); return; }
+  if (!t) { const row = e.target.closest(".he.row"), lane = e.target.closest("#lanes .lane"); if (row) pickRow(+row.dataset.row); else if (lane) pickLane(lane.dataset.name); return; }
+  if (t.dataset.songflag) return songFlag(t.dataset.songflag);
   if (t.dataset.t) return go(t.dataset.t);
   if (t.id === "slowretry") return armPage(+t.dataset.retry);
   if (t.id === "slowclose") return slowSay("", null);
@@ -1864,6 +1901,7 @@ function apply(m) {
   else if (m.t === "flags" && S.state) {
     S.state.solo = m.solo; S.state.mute = m.mute;
     for (const key of Object.keys(S.flagGone)) { const [track, flag] = [key.slice(0, key.lastIndexOf("/")), key.slice(key.lastIndexOf("/") + 1)]; if (!(S.state[flag] || []).includes(track)) delete S.flagGone[key]; }
+    if (S.song.view && !$("#song").hidden) renderSong();
     return renderBottom();
   }
   else if (m.t === "v" && S.state) {
