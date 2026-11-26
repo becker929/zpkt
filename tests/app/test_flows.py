@@ -96,6 +96,23 @@ def test_the_list_view_names_each_control_in_a_row_and_a_row_is_moved_sideways(r
     assert page.locator("#panel").get_attribute("data-view") == "map"
 
 
+def test_in_the_list_one_tap_on_a_rows_number_types_it(rig, page):
+    """The walk, 26 November 2026: in the list a tap on the number did nothing (the row took the press as the start
+    of a drag) and only a double tap opened the field. One tap with no move types the value."""
+    slot, key, _ = first_control(rig, "k")
+    page.click("#viewsw")
+    row = page.locator(f'.ctl[data-slot="{slot}"]')
+    box = row.locator(".v").bounding_box()
+    page.mouse.move(box["x"] + box["width"] / 2, box["y"] + box["height"] / 2)
+    page.mouse.down()
+    page.mouse.up()
+    page.wait_for_selector(".vt")
+    assert page.evaluate("document.activeElement.classList.contains('vt')")
+    page.keyboard.press("Escape")
+    page.wait_for_function("!document.querySelector('.vt')")
+    page.click("#viewsw")
+
+
 def test_compare_is_in_the_play_bar_and_history_chooses_the_pinned_b(rig, page):
     """A, B and C are keys of the play bar (26 November 2026): the mix now, the pinned mix, the reference. A checkpoint
     is chosen as B in History."""
@@ -108,7 +125,9 @@ def test_compare_is_in_the_play_bar_and_history_chooses_the_pinned_b(rig, page):
     page.click('#abc [data-hear="now"]')
     page.wait_for_function("window.zpkt.S.hear.hearing === 'now'")
     # a press shows at once: the key pulses until Live has answered (the walk: "more than 1 s with no visible change")
-    page.evaluate("window.__hold = new Promise(r => { window.__go = r; }); window.__fetch = window.fetch; window.fetch = async (...a) => { if (String(a[0]).includes('/api/command')) await window.__hold; return window.__fetch(...a); }")
+    page.evaluate(
+        "window.__hold = new Promise(r => { window.__go = r; }); window.__fetch = window.fetch; window.fetch = async (...a) => { if (String(a[0]).includes('/api/command')) await window.__hold; return window.__fetch(...a); }"
+    )
     page.click('#abc [data-hear="pin"]')
     page.wait_for_selector('#abc [data-hear="pin"].ask[aria-busy="true"]')
     page.evaluate("window.__go(); window.fetch = window.__fetch")

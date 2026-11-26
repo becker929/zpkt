@@ -154,7 +154,7 @@ def test_a_tap_on_a_lane_chooses_the_track_and_its_solo_and_mute_keys_work_on_a_
         key.click()
         wait_for(lambda flag=flag: getattr(track, flag) is True)
         pg.wait_for_selector(f'#songsel [data-songflag="{flag}"][aria-pressed="true"]')
-        pg.wait_for_selector(f'#flags .chip.{flag}')  # the play bar says it too
+        pg.wait_for_selector(f"#flags .chip.{flag}")  # the play bar says it too
         pg.locator(f'#songsel [data-songflag="{flag}"]').click()
         wait_for(lambda flag=flag: getattr(track, flag) is False)
         pg.wait_for_selector(f'#songsel [data-songflag="{flag}"][aria-pressed="false"]')

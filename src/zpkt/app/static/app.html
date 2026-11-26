@@ -1326,7 +1326,7 @@ document.addEventListener("pointerdown", e => {
   const n0 = +el.dataset.n || 0;
   if (!OWN[el.dataset.key]) el.dataset.n0 = n0;
   drag = {key: el.dataset.key, el, x: e.clientX, y: e.clientY, at: n0, n: n0, steps: +el.dataset.steps, lock: null,
-          finger: e.pointerType === "touch", group: gestureId(),
+          finger: e.pointerType === "touch", group: gestureId(), onValue: !!e.target.closest(".mc.live.ed .v"),
           // in the list a row is moved sideways, over its own width; on the map a control is moved up and down
           ax: S.view === "list" ? "x" : "y", travel: S.view === "list" ? Math.max(140, el.clientWidth) : TRAVEL};
   drag.last = along(e); drag.seen = [[e.timeStamp, drag.last]];
@@ -1371,7 +1371,8 @@ function endTouch(e, cancelled) {
   drag = swipe = null;
   if (d) {
     bubbleOff();
-    if (d.lock === "x" && !cancelled) swiped(e.clientX - d.x, e.clientY - d.y);
+    if (!d.lock && !cancelled && d.onValue) typeValue(d.el);  // a tap on a row's number, with no move: type it (the row took the press)
+    else if (d.lock === "x" && !cancelled) swiped(e.clientX - d.x, e.clientY - d.y);
     else if (d.lock === "y") { settle(d.key); if (d.ax === "x") swipedAt = Date.now(); }  // a row that was moved is not a tap on its number  // the last place is sent or on its way: Live's report now counts
     if (S.dirty) renderDesk();
   } else if (s && !cancelled) swiped(e.clientX - s.x, e.clientY - s.y);
