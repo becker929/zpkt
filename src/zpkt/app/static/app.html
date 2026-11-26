@@ -124,6 +124,7 @@ svg{display:block}
 #montab .rl{color:var(--mute);font-family:'Helvetica Neue',Helvetica,Arial,sans-serif}
 #montab .num{text-align:left;white-space:nowrap;overflow:hidden}
 #montab .none{color:var(--mute)}
+#monmode{align-self:flex-start}#monmode .key{min-width:64px}
 #monoff{display:flex;align-items:center;gap:10px}#monoff[hidden]{display:none}
 #montab .hd small{font:11px ui-monospace,Menlo,monospace;color:var(--mute)}
 #song>*{flex:none}
@@ -1464,7 +1465,15 @@ document.addEventListener("dblclick", e => {
 // running mean of those levels for whichever of A, B and C is heard (in power, over about the last 40 messages), so
 // each has a curve once it has been listened to. The curve of the one heard now is the thick one. Nothing here
 // makes or changes sound: it draws what the meter measured.
-const MON = {avg: {now: null, pin: null, ref: null}, n: {now: 0, pin: 0, ref: 0}, hz: null, due: false};
+// Three ways to see the one heard now (the keys over the plot; kept on this device):
+//   live     the newest reading of every band, moved toward at the screen's own rate, so it is as quick as the meter
+//            (ten readings a second) and still smooth;
+//   smooth   a mean over about the last second, every band;
+//   average  the mean over about four seconds, with each band evened out against its neighbours: the broad balance.
+// The ones not heard now are always drawn from their four-second mean, and so are the numbers in the table.
+const MON = {avg: {now: null, pin: null, ref: null}, mid: {now: null, pin: null, ref: null}, last: {now: null, pin: null, ref: null},
+             n: {now: 0, pin: 0, ref: 0}, hz: null, due: false, shown: null, shownOf: "", raf: 0, tableAt: 0, mode: "smooth"};
+try { const m = localStorage.getItem("zpkt.mon"); if (["live", "smooth", "average"].includes(m)) MON.mode = m; } catch (err) { /* private mode */ }
 const MON_KEYS = [["now", "A", "a"], ["pin", "B", "b"], ["ref", "C", "c"]];
 const MON_BANDS = [["Sub", 0, 60], ["Low", 60, 250], ["Mid", 250, 2000], ["High", 2000, 6000], ["Air", 6000, 1e9]];
 function monFeed(m) {
@@ -1472,35 +1481,66 @@ function monFeed(m) {
   if (!(h in MON.avg) || !S.state || !S.state.playing || !m.db || !m.hz) return;
   const pw = m.db.map(d => Math.pow(10, d / 10)), a = MON.avg[h], k = Math.min(MON.n[h], 40);
   MON.hz = m.hz;
-  MON.avg[h] = a && a.length === pw.length ? a.map((x, i) => (x * k + pw[i]) / (k + 1)) : pw;
+  const mean = (old, kk) => old && old.length === pw.length ? old.map((x, i) => (x * kk + pw[i]) / (kk + 1)) : pw;
+  MON.avg[h] = mean(a, k); MON.mid[h] = mean(MON.mid[h], Math.min(MON.n[h], 10)); MON.last[h] = pw;
   MON.n[h]++;
-  if (S.tab === "monitor" && !MON.due) { MON.due = true; requestAnimationFrame(() => { MON.due = false; updateMonitor(); }); }
+  if (S.tab !== "monitor") return;
+  if (MON.mode === "live") monRun();
+  else if (!MON.due) { MON.due = true; requestAnimationFrame(() => { MON.due = false; updateMonitor(); }); }
 }
 const dbOf = p => p > 0 ? 10 * Math.log10(p) : -120;
 function monBand(avg, lo, hi) { let s = 0; MON.hz.forEach((f, i) => { if (f >= lo && f < hi) s += avg[i]; }); return dbOf(s); }
+// What a curve is drawn from, in dB per band: the one heard now by the chosen way, the others from their long mean.
+function monShape(k, on) {
+  const src = !on || MON.mode === "average" ? MON.avg[k] : MON.mode === "smooth" ? MON.mid[k] : MON.last[k];
+  if (!src) return null;
+  const db = src.map(dbOf);
+  if (MON.mode !== "average") return db;
+  return db.map((d, i) => (db[Math.max(0, i - 1)] + d * 2 + db[Math.min(db.length - 1, i + 1)]) / 4);
+}
+// Live: each frame of the screen moves the drawn curve half of the way to the newest reading, and stops when it is there.
+function monRun() {
+  if (MON.raf) return;
+  const step = () => {
+    MON.raf = 0;
+    if (S.tab !== "monitor" || MON.mode !== "live") return;
+    const h = S.hear.hearing, to = monShape(h, true);
+    if (!to) return;
+    if (!MON.shown || MON.shownOf !== h || MON.shown.length !== to.length) { MON.shown = to.slice(); MON.shownOf = h; }
+    let far = 0;
+    MON.shown = MON.shown.map((x, i) => { const d = to[i] - x; far = Math.max(far, Math.abs(d)); return x + d * 0.5; });
+    updateMonitor();
+    if (far > 0.05) MON.raf = requestAnimationFrame(step);
+  };
+  MON.raf = requestAnimationFrame(step);
+}
 function renderMonitor() {
   const box = $("#monitor");
-  if (!box.firstChild) box.innerHTML = `<div id="monoff" hidden><span class="tag">The meter is off</span><button class="key sm" id="monmeteron">${I("power")}Turn on</button></div><div id="monplot" role="img" aria-label="Spectrum curves of A, B and C"></div><div id="montab"></div>`;
+  if (!box.firstChild) box.innerHTML = `<div id="monoff" hidden><span class="tag">The meter is off</span><button class="key sm" id="monmeteron">${I("power")}Turn on</button></div><div class="seg" id="monmode" role="group" aria-label="How the curve moves"></div><div id="monplot" role="img" aria-label="Spectrum curves of A, B and C"></div><div id="montab"></div>`;
   updateMonitor();
 }
 function updateMonitor() {
   if (S.tab !== "monitor" || !$("#monplot")) return;
   $("#monoff").hidden = !(liveOk() && S.state.meter === false && !meterFresh());
-  const hz = MON.hz || (S.meter && S.meter.hz) || [], curves = MON_KEYS.map(([k, letter, cls]) => ({k, letter, cls, avg: MON.avg[k], on: S.hear.hearing === k}));
+  setHtml($("#monmode"), [["live", "Live"], ["smooth", "Smooth"], ["average", "Average"]].map(([m, name]) => `<button class="key sm ${MON.mode === m ? "on" : ""}" data-monmode="${m}" aria-pressed="${MON.mode === m}">${name}</button>`).join(""));
+  const hz = MON.hz || (S.meter && S.meter.hz) || [], curves = MON_KEYS.map(([k, letter, cls]) => { const on = S.hear.hearing === k; return {k, letter, cls, avg: MON.avg[k], on, db: on && MON.mode === "live" && MON.shown && MON.shownOf === k ? MON.shown : monShape(k, on)}; });
   // the plot: 20 Hz to 20 kHz on a log scale; the top is just above the loudest band, 60 dB down to the bottom
   const X = f => (Math.log10(Math.max(20, Math.min(20000, f)) / 20) / 3) * 1000;
   const all = curves.filter(c => c.avg).flatMap(c => c.avg.map(dbOf)), top = all.length ? Math.ceil((Math.max(...all) + 3) / 6) * 6 : 0, span = 60;
   const Y = d => Math.max(0, Math.min(400, (top - d) / span * 400));
   const line = c => {
-    const pts = c.avg.map((p, i) => [X(hz[i]), Y(dbOf(p))]);
+    const pts = c.db.map((d, i) => [X(hz[i]), Y(d)]);
     let d = `M${pts[0][0].toFixed(1)} ${pts[0][1].toFixed(1)}`;
     for (let i = 1; i < pts.length; i++) { const [x0, y0] = pts[i - 1], [x1, y1] = pts[i], mx = (x0 + x1) / 2; d += `C${mx.toFixed(1)} ${y0.toFixed(1)} ${mx.toFixed(1)} ${y1.toFixed(1)} ${x1.toFixed(1)} ${y1.toFixed(1)}`; }
     return `<path class="cv ${c.cls} ${c.on ? "on" : ""}" d="${d}"/>`;
   };
   const fs = [50, 100, 200, 500, 1000, 2000, 5000, 10000], ds = [1, 2, 3, 4].map(k => top - k * 12);
-  const drawn = curves.filter(c => c.avg && hz.length === c.avg.length).sort((a, b) => a.on - b.on);
+  const drawn = curves.filter(c => c.db && hz.length === c.db.length).sort((a, b) => a.on - b.on);
   $("#monplot").innerHTML = `<svg viewBox="0 0 1000 400" preserveAspectRatio="none" aria-hidden="true">${fs.map(f => `<line class="gl" x1="${X(f).toFixed(1)}" x2="${X(f).toFixed(1)}" y1="0" y2="400"/>`).join("")}${ds.map(d => `<line class="gl" x1="0" x2="1000" y1="${Y(d)}" y2="${Y(d)}"/>`).join("")}${drawn.map(line).join("")}</svg>${
     fs.map(f => `<span class="ax x" style="left:${(X(f) / 10).toFixed(1)}%">${f >= 1000 ? f / 1000 + "k" : f}</span>`).join("")}${drawn.length ? ds.map(d => `<span class="ax y" style="top:${(Y(d) / 4).toFixed(1)}%">${d}</span>`).join("") : ""}`;
+  const nowMs = Date.now();
+  if (MON.mode === "live" && nowMs - MON.tableAt < 400 && $("#montab").firstChild) return;  // the numbers are read, not watched
+  MON.tableAt = nowMs;
   // the table: each one's level, then each band; B and C as the difference from A where A has been heard
   const A = MON.avg.now, cell = (c, lo, hi) => {
     if (!c.avg || !hz.length) return `<span class="num none">–</span>`;
@@ -1719,6 +1759,7 @@ document.addEventListener("click", async e => {
   if (t.dataset.day) { S.daysOpen[t.dataset.day] = !S.daysOpen[t.dataset.day]; return renderHist(); }
   if (t.dataset.flags) { S.flagOpen = S.flagOpen === t.dataset.flags ? null : t.dataset.flags; return renderBottom(); }
   if (t.dataset.flag) return clearFlag(t.dataset.flag, t.dataset.track);
+  if (t.dataset.monmode) { MON.mode = t.dataset.monmode; MON.shown = null; try { localStorage.setItem("zpkt.mon", MON.mode); } catch (err) { /* private mode */ } return updateMonitor(); }
   if (t.id === "monmeteron") { const r = await command("meter.install", {}, undefined, true); if (!r.ok) toast(r.body.error || "The meter could not be turned on."); return; }
   if (t.id === "meteron") { S.mjob = {status: "working"}; renderTop(); const r = await command("meter.install", {}, undefined, true); if (!r.ok) { S.mjob = {status: "error", msg: r.body.error || ""}; renderTop(); } return; }
   if (t.id === "chgpill") return showHistory();

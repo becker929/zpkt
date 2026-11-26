@@ -135,6 +135,25 @@ def test_the_monitor_tab_draws_a_curve_for_each_of_a_b_and_c_once_heard(rig, pag
     cells = [c.inner_text() for c in page.locator("#montab .num").all()]
     assert cells[0].startswith("−") and cells[1] == "–" and cells[2] == "+10.0"  # A's level, B unheard, C against A
     assert page.evaluate("document.documentElement.scrollHeight <= innerHeight")
+    # three ways to see the one heard now: Live follows the newest reading, Smooth a second, Average four and evened out
+    assert [b.inner_text() for b in page.locator("#monmode button").all()] == ["Live", "Smooth", "Average"]
+    assert page.locator('#monmode [aria-pressed="true"]').inner_text() == "Smooth"
+    shape = "document.querySelector('#monplot path.cv.c').getAttribute('d')"
+    smooth = page.evaluate(shape)
+    page.click('[data-monmode="average"]')
+    assert page.evaluate(shape) != smooth and page.evaluate("localStorage.getItem('zpkt.mon')") == "average"
+    page.click('[data-monmode="live"]')
+    page.evaluate("""() => { const S = window.zpkt.S, hz = Array.from({length: 31}, (_, i) => 20 * Math.pow(1000, i / 30));
+      window.zpkt.monFeed({t: "meter", hz, db: hz.map((f, i) => i === 15 ? -5 : -60)}); }""")
+    page.wait_for_function(
+        "was => { const d = document.querySelector('#monplot path.cv.c.on'); return d && d.getAttribute('d') !== was; }",
+        arg=smooth,
+    )
+    page.wait_for_timeout(400)  # the curve has come to rest on the newest reading: one band far above the rest
+    ys = page.evaluate(
+        "document.querySelector('#monplot path.cv.c.on').getAttribute('d').split('C').slice(1).map(s => +s.trim().split(' ').pop())"
+    )
+    assert min(ys) == ys[14] and sorted(ys)[1] - ys[14] > 100
     page.evaluate("window.zpkt.S.state.playing = false")
     page.evaluate(feed.replace("S.state.playing = true;", ""), "pin")  # a stopped song adds nothing to a curve
     assert page.locator("#monplot path.cv.b").count() == 0
