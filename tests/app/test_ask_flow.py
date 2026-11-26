@@ -195,7 +195,8 @@ def test_only_the_latest_part_loads_and_the_top_brings_the_part_before(asked, br
     pg.wait_for_selector("text=answer 6")
     assert said()[0] == "question 6" and len(said()) == 40
     assert pg.evaluate("document.querySelector('#msgs').scrollTop") > 200  # the reader was not thrown to the top
-    pg.click("#older")  # the same, as a button
+    # The same, as a button. Pressed in the page: a pointer click scrolls to the top first, which loads the part itself.
+    pg.evaluate("document.querySelector('#older').click()")
     pg.wait_for_selector("text=answer 1")
     assert said()[0] == "question 1" and len(said()) == 45 and not pg.locator("#older").is_visible()
     asked.providers["claude"].script = [text("answer 46")]
