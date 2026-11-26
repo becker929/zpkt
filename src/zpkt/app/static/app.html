@@ -29,10 +29,13 @@ svg{display:block}
 #htop>.hr:not(#ident),#htop #strip,#htop #specbox,#htop #songfacts{display:none}
 /* A phone: the transport and the tabs are smaller, so a surface has the room (26 November 2026). */
 @media (max-width:699px){
- #hbot{padding:4px 8px;gap:4px 8px}
- #hbot .key,#hbot .key.sm{height:38px;min-width:40px;padding:0 6px;border-radius:10px}
- #hbot .seg .key{padding:0 8px;border-radius:0}#hbot .seg .key:first-child{border-radius:10px 0 0 10px}#hbot .seg .key:last-child{border-radius:0 10px 10px 0}
- :root{--tabs-h:42px}
+ #hbot{padding:4px 6px;gap:4px 6px}
+ #hbot .grp{gap:4px}
+ #hbot .key,#hbot .key.sm{height:38px;min-width:36px;padding:0 4px;border-radius:10px}
+ #hbot #loops .key{min-width:0;padding:0 6px;border-radius:0}
+ #loops>span.key{display:none}  /* the loop mark: the three words say it */
+ #hbot #loops>button.key:first-of-type{border-radius:10px 0 0 10px}
+ #hbot #loops>button.key:last-child{border-radius:0 10px 10px 0} :root{--tabs-h:42px}
  .dots .key.sm{height:38px}
 }
 #kundo .uw{display:flex;flex-direction:column;align-items:flex-start;line-height:1.15;max-width:104px;min-width:0;text-align:left}
