@@ -64,6 +64,9 @@ details summary::-webkit-details-marker{display:none}
 details.tool pre{margin:0 10px 10px}
 .stats{font-size:12px;color:var(--mute);margin:-4px 0 18px;display:flex;flex-wrap:wrap;gap:4px 12px;align-items:center}
 .err{color:var(--danger);font-size:14px;margin:0 0 12px;white-space:pre-wrap;overflow-wrap:anywhere}
+.err details{color:var(--mute);font-size:12.5px}
+.err summary{display:inline-flex;align-items:center;min-height:44px;cursor:pointer;text-decoration:underline;text-underline-offset:2px}
+.err details pre{margin:0;white-space:pre-wrap;font:12px/1.4 ui-monospace,Menlo,monospace}
 .note,.rnote{color:var(--mute);font-size:14px;margin:0 0 12px}
 .card{padding:10px 12px;margin:0 0 14px;font-size:14px;border:1.5px solid var(--line)}
 .card.warn{background:var(--warnbg);border-color:color-mix(in srgb,var(--warn) 35%,transparent)}
@@ -145,12 +148,6 @@ a.pcard:active{transform:translateY(1px)}
     <div id="dock"></div>
     <div id="tools">
       <select id="engine" aria-label="Agent"><option value="claude">Claude Code</option><option value="gemini">Gemini CLI</option></select>
-      <select id="mode" aria-label="Permissions">
-        <option value="plan">Read-only</option>
-        <option value="auto_edit">Edit files</option>
-        <option value="yolo">Full (shell)</option>
-        <option value="ask">Ask first</option>
-      </select>
       <span class="sp"></span><span id="ztools"></span>
     </div>
     <div id="chips" hidden></div>
@@ -197,16 +194,32 @@ const store = {
   set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} },
 };
 const API = '/app/ask/api';
-const cfg = Object.assign({ ws: '', mode: 'plan', engine: 'claude' }, store.get('cli.cfg', {}), { model: '', models: {} });
+const cfg = Object.assign({ ws: '', mode: 'build', engine: 'claude' }, store.get('cli.cfg', {}), { model: '', models: {} });
 if (!['claude', 'gemini'].includes(cfg.engine)) cfg.engine = 'claude';
 const ENGINE_NAME = { gemini: 'Gemini CLI', claude: 'Claude Code' };
-const MODE_NAME = { plan: 'Read-only', auto_edit: 'Edit files', yolo: 'Full (shell)', ask: 'Ask first' };
+// One mode for a producer, so no menu: the agent advises, makes pages and suggests ("build"). The other modes are a
+// developer's and show only with /app/ask/?dev=1 (remembered on this device; ?dev=0 forgets it).
+const MODE_NAME = { build: 'Pages', ask: 'Ask first', auto_edit: 'Edit files', yolo: 'Full (shell)' };
+const DEV = (() => {
+  const q = new URLSearchParams(location.search).get('dev');
+  if (q !== null) store.set('ask.dev', q !== '0' && q !== 'false');
+  return !!store.get('ask.dev', false);
+})();
+if (!DEV || !(cfg.mode in MODE_NAME)) cfg.mode = 'build';
+if (DEV) {
+  const sel = document.createElement('select');
+  sel.id = 'mode'; sel.setAttribute('aria-label', 'Mode');
+  sel.innerHTML = `<option value="build">${MODE_NAME.build}</option><option value="ask">${MODE_NAME.ask}</option><optgroup label="Developer"><option value="auto_edit">${MODE_NAME.auto_edit}</option><option value="yolo">${MODE_NAME.yolo}</option></optgroup>`;
+  $('#engine').after(sel);
+  sel.value = cfg.mode;
+  sel.onchange = () => { cfg.mode = sel.value; saveCfg(); renderHead(); };
+}
 const PAGE_TURNS = 20;   // how much of the conversation is fetched at a time
 // window.Zpkt (the composer's attachments) and window.Work (steps, tool rows, subagents, the todo bar) are modules
 // that load after this script.
 const zpktReady = new Promise((r) => (window.Zpkt ? r() : window.addEventListener('zpkt-ready', r, { once: true })));
 const workReady = new Promise((r) => (window.Work ? r() : window.addEventListener('work-ready', r, { once: true })));
-const saveCfg = () => store.set('cli.cfg', cfg);
+function saveCfg() { store.set('cli.cfg', cfg); }
 let workspaces = [];
 let MAIN = null;       // the folder's one conversation
 let ARCHIVE = [];      // its earlier chats, read-only
@@ -316,6 +329,12 @@ function thumb(id) {
   }
   return thumbs.get(id);
 }
+// The saved Pages' own titles (GET /api/pages). A page made a moment ago is not in an older answer: ask again.
+let pageList = null, pageListAt = 0;
+function pageTitle(id) {
+  const ask = () => { pageListAt = Date.now(); pageList = fetch('/api/pages').then((r) => (r.ok ? r.json() : null)).then((j) => new Map((j?.pages || []).map((p) => [p.id, p.title]))).catch(() => new Map()); return pageList; };
+  return (pageList || ask()).then((m) => (m.has(id) || Date.now() - pageListAt < 2000 ? m : ask())).then((m) => m.get(id) || '');
+}
 function pageCards(root) {
   for (const a of root.querySelectorAll('a[href]:not(.pcard)')) {
     const id = pageId(a);
@@ -325,6 +344,7 @@ function pageCards(root) {
     a.classList.add('pcard'); a.dataset.page = id;
     a.innerHTML = '<span class="pthumb"></span><span class="ptext"><b></b><small>Open on the Desk</small></span>';
     a.querySelector('b').textContent = title;
+    pageTitle(id).then((saved) => { if (saved && a.isConnected) a.querySelector('b').textContent = saved; });
     thumb(id).then((svg) => { if (svg && a.isConnected) a.querySelector('.pthumb').innerHTML = svg; });
   }
 }
@@ -443,15 +463,14 @@ function renderHead() {
   const ro = !!V?.readonly;
   const busy = (V && V.running) || !!pending;
   $('#title').textContent = ro ? V.s?.title || 'An earlier chat' : 'Ask';
-  const now = V && window.Work ? Work.current() : '';   // the most recent action
-  $('#sub').textContent = !V ? '' : ro ? `Earlier chat · ${ago(V.s.updated)}` : `${wsName(V.s.workspace)}${busy ? ' · working…' : ''}${now ? ' · ' + now : ''}`;
+  $('#sub').textContent = !V ? '' : ro ? `Earlier chat · ${ago(V.s.updated)}` : V.s.workspace === workspaces[0]?.id ? '' : wsName(V.s.workspace);   // a folder's name only when it is not the usual one (it read as the chat's title)
   $('#bar').hidden = ro; $('#robar').hidden = !ro;
   $('#send').disabled = !!busy || !V;
-  $('#mode').className = $('#mode').value === 'yolo' ? 'yolo' : '';
+  if ($('#mode')) $('#mode').className = cfg.mode === 'yolo' ? 'yolo' : '';
   const eng = ENGINE_NAME[cfg.engine];
-  $('#hint').textContent = busy ? (pending ? 'Sending…' : `${ENGINE_NAME[V.engine] || eng} is working. You can leave this tab; it keeps going.`)
+  $('#hint').textContent = busy ? ''
     : V && V.engine && V.engine !== cfg.engine ? `Switching to ${eng}: it gets the conversation so far.`
-    : $('#mode').value === 'yolo' ? `Full: ${eng} can run any shell command on the Mac without asking.` : '';
+    : cfg.mode === 'yolo' ? `Full: ${eng} can run any shell command on the Mac without asking.` : '';
 }
 // The thread follows the bottom while the person is at the bottom, decided before anything grows. Scrolled up, new
 // things below show a pill instead.
@@ -535,12 +554,19 @@ function addStats(e) {
   const st = e.stats || {};
   const parts = [];
   if (st.duration_ms) parts.push(`${(st.duration_ms / 1000).toFixed(1)} s`);
-  if (st.total_tokens) parts.push(`${st.total_tokens.toLocaleString()} tokens`);
-  if (st.tool_calls) parts.push(`${st.tool_calls} tool call${st.tool_calls > 1 ? 's' : ''}`);
-  if (st.models) parts.push(Object.keys(st.models).join(', '));
   if (e.cost_usd) parts.push(`$${e.cost_usd.toFixed(3)}`);
-  if (e.status && e.status !== 'success') parts.unshift(`<span style="color:var(--danger)">${esc(e.status)}</span>`);
-  if (parts.length) add(`<div class="stats">${parts.map((p) => `<span>${p.startsWith('<') ? p : esc(p)}</span>`).join('')}</div>`);
+  if (DEV && st.total_tokens) parts.push(`${st.total_tokens.toLocaleString()} tokens`);
+  if (DEV && st.models) parts.push(Object.keys(st.models).join(', '));
+  if (e.status && e.status !== 'success') V.failed = true;   // said once, in words, when the run ends
+  if (parts.length) add(`<div class="stats">${parts.map((p) => `<span>${esc(p)}</span>`).join('')}</div>`);
+}
+/** A turn that failed: one plain sentence with what to do. What the engine itself said is behind "Details". */
+function addFailure(sentence, detail = '') {
+  if (V.told) return;   // one sentence a turn
+  V.told = true;
+  const el = add(`<div class="err" role="alert"><span></span>${detail ? '<details><summary>Details</summary><pre></pre></details>' : ''}</div>`);
+  el.querySelector('span').textContent = sentence;
+  if (detail) el.querySelector('pre').textContent = detail;
 }
 // The agent asks before an edit or a command (Ask first): the choices are buttons; every device sees the question.
 function addPermission(e) {
@@ -578,11 +604,11 @@ function apply(e) {
   const drawn = Work.apply(e, { replaying: V.replaying });   // steps, tool rows, subagents and todos draw themselves
   switch (e.type) {
     case 'prompt': {
-      endText(); V.running = true;
+      endText(); V.running = true; V.told = false; V.failed = false;
       $('#empty')?.remove();
       if (pending) { pending.remove(); pending = null; }
       const atts = (e.attachments || []).map((f) => `<img src="${API}/attachments/${encodeURIComponent(f)}" alt="Attached image" loading="lazy">`).join('');
-      add(`<div class="m user"><div class="bubble"></div>${atts ? `<div class="atts">${atts}</div>` : ''}<div class="meta">${e.auto ? 'automatic · ' : ''}${esc(ENGINE_NAME[e.engine] || e.engine || '')} · ${esc(MODE_NAME[e.mode] || e.mode)}${e.model && e.model !== 'auto' ? ' · ' + esc(e.model) : ''}</div></div>`).querySelector('.bubble').textContent = e.text;
+      add(`<div class="m user"><div class="bubble"></div>${atts ? `<div class="atts">${atts}</div>` : ''}<div class="meta">${e.auto ? 'automatic · ' : ''}${esc(ENGINE_NAME[e.engine] || e.engine || '')}${DEV && MODE_NAME[e.mode] ? ' · ' + esc(MODE_NAME[e.mode]) : ''}${e.model && e.model !== 'auto' ? ' · ' + esc(e.model) : ''}</div></div>`).querySelector('.bubble').textContent = e.text;
       V.engine = e.engine || V.engine;
       break;
     }
@@ -604,15 +630,16 @@ function apply(e) {
       const msg = e.message || e.error?.message || JSON.stringify(e);
       // The CLI's loop guard: say what it means, and what went wrong last, rather than its own words.
       const fail = /Loop detected/i.test(msg) ? Work.lastFailure() : '';
-      add(`<div class="err">${/Loop detected/i.test(msg) ? `The agent kept repeating the same step, so it was stopped.${fail ? `\nLast error: ${esc(fail)}` : ''}` : esc(msg)}</div>`);
+      if (/Loop detected/i.test(msg)) addFailure('The agent kept repeating the same step, so it was stopped. Say it again in other words.', fail);
+      else addFailure(msg);
       break;
     }
     case 'run_end':
       endText(); V.running = false;
       if (V.compactEl) { V.compactEl.remove(); V.compactEl = null; }   // stopped while it was summarising
-      if (e.error) add(`<div class="err">Could not start ${esc(ENGINE_NAME[e.engine] || 'the agent')}: ${esc(e.error)}</div>`);
+      if (e.error) addFailure(`${ENGINE_NAME[e.engine] || 'The agent'} could not start. Pick the other agent and send again.`, String(e.error));
       else if (e.signal) add('<div class="note">Stopped.</div>');
-      else if (e.code) { const last = Work.lastLog(); add(`<div class="err">${esc(ENGINE_NAME[e.engine] || 'The agent')} exited with code ${e.code}.${last.length ? `\n${esc(last.join('\n'))}` : ''}</div>`); }
+      else if (e.code || V.failed) addFailure(`${ENGINE_NAME[e.engine] || 'The agent'} stopped before it finished. Send your message again.`, [e.code ? `exit code ${e.code}` : '', ...Work.lastLog()].filter(Boolean).join('\n'));
       break;
     case 'permission': endText(); addPermission(e); break;
     case 'permission_answer': answerPermission(e); break;
@@ -631,7 +658,6 @@ $('#in').addEventListener('keydown', (e) => {
   if (e.key === 'Enter' && !e.shiftKey && !e.isComposing && matchMedia('(hover:hover)').matches) { e.preventDefault(); send(); }
 });
 $('#send').onclick = send;
-$('#mode').onchange = () => { cfg.mode = $('#mode').value; saveCfg(); renderHead(); };
 $('#engine').value = cfg.engine;
 $('#engine').onchange = () => { cfg.engine = $('#engine').value; saveCfg(); renderHead(); };
 async function send() {
@@ -643,7 +669,7 @@ async function send() {
   }
   if (!window.Zpkt || !window.Work) { toast('Ask did not load all its parts. Reload the page.', 8000); return; }
   if (Zpkt.isBusy()) { toast('Still attaching an image…'); return; }
-  const mode = $('#mode').value, engine = cfg.engine, model = cfg.models[engine] || '';
+  const mode = cfg.mode, engine = cfg.engine, model = cfg.models[engine] || '';
   const extras = Zpkt.take();   // the attached images
   const view = V, dk = draftKey();
   $('#send').disabled = true;
@@ -721,7 +747,6 @@ async function loadEngineNames() {
 }
 
 (async () => {
-  $('#mode').value = cfg.mode;
   await Promise.all([zpktReady, workReady]);
   Zpkt.init({ api, toast });
   Work.init({

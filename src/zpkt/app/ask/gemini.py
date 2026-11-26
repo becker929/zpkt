@@ -2,8 +2,11 @@
 
 One `gemini --acp` process serves every session (started on first use, restarted when it dies). Gemini keeps its own
 record of each session; the app keeps its ACP session id in the session's `engines.gemini.acp`, so a session resumes
-(`session/load`) after a restart and from any device. In `ask` mode every edit and command waits for a yes from the
-page. The key comes only from the secret lookup the app is given.
+(`session/load`) after a restart and from any device. The key comes only from the secret lookup the app is given.
+
+Gemini asks before a tool it is not sure of, and `decide` answers: the app's own tools always run (they never move
+Live), without a question to the person. Anything else is refused at once in `build` (the default mode: advise and
+make pages), and waits for a yes from the page in the other modes.
 """
 
 from __future__ import annotations
@@ -20,12 +23,16 @@ from typing import Any
 
 from zpkt.app.ask.acp import Acp, AcpError
 from zpkt.app.ask.cost import turn_cost
-from zpkt.app.ask.engines import ToolServer, agent_path
+from zpkt.app.ask.engines import DEFAULT_MODE, TOOL_SERVER, ToolServer, agent_path
 from zpkt.app.ask.events import Event
 from zpkt.app.ask.provider import AskPermission, Emit, Outcome, Turn
+from zpkt.app.ask.tools import TOOLS
 
-# our mode -> Gemini's mode
-GEMINI_MODE = {"plan": "plan", "auto_edit": "autoEdit", "yolo": "yolo", "ask": "default"}
+# our mode -> Gemini's mode. `build` is Gemini's default too: it asks, and `decide` answers for the person.
+GEMINI_MODE = {"build": "default", "ask": "default", "auto_edit": "autoEdit", "yolo": "yolo", "plan": "plan"}
+APP_TOOLS = re.compile(r"(?<![A-Za-z])(" + "|".join(re.escape(t.name) for t in TOOLS) + r")(?![A-Za-z_])")
+APP_SERVER = re.compile(rf"(?<![A-Za-z]){TOOL_SERVER}(?![A-Za-z])", re.I)
+OWN_KINDS = ("edit", "delete", "move", "execute")  # Gemini's own file and shell tools: never taken for the app's
 MODE_UPDATE = re.compile(r"\[MODE_UPDATE\] (\w+)")
 KEEP_TEXT = 6000
 DEFAULT_MODEL = "gemini-flash-latest"  # one model for a session: a switch mid-session loses the prompt cache
@@ -66,11 +73,32 @@ def tool_output(view: Mapping[str, Any]) -> str:
     return "\n".join(p for p in parts if p)
 
 
+def is_app_tool(tool_call: Mapping[str, Any]) -> bool:
+    """A call of one of the app's four tools: its id or title names the tool and the app's server."""
+    named = f"{tool_call.get('toolCallId', '')} {tool_call.get('title', '')}"
+    return bool(tool_call.get("kind") not in OWN_KINDS and APP_TOOLS.search(named) and APP_SERVER.search(named))
+
+
+def option_of(options: list[dict[str, Any]], kind: str) -> str | None:
+    """The offered option that allows (or rejects) this once, else any that allows (or rejects)."""
+    once = next((o["id"] for o in options if o.get("kind") == f"{kind}_once"), None)
+    return once or next((o["id"] for o in options if str(o.get("kind", "")).startswith(kind)), None)
+
+
+def decide(mode: str, tool_call: Mapping[str, Any], options: list[dict[str, Any]], ask: AskPermission) -> str | None:
+    """The answer to a permission question: an option's id, or None to cancel."""
+    if is_app_tool(tool_call) and (yes := option_of(options, "allow")):
+        return yes
+    if mode in ("build", "plan"):
+        return option_of(options, "reject")
+    return ask(tool_view(tool_call), options)
+
+
 class Running:
     """The turn being run in one ACP session: where its updates and permission questions go."""
 
-    def __init__(self, emit: Emit, ask: AskPermission) -> None:
-        self.emit, self.ask = emit, ask
+    def __init__(self, emit: Emit, ask: AskPermission, mode: str = DEFAULT_MODE) -> None:
+        self.emit, self.ask, self.mode = emit, ask, mode
         self.tools: dict[str, str] = {}  # toolCallId -> its name, so an update finishes the right row
         self.mode_seen: str | None = None
 
@@ -196,7 +224,7 @@ class GeminiProvider:
             with contextlib.suppress(AcpError):
                 acp.request("session/set_model", {"sessionId": sid, "modelId": model}, 30)
         with contextlib.suppress(AcpError):
-            acp.request("session/set_mode", {"sessionId": sid, "modeId": GEMINI_MODE.get(turn.mode, "plan")}, 30)
+            acp.request("session/set_mode", {"sessionId": sid, "modeId": GEMINI_MODE.get(turn.mode, "default")}, 30)
         return sid
 
     # ---- a turn -------------------------------------------------------------------------------------------------
@@ -207,7 +235,7 @@ class GeminiProvider:
         except AcpError as exc:
             emit({"type": "error", "message": str(exc)})
             return Outcome(1, None, str(exc))
-        self.running[sid] = Running(emit, turn.ask_permission)
+        self.running[sid] = Running(emit, turn.ask_permission, turn.mode)
         done = threading.Event()
 
         def watch() -> None:
@@ -286,7 +314,7 @@ class GeminiProvider:
             {"id": o["optionId"], "name": o.get("name", ""), "kind": o.get("kind", "")}
             for o in params.get("options") or []
         ]
-        choice = running.ask(tool_view(params.get("toolCall") or {}), options)
+        choice = decide(running.mode, params.get("toolCall") or {}, options, running.ask)
         if choice is None:
             return {"outcome": {"outcome": "cancelled"}}
         return {"outcome": {"outcome": "selected", "optionId": choice}}

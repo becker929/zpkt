@@ -111,6 +111,65 @@ def test_ask_first_edits_wait_for_the_page_then_go_on(tmp_path):
         provider.close()
 
 
+def test_the_apps_tools_run_in_every_mode_with_no_question_to_the_person(tmp_path):
+    for n, mode in enumerate(("build", "ask", "auto_edit", "yolo")):
+        (tmp_path / str(n)).mkdir()
+        ask, provider, _ = make(tmp_path / str(n))
+        try:
+            s = ask.create("work", "page for the kick", engine="gemini", mode=mode)
+            assert ask.wait_idle()
+            events = ask.store.replay(s["id"])
+            assert not any(e["type"] == "permission" for e in events), mode  # the app answered for the person
+            assert next(e for e in events if e["type"] == "tool_result")["status"] == "success", mode
+            assert "Done." in "".join(e.get("content", "") for e in events if e["type"] == "message")
+        finally:
+            provider.close()
+
+
+def test_the_default_mode_refuses_an_edit_at_once_and_asks_nobody(tmp_path):
+    ask, provider, log = make(tmp_path)
+    try:
+        s = ask.create("work", "edit the readme", engine="gemini")  # no mode named: the default
+        assert ask.wait_idle()
+        events = ask.store.replay(s["id"])
+        assert events[0]["mode"] == "build" and not any(e["type"] == "permission" for e in events)
+        assert next(e for e in events if e["type"] == "tool_result")["status"] == "error"
+        assert "Skipped." in "".join(e.get("content", "") for e in events if e["type"] == "message")
+        mode = next(m for m in lines(log) if m.get("method") == "session/set_mode")
+        assert mode["params"]["modeId"] == "default"  # not Gemini's plan mode: there it would make no page
+    finally:
+        provider.close()
+
+
+def test_only_a_call_that_names_the_apps_server_and_tool_is_taken_for_one():
+    from zpkt.app.ask.gemini import decide, is_app_tool
+
+    assert is_app_tool({"toolCallId": "x1", "title": "make_page (zpkt MCP Server)", "kind": "other"})
+    assert is_app_tool({"toolCallId": "mcp_zpkt_read_state-17", "title": "read_state"})
+    assert is_app_tool({"toolCallId": "t", "title": "propose_option (zpkt MCP Server)"})
+    assert not is_app_tool({"toolCallId": "t", "title": "make_page (other MCP Server)"})
+    assert not is_app_tool({"toolCallId": "t", "title": "Edit zpkt/make_page.py", "kind": "edit"})
+    assert not is_app_tool({"toolCallId": "t", "title": "rm -rf zpkt", "kind": "execute"})
+    assert not is_app_tool({"toolCallId": "t", "title": "delete_everything (zpkt MCP Server)"})
+    options = [
+        {"id": "always", "kind": "allow_always"},
+        {"id": "once", "kind": "allow_once"},
+        {"id": "no", "kind": "reject_once"},
+    ]
+    asked: list[str] = []
+
+    def person(tool, opts):
+        asked.append(tool["title"])
+        return "once"
+
+    assert decide("build", {"title": "make_page (zpkt MCP Server)"}, options, person) == "once"
+    assert decide("build", {"title": "Shell: ls", "kind": "execute"}, options, person) == "no" and asked == []
+    assert decide("ask", {"title": "Shell: ls", "kind": "execute"}, options, person) == "once" and asked == [
+        "Shell: ls"
+    ]
+    assert decide("build", {"title": "Shell: ls"}, [], person) is None  # nothing offered: cancelled
+
+
 def test_a_rejected_edit_is_skipped(tmp_path):
     ask, provider, _ = make(tmp_path)
     try:

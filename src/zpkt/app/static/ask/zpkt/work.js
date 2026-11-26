@@ -36,6 +36,12 @@ export function toolLine(name, params = {}) {
     case 'search': return `searched ${first(p.pattern || p.query, 50)}`;
     case 'fetch': return `fetched ${first(p.url || p.prompt, 50)}`;
     default: {
+      // The app's own four tools, in the person's words rather than by their ids.
+      const app = String(name || '').match(/(?:^|[^a-z])(make_page|read_state|read_measurement|propose_option)(?![a-z_])/i)?.[1].toLowerCase();
+      if (app === 'make_page') { const t = p.spec?.title || p.page?.title || p.title; return `made a page${typeof t === 'string' && t ? ': ' + first(t, 50) : ''}`; }
+      if (app === 'read_state') return 'looked at the desk';
+      if (app === 'read_measurement') return 'read the last measurement';
+      if (app === 'propose_option') return `made a suggestion${typeof p.title === 'string' && p.title ? ': ' + first(p.title, 50) : ''}`;
       const v = ['command', 'file_path', 'path', 'pattern', 'url', 'query', 'prompt'].map((k) => p[k]).find((x) => typeof x === 'string')
         ?? Object.values(p).find((x) => typeof x === 'string');
       return `${name}${v ? ' ' + first(v, 50) : ''}`;
@@ -59,11 +65,11 @@ export function stepSummary(tools) {
   return bad ? `${text} (${plural(bad, 'error')})` : text;
 }
 
-/** The turn's one-line trace: "4 steps · 11 tool calls · 1 warning". */
+/** The turn's counts, shown inside its opened work view: "4 steps · 11 tool calls · 1 failed and was retried". */
 export function traceLine({ steps, tools, problems, agents = 0 }) {
   const parts = [plural(steps, 'step'), plural(tools, 'tool call')];
   if (agents) parts.push(plural(agents, 'subagent'));
-  if (problems) parts.push(plural(problems, 'warning'));
+  if (problems) parts.push(`${problems} failed`);
   return parts.join(' · ');
 }
 
@@ -129,7 +135,7 @@ export function createWork() {
   W.apply = (e) => {
     switch (e.type) {
       case 'prompt':
-        W.turn = { seq: e.seq, steps: [], step: null, agents: [], todos: [], logs: [], topic: '', running: true, problems: 0, toolCount: 0, status: null };
+        W.turn = { seq: e.seq, since: e.t || 0, steps: [], step: null, agents: [], todos: [], logs: [], topic: '', running: true, problems: 0, toolCount: 0, status: null };
         W.turns.push(W.turn);
         W.last = '';   // the previous turn's last call is not what this one is doing
         return { kind: 'turn', turn: W.turn };

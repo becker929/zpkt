@@ -94,8 +94,10 @@ export function paintAgent(a) {
 }
 
 /**
- * A finished turn: everything between the prompt and the final answer folds under one trace line.
- * Stays out of the fold: steps with problems, subagent cards, and text that holds a control panel.
+ * A finished turn: everything between the prompt and the final answer folds under one quiet row, "Details".
+ * Counts of steps and tool calls, and errors the agent recovered from, are inside it: a reader of the answer does
+ * not need them. A turn that failed says so itself, in a sentence (the page). Stays out of the fold: subagent
+ * cards, and text that holds a page link or a control panel.
  */
 export function foldTurn(thread, turn) {
   const users = thread.querySelectorAll(':scope > .m.user');
@@ -105,10 +107,9 @@ export function foldTurn(thread, turn) {
   for (let n = start.nextElementSibling; n; n = n.nextElementSibling) after.push(n);
   const texts = after.filter((n) => n.matches('.m.model'));
   const answer = texts[texts.length - 1];
-  const fold = after.filter((n) => (n.matches('.wk-step') && !n.classList.contains('bad')) || (n.matches('.m.model') && n !== answer && !n.querySelector('a[href*="#page="], .oldpanel')));
+  const fold = after.filter((n) => n.matches('.wk-step') || (n.matches('.m.model') && n !== answer && !n.querySelector('a[href*="#page="], .oldpanel')));
   if (!turn.steps.length && !turn.agents.length) return null;
-  const d = el(`<details class="wk-trace"><summary><span class="wk-t"><span class="wk-traceline"></span><span class="wk-fact"></span></span></summary><div class="wk-folded"></div></details>`);
-  if (turn.problems) d.classList.add('warn');
+  const d = el(`<details class="wk-trace"><summary><span class="wk-t"><span class="wk-traceline"></span></span></summary><div class="wk-folded"><p class="wk-counts"></p></div></details>`);
   start.after(d);
   d.querySelector('.wk-folded').append(...fold);
   if (turn.logs?.length) d.querySelector('.wk-folded').append(logRow(turn.logs));   // printed outside any step
@@ -116,14 +117,14 @@ export function foldTurn(thread, turn) {
   paintTrace(turn);
   return d;
 }
-/** The trace line: what the turn was for when a purpose line exists, with the counts under it. */
+/** The row a turn's work folds under: what the turn was for when a purpose line exists, else "Details". The counts are inside. */
 export function paintTrace(turn) {
   const d = turn.traceEl; if (!d) return;
-  d.querySelector('.wk-traceline').textContent = turn.purpose || turn.trace;
-  d.querySelector('.wk-fact').textContent = turn.purpose ? turn.trace : '';
+  d.querySelector('.wk-traceline').textContent = turn.purpose || 'Details';
+  d.querySelector('.wk-counts').textContent = turn.trace;
   mark(d.querySelector('.wk-traceline'), turn.purpose && { level: 'turn', ref: 'turn' });
   let n = d.querySelector('.wk-nosum');
-  if (turn.summaryError && !n) { n = el('<p class="wk-nosum"></p>'); d.querySelector('.wk-folded').prepend(n); }
+  if (turn.summaryError && !n) { n = el('<p class="wk-nosum"></p>'); d.querySelector('.wk-counts').after(n); }
   if (n) n.textContent = turn.summaryError ? `No summaries for this turn: ${turn.summaryError}` : '';
 }
 // A model-written line carries what it summarizes, so a long press can mark it wrong (work-ui.js).

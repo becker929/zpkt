@@ -1,7 +1,18 @@
 """The command line of one Claude Code turn, and the permission modes. Pure: arguments in, a command out.
 
-Three permission levels hold for both engines: read-only (`plan`), edit files without a shell (`auto_edit`) and full
-(`yolo`). `ask` is for Gemini: every edit and command waits for a yes from the page.
+The modes, for both engines:
+
+    build      the default, and the only one a producer sees: the agent advises and uses the app's four tools (make a
+               page, read the state, read the measurement, propose an Option). It reads files. It cannot edit a file
+               or run a command, and nothing asks.
+    ask        the same, and with Gemini every edit and command waits for a yes from the page. Claude Code has nobody
+               to ask on this page, so there it is `build`.
+    auto_edit  developer: edits files without asking, no shell.
+    yolo       developer: everything.
+    plan       read-only with no tools: the summary of a compaction is written in it. The page never sends it; a turn
+               that names it runs as `build` (service.py).
+
+The app's tools never move Live, so they run in every mode without a question.
 """
 
 from __future__ import annotations
@@ -12,8 +23,22 @@ from collections.abc import Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
 
-MODES = ("plan", "auto_edit", "yolo", "ask")
-CLAUDE_MODE = {"plan": "plan", "auto_edit": "acceptEdits", "yolo": "bypassPermissions", "ask": "default"}
+MODES = ("build", "ask", "auto_edit", "yolo", "plan")
+DEFAULT_MODE = "build"
+# `dontAsk`: what is not allowed by a rule is refused without a question (`claude -p` has nobody to ask).
+CLAUDE_MODE = {
+    "build": "dontAsk",
+    "ask": "dontAsk",
+    "auto_edit": "acceptEdits",
+    "yolo": "bypassPermissions",
+    "plan": "plan",
+}
+TOOL_SERVER = "zpkt"
+CLAUDE_TOOLS = f"mcp__{TOOL_SERVER}"  # every tool of the app's server
+CLAUDE_READS = ("Read", "Glob", "Grep")
+# Refused in `build` whatever the Mac's own Claude settings allow: a deny rule wins over an allow rule. The plan
+# tools are here so the agent never puts itself in plan mode, where it would only describe what it would do.
+CLAUDE_NEVER = ("Bash", "Edit", "Write", "NotebookEdit", "EnterPlanMode", "ExitPlanMode")
 MODEL_NAME = re.compile(r"^[\w.\-]+$")
 # Variables of a parent Claude Code session that must never leak into the child.
 PARENT_VARS = re.compile(r"^CLAUDE_CODE_(?!OAUTH_TOKEN$)|^CLAUDECODE$|^CLAUDE_AGENT_SDK")
@@ -29,7 +54,7 @@ class ToolServer:
 
     def claude_config(self) -> str:
         server = {"command": self.command, "args": list(self.args), "env": dict(self.env)}
-        return json.dumps({"mcpServers": {"zpkt": server}})
+        return json.dumps({"mcpServers": {TOOL_SERVER: server}})
 
 
 @dataclass(frozen=True)
@@ -80,15 +105,22 @@ def claude_command(
         "--verbose",
         "--include-partial-messages",
         "--permission-mode",
-        CLAUDE_MODE.get(mode, "plan"),
+        CLAUDE_MODE.get(mode, CLAUDE_MODE[DEFAULT_MODE]),
     ]
+    guarded = CLAUDE_MODE.get(mode, "dontAsk") == "dontAsk"
     if model:
         args += ["--model", model]
     args += ["--resume", session_id] if resume else ["--session-id", session_id]
     if system:
         args += ["--append-system-prompt", system]
     if tools is not None:
-        args += ["--mcp-config", tools.claude_config(), "--allowedTools", "mcp__zpkt"]
+        args += ["--mcp-config", tools.claude_config()]
+    allowed = ([CLAUDE_TOOLS] if tools is not None else []) + (list(CLAUDE_READS) if guarded else [])
+    if allowed:
+        args += ["--allowedTools", ",".join(allowed)]
+    if guarded:
+        # Only the app's server: the Mac's other MCP servers (mail, documents) are not this chat's business.
+        args += ["--disallowedTools", ",".join(CLAUDE_NEVER), "--strict-mcp-config"]
     dirs = [str(d) for d in extra_dirs or [] if d and Path(d).exists()]
     if dirs:
         args += ["--add-dir", *dirs]  # variadic, so it goes last
