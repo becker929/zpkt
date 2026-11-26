@@ -131,7 +131,7 @@ def test_a_page_that_does_not_change_says_so_and_retry_works(browser, rig, monke
     assert pg.evaluate(PENDING)["waiting"] == ["1"]
     pg.wait_for_selector("#slowretry")
     got = pg.evaluate(PENDING)
-    assert got["slow"].startswith("The page did not change.") and not got["loading"] and not got["dimmed"]
+    assert got["slow"].startswith("The surface did not change.") and not got["loading"] and not got["dimmed"]
     assert pg.locator("#pgwait").count() == 0  # the name is the page Live still has
     assert pg.locator("#slowretry").bounding_box()["height"] >= 44
     slow.go.set()  # the answer comes late: the message goes away

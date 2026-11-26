@@ -287,7 +287,7 @@ select{font:inherit;color:inherit;background:var(--panel);border:1px solid var(-
 <div id="app">
  <div id="lock" role="alert"></div>
  <div id="cols">
-  <aside id="side" aria-label="Pages"></aside>
+  <aside id="side" aria-label="Surfaces"></aside>
   <div id="main" class="loads"><div id="slow" role="alert" hidden></div><div id="song" hidden></div><div id="desk"><div id="deskhead"></div><div id="mlnums"></div><div id="panelbox"></div><div id="deskdots"></div></div><div id="ask" hidden></div><div id="scrim"></div><div class="sheet" id="sheet"></div></div>
   <div id="hear"><div class="hear" id="htop"></div><section id="histdock" aria-label="History"></section><div class="hear" id="hbot"><div id="hkeys"></div><span id="listen"></span></div></div>
  </div>
@@ -838,14 +838,14 @@ function drawDesk() {
   S.slots = !drawn ? [] : entry.page_id ? slotsOfLayout(L, at, hw) : slotsOfDesk(entry.pg, hw);
   wantScales(S.slots);
   // A Page that needs more than one MiniLab page: numbered buttons (on a phone, swipe the panel too).
-  const nums = entry.hw.length > 1 && !next ? `<div class="hr" id="mlpages" role="group" aria-label="MiniLab pages of this Page">${
+  const nums = entry.hw.length > 1 && !next ? `<div class="hr" id="mlpages" role="group" aria-label="MiniLab pages of this surface">${
     entry.hw.map((d, k) => `<button class="key sm ${k === at ? "on" : ""}" data-page="${d}" aria-label="MiniLab page ${k + 1} of ${entry.hw.length}" ${k === at ? 'aria-current="true"' : ""}>${k + 1}</button>`).join("")}</div>` : "";
   const shown = next || entry, NL = next && next.page_id && typeof S.layouts[next.page_id] === "object" ? S.layouts[next.page_id] : null;
   // A Page a link asked for that is not on the desk yet (S.opening): its title shows at once, with "Loading".
   const far = S.opening && !next && entry.page_id !== S.opening.id ? S.opening : null;
-  const title = far ? far.title || "Page" : next ? (NL ? NL.title : next.name) : drawn && L ? L.title : entry.name;
+  const title = far ? far.title || "Surface" : next ? (NL ? NL.title : next.name) : drawn && L ? L.title : entry.name;
   const by = far ? "" : next ? (NL ? " · made by " + esc(NL.made_by) : "") : drawn && L ? " · made by " + esc(L.made_by) : "";
-  setHtml($("#deskhead"), `<div class="ph2"><b id="pagename">${esc(title)}</b>${far ? "" : `<span class="tag">page ${pages.indexOf(shown) + 1} of ${pages.length}${by}</span>`}
+  setHtml($("#deskhead"), `<div class="ph2"><b id="pagename">${esc(title)}</b>${far ? "" : `<span class="tag">surface ${pages.indexOf(shown) + 1} / ${pages.length}${by}</span>`}
     ${next || far ? '<span class="pill spin" id="pgwait">Loading</span>' : `<span class="pill ${S.state.live === "attached" ? "acc" : "quiet"}" id="mlchip">${S.state.live === "attached" ? "on MiniLab" : "no MiniLab"}</span>`}${nums}</div>`);
   // A page with compare states, when it comes into view: its pads are in sight (where the map shows one face at a
   // time, that is the face with pads 5 to 8).
@@ -873,9 +873,9 @@ function drawPager() {
   // the steps are from the page Live has (so the one that was tapped keeps its place and shows it is waiting);
   // the count is the page asked for
   const c = current(), pages = c.pages, at = pages.indexOf(c.entry), i = pages.indexOf(c.next || c.entry), prev = pages[at - 1], next = pages[at + 1];
-  const step = (p, way) => `<button class="key sm" ${p ? `data-page="${p.hw[0]}"` : "disabled"} aria-label="${way === "prev" ? "Previous" : "Next"} page${p ? ": " + esc(p.name) : ""}"><svg class="${way === "prev" ? "back" : ""}" width="18" height="18"><use href="#i-more"/></svg></button>`;
+  const step = (p, way) => `<button class="key sm" ${p ? `data-page="${p.hw[0]}"` : "disabled"} aria-label="${way === "prev" ? "Previous" : "Next"} surface${p ? ": " + esc(p.name) : ""}"><svg class="${way === "prev" ? "back" : ""}" width="18" height="18"><use href="#i-more"/></svg></button>`;
   const face = (f, icon, words) => `<button class="key sm ${S.face === f ? "on" : ""}" data-face="${f}" aria-pressed="${S.face === f}" aria-label="${words}"><svg width="18" height="18"><use href="#i-${icon}"/></svg></button>`;
-  setHtml($("#deskdots"), `<div class="dots" role="group" aria-label="Pages">${step(prev, "prev")}<span class="pgn" id="pgcount" aria-label="Page ${i + 1} of ${pages.length}">${i + 1} / ${pages.length}</span>${step(next, "next")}<span class="sp"></span><button class="key sm" data-org="open" aria-label="Organize pages"><svg width="18" height="18"><use href="#i-org"/></svg></button>${
+  setHtml($("#deskdots"), `<div class="dots" role="group" aria-label="Surfaces">${step(prev, "prev")}<span class="pgn" id="pgcount" aria-label="Surface ${i + 1} of ${pages.length}">${i + 1} / ${pages.length}</span>${step(next, "next")}<span class="sp"></span><button class="key sm" data-org="open" aria-label="Organize surfaces"><svg width="18" height="18"><use href="#i-org"/></svg></button>${
     S.faces === 2 ? `<div class="seg" id="faces" role="group" aria-label="Face of the map">${face("k", "knob", "Knobs and pads 1 to 4")}${face("f", "fader", "Faders and pads 5 to 8")}</div>` : ""}</div>`);
 }
 // Fit the map to the height it has: the comfortable sizes, else the tight ones (labels on one line), else, on a
@@ -902,7 +902,7 @@ window.addEventListener("resize", () => { if (S.state && S.desk) { renderSide();
 // another page, or a control that came or went, draws the panel again.
 function drawPanel(drawn, L) {
   const box = $("#panelbox");
-  if (!drawn) { box.__shape = null; return setHtml(box, `<div class="tag" id="plain">${L === "failed" ? "This page could not be drawn." : "Reading the page…"}</div>`); }
+  if (!drawn) { box.__shape = null; return setHtml(box, `<div class="tag" id="plain">${L === "failed" ? "This surface could not be drawn." : "Reading…"}</div>`); }
   const shape = S.slots.map(MC.shape).join("\u0002");
   if (box.__shape === shape && $("#panel")) {
     for (const m of S.slots) { const el = $(`#panel .mc[data-slot="${m.slot}"]`); if (el) MC.update(el, m); }
@@ -937,8 +937,8 @@ function renderSide() {
   const mark = pages.indexOf(cur) + "/" + pages.length + "/" + per;
   if (S.sideAt !== mark) { S.sideAt = mark; S.sideAt2 = Math.floor(Math.max(0, pages.indexOf(cur)) / per); }
   const at = S.sideAt2 = Math.max(0, Math.min(parts - 1, S.sideAt2 || 0));
-  setHtml(side, `<div class="shh"><span class="tag">Pages</span><span class="sp"></span><button class="key sm" data-org="open" aria-label="Organize pages"><svg width="18" height="18"><use href="#i-org"/></svg></button></div><div class="pl" role="group" aria-label="Pages">${pages.slice(at * per, at * per + per).map(p =>
-    `<button class="key ${p === cur ? "on" : ""}" data-page="${p.hw[0]}">${esc(p.name)}</button>`).join("")}</div>${pagerHtml("sidestep", at, parts, "More pages")}`);
+  setHtml(side, `<div class="shh"><span class="tag">Surfaces</span><span class="sp"></span><button class="key sm" data-org="open" aria-label="Organize surfaces"><svg width="18" height="18"><use href="#i-org"/></svg></button></div><div class="pl" role="group" aria-label="Surfaces">${pages.slice(at * per, at * per + per).map(p =>
+    `<button class="key ${p === cur ? "on" : ""}" data-page="${p.hw[0]}">${esc(p.name)}</button>`).join("")}</div>${pagerHtml("sidestep", at, parts, "More surfaces")}`);
 }
 // History is docked in the right column from 1100 px (its rows fill while the knobs turn); narrower, it is a sheet
 // that takes no touch from the rest of the page: a tap outside closes it and still reaches what was tapped.
@@ -1404,10 +1404,10 @@ function wanted() {
   S.want = null;
   if (!entry) {
     // A Page the chat drafted is saved but not on the desk yet: page.open puts it there (the person's own act) and arms it.
-    if (S.opened === id) { slowSay("That Page is not on the desk.", null); openingEnd(); return navSync(); }
+    if (S.opened === id) { slowSay("That surface is not on the desk.", null); openingEnd(); return navSync(); }
     S.opened = id;
     command("page.open", {id}).then(r => {
-      if (!r.ok) { openingEnd(); return slowSay("That Page is not on the desk" + (r.body.error ? ": " + r.body.error : "."), null); }
+      if (!r.ok) { openingEnd(); return slowSay("That surface is not on the desk" + (r.body.error ? ": " + r.body.error : "."), null); }
       S.want = id; S.layouts = {}; loadDesk();
     });
   }
@@ -1481,7 +1481,7 @@ function armPage(page) {
 }
 function pageFailed(page, why) {
   donePending(); S.failed = page; openingEnd();
-  slowSay("The page did not change." + (why ? " " + why : ""), page);
+  slowSay("The surface did not change." + (why ? " " + why : ""), page);
 }
 // The state says which page is on: that is the confirmation.
 function pageConfirmed() {

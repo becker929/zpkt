@@ -230,7 +230,7 @@ if (!['claude', 'gemini'].includes(cfg.engine)) cfg.engine = 'claude';
 const ENGINE_NAME = { gemini: 'Gemini CLI', claude: 'Claude Code' };
 // One mode for a producer, so no menu: the agent advises, makes pages and suggests ("build"). The other modes are a
 // developer's and show only with /app/ask/?dev=1 (remembered on this device; ?dev=0 forgets it).
-const MODE_NAME = { build: 'Pages', ask: 'Ask first', auto_edit: 'Edit files', yolo: 'Full (shell)' };
+const MODE_NAME = { build: 'Surfaces', ask: 'Ask first', auto_edit: 'Edit files', yolo: 'Full (shell)' };
 const DEV = (() => {
   const q = new URLSearchParams(location.search).get('dev');
   if (q !== null) store.set('ask.dev', q !== '0' && q !== 'false');
@@ -282,7 +282,7 @@ function oldPanel(raw, name) {
     const list = c?.kind === 'ab' ? [['A', c.a], ['B', c.b]] : c?.kind === 'deck' && Array.isArray(c.sources) ? c.sources.map((s, k) => [String.fromCharCode(65 + k), s]) : [];
     for (const [letter, t] of list) if (t && typeof t.src === 'string' && t.src) tracks.push([t.src, `${typeof t.label === 'string' && t.label ? t.label : letter} · ${t.src.split('/').pop()}`]);
   }
-  return `<div class="oldpanel">${title ? `<b>${esc(title.slice(0, 80))}</b>` : ''}An older control panel; ask for a page to use it again.${tracks.slice(0, 16).map(([src, n]) => audioFig(src, n)).join('')}</div>`;
+  return `<div class="oldpanel">${title ? `<b>${esc(title.slice(0, 80))}</b>` : ''}An older control panel; ask for a surface to use it again.${tracks.slice(0, 16).map(([src, n]) => audioFig(src, n)).join('')}</div>`;
 }
 function md(src) {
   const L = src.replace(/\r\n/g, '\n').split('\n');

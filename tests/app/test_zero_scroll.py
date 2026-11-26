@@ -114,7 +114,7 @@ def test_the_paging_row_steps_through_the_pages(browser, rig):
         and pages
     )
     nxt, prev = pg.locator(".dots button").nth(1), pg.locator(".dots button").nth(0)
-    assert nxt.is_disabled() and "Previous page: " in prev.get_attribute("aria-label")  # the new Page is the last
+    assert nxt.is_disabled() and "Previous surface: " in prev.get_attribute("aria-label")  # the new Page is the last
     name = prev.get_attribute("aria-label").split(": ", 1)[1]
     prev.click()
     pg.wait_for_function(f"document.querySelector('#pagename').textContent === {name!r} && !window.zpkt.S.pend")

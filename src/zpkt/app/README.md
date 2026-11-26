@@ -257,6 +257,11 @@ SysEx back: the display, the pad LEDs and the knob rings.
 
 ## Pages
 
+**The word.** To the person these are **surfaces** ("Surfaces", "surface 3 / 15", "made a surface"): that is the
+only word the pages of the app and the agent's answers use (Anthony, 26 November 2026). "Page" stays the technical
+term: in the code, the commands (`page.make`, `page.organize`), the files, the addresses (`#page=<id>`) and these
+docs. "MiniLab page" is the controller's own paging and keeps its name where it must be said.
+
 A Page is what an agent writes for "I want to change this": groups of controls with a role and a weight, and no pixels
 (`zpkt.live.page`). One renderer draws it, and the same spec gives the MiniLab its assignment.
 
