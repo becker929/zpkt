@@ -34,6 +34,14 @@ first (an added device is deleted, a moved one goes back to its index); redo run
 writes the values. The history only keeps the steps: zpkt.app.change runs them in Live. Going back to before such an
 entry (`back`) carries the device steps turned round ("remove" is an add taken back), so it too undoes as one.
 
+A batch the person said yes to (`live.propose`, zpkt.app.propose) may also remove a device, make a track or run code.
+Undo does not take those back: a removed device's settings are gone, and the app cannot know what code did. They are
+kept in the entry's "stays", in the order they ran, each with its "words" ("Removed desk Sat from Hats bus"):
+{"op": "remove", "track", "device", "at"}, {"op": "track", "kind", "name"}, {"op": "code", "does", "code"} (with
+"failed" when Live reported an error: part of it may have run). Undo of such an entry takes back its values and its
+"devices" and leaves its "stays"; the command's reply names them. When a device is removed, the entry's earlier
+steps are rewritten as if the device had never been on the chain (`taken_out`), so undo still finds the others.
+
 The history is shared by the UDP thread, the web threads and the supervisor, so every method takes its one lock,
 including the label table it shares with the desk.
 """
@@ -92,6 +100,40 @@ def turned(steps: list[dict[str, Any]]) -> list[dict[str, Any]]:
         else:
             out.append({**s, "op": "remove" if s["op"] == "add" else "add"})
     return out
+
+
+def taken_out(steps: list[dict[str, Any]], track: str, index: int) -> list[dict[str, Any]]:
+    """Device steps (in the order they ran) rewritten for a chain that never held the device now at `index` of
+    `track`, which is about to be removed for good. The indexes of the other devices' steps there count a chain
+    without it, so undo and redo still land on the right devices. A step of the removed device itself is dropped:
+    its moves, and its add when one of these steps put it there."""
+    out: list[dict[str, Any]] = []
+    at = index  # where the removed device sits after the step being looked at
+    ours = True  # False before the step that added it: the chain did not hold it yet
+    for s in reversed(steps):
+        if not ours or s["track"] != track:
+            out.append(s)
+        elif s["op"] == "add":
+            if s["at"] == at:
+                ours = False
+            else:
+                out.append({**s, "at": s["at"] - (s["at"] > at)})
+                at -= at > s["at"]
+        elif s["to"] == at:  # the removed device itself moved: before this step it was at "from"
+            at = s["from"]
+        else:  # another device went from "from" to "to": where the removed one was before that
+            was = at - (at > s["to"])
+            was += was >= s["from"]
+            moved = {**s, "from": s["from"] - (s["from"] > was), "to": s["to"] - (s["to"] > at)}
+            if moved["from"] != moved["to"]:
+                out.append(moved)
+            at = was
+    return out[::-1]
+
+
+def left_by(entry: dict[str, Any] | None) -> list[str]:
+    """What an undo of `entry` leaves as it is, in words: its removed devices, new tracks and code."""
+    return [str(s.get("words") or s["op"]) for s in (entry or {}).get("stays", [])]
 
 
 def same(a: Any, b: Any) -> bool:
@@ -409,10 +451,53 @@ class History:
             entry["devices"].append(dict(step))
             self._save()
 
+    def change_stays(self, entry: dict[str, Any], step: dict[str, Any]) -> None:
+        """A step of the batch that undo will not take back (a new track, code): kept so the row and undo say so."""
+        with self.lock:
+            self._in(entry)
+            entry.setdefault("stays", []).append(dict(step))
+            self._save()
+
+    def change_removed(self, entry: dict[str, Any], step: dict[str, Any], nth: int) -> None:
+        """The batch removed a device for good: `step` is {"op": "remove", "track", "device", "at", "words"} and
+        `nth` says which device of that name on the track it was (1 for the first). It stays removed after an
+        undo. What the entry holds of that device goes with it: its own device steps (`taken_out`) and the values
+        the batch wrote to it, since an undo must not write them to another device of the same name."""
+        track, name = step["track"], step["device"]
+        with self.lock:
+            self._in(entry)
+            entry["devices"] = taken_out(entry["devices"], track, int(step["at"]))
+            kept = []
+            for m in entry["moves"]:
+                rest = m["key"].removeprefix(track + "/") if m["key"].startswith(track + "/") else ""
+                head, _, param = rest.partition("/")
+                base, hash_, count = head.rpartition("#")
+                label, n = (base, int(count)) if hash_ and count.isdigit() else (head, 1)
+                if not param or label != name or n < nth:
+                    kept.append(m)
+                elif n > nth:  # a later device of that name is one earlier now
+                    kept.append({**m, "key": f"{track}/{name if n == 2 else f'{name}#{n - 1}'}/{param}"})
+            entry["moves"] = kept
+            gone = f"{track}/{name if nth == 1 else f'{name}#{nth}'}/"
+            for values in (self.cur, self.first, self.base or {}):
+                for key in [k for k in values if k.startswith(gone)]:
+                    del values[key]
+            entry.setdefault("stays", []).append(dict(step))
+            self._save()
+
+    def stays_from(self, entry_id: int) -> list[str]:
+        """What going back to before the entry `entry_id` leaves as it is, in words: the "stays" of that step and
+        of every later one still in effect."""
+        with self.lock:
+            at = next((i for i, e in enumerate(self.entries[: self.pos]) if e["id"] == entry_id), None)
+            if at is None:
+                return []
+            return [words for e in self.entries[at : self.pos] for words in left_by(e)]
+
     def change_done(self, entry: dict[str, Any], shown: dict[str, list[Any]]) -> dict[str, Any] | None:
         """The batch has ended (all of it, or up to a step that failed). `shown` is what Live shows now for the
         keys it wrote ({key: [shown, raw]}). A value that ended where it began is no move; a batch that moved
-        nothing is no entry (None)."""
+        nothing, and did nothing that stays, is no entry (None)."""
         with self.lock:
             for m in entry["moves"]:
                 if m["key"] in shown:
@@ -421,7 +506,7 @@ class History:
             entry["moves"] = [m for m in entry["moves"] if not same(m["from"][1], m["to"][1])]
             if "id" not in entry:
                 return None
-            if not entry["moves"] and not entry["devices"]:
+            if not entry["moves"] and not entry["devices"] and not entry.get("stays"):
                 if entry in self.entries:
                     at = self.entries.index(entry)
                     del self.entries[at]
