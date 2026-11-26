@@ -98,9 +98,24 @@ need an Option you picked (`ZPKT_OPTION=<id>`). Which set a job is for, and the 
 ## Options and the one render queue
 
 An Option is a set of Versions of the mix, made to be heard side by side. I look at them in the Options sheet of
-`/app/` (the Options tab): a grid of Versions with their loudness and their gap to the base. Tapping one puts its
-numbers and spectrum on the Hear bar. "Pick" puts a Version's values on the mix as one move, stamped `you`, which one
-undo takes back.
+`/app/` (the Options tab). The sheet says what it is in its own words, so nobody needs this page to read it:
+
+- A line under the title says what the sheet is for. With no Options it says what one is and the two ways to get one
+  from the desk (ask in the Ask tab for a suggestion; render a Mix 2 batch from the Song tab's Arranger).
+- A row of Options to choose from, each with its state in words ("Rendering version 2 of 3", "3 versions ready",
+  "Suggestion, not applied yet"). One sentence under it says where the chosen one came from. A suggestion shows who
+  made it and why.
+- The Versions of the chosen Option, each with its loudness and how much louder or quieter it is than the first.
+  Tapping one selects it: its numbers and spectrum go on the Hear bar, and the card says "Selected".
+- A panel for the selected Version. "Play this version" plays its rendered file in the page (not through Live);
+  tapping another Version while it plays switches at the same spot. Levels are not matched. Under it is what Pick
+  will set: each control, where it is now, where it goes. A Version with no settings says why it cannot be picked.
+- "Pick" puts the Version's values on the mix as one move, stamped `you`. The panel then says how many controls
+  changed and shows an Undo button, until something else changes the mix. One undo takes the pick back.
+- What an agent suggested has one Version and is not rendered, so the sheet shows its changes and no grid.
+
+The values in the list of changes are Live's raw numbers, with the control's current text beside them ("reads
+0.0 dB now"). The app does not yet know the text of a value a control is not at.
 
 There is one store of Options, `renders.py`'s. What an agent proposes (`options.propose`, older name `option.propose`: a title, a reason and its
 moves, kept in `options.json` in the Ask folder) is listed there with the rendered ones, as an Option with one
