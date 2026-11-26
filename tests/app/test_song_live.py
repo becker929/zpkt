@@ -98,8 +98,12 @@ def test_the_song_tab_shows_lives_tracks_and_regions_under_the_ruler(browser, ri
     pg.goto(rig.url + "/app/#song")
     pg.wait_for_selector("#lanes .lane .rg")
     got = rig.command("arrangement.read")[1]
-    assert pg.locator("#lanes .lane").count() == len(got["tracks"])
-    assert pg.locator("#lanes .lane .ln").first.inner_text() == got["tracks"][0]["name"]
+    drawn = [t for t in got["tracks"] if t["regions"]]  # a track with no regions has no lane
+    assert 0 < len(drawn) < len(got["tracks"])
+    assert pg.locator("#lanes .lane .ln").all_inner_texts() == [t["name"] for t in drawn]
+    # the tempo and the time signature, by the ruler
+    pg.wait_for_function("document.querySelector('#songtempo').textContent === '160 · 4/4'")
+    assert pg.locator("#songtempo").is_visible()
     assert pg.locator("#lanes .rg").count() == sum(len(t["regions"]) for t in got["tracks"])
     first = next(t for t in got["tracks"] if t["regions"])
     region = pg.locator(f'#lanes .rg[data-region="{first["regions"][0]["id"]}"]')  # a region is its own element
@@ -122,4 +126,7 @@ def test_the_song_tab_shows_lives_tracks_and_regions_under_the_ruler(browser, ri
     assert pg.locator("#song button:visible, #song select, #song input").count() == 0  # read only, no controls
     add_clip(rig, -1, 8.0, 8.0, "new idea")  # a clip made in Live shows without a reload
     pg.wait_for_function("[...document.querySelectorAll('#lanes .rg')].some(e => e.textContent === 'new idea')")
+    assert pg.locator("#lanes .lane").count() == len(drawn) + 1  # its track has a region now, so it has a lane
+    rig.send({"t": "pos", "b": 80.0, "p": True, "bpm": 127.5})  # the tempo follows Live
+    pg.wait_for_function("document.querySelector('#songtempo').textContent === '127.5 · 4/4'")
     assert errors == []

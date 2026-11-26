@@ -92,7 +92,7 @@ THREE = {"title": "Three", "groups": [{"name": "g", "controls": [
 
 OVERFLOW = """() => {
   const out = [];
-  document.querySelectorAll('#panel, #panel .mc, #panel .w, #mlpages button, #hbot button').forEach(e => {
+  document.querySelectorAll('#panel, #panel .mc, #panel .w, #deskdots button, #hbot button').forEach(e => {
     const r = e.getBoundingClientRect();
     if (r.width && (r.right > innerWidth + 0.5 || r.left < -0.5)) out.push((e.className || e.tagName) + ' ' + Math.round(r.right));
   });
@@ -122,18 +122,32 @@ def on_page(pg, n):
     pg.wait_for_function(f"window.zpkt.S.state.page === {n} && !window.zpkt.S.pend")
 
 
+def step(pg, way: str) -> int:
+    """Press the pager's Previous or Next: one step is one MiniLab page. The page it went to. From 1100 px the pager
+    is not shown (the side column lists the surfaces), so there the page is asked for as the button would."""
+    button = pg.locator(f'#deskdots .dots button[aria-label^="{way} surface"]')
+    to = int(button.get_attribute("data-page"))
+    if button.is_visible():
+        button.click()
+    else:
+        pg.evaluate(f"window.zpkt.armPage({to})")
+    on_page(pg, to)
+    return to
+
+
 @pytest.mark.parametrize("width", [360, 375, 390, 1280])
 def test_the_biggest_page_overflows_nothing_at_this_width(browser, rig, width):
     pg, reply = open_page(browser, rig, width, big_spec())
     layout = rig.command("page.layout", {"id": reply["id"]})[1]["layout"]
     assert len(layout["panels"]) >= 2
     seen = set()
-    buttons = pg.locator("#mlpages button")
-    assert buttons.count() == len(layout["panels"])
-    for k in range(buttons.count()):
+    assert pg.locator("#mlpages").count() == 0  # no buttons of its own: its MiniLab pages are steps of the pager
+    first, total = pg.evaluate("[window.zpkt.S.state.page, window.zpkt.S.desk.pages.length]")
+    for k in range(len(layout["panels"])):
         if k:
-            buttons.nth(k).click()
-            on_page(pg, int(buttons.nth(k).get_attribute("data-page")))
+            assert step(pg, "Next") == first + k
+        assert pg.locator("#pgcount").inner_text() == f"{first + k + 1} / {total}"
+        assert pg.locator("#pagename").inner_text() == "Everything at once"
         seen.update(pg.eval_on_selector_all("#panel .mc .g", "els => els.map(e => e.textContent).filter(Boolean)"))
         assert pg.evaluate(OVERFLOW) == {"page": 0, "out": [], "clipped": [], "small": 0, "slots": 20}
     assert seen == {"Sub", "Knock", "Glue", "Bus"}  # the group is a small caption on its controls
@@ -230,24 +244,29 @@ def test_touching_the_widgets_moves_live(browser, rig):
 def test_the_range_and_the_macro_are_drawn_in_their_slots(browser, rig):
     pg, _ = open_page(browser, rig, 1280, big_spec())
     assert pg.locator("#panel .mc .rg").count() >= 1  # the stretch worth playing
-    pg.click("#mlpages button >> nth=1")
+    step(pg, "Next")  # the surface's second MiniLab page
     pg.wait_for_selector("#panel .mc.macro")
     macro = pg.locator("#panel .mc.macro")
     assert macro.count() == 1 and macro.locator(".l").inner_text() == "Darker"
     assert macro.locator("[role=slider]").count() == 0  # a macro is turned on the MiniLab
 
 
-def test_a_page_of_two_minilab_pages_has_numbered_buttons_and_a_phone_swipes(browser, rig):
+def test_a_page_of_two_minilab_pages_is_two_steps_of_the_pager_and_a_phone_swipes(browser, rig):
     pg, _ = open_page(browser, rig, 390, big_spec())
-    first = pg.evaluate("window.zpkt.S.state.page")
-    nums = pg.locator("#mlpages button")
-    assert nums.count() >= 2 and nums.nth(0).inner_text() == "1" and "on" in nums.nth(0).get_attribute("class")
-    two = int(nums.nth(1).get_attribute("data-page"))
+    first, total = pg.evaluate("[window.zpkt.S.state.page, window.zpkt.S.desk.pages.length]")
+    assert pg.locator("#mlpages, #mlchip, #readout, #pre").count() == 0  # the head is the title and nothing else
+    assert pg.locator("#deskhead .ph2 > *").count() == 1
+    nxt = pg.locator('#deskdots .dots button[aria-label^="Next surface"]')
+    two = int(nxt.get_attribute("data-page"))
+    assert two == first + 1 and pg.locator("#pgcount").inner_text() == f"{first + 1} / {total}"
     drag(pg, '#panel .mc[data-slot="k1"] .w', -140, 4)  # swipe left on a live knob: the next MiniLab page, no move
     on_page(pg, two)
     assert pg.evaluate("window.zpkt.S.hear.changed") == 0
-    assert "on" in pg.locator("#mlpages button").nth(1).get_attribute("class")
+    assert pg.locator("#pgcount").inner_text() == f"{two + 1} / {total}" and nxt.is_disabled()  # the last page
     assert pg.locator("#pagename").inner_text() == "Everything at once"
+    assert step(pg, "Previous") == first  # the pager's own buttons go the same way
+    drag(pg, '#panel .mc[data-slot="k1"] .w', -140, 4)
+    on_page(pg, two)
     drag(pg, "#panel .mp1", 140, 0)  # swipe right: back
     on_page(pg, first)
     drag(pg, "#panel .mp1", 140, 0)  # no page before the first: nothing happens
@@ -255,7 +274,7 @@ def test_a_page_of_two_minilab_pages_has_numbered_buttons_and_a_phone_swipes(bro
     assert pg.evaluate("window.zpkt.S.state.page") == first and pg.evaluate("window.zpkt.S.pend") is None
     wide = browser.new_page(viewport={"width": 1280, "height": 900})
     wide.goto(rig.url + "/app/")
-    wide.wait_for_selector("#mlpages button")
+    wide.wait_for_selector("#panel .mc.live")
     drag(wide, '#panel .mc[data-slot="k1"] .w', -140, 0)  # a desktop does not swipe
     wide.wait_for_timeout(150)
     assert wide.evaluate("window.zpkt.S.state.page") == first

@@ -1,10 +1,12 @@
 """The transport on the Hear bar in WebKit, on a phone and on a desktop: Play or Pause, Stop, and the loop's three
-keys; the lit key and the strip say what loops. Skipped when playwright or its WebKit is missing."""
+keys; the lit key says what loops (the strip, the loop's bars and the bar number are off the page since 26 November
+2026). Skipped when playwright or its WebKit is missing."""
 
 from __future__ import annotations
 
 import pytest
 
+from tests.app.conftest import wait_for
 from tests.app.test_zero_scroll import SCROLLERS
 
 playwright_sync = pytest.importorskip("playwright.sync_api")
@@ -32,35 +34,39 @@ def test_play_pause_stop_and_the_three_loops(browser, rig, width, height):
     keys = pg.locator("#loops button")
     assert keys.all_inner_texts() == ["All", "Start", "Peak"]
     assert [k.get_attribute("aria-pressed") for k in keys.all()] == ["false"] * 3  # nothing loops
-    assert pg.locator("#strip .part").count() == 2 and pg.locator("#strip .lp").count() == 0  # the two spans, marked
+    # the strip, the bar number and the loop's bars are not on the page: the lit key says what loops
+    assert not pg.locator("#strip").is_visible() and not pg.locator("#barno").is_visible()
+    loop_is = lambda bars: pg.wait_for_function(f"JSON.stringify(window.zpkt.loopBars()) === '{bars}'")  # noqa: E731
     assert pg.locator("#kplay").get_attribute("aria-label") == "Play"
     pg.click("#kplay")
     pg.wait_for_function("document.querySelector('#kplay').getAttribute('aria-label') === 'Pause'")
     assert song.is_playing
     pg.click('#loops [data-loop="drop"]')  # the peak: lit at once, Live loops bars 17 to 40
     assert pg.locator('#loops [data-loop="drop"]').get_attribute("aria-pressed") == "true"
-    pg.wait_for_function("document.querySelector('#looppill')?.innerText.trim() === '17–40'")
+    loop_is("[17,40]")
     assert song.loop and (song.loop_start, song.loop_length) == (64.0, 96.0) and song.is_playing
-    lp, strip = pg.locator("#strip .lp").bounding_box(), pg.locator("#strip").bounding_box()
-    assert lp["x"] == pytest.approx(strip["x"] + strip["width"] * 0.4, abs=2)  # drawn on the strip, from bar 17
+    assert not pg.locator("#looppill").is_visible()
     pg.click('#loops [data-loop="build"]')
-    pg.wait_for_function("document.querySelector('#looppill')?.innerText.trim() === '1–16'")
+    loop_is("[1,16]")
     assert [k.get_attribute("aria-pressed") for k in keys.all()] == ["false", "true", "false"]
     pg.click("#kplay")  # pause: the place is kept
     pg.wait_for_function("document.querySelector('#kplay').getAttribute('aria-label') === 'Play'")
     assert not song.is_playing
     pg.click('#loops [data-loop="whole"]')
-    pg.wait_for_function("document.querySelector('#looppill')?.innerText.trim() === '1–40'")
+    loop_is("[1,40]")
+    assert [k.get_attribute("aria-pressed") for k in keys.all()] == ["true", "false", "false"]
     pg.click('#loops [data-loop="whole"]')  # the lit key again: no loop
-    pg.wait_for_function("!document.querySelector('#looppill')")
+    loop_is("null")
+    wait_for(lambda: not song.loop)
     assert not song.loop and [k.get_attribute("aria-pressed") for k in keys.all()] == ["false"] * 3
     rig.command("transport", {"action": "seek", "beat": 40.0})
-    pg.wait_for_function("document.querySelector('#barno').textContent.startsWith('bar 11')")
+    pg.wait_for_function("window.zpkt.S.state.pos === 40")  # bar 11
     pg.click("#kstop")
-    pg.wait_for_function("document.querySelector('#barno').textContent.startsWith('bar 1 ')")
+    pg.wait_for_function("window.zpkt.S.state.pos === 0")
     assert song.current_song_time == 0.0
     small = pg.evaluate(
-        "[...document.querySelectorAll('#tgrp button')].map(b => b.getBoundingClientRect()).filter(r => r.width < 43.5 || r.height < 43.5).length"
+        "min => [...document.querySelectorAll('#tgrp button')].map(b => b.getBoundingClientRect()).filter(r => r.width < min || r.height < min).length",
+        35.5 if width < 700 else 43.5,  # on a phone the transport's keys are smaller: 38 px high, 36 px or more wide
     )
     assert small == 0 and pg.evaluate(SCROLLERS, "#app") == []
     assert pg.evaluate("document.documentElement.scrollWidth - innerWidth") == 0

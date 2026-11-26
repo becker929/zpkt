@@ -337,41 +337,46 @@ def test_a_checkpoint_is_named_saved_at_once_and_can_be_gone_back_to(browser, ri
 # ---- findings 5 and 7: which song is open; the spectrum and the level say when there is nothing to show ----------------
 
 
-def test_the_hear_bar_names_the_set_its_tempo_and_the_bar(browser, rig):
+def test_the_top_is_the_set_and_the_level_and_the_song_tab_has_the_tempo(browser, rig):
+    """The top of the page is the set's name and the level (26 November 2026). The bar number, the loop, Live's state,
+    the count of changes, the strip, the spectrum and the tempo are off it; the page still knows them."""
     pg = open_lead(browser, rig)
     song = rig.state()["song"]
     assert pg.locator("#setname").inner_text() == song["name"]
-    assert pg.locator("#songfacts").inner_text() == "160 BPM · 4/4"
-    bars = song["bars"]
-    assert pg.locator("#barno").inner_text() == (f"bar 1 of {bars}" if bars else "bar 1")
+    assert pg.locator("#setname").is_visible() and pg.locator("#lvl").is_visible()
+    gone = ("#barno", "#loopbox", "#livebox", "#chgpill", "#chgn", "#chgbase", "#strip", "#specbox", "#songfacts")
+    assert [s for s in gone if pg.locator(s).is_visible()] == []
+    assert pg.locator("#htop").inner_text().split() == [song["name"], "Level", "Listen", "off"]
     rig.send({"t": "pos", "b": 20.0, "p": False, "bpm": 127.5})
-    pg.wait_for_function("document.querySelector('#songfacts').textContent.startsWith('127.5 BPM')")
-    assert pg.locator("#barno").inner_text().startswith("bar 6")
-    rig.send({"t": "loop", "loop": "drop", "start": 64.0, "length": 96.0})  # a loop is why the bar jumps back
-    pg.wait_for_selector("#looppill")
-    assert pg.locator("#looppill").inner_text().strip() == "17–40"  # said as the bars it spans
-    assert "drop" in pg.locator("#looppill").get_attribute("aria-label")
+    pg.wait_for_function("window.zpkt.S.state.pos === 20 && window.zpkt.S.state.song.tempo === 127.5")
+    rig.send({"t": "loop", "loop": "drop", "start": 64.0, "length": 96.0})
+    pg.wait_for_function("JSON.stringify(window.zpkt.loopBars()) === '[17,40]'")  # the loop, as the bars it spans
+    assert not pg.locator("#looppill").is_visible()
+    pg.click('#tabs [data-t="song"]')  # the tempo and the time signature are on the Song tab, by the ruler
+    pg.wait_for_selector("#songtempo")
+    assert pg.locator("#songtempo").is_visible() and pg.locator("#songtempo").inner_text() == "127.5 · 4/4"
     phone = browser.new_page(viewport={"width": 375, "height": 800})
     phone.goto(rig.url + "/app/")
     phone.wait_for_selector("#setname")
     assert phone.evaluate("document.documentElement.scrollWidth - innerWidth") == 0
+    assert phone.locator("#lvl").is_visible() and not phone.locator("#barno").is_visible()
 
 
-def test_no_meter_is_one_action_and_the_level_reads_listens_peak(browser, rig):
+def test_the_spectrum_is_off_the_page_and_the_level_reads_listens_peak(browser, rig):
     pg = open_lead(browser, rig)
-    strip = pg.locator("#spec.act")  # no meter sends and the device is not on Main: the one thing to press
-    assert strip.locator("#meteron").inner_text().strip() == "Turn on" and "not on Main" not in strip.inner_text()
+    assert not pg.locator("#specbox").is_visible() and not pg.locator("#meteron").is_visible()  # nothing to press
     level = pg.locator("#lvl")
     assert level.get_attribute("data-state") == "off" and pg.locator("#lvl .ln").inner_text() == "Listen off"
-    rig.meter.send(osc_spec([0.1] * len(meter.centers())))
-    pg.wait_for_selector("#spec:not(.act) i")  # the meter sends: bars
+    rig.meter.send(osc_spec([0.1] * len(meter.centers())))  # a meter that sends draws nothing on the page either
+    pg.wait_for_function("!!window.zpkt.S.meter")
+    assert not pg.locator("#spec").is_visible()
     tell = "window.dispatchEvent(new CustomEvent('zpkt-listen', {detail: %s}))"  # what listen.js sends
     pg.evaluate(tell % json.dumps({"state": "on", "peak": 0.5}))
     assert level.get_attribute("data-state") == "on" and pg.locator("#lvl .ln").inner_text() == "-6.0 dB"
     width = pg.evaluate("parseFloat(document.querySelector('#lvl .lb i').style.width)")
     assert 85 < width < 95  # -6 dB on a 60 dB scale
-    rig.send({"t": "pos", "b": 4.0, "p": True})  # the bar is redrawn: the level stays
-    pg.wait_for_function("document.querySelector('#barno').textContent.startsWith('bar 2')")
+    rig.send({"t": "pos", "b": 4.0, "p": True})  # the top is redrawn: the level stays
+    pg.wait_for_function("window.zpkt.S.state.pos === 4")
     assert (
         pg.locator("#lvl .ln").inner_text() == "-6.0 dB" and pg.locator("#lvl").get_attribute("aria-valuenow") == "-6"
     )
@@ -379,8 +384,6 @@ def test_no_meter_is_one_action_and_the_level_reads_listens_peak(browser, rig):
     assert pg.locator("#lvl .ln").inner_text() == "silent"
     pg.evaluate(tell % json.dumps({"state": "off", "peak": 0}))
     assert level.get_attribute("data-state") == "off" and pg.locator("#lvl .ln").inner_text() == "Listen off"
-    pg.evaluate("window.zpkt.S.meterAt = Date.now() - 60000")  # the device left Main: its last bars do not stay
-    pg.wait_for_selector("#spec.act")
 
 
 # ---- findings 8, 9 and 10 --------------------------------------------------------------------------------------------
@@ -406,16 +409,12 @@ def test_a_new_pages_button_is_in_view_in_the_page_list(browser, rig):
 
 def test_no_minilab_is_not_an_error(browser, rig):
     pg = open_lead(browser, rig)
-    assert pg.locator("#mlchip").inner_text() == "on MiniLab"
+    assert pg.locator("#mlchip").count() == 0  # the head does not say whether a MiniLab is there
+    assert pg.locator("#deskhead .ph2 > *").count() == 1 and pg.locator("#deskhead").inner_text().strip() == "Lead"
     rig.desk.set_state(None, "no MiniLab 3 in Live")
-    pg.wait_for_function("document.querySelector('#mlchip')?.textContent === 'no MiniLab'")
-    assert "quiet" in pg.locator("#mlchip").get_attribute("class") and "acc" not in pg.locator("#mlchip").get_attribute(
-        "class"
-    )
+    pg.wait_for_function("window.zpkt.S.state.live === 'no MiniLab 3 in Live'")
     assert "on" not in (pg.locator("#lock").get_attribute("class") or "").split()  # no red line across the page
-    assert pg.locator("#livepill").inner_text() == "Live" and "warn" not in pg.locator("#livepill").get_attribute(
-        "class"
-    )
+    assert pg.locator("#deskhead").inner_text().strip() == "Lead" and pg.locator("#panel .mc.live").count() == 4
     rig.desk.set_state(None, "Live does not answer (gone)")  # that one is an error, and looks it
     pg.wait_for_selector("#lock.on")
 

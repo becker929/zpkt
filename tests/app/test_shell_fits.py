@@ -40,11 +40,12 @@ def test_nothing_overflows_at_this_width(rig, width):
             }"""
         )
         small = pg.evaluate(
-            "[...document.querySelectorAll('#hbot button')].map(b => b.getBoundingClientRect().height).filter(h => h && h < 40).length"
+            "min => [...document.querySelectorAll('#hbot button')].map(b => b.getBoundingClientRect()).filter(r => r.height && (r.height < min || r.width < min)).length",
+            36 if width < 700 else 40,  # on a phone the Hear bar's keys are smaller: 38 px high, 36 px or more wide
         )
         browser.close()
     assert over == [0, []], over
-    assert small == 0  # touch targets of 40 px or more
+    assert small == 0  # touch targets of 40 px or more (36 on a phone)
     # the panel: all 20 slots of the MiniLab, each at least 44 px, none off the side
     assert (panel["slots"], panel["small"], panel["out"]) == (20, 0, 0), panel
     # The panel folds in half when its own box is 440 px or less: every phone, and a 768 px tablet (the Hear bar takes
