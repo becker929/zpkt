@@ -56,7 +56,7 @@ def test_a_tap_starts_the_sound_and_a_second_tap_stops_it(listening, page):  # n
 
 def test_when_listening_was_on_the_first_tap_anywhere_resumes_it(listening, page):  # noqa: F811
     page.evaluate("localStorage.setItem('zpkt.listen', 'on')")  # as left by the page before this one
-    page.evaluate(ADD)
+    page.reload()  # the shell loads listen.js itself
     page.wait_for_selector("#listen button[data-resume]")
     assert page.evaluate("zpktListen.state") == "off"  # no sound without a tap
     page.mouse.click(5, 300)  # not on the button
@@ -65,7 +65,8 @@ def test_when_listening_was_on_the_first_tap_anywhere_resumes_it(listening, page
 
 def test_unavailable_shows_the_reason_in_plain_words_on_a_tap(listening, page):  # noqa: F811
     listening.source.reason = "Live is not running on the Mac, so there is nothing to hear."
-    page.evaluate(ADD)
+    listening.adapter.hub._checked = None  # the first page load asked already, and the answer is kept a while
+    page.reload()  # the shell loads listen.js itself
     page.wait_for_selector("#listen button[data-state=unavailable]")
     page.click("#listen button")
     assert page.inner_text(".lsn-why") == listening.source.reason

@@ -63,6 +63,8 @@ def open_page(browser, asked, shell: bool = True, width: int = 390, height: int 
     if shell:
         for name, (ctype, body) in STUBS.items():
             pg.route(f"**/app/shell/{name}", stub(ctype, body))
+    else:  # as if the shell's files were not there
+        pg.route("**/app/shell/**", lambda route: route.abort())
     pg.goto(asked.rig.url + "/app/ask/")
     pg.wait_for_selector("#box")
     pg.wait_for_selector("#tabs a")

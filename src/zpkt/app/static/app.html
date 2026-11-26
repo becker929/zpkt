@@ -611,7 +611,15 @@ function wanted() {
   if (!S.want || !S.desk || !S.state) return;
   const id = S.want, entry = entries().find(e => e.page_id === id);
   S.want = null;
-  if (!entry) slowSay("That Page is not on the desk.", null);
+  if (!entry) {
+    // A Page the chat drafted is saved but not on the desk yet: page.open puts it there (the person's own act) and arms it.
+    if (S.opened === id) { slowSay("That Page is not on the desk.", null); return navSync(); }
+    S.opened = id;
+    command("page.open", {id}).then(r => {
+      if (!r.ok) return slowSay("That Page is not on the desk" + (r.body.error ? ": " + r.body.error : "."), null);
+      S.want = id; S.layouts = {}; loadDesk();
+    });
+  }
   else if (!entry.hw.includes(S.state.page)) armPage(entry.hw[0]);
   navSync();
 }
