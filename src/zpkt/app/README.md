@@ -273,6 +273,9 @@ A Page is what an agent writes for "I want to change this": groups of controls w
 controller pages look like the controller). One renderer draws them all: a saved Page, the mix desk's own MiniLab
 pages (`contrib/mixdesk/desk.json`) and a made surface.
 
+- **Compare is in the play bar** (26 November 2026): the keys A, B and C (`#abc`, `monitor.hear` now, pin, ref). A is
+  the mix now, B the pinned mix, C the reference. History has a B key on each checkpoint (`monitor.pin` with `name`)
+  that chooses it as the pinned mix; until one is chosen B is the mix as the desk first saw it.
 - **Labels are for a phone** (26 November 2026). A group's caption is written once over its run of slots, without
   what every group of the panel starts with ("Before fuzz: "). The page's head is the surface's title and nothing
   else: no readout of the control in hand, no caption, no "on MiniLab" chip, no count of surfaces ("Loading" shows

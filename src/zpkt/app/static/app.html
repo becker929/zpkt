@@ -39,7 +39,7 @@ svg{display:block}
  #hbot #loops>button.key:last-child{border-radius:0 10px 10px 0} :root{--tabs-h:42px}
  .dots .key.sm{height:38px}
 }
-#abc .key{font:600 14px ui-monospace,Menlo,monospace;min-width:40px}
+#abc .key{font:600 14px ui-monospace,Menlo,monospace;min-width:44px}
 #kundo .uw{display:flex;flex-direction:column;align-items:flex-start;line-height:1.15;max-width:104px;min-width:0;text-align:left}
 #kundo .uw b,#kundo .uw i{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-style:normal}
 #kundo .uw b{font-size:11.5px;font-weight:600}#kundo .uw i{font:11px ui-monospace,Menlo,monospace;color:var(--mute)}
@@ -520,6 +520,7 @@ function renderBottom() {
   setHtml($("#tgrp"), `<button class="key ${st.playing ? "on" : ""}" id="kplay" aria-label="${st.playing ? "Pause" : "Play"}">${I(st.playing ? "pause" : "play")}</button>
     <button class="key sm" id="kstop" aria-label="Stop and go back to the start">${I("stop")}</button>
     <div class="seg" id="loops" role="group" aria-label="Loop"><span class="key sm" aria-hidden="true" style="min-width:0;padding:0 6px;cursor:default"><svg width="15" height="15"><use href="#i-loop"/></svg></span>${key("whole", "All", "the whole song")}${key("build", "Start", "the beginning")}${key("drop", "Peak", "the peak")}</div>`);
+  setHtml($("#flags"), flagsHtml());
   // Compare, in the play bar: A is the mix now, B the pinned mix (a checkpoint chosen in History, else the mix as the
   // desk first saw it), C the reference. One of them is heard.
   const hr = S.hear, pinName = hr.pin === "start" ? "the mix as it was first" : hr.pin === "pin" ? "the pinned mix" : cpLabel(hr.pin, baseAt(hr.pin));
@@ -985,7 +986,9 @@ function markTypable() {
 function renderSide() {
   const side = $("#side");
   if (!S.state || !S.desk || !wide()) return;
-  const {pages, entry, next} = current(), cur = next || entry;
+  // One row is one screen, as in the pager: a surface that takes two MiniLab pages has a row for each.
+  const c = current(), seen = {}, pages = S.desk.pages.map((p, k) => { const id = p.page_id || "hw" + k, n = seen[id] = (seen[id] || 0) + 1; return {hw: [k], name: n > 1 ? `${p.name} · ${n}` : p.name}; });
+  const cur = pages[S.pend ? S.pend.page : c.entry ? c.entry.hw[c.at] : -1];
   // The list is paged to the column's height, never scrolled. It shows the part with the page in view (or asked
   // for) until its own ‹ › are used; another page in view brings its part back.
   const per = Math.max(1, Math.floor((side.clientHeight - 20 - 52 - 52) / 54)), parts = Math.ceil(pages.length / per);
