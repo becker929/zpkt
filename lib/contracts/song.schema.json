@@ -38,7 +38,17 @@
             }
           }
         },
-        "transitions": {"type": "array", "items": {"type": "object"}}
+        "transitions": {"type": "array", "items": {"type": "object"}},
+        "sections": {
+          "description": "The sections as spans of bars, start counted from 0: one from bar 1 and one from every seam the transitions name.",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["start", "len"],
+            "additionalProperties": false,
+            "properties": {"start": {"type": "integer", "minimum": 0}, "len": {"type": "integer", "minimum": 1}}
+          }
+        }
       }
     },
     "Recipe": {

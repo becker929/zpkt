@@ -216,7 +216,9 @@ class Monitor:
             "hearing": hearing_of(choice["slot"], pin_heard),
             "monitor": choice,
             "match": self.desk.snapshot()["match"],
-            "changed": len(changed := self.changed()),
+            # counted from the last checkpoint saved or gone back to (history.base), never from the Pin
+            "changed": len(changed := self.desk.history.changed(self.now_values())),
             "keys": changed,
+            "base": self.desk.history.base_name,
             "pin": PIN_NAME if pinned else "start",
         }

@@ -62,6 +62,18 @@ def open_page(browser, rig, width=1200, height=800, scheme="light"):
     return pg
 
 
+def open_history(pg):
+    """History is docked from 1100 px (always in view); narrower, the clock button opens it as a sheet."""
+    if pg.locator("#khist").is_visible():
+        pg.click("#khist")
+    pg.wait_for_selector("#hrows")
+
+
+def close_history(pg):
+    if pg.locator("#sheet.on #hclose").count():
+        pg.click("#hclose")
+
+
 def pad(name: str) -> str:
     return f'#panel .mc.pad.cmp:has(button[aria-label="Kick: {name}"])'
 
@@ -111,13 +123,14 @@ def test_a_press_lights_the_pad_and_moves_the_knobs_at_once_and_writes_once(brow
     assert len(held.writes) == 1 and {p[0] for p in held.writes[0]} == {VOL, GAIN, WET}  # one command, every target
     assert lit(pg) == ["hotter"] and place(pg, VOL) == pytest.approx(0.8, abs=1e-3)  # Live agrees: nothing flashes back
     # History has one row for the switch, named for it
-    pg.click("#khist")
+    open_history(pg)
     row = pg.locator("#hrows .he").first.inner_text()
     assert "Kick" in row and "as it is → hotter" in row and "2 controls" in row
-    pg.click("#hclose")
+    close_history(pg)
     # one undo takes the whole switch back, and the first pad is lit again
     pg.click("#kundo")
     pg.wait_for_function("document.querySelector('#panel .mc.pad.cmp.on')?.innerText.trim() === 'as it is'")
+    pg.wait_for_function(f"!window.zpkt.own[{json.dumps(VOL)}] && !window.zpkt.own[{json.dumps(GAIN)}]")  # Live has it
     assert place(pg, VOL) == pytest.approx(base_vol, abs=1e-3) and place(pg, GAIN) == pytest.approx(base_gain, abs=1e-3)
     assert len(held.writes) == 2
     assert pg.errors == []
@@ -153,7 +166,7 @@ def test_the_minilabs_pad_shows_on_the_screen(browser, rig):
     rig.minilab.elements.pad_bank_a_raw[6].receive(127)  # pad 7 holds "hotter"
     pg.wait_for_function("document.querySelector('#panel .mc.pad.cmp.on')?.innerText.trim() === 'hotter'")
     assert place(pg, VOL) == pytest.approx(0.8, abs=1e-3)
-    pg.click("#khist")
+    open_history(pg)
     row = pg.locator("#hrows .he").first
     assert "as it is → hotter" in row.inner_text() and row.locator(".who").inner_text() == "minilab"
     assert pg.errors == []
@@ -197,9 +210,9 @@ def test_the_pads_fit_a_thumb_and_the_page_has_three_tabs_and_no_options(browser
         pg.click(f"#tabs [data-t={tab}]")
         text = pg.inner_text("body")
         assert "Options" not in text and "Versions" not in text and "not rendered" not in text
-    pg.click("#khist")
-    assert "Options" not in pg.inner_text("#sheet")
-    pg.click("#hclose")
+    open_history(pg)
+    assert "Options" not in pg.inner_text("#hrows")
+    close_history(pg)
     assert pg.locator("#topts, #sopts, #onow, #vgrid, [data-t=options]").count() == 0
     pg.goto(f"{rig.url}/app/#options")
     pg.wait_for_selector("#panel")

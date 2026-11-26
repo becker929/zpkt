@@ -99,13 +99,15 @@ def test_app_desktop_uses_three_columns_and_the_width(browser, rig, width):
     pg, _ = open_app(browser, rig, width)
     assert (
         pg.evaluate(DESKTOP_MEASURE)["spectrum"] <= 60
-    )  # no meter sends: a short strip that says so, not a blank well
+    )  # no meter sends: a short strip with the one action, not a blank well
     rig.meter.send(osc_spec([0.1] * len(meter.centers())))
-    pg.wait_for_selector("#spec:not(.none) i")
+    pg.wait_for_selector("#spec:not(.act) i")
     got = pg.evaluate(DESKTOP_MEASURE)
     assert got["columns"] == 3
     assert got["width"] >= 0.85
-    assert got["spectrum"] >= 200
+    assert got["spectrum"] >= 90  # History is docked under it in the same column, so it no longer takes it all
+    dock = pg.locator("#histdock").bounding_box()
+    assert dock["height"] >= 120 and dock["x"] >= pg.locator("#main").bounding_box()["x"] + 300
     assert got["gaps"] == []
     assert got["tabs"] == 3, "the same three tabs at every width"
 

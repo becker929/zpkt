@@ -61,6 +61,10 @@ class DeskState(TypedDict):
     tempo: float | None  # Live's tempo in BPM; None until the pager says
     sig: list[int] | None  # the time signature, [4, 4]
     length: float | None  # the arrangement's length in beats (its last event)
+    loop_span: list[float] | None  # the loop brace, [start, length] in beats; None until the pager says
+    solo: list[str]  # the tracks that are soloed, by their names in state keys
+    mute: list[str]  # ... and muted (the monitor's own tracks are never listed)
+    meter: bool | None  # whether the spectrum's device is on Main; None until the pager says
 
 
 def initial() -> DeskState:
@@ -81,6 +85,10 @@ def initial() -> DeskState:
         "tempo": None,
         "sig": None,
         "length": None,
+        "loop_span": None,
+        "solo": [],
+        "mute": [],
+        "meter": None,
     }
 
 
@@ -106,7 +114,14 @@ def _monitor(state: DeskState, m: Any, now: float) -> DeskState:
 
 
 def _loop(state: DeskState, m: Any, now: float) -> DeskState:
-    return {**state, "loop": m["loop"]}
+    new: DeskState = {**state, "loop": m["loop"]}
+    if "start" in m and "length" in m:
+        new["loop_span"] = [float(m["start"]), float(m["length"])]
+    return new
+
+
+def _flags(state: DeskState, m: Any, now: float) -> DeskState:
+    return {**state, "solo": [str(x) for x in m["solo"]], "mute": [str(x) for x in m["mute"]]}
 
 
 def _page(state: DeskState, m: Any, now: float) -> DeskState:
@@ -133,6 +148,7 @@ _REDUCERS: dict[str, Callable[[DeskState, Any, float], DeskState]] = {
     "page": _page,
     "hw": _hardware,
     "pad": _pad,
+    "flags": _flags,
 }
 assert set(_REDUCERS) == set(P.PAGER_KINDS), "every pager message kind has a reducer"
 
@@ -157,6 +173,8 @@ SNAPSHOT_KEYS = (
     "tempo",
     "sig",
     "length",
+    "loop_span",
+    "meter",
 )
 
 
@@ -176,7 +194,19 @@ def with_snapshot(state: DeskState, snapshot: Mapping[str, Any] | None, status: 
         new.update({k: snapshot[k] for k in SNAPSHOT_KEYS if k in snapshot})  # type: ignore[typeddict-item]
         if "loop" in snapshot:
             new["loop"] = loop_from_snapshot(snapshot["loop"], state["loop"])
+        flags = snapshot.get("flags")
+        if isinstance(flags, Mapping):
+            new["solo"], new["mute"] = list(flags.get("solo", [])), list(flags.get("mute", []))
     return new
+
+
+def flag_changes(before: Mapping[str, Any], after: Mapping[str, Any]) -> list[tuple[str, bool]]:
+    """The solo and mute flags that differ between two states: [("Kick bus/solo", True), ...] as state keys."""
+    out: list[tuple[str, bool]] = []
+    for flag in ("solo", "mute"):
+        was, now = set(before.get(flag) or []), set(after.get(flag) or [])
+        out += [(f"{name}/{flag}", name in now) for name in sorted(was ^ now)]
+    return out
 
 
 def song_facts(state: Mapping[str, Any]) -> dict[str, Any]:

@@ -404,9 +404,42 @@ def history_revert(desk: Desk, cmd: Command) -> Reply:
         desk.push(desk.history.view())
         return 200, {"ok": True, "left": [list(r) for r in rows if not r[0].startswith("mon ")][:20]}
     pairs, _ = desk.history.revert(to, keys, cmd.who)  # type: ignore[arg-type]
+    return _gone_back(desk, pairs)
+
+
+def _gone_back(desk: Desk, pairs: list[list[Any]]) -> Reply:
+    """Write a going-back step. The page is told where the controls go before Live is asked, so it shows them at
+    once (as it does for a control it moves itself) and Live's reports then confirm them."""
+    going = [[key, desk.place_of(key, raw), (desk.history.value(key) or [""])[0]] for key, raw in pairs]
+    desk.push_app({"t": "own", "values": [g for g in going if g[1] is not None]})
     missing = desk.write(pairs)
     desk.push(desk.history.view())
+    desk.push_app(desk.monitor.message())
     return 200, {"ok": True, "moved": len(pairs), "missing": missing}
+
+
+def history_back(desk: Desk, cmd: Command) -> Reply:
+    """Go back to just before one step of the history: {"entry": its id}. That step and every later one are taken
+    back together, as one new step, so one undo reverses it."""
+    desk.monitor.leave_pin()
+    try:
+        pairs, _ = desk.history.back(_int(cmd.args, "entry"), cmd.who)
+    except KeyError:
+        return 409, {"error": "That step is not in effect any more."}
+    return _gone_back(desk, pairs)
+
+
+# ---- the spectrum ----------------------------------------------------------------------------------------------------
+
+
+def meter_install(desk: Desk, cmd: Command) -> Reply:
+    """Put the spectrum's device ("zpkt desk meter") last on Main. It runs as a job of its own (Live's browser takes
+    seconds to list a new device) and tells the page how it goes ({"t": "meterjob"}); it is one history entry, so
+    undo takes the device off again."""
+    if desk.metering.locked():
+        return 200, {"ok": True, "running": True}
+    threading.Thread(target=desk.meter_job, args=(cmd.who, cmd.group), daemon=True, name="meter-install").start()
+    return 200, {"ok": True, "running": True}
 
 
 # ---- compare states ------------------------------------------------------------------------------------------------
@@ -465,6 +498,8 @@ COMMANDS: dict[str, tuple[Handler, bool]] = {
     "history.redo": (history_redo, True),
     "history.checkpoint": (history_checkpoint, True),
     "history.revert": (history_revert, True),
+    "history.back": (history_back, True),
+    "meter.install": (meter_install, False),
 }
 
 

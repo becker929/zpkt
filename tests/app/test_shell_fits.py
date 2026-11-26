@@ -39,7 +39,7 @@ def test_nothing_overflows_at_this_width(rig, width):
             }"""
         )
         small = pg.evaluate(
-            "[...document.querySelectorAll('#hbot button')].map(b => b.getBoundingClientRect().height).filter(h => h < 40).length"
+            "[...document.querySelectorAll('#hbot button')].map(b => b.getBoundingClientRect().height).filter(h => h && h < 40).length"
         )
         browser.close()
     assert over == [0, []], over

@@ -53,6 +53,9 @@
 .mc.fixed .v{animation:mc-fix 1.2s ease-out 1}
 @keyframes mc-fix{0%,40%{background:var(--zs);color:var(--zs-on);border-radius:4px;box-shadow:0 0 0 3px var(--zs)}100%{background:transparent;box-shadow:0 0 0 3px transparent}}
 @media (prefers-reduced-motion:reduce){.mc.sending .v::after{animation:none;border-top-color:var(--mute)}.mc.fixed .v{animation:none;box-shadow:0 0 0 2px var(--zs)}}
+/* A number that can be typed (the page knows the control's scale): it is the place to type, and looks it. */
+.mc.ed .v{cursor:text;border-radius:4px;padding:0 4px;box-shadow:inset 0 -1px 0 var(--mute)}
+.mc.ed .v:hover,.mc.ed .v:focus-visible{outline:0;box-shadow:0 0 0 1.5px var(--ink);background:var(--panel)}
 /* typing a value: the field sits where the number is */
 .mc .vt{position:absolute;z-index:3;left:50%;top:-14px;transform:translateX(-50%);width:96px;height:44px;border:2px solid var(--ink);border-radius:8px;background:var(--panel);color:var(--ink);font:16px ui-monospace,Menlo,monospace;text-align:center;padding:0 4px;user-select:text;-webkit-user-select:text}
 .mc.chg::after{content:"";position:absolute;top:1px;right:calc(50% - 34px);width:9px;height:9px;border-radius:50%;background:var(--zs);border:1px solid var(--ink)}

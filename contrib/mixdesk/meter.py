@@ -119,16 +119,30 @@ def make() -> Path:
     return out
 
 
-def install() -> None:
-    """Load the device last on Main through the Live browser (once: does nothing if Main has it)."""
-    from zpkt.live.transport import LiveClient
+class MeterError(RuntimeError):
+    """The device could not be put on Main; the message says what stopped it."""
 
-    live = LiveClient(timeout=15.0, retries=1)
-    if NAME in live.run("result = [d.name for d in song.master_track.devices]"):
-        print("Main already has", NAME)
-        return
+
+def present(live) -> bool:
+    """True when Main has the device."""
+    return NAME in (live.run("result = [d.name for d in song.master_track.devices]") or [])
+
+
+def install(live=None, log=print) -> bool:
+    """Load the device last on Main through the Live browser (once: does nothing if Main has it). `live` is the
+    connection to use: the app hands in its own, so the job takes its turn for Live; None opens one (the command
+    line). Returns True when it put the device there, False when Main had it. Raises MeterError when it cannot."""
+    if live is None:
+        from zpkt.live.transport import LiveClient
+
+        live = LiveClient(timeout=15.0, retries=1)
+    if present(live):
+        log("Main already has", NAME)
+        return False
+    if not TEMPLATE.exists():
+        raise MeterError(f"Live's Max Audio Effect template is not at {TEMPLATE}")
     path = make()
-    print("wrote", path)
+    log("wrote", path)
     code = f"""
 def find(item, depth=0):
     if item.name in ({NAME!r}, {NAME + ".amxd"!r}) and item.is_loadable:
@@ -153,9 +167,33 @@ result = hit is not None"""
             break
         time.sleep(1.5)
     else:
-        sys.exit("STOP: Live's browser does not show the meter in the User Library yet; run install again")
-    time.sleep(1.0)
-    print("Main:", live.run("result = [d.name for d in song.master_track.devices]"))
+        raise MeterError("Live's browser does not show the meter in the User Library yet; try again")
+    for _ in range(10):  # the browser loads it a moment after the call returns
+        if present(live):
+            break
+        time.sleep(0.3)
+    else:
+        raise MeterError("Live did not load the meter on Main")
+    log("Main:", live.run("result = [d.name for d in song.master_track.devices]"))
+    return True
+
+
+def remove(live) -> bool:
+    """Take the device off Main (the undo of install). True when one was there."""
+    code = f"""
+main = song.master_track
+at = [i for i, d in enumerate(main.devices) if d.name == {NAME!r}]
+for i in reversed(at):
+    main.delete_device(i)
+result = bool(at)"""
+    return bool(live.run(code))
+
+
+def _install_cli() -> None:
+    try:
+        install()
+    except MeterError as exc:
+        sys.exit(f"STOP: {exc}")
 
 
 def listen(seconds: float = 3.0) -> None:
@@ -172,4 +210,4 @@ def listen(seconds: float = 3.0) -> None:
 
 if __name__ == "__main__":
     cmd = sys.argv[1] if len(sys.argv) > 1 else ""
-    {"make": lambda: print(make()), "install": install, "listen": listen}.get(cmd, lambda: sys.exit(__doc__))()
+    {"make": lambda: print(make()), "install": _install_cli, "listen": listen}.get(cmd, lambda: sys.exit(__doc__))()

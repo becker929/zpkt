@@ -41,11 +41,16 @@ def test_one_gesture_is_one_history_row_and_one_undo(rig):
     assert rig.desk.history.pos == before
 
 
-def test_another_gesture_is_another_step_and_one_that_ends_where_it_began_is_none(rig):
+def test_another_control_is_another_step_and_one_that_ends_where_it_began_is_none(rig):
     _, key, _ = first_control(rig, "f")
+    other = next(
+        v["key"]
+        for v in rig.state()["values"].values()
+        if v.get("key") and v["key"] != key and v.get("n") is not None and not v.get("q")
+    )
     before = len(rig.desk.history.entries)
     rig.command("mix.set", {"norms": [[key, 0.30]]}, group="touch-1")
-    rig.command("mix.set", {"norms": [[key, 0.50]]}, group="touch-2")
+    rig.command("mix.set", {"norms": [[other, 0.50]]}, group="touch-2")
     assert len(rig.desk.history.entries) == before + 2
     place = rig.state()["values"]
     home = next(v["n"] for v in place.values() if v.get("key") == key)
@@ -53,6 +58,37 @@ def test_another_gesture_is_another_step_and_one_that_ends_where_it_began_is_non
     wait_for(lambda: next(v["n"] for v in rig.state()["values"].values() if v.get("key") == key) != home)
     rig.command("mix.set", {"norms": [[key, home]]}, group="touch-3")  # dragged away and back: nothing to undo
     assert len(rig.desk.history.entries) == before + 2
+
+
+def test_a_drag_then_nudges_of_one_control_are_one_step_back_to_where_it_was(rig):
+    """The walkthrough's finding: 6.00 -> 7.49 by a drag, then three bursts of nudges, took four undos. Changes to
+    one control by one person, with nothing else in between, are one step, whatever gesture each was."""
+    _, key, _ = first_control(rig, "f")
+    start, before = rig.desk.history.cur[key][1], len(rig.desk.history.entries)
+    for n, group in ((0.60, "touch-drag"), (0.58, "touch-keys1"), (0.575, "touch-keys2"), (0.57, "touch-keys3")):
+        assert rig.command("mix.set", {"norms": [[key, n]]}, group=group)[0] == 200
+    moves = [e for e in rig.desk.history.entries[before:] if e["k"] == "move"]
+    assert len(moves) == 1 and moves[0]["moves"][0]["from"][1] == start
+    view = rig.get("/api/history")[1]
+    assert view["undo"]["id"] == moves[0]["id"] and view["undo"]["values"][0][0] == key and view["redo"] is None
+    assert rig.command("history.undo")[0] == 200
+    assert rig.desk.history.cur[key][1] == start and rig.desk.history.pos == before  # one undo: all the way back
+    view = rig.get("/api/history")[1]
+    assert view["can_redo"] and view["redo"]["values"][0][0] == key and view["undo"] is None
+
+
+def test_a_checkpoint_or_thirty_seconds_ends_the_step(rig, monkeypatch):
+    _, key, _ = first_control(rig, "f")
+    before = len(rig.desk.history.entries)
+    rig.command("mix.set", {"norms": [[key, 0.30]]})
+    rig.command("history.checkpoint", {"name": "between"})
+    rig.command("mix.set", {"norms": [[key, 0.35]]})
+    moves = [e for e in rig.desk.history.entries[before:] if e["k"] == "move"]
+    assert len(moves) == 2  # the checkpoint stands between them
+    real = rig.desk.history.clock
+    monkeypatch.setattr(rig.desk.history, "clock", lambda: real() + 31)  # half a minute on
+    rig.command("mix.set", {"norms": [[key, 0.40]]})
+    assert len([e for e in rig.desk.history.entries[before:] if e["k"] == "move"]) == 3
 
 
 def test_the_echo_names_the_value_in_the_row_and_the_page_is_told(rig):

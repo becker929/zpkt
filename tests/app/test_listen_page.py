@@ -110,6 +110,10 @@ def test_when_listening_was_on_the_first_tap_anywhere_resumes_it(listening, page
     page.reload()  # the shell loads listen.js itself
     page.wait_for_selector("#listen button[data-resume]")
     assert page.evaluate("zpktListen.state") == "off"  # no sound without a tap
+    # one state, one wording: the button's label and the level meter both say paused, and the button shows it
+    assert page.locator("#listen button").get_attribute("aria-label") == "Listen paused. Tap to resume"
+    assert page.locator("#lvl .ln").inner_text() == "Listen paused"
+    assert page.locator("#listen button").evaluate("e => getComputedStyle(e).borderTopStyle") == "dashed"
     page.mouse.click(5, 300)  # not on the button
     page.wait_for_selector("#listen button[data-state=on]")
 

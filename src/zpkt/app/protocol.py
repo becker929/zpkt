@@ -57,6 +57,17 @@ class MonitorMessage(TypedDict):
 class LoopMessage(TypedDict):
     t: Literal["loop"]
     loop: str  # off, build, drop (or "on": a loop the desk did not set)
+    start: NotRequired[float]  # the loop brace in beats: where it starts
+    length: NotRequired[float]  # ... and how long it is
+
+
+class FlagsMessage(TypedDict):
+    """Which tracks are soloed and which muted, by their names in state keys ("Kick bus"). Sent whole on any change."""
+
+    t: Literal["flags"]
+    solo: list[str]
+    mute: list[str]
+    sys: NotRequired[bool]  # the desk itself did it (a monitor switch), so it is not a mix change
 
 
 class PageMessage(TypedDict):
@@ -86,7 +97,14 @@ class PadMessage(TypedDict):
 
 
 PagerMessage = (
-    ValueMessage | PositionMessage | MonitorMessage | LoopMessage | PageMessage | HardwareMessage | PadMessage
+    ValueMessage
+    | PositionMessage
+    | MonitorMessage
+    | LoopMessage
+    | PageMessage
+    | HardwareMessage
+    | PadMessage
+    | FlagsMessage
 )
 
 
@@ -109,6 +127,8 @@ class HistoryMessage(TypedDict):
     can_undo: bool
     can_redo: bool
     checkpoints: list[dict[str, Any]]
+    undo: NotRequired[dict[str, Any] | None]  # what Undo takes back: its label and the values it returns to
+    redo: NotRequired[dict[str, Any] | None]
 
 
 class MeterMessage(TypedDict):
@@ -160,10 +180,11 @@ _KINDS: dict[str, tuple[type, dict[str, tuple[type, ...]]]] = {
     ),
     "pos": (PositionMessage, {"b": _NUMBER, "p": (bool,), "bpm": _NUMBER}),
     "mon": (MonitorMessage, {"slot": (str,), "ref": (str,), "err": (str,)}),
-    "loop": (LoopMessage, {"loop": (str,)}),
+    "loop": (LoopMessage, {"loop": (str,), "start": _NUMBER, "length": _NUMBER}),
     "page": (PageMessage, {"page": (int,), "picked": (dict,)}),
     "hw": (HardwareMessage, {"page": (int,), "slot": (str,), "hw": (*_NUMBER, _NONE), "picked": (bool,)}),
     "pad": (PadMessage, {"page": (int,), "slot": (str,)}),
+    "flags": (FlagsMessage, {"solo": (list,), "mute": (list,), "sys": (bool,)}),
 }
 PAGER_KINDS = tuple(_KINDS)
 

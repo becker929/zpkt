@@ -1,9 +1,14 @@
 """The desk's history: every control move, undo and redo, checkpoints, and what changed between two points.
 
-A move is one control going from one value to another; moves of the same control within COALESCE_S of each other
-are one entry (a fader sweep is one step to undo), and controls that move at the same moment (the parameters of a
-macro) are one entry together. Undo writes the "from" values back; redo the "to" values. A
-revert to a checkpoint is one entry too, so it can be undone.
+A move is one control going from one value to another. Changes to the same control by the same person, one after
+the other with nothing else in between, are one entry: a drag, then nudges, then more nudges are one step to undo,
+back to where the control was before the first of them. The step ends when another control is touched, a checkpoint
+is saved, something is undone, or SAME_CONTROL_S pass without a change. Controls that move at the same moment (the
+parameters of a macro) are one entry together. Undo writes the "from" values back; redo the "to" values. A
+revert to a checkpoint is one entry too, so it can be undone, and so is going back to just before any entry (`back`).
+
+"Changed" counts against the base: the mix as it was at the last checkpoint saved or gone back to (`base`,
+`base_name`, `changed`). Right after a save or a go back it is zero.
 
 A checkpoint is the whole mix (zpkt.live.state: every fader, send, mute and device value of the set), saved as
 <sets_dir>/state/<set>/<name>.json, so `hands live state put NAME` and `diff NAME` work on it as well. Every state
@@ -27,6 +32,7 @@ including the label table it shares with the desk.
 
 from __future__ import annotations
 
+import contextlib
 import json
 import math
 import os
@@ -41,7 +47,9 @@ from zpkt.app import protocol
 from zpkt.live import changes as live_changes
 from zpkt.live import state as live_state
 
-COALESCE_S = 2.0  # one control moved again within this long: the same step
+COALESCE_S = 2.0  # an entry not touched for this long is settled: it goes to the change stream
+SAME_CONTROL_S = 30.0  # the same control changed again by the same person within this long: the same step
+JOINERS = ("you", "minilab")  # whose changes to one control join into one step (a hand); an agent's are by group
 TOGETHER_S = 0.3  # another control moved within this long of the step: the same gesture (a macro's parameters)
 EXPECT_S = 2.0  # a value the desk wrote itself (undo, redo, revert) is not a new move for this long
 KEEP = 500  # entries kept on disk
@@ -98,6 +106,11 @@ class History:
         self.cur: dict[str, list[Any]] = {}  # key -> [shown, raw], as Live has it now
         self.expect: dict[str, list[tuple[float, float]]] = {}  # key -> [(raw the desk wrote, until)]: due back
         self.named = False  # an echo gave a written value its shown text: the page's rows want the view again
+        self.base: dict[str, list[Any]] | None = None  # the values "changed" counts from; None until first asked
+        self.base_name = ""  # the checkpoint they are from ("": the mix as first seen)
+        self.quiet: set[str] = set()  # keys that are no part of the mix (the spectrum's device): never "changed"
+        self.place: Callable[[str, Any], float | None] = lambda key, raw: None  # a raw value as a place 0..1
+        self._tail: dict[int, dict[str, list[Any]]] = {}  # entry id -> {key: "to" as streamed}, for a step that grew
         self.file = self.directory / f"{set_name}.json"
         try:
             d = json.loads(self.file.read_text())
@@ -121,6 +134,20 @@ class History:
                 if v.get("key") and v.get("r") is not None:
                     self.cur[v["key"]] = [str(v.get("s", "")).strip(), v["r"]]
                     self.first.setdefault(v["key"], list(self.cur[v["key"]]))
+                    if self.base is not None:
+                        self.base.setdefault(v["key"], list(self.cur[v["key"]]))
+
+    def baseline_flags(self, tracks: list[str], solo: list[str], mute: list[str]) -> None:
+        """Every track's solo and mute as the snapshot has them ("Kick bus/solo"): a starting point, no move."""
+        with self.lock:
+            for flag, on in (("solo", set(solo)), ("mute", set(mute))):
+                for name in tracks:
+                    key = f"{name}/{flag}"
+                    self.cur[key] = ["on" if name in on else "off", name in on]
+                    self.first.setdefault(key, list(self.cur[key]))
+                    self.labels.setdefault(key, f"{name} {flag}")
+                    if self.base is not None:
+                        self.base.setdefault(key, list(self.cur[key]))
 
     def seen(
         self, key: str | None, shown: str, raw: Any, sys: bool = False, *, who: protocol.Who | None = None
@@ -146,6 +173,16 @@ class History:
                 return False
             now = self.clock()
             top = self.entries[-1] if self.entries and self.pos == len(self.entries) else None
+            if self._same_control(top, [key], mover, now):  # the same control again, by the same hand: one step
+                assert top is not None
+                mine = top["moves"][0]
+                self._grew(top)
+                mine["to"] = [shown, raw]
+                top["at"] = now
+                if mine["from"] is not None and same(mine["from"][1], raw):  # back where it started: no step
+                    self._drop_top()
+                self._save()
+                return True
             if (
                 top
                 and top["k"] == "move"
@@ -154,15 +191,12 @@ class History:
                 and now - top["at"] < COALESCE_S
             ):
                 mine = next((m for m in top["moves"] if m["key"] == key), None)
-                if mine is not None:  # the same control, still moving
+                if mine is not None and not isinstance(raw, bool):  # the same control, still moving (a macro's part)
                     mine["to"] = [shown, raw]
                     top["at"] = now
-                    if same(mine["from"][1], raw) and len(top["moves"]) == 1:  # back where it started: no step
-                        self.entries.pop()
-                        self.pos -= 1
                     self._save()
                     return True
-                if now - top["at"] < TOGETHER_S:  # another control at the same moment: one gesture (a macro)
+                if mine is None and now - top["at"] < TOGETHER_S:  # another control at the same moment: a macro
                     top["moves"].append(
                         {"key": key, "label": self.labels.get(key, key), "from": before, "to": [shown, raw]}
                     )
@@ -178,6 +212,37 @@ class History:
             )
             self._save()
             return True
+
+    def _same_control(self, top: dict[str, Any] | None, keys: list[str], who: str, now: float) -> bool:
+        """True when a change to `keys` by `who` now belongs to the step on top: that step is one control's, these
+        are changes to that control only, by the same hand, and it was last changed less than SAME_CONTROL_S ago."""
+        if top is None or top["k"] != "move" or top.get("compare") or who not in JOINERS or who_of(top) != who:
+            return False
+        if len(top["moves"]) != 1 or any(k != top["moves"][0]["key"] for k in keys):
+            return False
+        if isinstance(top["moves"][0]["to"][1], bool):
+            return False  # a switch thrown (a solo, a mute) is a step each time: on and off again is not "nothing"
+        return bool(now - top["at"] < SAME_CONTROL_S)
+
+    def _grew(self, entry: dict[str, Any]) -> None:
+        """A step already in the change stream is about to grow: remember where the stream left each control."""
+        if entry["id"] in self._streamed and entry["id"] not in self._tail:
+            self._tail[entry["id"]] = {m["key"]: list(m["to"]) for m in entry["moves"]}
+
+    def _drop_top(self) -> None:
+        """The step on top moved nothing in the end: it is no step. What the stream has of it is written back."""
+        entry = self.entries.pop()
+        self.pos = len(self.entries)
+        tail = self._tail.pop(entry["id"], None)
+        if tail and self.changes is not None:
+            at = live_changes.stamp(self.clock())
+            self.changes.append(
+                [
+                    live_changes.change(m["key"], tail[m["key"]], m["to"], who_of(entry), at, group_of(entry))  # type: ignore[arg-type]
+                    for m in entry["moves"]
+                    if m["key"] in tail and not same(tail[m["key"]][1], m["to"][1])
+                ]
+            )
 
     def _due(self, key: str, raw: Any, consume: bool = False) -> bool:
         """True while a value the desk wrote for `key` (this raw value) is still due back from Live. Writes in a row
@@ -257,7 +322,9 @@ class History:
             self.expect_writes([[m["key"], m["to"][1]] for m in moves])
             top = self.entries[-1] if self.entries and self.pos == len(self.entries) else None
             joins = group and top and top["k"] == "move" and top.get("group") == group and who_of(top) == who
+            joins = joins or (not compare and self._same_control(top, [m["key"] for m in moves], str(who), now))
             if joins and top and not compare and not top.get("compare"):
+                self._grew(top)
                 known = {m["key"]: m for m in top["moves"]}
                 for m in moves:
                     if m["key"] in known:
@@ -269,8 +336,8 @@ class History:
                 # is no step at all
                 top["moves"] = [m for m in top["moves"] if m["from"] is None or not same(m["from"][1], m["to"][1])]
                 if not top["moves"]:
-                    self.entries.pop()
-                    self.pos = len(self.entries)
+                    top["moves"] = list(known.values())  # what _drop_top writes back to the stream
+                    self._drop_top()
                     self._save()
                     return None
                 self._save()
@@ -339,6 +406,17 @@ class History:
                     continue
                 self._streamed.add(e["id"])
                 written += self._changes_of(e)
+            for e in self.entries:  # a step that grew after it was streamed: the rest of it, once it has settled
+                tail = self._tail.get(e["id"])
+                if tail is None or (not force and e is self.entries[-1] and now - e["at"] < COALESCE_S):
+                    continue
+                del self._tail[e["id"]]
+                at = live_changes.stamp(e["at"])
+                written += [
+                    live_changes.change(m["key"], tail[m["key"]], m["to"], who_of(e), at, group_of(e))  # type: ignore[arg-type]
+                    for m in e["moves"]
+                    if m["key"] in tail and not same(tail[m["key"]][1], m["to"][1])
+                ]
             if written:
                 self.changes.append(written)
             return len(written)
@@ -433,13 +511,88 @@ class History:
                 if keys is None or k in keys
             ]
             if not moves:
+                if keys is None:
+                    self._rebase(name)  # already there: "changed" counts from this checkpoint all the same
                 return [], None
-            e = self._push({"k": "revert", "to": name, "moves": moves, "who": who})
-            self._save()
-            self._streamed.add(e["id"])
-            if self.changes is not None:
-                self.changes.append(self._changes_of(e))
-            return self._writes(moves, "to"), e
+            pairs, e = self._go({"k": "revert", "to": name, "moves": moves, "who": who})
+            if keys is None:
+                self._rebase(name)
+            return pairs, e
+
+    def _go(self, entry: dict[str, Any]) -> tuple[list[list[Any]], dict[str, Any]]:
+        """Push a going-back entry (its moves' "to" are where the controls go) and hand over the writes."""
+        e = self._push(entry)
+        self._save()
+        self._streamed.add(e["id"])
+        if self.changes is not None:
+            self.changes.append(self._changes_of(e))
+        return self._writes(e["moves"], "to"), e
+
+    def back(self, entry_id: int, who: protocol.Who | str = protocol.DEFAULT_WHO) -> tuple[list[list[Any]], Any]:
+        """Every control back to where it was just before the entry `entry_id` (a step still in effect), as one
+        undoable entry: that step and every later one are taken back together. KeyError when there is no such
+        step, or it is undone already."""
+        with self.lock:
+            at = next(
+                (i for i, e in enumerate(self.entries[: self.pos]) if e["id"] == entry_id and e["k"] != "checkpoint"),
+                None,
+            )
+            if at is None:
+                raise KeyError(entry_id)
+            target: dict[str, list[Any]] = {}
+            for e in reversed(self.entries[at : self.pos]):  # newest first: the oldest "from" of a control wins
+                for m in e.get("moves", []):
+                    if m["from"] is not None:
+                        target[m["key"]] = list(m["from"])
+            moves = [
+                {"key": k, "label": self.labels.get(k, k), "from": self.cur[k], "to": v}
+                for k, v in target.items()
+                if k in self.cur and not same(self.cur[k][1], v[1])
+            ]
+            if not moves:
+                return [], None
+            first = self.entries[at]
+            named = first.get("compare", {}).get("name") or (first["moves"][0]["label"] if first["moves"] else "")
+            what = {"id": entry_id, "label": named, "key": first["moves"][0]["key"] if first["moves"] else ""}
+            return self._go({"k": "revert", "before": what, "moves": moves, "who": who})
+
+    # ---- what "changed" counts from --------------------------------------------------------------------------------
+    def _rebase(self, name: str) -> None:
+        self.base = {k: list(v) for k, v in self.cur.items()}
+        self.base_name = name
+
+    def _ensure_base(self) -> dict[str, list[Any]]:
+        """The base, found on first use: the last checkpoint saved or gone back to, if its file is still there;
+        else the mix as the desk first saw it."""
+        if self.base is None:
+            if not self.first:
+                return {}  # nothing seen yet: asked again once the pager has reported
+            last = next(
+                (
+                    e.get("name") or e.get("to")
+                    for e in reversed(self.entries[: self.pos])
+                    if e["k"] == "checkpoint" or (e["k"] == "revert" and e.get("to"))
+                ),
+                None,
+            )
+            base = {k: list(v) for k, v in self.first.items()}
+            name = ""
+            if last and self.has_checkpoint(last):
+                with contextlib.suppress(OSError, ValueError, KeyError):
+                    saved = self.load(last)
+                    base.update({k: list(saved[k]) for k in base if k in saved})
+                    name = last
+            self.base, self.base_name = base, name
+        return self.base
+
+    def changed(self, now: dict[str, list[Any]] | None = None) -> list[str]:
+        """The keys whose value (in `now`, default the desk's) differs from the base."""
+        with self.lock:
+            base = self._ensure_base()
+            values = self.cur if now is None else now
+            return sorted(
+                k for k, v in values.items() if k in base and k not in self.quiet and not same(v[1], base[k][1])
+            )
 
     # ---- checkpoints ----------------------------------------------------------------------------------------------
     def folder(self) -> Path:
@@ -500,6 +653,7 @@ class History:
             live_state.save(marked, self.folder() / f"{name}.json", self.set_name)
             e = self._push({"k": "checkpoint", "name": name, "moves": [], "who": who}, keep_redo=True)
             self._save()
+            self._rebase(name)
             return e
 
     # ---- what changed ----------------------------------------------------------------------------------------------
@@ -523,14 +677,30 @@ class History:
         tmp.write_text(json.dumps({"entries": self.entries, "pos": self.pos, "seq": self.seq}))
         os.replace(tmp, self.file)
 
+    def _preview(self, entry: dict[str, Any] | None, side: str) -> dict[str, Any] | None:
+        """What undoing (`side` "from") or redoing ("to") `entry` does: its id and, per control, the key, the place
+        it goes to (None when the desk does not know the control's range) and the value as Live showed it."""
+        if entry is None:
+            return None
+        moves = [m for m in entry.get("moves", []) if m[side] is not None]
+        return {
+            "id": entry["id"],
+            "count": len(moves),
+            "values": [[m["key"], self.place(m["key"], m[side][1]), m[side][0]] for m in moves[:32]],
+        }
+
     def view(self, last: int = 150) -> dict[str, Any]:
         with self.lock:
             start = max(0, len(self.entries) - last)
+            undo = next((e for e in reversed(self.entries[: self.pos]) if e["k"] != "checkpoint"), None)
+            redo = next((e for e in self.entries[self.pos :] if e["k"] != "checkpoint"), None)
             return {
                 "t": "hist",
                 "entries": self.entries[start:],
                 "pos": self.pos - start,
-                "can_undo": any(e["k"] != "checkpoint" for e in self.entries[: self.pos]),
-                "can_redo": any(e["k"] != "checkpoint" for e in self.entries[self.pos :]),
+                "can_undo": undo is not None,
+                "can_redo": redo is not None,
+                "undo": self._preview(undo, "from"),
+                "redo": self._preview(redo, "to"),
                 "checkpoints": self.checkpoints(),
             }

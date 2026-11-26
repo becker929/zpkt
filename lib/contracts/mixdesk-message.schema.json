@@ -23,6 +23,41 @@
       "title": "DeskMessage",
       "type": "object"
     },
+    "FlagsMessage": {
+      "description": "Which tracks are soloed and which muted, by their names in state keys (\"Kick bus\"). Sent whole on any change.",
+      "properties": {
+        "t": {
+          "const": "flags",
+          "title": "T",
+          "type": "string"
+        },
+        "solo": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Solo",
+          "type": "array"
+        },
+        "mute": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Mute",
+          "type": "array"
+        },
+        "sys": {
+          "title": "Sys",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "t",
+        "solo",
+        "mute"
+      ],
+      "title": "FlagsMessage",
+      "type": "object"
+    },
     "FullMessage": {
       "description": "Everything at once (deskstate.DeskState): on connect, after a pager start, after a monitor change.",
       "properties": {
@@ -121,6 +156,30 @@
           },
           "title": "Checkpoints",
           "type": "array"
+        },
+        "undo": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Undo"
+        },
+        "redo": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Redo"
         }
       },
       "required": [
@@ -144,6 +203,14 @@
         "loop": {
           "title": "Loop",
           "type": "string"
+        },
+        "start": {
+          "title": "Start",
+          "type": "number"
+        },
+        "length": {
+          "title": "Length",
+          "type": "number"
         }
       },
       "required": [
@@ -430,6 +497,9 @@
     },
     {
       "$ref": "#/$defs/PadMessage"
+    },
+    {
+      "$ref": "#/$defs/FlagsMessage"
     },
     {
       "$ref": "#/$defs/FullMessage"

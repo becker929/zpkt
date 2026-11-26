@@ -69,6 +69,7 @@ def test_transitions_open_as_a_sheet_too(song_page):
 
 def test_build_shows_what_it_replaces_then_builds_through_the_bus(song_rig, song_page, quick_live):  # noqa: F811
     open_set(song_rig.rig, MIX_SET)
+    song_rig.rig.desk.restart_pager()  # as the supervisor does once another set is in front: the page hears of it
     song_page.click('#tabs button[data-t="song"]')
     song_page.wait_for_selector("#lanes .lane")
     built = lambda: [e["status"] for e in song_rig.rig.desk.bus.log if e["kind"] == "song.build"]  # noqa: E731

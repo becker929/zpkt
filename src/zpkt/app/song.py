@@ -29,7 +29,7 @@ from pathlib import Path
 from types import ModuleType
 from typing import TYPE_CHECKING, Any
 
-from zpkt.app import effects
+from zpkt.app import effects, jobs
 from zpkt.app.bus import BadRequest, Bus, Command, Reply
 from zpkt.app.mounts import MountReply, ReadBody, Request
 from zpkt.live import openset
@@ -141,7 +141,19 @@ def song_view(
         "mutes": a.get("mutes", []),
         "lanes": lanes,
         "transitions": a.get("transitions", []),
+        "sections": sections(a),
     }
+
+
+def sections(a: Mapping[str, Any]) -> list[dict[str, int]]:
+    """The arrangement's sections as spans of bars, [{"start": 0, "len": 8}, ...] (start counted from 0, like a
+    region's). A section starts at bar 1 and at every seam the transitions name (the bar a change lands on)."""
+    bars = int(a.get("bars") or 0)
+    if bars <= 0:
+        return []
+    seams = {int(t["seam"]) for t in a.get("transitions", []) if isinstance(t.get("seam"), int | float)}
+    starts = sorted({0, *(s - 1 for s in seams if 1 < s <= bars)})
+    return [{"start": at, "len": nxt - at} for at, nxt in zip(starts, [*starts[1:], bars], strict=True)]
 
 
 # ---- the service -----------------------------------------------------------------------------------------------------
@@ -329,9 +341,10 @@ class SongMount:
         return MountReply(code, json.dumps(obj).encode())
 
 
-def register(bus: Bus, song: Song, live: McpTransport) -> None:
-    """Put the Song's commands on the bus: reads, the writes to the arranger's data, and the build. `live` is the
-    app's connection; the build gets it, and holds Live while it runs."""
+def register(bus: Bus, song: Song, live: McpTransport, after_open: Callable[[], None] = lambda: None) -> None:
+    """Put the Song's commands on the bus: reads, the writes to the arranger's data, the build, and opening the set
+    a build needs. `live` is the app's connection; the build gets it, and holds Live while it runs. `after_open` is
+    called once the page has opened another set (the desk loads its pager into it)."""
     effects.register(bus, "song.list", song.listing)
     effects.register(bus, "song.show", song.show)
     effects.register(bus, "song.recipe", song.recipe)
@@ -340,3 +353,30 @@ def register(bus: Bus, song: Song, live: McpTransport) -> None:
     effects.register(
         bus, "song.build", lambda cmd: song.build(live, cmd), touches_live=True, for_set=song.settings.mix_set
     )
+
+    def open_one(cmd: Command) -> Reply:
+        """Open the mix set (what a build needs) or the desk's own set, from the page. The set in front is saved
+        first, so nothing of it is lost; a front set with no file of its own cannot be saved here, so it is refused
+        before anything is asked of Live's windows."""
+        guard = bus.guard
+        allowed = {song.settings.mix_set, *([guard.page_set] if guard is not None else [])}
+        name = str(cmd.args.get("name") or "")
+        if name not in allowed:
+            raise BadRequest(f"the page opens only {' or '.join(sorted(allowed))}")
+        front = openset.open_set_name(live)
+        if not front:
+            return 409, {"error": "The set open in Live has no file yet. Save it in Live first."}
+        if front == name:
+            return 200, {"ok": True, "name": name, "seconds": 0.0}
+
+        def forget() -> None:
+            if guard is not None:
+                guard.forget()
+
+        asked = Command(cmd.kind, cmd.who, {"name": name, "save_current": True})
+        code, reply = jobs.open_set(live, asked, forget, guard.believe if guard is not None else lambda n: None)
+        if code == 200:
+            after_open()
+        return code, {**reply, "saved": front}
+
+    effects.register(bus, "set.open", open_one, touches_live=True, guarded=False)

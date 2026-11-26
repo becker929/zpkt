@@ -37,6 +37,7 @@ START_CHECKPOINT_H = 12  # a start makes a "start-..." checkpoint unless the des
 SUPERVISE_S = 5.0
 STALE_RETRY_S = 30.0  # after a pager reload that did not help, wait this long before trying again
 NO_MINILAB = "no MiniLab 3 in Live"
+METER_KEY = "Main/zpkt desk meter"  # the history's key for the spectrum's device being on Main (no parameter of Live's)
 DEFAULT_BPM = 120.0  # a set whose sources.json names no "bpm" (or ZPKT_DESK_BPM) is taken to play at this tempo
 
 
@@ -158,7 +159,11 @@ class Desk:
         self.history = hist or history.History(
             settings.set_name, self.labels, settings.history_dir, checkpoints=settings.checkpoints_dir, changes=stream
         )
+        self.history.place = self.place_of
+        self.history.quiet.add(METER_KEY)
         self.making = threading.Lock()  # one "Make a surface" job at a time
+        self.metering = threading.Lock()  # one "turn the spectrum on" job at a time
+        self._meter_tool: Any = None
         self._ensured = self._started = False  # the supervisor's: monitor tracks made, start checkpoint taken
         self._stale_reload_at = 0.0  # when the supervisor last reloaded a pager Live raised from
         self._analysis: tuple[float | None, dict[str, Any]] = (None, {"sources": {}})
@@ -190,7 +195,15 @@ class Desk:
         """The state as the page gets it: a copy, with the loudness match's gains for every reference."""
         state = self.snapshot()
         song = {"name": state.get("set") or self.settings.set_name, **deskstate.song_facts(state)}
-        return {**state, "gains": deskstate.matched_gains(self.analysis()["sources"]), "song": song}
+        gains = deskstate.matched_gains(self.analysis()["sources"])
+        # "open_set" is what Live has in front ("" for a set with no file); "desk_set" the set this desk is for
+        return {
+            **state,
+            "gains": gains,
+            "song": song,
+            "open_set": state.get("set") or "",
+            "desk_set": self.settings.set_name,
+        }
 
     def monitor_choice(self) -> deskstate.MonitorChoice:
         return self.snapshot()["monitor"]
@@ -256,6 +269,8 @@ class Desk:
         """A pager snapshot (or None) and Live's status: learn its keys, fold it in, send the page all of it."""
         if snap and snap.get("values"):
             self.learn(snap["values"])
+        if snap:
+            self.learn_extras(snap)
         with self.lock:
             self.state = deskstate.with_snapshot(self.state, snap, status)
         self.push_full()
@@ -264,6 +279,27 @@ class Desk:
         """The snapshot's keys and labels, and its values as the history's starting point (not moves)."""
         self.history.add_labels(deskstate.labels(self.cfg()["pages"], values))
         self.history.baseline(values)
+
+    def learn_extras(self, snap: dict[str, Any]) -> None:
+        """What a snapshot says beside the pages' controls, as the history's starting point too: every track's solo
+        and mute, and whether the spectrum's device is on Main."""
+        flags = snap.get("flags")
+        if isinstance(flags, dict):
+            self.history.baseline_flags(flags.get("tracks", []), flags.get("solo", []), flags.get("mute", []))
+        if isinstance(snap.get("meter"), bool):
+            on = snap["meter"]
+            self.history.add_labels({METER_KEY: "Spectrum"})
+            self.history.baseline({"meter": {"key": METER_KEY, "s": "on" if on else "off", "r": on}})
+
+    def place_of(self, key: str, raw: Any) -> float | None:
+        """A raw value as a place from 0 to 1 on its control; None when the desk has not read the control's range."""
+        if isinstance(raw, bool):
+            return 1.0 if raw else 0.0
+        with self.lock:
+            d = self.descriptions.get(key)
+        if d is None or raw is None or d["max"] == d["min"]:
+            return None
+        return max(0.0, min(1.0, (float(raw) - d["min"]) / (d["max"] - d["min"])))
 
     def ingest(self, msg: protocol.PagerMessage) -> None:
         """One message from the pager (or the app itself): into the state, out to the page, and into the history if
@@ -274,8 +310,19 @@ class Desk:
             press = Command("page.compare", "minilab", {"page": msg["page"], "slot": msg["slot"]})
             threading.Thread(target=self.bus.submit, args=(press,), daemon=True, name="minilab-pad").start()
         with self.lock:
+            before = self.state
             self.state = deskstate.reduce(self.state, msg, time.time())
+            after = self.state
         self.push(dict(msg))
+        if msg["t"] == "flags":  # a track soloed or muted (in Live, or by the app): each flag is a control that moved
+            who: protocol.Who = "sys" if msg.get("sys") else protocol.DEFAULT_WHO
+            flagged = [
+                self.history.seen(key, "on" if on else "off", on, who=who)
+                for key, on in deskstate.flag_changes(before, after)
+            ]
+            if any(flagged) or self.history.take_named():
+                self.push(self.history.view())
+            self.push_app(self.monitor.message())
         if msg["t"] == "v":
             moved = self.history.seen(msg["key"], msg["s"], msg["r"], who=protocol.who_moved(msg))
             if moved or self.history.take_named():  # named: the echo of a write gave its row the shown text
@@ -485,9 +532,70 @@ class Desk:
 
     # ---- history ---------------------------------------------------------------------------------------------------
     def write(self, pairs: list[list[Any]]) -> list[str]:
-        """[[key, raw], ...] into Live through the pager (one call); returns the keys it could not find."""
-        missing: list[str] = self.call(f"m.DESK.set_raw({[p[:2] for p in pairs]!r})") if pairs else []
+        """[[key, raw], ...] into Live through the pager (one call); returns the keys it could not find. The
+        spectrum's device is the one "control" that is no parameter: its value is whether it is on Main."""
+        for _key, raw, *_ in (p for p in pairs if p[0] == METER_KEY):
+            self.meter_set(bool(raw))
+        rest = [p[:2] for p in pairs if p[0] != METER_KEY]
+        missing: list[str] = self.call(f"m.DESK.set_raw({rest!r})") if rest else []
         return missing
+
+    # ---- the spectrum's device on Main -----------------------------------------------------------------------------
+    def meter_tool(self) -> Any:
+        """The desk's own meter tool (`meter.py` in the mixdesk folder: present, install, remove), loaded by path."""
+        if self._meter_tool is None:
+            import importlib.util
+
+            path = mixdesk_dir() / "meter.py"
+            spec = importlib.util.spec_from_file_location("zpkt_mixdesk_meter", path)
+            if spec is None or spec.loader is None or not path.exists():
+                raise OSError(f"there is no meter tool at {path}")
+            module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(module)
+            self._meter_tool = module
+        return self._meter_tool
+
+    def meter_set(self, on: bool) -> None:
+        """Put the spectrum's device on Main, or take it off (undo and redo of turning it on)."""
+        tool = self.meter_tool()
+        if on:
+            tool.install(self.conn, log=lambda *a: None)
+        else:
+            tool.remove(self.conn)
+        self._meter_is(on)
+
+    def _meter_is(self, on: bool) -> None:
+        with self.lock:
+            self.state = {**self.state, "meter": on}
+        self.push_full()
+
+    def meter_job(self, who: protocol.Who | str, group: str | None = None) -> None:
+        """Turn the spectrum on (its own thread: Live's browser takes seconds to list a new device): the device goes
+        last on Main, as one history entry, so undo takes it off again. The page is told how it goes."""
+
+        def say(status: str, msg: str = "") -> None:
+            self.push_app({"t": "meterjob", "status": status, "msg": msg})
+
+        if not self.metering.acquire(blocking=False):
+            return
+        try:
+            say("working")
+            self.meter_tool().install(self.conn, log=lambda *a: None)
+            self.history.record([[METER_KEY, True, "on"]], who, group)
+            self._meter_is(True)
+            self.push(self.history.view())
+            say("done")
+        except Exception as exc:  # the tool's own stop, Live, a missing template: all are "it did not turn on"
+            log.warning(f"app: turning the spectrum on failed ({type(exc).__name__}: {str(exc)[:120]})")
+            say("error", str(exc)[:200])
+        finally:
+            self.metering.release()
+
+    def after_set_opened(self) -> None:
+        """Live has another set in front (the page opened it): the pager is loaded into it, so the page says so at
+        once. A failure here is the supervisor's to mend."""
+        with contextlib.suppress(LiveError, OSError):
+            self.restart_pager()
 
     def make_checkpoint(self, name: str, who: protocol.Who | str = protocol.DEFAULT_WHO) -> dict[str, Any]:
         """Checkpoint `name`: the whole mix as Live has it now. `who` made it: "sys" when the desk did on its own."""
@@ -495,7 +603,9 @@ class Desk:
         with self.conn.exclusive():  # one hold of Live for the whole read
             full = live_state.take(self.conn)
         saved = self.monitor.main_saved if self.monitor_choice()["slot"] != "W" else None
-        return self.history.checkpoint(name, full, saved, who)  # type: ignore[arg-type]
+        entry = self.history.checkpoint(name, full, saved, who)  # type: ignore[arg-type]
+        self.push_app(self.monitor.message())  # "changed" counts from this checkpoint now
+        return entry
 
     def version_before(self, group: str) -> None:
         """The automatic version saved before an agent's first change of a group: one name per group."""

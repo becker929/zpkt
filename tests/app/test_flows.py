@@ -45,10 +45,10 @@ def drag(pg, slot: str, dy: float) -> None:
 
 def test_flow_1_mix_drag_a_control_and_live_moves(rig, page):
     slot, key, _ = first_control(rig, "f")
-    assert page.locator("#chgpill").inner_text() == "0 changed"
+    assert page.locator("#chgn").inner_text() == "0 changed"
     before = rig.desk.history.cur[key][1]
     drag(page, slot, -60)  # up
-    page.wait_for_function("document.querySelector('#chgpill').textContent.startsWith('1')")
+    page.wait_for_function("document.querySelector('#chgn').textContent.startsWith('1')")
     page.wait_for_function("window.zpkt.S.hear.changed === 1")
     assert rig.desk.history.cur[key][1] != before  # Live moved
     assert page.locator(f'.ctl[data-slot="{slot}"]').get_attribute("class").count("chg") == 1  # the lime dot
@@ -70,12 +70,12 @@ def test_flow_6_undo_the_history_names_who_and_an_agent_group_undoes_as_one(rig,
         rig.desk.bus.submit(
             Command("mix.set", "agent", {"norms": [[k, 0.15]]}, approval="user", group="make the kick sit back")
         )
-    page.wait_for_function("document.querySelector('#chgpill').textContent.startsWith('3')")
+    page.wait_for_function("document.querySelector('#chgn').textContent.startsWith('3')")
     page.click("#khist")
     page.wait_for_selector(".he .who.agent")
     rows = page.locator(".he").all_inner_texts()
     assert any("agent" in r and "make the kick sit back" in r for r in rows)
     assert any("sys" in r and "Before “make the kick sit back”" in r for r in rows)  # the automatic checkpoint, by name
     page.click("#hundo")
-    page.wait_for_function("document.querySelector('#chgpill').textContent.startsWith('0')")  # all three at once
-    assert page.locator("#chgpill").inner_text() == "0 changed"
+    page.wait_for_function("document.querySelector('#chgn').textContent.startsWith('0')")  # all three at once
+    assert page.locator("#chgn").inner_text() == "0 changed"

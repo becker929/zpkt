@@ -27,7 +27,7 @@ from zpkt.app.connections import LiveConnections
 from zpkt.live import codegen, config, describe, openset, session
 from zpkt.live import state as S
 from zpkt.live.agent import only_reads
-from zpkt.live.transport import McpResult
+from zpkt.live.transport import McpResult, McpTransport
 
 API_CALLERS = tokens.CALLERS  # who may use the jobs: those with a token. The web page ("you") may not
 MIN_BPM, MAX_BPM = 20.0, 999.0  # Live's own range
@@ -101,7 +101,7 @@ def live_read(conn: LiveConnections, cmd: Command) -> Reply:
 
 
 def open_set(
-    conn: LiveConnections, cmd: Command, forget: Callable[[], None], believe: Callable[[str], None] = lambda name: None
+    conn: McpTransport, cmd: Command, forget: Callable[[], None], believe: Callable[[str], None] = lambda name: None
 ) -> Reply:
     """Open a set. `believe` is told the set Live has open afterwards: the one the app holds unnamed jobs to."""
     name = text(cmd.args, "name").removesuffix(".als")

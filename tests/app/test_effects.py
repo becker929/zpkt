@@ -38,6 +38,7 @@ MAKES = {
     "surface.save",
 }
 MOVES = {
+    "history.back",
     "history.redo",
     "history.revert",
     "history.undo",
@@ -46,6 +47,7 @@ MOVES = {
     "live.run",
     "live.set_tempo",
     "live.transport",
+    "meter.install",
     "mix.reset",
     "mix.set",
     "mix.toggle",
@@ -58,6 +60,7 @@ MOVES = {
     "page.open",
     "page.set",
     "pager.restart",
+    "set.open",
     "song.build",
     "state.put",
     "surface.remove",

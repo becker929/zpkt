@@ -15,6 +15,7 @@
 //   range  [low, high] places worth playing; steps: how many stops a knob has (a choice), 0 for a smooth one
 //   sending  its value is the page's own, on its way to Live (a small mark by the number until Live confirms it)
 //   fixed    Live settled somewhere else than the page showed: the number flashes once
+// update(el, model) brings a drawn slot up to its model in place; shape(model) is what decides its markup.
 //   cmp    on a pad: the place of the compare state it switches to (the page reads it back from data-cmp). Such a
 //          pad is one of a set: it carries a small lamp, lit with the pad when its state is on (n 1), and the pads
 //          of the set stand on one rail. spoken: what a screen reader calls it ("Kick: hotter").
@@ -134,5 +135,31 @@
     if (w.getAttribute("role") === "slider") w.setAttribute("aria-valuenow", pct(n));
   }
 
-  window.zpktControls = {KNOBS, FADERS, PADS, SLOTS: [...KNOBS, ...FADERS, ...PADS], kindOf, hwName, knob, fader, slot, panel, set};
+  /** What decides a slot's markup, apart from its value: when this is the same for every slot, a panel is updated
+      in place (update) and no element is made anew. */
+  const shape = (m) => [m.slot, m.state || "off", m.key || "", m.label || "", m.group || "", m.tint ? 1 : 0, m.steps || 0,
+    m.cmp ?? "", m.why || "", m.range ? m.range.join(",") : "", m.by || "key", m.hw ?? "", m.spoken || ""].join("\u0001");
+  /** Bring one drawn slot up to its model without making its elements anew: its place, its number, its marks. The
+      element keeps its identity, so focus, a screen reader's place and a reference to it all survive. */
+  function update(el, m) {
+    const kind = kindOf(m.slot), state = m.state || "off", n = clamp(m.n), w = el.querySelector(".w");
+    if (!w || state === "off" || state === "missing") return;
+    const on = kind === "pad" && n >= 0.5;
+    for (const [cls, yes] of [["on", on], ["chg", !!m.chg], ["flash", !!m.flash], ["sending", !!m.sending], ["fixed", !!m.fixed]]) el.classList.toggle(cls, yes);
+    const moved = +el.dataset.n !== n;
+    el.dataset.n = n;
+    if (kind === "pad") { if (w.hasAttribute("aria-pressed")) w.setAttribute("aria-pressed", String(on)); return; }
+    if (moved) {
+      if (kind === "knob") w.innerHTML = knob(n, m);
+      else { const p = (n * 100).toFixed(1) + "%"; w.querySelector(".ff").style.height = p; w.querySelector(".fc").style.bottom = p; }
+    }
+    const text = String(m.shown ?? ""), v = el.querySelector(".v");
+    if (v && !v.querySelector("input") && v.textContent !== text) v.textContent = text;
+    if (w.getAttribute("role") === "slider") {
+      if (moved) w.setAttribute("aria-valuenow", pct(n));
+      if (w.getAttribute("aria-valuetext") !== text) w.setAttribute("aria-valuetext", text);
+    }
+  }
+
+  window.zpktControls = {KNOBS, FADERS, PADS, SLOTS: [...KNOBS, ...FADERS, ...PADS], kindOf, hwName, knob, fader, slot, panel, set, update, shape};
 })();

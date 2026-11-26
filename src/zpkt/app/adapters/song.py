@@ -24,7 +24,8 @@ class SongAdapter:
     def start(self) -> None:
         settings = self.settings or song.SongSettings.from_env()
         self.service = song.Song(settings)
-        song.register(self.context.bus, self.service, self.context.desk.conn)
+        desk = self.context.desk
+        song.register(self.context.bus, self.service, desk.conn, desk.after_set_opened)
         self.context.desk.mounts.add(song.PREFIX, song.SongMount(self.service, self.context.bus))
 
     def stop(self) -> None:
