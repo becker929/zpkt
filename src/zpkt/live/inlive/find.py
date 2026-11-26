@@ -13,6 +13,7 @@ Stdlib only, Python 3.11: this file also runs inside Live (zpkt.live.inlive), an
 """
 
 FLAGS = ("mute", "solo")
+PARAMS_SHOWN = 40  # how many of a device's parameter names an error lists
 
 
 def split_key(key: str) -> tuple[str, str]:
@@ -74,7 +75,11 @@ def find_value(song, key):  # song: Live's Song
     for p in device.parameters:
         if p.name == param:
             return p
-    raise LookupError(f"{track.name}/{label} has no parameter {param!r}")
+    names = [p.name for p in device.parameters]
+    has = ", ".join(names[:PARAMS_SHOWN]) + (
+        f", and {len(names) - PARAMS_SHOWN} more" if len(names) > PARAMS_SHOWN else ""
+    )
+    raise LookupError(f"{track.name}/{label} has no parameter {param!r}; it has: {has}")
 
 
 def track_name_in_key(song, track) -> str:
