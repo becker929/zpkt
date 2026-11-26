@@ -8,7 +8,7 @@ are libraries and never open one.
 
 ## What is in it
 
-`zpkt app` starts four adapters by default (`web,api,song,agents`; `midi` is off unless named). Where to look:
+`zpkt app` starts five adapters by default (`web,api,song,agents,listen`; `midi` is off unless named). Where to look:
 
 | Want | Where | Section |
 |---|---|---|
@@ -17,6 +17,7 @@ are libraries and never open one.
 | Versions of the mix side by side | `/app/` Options tab | Options and the one render queue |
 | The arrangement as lanes, Mix 1, transitions, Build in Live | `/app/` Song tab; the arranger under `/app/song` | The Song |
 | Chat with Claude and Gemini | `/app/ask/` | Ask |
+| Live's sound in the browser | the Listen button; `/app/listen` | Listen |
 | The MiniLab 3 | `--adapters web,midi` | The MiniLab |
 | The `zpkt` command, the booth, the demos | `127.0.0.1:8984`, `/api/v1/` | The API and its clients |
 
@@ -25,7 +26,7 @@ The `/app/` shell links to Ask: the Ask tab on a phone or tablet, the Ask button
 ## How it fits
 
 ```
-adapters        web · API · Ask (agents) · Song · MiniLab (off unless named)   turn what they hear into Commands
+adapters        web · API · Ask (agents) · Song · Listen · MiniLab (off unless named)   turn what they hear into Commands
    |
 the bus         bus.py       who, the checks, one dispatch table, a log
    |
@@ -196,13 +197,13 @@ routes from the same code (`contrib/arranger/server.py`'s route table), so nothi
 - Mix 2's renders still start the arranger's own worker (`mixset.py worker`), which opens its own connection to Live.
   That is a known debt: it takes its turn only by Live's own limits, not by the app's lock. Moving it onto the app's render queue is open work.
 
-`zpkt app` starts the Song with the web adapter (the default is `--adapters web,api,song,agents`). `ZPKT_ARRANGER_DIR` names another arranger
+`zpkt app` starts the Song with the web adapter (the default is `--adapters web,api,song,agents,listen`). `ZPKT_ARRANGER_DIR` names another arranger
 folder; `ARRANGER_DATA` the data, as before.
 
 ## Ask
 
 Ask is the chat with Claude and Gemini, ported from Zpkt web (Node, :8789, which keeps running untouched). It is the
-`agents` adapter, so it starts with `zpkt app` (it is in the default `--adapters web,api,song,agents`). The page is at `/app/ask/`.
+`agents` adapter, so it starts with `zpkt app` (it is in the default `--adapters web,api,song,agents,listen`). The page is at `/app/ask/`.
 
 - **Engines.** Claude Code runs as one `claude -p` process per turn. Gemini runs over ACP: one `gemini --acp`
   process, permission prompts you answer on the page (mode "Ask first"), and an estimated dollar cost for each turn.
@@ -227,6 +228,41 @@ Ask is the chat with Claude and Gemini, ported from Zpkt web (Node, :8789, which
 
 `tests/app/test_ask_*.py` run it with a scripted provider and stand-ins for `claude` and `gemini --acp`. No model,
 no key, no Live.
+
+## Listen
+
+Listen plays what Live is playing, in the browser. It is for when I am away from the Mac. It is the `listen`
+adapter, mounted at `/app/listen`, and it starts with `zpkt app`. Starting it only mounts the routes.
+
+- **The button.** `/app/shell/listen.js` draws one button into `<span id="listen"></span>`: headphones, with a small
+  tick that moves when sound arrives. Sound starts only from a tap. A tap on a greyed button says why it cannot play.
+  The choice is kept in the browser. Moving between `/app/` and `/app/ask/` loads a new document, so the sound
+  stops; the button then shows a dot and the first tap anywhere on the new page starts it again. Changing tabs
+  inside `/app/` does not stop it.
+- **The capture.** `listen/capture.swift` records Live's own output with ScreenCaptureKit and writes raw PCM. No
+  audio driver is installed. It is compiled on first use (about a second) into `<data_dir>/cache/listen`
+  (`ZPKT_LISTEN_DIR` names another folder); no binary is in the repo. It runs only while somebody listens and stops
+  five seconds after the last listener leaves. It sends Live nothing.
+- **The permission.** macOS must allow Screen & System Audio Recording (System Settings, Privacy & Security) for the
+  app that started zpkt: the terminal, or the Claude app when an agent started it. Without it the button is greyed
+  and says so, naming the app.
+- **One capture at a time.** macOS gives the app that started zpkt one such capture. A second one (another copy of
+  `zpkt app`, a run of the tool by hand) cuts the first off. The hub starts its capture again when that happens, and
+  the page reconnects, so I hear a short gap.
+- **The streams.** `GET /app/listen/stream.pcm` is 16-bit little-endian stereo at 48 kHz. The page reads it with a
+  streamed `fetch` and plays it through an AudioWorklet that keeps about 70 ms in hand and throws away old sound
+  when it falls behind (more than 220 ms). Each time the buffer runs dry it keeps a little more, up to 250 ms.
+  `GET /app/listen/stream.mp3` is the same sound through ffmpeg for an `<audio>` element. The page uses it where the
+  worklet cannot run (a page not served over HTTPS, an old browser). It is several seconds late.
+  `GET /app/listen/status` says `available`, the `reason` if not, `listeners`, `capturing` and the `format`.
+- **Nothing is processed.** The page plays Live's samples as they are: no EQ, no effects, no gain. Loudness is the
+  phone's own volume.
+- **Measured** on the rig (25 November 2026, headless WebKit on the Mac itself): the capture hands sound over about
+  50 ms after Live played it (68 ms at worst), the page holds 50 to 100 ms, so about 110 to 170 ms before the
+  device's own output delay and the network. The capture tool uses under 1 % of one core. On an iPhone over the
+  tailnet it is not measured yet.
+
+`tests/app/test_listen.py` runs the adapter with a made-up capture; `test_listen_page.py` taps the button in WebKit.
 
 ## Files that stay where they were
 
