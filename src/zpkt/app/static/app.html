@@ -91,7 +91,12 @@ svg{display:block}
 #song>*{flex:none}
 .ph2{display:flex;align-items:center;gap:8px;min-height:26px;flex-wrap:wrap}
 .ph2 b{font-size:17px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-#desk .ph2{flex-wrap:nowrap}
+#desk .ph2{flex-wrap:nowrap;min-height:44px}
+#desk .ph2.rd{background:linear-gradient(to right,var(--acc) calc(var(--n,0)*100%),var(--hair) 0) left bottom/100% 3px no-repeat}
+.rd .rdn{flex:1 1 0;min-width:0;display:flex;flex-direction:column;justify-content:center}
+.rd .rdp{font:12px/15px ui-monospace,Menlo,monospace;color:var(--mute);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#desk .rd b{font-size:18px;line-height:23px;min-width:0}
+.rd #rdv{flex:none;font:600 22px/26px ui-monospace,Menlo,monospace;color:var(--ink);white-space:nowrap}
 #desk .ph2 b{flex:0 1 auto;min-width:48px}
 #desk .ph2 .tag{flex:0 10 auto;min-width:0;overflow:hidden;text-overflow:ellipsis}
 #desk .ph2 .pill{flex:none}
@@ -330,6 +335,7 @@ function toast(msg) { const t = $("#toast"); t.textContent = msg; t.classList.ad
 // A command to the app. It always answers {ok, body}: a refusal or a lost connection is said in a toast (unless
 // `quiet`) and never thrown.
 async function command(kind, args = {}, group, quiet) {
+  if (/^(history\.|page\.compare)/.test(kind)) S.quietUntil = Date.now() + 2000;  // many values are about to move: none of them is a hand on a knob
   let r, body;
   try {
     r = await fetch("/api/command", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({kind, args, group})});
@@ -874,6 +880,13 @@ function drawDesk() {
   const far = S.opening && !next && entry.page_id !== S.opening.id ? S.opening : null;
   const title = far ? far.title || "Surface" : next ? (NL ? NL.title : next.name) : drawn && L ? L.title : entry.name;
   const by = far ? "" : next ? (NL ? " · made by " + esc(NL.made_by) : "") : drawn && L ? " · made by " + esc(L.made_by) : "";
+  // The control in hand (touched here, or turned on the MiniLab) says what it is in the head, in large type: its place
+  // on the controller, what it moves in Live, its name in full and its value. Any other touch brings the title back.
+  const f = !next && !far && S.focus ? S.slots.find(m => m.key === S.focus && m.state !== "off" && m.state !== "missing") : null;
+  if (f) {
+    const parts = f.key.split("/"), same = (f.cap || "").toLowerCase() === (f.label || "").toLowerCase();
+    setHtml($("#deskhead"), `<div class="ph2 rd" id="readout" style="--n:${f.n || 0}"><div class="rdn" role="status" aria-label="${esc(MC.hwName(f.slot))}: ${esc(f.spoken || f.label || "")}"><span class="rdp">${esc(parts.join(" › "))}</span><b id="rdname">${esc((f.cap && !same ? f.cap + " · " : "") + (f.label || ""))}</b></div><span id="rdv">${esc(f.shown ?? "")}</span>${nums}</div>`);
+  } else
   setHtml($("#deskhead"), `<div class="ph2"><b id="pagename">${esc(title)}</b>${far ? "" : `${S.pre && !next ? `<span class="tag pre" id="pre">${esc(S.pre)}</span>` : `<span class="tag">surface ${pages.indexOf(shown) + 1} / ${pages.length}${by}</span>`}`}
     ${next || far ? '<span class="pill spin" id="pgwait">Loading</span>' : `<span class="pill ${S.state.live === "attached" ? "acc" : "quiet"}" id="mlchip">${S.state.live === "attached" ? "on MiniLab" : "no MiniLab"}</span>`}${nums}</div>`);
   // A page with compare states, when it comes into view: its pads are in sight (where the map shows one face at a
@@ -882,6 +895,7 @@ function drawDesk() {
   if (hasCmp && S.cmpAt !== hasCmp) S.face = "f";
   if (drawn) S.cmpAt = hasCmp;
   drawPanel(drawn, L);
+  for (const el of document.querySelectorAll("#panel .mc")) el.classList.toggle("foc", !!f && el.dataset.slot === f.slot);
   drawPager();
   if ($("#panel") && !$("#panel").__fit) { $("#panel").__fit = true; fitPanel(); }  // a new panel; later, when the Desk's box changes (FIT)
 }
@@ -1226,14 +1240,17 @@ function place(el, n, group) {
   const key = el.dataset.key;
   if (!OWN[key]) setOwn(key, n, +el.dataset.n0 || 0); else setOwn(key, n);
   MC.set(el, n, textAt(key, n));
+  if (S.focus === key && $("#rdv")) { $("#rdv").textContent = textAt(key, n); $("#readout").style.setProperty("--n", n); }
   el.classList.add("chg");
   sendValue(key, n, group);
 }
 document.addEventListener("pointerdown", e => {
+  if (S.focus && e.target.closest && e.target.closest("#readout") && !e.target.closest("button")) { S.focus = null; return renderDesk(); }  // a touch on the readout: the title again
   if (!e.target.closest || !e.target.closest(".mlp") || e.target.closest(".vt")) return;
   const w = e.target.closest(".mc.live:not(.pad) .w"), el = w && w.closest(".mc");
-  if (!el || !el.dataset.key) { swipe = {x: e.clientX, y: e.clientY}; return; }
+  if (!el || !el.dataset.key) { swipe = {x: e.clientX, y: e.clientY}; if (S.focus && !e.target.closest(".mc")) { S.focus = null; renderDesk(); } return; }
   if (e.button > 0) return;
+  if (S.focus !== el.dataset.key) { S.focus = el.dataset.key; renderDesk(); }
   w.focus({preventScroll: true});  // a click on a control gives it the keyboard
   const n0 = +el.dataset.n || 0;
   if (!OWN[el.dataset.key]) el.dataset.n0 = n0;
@@ -1693,6 +1710,9 @@ function apply(m) {
     return renderBottom();
   }
   else if (m.t === "v" && S.state) {
+    const was = S.state.values[`${m.page}:${m.slot}`];
+    // a control of the surface in view that moved and that this page is not moving: a hand on the MiniLab
+    if (m.key && !OWN[m.key] && was && was.n != null && Math.abs(was.n - m.n) > 1e-4 && Date.now() - (S.quietUntil || 0) > 0 && S.slots.some(x => x.key === m.key)) S.focus = m.key;
     S.state.values[`${m.page}:${m.slot}`] = {...(S.state.values[`${m.page}:${m.slot}`] || {}), n: m.n, s: m.s, r: m.r, key: m.key};
     // one parameter may sit on several pages: each of its slots reports in its own message, a moment apart. They are
     // one value, so all of them have it now (else a slot not yet heard from would show the old place for that moment).

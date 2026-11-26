@@ -143,3 +143,5 @@
 .mlp[data-view="list"] :is(.mk,.mf) .mc.flash{box-shadow:0 0 0 2px var(--zs)}
 .mlp[data-view="list"]{gap:6px;padding-top:6px;padding-bottom:6px}
 .mlp[data-view="list"] .mc.pad .w{height:32px}
+/* the control in hand (the page's head says what it is) */
+.mc.foc:not(.pad){box-shadow:0 0 0 2px var(--zs)}
