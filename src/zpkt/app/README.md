@@ -334,9 +334,15 @@ pages (`contrib/mixdesk/desk.json`) and a made surface.
   second) and Average (about four seconds, each band evened out against its neighbours). The others, and the table,
   always use the four-second mean. The curves are kept in the page only: a reload starts them again. With the meter off it shows the one
   action that turns it on (`meter.install`).
-- **The reference loops over its own clip.** Hearing C sets Live's loop from the drop for as long as the reference's
-  file lasts (its warping is off, so that is its seconds at the set's tempo) and the loop that was on comes back
-  when C is left (`Monitor.choose`).
+- **The reference loops over its own bars, and the switch is on the beat.** Each reference in `sources.json` says
+  its own tempo and how many whole bars of its own its cut holds, from a downbeat (`"bpm"`, `"bars"`;
+  `desk.reference_grids`). Hearing C loops those bars (with no such entry: the file's length) and puts the playhead
+  at the same bar after the drop and the same place in the bar, counted in the reference's bars, so the beat goes
+  on across the switch although the tempos differ; leaving C finds that bar and place in the mix again and brings
+  back the loop that was on. The solo, the loop and the playhead go to Live as one call (`Monitor.place`,
+  `monitor_tracks.placed_beat`): a call takes Live a few hundred milliseconds to get to, so the switch is heard
+  that much after the press, but nothing is heard in between. It does not wait for the next bar line: the app
+  cannot time a call into Live that finely.
 - **Compare is in the play bar** (26 November 2026): the keys A, B and C (`#abc`, `monitor.hear` now, pin, ref). A is
   the mix now, B the pinned mix, C the reference. History has a B key on each checkpoint (`monitor.pin` with `name`)
   that chooses it as the pinned mix; until one is chosen B is the mix as the desk first saw it.

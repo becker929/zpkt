@@ -80,10 +80,69 @@ class Monitor:
             seconds = sf.info(str(self.desk.settings.viz_dir / f"{ref}.wav")).duration
         except Exception:  # no file, or not audio: the caller keeps the song's own loop
             return 0.0
+        return round(float(seconds) * self._tempo(st) / 60.0, 4)
+
+    def _tempo(self, st: Mapping[str, Any]) -> float:
         from zpkt.app.desk import beats_per_s  # here, not at the top: desk imports this module
 
-        tempo = float(st.get("tempo") or 0.0) or 60.0 * beats_per_s()
-        return round(float(seconds) * tempo / 60.0, 4)
+        return float(st.get("tempo") or 0.0) or 60.0 * beats_per_s()
+
+    def reference_grid(self, ref: str, st: Mapping[str, Any]) -> monitor_tracks.Grid:
+        """Reference `ref`'s bars on the set's timeline: from the drop, at its own tempo, for the whole bars its
+        sources.json entry gives (desk.reference_grids), when its file is that long. With no such entry: the set's
+        own bars, for as long as the file lasts. A file that cannot be read: the set's bars from the drop, no end."""
+        a, beats = self.desk.settings.align_beat, self.reference_beats(ref, st)
+        if beats <= 0:
+            return {"origin": a, "bpm": None}
+        grid = self.desk.settings.reference_grids.get(ref)
+        if grid is not None:
+            bpm, bars = grid
+            if bars * 4.0 * self._tempo(st) / bpm <= beats + 0.2:  # the file holds those bars (0.2 beat of slack)
+                return {"origin": a, "bpm": bpm, "bars": bars}
+        return {"origin": a, "bpm": None, "span": beats}
+
+    def _mix_grid(self, st: Mapping[str, Any], loop: str | None) -> monitor_tracks.Grid:
+        """The set's own bars, counted from the drop when the loop `loop` holds it (else from the loop's start),
+        repeating to the end of that loop; with no loop, to the end of the song when the desk knows it."""
+        a = self.desk.settings.align_beat
+        loops: Mapping[str, Any] = st.get("loops") or {}
+        span = loops.get(loop if loop is not None and loop in loops else "whole")
+        if not span:
+            return {"origin": a, "bpm": None}
+        start, length = float(span[0]), float(span[1])
+        origin = a if start <= a < start + length else start
+        return {"origin": origin, "bpm": None, "span": start + length - origin}
+
+    def place(self, st: Mapping[str, Any], slot: str, ref: str) -> monitor_tracks.Place | None:
+        """Where the playhead goes when `slot` is chosen, and what loops, so the switch stays on the beat (Anthony,
+        26 November 2026: "switch on the beat to C, allowing for mismatched tempos"). Only a switch to or from a
+        reference moves it: the reference has its own tempo and its own bars, and the same bar and the same place
+        in the bar is found on the other side (monitor_tracks.placed_beat). The reference loops over its own bars;
+        the loop that was on before comes back when it is left. None: the playhead and the loop stay."""
+        was, was_ref = st["monitor"]["slot"], st["monitor"]["ref"]
+        loops: Mapping[str, Any] = st.get("loops") or {}
+        if slot == "C":
+            if was == "C" and was_ref == ref:
+                return None
+            dst = self.reference_grid(ref, st)
+            loop: list[float] | str = "span"
+            if not (dst.get("bars") or dst.get("span")) and st["loop"] == "build" and "drop" in loops:
+                loop = [float(loops["drop"][0]), float(loops["drop"][1])]  # no file to loop over: at least the drop
+            if was == "C":
+                return {"src": self.reference_grid(was_ref, st), "dst": dst, "loop": loop}
+            with self._lock:
+                self._loop_before = st["loop"]
+            return {"src": self._mix_grid(st, st["loop"]), "dst": dst, "loop": loop}
+        if was != "C":
+            return None
+        with self._lock:
+            before, self._loop_before = self._loop_before, None
+        out: monitor_tracks.Place = {"src": self.reference_grid(was_ref, st), "dst": self._mix_grid(st, before)}
+        if before == "off":
+            out["loop"] = False
+        elif before is not None and before in loops:
+            out["loop"] = [float(loops[before][0]), float(loops[before][1])]
+        return out
 
     # ---- the level match -------------------------------------------------------------------------------------------
     def gain_db(self, slot: str, ref: str) -> float:
@@ -91,35 +150,14 @@ class Monitor:
         return D.matched_gain_db(d.analysis()["sources"], slot, ref, d.snapshot()["match"])
 
     def choose(self, slot: str, ref: str) -> None:
-        """Hear slot A, B, W (the working mix) or C (reference `ref`), at the matched level."""
+        """Hear slot A, B, W (the working mix) or C (reference `ref`), at the matched level. One call to Live: the
+        solo, and with a reference the playhead and the loop too (`place`), so nothing is heard in between."""
         d = self.desk
         st = d.snapshot()
-        was_c = st["monitor"]["slot"] == "C"
-        if slot == "C":
-            # The reference loops on its own timing (Anthony, 26 November 2026: it went silent where its file ended,
-            # before the song's loop did): Live loops over the reference's own clip, from the drop for as long as the
-            # file lasts. The loop that was on comes back when the reference is left.
-            a, n = d.settings.align_beat, self.reference_beats(ref, st)
-            if not was_c:
-                with self._lock:
-                    self._loop_before = st["loop"]
-            if n > 0:
-                d.call(
-                    f"[setattr(m.DESK.song, 'loop', True), setattr(m.DESK.song, 'loop_start', {a!r}), "
-                    f"setattr(m.DESK.song, 'loop_length', {n!r})]"
-                )
-            elif st["loop"] == "build":
-                d.call("m.DESK.transport('loop', None, 'drop')")
-            if st["pos"] < a or (n > 0 and st["pos"] >= a + n):  # the reference only exists inside its clip
-                d.call(f"m.DESK.transport('seek', {a})")
-        elif was_c:
-            with self._lock:
-                before, self._loop_before = self._loop_before, None
-            if before in D.LOOPS:
-                d.call(f"m.DESK.transport('loop', None, {before!r})")
+        place = self.place(st, slot, ref)
         with self._lock:
             saved = self.main_saved
-        out = monitor_tracks.switch(d.conn, slot, ref, self.gain_db(slot, ref), saved)
+        out = monitor_tracks.switch(d.conn, slot, ref, self.gain_db(slot, ref), saved, place)
         with self._lock:
             self.main_saved = out["main_saved"]
         if "error" in out:  # said as the pager says it: the choice stays as it was

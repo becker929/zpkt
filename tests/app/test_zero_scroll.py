@@ -161,7 +161,7 @@ def test_history_is_paged_newest_first_and_never_scrolls(browser, rig, width, he
     newest = rig.desk.history.entries[-1]["id"]
     assert rows.nth(0).get_attribute("data-row") == str(newest)  # newest first
     newer, older = pg.locator('#hpgs [data-histstep="-1"]'), pg.locator('#hpgs [data-histstep="1"]')
-    assert newer.is_disabled() and older.bounding_box()["height"] >= 44
+    assert newer.is_disabled() and older.bounding_box()["height"] >= 43.9  # 44 px, less a rounding hair
     assert pg.locator("#hpgn").inner_text() == f"1–{shown} / {total}"
     older.click()
     pg.wait_for_function(f"document.querySelector('#hpgn').textContent.startsWith('{shown + 1}–')")

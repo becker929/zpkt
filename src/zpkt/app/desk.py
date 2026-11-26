@@ -91,6 +91,17 @@ def reference_ids() -> tuple[str, ...]:
     return tuple(str(r["id"]) for r in read_sources()["refs"])
 
 
+def reference_grids() -> dict[str, tuple[float, float]]:
+    """{reference: (its tempo in BPM, the whole bars of its own that its clip holds)}, for the references whose entry
+    in sources.json says both ("bpm", "bars"). The clip starts on a downbeat. This is what lets the desk loop a
+    reference over its own bars and switch to and from it on the beat when its tempo is not the set's."""
+    grids = {}
+    for r in read_sources()["refs"]:
+        if r.get("bpm") and r.get("bars"):
+            grids[str(r["id"])] = (float(r["bpm"]), float(r["bars"]))
+    return grids
+
+
 @dataclass(frozen=True)
 class Settings:
     """Where the desk reads and writes, and its ports. `from_env` is the running desk's; tests make their own."""
@@ -110,6 +121,7 @@ class Settings:
     pager_file: Path = field(default_factory=lambda: mixdesk_dir() / "pager.py")
     changes_file: Path | None = None  # the set's change stream (zpkt.live.changes); None writes none
     references: tuple[str, ...] = field(default_factory=reference_ids)
+    reference_grids: dict[str, tuple[float, float]] = field(default_factory=reference_grids)  # tempo and bars of each
     ask_dir: Path = field(default_factory=default_ask_dir)  # Ask's sessions and files (ZPKT_ASK_DIR)
     hosts: tuple[str, ...] = ()  # more Host names the web server answers for (ZPKT_APP_HOSTS); see web.host_allowed
 
