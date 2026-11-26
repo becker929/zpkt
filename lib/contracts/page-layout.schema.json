@@ -233,6 +233,105 @@
       "title": "LayoutGroup",
       "type": "object"
     },
+    "Panel": {
+      "additionalProperties": false,
+      "description": "One MiniLab page as a map of the controller: all 20 slots, in the hardware's order.",
+      "properties": {
+        "groups": {
+          "description": "The groups on this MiniLab page, in order.",
+          "items": {
+            "type": "string"
+          },
+          "title": "Groups",
+          "type": "array"
+        },
+        "slots": {
+          "description": "Always 20: the 8 knobs, the 4 faders, the 8 pads.",
+          "items": {
+            "$ref": "#/$defs/PanelSlot"
+          },
+          "title": "Slots",
+          "type": "array"
+        }
+      },
+      "required": [
+        "groups",
+        "slots"
+      ],
+      "title": "Panel",
+      "type": "object"
+    },
+    "PanelSlot": {
+      "additionalProperties": false,
+      "description": "One place on the MiniLab, mapped or not.",
+      "properties": {
+        "slot": {
+          "description": "k1-k8, f1-f4 or b1-b8.",
+          "title": "Slot",
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "knob",
+            "fader",
+            "pad"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "name": {
+          "description": "What the hardware calls it: \"Knob 6\", \"Fader 2\", \"Pad 3\".",
+          "title": "Name",
+          "type": "string"
+        },
+        "ref": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "The control it moves (a ref in `groups`); None when nothing is mapped.",
+          "title": "Ref"
+        },
+        "group": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "That control's group.",
+          "title": "Group"
+        },
+        "tint": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "That group's tint, 0 or 1.",
+          "title": "Tint"
+        }
+      },
+      "required": [
+        "slot",
+        "kind",
+        "name",
+        "ref",
+        "group",
+        "tint"
+      ],
+      "title": "PanelSlot",
+      "type": "object"
+    },
     "Problem": {
       "additionalProperties": false,
       "properties": {
@@ -287,7 +386,7 @@
     }
   },
   "additionalProperties": false,
-  "description": "A Page as the one interface draws it (the reply of the page.layout command): cards, widgets, sizes and the MiniLab slots. Generated from src/zpkt/live/page_layout.py \u2014 do not edit by hand.",
+  "description": "A Page as the one interface draws it (the reply of the page.layout command): one panel per MiniLab page with all 20 slots, and each control's widget and label. Generated from src/zpkt/live/page_layout.py \u2014 do not edit by hand.",
   "properties": {
     "id": {
       "anyOf": [
@@ -315,15 +414,12 @@
       "title": "Groups",
       "type": "array"
     },
-    "phone_pages": {
-      "description": "Group numbers shown together on a phone, in swipe order.",
+    "panels": {
+      "description": "One per MiniLab page: what the shell draws.",
       "items": {
-        "items": {
-          "type": "integer"
-        },
-        "type": "array"
+        "$ref": "#/$defs/Panel"
       },
-      "title": "Phone Pages",
+      "title": "Panels",
       "type": "array"
     },
     "minilab": {
@@ -346,7 +442,7 @@
     "title",
     "made_by",
     "groups",
-    "phone_pages",
+    "panels",
     "minilab",
     "problems"
   ],

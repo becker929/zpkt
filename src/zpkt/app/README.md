@@ -20,7 +20,8 @@ are libraries and never open one.
 | The MiniLab 3 | `--adapters web,midi` | The MiniLab |
 | The `zpkt` command, the booth, the demos | `127.0.0.1:8984`, `/api/v1/` | The API and its clients |
 
-The `/app/` shell links to Ask: the Ask tab on a phone or tablet, the Ask button under Versions on a wide screen.
+Every page has the same tab bar: Desk, Song, Options, Ask. It is at the bottom on a phone and at the top from 700 px
+up. Ask is a tab like the others, at every width.
 
 ## How it fits
 
@@ -72,6 +73,9 @@ port, 8984 (below). `ZPKT_DESK_URL` names the web server (pages, `/app/`), `ZPKT
   were.
 - `/app/` is the new shell: the Hear bar (bar, spectrum from the meter, "N changed", what you hear, Play, Now / Pin /
   Ref, undo, redo, history) and the Desk. It reads the same state through `/events?app=1`.
+- `/app/shell/<file>` serves what every page shares, from `static/shell/`: `shell.css` (the tokens, the tab bar, the
+  loading line), `nav.js` (draws the tab bar), `controls.css` and `controls.js` (the panel: a page of controls as a
+  map of the MiniLab, see Pages) and `listen.js` (the Listen button, when it is there). The folder is flat. Only `.css`, `.js`, `.json` and `.svg` files are served, and only by a plain file name.
 - `POST /api/command` takes any command: `{"kind": "mix.set", "args": {"norms": [["Kick bus/volume", 0.4]]}}`.
   `GET /api/commands` lists them. The old `POST /api/...` paths are these commands under their old names.
 
@@ -82,6 +86,31 @@ separated). Any other `Host` gets 403, reads included. That stops DNS rebinding:
 the proxy's `X-Forwarded-Host` and `X-Forwarded-Proto` (`web.host_allowed`, `web.cross_site`). A write with no `Origin`
 (curl, a script) needs a Bearer token from the app's token store, as on the API, or it gets 401. Programs should use
 the API on 8984. Mounted routes (Ask, the Song) hold their own session tokens.
+
+## The shell: one look, one tab bar, one way to wait
+
+The look is the chat's: bone and black, one lime accent, a quiet ceramic card, and only the controls are physical.
+`shell.css` holds the tokens under the names `app.html` and Ask already used (`--bg`, `--panel`, `--ink`, `--acc` ...).
+A page links it and defines none of them itself.
+
+- **The tab bar.** A page has `<nav id="tabs" data-current="desk|song|options|ask"></nav>` and loads `nav.js` right
+  after it. On `/app/` Desk, Song and Options are buttons (`data-t`) and switch in place; Options is a sheet over the
+  Desk or the Song. On any other page they are links to `/app/#desk`, `/app/#song` and `/app/#options`. Ask is always
+  a link to `/app/ask/`. `window.zpktNav.set(name)` marks the current tab. `nav.js` writes `data-at` (`top` from
+  700 px, else `bottom`) unless the page wrote it; the bar's parent must be a flex column.
+- **Addresses.** `/app/` opens on `#desk`, `#song` or `#options`, and keeps the address in step as I switch.
+  `/app/#page=<id>` opens the Desk on that saved Page. A Page that is saved but not on the desk gets a plain message.
+- **Waiting.** A page change takes about a second: the command waits its turn for Live, the pager swaps what the
+  MiniLab's controls mean, and only then does the `page` event come back. On the tap the button is marked
+  (`is-waiting`), a lime line runs across the top of the desk area (`.loads.is-loading`), and the old controls dim and
+  take no touch (anything with `data-stale` inside `.loads.is-pending`). The `page` event clears it. After 5 s, or when
+  the command is refused, a line says the page did not change, with Retry. The line also runs while the Song is read
+  and while it builds in Live. With reduced motion the line stands still.
+- **Listen.** The Hear bar's bottom row has `<span id="listen"></span>`, and the page loads `/app/shell/listen.js` as
+  a module. A missing file changes nothing.
+
+`tests/app/test_shell_static.py` checks the route; `tests/app/test_shell_nav.py` checks the tabs, the addresses and
+the waiting in WebKit.
 
 ## The API and its clients
 
@@ -155,10 +184,27 @@ SysEx back: the display, the pad LEDs and the knob rings.
 A Page is what an agent writes for "I want to change this": groups of controls with a role and a weight, and no pixels
 (`zpkt.live.page`). One renderer draws it, and the same spec gives the MiniLab its assignment.
 
-**Controller pages look like the controller** (Anthony's rule, 25 November 2026). The desk's MiniLab pages and the
-small MiniLab map under a Page sit as the MiniLab 3 does: knobs 1–4 over 5–8, the four faders to their right, the 8
-pads in one row below. Where 8 columns of 44 px targets do not fit (the desk narrower than 400 px: a phone), the desk
-folds in half: knobs over pads 1–4, then faders over pads 5–8.
+**Every page of controls is one panel, and the panel is a map of the MiniLab 3** (Anthony's rule, 25 November 2026:
+controller pages look like the controller). One renderer draws them all: a saved Page, the mix desk's own MiniLab
+pages (`contrib/mixdesk/desk.json`) and a made surface.
+
+- **All 20 slots are always drawn, each in its physical place**: knobs 1–4 over 5–8, the four faders to their right,
+  the 8 pads in one row below. Where 8 columns of 44 px targets do not fit (the panel's own box is 440 px or less: a
+  phone, and a 768 px tablet beside the Hear bar) it folds in half: knobs over pads 1–4, then faders over pads 5–8.
+- **A mapped slot is a live control.** A knob or a fader is dragged up and down, or moved with the arrow keys; a
+  pad is a key. It shows its label and its value. When a panel holds more than one group, each control has its
+  group as a small caption, and neighbouring groups alternate a faint tint. A choice (a list of items) on a knob is
+  a knob with stops.
+- **An unmapped slot is drawn in the same place, greyed.** It takes no touch and says its hardware name ("Knob 6:
+  not mapped"). A target the open set lacks keeps its slot, greyed, and says "not in this set". A macro is drawn in
+  its slot but is turned on the MiniLab only.
+- **A Page that needs more than one MiniLab page** has numbered buttons above the panel. On a phone (under 700 px) a
+  sideways swipe on the panel goes to the next or the previous one. Both wait for Live like any page change (Waiting,
+  above). The first 6 px of a touch decide whether it moves a control or is a swipe.
+- **The look is the chat's**: a ceramic card, a machined knob with a lime arc, a fader in a slot, pads as keys. The
+  drawing is `static/shell/controls.js` (`window.zpktControls`: `panel(slots, attrs)`, `slot(model)`, `set(el, n)`,
+  `hwName(slot)`) and the styles are `static/shell/controls.css`, both served under `/app/shell/`. They are a copy of
+  the chat's drawings in `static/ask/zpkt/`, with values as places 0 to 1. Any page can load them.
 
 - `zpkt page make SPEC.json` (or `-` for standard input) sends the spec to the running app. `zpkt page lint` only
   checks it. The command goes to `POST /api/agent/command`, so the app stamps it `who=agent`; an agent can make pages
@@ -169,9 +215,10 @@ folds in half: knobs over pads 1–4, then faders over pads 5–8.
   lists the saved pages.
 - "Make a surface" on the old desk calls `page.make`: it now asks Claude for a Page. An answer in the old slot form
   is still accepted.
-- `/app/` draws a Page from `page.layout` (the layout rules are `zpkt.live.page_layout`): cards for groups,
-  heaviest first, widgets by the parameter's kind, a phone swiping cards when there are more than 12 controls, and
-  the MiniLab map under the cards. A target the open set lacks is drawn greyed.
+- `/app/` draws a saved Page from `page.layout` (the rules are `zpkt.live.page_layout`). Its `panels` list has one
+  panel per MiniLab page, each with all 20 slots in the hardware's order; a slot names its control (`ref`), group
+  and tint, or only its hardware name. The desk's own pages have no layout: the shell builds the same slots from
+  `/api/desk` and the values the pager reports.
 
 ## The Song
 
