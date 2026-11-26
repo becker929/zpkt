@@ -103,7 +103,29 @@ svg{display:block}
 #song{overflow:hidden}
 #song>#lanes{flex:1 1 auto;min-height:60px;overflow:hidden}
 @media (max-width:699px){#song{padding:8px 12px;gap:6px}}
-#desk[hidden],#song[hidden]{display:none}
+#desk[hidden],#song[hidden],#monitor[hidden]{display:none}
+/* Monitor: the spectrum of what is heard as a curve, with the curves of A, B and C as each was last heard. */
+#monitor{flex:1;min-height:0;padding:10px 16px;display:flex;flex-direction:column;gap:8px;overflow:hidden}
+#monitor>*{flex:none}
+#monplot{flex:1 1 auto;min-height:90px;position:relative;border:1px solid var(--hair);border-radius:14px;background:var(--panel);overflow:hidden}
+#monplot svg{position:absolute;inset:0;width:100%;height:100%;display:block}
+#monplot .gl{stroke:var(--hair);stroke-width:1;vector-effect:non-scaling-stroke}
+#monplot .cv{fill:none;stroke-width:1.6;vector-effect:non-scaling-stroke;stroke-linejoin:round;opacity:.75}
+#monplot .cv.on{stroke-width:3;opacity:1}
+#monplot .ax{position:absolute;font:10.5px ui-monospace,Menlo,monospace;color:var(--mute);pointer-events:none}
+#monplot .ax.x{bottom:3px;transform:translateX(-50%)}#monplot .ax.y{left:5px;transform:translateY(-50%)}
+#monitor{--ma:var(--ink);--mb:var(--acc);--mc:#6f9bff}
+@media (prefers-color-scheme:light){#monitor{--mb:var(--accd)}}
+.cv.a{stroke:var(--ma)}.cv.b{stroke:var(--mb)}.cv.c{stroke:var(--mc)}
+#montab{display:grid;grid-template-columns:minmax(64px,auto) repeat(3,minmax(0,1fr));gap:2px 10px;font:13px/20px ui-monospace,Menlo,monospace;align-items:center}
+#montab .hd{font:600 13px/22px 'Helvetica Neue',Helvetica,Arial,sans-serif;display:flex;align-items:center;gap:6px}
+#montab .hd i{width:14px;height:3px;border-radius:2px;display:inline-block}
+#montab .hd.on{text-decoration:underline;text-underline-offset:4px}
+#montab .rl{color:var(--mute);font-family:'Helvetica Neue',Helvetica,Arial,sans-serif}
+#montab .num{text-align:left;white-space:nowrap;overflow:hidden}
+#montab .none{color:var(--mute)}
+#monoff{display:flex;align-items:center;gap:10px}#monoff[hidden]{display:none}
+#montab .hd small{font:11px ui-monospace,Menlo,monospace;color:var(--mute)}
 #song>*{flex:none}
 .ph2{display:flex;align-items:center;gap:8px;min-height:26px;flex-wrap:wrap}
 .ph2 b{font-size:17px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -307,7 +329,7 @@ select{font:inherit;color:inherit;background:var(--panel);border:1px solid var(-
  <div id="lock" role="alert"></div>
  <div id="cols">
   <aside id="side" aria-label="Surfaces"></aside>
-  <div id="main" class="loads"><div id="slow" role="alert" hidden></div><div id="song" hidden></div><div id="desk"><div id="deskhead"></div><div id="mlnums"></div><div id="panelbox"></div><div id="deskdots"></div></div><div id="ask" hidden></div><div id="scrim"></div><div class="sheet" id="sheet"></div></div>
+  <div id="main" class="loads"><div id="slow" role="alert" hidden></div><div id="song" hidden></div><div id="monitor" hidden></div><div id="desk"><div id="deskhead"></div><div id="mlnums"></div><div id="panelbox"></div><div id="deskdots"></div></div><div id="ask" hidden></div><div id="scrim"></div><div class="sheet" id="sheet"></div></div>
   <div id="hear"><div class="hear" id="htop"></div><section id="histdock" aria-label="History"></section><div class="hear" id="hbot"><div id="hkeys"></div><span id="listen"></span></div></div>
  </div>
  <nav id="tabs" data-current="desk"></nav><script src="/app/shell/nav.js"></script>
@@ -1437,18 +1459,73 @@ document.addEventListener("dblclick", e => {
 });
 
 
+// ---- Monitor: curves of what is heard, and of A, B and C as each was last heard -------------------------------------
+// The live meter on Main sends the level of each band, many times a second. While the song plays, the page keeps a
+// running mean of those levels for whichever of A, B and C is heard (in power, over about the last 40 messages), so
+// each has a curve once it has been listened to. The curve of the one heard now is the thick one. Nothing here
+// makes or changes sound: it draws what the meter measured.
+const MON = {avg: {now: null, pin: null, ref: null}, n: {now: 0, pin: 0, ref: 0}, hz: null, due: false};
+const MON_KEYS = [["now", "A", "a"], ["pin", "B", "b"], ["ref", "C", "c"]];
+const MON_BANDS = [["Sub", 0, 60], ["Low", 60, 250], ["Mid", 250, 2000], ["High", 2000, 6000], ["Air", 6000, 1e9]];
+function monFeed(m) {
+  const h = S.hear.hearing;
+  if (!(h in MON.avg) || !S.state || !S.state.playing || !m.db || !m.hz) return;
+  const pw = m.db.map(d => Math.pow(10, d / 10)), a = MON.avg[h], k = Math.min(MON.n[h], 40);
+  MON.hz = m.hz;
+  MON.avg[h] = a && a.length === pw.length ? a.map((x, i) => (x * k + pw[i]) / (k + 1)) : pw;
+  MON.n[h]++;
+  if (S.tab === "monitor" && !MON.due) { MON.due = true; requestAnimationFrame(() => { MON.due = false; updateMonitor(); }); }
+}
+const dbOf = p => p > 0 ? 10 * Math.log10(p) : -120;
+function monBand(avg, lo, hi) { let s = 0; MON.hz.forEach((f, i) => { if (f >= lo && f < hi) s += avg[i]; }); return dbOf(s); }
+function renderMonitor() {
+  const box = $("#monitor");
+  if (!box.firstChild) box.innerHTML = `<div id="monoff" hidden><span class="tag">The meter is off</span><button class="key sm" id="monmeteron">${I("power")}Turn on</button></div><div id="monplot" role="img" aria-label="Spectrum curves of A, B and C"></div><div id="montab"></div>`;
+  updateMonitor();
+}
+function updateMonitor() {
+  if (S.tab !== "monitor" || !$("#monplot")) return;
+  $("#monoff").hidden = !(liveOk() && S.state.meter === false && !meterFresh());
+  const hz = MON.hz || (S.meter && S.meter.hz) || [], curves = MON_KEYS.map(([k, letter, cls]) => ({k, letter, cls, avg: MON.avg[k], on: S.hear.hearing === k}));
+  // the plot: 20 Hz to 20 kHz on a log scale; the top is just above the loudest band, 60 dB down to the bottom
+  const X = f => (Math.log10(Math.max(20, Math.min(20000, f)) / 20) / 3) * 1000;
+  const all = curves.filter(c => c.avg).flatMap(c => c.avg.map(dbOf)), top = all.length ? Math.ceil((Math.max(...all) + 3) / 6) * 6 : 0, span = 60;
+  const Y = d => Math.max(0, Math.min(400, (top - d) / span * 400));
+  const line = c => {
+    const pts = c.avg.map((p, i) => [X(hz[i]), Y(dbOf(p))]);
+    let d = `M${pts[0][0].toFixed(1)} ${pts[0][1].toFixed(1)}`;
+    for (let i = 1; i < pts.length; i++) { const [x0, y0] = pts[i - 1], [x1, y1] = pts[i], mx = (x0 + x1) / 2; d += `C${mx.toFixed(1)} ${y0.toFixed(1)} ${mx.toFixed(1)} ${y1.toFixed(1)} ${x1.toFixed(1)} ${y1.toFixed(1)}`; }
+    return `<path class="cv ${c.cls} ${c.on ? "on" : ""}" d="${d}"/>`;
+  };
+  const fs = [50, 100, 200, 500, 1000, 2000, 5000, 10000], ds = [1, 2, 3, 4].map(k => top - k * 12);
+  const drawn = curves.filter(c => c.avg && hz.length === c.avg.length).sort((a, b) => a.on - b.on);
+  $("#monplot").innerHTML = `<svg viewBox="0 0 1000 400" preserveAspectRatio="none" aria-hidden="true">${fs.map(f => `<line class="gl" x1="${X(f).toFixed(1)}" x2="${X(f).toFixed(1)}" y1="0" y2="400"/>`).join("")}${ds.map(d => `<line class="gl" x1="0" x2="1000" y1="${Y(d)}" y2="${Y(d)}"/>`).join("")}${drawn.map(line).join("")}</svg>${
+    fs.map(f => `<span class="ax x" style="left:${(X(f) / 10).toFixed(1)}%">${f >= 1000 ? f / 1000 + "k" : f}</span>`).join("")}${drawn.length ? ds.map(d => `<span class="ax y" style="top:${(Y(d) / 4).toFixed(1)}%">${d}</span>`).join("") : ""}`;
+  // the table: each one's level, then each band; B and C as the difference from A where A has been heard
+  const A = MON.avg.now, cell = (c, lo, hi) => {
+    if (!c.avg || !hz.length) return `<span class="num none">–</span>`;
+    const v = monBand(c.avg, lo, hi), rel = c.k !== "now" && A ? v - monBand(A, lo, hi) : null;
+    return `<span class="num">${rel === null ? (v < 0 ? "−" : "") + Math.abs(v).toFixed(1) : (rel >= 0 ? "+" : "−") + Math.abs(rel).toFixed(1)}</span>`;
+  };
+  const lv = S.level, peak = lv && lv.state === "on" && lv.db > LV.floor ? `${lv.db.toFixed(1)} dB peak` : "";
+  $("#montab").innerHTML = `<span class="rl">${esc(peak)}</span>${curves.map(c => `<span class="hd ${c.on ? "on" : ""}"><i style="background:var(--m${c.cls})"></i>${c.letter}${c.k !== "now" && A && c.avg ? "<small>vs A</small>" : ""}</span>`).join("")}
+    <span class="rl">Level</span>${curves.map(c => cell(c, 0, 1e9)).join("")}${MON_BANDS.map(([name, lo, hi]) => `<span class="rl">${name}</span>${curves.map(c => cell(c, lo, hi)).join("")}`).join("")}`;
+}
+
 // ---- Song: lanes of bars under a ruler, with Live's loop and playhead ------------------------------------------------
 function esc(t) { return String(t).replace(/[&<>"]/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;"}[c])); }
+const TABS = ["song", "monitor", "ask"];  // the tabs besides the Desk
 function showTab(t) {
   S.tab = t;
-  $("#desk").hidden = t !== "desk"; $("#song").hidden = t !== "song";
+  $("#desk").hidden = t !== "desk"; $("#song").hidden = t !== "song"; $("#monitor").hidden = t !== "monitor";
+  if (t === "monitor") renderMonitor();
   if (window.zpktNav) window.zpktNav.ask(t === "ask");   // the chat's frame, in #ask (shell/nav.js)
   navSync();
   if (t === "song" && !S.song.loaded) { if (!$("#song").innerHTML) $("#song").innerHTML = '<div class="tag" id="songwait">Reading the song…</div>'; loadSong(); }
 }
 // A tab was tapped (nav.js draws them): Desk and Song switch in place.
 function go(t) {
-  S.sheet = false; showTab(t === "song" || t === "ask" ? t : "desk");
+  S.sheet = false; showTab(TABS.includes(t) ? t : "desk");
   renderHist();
 }
 // The tab bar and the address say where you are: #desk or #song.
@@ -1462,7 +1539,7 @@ function navSync() {
 function route() {
   const h = decodeURIComponent(location.hash.slice(1));
   if (h.startsWith("page=")) { S.want = h.slice(5); S.sheet = false; openingStart(S.want); showTab("desk"); wanted(); }
-  else if (h) { S.sheet = false; showTab(h === "song" || h === "ask" ? h : "desk"); }
+  else if (h) { S.sheet = false; showTab(TABS.includes(h) ? h : "desk"); }
   renderHist();
 }
 // Open the Desk on the saved Page the address asked for, once the desk and the state are here.
@@ -1642,6 +1719,7 @@ document.addEventListener("click", async e => {
   if (t.dataset.day) { S.daysOpen[t.dataset.day] = !S.daysOpen[t.dataset.day]; return renderHist(); }
   if (t.dataset.flags) { S.flagOpen = S.flagOpen === t.dataset.flags ? null : t.dataset.flags; return renderBottom(); }
   if (t.dataset.flag) return clearFlag(t.dataset.flag, t.dataset.track);
+  if (t.id === "monmeteron") { const r = await command("meter.install", {}, undefined, true); if (!r.ok) toast(r.body.error || "The meter could not be turned on."); return; }
   if (t.id === "meteron") { S.mjob = {status: "working"}; renderTop(); const r = await command("meter.install", {}, undefined, true); if (!r.ok) { S.mjob = {status: "error", msg: r.body.error || ""}; renderTop(); } return; }
   if (t.id === "chgpill") return showHistory();
   if (t.dataset.cmp !== undefined) return pressState(+t.dataset.cmp);
@@ -1708,7 +1786,7 @@ document.addEventListener("pointerdown", e => {
 function apply(m) {
   let part = "all";
   if (m.t === "full") S.state = m.state;
-  else if (m.t === "hear") { S.hear = m; if (!S.state) return; renderTop(); renderBottom(); if (S.sheet === "hist" || wide()) redrawHist(); return renderDesk(); }
+  else if (m.t === "hear") { S.hear = m; if (!S.state) return; renderTop(); renderBottom(); updateMonitor(); if (S.sheet === "hist" || wide()) redrawHist(); return renderDesk(); }
   else if (m.t === "hist") {
     const top = m.entries.reduce((x, e) => Math.max(x, e.id), 0);
     if (S.histTop !== undefined && top > S.histTop) S.histAt = 0;  // something new happened: the newest rows show
@@ -1716,7 +1794,7 @@ function apply(m) {
     S.hist = m; renderBottom(); updateChanged(); return renderHist(); }
   else if (m.t === "meter") {
     const was = specMode();
-    S.meter = m; S.meterAt = Date.now(); S.mjob = null;
+    S.meter = m; S.meterAt = Date.now(); S.mjob = null; monFeed(m);
     return was === "bars" ? updateSpec() : renderTop();
   }
   else if (m.t === "meterjob") { S.mjob = m.status === "done" ? null : {status: m.status, msg: m.msg || ""}; return renderTop(); }
@@ -1771,6 +1849,6 @@ loadDesk().then(connect);
 // Crossing the desktop breakpoint draws or drops the side column.
 window.matchMedia("(min-width:1100px)").addEventListener("change", render);
 route();
-window.zpkt = {S, redraw: () => render(), command, armPage, wait: WAIT, own: OWN, textAt, placeOf, cpLabel, litState, roundPlace, stepPlace, valueAt, loopBars};
+window.zpkt = {S, redraw: () => render(), command, armPage, wait: WAIT, own: OWN, textAt, placeOf, cpLabel, litState, roundPlace, stepPlace, valueAt, loopBars, monFeed};
 </script>
 <script type="module" src="/app/shell/listen.js"></script></body></html>

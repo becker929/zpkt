@@ -100,7 +100,7 @@ def test_the_old_address_lands_on_the_ask_tab(asked, browser):
     bare = browser.new_page(viewport={"width": 375, "height": 812})
     bare.goto(asked.rig.url + "/app/ask/?bare=1")  # the page alone, for tests and as a fallback
     bare.wait_for_selector("#box")
-    assert bare.evaluate("location.pathname") == "/app/ask/" and bare.locator("#tabs > *").count() == 3
+    assert bare.evaluate("location.pathname") == "/app/ask/" and bare.locator("#tabs > *").count() == 4
     assert bare.locator("#tabs [data-t=ask]").get_attribute("href") == "/app/#ask"
 
 

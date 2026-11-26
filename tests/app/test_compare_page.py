@@ -192,7 +192,7 @@ def test_an_agents_update_changes_the_panel_in_place(browser, rig):
 def test_the_pads_fit_a_thumb_and_the_page_has_three_tabs_and_no_options(browser, rig, width, height, scheme):
     pg = open_page(browser, rig, width, height, scheme)
     tabs = pg.evaluate("[...document.querySelectorAll('#tabs > *')].map(e => e.innerText.trim())")
-    assert tabs == ["Desk", "Song", "Ask"]
+    assert tabs == ["Desk", "Song", "Monitor", "Ask"]
     assert pg.evaluate("document.documentElement.scrollWidth - innerWidth") <= 0  # nothing scrolls sideways
     for name in ("as it is", "hotter", "drier"):
         box = pg.locator(pad(name) + " button").bounding_box()

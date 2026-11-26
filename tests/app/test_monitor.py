@@ -2,6 +2,10 @@
 
 from __future__ import annotations
 
+import numpy as np
+import pytest
+import soundfile as sf
+
 from tests.app.conftest import wait_for
 from tests.app.test_web import first_control
 from zpkt.app.bus import Command
@@ -110,6 +114,23 @@ def test_the_reference_is_a_monitor_track_soloed_at_the_matched_level(rig):
     assert rig.live.song.current_song_time >= rig.desk.settings.align_beat  # the reference only exists from the drop
     rig.command("monitor.hear", {"hearing": "now"})
     assert rig.state()["monitor"]["slot"] == "W" and rig.track("mon C1").mute
+
+
+def test_the_reference_loops_over_its_own_clip_and_the_songs_loop_comes_back(rig):
+    """The reference went silent where its file ended while the song's loop ran on (Anthony, 26 November 2026). While
+    it is heard, Live loops from the drop for as long as the reference's file lasts."""
+    song, a = rig.live.song, rig.desk.settings.align_beat
+    wav = rig.desk.settings.viz_dir / "C1.wav"
+    wav.parent.mkdir(parents=True, exist_ok=True)
+    sf.write(str(wav), np.zeros(44100 * 9), 44100)  # nine seconds of reference
+    rig.command("transport", {"action": "loop", "loop": "whole"})
+    whole = (song.loop_start, song.loop_length)
+    assert rig.command("monitor.hear", {"hearing": "ref"})[0] == 200
+    beats = 9.0 * song.tempo / 60.0
+    assert song.loop and song.loop_start == a and song.loop_length == pytest.approx(beats, abs=0.01)
+    assert a <= song.current_song_time < a + beats
+    rig.command("monitor.hear", {"hearing": "now"})
+    assert (song.loop_start, song.loop_length) == whole and rig.state()["loop"] == "whole"
 
 
 def test_the_old_monitor_route_still_switches_and_main_is_bypassed_then_restored(rig):

@@ -1,4 +1,4 @@
-// The one tab bar of the app: Desk, Song, Ask, the same on every page. Served at /app/shell/nav.js.
+// The one tab bar of the app: Desk, Song, Monitor, Ask, the same on every page. Served at /app/shell/nav.js.
 // A page has <nav id="tabs" data-current="desk|song|ask"></nav> and loads this file after it.
 // On /app/ the three are buttons (data-t) that the shell switches in place; on any other page they are links to
 // /app/#desk, /app/#song and /app/#ask.
@@ -13,9 +13,10 @@
   const TABS = [
     ["desk", "Desk", '<circle cx="8" cy="8" r="3.5"/><circle cx="16" cy="16" r="3.5"/><path d="M13 7h7M4 17h5"/>'],
     ["song", "Song", '<path d="M4 7h9M4 12h16M4 17h11"/>'],
+    ["monitor", "Monitor", '<path d="M3 16c3 0 3-9 6-9s3 6 6 6 3-3 6-3"/><path d="M3 20h18"/>'],
     ["ask", "Ask", '<path d="M4 5h16v11H10l-5 4v-4H4z"/>'],
   ];
-  const IDS = {desk: "tab-desk", song: "tab-song", ask: "task"};
+  const IDS = {desk: "tab-desk", song: "tab-song", monitor: "tab-monitor", ask: "task"};
   const nav = document.getElementById("tabs");
   if (!nav) return;
   const inPlace = /^\/app\/?$/.test(location.pathname);
