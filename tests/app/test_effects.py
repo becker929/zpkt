@@ -8,8 +8,6 @@ import pytest
 from zpkt.app import effects
 from zpkt.app.bus import Bus, Command, Spec
 
-from .test_song import song_rig  # noqa: F401  (the Song adapter on the rig)
-
 READS = {
     "arrangement.read",
     "describe",
@@ -18,9 +16,6 @@ READS = {
     "mix.describe",
     "page.layout",
     "page.lint",
-    "song.list",
-    "song.recipe",
-    "song.show",
     "desk.state",
     "state.read",
     "state.take",
@@ -30,11 +25,6 @@ MAKES = {
     "monitor.pin",
     "page.draft",
     "page.make",
-    "song.delete",
-    "song.keep",
-    "song.queue",
-    "song.save",
-    "song.transitions",
     "surface.make",
     "surface.save",
 }
@@ -61,8 +51,6 @@ MOVES = {
     "page.open",
     "page.set",
     "pager.restart",
-    "set.open",
-    "song.build",
     "state.put",
     "surface.remove",
     "tempo.scale",
@@ -77,7 +65,7 @@ def test_the_table_is_exactly_this_list():
     assert listed == effects.EFFECTS
 
 
-def test_every_command_on_the_running_app_has_the_class_the_table_gives(asked, song_rig):  # noqa: F811
+def test_every_command_on_the_running_app_has_the_class_the_table_gives(asked):
     """The whole app: the desk's commands, the jobs, the agents' and the Song's."""
     table = asked.rig.desk.bus.table
     assert set(table) == set(effects.EFFECTS)

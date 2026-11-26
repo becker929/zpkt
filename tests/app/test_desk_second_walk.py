@@ -15,8 +15,6 @@ import pytest
 
 from tests.app.conftest import osc_spec, wait_for
 from tests.app.test_desk_touch import GAIN, RATIO, VOL, centre, ctl, drag, open_lead, place, settled, shown
-from tests.app.test_song import MIX_SET, quick_live, song_rig  # noqa: F401  (fixtures)
-from zpkt.app import jobs
 from zpkt.app.bus import Command
 from zpkt.live import meter
 
@@ -183,30 +181,6 @@ def test_history_back_is_one_undoable_step_and_refuses_a_step_that_is_gone(rig):
     )  # ...so it is no return point
     assert rig.command("history.back", {"entry": 10**6})[0] == 409
     assert rig.desk.bus.submit(Command("history.back", "agent", {"entry": first}))[0] == 403
-
-
-# ---- 3: a build names the set that is open ------------------------------------------------------------------------------
-
-
-def open_in_live(rig, name: str) -> None:
-    rig.live.song.file_path = f"/Sets/{name} Project/{name}.als" if name else ""
-    rig.desk.bus.guard.forget()
-    rig.desk.restart_pager()  # as the supervisor does once another set is in front
-
-
-def test_set_open_opens_only_the_two_sets_and_never_an_unsaved_front_set(song_rig, monkeypatch):  # noqa: F811
-    rig = song_rig.rig
-    asked: list[str] = []
-    monkeypatch.setattr(jobs.session, "open_set", lambda client, name, **kw: asked.append(name) or 1.0)
-    open_in_live(rig, "HW002_121_pp_finish")
-    assert rig.command("set.open", {"name": "someone_elses_set"})[0] == 400
-    assert rig.desk.bus.submit(Command("set.open", "agent", {"name": MIX_SET}))[0] == 403
-    open_in_live(rig, "")  # a set with no file: saving it first is not possible, so nothing is opened over it
-    code, reply = rig.command("set.open", {"name": MIX_SET})
-    assert code == 409 and "Save it in Live" in reply["error"] and asked == []
-    open_in_live(rig, "HW002_121_pp_finish")
-    code, reply = rig.command("set.open", {"name": MIX_SET})
-    assert code == 200 and reply["saved"] == "HW002_121_pp_finish" and asked == [MIX_SET]
 
 
 # ---- 4: the spectrum turns itself on ------------------------------------------------------------------------------------

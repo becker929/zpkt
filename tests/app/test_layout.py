@@ -8,7 +8,6 @@ from __future__ import annotations
 import pytest
 
 from tests.app.conftest import osc_spec
-from tests.app.test_song import song_rig  # noqa: F401  (the rig with the Song adapter)
 from zpkt.live import meter
 
 playwright_sync = pytest.importorskip("playwright.sync_api")
@@ -55,12 +54,6 @@ OLD_MEASURE = """() => {
           narrow: [...document.querySelectorAll('.knobs .ctl, .faders .ctl, .pads .ctl, .knobs, .faders, .ctl')]
             .filter(vis).map(e => [e.className, Math.round(e.getBoundingClientRect().width)]).filter(x => x[1] < 44)};
 }"""
-
-
-@pytest.fixture()
-def rig(song_rig):  # noqa: F811
-    """The app with the Song adapter on it, as `zpkt app` starts it."""
-    return song_rig.rig
 
 
 @pytest.fixture()

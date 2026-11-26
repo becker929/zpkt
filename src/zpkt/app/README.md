@@ -8,14 +8,14 @@ are libraries and never open one.
 
 ## What is in it
 
-`zpkt app` starts five adapters by default (`web,api,song,agents,listen`; `midi` is off unless named). Where to look:
+`zpkt app` starts four adapters by default (`web,api,agents,listen`; `midi` is off unless named). Where to look:
 
 | Want | Where | Section |
 |---|---|---|
 | The Hear bar, the Desk, undo and history | `/app/` (`/` sends you here; the old desk page is at `/desk/`) | What it serves |
 | Pages of controls, drawn and mapped to the MiniLab | `/app/` Desk; `zpkt page make` | Pages |
 | Two or more settings of the same controls, to switch between while Live plays | pads on a Page | Pages (Compare) |
-| The arrangement as lanes, Mix 1, transitions, Build in Live | `/app/` Song tab; the arranger under `/app/song` | The Song |
+| The song in Live: tracks, arrangement clips, locators | `/app/` Song tab | The Song |
 | Chat with Claude and Gemini | `/app/ask/` | Ask |
 | Live's sound in the browser | the Listen button; `/app/listen` | Listen |
 | The MiniLab 3 | `--adapters web,midi` | The MiniLab |
@@ -377,12 +377,7 @@ page in WebKit.
 
 ## The Song
 
-The arranger is mounted at `/app/song`. Its server stays as it is, on :8975, and the Song serves the same pages and
-routes from the same code (`contrib/arranger/server.py`'s route table), so nothing the arranger did changes.
-
-- `/app/song/` is the arranger page; `/app/song/mix/`, `/transitions/`, `/mix2/`, `/spectral/` and `/kick/` are the
-  others. Their absolute links gain the prefix on the way out; the files are not edited.
-- In the `/app/` shell **the Song tab is the song in Live** (Anthony, 26 November 2026), read only: one lane per
+- **The Song tab is the song in Live** (Anthony, 26 November 2026), read only: one lane per
   track of the open set (never the monitor's own), its Arrangement clips as regions with Live's names and colours
   (a muted clip or track is dimmed), under a bar ruler with the locators as named spans, Live's loop and its
   bars, and Live's playhead. Session clips are never read. It has no buttons. `arrangement.read` is the one read
@@ -392,26 +387,14 @@ routes from the same code (`contrib/arranger/server.py`'s route table), so nothi
   on every track's arrangement clips and on the locators), and the page reads again then. A region is an element
   of its own with an id that holds while it stays where it is (`t3@16`: track 3, from beat 16), so regions can be
   edited later; nothing edits them now. `tests/app/test_song_live.py` checks the read and the page.
-- The arrangement file keeps its form. A save from the arranger page keeps every key it does not own, byte for byte
-  (`tests/app/test_song.py` checks it, and checks every route against the old server).
-- Song is the Structure, Recipe is the Structure and the Sound (`contrib/arranger/arrangement.py`'s types). Commands:
-  `song.list`, `song.show` (the Song), `song.recipe` (both halves), the writes `song.save`, `song.keep`,
-  `song.delete`, `song.transitions`, `song.queue` (the arranger's routes as commands, so a save is stamped who), and
-  `song.build`.
-- `song.build` makes the mix set in Live from the recipe (`zpkt.live.recipe_build`, which `mixset.py build` also
-  calls), with the app's connection. It is a move for the mix set, not the page's set: the bus checks Live has the mix
-  set open, and the build itself refuses a set Live does not name, because it empties the set. An agent cannot
-  start it. It holds Live while it runs (many short calls, a minute or more on the real rig).
-- Mix 2's renders still start the arranger's own worker (`mixset.py worker`), which opens its own connection to Live.
-  That is a known debt: it takes its turn only by Live's own limits, not by the app's lock.
-
-`zpkt app` starts the Song with the web adapter (the default is `--adapters web,api,song,agents,listen`). `ZPKT_ARRANGER_DIR` names another arranger
-folder; `ARRANGER_DATA` the data, as before.
+- The arranger (`contrib/arranger`, its own server on :8975) is a separate tool and is no part of the app any
+  more: the Song adapter, its mount at `/app/song`, the `song.*` commands (`song.build` among them) and `set.open`
+  were removed on 26 November 2026. Its render queue is still `zpkt.app.renderqueue` (below).
 
 ## Ask
 
 Ask is the chat with Claude and Gemini, ported from Zpkt web (Node, :8789, which keeps running untouched). It is the
-`agents` adapter, so it starts with `zpkt app` (it is in the default `--adapters web,api,song,agents,listen`). It is
+`agents` adapter, so it starts with `zpkt app` (it is in the default `--adapters web,api,agents,listen`). It is
 the Ask tab of `/app/` (`/app/#ask`); its page and API are under `/app/ask/`.
 
 - **Engines.** Claude Code runs as one `claude -p` process per turn. Gemini runs over ACP: one `gemini --acp`
@@ -553,7 +536,7 @@ the old page. `ZPKT_MIXDESK_DIR` names another folder. The old module names ther
 One seam puts an adapter's pages and routes on the web server: `desk.mounts` (`mounts.py`). A mount is a route set
 under a path prefix, with one method, `handle(request)`. It gets GET, HEAD, POST, PUT, PATCH and DELETE as a `Request`
 (method, path, the path after the prefix, query, a body reader, the connection) and answers a `MountReply`; a mount
-that streams writes on the connection and returns None. Ask is mounted at `/app/ask` and the Song at `/app/song`. The
+that streams writes on the connection and returns None. Ask is mounted at `/app/ask` and Listen at `/app/listen`. The
 server's own checks (the Host name, writes from its own pages only) come before any mount.
 
 1. Add a module to `zpkt/app/adapters/`, say `midi.py`.

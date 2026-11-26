@@ -90,7 +90,7 @@ def test_a_bad_command_is_a_clear_400_and_an_unknown_one_a_404(rig):
     assert rig.post("/api/command", {"kind": "mix.set", "args": {"writes": "no"}})[0] == 400
     code, body = rig.command("nope")
     assert code == 404 and "mix.set" in body["error"]
-    assert rig.get("/api/commands")[1]["commands"][0] == "history.back"
+    assert rig.get("/api/commands")[1]["commands"][0] == "arrangement.read"
 
 
 def test_the_change_stream_has_what_the_agent_did_in_one_group(rig):

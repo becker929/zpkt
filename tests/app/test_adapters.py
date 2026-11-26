@@ -19,7 +19,7 @@ def test_the_web_and_agents_adapters_are_discovered_by_name():
 
 def test_an_unknown_adapter_is_an_error_that_lists_the_known_ones(rig):
     context = AppContext(rig.desk.bus, rig.desk, rig.desk.settings)
-    with pytest.raises(ValueError, match="no adapter nonesuch; the adapters are agents, api, listen, midi, song, web"):
+    with pytest.raises(ValueError, match="no adapter nonesuch; the adapters are agents, api, listen, midi, web"):
         adapters.create(["nonesuch"], context)
 
 

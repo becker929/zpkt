@@ -9,8 +9,6 @@ import json
 from zpkt.app import web
 from zpkt.app.mounts import MountReply, Request
 
-from .test_song import song_rig  # noqa: F401  (the Song adapter on the rig)
-
 
 class Notes:
     """A made-up adapter's routes: it answers with what it was asked, and streams on /stream."""
@@ -51,16 +49,14 @@ def test_there_is_one_seam(rig):
     assert rig.desk.mounts.find("/app/anything") is None
 
 
-def test_ask_and_the_song_are_both_mounts(asked, song_rig):  # noqa: F811
+def test_ask_is_a_mount(asked):
     mounts = asked.rig.desk.mounts
-    assert mounts.prefixes() == ["/app/ask", "/app/song"]
+    assert mounts.prefixes() == ["/app/ask"]
     assert mounts.find("/app/ask/api/engines")[1] is asked.adapter.routes
-    assert mounts.find("/app/song/api/arrangements")[2] == "/api/arrangements"
     rig = asked.rig
     assert ask(rig, "GET", "/app/ask/api/engines")[0] == 200
-    assert ask(rig, "GET", "/app/song/api/arrangements")[0] == 200
     asked.adapter.stop()
-    assert mounts.prefixes() == ["/app/song"]
+    assert mounts.prefixes() == []
     assert ask(rig, "GET", "/app/ask/api/engines")[0] == 404
 
 

@@ -7,8 +7,7 @@ from __future__ import annotations
 import pytest
 
 from tests.app.conftest import wait_for
-from tests.app.test_song import song_rig  # noqa: F401  (fixture)
-from zpkt.app import deskstate, history, protocol, song
+from zpkt.app import deskstate, history, protocol
 from zpkt.app.bus import Command
 from zpkt.app.desk import METER_KEY
 
@@ -175,15 +174,6 @@ def test_going_back_tells_the_page_where_the_controls_go_before_live_is_written(
     assert seen[0]["values"][0][1] == pytest.approx(start, abs=1e-6)
     view = rig.get("/api/history")[1]
     assert view["undo"]["values"][0][0] == key and view["undo"]["values"][0][1] == pytest.approx(0.9, abs=1e-3)
-
-
-# ---- the Song's sections ---------------------------------------------------------------------------------------------------
-
-
-def test_sections_start_at_bar_one_and_at_every_seam():
-    arr = {"bars": 40, "transitions": [{"seam": 17}, {"seam": 9}, {"seam": 17}, {"seam": 1}, {"seam": 99}]}
-    assert song.sections(arr) == [{"start": 0, "len": 8}, {"start": 8, "len": 8}, {"start": 16, "len": 24}]
-    assert song.sections({"bars": 8}) == [{"start": 0, "len": 8}] and song.sections({}) == []
 
 
 # ---- the spectrum's device ---------------------------------------------------------------------------------------------------

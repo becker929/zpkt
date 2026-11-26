@@ -382,7 +382,7 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
-    # ---- mounted routes (Ask at /app/ask, the Song at /app/song): the mount answers, whatever the method ---------
+    # ---- mounted routes (Ask at /app/ask, Listen at /app/listen): the mount answers, whatever the method ---------
     def _read_limited(self, limit: int) -> bytes | None:
         """The request body if its length is above 0 and below `limit`, else None (what a mount's routes expect)."""
         n = int(self.headers.get("Content-Length") or 0)

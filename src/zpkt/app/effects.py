@@ -20,8 +20,6 @@ These lines are decisions worth their reason:
   handler checks the open set itself before anything is saved.
 - `page.draft` is a make, also when it writes over a page the agent made before that is on the desk: the page is
   redrawn where it is and the desk stays on the page it was on. No value of the mix moves.
-- `set.open` is a move that the wrong-set guard lets through, like `live.open_set`: it is how the page gets Live to
-  the set a build or the desk is for. It opens only those two sets, and saves the one in front first.
 - `meter.install` is a move: it loads a device on Main. It is one history entry, and undo takes the device off.
 - `page.compare` is a move: it writes a compare state's values into the mix. It is the press of a pad, on the screen
   or on the MiniLab. An agent makes the states; it never switches them.
@@ -81,17 +79,6 @@ EFFECTS: dict[str, Effect] = {
     "desk.state": "read",
     "state.read": "read",  # the older name of desk.state
     "measurement.read": "read",
-    # the Song (zpkt.app.song)
-    "song.list": "read",
-    "song.show": "read",
-    "song.recipe": "read",
-    "song.save": "make",
-    "song.keep": "make",
-    "song.delete": "make",
-    "song.transitions": "make",
-    "song.queue": "make",
-    "song.build": "move",
-    "set.open": "move",
 }
 
 

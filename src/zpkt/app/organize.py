@@ -57,7 +57,8 @@ def read(directory: Path) -> Organized:
         return empty()
     if not isinstance(raw, dict):
         return empty()
-    names = raw.get("names") if isinstance(raw.get("names"), dict) else {}
+    stored = raw.get("names")
+    names: dict[Any, Any] = stored if isinstance(stored, dict) else {}
     return {
         "order": [str(x) for x in raw.get("order", []) if isinstance(x, str)],
         "archived": [str(x) for x in raw.get("archived", []) if isinstance(x, str)],

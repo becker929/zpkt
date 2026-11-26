@@ -627,12 +627,6 @@ class Desk:
         finally:
             self.metering.release()
 
-    def after_set_opened(self) -> None:
-        """Live has another set in front (the page opened it): the pager is loaded into it, so the page says so at
-        once. A failure here is the supervisor's to mend."""
-        with contextlib.suppress(LiveError, OSError):
-            self.restart_pager()
-
     def make_checkpoint(self, name: str, who: protocol.Who | str = protocol.DEFAULT_WHO) -> dict[str, Any]:
         """Checkpoint `name`: the whole mix as Live has it now. `who` made it: "sys" when the desk did on its own."""
         history.check_name(name)

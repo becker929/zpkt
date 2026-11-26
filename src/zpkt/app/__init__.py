@@ -23,8 +23,8 @@ def parse_args(argv: Sequence[str]) -> argparse.Namespace:
     p.add_argument("--port", type=int, help="the HTTP port (default: MIXDESK_PORT or 8985)")
     p.add_argument(
         "--adapters",
-        default="web,api,song,agents,listen",
-        help="adapters to start, comma separated (default: web,api,song,agents,listen; midi is off unless named)",
+        default="web,api,agents,listen",
+        help="adapters to start, comma separated (default: web,api,agents,listen; midi is off unless named)",
     )
     p.add_argument("--no-supervise", action="store_true", help="do not start or watch the pager in Live")
     return p.parse_args(list(argv))
