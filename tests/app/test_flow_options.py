@@ -1,5 +1,5 @@
 """Flow 7 in WebKit: the Options sheet. Older tools' Options are listed, a Version goes on the Hear bar with its
-numbers, a new job streams "rendering 2 of 3", and a Version is made Now. Live is a FakeLive; the export is a fake."""
+numbers, a new job streams "Rendering version 2 of 3", and a Version is made Now. Live is a FakeLive; the export is a fake."""
 
 from __future__ import annotations
 
@@ -59,9 +59,11 @@ def test_a_new_job_streams_its_progress_and_a_version_is_made_now(rig, desk_opti
     phone.click("#topts")
     opts.make(request(key, 0.3, 0.6))
     assert second.wait(5)
-    phone.wait_for_function("document.querySelector('.ol .key.on .tag').textContent === 'rendering 2 of 3'")
+    phone.wait_for_function("document.querySelector('.ol .key.on .tag').textContent === 'Rendering version 2 of 3'")
     release.set()
-    phone.wait_for_function("document.querySelector('.ol .key.on .tag').textContent === 'ready'", timeout=10000)
+    phone.wait_for_function(
+        "document.querySelector('.ol .key.on .tag').textContent === '3 versions ready'", timeout=10000
+    )
     phone.click('#vgrid .vc[data-ver="v2"]')
     phone.wait_for_selector("#vstrip")
     assert "gap" in phone.locator("#vstrip").inner_text()

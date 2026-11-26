@@ -27,7 +27,7 @@ DESCRIPTIONS = {
     "project-config": "A declarative Live project for hands to build. Generated from src/zpkt/live/models.py — do not edit by hand.",
     "desk": "The mix desk recipe's desk (contrib/mixdesk/recipe.py writes it; `hands live state diff|put` read it as a partial state). Generated from src/zpkt/live/desk.py — do not edit by hand.",
     "page": "A page of controls for the one interface (<sets_dir>/pages/<set>/<id>.json): what an agent writes for 'I want to change this'. Version 2 of the mix desk's made surface. Generated from src/zpkt/live/page.py — do not edit by hand.",
-    "page-layout": "A Page as the one interface draws it (the reply of the page.layout command): cards, widgets, sizes and the MiniLab slots. Generated from src/zpkt/live/page_layout.py — do not edit by hand.",
+    "page-layout": "A Page as the one interface draws it (the reply of the page.layout command): one panel per MiniLab page with all 20 slots, and each control's widget and label. Generated from src/zpkt/live/page_layout.py — do not edit by hand.",
     "inventory": "Each WIP track's place in the seven workflow steps (contrib/docs/workflow.md), from `hands library inventory --json`. Generated from src/zpkt/live/library/models.py — do not edit by hand.",
 }
 

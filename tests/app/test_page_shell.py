@@ -1,5 +1,6 @@
-"""The Page renderer in /app/ (WebKit, on FakeLive): widgets by rule, the MiniLab map, greyed controls, and nothing
-overflowing at 360, 390 and 1280 px. Skipped when playwright or its WebKit is missing."""
+"""The Page renderer in /app/ (WebKit, on FakeLive): every page of controls is one panel, a map of the MiniLab 3 with
+all 20 slots in their places. Mapped slots are live, the rest are greyed, and nothing overflows at 360, 375, 390 and
+1280 px. Skipped when playwright or its WebKit is missing."""
 
 from __future__ import annotations
 
@@ -79,64 +80,116 @@ def open_page(browser, rig, width, spec, page_index=None):
     errors: list[str] = []
     pg.on("pageerror", lambda e: errors.append(str(e)))
     pg.goto(rig.url + "/app/")
-    pg.wait_for_selector("#pcs .pc")
+    pg.wait_for_selector("#panel .mc.live")
+    pg.wait_for_function(f"document.querySelector('#pagename').textContent === {json.dumps(spec['title'])}")
     pg.errors = errors  # type: ignore[attr-defined]
     return pg, reply
 
 
+THREE = {"title": "Three", "groups": [{"name": "g", "controls": [
+    {"target": "Kick bus/volume"}, {"target": "Kick bus/pan"}, {"target": "Kick bus/mute"}]}]}  # fmt: skip
+
 OVERFLOW = """() => {
   const out = [];
-  document.querySelectorAll('#pcs .card, #pcs .pc, #pcs .pair, #minilab, #minilab .s, #hbot button, #pcs select').forEach(e => {
+  document.querySelectorAll('#panel, #panel .mc, #panel .w, #mlpages button, #hbot button').forEach(e => {
     const r = e.getBoundingClientRect();
     if (r.width && (r.right > innerWidth + 0.5 || r.left < -0.5)) out.push((e.className || e.tagName) + ' ' + Math.round(r.right));
   });
-  const clipped = [...document.querySelectorAll('#pcs .pc > .l')].filter(l => l.scrollWidth > l.clientWidth + 1).map(l => l.textContent);
-  const wide = [...document.querySelectorAll('#pcs .card')].filter(c => c.scrollWidth > c.clientWidth + 1).length;
-  return {page: document.documentElement.scrollWidth - innerWidth, out, clipped, wide};
+  const clipped = [...document.querySelectorAll('#panel .mc.live > .l')].filter(l => l.scrollHeight > l.clientHeight + 1).map(l => l.textContent);
+  const small = [...document.querySelectorAll('#panel .mc .w')].map(w => w.getBoundingClientRect())
+    .filter(r => r.width < 44 || r.height < 44).length;
+  return {page: document.documentElement.scrollWidth - innerWidth, out, clipped, small,
+          slots: document.querySelectorAll('#panel .mc').length};
 }"""
 
+# Where the blocks sit: [knob 1, knob 4, knob 5, fader 1, pad 1, pad 4, pad 5, pad 8] as {x, y} of their centres.
+PLACES = """() => ['k1','k4','k5','f1','b1','b4','b5','b8'].map(s => {
+  const r = document.querySelector(`#panel .mc[data-slot="${s}"]`).getBoundingClientRect();
+  return {x: r.left + r.width / 2, y: r.top + r.height / 2}; })"""
 
-@pytest.mark.parametrize("width", [360, 390, 1280])
+
+def drag(pg, selector, dx, dy):
+    box = pg.locator(selector).bounding_box()
+    x, y = box["x"] + box["width"] / 2, box["y"] + box["height"] / 2
+    pg.mouse.move(x, y)
+    pg.mouse.down()
+    pg.mouse.move(x + dx, y + dy, steps=5)
+    pg.mouse.up()
+
+
+def on_page(pg, n):
+    pg.wait_for_function(f"window.zpkt.S.state.page === {n} && !window.zpkt.S.pend")
+
+
+@pytest.mark.parametrize("width", [360, 375, 390, 1280])
 def test_the_biggest_page_overflows_nothing_at_this_width(browser, rig, width):
-    pg, _ = open_page(browser, rig, width, big_spec())
+    pg, reply = open_page(browser, rig, width, big_spec())
+    layout = rig.command("page.layout", {"id": reply["id"]})[1]["layout"]
+    assert len(layout["panels"]) >= 2
     seen = set()
-    for _ in range(4):  # a phone swipes through its pages of cards
-        seen.update(pg.eval_on_selector_all("#pcs .card", "els => els.map(e => e.getAttribute('aria-label'))"))
-        assert pg.evaluate(OVERFLOW) == {"page": 0, "out": [], "clipped": [], "wide": 0}
-        nxt = pg.locator('[data-swipe="1"]')
-        if not nxt.count() or nxt.is_disabled():
-            break
-        nxt.click()
-    assert seen == {"Sub", "Knock", "Glue", "Bus"}
+    buttons = pg.locator("#mlpages button")
+    assert buttons.count() == len(layout["panels"])
+    for k in range(buttons.count()):
+        if k:
+            buttons.nth(k).click()
+            on_page(pg, int(buttons.nth(k).get_attribute("data-page")))
+        seen.update(pg.eval_on_selector_all("#panel .mc .g", "els => els.map(e => e.textContent).filter(Boolean)"))
+        assert pg.evaluate(OVERFLOW) == {"page": 0, "out": [], "clipped": [], "small": 0, "slots": 20}
+    assert seen == {"Sub", "Knock", "Glue", "Bus"}  # the group is a small caption on its controls
     assert pg.errors == []  # type: ignore[attr-defined]
 
 
-def test_a_phone_swipes_cards_and_a_desktop_shows_them_all(browser, rig):
-    phone, _ = open_page(browser, rig, 390, big_spec())
-    assert phone.locator("#swipe").is_visible() and phone.locator("#pcs .card").count() == 2
-    phone.click('[data-swipe="1"]')
-    assert phone.eval_on_selector_all("#pcs .card", "els => els.map(e => e.getAttribute('aria-label'))") == [
-        "Glue",
-        "Bus",
-    ]
-    desk = browser.new_page(viewport={"width": 1280, "height": 900})
-    desk.goto(rig.url + "/app/")
-    desk.wait_for_selector("#pcs .card")
-    assert desk.locator("#swipe").count() == 0 and desk.locator("#pcs .card").count() == 4
+def test_three_mapped_controls_are_twenty_slots_with_seventeen_greyed(browser, rig):
+    pg, _ = open_page(browser, rig, 375, THREE)
+    assert pg.locator("#panel .mc").count() == 20
+    assert pg.locator("#panel .mc.live").count() == 3 and pg.locator("#panel .mc.off").count() == 17
+    live = pg.eval_on_selector_all("#panel .mc.live", "els => els.map(e => e.dataset.slot).sort()")
+    assert live == ["b1", "f1", "k1"]
+    assert pg.locator("#mlpages").count() == 0  # one MiniLab page: no numbered buttons
+    # a greyed slot is in its place, says what it is to a screen reader, and is not a control
+    k6 = pg.locator('#panel .mc[data-slot="k6"]')
+    assert k6.get_attribute("aria-disabled") == "true"
+    assert k6.locator(".w").get_attribute("aria-label") == "Knob 6: not mapped"
+    assert pg.locator('#panel .mc[data-slot="f2"] .w').get_attribute("aria-label") == "Fader 2: not mapped"
+    assert pg.locator('#panel .mc[data-slot="b3"] .w').get_attribute("aria-label") == "Pad 3: not mapped"
+    assert pg.locator("#panel .mc.off [role=slider], #panel .mc.off button").count() == 0
+    assert float(k6.evaluate("e => getComputedStyle(e).opacity")) < 0.6
+    track = rig.track("Kick bus")
+    sent: list[str] = []
+    pg.on("request", lambda r: sent.append(r.post_data or "") if r.url.endswith("/api/command") else None)
+    before, entries = track.mixer_device.panning.value, len(rig.desk.history.entries)
+    drag(pg, '#panel .mc[data-slot="k6"] .w', 0, -40)  # a greyed knob: nothing is sent
+    drag(pg, '#panel .mc[data-slot="f3"] .w', 0, -40)
+    pg.locator('#panel .mc[data-slot="b5"] .w').click()
+    pg.wait_for_timeout(150)
+    assert sent == [] and len(rig.desk.history.entries) == entries
+    drag(pg, '#panel .mc[data-slot="k1"] .w', 0, -40)  # the mapped knob: mix.set
+    pg.wait_for_function("window.zpkt.S.hear.changed >= 1")
+    assert sent and all(json.loads(b)["kind"] == "mix.set" for b in sent)
+    assert json.loads(sent[-1])["args"]["norms"][0][0] == "Kick bus/pan"
+    assert track.mixer_device.panning.value > before
+    assert pg.errors == []  # type: ignore[attr-defined]
 
 
-def test_widgets_follow_the_rules_and_the_minilab_map_is_the_assignment(browser, rig):
-    pg, reply = open_page(browser, rig, 1280, big_spec())
-    kinds = pg.eval_on_selector_all(
-        "#pcs .pc", "els => els.map(e => e.className.split(' ').find(c => c.startsWith('w-')))"
-    )
-    assert {"w-fader", "w-knob", "w-key", "w-segmented", "w-list", "w-macro"} <= set(kinds)
-    assert pg.locator("#pcs .pair").count() == 2  # an EQ band in each of the first two cards
-    assert pg.locator("#pcs .pc .rg").count() >= 1  # the range stripe
+def test_the_panel_sits_like_the_minilab_and_folds_on_a_phone(browser, rig):
+    pg, reply = open_page(browser, rig, 1280, THREE)
+    k1, k4, k5, f1, b1, b4, b5, b8 = pg.evaluate(PLACES)
+    assert k1["x"] < k4["x"] < f1["x"] and abs(k1["y"] - k4["y"]) < 2  # knobs 1-4 in a row, the faders to their right
+    assert k5["y"] > k1["y"] + 40 and abs(k5["x"] - k1["x"]) < 2  # knobs 5-8 under them
+    assert (
+        b1["y"] > k5["y"] + 40 and abs(b1["y"] - b8["y"]) < 2 and b1["x"] < b4["x"] < b5["x"] < b8["x"]
+    )  # one row of 8
     layout = rig.command("page.layout", {"id": reply["id"]})[1]["layout"]
     want = {s["slot"] for s in layout["minilab"][0]["slots"]}
-    shown = set(pg.eval_on_selector_all("#minilab .s.on", "els => els.map(e => e.dataset.s)"))
+    shown = set(pg.eval_on_selector_all("#panel .mc.live", "els => els.map(e => e.dataset.slot)"))
     assert shown == want and want  # the screen shows what the hardware does
+    phone = browser.new_page(viewport={"width": 375, "height": 900})
+    phone.goto(rig.url + "/app/")
+    phone.wait_for_selector("#panel .mc.live")
+    k1, k4, k5, f1, b1, b4, b5, b8 = phone.evaluate(PLACES)
+    # folded: knobs, pads 1-4, faders, pads 5-8, each block the full width
+    assert k1["y"] < k5["y"] < b1["y"] < f1["y"] < b5["y"]
+    assert abs(b1["x"] - b5["x"]) < 2 and abs(b4["x"] - b8["x"]) < 2 and abs(k1["x"] - f1["x"]) < 2
 
 
 def test_touching_the_widgets_moves_live(browser, rig):
@@ -146,24 +199,88 @@ def test_touching_the_widgets_moves_live(browser, rig):
     pg, _ = open_page(browser, rig, 390, spec)
     song_track = rig.track("Kick bus")
     before = song_track.mixer_device.volume.value
-    box = pg.locator('.pc[data-key="Kick bus/volume"] .w').bounding_box()
-    x, y = box["x"] + box["width"] / 2, box["y"] + box["height"] / 2
-    pg.mouse.move(x, y)
-    pg.mouse.down()
-    pg.mouse.move(x, y - 40, steps=5)
-    pg.mouse.up()
+    drag(pg, '.mc.fader[data-key="Kick bus/volume"] .w', 0, -40)
     pg.wait_for_function("window.zpkt.S.hear.changed >= 1")
     assert song_track.mixer_device.volume.value != before
-    pg.click('.pc[data-key="Kick bus/mute"] button')
+    pad = pg.locator('.mc.pad[data-key="Kick bus/mute"] button')
+    assert pad.get_attribute("aria-pressed") == "false"
+    pad.click()
     pg.wait_for_function("window.zpkt.S.hear.changed >= 2")
     assert song_track.mute is True
-    pg.click('.pc[data-key="Kick bus/desk Glue/Ratio"] .seg .key >> nth=2')
-    pg.select_option('.pc[data-key="Kick bus/desk Glue/Attack"] select', "3")
+    pg.wait_for_selector('.mc.pad.on[data-key="Kick bus/mute"] button[aria-pressed="true"]')
     glue = next(d for d in song_track.devices if d.name == "desk Glue")
     param = {p.name: p for p in glue.parameters}
+    ratio = pg.locator('.mc.knob[data-key="Kick bus/desk Glue/Ratio"]')
+    assert int(ratio.get_attribute("data-steps")) >= 2  # a choice is a knob with stops
+    drag(pg, '.mc.knob[data-key="Kick bus/desk Glue/Ratio"] .w', 0, -200)
+    pg.wait_for_function("window.zpkt.S.hear.changed >= 3")
+    assert param["Ratio"].value == param["Ratio"].max
+    attack = pg.locator('.mc.knob[data-key="Kick bus/desk Glue/Attack"] .w')  # the keyboard: one stop up
+    was = param["Attack"].value
+    attack.focus()
+    pg.keyboard.press("ArrowUp")
     pg.wait_for_function("window.zpkt.S.hear.changed >= 4")
-    assert param["Ratio"].value == param["Ratio"].max and param["Attack"].value == 3
+    assert param["Attack"].value == was + 1
     assert pg.errors == []  # type: ignore[attr-defined]
+
+
+def test_the_range_and_the_macro_are_drawn_in_their_slots(browser, rig):
+    pg, _ = open_page(browser, rig, 1280, big_spec())
+    assert pg.locator("#panel .mc .rg").count() >= 1  # the stretch worth playing
+    pg.click("#mlpages button >> nth=1")
+    pg.wait_for_selector("#panel .mc.macro")
+    macro = pg.locator("#panel .mc.macro")
+    assert macro.count() == 1 and macro.locator(".l").inner_text() == "Darker"
+    assert macro.locator("[role=slider]").count() == 0  # a macro is turned on the MiniLab
+
+
+def test_a_page_of_two_minilab_pages_has_numbered_buttons_and_a_phone_swipes(browser, rig):
+    pg, _ = open_page(browser, rig, 390, big_spec())
+    first = pg.evaluate("window.zpkt.S.state.page")
+    nums = pg.locator("#mlpages button")
+    assert nums.count() >= 2 and nums.nth(0).inner_text() == "1" and "on" in nums.nth(0).get_attribute("class")
+    two = int(nums.nth(1).get_attribute("data-page"))
+    drag(pg, '#panel .mc[data-slot="k1"] .w', -140, 4)  # swipe left on a live knob: the next MiniLab page, no move
+    on_page(pg, two)
+    assert pg.evaluate("window.zpkt.S.hear.changed") == 0
+    assert "on" in pg.locator("#mlpages button").nth(1).get_attribute("class")
+    assert pg.locator("#pagename").inner_text() == "Everything at once"
+    drag(pg, "#panel .mp1", 140, 0)  # swipe right: back
+    on_page(pg, first)
+    drag(pg, "#panel .mp1", 140, 0)  # no page before the first: nothing happens
+    pg.wait_for_timeout(150)
+    assert pg.evaluate("window.zpkt.S.state.page") == first and pg.evaluate("window.zpkt.S.pend") is None
+    wide = browser.new_page(viewport={"width": 1280, "height": 900})
+    wide.goto(rig.url + "/app/")
+    wide.wait_for_selector("#mlpages button")
+    drag(wide, '#panel .mc[data-slot="k1"] .w', -140, 0)  # a desktop does not swipe
+    wide.wait_for_timeout(150)
+    assert wide.evaluate("window.zpkt.S.state.page") == first
+
+
+def test_the_desks_own_pages_are_the_same_panel(browser, rig):
+    pg = browser.new_page(viewport={"width": 375, "height": 900})
+    errors: list[str] = []
+    pg.on("pageerror", lambda e: errors.append(str(e)))
+    pg.goto(rig.url + "/app/")
+    pg.wait_for_selector("#panel .mc.live")
+    desk = rig.get("/api/desk")[1]
+    every = {f"k{i}" for i in range(1, 9)} | {f"f{i}" for i in range(1, 5)} | {f"b{i}" for i in range(1, 9)}
+    greyed = 0
+    for n in (0, 1):
+        if n:
+            pg.evaluate(f"window.zpkt.armPage({n})")
+            on_page(pg, n)
+        mapped = set(desk["pages"][n]["controls"])
+        assert pg.locator("#panel .mc").count() == 20
+        off = set(pg.eval_on_selector_all("#panel .mc.off", "els => els.map(e => e.dataset.slot)"))
+        assert off == every - mapped
+        greyed += len(off)
+        fit = pg.evaluate(OVERFLOW)  # the desk's long names ("Chord and splash bus volume") are cut after two lines
+        assert {**fit, "clipped": []} == {"page": 0, "out": [], "clipped": [], "small": 0, "slots": 20}
+    assert greyed > 0  # a desk page that leaves slots free shows them greyed
+    assert pg.locator("#pcs, .legacy, .card").count() == 0  # one renderer, one look
+    assert errors == []
 
 
 def test_a_missing_target_is_a_greyed_control_that_does_not_move(browser, rig):
@@ -180,16 +297,14 @@ def test_a_missing_target_is_a_greyed_control_that_does_not_move(browser, rig):
     rig.desk.restart_pager()
     pg = browser.new_page(viewport={"width": 390, "height": 900})
     pg.goto(rig.url + "/app/")
-    pg.wait_for_selector("#pcs .pc")
+    pg.wait_for_selector("#panel .mc.live")
     pg.click('[aria-label="Ghosts"]')
-    pg.wait_for_selector(".pc.missing")
-    grey = pg.locator(".pc.missing")
+    pg.wait_for_selector(".mc.missing")
+    grey = pg.locator(".mc.missing")
     assert grey.count() == 1 and "Ghost" in grey.get_attribute("title")
     assert grey.get_attribute("aria-disabled") == "true"
+    assert grey.locator(".v").inner_text() == "not in this set"  # not the same words as an unmapped slot
+    assert pg.locator("#panel .mc").count() == 20 and pg.locator("#panel .mc.off").count() == 18
     before = rig.desk.history.entries[:]
-    box = grey.locator(".w").bounding_box()
-    pg.mouse.move(box["x"] + box["width"] / 2, box["y"] + box["height"] / 2)
-    pg.mouse.down()
-    pg.mouse.move(box["x"] + box["width"] / 2, box["y"] - 30, steps=4)
-    pg.mouse.up()
+    drag(pg, ".mc.missing .w", 0, -30)
     assert rig.desk.history.entries == before

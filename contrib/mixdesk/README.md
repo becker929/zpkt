@@ -147,6 +147,25 @@ last on Main (once; it passes the audio through untouched). It measures Main in 
 the curve every frame, and draws it on the renders' scale (both are the mid signal's power per band), so W can be
 read against A, B and C as you turn knobs. With A, B or C monitored, the blue curve is that render as Live plays it.
 
+## Listen: Live's output as a stream
+
+`listen.py install` puts a second Max for Live device, "zpkt listen", last on Main (once; it passes the audio through
+untouched, like the meter). While asked, it sends what reaches it to this Mac as PCM, so the app can let me hear
+Live in the browser. It makes and changes no sound: the stream is Live's own output.
+
+- **How.** `jit.catch~` collects the stereo signal and `jit.net.send` sends it over TCP to 127.0.0.1:8988, one
+  matrix of float32 per audio buffer of Live's. `zpkt.live.listen` reads it (`ListenSource`: `start()`, `read()`,
+  `status()`, `stop()`) and gives interleaved signed 16-bit little-endian stereo at Live's sample rate, which the
+  device says on the same connection.
+- **Only while asked.** The device hears OSC on UDP 8989: `/listen 1` starts it, `/listen 0` stops it, and it stops
+  by itself three seconds after the last `/listen 1`. The reader says `/listen 1` once a second. Stopped, the device
+  sends nothing.
+- **It needs Live's audio engine.** Max's clock in Live runs off the audio engine. With no audio device chosen in
+  Live (`zpkt live rig output` shows "No Device") the device hears nothing and sends nothing.
+- `listen.py check` records five seconds to a WAV in a temp folder and prints the peak, the RMS and the packet
+  timing. `listen.py make --debug` writes a build that also reports what its objects say on UDP 8991 and takes
+  `/click` (one full-scale sample into the stream, never into Live's output), which is how the delay was measured.
+
 ## Make a surface
 
 The last page on the left, **＋ Make a surface**: say what you want under your hands and press Make surface.

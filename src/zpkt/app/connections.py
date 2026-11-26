@@ -114,6 +114,21 @@ def bind_udp(port: int) -> socket.socket:
     return s
 
 
+def open_listen_sockets(port: int) -> tuple[socket.socket, socket.socket]:
+    """The two sockets of zpkt.live.listen's ListenSource, which closes them when it stops: a TCP socket listening on
+    localhost `port` (the "zpkt listen" device connects to it and sends Live's sound) and a UDP socket to send the
+    device its "/listen" messages from. Raises OSError when the port is taken (another reader is listening)."""
+    server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    try:
+        server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)  # so the next capture can bind at once
+        server.bind(("127.0.0.1", port))
+        server.listen(1)
+    except OSError:
+        server.close()
+        raise
+    return server, socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+
+
 class MeterSocket:
     """The meter's UDP socket, bound when the first read asks, so building the app binds nothing."""
 

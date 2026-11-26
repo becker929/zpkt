@@ -31,6 +31,7 @@ class Turn:
     system: str = ""
     extra_dirs: list[Path] = field(default_factory=list)
     tools: ToolServer | None = None
+    engine_session: str = ""  # Claude's own session id when it is not the session's (after a compaction)
     mark_started: Callable[[str], None] = lambda engine_id: None  # the engine now has a conversation; its own id
     ask_permission: AskPermission = lambda tool, options: None
 

@@ -32,7 +32,8 @@ TOOLS: tuple[Tool, ...] = (
         "Make a page of controls for the open set. It is checked against Live's own names and ranges and saved only "
         "when it has no error. `spec` has a title and groups of controls; each control has a `target` (a state key "
         "such as 'Kick bus/volume') and may say its `role`, `weight` (1 to 3), `label` and `range`. It cannot say "
-        "widget, colour, size or MIDI slot.",
+        "widget, colour, size or MIDI slot. The reply has `markdown`, a link to the page (/app/#page=<id>): put it in "
+        "your answer so the person can open the page on the Desk and the MiniLab.",
         {
             "type": "object",
             "properties": {"spec": {"type": "object", "description": "The page spec."}},

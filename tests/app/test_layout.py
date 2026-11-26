@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import pytest
 
-from tests.app.test_song import song_rig  # noqa: F401  (the Song strip draws real lanes)
+from tests.app.test_song import song_rig  # noqa: F401  (the rig with the Song adapter)
 
 playwright_sync = pytest.importorskip("playwright.sync_api")
 
@@ -17,7 +17,7 @@ WIDTHS = [360, 390, 768, 1200, 1600]
 APP_MEASURE = """() => {
   const vis = e => { const r = e.getBoundingClientRect(), s = getComputedStyle(e);
     return r.width > 0 && r.height > 0 && s.visibility !== 'hidden' && !e.closest('.sheet:not(.on)'); };
-  const touch = [...document.querySelectorAll('#app button, #app select, #app [role=slider]')].filter(vis).map(e => {
+  const touch = [...document.querySelectorAll('#app button, #app select, #app [role=slider], #tabs a')].filter(vis).map(e => {
     const r = e.getBoundingClientRect();
     return {n: (e.id || e.className || e.tagName) + '', w: Math.round(r.width), h: Math.round(r.height)}; });
   const cards = [...document.querySelectorAll('#app .ctl, #app .pc, #app .pair')].filter(vis)
@@ -44,7 +44,7 @@ DESKTOP_MEASURE = """() => {
   return {columns: used.length,
           width: used.length ? (Math.max(...used.map(r => r.right)) - Math.min(...used.map(r => r.left))) / innerWidth : 0,
           spectrum: spc ? spc.getBoundingClientRect().height : 0, gaps,
-          tabs: [...document.querySelectorAll('#tabs button')].filter(vis).length};
+          tabs: [...document.querySelectorAll('#tabs button, #tabs a')].filter(vis).length};
 }"""
 
 OLD_MEASURE = """() => {
@@ -57,7 +57,7 @@ OLD_MEASURE = """() => {
 
 @pytest.fixture()
 def rig(song_rig):  # noqa: F811
-    """The app with the Song adapter on it, so the desktop's Song strip has lanes to draw."""
+    """The app with the Song adapter on it, as `zpkt app` starts it."""
     return song_rig.rig
 
 
@@ -78,7 +78,7 @@ def open_app(browser, rig, width: int, path: str = "/app/", wait: str = ".ctl .w
     pg.on("pageerror", lambda e: errors.append(str(e)))
     pg.goto(rig.url + path)
     pg.wait_for_selector(wait)
-    pg.wait_for_timeout(300)  # the song strip and the side lists load after the first draw
+    pg.wait_for_timeout(300)  # the side lists load after the first draw
     return pg, errors
 
 
@@ -100,7 +100,7 @@ def test_app_desktop_uses_three_columns_and_the_width(browser, rig, width):
     assert got["width"] >= 0.85
     assert got["spectrum"] >= 200
     assert got["gaps"] == []
-    assert got["tabs"] < 2, "a tab bar only when there is more than one tab"
+    assert got["tabs"] == 4, "the same four tabs at every width"
 
 
 @pytest.mark.parametrize("width", [360, 390])
@@ -108,7 +108,7 @@ def test_app_phone_is_one_column_with_its_tabs(browser, rig, width):
     pg, _ = open_app(browser, rig, width)
     got = pg.evaluate(DESKTOP_MEASURE)
     assert got["columns"] == 1  # #main only
-    assert got["tabs"] >= 2
+    assert got["tabs"] == 4
 
 
 def test_app_tablet_has_two_columns(browser, rig):

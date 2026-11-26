@@ -202,7 +202,7 @@ def test_the_app_starts_web_and_agents_by_name_and_ask_data_goes_where_the_envir
     from zpkt.app.desk import Desk
     from zpkt.live.testing import FakeLive, hw002_like
 
-    assert parse_args([]).adapters == "web,api,song,agents"
+    assert parse_args([]).adapters == "web,api,song,agents,listen"
     monkeypatch.setenv("ZPKT_ASK_DIR", str(tmp_path / "ask-data"))
     desk = Desk(make_settings(tmp_path), connections=LiveConnections(FakeLive(hw002_like()), FakeMeter()))
     web, agents = adapters.create(["web", "agents"], AppContext(desk.bus, desk, desk.settings))

@@ -8,7 +8,7 @@ are libraries and never open one.
 
 ## What is in it
 
-`zpkt app` starts four adapters by default (`web,api,song,agents`; `midi` is off unless named). Where to look:
+`zpkt app` starts five adapters by default (`web,api,song,agents,listen`; `midi` is off unless named). Where to look:
 
 | Want | Where | Section |
 |---|---|---|
@@ -17,15 +17,17 @@ are libraries and never open one.
 | Versions of the mix side by side | `/app/` Options tab | Options and the one render queue |
 | The arrangement as lanes, Mix 1, transitions, Build in Live | `/app/` Song tab; the arranger under `/app/song` | The Song |
 | Chat with Claude and Gemini | `/app/ask/` | Ask |
+| Live's sound in the browser | the Listen button; `/app/listen` | Listen |
 | The MiniLab 3 | `--adapters web,midi` | The MiniLab |
 | The `zpkt` command, the booth, the demos | `127.0.0.1:8984`, `/api/v1/` | The API and its clients |
 
-The `/app/` shell links to Ask: the Ask tab on a phone or tablet, the Ask button under Versions on a wide screen.
+Every page has the same tab bar: Desk, Song, Options, Ask. It is at the bottom on a phone and at the top from 700 px
+up. Ask is a tab like the others, at every width.
 
 ## How it fits
 
 ```
-adapters        web · API · Ask (agents) · Song · MiniLab (off unless named)   turn what they hear into Commands
+adapters        web · API · Ask (agents) · Song · Listen · MiniLab (off unless named)   turn what they hear into Commands
    |
 the bus         bus.py       who, the checks, one dispatch table, a log
    |
@@ -72,6 +74,9 @@ port, 8984 (below). `ZPKT_DESK_URL` names the web server (pages, `/app/`), `ZPKT
   were.
 - `/app/` is the new shell: the Hear bar (bar, spectrum from the meter, "N changed", what you hear, Play, Now / Pin /
   Ref, undo, redo, history) and the Desk. It reads the same state through `/events?app=1`.
+- `/app/shell/<file>` serves what every page shares, from `static/shell/`: `shell.css` (the tokens, the tab bar, the
+  loading line), `nav.js` (draws the tab bar), `controls.css` and `controls.js` (the panel: a page of controls as a
+  map of the MiniLab, see Pages) and `listen.js` (the Listen button, when it is there). The folder is flat. Only `.css`, `.js`, `.json` and `.svg` files are served, and only by a plain file name.
 - `POST /api/command` takes any command: `{"kind": "mix.set", "args": {"norms": [["Kick bus/volume", 0.4]]}}`.
   `GET /api/commands` lists them. The old `POST /api/...` paths are these commands under their old names.
 
@@ -82,6 +87,31 @@ separated). Any other `Host` gets 403, reads included. That stops DNS rebinding:
 the proxy's `X-Forwarded-Host` and `X-Forwarded-Proto` (`web.host_allowed`, `web.cross_site`). A write with no `Origin`
 (curl, a script) needs a Bearer token from the app's token store, as on the API, or it gets 401. Programs should use
 the API on 8984. Mounted routes (Ask, the Song) hold their own session tokens.
+
+## The shell: one look, one tab bar, one way to wait
+
+The look is the chat's: bone and black, one lime accent, a quiet ceramic card, and only the controls are physical.
+`shell.css` holds the tokens under the names `app.html` and Ask already used (`--bg`, `--panel`, `--ink`, `--acc` ...).
+A page links it and defines none of them itself.
+
+- **The tab bar.** A page has `<nav id="tabs" data-current="desk|song|options|ask"></nav>` and loads `nav.js` right
+  after it. On `/app/` Desk, Song and Options are buttons (`data-t`) and switch in place; Options is a sheet over the
+  Desk or the Song. On any other page they are links to `/app/#desk`, `/app/#song` and `/app/#options`. Ask is always
+  a link to `/app/ask/`. `window.zpktNav.set(name)` marks the current tab. `nav.js` writes `data-at` (`top` from
+  700 px, else `bottom`) unless the page wrote it; the bar's parent must be a flex column.
+- **Addresses.** `/app/` opens on `#desk`, `#song` or `#options`, and keeps the address in step as I switch.
+  `/app/#page=<id>` opens the Desk on that saved Page. A Page that is saved but not on the desk gets a plain message.
+- **Waiting.** A page change takes about a second: the command waits its turn for Live, the pager swaps what the
+  MiniLab's controls mean, and only then does the `page` event come back. On the tap the button is marked
+  (`is-waiting`), a lime line runs across the top of the desk area (`.loads.is-loading`), and the old controls dim and
+  take no touch (anything with `data-stale` inside `.loads.is-pending`). The `page` event clears it. After 5 s, or when
+  the command is refused, a line says the page did not change, with Retry. The line also runs while the Song is read
+  and while it builds in Live. With reduced motion the line stands still.
+- **Listen.** The Hear bar's bottom row has `<span id="listen"></span>`, and the page loads `/app/shell/listen.js` as
+  a module. A missing file changes nothing.
+
+`tests/app/test_shell_static.py` checks the route; `tests/app/test_shell_nav.py` checks the tabs, the addresses and
+the waiting in WebKit.
 
 ## The API and its clients
 
@@ -98,9 +128,24 @@ need an Option you picked (`ZPKT_OPTION=<id>`). Which set a job is for, and the 
 ## Options and the one render queue
 
 An Option is a set of Versions of the mix, made to be heard side by side. I look at them in the Options sheet of
-`/app/` (the Options tab): a grid of Versions with their loudness and their gap to the base. Tapping one puts its
-numbers and spectrum on the Hear bar. "Pick" puts a Version's values on the mix as one move, stamped `you`, which one
-undo takes back.
+`/app/` (the Options tab). The sheet says what it is in its own words, so nobody needs this page to read it:
+
+- A line under the title says what the sheet is for. With no Options it says what one is and the two ways to get one
+  from the desk (ask in the Ask tab for a suggestion; render a Mix 2 batch from the Song tab's Arranger).
+- A row of Options to choose from, each with its state in words ("Rendering version 2 of 3", "3 versions ready",
+  "Suggestion, not applied yet"). One sentence under it says where the chosen one came from. A suggestion shows who
+  made it and why.
+- The Versions of the chosen Option, each with its loudness and how much louder or quieter it is than the first.
+  Tapping one selects it: its numbers and spectrum go on the Hear bar, and the card says "Selected".
+- A panel for the selected Version. "Play this version" plays its rendered file in the page (not through Live);
+  tapping another Version while it plays switches at the same spot. Levels are not matched. Under it is what Pick
+  will set: each control, where it is now, where it goes. A Version with no settings says why it cannot be picked.
+- "Pick" puts the Version's values on the mix as one move, stamped `you`. The panel then says how many controls
+  changed and shows an Undo button, until something else changes the mix. One undo takes the pick back.
+- What an agent suggested has one Version and is not rendered, so the sheet shows its changes and no grid.
+
+The values in the list of changes are Live's raw numbers, with the control's current text beside them ("reads
+0.0 dB now"). The app does not yet know the text of a value a control is not at.
 
 There is one store of Options, `renders.py`'s. What an agent proposes (`options.propose`, older name `option.propose`: a title, a reason and its
 moves, kept in `options.json` in the Ask folder) is listed there with the rendered ones, as an Option with one
@@ -155,23 +200,41 @@ SysEx back: the display, the pad LEDs and the knob rings.
 A Page is what an agent writes for "I want to change this": groups of controls with a role and a weight, and no pixels
 (`zpkt.live.page`). One renderer draws it, and the same spec gives the MiniLab its assignment.
 
-**Controller pages look like the controller** (Anthony's rule, 25 November 2026). The desk's MiniLab pages and the
-small MiniLab map under a Page sit as the MiniLab 3 does: knobs 1–4 over 5–8, the four faders to their right, the 8
-pads in one row below. Where 8 columns of 44 px targets do not fit (the desk narrower than 400 px: a phone), the desk
-folds in half: knobs over pads 1–4, then faders over pads 5–8.
+**Every page of controls is one panel, and the panel is a map of the MiniLab 3** (Anthony's rule, 25 November 2026:
+controller pages look like the controller). One renderer draws them all: a saved Page, the mix desk's own MiniLab
+pages (`contrib/mixdesk/desk.json`) and a made surface.
+
+- **All 20 slots are always drawn, each in its physical place**: knobs 1–4 over 5–8, the four faders to their right,
+  the 8 pads in one row below. Where 8 columns of 44 px targets do not fit (the panel's own box is 440 px or less: a
+  phone, and a 768 px tablet beside the Hear bar) it folds in half: knobs over pads 1–4, then faders over pads 5–8.
+- **A mapped slot is a live control.** A knob or a fader is dragged up and down, or moved with the arrow keys; a
+  pad is a key. It shows its label and its value. When a panel holds more than one group, each control has its
+  group as a small caption, and neighbouring groups alternate a faint tint. A choice (a list of items) on a knob is
+  a knob with stops.
+- **An unmapped slot is drawn in the same place, greyed.** It takes no touch and says its hardware name ("Knob 6:
+  not mapped"). A target the open set lacks keeps its slot, greyed, and says "not in this set". A macro is drawn in
+  its slot but is turned on the MiniLab only.
+- **A Page that needs more than one MiniLab page** has numbered buttons above the panel. On a phone (under 700 px) a
+  sideways swipe on the panel goes to the next or the previous one. Both wait for Live like any page change (Waiting,
+  above). The first 6 px of a touch decide whether it moves a control or is a swipe.
+- **The look is the chat's**: a ceramic card, a machined knob with a lime arc, a fader in a slot, pads as keys. The
+  drawing is `static/shell/controls.js` (`window.zpktControls`: `panel(slots, attrs)`, `slot(model)`, `set(el, n)`,
+  `hwName(slot)`) and the styles are `static/shell/controls.css`, both served under `/app/shell/`. They are a copy of
+  the chat's drawings in `static/ask/zpkt/`, with values as places 0 to 1. Any page can load them.
 
 - `zpkt page make SPEC.json` (or `-` for standard input) sends the spec to the running app. `zpkt page lint` only
   checks it. The command goes to `POST /api/agent/command`, so the app stamps it `who=agent`; an agent can make pages
   but cannot move Live without approval.
 - The linter is the gate. A rejected spec answers 422 with the reasons, nothing is saved, and the agent repairs it.
 - A good one is saved as `<sets_dir>/pages/<set>/<id>.json` and as one made surface per MiniLab page, so the pager in
-  Live and the old desk take it too. The commands are `page.make`, `page.lint` and `page.layout`; `GET /api/pages`
+  Live and the old desk take it too. The commands are `page.make`, `page.lint`, `page.layout` and `page.open` (open a saved page by id); `GET /api/pages`
   lists the saved pages.
 - "Make a surface" on the old desk calls `page.make`: it now asks Claude for a Page. An answer in the old slot form
   is still accepted.
-- `/app/` draws a Page from `page.layout` (the layout rules are `zpkt.live.page_layout`): cards for groups,
-  heaviest first, widgets by the parameter's kind, a phone swiping cards when there are more than 12 controls, and
-  the MiniLab map under the cards. A target the open set lacks is drawn greyed.
+- `/app/` draws a saved Page from `page.layout` (the rules are `zpkt.live.page_layout`). Its `panels` list has one
+  panel per MiniLab page, each with all 20 slots in the hardware's order; a slot names its control (`ref`), group
+  and tint, or only its hardware name. The desk's own pages have no layout: the shell builds the same slots from
+  `/api/desk` and the values the pager reports.
 
 ## The Song
 
@@ -196,37 +259,117 @@ routes from the same code (`contrib/arranger/server.py`'s route table), so nothi
 - Mix 2's renders still start the arranger's own worker (`mixset.py worker`), which opens its own connection to Live.
   That is a known debt: it takes its turn only by Live's own limits, not by the app's lock. Moving it onto the app's render queue is open work.
 
-`zpkt app` starts the Song with the web adapter (the default is `--adapters web,api,song,agents`). `ZPKT_ARRANGER_DIR` names another arranger
+`zpkt app` starts the Song with the web adapter (the default is `--adapters web,api,song,agents,listen`). `ZPKT_ARRANGER_DIR` names another arranger
 folder; `ARRANGER_DATA` the data, as before.
 
 ## Ask
 
 Ask is the chat with Claude and Gemini, ported from Zpkt web (Node, :8789, which keeps running untouched). It is the
-`agents` adapter, so it starts with `zpkt app` (it is in the default `--adapters web,api,song,agents`). The page is at `/app/ask/`.
+`agents` adapter, so it starts with `zpkt app` (it is in the default `--adapters web,api,song,agents,listen`). The page is at `/app/ask/`.
 
 - **Engines.** Claude Code runs as one `claude -p` process per turn. Gemini runs over ACP: one `gemini --acp`
   process, permission prompts you answer on the page (mode "Ask first"), and an estimated dollar cost for each turn.
   A session can change engine between turns: the other engine gets the turns it missed. Keys come only from the
   harness's secret lookup; nothing in Ask reads a key or a key file.
-- **Sessions.** Every event is appended to a file as it happens, so a run goes on when the page closes, and any
-  device can open the session and follow. Files are in Zpkt web's forms (`sessions.json`, `sessions/<id>.jsonl`,
-  `library.json`, `surface-state.json`, `workspaces.json`) in `ZPKT_ASK_DIR` (default
-  `~/_agent_scratch/zpkt-app/ask`). Point it at a copy of Zpkt web's data folder to carry its sessions over; old
-  `zpkt-surface` blocks still draw.
-- **Tools.** An agent has four tools and no others: make a page (the `page.draft` command, which takes the spec as `spec` and still accepts `page`: checked against Live,
-  saved only when clean, not put on the desk; the fuller `page.make` is for you and the CLI), read
-  the state (`desk.state`, older name `state.read`), read the last measurement, propose an Option (`options.propose`; a record in the Ask folder, `proposals.py`, held by the app's one
-  store of Options and listed in the Options sheet, where I pick it). They are app commands behind a small MCP server
-  (`python -m zpkt.app.ask.mcp`) that calls `POST /app/ask/api/tool` with the session's token. The bus tags them
-  `agent` and groups them by session. None moves Live, and an agent cannot name any other command.
-- **Also ported.** The work view, cards and the preset library, the failure budget (it stops a run that keeps
-  failing), project notes read to the agent and written after a turn (given a model to write with), attachments,
-  and files an agent points at.
-- **Not ported.** A card's Render, Grid and Pick buttons (`zpkt live panel`), the fast path, purpose lines, "Improve this
-  app", Reset Live, the password gate. The page hides what it cannot do.
+- **One long conversation.** Each workspace has one main conversation that goes on for good.
+  `GET /app/ask/api/main?workspace=<id>` returns it and makes it on first use. If older sessions exist, the most
+  recent becomes the main one. The rest are the archive: `GET /app/ask/api/archive` lists them and their streams
+  still read. The main conversation cannot be deleted.
+- **Paging.** `GET /app/ask/api/sessions/<id>/events?turns=20` gives the last 20 turns, `first`, `next` and `more`.
+  Add `&before=<first>` for the turns before. Follow new events with the stream from `next`.
+- **Compaction.** Before a turn, the app estimates the conversation in tokens (characters / 4). Past the engine's
+  budget (Claude 100,000, Gemini 200,000; `ZPKT_ASK_COMPACT_TOKENS=120000` or `claude=120000,gemini=300000`, 0 is
+  never) it compacts. The engine writes a summary of the older turns: what you want, decisions, pages made, open
+  questions, the project. The last 3 turns stay word for word. Every engine then starts afresh on the summary and
+  those turns (Claude with a new session id, Gemini with a new ACP session). The transcript gains a `compacting`
+  event and then a `compacted` event with `summary`, `keep_from`, `turns`, `tokens` and `pages`. The file on disk is
+  never cut. If the summary fails or takes over 3 minutes, the event says `failed` and the turn goes on with the
+  last turns only. Your message is never lost. The rules are in `ask/compaction.py`.
+- **Sessions.** Every event- **Tools.** An agent has four tools and no others: make a page (`page.draft`), read the state (`desk.state`, older
+  name `state.read`), read the last measurement, and propose an Option (`options.propose`; a record in the Ask
+  folder, `proposals.py`, held by the app's one store of Options and listed in the Options sheet, where I pick it).
+  They are app commands behind a small MCP server (`python -m zpkt.app.ask.mcp`) that calls
+  `POST /app/ask/api/tool` with the session's token. The bus tags them `agent` and groups them by session. None
+  moves Live, and an agent cannot name any other command.
+- **Links, not widgets.** An agent does not draw controls in the chat. It calls `make_page` and puts the reply's
+  link in its answer: `[Title](/app/#page=<id>)`. `page.draft` takes the spec as `spec` (and still `page`), checks
+  it against Live, and saves it only when clean, where `GET /api/pages` lists it. It does not put it on the desk.
+  Opening the link is my act: `/app/#page=<id>` sends the command `page.open {id}`, a move. That arms the page if it
+  is on the desk already. Otherwise it first puts it on the desk and the MiniLab, as `page.make` does.
+- **The page.** `/app/ask/` is one tab of the app. It loads `/app/shell/shell.css` and `/app/shell/nav.js` for the
+  one tab bar (last on a phone, under the composer), and `/app/shell/listen.js` for the Listen button in its header.
+  If the tab bar's file does not load, the page draws four plain links instead. It opens the folder's main
+  conversation: the last 20 turns, then the stream. Reaching the top fetches the 20 turns before. Earlier chats and
+  the folder choice are behind one button in the header. An earlier chat is read-only.
+- **What the page draws.** A `compacted` event is a quiet divider, "Earlier conversation summarised", that opens to
+  the summary. A link to `/app/#page=<id>` is a card: the title, a small still map of the MiniLab (the slots the
+  page uses are lit, the rest grey; it asks `page.layout`), and "Open on the Desk". With no such page it is the
+  title alone. An `audio` block is a player. An old `zpkt-surface` block or `surface` event is a stub that says to
+  ask for a page; the rendered files of its A/B are plain players.
+- **Also ported.** The work view, the failure budget (it stops a run that keeps failing), project notes read to the
+  agent and written after a turn (given a model to write with), attachments, and files an agent points at.
+- **Not ported, or removed.** Controls drawn in the chat, their MIDI arming, saved card values and the preset
+  library are gone (page code and routes): controls live on the Desk. Also not here: `zpkt live panel` renders, the
+  fast path, purpose lines, "Improve this app", Reset Live, the password gate.
 
 `tests/app/test_ask_*.py` run it with a scripted provider and stand-ins for `claude` and `gemini --acp`. No model,
 no key, no Live.
+
+## Listen
+
+Listen plays what Live is playing, in the browser. It is for when I am away from the Mac. It is the `listen`
+adapter, mounted at `/app/listen`, and it starts with `zpkt app`. Starting it only mounts the routes.
+
+- **The button.** `/app/shell/listen.js` draws one button into `<span id="listen"></span>`: headphones, with a small
+  tick that moves when sound arrives. Sound starts only from a tap. A tap on a greyed button says why it cannot play.
+  The choice is kept in the browser. Moving between `/app/` and `/app/ask/` loads a new document, so the sound
+  stops; the button then shows a dot and the first tap anywhere on the new page starts it again. Changing tabs
+  inside `/app/` does not stop it.
+- **Where the sound comes from.** Two captures, tried in this order. `GET /app/listen/status` says which one is in
+  use as `source`: `live device` or `screen capture`. `ZPKT_LISTEN_SOURCE` chooses: `auto` (the default: the device,
+  then the screen capture), `device` or `screen`. Either runs only while somebody listens and stops five seconds
+  after the last listener leaves.
+- **First: the Live device.** A Max for Live device, "zpkt listen", sits last on Main and sends Live's own samples to
+  the app (`listen/device.py` reads it through `zpkt.live.listen`). Put it there once with
+  `.venv/bin/python contrib/mixdesk/listen.py install`. It passes the audio through untouched and sends only while
+  asked. It sends at Live's sample rate (44.1 kHz on the rig). It needs no macOS permission. The app listens on
+  localhost TCP 8988 for the device and sends it `/listen 1` and `/listen 0` on UDP 8989; the sockets are opened in
+  `connections.py` and only while a capture runs. When a capture starts, the device gets about 1.5 seconds to connect
+  and say its rate. If it does not (it is not on Main, Live is not running, or Live has no audio output device
+  selected, so its clock stands still), the ports are freed and the screen capture is tried. A capture ends when the
+  device has been gone for four seconds, and the hub starts a new one.
+- **Fallback: the screen capture.** `listen/capture.swift` records Live's output with ScreenCaptureKit and writes raw
+  PCM at 48 kHz. No audio driver is installed. It is compiled on first use (about a second) into
+  `<data_dir>/cache/listen` (`ZPKT_LISTEN_DIR` names another folder); no binary is in the repo. macOS must allow
+  Screen & System Audio Recording (System Settings, Privacy & Security) for the app that started zpkt: the terminal,
+  or the Claude app when an agent started it. macOS gives that app one such capture at a time. A second one (another
+  copy of `zpkt app`, a run of the tool by hand) cuts the first off; the hub starts its capture again and the page
+  reconnects, so I hear a short gap.
+- **When neither works** the button is greyed and a tap says why, with the fix for each: put the device on Main and
+  see that Live has an audio output device; or allow the recording, naming the app.
+- **The sample rate is the capture's.** Nothing is resampled. The status gives it as `format.rate`, and
+  `stream.pcm` gives it in its `X-Audio-Format` header (`s16le;rate=44100;channels=2`). The page reads it there and
+  opens its audio output at that rate. A browser that will not open at that rate plays the MP3 stream. When a capture
+  has to start again and comes back at another rate (the device left and the screen capture took over), the
+  listeners are ended and their pages connect again at the new rate.
+- **The streams.** `GET /app/listen/stream.pcm` is 16-bit little-endian stereo. The page reads it with a streamed
+  `fetch` and plays it through an AudioWorklet that keeps about 70 ms in hand and throws away old sound when it
+  falls behind (more than 220 ms). Each time the buffer runs dry it keeps a little more, up to 250 ms.
+  `GET /app/listen/stream.mp3` is the same sound through ffmpeg for an `<audio>` element. The page uses it where the
+  worklet cannot run (a page not served over HTTPS, an old browser). It is several seconds late.
+  `GET /app/listen/status` says `available`, the `reason` if not, `listeners`, `capturing`, the `source` and the
+  `format`.
+- **Nothing is processed.** The page plays Live's samples as they are: no EQ, no effects, no gain. Loudness is the
+  phone's own volume. This is playback, within the sound rule (`contrib/docs/sound.md`).
+- **Measured** on the rig (25 November 2026). The Live device hands sound over about 12 ms after Live played it, at
+  44.1 kHz. The screen capture hands it over after about 50 ms (68 ms at worst) and its tool uses under 1 % of one
+  core. The page holds 50 to 100 ms on top of either (headless WebKit on the Mac itself), before the phone's own
+  output delay and the network. The device and the page have not been measured together, and an iPhone over the
+  tailnet is not measured yet.
+
+`tests/app/test_listen.py` runs the adapter with a made-up capture, and the device's capture against a stand-in device
+on free ports; `test_listen_page.py` taps the button in WebKit, at 48 kHz and at 44.1 kHz. The reader of the device is tested
+in `tests/live/test_listen.py`.
 
 ## Files that stay where they were
 
