@@ -303,3 +303,14 @@ def test_a_seek_and_a_tempo_keep_only_their_latest_and_a_plain_command_is_not_me
     assert [p.args for p in pending] == [{"action": "seek", "beat": 8}, {"bpm": 120}]
     with pytest.raises(ValueError, match="stream"):
         mapper.merge([], Submit("history.undo"))
+
+
+def test_a_pad_that_holds_a_compare_state_switches_it_and_the_other_pads_still_arm_pages():
+    cfg_pages = (PageView("Buses", 1), PageView("Kick: hotter?", 2, {"b7": 0, "b8": 1}))
+    on_it = view(page=1, pages=cfg_pages)
+    for name in ("a8", "b8"):  # both banks do the same
+        _, actions = run((hit(name, 100), on_it))
+        assert actions == [Submit("page.compare", {"page": 1, "slot": "b8"})]
+    assert run((hit("a8", 0), on_it))[1] == []  # a release does nothing
+    assert run((hit("a1", 100), on_it))[1][0] == Submit("page.arm", {"page": 0})  # pad 1 holds no state
+    assert run((hit("a8", 100), view(page=0, pages=cfg_pages)))[1] == []  # on another page pad 8 is just pad 8

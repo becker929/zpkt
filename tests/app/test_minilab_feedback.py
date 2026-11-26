@@ -64,3 +64,30 @@ def test_the_view_is_made_from_the_desks_state_and_leaves_out_controls_that_do_n
     assert view.pages == (PageView("A", 3), PageView("B", None))
     assert view.cfg() == {"pages": [{"name": "A", "pad": 3}, {"name": "B"}]}
     assert not view_from({**state, "values": {}}, (), {}).driving  # the pager reports nothing: the desk is not driving
+
+
+COMPARE = {
+    "pads": {"b7": 0, "b8": 1},
+    "states": [{"name": "as it is", "writes": [["Kick/vol", 0.5]]}, {"name": "hotter", "writes": [["Kick/vol", 0.8]]}],
+    "ranges": {"Kick/vol": [0.0, 1.0, False]},
+}
+
+
+def test_the_lit_pad_is_worked_out_from_the_values_and_the_pads_show_it_on_both_banks():
+    from zpkt.app.minilab.view import lit_pad
+
+    values = {"0:k1": {"key": "Kick/vol", "n": 0.8, "r": 0.8}}
+    assert lit_pad(COMPARE, values) == "b8"
+    assert lit_pad(COMPARE, {"0:k1": {"key": "Kick/vol", "n": 0.5, "r": 0.5}}) == "b7"
+    assert lit_pad(COMPARE, {"0:k1": {"key": "Kick/vol", "n": 0.65, "r": 0.65}}) is None  # a knob was turned
+    assert lit_pad(COMPARE, {}) is None and lit_pad(None, values) is None
+    (page,) = pages_from_cfg([{"name": "Kick: hotter?", "compare": COMPARE}])
+    assert page.compare == {"b7": 0, "b8": 1}
+    state = {"page": 0, "values": values, "playing": False, "pos": 0.0, "loop": "off", "match": True}
+    view = view_from(state, (page,), {}, compare=COMPARE)
+    assert view.lit == "b8"
+    leds = feedback.leds(PROFILE, view)
+    colour = lambda target: tuple(leds[target][-4:-1])  # noqa: E731
+    assert colour("led:b8") == colour("led:a8") == feedback.ON
+    assert colour("led:b7") == colour("led:a7") == feedback.IDLE
+    assert colour("led:a1") == feedback.ARMED  # the other pads still show the pages

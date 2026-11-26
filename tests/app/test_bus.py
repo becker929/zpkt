@@ -51,16 +51,13 @@ def test_an_agent_may_read_and_make_but_not_move_without_your_word():
     for effect in ("read", "make"):
         assert bus_with(effect).submit(Command("x.do", "agent"))[0] == 200
     code, reply = bus_with("move").submit(Command("x.do", "agent"))
-    assert code == 403 and "Option" in reply["error"]
+    assert code == 403 and "compare state" in reply["error"] and "Option" not in reply["error"]
 
 
-def test_an_option_pick_or_the_users_word_lets_an_agent_move():
+def test_only_the_users_word_lets_an_agent_move():
     bus = bus_with("move")
     assert bus.submit(Command("x.do", "agent", approval="user"))[0] == 200
-    bus.option_picked = lambda option: option == "kick-sub-38"
-    assert bus.submit(Command("x.do", "agent", approval="option:kick-sub-38"))[0] == 200
-    assert bus.submit(Command("x.do", "agent", approval="option:made-up"))[0] == 403  # a made-up id is no pick
-    assert bus.submit(Command("x.do", "agent", approval="option:"))[0] == 403
+    assert bus.submit(Command("x.do", "agent", approval="option:kick-sub-38"))[0] == 403  # Options are gone
     assert bus.submit(Command("x.do", "agent", approval="because i said so"))[0] == 403
 
 
@@ -208,10 +205,8 @@ def test_an_answer_asked_for_before_a_forget_is_not_kept_after_it():
     assert guard._name() == "S"
 
 
-def test_an_option_approval_counts_for_nothing_when_nothing_keeps_the_picks():
-    bus = bus_with("move")
-    assert bus.option_picked is None
-    assert bus.submit(Command("x.do", "agent", approval="option:kick-sub-38"))[0] == 403
+def test_the_bus_keeps_no_table_of_picked_options():
+    assert not hasattr(bus_with("move"), "option_picked")
 
 
 def test_a_handler_that_blows_up_is_a_500_that_answers_and_does_not_leak_the_arguments(capsys):

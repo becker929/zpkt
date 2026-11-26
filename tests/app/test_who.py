@@ -19,7 +19,6 @@ def app_env(api, monkeypatch):
     monkeypatch.setenv("ZPKT_APP_URL", api.url)
     monkeypatch.delenv("ZPKT_LIVE_VIA", raising=False)
     monkeypatch.delenv("ZPKT_AGENT", raising=False)
-    monkeypatch.delenv("ZPKT_OPTION", raising=False)
     return api
 
 

@@ -3,7 +3,7 @@
 A job is filed with `add`; whoever renders it takes the queued ones oldest first (`queued`) and writes progress into
 its file (`update`); readers list the jobs (`rows`) and ask where the queue stands (`status`). A job's status is
 queued, rendering, ready or failed. Moved here from contrib/arranger on 24 Nov 2026 (the app owns the queue now):
-mix 2's folder (<data>/mix2/requests) and the app's own jobs (zpkt.app.options) both use it, and the arranger's
+mix 2's folder (<data>/mix2/requests) uses it (the app's own Options, which did too, are gone), and the arranger's
 `renderqueue` module is an alias for this one. Standard library only.
 """
 

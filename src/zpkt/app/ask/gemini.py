@@ -74,7 +74,7 @@ def tool_output(view: Mapping[str, Any]) -> str:
 
 
 def is_app_tool(tool_call: Mapping[str, Any]) -> bool:
-    """A call of one of the app's four tools: its id or title names the tool and the app's server."""
+    """A call of one of the app's three tools: its id or title names the tool and the app's server."""
     named = f"{tool_call.get('toolCallId', '')} {tool_call.get('title', '')}"
     return bool(tool_call.get("kind") not in OWN_KINDS and APP_TOOLS.search(named) and APP_SERVER.search(named))
 

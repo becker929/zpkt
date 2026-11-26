@@ -5,7 +5,8 @@
 // (f1-f4), the 8 pads (b1-b8). The page hands over what each slot holds and does the talking to the app itself.
 // The knob, the fader and the pad are the chat's drawings (static/ask/zpkt/draw.js), with the value as a place 0..1.
 //
-// A slot model: {slot, state, label, shown, n, key, hw, by, group, tint, why, range, steps, chg, flash, sending, fixed}
+// A slot model: {slot, state, label, shown, n, key, hw, by, group, tint, why, range, steps, chg, flash, sending, fixed,
+//                cmp, spoken}
 //   state  "live" (takes touch), "macro" (moved from the MiniLab only), "missing" (the open set lacks its target),
 //          "off" (nothing is mapped). Left out means "off".
 //   n      its place, 0 to 1; shown: the value as text; key: its state key; hw: the MiniLab page it is on
@@ -14,6 +15,9 @@
 //   range  [low, high] places worth playing; steps: how many stops a knob has (a choice), 0 for a smooth one
 //   sending  its value is the page's own, on its way to Live (a small mark by the number until Live confirms it)
 //   fixed    Live settled somewhere else than the page showed: the number flashes once
+//   cmp    on a pad: the place of the compare state it switches to (the page reads it back from data-cmp). Such a
+//          pad is one of a set: it carries a small lamp, lit with the pad when its state is on (n 1), and the pads
+//          of the set stand on one rail. spoken: what a screen reader calls it ("Kick: hotter").
 (function () {
   "use strict";
   const KNOBS = ["k1", "k2", "k3", "k4", "k5", "k6", "k7", "k8"], FADERS = ["f1", "f2", "f3", "f4"];
@@ -69,10 +73,11 @@
   function slot(m) {
     const kind = kindOf(m.slot), name = hwName(m.slot), state = m.state || "off";
     const n = clamp(m.n), on = kind === "pad" && state !== "off" && state !== "missing" && n >= 0.5;
-    const cls = ["ctl", "mc", kind, state, m.tint ? "t1" : "t0", on ? "on" : "", m.chg ? "chg" : "", m.flash ? "flash" : "", m.sending ? "sending" : "", m.fixed ? "fixed" : ""].filter(Boolean).join(" ");
+    const isCmp = kind === "pad" && m.cmp !== undefined && m.cmp !== null;
+    const cls = ["ctl", "mc", kind, state, isCmp ? "cmp" : "", m.tint ? "t1" : "t0", on ? "on" : "", m.chg ? "chg" : "", m.flash ? "flash" : "", m.sending ? "sending" : "", m.fixed ? "fixed" : ""].filter(Boolean).join(" ");
     const data = `data-slot="${m.slot}" data-state="${state}" data-key="${esc(m.key || "")}" data-hw="${m.hw ?? ""}" data-by="${m.by || "key"}" data-n="${n}" data-steps="${m.steps || 0}" data-range="${m.range ? m.range.join(",") : ""}"`;
     const cap = m.group || m.caps ? `<div class="g">${esc(m.group || "")}</div>` : "";  // caps: keep the row level
-    const spoken = (m.group ? m.group + ": " : "") + (m.label || name);
+    const spoken = m.spoken || (m.group ? m.group + ": " : "") + (m.label || name);
     if (state === "off") {
       // An unmapped slot keeps its place and says its name to a screen reader and on hover; it shows no caption.
       const face = kind === "pad" ? `<div class="w" role="img" aria-label="${name}: not mapped"></div>`
@@ -87,7 +92,7 @@
     }
     const live = state === "live", note = live ? "" : ' title="A macro: turn it on the MiniLab."';
     if (kind === "pad") {
-      const face = live ? `<button class="w" data-mpad aria-pressed="${on}" aria-label="${esc(spoken)}"><span>${esc(m.label)}</span></button>`
+      const face = live ? `<button class="w" ${isCmp ? `data-cmp="${+m.cmp}"` : "data-mpad"} aria-pressed="${on}" aria-label="${esc(spoken)}"><span>${esc(m.label)}</span></button>`
         : `<div class="w" role="img" aria-label="${esc(spoken)}"><span>${esc(m.label)}</span></div>`;
       return `<div class="${cls}" ${data}${note}>${cap}${face}</div>`;
     }

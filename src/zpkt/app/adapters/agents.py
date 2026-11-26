@@ -1,7 +1,7 @@
 """The Agents adapter: Ask, the chat with Claude and Gemini, and the tools they may use.
 
-It makes the Ask service (zpkt.app.ask), puts the four agent commands on the bus (zpkt.app.agent_commands) and gives
-the web server the /app/ask/ routes, as a mount (zpkt.app.mounts). Agents reach the app only through those four commands, tagged `agent` by the
+It makes the Ask service (zpkt.app.ask), puts the agent commands on the bus (zpkt.app.agent_commands) and gives
+the web server the /app/ask/ routes, as a mount (zpkt.app.mounts). Agents reach the app only through those commands, tagged `agent` by the
 bus. This module changes nothing in Live and imports nothing from zpkt.live.
 
 Data lives in ZPKT_ASK_DIR (or the rig's ask_dir; Settings.ask_dir), in Zpkt web's file forms: point it at a copy of
@@ -82,7 +82,6 @@ class AgentsAdapter:
 
     def start(self) -> None:
         bus = self.context.bus
-        self.context.desk.options.keep_proposals_in(self.data_dir)  # options.json stays in Ask's folder
         agent_commands.register(bus, self.context.desk)
         providers = self.providers or self.default_providers()
         guide = GUIDE.read_text() if GUIDE.exists() else ""

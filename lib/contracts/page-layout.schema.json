@@ -18,13 +18,45 @@
           },
           "title": "Slots",
           "type": "array"
+        },
+        "compare": {
+          "items": {
+            "$ref": "#/$defs/StatePad"
+          },
+          "title": "Compare",
+          "type": "array"
         }
       },
       "required": [
         "groups",
-        "slots"
+        "slots",
+        "compare"
       ],
       "title": "HardwarePage",
+      "type": "object"
+    },
+    "LayoutCompare": {
+      "additionalProperties": false,
+      "description": "The page's compare states as the shell draws and derives them.",
+      "properties": {
+        "name": {
+          "description": "What is compared: the spec's name, else the page's title.",
+          "title": "Name",
+          "type": "string"
+        },
+        "states": {
+          "items": {
+            "$ref": "#/$defs/LayoutState"
+          },
+          "title": "States",
+          "type": "array"
+        }
+      },
+      "required": [
+        "name",
+        "states"
+      ],
+      "title": "LayoutCompare",
       "type": "object"
     },
     "LayoutControl": {
@@ -233,6 +265,66 @@
       "title": "LayoutGroup",
       "type": "object"
     },
+    "LayoutState": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "slot": {
+          "description": "Its pad: b1-b8.",
+          "title": "Slot",
+          "type": "string"
+        },
+        "writes": {
+          "items": {
+            "$ref": "#/$defs/LayoutWrite"
+          },
+          "title": "Writes",
+          "type": "array"
+        }
+      },
+      "required": [
+        "name",
+        "slot",
+        "writes"
+      ],
+      "title": "LayoutState",
+      "type": "object"
+    },
+    "LayoutWrite": {
+      "additionalProperties": false,
+      "properties": {
+        "target": {
+          "title": "Target",
+          "type": "string"
+        },
+        "to": {
+          "description": "The raw value the state writes.",
+          "title": "To",
+          "type": "number"
+        },
+        "n": {
+          "description": "That value as a place 0 to 1 along the control.",
+          "title": "N",
+          "type": "number"
+        },
+        "near": {
+          "description": "A place within this much of `n` holds the state.",
+          "title": "Near",
+          "type": "number"
+        }
+      },
+      "required": [
+        "target",
+        "to",
+        "n",
+        "near"
+      ],
+      "title": "LayoutWrite",
+      "type": "object"
+    },
     "Panel": {
       "additionalProperties": false,
       "description": "One MiniLab page as a map of the controller: all 20 slots, in the hardware's order.",
@@ -319,6 +411,19 @@
           ],
           "description": "That group's tint, 0 or 1.",
           "title": "Tint"
+        },
+        "state": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The compare state this pad switches to (its place in `compare.states`).",
+          "title": "State"
         }
       },
       "required": [
@@ -383,6 +488,30 @@
       ],
       "title": "Slot",
       "type": "object"
+    },
+    "StatePad": {
+      "additionalProperties": false,
+      "properties": {
+        "slot": {
+          "title": "Slot",
+          "type": "string"
+        },
+        "state": {
+          "title": "State",
+          "type": "integer"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        }
+      },
+      "required": [
+        "slot",
+        "state",
+        "name"
+      ],
+      "title": "StatePad",
+      "type": "object"
     }
   },
   "additionalProperties": false,
@@ -421,6 +550,18 @@
       },
       "title": "Panels",
       "type": "array"
+    },
+    "compare": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/LayoutCompare"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "The states on the pads; None when the page has none."
     },
     "minilab": {
       "items": {

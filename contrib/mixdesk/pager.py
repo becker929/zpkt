@@ -7,6 +7,10 @@ go of it while we hold it. Bank-A pads (and the big encoder) arm one of desk.jso
 the parameter when a page is armed; faders pick up (they act once they pass the value Live has), so arming a page
 never makes a value jump.
 
+A page may carry compare states ("compare": named settings of the same controls, one pad each). While it is armed,
+those pads do not arm pages: a press is reported to the app ({"t": "pad"}), which writes the state as one move, and
+the pad of the state that is on is lit. Which one is on is read from the values, never kept.
+
 A page may name its pad ("pad": 2); pages that share a pad are layers: pressing the pad of the page that is armed
 arms the next page on that pad. The big encoder steps through every page in order.
 
@@ -287,6 +291,7 @@ class Desk:
         self.main_saved = None  # Main's desk devices' On values while a monitor track plays (None = not bypassed)
         self.monitor_slot, self.monitor_ref = "W", "C1"
         self.sys_until, self.by_key = 0.0, {}
+        self.lit = {}  # pad slot -> lit, as last sent to the controller
         self._last_pos = 0.0
         self._song_listeners = []
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -423,6 +428,19 @@ class Desk:
                     fn = self._watcher(i, slot)
                     t.listen(fn)
                     self.listeners.append((t, fn))
+            # what the page's compare states write and no control of the page shows: watched and settable all the same
+            shown_here = set(t.key for (pg, _s), t in self.targets.items() if pg == i and t.key)
+            for j, (key, spec) in enumerate(sorted(((page.get("compare") or {}).get("targets") or {}).items())):
+                if key in shown_here:
+                    continue
+                t = _Target(self.song, spec)
+                slot = f"cmp/{j}"
+                self.targets[(i, slot)] = t
+                if t.key and not t.error:
+                    self.by_key.setdefault(t.key, t)
+                    fn = self._watcher(i, slot)
+                    t.listen(fn)
+                    self.listeners.append((t, fn))
 
     def unlisten(self):
         for t, fn in self.listeners:
@@ -432,8 +450,47 @@ class Desk:
     def _watcher(self, page, slot):
         def changed():
             self.send_value(page, slot)
+            if page == self.page:
+                self.light_pads()
 
         return changed
+
+    # ---- compare states --------------------------------------------------------------------------------------------
+    def compare_lit(self, page=None):
+        """The place of the compare state that is on, on `page` (the armed one): every one of its values holds."""
+        page = self.page if page is None else page
+        cmp = self.cfg["pages"][page].get("compare") if 0 <= page < len(self.cfg["pages"]) else None
+        if not cmp:
+            return None
+
+        def read(key):
+            t = self.by_key.get(key)
+            if t is None or t.error:
+                return None
+            if t.flag:
+                return (t.raw(), 0.0, 1.0, True)
+            return (t.param.value, t.param.min, t.param.max, t.param.is_quantized)
+
+        return core.lit_state(cmp.get("states") or [], read)
+
+    def light_pads(self, force=False):
+        """Light the pad of the state that is on, on both banks; the other state pads go dark. Sent only on a
+        change. Unverified on the hardware: the pad's own send_value is used, nothing else is known to work here."""
+        if self.cs is None:
+            return
+        pads = ((self.cfg["pages"][self.page].get("compare") or {}).get("pads") or {}) if self.cfg["pages"] else {}
+        if not pads and not self.lit:
+            return  # no state pads here and none lit before: nothing to say (this runs on every value change)
+        on = self.compare_lit() if pads else None
+        want = dict((slot, state == on) for slot, state in pads.items())
+        for slot in list(self.lit):
+            want.setdefault(slot, False)  # a pad lit on the page before: dark again
+        for control, _role, pad in _hardware(self.cs, core.hardware_rows("page_pad")):
+            slot = f"b{pad}"
+            if slot in want and (force or self.lit.get(slot) != want[slot]):
+                with contextlib.suppress(Exception):
+                    control.send_value(127 if want[slot] else 0, force=True)
+        self.lit = dict((slot, lit) for slot, lit in want.items() if slot in pads)
 
     # ---- the controller -----------------------------------------------------------------------------------------
     def attach(self):
@@ -499,9 +556,13 @@ class Desk:
         return on
 
     def _page_pad(self, pad):
-        """Pad A`pad` arms the first page on that pad; pressed again, the next page on the same pad (a layer)."""
+        """Pad A`pad` arms the first page on that pad; pressed again, the next page on the same pad (a layer). On a
+        page with compare states, a pad that holds one tells the app instead: the app writes the state."""
 
         def on(value):
+            if value and core.compare_state(self.cfg, self.page, pad) is not None:
+                self.emit({"t": "pad", "page": self.page, "slot": f"b{pad}"})
+                return
             page = core.page_for_pad(self.cfg, pad, self.page) if value else None
             if page is not None:
                 self.arm(page)
@@ -543,6 +604,7 @@ class Desk:
                     with contextlib.suppress(Exception):
                         enc.send_value(v, force=True)
         self.emit({"t": "page", "page": page, "picked": {}})
+        self.light_pads(force=True)
 
     def toggle(self, slot, page=None):
         page = self.page if page is None else page

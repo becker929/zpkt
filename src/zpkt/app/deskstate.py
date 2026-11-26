@@ -121,6 +121,10 @@ def _hardware(state: DeskState, m: Any, now: float) -> DeskState:
     return new
 
 
+def _pad(state: DeskState, m: Any, now: float) -> DeskState:
+    return {**state, "touch": {"page": m["page"], "slot": m["slot"], "at": now}}
+
+
 _REDUCERS: dict[str, Callable[[DeskState, Any, float], DeskState]] = {
     "v": _value,
     "pos": _position,
@@ -128,6 +132,7 @@ _REDUCERS: dict[str, Callable[[DeskState, Any, float], DeskState]] = {
     "loop": _loop,
     "page": _page,
     "hw": _hardware,
+    "pad": _pad,
 }
 assert set(_REDUCERS) == set(P.PAGER_KINDS), "every pager message kind has a reducer"
 

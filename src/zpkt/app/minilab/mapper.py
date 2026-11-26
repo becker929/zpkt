@@ -37,6 +37,7 @@ class ControlView:
 class PageView:
     name: str
     pad: int | None = None  # the bank-A pad (1-8) that arms it; None: the pager's default (its place)
+    compare: Mapping[str, int] = field(default_factory=dict)  # pad slot (b1-b8) -> the compare state it switches to
 
 
 @dataclass(frozen=True)
@@ -52,10 +53,20 @@ class View:
     match: bool = True
     hearing: str = "now"  # now, pin or ref
     driving: bool = True  # the desk's pager is reporting: the tempo layer steps aside (auto)
+    lit: str | None = None  # the pad slot of the armed page's compare state that is on now (derived), or None
 
     def cfg(self) -> dict[str, Any]:
         """The shape pagercore's page functions read."""
-        return {"pages": [{"name": p.name, **({"pad": p.pad} if p.pad is not None else {})} for p in self.pages]}
+        return {
+            "pages": [
+                {
+                    "name": p.name,
+                    **({"pad": p.pad} if p.pad is not None else {}),
+                    **({"compare": {"pads": dict(p.compare)}} if p.compare else {}),
+                }
+                for p in self.pages
+            ]
+        }
 
 
 @dataclass(frozen=True)
@@ -189,6 +200,9 @@ def _toggle_pad(state: MapState, hit: Hit, view: View, slot: str) -> Result:
 
 
 def _page_pad(state: MapState, hit: Hit, view: View, pad: int) -> Result:
+    """A pad arms a page; on a page with compare states, a pad that holds one switches the mix to it instead."""
+    if _pressed(hit) and pagercore().compare_state(view.cfg(), view.page, pad) is not None:
+        return state, [Submit("page.compare", {"page": view.page, "slot": f"b{pad}"})]
     page = pagercore().page_for_pad(view.cfg(), pad, view.page) if _pressed(hit) else None
     return (state, []) if page is None else (state, [_arm(page), _show_page(view, page)])
 

@@ -92,7 +92,7 @@ ANALYSIS = made_up_analysis()
 
 @pytest.fixture(autouse=True)
 def throwaway_arranger(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    """Options read the arranger's folders; never the real scratch data (as tests/app/conftest.py does)."""
+    """The Song reads the arranger's folders; never the real scratch data (as tests/app/conftest.py does)."""
     monkeypatch.setenv("ARRANGER_DATA", str(tmp_path / "arranger"))
 
 

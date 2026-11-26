@@ -3,9 +3,9 @@
 The class decides the bus's checks (zpkt.app.bus):
 
 - read: it looks. Nothing changes in Live or on disk.
-- make: it makes or changes pages, files, checkpoints or proposals. Live's set stays as it is. An agent may.
+- make: it makes or changes pages, files or checkpoints. Live's set stays as it is. An agent may.
 - move: it changes Live (the mix, the tempo, the transport, what is heard, the pager and what the MiniLab's controls
-  do) or runs code or a build there. An agent needs an Option you picked or your word, and the wrong-set guard holds it.
+  do) or runs code or a build there. An agent needs your word, and the wrong-set guard holds it.
 
 Every module that puts commands on the bus takes the class from here (`register`), so a command without a line in
 this table cannot start. tests/app/test_effects.py writes the whole list out again: a change here is a decision.
@@ -18,8 +18,10 @@ These lines are decisions worth their reason:
   drafts a page and gives you its link; opening it is yours.
 - `page.make` is a make though it puts the new page on the desk. Making pages is what an agent is for, and the
   handler checks the open set itself before anything is saved.
-- `options.make` is a make. It queues renders; the worker writes a Version's values, renders and puts the values
-  back, and checks the open set and the lock itself. Nothing stays moved. Making a Version Now is `options.pick`.
+- `page.draft` is a make, also when it writes over a page the agent made before that is on the desk: the page is
+  redrawn where it is and the desk stays on the page it was on. No value of the mix moves.
+- `page.compare` is a move: it writes a compare state's values into the mix. It is the press of a pad, on the screen
+  or on the MiniLab. An agent makes the states; it never switches them.
 """
 
 from __future__ import annotations
@@ -48,6 +50,7 @@ EFFECTS: dict[str, Effect] = {
     "page.make": "make",
     "page.layout": "read",
     "page.open": "move",
+    "page.compare": "move",
     "surface.make": "make",
     "surface.save": "make",
     "surface.remove": "move",
@@ -55,11 +58,6 @@ EFFECTS: dict[str, Effect] = {
     "history.redo": "move",
     "history.checkpoint": "make",
     "history.revert": "move",
-    "options.list": "read",
-    "options.get": "read",
-    "options.make": "make",
-    "options.show": "read",
-    "options.pick": "move",
     # the jobs (zpkt.app.jobs)
     "live.run": "move",
     "live.read": "read",
@@ -77,9 +75,6 @@ EFFECTS: dict[str, Effect] = {
     "desk.state": "read",
     "state.read": "read",  # the older name of desk.state
     "measurement.read": "read",
-    "options.propose": "make",
-    "option.propose": "make",  # the older name of options.propose
-    "option.pick": "move",  # the older name of options.pick
     # the Song (zpkt.app.song)
     "song.list": "read",
     "song.show": "read",

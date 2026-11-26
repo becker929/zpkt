@@ -5,7 +5,7 @@
 | [getting-started.md](getting-started.md) | A fresh clone to a measured render. |
 | [walkthrough.md](walkthrough.md) | Checking by hand, on my Mac, what the November 2026 upgrade could not test offline (`scripts/walkthrough_preflight.sh` first). |
 | [app-clients.md](app-clients.md) | How the `zpkt` command, the booth and the demos reach Live through the app. |
-| [`../src/zpkt/app/README.md`](../src/zpkt/app/README.md) | The app: the bus, the web, the API, Options, Pages, the Song, Ask, the MiniLab. |
+| [`../src/zpkt/app/README.md`](../src/zpkt/app/README.md) | The app: the bus, the web, the API, Pages and compare states, the Song, Ask, the MiniLab. |
 | [agent-quickstart.md](agent-quickstart.md) | One page for a terminal agent, instead of the long docs. |
 | [`../src/zpkt/live/README.md`](../src/zpkt/live/README.md) | Driving Live: modules, CLI, rig settings. |
 | [`../src/zpkt/audio/README.md`](../src/zpkt/audio/README.md) | Measuring renders; your reference corpus; `mlab`. |

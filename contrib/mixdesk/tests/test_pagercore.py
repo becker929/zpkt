@@ -231,3 +231,43 @@ def test_the_data_knob_is_relative_around_64_and_the_loop_window_cycles():
         C.loop_window("off", 1) == "build" and C.loop_window("drop", 1) == "off" and C.loop_window("off", -1) == "drop"
     )
     assert C.loop_window("on", 1) == "build"  # a loop the desk did not set counts as the first window
+
+
+COMPARE_CFG = {
+    "pages": [
+        {"name": "Buses"},
+        {
+            "name": "Kick: hotter?",
+            "compare": {
+                "pads": {"b7": 0, "b8": 1},
+                "states": [
+                    {"name": "as it is", "writes": [["Kick bus/volume", 0.5], ["Kick bus/mute", False]]},
+                    {"name": "hotter", "writes": [["Kick bus/volume", 0.8], ["Kick bus/mute", False]]},
+                ],
+            },
+        },
+    ]
+}
+
+
+def test_a_pad_holds_a_compare_state_only_on_the_page_that_has_it():
+    assert C.compare_state(COMPARE_CFG, 1, 7) == 0 and C.compare_state(COMPARE_CFG, 1, 8) == 1
+    assert C.compare_state(COMPARE_CFG, 1, 1) is None  # that pad arms a page, as always
+    assert C.compare_state(COMPARE_CFG, 0, 8) is None and C.compare_state(COMPARE_CFG, 9, 8) is None
+
+
+def test_the_lit_state_is_the_one_whose_every_value_holds():
+    states = COMPARE_CFG["pages"][1]["compare"]["states"]
+
+    def reader(volume, mute=False, known=("Kick bus/volume", "Kick bus/mute")):
+        values = {"Kick bus/volume": (volume, 0.0, 1.0, False), "Kick bus/mute": (mute, 0.0, 1.0, True)}
+        return lambda key: values[key] if key in known else None
+
+    assert C.lit_state(states, reader(0.5)) == 0 and C.lit_state(states, reader(0.8)) == 1
+    assert C.lit_state(states, reader(0.8005)) == 1  # within a thousandth of the range
+    assert C.lit_state(states, reader(0.65)) is None  # a knob was turned: no pad is lit
+    assert C.lit_state(states, reader(0.8, mute=True)) is None  # every value must hold
+    assert C.lit_state(states, reader(0.8, known=("Kick bus/volume",))) is None  # a value the set lacks holds nothing
+    assert C.lit_state([{"name": "empty", "writes": []}], reader(0.5)) is None
+    assert C.holds(2.0, 2, 0.0, 5.0, True) and not C.holds(3.0, 2, 0.0, 5.0, True)
+    assert not C.holds(None, 0.5, 0.0, 1.0, False)

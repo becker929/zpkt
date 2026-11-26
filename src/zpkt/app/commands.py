@@ -16,9 +16,9 @@ from typing import TYPE_CHECKING, Any
 
 from zpkt.app import deskstate as D
 from zpkt.app import effects, monitor, pages, surfaces
-from zpkt.app import options as O
 from zpkt.app.bus import OK, BadRequest, Bus, Command, Reply
 from zpkt.live import describe, tempo
+from zpkt.live import page as P
 from zpkt.live import state as S
 from zpkt.live.describe import Description
 
@@ -140,9 +140,9 @@ def mix_set(desk: Desk, cmd: Command) -> Reply:
     return _move(desk, cmd, _pairs(desk, cmd.args))
 
 
-def _move(desk: Desk, cmd: Command, pairs: list[list[Any]]) -> Reply:
+def _move(desk: Desk, cmd: Command, pairs: list[list[Any]], compare: dict[str, Any] | None = None) -> Reply:
     desk.monitor.leave_pin()  # moving a control while the Pin is heard starts from Now
-    entry = desk.history.record(pairs, cmd.who, cmd.group)
+    entry = desk.history.record(pairs, cmd.who, cmd.group, compare)
     try:
         missing = desk.write(pairs)
     except Exception:
@@ -409,81 +409,31 @@ def history_revert(desk: Desk, cmd: Command) -> Reply:
     return 200, {"ok": True, "moved": len(pairs), "missing": missing}
 
 
-# ---- Options -------------------------------------------------------------------------------------------------------
+# ---- compare states ------------------------------------------------------------------------------------------------
 
 
-def _option_args(cmd: Command) -> tuple[str, str]:
-    return _str(cmd.args, "option"), _str(cmd.args, "version")
-
-
-def options_list(desk: Desk, cmd: Command) -> Reply:
-    """Every Option, with its Versions and numbers, and the Version on the Hear bar."""
-    return 200, {"ok": True, **desk.options.message()}
-
-
-def options_get(desk: Desk, cmd: Command) -> Reply:
-    try:
-        return 200, {"ok": True, "option": desk.options.get(_str(cmd.args, "option"))}
-    except O.BadOption as exc:
-        raise BadRequest(str(exc)) from None
-
-
-def options_make(desk: Desk, cmd: Command) -> Reply:
-    """Ask for an Option: {title, versions: [{label, writes}], range?}. It is queued and rendered one Version at a time."""
-    try:
-        return 200, {"ok": True, "option": desk.options.make(dict(cmd.args))}
-    except O.BadOption as exc:
-        raise BadRequest(str(exc)) from None
-
-
-def options_show(desk: Desk, cmd: Command) -> Reply:
-    """Put a Version on the Hear bar: its loudness, peak, spectrum and gap to the base."""
-    option, version = _option_args(cmd)
-    try:
-        return 200, {"ok": True, **desk.options.show(option, version)}
-    except (O.BadOption, ValueError) as exc:
-        raise BadRequest(str(exc)) from None
-
-
-def _version_to_pick(option: O.Option, version_id: str) -> O.Version:
-    """The Version a pick means: the one named, or the only one (a proposal has one)."""
-    if not version_id:
-        if len(option["versions"]) != 1:
-            raise BadRequest(f"the body needs 'version': {option['id']} has {len(option['versions'])} Versions")
-        return option["versions"][0]
-    return O.find_version(option, version_id)
-
-
-def options_pick(desk: Desk, cmd: Command) -> Reply:
-    """Pick an Option: make a Version Now. Its values go onto the mix as one move (one undo), stamped with who
-    picked. A proposal has one Version, so its id is enough; your pick of it is also what lets the agent that
-    proposed it act on it (`approval: option:<id>`)."""
-    option_id = _str(cmd.args, "option")
-    try:
-        option = desk.options.get(option_id)
-        version = _version_to_pick(option, _str(cmd.args, "version", ""))
-    except O.BadOption as exc:
-        raise BadRequest(str(exc)) from None
-    proposal = desk.options.proposal(option_id)
-    if version["status"] != "ready":
-        raise BadRequest(f"Version {version['id']} is {version['status']}; pick one that is ready")
-    if proposal is not None and not proposal.get("moves"):
-        reply: Reply = (200, {"ok": True, "entry": None, "missing": []})  # nothing to move: the pick is the word
-    elif not version["writes"]:
-        raise BadRequest(
-            f"{option['title']!r}: {O.TEXT_VALUE_NOTE}"
-            if proposal is not None
-            else f"Version {version['label']!r} is not a set of values on the mix, so there is nothing to put on "
-            "Now. Hear it, or make its settings by hand."
-        )
-    else:
-        reply = mix_set(desk, dataclasses.replace(cmd, kind="mix.set", args={"writes": version["writes"]}))
-    if reply[0] == 200:
-        desk.options.keep_now(option_id, version["id"], cmd.who)
-        desk.push_app(desk.options.message())
-        if proposal is not None:
-            reply = (200, {**reply[1], "option": desk.options.proposal(option_id)})
-    return reply
+def page_compare(desk: Desk, cmd: Command) -> Reply:
+    """Switch the mix to one of a page's compare states: {"id", "state"} from the screen, {"page", "slot"} from a
+    pad of the MiniLab. Every value of the state is written in one call, as one history entry named for the switch
+    ("Kick: as it is -> hotter"), so one undo takes it back. A move: your press, never an agent's."""
+    parsed, index = pages.state_asked(desk, cmd)
+    compare = parsed.compare
+    assert compare is not None
+    values = pages.compare_values(desk, compare)
+    unknown = [t for t, v in values.items() if v is None]
+    if not pages.on_desk(desk, parsed.id) or unknown:
+        return 409, {"error": f"{parsed.title!r} is not on the desk as it was saved. Open the page again."}
+    was = P.lit(compare, values)
+    state = compare.states[index]
+    named = {
+        "page": parsed.id,
+        "name": compare.name or parsed.title,
+        "from": None if was is None else compare.states[was].name,
+        "to": state.name,
+    }
+    group = cmd.group or f"compare-{time.time_ns():x}"
+    pairs = [[w.target, w.to] for w in state.writes]
+    return _move(desk, dataclasses.replace(cmd, group=group), pairs, compare=named)
 
 
 # ---- the table -----------------------------------------------------------------------------------------------------
@@ -507,6 +457,7 @@ COMMANDS: dict[str, tuple[Handler, bool]] = {
     "page.make": (pages.make, True),
     "page.layout": (pages.layout_of, True),
     "page.open": (pages.open_saved, True),
+    "page.compare": (page_compare, True),
     "surface.make": (surface_make, False),
     "surface.save": (surface_save, True),
     "surface.remove": (surface_remove, True),
@@ -514,11 +465,6 @@ COMMANDS: dict[str, tuple[Handler, bool]] = {
     "history.redo": (history_redo, True),
     "history.checkpoint": (history_checkpoint, True),
     "history.revert": (history_revert, True),
-    "options.list": (options_list, False),
-    "options.get": (options_get, False),
-    "options.make": (options_make, False),
-    "options.show": (options_show, False),
-    "options.pick": (options_pick, True),
 }
 
 

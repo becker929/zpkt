@@ -77,7 +77,17 @@ class HardwareMessage(TypedDict):
     picked: bool
 
 
-PagerMessage = ValueMessage | PositionMessage | MonitorMessage | LoopMessage | PageMessage | HardwareMessage
+class PadMessage(TypedDict):
+    """A pad pressed on the MiniLab that holds a compare state of the armed page: the app writes the state."""
+
+    t: Literal["pad"]
+    page: int
+    slot: str
+
+
+PagerMessage = (
+    ValueMessage | PositionMessage | MonitorMessage | LoopMessage | PageMessage | HardwareMessage | PadMessage
+)
 
 
 # ---- from the server to the page (server-sent events), besides the pager's own, passed on as they came -------------
@@ -153,6 +163,7 @@ _KINDS: dict[str, tuple[type, dict[str, tuple[type, ...]]]] = {
     "loop": (LoopMessage, {"loop": (str,)}),
     "page": (PageMessage, {"page": (int,), "picked": (dict,)}),
     "hw": (HardwareMessage, {"page": (int,), "slot": (str,), "hw": (*_NUMBER, _NONE), "picked": (bool,)}),
+    "pad": (PadMessage, {"page": (int,), "slot": (str,)}),
 }
 PAGER_KINDS = tuple(_KINDS)
 

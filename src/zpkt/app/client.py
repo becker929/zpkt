@@ -6,8 +6,8 @@ back. The `zpkt` command, music-bot's booth and zpkt-demo use it (docs/app-clien
 app stamps each call by the token, so a caller is who its token file says.
 
 A coding agent in a terminal runs with `ZPKT_AGENT=1` (Ask sets it for the engines it starts). Then the `zpkt`
-command is not `cli` but `agent`: it sends the agent's token, and the app holds it to the agent rule (a change to
-Live needs an Option you picked). `ZPKT_OPTION=<id>` names that Option; the app checks that you picked it.
+command is not `cli` but `agent`: it sends the agent's token, and the app holds it to the agent rule: it reads and
+makes pages, and no call of it changes Live.
 """
 
 from __future__ import annotations
@@ -33,19 +33,12 @@ class AppDown(OSError):
 
 LOCAL_HOSTS = ("127.0.0.1", "localhost", "::1")
 AGENT_ENV = "ZPKT_AGENT"  # set for an agent's shell: the cli is then the agent
-OPTION_ENV = "ZPKT_OPTION"  # the Option the user picked, which lets the agent's change pass
 
 
 def caller(who: str = "cli") -> str:
     """Who this process is to the app. The `zpkt` command is `cli`, unless an agent is driving it (ZPKT_AGENT):
     then it is `agent`. A program that names itself (booth, demo) stays that."""
     return "agent" if who == "cli" and os.environ.get(AGENT_ENV) else who
-
-
-def picked_option() -> str | None:
-    """The approval an agent sends: "option:<id>" for the Option named by ZPKT_OPTION, or None."""
-    option = os.environ.get(OPTION_ENV, "").strip()
-    return f"option:{option}" if option else None
 
 
 def app_url() -> str:
@@ -116,8 +109,6 @@ class AppClient:
     ) -> Reply:
         """Any command by kind. Returns (status, reply); a refusal is a status, not an exception."""
         body: dict[str, Any] = {"kind": kind, "who": self.who, "args": args or {}}
-        if approval is None and self.who == "agent":
-            approval = picked_option()
         if approval:
             body["approval"] = approval
         if group:

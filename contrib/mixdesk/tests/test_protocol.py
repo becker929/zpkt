@@ -16,6 +16,7 @@ GOOD = [
     {"t": "loop", "loop": "off"},
     {"t": "page", "page": 2, "picked": {}},
     {"t": "hw", "page": 0, "slot": "b3", "hw": None, "picked": True},
+    {"t": "pad", "page": 3, "slot": "b8"},
 ]
 
 

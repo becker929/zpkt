@@ -103,47 +103,6 @@ svg{display:block}
 .he .who{font:10.5px ui-monospace,Menlo,monospace;border:1px solid var(--line);padding:1px 5px;flex:none}
 .he .who.agent{background:var(--acc);color:#111}
 .he .who.minilab{background:var(--pin);color:#fff;border-color:var(--pind)}
-.spc.ver{height:24px;margin-top:-2px}
-.spc.ver i{background:var(--pin);opacity:.9}
-.vline{font:12px ui-monospace,Menlo,monospace;display:flex;gap:8px;flex-wrap:wrap;align-items:center}
-.ol{display:flex;gap:6px;overflow-x:auto;padding-bottom:2px;flex:none}
-.ol .key{height:44px;font-size:13px;flex:none;max-width:70vw;overflow:hidden;text-overflow:ellipsis}
-.why{font-size:13px;line-height:1.4;color:var(--mute);overflow-wrap:anywhere;max-height:7.2em;overflow-y:auto;flex:none}
-.vg{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;overflow:auto;min-height:0}
-.vc{border:1px solid var(--cl);border-radius:12px;padding:8px 10px;background:linear-gradient(var(--c1),var(--c2));text-align:left;display:flex;flex-direction:column;gap:2px;cursor:pointer;min-height:64px}
-.vc.on{border-color:var(--pind);box-shadow:inset 0 0 0 2px var(--pin)}
-.vc.now{background:var(--acc);color:#111}
-.vc.off{opacity:.45;cursor:default}
-.vc b{font-size:13px;line-height:1.2}
-.vc span{font:11.5px ui-monospace,Menlo,monospace;color:var(--mute)}
-.vc.now span{color:#111}
-/* options:start */
-.sheet:has(#osub){max-height:100%}
-#osub{font-size:13px;line-height:1.35;color:var(--mute);margin:-4px 0 0;flex:none}
-.ol .key{flex-direction:column;align-items:flex-start;justify-content:center;gap:1px;height:52px;max-width:74vw}
-.ol .key b{font-size:13px;max-width:100%;overflow:hidden;text-overflow:ellipsis}
-.ol .key .tag{text-transform:none;letter-spacing:0;max-width:100%;overflow:hidden;text-overflow:ellipsis}
-.ol .key.on .tag{color:#111}
-.oab{font-size:13px;line-height:1.4;overflow-wrap:anywhere}
-.oab .om,.od .om,.oe .om{color:var(--mute)}
-#obody{flex:1 1 auto;min-height:0;overflow-y:auto;display:flex;flex-direction:column;gap:8px}
-#obody>*{flex:none}
-#obody>.tag{white-space:normal}
-#vgrid{max-height:212px}
-.vc em{font:normal 10.5px ui-monospace,Menlo,monospace;border:1px solid var(--line);padding:1px 5px;align-self:flex-start;background:var(--panel);color:var(--ink)}
-.vc em.sel{background:var(--pin);color:#fff;border-color:var(--pind)}
-.od{border:1px solid var(--cl);border-radius:12px;padding:8px 10px;background:var(--c2);font-size:13px;line-height:1.4;display:flex;flex-direction:column;gap:6px;overflow-wrap:anywhere}
-.od ul{margin:0;padding-left:18px}
-.od .mono{white-space:nowrap}
-.od .orow{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
-.od .done{border-left:4px solid var(--acc);padding-left:8px}
-.oe{font-size:13.5px;line-height:1.45}
-.oe p{margin:0 0 6px}.oe ol{margin:0;padding-left:20px}.oe li{margin-bottom:6px}
-#onow{max-width:64%;min-width:0}
-#onow span{overflow:hidden;text-overflow:ellipsis}
-#side .sketch{overflow-wrap:anywhere}
-/* options:end */
-.gp{color:var(--pind)}.gn{color:var(--bad)}
 .lane{display:flex;align-items:center;gap:8px;min-width:0}
 .lane .ln{font:11px ui-monospace,Menlo,monospace;color:var(--mute);width:64px;flex:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .lane .tr{flex:1;min-width:0;height:22px;border-radius:6px;background:var(--well);position:relative;overflow:hidden}
@@ -165,7 +124,6 @@ select{font:inherit;color:inherit;background:var(--panel);border:1px solid var(-
 #desk>*{flex:none}
 .pl{display:flex;flex-direction:column;gap:6px}
 .pl .key{justify-content:flex-start;width:100%;overflow:hidden;text-overflow:ellipsis}
-#side .vg{grid-template-columns:1fr}
 #side>.key{flex:none}
 /* A page change that Live has not confirmed yet: the tapped button waits (.is-waiting, shell.css), the line runs, the old controls dim. */
 .dots button.is-waiting{outline:0}
@@ -173,21 +131,21 @@ select{font:inherit;color:inherit;background:var(--panel);border:1px solid var(-
 #slow{flex:none;display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:8px 16px;background:var(--panel);border-bottom:1px solid var(--line);font-size:14px}
 #slow[hidden]{display:none}
 #slow span{flex:1;min-width:140px}
-/* One breakpoint system: phone is one column; tablet (700) puts the Hear bar beside the Desk; desktop (1100) adds Pages and Versions. The tab bar is at the bottom on a phone and at the top from 700 px up (nav.js). */
+/* One breakpoint system: phone is one column; tablet (700) puts the Hear bar beside the Desk; desktop (1100) adds the list of Pages. The tab bar is at the bottom on a phone and at the top from 700 px up (nav.js). */
 @media (max-width:380px){#hbot{gap:6px}#hbot .seg .key{padding:0 8px}}
 @media (min-width:700px){
  #cols{display:grid;grid-template-columns:minmax(0,1fr) 320px;grid-template-rows:minmax(0,1fr)}
  #hear{display:flex;flex-direction:column;min-height:0;overflow:auto;border-left:1px solid var(--line);background:var(--panel)}
  #htop,#main,#hbot{order:0}
  #htop{flex:1 0 auto;border-bottom:0}
- #htop .spc:not(.ver){height:auto;min-height:140px;flex:1}
+ #htop .spc{height:auto;min-height:140px;flex:1}
  #htop .spc.none{flex:none;min-height:44px;height:44px}
 }
 @media (min-width:1100px){
  #cols{grid-template-columns:220px minmax(0,1fr) 320px}
  #side{display:flex;flex-direction:column;gap:8px;min-height:0;overflow:auto;padding:10px 12px;border-right:1px solid var(--line);background:var(--panel)}
  .dots{display:none}
- #htop .spc:not(.ver){min-height:220px}
+ #htop .spc{min-height:220px}
  #htop .spc.none{min-height:44px}
 }
 @media (min-width:1400px){#cols{grid-template-columns:280px minmax(0,1fr) 420px}}
@@ -205,13 +163,11 @@ select{font:inherit;color:inherit;background:var(--panel);border:1px solid var(-
 <symbol id="i-back" viewBox="0 0 24 24"><path d="M4 12a8 8 0 1 0 2.6-5.9M4 4v5h5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
 <symbol id="i-flag" viewBox="0 0 24 24"><path d="M6 21V4M6 5h11l-2.5 4L17 13H6" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
 <symbol id="i-to" viewBox="0 0 24 24"><path d="M4 12h15M13 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
-<symbol id="i-pick" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></symbol>
-<symbol id="i-opts" viewBox="0 0 24 24"><rect x="4" y="4" width="7" height="7" rx="1.5" fill="none" stroke="currentColor" stroke-width="2.2"/><rect x="13" y="4" width="7" height="7" rx="1.5" fill="none" stroke="currentColor" stroke-width="2.2"/><rect x="4" y="13" width="7" height="7" rx="1.5" fill="none" stroke="currentColor" stroke-width="2.2"/><rect x="13" y="13" width="7" height="7" rx="1.5" fill="currentColor" stroke="currentColor" stroke-width="2.2"/></symbol>
 </svg>
 <div id="app">
  <div id="lock" role="alert"></div>
  <div id="cols">
-  <aside id="side" aria-label="Pages and Versions"></aside>
+  <aside id="side" aria-label="Pages"></aside>
   <div id="main" class="loads"><div id="slow" role="alert" hidden></div><div id="song" hidden></div><div id="desk"></div><div id="scrim"></div><div class="sheet" id="sheet"></div><div class="sheet tall" id="psheet"></div></div>
   <div id="hear"><div class="hear" id="htop"></div><div class="hear" id="hbot"><div id="hkeys"></div><span id="listen"></span></div></div>
  </div>
@@ -225,10 +181,10 @@ const $ = s => document.querySelector(s);
 const I = n => `<svg width="22" height="22"><use href="#i-${n}"/></svg>`;
 const S = {state: null, desk: null, hear: {hearing: "now", changed: 0, keys: [], match: true, monitor: {slot: "W", ref: "C1"}, pin: "start"},
            hist: {entries: [], can_undo: false, can_redo: false}, meter: null, sheet: false, flash: {},
-           options: {options: [], shown: null}, optSel: null, layouts: {},
+           layouts: {},
            tab: "desk", song: {list: [], id: null, view: null, loaded: false, mixSet: ""}, page: null,
            pend: null, busy: 0, want: null,
-           scales: {}, slots: [], fixed: {}, dirty: false, sideAt: null, saving: null, meterAt: 0,
+           scales: {}, slots: [], fixed: {}, dirty: false, sideAt: null, saving: null, meterAt: 0, cmpAt: null,
            level: {state: "off", mode: "", db: -90, hold: -90, holdAt: 0}};
 const NO_MINILAB = "no MiniLab 3 in Live";  // Live is there and the desk works; only the controller is missing
 const METER_STALE = 3000;  // ms without a meter message before the spectrum says there is none
@@ -274,7 +230,7 @@ function renderTop() {
     <div class="tl"><div class="ph" style="left:${Math.min(100, (st.pos % total) / total * 100)}%"></div></div>
     ${fresh ? `<div class="spc" id="spec" aria-label="Spectrum">${bands.map(b => `<i style="height:${b}%"></i>`).join("")}</div>`
             : `<div class="spc none" id="spec" role="img" aria-label="No spectrum: the desk meter device is not on Main">No spectrum · desk meter not on Main</div>`}
-    ${levelHtml()}${versionStrip()}`;
+    ${levelHtml()}`;
 }
 // The level meter: the peak of the sound Listen plays (the Listen button's stream), in dB below full scale. It
 // reads the samples; it changes none. With Listen off the bar is hatched: there is nothing to read.
@@ -304,19 +260,6 @@ function onListen(d) {
   el.querySelector(".ln").textContent = v.text;
 }
 window.addEventListener("zpkt-listen", e => onListen(e.detail));
-const dB = x => x == null ? "–" : (x > 0 ? "+" : "") + x.toFixed(1);
-function loud(v) { return v.measure && v.measure.lufs != null ? v.measure.lufs : (v.known && v.known.lufs != null ? v.known.lufs : null); }
-function versionStrip() {
-  const sh = S.options.shown;
-  if (!sh) return "";
-  const v = sh.version, m = v.measure, g = v.gap;
-  const bands = m ? m.bands_db.map(d => Math.max(2, Math.min(100, (d + 90) / 90 * 100))) : [];
-  const lufs = loud(v);
-  return `<div class="vline" id="vstrip"><span class="pill pin">${sh.title.replace(/</g, "&lt;")}</span><b>${v.label.replace(/</g, "&lt;")}</b>
-    <span>${lufs == null ? "not measured" : lufs.toFixed(1) + " LUFS"}</span>${m ? `<span>peak ${m.peak_db.toFixed(1)}</span>` : ""}
-    ${g ? `<span class="${g.peak_db >= 0 ? "gp" : "gn"}">gap ${dB(g.lufs != null ? g.lufs : g.rms_db)} ${g.lufs != null ? "LU" : "dB"}</span>` : ""}</div>
-    ${m ? `<div class="spc ver" aria-label="Spectrum of this Version">${bands.map(b => `<i style="height:${b}%"></i>`).join("")}</div>` : ""}`;
-}
 function renderBottom() {
   const st = S.state;
   if (!st) return;
@@ -515,12 +458,44 @@ function slotsOfLayout(L, at, hw) {
   const by = {}, vals = valueMap(), values = S.state.values || {};
   for (const g of L.groups) for (const c of g.controls) by[c.ref] = c;
   const many = panel.groups.length > 1;
-  return panel.slots.filter(s => s.ref && by[s.ref]).map(s => {
+  const on = litState(L), cmp = L.compare;
+  return panel.slots.filter(s => (s.ref && by[s.ref]) || (cmp && s.state != null && cmp.states[s.state])).map(s => {
+    if (!s.ref) {  // a compare state on its pad: lit while every one of its values holds
+      const st = cmp.states[s.state];
+      return {slot: s.slot, hw, state: st.writes.length ? "live" : "missing", label: st.name, n: on === s.state ? 1 : 0, key: "",
+              cmp: s.state, group: many ? cmp.name : "", spoken: `${cmp.name}: ${st.name}`};
+    }
     const c = by[s.ref], v = (c.target && vals[c.target]) || values[`${hw}:${s.slot}`] || {};
     return own({slot: s.slot, hw, state: c.missing ? "missing" : c.target ? "live" : "macro", label: c.label, shown: v.s, n: v.n,
             key: c.target || "", by: "key", group: many ? s.group : "", tint: s.tint, why: c.missing, range: c.range,
             steps: s.kind !== "pad" && c.items.length > 1 ? c.items.length : 0, ...marks(c.target)});
   });
+}
+// ---- compare states: pads that switch the mix between named settings of the same controls --------------------------
+// Which pad is lit is never kept: a state is on exactly when every one of its values holds, read from what Live
+// reports and, for a value this page has just set, from the page's own number (OWN). So a press lights its pad at
+// once, and a knob turned afterwards puts every pad out.
+function placeNow(key, vals) { return OWN[key] ? OWN[key].n : (vals[key] || {}).n; }
+function litState(L) {
+  if (!L || !L.compare) return null;
+  const vals = valueMap();
+  const at = L.compare.states.findIndex(st => st.writes.length && st.writes.every(w => {
+    const n = placeNow(w.target, vals);
+    return n != null && Math.abs(n - w.n) <= Math.max(w.near, 1e-6);
+  }));
+  return at < 0 ? null : at;
+}
+// A press: the pad lights and the knobs move now; one command writes every value of the state, as one History row.
+const CMP = {seq: 0};
+async function pressState(i) {
+  const {entry} = current(), L = entry.page_id && S.layouts[entry.page_id], st = L && L.compare && L.compare.states[i];
+  if (!st || !st.writes.length) return;
+  const vals = valueMap(), mine = ++CMP.seq;
+  for (const w of st.writes) { const n0 = (vals[w.target] || {}).n; setOwn(w.target, w.n, n0 == null ? w.n : n0); }
+  renderDesk();
+  const r = await command("page.compare", {id: entry.page_id, state: i});
+  if (mine !== CMP.seq) return;  // a later press is on its way: its answer settles the values
+  for (const w of st.writes) { if (r.ok) settle(w.target); else confirmOwn(w.target, null); }
 }
 // What a control is called on the screen: on the page in view, else on any page that has it.
 function labelFor(key, fallback) {
@@ -568,178 +543,21 @@ function drawDesk() {
   $("#desk").innerHTML = `<div class="ph2"><b id="pagename">${esc(title)}</b><span class="tag">page ${pages.indexOf(shown) + 1} of ${pages.length}${by}</span>
     ${next ? '<span class="pill spin" id="pgwait">Loading</span>' : `<span class="pill ${S.state.live === "attached" ? "acc" : "quiet"}" id="mlchip">${S.state.live === "attached" ? "on MiniLab" : "no MiniLab"}</span>`}</div>${nums}${body}
     <div class="dots" role="group" aria-label="Pages">${pages.map(p => `<button data-page="${p.hw[0]}" class="${p === shown ? "c" : ""}" aria-label="${esc(p.name)}"></button>`).join("")}</div>`;
+  // A page with compare states, when it comes into view: its pads are in sight (on a phone they are the last row).
+  const hasCmp = drawn && L && L.compare ? entry.page_id : null;
+  if (hasCmp && S.cmpAt !== hasCmp) { const first = $("#panel .mc.pad.cmp"); if (first) first.scrollIntoView({block: "end"}); }
+  if (drawn) S.cmpAt = hasCmp;
   if (focused) {  // the control that had the keyboard keeps it across the redraw
-    const w = $(`#panel .mc[data-slot="${focused.dataset.slot}"] .w[tabindex]`);
+    const w = $(`#panel .mc[data-slot="${focused.dataset.slot}"] :is(.w[tabindex], button.w)`);
     if (w) w.focus({preventScroll: true});
   }
-}
-// ---- the Options sheet: versions of the mix to compare, play and Pick ---------------------------------------------
-const escHtml = t => String(t).replace(/[&<>"]/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;"}[c]));
-const OPT = {audio: null, playing: null, picked: null, reveal: null};  // the player for rendered files; the last Pick made here
-const optNum = x => (Math.round(x * 100) / 100).toFixed(2);
-const optSel = () => S.options.options.find(o => o.id === S.optSel) || S.options.options[0];
-const optCount = (n, one) => `${n} ${one}${n === 1 ? "" : "s"}`;
-// Where an Option stands, in words.
-function optState(o) {
-  if (o.kind === "proposal") return o.progress === "picked" ? "Suggestion, picked" : "Suggestion, not applied yet";
-  if (o.status === "rendering") return `Rendering version ${Math.min(o.done + 1, o.total)} of ${o.total}`;
-  if (o.status === "queued") return "Waiting to render";
-  if (o.status === "failed") return "Render failed";
-  return `${optCount(o.versions.length, "version")} ready`;
-}
-// One sentence on where an Option came from and what can be done with it.
-function optAbout(o) {
-  const note = o.note ? escHtml(o.note) : "";
-  if (o.kind === "proposal") {
-    const who = !o.made_by || o.made_by === "agent" ? "the assistant in Ask" : o.made_by;
-    return `<b>Suggested by ${escHtml(who)}.</b> ${note ? "Why: " + note : ""} <span class="om">${o.progress === "picked" ? "You picked it." : "Nothing has changed on the mix yet. It waits here until you pick it."}</span>`;
-  }
-  if (o.kind === "grid") return `Rendered from Live: the mix as it is, then each variation. Pick sets Live's controls to the variation you selected. ${o.status === "failed" ? `<b>It stopped:</b> ${escHtml(o.error || o.progress)}` : o.status === "ready" ? "" : "Live is busy while each one renders. Versions appear as they finish, and you can close this sheet meanwhile."} ${note}`;
-  return `Renders made earlier by another tool. You can select and play them. They carry no settings, so Pick cannot put them on the mix. ${note}`;
-}
-function optGap(g, base) {
-  if (!g) return "";
-  const d = g.lufs != null ? g.lufs : g.rms_db, unit = g.lufs != null ? "LU" : "dB";
-  if (d == null) return "";
-  const than = base ? escHtml(base.label) : "the first";
-  return Math.abs(d) < 0.05 ? `same loudness as ${than}` : `${Math.abs(d).toFixed(1)} ${unit} ${d > 0 ? "louder" : "quieter"} than ${than}`;
-}
-function renderOptions() {
-  const sh = $("#sheet"), os = S.options.options, sel = optSel();
-  const shownId = S.options.shown && S.options.shown.option === (sel && sel.id) ? S.options.shown.version.id : null;
-  const cur = toPick(sel), can = optCanPick(sel, cur);
-  const skipped = (S.options.skipped || []).length;
-  const prop = sel && sel.kind === "proposal";
-  const body = os.length ? `<span class="tag" id="ochoose">Options (${os.length}): choose one</span><div class="ol" role="group" aria-label="Comparisons and suggestions">${os.map(o => `<button class="key ${o.id === sel.id ? "on" : ""}" data-optsel="${escHtml(o.id)}"><b>${escHtml(o.title)}</b><span class="tag">${optState(o)}</span></button>`).join("")}</div>
-    <div class="oab" id="oabout">${optAbout(sel)}</div>
-    ${prop ? "" : `<span class="tag">Its versions: tap one to select it</span><div class="vg" id="vgrid" role="group" aria-label="Versions">${sel.versions.map(v => versionCard(v, sel, shownId)).join("") || '<div class="sketch">No versions in this one yet.</div>'}</div>`}
-    ${optDetail(sel, cur, can)}${skipped ? `<div class="sketch">${optCount(skipped, "older batch").replace("batchs", "batches")} could not be read and ${skipped === 1 ? "is" : "are"} not listed.</div>` : ""}`
-    : `<div class="oe" id="oempty"><p><b>Nothing to compare yet.</b></p>
-      <p>An Option is a set of versions of your mix. You select one, play it, and Pick the one to keep. Two ways to get one:</p>
-      <ol><li><b>Ask for a suggestion.</b> Open the Ask tab and say what bothers you, for example "the kick masks the bass". The assistant's suggestion appears here with its reason and the exact changes. Nothing moves until you Pick it.</li>
-      <li><b>Render a batch.</b> In the Song tab, tap Arranger. Its page called Mix 2 renders one device at several settings. Those renders appear here to play and compare.</li></ol></div>`;
-  const was = $("#obody"), grid = $("#vgrid"), at = was ? was.scrollTop : 0, gat = grid ? grid.scrollTop : 0;  // a redraw keeps the place
-  sh.innerHTML = `<h3>Options</h3><p id="osub">Versions of the mix to compare. Tap one to select it, play it, then Pick the one to keep.</p><div id="obody">${body}</div>
-    <div class="hr"><button class="key sm ${can ? "on" : "off"}" id="onow" aria-label="Pick: put the selected version's settings on the mix"><svg width="18" height="18"><use href="#i-pick"/></svg><span>${cur && can ? `Pick "${escHtml(cur.label)}"` : "Pick"}</span></button><span class="sp"></span><button class="key sm" id="hclose">Close</button></div>`;
-  $("#obody").scrollTop = at;
-  if ($("#vgrid")) $("#vgrid").scrollTop = gat;
-  if (OPT.reveal && shownId === OPT.reveal && $("#odetail")) { OPT.reveal = null; $("#odetail").scrollIntoView({block: "nearest"}); }  // a tap on a Version brings its panel into view
-}
-// The Version a Pick means: the one on the Hear bar, or the only one (what an agent proposed has one).
-function toPick(sel) {
-  if (!sel) return null;
-  const sh = S.options.shown;
-  if (sh && sh.option === sel.id) return sel.versions.find(v => v.id === sh.version.id) || null;
-  return sel.versions.length === 1 ? sel.versions[0] : null;
-}
-// A Pick works on a ready Version that holds settings; a suggestion with no changes is picked as your word alone.
-function optCanPick(sel, v) { return !!(sel && v && v.status === "ready" && v.writes && (v.writes.length || sel.kind === "proposal")); }
-function optWhyNot(sel, v) {
-  if (!v) return "Tap a version to select it first.";
-  if (v.status !== "ready") return v.status === "gone" ? "This version's file is missing, so it cannot be picked." : "This version has not rendered yet. Pick works once it is ready.";
-  if (sel.kind === "proposal") return "This suggestion gives its values as text, not numbers, so Pick cannot apply it. Ask in the Ask tab for the same suggestion with numbers.";
-  if (v.id === sel.base) return "This is the mix without changes, here to compare against. There is nothing to pick.";
-  return "This is a finished render with no settings attached, so Pick cannot put it on the mix. To get this sound, set the controls by hand.";
-}
-// What a Pick will set, one line per control: its name, where it is now, where it goes.
-function optMoves(v) {
-  const vals = valueMap();
-  return (v.writes || []).map(([key, to]) => {
-    const now = vals[key], from = now && now.r != null ? optNum(now.r) : null;
-    const change = from == null ? `to ${optNum(to)}` : from === optNum(to) ? `stays at ${from}` : `from ${from} to ${optNum(to)}`;
-    return `<li><b>${escHtml(String(key).replace(/\//g, ", "))}</b>: <span class="mono">${change}</span>${now && now.s ? ` <span class="om">(reads ${escHtml(now.s)} now)</span>` : ""}</li>`;
-  }).join("");
-}
-function optPlayable(v) { return !!(v && v.status === "ready" && v.file); }
-// The panel under the grid: the selected Version, its Play button, and what Pick will do (or what it just did).
-function optDetail(sel, v, can) {
-  if (!v) return `<div class="od" id="odetail"><b>No version selected.</b><span>Tap a version above. Its loudness and spectrum then show on the Hear bar at the top, and you can play it here.</span></div>`;
-  const id = sel.id + "|" + v.id, on = OPT.playing === id;
-  const play = optPlayable(v)
-    ? `<div class="orow"><button class="key sm ${on ? "on" : ""}" id="oplay" aria-pressed="${on}"><svg width="18" height="18"><use href="#i-${on ? "stop" : "play"}"/></svg>${on ? "Stop" : "Play this version"}</button><span class="om">Plays the render on this device, not through Live. While it plays, tap another version to switch at the same spot. Levels are not matched.</span></div>`
-    : `<span class="om">${sel.kind === "proposal" ? "A suggestion is not rendered, so there is nothing to play here. To hear it, Pick it and listen in Live; Undo puts the mix back." : v.status === "gone" ? "Its audio file is missing, so it cannot be played." : "Not rendered yet, so there is nothing to play."}</span>`;
-  const p = OPT.picked, last = S.hist.entries[(S.hist.pos == null ? S.hist.entries.length : S.hist.pos) - 1];  // the last change not undone
-  const justPicked = p && p.option === sel.id && p.version === v.id && (p.entry == null || (last && last.id === p.entry));
-  let pick;
-  if (justPicked) pick = p.entry == null ? `<div class="done" id="odone"><b>Picked.</b> It had no changes for the mix, so nothing moved. The assistant may now go ahead with it.</div>`
-    : `<div class="done" id="odone"><b>Picked. ${optCount(p.n, "control")} changed in Live.</b><div class="orow"><span>Undo takes it back in one step.</span><button class="key sm" id="hundo"><svg width="18" height="18"><use href="#i-undo"/></svg>Undo</button></div></div>`;
-  else if (!can && v.writes && v.writes.length && (v.status === "queued" || v.status === "rendering")) pick = `<div id="onot"><b>Not rendered yet. Once it is ready, Pick will set ${optCount(v.writes.length, "control")} in Live:</b><ul>${optMoves(v)}</ul></div>`;
-  else if (!can) pick = `<span id="onot">${optWhyNot(sel, v)}</span>`;
-  else if (!v.writes.length) pick = `<span id="owill">Pick changes nothing on the mix. It tells the assistant it may go ahead with this.</span>`;
-  else pick = `<div id="owill"><b>Pick will set ${optCount(v.writes.length, "control")} in Live, at once:</b><ul>${optMoves(v)}</ul><span class="om">Nothing changes until you tap Pick. Afterwards an Undo button here takes it back in one step.</span></div>`;
-  return `<div class="od" id="odetail"><b>${sel.kind === "proposal" ? "The suggestion" : "Selected"}: ${escHtml(v.label)}</b>${play}${pick}</div>`;
-}
-function versionCard(v, sel, shownId) {
-  const l = loud(v), ok = v.status === "ready", base = sel.versions.find(x => x.id === sel.base);
-  let sub;
-  if (sel.kind === "proposal") sub = v.writes ? `${optCount(v.writes.length, "change")}, not rendered` : "values given as text";
-  else if (ok) sub = [l == null ? "loudness not measured" : l.toFixed(1) + " LUFS", v.id === sel.base ? "the mix without changes" : optGap(v.gap, base)].filter(Boolean).join(" · ");
-  else sub = {rendering: "Rendering now", queued: "Waiting to render", failed: "Render failed", gone: "Audio file is missing"}[v.status] || v.status;
-  return `<button class="vc ${shownId === v.id ? "on" : ""} ${sel.now === v.id ? "now" : ""} ${ok ? "" : "off"}" data-opt="${escHtml(sel.id)}" data-ver="${escHtml(v.id)}" aria-pressed="${shownId === v.id}"><b>${escHtml(v.label)}</b><span>${sub}</span>${shownId === v.id ? '<em class="sel">Selected</em>' : ""}${sel.now === v.id ? "<em>Picked</em>" : ""}</button>`;
-}
-// Play the selected Version's rendered file here. While one plays, selecting another switches to it at the same spot.
-function optPlay(sel, v, toggle) {
-  const id = sel.id + "|" + v.id;
-  if (!OPT.audio) {
-    OPT.audio = new Audio();
-    const stop = () => { OPT.playing = null; if (S.sheet === "options") renderHist(); };
-    OPT.audio.addEventListener("ended", stop);
-    OPT.audio.addEventListener("error", () => { if (OPT.playing) { toast("That file could not be played here."); stop(); } });
-  }
-  const a = OPT.audio;
-  if (toggle && OPT.playing === id) { a.pause(); OPT.playing = null; return renderHist(); }
-  const at = OPT.playing && OPT.playing.split("|")[0] === sel.id ? a.currentTime : 0;
-  OPT.playing = id;
-  a.src = `/api/options/file?option=${encodeURIComponent(sel.id)}&version=${encodeURIComponent(v.id)}`;
-  if (at) a.addEventListener("loadedmetadata", () => { if (at < a.duration) a.currentTime = at; }, {once: true});
-  a.play().catch(() => {});
-  renderHist();
-}
-function optStop() { if (OPT.audio && OPT.playing) { OPT.audio.pause(); OPT.playing = null; } }
-// A tap in the sheet: choose a comparison, select a Version, play it, Pick it. True when the tap was one of these.
-async function optClick(t) {
-  if (t.dataset.optsel) { S.optSel = t.dataset.optsel; optStop(); renderHist(); return true; }
-  if (t.dataset.opt) {
-    OPT.reveal = t.dataset.ver;
-    const r = await command("options.show", {option: t.dataset.opt, version: t.dataset.ver});
-    if (r.ok && OPT.playing) {
-      const sel = S.options.options.find(o => o.id === t.dataset.opt), v = sel && sel.versions.find(x => x.id === t.dataset.ver);
-      if (optPlayable(v)) optPlay(sel, v, false); else { optStop(); renderHist(); }
-    }
-    return true;
-  }
-  if (t.id === "oplay") { const sel = optSel(), v = toPick(sel); if (optPlayable(v)) optPlay(sel, v, true); return true; }
-  if (t.id === "onow") {
-    const sel = optSel(), v = toPick(sel);
-    if (!optCanPick(sel, v)) { toast(sel ? optWhyNot(sel, v) : "There is nothing to pick yet."); return true; }
-    const r = await command("options.pick", {option: sel.id, version: v.id});
-    if (r.ok) {
-      OPT.picked = {option: sel.id, version: v.id, entry: r.body.entry == null ? null : r.body.entry, n: v.writes.length};
-      toast(r.body.entry == null ? `Picked "${v.label}". Nothing moved on the mix.` : `Picked "${v.label}": ${optCount(v.writes.length, "control")} changed. Undo takes it back.`);
-      renderHist();
-    }
-    return true;
-  }
-  return false;
-}
-// The side column's block (desktop): the chosen comparison's versions, to select without opening the sheet.
-function sideVersions() {
-  const sel = optSel();
-  if (!sel) return '<span class="tag">Versions to compare</span><div class="sketch">Nothing to compare yet. Open Options to see how to get some.</div>';
-  const shownId = S.options.shown && S.options.shown.option === sel.id ? S.options.shown.version.id : null;
-  return `<span class="tag">Versions to compare</span><div class="sketch"><b>${escHtml(sel.title)}</b><br>${optState(sel)}. Tap one to select it; open Options to play or Pick it.</div>
-    <div class="vg">${sel.versions.map(v => versionCard(v, sel, shownId)).join("") || '<div class="sketch">No versions in this one yet.</div>'}</div>`;
 }
 function renderSide() {
   const side = $("#side");
   if (!S.state || !S.desk || !wide()) return;
   const {pages, entry, next} = current(), cur = next || entry;
-  const os = S.options.options, sel = os.find(o => o.id === S.optSel) || os[0];
-  const shownId = sel && S.options.shown && S.options.shown.option === sel.id ? S.options.shown.version.id : null;
   side.innerHTML = `<span class="tag">Pages</span><div class="pl" role="group" aria-label="Pages">${pages.map(p =>
-    `<button class="key ${p === cur ? "on" : ""}" data-page="${p.hw[0]}">${esc(p.name)}</button>`).join("")}</div>
-    ${sideVersions()}
-    <button class="key sm" id="sopts">Options</button>`;
+    `<button class="key ${p === cur ? "on" : ""}" data-page="${p.hw[0]}">${esc(p.name)}</button>`).join("")}</div>`;
   // the page in view (or asked for) is never below the window: a new page's button scrolls into sight
   const on = side.querySelector(".pl .key.on");
   if (on && S.sideAt !== on.dataset.page + "/" + pages.length) { S.sideAt = on.dataset.page + "/" + pages.length; on.scrollIntoView({block: "nearest"}); }
@@ -750,7 +568,6 @@ function renderHist() {
   sh.classList.toggle("on", !!S.sheet);
   navSync();
   if (!S.sheet) return;
-  if (S.sheet === "options") return renderOptions();
   if (S.sheet === "build") return renderBuild();
   const field = $("#cpname"), kept = field ? {value: field.value, focus: document.activeElement === field, at: field.selectionStart} : null;
   const list = $("#sheet .hl"), top = list ? list.scrollTop : 0;
@@ -799,9 +616,11 @@ function histRows() {
       continue;
     }
     const undone = i >= pos, moves = e.moves || [];
-    const what = e.k === "revert" ? `<span><b>Went back to “${esc(cpLabel(e.to))}”</b> <span class="hv">${moves.length} control${moves.length === 1 ? "" : "s"}</span></span>`
+    const cmp = e.k === "move" && e.compare;
+    const what = cmp ? `<span><b>${esc(cmp.name)}</b> <span class="hv">${cmp.from ? esc(cmp.from) + " → " : ""}<b>${esc(cmp.to)}</b> · ${moves.length} control${moves.length === 1 ? "" : "s"}</span></span>`
+      : e.k === "revert" ? `<span><b>Went back to “${esc(cpLabel(e.to))}”</b> <span class="hv">${moves.length} control${moves.length === 1 ? "" : "s"}</span></span>`
       : moves.slice(0, 3).map(histMove).join("") + (moves.length > 3 ? `<span class="hv">and ${moves.length - 3} more</span>` : "");
-    const group = e.group && !e.group.startsWith("touch-") ? `<span class="hv">${esc(e.group)}</span>` : "";
+    const group = e.group && !/^(touch|compare)-/.test(e.group) ? `<span class="hv">${esc(e.group)}</span>` : "";
     rows.push(`<div class="he ${undone ? "undone" : ""}">${head(e)}<span class="ht">${what}${group}</span>${undone ? '<span class="tagu">undone</span>' : ""}</div>`);
   }
   return rows.join("");
@@ -833,7 +652,6 @@ function renderBuild() {
     <div class="sketch">Takes a few minutes. Live is busy until it is done.</div>
     <div class="hr"><button class="key sm" id="hclose">Cancel</button><span class="sp"></span><button class="key sm danger" id="buildgo">Replace and build</button></div>`;
 }
-function render() { renderHear(); renderDesk(); renderSide(); renderHist(); markPending(); }
 function render() { renderHear(); renderDesk(); renderSide(); renderHist(); markPending(); }
 
 // ---- touching controls ---------------------------------------------------------------------------------------------
@@ -995,24 +813,23 @@ function showTab(t) {
   navSync();
   if (t === "song" && !S.song.loaded) { if (!$("#song").innerHTML) $("#song").innerHTML = '<div class="tag" id="songwait">Reading the song…</div>'; loadSong(); }
 }
-// A tab was tapped (nav.js draws them): Desk and Song switch in place, Options is a sheet over either.
+// A tab was tapped (nav.js draws them): Desk and Song switch in place.
 function go(t) {
-  if (t === "options") S.sheet = S.sheet === "options" ? false : "options";
-  else { S.sheet = false; showTab(t); }
+  S.sheet = false; showTab(t === "song" ? "song" : "desk");
   renderHist();
 }
-// The tab bar and the address say where you are: #desk, #song or #options.
+// The tab bar and the address say where you are: #desk or #song.
 function navSync() {
-  const at = S.sheet === "options" ? "options" : S.tab;
+  const at = S.tab;
   if (window.zpktNav) window.zpktNav.set(at);
   if (location.hash !== "#" + at && !S.want) history.replaceState(null, "", "#" + at);
 }
-// The address on load, or changed by hand or by a link: #desk, #song, #options, #page=<the id of a saved Page>.
+// The address on load, or changed by hand or by a link: #desk, #song, #page=<the id of a saved Page>. Any other
+// address (an old link to a tab that is gone) is the Desk.
 function route() {
   const h = decodeURIComponent(location.hash.slice(1));
   if (h.startsWith("page=")) { S.want = h.slice(5); S.sheet = false; showTab("desk"); wanted(); }
-  else if (h === "options") { S.sheet = "options"; }
-  else if (h === "song" || h === "desk") { S.sheet = false; showTab(h); }
+  else if (h) { S.sheet = false; showTab(h === "song" ? "song" : "desk"); }
   renderHist();
 }
 // Open the Desk on the saved Page the address asked for, once the desk and the state are here.
@@ -1138,6 +955,7 @@ document.addEventListener("click", async e => {
   if (t.id === "songbuild") { S.sheet = "build"; return renderHist(); }
   if (t.id === "buildgo") return buildSong();
   if (t.dataset.back) return goBack(t.dataset.back, t.dataset.label);
+  if (t.dataset.cmp !== undefined) return pressState(+t.dataset.cmp);
   if (t.dataset.mpad !== undefined) {
     const el = t.closest(".mc");
     if (el.dataset.by === "slot") return command("mix.toggle", {slot: el.dataset.slot, page: +el.dataset.hw});
@@ -1148,8 +966,6 @@ document.addEventListener("click", async e => {
   if (t.id === "kundo" || t.id === "hundo") return command("history.undo");
   if (t.id === "kredo" || t.id === "hredo") return command("history.redo");
   if (t.id === "khist") { S.sheet = "hist"; return renderHist(); }
-  if (t.id === "topts" || t.id === "sopts") { S.sheet = S.sheet === "options" ? false : "options"; return renderHist(); }
-  if (await optClick(t)) return;
   if (t.id === "hclose") { S.sheet = false; return renderHist(); }
 });
 document.addEventListener("submit", e => { if (e.target.id === "cpform") { e.preventDefault(); saveCheckpoint($("#cpname").value); } });
@@ -1161,16 +977,6 @@ function apply(m) {
   if (m.t === "full") S.state = m.state;
   else if (m.t === "hear") S.hear = m;
   else if (m.t === "hist") S.hist = m;
-  else if (m.t === "options") { S.options = m; if (!S.optSel && m.options.length) S.optSel = m.options[0].id; }
-  else if (m.t === "option") {
-    const os = S.options.options, at = os.findIndex(o => o.id === m.option.id);
-    if (at >= 0) os[at] = m.option; else os.unshift(m.option);
-    if (!S.optSel) S.optSel = m.option.id;
-    if (S.options.shown && S.options.shown.option === m.option.id) {
-      const v = m.option.versions.find(x => x.id === S.options.shown.version.id);
-      if (v) S.options.shown.version = v;
-    }
-  }
   else if (m.t === "meter") { S.meter = m; S.meterAt = Date.now(); return renderTop(); }
   else if (m.t === "v" && S.state) {
     S.state.values[`${m.page}:${m.slot}`] = {...(S.state.values[`${m.page}:${m.slot}`] || {}), n: m.n, s: m.s, r: m.r, key: m.key};
@@ -1206,6 +1012,6 @@ loadDesk().then(connect);
 // Crossing the desktop breakpoint draws or drops the side column.
 window.matchMedia("(min-width:1100px)").addEventListener("change", render);
 route();
-window.zpkt = {S, command, armPage, wait: WAIT, own: OWN, textAt, placeOf, cpLabel};
+window.zpkt = {S, command, armPage, wait: WAIT, own: OWN, textAt, placeOf, cpLabel, litState};
 </script>
 <script type="module" src="/app/shell/listen.js"></script></body></html>

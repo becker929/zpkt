@@ -1,16 +1,15 @@
-// The one tab bar of the app: Desk, Song, Options, Ask, the same on every page. Served at /app/shell/nav.js.
-// A page has <nav id="tabs" data-current="desk|song|options|ask"></nav> and loads this file after it.
-// On /app/ the first three are buttons (data-t) that the shell switches in place; on any other page they are links
-// to /app/#desk, /app/#song and /app/#options. Ask is always a link to /app/ask/.
+// The one tab bar of the app: Desk, Song, Ask, the same on every page. Served at /app/shell/nav.js.
+// A page has <nav id="tabs" data-current="desk|song|ask"></nav> and loads this file after it.
+// On /app/ the first two are buttons (data-t) that the shell switches in place; on any other page they are links
+// to /app/#desk and /app/#song. Ask is always a link to /app/ask/.
 (function () {
   "use strict";
   const TABS = [
     ["desk", "Desk", '<circle cx="8" cy="8" r="3.5"/><circle cx="16" cy="16" r="3.5"/><path d="M13 7h7M4 17h5"/>'],
     ["song", "Song", '<path d="M4 7h9M4 12h16M4 17h11"/>'],
-    ["options", "Options", '<rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="7" rx="1.5"/><rect x="4" y="13" width="7" height="7" rx="1.5"/><rect x="13" y="13" width="7" height="7" rx="1.5" fill="currentColor"/>'],
     ["ask", "Ask", '<path d="M4 5h16v11H10l-5 4v-4H4z"/>'],
   ];
-  const IDS = {desk: "tab-desk", song: "tab-song", options: "topts", ask: "task"};  // the last two are the ids the shell always had
+  const IDS = {desk: "tab-desk", song: "tab-song", ask: "task"};
   const nav = document.getElementById("tabs");
   if (!nav) return;
   const inPlace = /^\/app\/?$/.test(location.pathname);

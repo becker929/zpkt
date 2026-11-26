@@ -15,7 +15,6 @@ def app_env(api, monkeypatch):
     monkeypatch.setenv("ZPKT_APP_URL", api.url)
     monkeypatch.delenv("ZPKT_LIVE_VIA", raising=False)
     monkeypatch.delenv("ZPKT_AGENT", raising=False)
-    monkeypatch.delenv("ZPKT_OPTION", raising=False)
     return api
 
 
@@ -47,21 +46,19 @@ def test_an_agent_may_still_read_through_the_transport(app_env, rig, monkeypatch
     assert (last["kind"], last["who"], last["status"]) == ("live.read", "agent", 200)
 
 
-def test_an_option_you_picked_lets_the_agents_change_pass(app_env, rig, monkeypatch):
+def test_naming_an_option_gives_the_agent_nothing(app_env, rig, monkeypatch):
+    """Options are gone: ZPKT_OPTION is not read, and no approval of an agent's passes from outside the app."""
     monkeypatch.setenv("ZPKT_AGENT", "1")
     monkeypatch.setenv("ZPKT_OPTION", "kick-down")
-    assert AppTransport().execute("song.tempo = 106.0").status == "error"  # named, but no one picked it
-    rig.desk.bus.option_picked = lambda option: option == "kick-down"
-    assert AppTransport().execute("song.tempo = 106.0").status == "ok"
-    assert rig.live.song.tempo == 106.0
-    assert rig.desk.bus.log[-1]["who"] == "agent"
-    monkeypatch.delenv("ZPKT_AGENT")
-    cli_client = AppClient()
+    before = rig.live.song.tempo
+    assert AppTransport().execute("song.tempo = 106.0").status == "error"
+    assert rig.live.song.tempo == before
+    agent = AppClient()
     sent = []
-    original = cli_client._send
-    cli_client._send = lambda m, p, body, auth=True: sent.append(body) or original(m, p, body, auth)  # type: ignore[method-assign]
-    cli_client.submit("live.read", {"code": "result = 1"})
-    assert "approval" not in sent[0]  # ZPKT_OPTION is the agent's; the cli sends none
+    original = agent._send
+    agent._send = lambda m, p, body, auth=True: sent.append(body) or original(m, p, body, auth)  # type: ignore[method-assign]
+    agent.submit("live.read", {"code": "result = 1"})
+    assert "approval" not in sent[0]
 
 
 def test_a_command_of_the_zpkt_cli_run_by_an_agent_is_the_agents(app_env, rig, monkeypatch):

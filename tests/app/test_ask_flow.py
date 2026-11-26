@@ -22,7 +22,7 @@ PAGE = {
 # What the shell track serves at /app/shell/: the contract, as small as it can be.
 NAV_JS = """
 const nav = document.getElementById('tabs');
-nav.innerHTML = ['desk', 'song', 'options'].map((t) => `<a data-t="${t}" href="/app/#${t}">${t}</a>`).join('')
+nav.innerHTML = ['desk', 'song'].map((t) => `<a data-t="${t}" href="/app/#${t}">${t}</a>`).join('')
   + '<a data-t="ask" class="on" aria-current="page" href="/app/ask/">ask</a>';
 nav.dataset.at = matchMedia('(min-width:700px)').matches ? 'top' : 'bottom';
 """
@@ -100,13 +100,9 @@ def box(pg, selector: str) -> dict:
 
 # ---- one tab of the app ----------------------------------------------------------------------------------------------
 def test_the_tab_bar_is_the_shells_and_sits_under_the_composer_on_a_phone(asked, page):
-    assert page.locator("#tabs a").count() == 4
+    assert page.locator("#tabs a").count() == 3
     assert page.locator("#tabs a.on").get_attribute("href") == "/app/ask/"
-    assert [a.get_attribute("href") for a in page.locator("#tabs a").all()[:3]] == [
-        "/app/#desk",
-        "/app/#song",
-        "/app/#options",
-    ]
+    assert [a.get_attribute("href") for a in page.locator("#tabs a").all()[:2]] == ["/app/#desk", "/app/#song"]
     assert not page.locator("#tabs").evaluate("n => n.classList.contains('fallback')")
     bar, tabs, top = box(page, "#bar"), box(page, "#tabs"), box(page, "#top")
     assert top["y"] < bar["y"] and bar["y"] + bar["height"] <= tabs["y"] + 1  # the composer is above the tab bar
@@ -116,10 +112,10 @@ def test_the_tab_bar_is_the_shells_and_sits_under_the_composer_on_a_phone(asked,
     assert page.locator("#side, #new, #list, #libBtn, #midiBtn").count() == 0  # the old standalone app's chrome
 
 
-def test_without_the_shells_files_there_is_a_plain_row_of_four_links(asked, browser):
+def test_without_the_shells_files_there_is_a_plain_row_of_three_links(asked, browser):
     pg = open_page(browser, asked, shell=False)
     assert pg.locator("#tabs").evaluate("n => n.classList.contains('fallback')")
-    assert [a.inner_text() for a in pg.locator("#tabs a").all()] == ["Desk", "Song", "Options", "Ask"]
+    assert [a.inner_text() for a in pg.locator("#tabs a").all()] == ["Desk", "Song", "Ask"]
     assert pg.locator("#tabs a").first.get_attribute("href") == "/app/#desk"
     assert pg.locator("#tabs a.on").inner_text() == "Ask"
     assert box(pg, "#tabs a.on")["height"] >= 44
@@ -269,7 +265,7 @@ def test_earlier_chats_are_behind_one_entry_and_read_only(asked, page):
     page.wait_for_selector("text=an old answer")
     assert page.locator("#title").inner_text() == "The old kick chat"
     assert not page.locator("#bar").is_visible() and page.locator("#robar").is_visible()
-    assert page.locator("#tabs a").count() == 4  # the tabs stay
+    assert page.locator("#tabs a").count() == 3  # the tabs stay
     page.click("#backBtn")
     page.wait_for_selector("#empty")
     assert page.locator("#bar").is_visible() and page.locator("#title").inner_text() == "Ask"

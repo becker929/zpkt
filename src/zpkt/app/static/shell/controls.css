@@ -97,4 +97,10 @@
 .mc.pad.off .w{border-color:var(--zc-line)}
 .mc.pad.off .w,.mc.pad.missing .w{background:none;box-shadow:none;border-style:dashed;color:var(--mute);font-family:ui-monospace,Menlo,monospace;font-size:10px}
 .mc.pad.chg::after{top:-3px;right:-1px}
+/* a compare state: one pad of a set. The set stands on one rail; each pad has a lamp, lit with the pad when its
+   state is on. No pad of the set is lit when none of its states holds. */
+.mc.pad.cmp::before{content:"";position:absolute;left:-2px;right:-2px;bottom:-5px;height:3px;background:var(--ink);opacity:.28}
+.mc.pad.cmp .w::before{content:"";position:absolute;top:5px;left:6px;width:8px;height:8px;box-sizing:border-box;border-radius:50%;border:1.5px solid var(--mute)}
+.mc.pad.cmp.on .w::before{background:var(--zs-on);border-color:var(--zs-on)}
+.mc.pad.cmp.missing::before{opacity:.12}
 @media (prefers-reduced-motion:reduce){.mc.pad.live .w:active{transform:none}}

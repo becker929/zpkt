@@ -5,12 +5,40 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 from typing import Any
 
+from zpkt.app.minilab.core import pagercore
 from zpkt.app.minilab.mapper import ControlView, PageView, View
 
 
 def pages_from_cfg(pages: Sequence[Mapping[str, Any]]) -> tuple[PageView, ...]:
-    """desk.json's pages (and made surfaces) as the map sees them: a name and the pad that arms it."""
-    return tuple(PageView(str(p["name"]), int(p["pad"]) if "pad" in p else None) for p in pages)
+    """desk.json's pages (and made surfaces) as the map sees them: a name, the pad that arms it, and the pads that
+    hold its compare states."""
+    return tuple(
+        PageView(
+            str(p["name"]),
+            int(p["pad"]) if "pad" in p else None,
+            {str(slot): int(i) for slot, i in ((p.get("compare") or {}).get("pads") or {}).items()},
+        )
+        for p in pages
+    )
+
+
+def lit_pad(compare: Mapping[str, Any] | None, values: Mapping[str, Mapping[str, Any]]) -> str | None:
+    """The pad slot of the compare state that is on now, from a desk page's "compare" (its states' writes and the
+    targets' ranges) and the desk's values: the pager's own rule (pagercore.lit_state), so the light and Live agree.
+    None when no state holds."""
+    if not compare:
+        return None
+    by_key = {str(v["key"]): v.get("r") for v in values.values() if v.get("key") and not v.get("err")}
+    ranges = compare.get("ranges") or {}
+
+    def read(key: str) -> tuple[Any, float, float, bool] | None:
+        if key not in by_key or key not in ranges:
+            return None
+        lo, hi, quantized = ranges[key]
+        return by_key[key], float(lo), float(hi), bool(quantized)
+
+    on = pagercore().lit_state(compare.get("states") or [], read)
+    return next((str(slot) for slot, i in (compare.get("pads") or {}).items() if i == on), None)
 
 
 def controls_of(
@@ -35,9 +63,14 @@ def controls_of(
 
 
 def view_from(
-    state: Mapping[str, Any], pages: tuple[PageView, ...], labels: Mapping[str, str], hearing: str = "now"
+    state: Mapping[str, Any],
+    pages: tuple[PageView, ...],
+    labels: Mapping[str, str],
+    hearing: str = "now",
+    compare: Mapping[str, Any] | None = None,
 ) -> View:
-    """The View of a desk state (deskstate.DeskState) with the page list, the history's labels and what is heard."""
+    """The View of a desk state (deskstate.DeskState) with the page list, the history's labels and what is heard.
+    `compare` is the armed page's own "compare" (desk.cfg): which of its pads is lit is worked out here."""
     page = int(state["page"])
     return View(
         page=page,
@@ -49,4 +82,5 @@ def view_from(
         match=bool(state["match"]),
         hearing=hearing,
         driving=bool(state["values"]),
+        lit=lit_pad(compare, state["values"]),
     )

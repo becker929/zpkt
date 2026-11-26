@@ -213,6 +213,31 @@
       "title": "MonitorMessage",
       "type": "object"
     },
+    "PadMessage": {
+      "description": "A pad pressed on the MiniLab that holds a compare state of the armed page: the app writes the state.",
+      "properties": {
+        "t": {
+          "const": "pad",
+          "title": "T",
+          "type": "string"
+        },
+        "page": {
+          "title": "Page",
+          "type": "integer"
+        },
+        "slot": {
+          "title": "Slot",
+          "type": "string"
+        }
+      },
+      "required": [
+        "t",
+        "page",
+        "slot"
+      ],
+      "title": "PadMessage",
+      "type": "object"
+    },
     "PageMessage": {
       "description": "A page armed on the MiniLab.",
       "properties": {
@@ -402,6 +427,9 @@
     },
     {
       "$ref": "#/$defs/HardwareMessage"
+    },
+    {
+      "$ref": "#/$defs/PadMessage"
     },
     {
       "$ref": "#/$defs/FullMessage"

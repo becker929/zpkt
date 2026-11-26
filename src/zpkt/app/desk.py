@@ -27,7 +27,6 @@ from zpkt.app.bus import Bus, Command, SetGuard
 from zpkt.app.connections import BUSY_WAIT_S, LiveConnections, bind_udp, open_connections
 from zpkt.app.monitor import Monitor
 from zpkt.app.mounts import Mounts
-from zpkt.app.renders import Options
 from zpkt.audio.levels import rms_to_db
 from zpkt.live import changes, config, desk_pager, meter, monitor_tracks, openset
 from zpkt.live import state as live_state
@@ -109,9 +108,6 @@ class Settings:
     pager_file: Path = field(default_factory=lambda: mixdesk_dir() / "pager.py")
     changes_file: Path | None = None  # the set's change stream (zpkt.live.changes); None writes none
     references: tuple[str, ...] = field(default_factory=reference_ids)
-    options_dir: Path | None = None  # the queue's jobs, renders and measures (zpkt.app.renders); None: <data>/options
-    arranger_dir: Path | None = None  # the HW002 arranger's data, read for Options; None: ARRANGER_DATA
-    panels_dir: Path | None = None  # where `hands panel` keeps its panel files; None: the rig's renders folder
     ask_dir: Path = field(default_factory=default_ask_dir)  # Ask's sessions and files (ZPKT_ASK_DIR)
     hosts: tuple[str, ...] = ()  # more Host names the web server answers for (ZPKT_APP_HOSTS); see web.host_allowed
 
@@ -167,7 +163,6 @@ class Desk:
         self._stale_reload_at = 0.0  # when the supervisor last reloaded a pager Live raised from
         self._analysis: tuple[float | None, dict[str, Any]] = (None, {"sources": {}})
         self.monitor = Monitor(self)
-        self.options = Options(self)
         self.mounts = Mounts()  # the one seam for an adapter's pages: route sets under a path prefix (Ask, the Song)
         self.bus = self._make_bus()
 
@@ -275,6 +270,9 @@ class Desk:
         it moved a value."""
         if msg["t"] == "v":
             self.monitor.before_move(msg)
+        if msg["t"] == "pad":  # a pad of the MiniLab that holds a compare state: the app writes it, as the minilab
+            press = Command("page.compare", "minilab", {"page": msg["page"], "slot": msg["slot"]})
+            threading.Thread(target=self.bus.submit, args=(press,), daemon=True, name="minilab-pad").start()
         with self.lock:
             self.state = deskstate.reduce(self.state, msg, time.time())
         self.push(dict(msg))
@@ -415,18 +413,35 @@ class Desk:
         What the pager could not use of its macros is added to the surface's notes."""
         return self.adopt_surfaces([(path, surface)])[0]
 
-    def adopt_surfaces(self, made: list[tuple[Path, dict[str, Any]]]) -> list[int]:
+    def adopt_surfaces(self, made: list[tuple[Path, dict[str, Any]]], arm: bool = True) -> list[int]:
         """Several surfaces just saved (a Page with more than one MiniLab page): one pager reload, the first armed.
-        Returns their pages' indexes."""
+        With `arm` false the desk stays on the page it was on (a page written over in place, by an agent: what the
+        MiniLab's controls work does not change under the hand unless it is that page). Returns their pages'
+        indexes."""
+        before = None if arm else self.armed_page_name()
         self.restart_pager()
         pages = self.cfg()["pages"]
         found = [next(i for i, pg in enumerate(pages) if pg.get("surface") == path.name) for path, _ in made]
-        self.call(f"m.DESK.arm({found[0]})")
+        shown = found[0]
+        if not arm:
+            stay = next((i for i, pg in enumerate(pages) if (pg.get("surface") or pg["name"]) == before), None)
+            shown = min(self.snapshot()["page"], len(pages) - 1) if stay is None else stay
+        self.call(f"m.DESK.arm({shown})")
         for idx, (_, surface) in zip(found, made, strict=True):
             for x in self.call(f"m.DESK.macro_skipped({idx})") or []:
                 surface["notes"].append(f"{x} could not be used in Live; that part of the macro does nothing.")
-        self.push({"t": "desk", "open": found[0]})
+        self.push({"t": "desk", "open": shown})
         return found
+
+    def armed_page_name(self) -> str | None:
+        """What names the armed page across a reload: its surface file, or its name for one of desk.json's. The
+        surfaces on disk may have changed already, so the pager's own list is asked."""
+        with contextlib.suppress(LiveError, OSError, TypeError, ValueError):
+            named = self.call(
+                "(m.DESK.cfg['pages'][m.DESK.page].get('surface') or m.DESK.cfg['pages'][m.DESK.page]['name'])"
+            )
+            return str(named) if named else None
+        return None
 
     def inventory(self) -> surfaces.Inventory:
         return surfaces.parse_inventory(self.call("m.DESK.inventory()") or "")

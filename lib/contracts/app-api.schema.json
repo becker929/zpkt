@@ -17,7 +17,7 @@
         "args": {"type": "object", "default": {}},
         "approval": {
           "type": ["string", "null"],
-          "description": "'user' (the user said so) or 'option:<id>'. An agent may not send 'user'."
+          "description": "'user' (the user said so). An agent may not send it."
         },
         "group": {"type": ["string", "null"], "description": "Changes made together; one undo takes the group back."}
       },
