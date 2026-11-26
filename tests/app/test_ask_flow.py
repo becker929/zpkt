@@ -211,7 +211,9 @@ def test_the_developer_modes_are_behind_a_flag(asked, browser, width):
     pg.wait_for_selector("text=plain again")
     asked.ask.wait_idle()
     assert asked.providers["claude"].seen[-1].mode == "build"  # a developer mode does not stick without the flag
-    assert pg.errors == [], pg.errors
+    # Leaving the page while it follows the stream ends that request; WebKit reports the end as an error now and then.
+    errors = [e for e in pg.errors if "access control checks" not in e]
+    assert errors == [], errors
 
 
 def test_an_ask_first_question_is_answered_from_the_page(asked, browser):
