@@ -117,6 +117,29 @@ def test_compare_is_in_the_play_bar_and_history_chooses_the_pinned_b(rig, page):
     assert status == 404, body
 
 
+def test_the_monitor_tab_draws_a_curve_for_each_of_a_b_and_c_once_heard(rig, page):
+    """The Monitor tab (26 November 2026): the live meter's bands as a curve for whichever of A, B and C is heard while
+    the song plays, each kept as it was last heard, with a table of levels."""
+    page.click("#tab-monitor")
+    page.wait_for_selector("#monplot")
+    assert page.evaluate("location.hash") == "#monitor" and page.locator("#desk").is_hidden()
+    assert page.locator("#monplot path.cv").count() == 0  # nothing has been heard yet
+    feed = """h => { const S = window.zpkt.S, hz = Array.from({length: 31}, (_, i) => 20 * Math.pow(1000, i / 30));
+      S.state.playing = true; S.hear = {...S.hear, hearing: h};
+      window.zpkt.monFeed({t: "meter", hz, db: hz.map(f => (h === "ref" ? -20 : -30) - Math.log2(f / 20))}); }"""
+    page.evaluate(feed, "now")
+    page.wait_for_selector("#monplot path.cv.a.on")
+    page.evaluate(feed, "ref")
+    page.wait_for_selector("#monplot path.cv.c.on")
+    assert page.locator("#monplot path.cv").count() == 2 and page.locator("#monplot path.cv.a.on").count() == 0
+    cells = [c.inner_text() for c in page.locator("#montab .num").all()]
+    assert cells[0].startswith("−") and cells[1] == "–" and cells[2] == "+10.0"  # A's level, B unheard, C against A
+    assert page.evaluate("document.documentElement.scrollHeight <= innerHeight")
+    page.evaluate("window.zpkt.S.state.playing = false")
+    page.evaluate(feed.replace("S.state.playing = true;", ""), "pin")  # a stopped song adds nothing to a curve
+    assert page.locator("#monplot path.cv.b").count() == 0
+
+
 def test_flow_6_undo_the_history_names_who_and_an_agent_group_undoes_as_one(rig, page):
     keys = [v["key"] for k, v in rig.state()["values"].items() if v.get("key") and k.startswith("0:f")][:3]
     for k in keys:

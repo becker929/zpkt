@@ -97,7 +97,7 @@ def test_app_desktop_uses_three_columns_and_the_width(browser, rig, width):
     dock = pg.locator("#histdock").bounding_box()  # History is docked under them in the same column
     assert dock["height"] >= 120 and dock["x"] >= pg.locator("#main").bounding_box()["x"] + 300
     assert got["gaps"] == []
-    assert got["tabs"] == 3, "the same three tabs at every width"
+    assert got["tabs"] == 4, "the same four tabs at every width"
 
 
 @pytest.mark.parametrize("width", [360, 390])
@@ -105,7 +105,7 @@ def test_app_phone_is_one_column_with_its_tabs(browser, rig, width):
     pg, _ = open_app(browser, rig, width)
     got = pg.evaluate(DESKTOP_MEASURE)
     assert got["columns"] == 1  # #main only
-    assert got["tabs"] == 3
+    assert got["tabs"] == 4
 
 
 def test_app_tablet_has_two_columns(browser, rig):

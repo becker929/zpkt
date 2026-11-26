@@ -64,7 +64,7 @@ class SlowPager:
 def test_the_tab_bar_shows_its_three_tabs_and_no_options(browser, rig, width):
     pg, errors = open_app(browser, rig, width)
     tabs = pg.evaluate(TABS)
-    assert [t["text"] for t in tabs] == ["Desk", "Song", "Ask"]
+    assert [t["text"] for t in tabs] == ["Desk", "Song", "Monitor", "Ask"]
     least = 36 if width < 700 else 44  # on a phone the tab bar is 42 px high (26 November 2026)
     assert all(t["inside"] and t["w"] >= 44 and t["h"] >= least for t in tabs), tabs
     assert [t["t"] for t in tabs if t["on"]] == ["desk"]

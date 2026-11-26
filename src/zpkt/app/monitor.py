@@ -14,6 +14,7 @@ clients as {"t": "hear", ...}.
 from __future__ import annotations
 
 import threading
+from collections.abc import Mapping
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -72,7 +73,7 @@ class Monitor:
             with self._lock:
                 self.main_saved = snapshot["main_saved"]
 
-    def reference_beats(self, ref: str, st: dict[str, Any]) -> float:
+    def reference_beats(self, ref: str, st: Mapping[str, Any]) -> float:
         """How long reference `ref`'s clip is in the set, in beats: its file's seconds at the set's tempo (its warping
         is off). 0.0 when the file cannot be read."""
         try:

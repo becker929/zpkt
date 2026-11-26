@@ -273,6 +273,15 @@ A Page is what an agent writes for "I want to change this": groups of controls w
 controller pages look like the controller). One renderer draws them all: a saved Page, the mix desk's own MiniLab
 pages (`contrib/mixdesk/desk.json`) and a made surface.
 
+- **Monitor is a tab** (26 November 2026; `#monitor`, `renderMonitor`): the live meter's bands drawn as a curve, 20 Hz
+  to 20 kHz. While the song plays the page keeps a running mean (in power, about the last 40 meter messages) for
+  whichever of A, B and C is heard, so each has a curve once it has been listened to; the one heard now is the
+  thick one. Under it a table: each one's level and five bands (Sub, Low, Mid, High, Air), B and C as the difference
+  from A. The curves are kept in the page only: a reload starts them again. With the meter off it shows the one
+  action that turns it on (`meter.install`).
+- **The reference loops over its own clip.** Hearing C sets Live's loop from the drop for as long as the reference's
+  file lasts (its warping is off, so that is its seconds at the set's tempo) and the loop that was on comes back
+  when C is left (`Monitor.choose`).
 - **Compare is in the play bar** (26 November 2026): the keys A, B and C (`#abc`, `monitor.hear` now, pin, ref). A is
   the mix now, B the pinned mix, C the reference. History has a B key on each checkpoint (`monitor.pin` with `name`)
   that chooses it as the pinned mix; until one is chosen B is the mix as the desk first saw it.
