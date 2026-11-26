@@ -63,7 +63,10 @@ TOOLS: tuple[Tool, ...] = (
                     "enum": ["rename", "archive", "restore", "reorder", "move"],
                     "description": "What to do with the pages.",
                 },
-                "id": {"type": "string", "description": "The unit id (or saved page_id) to rename, archive, restore or move."},
+                "id": {
+                    "type": "string",
+                    "description": "The unit id (or saved page_id) to rename, archive, restore or move.",
+                },
                 "name": {"type": "string", "description": "The new name for 'rename' (1 to 40 characters)."},
                 "order": {
                     "type": "array",

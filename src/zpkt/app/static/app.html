@@ -1510,9 +1510,16 @@ document.addEventListener("click", async e => {
   if (t.id === "kstop") return command("transport", {action: "stop"});
   if (t.dataset.loop) {  // the lit key again turns looping off; shown at once, Live's report settles it
     const to = S.state.loop === t.dataset.loop ? "off" : t.dataset.loop, was = S.state.loop;
+    // While the command is on its way Live reports each step of it (the brace's start, its length, the switch): the
+    // key stays lit as pressed, and what Live said last counts once the app has answered.
+    const mine = S.loopWant = {to, last: null};
     S.state.loop = to; renderBottom();
     const r = await command("transport", {action: "loop", loop: to});
-    if (!r.ok) { S.state.loop = was; renderBottom(); }
+    if (S.loopWant === mine) {
+      S.loopWant = null;
+      S.state.loop = r.ok ? (mine.last === null ? to : mine.last) : was;
+      renderTop(); renderBottom();
+    }
     return;
   }
   if (t.id === "kundo" || t.id === "hundo") return stepHistory("undo");
@@ -1582,7 +1589,7 @@ function apply(m) {
     return updatePos();
   }
   else if (m.t === "loop" && S.state) {
-    S.state.loop = m.loop;
+    if (S.loopWant) S.loopWant.last = m.loop; else S.state.loop = m.loop;
     if (m.start != null && m.length != null) S.state.loop_span = [m.start, m.length];
     renderTop(); renderBottom(); return updateSongMarks();
   }
