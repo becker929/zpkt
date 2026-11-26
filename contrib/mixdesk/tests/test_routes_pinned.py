@@ -52,7 +52,7 @@ def test_the_event_stream_starts_with_a_full_state_and_the_history_has_its_shape
     assert msg["t"] == "full"
     assert {"page", "values", "monitor", "match", "pos", "playing", "loop", "live", "gains"} <= set(msg["state"])
     view = rig.get("/api/history")[1]
-    assert {"t", "entries", "pos", "can_undo", "can_redo", "checkpoints"} == set(view)
+    assert {"t", "entries", "pos", "can_undo", "can_redo", "checkpoints", "undo", "redo"} == set(view)
 
 
 def test_the_meter_message_is_db_per_band():

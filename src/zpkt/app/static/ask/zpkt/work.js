@@ -38,7 +38,7 @@ export function toolLine(name, params = {}) {
     default: {
       // The app's own tools, in the person's words rather than by their ids (propose_option: only in older chats).
       const app = String(name || '').match(/(?:^|[^a-z])(make_page|read_state|read_measurement|propose_option)(?![a-z_])/i)?.[1].toLowerCase();
-      if (app === 'make_page') { const t = p.spec?.title || p.page?.title || p.title; return `${p.spec?.id ? 'changed' : 'made'} a page${typeof t === 'string' && t ? ': ' + first(t, 50) : ''}`; }
+      if (app === 'make_page') { const t = p.spec?.title || p.page?.title || p.title; return `${p.spec?.id ? 'changed' : 'made'} a surface${typeof t === 'string' && t ? ': ' + first(t, 50) : ''}`; }
       if (app === 'read_state') return 'looked at the desk';
       if (app === 'read_measurement') return 'read the last measurement';
       if (app === 'propose_option') return `made a suggestion${typeof p.title === 'string' && p.title ? ': ' + first(p.title, 50) : ''}`;

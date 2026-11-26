@@ -3,6 +3,21 @@
   "$id": "https://github.com/becker929/zpkt/lib/contracts/mixdesk-message.schema.json",
   "description": "The mix desk's messages: what the pager (inside Live) sends the server as UDP datagrams, and what the server streams to the page as server-sent events. Generated from contrib/mixdesk/protocol.py by contrib/mixdesk/gen_schema.py; do not edit by hand.",
   "$defs": {
+    "ArrangementMessage": {
+      "description": "The arrangement changed in Live (a clip or a locator came, went or moved): what the app read of it is stale.",
+      "properties": {
+        "t": {
+          "const": "arr",
+          "title": "T",
+          "type": "string"
+        }
+      },
+      "required": [
+        "t"
+      ],
+      "title": "ArrangementMessage",
+      "type": "object"
+    },
     "DeskMessage": {
       "description": "The pages changed (a surface made or removed): load /api/desk again and open page `open`.",
       "properties": {
@@ -21,6 +36,41 @@
         "open"
       ],
       "title": "DeskMessage",
+      "type": "object"
+    },
+    "FlagsMessage": {
+      "description": "Which tracks are soloed and which muted, by their names in state keys (\"Kick bus\"). Sent whole on any change.",
+      "properties": {
+        "t": {
+          "const": "flags",
+          "title": "T",
+          "type": "string"
+        },
+        "solo": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Solo",
+          "type": "array"
+        },
+        "mute": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Mute",
+          "type": "array"
+        },
+        "sys": {
+          "title": "Sys",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "t",
+        "solo",
+        "mute"
+      ],
+      "title": "FlagsMessage",
       "type": "object"
     },
     "FullMessage": {
@@ -121,6 +171,30 @@
           },
           "title": "Checkpoints",
           "type": "array"
+        },
+        "undo": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Undo"
+        },
+        "redo": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Redo"
         }
       },
       "required": [
@@ -144,6 +218,14 @@
         "loop": {
           "title": "Loop",
           "type": "string"
+        },
+        "start": {
+          "title": "Start",
+          "type": "number"
+        },
+        "length": {
+          "title": "Length",
+          "type": "number"
         }
       },
       "required": [
@@ -430,6 +512,12 @@
     },
     {
       "$ref": "#/$defs/PadMessage"
+    },
+    {
+      "$ref": "#/$defs/FlagsMessage"
+    },
+    {
+      "$ref": "#/$defs/ArrangementMessage"
     },
     {
       "$ref": "#/$defs/FullMessage"

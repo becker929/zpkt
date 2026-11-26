@@ -250,7 +250,8 @@ def test_notes_are_read_to_the_agent_and_written_after_the_turn(tmp_path):
     ask.wait_idle()
     assert "kick is 60 Hz" in claude.seen[0].prompt
     for _ in range(200):
-        if (work / "notes" / "HW002.md").read_text().count("##") >= 1:
+        # the file is written first, then what the session has seen, then the "saved" event: wait for the last
+        if any(e["type"] == "notes" and e.get("status") == "saved" for e in ask.store.replay(s["id"])):
             break
         threading.Event().wait(0.02)
     body = (work / "notes" / "HW002.md").read_text()

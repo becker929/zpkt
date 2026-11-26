@@ -8,14 +8,14 @@ are libraries and never open one.
 
 ## What is in it
 
-`zpkt app` starts five adapters by default (`web,api,song,agents,listen`; `midi` is off unless named). Where to look:
+`zpkt app` starts four adapters by default (`web,api,agents,listen`; `midi` is off unless named). Where to look:
 
 | Want | Where | Section |
 |---|---|---|
 | The Hear bar, the Desk, undo and history | `/app/` (`/` sends you here; the old desk page is at `/desk/`) | What it serves |
 | Pages of controls, drawn and mapped to the MiniLab | `/app/` Desk; `zpkt page make` | Pages |
 | Two or more settings of the same controls, to switch between while Live plays | pads on a Page | Pages (Compare) |
-| The arrangement as lanes, Mix 1, transitions, Build in Live | `/app/` Song tab; the arranger under `/app/song` | The Song |
+| The song in Live: tracks, arrangement clips, locators | `/app/` Song tab | The Song |
 | Chat with Claude and Gemini | `/app/ask/` | Ask |
 | Live's sound in the browser | the Listen button; `/app/listen` | Listen |
 | The MiniLab 3 | `--adapters web,midi` | The MiniLab |
@@ -65,8 +65,12 @@ a command without a line there cannot be registered. The checks, in order:
 
 Every applied move is a history entry with its `who` (and its group) and, once it settles, one `Change` per control
 in the set's change stream (`zpkt.live.changes`, `GET /api/changes?since=N&who=agent`). Moves with one group are one
-entry. The page gives every touch of a control its own group (`touch-...`), so one drag, or a run of arrow keys, is
-one row in History and one undo.
+entry. So are changes to one control by one person (`you` or `minilab`), one after the other with nothing else in
+between: a drag, then nudges, then more nudges are one row in History and one undo, back to where the control was
+before the first. The step ends when another control is touched, a checkpoint is saved, something is undone, or 30
+seconds pass without a change (`history.SAME_CONTROL_S`). A switch (a solo, a mute) is a step each time it is
+thrown. An agent's changes join by group only. A step that grows after it reached the change stream gets the rest
+of it there as one more `Change`.
 
 ## What it serves
 
@@ -80,20 +84,58 @@ port, 8984 (below). `ZPKT_DESK_URL` names the web server (pages, `/app/`), `ZPKT
   state through `/events?app=1`. Changing tabs loads nothing again, so the Hear bar, the transport and Listen stay
   as they are. `/app/ask/` (the chat's own page) goes on to `/app/#ask`.
 - **The Hear bar** says which song is open and lets me play it and take changes back. From the top: the set's
-  name, its tempo and time signature; "bar N of M", a "loop" mark when Live loops (that is why the bar jumps back),
-  "Live", and "N changed"; the playhead; the spectrum from the "zpkt desk meter" device on Main; the level meter.
-  Then Play, the Listen button, undo, redo and History. The set, the tempo, the signature and the length come with
-  the pager's snapshot, and the tempo again with every playhead message, so nothing asks Live for them. When no
-  meter message has come for three seconds the spectrum is a short strip that says the desk meter is not on Main.
-  The level meter shows the peak of what Listen plays, in dB below full scale. `listen.js` sends it to the page as
-  a `zpkt-listen` event. With Listen off the meter is hatched and says so. It reads samples and changes none.
+  name, its tempo and time signature; "bar N of M", the loop as the bars it spans ("17–40", also drawn on the
+  playhead's line; that is why the bar jumps back), "Live", and "N changed" with the checkpoint it counts from; the
+  playhead; the spectrum; the level meter. Then Play, solo and mute, the Listen button, undo, redo and History. The
+  set, the tempo, the signature, the length, the loop's span and every track's solo and mute come with the pager's
+  snapshot and its messages, so nothing asks Live for them. The level meter shows the peak of what Listen plays, in
+  dB below full scale. `listen.js` sends it to the page as a `zpkt-listen` event. With Listen off the meter is
+  hatched and says so ("Listen paused" when it was on on the page before, the button's own word). It reads samples
+  and changes none.
+- **The transport** is on the Hear bar, on every tab: Play (from where the playhead is; Pause keeps the place),
+  Stop (stops and goes back to the start of what is played: the loop's start, or bar 1), and what loops, as three
+  keys: All (the whole song), Start (its beginning) and Peak. A key sets Live's loop to that span and turns
+  looping on; the lit key again turns it off. Set while Live plays inside the span, nothing is interrupted;
+  outside it, the playhead goes to the span's start. The spans are the desk's own for its set
+  (`pagercore.LOOPS`: whole, build, drop) and come with the pager's snapshot as `loops`; a span the set does not
+  define is a key that cannot be pressed. The strip under the song's facts shows the whole length, the spans, the
+  one that loops and the playhead. All of it is the `transport` command (`play`, `pause`, `stop`, `seek`, `loop`
+  with `off`, `whole`, `build` or `drop`): a move of the transport, never a History row.
+- **Solo and mute** are lit beside Play whenever a track is soloed or muted, by anyone, in Live or here. The pager
+  listens to every track's solo and mute (never the monitor's own tracks) and sends the whole list on a change
+  (`{"t": "flags"}`); the state holds it as `solo` and `mute`. Up to two tracks show by name, and a tap on a name
+  clears it. More are a count that opens the list. Clearing is `mix.set` with the state key (`"Kick bus/solo"`):
+  a History row and one undo, like any move. A solo thrown in Live is a History row too.
+- **The spectrum** is drawn from the "zpkt desk meter" device on Main. When no meter message has come for three
+  seconds and the pager says the device is not on Main, its place holds one action, "Turn on" (`meter.install`). It
+  runs the desk's own tool (`meter.py` in the mixdesk folder) with the app's connection, as a job of its own,
+  because Live's browser takes seconds to list a new device. The page shows "Turning on", then the bars, or
+  "Failed" with Retry. It is one History row ("Spectrum off → on"), and undo takes the device off Main again. It
+  never counts in "N changed". With no data and nothing to press (Live is not there), the place is empty.
+- **"N changed"** counts from the last checkpoint saved or gone back to (`history.base`), and says its name. It is
+  zero right after a save or a go back. At a start it is the last checkpoint on file. A tap on it brings History
+  forward. (The Pin and its commands are as they were; the count no longer follows it.)
+- **Undo says what it does.** The button carries the control's label and the value it goes back to, and Redo is
+  disabled when there is nothing to redo. The history's view has both steps (`undo`, `redo`: the id and, per
+  control, its key, its place and Live's text). On the tap the page puts the controls there at once and the
+  answer settles them, as for a control the hand moves. A going back (`history.revert`, `history.back`) tells the
+  page where the controls go before Live is written (`{"t": "own"}`), for the same reason.
+- **Nothing is made anew on an event.** The Hear bar's parts, the transport's buttons and the panel's controls are
+  elements that stay: a value, the playhead, the spectrum and the level are moved in place (`controls.js`
+  `update`), and a part is drawn again only when its own markup changes. Focus, a screen reader's place and a
+  reference to an element survive Live's events.
 - **Now, Pin and Ref are not on the page** (Anthony, 25 November 2026). The monitor's commands (`monitor.hear`,
-  `monitor.pin`, `monitor.choose`) and the MiniLab's hold-to-hear stay. "N changed" counts from the mix as the app
-  first saw it, or from the Pin if one of those commands set one.
-- **History** (the clock button) lists every change with the control's name as the page shows it and its old and
-  new value in Live's own units. An undone change stays in the list, greyed and marked, until a new change makes
-  redo impossible. A checkpoint is a row with a flag and a "Go back" button: it puts the desk's controls back as one
-  step (`history.revert`), so undo reverses it. "Save checkpoint" takes a name, or uses the date and time, and shows
+  `monitor.pin`, `monitor.choose`) and the MiniLab's hold-to-hear stay.
+- **History** lists every change with the control's name as the page shows it and its old and new value in Live's
+  own units. From 1100 px it is docked in the right column, under the song's facts, so its rows fill while the
+  knobs turn. Narrower, the clock button opens it as a sheet that takes no touch from the page behind: a tap
+  outside closes it and still reaches the control. The rows are in strict time order, newest first: an undone
+  change stays where it happened, greyed and marked, until a new change makes redo impossible, and a checkpoint
+  sits above everything it holds. The list opens on this sitting (changes with no gap of 90 minutes); earlier
+  ones are folded under their day, and there a change carries no "you". Every step in effect is a place to go
+  back to: a tap on its row offers "Go back", which takes that step and every later one back as one new step
+  (`history.back {entry}`), so undo reverses it. A checkpoint is a row with a flag and a "Go back" button: it puts
+  the desk's controls back as one step (`history.revert`), so undo reverses it. "Save checkpoint" takes a name, or uses the date and time, and shows
   "Saving" at once (`history.checkpoint` with `new: true`, which never overwrites: a taken name gets a number).
   Saving a checkpoint keeps what can be redone. Names a machine made ("start-20261125-1701") are shown as what they
   are ("Start of session, 25 Nov, 17:01").
@@ -138,7 +180,9 @@ A page links it and defines none of them itself.
   tab bar.
 - **Addresses.** `/app/` opens on `#desk`, `#song` or `#ask`, and keeps the address in step as I switch. Any other
   address (an old link to `#options`) lands on the Desk.
-  `/app/#page=<id>` opens the Desk on that saved Page. A Page that is saved but not on the desk gets a plain message.
+  `/app/#page=<id>` opens the Desk on that saved Page. At once the desk shows that Page's title (from
+  `GET /api/pages`) with "Loading", the loading line runs and the old controls dim; the address stays
+  `#page=<id>` until that Page is the one on the desk. A Page that cannot be opened gets a plain message.
 - **Waiting.** A page change takes about a second: the command waits its turn for Live, the pager swaps what the
   MiniLab's controls mean, and only then does the `page` event come back. On the tap the button is marked
   (`is-waiting`), a lime line runs across the top of the desk area (`.loads.is-loading`), and the old controls dim and
@@ -153,7 +197,10 @@ A page links it and defines none of them itself.
 
 `tests/app/test_shell_static.py` checks the route; `tests/app/test_shell_nav.py` checks the tabs, the addresses and
 the waiting in WebKit; `tests/app/test_ask_tab.py` checks Ask in place (the Hear bar and Listen stay, the mark, a
-page link with no reload, the sizes).
+page link with no reload, the sizes). `tests/app/test_desk_touch.py` and `tests/app/test_desk_second_walk.py` are the two cold
+walkthroughs' findings in WebKit (the second: solo and mute, one undo, return points, the build's set, the
+spectrum's action, the base of "N changed", History docked, round steps, the loading Page, the Song's ruler, elements
+that stay); `tests/app/test_second_walk.py` holds the same rules below the page, with no browser.
 
 ## The API and its clients
 
@@ -210,6 +257,11 @@ SysEx back: the display, the pad LEDs and the knob rings.
 
 ## Pages
 
+**The word.** To the person these are **surfaces** ("Surfaces", "surface 3 / 15", "made a surface"): that is the
+only word the pages of the app and the agent's answers use (Anthony, 26 November 2026). "Page" stays the technical
+term: in the code, the commands (`page.make`, `page.organize`), the files, the addresses (`#page=<id>`) and these
+docs. "MiniLab page" is the controller's own paging and keeps its name where it must be said.
+
 A Page is what an agent writes for "I want to change this": groups of controls with a role and a weight, and no pixels
 (`zpkt.live.page`). One renderer draws it, and the same spec gives the MiniLab its assignment.
 
@@ -220,12 +272,46 @@ pages (`contrib/mixdesk/desk.json`) and a made surface.
 - **All 20 slots are always drawn, each in its physical place**: knobs 1–4 over 5–8, the four faders to their right,
   the 8 pads in one row below. Where 8 columns of 44 px targets do not fit (the panel's own box is 440 px or less: a
   phone, and a 768 px tablet beside the Hear bar) it folds in half: knobs over pads 1–4, then faders over pads 5–8.
+- **Nothing scrolls** (Anthony, 25 November 2026: "This app must have zero scrolling"). The Desk has no scroll:
+  the title, the paging row and the whole map are on screen at every size from 360 x 640 up. The map takes the
+  height that is left and its controls give way down to 44 px (`controls.css`); the page measures it (`fitPanel`)
+  and, when the comfortable sizes do not fit, puts labels on one line (`.tight`). Where a folded map still does not
+  fit (a phone), it shows one face at a time: the knobs over pads 1 to 4, or the faders over pads 5 to 8, with a
+  two-key switch in the paging row. A page with compare states opens on the face with its pads. On a phone under
+  720 px tall the Hear bar keeps the song's facts and the playhead; the spectrum and the level give the Desk room.
+- **Lists that can grow are paged, never scrolled.** History shows as many rows as its box holds, newest first,
+  with "newer" and "older" under it ("1–8 / 43"); a new change brings the newest rows back. The list of Pages in
+  the side column shows the part with the page in view and has its own before and after. More than two soloed or
+  muted tracks open as a list of five at a time. The Hear column and the side column have no scroll of their own.
+- **The Song fits too.** Its lanes take the height that is left and give way down to 14 px each; past that they
+  show a part at a time ("1–6 / 15") with the ruler over every part (`fitSong`).
+- **The organizer** (the list key in the paging row and over the side list) is a sheet with two lists, Desk and
+  Archived, paged to its height. A row is a surface: its thumbnail (the MiniLab's map, small, the mapped slots of
+  its first MiniLab page lit, its pad number on the corner), its name, and on the Desk list earlier and later
+  keys. The thumbnail is also the handle: dragged, the row follows, the place it would land is marked, and letting
+  go moves it there (`move` with `to`). A tap on the name shows what can be done with that one: Rename (a field in
+  the row), Archive; in the archive Restore and, for a made surface, Delete, which first turns the row into the
+  confirm (its map, its name, Delete). Archive all and Restore all are over the lists. Every action is one
+  `page.organize` command. `tests/app/test_organize_page.py` checks it in WebKit.
+- **An empty desk** (every page archived) is a state, not a fault: the map is drawn with all 20 slots quiet and
+  the title row holds the one way to a surface, a key that goes to Ask. The transport, History and the Song go on
+  working.
+- **The paging row** (under 1100 px; wider, the list of Pages is the side column) is the last row of the Desk:
+  the page before, "13 / 15", the page after, and the face switch. The numbered buttons of a Page with more than
+  one MiniLab page are at the right of the title. `tests/app/test_zero_scroll.py` checks all of it at six sizes.
 - **A mapped slot is a live control.** A pad is a key. A knob or a fader is dragged up and down. The drag is
   relative: the control moves from where it is, never jumps to the pointer, and 200 px take it across its range.
-  Shift, or a slow hand (under about 40 px a second), makes fine steps. A click gives it the keyboard: the arrows
-  step it by a hundredth of its range (Shift: a five-hundredth; a choice: one stop), Page Up and Down by a tenth,
-  Home and End to its ends. Enter or a double click types a value, where the page knows the scale as numbers. It
-  shows its label and its value. When a panel holds more than one group, each control has its group as a small
+  A mouse moves it from the first pixel. A finger has 4 px to say whether it drags or swipes, and its travel
+  counts from where it came down. Shift, or a slow hand (under about 40 px a second), makes fine steps. Where the
+  page knows the scale as numbers the value lands on round units: a drag on tenths of a dB (three figures for Hz
+  and ms). A click gives it the keyboard: the arrows step a dB control by 0.5 dB (Shift: 0.1 dB; Page Up and Down:
+  3 dB), a frequency by a semitone (Shift: a tenth of one; Page: an octave), a choice by one stop, and a control
+  with no numbers by a hundredth of its range (Shift: a five-hundredth; Page: a tenth); Home and End go to its
+  ends. The number under the control is the place to type: it is underlined, a click on it (or Enter, or a double
+  click on the control) opens a field there, Enter commits and Escape cancels. A typed value that is no number
+  flashes the old one. The page reads values off straight lines between 33 of Live's texts, so on a scale that is
+  not linear in its unit a round value is Live's nearest (it shows its own text once it answers). It shows its
+  label and its value. When a panel holds more than one group, each control has its group as a small
   caption, and neighbouring groups alternate a faint tint. A choice (a list of items) on a knob is a knob with stops.
 - **The number follows the hand.** The page shows a control's new place and number at once, with a small turning
   mark, and counts it in "N changed". It reads the number from the control's scale: `mix.describe` hands over, once
@@ -251,8 +337,12 @@ pages (`contrib/mixdesk/desk.json`) and a made surface.
   but cannot move Live without approval.
 - The linter is the gate. A rejected spec answers 422 with the reasons, nothing is saved, and the agent repairs it.
 - A good one is saved as `<sets_dir>/pages/<set>/<id>.json` and as one made surface per MiniLab page, so the pager in
-  Live and the old desk take it too. The commands are `page.make`, `page.lint`, `page.layout` and `page.open` (open a saved page by id); `GET /api/pages`
-  lists the saved pages.
+  Live and the old desk take it too. The commands are `page.make`, `page.lint`, `page.layout`, `page.list`,
+  `page.organize` (rename, reorder, move, archive, restore, `archive_all`, `restore_all`, or delete an archived
+  made page; it writes `_organize.json` and reloads the pager, keeping the armed page where it can; a move, so the
+  person's act and never an agent's; an empty desk is allowed; a deleted page's files go to "removed" folders)
+  and `page.open` (open a saved page by id);
+  `GET /api/pages` lists the saved pages and `GET /api/organize` lists every page unit (active and archived).
 - "Make a surface" on the old desk calls `page.make`: it now asks Claude for a Page. An answer in the old slot form
   is still accepted.
 - `/app/` draws a saved Page from `page.layout` (the rules are `zpkt.live.page_layout`). Its `panels` list has one
@@ -307,36 +397,24 @@ page in WebKit.
 
 ## The Song
 
-The arranger is mounted at `/app/song`. Its server stays as it is, on :8975, and the Song serves the same pages and
-routes from the same code (`contrib/arranger/server.py`'s route table), so nothing the arranger did changes.
-
-- `/app/song/` is the arranger page; `/app/song/mix/`, `/transitions/`, `/mix2/`, `/spectral/` and `/kick/` are the
-  others. Their absolute links gain the prefix on the way out; the files are not edited.
-- In the `/app/` shell the Song tab shows the arrangement as lanes of bars. Mix 1 and transitions open as sheets, still
-  labelled sketches: they play rendered loops in the browser, within the two named exceptions of
-  `contrib/docs/sound.md`. Closing the sheet takes the page, and its sound, away.
-- The arrangement file keeps its form. A save from the arranger page keeps every key it does not own, byte for byte
-  (`tests/app/test_song.py` checks it, and checks every route against the old server).
-- Song is the Structure, Recipe is the Structure and the Sound (`contrib/arranger/arrangement.py`'s types). Commands:
-  `song.list`, `song.show` (the Song), `song.recipe` (both halves), the writes `song.save`, `song.keep`,
-  `song.delete`, `song.transitions`, `song.queue` (the arranger's routes as commands, so a save is stamped who), and
-  `song.build`.
-- "Build in Live…" on the Song tab opens a confirm that shows what leaves Live (the mix set, by name: `song.list`
-  gives it as `mix_set`) and what is built in its place. Nothing is sent before "Replace and build".
-- `song.build` makes the mix set in Live from the recipe (`zpkt.live.recipe_build`, which `mixset.py build` also
-  calls), with the app's connection. It is a move for the mix set, not the page's set: the bus checks Live has the mix
-  set open, and the build itself refuses a set Live does not name, because it empties the set. An agent cannot
-  start it. It holds Live while it runs (many short calls, a minute or more on the real rig).
-- Mix 2's renders still start the arranger's own worker (`mixset.py worker`), which opens its own connection to Live.
-  That is a known debt: it takes its turn only by Live's own limits, not by the app's lock.
-
-`zpkt app` starts the Song with the web adapter (the default is `--adapters web,api,song,agents,listen`). `ZPKT_ARRANGER_DIR` names another arranger
-folder; `ARRANGER_DATA` the data, as before.
+- **The Song tab is the song in Live** (Anthony, 26 November 2026), read only: one lane per
+  track of the open set (never the monitor's own), its Arrangement clips as regions with Live's names and colours
+  (a muted clip or track is dimmed), under a bar ruler with the locators as named spans, Live's loop and its
+  bars, and Live's playhead. Session clips are never read. It has no buttons. `arrangement.read` is the one read
+  (`Desk.arrangement`: one short call into the pager, `m.DESK.arrangement()`): `{set, bars, beats_per_bar, tracks:
+  [{id, name, color, muted, regions: [{id, start, end, name, color, muted}]}], locators: [{beat, name}]}`, starts
+  and ends in beats. It is kept until the pager says a clip or a locator changed (`{"t": "arr"}`, from listeners
+  on every track's arrangement clips and on the locators), and the page reads again then. A region is an element
+  of its own with an id that holds while it stays where it is (`t3@16`: track 3, from beat 16), so regions can be
+  edited later; nothing edits them now. `tests/app/test_song_live.py` checks the read and the page.
+- The arranger (`contrib/arranger`, its own server on :8975) is a separate tool and is no part of the app any
+  more: the Song adapter, its mount at `/app/song`, the `song.*` commands (`song.build` among them) and `set.open`
+  were removed on 26 November 2026. Its render queue is still `zpkt.app.renderqueue` (below).
 
 ## Ask
 
 Ask is the chat with Claude and Gemini, ported from Zpkt web (Node, :8789, which keeps running untouched). It is the
-`agents` adapter, so it starts with `zpkt app` (it is in the default `--adapters web,api,song,agents,listen`). It is
+`agents` adapter, so it starts with `zpkt app` (it is in the default `--adapters web,api,agents,listen`). It is
 the Ask tab of `/app/` (`/app/#ask`); its page and API are under `/app/ask/`.
 
 - **Engines.** Claude Code runs as one `claude -p` process per turn. Gemini runs over ACP: one `gemini --acp`
@@ -368,7 +446,8 @@ the Ask tab of `/app/` (`/app/#ask`); its page and API are under `/app/ask/`.
   never cut. If the summary fails or takes over 3 minutes, the event says `failed` and the turn goes on with the
   last turns only. Your message is never lost. The rules are in `ask/compaction.py`.
 - **Tools.** An agent has three tools and no others: make or change a page (`page.draft`), read the state
-  (`desk.state`, older name `state.read`) and read the last measurement. When I want to try an alternative it makes
+  (`desk.state`, older name `state.read`, which also lists `units` with their ids and pads) and read the last
+  measurement. It cannot organize pages: order and archive are the person's. When I want to try an alternative it makes
   a page with compare states, or changes the one it made (Pages, Compare), and links to it.
   They are app commands behind a small MCP server (`python -m zpkt.app.ask.mcp`) that calls
   `POST /app/ask/api/tool` with the session's token. The bus tags them `agent` and groups them by session. None
@@ -418,7 +497,8 @@ adapter, mounted at `/app/listen`, and it starts with `zpkt app`. Starting it on
 - **The button.** `/app/shell/listen.js` draws one button into `<span id="listen"></span>`: headphones, with a small
   tick that moves when sound arrives. Sound starts only from a tap. A tap on a greyed button says why it cannot play.
   The choice is kept in the browser. Changing tabs inside `/app/` (Desk, Song, Ask) does not stop it. Loading
-  another document does (a reload, a sketch page): the button then shows a dot and the first tap anywhere on the
+  another document does (a reload, a sketch page): the button is then paused (a dashed ring and a dot; its label and the page's level meter both say
+  "Listen paused") and the first tap anywhere on the
   new page starts it again.
 - **Where the sound comes from.** Two captures, tried in this order. `GET /app/listen/status` says which one is in
   use as `source`: `live device` or `screen capture`. `ZPKT_LISTEN_SOURCE` chooses: `auto` (the default: the device,
@@ -477,7 +557,7 @@ the old page. `ZPKT_MIXDESK_DIR` names another folder. The old module names ther
 One seam puts an adapter's pages and routes on the web server: `desk.mounts` (`mounts.py`). A mount is a route set
 under a path prefix, with one method, `handle(request)`. It gets GET, HEAD, POST, PUT, PATCH and DELETE as a `Request`
 (method, path, the path after the prefix, query, a body reader, the connection) and answers a `MountReply`; a mount
-that streams writes on the connection and returns None. Ask is mounted at `/app/ask` and the Song at `/app/song`. The
+that streams writes on the connection and returns None. Ask is mounted at `/app/ask` and Listen at `/app/listen`. The
 server's own checks (the Host name, writes from its own pages only) come before any mount.
 
 1. Add a module to `zpkt/app/adapters/`, say `midi.py`.

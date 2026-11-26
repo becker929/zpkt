@@ -43,6 +43,7 @@ def test_an_agent_still_needs_your_word_for_page_set(rig):
 def test_mix_reset_puts_a_control_back_to_its_default_and_undo_takes_it_back(rig):
     key = key_of(rig, "k3")
     rig.command("page.set", {"page": 0, "controls": [{"slot": "k3", "n": 1.0}]})
+    rig.command("history.checkpoint", {"name": "turned up"})  # a checkpoint ends the step: the reset is its own
     code, reply = rig.command("mix.reset", {"keys": [key]})
     assert code == 200 and reply["entry"]
     assert raw(rig, key) != pytest.approx(1.0)

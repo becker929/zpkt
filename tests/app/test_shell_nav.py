@@ -131,7 +131,7 @@ def test_a_page_that_does_not_change_says_so_and_retry_works(browser, rig, monke
     assert pg.evaluate(PENDING)["waiting"] == ["1"]
     pg.wait_for_selector("#slowretry")
     got = pg.evaluate(PENDING)
-    assert got["slow"].startswith("The page did not change.") and not got["loading"] and not got["dimmed"]
+    assert got["slow"].startswith("The surface did not change.") and not got["loading"] and not got["dimmed"]
     assert pg.locator("#pgwait").count() == 0  # the name is the page Live still has
     assert pg.locator("#slowretry").bounding_box()["height"] >= 44
     slow.go.set()  # the answer comes late: the message goes away
@@ -163,7 +163,7 @@ def test_a_page_hash_opens_the_desk_on_that_saved_page(browser, rig):
 
 
 def test_reduced_motion_stills_the_line(browser, rig, monkeypatch):
-    SlowPager(rig.desk, monkeypatch)
+    slow = SlowPager(rig.desk, monkeypatch)
     pg = browser.new_page(viewport={"width": 375, "height": 800}, reduced_motion="reduce")
     pg.goto(rig.url + "/app/")
     pg.wait_for_selector(".ctl .w")
@@ -174,3 +174,7 @@ def test_reduced_motion_stills_the_line(browser, rig, monkeypatch):
                    return [s.animationName, s.opacity, b.animationName]; }"""
     )
     assert got == ["none", "1", "none"]
+    # Let the held page change through while this rig is still here: left waiting, it would run ten seconds on, in
+    # the pager of whatever test this process runs next (the fake Live's modules are the process's own).
+    slow.go.set()
+    pg.wait_for_function("zpkt.S.state.page === 1 && !zpkt.S.pend")

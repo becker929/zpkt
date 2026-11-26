@@ -22,6 +22,24 @@ svg{display:block}
 #listen{display:inline-flex;align-items:center}#listen:empty{display:none}
 #hbot{border-top:1px solid var(--line);padding:6px 10px;display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:6px 10px}
 #hbot .key{min-width:44px;padding:0 8px}
+#hbot .key:disabled{opacity:.35;cursor:default;transform:none}
+/* Undo says what it takes back: the control and the value it returns to */
+#kundo .uw{display:flex;flex-direction:column;align-items:flex-start;line-height:1.15;max-width:104px;min-width:0;text-align:left}
+#kundo .uw b,#kundo .uw i{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-style:normal}
+#kundo .uw b{font-size:11.5px;font-weight:600}#kundo .uw i{font:11px ui-monospace,Menlo,monospace;color:var(--mute)}
+/* solo and mute, beside the transport: lit while any track is soloed or muted; a tap on a name clears it */
+#flags{display:flex;gap:6px;align-items:center;flex-wrap:wrap;justify-content:center}
+#flags:empty{display:none}
+.chip{height:44px;min-width:44px;border-radius:22px;border:1px solid var(--cl);background:var(--panel);display:inline-flex;align-items:center;gap:6px;padding:0 10px 0 6px;font-size:13px;cursor:pointer;white-space:nowrap;max-width:190px}
+.chip>b{flex:none;width:24px;height:24px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font:700 12px ui-monospace,Menlo,monospace}
+.chip>span{overflow:hidden;text-overflow:ellipsis}
+.chip svg{flex:none;opacity:.6}
+.chip.solo{border-color:var(--pind)}.chip.solo>b{background:var(--pin);color:#fff}
+.chip.mute{border-color:var(--bad)}.chip.mute>b{background:var(--bad);color:var(--bg)}
+.chip.going{opacity:.4}
+#flagpop{position:absolute;z-index:40;right:8px;bottom:120px;width:min(300px,calc(100% - 16px));background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:8px;display:flex;flex-direction:column;gap:6px;box-shadow:var(--shadow)}
+#flagpop[hidden]{display:none}
+#flagpop .chip{max-width:none;justify-content:flex-start}#flagpop .chip>span{flex:1;text-align:left}
 #hbot .seg .key{padding:0 10px}
 .grp{display:flex;gap:6px;align-items:center}
 .hr{display:flex;align-items:center;gap:8px;min-width:0;flex-wrap:wrap}
@@ -31,8 +49,23 @@ svg{display:block}
 .pill.acc{background:var(--acc);color:var(--acc-ink);border-color:var(--accd)}
 .pill.pin{background:var(--pin);color:#fff;border-color:var(--pind)}
 .pill.warn{border-color:var(--bad);color:var(--bad)}
+/* a pill that takes a tap: the button around it is a full 44 px target */
+.ptap{min-height:44px;margin:-10px 0;border:0;background:none;padding:0;display:inline-flex;align-items:center;cursor:pointer;min-width:0;max-width:100%}
+.ptap .pill{display:inline-flex;align-items:center;gap:5px;min-width:0;max-width:100%}
+.ptap svg{flex:none}
+.ptap:focus-visible .pill{outline:2px solid var(--ink);outline-offset:1px}
+#chgbase{display:inline-flex;align-items:center;gap:3px;min-width:0;overflow:hidden;text-overflow:ellipsis;border-left:1px solid currentColor;padding-left:6px;opacity:.75}
+#chgbase:empty{display:none}
+#looppill{display:inline-flex;align-items:center;gap:4px}
+#specbox,#loopbox,#livebox,#tlloop,#tlparts{display:contents}
 .tl{height:16px;border-radius:4px;background:var(--well);position:relative;overflow:hidden}
 .tl .ph{position:absolute;top:0;bottom:0;width:2px;background:var(--ink)}
+.tl .part{position:absolute;top:0;bottom:0;box-shadow:inset 2px 0 0 var(--k3)}
+.tl .part:nth-child(even){background:var(--k3);opacity:.35}
+/* the transport: play or pause, stop, and what loops (the whole song, its beginning, its peak; none lit: no loop) */
+#tgrp .seg .key{min-width:44px;padding:0 9px;font-size:13px}
+#tgrp .seg svg{flex:none;opacity:.6}
+.tl .lp{position:absolute;top:0;bottom:0;background:var(--acc);opacity:.55;border-left:2px solid var(--accd);border-right:2px solid var(--accd)}
 .spc{display:flex;align-items:flex-end;gap:2px;height:40px}
 .spc:empty{background:var(--well);border-radius:4px}
 .spc i{flex:1;background:var(--ink);opacity:.85;min-height:2px}
@@ -46,27 +79,81 @@ svg{display:block}
 #lock.on{display:block}
 #main{flex:1;min-height:0;position:relative;display:flex;flex-direction:column;overflow:hidden}
 #desk,#song{flex:1;min-height:0;padding:10px 16px;display:flex;flex-direction:column;gap:8px;overflow:auto}
+/* The Desk never scrolls: the title, the paging row and the whole map of the page are on screen at once. The map
+   takes what height is left (controls.css), and on a phone too short for all 20 slots it shows one face at a time. */
+#desk{overflow:hidden}
+/* The Song never scrolls either: the lanes take the height that is left, give way down to 14 px each, and past
+   that are shown a part at a time (fitSong). */
+#song{overflow:hidden}
+#song>#lanes{flex:1 1 auto;min-height:60px;overflow:hidden}
+@media (max-width:699px){#song{padding:8px 12px;gap:6px}}
 #desk[hidden],#song[hidden]{display:none}
 #song>*{flex:none}
 .ph2{display:flex;align-items:center;gap:8px;min-height:26px;flex-wrap:wrap}
 .ph2 b{font-size:17px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#desk .ph2{flex-wrap:nowrap}
+#desk .ph2 b{flex:0 1 auto;min-width:48px}
+#desk .ph2 .tag{flex:0 10 auto;min-width:0;overflow:hidden;text-overflow:ellipsis}
+#desk .ph2 .pill{flex:none}
+#mlpages{margin-left:auto;flex:none;flex-wrap:nowrap;gap:4px}
+/* the paging row: the page before, which page of how many, the page after; and the map's face where it has two */
+.dots .pgn{font:600 13px ui-monospace,Menlo,monospace;min-width:52px;text-align:center;white-space:nowrap}
+.dots .key svg.back{transform:rotate(180deg)}
+.dots .sp{flex:1}
+.dots .seg .key{min-width:44px;padding:0 10px}
 .tag{font:10.5px ui-monospace,Menlo,monospace;text-transform:uppercase;letter-spacing:.08em;color:var(--mute);white-space:nowrap}
-.dots{display:flex;gap:0;justify-content:center;align-items:center;flex-wrap:wrap}
-.dots button{width:44px;height:44px;border:0;background:none;padding:0;position:relative}
-.dots button::after{content:"";position:absolute;left:15px;top:15px;width:14px;height:14px;border-radius:50%;background:var(--k3)}
-.dots button.c::after{background:var(--ink);left:9px;width:26px;border-radius:7px}
+.dots{display:flex;gap:6px;align-items:center;flex-wrap:nowrap;margin-top:auto}
 #scrim{position:absolute;inset:0;background:rgba(0,0,0,.35);opacity:0;pointer-events:none;transition:opacity .2s;z-index:30}
 #scrim.on{opacity:1;pointer-events:auto}
 .sheet{position:absolute;left:0;right:0;bottom:0;z-index:31;background:var(--panel);border-top:1px solid var(--line);border-radius:20px 20px 0 0;padding:10px 16px 18px;transform:translateY(105%);visibility:hidden;transition:transform .28s,visibility 0s .28s;max-height:78%;display:flex;flex-direction:column;gap:8px}
 .sheet.on{transform:none;visibility:visible;transition-delay:0s}
 .sheet h3{margin:0;font-size:17px}
-.hl{display:flex;flex-direction:column;overflow:auto}
+/* a list that can grow is paged, never scrolled: History's rows, the list of Pages, the soloed and muted tracks */
+.hl{display:flex;flex-direction:column;overflow:hidden;flex:1;min-height:0}
+.hl>*{flex:none}
+.pgs{display:flex;align-items:center;gap:6px;flex:none}
+.pgs[hidden]{display:none}
+.pgs .pgn{font:600 12px ui-monospace,Menlo,monospace;color:var(--mute);flex:1;text-align:center;white-space:nowrap}
+.pgs .key svg.back{transform:rotate(180deg)}
+#sheet.hist{height:max(62%,min(100%,340px));padding-bottom:10px}
+#sheet.hist .cpf{flex-wrap:nowrap}#sheet.hist .cpf input{min-width:0}
+#sheet.org{height:max(62%,min(100%,420px));padding-bottom:10px}
+@media (max-width:699px){#sheet.org{height:100%;max-height:100%;border-radius:0}}
+.orgrow{display:flex;align-items:center;gap:6px;min-height:48px;padding:4px 0;border-bottom:1px solid var(--cl)}
+.orgrow .onm{flex:1;min-width:0;min-height:44px;border:0;background:none;padding:0 4px;text-align:left;cursor:pointer;font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.orgrow.sel{background:var(--accbg)}
+.orgrow.gone{outline:1px solid var(--bad);border-radius:10px}
+.orgrow.dragging{position:relative;z-index:5;background:var(--panel);box-shadow:var(--shadow);border-radius:10px}
+.orgrow.mark-before{box-shadow:inset 0 3px 0 var(--accd)}.orgrow.mark-after{box-shadow:inset 0 -3px 0 var(--accd)}
+.orgacts{display:flex;gap:6px;flex-wrap:nowrap;padding:2px 0 6px 60px;border-bottom:1px solid var(--cl)}
+.orgacts .key{gap:6px}
+.key.danger{background:var(--bad);border-color:var(--bad);color:var(--bg)}
+/* a surface's thumbnail: the MiniLab's map, small; its mapped slots are lit; the number is its pad */
+.othumb{position:relative;flex:none;width:54px;height:44px;display:inline-flex;align-items:center;justify-content:center;border:1px solid var(--cl);border-radius:8px;background:var(--c2)}
+.othumb svg *{fill:var(--k3)}.othumb svg .on{fill:var(--ink)}
+.othumb i{position:absolute;right:-4px;top:-4px;min-width:16px;height:16px;border-radius:8px;background:var(--ink);color:var(--bg);font:700 10px/16px ui-monospace,Menlo,monospace;text-align:center;font-style:normal}
+.othumb.ohandle{cursor:grab;touch-action:none}
+.orgrow form{display:flex;gap:6px;flex:1;min-width:0;margin:0}
+.orgrow input{flex:1;min-width:0;height:44px;font:15px 'Helvetica Neue',Helvetica,Arial,sans-serif;border:1px solid var(--line);border-radius:10px;padding:0 10px;background:var(--panel);color:var(--ink);user-select:text;-webkit-user-select:text}
+.orgrow .key{padding:0 8px}
+.orgrow .key svg.up{transform:rotate(-90deg)}.orgrow .key svg.dn{transform:rotate(90deg)}
+#side .shh{flex:none}
+.shh{display:flex;align-items:center;gap:8px}.shh h3{flex:1}
 .he{display:flex;gap:6px 8px;font-size:13px;padding:7px 0;border-bottom:1px solid var(--cl);align-items:center;flex-wrap:wrap}
 .he .ht{flex:1;min-width:150px;display:flex;flex-direction:column;gap:2px;overflow-wrap:anywhere}
 .he .hv{font:12px ui-monospace,Menlo,monospace;color:var(--mute);white-space:nowrap}
 .he .hv b{color:var(--ink);font-weight:600}
 .he .tagu{font:10.5px ui-monospace,Menlo,monospace;border:1px dashed var(--mute);padding:1px 5px;flex:none}
 .he.undone>*:not(.tagu){opacity:.45}
+/* a step in effect is a place to go back to: the row takes a tap and then offers the way back to just before it */
+.he.row{min-height:44px;cursor:pointer}
+.he.row:focus-visible{outline:2px solid var(--ink);outline-offset:-2px}
+.he.row.sel{background:var(--accbg);box-shadow:inset 0 -3px 0 var(--accd)}
+.hday{display:flex;align-items:center;gap:8px;width:100%;min-height:44px;border:0;border-bottom:1px solid var(--cl);background:none;padding:0;font:600 12px ui-monospace,Menlo,monospace;color:var(--mute);cursor:pointer;text-align:left}
+.hday svg{transition:transform .15s;flex:none}.hday[aria-expanded="true"] svg{transform:rotate(90deg)}
+.hday .sp{flex:1}
+.he.old{padding-left:10px}
+#histdock{display:none}
 .he.undone .ht b{text-decoration:line-through}
 /* a checkpoint is a place in the list you can go back to: a card with its own button */
 .he.cp{border:1px solid var(--cl);border-radius:12px;padding:6px 8px 6px 10px;margin:5px 0;background:linear-gradient(var(--c1),var(--c2))}
@@ -81,8 +168,9 @@ svg{display:block}
 #setname{font-size:15px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .idf{font:12px ui-monospace,Menlo,monospace;color:var(--mute);white-space:nowrap;flex:none}
 .pill.quiet{color:var(--mute);border-style:dashed}
-.spc.none{position:relative;align-items:center;justify-content:center;background:var(--well);border-radius:4px;color:var(--mute);font:11.5px ui-monospace,Menlo,monospace;text-align:center;padding:0 8px 8px}
-.spc.none::before{content:"";position:absolute;left:8px;right:8px;bottom:5px;border-top:2px dashed var(--k3)}
+/* no spectrum arrives and the device can be put on Main from here: a strip with the one action, and how it goes */
+.spc.act{align-items:center;justify-content:space-between;gap:8px;height:auto;min-height:48px;background:var(--well);border-radius:8px;padding:2px 4px 2px 10px}
+.spc.act[data-job="error"]{outline:1px solid var(--bad)}
 .lvl{display:flex;align-items:center;gap:8px;height:20px}
 .lvl .lt{font:11px ui-monospace,Menlo,monospace;color:var(--mute);flex:none}
 .lvl .lb{flex:1;height:10px;border-radius:5px;background:var(--well);position:relative;overflow:hidden}
@@ -91,27 +179,37 @@ svg{display:block}
 .lvl .ln{font:11.5px ui-monospace,Menlo,monospace;flex:none;min-width:76px;text-align:right;white-space:nowrap}
 .lvl:not([data-state="on"]) .lb{background:repeating-linear-gradient(135deg,var(--well) 0 4px,transparent 4px 8px)}
 .lvl:not([data-state="on"]) .ln{color:var(--mute)}
-/* the Song's buttons by what they touch; the confirm that shows what a build replaces */
 .bgrp{display:flex;flex-direction:column;gap:4px}
-.swap{display:flex;align-items:stretch;gap:8px;flex-wrap:wrap}
-.swap>div{flex:1;min-width:130px;border:1px solid var(--cl);border-radius:12px;padding:8px 10px;background:var(--c2);display:flex;flex-direction:column;gap:2px;font-size:13px;overflow-wrap:anywhere}
-.swap>div b{font-size:15px}
-.swap .gone{border-color:var(--bad)}.swap .gone b{text-decoration:line-through;text-decoration-color:var(--bad)}
-.swap>.arr{flex:none;min-width:0;border:0;background:none;padding:0;justify-content:center}
-.key.danger{background:var(--bad);border-color:var(--bad);color:var(--bg);box-shadow:0 2px 0 var(--edge)}
 .he .w2{font:11px ui-monospace,Menlo,monospace;color:var(--mute);width:56px;flex:none}
 .he .who{font:10.5px ui-monospace,Menlo,monospace;border:1px solid var(--line);padding:1px 5px;flex:none}
 .he .who.agent{background:var(--acc);color:#111}
 .he .who.minilab{background:var(--pin);color:#fff;border-color:var(--pind)}
-.lane{display:flex;align-items:center;gap:8px;min-width:0}
+.lane{display:flex;align-items:stretch;gap:8px;min-width:0;flex:1 1 22px;min-height:14px;max-height:22px}
+.lane[hidden]{display:none}
+.lane .ln{line-height:14px;align-self:center}
 .lane .ln{font:11px ui-monospace,Menlo,monospace;color:var(--mute);width:64px;flex:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.lane .tr{flex:1;min-width:0;height:22px;border-radius:6px;background:var(--well);position:relative;overflow:hidden}
-.lane .tr i{position:absolute;top:2px;bottom:2px;background:var(--ink);opacity:.85;border-radius:3px}
+.lane .tr{flex:1;min-width:0;border-radius:6px;background:var(--well);position:relative;overflow:hidden}
+.lane .tr .rg{position:absolute;top:1px;bottom:1px;box-sizing:border-box;border-radius:3px;overflow:hidden;font-style:normal;--c:var(--ink);
+  background:color-mix(in srgb,var(--c) 45%,var(--panel));border:1px solid color-mix(in srgb,var(--c) 70%,var(--ink));border-left:3px solid var(--c)}
+.lane .tr .rg span{display:block;font:9.5px/1 ui-monospace,Menlo,monospace;color:var(--ink);padding:2px 3px;white-space:nowrap;overflow:hidden}
+.lane .tr .rg.muted,.lane.muted .tr .rg{opacity:.35}
+.lane.muted .ln{text-decoration:line-through}
+.lane .ln .cd{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:4px;vertical-align:1px}
+.ruler .rt .sec span{position:absolute;left:4px;top:-13px;font:10px ui-monospace,Menlo,monospace;color:var(--ink);font-style:normal;white-space:nowrap}
 .lane .tr b{position:absolute;top:0;bottom:0;width:2px;background:var(--pin)}
-.sketch{font-size:12px;color:var(--mute);padding:6px 0}
-.sketch b{color:var(--ink)}
-.sheet.tall{height:94%;max-height:94%}
-.sheet.tall iframe{flex:1;min-height:0;width:100%;border:1px solid var(--cl);border-radius:12px;background:#0e0f11}
+/* the bar ruler over the lanes: bar numbers, the sections, the loop, and Live's playhead through ruler and lanes */
+#lanes{position:relative;display:flex;flex-direction:column;gap:3px;--lnw:72px}
+.ruler{display:flex;align-items:stretch;gap:8px;min-width:0;flex:none}
+#lanes .pgs{margin-top:auto;position:relative;z-index:3;background:var(--bg)}
+.ruler .ln{width:64px;flex:none}
+.ruler .rt{flex:1;min-width:0;height:34px;position:relative;font:10px ui-monospace,Menlo,monospace;color:var(--mute)}
+.ruler .rt .sec{position:absolute;top:14px;height:8px;border-radius:2px;background:var(--k3);box-shadow:inset 2px 0 0 var(--ink)}
+.ruler .rt .sec.s1{background:var(--well)}
+.ruler .rt .bn{position:absolute;top:0;transform:translateX(1px);font-style:normal}
+.ruler .rt .lp{position:absolute;top:24px;height:8px;border-radius:2px;background:var(--acc);border:1px solid var(--accd);box-sizing:border-box}
+#songhead{position:absolute;top:0;bottom:0;width:2px;margin-left:-1px;background:var(--pin);pointer-events:none;z-index:2}
+#songhead[hidden]{display:none}
+.key:disabled{opacity:.4;cursor:default}
 .btns{display:flex;gap:8px;flex-wrap:wrap}
 select{font:inherit;color:inherit;background:var(--panel);border:1px solid var(--line);border-radius:8px;height:44px;max-width:100%}
 #toast{position:absolute;left:50%;top:150px;transform:translate(-50%,-10px);background:var(--ink);color:var(--bg);padding:8px 14px;border-radius:12px;font-size:13px;z-index:50;opacity:0;transition:all .2s;pointer-events:none;max-width:92%}
@@ -119,40 +217,54 @@ select{font:inherit;color:inherit;background:var(--panel);border:1px solid var(-
 #bubble{position:fixed;z-index:60;pointer-events:none;background:var(--ink);color:var(--bg);font:600 20px ui-monospace,Menlo,monospace;padding:6px 12px;border-radius:12px;opacity:0;white-space:nowrap}
 #bubble small{font:500 11px ui-monospace,Menlo,monospace;opacity:.7;margin-left:8px}
 #bubble.on{opacity:1}
+#bubble[hidden]{display:none}
 /* A Page's controls are one panel, a map of the MiniLab 3: /app/shell/controls.css and controls.js. */
 #mlpages .key{min-width:44px}
 #desk>*{flex:none}
 .pl{display:flex;flex-direction:column;gap:6px}
 .pl .key{justify-content:flex-start;width:100%;overflow:hidden;text-overflow:ellipsis}
 #side>.key{flex:none}
+#deskhead,#mlnums,#panelbox,#deskdots{display:contents}
+#desk>*>:not(.mlpw){flex:none}
 /* A page change that Live has not confirmed yet: the tapped button waits (.is-waiting, shell.css), the line runs, the old controls dim. */
-.dots button.is-waiting{outline:0}
-.dots button.is-waiting::after{background:var(--acc);box-shadow:0 0 0 1.5px var(--accd)}
 #slow{flex:none;display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:8px 16px;background:var(--panel);border-bottom:1px solid var(--line);font-size:14px}
 #slow[hidden]{display:none}
 #slow span{flex:1;min-width:140px}
 /* One breakpoint system: phone is one column; tablet (700) puts the Hear bar beside the Desk; desktop (1100) adds the list of Pages. The tab bar is at the bottom on a phone and at the top from 700 px up (nav.js). */
 @media (max-width:380px){#hbot{gap:6px}#hbot .seg .key{padding:0 8px}}
+/* a short phone: the Hear bar keeps the song's facts and the playhead; the spectrum and the level give the Desk room */
+@media (max-width:699px) and (max-height:720px){#specbox,#lvl{display:none}#htop{padding:6px 16px}#desk{padding:8px 12px;gap:6px}}
+@media (max-width:699px){#htop>.hr{flex-wrap:nowrap}#chgpill{flex:0 1 auto;min-width:0}#chgbase{flex:0 1 auto}#chgn{flex:none;white-space:nowrap}}
 @media (min-width:700px){
  #cols{display:grid;grid-template-columns:minmax(0,1fr) 320px;grid-template-rows:minmax(0,1fr)}
- #hear{display:flex;flex-direction:column;min-height:0;overflow:auto;border-left:1px solid var(--line);background:var(--panel)}
+ #hear{display:flex;flex-direction:column;min-height:0;overflow:hidden;border-left:1px solid var(--line);background:var(--panel)}
  #htop,#main,#hbot{order:0}
  #htop{flex:1 0 auto;border-bottom:0}
  #htop .spc{height:auto;min-height:140px;flex:1}
- #htop .spc.none{flex:none;min-height:44px;height:44px}
+ #htop .spc.act{flex:none;min-height:48px}
+ #flagpop{bottom:76px}
 }
 @media (min-width:1100px){
  #cols{grid-template-columns:220px minmax(0,1fr) 320px}
- #side{display:flex;flex-direction:column;gap:8px;min-height:0;overflow:auto;padding:10px 12px;border-right:1px solid var(--line);background:var(--panel)}
+ #side{display:flex;flex-direction:column;gap:8px;min-height:0;overflow:hidden;padding:10px 12px;border-right:1px solid var(--line);background:var(--panel)}
+ #side .pl{flex:1;min-height:0;overflow:hidden}
  .dots{display:none}
- #htop .spc{min-height:220px}
- #htop .spc.none{min-height:44px}
+ /* History is docked in the right column, between the song's facts and the transport: its rows fill while knobs turn */
+ #htop{flex:none}
+ #htop .spc{min-height:96px;height:96px;flex:none}
+ #htop .spc.act{min-height:48px;height:auto}
+ #histdock{display:flex;flex-direction:column;gap:8px;flex:1;min-height:120px;padding:8px 16px;border-top:1px solid var(--line);overflow:hidden}
+ #histdock .hl{flex:1;min-height:0}
+ #histdock.ping{animation:dock-ping .6s ease-out 1}
+ #khist{display:none}
 }
+@keyframes dock-ping{0%{background:var(--accbg)}100%{background:transparent}}
 @media (min-width:1400px){#cols{grid-template-columns:280px minmax(0,1fr) 420px}}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 </style></head><body>
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
 <symbol id="i-play" viewBox="0 0 24 24"><path d="M7 4l13 8-13 8z" fill="currentColor"/></symbol>
+<symbol id="i-pause" viewBox="0 0 24 24"><rect x="6" y="5" width="4.5" height="14" rx="1" fill="currentColor"/><rect x="13.5" y="5" width="4.5" height="14" rx="1" fill="currentColor"/></symbol>
 <symbol id="i-stop" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="1.5" fill="currentColor"/></symbol>
 <symbol id="i-undo" viewBox="0 0 24 24"><path d="M9 14L4 9l5-5M4 9h10.5a5.5 5.5 0 0 1 0 11H11" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
 <symbol id="i-redo" viewBox="0 0 24 24"><path d="M15 14l5-5-5-5M20 9H9.5a5.5 5.5 0 0 0 0 11H13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
@@ -163,16 +275,26 @@ select{font:inherit;color:inherit;background:var(--panel);border:1px solid var(-
 <symbol id="i-back" viewBox="0 0 24 24"><path d="M4 12a8 8 0 1 0 2.6-5.9M4 4v5h5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
 <symbol id="i-flag" viewBox="0 0 24 24"><path d="M6 21V4M6 5h11l-2.5 4L17 13H6" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
 <symbol id="i-to" viewBox="0 0 24 24"><path d="M4 12h15M13 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+<symbol id="i-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></symbol>
+<symbol id="i-loop" viewBox="0 0 24 24"><path d="M17 3l3 3-3 3M20 6H8a4 4 0 0 0-4 4v1M7 21l-3-3 3-3M4 18h12a4 4 0 0 0 4-4v-1" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+<symbol id="i-power" viewBox="0 0 24 24"><path d="M12 3v9M6.3 6.8a8 8 0 1 0 11.4 0" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></symbol>
+<symbol id="i-knob" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="2.2"/><path d="M12 12l4-5" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></symbol>
+<symbol id="i-fader" viewBox="0 0 24 24"><path d="M12 3v18" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/><rect x="6" y="8" width="12" height="6" rx="2" fill="currentColor"/></symbol>
+<symbol id="i-more" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+<symbol id="i-org" viewBox="0 0 24 24"><path d="M4 7h11M4 12h16M4 17h13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/><circle cx="18" cy="7" r="2" fill="currentColor"/></symbol>
+<symbol id="i-edit" viewBox="0 0 24 24"><path d="M4 20h4l10-10-4-4L4 16v4zM13 7l4 4" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+<symbol id="i-arch" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="5" rx="1.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M5 9v10a1.5 1.5 0 0 0 1.5 1.5h11A1.5 1.5 0 0 0 19 19V9M10 13h4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
 </svg>
 <div id="app">
  <div id="lock" role="alert"></div>
  <div id="cols">
-  <aside id="side" aria-label="Pages"></aside>
-  <div id="main" class="loads"><div id="slow" role="alert" hidden></div><div id="song" hidden></div><div id="desk"></div><div id="ask" hidden></div><div id="scrim"></div><div class="sheet" id="sheet"></div><div class="sheet tall" id="psheet"></div></div>
-  <div id="hear"><div class="hear" id="htop"></div><div class="hear" id="hbot"><div id="hkeys"></div><span id="listen"></span></div></div>
+  <aside id="side" aria-label="Surfaces"></aside>
+  <div id="main" class="loads"><div id="slow" role="alert" hidden></div><div id="song" hidden></div><div id="desk"><div id="deskhead"></div><div id="mlnums"></div><div id="panelbox"></div><div id="deskdots"></div></div><div id="ask" hidden></div><div id="scrim"></div><div class="sheet" id="sheet"></div></div>
+  <div id="hear"><div class="hear" id="htop"></div><section id="histdock" aria-label="History"></section><div class="hear" id="hbot"><div id="hkeys"></div><span id="listen"></span></div></div>
  </div>
  <nav id="tabs" data-current="desk"></nav><script src="/app/shell/nav.js"></script>
- <div id="toast" role="status"></div><div id="bubble"></div>
+ <div id="flagpop" role="group" aria-label="Soloed and muted tracks" hidden></div>
+ <div id="toast" role="status"></div><div id="bubble" hidden aria-hidden="true"></div>
 </div>
 <script src="/app/shell/controls.js"></script>
 <script>
@@ -182,12 +304,21 @@ const I = n => `<svg width="22" height="22"><use href="#i-${n}"/></svg>`;
 const S = {state: null, desk: null, hear: {hearing: "now", changed: 0, keys: [], match: true, monitor: {slot: "W", ref: "C1"}, pin: "start"},
            hist: {entries: [], can_undo: false, can_redo: false}, meter: null, sheet: false, flash: {},
            layouts: {},
-           tab: "desk", song: {list: [], id: null, view: null, loaded: false, mixSet: ""}, page: null,
+           tab: "desk", song: {view: null, loaded: false}, page: null,
            pend: null, busy: 0, want: null,
            scales: {}, slots: [], fixed: {}, dirty: false, sideAt: null, saving: null, meterAt: 0, cmpAt: null,
-           level: {state: "off", mode: "", db: -90, hold: -90, holdAt: 0}};
+           face: "k", faces: 1, songAt: 0, histAt: 0, histFit: 0, sideAt2: null, flagAt: 0, opening: null, histSel: null, daysOpen: {}, flagOpen: null, flagGone: {}, mjob: null, setJob: null, openName: "",
+           org: [], orgTab: "active", orgAt: 0, orgFit: 0, orgRen: null, orgDraft: "", orgSel: null, orgDel: null,
+           level: {state: "off", mode: "", resume: false, db: -90, hold: -90, holdAt: 0}};
 const NO_MINILAB = "no MiniLab 3 in Live";  // Live is there and the desk works; only the controller is missing
-const METER_STALE = 3000;  // ms without a meter message before the spectrum says there is none
+const METER_STALE = 3000;  // ms without a meter message before the spectrum is taken to be off
+// Put `html` in `el` only when it differs from what this function last put there. An event that changes nothing on
+// the screen then makes no element anew: references, focus and a screen reader's place all stay.
+function setHtml(el, html) {
+  if (!el || el.__html === html) return false;
+  el.innerHTML = html; el.__html = html;
+  return true;
+}
 let toastTimer = 0;
 let drag = null, swipe = null, typing = null, swipedAt = 0;  // a hand on a control; a swipe; the control whose value is being typed
 
@@ -214,42 +345,86 @@ function changedNow() {
   // what the app counts, plus the controls this page has moved and Live has not confirmed yet
   return S.hear.changed + Object.keys(OWN).filter(k => !S.hear.keys.includes(k) && Math.abs(OWN[k].n - OWN[k].n0) > 1e-4).length;
 }
+// The loop as bars, [first, last] counted from 1; null when nothing loops or Live has not said where.
+function loopBars() {
+  const st = S.state, sp = st && st.loop_span, per = songOf().beats_per_bar || 4;
+  if (!st || !st.loop || st.loop === "off" || !sp || !(sp[1] > 0)) return null;
+  const first = Math.floor(sp[0] / per) + 1;
+  return [first, Math.max(first, Math.ceil((sp[0] + sp[1]) / per - 1e-6))];
+}
+const liveOk = () => !!S.state && (S.state.live === "attached" || S.state.live === NO_MINILAB);
+const meterFresh = () => !!S.meter && Date.now() - S.meterAt < METER_STALE;
+// What the spectrum's place shows: the bars, the one action that turns it on, how that goes, or nothing at all.
+function specMode() {
+  if (meterFresh()) return "bars";
+  if (S.mjob) return S.mjob.status;  // working | error
+  return liveOk() && S.state.meter === false ? "off" : "none";
+}
+// The Hear bar's top. Its frame is made once and each part is drawn only when that part changes; the playhead, the
+// bar number, the spectrum's bars and the level are moved in place (updatePos, updateSpec, drawLevel), many times a
+// second. So a button here is the same element from one event to the next.
 function renderTop() {
-  const st = S.state;
+  const st = S.state, top = $("#htop");
   if (!st) return;
-  const sg = songOf(), per = sg.beats_per_bar || 4, bar = Math.floor(st.pos / per) + 1, total = (sg.bars || 64) * per;
-  const fresh = S.meter && Date.now() - S.meterAt < METER_STALE;
-  const bands = fresh ? S.meter.db.map(d => Math.max(2, Math.min(100, (d + 90) / 90 * 100))) : [];
+  if (!$("#ident")) top.innerHTML = `<div class="hr" id="ident"></div>
+    <div class="hr"><span class="nm" id="barno"></span><span id="loopbox"></span><span id="livebox"></span>
+    <button class="ptap" id="chgpill" aria-label="History"><span class="pill" id="chgbox"><span id="chgn"></span><span id="chgbase"></span></span></button></div>
+    <div class="tl" id="strip" role="img" aria-label="The song, its loop and the playhead"><span id="tlparts"></span><span id="tlloop"></span><div class="ph"></div></div>
+    <div id="specbox"></div>
+    <div class="lvl" id="lvl" role="meter" aria-label="Output level" aria-valuemin="${LV.floor}" aria-valuemax="0"><span class="lt">Level</span><span class="lb"><i></i><b></b></span><span class="ln"></span></div>`;
+  const sg = songOf();
   const facts = [sg.tempo ? `${+(+sg.tempo).toFixed(2)} BPM` : "", sg.sig ? `${sg.sig[0]}/${sg.sig[1]}` : ""].filter(Boolean).join(" · ");
-  const live = st.live === "attached" || st.live === NO_MINILAB, n = changedNow();
-  $("#htop").innerHTML = `<div class="hr" id="ident"><b id="setname" title="The set open in Live">${esc(sg.name || "")}</b><span class="idf" id="songfacts">${facts}</span></div>
-    <div class="hr"><span class="nm" id="barno">bar ${bar}${sg.bars ? " of " + sg.bars : ""}</span>
-    ${st.loop && st.loop !== "off" ? `<span class="pill" id="looppill" title="Live loops this part: the bar jumps back at its end">loop${st.loop === "on" ? "" : ": " + esc(st.loop)}</span>` : ""}
-    <span class="pill ${live ? "" : "warn"}" id="livepill">${live ? "Live" : esc(st.live)}</span>
-    <span class="pill ${n ? "acc" : ""}" id="chgpill">${n} changed</span></div>
-    <div class="tl"><div class="ph" style="left:${Math.min(100, (st.pos % total) / total * 100)}%"></div></div>
-    ${fresh ? `<div class="spc" id="spec" aria-label="Spectrum">${bands.map(b => `<i style="height:${b}%"></i>`).join("")}</div>`
-            : `<div class="spc none" id="spec" role="img" aria-label="No spectrum: the desk meter device is not on Main">No spectrum · desk meter not on Main</div>`}
-    ${levelHtml()}`;
+  const live = liveOk(), lb = loopBars(), mode = specMode();
+  setHtml($("#ident"), `<b id="setname" title="The set open in Live">${esc(sg.name || "")}</b><span class="idf" id="songfacts">${facts}</span>`);
+  setHtml($("#loopbox"), !st.loop || st.loop === "off" ? "" : `<span class="pill" id="looppill" title="${esc(st.loop === "on" ? "loop" : st.loop)}" aria-label="Loop${lb ? `, bars ${lb[0]} to ${lb[1]}` : ""}${st.loop === "on" ? "" : ": " + esc(st.loop)}"><svg width="13" height="13"><use href="#i-loop"/></svg>${lb ? `${lb[0]}–${lb[1]}` : esc(st.loop === "on" ? "" : st.loop)}</span>`);
+  setHtml($("#livebox"), `<span class="pill ${live ? "" : "warn"}" id="livepill">${live ? "Live" : esc(st.live)}</span>`);
+  // the strip under the facts: the song's whole length, the spans that can loop, the one that does, the playhead
+  const beats = (sg.bars || 0) * (sg.beats_per_bar || 4), parts = Object.entries(st.loops || {}).filter(([name]) => name !== "whole").sort((a, b) => a[1][0] - b[1][0]);
+  setHtml($("#tlparts"), beats ? parts.map(([name, [a, n]]) => `<i class="part" data-span="${esc(name)}" style="left:${(a / beats * 100).toFixed(2)}%;width:${(Math.min(beats - a, n) / beats * 100).toFixed(2)}%"></i>`).join("") : "");
+  setHtml($("#tlloop"), lb && sg.bars ? `<i class="lp" style="left:${((lb[0] - 1) / sg.bars * 100).toFixed(2)}%;width:${((Math.min(sg.bars, lb[1]) - lb[0] + 1) / sg.bars * 100).toFixed(2)}%"></i>` : "");
+  const made = setHtml($("#specbox"), mode === "bars" ? `<div class="spc" id="spec" role="img" aria-label="Spectrum">${S.meter.db.map(() => "<i></i>").join("")}</div>`
+    : mode === "none" ? ""
+    : `<div class="spc act" id="spec" data-job="${mode}"><span class="tag">Spectrum</span>${
+        mode === "working" ? '<span class="pill spin" id="meterwait">Turning on</span>'
+        : `${mode === "error" ? `<span class="pill warn" id="meterfail" title="${esc(S.mjob.msg || "")}">Failed</span>` : ""}<button class="key sm" id="meteron" aria-label="Turn the spectrum on"><svg width="18" height="18"><use href="#i-power"/></svg>${mode === "error" ? "Retry" : "Turn on"}</button>`}</div>`);
+  updatePos(); updateChanged(); drawLevel();
+  if (made || mode === "bars") updateSpec();
+}
+function updatePos() {
+  const st = S.state, no = $("#barno");
+  if (!st || !no) return;
+  const sg = songOf(), per = sg.beats_per_bar || 4, total = (sg.bars || 64) * per;
+  const text = `bar ${Math.floor(st.pos / per) + 1}${sg.bars ? " of " + sg.bars : ""}`;
+  if (no.textContent !== text) no.textContent = text;
+  $("#htop .tl .ph").style.left = Math.min(100, (st.pos % total) / total * 100) + "%";
+  updateSongHead();
+}
+// "N changed" counts from the last checkpoint saved or gone back to, and says which one that is.
+function updateChanged() {
+  const pill = $("#chgpill");
+  if (!pill) return;
+  const n = changedNow(), base = S.hear.base ? cpLabel(S.hear.base, baseAt(S.hear.base)) : "";
+  $("#chgn").textContent = `${n} changed`;
+  setHtml($("#chgbase"), base ? `<svg width="11" height="11"><use href="#i-flag"/></svg>${esc(base)}` : "");
+  $("#chgbox").classList.toggle("acc", n > 0);
+  pill.setAttribute("aria-label", `${n} changed${base ? " since " + base : ""}. History`);
+}
+function baseAt(name) { const c = (S.hist.checkpoints || []).find(c => c.name === name); return c ? c.at : 0; }
+function updateSpec() {
+  const bars = document.querySelectorAll("#spec:not(.act) i");
+  if (!bars.length || !S.meter) return;
+  S.meter.db.forEach((d, k) => { if (bars[k]) bars[k].style.height = Math.max(2, Math.min(100, (d + 90) / 90 * 100)) + "%"; });
 }
 // The level meter: the peak of the sound Listen plays (the Listen button's stream), in dB below full scale. It
 // reads the samples; it changes none. With Listen off the bar is hatched: there is nothing to read.
 const LV = {floor: -60, holdMs: 1500};
 function levelView() {
   const lv = S.level, on = lv.state === "on" && lv.mode !== "mp3", at = x => Math.max(0, Math.min(100, (x - LV.floor) / -LV.floor * 100));
-  const text = lv.state === "connecting" ? "connecting" : lv.state !== "on" ? "Listen off" : lv.mode === "mp3" ? "no level here" : lv.db <= LV.floor ? "silent" : lv.db.toFixed(1) + " dB";
+  // One wording with the Listen button: off, or paused (it was on when the last page was left; a tap resumes it).
+  const text = lv.state === "connecting" ? "connecting" : lv.state !== "on" ? (lv.resume ? "Listen paused" : "Listen off") : lv.mode === "mp3" ? "no level here" : lv.db <= LV.floor ? "silent" : lv.db.toFixed(1) + " dB";
   return {on, text, w: on ? at(lv.db) : 0, hold: on ? at(lv.hold) : 0, now: Math.round(Math.max(LV.floor, lv.db))};
 }
-function levelHtml() {
-  const v = levelView();
-  return `<div class="lvl" id="lvl" data-state="${v.on ? "on" : "off"}" role="meter" aria-label="Output level" aria-valuemin="${LV.floor}" aria-valuemax="0" aria-valuenow="${v.now}" aria-valuetext="${v.text}">
-    <span class="lt">Level</span><span class="lb"><i style="width:${v.w.toFixed(1)}%"></i><b style="left:${v.hold.toFixed(1)}%;opacity:${v.on ? 1 : 0}"></b></span><span class="ln">${v.text}</span></div>`;
-}
-function onListen(d) {
-  const lv = S.level, now = Date.now();
-  lv.state = d.state; lv.mode = (window.zpktListen && window.zpktListen.stats.mode) || "";
-  lv.db = d.state === "on" && d.peak > 0 ? 20 * Math.log10(d.peak) : -90;
-  if (lv.db >= lv.hold || now - lv.holdAt > LV.holdMs) { lv.hold = lv.db; lv.holdAt = now; }
+function drawLevel() {
   const el = $("#lvl");
   if (!el) return;
   const v = levelView();
@@ -257,16 +432,79 @@ function onListen(d) {
   el.setAttribute("aria-valuenow", v.now); el.setAttribute("aria-valuetext", v.text);
   el.querySelector("i").style.width = v.w.toFixed(1) + "%";
   const b = el.querySelector("b"); b.style.left = v.hold.toFixed(1) + "%"; b.style.opacity = v.on ? 1 : 0;
-  el.querySelector(".ln").textContent = v.text;
+  const ln = el.querySelector(".ln");
+  if (ln.textContent !== v.text) ln.textContent = v.text;
+}
+function onListen(d) {
+  const lv = S.level, now = Date.now();
+  lv.state = d.state; lv.mode = (window.zpktListen && window.zpktListen.stats.mode) || ""; lv.resume = !!d.resume;
+  lv.db = d.state === "on" && d.peak > 0 ? 20 * Math.log10(d.peak) : -90;
+  if (lv.db >= lv.hold || now - lv.holdAt > LV.holdMs) { lv.hold = lv.db; lv.holdAt = now; }
+  drawLevel();
 }
 window.addEventListener("zpkt-listen", e => onListen(e.detail));
-function renderBottom() {
+// What Undo (or Redo) will do, as words: the control, and the value it goes back to.
+function stepWords(pv) {
+  if (!pv) return null;
+  const e = S.hist.entries.find(x => x.id === pv.id), first = pv.values[0];
+  if (e && e.compare) return {label: e.compare.name, value: e.compare.from || ""};
+  if (e && e.k === "revert") return {label: "Going back", value: `${pv.count} control${pv.count === 1 ? "" : "s"}`};
+  if (!first) return {label: "", value: ""};
+  const label = labelFor(first[0], e && e.moves && e.moves[0] ? e.moves[0].label : first[0]);
+  return {label: pv.count > 1 ? `${label} +${pv.count - 1}` : label, value: /^-?\d+(\.\d+)?(e[-+]?\d+)?$/i.test(first[2]) && first[1] != null ? textAt(first[0], first[1]) : first[2]};
+}
+// The soloed and the muted tracks: up to two names as chips (a tap clears one); more are a count that opens the list.
+function flagChip(flag, track) {
+  const going = S.flagGone[`${track}/${flag}`];
+  return `<button class="chip ${flag} ${going ? "going" : ""}" data-flag="${flag}" data-track="${esc(track)}" aria-label="${flag === "solo" ? "Soloed" : "Muted"}: ${esc(track)}. Clear">`
+    + `<b aria-hidden="true">${flag === "solo" ? "S" : "M"}</b><span>${esc(track)}</span><svg width="14" height="14" aria-hidden="true"><use href="#i-x"/></svg></button>`;
+}
+function flagsHtml() {
   const st = S.state;
+  return ["solo", "mute"].map(flag => {
+    const on = (st[flag] || []);
+    if (!on.length) return "";
+    if (on.length <= 2) return on.map(t => flagChip(flag, t)).join("");
+    return `<button class="chip ${flag}" data-flags="${flag}" aria-haspopup="true" aria-expanded="${S.flagOpen === flag}" aria-label="${on.length} tracks ${flag === "solo" ? "soloed" : "muted"}"><b aria-hidden="true">${flag === "solo" ? "S" : "M"}</b><span>${on.length}</span><svg width="14" height="14" aria-hidden="true"><use href="#i-more"/></svg></button>`;
+  }).join("");
+}
+// The controls of a paged list: the part before, which part of how many, the part after. Nothing when it is one part.
+function pagerHtml(name, at, parts, words) {
+  if (parts < 2) return "";
+  const b = (by, ok, label) => `<button class="key sm" type="button" data-${name}="${by}" ${ok ? "" : "disabled"} aria-label="${label}"><svg class="${by < 0 ? "back" : ""}" width="18" height="18"><use href="#i-more"/></svg></button>`;
+  return `<div class="pgs" role="group" aria-label="${words || "More"}">${b(-1, at > 0, "Before")}<span class="pgn">${at + 1} / ${parts}</span>${b(1, at < parts - 1, "After")}</div>`;
+}
+function renderFlagPop() {
+  const pop = $("#flagpop"), flag = S.flagOpen, on = flag && S.state ? (S.state[flag] || []) : [];
+  if (flag && on.length <= 2) S.flagOpen = null;  // few enough to be chips again
+  pop.hidden = !S.flagOpen;
+  const per = 5, last = Math.max(0, Math.ceil(on.length / per) - 1), at = S.flagAt = Math.min(S.flagAt, last);
+  setHtml(pop, S.flagOpen ? on.slice(at * per, at * per + per).map(t => flagChip(flag, t)).join("") + pagerHtml("flagstep", at, last + 1) : "");
+}
+async function clearFlag(flag, track) {
+  const key = `${track}/${flag}`;
+  if (S.flagGone[key]) return;
+  S.flagGone[key] = true; renderBottom();  // at once: the chip fades; Live's report takes it away
+  const r = await command("mix.set", {writes: [[key, 0, "off"]]});
+  if (!r.ok) { delete S.flagGone[key]; renderBottom(); }
+}
+function renderBottom() {
+  const st = S.state, box = $("#hkeys");
   if (!st) return;
-  $("#hkeys").innerHTML = `<div class="grp" role="group" aria-label="Transport"><button class="key ${st.playing ? "on" : ""}" id="kplay" aria-label="${st.playing ? "Stop" : "Play"}">${I(st.playing ? "stop" : "play")}</button></div>
-    <div class="grp" role="group" aria-label="History"><button class="key sm ${S.hist.can_undo ? "" : "off"}" id="kundo" aria-label="Undo">${I("undo")}</button>
-    <button class="key sm ${S.hist.can_redo ? "" : "off"}" id="kredo" aria-label="Redo">${I("redo")}</button>
-    <button class="key sm" id="khist" aria-label="History and checkpoints">${I("hist")}</button></div>`;
+  if (!$("#tgrp")) box.innerHTML = `<div class="grp" role="group" aria-label="Transport" id="tgrp"></div><div id="flags" role="group" aria-label="Solo and mute"></div><div class="grp" role="group" aria-label="History" id="hgrp"></div>`;
+  const u = S.hist.can_undo ? stepWords(S.hist.undo) : null, r = S.hist.can_redo ? stepWords(S.hist.redo) : null;
+  const said = w => w ? `: ${w.label}${w.value ? " to " + w.value : ""}` : "";
+  // each group is drawn only when it changes, so Play is the same button while Undo's words come and go
+  // Play (from where the playhead is: the start, after Stop) or Pause; Stop goes back to the start; then what loops.
+  const spans = st.loops || {}, key = (name, label, words) => `<button class="key sm ${st.loop === name ? "on" : ""}" data-loop="${name}" aria-pressed="${st.loop === name}" aria-label="Loop ${words}" ${spans[name] ? "" : "disabled"}>${label}</button>`;
+  setHtml($("#tgrp"), `<button class="key ${st.playing ? "on" : ""}" id="kplay" aria-label="${st.playing ? "Pause" : "Play"}">${I(st.playing ? "pause" : "play")}</button>
+    <button class="key sm" id="kstop" aria-label="Stop and go back to the start">${I("stop")}</button>
+    <div class="seg" id="loops" role="group" aria-label="Loop"><span class="key sm" aria-hidden="true" style="min-width:0;padding:0 6px;cursor:default"><svg width="15" height="15"><use href="#i-loop"/></svg></span>${key("whole", "All", "the whole song")}${key("build", "Start", "the beginning")}${key("drop", "Peak", "the peak")}</div>`);
+  setHtml($("#flags"), flagsHtml());
+  setHtml($("#hgrp"), `<button class="key sm ${S.hist.can_undo ? "" : "off"}" id="kundo" aria-label="Undo${esc(said(u))}" ${S.hist.can_undo ? "" : "disabled"}>${I("undo")}${u && u.label ? `<span class="uw" id="undowhat"><b>${esc(u.label)}</b><i>${esc(u.value)}</i></span>` : ""}</button>
+    <button class="key sm ${S.hist.can_redo ? "" : "off"}" id="kredo" aria-label="Redo${esc(said(r))}" title="${esc(r ? `${r.label} ${r.value}` : "")}" ${S.hist.can_redo ? "" : "disabled"}>${I("redo")}</button>
+    <button class="key sm" id="khist" aria-label="History and checkpoints">${I("hist")}</button>`);
+  renderFlagPop();
   renderBanner();
 }
 function renderBanner() {
@@ -351,7 +589,25 @@ function placeOf(key, text, shownNow) {
   const m = NUM.exec(text);
   if (!m) return null;
   const now = parseShown(shownNow || "") || pts[pts.length - 1].v, typed = UNITS[m[2].toLowerCase()];
-  const x = +m[1] * (m[2] ? (typed ? typed[1] : 1) : now.k), up = pts[pts.length - 1].v.x >= pts[0].v.x;
+  return placeForX(key, +m[1] * (m[2] ? (typed ? typed[1] : 1) : now.k));
+}
+// ---- round units: a control whose scale is numbers moves in steps of its unit, so 7.00 dB can be reached ------------
+// The numeric stops of a control's scale, and the value (in base units: dB, Hz, ms, %) at a place and back.
+function numPts(key) { return (scalePoints(key) || []).filter(q => q.v); }
+function valueAt(key, n) {
+  const pts = scalePoints(key);
+  if (!pts || pts.length < 2) return null;
+  let i = pts.findIndex(q => q.p >= n - 1e-9);
+  if (i < 0) i = pts.length - 1;
+  const b = pts[i], a = pts[i - 1] || pts[i + 1];
+  if (!a || !a.v || !b.v || a.v.base !== b.v.base) return null;
+  const x = Math.abs(b.p - a.p) < 1e-12 ? b.v.x : a.v.x + (n - a.p) / (b.p - a.p) * (b.v.x - a.v.x);
+  return {x, base: b.v.base.toLowerCase(), dec: Math.max(a.v.dec, b.v.dec), k: b.v.k};
+}
+function placeForX(key, x) {
+  const pts = numPts(key);
+  if (pts.length < 2) return null;
+  const up = pts[pts.length - 1].v.x >= pts[0].v.x;
   if (up ? x <= pts[0].v.x : x >= pts[0].v.x) return pts[0].p;
   for (let i = 1; i < pts.length; i++) {
     const a = pts[i - 1], b = pts[i];
@@ -359,6 +615,33 @@ function placeOf(key, text, shownNow) {
   }
   return pts[pts.length - 1].p;
 }
+const RATIOS = {hz: [Math.pow(2, 1 / 12), Math.pow(2, 1 / 120), 2], ms: [1.1, 1.01, 2]};  // a semitone, a tenth of one, an octave; a tenth, a hundredth, double
+const GRIDS = {db: [0.5, 0.1, 3, 0.1], "%": [1, 0.1, 10, 0.1]};  // the arrow's step, Shift's, Page Up's, and what a drag lands on
+const sig3 = x => x === 0 ? 0 : +x.toPrecision(3);
+// The place nearest n that is a round value in the control's unit (a drag lands on these); n itself where the
+// page does not know the scale as numbers, and at the two ends.
+function roundPlace(key, n) {
+  if (n <= 0 || n >= 1) return n;
+  const v = valueAt(key, n);
+  if (!v) return n;
+  const grid = GRIDS[v.base] ? GRIDS[v.base][3] : RATIOS[v.base] ? 0 : Math.pow(10, -v.dec) * v.k;
+  const p = placeForX(key, grid ? Math.round(v.x / grid) * grid : sig3(v.x));
+  return p == null ? n : Math.max(0, Math.min(1, p));
+}
+// One step of the keyboard from place n: dir +1 or -1; size 0 the arrow, 1 Shift (fine), 2 Page Up and Down. dB
+// steps are 0.5, 0.1 and 3 dB; Hz a semitone, a tenth of one, an octave; a control with no numbers a hundredth, a
+// five-hundredth and a tenth of its range. The value lands on a multiple of the step (7.49 dB down is 7.00 dB).
+function stepPlace(key, n, dir, size) {
+  const plain = Math.max(0, Math.min(1, n + dir * [.01, .002, .1][size])), v = valueAt(key, n);
+  if (!v) return plain;
+  let x;
+  if (GRIDS[v.base]) { const g = GRIDS[v.base][size]; x = Math.round((v.x + dir * g) / g) * g; }  // one step on, then the round value there
+  else if (RATIOS[v.base] && v.x > 0) x = sig3(v.x * Math.pow(RATIOS[v.base][size], dir));
+  else return roundPlace(key, plain) === n ? plain : roundPlace(key, plain);
+  const p = placeForX(key, x);
+  return p == null || Math.abs(p - n) < 1e-9 ? plain : Math.max(0, Math.min(1, p));
+}
+
 // Ask for the scales this panel's live knobs and faders lack: one read per page, never one per move.
 function wantScales(slots) {
   if (!S.state || S.state.live === "starting") return;
@@ -368,6 +651,7 @@ function wantScales(slots) {
   keys.forEach(k => { S.scales[k] = {loading: true}; });
   command("mix.describe", {keys}, undefined, true).then(r => {
     keys.forEach(k => { S.scales[k] = (r.ok && r.body.scales[k]) || {failed: Date.now()}; });
+    markTypable(); renderBottom();  // the numbers can be typed now, and Undo can say its value in Live's units
   });
 }
 
@@ -383,13 +667,12 @@ const SETTLE_MS = 900;  // after the last answer, how long to wait for Live's re
 function own(m) {
   const o = m.key && m.state === "live" && OWN[m.key];
   if (!o) return S.fixed[m.key] ? {...m, fixed: true} : m;
-  return {...m, n: o.n, shown: textAt(m.key, o.n), sending: true, chg: m.chg || Math.abs(o.n - o.n0) > 1e-4};
+  return {...m, n: o.n, shown: o.text != null ? o.text : textAt(m.key, o.n), sending: true, chg: m.chg || Math.abs(o.n - o.n0) > 1e-4};
 }
 function setOwn(key, n, n0) {
   const o = OWN[key] || (OWN[key] = {n, n0});
-  o.n = n; clearTimeout(o.timer); o.sent = false;
-  const pill = $("#chgpill");
-  if (pill) { const c = changedNow(); pill.textContent = `${c} changed`; pill.classList.toggle("acc", c > 0); }
+  o.n = n; o.text = null; clearTimeout(o.timer); o.sent = false;
+  updateChanged();
 }
 function sendValue(key, n, group) {
   const s = SEND[key] || (SEND[key] = {busy: false, next: null, last: null});
@@ -409,13 +692,34 @@ async function pump(key) {
   settle(key);
 }
 // The last send for `key` was answered. Unless a hand is still on the control, wait for Live's report.
-function settle(key) {
+function settle(key, ms) {
   const o = OWN[key];
   if (!o || (drag && drag.key === key) || (SEND[key] && (SEND[key].busy || SEND[key].next))) return;
   o.sent = true;
   clearTimeout(o.timer);
   if (o.heard != null && Math.abs(o.heard - o.n) <= NEAR) return confirmOwn(key, o.heard);  // Live already said so
-  o.timer = setTimeout(() => confirmOwn(key, undefined), SETTLE_MS);
+  o.timer = setTimeout(() => confirmOwn(key, undefined), ms || SETTLE_MS);
+}
+// Values on their way that this page did not drag there: an undo, a redo, a going back. They show at once, each
+// [key, place, Live's text], like a control the hand moved; Live's reports then confirm them. Returns the keys.
+function showAhead(values) {
+  const vals = valueMap(), keys = [];
+  for (const [key, n, text] of values || []) {
+    if (n == null || !vals[key]) continue;  // a control no page of the desk shows
+    const was = vals[key].n;
+    if (OWN[key]) setOwn(key, n); else setOwn(key, n, was == null ? n : was);
+    if (text && !/^-?\d+(\.\d+)?(e[-+]?\d+)?$/i.test(text)) OWN[key].text = text;
+    keys.push(key);
+  }
+  if (keys.length) { renderDesk(); updateChanged(); }
+  return keys;
+}
+// Undo or redo: the controls go where the step puts them at once; the app's answer (or its refusal) settles them.
+async function stepHistory(kind) {
+  if (!S.hist["can_" + kind]) return;
+  const keys = showAhead((S.hist[kind] || {}).values);
+  const r = await command("history." + kind);
+  for (const key of keys) { if (r.ok) settle(key); else confirmOwn(key, null); }
 }
 // Live's value for `key` is the one in the state now (n: what its report said; undefined: no report came; null: the
 // send failed). The page's own number goes; a place that differs from it is flashed.
@@ -488,7 +792,7 @@ function litState(L) {
 // A press: the pad lights and the knobs move now; one command writes every value of the state, as one History row.
 const CMP = {seq: 0};
 async function pressState(i) {
-  const {entry} = current(), L = entry.page_id && S.layouts[entry.page_id], st = L && L.compare && L.compare.states[i];
+  const {entry} = current(), L = entry && entry.page_id && S.layouts[entry.page_id], st = L && L.compare && L.compare.states[i];
   if (!st || !st.writes.length) return;
   const vals = valueMap(), mine = ++CMP.seq;
   for (const w of st.writes) { const n0 = (vals[w.target] || {}).n; setOwn(w.target, w.n, n0 == null ? w.n : n0); }
@@ -505,7 +809,7 @@ function labelFor(key, fallback) {
   for (const [at, v] of Object.entries((S.state || {}).values || {})) {
     if (v.key !== key) continue;
     const [p, slot] = at.split(":"), c = (((S.desk || {pages: []}).pages[+p] || {}).controls || {})[slot];
-    if (c && !(S.desk.pages[+p] || {}).page_id) return labelOf(c);
+    if (c && !(S.desk.pages[+p] || {}).page_id) return !c.label && (c.param === "solo" || c.param === "mute") ? `${c.track} ${c.param}` : labelOf(c);
   }
   return fallback || key;
 }
@@ -521,63 +825,237 @@ function current() {
   const entry = pages.find(e => e.hw.includes(i)) || pages[0];
   // the page a tap asked for and Live has not confirmed: its name shows at once
   const next = S.pend ? pages.find(e => e.hw.includes(S.pend.page)) : null;
-  return {pages, entry, at: Math.max(0, entry.hw.indexOf(i)), next: next && next !== entry ? next : null};
+  // an empty desk (every surface archived) has no entry at all
+  return {pages, entry: entry || null, at: entry ? Math.max(0, entry.hw.indexOf(i)) : 0, next: next && next !== entry ? next : null};
 }
 function drawDesk() {
   if (!S.state || !S.desk) return;
-  const {pages, entry, at, next} = current(), hw = entry.hw[at];
+  const {pages, entry, at, next} = current();
+  if (!entry) return drawEmptyDesk();
+  const hw = entry.hw[at];
   let L = null;
   if (entry.page_id) { ensureLayout(entry.page_id); L = S.layouts[entry.page_id]; }
   const drawn = !entry.page_id || (L && typeof L === "object");
   S.slots = !drawn ? [] : entry.page_id ? slotsOfLayout(L, at, hw) : slotsOfDesk(entry.pg, hw);
   wantScales(S.slots);
-  const body = !drawn ? `<div class="tag" id="plain">${L === "failed" ? "This page could not be drawn." : "Reading the page…"}</div>`
-    : MC.panel(S.slots, 'id="panel" data-stale');
   // A Page that needs more than one MiniLab page: numbered buttons (on a phone, swipe the panel too).
-  const nums = entry.hw.length > 1 && !next ? `<div class="hr" id="mlpages" role="group" aria-label="MiniLab pages of this Page"><span class="tag">MiniLab page</span>${
+  const nums = entry.hw.length > 1 && !next ? `<div class="hr" id="mlpages" role="group" aria-label="MiniLab pages of this surface">${
     entry.hw.map((d, k) => `<button class="key sm ${k === at ? "on" : ""}" data-page="${d}" aria-label="MiniLab page ${k + 1} of ${entry.hw.length}" ${k === at ? 'aria-current="true"' : ""}>${k + 1}</button>`).join("")}</div>` : "";
   const shown = next || entry, NL = next && next.page_id && typeof S.layouts[next.page_id] === "object" ? S.layouts[next.page_id] : null;
-  const title = next ? (NL ? NL.title : next.name) : drawn && L ? L.title : entry.name;
-  const by = next ? (NL ? " · made by " + esc(NL.made_by) : "") : drawn && L ? " · made by " + esc(L.made_by) : "";
-  const focused = document.activeElement && document.activeElement.closest && document.activeElement.closest("#panel .mc");
-  $("#desk").innerHTML = `<div class="ph2"><b id="pagename">${esc(title)}</b><span class="tag">page ${pages.indexOf(shown) + 1} of ${pages.length}${by}</span>
-    ${next ? '<span class="pill spin" id="pgwait">Loading</span>' : `<span class="pill ${S.state.live === "attached" ? "acc" : "quiet"}" id="mlchip">${S.state.live === "attached" ? "on MiniLab" : "no MiniLab"}</span>`}</div>${nums}${body}
-    <div class="dots" role="group" aria-label="Pages">${pages.map(p => `<button data-page="${p.hw[0]}" class="${p === shown ? "c" : ""}" aria-label="${esc(p.name)}"></button>`).join("")}</div>`;
-  // A page with compare states, when it comes into view: its pads are in sight (on a phone they are the last row).
+  // A Page a link asked for that is not on the desk yet (S.opening): its title shows at once, with "Loading".
+  const far = S.opening && !next && entry.page_id !== S.opening.id ? S.opening : null;
+  const title = far ? far.title || "Surface" : next ? (NL ? NL.title : next.name) : drawn && L ? L.title : entry.name;
+  const by = far ? "" : next ? (NL ? " · made by " + esc(NL.made_by) : "") : drawn && L ? " · made by " + esc(L.made_by) : "";
+  setHtml($("#deskhead"), `<div class="ph2"><b id="pagename">${esc(title)}</b>${far ? "" : `<span class="tag">surface ${pages.indexOf(shown) + 1} / ${pages.length}${by}</span>`}
+    ${next || far ? '<span class="pill spin" id="pgwait">Loading</span>' : `<span class="pill ${S.state.live === "attached" ? "acc" : "quiet"}" id="mlchip">${S.state.live === "attached" ? "on MiniLab" : "no MiniLab"}</span>`}${nums}</div>`);
+  // A page with compare states, when it comes into view: its pads are in sight (where the map shows one face at a
+  // time, that is the face with pads 5 to 8).
   const hasCmp = drawn && L && L.compare ? entry.page_id : null;
-  if (hasCmp && S.cmpAt !== hasCmp) { const first = $("#panel .mc.pad.cmp"); if (first) first.scrollIntoView({block: "end"}); }
+  if (hasCmp && S.cmpAt !== hasCmp) S.face = "f";
   if (drawn) S.cmpAt = hasCmp;
-  if (focused) {  // the control that had the keyboard keeps it across the redraw
-    const w = $(`#panel .mc[data-slot="${focused.dataset.slot}"] :is(.w[tabindex], button.w)`);
-    if (w) w.focus({preventScroll: true});
+  drawPanel(drawn, L);
+  drawPager();
+  if ($("#panel") && !$("#panel").__fit) { $("#panel").__fit = true; fitPanel(); }  // a new panel; later, when the Desk's box changes (FIT)
+}
+// An empty desk is a state of its own, not a fault: the map with all 20 slots quiet, and the one way to a surface.
+function drawEmptyDesk() {
+  S.slots = [];
+  const far = S.opening;
+  setHtml($("#deskhead"), `<div class="ph2">${far ? `<b id="pagename">${esc(far.title || "")}</b><span class="pill spin" id="pgwait">Loading</span>`
+    : `<b id="pagename"></b><button class="key sm on" id="asknew" data-t="ask"><svg width="18" height="18"><use href="#i-ask"/></svg>New surface</button>`}</div>`);
+  const box = $("#panelbox");
+  if (box.__shape !== "empty") { box.__html = null; box.__shape = "empty"; box.innerHTML = MC.panel([], 'id="panel" data-stale'); }
+  drawPager();
+  if ($("#panel") && !$("#panel").__fit) { $("#panel").__fit = true; fitPanel(); }
+}
+// The paging row (under 1100 px; wider, the list of Pages is the side column): the page before and the page after,
+// which page of how many this is, and the map's two faces where it shows one at a time. It is always on screen.
+function drawPager() {
+  // the steps are from the page Live has (so the one that was tapped keeps its place and shows it is waiting);
+  // the count is the page asked for
+  const c = current(), pages = c.pages, at = pages.indexOf(c.entry), i = pages.indexOf(c.next || c.entry), prev = pages[at - 1], next = pages[at + 1];
+  const step = (p, way) => `<button class="key sm" ${p ? `data-page="${p.hw[0]}"` : "disabled"} aria-label="${way === "prev" ? "Previous" : "Next"} surface${p ? ": " + esc(p.name) : ""}"><svg class="${way === "prev" ? "back" : ""}" width="18" height="18"><use href="#i-more"/></svg></button>`;
+  const face = (f, icon, words) => `<button class="key sm ${S.face === f ? "on" : ""}" data-face="${f}" aria-pressed="${S.face === f}" aria-label="${words}"><svg width="18" height="18"><use href="#i-${icon}"/></svg></button>`;
+  setHtml($("#deskdots"), `<div class="dots" role="group" aria-label="Surfaces">${step(prev, "prev")}<span class="pgn" id="pgcount" aria-label="Surface ${i + 1} of ${pages.length}">${i + 1} / ${pages.length}</span>${step(next, "next")}<span class="sp"></span><button class="key sm" data-org="open" aria-label="Organize surfaces"><svg width="18" height="18"><use href="#i-org"/></svg></button>${
+    S.faces === 2 ? `<div class="seg" id="faces" role="group" aria-label="Face of the map">${face("k", "knob", "Knobs and pads 1 to 4")}${face("f", "fader", "Faders and pads 5 to 8")}</div>` : ""}</div>`);
+}
+// Fit the map to the height it has: the comfortable sizes, else the tight ones (labels on one line), else, on a
+// phone where the map is folded, one face at a time. It measures; it never lets anything scroll.
+function fitPanel() {
+  const p = $("#panel");
+  if (!p) return;
+  const set = (tight, faces) => { p.classList.toggle("tight", tight); if (faces === 2) p.dataset.face = S.face; else delete p.dataset.face; };
+  // squeezed below what its controls need, a block's content spills over the next: that is "does not fit"
+  const over = () => p.scrollHeight > p.clientHeight + 1 || [...p.querySelectorAll(".mk,.mf,.mp,.mc")].some(e => e.offsetParent && e.scrollHeight > e.clientHeight + 1);
+  const folded = getComputedStyle(p).gridTemplateColumns.trim().split(/\s+/).length === 1;
+  let faces = 1;
+  set(false, 1);
+  if (over()) { set(true, 1); if (over() && folded) { faces = 2; set(false, 2); if (over()) set(true, 2); } }
+  if (S.faces !== faces) { S.faces = faces; drawPager(); }
+}
+const FIT = window.ResizeObserver ? new ResizeObserver(() => fitPanel()) : null;
+if (FIT) { FIT.observe($("#desk")); FIT.observe($("#deskhead")); } else window.addEventListener("resize", fitPanel);
+if (window.ResizeObserver) new ResizeObserver(() => fitSong()).observe($("#song")); else window.addEventListener("resize", fitSong);
+// the paged lists hold what their boxes hold: another size, another count
+window.addEventListener("resize", () => { if (S.state && S.desk) { renderSide(); redrawHist(); if (S.sheet === "org") renderOrg(true); } });
+// The panel. While the page's structure is the same (the same controls in the same slots) nothing is made anew: each
+// control is brought up to its value in place, so it keeps the keyboard, and a reference to it stays good. Only
+// another page, or a control that came or went, draws the panel again.
+function drawPanel(drawn, L) {
+  const box = $("#panelbox");
+  if (!drawn) { box.__shape = null; return setHtml(box, `<div class="tag" id="plain">${L === "failed" ? "This surface could not be drawn." : "Reading…"}</div>`); }
+  const shape = S.slots.map(MC.shape).join("\u0002");
+  if (box.__shape === shape && $("#panel")) {
+    for (const m of S.slots) { const el = $(`#panel .mc[data-slot="${m.slot}"]`); if (el) MC.update(el, m); }
+  } else {
+    const focused = document.activeElement && document.activeElement.closest && document.activeElement.closest("#panel .mc");
+    box.__html = null; box.__shape = shape;
+    box.innerHTML = MC.panel(S.slots, 'id="panel" data-stale');
+    if (focused) {  // the control that had the keyboard keeps it when the panel is drawn again
+      const w = $(`#panel .mc[data-slot="${focused.dataset.slot}"] :is(.w[tabindex], button.w)`);
+      if (w) w.focus({preventScroll: true});
+    }
+  }
+  markTypable();
+}
+// A number the page can read as a number is the place to type it: it takes a click and the keyboard.
+function markTypable() {
+  for (const el of document.querySelectorAll("#panel .mc.live:not(.pad)")) {
+    const can = canType(el.dataset.key), v = el.querySelector(".v");
+    if (el.classList.contains("ed") === can || !v) continue;
+    el.classList.toggle("ed", can);
+    if (can) { v.setAttribute("role", "button"); v.setAttribute("tabindex", "0"); v.setAttribute("title", "Type a value"); }
+    else { v.removeAttribute("role"); v.removeAttribute("tabindex"); v.removeAttribute("title"); }
   }
 }
 function renderSide() {
   const side = $("#side");
   if (!S.state || !S.desk || !wide()) return;
   const {pages, entry, next} = current(), cur = next || entry;
-  side.innerHTML = `<span class="tag">Pages</span><div class="pl" role="group" aria-label="Pages">${pages.map(p =>
-    `<button class="key ${p === cur ? "on" : ""}" data-page="${p.hw[0]}">${esc(p.name)}</button>`).join("")}</div>`;
-  // the page in view (or asked for) is never below the window: a new page's button scrolls into sight
-  const on = side.querySelector(".pl .key.on");
-  if (on && S.sideAt !== on.dataset.page + "/" + pages.length) { S.sideAt = on.dataset.page + "/" + pages.length; on.scrollIntoView({block: "nearest"}); }
+  // The list is paged to the column's height, never scrolled. It shows the part with the page in view (or asked
+  // for) until its own ‹ › are used; another page in view brings its part back.
+  const per = Math.max(1, Math.floor((side.clientHeight - 20 - 52 - 52) / 54)), parts = Math.ceil(pages.length / per);
+  const mark = pages.indexOf(cur) + "/" + pages.length + "/" + per;
+  if (S.sideAt !== mark) { S.sideAt = mark; S.sideAt2 = Math.floor(Math.max(0, pages.indexOf(cur)) / per); }
+  const at = S.sideAt2 = Math.max(0, Math.min(parts - 1, S.sideAt2 || 0));
+  setHtml(side, `<div class="shh"><span class="tag">Surfaces</span><span class="sp"></span><button class="key sm" data-org="open" aria-label="Organize surfaces"><svg width="18" height="18"><use href="#i-org"/></svg></button></div><div class="pl" role="group" aria-label="Surfaces">${pages.slice(at * per, at * per + per).map(p =>
+    `<button class="key ${p === cur ? "on" : ""}" data-page="${p.hw[0]}">${esc(p.name)}</button>`).join("")}</div>${pagerHtml("sidestep", at, parts, "More surfaces")}`);
 }
+// History is docked in the right column from 1100 px (its rows fill while the knobs turn); narrower, it is a sheet
+// that takes no touch from the rest of the page: a tap outside closes it and still reaches what was tapped.
 function renderHist() {
-  const sh = $("#sheet");
-  $("#scrim").classList.toggle("on", !!S.sheet || !!S.page);
+  const sh = $("#sheet"), dock = $("#histdock"), docked = wide();
+  if (docked && S.sheet === "hist") S.sheet = false;
+  $("#scrim").classList.toggle("on", S.sheet === "org");
   sh.classList.toggle("on", !!S.sheet);
   navSync();
-  if (!S.sheet) return;
-  if (S.sheet === "build") return renderBuild();
-  const field = $("#cpname"), kept = field ? {value: field.value, focus: document.activeElement === field, at: field.selectionStart} : null;
-  const list = $("#sheet .hl"), top = list ? list.scrollTop : 0;
-  sh.innerHTML = `<h3>History</h3><div class="hl" id="hrows">${histRows() || '<div class="he">No changes yet.</div>'}</div>
+  sh.classList.toggle("hist", S.sheet === "hist");
+  sh.classList.toggle("org", S.sheet === "org");
+  const host = docked ? dock : S.sheet === "hist" ? sh : null, other = docked ? sh : dock;
+  if (S.sheet !== "org" && other.querySelector("#hrows")) setHtml(other, "");
+  if (host) {
+    const field = $("#cpname"), kept = field ? {value: field.value, focus: document.activeElement === field, at: field.selectionStart} : null;
+    const sel = document.activeElement && document.activeElement.closest ? document.activeElement.closest(".he.row") : null;
+    if (setHtml(host, histHtml(docked))) {
+      fitHist();
+      if (!kept && S.cpDraft && $("#cpname")) $("#cpname").value = S.cpDraft;
+      if (kept) { const f = $("#cpname"); f.value = kept.value; if (kept.focus) { f.focus({preventScroll: true}); f.setSelectionRange(kept.at, kept.at); } }
+      if (sel) { const again = $(`#hrows .he.row[data-row="${sel.dataset.row}"]`); if (again) again.focus({preventScroll: true}); }
+    }
+  }
+  if (S.sheet === "org") renderOrg();
+}
+// ---- Organize pages: rename, reorder, archive and restore, paged with zero scrolling ------------------------------
+async function loadOrg() {
+  try {
+    const r = await fetch("/api/organize");
+    if (r.ok) { const d = await r.json(); S.org = d.units || []; }
+  } catch (err) { /* keep last list */ }
+  if (S.sheet === "org") renderOrg(true);
+}
+function openOrg() {
+  S.sheet = S.sheet === "org" ? false : "org";
+  S.orgTab = "active"; S.orgAt = 0; S.orgRen = null; S.orgDraft = "";
+  renderHist();
+  if (S.sheet === "org") loadOrg();
+}
+function fitOrg() {
+  const list = $("#orows"), bar = $("#opgs");
+  if (!list || !bar) return;
+  const total = +list.dataset.total;
+  bar.hidden = !(S.orgAt > 0 || total > list.querySelectorAll(":scope > .orgrow").length);
+  if (list.scrollHeight > list.clientHeight + 1) bar.hidden = false;
+  while (list.children.length > 1 && list.scrollHeight > list.clientHeight + 1) list.lastElementChild.remove();
+  S.orgFit = list.querySelectorAll(":scope > .orgrow").length;
+  const more = S.orgAt + S.orgFit < total;
+  bar.hidden = !(S.orgAt > 0 || more);
+  $("#opgn").textContent = total ? `${S.orgAt + 1}–${S.orgAt + S.orgFit} / ${total}` : "";
+  bar.querySelector('[data-orgstep="-1"]').disabled = S.orgAt === 0;
+  bar.querySelector('[data-orgstep="1"]').disabled = !more;
+}
+function renderOrg(force) {
+  const sh = $("#sheet");
+  if (S.sheet !== "org") return;
+  if (force) sh.__html = null;
+  const active = S.org.filter(u => !u.archived), archived = S.org.filter(u => u.archived);
+  if (S.orgTab === "archived" && !archived.length) S.orgTab = "active";
+  const list = S.orgTab === "archived" ? archived : active;
+  S.orgAt = Math.max(0, Math.min(S.orgAt, Math.max(0, list.length - 1)));
+  const tabs = `<div class="seg" role="group" aria-label="Which surfaces"><button class="key sm ${S.orgTab === "active" ? "on" : ""}" data-orgtab="active" aria-pressed="${S.orgTab === "active"}">Desk ${active.length}</button><button class="key sm ${S.orgTab === "archived" ? "on" : ""}" data-orgtab="archived" aria-pressed="${S.orgTab === "archived"}" ${archived.length ? "" : "disabled"}>Archived ${archived.length}</button></div>`;
+  const rows = list.slice(S.orgAt, S.orgAt + 20).map((u, k) => {
+    const idx = S.orgAt + k, id = esc(u.id), name = esc(u.name), sel = S.orgSel === u.id;
+    if (S.orgRen === u.id) {
+      return `<div class="orgrow" data-uid="${id}">${thumb(u)}<form id="orgform"><input id="orgname" aria-label="Name" maxlength="40" autocomplete="off" enterkeyhint="done" value="${esc(S.orgDraft)}"><button class="key sm on" type="submit" aria-label="Save name">Save</button><button class="key sm" type="button" id="orgcancel" aria-label="Cancel">${I("x")}</button></form></div>`;
+    }
+    if (S.orgDel === u.id) {  // the confirm shows the surface that goes: its map and its name
+      return `<div class="orgrow gone" data-uid="${id}" role="alertdialog" aria-label="Delete ${name}">${thumb(u)}<span class="onm">${name}</span><button class="key sm danger" data-orgdelgo="${id}">Delete</button><button class="key sm" type="button" id="orgcancel" aria-label="Cancel">${I("x")}</button></div>`;
+    }
+    // a row: its map (the handle to drag it by), its name (a tap shows what can be done with it), earlier, later
+    const moves = u.archived ? "" : `<button class="key sm" data-orgmove="-1" data-uid="${id}" ${idx === 0 ? "disabled" : ""} aria-label="Move ${name} earlier"><svg class="up" width="18" height="18"><use href="#i-more"/></svg></button>`
+      + `<button class="key sm" data-orgmove="1" data-uid="${id}" ${idx === list.length - 1 ? "disabled" : ""} aria-label="Move ${name} later"><svg class="dn" width="18" height="18"><use href="#i-more"/></svg></button>`;
+    const acts = !sel ? "" : `<div class="orgacts" role="group" aria-label="${name}"><button class="key sm" data-orgren="${id}"><svg width="18" height="18"><use href="#i-edit"/></svg>Rename</button>${
+      u.archived ? `<button class="key sm" data-orgrest="${id}">Restore</button>${u.kind === "desk" ? "" : `<button class="key sm" data-orgdel="${id}">Delete…</button>`}`
+        : `<button class="key sm" data-orgarch="${id}"><svg width="18" height="18"><use href="#i-arch"/></svg>Archive</button>`}</div>`;
+    return `<div class="orgrow ${sel ? "sel" : ""}" data-uid="${id}" data-idx="${idx}">${thumb(u, !u.archived)}<button class="onm" data-orgsel="${id}" aria-expanded="${sel}" title="${name}">${name}</button>${moves}</div>${acts}`;
+  }).join("");
+  const all = S.orgTab === "archived" ? (archived.length ? `<button class="key sm" data-orgall="restore_all">Restore all</button>` : "")
+    : (active.length ? `<button class="key sm" data-orgall="archive_all"><svg width="18" height="18"><use href="#i-arch"/></svg>Archive all</button>` : "");
+  const html = `<div class="shh"><h3>Surfaces</h3><button class="key sm" id="oclose" aria-label="Close"><svg width="18" height="18"><use href="#i-x"/></svg></button></div>`
+    + `<div class="shh">${tabs}<span class="sp"></span>${all}</div>`
+    + `<div class="hl" id="orows" data-total="${list.length}">${rows || '<div class="orgrow" id="onone"><span class="onm">0</span></div>'}</div>`
+    + `<div class="pgs" id="opgs" role="group" aria-label="More surfaces" hidden><button class="key sm" type="button" data-orgstep="-1" aria-label="Before"><svg class="back" width="18" height="18"><use href="#i-more"/></svg></button><span class="pgn" id="opgn"></span><button class="key sm" type="button" data-orgstep="1" aria-label="After"><svg width="18" height="18"><use href="#i-more"/></svg></button></div>`;
+  if (setHtml(sh, html)) {
+    fitOrg();
+    if (S.orgRen && $("#orgname")) { const f = $("#orgname"); f.focus({preventScroll: true}); f.select(); }
+  }
+}
+// A surface's thumbnail: the MiniLab's map, small, with its mapped slots lit (the first MiniLab page of it). On
+// the Desk list it is also the handle the row is dragged by.
+function thumb(u, handle) {
+  const on = new Set((u.slots && u.slots[0]) || []), c = s => on.has(s) ? "on" : "";
+  const knobs = MC.KNOBS.map((s, k) => `<circle class="${c(s)}" cx="${5 + (k % 4) * 7}" cy="${6 + Math.floor(k / 4) * 8}" r="2.6"/>`).join("");
+  const faders = MC.FADERS.map((s, k) => `<rect class="${c(s)}" x="${33 + k * 5}" y="3" width="2.6" height="14" rx="1"/>`).join("");
+  const pads = MC.PADS.map((s, k) => `<rect class="${c(s)}" x="${2.5 + k * 6.2}" y="21" width="5" height="5" rx="1"/>`).join("");
+  return `<span class="othumb ${handle ? "ohandle" : ""}" ${handle ? `data-drag="${esc(u.id)}" title="Drag to reorder"` : ""} aria-hidden="true"><svg viewBox="0 0 54 29" width="54" height="29">${knobs}${faders}${pads}</svg>${!u.archived && u.pad ? `<i>${u.pad}</i>` : ""}</span>`;
+}
+async function runOrg(args) {
+  const r = await slowly(() => command("page.organize", args));
+  if (!r.ok) return;
+  S.org = r.body.units || S.org;
+  S.orgRen = null; S.orgDraft = ""; S.orgDel = null; S.orgSel = null;
+  S.layouts = {};
+  await loadDesk();
+  if (S.sheet === "org") renderOrg(true);
+}
+// History's rows are paged, newest first: as many as the list's box holds, then "older" and "newer". The rows are
+// drawn from S.histAt and the ones that do not fit are taken off again (fitHist), so the list never scrolls.
+function histHtml(docked) {
+  const all = histRows();
+  S.histAt = Math.max(0, Math.min(S.histAt, all.length - 1));
+  return `${docked ? '<span class="tag">History</span>' : `<div class="shh"><h3>History</h3><button class="key sm" id="hclose" aria-label="Close"><svg width="18" height="18"><use href="#i-x"/></svg></button></div>`}<div class="hl" id="hrows" data-total="${all.length}">${all.slice(S.histAt, S.histAt + 24).join("") || '<div class="he" id="hnone">No changes yet.</div>'}</div>
+    <div class="pgs" id="hpgs" role="group" aria-label="Older and newer" hidden><button class="key sm" type="button" data-histstep="-1" aria-label="Newer"><svg class="back" width="18" height="18"><use href="#i-more"/></svg></button><span class="pgn" id="hpgn"></span><button class="key sm" type="button" data-histstep="1" aria-label="Older"><svg width="18" height="18"><use href="#i-more"/></svg></button></div>
     <form class="cpf" id="cpform"><input id="cpname" aria-label="Name for a new checkpoint" placeholder="Checkpoint name (${dayTime(Date.now() / 1000)})" maxlength="56" autocomplete="off" enterkeyhint="done">
-    <button class="key sm ${S.saving ? "spin" : ""}" id="hver" type="submit" ${S.saving ? "disabled" : ""}>${S.saving ? "Saving…" : `<svg width="18" height="18"><use href="#i-flag"/></svg>Save checkpoint`}</button></form>
-    <div class="hr"><button class="key sm ${S.hist.can_undo ? "" : "off"}" id="hundo">${I("undo")}Undo</button><button class="key sm ${S.hist.can_redo ? "" : "off"}" id="hredo">${I("redo")}Redo</button><span class="sp"></span><button class="key sm" id="hclose">Close</button></div>`;
-  $("#hrows").scrollTop = top;
-  if (!kept && S.cpDraft && $("#cpname")) $("#cpname").value = S.cpDraft;
-  if (kept) { const f = $("#cpname"); f.value = kept.value; if (kept.focus) { f.focus({preventScroll: true}); f.setSelectionRange(kept.at, kept.at); } }
+    <button class="key sm ${S.saving ? "spin" : ""}" id="hver" type="submit" aria-label="Save checkpoint" ${S.saving ? "disabled" : ""}>${S.saving ? "Saving…" : `<svg width="18" height="18"><use href="#i-flag"/></svg>Save`}</button></form>`;
 }
 // ---- History: every change with its values, undone ones greyed, and checkpoints as places to go back to -------------
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
@@ -602,29 +1080,70 @@ function histValue(v) {
   return typeof v[1] === "number" && /^-?\d+(\.\d+)?(e[-+]?\d+)?$/i.test(v[0]) && Math.abs(+v[0] - v[1]) < 1e-9 ? "…" : esc(v[0]);
 }
 function histMove(m) { return `<span><b>${esc(labelFor(m.key, m.label))}</b> <span class="hv">${histValue(m.from)} → <b>${histValue(m.to)}</b></span></span>`; }
+// The rows, newest first, strictly by time: an undone change stays where it happened (dimmed), and a checkpoint
+// sits above everything it holds. This sitting is open. Earlier ones are folded under the day they were on, and
+// there the changes carry no "you": that was whoever sat here then.
+function fitHist() {
+  const list = $("#hrows"), bar = $("#hpgs");
+  if (!list || !bar) return;
+  const total = +list.dataset.total;
+  bar.hidden = !(S.histAt > 0 || total > list.children.length);
+  if (list.scrollHeight > list.clientHeight + 1) bar.hidden = false;  // its row is part of the fit
+  while (list.children.length > 1 && list.scrollHeight > list.clientHeight + 1) list.lastElementChild.remove();
+  S.histFit = list.children.length;
+  const more = S.histAt + S.histFit < total;
+  bar.hidden = !(S.histAt > 0 || more);
+  $("#hpgn").textContent = total ? `${S.histAt + 1}–${S.histAt + S.histFit} / ${total}` : "";
+  bar.querySelector('[data-histstep="-1"]').disabled = S.histAt === 0;
+  bar.querySelector('[data-histstep="1"]').disabled = !more;
+}
+const SITTING_GAP = 90 * 60;  // seconds without a change before the next one starts a new sitting
 function histRows() {
-  const all = S.hist.entries, pos = S.hist.pos == null ? all.length : S.hist.pos;
-  const files = new Set((S.hist.checkpoints || []).map(c => c.name)), listed = new Set(), rows = [];
-  const head = e => `<span class="w2">${new Date(e.at * 1000).toTimeString().slice(0, 8)}</span><span class="who ${esc(e.who || "you")}">${esc(e.who || "you")}</span>`;
-  if (S.saving) rows.push(`<div class="he cp saving" id="cpsaving"><svg width="18" height="18"><use href="#i-flag"/></svg><span class="ht spin">Saving “${esc(cpLabel(S.saving.name, S.saving.at))}”</span></div>`);
-  for (let i = all.length - 1; i >= 0 && rows.length < 40; i--) {
-    const e = all[i];
+  const all = S.hist.entries, pos = S.hist.pos == null ? all.length : S.hist.pos, now = Date.now() / 1000;
+  const files = new Set((S.hist.checkpoints || []).map(c => c.name)), listed = new Set();
+  const order = all.map((e, i) => ({e, i})).sort((a, b) => b.e.at - a.e.at || b.i - a.i);
+  const here = [], older = [];
+  let edge = now;
+  for (const x of order) {
+    if (!older.length && edge - x.e.at <= SITTING_GAP) { here.push(x); edge = x.e.at; } else older.push(x);
+  }
+  const head = (e, mine) => `<span class="w2">${new Date(e.at * 1000).toTimeString().slice(0, 8)}</span>${
+    mine || (e.who && e.who !== "you") ? `<span class="who ${esc(e.who || "you")}">${esc(e.who || "you")}</span>` : ""}`;
+  const row = ({e, i}, mine) => {
     if (e.k === "checkpoint") {
       const can = files.has(e.name) && !listed.has(e.name);  // an older save under the same name was written over
       listed.add(e.name);
-      rows.push(`<div class="he cp" data-cp="${esc(e.name)}"><svg width="18" height="18"><use href="#i-flag"/></svg><span class="ht">${esc(cpLabel(e.name, e.at))}</span>${head(e)}
-        ${can ? `<button class="key sm" data-back="${esc(e.name)}" data-label="${esc(cpLabel(e.name, e.at))}" aria-label="Go back to ${esc(cpLabel(e.name, e.at))}"><svg width="18" height="18"><use href="#i-back"/></svg>Go back</button>` : ""}</div>`);
-      continue;
+      return `<div class="he cp" data-cp="${esc(e.name)}"><svg width="18" height="18"><use href="#i-flag"/></svg><span class="ht">${esc(cpLabel(e.name, e.at))}</span>${head(e, mine)}
+        ${can ? `<button class="key sm" data-back="${esc(e.name)}" data-label="${esc(cpLabel(e.name, e.at))}" aria-label="Go back to ${esc(cpLabel(e.name, e.at))}"><svg width="18" height="18"><use href="#i-back"/></svg>Go back</button>` : ""}</div>`;
     }
-    const undone = i >= pos, moves = e.moves || [];
+    const undone = i >= pos, moves = e.moves || [], n = `${moves.length} control${moves.length === 1 ? "" : "s"}`;
     const cmp = e.k === "move" && e.compare;
-    const what = cmp ? `<span><b>${esc(cmp.name)}</b> <span class="hv">${cmp.from ? esc(cmp.from) + " → " : ""}<b>${esc(cmp.to)}</b> · ${moves.length} control${moves.length === 1 ? "" : "s"}</span></span>`
-      : e.k === "revert" ? `<span><b>Went back to “${esc(cpLabel(e.to))}”</b> <span class="hv">${moves.length} control${moves.length === 1 ? "" : "s"}</span></span>`
+    const what = cmp ? `<span><b>${esc(cmp.name)}</b> <span class="hv">${cmp.from ? esc(cmp.from) + " → " : ""}<b>${esc(cmp.to)}</b> · ${n}</span></span>`
+      : e.k === "revert" && e.before ? `<span><b>Back before ${esc(labelFor(e.before.key, e.before.label))}</b> <span class="hv">${n}</span></span>`
+      : e.k === "revert" ? `<span><b>Went back to “${esc(cpLabel(e.to))}”</b> <span class="hv">${n}</span></span>`
       : moves.slice(0, 3).map(histMove).join("") + (moves.length > 3 ? `<span class="hv">and ${moves.length - 3} more</span>` : "");
     const group = e.group && !/^(touch|compare)-/.test(e.group) ? `<span class="hv">${esc(e.group)}</span>` : "";
-    rows.push(`<div class="he ${undone ? "undone" : ""}">${head(e)}<span class="ht">${what}${group}</span>${undone ? '<span class="tagu">undone</span>' : ""}</div>`);
+    const sel = !undone && S.histSel === e.id, name = cmp ? cmp.name : moves[0] ? labelFor(moves[0].key, moves[0].label) : "this";
+    // a step in effect is a return point: a tap on the row offers the way back to just before it
+    return `<div class="he ${undone ? "undone" : "row"} ${sel ? "sel" : ""}" data-row="${e.id}" ${undone ? "" : `role="button" tabindex="0" aria-expanded="${sel}"`}>${head(e, mine)}<span class="ht">${what}${group}</span>${
+      undone ? '<span class="tagu">undone</span>' : sel ? `<button class="key sm" data-before="${e.id}" aria-label="Go back to before ${esc(name)}"><svg width="18" height="18"><use href="#i-back"/></svg>Go back</button>` : ""}</div>`;
+  };
+  const rows = [];
+  if (S.saving) rows.push(`<div class="he cp saving" id="cpsaving"><svg width="18" height="18"><use href="#i-flag"/></svg><span class="ht spin">Saving “${esc(cpLabel(S.saving.name, S.saving.at))}”</span></div>`);
+  for (const x of here) rows.push(row(x, true));
+  const days = [], today = new Date(now * 1000).toDateString();
+  for (const x of older) {
+    const d = new Date(x.e.at * 1000), key = d.toDateString();
+    if (!days.length || days[days.length - 1].key !== key) days.push({key, label: key === today ? "Earlier today" : `${d.getDate()} ${MONTHS[d.getMonth()]}`, rows: []});
+    days[days.length - 1].rows.push(x);
   }
-  return rows.join("");
+  for (const day of days) {
+    const open = !!S.daysOpen[day.key];
+    rows.push(`<button class="hday" type="button" data-day="${esc(day.key)}" aria-expanded="${open}"><svg width="14" height="14" aria-hidden="true"><use href="#i-more"/></svg><span>${esc(day.label)}</span><span class="sp"></span><span>${day.rows.length}</span></button>`);
+    const inside = day.rows.map(x => row(x, false).replace('class="he ', 'class="he old '));  // always walked, so an older save of a name is known as older
+    if (open) rows.push(...inside);
+  }
+  return rows;
 }
 async function saveCheckpoint(typed) {
   if (S.saving) return;
@@ -638,39 +1157,38 @@ async function saveCheckpoint(typed) {
   const r = await command("history.checkpoint", {name, new: true});
   S.saving = null;
   renderHist();
-  if (r.ok && $("#hrows")) $("#hrows").scrollTop = 0;
+  if (r.ok && S.histAt) { S.histAt = 0; redrawHist(); }
 }
-async function goBack(name, label) {
-  const r = await slowly(() => command("history.revert", {to: name}));
-  if (r.ok) toast(r.body.moved ? `Back at “${label}”. Undo reverses it.` : `The mix is already at “${label}”.`);
-}
-// The confirm for a build: what leaves Live, and what is built in its place.
-function renderBuild() {
-  const v = S.song.view, bars = (v && v.bars) || 40, lanes = v ? v.lanes.length : 0;
-  $("#sheet").innerHTML = `<h3>Build in Live</h3>
-    <div class="swap" id="buildswap"><div class="gone"><span class="tag">Removed from Live</span><b>${esc(S.song.mixSet || "the mix set")}</b><span>every track, clip and device in it</span></div>
-    <div class="arr" aria-hidden="true"><svg width="22" height="22"><use href="#i-to"/></svg></div>
-    <div><span class="tag">Built in its place</span><b>${esc(v ? v.name : "this arrangement")}</b><span>${lanes} lanes, ${bars} bars</span></div></div>
-    <div class="sketch">Takes a few minutes. Live is busy until it is done.</div>
-    <div class="hr"><button class="key sm" id="hclose">Cancel</button><span class="sp"></span><button class="key sm danger" id="buildgo">Replace and build</button></div>`;
+// Going back (to a checkpoint, or to just before a step): one move, and undo reverses it. The app says where the
+// controls go before it asks Live (an "own" event), so they show at once.
+async function goBack(name) { return slowly(() => command("history.revert", {to: name})); }
+async function goBefore(id) {
+  S.histSel = null;
+  return slowly(() => command("history.back", {entry: id}));
 }
 function render() { renderHear(); renderDesk(); renderSide(); renderHist(); markPending(); }
 
 // ---- touching controls ---------------------------------------------------------------------------------------------
 // A knob or a fader is dragged up and down, and the drag is relative: the control moves from where it is by how far
 // the hand moves, never jumps to the pointer. TRAVEL px take it across its whole range; Shift, or a slow hand, makes
-// finer steps. The first 6 px decide what the touch is: up or down moves the control, sideways on a phone is a swipe
-// to the Page's next MiniLab page. A greyed slot takes no touch. One touch is one group, so one undo step.
+// finer steps. A mouse moves the control from the first pixel. A finger has SLOP px to say what the touch is (up or
+// down moves the control, sideways on a phone is a swipe to the Page's next MiniLab page), and its travel counts
+// from where it came down, so nothing is lost. The value lands on round units (roundPlace). A greyed slot takes no
+// touch. Changes to one control in a row are one undo step (the app's history joins them).
+const SLOP = 4;  // px a finger may move before the touch is read as a drag or a swipe; a mouse has none
 const TRAVEL = 200, FINE = 0.2, SLOW = {below: 40, upTo: 140, least: 0.35, gap: 100};  // px; factor; px per second, and ms
 const narrow = () => !window.matchMedia("(min-width:700px)").matches;
 const gestureId = () => "touch-" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
 const snap = (n, steps) => steps > 1 ? Math.round(n * (steps - 1)) / (steps - 1) : n;
 function bubble(text, fine, x, y) {
   const b = $("#bubble");
+  b.hidden = false;
   b.innerHTML = esc(text) + (fine ? "<small>fine</small>" : "");
   b.classList.add("on");
   b.style.left = (x + 14) + "px"; b.style.top = (y - 50) + "px";
 }
+// The bubble goes with the hand: hidden, it holds no text and is nothing to a screen reader or to the page's text.
+function bubbleOff() { const b = $("#bubble"); b.classList.remove("on"); b.textContent = ""; b.hidden = true; }
 // Put a control at place n: on the page at once (the knob, its number, the counter), then to Live.
 function place(el, n, group) {
   const key = el.dataset.key;
@@ -688,7 +1206,7 @@ document.addEventListener("pointerdown", e => {
   const n0 = +el.dataset.n || 0;
   if (!OWN[el.dataset.key]) el.dataset.n0 = n0;
   drag = {key: el.dataset.key, el, x: e.clientX, y: e.clientY, at: n0, n: n0, steps: +el.dataset.steps, lock: null,
-          last: e.clientY, seen: [[e.timeStamp, e.clientY]], group: gestureId()};
+          finger: e.pointerType === "touch", last: e.clientY, seen: [[e.timeStamp, e.clientY]], group: gestureId()};
   if (w.setPointerCapture) try { w.setPointerCapture(e.pointerId); } catch (err) { /* a pointer that is already gone */ }
   e.preventDefault();
 });
@@ -696,9 +1214,9 @@ document.addEventListener("pointermove", e => {
   if (!drag) return;
   const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
   if (!drag.lock) {
-    if (Math.max(Math.abs(dx), Math.abs(dy)) < 6) return;
+    if (drag.finger && Math.max(Math.abs(dx), Math.abs(dy)) < SLOP) return;
     drag.lock = narrow() && Math.abs(dx) > Math.abs(dy) * 1.5 ? "x" : "y";
-    drag.last = e.clientY;  // the control starts from where it is: the 6 px that decided are not a jump
+    // drag.last is still where the pointer came down: the pixels that decided count as travel too
   }
   if (drag.lock === "x") return;
   // How fast the hand moves, over the last 120 ms: a slow hand is a fine one. A move that comes after a gap (the
@@ -712,7 +1230,7 @@ document.addEventListener("pointermove", e => {
   const factor = e.shiftKey ? FINE : slow;
   drag.at = Math.max(0, Math.min(1, drag.at + (drag.last - e.clientY) / TRAVEL * factor));
   drag.last = e.clientY;
-  const n = snap(drag.at, drag.steps);
+  const n = drag.steps > 1 ? snap(drag.at, drag.steps) : roundPlace(drag.key, drag.at);
   if (n === drag.n) return;
   drag.n = n;
   place(drag.el, n, drag.group);
@@ -720,7 +1238,7 @@ document.addEventListener("pointermove", e => {
 });
 function swiped(dx, dy) {
   if (!narrow() || Math.abs(dx) < 50 || Math.abs(dx) < Math.abs(dy) * 1.5 || !S.state || !S.desk) return;
-  const {entry, at} = current(), to = entry.hw[at + (dx < 0 ? 1 : -1)];
+  const {entry, at} = current(), to = entry ? entry.hw[at + (dx < 0 ? 1 : -1)] : undefined;
   swipedAt = Date.now();
   if (to !== undefined) armPage(to);
 }
@@ -728,7 +1246,7 @@ function endTouch(e, cancelled) {
   const d = drag, s = swipe;
   drag = swipe = null;
   if (d) {
-    $("#bubble").classList.remove("on");
+    bubbleOff();
     if (d.lock === "x" && !cancelled) swiped(e.clientX - d.x, e.clientY - d.y);
     else if (d.lock === "y") settle(d.key);  // the last place is sent or on its way: Live's report now counts
     if (S.dirty) renderDesk();
@@ -738,20 +1256,27 @@ document.addEventListener("pointerup", e => endTouch(e, false));
 document.addEventListener("pointercancel", e => endTouch(e, true));
 // A swipe that ended on a pad is not a press of it.
 document.addEventListener("click", e => { if (Date.now() - swipedAt < 400 && e.target.closest(".mlp")) { e.stopPropagation(); e.preventDefault(); } }, true);
-// The keyboard moves the focused knob or fader: the arrows by a hundredth of its range (or one stop), with Shift by
-// a five-hundredth, Page Up and Down by a tenth, Home and End to its ends. Enter (or a double click) types a value.
-// Keys pressed in a row are one group, so one undo step.
+// The keyboard moves the focused knob or fader in round steps of its unit (stepPlace: 0.5 dB, Shift 0.1 dB, Page Up
+// and Down 3 dB; a semitone for Hz; one stop for a choice), Home and End to its ends. Enter types a value, and so
+// does a click on the number. Keys pressed in a row are one undo step.
 const KEYS = {group: "", key: "", at: 0};
 document.addEventListener("keydown", e => {
   if (e.target.classList && e.target.classList.contains("vt")) return typeKey(e);
+  const num = e.target.closest && e.target.closest(".mc.live.ed .v");  // the number has the keyboard: Enter or Space types
+  if (num && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); return typeValue(num.closest(".mc")); }
+  const row = e.target.closest && e.target.closest(".he.row");
+  if (row && e.target === row && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); return pickRow(+row.dataset.row); }
   const w = e.target.closest && e.target.closest(".mc.live .w[role=slider]"), el = w && w.closest(".mc");
   if (!el || !el.dataset.key) return;
   if (e.key === "Enter") { e.preventDefault(); return typeValue(el); }
-  const steps = +el.dataset.steps, one = steps > 1 ? 1 / (steps - 1) : e.shiftKey ? .002 : .01;
-  const by = {ArrowUp: one, ArrowRight: one, ArrowDown: -one, ArrowLeft: -one, PageUp: .1, PageDown: -.1, Home: -1, End: 1}[e.key];
-  if (!by) return;
+  const dir = {ArrowUp: 1, ArrowRight: 1, ArrowDown: -1, ArrowLeft: -1, PageUp: 1, PageDown: -1, Home: -1, End: 1}[e.key];
+  if (!dir) return;
   e.preventDefault();
-  const key = el.dataset.key, was = +el.dataset.n || 0, n = snap(Math.max(0, Math.min(1, was + by)), steps);
+  const steps = +el.dataset.steps, key = el.dataset.key, was = +el.dataset.n || 0;
+  const size = e.key.startsWith("Page") ? 2 : e.shiftKey ? 1 : 0;
+  const n = e.key === "Home" ? 0 : e.key === "End" ? 1
+    : steps > 1 ? snap(Math.max(0, Math.min(1, was + dir * (size === 2 ? Math.max(.1, 1 / (steps - 1)) : 1 / (steps - 1)))), steps)
+    : stepPlace(key, was, dir, size);
   if (n === was) return;
   if (KEYS.key !== key || Date.now() - KEYS.at > 1500) { KEYS.key = key; KEYS.group = gestureId(); }
   KEYS.at = Date.now();
@@ -786,7 +1311,7 @@ function endTyping(commit) {
   const w = t.el.querySelector(".w");
   if (commit) {
     const n = placeOf(t.key, text, t.shown);
-    if (n == null) toast(`“${text}” is not a value this control can take.`);
+    if (n == null) { t.el.classList.add("fixed"); setTimeout(() => t.el.classList.remove("fixed"), 1300); }  // the old number flashes: not taken
     else {
       const to = snap(Math.max(0, Math.min(1, n)), +t.el.dataset.steps);
       if (!OWN[t.key]) t.el.dataset.n0 = +t.el.dataset.n || 0;
@@ -796,18 +1321,56 @@ function endTyping(commit) {
   }
   if (S.dirty) renderDesk();
 }
+// Drag a surface by its map to another place in the list (within the part shown): the row follows the pointer, the
+// place it would land is marked, and letting go moves it there (one command). The earlier and later keys do the same.
+let odrag = null;
+document.addEventListener("pointerdown", e => {
+  const h = e.target.closest && e.target.closest(".ohandle");
+  if (!h || e.button > 0) return;
+  const row = h.closest(".orgrow");
+  odrag = {id: h.dataset.drag, row, y: e.clientY, from: +row.dataset.idx, to: +row.dataset.idx, moved: false};
+  if (h.setPointerCapture) try { h.setPointerCapture(e.pointerId); } catch (err) { /* a pointer that is already gone */ }
+  e.preventDefault();
+});
+document.addEventListener("pointermove", e => {
+  if (!odrag) return;
+  const dy = e.clientY - odrag.y;
+  if (!odrag.moved && Math.abs(dy) < 4) return;
+  odrag.moved = true;
+  odrag.row.classList.add("dragging"); odrag.row.style.transform = `translateY(${dy}px)`;
+  const rows = [...document.querySelectorAll("#orows > .orgrow[data-idx]")];
+  let to = odrag.from;
+  for (const r of rows) {
+    if (r === odrag.row) continue;
+    const b = r.getBoundingClientRect(), mid = b.top + b.height / 2, idx = +r.dataset.idx;
+    if (idx > odrag.from && e.clientY > mid) to = Math.max(to, idx);
+    if (idx < odrag.from && e.clientY < mid) to = Math.min(to, idx);
+  }
+  odrag.to = to;
+  rows.forEach(r => { const idx = +r.dataset.idx; r.classList.toggle("mark-before", idx === to && to < odrag.from); r.classList.toggle("mark-after", idx === to && to > odrag.from); });
+});
+function endOrgDrag(cancelled) {
+  const d = odrag;
+  odrag = null;
+  if (!d) return;
+  d.row.classList.remove("dragging"); d.row.style.transform = "";
+  document.querySelectorAll("#orows .mark-before, #orows .mark-after").forEach(r => r.classList.remove("mark-before", "mark-after"));
+  if (!cancelled && d.moved && d.to !== d.from) runOrg({action: "move", id: d.id, to: d.to});
+}
+document.addEventListener("pointerup", () => endOrgDrag(false));
+document.addEventListener("pointercancel", () => endOrgDrag(true));
+// The number under a control is the place to type it: a click there opens the field (Enter commits, Escape cancels).
+document.addEventListener("click", e => {
+  const v = e.target.closest && e.target.closest(".mc.live.ed .v");
+  if (v && !e.target.closest(".vt")) typeValue(v.closest(".mc"));
+});
 document.addEventListener("dblclick", e => {
   const w = e.target.closest && e.target.closest(".mc.live:not(.pad) .w[role=slider]");
   if (w && !e.target.closest(".vt")) typeValue(w.closest(".mc"));
 });
 
 
-// ---- Song: the arrangement as lanes of bars; Mix 1 and transitions open as sheets (sketches) ----------------------------
-const SHEETS = {
-  mix: {title: "Sketch mix", path: "/app/song/mix/"},
-  transitions: {title: "Transitions", path: "/app/song/transitions/"},
-  arranger: {title: "Arranger", path: "/app/song/"},
-};
+// ---- Song: lanes of bars under a ruler, with Live's loop and playhead ------------------------------------------------
 function esc(t) { return String(t).replace(/[&<>"]/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;"}[c])); }
 function showTab(t) {
   S.tab = t;
@@ -825,13 +1388,13 @@ function go(t) {
 function navSync() {
   const at = S.tab;
   if (window.zpktNav) window.zpktNav.set(at);
-  if (location.hash !== "#" + at && !S.want) history.replaceState(null, "", "#" + at);
+  if (location.hash !== "#" + at && !S.want && !S.opening) history.replaceState(null, "", "#" + at);
 }
 // The address on load, or changed by hand or by a link: #desk, #song, #page=<the id of a saved Page>. Any other
 // address (an old link to a tab that is gone) is the Desk.
 function route() {
   const h = decodeURIComponent(location.hash.slice(1));
-  if (h.startsWith("page=")) { S.want = h.slice(5); S.sheet = false; showTab("desk"); wanted(); }
+  if (h.startsWith("page=")) { S.want = h.slice(5); S.sheet = false; openingStart(S.want); showTab("desk"); wanted(); }
   else if (h) { S.sheet = false; showTab(h === "song" || h === "ask" ? h : "desk"); }
   renderHist();
 }
@@ -842,10 +1405,10 @@ function wanted() {
   S.want = null;
   if (!entry) {
     // A Page the chat drafted is saved but not on the desk yet: page.open puts it there (the person's own act) and arms it.
-    if (S.opened === id) { slowSay("That Page is not on the desk.", null); return navSync(); }
+    if (S.opened === id) { slowSay("That surface is not on the desk.", null); openingEnd(); return navSync(); }
     S.opened = id;
     command("page.open", {id}).then(r => {
-      if (!r.ok) return slowSay("That Page is not on the desk" + (r.body.error ? ": " + r.body.error : "."), null);
+      if (!r.ok) { openingEnd(); return slowSay("That surface is not on the desk" + (r.body.error ? ": " + r.body.error : "."), null); }
       S.want = id; S.layouts = {}; loadDesk();
     });
   }
@@ -853,6 +1416,29 @@ function wanted() {
   navSync();
 }
 window.addEventListener("hashchange", route);
+// A link to a Page (#page=<id>) that is not in view yet: its title (GET /api/pages has it) and the loading line show
+// at once, the old controls dim, and the address stays #page=<id> until that page is the one on the desk.
+function openingStart(id) {
+  S.opening = {id, title: ""};
+  busySync();
+  if (S.state && S.desk) renderDesk();
+  fetch("/api/pages").then(r => r.json()).then(d => {
+    const found = (d.pages || []).find(p => p.id === id);
+    if (found && S.opening && S.opening.id === id) { S.opening.title = found.title; if (S.state && S.desk) renderDesk(); }
+  }).catch(() => {});
+}
+function openingEnd() {
+  if (!S.opening) return;
+  S.opening = null;
+  busySync(); navSync();
+  if (S.state && S.desk) renderDesk();
+}
+// The asked-for page is the one on the desk now: the link has been followed.
+function openingCheck() {
+  if (!S.opening || !S.state || !S.desk || S.want) return;
+  const entry = entries().find(e => e.page_id === S.opening.id);
+  if (entry && entry.hw.includes(S.state.page) && !S.pend) openingEnd();
+}
 
 // ---- waiting for Live: the loading line, and a page change that is not confirmed yet ------------------------------
 // Changing the page takes about a second: the command waits its turn for Live, the pager in Live swaps what the
@@ -860,9 +1446,9 @@ window.addEventListener("hashchange", route);
 const WAIT = {page: 5000};  // ms before a page change is called failed
 function busySync() {
   const m = $("#main");
-  m.classList.toggle("is-loading", S.busy > 0 || !!S.pend);
-  m.classList.toggle("is-pending", !!S.pend);
-  m.setAttribute("aria-busy", S.busy > 0 || !!S.pend ? "true" : "false");
+  m.classList.toggle("is-loading", S.busy > 0 || !!S.pend || !!S.opening);
+  m.classList.toggle("is-pending", !!S.pend || !!S.opening);
+  m.setAttribute("aria-busy", S.busy > 0 || !!S.pend || !!S.opening ? "true" : "false");
 }
 async function slowly(work) { S.busy++; busySync(); try { return await work(); } finally { S.busy--; busySync(); } }
 function markPending() {
@@ -895,119 +1481,216 @@ function armPage(page) {
                                    () => { if (S.pend === mine) pageFailed(page, "The app did not answer."); });
 }
 function pageFailed(page, why) {
-  donePending(); S.failed = page;
-  slowSay("The page did not change." + (why ? " " + why : ""), page);
+  donePending(); S.failed = page; openingEnd();
+  slowSay("The surface did not change." + (why ? " " + why : ""), page);
 }
 // The state says which page is on: that is the confirmation.
 function pageConfirmed() {
   if (S.pend && S.state && S.state.page === S.pend.page) { donePending(); slowSay("", null); }
   if (S.failed != null && S.state && S.state.page === S.failed) slowSay("", null);  // it came late
 }
-async function loadSong(id) { return slowly(() => readSong(id)); }
-async function readSong(id) {
-  const listed = await command("song.list");
-  if (!listed.ok) { if (!S.song.loaded) $("#song").innerHTML = '<div class="tag">The song could not be read.</div>'; return; }
-  S.song.list = listed.body.arrangements; S.song.loaded = true; S.song.mixSet = listed.body.mix_set || "";
-  S.song.id = id || S.song.id || listed.body.canonical;
-  const shown = await command("song.show", {id: S.song.id});
-  S.song.view = shown.ok ? shown.body : null;
+async function loadSong() { return slowly(() => readSong()); }
+// The Song is the song in Live: one lane per track of the open set, its Arrangement clips as regions, the locators
+// on the ruler. One read (arrangement.read), again whenever Live says a clip or a locator changed. Read only for now;
+// a region is an element of its own with an id (data-region), so it can be edited later.
+async function readSong() {
+  const r = await command("arrangement.read", {}, undefined, true);
+  if (!r.ok) { if (!S.song.loaded) $("#song").innerHTML = '<div class="tag" id="songfail">The song could not be read.</div>'; return; }
+  S.song.loaded = true; S.song.view = r.body;
   renderSong();
 }
 function renderSong() {
-  const v = S.song.view, bars = (v && v.bars) || 40;
-  const lanes = v ? v.lanes.map(l => `<div class="lane"><span class="ln" title="${esc(l.title)}">${esc(l.title)}</span><div class="tr">${
-    l.regions.map(r => `<i style="left:${(r.start / bars * 100).toFixed(2)}%;width:${(r.len / bars * 100).toFixed(2)}%"></i>`).join("")}${
-    v.transitions.filter(t => t.lane === l.lane && t.mode === "replace").map(t => `<b style="left:${((t.seam - 1) / bars * 100).toFixed(2)}%"></b>`).join("")}</div></div>`).join("") : "";
-  const opts = S.song.list.map(a => `<option value="${esc(a.id)}" ${a.id === S.song.id ? "selected" : ""}>${esc(a.name)}</option>`).join("");
-  $("#song").innerHTML = `<div class="ph2"><b id="songname">${v ? esc(v.name) : "Song"}</b><span class="tag">${bars} bars</span></div>
-    <select id="songsel" aria-label="Arrangement">${opts}</select>
-    <div id="lanes">${lanes || '<div class="sketch">No arrangement yet.</div>'}</div>
-    <div class="sketch"><b>Sketch.</b> Mix 1 and the transitions play rendered loops in the browser. They are not a render of the set. An arrangement that matters is heard from Live.</div>
-    <div class="btns"><div class="bgrp"><span class="tag">Sketches, played here</span><div class="btns"><button class="key" data-sheet="mix">Sketch mix</button><button class="key" data-sheet="transitions">Transitions</button><button class="key" data-sheet="arranger">Arranger</button></div></div>
-    <div class="bgrp"><span class="tag">Live</span><button class="key" id="songbuild" aria-haspopup="dialog">Build in Live…</button></div></div>`;
+  const v = S.song.view, per = (v && v.beats_per_bar) || 4, bars = Math.max((v && v.bars) || 0, songOf().bars || 0, 1), beats = bars * per;
+  const at = b => (b / beats * 100).toFixed(2);
+  const dot = c => c ? `<i class="cd" style="background:${esc(c)}"></i>` : "";
+  const lanes = v ? v.tracks.map(t => `<div class="lane ${t.muted ? "muted" : ""}" data-track="${esc(t.id)}"><span class="ln" title="${esc(t.name)}">${dot(t.color)}${esc(t.name)}</span><div class="tr">${
+    t.regions.map(r => `<i class="rg ${r.muted ? "muted" : ""}" data-region="${esc(r.id)}" title="${esc(r.name)}" style="left:${at(r.start)}%;width:${at(r.end - r.start)}%;${r.color ? `--c:${esc(r.color)}` : ""}"><span>${esc(r.name)}</span></i>`).join("")}</div></div>`).join("") : "";
+  // The ruler: a number every 8 bars and at every locator, the locators' names, the loop, the playhead.
+  const locs = (v && v.locators) || [], every = bars > 64 ? 16 : 8;
+  const numbered = [...new Set([...locs.map(x => Math.floor(x.beat / per)), ...Array.from({length: Math.ceil(bars / every)}, (_, k) => k * every)])].filter(b => b < bars).sort((a, b) => a - b)
+    .filter((b, k, all) => k === 0 || b - all[k - 1] >= 2);
+  const spans = locs.map((x, k) => ({from: x.beat, to: k + 1 < locs.length ? locs[k + 1].beat : beats, name: x.name})).filter(x => x.to > x.from && x.from < beats);
+  const ruler = v ? `<div class="ruler" id="ruler"><span class="ln"></span><div class="rt" role="img" aria-label="Bars 1 to ${bars}${locs.length ? ". " + locs.map(x => `${x.name || "Locator"} at bar ${Math.floor(x.beat / per) + 1}`).join(", ") : ""}">${
+    numbered.map(b => `<i class="bn" style="left:${at(b * per)}%">${b + 1}</i>`).join("")}${
+    spans.map((x, k) => `<i class="sec s${k % 2}" data-locator="${esc(x.name)}" style="left:${at(x.from)}%;width:calc(${at(Math.min(beats, x.to) - x.from)}% - 2px)" title="${esc(x.name)}"><span>${esc(x.name)}</span></i>`).join("")}<span id="songloop"></span></div></div>` : "";
+  $("#song").innerHTML = `<div id="lanes" data-bars="${bars}">${ruler}${lanes || '<div class="tag" id="nolanes">No tracks</div>'}<div class="pgs" id="lanepgs" role="group" aria-label="More tracks" hidden><button class="key sm" type="button" data-songstep="-1" aria-label="Tracks before"><svg class="back" width="18" height="18"><use href="#i-more"/></svg></button><span class="pgn" id="lanepgn"></span><button class="key sm" type="button" data-songstep="1" aria-label="Tracks after"><svg width="18" height="18"><use href="#i-more"/></svg></button></div><div id="songhead" hidden></div></div>`;
+  updateSongMarks(); fitSong();
 }
-function openSheet(name) {
-  const sh = SHEETS[name];
-  if (!sh) return;
-  S.page = name;
-  $("#psheet").innerHTML = `<div class="hr"><h3>${sh.title}</h3><span class="pill" id="sketchpill">sketch</span><span class="sp"></span><button class="key sm" id="pclose">Close</button></div>
-    <div class="sketch"><b>Sketch.</b> Rendered files played here, not a render of the set.</div>
-    <iframe title="${sh.title}" src="${sh.path}"></iframe>`;
-  $("#psheet").classList.add("on"); $("#scrim").classList.add("on");
+// The lanes fit the height that is left; when 14 px each is still too much, they are shown a part at a time, with
+// the ruler above every part. Nothing scrolls.
+function fitSong() {
+  const box = $("#lanes"), bar = $("#lanepgs");
+  if (!box || !bar || $("#song").hidden) return;
+  const lanes = [...box.querySelectorAll(".lane")], ruler = $("#ruler");
+  lanes.forEach(l => { l.hidden = false; });
+  bar.hidden = true;
+  if (box.scrollHeight <= box.clientHeight + 1) return;
+  bar.hidden = false;
+  const per = Math.max(1, Math.floor((box.clientHeight - (ruler ? ruler.offsetHeight + 3 : 0) - bar.offsetHeight - 3) / 17));
+  const parts = Math.ceil(lanes.length / per), at = S.songAt = Math.max(0, Math.min(parts - 1, S.songAt));
+  lanes.forEach((l, k) => { l.hidden = Math.floor(k / per) !== at; });
+  $("#lanepgn").textContent = `${at * per + 1}–${Math.min(lanes.length, at * per + per)} / ${lanes.length}`;
+  bar.querySelector('[data-songstep="-1"]').disabled = at === 0;
+  bar.querySelector('[data-songstep="1"]').disabled = at >= parts - 1;
 }
-function closeSheet() {
-  S.page = null;
-  $("#psheet").classList.remove("on"); $("#psheet").innerHTML = ""; $("#scrim").classList.toggle("on", S.sheet);
+// The loop and the playhead on the ruler: Live's own, moved in place as its events come.
+function updateSongMarks() {
+  const lp = $("#songloop"), lanes = $("#lanes");
+  if (!lp || !lanes) return;
+  const bars = +lanes.dataset.bars || 40, lb = loopBars();
+  setHtml(lp, lb ? `<i class="lp" id="songlp" style="left:${((lb[0] - 1) / bars * 100).toFixed(2)}%;width:${((Math.min(bars, lb[1]) - lb[0] + 1) / bars * 100).toFixed(2)}%" title="loop, bars ${lb[0]}–${lb[1]}"></i><i class="bn" style="left:${((lb[0] - 1) / bars * 100).toFixed(2)}%;top:22px;padding-left:3px;color:var(--acc-ink)">${lb[0]}–${lb[1]}</i>` : "");
+  updateSongHead();
 }
-// "Build in Live…" opens the confirm (renderBuild): nothing is sent until "Replace and build" there.
-async function buildSong() {
-  S.sheet = false; renderHist(); toast("Building in Live. This takes a few minutes.");
-  const r = await slowly(() => command("song.build", {id: S.song.id}));
-  if (r.ok) toast(`Built ${r.body.channels} channels and ${r.body.clips} clips.`);
+function updateSongHead() {
+  const head = $("#songhead"), lanes = $("#lanes");
+  if (!head || !lanes || !S.state) return;
+  const bars = +lanes.dataset.bars || 40, per = songOf().beats_per_bar || 4, frac = S.state.pos / per / bars;
+  head.hidden = !(frac >= 0 && frac <= 1);
+  head.style.left = `calc(var(--lnw) + (100% - var(--lnw)) * ${Math.max(0, Math.min(1, frac)).toFixed(4)})`;
 }
-document.addEventListener("change", e => { if (e.target.id === "songsel") loadSong(e.target.value); });
-
+// History comes forward: the docked column flashes and shows its newest rows; on a narrower screen the sheet opens.
+function showHistory() {
+  if (!wide()) { S.sheet = S.sheet === "hist" ? false : "hist"; return renderHist(); }
+  const dock = $("#histdock");
+  if (S.histAt) { S.histAt = 0; redrawHist(); }
+  dock.classList.remove("ping"); void dock.offsetWidth; dock.classList.add("ping");
+}
+// History drawn again though nothing in it changed (another part of it is asked for, or its box has another size).
+function redrawHist() { for (const id of ["#histdock", "#sheet"]) $(id).__html = null; renderHist(); }
+// A tap on a step of the history marks it as the point to go back to (and shows the button that does it).
+function pickRow(id) { S.histSel = S.histSel === id ? null : id; renderHist(); }
 document.addEventListener("click", async e => {
   const t = e.target.closest("button");
-  if (!t) return;
+  if (!t) { const row = e.target.closest(".he.row"); if (row) pickRow(+row.dataset.row); return; }
   if (t.dataset.t) return go(t.dataset.t);
   if (t.id === "slowretry") return armPage(+t.dataset.retry);
   if (t.id === "slowclose") return slowSay("", null);
-  if (t.dataset.sheet) return openSheet(t.dataset.sheet);
-  if (t.id === "pclose") return closeSheet();
-  if (t.id === "songbuild") { S.sheet = "build"; return renderHist(); }
-  if (t.id === "buildgo") return buildSong();
-  if (t.dataset.back) return goBack(t.dataset.back, t.dataset.label);
+  if (t.dataset.back) return goBack(t.dataset.back);
+  if (t.dataset.before) return goBefore(+t.dataset.before);
+  if (t.dataset.histstep) { S.histAt = Math.max(0, S.histAt + (+t.dataset.histstep) * Math.max(1, S.histFit)); return redrawHist(); }
+  if (t.dataset.songstep) { S.songAt += +t.dataset.songstep; return fitSong(); }
+  if (t.dataset.sidestep) { S.sideAt2 += +t.dataset.sidestep; return renderSide(); }
+  if (t.dataset.flagstep) { S.flagAt += +t.dataset.flagstep; return renderBottom(); }
+  if (t.dataset.day) { S.daysOpen[t.dataset.day] = !S.daysOpen[t.dataset.day]; return renderHist(); }
+  if (t.dataset.flags) { S.flagOpen = S.flagOpen === t.dataset.flags ? null : t.dataset.flags; return renderBottom(); }
+  if (t.dataset.flag) return clearFlag(t.dataset.flag, t.dataset.track);
+  if (t.id === "meteron") { S.mjob = {status: "working"}; renderTop(); const r = await command("meter.install", {}, undefined, true); if (!r.ok) { S.mjob = {status: "error", msg: r.body.error || ""}; renderTop(); } return; }
+  if (t.id === "chgpill") return showHistory();
   if (t.dataset.cmp !== undefined) return pressState(+t.dataset.cmp);
   if (t.dataset.mpad !== undefined) {
     const el = t.closest(".mc");
     if (el.dataset.by === "slot") return command("mix.toggle", {slot: el.dataset.slot, page: +el.dataset.hw});
     return command("mix.set", {norms: [[el.dataset.key, +el.dataset.n >= .5 ? 0 : 1]]});
   }
+  if (t.dataset.face) { S.face = t.dataset.face; drawPager(); return fitPanel(); }
   if (t.dataset.page !== undefined) return armPage(+t.dataset.page);
   if (t.id === "kplay") return command("transport", {action: S.state.playing ? "pause" : "play"});
-  if (t.id === "kundo" || t.id === "hundo") return command("history.undo");
-  if (t.id === "kredo" || t.id === "hredo") return command("history.redo");
-  if (t.id === "khist") { S.sheet = "hist"; return renderHist(); }
-  if (t.id === "hclose") { S.sheet = false; return renderHist(); }
+  if (t.id === "kstop") return command("transport", {action: "stop"});
+  if (t.dataset.loop) {  // the lit key again turns looping off; shown at once, Live's report settles it
+    const to = S.state.loop === t.dataset.loop ? "off" : t.dataset.loop, was = S.state.loop;
+    // While the command is on its way Live reports each step of it (the brace's start, its length, the switch): the
+    // key stays lit as pressed, and what Live said last counts once the app has answered.
+    const mine = S.loopWant = {to, last: null};
+    S.state.loop = to; renderBottom();
+    const r = await command("transport", {action: "loop", loop: to});
+    if (S.loopWant === mine) {
+      S.loopWant = null;
+      S.state.loop = r.ok ? (mine.last === null ? to : mine.last) : was;
+      renderTop(); renderBottom();
+    }
+    return;
+  }
+  if (t.id === "kundo" || t.id === "hundo") return stepHistory("undo");
+  if (t.id === "kredo" || t.id === "hredo") return stepHistory("redo");
+  if (t.id === "khist") return showHistory();
+  if (t.id === "hclose" || t.id === "oclose") { S.sheet = false; S.orgRen = null; return renderHist(); }
+  if (t.dataset.org === "open") return openOrg();
+  if (t.dataset.orgtab) { S.orgTab = t.dataset.orgtab; S.orgAt = 0; S.orgRen = null; S.orgSel = null; S.orgDel = null; return renderOrg(true); }
+  if (t.dataset.orgstep) { S.orgAt = Math.max(0, S.orgAt + (+t.dataset.orgstep) * Math.max(1, S.orgFit)); return renderOrg(true); }
+  if (t.dataset.orgmove) return runOrg({action: "move", id: t.dataset.uid, by: +t.dataset.orgmove});
+  if (t.dataset.orgarch) return runOrg({action: "archive", id: t.dataset.orgarch});
+  if (t.dataset.orgrest) return runOrg({action: "restore", id: t.dataset.orgrest});
+  if (t.dataset.orgsel) { S.orgSel = S.orgSel === t.dataset.orgsel ? null : t.dataset.orgsel; S.orgDel = null; return renderOrg(true); }
+  if (t.dataset.orgall) return runOrg({action: t.dataset.orgall});
+  if (t.dataset.orgdel) { S.orgDel = t.dataset.orgdel; return renderOrg(true); }
+  if (t.dataset.orgdelgo) return runOrg({action: "delete", id: t.dataset.orgdelgo});
+  if (t.dataset.orgren) { const u = S.org.find(x => x.id === t.dataset.orgren); S.orgRen = t.dataset.orgren; S.orgDraft = u ? u.name : ""; return renderOrg(true); }
+  if (t.id === "orgcancel") { S.orgRen = null; S.orgDel = null; return renderOrg(true); }
 });
-document.addEventListener("submit", e => { if (e.target.id === "cpform") { e.preventDefault(); saveCheckpoint($("#cpname").value || S.cpDraft); } });
+document.addEventListener("submit", e => {
+  if (e.target.id === "cpform") { e.preventDefault(); saveCheckpoint($("#cpname").value || S.cpDraft); }
+  if (e.target.id === "orgform") { e.preventDefault(); runOrg({action: "rename", id: S.orgRen, name: $("#orgname").value}); }
+});
+document.addEventListener("keydown", e => { if (e.target.id === "orgname" && e.key === "Escape") { e.preventDefault(); S.orgRen = null; renderOrg(true); } });
 // The name being typed is kept in the state, so no redraw of the sheet (an event from Live, a tab change) can lose it.
-document.addEventListener("input", e => { if (e.target.id === "cpname") S.cpDraft = e.target.value; });
-$("#scrim").addEventListener("click", () => { S.sheet = false; renderHist(); closeSheet(); });
+document.addEventListener("input", e => { if (e.target.id === "cpname") S.cpDraft = e.target.value; if (e.target.id === "orgname") S.orgDraft = e.target.value; });
+$("#scrim").addEventListener("click", () => { S.sheet = false; S.orgRen = null; renderHist(); });
+// The History sheet and the list of soloed or muted tracks take nothing from the page behind them: a press outside
+// closes them and goes on to whatever was pressed (the scrim is only for the sheets that ask a question).
+document.addEventListener("pointerdown", e => {
+  const on = e.target.closest ? e.target : document.body;
+  if (S.sheet === "hist" && !on.closest("#sheet") && !on.closest("#khist") && !on.closest("#chgpill")) { S.sheet = false; renderHist(); }
+  if (S.flagOpen && !on.closest("#flagpop") && !on.closest("[data-flags]")) { S.flagOpen = null; renderBottom(); }
+}, true);
 
 // ---- events ---------------------------------------------------------------------------------------------------------
 function apply(m) {
   let part = "all";
   if (m.t === "full") S.state = m.state;
-  else if (m.t === "hear") S.hear = m;
-  else if (m.t === "hist") S.hist = m;
-  else if (m.t === "meter") { S.meter = m; S.meterAt = Date.now(); return renderTop(); }
+  else if (m.t === "hear") { S.hear = m; if (!S.state) return; renderTop(); return renderDesk(); }
+  else if (m.t === "hist") {
+    const top = m.entries.reduce((x, e) => Math.max(x, e.id), 0);
+    if (S.histTop !== undefined && top > S.histTop) S.histAt = 0;  // something new happened: the newest rows show
+    S.histTop = top;
+    S.hist = m; renderBottom(); updateChanged(); return renderHist(); }
+  else if (m.t === "meter") {
+    const was = specMode();
+    S.meter = m; S.meterAt = Date.now(); S.mjob = null;
+    return was === "bars" ? updateSpec() : renderTop();
+  }
+  else if (m.t === "meterjob") { S.mjob = m.status === "done" ? null : {status: m.status, msg: m.msg || ""}; return renderTop(); }
+  else if (m.t === "own") { for (const key of showAhead(m.values)) settle(key, 3000); return; }
+  else if (m.t === "flags" && S.state) {
+    S.state.solo = m.solo; S.state.mute = m.mute;
+    for (const key of Object.keys(S.flagGone)) { const [track, flag] = [key.slice(0, key.lastIndexOf("/")), key.slice(key.lastIndexOf("/") + 1)]; if (!(S.state[flag] || []).includes(track)) delete S.flagGone[key]; }
+    return renderBottom();
+  }
   else if (m.t === "v" && S.state) {
     S.state.values[`${m.page}:${m.slot}`] = {...(S.state.values[`${m.page}:${m.slot}`] || {}), n: m.n, s: m.s, r: m.r, key: m.key};
+    // one parameter may sit on several pages: each of its slots reports in its own message, a moment apart. They are
+    // one value, so all of them have it now (else a slot not yet heard from would show the old place for that moment).
+    if (m.key) for (const v of Object.values(S.state.values)) if (v.key === m.key) { v.n = m.n; v.s = m.s; v.r = m.r; }
     if (m.key && OWN[m.key]) return reported(m.key, m.n);  // a control this page is moving: its own number stays until Live has the last word
     part = "desk";
   }
   else if (m.t === "pos" && S.state) {
     const flipped = S.state.playing !== m.p;
     S.state.pos = m.b; S.state.playing = m.p;
-    if (m.bpm && S.state.song) S.state.song.tempo = m.bpm;
-    part = flipped ? "all" : "top";
+    if (m.bpm && S.state.song && S.state.song.tempo !== m.bpm) { S.state.song.tempo = m.bpm; renderTop(); }
+    if (flipped) renderBottom();
+    return updatePos();
   }
-  else if (m.t === "loop" && S.state) { S.state.loop = m.loop; part = "top"; }
+  else if (m.t === "loop" && S.state) {
+    if (S.loopWant) S.loopWant.last = m.loop; else S.state.loop = m.loop;
+    if (m.start != null && m.length != null) S.state.loop_span = [m.start, m.length];
+    renderTop(); renderBottom(); return updateSongMarks();
+  }
   else if (m.t === "page" && S.state) S.state.page = m.page;
   else if (m.t === "mon" && S.state) S.state.monitor = {slot: m.slot, ref: m.ref};
-  else if (m.t === "desk") { S.layouts = {}; S.scales = {}; loadDesk(); return; }
-  pageConfirmed(); wanted();
+  else if (m.t === "arr") { if (S.song.loaded) readSong(); return; }  // a clip or a locator changed in Live
+  else if (m.t === "desk") { S.layouts = {}; S.scales = {}; loadDesk(); if (S.sheet === "org") loadOrg(); return; }
+  pageConfirmed(); wanted(); openingCheck();
   S.lockReason = S.state && !["attached", "starting", NO_MINILAB].includes(S.state.live) ? `Live: ${S.state.live}` : "";
-  if (part === "top") renderTop();
-  else if (part === "desk") renderDesk();
-  else render();
+  if (part === "desk") renderDesk();
+  else {
+    render(); updateSongMarks();
+    if (m.t === "full" && S.song.loaded && S.song.view && S.song.view.set !== (S.state.set || "")) readSong();  // another set is open
+  }
 }
 // A meter that stops sending (the device was taken off Main) is said so, not left showing its last bars.
-setInterval(() => { if (S.meter && Date.now() - S.meterAt >= METER_STALE && $("#spec") && !$("#spec").classList.contains("none")) renderTop(); }, 1000);
-if (window.zpktListen) onListen({state: window.zpktListen.state, peak: window.zpktListen.stats.peak});
-async function loadDesk() { S.desk = await (await fetch("/api/desk")).json(); wanted(); render(); }
+setInterval(() => { if (S.meter && !meterFresh() && $("#spec:not(.act)")) renderTop(); }, 1000);
+if (window.zpktListen) onListen({state: window.zpktListen.state, peak: window.zpktListen.stats.peak, resume: window.zpktListen.resume});
+async function loadDesk() { S.desk = await (await fetch("/api/desk")).json(); wanted(); openingCheck(); render(); }
 function connect() {
   const es = new EventSource("/events?app=1");
   es.onmessage = ev => apply(JSON.parse(ev.data));
@@ -1017,6 +1700,6 @@ loadDesk().then(connect);
 // Crossing the desktop breakpoint draws or drops the side column.
 window.matchMedia("(min-width:1100px)").addEventListener("change", render);
 route();
-window.zpkt = {S, command, armPage, wait: WAIT, own: OWN, textAt, placeOf, cpLabel, litState};
+window.zpkt = {S, redraw: () => render(), command, armPage, wait: WAIT, own: OWN, textAt, placeOf, cpLabel, litState, roundPlace, stepPlace, valueAt, loopBars};
 </script>
 <script type="module" src="/app/shell/listen.js"></script></body></html>

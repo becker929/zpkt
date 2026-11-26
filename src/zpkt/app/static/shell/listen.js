@@ -10,8 +10,9 @@
 // the screen capture. The stream says its rate in its X-Audio-Format header, and the sound is played at exactly that
 // rate, so nothing is resampled here. A browser that will not open its output at that rate gets the MP3 stream.
 //
-// The choice is remembered (localStorage "zpkt.listen"). After a move to another page the button shows "resume" and
-// the first tap anywhere on the page starts the sound again.
+// The choice is remembered (localStorage "zpkt.listen"). After a move to another page the button is "paused" (a
+// dashed ring and a dot; its label and the page's level meter say "Listen paused") and the first tap anywhere on the
+// page starts the sound again.
 
 const BASE = '/app/listen';
 const KEY = 'zpkt.listen';
@@ -39,6 +40,7 @@ const CSS = `
   transform:scaleY(0);transition:transform .09s linear}
 .lsn .lsn-dot{display:none;width:7px;height:7px;border-radius:50%;background:var(--pin,#d98a00)}
 .lsn[data-resume] .lsn-dot{display:block}
+.lsn[data-resume]{border-style:dashed;border-color:var(--pin,#d98a00);color:var(--pin,#d98a00)}
 .lsn-why{position:fixed;z-index:1000;max-width:min(300px,calc(100vw - 24px));padding:10px 12px;border-radius:12px;
   background:var(--panel,#fff);color:var(--ink,#111);border:1px solid var(--line,#8888);font-size:13px;line-height:1.35;
   box-shadow:0 6px 24px #0004}
@@ -118,11 +120,12 @@ function mount(slot) {
   slot.replaceChildren(btn);
 
   let state = 'off'; // off | connecting | on | unavailable
+  let resume = false; // off, but it was on when the last page was left: "paused", and the next tap resumes it
   let reason = '';
   let ctx = null, node = null, abort = null, audio = null, why = null, tries = 0, quiet = null;
   let rate = 0; // the rate the Mac last said (status or stream); 0 until it has
   const stats = { mode: '', ms: 0, under: 0, drops: 0, peak: 0, bytes: 0, rate: 0 };
-  window.zpktListen = { stats, get state() { return state; }, get reason() { return reason; } };
+  window.zpktListen = { stats, get state() { return state; }, get reason() { return reason; }, get resume() { return resume; } };
 
   const LABEL = {
     off: 'Listen: hear Live in this browser',
@@ -134,9 +137,11 @@ function mount(slot) {
     state = next;
     btn.dataset.state = next;
     btn.setAttribute('aria-pressed', String(next === 'on' || next === 'connecting'));
-    const resume = next === 'off' && remembered();
+    // Paused: listening was on when the last page was left. One state with one wording, and the button shows it: a
+    // dashed ring and a dot, armed to resume on the next tap. The page's level meter says the same word.
+    resume = next === 'off' && remembered();
     btn.toggleAttribute('data-resume', resume);
-    btn.title = resume ? 'Listen was on. Tap to resume' : LABEL[next];
+    btn.title = resume ? 'Listen paused. Tap to resume' : LABEL[next];
     btn.setAttribute('aria-label', btn.title);
     if (next !== 'on') bar.style.transform = 'scaleY(0)';
     tell(0);
@@ -144,7 +149,7 @@ function mount(slot) {
   // Tell the page what the stream's level is (it draws a level meter): the state and the last peak, 0 to 1. This
   // is a reading of the samples played, nothing more; no sound is changed.
   function tell(peak) {
-    window.dispatchEvent(new CustomEvent('zpkt-listen', { detail: { state, peak } }));
+    window.dispatchEvent(new CustomEvent('zpkt-listen', { detail: { state, peak, resume } }));
   }
   function level(peak) {
     stats.peak = peak;

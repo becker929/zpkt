@@ -49,6 +49,7 @@ keys = _load("zpkt_inlive_keys", os.path.join(_INLIVE, "keys.py"))
 
 PRIORITY = 20  # above ZpktMiniLabTempo (10): while the desk holds fader 4, the tempo script does not
 MAIN_DEVICES = ("desk headroom", "desk Glue", "desk Utility")  # bypassed while an audio-clip monitor track plays
+METER_DEVICE = "zpkt desk meter"  # the spectrum's device on Main (meter.py): the snapshot says whether it is there
 END_BEAT = core.END_BEAT
 SLOTS_V = core.SLOTS_V  # the server hands this over on a reload (server.pager_start_code)
 DESK = None
@@ -294,10 +295,16 @@ class Desk:
         self.lit = {}  # pad slot -> lit, as last sent to the controller
         self._last_pos = 0.0
         self._song_listeners = []
+        self._flag_listeners = []  # (remove function, callback) for every track's solo and mute
+        self._extra_song_listeners = []  # (remove function, callback): the loop brace, the list of tracks
+        self._arr_listeners = []  # (remove function, callback): every track's arrangement clips, the locators
+        self._last_arr = 0.0
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.sock.setblocking(False)
         self.resolve()
         self._listen_song()
+        self._listen_flags()
+        self._listen_arrangement()
 
     # ---- transport and monitor (the page is a control surface only: all audio is Live's) ---------------------------
     def _listen_song(self):
@@ -307,6 +314,133 @@ class Desk:
         ):
             add(fn)
             self._song_listeners.append(fn)
+        s = self.song
+        for name, fn in (
+            ("tracks", self._on_tracks),
+            ("return_tracks", self._on_tracks),
+            ("loop", self._on_loop),
+            ("loop_start", self._on_loop),
+            ("loop_length", self._on_loop),
+        ):
+            with contextlib.suppress(Exception):  # a Live (or a fake) without that listener: the snapshot still says
+                getattr(s, f"add_{name}_listener")(fn)
+                self._extra_song_listeners.append((getattr(s, f"remove_{name}_listener"), fn))
+
+    # ---- solo and mute of every track, and the loop brace: reported from in here, so the app never asks -----------
+    def _flag_tracks(self):
+        s = self.song
+        return [t for t in list(s.tracks) + list(s.return_tracks) if not t.name.startswith("mon ")]
+
+    def flags(self, names=False):
+        """Which tracks are soloed and which are muted, by their names in state keys (the monitor's own tracks are
+        left out: the desk mutes and solos those itself). With `names`, every track's name too."""
+        out = {"solo": [], "mute": []}
+        every = []
+        for t in self._flag_tracks():
+            name = _key_name(t, self.song)
+            every.append(name)
+            for flag in ("solo", "mute"):
+                with contextlib.suppress(Exception):
+                    if getattr(t, flag):
+                        out[flag].append(name)
+        if names:
+            out["tracks"] = every
+        return out
+
+    def _on_flags(self):
+        msg = {"t": "flags", "sys": time.time() < self.sys_until}
+        msg.update(self.flags())
+        self.emit(msg)
+
+    def _unlisten_flags(self):
+        for rm, fn in self._flag_listeners:
+            with contextlib.suppress(Exception):
+                rm(fn)
+        self._flag_listeners = []
+
+    def _listen_flags(self):
+        self._unlisten_flags()
+        for t in self._flag_tracks():
+            for flag in ("solo", "mute"):
+                with contextlib.suppress(Exception):
+                    getattr(t, f"add_{flag}_listener")(self._on_flags)
+                    self._flag_listeners.append((getattr(t, f"remove_{flag}_listener"), self._on_flags))
+
+    def _on_tracks(self):
+        self._listen_flags()
+        self._on_flags()
+        self._listen_arrangement()
+        self._on_arrangement()
+
+    # ---- the arrangement: every track's clips in the Arrangement, and the locators (read only; never Session) ------
+    def arrangement(self):
+        """The song as it lies in the Arrangement, as one JSON string (a flat result: the bridge garbles deep
+        lists): {"tracks": [{"i", "name", "color", "mute", "clips": [[start, end, name, color, muted], ...]}],
+        "cues": [[beat, name], ...], "length": beats}. The monitor's own tracks are left out."""
+        s, out = self.song, []
+        for i, t in enumerate(s.tracks):
+            if t.name.startswith("mon "):
+                continue
+            clips = []
+            with contextlib.suppress(Exception):  # a group track has no clips of its own
+                for c in t.arrangement_clips:
+                    clips.append([float(c.start_time), float(c.end_time), str(c.name), int(c.color), bool(c.muted)])
+            row = {"i": i, "name": str(t.name), "color": 0, "mute": False, "clips": clips}
+            with contextlib.suppress(Exception):
+                row["color"], row["mute"] = int(t.color), bool(t.mute)
+            out.append(row)
+        cues = []
+        with contextlib.suppress(Exception):
+            cues = sorted([float(c.time), str(c.name)] for c in s.cue_points)
+        length = 0.0
+        with contextlib.suppress(Exception):
+            length = float(s.last_event_time)
+        return json.dumps({"tracks": out, "cues": cues, "length": length})
+
+    def _on_arrangement(self):
+        """A clip came, went or moved, or a locator did: say so (at most a few times a second); the app reads again."""
+        now = time.time()
+        if now - self._last_arr < 0.3:
+            return
+        self._last_arr = now
+        self.emit({"t": "arr"})
+
+    def _listen_arrangement(self):
+        self._unlisten_arrangement()
+        for t in self._flag_tracks():
+            with contextlib.suppress(Exception):
+                t.add_arrangement_clips_listener(self._on_arrangement)
+                self._arr_listeners.append((t.remove_arrangement_clips_listener, self._on_arrangement))
+        with contextlib.suppress(Exception):
+            self.song.add_cue_points_listener(self._on_arrangement)
+            self._arr_listeners.append((self.song.remove_cue_points_listener, self._on_arrangement))
+
+    def _unlisten_arrangement(self):
+        for rm, fn in self._arr_listeners:
+            with contextlib.suppress(Exception):
+                rm(fn)
+        self._arr_listeners = []
+
+    def _on_loop(self):
+        self.emit(self._loop_message(self._loop_mode()))
+
+    def _loop_message(self, mode):
+        msg = {"t": "loop", "loop": mode}
+        with contextlib.suppress(Exception):
+            msg["start"], msg["length"] = float(self.song.loop_start), float(self.song.loop_length)
+        return msg
+
+    def set_flag(self, key, value):
+        """A track's solo or mute by its state key ("Kick bus/solo"), for a track no page holds. True if found."""
+        name, _sep, flag = key.rpartition("/")
+        if flag not in ("solo", "mute"):
+            return False
+        for t in self._flag_tracks():
+            if _key_name(t, self.song) == name:
+                if bool(getattr(t, flag)) != bool(value):
+                    setattr(t, flag, bool(value))
+                return True
+        return False
 
     def _on_pos(self):
         now = time.time()
@@ -341,6 +475,11 @@ class Desk:
             s.start_playing()
         elif action == "pause":
             s.stop_playing()
+        elif action == "stop":  # stop, and back to the start of what is played (the loop's start, or the song's)
+            s.stop_playing()
+            pos = core.stop_position(s.loop, s.loop_start)
+            s.current_song_time = pos
+            s.start_time = pos
         elif action == "seek":
             pos = core.seek_position(beat)
             s.current_song_time = pos
@@ -350,12 +489,17 @@ class Desk:
             if loop == "off":
                 s.loop = False
             else:
-                a, n = core.LOOPS["build" if loop == "build" else "drop"]
+                a, n = core.LOOPS[loop if loop in core.LOOPS else "drop"]
                 s.loop_start = a
                 s.loop_length = n
                 s.loop = True
+                jump = core.loop_jump(s.current_song_time, a, n)
+                if jump is not None:  # outside the loop: to its start; inside it, Live plays on undisturbed
+                    s.current_song_time = jump
+                    if not s.is_playing:
+                        s.start_time = jump
         self.emit(
-            {"t": "loop", "loop": loop}
+            self._loop_message(loop)
             if action == "loop"
             else {"t": "pos", "b": s.current_song_time, "p": bool(s.is_playing)}
         )
@@ -676,7 +820,12 @@ class Desk:
         for key, v in pairs:
             t = self.by_key.get(key)
             if t is None:
-                missing.append(key)
+                try:
+                    found = self.set_flag(key, v)  # a track's solo or mute that no page holds
+                except RuntimeError:
+                    found = False
+                if not found:
+                    missing.append(key)
                 continue
             try:
                 t.set_raw(v)
@@ -694,6 +843,23 @@ class Desk:
     def _loop_mode(self):
         s = self.song
         return core.loop_mode(s.loop, s.loop_start, s.loop_length)
+
+    def _set_name(self):
+        """The open set's name: its file's name without the extension (what the app's wrong-set guard compares),
+        else the name Live gives the set; "" for a set with neither."""
+        with contextlib.suppress(Exception):
+            path = str(getattr(self.song, "file_path", "") or "")
+            if path:
+                return os.path.splitext(os.path.basename(path))[0]
+        with contextlib.suppress(Exception):
+            return str(self.song.name or "")
+        return ""
+
+    def _loop_span(self):
+        """The loop brace as [start, length] in beats; None when Live will not say."""
+        with contextlib.suppress(Exception):
+            return [float(self.song.loop_start), float(self.song.loop_length)]
+        return None
 
     def _song_facts(self):
         """The song's tempo, time signature and length in beats, for the page's identity line. A fact Live will not
@@ -720,7 +886,11 @@ class Desk:
             "pos": self.song.current_song_time,
             "playing": bool(self.song.is_playing),
             "loop": self._loop_mode(),
-            "set": self.song.name if hasattr(self.song, "name") else "",
+            "loop_span": self._loop_span(),
+            "loops": dict((name, [a, n]) for name, (a, n) in core.LOOPS.items()),
+            "flags": self.flags(names=True),
+            "meter": any(d.name == METER_DEVICE for d in self.song.master_track.devices),
+            "set": self._set_name(),
             **self._song_facts(),
             "main_saved": self.main_saved,
         }
@@ -731,6 +901,12 @@ class Desk:
                 with contextlib.suppress(Exception):
                     rm(fn)
         self._song_listeners = []
+        for rm, fn in self._extra_song_listeners:
+            with contextlib.suppress(Exception):
+                rm(fn)
+        self._extra_song_listeners = []
+        self._unlisten_flags()
+        self._unlisten_arrangement()
         self.unlisten()
         self.release()
         with contextlib.suppress(Exception):

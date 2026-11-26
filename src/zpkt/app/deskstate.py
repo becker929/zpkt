@@ -14,7 +14,7 @@ from typing import Any, TypedDict
 from zpkt.app import protocol as P
 
 SLOTS = ("A", "B", "W", "C")  # what is heard: the original render, the recipe's render, the working mix, the reference
-LOOPS = ("off", "build", "drop")
+LOOPS = ("off", "whole", "build", "drop")  # the transport's loop: none, the whole song, its beginning, its peak
 
 
 class MonitorChoice(TypedDict):
@@ -61,6 +61,11 @@ class DeskState(TypedDict):
     tempo: float | None  # Live's tempo in BPM; None until the pager says
     sig: list[int] | None  # the time signature, [4, 4]
     length: float | None  # the arrangement's length in beats (its last event)
+    loop_span: list[float] | None  # the loop brace, [start, length] in beats; None until the pager says
+    loops: dict[str, list[float]]  # the spans the transport can loop, by name: [start, length] in beats
+    solo: list[str]  # the tracks that are soloed, by their names in state keys
+    mute: list[str]  # ... and muted (the monitor's own tracks are never listed)
+    meter: bool | None  # whether the spectrum's device is on Main; None until the pager says
 
 
 def initial() -> DeskState:
@@ -81,6 +86,11 @@ def initial() -> DeskState:
         "tempo": None,
         "sig": None,
         "length": None,
+        "loop_span": None,
+        "loops": {},
+        "solo": [],
+        "mute": [],
+        "meter": None,
     }
 
 
@@ -106,7 +116,14 @@ def _monitor(state: DeskState, m: Any, now: float) -> DeskState:
 
 
 def _loop(state: DeskState, m: Any, now: float) -> DeskState:
-    return {**state, "loop": m["loop"]}
+    new: DeskState = {**state, "loop": m["loop"]}
+    if "start" in m and "length" in m:
+        new["loop_span"] = [float(m["start"]), float(m["length"])]
+    return new
+
+
+def _flags(state: DeskState, m: Any, now: float) -> DeskState:
+    return {**state, "solo": [str(x) for x in m["solo"]], "mute": [str(x) for x in m["mute"]]}
 
 
 def _page(state: DeskState, m: Any, now: float) -> DeskState:
@@ -133,6 +150,8 @@ _REDUCERS: dict[str, Callable[[DeskState, Any, float], DeskState]] = {
     "page": _page,
     "hw": _hardware,
     "pad": _pad,
+    "flags": _flags,
+    "arr": lambda state, m, now: state,  # nothing of the arrangement is in the state: the desk reads it when asked
 }
 assert set(_REDUCERS) == set(P.PAGER_KINDS), "every pager message kind has a reducer"
 
@@ -157,6 +176,9 @@ SNAPSHOT_KEYS = (
     "tempo",
     "sig",
     "length",
+    "loop_span",
+    "loops",
+    "meter",
 )
 
 
@@ -176,7 +198,67 @@ def with_snapshot(state: DeskState, snapshot: Mapping[str, Any] | None, status: 
         new.update({k: snapshot[k] for k in SNAPSHOT_KEYS if k in snapshot})  # type: ignore[typeddict-item]
         if "loop" in snapshot:
             new["loop"] = loop_from_snapshot(snapshot["loop"], state["loop"])
+        flags = snapshot.get("flags")
+        if isinstance(flags, Mapping):
+            new["solo"], new["mute"] = list(flags.get("solo", [])), list(flags.get("mute", []))
     return new
+
+
+def flag_changes(before: Mapping[str, Any], after: Mapping[str, Any]) -> list[tuple[str, bool]]:
+    """The solo and mute flags that differ between two states: [("Kick bus/solo", True), ...] as state keys."""
+    out: list[tuple[str, bool]] = []
+    for flag in ("solo", "mute"):
+        was, now = set(before.get(flag) or []), set(after.get(flag) or [])
+        out += [(f"{name}/{flag}", name in now) for name in sorted(was ^ now)]
+    return out
+
+
+def colour(value: Any) -> str:
+    """Live's colour (0xRRGGBB as a number) as "#rrggbb"; "" when Live gave none."""
+    try:
+        return f"#{int(value) & 0xFFFFFF:06x}" if int(value) else ""
+    except (TypeError, ValueError):
+        return ""
+
+
+def arrangement_view(read: Mapping[str, Any], set_name: str, per_bar: float) -> dict[str, Any]:
+    """The song in Live as the page draws it, from the pager's read: one lane per track, its arrangement clips as
+    regions in beats, the locators, and how many bars it all spans. A region has an id that holds while it stays
+    where it is ("t3@16": track 3, starting at beat 16), so it can be edited by id later."""
+    tracks = []
+    end = float(read.get("length") or 0.0)
+    for t in read.get("tracks", []):
+        regions = []
+        for start, stop, name, color, muted in t.get("clips", []):
+            regions.append(
+                {
+                    "id": f"t{t['i']}@{float(start):g}",
+                    "start": float(start),
+                    "end": float(stop),
+                    "name": str(name),
+                    "color": colour(color) or colour(t.get("color")),
+                    "muted": bool(muted),
+                }
+            )
+            end = max(end, float(stop))
+        tracks.append(
+            {
+                "id": f"t{t['i']}",
+                "name": str(t.get("name", "")),
+                "color": colour(t.get("color")),
+                "muted": bool(t.get("mute")),
+                "regions": regions,
+            }
+        )
+    locators = [{"beat": float(b), "name": str(n)} for b, n in read.get("cues", [])]
+    per = per_bar or 4.0
+    return {
+        "set": set_name,
+        "beats_per_bar": per,
+        "bars": max(1, -int(-end // per)) if end else 0,
+        "tracks": tracks,
+        "locators": locators,
+    }
 
 
 def song_facts(state: Mapping[str, Any]) -> dict[str, Any]:

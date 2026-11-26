@@ -178,8 +178,13 @@ def get_pages(desk: Desk, query: dict[str, str]) -> Response:
     return json_response({"pages": pages.listing(desk)})
 
 
+def get_organize(desk: Desk, query: dict[str, str]) -> Response:
+    return json_response({"units": pages.units_listing(desk)})
+
+
 APP_GET_ROUTES: dict[str, Callable[[Desk, dict[str, str]], Response]] = {
     "/api/pages": get_pages,
+    "/api/organize": get_organize,
     "/api/hear": get_hear,
     "/api/commands": get_commands,
     "/api/changes": get_changes,
@@ -382,7 +387,7 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
-    # ---- mounted routes (Ask at /app/ask, the Song at /app/song): the mount answers, whatever the method ---------
+    # ---- mounted routes (Ask at /app/ask, Listen at /app/listen): the mount answers, whatever the method ---------
     def _read_limited(self, limit: int) -> bytes | None:
         """The request body if its length is above 0 and below `limit`, else None (what a mount's routes expect)."""
         n = int(self.headers.get("Content-Length") or 0)

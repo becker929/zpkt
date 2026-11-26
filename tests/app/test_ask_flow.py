@@ -175,7 +175,7 @@ def test_there_is_no_mode_menu_and_asking_for_controls_makes_a_page(asked, page)
     asked.ask.wait_idle()
     assert asked.providers["claude"].seen[-1].mode == "build" and asked.providers["claude"].replies[-1][0] == 200
     meta = page.locator(".m.user .meta").inner_text()
-    assert "Pages" not in meta and "build" not in meta  # the mode is not a thing a producer reads about
+    assert "Surfaces" not in meta and "build" not in meta  # the mode is not a thing a producer reads about
     assert page.locator("a.pcard b").inner_text() == "Kick: level"  # the saved Page's title, not the link's words
     assert page.locator("#hint").inner_text() == ""
 
@@ -184,7 +184,7 @@ def test_there_is_no_mode_menu_and_asking_for_controls_makes_a_page(asked, page)
 def test_the_developer_modes_are_behind_a_flag(asked, browser, width):
     pg = open_page(browser, asked, width=width, query="?dev=1")
     assert [o.inner_text() for o in pg.locator("#mode option").all()] == [
-        "Pages",
+        "Surfaces",
         "Ask first",
         "Edit files",
         "Full (shell)",
@@ -355,7 +355,7 @@ def test_an_old_control_panel_is_a_stub_and_its_rendered_files_still_play(asked,
     pg.wait_for_selector(".oldpanel")
     stubs = pg.locator(".oldpanel")
     assert stubs.count() == 2
-    assert "An older control panel; ask for a page to use it again." in stubs.first.inner_text()
+    assert "An older control panel; ask for a surface to use it again." in stubs.first.inner_text()
     assert (
         stubs.first.locator("b").inner_text() == "Kick: decay" and stubs.nth(1).locator("b").inner_text() == "My kick"
     )
@@ -400,7 +400,7 @@ def test_a_recovered_error_and_the_tool_counts_stay_out_of_the_default_view(aske
     assert page.locator(".stats > *").count() == 1 and page.locator(".stats .took").text_content() == "Time 17.2 s"
     page.click(".wk-trace > summary")  # the work view keeps all of it
     inside = page.locator(".wk-trace").text_content()
-    assert "3 tool calls" in inside and "1 failed" in inside and "made a page: Kick: level" in inside
+    assert "3 tool calls" in inside and "1 failed" in inside and "made a surface: Kick: level" in inside
 
 
 def test_a_turn_that_failed_says_so_once_in_a_sentence_with_what_to_do(asked, page):

@@ -28,18 +28,19 @@ def test_nothing_overflows_at_this_width(rig, width):
             }"""
         )
         panel = pg.evaluate(
-            """() => {
+            r"""() => {
               const box = s => document.querySelector(`#panel .mc[data-slot="${s}"]`).getBoundingClientRect();
               const faces = [...document.querySelectorAll('#panel .mc .w')].map(w => w.getBoundingClientRect());
               return {slots: document.querySelectorAll('#panel .mc').length,
-                      small: faces.filter(r => r.width < 44 || r.height < 44).length,
+                      small: faces.filter(r => r.width && (r.width < 44 || r.height < 44)).length,
+                      faces: window.zpkt.S.faces,
                       out: faces.filter(r => r.right > innerWidth + 0.5 || r.left < -0.5).length,
-                      folded: box('b5').top > box('b1').top + 20,
+                      folded: getComputedStyle(document.querySelector('#panel')).gridTemplateColumns.trim().split(/\s+/).length === 1,
                       order: ['k1', 'k5', 'b1', 'f1', 'b5'].map(s => Math.round(box(s).top))};
             }"""
         )
         small = pg.evaluate(
-            "[...document.querySelectorAll('#hbot button')].map(b => b.getBoundingClientRect().height).filter(h => h < 40).length"
+            "[...document.querySelectorAll('#hbot button')].map(b => b.getBoundingClientRect().height).filter(h => h && h < 40).length"
         )
         browser.close()
     assert over == [0, []], over
@@ -49,5 +50,5 @@ def test_nothing_overflows_at_this_width(rig, width):
     # The panel folds in half when its own box is 440 px or less: every phone, and a 768 px tablet (the Hear bar takes
     # 320 px beside it). Wider, it is the MiniLab as it sits.
     assert panel["folded"] == (width < 1000)
-    if panel["folded"]:  # knobs 1-4, knobs 5-8, pads 1-4, faders, pads 5-8, top to bottom
+    if panel["folded"] and panel["faces"] == 1:  # knobs 1-4, knobs 5-8, pads 1-4, faders, pads 5-8, top to bottom
         assert panel["order"] == sorted(panel["order"]) and len(set(panel["order"])) == 5, panel

@@ -1,6 +1,6 @@
 """Mounts: the one seam by which an adapter puts its pages and routes on the web server, under a path prefix.
 
-Ask is mounted at /app/ask and the Song at /app/song. The web server knows only this table: it hands a request whose
+Ask is mounted at /app/ask and Listen at /app/listen. The web server knows only this table: it hands a request whose
 path starts with a prefix to that mount, as a Request, and sends back the MountReply the mount answers. A mount that
 answers as it goes (a server-sent stream) writes on the request's connection and returns None. So a new area is
 added without editing the server's own routes: `desk.mounts.add("/app/notes", NotesRoutes())`.
