@@ -135,6 +135,12 @@ def test_the_monitor_tab_draws_a_curve_for_each_of_a_b_and_c_once_heard(rig, pag
     cells = [c.inner_text() for c in page.locator("#montab .num").all()]
     assert cells[0].startswith("−") and cells[1] == "–" and cells[2] == "+10.0"  # A's level, B unheard, C against A
     assert page.evaluate("document.documentElement.scrollHeight <= innerHeight")
+    # a reading's length never moves a column (Anthony saw the columns shift with the digits)
+    left = "[...document.querySelectorAll('#montab .hd')].map(e => Math.round(e.getBoundingClientRect().left))"
+    before = page.evaluate(left)
+    page.evaluate(feed.replace("-20 : -30", "-3 : -104"), "now")
+    page.evaluate(feed.replace("-20 : -30", "-3 : -104"), "ref")
+    assert page.evaluate(left) == before
     # three ways to see the one heard now: Live follows the newest reading, Smooth a second, Average four and evened out
     assert [b.inner_text() for b in page.locator("#monmode button").all()] == ["Live", "Smooth", "Average"]
     assert page.locator('#monmode [aria-pressed="true"]').inner_text() == "Smooth"
