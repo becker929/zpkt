@@ -39,7 +39,7 @@
   .mlp[data-face="f"]{grid-template-rows:minmax(0,1fr) auto;grid-template-areas:"f" "p2"}
   .mlp[data-face="k"] :is(.mf,.mp2),.mlp[data-face="f"] :is(.mk,.mp1){display:none}
 }
-.mlp.tight .mc .l{height:13px;-webkit-line-clamp:1}
+.mlp.tight .mc .l{height:15px;-webkit-line-clamp:1}
 .mlp.tight{gap:8px;padding-top:8px;padding-bottom:8px}
 @media (min-width:1100px){.mlp{column-gap:28px;padding:14px 16px}}
 
@@ -48,9 +48,11 @@
 .mc{display:flex;flex-direction:column;align-items:center;position:relative;min-width:0;min-height:0;width:100%;max-width:120px;border-radius:10px;padding:2px 1px}
 .mc>*{flex:none}
 .mc.t1{background:var(--z-tint)}
-.mc .g{font:600 9.5px/12px ui-monospace,Menlo,monospace;text-transform:uppercase;letter-spacing:.06em;color:var(--mute);max-width:100%;height:12px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
-.mc .v{font:12px/16px ui-monospace,Menlo,monospace;color:var(--ink);max-width:100%;height:16px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
-.mc .l{font-size:11px;line-height:13px;height:26px;color:var(--mute);text-align:center;max-width:100%;overflow:hidden;overflow-wrap:anywhere;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2}
+/* The caption of a group stands once over its run of slots, as wide as the run. */
+.mc .g{font:600 11.5px/15px 'Helvetica Neue',Helvetica,Arial,sans-serif;color:var(--ink);opacity:.78;align-self:flex-start;position:relative;z-index:1;width:calc(var(--span,1)*100% + (var(--span,1) - 1)*6px);height:15px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;text-align:center}
+.mc .g.gr{visibility:hidden}
+.mc .v{font:14px/18px ui-monospace,Menlo,monospace;color:var(--ink);max-width:100%;height:18px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.mc .l{font-size:13px;line-height:15px;height:30px;color:var(--ink);opacity:.8;text-align:center;max-width:100%;overflow:hidden;overflow-wrap:anywhere;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2}
 .mc .w{position:relative;display:block;outline:0;border-radius:10px;-webkit-tap-highlight-color:transparent}
 .mc .w:focus-visible{box-shadow:0 0 0 2px var(--ink)}
 .mc.live:not(.pad) .w{touch-action:none;cursor:ns-resize}
@@ -105,7 +107,7 @@
 
 /* the pad: a key with its edge; lit lime when it is on */
 .mc.pad{justify-content:flex-start}
-.mc.pad .w{width:100%;height:52px;min-width:44px;margin:0;padding:2px 3px;border:1px solid var(--zc-line);border-radius:9px;background:linear-gradient(var(--z-key1),var(--z-key2));box-shadow:0 2px 0 var(--z-keyedge);color:var(--ink);font:500 11px/1.15 'Helvetica Neue',Helvetica,Arial,sans-serif;text-align:center;display:flex;align-items:center;justify-content:center;overflow:hidden;overflow-wrap:anywhere}
+.mc.pad .w{width:100%;height:52px;min-width:44px;margin:0;padding:2px 3px;border:1px solid var(--zc-line);border-radius:9px;background:linear-gradient(var(--z-key1),var(--z-key2));box-shadow:0 2px 0 var(--z-keyedge);color:var(--ink);font:500 13px/1.15 'Helvetica Neue',Helvetica,Arial,sans-serif;text-align:center;display:flex;align-items:center;justify-content:center;overflow:hidden;overflow-wrap:anywhere}
 .mc.pad .w span{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:3;overflow:hidden;max-height:100%}
 .mc.pad.live .w{cursor:pointer}
 .mc.pad.live .w:active{transform:translateY(1.5px);box-shadow:0 .5px 0 var(--z-keyedge)}
