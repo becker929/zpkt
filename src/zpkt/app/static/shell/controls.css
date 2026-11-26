@@ -22,18 +22,31 @@
 /* The map: knobs 1-4 over 5-8, the four faders to their right, the 8 pads in one row below. Where 8 columns of
    44 px do not fit (the panel's box is 440 px or less: a phone) it folds in half: knobs over pads 1-4, then faders
    over pads 5-8. */
-.mlpw{container:mlp/inline-size;width:100%;max-width:1000px;margin:0 auto;flex:none}
-.mlp{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);grid-template-areas:"k f" "p1 p2";gap:10px;
+.mlpw{container:mlp/inline-size;width:100%;max-width:1000px;margin:0 auto;flex:0 1 auto;min-height:0;display:flex;flex-direction:column}
+/* The map takes the height it is given and never scrolls: its controls give way down to 44 px. .tight (set by the
+   page when the comfortable sizes do not fit) puts labels on one line. Where even that does not fit a phone, the
+   page shows one face at a time (data-face): k is the knobs over pads 1-4, f the faders over pads 5-8. */
+.mlp{flex:0 1 auto;min-height:0;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);grid-template-rows:minmax(0,1fr) auto;grid-template-areas:"k f" "p1 p2";gap:10px;
   border:1px solid var(--zc-line);border-radius:18px;background:linear-gradient(var(--zc-1),var(--zc-2));box-shadow:var(--zc-shadow);
   padding:10px 7px;touch-action:pan-y;user-select:none;-webkit-user-select:none}
-.mlp .mk,.mlp .mf,.mlp .mp{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px 4px;justify-items:center;min-width:0}
+.mlp .mk,.mlp .mf,.mlp .mp{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px 4px;justify-items:center;min-width:0;min-height:0}
+.mlp .mk{grid-template-rows:repeat(2,minmax(0,1fr))}
+.mlp .mf{grid-template-rows:minmax(0,1fr)}
 .mlp .mk{grid-area:k}.mlp .mf{grid-area:f}.mlp .mp1{grid-area:p1}.mlp .mp2{grid-area:p2}
-@container mlp (max-width:440px){.mlp{grid-template-columns:minmax(0,1fr);grid-template-areas:"k" "p1" "f" "p2"}}
+@container mlp (max-width:440px){
+  .mlp{grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(0,2fr) auto minmax(0,1fr) auto;grid-template-areas:"k" "p1" "f" "p2"}
+  .mlp[data-face="k"]{grid-template-rows:minmax(0,1fr) auto;grid-template-areas:"k" "p1"}
+  .mlp[data-face="f"]{grid-template-rows:minmax(0,1fr) auto;grid-template-areas:"f" "p2"}
+  .mlp[data-face="k"] :is(.mf,.mp2),.mlp[data-face="f"] :is(.mk,.mp1){display:none}
+}
+.mlp.tight .mc .l{height:13px;-webkit-line-clamp:1}
+.mlp.tight{gap:8px;padding-top:8px;padding-bottom:8px}
 @media (min-width:1100px){.mlp{column-gap:28px;padding:14px 16px}}
 
 /* One slot. .live takes touch; .macro is moved from the MiniLab only; .off (nothing mapped) and .missing (the open
    set lacks the target) are greyed and take none. */
-.mc{display:flex;flex-direction:column;align-items:center;position:relative;min-width:0;width:100%;max-width:120px;border-radius:10px;padding:2px 1px}
+.mc{display:flex;flex-direction:column;align-items:center;position:relative;min-width:0;min-height:0;width:100%;max-width:120px;border-radius:10px;padding:2px 1px}
+.mc>*{flex:none}
 .mc.t1{background:var(--z-tint)}
 .mc .g{font:600 9.5px/12px ui-monospace,Menlo,monospace;text-transform:uppercase;letter-spacing:.06em;color:var(--mute);max-width:100%;height:12px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
 .mc .v{font:12px/16px ui-monospace,Menlo,monospace;color:var(--ink);max-width:100%;height:16px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
@@ -62,8 +75,8 @@
 .mc.flash .w{box-shadow:0 0 0 2px var(--zs)}
 
 /* the knob */
-.mc.knob .w{width:100%;max-width:68px;min-width:44px;min-height:44px}
-.mc.knob .w svg{display:block;width:100%;height:auto}
+.mc.knob .w{flex:0 1 62px;width:100%;max-width:68px;min-width:44px;min-height:44px;display:flex;justify-content:center}
+.mc.knob .w svg{display:block;height:100%;width:auto;max-width:100%}
 .zk-well{fill:none;stroke:var(--z-well);stroke-width:5;stroke-linecap:round}
 .zk-arc{fill:none;stroke:var(--zs);stroke-width:5;stroke-linecap:round}
 .zk-rg{fill:none;stroke:var(--zs-ghost);stroke-width:2.5;stroke-linecap:round}
@@ -78,7 +91,7 @@
 
 /* the fader: a slot, a lime fill from the bottom, a cap */
 .mc.fader{height:100%}
-.mc.fader .w{width:44px;flex:1 0 auto;min-height:112px}
+.mc.fader .w{width:44px;flex:1 1 112px;min-height:44px}
 .mc.fader .w .fx{position:absolute;left:0;right:0;top:12px;bottom:12px}
 .mc.fader .w .ft{position:absolute;left:50%;top:-3px;bottom:-3px;width:6px;margin-left:-3px;border-radius:3px;background:var(--z-slot)}
 .mc.fader .w .ff{position:absolute;left:50%;bottom:-2px;width:3px;margin-left:-1.5px;border-radius:2px;background:var(--zs)}

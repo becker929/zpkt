@@ -258,6 +258,16 @@ pages (`contrib/mixdesk/desk.json`) and a made surface.
 - **All 20 slots are always drawn, each in its physical place**: knobs 1–4 over 5–8, the four faders to their right,
   the 8 pads in one row below. Where 8 columns of 44 px targets do not fit (the panel's own box is 440 px or less: a
   phone, and a 768 px tablet beside the Hear bar) it folds in half: knobs over pads 1–4, then faders over pads 5–8.
+- **Nothing scrolls** (Anthony, 25 November 2026: "This app must have zero scrolling"). The Desk has no scroll:
+  the title, the paging row and the whole map are on screen at every size from 360 x 640 up. The map takes the
+  height that is left and its controls give way down to 44 px (`controls.css`); the page measures it (`fitPanel`)
+  and, when the comfortable sizes do not fit, puts labels on one line (`.tight`). Where a folded map still does not
+  fit (a phone), it shows one face at a time: the knobs over pads 1 to 4, or the faders over pads 5 to 8, with a
+  two-key switch in the paging row. A page with compare states opens on the face with its pads. On a phone under
+  720 px tall the Hear bar keeps the song's facts and the playhead; the spectrum and the level give the Desk room.
+- **The paging row** (under 1100 px; wider, the list of Pages is the side column) is the last row of the Desk:
+  the page before, "13 / 15", the page after, and the face switch. The numbered buttons of a Page with more than
+  one MiniLab page are at the right of the title. `tests/app/test_zero_scroll.py` checks all of it at six sizes.
 - **A mapped slot is a live control.** A pad is a key. A knob or a fader is dragged up and down. The drag is
   relative: the control moves from where it is, never jumps to the pointer, and 200 px take it across its range.
   A mouse moves it from the first pixel. A finger has 4 px to say whether it drags or swipes, and its travel

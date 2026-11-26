@@ -301,7 +301,7 @@ def test_a_missing_target_is_a_greyed_control_that_does_not_move(browser, rig):
     pg = browser.new_page(viewport={"width": 390, "height": 900})
     pg.goto(rig.url + "/app/")
     pg.wait_for_selector("#panel .mc.live")
-    pg.click('[aria-label="Ghosts"]')
+    pg.evaluate("window.zpkt.armPage(window.zpkt.S.desk.pages.findIndex(p => p.name === 'Ghosts'))")
     pg.wait_for_selector(".mc.missing")
     grey = pg.locator(".mc.missing")
     assert grey.count() == 1 and "Ghost" in grey.get_attribute("title")
