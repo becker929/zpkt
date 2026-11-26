@@ -53,6 +53,9 @@ svg{display:block}
 .chip.solo{border-color:var(--pind)}.chip.solo>b{background:var(--pin);color:#fff}
 .chip.mute{border-color:var(--bad)}.chip.mute>b{background:var(--bad);color:var(--bg)}
 .chip.going{opacity:.4}
+.key.ask{animation:key-ask .5s ease-in-out infinite alternate}
+@keyframes key-ask{from{box-shadow:inset 0 0 0 2.5px var(--ink)}to{box-shadow:inset 0 0 0 2.5px transparent}}
+@media (prefers-reduced-motion:reduce){.key.ask{animation:none;box-shadow:inset 0 0 0 2.5px var(--ink)}}
 #flagpop{position:absolute;z-index:40;right:8px;bottom:120px;width:min(300px,calc(100% - 16px));background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:8px;display:flex;flex-direction:column;gap:6px;box-shadow:var(--shadow)}
 #flagpop[hidden]{display:none}
 #flagpop .chip{max-width:none;justify-content:flex-start}#flagpop .chip>span{flex:1;text-align:left}
@@ -354,7 +357,7 @@ select{font:inherit;color:inherit;background:var(--panel);border:1px solid var(-
 "use strict";
 const $ = s => document.querySelector(s);
 const I = n => `<svg width="22" height="22"><use href="#i-${n}"/></svg>`;
-const S = {state: null, desk: null, hear: {hearing: "now", changed: 0, keys: [], match: true, monitor: {slot: "W", ref: "C1"}, pin: "start"},
+const S = {state: null, desk: null, asked: {}, hear: {hearing: "now", changed: 0, keys: [], match: true, monitor: {slot: "W", ref: "C1"}, pin: "start"},
            hist: {entries: [], can_undo: false, can_redo: false}, meter: null, sheet: false, flash: {},
            layouts: {},
            tab: "desk", song: {view: null, loaded: false, sel: null}, page: null,
@@ -553,14 +556,14 @@ function renderBottom() {
   // each group is drawn only when it changes, so Play is the same button while Undo's words come and go
   // Play (from where the playhead is: the start, after Stop) or Pause; Stop goes back to the start; then what loops.
   const spans = st.loops || {}, key = (name, label, words) => `<button class="key sm ${st.loop === name ? "on" : ""}" data-loop="${name}" aria-pressed="${st.loop === name}" aria-label="Loop ${words}" ${spans[name] ? "" : "disabled"}>${label}</button>`;
-  setHtml($("#tgrp"), `<button class="key ${st.playing ? "on" : ""}" id="kplay" aria-label="${st.playing ? "Pause" : "Play"}">${I(st.playing ? "pause" : "play")}</button>
-    <button class="key sm" id="kstop" aria-label="Stop and go back to the start">${I("stop")}</button>
+  setHtml($("#tgrp"), `<button class="key ${st.playing ? "on" : ""} ${S.asked.play ? "ask" : ""}" id="kplay" aria-busy="${!!S.asked.play}" aria-label="${st.playing ? "Pause" : "Play"}">${I(st.playing ? "pause" : "play")}</button>
+    <button class="key sm ${S.asked.stop ? "ask" : ""}" id="kstop" aria-busy="${!!S.asked.stop}" aria-label="Stop and go back to the start">${I("stop")}</button>
     <div class="seg" id="loops" role="group" aria-label="Loop"><span class="key sm" aria-hidden="true" style="min-width:0;padding:0 6px;cursor:default"><svg width="15" height="15"><use href="#i-loop"/></svg></span>${key("whole", "All", "the whole song")}${key("build", "Start", "the beginning")}${key("drop", "Peak", "the peak")}</div>`);
   setHtml($("#flags"), flagsHtml());
   // Compare, in the play bar: A is the mix now, B the pinned mix (a checkpoint chosen in History, else the mix as the
   // desk first saw it), C the reference. One of them is heard.
   const hr = S.hear, pinName = hr.pin === "start" ? "the mix as it was first" : hr.pin === "pin" ? "the pinned mix" : cpLabel(hr.pin, baseAt(hr.pin));
-  const ab = (what, letter, words, ok) => `<button class="key sm ${hr.hearing === what ? "on" : ""}" data-hear="${what}" aria-pressed="${hr.hearing === what}" aria-label="${esc(words)}" ${ok ? "" : "disabled"}>${letter}</button>`;
+  const ab = (what, letter, words, ok) => `<button class="key sm ${hr.hearing === what ? "on" : ""} ${S.asked["hear:" + what] ? "ask" : ""}" data-hear="${what}" aria-pressed="${hr.hearing === what}" aria-busy="${!!S.asked["hear:" + what]}" aria-label="${esc(words)}" ${ok ? "" : "disabled"}>${letter}</button>`;
   setHtml($("#abgrp"), `<div class="seg" id="abc" role="group" aria-label="Compare">${ab("now", "A", "A: the mix now", true)}${ab("pin", "B", "B: " + pinName, true)}${ab("ref", "C", "C: the reference", Object.keys(st.gains || {}).length > 0)}</div>`);
   setHtml($("#hgrp"), `<button class="key sm ${S.hist.can_undo ? "" : "off"}" id="kundo" aria-label="Undo${esc(said(u))}" ${S.hist.can_undo ? "" : "disabled"}>${I("undo")}</button>
     <button class="key sm ${S.hist.can_redo ? "" : "off"}" id="kredo" aria-label="Redo${esc(said(r))}" title="${esc(r ? `${r.label} ${r.value}` : "")}" ${S.hist.can_redo ? "" : "disabled"}>${I("redo")}</button>
@@ -1164,6 +1167,9 @@ function cpLabel(name, at) {
   if (/^start-\d{8}-\d{4}$/.test(name)) return "Start of session" + (when ? ", " + when : "");
   if (/^(v|cp-)\d{6}$/.test(name) || name === "pin") return when || "Checkpoint";
   if (/^before-revert-\d{6}$/.test(name)) return "Before going back" + (when ? ", " + when : "");
+  // the version saved before a batch of changes (live.change, live.propose): by the assistant in a chat, or by a caller
+  if (/^before-ask-.+-\d{6}$/.test(name)) return "Before the assistant’s change" + (when ? ", " + when : "");
+  if (/^before-[a-z]+-live-[a-z]+-\d+-\d{6}$/.test(name)) return "Before a batch" + (when ? ", " + when : "");
   if ((m = /^before-(.+)-\d{6}$/.exec(name))) return `Before “${m[1].replace(/-+/g, " ")}”`;
   return name;
 }
@@ -1799,6 +1805,13 @@ function showHistory() {
 }
 // History drawn again though nothing in it changed (another part of it is asked for, or its box has another size).
 function redrawHist() { for (const id of ["#histdock", "#sheet"]) $(id).__html = null; renderHist(); }
+// A press on a transport or a compare key shows at once: the key pulses until Live has answered (a call takes Live
+// up to a second or two to get to, and until then nothing else on the page would move).
+async function asked(id, work) {
+  if (S.asked[id]) return;
+  S.asked[id] = true; renderBottom();
+  try { return await work(); } finally { delete S.asked[id]; renderBottom(); }
+}
 // A tap on a step of the history marks it as the point to go back to (and shows the button that does it).
 function pickRow(id) { S.histSel = S.histSel === id ? null : id; renderHist(); }
 document.addEventListener("click", async e => {
@@ -1830,8 +1843,8 @@ document.addEventListener("click", async e => {
   if (t.dataset.face) { S.face = t.dataset.face; drawPager(); return fitPanel(); }
   if (t.id === "viewsw") { S.view = t.dataset.view; try { localStorage.setItem("zpkt.view", S.view); } catch (err) { /* private mode */ } drawPager(); return fitPanel(); }
   if (t.dataset.page !== undefined) return armPage(+t.dataset.page);
-  if (t.id === "kplay") return command("transport", {action: S.state.playing ? "pause" : "play"});
-  if (t.id === "kstop") return command("transport", {action: "stop"});
+  if (t.id === "kplay") return asked("play", () => command("transport", {action: S.state.playing ? "pause" : "play"}));
+  if (t.id === "kstop") return asked("stop", () => command("transport", {action: "stop"}));
   if (t.dataset.loop) {  // the lit key again turns looping off; shown at once, Live's report settles it
     const to = S.state.loop === t.dataset.loop ? "off" : t.dataset.loop, was = S.state.loop;
     // While the command is on its way Live reports each step of it (the brace's start, its length, the switch): the
@@ -1846,7 +1859,7 @@ document.addEventListener("click", async e => {
     }
     return;
   }
-  if (t.dataset.hear) return command("monitor.hear", {hearing: t.dataset.hear});
+  if (t.dataset.hear) return asked("hear:" + t.dataset.hear, () => command("monitor.hear", {hearing: t.dataset.hear}));
   if (t.dataset.pinb) return command("monitor.pin", S.hear.pin === t.dataset.pinb ? {clear: true} : {name: t.dataset.pinb});  // a tap on the lit B lets it go
   if (t.id === "kundo" || t.id === "hundo") return stepHistory("undo");
   if (t.id === "kredo" || t.id === "hredo") return stepHistory("redo");
