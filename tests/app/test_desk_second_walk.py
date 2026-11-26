@@ -314,7 +314,10 @@ def test_changed_counts_from_the_last_checkpoint_saved_or_gone_back_to(browser, 
     rig.command("history.checkpoint", {"name": "later", "new": True})
     rig.command("mix.set", {"norms": [[VOL, 0.6]]})
     pg.wait_for_function("document.querySelector('#chgbase').textContent.trim() === 'later'")
-    pg.locator('#hrows [data-back="mara clean kick"]').click()
+    back = pg.locator('#hrows [data-back="mara clean kick"]')
+    if not back.count():  # the rows are paged: it is on the part after
+        pg.click('#hpgs [data-histstep="1"]')
+    back.click()
     pg.wait_for_function("document.querySelector('#chgbase').textContent.trim() === 'mara clean kick'")
     assert pg.locator("#chgn").inner_text() == "0 changed"  # the walkthrough's "1 changed" after going back
     hear = rig.get("/api/hear")[1]

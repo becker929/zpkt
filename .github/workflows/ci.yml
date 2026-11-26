@@ -83,7 +83,7 @@ jobs:
         run: >
           uv run --all-extras pytest -q -p no:cacheprovider -n auto --reruns 2
           tests/app/test_flows.py tests/app/test_compare_page.py tests/app/test_desk_touch.py
-          tests/app/test_desk_second_walk.py tests/app/test_zero_scroll.py
+          tests/app/test_desk_second_walk.py tests/app/test_zero_scroll.py tests/app/test_transport_page.py
           tests/app/test_layout.py tests/app/test_shell_fits.py tests/app/test_page_shell.py
           tests/app/test_shell_nav.py tests/app/test_listen_page.py
           tests/app/test_ask_flow.py tests/app/test_ask_tab.py tests/app/test_song_shell.py tests/app/test_flow_lock_banner.py

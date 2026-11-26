@@ -98,7 +98,7 @@ OVERFLOW = """() => {
   });
   const clipped = [...document.querySelectorAll('#panel .mc.live > .l')].filter(l => l.scrollHeight > l.clientHeight + 1).map(l => l.textContent);
   const small = [...document.querySelectorAll('#panel .mc .w')].map(w => w.getBoundingClientRect())
-    .filter(r => r.width < 44 || r.height < 44).length;
+    .filter(r => r.width && (r.width < 44 || r.height < 44)).length;  // a face not shown has no box
   return {page: document.documentElement.scrollWidth - innerWidth, out, clipped, small,
           slots: document.querySelectorAll('#panel .mc').length};
 }"""

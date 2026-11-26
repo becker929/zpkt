@@ -421,6 +421,11 @@ class Desk:
             s.start_playing()
         elif action == "pause":
             s.stop_playing()
+        elif action == "stop":  # stop, and back to the start of what is played (the loop's start, or the song's)
+            s.stop_playing()
+            pos = core.stop_position(s.loop, s.loop_start)
+            s.current_song_time = pos
+            s.start_time = pos
         elif action == "seek":
             pos = core.seek_position(beat)
             s.current_song_time = pos
@@ -430,10 +435,15 @@ class Desk:
             if loop == "off":
                 s.loop = False
             else:
-                a, n = core.LOOPS["build" if loop == "build" else "drop"]
+                a, n = core.LOOPS[loop if loop in core.LOOPS else "drop"]
                 s.loop_start = a
                 s.loop_length = n
                 s.loop = True
+                jump = core.loop_jump(s.current_song_time, a, n)
+                if jump is not None:  # outside the loop: to its start; inside it, Live plays on undisturbed
+                    s.current_song_time = jump
+                    if not s.is_playing:
+                        s.start_time = jump
         self.emit(
             self._loop_message(loop)
             if action == "loop"
@@ -823,6 +833,7 @@ class Desk:
             "playing": bool(self.song.is_playing),
             "loop": self._loop_mode(),
             "loop_span": self._loop_span(),
+            "loops": dict((name, [a, n]) for name, (a, n) in core.LOOPS.items()),
             "flags": self.flags(names=True),
             "meter": any(d.name == METER_DEVICE for d in self.song.master_track.devices),
             "set": self._set_name(),

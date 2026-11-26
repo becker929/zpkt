@@ -265,7 +265,7 @@ def transport(desk: Desk, cmd: Command) -> Reply:
         if kind not in D.LOOPS:
             return 400, {"error": "bad loop"}
         desk.monitor.transport("loop", loop=kind)
-    elif action in ("play", "pause"):
+    elif action in ("play", "pause", "stop"):
         desk.monitor.transport(action)
     else:
         return 400, {"error": "bad action"}

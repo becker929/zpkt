@@ -11,7 +11,8 @@ PICKUP = 0.03  # a fader picks up within this distance of the value (0..1)
 # The desk's set's timeline, the default of every function that needs one; another set passes its own end and loops.
 END_BEAT = 160.0  # the arrangement is 40 bars at 160 BPM
 DROP_BEAT = 64.0  # the build is bars 1-16, the drop starts at bar 17
-LOOPS = {"build": (0.0, DROP_BEAT), "drop": (DROP_BEAT, END_BEAT - DROP_BEAT)}  # mode -> (start, length) in beats
+# mode -> (start, length) in beats: the whole song, its beginning (the build) and its peak (the drop)
+LOOPS = {"whole": (0.0, END_BEAT), "build": (0.0, DROP_BEAT), "drop": (DROP_BEAT, END_BEAT - DROP_BEAT)}
 SLOTS_V = 2  # slots A, B, W, C (v1 had B = the live mix); a reload maps a v1 "B" to "W"
 PAGE_PADS = 8  # the pads; bank A and bank B do the same (Anthony, 25 Nov 2026: pages, never pad banks)
 
@@ -128,6 +129,17 @@ def loop_mode(loop_on, start, length, loops=LOOPS):
         if abs(start - a) < 0.5 and abs(length - n) < 0.5:
             return mode
     return "on"
+
+
+def loop_jump(position, start, length):
+    """Where the playhead goes when a loop is set: the loop's start if it is outside the loop, else None (it stays,
+    so a loop set while Live plays inside it does not interrupt)."""
+    return None if start <= position < start + length else float(start)
+
+
+def stop_position(loop_on, loop_start):
+    """Where Stop leaves the playhead: the start of what is played (the loop's start, or the song's)."""
+    return float(loop_start) if loop_on else 0.0
 
 
 def seek_position(beat, end=END_BEAT):

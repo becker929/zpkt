@@ -92,6 +92,15 @@ port, 8984 (below). `ZPKT_DESK_URL` names the web server (pages, `/app/`), `ZPKT
   dB below full scale. `listen.js` sends it to the page as a `zpkt-listen` event. With Listen off the meter is
   hatched and says so ("Listen paused" when it was on on the page before, the button's own word). It reads samples
   and changes none.
+- **The transport** is on the Hear bar, on every tab: Play (from where the playhead is; Pause keeps the place),
+  Stop (stops and goes back to the start of what is played: the loop's start, or bar 1), and what loops, as three
+  keys: All (the whole song), Start (its beginning) and Peak. A key sets Live's loop to that span and turns
+  looping on; the lit key again turns it off. Set while Live plays inside the span, nothing is interrupted;
+  outside it, the playhead goes to the span's start. The spans are the desk's own for its set
+  (`pagercore.LOOPS`: whole, build, drop) and come with the pager's snapshot as `loops`; a span the set does not
+  define is a key that cannot be pressed. The strip under the song's facts shows the whole length, the spans, the
+  one that loops and the playhead. All of it is the `transport` command (`play`, `pause`, `stop`, `seek`, `loop`
+  with `off`, `whole`, `build` or `drop`): a move of the transport, never a History row.
 - **Solo and mute** are lit beside Play whenever a track is soloed or muted, by anyone, in Live or here. The pager
   listens to every track's solo and mute (never the monitor's own tracks) and sends the whole list on a change
   (`{"t": "flags"}`); the state holds it as `solo` and `mute`. Up to two tracks show by name, and a tap on a name

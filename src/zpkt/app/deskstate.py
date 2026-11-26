@@ -14,7 +14,7 @@ from typing import Any, TypedDict
 from zpkt.app import protocol as P
 
 SLOTS = ("A", "B", "W", "C")  # what is heard: the original render, the recipe's render, the working mix, the reference
-LOOPS = ("off", "build", "drop")
+LOOPS = ("off", "whole", "build", "drop")  # the transport's loop: none, the whole song, its beginning, its peak
 
 
 class MonitorChoice(TypedDict):
@@ -62,6 +62,7 @@ class DeskState(TypedDict):
     sig: list[int] | None  # the time signature, [4, 4]
     length: float | None  # the arrangement's length in beats (its last event)
     loop_span: list[float] | None  # the loop brace, [start, length] in beats; None until the pager says
+    loops: dict[str, list[float]]  # the spans the transport can loop, by name: [start, length] in beats
     solo: list[str]  # the tracks that are soloed, by their names in state keys
     mute: list[str]  # ... and muted (the monitor's own tracks are never listed)
     meter: bool | None  # whether the spectrum's device is on Main; None until the pager says
@@ -86,6 +87,7 @@ def initial() -> DeskState:
         "sig": None,
         "length": None,
         "loop_span": None,
+        "loops": {},
         "solo": [],
         "mute": [],
         "meter": None,
@@ -174,6 +176,7 @@ SNAPSHOT_KEYS = (
     "sig",
     "length",
     "loop_span",
+    "loops",
     "meter",
 )
 

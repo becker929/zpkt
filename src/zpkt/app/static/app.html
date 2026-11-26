@@ -57,10 +57,15 @@ svg{display:block}
 #chgbase{display:inline-flex;align-items:center;gap:3px;min-width:0;overflow:hidden;text-overflow:ellipsis;border-left:1px solid currentColor;padding-left:6px;opacity:.75}
 #chgbase:empty{display:none}
 #looppill{display:inline-flex;align-items:center;gap:4px}
-#specbox,#loopbox,#livebox,#tlloop{display:contents}
+#specbox,#loopbox,#livebox,#tlloop,#tlparts{display:contents}
 #awaybox[hidden]{display:none}
 .tl{height:16px;border-radius:4px;background:var(--well);position:relative;overflow:hidden}
 .tl .ph{position:absolute;top:0;bottom:0;width:2px;background:var(--ink)}
+.tl .part{position:absolute;top:0;bottom:0;box-shadow:inset 2px 0 0 var(--k3)}
+.tl .part:nth-child(even){background:var(--k3);opacity:.35}
+/* the transport: play or pause, stop, and what loops (the whole song, its beginning, its peak; none lit: no loop) */
+#tgrp .seg .key{min-width:44px;padding:0 9px;font-size:13px}
+#tgrp .seg svg{flex:none;opacity:.6}
 .tl .lp{position:absolute;top:0;bottom:0;background:var(--acc);opacity:.55;border-left:2px solid var(--accd);border-right:2px solid var(--accd)}
 .spc{display:flex;align-items:flex-end;gap:2px;height:40px}
 .spc:empty{background:var(--well);border-radius:4px}
@@ -119,7 +124,9 @@ svg{display:block}
 .pgs[hidden]{display:none}
 .pgs .pgn{font:600 12px ui-monospace,Menlo,monospace;color:var(--mute);flex:1;text-align:center;white-space:nowrap}
 .pgs .key svg.back{transform:rotate(180deg)}
-#sheet.hist{height:62%}
+#sheet.hist{height:max(62%,min(100%,340px));padding-bottom:10px}
+#sheet.hist .cpf{flex-wrap:nowrap}#sheet.hist .cpf input{min-width:0}
+.shh{display:flex;align-items:center;gap:8px}.shh h3{flex:1}
 .he{display:flex;gap:6px 8px;font-size:13px;padding:7px 0;border-bottom:1px solid var(--cl);align-items:center;flex-wrap:wrap}
 .he .ht{flex:1;min-width:150px;display:flex;flex-direction:column;gap:2px;overflow-wrap:anywhere}
 .he .hv{font:12px ui-monospace,Menlo,monospace;color:var(--mute);white-space:nowrap}
@@ -255,6 +262,7 @@ select{font:inherit;color:inherit;background:var(--panel);border:1px solid var(-
 </style></head><body>
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
 <symbol id="i-play" viewBox="0 0 24 24"><path d="M7 4l13 8-13 8z" fill="currentColor"/></symbol>
+<symbol id="i-pause" viewBox="0 0 24 24"><rect x="6" y="5" width="4.5" height="14" rx="1" fill="currentColor"/><rect x="13.5" y="5" width="4.5" height="14" rx="1" fill="currentColor"/></symbol>
 <symbol id="i-stop" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="1.5" fill="currentColor"/></symbol>
 <symbol id="i-undo" viewBox="0 0 24 24"><path d="M9 14L4 9l5-5M4 9h10.5a5.5 5.5 0 0 1 0 11H11" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
 <symbol id="i-redo" viewBox="0 0 24 24"><path d="M15 14l5-5-5-5M20 9H9.5a5.5 5.5 0 0 0 0 11H13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
@@ -355,7 +363,7 @@ function renderTop() {
   if (!$("#ident")) top.innerHTML = `<div class="hr" id="ident"></div><div class="hr" id="awaybox" hidden></div>
     <div class="hr"><span class="nm" id="barno"></span><span id="loopbox"></span><span id="livebox"></span>
     <button class="ptap" id="chgpill" aria-label="History"><span class="pill" id="chgbox"><span id="chgn"></span><span id="chgbase"></span></span></button></div>
-    <div class="tl"><span id="tlloop"></span><div class="ph"></div></div>
+    <div class="tl" id="strip" role="img" aria-label="The song, its loop and the playhead"><span id="tlparts"></span><span id="tlloop"></span><div class="ph"></div></div>
     <div id="specbox"></div>
     <div class="lvl" id="lvl" role="meter" aria-label="Output level" aria-valuemin="${LV.floor}" aria-valuemax="0"><span class="lt">Level</span><span class="lb"><i></i><b></b></span><span class="ln"></span></div>`;
   const sg = songOf();
@@ -367,6 +375,9 @@ function renderTop() {
   setHtml($("#awaybox"), away ? `<button class="key sm" id="opendesk" data-open="${esc(st.desk_set)}" aria-haspopup="dialog">Open ${esc(st.desk_set)}…</button>` : "");
   setHtml($("#loopbox"), !st.loop || st.loop === "off" ? "" : `<span class="pill" id="looppill" title="${esc(st.loop === "on" ? "loop" : st.loop)}" aria-label="Loop${lb ? `, bars ${lb[0]} to ${lb[1]}` : ""}${st.loop === "on" ? "" : ": " + esc(st.loop)}"><svg width="13" height="13"><use href="#i-loop"/></svg>${lb ? `${lb[0]}–${lb[1]}` : esc(st.loop === "on" ? "" : st.loop)}</span>`);
   setHtml($("#livebox"), `<span class="pill ${live ? "" : "warn"}" id="livepill">${live ? "Live" : esc(st.live)}</span>`);
+  // the strip under the facts: the song's whole length, the spans that can loop, the one that does, the playhead
+  const beats = (sg.bars || 0) * (sg.beats_per_bar || 4), parts = Object.entries(st.loops || {}).filter(([name]) => name !== "whole").sort((a, b) => a[1][0] - b[1][0]);
+  setHtml($("#tlparts"), beats ? parts.map(([name, [a, n]]) => `<i class="part" data-span="${esc(name)}" style="left:${(a / beats * 100).toFixed(2)}%;width:${(Math.min(beats - a, n) / beats * 100).toFixed(2)}%"></i>`).join("") : "");
   setHtml($("#tlloop"), lb && sg.bars ? `<i class="lp" style="left:${((lb[0] - 1) / sg.bars * 100).toFixed(2)}%;width:${((Math.min(sg.bars, lb[1]) - lb[0] + 1) / sg.bars * 100).toFixed(2)}%"></i>` : "");
   const made = setHtml($("#specbox"), mode === "bars" ? `<div class="spc" id="spec" role="img" aria-label="Spectrum">${S.meter.db.map(() => "<i></i>").join("")}</div>`
     : mode === "none" ? ""
@@ -481,7 +492,11 @@ function renderBottom() {
   const u = S.hist.can_undo ? stepWords(S.hist.undo) : null, r = S.hist.can_redo ? stepWords(S.hist.redo) : null;
   const said = w => w ? `: ${w.label}${w.value ? " to " + w.value : ""}` : "";
   // each group is drawn only when it changes, so Play is the same button while Undo's words come and go
-  setHtml($("#tgrp"), `<button class="key ${st.playing ? "on" : ""}" id="kplay" aria-label="${st.playing ? "Stop" : "Play"}">${I(st.playing ? "stop" : "play")}</button>`);
+  // Play (from where the playhead is: the start, after Stop) or Pause; Stop goes back to the start; then what loops.
+  const spans = st.loops || {}, key = (name, label, words) => `<button class="key sm ${st.loop === name ? "on" : ""}" data-loop="${name}" aria-pressed="${st.loop === name}" aria-label="Loop ${words}" ${spans[name] ? "" : "disabled"}>${label}</button>`;
+  setHtml($("#tgrp"), `<button class="key ${st.playing ? "on" : ""}" id="kplay" aria-label="${st.playing ? "Pause" : "Play"}">${I(st.playing ? "pause" : "play")}</button>
+    <button class="key sm" id="kstop" aria-label="Stop and go back to the start">${I("stop")}</button>
+    <div class="seg" id="loops" role="group" aria-label="Loop"><span class="key sm" aria-hidden="true" style="min-width:0;padding:0 6px;cursor:default"><svg width="15" height="15"><use href="#i-loop"/></svg></span>${key("whole", "All", "the whole song")}${key("build", "Start", "the beginning")}${key("drop", "Peak", "the peak")}</div>`);
   setHtml($("#flags"), flagsHtml());
   setHtml($("#hgrp"), `<button class="key sm ${S.hist.can_undo ? "" : "off"}" id="kundo" aria-label="Undo${esc(said(u))}" ${S.hist.can_undo ? "" : "disabled"}>${I("undo")}${u && u.label ? `<span class="uw" id="undowhat"><b>${esc(u.label)}</b><i>${esc(u.value)}</i></span>` : ""}</button>
     <button class="key sm ${S.hist.can_redo ? "" : "off"}" id="kredo" aria-label="Redo${esc(said(r))}" title="${esc(r ? `${r.label} ${r.value}` : "")}" ${S.hist.can_redo ? "" : "disabled"}>${I("redo")}</button>
@@ -939,11 +954,10 @@ function renderHist() {
 function histHtml(docked) {
   const all = histRows();
   S.histAt = Math.max(0, Math.min(S.histAt, all.length - 1));
-  return `${docked ? '<span class="tag">History</span>' : "<h3>History</h3>"}<div class="hl" id="hrows" data-total="${all.length}">${all.slice(S.histAt, S.histAt + 24).join("") || '<div class="he" id="hnone">No changes yet.</div>'}</div>
+  return `${docked ? '<span class="tag">History</span>' : `<div class="shh"><h3>History</h3><button class="key sm" id="hclose" aria-label="Close"><svg width="18" height="18"><use href="#i-x"/></svg></button></div>`}<div class="hl" id="hrows" data-total="${all.length}">${all.slice(S.histAt, S.histAt + 24).join("") || '<div class="he" id="hnone">No changes yet.</div>'}</div>
     <div class="pgs" id="hpgs" role="group" aria-label="Older and newer" hidden><button class="key sm" type="button" data-histstep="-1" aria-label="Newer"><svg class="back" width="18" height="18"><use href="#i-more"/></svg></button><span class="pgn" id="hpgn"></span><button class="key sm" type="button" data-histstep="1" aria-label="Older"><svg width="18" height="18"><use href="#i-more"/></svg></button></div>
     <form class="cpf" id="cpform"><input id="cpname" aria-label="Name for a new checkpoint" placeholder="Checkpoint name (${dayTime(Date.now() / 1000)})" maxlength="56" autocomplete="off" enterkeyhint="done">
-    <button class="key sm ${S.saving ? "spin" : ""}" id="hver" type="submit" ${S.saving ? "disabled" : ""}>${S.saving ? "Saving…" : `<svg width="18" height="18"><use href="#i-flag"/></svg>Save checkpoint`}</button></form>
-    ${docked ? "" : `<div class="hr"><button class="key sm ${S.hist.can_undo ? "" : "off"}" id="hundo" ${S.hist.can_undo ? "" : "disabled"}>${I("undo")}Undo</button><button class="key sm ${S.hist.can_redo ? "" : "off"}" id="hredo" ${S.hist.can_redo ? "" : "disabled"}>${I("redo")}Redo</button><span class="sp"></span><button class="key sm" id="hclose">Close</button></div>`}`;
+    <button class="key sm ${S.saving ? "spin" : ""}" id="hver" type="submit" aria-label="Save checkpoint" ${S.saving ? "disabled" : ""}>${S.saving ? "Saving…" : `<svg width="18" height="18"><use href="#i-flag"/></svg>Save`}</button></form>`;
 }
 // ---- History: every change with its values, undone ones greyed, and checkpoints as places to go back to -------------
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
@@ -1512,6 +1526,14 @@ document.addEventListener("click", async e => {
   if (t.dataset.face) { S.face = t.dataset.face; drawPager(); return fitPanel(); }
   if (t.dataset.page !== undefined) return armPage(+t.dataset.page);
   if (t.id === "kplay") return command("transport", {action: S.state.playing ? "pause" : "play"});
+  if (t.id === "kstop") return command("transport", {action: "stop"});
+  if (t.dataset.loop) {  // the lit key again turns looping off; shown at once, Live's report settles it
+    const to = S.state.loop === t.dataset.loop ? "off" : t.dataset.loop, was = S.state.loop;
+    S.state.loop = to; renderBottom();
+    const r = await command("transport", {action: "loop", loop: to});
+    if (!r.ok) { S.state.loop = was; renderBottom(); }
+    return;
+  }
   if (t.id === "kundo" || t.id === "hundo") return stepHistory("undo");
   if (t.id === "kredo" || t.id === "hredo") return stepHistory("redo");
   if (t.id === "khist") return showHistory();
@@ -1569,7 +1591,7 @@ function apply(m) {
   else if (m.t === "loop" && S.state) {
     S.state.loop = m.loop;
     if (m.start != null && m.length != null) S.state.loop_span = [m.start, m.length];
-    renderTop(); return updateSongMarks();
+    renderTop(); renderBottom(); return updateSongMarks();
   }
   else if (m.t === "page" && S.state) S.state.page = m.page;
   else if (m.t === "mon" && S.state) S.state.monitor = {slot: m.slot, ref: m.ref};
@@ -1592,6 +1614,6 @@ loadDesk().then(connect);
 // Crossing the desktop breakpoint draws or drops the side column.
 window.matchMedia("(min-width:1100px)").addEventListener("change", render);
 route();
-window.zpkt = {S, command, armPage, wait: WAIT, own: OWN, textAt, placeOf, cpLabel, litState, roundPlace, stepPlace, valueAt, loopBars};
+window.zpkt = {S, redraw: () => render(), command, armPage, wait: WAIT, own: OWN, textAt, placeOf, cpLabel, litState, roundPlace, stepPlace, valueAt, loopBars};
 </script>
 <script type="module" src="/app/shell/listen.js"></script></body></html>

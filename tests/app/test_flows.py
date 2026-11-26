@@ -59,7 +59,16 @@ def test_the_hear_bar_has_no_now_pin_or_ref(rig, page):
     """Now, Pin and Ref are off the page (25 November 2026); the monitor's commands stay on the bus."""
     assert page.locator("[data-hear], #kmkpin, #hearpill, #banner").count() == 0
     assert "matched" not in page.locator("#htop").inner_text()
-    assert [b.get_attribute("id") for b in page.locator("#hkeys button").all()] == ["kplay", "kundo", "kredo", "khist"]
+    assert [b.get_attribute("id") for b in page.locator("#hkeys button").all()] == [
+        "kplay",
+        "kstop",
+        None,
+        None,
+        None,
+        "kundo",
+        "kredo",
+        "khist",
+    ]  # play, stop, the three loops, history
     rig.desk.bus.submit(Command("monitor.hear", "minilab", {"hearing": "pin"}))  # still a command
     assert rig.desk.monitor.message()["hearing"] == "pin"
 
@@ -80,6 +89,6 @@ def test_flow_6_undo_the_history_names_who_and_an_agent_group_undoes_as_one(rig,
         rows += page.locator(".he").all_inner_texts()
     assert any("agent" in r and "make the kick sit back" in r for r in rows)
     assert any("sys" in r and "Before “make the kick sit back”" in r for r in rows)  # the automatic checkpoint, by name
-    page.click("#hundo")
+    page.click("#kundo")  # Undo is on the Hear bar, under the sheet
     page.wait_for_function("document.querySelector('#chgn').textContent.startsWith('0')")  # all three at once
     assert page.locator("#chgn").inner_text() == "0 changed"
