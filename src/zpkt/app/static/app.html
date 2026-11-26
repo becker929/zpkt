@@ -119,8 +119,19 @@ svg{display:block}
 #sheet.hist .cpf{flex-wrap:nowrap}#sheet.hist .cpf input{min-width:0}
 #sheet.org{height:max(62%,min(100%,420px));padding-bottom:10px}
 .orgrow{display:flex;align-items:center;gap:6px;min-height:48px;padding:4px 0;border-bottom:1px solid var(--cl)}
-.orgrow .onm{flex:1;min-width:0;font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.orgrow .opad{font:600 11px ui-monospace,Menlo,monospace;color:var(--mute);border:1px solid var(--cl);border-radius:8px;padding:2px 6px;flex:none}
+.orgrow .onm{flex:1;min-width:0;min-height:44px;border:0;background:none;padding:0 4px;text-align:left;cursor:pointer;font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.orgrow.sel{background:var(--accbg)}
+.orgrow.gone{outline:1px solid var(--bad);border-radius:10px}
+.orgrow.dragging{position:relative;z-index:5;background:var(--panel);box-shadow:var(--shadow);border-radius:10px}
+.orgrow.mark-before{box-shadow:inset 0 3px 0 var(--accd)}.orgrow.mark-after{box-shadow:inset 0 -3px 0 var(--accd)}
+.orgacts{display:flex;gap:6px;flex-wrap:nowrap;padding:2px 0 6px 60px;border-bottom:1px solid var(--cl)}
+.orgacts .key{gap:6px}
+.key.danger{background:var(--bad);border-color:var(--bad);color:var(--bg)}
+/* a surface's thumbnail: the MiniLab's map, small; its mapped slots are lit; the number is its pad */
+.othumb{position:relative;flex:none;width:54px;height:44px;display:inline-flex;align-items:center;justify-content:center;border:1px solid var(--cl);border-radius:8px;background:var(--c2)}
+.othumb svg *{fill:var(--k3)}.othumb svg .on{fill:var(--ink)}
+.othumb i{position:absolute;right:-4px;top:-4px;min-width:16px;height:16px;border-radius:8px;background:var(--ink);color:var(--bg);font:700 10px/16px ui-monospace,Menlo,monospace;text-align:center;font-style:normal}
+.othumb.ohandle{cursor:grab;touch-action:none}
 .orgrow form{display:flex;gap:6px;flex:1;min-width:0;margin:0}
 .orgrow input{flex:1;min-width:0;height:44px;font:15px 'Helvetica Neue',Helvetica,Arial,sans-serif;border:1px solid var(--line);border-radius:10px;padding:0 10px;background:var(--panel);color:var(--ink);user-select:text;-webkit-user-select:text}
 .orgrow .key{padding:0 8px}
@@ -296,7 +307,7 @@ const S = {state: null, desk: null, hear: {hearing: "now", changed: 0, keys: [],
            pend: null, busy: 0, want: null,
            scales: {}, slots: [], fixed: {}, dirty: false, sideAt: null, saving: null, meterAt: 0, cmpAt: null,
            face: "k", faces: 1, songAt: 0, histAt: 0, histFit: 0, sideAt2: null, flagAt: 0, opening: null, histSel: null, daysOpen: {}, flagOpen: null, flagGone: {}, mjob: null, setJob: null, openName: "",
-           org: [], orgTab: "active", orgAt: 0, orgFit: 0, orgRen: null, orgDraft: "",
+           org: [], orgTab: "active", orgAt: 0, orgFit: 0, orgRen: null, orgDraft: "", orgSel: null, orgDel: null,
            level: {state: "off", mode: "", resume: false, db: -90, hold: -90, holdAt: 0}};
 const NO_MINILAB = "no MiniLab 3 in Live";  // Live is there and the desk works; only the controller is missing
 const METER_STALE = 3000;  // ms without a meter message before the spectrum is taken to be off
@@ -971,10 +982,10 @@ function fitOrg() {
   const list = $("#orows"), bar = $("#opgs");
   if (!list || !bar) return;
   const total = +list.dataset.total;
-  bar.hidden = !(S.orgAt > 0 || total > list.children.length);
+  bar.hidden = !(S.orgAt > 0 || total > list.querySelectorAll(":scope > .orgrow").length);
   if (list.scrollHeight > list.clientHeight + 1) bar.hidden = false;
   while (list.children.length > 1 && list.scrollHeight > list.clientHeight + 1) list.lastElementChild.remove();
-  S.orgFit = list.children.length;
+  S.orgFit = list.querySelectorAll(":scope > .orgrow").length;
   const more = S.orgAt + S.orgFit < total;
   bar.hidden = !(S.orgAt > 0 || more);
   $("#opgn").textContent = total ? `${S.orgAt + 1}–${S.orgAt + S.orgFit} / ${total}` : "";
@@ -989,34 +1000,48 @@ function renderOrg(force) {
   if (S.orgTab === "archived" && !archived.length) S.orgTab = "active";
   const list = S.orgTab === "archived" ? archived : active;
   S.orgAt = Math.max(0, Math.min(S.orgAt, Math.max(0, list.length - 1)));
-  const tabs = archived.length ? `<div class="seg" role="group" aria-label="Page list"><button class="key sm ${S.orgTab === "active" ? "on" : ""}" data-orgtab="active">Desk (${active.length})</button><button class="key sm ${S.orgTab === "archived" ? "on" : ""}" data-orgtab="archived">Archived (${archived.length})</button></div>` : "";
+  const tabs = `<div class="seg" role="group" aria-label="Which surfaces"><button class="key sm ${S.orgTab === "active" ? "on" : ""}" data-orgtab="active" aria-pressed="${S.orgTab === "active"}">Desk ${active.length}</button><button class="key sm ${S.orgTab === "archived" ? "on" : ""}" data-orgtab="archived" aria-pressed="${S.orgTab === "archived"}" ${archived.length ? "" : "disabled"}>Archived ${archived.length}</button></div>`;
   const rows = list.slice(S.orgAt, S.orgAt + 20).map((u, k) => {
-    const idx = S.orgAt + k;
+    const idx = S.orgAt + k, id = esc(u.id), name = esc(u.name), sel = S.orgSel === u.id;
     if (S.orgRen === u.id) {
-      return `<div class="orgrow" data-uid="${esc(u.id)}"><form id="orgform"><input id="orgname" aria-label="New page name" maxlength="40" autocomplete="off" enterkeyhint="done" value="${esc(S.orgDraft)}"><button class="key sm on" type="submit" aria-label="Save name">Save</button><button class="key sm" type="button" id="orgcancel" aria-label="Cancel rename">${I("x")}</button></form></div>`;
+      return `<div class="orgrow" data-uid="${id}">${thumb(u)}<form id="orgform"><input id="orgname" aria-label="Name" maxlength="40" autocomplete="off" enterkeyhint="done" value="${esc(S.orgDraft)}"><button class="key sm on" type="submit" aria-label="Save name">Save</button><button class="key sm" type="button" id="orgcancel" aria-label="Cancel">${I("x")}</button></form></div>`;
     }
-    const pad = !u.archived && u.pad ? `<span class="opad" title="MiniLab pad ${u.pad}">P${u.pad}</span>` : "";
-    const actions = u.archived
-      ? `<button class="key sm" data-orgren="${esc(u.id)}" aria-label="Rename ${esc(u.name)}"><svg width="18" height="18"><use href="#i-edit"/></svg></button><button class="key sm" data-orgrest="${esc(u.id)}" aria-label="Restore ${esc(u.name)}">Restore</button>`
-      : `<button class="key sm" data-orgmove="-1" data-uid="${esc(u.id)}" ${idx === 0 ? "disabled" : ""} aria-label="Move ${esc(u.name)} up"><svg class="up" width="18" height="18"><use href="#i-more"/></svg></button>`
-        + `<button class="key sm" data-orgmove="1" data-uid="${esc(u.id)}" ${idx === list.length - 1 ? "disabled" : ""} aria-label="Move ${esc(u.name)} down"><svg class="dn" width="18" height="18"><use href="#i-more"/></svg></button>`
-        + `<button class="key sm" data-orgren="${esc(u.id)}" aria-label="Rename ${esc(u.name)}"><svg width="18" height="18"><use href="#i-edit"/></svg></button>`
-        + `<button class="key sm" data-orgarch="${esc(u.id)}" ${active.length <= 1 ? "disabled" : ""} aria-label="Archive ${esc(u.name)}"><svg width="18" height="18"><use href="#i-arch"/></svg></button>`;
-    return `<div class="orgrow" data-uid="${esc(u.id)}">${pad}<span class="onm" title="${esc(u.name)}">${esc(u.name)}</span>${actions}</div>`;
+    if (S.orgDel === u.id) {  // the confirm shows the surface that goes: its map and its name
+      return `<div class="orgrow gone" data-uid="${id}" role="alertdialog" aria-label="Delete ${name}">${thumb(u)}<span class="onm">${name}</span><button class="key sm danger" data-orgdelgo="${id}">Delete</button><button class="key sm" type="button" id="orgcancel" aria-label="Cancel">${I("x")}</button></div>`;
+    }
+    // a row: its map (the handle to drag it by), its name (a tap shows what can be done with it), earlier, later
+    const moves = u.archived ? "" : `<button class="key sm" data-orgmove="-1" data-uid="${id}" ${idx === 0 ? "disabled" : ""} aria-label="Move ${name} earlier"><svg class="up" width="18" height="18"><use href="#i-more"/></svg></button>`
+      + `<button class="key sm" data-orgmove="1" data-uid="${id}" ${idx === list.length - 1 ? "disabled" : ""} aria-label="Move ${name} later"><svg class="dn" width="18" height="18"><use href="#i-more"/></svg></button>`;
+    const acts = !sel ? "" : `<div class="orgacts" role="group" aria-label="${name}"><button class="key sm" data-orgren="${id}"><svg width="18" height="18"><use href="#i-edit"/></svg>Rename</button>${
+      u.archived ? `<button class="key sm" data-orgrest="${id}">Restore</button>${u.kind === "desk" ? "" : `<button class="key sm" data-orgdel="${id}">Delete…</button>`}`
+        : `<button class="key sm" data-orgarch="${id}"><svg width="18" height="18"><use href="#i-arch"/></svg>Archive</button>`}</div>`;
+    return `<div class="orgrow ${sel ? "sel" : ""}" data-uid="${id}" data-idx="${idx}">${thumb(u, !u.archived)}<button class="onm" data-orgsel="${id}" aria-expanded="${sel}" title="${name}">${name}</button>${moves}</div>${acts}`;
   }).join("");
-  const html = `<div class="shh"><h3>Pages</h3>${tabs}<button class="key sm" id="oclose" aria-label="Close"><svg width="18" height="18"><use href="#i-x"/></svg></button></div>`
-    + `<div class="hl" id="orows" data-total="${list.length}">${rows || '<div class="he">No pages.</div>'}</div>`
-    + `<div class="pgs" id="opgs" role="group" aria-label="More pages" hidden><button class="key sm" type="button" data-orgstep="-1" aria-label="Previous"><svg class="back" width="18" height="18"><use href="#i-more"/></svg></button><span class="pgn" id="opgn"></span><button class="key sm" type="button" data-orgstep="1" aria-label="Next"><svg width="18" height="18"><use href="#i-more"/></svg></button></div>`;
+  const all = S.orgTab === "archived" ? (archived.length ? `<button class="key sm" data-orgall="restore_all">Restore all</button>` : "")
+    : (active.length ? `<button class="key sm" data-orgall="archive_all"><svg width="18" height="18"><use href="#i-arch"/></svg>Archive all</button>` : "");
+  const html = `<div class="shh"><h3>Surfaces</h3><button class="key sm" id="oclose" aria-label="Close"><svg width="18" height="18"><use href="#i-x"/></svg></button></div>`
+    + `<div class="shh">${tabs}<span class="sp"></span>${all}</div>`
+    + `<div class="hl" id="orows" data-total="${list.length}">${rows || '<div class="orgrow" id="onone"><span class="onm">0</span></div>'}</div>`
+    + `<div class="pgs" id="opgs" role="group" aria-label="More surfaces" hidden><button class="key sm" type="button" data-orgstep="-1" aria-label="Before"><svg class="back" width="18" height="18"><use href="#i-more"/></svg></button><span class="pgn" id="opgn"></span><button class="key sm" type="button" data-orgstep="1" aria-label="After"><svg width="18" height="18"><use href="#i-more"/></svg></button></div>`;
   if (setHtml(sh, html)) {
     fitOrg();
     if (S.orgRen && $("#orgname")) { const f = $("#orgname"); f.focus({preventScroll: true}); f.select(); }
   }
 }
+// A surface's thumbnail: the MiniLab's map, small, with its mapped slots lit (the first MiniLab page of it). On
+// the Desk list it is also the handle the row is dragged by.
+function thumb(u, handle) {
+  const on = new Set((u.slots && u.slots[0]) || []), c = s => on.has(s) ? "on" : "";
+  const knobs = MC.KNOBS.map((s, k) => `<circle class="${c(s)}" cx="${5 + (k % 4) * 7}" cy="${6 + Math.floor(k / 4) * 8}" r="2.6"/>`).join("");
+  const faders = MC.FADERS.map((s, k) => `<rect class="${c(s)}" x="${33 + k * 5}" y="3" width="2.6" height="14" rx="1"/>`).join("");
+  const pads = MC.PADS.map((s, k) => `<rect class="${c(s)}" x="${2.5 + k * 6.2}" y="21" width="5" height="5" rx="1"/>`).join("");
+  return `<span class="othumb ${handle ? "ohandle" : ""}" ${handle ? `data-drag="${esc(u.id)}" title="Drag to reorder"` : ""} aria-hidden="true"><svg viewBox="0 0 54 29" width="54" height="29">${knobs}${faders}${pads}</svg>${!u.archived && u.pad ? `<i>${u.pad}</i>` : ""}</span>`;
+}
 async function runOrg(args) {
   const r = await slowly(() => command("page.organize", args));
   if (!r.ok) return;
   S.org = r.body.units || S.org;
-  S.orgRen = null; S.orgDraft = "";
+  S.orgRen = null; S.orgDraft = ""; S.orgDel = null; S.orgSel = null;
   S.layouts = {};
   await loadDesk();
   if (S.sheet === "org") renderOrg(true);
@@ -1295,6 +1320,44 @@ function endTyping(commit) {
   }
   if (S.dirty) renderDesk();
 }
+// Drag a surface by its map to another place in the list (within the part shown): the row follows the pointer, the
+// place it would land is marked, and letting go moves it there (one command). The earlier and later keys do the same.
+let odrag = null;
+document.addEventListener("pointerdown", e => {
+  const h = e.target.closest && e.target.closest(".ohandle");
+  if (!h || e.button > 0) return;
+  const row = h.closest(".orgrow");
+  odrag = {id: h.dataset.drag, row, y: e.clientY, from: +row.dataset.idx, to: +row.dataset.idx, moved: false};
+  if (h.setPointerCapture) try { h.setPointerCapture(e.pointerId); } catch (err) { /* a pointer that is already gone */ }
+  e.preventDefault();
+});
+document.addEventListener("pointermove", e => {
+  if (!odrag) return;
+  const dy = e.clientY - odrag.y;
+  if (!odrag.moved && Math.abs(dy) < 4) return;
+  odrag.moved = true;
+  odrag.row.classList.add("dragging"); odrag.row.style.transform = `translateY(${dy}px)`;
+  const rows = [...document.querySelectorAll("#orows > .orgrow[data-idx]")];
+  let to = odrag.from;
+  for (const r of rows) {
+    if (r === odrag.row) continue;
+    const b = r.getBoundingClientRect(), mid = b.top + b.height / 2, idx = +r.dataset.idx;
+    if (idx > odrag.from && e.clientY > mid) to = Math.max(to, idx);
+    if (idx < odrag.from && e.clientY < mid) to = Math.min(to, idx);
+  }
+  odrag.to = to;
+  rows.forEach(r => { const idx = +r.dataset.idx; r.classList.toggle("mark-before", idx === to && to < odrag.from); r.classList.toggle("mark-after", idx === to && to > odrag.from); });
+});
+function endOrgDrag(cancelled) {
+  const d = odrag;
+  odrag = null;
+  if (!d) return;
+  d.row.classList.remove("dragging"); d.row.style.transform = "";
+  document.querySelectorAll("#orows .mark-before, #orows .mark-after").forEach(r => r.classList.remove("mark-before", "mark-after"));
+  if (!cancelled && d.moved && d.to !== d.from) runOrg({action: "move", id: d.id, to: d.to});
+}
+document.addEventListener("pointerup", () => endOrgDrag(false));
+document.addEventListener("pointercancel", () => endOrgDrag(true));
 // The number under a control is the place to type it: a click there opens the field (Enter commits, Escape cancels).
 document.addEventListener("click", e => {
   const v = e.target.closest && e.target.closest(".mc.live.ed .v");
@@ -1541,13 +1604,17 @@ document.addEventListener("click", async e => {
   if (t.id === "khist") return showHistory();
   if (t.id === "hclose" || t.id === "oclose") { S.sheet = false; S.orgRen = null; return renderHist(); }
   if (t.dataset.org === "open") return openOrg();
-  if (t.dataset.orgtab) { S.orgTab = t.dataset.orgtab; S.orgAt = 0; S.orgRen = null; return renderOrg(true); }
+  if (t.dataset.orgtab) { S.orgTab = t.dataset.orgtab; S.orgAt = 0; S.orgRen = null; S.orgSel = null; S.orgDel = null; return renderOrg(true); }
   if (t.dataset.orgstep) { S.orgAt = Math.max(0, S.orgAt + (+t.dataset.orgstep) * Math.max(1, S.orgFit)); return renderOrg(true); }
   if (t.dataset.orgmove) return runOrg({action: "move", id: t.dataset.uid, by: +t.dataset.orgmove});
   if (t.dataset.orgarch) return runOrg({action: "archive", id: t.dataset.orgarch});
   if (t.dataset.orgrest) return runOrg({action: "restore", id: t.dataset.orgrest});
+  if (t.dataset.orgsel) { S.orgSel = S.orgSel === t.dataset.orgsel ? null : t.dataset.orgsel; S.orgDel = null; return renderOrg(true); }
+  if (t.dataset.orgall) return runOrg({action: t.dataset.orgall});
+  if (t.dataset.orgdel) { S.orgDel = t.dataset.orgdel; return renderOrg(true); }
+  if (t.dataset.orgdelgo) return runOrg({action: "delete", id: t.dataset.orgdelgo});
   if (t.dataset.orgren) { const u = S.org.find(x => x.id === t.dataset.orgren); S.orgRen = t.dataset.orgren; S.orgDraft = u ? u.name : ""; return renderOrg(true); }
-  if (t.id === "orgcancel") { S.orgRen = null; return renderOrg(true); }
+  if (t.id === "orgcancel") { S.orgRen = null; S.orgDel = null; return renderOrg(true); }
 });
 document.addEventListener("submit", e => {
   if (e.target.id === "cpform") { e.preventDefault(); saveCheckpoint($("#cpname").value || S.cpDraft); }

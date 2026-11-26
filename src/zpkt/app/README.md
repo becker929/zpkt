@@ -280,6 +280,14 @@ pages (`contrib/mixdesk/desk.json`) and a made surface.
   muted tracks open as a list of five at a time. The Hear column and the side column have no scroll of their own.
 - **The Song fits too.** Its lanes take the height that is left and give way down to 14 px each; past that they
   show a part at a time ("1–6 / 15") with the ruler over every part (`fitSong`).
+- **The organizer** (the list key in the paging row and over the side list) is a sheet with two lists, Desk and
+  Archived, paged to its height. A row is a surface: its thumbnail (the MiniLab's map, small, the mapped slots of
+  its first MiniLab page lit, its pad number on the corner), its name, and on the Desk list earlier and later
+  keys. The thumbnail is also the handle: dragged, the row follows, the place it would land is marked, and letting
+  go moves it there (`move` with `to`). A tap on the name shows what can be done with that one: Rename (a field in
+  the row), Archive; in the archive Restore and, for a made surface, Delete, which first turns the row into the
+  confirm (its map, its name, Delete). Archive all and Restore all are over the lists. Every action is one
+  `page.organize` command. `tests/app/test_organize_page.py` checks it in WebKit.
 - **An empty desk** (every page archived) is a state, not a fault: the map is drawn with all 20 slots quiet and
   the title row holds the one way to a surface, a key that goes to Ask. The transport, History and the Song go on
   working.
