@@ -75,10 +75,9 @@ def test_move_reads_the_chain_back_and_tries_the_other_reading_of_position(live,
 
 def test_delete_takes_the_named_device_and_nothing_else(live):
     assert chain.delete(live, KICK, 1, "desk Sat") is True and chain.names(live, KICK) == ["desk EQ", "desk Glue"]
-    assert chain.delete(live, KICK, 0, "desk Glue") is True and chain.names(live, KICK) == [
-        "desk EQ"
-    ]  # not at 0: by name
-    assert chain.delete(live, KICK, 0, "gone") is False and chain.names(live, KICK) == ["desk EQ"]
+    # not where it was recorded: the chain was changed by hand, and a device we cannot be sure of is never deleted
+    assert chain.delete(live, KICK, 0, "desk Glue") is False and chain.names(live, KICK) == ["desk EQ", "desk Glue"]
+    assert chain.delete(live, KICK, 0, "gone") is False and chain.names(live, KICK) == ["desk EQ", "desk Glue"]
 
 
 def test_landed_and_index_of():

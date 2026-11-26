@@ -196,14 +196,12 @@ def move(client: McpTransport, track: str, index: int, to: int, pause: Callable[
 
 
 def delete(client: McpTransport, track: str, index: int, name: str) -> bool:
-    """Delete the device called `name` from `track`: the one at `index` if that is its name, else the last one with
-    the name. False when the track has no device of that name (nothing is deleted)."""
+    """Delete the device called `name` at `index` of `track`. False, and nothing deleted, when the device there is not
+    called `name`: the chain was changed by hand since, and another device of the same name may be one the person
+    put there. A device we cannot be sure of is never deleted."""
     have = names(client, track)
     if not (0 <= index < len(have) and have[index] == name):
-        found = [k for k, n in enumerate(have) if n == name]
-        if not found:
-            return False
-        index = found[-1]
+        return False
     client.run(
         f"_t = {tr(track)}\nif _t.devices[{index}].name != {name!r}:\n    raise ValueError('the chain changed')\n"
         f"_t.delete_device({index})\nresult = 'ok'"
