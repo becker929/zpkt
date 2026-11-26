@@ -28,7 +28,8 @@ details[open]>summary .wk-chev,.wk-toggle[aria-expanded=true] .wk-chev{transform
 .wk-trace>summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:8px;color:var(--mute);font-size:12.5px}
 .wk-trace>summary::before{content:"";flex:0 0 18px;height:1px;background:var(--mute)}
 .wk-trace>summary::after{content:"";flex:1;height:1px;background:var(--mute);opacity:.5}
-.wk-trace.warn .wk-traceline{color:var(--ink);font-weight:600}
+.wk-trace>summary{min-height:44px}
+.wk-counts{margin:0 0 8px;color:var(--mute);font-size:12.5px}
 .wk-folded{padding:10px 0 0 10px;border-left:2px solid var(--line);margin:8px 0 0 8px}
 .wk-memory{color:var(--mute);font-size:12.5px;text-align:center;border-top:1px dashed var(--mute);border-bottom:1px dashed var(--mute);padding:5px;margin:0 0 12px}
 
@@ -107,3 +108,10 @@ details[open]>summary .wk-chev,.wk-toggle[aria-expanded=true] .wk-chev{transform
 .wk-nosum:empty{display:none}
 [data-purpose]{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
 .wk-title[data-purpose],.wk-traceline[data-purpose]{white-space:normal;overflow:visible}
+/* The thinking state: a pulse and the seconds so far, in the bar above the box, while a turn runs. */
+.wk-pulse{display:none;flex:none;width:9px;height:9px;border-radius:50%;background:var(--acc);border:1.5px solid var(--line);animation:wk-pulse 1s infinite}
+.wk-running .wk-pulse{display:block}
+.wk-secs{flex:none;font-weight:500;color:var(--mute);font-variant-numeric:tabular-nums}
+.wk-secs:empty{display:none}
+@keyframes wk-pulse{50%{opacity:.25}}
+@media (prefers-reduced-motion:reduce){.wk-pulse{animation:none}}

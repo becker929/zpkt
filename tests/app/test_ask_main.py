@@ -37,7 +37,7 @@ def test_the_main_session_is_made_on_first_use_and_is_the_same_ever_after(tmp_pa
         ask.main("nope")
 
 
-def test_the_most_recent_old_session_becomes_main_and_the_rest_are_the_archive(tmp_path):
+def test_the_main_conversation_starts_clean_and_old_sessions_are_the_archive(tmp_path):
     ask = make(tmp_path)
     old = ask.create("work", "first", engine="claude")
     ask.wait_idle()
@@ -46,17 +46,49 @@ def test_the_most_recent_old_session_becomes_main_and_the_rest_are_the_archive(t
     new["updated"] = old["updated"] + 5
     other = ask.store.create("elsewhere", "desktop", str(tmp_path))
     main = ask.main("work")
-    assert main["id"] == new["id"] and main["title"] == "second"
-    assert [s["id"] for s in ask.archive("work")] == [old["id"]]
+    assert main["id"] not in (old["id"], new["id"]) and main["title"] == "Ask"  # no old chat is taken for it
+    assert ask.store.replay(main["id"]) == []
+    assert [s["id"] for s in ask.archive("work")] == [new["id"], old["id"]]
     assert [e["text"] for e in ask.store.replay(old["id"]) if e["type"] == "prompt"] == ["first"]  # still on disk
     assert other["id"] not in {s["id"] for s in ask.archive("work")} and not other.get("main")
     with pytest.raises(Refused, match="cannot be deleted"):
-        ask.remove(new["id"])
+        ask.remove(main["id"])
     ask.remove(old["id"])
-    assert ask.archive("work") == []
+    assert [s["id"] for s in ask.archive("work")] == [new["id"]]
     ask.send(ask.store.get(main["id"]), "third", engine="claude")  # the main session takes turns like any other
     ask.wait_idle()
-    assert [e["text"] for e in ask.store.replay(main["id"]) if e["type"] == "prompt"] == ["second", "third"]
+    assert [e["text"] for e in ask.store.replay(main["id"]) if e["type"] == "prompt"] == ["third"]
+
+
+def test_a_folder_whose_main_was_an_adopted_old_chat_gets_a_clean_one_once(tmp_path):
+    """Data from before the rule changed: the main conversation is an old chat called "Scratch". On the next start
+    it goes back to the earlier chats, whole, and the folder gets a clean main. Starting again changes nothing."""
+    import json
+
+    work = tmp_path / "work"
+    work.mkdir()
+    store = SessionStore(tmp_path / "ask")
+    scratch = store.create("Scratch", "work", str(work))
+    store.emit(scratch["id"], {"type": "prompt", "text": "Can you give me a widget", "engine": "claude"})
+    older = store.create("An older chat", "work", str(work))
+    born = store.create("Ask", "desktop", str(tmp_path))  # another folder's main, made as one before the mark
+    scratch["main"] = born["main"] = True
+    store.save()
+
+    again = SessionStore(tmp_path / "ask")  # the next start
+    assert not again.get(scratch["id"]).get("main") and again.get(born["id"])["fresh"] is True
+    assert again.main("desktop", str(tmp_path))["id"] == born["id"]
+    main = again.main("work", str(work))
+    assert main["id"] != scratch["id"] and main["title"] == "Ask" and main["fresh"] is True
+    assert {s["id"] for s in again.archive("work", str(work))} == {scratch["id"], older["id"]}
+    assert [e["text"] for e in again.replay(scratch["id"])] == ["Can you give me a widget"]  # nothing is lost
+    again.rename(main["id"], "My chat")  # a renamed main is still the main: the fix goes by the mark
+
+    before = (tmp_path / "ask" / "sessions.json").read_text()
+    third = SessionStore(tmp_path / "ask")
+    assert third.main("work", str(work))["id"] == main["id"]
+    assert json.loads((tmp_path / "ask" / "sessions.json").read_text()) == json.loads(before)
+    assert len(third.index) == 4
 
 
 def test_a_long_transcript_is_read_a_page_of_whole_turns_at_a_time(tmp_path):
@@ -83,11 +115,13 @@ def test_main_archive_and_pages_over_http(asked):
     code, old = asked.rig.post(f"{API}/sessions", {"workspace": "work", "prompt": "old one", "engine": "claude"})
     assert code == 200 and asked.ask.wait_idle()
     code, body = asked.rig.get(f"{API}/main?workspace=work")
-    assert code == 200 and body["session"]["id"] == old["session"]["id"] and body["session"]["main"] is True
-    assert body["archive"] == []
+    assert code == 200 and body["session"]["id"] != old["session"]["id"] and body["session"]["main"] is True
+    assert body["session"]["title"] == "Ask" and [s["id"] for s in body["archive"]] == [old["session"]["id"]]
     sid = body["session"]["id"]
-    assert asked.rig.post(f"{API}/sessions/{sid}/messages", {"prompt": "again", "engine": "claude"})[0] == 200
-    assert asked.ask.wait_idle()
+    assert asked.rig.get(f"{API}/sessions/{sid}/events")[1]["events"] == []  # it starts clean
+    for words in ("old one", "again"):
+        assert asked.rig.post(f"{API}/sessions/{sid}/messages", {"prompt": words, "engine": "claude"})[0] == 200
+        assert asked.ask.wait_idle()
     code, page = asked.rig.get(f"{API}/sessions/{sid}/events?turns=1")
     assert code == 200 and page["events"][0]["text"] == "again" and page["more"] is True and page["running"] is False
     code, older = asked.rig.get(f"{API}/sessions/{sid}/events?turns=1&before={page['first']}")
@@ -97,6 +131,6 @@ def test_main_archive_and_pages_over_http(asked):
     assert asked.rig.request("DELETE", f"{API}/sessions/{sid}")[0] == 409
     assert asked.rig.get(f"{API}/main?workspace=nope")[0] == 400
     code, sessions = asked.rig.get(f"{API}/archive?workspace=work")
-    assert code == 200 and sessions == {"sessions": []}
+    assert code == 200 and [s["id"] for s in sessions["sessions"]] == [old["session"]["id"]]
     fresh = asked.rig.get(f"{API}/main?workspace=scratch")[1]["session"]  # no session there yet: one is made
     assert fresh["main"] is True and fresh["id"] != sid and fresh["workspace"] == "scratch"

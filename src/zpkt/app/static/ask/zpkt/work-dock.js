@@ -9,7 +9,7 @@ const CHEV = '<svg class="wk-chev" viewBox="0 0 10 10" width="10" height="10" ar
 
 /** A todo bar. `onStop` adds the stop square (main agent only). */
 export function createTodo(host, { onStop = null, key = 'main' } = {}) {
-  const root = el(`<div class="wk-todo" hidden><div class="wk-bar"><button type="button" class="wk-toggle" aria-expanded="false"><span class="wk-count"></span><span class="wk-cur"></span>${CHEV}</button>${onStop ? '<button type="button" class="wk-stop" aria-label="Stop the agent"><i></i></button>' : ''}</div><ul hidden></ul></div>`);
+  const root = el(`<div class="wk-todo" hidden><div class="wk-bar"><button type="button" class="wk-toggle" aria-expanded="false"><span class="wk-pulse" aria-hidden="true"></span><span class="wk-count"></span><span class="wk-cur"></span><span class="wk-secs" aria-hidden="true"></span>${CHEV}</button>${onStop ? '<button type="button" class="wk-stop" aria-label="Stop the agent"><i></i></button>' : ''}</div><ul hidden></ul></div>`);
   host.append(root);
   const list = root.querySelector('ul'), toggle = root.querySelector('.wk-toggle');
   let open = false, last = [], lastCount = '';
@@ -22,7 +22,19 @@ export function createTodo(host, { onStop = null, key = 'main' } = {}) {
    * todos: [{ text, status }], running: is the agent working.
    * now: when the agent keeps no todo list, what to show instead: { text, items: [{ text, status }] } (its steps so far).
    */
-  function render(todos, running, now = null) {
+  // While a turn runs the bar is the "thinking" state: a pulse, what it is doing, and the seconds so far.
+  const secs = root.querySelector('.wk-secs');
+  let timer = 0, began = 0;
+  const tick = () => { secs.textContent = began ? `${Math.max(0, Math.round((Date.now() - began) / 1000))} s` : ''; };
+  function clock(running, since) {
+    began = running ? since || began || Date.now() : 0;
+    root.classList.toggle('wk-running', !!running);
+    if (running && !timer) timer = setInterval(tick, 1000);
+    if (!running && timer) { clearInterval(timer); timer = 0; }
+    tick();
+  }
+  function render(todos, running, now = null, since = 0) {
+    clock(running, since);
     const own = todos.length > 0;
     const bar = own ? todoBar(todos) : { count: '', text: now?.text || '', done: false };
     if (!own) todos = running ? now?.items || [] : [];
@@ -30,7 +42,7 @@ export function createTodo(host, { onStop = null, key = 'main' } = {}) {
     root.classList.toggle('wk-none', !todos.length);   // nothing to open: no arrow
     toggle.disabled = !todos.length;
     root.querySelector('.wk-count').textContent = bar.count;
-    root.querySelector('.wk-cur').textContent = bar.text || (running ? 'Working' : '');
+    root.querySelector('.wk-cur').textContent = bar.text || (running ? 'Thinking' : '');
     if (onStop) root.querySelector('.wk-stop').hidden = !running;
     list.innerHTML = '';
     todos.forEach((t, i) => {

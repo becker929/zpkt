@@ -25,10 +25,11 @@
         },
         "mode": {
           "enum": [
-            "plan",
+            "build",
+            "ask",
             "auto_edit",
             "yolo",
-            "ask"
+            "plan"
           ]
         },
         "engine": {

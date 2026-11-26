@@ -303,13 +303,23 @@ Ask is the chat with Claude and Gemini, ported from Zpkt web (Node, :8789, which
 `agents` adapter, so it starts with `zpkt app` (it is in the default `--adapters web,api,song,agents,listen`). The page is at `/app/ask/`.
 
 - **Engines.** Claude Code runs as one `claude -p` process per turn. Gemini runs over ACP: one `gemini --acp`
-  process, permission prompts you answer on the page (mode "Ask first"), and an estimated dollar cost for each turn.
+  process and an estimated dollar cost for each turn.
   A session can change engine between turns: the other engine gets the turns it missed. Keys come only from the
   harness's secret lookup; nothing in Ask reads a key or a key file.
 - **One long conversation.** Each workspace has one main conversation that goes on for good.
-  `GET /app/ask/api/main?workspace=<id>` returns it and makes it on first use. If older sessions exist, the most
-  recent becomes the main one. The rest are the archive: `GET /app/ask/api/archive` lists them and their streams
-  still read. The main conversation cannot be deleted.
+  `GET /app/ask/api/main?workspace=<id>` returns it and makes it on first use: empty, titled "Ask". Older sessions
+  are never taken for it. They are the archive: `GET /app/ask/api/archive` lists them and their streams still read.
+  The main conversation cannot be deleted. (Until 26 November 2026 the most recent old session became the main one.
+  On its next start the store puts such an adopted session back in the archive, once: `SessionStore._fresh_mains`.)
+- **Modes.** A producer has one mode, `build`, and no menu: the agent advises, uses its four tools and reads files.
+  It cannot edit a file or run a command, and nothing asks. For Claude Code that is `--permission-mode dontAsk`,
+  `--allowedTools mcp__zpkt,Read,Glob,Grep`, `--disallowedTools Bash,Edit,Write,NotebookEdit,EnterPlanMode,ExitPlanMode`
+  and `--strict-mcp-config` (never plan mode: there it described a page instead of making it). For Gemini it is
+  Gemini's default mode, and the app answers its permission questions itself: yes to the four tools, no to the rest.
+  The four tools run in every mode with no question. `/app/ask/?dev=1` shows a mode menu (remembered on the device;
+  `?dev=0` hides it again) with "Ask first" (Gemini asks on the page before an edit or a command; Claude Code has
+  nobody to ask there, so it is `build`), and under "Developer", "Edit files" and "Full (shell)". The table is in
+  `ask/engines.py`.
 - **Paging.** `GET /app/ask/api/sessions/<id>/events?turns=20` gives the last 20 turns, `first`, `next` and `more`.
   Add `&before=<first>` for the turns before. Follow new events with the stream from `next`.
 - **Compaction.** Before a turn, the app estimates the conversation in tokens (characters / 4). Past the engine's
@@ -336,8 +346,13 @@ Ask is the chat with Claude and Gemini, ported from Zpkt web (Node, :8789, which
   If the tab bar's file does not load, the page draws four plain links instead. It opens the folder's main
   conversation: the last 20 turns, then the stream. Reaching the top fetches the 20 turns before. Earlier chats and
   the folder choice are behind one button in the header. An earlier chat is read-only.
+- **Quiet by default.** While a turn runs, the bar above the box shows a pulse, what the agent is doing and the
+  seconds so far. A finished turn's steps fold under one row, "Details": the counts of steps and tool calls and any
+  error the agent recovered from are inside it. Under the answer are the seconds and the cost. A turn that failed
+  says so once, in one sentence with what to do; the engine's own words are behind "Details".
 - **What the page draws.** A `compacted` event is a quiet divider, "Earlier conversation summarised", that opens to
-  the summary. A link to `/app/#page=<id>` is a card: the title, a small still map of the MiniLab (the slots the
+  the summary. A link to `/app/#page=<id>` is a card: the saved Page's title (`GET /api/pages`; the link's words
+  until it answers, or when there is no such page), a small still map of the MiniLab (the slots the
   page uses are lit, the rest grey; it asks `page.layout`), and "Open on the Desk". With no such page it is the
   title alone. An `audio` block is a player. An old `zpkt-surface` block or `surface` event is a stub that says to
   ask for a page; the rendered files of its A/B are plain players.

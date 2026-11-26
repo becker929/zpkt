@@ -18,6 +18,7 @@ import re
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+from zpkt.app.ask.engines import DEFAULT_MODE
 from zpkt.app.ask.media import byte_range, resolve_media, save_attachment
 from zpkt.app.ask.service import Ask
 from zpkt.app.ask.store import NoSuchSession, Refused
@@ -165,7 +166,7 @@ class AskRoutes:
         extra, attachments = self._extras(body)
         engine = text(body.get("engine"), 20) or "claude"
         return {
-            "mode": text(body.get("mode"), 20) or "plan",
+            "mode": text(body.get("mode"), 20) or DEFAULT_MODE,
             "engine": engine,
             "model": text(body.get("model"), 80),
             "extra": extra,

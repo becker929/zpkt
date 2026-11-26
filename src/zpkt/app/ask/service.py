@@ -22,7 +22,7 @@ from typing import Any
 
 from zpkt.app.ask import compaction
 from zpkt.app.ask import notes as notes_module
-from zpkt.app.ask.engines import MODEL_NAME, MODES, ToolServer
+from zpkt.app.ask.engines import DEFAULT_MODE, MODEL_NAME, MODES, ToolServer
 from zpkt.app.ask.events import ENGINE_NAME, ENGINES, Budget, Event, handoff_context
 from zpkt.app.ask.permissions import Permissions
 from zpkt.app.ask.provider import Outcome, Provider, Turn
@@ -85,8 +85,8 @@ class Ask:
         return [{**s, "asking": self.permissions.asking(s["id"])} for s in self.store.all_sessions(self.is_live)]
 
     def main(self, workspace: str = "") -> dict[str, Any]:
-        """The one conversation of a workspace (the first workspace when none is named), made on first use. With
-        older sessions there, the most recent becomes it and the rest are the archive."""
+        """The one conversation of a workspace (the first workspace when none is named), made on first use, empty.
+        Older sessions there are the archive."""
         w = self.workspaces.get(workspace) if workspace else next(iter(self.workspaces.all()), None)
         if w is None:
             raise Refused("Unknown workspace")
@@ -133,7 +133,7 @@ class Ask:
         self,
         s: dict[str, Any],
         prompt: str,
-        mode: str = "plan",
+        mode: str = DEFAULT_MODE,
         engine: str = "claude",
         model: str = "",
         extra: str = "",
@@ -144,6 +144,8 @@ class Ask:
             raise Refused("Empty prompt")
         if mode not in MODES:
             raise Refused("Invalid mode")
+        if mode == "plan":  # an older page's default: it could not make a page, so it is the new default now
+            mode = DEFAULT_MODE
         if engine not in ENGINES or engine not in self.providers:
             raise Refused("Invalid engine")
         if model and not MODEL_NAME.match(model):
