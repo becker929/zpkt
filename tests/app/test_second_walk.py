@@ -145,10 +145,16 @@ def test_changed_is_zero_after_a_save_and_after_going_back_and_names_its_checkpo
 
 def test_at_a_start_the_base_is_the_last_checkpoint_on_file(rig):
     key = control(rig)
+
+    def raw_now():
+        return next(v.get("r") for v in rig.state()["values"].values() if v.get("key") == key)
+
     rig.command("history.checkpoint", {"name": "yesterday", "new": True})
+    before = raw_now()
     rig.command("mix.set", {"norms": [[key, 0.21]]})
-    raw = rig.desk.history.cur[key][1]
-    wait_for(lambda: any(v.get("key") == key and v.get("r") == raw for v in rig.state()["values"].values()))
+    # Live's report of the move comes a moment after the command answers: wait for the state to hold the new value
+    # (reading history.cur at once could still give the old one, and then nothing had changed "at a start")
+    wait_for(lambda: raw_now() != before and rig.desk.history.cur[key][1] == raw_now())
     h = rig.desk.history
     again = history.History(h.set_name, {}, h.directory, checkpoints=h.checkpoints_dir)  # the app starts again
     again.baseline({k: v for k, v in rig.state()["values"].items() if v.get("key")})
