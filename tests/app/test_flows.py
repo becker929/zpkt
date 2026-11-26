@@ -115,6 +115,10 @@ def test_compare_is_in_the_play_bar_and_history_chooses_the_pinned_b(rig, page):
     assert page.locator('[data-pinb="before the hats"]').get_attribute("aria-pressed") == "true"
     status, body = rig.desk.bus.submit(Command("monitor.pin", "you", {"name": "no such checkpoint"}))
     assert status == 404, body
+    page.click('[data-pinb="before the hats"]')  # a tap on the lit B lets it go: B is the mix as first seen again
+    page.wait_for_function("window.zpkt.S.hear.pin === 'start'")
+    assert rig.desk.monitor.message()["pin"] == "start"
+    assert page.locator('[data-pinb="before the hats"]').get_attribute("aria-pressed") == "false"
 
 
 def test_the_monitor_tab_draws_a_curve_for_each_of_a_b_and_c_once_heard(rig, page):

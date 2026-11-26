@@ -1847,7 +1847,7 @@ document.addEventListener("click", async e => {
     return;
   }
   if (t.dataset.hear) return command("monitor.hear", {hearing: t.dataset.hear});
-  if (t.dataset.pinb) return command("monitor.pin", {name: t.dataset.pinb});
+  if (t.dataset.pinb) return command("monitor.pin", S.hear.pin === t.dataset.pinb ? {clear: true} : {name: t.dataset.pinb});  // a tap on the lit B lets it go
   if (t.id === "kundo" || t.id === "hundo") return stepHistory("undo");
   if (t.id === "kredo" || t.id === "hredo") return stepHistory("redo");
   if (t.id === "khist") return showHistory();
