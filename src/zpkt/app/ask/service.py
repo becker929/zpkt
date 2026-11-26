@@ -5,7 +5,8 @@ event is stored and streamed (so it survives the page closing). A session may ch
 other engine gets the turns it missed. Each workspace has one main conversation (`main`) that goes on for good: when
 it is past an engine's budget the run first compacts it (compaction.py), then starts the engine on the summary and the
 last turns. The service holds no Live connection. Agents get the app's tools through the
-MCP server (mcp.py); `tools.ToolGate` runs their calls on the bus as `agent`.
+MCP server (mcp.py); `tools.ToolGate` runs their calls on the bus as `agent`. A tool that waits for the person's tap
+(`propose_live`) asks through `ask_person`: the permission desk shows its card and the run's own stop ends the wait.
 """
 
 from __future__ import annotations
@@ -27,7 +28,7 @@ from zpkt.app.ask.events import ENGINE_NAME, ENGINES, Budget, Event, handoff_con
 from zpkt.app.ask.permissions import Permissions
 from zpkt.app.ask.provider import Outcome, Provider, Turn
 from zpkt.app.ask.store import Refused, SessionStore
-from zpkt.app.ask.tools import ToolGate
+from zpkt.app.ask.tools import Answer, ToolGate
 from zpkt.app.ask.workspaces import Workspaces
 
 MAX_LIVE = 4
@@ -64,6 +65,7 @@ class Ask:
         self.attach_dir = attach_dir or self.dir / "attachments"
         self.workspaces = Workspaces(self.dir, home)
         self.permissions = Permissions(self.store.emit, notify)
+        gate.ask, gate.tell = self.ask_person, self.store.emit  # a tool that waits for the person's tap (tools.py)
         self.notes = notes_module.Notes(self.store.emit, self.store.save, write_notes)
         self.max_live, self.tool_python = max_live, tool_python
         self.app_url = ""  # where the agents' tool server reaches this app; the routes set it from each request
@@ -109,6 +111,16 @@ class Ask:
 
     def remove(self, sid: str) -> None:
         self.store.remove(sid, running=self.is_live(sid))
+
+    def ask_person(self, sid: str, card: dict[str, Any], options: list[dict[str, Any]], wait_s: float) -> Answer | None:
+        """Show a card in the session's chat and wait for the tap, for at most `wait_s`. It blocks the caller (a
+        tool call's own thread) and holds nothing else. None when no turn of the session is running: a stopped
+        or ended turn has nobody to act on the answer, so nothing is asked. The wait ends when the turn stops."""
+        run = self.runs.get(sid)
+        if run is None or run.cancel.is_set():
+            return None
+        pid, choice = self.permissions.put(sid, card, options, run.cancel, wait_s)
+        return Answer(pid, choice, stopped=choice is None and run.cancel.is_set())
 
     # ---- sessions and turns ----------------------------------------------------------------------------------
     def create(self, workspace: str, prompt: str, **turn: Any) -> dict[str, Any]:

@@ -1,9 +1,12 @@
 """The tools as an MCP server on stdio: `python -m zpkt.app.ask.mcp`.
 
-Claude Code and Gemini CLI start it for a session. It lists the four tools of tools.py and sends each call to the app
+Claude Code and Gemini CLI start it for a session. It lists the five tools of tools.py and sends each call to the app
 (`POST /app/ask/api/tool`) with the session's id and token, which come in the environment: ZPKT_DESK_URL,
 ZPKT_APP_SESSION, ZPKT_APP_TOKEN. It holds no Live connection and imports nothing from zpkt.live: it is a client of
 the app, like any other.
+
+A call waits TIMEOUT_S for the app. A tool that waits for the person's tap (`propose_live`) is given that tool's own
+wait on top (tools.Tool.wait_s), so the app's "nobody answered" always comes back before this side gives up.
 """
 
 from __future__ import annotations
@@ -20,6 +23,13 @@ from zpkt.app.ask.tools import TOOLS
 
 PROTOCOL = "2024-11-05"
 TIMEOUT_S = 60
+WAITS = {t.name: t.wait_s for t in TOOLS}  # the tools that wait for a person, and for how long
+
+
+def timeout_for(tool: Any) -> float:
+    """How long a call of `tool` may take over HTTP: the app's own time, plus the time a person has to answer."""
+    return TIMEOUT_S + WAITS.get(str(tool), 0.0)
+
 
 Post = Callable[[dict[str, Any]], tuple[int, dict[str, Any]]]
 
@@ -32,7 +42,7 @@ def http_post(url: str) -> Post:
             url, data=json.dumps(body).encode(), headers={"Content-Type": "application/json"}, method="POST"
         )
         try:
-            with urllib.request.urlopen(req, timeout=TIMEOUT_S) as r:
+            with urllib.request.urlopen(req, timeout=timeout_for(body.get("tool"))) as r:
                 return r.status, json.loads(r.read() or b"{}")
         except urllib.error.HTTPError as exc:
             try:

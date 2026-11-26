@@ -23,7 +23,8 @@
             "make_page",
             "read_state",
             "read_measurement",
-            "change_live"
+            "change_live",
+            "propose_live"
           ]
         },
         "args": {
@@ -67,6 +68,42 @@
         "not_done": {
           "type": "array",
           "description": "change_live: the numbers of the steps that were not run."
+        },
+        "approved": {
+          "type": "boolean",
+          "description": "propose_live: the person tapped Do it, and the batch was sent to Live with their word."
+        },
+        "declined": {
+          "type": "boolean",
+          "description": "propose_live: the person tapped Don't. Nothing changed."
+        },
+        "unanswered": {
+          "type": "boolean",
+          "description": "propose_live: nobody tapped in time, or the turn was stopped (then `stopped` too). Nothing changed."
+        },
+        "stopped": {
+          "type": "boolean",
+          "description": "propose_live: the turn was stopped while the card waited."
+        },
+        "message": {
+          "type": "string",
+          "description": "propose_live: what came of a card that was not approved, in a sentence."
+        },
+        "no_undo": {
+          "type": "array",
+          "description": "propose_live: what the batch did that undo does not take back (a removed device, a new track, code), in words."
+        },
+        "removed": {
+          "type": "array",
+          "description": "propose_live: the devices removed, each {track, device}."
+        },
+        "made": {
+          "type": "array",
+          "description": "propose_live: the tracks made, each {track, kind}."
+        },
+        "ran": {
+          "type": "array",
+          "description": "propose_live: each code step sent to Live, {step, ok, result}."
         }
       }
     }

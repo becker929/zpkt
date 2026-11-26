@@ -11,6 +11,7 @@ from zpkt.app.bus import Bus, Command, Spec
 READS = {
     "arrangement.read",
     "describe",
+    "live.propose.check",
     "live.read",
     "measurement.read",
     "mix.describe",
@@ -36,6 +37,7 @@ MOVES = {
     "history.undo",
     "live.change",
     "live.open_set",
+    "live.propose",
     "live.render_loop",
     "live.run",
     "live.set_tempo",
@@ -64,6 +66,7 @@ MOVES = {
 
 # The moves an agent may ask for with no word of the user's. One, by Anthony's decision of 26 November 2026: a batch
 # of value and device steps, checked whole, undone as one (zpkt.app.change). Adding a kind here is a decision.
+# `live.propose` (structure and code) is NOT here: it needs the person's tap (zpkt.app.propose).
 AGENT_MAY = {"live.change"}
 
 

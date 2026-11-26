@@ -215,7 +215,13 @@ def test_the_tool_route_runs_a_command_as_agent_and_refuses_the_rest(asked):
     assert asked.rig.post(f"{API}/tool", {**body, "tool": "mix.set"})[0] == 404
     assert asked.rig.post(f"{API}/tool", {**body, "token": "x"})[0] == 403
     code, tools = asked.rig.get(f"{API}/tools")
-    assert [t["name"] for t in tools["tools"]] == ["make_page", "read_state", "read_measurement", "change_live"]
+    assert [t["name"] for t in tools["tools"]] == [
+        "make_page",
+        "read_state",
+        "read_measurement",
+        "change_live",
+        "propose_live",
+    ]
     schema = json.loads((CONTRACTS / "ask-tool.schema.json").read_text())
     jsonschema.validate(body, {"$ref": "#/$defs/request", **schema})
 

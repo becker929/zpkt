@@ -1,7 +1,8 @@
 """The page's event shape, and what is worked out from events. Pure: events in, events or text out.
 
 An event is a JSON object with a `type`: prompt, message, tool_use, tool_result, result, error, log, run_end, init,
-compact, compacted, notes, summary, surface, permission, permission_answer. The store (store.py) numbers them with `seq`.
+compact, compacted, notes, summary, surface, permission, permission_answer, proposal (what came of a batch that
+waited for a tap: tools.py). The store (store.py) numbers them with `seq`.
 Claude Code's stream-json is translated into this shape (`ClaudeStream`); Gemini's ACP updates are translated in
 gemini.py. Both engines hand each other the conversation so far (`handoff_context`).
 """

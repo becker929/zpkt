@@ -62,6 +62,7 @@ DOES_MAX = 140  # characters of the sentence that says what the code does
 MAX_TRACKS = 8
 NAME_MAX = 40  # characters of a new track's name
 RESULT_MAX = 1000  # characters of a code step's result kept in the reply
+LIVE_PYTHON = (3, 11)  # Live's own Python: code is parsed as that version reads it, as far as `ast` can tell
 OWN_KINDS = ("remove", "new_track", "code")
 STEP_KINDS = ("set", "add", "device", "move", *OWN_KINDS)
 NO_UNDO = ("remove", "track", "code")  # the ops undo does not take back
@@ -107,13 +108,13 @@ def read_step(n: int, step: Any) -> Step | str:
     if kind == "new_track":
         if value not in newtrack.KINDS:
             return '"new_track" is "audio", "midi" or "return"'
-        name = step.get("name")
-        if not isinstance(name, str) or not name.strip():
+        called = step.get("name")
+        if not isinstance(called, str) or not called.strip():
             return f'new_track "{value}" needs "name": what to call the track'
-        name = " ".join(name.split())
-        if len(name) > NAME_MAX or "/" in name:
+        called = " ".join(called.split())
+        if len(called) > NAME_MAX or "/" in called:
             return f'a new track\'s name is at most {NAME_MAX} characters and has no "/" (state keys are TRACK/VALUE)'
-        return Step(n, "track", name, f'new {value} track "{name}"', kind=value)
+        return Step(n, "track", called, f'new {value} track "{called}"', kind=value)
     does = step.get("does")
     if not isinstance(does, str) or not does.strip():
         return 'code needs "does": one plain sentence that says what it does, for the person who decides'
@@ -124,7 +125,7 @@ def read_step(n: int, step: Any) -> Step | str:
     if len(value) > CODE_MAX:
         return f"{words} is {len(value)} characters of code, more than {CODE_MAX}: a person has to read it"
     try:
-        tree = ast.parse(value)
+        tree = ast.parse(value, feature_version=LIVE_PYTHON)
     except SyntaxError as exc:
         return f"{words} is not Python that parses: {exc.msg} (line {exc.lineno})"
     if why := screened(tree):
