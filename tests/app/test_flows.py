@@ -74,6 +74,10 @@ def test_flow_6_undo_the_history_names_who_and_an_agent_group_undoes_as_one(rig,
     page.click("#khist")
     page.wait_for_selector(".he .who.agent")
     rows = page.locator(".he").all_inner_texts()
+    older = page.locator('#hpgs [data-histstep="1"]')  # the rows are paged: the checkpoint may be on the next part
+    while older.is_visible() and not older.is_disabled():
+        older.click()
+        rows += page.locator(".he").all_inner_texts()
     assert any("agent" in r and "make the kick sit back" in r for r in rows)
     assert any("sys" in r and "Before “make the kick sit back”" in r for r in rows)  # the automatic checkpoint, by name
     page.click("#hundo")

@@ -35,7 +35,7 @@ def song_page(song_rig):  # noqa: F811
 def test_the_song_tab_shows_the_arrangement_as_lanes_of_bars(song_page):
     song_page.click('#tabs button[data-t="song"]')
     song_page.wait_for_selector("#lanes .lane")
-    assert song_page.locator("#songname").inner_text() == "8d2a2 Fast build, slow peak"
+    assert song_page.locator("#songsel option:checked").inner_text() == "8d2a2 Fast build, slow peak"
     assert song_page.locator("#lanes .lane .ln").all_inner_texts() == ["Kick", "P1 open", "Splash", "Chord"]
     assert song_page.locator("#desk").is_hidden() and song_page.locator("#song").is_visible()
     kick_block = song_page.locator("#lanes .lane").first.locator(".tr i").first
@@ -77,7 +77,7 @@ def test_build_shows_what_it_replaces_then_builds_through_the_bus(song_rig, song
     song_page.wait_for_selector("#sheet.on #buildswap")
     # the confirm shows the set that is emptied and what is built in its place; nothing is sent yet
     assert MIX_SET in song_page.locator("#buildswap .gone").inner_text()
-    assert song_page.locator("#songname").inner_text() in song_page.locator("#buildswap").inner_text()
+    assert song_page.locator("#songsel option:checked").inner_text() in song_page.locator("#buildswap").inner_text()
     assert "minutes" in song_page.locator("#sheet").inner_text()
     assert built() == []
     song_page.click("#hclose")  # Cancel: still nothing

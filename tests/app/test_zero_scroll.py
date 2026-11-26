@@ -8,6 +8,7 @@ from __future__ import annotations
 import pytest
 
 from tests.app.test_page_shell import big_spec, open_page
+from tests.app.test_song import MIX_SET, song_rig  # noqa: F401  (fixture)
 
 playwright_sync = pytest.importorskip("playwright.sync_api")
 
@@ -160,3 +161,77 @@ def test_history_is_paged_newest_first_and_never_scrolls(browser, rig, width, he
     rig.command("history.checkpoint", {"name": "a new one", "new": True})  # a save brings the newest part back
     pg.wait_for_selector('#hrows .he.cp[data-cp="a new one"]')
     assert pg.locator("#hpgn").inner_text().startswith("1–")
+
+
+# ---- the Song -----------------------------------------------------------------------------------------------------------
+
+
+def many_lanes(song_rig, count: int) -> None:  # noqa: F811
+    """An arrangement with more lanes than a phone holds at 14 px each."""
+    import json
+
+    path = song_rig.data / "arrangements" / "short-8d2a2.json"
+    arr = json.loads(path.read_text())
+    first = arr["regions"][0]
+    arr["regions"] += [{**first, "lane": f"extra-{i:02d}", "start": i % 8, "len": 4} for i in range(count)]
+    path.write_text(json.dumps(arr))
+
+
+@pytest.mark.parametrize(("width", "height"), SIZES)
+@pytest.mark.parametrize("front", ["HW002_121_pp_finish", MIX_SET])
+def test_the_song_never_scrolls_and_its_lanes_fit_or_are_paged(browser, song_rig, width, height, front):  # noqa: F811
+    rig = song_rig.rig
+    many_lanes(song_rig, 30)
+    rig.live.song.file_path = f"/Sets/{front} Project/{front}.als"  # another set in front shows the two sets: taller
+    rig.desk.restart_pager()
+    pg = browser.new_page(viewport={"width": width, "height": height})
+    pg.goto(rig.url + "/app/#song")
+    pg.wait_for_selector("#lanes .lane")
+    pg.wait_for_timeout(250)
+    assert pg.evaluate(SCROLLERS, "#app") == []
+    assert pg.evaluate("[document.documentElement.scrollWidth, document.documentElement.scrollHeight]") == [
+        width,
+        height,
+    ]
+    main = pg.locator("#main").bounding_box()
+    paged = pg.locator("#lanepgs").is_visible()
+    parts = [
+        "#songsel",
+        "#ruler",
+        "#song .acts >> nth=0",
+        "#song .acts >> nth=1",
+        "#tabs",
+        *(["#lanepgs"] if paged else []),
+    ]
+    for part in parts:
+        b = pg.locator(part).bounding_box()
+        assert b and b["y"] >= 0 and b["y"] + b["height"] <= height + 0.5 and b["x"] + b["width"] <= width + 0.5, part
+        if part != "#tabs":
+            assert b["y"] + b["height"] <= main["y"] + main["height"] + 0.5, part  # inside the Song's own box
+    shown = pg.locator("#lanes .lane:visible")
+    total = pg.locator("#lanes .lane").count()
+    assert all(b["height"] >= 13.5 for b in [shown.nth(i).bounding_box() for i in range(shown.count())])  # whole lanes
+    if not paged:  # a tall screen holds them all
+        assert height >= 1000 and shown.count() == total
+    else:  # a part of the lanes, the ruler over every part
+        assert 1 <= shown.count() < total
+        last, box = shown.nth(shown.count() - 1).bounding_box(), pg.locator("#lanepgs").bounding_box()
+        assert last["y"] + last["height"] <= box["y"] + 0.5
+        first, said = shown.nth(0).inner_text(), pg.locator("#lanepgn").inner_text()
+        assert said.startswith("1–") and said.endswith(f"/ {total}")
+        pg.click('#lanepgs [data-songstep="1"]')
+        assert pg.locator("#lanes .lane:visible").nth(0).inner_text() != first and pg.locator("#ruler").is_visible()
+    small = pg.evaluate(
+        "[...document.querySelectorAll('#song button, #song select')].map(b => b.getBoundingClientRect()).filter(r => r.width && (r.height < 43.5 || r.width < 43.5)).length"
+    )
+    assert small == 0 and pg.evaluate(SCROLLERS, "#app") == []
+
+
+def test_a_short_arrangement_shows_every_lane_with_no_paging(browser, song_rig):  # noqa: F811
+    pg = browser.new_page(viewport={"width": 390, "height": 844})
+    pg.goto(song_rig.rig.url + "/app/#song")
+    pg.wait_for_selector("#lanes .lane")
+    assert (
+        pg.locator("#lanepgs").is_hidden()
+        and pg.locator("#lanes .lane:visible").count() == pg.locator("#lanes .lane").count()
+    )

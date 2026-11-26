@@ -14,7 +14,7 @@ import time
 import pytest
 
 from tests.app.conftest import osc_spec, wait_for
-from tests.app.test_desk_touch import GAIN, VOL, centre, ctl, drag, open_lead, place, settled, shown
+from tests.app.test_desk_touch import GAIN, RATIO, VOL, centre, ctl, drag, open_lead, place, settled, shown
 from tests.app.test_song import MIX_SET, quick_live, song_rig  # noqa: F401  (fixtures)
 from zpkt.app import jobs
 from zpkt.app.bus import Command
@@ -208,7 +208,7 @@ def test_the_build_is_not_offered_on_another_set_and_the_mix_set_opens_from_the_
     pg = browser.new_page(viewport={"width": 1200, "height": 800})
     pg.goto(rig.url + "/app/#song")
     pg.wait_for_selector("#buildsets")
-    assert pg.locator("#songbuild").is_disabled()  # not runnable: Live has another set in front
+    assert pg.locator("#songbuild").count() == 0  # not offered: Live has another set in front
     assert (
         "HW002_121_pp_finish" in pg.locator("#setopen").inner_text() and MIX_SET in pg.locator("#setneed").inner_text()
     )
@@ -218,7 +218,7 @@ def test_the_build_is_not_offered_on_another_set_and_the_mix_set_opens_from_the_
     assert "SAVED FIRST" in said.upper() and "HW002_121_pp_finish" in said and MIX_SET in said  # the consequence
     assert opened == []  # nothing before the press
     pg.click("#opengo")
-    pg.wait_for_selector("#songbuild:not([disabled])")  # the build is offered now, for the set it names
+    pg.wait_for_selector("#songbuild")  # the build is offered now, for the set it names
     assert opened == [(MIX_SET, True)] and pg.locator("#buildsets").count() == 0
     assert rig.state()["open_set"] == MIX_SET
     assert pg.locator("#sheet.on").count() == 0
@@ -377,11 +377,12 @@ def test_on_a_phone_history_is_a_sheet_and_a_tap_outside_closes_it_and_reaches_t
     pg.click("#khist")
     pg.wait_for_selector("#sheet.on #hrows")
     assert pg.evaluate("getComputedStyle(document.querySelector('#scrim')).pointerEvents") == "none"
-    x, y = centre(pg, VOL)
+    pg.wait_for_function("getComputedStyle(document.querySelector('#sheet')).transform === 'none'")  # it has come up
+    x, y = centre(pg, RATIO)  # knob 1, in the top row of the map
     assert y < pg.locator("#sheet").bounding_box()["y"]  # a control the sheet does not cover
     pg.mouse.click(x, y)  # one tap: the sheet goes, and the control has the tap
     pg.wait_for_selector("#sheet:not(.on)")
-    assert pg.evaluate("document.activeElement.closest('.mc')?.dataset.key") == VOL
+    assert pg.evaluate("document.activeElement.closest('.mc')?.dataset.key") == RATIO
 
 
 # ---- 7: knobs ----------------------------------------------------------------------------------------------------------

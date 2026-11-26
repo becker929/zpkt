@@ -269,6 +269,9 @@ pages (`contrib/mixdesk/desk.json`) and a made surface.
   with "newer" and "older" under it ("1–8 / 43"); a new change brings the newest rows back. The list of Pages in
   the side column shows the part with the page in view and has its own before and after. More than two soloed or
   muted tracks open as a list of five at a time. The Hear column and the side column have no scroll of their own.
+- **The Song fits too.** Its lanes take the height that is left and give way down to 14 px each; past that they
+  show a part at a time ("1–6 / 15") with the ruler over every part (`fitSong`). The arrangement's menu is its
+  title on a phone.
 - **The paging row** (under 1100 px; wider, the list of Pages is the side column) is the last row of the Desk:
   the page before, "13 / 15", the page after, and the face switch. The numbered buttons of a Page with more than
   one MiniLab page are at the right of the title. `tests/app/test_zero_scroll.py` checks all of it at six sizes.
