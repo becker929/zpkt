@@ -97,6 +97,7 @@ class History:
         self.lock = threading.RLock()
         self.cur: dict[str, list[Any]] = {}  # key -> [shown, raw], as Live has it now
         self.expect: dict[str, list[tuple[float, float]]] = {}  # key -> [(raw the desk wrote, until)]: due back
+        self.named = False  # an echo gave a written value its shown text: the page's rows want the view again
         self.file = self.directory / f"{set_name}.json"
         try:
             d = json.loads(self.file.read_text())
@@ -197,9 +198,17 @@ class History:
         for e in reversed(self.entries[-5:]):
             for m in e.get("moves", []):
                 if m["key"] == key and same(m["to"][1], raw):
-                    m["to"][0] = shown
-                    self._save()
+                    if m["to"][0] != shown:
+                        m["to"][0] = shown
+                        self.named = True
+                        self._save()
                     return
+
+    def take_named(self) -> bool:
+        """True once after an echo named a written value (its shown text is in the entry now)."""
+        with self.lock:
+            named, self.named = self.named, False
+            return named
 
     # ---- moves made through the command bus ------------------------------------------------------------------------
     def expect_writes(self, pairs: list[list[Any]]) -> None:
@@ -208,6 +217,17 @@ class History:
             until = self.clock() + EXPECT_S
             for key, raw, *_ in pairs:
                 self._expect(key, raw, until)
+
+    def written(self, pairs: list[list[Any]]) -> None:
+        """The write of [[key, raw], ...] has come back from Live: its echoes are due from now. A write that took
+        longer than EXPECT_S (Live was busy) would else have its late echo read as a new move."""
+        with self.lock:
+            until = self.clock() + EXPECT_S
+            for key, raw, *_ in pairs:
+                waiting = self.expect.get(key, [])
+                for i, w in enumerate(waiting):
+                    if same(w[0], raw):
+                        waiting[i] = (w[0], until)
 
     def record(
         self, pairs: list[list[Any]], who: protocol.Who | str, group: str | None = None
@@ -239,6 +259,14 @@ class History:
                     else:
                         top["moves"].append(m)
                 top["at"] = now
+                # a control brought back to where the gesture found it did not move; a gesture that moved nothing
+                # is no step at all
+                top["moves"] = [m for m in top["moves"] if m["from"] is None or not same(m["from"][1], m["to"][1])]
+                if not top["moves"]:
+                    self.entries.pop()
+                    self.pos = len(self.entries)
+                    self._save()
+                    return None
                 self._save()
                 return top
             entry: dict[str, Any] = {"k": "move", "moves": moves, "who": who}
@@ -334,15 +362,19 @@ class History:
             )
 
     # ---- undo, redo -----------------------------------------------------------------------------------------------
-    def _push(self, entry: dict[str, Any]) -> dict[str, Any]:
-        del self.entries[self.pos :]  # a new step drops what could be redone
+    def _push(self, entry: dict[str, Any], keep_redo: bool = False) -> dict[str, Any]:
+        """A new entry at the place undo stands. A step drops what could be redone; a checkpoint (`keep_redo`)
+        changes nothing in the mix, so the undone steps after it stay and can still be redone."""
+        if not keep_redo:
+            del self.entries[self.pos :]
         self.seq += 1
         entry.update(id=self.seq, at=self.clock())
-        self.entries.append(entry)
+        self.entries.insert(self.pos, entry)
+        self.pos += 1
         if len(self.entries) > KEEP:
             cut = len(self.entries) - KEEP
             self.entries = self.entries[cut:]
-        self.pos = len(self.entries)
+            self.pos = max(0, self.pos - cut)
         return entry
 
     def _writes(self, moves: list[dict[str, Any]], side: str) -> list[list[Any]]:
@@ -412,6 +444,19 @@ class History:
             out.append({"name": p.stem, "at": p.stat().st_mtime})
         return out
 
+    def has_checkpoint(self, name: str) -> bool:
+        return bool(NAME_RE.match(name)) and (self.folder() / f"{name}.json").exists()
+
+    def free_name(self, name: str) -> str:
+        """`name`, or `name 2`, `name 3`... when a checkpoint already has it: a new one never overwrites an old one."""
+        check_name(name)
+        if not self.has_checkpoint(name):
+            return name
+        n = 2
+        while self.has_checkpoint(f"{name[:56]} {n}"):
+            n += 1
+        return f"{name[:56]} {n}"
+
     def load(self, name: str) -> dict[str, live_state.ShownRaw]:
         """A checkpoint's values for the desk's keys (all the keys it has)."""
         if not NAME_RE.match(name):
@@ -445,7 +490,7 @@ class History:
             # hands' State does not list a checkpoint's "name" and "made_by"; its readers keep unknown keys
             marked: Any = {**full, "name": name, "made_by": "mixdesk"}
             live_state.save(marked, self.folder() / f"{name}.json", self.set_name)
-            e = self._push({"k": "checkpoint", "name": name, "moves": [], "who": who})
+            e = self._push({"k": "checkpoint", "name": name, "moves": [], "who": who}, keep_redo=True)
             self._save()
             return e
 

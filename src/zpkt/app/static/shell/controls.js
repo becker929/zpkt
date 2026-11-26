@@ -5,13 +5,15 @@
 // (f1-f4), the 8 pads (b1-b8). The page hands over what each slot holds and does the talking to the app itself.
 // The knob, the fader and the pad are the chat's drawings (static/ask/zpkt/draw.js), with the value as a place 0..1.
 //
-// A slot model: {slot, state, label, shown, n, key, hw, by, group, tint, why, range, steps, chg, flash}
+// A slot model: {slot, state, label, shown, n, key, hw, by, group, tint, why, range, steps, chg, flash, sending, fixed}
 //   state  "live" (takes touch), "macro" (moved from the MiniLab only), "missing" (the open set lacks its target),
 //          "off" (nothing is mapped). Left out means "off".
 //   n      its place, 0 to 1; shown: the value as text; key: its state key; hw: the MiniLab page it is on
 //   by     "key" or "slot": how a pad is toggled (the page reads it back from data-by)
 //   group  a small caption over the control; tint 0 or 1; why: the reason it is greyed
 //   range  [low, high] places worth playing; steps: how many stops a knob has (a choice), 0 for a smooth one
+//   sending  its value is the page's own, on its way to Live (a small mark by the number until Live confirms it)
+//   fixed    Live settled somewhere else than the page showed: the number flashes once
 (function () {
   "use strict";
   const KNOBS = ["k1", "k2", "k3", "k4", "k5", "k6", "k7", "k8"], FADERS = ["f1", "f2", "f3", "f4"];
@@ -67,13 +69,14 @@
   function slot(m) {
     const kind = kindOf(m.slot), name = hwName(m.slot), state = m.state || "off";
     const n = clamp(m.n), on = kind === "pad" && state !== "off" && state !== "missing" && n >= 0.5;
-    const cls = ["ctl", "mc", kind, state, m.tint ? "t1" : "t0", on ? "on" : "", m.chg ? "chg" : "", m.flash ? "flash" : ""].filter(Boolean).join(" ");
+    const cls = ["ctl", "mc", kind, state, m.tint ? "t1" : "t0", on ? "on" : "", m.chg ? "chg" : "", m.flash ? "flash" : "", m.sending ? "sending" : "", m.fixed ? "fixed" : ""].filter(Boolean).join(" ");
     const data = `data-slot="${m.slot}" data-state="${state}" data-key="${esc(m.key || "")}" data-hw="${m.hw ?? ""}" data-by="${m.by || "key"}" data-n="${n}" data-steps="${m.steps || 0}" data-range="${m.range ? m.range.join(",") : ""}"`;
     const cap = m.group || m.caps ? `<div class="g">${esc(m.group || "")}</div>` : "";  // caps: keep the row level
     const spoken = (m.group ? m.group + ": " : "") + (m.label || name);
     if (state === "off") {
-      const face = kind === "pad" ? `<div class="w" role="img" aria-label="${name}: not mapped"><span>${name}</span></div>`
-        : `<div class="w" role="img" aria-label="${name}: not mapped">${kind === "knob" ? knob(0, {off: true}) : fader(0, {off: true})}</div><div class="v"></div><div class="l">${name}</div>`;
+      // An unmapped slot keeps its place and says its name to a screen reader and on hover; it shows no caption.
+      const face = kind === "pad" ? `<div class="w" role="img" aria-label="${name}: not mapped"></div>`
+        : `<div class="w" role="img" aria-label="${name}: not mapped">${kind === "knob" ? knob(0, {off: true}) : fader(0, {off: true})}</div><div class="v"></div><div class="l"></div>`;
       return `<div class="${cls}" ${data} aria-disabled="true" title="${name}: not mapped">${cap}${face}</div>`;
     }
     if (state === "missing") {
@@ -104,10 +107,18 @@
     return `<div class="mlpw"><section class="mlp" aria-label="MiniLab 3 layout" ${attrs}>${block("mk", KNOBS)}${block("mf", FADERS)}${block("mp mp1", PADS.slice(0, 4))}${block("mp mp2", PADS.slice(4))}</section></div>`;
   }
 
-  /** Move one drawn knob or fader to place n without redrawing the panel (while it is dragged). */
-  function set(el, n) {
+  /** Move one drawn knob or fader to place n without redrawing the panel (while it is dragged). `text`, when given,
+      is the value to show for that place: the page's own reading, marked as on its way until Live confirms it. */
+  function set(el, n, text) {
     const w = el.querySelector(".w");
     if (!w) return;
+    el.dataset.n = clamp(n);
+    if (text !== undefined) {
+      const v = el.querySelector(".v");
+      if (v) v.textContent = text;
+      el.classList.add("sending");
+      if (w.getAttribute("role") === "slider") w.setAttribute("aria-valuetext", text);
+    }
     if (el.classList.contains("knob")) {
       w.innerHTML = knob(n, {steps: +el.dataset.steps, range: el.dataset.range ? el.dataset.range.split(",").map(Number) : null});
     } else if (el.classList.contains("fader")) {

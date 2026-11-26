@@ -36,6 +36,7 @@ EFFECTS: dict[str, Effect] = {
     "mix.set": "move",
     "page.set": "move",
     "mix.reset": "move",
+    "mix.describe": "read",
     "tempo.set": "move",
     "tempo.scale": "move",
     "transport": "move",

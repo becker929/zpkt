@@ -67,14 +67,23 @@ def test_transitions_open_as_a_sheet_too(song_page):
     assert song_page.locator("#psheet iframe").get_attribute("src") == "/app/song/transitions/"
 
 
-def test_build_asks_twice_then_builds_through_the_bus(song_rig, song_page, quick_live):  # noqa: F811
+def test_build_shows_what_it_replaces_then_builds_through_the_bus(song_rig, song_page, quick_live):  # noqa: F811
     open_set(song_rig.rig, MIX_SET)
     song_page.click('#tabs button[data-t="song"]')
     song_page.wait_for_selector("#lanes .lane")
+    built = lambda: [e["status"] for e in song_rig.rig.desk.bus.log if e["kind"] == "song.build"]  # noqa: E731
     song_page.click("#songbuild")
-    assert "Tap again" in song_page.locator("#songbuild").inner_text()
-    assert song_rig.rig.desk.bus.log == [] or all(e["kind"] != "song.build" for e in song_rig.rig.desk.bus.log)
+    song_page.wait_for_selector("#sheet.on #buildswap")
+    # the confirm shows the set that is emptied and what is built in its place; nothing is sent yet
+    assert MIX_SET in song_page.locator("#buildswap .gone").inner_text()
+    assert song_page.locator("#songname").inner_text() in song_page.locator("#buildswap").inner_text()
+    assert "minutes" in song_page.locator("#sheet").inner_text()
+    assert built() == []
+    song_page.click("#hclose")  # Cancel: still nothing
+    song_page.wait_for_selector("#sheet:not(.on)")
+    assert built() == []
     song_page.click("#songbuild")
+    song_page.click("#buildgo")
     song_page.wait_for_function("document.querySelector('#toast').textContent.startsWith('Built')")
     assert [e["status"] for e in song_rig.rig.desk.bus.log if e["kind"] == "song.build"] == [200]
 
