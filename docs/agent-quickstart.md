@@ -25,8 +25,9 @@ Run them from the repo root with `uv run`.
 
 If `ZPKT_AGENT=1` is set, you are an agent: you may read and make pages (`zpkt page make`), and the `zpkt live`
 commands that change Live refuse you. To change values or devices, send the app one batch (`live.change`, the
-`change_live` tool in Ask: `src/zpkt/app/README.md`, "A batch of changes"). To suggest an alternative to hear, make
-a page with compare states (Pages, Compare): your user presses the pad.
+`change_live` tool in Ask: `src/zpkt/app/README.md`, "A batch of changes"). To remove a device, make a track or run
+code in Live, propose the batch (`propose_live` in Ask): your user taps "Do it" in the chat and the app runs it.
+To suggest an alternative to hear, make a page with compare states (Pages, Compare): your user presses the pad.
 
 ## Never
 

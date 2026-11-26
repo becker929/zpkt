@@ -6,7 +6,9 @@ it refuses, unless given --direct: then it talks to Live itself and says the cha
 ZPKT_LIVE_VIA=direct makes every command direct without a warning (the old way); ZPKT_LIVE_VIA=app is the default.
 In an agent's shell (ZPKT_AGENT is set) a command that changes Live stops before it does anything, by any route:
 through the app, with --direct, with ZPKT_LIVE_VIA=direct (`agent_stop`). An agent changes Live through the app's
-`change_live` tool only. Commands that only read still run. This guards against accidents; it is not a wall.
+two tools only: `change_live` (values and devices, on its own) and `propose_live` (a removed device, a new track,
+code: after the user's tap in the chat). Commands that only read still run. This guards against accidents; it is
+not a wall.
 
 A command that only reads goes through the app too when it is running (so it waits its turn on the app's one
 connection to Live) and falls back to a direct connection when the app is down, with --direct, with ZPKT_LIVE_VIA=direct,

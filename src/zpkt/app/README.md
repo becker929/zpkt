@@ -61,6 +61,10 @@ a command without a line there cannot be registered. The checks, in order:
   `agent_may` in its `Spec` (`effects.AGENT_MAY`; `effects.py` has the reason, `tests/app/test_effects.py` writes
   the set out again). `mix.set`, `transport`, `live.run` and every other move are refused for an agent as before.
   The next section says what it does.
+- **Ask first: `live.propose`** (the same decision: structure and code are "ask first"). A batch that may also
+  remove a device, make a track or run code. An agent cannot send it on its own. In Ask its `propose_live` tool
+  shows the batch as a card in the chat; after your tap on "Do it" the Ask gate sends `live.propose` with your
+  word (`approval`), still as `agent`. It is in the next section too ("A batch that waits for your tap").
 - **The wrong-set guard.** Every `move` is held to a set, and nothing is sent when Live has another open. The desk's
   moves are for the page's set; that answer is kept for five seconds. A job from the API is for the set its caller
   names (`expect_set`), or else for the set the app last saw open: the desk's at the start, then one the app opened
@@ -94,8 +98,8 @@ of it there as one more `Change`.
   on a page or not). `add` loads an audio effect from Live's browser onto a track that exists, last or at `at`.
   `device` with `on` switches a device on or off (it is the value `<track>/<device>/Device On`). `move` puts a
   device at another index of its chain. A second device of a name is `Saturator#2`, as in state keys. There is no
-  step that removes a device, makes a track, changes routing or clips, or runs code: those wait for your tap and
-  are not built.
+  step that removes a device, makes a track, changes routing or clips, or runs code: those wait for your tap, and
+  are `live.propose` (below).
 - **Checked whole, first.** Shape, limits (40 steps, 8 adds), the rails, then Live's own names and ranges: every
   track, device, effect name, range and step of a list. Any problem refuses the whole batch with 400 and `problems`,
   one plain sentence each, and nothing has changed: no value, no device, no checkpoint. A value on a device the
@@ -122,6 +126,66 @@ of it there as one more `Change`.
 
 The Live calls are in `zpkt.live.chain` (the load is the one `zpkt.live.mix` has used since October 2026) and
 `zpkt.live.writes.set_keys`. Tests: `tests/app/test_live_change.py`.
+
+### A batch that waits for your tap: `live.propose`
+
+`propose.py`. Structure and code are asked first. The batch has the same shape, and a step is any `live.change`
+step or one of three more:
+
+```json
+{"why": "parallel drive on the hats", "steps": [
+  {"new_track": "return", "name": "Drive"},
+  {"add": "Saturator", "track": "Drive"},
+  {"set": "Hats bus/send Drive", "to": 0.6},
+  {"remove": "desk Sat", "track": "Hats bus"},
+  {"code": "find_track('hats').mute = False", "does": "Unmutes the hats channel."}]}
+```
+
+- **Steps.** `remove` takes a device off a chain. `new_track` makes an `audio`, `midi` or `return` track called
+  `name`, last (a return gets Live's letter by itself); later steps may use it by name. `code` is Python for Live
+  with `does`, one plain sentence that says what it does: for routing, clips and whatever else has no step. It
+  runs as `live.run` does, the string as it is, in one call.
+- **Two commands.** `live.propose.check` is a read: it checks the batch whole and answers with the card, `{"why",
+  "steps": [{"n", "text", "no_undo", "code"}]}`, each step one short line in plain words ("Remove desk Sat from
+  Hats bus", "New audio track: Parallel", "Set Kick bus volume to -3.0 dB": the value as Live would show it, from
+  one short read; the raw number for a value on something the batch makes). `live.propose` is the move: it checks
+  the batch whole again, saves a checkpoint and runs it, with `live.change`'s own machinery (`change.check`,
+  `change.run`) and three more runners. It is for the API's callers, as `live.run` is: the web page may not send
+  it, and an agent's needs your word.
+- **Checked whole, first.** As `live.change`, plus: at most 3 code steps of 2,000 characters, each of which must
+  parse; at most 8 new tracks, named in at most 40 characters with no `/`, and not by a name the set has; a
+  device that an earlier step removes cannot be named again. Steps are checked against the set as it is, so no
+  step may rely on what a code step makes. A problem is a 400 with every problem listed, and nobody is asked.
+- **The rails.** `live.change`'s, and: no device is removed on Main, and no new track is named `mon ...` or
+  `Main`. Code cannot be checked against the rails. It is screened for the names it spells out (a string that
+  starts with `mon `, and `zpkt listen` and `zpkt desk meter`, the two devices that are only the desk's on Main):
+  a guard against an accident, not a wall. You read the code on the card.
+- **The tap** (`ask/tools.py`, `ask/permissions.py`). The Ask gate sends the check, shows the card through the
+  permission desk (a `permission` event whose `tool` is the card, so every device shows it) and blocks the tool
+  call for at most 4 minutes. Nothing of Live is held meanwhile: the bus takes every other command, and the web
+  server answers every other request (each has a thread of its own). "Do it" sends `live.propose` with
+  `approval: "user"` as `agent`. "Don't", no answer, or a stopped turn send nothing: the agent is told
+  `{"ok": false, "declined": true}` or `{"ok": false, "unanswered": true}`. With no turn running there is nobody
+  to ask (409). What came of it goes into the transcript as a `proposal` event (`state`: `done`, `failed` with
+  `step`, `refused`, `declined`, `unanswered`, `stopped`), so the card shows it and keeps it.
+- **The card** (`static/ask/index.html`). `why` as its title; each step on a line; a code step's `does` with the
+  code under it in a small box that scrolls inside itself; "No undo" on each step that undo cannot take back;
+  "Do it" and "Don't". After the answer it says what happened and ticks each step that ran.
+- **One History row, and what undo leaves.** The row is an entry of kind `change`, as for `live.change`. Undo takes
+  back its values, added devices and moves. It does NOT take back a removed device (its settings are gone), a new
+  track, or code (the app cannot know what code did). Those are the entry's `stays`, each with its `words`. The
+  row shows them ("no undo: 1 removed, 1 track, 1 code"), and undone it says "undone in part" (or "not undone"
+  when nothing else was in it). The replies of `history.undo` and `history.back` name them in `left`. Code is
+  kept as soon as it was sent, also when Live reported an error: part of it may have run, and the row says so.
+  When a device is removed, the entry's earlier device steps are rewritten as if it had never been on the chain
+  (`history.taken_out`) and the values the batch wrote to it are dropped, so undo cannot land on a namesake.
+- **The answer** after "Do it": `{"ok", "approved": true, "done", "undo", "no_undo": [...], "now", "added",
+  "removed", "made", "ran": [{"step", "ok", "result"}]}`; 502 with `failed` and `not_done` when a step failed;
+  400 with `problems` when the set changed while the card waited (nothing changed).
+
+The Live calls are `zpkt.live.chain.delete`, `zpkt.live.newtrack` and `zpkt.live.describe.shown_for`. Tests:
+`tests/app/test_live_propose.py` (the check, the run, History, undo), `tests/app/test_propose_tool.py` (the wait)
+and `tests/app/test_propose_page.py` (the card and the row).
 
 ## What it serves
 
@@ -191,7 +255,9 @@ port, 8984 (below). `ZPKT_DESK_URL` names the web server (pages, `/app/`), `ZPKT
   back to: a tap on its row offers "Go back", which takes that step and every later one back as one new step
   (`history.back {entry}`), so undo reverses it. A checkpoint is a row with a flag and a "Go back" button: it puts
   the desk's controls back as one step (`history.revert`), so undo reverses it. A batch an agent made
-  (`live.change`) is one row: who, its `why` in bold, and a count ("3 controls, 1 device"). "Save checkpoint" takes a name, or uses the date and time, and shows
+  (`live.change`) is one row: who, its `why` in bold, and a count ("3 controls, 1 device"). A batch you said yes to
+  (`live.propose`) also says what undo does not take back ("no undo: 1 removed, 1 track, 1 code"), and undone it is
+  marked "undone in part". "Save checkpoint" takes a name, or uses the date and time, and shows
   "Saving" at once (`history.checkpoint` with `new: true`, which never overwrites: a taken name gets a number).
   Saving a checkpoint keeps what can be redone. Names a machine made ("start-20261125-1701") are shown as what they
   are ("Start of session, 25 Nov, 17:01").
@@ -511,7 +577,7 @@ the Ask tab of `/app/` (`/app/#ask`); its page and API are under `/app/ask/`.
   The main conversation cannot be deleted. (Until 26 November 2026 the most recent old session became the main one.
   On its next start the store puts such an adopted session back in the archive, once: `SessionStore._fresh_mains`.)
 - **Modes.** A producer has one mode, `auto`, and no menu: full power (Anthony, 26 November 2026). The agent has the
-  shell, file edits, every tool and the app's four tools. For Claude Code that is `--permission-mode auto` (Claude
+  shell, file edits, every tool and the app's five tools. For Claude Code that is `--permission-mode auto` (Claude
   Code decides what is safe; nothing is disallowed and the Mac's other MCP servers are there); for Gemini it is
   `yolo`, and a question it still asks is answered yes. The default models are `claude-opus-5-5` and `gemini-4-neon`
   (`CLAUDE_AGENT_MODEL` and `GEMINI_AGENT_MODEL` override them). The careful mode `build` is still there: the app's
@@ -530,16 +596,20 @@ the Ask tab of `/app/` (`/app/#ask`); its page and API are under `/app/ask/`.
   event and then a `compacted` event with `summary`, `keep_from`, `turns`, `tokens` and `pages`. The file on disk is
   never cut. If the summary fails or takes over 3 minutes, the event says `failed` and the turn goes on with the
   last turns only. Your message is never lost. The rules are in `ask/compaction.py`.
-- **Tools.** An agent has four tools and no others: make or change a page (`page.draft`), read the state
+- **Tools.** An agent has five tools and no others: make or change a page (`page.draft`), read the state
   (`desk.state`, older name `state.read`, which also lists `units` with their ids and pads), read the last
-  measurement, and change Live (`change_live`, the command `live.change`: a batch of value and device steps in one
-  call, above). It cannot organize pages: order and archive are the person's. When I want to try an alternative it makes
+  measurement, change Live (`change_live`, the command `live.change`: a batch of value and device steps in one
+  call, above), and propose a change that waits for my tap (`propose_live`, the commands `live.propose.check` and
+  `live.propose`: a batch that may remove a device, make a track or run code, above). It cannot organize pages: order and archive are the person's. When I want to try an alternative it makes
   a page with compare states, or changes the one it made (Pages, Compare), and links to it.
   They are app commands behind a small MCP server (`python -m zpkt.app.ask.mcp`) that calls
   `POST /app/ask/api/tool` with the session's token. The bus tags them `agent` and groups them by session. Only
-  `change_live` moves Live, and an agent cannot name any other command.
+  `change_live` moves Live on the agent's own word, `propose_live` moves it after my tap, and an agent cannot name
+  any other command. A `propose_live` call may take 4 minutes (the wait for the tap), so the MCP server gives that
+  tool 5 (`mcp.timeout_for`); Gemini CLI gives an MCP call 10.
 - **Live only through the app.** Ask's agents have a shell, and `ZPKT_AGENT=1` is set in it. With that set, every
-  `zpkt live` (or `hands`) command that changes Live stops before it does anything and names `change_live`:
+  `zpkt live` (or `hands`) command that changes Live stops before it does anything and names `change_live` and
+  `propose_live`:
   `exec` of code that is not certainly a read, `state put`, `device load`, `panel`, `open`, `save`, `export`,
   `modals --reap`, `rig reset`, `rig output NAME`, with or without `--direct` or `ZPKT_LIVE_VIA=direct`
   (`zpkt.live.cli_options.agent_stop`; `tests/app/test_agent_shell_guard.py`). Reads still run. This is a guard

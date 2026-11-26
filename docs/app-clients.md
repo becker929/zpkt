@@ -72,11 +72,13 @@ app starts, then the set the app opened (`open_set`), or one a caller named and 
 - The files all belong to you, so this keeps callers apart; it is not a wall against a program that runs as you.
 - An agent may read and make pages, and may send one move on its own: `live.change`, a batch of value and device
   steps that the app checks whole and keeps as one History row (`src/zpkt/app/README.md`, "A batch of changes").
-  Every other change needs `approval: "user"`, and an agent cannot send that word; it is yours. For an alternative
-  to hear, it makes a page with compare states and you press the pad.
+  Every other change needs `approval: "user"`, and an agent cannot send that word; it is yours. In Ask you give it
+  with a tap: the agent's `propose_live` tool shows a batch that removes a device, makes a track or runs code as a
+  card in the chat, and the app sends `live.propose` with your word only after "Do it". For an alternative to
+  hear, it makes a page with compare states and you press the pad.
 - A coding agent in a terminal runs with `ZPKT_AGENT=1` (Ask sets it for the engines it starts). The `zpkt` command
   is then `agent`, not `cli`, and a `zpkt live` command that changes Live stops before it starts, with or without
-  `--direct`, and names the app's `change_live` tool. Code that only reads still runs, and so does
+  `--direct`, and names the app's `change_live` and `propose_live` tools. Code that only reads still runs, and so does
   `zpkt page make`. It is a guard against accidents, not a wall: the variable can be unset.
 - The API listens on `127.0.0.1:8984` (`ZPKT_API_PORT`; the client finds it with `ZPKT_APP_URL`). It turns away any
   other Host name. `ZPKT_APP_URL` names this API only; the pages server on 8985 is `ZPKT_DESK_URL`.
