@@ -53,3 +53,34 @@ def read_raw(client: McpTransport, device: str, chunk: int = READ_CHUNK) -> dict
         for name, shown, raw in rows:
             out[name] = [shown, raw]
     return out
+
+
+_SET_KEYS = """bad = []
+for key, v in {pairs!r}:
+    try:
+        found = find_value(song, key)
+    except (LookupError, ValueError):
+        bad.append(key)
+        continue
+    if isinstance(found, tuple):
+        if bool(getattr(found[0], found[1])) != bool(v):
+            setattr(found[0], found[1], bool(v))
+    elif not found.is_enabled:
+        bad.append(key)
+    else:
+        v = max(found.min, min(found.max, float(v)))
+        if found.value != v:
+            found.value = v
+result = bad"""
+
+
+def set_keys(client: McpTransport, pairs: Sequence[Sequence[Any]], chunk: int = WRITE_CHUNK) -> list[str]:
+    """Set values by state key ([[key, raw], ...]: "Kick bus/volume", "Kick bus/desk EQ/1 Gain A", "Kick bus/mute"),
+    `chunk` to a call; return the keys it could not set (the set lacks them, or Live has the parameter disabled)."""
+    from zpkt.live.inlive import with_source
+
+    skipped: list[str] = []
+    for a in range(0, len(pairs), chunk):
+        code = _SET_KEYS.format(pairs=[[str(k), v] for k, v, *_ in pairs[a : a + chunk]])
+        skipped += client.run(with_source(code, "find")) or []
+    return skipped

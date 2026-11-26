@@ -37,6 +37,8 @@ the command and a row.
 | Which output is Live playing through? / Play through another one | `zpkt live rig output [NAME]` (e.g. `Yeti`) |
 | Render many variants of a section in one export | `zpkt live kit template ...`, then `zpkt live kit render BATCH KIT` (probe kits: the fast batch-render method) |
 | Try a sound with knobs to turn | `zpkt live panel make --spec ...` (below) |
+| What is on a track's chain? Add an audio effect, move a device, delete one | `zpkt.live.chain`: `look`, `add`, `move`, `delete` (each call short; the app's `live.change` uses them) |
+| Set values by state key, on a page or not | `zpkt.live.writes.set_keys(live, [[key, raw], ...])` |
 | A dialog is stuck | `zpkt live modals --reap` |
 | Live is acting strange | `zpkt live rig check`, then `zpkt live rig reset` |
 
@@ -50,7 +52,8 @@ the command and a row.
 | `state.py` | the one model of the whole mix: `State` (typed; values are `ShownRaw` pairs `[shown, raw]`), `take(client, only=None)`, `diff(a, b, ignore=())`, `summarize`, `put(client, state, only=None)` (writes only what differs, reads back), `load`/`load_dict` (a state, or a mix desk recipe's `"desk"`, read through `desk.py`), `save`, `path_for` |
 | `desk.py` | the mix desk recipe's `desk` as a contract (pydantic; `lib/contracts/desk.schema.json` is generated from it) and `parse` |
 | `inlive/` | rules that also run inside Live (stdlib, Python 3.11, loadable by path, or sent as source with `with_source`): `tracks` (a track by name: Main, returns without their letter), `shown` (the raw value that shows as "-6 dB"), `keys` (state keys and the three spellings of a send) |
-| `writes.py` | `set_raw(client, device, [(name, raw)])` and `read_raw`: device parameters a few to a call |
+| `writes.py` | `set_raw(client, device, [(name, raw)])` and `read_raw`: device parameters a few to a call; `set_keys(client, [[key, raw]])`: values by state key |
+| `chain.py` | a track's device chain, one short call at a time: `look(client, tracks)`, `names`, `has_effect`, `load_effect`, `add(client, track, device, at=None)`, `move(client, track, index, to)`, `delete(client, track, index, name)`; `ChainError` |
 | `knobs.py`, `units.py` | `Knob(track, device, param)`: `.id` (`track/Tag#i/param`), `.pipe_id` (`track\|Tag:i\|param`), `Knob.parse` (both); `set_many`, `read_many`, `apply(client, values, *, verify=True)`; `units.UNITS`, the measured .als-to-LOM conversions |
 | `export.py` | `export(client, out, start, length, *, method="keys"\|"menu", staging=None, ...)`: both ways through the Export dialog; `export_by_menu` (no keystrokes, Main), `save_as(folder, name, *, project=True)`, `SavePanel(reach="where_popup"\|"go_to_folder")` |
 | `render.py` | `export(...)`, the keystroke method (`export_audio.applescript`) |

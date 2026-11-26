@@ -1161,6 +1161,32 @@ class Song(LiveObject):
     def create_midi_track(self, index: int = -1) -> Track:
         return self._new_track("midi", index)
 
+    def move_device(self, device: Device, target: Any, target_position: int) -> int:
+        """Live's Song.move_device: put `device` in `target` (a track) before the device now at `target_position`,
+        and return the index it ends at. GUESS: the position counts the chain as it is before the move, so the end
+        is len(devices); a position past the end is the end."""
+        self._events().check_write()
+        source = device._parent
+        if source is None or device not in source._devices or not hasattr(target, "_devices"):
+            raise RuntimeError("the device cannot be moved there")  # GUESS: Live's text
+        was = source._devices.index(device)
+        position = max(0, min(len(target._devices), int(target_position)))
+        if target is source and position > was:
+            position -= 1
+        source._devices.remove(device)
+        target._devices.insert(position, device)
+        device._parent = target
+
+        def undo() -> None:
+            target._devices.remove(device)
+            source._devices.insert(was, device)
+            device._parent = source
+
+        source._structure("devices", undo)
+        if target is not source:
+            target._changed("devices")
+        return position
+
     def create_audio_track(self, index: int = -1) -> Track:
         return self._new_track("audio", index)
 

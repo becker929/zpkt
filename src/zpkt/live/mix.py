@@ -12,14 +12,12 @@ from __future__ import annotations
 
 import contextlib
 import math
-import time
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
-from zpkt.live import hold
+from zpkt.live import chain, hold
 from zpkt.live import panel as P
-from zpkt.live.agent import with_prelude
 from zpkt.live.inlive import tracks as named_tracks
 from zpkt.live.transport import McpTransport
 
@@ -54,33 +52,6 @@ def read_params(client: McpTransport, exprs: list[str]) -> list[dict[str, Any]]:
             dict(zip(("name", "min", "max", "value", "quantized", "items", "table"), r, strict=False)) for r in rows
         ]
     return out
-
-
-_ADD = """
-def _base(n):
-    return n.rsplit(".", 1)[0].lower() if n.lower().endswith((".adv", ".adg")) else n.lower()
-def _find(root, name, budget):
-    queue = [root]
-    while queue:
-        node = queue.pop(0)
-        for c in node.children:
-            budget[0] -= 1
-            if budget[0] < 0:
-                return None
-            if _base(c.name) == name and c.is_loadable:
-                return c
-            if c.is_folder:
-                queue.append(c)
-    return None
-_t = {track}
-_item = _find(browser.audio_effects, {device!r}.lower(), [4000])
-if _item is None:
-    raise ValueError("no audio effect %r in Live's browser" % {device!r})
-_n = len(_t.devices)
-select_track(_t)
-browser.load_item(_item)
-result = _n
-"""
 
 
 # A panel being replaced: its devices are renamed and switched off (parked) while the new one is made, deleted
@@ -126,15 +97,10 @@ result = 'ok'
 
 def _add_device(client: McpTransport, track: str, device: str, name: str) -> None:
     """Put an audio effect at the end of a track's chain and give it the panel's name for it."""
-    n = client.run(with_prelude(_ADD.format(track=tr(track), device=device)))
-    for k in range(12):
-        if k:
-            time.sleep(0.25)
-        got = client.run(f"_d = list({tr(track)}.devices)\nresult = len(_d)")
-        if got > n:
-            break
-    else:
-        raise P.PanelError(f"Live did not load {device!r} on {track!r}")
+    try:
+        chain.load_effect(client, track, device)  # the load, and the wait until the chain has it
+    except chain.ChainError as exc:
+        raise P.PanelError(str(exc)) from None
     client.run(f"_d = list({tr(track)}.devices)[-1]\n_d.name = {name!r}\nresult = 'ok'")
 
 
