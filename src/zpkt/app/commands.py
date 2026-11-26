@@ -96,7 +96,7 @@ def _norms(desk: Desk, body: Any) -> list[list[Any]]:
         raise BadRequest("'norms' is a list of [state key, position from 0 to 1]")
     keys = [str(x[0]) for x in norms]
     try:
-        found = describe.describe(desk.conn, keys)
+        found = _described(desk, keys)  # kept: a drag sends many positions, and each must not ask Live its range
     except describe.Missing as exc:
         raise BadRequest(f"the set does not have: {'; '.join(exc.missing)}") from None
     return [[str(k), raw_from_norm(found[str(k)], _float({"n": n}, "n"))] for k, n in norms]
@@ -148,10 +148,14 @@ def _move(desk: Desk, cmd: Command, pairs: list[list[Any]]) -> Reply:
     except Exception:
         desk.history.forget(entry)
         raise
+    desk.history.written(pairs)
     desk.history.flush_changes()
     desk.push(desk.history.view())
     desk.push_app(desk.monitor.message())
     return 200, {"ok": True, "entry": entry and entry["id"], "missing": missing}
+
+
+SCALE_STOPS = 33  # shown texts kept along a continuous control's range: the page reads a place as text between them
 
 
 def _described(desk: Desk, keys: list[str]) -> dict[str, Description]:
@@ -161,7 +165,7 @@ def _described(desk: Desk, keys: list[str]) -> dict[str, Description]:
         known = {k: desk.descriptions[k] for k in keys if k in desk.descriptions}
     missing = [k for k in keys if k not in known]
     if missing:
-        found = describe.describe(desk.conn, missing)
+        found = describe.describe(desk.conn, missing, stops=SCALE_STOPS)
         with desk.lock:
             desk.descriptions.update(found)
         known.update(found)
@@ -190,6 +194,38 @@ def page_set(desk: Desk, cmd: Command) -> Reply:
     return _move(desk, cmd, pairs)
 
 
+def scale_of(d: Description) -> dict[str, Any]:
+    """A control's scale as the page needs it to show a place as text at once: its kind, unit, default place, the
+    items of a switch or list, and for a continuous one the shown text at places spread from 0 to 1."""
+    span = (d["max"] - d["min"]) or 1.0
+    default = d["default"]
+    return {
+        "kind": d["kind"],
+        "unit": d["unit"],
+        "items": d["items"],
+        "plain": d["plain"],
+        "default": None if default is None else (default - d["min"]) / span,
+        "stops": [[shown, (raw - d["min"]) / span] for shown, raw in d["stops"]],
+    }
+
+
+def mix_describe(desk: Desk, cmd: Command) -> Reply:
+    """The scales of controls, by state key: {"keys": [...]}. A read, kept per set, so a page asks once per control
+    and a drag never waits on it. A key the set lacks is left out."""
+    keys = cmd.args.get("keys")
+    if not (isinstance(keys, list) and keys and all(isinstance(k, str) for k in keys)):
+        raise BadRequest("'keys' is a list of state keys")
+    with desk.lock:
+        known = {k: desk.descriptions[k] for k in keys if k in desk.descriptions}
+    unknown = [k for k in dict.fromkeys(keys) if k not in known]
+    if unknown:
+        found, _ = describe.look(desk.conn, unknown, stops=SCALE_STOPS)
+        with desk.lock:
+            desk.descriptions.update(found)
+        known.update(found)
+    return 200, {"ok": True, "scales": {k: scale_of(d) for k, d in known.items()}}
+
+
 def mix_reset(desk: Desk, cmd: Command) -> Reply:
     """Put controls back to their default: {"keys": [state key, ...]}. One history entry, so undo takes it back."""
     keys = cmd.args.get("keys")
@@ -206,7 +242,9 @@ def mix_reset(desk: Desk, cmd: Command) -> Reply:
 
 
 def tempo_set(desk: Desk, cmd: Command) -> Reply:
-    tempo.set_tempo(desk.conn, _float(cmd.args, "bpm"))
+    bpm = _float(cmd.args, "bpm")
+    tempo.set_tempo(desk.conn, bpm)
+    desk.set_tempo(bpm)
     return OK
 
 
@@ -332,6 +370,8 @@ def history_redo(desk: Desk, cmd: Command) -> Reply:
 def history_checkpoint(desk: Desk, cmd: Command) -> Reply:
     name = str(cmd.args.get("name") or time.strftime("cp-%H%M%S")).strip()
     try:
+        if cmd.args.get("new"):  # a new point to go back to: a taken name gets a number, nothing is overwritten
+            name = desk.history.free_name(name)
         e = desk.make_checkpoint(name, cmd.who)
     except ValueError as exc:
         return 400, {"error": str(exc)}
@@ -455,6 +495,7 @@ COMMANDS: dict[str, tuple[Handler, bool]] = {
     "mix.set": (mix_set, True),
     "page.set": (page_set, True),
     "mix.reset": (mix_reset, True),
+    "mix.describe": (mix_describe, True),
     "tempo.set": (tempo_set, True),
     "tempo.scale": (tempo_scale, True),
     "transport": (transport, True),

@@ -26,6 +26,7 @@ from zpkt.app.ask.events import Event
 Record = dict[str, Any]
 ID = re.compile(r"^[0-9a-f-]{36}$")
 KEEP_DELETED_S = 7 * 86400
+MAIN_TITLE = "Ask"
 
 
 log = logging.getLogger(__name__)
@@ -97,6 +98,7 @@ class SessionStore:
             if not isinstance(s.get("engines"), dict):
                 s.pop("engines", None)
         self._purge()
+        self._fresh_mains()
 
     # ---- time and files ----------------------------------------------------------------------------------------
     def now_ms(self) -> int:
@@ -121,6 +123,23 @@ class SessionStore:
             with contextlib.suppress(OSError):
                 self.file(s["id"]).unlink()
         self.index = [s for s in self.index if s not in gone]
+
+    def _fresh_mains(self) -> None:
+        """Once, for folders from before 2026-11-26: a main conversation used to be the most recent old session
+        (someone's old chat, under its old title). Such a one goes back to the earlier chats, and `main` then
+        makes a clean one. A main conversation that was made as one is marked `fresh` and is never touched again,
+        so this does nothing the second time."""
+        changed = False
+        for s in self.index:
+            if not s.get("main") or s.get("fresh"):
+                continue
+            if s.get("title") == MAIN_TITLE:  # made as the main conversation, before the mark existed
+                s["fresh"] = True
+            else:
+                del s["main"]
+            changed = True
+        if changed:
+            self.save()
 
     # ---- sessions ----------------------------------------------------------------------------------------------
     def get(self, sid: str) -> Record:
@@ -191,15 +210,15 @@ class SessionStore:
             self.index = [s for s in self.index if s["id"] != sid]
             self.save()
 
-    def main(self, workspace: str, cwd: str, title: str = "Ask") -> Record:
-        """The workspace's one conversation. The first time, the most recent session there becomes it (the others
-        stay as the archive); with none, an empty one is made."""
+    def main(self, workspace: str, cwd: str) -> Record:
+        """The workspace's one conversation: the session marked `main`, else a new, empty one titled "Ask". Older
+        sessions are never taken for it; they are the archive."""
         with self.lock:
             mine = [s for s in self.index if not s.get("deleted") and self._in(s, workspace, cwd)]
             found = next((s for s in mine if s.get("main")), None)
             if found is None:
-                found = max(mine, key=lambda s: s.get("updated", 0)) if mine else self.create(title, workspace, cwd)
-                found["main"] = True
+                found = self.create(MAIN_TITLE, workspace, cwd)
+                found["main"] = found["fresh"] = True
                 self.save()
             return found
 

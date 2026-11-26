@@ -42,6 +42,7 @@ class PositionMessage(TypedDict):
     t: Literal["pos"]
     b: float
     p: bool
+    bpm: NotRequired[float]  # Live's tempo, sent along so the page's identity line needs no call of its own
 
 
 class MonitorMessage(TypedDict):
@@ -147,7 +148,7 @@ _KINDS: dict[str, tuple[type, dict[str, tuple[type, ...]]]] = {
             "who": (str,),
         },
     ),
-    "pos": (PositionMessage, {"b": _NUMBER, "p": (bool,)}),
+    "pos": (PositionMessage, {"b": _NUMBER, "p": (bool,), "bpm": _NUMBER}),
     "mon": (MonitorMessage, {"slot": (str,), "ref": (str,), "err": (str,)}),
     "loop": (LoopMessage, {"loop": (str,)}),
     "page": (PageMessage, {"page": (int,), "picked": (dict,)}),

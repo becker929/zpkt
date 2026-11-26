@@ -110,13 +110,17 @@ def test_a_page_change_shows_it_is_waiting_then_clears(browser, rig, monkeypatch
     assert got["waiting"] and set(got["waiting"]) == {"1"}
     assert got["loading"] and got["dimmed"] and got["line"] == "1" and got["page"] == 0
     assert pg.locator("#main").get_attribute("aria-busy") == "true"
-    assert pg.locator("#pagename").inner_text() == was
+    # the new page's name shows at once, with "Loading" beside it; its button in the list is the marked one
+    want = pg.locator('#side button[data-page="1"]').inner_text()
+    assert pg.locator("#pagename").inner_text() == want != was
+    assert pg.locator("#pgwait").inner_text() == "Loading"
+    assert "on" in pg.locator('#side button[data-page="1"]').get_attribute("class").split()
     pg.wait_for_function("+getComputedStyle(document.querySelector('#desk [data-stale]')).opacity < 0.5")
     slow.go.set()
     pg.wait_for_function("zpkt.S.state.page === 1 && !zpkt.S.pend")
     got = pg.evaluate(PENDING)
     assert got == {**got, "waiting": [], "loading": False, "dimmed": False, "line": "0", "slow": ""}
-    assert pg.locator("#pagename").inner_text() != was
+    assert pg.locator("#pagename").inner_text() != was and pg.locator("#pgwait").count() == 0
     pg.wait_for_function("+getComputedStyle(document.querySelector('#desk [data-stale]')).opacity === 1")
     assert errors == []
 
@@ -130,6 +134,7 @@ def test_a_page_that_does_not_change_says_so_and_retry_works(browser, rig, monke
     pg.wait_for_selector("#slowretry")
     got = pg.evaluate(PENDING)
     assert got["slow"].startswith("The page did not change.") and not got["loading"] and not got["dimmed"]
+    assert pg.locator("#pgwait").count() == 0  # the name is the page Live still has
     assert pg.locator("#slowretry").bounding_box()["height"] >= 44
     slow.go.set()  # the answer comes late: the message goes away
     pg.wait_for_function("zpkt.S.state.page === 1 && document.querySelector('#slow').hidden")

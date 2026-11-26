@@ -316,7 +316,7 @@ class Desk:
     def _emit_pos(self):
         s = self.song
         b, playing = s.current_song_time, s.is_playing
-        self.emit({"t": "pos", "b": b, "p": bool(playing)})
+        self.emit({"t": "pos", "b": b, "p": bool(playing), "bpm": float(s.tempo)})
         if core.ran_past_end(playing, s.loop, b):
             try:
                 s.stop_playing()
@@ -633,6 +633,19 @@ class Desk:
         s = self.song
         return core.loop_mode(s.loop, s.loop_start, s.loop_length)
 
+    def _song_facts(self):
+        """The song's tempo, time signature and length in beats, for the page's identity line. A fact Live will not
+        give is left out."""
+        out = {}
+        for name, read in (
+            ("tempo", lambda s: float(s.tempo)),
+            ("sig", lambda s: [int(s.signature_numerator), int(s.signature_denominator)]),
+            ("length", lambda s: float(s.last_event_time)),
+        ):
+            with contextlib.suppress(Exception):
+                out[name] = read(self.song)
+        return out
+
     def snapshot(self):
         vals = {f"{page}:{slot}": core.value_report(t) for (page, slot), t in self.targets.items()}
         return {
@@ -646,6 +659,7 @@ class Desk:
             "playing": bool(self.song.is_playing),
             "loop": self._loop_mode(),
             "set": self.song.name if hasattr(self.song, "name") else "",
+            **self._song_facts(),
             "main_saved": self.main_saved,
         }
 

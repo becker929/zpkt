@@ -7,7 +7,9 @@ from __future__ import annotations
 
 import pytest
 
+from tests.app.conftest import osc_spec
 from tests.app.test_song import song_rig  # noqa: F401  (the rig with the Song adapter)
+from zpkt.live import meter
 
 playwright_sync = pytest.importorskip("playwright.sync_api")
 
@@ -95,6 +97,11 @@ def test_app_controls_are_touchable_and_fit(browser, rig, width):
 @pytest.mark.parametrize("width", [1200, 1600])
 def test_app_desktop_uses_three_columns_and_the_width(browser, rig, width):
     pg, _ = open_app(browser, rig, width)
+    assert (
+        pg.evaluate(DESKTOP_MEASURE)["spectrum"] <= 60
+    )  # no meter sends: a short strip that says so, not a blank well
+    rig.meter.send(osc_spec([0.1] * len(meter.centers())))
+    pg.wait_for_selector("#spec:not(.none) i")
     got = pg.evaluate(DESKTOP_MEASURE)
     assert got["columns"] == 3
     assert got["width"] >= 0.85

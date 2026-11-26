@@ -256,6 +256,10 @@
         "p": {
           "title": "P",
           "type": "boolean"
+        },
+        "bpm": {
+          "title": "Bpm",
+          "type": "number"
         }
       },
       "required": [

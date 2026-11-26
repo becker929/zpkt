@@ -41,9 +41,20 @@
 .mc .w{position:relative;display:block;outline:0;border-radius:10px;-webkit-tap-highlight-color:transparent}
 .mc .w:focus-visible{box-shadow:0 0 0 2px var(--ink)}
 .mc.live:not(.pad) .w{touch-action:none;cursor:ns-resize}
-.mc.off,.mc.missing{opacity:.4}
-.mc.off .w,.mc.missing .w{cursor:not-allowed}
-.mc.off .l,.mc.off .v{font-family:ui-monospace,Menlo,monospace;font-size:10px}
+.mc.missing{opacity:.4}
+.mc.missing .w{cursor:not-allowed}
+/* An unmapped slot is part of the map and nothing more: faint, no caption (its name is for screen readers and hover). */
+.mc.off{opacity:.2}
+.mc.off .w{cursor:default}
+@media (prefers-contrast:more){.mc.off{opacity:.45}}
+/* The number is the page's own until Live confirms it: a small mark beside it. A number Live corrected flashes once. */
+.mc.sending .v::after{content:"";display:inline-block;vertical-align:1px;margin-left:4px;width:6px;height:6px;box-sizing:border-box;border-radius:50%;border:1.5px solid var(--mute);border-top-color:transparent;animation:mc-send .7s linear infinite}
+@keyframes mc-send{to{transform:rotate(360deg)}}
+.mc.fixed .v{animation:mc-fix 1.2s ease-out 1}
+@keyframes mc-fix{0%,40%{background:var(--zs);color:var(--zs-on);border-radius:4px;box-shadow:0 0 0 3px var(--zs)}100%{background:transparent;box-shadow:0 0 0 3px transparent}}
+@media (prefers-reduced-motion:reduce){.mc.sending .v::after{animation:none;border-top-color:var(--mute)}.mc.fixed .v{animation:none;box-shadow:0 0 0 2px var(--zs)}}
+/* typing a value: the field sits where the number is */
+.mc .vt{position:absolute;z-index:3;left:50%;top:-14px;transform:translateX(-50%);width:96px;height:44px;border:2px solid var(--ink);border-radius:8px;background:var(--panel);color:var(--ink);font:16px ui-monospace,Menlo,monospace;text-align:center;padding:0 4px;user-select:text;-webkit-user-select:text}
 .mc.chg::after{content:"";position:absolute;top:1px;right:calc(50% - 34px);width:9px;height:9px;border-radius:50%;background:var(--zs);border:1px solid var(--ink)}
 .mc.flash .w{box-shadow:0 0 0 2px var(--zs)}
 
@@ -83,6 +94,7 @@
 .mc.pad.live .w{cursor:pointer}
 .mc.pad.live .w:active{transform:translateY(1.5px);box-shadow:0 .5px 0 var(--z-keyedge)}
 .mc.pad.on .w{background:var(--zs);border-color:var(--zs);color:var(--zs-on);box-shadow:0 2px 0 color-mix(in srgb,var(--zs) 60%,#000)}
+.mc.pad.off .w{border-color:var(--zc-line)}
 .mc.pad.off .w,.mc.pad.missing .w{background:none;box-shadow:none;border-style:dashed;color:var(--mute);font-family:ui-monospace,Menlo,monospace;font-size:10px}
 .mc.pad.chg::after{top:-3px;right:-1px}
 @media (prefers-reduced-motion:reduce){.mc.pad.live .w:active{transform:none}}

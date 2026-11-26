@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import pytest
 
-from zpkt.app.ask.testing import Call, Permit
+from zpkt.app.ask.testing import Call, Permit, Wait
 
 playwright_sync = pytest.importorskip("playwright.sync_api")
 
@@ -56,7 +56,7 @@ def stub(ctype: str, body: str):
     return answer
 
 
-def open_page(browser, asked, shell: bool = True, width: int = 390, height: int = 844):
+def open_page(browser, asked, shell: bool = True, width: int = 390, height: int = 844, query: str = ""):
     pg = browser.new_context(viewport={"width": width, "height": height}).new_page()
     pg.errors = []  # type: ignore[attr-defined]
     pg.on("pageerror", lambda e: pg.errors.append(str(e)))
@@ -65,7 +65,7 @@ def open_page(browser, asked, shell: bool = True, width: int = 390, height: int 
             pg.route(f"**/app/shell/{name}", stub(ctype, body))
     else:  # as if the shell's files were not there
         pg.route("**/app/shell/**", lambda route: route.abort())
-    pg.goto(asked.rig.url + "/app/ask/")
+    pg.goto(asked.rig.url + "/app/ask/" + query)
     pg.wait_for_selector("#box")
     pg.wait_for_selector("#tabs a")
     return pg
@@ -143,7 +143,7 @@ def test_it_fits_a_phone_and_a_desktop_with_no_sideways_scroll(asked, browser, w
         assert bar["y"] + bar["height"] <= tabs["y"] + 1
     else:
         assert tabs["y"] < box(pg, "#top")["y"]  # from 700 px up the shell puts the bar first
-    for sel in ("#send", "#moreBtn", "#engine", "#mode"):
+    for sel in ("#send", "#moreBtn", "#engine"):
         b = box(pg, sel)
         assert b["width"] >= 44 and b["height"] >= 44, (sel, b)
     assert pg.errors == [], pg.errors
@@ -154,7 +154,7 @@ def test_the_page_opens_the_main_conversation_and_a_question_gets_its_answer(ask
     asked.providers["claude"].script = [text("Here is a kick.\n\n"), text("Tell me what to change.")]
     page.wait_for_selector("#empty")
     assert page.locator("#engine").input_value() == "claude"
-    assert page.locator("#title").inner_text() == "Ask"
+    assert page.locator("#title").inner_text() == "Ask" and page.locator("#sub").inner_text().strip() == ""
     send(page, "make me a kick")
     page.wait_for_selector("text=Tell me what to change.")
     assert page.locator(".m.user .bubble").first.inner_text() == "make me a kick"
@@ -168,7 +168,58 @@ def test_the_page_opens_the_main_conversation_and_a_question_gets_its_answer(ask
     assert other.locator(".m.user .bubble").first.inner_text() == "make me a kick"
 
 
-def test_an_ask_first_question_is_answered_from_the_page(asked, page):
+# ---- one mode for a producer: no menu, and pages get made ------------------------------------------------------------
+def test_there_is_no_mode_menu_and_asking_for_controls_makes_a_page(asked, page):
+    """The default just works: no mode to choose, and a page is made in it. The card shows that it was."""
+    assert page.locator("#mode").count() == 0
+    assert "Read-only" not in page.locator("#main").inner_text()
+    asked.providers["claude"].script = [Call("make_page", {"spec": PAGE}), text("[the level](/app/#page=kick-level)")]
+    send(page, "give me the kick level")
+    page.wait_for_selector("a.pcard svg")
+    asked.ask.wait_idle()
+    assert asked.providers["claude"].seen[-1].mode == "build" and asked.providers["claude"].replies[-1][0] == 200
+    meta = page.locator(".m.user .meta").inner_text()
+    assert "Pages" not in meta and "build" not in meta  # the mode is not a thing a producer reads about
+    assert page.locator("a.pcard b").inner_text() == "Kick: level"  # the saved Page's title, not the link's words
+    assert page.locator("#hint").inner_text() == ""
+
+
+@pytest.mark.parametrize("width", [375, 1100])
+def test_the_developer_modes_are_behind_a_flag(asked, browser, width):
+    pg = open_page(browser, asked, width=width, query="?dev=1")
+    assert [o.inner_text() for o in pg.locator("#mode option").all()] == [
+        "Pages",
+        "Ask first",
+        "Edit files",
+        "Full (shell)",
+    ]
+    assert pg.locator("#mode optgroup").get_attribute("label") == "Developer"
+    assert pg.locator("#mode").input_value() == "build"
+    b = box(pg, "#mode")
+    assert b["width"] >= 44 and b["height"] >= 44
+    assert pg.evaluate("document.documentElement.scrollWidth <= innerWidth")
+    pg.select_option("#mode", "auto_edit")
+    asked.providers["claude"].script = [text("ok then")]
+    send(pg, "as a developer")
+    pg.wait_for_selector("text=ok then")
+    asked.ask.wait_idle()
+    assert asked.providers["claude"].seen[-1].mode == "auto_edit"
+    assert "Edit files" in pg.locator(".m.user .meta").inner_text()
+    pg.goto(asked.rig.url + "/app/ask/")  # the flag is remembered on this device
+    pg.wait_for_selector("#mode")
+    pg.goto(asked.rig.url + "/app/ask/?dev=0")  # and forgotten when told
+    pg.wait_for_selector("#box")
+    assert pg.locator("#mode").count() == 0
+    asked.providers["claude"].script = [text("plain again")]
+    send(pg, "as a producer")
+    pg.wait_for_selector("text=plain again")
+    asked.ask.wait_idle()
+    assert asked.providers["claude"].seen[-1].mode == "build"  # a developer mode does not stick without the flag
+    assert pg.errors == [], pg.errors
+
+
+def test_an_ask_first_question_is_answered_from_the_page(asked, browser):
+    page = open_page(browser, asked, query="?dev=1")
     asked.providers["claude"].script = [Permit("Edit notes.md"), text("Done after your yes.")]
     page.select_option("#mode", "ask")
     send(page, "edit my notes")
@@ -178,6 +229,7 @@ def test_an_ask_first_question_is_answered_from_the_page(asked, page):
     page.wait_for_selector("text=Answered: yes")
     page.wait_for_selector("text=Done after your yes.")
     assert asked.providers["claude"].answers == ["yes"]
+    assert page.errors == [], page.errors
 
 
 def test_only_the_latest_part_loads_and_the_top_brings_the_part_before(asked, browser):
@@ -273,12 +325,15 @@ def test_a_link_to_a_page_draws_as_a_card_with_a_map_of_the_minilab(asked, page)
     assert code == 200, made
     link = made["markdown"]
     asked.providers["claude"].script = [
-        text(f"The kick's level is on a page.\n\n{link}\n\nAlso [a missing one](/app/#page=nope) "),
+        text(
+            f"The kick's level is on a page.\n\n{link.replace('[Kick: level]', '[this page]')}\n\nAlso [a missing one](/app/#page=nope) "
+        ),
         text("and [the docs](https://example.com/docs) and [the desk](/app/#desk)."),
     ]
     send(page, "put the kick level on a fader")
     page.wait_for_selector("a.pcard svg")
     card = page.locator("a.pcard").first
+    page.wait_for_function("document.querySelector('a.pcard b').textContent === 'Kick: level'")  # the Page's own title
     assert card.get_attribute("href") == made["link"] and card.get_attribute("target") is None
     assert card.locator("b").inner_text() == "Kick: level" and "Open on the Desk" in card.inner_text()
     lit, grey = card.locator("svg .on").count(), card.locator("svg .off").count()
@@ -322,3 +377,75 @@ def test_a_tool_call_still_draws_in_the_work_view(asked, page):
     page.wait_for_selector("text=First answer.")
     asked.ask.wait_idle()
     page.wait_for_selector(".wk-trace, .wk-step")
+
+
+# ---- quiet status: counts and recovered errors are in the work view, a failure is one sentence ----------------------
+def test_a_recovered_error_and_the_tool_counts_stay_out_of_the_default_view(asked, page):
+    asked.providers["claude"].script = [
+        Call("make_page", {"spec": {"title": "Bad", "groups": [{"name": "x", "controls": [{"target": "No/such"}]}]}}),
+        Call("make_page", {"spec": PAGE}),
+        Call("read_state"),
+        text("Here it is: [Kick: level](/app/#page=kick-level)"),
+        {"type": "result", "status": "success", "stats": {"duration_ms": 17200, "tool_calls": 3, "total_tokens": 900}},
+    ]
+    send(page, "give me the kick level")
+    page.wait_for_selector("a.pcard")
+    asked.ask.wait_idle()
+    page.wait_for_selector(".wk-trace")
+    assert asked.providers["claude"].replies[0][0] >= 400  # the first call did fail, and the agent went on
+    shown = page.locator("#thread").inner_text()
+    for noise in ("warning", "error", "tool", "Used", "token", "step", "failed", "mcp__", "make_page"):
+        assert noise not in shown, (noise, shown)
+    assert page.locator(".err").count() == 0 and page.locator("#thread > .wk-step").count() == 0
+    assert page.locator(".wk-trace > summary").inner_text().strip() == "Details"
+    assert box(page, ".wk-trace > summary")["height"] >= 44
+    assert page.locator(".stats").inner_text().strip() == "17.2 s"
+    page.click(".wk-trace > summary")  # the work view keeps all of it
+    inside = page.locator(".wk-trace").text_content()
+    assert "3 tool calls" in inside and "1 failed" in inside and "made a page: Kick: level" in inside
+
+
+def test_a_turn_that_failed_says_so_once_in_a_sentence_with_what_to_do(asked, page):
+    from zpkt.app.ask.provider import Outcome
+
+    asked.providers["claude"].script = [text("Half an ans")]
+    asked.providers["claude"].outcome = Outcome(1)
+    send(page, "will this work")
+    page.wait_for_selector(".err")
+    asked.ask.wait_idle()
+    assert page.locator(".err").count() == 1
+    assert (
+        page.locator(".err > span").inner_text() == "Claude Code stopped before it finished. Send your message again."
+    )
+    assert not page.locator(".err pre").is_visible() and "exit code 1" in page.locator(".err pre").text_content()
+    assert box(page, ".err summary")["height"] >= 44
+    asked.providers["claude"].outcome = Outcome(None, None, "no such program")
+    send(page, "and now")
+    page.wait_for_function("document.querySelectorAll('.err').length === 2")
+    assert "could not start. Pick the other agent and send again." in page.locator(".err > span").nth(1).inner_text()
+
+
+# ---- the thinking state ----------------------------------------------------------------------------------------------
+@pytest.mark.parametrize("width", [375, 1100])
+def test_a_running_turn_shows_a_pulse_and_the_seconds_so_far(asked, browser, width):
+    pg = open_page(browser, asked, width=width, height=700)
+    asked.providers["claude"].script = [Wait()]
+    send(pg, "think about it")
+    pg.wait_for_selector(".wk-todo.wk-running .wk-pulse")
+    assert pg.locator("#dock .wk-cur").inner_text() == "Thinking"
+    pg.wait_for_function("/^[1-9]\\d* s$/.test(document.querySelector('#dock .wk-secs').textContent)", timeout=5000)
+    assert pg.locator("#sub").inner_text() == "Work" or "working" not in pg.locator("#sub").inner_text()
+    stop = box(pg, ".wk-stop")
+    assert (
+        stop["width"] >= 44
+        and stop["height"] >= 36
+        and pg.evaluate("document.documentElement.scrollWidth <= innerWidth")
+    )
+    other = open_page(browser, asked, width=width, height=700)  # opened mid-turn: the same state, with its seconds
+    other.wait_for_selector(".wk-todo.wk-running")
+    other.wait_for_function("/^\\d+ s$/.test(document.querySelector('#dock .wk-secs').textContent)")
+    pg.click(".wk-stop")
+    pg.wait_for_selector("text=Stopped.")
+    pg.wait_for_function("!document.querySelector('.wk-todo.wk-running')")
+    assert pg.locator("#dock .wk-secs").inner_text() == ""
+    assert pg.errors == [], pg.errors

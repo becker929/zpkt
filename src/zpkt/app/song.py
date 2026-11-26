@@ -226,7 +226,11 @@ class Song:
 
     def listing(self, cmd: Command) -> Reply:
         reply = self.code.server.dispatch(self.app, "GET", "/api/arrangements", lambda limit: None)
-        return 200, {"arrangements": json.loads(reply.body), "canonical": self.settings.canonical}
+        return 200, {
+            "arrangements": json.loads(reply.body),
+            "canonical": self.settings.canonical,
+            "mix_set": self.settings.mix_set,  # the Live set a build empties and fills: the page's confirm names it
+        }
 
     def show(self, cmd: Command) -> Reply:
         """The Song: the arrangement's Structure as lanes (read)."""

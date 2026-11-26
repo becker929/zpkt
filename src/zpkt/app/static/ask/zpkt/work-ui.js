@@ -14,6 +14,7 @@ let W = createWork();
 let ui = null;
 let openAgent = null;
 let running = false;
+let since = 0;   // when the running turn began, on this device's clock
 
 const mainTodos = () => W.turn?.todos || [];
 const curTitle = () => mainTodos().find((t) => t.status === 'current')?.text || '';
@@ -27,7 +28,7 @@ function nowDoing() {
 }
 function refreshDock() {
   if (!ui) return;
-  ui.todo.render(mainTodos(), running, nowDoing());
+  ui.todo.render(mainTodos(), running, nowDoing(), since);
   ui.strip.render(W.turn?.agents || []);
   refreshDrawer();
 }
@@ -45,6 +46,8 @@ function apply(e, { replaying = false } = {}) {
   if (e.type === 'compact') { ui.thread.append(compactMark()); return true; }
   if (e.type === 'state') { running = !!e.running; refreshDock(); return true; }
   const c = W.apply(e);
+  // A turn seen live began now. One read back (a reload mid-turn) began at its own time, on the Mac's clock.
+  if (e.type === 'prompt') since = replaying ? e.t || Date.now() : Date.now();
   if (e.type === 'prompt') running = e.engine !== 'instant';   // the fast path is done in a second or two: no Working bar to flash
   if (e.type === 'run_end') running = false;
   if (!c) { if (e.type === 'prompt' || e.type === 'run_end') refreshDock(); return e.type === 'tool_use' || e.type === 'tool_result' || !!e.parent; }
@@ -114,10 +117,10 @@ window.Work = {
     thread.addEventListener('click', (e) => { const b = e.target.closest('[data-open-agent]'); if (b) onRoute(b.dataset.openAgent); });
     if (onWrong) watchWrong(thread, onWrong);
   },
-  reset() { W = createWork(); running = false; openAgent = null; refreshDock(); },
+  reset() { W = createWork(); running = false; since = 0; openAgent = null; refreshDock(); },
   apply,
   settle() { setQuiet(false); refreshDock(); },
-  setRunning(r) { if (running !== !!r) { running = !!r; refreshDock(); } },
+  setRunning(r) { if (running !== !!r) { running = !!r; if (running && !since) since = Date.now(); refreshDock(); } },
   route(id) { openAgent = id || null; refreshDrawer(); },
   hasAgent: (id) => W.agents.has(id),
   current: () => W.current(),

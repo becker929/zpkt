@@ -193,7 +193,9 @@ class Desk:
 
     def page_state(self) -> dict[str, Any]:
         """The state as the page gets it: a copy, with the loudness match's gains for every reference."""
-        return {**self.snapshot(), "gains": deskstate.matched_gains(self.analysis()["sources"])}
+        state = self.snapshot()
+        song = {"name": state.get("set") or self.settings.set_name, **deskstate.song_facts(state)}
+        return {**state, "gains": deskstate.matched_gains(self.analysis()["sources"]), "song": song}
 
     def monitor_choice(self) -> deskstate.MonitorChoice:
         return self.snapshot()["monitor"]
@@ -276,9 +278,12 @@ class Desk:
         with self.lock:
             self.state = deskstate.reduce(self.state, msg, time.time())
         self.push(dict(msg))
-        if msg["t"] == "v" and self.history.seen(msg["key"], msg["s"], msg["r"], who=protocol.who_moved(msg)):
-            self.push(self.history.view())
-            self.push_app(self.monitor.message())
+        if msg["t"] == "v":
+            moved = self.history.seen(msg["key"], msg["s"], msg["r"], who=protocol.who_moved(msg))
+            if moved or self.history.take_named():  # named: the echo of a write gave its row the shown text
+                self.push(self.history.view())
+            if moved:
+                self.push_app(self.monitor.message())
 
     def receive(self, data: bytes) -> None:
         """One datagram from the pager. A datagram that is not one of the pager's messages is dropped and said so."""
@@ -288,6 +293,12 @@ class Desk:
             log.warning(f"app: dropped a datagram from the pager: {exc}")
             return
         self.ingest(msg)
+
+    def set_tempo(self, bpm: float) -> None:
+        """The tempo the app just set in Live: the page's identity line follows without asking Live again."""
+        with self.lock:
+            self.state = {**self.state, "tempo": float(bpm)}
+        self.push_full()
 
     def set_match(self, match: bool) -> None:
         with self.lock:

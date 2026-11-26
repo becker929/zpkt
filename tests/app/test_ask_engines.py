@@ -5,14 +5,14 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from zpkt.app.ask.engines import CLAUDE_MODE, MODES, ToolServer, claude_command
+from zpkt.app.ask.engines import CLAUDE_MODE, DEFAULT_MODE, MODES, ToolServer, claude_command
 
 HOME = Path("/Users/someone")
 
 
 def command(**kw):
     base = dict(
-        prompt="-hello", mode="plan", model="", resume=False, session_id="sid", claude_bin="claude",
+        prompt="-hello", mode="build", model="", resume=False, session_id="sid", claude_bin="claude",
         environ={"PATH": "/usr/bin", "KEEP": "1"}, home=HOME,
     )  # fmt: skip
     return claude_command(**{**base, **kw})
@@ -28,9 +28,9 @@ def test_the_prompt_goes_on_stdin_and_a_new_session_gets_an_id():
         "--verbose",
         "--include-partial-messages",
         "--permission-mode",
-        "plan",
+        "dontAsk",
     ]
-    assert c.args[-2:] == ["--session-id", "sid"]
+    assert c.args[c.args.index("--session-id") + 1] == "sid"
 
 
 def test_a_started_session_resumes_and_options_are_added():
@@ -41,11 +41,34 @@ def test_a_started_session_resumes_and_options_are_added():
     assert c.args[c.args.index("--append-system-prompt") + 1] == "guide"
 
 
-def test_the_modes_map_to_claudes_and_unknown_is_read_only():
-    assert set(MODES) == set(CLAUDE_MODE)
+def after(c, flag: str) -> list[str]:
+    return c.args[c.args.index(flag) + 1].split(",")
+
+
+def test_the_modes_map_to_claudes_and_unknown_is_the_default():
+    assert set(MODES) == set(CLAUDE_MODE) and DEFAULT_MODE == "build"
     assert command(mode="yolo").args[6] == "bypassPermissions"
     assert command(mode="auto_edit").args[6] == "acceptEdits"
-    assert command(mode="nonsense").args[6] == "plan"
+    assert command(mode="nonsense").args[6] == command(mode="build").args[6] == "dontAsk"
+    assert "plan" not in [command(mode=m).args[6] for m in MODES if m != "plan"]  # plan mode builds nothing
+
+
+def test_the_default_mode_runs_the_apps_tools_and_reads_and_refuses_what_writes_or_runs():
+    """`build`: Claude Code's `dontAsk` (what no rule allows is refused, with no question), the app's tool server and
+    the reading tools allowed, and deny rules for everything that edits a file or runs a command."""
+    tools = ToolServer("python", ("-m", "zpkt.app.ask.mcp"), {})
+    for mode in ("build", "ask"):  # Claude has nobody to ask on the page: "ask" is "build" for it
+        c = command(mode=mode, tools=tools)
+        assert c.args[6] == "dontAsk"
+        assert after(c, "--allowedTools") == ["mcp__zpkt", "Read", "Glob", "Grep"]
+        assert {"Bash", "Edit", "Write", "NotebookEdit", "EnterPlanMode", "ExitPlanMode"} <= set(
+            after(c, "--disallowedTools")
+        )
+        assert "--strict-mcp-config" in c.args  # only the app's server, not the Mac's others
+    assert "mcp__zpkt" not in after(command(mode="build"), "--allowedTools")  # no tool server: reads only
+    for mode in ("auto_edit", "yolo"):  # a developer's modes: the app's tools run there too, nothing is denied
+        c = command(mode=mode, tools=tools)
+        assert after(c, "--allowedTools") == ["mcp__zpkt"] and "--disallowedTools" not in c.args
 
 
 def test_the_environment_drops_a_parent_sessions_variables_and_adds_the_token():
@@ -73,7 +96,7 @@ def test_the_tool_server_is_given_as_an_mcp_config_and_nothing_else_of_it_is_all
             "zpkt": {"command": "python", "args": ["-m", "zpkt.app.ask.mcp"], "env": {"ZPKT_APP_URL": "http://x"}}
         }
     }
-    assert c.args[c.args.index("--allowedTools") + 1] == "mcp__zpkt"
+    assert c.args[c.args.index("--allowedTools") + 1].split(",")[0] == "mcp__zpkt"
     assert "--mcp-config" not in command().args
 
 

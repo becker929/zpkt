@@ -2,6 +2,7 @@
 
 It logs every message it gets to $FAKE_ACP_LOG. What a prompt does depends on its text:
     "edit ..."   a tool call that asks permission first; allowed: it completes and says "Done."; declined: "Skipped."
+    "page ..."   a call of the app's make_page tool that asks permission first, as Gemini does for an MCP tool
     "slow ..."   text in pieces until cancelled (stopReason "cancelled")
     otherwise    "echo: <text>"
 """
@@ -43,9 +44,11 @@ def prompt(msg):
     sid = msg["params"]["sessionId"]
     words = "".join(b.get("text", "") for b in msg["params"]["prompt"] if b["type"] == "text")
     stop = "end_turn"
-    if "edit" in words:
+    if "edit" in words or "page" in words:
         tool = {"toolCallId": "e1", "title": "Edit README.md", "kind": "edit", "status": "pending", "locations": [{"path": "/r/README.md"}],
                 "content": [{"type": "diff", "path": "/r/README.md", "oldText": "a", "newText": "b"}]}  # fmt: skip
+        if "page" in words:
+            tool = {"toolCallId": "e1", "title": "make_page (zpkt MCP Server)", "kind": "other", "status": "pending"}
         update(sid, {"sessionUpdate": "tool_call", **tool})
         ev = threading.Event()
         answers["ev"] = ev
@@ -60,7 +63,7 @@ def prompt(msg):
                     "sessionUpdate": "tool_call_update",
                     "toolCallId": "e1",
                     "status": "completed",
-                    "content": [{"type": "diff", "path": "/r/README.md", "oldText": "a", "newText": "b"}],
+                    "content": tool.get("content", []),
                 },
             )
             text(sid, "Done.")
