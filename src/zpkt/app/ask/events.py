@@ -1,7 +1,7 @@
 """The page's event shape, and what is worked out from events. Pure: events in, events or text out.
 
 An event is a JSON object with a `type`: prompt, message, tool_use, tool_result, result, error, log, run_end, init,
-compact, notes, summary, surface, permission, permission_answer. The store (store.py) numbers them with `seq`.
+compact, compacted, notes, summary, surface, permission, permission_answer. The store (store.py) numbers them with `seq`.
 Claude Code's stream-json is translated into this shape (`ClaudeStream`); Gemini's ACP updates are translated in
 gemini.py. Both engines hand each other the conversation so far (`handoff_context`).
 """
@@ -142,8 +142,9 @@ class ClaudeStream:
         return ev
 
 
-def handoff_context(events: Iterable[Event], max_chars: int = 24000, since: bool = False) -> str:
-    """The conversation so far as text, for an engine that joins a session the other engine started."""
+def dialogue(events: Iterable[Event], max_chars: int = 24000, detail: bool = False) -> str:
+    """The turns in `events` as text: what the person said and what each agent answered. Tools are named only; with
+    `detail` each also shows the start of its arguments."""
     turns: list[dict[str, str]] = []
     cur: dict[str, str] | None = None
     for e in events:
@@ -155,7 +156,8 @@ def handoff_context(events: Iterable[Event], max_chars: int = 24000, since: bool
         elif e.get("type") == "message" and e.get("role") != "user" and cur is not None:
             cur["answer"] += e.get("content") or ""
         elif e.get("type") == "tool_use" and cur is not None:
-            cur["answer"] += f"\n[used tool {e.get('tool_name')}]\n"
+            args = f": {json.dumps(e.get('parameters') or {})[:300]}" if detail else ""
+            cur["answer"] += f"\n[used tool {e.get('tool_name')}{args}]\n"
     if not turns:
         return ""
     text = "\n\n".join(
@@ -164,6 +166,14 @@ def handoff_context(events: Iterable[Event], max_chars: int = 24000, since: bool
     )
     if len(text) > max_chars:
         text = "…(earlier turns cut)…\n" + text[-max_chars:]
+    return text
+
+
+def handoff_context(events: Iterable[Event], max_chars: int = 24000, since: bool = False) -> str:
+    """The conversation so far as text, for an engine that joins a session the other engine started."""
+    text = dialogue(events, max_chars)
+    if not text:
+        return ""
     if since:
         return (
             "While you were away, the person talked to another agent in this session. "

@@ -14,6 +14,8 @@ These lines are decisions worth their reason:
 
 - `pager.restart` and `page.arm` are moves. They reload code into Live and change which page the MiniLab's controls
   work, under your hands.
+- `page.open` is a move for the same reason: it puts a saved page on the desk and the MiniLab and arms it. An agent
+  drafts a page and gives you its link; opening it is yours.
 - `page.make` is a make though it puts the new page on the desk. Making pages is what an agent is for, and the
   handler checks the open set itself before anything is saved.
 - `options.make` is a make. It queues renders; the worker writes a Version's values, renders and puts the values
@@ -44,6 +46,7 @@ EFFECTS: dict[str, Effect] = {
     "page.lint": "read",
     "page.make": "make",
     "page.layout": "read",
+    "page.open": "move",
     "surface.make": "make",
     "surface.save": "make",
     "surface.remove": "move",

@@ -1,5 +1,5 @@
-"""The commands an agent may use: draft a page (linted and saved, not put on the desk), read the state, read the last
-measurement, propose an Option (filed in the app's one store of Options, zpkt.app.renders).
+"""The commands an agent may use: draft a page (linted and saved; the reply has the link you open it by), read the
+state, read the last measurement, propose an Option (filed in the app's one store of Options, zpkt.app.renders).
 
 They are ordinary commands on the bus, so a person or the API may use them too. An agent gets exactly these four,
 by `zpkt.app.ask.tools`, and the bus tags its calls `agent`. None of them moves Live. `page.draft` reads Live to
@@ -8,9 +8,11 @@ check the page against the open set; that goes through the app's connection and 
 
 from __future__ import annotations
 
+import time
 from typing import TYPE_CHECKING, Any
 
 from zpkt.app import effects
+from zpkt.app import pages as app_pages
 from zpkt.app.bus import BadRequest, Bus, Command, Reply
 from zpkt.app.commands import options_pick
 from zpkt.live import describe as describe_live
@@ -35,10 +37,15 @@ def page_make(desk: Desk, cmd: Command) -> Reply:
     problems = pages.lint(page, found, missing)
     if any(p["level"] == "error" for p in problems):
         return 422, {"error": "the page has errors and was not saved: fix them and try again", "problems": problems}
-    path = pages.save(page, desk.settings.set_name)
+    page.at = time.strftime("%Y-%m-%d %H:%M:%S")
+    path = pages.save(page, desk.settings.set_name, app_pages.pages_dir(desk))  # where GET /api/pages lists it
+    link = app_pages.link(page.id)
     return 200, {
         "ok": True,
         "id": page.id,
+        "title": page.title,
+        "link": link,  # opening it is the person's act (page.open): it puts the page on the Desk and the MiniLab
+        "markdown": f"[{page.title}]({link})",
         "file": path.name,
         "problems": problems,
         "labels": pages.labels(page, found),

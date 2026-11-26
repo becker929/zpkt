@@ -165,7 +165,7 @@ folds in half: knobs over pads 1–4, then faders over pads 5–8.
   but cannot move Live without approval.
 - The linter is the gate. A rejected spec answers 422 with the reasons, nothing is saved, and the agent repairs it.
 - A good one is saved as `<sets_dir>/pages/<set>/<id>.json` and as one made surface per MiniLab page, so the pager in
-  Live and the old desk take it too. The commands are `page.make`, `page.lint` and `page.layout`; `GET /api/pages`
+  Live and the old desk take it too. The commands are `page.make`, `page.lint`, `page.layout` and `page.open` (open a saved page by id); `GET /api/pages`
   lists the saved pages.
 - "Make a surface" on the old desk calls `page.make`: it now asks Claude for a Page. An answer in the old slot form
   is still accepted.
@@ -208,17 +208,31 @@ Ask is the chat with Claude and Gemini, ported from Zpkt web (Node, :8789, which
   process, permission prompts you answer on the page (mode "Ask first"), and an estimated dollar cost for each turn.
   A session can change engine between turns: the other engine gets the turns it missed. Keys come only from the
   harness's secret lookup; nothing in Ask reads a key or a key file.
-- **Sessions.** Every event is appended to a file as it happens, so a run goes on when the page closes, and any
-  device can open the session and follow. Files are in Zpkt web's forms (`sessions.json`, `sessions/<id>.jsonl`,
-  `library.json`, `surface-state.json`, `workspaces.json`) in `ZPKT_ASK_DIR` (default
-  `~/_agent_scratch/zpkt-app/ask`). Point it at a copy of Zpkt web's data folder to carry its sessions over; old
-  `zpkt-surface` blocks still draw.
-- **Tools.** An agent has four tools and no others: make a page (the `page.draft` command, which takes the spec as `spec` and still accepts `page`: checked against Live,
-  saved only when clean, not put on the desk; the fuller `page.make` is for you and the CLI), read
-  the state (`desk.state`, older name `state.read`), read the last measurement, propose an Option (`options.propose`; a record in the Ask folder, `proposals.py`, held by the app's one
-  store of Options and listed in the Options sheet, where I pick it). They are app commands behind a small MCP server
-  (`python -m zpkt.app.ask.mcp`) that calls `POST /app/ask/api/tool` with the session's token. The bus tags them
-  `agent` and groups them by session. None moves Live, and an agent cannot name any other command.
+- **One long conversation.** Each workspace has one main conversation that goes on for good.
+  `GET /app/ask/api/main?workspace=<id>` returns it and makes it on first use. If older sessions exist, the most
+  recent becomes the main one. The rest are the archive: `GET /app/ask/api/archive` lists them and their streams
+  still read. The main conversation cannot be deleted.
+- **Paging.** `GET /app/ask/api/sessions/<id>/events?turns=20` gives the last 20 turns, `first`, `next` and `more`.
+  Add `&before=<first>` for the turns before. Follow new events with the stream from `next`.
+- **Compaction.** Before a turn, the app estimates the conversation in tokens (characters / 4). Past the engine's
+  budget (Claude 100,000, Gemini 200,000; `ZPKT_ASK_COMPACT_TOKENS=120000` or `claude=120000,gemini=300000`, 0 is
+  never) it compacts. The engine writes a summary of the older turns: what you want, decisions, pages made, open
+  questions, the project. The last 3 turns stay word for word. Every engine then starts afresh on the summary and
+  those turns (Claude with a new session id, Gemini with a new ACP session). The transcript gains a `compacting`
+  event and then a `compacted` event with `summary`, `keep_from`, `turns`, `tokens` and `pages`. The file on disk is
+  never cut. If the summary fails or takes over 3 minutes, the event says `failed` and the turn goes on with the
+  last turns only. Your message is never lost. The rules are in `ask/compaction.py`.
+- **Sessions.** Every event- **Tools.** An agent has four tools and no others: make a page (`page.draft`), read the state (`desk.state`, older
+  name `state.read`), read the last measurement, and propose an Option (`options.propose`; a record in the Ask
+  folder, `proposals.py`, held by the app's one store of Options and listed in the Options sheet, where I pick it).
+  They are app commands behind a small MCP server (`python -m zpkt.app.ask.mcp`) that calls
+  `POST /app/ask/api/tool` with the session's token. The bus tags them `agent` and groups them by session. None
+  moves Live, and an agent cannot name any other command.
+- **Links, not widgets.** An agent does not draw controls in the chat. It calls `make_page` and puts the reply's
+  link in its answer: `[Title](/app/#page=<id>)`. `page.draft` takes the spec as `spec` (and still `page`), checks
+  it against Live, and saves it only when clean, where `GET /api/pages` lists it. It does not put it on the desk.
+  Opening the link is my act: `/app/#page=<id>` sends the command `page.open {id}`, a move. That arms the page if it
+  is on the desk already. Otherwise it first puts it on the desk and the MiniLab, as `page.make` does.
 - **Also ported.** The work view, cards and the preset library, the failure budget (it stops a run that keeps
   failing), project notes read to the agent and written after a turn (given a model to write with), attachments,
   and files an agent points at.

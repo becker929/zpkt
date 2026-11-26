@@ -2,8 +2,9 @@
 
 The names are Zpkt web's, under a prefix, so its page code works here with the prefix changed: sessions (with a
 server-sent stream that replays then follows), messages, stop, rename, delete and undo of a delete, workspaces,
-engines, files an agent points at, attachments, card state and the preset library. Two routes are new: `permission`
-(answer an agent's question) and `tool` (an agent's tool call, from its MCP server). `AskRoutes` is a mount
+engines, files an agent points at, attachments, card state and the preset library. New here: `permission` (answer an
+agent's question), `tool` (an agent's tool call, from its MCP server), `main` (the workspace's one conversation and
+its archive) and `events` (a long transcript a page of turns at a time). `AskRoutes` is a mount
 (zpkt.app.mounts): the web server hands it every request under the prefix. It writes its answers on the connection
 itself, since some are streams.
 """
@@ -30,6 +31,7 @@ PREFIX = "/app/ask"
 STATIC = Path(__file__).resolve().parents[1] / "static" / "ask"
 MAX_BODY = 12 * 1024 * 1024
 MAX_SURFACE = 256 * 1024
+PAGE_TURNS, MAX_TURNS = 20, 200  # a page of a transcript, in turns
 SID = r"([0-9a-f-]{36})"
 ASSET = re.compile(r"^/app/ask/zpkt/([a-z][\w-]{0,40}\.(?:js|css))$")
 TYPES = {".js": "text/javascript; charset=utf-8", ".css": "text/css; charset=utf-8"}
@@ -112,6 +114,11 @@ class AskRoutes:
             return send({"feedback": []})  # Zpkt web's "improve this app" is not part of the app
         if method == "GET" and api == "/sessions":
             return send({"sessions": ask.sessions(), "claudeSignedOut": False})
+        if method == "GET" and api == "/main":
+            workspace = text(query.get("workspace"), 80)
+            return send({"session": ask.main(workspace), "archive": ask.archive(workspace)})
+        if method == "GET" and api == "/archive":
+            return send({"sessions": ask.archive(text(query.get("workspace"), 80))})
         if method == "POST" and api == "/sessions":
             body = self._body(h)
             turn = self._turn_args(body)
@@ -218,6 +225,15 @@ class AskRoutes:
         s = ask.store.get(sid)
         if method == "GET" and sub == "/stream":
             return self._stream(h, sid, query)
+        if method == "GET" and sub == "/events":
+            turns = query.get("turns", "")
+            before = query.get("before", "")
+            page = ask.store.page(
+                sid,
+                min(int(turns), MAX_TURNS) if turns.isdigit() else PAGE_TURNS,
+                int(before) if before.isdigit() else None,
+            )
+            return send({**page, "running": ask.is_live(sid)})
         if method == "POST" and sub == "/messages":
             b = self._body(h)
             ask.send(s, text(b.get("prompt")), **self._turn_args(b))

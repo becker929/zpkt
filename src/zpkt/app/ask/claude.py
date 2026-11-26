@@ -1,6 +1,6 @@
 """Claude Code as an engine: one `claude -p` process per turn, its stream-json translated into page events.
 
-Claude is resumed by the session's id (`--resume`). The sign-in token comes only from the secret lookup the app is
+Claude is resumed by the session's id (`--resume`), or by the id the turn names after a compaction started it afresh. The sign-in token comes only from the secret lookup the app is
 given (the Keychain, through the harness's `secret`); this module never reads a key or a file of keys itself.
 """
 
@@ -68,7 +68,7 @@ class ClaudeProvider:
             mode=turn.mode,
             model=turn.model,
             resume=turn.resume,
-            session_id=turn.session["id"],
+            session_id=turn.engine_session or turn.session["id"],
             claude_bin=self.bin,
             environ=self.environ,
             home=self.home,
