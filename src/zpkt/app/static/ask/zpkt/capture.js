@@ -1,21 +1,4 @@
-// Images to attach to a message: the armed surface as a PNG, a frame of the screen (a DAW window), or a file.
-import { snapshotSVG } from './draw.js';
-import { resolvePalette } from './palette.js';
-import { S } from './state.js';
-
-/** The armed surface, drawn with concrete colours (CSS variables do not exist inside an <img>). */
-export async function surfacePNG() {
-  const c = S.cards.get(S.active);
-  if (!c) throw new Error('No surface is armed');
-  const P = resolvePalette();
-  const svg = snapshotSVG(c.spec, c.values, c.peaks, { P, width: 560, header: true, regions: c.region });
-  const url = URL.createObjectURL(new Blob([svg], { type: 'image/svg+xml' }));
-  try {
-    const img = new Image();
-    await new Promise((ok, bad) => { img.onload = ok; img.onerror = () => bad(new Error('Could not draw the surface')); img.src = url; });
-    return toPNG(img, img.width, img.height, 2);
-  } finally { URL.revokeObjectURL(url); }
-}
+// Images to attach to a message: a frame of the screen (a window the person picks) or a file.
 
 export const canCaptureScreen = () => !!navigator.mediaDevices?.getDisplayMedia;
 

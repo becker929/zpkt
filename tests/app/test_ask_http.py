@@ -50,7 +50,7 @@ def test_the_page_and_its_assets_are_served_and_point_at_the_apps_api(asked):
     code, body, headers = raw(asked, "GET", "/app/ask/")
     assert code == 200 and headers["Content-Type"].startswith("text/html")
     html = body.decode()
-    assert "/app/ask/api/sessions" in html and "/app/ask/zpkt/index.js" in html and 'src="/api/' not in html
+    assert "/app/ask/api" in html and "/app/ask/zpkt/index.js" in html and 'src="/api/' not in html
     assert raw(asked, "GET", "/app/ask")[0] == 200
     code, _js, headers = raw(asked, "GET", "/app/ask/zpkt/index.js")
     assert code == 200 and "javascript" in headers["Content-Type"]
@@ -59,17 +59,18 @@ def test_the_page_and_its_assets_are_served_and_point_at_the_apps_api(asked):
     assert raw(asked, "GET", "/app/ask/nothing")[0] == 404
 
 
-def test_every_api_path_the_page_calls_is_served_or_listed_as_not_ported(asked):
-    """The page's own fetches: nothing it calls may be a surprise 404. What is not ported is named here."""
+def test_every_api_path_the_page_calls_is_served(asked):
+    """The page's own fetches: nothing it calls may be a surprise 404, and the widget routes are gone."""
     root = Path(__file__).resolve().parents[2] / "src" / "zpkt" / "app" / "static" / "ask"
     source = (root / "index.html").read_text() + "".join(p.read_text() for p in (root / "zpkt").glob("*.js"))
-    paths = set(re.findall(r"/app/ask/api/([a-z]+)", source))
-    not_ported = {"improve", "self", "rig"}  # Zpkt web editing itself, and Reset Live
-    panels = {"render", "grid", "pick"}  # `hands panel`: a card's Render button (sessions/<id>/render ...)
-    assert not_ported <= paths
-    served = {"health", "engines", "workspaces", "sessions", "attachments", "surfaces", "library", "feedback"}
-    assert paths - not_ported <= served, paths - not_ported - served
-    assert panels <= set(re.findall(r"/(render|grid|pick)`", source))
+    paths = set(re.findall(r"/app/ask/api/([a-z]+)", source)) | set(re.findall(r"\$\{API\}/([a-z]+)", source))
+    served = {"engines", "workspaces", "sessions", "attachments", "main", "archive"}
+    assert paths == served, paths ^ served
+    for gone in ("surfaces", "library"):
+        assert asked.rig.get(f"{API}/{gone}")[0] == 404
+    assert not re.search(r"requestMIDIAccess|zpkt-surface-state|AudioContext|createOscillator", source)
+    s = asked.ask.main()
+    assert asked.rig.post(f"{API}/sessions/{s['id']}/surface", {"spec": {"controls": []}})[0] == 404
 
 
 def test_a_session_runs_streams_and_replays(asked):
@@ -147,44 +148,14 @@ def test_a_request_another_site_makes_is_refused(asked):
     assert raw(asked, "GET", f"{API}/engines", {"Sec-Fetch-Site": "none"})[0] == 200
 
 
-def test_old_surface_blocks_and_surface_events_replay_unchanged(asked):
+def test_old_surface_blocks_and_surface_events_still_replay(asked):
+    """An old transcript keeps its control-panel block and its `surface` event; the page draws both as a stub."""
     s = asked.ask.store.create("Old", "work", str(asked.ask.workspaces.get("work")["path"]))
     block = '```zpkt-surface\n{"title": "Kick", "controls": [{"kind": "knob", "id": "a", "label": "A", "min": 0, "max": 1, "value": 0.5}]}\n```'
     asked.ask.store.emit(s["id"], {"type": "message", "role": "assistant", "content": block, "delta": True})
-    code, reply = asked.rig.post(
-        f"{API}/sessions/{s['id']}/surface",
-        {"spec": {"title": "Kick", "controls": [{"kind": "knob", "id": "a"}]}, "values": {"a": 0.7}},
-    )
-    assert code == 200 and reply["seq"] == 1
+    asked.ask.store.emit(s["id"], {"type": "surface", "spec": {"title": "Kick", "controls": []}, "values": {"a": 0.7}})
     events = asked.stream(s["id"], lambda e: e["type"] == "__state")
     assert events[0]["content"] == block and events[1]["type"] == "surface" and events[1]["values"] == {"a": 0.7}
-    assert asked.rig.post(f"{API}/sessions/{s['id']}/surface", {"spec": {}})[0] == 400
-
-
-def test_card_state_and_the_preset_library(asked):
-    sid = "11111111-2222-3333-4444-555555555555"
-    key = f"{sid}%2F3%2F0"  # the page's id is session/seq/index, sent as one encoded segment
-    assert (
-        asked.rig.request("PUT", f"{API}/surfaces/{key}", {"values": {"a": 1}, "side": "b"})[1]["state"]["side"] == "b"
-    )
-    assert asked.rig.get(f"{API}/surfaces?session={sid}")[1]["states"][f"{sid}/3/0"]["values"] == {"a": 1}
-    assert asked.rig.get(f"{API}/surfaces?session=99999999-2222-3333-4444-555555555555")[1]["states"] == {}
-    assert asked.rig.request("PUT", f"{API}/surfaces/bad%20id", {})[0] in (400, 404)
-    spec = {"title": "Kick", "controls": [{"kind": "knob", "id": "a"}]}
-    code, made = asked.rig.post(
-        f"{API}/library", {"spec": spec, "values": {"a": 0.2}, "name": "My kick", "source": "x"}
-    )
-    pid = made["preset"]["id"]
-    assert code == 200 and asked.rig.get(f"{API}/library")[1]["library"][0]["name"] == "My kick"
-    assert (
-        asked.rig.post(f"{API}/library", {"spec": spec, "values": {"a": 0.3}, "source": "x"})[1]["preset"]["id"] == pid
-    )  # same source: updated
-    assert asked.rig.request("PATCH", f"{API}/library/{pid}", {"name": "Renamed"})[1]["preset"]["name"] == "Renamed"
-    assert asked.rig.post(f"{API}/library", {"spec": {"controls": []}})[0] == 400
-    assert (
-        asked.rig.request("DELETE", f"{API}/library/{pid}")[0] == 200
-        and asked.rig.get(f"{API}/library")[1]["library"] == []
-    )
 
 
 def test_attachments_and_media_files_with_ranges(asked, tmp_path):

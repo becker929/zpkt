@@ -24,7 +24,6 @@ from zpkt.app.ask import compaction
 from zpkt.app.ask import notes as notes_module
 from zpkt.app.ask.engines import MODEL_NAME, MODES, ToolServer
 from zpkt.app.ask.events import ENGINE_NAME, ENGINES, Budget, Event, handoff_context
-from zpkt.app.ask.library import Library
 from zpkt.app.ask.permissions import Permissions
 from zpkt.app.ask.provider import Outcome, Provider, Turn
 from zpkt.app.ask.store import Refused, SessionStore
@@ -64,7 +63,6 @@ class Ask:
         self.providers, self.gate, self.guide = providers, gate, guide
         self.attach_dir = attach_dir or self.dir / "attachments"
         self.workspaces = Workspaces(self.dir, home)
-        self.library = Library(self.dir)
         self.permissions = Permissions(self.store.emit, notify)
         self.notes = notes_module.Notes(self.store.emit, self.store.save, write_notes)
         self.max_live, self.tool_python = max_live, tool_python

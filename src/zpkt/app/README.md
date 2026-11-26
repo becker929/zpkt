@@ -233,11 +233,21 @@ Ask is the chat with Claude and Gemini, ported from Zpkt web (Node, :8789, which
   it against Live, and saves it only when clean, where `GET /api/pages` lists it. It does not put it on the desk.
   Opening the link is my act: `/app/#page=<id>` sends the command `page.open {id}`, a move. That arms the page if it
   is on the desk already. Otherwise it first puts it on the desk and the MiniLab, as `page.make` does.
-- **Also ported.** The work view, cards and the preset library, the failure budget (it stops a run that keeps
-  failing), project notes read to the agent and written after a turn (given a model to write with), attachments,
-  and files an agent points at.
-- **Not ported.** A card's Render, Grid and Pick buttons (`zpkt live panel`), the fast path, purpose lines, "Improve this
-  app", Reset Live, the password gate. The page hides what it cannot do.
+- **The page.** `/app/ask/` is one tab of the app. It loads `/app/shell/shell.css` and `/app/shell/nav.js` for the
+  one tab bar (last on a phone, under the composer), and `/app/shell/listen.js` for the Listen button in its header.
+  If the tab bar's file does not load, the page draws four plain links instead. It opens the folder's main
+  conversation: the last 20 turns, then the stream. Reaching the top fetches the 20 turns before. Earlier chats and
+  the folder choice are behind one button in the header. An earlier chat is read-only.
+- **What the page draws.** A `compacted` event is a quiet divider, "Earlier conversation summarised", that opens to
+  the summary. A link to `/app/#page=<id>` is a card: the title, a small still map of the MiniLab (the slots the
+  page uses are lit, the rest grey; it asks `page.layout`), and "Open on the Desk". With no such page it is the
+  title alone. An `audio` block is a player. An old `zpkt-surface` block or `surface` event is a stub that says to
+  ask for a page; the rendered files of its A/B are plain players.
+- **Also ported.** The work view, the failure budget (it stops a run that keeps failing), project notes read to the
+  agent and written after a turn (given a model to write with), attachments, and files an agent points at.
+- **Not ported, or removed.** Controls drawn in the chat, their MIDI arming, saved card values and the preset
+  library are gone (page code and routes): controls live on the Desk. Also not here: `zpkt live panel` renders, the
+  fast path, purpose lines, "Improve this app", Reset Live, the password gate.
 
 `tests/app/test_ask_*.py` run it with a scripted provider and stand-ins for `claude` and `gemini --acp`. No model,
 no key, no Live.

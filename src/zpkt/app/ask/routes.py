@@ -2,7 +2,7 @@
 
 The names are Zpkt web's, under a prefix, so its page code works here with the prefix changed: sessions (with a
 server-sent stream that replays then follows), messages, stop, rename, delete and undo of a delete, workspaces,
-engines, files an agent points at, attachments, card state and the preset library. New here: `permission` (answer an
+engines, files an agent points at and attachments. New here: `permission` (answer an
 agent's question), `tool` (an agent's tool call, from its MCP server), `main` (the workspace's one conversation and
 its archive) and `events` (a long transcript a page of turns at a time). `AskRoutes` is a mount
 (zpkt.app.mounts): the web server hands it every request under the prefix. It writes its answers on the connection
@@ -30,7 +30,6 @@ if TYPE_CHECKING:
 PREFIX = "/app/ask"
 STATIC = Path(__file__).resolve().parents[1] / "static" / "ask"
 MAX_BODY = 12 * 1024 * 1024
-MAX_SURFACE = 256 * 1024
 PAGE_TURNS, MAX_TURNS = 20, 200  # a page of a transcript, in turns
 SID = r"([0-9a-f-]{36})"
 ASSET = re.compile(r"^/app/ask/zpkt/([a-z][\w-]{0,40}\.(?:js|css))$")
@@ -141,32 +140,6 @@ class AskRoutes:
                     f.suffix, "application/octet-stream"
                 ),
             )
-        if method == "GET" and api == "/surfaces":
-            sess = query.get("session", "")
-            return send({"states": ask.library.states(sess + "/" if re.fullmatch(r"[0-9a-f-]{36}", sess) else "")})
-        if method == "PUT" and (m := re.fullmatch(r"/surfaces/([\w:.\-%]{1,200})", api)):
-            from urllib.parse import unquote
-
-            return send({"state": ask.library.set_state(unquote(m.group(1)), self._body(h))})
-        if method == "GET" and api == "/library":
-            return send({"library": ask.library.library()})
-        if method == "POST" and api == "/library":
-            b = self._body(h)
-            p = ask.library.star(
-                b.get("spec"),
-                b.get("values"),
-                text(b.get("name"), 80),
-                text(b.get("session"), 40),
-                text(b.get("source"), 120),
-            )
-            return send({"preset": p})
-        if m := re.fullmatch(r"/library/([\w-]{1,20})", api):
-            if method == "PATCH":
-                b = self._body(h)
-                return send({"preset": ask.library.update(m.group(1), b.get("name"), b.get("values"))})
-            if method == "DELETE":
-                ask.library.remove(m.group(1))
-                return send({"ok": True})
         if method == "GET" and api == "/tools":
             return send(
                 {
@@ -209,13 +182,6 @@ class AskRoutes:
         if files:
             names = "\n".join(f"- {self.ask.attach_dir / f}" for f in files)
             parts.append(f"Attached image{'s' if len(files) > 1 else ''} (open with your file-reading tool):\n{names}")
-        sf = body.get("surface")
-        if isinstance(sf, dict) and sf.get("id"):
-            j = json.dumps(
-                {"id": text(str(sf["id"]), 120), "title": text(sf.get("title"), 120), "values": sf.get("values") or {}}
-            )
-            if len(j) < 32000:
-                parts.append("Surface state (the armed controller, as the user left it):\n```json\n" + j + "\n```")
         return "\n\n".join(parts), files
 
     def _session(self, h: Handler, method: str, sid: str, sub: str, query: dict[str, str]) -> None:
@@ -269,25 +235,6 @@ class AskRoutes:
                 },
             )
             return send({"ok": True})
-        if method == "POST" and sub == "/surface":
-            b = self._body(h)
-            spec = b.get("spec")
-            if not isinstance(spec, dict) or not isinstance(spec.get("controls"), list):
-                raise Refused("Spec required")
-            if len(json.dumps([spec, b.get("values", 0)])) > MAX_SURFACE:
-                raise Refused("Control panel too large", 413)
-            e = ask.store.emit(
-                sid,
-                {
-                    "type": "surface",
-                    "spec": spec,
-                    "values": b.get("values") if isinstance(b.get("values"), dict) else None,
-                    "from": text(b.get("from"), 120) or None,
-                    "name": text(b.get("name"), 80) or None,
-                },
-            )
-            ask.store.touch(s)
-            return send({"seq": e["seq"]})
         if method == "GET" and sub == "/file":
             f = resolve_media(query.get("path"), Path(s["cwd"]), self.home)
             return self._file(h, f.path, f.type)
