@@ -37,7 +37,7 @@ svg{display:block}
 .chip.solo{border-color:var(--pind)}.chip.solo>b{background:var(--pin);color:#fff}
 .chip.mute{border-color:var(--bad)}.chip.mute>b{background:var(--bad);color:var(--bg)}
 .chip.going{opacity:.4}
-#flagpop{position:absolute;z-index:40;right:8px;bottom:120px;width:min(300px,calc(100% - 16px));max-height:60%;overflow:auto;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:8px;display:flex;flex-direction:column;gap:6px;box-shadow:var(--shadow)}
+#flagpop{position:absolute;z-index:40;right:8px;bottom:120px;width:min(300px,calc(100% - 16px));background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:8px;display:flex;flex-direction:column;gap:6px;box-shadow:var(--shadow)}
 #flagpop[hidden]{display:none}
 #flagpop .chip{max-width:none;justify-content:flex-start}#flagpop .chip>span{flex:1;text-align:left}
 #hbot .seg .key{padding:0 10px}
@@ -99,7 +99,14 @@ svg{display:block}
 .sheet{position:absolute;left:0;right:0;bottom:0;z-index:31;background:var(--panel);border-top:1px solid var(--line);border-radius:20px 20px 0 0;padding:10px 16px 18px;transform:translateY(105%);visibility:hidden;transition:transform .28s,visibility 0s .28s;max-height:78%;display:flex;flex-direction:column;gap:8px}
 .sheet.on{transform:none;visibility:visible;transition-delay:0s}
 .sheet h3{margin:0;font-size:17px}
-.hl{display:flex;flex-direction:column;overflow:auto}
+/* a list that can grow is paged, never scrolled: History's rows, the list of Pages, the soloed and muted tracks */
+.hl{display:flex;flex-direction:column;overflow:hidden;flex:1;min-height:0}
+.hl>*{flex:none}
+.pgs{display:flex;align-items:center;gap:6px;flex:none}
+.pgs[hidden]{display:none}
+.pgs .pgn{font:600 12px ui-monospace,Menlo,monospace;color:var(--mute);flex:1;text-align:center;white-space:nowrap}
+.pgs .key svg.back{transform:rotate(180deg)}
+#sheet.hist{height:78%}
 .he{display:flex;gap:6px 8px;font-size:13px;padding:7px 0;border-bottom:1px solid var(--cl);align-items:center;flex-wrap:wrap}
 .he .ht{flex:1;min-width:150px;display:flex;flex-direction:column;gap:2px;overflow-wrap:anywhere}
 .he .hv{font:12px ui-monospace,Menlo,monospace;color:var(--mute);white-space:nowrap}
@@ -113,7 +120,7 @@ svg{display:block}
 .hday{display:flex;align-items:center;gap:8px;width:100%;min-height:44px;border:0;border-bottom:1px solid var(--cl);background:none;padding:0;font:600 12px ui-monospace,Menlo,monospace;color:var(--mute);cursor:pointer;text-align:left}
 .hday svg{transition:transform .15s;flex:none}.hday[aria-expanded="true"] svg{transform:rotate(90deg)}
 .hday .sp{flex:1}
-.hold .he{padding-left:10px}
+.he.old{padding-left:10px}
 #histdock{display:none}
 .he.undone .ht b{text-decoration:line-through}
 /* a checkpoint is a place in the list you can go back to: a card with its own button */
@@ -204,7 +211,7 @@ select{font:inherit;color:inherit;background:var(--panel);border:1px solid var(-
 @media (max-width:699px){#htop>.hr{flex-wrap:nowrap}#chgpill{flex:0 1 auto;min-width:0}#chgbase{flex:0 1 auto}#chgn{flex:none;white-space:nowrap}}
 @media (min-width:700px){
  #cols{display:grid;grid-template-columns:minmax(0,1fr) 320px;grid-template-rows:minmax(0,1fr)}
- #hear{display:flex;flex-direction:column;min-height:0;overflow:auto;border-left:1px solid var(--line);background:var(--panel)}
+ #hear{display:flex;flex-direction:column;min-height:0;overflow:hidden;border-left:1px solid var(--line);background:var(--panel)}
  #htop,#main,#hbot{order:0}
  #htop{flex:1 0 auto;border-bottom:0}
  #htop .spc{height:auto;min-height:140px;flex:1}
@@ -213,7 +220,8 @@ select{font:inherit;color:inherit;background:var(--panel);border:1px solid var(-
 }
 @media (min-width:1100px){
  #cols{grid-template-columns:220px minmax(0,1fr) 320px}
- #side{display:flex;flex-direction:column;gap:8px;min-height:0;overflow:auto;padding:10px 12px;border-right:1px solid var(--line);background:var(--panel)}
+ #side{display:flex;flex-direction:column;gap:8px;min-height:0;overflow:hidden;padding:10px 12px;border-right:1px solid var(--line);background:var(--panel)}
+ #side .pl{flex:1;min-height:0;overflow:hidden}
  .dots{display:none}
  /* History is docked in the right column, between the song's facts and the transport: its rows fill while knobs turn */
  #htop{flex:none}
@@ -269,7 +277,7 @@ const S = {state: null, desk: null, hear: {hearing: "now", changed: 0, keys: [],
            tab: "desk", song: {list: [], id: null, view: null, loaded: false, mixSet: ""}, page: null,
            pend: null, busy: 0, want: null,
            scales: {}, slots: [], fixed: {}, dirty: false, sideAt: null, saving: null, meterAt: 0, cmpAt: null,
-           face: "k", faces: 1, opening: null, histSel: null, daysOpen: {}, flagOpen: null, flagGone: {}, mjob: null, setJob: null, openName: "",
+           face: "k", faces: 1, histAt: 0, histFit: 0, sideAt2: null, flagAt: 0, opening: null, histSel: null, daysOpen: {}, flagOpen: null, flagGone: {}, mjob: null, setJob: null, openName: "",
            level: {state: "off", mode: "", resume: false, db: -90, hold: -90, holdAt: 0}};
 const NO_MINILAB = "no MiniLab 3 in Live";  // Live is there and the desk works; only the controller is missing
 const METER_STALE = 3000;  // ms without a meter message before the spectrum is taken to be off
@@ -429,11 +437,18 @@ function flagsHtml() {
     return `<button class="chip ${flag}" data-flags="${flag}" aria-haspopup="true" aria-expanded="${S.flagOpen === flag}" aria-label="${on.length} tracks ${flag === "solo" ? "soloed" : "muted"}"><b aria-hidden="true">${flag === "solo" ? "S" : "M"}</b><span>${on.length}</span><svg width="14" height="14" aria-hidden="true"><use href="#i-more"/></svg></button>`;
   }).join("");
 }
+// The controls of a paged list: the part before, which part of how many, the part after. Nothing when it is one part.
+function pagerHtml(name, at, parts, words) {
+  if (parts < 2) return "";
+  const b = (by, ok, label) => `<button class="key sm" type="button" data-${name}="${by}" ${ok ? "" : "disabled"} aria-label="${label}"><svg class="${by < 0 ? "back" : ""}" width="18" height="18"><use href="#i-more"/></svg></button>`;
+  return `<div class="pgs" role="group" aria-label="${words || "More"}">${b(-1, at > 0, "Before")}<span class="pgn">${at + 1} / ${parts}</span>${b(1, at < parts - 1, "After")}</div>`;
+}
 function renderFlagPop() {
   const pop = $("#flagpop"), flag = S.flagOpen, on = flag && S.state ? (S.state[flag] || []) : [];
   if (flag && on.length <= 2) S.flagOpen = null;  // few enough to be chips again
   pop.hidden = !S.flagOpen;
-  setHtml(pop, S.flagOpen ? on.map(t => flagChip(flag, t)).join("") : "");
+  const per = 5, last = Math.max(0, Math.ceil(on.length / per) - 1), at = S.flagAt = Math.min(S.flagAt, last);
+  setHtml(pop, S.flagOpen ? on.slice(at * per, at * per + per).map(t => flagChip(flag, t)).join("") + pagerHtml("flagstep", at, last + 1) : "");
 }
 async function clearFlag(flag, track) {
   const key = `${track}/${flag}`;
@@ -831,6 +846,8 @@ function fitPanel() {
 }
 const FIT = window.ResizeObserver ? new ResizeObserver(() => fitPanel()) : null;
 if (FIT) { FIT.observe($("#desk")); FIT.observe($("#deskhead")); } else window.addEventListener("resize", fitPanel);
+// the paged lists hold what their boxes hold: another size, another count
+window.addEventListener("resize", () => { if (S.state && S.desk) { renderSide(); redrawHist(); } });
 // The panel. While the page's structure is the same (the same controls in the same slots) nothing is made anew: each
 // control is brought up to its value in place, so it keeps the keyboard, and a reference to it stays good. Only
 // another page, or a control that came or went, draws the panel again.
@@ -865,11 +882,14 @@ function renderSide() {
   const side = $("#side");
   if (!S.state || !S.desk || !wide()) return;
   const {pages, entry, next} = current(), cur = next || entry;
-  setHtml(side, `<span class="tag">Pages</span><div class="pl" role="group" aria-label="Pages">${pages.map(p =>
-    `<button class="key ${p === cur ? "on" : ""}" data-page="${p.hw[0]}">${esc(p.name)}</button>`).join("")}</div>`);
-  // the page in view (or asked for) is never below the window: a new page's button scrolls into sight
-  const on = side.querySelector(".pl .key.on");
-  if (on && S.sideAt !== on.dataset.page + "/" + pages.length) { S.sideAt = on.dataset.page + "/" + pages.length; on.scrollIntoView({block: "nearest"}); }
+  // The list is paged to the column's height, never scrolled. It shows the part with the page in view (or asked
+  // for) until its own ‹ › are used; another page in view brings its part back.
+  const per = Math.max(1, Math.floor((side.clientHeight - 20 - 28 - 52) / 54)), parts = Math.ceil(pages.length / per);
+  const mark = pages.indexOf(cur) + "/" + pages.length + "/" + per;
+  if (S.sideAt !== mark) { S.sideAt = mark; S.sideAt2 = Math.floor(Math.max(0, pages.indexOf(cur)) / per); }
+  const at = S.sideAt2 = Math.max(0, Math.min(parts - 1, S.sideAt2 || 0));
+  setHtml(side, `<span class="tag">Pages</span><div class="pl" role="group" aria-label="Pages">${pages.slice(at * per, at * per + per).map(p =>
+    `<button class="key ${p === cur ? "on" : ""}" data-page="${p.hw[0]}">${esc(p.name)}</button>`).join("")}</div>${pagerHtml("sidestep", at, parts, "More pages")}`);
 }
 // History is docked in the right column from 1100 px (its rows fill while the knobs turn); narrower, it is a sheet
 // that takes no touch from the rest of the page: a tap outside closes it and still reaches what was tapped.
@@ -880,21 +900,29 @@ function renderHist() {
   $("#scrim").classList.toggle("on", modal);
   sh.classList.toggle("on", !!S.sheet);
   navSync();
-  if (S.sheet === "build") { setHtml(dock, docked ? histHtml(true) : ""); return renderBuild(); }
-  if (S.sheet === "open") { setHtml(dock, docked ? histHtml(true) : ""); return renderOpen(); }
+  sh.classList.toggle("hist", S.sheet === "hist");
+  if (S.sheet === "build" || S.sheet === "open") {
+    if (setHtml(dock, docked ? histHtml(true) : "")) fitHist();
+    return S.sheet === "build" ? renderBuild() : renderOpen();
+  }
   const host = docked ? dock : S.sheet === "hist" ? sh : null, other = docked ? sh : dock;
   if (other.querySelector("#hrows")) setHtml(other, "");
   if (!host) return;
   const field = $("#cpname"), kept = field ? {value: field.value, focus: document.activeElement === field, at: field.selectionStart} : null;
-  const list = $("#hrows"), top = list ? list.scrollTop : 0, sel = document.activeElement && document.activeElement.closest ? document.activeElement.closest(".he.row") : null;
+  const sel = document.activeElement && document.activeElement.closest ? document.activeElement.closest(".he.row") : null;
   if (!setHtml(host, histHtml(docked))) return;
-  $("#hrows").scrollTop = top;
+  fitHist();
   if (!kept && S.cpDraft && $("#cpname")) $("#cpname").value = S.cpDraft;
   if (kept) { const f = $("#cpname"); f.value = kept.value; if (kept.focus) { f.focus({preventScroll: true}); f.setSelectionRange(kept.at, kept.at); } }
   if (sel) { const again = $(`#hrows .he.row[data-row="${sel.dataset.row}"]`); if (again) again.focus({preventScroll: true}); }
 }
+// History's rows are paged, newest first: as many as the list's box holds, then "older" and "newer". The rows are
+// drawn from S.histAt and the ones that do not fit are taken off again (fitHist), so the list never scrolls.
 function histHtml(docked) {
-  return `${docked ? '<span class="tag">History</span>' : "<h3>History</h3>"}<div class="hl" id="hrows">${histRows() || '<div class="he" id="hnone">No changes yet.</div>'}</div>
+  const all = histRows();
+  S.histAt = Math.max(0, Math.min(S.histAt, all.length - 1));
+  return `${docked ? '<span class="tag">History</span>' : "<h3>History</h3>"}<div class="hl" id="hrows" data-total="${all.length}">${all.slice(S.histAt, S.histAt + 24).join("") || '<div class="he" id="hnone">No changes yet.</div>'}</div>
+    <div class="pgs" id="hpgs" role="group" aria-label="Older and newer" hidden><button class="key sm" type="button" data-histstep="-1" aria-label="Newer"><svg class="back" width="18" height="18"><use href="#i-more"/></svg></button><span class="pgn" id="hpgn"></span><button class="key sm" type="button" data-histstep="1" aria-label="Older"><svg width="18" height="18"><use href="#i-more"/></svg></button></div>
     <form class="cpf" id="cpform"><input id="cpname" aria-label="Name for a new checkpoint" placeholder="Checkpoint name (${dayTime(Date.now() / 1000)})" maxlength="56" autocomplete="off" enterkeyhint="done">
     <button class="key sm ${S.saving ? "spin" : ""}" id="hver" type="submit" ${S.saving ? "disabled" : ""}>${S.saving ? "Saving…" : `<svg width="18" height="18"><use href="#i-flag"/></svg>Save checkpoint`}</button></form>
     ${docked ? "" : `<div class="hr"><button class="key sm ${S.hist.can_undo ? "" : "off"}" id="hundo" ${S.hist.can_undo ? "" : "disabled"}>${I("undo")}Undo</button><button class="key sm ${S.hist.can_redo ? "" : "off"}" id="hredo" ${S.hist.can_redo ? "" : "disabled"}>${I("redo")}Redo</button><span class="sp"></span><button class="key sm" id="hclose">Close</button></div>`}`;
@@ -925,6 +953,20 @@ function histMove(m) { return `<span><b>${esc(labelFor(m.key, m.label))}</b> <sp
 // The rows, newest first, strictly by time: an undone change stays where it happened (dimmed), and a checkpoint
 // sits above everything it holds. This sitting is open. Earlier ones are folded under the day they were on, and
 // there the changes carry no "you": that was whoever sat here then.
+function fitHist() {
+  const list = $("#hrows"), bar = $("#hpgs");
+  if (!list || !bar) return;
+  const total = +list.dataset.total;
+  bar.hidden = !(S.histAt > 0 || total > list.children.length);
+  if (list.scrollHeight > list.clientHeight + 1) bar.hidden = false;  // its row is part of the fit
+  while (list.children.length > 1 && list.scrollHeight > list.clientHeight + 1) list.lastElementChild.remove();
+  S.histFit = list.children.length;
+  const more = S.histAt + S.histFit < total;
+  bar.hidden = !(S.histAt > 0 || more);
+  $("#hpgn").textContent = total ? `${S.histAt + 1}–${S.histAt + S.histFit} / ${total}` : "";
+  bar.querySelector('[data-histstep="-1"]').disabled = S.histAt === 0;
+  bar.querySelector('[data-histstep="1"]').disabled = !more;
+}
 const SITTING_GAP = 90 * 60;  // seconds without a change before the next one starts a new sitting
 function histRows() {
   const all = S.hist.entries, pos = S.hist.pos == null ? all.length : S.hist.pos, now = Date.now() / 1000;
@@ -968,10 +1010,10 @@ function histRows() {
   for (const day of days) {
     const open = !!S.daysOpen[day.key];
     rows.push(`<button class="hday" type="button" data-day="${esc(day.key)}" aria-expanded="${open}"><svg width="14" height="14" aria-hidden="true"><use href="#i-more"/></svg><span>${esc(day.label)}</span><span class="sp"></span><span>${day.rows.length}</span></button>`);
-    const inside = day.rows.map(x => row(x, false));  // always walked, so an older save of a name is known as older
-    if (open) rows.push(`<div class="hold">${inside.join("")}</div>`);
+    const inside = day.rows.map(x => row(x, false).replace('class="he ', 'class="he old '));  // always walked, so an older save of a name is known as older
+    if (open) rows.push(...inside);
   }
-  return rows.join("");
+  return rows;
 }
 async function saveCheckpoint(typed) {
   if (S.saving) return;
@@ -985,7 +1027,7 @@ async function saveCheckpoint(typed) {
   const r = await command("history.checkpoint", {name, new: true});
   S.saving = null;
   renderHist();
-  if (r.ok && $("#hrows")) $("#hrows").scrollTop = 0;
+  if (r.ok && S.histAt) { S.histAt = 0; redrawHist(); }
 }
 // Going back (to a checkpoint, or to just before a step): one move, and undo reverses it. The app says where the
 // controls go before it asks Live (an "own" event), so they show at once.
@@ -1395,10 +1437,12 @@ document.addEventListener("change", e => { if (e.target.id === "songsel") loadSo
 // History comes forward: the docked column flashes and shows its newest rows; on a narrower screen the sheet opens.
 function showHistory() {
   if (!wide()) { S.sheet = S.sheet === "hist" ? false : "hist"; return renderHist(); }
-  const dock = $("#histdock"), rows = $("#hrows");
-  if (rows) rows.scrollTop = 0;
+  const dock = $("#histdock");
+  if (S.histAt) { S.histAt = 0; redrawHist(); }
   dock.classList.remove("ping"); void dock.offsetWidth; dock.classList.add("ping");
 }
+// History drawn again though nothing in it changed (another part of it is asked for, or its box has another size).
+function redrawHist() { for (const id of ["#histdock", "#sheet"]) $(id).__html = null; renderHist(); }
 // A tap on a step of the history marks it as the point to go back to (and shows the button that does it).
 function pickRow(id) { S.histSel = S.histSel === id ? null : id; renderHist(); }
 document.addEventListener("click", async e => {
@@ -1413,6 +1457,9 @@ document.addEventListener("click", async e => {
   if (t.id === "buildgo") return buildSong();
   if (t.dataset.back) return goBack(t.dataset.back);
   if (t.dataset.before) return goBefore(+t.dataset.before);
+  if (t.dataset.histstep) { S.histAt = Math.max(0, S.histAt + (+t.dataset.histstep) * Math.max(1, S.histFit)); return redrawHist(); }
+  if (t.dataset.sidestep) { S.sideAt2 += +t.dataset.sidestep; return renderSide(); }
+  if (t.dataset.flagstep) { S.flagAt += +t.dataset.flagstep; return renderBottom(); }
   if (t.dataset.day) { S.daysOpen[t.dataset.day] = !S.daysOpen[t.dataset.day]; return renderHist(); }
   if (t.dataset.flags) { S.flagOpen = S.flagOpen === t.dataset.flags ? null : t.dataset.flags; return renderBottom(); }
   if (t.dataset.flag) return clearFlag(t.dataset.flag, t.dataset.track);
@@ -1451,7 +1498,11 @@ function apply(m) {
   let part = "all";
   if (m.t === "full") S.state = m.state;
   else if (m.t === "hear") { S.hear = m; if (!S.state) return; renderTop(); return renderDesk(); }
-  else if (m.t === "hist") { S.hist = m; renderBottom(); updateChanged(); return renderHist(); }
+  else if (m.t === "hist") {
+    const top = m.entries.reduce((x, e) => Math.max(x, e.id), 0);
+    if (S.histTop !== undefined && top > S.histTop) S.histAt = 0;  // something new happened: the newest rows show
+    S.histTop = top;
+    S.hist = m; renderBottom(); updateChanged(); return renderHist(); }
   else if (m.t === "meter") {
     const was = specMode();
     S.meter = m; S.meterAt = Date.now(); S.mjob = null;
@@ -1466,6 +1517,9 @@ function apply(m) {
   }
   else if (m.t === "v" && S.state) {
     S.state.values[`${m.page}:${m.slot}`] = {...(S.state.values[`${m.page}:${m.slot}`] || {}), n: m.n, s: m.s, r: m.r, key: m.key};
+    // one parameter may sit on several pages: each of its slots reports in its own message, a moment apart. They are
+    // one value, so all of them have it now (else a slot not yet heard from would show the old place for that moment).
+    if (m.key) for (const v of Object.values(S.state.values)) if (v.key === m.key) { v.n = m.n; v.s = m.s; v.r = m.r; }
     if (m.key && OWN[m.key]) return reported(m.key, m.n);  // a control this page is moving: its own number stays until Live has the last word
     part = "desk";
   }

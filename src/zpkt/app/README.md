@@ -265,6 +265,10 @@ pages (`contrib/mixdesk/desk.json`) and a made surface.
   fit (a phone), it shows one face at a time: the knobs over pads 1 to 4, or the faders over pads 5 to 8, with a
   two-key switch in the paging row. A page with compare states opens on the face with its pads. On a phone under
   720 px tall the Hear bar keeps the song's facts and the playhead; the spectrum and the level give the Desk room.
+- **Lists that can grow are paged, never scrolled.** History shows as many rows as its box holds, newest first,
+  with "newer" and "older" under it ("1–8 / 43"); a new change brings the newest rows back. The list of Pages in
+  the side column shows the part with the page in view and has its own before and after. More than two soloed or
+  muted tracks open as a list of five at a time. The Hear column and the side column have no scroll of their own.
 - **The paging row** (under 1100 px; wider, the list of Pages is the side column) is the last row of the Desk:
   the page before, "13 / 15", the page after, and the face switch. The numbered buttons of a Page with more than
   one MiniLab page are at the right of the title. `tests/app/test_zero_scroll.py` checks all of it at six sizes.

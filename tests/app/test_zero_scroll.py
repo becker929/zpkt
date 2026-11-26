@@ -65,7 +65,7 @@ def open_big(browser, rig, width, height):
 @pytest.mark.parametrize(("width", "height"), SIZES)
 def test_the_desk_never_scrolls_and_its_paging_controls_stay_on_screen(browser, rig, width, height):
     pg = open_big(browser, rig, width, height)
-    assert pg.evaluate(SCROLLERS, "#main") == []
+    assert pg.evaluate(SCROLLERS, "#app") == []  # the Desk, the Hear bar, History, the list of Pages: none scrolls
     got = pg.evaluate(DESK)
     assert got["page"] == got["inner"]  # the page itself has nowhere to scroll to
     for part in ("title", "nums", "tabs", "hear", "keys", "panel"):
@@ -120,3 +120,43 @@ def test_the_paging_row_steps_through_the_pages(browser, rig):
     pg.wait_for_function(f"document.querySelector('#pagename').textContent === {name!r} && !window.zpkt.S.pend")
     assert not pg.locator(".dots button").nth(1).is_disabled()
     assert pg.evaluate(SCROLLERS, "#main") == []
+
+
+def many_changes(rig, count: int) -> None:
+    """A long history: more rows than any screen holds."""
+    keys = [
+        v["key"] for v in rig.state()["values"].values() if v.get("key") and v.get("n") is not None and not v.get("q")
+    ]
+    keys = list(dict.fromkeys(keys))[:2]
+    for i in range(count):
+        rig.command("mix.set", {"norms": [[keys[i % 2], 0.2 + 0.01 * i]]})
+
+
+@pytest.mark.parametrize(("width", "height"), SIZES)
+def test_history_is_paged_newest_first_and_never_scrolls(browser, rig, width, height):
+    many_changes(rig, 30)
+    pg = open_big(browser, rig, width, height)
+    if width < 1100:
+        pg.click("#khist")
+    pg.wait_for_selector("#hrows .he.row")
+    assert pg.evaluate(SCROLLERS, "#app") == []
+    rows = pg.locator("#hrows > *")
+    shown, total = rows.count(), int(pg.locator("#hrows").get_attribute("data-total"))
+    assert 1 <= shown < total and total >= 30
+    box, last = pg.locator("#hrows").bounding_box(), rows.nth(shown - 1).bounding_box()
+    assert last["y"] + last["height"] <= box["y"] + box["height"] + 1  # every row shown is whole
+    newest = rig.desk.history.entries[-1]["id"]
+    assert rows.nth(0).get_attribute("data-row") == str(newest)  # newest first
+    newer, older = pg.locator('#hpgs [data-histstep="-1"]'), pg.locator('#hpgs [data-histstep="1"]')
+    assert newer.is_disabled() and older.bounding_box()["height"] >= 44
+    assert pg.locator("#hpgn").inner_text() == f"1–{shown} / {total}"
+    older.click()
+    pg.wait_for_function(f"document.querySelector('#hpgn').textContent.startsWith('{shown + 1}–')")
+    assert pg.locator("#hrows > *").nth(0).get_attribute("data-row") != str(newest) and not newer.is_disabled()
+    assert pg.evaluate(SCROLLERS, "#app") == []
+    for part in ("#hpgs", "#cpform", "#tabs"):
+        b = pg.locator(part).bounding_box()
+        assert b["y"] >= 0 and b["y"] + b["height"] <= height + 0.5, part
+    rig.command("history.checkpoint", {"name": "a new one", "new": True})  # a save brings the newest part back
+    pg.wait_for_selector('#hrows .he.cp[data-cp="a new one"]')
+    assert pg.locator("#hpgn").inner_text().startswith("1–")

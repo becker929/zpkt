@@ -358,9 +358,9 @@ def test_history_is_docked_on_a_desktop_and_the_knobs_stay_in_reach(browser, rig
     # an earlier day is folded under its heading, and its rows are not "you"
     day = pg.locator("#hrows .hday")
     assert day.count() == 1 and day.get_attribute("aria-expanded") == "false" and day.inner_text().split()[-1] == "3"
-    assert pg.locator("#hrows .hold").count() == 0
+    assert pg.locator("#hrows .he.old").count() == 0
     day.click()
-    assert pg.locator("#hrows .hold .he").count() == 3 and pg.locator("#hrows .hold .who").count() == 0
+    assert pg.locator("#hrows .he.old").count() == 3 and pg.locator("#hrows .he.old .who").count() == 0
     # strict time order: an undone change stays where it happened, a checkpoint saved after it sits above it
     pg.click("#kundo")
     pg.wait_for_selector("#hrows > .he.undone")

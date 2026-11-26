@@ -319,7 +319,8 @@ def test_a_checkpoint_is_named_saved_at_once_and_can_be_gone_back_to(browser, ri
     pg.click("#kundo")  # going back is a step like any other
     pg.wait_for_function(f"document.querySelector({json.dumps(ctl(VOL) + ' .v')}).textContent === {json.dumps(moved)}")
     pg.click("#hver")  # no name typed: the date and time, shown as one
-    pg.wait_for_function("document.querySelectorAll('#hrows .he.cp:not(.saving)').length >= 4")
+    stamp = r"^\d{1,2} [A-Z][a-z]{2}, \d\d:\d\d$"  # the rows are paged: the newest is the first of the first part
+    pg.wait_for_function(f"/{stamp}/.test(document.querySelector('#hrows .he.cp:not(.saving) .ht')?.innerText || '')")
     label = pg.locator("#hrows .he.cp .ht").first.inner_text()
     assert re.fullmatch(r"\d{1,2} [A-Z][a-z]{2}, \d\d:\d\d", label), label  # "25 Nov, 17:15"
     assert pg.errors == []  # type: ignore[attr-defined]
@@ -383,10 +384,16 @@ def test_a_new_pages_button_is_in_view_in_the_page_list(browser, rig):
     assert on.inner_text() == "Lead"
     box, side = on.bounding_box(), pg.locator("#side").bounding_box()
     assert box["y"] >= side["y"] and box["y"] + box["height"] <= min(800, side["y"] + side["height"]) + 0.5
+    # the list is paged to the column's height, never scrolled: the first pages are the part before
+    assert pg.evaluate("getComputedStyle(document.querySelector('#side')).overflowY") == "hidden"
+    assert pg.locator('#side button[data-page="0"]').count() == 0
+    pg.click('#side [data-sidestep="-1"]')
     pg.click('#side button[data-page="0"]')
     pg.wait_for_function("window.zpkt.S.state.page === 0 && !window.zpkt.S.pend")
     first = pg.locator("#side .pl .key.on").bounding_box()
-    assert first["y"] >= side["y"]
+    assert first["y"] >= side["y"] and first["y"] + first["height"] <= side["y"] + side["height"]
+    steps = pg.locator("#side .pgs button")
+    assert steps.nth(0).is_disabled() and not steps.nth(1).is_disabled() and steps.nth(1).bounding_box()["height"] >= 44
 
 
 def test_no_minilab_is_not_an_error(browser, rig):
