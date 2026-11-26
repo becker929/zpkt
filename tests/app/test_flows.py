@@ -99,7 +99,7 @@ def test_the_list_view_names_each_control_in_a_row_and_a_row_is_moved_sideways(r
 def test_in_the_list_one_tap_on_a_rows_number_types_it(rig, page):
     """The walk, 26 November 2026: in the list a tap on the number did nothing (the row took the press as the start
     of a drag) and only a double tap opened the field. One tap with no move types the value."""
-    slot, key, _ = first_control(rig, "k")
+    slot, _, _ = first_control(rig, "k")
     page.click("#viewsw")
     row = page.locator(f'.ctl[data-slot="{slot}"]')
     box = row.locator(".v").bounding_box()
