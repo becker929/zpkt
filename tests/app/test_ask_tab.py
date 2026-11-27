@@ -211,6 +211,34 @@ def test_the_cost_has_a_name(asked, browser):
     assert fr.locator(".stats .took").text_content() == "Time 4.2 s"
 
 
+def test_a_phone_does_not_zoom_into_a_text_field(asked, browser):
+    """A phone's browser zooms the page into a focused field whose type is under 16 px, and the cursor jumps while it
+    does (Anthony, 26 November 2026, on the dense composer's 12 px box). Every field a person types in has 16 px
+    type, and both documents ask for no zoom on focus."""
+    pg = open_app(browser, asked, path="/app/#ask")
+    fr = chat(pg)
+    size = "e => parseFloat(getComputedStyle(e).fontSize)"
+    assert fr.locator("#in").evaluate(size) >= 16
+    box = fr.locator("#in").bounding_box()
+    assert 30 <= box["height"] <= 34, box  # and the dense row is no taller for it
+    fr.locator("#in").fill("one line of words")
+    assert fr.locator("#in").evaluate("e => e.scrollHeight <= e.clientHeight + 1")  # a line fits without scrolling
+    view = "() => document.querySelector('meta[name=viewport]').content"
+    assert "maximum-scale=1" in pg.evaluate(view) and "maximum-scale=1" in fr.locator("body").evaluate(view)
+    pg.goto(asked.rig.url + "/app/#desk")
+    pg.wait_for_selector("#kplay")
+    sizes = pg.evaluate(
+        """() => { const out = {};
+          for (const sel of ['.orgrow input', '.cpf input', '.mc .vt']) {
+            const host = document.createElement('div'); host.className = sel.split(' ')[0].slice(1);
+            const f = document.createElement('input'); if (sel.endsWith('.vt')) f.className = 'vt';
+            host.append(f); document.body.append(host);
+            out[sel] = parseFloat(getComputedStyle(f).fontSize); host.remove(); }
+          return out; }"""
+    )
+    assert all(v >= 16 for v in sizes.values()), sizes
+
+
 @pytest.mark.parametrize(("width", "height"), [(375, 812), (1200, 800), (375, 460)])
 def test_it_fits_with_the_composer_above_the_tab_bar(asked, browser, width, height):
     main = asked.ask.main()
