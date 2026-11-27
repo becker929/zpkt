@@ -24,6 +24,8 @@ default:
     ask_dir         ZPKT_ASK_DIR         ~/Music/zpkt/ask       Ask's sessions and files
     records_file    ZPKT_RECORDS_FILE    <library_dir>/records.toml   what you have declared done per track,
                                                                 which beats the inventory's guess
+    abilities_dir   ZPKT_ABILITIES_DIR   <sets_dir>/abilities   code for Live you allowed an agent to run for good
+                                                                (the app's abilities), one file each; not per set
 
 A front set without one of the prefixes means someone else is using Live, so the session guards
 stop rather than act on it. A key that is retired (RETIRED) is still accepted in the file, and ignored.
@@ -54,6 +56,7 @@ DEFAULTS = {
     "mixdesk_dir": "",
     "arranger_dir": "~/Music/zpkt/arranger",
     "ask_dir": "~/Music/zpkt/ask",
+    "abilities_dir": "",
 }
 # Folders an older checkout of the app used when no setting names one; kept only so an existing rig carries on.
 LEGACY_DIRS = {
@@ -76,6 +79,7 @@ class Rig:
     records_file: Path
     arranger_dir: Path
     ask_dir: Path
+    abilities_dir: Path
     mixdesk_dir: Path | None = None  # None: contrib/mixdesk of a source checkout
 
     def set_path(self, name: str) -> Path:
@@ -134,6 +138,7 @@ def load(env: Mapping[str, str] = os.environ, path: str | Path | None = None) ->
         mixdesk_dir=Path(values["mixdesk_dir"]).expanduser() if values["mixdesk_dir"] else None,
         arranger_dir=Path(values["arranger_dir"]).expanduser(),
         ask_dir=Path(values["ask_dir"]).expanduser(),
+        abilities_dir=Path(values["abilities_dir"] or Path(values["sets_dir"]) / "abilities").expanduser(),
     )
 
 

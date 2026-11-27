@@ -1,0 +1,58 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/becker929/zpkt/lib/contracts/ability.schema.json",
+  "title": "Ability",
+  "description": "Code for Live that the person allowed an agent to run for good (\"Always\" on a proposal's card): one file, <abilities_dir>/<name>.json. The code is exactly what the card showed. The app never edits it in place.",
+  "type": "object",
+  "required": ["name", "does", "params", "code", "made", "runs"],
+  "properties": {
+    "name": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_]{0,39}$",
+      "description": "The ability's name, and its file's. An agent's tool for it is ability_<name>."
+    },
+    "does": {
+      "type": "string",
+      "maxLength": 140,
+      "description": "One plain sentence saying what it does."
+    },
+    "params": {
+      "type": "object",
+      "maxProperties": 8,
+      "description": "Its parameters. In the code their values are in the dict `args`. One without a default is required.",
+      "propertyNames": {"pattern": "^[a-z][a-z0-9_]{0,39}$"},
+      "additionalProperties": {
+        "type": "object",
+        "required": ["type", "description"],
+        "properties": {
+          "type": {"enum": ["number", "integer", "string", "boolean"]},
+          "description": {"type": "string", "maxLength": 200},
+          "default": {"type": ["number", "string", "boolean"]},
+          "enum": {"type": "array", "minItems": 1, "maxItems": 20}
+        },
+        "additionalProperties": false
+      }
+    },
+    "code": {
+      "type": "string",
+      "maxLength": 2000,
+      "description": "Python for Live. It may call use(\"other_ability\", {...}), with the name written out."
+    },
+    "made": {
+      "type": "string",
+      "description": "When it was kept, UTC (2026-11-26T14:03:11Z)."
+    },
+    "session": {
+      "type": "string",
+      "description": "The Ask session whose card was answered with Always; empty when it was kept another way."
+    },
+    "runs": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "last_run": {
+      "type": ["string", "null"]
+    }
+  },
+  "additionalProperties": true
+}

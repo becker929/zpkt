@@ -1,6 +1,7 @@
 """A track's device chain, one short call at a time: what is on it, add an audio effect, move a device, delete one.
 
     chain.look(live, ["Kick bus", "Main"])          # {"Kick bus": ["desk EQ", ...], "Main": [...]}; None: no such track
+    chain.set_names(live)                           # {"track": [...], "device": [...]}: every name in the set
     chain.has_effect(live, "Saturator")             # is it in Live's browser, under Audio Effects?
     chain.add(live, "Kick bus", "Saturator", at=0)  # the index it ended at
     chain.move(live, "Kick bus", 0, 2)              # the index it landed on
@@ -95,6 +96,20 @@ def look(client: McpTransport, tracks: list[str]) -> dict[str, list[str] | None]
     found: dict[str, list[str] | None] = json.loads(
         client.run(with_source(_LOOK.format(names=list(dict.fromkeys(tracks))), "tracks"))
     )
+    return found
+
+
+_SET_NAMES = """import json
+ts = list(song.tracks) + list(song.return_tracks)
+short = [t.name[2:] for t in song.return_tracks if len(t.name) > 2 and t.name[1] == "-"]
+devices = sorted(set(d.name for t in ts + [song.master_track] for d in t.devices))
+result = json.dumps({"track": [t.name for t in ts] + short, "device": devices})"""
+
+
+def set_names(client: McpTransport) -> dict[str, list[str]]:
+    """Every name of the open set that code might spell out: {"track": the tracks and returns (a return with and
+    without Live's letter), "device": the devices at the top of their chains}. One call, names only."""
+    found: dict[str, list[str]] = json.loads(client.run(_SET_NAMES))
     return found
 
 
