@@ -100,6 +100,13 @@ def test_the_hints_reach_the_agent_after_the_tap_and_are_not_on_the_card(asked):
     )
 
 
+def test_the_hints_reach_the_agent_after_dont_too(asked):
+    p, s, card = proposing(asked, batch({"code": "find_track('kick').mute = True", "does": "Mutes the kick."}))
+    assert tap(asked, s, card, "no")[0] == 200 and asked.ask.wait_idle()
+    ((code, reply),) = p.replies
+    assert code == 200 and reply["declined"] and 'spells out "kick"' in reply["hints"][0] and kept(asked) == []
+
+
 def test_an_ability_is_a_tool_with_its_documentation_and_schema(asked):
     keep(asked, {**SET_TEMPO, "params": {"bpm": {**BPM["bpm"], "default": 120}}})
     keep(asked, READ_TEMPO)

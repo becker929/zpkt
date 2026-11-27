@@ -408,6 +408,7 @@ class ToolGate:
                     "declined": True,
                     "message": "The person tapped Don't: nothing changed in Live. Say so in one sentence, and do "
                     "not propose it again unless they ask.",
+                    **({"hints": card["hints"]} if card.get("hints") else {}),
                 }
             said = (
                 "The turn was stopped while the card waited"
