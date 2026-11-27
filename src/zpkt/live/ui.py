@@ -111,9 +111,16 @@ def menu(menu: str, item: str, tries: int = 6, wait_s: float = 0.4) -> bool:
 
 
 def to_front() -> None:
-    """Put Live in front of the other apps. Live greys out its selection items (Edit > Select Loop, Select All)
-    while its window is not the one in use: another app's full-screen window, or another desktop, is enough."""
+    """Put Live in front of the other apps, so its Arrangement can take the keyboard focus."""
     osa(f'tell application "System Events" to tell process {_q(PROCESS)} to set frontmost to true')
+
+
+def front_app() -> str:
+    """The name of the app in front, or "" when it cannot be read. For a failure's message only."""
+    try:
+        return osa('tell application "System Events" to get name of first process whose frontmost is true')
+    except (UiError, OSError):
+        return ""
 
 
 def front_title() -> str:

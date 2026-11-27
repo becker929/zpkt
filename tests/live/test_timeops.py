@@ -48,6 +48,7 @@ def menus(monkeypatch, behind):
 
     monkeypatch.setattr(ui, "menu", menu)
     monkeypatch.setattr(ui, "to_front", to_front)
+    monkeypatch.setattr(ui, "front_app", lambda: "Some App")
     monkeypatch.setattr(timeops.time, "sleep", lambda s: None)
     monkeypatch.setattr(session.time, "sleep", lambda s: None)
     return clicked, disabled
@@ -66,14 +67,14 @@ def test_select_is_one_lom_call_then_select_loop(menus):
 def test_select_stops_when_select_loop_stays_disabled(menus):
     clicked, disabled = menus
     disabled.add("Select Loop")
-    with pytest.raises(Guard, match="Select Loop stayed disabled"):
+    with pytest.raises(Guard, match=r"Select Loop stayed disabled for 8\+32 \(in front: Some App\)"):
         timeops.select(FakeArrangement([]), 8, 32)
     assert clicked == ["to front"]  # it tried with Live in front before it gave up
 
 
 def test_select_brings_live_to_the_front_when_another_app_hides_it(menus, behind):
-    """A full-screen window of another app in front of Live greys out Edit > Select Loop: the bounce of
-    27 November 2026 failed on it. Live then comes to the front and the selection is made again."""
+    """Two bounces failed on 27 November 2026 with Edit > Select Loop grey and another app's full-screen window
+    in front of Live. Live now comes to the front and the selection is made again before it gives up."""
     clicked, _ = menus
     behind.add("Select Loop")
     live = FakeArrangement([])
