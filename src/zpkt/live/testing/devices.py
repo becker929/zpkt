@@ -474,6 +474,18 @@ def custom(
     return Device(name, class_name, made, kind=kind)
 
 
+# The kits the fake's browser offers under Drums, and the pads each arrives with (made up, the same for every kit).
+KITS = ("606 Core Kit", "707 Core Kit", "808 Core Kit", "909 Core Kit")
+KIT_PADS: tuple[dict[str, object], ...] = (
+    {"name": "Kick", "note": 36},
+    {"name": "Rim", "note": 37},
+    {"name": "Snare", "note": 38},
+    {"name": "Clap", "note": 39},
+    {"name": "Hat", "note": 42},
+    {"name": "Open", "note": 46},
+)
+
+
 def browser_roots() -> dict[str, BrowserItem]:
     """The browser's categories with the catalog's devices in them (each a loadable item, as in Live 12)."""
 
@@ -484,10 +496,16 @@ def browser_roots() -> dict[str, BrowserItem]:
             if s.kind == kind and (s.class_name == "DrumGroupDevice") == drums
         ]
 
+    # GUESS: Live lists the Drum Rack presets ("909 Core Kit.adg") beside the Drum Rack itself and a folder of hits
+    kits = [
+        BrowserItem(f"{name}.adg", loadable=True, device=DRUM_RACK.name, chains=[dict(pad) for pad in KIT_PADS])
+        for name in KITS
+    ]
+    drums = [*items(DeviceType.instrument, drums=True), BrowserItem("Drum Hits", folder=True), *kits]
     return {
         "instruments": BrowserItem("Instruments", items(DeviceType.instrument), folder=True),
         "audio_effects": BrowserItem("Audio Effects", items(DeviceType.audio_effect), folder=True),
-        "drums": BrowserItem("Drums", items(DeviceType.instrument, drums=True), folder=True),
+        "drums": BrowserItem("Drums", drums, folder=True),
         "midi_effects": BrowserItem("MIDI Effects", folder=True),
         "plugins": BrowserItem("Plug-Ins", [BrowserItem("VST3", folder=True), BrowserItem("AUv2", folder=True)]),
     }

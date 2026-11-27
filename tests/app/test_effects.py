@@ -22,6 +22,10 @@ READS = {
     "desk.state",
     "state.read",
     "state.take",
+    "steps.kits",
+    "steps.read",
+    "steps.sounds",
+    "steps.tracks",
 }
 MAKES = {
     "ability.remove",
@@ -60,6 +64,8 @@ MOVES = {
     "page.set",
     "pager.restart",
     "state.put",
+    "steps.new_track",
+    "steps.toggle",
     "surface.remove",
     "tempo.scale",
     "tempo.set",

@@ -456,8 +456,9 @@ def history_back(desk: Desk, cmd: Command) -> Reply:
 
 def arrangement_read(desk: Desk, cmd: Command) -> Reply:
     """The song as it lies in Live's Arrangement, read only: {"set", "bars", "beats_per_bar", "tracks": [{"id",
-    "name", "color", "muted", "regions": [{"id", "start", "end", "name", "color", "muted"}]}], "locators": [{"beat",
-    "name"}]}; starts and ends are beats. Kept until Live says a clip or a locator changed; {"fresh": true} reads again."""
+    "name", "color", "muted", "midi", "drum_rack", "regions": [{"id", "start", "end", "name", "color", "muted"}]}],
+    "locators": [{"beat", "name"}]}; starts and ends are beats. Kept until Live says a clip, a track or a locator
+    changed; {"fresh": true} reads again."""
     return 200, {"ok": True, **desk.arrangement(fresh=bool(cmd.args.get("fresh")))}
 
 

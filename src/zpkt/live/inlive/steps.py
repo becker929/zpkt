@@ -357,3 +357,106 @@ def clips_stamped(song, track, bars: int, total_bars: int, cap: int):
             if len(found) >= cap:
                 break
     return found
+
+
+# --------------------------------------------------------------------------- a span put back (the app's undo)
+
+
+def span_put(song, track, note_spec, bar: int, bars: int, notes, name):
+    """Make the span of `bars` bars from `bar` hold what it is told to, and say what it held: with `notes` ([pitch,
+    beats after the span's start, duration in beats, velocity]) one MIDI clip covers exactly the span and holds
+    exactly them (a free span gets the clip, named `name` if one is given); with `notes` None no clip is there at
+    all (the clip that covers exactly the span is deleted). The answer's "was" is None for a span that was free,
+    else {"name", "notes"}: put back the same way, it takes this call back. Clips in the way: nothing is changed."""
+    per_bar = bar_beats(song)
+    start = (bar - 1) * per_bar
+    end = start + bars * per_bar
+    clip, blocked = span_to_edit(track, start, end)
+    if blocked:
+        return {"error": IN_THE_WAY, "blocked": blocked}
+    was = None if clip is None else {"name": clip.name, "notes": notes_in(clip, start, end)}
+    if notes is None:
+        if clip is not None:
+            track.delete_clip(clip)
+        return {"was": was}
+    if clip is None:
+        clip = track.create_midi_clip(start, end - start)
+    else:
+        clip.remove_notes_extended(0, 128, clip.start_marker, end - start)
+    if name is not None and (was is None or was["name"] != name):
+        clip.name = name
+    add_notes(clip, note_spec, notes)
+    return {"was": was}
+
+
+# --------------------------------------------------------------------------- the loop
+
+
+def loop_put(song, on: bool, start: float, length: float):
+    """Set the Arrangement's loop to `length` beats from `start` and switch it on or off; what the loop was comes
+    back as {"on", "start", "length"}. A playhead outside a loop that is switched on goes to the loop's start, as
+    the mix desk's own loop keys do; inside it, Live plays on undisturbed."""
+    was = {"on": bool(song.loop), "start": float(song.loop_start), "length": float(song.loop_length)}
+    now, playing = song.current_song_time, song.is_playing
+    song.loop_start = start
+    song.loop_length = length
+    song.loop = bool(on)
+    if on and not start - EPS <= now < start + length:
+        song.current_song_time = start
+        if not playing:
+            song.start_time = start
+    return was
+
+
+def loop_bars(song, bar: int, bars: int):
+    """Loop `bars` bars from `bar` (counted from 1); what the loop was comes back (loop_put)."""
+    per_bar = bar_beats(song)
+    return loop_put(song, True, (bar - 1) * per_bar, bars * per_bar)
+
+
+# --------------------------------------------------------------------------- a new drum track
+
+KIT_END = ".adg"  # GUESS: a Drum Rack preset in Live's browser is named "<kit>.adg"
+
+
+def kit_items(browser) -> list[Any]:
+    """The Drum Rack presets Live's browser offers under Drums, in the browser's order. GUESS: they are the
+    loadable children of browser.drums whose names end in ".adg" (contrib/arranger/fxset.py loads "909 Core
+    Kit.adg" from there); the folders beside them (Drum Hits) are not opened, so the call stays short."""
+    return [c for c in browser.drums.children if c.is_loadable and c.name.lower().endswith(KIT_END)]
+
+
+def kit_names(browser, cap: int) -> list[str]:
+    """The kits' names without ".adg", at most `cap`."""
+    return [item.name[: -len(KIT_END)] for item in kit_items(browser)[:cap]]
+
+
+def kit_item(browser, kit: str):
+    """The browser's item for the kit called `kit` (with or without ".adg"), or None."""
+    want = kit.lower()
+    want = want[: -len(KIT_END)] if want.endswith(KIT_END) else want
+    for item in kit_items(browser):
+        if item.name[: -len(KIT_END)].lower() == want:
+            return item
+    return None
+
+
+def new_track_look(song, browser, kit: str):
+    """What making a drum track needs to know first: the tracks' names in order, and whether Live has the kit."""
+    return {"names": [t.name for t in song.tracks], "kit": kit_item(browser, kit) is not None}
+
+
+def kit_load(song, browser, select, index: int, name: str, kit: str) -> int:
+    """Load the kit onto the track at `index`, which must be called `name` (the track made for it a call ago).
+    `select` is zpkt.live.agent's select_track: selecting a track arms it, and the arm states are put back. The
+    answer is how many devices the track had; whether the kit arrived is read in a later call."""
+    track = song.tracks[index]
+    if track.name != name:
+        raise ValueError(f"the track at {index} is {track.name!r}, not {name!r}: the tracks changed")
+    item = kit_item(browser, kit)
+    if item is None:
+        raise ValueError(f"no kit {kit!r} under Drums in Live's browser")
+    had = len(track.devices)
+    select(track)
+    browser.load_item(item)
+    return had

@@ -221,10 +221,14 @@ def colour(value: Any) -> str:
         return ""
 
 
-def arrangement_view(read: Mapping[str, Any], set_name: str, per_bar: float) -> dict[str, Any]:
+def arrangement_view(
+    read: Mapping[str, Any], set_name: str, per_bar: float, midi: Mapping[int, bool] | None = None
+) -> dict[str, Any]:
     """The song in Live as the page draws it, from the pager's read: one lane per track, its arrangement clips as
     regions in beats, the locators, and how many bars it all spans. A region has an id that holds while it stays
-    where it is ("t3@16": track 3, starting at beat 16), so it can be edited by id later."""
+    where it is ("t3@16": track 3, starting at beat 16), so it can be edited by id later. `midi` is {a MIDI
+    track's index: whether it plays a Drum Rack}: each track says "midi" and "drum_rack" from it."""
+    midi = midi or {}
     tracks = []
     end = float(read.get("length") or 0.0)
     for t in read.get("tracks", []):
@@ -247,6 +251,8 @@ def arrangement_view(read: Mapping[str, Any], set_name: str, per_bar: float) -> 
                 "name": str(t.get("name", "")),
                 "color": colour(t.get("color")),
                 "muted": bool(t.get("mute")),
+                "midi": t["i"] in midi,
+                "drum_rack": bool(midi.get(t["i"])),
                 "regions": regions,
             }
         )
