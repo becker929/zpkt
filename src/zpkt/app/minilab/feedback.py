@@ -21,22 +21,34 @@ Out = dict[str, list[int]]
 
 
 def rings(profile: Profile, view: View) -> Out:
-    """Each knob's ring at its control's place (0 for a knob with no control): so the knob and the value agree."""
+    """Each knob's ring at its control's place (0 for a knob with no control): so the knob and the value agree. In
+    the steps layer knobs 1-3 stand where the velocity, length and swing of a new step are."""
+    core = pagercore()
     out: Out = {}
     for k in range(1, 9):
         slot = f"k{k}"
         control = view.controls.get(slot)
         value = round(127 * control.n) if control else 0
+        if view.steps is not None and slot in core.STEP_KNOBS:
+            focus, what = view.steps.focus, core.STEP_KNOBS[slot]
+            value = core.step_knob_place(what, focus[what], len(focus["steps"]))
         out[f"ring:{slot}"] = sysex.realign(profile, profile.by_name(slot), value)
     return out
 
 
 def leds(profile: Profile, view: View) -> Out:
     """Bank A shows which pages exist and which is armed; bank B shows the page's switches, lit when on. A pad that
-    holds a compare state of the armed page shows that instead, on both banks: lit when its state is on."""
+    holds a compare state of the armed page shows that instead, on both banks: lit when its state is on. In the
+    steps layer the 16 pads are the steps of the bar in view, lit when on, and show nothing else."""
     core = pagercore()
     cfg = view.cfg()
     out: Out = {}
+    if view.steps is not None:
+        lit = core.steps_layer(view.steps.focus)["lit"]
+        for pad, on in enumerate(lit):
+            name = f"{'a' if pad < core.PAGE_PADS else 'b'}{pad % core.PAGE_PADS + 1}"
+            out[f"led:{name}"] = sysex.led(profile, profile.by_name(name), core.PAD_LIT if on else OFF)
+        return out
     on_pad = {core.pad_of(cfg, i) for i in range(len(view.pages))}
     armed = core.pad_of(cfg, view.page) if 0 <= view.page < len(view.pages) else None
     for pad in range(1, 9):
@@ -56,15 +68,20 @@ def leds(profile: Profile, view: View) -> Out:
 
 
 def page_display(profile: Profile, view: View) -> Out:
-    """The armed page's name, and its place among the pages."""
+    """The armed page's name, and its place among the pages; in the steps layer, the sound in hand and where its
+    pattern is."""
+    if view.steps is not None:
+        focus = view.steps.focus
+        return {"display": sysex.display(profile, str(focus["name"]), f"{focus['track']} bar {focus['bar']}")}
     if not view.pages or not 0 <= view.page < len(view.pages):
         return {}
     return {"display": sysex.display(profile, view.pages[view.page].name, f"page {view.page + 1} of {len(view.pages)}")}
 
 
 def feedback(profile: Profile, view: View, page_changed: bool = True) -> Out:
-    """Everything to send for this view. The rings and the page's name only when a page was armed: a ring sent while
-    the hand is on its knob would fight it, and a name would cover what the display was showing."""
+    """Everything to send for this view. The rings and the page's name only when a page was armed (or the steps
+    layer came, went or changed its sound): a ring sent while the hand is on its knob would fight it, and a name
+    would cover what the display was showing."""
     out = leds(profile, view)
     if page_changed:
         out.update(rings(profile, view))

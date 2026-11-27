@@ -27,7 +27,7 @@ SYSEX_HEADER = (240, 0, 32, 107, 127, 66)
 LED_HEADER = (*SYSEX_HEADER, 2, 2, 22)
 ENCODER_VALUE_HEADER = (*SYSEX_HEADER, 33, 16, 0)
 SYSEX_END = 247
-FIRST_PAD_SYSEX_ID = 52  # PAD_ID_TO_SYSEX_ID: pads A1-A8 are 52-59, B1-B8 are 60-67
+PAD_SYSEX_IDS = (*range(52, 60), *range(68, 76))  # PAD_ID_TO_SYSEX_ID: pads A1-A8 are 52-59, B1-B8 are 68-75
 FIRST_ENCODER_SYSEX_ID = 7  # ENCODER_ID_TO_SYSEX_ID: knobs 1-8 are 7-14
 
 
@@ -161,8 +161,8 @@ class MiniLab_3:  # the factory script's class name, which pager.py looks for
             send_a_fader=Control("Fader 2"),
             send_b_fader=Control("Fader 3"),
             pan_fader=Control("Fader 4"),
-            pad_bank_a_raw=tuple(Pad(f"Pad A{k + 1}", FIRST_PAD_SYSEX_ID + k) for k in range(8)),
-            pad_bank_b_raw=tuple(Pad(f"Pad B{k + 1}", FIRST_PAD_SYSEX_ID + 8 + k) for k in range(8)),
+            pad_bank_a_raw=tuple(Pad(f"Pad A{k + 1}", PAD_SYSEX_IDS[k]) for k in range(8)),
+            pad_bank_b_raw=tuple(Pad(f"Pad B{k + 1}", PAD_SYSEX_IDS[8 + k]) for k in range(8)),
             display_encoder=Control("Display Encoder"),
         )
         self.rebuilds = 0

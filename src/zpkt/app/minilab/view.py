@@ -6,7 +6,7 @@ from collections.abc import Mapping, Sequence
 from typing import Any
 
 from zpkt.app.minilab.core import pagercore
-from zpkt.app.minilab.mapper import ControlView, PageView, View
+from zpkt.app.minilab.mapper import ControlView, PageView, StepsView, View
 
 
 def pages_from_cfg(pages: Sequence[Mapping[str, Any]]) -> tuple[PageView, ...]:
@@ -62,15 +62,26 @@ def controls_of(
     return out
 
 
+def steps_view(focus: Mapping[str, Any] | None, sounds: Sequence[Mapping[str, Any]] | None = None) -> StepsView | None:
+    """The steps layer for the app's focus (Desk.steps_now) and the kit's sounds (steps.sounds; None: not read):
+    None when the layer is off (no focus, or clips in its way), by the pager's own rule."""
+    if focus is None or pagercore().steps_layer(focus) is None:
+        return None
+    kit = None if sounds is None else tuple(sorted((int(s["pitch"]), str(s["name"])) for s in sounds))
+    return StepsView(focus, kit)
+
+
 def view_from(
     state: Mapping[str, Any],
     pages: tuple[PageView, ...],
     labels: Mapping[str, str],
     hearing: str = "now",
     compare: Mapping[str, Any] | None = None,
+    steps: StepsView | None = None,
 ) -> View:
     """The View of a desk state (deskstate.DeskState) with the page list, the history's labels and what is heard.
-    `compare` is the armed page's own "compare" (desk.cfg): which of its pads is lit is worked out here."""
+    `compare` is the armed page's own "compare" (desk.cfg): which of its pads is lit is worked out here. `steps` is
+    the steps layer (steps_view), when the sequencer has a pattern in hand."""
     page = int(state["page"])
     return View(
         page=page,
@@ -83,4 +94,5 @@ def view_from(
         hearing=hearing,
         driving=bool(state["values"]),
         lit=lit_pad(compare, state["values"]),
+        steps=steps,
     )
