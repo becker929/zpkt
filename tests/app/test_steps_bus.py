@@ -663,3 +663,139 @@ def test_an_undo_tells_the_pages_and_keeps_the_focus_true(drums):
     )
     assert any(m["t"] == "hist" for m in list(shell.queue))
     assert undo(rig, who="agent")[0] == 403  # an agent does not undo either
+
+
+# ---- every command, once more: the rails ---------------------------------------------------------------------------
+
+READS = {
+    "steps.tracks": {},
+    "steps.sounds": {"track": "Drums"},
+    "steps.read": {"track": "Drums", "bar": 1, "bars": 1},
+    "steps.kits": {},
+}
+
+
+def moves(track="Drums"):
+    span = {"track": track, "bar": 1, "bars": 1}
+    one = {"bars": 1, "rows": [{"pitch": KICK, "steps": [100] + [0] * 15}]}
+    return {
+        "steps.toggle": {**span, "pitch": KICK, "step": 2},
+        "steps.set": {**span, "pitch": KICK, "step": 0, "velocity": 50},
+        "steps.write": {"track": track, "bar": 1, "pattern": one},
+        "steps.paint": {"track": track, "from_bar": 1, "bars": 1, "to": [2]},
+        "steps.erase": {"track": track, "bars": [1], "length": 1},
+        "steps.focus": {**span, "pitch": KICK},
+    }
+
+
+def everything(rig):
+    song = rig.live.song
+    return (
+        [t.name for t in song.tracks],
+        {t.name: [(c.start_time, c.end_time, len(c._notes)) for c in t.arrangement_clips] for t in song.tracks},
+        (song.loop, song.loop_start, song.loop_length),
+        rig.state()["steps"],
+        len(rig.desk.history.entries),
+    )
+
+
+def test_the_table_of_commands_is_these_and_each_has_its_class(drums):
+    from zpkt.app import effects, steps_commands
+
+    kinds = {**READS, **moves(), "steps.loop": {}, "steps.new_track": {}}
+    assert set(steps_commands.COMMANDS) == set(kinds)
+    assert {k for k in kinds if effects.EFFECTS[k] == "read"} == set(READS)
+    assert all(effects.EFFECTS[k] == "move" for k in kinds if k not in READS)
+    assert not {k for k in kinds if k in effects.AGENT_MAY}
+
+
+def test_an_agent_may_use_every_read_and_no_move(drums):
+    rig = drums
+    beat(rig, steps_on=(0,))
+    for kind, args in READS.items():
+        assert ask(rig, kind, args, who="agent")[0] == 200, kind
+    before = everything(rig)
+    for kind, args in {
+        **moves(),
+        "steps.loop": {"bar": 1, "bars": 1},
+        "steps.new_track": {"name": "X", "kit": KIT},
+    }.items():
+        code, got = ask(rig, kind, args, who="agent")
+        assert code == 403 and "agent" in got["error"].lower(), kind
+    assert everything(rig) == before
+
+
+def test_no_move_is_made_while_live_has_another_set_open(drums):
+    rig = drums
+    beat(rig, steps_on=(0,))
+    before = everything(rig)
+    rig.desk.bus.guard.forget()
+    rig.desk.bus.guard.open_set = lambda: "Another set"
+    for kind, args in {
+        **moves(),
+        "steps.loop": {"bar": 1, "bars": 1},
+        "steps.new_track": {"name": "X", "kit": KIT},
+    }.items():
+        code, got = ask(rig, kind, args)
+        assert code == 409 and "Another set" in got["error"], kind
+    for kind in ("history.undo", "history.redo"):
+        assert ask(rig, kind)[0] == 409, kind
+    rig.desk.bus.guard.open_set = lambda: rig.desk.settings.set_name
+    rig.desk.bus.guard.forget()
+    assert everything(rig) == before
+
+
+def test_no_command_reads_or_writes_a_monitor_track(drums):
+    rig = drums
+    rig.conn.run("t = song.create_midi_track(-1)\nt.name = 'mon X'\nresult = 1")
+    before, calls = everything(rig), len(rig.live.calls)
+    for kind, args in {
+        **moves("mon X"),
+        "steps.sounds": {"track": "mon X"},
+        "steps.read": {"track": "mon X", "bar": 1, "bars": 1},
+    }.items():
+        code, got = ask(rig, kind, args)
+        assert code == 403 and "monitor" in got["error"], kind
+    assert not [c for c in rig.live.calls[calls:] if "mon X" in c.code] and everything(rig) == before
+    assert "mon X" not in [t["name"] for t in ask(rig, "steps.tracks")[1]["tracks"]]
+
+
+def test_the_focus_is_kept_true_by_a_write_and_a_set(drums):
+    rig = drums
+    span = {"track": "Drums", "bar": 1, "bars": 1}
+    beat(rig, steps_on=(0, 4))
+    ask(rig, "steps.focus", {**span, "pitch": KICK})
+    ask(rig, "steps.set", {**span, "pitch": KICK, "step": 4, "velocity": 33})
+    assert rig.state()["steps"]["steps"][:5] == [100, 0, 0, 0, 33]
+    pattern = pattern_of(rig)
+    cleared = {**pattern, "rows": [{**r, "steps": [0] * 16} for r in pattern["rows"]]}
+    ask(rig, "steps.write", {"track": "Drums", "bar": 1, "pattern": cleared})
+    assert rig.state()["steps"]["steps"] == [0] * 16 and rig.state()["steps"]["blocked"] is False
+    # a clip laid over the bar by hand: the next change the app makes finds the focus blocked
+    rig.conn.run(
+        "t = [t for t in song.tracks if t.name == 'Drums'][0]\nt.delete_clip(t.arrangement_clips[0])\nt.create_midi_clip(0.0, 8.0)\nresult = 1"
+    )
+    assert ask(rig, "steps.focus", {**span, "pitch": SNARE})[1]["focus"]["blocked"] is True
+
+
+def test_the_steps_message_is_as_the_contract_says(drums):
+    import json
+    from pathlib import Path
+
+    import jsonschema
+
+    schema = json.loads(
+        (Path(__file__).resolve().parents[2] / "lib" / "contracts" / "mixdesk-message.schema.json").read_text()
+    )
+    rig = drums
+    shell = rig.desk.subscribe(app=True)
+    span = {"track": "Drums", "bar": 1, "bars": 2}
+    ask(rig, "steps.focus", {**span, "pitch": KICK, "view": 1, "src": "page-1"})
+    ask(rig, "steps.toggle", {**span, "pitch": KICK, "step": 20})
+    ask(rig, "steps.focus", {})
+    sent = heard(shell)
+    assert [bool(m["focus"]) for m in sent] == [True, True, False] and "edit" in sent[1]
+    for message in sent:
+        jsonschema.validate(message, schema)
+    with pytest.raises(jsonschema.ValidationError):
+        jsonschema.validate({"t": "steps", "focus": {"track": "Drums"}}, schema)
