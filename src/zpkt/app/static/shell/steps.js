@@ -11,6 +11,11 @@
 //   render()      draw what is open again (the app's renderSong calls it while Steps or the kit picker shows)
 //   click(button) a press on one of this file's keys (the app's one click listener hands it over)
 //   songKeys(t)   the keys a chosen MIDI lane gets in the Song's strip; newKey(view): the key that makes a drum track
+//   message(m)    the app's {"t": "steps"} message: the focus, and a pattern changed by another hand
+//   live()        Live's playhead or loop moved: the step under the playhead is outlined, the loop key follows
+//
+// The focus: while Steps shows, the app is told what is in hand (steps.focus: the pattern, the sound, the values a
+// new step gets, the sound's steps), and told nothing is when it closes. The MiniLab's pads are mapped to that.
 (function () {
   "use strict";
   const $ = (s) => document.querySelector(s);
@@ -18,13 +23,21 @@
   const PER = 16;  // the steps of a bar
   const ROW_MIN = 24;  // px: the least height of an overview row; fewer rows show when they do not fit
   const ST = {open: false, pick: null, track: "", bar: 1, bars: 1, view: 0, pitch: null, data: null, at: 0, per: 8,
-              seq: 0, loading: false, velocity: 100, length: 1, swing: 0};
+              seq: 0, loading: false, velocity: 100, length: 1, swing: 0,
+              focus: null, ph: -1, looping: false, loopWas: null, told: Promise.resolve()};
+  const SRC = "page-" + Math.random().toString(36).slice(2, 8);  // this page's word on its own commands
   const icon = (n, size = 18) => `<svg width="${size}" height="${size}" aria-hidden="true"><use href="#i-${n}"/></svg>`;
   const esc = (t) => app().esc(t);
   const trackOf = (name) => { const v = app().S.song.view; return (v && v.tracks.find((t) => t.name === name)) || null; };
   const rows = () => (ST.data ? ST.data.pattern.rows : []);
   const rowOf = (pitch) => rows().find((r) => r.pitch === pitch) || null;
   const blocked = () => !!(ST.data && ST.data.blocked && ST.data.blocked.length);
+  const perBar = () => (ST.data && ST.data.beats_per_bar) || app().songOf().beats_per_bar || 4;
+  // Is Live looping exactly the pattern in hand?
+  function looped() {
+    const st = app().S.state, sp = st && st.loop_span, per = perBar();
+    return !!(st && st.loop && st.loop !== "off" && sp && Math.abs(sp[0] - (ST.bar - 1) * per) < 1e-6 && Math.abs(sp[1] - ST.bars * per) < 1e-6);
+  }
   const shown = () => ST.open || !!ST.pick;
 
   // ---- the Song's own keys ------------------------------------------------------------------------------------------
@@ -100,18 +113,30 @@
   }
   function open(name) {
     if (!trackOf(name)) return;
-    Object.assign(ST, {open: true, pick: null, track: name, bar: startBar(), bars: 1, view: 0, pitch: null, data: null, at: 0});
+    Object.assign(ST, {open: true, pick: null, track: name, bar: startBar(), bars: 1, view: 0, pitch: null, data: null, at: 0, looping: false, loopWas: null});
     render();
     load();
   }
   function close() {
     ST.open = false; ST.pick = null; ST.data = null; ST.seq++;
+    tell(null);
+    if (ST.loopWas) app().command("steps.loop", {was: ST.loopWas}, undefined, true);  // the loop goes back to what it was
+    ST.loopWas = null; ST.looping = false;
     app().renderSong();
   }
-  // Read the pattern at the bar in hand. A reply to a question that is no longer the newest is dropped.
-  async function load() {
+  // Tell the app what is in hand (or, with null, that nothing is), one message after the other.
+  function tell(what) {
+    const row = rowOf(ST.pitch);
+    const args = what === null ? {} : row && ST.data ? {track: ST.track, bar: ST.bar, bars: ST.bars, steps_per_bar: PER, view: ST.view, pitch: row.pitch, name: row.name,
+      velocity: ST.velocity, length: ST.length, swing: ST.swing, steps: row.steps.slice(), blocked: blocked()} : null;
+    if (!args) return;
+    ST.told = ST.told.then(() => app().command("steps.focus", {...args, src: SRC}, undefined, true)).catch(() => {});
+  }
+  // Read the pattern at the bar in hand. A reply to a question that is no longer the newest is dropped. `quiet`:
+  // another hand changed it, and the pads stay in use while it is read again.
+  async function load(quiet) {
     const mine = ++ST.seq, z = app(), v = z.S.song.view;
-    ST.loading = true; sync();
+    if (!quiet) { ST.loading = true; sync(); }
     const r = await z.command("steps.read", {track: ST.track, bar: ST.bar, bars: ST.bars, swing: ST.swing, total_bars: Math.max(1, (v && v.bars) || 0, z.songOf().bars || 0)});
     if (mine !== ST.seq || !ST.open) return;
     ST.loading = false;
@@ -120,6 +145,7 @@
     if (!rowOf(ST.pitch)) ST.pitch = rows().length ? rows()[0].pitch : null;
     ST.view = Math.min(ST.view, ST.bars - 1);
     render();
+    tell();
   }
   function setSong(html) {
     const box = $("#song");
@@ -139,11 +165,13 @@
         <button class="key sm" type="button" data-st="bar" data-by="-1" aria-label="Bar before"><svg class="back" width="18" height="18" aria-hidden="true"><use href="#i-more"/></svg></button>
         <span class="st-barn" id="st-barn" role="status"></span>
         <button class="key sm" type="button" data-st="bar" data-by="1" aria-label="Bar after">${icon("more")}</button>
+        <button class="key sm" type="button" data-st="loop" aria-pressed="false" aria-label="Loop this pattern">${icon("loop")}</button>
         <button class="key sm" type="button" data-st="close" aria-label="Close Steps">${icon("x")}</button></div>
       <div class="st-ov" id="st-ov" role="group" aria-label="Sounds">${ov}</div>${pager("st-pgs", "sndstep", "Sounds")}
       <div class="st-ml"><div class="st-head"><b id="st-name"></b></div>
         <span class="tag">pads A</span>${pads(0)}<span class="tag">pads B</span>${pads(8)}</div></div>`);
-    fit(); sync();
+    ST.ph = -1;
+    fit(); sync(); live();
   }
   // As many sound rows as the height holds (8 at most); more are a page away. The page with the chosen sound shows.
   function fit() {
@@ -169,6 +197,8 @@
     if (off) { barn.dataset.blocked = "1"; barn.title = "Clips are in the way"; barn.setAttribute("aria-label", `Bar ${ST.bar + ST.view}: clips are in the way`); }
     else { delete barn.dataset.blocked; barn.removeAttribute("title"); barn.removeAttribute("aria-label"); }
     box.querySelector('[data-st="bar"][data-by="-1"]').disabled = ST.bar <= 1;
+    const lk = box.querySelector('[data-st="loop"]'), on = looped();
+    lk.classList.toggle("on", on); lk.setAttribute("aria-pressed", String(on));
     for (const el of box.querySelectorAll(".st-row")) {
       const row = rowOf(+el.dataset.pitch), sel = +el.dataset.pitch === ST.pitch;
       el.classList.toggle("sel", sel); el.setAttribute("aria-pressed", String(sel));
@@ -186,22 +216,69 @@
   // A tap on a pad: the step flips on the page at once, Live's answer settles it, a refusal puts it back (and the
   // app says why where it says every refusal).
   async function tap(k) {
-    const d = ST.data, row = rowOf(ST.pitch), step = ST.view * PER + k;
-    if (!d || !row || blocked() || ST.loading) return;
-    const was = row.steps[step];
+    const row = rowOf(ST.pitch), step = ST.view * PER + k, at = `${ST.track}/${ST.bar}/${ST.bars}`;
+    if (!ST.data || !row || blocked() || ST.loading) return;
+    const pitch = row.pitch, was = row.steps[step];
     row.steps[step] = was ? 0 : ST.velocity; sync();
-    const r = await app().command("steps.toggle", {track: ST.track, bar: ST.bar, bars: ST.bars, pitch: row.pitch, step, velocity: ST.velocity, length: ST.length, swing: ST.swing});
-    if (r.ok) row.steps[step] = r.body.on ? r.body.velocity : 0;
-    else { row.steps[step] = was; if (r.body && r.body.blocked && r.body.blocked.length) d.blocked = r.body.blocked; }
-    if (d === ST.data) sync();
+    const r = await app().command("steps.toggle", {track: ST.track, bar: ST.bar, bars: ST.bars, pitch, step, velocity: ST.velocity, length: ST.length, swing: ST.swing, src: SRC});
+    const now = ST.open && at === `${ST.track}/${ST.bar}/${ST.bars}` ? rowOf(pitch) : null;  // the pattern may have been read again meanwhile
+    if (!now) return;
+    if (r.ok) now.steps[step] = r.body.on ? r.body.velocity : 0;
+    else { now.steps[step] = was; if (r.body && r.body.blocked && r.body.blocked.length) ST.data.blocked = r.body.blocked; }
+    sync();
   }
   function chooseSound(pitch) {
     if (!rowOf(pitch)) return;
-    ST.pitch = pitch; sync();
+    ST.pitch = pitch; sync(); tell();
   }
   function stepBar(by) {
     ST.bar = Math.max(1, ST.bar + by * ST.bars); ST.view = 0;
     sync(); load();
+    if (ST.looping) app().command("steps.loop", {bar: ST.bar, bars: ST.bars}, undefined, true);  // the loop follows the bar in hand
+  }
+  // The loop key: Live loops the pattern's bars, so it is heard going round with the song. The lit key again, and
+  // closing Steps, put the loop back as it was.
+  async function loopKey() {
+    const st = app().S.state;
+    if (looped()) {
+      const was = ST.loopWas || {on: false, start: st.loop_span[0], length: st.loop_span[1]};
+      ST.loopWas = null; ST.looping = false;
+      return app().command("steps.loop", {was});
+    }
+    ST.looping = true;
+    const r = await app().command("steps.loop", {bar: ST.bar, bars: ST.bars});
+    if (r.ok && !ST.loopWas) ST.loopWas = r.body.was;
+    else if (!r.ok) ST.looping = false;
+  }
+  // Live's playhead or loop moved. The step under the playhead is outlined while Live plays inside the pattern.
+  function live() {
+    const box = $("#steps");
+    if (!box || !ST.open) return;
+    const st = app().S.state, per = perBar(), start = (ST.bar - 1) * per;
+    let k = -1;
+    if (st && st.playing && st.pos >= start - 1e-6 && st.pos < start + ST.bars * per) {
+      const step = Math.floor((st.pos - start) / (per / PER) + 1e-6);
+      if (Math.floor(step / PER) === ST.view) k = step % PER;
+    }
+    if (k !== ST.ph) {
+      ST.ph = k;
+      box.querySelectorAll(".st-pad.ph").forEach((p) => p.classList.remove("ph"));
+      if (k >= 0) box.querySelector(`.st-pad[data-k="${k}"]`).classList.add("ph");
+    }
+    const lk = box.querySelector('[data-st="loop"]'), on = looped();
+    if (lk.classList.contains("on") !== on) { lk.classList.toggle("on", on); lk.setAttribute("aria-pressed", String(on)); }
+  }
+  // The app's {"t": "steps"} message. A pattern another hand changed (the MiniLab's pad, another page, an undo) is
+  // read again; a focus another hand moved on this pattern (another sound, other values) is taken up.
+  function message(m) {
+    ST.focus = m.focus || null;
+    if (!ST.open || m.src === SRC) return;
+    if (m.edit) { if (m.edit.track === ST.track) load(true); return; }
+    const f = m.focus;
+    if (!f || f.track !== ST.track || f.bar !== ST.bar || f.bars !== ST.bars) return;
+    if (rowOf(f.pitch)) ST.pitch = f.pitch;
+    Object.assign(ST, {view: Math.min(f.view, ST.bars - 1), velocity: f.velocity, length: f.length});
+    fit(); sync(); live();
   }
 
   function render() {
@@ -222,10 +299,11 @@
     else if (what === "sound") chooseSound(+t.dataset.pitch);
     else if (what === "sndstep") { ST.at += +t.dataset.by; fit(); }
     else if (what === "pad") tap(+t.dataset.k);
+    else if (what === "loop") loopKey();
     return true;
   }
   const refit = () => { if (ST.pick) fitPicker(); else if (ST.open) fit(); };
   if (window.ResizeObserver) new ResizeObserver(refit).observe($("#song")); else window.addEventListener("resize", refit);
 
-  window.zpktSteps = {open, close, render, click, shown, songKeys, newKey, state: ST};
+  window.zpktSteps = {open, close, render, click, shown, songKeys, newKey, message, live, state: ST, src: SRC};
 })();

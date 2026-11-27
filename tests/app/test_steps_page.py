@@ -154,3 +154,75 @@ def test_steps_fits_a_desktop_too(browser, rig):
     box = pg.locator("#steps .st-ml").bounding_box()
     assert box["y"] + box["height"] <= 800 and pg.locator("#st-ov .st-row:visible").count() == 6
     assert pg.errors == []
+
+
+def test_the_focus_reaches_a_second_page_the_loop_key_loops_the_bar_and_the_playhead_step_is_outlined(browser, rig):
+    pg = song(browser, rig)
+    make_drums(pg, rig)
+    other = browser.new_page(viewport=DESKTOP)  # a second page: it hears what the first has in hand
+    other.goto(rig.url + "/app/#song")
+    other.wait_for_function("window.zpkt && window.zpkt.S.state")
+    wait_for(lambda: rig.state()["steps"] is not None)
+    focus = rig.state()["steps"]
+    assert (focus["track"], focus["bar"], focus["bars"], focus["name"], focus["steps"]) == (
+        "Drums",
+        1,
+        1,
+        "Kick",
+        [0] * 16,
+    )
+    pg.locator("#steps .st-pad").nth(4).click()
+    other.wait_for_function("window.zpkt.S.state.steps && window.zpkt.S.state.steps.steps[4] === 100")
+    pg.locator('#st-ov .st-row[data-pitch="38"]').click()
+    other.wait_for_function("window.zpkt.S.state.steps.name === 'Snare'")
+    assert rig.state()["steps"]["pitch"] == SNARE
+
+    # a step flipped by another hand (the MiniLab's pad, later) shows on the page
+    f = rig.state()["steps"]
+    press = {k: f[k] for k in ("track", "bar", "bars", "pitch", "velocity", "length", "swing")}
+    assert rig.desk.bus.submit(steps_command("steps.toggle", {**press, "step": 9}, "minilab"))[0] == 200
+    pg.wait_for_selector('#steps .st-pad[data-k="9"].on')
+    # and another hand choosing the sound moves the page to it
+    rig.desk.bus.submit(steps_command("steps.focus", {"pitch": KICK}, "minilab"))
+    pg.wait_for_function("document.querySelector('#st-name').textContent === 'Kick'")
+    assert pg.locator("#steps .st-pad.on").evaluate_all("els => els.map(e => e.dataset.k)") == ["4"]
+
+    # the loop key: Live loops the bar in hand; the lit key again puts the loop back
+    song_ = rig.live.song
+    before = (song_.loop, song_.loop_start, song_.loop_length)
+    key = pg.locator('#steps [data-st="loop"]')
+    key.click()
+    wait_for(lambda: (song_.loop, song_.loop_start, song_.loop_length) == (True, 0.0, 4.0))
+    pg.wait_for_selector('#steps [data-st="loop"].on')
+    pg.locator('#steps [data-st="bar"][data-by="1"]').click()  # the loop follows the bar in hand
+    wait_for(lambda: (song_.loop_start, song_.loop_length) == (4.0, 4.0))
+    pg.wait_for_selector('#steps [data-st="loop"].on')
+    pg.locator('#steps [data-st="bar"][data-by="-1"]').click()
+    wait_for(lambda: song_.loop_start == 0.0)
+    pg.wait_for_selector('#steps [data-st="loop"].on')
+
+    # the step under Live's playhead is outlined while it plays inside the pattern
+    rig.send({"t": "pos", "b": 1.3, "p": True})  # beat 1.3 of bar 1: the 6th sixteenth
+    pg.wait_for_selector('#steps .st-pad[data-k="5"].ph')
+    rig.send({"t": "pos", "b": 3.76, "p": True})
+    pg.wait_for_selector('#steps .st-pad[data-k="15"].ph')
+    assert pg.locator("#steps .st-pad.ph").count() == 1
+    rig.send({"t": "pos", "b": 9.0, "p": True})  # another bar: no pad
+    pg.wait_for_function("document.querySelectorAll('#steps .st-pad.ph').length === 0")
+    rig.send({"t": "pos", "b": 1.0, "p": False})  # stopped: none either
+    pg.wait_for_function("document.querySelectorAll('#steps .st-pad.ph').length === 0")
+
+    key.click()
+    wait_for(lambda: (song_.loop, song_.loop_start, song_.loop_length) == before)
+    pg.wait_for_selector('#steps [data-st="loop"]:not(.on)')
+    # closing Steps lets the focus go
+    pg.locator('#steps [data-st="close"]').click()
+    wait_for(lambda: rig.state()["steps"] is None)
+    other.wait_for_function("window.zpkt.S.state.steps === null")
+    assert no_scroll(pg) and pg.errors == []
+
+
+def steps_command(kind, args, who):
+    from zpkt.app.bus import Command
+
+    return Command(kind, who, args)

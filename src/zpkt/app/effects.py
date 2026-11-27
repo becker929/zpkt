@@ -47,6 +47,8 @@ These lines are decisions worth their reason:
   notes and clips into the Arrangement or make a track. Anthony, 26 November 2026, asked for a step sequencer for
   himself and his controller: the page and the API's callers may use them, and an agent only the reads
   (`steps.tracks`, `steps.sounds`, `steps.read`, `steps.kits`).
+- `steps.focus` is a move though it writes nothing into Live: it says what the sequencer has in hand, and with that
+  what the MiniLab's pads will do, under your hands (as `page.arm` does). `steps.loop` moves the transport's loop.
 """
 
 from __future__ import annotations
@@ -104,6 +106,8 @@ EFFECTS: dict[str, Effect] = {
     "steps.kits": "read",
     "steps.toggle": "move",
     "steps.new_track": "move",
+    "steps.focus": "move",
+    "steps.loop": "move",
     # the jobs (zpkt.app.jobs)
     "live.run": "move",
     "live.read": "read",

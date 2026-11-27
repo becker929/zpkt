@@ -459,6 +459,7 @@ function updatePos() {
   if (no.textContent !== text) no.textContent = text;
   $("#htop .tl .ph").style.left = Math.min(100, (st.pos % total) / total * 100) + "%";
   updateSongHead();
+  if (window.zpktSteps) window.zpktSteps.live();  // the step under the playhead (shell/steps.js)
 }
 // "N changed" counts from the last checkpoint saved or gone back to, and says which one that is.
 function updateChanged() {
@@ -1942,8 +1943,9 @@ function apply(m) {
   else if (m.t === "loop" && S.state) {
     if (S.loopWant) S.loopWant.last = m.loop; else S.state.loop = m.loop;
     if (m.start != null && m.length != null) S.state.loop_span = [m.start, m.length];
-    renderTop(); renderBottom(); return updateSongMarks();
+    renderTop(); renderBottom(); if (window.zpktSteps) window.zpktSteps.live(); return updateSongMarks();
   }
+  else if (m.t === "steps") { if (S.state) S.state.steps = m.focus; if (window.zpktSteps) window.zpktSteps.message(m); return; }  // the step sequencer's focus
   else if (m.t === "page" && S.state) S.state.page = m.page;
   else if (m.t === "mon" && S.state) S.state.monitor = {slot: m.slot, ref: m.ref};
   else if (m.t === "arr") { if (S.song.loaded) readSong(); return; }  // a clip or a locator changed in Live

@@ -193,6 +193,9 @@ class Desk:
         self.metering = threading.Lock()  # one "turn the spectrum on" job at a time
         self._arrangement: dict[str, Any] | None = None  # the song in Live as last read; None: read it again
         self.steps_kits: list[str] | None = None  # the drum kits Live's browser offers, once asked (steps.kits)
+        # what the step sequencer is editing now (zpkt.app.steps_commands.focus); None: nothing
+        self.steps_focus: dict[str, Any] | None = None
+        self.steps_rev = 0  # counts the focus's changes
         self._meter_tool: Any = None
         self._ensured = self._started = False  # the supervisor's: monitor tracks made, start checkpoint taken
         self._stale_reload_at = 0.0  # when the supervisor last reloaded a pager Live raised from
@@ -237,7 +240,14 @@ class Desk:
             "song": song,
             "open_set": state.get("set") or "",
             "desk_set": self.settings.set_name,
+            "steps": self.steps_now(),
         }
+
+    def steps_now(self) -> dict[str, Any] | None:
+        """What the step sequencer is editing (zpkt.app.steps_commands.focus), as a copy; None: nothing."""
+        with self.lock:
+            focus = self.steps_focus
+            return None if focus is None else {**focus, "steps": list(focus["steps"])}
 
     def monitor_choice(self) -> deskstate.MonitorChoice:
         return self.snapshot()["monitor"]

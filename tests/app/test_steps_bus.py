@@ -205,3 +205,109 @@ def test_what_is_asked_wrong_is_a_400_that_says_so(drums):
         code, got = ask(rig, kind, args)
         assert code == 400 and why in got["error"], (kind, args, got)
     assert notes(rig) == []
+
+
+# ---- the focus: what the sequencer is editing, for every page and for the MiniLab ------------------------------------
+
+
+def heard(q, kind="steps"):
+    return [m for m in list(q.queue) if m.get("t") == kind]
+
+
+def test_the_focus_holds_the_chosen_sounds_steps_and_reaches_every_page(drums):
+    rig = drums
+    span = {"track": "Drums", "bar": 5, "bars": 1}
+    ask(rig, "steps.toggle", {**span, "pitch": KICK, "step": 0})
+    ask(rig, "steps.toggle", {**span, "pitch": KICK, "step": 4, "velocity": 90})
+    old_page, shell = rig.desk.subscribe(), rig.desk.subscribe(app=True)  # the MIDI adapter listens as the first does
+    code, got = ask(rig, "steps.focus", {**span, "pitch": KICK, "velocity": 110, "length": 2.0, "swing": 0.0})
+    want = {
+        "track": "Drums",
+        "bar": 5,
+        "bars": 1,
+        "steps_per_bar": 16,
+        "view": 0,
+        "pitch": KICK,
+        "name": "Kick",
+        "velocity": 110,
+        "length": 2.0,
+        "swing": 0.0,
+        "steps": [100, 0, 0, 0, 90, *[0] * 11],
+        "blocked": False,
+        "rev": 1,
+    }
+    assert code == 200 and got == {"ok": True, "focus": want}
+    assert heard(old_page) == heard(shell) == [{"t": "steps", "focus": want}]
+    assert rig.state()["steps"] == want  # a page that loads now has it
+
+    # a pad press needs nothing but the focus and a step number
+    f = rig.state()["steps"]
+    pad = 6
+    press = {k: f[k] for k in ("track", "bar", "bars", "pitch", "velocity", "length", "swing")}
+    assert ask(rig, "steps.toggle", {**press, "step": f["view"] * f["steps_per_bar"] + pad}, who="minilab")[0] == 200
+    after = rig.state()["steps"]
+    assert after["steps"][pad] == 110 and after["rev"] == 2  # kept up with no further read
+    last = heard(shell)[-1]
+    assert last["focus"] == after and last["edit"] == {"track": "Drums", "bar": 5, "bars": 1, "what": "toggle"}
+    assert (16.0, KICK, 1.5, 110) in notes(rig)
+    ask(rig, "steps.toggle", {**press, "step": pad}, who="minilab")
+    assert rig.state()["steps"]["steps"][pad] == 0
+
+    # a part is enough once there is a focus: another sound is read from Live, a knob's value is not
+    ask(rig, "steps.toggle", {**span, "pitch": HAT, "step": 2, "velocity": 64})
+    calls = len(rig.live.calls)
+    hat = ask(rig, "steps.focus", {"pitch": HAT, "src": "page-1"})[1]["focus"]
+    assert (hat["name"], hat["steps"][2], hat["velocity"], hat["bar"]) == ("Hat", 64, 110, 5)
+    assert len(rig.live.calls) == calls + 1 and heard(shell)[-1]["src"] == "page-1"
+    calls = len(rig.live.calls)
+    softer = ask(rig, "steps.focus", {"velocity": 70})[1]["focus"]
+    assert softer["velocity"] == 70 and softer["steps"] == hat["steps"] and len(rig.live.calls) == calls
+    # a page that has just read the pattern hands the steps over, and Live is not asked
+    given = ask(rig, "steps.focus", {**span, "bar": 6, "pitch": KICK, "steps": [0] * 16, "blocked": False})[1]["focus"]
+    assert given["bar"] == 6 and given["steps"] == [0] * 16 and len(rig.live.calls) == calls
+
+    # {} lets it go
+    code, got = ask(rig, "steps.focus", {})
+    assert code == 200 and got["focus"] is None and rig.state()["steps"] is None
+    assert heard(shell)[-1] == {"t": "steps", "focus": None}
+    assert ask(rig, "steps.focus", {"pitch": HAT})[0] == 400  # a part of nothing is not a focus
+
+
+def test_the_focus_is_the_persons_and_never_on_a_monitor_track(drums):
+    rig = drums
+    whole_focus = {"track": "Drums", "bar": 1, "bars": 1, "pitch": KICK}
+    assert ask(rig, "steps.focus", whole_focus, who="agent")[0] == 403
+    assert ask(rig, "steps.focus", {**whole_focus, "track": "mon A"})[0] == 403
+    for wrong, why in [
+        ({**whole_focus, "bars": 3}, "1, 2 or 4 bars"),
+        ({**whole_focus, "view": 1}, "'view' is a bar of the pattern"),
+        ({**whole_focus, "velocity": 0}, "a velocity"),
+        ({**whole_focus, "swing": 0.9}, "swing"),
+        ({**whole_focus, "track": "Nobody"}, "no track"),
+    ]:
+        code, got = ask(rig, "steps.focus", wrong)
+        assert code == 400 and why in got["error"], wrong
+    assert rig.state()["steps"] is None
+
+
+def test_the_loop_goes_to_the_patterns_bars_and_back(drums):
+    rig = drums
+    song = rig.live.song
+    before = (song.loop, song.loop_start, song.loop_length)
+    code, got = ask(rig, "steps.loop", {"bar": 5, "bars": 2})
+    assert code == 200 and got["was"] == {"on": before[0], "start": before[1], "length": before[2]}
+    assert (song.loop, song.loop_start, song.loop_length) == (True, 16.0, 8.0)
+    assert rig.desk.history.entries == [] or rig.desk.history.entries[-1]["k"] != "steps"  # the transport: no row
+    assert ask(rig, "steps.loop", {"was": got["was"]})[0] == 200
+    assert (song.loop, song.loop_start, song.loop_length) == before
+    assert ask(rig, "steps.loop", {"bar": 5, "bars": 2}, who="agent")[0] == 403
+    assert ask(rig, "steps.loop", {"bar": 0})[0] == 400 and ask(rig, "steps.loop", {"was": 3})[0] == 400
+
+
+def test_an_agent_reads_the_focus_in_the_desks_state(asked, monkeypatch):
+    rig = asked.rig
+    assert ask(rig, "desk.state", who="agent")[1]["steps"] is None
+    ask(rig, "steps.new_track", {"name": "Drums", "kit": KIT})
+    ask(rig, "steps.focus", {"track": "Drums", "bar": 2, "bars": 1, "pitch": SNARE})
+    got = ask(rig, "desk.state", who="agent")[1]["steps"]
+    assert (got["track"], got["bar"], got["name"], got["steps"]) == ("Drums", 2, "Snare", [0] * 16)

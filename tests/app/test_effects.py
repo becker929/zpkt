@@ -64,6 +64,8 @@ MOVES = {
     "page.set",
     "pager.restart",
     "state.put",
+    "steps.focus",
+    "steps.loop",
     "steps.new_track",
     "steps.toggle",
     "surface.remove",

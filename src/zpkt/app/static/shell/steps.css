@@ -48,6 +48,8 @@
 .st-pad:active{transform:translateY(1.5px);box-shadow:0 .5px 0 var(--z-keyedge)}
 .st-pad:disabled{opacity:.4;cursor:default;transform:none}
 .st-pad:focus-visible{outline:2px solid var(--ink);outline-offset:1px}
+/* the step under Live's playhead, in the playhead's own colour */
+.st-pad.ph{outline:3px solid var(--pin);outline-offset:1px;z-index:1}
 #steps[data-loading] :is(.st-ov,.st-ml){opacity:.5;pointer-events:none}
 @media (prefers-reduced-motion:reduce){.st-pad:active{transform:none}}
 

@@ -10,9 +10,16 @@ The page, the API and later the MiniLab all pass this one door:
     steps.kits                                     the Drum Rack presets Live's browser offers (read; kept)
     steps.toggle {track, bar, bars, pitch, step}   flip one step
     steps.new_track {name, kit}                    a MIDI track with that kit, in front of the monitor tracks
+    steps.focus {track, bar, bars, pitch, ...}     what the sequencer is editing now ({}: nothing)
+    steps.loop {bar, bars}                         loop those bars in Live; what the loop was comes back
 
 The changing ones are moves (zpkt.app.effects): the bus holds them to the page's set and to the lock, and refuses
 them from an agent. None of them ever names a monitor track ("mon ..."): `the_track` is the rail.
+
+The focus is the one piece of state here (`Desk.steps_focus`, in `/api/state`, in the agents' `desk.state`, and
+pushed to every page and adapter as {"t": "steps", "focus": {...} | null}): which pattern and which sound the
+sequencer has in hand, the values a new step gets, and that sound's steps. It is what a controller needs to light
+16 pads and to turn a pad press into `steps.toggle` (see `focus`).
 """
 
 from __future__ import annotations
@@ -174,6 +181,161 @@ def kits(desk: Desk, cmd: Command) -> Reply:
     return 200, {"ok": True, "kits": kept}
 
 
+# ---- the focus: what the sequencer is editing now -------------------------------------------------------------------
+
+FOCUS_KEYS = ("track", "bar", "bars", "steps_per_bar", "view", "pitch", "name", "velocity", "length", "swing")
+PATTERN_KEYS = ("track", "bar", "bars", "steps_per_bar", "pitch", "swing")  # another value of one: other steps
+
+
+def source_of(args: Any) -> str | None:
+    """`src`: a short word a page sends with its commands, so that it knows its own changes when they come back."""
+    src = args.get("src")
+    return str(src)[:40] if isinstance(src, str) and src else None
+
+
+def say(desk: Desk, edit: dict[str, Any] | None = None, src: str | None = None) -> dict[str, Any] | None:
+    """Tell every page and adapter what the focus is now: {"t": "steps", "focus": {...} | None}, with "src" (who
+    asked, if it said) and, after a change to a pattern, "edit": {"track", "bar", "bars", "what"}. Returns the
+    focus as sent."""
+    focus = desk.steps_now()
+    message: dict[str, Any] = {"t": "steps", "focus": focus}
+    if src:
+        message["src"] = src
+    if edit:
+        message["edit"] = edit
+    desk.push(message)
+    return focus
+
+
+def focused_steps(desk: Desk, focus: dict[str, Any]) -> tuple[list[int], bool, str]:
+    """The focused sound's steps as Live has them, whether clips are in the way, and the sound's name. One call."""
+    found = live_steps.read(
+        desk.conn,
+        focus["track"],
+        focus["bar"],
+        focus["bars"],
+        focus["steps_per_bar"],
+        [focus["pitch"]],
+        swing=focus["swing"],
+    )
+    row = found["pattern"]["rows"][0]
+    return list(row["steps"]), bool(found["blocked"]), row["name"]
+
+
+def focus(desk: Desk, cmd: Command) -> Reply:
+    """Say what the sequencer is editing: {"track", "bar", "bars", "pitch", "velocity"?, "length"?, "swing"?,
+    "view"?, "name"?, "steps_per_bar"?}; {} says it is editing nothing. With a focus in place a part is enough
+    ({"pitch": 38}, {"velocity": 90}): the rest stays.
+
+    The focus that is kept and pushed ({"t": "steps", "focus": ...}):
+
+        track, bar, bars, steps_per_bar   the pattern: `bars` bars of `track` from bar `bar` (counted from 1)
+        pitch, name                       the sound in hand
+        velocity, length, swing           what a new step gets (length in steps, swing as a part of a step)
+        view                              which bar of the pattern the 16 pads show, from 0
+        steps                             that sound's steps over the whole pattern: 0, or the note's velocity
+        blocked                           clips are in the way of this span: nothing can be written
+        rev                               counts up with every change of the focus
+
+    So the 16 pads are steps[view * steps_per_bar + k] for k from 0 to 15 (pads A: 0 to 7, pads B: 8 to 15), and
+    a press of pad k is `steps.toggle {track, bar, bars, pitch, step: view * steps_per_bar + k, velocity, length,
+    swing}`. `steps` is read from Live when the pattern or the sound changes (one short call; a page that has
+    just read the pattern may hand "steps" and "blocked" over instead), and kept up by every command here that
+    changes the pattern."""
+    src = source_of(cmd.args)
+    asked = {k: v for k, v in cmd.args.items() if k != "src"}
+    if not asked:
+        with desk.lock:
+            was, desk.steps_focus = desk.steps_focus, None
+            desk.steps_rev += was is not None
+        return 200, {"ok": True, "focus": say(desk, src=src)}
+    with desk.lock:
+        now = desk.steps_focus
+    merged = {**(now or {}), **asked}
+    with asking():
+        total = live_steps.check_grid(whole(merged, "bars", 1), whole(merged, "steps_per_bar", STEPS_PER_BAR))
+        new: dict[str, Any] = {
+            "track": the_track(merged),
+            "bar": live_steps.check_bar(whole(merged, "bar")),
+            "bars": merged.get("bars", 1),
+            "steps_per_bar": merged.get("steps_per_bar", STEPS_PER_BAR),
+            "view": whole(merged, "view", 0),
+            "pitch": live_steps.check_pitch(whole(merged, "pitch")),
+            "velocity": live_steps.check_velocity(whole(merged, "velocity", 100)),
+            "length": live_steps.check_length(number(merged, "length", 1.0), total),
+            "swing": live_steps.check_swing(number(merged, "swing", 0.0)),
+        }
+        if not 0 <= new["view"] < new["bars"]:
+            raise BadRequest(f"'view' is a bar of the pattern, 0 to {new['bars'] - 1}")
+        same = now is not None and all(now[k] == new[k] for k in PATTERN_KEYS)
+        name = asked.get("name") or (now["name"] if same and now else None)
+        given = asked.get("steps")
+        if isinstance(given, list) and len(given) == total and all(type(v) is int and 0 <= v <= 127 for v in given):
+            steps_now, blocked = list(given), bool(asked.get("blocked"))
+        elif same and now is not None:
+            steps_now, blocked = list(now["steps"]), bool(now["blocked"])
+        else:
+            steps_now, blocked, read_name = focused_steps(desk, new)
+            name = name or read_name
+    new.update(name=str(name or live_steps.note_name(new["pitch"])), steps=steps_now, blocked=blocked)
+    with desk.lock:
+        desk.steps_rev += 1
+        new["rev"] = desk.steps_rev
+        desk.steps_focus = new
+    return 200, {"ok": True, "focus": say(desk, src=src)}
+
+
+def edited(
+    desk: Desk,
+    span: tuple[str, int, int],
+    what: str,
+    src: str | None = None,
+    step: tuple[int, int, int] | None = None,
+) -> None:
+    """A command changed the pattern `span` (track, bar, bars): keep the focus's steps true and tell the pages.
+    `step` is (pitch, step, velocity or 0) when one step is all that changed, which needs no call to Live;
+    otherwise the focused row is read again when the change was to the focused span."""
+    track, bar, bars = span
+    with desk.lock:
+        focus_now = desk.steps_focus
+        ours = focus_now is not None and focus_now["track"] == track
+        hit = (
+            ours
+            and focus_now is not None
+            and bar < focus_now["bar"] + focus_now["bars"]
+            and focus_now["bar"] < bar + bars
+        )
+    if hit and focus_now is not None:
+        same_span = (focus_now["bar"], focus_now["bars"]) == (bar, bars)
+        if step is not None and same_span:
+            fresh, blocked = list(focus_now["steps"]), False
+            if step[0] == focus_now["pitch"] and 0 <= step[1] < len(fresh):
+                fresh[step[1]] = step[2]
+        else:
+            fresh, blocked, _ = focused_steps(desk, focus_now)
+        with desk.lock:
+            if desk.steps_focus is focus_now:
+                desk.steps_rev += 1
+                desk.steps_focus = {**focus_now, "steps": fresh, "blocked": blocked, "rev": desk.steps_rev}
+    say(desk, {"track": track, "bar": bar, "bars": bars, "what": what}, src)
+
+
+# ---- the loop ------------------------------------------------------------------------------------------------------
+
+
+def loop(desk: Desk, cmd: Command) -> Reply:
+    """Loop a pattern's bars in Live, so it is heard going round with the song: {"bar", "bars"}; the answer's "was"
+    is the loop as it was ({"on", "start", "length"}, in beats). {"was": {...}} puts that back. A move of the
+    transport: never a History row. Live reports the loop itself ({"t": "loop"})."""
+    with asking():
+        if "was" in cmd.args:
+            was = cmd.args["was"]
+            if not isinstance(was, dict):
+                raise BadRequest("'was' is the loop as steps.loop gave it: {on, start, length}")
+            return 200, {"ok": True, "was": live_steps.loop_put(desk.conn, was)}
+        return 200, {"ok": True, "was": live_steps.loop(desk.conn, whole(cmd.args, "bar"), whole(cmd.args, "bars", 1))}
+
+
 # ---- moves ---------------------------------------------------------------------------------------------------------
 
 
@@ -199,6 +361,13 @@ def toggle(desk: Desk, cmd: Command) -> Reply:
         )
     if (refused := in_the_way(did)) is not None:
         return refused
+    edited(
+        desk,
+        (track, bar, bars),
+        "toggle",
+        source_of(cmd.args),
+        (whole(cmd.args, "pitch"), whole(cmd.args, "step"), did["velocity"] if did["on"] else 0),
+    )
     return 200, {"ok": True, "on": did["on"], "velocity": did["velocity"], "created": did["created"]}
 
 
@@ -248,6 +417,8 @@ COMMANDS = {
     "steps.kits": kits,
     "steps.toggle": toggle,
     "steps.new_track": new_track,
+    "steps.focus": focus,
+    "steps.loop": loop,
 }
 
 
