@@ -32,11 +32,12 @@ from zpkt.app.minilab.latency import LatencyProbe
 from zpkt.app.minilab.mapper import MapState, Show, Submit, View
 from zpkt.app.minilab.ports import MidiPort, open_port
 from zpkt.app.minilab.profile import Event, Profile, load_profile
-from zpkt.app.minilab.view import pages_from_cfg, view_from
+from zpkt.app.minilab.view import pages_from_cfg, steps_view, view_from
 
 WHO = "minilab"
 TICK_S = 0.02  # a stream is sent at most this often
-VIEW_MESSAGES = ("full", "page", "v", "pos", "mon", "loop", "hear", "desk")  # desk messages that change the View
+# desk messages that change the View ("steps": what the step sequencer has in hand; the pads are its steps then)
+VIEW_MESSAGES = ("full", "page", "v", "pos", "mon", "loop", "hear", "desk", "steps")
 TEMPO_MODES = ("auto", "on", "off")
 
 
@@ -79,7 +80,8 @@ class MidiAdapter:
         self._pending: list[Submit] = []
         self._moved_at: dict[str, float] = {}  # the oldest unsent move of a stream
         self._sent: dict[str, list[int]] = {}  # the last message sent to each target
-        self._last_page: int | None = None
+        self._last_shown: tuple[Any, ...] | None = None  # the page, and the steps layer's sound, last shown
+        self._kit: tuple[str, list[dict[str, Any]] | None] | None = None  # (track, its kit's sounds as last read)
         self._cfg_pages: tuple[Any, ...] = ()
         self._compares: list[Any] = []  # each desk page's "compare" block, or None
 
@@ -121,6 +123,8 @@ class MidiAdapter:
                     items.append(self._inbox.get_nowait())
                 except queue.Empty:
                     break
+            if items:
+                self._drain_desk()  # a move is decided on what the desk shows now, not a tick ago
             for kind, payload, at in items:
                 if kind == "stop":
                     return
@@ -166,10 +170,29 @@ class MidiAdapter:
         message = desk.monitor.message()
         state = desk.snapshot()
         compare = self._compares[state["page"]] if 0 <= state["page"] < len(self._compares) else None
-        self._view = view_from(state, self._cfg_pages, desk.labels, str(message.get("hearing", "now")), compare)
-        changed = self._view.page != self._last_page
-        self._last_page = self._view.page
+        focus = desk.steps_now()
+        steps = steps_view(focus, self._sounds(focus))
+        hearing = str(message.get("hearing", "now"))
+        self._view = view_from(state, self._cfg_pages, desk.labels, hearing, compare, steps)
+        # the rings and the display are said again when a page is armed, and when the steps layer comes or goes
+        # or has another sound in hand
+        sound = None if steps is None else tuple(steps.focus[k] for k in ("track", "bar", "pitch"))
+        shown = (self._view.page, sound)
+        changed = shown != self._last_shown
+        self._last_shown = shown
         self._send(feedback.feedback(self.profile, self._view, page_changed=changed))
+
+    def _sounds(self, focus: dict[str, Any] | None) -> list[dict[str, Any]] | None:
+        """The sounds of the focused track's kit (steps.sounds, as the minilab): asked once per track, while the
+        sequencer has a pattern in hand. None when Live did not say: the keys and the data knob then choose
+        nothing."""
+        if focus is None:
+            return None
+        if self._kit is None or self._kit[0] != focus["track"]:
+            ask = Command("steps.sounds", WHO, {"track": focus["track"]})  # type: ignore[arg-type]
+            status, body = self.context.bus.submit(ask)
+            self._kit = (focus["track"], list(body["sounds"]) if status == 200 else None)
+        return self._kit[1]
 
     def _send(self, messages: dict[str, list[int]]) -> None:
         """SysEx for each target whose message changed."""
@@ -186,6 +209,8 @@ class MidiAdapter:
     # ---- a move ------------------------------------------------------------------------------------------------------
     def _on_event(self, event: Event, at: float) -> None:
         hit = self.profile.match(event)
+        if hit is None and self._view.steps is not None:
+            hit = self.profile.key(event)  # in the steps layer a key in any octave may be one of the kit's sounds
         if hit is None:
             return
         tempo_on = pagercore().tempo_layer_on(self.tempo, self._view.driving)

@@ -30,6 +30,9 @@ def test_take(tmp_path):
   wrong the ways Live's can, with the script's own replies.
 - `FakeLive(song, surfaces=[MiniLab_3()])` adds a fake MiniLab 3 for `contrib/mixdesk/pager.py`. A test plays a
   control with `minilab.elements.encoders_raw[0].receive(64)` and runs what the pager deferred with `live.tick()`.
+  A pad and a knob take back what Live 12's own MiniLab_3 script sends them: `pad.send_value(red, green, blue)` is
+  the LED's SysEx message (`pad.colour`, `pad.lit`), and `knob.realign_value()` takes no value (`knob.sent` has the
+  values a script realigned it to).
   `live.play_for(beats)` moves a playing song's playhead.
 - To change the fake set directly while it is serving, hold `live.main_thread()`.
 

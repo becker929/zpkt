@@ -67,7 +67,7 @@
         16,
         0
       ],
-      "layout": "knob id, value 0-127",
+      "layout": "knob id, 0, value 0-127",
       "basis": "live-script",
       "source": "MiniLab_3/midi.py in Live 12's MIDI Remote Scripts (read from the installed .pyc, read only): ENCODER_VALUE_HEADER and ENCODER_ID_TO_SYSEX_ID",
       "verified": false

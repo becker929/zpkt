@@ -17,6 +17,11 @@ GOOD = [
     {"t": "page", "page": 2, "picked": {}},
     {"t": "hw", "page": 0, "slot": "b3", "hw": None, "picked": True},
     {"t": "pad", "page": 3, "slot": "b8"},
+    {"t": "step", "pad": 15},
+    {"t": "step_knob", "what": "velocity", "value": 96},
+    {"t": "step_knob", "what": "length", "value": 0.25},
+    {"t": "step_sound", "turn": -1},
+    {"t": "step_sound", "pitch": 38},
 ]
 
 
@@ -42,6 +47,10 @@ def test_every_message_the_pager_sends_is_accepted(msg):
         b'{"t": "pos", "b": true, "p": true}',
         b'{"t": "page", "page": 1.5}',
         b'{"t": "v", "page": 0}',
+        b'{"t": "step"}',
+        b'{"t": "step", "pad": 1.5}',
+        b'{"t": "step_knob", "what": "pitch", "value": 3}',
+        b'{"t": "step_sound", "pitch": "C1"}',
     ],
 )
 def test_anything_else_is_a_bad_message_that_says_why(data):

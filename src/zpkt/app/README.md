@@ -451,6 +451,52 @@ SysEx back: the display, the pad LEDs and the knob rings.
   (`zpkt.live.watch`, `zpkt.app.watching`): the app registers a page's keys and Live pushes each change on the same
   socket. It is built and tested on FakeLive and not turned on in `zpkt app` yet.
 
+### Steps on the MiniLab
+
+While the step sequencer has a pattern in hand (the focus, `steps.focus`) and no clip is in its way, the MiniLab's
+pads are that pattern's steps. The moment the focus clears, every control is the armed page's again. For the desk
+itself the rule stays "pages, never pad banks": the two banks differ only in this layer.
+
+| Control | In the layer | Command, as `minilab` |
+|---|---|---|
+| Pad bank A, pads 1-8 | steps 1-8 of the bar in view; lit when on | `steps.toggle` |
+| Pad bank B, pads 1-8 | steps 9-16 | `steps.toggle` |
+| Knob 1 | velocity of a new step, 1-127 | `steps.focus {velocity}` |
+| Knob 2 | length in steps: 0.25, 0.5, 1, 2, 4 ... up to the pattern's length | `steps.focus {length}` |
+| Knob 3 | swing, 0 to 0.75 | `steps.focus {swing}` |
+| The data knob, turned | the next or previous sound of the kit (it wraps); a push does what it did | `steps.focus {pitch}` |
+| A key | plays its sound as always, and chooses it | `steps.focus {pitch}` |
+| Knobs 4-8, the faders | the armed page's, as always | |
+
+The decisions are in `contrib/mixdesk/pagercore.py` (`steps_layer`, `pad_step`, `length_ladder`, `step_knob_value`,
+`step_sound`), shared by both ways the controller reaches the app:
+
+- **The pager in Live** (the rig's way). `zpkt.app.steps_minilab` is the app's side. When the focus changes, its
+  thread tells the pager what to show in one short call (`m.DESK.steps_layer(...)`: on or off, the 16 lights, the
+  three knob values), and only when something shown has changed; a toggle from the page never waits for the
+  controller's lights. A light is told at once; a knob value changed on the screen is told when the changes have
+  stopped for a moment. The pager reports a press as `{"t": "step", "pad": 0-15}`, a knob as `{"t": "step_knob"}`
+  and a sound as `{"t": "step_sound"}` (a `turn` of the data knob, or the `pitch` of the pad selected in the
+  track's Drum Rack). The hand turns them into the commands above, in order, from its own thread; turns that
+  arrive while a command is in Live become one command with the latest of each. A pad's light flips under the
+  finger, and when Live refuses the press the pager is told its lights again. A pager that was loaded before it
+  had this layer (the app updated under it) is loaded again, once, when the app finds that out.
+- **Keys choose the sound without being taken from the instrument.** The pager listens to
+  `view.selected_drum_pad` of the track's Drum Rack while the layer is on. Guess: with the rack's Auto Select on,
+  Live selects the pad a played note lands on. If Live does not, or the track has no Drum Rack, the data knob and
+  the page still choose the sound. Playing the pad that is selected already changes nothing.
+- **The MIDI adapter** has the same layer as the "steps" layer of `MINILAB_MAP`. It comes before the tempo layer
+  and Shift for the controls it names. A key that is one of the kit's sounds chooses it, in any octave; the pad
+  LEDs, the knob rings and the display (the sound's name) follow the focus.
+- **The screen follows the controller** by the message it gets for any hand: `{"t": "steps", "focus", "edit"}`.
+- **What the pager sends a pad and a knob** is what Live 12's own MiniLab_3 script sends them, read from the
+  installed script: a pad's colour as `send_value(red, green, blue)` (its LED's SysEx message), and a knob's place
+  as the script's realign message. The compare pads' lights go the same way now. None of it has been seen on the
+  hardware yet.
+
+`contrib/mixdesk/tests/test_pager_steps.py` plays the layer on the fake controller, `tests/app/test_steps_minilab.py`
+the pager with the app behind it, and `tests/app/test_midi_steps.py` the adapter.
+
 ## Pages
 
 **The word.** To the person these are **surfaces** ("Surfaces", "surface 3 / 15", "made a surface"): that is the
@@ -728,7 +774,7 @@ Clips in the way, a step with no note and a paint with no clip to paint from ans
   changes, and clears it when Steps closes. Every command that changes a pattern keeps `steps` true (a toggle with
   no further call to Live) and sends the message with `edit: {track, bar, bars, what}`: a page reads a pattern
   again when another hand changed it, and takes up a focus another hand moved on its pattern (another sound,
-  other values). The MiniLab's mapping is a later change and starts from this.
+  other values). The MiniLab's mapping starts from this: "Steps on the MiniLab", under The MiniLab above.
 - **Undo.** Every changing command is one History row, an entry of kind `steps` (`history.py`): the track, what
   was done (`edit`, `length`, `paint`, `erase`, `track`), how often, and per span of the Arrangement what it held
   before (no clip, or the clip's name and notes). Undo puts each span back (`zpkt.live.steps.restore`, last one

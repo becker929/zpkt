@@ -41,6 +41,21 @@ class PageView:
 
 
 @dataclass(frozen=True)
+class StepsView:
+    """The steps layer: what the step sequencer has in hand (the app's focus, as it is pushed), and the kit's
+    sounds as (pitch, name), lowest first. No sounds is a track with no kit; None is a kit not read yet."""
+
+    focus: Mapping[str, Any]
+    sounds: tuple[tuple[int, str], ...] | None = None
+
+    def pitches(self) -> list[int] | None:
+        return None if self.sounds is None else [pitch for pitch, _ in self.sounds]
+
+    def name_of(self, pitch: int) -> str:
+        return next((name for p, name in self.sounds or () if p == pitch), f"note {pitch}")
+
+
+@dataclass(frozen=True)
 class View:
     """What the desk shows now, as plain data. `controls` has the armed page's working controls by slot (k1, f2, b3)."""
 
@@ -54,6 +69,7 @@ class View:
     hearing: str = "now"  # now, pin or ref
     driving: bool = True  # the desk's pager is reporting: the tempo layer steps aside (auto)
     lit: str | None = None  # the pad slot of the armed page's compare state that is on now (derived), or None
+    steps: StepsView | None = None  # the steps layer, while the sequencer has a pattern in hand (else None)
 
     def cfg(self) -> dict[str, Any]:
         """The shape pagercore's page functions read."""
@@ -86,6 +102,8 @@ class MapState:
     hearing: str = "now"  # what we last asked to hear, or what the desk last said it hears
     desk_hearing: str = "now"  # what the desk last said it hears: only a change in it overrides `hearing`
     scrub_to: float | None = None
+    sound: tuple[int, int] | None = None  # steps layer: (the sound we asked for, the one the desk showed then)
+    step_knobs: Mapping[str, Any] = field(default_factory=dict)  # steps layer: the value each knob last asked for
 
 
 @dataclass(frozen=True)
@@ -122,7 +140,18 @@ def sync(state: MapState, view: View) -> MapState:
     hearing, desk_hearing = state.hearing, state.desk_hearing
     if view.hearing != desk_hearing:  # someone else (the web) changed it; Live's echo of our own ask is not news
         hearing, desk_hearing = view.hearing, view.hearing
-    return replace(state, sent=sent, scrub_to=scrub, focus=focus, hearing=hearing, desk_hearing=desk_hearing)
+    # the sound we asked for stands until the desk shows another than it showed then (ours, or someone else's)
+    waiting = view.steps is not None and state.sound is not None and view.steps.focus["pitch"] == state.sound[1]
+    return replace(
+        state,
+        sent=sent,
+        scrub_to=scrub,
+        focus=focus,
+        hearing=hearing,
+        desk_hearing=desk_hearing,
+        sound=state.sound if waiting else None,
+        step_knobs=state.step_knobs if view.steps is not None else {},
+    )
 
 
 def _place(state: MapState, view: View, slot: str) -> float:
@@ -310,6 +339,61 @@ def _latch_focus(state: MapState, hit: Hit, view: View, _arg: Any) -> Result:
     return state, [Show("Focus", "latched" if state.focus_latched else "free")]
 
 
+# ---- the steps layer: the pads as the step sequencer's steps (pagercore.steps_layer) -----------------------------------
+
+STEP_KEYS = ("track", "bar", "bars", "steps_per_bar", "pitch", "velocity", "length", "swing")  # of the focus
+
+
+def _step_pad(state: MapState, hit: Hit, view: View, pad: int) -> Result:
+    """A pad flips its step of the bar in view: bank A is steps 1-8, bank B steps 9-16."""
+    if not _pressed(hit) or view.steps is None:
+        return state, []
+    focus = view.steps.focus
+    step = pagercore().pad_step(focus, pad)
+    if step is None:
+        return state, []
+    return state, [Submit("steps.toggle", {**{k: focus[k] for k in STEP_KEYS}, "step": step})]
+
+
+def _step_knob(state: MapState, hit: Hit, view: View, what: str) -> Result:
+    """Knob 1, 2 or 3: the velocity, length or swing a new step gets. A stream: the latest of each per tick."""
+    if view.steps is None:
+        return state, []
+    value = pagercore().step_knob_value(what, hit.value, len(view.steps.focus["steps"]))
+    if value is None or state.step_knobs.get(what, view.steps.focus[what]) == value:
+        return state, []
+    state = replace(state, step_knobs={**state.step_knobs, what: value})
+    return state, [Submit("steps.focus", {what: value}, "steps"), Show(what.capitalize(), f"{value:g}")]
+
+
+def _choose_sound(state: MapState, view: StepsView, pitch: int | None, stream: bool) -> Result:
+    if pitch is None or pitch == (state.sound[0] if state.sound is not None else view.focus["pitch"]):
+        return state, []
+    state = replace(state, sound=(pitch, int(view.focus["pitch"])))
+    return state, [
+        Submit("steps.focus", {"pitch": pitch}, "steps" if stream else None),
+        Show("Sound", view.name_of(pitch)),
+    ]
+
+
+def _sound_step(state: MapState, hit: Hit, view: View, _arg: Any) -> Result:
+    """The data knob walks the kit's sounds, from the one we last asked for."""
+    turn = pagercore().sound_turn(hit.value)
+    pitches = view.steps.pitches() if view.steps is not None else None
+    if not turn or view.steps is None or pitches is None:
+        return state, []
+    here = state.sound[0] if state.sound is not None else int(view.steps.focus["pitch"])
+    return _choose_sound(state, view.steps, pagercore().step_sound(pitches, here, turn), stream=True)
+
+
+def _sound_key(state: MapState, hit: Hit, view: View, _arg: Any) -> Result:
+    """A key that is one of the kit's sounds chooses it (any key, on a track with no kit)."""
+    pitches = view.steps.pitches() if view.steps is not None else None
+    if not _pressed(hit) or view.steps is None or pitches is None or not pagercore().is_sound(pitches, hit.number):
+        return state, []
+    return _choose_sound(state, view.steps, hit.number, stream=False)
+
+
 def _tempo_fader(state: MapState, hit: Hit, view: View, _arg: Any) -> Result:
     bpm = pagercore().tempo_from_fader(hit.value)
     return state, [Submit("tempo.set", {"bpm": bpm}, "tempo"), Show("Tempo", f"{bpm} BPM")]
@@ -375,6 +459,10 @@ ROLES: dict[str, Role] = {
     "tempo_fader": _tempo_fader,
     "tempo_scale": _tempo_scale,
     "action": _action,
+    "step_pad": _step_pad,
+    "step_knob": _step_knob,
+    "sound_step": _sound_step,
+    "sound_key": _sound_key,
 }
 
 
@@ -386,7 +474,7 @@ def step(state: MapState, hit: Hit, view: View, tempo: bool = False) -> Result:
     state = sync(state, view)
     if hit.name == "shift":
         return replace(state, shift=_pressed(hit)), []
-    row = pagercore().row_for(hit.name, state.shift or hit.shifted, tempo)
+    row = pagercore().row_for(hit.name, state.shift or hit.shifted, tempo, steps=view.steps is not None)
     if row is None:
         return state, []
     return ROLES[row[2]](state, hit, view, row[3])
@@ -396,8 +484,9 @@ def step(state: MapState, hit: Hit, view: View, tempo: bool = False) -> Result:
 
 
 def merge(pending: list[Submit], action: Submit) -> list[Submit]:
-    """`pending` with `action` added: a stream (same `coalesce`) keeps only its latest, and page.set sets of one page
-    become one batch with the latest place of each control. Order of first appearance is kept."""
+    """`pending` with `action` added: a stream (same `coalesce`) keeps only its latest, page.set sets of one page
+    become one batch with the latest place of each control, and steps.focus asks become one with the latest of each
+    value. Order of first appearance is kept."""
     if action.coalesce is None:
         raise ValueError("only a stream (a Submit with coalesce set) is merged")
     for i, old in enumerate(pending):
@@ -413,5 +502,7 @@ def merge(pending: list[Submit], action: Submit) -> list[Submit]:
                 "set",
             )
             return [*pending[:i], joined, *pending[i + 1 :]]
+        if action.kind == "steps.focus" and old.kind == action.kind:  # the latest of each value, in one command
+            return [*pending[:i], replace(action, args={**old.args, **action.args}), *pending[i + 1 :]]
         return [*pending[:i], action, *pending[i + 1 :]]
     return [*pending, action]

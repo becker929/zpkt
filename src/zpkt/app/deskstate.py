@@ -152,6 +152,10 @@ _REDUCERS: dict[str, Callable[[DeskState, Any, float], DeskState]] = {
     "pad": _pad,
     "flags": _flags,
     "arr": lambda state, m, now: state,  # nothing of the arrangement is in the state: the desk reads it when asked
+    # the MiniLab's steps layer: these become commands (zpkt.app.steps_minilab); the focus they change is its own state
+    "step": lambda state, m, now: state,
+    "step_knob": lambda state, m, now: state,
+    "step_sound": lambda state, m, now: state,
 }
 assert set(_REDUCERS) == set(P.PAGER_KINDS), "every pager message kind has a reducer"
 

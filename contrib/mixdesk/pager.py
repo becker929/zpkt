@@ -14,6 +14,13 @@ the pad of the state that is on is lit. Which one is on is read from the values,
 A page may name its pad ("pad": 2); pages that share a pad are layers: pressing the pad of the page that is armed
 arms the next page on that pad. The big encoder steps through every page in order.
 
+The steps layer. While the app's step sequencer has a pattern in hand, the app says so (`steps_layer`), and until
+it says otherwise the pads are that pattern's steps: bank A is steps 1-8 and bank B steps 9-16 of the bar in view,
+lit when on; a press is reported ({"t": "step"}) and the app flips the step. Knobs 1-3 are the velocity, length and
+swing of a new step ({"t": "step_knob"}), the big encoder walks the kit's sounds, and the pad selected in the
+track's Drum Rack is reported as the sound chosen ({"t": "step_sound"}). Everything else stays the armed page's,
+and when the layer ends the pads' lights and knobs 1-3 are the page's again.
+
 Every change (a value moved in Live by anything, a control touched, a page armed) goes out as one small JSON UDP
 datagram to the server (protocol.py has their shapes), which shows it on the surface.
 
@@ -46,10 +53,12 @@ core = _load("zpkt_mixdesk_pagercore", os.path.join(_HERE, "pagercore.py"))
 tracks = _load("zpkt_inlive_tracks", os.path.join(_INLIVE, "tracks.py"))
 shown = _load("zpkt_inlive_shown", os.path.join(_INLIVE, "shown.py"))
 keys = _load("zpkt_inlive_keys", os.path.join(_INLIVE, "keys.py"))
+steps = _load("zpkt_inlive_steps", os.path.join(_INLIVE, "steps.py"))  # a track's instrument, as the sequencer finds it
 
 PRIORITY = 20  # above ZpktMiniLabTempo (10): while the desk holds fader 4, the tempo script does not
 MAIN_DEVICES = ("desk headroom", "desk Glue", "desk Utility")  # bypassed while an audio-clip monitor track plays
 METER_DEVICE = "zpkt desk meter"  # the spectrum's device on Main (meter.py): the snapshot says whether it is there
+SYSEX_END = 247
 END_BEAT = core.END_BEAT
 SLOTS_V = core.SLOTS_V  # the server hands this over on a reload (server.pager_start_code)
 DESK = None
@@ -258,18 +267,52 @@ class _Macro:
             self.subs[0][0].param.remove_value_listener(self._wrapped.pop(fn))
 
 
-def _hardware(cs, rows):
-    """(control, role, target) for each row of a hardware table (pagercore.HARDWARE) the controller has."""
+def _controls(cs, rows):
+    """(control, row) for each row of a hardware table (pagercore.HARDWARE) the controller has."""
     out = []
-    for element, index, role, target in rows:
+    for row in rows:
+        element, index = row[0], row[1]
         control = getattr(cs.elements, element)
         if index is not None:
             controls = list(control)
             if index >= len(controls):
                 continue
             control = controls[index]
-        out.append((control, role, target))
+        out.append((control, row))
     return out
+
+
+def _hardware(cs, rows):
+    """(control, role, target) for each row of a hardware table the controller has."""
+    return [(control, row[2], row[3]) for control, row in _controls(cs, rows)]
+
+
+def _light(control, on, force=False):
+    """A pad's light: on, or dark. Live 12's MiniLab_3 script makes each pad a button that sends its LED's SysEx
+    message, `send_value(red, green, blue)` (read from the installed script: elements.create_rgb_pad, colors.Rgb
+    and ableton.v3's SysexSendingButtonElement), so the colour goes out that way; a single value is not a colour
+    there. The element sends a message only when it differs from the last it sent: `force` forgets that one first,
+    so the light is said again. GUESS: not yet seen on the hardware."""
+    if force:
+        with contextlib.suppress(Exception):
+            control.clear_send_cache()
+    with contextlib.suppress(Exception):
+        control.send_value(*(core.PAD_LIT if on else core.PAD_DARK))
+
+
+def _realign(enc, value):
+    """Tell a knob where its value stands (0..127), so it counts on from there and nothing jumps. Live 12's
+    MiniLab_3 script does this with one SysEx message under the knob's `_sysex_header`; its own `realign_value()`
+    takes no value (it sends what the script last mapped), so that message is sent here with our value. Then the
+    value goes out as the knob's own MIDI message too, which is all an element without that header gets (and all
+    this pager sent before 26 Nov 2026). GUESS: not yet seen on the hardware."""
+    value = max(0, min(127, int(value)))
+    header = getattr(enc, "_sysex_header", None)
+    if header:
+        with contextlib.suppress(Exception):
+            enc.send_midi((*header, value, SYSEX_END))
+    with contextlib.suppress(Exception):
+        enc.send_value(value, force=True)
 
 
 def _key_name(track, song):
@@ -293,6 +336,11 @@ class Desk:
         self.monitor_slot, self.monitor_ref = "W", "C1"
         self.sys_until, self.by_key = 0.0, {}
         self.lit = {}  # pad slot -> lit, as last sent to the controller
+        self.steps = None  # the steps layer: what the app said the sequencer has in hand (core.steps_layer), or None
+        self.step_lit = {}  # step pad (0-15) -> lit, as last sent
+        self.step_knobs = {}  # velocity, length, swing -> the value its knob stands at
+        self.step_touched = {}  # ... -> when a hand last turned that knob
+        self._drum = None  # (track, its Drum Rack's view, the listener) while the layer listens for the chosen pad
         self._last_pos = 0.0
         self._song_listeners = []
         self._flag_listeners = []  # (remove function, callback) for every track's solo and mute
@@ -619,8 +667,12 @@ class Desk:
 
     def light_pads(self, force=False):
         """Light the pad of the state that is on, on both banks; the other state pads go dark. Sent only on a
-        change. Unverified on the hardware: the pad's own send_value is used, nothing else is known to work here."""
+        change. In the steps layer the pads are the sequencer's steps instead. Unverified on the hardware (_light)."""
         if self.cs is None:
+            return
+        if self.steps is not None:
+            if force:
+                self._light_steps(True)
             return
         pads = ((self.cfg["pages"][self.page].get("compare") or {}).get("pads") or {}) if self.cfg["pages"] else {}
         if not pads and not self.lit:
@@ -632,8 +684,7 @@ class Desk:
         for control, _role, pad in _hardware(self.cs, core.hardware_rows("page_pad")):
             slot = f"b{pad}"
             if slot in want and (force or self.lit.get(slot) != want[slot]):
-                with contextlib.suppress(Exception):
-                    control.send_value(127 if want[slot] else 0, force=True)
+                _light(control, want[slot], force)
         self.lit = dict((slot, lit) for slot, lit in want.items() if slot in pads)
 
     # ---- the controller -----------------------------------------------------------------------------------------
@@ -649,7 +700,13 @@ class Desk:
             "toggle_pad": self._toggle_pad,
             "page_encoder": lambda _target: self._page_encoder,
         }
-        g = [_Grab(control, handlers[role](target)) for control, role, target in _hardware(cs, core.HARDWARE)]
+        g = []
+        for control, (element, index, role, target) in _controls(cs, core.HARDWARE):
+            if role == "page_pad":  # in the steps layer the same pad is a step: bank A 1-8, bank B 9-16
+                on_value = self._page_pad(target, core.step_pad(element, index), control)
+            else:
+                on_value = handlers[role](target)
+            g.append(_Grab(control, on_value))
         for x in g:
             x.grab()
         self.grabs, self.cs = g, cs
@@ -671,6 +728,10 @@ class Desk:
 
     def _knob(self, slot):
         def on(value):
+            what = core.STEP_KNOBS.get(slot) if self.steps is not None else None
+            if what is not None:
+                self._step_knob(what, value)
+                return
             t = self.targets.get((self.page, slot))
             if t is not None and not t.error:
                 self._apply(t, value / 127.0)
@@ -699,11 +760,15 @@ class Desk:
 
         return on
 
-    def _page_pad(self, pad):
+    def _page_pad(self, pad, step=None, control=None):
         """Pad A`pad` arms the first page on that pad; pressed again, the next page on the same pad (a layer). On a
-        page with compare states, a pad that holds one tells the app instead: the app writes the state."""
+        page with compare states, a pad that holds one tells the app instead: the app writes the state. In the
+        steps layer it is step pad `step` (0-15) and does neither."""
 
         def on(value):
+            if self.steps is not None and step is not None:
+                self._step_pad(step, control, value)
+                return
             if value and core.compare_state(self.cfg, self.page, pad) is not None:
                 self.emit({"t": "pad", "page": self.page, "slot": f"b{pad}"})
                 return
@@ -721,6 +786,11 @@ class Desk:
         return on
 
     def _page_encoder(self, value):
+        if self.steps is not None:  # the steps layer: the data knob walks the kit's sounds, the app knows them
+            turn = core.sound_turn(value)
+            if turn:
+                self.emit({"t": "step_sound", "turn": turn})
+            return
         page = core.page_for_encoder(value, self.page, len(self.cfg["pages"]))
         if page is not None:
             self.arm(page)
@@ -732,6 +802,141 @@ class Desk:
             with contextlib.suppress(Exception):
                 self.cs.schedule_message(1, lambda: t.set_norm(n))
 
+    # ---- the steps layer: the pads as the step sequencer's 16 steps ------------------------------------------------
+    def steps_layer(self, state, force=False):
+        """The app's word on what the step sequencer has in hand: pagercore.steps_layer of its focus ({"lit": the
+        16 pads, "velocity", "length", "swing", "total", "track"}), or None for nothing. With one, the pads are
+        its steps and knobs 1-3 its values; with None every control is the armed page's again. The app calls this
+        only when something shown here changed; `force` says every light and knob again (after Live refused a
+        press, so the pad that flipped under the finger goes back). Returns whether the layer is on."""
+        was, self.steps = self.steps, (dict(state) if state else None)
+        if self.steps is None:
+            if was is not None:
+                self._steps_end()
+            return False
+        began = was is None
+        if began:
+            self.lit = {}  # a compare page's lights are written over: they come back when the layer ends
+            self.step_lit, self.step_knobs, self.step_touched = {}, {}, {}
+        self._light_steps(force or began)
+        self._align_step_knobs(force or began)
+        self._listen_drum_pad(self.steps.get("track"))
+        return True
+
+    def _step_pads(self):
+        """(control, step pad 0-15) for every pad of both banks."""
+        rows = _controls(self.cs, core.hardware_rows("page_pad"))
+        return [(control, core.step_pad(row[0], row[1])) for control, row in rows]
+
+    def _light_steps(self, force=False):
+        """Lit = on, for the 16 steps in view, on both banks. Sent only for a pad whose light changes."""
+        if self.cs is None or self.steps is None:
+            return
+        lit = self.steps.get("lit") or []
+        for control, pad in self._step_pads():
+            on = bool(pad is not None and pad < len(lit) and lit[pad])
+            if force or self.step_lit.get(pad) != on:
+                _light(control, on, force)
+            self.step_lit[pad] = on
+
+    def _align_step_knobs(self, force=False):
+        """Knobs 1-3 stand where the layer's values are. A value the app reports is not sent to a knob a hand has
+        just turned (it would fight the hand), nor to one that already stands there."""
+        if self.cs is None or self.steps is None:
+            return
+        now = time.time()
+        for enc, _role, slot in _hardware(self.cs, core.hardware_rows("knob")):
+            what = core.STEP_KNOBS.get(slot)
+            if what is None:
+                continue
+            value = self.steps[what]
+            held = now - self.step_touched.get(what, 0.0) < core.STEP_KNOB_HOLD_S
+            if force or (value != self.step_knobs.get(what) and not held):
+                self.step_knobs[what] = value
+                _realign(enc, core.step_knob_place(what, value, self.steps["total"]))
+
+    def _step_pad(self, pad, control, value):
+        """A pad in the steps layer. A press tells the app, which flips the step in Live; the light flips under the
+        finger and the app's next word sets it right. Letting go says the light again. GUESS: the hardware may
+        light a pad by itself while it is held, and leave it wrong."""
+        if value:
+            on = not self.step_lit.get(pad, False)
+            self.step_lit[pad] = on
+            if control is not None:
+                _light(control, on)
+            self.emit({"t": "step", "pad": pad})
+        elif control is not None:
+            _light(control, bool(self.step_lit.get(pad)), force=True)
+
+    def _step_knob(self, what, value):
+        """Knob 1, 2 or 3 in the steps layer: the velocity, length or swing a new step gets. The app is told when
+        the value changes; it sets the focus, and the page follows."""
+        v = core.step_knob_value(what, value, self.steps["total"])
+        self.step_touched[what] = time.time()
+        if v != self.step_knobs.get(what):
+            self.step_knobs[what] = v
+            self.emit({"t": "step_knob", "what": what, "value": v})
+
+    def _listen_drum_pad(self, track):
+        """Keys choose the sound, and still play it: the keys are not taken from the instrument. While the layer is
+        on, the pad selected in the track's Drum Rack is listened to, and its note goes to the app.
+
+        GUESS: with the rack's Auto Select on, Live selects the pad a played note lands on, so a key played is a
+        sound chosen (a click on a pad in Live selects it too). The listener itself is Live's own (its drum group
+        component uses `view.selected_drum_pad`). Where it is missing, or the track has no Drum Rack, nothing is
+        listened to; the data knob and the page still choose the sound."""
+        if self._drum is not None and self._drum[0] == track and self._drum[1] is not None:
+            return
+        self._unlisten_drum_pad()
+        self._drum = (track, None, None)
+        with contextlib.suppress(Exception):
+            rack = steps.instrument(tracks.find_track(self.song, track))
+            if rack is None or not rack.can_have_drum_pads:
+                return
+            view = rack.view
+
+            def chosen():
+                with contextlib.suppress(Exception):
+                    pad = view.selected_drum_pad
+                    if pad is not None and len(pad.chains):  # a pad that holds a sound
+                        self.emit({"t": "step_sound", "pitch": int(pad.note)})
+
+            view.add_selected_drum_pad_listener(chosen)
+            self._drum = (track, view, chosen)
+
+    def _unlisten_drum_pad(self):
+        if self._drum is not None and self._drum[1] is not None:
+            with contextlib.suppress(Exception):
+                self._drum[1].remove_selected_drum_pad_listener(self._drum[2])
+        self._drum = None
+
+    def _steps_end(self):
+        """The focus cleared: the pads' lights and knobs 1-3 are the armed page's again."""
+        self.step_lit, self.step_knobs, self.step_touched = {}, {}, {}
+        self._unlisten_drum_pad()
+        if self.cs is None:
+            return
+        for control, _pad in self._step_pads():
+            _light(control, False, force=True)
+        self.lit = {}
+        self._realign_knobs(self.page, core.STEP_KNOBS)
+        self.light_pads(force=True)
+
+    def _realign_knobs(self, page, only=None):
+        """Every knob (or the slots in `only`) stands where its control is: the page's, or in the steps layer the
+        layer's value for knobs 1-3."""
+        for enc, _role, slot in _hardware(self.cs, core.hardware_rows("knob")):
+            if only is not None and slot not in only:
+                continue
+            what = core.STEP_KNOBS.get(slot) if self.steps is not None else None
+            if what is not None:
+                self.step_knobs[what] = self.steps[what]
+                v = core.step_knob_place(what, self.steps[what], self.steps["total"])
+            else:
+                t = self.targets.get((page, slot))
+                v = round(127 * t.norm()) if t is not None and not t.error else 0
+            _realign(enc, v)
+
     # ---- what the server asks ------------------------------------------------------------------------------------
     def arm(self, page):
         if not 0 <= page < len(self.cfg["pages"]):
@@ -739,14 +944,7 @@ class Desk:
         self.page = page
         self.picked = {}
         if self.cs is not None:
-            for enc, _role, slot in _hardware(self.cs, core.hardware_rows("knob")):
-                t = self.targets.get((page, slot))
-                v = round(127 * t.norm()) if t is not None and not t.error else 0
-                try:
-                    enc.realign_value(v)
-                except Exception:
-                    with contextlib.suppress(Exception):
-                        enc.send_value(v, force=True)
+            self._realign_knobs(page)
         self.emit({"t": "page", "page": page, "picked": {}})
         self.light_pads(force=True)
 
@@ -907,6 +1105,7 @@ class Desk:
         self._extra_song_listeners = []
         self._unlisten_flags()
         self._unlisten_arrangement()
+        self._unlisten_drum_pad()
         self.unlisten()
         self.release()
         with contextlib.suppress(Exception):

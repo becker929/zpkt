@@ -238,18 +238,18 @@ def test_the_pads_light_follows_the_values_and_other_pads_still_arm_pages(rig):
     pads = rig.minilab.elements.pad_bank_a_raw
 
     def lights():
-        return [p.sent[-1] if p.sent else None for p in pads[5:8]]
+        return [p.lit for p in pads[5:8]]
 
-    assert lights() == [127, 0, 0]  # "as it is" holds when the page is armed
+    assert lights() == [True, False, False]  # "as it is" holds when the page is armed
     press(rig, page_id, 1)  # from the screen
-    assert wait_for(lambda: lights() == [0, 127, 0])
+    assert wait_for(lambda: lights() == [False, True, False])
     rig.command("mix.set", {"writes": [[VOL, 0.55]]})  # a knob turned: no state holds
-    assert wait_for(lambda: lights() == [0, 0, 0])
-    assert rig.minilab.elements.pad_bank_b_raw[6].sent[-1] == 0  # both banks show the same
+    assert wait_for(lambda: lights() == [False, False, False])
+    assert rig.minilab.elements.pad_bank_b_raw[6].colour == (0, 0, 0)  # both banks show the same
     armed = rig.state()["page"]
     pad(rig, "a", 1)  # a pad that holds no state arms its page, as always
     assert wait_for(lambda: rig.state()["page"] == 0) and armed != 0
-    assert lights() == [0, 0, 0]
+    assert lights() == [False, False, False]
 
 
 def test_the_pager_and_the_page_model_hold_a_state_by_the_same_rule():

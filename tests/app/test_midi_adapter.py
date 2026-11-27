@@ -102,7 +102,7 @@ def test_starting_shows_the_page_on_the_minilab_and_stopping_lets_go(rig):
         assert len(leds) == 16 and len(rings) == 8 and len(shows) == 1
         assert bytes(shows[0][17:22]) == b"Buses"
         ring_k8 = next(m for m in rings if m[9] == 14)
-        assert ring_k8[10] == round(127 * n_of(rig, "k8"))  # the ring is at the control's place
+        assert ring_k8[-2] == round(127 * n_of(rig, "k8"))  # the ring is at the control's place
         lit = next(m for m in leds if m[9] == 52)
         assert lit[10:13] == [127, 127, 127]  # pad A1 arms the armed page: bright
     assert hands.port.closed

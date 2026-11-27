@@ -140,6 +140,14 @@ class Profile:
             return Hit(control.shifted_of, event.value, event.number, shifted=True)
         return Hit(control.name, event.value, event.number)
 
+    def key(self, event: Event) -> Hit | None:
+        """A note on the keys' channel as a key, whatever its number: the octave buttons move the keys beyond the
+        range the profile names. None for anything else (the pads' notes are on a channel of their own)."""
+        if event.kind != "note" or self._index.get((event.kind, event.channel, event.number)) is not None:
+            return None
+        keys = next((k for k in self._keys if k.message.channel == event.channel), None)
+        return None if keys is None else Hit(keys.name, event.value, event.number)
+
     def unlearned(self) -> list[str]:
         """The controls with no message yet: they are ignored until a profile gives them one."""
         return [c.name for c in self.controls if not self._matchable(c)]

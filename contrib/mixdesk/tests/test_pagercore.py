@@ -271,3 +271,108 @@ def test_the_lit_state_is_the_one_whose_every_value_holds():
     assert C.lit_state([{"name": "empty", "writes": []}], reader(0.5)) is None
     assert C.holds(2.0, 2, 0.0, 5.0, True) and not C.holds(3.0, 2, 0.0, 5.0, True)
     assert not C.holds(None, 0.5, 0.0, 1.0, False)
+
+
+# ---- the steps layer: the pads as the step sequencer's steps ----------------------------------------------------------
+
+FOCUS = {
+    "track": "Drums",
+    "bar": 5,
+    "bars": 2,
+    "steps_per_bar": 16,
+    "view": 0,
+    "pitch": 36,
+    "name": "Kick",
+    "velocity": 100,
+    "length": 1.0,
+    "swing": 0.0,
+    "steps": [100, 0, 0, 0, 90, *[0] * 11, 0, 64, *[0] * 14],
+    "blocked": False,
+    "rev": 7,
+}
+
+
+def test_the_layer_is_on_for_a_focus_with_nothing_in_its_way_and_shows_the_bar_in_view():
+    assert C.steps_layer(None) is None and C.steps_layer({**FOCUS, "blocked": True}) is None
+    shown = C.steps_layer(FOCUS)
+    assert shown == {
+        "lit": [True, False, False, False, True, *[False] * 11],
+        "velocity": 100,
+        "length": 1.0,
+        "swing": 0.0,
+        "total": 32,
+        "track": "Drums",
+    }
+    assert C.steps_layer({**FOCUS, "view": 1})["lit"] == [False, True, *[False] * 14]  # the second bar
+    # what the controller does not show changes nothing: another rev, another name, a step of the bar out of view
+    other = {**FOCUS, "rev": 8, "name": "Kik", "steps": [*FOCUS["steps"][:20], 80, *FOCUS["steps"][21:]]}
+    assert C.steps_layer(other) == shown
+    assert C.steps_layer({**FOCUS, "velocity": 99}) != shown
+
+
+def test_bank_a_is_steps_1_to_8_and_bank_b_steps_9_to_16_of_the_bar_in_view():
+    assert [C.step_pad("pad_bank_a_raw", k) for k in range(8)] == list(range(8))
+    assert [C.step_pad("pad_bank_b_raw", k) for k in range(8)] == list(range(8, 16))
+    assert C.step_pad("encoders_raw", 0) is None and C.step_pad("display_encoder", None) is None
+    assert [C.step_pad_slot(s) for s in ("a1", "a8", "b1", "b8", "k1", "a9", "keys")] == [0, 7, 8, 15, None, None, None]
+    assert C.pad_step(FOCUS, 0) == 0 and C.pad_step(FOCUS, 15) == 15
+    assert C.pad_step({**FOCUS, "view": 1}, 0) == 16 and C.pad_step({**FOCUS, "view": 1}, 15) == 31
+    short = {**FOCUS, "steps_per_bar": 8, "bars": 1, "steps": [0] * 8}
+    assert C.pad_step(short, 7) == 7 and C.pad_step(short, 8) is None  # a pad past the pattern's end
+    assert C.pad_step(FOCUS, 16) is None and C.pad_step(FOCUS, -1) is None
+
+
+def test_the_length_ladder_doubles_from_a_quarter_step_up_to_the_patterns_length():
+    assert C.length_ladder(16) == [0.25, 0.5, 1, 2, 4, 8, 16]
+    assert C.length_ladder(32) == [0.25, 0.5, 1, 2, 4, 8, 16, 32]
+    assert C.length_ladder(12) == [0.25, 0.5, 1, 2, 4, 8, 12]  # a pattern that is no power of two ends on its own
+
+
+def test_the_three_knobs_values_and_where_a_knob_stands_for_one():
+    assert [C.step_knob_value("velocity", v, 16) for v in (0, 1, 64, 127)] == [1, 1, 64, 127]
+    lengths = [C.step_knob_value("length", v, 16) for v in range(128)]
+    assert lengths[0] == 0.25 and lengths[-1] == 16 and sorted(set(lengths)) == C.length_ladder(16)
+    assert lengths == sorted(lengths)  # stepped, never back
+    assert [C.step_knob_value("swing", v, 16) for v in (0, 64, 127)] == [0.0, 0.38, 0.75]
+    assert C.step_knob_value("pitch", 64, 16) is None
+    # a knob put where a value is gives that value back: every velocity, every length, every hundredth of swing
+    for what, values in (
+        ("velocity", range(1, 128)),
+        ("length", C.length_ladder(32)),
+        ("swing", [k / 100 for k in range(76)]),
+    ):
+        for value in values:
+            place = C.step_knob_place(what, value, 32)
+            assert 0 <= place <= 127 and C.step_knob_value(what, place, 32) == value, (what, value)
+
+
+def test_the_data_knob_walks_the_kits_sounds_and_wraps_or_semitones_where_there_is_no_kit():
+    kit = [36, 37, 38, 39, 42, 46]
+    assert C.step_sound(kit, 36, 1) == 37 and C.step_sound(kit, 39, 1) == 42 and C.step_sound(kit, 36, 2) == 38
+    assert C.step_sound(kit, 46, 1) == 36 and C.step_sound(kit, 36, -1) == 46  # wraps, as the pages do
+    assert C.step_sound(kit, 40, 1) == 42 and C.step_sound(kit, 40, -1) == 39  # from a pitch that is no sound
+    assert C.step_sound(kit, 50, 1) == 36 and C.step_sound(kit, 30, -1) == 46 and C.step_sound(kit, 40, 2) == 46
+    assert C.step_sound(kit, 36, 0) is None
+    assert C.step_sound([], 60, 1) == 61 and C.step_sound([], 127, 1) == 127 and C.step_sound([], 0, -3) == 0
+    assert [C.sound_turn(v) for v in (64, 65, 63, 70, 50)] == [0, 1, -1, 4, -4]  # relative; a spin is capped
+    assert C.is_sound(kit, 38) and not C.is_sound(kit, 40) and C.is_sound([], 40) and not C.is_sound([], 128)
+
+
+def test_the_steps_layer_of_the_full_map_comes_first_for_the_controls_it_names():
+    assert C.row_for("a3", False, False, steps=True) == ("a3", "steps", "step_pad", 2)
+    assert C.row_for("b3", True, True, steps=True) == ("b3", "steps", "step_pad", 10)  # whatever else is held
+    assert C.row_for("a7", False, True, steps=True)[2] == "step_pad"  # not the tempo layer's pad
+    assert [C.row_for(k, False, False, steps=True)[2:] for k in ("k1", "k2", "k3")] == [
+        ("step_knob", "velocity"),
+        ("step_knob", "length"),
+        ("step_knob", "swing"),
+    ]
+    assert C.row_for("k1", True, False, steps=True)[2] == "step_knob"  # Shift's fine step is the page's: not here
+    assert (
+        C.row_for("k4", False, False, steps=True)[2] == "knob"
+        and C.row_for("f1", False, False, steps=True)[2] == "fader"
+    )
+    assert C.row_for("data_turn", False, False, steps=True)[2] == "sound_step"
+    assert C.row_for("data_push", False, False, steps=True)[2] == "focus_reset"  # a push does what it did
+    assert C.row_for("keys", False, False, steps=True)[2] == "sound_key"
+    assert C.row_for("a3", False, False)[2] == "page_pad" and C.row_for("keys", False, False)[2] == "focus_select"

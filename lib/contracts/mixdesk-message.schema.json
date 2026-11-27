@@ -377,6 +377,79 @@
       "title": "PositionMessage",
       "type": "object"
     },
+    "StepKnobMessage": {
+      "description": "Knob 1, 2 or 3 turned in the steps layer: the velocity, the length (in steps) or the swing of a new step.",
+      "properties": {
+        "t": {
+          "const": "step_knob",
+          "title": "T",
+          "type": "string"
+        },
+        "what": {
+          "enum": [
+            "velocity",
+            "length",
+            "swing"
+          ],
+          "title": "What",
+          "type": "string"
+        },
+        "value": {
+          "title": "Value",
+          "type": "number"
+        }
+      },
+      "required": [
+        "t",
+        "what",
+        "value"
+      ],
+      "title": "StepKnobMessage",
+      "type": "object"
+    },
+    "StepPadMessage": {
+      "description": "A pad pressed in the steps layer: step pad 0-15 of the bar in view (bank A is 0-7, bank B is 8-15).",
+      "properties": {
+        "t": {
+          "const": "step",
+          "title": "T",
+          "type": "string"
+        },
+        "pad": {
+          "title": "Pad",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "t",
+        "pad"
+      ],
+      "title": "StepPadMessage",
+      "type": "object"
+    },
+    "StepSoundMessage": {
+      "description": "A sound chosen on the MiniLab in the steps layer: the data knob turned (`turn` sounds on, or back), or a pad\nof the track's Drum Rack selected in Live, as a played key does (`pitch`, the pad's note).",
+      "properties": {
+        "t": {
+          "const": "step_sound",
+          "title": "T",
+          "type": "string"
+        },
+        "turn": {
+          "title": "Turn",
+          "type": "integer"
+        },
+        "pitch": {
+          "title": "Pitch",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "t"
+      ],
+      "title": "StepSoundMessage",
+      "type": "object"
+    },
     "StepsEdit": {
       "description": "A pattern was changed through the app: which one, and by which command.",
       "properties": {
@@ -657,6 +730,15 @@
     },
     {
       "$ref": "#/$defs/ArrangementMessage"
+    },
+    {
+      "$ref": "#/$defs/StepPadMessage"
+    },
+    {
+      "$ref": "#/$defs/StepKnobMessage"
+    },
+    {
+      "$ref": "#/$defs/StepSoundMessage"
     },
     {
       "$ref": "#/$defs/FullMessage"

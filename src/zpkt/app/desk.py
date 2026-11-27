@@ -34,6 +34,7 @@ from zpkt.app import (
     propose,
     protocol,
     steps_commands,
+    steps_minilab,
     surfaces,
 )
 from zpkt.app.bus import Bus, Command, SetGuard
@@ -198,6 +199,7 @@ class Desk:
         self.steps_focus: dict[str, Any] | None = None
         self.steps_rev = 0  # counts the focus's changes
         self.steps_swing: dict[tuple[str, int, int], float] = {}  # (track, bar, bars) -> the swing it was written with
+        self.steps_hand = steps_minilab.Hand(self)  # the MiniLab's pads as that focus's steps
         self._meter_tool: Any = None
         self._ensured = self._started = False  # the supervisor's: monitor tracks made, start checkpoint taken
         self._stale_reload_at = 0.0  # when the supervisor last reloaded a pager Live raised from
@@ -285,6 +287,7 @@ class Desk:
 
     def start_pager(self) -> dict[str, Any]:
         snap: dict[str, Any] = desk_pager.start(self.conn, self.settings.pager_file, self.cfg(), self.settings.udp_port)
+        self.steps_hand.restarted()  # a pager loaded afresh shows no steps: it is told the focus again
         return snap
 
     def arrangement(self, fresh: bool = False) -> dict[str, Any]:
@@ -390,6 +393,9 @@ class Desk:
     def ingest(self, msg: protocol.PagerMessage) -> None:
         """One message from the pager (or the app itself): into the state, out to the page, and into the history if
         it moved a value."""
+        if msg["t"] in steps_minilab.KINDS:  # the MiniLab's pads as steps: commands, sent from the hand's own thread
+            self.steps_hand.heard(msg)
+            return
         if msg["t"] == "v":
             self.monitor.before_move(msg)
         if msg["t"] == "pad":  # a pad of the MiniLab that holds a compare state: the app writes it, as the minilab
@@ -490,6 +496,7 @@ class Desk:
                 self.start_checkpoint()
                 self._started = True
             self.check_pager()
+            self.steps_hand.heal()  # the MiniLab's steps: nothing, unless the pager could not be told
         except LiveError as exc:
             if exc.result is None or now() - self._stale_reload_at < STALE_RETRY_S:
                 self.set_state(None, f"Live does not answer ({str(exc)[:80]})")

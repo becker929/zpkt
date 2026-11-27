@@ -353,6 +353,20 @@ class DeviceView(LiveObject):
     is_collapsed = Prop(False, check=_flag)
 
 
+def _drum_pad(obj: Any, value: Any) -> Any:
+    if value is None or isinstance(value, DrumPad):
+        return value
+    raise TypeError(f"expected a DrumPad, got {type(value).__name__} {value!r}")
+
+
+class RackDeviceView(DeviceView):
+    """A rack's view. `selected_drum_pad` (read, write, listen; ableton-guide 6, and Live's own drum group
+    component listens to it) is the pad selected in a Drum Rack. GUESS: with the rack's Auto Select on, Live moves
+    it to the pad a played note lands on; the fake never moves it by itself, a test writes it as Live would."""
+
+    selected_drum_pad = Prop(None, check=_drum_pad)
+
+
 class Device(LiveObject):
     """A device on a track or chain; parameters[0] is "Device On", as in Live."""
 
@@ -469,6 +483,7 @@ class RackDevice(Device):
         for c in self._chains:
             c._parent = self
         self._pads: tuple[DrumPad, ...] = ()
+        self._view = RackDeviceView(self)
 
     chains = property(lambda self: tuple(self._chains))
     return_chains = property(lambda self: ())
