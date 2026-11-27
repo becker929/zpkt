@@ -139,9 +139,9 @@ def test_it_fits_a_phone_and_a_desktop_with_no_sideways_scroll(asked, browser, w
         assert bar["y"] + bar["height"] <= tabs["y"] + 1
     else:
         assert tabs["y"] < box(pg, "#top")["y"]  # from 700 px up the shell puts the bar first
-    for sel in ("#send", "#moreBtn", "#engine"):
+    for sel in ("#send", "#moreBtn", "#engine"):  # the dense composer (dense.css): one row of low keys
         b = box(pg, sel)
-        assert b["width"] >= 44 and b["height"] >= 44, (sel, b)
+        assert b["width"] >= 28 and b["height"] >= 30, (sel, b)
     assert pg.errors == [], pg.errors
 
 
@@ -193,7 +193,7 @@ def test_the_developer_modes_are_behind_a_flag(asked, browser, width):
     assert pg.locator("#mode optgroup").get_attribute("label") == "Developer"
     assert pg.locator("#mode").input_value() == "auto"
     b = box(pg, "#mode")
-    assert b["width"] >= 44 and b["height"] >= 44
+    assert b["width"] >= 44 and b["height"] >= 30  # dense.css: the composer's keys are low
     assert pg.evaluate("document.documentElement.scrollWidth <= innerWidth")
     pg.select_option("#mode", "auto_edit")
     asked.providers["claude"].script = [text("ok then")]
@@ -337,7 +337,7 @@ def test_a_link_to_a_page_draws_as_a_card_with_a_map_of_the_minilab(asked, page)
     assert card.locator("b").inner_text() == "Kick: level" and "Open on the Desk" in card.inner_text()
     lit, grey = card.locator("svg .on").count(), card.locator("svg .off").count()
     assert lit == 1 and lit + grey == 20  # every MiniLab control is shown; the mapped one is lit
-    assert card.bounding_box()["height"] >= 44
+    assert card.bounding_box()["height"] >= 36  # dense.css: a low card, still a finger wide
     missing = page.locator('a.pcard[data-page="nope"]')  # no such page: the title and the link, no map
     assert missing.locator("b").inner_text() == "a missing one" and missing.locator("svg").count() == 0
     assert page.locator('a[href="https://example.com/docs"]').get_attribute("target") == "_blank"
@@ -397,7 +397,7 @@ def test_a_recovered_error_and_the_tool_counts_stay_out_of_the_default_view(aske
         assert noise not in shown, (noise, shown)
     assert page.locator(".err").count() == 0 and page.locator("#thread > .wk-step").count() == 0
     assert page.locator(".wk-trace > summary").inner_text().strip() == "Details"
-    assert box(page, ".wk-trace > summary")["height"] >= 44
+    assert box(page, ".wk-trace > summary")["height"] >= 18  # dense.css: a row that only unfolds detail is low
     assert page.locator(".stats > *").count() == 1 and page.locator(".stats .took").text_content() == "Time 17.2 s"
     page.click(".wk-trace > summary")  # the work view keeps all of it
     inside = page.locator(".wk-trace").text_content()
@@ -417,7 +417,7 @@ def test_a_turn_that_failed_says_so_once_in_a_sentence_with_what_to_do(asked, pa
         page.locator(".err > span").inner_text() == "Claude Code stopped before it finished. Send your message again."
     )
     assert not page.locator(".err pre").is_visible() and "exit code 1" in page.locator(".err pre").text_content()
-    assert box(page, ".err summary")["height"] >= 44
+    assert box(page, ".err summary")["height"] >= 22  # dense.css
     asked.providers["claude"].outcome = Outcome(None, None, "no such program")
     send(page, "and now")
     page.wait_for_function("document.querySelectorAll('.err').length === 2")
