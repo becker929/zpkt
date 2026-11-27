@@ -511,3 +511,64 @@ def test_history_has_a_row_for_each_change_and_undo_puts_the_notes_back(browser,
     pg.wait_for_selector("#sheet.on .he.undone")
     assert "painted 4 clips" in pg.locator("#sheet .he.undone .ht").first.inner_text()
     assert pg.errors == []
+
+
+def big_kit(rig, name="Big", sounds=16):
+    """A MIDI track with a Drum Rack of `sounds` filled pads, put into the fake set directly."""
+    from zpkt.live.testing import sets
+
+    rig.conn.run(f"t = song.create_midi_track(0)\nt.name = {name!r}\nresult = 1")
+    pads = [{"name": f"Sound {n + 1}", "note": 36 + n} for n in range(sounds)]
+    rig.track(name)._add_device(sets.device({"device": "Drum Rack", "name": "Kit", "chains": pads}))
+
+
+@pytest.mark.parametrize(
+    "viewport", [{"width": 390, "height": 664}, PHONE, DESKTOP], ids=["short phone", "phone", "desktop"]
+)
+def test_a_kit_of_sixteen_sounds_shows_a_part_at_a_time_and_every_sound_is_a_step_away(browser, rig, viewport):
+    big_kit(rig)
+    pg = song(browser, rig, viewport)
+    lane = pg.locator('#lanes .lane[data-name="Big"]')  # an empty MIDI track has a lane
+    assert lane.locator(".rg").count() == 0
+    lane.locator(".tr").click()
+    assert pg.locator("#songnew").inner_text() == ""  # the set has a MIDI track: no key to make one
+    pg.locator('#songsel [data-st="open"]').click()
+    pg.wait_for_selector("#steps .st-pad:not([disabled])")
+    shown = pg.locator("#st-ov .st-row:visible .n").all_inner_texts()
+    assert 3 <= len(shown) <= 8 and shown == [f"Sound {n + 1}" for n in range(len(shown))]
+    assert pg.locator("#st-ov .st-row").count() == 16 and pg.locator("#st-name").inner_text() == "Sound 1"
+    heights = pg.locator("#st-ov .st-row:visible").evaluate_all("els => els.map(e => e.getBoundingClientRect().height)")
+    assert min(heights) >= 22 and no_scroll(pg)
+    before, after = (
+        pg.locator('#steps [data-st="snd"][data-by="-1"]'),
+        pg.locator('#steps [data-st="snd"][data-by="1"]'),
+    )
+    assert before.is_disabled() and after.bounding_box()["height"] >= 43.9 and after.bounding_box()["width"] >= 43.9
+    for _ in range(len(shown)):  # past the last row in view: the next part of the kit shows, with the chosen sound
+        after.click()
+    nth = len(shown) + 1
+    assert pg.locator("#st-name").inner_text() == f"Sound {nth}"
+    assert pg.locator("#st-ov .st-row:visible .n").first.inner_text() == f"Sound {nth}"
+    assert pg.locator("#st-ov .st-row.sel:visible .n").inner_text() == f"Sound {nth}"
+    pg.locator("#steps .st-pad").nth(2).click()
+    wait_for(
+        lambda: [(n.pitch, n.start_time) for c in rig.track("Big").arrangement_clips for n in c._notes]
+        == [(36 + nth - 1, 0.5)]
+    )
+    for _ in range(16 - nth):
+        after.click()
+    assert pg.locator("#st-name").inner_text() == "Sound 16" and after.is_disabled()
+    before.click()
+    assert pg.locator("#st-name").inner_text() == "Sound 15"
+    wait_for(lambda: (rig.state()["steps"] or {}).get("name") == "Sound 15")  # the focus follows the sound
+    box = pg.locator("#steps .st-ml").bounding_box()
+    assert box["y"] + box["height"] <= viewport["height"] and no_scroll(pg)
+    assert pg.errors == []
+
+
+def test_a_page_that_goes_away_with_steps_open_lets_the_focus_go(browser, rig):
+    pg = song(browser, rig)
+    make_drums(pg, rig)
+    wait_for(lambda: rig.state()["steps"] is not None)
+    pg.goto(rig.url + "/desk/")  # another document: the page with Steps is gone
+    assert wait_for(lambda: rig.state()["steps"] is None)

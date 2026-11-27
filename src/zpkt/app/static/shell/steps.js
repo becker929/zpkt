@@ -288,29 +288,28 @@
         <span class="st-barn" id="st-barn" role="status"></span>
         <button class="key sm" type="button" data-st="bar" data-by="1" aria-label="Pattern after">${icon("more")}</button>
         <span class="sp"></span>${ST.bars > 1 ? seg("view", Array.from({length: ST.bars}, (_, k) => k), "Bar of the pattern") : ""}</div>
-      <div class="st-ov" id="st-ov" role="group" aria-label="Sounds">${ov}</div>${pager("st-pgs", "sndstep", "Sounds")}
-      <div class="st-ml"><div class="st-head"><b id="st-name"></b></div>
+      <div class="st-ov" id="st-ov" role="group" aria-label="Sounds">${ov}</div>
+      <div class="st-ml"><div class="st-head"><b id="st-name"></b>
+          <button class="key sm" type="button" data-st="snd" data-by="-1" aria-label="Sound before"><svg class="up" width="18" height="18" aria-hidden="true"><use href="#i-more"/></svg></button>
+          <button class="key sm" type="button" data-st="snd" data-by="1" aria-label="Sound after"><svg class="dn" width="18" height="18" aria-hidden="true"><use href="#i-more"/></svg></button><span class="sp"></span>
+          <button class="key sm" type="button" data-st="clear" id="st-clear" aria-label="Clear this sound">${icon("clear")}<span>Clear</span></button>
+          <button class="key sm" type="button" data-st="paint" aria-label="Paint this pattern">${icon("paint")}Paint</button></div>
         <div class="st-knobs" id="st-knobs" role="group" aria-label="The step in hand">${knobs}</div>
-        <span class="tag">pads A</span>${pads(0)}<span class="tag">pads B</span>${pads(8)}</div>
-      <div class="st-keys"><button class="key sm" type="button" data-st="clear" id="st-clear" aria-label="Clear this sound">${icon("clear")}<span>Clear</span></button><span class="sp"></span>
-        <button class="key sm" type="button" data-st="paint" aria-label="Paint this pattern">${icon("paint")}Paint</button></div></div>`);
+        <span class="tag">pads A</span>${pads(0)}<span class="tag">pads B</span>${pads(8)}</div></div>`);
     ST.ph = -1;
     fit(); sync(); live();
   }
-  // As many sound rows as the height holds (8 at most); more are a page away. The page with the chosen sound shows.
+  // As many sound rows as the height holds (8 at most): the part of the kit with the chosen sound in it. The keys
+  // by the sound's name step to the sound before or after, so every sound is reached without a scroll.
   function fit() {
-    const ov = $("#st-ov"), bar = $("#st-pgs");
-    if (!ov || !bar || $("#song").hidden) return;
-    const all = [...ov.children], count = (h) => Math.max(1, Math.min(8, Math.floor((h + 2) / (ROW_MIN + 2))));
+    const ov = $("#st-ov");
+    if (!ov || $("#song").hidden) return;
+    const all = [...ov.children];
     all.forEach((r) => { r.hidden = true; });  // measured empty: the rows give the box no height of their own
-    bar.hidden = true;
-    let per = count(ov.clientHeight);
-    if (all.length > per) { bar.hidden = false; per = count(ov.clientHeight); }
-    const parts = Math.max(1, Math.ceil(all.length / per));
-    if (ST.per !== per) { ST.per = per; const at = all.findIndex((r) => +r.dataset.pitch === ST.pitch); ST.at = at < 0 ? 0 : Math.floor(at / per); }
-    ST.at = Math.max(0, Math.min(parts - 1, ST.at));
+    const per = ST.per = Math.max(1, Math.min(8, Math.floor((ov.clientHeight + 2) / (ROW_MIN + 2))));
+    const chosen = Math.max(0, all.findIndex((r) => +r.dataset.pitch === ST.pitch));
+    ST.at = Math.floor(chosen / per);
     all.forEach((r, i) => { r.hidden = Math.floor(i / per) !== ST.at; });
-    setPager(bar, ST.at, per, all.length);
   }
   function sync() {
     const box = $("#steps");
@@ -333,8 +332,10 @@
       el.classList.toggle("sel", sel); el.setAttribute("aria-pressed", String(sel));
       el.querySelectorAll(".c").forEach((c, k) => c.classList.toggle("on", !!(row && row.steps[from + k])));
     }
-    const mine = rowOf(ST.pitch);
+    const mine = rowOf(ST.pitch), nth = rows().indexOf(mine);
     $("#st-name").textContent = mine ? mine.name : "";
+    box.querySelector('[data-st="snd"][data-by="-1"]').disabled = nth <= 0;
+    box.querySelector('[data-st="snd"][data-by="1"]').disabled = nth < 0 || nth >= rows().length - 1;
     for (const pad of box.querySelectorAll(".st-pad")) {
       const v = mine ? mine.steps[from + +pad.dataset.k] : 0;
       pad.classList.toggle("on", !!v); pad.classList.toggle("soft", v > 0 && v < 80);
@@ -481,7 +482,12 @@
   }
   function chooseSound(pitch) {
     if (!rowOf(pitch)) return;
-    ST.pitch = pitch; sync(); tell();
+    ST.pitch = pitch; fit(); sync(); tell();
+  }
+  // The sound before or after the chosen one.
+  function stepSound(by) {
+    const next = rows()[rows().indexOf(rowOf(ST.pitch)) + by];
+    if (next) chooseSound(next.pitch);
   }
   function stepBar(by) {
     ST.bar = Math.max(1, ST.bar + by * ST.bars); ST.view = 0; ST.last = null;
@@ -552,7 +558,7 @@
     else if (what === "close") close();
     else if (what === "bar") stepBar(+t.dataset.by);
     else if (what === "sound") chooseSound(+t.dataset.pitch);
-    else if (what === "sndstep") { ST.at += +t.dataset.by; fit(); }
+    else if (what === "snd") stepSound(+t.dataset.by);
     else if (what === "pad") tap(+t.dataset.k);
     else if (what === "loop") loopKey();
     else if (what === "bars") setBars(+t.dataset.v);
@@ -560,6 +566,10 @@
     else if (what === "clear") clear();
     return true;
   }
+  // The page goes away with Steps open: the app is told nothing is in hand, so no pad is left mapped to a pattern.
+  window.addEventListener("pagehide", () => {
+    if (ST.open && navigator.sendBeacon) navigator.sendBeacon("/api/command", new Blob([JSON.stringify({kind: "steps.focus", args: {src: SRC}})], {type: "application/json"}));
+  });
   const refit = () => { if (ST.pick) fitPicker(); else if (ST.open) fit(); };
   if (window.ResizeObserver) new ResizeObserver(refit).observe($("#song")); else window.addEventListener("resize", refit);
 

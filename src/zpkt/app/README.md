@@ -16,6 +16,7 @@ are libraries and never open one.
 | Pages of controls, drawn and mapped to the MiniLab | `/app/` Desk; `zpkt page make` | Pages |
 | Two or more settings of the same controls, to switch between while Live plays | pads on a Page | Pages (Compare) |
 | The song in Live: tracks, arrangement clips, locators | `/app/` Song tab | The Song |
+| A drum pattern on 16 pads, painted along its track | `/app/` Song tab: Steps and Paint | Steps |
 | Chat with Claude and Gemini | `/app/ask/` | Ask |
 | Live's sound in the browser | the Listen button; `/app/listen` | Listen |
 | The MiniLab 3 | `--adapters web,midi` | The MiniLab |
@@ -336,7 +337,7 @@ port, 8984 (below). `ZPKT_DESK_URL` names the web server (pages, `/app/`), `ZPKT
   are ("Start of session, 25 Nov, 17:01").
 - `/app/shell/<file>` serves what every page shares, from `static/shell/`: `shell.css` (the tokens, the tab bar, the
   loading line, the Ask tab's frame and mark), `nav.js` (draws the tab bar and shows Ask in place), `controls.css` and `controls.js` (the panel: a page of controls as a
-  map of the MiniLab, see Pages) and `listen.js` (the Listen button, when it is there). The folder is flat. Only `.css`, `.js`, `.json` and `.svg` files are served, and only by a plain file name.
+  map of the MiniLab, see Pages), `steps.css` and `steps.js` (the step sequencer on the Song tab, see Steps) and `listen.js` (the Listen button, when it is there). The folder is flat. Only `.css`, `.js`, `.json` and `.svg` files are served, and only by a plain file name.
 - `POST /api/command` takes any command: `{"kind": "mix.set", "args": {"norms": [["Kick bus/volume", 0.4]]}}`.
   `GET /api/commands` lists them. The old `POST /api/...` paths are these commands under their old names.
 
@@ -633,21 +634,118 @@ page in WebKit.
 
 ## The Song
 
-- **The Song tab is the song in Live** (Anthony, 26 November 2026), read only: one lane per
-  track of the open set that has a region (never the monitor's own; a track with no regions is not drawn), its
+- **The Song tab is the song in Live** (Anthony, 26 November 2026): one lane per
+  track of the open set that has a region, and per MIDI track also when it is empty (never the monitor's own; an
+  audio track with no regions is not drawn), its
   Arrangement clips as regions with Live's names and colours
   (a muted clip or track is dimmed), under a bar ruler with the locators as named spans, Live's loop and its
   bars, and Live's playhead. The ruler's left cell says the tempo and the time signature ("160 · 4/4"). Session
-  clips are never read. It has no buttons. `arrangement.read` is the one read
-  (`Desk.arrangement`: one short call into the pager, `m.DESK.arrangement()`): `{set, bars, beats_per_bar, tracks:
-  [{id, name, color, muted, regions: [{id, start, end, name, color, muted}]}], locators: [{beat, name}]}`, starts
-  and ends in beats. It is kept until the pager says a clip or a locator changed (`{"t": "arr"}`, from listeners
-  on every track's arrangement clips and on the locators), and the page reads again then. A region is an element
-  of its own with an id that holds while it stays where it is (`t3@16`: track 3, from beat 16), so regions can be
-  edited later; nothing edits them now. `tests/app/test_song_live.py` checks the read and the page.
+  clips are never read. The lanes have no buttons; what changes the song is Steps and Paint (the next part).
+  `arrangement.read` is the one read
+  (`Desk.arrangement`: one short call into the pager, `m.DESK.arrangement()`, and one for the MIDI tracks,
+  `zpkt.live.steps.midi_tracks`): `{set, bars, beats_per_bar, tracks:
+  [{id, name, color, muted, midi, drum_rack, regions: [{id, start, end, name, color, muted}]}], locators: [{beat,
+  name}]}`, starts and ends in beats. It is kept until the pager says a clip, a track or a locator changed (`{"t":
+  "arr"}`, from listeners on every track's arrangement clips, on the list of tracks and on the locators; the app
+  says so itself after a step command made or deleted a clip, since the pager reports at most three changes a
+  second), and the page reads again then. A region is an element
+  of its own with an id that holds while it stays where it is (`t3@16`: track 3, from beat 16).
+  `tests/app/test_song_live.py` checks the read and the page.
 - The arranger (`contrib/arranger`, its own server on :8975) is a separate tool and is no part of the app any
   more: the Song adapter, its mount at `/app/song`, the `song.*` commands (`song.build` among them) and `set.open`
   were removed on 26 November 2026. Its render queue is still `zpkt.app.renderqueue` (below).
+
+## Steps: a pattern on the Song, painted along the track
+
+Anthony, 26 November 2026: "a feature ... which allows me to program midi using a step sequencer that works with my
+midi controller and then allows me to paint that loop in the arrangement." It lives in the Song tab, drums first.
+A pattern is an Arrangement MIDI clip of 1, 2 or 4 bars on a MIDI track (`zpkt.live.steps`; never a Session clip).
+The page makes no sound: a tap writes a note into Live's clip, and Live plays it.
+
+- **Getting in.** A MIDI track has a lane also when it is empty. Choosing it adds two keys to the strip under the
+  lanes: Steps and Paint. With no MIDI track in the set the Song has one key, "Drum track": it opens a list of the
+  Drum Rack presets Live's browser offers (a page of them at a time), and a tap on one makes a MIDI track called
+  "Drums" ("Drums 2" where there is one) in front of the first monitor track, loads the kit and opens Steps on it.
+- **Steps** takes the lanes' place. Row one: the track, the pattern's length (1, 2 or 4 bars), a loop key and the
+  way out. Row two: the pattern before, "Bar N", the pattern after, and for 2 or 4 bars which bar of the pattern is
+  on the pads. It opens on the loop's first bar, else on the bar under the playhead. Then the overview, a row per
+  sound of the kit with 16 cells for the bar in hand: a tap on a row chooses the sound. As many rows show as the
+  height holds (8 at most); the part of the kit with the chosen sound is the one in view. A track with no Drum
+  Rack has a row for each pitch that has a note, and for C1 to G1 when it has none.
+- **The panel** is laid out as the MiniLab. Its head: the sound, keys to the sound before and after, Clear and
+  Paint. Three knobs (the Desk's own drawing, `controls.js`; a hand moves one up and down, 200 px across its
+  range, Shift for fine; the arrow keys step it): Velocity and Length change the step touched last (it carries a
+  dot; `steps.set`) and are what the next steps get; Swing rewrites the pattern (`steps.write`). Then "pads A",
+  steps 1 to 8, and "pads B", steps 9 to 16: the MiniLab's two pad banks. A pad is lit when its step is on (paler
+  under velocity 80), the beats have a dark edge, and the step under Live's playhead is outlined while Live plays
+  inside the pattern. A tap lights the pad at once and sends `steps.toggle`; Live's answer settles it; a refusal
+  puts it back and the toast says why. Clear empties the chosen sound's row; the key then reads "All" for three
+  seconds, and pressed again it empties the pattern.
+- **Clips in the way.** The Live side never cuts, shortens or moves a clip. A bar that a clip of another length
+  lies over is a state of the bar row: "Bar N" is hatched red and the pads are off. Changing the pattern's length
+  makes its own clip that long (`steps.write` with `from_bars`) when nothing else is in the way.
+- **The loop key** sets Live's loop to the pattern's bars (`steps.loop`), follows the pattern in hand, and the lit
+  key again, or leaving Steps, puts the loop back as it was.
+- **Paint** is on the lanes. The chosen MIDI lane grows to 52 px and shows one cell per pattern length across the
+  song, counted from the pattern's own bar: lime where the clip there hashes as the pattern in hand
+  (`steps.read`'s `hash` and `painted`), grey where another clip of that length is, hatched where clips are in
+  the way, and a dark edge on the pattern's own bar. A tap or a drag across cells paints them, one `steps.paint`
+  a gesture (64 bars at most); with Erase lit the same gesture is `steps.erase`. The strip shows the pattern small,
+  the track, and Steps, Erase and Paint (lit: a tap ends painting). The ruler, the loop and the playhead stay.
+- **Nothing scrolls**, at 375 x 812, 390 x 664 and 1200 x 800; keys are 44 px, the pads 38 px or more on a phone.
+
+The commands are `steps_commands.py`. The reads are anyone's; the others are moves, so the bus holds them to the
+page's set and the lock and refuses them from an agent. None reads or writes a monitor track ("mon ...").
+
+| Command | Arguments | Answer |
+|---|---|---|
+| `steps.tracks` (read) | | `tracks: [{name, index, color, drum_rack}]` |
+| `steps.sounds` (read) | `track` | `sounds: [{pitch, name}]` (a Drum Rack's filled pads) |
+| `steps.read` (read) | `track, bar, bars, steps_per_bar?, swing?, total_bars?` | `pattern` (a row per sound), `sounds`, `drum_rack`, `clip`, `blocked`, `off_grid`, `hash`, `beats_per_bar`, `painted: [{bar, hash, name}]`, `total_bars` |
+| `steps.kits` (read) | `fresh?` | `kits: [name]` (60 at most; asked of Live once and kept) |
+| `steps.toggle` | `track, bar, bars, pitch, step, velocity?, length?, swing?` | `on, velocity, created, entry` |
+| `steps.set` | `track, bar, bars, pitch, step, velocity?, length?, swing?` | `on, velocity, length, entry` |
+| `steps.write` | `track, bar, pattern, from_bars?` | what `steps.read` gives of the span, `created`, `entry` |
+| `steps.paint` | `track, from_bar, bars, to: [bars], total_bars?` | `painted, skipped, replaced, clips, entry` |
+| `steps.erase` | `track, bars: [bars], length, total_bars?` | `erased, skipped, clips, entry` |
+| `steps.new_track` | `name, kit` | `track, index, kit, device, no_undo, entry` |
+| `steps.focus` | `track, bar, bars, pitch, velocity?, length?, swing?, view?, name?`; a part of it; `{}` | `focus` |
+| `steps.loop` | `bar, bars`, or `was` | `was: {on, start, length}` |
+
+Clips in the way, a step with no note and a paint with no clip to paint from answer 409 with the reason (and
+`blocked`); nothing has changed. A page may send `src`, a word of its own, with any of them: it comes back in the
+`steps` message, so the page knows its own changes.
+
+- **The focus** is what the sequencer has in hand, kept in the desk (`Desk.steps_focus`; `state.steps` in
+  `/api/state` and every `full` message; `steps` in the agents' `desk.state`) and pushed to every page and adapter
+  (`desk.push`, so the MIDI adapter's queue gets it): `{"t": "steps", "focus": {...} | null, "src"?, "edit"?}`
+  (`protocol.StepsMessage`, `lib/contracts/mixdesk-message.schema.json`). The focus is `{track, bar, bars,
+  steps_per_bar, view, pitch, name, velocity, length, swing, steps, blocked, rev}`: `steps` is the chosen sound's
+  steps over the whole pattern (0, or the note's velocity), `view` the bar of the pattern on the pads (from 0),
+  `rev` counts its changes. So pad k (0 to 15; A is 0 to 7, B 8 to 15) is lit when `steps[view * steps_per_bar +
+  k]` is not 0, and a press of it is `steps.toggle {track, bar, bars, pitch, step: view * steps_per_bar + k,
+  velocity, length, swing}`. The page sets the focus when Steps opens and when the sound, the bar or a knob
+  changes, and clears it when Steps closes. Every command that changes a pattern keeps `steps` true (a toggle with
+  no further call to Live) and sends the message with `edit: {track, bar, bars, what}`: a page reads a pattern
+  again when another hand changed it, and takes up a focus another hand moved on its pattern (another sound,
+  other values). The MiniLab's mapping is a later change and starts from this.
+- **Undo.** Every changing command is one History row, an entry of kind `steps` (`history.py`): the track, what
+  was done (`edit`, `length`, `paint`, `erase`, `track`), how often, and per span of the Arrangement what it held
+  before (no clip, or the clip's name and notes). Undo puts each span back (`zpkt.live.steps.restore`, last one
+  first) and keeps what it found there, so redo is the same act in the other order; "Go back" carries the spans
+  too. Edits of one pattern by one hand within five seconds of each other are one row (`history.STEPS_RUN_S`). A
+  span that cannot be put back (clips are in the way now) is left alone and named in the reply's `notes`. A new
+  drum track is not undone: its row says "no undo: 1 track". `steps.loop` and `steps.focus` leave no row.
+- **Swing** is not in Live's notes. The app keeps the swing each pattern was last written with while it runs
+  (`Desk.steps_swing`), so a read puts the late steps where they are; after a restart a pattern swung by more
+  than a quarter step reads with those notes off the grid (`off_grid`) until Swing is set again.
+- **Not seen on the real Live yet**: which browser entries are kits, loading one, and where a new track lands
+  (GUESS in `zpkt.live.steps` and `zpkt.live.inlive.steps`).
+
+The page's code and styles are `static/shell/steps.js` and `steps.css` (`window.zpktSteps`: `open`, `close`,
+`render`, `click`, `message`, `live`, and for the Song `songKeys`, `newKey`, `painting`, `lane`, `songSel`).
+Tests: `tests/app/test_steps_bus.py` (every command, the rails, History and undo, the focus) and
+`tests/app/test_steps_page.py` (WebKit); the Live side in `tests/live/test_steps.py`.
 
 ## Ask
 
