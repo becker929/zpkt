@@ -120,8 +120,11 @@ TOOLS: tuple[Tool, ...] = (
         'device added earlier in the same call is "<track>/<device>/<parameter>". The whole batch is checked '
         "before anything moves: if anything is wrong nothing changes, and `problems` lists every fault to fix. "
         "Then the steps run in order; the reply has `done`, `now` (each key written: [shown, raw]), `added`, and "
-        "`undo`, the History row that one undo takes back. It cannot remove a device, make a track, change "
-        "routing or clips, or run code: for those, use propose_live, which asks the person first. Monitor tracks "
+        '`undo`, the History row that one undo takes back. A step {"use": "<ability>", "args": {...}} runs an '
+        "ability in its place among the steps: code the person allowed for good with Always (read_state lists "
+        "the abilities and their parameters); the reply's `ran` has its result, and undo does not take it back "
+        "(`no_undo`). It cannot remove a device, make a track, change routing or clips, or run code that is not "
+        "an ability: for those, use propose_live, which asks the person first. Monitor tracks "
         "(mon ...) and Main's desk devices are never changed; at most 40 steps and 8 added devices per call.",
         {
             "type": "object",
@@ -142,6 +145,8 @@ TOOLS: tuple[Tool, ...] = (
                             "track": {"type": "string"},
                             "at": {"type": "integer", "minimum": 0},
                             "on": {"type": "boolean"},
+                            "use": {"type": "string", "description": "An ability's name, to run it as a step."},
+                            "args": {"type": "object", "description": "The ability's arguments."},
                         },
                     },
                 },
@@ -162,14 +167,23 @@ TOOLS: tuple[Tool, ...] = (
         '{"code": "<Python for Live>", "does": "<one plain sentence saying what it does>"} (the person reads '
         "`does` and the code itself: at most 3 code steps of 2000 characters each; `song`, `tracks`, `returns`, "
         "`master`, `browser` and `find_track(name)` are defined and `result = ...` comes back; keep it short and "
-        "never read a value back in the code that wrote it). A code step that will be needed again can be written "
-        'to be kept: add "name" (snake_case), "params" ({"<name>": {"type": "number"|"integer"|"string"|"boolean", '
-        '"description": "..."}}) and "args" (this run\'s value for every parameter). In the code the values are '
-        'in the dict `args` (args["track"]); never write them into the code itself. The card of a proposal with '
-        "code also offers Always: the steps run as after Do it, and each code step that ran is kept as an "
-        "ability, a tool of its own named ability_<name>. The reply then lists them in `abilities` (`tool` is the "
-        "name to call). From then on call that tool with its parameters: it runs with no card. Do not propose "
-        "the same code again, and to change an ability's code propose it again under the same name. "
+        "never read a value back in the code that wrote it). Write a code step that may be needed again as a "
+        'function of its parameters, so that it can be kept: add "name" (verb_noun for what it does in general, '
+        'route_track_to_return, never for this one case, route_hats_to_drive), "params" ({"<name>": {"type": '
+        '"number"|"integer"|"string"|"boolean", "description": "<what it is, with its unit>", "default": '
+        '<optional>, "enum": [<optional>]}}) and "args" (this run\'s values; a parameter without a default is '
+        "required). Everything that could differ next time (track, device, amount, bar, name) is a parameter, "
+        'read from the dict `args` (args["track"]); nothing that is a parameter is spelled out in the code, and '
+        "every declared parameter must be read. Put what changed in `result` as a small dict, so that another "
+        'ability can build on it. Code may call use("<ability>", {...}), the name written out, to run an '
+        "ability that exists and get its result: build new abilities from the ones there are. Before you "
+        "propose code, look at the abilities there are (read_state lists them): if one fits, call it; if one "
+        "almost fits, propose THAT ability again under the same name with a broader parameter, rather than a "
+        "second one. The card of a proposal with code also offers Always: the steps run as after Do it, and "
+        "each code step that ran is kept as an ability, a tool of its own named ability_<name>, listed in the "
+        "reply's `abilities` (`tool` is the name to call). From then on call that tool, or run it as a step "
+        '{"use": "<name>", "args": {...}} here or in change_live: it runs with no card. Do not propose the same '
+        "code again. The reply may carry `hints`: how to make a step more general next time. "
         "The whole batch is checked before the person is "
         "asked: if anything is wrong nobody is asked, nothing changes, and `problems` lists every fault to fix. "
         "Steps are checked against the set as it is, so no step may rely on what a code step makes. After Do it "
@@ -214,11 +228,14 @@ TOOLS: tuple[Tool, ...] = (
                                     "properties": {
                                         "type": {"type": "string", "enum": ["number", "integer", "string", "boolean"]},
                                         "description": {"type": "string"},
+                                        "default": {},
+                                        "enum": {"type": "array"},
                                     },
                                     "required": ["type", "description"],
                                 },
                             },
-                            "args": {"type": "object", "description": "This run's value for every parameter."},
+                            "args": {"type": "object", "description": "This run's values for the parameters."},
+                            "use": {"type": "string", "description": "An ability's name, to run it as a step."},
                         },
                     },
                 },
