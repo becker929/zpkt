@@ -258,8 +258,19 @@ def test_knobs_1_to_3_set_the_velocity_length_and_swing_of_the_focus_and_knob_4_
     knobs = rig.minilab.elements.encoders_raw
     key = rig.state()["values"]["0:k1"]["key"]
     before = rig.state()["values"]["0:k1"]["r"]
+    told = rig.desk.steps_hand.calls
     knobs[0].receive(77)
     assert wait_for(lambda: focus_of(rig)["velocity"] == 77)
+    settle(rig)
+    assert rig.desk.steps_hand.calls == told  # the pager's own knob: it is not told back what it just said
+    # the hand has been off the knob for a while (within half a second the pager would not move it under the hand)
+    rig.conn.run("import sys\nsys.modules['zpkt_mixdesk_pager'].DESK.step_touched.clear()\nresult = 1")
+    ask(rig, "steps.focus", {"velocity": 50})  # from the page: the pager is told, and knob 1 follows
+    settle(rig)
+    assert rig.desk.steps_hand.calls == told + 1 and knobs[0].sent[-1] == 50
+    ask(rig, "steps.focus", {"velocity": 77})  # back to what the knob once said: told again all the same
+    settle(rig)
+    assert rig.desk.steps_hand.calls == told + 2 and knobs[0].sent[-1] == 77
     knobs[1].receive(127)
     assert wait_for(lambda: focus_of(rig)["length"] == 16.0)  # the pattern's own length
     knobs[2].receive(64)

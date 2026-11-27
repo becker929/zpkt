@@ -66,6 +66,7 @@ class Hand:
         self._told_rev: int | None = None  # the focus's rev that was (None: no focus)
         self._known = False  # whether the pager shows `_told`: not after a call that failed, nor before the first
         self._reloaded = False  # a pager from before the steps layer was loaded again (once while the app runs)
+        self._turned: dict[str, Any] = {}  # the knob values the pager itself reported since it was last told
         self._inbox: queue.Queue[dict[str, Any]] = queue.Queue()
         self._lock = threading.Lock()
         self._thread: threading.Thread | None = None
@@ -103,14 +104,15 @@ class Hand:
                 if not force and known and rev == told_rev:
                     return False
                 state = core().steps_layer(focus)
-                if not force and known and state == told:
+                if not force and known and (state == told or self._own_knobs(state, told)):
                     with self._lock:
-                        self._told_rev = rev
+                        self._told, self._told_rev = state, rev
                     return False
                 answer = self.desk.call(f"m.DESK.steps_layer({state!r}, {bool(force)!r})")
                 self.calls += 1
                 with self._lock:  # None: no pager runs; one that starts is told then (`restarted`)
                     self._told, self._told_rev, self._known = state, rev, answer is not None
+                    self._turned = {}
         except Exception as exc:  # the lights never fail anything else
             with self._lock:
                 self._known = False
@@ -121,6 +123,14 @@ class Hand:
                 self._reload()
             return False
         return True
+
+    def _own_knobs(self, state: dict[str, Any] | None, told: dict[str, Any] | None) -> bool:
+        """Is the pager's own knob all that changed? Then it stands there already: a turn of knob 1 needs no call
+        back to say the velocity it has just reported."""
+        if state is None or told is None:
+            return False
+        changed = [k for k in state if state[k] != told.get(k)]
+        return all(k in STEP_KNOBS and k in self._turned and self._turned[k] == state[k] for k in changed)
 
     def _reload(self) -> None:
         """The pager in Live is from before it had a steps layer (the app was updated under it, and a pager that
@@ -183,6 +193,8 @@ class Hand:
                 show = True
             elif kind == "step_knob" and message.get("what") in STEP_KNOBS:
                 values[str(message["what"])] = message.get("value")
+                with self._lock:
+                    self._turned[str(message["what"])] = message.get("value")
             elif kind == "step_sound" and "turn" in message:
                 turn += int(message["turn"])
             else:
