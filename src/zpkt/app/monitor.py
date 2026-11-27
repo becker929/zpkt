@@ -52,6 +52,7 @@ class Monitor:
         self.main_saved: dict[str, float] | None = None  # Main's desk devices' On values while a monitor track plays
         self._pin: dict[str, list[Any]] | None = None  # the pinned values; None: the mix as first seen
         self._loop_before: str | None = None  # the loop that was on when the reference was chosen
+        self._loop_after: str | None = None  # a loop the pager is to set once the reference is left (place)
         self._pin_name: str | None = (
             None  # the checkpoint chosen as the Pin (B) in History; None: the mix pinned as it was
         )
@@ -142,6 +143,11 @@ class Monitor:
             out["loop"] = False
         elif before is not None and before in loops:
             out["loop"] = [float(loops[before][0]), float(loops[before][1])]
+        elif before in D.LOOPS:
+            # the desk has not been told the loops' beats (the pager's report is still on its way): the pager
+            # knows them, so it sets the loop right after the switch
+            with self._lock:
+                self._loop_after = before
         return out
 
     # ---- the level match -------------------------------------------------------------------------------------------
@@ -160,9 +166,13 @@ class Monitor:
         out = monitor_tracks.switch(d.conn, slot, ref, self.gain_db(slot, ref), saved, place)
         with self._lock:
             self.main_saved = out["main_saved"]
+        with self._lock:
+            after, self._loop_after = self._loop_after, None
         if "error" in out:  # said as the pager says it: the choice stays as it was
             d.ingest({"t": "mon", "slot": st["monitor"]["slot"], "ref": st["monitor"]["ref"], "err": out["error"]})
             return
+        if after is not None:
+            d.call(f"m.DESK.transport('loop', None, {after!r})")
         d.ingest({"t": "mon", "slot": slot, "ref": ref})
 
     def select(self, slot: str, ref: str) -> None:

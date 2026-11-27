@@ -180,6 +180,7 @@ def test_the_reference_is_switched_to_and_from_on_the_beat_at_its_own_tempo(rig)
     _reference_file(rig, "C1", 19 * 4 * 60 / 155.0 + 0.002)
     rig.command("transport", {"action": "loop", "loop": "drop"})
     drop = (song.loop_start, song.loop_length)
+    wait_for(lambda: rig.state()["loop"] == "drop")  # the pager's report of the loop reaches the desk a moment later
     song.current_song_time = a + 3 * 4.0 + 1.5  # the mix: bar 4 of the drop, a beat and a half in
     assert rig.command("monitor.hear", {"hearing": "ref"})[0] == 200
     assert song.current_song_time == pytest.approx(a + (3 + 1.5 / 4.0) * ref_bar, abs=1e-6)
