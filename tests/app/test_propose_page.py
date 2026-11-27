@@ -90,12 +90,12 @@ def test_the_card_can_be_decided_from_alone_on_a_phone_and_stays_to_say_what_hap
     )
     assert box["h"] <= 140 < box["sh"] and box["sw"] > box["w"] and box["oy"] == "auto" and box["ox"] == "auto"
     assert "mono" in box["font"].lower() and box["size"] <= 13
-    # two buttons with icons, big enough for a thumb, side by side
+    # the buttons, with icons, big enough for a thumb, side by side (a batch with code also has "Always")
     buttons = card.locator(".perm-options button")
-    assert [b.strip() for b in buttons.all_inner_texts()] == ["Do it", "Don't"]
-    boxes = [buttons.nth(k).bounding_box() for k in range(2)]
-    assert all(b["height"] >= 44 and b["width"] >= 120 for b in boxes) and boxes[0]["y"] == boxes[1]["y"]
-    assert buttons.nth(0).locator("svg").count() == 1 and buttons.nth(1).locator("svg").count() == 1
+    assert [b.strip() for b in buttons.all_inner_texts()] == ["Do it", "Always", "Don't"]
+    boxes = [buttons.nth(k).bounding_box() for k in range(3)]
+    assert all(b["height"] >= 44 and b["width"] >= 88 for b in boxes) and len({b["y"] for b in boxes}) == 1
+    assert all(buttons.nth(k).locator("svg").count() == 1 for k in range(3))
     assert not card.evaluate(f"n => {EMOJI}.test(n.textContent)")
     # it fits the phone: nothing scrolls sideways, and the page itself does not scroll (the transcript does)
     assert pg.evaluate(FITS) and fr.locator("body").evaluate(f"() => {FITS}")

@@ -72,7 +72,7 @@ def test_do_it_dont_and_no_answer_keep_nothing(asked, monkeypatch, answer):
 
 
 def test_a_proposal_with_no_code_has_two_buttons_and_always_is_not_an_answer_to_it(asked):
-    p, s, card = proposing(asked, batch({"remove": "desk Sat", "track": "Hats bus"}))
+    _, s, card = proposing(asked, batch({"remove": "desk Sat", "track": "Hats bus"}))
     assert [o["id"] for o in card["options"]] == ["yes", "no"]
     assert tap(asked, s, card, "always")[0] == 400  # not offered
     assert tap(asked, s, card, "no")[0] == 200 and asked.ask.wait_idle()
@@ -116,7 +116,7 @@ def test_an_ability_is_a_tool_with_its_documentation_and_schema(asked):
     assert listed["ability_double_tempo"].schema["required"] == ["bpm"]
     assert "Uses set_tempo." in listed["ability_double_tempo"].description.splitlines()
     assert "Only reads: no History row." in listed["ability_read_tempo"].description
-    code, body = asked.rig.get(f"{API}/tools")
+    _, body = asked.rig.get(f"{API}/tools")
     assert [t["name"] for t in body["tools"]] == list(listed) and body["tools"][-1]["input"] == tool.schema
     assert is_app_tool({"toolCallId": "zpkt__ability_set_tempo-1", "title": "ability_set_tempo (zpkt MCP Server)"})
     assert not is_app_tool({"toolCallId": "x", "title": "ability_set_tempo", "kind": "execute"})  # Gemini's own shell
