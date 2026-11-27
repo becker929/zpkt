@@ -993,7 +993,7 @@ class Track(LiveObject):
             name=clip._values["name"],
             parent=self,
         )
-        copy._values.update(clip._values)  # the whole clip: its markers, loop, colour and mute too
+        copy._values.update(clip._values)  # GUESS: the whole clip, its markers, loop, colour and mute too
         copy._notes = [n.copy() for n in clip._notes]
         copy._next_id = clip._next_id
         return self._add_clip(copy)

@@ -5,6 +5,8 @@ piece of work on one track: look at a span of bars, put notes in it, flip one st
 Times are beats (quarter notes) as Live counts them; a span is [start, end) on the Arrangement's timeline; a note is
 [pitch, beats after the span's start, duration in beats, velocity]. Nothing here uses Session view.
 
+What is taken on trust about Live, and not yet seen on the real one, is marked GUESS.
+
 Stdlib only, Python 3.11: this file also runs inside Live (zpkt.live.inlive), and imports no other inlive module.
 """
 
@@ -17,7 +19,8 @@ TICKS = 960  # per beat: the grain of content_hash
 
 
 def bar_beats(song) -> float:  # song: Live's Song
-    """One bar in beats, by the song's signature: 4.0 in 4/4, 3.0 in 3/4 and in 6/8."""
+    """One bar in beats, by the song's signature: 4.0 in 4/4, 3.0 in 3/4 and in 6/8. GUESS: one signature for the
+    whole song; a signature change along the timeline is not followed."""
     return 4.0 * song.signature_numerator / song.signature_denominator
 
 
@@ -34,7 +37,7 @@ def content_hash(notes: Iterable[Sequence[float]]) -> str:
 
 # --------------------------------------------------------------------------- tracks and sounds
 
-INSTRUMENT = 1  # Live.Device.DeviceType.instrument
+INSTRUMENT = 1  # GUESS: int(device.type) of Live.Device.DeviceType.instrument
 
 
 def instrument(track) -> Any:  # track: Live's Track
@@ -65,7 +68,8 @@ def midi_track_list(song):
 
 def pad_sounds(track, cap: int) -> list[dict[str, Any]]:
     """The pads of the track's Drum Rack that hold something, as [{"pitch", "name"}], lowest first, at most `cap`;
-    an empty list when the track's first instrument is not a Drum Rack."""
+    an empty list when the track's first instrument is not a Drum Rack. A pad holds something when it has chains
+    (ableton-guide 6). GUESS: a filled pad's name is its sound's name."""
     rack = instrument(track)
     if rack is None or not rack.can_have_drum_pads:
         return []
@@ -96,7 +100,9 @@ def span_clips(track, start: float, end: float):
 
 def plays_straight(clip) -> bool:
     """Does the clip play its notes once through, so that a place in the clip is a place in the Arrangement? Not
-    when it loops over a stretch shorter than itself (a one-bar loop dragged out over four bars)."""
+    when it loops over a stretch shorter than itself (a one-bar loop dragged out over four bars). GUESS: a clip
+    Live makes with create_midi_clip does not loop, or loops over its whole length; were it otherwise, a clip made
+    here would be reported as in the way on the next call."""
     return (not clip.looping) or clip.loop_end - clip.start_marker >= clip.end_time - clip.start_time - EPS
 
 
@@ -113,7 +119,8 @@ def span_to_edit(track, start: float, end: float):
 
 def notes_in(clip, start: float, end: float):
     """The notes of `clip` that start inside [start, end) of the Arrangement, as [pitch, beats after `start`,
-    duration, velocity], in order of start, then pitch. The clip's start marker is what plays at its start."""
+    duration, velocity], in order of start, then pitch. GUESS: the clip's start marker is what plays at its start
+    (0 in a clip made here), so a note at start_marker + x sounds x beats into the clip."""
     first, last = max(start, clip.start_time), min(end, clip.end_time)
     if last <= first or not clip.is_midi_clip:
         return []
@@ -280,7 +287,9 @@ def why_not(others) -> str:
 def clip_stamp(song, track, source: int, bars: int, to, pause: float):
     """Copy the clip that covers exactly `bars` bars from bar `source` onto each bar in `to` (the first bar of a
     copy). A target that one MIDI clip covers exactly is replaced: its notes are kept in the answer, it is deleted,
-    then the copy is made. A target another clip reaches into is skipped. `pause` seconds pass between copies."""
+    then the copy is made. A target another clip reaches into is skipped. `pause` seconds pass between copies.
+    The clips are read again before each copy, as zpkt.live.arrange.fx does on the real Live. GUESS: the copy of
+    an Arrangement clip is as long as its source and starts at the time given."""
     if not track.has_midi_input:
         raise ValueError(f"{track.name!r} is not a MIDI track")
     per_bar = bar_beats(song)
