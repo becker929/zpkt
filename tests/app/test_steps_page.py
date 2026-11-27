@@ -1,0 +1,156 @@
+"""Steps on the Song tab, in WebKit on a phone (375 x 812), against the app on FakeLive: a drum track from the kit
+picker, the Steps screen, a tap on a pad as a note in Live's Arrangement clip. Nothing scrolls."""
+
+from __future__ import annotations
+
+import pytest
+
+from tests.app.conftest import wait_for
+from zpkt.live import steps
+
+playwright_sync = pytest.importorskip("playwright.sync_api")
+
+PHONE = {"width": 375, "height": 812}
+DESKTOP = {"width": 1200, "height": 800}
+KICK, SNARE = 36, 38
+
+
+@pytest.fixture(autouse=True)
+def no_waiting(monkeypatch):
+    monkeypatch.setattr(steps.time, "sleep", lambda s: None)
+
+
+@pytest.fixture()
+def browser():
+    with playwright_sync.sync_playwright() as p:
+        try:
+            b = p.webkit.launch()
+        except Exception as exc:
+            pytest.skip(f"WebKit is not available: {str(exc)[:80]}")
+        yield b
+        b.close()
+
+
+def song(browser, rig, viewport=PHONE):
+    pg = browser.new_page(viewport=viewport)
+    errors: list[str] = []
+    pg.on("pageerror", lambda e: errors.append(str(e)))
+    pg.errors = errors  # type: ignore[attr-defined]
+    pg.goto(rig.url + "/app/#song")
+    pg.wait_for_selector("#lanes .lane .rg")
+    return pg
+
+
+def no_scroll(pg) -> bool:
+    return pg.evaluate(
+        "document.documentElement.scrollHeight <= innerHeight && document.documentElement.scrollWidth <= innerWidth"
+        " && [...document.querySelectorAll('#song, #song *')].every(e => e.scrollHeight <= e.clientHeight + 1 ||"
+        " getComputedStyle(e).overflowY === 'visible' || getComputedStyle(e).overflowY === 'hidden')"
+    )
+
+
+def notes(rig, name="Drums"):
+    track = rig.track(name)
+    return sorted((c.start_time, n.pitch, n.start_time, n.velocity) for c in track.arrangement_clips for n in c._notes)
+
+
+def make_drums(pg, rig, kit="909 Core Kit"):
+    """The one key the Song shows with no MIDI track, the picker, a kit: Steps opens on the new track."""
+    pg.locator('#songnew [data-st="pick"]').click()
+    pg.wait_for_selector("#st-kits [data-kit]")
+    pg.locator(f'#st-kits [data-kit="{kit}"]').click()
+    pg.wait_for_selector("#steps .st-pad:not([disabled])")
+
+
+def test_a_drum_track_from_the_picker_then_taps_on_pads_are_notes_in_live(browser, rig):
+    pg = song(browser, rig)
+    key = pg.locator('#songnew [data-st="pick"]')
+    assert key.bounding_box()["height"] >= 43.9
+    key.click()
+    pg.wait_for_selector("#st-kits [data-kit]")
+    kits = pg.locator("#st-kits [data-kit]:visible")
+    assert kits.all_inner_texts() == ["606 Core Kit", "707 Core Kit", "808 Core Kit", "909 Core Kit"]
+    assert all(
+        b["height"] >= 43.9 for b in kits.evaluate_all("els => els.map(e => e.getBoundingClientRect().toJSON())")
+    )
+    assert no_scroll(pg)
+    kits.nth(3).click()
+    pg.wait_for_selector("#steps .st-pad:not([disabled])")
+    first_monitor = next(i for i, t in enumerate(rig.live.song.tracks) if t.name.startswith("mon "))
+    assert rig.live.song.tracks[first_monitor - 1].name == "Drums"  # made in front of the monitor tracks
+    assert rig.track("Drums").devices[0].name == "909 Core Kit"
+
+    # the Steps screen: the track, the bar under the playhead, a row per sound, 16 pads in two banks of 8
+    assert pg.locator("#steps .st-bar .sn b").inner_text() == "Drums"
+    assert pg.locator("#st-barn").inner_text() == "Bar 1"
+    assert pg.locator("#st-ov .st-row:visible .n").all_inner_texts() == ["Kick", "Rim", "Snare", "Clap", "Hat", "Open"]
+    assert pg.locator("#st-name").inner_text() == "Kick"  # the first sound is the chosen one
+    pads = pg.locator("#steps .st-pad")
+    assert pads.count() == 16 and pads.all_inner_texts() == [str(n) for n in range(1, 17)]
+    sizes = pads.evaluate_all("els => els.map(e => e.getBoundingClientRect().toJSON())")
+    assert all(b["width"] >= 38 and b["height"] >= 38 for b in sizes)
+    assert sizes[0]["y"] == sizes[7]["y"] < sizes[8]["y"] == sizes[15]["y"]  # pads A over pads B
+    assert pg.locator("#steps .st-pad.beat").evaluate_all("els => els.map(e => e.dataset.k)") == ["0", "4", "8", "12"]
+    for k in pg.locator("#steps .st-bar .key").evaluate_all("els => els.map(e => e.getBoundingClientRect().toJSON())"):
+        assert k["width"] >= 43.9 and k["height"] >= 43.9
+    assert no_scroll(pg)
+
+    # a tap is a note: lit at once on the page, and in Live's clip
+    pads.nth(0).click()
+    pg.wait_for_selector('#steps .st-pad[data-k="0"].on')
+    pads.nth(4).click()
+    wait_for(lambda: len(notes(rig)) == 2)
+    assert notes(rig) == [(0.0, KICK, 0.0, 100), (0.0, KICK, 1.0, 100)]
+    assert pg.locator("#st-ov .st-row.sel .c.on").count() == 2  # the overview shows it too
+    # another sound: its row is chosen, the pads are its steps
+    pg.locator('#st-ov .st-row[data-pitch="38"]').click()
+    assert pg.locator("#st-name").inner_text() == "Snare" and pg.locator("#steps .st-pad.on").count() == 0
+    pads.nth(12).click()
+    wait_for(lambda: len(notes(rig)) == 3)
+    assert (0.0, SNARE, 3.0, 100) in notes(rig)
+    # a second tap takes the note away again
+    pads.nth(12).click()
+    wait_for(lambda: len(notes(rig)) == 2)
+    pg.wait_for_selector('#steps .st-pad[data-k="12"]:not(.on)')
+
+    # the next bar is another pattern: empty; back, and the kick is there again (read from Live)
+    pg.locator('#steps [data-st="bar"][data-by="1"]').click()
+    pg.wait_for_function("document.querySelector('#st-barn').textContent === 'Bar 2'")
+    pg.wait_for_function("!document.querySelector('#steps').dataset.loading")
+    assert pg.locator("#st-ov .c.on").count() == 0
+    pg.locator('#steps [data-st="bar"][data-by="-1"]').click()
+    pg.wait_for_function("document.querySelectorAll('#st-ov .c.on').length === 2")
+
+    # close: the lanes again, with a lane for the drum track and its region; the strip has the Steps key
+    pg.locator('#steps [data-st="close"]').click()
+    pg.wait_for_selector('#lanes .lane[data-name="Drums"] .rg')
+    assert pg.locator("#songnew").inner_text() == ""  # the set has a MIDI track now
+    assert pg.locator("#songsel .sn").inner_text() == "Drums"
+    steps_key = pg.locator('#songsel [data-st="open"]')
+    assert steps_key.bounding_box()["height"] >= 43.9
+    steps_key.click()
+    pg.wait_for_function("document.querySelectorAll('#st-ov .c.on').length === 2")
+    assert no_scroll(pg) and pg.errors == []
+
+
+def test_clips_in_the_way_are_a_state_of_the_bar_and_its_pads_are_off(browser, rig):
+    pg = song(browser, rig)
+    make_drums(pg, rig)
+    rig.conn.run("t = [t for t in song.tracks if t.name == 'Drums'][0]\nt.create_midi_clip(4.0, 8.0)\nresult = 1")
+    pg.locator('#steps [data-st="bar"][data-by="1"]').click()  # bar 2: a two-bar clip lies over it
+    pg.wait_for_selector("#st-barn[data-blocked]")
+    assert pg.locator("#steps .st-pad:disabled").count() == 16
+    assert pg.locator("#steps").inner_text().count("in the way") == 0  # a state, not a sentence
+    pg.locator('#steps [data-st="bar"][data-by="-1"]').click()
+    pg.wait_for_selector("#st-barn:not([data-blocked])")
+    pg.wait_for_selector("#steps .st-pad:not([disabled])")
+    assert pg.errors == []
+
+
+def test_steps_fits_a_desktop_too(browser, rig):
+    pg = song(browser, rig, DESKTOP)
+    make_drums(pg, rig)
+    assert no_scroll(pg)
+    box = pg.locator("#steps .st-ml").bounding_box()
+    assert box["y"] + box["height"] <= 800 and pg.locator("#st-ov .st-row:visible").count() == 6
+    assert pg.errors == []
