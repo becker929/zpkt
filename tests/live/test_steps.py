@@ -399,12 +399,16 @@ def test_a_clip_that_loops_inside_itself_is_in_the_way(live):
     with live.main_thread():
         looped = lom.Clip(0.0, 16.0, name="one bar, four times", parent=track(live, "Empty"))
         looped.loop_end = 4.0
+        looped.add_new_notes([lom.MidiNoteSpecification(60, 1.0, 0.25, 100)])
         track(live, "Empty")._clips.append(looped)
     assert steps.write(live, "Empty", 1, pattern([], bars=4)) == {
         "error": "clips are in the way",
         "blocked": [{"name": "one bar, four times", "start": 0.0, "end": 16.0}],
     }
-    assert steps.read(live, "Empty", 1, 4)["clip"] is None
+    found = steps.read(live, "Empty", 1, 4)  # its notes are read all the same, as they lie in the clip
+    assert found["clip"] is None and found["blocked"][0]["name"] == "one bar, four times"
+    assert found["hash"] == steps.content_hash([(60, 1.0, 0.25, 100)])
+    assert steps.toggle(live, "Empty", 1, 4, 16, 60, 4)["error"] == "clips are in the way"
 
 
 # --------------------------------------------------------------------------- one step

@@ -15,6 +15,19 @@ The grid (pure Python, no Live): a pattern is {"bars": 1|2|4, "steps_per_bar": 8
 `to_notes` turns it into (pitch, start, duration, velocity) in beats from the pattern's start, `from_notes` reads
 notes back onto the grid and counts what the grid cannot show in `off_grid`.
 
+In Live: every function takes the Live connection (the app hands it in) and a track by name (as everywhere in
+zpkt.live: zpkt.live.inlive.tracks) or by index. Bars count from 1 and are as long as the song's signature says.
+Each call to Live is one line over zpkt.live.inlive.steps, which travels above it, and never reads back what it
+wrote (ableton-guide rule 1): `write` reads the span in a second short call, `paint` sends 16 copies to a call.
+
+A span of bars is in one of three states. One MIDI clip covers exactly it: that clip's notes are the pattern. No
+clip touches it: it is free, and a write or a tap makes a clip of that length. Anything else (a longer or shorter
+clip reaching in, an audio clip, a clip that loops inside itself) is in the way: nothing is changed, and the answer
+names those clips. A clip is never cut, shortened or moved here.
+
+For an undo in the app, `write`, `toggle` and `set_step` return `before`, the notes the span held (as `to_notes`
+gives them); `paint` returns the clips it replaced and `erase` the clips it deleted, each with its name and notes.
+
 Arrangement view only: nothing here makes, launches or reads a Session clip or a scene.
 """
 
@@ -41,7 +54,8 @@ MAX_TARGETS = 64  # bars one `paint` or `erase` takes
 PER_CALL = 16  # copies one call to Live makes: each call stays short (ableton-guide rule 6)
 # Seconds Live waits between two copies in a call. The ableton guide asks for a pause between
 # duplicate_clip_to_arrangement calls (0.1 s in its example) and for at most half a second of sleep in a call
-# (rule 7): sixteen copies keep both with this.
+# (rule 7); sixteen copies cannot have both, so the pause is the longest that keeps a full call under the half
+# second. GUESS: it is long enough (zpkt.live.arrange.fx copies back to back with none).
 COPY_PAUSE_S = 0.03
 MAX_PAINTED = 256  # clips `painted` reports at most
 
@@ -430,9 +444,9 @@ def write(
     live: McpTransport, track: TrackRef, bar: int, pattern: Mapping[str, Any], name: str | None = None
 ) -> Written | Blocked:
     """Make the span of the pattern's bars from `bar` hold exactly this pattern. A MIDI clip that covers exactly the
-    span gets its notes replaced; a free span gets a new clip of that length (named `name` if given; the clip's
-    loop settings stay as Live makes them); when other clips reach into the span, nothing is changed and the
-    answer is {"error", "blocked": [{"name", "start", "end"}]}: clips are never cut.
+    span gets its notes replaced; a free span gets a new clip of that length (its loop settings stay as Live makes
+    them); either is named `name` if one is given. When other clips reach into the span, nothing is changed and
+    the answer is {"error", "blocked": [{"name", "start", "end"}]}: clips are never cut.
 
     The write is one call. What the span holds afterwards is read in a second short call (nothing is read in the
     call that wrote it: ableton-guide rule 1) and returned as `read` gives it, with `before`, the notes the span

@@ -143,8 +143,9 @@ def pattern_look(song, track, bar: int, bars: int):
     start = (bar - 1) * per_bar
     end = start + bars * per_bar
     clip, blocked = span_to_edit(track, start, end)
+    exact, others = span_clips(track, start, end)
     found = []
-    for c in [clip] if clip is not None else span_clips(track, start, end)[1]:
+    for c in others if exact is None else [exact]:
         found.extend(notes_in(c, start, end))
     found.sort(key=lambda n: (n[1], n[0]))
     return {
