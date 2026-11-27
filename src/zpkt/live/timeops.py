@@ -44,13 +44,16 @@ def select(client: McpTransport, start: float, length: float) -> None:
     code = _SELECT.format(start=float(start), length=float(length))
     client.run(code)
     if not ui.menu("Edit", "Select Loop", tries=3):
-        # Grey while another app is in front of Live (a full-screen window, another desktop): the Arrangement
-        # cannot take the focus there. So Live comes to the front, as it does for the export anyway.
+        # Live greys the item out while its keyboard focus is somewhere with nothing to select, and focus_view
+        # from the script does not always move it. Two bounces failed on this on 27 November 2026, with another
+        # app's full-screen window in front of Live; twenty minutes later, with that window still in front, the
+        # item was enabled again. What moved the focus back is not known. So: Live comes to the front (it does
+        # for the export anyway), the selection is made again, and a failure says what was in front.
         ui.to_front()
         time.sleep(0.5)
         client.run(code)
         if not ui.menu("Edit", "Select Loop", tries=10):
-            stop(f"Edit > Select Loop stayed disabled for {start:g}+{length:g}")
+            stop(f"Edit > Select Loop stayed disabled for {start:g}+{length:g} (in front: {ui.front_app() or '?'})")
     time.sleep(0.3)
 
 
