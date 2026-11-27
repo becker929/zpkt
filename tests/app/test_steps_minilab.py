@@ -57,7 +57,9 @@ def notes(rig):
 
 
 def by_minilab(rig, kind):
-    """The commands of that kind the MiniLab sent: {"args", "status"} each (the `commands` fixture records them)."""
+    """The commands of that kind the MiniLab sent, once the hand is done with all it was given: {"args", "status"}
+    each (the `commands` fixture records them when they have answered)."""
+    settle(rig)
     return [e for e in rig.sent_commands if e["kind"] == kind and e["who"] == "minilab"]
 
 
@@ -212,6 +214,18 @@ def test_a_press_live_refuses_puts_the_pads_light_back(held):
     assert by_minilab(rig, "steps.toggle")[-1]["status"] == 409 and notes(rig) == before
     settle(rig)
     assert lit(rig) == [0, 12]
+
+
+def test_a_press_is_a_history_row_by_the_minilab_and_undo_puts_the_light_out(held):
+    rig = held
+    press(rig, 5)
+    assert wait_for(lambda: focus_of(rig)["steps"][5] == 100)
+    settle(rig)
+    assert lit(rig) == [0, 5, 12]
+    last = rig.desk.history.entries[-1]
+    assert (last["k"], last["who"]) == ("steps", "minilab")
+    assert ask(rig, "history.undo")[0] == 200
+    assert wait_for(lambda: lit(rig) == [0, 12]) and focus_of(rig)["steps"][5] == 0
 
 
 def test_a_pager_that_starts_again_is_told_the_focus(held):
