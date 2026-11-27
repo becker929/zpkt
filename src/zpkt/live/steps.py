@@ -20,11 +20,14 @@ Arrangement view only: nothing here makes, launches or reads a Session clip or a
 
 from __future__ import annotations
 
+import json
 from collections import Counter
 from collections.abc import Iterable, Mapping, Sequence
 from typing import Any, NotRequired, TypedDict
 
 from zpkt.live.inlive import steps as inside
+from zpkt.live.inlive import with_source
+from zpkt.live.transport import McpTransport
 
 BARS = (1, 2, 4)
 STEPS_PER_BAR = (8, 12, 16, 24, 32)
@@ -33,6 +36,7 @@ MAX_SWING = 0.75  # of a step
 ON_GRID = 0.25  # steps: a note this near a step is on it; further off, the grid does not show it
 _NEAR = 1e-6  # steps: rounding room for the comparisons above
 _PITCH_NAMES = ("C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B")
+MAX_SOUNDS = 64  # pads `sounds` gives at most
 
 Note = tuple[int, float, float, int]  # pitch, start in beats from the pattern's start, duration in beats, velocity
 
@@ -270,3 +274,183 @@ def from_notes(
         "swing": swing,
         "off_grid": off_grid,
     }
+
+
+# --------------------------------------------------------------------------- Live: tracks and sounds
+
+TrackRef = str | int  # a track by name, as everywhere in zpkt.live (zpkt.live.inlive.tracks), or by index
+
+
+class MidiTrack(TypedDict):
+    name: str
+    index: int  # among the set's tracks
+    color: str  # "#rrggbb", or "" when Live gave none
+    drum_rack: bool  # its first instrument is a Drum Rack
+
+
+class Sound(TypedDict):
+    pitch: int
+    name: str
+
+
+def _track(track: TrackRef) -> str:
+    """The Live expression for a track: by index among the tracks, or by name (zpkt.live.inlive.tracks' rule)."""
+    if isinstance(track, bool) or (isinstance(track, int) and track < 0):
+        raise ValueError(f"a track is a name or an index from 0, not {track!r}")
+    return f"song.tracks[{track}]" if isinstance(track, int) else f"find_track(song, {track!r})"
+
+
+def _run(live: McpTransport, track: TrackRef, call: str, **args: Any) -> Any:
+    """One call to Live: `call`, an expression over the track `_t` and the arguments `_a`, with zpkt.live.inlive's
+    steps and tracks above it. The answer travels as JSON, so nested lists arrive whole."""
+    code = f"import json\n_t = {_track(track)}\n_a = json.loads({json.dumps(args)!r})\nresult = json.dumps({call})"
+    return json.loads(live.run(with_source(code, "tracks", "steps")))
+
+
+def _colour(value: object) -> str:
+    """Live's colour (0xRRGGBB as a number) as "#rrggbb"; "" when Live gave none."""
+    return f"#{value & 0xFFFFFF:06x}" if isinstance(value, int) and value else ""
+
+
+def midi_tracks(live: McpTransport) -> list[MidiTrack]:
+    """The set's MIDI tracks, in the set's order. One call."""
+    found = json.loads(live.run(with_source("import json\nresult = json.dumps(midi_track_list(song))", "steps")))
+    return [
+        {
+            "name": str(t["name"]),
+            "index": int(t["index"]),
+            "color": _colour(t["color"]),
+            "drum_rack": bool(t["drum_rack"]),
+        }
+        for t in found
+    ]
+
+
+def sounds(live: McpTransport, track: TrackRef) -> list[Sound]:
+    """A Drum Rack track's pads that hold something, lowest first (64 at most); an empty list for any other
+    instrument, where a page offers pitches itself. One call."""
+    found = _run(live, track, "pad_sounds(_t, **_a)", cap=MAX_SOUNDS)
+    return [{"pitch": int(s["pitch"]), "name": str(s["name"])} for s in found]
+
+
+# --------------------------------------------------------------------------- Live: the pattern clip
+
+_NOTE_SPEC = "Live.Clip.MidiNoteSpecification"
+
+
+class ClipInfo(TypedDict):
+    """An Arrangement clip: its name, and where it starts and ends in beats."""
+
+    name: str
+    start: float
+    end: float
+
+
+class Read(TypedDict):
+    """What a span of bars holds. `clip` is the MIDI clip that covers exactly the span, None when there is none;
+    `blocked` names the clips in the way of writing the span (a clip of another length, an audio clip, a clip that
+    loops inside itself); `off_grid` is the pattern's: the notes the grid does not show; `hash` is the notes'
+    content hash, the one `painted` gives for a clip holding the same notes."""
+
+    pattern: Pattern
+    clip: ClipInfo | None
+    off_grid: int
+    blocked: list[ClipInfo]
+    beats_per_bar: float
+    hash: str
+
+
+class Blocked(TypedDict):
+    """Nothing was changed: clips are in the way (they are never cut)."""
+
+    error: str
+    blocked: list[ClipInfo]
+
+
+class Written(Read):
+    """What `read` gives after the write, with the notes the span held before it and whether the clip is new."""
+
+    before: list[Note]
+    created: bool
+
+
+def _as_notes(found: Iterable[Sequence[float]]) -> list[Note]:
+    return [(int(p), float(s), float(d), int(v)) for p, s, d, v in found]
+
+
+def _as_read(
+    found: Mapping[str, Any],
+    bars: int,
+    steps_per_bar: int,
+    pitches: Sequence[int] | None,
+    swing: float,
+    names: Mapping[int, str] | None,
+) -> Read:
+    notes = _as_notes(found["notes"])
+    named = {**{int(pitch): str(name) for pitch, name in found["names"].items()}, **(names or {})}
+    grid = from_notes(notes, bars, steps_per_bar, float(found["beats_per_bar"]), pitches, names=named, swing=swing)
+    return {
+        "pattern": grid,
+        "clip": found["clip"],
+        "off_grid": grid.get("off_grid", 0),
+        "blocked": list(found["blocked"]),
+        "beats_per_bar": float(found["beats_per_bar"]),
+        "hash": content_hash(notes),
+    }
+
+
+def read(
+    live: McpTransport,
+    track: TrackRef,
+    bar: int,
+    bars: int,
+    steps_per_bar: int = 16,
+    pitches: Sequence[int] | None = None,
+    *,
+    swing: float = 0.0,
+    names: Mapping[int, str] | None = None,
+) -> Read:
+    """The pattern in the Arrangement on `track` over `bars` bars from `bar` (counted from 1; a bar is as long as
+    the song's signature says). The notes of every MIDI clip in the span are read, whether or not one clip covers
+    exactly it. Rows are named from `names`, else from the Drum Rack's pads, else by note. `swing` is the swing the
+    notes were written with, if the caller knows it (`from_notes`). One call."""
+    check_grid(bars, steps_per_bar)
+    found = _run(live, track, "pattern_look(song, _t, **_a)", bar=check_bar(bar), bars=bars)
+    return _as_read(found, bars, steps_per_bar, pitches, check_swing(swing), names)
+
+
+def write(
+    live: McpTransport, track: TrackRef, bar: int, pattern: Mapping[str, Any], name: str | None = None
+) -> Written | Blocked:
+    """Make the span of the pattern's bars from `bar` hold exactly this pattern. A MIDI clip that covers exactly the
+    span gets its notes replaced; a free span gets a new clip of that length (named `name` if given; the clip's
+    loop settings stay as Live makes them); when other clips reach into the span, nothing is changed and the
+    answer is {"error", "blocked": [{"name", "start", "end"}]}: clips are never cut.
+
+    The write is one call. What the span holds afterwards is read in a second short call (nothing is read in the
+    call that wrote it: ableton-guide rule 1) and returned as `read` gives it, with `before`, the notes the span
+    held, and `created`, whether the clip is new: enough to undo the write."""
+    checked = check(pattern)
+    notes = _notes(checked, 1.0 / checked["steps_per_bar"])  # times in bars: Live knows how long its bar is
+    did = _run(
+        live,
+        track,
+        f"pattern_put(song, _t, {_NOTE_SPEC}, **_a)",
+        bar=check_bar(bar),
+        bars=checked["bars"],
+        notes=[list(n) for n in notes],
+        name=name,
+    )
+    if "error" in did:
+        return {"error": str(did["error"]), "blocked": list(did["blocked"])}
+    after = read(
+        live,
+        track,
+        bar,
+        checked["bars"],
+        checked["steps_per_bar"],
+        [r["pitch"] for r in checked["rows"]],
+        swing=checked.get("swing", 0.0),
+        names={r["pitch"]: r["name"] for r in checked["rows"]},
+    )
+    return {**after, "before": _as_notes(did["before"]), "created": bool(did["created"])}

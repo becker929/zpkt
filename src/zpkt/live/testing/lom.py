@@ -416,9 +416,39 @@ class Chain(LiveObject):
         for d in self._devices:
             d._parent = self
         self._mixer = ChainMixerDevice(self)
+        self._pad_note: int | None = None  # in a Drum Rack: the note of the pad this chain is on
 
     devices = property(lambda self: tuple(self._devices))
     mixer_device = property(lambda self: self._mixer)
+
+
+class DrumPad(LiveObject):
+    """One of a Drum Rack's 128 pads, one per MIDI note (ableton-guide 6). A pad holds something when it has
+    chains; the fake keeps the note on the chain and the pad looks its chains up."""
+
+    mute = Prop(False, check=_flag)
+    solo = Prop(False, check=_flag)
+
+    def __init__(self, rack: RackDevice, note: int) -> None:
+        super().__init__(rack)
+        self._note = note
+
+    note = property(lambda self: self._note)
+
+    @property
+    def chains(self) -> tuple[Chain, ...]:
+        return tuple(c for c in cast(RackDevice, self._parent)._chains if c._pad_note == self._note)
+
+    @property
+    def name(self) -> str:
+        """GUESS: a filled pad is named after its first chain, an empty one after its note ("C1")."""
+        chains = self.chains
+        if chains:
+            return str(chains[0]._values["name"])
+        return f"{('C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B')[self._note % 12]}{self._note // 12 - 2}"
+
+    def _label(self) -> str:
+        return f"DrumPad {self._note}"
 
 
 class RackDevice(Device):
@@ -438,10 +468,20 @@ class RackDevice(Device):
         self._chains = list(chains)
         for c in self._chains:
             c._parent = self
+        self._pads: tuple[DrumPad, ...] = ()
 
     chains = property(lambda self: tuple(self._chains))
     return_chains = property(lambda self: ())
-    drum_pads = property(lambda self: ())
+
+    @property
+    def drum_pads(self) -> tuple[DrumPad, ...]:
+        """A Drum Rack's 128 pads, indexed by MIDI note; no pads on another rack."""
+        if not self.can_have_drum_pads:
+            return ()
+        if not self._pads:
+            self._pads = tuple(DrumPad(self, note) for note in range(128))
+        return self._pads
+
     can_have_chains = property(lambda self: True)
     can_have_drum_pads = property(lambda self: self._class_name == "DrumGroupDevice")
 
@@ -953,7 +993,9 @@ class Track(LiveObject):
             name=clip._values["name"],
             parent=self,
         )
+        copy._values.update(clip._values)  # the whole clip: its markers, loop, colour and mute too
         copy._notes = [n.copy() for n in clip._notes]
+        copy._next_id = clip._next_id
         return self._add_clip(copy)
 
     def stop_all_clips(self, quantized: bool = True) -> None:

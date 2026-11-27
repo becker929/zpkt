@@ -11,7 +11,9 @@
 Values are raw LOM values (volume 0.85 shows 0.0 dB). A track's "type" is "audio" (the default), "midi" or "group";
 "group": "Drums" puts it in that group track. A device is a built-in's browser name, a dict naming one (with "name",
 "on", "params", rack "chains"), or a dict with "class_name" and "params" for anything else (a plug-in, see
-devices.custom). Returns are named without their letter: Live puts "A-" in front.
+devices.custom). A Drum Rack's chain may say its pad's "note" (36 is C1; left out, pads fill upward from 36). A
+track's "color" is 0xRRGGBB; a MIDI clip's "notes" are [pitch, start, duration, velocity]. Returns are named without
+their letter: Live puts "A-" in front.
 """
 
 from __future__ import annotations
@@ -26,6 +28,7 @@ SET_KEYS = {"tempo", "tracks", "returns", "main", "loop", "loop_start", "loop_le
 TRACK_KEYS = {
     "name",
     "type",
+    "color",
     "volume",
     "pan",
     "sends",
@@ -109,7 +112,7 @@ def _fill(track: Track, t: Mapping[str, Any]) -> None:
         raise ValueError(f"{track.name!r}: {len(sends)} sends, but the set has {len(mixer.sends)} returns")
     for send, value in zip(mixer.sends, sends, strict=False):
         send.value = value
-    for flag in ("mute", "solo"):
+    for flag in ("mute", "solo", "color"):
         if flag in t:
             setattr(track, flag, t[flag])
     for d in t.get("devices", ()):
@@ -128,10 +131,16 @@ def device(d: str | Mapping[str, Any]) -> Device:
         if name not in by:
             raise ValueError(f"{made.name!r} has no parameter {name!r}; it has: {', '.join(by)}")
         by[name].value = value
-    for c in d.get("chains", ()):
+    for k, c in enumerate(d.get("chains", ())):
         if not made.can_have_chains:
             raise ValueError(f"{made.name!r} is not a rack: it has no chains")
-        made._chains.append(Chain(str(c["name"]), [device(x) for x in c.get("devices", ())], parent=made))
+        chain = Chain(str(c["name"]), [device(x) for x in c.get("devices", ())], parent=made)
+        if made.can_have_drum_pads:
+            # GUESS: a Drum Rack filled in order starts at C1 (36), as the pads a new rack shows first
+            chain._pad_note = int(c.get("note", 36 + k))
+        elif "note" in c:
+            raise ValueError(f"{made.name!r} is not a Drum Rack: its chain {c['name']!r} is on no pad")
+        made._chains.append(chain)
     return made
 
 
