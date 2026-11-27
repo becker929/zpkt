@@ -34,6 +34,7 @@ the command and a row.
 | Will this page of controls work, and how does it land on the MiniLab? | `zpkt live page lint PAGE.json` (`zpkt.live.page`; contract `lib/contracts/page.schema.json`) |
 | What changed between two mixes, and who moved it? | `zpkt.live.changes.between(a, b, who)`; one set's stream in `<sets_dir>/changes/<set>.jsonl` |
 | Render a span to a file | `zpkt live export FILE --start BEAT --length BEATS` |
+| Bounce the mix or one track or group over bars, and read it in a few numbers | the app's `render.bounce {what, bars}` and `render.measure {file, detail, against}` (an Ask agent's `bounce_audio` and `measure_audio`); underneath `zpkt.live.bounce.bounce(live, out, start, length, track=None)` and `zpkt.audio.brief` |
 | Which output is Live playing through? / Play through another one | `zpkt live rig output [NAME]` (e.g. `Yeti`) |
 | Render many variants of a section in one export | `zpkt live kit template ...`, then `zpkt live kit render BATCH KIT` (probe kits: the fast batch-render method) |
 | Try a sound with knobs to turn | `zpkt live panel make --spec ...` (below) |
@@ -69,6 +70,7 @@ the command and a row.
 | `knobs.py`, `units.py` | `Knob(track, device, param)`: `.id` (`track/Tag#i/param`), `.pipe_id` (`track\|Tag:i\|param`), `Knob.parse` (both); `set_many`, `read_many`, `apply(client, values, *, verify=True)`; `units.UNITS`, the measured .als-to-LOM conversions |
 | `export.py` | `export(client, out, start, length, *, method="keys"\|"menu", staging=None, ...)`: both ways through the Export dialog; `export_by_menu` (no keystrokes, Main), `save_as(folder, name, *, project=True)`, `SavePanel(reach="where_popup"\|"go_to_folder")` |
 | `render.py` | `export(...)`, the keystroke method (`export_audio.applescript`) |
+| `bounce.py` | one file for the mix or for one track, group or return: `facts(live, stop_playing=False)` (tempo, bar, song end, loop, tracks with kind, solo and mute, in one call) and `bounce(live, out, start_beat, length_beats, track=None, bits=24)` (one export, the file under the name asked for) |
 | `ops.py` | `LiveOps(client, staging=None, save_panel=SavePanel())`: `run`, `guard`, `setp` and `mixer` in shown units, `params`, `load_item`, `select_track`, `devices`, `export`, `save_as`, for scripts that build and render sets (the arranger, the mix desk; outside zpkt, the music bot's booth) |
 | `timeops.py` | `select(client, start, length)`, `delete`, `duplicate`, `copy`, `paste`, each checked by where the song ends |
 | `record.py` | `record_arrangement` (writes `<take>.timing.json`), `record_via_resampling`: real-time takes |

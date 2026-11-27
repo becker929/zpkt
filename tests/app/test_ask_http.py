@@ -220,6 +220,8 @@ def test_the_tool_route_runs_a_command_as_agent_and_refuses_the_rest(asked):
         "make_page",
         "read_state",
         "read_measurement",
+        "bounce_audio",
+        "measure_audio",
         "change_live",
         "propose_live",
     ]
@@ -264,7 +266,7 @@ def test_a_real_claude_process_reaches_the_tools_through_the_mcp_server_and_the_
     assert result["status"] == "success"
     inner = json.loads(json.loads(result["output"])["content"][0]["text"])
     assert inner["set"] == "HW002_121_pp_finish"
-    assert "tools: make_page,read_state,read_measurement,change_live" in "".join(
+    assert "tools: make_page,read_state,read_measurement,bounce_audio,measure_audio,change_live" in "".join(
         e.get("content", "") for e in events if e["type"] == "message"
     )
     assert [r["who"] for r in asked.rig.desk.bus.log if r["kind"] == "desk.state"] == ["agent"]

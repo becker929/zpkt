@@ -144,7 +144,7 @@ class AskRoutes:
             )
         if (
             method == "GET" and api == "/tools"
-        ):  # the five built in, then one for each ability: as an agent has them now
+        ):  # the seven built in, then one for each ability: as an agent has them now
             return send(
                 {
                     "tools": [

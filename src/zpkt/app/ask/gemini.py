@@ -38,7 +38,7 @@ GEMINI_MODE = {
     "yolo": "yolo",
     "plan": "plan",
 }
-# The app's tools by name: the five built in, and any ability (ability_<name>), which is a tool like the others.
+# The app's tools by name: the seven built in, and any ability (ability_<name>), which is a tool like the others.
 APP_TOOLS = re.compile(
     r"(?<![A-Za-z])(" + "|".join([*(re.escape(t.name) for t in TOOLS), ABILITY_TOOL.pattern]) + r")(?![A-Za-z_])"
 )

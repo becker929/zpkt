@@ -19,6 +19,7 @@ READS = {
     "page.layout",
     "page.lint",
     "page.list",
+    "render.measure",
     "desk.state",
     "state.read",
     "state.take",
@@ -63,6 +64,7 @@ MOVES = {
     "page.organize",
     "page.set",
     "pager.restart",
+    "render.bounce",
     "state.put",
     "steps.erase",
     "steps.focus",
@@ -84,7 +86,9 @@ MOVES = {
 # `live.propose` (structure and code) is NOT here: it needs the person's tap (zpkt.app.propose).
 # `ability.run`, by his decision of the same day ("an 'Always' button which adds the code to an auto allowed set"):
 # it runs only code the person kept with "Always" on a card, so the word was given before (zpkt.app.abilities).
-AGENT_MAY = {"live.change", "ability.run"}
+# `render.bounce`, by his decision of the same day ("It should know how to bounce tracks and projects"): it renders
+# the mix or the set's own tracks to new files and changes no value of the mix (zpkt.app.bounce_commands).
+AGENT_MAY = {"live.change", "ability.run", "render.bounce"}
 
 
 def test_an_agent_may_make_exactly_these_moves_on_its_own(asked):

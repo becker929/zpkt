@@ -5,9 +5,9 @@ The modes, for both engines:
     auto       the default (Anthony, 26 November 2026: "full power again with shell and auto mode and everything"): the
                agent has every tool, the shell and file edits included, and the app's tools. Claude Code runs in its own
                `auto` permission mode, where it decides for itself what is safe to do; Gemini CLI runs in `yolo`.
-    build      the careful one: the agent advises and uses the app's five tools (make or
-               change a page, read the state, read the measurement, change Live, propose a change to Live). It reads
-               files. It cannot edit a file or run a command, and no mode's question is asked.
+    build      the careful one: the agent advises and uses the app's seven tools (make or
+               change a page, read the state, read the measurement, bounce audio, measure audio, change Live,
+               propose a change to Live). It reads files. It cannot edit a file or run a command, and no mode's question is asked.
     ask        the same, and with Gemini every edit and command waits for a yes from the page. Claude Code has nobody
                to ask on this page, so there it is `build`.
     auto_edit  developer: edits files without asking, no shell.
@@ -15,10 +15,11 @@ The modes, for both engines:
     plan       read-only with no tools: the summary of a compaction is written in it. The page never sends it; a turn
                that names it runs as `build` (service.py).
 
-The app's tools run in every mode without a question from the mode. Three of them never move Live. The fourth,
-`change_live`, does (Anthony, 26 November 2026: values and devices are act, then undo, no question asked): the app
-checks each batch whole and keeps it as one History row that one undo takes back (zpkt.app.change). The fifth,
-`propose_live`, is the other half of that decision: structure and code are ask first. It carries its own question,
+The app's tools run in every mode without a question from the mode. Four of them never move Live, and
+`bounce_audio` renders from it without changing the mix (zpkt.app.bounce_commands).
+`change_live` moves it (Anthony, 26 November 2026: values and devices are act, then undo, no question asked): the app
+checks each batch whole and keeps it as one History row that one undo takes back (zpkt.app.change).
+`propose_live` is the other half of that decision: structure and code are ask first. It carries its own question,
 in every mode and for both engines: the app shows the batch as a card in the chat and runs it only after the
 person's tap (zpkt.app.propose, tools.py). That question is the app's, not the engine's permission prompt.
 An ability (`ability_<name>`: code the person answered with "Always" on such a card, zpkt.app.abilities) is one

@@ -763,7 +763,7 @@ the Ask tab of `/app/` (`/app/#ask`); its page and API are under `/app/ask/`.
   The main conversation cannot be deleted. (Until 26 November 2026 the most recent old session became the main one.
   On its next start the store puts such an adopted session back in the archive, once: `SessionStore._fresh_mains`.)
 - **Modes.** A producer has one mode, `auto`, and no menu: full power (Anthony, 26 November 2026). The agent has the
-  shell, file edits, every tool and the app's five tools (and the abilities). For Claude Code that is `--permission-mode auto` (Claude
+  shell, file edits, every tool and the app's seven tools (and the abilities). For Claude Code that is `--permission-mode auto` (Claude
   Code decides what is safe; nothing is disallowed and the Mac's other MCP servers are there); for Gemini it is
   `yolo`, and a question it still asks is answered yes. The default models are `claude-opus-5-5` and `gemini-4-neon`
   (`CLAUDE_AGENT_MODEL` and `GEMINI_AGENT_MODEL` override them). The careful mode `build` is still there: the app's
@@ -782,9 +782,9 @@ the Ask tab of `/app/` (`/app/#ask`); its page and API are under `/app/ask/`.
   event and then a `compacted` event with `summary`, `keep_from`, `turns`, `tokens` and `pages`. The file on disk is
   never cut. If the summary fails or takes over 3 minutes, the event says `failed` and the turn goes on with the
   last turns only. Your message is never lost. The rules are in `ask/compaction.py`.
-- **Tools.** An agent has five tools and no others: make or change a page (`page.draft`), read the state
+- **Tools.** An agent has seven tools and no others: make or change a page (`page.draft`), read the state
   (`desk.state`, older name `state.read`, which also lists `units` with their ids and pads), read the last
-  measurement, change Live (`change_live`, the command `live.change`: a batch of value and device steps in one
+  measurement, bounce audio and measure it (`bounce_audio` and `measure_audio`, next), change Live (`change_live`, the command `live.change`: a batch of value and device steps in one
   call, above), and propose a change that waits for my tap (`propose_live`, the commands `live.propose.check` and
   `live.propose`: a batch that may remove a device, make a track or run code, above). It cannot organize pages: order and archive are the person's. When I want to try an alternative it makes
   a page with compare states, or changes the one it made (Pages, Compare), and links to it.
@@ -793,7 +793,29 @@ the Ask tab of `/app/` (`/app/#ask`); its page and API are under `/app/ask/`.
   `change_live` moves Live on the agent's own word, `propose_live` moves it after my tap, an ability
   (`ability_<name>`, one tool each: "Abilities", above) runs code I allowed for good, and an agent cannot name
   any other command. A `propose_live` call may take 4 minutes (the wait for the tap), so the MCP server gives that
-  tool 5 (`mcp.timeout_for`); Gemini CLI gives an MCP call 10.
+  tool 5 (`mcp.timeout_for`), and `bounce_audio` the same for its exports; Gemini CLI gives an MCP call 10.
+- **Bounce and measure: how an agent hears** (Anthony, 26 November 2026: "The agent thinks it can't run a render.
+  It should know how to bounce tracks and projects. And efficiently access the results without pulling them fully
+  into context."; `bounce_commands.py`). `bounce_audio` (the command `render.bounce`) renders the mix, or up to
+  four tracks, groups or returns, over a range of bars through Live's Export dialog: `what` ("mix", a name, a
+  list) and `bars` ("loop", "song", or `[first, last]` counted from 1 with both included; default the loop when
+  on, else the song). Each file is a 24-bit WAV in `<renders_dir>/bounce` with a small `.json` beside it (what,
+  bars, tempo). The answer never holds audio: per file the path and a short sheet of about twenty numbers
+  (`zpkt.audio.brief`: LUFS, true peak, peak, RMS, crest, the Monitor's five bands as parts of the RMS, and the
+  stereo correlation and width). `measure_audio` (`render.measure`, a read) gives one more view of one window per
+  call: `detail` "summary", "spectrum" (third octaves) or "over_time" (RMS and peak per bar, grouped to at most
+  64 steps), a window in `bars` or `seconds`, and `against` for the difference to a second bounce (the same bars)
+  or a reference by its id (whole). With no `file` it lists the bounces kept. The agent plays a bounce to me with
+  an `audio` block.
+
+  | | |
+  |---|---|
+  | Who may | `render.bounce` is a move an agent may ask for on its own (`effects.AGENT_MAY`); the page's set only |
+  | What it costs | about 13 s a file and 0.1 s per second of audio; at most 4 files and 600 s of audio a call; the tool may take 5 minutes (`Tool.takes_s`) |
+  | What it changes | no value of the mix, no History row, no version. Playback stops. Now is heard for it: a heard reference is left (`was_hearing`), a heard Pin comes back. The loop comes back; the time selection is the range bounced |
+  | What it never does | bounce a monitor track (`mon ...`), un-solo or un-mute anything (it names `soloed` tracks and marks a `silent` file) |
+  | What is kept | the newest bounces up to 2 GB (`KEEP_BYTES`); older ones go, each with its `.json` |
+
 - **Live only through the app.** Ask's agents have a shell, and `ZPKT_AGENT=1` is set in it. With that set, every
   `zpkt live` (or `hands`) command that changes Live stops before it does anything and names `change_live` and
   `propose_live`:

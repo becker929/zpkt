@@ -113,7 +113,7 @@ def test_an_ability_is_a_tool_with_its_documentation_and_schema(asked):
     keep(asked, DOUBLE)
     listed = {t.name: t for t in asked.ask.gate.tools()}
     assert list(listed) == [
-        "make_page", "read_state", "read_measurement", "change_live", "propose_live",
+        "make_page", "read_state", "read_measurement", "bounce_audio", "measure_audio", "change_live", "propose_live",
         "ability_double_tempo", "ability_read_tempo", "ability_set_tempo",
     ]  # fmt: skip
     tool = listed["ability_set_tempo"]
@@ -229,7 +229,7 @@ def test_the_mcp_server_lists_the_apps_tools_and_tells_when_a_call_changed_them(
     go.set()
     replies = [json.loads(x) for x in out.getvalue().splitlines()]
     assert replies[0]["result"]["capabilities"] == {"tools": {"listChanged": True}}
-    assert len(replies[1]["result"]["tools"]) == 5
+    assert len(replies[1]["result"]["tools"]) == 7
     assert json.loads(replies[2]["result"]["content"][0]["text"])["abilities"][0]["tool"] == "ability_set_tempo"
     assert replies[3] == {"jsonrpc": "2.0", "method": "notifications/tools/list_changed"}  # right after that call
     names = [t["name"] for t in replies[4]["result"]["tools"]]
