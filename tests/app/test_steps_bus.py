@@ -311,3 +311,81 @@ def test_an_agent_reads_the_focus_in_the_desks_state(asked, monkeypatch):
     ask(rig, "steps.focus", {"track": "Drums", "bar": 2, "bars": 1, "pitch": SNARE})
     got = ask(rig, "desk.state", who="agent")[1]["steps"]
     assert (got["track"], got["bar"], got["name"], got["steps"]) == ("Drums", 2, "Snare", [0] * 16)
+
+
+# ---- painting the pattern along the track ---------------------------------------------------------------------------
+
+
+def beat(rig, bar=1, steps_on=(0, 4, 8, 12), pitch=KICK):
+    for step in steps_on:
+        assert (
+            ask(rig, "steps.toggle", {"track": "Drums", "bar": bar, "bars": 1, "pitch": pitch, "step": step})[0] == 200
+        )
+
+
+def test_paint_stamps_the_clip_and_the_reply_says_which_bars_hold_the_pattern(drums):
+    rig = drums
+    beat(rig)
+    mine = ask(rig, "steps.read", {"track": "Drums", "bar": 1, "bars": 1})[1]["hash"]
+    code, got = ask(
+        rig, "steps.paint", {"track": "Drums", "from_bar": 1, "bars": 1, "to": [2, 3, 5, 1], "total_bars": 40}
+    )
+    assert code == 200 and got["painted"] == [2, 3, 5] and got["replaced"] == []
+    assert got["skipped"] == [{"bar": 1, "why": "the bars painted from"}]
+    assert got["clips"] == [{"bar": b, "hash": mine, "name": ""} for b in (1, 2, 3, 5)]
+    assert clips(rig) == [(0.0, 4.0), (4.0, 8.0), (8.0, 12.0), (16.0, 20.0)]
+    # another pattern on bar 3: the same length, another hash; painting over it replaces it
+    ask(rig, "steps.toggle", {"track": "Drums", "bar": 3, "bars": 1, "pitch": SNARE, "step": 4})
+    other = ask(rig, "steps.read", {"track": "Drums", "bar": 3, "bars": 1})[1]
+    assert other["hash"] != mine and {c["bar"]: c["hash"] for c in other["painted"]}[3] == other["hash"]
+    again = ask(rig, "steps.paint", {"track": "Drums", "from_bar": 1, "bars": 1, "to": [3]})[1]
+    assert again["painted"] == [3] and again["replaced"] == [3]
+    assert {c["bar"]: c["hash"] for c in again["clips"]} == dict.fromkeys((1, 2, 3, 5), mine)
+
+
+def test_erase_deletes_the_copies_and_skips_what_is_not_one(drums):
+    rig = drums
+    beat(rig)
+    ask(rig, "steps.paint", {"track": "Drums", "from_bar": 1, "bars": 1, "to": [2, 3, 4]})
+    rig.conn.run("t = [t for t in song.tracks if t.name == 'Drums'][0]\nt.create_midi_clip(16.0, 8.0)\nresult = 1")
+    code, got = ask(rig, "steps.erase", {"track": "Drums", "bars": [3, 4, 5, 9], "length": 1})
+    assert code == 200 and got["erased"] == [3, 4]
+    assert [(k["bar"], k["why"]) for k in got["skipped"]] == [
+        (5, "a clip of another length is in the way"),
+        (9, "no clip there"),
+    ]
+    assert [c["bar"] for c in got["clips"]] == [1, 2] and clips(rig) == [(0.0, 4.0), (4.0, 8.0), (16.0, 24.0)]
+    # painting onto the long clip's bars skips them: a clip is never cut
+    over = ask(rig, "steps.paint", {"track": "Drums", "from_bar": 1, "bars": 1, "to": [5, 6, 7]})[1]
+    assert over["painted"] == [7] and [k["bar"] for k in over["skipped"]] == [5, 6]
+
+
+def test_paint_needs_a_clip_to_paint_from_and_the_usual_rails_hold(drums):
+    rig = drums
+    code, got = ask(rig, "steps.paint", {"track": "Drums", "from_bar": 1, "bars": 1, "to": [2]})
+    assert code == 409 and got["error"] == "no MIDI clip covers exactly the bars to paint from" and clips(rig) == []
+    beat(rig)
+    for kind, args in [
+        ("steps.paint", {"track": "Drums", "from_bar": 1, "bars": 1, "to": [2]}),
+        ("steps.erase", {"track": "Drums", "bars": [1], "length": 1}),
+    ]:
+        assert ask(rig, kind, args, who="agent")[0] == 403, kind
+        assert ask(rig, kind, {**args, "track": "mon A"})[0] == 403, kind
+    assert ask(rig, "steps.paint", {"track": "Drums", "from_bar": 1, "bars": 1, "to": []})[0] == 400
+    assert ask(rig, "steps.paint", {"track": "Drums", "from_bar": 1, "bars": 1, "to": list(range(2, 70))})[0] == 400
+    assert ask(rig, "steps.erase", {"track": "Drums", "bars": "all", "length": 1})[0] == 400
+    assert clips(rig) == [(0.0, 4.0)]
+
+
+def test_the_focus_follows_a_paint_over_the_pattern_in_hand(drums):
+    rig = drums
+    beat(rig)
+    ask(rig, "steps.focus", {"track": "Drums", "bar": 3, "bars": 1, "pitch": KICK})
+    assert rig.state()["steps"]["steps"] == [0] * 16
+    shell = rig.desk.subscribe(app=True)
+    ask(rig, "steps.paint", {"track": "Drums", "from_bar": 1, "bars": 1, "to": [2, 3], "src": "page-9"})
+    assert rig.state()["steps"]["steps"] == [100, 0, 0, 0] * 4
+    told = heard(shell)[-1]
+    assert told["edit"] == {"track": "Drums", "bar": 2, "bars": 2, "what": "paint"} and told["src"] == "page-9"
+    ask(rig, "steps.erase", {"track": "Drums", "bars": [3], "length": 1})
+    assert rig.state()["steps"]["steps"] == [0] * 16 and heard(shell)[-1]["edit"]["what"] == "erase"

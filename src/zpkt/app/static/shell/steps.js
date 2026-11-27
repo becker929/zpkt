@@ -11,8 +11,14 @@
 //   render()      draw what is open again (the app's renderSong calls it while Steps or the kit picker shows)
 //   click(button) a press on one of this file's keys (the app's one click listener hands it over)
 //   songKeys(t)   the keys a chosen MIDI lane gets in the Song's strip; newKey(view): the key that makes a drum track
+//   painting(name), lane(t, bars), songSel(t)   Paint: the chosen lane as cells of the pattern's length, and its strip
 //   message(m)    the app's {"t": "steps"} message: the focus, and a pattern changed by another hand
 //   live()        Live's playhead or loop moved: the step under the playhead is outlined, the loop key follows
+//
+// Paint is on the Song's own lanes: the chosen MIDI lane grows and shows one cell per pattern length across the
+// song. Lime: that bar holds the pattern in hand (the clip's notes hash the same). Grey: another clip of that
+// length. Hatched: clips are in the way. A tap or a drag across cells paints them (one steps.paint a gesture); with
+// Erase lit it erases.
 //
 // The focus: while Steps shows, the app is told what is in hand (steps.focus: the pattern, the sound, the values a
 // new step gets, the sound's steps), and told nothing is when it closes. The MiniLab's pads are mapped to that.
@@ -24,7 +30,7 @@
   const ROW_MIN = 24;  // px: the least height of an overview row; fewer rows show when they do not fit
   const ST = {open: false, pick: null, track: "", bar: 1, bars: 1, view: 0, pitch: null, data: null, at: 0, per: 8,
               seq: 0, loading: false, velocity: 100, length: 1, swing: 0,
-              focus: null, ph: -1, looping: false, loopWas: null, told: Promise.resolve()};
+              focus: null, ph: -1, looping: false, loopWas: null, told: Promise.resolve(), painting: false, erase: false};
   const SRC = "page-" + Math.random().toString(36).slice(2, 8);  // this page's word on its own commands
   const icon = (n, size = 18) => `<svg width="${size}" height="${size}" aria-hidden="true"><use href="#i-${n}"/></svg>`;
   const esc = (t) => app().esc(t);
@@ -42,8 +48,89 @@
 
   // ---- the Song's own keys ------------------------------------------------------------------------------------------
   function songKeys(t) {
-    return t && t.midi ? `<button class="key sm" type="button" data-st="open" aria-label="Steps: ${esc(t.name)}">${icon("steps")}Steps</button>` : "";
+    return t && t.midi ? `<button class="key sm" type="button" data-st="open" aria-label="Steps: ${esc(t.name)}">${icon("steps")}Steps</button>`
+      + `<button class="key sm" type="button" data-st="paint" aria-pressed="false" aria-label="Paint: ${esc(t.name)}">${icon("paint")}Paint</button>` : "";
   }
+
+  // ---- Paint, on the Song's lanes ---------------------------------------------------------------------------------
+  // Is the lane called `name` the one being painted? Choosing another lane, or none, ends painting.
+  function painting(name) {
+    if (ST.painting && (ST.open || app().S.song.sel !== ST.track)) ST.painting = false;
+    return ST.painting && ST.track === name;
+  }
+  // The chosen lane's inside while it is painted: one cell per pattern length, from the pattern's own bar outward.
+  function lane(t, total) {
+    if (!painting(t.name)) return null;
+    const n = ST.bars, off = (ST.bar - 1) % n, count = Math.max(0, Math.floor((total - off) / n)), per = perBar(), d = ST.data;
+    const have = new Map(((d && d.painted) || []).map((c) => [c.bar, c.hash])), mine = d && d.clip ? d.hash : null;
+    let cells = "";
+    for (let k = 0; k < count; k++) {
+      const bar = off + 1 + k * n, from = (bar - 1) * per, to = from + n * per, hash = have.get(bar);
+      const exact = (r) => Math.abs(r.start - from) < 1e-6 && Math.abs(r.end - to) < 1e-6;
+      const kind = hash !== undefined ? (hash === mine ? "p" : "o") : t.regions.some((r) => r.start < to - 1e-6 && r.end > from + 1e-6 && !exact(r)) ? "x" : "";
+      cells += `<i class="st-cell ${kind} ${bar === ST.bar ? "src" : ""}" data-bar="${bar}" style="left:${((bar - 1) / total * 100).toFixed(3)}%;width:calc(${(n / total * 100).toFixed(3)}% - 1px)"></i>`;
+    }
+    return `<div class="st-cells ${ST.erase ? "erasing" : ""}" data-total="${total}" role="group" aria-label="Paint ${esc(t.name)}">${cells}</div>`;
+  }
+  // The strip under the lanes while painting: the pattern small, the track, Steps, Erase, Paint (lit).
+  function songSel(t) {
+    if (!painting(t.name)) return null;
+    const shown = rows().filter((r) => r.steps.some(Boolean)).slice(0, 8), list = shown.length ? shown : rows().slice(0, 4);
+    const thumb = list.map((r) => r.steps.slice(0, PER).map((v) => `<i class="${v ? "on" : ""}"></i>`).join("")).join("");
+    return `<span class="st-thumb" id="st-thumb" role="img" aria-label="The pattern at bar ${ST.bar}">${thumb}</span><span class="sn">${t.color ? `<i class="cd" style="background:${esc(t.color)}"></i>` : ""}<b>${esc(t.name)}</b></span>`
+      + `<button class="key sm" type="button" data-st="steps" aria-label="Steps: ${esc(t.name)}">${icon("steps")}Steps</button>`
+      + `<button class="key sm ${ST.erase ? "on" : ""}" type="button" data-st="erase" aria-pressed="${ST.erase}" aria-label="Erase">${icon("erase")}Erase</button>`
+      + `<button class="key sm on" type="button" data-st="paint" aria-pressed="true" aria-label="Paint">${icon("paint")}Paint</button>`;
+  }
+  // Paint for a track: with the pattern Steps had in hand on it, else the one at the loop's first bar or the playhead.
+  function paintOn(name) {
+    if (!trackOf(name)) return;
+    const keep = ST.track === name && ST.data;
+    if (ST.open) leaveSteps();
+    if (!keep) Object.assign(ST, {track: name, bar: startBar(), bars: 1, view: 0, pitch: null, data: null, at: 0});
+    Object.assign(ST, {open: false, pick: null, painting: true, erase: false});
+    app().S.song.sel = name;
+    app().renderSong();
+    load(true);  // the pattern's clip and hash as Live has them now, and which bars hold it
+  }
+  function paintOff() { ST.painting = false; ST.erase = false; app().renderSong(); }
+  // A gesture on the cells: a tap is one cell, a drag every cell it crosses. One command when the hand lifts.
+  let stroke = null;
+  function cellIndex(x, box) {
+    const rect = box.getBoundingClientRect(), total = +box.dataset.total, n = ST.bars, off = (ST.bar - 1) % n;
+    const bar = Math.floor((x - rect.left) / rect.width * total);
+    return Math.max(0, Math.min(box.children.length - 1, Math.floor((bar - off) / n)));
+  }
+  function strokeTo(index) {
+    const lo = Math.min(stroke.last, index), hi = Math.max(stroke.last, index);
+    for (let i = lo; i <= hi && stroke.picked.size < 64; i++) {
+      if (stroke.picked.has(i)) continue;
+      stroke.picked.add(i); stroke.box.children[i].classList.add("pend");
+    }
+    stroke.last = index;
+  }
+  document.addEventListener("pointerdown", (e) => {
+    const cell = e.target.closest && e.target.closest(".st-cell"), box = cell && cell.parentElement;
+    if (!cell || !ST.painting || e.button > 0) return;
+    stroke = {box, erase: ST.erase, picked: new Set(), last: cellIndex(e.clientX, box)};
+    strokeTo(stroke.last);
+    e.preventDefault();
+  });
+  document.addEventListener("pointermove", (e) => { if (stroke && stroke.box.isConnected) strokeTo(cellIndex(e.clientX, stroke.box)); });
+  document.addEventListener("pointercancel", () => { if (stroke) { stroke = null; app().renderSong(); } });
+  document.addEventListener("pointerup", async () => {
+    const st = stroke;
+    stroke = null;
+    if (!st) return;
+    if (!st.box.isConnected) return app().renderSong();
+    const bars = [...st.picked].sort((a, b) => a - b).map((i) => +st.box.children[i].dataset.bar).filter((b) => st.erase || b !== ST.bar);
+    if (!bars.length) return app().renderSong();
+    const common = {track: ST.track, total_bars: +st.box.dataset.total, src: SRC};
+    const r = await (st.erase ? app().command("steps.erase", {...common, bars, length: ST.bars}) : app().command("steps.paint", {...common, from_bar: ST.bar, bars: ST.bars, to: bars}));
+    if (r.ok && ST.data) ST.data.painted = r.body.clips;
+    if (r.ok && st.erase && bars.includes(ST.bar)) return load(true);  // the pattern's own clip went: read it again
+    app().renderSong();
+  });
   // With no MIDI track in the set there is nothing to put a pattern on: one key makes a drum track.
   function newKey(view) {
     return view && !view.tracks.some((t) => t.midi) ? `<button class="key sm" type="button" data-st="pick" aria-label="New drum track">${icon("plus")}${icon("steps")}Drum track</button>` : "";
@@ -111,17 +198,24 @@
     const z = app(), lb = z.loopBars(), st = z.S.state, per = z.songOf().beats_per_bar || 4;
     return lb ? lb[0] : Math.max(1, Math.floor(((st && st.pos) || 0) / per) + 1);
   }
-  function open(name) {
+  // `keep`: with the pattern already in hand on this track (coming from Paint), not the bar under the playhead.
+  function open(name, keep) {
     if (!trackOf(name)) return;
-    Object.assign(ST, {open: true, pick: null, track: name, bar: startBar(), bars: 1, view: 0, pitch: null, data: null, at: 0, looping: false, loopWas: null});
+    if (!(keep && ST.track === name && ST.data)) Object.assign(ST, {track: name, bar: startBar(), bars: 1, view: 0, pitch: null, data: null, at: 0});
+    Object.assign(ST, {open: true, pick: null, painting: false, erase: false, looping: false, loopWas: null});
     render();
-    load();
+    load(!!ST.data);
+  }
+  // Steps is left (closed, or for Paint): the app is told nothing is in hand, and the loop goes back to what it was.
+  function leaveSteps() {
+    ST.open = false; ST.seq++;
+    tell(null);
+    if (ST.loopWas) app().command("steps.loop", {was: ST.loopWas}, undefined, true);
+    ST.loopWas = null; ST.looping = false;
   }
   function close() {
-    ST.open = false; ST.pick = null; ST.data = null; ST.seq++;
-    tell(null);
-    if (ST.loopWas) app().command("steps.loop", {was: ST.loopWas}, undefined, true);  // the loop goes back to what it was
-    ST.loopWas = null; ST.looping = false;
+    leaveSteps();
+    ST.pick = null;
     app().renderSong();
   }
   // Tell the app what is in hand (or, with null, that nothing is), one message after the other.
@@ -138,12 +232,12 @@
     const mine = ++ST.seq, z = app(), v = z.S.song.view;
     if (!quiet) { ST.loading = true; sync(); }
     const r = await z.command("steps.read", {track: ST.track, bar: ST.bar, bars: ST.bars, swing: ST.swing, total_bars: Math.max(1, (v && v.bars) || 0, z.songOf().bars || 0)});
-    if (mine !== ST.seq || !ST.open) return;
+    if (mine !== ST.seq || !(ST.open || ST.painting)) return;
     ST.loading = false;
-    if (!r.ok) { ST.data = null; return render(); }
-    ST.data = r.body;
+    ST.data = r.ok ? r.body : null;
     if (!rowOf(ST.pitch)) ST.pitch = rows().length ? rows()[0].pitch : null;
     ST.view = Math.min(ST.view, ST.bars - 1);
+    if (!ST.open) return app().renderSong();  // Paint: the lane's cells and the strip
     render();
     tell();
   }
@@ -169,7 +263,8 @@
         <button class="key sm" type="button" data-st="close" aria-label="Close Steps">${icon("x")}</button></div>
       <div class="st-ov" id="st-ov" role="group" aria-label="Sounds">${ov}</div>${pager("st-pgs", "sndstep", "Sounds")}
       <div class="st-ml"><div class="st-head"><b id="st-name"></b></div>
-        <span class="tag">pads A</span>${pads(0)}<span class="tag">pads B</span>${pads(8)}</div></div>`);
+        <span class="tag">pads A</span>${pads(0)}<span class="tag">pads B</span>${pads(8)}</div>
+      <div class="st-keys"><span class="sp"></span><button class="key sm" type="button" data-st="paint" aria-label="Paint this pattern">${icon("paint")}Paint</button></div></div>`);
     ST.ph = -1;
     fit(); sync(); live();
   }
@@ -272,10 +367,10 @@
   // read again; a focus another hand moved on this pattern (another sound, other values) is taken up.
   function message(m) {
     ST.focus = m.focus || null;
-    if (!ST.open || m.src === SRC) return;
+    if (!(ST.open || ST.painting) || m.src === SRC) return;
     if (m.edit) { if (m.edit.track === ST.track) load(true); return; }
     const f = m.focus;
-    if (!f || f.track !== ST.track || f.bar !== ST.bar || f.bars !== ST.bars) return;
+    if (!ST.open || !f || f.track !== ST.track || f.bar !== ST.bar || f.bars !== ST.bars) return;
     if (rowOf(f.pitch)) ST.pitch = f.pitch;
     Object.assign(ST, {view: Math.min(f.view, ST.bars - 1), velocity: f.velocity, length: f.length});
     fit(); sync(); live();
@@ -294,6 +389,9 @@
     else if (what === "kit") makeTrack(t.dataset.kit);
     else if (what === "kitstep") { ST.pick.at += +t.dataset.by; fitPicker(); }
     else if (what === "open") open(app().S.song.sel);
+    else if (what === "steps") open(ST.track, true);
+    else if (what === "paint") { if (ST.painting && !ST.open) paintOff(); else paintOn(ST.open ? ST.track : app().S.song.sel); }
+    else if (what === "erase") { ST.erase = !ST.erase; app().renderSong(); }
     else if (what === "close") close();
     else if (what === "bar") stepBar(+t.dataset.by);
     else if (what === "sound") chooseSound(+t.dataset.pitch);
@@ -305,5 +403,5 @@
   const refit = () => { if (ST.pick) fitPicker(); else if (ST.open) fit(); };
   if (window.ResizeObserver) new ResizeObserver(refit).observe($("#song")); else window.addEventListener("resize", refit);
 
-  window.zpktSteps = {open, close, render, click, shown, songKeys, newKey, message, live, state: ST, src: SRC};
+  window.zpktSteps = {open, close, render, click, shown, songKeys, newKey, message, live, painting, lane, songSel, state: ST, src: SRC};
 })();

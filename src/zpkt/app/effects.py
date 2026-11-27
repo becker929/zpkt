@@ -43,7 +43,8 @@ These lines are decisions worth their reason:
   What an agent chooses at a run is the arguments, which are checked against the declared parameters and passed
   as data. The command can run nothing that was not kept that way. `ability.remove` takes the standing yes back
   at once; it is a make (a file goes), and it is yours only: its callers are the page and the command line.
-- The `steps.*` commands that change a pattern or the set (`steps.toggle`, `steps.new_track`) are moves: they write
+- The `steps.*` commands that change a pattern or the set (`steps.toggle`, `steps.paint`, `steps.erase`,
+  `steps.new_track`) are moves: they write
   notes and clips into the Arrangement or make a track. Anthony, 26 November 2026, asked for a step sequencer for
   himself and his controller: the page and the API's callers may use them, and an agent only the reads
   (`steps.tracks`, `steps.sounds`, `steps.read`, `steps.kits`).
@@ -105,6 +106,8 @@ EFFECTS: dict[str, Effect] = {
     "steps.read": "read",
     "steps.kits": "read",
     "steps.toggle": "move",
+    "steps.paint": "move",
+    "steps.erase": "move",
     "steps.new_track": "move",
     "steps.focus": "move",
     "steps.loop": "move",

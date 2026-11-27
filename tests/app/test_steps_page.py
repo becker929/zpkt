@@ -226,3 +226,115 @@ def steps_command(kind, args, who):
     from zpkt.app.bus import Command
 
     return Command(kind, who, args)
+
+
+def lane_clips(rig, name="Drums"):
+    return [(c.start_time / 4 + 1, c.end_time / 4 + 1) for c in rig.track(name).arrangement_clips]
+
+
+def cell_kinds(pg) -> dict[int, str]:
+    """{bar: its cell's kind} for the cells that are not empty: p (the pattern), o (another clip), x (in the way)."""
+    found = pg.locator("#lanes .lane.paint .st-cell").evaluate_all(
+        "els => els.map(e => [+e.dataset.bar, ['p', 'o', 'x'].find(k => e.classList.contains(k)) || ''])"
+    )
+    return {bar: kind for bar, kind in found if kind}
+
+
+@pytest.mark.parametrize("viewport", [PHONE, DESKTOP], ids=["phone", "desktop"])
+def test_paint_by_tap_and_by_drag_erase_and_the_colours_say_what_each_bar_holds(browser, rig, viewport):
+    pg = song(browser, rig, viewport)
+    make_drums(pg, rig)
+    for k in (0, 4, 8, 12):
+        pg.locator("#steps .st-pad").nth(k).click()
+    wait_for(lambda: len(notes(rig)) == 4)
+    pg.locator('#steps [data-st="paint"]').click()  # from Steps: paint this pattern
+    pg.wait_for_selector("#lanes .lane.paint .st-cell.p.src")
+    assert rig.state()["steps"] is None  # Steps is closed: nothing is in hand
+    lane = pg.locator("#lanes .lane.paint")
+    assert lane.get_attribute("data-name") == "Drums" and 50 <= lane.bounding_box()["height"] <= 54
+    assert pg.locator("#lanes .lane.paint .st-cell").count() == 40  # one cell a bar across the song's 40 bars
+    assert cell_kinds(pg) == {1: "p"}
+    # the strip: the pattern small, the track, Steps, Erase, Paint lit
+    assert pg.locator("#songsel #st-thumb i.on").count() == 4 and pg.locator("#songsel .sn").inner_text() == "Drums"
+    keys = pg.locator("#songsel button")
+    assert keys.evaluate_all("els => els.map(e => [e.dataset.st, e.getAttribute('aria-pressed')])") == [
+        ["steps", None],
+        ["erase", "false"],
+        ["paint", "true"],
+    ]
+    assert all(
+        b["height"] >= 43.9 and b["width"] >= 43.9
+        for b in keys.evaluate_all("els => els.map(e => e.getBoundingClientRect().toJSON())")
+    )
+    assert no_scroll(pg)
+
+    def cell(bar):
+        return pg.locator(f'#lanes .lane.paint .st-cell[data-bar="{bar}"]')
+
+    def middle(bar):
+        box = cell(bar).bounding_box()
+        return box["x"] + box["width"] / 2, box["y"] + box["height"] / 2
+
+    # a tap paints one bar
+    pg.mouse.click(*middle(3))
+    wait_for(lambda: lane_clips(rig) == [(1, 2), (3, 4)])
+    cell(3).and_(pg.locator(".p")).wait_for()
+    # a drag paints every bar it crosses, as one command
+    asked = len(rig.desk.bus.log)
+    pg.mouse.move(*middle(5))
+    pg.mouse.down()
+    pg.mouse.move(*middle(8), steps=5)
+    pg.mouse.up()
+    wait_for(lambda: lane_clips(rig) == [(1, 2), (3, 4), (5, 6), (6, 7), (7, 8), (8, 9)])
+    assert wait_for(lambda: [e["kind"] for e in list(rig.desk.bus.log)[asked:] if e["kind"] == "steps.paint"]) == [
+        "steps.paint"
+    ]
+    pg.wait_for_function("document.querySelectorAll('#lanes .lane.paint .st-cell.p').length === 6")
+    assert (
+        pg.locator("#lanes .lane.sel").get_attribute("data-name") == "Drums"
+    )  # a tap on a cell does not let the lane go
+
+    # another pattern of the same length is grey; a longer clip in the way is hatched (and is never cut)
+    rig.desk.bus.submit(
+        steps_command("steps.toggle", {"track": "Drums", "bar": 10, "bars": 1, "pitch": SNARE, "step": 4}, "cli")
+    )
+    cell(10).and_(pg.locator(".o")).wait_for()
+    pg.wait_for_timeout(400)  # the pager says "a clip changed" at most three times a second
+    rig.conn.run("t = [t for t in song.tracks if t.name == 'Drums'][0]\nt.create_midi_clip(48.0, 8.0)\nresult = 1")
+    cell(10).and_(pg.locator(".o")).wait_for()
+    cell(13).and_(pg.locator(".x")).wait_for()
+    assert cell_kinds(pg) == {1: "p", 3: "p", 5: "p", 6: "p", 7: "p", 8: "p", 10: "o", 13: "x", 14: "x"}
+    pg.mouse.click(*middle(13))  # painting onto it changes nothing
+    pg.wait_for_timeout(150)
+    assert (13, 15) in lane_clips(rig) and cell_kinds(pg)[13] == "x"
+
+    # Erase lit: the same gesture erases
+    pg.locator('#songsel [data-st="erase"]').click()
+    pg.wait_for_selector('#songsel [data-st="erase"].on')
+    pg.mouse.move(*middle(6))
+    pg.mouse.down()
+    pg.mouse.move(*middle(7), steps=3)
+    pg.mouse.up()
+    wait_for(lambda: lane_clips(rig) == [(1, 2), (3, 4), (5, 6), (8, 9), (10, 11), (13, 15)])
+    pg.wait_for_function("document.querySelectorAll('#lanes .lane.paint .st-cell.p').length === 4")
+    pg.locator('#songsel [data-st="erase"]').click()
+    pg.wait_for_selector('#songsel [data-st="erase"]:not(.on)')
+
+    # the playhead and the loop stay on the Song while painting
+    rig.send({"t": "loop", "loop": "drop", "start": 64.0, "length": 96.0})
+    rig.send({"t": "pos", "b": 80.0, "p": True})
+    pg.wait_for_selector("#songlp")
+    pg.wait_for_function("!document.querySelector('#songhead').hidden")
+    assert no_scroll(pg)
+
+    # Steps again: the same pattern; and the lit Paint key ends painting
+    pg.locator('#songsel [data-st="steps"]').click()
+    pg.wait_for_function("document.querySelectorAll('#steps .st-pad.on').length === 4")
+    assert pg.locator("#st-barn").inner_text() == "Bar 1"
+    pg.locator('#steps [data-st="paint"]').click()
+    pg.wait_for_selector("#lanes .lane.paint")
+    pg.locator('#songsel [data-st="paint"]').click()
+    pg.wait_for_function("!document.querySelector('#lanes .lane.paint')")
+    assert pg.locator('#songsel [data-songflag="solo"]').count() == 1  # the strip is the track's own again
+    assert pg.locator('#lanes .lane[data-name="Drums"] .rg').count() == 6
+    assert no_scroll(pg) and pg.errors == []

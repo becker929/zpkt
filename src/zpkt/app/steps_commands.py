@@ -9,6 +9,8 @@ The page, the API and later the MiniLab all pass this one door:
                                                    track hold a clip of that length (read)
     steps.kits                                     the Drum Rack presets Live's browser offers (read; kept)
     steps.toggle {track, bar, bars, pitch, step}   flip one step
+    steps.paint {track, from_bar, bars, to: [..]}  stamp the pattern's clip onto other bars
+    steps.erase {track, bars: [..], length}        delete the clips of that length that start on those bars
     steps.new_track {name, kit}                    a MIDI track with that kit, in front of the monitor tracks
     steps.focus {track, bar, bars, pitch, ...}     what the sequencer is editing now ({}: nothing)
     steps.loop {bar, bars}                         loop those bars in Live; what the loop was comes back
@@ -291,11 +293,17 @@ def edited(
     what: str,
     src: str | None = None,
     step: tuple[int, int, int] | None = None,
+    clips: bool = True,
 ) -> None:
     """A command changed the pattern `span` (track, bar, bars): keep the focus's steps true and tell the pages.
     `step` is (pitch, step, velocity or 0) when one step is all that changed, which needs no call to Live;
-    otherwise the focused row is read again when the change was to the focused span."""
+    otherwise the focused row is read again when the change was to the focused span. `clips`: a clip came or
+    went, so what the app read of the song is stale and the pages are told to read it again ({"t": "arr"}; the
+    pager says so too, but drops a second change within a third of a second)."""
     track, bar, bars = span
+    if clips:
+        desk.forget_arrangement()
+        desk.push({"t": "arr"})
     with desk.lock:
         focus_now = desk.steps_focus
         ours = focus_now is not None and focus_now["track"] == track
@@ -367,8 +375,66 @@ def toggle(desk: Desk, cmd: Command) -> Reply:
         "toggle",
         source_of(cmd.args),
         (whole(cmd.args, "pitch"), whole(cmd.args, "step"), did["velocity"] if did["on"] else 0),
+        clips=bool(did["created"]),
     )
     return 200, {"ok": True, "on": did["on"], "velocity": did["velocity"], "created": did["created"]}
+
+
+def bar_list(args: Any, name: str) -> list[int]:
+    bars = args.get(name)
+    if not isinstance(bars, list) or not bars or not all(type(b) is int for b in bars):
+        raise BadRequest(f"the body needs {name!r}, a list of bars (counted from 1)")
+    return list(bars)
+
+
+def clips_now(desk: Desk, track: str, bars: int, args: Any, reach: int) -> list[dict[str, Any]]:
+    """The bars of the track that start a clip of `bars` bars now, with their hashes: what the Paint lane draws."""
+    total = max(1, min(MAX_TOTAL_BARS, whole(args, "total_bars", max(64, reach))))
+    return [dict(c) for c in live_steps.painted(desk.conn, track, bars, total)]
+
+
+def paint(desk: Desk, cmd: Command) -> Reply:
+    """Stamp the pattern's clip onto other bars: {"track", "from_bar", "bars", "to": [the first bar of each copy]}.
+    A bar that holds a clip of the same length is replaced; one that a clip of another length reaches into is
+    skipped and named, as is the pattern's own bar. The answer is {"painted": [bars], "skipped": [{"bar", "why"}],
+    "replaced": [bars], "clips": [{"bar", "hash", "name"}] (every clip of that length on the track now)}; 409 when
+    no clip covers exactly the bars to paint from. 64 bars at most; Live copies 16 to a call."""
+    track, source, length = the_track(cmd.args), whole(cmd.args, "from_bar"), whole(cmd.args, "bars", 1)
+    targets = bar_list(cmd.args, "to")
+    with asking():
+        did = live_steps.paint(desk.conn, track, source, length, targets)
+        if did["painted"]:
+            edited(
+                desk,
+                (track, min(did["painted"]), max(did["painted"]) - min(did["painted"]) + length),
+                "paint",
+                source_of(cmd.args),
+            )
+        if "error" in did and not did["painted"]:
+            return IN_THE_WAY, {"error": did["error"], "blocked": did.get("blocked", [])}
+        clips = clips_now(desk, track, length, cmd.args, max(targets) + length)
+    return 200, {
+        "ok": True,
+        "painted": did["painted"],
+        "skipped": did["skipped"],
+        "replaced": [k["bar"] for k in did["replaced"]],
+        "clips": clips,
+    }
+
+
+def erase(desk: Desk, cmd: Command) -> Reply:
+    """Delete the MIDI clips of "length" bars that start on "bars": {"track", "bars": [...], "length"}. A bar with
+    a clip of another length, or with none, is skipped and named. The answer is {"erased": [bars], "skipped",
+    "clips"}. One call to Live."""
+    track, length = the_track(cmd.args), whole(cmd.args, "length", 1)
+    targets = bar_list(cmd.args, "bars")
+    with asking():
+        did = live_steps.erase(desk.conn, track, targets, length)
+        gone = [k["bar"] for k in did["erased"]]
+        if gone:
+            edited(desk, (track, min(gone), max(gone) - min(gone) + length), "erase", source_of(cmd.args))
+        clips = clips_now(desk, track, length, cmd.args, max(targets) + length)
+    return 200, {"ok": True, "erased": gone, "skipped": did["skipped"], "clips": clips}
 
 
 def track_name(args: Any) -> str:
@@ -416,6 +482,8 @@ COMMANDS = {
     "steps.read": read,
     "steps.kits": kits,
     "steps.toggle": toggle,
+    "steps.paint": paint,
+    "steps.erase": erase,
     "steps.new_track": new_track,
     "steps.focus": focus,
     "steps.loop": loop,
