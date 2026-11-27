@@ -162,3 +162,19 @@
 .mlp[data-view="list"] :is(.mk,.mf):not(:has(.mc:not(.off))){display:none}
 .mlp[data-view="list"] :is(.mk,.mf) .mc.live{touch-action:none;cursor:ew-resize}
 .mlp[data-view="list"] :is(.mk,.mf) .mc .g{pointer-events:none}
+
+/* A wide and tall window: the map is drawn larger, so it fills more of its column. fitPanel still falls back to
+   the tight sizes when these do not fit. Last in the file: it answers the sizes above. */
+@media (min-width:1100px) and (min-height:700px){
+  .mlpw{max-width:1120px}
+  .mlp{row-gap:16px;padding:20px 20px}
+  .mlp .mk,.mlp .mf,.mlp .mp{gap:14px 6px}
+  .mc{max-width:150px}
+  .mc .g{font-size:12.5px;height:17px;line-height:17px}
+  .mc .v{font-size:15.5px;line-height:20px;height:20px}
+  .mc .l{font-size:14px;line-height:17px;height:34px}
+  .mlp.tight .mc .l{height:17px}
+  .mc.knob .w{flex-basis:auto;aspect-ratio:68/62;max-width:98px}
+  .mc.fader .w{width:52px;flex-basis:180px}
+  .mc.pad .w{height:68px;font-size:14.5px;border-radius:11px}
+}

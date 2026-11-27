@@ -17,8 +17,10 @@ APP_MEASURE = """() => {
     return r.width > 0 && r.height > 0 && s.visibility !== 'hidden' && !e.closest('.sheet:not(.on)'); };
   const touch = [...document.querySelectorAll('#app button, #app select, #app [role=slider], #tabs a')].filter(vis).map(e => {
     const r = e.getBoundingClientRect();
-    // on a phone the transport, the pager and the tabs are smaller keys (26 November 2026): 36 px; the rest 44
-    const min = innerWidth < 700 && e.closest('#hbot, .dots, #tabs') ? 36 : 44;
+    // on a phone the transport, the pager and the tabs are smaller keys (26 November 2026): 36 px; the rest 44.
+    // With a mouse on a wide window the list of surfaces and History are low rows (27 November 2026): 30 px.
+    const mouse = innerWidth >= 1100 && matchMedia('(hover:hover) and (pointer:fine)').matches;
+    const min = innerWidth < 700 && e.closest('#hbot, .dots, #tabs') ? 36 : mouse && e.closest('#side, #histdock') ? 30 : 44;
     return {n: (e.id || e.className || e.tagName) + '', w: Math.round(r.width), h: Math.round(r.height), min}; });
   const cards = [...document.querySelectorAll('#app .ctl, #app .pc, #app .pair')].filter(vis)
     .map(e => ({n: e.className + '', w: Math.round(e.getBoundingClientRect().width)}));
@@ -98,6 +100,20 @@ def test_app_desktop_uses_three_columns_and_the_width(browser, rig, width):
     assert dock["height"] >= 120 and dock["x"] >= pg.locator("#main").bounding_box()["x"] + 300
     assert got["gaps"] == []
     assert got["tabs"] == 4, "the same four tabs at every width"
+
+
+def test_a_wide_window_holds_one_console_in_its_middle(browser, rig):
+    """Anthony, 27 November 2026: "It's all too spread out and empty in desktop now". Past 1480 px the app does not
+    grow: it stands in the middle, and with a mouse its list of surfaces is low rows."""
+    pg, errors = open_app(browser, rig, 1900)
+    app = pg.locator("#app").bounding_box()
+    assert app["width"] == 1480 and abs(app["x"] - (1900 - 1480) / 2) <= 1
+    assert pg.evaluate("document.documentElement.scrollWidth") == 1900
+    keys = pg.locator("#side .pl .key")
+    assert keys.count() >= 1 and 30 <= keys.first.bounding_box()["height"] <= 36
+    narrow, _ = open_app(browser, rig, 1200)  # a window the app fills: nothing is taken from it
+    assert narrow.locator("#app").bounding_box()["width"] == 1200
+    assert errors == []
 
 
 @pytest.mark.parametrize("width", [360, 390])

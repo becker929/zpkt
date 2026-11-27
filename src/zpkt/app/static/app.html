@@ -313,7 +313,27 @@ select{font:inherit;color:inherit;background:var(--panel);border:1px solid var(-
  #khist{display:none}
 }
 @keyframes dock-ping{0%{background:var(--accbg)}100%{background:transparent}}
-@media (min-width:1400px){#cols{grid-template-columns:280px minmax(0,1fr) 420px}}
+@media (min-width:1400px){#cols{grid-template-columns:220px minmax(0,1fr) 360px}}
+/* A wide window: the app is one console in the middle of it, not three columns pinned to its edges. Past 1480 px
+   the rest is margin. The surface stands in the middle of its column, between its title and the foot. */
+@media (min-width:1100px){
+ #app{width:100%;max-width:1480px;margin:0 auto;box-shadow:-1px 0 0 var(--line),1px 0 0 var(--line)}
+ #desk .mlpw{margin-block:auto}
+}
+/* A mouse does not need a thumb's rows. With a fine pointer the list of surfaces and History are low rows, so
+   more of each is on screen; touch at this width (a tablet on its side) keeps the 44 px keys. */
+@media (min-width:1100px) and (hover:hover) and (pointer:fine){
+ #side{gap:6px;padding:8px 10px}
+ #side .pl{gap:3px}
+ #side .pl .key{height:32px;border-radius:8px;font-size:13px;padding:0 10px;box-shadow:0 1px 0 var(--edge)}
+ #side .key.sm,#histdock .key.sm{height:30px;min-width:30px;font-size:12px;padding:0 8px;border-radius:8px;box-shadow:0 1px 0 var(--edge)}
+ #histdock{gap:6px;padding:8px 12px}
+ #histdock .he{padding:3px 0;gap:3px 6px;font-size:12.5px}
+ #histdock .he.row{min-height:30px}
+ #histdock .he.cp{padding:3px 6px 3px 8px;margin:3px 0;border-radius:8px}
+ #histdock .he.cp .ht{font-size:13px}
+ #histdock .cpf input{height:32px;font-size:14px;border-radius:8px}
+}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 </style></head><body>
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
@@ -1871,7 +1891,8 @@ document.addEventListener("click", async e => {
   }
   if (t.dataset.face) { S.face = t.dataset.face; drawPager(); return fitPanel(); }
   if (t.id === "viewsw") { S.view = t.dataset.view; try { localStorage.setItem("zpkt.view", S.view); } catch (err) { /* private mode */ } drawPager(); return fitPanel(); }
-  if (t.dataset.page !== undefined) return armPage(+t.dataset.page);
+  // A surface chosen in the left bar while another tab shows: the Desk comes up with it.
+  if (t.dataset.page !== undefined) { if (S.tab !== "desk" && t.closest("#side")) go("desk"); return armPage(+t.dataset.page); }
   if (t.id === "kplay") return asked("play", () => command("transport", {action: S.state.playing ? "pause" : "play"}));
   if (t.id === "kstop") return asked("stop", () => command("transport", {action: "stop"}));
   if (t.dataset.loop) {  // the lit key again turns looping off; shown at once, Live's report settles it
