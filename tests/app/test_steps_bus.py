@@ -56,7 +56,15 @@ def test_a_new_drum_track_is_made_before_the_monitor_tracks_and_the_song_gives_i
     before = [t.name for t in rig.live.song.tracks]
     first_monitor = next(i for i, n in enumerate(before) if n.startswith("mon "))
     code, made = ask(rig, "steps.new_track", {"name": "Drums", "kit": KIT})
-    assert code == 200 and made == {"ok": True, "track": "Drums", "index": first_monitor, "kit": KIT, "device": KIT}
+    assert code == 200 and made == {
+        "ok": True,
+        "entry": made["entry"],
+        "track": "Drums",
+        "index": first_monitor,
+        "kit": KIT,
+        "device": KIT,
+        "no_undo": ["New drum track Drums (909 Core Kit)"],
+    }
     after = [t.name for t in rig.live.song.tracks]
     assert after == [*before[:first_monitor], "Drums", *before[first_monitor:]]
     assert ask(rig, "steps.tracks")[1]["tracks"] == [
@@ -110,7 +118,7 @@ def test_a_toggle_flips_one_step_in_lives_arrangement_clip(drums):
     rig = drums
     span = {"track": "Drums", "bar": 5, "bars": 1}
     code, on = ask(rig, "steps.toggle", {**span, "pitch": KICK, "step": 0})
-    assert code == 200 and on == {"ok": True, "on": True, "velocity": 100, "created": True}
+    assert code == 200 and on == {"ok": True, "on": True, "velocity": 100, "created": True, "entry": on["entry"]}
     assert clips(rig) == [(16.0, 20.0)] and notes(rig) == [(16.0, KICK, 0.0, 100)]
     assert ask(rig, "steps.toggle", {**span, "pitch": HAT, "step": 6, "velocity": 64})[1]["created"] is False
     assert notes(rig) == [(16.0, KICK, 0.0, 100), (16.0, HAT, 1.5, 64)]
@@ -303,7 +311,7 @@ def test_the_loop_goes_to_the_patterns_bars_and_back(drums):
     code, got = ask(rig, "steps.loop", {"bar": 5, "bars": 2})
     assert code == 200 and got["was"] == {"on": before[0], "start": before[1], "length": before[2]}
     assert (song.loop, song.loop_start, song.loop_length) == (True, 16.0, 8.0)
-    assert rig.desk.history.entries == [] or rig.desk.history.entries[-1]["k"] != "steps"  # the transport: no row
+    assert [e["what"] for e in rig.desk.history.entries] == ["track"]  # the transport: no row of its own
     assert ask(rig, "steps.loop", {"was": got["was"]})[0] == 200
     assert (song.loop, song.loop_start, song.loop_length) == before
     assert ask(rig, "steps.loop", {"bar": 5, "bars": 2}, who="agent")[0] == 403
@@ -409,7 +417,7 @@ def test_set_changes_one_steps_velocity_or_length(drums):
     span = {"track": "Drums", "bar": 1, "bars": 1}
     beat(rig, steps_on=(0, 4))
     code, got = ask(rig, "steps.set", {**span, "pitch": KICK, "step": 4, "velocity": 61})
-    assert code == 200 and got == {"ok": True, "on": True, "velocity": 61, "length": 1.0}
+    assert code == 200 and got == {"ok": True, "on": True, "velocity": 61, "length": 1.0, "entry": got["entry"]}
     assert notes(rig) == [(0.0, KICK, 0.0, 100), (0.0, KICK, 1.0, 61)]
     got = ask(rig, "steps.set", {**span, "pitch": KICK, "step": 4, "length": 2.0})[1]
     assert got["velocity"] == 61 and got["length"] == 2.0
@@ -474,3 +482,184 @@ def test_write_changes_a_patterns_length_when_only_its_own_clip_is_in_the_way(dr
     # back to 1 bar: the second bar's notes are not in the pattern any more
     code, got = ask(rig, "steps.write", {"track": "Drums", "bar": 3, "pattern": longer(two, 1), "from_bars": 2})
     assert code == 200 and clips(rig) == [(8.0, 12.0), (20.0, 24.0)]
+
+
+# ---- History: every change is one row, and undo puts the notes back --------------------------------------------------
+
+
+def rows(rig):
+    """The history's step rows, oldest first: (what, track, bar, bars, count)."""
+    return [
+        (e["what"], e["track"], e["bar"], e["bars"], e["count"]) for e in rig.desk.history.entries if e["k"] == "steps"
+    ]
+
+
+def undo(rig, who="you"):
+    return ask(rig, "history.undo", who=who)
+
+
+def redo(rig):
+    return ask(rig, "history.redo")
+
+
+def test_a_run_of_toggles_on_one_pattern_is_one_row_and_one_undo(drums):
+    rig = drums
+    t = [1000.0]
+    rig.desk.history.clock = lambda: t[0]
+    span = {"track": "Drums", "bar": 5, "bars": 1}
+    for step in (0, 4, 8):
+        ask(rig, "steps.toggle", {**span, "pitch": KICK, "step": step})
+        t[0] += 1.0
+    ask(rig, "steps.set", {**span, "pitch": KICK, "step": 4, "velocity": 60})
+    assert rows(rig) == [("track", "Drums", 1, 1, 1), ("edit", "Drums", 5, 1, 4)]  # the taps and the knob: one row
+    t[0] += 20.0  # a pause: the next tap starts another row
+    ask(rig, "steps.toggle", {**span, "pitch": HAT, "step": 2})
+    t[0] += 1.0
+    ask(
+        rig, "steps.toggle", {"track": "Drums", "bar": 6, "bars": 1, "pitch": HAT, "step": 2}
+    )  # another pattern: its own
+    assert rows(rig)[1:] == [("edit", "Drums", 5, 1, 4), ("edit", "Drums", 5, 1, 1), ("edit", "Drums", 6, 1, 1)]
+    full = notes(rig)
+    assert len(full) == 5 and clips(rig) == [(16.0, 20.0), (20.0, 24.0)]
+
+    code, got = undo(rig)  # bar 6's tap made its clip: the clip goes
+    assert code == 200 and "notes" not in got and clips(rig) == [(16.0, 20.0)]
+    undo(rig)  # the hat on bar 5
+    assert notes(rig) == [(16.0, KICK, 0.0, 100), (16.0, KICK, 1.0, 60), (16.0, KICK, 2.0, 100)]
+    undo(rig)  # the whole run of four: the clip it made goes too
+    assert clips(rig) == [] and notes(rig) == []
+    redo(rig)
+    assert notes(rig) == [(16.0, KICK, 0.0, 100), (16.0, KICK, 1.0, 60), (16.0, KICK, 2.0, 100)]
+    redo(rig)
+    redo(rig)
+    assert notes(rig) == full and clips(rig) == [(16.0, 20.0), (20.0, 24.0)]
+    assert redo(rig)[1]["entry"] is None  # nothing more to redo
+    # a tap by another hand is a row of its own
+    ask(rig, "steps.toggle", {**span, "pitch": HAT, "step": 3}, who="minilab")
+    t[0] += 1.0
+    ask(rig, "steps.toggle", {**span, "pitch": HAT, "step": 5})
+    assert [e["who"] for e in rig.desk.history.entries][-2:] == ["minilab", "you"]
+
+
+def test_undo_of_a_paint_takes_the_copies_away_and_puts_a_replaced_clip_back(drums):
+    rig = drums
+    beat(rig)
+    ask(rig, "steps.toggle", {"track": "Drums", "bar": 3, "bars": 1, "pitch": SNARE, "step": 4, "velocity": 77})
+    other = notes(rig)[-1]
+    assert other == (8.0, SNARE, 1.0, 77)
+    before = (clips(rig), notes(rig))
+    got = ask(rig, "steps.paint", {"track": "Drums", "from_bar": 1, "bars": 1, "to": [2, 3, 4]})[1]
+    assert got["painted"] == [2, 3, 4] and got["replaced"] == [3] and other not in notes(rig)
+    painted = (clips(rig), notes(rig))
+    assert rows(rig)[-1] == ("paint", "Drums", 1, 1, 3)
+    code, got = undo(rig)
+    assert code == 200 and (clips(rig), notes(rig)) == before  # bars 2 and 4 are free again, bar 3 has its snare
+    redo(rig)
+    assert (clips(rig), notes(rig)) == painted
+    mine = ask(rig, "steps.read", {"track": "Drums", "bar": 1, "bars": 1})[1]
+    assert {c["bar"]: c["hash"] for c in mine["painted"]} == dict.fromkeys(
+        (1, 2, 3, 4), mine["hash"]
+    )  # still the pattern
+
+
+def test_undo_of_an_erase_puts_the_clips_back_with_their_names(drums):
+    rig = drums
+    beat(rig)
+    ask(rig, "steps.paint", {"track": "Drums", "from_bar": 1, "bars": 1, "to": [2, 3]})
+    rig.conn.run(
+        "t = [t for t in song.tracks if t.name == 'Drums'][0]\nt.arrangement_clips[1].name = 'mine'\nresult = 1"
+    )
+    before = (clips(rig), notes(rig))
+    assert ask(rig, "steps.erase", {"track": "Drums", "bars": [2, 3], "length": 1})[1]["erased"] == [2, 3]
+    assert clips(rig) == [(0.0, 4.0)] and rows(rig)[-1] == ("erase", "Drums", 2, 1, 2)
+    undo(rig)
+    assert (clips(rig), notes(rig)) == before
+    assert [c.name for c in rig.track("Drums").arrangement_clips] == ["", "mine", ""]
+    redo(rig)
+    assert clips(rig) == [(0.0, 4.0)]
+
+
+def test_undo_of_a_write_and_of_a_change_of_length(drums):
+    rig = drums
+    t = [1000.0]
+    rig.desk.history.clock = lambda: t[0]
+    beat(rig, bar=3)
+    t[0] += 60.0
+    one = pattern_of(rig, bar=3)
+    was = (clips(rig), notes(rig))
+    empty = {**one, "rows": [{**r, "steps": [0] * 16} for r in one["rows"]]}
+    ask(rig, "steps.write", {"track": "Drums", "bar": 3, "pattern": empty})  # clear
+    assert notes(rig) == [] and rows(rig)[-1] == ("edit", "Drums", 3, 1, 1)
+    undo(rig)
+    assert (clips(rig), notes(rig)) == was
+    t[0] += 60.0
+    ask(rig, "steps.write", {"track": "Drums", "bar": 3, "pattern": longer(one, 2), "from_bars": 1})
+    assert clips(rig) == [(8.0, 16.0)] and rows(rig)[-1] == ("length", "Drums", 3, 2, 1)
+    ask(rig, "steps.toggle", {"track": "Drums", "bar": 3, "bars": 2, "pitch": SNARE, "step": 20})
+    assert len(notes(rig)) == 5
+    undo(rig)  # the tap in the second bar
+    undo(rig)  # the length: the two-bar clip goes, the one-bar clip is back
+    assert (clips(rig), notes(rig)) == was
+    redo(rig)
+    redo(rig)
+    assert clips(rig) == [(8.0, 16.0)] and len(notes(rig)) == 5
+
+
+def test_going_back_to_before_a_step_takes_every_later_pattern_change_back_as_one(drums):
+    rig = drums
+    t = [1000.0]
+    rig.desk.history.clock = lambda: t[0]
+    beat(rig)
+    t[0] += 60.0
+    first = (clips(rig), notes(rig))
+    ask(rig, "steps.paint", {"track": "Drums", "from_bar": 1, "bars": 1, "to": [2, 3]})
+    target = rig.desk.history.entries[-1]["id"]
+    t[0] += 60.0
+    ask(rig, "steps.toggle", {"track": "Drums", "bar": 2, "bars": 1, "pitch": SNARE, "step": 4})
+    t[0] += 60.0
+    ask(rig, "steps.erase", {"track": "Drums", "bars": [3], "length": 1})
+    later = (clips(rig), notes(rig))
+    assert ask(rig, "history.back", {"entry": target})[0] == 200
+    assert (clips(rig), notes(rig)) == first  # as it was before the paint
+    assert rig.desk.history.entries[-1]["k"] == "revert" and len(rig.desk.history.entries[-1]["spans"]) == 2
+    undo(rig)  # one undo reverses the going back
+    assert (clips(rig), notes(rig)) == later
+
+
+def test_a_new_track_is_a_row_that_undo_leaves_and_says_so(drums):
+    rig = drums
+    entry = rig.desk.history.entries[-1]
+    assert (entry["k"], entry["what"], entry["track"], entry["kit"]) == ("steps", "track", "Drums", KIT)
+    assert entry["stays"] == [
+        {"op": "track", "kind": "midi", "name": "Drums", "words": "New drum track Drums (909 Core Kit)"}
+    ]
+    code, got = undo(rig)
+    assert code == 200 and got["left"] == ["New drum track Drums (909 Core Kit)"]
+    assert "Drums" in [t.name for t in rig.live.song.tracks]  # still there
+
+
+def test_an_undo_that_finds_clips_in_the_way_leaves_that_span_and_says_so(drums):
+    rig = drums
+    beat(rig, bar=2)
+    ask(rig, "steps.erase", {"track": "Drums", "bars": [2], "length": 1})
+    rig.conn.run("t = [t for t in song.tracks if t.name == 'Drums'][0]\nt.create_midi_clip(0.0, 8.0)\nresult = 1")
+    code, got = undo(rig)
+    assert code == 200 and got["notes"] == ["Drums, bar 2: clips are in the way"]
+    assert clips(rig) == [(0.0, 8.0)]  # the long clip is as it was
+
+
+def test_an_undo_tells_the_pages_and_keeps_the_focus_true(drums):
+    rig = drums
+    span = {"track": "Drums", "bar": 1, "bars": 1}
+    ask(rig, "steps.focus", {**span, "pitch": KICK})
+    ask(rig, "steps.toggle", {**span, "pitch": KICK, "step": 0})
+    assert rig.state()["steps"]["steps"][0] == 100
+    shell = rig.desk.subscribe(app=True)
+    undo(rig)
+    assert rig.state()["steps"]["steps"] == [0] * 16
+    told = [m for m in heard(shell) if m.get("edit")]
+    assert (
+        told and told[-1]["edit"] == {"track": "Drums", "bar": 1, "bars": 1, "what": "undo"} and "src" not in told[-1]
+    )
+    assert any(m["t"] == "hist" for m in list(shell.queue))
+    assert undo(rig, who="agent")[0] == 403  # an agent does not undo either

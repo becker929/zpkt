@@ -514,6 +514,7 @@ function stepWords(pv) {
   const e = S.hist.entries.find(x => x.id === pv.id), first = pv.values[0];
   if (e && e.compare) return {label: e.compare.name, value: e.compare.from || ""};
   if (e && e.k === "change") return {label: e.why || "Change", value: changeCount(e)};
+  if (e && e.k === "steps") return {label: e.track, value: stepsCount(e)};
   if (e && e.k === "revert") return {label: "Going back", value: `${pv.count} control${pv.count === 1 ? "" : "s"}`};
   if (!first) return {label: "", value: ""};
   const label = labelFor(first[0], e && e.moves && e.moves[0] ? e.moves[0].label : first[0]);
@@ -791,6 +792,7 @@ async function stepHistory(kind) {
   const keys = showAhead((S.hist[kind] || {}).values);
   const r = await command("history." + kind);
   for (const key of keys) { if (r.ok) settle(key); else confirmOwn(key, null); }
+  if (r.ok && (r.body.notes || []).length) toast(r.body.notes.join(" "));  // what could not be put back, and why
 }
 // Live's value for `key` is the one in the state now (n: what its report said; undefined: no report came; null: the
 // send failed). The page's own number goes; a place that differs from it is flashed.
@@ -1214,6 +1216,12 @@ function changeStays(e) {
   for (const x of e.stays || []) if (x.op in n) n[x.op]++;
   return [n.remove ? `${n.remove} removed` : "", n.track ? `${n.track} track${n.track === 1 ? "" : "s"}` : "", n.code ? `${n.code} code` : ""].filter(Boolean).join(", ");
 }
+// A change to step patterns (the step sequencer, shell/steps.js): what was done, in a few words.
+function stepsCount(e) {
+  const n = e.count || 1, clips = `${n} clip${n === 1 ? "" : "s"}`;
+  return e.what === "paint" ? `painted ${clips}` : e.what === "erase" ? `erased ${clips}` : e.what === "track" ? `new track${e.kit ? " · " + e.kit : ""}`
+    : e.what === "length" ? `bar ${e.bar} · ${e.from_bars} → ${e.bars} bar${e.bars === 1 ? "" : "s"}` : `bar ${e.bar} · ${n} change${n === 1 ? "" : "s"}`;
+}
 const SITTING_GAP = 90 * 60;  // seconds without a change before the next one starts a new sitting
 function histRows() {
   const all = S.hist.entries, pos = S.hist.pos == null ? all.length : S.hist.pos, now = Date.now() / 1000;
@@ -1237,15 +1245,18 @@ function histRows() {
     const undone = i >= pos, moves = e.moves || [], n = `${moves.length} control${moves.length === 1 ? "" : "s"}`;
     const cmp = e.k === "move" && e.compare;
     // what Undo leaves of this row; undone, the row then says how much of it was: "undone in part", or "not undone"
-    const stays = e.k === "change" ? changeStays(e) : "";
+    const stays = e.k === "change" || e.k === "steps" ? changeStays(e) : "";
     const tag = !stays ? "undone" : moves.length || (e.devices || []).length ? "undone in part" : "not undone";
+    const noUndo = stays ? ` <span class="hv nu"><svg width="12" height="12" aria-hidden="true"><use href="#i-noundo"/></svg>no undo: ${stays}</span>` : "";
+    const patterns = (e.spans || []).length ? `${moves.length ? n + ", " : ""}${e.spans.length} pattern${e.spans.length === 1 ? "" : "s"}` : n;
     const what = cmp ? `<span><b>${esc(cmp.name)}</b> <span class="hv">${cmp.from ? esc(cmp.from) + " → " : ""}<b>${esc(cmp.to)}</b> · ${n}</span></span>`
       : e.k === "change" ? `<span><b>${esc(e.why || "Change")}</b> <span class="hv">${changeCount(e)}</span>${stays ? ` <span class="hv nu"><svg width="12" height="12" aria-hidden="true"><use href="#i-noundo"/></svg>no undo: ${stays}</span>` : ""}</span>`
-      : e.k === "revert" && e.before ? `<span><b>Back before ${esc(labelFor(e.before.key, e.before.label))}</b> <span class="hv">${n}</span></span>`
+      : e.k === "steps" ? `<span><b>${esc(e.track)}</b> <span class="hv">${esc(stepsCount(e))}</span>${noUndo}</span>`
+      : e.k === "revert" && e.before ? `<span><b>Back before ${esc(labelFor(e.before.key, e.before.label))}</b> <span class="hv">${patterns}</span></span>`
       : e.k === "revert" ? `<span><b>Went back to “${esc(cpLabel(e.to))}”</b> <span class="hv">${n}</span></span>`
       : moves.slice(0, 3).map(histMove).join("") + (moves.length > 3 ? `<span class="hv">and ${moves.length - 3} more</span>` : "");
     const group = e.group && e.k !== "change" && !/^(touch|compare)-/.test(e.group) ? `<span class="hv">${esc(e.group)}</span>` : "";
-    const sel = !undone && S.histSel === e.id, name = cmp ? cmp.name : e.k === "change" && e.why ? e.why : moves[0] ? labelFor(moves[0].key, moves[0].label) : "this";
+    const sel = !undone && S.histSel === e.id, name = cmp ? cmp.name : e.k === "change" && e.why ? e.why : e.k === "steps" ? e.track : moves[0] ? labelFor(moves[0].key, moves[0].label) : "this";
     // a step in effect is a return point: a tap on the row offers the way back to just before it
     return `<div class="he ${undone ? "undone" : "row"} ${undone && stays ? "part" : ""} ${sel ? "sel" : ""}" data-row="${e.id}" ${undone ? "" : `role="button" tabindex="0" aria-expanded="${sel}"`}>${head(e, mine)}<span class="ht">${what}${group}</span>${
       undone ? `<span class="tagu">${tag}</span>` : sel ? `<button class="key sm" data-before="${e.id}" aria-label="Go back to before ${esc(name)}"><svg width="18" height="18"><use href="#i-back"/></svg>Go back</button>` : ""}</div>`;
@@ -1743,7 +1754,10 @@ function renderSong() {
   const ruler = v ? `<div class="ruler" id="ruler"><span class="ln" id="songtempo" title="Tempo (BPM) and time signature">${facts}</span><div class="rt" role="img" aria-label="Bars 1 to ${bars}${locs.length ? ". " + locs.map(x => `${x.name || "Locator"} at bar ${Math.floor(x.beat / per) + 1}`).join(", ") : ""}">${
     numbered.map(b => `<i class="bn" style="left:${at(b * per)}%">${b + 1}</i>`).join("")}${
     spans.map((x, k) => `<i class="sec s${k % 2}" data-locator="${esc(x.name)}" style="left:${at(x.from)}%;width:calc(${at(Math.min(beats, x.to) - x.from)}% - 2px)" title="${esc(x.name)}"><span>${esc(x.name)}</span></i>`).join("")}<span id="songloop"></span></div></div>` : "";
-  $("#song").innerHTML = `<div id="lanes" data-bars="${bars}">${ruler}${lanes || '<div class="tag" id="nolanes">No tracks</div>'}<div class="pgs" id="lanepgs" role="group" aria-label="More tracks" hidden><button class="key sm" type="button" data-songstep="-1" aria-label="Tracks before"><svg class="back" width="18" height="18"><use href="#i-more"/></svg></button><span class="pgn" id="lanepgn"></span><button class="key sm" type="button" data-songstep="1" aria-label="Tracks after"><svg width="18" height="18"><use href="#i-more"/></svg></button></div><div id="songhead" hidden></div></div><div id="songsel" role="group" aria-label="The chosen track"></div><div id="songnew">${window.zpktSteps ? window.zpktSteps.newKey(v) : ""}</div>`;
+  const html = `<div id="lanes" data-bars="${bars}">${ruler}${lanes || '<div class="tag" id="nolanes">No tracks</div>'}<div class="pgs" id="lanepgs" role="group" aria-label="More tracks" hidden><button class="key sm" type="button" data-songstep="-1" aria-label="Tracks before"><svg class="back" width="18" height="18"><use href="#i-more"/></svg></button><span class="pgn" id="lanepgn"></span><button class="key sm" type="button" data-songstep="1" aria-label="Tracks after"><svg width="18" height="18"><use href="#i-more"/></svg></button></div><div id="songhead" hidden></div></div><div id="songsel" role="group" aria-label="The chosen track"></div><div id="songnew">${window.zpktSteps ? window.zpktSteps.newKey(v) : ""}</div>`;
+  // drawn again only when it differs: a hand that is painting across the lane's cells keeps the elements under it
+  const box = $("#song");
+  if (box.__song !== html || !$("#lanes")) { box.innerHTML = html; box.__song = html; }
   renderSongSel(); updateSongMarks(); fitSong();
 }
 // A track's solo or mute, as Live last reported it (the desk's flags); the song's own reading until then.
