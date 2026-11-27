@@ -175,3 +175,85 @@ def pattern_put(song, track, note_spec, bar: int, bars: int, notes, name):
         clip.name = name
     add_notes(clip, note_spec, [[p, s * per_bar, d * per_bar, v] for p, s, d, v in notes])
     return {"before": before, "created": created}
+
+
+# --------------------------------------------------------------------------- one step
+
+NO_NOTE = "no note on that step"
+
+
+def step_flip(
+    song,
+    track,
+    note_spec,
+    bar: int,
+    bars: int,
+    pitch: int,
+    at: float,
+    lo: float,
+    hi: float,
+    duration: float,
+    velocity,
+    name,
+):
+    """Flip one step of the span: when a note of `pitch` starts in [lo, hi) it is removed, otherwise one is added at
+    `at`, `duration` long. Times are in bars from the span's start. A free span gets its clip first."""
+    per_bar = bar_beats(song)
+    start = (bar - 1) * per_bar
+    end = start + bars * per_bar
+    clip, blocked = span_to_edit(track, start, end)
+    if blocked:
+        return {"error": IN_THE_WAY, "blocked": blocked}
+    created = clip is None
+    before = [] if created else notes_in(clip, start, end)
+    first, last = max(lo * per_bar - EPS, 0.0), min(hi * per_bar + EPS, end - start)
+    if any(n[0] == pitch and first <= n[1] < last for n in before):
+        clip.remove_notes_extended(pitch, 1, clip.start_marker + first, last - first)
+        return {"on": False, "velocity": 0, "before": before, "created": False}
+    if created:
+        clip = track.create_midi_clip(start, end - start)
+        if name is not None:
+            clip.name = name
+    add_notes(clip, note_spec, [[pitch, at * per_bar, duration * per_bar, velocity]])
+    return {"on": True, "velocity": velocity, "before": before, "created": created}
+
+
+def step_change(song, track, note_spec, bar: int, bars: int, pitch: int, lo: float, hi: float, velocity, duration):
+    """Give the note of `pitch` that starts in [lo, hi) (bars from the span's start) another velocity, another
+    duration (in bars), or both; None leaves one as it is. The note is taken out and put back changed, with what
+    else it carries (its probability and the like)."""
+    per_bar = bar_beats(song)
+    start = (bar - 1) * per_bar
+    end = start + bars * per_bar
+    clip, blocked = span_to_edit(track, start, end)
+    if blocked:
+        return {"error": IN_THE_WAY, "blocked": blocked}
+    if clip is None:
+        return {"error": NO_NOTE, "before": []}
+    before = notes_in(clip, start, end)
+    first, last = max(lo * per_bar - EPS, 0.0), min(hi * per_bar + EPS, end - start)
+    shift = clip.start_marker
+    changed = [
+        {
+            "pitch": pitch,
+            "start_time": n.start_time,
+            "duration": n.duration if duration is None else duration * per_bar,
+            "velocity": n.velocity if velocity is None else velocity,
+            "mute": n.mute,
+            "probability": n.probability,
+            "velocity_deviation": n.velocity_deviation,
+            "release_velocity": n.release_velocity,
+        }
+        for n in clip.get_notes_extended(pitch, 1, shift + first, last - first)
+    ]
+    if not changed:
+        return {"error": NO_NOTE, "before": before}
+    clip.remove_notes_extended(pitch, 1, shift + first, last - first)
+    clip.add_new_notes(tuple(note_spec(**note) for note in changed))
+    return {
+        "on": True,
+        "velocity": round(changed[0]["velocity"]),
+        "duration": changed[0]["duration"],
+        "beats_per_bar": per_bar,
+        "before": before,
+    }

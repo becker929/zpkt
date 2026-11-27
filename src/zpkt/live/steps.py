@@ -454,3 +454,125 @@ def write(
         names={r["pitch"]: r["name"] for r in checked["rows"]},
     )
     return {**after, "before": _as_notes(did["before"]), "created": bool(did["created"])}
+
+
+class Toggled(TypedDict):
+    """One step after a flip: whether it holds a note now and its velocity (0 when it does not), the notes the
+    span held before, and whether the flip made the clip."""
+
+    on: bool
+    velocity: int
+    before: list[Note]
+    created: bool
+
+
+class Changed(TypedDict):
+    """One step's note after `set_step`: its velocity, its length in steps, and the notes the span held before."""
+
+    on: bool
+    velocity: int
+    length: float
+    before: list[Note]
+
+
+class NoNote(TypedDict):
+    """Nothing was changed: the step holds no note."""
+
+    error: str
+    before: list[Note]
+
+
+def _step_window(step: int, steps_per_bar: int, swing: float) -> dict[str, float]:
+    """Where a step's note starts and the stretch in which a note counts as on that step (a quarter step either
+    side, as `from_notes` reads it), in bars from the pattern's start."""
+    at = step + late(step, swing)
+    return {"at": at / steps_per_bar, "lo": (at - ON_GRID) / steps_per_bar, "hi": (at + ON_GRID) / steps_per_bar}
+
+
+def toggle(
+    live: McpTransport,
+    track: TrackRef,
+    bar: int,
+    bars: int,
+    steps_per_bar: int,
+    pitch: int,
+    step: int,
+    velocity: int = 100,
+    length: float = 1.0,
+    *,
+    swing: float = 0.0,
+    name: str | None = None,
+) -> Toggled | Blocked:
+    """Flip ONE step (counted from 0) of the pattern in `bars` bars from `bar`: the fast path for a tap or a pad.
+    When a note of `pitch` starts on the step it is removed; otherwise one is added with this velocity and length
+    (in steps). A free span gets its clip first (named `name` if given). `swing` is the pattern's, so that a
+    delayed step is found and put where `write` puts it. One call; clips in the way give {"error", "blocked"}."""
+    total = check_grid(bars, steps_per_bar)
+    step = _int(step, "a step (counted from 0)", 0, total - 1)
+    swing = check_swing(swing)
+    did = _run(
+        live,
+        track,
+        f"step_flip(song, _t, {_NOTE_SPEC}, **_a)",
+        bar=check_bar(bar),
+        bars=bars,
+        pitch=check_pitch(pitch),
+        **_step_window(step, steps_per_bar, swing),
+        duration=sounding(check_length(length, total), step, total, swing) / steps_per_bar,
+        velocity=check_velocity(velocity),
+        name=name,
+    )
+    if "error" in did:
+        return {"error": str(did["error"]), "blocked": list(did["blocked"])}
+    return {
+        "on": bool(did["on"]),
+        "velocity": int(did["velocity"]),
+        "before": _as_notes(did["before"]),
+        "created": bool(did["created"]),
+    }
+
+
+def set_step(
+    live: McpTransport,
+    track: TrackRef,
+    bar: int,
+    bars: int,
+    steps_per_bar: int,
+    pitch: int,
+    step: int,
+    velocity: int | None = None,
+    length: float | None = None,
+    *,
+    swing: float = 0.0,
+) -> Changed | NoNote | Blocked:
+    """Change the velocity, the length (in steps) or both of the note of `pitch` on a step (counted from 0); what
+    is None stays. One call. {"error": "no note on that step", "before"} when the step is empty."""
+    total = check_grid(bars, steps_per_bar)
+    step = _int(step, "a step (counted from 0)", 0, total - 1)
+    swing = check_swing(swing)
+    if velocity is None and length is None:
+        raise ValueError("set_step changes a velocity, a length or both: give one")
+    window = _step_window(step, steps_per_bar, swing)
+    did = _run(
+        live,
+        track,
+        f"step_change(song, _t, {_NOTE_SPEC}, **_a)",
+        bar=check_bar(bar),
+        bars=bars,
+        pitch=check_pitch(pitch),
+        lo=window["lo"],
+        hi=window["hi"],
+        velocity=None if velocity is None else check_velocity(velocity),
+        duration=None if length is None else sounding(check_length(length, total), step, total, swing) / steps_per_bar,
+    )
+    if "blocked" in did:
+        return {"error": str(did["error"]), "blocked": list(did["blocked"])}
+    if "error" in did:
+        return {"error": str(did["error"]), "before": _as_notes(did["before"])}
+    in_steps = float(did["duration"]) / (float(did["beats_per_bar"]) / steps_per_bar) + late(step, swing)
+    return {
+        "on": True,
+        "velocity": int(did["velocity"]),
+        "length": float(length) if length is not None else round(in_steps, 4),
+        "before": _as_notes(did["before"]),
+    }

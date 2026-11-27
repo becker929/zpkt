@@ -405,3 +405,122 @@ def test_a_clip_that_loops_inside_itself_is_in_the_way(live):
         "blocked": [{"name": "one bar, four times", "start": 0.0, "end": 16.0}],
     }
     assert steps.read(live, "Empty", 1, 4)["clip"] is None
+
+
+# --------------------------------------------------------------------------- one step
+
+
+def test_a_tap_on_an_empty_step_makes_the_clip_and_the_note_and_a_second_tap_takes_it_away(live):
+    calls = len(live.calls)
+    on = steps.toggle(live, "Drums", 3, 2, 16, KICK, 20, name="beat")
+    assert on == {"on": True, "velocity": 100, "before": [], "created": True} and len(live.calls) == calls + 1
+    assert held(live, "Drums") == [(8.0, 16.0, "beat", [(KICK, 5.0, 0.25, 100)])]
+    more = steps.toggle(live, "Drums", 3, 2, 16, HAT, 0, velocity=64, length=2.0)
+    assert more == {"on": True, "velocity": 64, "before": [(KICK, 5.0, 0.25, 100)], "created": False}
+    assert held(live, "Drums")[0][3] == [(KICK, 5.0, 0.25, 100), (HAT, 0.0, 0.5, 64)]
+    off = steps.toggle(live, "Drums", 3, 2, 16, KICK, 20, velocity=127)
+    assert off == {
+        "on": False,
+        "velocity": 0,
+        "before": [(HAT, 0.0, 0.5, 64), (KICK, 5.0, 0.25, 100)],
+        "created": False,
+    }
+    assert held(live, "Drums") == [(8.0, 16.0, "beat", [(HAT, 0.0, 0.5, 64)])] and len(live.calls) == calls + 3
+    found = steps.read(live, "Drums", 3, 2)["pattern"]
+    assert found["length"] == 2.0 and "lengths" not in found["rows"][0]  # one note: its length is the pattern's
+    tidy(live)
+
+
+def test_a_tap_finds_a_note_a_quarter_step_either_side_and_only_that_pitch(live):
+    with live.main_thread():
+        played = lom.Clip(0.0, 4.0, name="played", parent=track(live, "Drums"))
+        played.add_new_notes(
+            [lom.MidiNoteSpecification(p, t, 0.25, 100) for p, t in [(KICK, 0.05), (KICK, 0.125), (SNARE, 0.0)]]
+        )
+        track(live, "Drums")._clips.append(played)
+    assert steps.read(live, "Drums", 1, 1)["off_grid"] == 1  # the kick at 0.125 is between steps 0 and 1
+    assert steps.toggle(live, "Drums", 1, 1, 16, KICK, 0)["on"] is False  # the late kick is step 0's
+    assert held(live, "Drums")[0][3] == [(KICK, 0.125, 0.25, 100), (SNARE, 0.0, 0.25, 100)]
+    assert steps.toggle(live, "Drums", 1, 1, 16, KICK, 1)["on"] is True  # nothing within a quarter step of step 1
+    assert steps.toggle(live, "Drums", 1, 1, 16, KICK, 15, length=4.0)["on"] is True  # the last step ends with the clip
+    assert (KICK, 3.75, 0.25, 100) in held(live, "Drums")[0][3]
+    tidy(live)
+
+
+def test_a_tap_with_the_patterns_swing_puts_and_finds_the_delayed_step(live):
+    swung = pattern([row(HAT, {0: 90, 1: 90}, name="Hat")], swing=0.5)
+    steps.write(live, "Drums", 1, swung)
+    assert steps.toggle(live, "Drums", 1, 1, 16, HAT, 1, swing=0.5)["on"] is False
+    assert steps.toggle(live, "Drums", 1, 1, 16, HAT, 3, swing=0.5)["on"] is True
+    assert held(live, "Drums")[0][3] == [(HAT, 0.0, 0.25, 90), (HAT, 0.875, 0.125, 100)]
+    assert steps.read(live, "Drums", 1, 1, swing=0.5)["pattern"]["rows"][0]["steps"][:4] == [90, 0, 0, 100]
+
+
+def test_a_tap_is_refused_when_clips_are_in_the_way_or_the_step_is_not_one(live):
+    before, calls = held(live, "Bass"), len(live.calls)
+    assert steps.toggle(live, "Bass", 5, 1, 16, 48, 0) == {
+        "error": "clips are in the way",
+        "blocked": [{"name": "long", "start": 16.0, "end": 24.0}],
+    }
+    assert held(live, "Bass") == before and len(live.calls) == calls + 1
+    for wrong, why in [
+        ({"step": 16}, "a step .* is 0 to 15"),
+        ({"step": -1}, "a step .* is 0 to 15"),
+        ({"velocity": 0}, "a velocity is 1 to 127"),
+        ({"length": 0.1}, "a note's length"),
+        ({"pitch": 200}, "a pitch is 0 to 127"),
+        ({"swing": 1.0}, "swing"),
+    ]:
+        with pytest.raises(ValueError, match=why):
+            steps.toggle(live, "Bass", 1, 1, 16, **{"pitch": 48, "step": 0, **wrong})
+    assert len(live.calls) == calls + 1 and held(live, "Bass") == before
+
+
+def test_set_step_changes_the_velocity_or_the_length_of_the_note_on_a_step(live):
+    steps.write(live, "Drums", 1, FOUR)
+    calls = len(live.calls)
+    louder = steps.set_step(live, "Drums", 1, 1, 16, KICK, 4, velocity=127)
+    assert louder == {"on": True, "velocity": 127, "length": 1.0, "before": steps.to_notes(FOUR)}
+    longer = steps.set_step(live, "Drums", 1, 1, 16, KICK, 4, length=2.0)
+    assert longer["velocity"] == 127 and longer["length"] == 2.0 and (KICK, 1.0, 0.25, 127) in longer["before"]
+    both = steps.set_step(live, "Drums", 1, 1, 16, HAT, 14, velocity=1, length=4.0)  # the last hat: cut at the end
+    assert both == {"on": True, "velocity": 1, "length": 4.0, "before": both["before"]}
+    assert len(live.calls) == calls + 3
+    notes = dict(((p, s), (d, v)) for p, s, d, v in held(live, "Drums")[0][3])
+    assert notes[(KICK, 1.0)] == (0.5, 127) and notes[(HAT, 3.5)] == (0.5, 1) and len(notes) == 8
+    found = steps.read(live, "Drums", 1, 1)["pattern"]
+    assert found["length"] == 1.0 and found["rows"][0]["lengths"][4] == 2.0 and found["rows"][1]["lengths"][14] == 2.0
+    tidy(live)
+
+
+def test_set_step_keeps_what_else_the_note_carries(live):
+    steps.toggle(live, "Drums", 1, 1, 16, KICK, 0)
+    with live.main_thread():
+        note = track(live, "Drums").arrangement_clips[0]._notes[0]
+        note.probability, note.velocity_deviation, note.release_velocity, note.mute = 0.5, 10.0, 20.0, True
+    steps.set_step(live, "Drums", 1, 1, 16, KICK, 0, velocity=90)
+    note = track(live, "Drums").arrangement_clips[0]._notes[0]
+    assert (note.velocity, note.probability, note.velocity_deviation, note.release_velocity, note.mute) == (
+        90,
+        0.5,
+        10.0,
+        20.0,
+        True,
+    )
+
+
+def test_set_step_says_when_the_step_is_empty_or_the_span_is_not_ours(live):
+    assert steps.set_step(live, "Drums", 1, 1, 16, KICK, 0, velocity=90) == {
+        "error": "no note on that step",
+        "before": [],
+    }
+    steps.toggle(live, "Drums", 1, 1, 16, KICK, 0)
+    assert steps.set_step(live, "Drums", 1, 1, 16, KICK, 1, velocity=90) == {
+        "error": "no note on that step",
+        "before": [(KICK, 0.0, 0.25, 100)],
+    }
+    assert steps.set_step(live, "Drums", 1, 1, 16, SNARE, 0, length=2.0)["error"] == "no note on that step"
+    assert steps.set_step(live, "Bass", 5, 1, 16, 48, 0, velocity=90)["blocked"][0]["name"] == "long"
+    with pytest.raises(ValueError, match="give one"):
+        steps.set_step(live, "Drums", 1, 1, 16, KICK, 0)
+    assert held(live, "Drums")[0][3] == [(KICK, 0.0, 0.25, 100)] and held(live, "Bass")[0][2] == "long"
