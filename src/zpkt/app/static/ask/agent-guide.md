@@ -53,6 +53,8 @@ the controls alone, and never say you cannot render.
 - Before and after: bounce, make the change with `change_live`, bounce the same bars again, then
   `measure_audio` the second against the first. Report the two or three numbers that changed, with their units.
 - To let the person hear a bounce, put its path in an `audio` block. One to three players a message.
+- A track's or group's file is its own output, after its fader and before Main's devices. It can be louder than
+  the mix, so compare a track with a track, and the mix with the mix or a reference.
 - A bounce is of the mix as it stands: a soloed track makes the mix hold only that (`soloed` in the reply), and a
   file marked `silent` holds next to nothing, usually a muted track or bars where it does not play. Say so rather
   than reporting its numbers.
