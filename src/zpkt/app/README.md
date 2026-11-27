@@ -473,7 +473,8 @@ The decisions are in `contrib/mixdesk/pagercore.py` (`steps_layer`, `pad_step`, 
 - **The pager in Live** (the rig's way). `zpkt.app.steps_minilab` is the app's side. When the focus changes, its
   thread tells the pager what to show in one short call (`m.DESK.steps_layer(...)`: on or off, the 16 lights, the
   three knob values), and only when something shown has changed; a toggle from the page never waits for the
-  controller's lights. The pager reports a press as `{"t": "step", "pad": 0-15}`, a knob as `{"t": "step_knob"}`
+  controller's lights. A light is told at once; a knob value changed on the screen is told when the changes have
+  stopped for a moment. The pager reports a press as `{"t": "step", "pad": 0-15}`, a knob as `{"t": "step_knob"}`
   and a sound as `{"t": "step_sound"}` (a `turn` of the data knob, or the `pitch` of the pad selected in the
   track's Drum Rack). The hand turns them into the commands above, in order, from its own thread; turns that
   arrive while a command is in Live become one command with the latest of each. A pad's light flips under the

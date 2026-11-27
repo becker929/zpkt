@@ -155,6 +155,24 @@ def test_the_pager_is_told_once_for_a_change_it_shows_and_not_at_all_for_one_it_
     assert len(code) == hand.calls == 5 and "steps_layer(None, False)" in code[-1]
 
 
+def test_a_knob_dragged_on_the_screen_reaches_the_pager_once_when_it_stops_and_a_light_at_once(held, monkeypatch):
+    rig = held
+    monkeypatch.setattr(steps_minilab, "KNOBS_QUIET_S", 1.0)  # long enough to look before it is over
+    hand = rig.desk.steps_hand
+    knob_1 = rig.minilab.elements.encoders_raw[0]
+    before = hand.calls
+    for velocity in (90, 80, 70, 60):  # the page's Velocity knob, dragged
+        ask(rig, "steps.focus", {"velocity": velocity})
+    assert hand.calls == before and not hand.idle()  # nothing yet: it waits for the changes to stop
+    settle(rig)
+    assert hand.calls == before + 1 and knob_1.sent[-1] == 60  # once, the latest
+    ask(rig, "steps.focus", {"velocity": 50})
+    ask(rig, "steps.toggle", {**SPAN, "pitch": KICK, "step": 7})  # a light does not wait, and takes the value along
+    assert wait_for(lambda: lit(rig) == [0, 7, 12]) and knob_1.sent[-1] == 50
+    settle(rig)
+    assert hand.calls == before + 2
+
+
 def test_a_bar_out_of_view_changes_no_light_and_the_view_chooses_the_bar(drums):
     rig = drums
     two = {"track": "Drums", "bar": 9, "bars": 2}

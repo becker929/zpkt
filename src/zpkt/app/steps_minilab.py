@@ -19,8 +19,10 @@ Both run on a thread of the hand's own, in the order they came: never on the pag
 wait for Live), and never inside the command that changed the pattern (a call to Live waits for Live's next tick,
 and the page that sent the command should not wait for the controller's lights). What arrives while a command is in
 Live is taken together: a run of knob turns and data-knob turns becomes one command with the latest of each, and
-the pager is told once, the latest. That is the throttle. The screen needs nothing more: every one of these ends in
-the {"t": "steps"} message every page gets.
+the pager is told once, the latest. That is the throttle. A light that changed is told at once. A knob's value that
+changed on the screen is not urgent (it only moves where knobs 1-3 stand): it is told when the changes have stopped
+for a moment, so a knob dragged on the page does not share Live with a call per value. The screen needs nothing
+more: every one of these ends in the {"t": "steps"} message every page gets.
 
 With the MIDI adapter (zpkt.app.adapters.midi) the map sends the same commands itself (zpkt.app.minilab.mapper).
 """
@@ -30,6 +32,7 @@ from __future__ import annotations
 import logging
 import queue
 import threading
+import time
 from collections.abc import Mapping
 from typing import TYPE_CHECKING, Any
 
@@ -44,6 +47,7 @@ KINDS = ("step", "step_knob", "step_sound")  # the pager's messages that are the
 SHOW = {"t": "_show"}  # the hand's own: tell the pager what the focus is now
 WHO: Who = "minilab"
 IDLE_S = 5.0  # the hand's thread ends after this long with nothing to do; the next message starts one
+KNOBS_QUIET_S = 0.3  # a knob value changed from the screen reaches the pager once the changes have stopped this long
 PRESS_KEYS = ("track", "bar", "bars", "steps_per_bar", "pitch", "velocity", "length", "swing")  # of the focus
 
 log = logging.getLogger(__name__)
@@ -71,6 +75,7 @@ class Hand:
         self._lock = threading.Lock()
         self._thread: threading.Thread | None = None
         self._waiting = 0  # messages given to the hand and not yet done
+        self._later: float | None = None  # when (time.monotonic) knob values that wait are told to the pager
         self._sounds: tuple[str, tuple[int, ...]] | None = None  # (track, its kit's pitches) as last read
 
     # ---- to the pager ------------------------------------------------------------------------------------------
@@ -155,13 +160,19 @@ class Hand:
     def idle(self) -> bool:
         """Has the hand done everything it was given? (Tests wait for this.)"""
         with self._lock:
-            return self._waiting == 0
+            return self._waiting == 0 and self._later is None
 
     def _run(self) -> None:
         while True:
+            later = self._later
             try:
-                first = self._inbox.get(timeout=IDLE_S)
+                first = self._inbox.get(timeout=IDLE_S if later is None else max(0.0, later - time.monotonic()))
             except queue.Empty:
+                if later is not None:  # the knob values that waited: the changes have stopped
+                    self.tell()
+                    with self._lock:
+                        self._later = None
+                    continue
                 with self._lock:
                     if self._inbox.empty():
                         self._thread = None
@@ -206,6 +217,24 @@ class Hand:
                     self._choose(message["pitch"])
         self._set(values, turn)
         if show:
+            self._shown()
+
+    def _shown(self) -> None:
+        """The focus changed: tell the pager now, unless knob values are all that it would hear. Those wait until
+        the changes have stopped (each new one waits again)."""
+        state = core().steps_layer(self.desk.steps_now())
+        with self._lock:
+            known, told = self._known, self._told
+            waits = (
+                known
+                and state is not None
+                and told is not None
+                and state != told
+                and all(state[k] == told.get(k) for k in state if k not in STEP_KNOBS)
+                and not self._own_knobs(state, told)
+            )
+            self._later = time.monotonic() + KNOBS_QUIET_S if waits else None
+        if not waits:
             self.tell()
 
     def _focus(self) -> dict[str, Any] | None:
