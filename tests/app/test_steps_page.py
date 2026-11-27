@@ -401,6 +401,12 @@ def test_the_knobs_change_the_step_in_hand_swing_moves_the_pattern_and_clear_emp
     wait_for(lambda: any(abs(n[1] - (0.75 + swing * 0.25)) < 0.02 for n in clip_notes(rig)))
     assert clip_notes(rig)[0][1] == 0.0 and pg.locator("#steps .st-pad.on").count() == 2  # still on its steps
     assert rig.state()["steps"]["swing"] == pytest.approx(swing)
+    # the swing is the pattern's: closed and opened again (another page would see the same), it reads as it was
+    pg.locator('#steps [data-st="close"]').click()
+    pg.locator('#songsel [data-st="open"]').click()
+    pg.wait_for_function("document.querySelectorAll('#steps .st-pad.on').length === 2")
+    assert knob_text(pg, "swing") == f"{round(swing * 100)}%"
+    pads = pg.locator("#steps .st-pad")
 
     # Clear: the chosen sound; again within three seconds, the whole pattern
     pg.locator('#st-ov .st-row[data-pitch="38"]').click()

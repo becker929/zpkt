@@ -251,7 +251,8 @@
   async function load(quiet) {
     const mine = ++ST.seq, z = app(), v = z.S.song.view;
     if (!quiet) { ST.loading = true; sync(); }
-    const r = await z.command("steps.read", {track: ST.track, bar: ST.bar, bars: ST.bars, swing: ST.swing, total_bars: Math.max(1, (v && v.bars) || 0, z.songOf().bars || 0)});
+    // no word of swing: the app keeps the swing each pattern was written with, and answers with it
+    const r = await z.command("steps.read", {track: ST.track, bar: ST.bar, bars: ST.bars, total_bars: Math.max(1, (v && v.bars) || 0, z.songOf().bars || 0)});
     if (mine !== ST.seq || !(ST.open || ST.painting)) return;
     ST.loading = false;
     ST.data = r.ok ? r.body : null;
@@ -379,7 +380,7 @@
   }
   // What Live has of the pattern, read again: a write of the whole pattern starts from Live's notes, not the page's.
   async function fresh() {
-    const at = spanKey(), r = await app().command("steps.read", {track: ST.track, bar: ST.bar, bars: ST.bars, swing: (ST.data && ST.data.pattern.swing) || 0}, undefined, true);
+    const at = spanKey(), r = await app().command("steps.read", {track: ST.track, bar: ST.bar, bars: ST.bars}, undefined, true);
     return r.ok && at === spanKey() ? r.body : null;
   }
   // Write the whole pattern (swing, clear) and take Live's answer as the pattern on the page.

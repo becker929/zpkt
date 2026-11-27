@@ -98,12 +98,18 @@ def number(args: Any, name: str, default: float) -> float:
 
 
 def swing_for(desk: Desk, args: Any, track: str, bar: int, bars: int) -> float:
-    """The swing a pattern's notes were written with: what the command says, else what the last `steps.write` of
-    that pattern said (kept while the app runs: Live's notes do not say it), else none."""
+    """The swing a pattern's notes are written with. Live's notes do not say it, so the app keeps it per pattern
+    while it runs: what a command says is kept (it is checked first), and a command that says nothing gets what
+    was kept, else none."""
+    key = (track, bar, bars)
     if "swing" in args:
-        return number(args, "swing", 0.0)
+        with asking():
+            swing = live_steps.check_swing(number(args, "swing", 0.0))
+        with desk.lock:
+            desk.steps_swing[key] = swing
+        return swing
     with desk.lock:
-        return desk.steps_swing.get((track, bar, bars), 0.0)
+        return desk.steps_swing.get(key, 0.0)
 
 
 def the_span(args: Any) -> tuple[str, int, int, int]:
@@ -299,6 +305,8 @@ def focus(desk: Desk, cmd: Command) -> Reply:
         desk.steps_rev += 1
         new["rev"] = desk.steps_rev
         desk.steps_focus = new
+        if "swing" in asked:  # the pattern's swing, kept for the reads and taps that say nothing of it
+            desk.steps_swing[(new["track"], new["bar"], new["bars"])] = new["swing"]
     return 200, {"ok": True, "focus": say(desk, src=src)}
 
 
