@@ -1,5 +1,5 @@
 """The pager's decisions, apart from Live: which MiniLab control does what (a table), pages and pads, fader pickup,
-loops and seeks, a control's report.
+loops and seeks, a control's report, and the steps layer (the pads as the step sequencer's 16 steps).
 
 pager.py runs inside Live and loads this file by path; it imports nothing, so tests import it as it is
 (tests/test_pagercore.py). Everything here takes plain values and returns plain values; the LOM stays in pager.py.
@@ -116,6 +116,126 @@ def lit_state(states, read):
         else:
             return i
     return None
+
+
+# ---- the steps layer: while the step sequencer has a pattern in hand, the pads are its steps -----------------------
+
+# The app keeps what the sequencer has in hand (the focus: zpkt.app.steps_commands.focus). While there is one and
+# nothing is in its way, both pad banks stop arming pages: bank A is steps 1-8 and bank B steps 9-16 of the bar in
+# view, a lit pad is a step that is on, knobs 1-3 set what a new step gets, and the data knob walks the kit's
+# sounds. The moment the focus clears, every control is the armed page's again (Anthony, 26 Nov 2026).
+STEP_PADS = 16
+STEP_BANKS = {"pad_bank_a_raw": 0, "pad_bank_b_raw": PAGE_PADS}  # the factory script's bank -> its first step pad
+STEP_KNOBS = {"k1": "velocity", "k2": "length", "k3": "swing"}  # the knobs the layer takes; the rest stay the page's
+STEP_MIN_LENGTH = 0.25  # steps: the shortest note (zpkt.live.steps.MIN_LENGTH)
+STEP_MAX_SWING = 0.75  # of a step (zpkt.live.steps.MAX_SWING)
+STEP_KNOB_HOLD_S = 0.5  # after a hand turned a knob, the app's word about that value does not move the knob's ring
+STEP_TURN_MAX = 4  # sounds one report of the data knob steps at most (a fast spin)
+# A pad's light, as red, green and blue (0-127 each): what Live's MiniLab_3 script sends a pad (its colors.py).
+PAD_LIT = (127, 127, 127)
+PAD_DARK = (0, 0, 0)
+
+
+def steps_layer(focus):
+    """What the controller shows of the sequencer's focus, or None when the layer is off: no focus, or clips in
+    the way of it (nothing can be written). {"lit": the 16 pads, "velocity", "length", "swing", "total": the
+    pattern's steps, "track"}. Two focuses with the same answer look the same on the controller."""
+    if not focus or focus.get("blocked"):
+        return None
+    steps = list(focus["steps"])
+    first = int(focus.get("view", 0)) * int(focus["steps_per_bar"])
+    return {
+        "lit": [first + k < len(steps) and steps[first + k] > 0 for k in range(STEP_PADS)],
+        "velocity": int(focus["velocity"]),
+        "length": float(focus["length"]),
+        "swing": float(focus["swing"]),
+        "total": len(steps),
+        "track": str(focus["track"]),
+    }
+
+
+def step_pad(element, index):
+    """The step pad (0-15) a pad of the factory script is: bank A is 0-7, bank B is 8-15. None for another control."""
+    first = STEP_BANKS.get(element)
+    return None if first is None or index is None or not 0 <= index < PAGE_PADS else first + index
+
+
+def step_pad_slot(slot):
+    """The step pad (0-15) of a pad by its name in the full map ("a1" is 0, "b8" is 15); None for another control."""
+    bank, number = slot[:1], slot[1:]
+    if bank not in ("a", "b") or not number.isdigit() or not 1 <= int(number) <= PAGE_PADS:
+        return None
+    return (0 if bank == "a" else PAGE_PADS) + int(number) - 1
+
+
+def pad_step(focus, pad):
+    """The step of the pattern (from 0) that step pad `pad` (0-15) flips: the bar in view starts at pad 0. None for
+    a pad past the pattern's end."""
+    step = int(focus.get("view", 0)) * int(focus["steps_per_bar"]) + int(pad)
+    return step if 0 <= pad < STEP_PADS and step < len(focus["steps"]) else None
+
+
+def length_ladder(total):
+    """The lengths knob 2 steps through, in steps: 0.25, 0.5, 1, 2, 4 ... and last the pattern's own length."""
+    out, n = [], STEP_MIN_LENGTH
+    while n < total:
+        out.append(n)
+        n *= 2
+    return [*out, float(total)]
+
+
+def step_knob_value(what, value, total):
+    """What a knob at `value` (0..127) sets: a velocity 1-127, a length of the ladder, or a swing from 0 to 0.75 in
+    hundredths. None for a name that is none of the three."""
+    n = max(0, min(127, int(value)))
+    if what == "velocity":
+        return max(1, n)
+    if what == "length":
+        ladder = length_ladder(total)
+        return ladder[min(len(ladder) - 1, n * len(ladder) // 128)]
+    if what == "swing":
+        return round(STEP_MAX_SWING * n / 127.0, 2)
+    return None
+
+
+def step_knob_place(what, value, total):
+    """Where a knob stands (0..127) for a value, so knob and value agree when the layer starts: a length is at the
+    middle of its part of the turn. step_knob_value of the place gives the value back."""
+    if what == "length":
+        ladder = length_ladder(total)
+        nearest = min(range(len(ladder)), key=lambda k: abs(ladder[k] - float(value)))
+        return min(127, (nearest * 128 + 64) // len(ladder))
+    if what == "swing":
+        return max(0, min(127, round(127.0 * float(value) / STEP_MAX_SWING)))
+    return max(0, min(127, int(value)))
+
+
+def sound_turn(value):
+    """How many sounds one report of the data knob steps (it is relative: 64 is still, above is right)."""
+    return max(-STEP_TURN_MAX, min(STEP_TURN_MAX, relative_step(value)))
+
+
+def step_sound(pitches, pitch, step):
+    """The sound `step` places on from `pitch` among a kit's sounds, lowest first and wrapping (as the pages do). A
+    pitch that is no sound of the kit goes to the nearest one that way first. A track with no kit (no pitches) moves
+    by semitones and stops at the ends. None for no step."""
+    if not step:
+        return None
+    order = sorted(set(int(p) for p in pitches))
+    if not order:
+        return max(0, min(127, int(pitch) + step))
+    if pitch in order:
+        return order[(order.index(pitch) + step) % len(order)]
+    if step > 0:
+        start = next((i for i, p in enumerate(order) if p > pitch), 0)
+        return order[(start + step - 1) % len(order)]
+    start = next((i for i in range(len(order) - 1, -1, -1) if order[i] < pitch), len(order) - 1)
+    return order[(start + step + 1) % len(order)]
+
+
+def is_sound(pitches, pitch):
+    """May a played note choose the sound? One of the kit's sounds; any note on a track with no kit."""
+    return isinstance(pitch, int) and 0 <= pitch <= 127 and (not pitches or pitch in pitches)
 
 
 # ---- transport -----------------------------------------------------------------------------------------------------
@@ -236,7 +356,9 @@ def inventory_line(track, device, param, now, lowest, highest, quantized):
 #
 # One row per (control, layer): (control, layer, role, argument). The layers: "base"; "shift" (while Shift is held; a
 # control with no row in it does what it does in base); "tempo" (ZpktMiniLabTempo's job: used instead of base when
-# the desk is not driving the MiniLab; see tempo_layer_on). The roles and their arguments:
+# the desk is not driving the MiniLab; see tempo_layer_on); "steps" (while the step sequencer has a pattern in hand,
+# see steps_layer: it comes first, so a control it names is the sequencer's whatever else is held). The roles and
+# their arguments:
 #   knob, fader, toggle_pad, page_pad    as in HARDWARE: the argument is the slot (or the pad number 1-8)
 #   knob_fine                            the knob moves its control in small steps
 #   page_step                            +1 or -1: the next or previous page
@@ -244,7 +366,10 @@ def inventory_line(track, device, param, now, lowest, highest, quantized):
 #   focus_step, focus_reset, focus_set, focus_select, latch_compare, latch_focus, group_next, scrub, hear_hold
 #   action                               a named action (ACTIONS): the argument is its name
 #   tempo_fader, tempo_scale             tempo on a fader (whole BPM), or tempo times the argument
-LAYERS = ("base", "shift", "tempo")
+#   step_pad                             flips a step of the bar in view: the argument is the step pad, 0-15
+#   step_knob                            sets what a new step gets: the argument is velocity, length or swing
+#   sound_step, sound_key                the data knob walks the kit's sounds; a key that is a sound chooses it
+LAYERS = ("base", "shift", "tempo", "steps")
 KEYS = 25  # the keys: a 25-step selector
 KEYS_BASE_NOTE = 48  # the lowest key at the controller's default octave (C3), unverified (the profile says so)
 SCRUB_BEATS = 4.0  # one detent of the data knob with Shift moves the playhead by a bar
@@ -295,7 +420,11 @@ MINILAB_MAP = (
         ("f4", "tempo", "tempo_fader", None),
         ("a7", "tempo", "tempo_scale", 0.5),
         ("a8", "tempo", "tempo_scale", 2.0),
+        ("data_turn", "steps", "sound_step", None),
+        ("keys", "steps", "sound_key", None),
     )
+    + tuple((f"{bank}{k}", "steps", "step_pad", step_pad_slot(f"{bank}{k}")) for bank in "ab" for k in range(1, 9))
+    + tuple((slot, "steps", "step_knob", what) for slot, what in STEP_KNOBS.items())
 )
 
 # Named actions the map may use, and whether the app can do them yet. "later" ones are not built; the adapter says
@@ -322,9 +451,10 @@ def map_rows(control, layer, table=MINILAB_MAP):
     return [row for row in table if row[0] == control and row[1] == layer]
 
 
-def row_for(control, shift, tempo, table=MINILAB_MAP):
-    """The row that decides what a control does now: the tempo layer first (when on), then Shift's, then base."""
-    layers = (["tempo"] if tempo else []) + (["shift"] if shift else []) + ["base"]
+def row_for(control, shift, tempo, table=MINILAB_MAP, steps=False):
+    """The row that decides what a control does now: the steps layer first (when on), then the tempo layer (when
+    on), then Shift's, then base."""
+    layers = (["steps"] if steps else []) + (["tempo"] if tempo else []) + (["shift"] if shift else []) + ["base"]
     for layer in layers:
         rows = map_rows(control, layer, table)
         if rows:
