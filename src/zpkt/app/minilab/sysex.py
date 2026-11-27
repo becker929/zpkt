@@ -49,8 +49,9 @@ def led(profile: Profile, pad: Control, rgb: Rgb) -> list[int]:
 
 
 def realign(profile: Profile, knob: Control, value: int) -> list[int]:
-    """Move a knob's ring to `value` (0..127), so the knob and the parameter agree when a page is armed."""
+    """Move a knob's ring to `value` (0..127), so the knob and the parameter agree when a page is armed. Live's
+    script sends the knob's id, a zero, then the value (its encoder.py: `_get_sysex_header` ends in the id and 0)."""
     if knob.realign_sysex_id is None:
         raise ValueError(f"the control {knob.name!r} has no ring in the profile")
     s = profile.sysex
-    return [*s.header, *s.realign_prefix, knob.realign_sysex_id, _seven_bit(value), s.end]
+    return [*s.header, *s.realign_prefix, knob.realign_sysex_id, 0, _seven_bit(value), s.end]

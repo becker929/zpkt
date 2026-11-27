@@ -46,6 +46,10 @@ re-reads it when it restarts the pager).
   filter on, mute, solo) are flipped on the screen. One exception: on a Page with compare states (the app's README,
   Pages, Compare) the pads that hold a state switch the mix to it, in both banks, and the pad of the state that is
   on is lit. The other pads of that page still arm pages. The light is untested on the real MiniLab 3.
+- **Steps.** While the app's step sequencer has a pattern in hand, the pads are its steps instead: bank A is steps
+  1-8 and bank B steps 9-16 of the bar in view, lit when on; knobs 1-3 are the velocity, length and swing of a new
+  step, and the big encoder walks the kit's sounds. When the sequencer lets go, the pads, the knobs and the lights
+  are the page's again (`src/zpkt/app/README.md`, "Steps on the MiniLab").
 
 ## Matching the references (22 Nov 2026)
 

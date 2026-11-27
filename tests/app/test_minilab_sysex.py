@@ -40,7 +40,7 @@ def test_a_pad_led_is_its_id_and_a_seven_bit_colour(profile):
 
 
 def test_a_knob_ring_is_the_header_the_knobs_id_and_the_value(profile):
-    assert sysex.realign(profile, profile.by_name("k1"), 64) == [*HEADER, 33, 16, 0, 7, 64, 0xF7]
+    assert sysex.realign(profile, profile.by_name("k1"), 64) == [*HEADER, 33, 16, 0, 7, 0, 64, 0xF7]
     assert sysex.realign(profile, profile.by_name("k8"), 300)[-2] == 127
 
 
