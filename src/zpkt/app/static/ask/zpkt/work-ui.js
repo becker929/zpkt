@@ -40,6 +40,15 @@ function refreshDrawer() {
   if (a) ui.drawer.draw(a, mainTodos(), running); else ui.drawer.clear();
 }
 
+// A turn the person stopped has no answer to read instead of its work: what it did stays open, as it was when
+// they pressed Stop, with the last step's calls in view.
+function keepInView(turn) {
+  if (!turn.traceEl) return;
+  turn.traceEl.open = true;
+  const last = turn.steps[turn.steps.length - 1];
+  if (last?.el) last.el.open = true;
+}
+
 function apply(e, { replaying = false } = {}) {
   if (!ui) return false;
   setQuiet(replaying);
@@ -81,9 +90,11 @@ function apply(e, { replaying = false } = {}) {
       const fold = foldTurn(ui.thread, c.turn);
       if (!fold && c.turn.logs.length) ui.thread.append(logRow(c.turn.logs));           // a run that printed and did nothing else
       if (fold && c.turn.status === 'success' && !c.turn.problems) { bump(fold, 1.02); burst(fold.querySelector('.wk-traceline'), 18); }
+      if (c.turn.status === 'stopped') keepInView(c.turn);
       refreshDock();
       return false;                                                                    // the page still shows stats or errors
     }
+    case 'turn-stopped': keepInView(c.turn); return false;
     case 'summary':
       if (c.step) { if (c.owner === W.turns.find((t) => t.steps.includes(c.step))) paintStep(c.step); refreshDrawer(); if (running && !mainTodos().length) refreshDock(); }
       if (c.agent) { paintAgent(c.agent); refreshDrawer(); }

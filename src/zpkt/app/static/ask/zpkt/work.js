@@ -216,6 +216,8 @@ export function createWork() {
       case 'result':
       case 'run_end': {
         const turn = W.turn;
+        // An engine that ends a stopped turn with its own result first (an older Gemini turn): it was stopped all the same.
+        if (turn && !turn.running && e.type === 'run_end' && e.signal && turn.status === 'success') { turn.status = 'stopped'; return { kind: 'turn-stopped', turn }; }
         if (!turn || !turn.running) return null;
         closeStep(turn);
         turn.running = false;

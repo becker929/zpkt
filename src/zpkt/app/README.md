@@ -840,6 +840,17 @@ the Ask tab of `/app/` (`/app/#ask`); its page and API are under `/app/ask/`.
   (`ability_<name>`, one tool each: "Abilities", above) runs code I allowed for good, and an agent cannot name
   any other command. A `propose_live` call may take 4 minutes (the wait for the tap), so the MCP server gives that
   tool 5 (`mcp.timeout_for`), and `bounce_audio` the same for its exports; Gemini CLI gives an MCP call 10.
+- **An agent's shell is bounded** (Anthony, 27 November 2026, after a search of the whole home folder ran for
+  minutes: "Why aren't its executions bound in time?"). A shell command ends after 60 seconds for both engines
+  (`engines.SHELL_LIMIT_S`). Claude Code gets it as its own limit (`BASH_DEFAULT_TIMEOUT_MS`,
+  `BASH_MAX_TIMEOUT_MS`). Gemini CLI only limits how long a command is quiet, so the app sets that to the same
+  number in a settings file of its own (`gemini-settings.json` beside the usage file, named to Gemini by
+  `GEMINI_CLI_SYSTEM_SETTINGS_PATH`) and also ends what a command started when it is still running at the limit
+  (`gemini.to_cut`: the processes under Gemini's that began after the command did, never the app's tool server);
+  Gemini reports the command as ended and goes on. The agent's PATH starts with the app's own bin folder, so
+  `zpkt audio` and a Python with `zpkt.audio` are found; the guide tells it to use those, not a script of its own.
+  On the page, a turn the person stopped keeps its tool calls open (it has no answer to read instead), and
+  Gemini's result for such a turn says `stopped`, not `success`.
 - **Bounce and measure: how an agent hears** (Anthony, 26 November 2026: "The agent thinks it can't run a render.
   It should know how to bounce tracks and projects. And efficiently access the results without pulling them fully
   into context."; `bounce_commands.py`). `bounce_audio` (the command `render.bounce`) renders the mix, or up to

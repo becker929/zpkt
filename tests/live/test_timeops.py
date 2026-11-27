@@ -26,17 +26,28 @@ class FakeArrangement(Transport):
 
 
 @pytest.fixture
-def menus(monkeypatch):
+def behind():
+    """Items that are grey until Live comes in front of the other apps."""
+    return set()
+
+
+@pytest.fixture
+def menus(monkeypatch, behind):
     """Edit-menu clicks, recorded; items in `disabled` never enable."""
     clicked, disabled = [], set()
 
     def menu(name, item, tries=6, wait_s=0.4):
-        if item in disabled:
+        if item in disabled or item in behind:
             return False
         clicked.append(item)
         return True
 
+    def to_front():
+        clicked.append("to front")
+        behind.clear()
+
     monkeypatch.setattr(ui, "menu", menu)
+    monkeypatch.setattr(ui, "to_front", to_front)
     monkeypatch.setattr(timeops.time, "sleep", lambda s: None)
     monkeypatch.setattr(session.time, "sleep", lambda s: None)
     return clicked, disabled
@@ -53,10 +64,22 @@ def test_select_is_one_lom_call_then_select_loop(menus):
 
 
 def test_select_stops_when_select_loop_stays_disabled(menus):
-    _, disabled = menus
+    clicked, disabled = menus
     disabled.add("Select Loop")
     with pytest.raises(Guard, match="Select Loop stayed disabled"):
         timeops.select(FakeArrangement([]), 8, 32)
+    assert clicked == ["to front"]  # it tried with Live in front before it gave up
+
+
+def test_select_brings_live_to_the_front_when_another_app_hides_it(menus, behind):
+    """A full-screen window of another app in front of Live greys out Edit > Select Loop: the bounce of
+    27 November 2026 failed on it. Live then comes to the front and the selection is made again."""
+    clicked, _ = menus
+    behind.add("Select Loop")
+    live = FakeArrangement([])
+    timeops.select(live, 32, 32)
+    assert clicked == ["to front", "Select Loop"]
+    assert len(live.calls) == 2 and all("song.loop_start = 32.0" in c for c in live.calls)
 
 
 def test_delete_checks_the_song_end(menus):

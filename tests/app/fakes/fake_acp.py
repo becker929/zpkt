@@ -4,11 +4,13 @@ It logs every message it gets to $FAKE_ACP_LOG. What a prompt does depends on it
     "edit ..."   a tool call that asks permission first; allowed: it completes and says "Done."; declined: "Skipped."
     "page ..."   a call of the app's make_page tool that asks permission first, as Gemini does for an MCP tool
     "slow ..."   text in pieces until cancelled (stopReason "cancelled")
+    "shell ..."  a shell command (`sleep 30`, a child of this process) that it waits for, then says how it ended
     otherwise    "echo: <text>"
 """
 
 import json
 import os
+import subprocess
 import sys
 import threading
 import time
@@ -70,6 +72,12 @@ def prompt(msg):
         else:
             update(sid, {"sessionUpdate": "tool_call_update", "toolCallId": "e1", "status": "failed"})
             text(sid, "Skipped.")
+    elif "shell" in words:
+        update(sid, {"sessionUpdate": "tool_call", "toolCallId": "s1", "title": "sleep 30", "kind": "execute", "status": "in_progress"})  # fmt: skip
+        code = subprocess.Popen(["sleep", "30"]).wait()
+        said = [{"type": "content", "content": {"type": "text", "text": f"ended {code}"}}]
+        update(sid, {"sessionUpdate": "tool_call_update", "toolCallId": "s1", "status": "completed", "content": said})
+        text(sid, "It took too long.")
     elif "slow" in words:
         for k in range(300):
             if sid in cancelled:
