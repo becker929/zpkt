@@ -123,6 +123,8 @@ class MidiAdapter:
                     items.append(self._inbox.get_nowait())
                 except queue.Empty:
                     break
+            if items:
+                self._drain_desk()  # a move is decided on what the desk shows now, not a tick ago
             for kind, payload, at in items:
                 if kind == "stop":
                     return

@@ -477,7 +477,8 @@ The decisions are in `contrib/mixdesk/pagercore.py` (`steps_layer`, `pad_step`, 
   and a sound as `{"t": "step_sound"}` (a `turn` of the data knob, or the `pitch` of the pad selected in the
   track's Drum Rack). The hand turns them into the commands above, in order, from its own thread; turns that
   arrive while a command is in Live become one command with the latest of each. A pad's light flips under the
-  finger, and when Live refuses the press the pager is told its lights again.
+  finger, and when Live refuses the press the pager is told its lights again. A pager that was loaded before it
+  had this layer (the app updated under it) is loaded again, once, when the app finds that out.
 - **Keys choose the sound without being taken from the instrument.** The pager listens to
   `view.selected_drum_pad` of the track's Drum Rack while the layer is on. Guess: with the rack's Auto Select on,
   Live selects the pad a played note lands on. If Live does not, or the track has no Drum Rack, the data knob and

@@ -238,6 +238,18 @@ def test_a_pager_that_starts_again_is_told_the_focus(held):
     assert wait_for(lambda: focus_of(rig)["steps"][4] == 100)
 
 
+def test_a_pager_from_before_the_layer_is_loaded_again_once(drums):
+    rig = drums
+    # the app was updated under a pager that holds the MiniLab: that pager has no steps layer
+    rig.conn.run("import sys\nm = sys.modules['zpkt_mixdesk_pager']\ndel type(m.DESK).steps_layer\nresult = 1")
+    page = rig.state()["page"]
+    ask(rig, "steps.focus", {**SPAN, "pitch": KICK})
+    assert wait_for(lambda: lit(rig) == [0, 12])  # loaded again, and told the focus as it started
+    assert rig.state()["page"] == page and rig.desk.steps_hand._reloaded
+    press(rig, 3)
+    assert wait_for(lambda: focus_of(rig)["steps"][3] == 100)
+
+
 # ---- the knobs ------------------------------------------------------------------------------------------------------
 
 

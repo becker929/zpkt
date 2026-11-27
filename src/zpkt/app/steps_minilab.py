@@ -65,6 +65,7 @@ class Hand:
         self._told: dict[str, Any] | None = None  # what the pager last got; None: no layer
         self._told_rev: int | None = None  # the focus's rev that was (None: no focus)
         self._known = False  # whether the pager shows `_told`: not after a call that failed, nor before the first
+        self._reloaded = False  # a pager from before the steps layer was loaded again (once while the app runs)
         self._inbox: queue.Queue[dict[str, Any]] = queue.Queue()
         self._lock = threading.Lock()
         self._thread: threading.Thread | None = None
@@ -113,9 +114,23 @@ class Hand:
         except Exception as exc:  # the lights never fail anything else
             with self._lock:
                 self._known = False
+                old_pager = "steps_layer" in str(exc) and not self._reloaded
+                self._reloaded = self._reloaded or old_pager
             log.warning(f"app: the MiniLab was not told the steps ({type(exc).__name__}: {str(exc)[:120]})")
+            if old_pager:
+                self._reload()
             return False
         return True
+
+    def _reload(self) -> None:
+        """The pager in Live is from before it had a steps layer (the app was updated under it, and a pager that
+        holds the MiniLab is not loaded again by itself): load it again, once. It keeps its page and what is heard,
+        and is told the focus as it starts (`restarted`)."""
+        log.warning("app: the pager in Live has no steps layer; loading the pager again")
+        try:
+            self.desk.restart_pager()
+        except Exception as exc:
+            log.warning(f"app: the pager was not loaded again ({type(exc).__name__}: {str(exc)[:120]})")
 
     # ---- from the pager ----------------------------------------------------------------------------------------
     def heard(self, message: Mapping[str, Any]) -> None:
