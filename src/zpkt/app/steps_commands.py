@@ -20,6 +20,10 @@ The page, the API and later the MiniLab all pass this one door:
 The changing ones are moves (zpkt.app.effects): the bus holds them to the page's set and to the lock, and refuses
 them from an agent. None of them ever names a monitor track ("mon ..."): `the_track` is the rail.
 
+Undo: every changing command is one History row (an entry of kind "steps", zpkt.app.history) that keeps what each
+span of the Arrangement held before; undo and redo write that back (`swap`, over zpkt.live.steps.restore). A run
+of edits to one pattern is one row. A new track is not undone: its row says so.
+
 The focus is the one piece of state here (`Desk.steps_focus`, in `/api/state`, in the agents' `desk.state`, and
 pushed to every page and adapter as {"t": "steps", "focus": {...} | null}): which pattern and which sound the
 sequencer has in hand, the values a new step gets, and that sound's steps. It is what a controller needs to light
@@ -339,6 +343,75 @@ def edited(
     say(desk, {"track": track, "bar": bar, "bars": bars, "what": what}, src)
 
 
+# ---- History: one row a change, and the way back ---------------------------------------------------------------------
+
+
+def held(notes: Any, name: str | None = None) -> dict[str, Any]:
+    """What a span held, as the history keeps it: its clip's name (None: not known, and not changed when it is
+    put back) and notes."""
+    return {"name": name, "notes": [list(n) for n in notes]}
+
+
+Before = list[tuple[int, int, dict[str, Any] | None]]  # per span changed: its bar, its bars, what it held
+
+
+def row(
+    desk: Desk,
+    cmd: Command,
+    track: str,
+    what: str,
+    span: tuple[int, int],
+    before: Before,
+    count: int = 1,
+    more: dict[str, Any] | None = None,
+) -> int:
+    """Write the History row of a change Live has made. `before` is, in the order they were changed, each span's
+    (bar, bars, what it held: None for a free span). Returns the entry's id."""
+    spans = [{"track": track, "bar": bar, "bars": bars, "state": state} for bar, bars, state in before]
+    entry = desk.history.steps_change(cmd.who, track, what, span[0], span[1], spans, count, more)
+    desk.push(desk.history.view())
+    return int(entry["id"])
+
+
+def swap(desk: Desk, entry: dict[str, Any], forward: bool) -> list[str]:
+    """Undo (`forward` false) or redo a History entry's step patterns: each span gets the state the entry keeps
+    for it, and the entry keeps what the span held instead, so the next swap goes the other way. Undo takes the
+    spans last one first. A span that cannot be put back (clips are in the way now, the track is gone) is left as
+    it is and named in the answer; the others still go back. One short call to Live a span."""
+    spans = entry.get("spans") or []
+    notes: list[str] = []
+    touched: dict[str, list[int]] = {}
+    for span in spans if forward else list(reversed(spans)):
+        track, bar, bars, state = span["track"], span["bar"], span["bars"], span["state"]
+        try:
+            did = plain(
+                live_steps.restore(
+                    desk.conn,
+                    track,
+                    bar,
+                    bars,
+                    None if state is None else state["notes"],
+                    None if state is None else state.get("name") or None,
+                )
+            )
+        except LiveError as exc:
+            if exc.result is None:  # Live does not answer at all: that is the caller's to say
+                raise
+            wrong = _ASKED_WRONG.search(str(exc))
+            notes.append(f"{track}, bar {bar}: {wrong.group(1) if wrong else 'Live did not put it back'}")
+            continue
+        if "error" in did:
+            notes.append(f"{track}, bar {bar}: {did['error']}")
+            continue
+        was = did["was"]
+        span["state"] = None if was is None else held(was["notes"], was["name"])
+        touched.setdefault(track, []).extend([bar, bar + bars])
+    desk.history.steps_swapped(entry)
+    for track, edges in touched.items():
+        edited(desk, (track, min(edges), max(edges) - min(edges)), "undo")
+    return notes
+
+
 # ---- the loop ------------------------------------------------------------------------------------------------------
 
 
@@ -388,7 +461,8 @@ def toggle(desk: Desk, cmd: Command) -> Reply:
         (whole(cmd.args, "pitch"), whole(cmd.args, "step"), did["velocity"] if did["on"] else 0),
         clips=bool(did["created"]),
     )
-    return 200, {"ok": True, "on": did["on"], "velocity": did["velocity"], "created": did["created"]}
+    entry = row(desk, cmd, track, "edit", (bar, bars), [(bar, bars, None if did["created"] else held(did["before"]))])
+    return 200, {"ok": True, "on": did["on"], "velocity": did["velocity"], "created": did["created"], "entry": entry}
 
 
 def set_step(desk: Desk, cmd: Command) -> Reply:
@@ -417,7 +491,8 @@ def set_step(desk: Desk, cmd: Command) -> Reply:
     if (refused := in_the_way(did)) is not None:
         return refused
     edited(desk, (track, bar, bars), "set", source_of(cmd.args), (pitch, step, did["velocity"]), clips=False)
-    return 200, {"ok": True, "on": True, "velocity": did["velocity"], "length": did["length"]}
+    entry = row(desk, cmd, track, "edit", (bar, bars), [(bar, bars, held(did["before"]))])
+    return 200, {"ok": True, "on": True, "velocity": did["velocity"], "length": did["length"], "entry": entry}
 
 
 def replaces(desk: Desk, track: str, bar: int, pattern: Mapping[str, Any], old_bars: int) -> bool:
@@ -463,8 +538,15 @@ def write(desk: Desk, cmd: Command) -> Reply:
     edited(
         desk, (track, bar, max(bars, old_bars or 0)), "write", source_of(cmd.args), clips=bool(did["created"] or took)
     )
+    here = None if did["created"] else held(did["before"])
+    if took and old_bars is not None:  # another length: the old clip went, then the new one came
+        gone = (bar, old_bars, held(took[0]["notes"], took[0]["name"]))
+        entry = row(desk, cmd, track, "length", (bar, bars), [gone, (bar, bars, here)], more={"from_bars": old_bars})
+    else:
+        entry = row(desk, cmd, track, "edit", (bar, bars), [(bar, bars, here)])
     return 200, {
         "ok": True,
+        "entry": entry,
         "track": track,
         "bar": bar,
         "bars": bars,
@@ -511,8 +593,14 @@ def paint(desk: Desk, cmd: Command) -> Reply:
         if "error" in did and not did["painted"]:
             return IN_THE_WAY, {"error": did["error"], "blocked": did.get("blocked", [])}
         clips = clips_now(desk, track, length, cmd.args, max(targets) + length)
+    entry = None
+    if did["painted"]:
+        over = {k["bar"]: held(k["notes"], k["name"]) for k in did["replaced"]}
+        before: Before = [(b, length, over.get(b)) for b in did["painted"]]
+        entry = row(desk, cmd, track, "paint", (source, length), before, count=len(did["painted"]))
     return 200, {
         "ok": True,
+        "entry": entry,
         "painted": did["painted"],
         "skipped": did["skipped"],
         "replaced": [k["bar"] for k in did["replaced"]],
@@ -532,7 +620,11 @@ def erase(desk: Desk, cmd: Command) -> Reply:
         if gone:
             edited(desk, (track, min(gone), max(gone) - min(gone) + length), "erase", source_of(cmd.args))
         clips = clips_now(desk, track, length, cmd.args, max(targets) + length)
-    return 200, {"ok": True, "erased": gone, "skipped": did["skipped"], "clips": clips}
+    entry = None
+    if gone:
+        was: Before = [(k["bar"], length, held(k["notes"], k["name"])) for k in did["erased"]]
+        entry = row(desk, cmd, track, "erase", (gone[0], length), was, count=len(gone))
+    return 200, {"ok": True, "entry": entry, "erased": gone, "skipped": did["skipped"], "clips": clips}
 
 
 def track_name(args: Any) -> str:
@@ -563,12 +655,17 @@ def new_track(desk: Desk, cmd: Command) -> Reply:
         return 502, {"error": str(exc)}
     finally:
         desk.forget_arrangement()
+    words = f"New drum track {made['name']} ({made['kit']})"
+    stays = [{"op": "track", "kind": "midi", "name": made["name"], "words": words}]
+    entry = row(desk, cmd, made["name"], "track", (1, 1), [], more={"stays": stays, "kit": made["kit"]})
     return 200, {
         "ok": True,
+        "entry": entry,
         "track": made["name"],
         "index": made["index"],
         "kit": made["kit"],
         "device": made["device"],
+        "no_undo": [words],
     }
 
 

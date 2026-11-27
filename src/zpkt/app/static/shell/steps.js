@@ -83,7 +83,7 @@
       const bar = off + 1 + k * n, from = (bar - 1) * per, to = from + n * per, hash = have.get(bar);
       const exact = (r) => Math.abs(r.start - from) < 1e-6 && Math.abs(r.end - to) < 1e-6;
       const kind = hash !== undefined ? (hash === mine ? "p" : "o") : t.regions.some((r) => r.start < to - 1e-6 && r.end > from + 1e-6 && !exact(r)) ? "x" : "";
-      cells += `<i class="st-cell ${kind} ${bar === ST.bar ? "src" : ""}" data-bar="${bar}" style="left:${((bar - 1) / total * 100).toFixed(3)}%;width:calc(${(n / total * 100).toFixed(3)}% - 1px)"></i>`;
+      cells += `<i class="st-cell ${kind} ${bar === ST.bar ? "src" : ""} ${stroke && stroke.picked.has(bar) ? "pend" : ""}" data-bar="${bar}" style="left:${((bar - 1) / total * 100).toFixed(3)}%;width:calc(${(n / total * 100).toFixed(3)}% - 1px)"></i>`;
     }
     return `<div class="st-cells ${ST.erase ? "erasing" : ""}" data-total="${total}" role="group" aria-label="Paint ${esc(t.name)}">${cells}</div>`;
   }
@@ -109,38 +109,43 @@
     load(true);  // the pattern's clip and hash as Live has them now, and which bars hold it
   }
   function paintOff() { ST.painting = false; ST.erase = false; app().renderSong(); }
-  // A gesture on the cells: a tap is one cell, a drag every cell it crosses. One command when the hand lifts.
+  // A gesture on the cells: a tap is one cell, a drag every cell it crosses. One command when the hand lifts. The
+  // gesture keeps bars, not elements: the lane may be drawn again under the hand (Live says a clip changed).
   let stroke = null;
-  function cellIndex(x, box) {
+  const cellsBox = () => $("#lanes .lane.paint .st-cells");
+  function cellIndex(x) {
+    const box = cellsBox();
+    if (!box) return -1;
     const rect = box.getBoundingClientRect(), total = +box.dataset.total, n = ST.bars, off = (ST.bar - 1) % n;
     const bar = Math.floor((x - rect.left) / rect.width * total);
     return Math.max(0, Math.min(box.children.length - 1, Math.floor((bar - off) / n)));
   }
   function strokeTo(index) {
+    const box = cellsBox();
+    if (!box || index < 0) return;
     const lo = Math.min(stroke.last, index), hi = Math.max(stroke.last, index);
     for (let i = lo; i <= hi && stroke.picked.size < 64; i++) {
-      if (stroke.picked.has(i)) continue;
-      stroke.picked.add(i); stroke.box.children[i].classList.add("pend");
+      const bar = +box.children[i].dataset.bar;
+      stroke.picked.add(bar); box.children[i].classList.add("pend");
     }
     stroke.last = index;
   }
   document.addEventListener("pointerdown", (e) => {
-    const cell = e.target.closest && e.target.closest(".st-cell"), box = cell && cell.parentElement;
+    const cell = e.target.closest && e.target.closest(".st-cell");
     if (!cell || !ST.painting || e.button > 0) return;
-    stroke = {box, erase: ST.erase, picked: new Set(), last: cellIndex(e.clientX, box)};
+    stroke = {erase: ST.erase, picked: new Set(), last: cellIndex(e.clientX)};
     strokeTo(stroke.last);
     e.preventDefault();
   });
-  document.addEventListener("pointermove", (e) => { if (stroke && stroke.box.isConnected) strokeTo(cellIndex(e.clientX, stroke.box)); });
+  document.addEventListener("pointermove", (e) => { if (stroke) strokeTo(cellIndex(e.clientX)); });
   document.addEventListener("pointercancel", () => { if (stroke) { stroke = null; app().renderSong(); } });
   document.addEventListener("pointerup", async () => {
-    const st = stroke;
+    const st = stroke, box = cellsBox();
     stroke = null;
     if (!st) return;
-    if (!st.box.isConnected) return app().renderSong();
-    const bars = [...st.picked].sort((a, b) => a - b).map((i) => +st.box.children[i].dataset.bar).filter((b) => st.erase || b !== ST.bar);
-    if (!bars.length) return app().renderSong();
-    const common = {track: ST.track, total_bars: +st.box.dataset.total, src: SRC};
+    const bars = [...st.picked].sort((a, b) => a - b).filter((b) => st.erase || b !== ST.bar);
+    if (!bars.length || !box || !ST.painting) return app().renderSong();
+    const common = {track: ST.track, total_bars: +box.dataset.total, src: SRC};
     const r = await (st.erase ? app().command("steps.erase", {...common, bars, length: ST.bars}) : app().command("steps.paint", {...common, from_bar: ST.bar, bars: ST.bars, to: bars}));
     if (r.ok && ST.data) ST.data.painted = r.body.clips;
     if (r.ok && st.erase && bars.includes(ST.bar)) return load(true);  // the pattern's own clip went: read it again

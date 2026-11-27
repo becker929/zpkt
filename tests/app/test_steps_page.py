@@ -468,3 +468,46 @@ def test_a_pattern_of_two_bars_shows_a_bar_at_a_time(browser, rig):
     pg.wait_for_selector("#st-barn:not([data-blocked])")
     pg.wait_for_function("document.querySelectorAll('#steps .st-pad.on').length === 1")
     assert no_scroll(pg) and pg.errors == []
+
+
+def test_history_has_a_row_for_each_change_and_undo_puts_the_notes_back(browser, rig):
+    pg = song(browser, rig)
+    make_drums(pg, rig)
+    pads = pg.locator("#steps .st-pad")
+    for k in (0, 4, 8):
+        pads.nth(k).click()
+    wait_for(lambda: len(notes(rig)) == 3)
+    pg.wait_for_function("window.zpkt.S.hist.entries.length === 2")  # the new track, and the run of taps as one
+    pg.locator("#khist").click()
+    pg.wait_for_selector("#sheet.on .he")
+    texts = pg.locator("#sheet .he .ht").all_inner_texts()
+    assert texts[0].split("\n")[0].split() == ["Drums", "bar", "1", "·", "3", "changes"]
+    assert "new track · 909 Core Kit" in texts[1] and "no undo: 1 track" in texts[1]
+    assert no_scroll(pg)
+    pg.locator("#hclose").click()
+
+    pg.locator("#kundo").click()  # the whole run goes, and the clip it made; the pads follow
+    wait_for(lambda: notes(rig) == [] and rig.track("Drums").arrangement_clips == ())
+    pg.wait_for_function("document.querySelectorAll('#steps .st-pad.on').length === 0")
+    pg.locator("#kredo").click()
+    wait_for(lambda: len(notes(rig)) == 3)
+    pg.wait_for_function("document.querySelectorAll('#steps .st-pad.on').length === 3")
+
+    # paint, then undo: the copies go
+    pg.locator('#steps [data-st="paint"]').click()
+    pg.wait_for_selector("#lanes .lane.paint .st-cell.p.src")
+    box = pg.locator('#lanes .lane.paint .st-cell[data-bar="4"]').bounding_box()
+    end = pg.locator('#lanes .lane.paint .st-cell[data-bar="7"]').bounding_box()
+    pg.mouse.move(box["x"] + box["width"] / 2, box["y"] + 10)
+    pg.mouse.down()
+    pg.mouse.move(end["x"] + end["width"] / 2, end["y"] + 10, steps=4)
+    pg.mouse.up()
+    wait_for(lambda: len(rig.track("Drums").arrangement_clips) == 5)
+    pg.wait_for_function("window.zpkt.S.hist.entries.some(e => e.what === 'paint' && e.count === 4)")
+    pg.locator("#kundo").click()
+    wait_for(lambda: len(rig.track("Drums").arrangement_clips) == 1)
+    pg.wait_for_function("document.querySelectorAll('#lanes .lane.paint .st-cell.p').length === 1")
+    pg.locator("#khist").click()
+    pg.wait_for_selector("#sheet.on .he.undone")
+    assert "painted 4 clips" in pg.locator("#sheet .he.undone .ht").first.inner_text()
+    assert pg.errors == []
