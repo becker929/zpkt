@@ -116,7 +116,7 @@ class Hand:
         except Exception as exc:  # the lights never fail anything else
             with self._lock:
                 self._known = False
-                old_pager = "steps_layer" in str(exc) and not self._reloaded
+                old_pager = "no attribute 'steps_layer'" in str(exc) and not self._reloaded
                 self._reloaded = self._reloaded or old_pager
             log.warning(f"app: the MiniLab was not told the steps ({type(exc).__name__}: {str(exc)[:120]})")
             if old_pager:
