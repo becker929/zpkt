@@ -409,6 +409,10 @@ pages (`contrib/mixdesk/desk.json`) and a made surface.
   `monitor_tracks.placed_beat`): a call takes Live a few hundred milliseconds to get to, so the switch is heard
   that much after the press, but nothing is heard in between. It does not wait for the next bar line: the app
   cannot time a call into Live that finely.
+- **Ask is dense** (26 November 2026, `static/ask/zpkt/dense.css`): Anthony chose "3 Extreme" of five renders on his
+  own chat. 12 px text edge to edge, no air between blocks, your message as one bold line, the composer in one row;
+  about twice the chat fits a phone. The file loads last and only makes things smaller. The keys that decide
+  something (Do it, Don't, Stop, send) keep a size a thumb hits; rows that only unfold detail are 18 px.
 - **After the phone walk** (26 November 2026): on the Song a tap on a lane chooses its track, and a strip under the
   lanes names it with a Solo and a Mute key (`#songsel`, `mix.set` on `TRACK/solo` and `TRACK/mute`); a tap on the
   lit B of a checkpoint lets the pin go (`monitor.pin` with `clear`); Play, Stop and the A / B / C keys pulse from

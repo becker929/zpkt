@@ -1,0 +1,58 @@
+/* Ask, dense (Anthony, 26 November 2026: "Ask's style needs to be more info dense"; of five renders on his own chat
+   he chose "3 Extreme"). 12 px text edge to edge, no air between blocks, your message as one bold line, the composer
+   as one row. About twice the chat fits a phone. It loads last and only makes things smaller: every rule here
+   answers one in index.html, zpkt.css or work.css. The keys that decide something (Do it, Don't, Always, Stop, the
+   send key) keep a size a thumb hits; the rows that only unfold detail are low. */
+body{font-size:12px;line-height:1.3}
+#main{padding-left:0;padding-right:0}#main .wrap{padding-left:0;padding-right:0}
+#msgs{padding-left:6px;padding-right:6px}
+
+/* the transcript */
+.m{margin-bottom:3px}
+.bubble p{margin:.2em 0}
+.bubble ul,.bubble ol{margin:.1em 0;padding-left:1em}.bubble li{margin:0}
+.bubble h1,.bubble h2,.bubble h3,.bubble h4{font-size:1em;margin:.35em 0 .1em;text-transform:uppercase;letter-spacing:.04em}
+.bubble blockquote{margin:.2em 0;padding-left:6px;border-left-width:2px}
+.m.user .bubble{display:block;max-width:100%;border:0;border-left:3px solid var(--acc);border-radius:0;background:var(--panel);padding:1px 6px;font-weight:700}
+.m.user .meta{display:none}
+table{font-size:11px}th,td{padding:1px 4px}
+.bubble code,.mono{font-size:.92em;padding:0 .2em;border-radius:3px}
+.bubble pre,pre.out{padding:4px;font-size:10.5px;line-height:1.3;margin:.2em 0;border-radius:4px}
+.bubble pre code{font-size:10.5px}
+.cp{top:2px;right:2px;font-size:10px;padding:0 5px}
+.stats{font-size:10px;margin:0 0 4px;gap:0 6px}.stats svg{width:9px;height:9px}
+.err{font-size:11.5px;margin:0 0 4px}.err details{font-size:10.5px}.err summary{min-height:22px}
+.cmp{margin:2px 0 4px;font-size:10.5px}.cmp .bubble{font-size:11.5px;padding:0 0 0 6px}
+
+/* the work an answer took: one low line each; a tap still unfolds it */
+details.wk-trace{margin:0 0 2px}details.wk-trace>summary{min-height:18px;font-size:10.5px}
+.wk-line,.wk-r,.wk-t,.wk-traceline,.wk-counts,.wk-title{font-size:10.5px}
+details.wk-step>summary{min-height:18px}
+.wk-folded{padding:2px 0 0 6px;margin:2px 0 0 4px}
+details.tool{margin:0 0 3px;font-size:11px;border-radius:5px}details.tool summary{padding:2px 6px}
+.tool .nm,.tool .arg{font-size:10.5px}.tool .st{font-size:10px}details.tool pre{margin:0 4px 4px}
+
+/* cards: a page's link, a question, a proposal. Their deciding keys keep their size. */
+.card{padding:4px 6px;margin-bottom:4px;font-size:11.5px;border-width:1px}
+.card.prop{padding:5px 6px;border-radius:6px}.card .prop-why{font-size:12px;margin-bottom:2px}
+.prop-text,.prop-what{font-size:11.5px;line-height:1.25}
+.prop-steps li{padding:1px 0}
+.prop-keep{font-size:9.5px;line-height:13px;padding:0 4px}
+.prop-code{font-size:10px;padding:3px;max-height:66px;margin-top:1px;border-radius:4px}
+a.pcard{padding:2px 6px 2px 4px;margin:2px 0;border-width:1px;min-height:0;gap:6px}.pthumb svg{width:56px;height:26px}
+
+/* the composer: the agent, the attach keys and the text box in one row */
+#bar{padding:3px 6px}
+#bar .wrap{display:flex;flex-wrap:wrap;align-items:center;gap:4px}
+#bar #dock,#bar #chips,#bar #hint{flex:0 0 100%}
+#bar #tools{flex:none;order:1;gap:0;width:auto}
+#bar #tools .sp{display:none}
+#bar #box{flex:1 1 120px;order:2;min-width:0;margin:0;min-height:34px;padding:1px}
+#tools,#tools select,#tools button{height:32px;min-height:32px}
+#engine{width:54px;font-size:11px;padding-left:4px;padding-right:0}
+#ztools button,#moreBtn{width:28px}
+#in{min-height:30px;height:30px;padding:6px;font-size:12px}
+#send{height:30px;width:34px}
+
+/* a running turn: its bar keeps the Stop key a thumb hits */
+.wk-toggle{min-height:36px}
