@@ -5,8 +5,8 @@ The class decides the bus's checks (zpkt.app.bus):
 - read: it looks. Nothing changes in Live or on disk.
 - make: it makes or changes pages, files or checkpoints. Live's set stays as it is. An agent may.
 - move: it changes Live (the mix, the tempo, the transport, what is heard, the pager and what the MiniLab's controls
-  do) or runs code or a build there. An agent needs your word, and the wrong-set guard holds it. The one move an
-  agent may ask for on its own is in AGENT_MAY, below.
+  do) or runs code or a build there. An agent needs your word, and the wrong-set guard holds it. The moves an
+  agent may ask for on its own are in AGENT_MAY, below: `live.change`, and `ability.run`, whose word you gave before.
 
 Every module that puts commands on the bus takes the class from here (`register`), so a command without a line in
 this table cannot start. tests/app/test_effects.py writes the whole list out again: a change here is a decision.
@@ -36,6 +36,13 @@ These lines are decisions worth their reason:
   chat and waits for your tap; only after "Do it" does the gate send `live.propose` with your word
   (zpkt.app.propose, zpkt.app.ask.tools). Like `live.run` it is for the API's callers, never the web page. Undo
   takes back its values and its added or moved devices, and leaves a removed device, a new track and code.
+- `ability.run` is a move, and the second move an agent may ask for with no word of yours at the time (AGENT_MAY).
+  Anthony, 26 November 2026: "an 'Always' button which adds the code to an auto allowed set, as new abilities with
+  documentation and everything, run the same as other tools." The word was given before: an ability is a code
+  step of a proposal that you answered with "Always", kept as the exact code the card showed (zpkt.app.abilities).
+  What an agent chooses at a run is the arguments, which are checked against the declared parameters and passed
+  as data. The command can run nothing that was not kept that way. `ability.remove` takes the standing yes back
+  at once; it is a make (a file goes), and it is yours only: its callers are the page and the command line.
 """
 
 from __future__ import annotations
@@ -82,6 +89,10 @@ EFFECTS: dict[str, Effect] = {
     # a batch that waits for your tap: structure and code (zpkt.app.propose)
     "live.propose.check": "read",
     "live.propose": "move",
+    # code you allowed for good (zpkt.app.abilities; the commands are in zpkt.app.propose)
+    "ability.list": "read",
+    "ability.remove": "make",
+    "ability.run": "move",
     # the jobs (zpkt.app.jobs)
     "live.run": "move",
     "live.read": "read",
@@ -104,7 +115,7 @@ EFFECTS: dict[str, Effect] = {
 
 # The moves an agent may ask for on its own. The docstring above has the reason for each; tests/app/test_effects.py
 # writes this set out again.
-AGENT_MAY: frozenset[str] = frozenset({"live.change"})
+AGENT_MAY: frozenset[str] = frozenset({"live.change", "ability.run"})
 
 
 def effect_of(kind: str) -> Effect:

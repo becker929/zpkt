@@ -16,7 +16,7 @@ from __future__ import annotations
 import time
 from typing import TYPE_CHECKING, Any
 
-from zpkt.app import effects
+from zpkt.app import abilities, effects
 from zpkt.app import pages as app_pages
 from zpkt.app.bus import BadRequest, Bus, Command, Reply
 from zpkt.live import describe as describe_live
@@ -89,7 +89,25 @@ def state_read(desk: Desk, cmd: Command) -> Reply:
         "values": state["values"],
         "match": state["match"],
         "compare": app_pages.compare_view(desk),
+        "abilities": abilities_brief(desk),
     }
+
+
+def abilities_brief(desk: Desk) -> list[dict[str, Any]]:
+    """The abilities an agent may run on its own, in short (zpkt.app.abilities): the tool to call, what it does,
+    its parameters, what it uses. Here so an agent can look before it proposes code, whatever its tool list says."""
+    found = desk.abilities.all()
+    links = abilities.graph(found)
+    return [
+        {
+            "tool": abilities.TOOL_PREFIX + a["name"],
+            "name": a["name"],
+            "does": a["does"],
+            "params": a["params"],
+            **{k: v for k, v in links[a["name"]].items() if v and k != "used_by"},
+        }
+        for a in found
+    ]
 
 
 def measurement_read(desk: Desk, cmd: Command) -> Reply:
