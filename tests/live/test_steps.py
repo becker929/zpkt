@@ -524,3 +524,192 @@ def test_set_step_says_when_the_step_is_empty_or_the_span_is_not_ours(live):
     with pytest.raises(ValueError, match="give one"):
         steps.set_step(live, "Drums", 1, 1, 16, KICK, 0)
     assert held(live, "Drums")[0][3] == [(KICK, 0.0, 0.25, 100)] and held(live, "Bass")[0][2] == "long"
+
+
+# --------------------------------------------------------------------------- painting
+
+BEAT = steps.content_hash(steps.to_notes(FOUR))
+
+
+@pytest.fixture()
+def no_pause(monkeypatch):
+    monkeypatch.setattr(steps, "COPY_PAUSE_S", 0.0)
+
+
+def test_paint_stamps_the_clip_onto_free_bars_and_painted_finds_them(live):
+    steps.write(live, "Drums", 1, FOUR, name="beat")
+    calls = len(live.calls)
+    assert steps.paint(live, "Drums", 1, 1, [2, 3, 5]) == {"painted": [2, 3, 5], "skipped": [], "replaced": []}
+    assert len(live.calls) == calls + 1
+    notes = sorted(steps.to_notes(FOUR))
+    assert held(live, "Drums") == [(4.0 * k, 4.0 * k + 4.0, "beat", notes) for k in (0, 1, 2, 4)]
+    assert steps.painted(live, "Drums", 1, 64) == [{"bar": b, "hash": BEAT, "name": "beat"} for b in (1, 2, 3, 5)]
+    assert steps.painted(live, "Drums", 1, 3) == [{"bar": b, "hash": BEAT, "name": "beat"} for b in (1, 2, 3)]
+    assert steps.painted(live, "Drums", 2, 64) == [] and steps.read(live, "Drums", 5, 1)["hash"] == BEAT
+    tidy(live)
+
+
+def test_paint_replaces_a_clip_that_covers_exactly_the_target_and_gives_back_its_notes(live, no_pause):
+    steps.write(live, "Drums", 1, FOUR, name="beat")
+    steps.toggle(live, "Drums", 3, 1, 16, SNARE, 4, name="other")
+    other = steps.content_hash([(SNARE, 1.0, 0.25, 100)])
+    assert [(c["bar"], c["hash"]) for c in steps.painted(live, "Drums", 1, 8)] == [(1, BEAT), (3, other)]
+    done = steps.paint(live, "Drums", 1, 1, [3, 4])
+    assert done == {
+        "painted": [3, 4],
+        "skipped": [],
+        "replaced": [{"bar": 3, "name": "other", "notes": [(SNARE, 1.0, 0.25, 100)]}],
+    }
+    assert [(c["bar"], c["hash"], c["name"]) for c in steps.painted(live, "Drums", 1, 8)] == [
+        (1, BEAT, "beat"),
+        (3, BEAT, "beat"),
+        (4, BEAT, "beat"),
+    ]
+    # what was replaced is enough to put it back
+    kept = done["replaced"][0]
+    steps.erase(live, "Drums", [kept["bar"]], 1)
+    back = steps.write(live, "Drums", kept["bar"], steps.from_notes(kept["notes"], 1, 16, 4.0), name=kept["name"])
+    assert back["hash"] == other and back["clip"]["name"] == "other"
+    tidy(live)
+
+
+def test_paint_skips_a_target_that_a_clip_of_another_length_reaches_into(live, no_pause):
+    steps.write(live, "Bass", 1, pattern([row(48, {0: 100, 8: 100})]), name="riff")
+    before = held(live, "Bass")
+    long = [{"name": "long", "start": 16.0, "end": 24.0}]
+    way = "a clip of another length is in the way"
+    assert steps.paint(live, "Bass", 1, 1, [5, 4, 6, 1]) == {
+        "painted": [4],
+        "skipped": [
+            {"bar": 5, "why": way, "clips": long},
+            {"bar": 6, "why": way, "clips": long},
+            {"bar": 1, "why": "the bars painted from"},
+        ],
+        "replaced": [],
+    }
+    assert held(live, "Bass") == [before[0], (12.0, 16.0, "riff", before[0][3]), before[1]]  # the long clip is whole
+    tidy(live)
+
+
+def test_a_two_bar_clip_painted_on_overlapping_targets_lands_once(live, no_pause):
+    two = pattern([row(KICK, {0: 100, 31: 90}, total=32)], bars=2)
+    steps.write(live, "Drums", 1, two, name="two")
+    done = steps.paint(live, "Drums", 1, 2, [2, 3, 4, 5, 5])
+    assert done["painted"] == [3, 5] and [s["bar"] for s in done["skipped"]] == [2, 4]
+    assert done["skipped"][0]["clips"] == [{"name": "two", "start": 0.0, "end": 8.0}]  # the source itself
+    assert done["skipped"][1]["clips"] == [{"name": "two", "start": 8.0, "end": 16.0}]  # the copy just made
+    assert [c["bar"] for c in steps.painted(live, "Drums", 2, 16)] == [1, 3, 5]
+    tidy(live)
+
+
+def test_paint_needs_a_clip_that_covers_exactly_the_bars_painted_from(live, no_pause):
+    before = held(live, "Bass")
+    assert steps.paint(live, "Bass", 1, 1, [2, 3]) == {
+        "painted": [],
+        "skipped": [],
+        "replaced": [],
+        "error": "no MIDI clip covers exactly the bars to paint from",
+        "blocked": [],
+    }
+    inside = steps.paint(live, "Bass", 5, 1, [1])  # bar 5 is half of the long clip
+    assert inside["painted"] == [] and inside["blocked"] == [{"name": "long", "start": 16.0, "end": 24.0}]
+    assert held(live, "Bass") == before
+    with pytest.raises(LiveError, match="is not a MIDI track"):
+        steps.paint(live, "Audio", 1, 2, [3])
+    assert held(live, "Audio") == [(0.0, 8.0, "", [])]
+
+
+def test_sixty_four_targets_go_to_live_sixteen_copies_to_a_call(live, no_pause, monkeypatch):
+    copies: list[int] = []
+    real = lom.Track.duplicate_clip_to_arrangement
+
+    def counted(self, clip, time):
+        copies.append(live._count)  # the number of the call this copy runs in
+        return real(self, clip, time)
+
+    monkeypatch.setattr(lom.Track, "duplicate_clip_to_arrangement", counted)
+    steps.write(live, "Drums", 1, FOUR, name="beat")
+    steps.toggle(live, "Drums", 40, 1, 16, SNARE, 0)  # a clip in the fourth call's reach, to be replaced
+    calls = len(live.calls)
+    done = steps.paint(live, "Drums", 1, 1, [*range(2, 66), 2, 3])  # 64 bars, two of them named twice
+    assert done["painted"] == list(range(2, 66)) and done["skipped"] == []
+    assert [k["bar"] for k in done["replaced"]] == [40]
+    assert len(live.calls) == calls + 4
+    assert [copies.count(n) for n in sorted(set(copies))] == [16, 16, 16, 16]
+    assert {c["hash"] for c in steps.painted(live, "Drums", 1, 100)} == {BEAT}
+    assert len(steps.painted(live, "Drums", 1, 100)) == 65
+    with pytest.raises(ValueError, match="at most 64 bars in one call, not 65"):
+        steps.paint(live, "Drums", 1, 1, range(2, 67))
+    with pytest.raises(ValueError, match="a bar .* is 1 to"):
+        steps.paint(live, "Drums", 1, 1, [0])
+    assert len(live.calls) == calls + 4 + 2
+    tidy(live)
+
+
+def test_live_waits_between_two_copies_but_not_half_a_second_in_a_call(live, monkeypatch):
+    slept: list[float] = []
+    monkeypatch.setattr(steps.inside.time, "sleep", slept.append)
+    steps.write(live, "Drums", 1, FOUR)
+    steps.paint(live, "Drums", 1, 1, range(2, 20))
+    assert slept == [steps.COPY_PAUSE_S] * 15 + [steps.COPY_PAUSE_S] * 1  # between copies, per call: 16 and 2 copies
+    assert steps.COPY_PAUSE_S * (steps.PER_CALL - 1) <= 0.5
+
+
+def test_erase_deletes_exact_midi_clips_and_leaves_audio_other_lengths_and_free_bars(live, no_pause):
+    steps.write(live, "Drums", 1, FOUR, name="beat")
+    steps.paint(live, "Drums", 1, 1, [2, 3])
+    calls = len(live.calls)
+    done = steps.erase(live, "Drums", [2, 7, 2], 1)
+    assert done == {
+        "erased": [{"bar": 2, "name": "beat", "notes": steps.to_notes(FOUR)}],
+        "skipped": [{"bar": 7, "why": "no clip there", "clips": []}],
+    }
+    assert len(live.calls) == calls + 1 and [c["bar"] for c in steps.painted(live, "Drums", 1, 8)] == [1, 3]
+    # a clip of another length is not erased, whichever of its bars is named
+    bass = held(live, "Bass")
+    long = [{"name": "long", "start": 16.0, "end": 24.0}]
+    assert steps.erase(live, "Bass", [5, 6], 1) == {
+        "erased": [],
+        "skipped": [
+            {"bar": 5, "why": "a clip of another length is in the way", "clips": long},
+            {"bar": 6, "why": "a clip of another length is in the way", "clips": long},
+        ],
+    }
+    assert steps.erase(live, "Bass", [1, 3], 2)["erased"] == [] and held(live, "Bass") == bass
+    assert steps.erase(live, "Bass", [5], 2)["erased"] == [
+        {"bar": 5, "name": "long", "notes": [tuple(n) for n in LONG]}
+    ]
+    assert held(live, "Bass") == []
+    # an audio clip is never erased, even one that covers exactly the bars
+    assert steps.erase(live, "Audio", [1], 2) == {
+        "erased": [],
+        "skipped": [{"bar": 1, "why": "an audio clip is there", "clips": [{"name": "", "start": 0.0, "end": 8.0}]}],
+    }
+    assert held(live, "Audio") == [(0.0, 8.0, "", [])]
+    with pytest.raises(ValueError, match="at most 64"):
+        steps.erase(live, "Drums", range(1, 70), 1)
+    tidy(live)
+
+
+def test_painted_names_only_midi_clips_of_that_length_that_start_on_a_bar(live):
+    with live.main_thread():
+        drums = track(live, "Drums")
+        drums._clips.append(lom.Clip(2.0, 4.0, name="off the bar", parent=drums))
+        drums._clips.append(lom.Clip(8.0, 4.0, name="empty", parent=drums))
+    assert steps.painted(live, "Drums", 1, 64) == [{"bar": 3, "hash": steps.content_hash([]), "name": "empty"}]
+    assert steps.painted(live, "Bass", 2, 64) == [{"bar": 5, "hash": steps.content_hash(LONG), "name": "long"}]
+    assert steps.painted(live, "Bass", 1, 64) == [] and steps.painted(live, "Bass", 2, 4) == []
+    assert steps.painted(live, "Audio", 2, 64) == []
+    live.song.signature_numerator = 2  # bars of two beats: the long clip is four of them, from bar 9
+    assert [c["bar"] for c in steps.painted(live, "Bass", 4, 64)] == [9]
+
+
+def test_the_page_can_tell_this_pattern_from_another_by_its_hash(live, no_pause):
+    steps.write(live, "Drums", 1, FOUR)
+    steps.paint(live, "Drums", 1, 1, [2, 3, 4])
+    steps.toggle(live, "Drums", 3, 1, 16, SNARE, 4)
+    mine = steps.content_hash(steps.to_notes(FOUR, 4.0))
+    assert [c["bar"] for c in steps.painted(live, "Drums", 1, 16) if c["hash"] == mine] == [1, 2, 4]
+    assert steps.read(live, "Drums", 3, 1)["hash"] != mine
+    steps.toggle(live, "Drums", 3, 1, 16, SNARE, 4)
+    assert steps.read(live, "Drums", 3, 1)["hash"] == mine

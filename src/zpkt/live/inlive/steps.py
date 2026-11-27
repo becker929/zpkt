@@ -8,6 +8,7 @@ Times are beats (quarter notes) as Live counts them; a span is [start, end) on t
 Stdlib only, Python 3.11: this file also runs inside Live (zpkt.live.inlive), and imports no other inlive module.
 """
 
+import time
 from collections.abc import Iterable, Sequence
 from typing import Any
 
@@ -257,3 +258,92 @@ def step_change(song, track, note_spec, bar: int, bars: int, pitch: int, lo: flo
         "beats_per_bar": per_bar,
         "before": before,
     }
+
+
+# --------------------------------------------------------------------------- painting
+
+NO_SOURCE = "no MIDI clip covers exactly the bars to paint from"
+THE_SOURCE = "the bars painted from"
+OVERLAP = "a clip of another length is in the way"
+AUDIO = "an audio clip is there"
+NOTHING = "no clip there"
+
+
+def why_not(others) -> str:
+    """Why a span whose clips are `others` is left alone."""
+    if not others:
+        return NOTHING
+    return AUDIO if any(c.is_audio_clip for c in others) else OVERLAP
+
+
+def clip_stamp(song, track, source: int, bars: int, to, pause: float):
+    """Copy the clip that covers exactly `bars` bars from bar `source` onto each bar in `to` (the first bar of a
+    copy). A target that one MIDI clip covers exactly is replaced: its notes are kept in the answer, it is deleted,
+    then the copy is made. A target another clip reaches into is skipped. `pause` seconds pass between copies."""
+    if not track.has_midi_input:
+        raise ValueError(f"{track.name!r} is not a MIDI track")
+    per_bar = bar_beats(song)
+    length = bars * per_bar
+    origin = (source - 1) * per_bar
+    clip, others = span_clips(track, origin, origin + length)
+    if clip is None:
+        return {"error": NO_SOURCE, "blocked": [clip_info(c) for c in others]}
+    painted: list[int] = []
+    skipped: list[dict[str, Any]] = []
+    replaced: list[dict[str, Any]] = []
+    for bar in to:
+        start = (bar - 1) * per_bar
+        if bar == source:
+            skipped.append({"bar": bar, "why": THE_SOURCE})
+            continue
+        there, others = span_clips(track, start, start + length)
+        if others:
+            skipped.append({"bar": bar, "why": why_not(others), "clips": [clip_info(c) for c in others]})
+            continue
+        if there is not None:
+            replaced.append({"bar": bar, "name": there.name, "notes": notes_in(there, start, start + length)})
+            track.delete_clip(there)
+        if painted and pause:
+            time.sleep(pause)
+        track.duplicate_clip_to_arrangement(span_clips(track, origin, origin + length)[0], start)
+        painted.append(bar)
+    return {"painted": painted, "skipped": skipped, "replaced": replaced}
+
+
+def clip_wipe(song, track, bars_list, bars: int):
+    """Delete the MIDI clips that cover exactly `bars` bars from each bar in `bars_list`, keeping their notes in
+    the answer. An audio clip, a clip of another length and a free span are left as they are, and named."""
+    per_bar = bar_beats(song)
+    length = bars * per_bar
+    erased, skipped = [], []
+    for bar in bars_list:
+        start = (bar - 1) * per_bar
+        clip, others = span_clips(track, start, start + length)
+        if clip is None:
+            skipped.append({"bar": bar, "why": why_not(others), "clips": [clip_info(c) for c in others]})
+            continue
+        erased.append({"bar": bar, "name": clip.name, "notes": notes_in(clip, start, start + length)})
+        track.delete_clip(clip)
+    return {"erased": erased, "skipped": skipped}
+
+
+def clips_stamped(song, track, bars: int, total_bars: int, cap: int):
+    """The bars (counted from 1, up to `total_bars`) on which a MIDI clip of exactly `bars` bars starts, each with
+    the content hash of its notes and its name; at most `cap` of them, earliest first."""
+    per_bar = bar_beats(song)
+    length = bars * per_bar
+    found = []
+    for clip in track.arrangement_clips:
+        at = clip.start_time / per_bar
+        bar = round(at) + 1
+        if (
+            clip.is_midi_clip
+            and abs(clip.end_time - clip.start_time - length) <= EPS
+            and abs(at - round(at)) * per_bar <= EPS
+            and bar <= total_bars
+        ):
+            notes = notes_in(clip, clip.start_time, clip.end_time)
+            found.append({"bar": bar, "hash": content_hash(notes), "name": clip.name})
+            if len(found) >= cap:
+                break
+    return found

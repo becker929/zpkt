@@ -37,6 +37,13 @@ ON_GRID = 0.25  # steps: a note this near a step is on it; further off, the grid
 _NEAR = 1e-6  # steps: rounding room for the comparisons above
 _PITCH_NAMES = ("C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B")
 MAX_SOUNDS = 64  # pads `sounds` gives at most
+MAX_TARGETS = 64  # bars one `paint` or `erase` takes
+PER_CALL = 16  # copies one call to Live makes: each call stays short (ableton-guide rule 6)
+# Seconds Live waits between two copies in a call. The ableton guide asks for a pause between
+# duplicate_clip_to_arrangement calls (0.1 s in its example) and for at most half a second of sleep in a call
+# (rule 7): sixteen copies keep both with this.
+COPY_PAUSE_S = 0.03
+MAX_PAINTED = 256  # clips `painted` reports at most
 
 Note = tuple[int, float, float, int]  # pitch, start in beats from the pattern's start, duration in beats, velocity
 
@@ -576,3 +583,110 @@ def set_step(
         "length": float(length) if length is not None else round(in_steps, 4),
         "before": _as_notes(did["before"]),
     }
+
+
+# --------------------------------------------------------------------------- Live: painting
+
+
+class Kept(TypedDict):
+    """A clip that was replaced or erased: the bar it started on, its name and its notes, enough to put it back."""
+
+    bar: int
+    name: str
+    notes: list[Note]
+
+
+class Skipped(TypedDict):
+    """A bar that was left alone, why, and the clips there."""
+
+    bar: int
+    why: str
+    clips: NotRequired[list[ClipInfo]]
+
+
+class Painted(TypedDict):
+    """What `paint` did. `error` (with `blocked`) when no MIDI clip covers exactly the bars to paint from."""
+
+    painted: list[int]
+    skipped: list[Skipped]
+    replaced: list[Kept]
+    error: NotRequired[str]
+    blocked: NotRequired[list[ClipInfo]]
+
+
+class Erased(TypedDict):
+    erased: list[Kept]
+    skipped: list[Skipped]
+
+
+class PaintedBar(TypedDict):
+    bar: int
+    hash: str
+    name: str
+
+
+def _targets(bars_list: Iterable[int]) -> list[int]:
+    targets = list(dict.fromkeys(check_bar(b) for b in bars_list))
+    if len(targets) > MAX_TARGETS:
+        raise ValueError(f"at most {MAX_TARGETS} bars in one call, not {len(targets)}")
+    return targets
+
+
+def _span_bars(bars: object) -> int:
+    return _int(bars, "a clip's length in bars", 1, 1024)
+
+
+def _kept(found: Iterable[Mapping[str, Any]]) -> list[Kept]:
+    return [{"bar": int(k["bar"]), "name": str(k["name"]), "notes": _as_notes(k["notes"])} for k in found]
+
+
+def paint(live: McpTransport, track: TrackRef, from_bar: int, bars: int, to_bars: Sequence[int]) -> Painted:
+    """Stamp the clip that covers exactly [from_bar, from_bar + bars) onto each bar in `to_bars` (each the first
+    bar of a copy), with Live's duplicate_clip_to_arrangement: the copy is the whole clip, its name and loop too.
+
+    A target that one MIDI clip covers exactly is replaced (deleted, then the copy made) and its notes come back
+    in `replaced`. A target that a clip of another length reaches into is skipped and reported, as is the source's
+    own bar; nothing is ever cut. At most 64 targets; they go to Live 16 to a call, in the order given, each
+    target looked at just before its copy, so a target that an earlier copy now covers partly is skipped too."""
+    source, length, targets = check_bar(from_bar), _span_bars(bars), _targets(to_bars)
+    out: Painted = {"painted": [], "skipped": [], "replaced": []}
+    for k in range(0, len(targets), PER_CALL):
+        did = _run(
+            live,
+            track,
+            "clip_stamp(song, _t, **_a)",
+            source=source,
+            bars=length,
+            to=targets[k : k + PER_CALL],
+            pause=COPY_PAUSE_S,
+        )
+        if "error" in did:
+            out["error"], out["blocked"] = str(did["error"]), list(did["blocked"])
+            break
+        out["painted"] += [int(b) for b in did["painted"]]
+        out["skipped"] += list(did["skipped"])
+        out["replaced"] += _kept(did["replaced"])
+    return out
+
+
+def erase(live: McpTransport, track: TrackRef, bars_list: Sequence[int], bars: int) -> Erased:
+    """Delete the MIDI clips that cover exactly `bars` bars from each bar in `bars_list` (64 at most). Never an
+    audio clip, never a clip of another length: those bars are skipped and reported, as are free ones. The erased
+    clips' names and notes come back, enough to put them back. One call."""
+    did = _run(live, track, "clip_wipe(song, _t, **_a)", bars_list=_targets(bars_list), bars=_span_bars(bars))
+    return {"erased": _kept(did["erased"]), "skipped": list(did["skipped"])}
+
+
+def painted(live: McpTransport, track: TrackRef, bars: int, total_bars: int) -> list[PaintedBar]:
+    """The bars of the track, up to `total_bars`, on which a MIDI clip of exactly `bars` bars starts, earliest
+    first, each with a content hash of its notes (`content_hash`, also `read`'s "hash") and the clip's name: the
+    bars with the hash of the pattern at hand hold that pattern, the others another one. One call; 256 at most."""
+    found = _run(
+        live,
+        track,
+        "clips_stamped(song, _t, **_a)",
+        bars=_span_bars(bars),
+        total_bars=check_bar(total_bars),
+        cap=MAX_PAINTED,
+    )
+    return [{"bar": int(c["bar"]), "hash": str(c["hash"]), "name": str(c["name"])} for c in found]
