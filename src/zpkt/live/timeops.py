@@ -41,9 +41,16 @@ def clips_after(client: McpTransport, beat: float) -> int:
 
 def select(client: McpTransport, start: float, length: float) -> None:
     """Make [start, start + length) the arrangement's time selection."""
-    client.run(_SELECT.format(start=float(start), length=float(length)))
-    if not ui.menu("Edit", "Select Loop", tries=10):
-        stop(f"Edit > Select Loop stayed disabled for {start:g}+{length:g}")
+    code = _SELECT.format(start=float(start), length=float(length))
+    client.run(code)
+    if not ui.menu("Edit", "Select Loop", tries=3):
+        # Grey while another app is in front of Live (a full-screen window, another desktop): the Arrangement
+        # cannot take the focus there. So Live comes to the front, as it does for the export anyway.
+        ui.to_front()
+        time.sleep(0.5)
+        client.run(code)
+        if not ui.menu("Edit", "Select Loop", tries=10):
+            stop(f"Edit > Select Loop stayed disabled for {start:g}+{length:g}")
     time.sleep(0.3)
 
 

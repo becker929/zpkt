@@ -8,6 +8,11 @@ Gemini asks before a tool it is not sure of, and `decide` answers: the app's own
 question from Gemini to the person (what they may do to Live is the app's own business: `change_live` can be undone,
 and `propose_live` shows its own card and waits for the person's tap, tools.py). Anything else is refused at once
 in `build` (the careful mode: advise and make pages), and waits for a yes from the page in the other modes.
+
+A shell command has a time limit (engines.SHELL_LIMIT_S). Gemini CLI itself only stops a command that prints
+nothing for a while (`tools.shell.inactivityTimeout`, 300 s unless set), so the app sets that to the limit in a
+settings file of its own, and also stops a command that is still running at the limit, quiet or not: it ends the
+processes the command started (`to_cut`), and Gemini goes on with what the command printed until then.
 """
 
 from __future__ import annotations
@@ -17,14 +22,17 @@ import json
 import os
 import re
 import shutil
+import signal
+import subprocess
 import threading
+import time
 from collections.abc import Callable, Mapping
 from pathlib import Path
 from typing import Any
 
 from zpkt.app.ask.acp import Acp, AcpError
 from zpkt.app.ask.cost import turn_cost
-from zpkt.app.ask.engines import DEFAULT_MODE, TOOL_SERVER, ToolServer, agent_path
+from zpkt.app.ask.engines import DEFAULT_MODE, SHELL_LIMIT_S, TOOL_SERVER, ToolServer, agent_path
 from zpkt.app.ask.events import Event
 from zpkt.app.ask.provider import AskPermission, Emit, Outcome, Turn
 from zpkt.app.ask.tools import ABILITY_TOOL, TOOLS
@@ -48,7 +56,69 @@ MODE_UPDATE = re.compile(r"\[MODE_UPDATE\] (\w+)")
 KEEP_TEXT = 6000
 DEFAULT_MODEL = "gemini-4-neon"  # one model for a session: a switch mid-session loses the prompt cache
 
+SETTINGS_ENV = "GEMINI_CLI_SYSTEM_SETTINGS_PATH"  # Gemini CLI reads one more settings file from here
+KEEP_RUNNING = ("zpkt.app.ask.mcp",)  # the app's tool server is Gemini's child too: never stopped as a command
+Process = tuple[int, int, float, str]  # pid, parent, seconds it has run, command line
+
 Secret = Callable[[str], str | None]
+
+
+def seconds_run(etime: str) -> float:
+    """`ps -o etime`, [[days-]hours:]minutes:seconds, as seconds."""
+    days, _, clock = etime.rpartition("-")
+    total = 0
+    for part in clock.split(":"):
+        total = total * 60 + int(part)
+    return float((int(days) if days else 0) * 86400 + total)
+
+
+def processes() -> list[Process]:
+    out = subprocess.run(["ps", "-axo", "pid=,ppid=,etime=,command="], capture_output=True, text=True, timeout=10)
+    found: list[Process] = []
+    for line in out.stdout.splitlines():
+        parts = line.split(None, 3)
+        if len(parts) == 4:
+            with contextlib.suppress(ValueError):
+                found.append((int(parts[0]), int(parts[1]), seconds_run(parts[2]), parts[3]))
+    return found
+
+
+def to_cut(table: list[Process], engine: int, age_s: float, keep: tuple[str, ...] = KEEP_RUNNING) -> list[int]:
+    """The processes a shell command started: every process under the engine's that began after the command did
+    (it has run for less than `age_s`, the command's age), with all below it. What was there before the command
+    stays: the app's tool server, and whatever else the engine keeps running."""
+    below: dict[int, list[Process]] = {}
+    for row in table:
+        below.setdefault(row[1], []).append(row)
+    cut: list[int] = []
+
+    def walk(pid: int, taken: bool) -> None:
+        for child, _, ran, command in below.get(pid, []):
+            if any(k in command for k in keep):
+                continue
+            mine = taken or ran <= age_s
+            if mine:
+                cut.append(child)
+            walk(child, mine)
+
+    walk(engine, False)
+    return cut
+
+
+def cut_shell(engine: int, began: float) -> int:
+    """Stop what the shell command that began at `began` (time.monotonic) started (see to_cut): asked first, then
+    killed. How many processes it ended. The command's age is taken after the process list is read, with a second
+    more: `ps` counts whole seconds and takes a moment itself, and a command taken for older than it is would be
+    left running."""
+    table = processes()
+    pids = to_cut(table, engine, time.monotonic() - began + 1.0)
+    for sig in (signal.SIGTERM, signal.SIGKILL):
+        for pid in pids:
+            with contextlib.suppress(OSError):
+                os.kill(pid, sig)
+        if sig is signal.SIGTERM and pids:
+            time.sleep(1.0)
+    return len(pids)
 
 
 def text_of(content: Any) -> str:
@@ -113,6 +183,8 @@ class Running:
     def __init__(self, emit: Emit, ask: AskPermission, mode: str = DEFAULT_MODE) -> None:
         self.emit, self.ask, self.mode = emit, ask, mode
         self.tools: dict[str, str] = {}  # toolCallId -> its name, so an update finishes the right row
+        self.shells: dict[str, float] = {}  # toolCallId of a shell command still running -> when it began
+        self.shell_tried: dict[str, float] = {}  # -> when the app last tried to end it, past the limit
         self.mode_seen: str | None = None
 
 
@@ -133,6 +205,8 @@ def update_events(update: Mapping[str, Any], running: Running) -> list[Event]:
         view = tool_view(update)
         name = str(update.get("title") or update.get("kind") or "tool")
         running.tools[tid] = name
+        if update.get("kind") == "execute":
+            running.shells[tid] = time.monotonic()
         return [
             {
                 "type": "tool_use",
@@ -146,6 +220,7 @@ def update_events(update: Mapping[str, Any], running: Running) -> list[Event]:
         status = update.get("status")
         if tid not in running.tools or status not in ("completed", "failed"):
             return []
+        running.shells.pop(tid, None)
         return [
             {
                 "type": "tool_result",
@@ -169,6 +244,7 @@ class GeminiProvider:
         usage_file: Path | None = None,
         policy: Path | None = None,
         key_name: str = "gemini",
+        shell_limit_s: float = SHELL_LIMIT_S,
     ) -> None:
         self.secret = secret
         self.environ = dict(os.environ if environ is None else environ)
@@ -178,6 +254,7 @@ class GeminiProvider:
             self.cmd = [*self.cmd, "--policy", str(policy)]
         self.usage_file = usage_file
         self.key_name = key_name
+        self.shell_limit_s = shell_limit_s
         self.acp: Acp | None = None
         self.start_lock = threading.Lock()
         self.loaded: set[str] = set()
@@ -203,6 +280,11 @@ class GeminiProvider:
                 "GEMINI_API_KEY": key,
                 "ZPKT_AGENT": "1",
             }
+            if self.usage_file is not None:  # the app's own settings for Gemini CLI, beside its usage file
+                settings = self.usage_file.with_name("gemini-settings.json")
+                limits = {"tools": {"shell": {"inactivityTimeout": int(self.shell_limit_s)}}}
+                settings.write_text(json.dumps(limits))
+                env[SETTINGS_ENV] = str(settings)
             self.acp = Acp(self.cmd, cwd, env, self._notify, self._request)
             self.acp.start()
             return self.acp
@@ -248,7 +330,7 @@ class GeminiProvider:
         except AcpError as exc:
             emit({"type": "error", "message": str(exc)})
             return Outcome(1, None, str(exc))
-        self.running[sid] = Running(emit, turn.ask_permission, turn.mode)
+        running = self.running[sid] = Running(emit, turn.ask_permission, turn.mode)
         done = threading.Event()
 
         def watch() -> None:
@@ -257,6 +339,7 @@ class GeminiProvider:
                     with contextlib.suppress(AcpError):
                         acp.notify("session/cancel", {"sessionId": sid})
                     return
+                self._limit_shells(acp, running)
 
         threading.Thread(target=watch, daemon=True).start()
         try:
@@ -275,6 +358,16 @@ class GeminiProvider:
         emit(self._result(res, turn))
         stopped = res.get("stopReason") == "cancelled"
         return Outcome(None if stopped else 0, "SIGTERM" if stopped else None)
+
+    def _limit_shells(self, acp: Acp, running: Running) -> None:
+        """Stop a shell command that is still running at the limit. Gemini then reports it as ended and goes on."""
+        now = time.monotonic()
+        for tid, began in list(running.shells.items()):
+            if now - began < self.shell_limit_s or now < running.shell_tried.get(tid, 0.0) + 5.0 or acp.proc is None:
+                continue
+            running.shell_tried[tid] = now  # again in 5 s if nothing was found to end, or it did not end
+            with contextlib.suppress(OSError, subprocess.SubprocessError):
+                cut_shell(acp.proc.pid, began)
 
     def _result(self, res: Mapping[str, Any], turn: Turn) -> Event:
         usage = res.get("usage") or {}
@@ -300,7 +393,8 @@ class GeminiProvider:
             stats["total_tokens"] = total
         ev: Event = {
             "type": "result",
-            "status": "success" if res.get("stopReason") != "refusal" else "error",
+            # A turn the person stopped is not a success: the page keeps its work in view instead of folding it.
+            "status": {"refusal": "error", "cancelled": "stopped"}.get(str(res.get("stopReason")), "success"),
             "stats": stats,
         }
         if dollars > 0:
@@ -327,7 +421,10 @@ class GeminiProvider:
             {"id": o["optionId"], "name": o.get("name", ""), "kind": o.get("kind", "")}
             for o in params.get("options") or []
         ]
-        choice = decide(running.mode, params.get("toolCall") or {}, options, running.ask)
+        call = params.get("toolCall") or {}
+        choice = decide(running.mode, call, options, running.ask)
+        if (tid := str(call.get("toolCallId", ""))) in running.shells:
+            running.shells[tid] = time.monotonic()  # the wait for the person's yes is not the command's time
         if choice is None:
             return {"outcome": {"outcome": "cancelled"}}
         return {"outcome": {"outcome": "selected", "optionId": choice}}

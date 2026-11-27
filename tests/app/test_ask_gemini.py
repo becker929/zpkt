@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import signal
 import sys
 import threading
 import time
@@ -12,7 +13,7 @@ import pytest
 
 from zpkt.app.ask.acp import AcpError
 from zpkt.app.ask.cost import price, turn_cost
-from zpkt.app.ask.gemini import GeminiProvider
+from zpkt.app.ask.gemini import GeminiProvider, seconds_run, to_cut
 from zpkt.app.ask.service import Ask
 from zpkt.app.ask.tools import ToolGate
 from zpkt.app.bus import Bus
@@ -20,11 +21,11 @@ from zpkt.app.bus import Bus
 FAKE = Path(__file__).parent / "fakes" / "fake_acp.py"
 
 
-def make(tmp_path, secret=lambda name: "key-1") -> tuple[Ask, GeminiProvider, Path]:
+def make(tmp_path, secret=lambda name: "key-1", **more) -> tuple[Ask, GeminiProvider, Path]:
     log = tmp_path / "acp.log"
     provider = GeminiProvider(
         secret, command=[sys.executable, str(FAKE)], environ={"PATH": "/usr/bin:/bin", "FAKE_ACP_LOG": str(log)},
-        home=tmp_path, usage_file=tmp_path / "usage.jsonl",
+        home=tmp_path, usage_file=tmp_path / "usage.jsonl", **more,
     )  # fmt: skip
     (tmp_path / "work").mkdir(exist_ok=True)
     ask = Ask(tmp_path / "ask", {"gemini": provider}, ToolGate(Bus()), guide="GUIDE", home=tmp_path)
@@ -191,12 +192,63 @@ def test_stop_cancels_the_turn_and_a_waiting_question(tmp_path):
         wait_for(lambda: any(e["type"] == "message" for e in ask.store.replay(s["id"])))
         ask.stop(s["id"])
         assert ask.wait_idle()
-        assert ask.store.replay(s["id"])[-1]["signal"] == "SIGTERM"
+        ended = ask.store.replay(s["id"])
+        assert ended[-1]["signal"] == "SIGTERM"
+        assert (
+            ended[-2]["type"] == "result" and ended[-2]["status"] == "stopped"
+        )  # not a success: the page keeps it open
         t = ask.create("work", "edit now", engine="gemini", mode="ask")
         wait_for(lambda: ask.permissions.asking(t["id"]))
         ask.stop(t["id"])
         assert ask.wait_idle()
         assert any(e["type"] == "permission_answer" and e["answered"] == "cancelled" for e in ask.store.replay(t["id"]))
+    finally:
+        provider.close()
+
+
+def test_a_shell_command_is_stopped_at_the_limit_and_the_turn_goes_on(tmp_path):
+    """Gemini CLI has no limit on how long a command runs, only on how long it is quiet. The app ends what the
+    command started; Gemini reports the command as ended and answers."""
+    ask, provider, _ = make(tmp_path, shell_limit_s=0.4)
+    try:
+        began = time.time()
+        s = ask.create("work", "shell now", engine="gemini")
+        assert ask.wait_idle(20)
+        events = ask.store.replay(s["id"])
+        assert time.time() - began < 15  # not the 30 s the command wanted
+        result = next(e for e in events if e["type"] == "tool_result")
+        assert result["output"] == f"ended {-signal.SIGTERM}"
+        assert events[-1]["code"] == 0 and any(e.get("content") == "It took too long." for e in events)
+    finally:
+        provider.close()
+
+
+def test_what_a_shell_command_started_is_told_from_what_was_there_before():
+    table = [
+        (10, 1, 5000.0, "node gemini --acp"),
+        (11, 10, 4000.0, "python -m zpkt.app.ask.mcp"),  # the app's tool server, started with the session
+        (12, 10, 70.0, "python -m zpkt.app.ask.mcp"),  # one of a session made a moment ago: kept by its name
+        (13, 10, 900.0, "node helper"),  # there before the command
+        (20, 10, 61.0, "bash -c python3 -c ..."),  # the command, 61 s old
+        (21, 20, 61.0, "python3 -c ..."),
+        (22, 21, 3.0, "find /"),
+        (30, 13, 2.0, "rg x"),  # something the old helper started meanwhile: young, so it goes too
+        (40, 1, 1.0, "another app"),  # not under the engine
+    ]
+    assert sorted(to_cut(table, 10, 61.5)) == [20, 21, 22, 30]
+    assert to_cut(table, 10, 0.5) == []
+    assert [seconds_run(t) for t in ("00:07", "01:05", "02:00:01", "3-00:00:02")] == [7.0, 65.0, 7201.0, 259202.0]
+
+
+def test_geminis_own_quiet_limit_is_set_in_a_settings_file_of_the_apps(tmp_path):
+    ask, provider, _ = make(tmp_path)
+    try:
+        ask.create("work", "hello", engine="gemini")
+        assert ask.wait_idle()
+        settings = tmp_path / "gemini-settings.json"
+        assert json.loads(settings.read_text()) == {"tools": {"shell": {"inactivityTimeout": 60}}}
+        assert provider.acp is not None and provider.acp.env["GEMINI_CLI_SYSTEM_SETTINGS_PATH"] == str(settings)
+        assert provider.acp.env["PATH"].split(":")[0] == str(Path(sys.executable).parent)  # `zpkt audio` is found
     finally:
         provider.close()
 

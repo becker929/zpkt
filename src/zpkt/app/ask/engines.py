@@ -30,6 +30,7 @@ from __future__ import annotations
 
 import json
 import re
+import sys
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -53,6 +54,11 @@ CLAUDE_READS = ("Read", "Glob", "Grep")
 # tools are here so the agent never puts itself in plan mode, where it would only describe what it would do.
 CLAUDE_NEVER = ("Bash", "Edit", "Write", "NotebookEdit", "EnterPlanMode", "ExitPlanMode")
 MODEL_NAME = re.compile(r"^[\w.\-]+$")
+# A shell command of an agent is stopped after this long, for both engines (Anthony, 27 November 2026: a search of
+# the whole home folder ran for minutes with nothing to stop it but his own Stop). The app's tools have their own
+# waits (mcp.py); this is for the engine's shell only.
+SHELL_LIMIT_S = 60.0
+APP_BIN = str(Path(sys.executable).parent)  # where the app's own `zpkt` command and Python are
 # Variables of a parent Claude Code session that must never leak into the child.
 PARENT_VARS = re.compile(r"^CLAUDE_CODE_(?!OAUTH_TOKEN$)|^CLAUDECODE$|^CLAUDE_AGENT_SDK")
 
@@ -81,12 +87,21 @@ class CliCommand:
 
 
 def agent_path(home: Path, path: str = "") -> str:
-    """PATH for agents: uv and cargo tools in front."""
-    return ":".join(p for p in (str(home / ".local" / "bin"), str(home / ".cargo" / "bin"), path) if p)
+    """PATH for agents: the app's own commands first (`zpkt audio`, and a Python that has `zpkt.audio`), then uv
+    and cargo tools. Without the first an agent told to measure with zpkt finds neither and writes its own."""
+    return ":".join(p for p in (APP_BIN, str(home / ".local" / "bin"), str(home / ".cargo" / "bin"), path) if p)
 
 
 def claude_env(environ: Mapping[str, str], home: Path, token: str = "") -> dict[str, str]:
-    env = {**environ, "NO_COLOR": "1", "PATH": agent_path(home, environ.get("PATH", "")), "ZPKT_AGENT": "1"}
+    limit = str(int(SHELL_LIMIT_S * 1000))  # Claude Code's own limit on a shell command, and the most it may ask for
+    env = {
+        **environ,
+        "NO_COLOR": "1",
+        "PATH": agent_path(home, environ.get("PATH", "")),
+        "ZPKT_AGENT": "1",
+        "BASH_DEFAULT_TIMEOUT_MS": limit,
+        "BASH_MAX_TIMEOUT_MS": limit,
+    }
     for key in [k for k in env if PARENT_VARS.search(k)]:
         del env[key]
     if token:

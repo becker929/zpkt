@@ -110,6 +110,12 @@ def menu(menu: str, item: str, tries: int = 6, wait_s: float = 0.4) -> bool:
     return False
 
 
+def to_front() -> None:
+    """Put Live in front of the other apps. Live greys out its selection items (Edit > Select Loop, Select All)
+    while its window is not the one in use: another app's full-screen window, or another desktop, is enough."""
+    osa(f'tell application "System Events" to tell process {_q(PROCESS)} to set frontmost to true')
+
+
 def front_title() -> str:
     """The front window's title, which is the open set's name. UiError if Live shows no window.
 

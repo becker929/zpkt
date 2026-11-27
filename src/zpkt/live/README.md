@@ -72,7 +72,7 @@ the command and a row.
 | `render.py` | `export(...)`, the keystroke method (`export_audio.applescript`) |
 | `bounce.py` | one file for the mix or for one track, group or return: `facts(live, stop_playing=False)` (tempo, bar, song end, loop, tracks with kind, solo and mute, in one call) and `bounce(live, out, start_beat, length_beats, track=None, bits=24)` (one export, the file under the name asked for) |
 | `ops.py` | `LiveOps(client, staging=None, save_panel=SavePanel())`: `run`, `guard`, `setp` and `mixer` in shown units, `params`, `load_item`, `select_track`, `devices`, `export`, `save_as`, for scripts that build and render sets (the arranger, the mix desk; outside zpkt, the music bot's booth) |
-| `timeops.py` | `select(client, start, length)`, `delete`, `duplicate`, `copy`, `paste`, each checked by where the song ends |
+| `timeops.py` | `select(client, start, length)` (brings Live to the front when another app's window greys out Edit > Select Loop), `delete`, `duplicate`, `copy`, `paste`, each checked by where the song ends |
 | `record.py` | `record_arrangement` (writes `<take>.timing.json`), `record_via_resampling`: real-time takes |
 | `panel.py` (+ `riff`, `panel_render`, `panel_blocks`, `mix`, `versions`, `song`) | `zpkt live panel` and `zpkt live song`: instrument and mix panels, grids of versions, songs over sections; `panel_blocks` prints what Zpkt web reads |
 | `rig.py`, `hold.py` | `zpkt live rig check/reset`; the one lock on Live and the notes that put an interrupted command's changes back |

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import sys
 from pathlib import Path
 
 from zpkt.app.ask.engines import CLAUDE_MODE, DEFAULT_MODE, MODES, ToolServer, claude_command
@@ -87,7 +88,8 @@ def test_the_environment_drops_a_parent_sessions_variables_and_adds_the_token():
     c = command(environ=env, token="new")
     assert c.env["CLAUDE_CODE_OAUTH_TOKEN"] == "new" and c.env["KEEP"] == "1" and c.env["ZPKT_AGENT"] == "1"
     assert not any(k in c.env for k in ("CLAUDECODE", "CLAUDE_CODE_ENTRYPOINT", "CLAUDE_AGENT_SDK_VERSION"))
-    assert c.env["PATH"].startswith(f"{HOME}/.local/bin:{HOME}/.cargo/bin:")
+    assert c.env["PATH"].startswith(f"{Path(sys.executable).parent}:{HOME}/.local/bin:{HOME}/.cargo/bin:")
+    assert c.env["BASH_DEFAULT_TIMEOUT_MS"] == c.env["BASH_MAX_TIMEOUT_MS"] == "60000"  # a shell command's limit
     assert command(environ=env).env["CLAUDE_CODE_OAUTH_TOKEN"] == "old"  # no new token: the CLI's own
 
 

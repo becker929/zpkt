@@ -378,6 +378,33 @@ def test_a_tool_call_still_draws_in_the_work_view(asked, page):
     page.wait_for_selector(".wk-trace, .wk-step")
 
 
+def test_a_stopped_turn_keeps_its_tool_calls_in_view(asked, page, browser):
+    """Stop is not the end of an answered turn: there is no answer to read instead of the work, so the calls made
+    until then stay open (Anthony, 27 November 2026: "when I hit stop it removes the interim tool calls")."""
+    asked.providers["claude"].script = [Call("read_state"), text("Looking."), Call("read_measurement"), Wait()]
+    send(page, "why is it quiet")
+    page.wait_for_function("document.querySelectorAll('.wk-tool').length >= 2")
+    page.click(".wk-stop")
+    page.wait_for_selector("text=Stopped.")
+    page.wait_for_selector(".wk-trace[open]")
+    rows = page.locator(".wk-trace .wk-step[open] .wk-tool")
+    assert rows.count() >= 1 and rows.last.is_visible() and "measurement" in rows.last.inner_text()
+    assert page.locator(".wk-trace .wk-step").count() == 2  # the earlier step is there too, as its one row
+    # Read back (a reload, another device), and from an engine that reports its own result before the stop.
+    sid = asked.ask.store.all_sessions()[0]["id"]
+    asked.ask.store.emit(sid, {"type": "prompt", "text": "again", "engine": "gemini", "mode": "auto"})
+    asked.ask.store.emit(
+        sid, {"type": "tool_use", "tool_name": "ls renders", "tool_id": "t9", "parameters": {"kind": "execute"}}
+    )
+    asked.ask.store.emit(sid, {"type": "tool_result", "tool_id": "t9", "status": "success", "output": "a.wav"})
+    asked.ask.store.emit(sid, {"type": "result", "status": "success", "stats": {}})
+    asked.ask.store.emit(sid, {"type": "run_end", "engine": "gemini", "code": None, "signal": "SIGTERM"})
+    other = open_page(browser, asked)
+    other.wait_for_function("document.querySelectorAll('.wk-trace[open]').length === 2")
+    assert other.locator(".wk-trace[open] .wk-step[open] .wk-tool").last.is_visible()
+    assert page.errors == [] and other.errors == [], (page.errors, other.errors)
+
+
 # ---- quiet status: counts and recovered errors are in the work view, a failure is one sentence ----------------------
 def test_a_recovered_error_and_the_tool_counts_stay_out_of_the_default_view(asked, page):
     asked.providers["claude"].script = [
