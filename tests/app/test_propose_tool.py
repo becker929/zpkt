@@ -54,11 +54,18 @@ def test_the_card_waits_and_nothing_moves_before_the_tap_then_do_it_runs_the_bat
     before = whole(rig)
     p, s, card = proposing(asked, MIXED)
     assert card["tool"]["kind"] == "propose_live" and card["tool"]["title"] == "parallel drive"
-    assert [o["id"] for o in card["options"]] == ["yes", "no"]
-    assert [o["name"] for o in card["options"]] == ["Do it", "Don't"]
+    assert [o["id"] for o in card["options"]] == ["yes", "always", "no"]  # it has code: "Always" is offered
+    assert [o["name"] for o in card["options"]] == ["Do it", "Always", "Don't"]
     steps = card["tool"]["steps"]
     assert len(steps) == 10 and steps[7] == {"n": 8, "text": "Remove desk Sat from Hats bus", "no_undo": True}
-    assert steps[9] == {"n": 10, "text": "Sets the tempo to 91.", "no_undo": True, "code": CODE}
+    assert steps[9] == {
+        "n": 10,
+        "text": "Sets the tempo to 91.",
+        "no_undo": True,
+        "code": CODE,
+        "name": "sets_the_tempo_to_91",
+        "args": [],
+    }
     time.sleep(0.2)  # the call is blocked: the agent has no reply, and nothing has moved or been saved
     assert p.replies == [] and asked.ask.permissions.asking(s["id"]) and asked.ask.is_live(s["id"])
     assert whole(rig) == before and rig.desk.history.entries == [] and rig.desk.history.checkpoints() == []
